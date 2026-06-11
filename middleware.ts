@@ -19,8 +19,11 @@ const ROLE_ALLOWED_PATHS: Record<UserRole, string[]> = {
     "/my-villas",
     "/calendar",
     "/cleaning",
+    "/earnings", // 페이지 자체가 ADMIN을 "/"로 redirect — 미들웨어는 통과만
   ],
-  SUPPLIER: ["/my-villas", "/calendar"],
+  // [QA D-3] /earnings 추가. /cleaning은 SUPPLIER 탭바에 노출되고
+  // 역할표(CLAUDE.md)상 SUPPLIER도 청소 사진 업로드 권한이 있어 함께 추가
+  SUPPLIER: ["/my-villas", "/calendar", "/cleaning", "/earnings"],
   CLEANER: ["/cleaning"],
 };
 
@@ -38,6 +41,7 @@ const PROTECTED_PATHS = [
   "/my-villas",
   "/calendar",
   "/cleaning",
+  "/earnings", // [QA D-3] 페이지 가드와 이중화 (미인증 차단)
 ];
 
 // ADMIN 전용 경로 (다른 역할은 /login으로)
@@ -64,7 +68,13 @@ export default auth((req) => {
 
   const isProtectedPath = matchesPath(pathname, PROTECTED_PATHS);
   const isAdminOnlyPath = matchesPath(pathname, ADMIN_ONLY_PATHS);
-  const isSupplierCleanerPath = matchesPath(pathname, ["/my-villas", "/calendar", "/cleaning"]);
+  // [QA D-3] /earnings 포함 — 누락 시 locale=vi 쿠키가 설정되지 않아 한국어로 렌더됨
+  const isSupplierCleanerPath = matchesPath(pathname, [
+    "/my-villas",
+    "/calendar",
+    "/cleaning",
+    "/earnings",
+  ]);
 
   // 보호 경로: 미인증 → /login
   if (isProtectedPath && !session) {

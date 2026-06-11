@@ -162,7 +162,9 @@
         "checkout": "체크아웃 진행",
         "noshow": "노쇼 처리",
         "comingT3": "Sprint 3에서 제공됩니다",
-        "error": "처리에 실패했습니다. 다시 시도해주세요."
+        "error": "처리에 실패했습니다. 다시 시도해주세요.",
+        "unsignedBadge": "동의서 미서명",
+        "postSign": "사후 서명 받기"
       },
       "log": {
         "title": "활동 로그",
@@ -222,9 +224,30 @@
     },
     "submit": "체크인 완료",
     "submitting": "처리 중...",
-    "submitCaption": "확인된 항목으로 체크인을 완료합니다 — 동의서·서명은 추후 단계",
+    "submitCaption": "확인된 항목으로 체크인을 완료합니다 — 서명은 선택(미서명 시 사후 서명 가능)",
     "needPassport": "여권 사진을 최소 1장 업로드해주세요",
-    "submitError": "체크인 처리에 실패했습니다. 다시 시도해주세요."
+    "submitError": "체크인 처리에 실패했습니다. 다시 시도해주세요.",
+    "agreement": {
+      "title": "동의서",
+      "docTitle": "빌라 이용 수칙 및 안전 동의서",
+      "c1": "모든 투숙객은 체크인 시 여권 정보를 제공해야 합니다.",
+      "c2": "빌라 내 전체 금연이며, 위반 시 청소 비용이 청구될 수 있습니다.",
+      "poolClause": "수영장 안전 이용: 영유아 및 아동은 반드시 성인 보호자의 동반 하에 이용해야 하며, 음주 후 입수를 엄격히 금지합니다. 수영장 내 다이빙은 금지됩니다.",
+      "c4": "가구 및 시설 파손 시 배상 책임이 있으며, 보증금에서 차감될 수 있습니다.",
+      "c5": "밤 10시 이후 고성방가 및 소음 발생에 유의해 주시기 바랍니다.",
+      "c6": "귀중품 분실에 대해서는 숙소 측에서 책임을 지지 않습니다.",
+      "c7": "이용 수칙 미준수로 인한 사고의 책임은 투숙객 본인에게 있습니다.",
+      "signatureLabel": "서명",
+      "clear": "지우기",
+      "signPrompt": "고객이 위 내용 확인 후 터치로 서명해주세요",
+      "signComplete": "서명 완료",
+      "signUploading": "저장 중…",
+      "signedBadge": "서명 완료",
+      "signError": "서명 저장에 실패했습니다. 다시 시도해주세요.",
+      "unsignedHint": "서명 없이도 체크인 완료가 가능합니다 — 미서명 건은 체크인 화면에서 사후 서명할 수 있습니다.",
+      "postSignBadge": "사후 서명",
+      "postSignDesc": "이 예약은 서명 없이 체크인되었습니다. 아래 동의서에 고객 서명을 받아 기록을 완성해주세요."
+    }
   },
   "adminVillas": {
     "list": {
@@ -521,7 +544,35 @@
   },
   "cleaning": {
     "title": "청소",
-    "comingSoon": "다음 업데이트에서 제공될 예정입니다."
+    "comingSoon": "다음 업데이트에서 제공될 예정입니다.",
+    "listTitle": "청소 목록",
+    "today": "오늘, {date}",
+    "checkout": "체크아웃: {date}",
+    "empty": "청소 작업이 없습니다.",
+    "emptyHint": "고객 체크아웃 후 청소 작업이 여기에 표시됩니다.",
+    "submittedBanner": "검수 요청을 보냈습니다. 결과를 기다려주세요.",
+    "status": {
+      "PENDING": "청소 대기",
+      "PHOTOS_SUBMITTED": "제출됨",
+      "APPROVED": "승인됨",
+      "REJECTED": "반려됨"
+    },
+    "back": "뒤로",
+    "submitTitle": "청소 완료",
+    "submitHeading": "청소 완료 - 사진 업로드",
+    "progress": "업로드 진행",
+    "counterUnit": "장",
+    "uploadTile": "사진 업로드",
+    "uploading": "업로드 중...",
+    "retry": "다시 시도",
+    "submit": "검수 요청",
+    "submitting": "보내는 중...",
+    "submitHint": "사진 {total}장을 모두 올리면 보낼 수 있습니다",
+    "submitError": "전송에 실패했습니다. 다시 시도해주세요.",
+    "conflict": "이미 제출된 작업입니다. 새로고침 중...",
+    "rejectedHint": "다시 청소하고 새 사진을 올려주세요.",
+    "submittedPhotos": "제출된 사진",
+    "waitingReview": "승인 대기"
   },
   "earnings": {
     "title": "수익",

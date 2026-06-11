@@ -162,7 +162,9 @@
         "checkout": "Tiến hành trả phòng",
         "noshow": "Xử lý không đến",
         "comingT3": "Sẽ có ở Sprint 3",
-        "error": "Xử lý thất bại. Vui lòng thử lại."
+        "error": "Xử lý thất bại. Vui lòng thử lại.",
+        "unsignedBadge": "Chưa ký cam kết",
+        "postSign": "Lấy chữ ký bổ sung"
       },
       "log": {
         "title": "Nhật ký hoạt động",
@@ -222,9 +224,30 @@
     },
     "submit": "Hoàn tất nhận phòng",
     "submitting": "Đang xử lý...",
-    "submitCaption": "Hoàn tất nhận phòng với các mục đã xác nhận — thỏa thuận và chữ ký ở bước sau",
+    "submitCaption": "Hoàn tất nhận phòng với các mục đã xác nhận — chữ ký tùy chọn (có thể ký bổ sung sau)",
     "needPassport": "Vui lòng tải lên ít nhất 1 ảnh hộ chiếu",
-    "submitError": "Nhận phòng thất bại. Vui lòng thử lại."
+    "submitError": "Nhận phòng thất bại. Vui lòng thử lại.",
+    "agreement": {
+      "title": "Bản cam kết",
+      "docTitle": "Nội quy sử dụng villa & cam kết an toàn",
+      "c1": "Mọi khách lưu trú phải cung cấp thông tin hộ chiếu khi nhận phòng.",
+      "c2": "Cấm hút thuốc trong toàn bộ villa, vi phạm có thể bị tính phí vệ sinh.",
+      "poolClause": "An toàn hồ bơi: trẻ em phải có người lớn đi kèm, nghiêm cấm xuống hồ sau khi uống rượu bia. Cấm nhảy cầu trong hồ bơi.",
+      "c4": "Làm hư hỏng nội thất, thiết bị phải bồi thường và có thể bị trừ vào tiền cọc.",
+      "c5": "Lưu ý không gây ồn ào sau 22 giờ.",
+      "c6": "Cơ sở không chịu trách nhiệm về việc mất tài sản quý giá.",
+      "c7": "Khách tự chịu trách nhiệm về sự cố do không tuân thủ nội quy.",
+      "signatureLabel": "Chữ ký",
+      "clear": "Xóa",
+      "signPrompt": "Khách xác nhận nội dung trên và ký bằng cảm ứng",
+      "signComplete": "Hoàn tất ký",
+      "signUploading": "Đang lưu…",
+      "signedBadge": "Đã ký",
+      "signError": "Lưu chữ ký thất bại. Vui lòng thử lại.",
+      "unsignedHint": "Có thể hoàn tất nhận phòng không cần chữ ký — ký bổ sung sau tại màn hình nhận phòng.",
+      "postSignBadge": "Ký bổ sung",
+      "postSignDesc": "Đặt phòng này đã nhận phòng chưa có chữ ký. Vui lòng lấy chữ ký khách theo bản cam kết dưới đây."
+    }
   },
   "adminVillas": {
     "list": {
@@ -521,7 +544,35 @@
   },
   "cleaning": {
     "title": "Dọn dẹp",
-    "comingSoon": "Tính năng sẽ có trong bản cập nhật sau."
+    "comingSoon": "Tính năng sẽ có trong bản cập nhật sau.",
+    "listTitle": "Danh sách dọn dẹp",
+    "today": "Hôm nay, {date}",
+    "checkout": "Trả phòng: {date}",
+    "empty": "Chưa có việc dọn dẹp nào.",
+    "emptyHint": "Khi khách trả phòng, việc dọn dẹp sẽ hiện ở đây.",
+    "submittedBanner": "Đã gửi ảnh để duyệt. Vui lòng chờ kết quả.",
+    "status": {
+      "PENDING": "Chờ dọn",
+      "PHOTOS_SUBMITTED": "Đã gửi",
+      "APPROVED": "Đã duyệt",
+      "REJECTED": "Bị từ chối"
+    },
+    "back": "Quay lại",
+    "submitTitle": "Dọn dẹp xong",
+    "submitHeading": "Dọn dẹp xong - Tải ảnh",
+    "progress": "Tiến độ tải lên",
+    "counterUnit": "ảnh",
+    "uploadTile": "Tải ảnh",
+    "uploading": "Đang tải...",
+    "retry": "Thử lại",
+    "submit": "Gửi để duyệt",
+    "submitting": "Đang gửi...",
+    "submitHint": "Tải đủ {total} ảnh để gửi",
+    "submitError": "Gửi không thành công. Vui lòng thử lại.",
+    "conflict": "Việc này đã được gửi rồi. Đang tải lại...",
+    "rejectedHint": "Vui lòng dọn lại và tải ảnh mới.",
+    "submittedPhotos": "Ảnh đã gửi",
+    "waitingReview": "Chờ duyệt"
   },
   "earnings": {
     "title": "Thu nhập",

@@ -1,7 +1,22 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { NextIntlClientProvider } from "next-intl";
+import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
 import { TabBar } from "@/components/supplier/tab-bar";
+
+// [QA D-2] 공급자 클라이언트 컴포넌트가 useTranslations로 실제 사용하는 네임스페이스만 직렬화.
+// 전체 messages를 넘기면 adminXxx 라벨(마진·판매가 운영 구조)이 RSC payload에 노출됨.
+// 전수 grep 근거: calendar-view(calendar), villa-wizard·step-*(wizard, amenities), tab-bar(tabs).
+// 서버 컴포넌트(getTranslations: earnings/cleaning/my-villas 등)는 이 목록과 무관.
+// 새 공급자 화면에서 클라이언트 useTranslations 네임스페이스 추가 시 반드시 여기에도 추가할 것.
+const SUPPLIER_CLIENT_NAMESPACES = ["calendar", "wizard", "amenities", "tabs"] as const;
+
+function pickMessages(all: AbstractIntlMessages): AbstractIntlMessages {
+  const picked: AbstractIntlMessages = {};
+  for (const ns of SUPPLIER_CLIENT_NAMESPACES) {
+    if (all[ns] !== undefined) picked[ns] = all[ns];
+  }
+  return picked;
+}
 
 export default async function SupplierLayout({
   children,
@@ -14,7 +29,9 @@ export default async function SupplierLayout({
   // 공급자 라우트는 사용자 locale(기본 vi) 메시지를 중첩 제공
   // (i18n/request.ts는 cookie 기반·기본 ko — 수정 금지 구역이라 여기서 우회)
   const locale = session.user.locale === "ko" ? "ko" : "vi";
-  const messages = (await import(`../../messages/${locale}.json`)).default;
+  const allMessages = (await import(`../../messages/${locale}.json`)).default;
+  // [QA D-2] admin·adminXxx 네임스페이스 직렬화 차단 — 화이트리스트만 클라이언트로 전달
+  const messages = pickMessages(allMessages);
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">

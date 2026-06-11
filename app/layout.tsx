@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { getMessages } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
 import "./globals.css";
 
@@ -13,8 +12,6 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const messages = await getMessages();
-
   return (
     <html lang="vi">
       <head>
@@ -30,7 +27,12 @@ export default async function RootLayout({
         />
       </head>
       <body>
-        <NextIntlClientProvider messages={messages}>
+        {/* [QA D-2b] 전체 messages 직렬화 금지 — admin 라벨(마진·판매가)이 모든 화면
+            (공급자·공개 제안 페이지 포함) HTML에 노출됐던 누수 경로.
+            locale 컨텍스트만 유지(서버에서 자동 상속)하고 messages는 비움.
+            클라이언트 useTranslations가 필요한 구역은 각 구역 레이아웃에서
+            화이트리스트 provider로 공급: (admin)/layout.tsx, (supplier)/layout.tsx */}
+        <NextIntlClientProvider messages={{}}>
           {children}
         </NextIntlClientProvider>
       </body>

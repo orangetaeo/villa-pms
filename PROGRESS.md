@@ -68,6 +68,8 @@
 
 | 2026-06-11 | T3.4b | 신규 빌라 게이트 초기 개방 완료 (TDA 결정 ADR-0006 v2, 병행 세션 — T3.2·T3.8·T4.5와 충돌 0건): **런치 블로커 해소** — isSellable 기본 false + 개방 경로가 청소 승인뿐인데 신규 빌라는 체크아웃 불가(닭과 달걀). 결정 ① 최초 APPROVE tx 안에서 초기 검수 CleaningTask(PERIODIC) 자동 생성(빌라 태스크 0건일 때만 — 멱등, 공급자 CLEANING_REQUEST 알림+AuditLog) ② approveCleaningTask 게이트 분기 확장: CHECKOUT 또는 **빌라의 첫 APPROVED**(자기 제외 count) — 기존 ACTIVE(시드) 빌라도 첫 월간 검수 승인으로 개방, 미결 CHECKOUT 0건 조건 공통 적용(우회 차단), 게이트 setter는 approveCleaningTask 단일 유지. 수동 개방 토글 기각(원칙 3 — 사진 검수 없는 우회 금지). QA 1차 **반려**(Critical: PERIODIC 승인이 CHECKOUT 전용 게이트 분기 미진입 — 목적 미달성·ADR 허위 서술·E2E 테스트 부재) → v2 재작업(분기 확장+ADR 정정+게이트 E2E 4종) → **최종 통과** + 배포 후 무인증 PATCH 401 회귀 ✓ | 교훈: "게이트 메커니즘"을 오독한 계약이 자기검증을 통과 — 목적(isSellable=true)을 직접 단언하는 E2E 테스트를 완료 기준에 처음부터 넣을 것. 운영 흐름: 승인→공급자 알림→사진 제출(a4/a8, T3.8)→/inspections 승인→판매 가능. 계약: docs/contracts/T3.4b-initial-gate.md |
 
+| 2026-06-11 | T4.5 | F6 최소 정산 완료 (b7·a7 변환): lib/settlement.ts — 월 집계(체크아웃 월 기준 CHECKED_OUT·NO_SHOW, 공급자별 BigInt 합산, 멱등 — CONFIRMED/PAID 불변 skip·타 정산 귀속 예약 skip 보고) + 전이표(DRAFT→CONFIRMED→PAID, updateMany 경합 가드) + PAID 시 SETTLEMENT_READY enqueue(T3.5 같은 트랜잭션). /settlements(b7 — 집계 실행·확정/지급·매출 KRW/VND 분리), /earnings(a7 vi — 자기 원가만·점 구분 ₫·정산 상태). vitest 신규 12(전체 258 회귀 0), QA 독립 평가 결함 3건 수정 후 **통과**: ① $transaction N+1 타임아웃 → 일괄 쿼리+30s ② **루트 layout이 messages 전체를 직렬화해 admin 마진 라벨이 공급자·공개 페이지 HTML에 노출(D-2)** → 구역별 네임스페이스 화이트리스트 provider(lib/intl-messages.ts)로 구조 개선 ③ 미들웨어 /earnings·/cleaning(SUPPLIER) 경로 누락 → locale·접근 제어 수정 | D-2는 전 화면 공통 구조 개선 — 이후 클라이언트 useTranslations 네임스페이스 추가 시 구역 layout 화이트리스트 등록 필수. 교훈 4건 leak-checklist 등재 |
+
 ## 현재 상태 (2026-06-11 기준)
 
 ### 완료된 태스크
