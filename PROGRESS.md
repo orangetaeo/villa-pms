@@ -14,8 +14,39 @@
 
 | 2026-06-11 | T0.1/T0.2/T0.6 | Next.js 15 프로젝트 초기화 + Railway 배포 완료. URL: villa-pms-production.up.railway.app. PostgreSQL 연결 + prisma db push 완료. GitHub: orangetaeo/villa-pms | Tailwind v4→v3 다운그레이드, nixpacks.toml로 npm install 강제 적용 |
 
-## 현재 상태
-- Phase: **Sprint 0 진행 중** — T0.1/T0.2/T0.6 완료. 다음: T0.3 인증(로그인/회원가입) → T0.5 i18n → 코드 변환(FE: b·c 계열, UX-VN: a 계열) 착수
-- 배포 URL: https://villa-pms-production.up.railway.app
-- 오픈 이슈: 없음 (4건 모두 ADR-0002로 확정 — SPEC.md "확정 결정" 참조)
-- 사용자 액션 대기: T5.4 — Stitch 웹 UI에서 중복 화면 3건 수동 삭제 (테오)
+## 현재 상태 (2026-06-11 기준)
+
+### 완료된 태스크
+| 태스크 | 내용 |
+|---|---|
+| T0.1 | Next.js 15 + TypeScript + Prisma + next-intl + NextAuth v5 초기화 |
+| T0.2 | schema.prisma → Railway PostgreSQL prisma db push 완료 |
+| T0.6 | Railway 배포 완료 (nixpacks, Node 20, Tailwind v3) |
+| T1.0~T4.0 | Stitch 디자인 28장 생성 + QA 통과 (design/stitch/ 저장) |
+| T5.1~T5.3 | 디자인 결함 수정 + LOC 용어 사전 확정 |
+
+### 진행 중 / 대기 중
+| 태스크 | 상태 | 담당 |
+|---|---|---|
+| T5.4 | Stitch 중복 화면 3건 수동 삭제 대기 (테오) | 테오 직접 |
+| 디자인 추가 작업 | 다른 세션에서 진행 중 — 완료 후 검수 예정 | DESIGN |
+
+### 다음 세션 시작 시 할 일 (디자인 검수 완료 후)
+1. **T0.3** — 인증: 회원가입(/signup, vi) + 로그인 + Role 미들웨어 + (admin)/(supplier) 라우트 그룹 (BE/UX-VN)
+2. **T0.5** — i18n: ko/vi 키 구조, 공급자 라우트 vi 기본 (FE/LOC)
+3. **T0.4** — 이미지 저장소: Cloudflare R2 업로드 파이프라인 (INTEG)
+4. **T1.1** — SUPPLIER 빌라 등록 마법사 (Stitch A1·A2 변환) (UX-VN)
+
+### 인프라 정보 (다음 세션 참조용)
+| 항목 | 값 |
+|---|---|
+| 배포 URL | https://villa-pms-production.up.railway.app |
+| GitHub | https://github.com/orangetaeo/villa-pms |
+| DB | Railway PostgreSQL (내장) — `${{Postgres.DATABASE_URL}}` |
+| Railway 프로젝트 | outstanding-vibrancy / production |
+| 기술 스택 | Next.js 15, Prisma 6, NextAuth v5 beta, next-intl 3, Tailwind v3 |
+
+### 알려진 기술 결정사항
+- Tailwind CSS v3 사용 (v4는 Railway nixpacks 네이티브 바이너리 충돌로 제외)
+- nixpacks.toml로 `npm install` 강제 (`npm ci` lockfile 불일치 우회)
+- `prisma db push` 방식 사용 (migration 파일 없음 — 코드 안정화 후 migrate dev로 전환 예정)
