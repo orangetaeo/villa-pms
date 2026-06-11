@@ -18,6 +18,8 @@
 
 | 2026-06-11 | T0.3/T0.5 | 인증·i18n 완료: NextAuth v5 Credentials(전화번호+비밀번호), 자가 가입 /signup(SUPPLIER, AuditLog 기록), 로그인 /login — **화면은 Stitch a0-login·a0-signup 그대로 변환**(라이트 teal, Be Vietnam Pro, Material Symbols, 56px 터치 타겟). Role 미들웨어(역할별 허용 경로 맵 + locale 쿠키 자동: admin→ko, supplier·auth→vi), 라우트 그룹 (admin)/(supplier) 가드 레이아웃, lib/prisma.ts·lib/audit-log.ts(writeAuditLog), 루트 / role별 분기. Noto Sans KR 폴백+keep-all 전역 적용. 빌드·typecheck 통과, 미인증 보호 경로 6종 /login 리다이렉트 확인 | **교훈: UI는 반드시 design/stitch/ export 변환 — 초기에 임의 디자인으로 만들었다가 전면 재작업.** 메모리에 규칙 영구 저장. 잔여: 실 DB 연결 로그인 E2E(로컬 .env DATABASE_URL placeholder), dashboard·my-villas는 플레이스홀더(각 변환 태스크에서 구현) |
 
+| 2026-06-11 | T0.4 | 이미지 저장소 완료 (ADR-0004): lib/storage.ts 백엔드 자동 선택 — STORAGE_* 5종 설정 시 Cloudflare R2(S3 SDK), 미설정 시 디스크. 인터림 Railway volume(villa-pms-volume, /data) + UPLOAD_DIR=/data/uploads — 재배포 시 파일 소멸 문제 해결. app/uploads/[name] 서빙 라우트(경로 탈출 차단·immutable 캐시), lib/image-resize.ts 클라 리사이즈(긴 변 1600px·EXIF 회전·HEIC 폴백). T1.1 세션과 lib/storage.ts 공동 작업(QA MIME 화이트리스트 반영). ADMIN 계정(테오) 시드 + 프로덕션 로그인 검증 | 잔여: 테오 Cloudflare R2 버킷+API 토큰 → STORAGE_* 입력 시 R2 전환(코드 무변경). sharp 서버 압축 미채택(nixpacks 네이티브 리스크) — 클라 리사이즈로 대체 |
+
 ## 현재 상태 (2026-06-11 기준)
 
 ### 완료된 태스크

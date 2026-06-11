@@ -4,7 +4,7 @@
 - [x] T0.1 프로젝트 초기화: Next.js 15 + TS + Prisma + next-intl + NextAuth (BE/TDA) — 2026-06-11 완료 (별도 세션, Railway 배포 포함)
 - [x] T0.2 schema.prisma 1차 마이그레이션 + Neon 연결 (TDA) — 2026-06-11 Railway PostgreSQL `prisma db push` 완료. **주의: schema v1.2(통화·비품·Zalo) 추가분 push 재실행 필요**
 - [x] T0.3 인증: 자가 가입(/signup, vi) + 전화번호+비밀번호 로그인, Role 미들웨어, 라우트 그룹 (admin)/(supplier) (BE/UX-VN) — 2026-06-11 완료. 화면은 Stitch a0-login·a0-signup 그대로 변환
-- [ ] T0.4 이미지 저장소 결정 및 업로드 파이프라인 (클라 리사이즈 → R2) (INTEG)
+- [x] T0.4 이미지 저장소 결정 및 업로드 파이프라인 (클라 리사이즈 → R2) (INTEG) — 2026-06-11 완료 (ADR-0004). R2 백엔드+디스크 폴백 자동 선택, 인터림 Railway volume(/data), 클라 리사이즈 유틸. **잔여: 테오 Cloudflare R2 버킷·API 토큰 발급 → Railway STORAGE_* 5종 입력 시 R2 전환**
 - [x] T0.5 i18n 셋업: ko/vi 키 구조, 공급자 라우트 vi 기본 (FE/LOC) — 2026-06-11 완료. locale 쿠키 기반(미들웨어 자동 설정: admin→ko, supplier·signup·login→vi), auth 네임스페이스 키 등재. 화면별 키는 각 변환 태스크에서 추가
 - [x] T0.6 Railway 배포 + CRON_SECRET 크론 라우트 골격 (OPS/TDA) — 2026-06-11 배포 완료 (villa-pms-production.up.railway.app), 크론 골격은 잔여
 - [ ] T0.7 reference/ 수집: Nike zalo·gemini, 환전 LEDGER·WebPush, TravelDiary 업로드·PWA 코드 복사 (테오)
@@ -15,7 +15,7 @@
 - [x] T1.0 Stitch 디자인 생성: A0~A4, B1 (docs/DESIGN.md 프롬프트) → design/stitch/ 저장 (DESIGN, 테오 확인) — 2026-06-11 전체 회의 검수 — 조건부 통과
 - [ ] T1.1 SUPPLIER 빌라 등록 마법사 (Stitch A1·A2 변환) (UX-VN)
 - [ ] T1.2 ADMIN 빌라 승인 화면 + 요율(VillaRate) 편집 (FE)
-- [ ] T1.3 lib/availability.ts 가용성 판정 + 단위 테스트 (BE/QA)
+- [x] T1.3 lib/availability.ts 가용성 판정 + 단위 테스트 (BE/QA) — 2026-06-11 완료. 순수 판정층(evaluateAvailability·overlapsHalfOpen)+DB 래퍼층(checkAvailability·findSellableVillaIds, $transaction 클라이언트 주입 가능) 분리, vitest 도입(`npm test`, 18 테스트), QA 독립 평가 통과(계약: docs/contracts/T1.3-availability.md)
 - [ ] T1.4 SUPPLIER 월 달력 (탭 토글 차단) (UX-VN)
 - [ ] T1.5 ADMIN 타임라인 매트릭스 뷰 (FE)
 - [ ] T1.6 iCal 수신 동기화 cron + 충돌 경보 (INTEG)
@@ -24,9 +24,9 @@
 
 ## Sprint 2 — F3 제안·가예약 (M1 W4 ~ M2 W1)
 - [x] T2.0 Stitch 디자인: B2, B5, B8, C1 → design/stitch/ (DESIGN, 테오 확인) — 2026-06-11 전체 회의 검수 — 조건부 통과
-- [ ] T2.1 제안 생성 플로우 (Stitch B2 변환) (FE/BE)
+- [ ] T2.1 제안 생성 플로우 (Stitch B2 변환) (FE/BE) — **T1.3 QA 권고**: `findSellableVillaIds`를 villaIds 생략(전체 재고) 호출하는 route는 반드시 ADMIN role 검사 — leak-checklist 점검 항목
 - [ ] T2.2 공개 제안 페이지 /p/[token] (ko, 카운트다운) (FE)
-- [ ] T2.3 HOLD 생성 트랜잭션 (동시성 잠금 + 클릭 시점 가용성 재검증·마감 안내) + 가격 스냅샷 (BE)
+- [ ] T2.3 HOLD 생성 트랜잭션 (동시성 잠금 + 클릭 시점 가용성 재검증·마감 안내) + 가격 스냅샷 (BE) — 재검증은 lib/availability.ts `checkAvailability(tx, …)` 트랜잭션 내 호출. **T1.3 QA 권고**: API 입력 날짜 → Date 변환 시 UTC 자정 정규화 필수 (half-open 경계 어긋남 방지)
 - [ ] T2.4 홀드 만료 cron + 확정/취소 액션 (BE)
 - [ ] T2.5 예약 목록(/bookings, 필터·카운트다운) + 예약 상세(상태별 액션 버튼) (Stitch B5) (FE/BE)
 - [ ] T2.6 대시보드(/dashboard): 스탯 카드 4종 + 타임라인 + 활동 피드 + iCal 충돌 경보 배너 (Stitch B1) (FE/BE)
