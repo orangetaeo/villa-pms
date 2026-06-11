@@ -318,5 +318,72 @@
   "earnings": {
     "title": "수익",
     "comingSoon": "다음 업데이트에서 제공될 예정입니다."
+  },
+  "adminSettings": {
+    "title": "시스템 설정",
+    "subtitle": "빌라 운영 및 예약을 위한 전역 정책을 관리합니다.",
+    "breadcrumbAdmin": "관리자",
+    "breadcrumbCurrent": "환경 설정",
+    "seasons": {
+      "title": "시즌 달력",
+      "add": "기간 추가",
+      "colSeason": "시즌",
+      "colStart": "시작일",
+      "colEnd": "종료일",
+      "colLabel": "라벨",
+      "colActions": "관리",
+      "names": {
+        "LOW": "비수기",
+        "HIGH": "성수기",
+        "PEAK": "극성수기"
+      },
+      "empty": "등록된 시즌 기간이 없습니다. 기간을 추가해주세요.",
+      "form": {
+        "season": "시즌",
+        "startDate": "시작일",
+        "endDate": "종료일",
+        "label": "라벨 (선택)",
+        "labelPlaceholder": "예: 연말·설 연휴",
+        "save": "저장",
+        "saving": "저장 중...",
+        "cancel": "취소",
+        "invalidDate": "날짜를 입력해주세요.",
+        "invalidRange": "시작일은 종료일보다 앞서야 합니다."
+      },
+      "edit": "수정",
+      "delete": "삭제",
+      "deleteConfirm": "이 시즌 기간을 삭제할까요?",
+      "saved": "시즌 기간이 저장되었습니다.",
+      "deleted": "시즌 기간이 삭제되었습니다.",
+      "overlapWarning": "저장되었지만 다른 기간과 겹칩니다 — 겹치는 날짜는 극성수기 > 성수기 > 비수기 순으로 적용됩니다.",
+      "error": "처리에 실패했습니다. 다시 시도해주세요."
+    },
+    "hold": {
+      "title": "예약 설정",
+      "label": "가예약 기본 유지 시간",
+      "description": "새 제안 생성 시 기본값으로 적용됩니다",
+      "unit": "시간",
+      "decrease": "1시간 줄이기",
+      "increase": "1시간 늘리기",
+      "save": "저장",
+      "saving": "저장 중...",
+      "saved": "저장되었습니다.",
+      "error": "저장에 실패했습니다. 다시 시도해주세요."
+    },
+    "fx": {
+      "title": "환율 설정",
+      "label": "수동 환율 (1 KRW = x VND)",
+      "description": "요율의 판매가(KRW) 자동 제안 환산에 사용됩니다",
+      "prefix": "1 KRW =",
+      "suffix": "VND",
+      "placeholder": "예: 18.5",
+      "invalid": "양수 소수만 입력 가능합니다. (소수점 4자리까지)",
+      "lastUpdated": "마지막 수정: {time}",
+      "notSet": "환율이 아직 설정되지 않았습니다.",
+      "save": "저장",
+      "saving": "저장 중...",
+      "saved": "환율이 저장되었습니다.",
+      "error": "저장에 실패했습니다. 다시 시도해주세요."
+    }
   }
 }

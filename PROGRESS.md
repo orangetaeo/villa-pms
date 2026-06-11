@@ -36,6 +36,8 @@
 
 | 2026-06-11 | T2.3/T2.4 | HOLD 수명주기 완료 (병행 세션 — 충돌 0건): lib/hold.ts 단일 소스 — `createHoldFromProposalItem` 단일 $transaction(lockVillaInventory 공용 빌라 잠금 → 제안 검증 → checkAvailability 재검증[더블부킹 최종 방어선] → 스냅샷 생성: 판매가=ProposalItem 복사·원가=quoteStayForVilla HOLD 시점 합산·fx=Proposal 복사), Proposal ACTIVE→USED **원자 가드**(QA D-1: 빌라 락이 못 지키는 제안 레벨 race를 updateMany status 가드로 차단), `expireHolds`(cron, status 가드)·`confirmHold`(만료 경과 거부)·`cancelBooking`(사유 필수). 라우트: cron/expire-holds(CRON_SECRET)·bookings/[id]/confirm·cancel(ADMIN 전용, serializeBigInt). 공급자 Notification PENDING 큐 적재(payload에 판매가·마진·원가 없음 — 실발송 T3.5). lib/audit-log.ts tx 주입(additive)·lib/availability.ts lockVillaInventory 공용 헬퍼 추가. vitest 19개(전체 85), QA 1차 반려(D-1 제안 race·D-2 상태 가드) → 수정 후 2차 **통과** | QA 편차 판정: HOLD→CANCELLED 허용 **수용**(SPEC v1.4 반영 권고), holdHours 영속 방식은 T2.1로 이관(TASKS 메모). T2.2 완료 기준 2건 이관(SOLD_OUT detail 비노출·MissingRateError 처리). 교훈 availability-pattern 등재(락 단위 밖 불변식은 원자 가드). 잔여: Railway cron 등록(OPS). 계약: docs/contracts/T2.3-T2.4-hold.md |
 
+| 2026-06-11 | T1.7(FE) | 운영 설정 화면 완료 (b8-settings 변환): /settings — 시즌 달력 CRUD(LOW/HIGH/PEAK 뱃지, 겹침 시 경고 — PEAK>HIGH 우선 규칙 안내), 홀드 시간 스테퍼(1~168h), 환율 카드(1 KRW = x VND, 마지막 수정 시각). API: /api/seasons GET/POST/PUT/DELETE(UTC 자정 정규화·half-open·겹침 overlaps 응답) + /api/settings GET/PUT(화이트리스트 2키 — 임의 키 주입·노출 차단), 전부 ADMIN 전용+AuditLog. 환율 저장 → T1.2 요율 KRW 자동 제안 연동 확인. QA 독립 평가 **통과**(완료 기준 7/7, 6메서드 403/401 전수, 경계값 400 전수) | 비고: QA 테스트로 FX_VND_PER_KRW=18.6·HOLD=48 설정됨(무해 — 의도값 아니면 /settings에서 수정). rate-editor의 KRW 제안 float 중복 구현은 기록만(저장값 아님). 교훈 2건 leak-checklist 등재 |
+
 ## 현재 상태 (2026-06-11 기준)
 
 ### 완료된 태스크

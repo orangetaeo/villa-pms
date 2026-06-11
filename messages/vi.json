@@ -318,5 +318,72 @@
   "earnings": {
     "title": "Thu nhập",
     "comingSoon": "Tính năng sẽ có trong bản cập nhật sau."
+  },
+  "adminSettings": {
+    "title": "Cài đặt hệ thống",
+    "subtitle": "Quản lý chính sách chung cho vận hành villa và đặt phòng.",
+    "breadcrumbAdmin": "Quản trị",
+    "breadcrumbCurrent": "Cài đặt",
+    "seasons": {
+      "title": "Lịch mùa",
+      "add": "Thêm giai đoạn",
+      "colSeason": "Mùa",
+      "colStart": "Ngày bắt đầu",
+      "colEnd": "Ngày kết thúc",
+      "colLabel": "Nhãn",
+      "colActions": "Quản lý",
+      "names": {
+        "LOW": "Mùa thấp điểm",
+        "HIGH": "Mùa cao điểm",
+        "PEAK": "Cao điểm lễ Tết"
+      },
+      "empty": "Chưa có giai đoạn mùa nào. Vui lòng thêm giai đoạn.",
+      "form": {
+        "season": "Mùa",
+        "startDate": "Ngày bắt đầu",
+        "endDate": "Ngày kết thúc",
+        "label": "Nhãn (không bắt buộc)",
+        "labelPlaceholder": "VD: Lễ Tết cuối năm",
+        "save": "Lưu",
+        "saving": "Đang lưu...",
+        "cancel": "Hủy",
+        "invalidDate": "Vui lòng nhập ngày.",
+        "invalidRange": "Ngày bắt đầu phải trước ngày kết thúc."
+      },
+      "edit": "Sửa",
+      "delete": "Xóa",
+      "deleteConfirm": "Xóa giai đoạn mùa này?",
+      "saved": "Đã lưu giai đoạn mùa.",
+      "deleted": "Đã xóa giai đoạn mùa.",
+      "overlapWarning": "Đã lưu nhưng trùng với giai đoạn khác — ngày trùng áp dụng theo thứ tự Cao điểm lễ Tết > Mùa cao điểm > Mùa thấp điểm.",
+      "error": "Xử lý thất bại. Vui lòng thử lại."
+    },
+    "hold": {
+      "title": "Cài đặt đặt phòng",
+      "label": "Thời gian giữ chỗ mặc định",
+      "description": "Áp dụng làm giá trị mặc định khi tạo đề xuất mới",
+      "unit": "giờ",
+      "decrease": "Giảm 1 giờ",
+      "increase": "Tăng 1 giờ",
+      "save": "Lưu",
+      "saving": "Đang lưu...",
+      "saved": "Đã lưu.",
+      "error": "Lưu thất bại. Vui lòng thử lại."
+    },
+    "fx": {
+      "title": "Cài đặt tỷ giá",
+      "label": "Tỷ giá thủ công (1 KRW = x VND)",
+      "description": "Dùng để quy đổi giá bán (KRW) gợi ý tự động",
+      "prefix": "1 KRW =",
+      "suffix": "VND",
+      "placeholder": "VD: 18.5",
+      "invalid": "Chỉ nhập số dương. (tối đa 4 chữ số thập phân)",
+      "lastUpdated": "Sửa lần cuối: {time}",
+      "notSet": "Chưa cài đặt tỷ giá.",
+      "save": "Lưu",
+      "saving": "Đang lưu...",
+      "saved": "Đã lưu tỷ giá.",
+      "error": "Lưu thất bại. Vui lòng thử lại."
+    }
   }
 }
