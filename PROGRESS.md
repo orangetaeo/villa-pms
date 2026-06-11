@@ -61,3 +61,10 @@
 - Tailwind CSS v3 사용 (v4는 Railway nixpacks 네이티브 바이너리 충돌로 제외)
 - nixpacks.toml로 `npm install` 강제 (`npm ci` lockfile 불일치 우회)
 - `prisma db push` 방식 사용 (migration 파일 없음 — 코드 안정화 후 migrate dev로 전환 예정)
+- **헬스체크는 `/api/health` 전용** (railway.toml) — 루트 `/`는 role 리다이렉트(307)라 헬스체크 불가. 인증 등 리다이렉트 추가 시 헬스체크 경로 주의
+- **NextAuth v5 Railway 필수 변수**: `NEXTAUTH_URL`=실제 서비스 도메인(villa-pms-production…, 프로젝트 도메인 아님!) + `AUTH_TRUST_HOST=true` (프록시 뒤 필수). 잘못되면 모든 리다이렉트가 엉뚱한 호스트로 가고 세션 판정 오작동
+- 로컬 .env의 DATABASE_URL은 Railway Postgres `DATABASE_PUBLIC_URL`(thomas.proxy.rlwy.net) 사용 — `railway variables --service Postgres --json`으로 조회
+- QA 테스트 계정: SUPPLIER `0900000001` (프로덕션 DB, 오픈 전 삭제 — LAUNCH.md 체크리스트에 추가 필요)
+
+### 프로덕션 E2E 검증 (2026-06-11, 인증 배포 후)
+/login·/signup 렌더링 200(Stitch 화면), 미인증 보호 경로 → /login 리다이렉트, 테스트 계정 실로그인 → 세션 쿠키 발급 → / → /my-villas role 분기, SUPPLIER의 /dashboard 접근 차단, 오비밀번호 로그인 거부 — 전부 통과
