@@ -1,12 +1,12 @@
 # TASKS.md — Villa PMS
 
 ## Sprint 0 — 기반 (M1 W1)
-- [ ] T0.1 프로젝트 초기화: Next.js 15 + TS + Prisma + next-intl + NextAuth (BE/TDA)
-- [ ] T0.2 schema.prisma 1차 마이그레이션 + Neon 연결 (TDA)
-- [ ] T0.3 인증: 자가 가입(/signup, vi) + 전화번호+비밀번호 로그인, Role 미들웨어, 라우트 그룹 (admin)/(supplier) (BE/UX-VN)
+- [x] T0.1 프로젝트 초기화: Next.js 15 + TS + Prisma + next-intl + NextAuth (BE/TDA) — 2026-06-11 완료 (별도 세션, Railway 배포 포함)
+- [x] T0.2 schema.prisma 1차 마이그레이션 + Neon 연결 (TDA) — 2026-06-11 Railway PostgreSQL `prisma db push` 완료. **주의: schema v1.2(통화·비품·Zalo) 추가분 push 재실행 필요**
+- [ ] T0.3 (진행중 — 별도 세션) 인증: 자가 가입(/signup, vi) + 전화번호+비밀번호 로그인, Role 미들웨어, 라우트 그룹 (admin)/(supplier) (BE/UX-VN) — **다른 세션 작업 중, 이 영역 파일 수정 금지**
 - [ ] T0.4 이미지 저장소 결정 및 업로드 파이프라인 (클라 리사이즈 → R2) (INTEG)
 - [ ] T0.5 i18n 셋업: ko/vi 키 구조, 공급자 라우트 vi 기본 (FE/LOC)
-- [ ] T0.6 Railway 배포 + CRON_SECRET 크론 라우트 골격 (OPS/TDA)
+- [x] T0.6 Railway 배포 + CRON_SECRET 크론 라우트 골격 (OPS/TDA) — 2026-06-11 배포 완료 (villa-pms-production.up.railway.app), 크론 골격은 잔여
 - [ ] T0.7 reference/ 수집: Nike zalo·gemini, 환전 LEDGER·WebPush, TravelDiary 업로드·PWA 코드 복사 (테오)
 - [ ] T0.8 Playwright MCP 설치·연결 — QA 실사용 검증용 (QA/TDA)
 - [ ] T0.9 AuditLog·AppSetting 마이그레이션 + lib/audit-log.ts(writeAuditLog) 유틸 — 이후 모든 변경 API에 동시 적용 (TDA/BE)
@@ -47,13 +47,13 @@
 - [x] T5.2 디자인 수정 완료 후 QA 재검수 — 전 화면 + 권한 누수 재확인 (QA) — 2026-06-11 **통과**: 누수 0건, 회귀 9건 ✓, 용어 0건. 반려 2건(c2 export 파손·c3 스크린샷 미달) 수정 후 형식 검증 완료
 - [x] T5.3 LOC 용어 사전(ko/vi) 확정 (LOC) — 2026-06-11 완료, .claude/skills/loc/i18n-pattern.md 등재 (용어 20항목 + 호칭 규칙 + 키 네이밍)
 - [ ] T5.4 Stitch 웹 UI에서 미사용 중복 화면 3건 수동 삭제 (테오) — a8 중복본(1bef1975), b13 중복본(ee420eae), c2 구버전(83ca80d7) — MCP에 삭제 도구 없음
-- [ ] T5.5 변환 시 처리 목록 (FE/UX-VN 변환 단계에서 일괄 해소): b3 "지우기 (CLEAR)" 괄호 영문, title 메타 11건 누락·2건 영어(Next.js metadata로 정의), c1·c2 푸터 © 영문 보일러플레이트, c1 하단 탭 "Booking", c2 만료/마감 2상태 병기(서버 판정값으로 1개만 렌더), 다크 디자인 시스템 designMd "VND with dots" 갱신
+- [ ] T5.5 변환 시 처리 목록 (FE/UX-VN 변환 단계에서 일괄 해소): b3 "지우기 (CLEAR)" 괄호 영문, title 메타 11건 누락·2건 영어(Next.js metadata로 정의), c1·c2 푸터 © 영문 보일러플레이트, c2 만료/마감 2상태 병기(서버 판정값으로 1개만 렌더), 다크 디자인 시스템 designMd "VND with dots" 갱신, [2R 추가] 마법사 단계 표기 Bước N/4→N/5 재번호(ICU 변수 `Bước {n}/{total}`), b10 요율 5열 너비 조정(KRW 환산 열 클리핑), c3·c3-vnd "Step 01/02"→"단계 1/2" i18n, keep-all/nowrap 규칙 globals.css 전역 강제, 사이드바 9메뉴(메시지 추가)는 공통 컴포넌트에서 일괄 적용
 
 ## 신규 요구 후속 — 2026-06-11 테오 4건 (ADR-0003, SPEC v1.3, schema v1.2)
 
 ### DESIGN 2라운드 (신규·수정 화면 목록 — DESIGN이 이 목록으로 작업)
-- [ ] T6.1 신규 3장 (DESIGN): **b14-zalo-chat** (다크, 인박스+대화창+번역 토글+48h 창 비활성 상태), **b1-mobile** (대시보드 모바일 변형 390px — 타임라인을 "오늘 중심 리스트"로 재구성), **a9-amenities** (공급자 비품 입력 — 마법사 4/5, vi 라이트, 카테고리 탭 4종+체크박스+미니바 스테퍼)
-- [ ] T6.2 수정 9장 (DESIGN): b2(채널 선택→통화 자동 전환+환율 참고 표시), c1·c3(VND 변형 — ₫ 천단위 점 표기), b5·b11·b12(금액 열 통화 기호 병기), b7(매출 통화별 분리 — KRW/VND 합산 금지), b10(비품 섹션 읽기 전용 + salePriceVnd 요율 열), b4(미니바 확인 체크리스트 섹션)
+- [x] T6.1 신규 3장 (DESIGN): **b14-zalo-chat** (다크, 인박스+대화창+번역 토글+48h 창 비활성 상태), **b1-mobile** (대시보드 모바일 변형 390px — 타임라인을 "오늘 중심 리스트"로 재구성), **a9-amenities** (공급자 비품 입력 — 마법사 4/5, vi 라이트, 카테고리 탭 4종+체크박스+미니바 스테퍼) — 2026-06-11 완료, QA 통과. 단 Stitch 클라우드 생성 타임아웃으로 로컬 컴포지션(프롬프트는 DESIGN.md 기록 — 추후 수정 시 재컴포지션 필요)
+- [x] T6.2 수정 9장 (DESIGN): b2(채널 선택→통화 자동 전환+환율 참고 표시), c1·c3(VND 변형 — ₫ 천단위 쉼표, 별도 폴더 c1-vnd·c3-vnd), b5·b11·b12(금액 열 통화 기호 병기), b7(매출 통화별 분리 — KRW/VND 합산 금지), b10(비품 섹션 읽기 전용 + salePriceVnd 요율 열), b4(미니바 확인 체크리스트 섹션) — 2026-06-11 완료, QA 통과(반려 0건). 글자 세로 낙하 전수 수정(Noto Sans KR 폴백+keep-all/nowrap) 포함, 총 33장
 
 ### 구현 (각 스프린트에 흡수 — 담당 표기)
 - [ ] T6.3 결제 통화: lib/pricing.ts 통화 분기(saleCurrency별 박별 합산) + VillaRate salePriceVnd 편집(빌라 승인·요율 화면) + 제안·HOLD 통화/환율 스냅샷 + /settings 환율(FX_VND_PER_KRW) 입력 UI (BE/FE — Sprint 2 T2.1~T2.3과 병행)

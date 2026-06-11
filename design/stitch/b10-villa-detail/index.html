@@ -1,11 +1,11 @@
-<!DOCTYPE html><html class="dark" lang="ko"><head>
-<meta charset="utf-8">
-<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<!DOCTYPE html>
+
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;900&amp;display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;900&amp;family=Noto+Sans+KR:wght@300;400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
@@ -42,63 +42,63 @@
         body {
             background-color: #0F172A;
             color: #F8FAFC;
+            word-break: keep-all;
+        }
+        .whitespace-nowrap {
+            white-space: nowrap;
         }
         /* Custom scrollbar for dense data */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #0F172A; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #475569; }
-    
-        /* DESIGN 공통 규칙 (2026-06-11): 한글 폰트 폴백 + 한국어 단어 낙하 방지 */
-        body { font-family: "Public Sans", "Noto Sans KR", sans-serif; word-break: keep-all; }
-        th, button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
     </style>
 </head>
 <body class="font-body antialiased">
-<!-- SideNavBar (from JSON logic) -->
-<aside class="h-screen w-64 fixed left-0 top-0 bg-[#0F172A] border-r border-slate-800 flex flex-col py-6 z-50">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#0F172A] border-r border-[#1E293B] flex flex-col py-6 z-50">
 <div class="px-6 mb-8">
 <h1 class="text-xl font-headline font-black text-white">Villa PMS</h1>
-<p class="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Villa PMS Admin</p>
+<p class="text-[10px] text-slate-500 uppercase tracking-widest mt-1 whitespace-nowrap">Villa PMS Admin</p>
 </div>
 <nav class="flex-1 px-3 space-y-1">
 <!-- Dashboard -->
-<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200" href="#">
+<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200 whitespace-nowrap" href="#">
 <span class="material-symbols-outlined mr-3">dashboard</span>
 <span class="text-sm font-medium">대시보드</span>
 </a>
 <!-- Reservation -->
-<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200" href="#">
+<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200 whitespace-nowrap" href="#">
 <span class="material-symbols-outlined mr-3">calendar_month</span>
 <span class="text-sm font-medium">예약</span>
 </a>
 <!-- Proposals -->
-<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200" href="#">
+<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200 whitespace-nowrap" href="#">
 <span class="material-symbols-outlined mr-3">list_alt</span>
 <span class="text-sm font-medium">제안</span>
 </a>
 <!-- Villa (ACTIVE) -->
-<a class="flex items-center px-3 py-2.5 rounded-lg bg-blue-600/10 text-[#3B82F6] border-r-4 border-[#3B82F6] font-bold transition-all duration-200" href="#">
+<a class="flex items-center px-3 py-2.5 rounded-lg bg-blue-600/10 text-[#3B82F6] border-r-4 border-[#3B82F6] font-bold transition-all duration-200 whitespace-nowrap" href="#">
 <span class="material-symbols-outlined mr-3">home_work</span>
 <span class="text-sm">빌라</span>
 </a>
 <!-- Inspection -->
-<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200" href="#">
+<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200 whitespace-nowrap" href="#">
 <span class="material-symbols-outlined mr-3">cleaning_services</span>
 <span class="text-sm font-medium">청소 검수</span>
 </a>
 <!-- Settlement -->
-<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200" href="#">
+<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200 whitespace-nowrap" href="#">
 <span class="material-symbols-outlined mr-3">payments</span>
 <span class="text-sm font-medium">정산</span>
 </a>
 <!-- Users -->
-<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200" href="#">
+<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200 whitespace-nowrap" href="#">
 <span class="material-symbols-outlined mr-3">group</span>
 <span class="text-sm font-medium">사용자</span>
 </a>
 <!-- Settings -->
-<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200" href="#">
+<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200 whitespace-nowrap" href="#">
 <span class="material-symbols-outlined mr-3">settings</span>
 <span class="text-sm font-medium">설정</span>
 </a>
@@ -106,11 +106,11 @@
 <div class="px-6 pt-6 border-t border-slate-800 mt-auto">
 <div class="flex items-center gap-3">
 <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden">
-<img alt="Admin Profile" data-alt="A professional headshot of a modern operations manager in a minimalist office setting. High-end portrait lighting, soft depth of field, with cool blue and dark navy tones reflecting the Villa PMS administrative brand identity. The subject is a middle-aged male with a confident, friendly expression." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVvTtnVSua9JrBNL5A_GZmuhaIN1U1dfBcYs0XCD_ZBwyGS94TQlRaTFdI5b68SL7Jgp0Pv4ABUwJy-b2gNEwbNK6hUsIgGCqqGlR-MFkthPZ5hv8loOd5Dy3hv8bB5TbIpoWLecmmf4fe_zbqlBvX4qL217w7f2dfy6HWNDioNDg99ed3KnqKfbnc5W9N-x6EyL3ZSqCX2a7tReKq0sgsz9GNw8LoFhAVx3A5fdB-QT0iz79PCiwyKk9k4RRqsN7OY8zGKTahegbv">
+<img alt="Admin Profile" data-alt="A professional headshot of a modern operations manager in a minimalist office setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVvTtnVSua9JrBNL5A_GZmuhaIN1U1dfBcYs0XCD_ZBwyGS94TQlRaTFdI5b68SL7Jgp0Pv4ABUwJy-b2gNEwbNK6hUsIgGCqqGlR-MFkthPZ5hv8loOd5Dy3hv8bB5TbIpoWLecmmf4fe_zbqlBvX4qL217w7f2dfy6HWNDioNDg99ed3KnqKfbnc5W9N-x6EyL3ZSqCX2a7tReKq0sgsz9GNw8LoFhAVx3A5fdB-QT0iz79PCiwyKk9k4RRqsN7OY8zGKTahegbv"/>
 </div>
-<div class="flex flex-col">
-<span class="text-xs font-bold text-slate-200">관리자</span>
-<span class="text-[10px] text-slate-500">최고 관리자</span>
+<div class="flex flex-col overflow-hidden">
+<span class="text-xs font-bold text-slate-200 whitespace-nowrap">관리자</span>
+<span class="text-[10px] text-slate-500 whitespace-nowrap">최고 관리자</span>
 </div>
 </div>
 </div>
@@ -120,7 +120,7 @@
 <div class="flex items-center gap-4">
 <div class="relative">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">search</span>
-<input class="bg-slate-900 border-none rounded-lg pl-9 pr-4 py-1.5 text-xs text-slate-300 w-64 focus:ring-1 focus:ring-blue-500 transition-all" placeholder="빌라 이름 또는 지역 검색" type="text">
+<input class="bg-slate-900 border-none rounded-lg pl-9 pr-4 py-1.5 text-xs text-slate-300 w-64 focus:ring-1 focus:ring-blue-500 transition-all" placeholder="빌라 이름 또는 지역 검색" type="text"/>
 </div>
 </div>
 <div class="flex items-center gap-4">
@@ -139,23 +139,23 @@
 <div>
 <div class="flex items-center gap-3 mb-2">
 <h2 class="text-3xl font-black text-white tracking-tight">쏘나씨 V12</h2>
-<span class="px-2.5 py-0.5 rounded text-[11px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">승인 대기</span>
+<span class="px-2.5 py-0.5 rounded text-[11px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 whitespace-nowrap">승인 대기</span>
 </div>
 <div class="flex items-center gap-4 text-sm text-slate-400">
-<div class="flex items-center gap-1.5">
+<div class="flex items-center gap-1.5 whitespace-nowrap">
 <span class="material-symbols-outlined text-sm">person</span>
 <span>Nguyễn Văn An</span>
 </div>
 <div class="w-px h-3 bg-slate-700"></div>
-<div class="flex items-center gap-1.5 text-blue-400">
+<div class="flex items-center gap-1.5 text-[#3B82F6] whitespace-nowrap">
 <span class="material-symbols-outlined text-sm">chat_bubble</span>
 <span>Zalo 연결됨</span>
 </div>
 </div>
 </div>
 <div class="flex items-center gap-2">
-<button class="px-5 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition-all">반려</button>
-<button class="px-5 py-2.5 rounded-lg bg-green-600 hover:bg-green-500 text-white text-sm font-bold shadow-lg shadow-green-900/20 transition-all">승인</button>
+<button class="px-5 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold transition-all whitespace-nowrap">반려</button>
+<button class="px-5 py-2.5 rounded-lg bg-green-600 hover:bg-green-500 text-white text-sm font-bold shadow-lg shadow-green-900/20 transition-all whitespace-nowrap">승인</button>
 </div>
 </div>
 <!-- Two Column Layout -->
@@ -165,41 +165,41 @@
 <!-- Photo Grid Grouped -->
 <div class="bg-surface rounded-xl p-6 border border-slate-800 shadow-xl">
 <div class="flex items-center justify-between mb-6">
-<h3 class="text-lg font-bold flex items-center gap-2">
-<span class="material-symbols-outlined text-blue-500">collections</span>
+<h3 class="text-lg font-bold flex items-center gap-2 whitespace-nowrap">
+<span class="material-symbols-outlined text-[#3B82F6]">collections</span>
                             객실 및 시설 사진
                         </h3>
-<span class="text-xs text-slate-500">총 24장</span>
+<span class="text-xs text-slate-500 whitespace-nowrap">총 24장</span>
 </div>
 <div class="space-y-8">
 <!-- Group: Exterior -->
 <div>
-<p class="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider">외관</p>
+<p class="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider whitespace-nowrap">외관</p>
 <div class="grid grid-cols-3 gap-3">
 <div class="aspect-video rounded-lg overflow-hidden bg-slate-800 group relative cursor-pointer">
-<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Wide shot of a luxury modern villa exterior at twilight. The architecture features clean lines, expansive glass walls, and a warm interior glow. The pool area is visible in the foreground with reflections of the blue hour sky, maintaining a sophisticated dark navy and golden aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBArvh_hrIoaDzUs9qoFcHrRE488SfpNX8HakhtChwGI1ktzhK2VfFZ2IlYqiMHUZ4IMzUdxHejcGgZ6bHcoWM67TQ2g-c8SeY8_pZRNVuzsmgshyB4-FKEelpP34KO4eRGg0rc5V_EWFhq08E49mQg5jUs9KkjUlc6zi6UpcY5CmjNAo_FO41ixBSXPNU-TGU7UTuw9JY0FNpIOoirLA5-AUGsg5PChzWMkBpAQBJosAHQ3_343ZDPqupnfdjXeCUiTdnl3Cglw8qh">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Wide shot of a luxury modern villa exterior at twilight." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBArvh_hrIoaDzUs9qoFcHrRE488SfpNX8HakhtChwGI1ktzhK2VfFZ2IlYqiMHUZ4IMzUdxHejcGgZ6bHcoWM67TQ2g-c8SeY8_pZRNVuzsmgshyB4-FKEelpP34KO4eRGg0rc5V_EWFhq08E49mQg5jUs9KkjUlc6zi6UpcY5CmjNAo_FO41ixBSXPNU-TGU7UTuw9JY0FNpIOoirLA5-AUGsg5PChzWMkBpAQBJosAHQ3_343ZDPqupnfdjXeCUiTdnl3Cglw8qh"/>
 </div>
 <div class="aspect-video rounded-lg overflow-hidden bg-slate-800 group relative cursor-pointer">
-<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Daytime view of a high-end coastal villa with white minimalist walls and palm trees. Bright natural lighting emphasizes the crisp textures of the stone and tropical landscape. The scene is shot with high-end architectural photography style, focusing on the luxury property details." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDKNQXR1WJPoAvh1iXOP3DomSRxWp3t0HND8xCWsHH1Do4iA7LA7DV3777X4oMefNY2voGh2zAN-IDl5OWZb0_rn4anKjt9bYl5RVkXsAWfiUzdZIEfFjWh9Or98CGPJikV6xP36Zl9TbAGuS0YE9pItxLjLDE7PIcHPNjZOlZ5typR23YmBWeYLe59f_YrcsghFMzq5Qx5QK9jJi0-Xsa4lpZ9FsKRMZMf15qWpOOLaiLSGEiGgubPKtwqpCBgNhmg9irbkooypwsh">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Daytime view of a high-end coastal villa." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDKNQXR1WJPoAvh1iXOP3DomSRxWp3t0HND8xCWsHH1Do4iA7LA7DV3777X4oMefNY2voGh2zAN-IDl5OWZb0_rn4anKjt9bYl5RVkXsAWfiUzdZIEfFjWh9Or98CGPJikV6xP36Zl9TbAGuS0YE9pItxLjLDE7PIcHPNjZOlZ5typR23YmBWeYLe59f_YrcsghFMzq5Qx5QK9jJi0-Xsa4lpZ9FsKRMZMf15qWpOOLaiLSGEiGgubPKtwqpCBgNhmg9irbkooypwsh"/>
 </div>
 <div class="aspect-video rounded-lg bg-slate-800 border-2 border-dashed border-slate-700 flex flex-col items-center justify-center text-slate-500 hover:bg-slate-700/30 transition-colors">
 <span class="material-symbols-outlined">add</span>
-<span class="text-[10px] mt-1 font-bold">추가</span>
+<span class="text-[10px] mt-1 font-bold whitespace-nowrap">추가</span>
 </div>
 </div>
 </div>
 <!-- Group: Interior Common -->
 <div class="grid grid-cols-2 gap-6">
 <div>
-<p class="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider">거실</p>
+<p class="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider whitespace-nowrap">거실</p>
 <div class="aspect-video rounded-lg overflow-hidden bg-slate-800">
-<img class="w-full h-full object-cover" data-alt="Interior shot of a spacious luxury villa living room. Features deep navy accent walls, high ceilings, and high-end Italian furniture. Soft ambient lighting creates a professional and comfortable mood, highlighting premium materials like marble and dark wood." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVx_AmtGi8jAMbFqHUogktcwGloBNucaRjg4e8E6xRAKJVyXco0T_GCwAXQe3RNCuA_vqxrfkewVpQVlHyfQAFO_dTC6gr9pjo3lHmC3QO0iFcbCoPrKUnQl9LWJfSYeGDDolUAVyTq3ySix0MMcMZ2qN15rk-FSKkwyqaV2B5j8Uijc-EYFTSTIipG-ahftkgaOIyoUFaK0eopiNHAhE1NJwF_jQOh-X7_JcC1JBEhrQtSgbpwmU44-Y7UB03oaw5_bSeVBmkRKJp">
+<img class="w-full h-full object-cover" data-alt="Interior shot of a spacious luxury villa living room." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVx_AmtGi8jAMbFqHUogktcwGloBNucaRjg4e8E6xRAKJVyXco0T_GCwAXQe3RNCuA_vqxrfkewVpQVlHyfQAFO_dTC6gr9pjo3lHmC3QO0iFcbCoPrKUnQl9LWJfSYeGDDolUAVyTq3ySix0MMcMZ2qN15rk-FSKkwyqaV2B5j8Uijc-EYFTSTIipG-ahftkgaOIyoUFaK0eopiNHAhE1NJwF_jQOh-X7_JcC1JBEhrQtSgbpwmU44-Y7UB03oaw5_bSeVBmkRKJp"/>
 </div>
 </div>
 <div>
-<p class="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider">주방</p>
+<p class="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider whitespace-nowrap">주방</p>
 <div class="aspect-video rounded-lg overflow-hidden bg-slate-800">
-<img class="w-full h-full object-cover" data-alt="A modern designer kitchen in a luxury villa. Features professional-grade stainless steel appliances, dark grey cabinetry, and a large marble island. Subtle task lighting and a clean, organized layout convey an atmosphere of high-end hospitality and culinary excellence." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJX7Ixt3P72sJDttQjW0qSSLiHE3GxRIfaSsnwQxCQqXzhSUYIGV5gttEFTynHY3JTnOQ9DpTfE-k_-rCCXpc_M0mPpwcf88IXHSSW_a5HfikDdmBt6O7NqDzi7orn-Xq6FaN8I9Hiqiiqg6HXtG12M_VqhXhWKpk-mp951pWiILQWBQQ1iCnPuOUojCULiCisd_K-6bQFPwAFAWJY1dg-nnp9Bo2Cv-FNMDF8WGfElB-iUp3lOnmV5rHfHMfnFmW86Uoud6SrOIK7">
+<img class="w-full h-full object-cover" data-alt="A modern designer kitchen in a luxury villa." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJX7Ixt3P72sJDttQjW0qSSLiHE3GxRIfaSsnwQxCQqXzhSUYIGV5gttEFTynHY3JTnOQ9DpTfE-k_-rCCXpc_M0mPpwcf88IXHSSW_a5HfikDdmBt6O7NqDzi7orn-Xq6FaN8I9Hiqiiqg6HXtG12M_VqhXhWKpk-mp951pWiILQWBQQ1iCnPuOUojCULiCisd_K-6bQFPwAFAWJY1dg-nnp9Bo2Cv-FNMDF8WGfElB-iUp3lOnmV5rHfHMfnFmW86Uoud6SrOIK7"/>
 </div>
 </div>
 </div>
@@ -207,27 +207,27 @@
 <div>
 <div class="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
 <div class="flex-shrink-0 w-48">
-<p class="text-[10px] font-bold text-slate-500 mb-2 uppercase">침실 1</p>
+<p class="text-[10px] font-bold text-slate-500 mb-2 uppercase whitespace-nowrap">침실 1</p>
 <div class="aspect-square rounded-lg overflow-hidden">
-<img class="w-full h-full object-cover" data-alt="A luxury master bedroom with a king-sized bed, premium linens, and a large window overlooking a tropical garden. The room is decorated in a dark navy and soft grey palette with blue accents, providing a tranquil and sophisticated environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBVXSzkYKPwQjBGX8QRZ-1l4idxvemze6aptsajHLJa8FjGdbz916mFw3pkbAEgYFKTl9xgmXUlUx0amA7bOEz-w16_BAPuK4DjiVecNJOgMOJL3MfByS_uSpfH9KKJLG-QuZBDa72AKRH81_fgmcHt8YyWd4DSkrn35ISQ4fURmX7Jk2REVWp_LoDWT7u4oS95LdDxfT1kaUtq6pxmKYWcfhzxH8gJYluJEhAS1Lmoif5z_9uf3dMsUdoyOSuFXrdmv7Ul2yBl7BN">
+<img class="w-full h-full object-cover" data-alt="A luxury master bedroom." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBVXSzkYKPwQjBGX8QRZ-1l4idxvemze6aptsajHLJa8FjGdbz916mFw3pkbAEgYFKTl9xgmXUlUx0amA7bOEz-w16_BAPuK4DjiVecNJOgMOJL3MfByS_uSpfH9KKJLG-QuZBDa72AKRH81_fgmcHt8YyWd4DSkrn35ISQ4fURmX7Jk2REVWp_LoDWT7u4oS95LdDxfT1kaUtq6pxmKYWcfhzxH8gJYluJEhAS1Lmoif5z_9uf3dMsUdoyOSuFXrdmv7Ul2yBl7BN"/>
 </div>
 </div>
 <div class="flex-shrink-0 w-48">
-<p class="text-[10px] font-bold text-slate-500 mb-2 uppercase">침실 2</p>
+<p class="text-[10px] font-bold text-slate-500 mb-2 uppercase whitespace-nowrap">침실 2</p>
 <div class="aspect-square rounded-lg overflow-hidden">
-<img class="w-full h-full object-cover" data-alt="Second bedroom of a premium villa, showing twin beds with designer headboards and artistic wall decor. Warm directional lighting creates a welcoming atmosphere, blending modern luxury with cozy textures in a professional hospitality setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuADGl3Sbeog68I5V8hlSa66g_0ZUFbiOEDV6naam9EoIHOx0WUVPwOqaQieW0GXm_fPUYk-xYT68f9R7X-HJ32PC0qMSXTzi7RdLidfGcTwnHLL8pZnBERkgR2KV0bZrLN6jFBSPP8blqoQHyt_aYsmffe4E6Kd134WTYX6xTzTbL9Rm0nezILClF62trRPWHZon8pZWRpaijT-PmKkIhrH8hmPq1NiCB01qKLQW1USFV-gwj4RPbRl5zMfCsCMYMt1557EJjZ-IiyN">
+<img class="w-full h-full object-cover" data-alt="Second bedroom of a premium villa." src="https://lh3.googleusercontent.com/aida-public/AB6AXuADGl3Sbeog68I5V8hlSa66g_0ZUFbiOEDV6naam9EoIHOx0WUVPwOqaQieW0GXm_fPUYk-xYT68f9R7X-HJ32PC0qMSXTzi7RdLidfGcTwnHLL8pZnBERkgR2KV0bZrLN6jFBSPP8blqoQHyt_aYsmffe4E6Kd134WTYX6xTzTbL9Rm0nezILClF62trRPWHZon8pZWRpaijT-PmKkIhrH8hmPq1NiCB01qKLQW1USFV-gwj4RPbRl5zMfCsCMYMt1557EJjZ-IiyN"/>
 </div>
 </div>
 <div class="flex-shrink-0 w-48">
-<p class="text-[10px] font-bold text-slate-500 mb-2 uppercase">수영장</p>
+<p class="text-[10px] font-bold text-slate-500 mb-2 uppercase whitespace-nowrap">수영장</p>
 <div class="aspect-square rounded-lg overflow-hidden">
-<img class="w-full h-full object-cover" data-alt="Close-up of a private infinity pool at a luxury villa. Crystal clear blue water reflects the afternoon sun, with designer lounge chairs and lush tropical greenery in the background. The aesthetic is serene, high-end, and perfectly maintained." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAnScx_78pX113Egx2dbGKMGYCdJwjNsFWC0wL-GP5sVGTuzKrvU_yPozYxeJWAZ7WaoxncM-iUc0gM3xLjN_mNfoL3eSVuyJKdFfwZOw_5S0Rm8XpVmBRco52kvzX97Vt3vZ1ZsrPEnjIRVhYnIrIUIiBTmpbjlz8vAshLbpJdYhyzjlj6bvg-gCNrddBT9yrszhnEyo-cfdgsqxIdW1qQvIEmTpYUiNTmmRGjd-QIGkLbg6FU6sju66aslhX4eD78ZdtMKDpcsODg">
+<img class="w-full h-full object-cover" data-alt="Close-up of a private infinity pool." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAnScx_78pX113Egx2dbGKMGYCdJwjNsFWC0wL-GP5sVGTuzKrvU_yPozYxeJWAZ7WaoxncM-iUc0gM3xLjN_mNfoL3eSVuyJKdFfwZOw_5S0Rm8XpVmBRco52kvzX97Vt3vZ1ZsrPEnjIRVhYnIrIUIiBTmpbjlz8vAshLbpJdYhyzjlj6bvg-gCNrddBT9yrszhnEyo-cfdgsqxIdW1qQvIEmTpYUiNTmmRGjd-QIGkLbg6FU6sju66aslhX4eD78ZdtMKDpcsODg"/>
 </div>
 </div>
 <div class="flex-shrink-0 w-48 flex flex-col">
-<p class="text-[10px] font-bold text-slate-500 mb-2 uppercase">기타</p>
+<p class="text-[10px] font-bold text-slate-500 mb-2 uppercase whitespace-nowrap">기타</p>
 <div class="aspect-square rounded-lg bg-slate-800 flex items-center justify-center text-slate-600 border border-slate-700">
-<span class="text-xs">+ 12장 더보기</span>
+<span class="text-xs whitespace-nowrap">+ 12장 더보기</span>
 </div>
 </div>
 </div>
@@ -236,30 +236,30 @@
 </div>
 <!-- Basic Info Card -->
 <div class="bg-surface rounded-xl p-6 border border-slate-800 shadow-xl">
-<h3 class="text-lg font-bold mb-5 flex items-center gap-2">
-<span class="material-symbols-outlined text-blue-500">info</span>
+<h3 class="text-lg font-bold mb-5 flex items-center gap-2 whitespace-nowrap">
+<span class="material-symbols-outlined text-[#3B82F6]">info</span>
                         기본 정보 요약
                     </h3>
 <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
 <div class="p-3 rounded-lg bg-slate-900/50 border border-slate-800 text-center">
 <span class="material-symbols-outlined text-slate-400 block mb-1">bed</span>
-<span class="text-xs text-slate-300 font-medium">침실 3</span>
+<span class="text-xs text-slate-300 font-medium whitespace-nowrap">침실 3</span>
 </div>
 <div class="p-3 rounded-lg bg-slate-900/50 border border-slate-800 text-center">
 <span class="material-symbols-outlined text-slate-400 block mb-1">bathroom</span>
-<span class="text-xs text-slate-300 font-medium">욕실 2</span>
+<span class="text-xs text-slate-300 font-medium whitespace-nowrap">화장실 2</span>
 </div>
 <div class="p-3 rounded-lg bg-slate-900/50 border border-slate-800 text-center">
 <span class="material-symbols-outlined text-slate-400 block mb-1">group</span>
-<span class="text-xs text-slate-300 font-medium">최대 6인</span>
+<span class="text-xs text-slate-300 font-medium whitespace-nowrap">최대 6인</span>
 </div>
 <div class="p-3 rounded-lg bg-slate-900/50 border border-slate-800 text-center">
 <span class="material-symbols-outlined text-slate-400 block mb-1">pool</span>
-<span class="text-xs text-slate-300 font-medium">수영장 O</span>
+<span class="text-xs text-slate-300 font-medium whitespace-nowrap">수영장 O</span>
 </div>
 <div class="p-3 rounded-lg bg-slate-900/50 border border-slate-800 text-center">
 <span class="material-symbols-outlined text-slate-400 block mb-1">restaurant</span>
-<span class="text-xs text-slate-300 font-medium">조식 가능</span>
+<span class="text-xs text-slate-300 font-medium whitespace-nowrap">조식 가능</span>
 </div>
 </div>
 </div>
@@ -269,126 +269,69 @@
 <!-- Rate Settings Card -->
 <div class="bg-surface rounded-xl border border-slate-800 shadow-xl overflow-hidden">
 <div class="p-6 border-b border-slate-800">
-<h3 class="text-lg font-bold flex items-center gap-2">
-<span class="material-symbols-outlined text-blue-500">payments</span>
+<h3 class="text-lg font-bold flex items-center gap-2 whitespace-nowrap">
+<span class="material-symbols-outlined text-[#3B82F6]">payments</span>
                             요율 설정
                         </h3>
 </div>
 <div class="p-0 overflow-x-auto">
 <table class="w-full text-left text-xs border-collapse">
 <thead>
-<tr class="bg-slate-900/50 text-slate-500 uppercase tracking-tighter">
-<th class="px-4 py-3 font-bold border-b border-slate-800">시즌</th>
-<th class="px-4 py-3 font-bold border-b border-slate-800 text-right">원가 (VND)</th>
-<th class="px-4 py-3 font-bold border-b border-slate-800 text-center">마진</th>
-<th class="px-4 py-3 font-bold border-b border-slate-800 text-right">판매가 (KRW)</th>
-</tr>
+<tr class="bg-slate-900/50 text-slate-500 uppercase tracking-tighter"><th class="px-4 py-3 font-bold border-b border-slate-800 whitespace-nowrap">시즌</th><th class="px-4 py-3 font-bold border-b border-slate-800 text-right whitespace-nowrap">공급자 원가 (VND)</th><th class="px-4 py-3 font-bold border-b border-slate-800 text-center whitespace-nowrap">마진</th><th class="px-4 py-3 font-bold border-b border-slate-800 text-right whitespace-nowrap">판매가 (VND)</th><th class="px-4 py-3 font-bold border-b border-slate-800 text-right whitespace-nowrap">판매가 (KRW 환산 참고)</th></tr>
 </thead>
 <tbody class="divide-y divide-slate-800">
 <!-- Row 1 -->
-<tr class="hover:bg-slate-800/30 transition-colors">
-<td class="px-4 py-4">
-<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-bold">비수기</span>
-</td>
-<td class="px-4 py-4 text-right font-mono text-slate-300">2,500,000₫</td>
-<td class="px-4 py-4">
-<div class="flex items-center gap-1 justify-center">
-<input class="w-12 h-8 bg-slate-900 border-slate-700 rounded text-center text-xs focus:ring-blue-500" type="text" value="15">
-<select class="h-8 bg-slate-900 border-slate-700 rounded text-[10px] focus:ring-blue-500 px-1 py-0">
-<option>%</option>
-<option>정액</option>
-</select>
-</div>
-</td>
-<td class="px-4 py-4 text-right">
-<div class="font-bold text-slate-100">450,000원</div>
-<span class="text-[9px] text-blue-400 bg-blue-400/10 px-1 rounded">자동 제안</span>
-</td>
-</tr>
+<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-4 py-4"><span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 font-bold whitespace-nowrap">비수기</span></td><td class="px-4 py-4 text-right font-mono text-slate-500 whitespace-nowrap" style="font-variant-numeric: tabular-nums">2,500,000₫</td><td class="px-4 py-4"><div class="flex items-center gap-1 justify-center"><input class="w-12 h-8 bg-slate-900 border-slate-700 rounded text-center text-xs focus:ring-blue-500" type="text" value="15"/><select class="h-8 bg-slate-900 border-slate-700 rounded text-[10px] focus:ring-blue-500 px-1 py-0"><option>%</option><option>Fix</option></select></div></td><td class="px-4 py-4 text-right"><input class="w-28 h-8 bg-slate-900 border-slate-700 rounded text-right text-xs focus:ring-blue-500 font-mono" style="font-variant-numeric: tabular-nums" type="text" value="3,250,000₫"/></td><td class="px-4 py-4 text-right whitespace-nowrap"><div class="font-bold text-slate-100 whitespace-nowrap" style="font-variant-numeric: tabular-nums">₩450,000</div><span class="text-[9px] text-slate-400 bg-slate-800 px-1 rounded whitespace-nowrap">자동 제안</span></td></tr>
 <!-- Row 2 -->
-<tr class="hover:bg-slate-800/30 transition-colors">
-<td class="px-4 py-4">
-<span class="px-2 py-0.5 rounded bg-orange-500/10 text-orange-500 font-bold">성수기</span>
-</td>
-<td class="px-4 py-4 text-right font-mono text-slate-300">3,500,000₫</td>
-<td class="px-4 py-4">
-<div class="flex items-center gap-1 justify-center">
-<input class="w-12 h-8 bg-slate-900 border-slate-700 rounded text-center text-xs focus:ring-blue-500" type="text" value="18">
-<select class="h-8 bg-slate-900 border-slate-700 rounded text-[10px] focus:ring-blue-500 px-1 py-0">
-<option>%</option>
-<option>정액</option>
-</select>
-</div>
-</td>
-<td class="px-4 py-4 text-right">
-<div class="font-bold text-slate-100">620,000원</div>
-</td>
-</tr>
+<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-4 py-4"><span class="px-2 py-0.5 rounded bg-orange-500/10 text-orange-500 font-bold whitespace-nowrap">성수기</span></td><td class="px-4 py-4 text-right font-mono text-slate-500 whitespace-nowrap" style="font-variant-numeric: tabular-nums">3,500,000₫</td><td class="px-4 py-4"><div class="flex items-center gap-1 justify-center"><input class="w-12 h-8 bg-slate-900 border-slate-700 rounded text-center text-xs focus:ring-blue-500" type="text" value="18"/><select class="h-8 bg-slate-900 border-slate-700 rounded text-[10px] focus:ring-blue-500 px-1 py-0"><option>%</option><option>Fix</option></select></div></td><td class="px-4 py-4 text-right"><input class="w-28 h-8 bg-slate-900 border-slate-700 rounded text-right text-xs focus:ring-blue-500 font-mono" style="font-variant-numeric: tabular-nums" type="text" value="4,130,000₫"/></td><td class="px-4 py-4 text-right whitespace-nowrap"><div class="font-bold text-slate-100 whitespace-nowrap" style="font-variant-numeric: tabular-nums">₩620,000</div><span class="text-[9px] text-slate-400 bg-slate-800 px-1 rounded whitespace-nowrap">자동 제안</span></td></tr>
 <!-- Row 3 -->
-<tr class="hover:bg-slate-800/30 transition-colors">
-<td class="px-4 py-4">
-<span class="px-2 py-0.5 rounded bg-red-500/10 text-red-500 font-bold">극성수기</span>
-</td>
-<td class="px-4 py-4 text-right font-mono text-slate-300">5,000,000₫</td>
-<td class="px-4 py-4">
-<div class="flex items-center gap-1 justify-center">
-<input class="w-12 h-8 bg-slate-900 border-slate-700 rounded text-center text-xs focus:ring-blue-500" type="text" value="22">
-<select class="h-8 bg-slate-900 border-slate-700 rounded text-[10px] focus:ring-blue-500 px-1 py-0">
-<option>%</option>
-<option>정액</option>
-</select>
-</div>
-</td>
-<td class="px-4 py-4 text-right">
-<div class="font-bold text-slate-100">880,000원</div>
-</td>
-</tr>
+<tr class="hover:bg-slate-800/30 transition-colors"><td class="px-4 py-4"><span class="px-2 py-0.5 rounded bg-red-500/10 text-red-500 font-bold whitespace-nowrap">극성수기</span></td><td class="px-4 py-4 text-right font-mono text-slate-500 whitespace-nowrap" style="font-variant-numeric: tabular-nums">5,000,000₫</td><td class="px-4 py-4"><div class="flex items-center gap-1 justify-center"><input class="w-12 h-8 bg-slate-900 border-slate-700 rounded text-center text-xs focus:ring-blue-500" type="text" value="22"/><select class="h-8 bg-slate-900 border-slate-700 rounded text-[10px] focus:ring-blue-500 px-1 py-0"><option>%</option><option>Fix</option></select></div></td><td class="px-4 py-4 text-right"><input class="w-28 h-8 bg-slate-900 border-slate-700 rounded text-right text-xs focus:ring-blue-500 font-mono" style="font-variant-numeric: tabular-nums" type="text" value="6,100,000₫"/></td><td class="px-4 py-4 text-right whitespace-nowrap"><div class="font-bold text-slate-100 whitespace-nowrap" style="font-variant-numeric: tabular-nums">₩880,000</div><span class="text-[9px] text-slate-400 bg-slate-800 px-1 rounded whitespace-nowrap">자동 제안</span></td></tr>
 </tbody>
 </table>
 </div>
 <div class="p-4 bg-slate-900/30 border-t border-slate-800 flex justify-end">
-<button class="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold transition-all shadow-lg shadow-blue-900/20">저장</button>
+<button class="px-6 py-2 bg-[#3B82F6] hover:bg-blue-500 text-white rounded text-xs font-bold transition-all shadow-lg shadow-blue-900/20 whitespace-nowrap">저장</button>
 </div>
-</div>
+</div><div class="bg-surface rounded-xl p-6 border border-slate-800 shadow-xl"><div class="flex items-center gap-2 mb-5"><h3 class="text-lg font-bold flex items-center gap-2 whitespace-nowrap"><span class="material-symbols-outlined text-[#3B82F6]">inventory_2</span>비품 현황</h3><span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-500 text-[10px] font-bold whitespace-nowrap">읽기 전용</span></div><div class="grid grid-cols-2 gap-3 mb-4"><div class="p-3 rounded-lg bg-slate-900/30 border border-slate-800/50 flex items-center gap-3"><span class="material-symbols-outlined text-slate-400 text-lg">restaurant</span><span class="text-xs text-slate-300 font-medium whitespace-nowrap">주방용품 6종</span></div><div class="p-3 rounded-lg bg-slate-900/30 border border-slate-800/50 flex items-center gap-3"><span class="material-symbols-outlined text-slate-400 text-lg">soap</span><span class="text-xs text-slate-300 font-medium whitespace-nowrap">화장실용품 4종</span></div><div class="p-3 rounded-lg bg-slate-900/30 border border-slate-800/50 flex items-center gap-3"><span class="material-symbols-outlined text-slate-400 text-lg">devices</span><span class="text-xs text-slate-300 font-medium whitespace-nowrap">가전류 5종</span></div><div class="p-3 rounded-lg bg-slate-900/30 border border-slate-800/50 flex items-center gap-3"><span class="material-symbols-outlined text-slate-400 text-lg">liquor</span><span class="text-xs text-slate-300 font-medium whitespace-nowrap">미니바 4종</span></div></div><div class="p-3 bg-slate-900/50 rounded-lg border border-slate-800"><p class="text-[10px] text-slate-400 flex items-center gap-2"><span class="font-bold text-slate-500 uppercase tracking-tighter">Minibar:</span><span class="whitespace-nowrap">생수 4 · 음료 2 · 맥주 0 · 과자 3</span></p></div></div>
 <!-- iCal Integration Card -->
 <div class="bg-surface rounded-xl p-6 border border-slate-800 shadow-xl">
 <div class="flex items-center justify-between mb-5">
-<h3 class="text-lg font-bold flex items-center gap-2">
-<span class="material-symbols-outlined text-blue-500">sync</span>
+<h3 class="text-lg font-bold flex items-center gap-2 whitespace-nowrap">
+<span class="material-symbols-outlined text-[#3B82F6]">sync</span>
                             iCal 연동
                         </h3>
-<button class="text-xs font-bold text-blue-500 hover:text-blue-400 flex items-center gap-1">
+<button class="text-xs font-bold text-[#3B82F6] hover:text-blue-400 flex items-center gap-1 whitespace-nowrap">
 <span class="material-symbols-outlined text-sm">add_link</span>
                             URL 추가
                         </button>
 </div>
 <div class="space-y-3">
 <div class="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-slate-800">
-<div class="flex items-center gap-3">
-<div class="w-8 h-8 rounded bg-pink-500/10 flex items-center justify-center text-pink-500">
+<div class="flex items-center gap-3 overflow-hidden">
+<div class="w-8 h-8 rounded flex-shrink-0 bg-pink-500/10 flex items-center justify-center text-pink-500">
 <span class="material-symbols-outlined text-sm">home</span>
 </div>
-<div>
-<p class="text-xs font-bold">Airbnb</p>
+<div class="overflow-hidden">
+<p class="text-xs font-bold whitespace-nowrap">Airbnb</p>
 <p class="text-[10px] text-slate-500 truncate w-48">https://www.airbnb.com/calendar/ical/12345...</p>
 </div>
 </div>
-<div class="flex items-center gap-2">
+<div class="flex items-center gap-2 flex-shrink-0">
 <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
 <span class="material-symbols-outlined text-slate-500 text-sm cursor-pointer hover:text-red-400">delete</span>
 </div>
 </div>
 <div class="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-slate-800">
-<div class="flex items-center gap-3">
-<div class="w-8 h-8 rounded bg-blue-500/10 flex items-center justify-center text-blue-500">
+<div class="flex items-center gap-3 overflow-hidden">
+<div class="w-8 h-8 rounded flex-shrink-0 bg-blue-500/10 flex items-center justify-center text-[#3B82F6]">
 <span class="material-symbols-outlined text-sm">calendar_today</span>
 </div>
-<div>
-<p class="text-xs font-bold">Booking.com</p>
+<div class="overflow-hidden">
+<p class="text-xs font-bold whitespace-nowrap">Booking.com</p>
 <p class="text-[10px] text-slate-500 truncate w-48">https://admin.booking.com/ical/v1/export...</p>
 </div>
 </div>
-<div class="flex items-center gap-2">
+<div class="flex items-center gap-2 flex-shrink-0">
 <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
 <span class="material-symbols-outlined text-slate-500 text-sm cursor-pointer hover:text-red-400">delete</span>
 </div>
@@ -396,20 +339,20 @@
 </div>
 <div class="mt-4 p-3 bg-blue-500/5 rounded-lg border border-blue-500/20">
 <p class="text-[10px] text-slate-400 leading-relaxed">
-<span class="font-bold text-blue-400">안내:</span> iCal 연동 시 30분 간격으로 달력이 자동 업데이트됩니다. 실시간 반영이 필요한 경우 개별 채널에서 수동 동기화를 진행해주세요.
+<span class="font-bold text-[#3B82F6] whitespace-nowrap">안내:</span> iCal 연동 시 30분 간격으로 달력이 자동 업데이트됩니다. 실시간 반영이 필요한 경우 개별 채널에서 수동 동기화를 진행해주세요.
                         </p>
 </div>
 </div>
-<!-- Action Log (Density focused) -->
+<!-- Action Log -->
 <div class="bg-surface/50 rounded-xl p-4 border border-slate-800/50">
-<p class="text-[10px] font-bold text-slate-500 mb-3 uppercase tracking-widest">수정 이력</p>
+<p class="text-[10px] font-bold text-slate-500 mb-3 uppercase tracking-widest whitespace-nowrap">수정 이력</p>
 <div class="space-y-2">
 <div class="flex items-center justify-between text-[10px]">
-<span class="text-slate-400 italic">2026.06.09 14:22</span>
+<span class="text-slate-400 italic whitespace-nowrap">2026.10.24 14:22</span>
 <span class="text-slate-200">Nguyễn Văn An: 이미지 12장 추가</span>
 </div>
 <div class="flex items-center justify-between text-[10px]">
-<span class="text-slate-400 italic">2026.06.07 09:15</span>
+<span class="text-slate-400 italic whitespace-nowrap">2026.10.22 09:15</span>
 <span class="text-slate-200">System: iCal (Airbnb) 연동 완료</span>
 </div>
 </div>

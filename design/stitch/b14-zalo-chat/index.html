@@ -1,0 +1,271 @@
+<!DOCTYPE html><html class="dark" lang="ko"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Villa PMS - 메시지</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        slate: { 800: '#1e293b', 900: '#0f172a' },
+                        blue: { 500: '#3b82f6', 600: '#2563eb' }
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                    fontFamily: {
+                        headline: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        display: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        body: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        label: ["Public Sans", "Noto Sans KR", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { background-color: #0f172a; color: #f8fafc; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+
+        /* DESIGN 공통 규칙 (2026-06-11): 한글 폰트 폴백 + 한국어 단어 낙하 방지 */
+        body { font-family: "Public Sans", "Noto Sans KR", sans-serif; word-break: keep-all; }
+        th, button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
+    </style>
+</head>
+<body class="font-body selection:bg-blue-500/30">
+<!-- SideNavBar : 표준 9메뉴 (메시지 추가, ADR-0003) -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-slate-900 border-r border-slate-800 shadow-xl flex flex-col p-4 gap-2 z-50">
+<div class="mb-6 px-2 flex flex-col gap-1">
+<span class="text-xl font-headline font-black text-white">Villa PMS</span>
+<span class="text-xs text-slate-500 uppercase tracking-widest font-bold">Villa PMS Admin</span>
+</div>
+<nav class="flex flex-col gap-1 flex-1">
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out font-medium text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>대시보드</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out font-medium text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_month">calendar_month</span>
+<span>예약</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out font-medium text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="pending_actions">pending_actions</span>
+<span>제안</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out font-medium text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="villa">villa</span>
+<span>빌라</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out font-medium text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="cleaning_services">cleaning_services</span>
+<span>청소 검수</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out font-medium text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span>정산</span>
+</a>
+<!-- Active State: 메시지 -->
+<a class="flex items-center justify-between px-3 py-2 bg-blue-600 text-white rounded-lg transition-colors duration-200 ease-in-out font-medium text-sm active:scale-95" href="#">
+<span class="flex items-center gap-3">
+<span class="material-symbols-outlined" data-icon="chat" style="font-variation-settings: 'FILL' 1;">chat</span>
+<span>메시지</span>
+</span>
+<span class="bg-white text-blue-600 text-[10px] font-black px-1.5 py-0.5 rounded-full">3</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out font-medium text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span>사용자</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out font-medium text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span>설정</span>
+</a>
+</nav>
+<div class="mt-auto pt-4 border-t border-slate-800">
+<div class="flex items-center gap-3 px-2">
+<div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-300">관</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">관리자</span>
+<span class="text-[10px] text-slate-500">최고 관리자</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main : 2-pane Messenger -->
+<main class="ml-64 h-screen flex">
+<!-- LEFT : 공급자 인박스 -->
+<section class="w-[320px] shrink-0 border-r border-slate-800 bg-slate-900 flex flex-col">
+<div class="px-5 pt-6 pb-4 border-b border-slate-800">
+<h1 class="text-xl font-bold text-white tracking-tight mb-4">메시지</h1>
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-500 text-sm">search</span>
+<input class="w-full bg-slate-800/60 border-slate-700 text-sm rounded-lg pl-9 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-200 placeholder:text-slate-500" placeholder="공급자 검색" type="text">
+</div>
+</div>
+<div class="flex-1 overflow-y-auto custom-scrollbar">
+<!-- 대화 1 : 선택됨 -->
+<a class="flex items-start gap-3 px-5 py-4 bg-slate-800 border-l-2 border-blue-500 cursor-pointer" href="#">
+<div class="w-10 h-10 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold text-xs shrink-0">NA</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between mb-0.5">
+<span class="text-sm font-bold text-white">응우옌 반 안</span>
+<span class="text-[10px] text-slate-500 tabular-nums shrink-0">14:32</span>
+</div>
+<p class="text-xs text-slate-400 truncate">Khách đã trả phòng, villa cần dọn dẹp.</p>
+</div>
+</a>
+<!-- 대화 2 : 미읽음 2 -->
+<a class="flex items-start gap-3 px-5 py-4 hover:bg-slate-800/60 transition-colors cursor-pointer" href="#">
+<div class="w-10 h-10 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold text-xs shrink-0">TM</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between mb-0.5">
+<span class="text-sm font-bold text-white">쩐 티 마이</span>
+<span class="text-[10px] text-slate-500 tabular-nums shrink-0">11:05</span>
+</div>
+<div class="flex items-center justify-between gap-2">
+<p class="text-xs text-slate-300 truncate font-medium">Lịch tháng 7 đã cập nhật xong rồi.</p>
+<span class="bg-blue-600 text-white text-[10px] font-black w-4.5 h-4.5 min-w-[18px] px-1 py-0.5 rounded-full text-center shrink-0">2</span>
+</div>
+</div>
+</a>
+<!-- 대화 3 : 48시간 경과 -->
+<a class="flex items-start gap-3 px-5 py-4 hover:bg-slate-800/60 transition-colors cursor-pointer" href="#">
+<div class="w-10 h-10 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold text-xs shrink-0">LH</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between mb-0.5">
+<span class="text-sm font-bold text-white">레 반 흥</span>
+<span class="text-[10px] text-slate-500 shrink-0">어제</span>
+</div>
+<div class="flex items-center justify-between gap-2">
+<p class="text-xs text-slate-400 truncate">Cảm ơn anh đã xác nhận thanh toán.</p>
+<span class="bg-slate-700/80 text-slate-400 text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0">48시간 경과</span>
+</div>
+</div>
+</a>
+<!-- 대화 4 : 미읽음 1 -->
+<a class="flex items-start gap-3 px-5 py-4 hover:bg-slate-800/60 transition-colors cursor-pointer" href="#">
+<div class="w-10 h-10 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold text-xs shrink-0">PT</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between mb-0.5">
+<span class="text-sm font-bold text-white">팜 반 뚜언</span>
+<span class="text-[10px] text-slate-500 shrink-0">어제</span>
+</div>
+<div class="flex items-center justify-between gap-2">
+<p class="text-xs text-slate-300 truncate font-medium">Villa mới đã đăng ký xong, nhờ anh duyệt.</p>
+<span class="bg-blue-600 text-white text-[10px] font-black min-w-[18px] px-1 py-0.5 rounded-full text-center shrink-0">1</span>
+</div>
+</div>
+</a>
+</div>
+</section>
+<!-- RIGHT : 대화창 -->
+<section class="flex-1 flex flex-col bg-[#0F172A] min-w-0">
+<!-- 대화 헤더 -->
+<header class="h-16 shrink-0 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md flex items-center justify-between px-6">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold text-xs">NA</div>
+<div class="flex items-center gap-2">
+<span class="text-sm font-bold text-white">응우옌 반 안</span>
+<span class="flex items-center gap-1 px-2 py-0.5 rounded bg-green-500/10 border border-green-500/20 text-green-500 text-[10px] font-bold">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Zalo 연결됨</span>
+<span class="px-2 py-0.5 rounded border border-slate-700 bg-slate-800/50 text-slate-300 text-[10px] font-medium">쏘나씨 V11</span>
+</div>
+</div>
+<button class="text-slate-400 hover:bg-slate-800 rounded-full p-2 transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</header>
+<!-- 메시지 스레드 -->
+<div class="flex-1 overflow-y-auto custom-scrollbar px-6 py-6 space-y-5">
+<div class="text-center"><span class="text-[10px] text-slate-600 bg-slate-800/50 px-3 py-1 rounded-full">2026.07.02</span></div>
+<!-- 수신 : vi 원문 + ko 번역 병기 -->
+<div class="flex items-end gap-2 max-w-[70%]">
+<div class="w-7 h-7 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold text-[10px] shrink-0">NA</div>
+<div>
+<div class="bg-slate-800 rounded-xl rounded-bl-sm px-4 py-3">
+<p class="text-sm text-slate-100">Khách đã trả phòng, villa cần dọn dẹp.</p>
+<div class="border-t border-slate-700 mt-2 pt-2 flex items-start justify-between gap-3">
+<p class="text-sm text-slate-300 flex-1">손님이 체크아웃했습니다. 빌라 청소가 필요합니다.<span class="text-[9px] text-slate-500 font-bold ml-1.5 align-middle">번역</span></p>
+<button class="text-slate-500 hover:text-slate-300 transition-colors shrink-0" title="번역 숨기기">
+<span class="material-symbols-outlined text-[16px]">visibility_off</span>
+</button>
+</div>
+</div>
+<span class="text-[10px] text-slate-600 tabular-nums mt-1 inline-block">10:12</span>
+</div>
+</div>
+<!-- 발신 : ko -->
+<div class="flex justify-end">
+<div class="max-w-[70%] text-right">
+<div class="bg-blue-600 rounded-xl rounded-br-sm px-4 py-3 inline-block text-left">
+<p class="text-sm text-white">확인했습니다. 청소팀 배정하겠습니다.</p>
+</div>
+<div class="text-[10px] text-slate-600 tabular-nums mt-1">10:15 · 전송됨</div>
+</div>
+</div>
+<!-- 발신 : 시스템 알림 미러 -->
+<div class="flex justify-end">
+<div class="max-w-[70%] text-right">
+<div class="border border-slate-700 bg-slate-800/40 rounded-xl px-4 py-3 inline-block text-left">
+<span class="inline-block bg-slate-700/80 text-slate-400 text-[9px] font-bold px-1.5 py-0.5 rounded mb-1.5">시스템 알림</span>
+<p class="text-sm text-slate-300">청소 요청이 전송되었습니다 · 쏘나씨 V11</p>
+</div>
+<div class="text-[10px] text-slate-600 tabular-nums mt-1">10:16 · 자동 발송</div>
+</div>
+</div>
+<!-- 수신 2 -->
+<div class="flex items-end gap-2 max-w-[70%]">
+<div class="w-7 h-7 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold text-[10px] shrink-0">NA</div>
+<div>
+<div class="bg-slate-800 rounded-xl rounded-bl-sm px-4 py-3">
+<p class="text-sm text-slate-100">Dạ được, đội dọn dẹp sẽ đến lúc 2 giờ chiều.</p>
+<div class="border-t border-slate-700 mt-2 pt-2 flex items-start justify-between gap-3">
+<p class="text-sm text-slate-300 flex-1">네, 청소팀이 오후 2시에 도착할 예정입니다.<span class="text-[9px] text-slate-500 font-bold ml-1.5 align-middle">번역</span></p>
+<button class="text-slate-500 hover:text-slate-300 transition-colors shrink-0" title="번역 숨기기">
+<span class="material-symbols-outlined text-[16px]">visibility_off</span>
+</button>
+</div>
+</div>
+<span class="text-[10px] text-slate-600 tabular-nums mt-1 inline-block">14:32</span>
+</div>
+</div>
+</div>
+<!-- 활성 입력창 : ko 입력 + vi 미리보기 -->
+<footer class="shrink-0 border-t border-slate-800 bg-slate-900 px-6 py-4">
+<div class="bg-slate-800/60 border border-slate-700 rounded-xl overflow-hidden focus-within:border-blue-500 transition-colors">
+<div class="flex items-center gap-3 px-4 pt-3">
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-sm text-slate-100 placeholder:text-slate-500 p-0" placeholder="메시지 입력 (한국어)" type="text" value="내일 오전까지 청소 완료 부탁드립니다">
+<button class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors active:scale-95 shrink-0">
+<span class="material-symbols-outlined text-sm">send</span>전송</button>
+</div>
+<div class="flex items-center gap-2 px-4 py-2.5 mt-2 bg-slate-900/60 border-t border-slate-800">
+<span class="text-[10px] font-bold text-teal-400 shrink-0 uppercase tracking-wider">베트남어 미리보기</span>
+<p class="text-xs text-slate-400 flex-1 truncate">Vui lòng hoàn tất dọn dẹp trước sáng mai.</p>
+<button class="text-slate-500 hover:text-slate-300 transition-colors" title="다시 번역">
+<span class="material-symbols-outlined text-[16px]">refresh</span>
+</button>
+</div>
+</div>
+<!-- 디자인 참고 : 48시간 경과 상태 (변환 시 단일 상태로 렌더) -->
+<div class="border-t border-dashed border-slate-700 mt-5 pt-4">
+<p class="text-[10px] text-slate-600 font-bold uppercase tracking-wider mb-3">디자인 참고 — 48시간 경과 상태</p>
+<div class="flex items-center gap-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-2.5 mb-3">
+<span class="material-symbols-outlined text-amber-500 text-[18px]">schedule</span>
+<p class="text-xs text-amber-200 font-medium">마지막 수신 후 48시간이 지나 응답할 수 없습니다. 시스템 알림은 정상 발송됩니다.</p>
+</div>
+<div class="bg-slate-800/30 border border-slate-800 rounded-xl flex items-center gap-3 px-4 py-3 opacity-60">
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-sm text-slate-600 placeholder:text-slate-600 p-0" disabled placeholder="공급자 응답 대기 중" type="text">
+<button class="bg-slate-700 text-slate-500 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 cursor-not-allowed shrink-0" disabled>
+<span class="material-symbols-outlined text-sm">send</span>전송</button>
+</div>
+</div>
+</footer>
+</section>
+</main>
+</body></html>

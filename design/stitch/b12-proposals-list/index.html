@@ -1,12 +1,12 @@
-<!DOCTYPE html><html class="dark" lang="ko"><head>
-<meta charset="utf-8">
-<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<!DOCTYPE html>
+
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>제안 관리 - Villa PMS</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&amp;family=Noto+Sans+KR:wght@300;400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
       tailwind.config = {
         darkMode: "class",
@@ -43,8 +43,9 @@
         body {
             background-color: #0F172A;
             color: #F8FAFC;
-            font-family: 'Public Sans', sans-serif;
+            font-family: 'Public Sans', 'Noto Sans KR', sans-serif;
             overflow-x: hidden;
+            word-break: keep-all;
         }
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
@@ -69,83 +70,81 @@
             background: rgba(30, 41, 59, 0.7);
             backdrop-filter: blur(8px);
         }
-    
-        /* DESIGN 공통 규칙 (2026-06-11): 한글 폰트 폴백 + 한국어 단어 낙하 방지 */
-        body { font-family: "Public Sans", "Noto Sans KR", sans-serif; word-break: keep-all; }
-        th, button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
+        .nowrap {
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body class="flex">
-<!-- SideNavBar (JSON Derived) -->
-<aside class="h-screen w-64 fixed left-0 top-0 bg-[#0F172A] dark:bg-[#0F172A] border-r border-[#1E293B] flex flex-col h-full py-6 z-50">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#0F172A] border-r border-[#1E293B] flex flex-col py-6 z-50">
 <div class="px-6 mb-8">
-<h1 class="text-xl font-headline font-bold text-white tracking-tight">Villa PMS</h1>
-<p class="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Villa PMS Admin</p>
+<h1 class="text-xl font-headline font-bold text-white tracking-tight nowrap">Villa PMS</h1>
+<p class="text-[10px] text-slate-500 mt-1 uppercase tracking-widest font-semibold nowrap">Villa PMS Admin</p>
 </div>
 <nav class="flex-1 px-3 space-y-1">
-<!-- Navigation Items Mapping from JSON -->
 <div class="space-y-1">
 <!-- Dashboard -->
 <div class="flex items-center gap-3 px-3 py-2 text-[#94A3B8] hover:text-white hover:bg-[#1E293B] transition-colors duration-200 font-body text-sm font-medium cursor-pointer active:opacity-80 rounded-md group">
 <span class="material-symbols-outlined">dashboard</span>
-<span>대시보드</span>
+<span class="nowrap">대시보드</span>
 </div>
 <!-- 예약 -->
 <div class="flex items-center gap-3 px-3 py-2 text-[#94A3B8] hover:text-white hover:bg-[#1E293B] transition-colors duration-200 font-body text-sm font-medium cursor-pointer active:opacity-80 rounded-md group">
 <span class="material-symbols-outlined">calendar_month</span>
-<span>예약</span>
+<span class="nowrap">예약</span>
 </div>
 <!-- 제안 (ACTIVE) -->
 <div class="flex items-center gap-3 px-3 py-2 bg-[#1E293B] text-[#3B82F6] border-r-4 border-[#3B82F6] font-body text-sm font-medium cursor-pointer active:opacity-80 group">
 <span class="material-symbols-outlined">description</span>
-<span>제안</span>
+<span class="nowrap">제안</span>
 </div>
 <!-- 빌라 -->
 <div class="flex items-center gap-3 px-3 py-2 text-[#94A3B8] hover:text-white hover:bg-[#1E293B] transition-colors duration-200 font-body text-sm font-medium cursor-pointer active:opacity-80 rounded-md group">
 <span class="material-symbols-outlined">apartment</span>
-<span>빌라</span>
+<span class="nowrap">빌라</span>
 </div>
 <!-- 청소 검수 -->
 <div class="flex items-center gap-3 px-3 py-2 text-[#94A3B8] hover:text-white hover:bg-[#1E293B] transition-colors duration-200 font-body text-sm font-medium cursor-pointer active:opacity-80 rounded-md group">
 <span class="material-symbols-outlined">checklist</span>
-<span>청소 검수</span>
+<span class="nowrap">청소 검수</span>
 </div>
 <!-- 정산 -->
 <div class="flex items-center gap-3 px-3 py-2 text-[#94A3B8] hover:text-white hover:bg-[#1E293B] transition-colors duration-200 font-body text-sm font-medium cursor-pointer active:opacity-80 rounded-md group">
 <span class="material-symbols-outlined">payments</span>
-<span>정산</span>
+<span class="nowrap">정산</span>
 </div>
 <!-- 사용자 -->
 <div class="flex items-center gap-3 px-3 py-2 text-[#94A3B8] hover:text-white hover:bg-[#1E293B] transition-colors duration-200 font-body text-sm font-medium cursor-pointer active:opacity-80 rounded-md group">
 <span class="material-symbols-outlined">person</span>
-<span>사용자</span>
+<span class="nowrap">사용자</span>
 </div>
 <!-- 설정 -->
 <div class="flex items-center gap-3 px-3 py-2 text-[#94A3B8] hover:text-white hover:bg-[#1E293B] transition-colors duration-200 font-body text-sm font-medium cursor-pointer active:opacity-80 rounded-md group">
 <span class="material-symbols-outlined">settings</span>
-<span>설정</span>
+<span class="nowrap">설정</span>
 </div>
 </div>
 </nav>
 <div class="mt-auto px-6 pt-6 border-t border-[#1E293B] flex items-center gap-3">
 <div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center overflow-hidden border border-slate-700">
-<img alt="Admin User Avatar" class="w-full h-full object-cover" data-alt="A professional headshot of a middle-aged male operations manager with a confident and friendly expression. He is wearing a minimalist dark navy business suit against a soft-focus office background. The lighting is crisp and modern, reflecting a high-end corporate aesthetic with a professional color palette of deep blues and cool grays." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAaZVshpkrIpjz1jIFSNm6C0z_My4TSlfXUKR7zhzXIkQXmfZ93-eKVknzu25FgZGCkgCSHDNfN9W8SmX-jBPKUWQnDkOXy2tq-Eo7zD7qfjHMu1rpowz_3Ofi2o_Vj0Y2Ps7kw49xPbwIbor1edWpfWdgnjHMSMfABT9nCYQ-xT097mY5rWDUjuTbPn5KxHJj7ueuZGOU9da7YzjRyPW9xGJrMb3M4TVt034EymhJ2ofg0FVkH2OY-wCZzMA41xTBBkkxUx_Tz_1GB">
+<img alt="관리자 프로필" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAaZVshpkrIpjz1jIFSNm6C0z_My4TSlfXUKR7zhzXIkQXmfZ93-eKVknzu25FgZGCkgCSHDNfN9W8SmX-jBPKUWQnDkOXy2tq-Eo7zD7qfjHMu1rpowz_3Ofi2o_Vj0Y2Ps7kw49xPbwIbor1edWpfWdgnjHMSMfABT9nCYQ-xT097mY5rWDUjuTbPn5KxHJj7ueuZGOU9da7YzjRyPW9xGJrMb3M4TVt034EymhJ2ofg0FVkH2OY-wCZzMA41xTBBkkxUx_Tz_1GB"/>
 </div>
 <div class="flex-1 min-w-0">
-<p class="text-sm font-semibold text-white truncate">관리자</p>
-<p class="text-xs text-[#94A3B8] truncate">admin@villapms.io</p>
+<p class="text-sm font-semibold text-white truncate nowrap">관리자</p>
+<p class="text-[11px] text-[#94A3B8] truncate nowrap">최고 관리자</p>
 </div>
 </div>
 </aside>
 <!-- Main Content Wrapper -->
 <main class="flex-1 ml-64 min-h-screen flex flex-col">
-<!-- TopNavBar (JSON Derived) -->
-<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 bg-[#0F172A]/80 dark:bg-[#0F172A]/80 backdrop-blur-md border-b border-[#1E293B] flex items-center justify-between px-8 z-40">
+<!-- TopNavBar -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 bg-[#0F172A]/80 backdrop-blur-md border-b border-[#1E293B] flex items-center justify-between px-8 z-40">
 <div class="flex items-center gap-4 flex-1">
-<h2 class="text-lg font-bold text-white">제안 관리</h2>
+<h2 class="text-lg font-bold text-white nowrap">제안 관리</h2>
 <div class="relative w-full max-w-md ml-8 group">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8] group-focus-within:text-[#3B82F6] transition-colors">search</span>
-<input class="w-full bg-[#1E293B]/50 border-none rounded-md pl-10 pr-4 py-2 text-sm text-white placeholder-[#64748B] focus:ring-1 focus:ring-[#3B82F6] transition-all" placeholder="고객명, 여행사명으로 검색" type="text">
+<input class="w-full bg-[#1E293B]/50 border-none rounded-md pl-10 pr-4 py-2 text-sm text-white placeholder-[#64748B] focus:ring-1 focus:ring-[#3B82F6] transition-all" placeholder="고객명, 여행사명으로 검색" type="text"/>
 </div>
 </div>
 <div class="flex items-center gap-6">
@@ -160,8 +159,8 @@
 </div>
 <div class="h-8 w-[1px] bg-[#1E293B]"></div>
 <div class="flex items-center gap-3">
-<span class="text-sm font-medium text-white">관리자</span>
-<div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-bold text-white shadow-lg">M</div>
+<span class="text-sm font-medium text-white nowrap">관리자</span>
+<div class="w-8 h-8 rounded-full bg-[#3B82F6] flex items-center justify-center text-xs font-bold text-white shadow-lg">M</div>
 </div>
 </div>
 </header>
@@ -169,32 +168,32 @@
 <div class="pt-24 px-8 pb-12">
 <!-- Filter Tabs -->
 <div class="flex items-center gap-8 border-b border-[#1E293B] mb-8">
-<button class="pb-3 border-b-2 border-[#3B82F6] text-[#3B82F6] text-sm font-semibold flex items-center gap-2">
-                    전체 <span class="px-1.5 py-0.5 rounded-full bg-[#3B82F6]/10 text-[10px]">11</span>
+<button class="pb-3 border-b-2 border-[#3B82F6] text-[#3B82F6] text-sm font-semibold flex items-center gap-2 nowrap">
+                    전체 <span class="px-1.5 py-0.5 rounded-full bg-[#3B82F6]/10 text-[10px] nowrap">11</span>
 </button>
-<button class="pb-3 border-b-2 border-transparent text-[#94A3B8] hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
-                    활성 <span class="px-1.5 py-0.5 rounded-full bg-slate-800 text-[10px]">3</span>
+<button class="pb-3 border-b-2 border-transparent text-[#94A3B8] hover:text-white transition-colors text-sm font-medium flex items-center gap-2 nowrap">
+                    활성 <span class="px-1.5 py-0.5 rounded-full bg-slate-800 text-[10px] nowrap">3</span>
 </button>
-<button class="pb-3 border-b-2 border-transparent text-[#94A3B8] hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
-                    사용됨 <span class="px-1.5 py-0.5 rounded-full bg-slate-800 text-[10px]">2</span>
+<button class="pb-3 border-b-2 border-transparent text-[#94A3B8] hover:text-white transition-colors text-sm font-medium flex items-center gap-2 nowrap">
+                    사용됨 <span class="px-1.5 py-0.5 rounded-full bg-slate-800 text-[10px] nowrap">2</span>
 </button>
-<button class="pb-3 border-b-2 border-transparent text-[#94A3B8] hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
-                    만료 <span class="px-1.5 py-0.5 rounded-full bg-slate-800 text-[10px]">5</span>
+<button class="pb-3 border-b-2 border-transparent text-[#94A3B8] hover:text-white transition-colors text-sm font-medium flex items-center gap-2 nowrap">
+                    만료 <span class="px-1.5 py-0.5 rounded-full bg-slate-800 text-[10px] nowrap">5</span>
 </button>
-<button class="pb-3 border-b-2 border-transparent text-[#94A3B8] hover:text-white transition-colors text-sm font-medium flex items-center gap-2">
-                    회수 <span class="px-1.5 py-0.5 rounded-full bg-slate-800 text-[10px]">1</span>
+<button class="pb-3 border-b-2 border-transparent text-[#94A3B8] hover:text-white transition-colors text-sm font-medium flex items-center gap-2 nowrap">
+                    회수 <span class="px-1.5 py-0.5 rounded-full bg-slate-800 text-[10px] nowrap">1</span>
 </button>
 </div>
 <!-- Action Bar -->
 <div class="flex justify-between items-center mb-6">
 <div class="flex items-center gap-3">
-<button class="flex items-center gap-2 px-3 py-1.5 bg-[#1E293B] text-white text-xs font-medium rounded border border-slate-700 hover:bg-slate-700 transition-colors">
+<button class="flex items-center gap-2 px-3 py-1.5 bg-[#1E293B] text-white text-xs font-medium rounded border border-slate-700 hover:bg-slate-700 transition-colors nowrap">
 <span class="material-symbols-outlined text-sm">filter_list</span>
                         필터 상세
                     </button>
-<span class="text-xs text-[#64748B]">최근 30일 데이터 기준</span>
+<span class="text-xs text-[#64748B] nowrap">최근 30일 데이터 기준</span>
 </div>
-<button class="flex items-center gap-2 px-4 py-2 bg-[#3B82F6] text-white text-sm font-bold rounded shadow-lg shadow-blue-900/20 hover:bg-blue-600 transition-all active:scale-[0.98]">
+<button class="flex items-center gap-2 px-4 py-2 bg-[#3B82F6] text-white text-sm font-bold rounded shadow-lg shadow-blue-900/20 hover:bg-blue-600 transition-all active:scale-[0.98] nowrap">
 <span class="material-symbols-outlined text-sm">add</span>
                     제안 만들기
                 </button>
@@ -204,77 +203,77 @@
 <table class="w-full text-left border-collapse">
 <thead>
 <tr class="bg-[#1E293B]/60 text-[#94A3B8] text-[11px] uppercase tracking-wider">
-<th class="px-6 py-4 font-semibold">고객/여행사명</th>
-<th class="px-6 py-4 font-semibold">포함 빌라</th>
-<th class="px-6 py-4 font-semibold">날짜</th>
-<th class="px-6 py-4 font-semibold">채널</th>
-<th class="px-6 py-4 font-semibold">생성일</th>
-<th class="px-6 py-4 font-semibold">만료까지</th>
-<th class="px-6 py-4 font-semibold">상태</th>
-<th class="px-6 py-4 font-semibold text-right">관리</th>
+<th class="px-6 py-4 font-semibold nowrap">고객/여행사명</th>
+<th class="px-6 py-4 font-semibold nowrap">포함 빌라</th>
+<th class="px-6 py-4 font-semibold nowrap">날짜</th>
+<th class="px-6 py-4 font-semibold nowrap">채널</th>
+<th class="px-6 py-4 font-semibold nowrap">생성일</th>
+<th class="px-6 py-4 font-semibold nowrap">만료까지</th>
+<th class="px-6 py-4 font-semibold text-right nowrap">금액</th><th class="px-6 py-4 font-semibold nowrap">상태</th>
+<th class="px-6 py-4 font-semibold text-right nowrap">관리</th>
 </tr>
 </thead>
 <tbody class="divide-y divide-[#1E293B]">
 <!-- Row 1: Active -->
 <tr class="hover:bg-[#1E293B]/80 transition-colors group">
 <td class="px-6 py-4">
-<div class="font-medium text-white text-sm">하나투어 (김민수)</div>
-<div class="text-[11px] text-[#64748B] truncate max-w-[170px]">hanatour_v123@travel.com</div>
+<div class="font-medium text-white text-sm nowrap">하나투어 (김민수)</div>
+<div class="text-[11px] text-[#64748B] truncate max-w-[180px]">hanatour_v123@travel.com</div>
 </td>
 <td class="px-6 py-4">
 <div class="flex flex-wrap gap-1.5">
-<span class="px-2 py-0.5 bg-slate-800 text-[#94A3B8] text-[10px] rounded border border-slate-700">쏘나씨 V12</span>
-<span class="px-2 py-0.5 bg-slate-800 text-[#94A3B8] text-[10px] rounded border border-slate-700">선셋 빌라 A3</span>
+<span class="px-2 py-0.5 bg-slate-800 text-[#94A3B8] text-[10px] rounded border border-slate-700 nowrap">쏘나씨 V12</span>
+<span class="px-2 py-0.5 bg-slate-800 text-[#94A3B8] text-[10px] rounded border border-slate-700 nowrap">선셋 빌라 A3</span>
 </div>
 </td>
-<td class="px-6 py-4 text-sm text-[#CBD5E1] tabular-nums">2026.07.15 ~ 07.18</td>
+<td class="px-6 py-4 text-sm text-[#CBD5E1] tabular-nums nowrap">2026.07.15 ~ 07.18</td>
 <td class="px-6 py-4">
-<span class="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 text-[10px] font-bold rounded uppercase">여행사</span>
+<span class="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 text-[10px] font-bold rounded uppercase nowrap">여행사</span>
 </td>
-<td class="px-6 py-4 text-sm text-[#64748B] tabular-nums">2026.07.12</td>
+<td class="px-6 py-4 text-sm text-[#64748B] tabular-nums nowrap">2026.07.12</td>
 <td class="px-6 py-4">
-<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded nowrap">
 <span class="material-symbols-outlined text-[12px]">schedule</span>
                                     31시간 남음
                                 </span>
 </td>
-<td class="px-6 py-4">
-<span class="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-bold rounded">활성</span>
+<td class="px-6 py-4 text-right tabular-nums text-sm text-[#CBD5E1] nowrap">12,800,000₫</td><td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-bold rounded nowrap">활성</span>
 </td>
 <td class="px-6 py-4 text-right">
 <div class="flex items-center justify-end gap-3">
-<button class="p-1.5 text-[#94A3B8] hover:text-white hover:bg-slate-700 rounded transition-all" title="링크 복사">
+<button class="p-1.5 text-[#94A3B8] hover:text-white hover:bg-slate-700 rounded transition-all nowrap" title="링크 복사">
 <span class="material-symbols-outlined text-[18px]">content_copy</span>
 </button>
-<button class="text-xs font-semibold text-red-400 hover:text-red-300 transition-colors">회수</button>
+<button class="text-xs font-semibold text-red-400 hover:text-red-300 transition-colors nowrap">회수</button>
 </div>
 </td>
 </tr>
 <!-- Row 2: Used -->
 <tr class="hover:bg-[#1E293B]/80 transition-colors group">
 <td class="px-6 py-4">
-<div class="font-medium text-white text-sm">모두투어 (이영희)</div>
-<div class="text-[11px] text-[#64748B] truncate max-w-[170px]">modutour_ops@travel.com</div>
+<div class="font-medium text-white text-sm nowrap">모두투어 (이영희)</div>
+<div class="text-[11px] text-[#64748B] truncate max-w-[180px]">modutour_ops@travel.com</div>
 </td>
 <td class="px-6 py-4">
 <div class="flex flex-wrap gap-1.5">
-<span class="px-2 py-0.5 bg-slate-800 text-[#94A3B8] text-[10px] rounded border border-slate-700">쏘나씨 V11</span>
+<span class="px-2 py-0.5 bg-slate-800 text-[#94A3B8] text-[10px] rounded border border-slate-700 nowrap">쏘나씨 V11</span>
 </div>
 </td>
-<td class="px-6 py-4 text-sm text-[#CBD5E1] tabular-nums">2026.07.20 ~ 07.22</td>
+<td class="px-6 py-4 text-sm text-[#CBD5E1] tabular-nums nowrap">2026.07.20 ~ 07.22</td>
 <td class="px-6 py-4">
-<span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded uppercase">랜드사</span>
+<span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded uppercase nowrap">랜드사</span>
 </td>
-<td class="px-6 py-4 text-sm text-[#64748B] tabular-nums">2026.07.10</td>
+<td class="px-6 py-4 text-sm text-[#64748B] tabular-nums nowrap">2026.07.10</td>
 <td class="px-6 py-4">
-<span class="text-[11px] text-[#475569] font-medium">-</span>
+<span class="text-[11px] text-[#475569] font-medium nowrap">-</span>
 </td>
-<td class="px-6 py-4">
-<span class="px-2 py-0.5 bg-green-500/10 text-green-500 text-[10px] font-bold rounded">사용됨</span>
+<td class="px-6 py-4 text-right tabular-nums text-sm text-[#CBD5E1] nowrap">15,450,000₫</td><td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-green-500/10 text-green-500 text-[10px] font-bold rounded nowrap">사용됨</span>
 </td>
 <td class="px-6 py-4 text-right">
 <div class="flex items-center justify-end">
-<button class="p-1.5 text-[#94A3B8] hover:text-white hover:bg-slate-700 rounded transition-all">
+<button class="p-1.5 text-[#94A3B8] hover:text-white hover:bg-slate-700 rounded transition-all nowrap">
 <span class="material-symbols-outlined text-[18px]">visibility</span>
 </button>
 </div>
@@ -283,124 +282,124 @@
 <!-- Row 3: Expired -->
 <tr class="hover:bg-[#1E293B]/80 transition-colors group opacity-60">
 <td class="px-6 py-4">
-<div class="font-medium text-white text-sm">노랑풍선 (박준서)</div>
-<div class="text-[11px] text-[#64748B] truncate max-w-[170px]">yellowballoon_sales@agency.kr</div>
+<div class="font-medium text-white text-sm nowrap">노랑풍선 (박준서)</div>
+<div class="text-[11px] text-[#64748B] truncate max-w-[180px]">yellowballoon_sales@agency.kr</div>
 </td>
 <td class="px-6 py-4">
 <div class="flex flex-wrap gap-1.5">
-<span class="px-2 py-0.5 bg-slate-800 text-[#94A3B8] text-[10px] rounded border border-slate-700">선셋 빌라 A3</span>
-<span class="px-2 py-0.5 bg-slate-800 text-[#94A3B8] text-[10px] rounded border border-slate-700">쏘나씨 V12</span>
+<span class="px-2 py-0.5 bg-slate-800 text-[#94A3B8] text-[10px] rounded border border-slate-700 nowrap">선셋 빌라 A3</span>
+<span class="px-2 py-0.5 bg-slate-800 text-[#94A3B8] text-[10px] rounded border border-slate-700 nowrap">쏘나씨 V12</span>
 </div>
 </td>
-<td class="px-6 py-4 text-sm text-[#64748B] tabular-nums line-through">2026.07.01 ~ 07.03</td>
+<td class="px-6 py-4 text-sm text-[#64748B] tabular-nums line-through nowrap">2026.07.01 ~ 07.03</td>
 <td class="px-6 py-4">
-<span class="px-2 py-0.5 bg-slate-700 text-slate-400 text-[10px] font-bold rounded uppercase">여행사</span>
+<span class="px-2 py-0.5 bg-slate-700 text-slate-400 text-[10px] font-bold rounded uppercase nowrap">여행사</span>
 </td>
-<td class="px-6 py-4 text-sm text-[#64748B] tabular-nums">2026.06.28</td>
+<td class="px-6 py-4 text-sm text-[#64748B] tabular-nums nowrap">2026.06.28</td>
 <td class="px-6 py-4">
-<span class="text-[11px] text-[#475569] font-medium">만료됨</span>
+<span class="text-[11px] text-[#475569] font-medium nowrap">만료됨</span>
 </td>
-<td class="px-6 py-4">
-<span class="px-2 py-0.5 bg-slate-700/50 text-[#94A3B8] text-[10px] font-bold rounded">만료</span>
+<td class="px-6 py-4 text-right tabular-nums text-sm text-[#64748B] nowrap">9,200,000₫</td><td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-slate-700/50 text-[#94A3B8] text-[10px] font-bold rounded nowrap">만료</span>
 </td>
 <td class="px-6 py-4 text-right">
-<button class="text-xs font-semibold text-[#3B82F6] hover:underline transition-colors">재발행</button>
+<button class="text-xs font-semibold text-[#3B82F6] hover:underline transition-colors nowrap">재발행</button>
 </td>
 </tr>
 <!-- Row 4: Active -->
 <tr class="hover:bg-[#1E293B]/80 transition-colors group">
 <td class="px-6 py-4">
-<div class="font-medium text-white text-sm">참좋은여행 (최현우)</div>
-<div class="text-[11px] text-[#64748B] truncate max-w-[170px]">verygood_tour@corp.net</div>
+<div class="font-medium text-white text-sm nowrap">참좋은여행 (최현우)</div>
+<div class="text-[11px] text-[#64748B] truncate max-w-[180px]">verygood_tour@corp.net</div>
 </td>
 <td class="px-6 py-4">
 <div class="flex flex-wrap gap-1.5">
-<span class="px-2 py-0.5 bg-slate-800 text-[#94A3B8] text-[10px] rounded border border-slate-700">쏘나씨 V11</span>
+<span class="px-2 py-0.5 bg-slate-800 text-[#94A3B8] text-[10px] rounded border border-slate-700 nowrap">쏘나씨 V11</span>
 </div>
 </td>
-<td class="px-6 py-4 text-sm text-[#CBD5E1] tabular-nums">2026.08.05 ~ 08.07</td>
+<td class="px-6 py-4 text-sm text-[#CBD5E1] tabular-nums nowrap">2026.08.05 ~ 08.07</td>
 <td class="px-6 py-4">
-<span class="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 text-[10px] font-bold rounded uppercase">여행사</span>
+<span class="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 text-[10px] font-bold rounded uppercase nowrap">여행사</span>
 </td>
-<td class="px-6 py-4 text-sm text-[#64748B] tabular-nums">2026.07.13</td>
+<td class="px-6 py-4 text-sm text-[#64748B] tabular-nums nowrap">2026.07.13</td>
 <td class="px-6 py-4">
-<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded nowrap">
 <span class="material-symbols-outlined text-[12px]">schedule</span>
                                     72시간 남음
                                 </span>
 </td>
-<td class="px-6 py-4">
-<span class="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-bold rounded">활성</span>
+<td class="px-6 py-4 text-right tabular-nums text-sm text-[#CBD5E1] nowrap">21,500,000₫</td><td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-bold rounded nowrap">활성</span>
 </td>
 <td class="px-6 py-4 text-right">
 <div class="flex items-center justify-end gap-3">
-<button class="p-1.5 text-[#94A3B8] hover:text-white hover:bg-slate-700 rounded transition-all">
+<button class="p-1.5 text-[#94A3B8] hover:text-white hover:bg-slate-700 rounded transition-all nowrap">
 <span class="material-symbols-outlined text-[18px]">content_copy</span>
 </button>
-<button class="text-xs font-semibold text-red-400 hover:text-red-300 transition-colors">회수</button>
+<button class="text-xs font-semibold text-red-400 hover:text-red-300 transition-colors nowrap">회수</button>
 </div>
 </td>
 </tr>
 <!-- Row 5: Recalled -->
 <tr class="hover:bg-[#1E293B]/80 transition-colors group">
 <td class="px-6 py-4">
-<div class="font-medium text-white text-sm">교원투어 (정다은)</div>
-<div class="text-[11px] text-[#64748B] truncate max-w-[170px]">kyowon_reservation@biz.com</div>
+<div class="font-medium text-white text-sm nowrap">교원투어 (정다은)</div>
+<div class="text-[11px] text-[#64748B] truncate max-w-[180px]">kyowon_reservation@biz.com</div>
 </td>
 <td class="px-6 py-4">
 <div class="flex flex-wrap gap-1.5">
-<span class="px-2 py-0.5 bg-slate-800 text-[#94A3B8] text-[10px] rounded border border-slate-700">선셋 빌라 A3</span>
+<span class="px-2 py-0.5 bg-slate-800 text-[#94A3B8] text-[10px] rounded border border-slate-700 nowrap">선셋 빌라 A3</span>
 </div>
 </td>
-<td class="px-6 py-4 text-sm text-[#64748B] tabular-nums">2026.07.25 ~ 07.28</td>
+<td class="px-6 py-4 text-sm text-[#64748B] tabular-nums nowrap">2026.07.25 ~ 07.28</td>
 <td class="px-6 py-4">
-<span class="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-bold rounded uppercase">직접</span>
+<span class="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-bold rounded uppercase nowrap">직접</span>
 </td>
-<td class="px-6 py-4 text-sm text-[#64748B] tabular-nums">2026.07.11</td>
+<td class="px-6 py-4 text-sm text-[#64748B] tabular-nums nowrap">2026.07.11</td>
 <td class="px-6 py-4">
-<span class="text-[11px] text-[#475569] font-medium">-</span>
+<span class="text-[11px] text-[#475569] font-medium nowrap">-</span>
 </td>
-<td class="px-6 py-4">
-<span class="px-2 py-0.5 border border-red-500/50 text-red-500 text-[10px] font-bold rounded">회수</span>
+<td class="px-6 py-4 text-right tabular-nums text-sm text-[#CBD5E1] nowrap">1,280,000원</td><td class="px-6 py-4">
+<span class="px-2 py-0.5 border border-red-500/50 text-red-500 text-[10px] font-bold rounded nowrap">회수</span>
 </td>
 <td class="px-6 py-4 text-right">
 <div class="flex items-center justify-end">
-<span class="text-[11px] text-[#64748B] italic">매니저 회수됨</span>
+<span class="text-[11px] text-[#64748B] italic nowrap">매니저 회수됨</span>
 </div>
 </td>
 </tr>
 <!-- Row 6: Active -->
 <tr class="hover:bg-[#1E293B]/80 transition-colors group">
 <td class="px-6 py-4">
-<div class="font-medium text-white text-sm">온라인투어 (강도윤)</div>
-<div class="text-[11px] text-[#64748B] truncate max-w-[170px]">online_dy@onlinetour.co.kr</div>
+<div class="font-medium text-white text-sm nowrap">온라인투어 (강도윤)</div>
+<div class="text-[11px] text-[#64748B] truncate max-w-[180px]">online_dy@onlinetour.co.kr</div>
 </td>
 <td class="px-6 py-4">
 <div class="flex flex-wrap gap-1.5">
-<span class="px-2 py-0.5 bg-slate-800 text-[#94A3B8] text-[10px] rounded border border-slate-700">쏘나씨 V12</span>
-<span class="px-2 py-0.5 bg-slate-800 text-[#94A3B8] text-[10px] rounded border border-slate-700">쏘나씨 V11</span>
+<span class="px-2 py-0.5 bg-slate-800 text-[#94A3B8] text-[10px] rounded border border-slate-700 nowrap">쏘나씨 V12</span>
+<span class="px-2 py-0.5 bg-slate-800 text-[#94A3B8] text-[10px] rounded border border-slate-700 nowrap">쏘나씨 V11</span>
 </div>
 </td>
-<td class="px-6 py-4 text-sm text-[#CBD5E1] tabular-nums">2026.08.10 ~ 08.15</td>
+<td class="px-6 py-4 text-sm text-[#CBD5E1] tabular-nums nowrap">2026.08.10 ~ 08.15</td>
 <td class="px-6 py-4">
-<span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded uppercase">랜드사</span>
+<span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded uppercase nowrap">랜드사</span>
 </td>
-<td class="px-6 py-4 text-sm text-[#64748B] tabular-nums">2026.07.14</td>
+<td class="px-6 py-4 text-sm text-[#64748B] tabular-nums nowrap">2026.07.14</td>
 <td class="px-6 py-4">
-<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500/10 text-orange-400 text-[10px] font-bold rounded nowrap">
 <span class="material-symbols-outlined text-[12px]">schedule</span>
                                     48시간 남음
                                 </span>
 </td>
-<td class="px-6 py-4">
-<span class="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-bold rounded">활성</span>
+<td class="px-6 py-4 text-right tabular-nums text-sm text-[#CBD5E1] nowrap">11,250,000₫</td><td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[10px] font-bold rounded nowrap">활성</span>
 </td>
 <td class="px-6 py-4 text-right">
 <div class="flex items-center justify-end gap-3">
-<button class="p-1.5 text-[#94A3B8] hover:text-white hover:bg-slate-700 rounded transition-all">
+<button class="p-1.5 text-[#94A3B8] hover:text-white hover:bg-slate-700 rounded transition-all nowrap">
 <span class="material-symbols-outlined text-[18px]">content_copy</span>
 </button>
-<button class="text-xs font-semibold text-red-400 hover:text-red-300 transition-colors">회수</button>
+<button class="text-xs font-semibold text-red-400 hover:text-red-300 transition-colors nowrap">회수</button>
 </div>
 </td>
 </tr>
@@ -409,15 +408,15 @@
 </div>
 <!-- Pagination -->
 <div class="mt-8 flex justify-center items-center gap-2">
-<button class="p-1.5 text-[#64748B] hover:text-white transition-colors rounded hover:bg-slate-800">
+<button class="p-1.5 text-[#64748B] hover:text-white transition-colors rounded hover:bg-slate-800 nowrap">
 <span class="material-symbols-outlined">chevron_left</span>
 </button>
-<button class="w-8 h-8 flex items-center justify-center rounded bg-[#3B82F6] text-white text-xs font-bold">1</button>
-<button class="w-8 h-8 flex items-center justify-center rounded text-[#94A3B8] hover:bg-slate-800 hover:text-white text-xs font-medium transition-all">2</button>
-<button class="w-8 h-8 flex items-center justify-center rounded text-[#94A3B8] hover:bg-slate-800 hover:text-white text-xs font-medium transition-all">3</button>
-<button class="w-8 h-8 flex items-center justify-center rounded text-[#94A3B8] hover:bg-slate-800 hover:text-white text-xs font-medium transition-all">4</button>
-<button class="w-8 h-8 flex items-center justify-center rounded text-[#94A3B8] hover:bg-slate-800 hover:text-white text-xs font-medium transition-all">5</button>
-<button class="p-1.5 text-[#64748B] hover:text-white transition-colors rounded hover:bg-slate-800">
+<button class="w-8 h-8 flex items-center justify-center rounded bg-[#3B82F6] text-white text-xs font-bold nowrap">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded text-[#94A3B8] hover:bg-slate-800 hover:text-white text-xs font-medium transition-all nowrap">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded text-[#94A3B8] hover:bg-slate-800 hover:text-white text-xs font-medium transition-all nowrap">3</button>
+<button class="w-8 h-8 flex items-center justify-center rounded text-[#94A3B8] hover:bg-slate-800 hover:text-white text-xs font-medium transition-all nowrap">4</button>
+<button class="w-8 h-8 flex items-center justify-center rounded text-[#94A3B8] hover:bg-slate-800 hover:text-white text-xs font-medium transition-all nowrap">5</button>
+<button class="p-1.5 text-[#64748B] hover:text-white transition-colors rounded hover:bg-slate-800 nowrap">
 <span class="material-symbols-outlined">chevron_right</span>
 </button>
 </div>
@@ -425,25 +424,24 @@
 <!-- Footer Metric Bar -->
 <footer class="mt-auto border-t border-[#1E293B] bg-[#0F172A] px-8 py-4 flex items-center justify-between text-[11px] text-[#64748B]">
 <div class="flex items-center gap-6">
-<div class="flex items-center gap-2">
-<span class="w-2 h-2 rounded-full bg-blue-500"></span>
+<div class="flex items-center gap-2 nowrap">
+<span class="w-2 h-2 rounded-full bg-[#3B82F6]"></span>
 <span>금일 생성된 제안: 12건</span>
 </div>
-<div class="flex items-center gap-2">
+<div class="flex items-center gap-2 nowrap">
 <span class="w-2 h-2 rounded-full bg-green-500"></span>
 <span>평균 응답률: 74%</span>
 </div>
-<div class="flex items-center gap-2">
+<div class="flex items-center gap-2 nowrap">
 <span class="w-2 h-2 rounded-full bg-orange-500"></span>
 <span>만료 임박: 4건</span>
 </div>
 </div>
-<div>
+<div class="nowrap">
                 Last sync: 2026.07.14 14:32:05
             </div>
 </footer>
 </main>
-<!-- Simple Hover Interaction Script -->
 <script>
         document.querySelectorAll('tr').forEach(row => {
             row.addEventListener('mouseenter', () => {

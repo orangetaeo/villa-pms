@@ -1,0 +1,195 @@
+<!DOCTYPE html><html class="dark" lang="ko"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+<title>Villa PMS - 대시보드 (모바일)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        slate: { 800: '#1e293b', 900: '#0f172a' },
+                        blue: { 500: '#3b82f6', 600: '#2563eb' }
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                    fontFamily: {
+                        headline: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        display: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        body: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        label: ["Public Sans", "Noto Sans KR", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { background-color: #0f172a; color: #f8fafc; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+
+        /* DESIGN 공통 규칙 (2026-06-11): 한글 폰트 폴백 + 한국어 단어 낙하 방지 */
+        body { font-family: "Public Sans", "Noto Sans KR", sans-serif; word-break: keep-all; }
+        th, button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
+    </style>
+</head>
+<body class="font-body min-h-screen">
+<!-- 모바일 헤더 : 햄버거 + 브랜드 + 알림 -->
+<header class="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-4 h-14">
+<button class="text-slate-300 hover:bg-slate-800 rounded-lg p-2 transition-colors -ml-2">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<div class="flex flex-col items-center leading-none gap-0.5">
+<span class="text-base font-headline font-black text-white">Villa PMS</span>
+<span class="text-[8px] text-slate-500 uppercase tracking-widest font-bold">Villa PMS Admin</span>
+</div>
+<button class="relative text-slate-300 hover:bg-slate-800 rounded-lg p-2 transition-colors -mr-2">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1.5 right-2 w-2 h-2 rounded-full bg-red-500 border-2 border-slate-900"></span>
+</button>
+</header>
+<main class="pb-10">
+<!-- iCal 충돌 경보 배너 (최상단 고정 위치) -->
+<a class="bg-red-900/40 border-b border-red-800/50 px-4 py-3 flex items-center gap-3" href="#">
+<span class="material-symbols-outlined text-red-500 shrink-0">warning</span>
+<p class="text-xs font-medium text-red-100 flex-1 min-w-0">
+<span class="font-bold">iCal 충돌</span> · 쏘나씨 V12 · <span class="tabular-nums">2026.07.15~07.17</span> 외부 채널 예약과 겹침
+</p>
+<span class="material-symbols-outlined text-red-400 text-sm shrink-0">chevron_right</span>
+</a>
+<div class="px-4 pt-4 space-y-6">
+<!-- 스탯 카드 2x2 -->
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-[#1E293B] p-4 rounded-xl border border-slate-700/50">
+<div class="flex justify-between items-start mb-1.5">
+<span class="text-[11px] font-medium text-slate-400">오늘 체크인</span>
+<span class="material-symbols-outlined text-blue-500 text-[18px]">login</span>
+</div>
+<div class="flex items-baseline gap-1.5">
+<span class="text-2xl font-bold text-white tabular-nums">3</span>
+<span class="text-[11px] text-slate-500">건</span>
+</div>
+</div>
+<div class="bg-[#1E293B] p-4 rounded-xl border border-slate-700/50">
+<div class="flex justify-between items-start mb-1.5">
+<span class="text-[11px] font-medium text-slate-400">오늘 체크아웃</span>
+<span class="material-symbols-outlined text-indigo-400 text-[18px]">logout</span>
+</div>
+<div class="flex items-baseline gap-1.5">
+<span class="text-2xl font-bold text-white tabular-nums">2</span>
+<span class="text-[11px] text-slate-500">건</span>
+</div>
+</div>
+<div class="bg-[#1E293B] p-4 rounded-xl border border-slate-700/50">
+<div class="flex justify-between items-start mb-1.5">
+<span class="text-[11px] font-medium text-slate-400">가예약</span>
+<span class="material-symbols-outlined text-amber-500 text-[18px]">hourglass_top</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-2xl font-bold text-white tabular-nums">4</span>
+<span class="bg-amber-500/20 text-amber-500 text-[9px] px-1.5 py-0.5 rounded font-bold tabular-nums">23시간</span>
+</div>
+</div>
+<div class="bg-[#1E293B] p-4 rounded-xl border border-slate-700/50">
+<div class="flex justify-between items-start mb-1.5">
+<span class="text-[11px] font-medium text-slate-400">청소 승인 대기</span>
+<span class="material-symbols-outlined text-emerald-500 text-[18px]">cleaning_services</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-2xl font-bold text-white tabular-nums">2</span>
+<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+</div>
+</div>
+</div>
+<!-- 오늘 중심 리스트 (타임라인 매트릭스 대체) -->
+<!-- 오늘 체크인 -->
+<section>
+<div class="flex items-center justify-between mb-2.5 px-1">
+<h2 class="text-sm font-bold text-white">오늘 체크인</h2>
+<span class="text-[11px] text-slate-500 tabular-nums">2026.07.02</span>
+</div>
+<div class="space-y-2">
+<a class="bg-[#1E293B] border border-slate-700/50 rounded-xl px-4 py-3 flex items-center gap-3" href="#">
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold text-white">쏘나씨 V11</p>
+<p class="text-[11px] text-slate-400 truncate">김민준 · 2박 · <span class="tabular-nums">14:00</span> 도착</p>
+</div>
+<span class="bg-blue-600/20 text-blue-400 text-[10px] font-bold px-2 py-0.5 rounded shrink-0">확정</span>
+<span class="material-symbols-outlined text-slate-600 text-sm shrink-0">chevron_right</span>
+</a>
+<a class="bg-[#1E293B] border border-slate-700/50 rounded-xl px-4 py-3 flex items-center gap-3" href="#">
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold text-white">썬셋 사나토 A3</p>
+<p class="text-[11px] text-slate-400 truncate">이서연 · 3박 · <span class="tabular-nums">15:30</span> 도착</p>
+</div>
+<span class="bg-blue-600/20 text-blue-400 text-[10px] font-bold px-2 py-0.5 rounded shrink-0">확정</span>
+<span class="material-symbols-outlined text-slate-600 text-sm shrink-0">chevron_right</span>
+</a>
+</div>
+</section>
+<!-- 오늘 체크아웃 -->
+<section>
+<h2 class="text-sm font-bold text-white mb-2.5 px-1">오늘 체크아웃</h2>
+<div class="space-y-2">
+<a class="bg-[#1E293B] border border-slate-700/50 rounded-xl px-4 py-3 flex items-center gap-3" href="#">
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold text-white">쏘나씨 V25</p>
+<p class="text-[11px] text-slate-400 truncate">박지훈 · <span class="tabular-nums">11:00</span> 퇴실 예정</p>
+</div>
+<span class="bg-slate-700/60 text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded shrink-0">체크아웃</span>
+<span class="material-symbols-outlined text-slate-600 text-sm shrink-0">chevron_right</span>
+</a>
+</div>
+</section>
+<!-- 청소 검수 대기 -->
+<section>
+<div class="flex items-center justify-between mb-2.5 px-1">
+<h2 class="text-sm font-bold text-white">청소 검수 대기</h2>
+<a class="text-[11px] text-blue-500 font-semibold" href="#">전체 보기</a>
+</div>
+<div class="space-y-2">
+<a class="bg-[#1E293B] border border-slate-700/50 rounded-xl px-4 py-3 flex items-center gap-3" href="#">
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold text-white">쏘나씨 V12</p>
+<p class="text-[11px] text-slate-400 truncate"><span class="tabular-nums">10:25</span> 제출 · 사진 9장</p>
+</div>
+<span class="bg-amber-500/20 text-amber-500 text-[10px] font-bold px-2 py-0.5 rounded shrink-0">승인 대기</span>
+<span class="material-symbols-outlined text-slate-600 text-sm shrink-0">chevron_right</span>
+</a>
+<a class="bg-[#1E293B] border border-slate-700/50 rounded-xl px-4 py-3 flex items-center gap-3" href="#">
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold text-white">썬셋 사나토 B7</p>
+<p class="text-[11px] text-slate-400 truncate"><span class="tabular-nums">09:48</span> 제출 · 사진 10장</p>
+</div>
+<span class="bg-amber-500/20 text-amber-500 text-[10px] font-bold px-2 py-0.5 rounded shrink-0">승인 대기</span>
+<span class="material-symbols-outlined text-slate-600 text-sm shrink-0">chevron_right</span>
+</a>
+</div>
+</section>
+<!-- 만료 임박 홀드 -->
+<section>
+<h2 class="text-sm font-bold text-white mb-2.5 px-1">만료 임박 홀드</h2>
+<div class="space-y-2">
+<a class="bg-[#1E293B] border border-amber-500/30 rounded-xl px-4 py-3 flex items-center gap-3" href="#">
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold text-white">쏘나씨 V11</p>
+<p class="text-[11px] text-slate-400 truncate">하나투어 · <span class="tabular-nums">07.20~07.22</span></p>
+</div>
+<span class="bg-amber-500/20 text-amber-500 text-[10px] font-black px-2 py-0.5 rounded tabular-nums shrink-0">05:23 남음</span>
+<span class="material-symbols-outlined text-slate-600 text-sm shrink-0">chevron_right</span>
+</a>
+<a class="bg-[#1E293B] border border-slate-700/50 rounded-xl px-4 py-3 flex items-center gap-3" href="#">
+<div class="flex-1 min-w-0">
+<p class="text-sm font-bold text-white">썬셋 사나토 A3</p>
+<p class="text-[11px] text-slate-400 truncate">모두투어 · <span class="tabular-nums">07.25~07.27</span></p>
+</div>
+<span class="bg-amber-500/20 text-amber-500 text-[10px] font-black px-2 py-0.5 rounded tabular-nums shrink-0">21:40 남음</span>
+<span class="material-symbols-outlined text-slate-600 text-sm shrink-0">chevron_right</span>
+</a>
+</div>
+</section>
+</div>
+</main>
+</body></html>

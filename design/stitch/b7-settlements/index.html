@@ -5,9 +5,7 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>정산 관리 | Villa PMS Dashboard</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;family=Noto+Sans+KR:wght@300;400;500;700;900&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
         tailwind.config = {
@@ -40,8 +38,9 @@
         body {
             background-color: #0F172A;
             color: #F8FAFC;
-            font-family: 'Public Sans', sans-serif;
+            font-family: 'Public Sans', 'Noto Sans KR', sans-serif;
             -webkit-font-smoothing: antialiased;
+            word-break: keep-all;
         }
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
@@ -50,6 +49,10 @@
         /* Tabular figures for financial data */
         .tabular-nums {
             font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+        .nowrap {
+            white-space: nowrap;
         }
         .custom-scrollbar::-webkit-scrollbar {
             width: 6px;
@@ -62,57 +65,53 @@
             background: #475569;
             border-radius: 10px;
         }
-    
-        /* DESIGN 공통 규칙 (2026-06-11): 한글 폰트 폴백 + 한국어 단어 낙하 방지 */
-        body { font-family: "Public Sans", "Noto Sans KR", sans-serif; word-break: keep-all; }
-        th, button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
     </style>
 </head>
 <body class="overflow-hidden">
 <!-- SideNavBar Integration -->
-<aside class="h-screen w-64 fixed left-0 top-0 bg-[#0F172A] border-r border-slate-800 shadow-xl flex flex-col h-full py-4 z-50">
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#0F172A] border-r border-[#1E293B] shadow-xl flex flex-col h-full py-4 z-50">
 <div class="px-6 mb-8">
 <h1 class="text-xl font-headline font-black text-white">Villa PMS</h1>
-<p class="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Villa PMS Admin</p>
+<p class="text-slate-500 text-[10px] uppercase tracking-widest font-bold">Villa PMS Admin</p>
 </div>
 <nav class="flex-1 space-y-1">
 <!-- Dashboard -->
-<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors duration-200 cursor-pointer flex items-center gap-3 font-body text-label-sm font-medium">
+<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors duration-200 cursor-pointer flex items-center gap-3 font-body text-label-sm font-medium nowrap">
 <span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
 <span>대시보드</span>
 </div>
 <!-- Reservations -->
-<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors duration-200 cursor-pointer flex items-center gap-3 font-body text-label-sm font-medium">
+<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors duration-200 cursor-pointer flex items-center gap-3 font-body text-label-sm font-medium nowrap">
 <span class="material-symbols-outlined" data-icon="calendar_month">calendar_month</span>
 <span>예약</span>
 </div>
 <!-- Proposals -->
-<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors duration-200 cursor-pointer flex items-center gap-3 font-body text-label-sm font-medium">
+<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors duration-200 cursor-pointer flex items-center gap-3 font-body text-label-sm font-medium nowrap">
 <span class="material-symbols-outlined" data-icon="rate_review">rate_review</span>
 <span>제안</span>
 </div>
 <!-- Villa -->
-<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors duration-200 cursor-pointer flex items-center gap-3 font-body text-label-sm font-medium">
+<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors duration-200 cursor-pointer flex items-center gap-3 font-body text-label-sm font-medium nowrap">
 <span class="material-symbols-outlined" data-icon="villa">villa</span>
 <span>빌라</span>
 </div>
 <!-- Inspection -->
-<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors duration-200 cursor-pointer flex items-center gap-3 font-body text-label-sm font-medium">
+<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors duration-200 cursor-pointer flex items-center gap-3 font-body text-label-sm font-medium nowrap">
 <span class="material-symbols-outlined" data-icon="fact_check">fact_check</span>
 <span>청소 검수</span>
 </div>
 <!-- Settlements (ACTIVE) -->
-<div class="text-white bg-[#3B82F6] rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3 font-body text-label-sm font-medium shadow-lg shadow-blue-500/20">
+<div class="text-white bg-[#3B82F6] rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3 font-body text-label-sm font-medium shadow-lg shadow-blue-500/20 nowrap">
 <span class="material-symbols-outlined" data-icon="payments">payments</span>
 <span>정산</span>
 </div>
 <!-- Users -->
-<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors duration-200 cursor-pointer flex items-center gap-3 font-body text-label-sm font-medium">
+<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors duration-200 cursor-pointer flex items-center gap-3 font-body text-label-sm font-medium nowrap">
 <span class="material-symbols-outlined" data-icon="group">group</span>
 <span>사용자</span>
 </div>
 <!-- Settings -->
-<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors duration-200 cursor-pointer flex items-center gap-3 font-body text-label-sm font-medium">
+<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors duration-200 cursor-pointer flex items-center gap-3 font-body text-label-sm font-medium nowrap">
 <span class="material-symbols-outlined" data-icon="settings">settings</span>
 <span>설정</span>
 </div>
@@ -123,8 +122,8 @@
 <img alt="Manager Profile" class="w-full h-full object-cover" data-alt="A professional headshot of a middle-aged South Korean man in a minimalist workspace. He is wearing a modern charcoal grey suit and looks confidently at the camera. The background is a blurred office with subtle warm lighting and high-end technological decor, consistent with a premium admin interface aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAupHaNN3XvZlyHN_jCPujzkExBq3eAndQaCy9gMGlhYIK5F5OL_Ky9daLgFGpXJCqyIVL886xHu6l704LNA_979Ku2mgbogXNDAHZTBsc610UyOCH1pC3cTBqBW_xsDhfl5RQbGFCQuYOwUW_A9bedJqlMG-8wbk9JTglJ0Y1NMx-sBjBZfxlbtxFUaPdzDfSXTJZYjcZzhbRHqU_ThMhzjz5_LokuXu6ennk91dSsa4e4i51_mLQS58LHgnbP5fo3DfZ_g9kpa5sU"/>
 </div>
 <div class="overflow-hidden">
-<p class="text-sm font-bold text-white truncate">관리자 김팀장</p>
-<p class="text-[10px] text-slate-400 truncate">Senior Manager</p>
+<p class="text-sm font-bold text-white truncate">관리자</p>
+<p class="text-[10px] text-slate-400 truncate">최고 관리자</p>
 </div>
 </div>
 </div>
@@ -132,7 +131,7 @@
 <!-- Main Content Shell -->
 <main class="ml-64 min-h-screen flex flex-col">
 <!-- TopAppBar Integration -->
-<header class="sticky top-0 z-40 bg-[#0F172A] dark:bg-[#0F172A] border-b border-slate-800 flex justify-between items-center h-16 px-6 font-headline text-body-md">
+<header class="sticky top-0 z-40 bg-[#0F172A] border-b border-slate-800 flex justify-between items-center h-16 px-6 font-headline text-body-md">
 <div class="flex items-center flex-1 max-w-xl">
 <div class="relative w-full">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-lg" data-icon="search">search</span>
@@ -152,7 +151,7 @@
 </button>
 </div>
 <div class="h-6 w-[1px] bg-slate-800 mx-2"></div>
-<button class="bg-[#3B82F6] text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-blue-600 transition-colors active:scale-95">
+<button class="bg-[#3B82F6] text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-blue-600 transition-colors active:scale-95 nowrap">
 <span class="material-symbols-outlined text-sm" data-icon="add">add</span>
 <span>예약 추가</span>
 </button>
@@ -168,34 +167,64 @@
 <button class="p-1 hover:bg-slate-700 rounded transition-colors">
 <span class="material-symbols-outlined text-slate-400" data-icon="chevron_left">chevron_left</span>
 </button>
-<span class="text-lg font-bold text-slate-100 min-w-[120px] text-center">2026년 7월</span>
+<span class="text-lg font-bold text-slate-100 min-w-[120px] text-center nowrap">2026.07</span>
 <button class="p-1 hover:bg-slate-700 rounded transition-colors">
 <span class="material-symbols-outlined text-slate-400" data-icon="chevron_right">chevron_right</span>
 </button>
 </div>
 </div>
+<div class="flex flex-col gap-4">
 <div class="flex gap-4">
-<!-- Summary Card 1 -->
+<!-- KRW Revenue Card -->
+<div class="bg-[#1E293B] p-5 rounded-2xl border border-slate-800 shadow-lg min-w-[220px] group hover:border-blue-500/50 transition-all">
+<div class="flex justify-between items-start mb-3">
+<div class="p-2 bg-blue-500/10 rounded-lg">
+<span class="material-symbols-outlined text-blue-500" data-icon="payments">payments</span>
+</div>
+<span class="text-[10px] font-bold text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-full nowrap">KRW</span>
+</div>
+<p class="text-slate-400 text-xs font-medium mb-1">KRW 매출</p>
+<p class="text-2xl font-black text-white tabular-nums text-right nowrap">12,450,000원</p>
+<p class="text-[10px] text-slate-500 mt-1 text-right">직접 채널</p>
+</div>
+<!-- VND Revenue Card -->
+<div class="bg-[#1E293B] p-5 rounded-2xl border border-slate-800 shadow-lg min-w-[220px] group hover:border-blue-500/50 transition-all">
+<div class="flex justify-between items-start mb-3">
+<div class="p-2 bg-blue-500/10 rounded-lg">
+<span class="material-symbols-outlined text-blue-500" data-icon="payments">payments</span>
+</div>
+<span class="text-[10px] font-bold text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-full nowrap">VND</span>
+</div>
+<p class="text-slate-400 text-xs font-medium mb-1">VND 매출</p>
+<p class="text-2xl font-black text-white tabular-nums text-right nowrap">86,200,000₫</p>
+<p class="text-[10px] text-slate-500 mt-1 text-right">여행사·랜드사 채널</p>
+</div>
+<!-- Existing Supplier Count Card -->
 <div class="bg-[#1E293B] p-5 rounded-2xl border border-slate-800 shadow-lg min-w-[220px] group hover:border-blue-500/50 transition-all">
 <div class="flex justify-between items-start mb-3">
 <div class="p-2 bg-blue-500/10 rounded-lg">
 <span class="material-symbols-outlined text-blue-500" data-icon="group">group</span>
 </div>
-<span class="text-[10px] font-bold text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-full">ACTIVE</span>
+<span class="text-[10px] font-bold text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-full nowrap">ACTIVE</span>
 </div>
 <p class="text-slate-400 text-xs font-medium mb-1">지급 대상 공급자</p>
-<p class="text-2xl font-black text-white tabular-nums">3명</p>
+<p class="text-2xl font-black text-white tabular-nums text-right nowrap">3명</p>
 </div>
-<!-- Summary Card 2 -->
+<!-- Existing Total Payout Card -->
 <div class="bg-[#1E293B] p-5 rounded-2xl border border-slate-800 shadow-lg min-w-[240px] group hover:border-blue-500/50 transition-all">
 <div class="flex justify-between items-start mb-3">
-<div class="p-2 bg-emerald-500/10 rounded-lg">
-<span class="material-symbols-outlined text-emerald-500" data-icon="payments">payments</span>
+<div class="p-2 bg-blue-500/10 rounded-lg">
+<span class="material-symbols-outlined text-blue-500" data-icon="payments">payments</span>
 </div>
-<span class="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">TOTAL</span>
+<span class="text-[10px] font-bold text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-full nowrap">TOTAL</span>
 </div>
 <p class="text-slate-400 text-xs font-medium mb-1">총 지급액 (VND)</p>
-<p class="text-2xl font-black text-white tabular-nums">45,500,000₫</p>
+<p class="text-2xl font-black text-white tabular-nums text-right nowrap">45,500,000₫</p>
+</div>
+</div>
+<div class="flex items-center gap-1.5 text-slate-500 justify-end">
+<span class="material-symbols-outlined text-sm" data-icon="info">info</span>
+<span class="text-[11px] font-medium">통화별 별도 집계 — KRW와 VND는 합산하지 않습니다</span>
 </div>
 </div>
 </div>
@@ -204,11 +233,11 @@
 <table class="w-full text-left border-collapse">
 <thead class="bg-slate-900/50 border-b border-slate-800">
 <tr>
-<th class="py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">공급자 정보 / 상세 항목</th>
-<th class="py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">건수 / 박수</th>
-<th class="py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">총 금액 (VND)</th>
-<th class="py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">상태</th>
-<th class="py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">관리</th>
+<th class="py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest nowrap">공급자 정보 / 상세 항목</th>
+<th class="py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center nowrap">건수 / 박수</th>
+<th class="py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right nowrap">총 금액 (VND)</th>
+<th class="py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center nowrap">상태</th>
+<th class="py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right nowrap">관리</th>
 </tr>
 </thead>
 <tbody>
@@ -224,16 +253,16 @@
 </div>
 </td>
 <td class="py-4 px-6 text-center">
-<span class="text-sm font-medium text-slate-300">예약 4건</span>
+<span class="text-sm font-medium text-slate-300 nowrap">예약 4건</span>
 </td>
 <td class="py-4 px-6 text-right font-bold tabular-nums text-white">
                                 18,200,000₫
                             </td>
 <td class="py-4 px-6 text-center">
-<span class="px-3 py-1 rounded-md text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">확정</span>
+<span class="px-3 py-1 rounded-md text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30 nowrap">확정</span>
 </td>
 <td class="py-4 px-6 text-right">
-<button class="bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-95 shadow-lg shadow-blue-900/40">
+<button class="bg-[#3B82F6] hover:bg-blue-600 text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-95 shadow-lg shadow-blue-900/40 nowrap">
                                     지급 완료 처리
                                 </button>
 </td>
@@ -244,35 +273,35 @@
 <div class="px-16 py-4 space-y-0">
 <!-- Header for sub-items -->
 <div class="grid grid-cols-6 text-[10px] font-bold text-slate-600 border-b border-slate-800/50 pb-2 mb-2">
-<div class="col-span-2">빌라명</div>
-<div class="text-center">체크아웃 날짜</div>
-<div class="text-center">박수</div>
-<div class="text-right col-span-2">원가 금액</div>
+<div class="col-span-2 nowrap">빌라명</div>
+<div class="text-center nowrap">체크아웃 날짜</div>
+<div class="text-center nowrap">박수</div>
+<div class="text-right col-span-2 nowrap">원가 금액</div>
 </div>
 <!-- Row 1 -->
 <div class="grid grid-cols-6 py-2 text-[13px] border-b border-slate-800/30 last:border-none">
-<div class="col-span-2 text-slate-300 font-medium">Grand Horizon Villa 02</div>
+<div class="col-span-2 text-slate-300 font-medium">쏘나씨 V11</div>
 <div class="text-center text-slate-400 tabular-nums">2026.07.05</div>
 <div class="text-center text-slate-400 tabular-nums">2박</div>
 <div class="text-right col-span-2 text-slate-100 font-bold tabular-nums">4,550,000₫</div>
 </div>
 <!-- Row 2 -->
 <div class="grid grid-cols-6 py-2 text-[13px] border-b border-slate-800/30 last:border-none">
-<div class="col-span-2 text-slate-300 font-medium">Ocean Whisper Suite</div>
+<div class="col-span-2 text-slate-300 font-medium">쏘나씨 V25</div>
 <div class="text-center text-slate-400 tabular-nums">2026.07.12</div>
 <div class="text-center text-slate-400 tabular-nums">3박</div>
 <div class="text-right col-span-2 text-slate-100 font-bold tabular-nums">6,100,000₫</div>
 </div>
 <!-- Row 3 -->
 <div class="grid grid-cols-6 py-2 text-[13px] border-b border-slate-800/30 last:border-none">
-<div class="col-span-2 text-slate-300 font-medium">Grand Horizon Villa 02</div>
+<div class="col-span-2 text-slate-300 font-medium">쏘나씨 V11</div>
 <div class="text-center text-slate-400 tabular-nums">2026.07.20</div>
 <div class="text-center text-slate-400 tabular-nums">1박</div>
 <div class="text-right col-span-2 text-slate-100 font-bold tabular-nums">2,275,000₫</div>
 </div>
 <!-- Row 4 -->
 <div class="grid grid-cols-6 py-2 text-[13px] border-b border-slate-800/30 last:border-none">
-<div class="col-span-2 text-slate-300 font-medium">Sunset Peak Resort 11</div>
+<div class="col-span-2 text-slate-300 font-medium">썬셋 사나토 A3</div>
 <div class="text-center text-slate-400 tabular-nums">2026.07.28</div>
 <div class="text-center text-slate-400 tabular-nums">2박</div>
 <div class="text-right col-span-2 text-slate-100 font-bold tabular-nums">5,275,000₫</div>
@@ -292,16 +321,16 @@
 </div>
 </td>
 <td class="py-4 px-6 text-center">
-<span class="text-sm font-medium text-slate-300">예약 3건</span>
+<span class="text-sm font-medium text-slate-300 nowrap">예약 3건</span>
 </td>
 <td class="py-4 px-6 text-right font-bold tabular-nums text-white">
                                 14,800,000₫
                             </td>
 <td class="py-4 px-6 text-center">
-<span class="px-3 py-1 rounded-md text-[10px] font-bold bg-slate-500/10 text-slate-500 border border-slate-700/50">초안</span>
+<span class="px-3 py-1 rounded-md text-[10px] font-bold bg-slate-500/10 text-slate-500 border border-slate-700/50 nowrap">초안</span>
 </td>
 <td class="py-4 px-6 text-right">
-<button class="text-slate-500 cursor-not-allowed text-[11px] font-bold px-3 py-1.5 border border-slate-700 rounded">
+<button class="text-slate-500 cursor-not-allowed text-[11px] font-bold px-3 py-1.5 border border-slate-700 rounded nowrap">
                                     대기 중
                                 </button>
 </td>
@@ -318,18 +347,18 @@
 </div>
 </td>
 <td class="py-4 px-6 text-center">
-<span class="text-sm font-medium text-slate-300">예약 2건</span>
+<span class="text-sm font-medium text-slate-300 nowrap">예약 2건</span>
 </td>
 <td class="py-4 px-6 text-right font-bold tabular-nums text-white">
                                 12,500,000₫
                             </td>
 <td class="py-4 px-6 text-center">
-<span class="px-3 py-1 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">지급완료</span>
+<span class="px-3 py-1 rounded-md text-[10px] font-bold bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 nowrap">지급완료</span>
 </td>
 <td class="py-4 px-6 text-right">
-<div class="flex justify-end items-center gap-2 text-emerald-500">
+<div class="flex justify-end items-center gap-2 text-emerald-500 nowrap">
 <span class="material-symbols-outlined text-sm" data-icon="check_circle">check_circle</span>
-<span class="text-[11px] font-bold">2026.07.31 완료</span>
+<span class="text-[11px] font-bold tabular-nums">2026.07.31 완료</span>
 </div>
 </td>
 </tr>
@@ -340,10 +369,10 @@
 <footer class="mt-8 flex justify-between items-center text-slate-500 border-t border-slate-800 pt-6">
 <div class="flex items-center gap-2">
 <span class="material-symbols-outlined text-sm" data-icon="info">info</span>
-<p class="text-[12px] font-medium">지급은 VND 계좌이체로 진행됩니다</p>
+<p class="text-[12px] font-medium nowrap">지급은 VND 계좌이체로 진행됩니다</p>
 </div>
 <div class="flex items-center gap-4">
-<p class="text-[11px]">Last Sync: 2026-07-31 14:22:10</p>
+<p class="text-[11px] tabular-nums nowrap">Last Sync: 2026.07.31 14:22:10</p>
 <div class="flex items-center gap-2">
 <button class="w-8 h-8 flex items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700">
 <span class="material-symbols-outlined text-sm" data-icon="download">download</span>
@@ -360,8 +389,6 @@
 <script>
         document.addEventListener('DOMContentLoaded', () => {
             // Simple interactive feedback for payment process button
-            const paymentBtns = document.querySelectorAll('button:contains("지급 완료 처리")');
-            // Manual selection since :contains is not native
             document.querySelectorAll('button').forEach(btn => {
                 if (btn.innerText.includes('지급 완료 처리')) {
                     btn.addEventListener('click', function() {
@@ -370,7 +397,7 @@
                         this.innerHTML = `<span class="animate-spin material-symbols-outlined text-sm" data-icon="sync">sync</span> 처리 중...`;
                         
                         setTimeout(() => {
-                            this.classList.remove('bg-blue-600', 'hover:bg-blue-500');
+                            this.classList.remove('bg-[#3B82F6]', 'hover:bg-blue-600');
                             this.classList.add('bg-emerald-600');
                             this.innerHTML = `<span class="material-symbols-outlined text-sm" data-icon="done">done</span> 처리 완료`;
                         }, 1500);

@@ -14,6 +14,8 @@
 
 | 2026-06-11 | T0.1/T0.2/T0.6 | Next.js 15 프로젝트 초기화 + Railway 배포 완료. URL: villa-pms-production.up.railway.app. PostgreSQL 연결 + prisma db push 완료. GitHub: orangetaeo/villa-pms | Tailwind v4→v3 다운그레이드, nixpacks.toml로 npm install 강제 적용 |
 
+| 2026-06-11 | 2차 전체 회의 (테오 7건) | ① 글자 세로 낙하 전수 박멸 — 근본 원인: 한글 글리프 없는 폰트(Public Sans 등)+word-break → Noto Sans KR 폴백+keep-all/nowrap 16장 적용 ② ADR-0003 확정: 채널별 통화(여행사·랜드사 VND, 산정 기준 VND), 비품 VillaAmenity 모델+마법사 5단계, Zalo 채팅 b14(번역 통합, 48h 창), 관리자 반응형(1024px 햄버거·768px 카드) ③ 신규 3장(b14·b1-mobile·a9-amenities)+수정 9장+VND 변형 2장 → **총 33장** ④ QA 최종 **통과(반려 0건)** — 누수 0건·낙하 회귀 0건·스펙 반영 100% ⑤ SPEC v1.3, schema v1.2(validate 통과), a6·a7 재캡처 완료 | 주의: schema v1.2는 T0.2 db push 이후 변경 — **다음 세션에서 prisma db push 재실행 필요**. 잔여: T5.4(Stitch 웹 중복·고아 화면 수동 삭제), T5.5(변환 시 처리 목록), playwright-core devDependency 추가됨(OPS 인지) |
+
 ## 현재 상태 (2026-06-11 기준)
 
 ### 완료된 태스크
@@ -29,13 +31,18 @@
 | 태스크 | 상태 | 담당 |
 |---|---|---|
 | T5.4 | Stitch 중복 화면 3건 수동 삭제 대기 (테오) | 테오 직접 |
-| 디자인 추가 작업 | 다른 세션에서 진행 중 — 완료 후 검수 예정 | DESIGN |
+| 디자인 추가 작업 | **완료** — 2차 전체 회의(테오 7건) 처리: 낙하 수정+신규 3장+수정 9장, 총 33장, QA 통과 (위 이력 참조) | DESIGN/QA |
+| schema v1.2 push | 대기 — 통화·VillaAmenity·ZaloConversation/Message 모델 추가분 `prisma db push` 재실행 필요 | TDA/BE |
 
-### 다음 세션 시작 시 할 일 (디자인 검수 완료 후)
-1. **T0.3** — 인증: 회원가입(/signup, vi) + 로그인 + Role 미들웨어 + (admin)/(supplier) 라우트 그룹 (BE/UX-VN)
-2. **T0.5** — i18n: ko/vi 키 구조, 공급자 라우트 vi 기본 (FE/LOC)
-3. **T0.4** — 이미지 저장소: Cloudflare R2 업로드 파이프라인 (INTEG)
-4. **T1.1** — SUPPLIER 빌라 등록 마법사 (Stitch A1·A2 변환) (UX-VN)
+### 다음 세션 시작 시 할 일 (2026-06-11 세션 종료 핸드오프)
+**전제: T0.3(로그인·인증·라우트 그룹·미들웨어)은 다른 세션이 개발 중 — 충돌 금지 구역: `app/(auth)/`, `auth.ts`, `middleware.ts`, `lib/`(인증 관련), `messages/ko.json·vi.json`(키 추가는 가능하나 구조 변경 금지), `tailwind.config.ts`, `package.json`**
+
+1. **schema v1.2 push** — `npx prisma db push` 재실행 (통화·VillaAmenity·ZaloConversation/Message 추가분 — additive라 안전) (TDA/BE)
+2. **T1.1** — SUPPLIER 빌라 등록 마법사 5단계: design/stitch/ a2(기본정보)→a2b(위치)→a1(사진)→a9(비품)→a5(원가) 변환, `app/(supplier)/my-villas/new` (UX-VN) — 로그인과 겹치지 않는 첫 페이지 작업으로 지정
+3. **T1.2** — ADMIN 빌라 목록·승인·요율: b9·b10 변환 (FE)
+4. **T0.4** — 이미지 저장소: Cloudflare R2 업로드 파이프라인 (INTEG) — T1.1 사진 단계의 의존성
+
+**변환 공통 규칙 (docs/DESIGN.md 필독)**: Noto Sans KR 폴백 + word-break keep-all/nowrap을 globals.css 전역 강제, 사이드바 9메뉴 공통 컴포넌트, ADMIN VND 쉼표·공급자 VND 점, 마법사 단계는 ICU `Bước {n}/{total}` (N/5), T5.5 변환 시 처리 목록(TASKS.md) 확인
 
 ### 인프라 정보 (다음 세션 참조용)
 | 항목 | 값 |
