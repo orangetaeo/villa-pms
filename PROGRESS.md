@@ -45,6 +45,8 @@
 
 | 2026-06-11 | T1.8 | ADMIN 사용자 관리 완료 (b13-users 변환): /users — 검색·역할 탭, 역할/Zalo 연결/활성 뱃지, 활성 토글(본인 행 disabled+API 400 이중 방어), Zalo 수동 매칭(미연결 ZaloConversation 선택 연결·해제, 웹훅 전 빈 상태 안내). API: GET(select 화이트리스트 — passwordHash 차단)·PATCH(discriminated union 4액션, LINK_ZALO 중복 409, $transaction으로 ZaloConversation userId 동기화), AuditLog 전 변경 기록. QA 독립 평가 **통과**(34항목 — 비활성화→로그인 실거부→재활성화 복구 실증, 누수 0건) | CLEANER 계정 0명이라 해당 뱃지는 코드 경로 확인만 — CLEANER 생성 태스크에서 재확인. 교훈 2건 leak-checklist 등재. ResponsiveTable rowClassName prop 추가(비파괴) |
 
+| 2026-06-11 | T1.5 | ADMIN 타임라인 매트릭스 완료 (b1 변환, 병행 세션 — T1.8·T2.1·T2.2와 충돌 0건): lib/timeline.ts 단일 소스 — 순수층(buildDayAxis UTC 자정 축·M/D 라벨 getUTC*, computeVillaRow: half-open·우선순위 CHECKED_IN>CONFIRMED>HOLD>BLOCKED·isSellable=false 공실=NOT_SELLABLE·윈도우 클리핑, 오늘=Asia/Ho_Chi_Minh 기준 — QA 합의 조건) + DB층 loadTimeline(ACTIVE 전체 — ADMIN 전용 소비 주석, select 최소화). 셀 상태 6종 enum 고정(T2.6 재사용 호환). components/admin/timeline-matrix.tsx(b1 충실: sticky 빌라명 열·범례 4종·빗금 HOLD — striped/sticky는 arbitrary value로 globals.css 무수정), /dashboard placeholder 교체. 셀에 상태만 — 고객명·금액·예약 id 비전달. vitest 14개(전체 115), QA 조건부 통과 → 배포 후 프로덕션 HTTP 3종 증적(비로그인 307·SUPPLIER 세션 307 차단·ADMIN 200+타임라인 마크업) 제출 → **최종 통과** | messages는 T1.8 미커밋 키 혼입 방지 위해 git update-index 부분 스테이징(adminDashboard만 — QA가 b48110a diff 전수 확인, 배포 원자성 유지 편차 승인). 교훈 후보: 공유 JSON 부분 스테이징 패턴. T2.6 잔여: todayIndex 계산식 교체. 계약: docs/contracts/T1.5-timeline.md |
+
 ## 현재 상태 (2026-06-11 기준)
 
 ### 완료된 태스크
