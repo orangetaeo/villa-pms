@@ -525,7 +525,19 @@
   },
   "earnings": {
     "title": "Thu nhập",
-    "comingSoon": "Tính năng sẽ có trong bản cập nhật sau."
+    "periodLabel": "Thời gian",
+    "monthLabel": "Tháng {month}, {year}",
+    "prevMonth": "Tháng trước",
+    "nextMonth": "Tháng sau",
+    "totalTitle": "Tổng thu nhập trong tháng",
+    "paidLabel": "Đã thanh toán",
+    "pendingLabel": "Chờ thanh toán",
+    "paidOn": "Đã thanh toán ngày {date}",
+    "listTitle": "Chi tiết doanh thu",
+    "transactionCount": "{count} Giao dịch",
+    "nights": "{count} đêm",
+    "empty": "Chưa có doanh thu",
+    "emptyHint": "Doanh thu sẽ hiển thị sau khi khách trả phòng."
   },
   "adminSettings": {
     "title": "Cài đặt hệ thống",
@@ -593,6 +605,60 @@
       "saved": "Đã lưu tỷ giá.",
       "error": "Lưu thất bại. Vui lòng thử lại."
     }
+  },
+  "adminSettlements": {
+    "title": "Quản lý quyết toán",
+    "monthPrev": "Tháng trước",
+    "monthNext": "Tháng sau",
+    "generate": "Chạy tổng hợp",
+    "generating": "Đang tổng hợp...",
+    "generateResult": "Tổng hợp xong — mới {created} · cập nhật {updated} · bỏ qua {skipped} (nhà cung cấp {totalSuppliers})",
+    "generateError": "Tổng hợp thất bại. Vui lòng thử lại.",
+    "summary": {
+      "krwRevenue": "Doanh thu KRW",
+      "krwChannel": "Kênh trực tiếp",
+      "vndRevenue": "Doanh thu VND",
+      "vndChannel": "Kênh đại lý du lịch",
+      "suppliers": "Nhà cung cấp cần thanh toán",
+      "suppliersValue": "{count} người",
+      "totalPayout": "Tổng thanh toán (VND)",
+      "currencyNote": "Tổng hợp riêng theo từng loại tiền — không cộng gộp KRW và VND"
+    },
+    "table": {
+      "colSupplier": "Nhà cung cấp / chi tiết",
+      "colCount": "Số đặt phòng / đêm",
+      "colTotal": "Tổng tiền (VND)",
+      "colStatus": "Trạng thái",
+      "colActions": "Quản lý",
+      "bookingCount": "{count} đặt phòng",
+      "expand": "Mở chi tiết",
+      "collapse": "Thu gọn chi tiết",
+      "empty": "Chưa có quyết toán cho tháng này. Hãy chạy tổng hợp."
+    },
+    "detail": {
+      "colVilla": "Tên villa",
+      "colCheckout": "Ngày trả phòng",
+      "colNights": "Số đêm",
+      "colAmount": "Giá gốc",
+      "nightsValue": "{count} đêm",
+      "empty": "Không có mục quyết toán."
+    },
+    "status": {
+      "DRAFT": "Bản nháp",
+      "CONFIRMED": "Đã xác nhận",
+      "PAID": "Đã thanh toán"
+    },
+    "actions": {
+      "confirm": "Xác nhận",
+      "confirmDialog": "Xác nhận quyết toán này? Sau khi xác nhận sẽ không tổng hợp lại.",
+      "markPaid": "Đánh dấu đã thanh toán",
+      "markPaidDialog": "Đánh dấu đã thanh toán? Hệ thống sẽ gửi thông báo quyết toán cho nhà cung cấp.",
+      "paidAt": "Hoàn tất {date}",
+      "processing": "Đang xử lý...",
+      "conflict": "Quyết toán đã được xử lý. Danh sách đã được làm mới.",
+      "error": "Xử lý thất bại. Vui lòng thử lại."
+    },
+    "footerNote": "Thanh toán được thực hiện bằng chuyển khoản VND"
   },
   "adminUsers": {
     "title": "Quản lý người dùng",
@@ -813,5 +879,53 @@
         "ETC": "Khác"
       }
     }
+  },
+  "adminCheckout": {
+    "title": "Kiểm tra trả phòng",
+    "bookingNo": "Đặt phòng #B-{code}",
+    "back": "Quay lại",
+    "backToBooking": "Về chi tiết đặt phòng",
+    "alreadyCheckedOut": "Đặt phòng này đã trả phòng",
+    "notCheckedIn": "Chưa ở trạng thái nhận phòng (hiện tại: {status})",
+    "comparison": "So sánh tình trạng phòng",
+    "baseline": "Ảnh gốc",
+    "checkoutPhoto": "Ảnh khi trả phòng",
+    "uploadPhoto": "Tải ảnh lên",
+    "uploading": "Đang tải lên…",
+    "uploadError": "Tải ảnh thất bại. Vui lòng thử lại.",
+    "sectionDone": "Đã kiểm tra",
+    "sectionMissing": "Thiếu ảnh",
+    "minibar": "Kiểm tra minibar",
+    "readonly": "Chỉ xem",
+    "minibarEmpty": "Chưa đăng ký món minibar nào",
+    "item": "Món",
+    "state": "Trạng thái",
+    "stocked": "Có sẵn {count} cái",
+    "minibarInfo": "Món đã dùng không được tính tự động — ghi tay vào ô số tiền khấu trừ (VND).",
+    "damageTitle": "Báo cáo hư hỏng & mất mát",
+    "damageDesc": "Nhập các bất thường phát hiện khi trả phòng.",
+    "damageFound": "Phát hiện hư hỏng",
+    "damagePhotos": "Ảnh bằng chứng hư hỏng",
+    "removePhoto": "Xóa ảnh",
+    "damageNote": "Chi tiết hư hỏng",
+    "damageNotePlaceholder": "VD: Vỡ góc bàn kính phòng khách (cần thay)",
+    "deduction": "Số tiền khấu trừ",
+    "deposit": "Tiền cọc",
+    "refundEstimate": "Số tiền hoàn dự kiến",
+    "refundFull": "Hoàn toàn bộ tiền cọc",
+    "refundDeduct": "Duyệt hoàn sau khấu trừ",
+    "submitError": "Xử lý trả phòng thất bại. Vui lòng thử lại.",
+    "spaces": {
+      "EXTERIOR": "Bên ngoài",
+      "LIVING": "Phòng khách",
+      "KITCHEN": "Bếp",
+      "BEDROOM": "Phòng ngủ",
+      "BATHROOM": "Phòng tắm",
+      "BALCONY": "Ban công",
+      "POOL": "Hồ bơi",
+      "ETC": "Khác"
+    },
+    "generalPhotos": "Ảnh tổng thể",
+    "baselineMissing": "Không có ảnh gốc"
   }
 }

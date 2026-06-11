@@ -74,15 +74,13 @@ export default function ActionPanel({
       )}
       {status === "CHECKED_IN" && (
         <div className="space-y-1">
-          <button
-            type="button"
-            disabled
-            title={t("comingT3")}
-            className="w-full bg-admin-primary/40 text-white/60 font-bold py-3 rounded-lg cursor-not-allowed"
+          {/* T3.3: 체크아웃 검수 화면으로 이동 (b4) */}
+          <Link
+            href={`/bookings/${bookingId}/checkout`}
+            className="block w-full bg-admin-primary hover:bg-admin-primary-dark text-white text-center font-bold py-3 rounded-lg transition-colors"
           >
             {t("checkout")}
-          </button>
-          <p className="text-center text-[10px] text-[#475569]">{t("comingT3")}</p>
+          </Link>
         </div>
       )}
 

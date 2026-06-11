@@ -525,7 +525,19 @@
   },
   "earnings": {
     "title": "수익",
-    "comingSoon": "다음 업데이트에서 제공될 예정입니다."
+    "periodLabel": "기간",
+    "monthLabel": "{year}년 {month}월",
+    "prevMonth": "이전 달",
+    "nextMonth": "다음 달",
+    "totalTitle": "월 총 수익",
+    "paidLabel": "지급 완료",
+    "pendingLabel": "지급 대기",
+    "paidOn": "{date} 지급 완료",
+    "listTitle": "수익 상세",
+    "transactionCount": "{count}건",
+    "nights": "{count}박",
+    "empty": "수익 내역이 없습니다",
+    "emptyHint": "고객 체크아웃 후 수익이 표시됩니다."
   },
   "adminSettings": {
     "title": "시스템 설정",
@@ -593,6 +605,60 @@
       "saved": "환율이 저장되었습니다.",
       "error": "저장에 실패했습니다. 다시 시도해주세요."
     }
+  },
+  "adminSettlements": {
+    "title": "정산 관리",
+    "monthPrev": "이전 달",
+    "monthNext": "다음 달",
+    "generate": "집계 실행",
+    "generating": "집계 중...",
+    "generateResult": "집계 완료 — 신규 {created}건 · 재집계 {updated}건 · 건너뜀 {skipped}건 (대상 공급자 {totalSuppliers}명)",
+    "generateError": "집계에 실패했습니다. 다시 시도해주세요.",
+    "summary": {
+      "krwRevenue": "KRW 매출",
+      "krwChannel": "직접 채널",
+      "vndRevenue": "VND 매출",
+      "vndChannel": "여행사·랜드사 채널",
+      "suppliers": "지급 대상 공급자",
+      "suppliersValue": "{count}명",
+      "totalPayout": "총 지급액 (VND)",
+      "currencyNote": "통화별 별도 집계 — KRW와 VND는 합산하지 않습니다"
+    },
+    "table": {
+      "colSupplier": "공급자 정보 / 상세 항목",
+      "colCount": "건수 / 박수",
+      "colTotal": "총 금액 (VND)",
+      "colStatus": "상태",
+      "colActions": "관리",
+      "bookingCount": "예약 {count}건",
+      "expand": "상세 펼치기",
+      "collapse": "상세 접기",
+      "empty": "해당 월의 정산이 없습니다. 집계 실행으로 생성하세요."
+    },
+    "detail": {
+      "colVilla": "빌라명",
+      "colCheckout": "체크아웃 날짜",
+      "colNights": "박수",
+      "colAmount": "원가 금액",
+      "nightsValue": "{count}박",
+      "empty": "정산 항목이 없습니다."
+    },
+    "status": {
+      "DRAFT": "초안",
+      "CONFIRMED": "확정",
+      "PAID": "지급완료"
+    },
+    "actions": {
+      "confirm": "확정",
+      "confirmDialog": "이 정산을 확정할까요? 확정 후에는 재집계되지 않습니다.",
+      "markPaid": "지급 완료 처리",
+      "markPaidDialog": "지급 완료로 처리할까요? 공급자에게 정산 알림이 발송됩니다.",
+      "paidAt": "{date} 완료",
+      "processing": "처리 중...",
+      "conflict": "이미 처리된 정산입니다. 목록을 새로고침했습니다.",
+      "error": "처리에 실패했습니다. 다시 시도해주세요."
+    },
+    "footerNote": "지급은 VND 계좌이체로 진행됩니다"
   },
   "adminUsers": {
     "title": "사용자 관리",
@@ -813,5 +879,53 @@
         "ETC": "기타"
       }
     }
+  },
+  "adminCheckout": {
+    "title": "체크아웃 검수",
+    "bookingNo": "예약 #B-{code}",
+    "back": "뒤로 가기",
+    "backToBooking": "예약 상세로 돌아가기",
+    "alreadyCheckedOut": "이미 체크아웃이 완료된 예약입니다",
+    "notCheckedIn": "체크인 상태가 아닙니다 (현재: {status})",
+    "comparison": "객실 상태 비교",
+    "baseline": "기준 사진",
+    "checkoutPhoto": "체크아웃 사진",
+    "uploadPhoto": "사진 업로드",
+    "uploading": "업로드 중…",
+    "uploadError": "사진 업로드에 실패했습니다. 다시 시도해주세요.",
+    "sectionDone": "검수 완료",
+    "sectionMissing": "사진 누락",
+    "minibar": "미니바 확인",
+    "readonly": "읽기 전용",
+    "minibarEmpty": "등록된 미니바 품목이 없습니다",
+    "item": "품목",
+    "state": "상태",
+    "stocked": "비치 {count}개",
+    "minibarInfo": "소모된 품목은 자동 계산되지 않습니다 — 차감액(VND) 입력란에 수기로 기록하세요.",
+    "damageTitle": "파손 및 손실 리포트",
+    "damageDesc": "체크아웃 중 발견된 이상 내역을 입력하세요.",
+    "damageFound": "파손 발견",
+    "damagePhotos": "파손 증빙 사진",
+    "removePhoto": "사진 삭제",
+    "damageNote": "파손 상세 내용",
+    "damageNotePlaceholder": "예: 거실 유리 테이블 모서리 파손 (교체 필요)",
+    "deduction": "차감 확정액",
+    "deposit": "보증금",
+    "refundEstimate": "최종 환불 예정액",
+    "refundFull": "보증금 전액 환불",
+    "refundDeduct": "차감 후 환불 승인",
+    "submitError": "체크아웃 처리에 실패했습니다. 다시 시도해주세요.",
+    "spaces": {
+      "EXTERIOR": "외관",
+      "LIVING": "거실",
+      "KITCHEN": "주방",
+      "BEDROOM": "침실",
+      "BATHROOM": "화장실",
+      "BALCONY": "베란다",
+      "POOL": "수영장",
+      "ETC": "기타"
+    },
+    "generalPhotos": "전체 상태 사진",
+    "baselineMissing": "기준 사진 없음"
   }
 }

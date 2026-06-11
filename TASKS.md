@@ -36,7 +36,7 @@
 - [x] T3.0 Stitch 디자인: B3, B4, B6 → design/stitch/ (DESIGN, 테오 확인) — 2026-06-11 전체 회의 검수 — 조건부 통과
 - [ ] T3.1 체크인: 여권 업로드 + Gemini OCR + 보증금 기록 (Stitch B3 변환) (INTEG/BE)
 - [ ] T3.2 동의서 표시 + 터치 서명 패드 (FE)
-- [ ] T3.3 체크아웃: 기준사진 비교 UI + 차감 기록 (FE/BE)
+- [x] T3.3 체크아웃: 기준사진 비교 UI + 차감 기록 (FE/BE) — 2026-06-11 완료. lib/checkout.ts `completeCheckout` 단일 트랜잭션(CHECKED_IN 가드 → CheckOutRecord → 보증금 상태기계[파손⇒차감액 필수⇒PARTIAL_DEDUCTED/없음⇒REFUNDED] → **createCheckoutCleaningTask 원자 호출 — 게이트 닫기**) + POST /api/bookings/[id]/checkout(ADMIN) + b4 변환(기준사진 비교 업로드·파손 리포트·하단 고정 바·기준사진 0장 폴백). vitest 20개, QA 2차 통과. 계약: docs/contracts/T3.3-checkout.md
 - [x] T3.4 CleaningTask 자동 생성 + isSellable 게이트 + 검수 목록·승인 화면(/inspections) (Stitch B6) (BE/FE) — **전체 완료(2026-06-11)**. **FE 완료분**: /inspections(b6 변환 — 2패널: 승인 대기 우선 목록+상태 탭, 기준 사진 vs 청소 후 쌍 그리드(#E5E7EB 라벨), 승인/반려(사유 필수)+gateOpened 배너). RSC 직접 조회(신규 API 0, booking·금액 비직렬화). QA 1차 조건부(D-1 key 리마운트)→2차 반려(D-2 승인 후 선택 튐·배너 소멸)→URL 선택 고정(router.replace)+fallback 완화로 수정→**전체 통과**. 계약: docs/contracts/T3.4-inspections-fe.md. 편차: submittedAt 컬럼 부재 → "생성:"·"승인:" 시각 표기(TDA 검토 후보) — **BE 완료(2026-06-11)**: lib/cleaning.ts(상태기계 PENDING→제출→승인|반려·재제출, createCheckoutCleaningTask tx 주입 — T3.3에서 호출, 게이트 규칙: 미결 CHECKOUT 0건일 때만 isSellable=true — PERIODIC 우회 차단, 정기 방역 월 멱등 cron) + cleaning-tasks API 4종(role 스코프 강제) + cron/periodic-cleaning. vitest 11개, QA **통과**(동적 DB 검증 17건 — 게이트 우회 0건). 잔여: /inspections b6 변환(FE). 계약: docs/contracts/T3.4-cleaning-gate.md
   - QA 비차단 후속 3건(BE 백로그): ① 승인 트랜잭션 villa 행 선 update 직렬화(크로스 tx race — Phase 1 ADMIN 1인이라 실위험 극저) ② submit 404/403 순서(정보성) ③ PERIODIC cron 동시 중복 방어(피해는 중복 알림뿐)
 - [ ] T3.4b **신규 빌라 게이트 초기 개방 절차 (TDA 결정 필요)** — Villa 기본 isSellable=false + setter가 청소 승인뿐 → 첫 판매 불가능(닭과 달걀). 빌라 APPROVE 시 초기 검수 태스크 자동 생성 또는 ADMIN 수동 개방 중 결정 (T3.4 QA 관찰)
@@ -61,7 +61,7 @@
 ### 구현 (각 스프린트에 흡수 — 담당 표기)
 - [ ] T6.3 결제 통화: ~~lib/pricing.ts 통화 분기(saleCurrency별 박별 합산)~~(2026-06-11 T1.7 BE에서 완료 — KRW number/VND bigint 분기, USD 명시 거부 게이트) + VillaRate salePriceVnd 편집(빌라 승인·요율 화면) + 제안·HOLD 통화/환율 스냅샷 + /settings 환율(FX_VND_PER_KRW) 입력 UI (BE/FE — Sprint 2 T2.1~T2.3과 병행, 잔여 3건). **주의: StayQuote는 원가 포함 — ADMIN 외 응답 직렬화 금지(leak-checklist 등재)**
 - [ ] T6.4 비품: ~~마법사 4/5 비품 단계(a9 변환, 품목 사전 i18n 키는 LOC)~~(2026-06-11 T1.1에서 완료 — lib/amenities.ts 25종 + amenities.* i18n 키) + 내 빌라 상세 비품 수정 + ADMIN b10 비품 조회 (UX-VN/FE/LOC — Sprint 1 T1.2와 병행, 잔여 2건)
-- [ ] T6.5 체크아웃 미니바 확인 체크리스트 (읽기 전용, b4 변환에 포함) (FE — Sprint 3 T3.3과 병행)
+- [x] T6.5 체크아웃 미니바 확인 체크리스트 (읽기 전용, b4 변환에 포함) (FE) — 2026-06-11 T3.3에서 완료: VillaAmenity MINIBAR 품목·수량 읽기 전용 테이블 + 수기 차감 안내. 편차: 확인 체크 열 제거(저장 데이터 없음 — 계약 기재)
 - [ ] T6.6 Zalo 채팅: webhook message 이벤트 수신(T3.7 엔드포인트 분기) → ZaloConversation/ZaloMessage 저장 + /messages 채팅 화면(48h 창 비활성) + Gemini 번역(수신 자동·발신 미리보기) + F5 알림 OUTBOUND 미러 기록 (INTEG/FE/BE — Sprint 3 T3.5·T3.7과 병행)
 - [ ] T6.7 관리자 반응형: <1024px 햄버거 드로어 레이아웃 + ResponsiveTable 공통 컴포넌트(<768px 카드 전환 — b5·b9·b12·b13 적용) (FE — 각 화면 변환 시 적용, QA가 360×800 뷰포트 검증)
 
