@@ -30,6 +30,65 @@
       "legendNotSellable": "Không thể bán",
       "villaColumn": "Tên villa",
       "empty": "Chưa có villa đang hoạt động — sẽ hiển thị sau khi villa được duyệt."
+    },
+    "status": {
+      "CONFIRMED": "Đã xác nhận",
+      "CHECKED_IN": "Đang ở",
+      "CHECKED_OUT": "Đã trả phòng"
+    },
+    "stats": {
+      "checkinToday": "Nhận phòng hôm nay",
+      "checkoutToday": "Trả phòng hôm nay",
+      "holdsActive": "Đặt giữ đang chờ",
+      "cleaningPending": "Chờ duyệt vệ sinh",
+      "unitCase": "ca",
+      "unitSpot": "nơi",
+      "expiresIn": "Hết hạn gần nhất sau {h} giờ"
+    },
+    "banner": {
+      "title": "Xung đột iCal",
+      "message": "{villa} — {range} đặt phòng bên ngoài trùng với đặt phòng đã xác nhận",
+      "more": "+{n} ca",
+      "resolve": "Xử lý"
+    },
+    "feed": {
+      "title": "Hoạt động gần đây",
+      "empty": "Chưa có hoạt động",
+      "justNow": "Vừa xong",
+      "minutesAgo": "{n} phút trước",
+      "hoursAgo": "{n} giờ trước",
+      "labels": {
+        "holdCreated": "Tạo đặt giữ",
+        "bookingConfirmed": "Xác nhận đặt phòng",
+        "checkedIn": "Đã nhận phòng",
+        "checkedOut": "Đã trả phòng",
+        "holdExpired": "Hết hạn giữ",
+        "bookingCancelled": "Hủy đặt phòng",
+        "cleaningRequested": "Yêu cầu vệ sinh",
+        "cleaningSubmitted": "Nộp ảnh vệ sinh",
+        "cleaningApproved": "Duyệt kiểm tra",
+        "cleaningRejected": "Từ chối kiểm tra",
+        "proposalCreated": "Tạo đề xuất",
+        "villaCreated": "Đăng ký villa",
+        "villaApproved": "Duyệt villa",
+        "agreementSigned": "Ký cam kết",
+        "generic": "Bản ghi thay đổi"
+      }
+    },
+    "today": {
+      "checkinTitle": "Nhận phòng hôm nay",
+      "checkoutTitle": "Trả phòng hôm nay",
+      "cleaningTitle": "Chờ kiểm tra vệ sinh",
+      "viewAll": "Xem tất cả",
+      "empty": "Không có mục nào",
+      "nights": "{n} đêm",
+      "photos": "{n} ảnh",
+      "awaitingApproval": "Chờ duyệt"
+    },
+    "footer": {
+      "systemOk": "Hệ thống bình thường: các kênh đang đồng bộ",
+      "lastSync": "Đồng bộ gần nhất: {at}",
+      "fxChip": "1.000.000₫ ≈ {krw} KRW"
     }
   },
   "adminBookings": {

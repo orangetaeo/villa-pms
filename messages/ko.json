@@ -30,6 +30,65 @@
       "legendNotSellable": "판매불가",
       "villaColumn": "빌라명",
       "empty": "운영 중인 빌라가 없습니다 — 빌라 승인 후 표시됩니다."
+    },
+    "status": {
+      "CONFIRMED": "확정",
+      "CHECKED_IN": "투숙 중",
+      "CHECKED_OUT": "체크아웃"
+    },
+    "stats": {
+      "checkinToday": "오늘 체크인",
+      "checkoutToday": "오늘 체크아웃",
+      "holdsActive": "가예약 진행 중",
+      "cleaningPending": "청소 승인 대기",
+      "unitCase": "건",
+      "unitSpot": "개소",
+      "expiresIn": "최근 만료 {h}시간 후"
+    },
+    "banner": {
+      "title": "iCal 충돌",
+      "message": "{villa} — {range} 외부 예약과 내부 확정 예약이 겹칩니다",
+      "more": "+{n}건",
+      "resolve": "해결하기"
+    },
+    "feed": {
+      "title": "최근 활동 피드",
+      "empty": "최근 활동이 없습니다",
+      "justNow": "방금 전",
+      "minutesAgo": "{n}분 전",
+      "hoursAgo": "{n}시간 전",
+      "labels": {
+        "holdCreated": "가예약 생성",
+        "bookingConfirmed": "예약 확정",
+        "checkedIn": "체크인 완료",
+        "checkedOut": "체크아웃 완료",
+        "holdExpired": "홀드 만료",
+        "bookingCancelled": "예약 취소",
+        "cleaningRequested": "청소 요청",
+        "cleaningSubmitted": "청소 사진 제출",
+        "cleaningApproved": "검수 승인",
+        "cleaningRejected": "검수 반려",
+        "proposalCreated": "제안 생성",
+        "villaCreated": "빌라 등록",
+        "villaApproved": "빌라 승인",
+        "agreementSigned": "동의서 서명",
+        "generic": "변경 기록"
+      }
+    },
+    "today": {
+      "checkinTitle": "오늘 체크인",
+      "checkoutTitle": "오늘 체크아웃",
+      "cleaningTitle": "청소 검수 대기",
+      "viewAll": "전체 보기",
+      "empty": "해당 항목이 없습니다",
+      "nights": "{n}박",
+      "photos": "사진 {n}장",
+      "awaitingApproval": "승인 대기"
+    },
+    "footer": {
+      "systemOk": "시스템 정상: 모든 채널 동기화 중",
+      "lastSync": "최근 동기화: {at}",
+      "fxChip": "1,000,000₫ ≈ {krw}원"
     }
   },
   "adminBookings": {

@@ -19,10 +19,10 @@ export function toDateOnlyString(date: Date): string {
 }
 
 /** 베트남(Asia/Ho_Chi_Minh) 기준 오늘 날짜 "YYYY-MM-DD" */
-export function todayVnDateString(): string {
-  // en-CA 로케일은 YYYY-MM-DD 형식을 반환
+export function todayVnDateString(now?: Date): string {
+  // en-CA 로케일은 YYYY-MM-DD 형식을 반환. now 주입은 테스트·일관성용 (T2.6 QA I-1)
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Ho_Chi_Minh" }).format(
-    new Date()
+    now ?? new Date()
   );
 }
 
