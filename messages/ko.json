@@ -18,6 +18,20 @@
     "openMenu": "메뉴 열기",
     "closeMenu": "메뉴 닫기"
   },
+  "adminDashboard": {
+    "title": "대시보드",
+    "greeting": "안녕하세요, {name}님",
+    "comingSoon": "Sprint 2 T2.6에서 스탯 카드·활동 피드·경보 배너가 추가됩니다.",
+    "timeline": {
+      "title": "빌라별 예약 현황 (30일)",
+      "legendConfirmed": "확정",
+      "legendHold": "가예약",
+      "legendBlocked": "차단",
+      "legendNotSellable": "판매불가",
+      "villaColumn": "빌라명",
+      "empty": "운영 중인 빌라가 없습니다 — 빌라 승인 후 표시됩니다."
+    }
+  },
   "adminVillas": {
     "list": {
       "title": "빌라 관리",

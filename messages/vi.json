@@ -18,6 +18,20 @@
     "openMenu": "Mở menu",
     "closeMenu": "Đóng menu"
   },
+  "adminDashboard": {
+    "title": "Bảng điều khiển",
+    "greeting": "Xin chào, {name}",
+    "comingSoon": "Thẻ thống kê, nguồn hoạt động và banner cảnh báo sẽ được thêm ở Sprint 2 T2.6.",
+    "timeline": {
+      "title": "Tình trạng đặt phòng theo villa (30 ngày)",
+      "legendConfirmed": "Đã xác nhận",
+      "legendHold": "Giữ chỗ",
+      "legendBlocked": "Đã khóa",
+      "legendNotSellable": "Không thể bán",
+      "villaColumn": "Tên villa",
+      "empty": "Chưa có villa đang hoạt động — sẽ hiển thị sau khi villa được duyệt."
+    }
+  },
   "adminVillas": {
     "list": {
       "title": "Quản lý villa",
