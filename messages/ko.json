@@ -751,5 +751,67 @@
       "unavailableTitle": "일부 빌라를 제안할 수 없습니다",
       "submitError": "제안 생성에 실패했습니다. 다시 시도해주세요."
     }
+  },
+  "adminInspections": {
+    "list": {
+      "title": "청소 검수",
+      "queueHeader": "검수 리스트",
+      "countBadge": "{count}건",
+      "tabs": {
+        "all": "전체",
+        "submitted": "승인 대기",
+        "pending": "청소 대기",
+        "approved": "승인됨",
+        "rejected": "반려됨"
+      },
+      "status": {
+        "PENDING": "청소 대기",
+        "PHOTOS_SUBMITTED": "승인 대기",
+        "APPROVED": "승인됨",
+        "REJECTED": "반려됨"
+      },
+      "typeLong": {
+        "CHECKOUT": "체크아웃 청소",
+        "PERIODIC": "정기 청소"
+      },
+      "empty": "표시할 청소 태스크가 없습니다.",
+      "selectPrompt": "왼쪽 목록에서 검수할 태스크를 선택하세요."
+    },
+    "detail": {
+      "photosSubmitted": "사진 {count}장 제출됨",
+      "createdAt": "생성: {datetime}",
+      "approvedAt": "승인: {datetime}",
+      "dueDate": "마감: {date}",
+      "baseline": "기준 사진",
+      "after": "청소 후",
+      "noBaseline": "기준 사진 없음",
+      "noSubmission": "제출 사진 없음",
+      "extraPhoto": "추가 사진 {n}",
+      "noPhotos": "아직 제출된 사진이 없습니다.",
+      "rejectNoteTitle": "반려 사유",
+      "approve": "승인",
+      "reject": "반려",
+      "cancelReject": "취소",
+      "rejectPlaceholder": "반려 사유 입력",
+      "rejectRequired": "반려 사유를 입력해주세요.",
+      "noteLength": "{len}/{max}자",
+      "approved": "검수가 승인되었습니다.",
+      "gateOpened": "빌라가 판매 가능 상태로 전환되었습니다.",
+      "rejected": "반려 처리되었습니다. 재청소 후 다시 제출됩니다.",
+      "conflict": "이미 처리된 태스크입니다. 최신 상태로 갱신합니다.",
+      "actionError": "처리에 실패했습니다. 다시 시도해주세요.",
+      "gateNote": "승인 시 판매 가능 상태로 전환됩니다.",
+      "periodicNote": "정기 청소 승인은 판매 가능 상태에 영향을 주지 않습니다.",
+      "spaces": {
+        "EXTERIOR": "외관",
+        "LIVING": "거실",
+        "KITCHEN": "주방",
+        "BEDROOM": "침실",
+        "BATHROOM": "욕실",
+        "BALCONY": "베란다",
+        "POOL": "수영장",
+        "ETC": "기타"
+      }
+    }
   }
 }

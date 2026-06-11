@@ -751,5 +751,67 @@
       "unavailableTitle": "Một số villa không thể đề xuất",
       "submitError": "Tạo đề xuất thất bại. Vui lòng thử lại."
     }
+  },
+  "adminInspections": {
+    "list": {
+      "title": "Kiểm tra dọn dẹp",
+      "queueHeader": "Danh sách kiểm tra",
+      "countBadge": "{count} việc",
+      "tabs": {
+        "all": "Tất cả",
+        "submitted": "Chờ duyệt",
+        "pending": "Chờ dọn dẹp",
+        "approved": "Đã duyệt",
+        "rejected": "Bị từ chối"
+      },
+      "status": {
+        "PENDING": "Chờ dọn dẹp",
+        "PHOTOS_SUBMITTED": "Chờ duyệt",
+        "APPROVED": "Đã duyệt",
+        "REJECTED": "Bị từ chối"
+      },
+      "typeLong": {
+        "CHECKOUT": "Dọn dẹp trả phòng",
+        "PERIODIC": "Dọn dẹp định kỳ"
+      },
+      "empty": "Không có việc dọn dẹp nào.",
+      "selectPrompt": "Chọn một việc từ danh sách bên trái."
+    },
+    "detail": {
+      "photosSubmitted": "Đã gửi {count} ảnh",
+      "createdAt": "Tạo: {datetime}",
+      "approvedAt": "Duyệt: {datetime}",
+      "dueDate": "Hạn: {date}",
+      "baseline": "Ảnh gốc",
+      "after": "Sau dọn dẹp",
+      "noBaseline": "Không có ảnh gốc",
+      "noSubmission": "Chưa có ảnh gửi",
+      "extraPhoto": "Ảnh bổ sung {n}",
+      "noPhotos": "Chưa có ảnh nào được gửi.",
+      "rejectNoteTitle": "Lý do từ chối",
+      "approve": "Duyệt",
+      "reject": "Từ chối",
+      "cancelReject": "Hủy",
+      "rejectPlaceholder": "Nhập lý do từ chối",
+      "rejectRequired": "Vui lòng nhập lý do từ chối.",
+      "noteLength": "{len}/{max} ký tự",
+      "approved": "Đã duyệt kiểm tra.",
+      "gateOpened": "Villa đã chuyển sang trạng thái có thể bán.",
+      "rejected": "Đã từ chối. Cần dọn dẹp lại và gửi ảnh mới.",
+      "conflict": "Việc này đã được xử lý. Đang cập nhật trạng thái mới nhất.",
+      "actionError": "Xử lý thất bại. Vui lòng thử lại.",
+      "gateNote": "Khi duyệt, villa sẽ chuyển sang trạng thái có thể bán.",
+      "periodicNote": "Duyệt dọn dẹp định kỳ không ảnh hưởng trạng thái bán.",
+      "spaces": {
+        "EXTERIOR": "Bên ngoài",
+        "LIVING": "Phòng khách",
+        "KITCHEN": "Bếp",
+        "BEDROOM": "Phòng ngủ",
+        "BATHROOM": "Phòng tắm",
+        "BALCONY": "Ban công",
+        "POOL": "Hồ bơi",
+        "ETC": "Khác"
+      }
+    }
   }
 }

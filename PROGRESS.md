@@ -59,6 +59,8 @@
 
 | 2026-06-11 | T3.5 | Zalo OA 발송 모듈 완료: lib/zalo.ts — enqueueNotification(비즈니스 로직 유일 진입점, $transaction 주입 가능) + dispatchPendingNotifications(배치 20, 재시도 3회 — NO_ZALO_LINK 영구 제외·ZALO_TOKEN_NOT_SET는 attempt 미증가로 토큰 입력 시 자동 회복, attempt는 payload._attempt — 스키마 무변경) + 발송 성공 시 ZaloMessage(SYSTEM·OUTBOUND) 미러(b14 채팅 정합, 미러 실패는 SENT 비롤백). vi 템플릿 9종(LOC 용어 사전 준수, 마진·판매가 화이트리스트 차단 — 오염 주입 테스트). /api/cron/notifications(CRON_SECRET Bearer). vitest 22개(전체 176 회귀 0), QA 독립 평가 **통과**(5/5, 동적 검증: PENDING→FAILED 전이·영구 제외·401/500) | 잔여: 실발송 검증(토큰 대기)·Railway cron 등록(OPS). 비차단 권고 2건: 소진 FAILED 큐 기아(PERMANENT_ 접두 권고)·cron 동시 실행 중복(단일 cron 전제 수용). QA 교훈: vitest는 대문자 드라이브(C:\) 경로에서 실행 — 소문자 cwd면 러너 이중 로딩 전멸 |
 
+| 2026-06-11 | T3.4(FE) | 청소 검수 화면 완료 (b6 변환): `/inspections` 2패널 — 좌 목록(승인 대기 우선 정렬·상태 탭 5종 groupBy 카운트·?task= 선택 유지), 우 상세(기준 사진(isBaseline) vs 청소 후 쌍 그리드 — 라벨 #E5E7EB, 개수 불일치 단독 표시, REJECTED 사유 박스), 하단 액션(승인 초록/반려 빨강 — 사유 필수 1000자, PHOTOS_SUBMITTED만 활성, **gateOpened=true 시 "판매 가능 전환" 배너** — 검수 게이트 가시화). RSC prisma 직접 조회(신규 API 0) — booking·고객명·금액·assignee **비직렬화**(select 화이트리스트). QA 1차 조건부(D-1: 태스크 전환 시 반려 사유 잔존 → key 리마운트) → 2차 반려(D-2: 승인 후 선택 첫 행 튐 → 배너 소멸) → 액션 성공 시 `router.replace`로 선택 URL 고정 + selectedId fallback 완화 → 3차 **전체 통과**(누수 0건) | 편차: submittedAt 컬럼 부재 → "생성:"·"승인:" 정직 표기(TDA 검토 후보), 반려 모드 중 승인 버튼 숨김(오클릭 방지). QA→BE 전달: submit API photoUrls 형식 refine 권고(Low). messages는 adminInspections만 부분 스테이징(3회째). 계약: docs/contracts/T3.4-inspections-fe.md |
+
 ## 현재 상태 (2026-06-11 기준)
 
 ### 완료된 태스크

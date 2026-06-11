@@ -7,7 +7,7 @@
 - [x] T0.4 이미지 저장소 결정 및 업로드 파이프라인 (클라 리사이즈 → R2) (INTEG) — 2026-06-11 완료 (ADR-0004). R2 백엔드+디스크 폴백 자동 선택, 인터림 Railway volume(/data), 클라 리사이즈 유틸. **잔여: 테오 Cloudflare R2 버킷·API 토큰 발급 → Railway STORAGE_* 5종 입력 시 R2 전환**
 - [x] T0.5 i18n 셋업: ko/vi 키 구조, 공급자 라우트 vi 기본 (FE/LOC) — 2026-06-11 완료. locale 쿠키 기반(미들웨어 자동 설정: admin→ko, supplier·signup·login→vi), auth 네임스페이스 키 등재. 화면별 키는 각 변환 태스크에서 추가
 - [x] T0.6 Railway 배포 + CRON_SECRET 크론 라우트 골격 (OPS/TDA) — 2026-06-11 배포 완료 (villa-pms-production.up.railway.app), 크론 골격은 잔여
-- [ ] T0.7 reference/ 수집: Nike zalo·gemini, 환전 LEDGER·WebPush, TravelDiary 업로드·PWA 코드 복사 (테오)
+- [x] T0.7 reference/ 수집: Nike zalo·gemini, 환전 LEDGER·WebPush, TravelDiary 업로드·PWA 코드 복사 (INTEG) — 2026-06-11 완료. 31개 파일([SHARED-MODULE] 헤더), reference/README.md에 태스크 매핑. 시크릿 0건(자격증명 json 복사 제외). ~~주의: OA REST 전송 계층 신규 작성 필요~~ → **ADR-0005로 zca-js 확정 — Nike 전송 계층 그대로 재사용** (발송 큐·재시도·credential 포함)
 - [x] T0.8 Playwright MCP 설치·연결 — QA 실사용 검증용 (QA/TDA) — 2026-06-11 완료. .mcp.json(@playwright/mcp) + Chromium 바이너리 설치. **다음 세션 시작 시 프로젝트 MCP 승인 프롬프트에서 허용 필요** — 이후 QA가 browser_* 도구로 프로덕션 실사용 검증 가능
 - [ ] T0.9 AuditLog·AppSetting 마이그레이션 + lib/audit-log.ts(writeAuditLog) 유틸 — 이후 모든 변경 API에 동시 적용 (TDA/BE) — lib/audit-log.ts는 2026-06-11 T0.3에서 생성 완료(가입 시 적용 중), 스키마는 T0.2 db push에 포함. 잔여: v1.2 추가분 push 재실행 확인
 
@@ -37,12 +37,12 @@
 - [ ] T3.1 체크인: 여권 업로드 + Gemini OCR + 보증금 기록 (Stitch B3 변환) (INTEG/BE)
 - [ ] T3.2 동의서 표시 + 터치 서명 패드 (FE)
 - [ ] T3.3 체크아웃: 기준사진 비교 UI + 차감 기록 (FE/BE)
-- [ ] T3.4 CleaningTask 자동 생성 + isSellable 게이트 + 검수 목록·승인 화면(/inspections) (Stitch B6) (BE/FE) — **BE 완료(2026-06-11)**: lib/cleaning.ts(상태기계 PENDING→제출→승인|반려·재제출, createCheckoutCleaningTask tx 주입 — T3.3에서 호출, 게이트 규칙: 미결 CHECKOUT 0건일 때만 isSellable=true — PERIODIC 우회 차단, 정기 방역 월 멱등 cron) + cleaning-tasks API 4종(role 스코프 강제) + cron/periodic-cleaning. vitest 11개, QA **통과**(동적 DB 검증 17건 — 게이트 우회 0건). 잔여: /inspections b6 변환(FE). 계약: docs/contracts/T3.4-cleaning-gate.md
+- [x] T3.4 CleaningTask 자동 생성 + isSellable 게이트 + 검수 목록·승인 화면(/inspections) (Stitch B6) (BE/FE) — **전체 완료(2026-06-11)**. **FE 완료분**: /inspections(b6 변환 — 2패널: 승인 대기 우선 목록+상태 탭, 기준 사진 vs 청소 후 쌍 그리드(#E5E7EB 라벨), 승인/반려(사유 필수)+gateOpened 배너). RSC 직접 조회(신규 API 0, booking·금액 비직렬화). QA 1차 조건부(D-1 key 리마운트)→2차 반려(D-2 승인 후 선택 튐·배너 소멸)→URL 선택 고정(router.replace)+fallback 완화로 수정→**전체 통과**. 계약: docs/contracts/T3.4-inspections-fe.md. 편차: submittedAt 컬럼 부재 → "생성:"·"승인:" 시각 표기(TDA 검토 후보) — **BE 완료(2026-06-11)**: lib/cleaning.ts(상태기계 PENDING→제출→승인|반려·재제출, createCheckoutCleaningTask tx 주입 — T3.3에서 호출, 게이트 규칙: 미결 CHECKOUT 0건일 때만 isSellable=true — PERIODIC 우회 차단, 정기 방역 월 멱등 cron) + cleaning-tasks API 4종(role 스코프 강제) + cron/periodic-cleaning. vitest 11개, QA **통과**(동적 DB 검증 17건 — 게이트 우회 0건). 잔여: /inspections b6 변환(FE). 계약: docs/contracts/T3.4-cleaning-gate.md
   - QA 비차단 후속 3건(BE 백로그): ① 승인 트랜잭션 villa 행 선 update 직렬화(크로스 tx race — Phase 1 ADMIN 1인이라 실위험 극저) ② submit 404/403 순서(정보성) ③ PERIODIC cron 동시 중복 방어(피해는 중복 알림뿐)
 - [ ] T3.4b **신규 빌라 게이트 초기 개방 절차 (TDA 결정 필요)** — Villa 기본 isSellable=false + setter가 청소 승인뿐 → 첫 판매 불가능(닭과 달걀). 빌라 APPROVE 시 초기 검수 태스크 자동 생성 또는 ADMIN 수동 개방 중 결정 (T3.4 QA 관찰)
-- [x] T3.5 lib/zalo.ts OA 발송 + Notification 로그 + 재시도 cron (INTEG) — 2026-06-11 완료. enqueueNotification(tx 주입)·dispatchPendingNotifications(재시도 3회·NO_ZALO_LINK 영구 제외·TOKEN_NOT_SET 자동 회복)·ZaloMessage SYSTEM 미러·vi 템플릿 9종(마진 오염 주입 테스트 통과). vitest 22개, QA 독립 평가 **통과**. 계약: docs/contracts/T3.5-zalo-send.md. **잔여: ① ZALO_OA_ACCESS_TOKEN 입력 후 실발송 검증 ② Railway cron에 /api/cron/notifications 5분 주기 등록(OPS — cron-ical-sync 패턴) ③ 비차단 권고: 소진 FAILED PERMANENT_ 접두 처리(큐 기아 방지)**
+- [x] T3.5 lib/zalo.ts 발송(zca-js — ADR-0005) + Notification 로그 + 재시도 cron (INTEG) — 2026-06-11 완료. enqueueNotification(tx 주입)·dispatchPendingNotifications(재시도 3회·NO_ZALO_LINK 영구 제외·TOKEN_NOT_SET 자동 회복)·ZaloMessage SYSTEM 미러·vi 템플릿 9종(마진 오염 주입 테스트 통과). vitest 22개, QA 독립 평가 **통과**. 계약: docs/contracts/T3.5-zalo-send.md. **잔여: ① ADR-0005에 따라 전송 계층을 zca-js로 교체(Nike reference 이식: zalo.ts·zalo-pool.ts·zalo-credentials.ts, ZALO_CREDS_KEY 설정) + QR 로그인 후 실발송 검증 ② Railway cron에 /api/cron/notifications 5분 주기 등록(OPS — cron-ical-sync 패턴) ③ 비차단 권고: 소진 FAILED PERMANENT_ 접두 처리(큐 기아 방지)**
 - [ ] T3.6 여권 Zalo 전달 (임시거주신고) (INTEG)
-- [ ] T3.7 Zalo 계정 연결 온보딩: OA follow webhook + 전화번호 매칭 + ADMIN 미연결 뱃지·수동 매칭 (INTEG/UX-VN)
+- [ ] T3.7 Zalo 계정 연결 온보딩: zca-js 친구추가/수신 메시지 이벤트 + 전화번호 매칭 + ADMIN 미연결 뱃지·수동 매칭 (ADR-0005 — OA follow webhook 폐기) (INTEG/UX-VN)
 
 ## 디자인 후속 — 2026-06-11 전체 회의 (Stitch 24장 산출, QA 권한 누수 0건, 조건부 통과)
 - [x] T5.0 (소급 등재) Stitch 추가 화면 산출 — 태스크 미등재 상태로 생성: A0-zalo-connect, A2b(위치정보), A5(요율입력), A6(내 빌라), A7(내 수익), B9(빌라 목록), B10(빌라 상세), B11(예약 상세), B12(제안 목록) (DESIGN) — 2026-06-11 전체 회의 검수 — 조건부 통과
