@@ -183,7 +183,9 @@ export async function submitCleaningPhotos(
 
 /**
  * ADMIN 승인 — PHOTOS_SUBMITTED → APPROVED. 게이트 규칙 통과 시 villa.isSellable=true.
- * PERIODIC 승인은 게이트에 영향 없음.
+ * 게이트 개방 조건 (ADR-0006 개정): ① CHECKOUT 승인 또는 ② 빌라의 첫 APPROVED 승인
+ * (초기 검수·기존 ACTIVE 빌라의 첫 월간 검수 — 닭과 달걀 해소). 두 경우 모두
+ * 미결 CHECKOUT 0건 조건을 통과해야 한다. 그 외 PERIODIC 승인은 게이트에 영향 없음.
  */
 export async function approveCleaningTask(
   prisma: PrismaClient,
@@ -216,9 +218,20 @@ export async function approveCleaningTask(
       throw new CleaningTransitionError(task.status, CleaningStatus.APPROVED);
     }
 
-    // 게이트 열기 판정 — CHECKOUT 승인 + 같은 빌라의 다른 미결 CHECKOUT 0건일 때만
+    // 게이트 열기 판정 (ADR-0006 개정) — ① CHECKOUT 승인 또는 ② 빌라의 첫 APPROVED
+    // (이번 건 제외 0건 — 초기 검수·기존 ACTIVE 빌라의 첫 검수). PERIODIC만으로는
+    // CHECKOUT 게이트를 우회하지 못하도록 미결 CHECKOUT 0건 조건은 공통 적용
     let gateOpened = false;
-    if (task.type === CleaningType.CHECKOUT) {
+    const isFirstApproved =
+      task.type !== CleaningType.CHECKOUT &&
+      (await tx.cleaningTask.count({
+        where: {
+          villaId: task.villaId,
+          status: CleaningStatus.APPROVED,
+          id: { not: task.id },
+        },
+      })) === 0;
+    if (task.type === CleaningType.CHECKOUT || isFirstApproved) {
       const openCheckoutCount = await tx.cleaningTask.count({
         where: {
           villaId: task.villaId,
@@ -389,4 +402,65 @@ export async function createPeriodicCleaningTasks(
   }
 
   return { createdCount, skippedCount, monthKey };
+}
+
+// ===================== 초기 검수 (T3.4b — ADR-0006) =====================
+
+/**
+ * 신규 빌라 초기 검수 태스크 — 빌라 최초 APPROVE 트랜잭션 안에서 호출 (tx 주입).
+ * 닭과 달걀 해소: isSellable 기본 false + setter가 청소 승인뿐 → 첫 판매 경로 부재.
+ * 공급자가 현 상태 사진 제출 → ADMIN 승인 → 기존 게이트 메커니즘으로 개방.
+ * 멱등: 해당 빌라에 CleaningTask가 1건이라도 있으면 미생성(null) — 재승인·중복 APPROVE 안전.
+ * isSellable은 건드리지 않는다 — 게이트 setter는 approveCleaningTask 단일 유지.
+ */
+export async function createInitialInspectionTask(
+  db: DbClient,
+  input: { villaId: string; actorUserId: string | null; now: Date }
+): Promise<CleaningTask | null> {
+  const villa = await db.villa.findUnique({
+    where: { id: input.villaId },
+    select: { id: true, supplierId: true, name: true },
+  });
+  if (!villa) throw new Error(`빌라를 찾을 수 없습니다: ${input.villaId}`);
+
+  const existingCount = await db.cleaningTask.count({
+    where: { villaId: input.villaId },
+  });
+  if (existingCount > 0) return null; // 검수 이력 있음 — 초기 검수 불필요 (멱등)
+
+  const task = await db.cleaningTask.create({
+    data: {
+      villaId: villa.id,
+      type: CleaningType.PERIODIC, // 스키마 변경 회피 — 구분은 Notification payload·AuditLog (ADR-0006)
+      status: CleaningStatus.PENDING,
+    },
+  });
+
+  await db.notification.create({
+    data: {
+      userId: villa.supplierId,
+      type: NotificationType.CLEANING_REQUEST,
+      payload: {
+        cleaningTaskId: task.id,
+        villaId: villa.id,
+        villaName: villa.name,
+        initialInspection: true, // 문구 분기용 (T3.5 발송 템플릿)
+      },
+    },
+  });
+
+  await writeAuditLog({
+    db,
+    userId: input.actorUserId,
+    action: "CREATE",
+    entity: "CleaningTask",
+    entityId: task.id,
+    changes: {
+      type: { new: CleaningType.PERIODIC },
+      initialInspection: { new: true },
+      villaId: { new: villa.id },
+    },
+  });
+
+  return task;
 }

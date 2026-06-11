@@ -5,6 +5,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
+import { createInitialInspectionTask } from "@/lib/cleaning";
 import type { VillaStatus } from "@prisma/client";
 
 const patchSchema = z.object({
@@ -68,7 +69,24 @@ export async function PATCH(
       data: { status: transition.to },
       select: { id: true, status: true },
     });
-    return { kind: "OK" as const, oldStatus: villa.status, villa: updated };
+
+    // T3.4b (ADR-0006): 최초 승인 시 초기 검수 태스크 — 검수 이력 있으면 null (멱등).
+    // 게이트 개방은 여전히 검수 승인 경로 단일 — 여기서 isSellable을 만지지 않는다
+    const initialTask =
+      parsed.data.action === "APPROVE"
+        ? await createInitialInspectionTask(tx, {
+            villaId: id,
+            actorUserId: session.user.id,
+            now: new Date(),
+          })
+        : null;
+
+    return {
+      kind: "OK" as const,
+      oldStatus: villa.status,
+      villa: updated,
+      initialInspectionCreated: initialTask !== null,
+    };
   });
 
   if (result.kind === "NOT_FOUND") {
@@ -96,5 +114,9 @@ export async function PATCH(
     },
   });
 
-  return NextResponse.json({ id: result.villa.id, status: result.villa.status });
+  return NextResponse.json({
+    id: result.villa.id,
+    status: result.villa.status,
+    initialInspectionCreated: result.initialInspectionCreated,
+  });
 }
