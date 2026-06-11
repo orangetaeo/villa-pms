@@ -359,6 +359,39 @@
 </div>
 </div>
 </div>
+<!-- 디자인 참고 — 반려 모달 ("반려" 버튼 클릭 시 노출, 변환 시 Dialog 컴포넌트) -->
+<div class="mt-12 pt-8 border-t border-slate-800">
+<p class="text-[10px] font-bold text-slate-500 mb-6 uppercase tracking-widest">디자인 참고 — 반려 모달</p>
+<div class="flex justify-center items-center py-12 bg-slate-900/30 rounded-xl border border-dashed border-slate-800">
+<div class="w-full max-w-[480px] bg-[#1E293B] border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
+<div class="p-6">
+<div class="mb-6">
+<h4 class="text-xl font-bold text-white mb-1">빌라 반려</h4>
+<p class="text-xs text-slate-400">반려 사유는 공급자에게 Zalo로 전달됩니다.</p>
+</div>
+<div class="space-y-4">
+<div>
+<label class="block text-xs font-bold text-slate-300 mb-2">
+                            반려 사유 <span class="text-red-500">*</span>
+</label>
+<textarea class="w-full bg-[#0F172A] border border-slate-700 rounded-lg p-3 text-sm text-slate-200 focus:ring-1 focus:ring-blue-500 outline-none transition-all" placeholder="예: 침실 사진이 어두워 재촬영이 필요합니다." rows="4"></textarea>
+<p class="mt-2 text-[11px] text-red-400 flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">error</span>
+                            사유를 입력해야 반려할 수 있습니다.
+                        </p>
+</div>
+</div>
+<div class="mt-8 flex justify-end gap-3">
+<button class="px-5 py-2 rounded-lg border border-slate-700 text-slate-300 text-sm font-bold hover:bg-slate-800 transition-colors">취소</button>
+<div class="flex gap-2">
+<button class="px-5 py-2 rounded-lg bg-slate-800 text-slate-500 text-sm font-bold cursor-not-allowed">반려 확정</button>
+<button class="px-5 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-bold shadow-lg shadow-red-900/20 transition-all">반려 확정</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
 </main>
 <script>
         // Micro-interaction: Scroll effect for TopNavBar

@@ -6,6 +6,7 @@
 <title>Dọn dẹp xong - Tải ảnh</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@100..900&display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
@@ -26,10 +27,10 @@
                         "full": "9999px"
                     },
                     fontFamily: {
-                        "headline": ["Be Vietnam Pro"],
-                        "display": ["Be Vietnam Pro"],
-                        "body": ["Be Vietnam Pro"],
-                        "label": ["Be Vietnam Pro"]
+                        "headline": ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"],
+                        "display": ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"],
+                        "body": ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"],
+                        "label": ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"]
                     }
                 },
             },
@@ -43,12 +44,16 @@
             font-variation-settings: 'FILL' 1;
         }
         body {
-            font-family: 'Be Vietnam Pro', sans-serif;
+            font-family: 'Be Vietnam Pro', 'Noto Sans KR', sans-serif;
             -webkit-tap-highlight-color: transparent;
         }
         .photo-card-aspect {
             aspect-ratio: 1 / 1;
         }
+
+        /* DESIGN 공통 규칙 (2026-06-11): 한글 폰트 폴백 + 단어 낙하 방지 */
+        body { word-break: keep-all; }
+        th, button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
     </style>
 <style>
     body {
@@ -89,6 +94,17 @@
 </div>
 </div>
 </header>
+<!-- 반려 상태 변형: 재업로드 안내 배너 (디자인 참고 — 변환 시 status=REJECTED일 때만 렌더) -->
+<div class="px-4 py-4">
+<div class="bg-rose-50 border border-rose-200 rounded-xl p-4 flex gap-3">
+<span class="material-symbols-outlined text-error fill-icon" data-icon="error">error</span>
+<div class="flex flex-col gap-1">
+<h3 class="font-bold text-neutral-900 text-sm">Bị từ chối — Vui lòng chụp lại</h3>
+<p class="text-sm text-neutral-700">Lý do: Ảnh phòng tắm bị mờ.</p>
+<p class="text-xs text-neutral-500">Tải lại ảnh và gửi để duyệt lần nữa.</p>
+</div>
+</div>
+</div>
 <!-- Main Content: Photo Grid -->
 <main class="p-4">
 <div class="grid grid-cols-2 gap-4">

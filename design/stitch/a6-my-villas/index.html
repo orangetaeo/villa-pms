@@ -6,11 +6,12 @@
 <title>Villa của tôi - Villa PMS</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <style>
         body {
-            font-family: 'Be Vietnam Pro', sans-serif;
+            font-family: 'Be Vietnam Pro', 'Noto Sans KR', sans-serif;
             background-color: #FAFAFA;
         }
         .material-symbols-outlined {
@@ -19,6 +20,10 @@
         .active-nav-icon {
             font-variation-settings: 'FILL' 1;
         }
+
+        /* DESIGN 공통 규칙 (2026-06-11): 한글 폰트 폴백 + 단어 낙하 방지 */
+        body { word-break: keep-all; }
+        th, button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
     </style>
 <script id="tailwind-config">
         tailwind.config = {
@@ -40,10 +45,10 @@
                         "full": "9999px"
                     },
                     fontFamily: {
-                        "headline": ["Be Vietnam Pro"],
-                        "display": ["Be Vietnam Pro"],
-                        "body": ["Be Vietnam Pro"],
-                        "label": ["Be Vietnam Pro"]
+                        "headline": ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"],
+                        "display": ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"],
+                        "body": ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"],
+                        "label": ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"]
                     }
                 },
             },
@@ -87,7 +92,7 @@
 </div>
 </div>
 <div class="p-4">
-<h3 class="text-xl font-bold mb-2">Sonasea V11</h3>
+<div class="flex justify-between items-center mb-2"><h3 class="text-xl font-bold">Sonasea V11</h3><span class="material-symbols-outlined text-neutral-500">chevron_right</span></div>
 <div class="flex items-center gap-4 text-neutral-500 mb-4">
 <div class="flex items-center gap-1.5">
 <span class="material-symbols-outlined text-teal-600 text-lg">bed</span>
@@ -105,11 +110,11 @@
 <div class="relative h-56 w-full">
 <img class="w-full h-full object-cover" data-alt="A spacious and modern tropical villa with white stone walls and a minimalist terrace overlooking a manicured garden. The lighting is soft morning sun, highlighting the clean lines and teal water of the nearby swimming pool. The overall mood is peaceful and professional, fitting a premium property listing for high-end travelers." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDS8TxW32QmCgynqk88czzxn0Z2fwkp2aXqtv2J8JkQripFzkxLkZw_5RhLshAg3dTPItndY0kfHXVaUjfhsXhmz8sD-MiPRElJxfaqi6jX2zpi55tB7doI48_amNRnEoulZ9sDtJejXdibwWz6OenLCir_n5oHO3p_Y3gvF3kyadK0fwk6wnJWESSp5FTI356RukCR3Ym6kMuHhFepdMv5KG5rIHtSWmAxa0ks74O0UmRhX2t7NMnn0PoBv9rZG0GHJKwpgOLCLmq-"/>
 <div class="absolute top-4 left-4">
-<span class="bg-warning text-white px-3 py-1 rounded-full text-xs font-bold shadow-md">Chờ duyệt</span>
+<span class="bg-white/90 text-error border-2 border-error px-3 py-0.5 rounded-full text-xs font-bold shadow-md">Bị từ chối</span>
 </div>
 </div>
 <div class="p-4">
-<h3 class="text-xl font-bold mb-2">Sonasea V12</h3>
+<div class="flex justify-between items-center mb-2"><h3 class="text-xl font-bold">Sonasea V12</h3><span class="material-symbols-outlined text-neutral-500">chevron_right</span></div>
 <div class="flex items-center gap-4 text-neutral-500 mb-4">
 <div class="flex items-center gap-1.5">
 <span class="material-symbols-outlined text-teal-600 text-lg">bed</span>
@@ -120,6 +125,7 @@
 <span class="text-sm font-medium">· 3 phòng tắm</span>
 </div>
 </div>
+<div class="flex items-center gap-1.5 text-error mt-2 mb-4"><span class="material-symbols-outlined text-sm">error</span><span class="text-xs font-medium">Lý do: Thiếu ảnh phòng tắm.</span></div>
 </div>
 </div>
 <!-- Card 3: Sunset Sanato A3 -->
@@ -131,7 +137,7 @@
 </div>
 </div>
 <div class="p-4">
-<h3 class="text-xl font-bold mb-2">Sunset Sanato A3</h3>
+<div class="flex justify-between items-center mb-2"><h3 class="text-xl font-bold">Sunset Sanato A3</h3><span class="material-symbols-outlined text-neutral-500">chevron_right</span></div>
 <div class="flex items-center gap-4 text-neutral-500 mb-4">
 <div class="flex items-center gap-1.5">
 <span class="material-symbols-outlined text-teal-600 text-lg">bed</span>
