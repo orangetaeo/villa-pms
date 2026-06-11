@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { resizeImage } from "@/lib/image-resize";
+import AgreementSection from "./agreement-section";
 
 interface PassportEntry {
   url: string; // /api/passports/<name>
@@ -50,14 +51,19 @@ async function blobToBase64(blob: Blob): Promise<string> {
 export default function CheckinForm({
   bookingId,
   guestCount,
+  hasPool,
 }: {
   bookingId: string;
   guestCount: number;
+  /** 수영장 조항 자동 포함 여부 (SPEC F4 체크인 4, T3.2) */
+  hasPool: boolean;
 }) {
   const t = useTranslations("adminCheckin");
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
   const [passports, setPassports] = useState<PassportEntry[]>([]);
+  // T3.2 — 동의서 터치 서명(선택). 무서명 체크인 허용 — 사후 서명 경로 존재 (계약 결정 1·2)
+  const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [depositSkipped, setDepositSkipped] = useState(false);
   const [depositAmount, setDepositAmount] = useState("");
@@ -166,6 +172,7 @@ export default function CheckinForm({
                 amount: Number(depositAmount.replaceAll(",", "")),
                 currency: depositCurrency,
               },
+          signatureUrl, // T3.2 — null이면 무서명 체크인 (미서명 배지·사후 서명으로 해소)
         }),
       });
       if (!res.ok) {
@@ -349,7 +356,13 @@ export default function CheckinForm({
         )}
       </section>
 
-      {/* 동의서(T3.2)·공급자 전달(T3.6) 섹션은 해당 태스크에서 추가 — 미렌더 (계약 조건 B) */}
+      {/* Section 3: 동의서 + 터치 서명 (T3.2, b3 §3) */}
+      <AgreementSection hasPool={hasPool} sectionNo={3} onSigned={setSignatureUrl} />
+      {!signatureUrl && (
+        <p className="text-center text-[11px] text-amber-400/80">{t("agreement.unsignedHint")}</p>
+      )}
+
+      {/* 공급자 전달(T3.6) 섹션은 해당 태스크에서 추가 — 미렌더 (T3.1 계약 조건 B) */}
 
       {/* Section 4: 완료 (b3) */}
       <div className="pt-4 pb-12">

@@ -33,6 +33,12 @@ const checkinSchema = z.object({
     .nullable()
     .default(null),
   notes: z.string().max(2000).optional(),
+  // T3.2 — 터치 서명(선택). 비공개 증빙 경로만 (여권과 동일 정책)
+  signatureUrl: z
+    .string()
+    .regex(/^\/api\/passports\/[a-zA-Z0-9._-]+$/)
+    .nullable()
+    .optional(),
 });
 
 export async function POST(
@@ -61,6 +67,7 @@ export async function POST(
       passportPhotoUrls: parsed.data.passportPhotoUrls,
       passportData: parsed.data.passportData,
       deposit: parsed.data.deposit,
+      signatureUrl: parsed.data.signatureUrl ?? null,
       notes: parsed.data.notes,
       actorUserId: session.user.id,
     });

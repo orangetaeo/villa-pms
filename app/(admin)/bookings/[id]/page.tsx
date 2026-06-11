@@ -68,6 +68,7 @@ export default async function BookingDetailPage({
       note: true,
       cancelReason: true,
       villa: { select: { id: true, name: true } },
+      checkInRecord: { select: { signatureUrl: true } }, // T3.2 — 미서명 배지·사후 서명 진입점
       payments: {
         orderBy: { receivedAt: "asc" },
         select: { id: true, receivedAt: true, method: true, currency: true, amount: true, note: true },
@@ -325,7 +326,15 @@ export default async function BookingDetailPage({
 
         {/* 우측 (33%) */}
         <div className="col-span-12 lg:col-span-4 space-y-6">
-          <ActionPanel bookingId={booking.id} status={booking.status} />
+          <ActionPanel
+            bookingId={booking.id}
+            status={booking.status}
+            agreementUnsigned={
+              booking.status === "CHECKED_IN" &&
+              booking.checkInRecord !== null &&
+              !booking.checkInRecord.signatureUrl
+            }
+          />
 
           {/* 활동 로그 — AuditLog 기반 */}
           <section className="bg-admin-card rounded-xl overflow-hidden shadow-sm border border-[#334155]">

@@ -53,14 +53,37 @@ describe("resolveDepositOutcome — 보증금 상태기계 (SPEC F4 체크아웃
     expect(() => resolveDepositOutcome(false, 1_000_000n)).toThrow(RangeError);
     expect(() => resolveDepositOutcome(false, -1n)).toThrow(RangeError);
   });
+
+  it("NONE(미수취): 상태 NONE 유지 — REFUNDED 둔갑 차단 (T3.3 핫픽스)", () => {
+    expect(resolveDepositOutcome(false, null, DepositStatus.NONE)).toEqual({
+      depositStatus: DepositStatus.NONE,
+      deductionVnd: null,
+    });
+    // 파손 + 차감액 = 청구 근거 기록 허용, 상태는 여전히 NONE
+    expect(resolveDepositOutcome(true, 1_500_000n, DepositStatus.NONE)).toEqual({
+      depositStatus: DepositStatus.NONE,
+      deductionVnd: 1_500_000n,
+    });
+    // 파손 + 차감액 생략도 허용 (차감할 보증금이 없음)
+    expect(resolveDepositOutcome(true, null, DepositStatus.NONE)).toEqual({
+      depositStatus: DepositStatus.NONE,
+      deductionVnd: null,
+    });
+    // 무파손 차감·0 이하 청구는 거부
+    expect(() => resolveDepositOutcome(false, 1n, DepositStatus.NONE)).toThrow(RangeError);
+    expect(() => resolveDepositOutcome(true, 0n, DepositStatus.NONE)).toThrow(RangeError);
+  });
 });
 
 // ===================== DB층 — mocked prisma (QA D1) =====================
 
 function makeTxMock(opts: {
-  booking?: { id: string; status: BookingStatus } | null;
+  booking?: { id: string; status: BookingStatus; depositStatus?: DepositStatus } | null;
   transitionCount?: number;
 }) {
+  if (opts.booking && !opts.booking.depositStatus) {
+    opts.booking.depositStatus = DepositStatus.HELD;
+  }
   return {
     booking: {
       findUnique: vi.fn(async () => opts.booking ?? null),
@@ -178,6 +201,21 @@ describe("completeCheckout — 상태 가드·원자성 (계약 완료 기준)",
       expect.objectContaining({ db: tx, entity: "Booking", entityId: "bk1" })
     );
     expect(result.record.id).toBe("cor1");
+  });
+
+  it("보증금 NONE 체크아웃: depositStatus NONE 유지 — REFUNDED 미기록 (핫픽스 증명)", async () => {
+    const tx = makeTxMock({
+      booking: { id: "bk1", status: BookingStatus.CHECKED_IN, depositStatus: DepositStatus.NONE },
+    });
+    await completeCheckout(makePrismaMock(tx), BASE_INPUT);
+    expect(tx.booking.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          depositStatus: DepositStatus.NONE,
+          depositDeductVnd: null,
+        }),
+      })
+    );
   });
 
   it("파손 경로: PARTIAL_DEDUCTED + 차감액 저장, REFUNDED 아님", async () => {

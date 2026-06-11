@@ -1,6 +1,6 @@
 // /bookings/[id]/checkin — 체크인 검수 (T3.1, Stitch b3-checkin 변환)
 // RSC: booking 로드, CONFIRMED 아니면 상세로 redirect — (admin) 레이아웃 가드 하.
-// 동의서·서명(T3.2)·공급자 전달(T3.6) 섹션은 미렌더 (계약 QA 조건 B — 가짜 완료 표시 금지)
+// 동의서·서명(T3.2)은 §3 + 사후 서명 모드로 구현됨. 공급자 전달(T3.6)만 미렌더 (조건 B)
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -8,6 +8,7 @@ import { BookingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { toDateOnlyString } from "@/lib/date-vn";
 import CheckinForm from "./checkin-form";
+import PostSignForm from "./post-sign-form";
 
 export const metadata: Metadata = {
   title: "체크인 — Villa PMS",
@@ -30,12 +31,18 @@ export default async function CheckinPage({
       guestCount: true,
       checkIn: true,
       checkOut: true,
-      villa: { select: { name: true } },
+      villa: { select: { name: true, hasPool: true } },
+      checkInRecord: { select: { signatureUrl: true } },
     },
   });
   if (!booking) notFound();
-  if (booking.status !== BookingStatus.CONFIRMED) {
-    redirect(`/bookings/${booking.id}`); // 체크인 가능 상태가 아니면 상세로
+  // T3.2 사후 서명 모드 — CHECKED_IN + 체크인 기록 존재 + 미서명 (계약 결정 2)
+  const postSignMode =
+    booking.status === BookingStatus.CHECKED_IN &&
+    booking.checkInRecord !== null &&
+    !booking.checkInRecord.signatureUrl;
+  if (booking.status !== BookingStatus.CONFIRMED && !postSignMode) {
+    redirect(`/bookings/${booking.id}`); // 체크인 가능·사후 서명 상태가 아니면 상세로
   }
 
   const fmt = (d: Date) => toDateOnlyString(d).replaceAll("-", ".");
@@ -57,7 +64,7 @@ export default async function CheckinPage({
         </div>
         <div className="flex flex-col items-end">
           <span className="px-3 py-1 bg-blue-600/20 text-blue-500 border border-blue-600/30 rounded-full text-xs font-bold whitespace-nowrap">
-            {t("banner.inProgress")}
+            {postSignMode ? t("agreement.postSignBadge") : t("banner.inProgress")}
           </span>
           <span className="text-[10px] text-slate-500 mt-1 uppercase tracking-widest font-bold">
             {t("banner.mode")}
@@ -65,7 +72,15 @@ export default async function CheckinPage({
         </div>
       </div>
 
-      <CheckinForm bookingId={booking.id} guestCount={booking.guestCount} />
+      {postSignMode ? (
+        <PostSignForm bookingId={booking.id} hasPool={booking.villa.hasPool} />
+      ) : (
+        <CheckinForm
+          bookingId={booking.id}
+          guestCount={booking.guestCount}
+          hasPool={booking.villa.hasPool}
+        />
+      )}
     </div>
   );
 }

@@ -1,0 +1,73 @@
+"use client";
+
+// 동의서 섹션 (T3.2, b3 §3 변환) — 스크롤 동의서(수영장 조항은 hasPool일 때만 자동 포함,
+// SPEC F4 체크인 4) + 터치 서명 패드. 서명 완료 시 비공개 경로 url을 부모에 전달.
+import { useState } from "react";
+import { useTranslations } from "next-intl";
+import SignaturePad from "./signature-pad";
+
+const BASE_CLAUSES = ["c1", "c2", "c4", "c5", "c6", "c7"] as const;
+
+export default function AgreementSection({
+  hasPool,
+  sectionNo,
+  onSigned,
+}: {
+  hasPool: boolean;
+  /** b3 섹션 번호 배지 (체크인 폼 3, 사후 서명 모드 1) */
+  sectionNo: number;
+  onSigned: (url: string) => void;
+}) {
+  const t = useTranslations("adminCheckin.agreement");
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+
+  // 수영장 빌라는 c2 다음에 수영장 조항 자동 삽입 — 번호는 순서대로 재부여
+  const clauses: string[] = hasPool
+    ? ["c1", "c2", "pool", "c4", "c5", "c6", "c7"]
+    : [...BASE_CLAUSES];
+
+  return (
+    <section className="bg-slate-800 rounded-xl border border-slate-700 shadow-lg overflow-hidden">
+      <div className="px-6 py-4 border-b border-slate-700 flex items-center gap-3">
+        <span className="w-7 h-7 flex items-center justify-center bg-blue-600 rounded-full text-xs font-bold text-white">
+          {sectionNo}
+        </span>
+        <h3 className="font-bold text-slate-100">{t("title")}</h3>
+      </div>
+      <div className="p-6 space-y-6">
+        <div className="h-48 overflow-y-auto bg-slate-900 border border-slate-700 rounded-lg p-4 text-xs text-slate-400 leading-relaxed space-y-3">
+          <p className="font-bold text-slate-200">{t("docTitle")}</p>
+          {clauses.map((key, i) =>
+            key === "pool" ? (
+              <div key={key} className="bg-blue-600/10 border-l-2 border-blue-500 p-2 my-2">
+                <p className="text-blue-400 font-bold">
+                  {i + 1}. {t("poolClause")}
+                </p>
+              </div>
+            ) : (
+              <p key={key}>
+                {i + 1}. {t(key)}
+              </p>
+            )
+          )}
+        </div>
+
+        {signedUrl ? (
+          <div className="flex items-center justify-end">
+            <span className="px-3 py-1 bg-green-500/20 text-green-500 border border-green-500/30 rounded-md text-xs font-black tracking-widest flex items-center gap-1.5">
+              <span className="material-symbols-outlined icon-fill text-sm">draw</span>
+              {t("signedBadge")}
+            </span>
+          </div>
+        ) : (
+          <SignaturePad
+            onSigned={(url) => {
+              setSignedUrl(url);
+              onSigned(url);
+            }}
+          />
+        )}
+      </div>
+    </section>
+  );
+}

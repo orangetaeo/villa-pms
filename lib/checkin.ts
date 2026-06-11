@@ -42,9 +42,15 @@ export interface CheckInInput {
   passportData: PassportOcrData[];
   /** null = 보증금 미수취 (depositStatus NONE 유지) */
   deposit: CheckInDepositInput | null;
+  /** T3.2 — 터치 서명 PNG의 비공개 서빙 경로(/api/passports/sig-…). 무서명 체크인 허용(계약 결정 1) */
+  signatureUrl?: string | null;
   notes?: string;
   actorUserId: string;
+  now?: Date;
 }
+
+/** 서명 파일은 비공개 증빙 파이프라인 경로만 허용 (T3.1 조건 A 정합, T3.2 계약 결정 3) */
+export const PRIVATE_EVIDENCE_PATH = /^\/api\/passports\/[a-zA-Z0-9._-]+$/;
 
 // ===================== 순수 함수 층 (단위 테스트 대상) =====================
 
@@ -58,7 +64,11 @@ const ALLOWED_DEPOSIT_CURRENCIES: Currency[] = [
 export function assertCheckInInput(input: {
   passportPhotoUrls: string[];
   deposit: CheckInDepositInput | null;
+  signatureUrl?: string | null;
 }): void {
+  if (input.signatureUrl != null && !PRIVATE_EVIDENCE_PATH.test(input.signatureUrl)) {
+    throw new RangeError("서명 이미지는 비공개 증빙 경로(/api/passports/…)만 허용됩니다");
+  }
   if (input.passportPhotoUrls.length < 1) {
     throw new RangeError("여권 사진은 최소 1장 필요합니다 (SPEC F4 체크인 1)");
   }
@@ -120,10 +130,13 @@ export async function completeCheckIn(prisma: PrismaClient, input: CheckInInput)
         bookingId: input.bookingId,
         passportPhotoUrls: input.passportPhotoUrls,
         passportOcrJson: input.passportData as unknown as Prisma.InputJsonValue,
+        // T3.2 — 체크인 중 서명 완료 시 함께 기록 (무서명이면 null — 사후 서명 경로)
+        signatureUrl: input.signatureUrl ?? null,
+        agreementSignedAt: input.signatureUrl ? input.now ?? new Date() : null,
         notes: input.notes ?? null,
         createdBy: input.actorUserId,
       },
-      select: { id: true, bookingId: true, createdAt: true },
+      select: { id: true, bookingId: true, createdAt: true, agreementSignedAt: true },
     });
 
     await writeAuditLog({
@@ -134,8 +147,9 @@ export async function completeCheckIn(prisma: PrismaClient, input: CheckInInput)
       entityId: input.bookingId,
       changes: {
         status: { old: BookingStatus.CONFIRMED, new: BookingStatus.CHECKED_IN },
-        // 여권 데이터는 개인정보 — 장수만 기록 (QA 권고 4)
+        // 여권 데이터는 개인정보 — 장수만 기록 (QA 권고 4). 서명도 여부만
         passportPhotoCount: { new: input.passportPhotoUrls.length },
+        agreementSigned: { new: Boolean(input.signatureUrl) },
         ...(input.deposit
           ? {
               depositStatus: { old: booking.depositStatus, new: DepositStatus.HELD },
@@ -147,5 +161,75 @@ export async function completeCheckIn(prisma: PrismaClient, input: CheckInInput)
     });
 
     return record;
+  });
+}
+
+// ===================== 사후 서명 (T3.2 계약 결정 2 — 무서명 레코드 소급 해소) =====================
+
+export class AgreementRejectedError extends Error {
+  constructor(
+    public readonly reason: "NOT_FOUND" | "NO_CHECKIN_RECORD" | "ALREADY_SIGNED" | "INVALID_STATUS",
+    detail?: string
+  ) {
+    super(detail ?? reason);
+    this.name = "AgreementRejectedError";
+  }
+}
+
+/**
+ * 사후 서명 — CHECKED_IN + 체크인 기록 존재 + 미서명일 때만.
+ * signatureUrl null 가드 updateMany로 동시 서명 경합 차단.
+ */
+export async function signAgreement(
+  prisma: PrismaClient,
+  input: { bookingId: string; signatureUrl: string; actorUserId: string; now: Date }
+) {
+  if (!PRIVATE_EVIDENCE_PATH.test(input.signatureUrl)) {
+    throw new RangeError("서명 이미지는 비공개 증빙 경로(/api/passports/…)만 허용됩니다");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const booking = await tx.booking.findUnique({
+      where: { id: input.bookingId },
+      select: {
+        id: true,
+        status: true,
+        checkInRecord: { select: { id: true, signatureUrl: true } },
+      },
+    });
+    if (!booking) throw new AgreementRejectedError("NOT_FOUND");
+    if (booking.status !== BookingStatus.CHECKED_IN) {
+      throw new AgreementRejectedError(
+        "INVALID_STATUS",
+        `체크인 상태에서만 서명할 수 있습니다 (현재: ${booking.status})`
+      );
+    }
+    if (!booking.checkInRecord) {
+      throw new AgreementRejectedError("NO_CHECKIN_RECORD", "체크인 기록이 없습니다");
+    }
+    if (booking.checkInRecord.signatureUrl) {
+      throw new AgreementRejectedError("ALREADY_SIGNED", "이미 서명이 등록되어 있습니다");
+    }
+
+    // 미서명 가드 — 동시 사후 서명 경합에서 한쪽만 승리
+    const guarded = await tx.checkInRecord.updateMany({
+      where: { id: booking.checkInRecord.id, signatureUrl: null },
+      data: { signatureUrl: input.signatureUrl, agreementSignedAt: input.now },
+    });
+    if (guarded.count !== 1) throw new AgreementRejectedError("ALREADY_SIGNED");
+
+    await writeAuditLog({
+      db: tx,
+      userId: input.actorUserId,
+      action: "UPDATE",
+      entity: "CheckInRecord",
+      entityId: booking.checkInRecord.id,
+      changes: { agreementSigned: { old: false, new: true } },
+    });
+
+    return tx.checkInRecord.findUniqueOrThrow({
+      where: { id: booking.checkInRecord.id },
+      select: { id: true, bookingId: true, agreementSignedAt: true },
+    });
   });
 }

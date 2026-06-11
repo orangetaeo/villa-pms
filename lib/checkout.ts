@@ -33,13 +33,28 @@ export interface DepositOutcome {
 }
 
 /**
- * 보증금 처리 판정 — 파손 여부와 차감액의 정합 검증 (SPEC F4 체크아웃 3)
- * 파손=true ⇒ 차감액(>0) 필수 → PARTIAL_DEDUCTED / 파손=false ⇒ 차감액 금지 → REFUNDED
+ * 보증금 처리 판정 — 파손 여부·차감액·현재 보증금 상태의 정합 검증 (SPEC F4 체크아웃 3)
+ * - HELD(수취): 파손⇒차감액(>0) 필수→PARTIAL_DEDUCTED / 무파손⇒차감 금지→REFUNDED
+ * - NONE(미수취): 상태 NONE 유지 — REFUNDED 둔갑 차단 (T3.1 인계 메모 1, T3.2 계약 결정 4).
+ *   파손 시 deductionVnd는 보증금 차감이 아닌 청구 근거로 기록 허용(선택)
  */
 export function resolveDepositOutcome(
   damageFound: boolean,
-  deductionVnd: bigint | null | undefined
+  deductionVnd: bigint | null | undefined,
+  currentDepositStatus: DepositStatus = DepositStatus.HELD
 ): DepositOutcome {
+  if (currentDepositStatus === DepositStatus.NONE) {
+    if (!damageFound && deductionVnd != null && deductionVnd !== 0n) {
+      throw new RangeError("파손이 없으면 차감액을 기록할 수 없습니다");
+    }
+    if (damageFound && deductionVnd != null && deductionVnd <= 0n) {
+      throw new RangeError("차감액(청구 근거)은 0보다 커야 합니다");
+    }
+    return {
+      depositStatus: DepositStatus.NONE,
+      deductionVnd: damageFound && deductionVnd ? deductionVnd : null,
+    };
+  }
   if (damageFound) {
     if (deductionVnd == null || deductionVnd <= 0n) {
       throw new RangeError("파손 발견 시 차감액(VND)은 0보다 커야 합니다");
@@ -76,12 +91,11 @@ export async function completeCheckout(
   if (input.damageFound && !input.damageNote?.trim() && !(input.damagePhotoUrls?.length)) {
     throw new RangeError("파손 발견 시 상세 내용 또는 증빙 사진이 필요합니다");
   }
-  const outcome = resolveDepositOutcome(input.damageFound, input.deductionVnd);
 
   return prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findUnique({
       where: { id: input.bookingId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, depositStatus: true },
     });
     if (!booking) throw new CheckoutRejectedError("NOT_FOUND");
     if (booking.status === BookingStatus.CHECKED_OUT) {
@@ -90,6 +104,13 @@ export async function completeCheckout(
     if (booking.status !== BookingStatus.CHECKED_IN) {
       throw new CheckoutRejectedError("NOT_CHECKED_IN", `현재 상태: ${booking.status}`);
     }
+
+    // 보증금 판정은 현재 상태 기준 — NONE(미수취)은 NONE 유지 (T3.3 핫픽스)
+    const outcome = resolveDepositOutcome(
+      input.damageFound,
+      input.deductionVnd,
+      booking.depositStatus
+    );
 
     // status 가드 — 동시 체크아웃 경합에서 한쪽만 승리
     const guarded = await tx.booking.updateMany({

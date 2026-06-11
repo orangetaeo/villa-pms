@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { submitCleaningPhotos, CleaningTransitionError } from "@/lib/cleaning";
 
 const submitSchema = z.object({
-  photoUrls: z.array(z.string().min(1)).min(1, "청소 사진은 1장 이상 필요합니다").max(30),
+  // max 50 — a4 슬롯 이론 최대 45장(침실·욕실 동적) 수용 (T3.8 QA D-1)
+  photoUrls: z.array(z.string().min(1)).min(1, "청소 사진은 1장 이상 필요합니다").max(50),
 });
 
 /**

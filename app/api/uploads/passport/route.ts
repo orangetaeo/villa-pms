@@ -38,7 +38,10 @@ export async function POST(req: Request) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const { fileName } = await savePassportFile(buffer, file.type, session.user.id);
+  // T3.2 — kind=signature면 sig- 접두 (여권/서명 증빙 구분: 삭제 정책 분리)
+  const kind = formData.get("kind");
+  const prefix = kind === "signature" ? "sig-" : undefined;
+  const { fileName } = await savePassportFile(buffer, file.type, session.user.id, prefix);
 
   return NextResponse.json({ url: `/api/passports/${fileName}` }, { status: 201 });
 }

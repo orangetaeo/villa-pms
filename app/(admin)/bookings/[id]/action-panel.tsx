@@ -12,9 +12,12 @@ import type { BookingStatus } from "@prisma/client";
 export default function ActionPanel({
   bookingId,
   status,
+  agreementUnsigned = false,
 }: {
   bookingId: string;
   status: BookingStatus;
+  /** T3.2 — CHECKED_IN + 체크인 기록 존재 + 동의서 미서명 (사후 서명 진입점) */
+  agreementUnsigned?: boolean;
 }) {
   const t = useTranslations("adminBookings.detail.actions");
   const router = useRouter();
@@ -73,7 +76,17 @@ export default function ActionPanel({
         </div>
       )}
       {status === "CHECKED_IN" && (
-        <div className="space-y-1">
+        <div className="space-y-2">
+          {/* T3.2: 미서명 배지 + 사후 서명 진입점 (계약 결정 1-③) */}
+          {agreementUnsigned && (
+            <Link
+              href={`/bookings/${bookingId}/checkin`}
+              className="flex items-center justify-center gap-2 w-full border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-bold py-2.5 rounded-lg transition-colors"
+            >
+              <span className="material-symbols-outlined text-sm">draw</span>
+              {t("unsignedBadge")} — {t("postSign")}
+            </Link>
+          )}
           {/* T3.3: 체크아웃 검수 화면으로 이동 (b4) */}
           <Link
             href={`/bookings/${bookingId}/checkout`}

@@ -122,13 +122,19 @@ export function getPassportDir(): string {
   return getPassportDirInternal();
 }
 
-/** 여권 사진 저장 — 항상 디스크, 파일명만 반환 (공개 URL 미생성) */
+/**
+ * 비공개 증빙 파일 저장 — 항상 디스크, 파일명만 반환 (공개 URL 미생성).
+ * prefix로 증빙 종류 구분 (T3.2 — 서명 "sig-": 여권 90일 삭제 정책과 분리,
+ * 동의 증빙은 분쟁 대비 보관). prefix는 영숫자·하이픈만 허용
+ */
 export async function savePassportFile(
   buffer: Buffer,
   mimeType: string,
-  uploaderId: string
+  uploaderId: string,
+  prefix?: string
 ): Promise<{ fileName: string }> {
-  const fileName = buildFileName(mimeType, uploaderId);
+  const safePrefix = prefix ? prefix.replace(/[^a-zA-Z0-9-]/g, "") : "";
+  const fileName = `${safePrefix}${buildFileName(mimeType, uploaderId)}`;
   const dir = getPassportDirInternal();
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(path.join(dir, fileName), buffer);
