@@ -1,10 +1,13 @@
 // POST /api/villas — SUPPLIER 빌라 등록 (T1.1, SPEC F1)
+// GET  /api/villas — 빌라 목록: ADMIN 전체(요율 포함) / SUPPLIER 자기 빌라만(원가만) (T1.2)
 // 사업 원칙: 마진·판매가(KRW)는 어떤 형태로도 공급자에게 반환하지 않는다
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { villaCreateSchema, SEASONS } from "@/lib/villa-schema";
+import { serializeBigInt } from "@/lib/serialize";
+import type { Prisma, VillaStatus } from "@prisma/client";
 
 export async function POST(req: Request) {
   // 권한 검사 — SUPPLIER 전용 (route handler 첫 줄 role 검사 규칙)
@@ -112,4 +115,82 @@ export async function POST(req: Request) {
 
   // 응답에는 id·status만 — 마진/판매가/KRW 미포함
   return NextResponse.json({ id: villa.id, status: villa.status }, { status: 201 });
+}
+
+const VILLA_STATUSES: VillaStatus[] = ["DRAFT", "PENDING_REVIEW", "ACTIVE", "INACTIVE"];
+
+export async function GET(req: Request) {
+  // 권한 검사 — ADMIN·SUPPLIER만 (route handler 첫 줄 role 검사 규칙)
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
+  const { role, id: userId } = session.user;
+  if (role !== "ADMIN" && role !== "SUPPLIER") {
+    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  }
+
+  // status 쿼리 파라미터 필터 (선택)
+  const statusParam = new URL(req.url).searchParams.get("status");
+  if (statusParam && !VILLA_STATUSES.includes(statusParam as VillaStatus)) {
+    return NextResponse.json({ error: "INVALID_STATUS" }, { status: 400 });
+  }
+
+  const where: Prisma.VillaWhereInput = {
+    ...(statusParam ? { status: statusParam as VillaStatus } : {}),
+    // SUPPLIER는 자기 빌라만 — supplierId 스코프 강제
+    ...(role === "SUPPLIER" ? { supplierId: userId } : {}),
+  };
+
+  if (role === "ADMIN") {
+    const villas = await prisma.villa.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      include: {
+        supplier: { select: { id: true, name: true, phone: true } },
+        rates: {
+          orderBy: { season: "asc" },
+          select: {
+            id: true,
+            season: true,
+            supplierCostVnd: true,
+            marginType: true,
+            marginValue: true,
+            salePriceVnd: true,
+            salePriceKrw: true,
+          },
+        },
+        photos: { orderBy: { sortOrder: "asc" }, take: 1 },
+        _count: { select: { photos: true, bookings: true, amenities: true } },
+      },
+    });
+    return NextResponse.json(serializeBigInt(villas));
+  }
+
+  // SUPPLIER — 마진·판매가(marginType·marginValue·salePriceVnd·salePriceKrw) 절대 미포함
+  const villas = await prisma.villa.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      complex: true,
+      address: true,
+      bedrooms: true,
+      bathrooms: true,
+      maxGuests: true,
+      hasPool: true,
+      breakfastAvailable: true,
+      status: true,
+      isSellable: true,
+      createdAt: true,
+      rates: {
+        orderBy: { season: "asc" },
+        select: { season: true, supplierCostVnd: true }, // 자기 원가만
+      },
+      photos: { orderBy: { sortOrder: "asc" }, take: 1 },
+      _count: { select: { photos: true, amenities: true } },
+    },
+  });
+  return NextResponse.json(serializeBigInt(villas));
 }

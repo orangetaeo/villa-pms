@@ -2,6 +2,125 @@
   "app": {
     "name": "Villa PMS"
   },
+  "nav": {
+    "brandSub": "Villa PMS Admin",
+    "dashboard": "대시보드",
+    "bookings": "예약",
+    "proposals": "제안",
+    "villas": "빌라",
+    "inspections": "청소 검수",
+    "settlements": "정산",
+    "messages": "메시지",
+    "users": "사용자",
+    "settings": "설정",
+    "profileName": "관리자",
+    "profileRole": "최고 관리자",
+    "openMenu": "메뉴 열기",
+    "closeMenu": "메뉴 닫기"
+  },
+  "adminVillas": {
+    "list": {
+      "title": "빌라 관리",
+      "tabs": {
+        "all": "전체",
+        "pending": "승인 대기",
+        "active": "운영 중",
+        "inactive": "중단"
+      },
+      "status": {
+        "PENDING_REVIEW": "승인 대기",
+        "ACTIVE": "운영 중",
+        "INACTIVE": "중단",
+        "DRAFT": "등록 중"
+      },
+      "notSellable": "판매불가",
+      "cleaningPending": "청소 검수 대기 중",
+      "noRates": "요율 미설정",
+      "review": "검토하기",
+      "detail": "상세보기",
+      "empty": "표시할 빌라가 없습니다.",
+      "count": "총 {total}개의 빌라 중 {from}-{to} 표시",
+      "prevPage": "이전 페이지",
+      "nextPage": "다음 페이지",
+      "noSupplier": "공급자 미상"
+    },
+    "detail": {
+      "back": "빌라 목록",
+      "zaloConnected": "Zalo 연결됨",
+      "zaloNotConnected": "Zalo 미연결",
+      "approve": "승인",
+      "deactivate": "중단",
+      "reactivate": "운영 재개",
+      "confirmDeactivate": "이 빌라를 중단하시겠습니까? 제안·판매 대상에서 제외됩니다.",
+      "actionError": "처리에 실패했습니다. 다시 시도해주세요.",
+      "photos": {
+        "title": "객실 및 시설 사진",
+        "count": "총 {count}장",
+        "empty": "등록된 사진이 없습니다."
+      },
+      "spaces": {
+        "EXTERIOR": "외관",
+        "LIVING": "거실",
+        "KITCHEN": "주방",
+        "BEDROOM": "침실",
+        "BATHROOM": "욕실",
+        "BALCONY": "베란다",
+        "POOL": "수영장",
+        "ETC": "기타"
+      },
+      "info": {
+        "title": "기본 정보 요약",
+        "bedrooms": "침실 {n}",
+        "bathrooms": "욕실 {n}",
+        "maxGuests": "최대 {n}인",
+        "poolYes": "수영장 O",
+        "poolNo": "수영장 X",
+        "breakfastYes": "조식 가능",
+        "breakfastNo": "조식 불가",
+        "complex": "단지",
+        "address": "주소",
+        "monthlyRent": "월 임대 시세 (참고)"
+      },
+      "rates": {
+        "title": "요율 설정",
+        "colSeason": "시즌",
+        "colCost": "공급자 원가 (VND)",
+        "colMargin": "마진",
+        "colSaleVnd": "판매가 (VND)",
+        "colSaleKrw": "판매가 (KRW 환산 참고)",
+        "seasons": {
+          "LOW": "비수기",
+          "HIGH": "성수기",
+          "PEAK": "극성수기"
+        },
+        "percent": "%",
+        "fixed": "정액",
+        "autoSuggest": "자동 제안",
+        "save": "저장",
+        "saving": "저장 중...",
+        "saved": "요율이 저장되었습니다.",
+        "saveError": "저장에 실패했습니다. 다시 시도해주세요.",
+        "invalidNumber": "숫자만 입력해주세요.",
+        "empty": "공급자가 입력한 시즌 원가가 없습니다."
+      },
+      "amenitiesCard": {
+        "title": "비품 현황",
+        "readOnly": "읽기 전용",
+        "categoryCount": "{category} {count}종",
+        "minibarLabel": "Minibar:",
+        "empty": "등록된 비품이 없습니다."
+      },
+      "history": {
+        "title": "수정 이력",
+        "system": "시스템",
+        "actions": {
+          "CREATE": "생성",
+          "UPDATE": "수정",
+          "DELETE": "삭제"
+        }
+      }
+    }
+  },
   "auth": {
     "login": {
       "title": "로그인",
@@ -152,5 +271,52 @@
       "beer": "맥주",
       "snack": "과자"
     }
+  },
+  "calendar": {
+    "title": "캘린더",
+    "monthTitle": "{year}년 {month}월",
+    "prevMonth": "이전 달",
+    "nextMonth": "다음 달",
+    "weekdays": {
+      "mon": "월",
+      "tue": "화",
+      "wed": "수",
+      "thu": "목",
+      "fri": "금",
+      "sat": "토",
+      "sun": "일"
+    },
+    "legend": {
+      "available": "공실",
+      "booked": "확정",
+      "hold": "가예약",
+      "blocked": "차단"
+    },
+    "noVillas": "등록된 빌라가 없습니다. 먼저 빌라를 등록해주세요.",
+    "addVilla": "빌라 추가",
+    "sheet": {
+      "dateLabel": "선택한 날짜",
+      "lock": "날짜 차단",
+      "unlock": "차단 해제",
+      "icalInfo": "외부 채널에서 동기화된 날짜입니다. 여기서는 해제할 수 없습니다.",
+      "processing": "처리 중...",
+      "conflict": "이미 예약 또는 차단된 날짜입니다. 캘린더를 다시 확인해주세요.",
+      "error": "처리에 실패했습니다. 다시 시도해주세요.",
+      "close": "닫기"
+    }
+  },
+  "tabs": {
+    "villas": "빌라",
+    "calendar": "캘린더",
+    "cleaning": "청소",
+    "earnings": "수익"
+  },
+  "cleaning": {
+    "title": "청소",
+    "comingSoon": "다음 업데이트에서 제공될 예정입니다."
+  },
+  "earnings": {
+    "title": "수익",
+    "comingSoon": "다음 업데이트에서 제공될 예정입니다."
   }
 }

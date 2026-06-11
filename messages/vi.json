@@ -2,6 +2,125 @@
   "app": {
     "name": "Villa PMS"
   },
+  "nav": {
+    "brandSub": "Villa PMS Admin",
+    "dashboard": "Bảng điều khiển",
+    "bookings": "Đặt phòng",
+    "proposals": "Đề xuất",
+    "villas": "Villa",
+    "inspections": "Kiểm tra dọn dẹp",
+    "settlements": "Thanh toán",
+    "messages": "Tin nhắn",
+    "users": "Người dùng",
+    "settings": "Cài đặt",
+    "profileName": "Quản trị viên",
+    "profileRole": "Quản trị viên cấp cao",
+    "openMenu": "Mở menu",
+    "closeMenu": "Đóng menu"
+  },
+  "adminVillas": {
+    "list": {
+      "title": "Quản lý villa",
+      "tabs": {
+        "all": "Tất cả",
+        "pending": "Chờ duyệt",
+        "active": "Đang hoạt động",
+        "inactive": "Tạm dừng"
+      },
+      "status": {
+        "PENDING_REVIEW": "Chờ duyệt",
+        "ACTIVE": "Đang hoạt động",
+        "INACTIVE": "Tạm dừng",
+        "DRAFT": "Đang đăng ký"
+      },
+      "notSellable": "Chưa thể bán",
+      "cleaningPending": "Đang chờ kiểm tra dọn dẹp",
+      "noRates": "Chưa có giá",
+      "review": "Xem xét",
+      "detail": "Xem chi tiết",
+      "empty": "Không có villa nào.",
+      "count": "Hiển thị {from}-{to} trong tổng số {total} villa",
+      "prevPage": "Trang trước",
+      "nextPage": "Trang sau",
+      "noSupplier": "Không rõ nhà cung cấp"
+    },
+    "detail": {
+      "back": "Danh sách villa",
+      "zaloConnected": "Đã kết nối Zalo",
+      "zaloNotConnected": "Chưa kết nối Zalo",
+      "approve": "Duyệt",
+      "deactivate": "Tạm dừng",
+      "reactivate": "Hoạt động lại",
+      "confirmDeactivate": "Bạn có chắc muốn tạm dừng villa này? Villa sẽ bị loại khỏi danh sách bán.",
+      "actionError": "Xử lý thất bại. Vui lòng thử lại.",
+      "photos": {
+        "title": "Ảnh phòng và tiện ích",
+        "count": "Tổng {count} ảnh",
+        "empty": "Chưa có ảnh nào."
+      },
+      "spaces": {
+        "EXTERIOR": "Bên ngoài",
+        "LIVING": "Phòng khách",
+        "KITCHEN": "Bếp",
+        "BEDROOM": "Phòng ngủ",
+        "BATHROOM": "Phòng tắm",
+        "BALCONY": "Ban công",
+        "POOL": "Hồ bơi",
+        "ETC": "Khác"
+      },
+      "info": {
+        "title": "Thông tin cơ bản",
+        "bedrooms": "Phòng ngủ {n}",
+        "bathrooms": "Phòng tắm {n}",
+        "maxGuests": "Tối đa {n} khách",
+        "poolYes": "Có hồ bơi",
+        "poolNo": "Không có hồ bơi",
+        "breakfastYes": "Có bữa sáng",
+        "breakfastNo": "Không có bữa sáng",
+        "complex": "Khu",
+        "address": "Địa chỉ",
+        "monthlyRent": "Giá thuê tháng (tham khảo)"
+      },
+      "rates": {
+        "title": "Cài đặt giá",
+        "colSeason": "Mùa",
+        "colCost": "Giá gốc (VND)",
+        "colMargin": "Biên lợi nhuận",
+        "colSaleVnd": "Giá bán (VND)",
+        "colSaleKrw": "Giá bán (KRW tham khảo)",
+        "seasons": {
+          "LOW": "Mùa thấp điểm",
+          "HIGH": "Mùa cao điểm",
+          "PEAK": "Cao điểm lễ Tết"
+        },
+        "percent": "%",
+        "fixed": "Cố định",
+        "autoSuggest": "Đề xuất tự động",
+        "save": "Lưu",
+        "saving": "Đang lưu...",
+        "saved": "Đã lưu giá.",
+        "saveError": "Lưu thất bại. Vui lòng thử lại.",
+        "invalidNumber": "Chỉ nhập số.",
+        "empty": "Nhà cung cấp chưa nhập giá gốc theo mùa."
+      },
+      "amenitiesCard": {
+        "title": "Tiện nghi & đồ dùng",
+        "readOnly": "Chỉ xem",
+        "categoryCount": "{category}: {count} loại",
+        "minibarLabel": "Minibar:",
+        "empty": "Chưa có đồ dùng nào."
+      },
+      "history": {
+        "title": "Lịch sử chỉnh sửa",
+        "system": "Hệ thống",
+        "actions": {
+          "CREATE": "Tạo",
+          "UPDATE": "Sửa",
+          "DELETE": "Xóa"
+        }
+      }
+    }
+  },
   "auth": {
     "login": {
       "title": "Đăng nhập",
@@ -152,5 +271,52 @@
       "beer": "Bia",
       "snack": "Bánh kẹo"
     }
+  },
+  "calendar": {
+    "title": "Lịch",
+    "monthTitle": "Tháng {month}, {year}",
+    "prevMonth": "Tháng trước",
+    "nextMonth": "Tháng sau",
+    "weekdays": {
+      "mon": "T2",
+      "tue": "T3",
+      "wed": "T4",
+      "thu": "T5",
+      "fri": "T6",
+      "sat": "T7",
+      "sun": "CN"
+    },
+    "legend": {
+      "available": "Trống",
+      "booked": "Đã đặt",
+      "hold": "Giữ chỗ",
+      "blocked": "Đã khóa"
+    },
+    "noVillas": "Chưa có villa nào. Vui lòng đăng ký villa trước.",
+    "addVilla": "Thêm villa",
+    "sheet": {
+      "dateLabel": "Ngày đã chọn",
+      "lock": "Khóa ngày",
+      "unlock": "Hủy khóa",
+      "icalInfo": "Ngày này được đồng bộ từ kênh bên ngoài, không thể mở khóa tại đây.",
+      "processing": "Đang xử lý...",
+      "conflict": "Ngày này đã có đặt phòng hoặc đã khóa. Vui lòng kiểm tra lại lịch.",
+      "error": "Không thành công. Vui lòng thử lại.",
+      "close": "Đóng"
+    }
+  },
+  "tabs": {
+    "villas": "Villa",
+    "calendar": "Lịch",
+    "cleaning": "Dọn dẹp",
+    "earnings": "Thu nhập"
+  },
+  "cleaning": {
+    "title": "Dọn dẹp",
+    "comingSoon": "Tính năng sẽ có trong bản cập nhật sau."
+  },
+  "earnings": {
+    "title": "Thu nhập",
+    "comingSoon": "Tính năng sẽ có trong bản cập nhật sau."
   }
 }

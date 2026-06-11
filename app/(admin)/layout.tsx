@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import AdminSidebar from "@/components/admin/sidebar";
 
 export default async function AdminLayout({
   children,
@@ -13,9 +14,12 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      {/* TODO: 사이드바 추가 (Sprint 2 T2.6) */}
-      <main className="p-6">{children}</main>
+    <div className="min-h-screen bg-admin-bg text-slate-50 font-admin">
+      <AdminSidebar userName={session.user.name} />
+      {/* 데스크톱: 사이드바 폭만큼 밀기 / 모바일: 헤더 높이만큼 내리기 */}
+      <main className="lg:pl-64 pt-14 lg:pt-0 min-h-screen">
+        <div className="p-4 md:p-8">{children}</div>
+      </main>
     </div>
   );
 }

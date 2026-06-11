@@ -43,3 +43,11 @@ input:focus {
   border-color: #0D9488 !important;
   box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.1);
 }
+
+/* 운영자(ADMIN) 다크 화면 — 공급자용 teal 포커스가 새지 않도록 블루로 오버라이드 (T1.2) */
+.font-admin input:focus,
+.font-admin select:focus {
+  outline: none;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}

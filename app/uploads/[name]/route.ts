@@ -32,6 +32,8 @@ export async function GET(
       "Content-Type": EXT_MIME[ext] ?? "application/octet-stream",
       // 파일명이 UUID라 내용 불변 — 1년 캐시
       "Cache-Control": "public, max-age=31536000, immutable",
+      // MIME 스니핑 차단 (QA 심층 방어 권고)
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

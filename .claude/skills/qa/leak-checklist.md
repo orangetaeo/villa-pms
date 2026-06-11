@@ -21,3 +21,7 @@
 - (2026-06-11 2라운드 최종 검수) 영어 잔존·하이픈 날짜 grep은 비가시 텍스트가 오탐됨 — img alt/data-alt(이미지 생성 프롬프트), HTML 주석, material icon명(`bathroom` 등), CSS 주석의 작성일 → 매치 컨텍스트를 열어 "렌더링되는 텍스트인지" 확인 후 판정할 것.
 - (2026-06-11 T1.1 QA) 파일 업로드 확장자를 클라이언트 MIME에서 fallback 유도(`mimeType.split("/")[1]`)하면 stored XSS 벡터가 됨 — `Content-Type: image/svg`(비표준)로 위장 업로드 시 `.svg`로 저장되고 정적 서버가 image/svg+xml로 응답해 SVG 내 스크립트가 동일 출처에서 실행됨. 업로드 검증은 반드시 **MIME 화이트리스트(사전에 있는 키만 허용, fallback 금지)** + 가능하면 매직바이트 검사. `startsWith("image/")` 검사만으로는 불충분.
 - (2026-06-11 T1.1 QA) 업로드 파일명 안전 패턴(재사용 가능): `Date.now()-새니타이즈된 uploaderId-randomUUID().ext` — 사용자 입력이 파일명에 들어갈 때는 `[^a-zA-Z0-9_-]` 전부 제거하면 path traversal 원천 차단됨. 단 확장자도 동일하게 새니타이즈+화이트리스트 필요(위 항목).
+- (2026-06-11 T1.7 QA) lib/pricing.ts `StayQuote`는 공급자 원가(totalSupplierCostVnd·nightly[].costVnd)를 항상 포함 — 소비처(T2.1 제안·T2.3 HOLD·/p/[token])가 이 객체를 ADMIN 외 응답에 그대로 직렬화하면 마진 역산 가능한 원가 누수. 견적 객체를 반환하는 모든 route에서 "판매가 필드만 추려 매핑했는지" 검사할 것.
+- (2026-06-11 T1.2 QA) **공허 통과(vacuous pass) 주의**: DB에 공급자가 1명뿐이면 "SUPPLIER가 타인 빌라 미노출" 테스트가 데이터 부재만으로 통과해 버림 — 스코프 검사는 반드시 **제2 공급자 + 빌라를 시드한 뒤** 교차 조회로 실증할 것 (이번엔 0900000003 시드 후 SUPPLIER1 응답에 타인 villaId 부재 + ADMIN 응답에 2건 모두 존재를 동시 확인).
+- (2026-06-11 T1.2 QA) 마진 누수 grep은 응답 JSON 원문에 `grep -oiE "margin|saleprice"`로 **키 이름 자체**를 훑는 게 가장 빠르고 확실 — 필드 값이 0이어도 키가 있으면 누수다. select 화이트리스트(BE)와 응답 grep(QA)의 이중 확인을 표준으로.
+- (2026-06-11 T1.2 QA) Windows에서 dev 서버가 떠 있으면 `prisma generate`가 query engine DLL rename EPERM으로 실패 → `npm run build` 검증 전에 dev 프로세스를 내리고, 빌드 후 재기동할 것.

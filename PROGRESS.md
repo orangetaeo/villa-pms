@@ -27,6 +27,8 @@
 
 | 2026-06-11 | T1.7(BE)/T6.3(일부) | 가격 계산 완료 (병행 세션 — T1.2·T1.4·T1.6과 충돌 0건): lib/pricing.ts 단일 소스 — 순수층(resolveSeason [start,end) half-open·LOW 폴백·겹침 PEAK>HIGH 우선, quoteStay 박별 합산+KRW number/VND bigint 통화 분기+MissingRateError, computeSalePriceVnd 마진 PERCENT 내림/FIXED_VND, suggestSalePriceKrw 1e4 스케일 BigInt half-up 환산, assertSaleAmountColumns 듀얼 컬럼 검증) + DB 래퍼(quoteStayForVilla tx 주입, getFxVndPerKrw). vitest 22개(총 40), tsconfig target ES2020 1줄(BigInt 리터럴 — 계약서 선언, 전체 typecheck 회귀 0건). QA 1차 반려(D1 USD 무검증 통과·D2 원가 노출 가이드) → 수정 후 2차 **통과** | 교훈 2건 money-pattern 등재(통화 화이트리스트 게이트·BigInt 환율 반올림), 원가 누수 점검 항목 leak-checklist 등재. **StayQuote는 원가 포함 — ADMIN 외 응답 직렬화 금지.** 잔여: /settings/seasons·환율 입력 UI(FE). 계약: docs/contracts/T1.7-pricing.md |
 
+| 2026-06-11 | T1.2 | ADMIN 빌라 목록·승인·요율 완료 (b9·b10 변환): 공통 사이드바 components/admin/sidebar.tsx(9메뉴·햄버거 드로어) + ResponsiveTable 컴포넌트, /villas 목록(상태 필터 탭+승인 대기 카운트), /villas/[id] 상세(사진·비품 읽기 전용·요율 편집·승인/중단/재개). API: PATCH /api/villas/[id] 상태 전이표(409 가드)·PUT rates 시즌 upsert(supplierCostVnd 수정 차단)·GET 목록(SUPPLIER는 supplierId 스코프+select 화이트리스트로 마진 쿼리 차단). lib/format.ts(BigInt 문자열 천단위)·lib/serialize.ts. QA 독립 평가 **통과**(완료 기준 7/7, 누수 4종 ✓ — 제2 공급자 시드 교차 실증, 교훈 3건 leak-checklist 등재). nosniff 헤더 권고 반영 | 반려(REJECT)는 T1.2b로 보류(VillaStatus 반려 상태 없음 — 공급자 수정 화면과 함께 설계). 권고: rate-editor 16자리+ 입력 시 오류 안내 부재(경미). QA 시드: ADMIN 0900000002·SUPPLIER2 0900000003 — 오픈 전 삭제 대상 |
+
 ## 현재 상태 (2026-06-11 기준)
 
 ### 완료된 태스크

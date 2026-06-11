@@ -14,7 +14,8 @@
 ## Sprint 1 — F1 빌라 등록 + F2 캘린더 (M1 W2~3)
 - [x] T1.0 Stitch 디자인 생성: A0~A4, B1 (docs/DESIGN.md 프롬프트) → design/stitch/ 저장 (DESIGN, 테오 확인) — 2026-06-11 전체 회의 검수 — 조건부 통과
 - [x] T1.1 SUPPLIER 빌라 등록 마법사 (Stitch A1·A2 변환) (UX-VN) — 2026-06-11 완료. 5단계(a2→a2b→a1→a9→a5) `/my-villas/new`, POST /api/villas(supplierId 세션 강제+AuditLog), 비품 품목 사전 lib/amenities.ts, QA 통과(누수 0건, M1 업로드 XSS 수정 후 재검증 ✓). 계약: docs/contracts/T1.1-villa-wizard.md
-- [ ] T1.2 ADMIN 빌라 승인 화면 + 요율(VillaRate) 편집 (FE)
+- [x] T1.2 ADMIN 빌라 승인 화면 + 요율(VillaRate) 편집 (FE) — 2026-06-11 완료 (b9·b10 변환, 공통 사이드바 9메뉴 + ResponsiveTable 컴포넌트, PATCH 상태 전이 + PUT 요율 API + GET 목록(SUPPLIER 스코프·마진 차단), QA 독립 평가 **통과** — 누수 0건·교차 스코프 실증. 계약: docs/contracts/T1.2-villa-approval.md)
+- [ ] T1.2b 빌라 반려(REJECT) 플로우 — VillaStatus 반려 상태 설계(TDA) + 공급자 빌라 수정·재제출 화면과 함께 (T1.2에서 보류 합의)
 - [x] T1.3 lib/availability.ts 가용성 판정 + 단위 테스트 (BE/QA) — 2026-06-11 완료. 순수 판정층(evaluateAvailability·overlapsHalfOpen)+DB 래퍼층(checkAvailability·findSellableVillaIds, $transaction 클라이언트 주입 가능) 분리, vitest 도입(`npm test`, 18 테스트), QA 독립 평가 통과(계약: docs/contracts/T1.3-availability.md)
 - [ ] T1.4 SUPPLIER 월 달력 (탭 토글 차단) (UX-VN)
 - [ ] T1.5 ADMIN 타임라인 매트릭스 뷰 (FE)

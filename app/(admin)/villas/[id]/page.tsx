@@ -1,0 +1,391 @@
+// /villas/[id] — 운영자 빌라 상세·승인·요율 편집 (T1.2, Stitch b10-villa-detail 변환)
+// RSC: prisma 직접 조회. 요율 편집·승인 액션은 클라이언트 컴포넌트 + fetch
+// 제외(계약): iCal URL 관리(T1.6), 사진 추가·교체, isSellable 토글(T3.4)
+import type { Metadata } from "next";
+import Link from "next/link";
+import Image from "next/image";
+import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
+import { prisma } from "@/lib/prisma";
+import { formatVnd, formatDateTime } from "@/lib/format";
+import type { AmenityCategory, PhotoSpace, SeasonType } from "@prisma/client";
+import RateEditor, { type RateRow } from "./rate-editor";
+import VillaActions from "./villa-actions";
+
+const SPACE_ORDER: PhotoSpace[] = [
+  "EXTERIOR",
+  "LIVING",
+  "KITCHEN",
+  "BEDROOM",
+  "BATHROOM",
+  "BALCONY",
+  "POOL",
+  "ETC",
+];
+
+const SEASON_ORDER: SeasonType[] = ["LOW", "HIGH", "PEAK"];
+
+const AMENITY_CATEGORY_ICON: Record<AmenityCategory, string> = {
+  KITCHEN: "restaurant",
+  BATHROOM: "soap",
+  APPLIANCE: "devices",
+  MINIBAR: "liquor",
+};
+
+const STATUS_BADGE_CLASS: Record<string, string> = {
+  PENDING_REVIEW: "bg-amber-500/10 text-amber-500 border border-amber-500/20",
+  ACTIVE: "bg-green-500/10 text-green-500 border border-green-500/20",
+  INACTIVE: "bg-slate-500/10 text-slate-400 border border-slate-500/20",
+  DRAFT: "bg-slate-500/10 text-slate-400 border border-slate-500/20",
+};
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const villa = await prisma.villa.findUnique({
+    where: { id },
+    select: { name: true },
+  });
+  return {
+    title: villa ? `${villa.name} — Villa PMS` : "빌라 상세 — Villa PMS",
+  };
+}
+
+export default async function VillaDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const [t, tList, tAmenity, villa, fxSetting, auditLogs] = await Promise.all([
+    getTranslations("adminVillas.detail"),
+    getTranslations("adminVillas.list"),
+    getTranslations("amenities"),
+    prisma.villa.findUnique({
+      where: { id },
+      include: {
+        supplier: { select: { name: true, phone: true, zaloUserId: true } },
+        photos: {
+          orderBy: [{ space: "asc" }, { sortOrder: "asc" }],
+          select: { id: true, space: true, spaceLabel: true, url: true },
+        },
+        amenities: {
+          orderBy: { category: "asc" },
+          select: { id: true, category: true, itemKey: true, customLabel: true, quantity: true },
+        },
+        rates: {
+          select: {
+            season: true,
+            supplierCostVnd: true,
+            marginType: true,
+            marginValue: true,
+            salePriceVnd: true,
+            salePriceKrw: true,
+          },
+        },
+      },
+    }),
+    prisma.appSetting.findUnique({ where: { key: "FX_VND_PER_KRW" } }),
+    prisma.auditLog.findMany({
+      where: { entity: "Villa", entityId: id },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        action: true,
+        createdAt: true,
+        user: { select: { name: true } },
+      },
+    }),
+  ]);
+
+  if (!villa) notFound();
+
+  // 사진을 공간별로 그룹화 (b10 — 공간별 섹션)
+  const photoGroups = SPACE_ORDER.map((space) => ({
+    space,
+    photos: villa.photos.filter((p) => p.space === space),
+  })).filter((g) => g.photos.length > 0);
+
+  // 요율 — BigInt는 클라이언트 경계에서 직렬화 불가 → 문자열 변환 (Number() 캐스팅 금지)
+  const rateRows: RateRow[] = SEASON_ORDER.flatMap((season) => {
+    const rate = villa.rates.find((r) => r.season === season);
+    if (!rate) return [];
+    return [
+      {
+        season,
+        supplierCostVnd: rate.supplierCostVnd.toString(),
+        marginType: rate.marginType,
+        marginValue: rate.marginValue.toString(),
+        salePriceVnd: rate.salePriceVnd.toString(),
+        salePriceKrw: rate.salePriceKrw,
+      },
+    ];
+  });
+
+  const fxVndPerKrw = fxSetting ? Number.parseFloat(fxSetting.value) || null : null;
+
+  // 비품 카테고리 요약 (b10 — 2x2 읽기 전용)
+  const amenityCategories = (["KITCHEN", "BATHROOM", "APPLIANCE", "MINIBAR"] as const)
+    .map((category) => ({
+      category,
+      count: villa.amenities.filter((a) => a.category === category).length,
+    }))
+    .filter((c) => c.count > 0);
+  const minibarItems = villa.amenities.filter((a) => a.category === "MINIBAR");
+  const amenityLabel = (itemKey: string, customLabel: string | null) =>
+    itemKey === "custom" && customLabel ? customLabel : tAmenity(`items.${itemKey}`);
+
+  return (
+    <div>
+      {/* 상세 헤더 (b10) */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
+        <div>
+          <Link
+            href="/villas"
+            className="inline-flex items-center gap-1 text-xs text-admin-muted hover:text-white transition-colors mb-3"
+          >
+            <span className="material-symbols-outlined text-sm">arrow_back</span>
+            {t("back")}
+          </Link>
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-3xl font-black text-white tracking-tight">{villa.name}</h1>
+            <span
+              className={`px-2.5 py-0.5 rounded text-[11px] font-bold shrink-0 ${STATUS_BADGE_CLASS[villa.status]}`}
+            >
+              {tList(`status.${villa.status}`)}
+            </span>
+            {villa.status === "ACTIVE" && !villa.isSellable && (
+              <span className="px-2.5 py-0.5 rounded text-[11px] font-bold shrink-0 bg-red-500/10 text-red-500 border border-red-500/20">
+                {tList("notSellable")}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-4 text-sm text-slate-400">
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="material-symbols-outlined text-sm">person</span>
+              <span>{villa.supplier?.name ?? tList("noSupplier")}</span>
+            </div>
+            <div className="w-px h-3 bg-slate-700" />
+            {villa.supplier?.zaloUserId ? (
+              <div className="flex items-center gap-1.5 text-admin-primary whitespace-nowrap">
+                <span className="material-symbols-outlined text-sm">chat_bubble</span>
+                <span>{t("zaloConnected")}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-slate-500 whitespace-nowrap">
+                <span className="material-symbols-outlined text-sm">chat_bubble</span>
+                <span>{t("zaloNotConnected")}</span>
+              </div>
+            )}
+          </div>
+        </div>
+        <VillaActions villaId={villa.id} status={villa.status} />
+      </div>
+
+      {/* 2단 레이아웃 (b10) */}
+      <div className="grid grid-cols-12 gap-8">
+        {/* 좌측: 사진 + 기본 정보 */}
+        <div className="col-span-12 lg:col-span-7 space-y-6">
+          {/* 공간별 사진 그리드 */}
+          <div className="bg-admin-card rounded-xl p-6 border border-slate-800 shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold flex items-center gap-2 whitespace-nowrap">
+                <span className="material-symbols-outlined text-admin-primary">collections</span>
+                {t("photos.title")}
+              </h2>
+              <span className="text-xs text-slate-500 whitespace-nowrap">
+                {t("photos.count", { count: villa.photos.length })}
+              </span>
+            </div>
+            {photoGroups.length === 0 ? (
+              <p className="text-sm text-admin-muted py-6 text-center">{t("photos.empty")}</p>
+            ) : (
+              <div className="space-y-8">
+                {photoGroups.map((group) => (
+                  <div key={group.space}>
+                    <p className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider whitespace-nowrap">
+                      {t(`spaces.${group.space}`)}
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {group.photos.map((photo) => (
+                        <div
+                          key={photo.id}
+                          className="aspect-video rounded-lg overflow-hidden bg-slate-800 group relative"
+                        >
+                          <Image
+                            src={photo.url}
+                            alt={photo.spaceLabel ?? t(`spaces.${photo.space}`)}
+                            fill
+                            sizes="(max-width: 1024px) 50vw, 20vw"
+                            className="object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                          {photo.spaceLabel && (
+                            <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/60 text-[10px] font-bold text-white">
+                              {photo.spaceLabel}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 기본 정보 요약 */}
+          <div className="bg-admin-card rounded-xl p-6 border border-slate-800 shadow-xl">
+            <h2 className="text-lg font-bold mb-5 flex items-center gap-2 whitespace-nowrap">
+              <span className="material-symbols-outlined text-admin-primary">info</span>
+              {t("info.title")}
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="p-3 rounded-lg bg-slate-900/50 border border-slate-800 text-center">
+                <span className="material-symbols-outlined text-slate-400 block mb-1">bed</span>
+                <span className="text-xs text-slate-300 font-medium whitespace-nowrap">
+                  {t("info.bedrooms", { n: villa.bedrooms })}
+                </span>
+              </div>
+              <div className="p-3 rounded-lg bg-slate-900/50 border border-slate-800 text-center">
+                <span className="material-symbols-outlined text-slate-400 block mb-1">bathroom</span>
+                <span className="text-xs text-slate-300 font-medium whitespace-nowrap">
+                  {t("info.bathrooms", { n: villa.bathrooms })}
+                </span>
+              </div>
+              <div className="p-3 rounded-lg bg-slate-900/50 border border-slate-800 text-center">
+                <span className="material-symbols-outlined text-slate-400 block mb-1">group</span>
+                <span className="text-xs text-slate-300 font-medium whitespace-nowrap">
+                  {t("info.maxGuests", { n: villa.maxGuests })}
+                </span>
+              </div>
+              <div className="p-3 rounded-lg bg-slate-900/50 border border-slate-800 text-center">
+                <span className="material-symbols-outlined text-slate-400 block mb-1">pool</span>
+                <span className="text-xs text-slate-300 font-medium whitespace-nowrap">
+                  {villa.hasPool ? t("info.poolYes") : t("info.poolNo")}
+                </span>
+              </div>
+              <div className="p-3 rounded-lg bg-slate-900/50 border border-slate-800 text-center">
+                <span className="material-symbols-outlined text-slate-400 block mb-1">restaurant</span>
+                <span className="text-xs text-slate-300 font-medium whitespace-nowrap">
+                  {villa.breakfastAvailable ? t("info.breakfastYes") : t("info.breakfastNo")}
+                </span>
+              </div>
+            </div>
+            {/* 승인 판단용 보조 정보 — 단지·주소·월 임대 시세 */}
+            {(villa.complex || villa.address || villa.monthlyRentVnd != null) && (
+              <dl className="mt-5 pt-5 border-t border-slate-800 space-y-2 text-sm">
+                {villa.complex && (
+                  <div className="flex gap-3">
+                    <dt className="w-28 shrink-0 text-slate-500">{t("info.complex")}</dt>
+                    <dd className="text-slate-300">{villa.complex}</dd>
+                  </div>
+                )}
+                {villa.address && (
+                  <div className="flex gap-3">
+                    <dt className="w-28 shrink-0 text-slate-500">{t("info.address")}</dt>
+                    <dd className="text-slate-300">{villa.address}</dd>
+                  </div>
+                )}
+                {villa.monthlyRentVnd != null && (
+                  <div className="flex gap-3">
+                    <dt className="w-28 shrink-0 text-slate-500">{t("info.monthlyRent")}</dt>
+                    <dd className="text-slate-300 tabular-nums">
+                      {formatVnd(villa.monthlyRentVnd)}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            )}
+          </div>
+        </div>
+
+        {/* 우측: 요율 + 비품 + 수정 이력 */}
+        <div className="col-span-12 lg:col-span-5 space-y-6">
+          {/* 시즌 요율 편집 (클라이언트) */}
+          <RateEditor villaId={villa.id} rates={rateRows} fxVndPerKrw={fxVndPerKrw} />
+
+          {/* 비품 현황 — 읽기 전용 (b10) */}
+          <div className="bg-admin-card rounded-xl p-6 border border-slate-800 shadow-xl">
+            <div className="flex items-center gap-2 mb-5">
+              <h2 className="text-lg font-bold flex items-center gap-2 whitespace-nowrap">
+                <span className="material-symbols-outlined text-admin-primary">inventory_2</span>
+                {t("amenitiesCard.title")}
+              </h2>
+              <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-500 text-[10px] font-bold whitespace-nowrap">
+                {t("amenitiesCard.readOnly")}
+              </span>
+            </div>
+            {villa.amenities.length === 0 ? (
+              <p className="text-sm text-admin-muted py-4 text-center">
+                {t("amenitiesCard.empty")}
+              </p>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  {amenityCategories.map(({ category, count }) => (
+                    <div
+                      key={category}
+                      className="p-3 rounded-lg bg-slate-900/30 border border-slate-800/50 flex items-center gap-3"
+                    >
+                      <span className="material-symbols-outlined text-slate-400 text-lg">
+                        {AMENITY_CATEGORY_ICON[category]}
+                      </span>
+                      <span className="text-xs text-slate-300 font-medium whitespace-nowrap">
+                        {t("amenitiesCard.categoryCount", {
+                          category: tAmenity(`categories.${category}`),
+                          count,
+                        })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {minibarItems.length > 0 && (
+                  <div className="p-3 bg-slate-900/50 rounded-lg border border-slate-800">
+                    <p className="text-[10px] text-slate-400 flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-slate-500 uppercase">
+                        {t("amenitiesCard.minibarLabel")}
+                      </span>
+                      <span>
+                        {minibarItems
+                          .map((m) => `${amenityLabel(m.itemKey, m.customLabel)} ${m.quantity}`)
+                          .join(" · ")}
+                      </span>
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* 수정 이력 (AuditLog — b10 Action Log) */}
+          {auditLogs.length > 0 && (
+            <div className="bg-admin-card/50 rounded-xl p-4 border border-slate-800/50">
+              <p className="text-[10px] font-bold text-slate-500 mb-3 uppercase tracking-widest whitespace-nowrap">
+                {t("history.title")}
+              </p>
+              <div className="space-y-2">
+                {auditLogs.map((log) => (
+                  <div key={log.id} className="flex items-center justify-between gap-3 text-[10px]">
+                    <span className="text-slate-400 italic whitespace-nowrap tabular-nums">
+                      {formatDateTime(log.createdAt)}
+                    </span>
+                    <span className="text-slate-200 truncate">
+                      {log.user?.name ?? t("history.system")}:{" "}
+                      {["CREATE", "UPDATE", "DELETE"].includes(log.action)
+                        ? t(`history.actions.${log.action}`)
+                        : log.action}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
