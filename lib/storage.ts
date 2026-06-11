@@ -104,6 +104,37 @@ export function getUploadDir(): string {
   return UPLOAD_DIR;
 }
 
+// ===================== 여권 사진 — 비공개 저장 (T3.1, QA 합의 조건 A) =====================
+// 공개 업로드 파이프라인(saveFile)과 의도적으로 분리:
+// - R2 설정 여부와 무관하게 **항상 디스크(volume)** 의 passports/ 하위에 저장
+//   (공개 버킷·CDN 비대상 — R2 전환 후에도 여권은 비공개 유지, 90일 수동 삭제 정책 대상)
+// - 반환은 파일명만 — 서빙은 GET /api/passports/[name] (ADMIN 가드 + private,no-store) 전용
+
+function getPassportDirInternal(): string {
+  // QA M1: UPLOAD_DIR 미설정 시 기본값이 public/uploads라 그 하위에 두면
+  // Next 정적 서빙이 ADMIN 가드를 우회한다 — 미설정이면 public/ 밖 private/로 분리
+  const base = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "private");
+  return path.join(base, "passports");
+}
+
+/** 여권 서빙 라우트용 디렉터리 */
+export function getPassportDir(): string {
+  return getPassportDirInternal();
+}
+
+/** 여권 사진 저장 — 항상 디스크, 파일명만 반환 (공개 URL 미생성) */
+export async function savePassportFile(
+  buffer: Buffer,
+  mimeType: string,
+  uploaderId: string
+): Promise<{ fileName: string }> {
+  const fileName = buildFileName(mimeType, uploaderId);
+  const dir = getPassportDirInternal();
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(path.join(dir, fileName), buffer);
+  return { fileName };
+}
+
 export const EXT_MIME: Record<string, string> = Object.fromEntries(
   Object.entries(MIME_EXT).map(([mime, ext]) => [ext, mime])
 );

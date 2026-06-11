@@ -36,3 +36,5 @@
 - (2026-06-11 T3.5 QA) **Windows에서 vitest가 전 파일 `Cannot read properties of undefined (reading 'config')`로 즉사하면 드라이브 문자 대소문자부터 의심** — cwd가 소문자 `c:\...`면 러너 모듈이 이중 로딩되어 describe()가 깨짐(코드 회귀로 오판하기 쉬움). `cmd /c "cd /d C:\Projects\... && npm test"`처럼 대문자 드라이브로 실행하면 정상. 최소 smoke 테스트 1개로 "전부 실패 = 환경, 일부 실패 = 코드"를 먼저 분리할 것.
 - (2026-06-11 T3.5 QA) **cron 디스패치 QA는 큐에 남아있던 타 태스크의 PENDING도 함께 소비함** — summary 건수가 기대보다 크면 내 테스트 데이터 오염이 아니라 기존 큐 잔량인지 먼저 inspect로 구분. 정리(cleanup)는 반드시 내 qaTag 붙은 레코드만 삭제하고, 타 레코드의 상태 전이는 정상 처리이므로 되돌리지 않는다(테스트 데이터에 qaTag 같은 식별자를 payload에 심는 것을 표준으로).
 - (2026-06-11 T2.2 QA) **globals.css 동결 계약 시 디자인 보조 클래스는 컴포넌트 안에서 해결** — export의 .no-scrollbar·bg-mesh 같은 커스텀 클래스를 globals.css에 못 넣는 병렬 세션 상황에서는 Tailwind arbitrary variant(`[&::-webkit-scrollbar]:hidden`)나 컴포넌트 인라인 스타일 상수로 구현. 정의 없는 클래스명을 그대로 옮겨 적으면 조용히 무시됨(공허 통과의 CSS판).
+
+- (2026-06-11 T3.1 QA) **비공개 파일을 공개 정적 디렉터리 하위에 두지 않는다** — 여권 사진을 ADMIN 가드 라우트로 서빙해도 저장 위치가 `public/uploads/` 하위면 Next 정적 서빙이 가드를 통째로 우회(헤더·인증 모두 무시). 가드 라우트의 보안은 저장 경로가 정적 서빙 범위 밖일 때만 성립 — 비공개 파일은 기본 경로부터 `public/` 밖(`private/` 또는 volume)으로 분리하고, 환경변수 미설정 폴백 경로까지 점검할 것.

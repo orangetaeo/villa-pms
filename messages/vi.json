@@ -184,6 +184,48 @@
       }
     }
   },
+  "adminCheckin": {
+    "banner": {
+      "title": "Đặt phòng #{code} — {villa}",
+      "guests": "{name} và {n} người",
+      "inProgress": "Đang nhận phòng",
+      "mode": "Chế độ kiểm tra"
+    },
+    "passport": {
+      "title": "Xác minh hộ chiếu",
+      "count": "{n}/{total} ảnh",
+      "upload": "Tải lên",
+      "uploading": "Đang tải...",
+      "uploadError": "Tải lên thất bại. Vui lòng thử lại.",
+      "alt": "Hộ chiếu {n}",
+      "remove": "Xóa",
+      "ocrTitle": "Kết quả OCR — Hộ chiếu {n}",
+      "ocrRun": "Nhận dạng OCR",
+      "ocrRunning": "Đang nhận dạng...",
+      "ocrNotConfigured": "OCR chưa được cấu hình (GEMINI_API_KEY) — vui lòng nhập thủ công.",
+      "ocrFailed": "Nhận dạng thất bại — nhập thủ công hoặc thử lại.",
+      "fields": {
+        "surname": "Họ",
+        "givenNames": "Tên",
+        "passportNo": "Số hộ chiếu",
+        "nationality": "Quốc tịch",
+        "birthDate": "Ngày sinh",
+        "expiryDate": "Ngày hết hạn",
+        "sex": "Giới tính"
+      }
+    },
+    "deposit": {
+      "title": "Tiền đặt cọc",
+      "skip": "Không thu tiền cọc",
+      "amount": "Số tiền",
+      "held": "Đã thu HELD"
+    },
+    "submit": "Hoàn tất nhận phòng",
+    "submitting": "Đang xử lý...",
+    "submitCaption": "Hoàn tất nhận phòng với các mục đã xác nhận — thỏa thuận và chữ ký ở bước sau",
+    "needPassport": "Vui lòng tải lên ít nhất 1 ảnh hộ chiếu",
+    "submitError": "Nhận phòng thất bại. Vui lòng thử lại."
+  },
   "adminVillas": {
     "list": {
       "title": "Quản lý villa",

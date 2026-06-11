@@ -184,6 +184,48 @@
       }
     }
   },
+  "adminCheckin": {
+    "banner": {
+      "title": "예약 #{code} — {villa}",
+      "guests": "{name} 외 {n}명",
+      "inProgress": "체크인 진행중",
+      "mode": "검수 모드"
+    },
+    "passport": {
+      "title": "여권 확인 (Passport Verification)",
+      "count": "{n}/{total}장",
+      "upload": "업로드",
+      "uploading": "업로드 중...",
+      "uploadError": "업로드에 실패했습니다. 다시 시도해주세요.",
+      "alt": "여권 {n}",
+      "remove": "삭제",
+      "ocrTitle": "OCR 분석 결과 — 여권 {n}",
+      "ocrRun": "OCR 인식",
+      "ocrRunning": "인식 중...",
+      "ocrNotConfigured": "OCR이 설정되지 않았습니다 (GEMINI_API_KEY) — 아래에 직접 입력해주세요.",
+      "ocrFailed": "인식에 실패했습니다 — 직접 입력하거나 다시 시도해주세요.",
+      "fields": {
+        "surname": "성",
+        "givenNames": "이름",
+        "passportNo": "여권번호",
+        "nationality": "국적",
+        "birthDate": "생년월일",
+        "expiryDate": "만료일",
+        "sex": "성별"
+      }
+    },
+    "deposit": {
+      "title": "보증금 (Security Deposit)",
+      "skip": "보증금 수취 안 함",
+      "amount": "금액 (AMOUNT)",
+      "held": "수취 완료 HELD"
+    },
+    "submit": "체크인 완료",
+    "submitting": "처리 중...",
+    "submitCaption": "확인된 항목으로 체크인을 완료합니다 — 동의서·서명은 추후 단계",
+    "needPassport": "여권 사진을 최소 1장 업로드해주세요",
+    "submitError": "체크인 처리에 실패했습니다. 다시 시도해주세요."
+  },
   "adminVillas": {
     "list": {
       "title": "빌라 관리",

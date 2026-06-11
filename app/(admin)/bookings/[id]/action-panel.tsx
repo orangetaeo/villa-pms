@@ -4,6 +4,7 @@
 // HOLD: 입금 확정 / 취소(사유 필수). CONFIRMED: 체크인·노쇼는 Sprint 3 — disabled.
 // 전이는 기존 confirm/cancel API만 호출 — 본 컴포넌트는 새 전이 경로를 만들지 않는다.
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { BookingStatus } from "@prisma/client";
@@ -62,15 +63,13 @@ export default function ActionPanel({
       )}
       {status === "CONFIRMED" && (
         <div className="space-y-1">
-          <button
-            type="button"
-            disabled
-            title={t("comingT3")}
-            className="w-full bg-admin-primary/40 text-white/60 font-bold py-3 rounded-lg cursor-not-allowed"
+          {/* T3.1: 체크인 검수 화면으로 이동 (b3) */}
+          <Link
+            href={`/bookings/${bookingId}/checkin`}
+            className="block w-full bg-admin-primary hover:bg-admin-primary-dark text-white text-center font-bold py-3 rounded-lg transition-colors"
           >
             {t("checkin")}
-          </button>
-          <p className="text-center text-[10px] text-[#475569]">{t("comingT3")}</p>
+          </Link>
         </div>
       )}
       {status === "CHECKED_IN" && (
