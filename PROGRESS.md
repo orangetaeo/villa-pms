@@ -12,7 +12,10 @@
 
 | 2026-06-11 | T5.1~T5.3 | 회의 후속 완료: 신규 4장 생성(a0-login, a8-cleaning-tasks, c2-proposal-expired, c3-booking-request) + 기존 12장 결함 수정 + LOC 2차 수정 + b8-users→b13-users 재번호. LOC 용어 사전 확정(i18n-pattern.md). QA 재검수 **통과**(누수 0건, 회귀 9건 ✓, 용어 0건 — 반려 2건 수정 완료) → 총 28장, 디자인 단계 종결 | 잔여: T5.4 Stitch 중복 화면 수동 삭제(테오), T5.5 변환 시 처리 목록 |
 
+| 2026-06-11 | T0.1/T0.2/T0.6 | Next.js 15 프로젝트 초기화 + Railway 배포 완료. URL: villa-pms-production.up.railway.app. PostgreSQL 연결 + prisma db push 완료. GitHub: orangetaeo/villa-pms | Tailwind v4→v3 다운그레이드, nixpacks.toml로 npm install 강제 적용 |
+
 ## 현재 상태
-- Phase: **디자인 단계 종결** (28장, QA 통과) — 다음 단계는 T0.1 프로젝트 초기화 후 코드 변환(FE: b·c 계열, UX-VN: a 계열) 착수
+- Phase: **Sprint 0 진행 중** — T0.1/T0.2/T0.6 완료. 다음: T0.3 인증(로그인/회원가입) → T0.5 i18n → 코드 변환(FE: b·c 계열, UX-VN: a 계열) 착수
+- 배포 URL: https://villa-pms-production.up.railway.app
 - 오픈 이슈: 없음 (4건 모두 ADR-0002로 확정 — SPEC.md "확정 결정" 참조)
 - 사용자 액션 대기: T5.4 — Stitch 웹 UI에서 중복 화면 3건 수동 삭제 (테오)
