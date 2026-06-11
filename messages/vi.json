@@ -1,5 +1,44 @@
 {
   "app": {
     "name": "Villa PMS"
+  },
+  "auth": {
+    "login": {
+      "title": "Đăng nhập",
+      "subtitle": "Cổng quản lý Villa PMS",
+      "phone": "Số điện thoại",
+      "phonePlaceholder": "Nhập số điện thoại",
+      "password": "Mật khẩu",
+      "passwordPlaceholder": "Nhập mật khẩu",
+      "submit": "Đăng nhập",
+      "submitting": "Đang xử lý...",
+      "noAccount": "Chưa có tài khoản?",
+      "signupLink": "Đăng ký nhà cung cấp",
+      "errors": {
+        "invalidCredentials": "Số điện thoại hoặc mật khẩu không đúng.",
+        "accountDisabled": "Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.",
+        "serverError": "Đã xảy ra lỗi máy chủ. Vui lòng thử lại sau."
+      }
+    },
+    "signup": {
+      "headerTitle": "Đăng ký tài khoản",
+      "title": "Đăng ký",
+      "subtitle": "Bắt đầu quản lý villa của bạn dễ dàng hơn.",
+      "name": "Họ và tên",
+      "namePlaceholder": "Nhập họ và tên",
+      "phone": "Số điện thoại",
+      "phonePlaceholder": "0xxx xxx xxx",
+      "password": "Mật khẩu",
+      "passwordPlaceholder": "••••••••",
+      "submit": "Đăng ký",
+      "submitting": "Đang xử lý...",
+      "hasAccount": "Đã có tài khoản?",
+      "loginLink": "Đăng nhập",
+      "errors": {
+        "phoneExists": "Số điện thoại này đã được đăng ký.",
+        "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự.",
+        "serverError": "Đã xảy ra lỗi. Vui lòng thử lại sau."
+      }
+    }
   }
 }

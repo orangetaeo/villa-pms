@@ -1,7 +1,18 @@
-export default function Home() {
-  return (
-    <main className="flex min-h-screen items-center justify-center">
-      <h1 className="text-2xl font-bold">Villa PMS — 준비 중</h1>
-    </main>
-  );
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
+
+// 루트: 세션 role별 홈으로 분기
+export default async function Home() {
+  const session = await auth();
+
+  if (!session) redirect("/login");
+
+  switch (session.user.role) {
+    case "ADMIN":
+      redirect("/dashboard");
+    case "CLEANER":
+      redirect("/cleaning");
+    default:
+      redirect("/my-villas");
+  }
 }

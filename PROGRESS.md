@@ -16,6 +16,8 @@
 
 | 2026-06-11 | 2차 전체 회의 (테오 7건) | ① 글자 세로 낙하 전수 박멸 — 근본 원인: 한글 글리프 없는 폰트(Public Sans 등)+word-break → Noto Sans KR 폴백+keep-all/nowrap 16장 적용 ② ADR-0003 확정: 채널별 통화(여행사·랜드사 VND, 산정 기준 VND), 비품 VillaAmenity 모델+마법사 5단계, Zalo 채팅 b14(번역 통합, 48h 창), 관리자 반응형(1024px 햄버거·768px 카드) ③ 신규 3장(b14·b1-mobile·a9-amenities)+수정 9장+VND 변형 2장 → **총 33장** ④ QA 최종 **통과(반려 0건)** — 누수 0건·낙하 회귀 0건·스펙 반영 100% ⑤ SPEC v1.3, schema v1.2(validate 통과), a6·a7 재캡처 완료 | 주의: schema v1.2는 T0.2 db push 이후 변경 — **다음 세션에서 prisma db push 재실행 필요**. 잔여: T5.4(Stitch 웹 중복·고아 화면 수동 삭제), T5.5(변환 시 처리 목록), playwright-core devDependency 추가됨(OPS 인지) |
 
+| 2026-06-11 | T0.3/T0.5 | 인증·i18n 완료: NextAuth v5 Credentials(전화번호+비밀번호), 자가 가입 /signup(SUPPLIER, AuditLog 기록), 로그인 /login — **화면은 Stitch a0-login·a0-signup 그대로 변환**(라이트 teal, Be Vietnam Pro, Material Symbols, 56px 터치 타겟). Role 미들웨어(역할별 허용 경로 맵 + locale 쿠키 자동: admin→ko, supplier·auth→vi), 라우트 그룹 (admin)/(supplier) 가드 레이아웃, lib/prisma.ts·lib/audit-log.ts(writeAuditLog), 루트 / role별 분기. Noto Sans KR 폴백+keep-all 전역 적용. 빌드·typecheck 통과, 미인증 보호 경로 6종 /login 리다이렉트 확인 | **교훈: UI는 반드시 design/stitch/ export 변환 — 초기에 임의 디자인으로 만들었다가 전면 재작업.** 메모리에 규칙 영구 저장. 잔여: 실 DB 연결 로그인 E2E(로컬 .env DATABASE_URL placeholder), dashboard·my-villas는 플레이스홀더(각 변환 태스크에서 구현) |
+
 ## 현재 상태 (2026-06-11 기준)
 
 ### 완료된 태스크
@@ -26,6 +28,8 @@
 | T0.6 | Railway 배포 완료 (nixpacks, Node 20, Tailwind v3) |
 | T1.0~T4.0 | Stitch 디자인 28장 생성 + QA 통과 (design/stitch/ 저장) |
 | T5.1~T5.3 | 디자인 결함 수정 + LOC 용어 사전 확정 |
+| T0.3 | 인증 완료 — NextAuth v5, /signup·/login (Stitch a0 변환), Role 미들웨어, (admin)/(supplier) 라우트 그룹 |
+| T0.5 | i18n 완료 — locale 쿠키 기반 ko/vi, auth 네임스페이스 키, Noto Sans KR 폴백 전역 |
 
 ### 진행 중 / 대기 중
 | 태스크 | 상태 | 담당 |
@@ -35,7 +39,7 @@
 | schema v1.2 push | 대기 — 통화·VillaAmenity·ZaloConversation/Message 모델 추가분 `prisma db push` 재실행 필요 | TDA/BE |
 
 ### 다음 세션 시작 시 할 일 (2026-06-11 세션 종료 핸드오프)
-**전제: T0.3(로그인·인증·라우트 그룹·미들웨어)은 다른 세션이 개발 중 — 충돌 금지 구역: `app/(auth)/`, `auth.ts`, `middleware.ts`, `lib/`(인증 관련), `messages/ko.json·vi.json`(키 추가는 가능하나 구조 변경 금지), `tailwind.config.ts`, `package.json`**
+**T0.3/T0.5 완료 — 충돌 금지 구역 해제. 인증 기반: `auth()` 세션(user.id/role/locale), `writeAuditLog()` 유틸 사용 가능**
 
 1. **schema v1.2 push** — `npx prisma db push` 재실행 (통화·VillaAmenity·ZaloConversation/Message 추가분 — additive라 안전) (TDA/BE)
 2. **T1.1** — SUPPLIER 빌라 등록 마법사 5단계: design/stitch/ a2(기본정보)→a2b(위치)→a1(사진)→a9(비품)→a5(원가) 변환, `app/(supplier)/my-villas/new` (UX-VN) — 로그인과 겹치지 않는 첫 페이지 작업으로 지정
