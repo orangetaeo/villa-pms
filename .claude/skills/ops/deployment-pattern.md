@@ -17,9 +17,9 @@
 - 모든 cron 라우트는 `Authorization: Bearer ${CRON_SECRET}` 검증 — 검증 없는 cron 라우트는 배포 차단
 - cron 실패는 조용히 죽지 않게: 실패 시 로그 + (Phase 1은 콘솔, Phase 2는 ADMIN 알림)
 - **등록 방식 (확정 패턴, 2026-06-11)**: 프로젝트에 `curlimages/curl` Docker 이미지 미니 서비스 추가 →
-  Custom Start Command `curl -fsS -m 120 -H "Authorization: Bearer $CRON_SECRET" https://villa-pms-production.up.railway.app/api/cron/<이름>` +
+  Custom Start Command `sh -c 'curl -fsS -m 120 -H "Authorization: Bearer $CRON_SECRET" https://villa-pms-production.up.railway.app/api/cron/<이름>'` +
   Cron Schedule 입력 + Variables에 `CRON_SECRET=${{villa-pms.CRON_SECRET}}` 참조. 도메인 생성 금지(외부 접근 불필요).
-  현재 가동: `cron-ical-sync`(*/30), `cron-expire-holds`(*/5) — 실행 이력은 각 서비스 Cron Runs 탭
+  **`sh -c '...'` 래핑 필수** — 아래 교훈 참조. 현재 가동: `cron-ical-sync`(*/30), `cron-expire-holds`(*/5) — 실행 이력은 각 서비스 Cron Runs 탭
 
 ## PWA
 - TravelDiary 패턴 재사용 (reference/ 폴더, [SHARED-MODULE] 주석 표기)
@@ -27,6 +27,6 @@
 - 이미지 업로드가 핵심이므로 오프라인 캐시는 조회 화면만 — 업로드는 온라인 전제
 
 ## 교훈 축적
-- **(T1.6/T2.4 cron 등록, 2026-06-11) cron 서비스 변수는 Deploy 전에 넣을 것** — Deploy 후 변수를 넣으면 활성 배포 스냅샷에 미반영되어 직후 실행이 401(curl -f → CRASHED)로 실패한다. 다음 스케줄 실행부터는 새 변수로 자동 반영(재배포 불필요 — `railway redeploy`는 cron형 배포에 거부됨). 순서: 변수 → Deploy
-- **cron 첫 실행 검증 3단계**: ① 무인증 curl 401(라우트 게이트) ② 시크릿 포함 수동 호출 200+요약 JSON ③ 첫 자동 실행 SUCCESS(`railway deployment list --service <cron> --json`) — 3단계까지 봐야 Start Command 오타·변수 누락이 걸러진다
+- **(T1.6/T2.4 cron 등록, 2026-06-11) Start Command의 `$VAR`는 반드시 `sh -c '...'`로 감쌀 것** — Deploy 직후의 1회 실행은 셸 확장이 되지만, **스케줄에 의한 자동 실행은 확장 없이 리터럴 `$CRON_SECRET`를 전송**해 매번 401(curl -f → 실패)이 난다. 직후 실행만 보고 성공으로 판단하면 안 됨. 증상: Run now·초기 배포는 성공, 정각 실행만 연속 실패
+- **cron 검증 4단계**: ① 무인증 curl 401(라우트 게이트) ② 시크릿 포함 수동 호출 200+요약 JSON ③ Run now 성공 ④ **스케줄 트리거 자동 실행 성공**(Cron Runs 탭 초록 / `railway deployment list --json`) — ③과 ④는 실행 경로가 달라 둘 다 확인해야 한다. 변수는 Deploy 전에 넣기(직후 1회 실행 실패 방지)
 - **cron 라우트 모범 패턴 (T1.6 ical-sync)**: ① CRON_SECRET 미설정 시 500 — 무인증 개방 금지 ② Bearer 검증이 어떤 DB 접근보다 선행 ③ `export const dynamic = "force-dynamic"` (GET 캐싱 방지) ④ 엔티티 단위 실패 격리(한 건의 예외가 전체 cron 중단 금지) ⑤ 요약 JSON 반환 + 에러·충돌은 console.error (Phase 1)
