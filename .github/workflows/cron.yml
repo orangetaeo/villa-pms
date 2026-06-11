@@ -1,0 +1,23 @@
+# 프로덕션 cron 스케줄러 — Railway 웹 서비스는 자체 cron이 없어 GitHub Actions로 호출 (T1.6 잔여)
+# 추가 cron(홀드 만료 T2.4 등)은 jobs에 step 추가
+name: cron
+
+on:
+  schedule:
+    - cron: "*/30 * * * *" # iCal 동기화 — 30분마다 (SPEC F2)
+  workflow_dispatch: # 수동 실행 (검증용)
+
+jobs:
+  ical-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: iCal 수신 동기화
+        run: |
+          set -e
+          RESPONSE=$(curl -sS -w "\n%{http_code}" -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://villa-pms-production.up.railway.app/api/cron/ical-sync)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          CODE=$(echo "$RESPONSE" | tail -n 1)
+          echo "status=$CODE body=$BODY"
+          test "$CODE" = "200"
