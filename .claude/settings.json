@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vitest run *)",
+      "Bash(npm run check)",
+      "Bash(npx tsc --noEmit *)",
+      "Bash(npm run test:run *)",
+      "Bash(npm test *)",
+      "Bash(npx jest *)",
+      "Bash(npm run lint)",
+      "Bash(npm run typecheck)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git fetch *)",
+      "Bash(claude --version)",
+      "mcp__stitch__generate_screen_from_text",
+      "mcp__stitch__list_screens",
+      "mcp__stitch__get_screen",
+      "mcp__stitch__edit_screens",
+      "mcp__stitch__list_projects"
+    ]
+  }
+}

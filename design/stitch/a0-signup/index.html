@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+                primary: "#0D9488",
+                secondary: "#F59E0B",
+                available: "#16A34A",
+                confirmed: "#2563EB",
+                hold: "#DBEAFE",
+                blocked: "#6B7280",
+                unavailable: "#DC2626",
+            },
+            borderRadius: {
+                    "DEFAULT": "0.5rem",
+                    "lg": "1rem",
+                    "xl": "1.5rem",
+                    "full": "9999px"
+            },
+            fontFamily: {
+                    "headline": ["Be Vietnam Pro"],
+                    "display": ["Be Vietnam Pro"],
+                    "body": ["Be Vietnam Pro"],
+                    "label": ["Be Vietnam Pro"]
+            },
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            font-family: 'Be Vietnam Pro', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        input:focus {
+            outline: none;
+            border-color: #0D9488 !important;
+            box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.1);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-white text-neutral-900 min-h-screen flex flex-col">
+<!-- Top Navigation Anchor -->
+<header class="w-full top-0 sticky bg-white dark:bg-neutral-900 border-b border-neutral-100 dark:border-neutral-800 z-50">
+<div class="flex items-center px-4 h-16 w-full">
+<button class="text-neutral-500 active:scale-95 transition-transform p-2">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-headline font-semibold text-lg text-neutral-900 ml-2">Đăng ký tài khoản</h1>
+</div>
+</header>
+<main class="flex-1 px-6 pt-8 pb-32 max-w-md mx-auto w-full">
+<!-- Brand Header -->
+<div class="mb-10">
+<span class="font-headline font-bold text-teal-600 text-sm tracking-wider uppercase mb-1 block">Villa PMS</span>
+<h2 class="text-3xl font-bold text-neutral-900 tracking-tight">Đăng ký</h2>
+<p class="text-neutral-500 mt-2">Bắt đầu quản lý villa của bạn dễ dàng hơn.</p>
+</div>
+<!-- Form Section -->
+<div class="space-y-6">
+<!-- Full Name -->
+<div class="group">
+<label class="block text-sm font-semibold text-neutral-700 mb-2 ml-1" for="fullname">Họ và tên</label>
+<div class="relative">
+<input class="w-full h-16 px-4 bg-neutral-50 border border-neutral-200 rounded-xl text-lg transition-all focus:bg-white" id="fullname" placeholder="Nhập họ và tên" type="text"/>
+</div>
+</div>
+<!-- Phone Number -->
+<div class="group">
+<label class="block text-sm font-semibold text-neutral-700 mb-2 ml-1" for="phone">Số điện thoại</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">call</span>
+<input class="w-full h-16 pl-12 pr-4 bg-neutral-50 border border-neutral-200 rounded-xl text-lg transition-all focus:bg-white" id="phone" inputmode="numeric" placeholder="0xxx xxx xxx" type="tel"/>
+</div>
+</div>
+<!-- Password -->
+<div class="group">
+<label class="block text-sm font-semibold text-neutral-700 mb-2 ml-1" for="password">Mật khẩu</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">lock</span>
+<input class="w-full h-16 pl-12 pr-12 bg-neutral-50 border border-neutral-200 rounded-xl text-lg transition-all focus:bg-white" id="password" placeholder="••••••••" type="password"/>
+<button class="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 active:text-teal-600 transition-colors" onclick="togglePassword()" type="button">
+<span class="material-symbols-outlined" id="eye-icon">visibility</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Visual Decorative Element -->
+<div class="mt-12 opacity-20 pointer-events-none">
+<div class="w-full h-24 rounded-2xl bg-gradient-to-r from-teal-50 to-teal-100 flex items-center justify-center border border-teal-200 border-dashed">
+<span class="material-symbols-outlined text-teal-600 text-4xl">villa</span>
+</div>
+</div>
+</main>
+<!-- Bottom Actions Wrapper -->
+<div class="fixed bottom-0 left-0 w-full bg-white border-t border-neutral-100 px-6 pt-4 pb-8 flex flex-col gap-4 shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
+<button class="w-full h-16 bg-teal-600 hover:bg-teal-700 active:scale-[0.98] transition-all text-white font-bold text-lg rounded-xl shadow-lg shadow-teal-600/20">
+            Đăng ký
+        </button>
+<a class="text-center text-neutral-600 font-medium py-2" href="#">
+            Đã có tài khoản? <span class="text-teal-600 font-bold">Đăng nhập</span>
+</a>
+</div>
+<!-- Background Decoration -->
+<div class="fixed -top-24 -right-24 w-64 h-64 bg-teal-50 rounded-full blur-3xl -z-10 opacity-60"></div>
+<div class="fixed -bottom-24 -left-24 w-64 h-64 bg-amber-50 rounded-full blur-3xl -z-10 opacity-40"></div>
+<script>
+        function togglePassword() {
+            const pwdInput = document.getElementById('password');
+            const eyeIcon = document.getElementById('eye-icon');
+            if (pwdInput.type === 'password') {
+                pwdInput.type = 'text';
+                eyeIcon.textContent = 'visibility_off';
+            } else {
+                pwdInput.type = 'password';
+                eyeIcon.textContent = 'visibility';
+            }
+        }
+
+        // Simple touch feedback animation for inputs
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('focus', () => {
+                input.parentElement.parentElement.classList.add('scale-[1.01]');
+                input.parentElement.parentElement.classList.add('transition-transform');
+            });
+            input.addEventListener('blur', () => {
+                input.parentElement.parentElement.classList.remove('scale-[1.01]');
+            });
+        });
+    </script>
+</body></html>

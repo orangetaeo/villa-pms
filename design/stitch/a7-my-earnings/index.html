@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>Thu nhập - Villa PMS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#0D9488", // Teal
+              secondary: "#F59E0B", // Warm Sand
+              success: "#16A34A",
+              hold: "#2563EB",
+              blocked: "#6B7280",
+              error: "#DC2626"
+            },
+            borderRadius: {
+              "DEFAULT": "0.5rem",
+              "lg": "1rem",
+              "xl": "1.5rem",
+              "full": "9999px"
+            },
+            fontFamily: {
+              headline: ["Be Vietnam Pro"],
+              display: ["Be Vietnam Pro"],
+              body: ["Be Vietnam Pro"],
+              label: ["Be Vietnam Pro"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .active-nav-fill .material-symbols-outlined {
+        font-variation-settings: 'FILL' 1;
+      }
+      body {
+        font-family: 'Be Vietnam Pro', sans-serif;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .glass-card {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
+      }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-slate-50 text-slate-900 min-h-screen pb-32">
+<!-- Top AppBar (JSON Component: TopAppBar) -->
+<nav class="w-full top-0 sticky bg-white dark:bg-white shadow-sm z-50">
+<div class="flex justify-between items-center px-4 h-16 w-full">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-teal-50">
+<img alt="User profile" class="w-full h-full object-cover" data-alt="A professional close-up portrait of a friendly Vietnamese villa owner with a warm smile, set against a blurred tropical resort background with palm leaves and soft sunlight. The lighting is bright and airy, reflecting a professional and trustworthy business owner in the hospitality industry in Phu Quoc." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrcOPgQURPQZDCroTgybngMMWn-goZk8CxitD6QTSxk1EhVVLUWZnkocllG0PEzqABE0CXc68kswu1-flvg8TA9dtSRT6WG5gt0S6Cv3z8bwbJiM3NixJZMAKzdKMZGSwpU2a0bf57jWsZYBhEWc_P0Ab5ASzKID-G1RKQ-1YCQaabkD5bShCtOA3Lw7LTrJnDIN5iGADmUzPYbNIs_T6rG4T0M4KzvjS6eN4CSQsZOUKMlKt_TETVwOQC1hs7HU14cSjRxomuCAv_"/>
+</div>
+<h1 class="font-headline font-semibold text-lg text-teal-600">Villa PMS</h1>
+</div>
+<button class="text-teal-600 active:scale-95 transition-transform p-2">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</nav>
+<main class="px-4 py-6 max-w-md mx-auto space-y-6">
+<!-- Month Selector -->
+<section class="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm border border-slate-100">
+<button class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-600 active:scale-90 transition-all">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<div class="flex flex-col items-center">
+<span class="text-sm text-slate-400 font-medium uppercase tracking-wider">Thời gian</span>
+<span class="font-bold text-teal-900">Tháng 7, 2026</span>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full bg-slate-50 text-slate-600 active:scale-90 transition-all">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</section>
+<!-- Summary Card -->
+<section class="relative overflow-hidden bg-teal-600 rounded-2xl p-6 shadow-xl text-white">
+<!-- Decorative circle -->
+<div class="absolute -right-10 -top-10 w-40 h-40 bg-teal-500 rounded-full opacity-20"></div>
+<div class="relative z-10 space-y-4">
+<div>
+<p class="text-teal-50 text-sm font-medium opacity-90">Tổng thu nhập tháng này</p>
+<h2 class="text-4xl font-extrabold mt-1 tracking-tight">32.500.000₫</h2>
+</div>
+<div class="h-[1px] bg-white/20 w-full"></div>
+<div class="flex flex-wrap gap-y-2 gap-x-4 text-xs font-medium text-teal-50">
+<div class="flex items-center gap-1.5">
+<div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+<span>Đã thanh toán: 18.200.000₫</span>
+</div>
+<div class="flex items-center gap-1.5">
+<div class="w-2 h-2 rounded-full bg-teal-200/50 border border-white/40"></div>
+<span>Chờ thanh toán: 14.300.000₫</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Earnings List Header -->
+<div class="flex items-center justify-between">
+<h3 class="font-bold text-slate-800 text-lg">Chi tiết doanh thu</h3>
+<span class="text-xs font-semibold px-2 py-1 bg-slate-200 text-slate-600 rounded-md">4 Giao dịch</span>
+</div>
+<!-- Earnings List -->
+<div class="space-y-4">
+<!-- Date Group -->
+<div class="space-y-3">
+<!-- Row 1 -->
+<div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-emerald-500 flex justify-between items-center group active:bg-slate-50 transition-colors">
+<div class="space-y-1">
+<h4 class="font-bold text-slate-900">Sonasea V12</h4>
+<p class="text-sm text-slate-500">15/07 - 18/07 (3 đêm)</p>
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-700">
+                            Đã thanh toán
+                        </span>
+</div>
+<div class="text-right">
+<p class="font-bold text-teal-700 text-lg">7.500.000₫</p>
+<span class="material-symbols-outlined text-slate-300 text-sm">arrow_forward_ios</span>
+</div>
+</div>
+<!-- Row 2 -->
+<div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-emerald-500 flex justify-between items-center active:bg-slate-50 transition-colors">
+<div class="space-y-1">
+<h4 class="font-bold text-slate-900">Sonasea V11</h4>
+<p class="text-sm text-slate-500">10/07 - 12/07 (2 đêm)</p>
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-700">
+                            Đã thanh toán
+                        </span>
+</div>
+<div class="text-right">
+<p class="font-bold text-teal-700 text-lg">5.200.000₫</p>
+<span class="material-symbols-outlined text-slate-300 text-sm">arrow_forward_ios</span>
+</div>
+</div>
+<!-- Row 3 -->
+<div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-slate-300 flex justify-between items-center active:bg-slate-50 transition-colors">
+<div class="space-y-1">
+<h4 class="font-bold text-slate-900">Sunset Sanato A3</h4>
+<p class="text-sm text-slate-500">20/07 - 22/07 (2 đêm)</p>
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-500 border border-slate-200">
+                            Chờ thanh toán
+                        </span>
+</div>
+<div class="text-right">
+<p class="font-bold text-slate-600 text-lg">6.800.000₫</p>
+<span class="material-symbols-outlined text-slate-300 text-sm">arrow_forward_ios</span>
+</div>
+</div>
+<!-- Row 4 -->
+<div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-slate-300 flex justify-between items-center active:bg-slate-50 transition-colors">
+<div class="space-y-1">
+<h4 class="font-bold text-slate-900">Sonasea V12</h4>
+<p class="text-sm text-slate-500">25/07 - 28/07 (3 đêm)</p>
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-500 border border-slate-200">
+                            Chờ thanh toán
+                        </span>
+</div>
+<div class="text-right">
+<p class="font-bold text-slate-600 text-lg">7.500.000₫</p>
+<span class="material-symbols-outlined text-slate-300 text-sm">arrow_forward_ios</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Visual context image: Phu Quoc Tropical Vibe -->
+<div class="pt-4">
+<div class="relative h-48 rounded-2xl overflow-hidden shadow-md">
+<img alt="Phu Quoc Villa" class="w-full h-full object-cover" data-alt="An expansive high-angle view of a luxury tropical resort in Phu Quoc at golden hour. The image features modern villas with teal swimming pools, surrounded by lush palm trees and sand-colored paths. The lighting is warm and inviting, evoking a sense of high-end vacation management and prosperity for villa suppliers." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCccZogFYRAzvKotkzayKQ_hhbRVjgaU5U2eNf8XmgDR8ynAoQt01lkO6tQheTggD7clwktjQq2BQQUDQlS3op17CvheBuQMn26FePI0O8q85hIqcqgSfXNLxKpi-LPZEBo62tBqKeSamtb0HjksakXSrOmv4HfdSuXhwPfDVZgB3mcddEXdkwpo-htw8dpQVv7a5yCxQQHx72rxFhP3PEnkhNk0AlOrVJ1s2TLznAkFHSXEjL_3RbPBV1zs7y43jyNqx7k68QO3Wv1"/>
+<div class="absolute inset-0 bg-gradient-to-t from-teal-900/60 to-transparent flex items-end p-4">
+<p class="text-white text-sm font-medium">Báo cáo hiệu suất kinh doanh đang tăng 15% so với tháng trước.</p>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation (JSON Component: BottomNavBar) -->
+<nav class="fixed bottom-0 w-full z-50 h-20 pb-safe bg-white dark:bg-white border-t border-slate-100 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+<div class="flex justify-around items-center w-full h-full px-2">
+<!-- Villa -->
+<a class="flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 transition-all duration-200 active:scale-90" href="#">
+<span class="material-symbols-outlined">home_work</span>
+<span class="font-label text-xs font-medium">Villa</span>
+</a>
+<!-- Lịch -->
+<a class="flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 transition-all duration-200 active:scale-90" href="#">
+<span class="material-symbols-outlined">calendar_month</span>
+<span class="font-label text-xs font-medium">Lịch</span>
+</a>
+<!-- Dọn dẹp -->
+<a class="flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 transition-all duration-200 active:scale-90" href="#">
+<span class="material-symbols-outlined">cleaning_services</span>
+<span class="font-label text-xs font-medium">Dọn dẹp</span>
+</a>
+<!-- Thu nhập (Active) -->
+<a class="flex flex-col items-center justify-center text-teal-600 bg-teal-50 rounded-xl px-3 py-1 transition-all duration-200 active:scale-90 active-nav-fill" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">payments</span>
+<span class="font-label text-xs font-medium">Thu nhập</span>
+</a>
+</div>
+</nav>
+<script>
+        // Simple haptic-like feedback and interaction handling
+        document.querySelectorAll('a, button').forEach(element => {
+            element.addEventListener('click', (e) => {
+                // Future logic for navigation or state updates
+            });
+        });
+
+        // Dynamic highlight for list items on scroll or interaction
+        const observerOptions = {
+            threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('opacity-100', 'translate-y-0');
+                    entry.target.classList.remove('opacity-0', 'translate-y-4');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.bg-white.p-4').forEach(item => {
+            item.classList.add('transition-all', 'duration-500', 'opacity-0', 'translate-y-4');
+            observer.observe(item);
+        });
+    </script>
+</body></html>

@@ -1,0 +1,580 @@
+// Villa PMS — Prisma Schema v1.2
+// 금액 규칙: VND = BigInt(동), KRW = Int(원). 숙박일 = @db.Date
+// v1.1: AuditLog·AppSetting 추가 (ADR-0002)
+// v1.2: 채널별 결제 통화(saleCurrency·salePriceVnd·환율 스냅샷), VillaAmenity 비품, Zalo 양방향 채팅 (ADR-0003)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===================== 사용자 =====================
+
+enum Role {
+  ADMIN     // 운영자(테오)
+  SUPPLIER  // 중계인·부동산·분양자
+  CLEANER   // 청소 담당
+}
+
+model User {
+  id           String   @id @default(cuid())
+  role         Role
+  name         String
+  phone        String?  @unique
+  email        String?  @unique
+  passwordHash String?
+  zaloUserId   String?  @unique // Zalo OA 알림 수신용
+  locale       String   @default("vi") // vi | ko
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  villas           Villa[]           @relation("SupplierVillas")
+  cleaningTasks    CleaningTask[]    @relation("AssignedCleaner")
+  settlements      Settlement[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+  zaloConversation ZaloConversation? // Zalo 양방향 채팅 (ADR-0003)
+}
+
+// ===================== 빌라 =====================
+
+enum VillaStatus {
+  DRAFT          // 등록 중
+  PENDING_REVIEW // 운영자 승인 대기
+  ACTIVE         // 운영 중
+  INACTIVE       // 중단
+}
+
+enum PhotoSpace {
+  EXTERIOR   // 외관
+  LIVING     // 거실
+  KITCHEN    // 주방
+  BEDROOM    // 침실 (spaceLabel로 1층/2층-1 구분)
+  BATHROOM   // 화장실
+  BALCONY    // 베란다
+  POOL       // 수영장
+  ETC
+}
+
+model Villa {
+  id                 String      @id @default(cuid())
+  supplierId         String
+  supplier           User        @relation("SupplierVillas", fields: [supplierId], references: [id])
+  name               String      // 예: 쏘나씨 V12
+  complex            String?     // 단지명: 쏘나씨, 썬셋 사나토
+  address            String?
+  bedrooms           Int
+  bathrooms          Int
+  maxGuests          Int
+  hasPool            Boolean     @default(false)
+  breakfastAvailable Boolean     @default(false) // 조식 가능 여부
+  monthlyRentVnd     BigInt?     // 참고용 월 임대 시세
+  description        String?
+  descriptionVi      String?
+  status             VillaStatus @default(DRAFT)
+  isSellable         Boolean     @default(false) // 청소 검수 게이트 통과 여부
+  qualityScore       Int         @default(100)   // Phase 2: 누적 품질점수
+  icalImportUrls     String[]    // 외부 채널 iCal 수신 URL (Airbnb 등)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  photos        VillaPhoto[]
+  rates         VillaRate[]
+  blocks        CalendarBlock[]
+  bookings      Booking[]
+  proposalItems ProposalItem[]
+  cleaningTasks CleaningTask[]
+  amenities     VillaAmenity[] // 비품 (ADR-0003)
+
+  @@index([supplierId])
+  @@index([status, isSellable])
+}
+
+model VillaPhoto {
+  id         String     @id @default(cuid())
+  villaId    String
+  villa      Villa      @relation(fields: [villaId], references: [id], onDelete: Cascade)
+  space      PhotoSpace
+  spaceLabel String?    // "2층 침실 1" 등 자유 라벨
+  url        String
+  isBaseline Boolean    @default(true) // 기준 사진 (체크아웃 비교용)
+  sortOrder  Int        @default(0)
+  uploadedBy String?
+  createdAt  DateTime   @default(now())
+
+  @@index([villaId, space])
+}
+
+// ===================== 비품 (v1.2 — ADR-0003) =====================
+
+enum AmenityCategory {
+  KITCHEN   // 주방용품
+  BATHROOM  // 화장실용품
+  APPLIANCE // 가전류
+  MINIBAR   // 미니바 — 물·음료·과자 (수량 의미 있음)
+}
+
+// 빌라 비치 품목. Phase 1: 표기·조회만 (F1 마법사 4/5단계 + b10 + b4 읽기 전용 체크리스트)
+// Phase 2: 체크아웃 미니바 소모 자동 차감과 연결 (IDEAS.md)
+model VillaAmenity {
+  id          String          @id @default(cuid())
+  villaId     String
+  villa       Villa           @relation(fields: [villaId], references: [id], onDelete: Cascade)
+  category    AmenityCategory
+  itemKey     String          // 품목 사전 키 (코드 상수 → i18n: amenity.kettle 등). 직접 입력은 "custom"
+  customLabel String?         // itemKey="custom"일 때 공급자 입력 라벨 (vi)
+  quantity    Int             @default(1) // MINIBAR: 비치 수량, 그 외: 1=있음
+  note        String?
+  updatedAt   DateTime        @updatedAt
+
+  @@index([villaId, category])
+}
+
+// ===================== 시즌·요율 =====================
+
+enum SeasonType {
+  LOW  // 비수기
+  HIGH // 성수기
+  PEAK // 극성수기 (연말·설)
+}
+
+model SeasonPeriod {
+  id        String     @id @default(cuid())
+  season    SeasonType
+  startDate DateTime   @db.Date
+  endDate   DateTime   @db.Date
+  label     String?    // "2026 설 연휴"
+
+  @@index([startDate, endDate])
+}
+
+enum MarginType {
+  PERCENT
+  FIXED_VND // v1.2: FIXED_KRW → FIXED_VND. 마진 기준통화를 원가와 동일한 VND로 통일 (ADR-0003)
+}
+
+// 가격 산정 기준통화 = VND: salePriceVnd = 원가 + 마진 (자동계산 후 ADMIN 오버라이드)
+// salePriceKrw = salePriceVnd × AppSetting["FX_VND_PER_KRW"] 환산 제안 후 ADMIN 라운딩 오버라이드
+model VillaRate {
+  id              String     @id @default(cuid())
+  villaId         String
+  villa           Villa      @relation(fields: [villaId], references: [id], onDelete: Cascade)
+  season          SeasonType
+  supplierCostVnd BigInt     // 공급자 원가/박 — 공급자가 입력
+  marginType      MarginType @default(PERCENT)
+  marginValue     BigInt     // PERCENT: %, FIXED_VND: 동
+  salePriceVnd    BigInt     // 판매가/박 — VND 채널 (랜드사·여행사, ADR-0003)
+  salePriceKrw    Int        // 판매가/박 — KRW 채널 (직접 소비자)
+  updatedAt       DateTime   @updatedAt
+
+  @@unique([villaId, season])
+}
+
+// ===================== 캘린더 =====================
+
+enum BlockSource {
+  MANUAL // 공급자/운영자 수동 차단
+  ICAL   // 외부 채널 동기화
+}
+
+// 예약 외 점유 (외부 판매분, 수리 등). 가용성 = NOT(booking) AND NOT(block)
+model CalendarBlock {
+  id        String      @id @default(cuid())
+  villaId   String
+  villa     Villa       @relation(fields: [villaId], references: [id], onDelete: Cascade)
+  startDate DateTime    @db.Date
+  endDate   DateTime    @db.Date // exclusive (체크아웃일)
+  source    BlockSource @default(MANUAL)
+  icalUid   String?     // iCal 이벤트 UID (동기화 멱등성)
+  note      String?
+  createdBy String?
+  createdAt DateTime    @default(now())
+
+  @@unique([villaId, icalUid])
+  @@index([villaId, startDate, endDate])
+}
+
+// ===================== 제안·가예약·예약 =====================
+
+enum ProposalStatus {
+  ACTIVE
+  USED    // 가예약 발생
+  EXPIRED
+  REVOKED
+}
+
+model Proposal {
+  id           String         @id @default(cuid())
+  token        String         @unique @default(cuid()) // 공개 링크: /p/[token]
+  clientName   String         // 여행사명 또는 고객명
+  channel      BookingChannel
+  saleCurrency Currency       @default(KRW) // 채널 기본값: DIRECT→KRW, 랜드사·여행사→VND. 생성 시 ADMIN 오버라이드 가능 (ADR-0003)
+  fxVndPerKrw  Decimal?       @db.Decimal(14, 4) // 제안 생성 시점 환율 스냅샷 (1 KRW = x VND) — 참고 환산·마진 리포팅용
+  expiresAt    DateTime
+  status       ProposalStatus @default(ACTIVE)
+  note         String?
+  createdAt    DateTime       @default(now())
+
+  items ProposalItem[]
+}
+
+model ProposalItem {
+  id           String   @id @default(cuid())
+  proposalId   String
+  proposal     Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  villaId      String
+  villa        Villa    @relation(fields: [villaId], references: [id])
+  checkIn      DateTime @db.Date
+  checkOut     DateTime @db.Date
+  // 금액 — proposal.saleCurrency에 해당하는 통화 컬럼만 채운다 (KRW ⇒ *Krw 필수 / VND ⇒ *Vnd 필수, ADR-0003)
+  priceKrwPerNight Int?
+  totalKrw         Int?
+  priceVndPerNight BigInt?
+  totalVnd         BigInt?
+  bookingId    String?  @unique // 가예약 발생 시 연결
+
+  booking Booking? @relation(fields: [bookingId], references: [id])
+}
+
+enum BookingStatus {
+  HOLD        // 가예약 (holdExpiresAt까지)
+  CONFIRMED   // 입금 확정
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+  EXPIRED     // 홀드 만료 자동 해제
+  NO_SHOW
+}
+
+enum BookingChannel {
+  TRAVEL_AGENCY // 여행사
+  LAND_AGENCY   // 랜드사
+  DIRECT        // 직접 소비자
+}
+
+model Booking {
+  id              String         @id @default(cuid())
+  villaId         String
+  villa           Villa          @relation(fields: [villaId], references: [id])
+  status          BookingStatus
+  channel         BookingChannel
+  checkIn         DateTime       @db.Date
+  checkOut        DateTime       @db.Date // exclusive
+  nights          Int
+  guestName       String
+  guestCount      Int
+  guestPhone      String?
+  agencyName      String?
+  holdExpiresAt   DateTime?      // HOLD 상태에서만 사용 (24~48h)
+  // 금액 — HOLD 시점 스냅샷. saleCurrency에 해당하는 통화 컬럼만 채운다 (ADR-0003)
+  saleCurrency    Currency       @default(KRW)
+  totalSaleKrw    Int?           // 총 판매가 (KRW 채널)
+  totalSaleVnd    BigInt?        // 총 판매가 (VND 채널)
+  fxVndPerKrw     Decimal?       @db.Decimal(14, 4) // Proposal에서 복사한 환율 스냅샷
+  supplierCostVnd BigInt         // 총 공급자 원가
+  // 보증금
+  depositAmount   Int?
+  depositCurrency Currency?
+  depositStatus   DepositStatus  @default(NONE)
+  depositDeductVnd BigInt?       // 파손 차감액
+  breakfastIncluded Boolean      @default(false)
+  note            String?
+  cancelReason    String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  proposalItem    ProposalItem?
+  checkInRecord   CheckInRecord?
+  checkOutRecord  CheckOutRecord?
+  payments        Payment[]
+  serviceOrders   ServiceOrder[]
+  settlementItem  SettlementItem?
+  cleaningTasks   CleaningTask[]
+
+  @@index([villaId, checkIn, checkOut])
+  @@index([status, holdExpiresAt])
+}
+
+// ===================== 체크인·아웃 검수 =====================
+
+enum DepositStatus {
+  NONE
+  HELD             // 수취
+  REFUNDED         // 전액 환불
+  PARTIAL_DEDUCTED // 일부 차감
+}
+
+model CheckInRecord {
+  id               String   @id @default(cuid())
+  bookingId        String   @unique
+  booking          Booking  @relation(fields: [bookingId], references: [id])
+  passportPhotoUrls String[] // 여권 사진 (임시거주신고용 → 공급자 Zalo 전달)
+  passportOcrJson  Json?     // Gemini OCR 결과
+  tamTruSentAt     DateTime? // 공급자에게 여권 전달 완료 시각
+  agreementSignedAt DateTime? // 안전수칙·기물파손 동의서 서명
+  signatureUrl     String?
+  notes            String?
+  createdBy        String
+  createdAt        DateTime @default(now())
+}
+
+model CheckOutRecord {
+  id             String    @id @default(cuid())
+  bookingId      String    @unique
+  booking        Booking   @relation(fields: [bookingId], references: [id])
+  photoUrls      String[]  // 공간별 상태 사진 (기준 사진과 비교)
+  damageFound    Boolean   @default(false)
+  damageNote     String?
+  damagePhotoUrls String[]
+  deductionVnd   BigInt?
+  refundedAt     DateTime?
+  createdBy      String
+  createdAt      DateTime  @default(now())
+}
+
+// ===================== 청소 검수 게이트 =====================
+
+enum CleaningType {
+  CHECKOUT // 체크아웃 청소
+  PERIODIC // 정기 방역 (월 1회 자동 생성)
+}
+
+enum CleaningStatus {
+  PENDING          // 청소 대기
+  PHOTOS_SUBMITTED // 사진 업로드 완료 → 승인 대기
+  APPROVED         // 승인 → villa.isSellable = true
+  REJECTED         // 반려 → 재청소
+}
+
+model CleaningTask {
+  id          String         @id @default(cuid())
+  villaId     String
+  villa       Villa          @relation(fields: [villaId], references: [id])
+  bookingId   String?
+  booking     Booking?       @relation(fields: [bookingId], references: [id])
+  type        CleaningType
+  status      CleaningStatus @default(PENDING)
+  assigneeId  String?
+  assignee    User?          @relation("AssignedCleaner", fields: [assigneeId], references: [id])
+  photoUrls   String[]       // 공간별 청소 완료 사진
+  rejectNote  String?
+  approvedBy  String?
+  approvedAt  DateTime?
+  dueDate     DateTime?      @db.Date
+  createdAt   DateTime       @default(now())
+
+  @@index([villaId, status])
+}
+
+// ===================== 결제·정산 =====================
+
+enum Currency {
+  KRW
+  VND
+  USD
+}
+
+enum PaymentMethod {
+  KR_BANK_TRANSFER // 한국 계좌이체
+  VN_BANK_TRANSFER
+  CASH
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  bookingId     String
+  booking       Booking       @relation(fields: [bookingId], references: [id])
+  currency      Currency
+  amount        BigInt        // 통화 최소단위 (KRW 원, VND 동, USD 센트)
+  method        PaymentMethod
+  fxRateToVnd   Decimal?      @db.Decimal(14, 4) // 수납 시점 적용 환율
+  vndEquivalent BigInt?
+  receivedAt    DateTime
+  note          String?
+  createdAt     DateTime      @default(now())
+
+  @@index([bookingId])
+}
+
+enum SettlementStatus {
+  DRAFT
+  CONFIRMED
+  PAID
+}
+
+// 공급자 월 정산 (VND 지급)
+model Settlement {
+  id           String           @id @default(cuid())
+  supplierId   String
+  supplier     User             @relation(fields: [supplierId], references: [id])
+  yearMonth    String           // "2026-07"
+  totalVnd     BigInt
+  status       SettlementStatus @default(DRAFT)
+  paidAt       DateTime?
+  statementUrl String?          // 베트남어 정산서 PDF
+  createdAt    DateTime         @default(now())
+
+  items SettlementItem[]
+
+  @@unique([supplierId, yearMonth])
+}
+
+model SettlementItem {
+  id           String     @id @default(cuid())
+  settlementId String
+  settlement   Settlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  bookingId    String     @unique
+  booking      Booking    @relation(fields: [bookingId], references: [id])
+  amountVnd    BigInt
+}
+
+// ===================== 부가서비스 (Phase 2) =====================
+
+enum ServiceType {
+  BBQ        // 통돼지 바베큐
+  TICKET     // 입장권
+  GUIDE      // 가이드
+  CAR_RENTAL // 차량+기사
+  BREAKFAST  // 조식 배달
+}
+
+enum ServiceOrderStatus {
+  REQUESTED
+  CONFIRMED
+  DELIVERED
+  CANCELLED
+}
+
+model ServiceOrder {
+  id          String             @id @default(cuid())
+  bookingId   String
+  booking     Booking            @relation(fields: [bookingId], references: [id])
+  type        ServiceType
+  status      ServiceOrderStatus @default(REQUESTED)
+  serviceDate DateTime?          @db.Date
+  costVnd     BigInt             // 매입 원가
+  priceKrw    Int                // 판매가
+  vendorName  String?
+  note        String?
+  createdAt   DateTime           @default(now())
+}
+
+// ===================== 감사 로그·운영 설정 =====================
+
+// 모든 데이터 변경 추적 — 보증금 차감·정산·요율 변경 분쟁 증빙 (글로벌 audit-log-system 템플릿)
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String   // "CREATE" | "UPDATE" | "DELETE"
+  entity    String   // "Villa", "Booking", "VillaRate", "Settlement" 등
+  entityId  String
+  changes   Json?    // { field: { old: value, new: value } }
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// 운영 설정 (예: HOLD_HOURS_DEFAULT=48) — ADR-0002
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// ===================== 알림 로그 =====================
+
+enum NotificationType {
+  BOOKING_HOLD
+  BOOKING_CONFIRMED
+  HOLD_EXPIRED
+  BOOKING_CANCELLED
+  CLEANING_REQUEST
+  CLEANING_APPROVED
+  CLEANING_REJECTED
+  TAMTRU_PASSPORT   // 여권 전달 (임시거주신고)
+  SETTLEMENT_READY
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model Notification {
+  id        String             @id @default(cuid())
+  userId    String
+  user      User               @relation(fields: [userId], references: [id])
+  type      NotificationType
+  channel   String             @default("ZALO") // ZALO | WEBPUSH
+  payload   Json
+  status    NotificationStatus @default(PENDING)
+  sentAt    DateTime?
+  error     String?
+  createdAt DateTime           @default(now())
+
+  @@index([userId, status])
+}
+
+// ===================== Zalo 양방향 채팅 (v1.2 — ADR-0003) =====================
+
+enum ZaloMessageDirection {
+  INBOUND  // 공급자 → OA (webhook 수신)
+  OUTBOUND // OA → 공급자
+}
+
+enum ZaloMessageSource {
+  USER   // 공급자 발신 (INBOUND)
+  CHAT   // 관리자 채팅 수동 발신 (b14)
+  SYSTEM // F5 알림 발송 미러 기록 — Notification은 상태 추적용으로 별도 유지
+}
+
+enum ZaloMessageStatus {
+  RECEIVED
+  SENT
+  FAILED
+}
+
+// zaloUserId 단위 대화 스레드. follow webhook 시 생성, 전화번호 매칭 전(미가입 팔로워)은 userId=null
+model ZaloConversation {
+  id            String    @id @default(cuid())
+  zaloUserId    String    @unique
+  userId        String?   @unique
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  displayName   String?   // Zalo 프로필명
+  lastMessageAt DateTime?
+  lastInboundAt DateTime? // CS 48h 응답 창 기준 — 이 시각 + 48h 경과 시 무료 상담 메시지 발신 불가 (b14 입력창 비활성)
+  unreadCount   Int       @default(0)
+  createdAt     DateTime  @default(now())
+
+  messages ZaloMessage[]
+
+  @@index([lastMessageAt])
+}
+
+model ZaloMessage {
+  id             String               @id @default(cuid())
+  conversationId String
+  conversation   ZaloConversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  direction      ZaloMessageDirection
+  source         ZaloMessageSource
+  msgType        String               @default("text") // text | image | sticker | file
+  text           String?
+  attachmentUrls String[]
+  translatedText String?              // Gemini 번역 캐시 — 수신 vi→ko 자동, 발신 ko→vi 미리보기 후 전송
+  zaloMsgId      String?              @unique // Zalo msg_id (webhook 멱등성)
+  status         ZaloMessageStatus
+  error          String?
+  sentBy         String?              // OUTBOUND CHAT: 발신 ADMIN userId
+  createdAt      DateTime             @default(now())
+
+  @@index([conversationId, createdAt])
+}

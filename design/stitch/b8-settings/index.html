@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#3B82F6",
+                        "on-primary": "#FFFFFF",
+                        surface: "#0F172A",
+                        "surface-variant": "#1E293B",
+                        "outline-variant": "#334155",
+                        "on-surface": "#F8FAFC",
+                        "on-surface-variant": "#94A3B8"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        headline: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        display: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        body: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        label: ["Public Sans", "Noto Sans KR", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #0F172A;
+            color: #F8FAFC;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0F172A;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    
+        /* DESIGN 공통 규칙 (2026-06-11): 한글 폰트 폴백 + 한국어 단어 낙하 방지 */
+        body { font-family: "Public Sans", "Noto Sans KR", sans-serif; word-break: keep-all; }
+        th, button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
+    </style>
+</head>
+<body class="font-body antialiased">
+<!-- SideNavBar Shell -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#0F172A] border-r border-slate-800 shadow-xl flex flex-col p-4 gap-2 z-50">
+<div class="flex items-center gap-3 px-2 mb-8">
+<div class="w-8 h-8 bg-[#3B82F6] rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-xl">villa</span>
+</div>
+<div>
+<h1 class="text-xl font-headline font-black text-white">Villa PMS</h1>
+<p class="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Villa PMS Admin</p>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<!-- Navigation Items Mapping: 대시보드, 예약, 제안, 빌라, 청소 검수, 정산, 사용자, 설정 -->
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 group" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-medium text-sm">대시보드</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 group" href="#">
+<span class="material-symbols-outlined">calendar_month</span>
+<span class="font-medium text-sm">예약</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 group" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-medium text-sm">제안</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 group" href="#">
+<span class="material-symbols-outlined">apartment</span>
+<span class="font-medium text-sm">빌라</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 group" href="#">
+<span class="material-symbols-outlined">cleaning_services</span>
+<span class="font-medium text-sm">청소 검수</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 group" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-medium text-sm">정산</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 group" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-medium text-sm">사용자</span>
+</a>
+<!-- Active State: 설정 (Settings) -->
+<a class="flex items-center gap-3 px-3 py-2 bg-[#3B82F6] text-white rounded-lg active:scale-95 transition-transform group" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-medium text-sm">설정</span>
+</a>
+</nav>
+<div class="mt-auto pt-4 border-t border-slate-800">
+<div class="flex items-center gap-3 px-2">
+<div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border border-slate-600">
+<img alt="운영자 프로필" class="w-full h-full object-cover" data-alt="A professional headshot of a modern operations manager in his 40s wearing a minimalist dark shirt, set against a blurred high-end office background with cool blue lighting. The portrait is high-contrast and follows a clean, tech-focused aesthetic suitable for a professional SaaS admin dashboard profile." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDbGvO5BOkYowUyeTAWxAsc18KUm-MPyq0fj6DL8i3JR7FwADwtmN1sDwS1l3JFClU8_raqDpIzlQsqBVXR3YRObN33NiV74J84SeyflLK17Ci3jvHkte7Ia2F-vHOc_BzU3bX-I6D-bLeeaAeEeExn6KI2hXDp6q1gJuHxbI0ctHJ2XL1ZXa4qvo2LbVo5QfI61TdHDoNCB0t32_egzuBC72UKiAyuiE84Y6Fk5h357kiLV7MBFs7CIL82WOwKVeupvPuCGws68gla"/>
+</div>
+<div class="flex-1 overflow-hidden">
+<p class="text-sm font-semibold text-white truncate">김운영 매니저</p>
+<p class="text-xs text-slate-500 truncate">admin@villapms.com</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopNavBar Shell -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 z-40 bg-[#0F172A]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-6">
+<div class="flex items-center gap-4">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-[#3B82F6] transition-colors">search</span>
+<input class="bg-slate-900 border-none rounded-lg pl-10 pr-4 py-2 text-sm text-slate-200 w-64 focus:ring-1 focus:ring-[#3B82F6] placeholder:text-slate-600 transition-all" placeholder="검색어를 입력하세요..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-slate-400 hover:text-white transition-colors cursor-pointer relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-[#0F172A]"></span>
+</button>
+<button class="text-slate-400 hover:text-white transition-colors cursor-pointer">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<button class="text-slate-400 hover:text-white transition-colors cursor-pointer">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="ml-64 pt-24 pb-12 px-8 min-h-screen">
+<div class="max-w-5xl mx-auto space-y-8">
+<!-- Breadcrumbs / Page Title -->
+<div class="flex items-center justify-between">
+<div>
+<h2 class="text-2xl font-bold text-white tracking-tight">시스템 설정</h2>
+<p class="text-sm text-slate-500 mt-1">빌라 운영 및 예약을 위한 전역 정책을 관리합니다.</p>
+</div>
+<nav class="flex text-xs text-slate-500 gap-2">
+<span>관리자</span>
+<span>/</span>
+<span class="text-slate-300">환경 설정</span>
+</nav>
+</div>
+<!-- Card 1: 시즌 달력 -->
+<section class="bg-[#1E293B] rounded-xl border border-slate-800 shadow-lg overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/30">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">event_note</span>
+<h3 class="font-bold text-slate-100 uppercase tracking-wide">시즌 달력</h3>
+</div>
+<button class="text-primary hover:text-blue-400 text-sm font-semibold flex items-center gap-1 transition-colors">
+<span class="material-symbols-outlined text-lg">add</span>
+                        기간 추가
+                    </button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-slate-900/50 text-[11px] uppercase tracking-wider text-slate-500 font-bold border-b border-slate-800">
+<th class="px-6 py-4">시즌</th>
+<th class="px-6 py-4 text-center">시작일</th>
+<th class="px-6 py-4 text-center">종료일</th>
+<th class="px-6 py-4">라벨</th>
+<th class="px-6 py-4 text-right">관리</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-800/50">
+<!-- Row 1 -->
+<tr class="hover:bg-slate-800/40 transition-colors group">
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded text-xs font-bold bg-green-900/30 text-green-400 border border-green-800/50">비수기</span>
+</td>
+<td class="px-6 py-4 text-center font-mono text-sm text-slate-300">2026-05-01</td>
+<td class="px-6 py-4 text-center font-mono text-sm text-slate-300">2026-09-30</td>
+<td class="px-6 py-4 text-sm text-slate-500">-</td>
+<td class="px-6 py-4 text-right space-x-2">
+<button class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all">
+<span class="material-symbols-outlined text-lg">edit</span>
+</button>
+<button class="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-900/20 rounded transition-all">
+<span class="material-symbols-outlined text-lg">delete</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-slate-800/40 transition-colors group">
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded text-xs font-bold bg-orange-900/30 text-orange-400 border border-orange-800/50">성수기</span>
+</td>
+<td class="px-6 py-4 text-center font-mono text-sm text-slate-300">2026-10-01</td>
+<td class="px-6 py-4 text-center font-mono text-sm text-slate-300">2026-12-20</td>
+<td class="px-6 py-4 text-sm text-slate-500">-</td>
+<td class="px-6 py-4 text-right space-x-2">
+<button class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all">
+<span class="material-symbols-outlined text-lg">edit</span>
+</button>
+<button class="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-900/20 rounded transition-all">
+<span class="material-symbols-outlined text-lg">delete</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-slate-800/40 transition-colors group border-b-0">
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded text-xs font-bold bg-red-900/30 text-red-400 border border-red-800/50">극성수기</span>
+</td>
+<td class="px-6 py-4 text-center font-mono text-sm text-slate-300">2026-12-21</td>
+<td class="px-6 py-4 text-center font-mono text-sm text-slate-300">2027-01-05</td>
+<td class="px-6 py-4 text-sm text-slate-200 font-medium">연말·설 연휴</td>
+<td class="px-6 py-4 text-right space-x-2">
+<button class="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all">
+<span class="material-symbols-outlined text-lg">edit</span>
+</button>
+<button class="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-900/20 rounded transition-all">
+<span class="material-symbols-outlined text-lg">delete</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- Card 2: 예약 설정 -->
+<section class="bg-[#1E293B] rounded-xl border border-slate-800 shadow-lg flex flex-col">
+<div class="px-6 py-4 border-b border-slate-800 bg-slate-800/30">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">pending_actions</span>
+<h3 class="font-bold text-slate-100 uppercase tracking-wide">예약 설정</h3>
+</div>
+</div>
+<div class="p-8 space-y-12">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+<div class="space-y-1">
+<label class="block text-sm font-bold text-slate-200">가예약 기본 유지 시간</label>
+<p class="text-sm text-slate-400">새 제안 생성 시 기본값으로 적용됩니다</p>
+</div>
+<!-- Stepper Control -->
+<div class="flex items-center">
+<div class="flex items-center bg-slate-900 rounded-lg p-1 border border-slate-700">
+<button class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-all" id="decrement">
+<span class="material-symbols-outlined">remove</span>
+</button>
+<div class="px-6 flex items-baseline gap-1">
+<span class="text-xl font-bold text-white tabular-nums" id="stepper-value">48</span>
+<span class="text-xs text-slate-500 font-medium">시간</span>
+</div>
+<button class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 rounded transition-all" id="increment">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Visual Separator -->
+<div class="h-px bg-slate-800 w-full"></div>
+<div class="flex justify-end pt-4">
+<button class="bg-[#3B82F6] hover:bg-blue-600 text-white px-8 py-2.5 rounded-lg font-bold text-sm shadow-lg shadow-blue-500/20 transition-all hover:scale-[1.02] active:scale-95 flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">save</span>
+                            저장
+                        </button>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Footer Meta -->
+<footer class="ml-64 py-6 border-t border-slate-800/50">
+<div class="px-8 flex justify-between items-center text-[10px] text-slate-600 font-medium uppercase tracking-widest">
+<span>© 2024 Villa Property Management System</span>
+<div class="flex gap-4">
+<a class="hover:text-slate-400" href="#">개인정보 처리방침</a>
+<a class="hover:text-slate-400" href="#">시스템 상태</a>
+<a class="hover:text-slate-400" href="#">v2.4.1</a>
+</div>
+</div>
+</footer>
+<script>
+        // Micro-interactions for stepper
+        const stepperVal = document.getElementById('stepper-value');
+        const increment = document.getElementById('increment');
+        const decrement = document.getElementById('decrement');
+
+        let currentVal = 48;
+
+        increment.addEventListener('click', () => {
+            currentVal += 1;
+            updateValue();
+        });
+
+        decrement.addEventListener('click', () => {
+            if (currentVal > 1) {
+                currentVal -= 1;
+                updateValue();
+            }
+        });
+
+        function updateValue() {
+            stepperVal.textContent = currentVal;
+            stepperVal.classList.add('scale-110', 'text-primary');
+            setTimeout(() => {
+                stepperVal.classList.remove('scale-110', 'text-primary');
+            }, 100);
+        }
+
+        // Add visual feedback on save
+        document.querySelector('button:has(.material-symbols-outlined:contains("save"))')?.addEventListener('click', function() {
+            const originalContent = this.innerHTML;
+            this.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> 저장 중...';
+            this.disabled = true;
+            this.classList.add('opacity-80');
+            
+            setTimeout(() => {
+                this.innerHTML = '<span class="material-symbols-outlined text-lg">check</span> 저장 완료';
+                this.classList.remove('bg-[#3B82F6]');
+                this.classList.add('bg-green-600');
+                
+                setTimeout(() => {
+                    this.innerHTML = originalContent;
+                    this.classList.remove('bg-green-600', 'opacity-80');
+                    this.classList.add('bg-[#3B82F6]');
+                    this.disabled = false;
+                }, 2000);
+            }, 1000);
+        });
+    </script>
+</body></html>

@@ -1,0 +1,301 @@
+<!DOCTYPE html><html class="dark" lang="ko"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        body { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        .dashed-border { background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='8' ry='8' stroke='%23334155FF' stroke-width='2' stroke-dasharray='6%2c 10' stroke-dashoffset='0' stroke-linecap='square'/%3e%3c/svg%3e"); }
+    
+        /* DESIGN 공통 규칙 (2026-06-11): 한글 폰트 폴백 + 한국어 단어 낙하 방지 */
+        body { font-family: "Public Sans", "Noto Sans KR", sans-serif; word-break: keep-all; }
+        th, button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            900: '#0F172A',
+                            800: '#1E293B',
+                            700: '#334155',
+                            400: '#94A3B8'
+                        },
+                        blue: {
+                            500: '#3B82F6',
+                            600: '#2563EB'
+                        }
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        headline: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        display: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        body: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        label: ["Public Sans", "Noto Sans KR", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-900 text-slate-100 antialiased overflow-hidden">
+<!-- SideNavBar (Shared Component) -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-slate-900 border-r border-slate-800 shadow-xl flex flex-col p-4 gap-2 z-50">
+<div class="mb-8 px-2">
+<h1 class="text-xl font-headline font-black text-white">Villa PMS</h1>
+<p class="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Villa PMS Admin</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body text-sm font-medium tracking-tight">대시보드</span>
+</a>
+<a class="flex items-center gap-3 p-3 bg-blue-600 text-white rounded-lg transition-colors duration-200 ease-in-out active:scale-95" href="#">
+<span class="material-symbols-outlined">calendar_month</span>
+<span class="font-body text-sm font-medium tracking-tight">예약</span>
+</a>
+<a class="flex items-center gap-3 p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">pending_actions</span>
+<span class="font-body text-sm font-medium tracking-tight">제안</span>
+</a>
+<a class="flex items-center gap-3 p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">villa</span>
+<span class="font-body text-sm font-medium tracking-tight">빌라</span>
+</a>
+<a class="flex items-center gap-3 p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">cleaning_services</span>
+<span class="font-body text-sm font-medium tracking-tight">청소 검수</span>
+</a>
+<a class="flex items-center gap-3 p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-body text-sm font-medium tracking-tight">정산</span>
+</a>
+<a class="flex items-center gap-3 p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-body text-sm font-medium tracking-tight">사용자</span>
+</a>
+<a class="flex items-center gap-3 p-3 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body text-sm font-medium tracking-tight">설정</span>
+</a>
+</nav>
+</aside>
+<!-- TopAppBar (Shared Component) -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-8 z-40">
+<div class="flex items-center gap-4">
+<span class="text-blue-500 font-bold font-body text-sm">체크인 검수</span>
+<div class="h-4 w-px bg-slate-700 mx-2"></div>
+<span class="text-slate-400 text-xs font-medium">예약 #B-2607</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 focus-within:ring-1 focus-within:ring-blue-500">
+<span class="material-symbols-outlined text-slate-400 text-sm">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm text-slate-200 w-48 placeholder-slate-500" placeholder="검색..." type="text">
+</div>
+<button class="hover:bg-slate-800 rounded-full p-2 text-slate-400 transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="hover:bg-slate-800 rounded-full p-2 text-slate-400 transition-colors">
+<span class="material-symbols-outlined">help</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-slate-700">
+<img alt="Manager Profile" data-alt="A professional headshot of a Korean property manager in a modern office setting. The lighting is soft and corporate, utilizing a color palette of deep navies and muted greys to match the dark theme UI. The image is crisp, showing high-end professionalism and trustworthiness." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAnqeGOs1fyxVWz0a9HEp1BaRebaramE8QO8h8wn12DXxig4eYI3zqxhR8_tDVpcKWNQG8MWzztmj6i38zEdZxwZ5RehRvTgd-dCvDY2pSobekKPsIMKUvxezMmzyG1yukgD_UEYdRI0_O1573B2LTUCsP-zUe9Xjcq76p4x_-4Q-3GadUQ3za8_2P5xX49xOS_AstXxznhBpPzRqeyg3QqpMLSApHQHJ4PyErNhDj9ppK_HB1mjvFQRaWvSr0ZfgvsngT3_8mJ2j4V">
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 mt-16 p-8 h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar">
+<div class="max-w-4xl mx-auto space-y-6">
+<!-- Context Banner -->
+<div class="bg-slate-800/50 rounded-xl p-6 border border-slate-800 flex items-center justify-between">
+<div>
+<h2 class="text-xl font-bold text-white mb-1">예약 #B-2607 — 쏘나씨 V12</h2>
+<p class="text-slate-400 text-sm">7월 15일~18일 · 김민수 외 3명</p>
+</div>
+<div class="flex flex-col items-end">
+<span class="px-3 py-1 bg-blue-600/20 text-blue-500 border border-blue-600/30 rounded-full text-xs font-bold">체크인 진행중</span>
+<span class="text-[10px] text-slate-500 mt-1 uppercase tracking-widest font-bold">검수 모드</span>
+</div>
+</div>
+<!-- Section 1: Passport Verification -->
+<section class="bg-slate-800 rounded-xl border border-slate-700 shadow-lg overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-700 flex items-center gap-3">
+<span class="w-7 h-7 flex items-center justify-center bg-blue-600 rounded-full text-xs font-bold">1</span>
+<h3 class="font-bold text-slate-100">여권 확인 (Passport Verification)</h3>
+</div>
+<div class="p-6 space-y-6">
+<div class="grid grid-cols-4 gap-4">
+<!-- Uploaded -->
+<div class="relative group aspect-[3/4] rounded-lg overflow-hidden border border-slate-600">
+<img alt="Passport 1" class="w-full h-full object-cover" data-alt="A close-up photograph of a South Korean passport lying on a dark, textured surface under dim, moody office lighting. The colors are muted, with the gold lettering on the passport cover subtly catching a blue accent light. The composition is professional and secure, reflecting a high-end travel document verification process." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA4qMUCb3SbOkIlpu8Edn7HUDD3N5PngUdNMaaoTB81jWVKHj7jKeQOo6I4b9yBav0_fu-QCjOQhXJDym5sDPYcN6jkEykIK_KH2Opl7fyePWye3SusfBsSlS_jSHTNos-_LfFgITsPVfK7VY7YSNPe4EApuX1rOlaOhplfLMHRsOwEpRTMGwI8heZxObLUS_zKXnxonpvdi3_BBlDGCEi56Jf-QCmXVZxqL4uTBe5HYFsIuTRiiDyMvXnd1Z0wO71KW2D9EvqPqo0N">
+<div class="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+<span class="material-symbols-outlined text-white">visibility</span>
+</div>
+</div>
+<div class="relative group aspect-[3/4] rounded-lg overflow-hidden border border-slate-600">
+<img alt="Passport 2" class="w-full h-full object-cover" data-alt="A macro shot of travel documents and identification cards neatly organized on a sleek black desk. The lighting is cinematic with deep shadows and soft blue glows that harmonize with a dark-themed UI. The focus is on the security and authenticity of the documents, presented in a minimalist, modern aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAe-OzN2JFQeOLhVCK7jvz1_i170oc-Ukq3uKy7ZwU5l62lESsfr2gsXkO6uIM-sOe5W5gn0gYhYWmSeK2Q15ktdQ7bgTPZ8blIYvxy0StOlgmoMkZ1kaRQVy7h7dk2CGo2vVShh_La_PlVcjDcWt_fNiiuVmJBmE9H7WTbUyYVmS5hgP4ln_ljvsA8F9Vgp-LTbgpPb8t5R6MrZMdzeb9pLoAUP15f1lZvjRHIwWJtW3IyvxAB7m6yAGfTMkcwUqDcquJgEl6ukTlQ">
+<div class="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+<span class="material-symbols-outlined text-white">visibility</span>
+</div>
+</div>
+<!-- Empty Slots -->
+<div class="dashed-border aspect-[3/4] rounded-lg flex flex-col items-center justify-center gap-2 hover:bg-slate-700/50 transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-slate-500">add_a_photo</span>
+<span class="text-[10px] text-slate-500 font-bold uppercase">업로드</span>
+</div>
+<div class="dashed-border aspect-[3/4] rounded-lg flex flex-col items-center justify-center gap-2 hover:bg-slate-700/50 transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-slate-500">add_a_photo</span>
+<span class="text-[10px] text-slate-500 font-bold uppercase">업로드</span>
+</div>
+</div>
+<div class="bg-slate-900 rounded-lg p-4 space-y-3">
+<div class="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-tight">
+<span class="material-symbols-outlined text-[14px]">psychology</span>
+<span>OCR 분석 결과</span>
+</div>
+<div class="flex flex-wrap gap-2">
+<div class="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-md flex items-center gap-2">
+<span class="text-[10px] text-slate-500 font-bold">이름</span>
+<span class="text-sm font-medium">KIM MINSU</span>
+</div>
+<div class="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-md flex items-center gap-2">
+<span class="text-[10px] text-slate-500 font-bold">여권번호</span>
+<span class="text-sm font-medium">M1234****</span>
+</div>
+<div class="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-md flex items-center gap-2">
+<span class="text-[10px] text-slate-500 font-bold">국적</span>
+<span class="text-sm font-medium">KR</span>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2 text-green-500">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-xs font-bold">전달 완료 14:32</span>
+</div>
+<button class="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95">
+<span class="material-symbols-outlined text-sm">chat</span>
+                            공급자에게 전달
+                        </button>
+</div>
+</div>
+</section>
+<!-- Section 2: Security Deposit -->
+<section class="bg-slate-800 rounded-xl border border-slate-700 shadow-lg overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-700 flex items-center gap-3">
+<span class="w-7 h-7 flex items-center justify-center bg-blue-600 rounded-full text-xs font-bold">2</span>
+<h3 class="font-bold text-slate-100">보증금 (Security Deposit)</h3>
+</div>
+<div class="p-6">
+<div class="flex items-center gap-4">
+<div class="flex-1 relative">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-[10px]">금액 (AMOUNT)</span>
+<input class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-28 pr-4 py-4 text-xl font-black text-white focus:ring-2 focus:ring-blue-500 outline-none tabular-nums" type="text" value="500,000">
+</div>
+<div class="flex bg-slate-900 p-1 rounded-xl border border-slate-700">
+<button class="px-4 py-3 rounded-lg bg-blue-600 text-white font-bold text-sm">KRW</button>
+<button class="px-4 py-3 rounded-lg text-slate-400 hover:text-white font-bold text-sm">VND</button>
+<button class="px-4 py-3 rounded-lg text-slate-400 hover:text-white font-bold text-sm">USD</button>
+</div>
+</div>
+<div class="mt-4 flex items-center justify-end">
+<span class="px-3 py-1 bg-green-500/20 text-green-500 border border-green-500/30 rounded-md text-xs font-black tracking-widest flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                            수취 완료 HELD
+                        </span>
+</div>
+</div>
+</section>
+<!-- Section 3: Agreement -->
+<section class="bg-slate-800 rounded-xl border border-slate-700 shadow-lg overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-700 flex items-center gap-3">
+<span class="w-7 h-7 flex items-center justify-center bg-blue-600 rounded-full text-xs font-bold">3</span>
+<h3 class="font-bold text-slate-100">동의서 (Agreement)</h3>
+</div>
+<div class="p-6 space-y-6">
+<div class="h-48 overflow-y-auto custom-scrollbar bg-slate-900 border border-slate-700 rounded-lg p-4 text-xs text-slate-400 leading-relaxed space-y-3">
+<p class="font-bold text-slate-200">빌라 이용 수칙 및 안전 동의서</p>
+<p>1. 모든 투숙객은 체크인 시 여권 정보를 제공해야 합니다.</p>
+<p>2. 빌라 내 전체 금연이며, 위반 시 청소 비용이 청구될 수 있습니다.</p>
+<div class="bg-blue-600/10 border-l-2 border-blue-500 p-2 my-2">
+<p class="text-blue-400 font-bold">3. 수영장 안전 이용: 영유아 및 아동은 반드시 성인 보호자의 동반 하에 이용해야 하며, 음주 후 입수를 엄격히 금지합니다. 수영장 내 다이빙은 금지됩니다.</p>
+</div>
+<p>4. 가구 및 시설 파손 시 배상 책임이 있습니다.</p>
+<p>5. 밤 10시 이후 고성방가 및 소음 발생에 유의해 주시기 바랍니다.</p>
+<p>6. 귀중품 분실에 대해서는 숙소 측에서 책임을 지지 않습니다.</p>
+<p>7. 이용 수칙 미준수로 인한 사고의 책임은 투숙객 본인에게 있습니다.</p>
+</div>
+<div class="relative bg-white rounded-lg aspect-[3/1] flex flex-col overflow-hidden">
+<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+<svg class="w-full h-full opacity-80" viewBox="0 0 600 200">
+<path d="M100 120 Q 150 50, 200 110 T 350 100 T 500 120" fill="none" stroke="black" stroke-width="3"></path>
+</svg>
+</div>
+<div class="mt-auto bg-slate-100 px-4 py-2 flex justify-between items-center border-t border-slate-200">
+<span class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">서명 (Signature)</span>
+<button class="text-[10px] text-slate-400 font-bold hover:text-slate-600">지우기 (CLEAR)</button>
+</div>
+</div>
+<div class="flex items-center justify-end">
+<span class="px-3 py-1 bg-green-500/20 text-green-500 border border-green-500/30 rounded-md text-xs font-black tracking-widest flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">draw</span>
+                            서명 완료
+                        </span>
+</div>
+</div>
+</section>
+<!-- Section 4: Final Action -->
+<div class="pt-4 pb-12">
+<button class="w-full bg-blue-600 hover:bg-blue-500 py-6 rounded-xl text-lg font-black text-white shadow-[0_0_40px_rgba(59,130,246,0.3)] flex items-center justify-center gap-3 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-2xl">check_circle</span>
+                    체크인 완료
+                </button>
+<p class="text-center text-[10px] text-slate-500 font-medium mt-4 uppercase tracking-[0.2em]">모든 필수 검수 항목이 확인되었습니다</p>
+</div>
+</div>
+</main>
+<!-- Micro-interaction JS -->
+<script>
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                let ripple = document.createElement('span');
+                ripple.classList.add('ripple');
+                this.appendChild(ripple);
+                let d = Math.max(this.clientWidth, this.clientHeight);
+                ripple.style.width = ripple.style.height = d + 'px';
+                let rect = this.getBoundingClientRect();
+                ripple.style.left = e.clientX - rect.left - d/2 + 'px';
+                ripple.style.top = e.clientY - rect.top - d/2 + 'px';
+                setTimeout(() => ripple.remove(), 600);
+            });
+        });
+    </script>
+<style>
+        .ripple {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            transform: scale(0);
+            animation: ripple-animation 0.6s linear;
+            pointer-events: none;
+        }
+        @keyframes ripple-animation {
+            to { transform: scale(4); opacity: 0; }
+        }
+    </style>
+</body></html>

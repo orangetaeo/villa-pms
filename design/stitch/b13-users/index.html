@@ -1,0 +1,416 @@
+<!DOCTYPE html><html class="dark" lang="ko"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Villa PMS - 사용자 관리</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            800: '#1e293b',
+                            900: '#0f172a',
+                        },
+                        blue: {
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                        }
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        headline: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        display: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        body: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        label: ["Public Sans", "Noto Sans KR", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 10px;
+        }
+    
+        /* DESIGN 공통 규칙 (2026-06-11): 한글 폰트 폴백 + 한국어 단어 낙하 방지 */
+        body { font-family: "Public Sans", "Noto Sans KR", sans-serif; word-break: keep-all; }
+        th, button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
+    </style>
+</head>
+<body class="font-body selection:bg-blue-500/30">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-slate-900 border-r border-slate-800 shadow-xl flex flex-col p-4 gap-2 z-50">
+<div class="mb-6 px-2 flex flex-col gap-1">
+<span class="text-xl font-headline font-black text-white">Villa PMS</span>
+<span class="text-xs text-slate-500 uppercase tracking-widest font-bold">Villa PMS Admin</span>
+</div>
+<nav class="flex flex-col gap-1 flex-1">
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out font-medium text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span>대시보드</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out font-medium text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_month">calendar_month</span>
+<span>예약</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out font-medium text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="pending_actions">pending_actions</span>
+<span>제안</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out font-medium text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="villa">villa</span>
+<span>빌라</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out font-medium text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="cleaning_services">cleaning_services</span>
+<span>청소 검수</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out font-medium text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span>정산</span>
+</a>
+<!-- Active State: 사용자 -->
+<a class="flex items-center gap-3 px-3 py-2 bg-blue-600 text-white rounded-lg transition-colors duration-200 ease-in-out font-medium text-sm active:scale-95" href="#">
+<span class="material-symbols-outlined" data-icon="group" style="font-variation-settings: 'FILL' 1;">group</span>
+<span>사용자</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-200 ease-in-out font-medium text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span>설정</span>
+</a>
+</nav>
+<div class="mt-auto pt-4 border-t border-slate-800">
+<div class="flex items-center gap-3 px-2">
+<div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden">
+<img alt="관리자 프로필" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBwkO_yFvP8pFMrNyVYTrWE1fJzhBnVGgb0346ZjvqS-_DRektwp5V8ouVMeab4auI-ieXTRMCNh_rC52oo21fvp-URi-CQp7t8ieSlVHaqIh_M0DOLtJDMoqBQiatkxOFVZGQszp4mpQgj2HB_Aybp_9HJtELImFeGbWfpQ74gLrPRlFa2U10bA1s-4LSBUXwdiRcQHCdliex8hxy1UEKfvJNl3TdvE5VA8gdhE-YRfaMlb5TBq7WDDG2cylROB9frD9nwWzmbQ6jY">
+</div>
+<div class="flex flex-col">
+<span class="text-xs font-bold text-white">관리자</span>
+<span class="text-[10px] text-slate-500">관리자 계정</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopAppBar -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-8 z-40">
+<div class="flex items-center flex-1 max-w-xl">
+<div class="relative w-full focus-within:ring-1 focus-within:ring-blue-500 rounded-lg bg-slate-800/50">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 material-symbols-outlined text-sm">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm text-slate-200 w-full pl-10 py-2 placeholder:text-slate-500" placeholder="통합 검색..." type="text">
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-slate-400 hover:bg-slate-800 rounded-full p-2 transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-slate-400 hover:bg-slate-800 rounded-full p-2 transition-colors">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<div class="h-8 w-[1px] bg-slate-800 mx-2"></div>
+<div class="flex items-center gap-2">
+<span class="text-sm font-medium text-slate-300">대시보드</span>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-64 pt-16 min-h-screen p-8">
+<!-- Header Section -->
+<section class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+<div>
+<h1 class="text-2xl font-bold text-white tracking-tight mb-1">사용자 관리</h1>
+<p class="text-slate-400 text-sm">전체 활성 사용자 현황을 관리합니다. <span class="text-blue-500 font-semibold ml-2">총 42명</span></p>
+</div>
+<button class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-transform active:scale-95 shadow-lg shadow-blue-600/20">
+<span class="material-symbols-outlined text-sm">person_add</span>
+                사용자 추가
+            </button>
+</section>
+<!-- Filter Section -->
+<section class="bg-slate-800/50 border border-slate-800 p-4 rounded-xl mb-6 flex flex-wrap items-center gap-4">
+<div class="relative w-64">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-500 text-sm">search</span>
+<input class="w-full bg-slate-900/50 border-slate-700 text-sm rounded-lg pl-9 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-200" placeholder="이름, 번호 검색" type="text">
+</div>
+<div class="flex gap-2 p-1 bg-slate-900/50 rounded-lg border border-slate-800">
+<button class="px-4 py-1.5 rounded-md text-xs font-bold transition-all bg-slate-700 text-white shadow-sm">전체</button>
+<button class="px-4 py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">공급자</button>
+<button class="px-4 py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">청소</button>
+</div>
+<div class="ml-auto flex items-center gap-2">
+<button class="flex items-center gap-1.5 px-3 py-2 text-slate-400 hover:bg-slate-700 rounded-lg transition-colors text-xs font-medium border border-transparent hover:border-slate-600">
+<span class="material-symbols-outlined text-sm">filter_list</span>
+                    상세 필터
+                </button>
+<button class="flex items-center gap-1.5 px-3 py-2 text-slate-400 hover:bg-slate-700 rounded-lg transition-colors text-xs font-medium border border-transparent hover:border-slate-600">
+<span class="material-symbols-outlined text-sm">download</span>
+                    내보내기
+                </button>
+</div>
+</section>
+<!-- Data Table -->
+<div class="bg-slate-800/40 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+<div class="overflow-x-auto custom-scrollbar">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-slate-800/60 border-b border-slate-700">
+<th class="px-6 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">이름</th>
+<th class="px-6 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">전화번호</th>
+<th class="px-6 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">역할</th>
+<th class="px-6 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">Zalo 연결</th>
+<th class="px-6 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">보유 빌라</th>
+<th class="px-6 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest">가입일</th>
+<th class="px-6 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center">상태</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-800">
+<!-- Row 1 -->
+<tr class="hover:bg-slate-700/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 font-bold text-xs">NA</div>
+<span class="text-sm font-semibold text-white">Nguyễn Văn An</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-300 font-mono">090 123 4567</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold bg-teal-500/10 text-teal-400 border border-teal-500/20">공급자</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+<span class="text-xs font-medium text-green-500">연결됨</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-bold text-slate-300">3</td>
+<td class="px-6 py-4 text-xs text-slate-400">2024.01.15</td>
+<td class="px-6 py-4 text-center">
+<button class="relative inline-flex h-5 w-9 items-center rounded-full bg-blue-600 transition-colors focus:outline-none">
+<span class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform translate-x-5"></span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-slate-700/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 font-bold text-xs">TB</div>
+<span class="text-sm font-semibold text-white">Trần Thị Bích</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-300 font-mono">091 234 5678</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold bg-teal-500/10 text-teal-400 border border-teal-500/20">공급자</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+<span class="text-xs font-medium text-green-500">연결됨</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-bold text-slate-300">2</td>
+<td class="px-6 py-4 text-xs text-slate-400">2024.02.10</td>
+<td class="px-6 py-4 text-center">
+<button class="relative inline-flex h-5 w-9 items-center rounded-full bg-blue-600 transition-colors focus:outline-none">
+<span class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform translate-x-5"></span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-slate-700/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500 font-bold text-xs">LM</div>
+<span class="text-sm font-semibold text-white">Lê Minh</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-300 font-mono">092 345 6789</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20">청소</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+<span class="text-xs font-medium text-green-500">연결됨</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500">-</td>
+<td class="px-6 py-4 text-xs text-slate-400">2024.03.05</td>
+<td class="px-6 py-4 text-center">
+<button class="relative inline-flex h-5 w-9 items-center rounded-full bg-blue-600 transition-colors focus:outline-none">
+<span class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform translate-x-5"></span>
+</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-slate-700/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 font-bold text-xs">PN</div>
+<span class="text-sm font-semibold text-white">Phạm Hoàng Nam</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-300 font-mono">093 456 7890</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold bg-teal-500/10 text-teal-400 border border-teal-500/20">공급자</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex flex-col gap-0.5">
+<div class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+<span class="text-xs font-medium text-slate-500">미연결</span>
+</div>
+<a class="text-[10px] text-blue-500 hover:underline" href="#">수동 연결</a>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-bold text-slate-300">5</td>
+<td class="px-6 py-4 text-xs text-slate-400">2024.03.20</td>
+<td class="px-6 py-4 text-center">
+<button class="relative inline-flex h-5 w-9 items-center rounded-full bg-blue-600 transition-colors focus:outline-none">
+<span class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform translate-x-5"></span>
+</button>
+</td>
+</tr>
+<!-- Row 5 (Inactive Row - Optimized for Contrast) -->
+<tr class="bg-slate-900/40 hover:bg-slate-700/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500 font-bold text-xs opacity-70">DL</div>
+<span class="text-sm font-semibold text-[#9CA3AF]">Đặng Thị Lan</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-[#9CA3AF] font-mono">094 567 8901</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="px-2 py-1 rounded text-[10px] font-bold bg-purple-500/10 text-purple-400/70 border border-purple-500/20">청소</span>
+<span class="px-1.5 py-0.5 rounded bg-slate-700 text-[#9CA3AF] text-[9px] font-bold">비활성</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500/50"></span>
+<span class="text-xs font-medium text-green-500/70">연결됨</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-600">-</td>
+<td class="px-6 py-4 text-xs text-[#9CA3AF]/80">2024.04.12</td>
+<td class="px-6 py-4 text-center">
+<button class="relative inline-flex h-5 w-9 items-center rounded-full bg-slate-700 transition-colors focus:outline-none">
+<span class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform translate-x-1"></span>
+</button>
+</td>
+</tr>
+<!-- Row 6 -->
+<tr class="hover:bg-slate-700/30 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 font-bold text-xs">VH</div>
+<span class="text-sm font-semibold text-white">Vũ Quang Huy</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-300 font-mono">095 678 9012</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded text-[10px] font-bold bg-teal-500/10 text-teal-400 border border-teal-500/20">공급자</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex flex-col gap-0.5">
+<div class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+<span class="text-xs font-medium text-slate-500">미연결</span>
+</div>
+<a class="text-[10px] text-blue-500 hover:underline" href="#">수동 연결</a>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-bold text-slate-300">1</td>
+<td class="px-6 py-4 text-xs text-slate-400">2024.05.01</td>
+<td class="px-6 py-4 text-center">
+<button class="relative inline-flex h-5 w-9 items-center rounded-full bg-blue-600 transition-colors focus:outline-none">
+<span class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform translate-x-5"></span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="bg-slate-900/60 border-t border-slate-700 p-4 flex items-center justify-center">
+<div class="flex items-center gap-1">
+<button class="w-8 h-8 flex items-center justify-center rounded text-slate-500 hover:bg-slate-700 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-sm">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded text-sm font-bold bg-blue-600 text-white">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded text-sm font-bold text-slate-400 hover:bg-slate-700 hover:text-white transition-colors">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded text-sm font-bold text-slate-400 hover:bg-slate-700 hover:text-white transition-colors">3</button>
+<button class="w-8 h-8 flex items-center justify-center rounded text-sm font-bold text-slate-400 hover:bg-slate-700 hover:text-white transition-colors">4</button>
+<button class="w-8 h-8 flex items-center justify-center rounded text-sm font-bold text-slate-400 hover:bg-slate-700 hover:text-white transition-colors">5</button>
+<button class="w-8 h-8 flex items-center justify-center rounded text-slate-500 hover:bg-slate-700 hover:text-white transition-colors">
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<!-- Contextual Info Toast -->
+<div class="fixed bottom-6 right-6 bg-slate-800 border border-slate-700 rounded-lg p-4 shadow-2xl translate-y-20 opacity-0 transition-all duration-300 flex items-center gap-3 z-50" id="toast">
+<div class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+<p class="text-xs text-slate-300 font-medium">실시간 사용자 데이터 동기화 중...</p>
+</div>
+<script>
+        // Simple Micro-interactions
+        window.addEventListener('load', () => {
+            const toast = document.getElementById('toast');
+            setTimeout(() => {
+                toast.classList.remove('translate-y-20', 'opacity-0');
+            }, 1000);
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 6000);
+        });
+
+        // Toggle Simulation
+        document.querySelectorAll('button[class*="rounded-full"]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const dot = this.querySelector('span');
+                const isOff = this.classList.contains('bg-slate-700');
+                
+                if(isOff) {
+                    this.classList.remove('bg-slate-700');
+                    this.classList.add('bg-blue-600');
+                    dot.classList.remove('translate-x-1');
+                    dot.classList.add('translate-x-5');
+                } else {
+                    this.classList.add('bg-slate-700');
+                    this.classList.remove('bg-blue-600');
+                    dot.classList.add('translate-x-1');
+                    dot.classList.remove('translate-x-5');
+                }
+            });
+        });
+    </script>
+</body></html>

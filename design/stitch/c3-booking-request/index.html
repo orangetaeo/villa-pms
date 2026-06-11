@@ -1,0 +1,214 @@
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Villa Booking - Booking Flow</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#0D9488",
+                        secondary: "#F59E0B",
+                        available: "#16A34A",
+                        confirmed: "#2563EB",
+                        hold: "#DBEAFE",
+                        blocked: "#6B7280",
+                        error: "#DC2626"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        headline: ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"],
+                        display: ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"],
+                        body: ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"],
+                        label: ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Be Vietnam Pro', sans-serif;
+            background-color: #F8FAFC;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .bg-mesh {
+            background-color: #ffffff;
+            background-image: radial-gradient(at 0% 0%, rgba(13, 148, 136, 0.05) 0px, transparent 50%),
+                              radial-gradient(at 100% 0%, rgba(245, 158, 11, 0.05) 0px, transparent 50%);
+        }
+    
+        /* DESIGN 공통 규칙 (2026-06-11): 한글 폰트 폴백 + 한국어 단어 낙하 방지 */
+        body { font-family: "Be Vietnam Pro", "Noto Sans KR", sans-serif; word-break: keep-all; }
+        button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="antialiased text-slate-900">
+<div class="max-w-md mx-auto min-h-screen bg-mesh flex flex-col shadow-2xl relative">
+<!-- TOP APP BAR -->
+<header class="w-full top-0 sticky z-50 bg-white border-b border-gray-100 shadow-sm flex items-center px-4 h-14 w-full">
+<button class="active:scale-95 transition-transform hover:bg-gray-50 p-2 rounded-full">
+<span class="material-symbols-outlined text-teal-600">arrow_back</span>
+</button>
+<h1 class="font-headline font-semibold text-lg text-teal-600 ml-2">Villa PMS</h1>
+</header>
+<main class="flex-grow p-6 space-y-12">
+<!-- STATE 1: 가예약 신청 (Input) -->
+<section class="space-y-6" id="state-input">
+<div class="flex items-center justify-between">
+<h2 class="text-xl font-bold text-slate-800">가예약 신청</h2>
+<span class="text-xs font-medium text-slate-400">Step 01/02</span>
+</div>
+<!-- Villa Summary Card -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+<img class="w-full h-48 object-cover" data-alt="A luxury contemporary villa in Phu Quoc, Vietnam, with a private infinity pool reflecting the golden sunset. The architecture features clean white lines, large glass windows, and tropical greenery surrounding the patio. The lighting is warm and inviting, emphasizing a premium tropical resort atmosphere with soft teal and sand tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDzgy38hmiX94oB6uMfEavhTX4SWezuXdH-K5KLwElfQxUcovgI7q7XfaV2uagZNAN0cY8a10Xs9Yi45-hI1hV9WSrForXFhKeKZaMjukDDHaDfuoxnmsXf-lZ_6isBRqk5TIhhNjjzPtNUHQHsE-yIkvts7bYLcuQGj8HJb-0LG-jfZD2iNt5MF6s1wu5cmuVPXxx5XUU6E_dN6HM8fpG7NkcANupfw9Z8v8MBuI3-aG520KSHpqiWeD5u52N5Z6lmNO98oIfHmWv1">
+<div class="p-4 space-y-2">
+<h3 class="font-bold text-lg">쏘나씨 빌라 V12</h3>
+<div class="flex items-center text-slate-500 text-sm">
+<span class="material-symbols-outlined text-sm mr-1">calendar_today</span>
+                            12.20 (금) ~ 12.24 (화) · 4박
+                        </div>
+<div class="pt-2 border-t border-dashed border-gray-200 flex justify-between items-center">
+<span class="text-sm text-slate-500">총 결제 금액</span>
+<span class="text-xl font-extrabold text-teal-600">1,280,000원</span>
+</div>
+</div>
+</div>
+<!-- Form Section -->
+<div class="space-y-4">
+<div>
+<label class="block text-sm font-semibold text-slate-700 mb-1.5">이름</label>
+<input class="w-full h-14 px-4 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-all" placeholder="성함을 입력해주세요" type="text">
+</div>
+<div>
+<label class="block text-sm font-semibold text-slate-700 mb-1.5">연락처</label>
+<input class="w-full h-14 px-4 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-all" placeholder="010-0000-0000" type="tel">
+</div>
+</div>
+<!-- Info Banner -->
+<div class="bg-amber-50 border border-amber-100 p-4 rounded-lg flex gap-3">
+<span class="material-symbols-outlined text-amber-500">schedule</span>
+<p class="text-sm text-amber-800 leading-relaxed">
+                        제출 후 24~48시간 동안 해당 빌라가 홀드됩니다. 입금 확인 후 예약이 확정됩니다.
+                    </p>
+</div>
+<!-- Primary Button -->
+<button class="w-full h-14 bg-teal-600 text-white font-bold rounded-lg shadow-lg shadow-teal-100 active:scale-[0.98] transition-transform">
+                    가예약 신청하기
+                </button>
+</section>
+<!-- Visual Divider for reference (Not part of UI flow) -->
+<div class="relative h-px bg-gray-200 my-8">
+<span class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-100 px-4 py-1 text-[10px] text-gray-400 font-bold tracking-widest uppercase rounded-full">Reference View Transition</span>
+</div>
+<!-- STATE 2: 신청 완료 (Completion) -->
+<section class="space-y-8 py-4" id="state-success">
+<div class="text-center space-y-4">
+<div class="inline-flex items-center justify-center w-20 h-20 bg-teal-50 rounded-full mb-2">
+<span class="material-symbols-outlined text-teal-600 text-5xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<h2 class="text-2xl font-bold text-slate-900 tracking-tight">가예약이 접수되었습니다</h2>
+<div class="inline-block px-4 py-1.5 bg-gray-100 text-slate-600 text-sm font-bold rounded-full">
+                        예약번호 B-2611
+                    </div>
+</div>
+<!-- Deposit Guide Card -->
+<div class="bg-white rounded-2xl shadow-xl shadow-slate-100/50 border border-gray-100 p-6 space-y-6">
+<div class="space-y-1">
+<p class="text-xs font-bold text-teal-600 uppercase tracking-wider">Deposit Information</p>
+<h4 class="text-lg font-bold">무통장 입금 안내</h4>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between items-center text-sm border-b border-gray-50 pb-3">
+<span class="text-slate-500">은행명</span>
+<span class="font-semibold">신한은행</span>
+</div>
+<div class="flex justify-between items-center text-sm border-b border-gray-50 pb-3">
+<span class="text-slate-500">계좌번호</span>
+<div class="flex items-center gap-2">
+<span class="font-semibold">110-123-456789</span>
+<button class="text-teal-600 text-xs font-bold hover:underline">복사</button>
+</div>
+</div>
+<div class="flex justify-between items-center text-sm border-b border-gray-50 pb-3">
+<span class="text-slate-500">예금주</span>
+<span class="font-semibold">빌라 피엠에스(주)</span>
+</div>
+<div class="flex justify-between items-center pt-2">
+<span class="text-slate-500 font-medium">입금 금액</span>
+<span class="text-2xl font-extrabold text-slate-900">1,280,000원</span>
+</div>
+</div>
+</div>
+<!-- Countdown Timer Badge -->
+<div class="flex items-center justify-center gap-2 bg-blue-50 text-blue-700 py-4 px-6 rounded-xl border border-blue-100">
+<span class="material-symbols-outlined text-blue-600 animate-pulse">timer</span>
+<span class="font-bold text-sm">47:59 남음 — 시간 내 입금 시 예약 확정</span>
+</div>
+<div class="flex gap-3">
+<button class="flex-1 h-14 bg-white border border-gray-200 text-slate-700 font-bold rounded-lg hover:bg-gray-50 active:scale-95 transition-all">
+                        내 예약 확인
+                    </button>
+<button class="flex-1 h-14 bg-slate-900 text-white font-bold rounded-lg active:scale-95 transition-all">
+                        메인으로
+                    </button>
+</div>
+</section>
+</main>
+<!-- FOOTER -->
+<footer class="bg-gray-50 border-t border-gray-200 w-full py-8 flex flex-col items-center gap-4 px-6 text-center w-full">
+<p class="font-body text-xs text-gray-500 leading-relaxed">© 2024 Villa PMS. All booking deposits are non-refundable after 24 hours.</p>
+<div class="flex gap-4">
+<a class="font-body text-xs text-gray-500 underline transition-colors hover:text-teal-700" href="#">Terms of Service</a>
+<a class="font-body text-xs text-gray-500 underline transition-colors hover:text-teal-700" href="#">Privacy Policy</a>
+<a class="font-body text-xs text-gray-500 underline transition-colors hover:text-teal-700" href="#">Contact Support</a>
+</div>
+</footer>
+</div>
+<script>
+        // Micro-interaction for input focus
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('focus', () => {
+                input.parentElement.querySelector('label').style.color = '#0D9488';
+            });
+            input.addEventListener('blur', () => {
+                input.parentElement.querySelector('label').style.color = '';
+            });
+        });
+
+        // Simple Countdown logic simulation
+        let timeLeft = 48 * 60 * 60 - 1; // 48 hours
+        const timerElement = document.querySelector('#state-success .font-bold.text-sm');
+        
+        if(timerElement) {
+            setInterval(() => {
+                const hours = Math.floor(timeLeft / 3600);
+                const minutes = Math.floor((timeLeft % 3600) / 60);
+                const seconds = timeLeft % 60;
+                
+                timerElement.innerText = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')} 남음 — 시간 내 입금 시 예약 확정`;
+                timeLeft--;
+            }, 1000);
+        }
+    </script>
+
+
+</body></html>

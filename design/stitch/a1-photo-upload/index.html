@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Tải ảnh lên - Villa PMS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#0D9488",
+              secondary: "#F59E0B",
+              success: "#16A34A",
+            },
+            borderRadius: {
+              "DEFAULT": "0.5rem",
+              "lg": "1rem",
+              "xl": "1.5rem",
+              "full": "9999px"
+            },
+            fontFamily: {
+              headline: ["Be Vietnam Pro"],
+              display: ["Be Vietnam Pro"],
+              body: ["Be Vietnam Pro"],
+              label: ["Be Vietnam Pro"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Be Vietnam Pro', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .step-transition { transition: all 0.3s ease-in-out; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-neutral-50 text-neutral-900 min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="bg-white dark:bg-neutral-900 w-full top-0 sticky z-50 border-b border-neutral-100 dark:border-neutral-800">
+<div class="flex items-center px-4 h-14 w-full">
+<button aria-label="Back" class="text-teal-600 dark:text-teal-400 active:scale-95 transition-transform p-2 hover:bg-neutral-50 rounded-full">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-headline font-semibold text-lg ml-2 flex-grow">Đăng ký villa</h1>
+</div>
+</header>
+<main class="max-w-2xl mx-auto px-4 py-6">
+<!-- Progress Indicator Section -->
+<div class="mb-8">
+<div class="flex justify-between items-end mb-2">
+<div><p class="text-neutral-500 text-sm font-medium">Bước 3/4</p><h2 class="text-2xl font-bold text-neutral-900">Tải ảnh lên</h2></div>
+<div class="text-right"><span class="text-teal-600 font-bold text-lg">3/10</span><span class="text-neutral-400 text-sm block">ảnh đã tải</span></div>
+</div>
+<!-- Custom Progress Bar -->
+<div class="w-full h-3 bg-neutral-200 rounded-full overflow-hidden">
+<div class="h-full bg-teal-600 w-3/4 transition-all duration-500 rounded-full" style="width: 30%;"></div>
+</div>
+</div>
+<!-- Photo Upload Grid -->
+<div class="grid grid-cols-2 gap-4">
+<!-- Exterior: Completed -->
+<div class="relative group aspect-square rounded-xl overflow-hidden border-2 border-teal-600 shadow-sm transition-transform active:scale-95">
+<img alt="Exterior View" class="w-full h-full object-cover" data-alt="A luxurious modern villa exterior at sunset in Phu Quoc, featuring sleek white architecture, large glass windows, and a beautifully landscaped tropical garden. The lighting is warm and golden, casting soft shadows against the teal-tiled swimming pool. The overall mood is high-end, serene, and professional, following a clean light-mode aesthetic with high contrast and vibrant teal accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2RugPqr8zYiuHRNDfhclWfgyWBKEEgW8eoRfQ-X2jREnu-TT9QtaY7T33fuYFJx9CPFV0jyj0n85CkFGXmtzuXurwCoR1rJXM1vCeoCK9oHGnG5knuY72ufgBX_9yDuNPuMlxAz7_4eyqtZNfCvoZ8tB5ebaMU82qOz5_DqkbH7nVltmiezkSTdPFcZzWpWmDd76DqUg4xxflh6aF4OwRnJsY1nz9e4rdx17qz8ZVk6U0M0bb5ijexk3fFsEZCuMB9ePiu5KdgU5D"/>
+<div class="absolute inset-0 bg-black/20"></div>
+<div class="absolute top-2 right-2 bg-teal-600 text-white rounded-full p-1 shadow-lg">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="absolute bottom-0 left-0 w-full p-3 bg-gradient-to-t from-black/80 to-transparent">
+<p class="text-white text-sm font-semibold">Bên ngoài</p>
+</div>
+</div>
+<!-- Living Room: Completed -->
+<div class="relative group aspect-square rounded-xl overflow-hidden border-2 border-teal-600 shadow-sm transition-transform active:scale-95">
+<img alt="Living Room" class="w-full h-full object-cover" data-alt="The spacious interior of a minimalist villa's living room, featuring high ceilings, light wood flooring, and large floor-to-ceiling windows overlooking a tropical garden. The furniture is contemporary and comfortable, styled in neutral tones with teal decorative cushions. Bright, natural morning light floods the space, creating a welcoming and airy atmosphere consistent with a premium tropical resort brand identity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDOcALG9_NU2peqoaQ_6_RrT_-yWvycASNh_GYsqnrhcQkHvB8n_JvWkoPCXjbc5ChGc6AoKav1gSnvaFfeMjEeGQkbtiN-DVj2zDhbU6TLG-fe4Vl33wkKFRTFHlsb7xqXKJaDkYoBhU6d6yDahzF2tsJZ-7yOQcyFZozw40GjZfyACWnGlp7xKsPJhSKJgLGCQv25PZUkDaNFOy3AeKHXkpgiuJbuv0raVhbWQfIF7t0ez-ILbO-Y3l7-MOhjTTUv291oHDH5r1C3"/>
+<div class="absolute inset-0 bg-black/20"></div>
+<div class="absolute top-2 right-2 bg-teal-600 text-white rounded-full p-1 shadow-lg">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="absolute bottom-0 left-0 w-full p-3 bg-gradient-to-t from-black/80 to-transparent">
+<p class="text-white text-sm font-semibold">Phòng khách</p>
+</div>
+</div>
+<!-- Kitchen: Empty -->
+<button class="aspect-square rounded-xl border-2 border-dashed border-neutral-300 bg-white flex flex-col items-center justify-center gap-2 hover:border-teal-400 hover:bg-teal-50 transition-colors active:scale-95">
+<div class="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center text-neutral-400 group-hover:text-teal-600">
+<span class="material-symbols-outlined text-3xl">photo_camera</span>
+</div>
+<span class="font-medium text-neutral-600 text-sm">Bếp</span>
+</button>
+<!-- Bedroom 1: Empty -->
+<button class="aspect-square rounded-xl border-2 border-dashed border-neutral-300 bg-white flex flex-col items-center justify-center gap-2 hover:border-teal-400 hover:bg-teal-50 transition-colors active:scale-95">
+<div class="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center text-neutral-400">
+<span class="material-symbols-outlined text-3xl">photo_camera</span>
+</div>
+<span class="font-medium text-neutral-600 text-sm">Phòng ngủ 1</span>
+</button>
+<!-- Bedroom 2: Empty -->
+<button class="aspect-square rounded-xl border-2 border-dashed border-neutral-300 bg-white flex flex-col items-center justify-center gap-2 hover:border-teal-400 hover:bg-teal-50 transition-colors active:scale-95">
+<div class="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center text-neutral-400">
+<span class="material-symbols-outlined text-3xl">photo_camera</span>
+</div>
+<span class="font-medium text-neutral-600 text-sm">Phòng ngủ 2</span>
+</button>
+<!-- Bedroom 3: Empty -->
+<button class="aspect-square rounded-xl border-2 border-dashed border-neutral-300 bg-white flex flex-col items-center justify-center gap-2 hover:border-teal-400 hover:bg-teal-50 transition-colors active:scale-95">
+<div class="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center text-neutral-400">
+<span class="material-symbols-outlined text-3xl">photo_camera</span>
+</div>
+<span class="font-medium text-neutral-600 text-sm">Phòng ngủ 3</span>
+</button>
+<!-- Bathroom 1: Empty -->
+<button class="aspect-square rounded-xl border-2 border-dashed border-neutral-300 bg-white flex flex-col items-center justify-center gap-2 hover:border-teal-400 hover:bg-teal-50 transition-colors active:scale-95">
+<div class="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center text-neutral-400">
+<span class="material-symbols-outlined text-3xl">photo_camera</span>
+</div>
+<span class="font-medium text-neutral-600 text-sm">Phòng tắm 1</span>
+</button>
+<!-- Bathroom 2: Empty -->
+<button class="aspect-square rounded-xl border-2 border-dashed border-neutral-300 bg-white flex flex-col items-center justify-center gap-2 hover:border-teal-400 hover:bg-teal-50 transition-colors active:scale-95">
+<div class="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center text-neutral-400">
+<span class="material-symbols-outlined text-3xl">photo_camera</span>
+</div>
+<span class="font-medium text-neutral-600 text-sm">Phòng tắm 2</span>
+</button>
+<!-- Pool: Empty -->
+<button class="aspect-square rounded-xl border-2 border-dashed border-neutral-300 bg-white flex flex-col items-center justify-center gap-2 hover:border-teal-400 hover:bg-teal-50 transition-colors active:scale-95"><div class="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center text-neutral-400"><span class="material-symbols-outlined text-3xl">photo_camera</span></div><span class="font-medium text-neutral-600 text-sm">Ban công</span></button><button class="aspect-square rounded-xl border-2 border-dashed border-neutral-300 bg-white flex flex-col items-center justify-center gap-2 hover:border-teal-400 hover:bg-teal-50 transition-colors active:scale-95">
+<div class="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center text-neutral-400">
+<span class="material-symbols-outlined text-3xl">pool</span>
+</div>
+<span class="font-medium text-neutral-600 text-sm">Hồ bơi</span>
+</button>
+</div>
+<!-- Help Info -->
+<div class="mt-8 p-4 bg-teal-50 rounded-xl border border-teal-100 flex gap-3">
+<span class="material-symbols-outlined text-teal-600">info</span>
+<p class="text-sm leading-snug" style="font-size: 14px; color: #374151;">
+                Bạn nên chụp ảnh theo chiều ngang để villa hiển thị đẹp nhất trên trang đặt phòng của khách hàng.
+            </p>
+</div>
+</main>
+<!-- BottomNavBar -->
+<footer class="fixed bottom-0 left-0 w-full z-50 flex justify-between items-center px-6 py-4 bg-white dark:bg-neutral-900 rounded-t-xl shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+<button class="flex flex-col items-center justify-center text-neutral-600 h-14 px-8 font-label font-medium text-xs hover:opacity-90 active:scale-[0.98] transition-all duration-200">
+<span class="material-symbols-outlined mb-1">chevron_left</span>
+            Trở lại
+        </button>
+<button class="flex flex-col items-center justify-center bg-teal-600 text-white rounded-xl h-14 px-12 font-label font-bold text-base hover:opacity-90 active:scale-[0.98] transition-all duration-200 shadow-lg shadow-teal-600/20">
+<div class="flex items-center gap-2">
+                Tiếp tục
+                <span class="material-symbols-outlined">chevron_right</span>
+</div>
+</button>
+</footer>
+<script>
+        // Simple micro-interaction for empty photo cards
+        document.querySelectorAll('button.aspect-square').forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Mock behavior for opening a file picker
+                console.log('Opening camera/gallery...');
+                btn.classList.add('ring-4', 'ring-teal-100');
+                setTimeout(() => btn.classList.remove('ring-4', 'ring-teal-100'), 400);
+            });
+        });
+    </script>
+</body></html>

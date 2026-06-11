@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#0D9488",
+                        secondary: "#F59E0B",
+                        surface: "#FFFFFF",
+                        available: "#16A34A",
+                        confirmed: "#2563EB",
+                        hold: "#DBEAFE",
+                        blocked: "#6B7280",
+                        rejected: "#DC2626"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        headline: ["Be Vietnam Pro", "sans-serif"],
+                        display: ["Be Vietnam Pro", "sans-serif"],
+                        body: ["Be Vietnam Pro", "sans-serif"],
+                        label: ["Be Vietnam Pro", "sans-serif"]
+                    }
+                }
+            }
+        };
+    </script>
+<style>
+        body { font-family: 'Be Vietnam Pro', sans-serif; background-color: #F9FAFB; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .active-tab .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="antialiased text-gray-900 pb-24">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full bg-white text-[#0D9488] font-headline font-semibold text-xl shadow-sm flex items-center justify-between px-4 h-16 z-50">
+<div class="flex items-center gap-3">
+<button class="active:opacity-80 transition-opacity p-2 hover:bg-gray-50 rounded-full">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="text-xl font-semibold text-[#0D9488]">Dọn dẹp</h1>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 hover:bg-gray-50 rounded-full active:opacity-80 transition-opacity">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</header>
+<!-- Content Canvas -->
+<main class="pt-20 px-4 max-w-md mx-auto">
+<!-- Dashboard Header Summary -->
+<div class="mb-6">
+<p class="text-sm text-gray-500 font-medium mb-1">Hôm nay, 12 Tháng 6</p>
+<h2 class="text-2xl font-bold text-gray-900">Danh sách dọn dẹp</h2>
+</div>
+<!-- Task List -->
+<div class="flex flex-col gap-4">
+<!-- Card 1: Chờ dọn -->
+<div class="glass-card flex items-center p-3 rounded-xl shadow-sm border border-gray-100 active:scale-[0.98] transition-transform bg-white min-h-[112px]">
+<div class="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="A luxurious modern villa exterior in Phu Quoc at golden hour, featuring a private swimming pool reflecting the warm orange sunset. The architecture is contemporary with large glass panels and teal-colored accents. The lush tropical landscaping includes palm trees under a soft, high-contrast light typical of a premium resort. Professional architectural photography style with a vibrant yet clean aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAUuoJ3CiU0fxoPxG5ckETI7JpBKKyTp9J3GtniWanRXlw640jl1e60haAJgcsXs8bFl6I4cVXD6NEci9FzdU7F_t_Jcmta2sYm4-Uxb1xby_cLlNHGkWwTs84FjVNKS3V1rnSKY7X_iZKvCgruSDxKrnORhLlcMszkIJnU2LYw5KURIZm54_xQySPM9POw3vvEULjmIA1HQ_SdKSD8CKiLveW9EZS1h1RK-_xMnRy27TP2qTP1sy9e08KRHq6k03WAK0Z8KcwU7Q9d"/>
+</div>
+<div class="ml-4 flex-grow flex flex-col justify-center">
+<h3 class="font-bold text-gray-900 text-base leading-tight">Villa Sonasea V12</h3>
+<p class="text-sm text-gray-500 mt-1">Trả phòng: 12/06</p>
+<div class="mt-2">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">
+                            Chờ dọn
+                        </span>
+</div>
+</div>
+<div class="text-gray-400">
+<span class="material-symbols-outlined">chevron_right</span>
+</div>
+</div>
+<!-- Card 2: Đã gửi -->
+<div class="glass-card flex items-center p-3 rounded-xl shadow-sm border border-gray-100 active:scale-[0.98] transition-transform bg-white min-h-[112px]">
+<div class="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="A bright and airy high-end coastal villa bedroom with minimalist decor and soft white linens. Teal silk pillows provide a pop of color against the sand-colored walls. Large open windows show a glimpse of the ocean outside. The mood is serene and peaceful, captured with high-key lighting and a crisp, modern finish that reflects the premium hospitality brand identity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRuHsZpHLDdMkCUOGd647G5gBCRrWH4WPonvl9h7PbaOikX4UTDblfRDs4wXZpRcOUo9rpc27cUX3Q9J82a07wRBe39caW3f2XGESk58lMNIGmPDLmM8Ika_F_24YY6twu-QiKggfX4zweWM0qzeDGH8KhLpXKrz7OV84IkdFnd4v0Y3D-QoeuYbLkOiSAt7gWZS2Qw2H4f4eEgweMrgbJr4xOjXbpPk3GAQdzMZoG-BChWR5CeF4MF0TM0c0VBcTSH_e9RDaJIqxT"/>
+</div>
+<div class="ml-4 flex-grow flex flex-col justify-center">
+<h3 class="font-bold text-gray-900 text-base leading-tight">Villa Sunset S05</h3>
+<p class="text-sm text-gray-500 mt-1">Trả phòng: 12/06</p>
+<div class="mt-2">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                            Đã gửi
+                        </span>
+</div>
+</div>
+<div class="text-gray-400">
+<span class="material-symbols-outlined">chevron_right</span>
+</div>
+</div>
+<!-- Card 3: Đã duyệt -->
+<div class="glass-card flex items-center p-3 rounded-xl shadow-sm border border-gray-100 active:scale-[0.98] transition-transform bg-white min-h-[112px]">
+<div class="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="A wide-angle shot of a pristine tropical villa living room featuring sustainable bamboo furniture and white stone floors. Accents of teal and soft amber highlight the interior design. Sunlight streams through the terrace doors, creating a bright and inviting atmosphere. The overall style is high-end Phu Quoc resort living, clean, minimal, and focused on comfort and luxury." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA9eM-y_uLSebv8l3IY_xVZI4Xd3_DJ8HLDA-ewA_y50eqy8mmbLWssEoaHWJGzdoYVfHCVTnlsd3YmO5VbfEhbfTBlHnov92wR_W0mympekuLeAbCFxQdbwalB6HMN2_UqqzDJ2pyLC_rQZ368QOC3wRiL8zHYvHLj649H5rTQ983Fmvb9E0HmhaUofujeWqyA06qsqS02fdTB_YCVkDzL4_rVZujF0LCOsltliYlvTxgAtVHNd_fPtMTrNxd-h9BDr6mySYZXNAmL"/>
+</div>
+<div class="ml-4 flex-grow flex flex-col justify-center">
+<h3 class="font-bold text-gray-900 text-base leading-tight">Villa Beachfront B02</h3>
+<p class="text-sm text-gray-500 mt-1">Trả phòng: 11/06</p>
+<div class="mt-2">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                            Đã duyệt
+                        </span>
+</div>
+</div>
+<div class="text-gray-400">
+<span class="material-symbols-outlined">chevron_right</span>
+</div>
+</div>
+<!-- Card 4: Bị từ chối -->
+<div class="glass-card flex items-center p-3 rounded-xl shadow-sm border border-gray-100 active:scale-[0.98] transition-transform bg-white min-h-[112px]">
+<div class="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="A close-up architectural detail of a premium villa bathroom with teal tiled walls and a large ceramic bathtub. The space is immaculately clean and brightly lit by warm recessed lighting. The aesthetic is modern and sophisticated, using a palette of white, teal, and soft wood tones. The photograph is sharp and professional, emphasizing a sense of high-end maintenance and quality." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCegDaYL-juDVr4iFMqxq7imD1wFHT_JkkSqCm2eoaUytav96_73njfrPt1qAeLtBwxu8azeB3rbDjxQQmLLomVG09wF0kTfiG3CZzuJntJjmJJXx_ThNo0zeu0J9EwB8akAqCOMO4nChOcdWOfRmw4JCQZ6nB2GUMARvqSpqkPYmAaXm8mOFnW7oZaVLPauCIdFRa1WSvxQgRXdiF7MqJhmel4Ms8j2-ZQ0JroyZHZ8bEx-Xlh7Cu0fQY26-9gEUqRus_eJDux98af"/>
+</div>
+<div class="ml-4 flex-grow flex flex-col justify-center">
+<h3 class="font-bold text-gray-900 text-base leading-tight">Villa Garden G18</h3>
+<p class="text-sm text-gray-500 mt-1">Trả phòng: 10/06</p>
+<div class="mt-2">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border-2 border-red-500 text-red-600 bg-white">
+                            Bị từ chối
+                        </span>
+</div>
+</div>
+<div class="text-gray-400">
+<span class="material-symbols-outlined">chevron_right</span>
+</div>
+</div>
+</div>
+<!-- Empty Spacer for Bottom Nav -->
+<div class="h-12"></div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-16 bg-white px-2 rounded-t-xl shadow-[0_-2px_10px_rgba(0,0,0,0.05)] border-t border-gray-100">
+<!-- Villa Tab -->
+<a class="flex flex-col items-center justify-center text-gray-400 h-full w-full hover:bg-teal-50 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">holiday_village</span>
+<span class="font-label text-xs font-medium mt-1">Villa</span>
+</a>
+<!-- Lịch Tab -->
+<a class="flex flex-col items-center justify-center text-gray-400 h-full w-full hover:bg-teal-50 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">calendar_month</span>
+<span class="font-label text-xs font-medium mt-1">Lịch</span>
+</a>
+<!-- Dọn dẹp Tab (Active) -->
+<a class="flex flex-col items-center justify-center text-[#0D9488] h-full w-full border-t-2 border-[#0D9488] active-tab" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">cleaning_services</span>
+<span class="font-label text-xs font-medium mt-1">Dọn dẹp</span>
+</a>
+<!-- Thu nhập Tab -->
+<a class="flex flex-col items-center justify-center text-gray-400 h-full w-full hover:bg-teal-50 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-label text-xs font-medium mt-1">Thu nhập</span>
+</a>
+</nav>
+<script>
+        // Micro-interactions for list items
+        document.querySelectorAll('.glass-card').forEach(card => {
+            card.addEventListener('click', () => {
+                // Flash effect or navigation simulation
+                card.classList.add('bg-teal-50');
+                setTimeout(() => {
+                    card.classList.remove('bg-teal-50');
+                }, 200);
+            });
+        });
+    </script>
+</body></html>

@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary: "#3B82F6",
+            navy: {
+              900: "#0F172A",
+              800: "#1E293B",
+              700: "#334155"
+            }
+          },
+          borderRadius: {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          fontFamily: {
+            headline: ["Public Sans", "Noto Sans KR", "sans-serif"],
+            display: ["Public Sans", "Noto Sans KR", "sans-serif"],
+            body: ["Public Sans", "Noto Sans KR", "sans-serif"],
+            label: ["Public Sans", "Noto Sans KR", "sans-serif"]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    body {
+      background-color: #0F172A;
+      color: #F8FAFC;
+      font-family: 'Public Sans', 'Pretendard', sans-serif;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .status-confirmed { background-color: #2563EB; }
+    .status-hold { background-color: #F59E0B; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #1E293B; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+  
+        /* DESIGN 공통 규칙 (2026-06-11): 한글 폰트 폴백 + 한국어 단어 낙하 방지 */
+        body { font-family: "Public Sans", "Noto Sans KR", sans-serif; word-break: keep-all; }
+        th, button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
+    </style>
+</head>
+<body class="antialiased overflow-hidden">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 border-r border-[#1E293B] bg-[#0F172A] dark:bg-[#0F172A] flex flex-col p-4 gap-2 z-50">
+<div class="mb-8 px-2 flex items-center gap-3">
+<div class="w-8 h-8 bg-primary rounded flex items-center justify-center text-white font-bold">V</div>
+<div>
+<div class="text-xl font-headline font-bold text-[#3B82F6]">Villa PMS</div>
+<div class="text-[10px] text-[#94A3B8] font-medium -mt-1">Villa PMS Admin</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<div class="text-[#94A3B8] hover:text-white hover:bg-[#1E293B] transition-colors duration-200 cursor-pointer active:scale-95 font-body text-sm font-medium flex items-center gap-3 p-2.5 rounded-lg">
+<span class="material-symbols-outlined">dashboard</span>
+<span>대시보드</span>
+</div>
+<div class="bg-[#1E293B] text-[#3B82F6] font-bold rounded-lg cursor-pointer active:scale-95 font-body text-sm flex items-center gap-3 p-2.5">
+<span class="material-symbols-outlined">calendar_month</span>
+<span>예약</span>
+</div>
+<div class="text-[#94A3B8] hover:text-white hover:bg-[#1E293B] transition-colors duration-200 cursor-pointer active:scale-95 font-body text-sm font-medium flex items-center gap-3 p-2.5 rounded-lg">
+<span class="material-symbols-outlined">rate_review</span>
+<span>제안</span>
+</div>
+<div class="text-[#94A3B8] hover:text-white hover:bg-[#1E293B] transition-colors duration-200 cursor-pointer active:scale-95 font-body text-sm font-medium flex items-center gap-3 p-2.5 rounded-lg">
+<span class="material-symbols-outlined">villa</span>
+<span>빌라</span>
+</div>
+<div class="text-[#94A3B8] hover:text-white hover:bg-[#1E293B] transition-colors duration-200 cursor-pointer active:scale-95 font-body text-sm font-medium flex items-center gap-3 p-2.5 rounded-lg">
+<span class="material-symbols-outlined">cleaning_services</span>
+<span>청소 검수</span>
+</div>
+<div class="text-[#94A3B8] hover:text-white hover:bg-[#1E293B] transition-colors duration-200 cursor-pointer active:scale-95 font-body text-sm font-medium flex items-center gap-3 p-2.5 rounded-lg">
+<span class="material-symbols-outlined">payments</span>
+<span>정산</span>
+</div>
+<div class="text-[#94A3B8] hover:text-white hover:bg-[#1E293B] transition-colors duration-200 cursor-pointer active:scale-95 font-body text-sm font-medium flex items-center gap-3 p-2.5 rounded-lg">
+<span class="material-symbols-outlined">group</span>
+<span>사용자</span>
+</div>
+<div class="text-[#94A3B8] hover:text-white hover:bg-[#1E293B] transition-colors duration-200 cursor-pointer active:scale-95 font-body text-sm font-medium flex items-center gap-3 p-2.5 rounded-lg">
+<span class="material-symbols-outlined">settings</span>
+<span>설정</span>
+</div>
+</nav>
+<div class="mt-auto pt-4 border-t border-[#1E293B]">
+<div class="flex items-center gap-3 px-2">
+<div class="w-10 h-10 rounded-full bg-navy-700 flex items-center justify-center overflow-hidden border border-[#1E293B]">
+<img alt="Admin Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCTkhFwmtNeu-EwxmQkTxM1muHkSKGYdCX9Cw7OyMIZBHHxH-6cl-Y8y7i6B1lxhGX5bthJjKIsozkBdM16lUmpWHcYpWZL2bQVMRwF_2-Hc_E2Agx09YUix8FA3vooqhkxGtUf_OhhB9KQ6UMtzVSvF4dtTtnzr40VXzZHF_IWn4G1fLOmLYSDgQpbx5_GNkIN0Hr0R5FHBW40C3zXDXd0FQXHRx1sBheh52g50DLhp8LtXoaOAYXbd6y81KHKT-l4oYY1pg843iew"/>
+</div>
+<div>
+<p class="text-sm font-bold text-white">관리자</p>
+<p class="text-xs text-[#94A3B8]">최고 관리자</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopNavBar -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 bg-[#0F172A]/80 dark:bg-[#0F172A]/80 backdrop-blur-md border-b border-[#1E293B] flex justify-between items-center px-8 z-40">
+<div class="flex items-center gap-4">
+<div class="text-sm font-medium text-[#94A3B8] flex items-center gap-2">
+<span>예약 관리</span>
+<span class="material-symbols-outlined text-xs">chevron_right</span>
+<span class="text-white">예약 #B-2607</span>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative group">
+<input class="bg-[#1E293B] border-none rounded-lg text-sm px-4 py-1.5 w-64 focus:ring-1 focus:ring-[#3B82F6] text-white" placeholder="검색..." type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-1.5 text-navy-700">search</span>
+</div>
+<div class="flex items-center gap-4 text-[#94A3B8]">
+<span class="material-symbols-outlined hover:text-white transition-opacity cursor-pointer">notifications</span>
+<span class="material-symbols-outlined hover:text-white transition-opacity cursor-pointer">help</span>
+<span class="material-symbols-outlined hover:text-white transition-opacity cursor-pointer">apps</span>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-16 h-screen overflow-y-auto">
+<div class="p-8 max-w-7xl mx-auto">
+<!-- Header Area -->
+<div class="flex items-center justify-between mb-8">
+<div class="flex items-center gap-4">
+<h1 class="text-3xl font-bold font-headline tracking-tight">예약 #B-2607</h1>
+<span class="px-3 py-1 bg-primary text-white text-sm font-bold rounded-md">확정</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="bg-[#1E293B] text-white px-4 py-2 rounded-lg text-sm hover:bg-navy-700 transition flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">print</span>
+            인쇄
+          </button>
+<button class="bg-[#1E293B] text-white px-4 py-2 rounded-lg text-sm hover:bg-navy-700 transition flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">mail</span>
+            바우처 발송
+          </button>
+</div>
+</div>
+<!-- Status Timeline Strip -->
+<div class="bg-[#1E293B] p-4 rounded-xl mb-8 flex items-center justify-between relative overflow-hidden border border-[#334155]">
+<!-- Progress Bar Background -->
+<div class="absolute top-[50%] left-10 right-10 h-0.5 bg-navy-700 -translate-y-1/2"></div>
+<div class="absolute top-[50%] left-10 w-[33%] h-0.5 bg-primary -translate-y-1/2"></div>
+<div class="relative z-10 flex flex-col items-center gap-2 px-6">
+<div class="w-4 h-4 rounded-full bg-primary border-4 border-navy-800"></div>
+<span class="text-xs font-bold text-[#94A3B8]">가예약</span>
+</div>
+<div class="relative z-10 flex flex-col items-center gap-2 px-6">
+<div class="w-6 h-6 rounded-full bg-primary border-4 border-[#1E293B] ring-2 ring-primary/30 flex items-center justify-center">
+<span class="material-symbols-outlined text-[10px] text-white font-bold">check</span>
+</div>
+<span class="text-xs font-bold text-primary">확정</span>
+</div>
+<div class="relative z-10 flex flex-col items-center gap-2 px-6">
+<div class="w-4 h-4 rounded-full bg-navy-700 border-4 border-navy-800"></div>
+<span class="text-xs font-bold text-[#475569]">체크인</span>
+</div>
+<div class="relative z-10 flex flex-col items-center gap-2 px-6">
+<div class="w-4 h-4 rounded-full bg-navy-700 border-4 border-navy-800"></div>
+<span class="text-xs font-bold text-[#475569]">체크아웃</span>
+</div>
+</div>
+<div class="grid grid-cols-12 gap-6">
+<!-- Left Column (66%) -->
+<div class="col-span-12 lg:col-span-8 space-y-6">
+<!-- 예약 정보 Card -->
+<section class="bg-[#1E293B] rounded-xl overflow-hidden shadow-sm border border-[#334155]">
+<div class="px-6 py-4 border-b border-navy-700 flex justify-between items-center">
+<h2 class="font-bold text-sm">예약 정보</h2>
+<span class="material-symbols-outlined text-navy-700 cursor-pointer hover:text-white transition-colors">edit</span>
+</div>
+<div class="p-6 grid grid-cols-2 gap-y-6 gap-x-8">
+<div>
+<p class="text-xs text-[#94A3B8] mb-1">빌라</p>
+<p class="font-semibold">쏘나씨 V12</p>
+</div>
+<div>
+<p class="text-xs text-[#94A3B8] mb-1">유입 채널</p>
+<span class="px-2 py-0.5 bg-[#3B82F61A] text-primary text-[10px] font-bold rounded-md uppercase">하나투어 (여행사)</span>
+</div>
+<div class="col-span-2">
+<p class="text-xs text-[#94A3B8] mb-1">일정</p>
+<div class="flex items-center gap-4">
+<div class="flex flex-col">
+<span class="text-xs font-medium">체크인</span>
+<span class="font-semibold">2026-07-15</span>
+</div>
+<div class="px-3 py-1 bg-navy-700 rounded-full text-[10px] font-bold">3박</div>
+<div class="flex flex-col">
+<span class="text-xs font-medium">체크아웃</span>
+<span class="font-semibold">2026-07-18</span>
+</div>
+</div>
+</div>
+<div>
+<p class="text-xs text-[#94A3B8] mb-1">인원</p>
+<p class="font-semibold">고객 김민수 외 3명</p>
+</div>
+<div>
+<p class="text-xs text-[#94A3B8] mb-1">연락처</p>
+<p class="font-semibold">010-1234-5678</p>
+</div>
+</div>
+</section>
+<!-- 가격 스냅샷 Card -->
+<section class="bg-[#1E293B] rounded-xl overflow-hidden shadow-sm border border-[#334155]">
+<div class="px-6 py-4 border-b border-navy-700">
+<h2 class="font-bold text-sm">가격 스냅샷</h2>
+</div>
+<div class="p-6 grid grid-cols-2 gap-y-6">
+<div>
+<p class="text-xs text-[#94A3B8] mb-1">총 판매가</p>
+<p class="text-xl font-extrabold text-white">1,350,000원</p>
+</div>
+<div>
+<p class="text-xs text-[#94A3B8] mb-1">공급자 원가</p>
+<p class="text-xl font-extrabold text-[#94A3B8]">7,500,000₫</p>
+</div>
+<div>
+<p class="text-xs text-[#94A3B8] mb-1">조식 포함 여부</p>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+<span class="font-semibold text-sm">포함</span>
+</div>
+</div>
+</div>
+<div class="px-6 py-3 bg-navy-900/50 flex items-center gap-2">
+<span class="material-symbols-outlined text-[14px] text-[#475569]">lock</span>
+<p class="text-[11px] text-[#475569]">홀드 시점 가격으로 고정됨</p>
+</div>
+</section>
+<!-- 결제 기록 Card -->
+<section class="bg-[#1E293B] rounded-xl overflow-hidden shadow-sm border border-[#334155]">
+<div class="px-6 py-4 border-b border-navy-700">
+<h2 class="font-bold text-sm">결제 기록</h2>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left text-sm">
+<thead class="bg-navy-900/40 text-[#94A3B8] text-[11px] font-bold uppercase tracking-wider">
+<tr>
+<th class="px-6 py-3">일시</th>
+<th class="px-6 py-3">수단</th>
+<th class="px-6 py-3">금액</th>
+<th class="px-6 py-3">상태</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-navy-700">
+<tr class="hover:bg-navy-700/30 transition">
+<td class="px-6 py-4 text-[#94A3B8]">2026-07-02</td>
+<td class="px-6 py-4">한국 계좌이체</td>
+<td class="px-6 py-4 font-semibold text-white">1,350,000원 KRW</td>
+<td class="px-6 py-4">
+<span class="px-2 py-0.5 bg-green-500/10 text-green-500 text-[10px] font-bold rounded">완료</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</div>
+<!-- Right Column (33%) -->
+<div class="col-span-12 lg:col-span-4 space-y-6">
+<!-- Action Panel -->
+<section class="bg-[#1E293B] p-6 rounded-xl space-y-4 border border-[#334155]">
+<button class="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3 rounded-lg transition-all active:scale-[0.98]">
+              체크인 진행
+            </button>
+<div class="space-y-1">
+<button class="w-full border border-red-500/50 hover:bg-red-500/10 text-red-500 font-bold py-3 rounded-lg transition-all">
+                취소
+              </button>
+<p class="text-center text-[10px] text-[#475569]">취소 사유 입력 필요</p>
+</div>
+<button class="w-full bg-[#334155] hover:bg-navy-700 text-[#94A3B8] font-bold py-3 rounded-lg transition-all">
+              노쇼 처리
+            </button>
+</section>
+<!-- Activity Log -->
+<section class="bg-[#1E293B] rounded-xl overflow-hidden shadow-sm border border-[#334155]">
+<div class="px-6 py-4 border-b border-navy-700">
+<h2 class="font-bold text-sm">활동 로그</h2>
+</div>
+<div class="p-6 space-y-4">
+<div class="flex gap-4">
+<div class="flex flex-col items-center">
+<div class="w-2 h-2 rounded-full bg-primary mt-1.5"></div>
+<div class="w-px h-full bg-navy-700 mt-2"></div>
+</div>
+<div>
+<p class="text-xs font-bold text-white">예약 확정</p>
+<p class="text-[11px] text-[#94A3B8] mt-0.5">처리자: 김운영 매니저</p>
+<p class="text-[10px] text-[#475569] mt-1 italic">[2026-07-02 14:35]</p>
+</div>
+</div>
+<div class="flex gap-4">
+<div class="flex flex-col items-center">
+<div class="w-2 h-2 rounded-full bg-navy-700 mt-1.5"></div>
+</div>
+<div>
+<p class="text-xs font-bold text-[#94A3B8]">예약 생성</p>
+<p class="text-[11px] text-[#94A3B8] mt-0.5">시스템</p>
+<p class="text-[10px] text-[#475569] mt-1 italic">[2026-07-02 14:20]</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Memo Section -->
+<section class="bg-[#1E293B] p-6 rounded-xl border border-dashed border-navy-700">
+<h2 class="text-xs font-bold text-[#94A3B8] mb-3 uppercase tracking-widest">내부 메모</h2>
+<textarea class="w-full bg-navy-900 border-navy-700 rounded-lg text-xs p-3 text-white focus:ring-primary h-24 placeholder-[#475569]" placeholder="고객 요청사항 또는 내부 특이사항을 입력하세요..."></textarea>
+<button class="mt-2 text-[10px] font-bold text-primary hover:underline">저장하기</button>
+</section>
+</div>
+</div>
+</div>
+</main>
+<script>
+    // Micro-interactions and basic state handling
+    document.addEventListener('DOMContentLoaded', () => {
+      const navItems = document.querySelectorAll('nav div');
+      navItems.forEach(item => {
+        item.addEventListener('click', () => {
+          // Visual feedback for interaction
+          item.classList.add('scale-95');
+          setTimeout(() => item.classList.remove('scale-95'), 150);
+        });
+      });
+    });
+  </script>
+</body></html>

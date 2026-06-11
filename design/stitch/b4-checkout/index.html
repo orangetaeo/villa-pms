@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Villa PMS - 체크아웃 검수 #B-2607</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#3B82F6",
+                        secondary: "#6366F1",
+                        background: "#0F172A",
+                        surface: "#1E293B",
+                        border: "#334155",
+                        danger: "#F87171"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        headline: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        display: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        body: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        label: ["Public Sans", "Noto Sans KR", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #0F172A;
+            color: #F8FAFC;
+            font-family: 'Public Sans', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0F172A;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        .matrix-dashed {
+            background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='8' ry='8' stroke='%23475569FF' stroke-width='2' stroke-dasharray='6%2c 14' stroke-dashoffset='0' stroke-linecap='square'/%3e%3c/svg%3e");
+        }
+    
+        /* DESIGN 공통 규칙 (2026-06-11): 한글 폰트 폴백 + 한국어 단어 낙하 방지 */
+        body { font-family: "Public Sans", "Noto Sans KR", sans-serif; word-break: keep-all; }
+        th, button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
+    </style>
+</head>
+<body class="overflow-x-hidden">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#0F172A] border-r border-slate-800 shadow-xl flex flex-col py-4 z-50">
+<div class="px-6 mb-8">
+<h1 class="text-xl font-headline font-black text-white">Villa PMS</h1>
+<p class="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Villa PMS Admin</p>
+</div>
+<nav class="flex-1 space-y-1">
+<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3 transition-colors duration-200 cursor-pointer">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body text-label-sm font-medium">대시보드</span>
+</div>
+<div class="text-white bg-primary rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3 transition-transform scale-95 active:scale-90 cursor-pointer">
+<span class="material-symbols-outlined">calendar_month</span>
+<span class="font-body text-label-sm font-medium">예약</span>
+</div>
+<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3 transition-colors duration-200 cursor-pointer">
+<span class="material-symbols-outlined">rate_review</span>
+<span class="font-body text-label-sm font-medium">제안</span>
+</div>
+<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3 transition-colors duration-200 cursor-pointer">
+<span class="material-symbols-outlined">villa</span>
+<span class="font-body text-label-sm font-medium">빌라</span>
+</div>
+<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3 transition-colors duration-200 cursor-pointer">
+<span class="material-symbols-outlined">fact_check</span>
+<span class="font-body text-label-sm font-medium">청소 검수</span>
+</div>
+<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3 transition-colors duration-200 cursor-pointer">
+<span class="material-symbols-outlined">payments</span>
+<span class="font-body text-label-sm font-medium">정산</span>
+</div>
+<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3 transition-colors duration-200 cursor-pointer">
+<span class="material-symbols-outlined">group</span>
+<span class="font-body text-label-sm font-medium">사용자</span>
+</div>
+<div class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3 transition-colors duration-200 cursor-pointer">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body text-label-sm font-medium">설정</span>
+</div>
+</nav>
+<div class="px-4 mt-auto">
+<div class="flex items-center gap-3 p-2 bg-slate-800/50 rounded-lg">
+<div class="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center overflow-hidden">
+<img alt="Manager Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCV5fK6voJKIhd3gjbhWjXl_E2N87xDOSyrBveBmg3NkAokyrxDpVXRBL07aLN08hukSCQglQ8gLnPNmr2zvcKZ5HdlZ5CQSfCIAuGekjmKsIr2phPns1wRT3iPIzAnBb62C7M-LnwQS8FNSe6JUJdnxODtfN4yHXggq6-Ec60mPdDfhpB4_hZi42p6g3CV0K7kpgH1JYmqW3e3cLHTrEfC7FNAmUFRo-uNLYPTbUo01-1E-txSLu49LFq8Lw_DVS_LsbOcopjbJ1Ff"/>
+</div>
+<div class="text-xs">
+<p class="text-white font-bold">관리자</p>
+<p class="text-slate-500">운영자</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopAppBar -->
+<header class="fixed top-0 left-64 right-0 h-16 bg-[#0F172A] border-b border-slate-800 z-40 flex justify-between items-center px-6">
+<div class="flex items-center gap-4">
+<button class="text-slate-400 hover:text-white">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h2 class="font-headline text-lg font-bold text-white">체크아웃 검수 - 예약 #B-2607</h2>
+<span class="bg-[#1E293B] text-slate-400 text-xs px-2 py-1 rounded border border-slate-700">쏘나씨 V12</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-4 text-slate-400">
+<span class="material-symbols-outlined cursor-pointer hover:text-white transition-colors">notifications</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-white transition-colors">help</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-white transition-colors">account_circle</span>
+</div>
+<button class="bg-primary hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95">예약 추가</button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-64 mt-16 p-8 pb-32 max-w-7xl mx-auto">
+<!-- Comparison Grid Section -->
+<section class="mb-10">
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-xl font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">visibility</span>
+                    객실 상태 비교
+                </h3>
+<div class="text-xs text-slate-500 flex gap-4">
+<span class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-blue-500"></div> 기준 사진</span>
+<span class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-emerald-500"></div> 체크아웃 사진</span>
+</div>
+</div>
+<div class="space-y-8">
+<!-- 거실 -->
+<div class="bg-surface rounded-xl p-6 border border-slate-800 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<h4 class="font-bold text-slate-200">거실</h4>
+<span class="text-xs text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded">검수 완료</span>
+</div>
+<div class="grid grid-cols-2 gap-6">
+<div class="space-y-2">
+<p class="text-xs text-slate-500 font-medium">기준 사진</p>
+<div class="aspect-video rounded-lg overflow-hidden relative group">
+<img class="w-full h-full object-cover" data-alt="A professionally staged minimalist villa living room with a neutral color palette." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDXhUdhzxCxAw56GU1dlpmlDWbrIUoRHkjQewL6-DdBzRM9psejnVqrlERGpL_VKj2IzatDV9wOfACeGsg35o7-tFUOQNiR7A7-8z-Q69FPcy4MA7qWNPuv-Bw_Fz_1DxzUfcURmqG_zfKBuNdJ5Ntg6UjLF3pVuMgqWB0DBqhp0Xx6hBh2LORA8IAHpO07f8SRifnpHD6nOQGKSXAjlW9XPCGSs3hF2yuLfDxaBL0fyREEvcQtfs1Jxjzdu1HIpvrLmWcNzlrkAB1R"/>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-3xl">zoom_in</span>
+</div>
+</div>
+</div>
+<div class="space-y-2">
+<p class="text-xs text-slate-500 font-medium">체크아웃 사진</p>
+<div class="aspect-video rounded-lg overflow-hidden relative group">
+<img class="w-full h-full object-cover" data-alt="The villa living room after guest checkout." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4dwEKvWwVl4TNPe_9Ji7juLDkofgNcDdqnNgTskm3no9a9-FVtm5tl2lQtoqaermGdSjuV9hMHrqN0gHwB9Wgh5GNBiNs5xGSuGduBA0HuOjspGSx-xmUtdTmurf1LpVmPXswqpvS5QaTSB-0BuJJNF3P1uR3WrXqrOV-WDj49gH7W6RmQ9xIOMiL7cK7aqIeXf3kl9OSFdRX7hdDbsYSlWXaoyPk-N78XFyUxzUA4PUoTE_gMjsZTdj0vTq02HeYRGSozKAOCPll"/>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-3xl">zoom_in</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- 주방 -->
+<div class="bg-surface rounded-xl p-6 border border-slate-800 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<h4 class="font-bold text-slate-200">주방</h4>
+<span class="text-xs text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded">검수 완료</span>
+</div>
+<div class="grid grid-cols-2 gap-6">
+<div class="space-y-2">
+<p class="text-xs text-slate-500 font-medium">기준 사진</p>
+<div class="aspect-video rounded-lg overflow-hidden relative">
+<img class="w-full h-full object-cover" data-alt="A luxury modern kitchen." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQvh4jZ7EG2G-4UjOfbB82sW5sw9Ilga_j7vHJI3sBYcqT1Mar5c-9v8GWmFp8uEl34J6cR89yhOrvsKhh819dL5e34jtSO1eC8jRfMdy4saGXCBTTHxq4oA52AX7eKAp1K3tjyR41ECJ70hPuAnm_98VOC1U8LXZW66NkWEwf6ji_-rtP1Qe0zN4KITKTvuJaC69u07rx7F2cSFguBolJwPLm_rEShPJfFV8x7jJEI78VhhR8q06Kgbf7pyaFbcJiP88ol0JCimG8"/>
+</div>
+</div>
+<div class="space-y-2">
+<p class="text-xs text-slate-500 font-medium">체크아웃 사진</p>
+<div class="aspect-video rounded-lg overflow-hidden relative">
+<img class="w-full h-full object-cover" data-alt="The same kitchen after checkout." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAw0_jyIcntnBD9g3MnberIMfXELyKHJdeneEMEBYwyx6qCauRlOjgB6mfh4wfOwqlLHWYs2x0NWbi-0n9XmgZrPWt19T9dsmAOQzYxSvEaKymRhixk89JZcoZCR8pX0FbJYqVJEJ7KE1DiaV6fzy8G28jQJa32oYoYkAzrYyamMsnb7Wp4vee2kJWvu8g7Su2N69ifpwDh8JEI5KmxSiij5pIgcGTlgkLFH_AmdkEMUCVBCJrWcAQUQHaS4ZbSnw_RiOG4t70S1MP1"/>
+</div>
+</div>
+</div>
+</div>
+<!-- 수영장 -->
+<div class="bg-surface rounded-xl p-6 border border-slate-800 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+<h4 class="font-bold text-slate-200">수영장</h4>
+<span class="text-xs text-amber-400 bg-amber-400/10 px-2 py-1 rounded">사진 누락</span>
+</div>
+<div class="grid grid-cols-2 gap-6">
+<div class="space-y-2">
+<p class="text-xs text-slate-500 font-medium">기준 사진</p>
+<div class="aspect-video rounded-lg overflow-hidden relative">
+<img class="w-full h-full object-cover" data-alt="An outdoor infinity pool." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAPVU8SDFOrF71RBIYXII7zcFKVNNnR6ZUg8d9SM9PMa6hrU-xDSWCMJso7qy3UaBFK8sK4tqDhIUCJKs7ZTsE3LhRDN9vebiI9rA0EVB60zATKNanqZvt0UXMloDzhWjIdoXF5pQ-zwpV6dToMU9Cb_bsariqpXG-2D0y3tBQm5_bXoExEllZQnsdpzTeihHA9-SkWEOc4PNPQG1jeE0eoiuB7UsvlvnTys3imCeL51M4mHXPGCh4rjY2fjOoMyxPDO4mE45oT8-st"/>
+</div>
+</div>
+<div class="space-y-2">
+<p class="text-xs text-slate-500 font-medium">체크아웃 사진</p>
+<div class="aspect-video rounded-lg matrix-dashed flex flex-col items-center justify-center text-slate-500 hover:text-white hover:border-slate-400 transition-all cursor-pointer group">
+<span class="material-symbols-outlined text-4xl mb-2 group-hover:scale-110 transition-transform">photo_camera</span>
+<span class="text-xs font-bold">사진 업로드</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Damage Section -->
+<section class="mb-10 bg-[#7F1D1D]/10 border border-[#7F1D1D]/30 rounded-xl p-8">
+<div class="flex items-center justify-between mb-8">
+<div class="flex items-center gap-4">
+<div class="p-3 bg-[#DC2626] rounded-lg">
+<span class="material-symbols-outlined text-white">report_problem</span>
+</div>
+<div>
+<h3 class="text-xl font-bold text-white">파손 및 손실 리포트</h3>
+<p class="text-sm text-[#F87171]">체크아웃 중 발견된 이상 내역을 입력하세요.</p>
+</div>
+</div>
+<div class="flex items-center gap-4 bg-slate-900 p-2 rounded-full border border-slate-700">
+<span class="text-sm px-4 font-medium text-slate-400">파손 발견</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+<span class="text-sm px-4 font-bold text-white">ON</span>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Damage Photo -->
+<div class="space-y-3">
+<p class="text-xs text-slate-400 font-bold uppercase tracking-wider">파손 증빙 사진</p>
+<div class="relative aspect-square rounded-xl overflow-hidden border-2 border-[#DC2626]/50">
+<img class="w-full h-full object-cover" data-alt="A close-up of a cracked corner on a glass table." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD8oKuk2pL6sPnY2qeQeQB4sKK6vEBJ6nS31lDdM85xV221FabkcxfWfGNmbGHbkU2u3eJZFyOPSV_jClz-yoALXvL9IAUirXecbCgqIBB0b27DgZ8--3zB1YyD8q4C3MveBbD39eDhdWsUj_9CdA3S-VTeDr8-w-CEe2KLGdZRmpSM4Ja92d5B8IDxLYTcec_WloPeesvOZsNqVSVA0ZTYPwPW1vuKb_mHINi6PsuDywSsJD9YtgauQFY58uz3doXS5QLDaDzIwHfm"/>
+<button class="absolute top-2 right-2 bg-black/60 p-1.5 rounded-full hover:bg-red-600 transition-colors">
+<span class="material-symbols-outlined text-white text-sm">close</span>
+</button>
+</div>
+</div>
+<!-- Damage Details -->
+<div class="lg:col-span-2 space-y-6">
+<div class="space-y-2">
+<label class="text-xs text-slate-400 font-bold uppercase tracking-wider">파손 상세 내용</label>
+<div class="bg-slate-900 border border-slate-700 rounded-lg p-4 text-white font-medium">
+                            거실 유리 테이블 모서리 파손 (교체 필요)
+                        </div>
+</div>
+<div class="grid grid-cols-2 gap-6">
+<div class="space-y-2">
+<label class="text-xs text-slate-400 font-bold uppercase tracking-wider">예상 수리 비용</label>
+<div class="relative">
+<input class="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 px-4 text-white font-bold text-lg focus:ring-primary focus:border-primary" type="text" value="1,500,000₫"/>
+<span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 text-sm">VND</span>
+</div>
+</div>
+<div class="space-y-2">
+<label class="text-xs text-slate-400 font-bold uppercase tracking-wider">차감 확정액</label>
+<div class="relative">
+<input class="w-full bg-slate-900 border-2 border-danger rounded-lg py-3 px-4 text-danger font-bold text-lg focus:ring-danger focus:border-danger" type="text" value="1,500,000₫"/>
+<span class="absolute right-4 top-1/2 -translate-y-1/2 text-danger text-sm">VND</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Sticky Bottom Action Bar -->
+<div class="fixed bottom-0 left-64 right-0 bg-[#1E293B] border-t border-slate-800 px-8 py-4 z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+<div class="max-w-7xl mx-auto flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-xs text-slate-400">보증금: 5,000,000₫</span>
+<div class="flex items-center gap-2">
+<span class="text-slate-200 font-bold">최종 환불 예정액:</span>
+<span class="text-2xl font-black text-[#F59E0B]">3,500,000₫</span>
+</div>
+</div>
+<div class="flex gap-4">
+<button class="flex items-center gap-2 px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold border border-emerald-500 shadow-lg shadow-emerald-900/20 transition-all active:scale-95">
+<span class="material-symbols-outlined">payments</span>
+                    보증금 전액 환불
+                </button>
+<button class="flex items-center gap-2 px-10 py-4 rounded-xl bg-[#F59E0B] hover:bg-[#D97706] text-white font-black text-lg transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg shadow-orange-900/20">
+<span class="material-symbols-outlined">check_circle</span>
+                    차감 후 환불 승인
+                </button>
+</div>
+</div>
+</div>
+</body></html>

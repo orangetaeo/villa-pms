@@ -1,0 +1,413 @@
+<!DOCTYPE html><html class="dark" lang="ko"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>제안 만들기 - Villa PMS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            base: "#0F172A",
+                            surface: "#1E293B",
+                            accent: "#3B82F6",
+                            teal: "#0D9488",
+                            slate: "#94A3B8"
+                        }
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        "display": ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        "body": ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        "label": ["Public Sans", "Noto Sans KR", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #0F172A;
+            color: #F1F5F9;
+            font-family: 'Public Sans', sans-serif;
+            overflow: hidden;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(30, 41, 59, 0.5);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 10px;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .selected-card {
+            border: 2px solid #0D9488 !important;
+            background: rgba(13, 148, 136, 0.05) !important;
+        }
+    
+        /* DESIGN 공통 규칙 (2026-06-11): 한글 폰트 폴백 + 한국어 단어 낙하 방지 */
+        body { font-family: "Public Sans", "Noto Sans KR", sans-serif; word-break: keep-all; }
+        th, button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
+    </style>
+</head>
+<body class="flex h-screen w-screen">
+<!-- Left Sidebar (Global Navigation) -->
+<aside class="w-64 bg-[#0F172A] border-r border-slate-800 flex flex-col h-full z-20">
+<div class="p-6">
+<h1 class="text-white text-xl font-bold tracking-tight">Villa PMS</h1>
+<p class="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Villa PMS Admin</p>
+</div>
+<nav class="flex-1 px-4 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:bg-slate-900 rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-medium">대시보드</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:bg-slate-900 rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="font-medium">예약</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-blue-400 bg-blue-500/10 rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">description</span>
+<span class="font-medium">제안</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:bg-slate-900 rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined">domain</span>
+<span class="font-medium">빌라</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:bg-slate-900 rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined">cleaning_services</span>
+<span class="font-medium">청소 검수</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:bg-slate-900 rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span class="font-medium">정산</span>
+</a>
+<div class="pt-4 pb-2">
+<div class="h-px bg-slate-800 mx-3 mb-4"></div>
+</div>
+<a class="flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:bg-slate-900 rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-medium">사용자</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-slate-400 hover:bg-slate-900 rounded-lg transition-all group" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-medium">설정</span>
+</a>
+</nav>
+<div class="p-4 mt-auto border-t border-slate-800">
+<div class="flex items-center gap-3 px-2 py-2">
+<div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-200">OP</div>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-semibold text-slate-200 truncate">Manager Kim</p>
+<p class="text-xs text-slate-500 truncate">Operation Lead</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col min-w-0 bg-slate-900 overflow-hidden">
+<!-- Header -->
+<header class="h-16 px-8 flex items-center justify-between border-b border-slate-800 bg-slate-900/50 backdrop-blur-md">
+<h2 class="text-lg font-bold text-slate-100">제안 만들기</h2>
+<div class="flex items-center gap-4">
+<button class="p-2 text-slate-400 hover:text-slate-100 transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="h-8 w-px bg-slate-800"></div>
+<div class="flex items-center gap-2 text-slate-400">
+<span class="text-sm font-medium">관리자</span>
+<span class="material-symbols-outlined text-sm">expand_more</span>
+</div>
+</div>
+</header>
+<!-- Three-Panel Layout -->
+<div class="flex-1 flex overflow-hidden">
+<!-- Panel 1: Filters (Left) -->
+<section class="w-80 border-r border-slate-800 p-6 flex flex-col gap-8 custom-scrollbar overflow-y-auto">
+<div>
+<label class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-4">일정 및 인원</label>
+<div class="space-y-4">
+<div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700 hover:border-slate-600 cursor-pointer transition-all">
+<div class="flex items-center gap-3 mb-1">
+<span class="material-symbols-outlined text-blue-400">calendar_month</span>
+<span class="text-xs text-slate-400">예약 기간</span>
+</div>
+<div class="text-sm font-bold text-slate-100">7월 15일 → 7월 18일</div>
+<div class="text-xs text-blue-400 font-medium mt-1">총 3박</div>
+</div>
+<div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-blue-400">person</span>
+<span class="text-xs text-slate-400">인원</span>
+</div>
+<div class="flex items-center gap-3">
+<button class="w-6 h-6 rounded bg-slate-700 flex items-center justify-center hover:bg-slate-600">-</button>
+<span class="text-sm font-bold w-4 text-center">4</span>
+<button class="w-6 h-6 rounded bg-slate-700 flex items-center justify-center hover:bg-slate-600">+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div>
+<label class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-4">판매 채널</label>
+<div class="grid grid-cols-1 gap-2">
+<button class="w-full text-left px-4 py-3 rounded-xl border border-blue-500 bg-blue-500/10 text-blue-400 font-bold text-sm flex items-center justify-between">
+                            여행사
+                            <span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border border-slate-700 text-slate-400 font-medium text-sm hover:border-slate-600 hover:bg-slate-800/30">
+                            랜드사
+                        </button>
+<button class="w-full text-left px-4 py-3 rounded-xl border border-slate-700 text-slate-400 font-medium text-sm hover:border-slate-600 hover:bg-slate-800/30">
+                            직접
+                        </button>
+</div>
+</div>
+<div class="mt-auto">
+<div class="bg-indigo-500/10 p-4 rounded-xl border border-indigo-500/20 text-xs text-indigo-300 leading-relaxed">
+<span class="material-symbols-outlined text-sm mb-1 block">info</span>
+                        선택된 조건에 따라 실시간 예약 가능한 빌라 목록이 우측에 표시됩니다.
+                    </div>
+</div>
+</section>
+<!-- Panel 2: Villa Selection (Center) -->
+<section class="flex-1 bg-slate-950/30 p-8 flex flex-col gap-6 overflow-hidden">
+<div class="flex items-center justify-between">
+<div>
+<h3 class="text-slate-400 text-sm font-medium">검색 결과</h3>
+<p class="text-slate-100 font-bold">4개의 빌라 이용 가능</p>
+</div>
+<div class="flex gap-2">
+<button class="px-3 py-1.5 bg-slate-800 text-slate-300 text-xs rounded-lg border border-slate-700 hover:bg-slate-700">가격순</button>
+<button class="px-3 py-1.5 bg-slate-800 text-slate-300 text-xs rounded-lg border border-slate-700 hover:bg-slate-700">등급순</button>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+<!-- Villa Card 1 (Selected) -->
+<div class="selected-card p-4 rounded-2xl flex gap-5 group transition-all cursor-pointer shadow-xl bg-slate-800/40 relative">
+<div class="w-40 h-28 rounded-xl overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A luxurious modern white villa with large glass windows and a swimming pool in front, captured during sunset with warm interior lighting. The overall mood is high-end and exclusive, featuring a clean dark slate UI context with teal and blue accents. Photorealistic architectural photography style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDIay_SIPPku8778tRX6fFVESNx6_TneAdwgsLeBSY78JZ3LMBQoFrXeRopdWJ3DNfwuXYMTuuq7Gu4uidVquM5Py55SOrHc62KGaTDF3qCdjtnq2rInoUG6ZcDlNCM_RYqUnwGaCKnMV5lhoBR5pg4FWkKk15Q2sXPlwYCffT9mMlVfPwQYZX-B7J8PDu07WAnNfIyuiXR_Z1T24Hl3Uarc1TQs6Hm-aJ0laZia1uTXyLhrG1KJ5OvngXdnzPJcZnyy0AlodWSSidl">
+</div>
+<div class="flex-1 flex flex-col justify-between py-1">
+<div>
+<div class="flex justify-between items-start">
+<h4 class="text-slate-100 font-bold text-lg">쏘나씨 V12</h4>
+<span class="material-symbols-outlined text-blue-500" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex items-center gap-4 mt-1 text-slate-400 text-xs">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">bed</span> 4 침실</span>
+<span class="flex items-center gap-1 text-blue-400"><span class="material-symbols-outlined text-sm">pool</span> 프라이빗 풀</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">restaurant</span> 조식 포함</span>
+</div>
+</div>
+<div class="flex items-end justify-between">
+<div class="flex gap-1">
+<span class="px-2 py-0.5 bg-slate-700 text-slate-400 rounded text-[10px]">최고급형</span>
+<span class="px-2 py-0.5 bg-slate-700 text-slate-400 rounded text-[10px]">인기</span>
+</div>
+<div class="text-right">
+<span class="text-xs text-slate-500 block">1박 기준</span>
+<span class="text-blue-400 font-bold text-lg">450,000원</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Villa Card 2 (Selected) -->
+<div class="selected-card p-4 rounded-2xl flex gap-5 group transition-all cursor-pointer shadow-xl bg-slate-800/40 relative">
+<div class="w-40 h-28 rounded-xl overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="An elegant boutique resort villa with wooden accents and lush tropical greenery surrounding a private turquoise pool. Soft twilight lighting illuminates the stone pathways and the dark blue sky creates a peaceful atmosphere. High-end property management dashboard aesthetic with teal highlight colors." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCDsw0nDyk7-_nX2i60qCTmjt2oe5528CzuyeyJGQZU7xA4sDppHlgwYGR1iPPPoSyyias7C_KfmVoc3O-BoC4RRb3K3LtTkYmw2-3ALHjReYMGprQM8WTeiueJYb3NtVj55Bq7lCyeByF4cc7mKqT0PO4HbA9RFdC0PQmaRMuL5C_Z9T4PmaJipfB5sQiqVvXK04y9Bii1RBDwXEI3qPDpuRW40QmovkWFTbybTSSOZCUDyhVjsrztMSD9RpCtgVEYuPA5VVaLKvyi">
+</div>
+<div class="flex-1 flex flex-col justify-between py-1">
+<div>
+<div class="flex justify-between items-start">
+<h4 class="text-slate-100 font-bold text-lg">라벤더 스위트 04</h4>
+<span class="material-symbols-outlined text-blue-500" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex items-center gap-4 mt-1 text-slate-400 text-xs">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">bed</span> 3 침실</span>
+<span class="flex items-center gap-1 text-blue-400"><span class="material-symbols-outlined text-sm">pool</span> 개인 수영장</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">restaurant</span> 조식 포함</span>
+</div>
+</div>
+<div class="flex items-end justify-between">
+<div class="flex gap-1">
+<span class="px-2 py-0.5 bg-slate-700 text-slate-400 rounded text-[10px]">가족형</span>
+</div>
+<div class="text-right">
+<span class="text-xs text-slate-500 block">1박 기준</span>
+<span class="text-blue-400 font-bold text-lg">380,000원</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Villa Card 3 -->
+<div class="p-4 rounded-2xl flex gap-5 group transition-all cursor-pointer bg-slate-800/20 border border-slate-800 hover:border-slate-700 hover:bg-slate-800/40">
+<div class="w-40 h-28 rounded-xl overflow-hidden flex-shrink-0 grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-500">
+<img class="w-full h-full object-cover" data-alt="A minimalist seaside villa with clean white concrete lines overlooking a calm blue ocean. Bright morning daylight creates sharp shadows and emphasizes the modern architecture. Part of a high-density dark admin dashboard layout for property management. Minimalist and luxurious vibe." src="https://lh3.googleusercontent.com/aida-public/AB6AXuClnyzw2NEZijweVl9grVEOpzmzXXU4SwLbg9Z9b1i578oUtFhk7XUPvkRUWipi6ef1GeVO3SPgz0feTpZxNDN8yoXgTOaZWef3bAs-WUKiIR_uwonzdHbS6YtqPdAyf_AVHBMZbFxiKlPXNwnSjP-zlw5NggowvhuM-SqquOhcCXgFJFO4YlTcSxSBMzhaCkB9AwbLQgabT1Sdo5CvvPW2MsvD-Tztv-4boORXlROfkE94ET5CfjQdQ3_l790hVG1P6gtTfSSEfZfJ">
+</div>
+<div class="flex-1 flex flex-col justify-between py-1">
+<div>
+<div class="flex justify-between items-start">
+<h4 class="text-slate-400 group-hover:text-slate-100 font-bold text-lg transition-colors">씨뷰 오션 V2</h4>
+<span class="w-5 h-5 rounded-full border-2 border-slate-700 flex items-center justify-center"></span>
+</div>
+<div class="flex items-center gap-4 mt-1 text-slate-500 text-xs">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">bed</span> 2 침실</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">pool</span> 수영장</span>
+</div>
+</div>
+<div class="flex items-end justify-between">
+<div class="flex gap-1">
+<span class="px-2 py-0.5 bg-slate-800 text-slate-500 rounded text-[10px]">커플형</span>
+</div>
+<div class="text-right">
+<span class="text-xs text-slate-500 block">1박 기준</span>
+<span class="text-slate-400 font-bold text-lg">520,000원</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Villa Card 4 -->
+<div class="p-4 rounded-2xl flex gap-5 group transition-all cursor-pointer bg-slate-800/20 border border-slate-800 hover:border-slate-700 hover:bg-slate-800/40">
+<div class="w-40 h-28 rounded-xl overflow-hidden flex-shrink-0 grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-500">
+<img class="w-full h-full object-cover" data-alt="Interior of a luxury villa bedroom with floor-to-ceiling windows showing a jungle view. The decor is high-end contemporary with dark wood and soft ambient lighting. Designed for a professional villa booking administrator screen. Warm and inviting yet professional atmosphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJPQtv1YTbmx_dfIyuFRtjbQPRvkD-rBRv7ulElnreh4G8Asl1i0ZkaGzVUvyH8A5uWOMUjACCk1dP53T4XmuvktV38di3vimRt5qC4sxkrIYZzHGPOHaQNLf7dfbZt9RylLkO8NGBKZErtFBvB5Un477EHk5gf2F21boVpTZB4lHCmiLmtW6nheX6nwPso4651Ctm1D_rCWWBmgoQeyE_mgRrabXiXkKxEsuYcxSfTxZzxN_Pw6irx6ULeZH_db7Wf9jaoD9q_Rom">
+</div>
+<div class="flex-1 flex flex-col justify-between py-1">
+<div>
+<div class="flex justify-between items-start">
+<h4 class="text-slate-400 group-hover:text-slate-100 font-bold text-lg transition-colors">로열 가든 11</h4>
+<span class="w-5 h-5 rounded-full border-2 border-slate-700 flex items-center justify-center"></span>
+</div>
+<div class="flex items-center gap-4 mt-1 text-slate-500 text-xs">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">bed</span> 5 침실</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">pool</span> 메가 풀</span>
+</div>
+</div>
+<div class="flex items-end justify-between">
+<div class="flex gap-1">
+<span class="px-2 py-0.5 bg-slate-800 text-slate-500 rounded text-[10px]">대단지</span>
+</div>
+<div class="text-right">
+<span class="text-xs text-slate-500 block">1박 기준</span>
+<span class="text-slate-400 font-bold text-lg">750,000원</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Panel 3: Proposal Summary (Right) -->
+<section class="w-96 border-l border-slate-800 bg-slate-900 flex flex-col">
+<div class="p-6 border-b border-slate-800">
+<h3 class="text-lg font-bold text-slate-100">제안 요약</h3>
+</div>
+<div class="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+<!-- Selected List -->
+<div>
+<div class="flex items-center justify-between mb-4">
+<span class="text-xs font-bold text-slate-500 uppercase tracking-wider">선택된 빌라 (2)</span>
+<button class="text-xs text-blue-400 hover:underline">모두 삭제</button>
+</div>
+<div class="space-y-3">
+<div class="flex items-center gap-4 p-3 bg-slate-800/50 rounded-xl border border-slate-700">
+<div class="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBsiwjs37DMSqFyZzI_VFDG3TCaoJypLs6U5ibEuGHvzmIilTMUrg20MOmi-IdDHlkasFRGSlf1UI_uT25PFCKP0gLAZFssMFtAOTcWo7o9izZVYjIeXtl5pOmxF4riwylDAa4-wUkcSI2Hi_4QMMEgoFxt16Kpt_bW6gW1Hd2ya0RHPTSHQZGcfrgmEp1ggw13v6wIqsHVxnF_s1yBt79P1_Zz7UZZHpEsOa7pn5gzP3dfoWaUUC3QVXHjbp8xQ8WatWiTrtrat9P9">
+</div>
+<div class="flex-1">
+<div class="text-sm font-bold text-slate-100">쏘나씨 V12</div>
+<div class="text-xs text-slate-400">1,350,000원 (3박)</div>
+</div>
+<button class="text-slate-500 hover:text-red-400"><span class="material-symbols-outlined text-lg">close</span></button>
+</div>
+<div class="flex items-center gap-4 p-3 bg-slate-800/50 rounded-xl border border-slate-700">
+<div class="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDtNpn4cy3Ku_2aN24pScE-NwGkF3gTAl6tFC6Qqych4XoXQepbJxDVJZ9mp5Nx7U6hzw22q7COVH7S0U0nkSjICtZIffi4P9WTEGbpCchxKpaothkxoJVsLKfCuE5_xA7LLofDM4gsGD5cQL5U-77fx5y3rO-iwd1eBDRrQFIKC-bTRxRvo3OQwvUWWsufVUOEWZKA84motpsmTlZrPV-cL7ySxHmNDx_pzN9YTxNq89TCkLxU4N7D2eQRwB3KqFo3Rik_HI3u0VLn">
+</div>
+<div class="flex-1">
+<div class="text-sm font-bold text-slate-100">라벤더 스위트 04</div>
+<div class="text-xs text-slate-400">1,140,000원 (3박)</div>
+</div>
+<button class="text-slate-500 hover:text-red-400"><span class="material-symbols-outlined text-lg">close</span></button>
+</div>
+</div>
+</div>
+<!-- Client Input -->
+<div>
+<label class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">고객명 (여행사명)</label>
+<input class="w-full bg-slate-800 border-slate-700 rounded-xl text-sm focus:border-blue-500 focus:ring-0 text-slate-100 px-4 py-3" placeholder="예: 한겨울 고객님 / 하나투어" type="text">
+</div>
+<!-- Expiry Selection -->
+<div>
+<label class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-3">제안 만료 시간</label>
+<div class="flex gap-2">
+<button class="flex-1 py-2 px-3 rounded-lg border border-slate-700 text-slate-400 text-sm font-medium hover:bg-slate-800">24시간</button>
+<button class="flex-1 py-2 px-3 rounded-lg border border-blue-500 bg-blue-500/20 text-blue-400 text-sm font-bold">48시간</button>
+<button class="flex-1 py-2 px-3 rounded-lg border border-slate-700 text-slate-400 text-sm font-medium hover:bg-slate-800">무제한</button>
+</div>
+</div>
+<!-- Summary Info -->
+<div class="pt-6 border-t border-slate-800 space-y-3">
+<div class="flex justify-between text-sm">
+<span class="text-slate-400">평균 숙박 단가</span>
+<span class="text-slate-100">415,000원</span>
+</div>
+<div class="flex justify-between text-sm">
+<span class="text-slate-400">채널 수수료 (10%)</span>
+<span class="text-slate-100">- 249,000원</span>
+</div>
+<div class="flex justify-between items-center pt-2">
+<span class="text-slate-400 font-bold">최종 예상 수익</span>
+<span class="text-blue-400 font-bold text-xl">2,241,000원</span>
+</div>
+</div>
+</div>
+<div class="p-6 bg-slate-900 border-t border-slate-800">
+<button class="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20">
+<span class="material-symbols-outlined">link</span>
+                        링크 생성
+                    </button>
+<p class="text-[10px] text-center text-slate-500 mt-3">생성된 제안 링크는 고객에게 카카오톡이나 이메일로 전송 가능합니다.</p>
+</div>
+</section>
+</div>
+</main>
+<script>
+        // Micro-interaction for buttons
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                this.classList.add('scale-95');
+                setTimeout(() => this.classList.remove('scale-95'), 100);
+            });
+        });
+
+        // Simple villa selection simulation
+        const cards = document.querySelectorAll('.selected-card');
+        // This is just a static demo so we don't add full logic, 
+        // but adding hover effects or simple selection toggles could be added here.
+    </script>
+</body></html>

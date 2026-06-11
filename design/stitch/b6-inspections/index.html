@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+    body {
+      font-family: 'Public Sans', 'Pretendard', sans-serif;
+      background-color: #0F172A;
+      color: #F8FAFC;
+      margin: 0;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      vertical-align: middle;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #1E293B;
+      border-radius: 10px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+    .data-density-sm {
+      font-size: 0.8125rem;
+      line-height: 1.25rem;
+    }
+  
+        /* DESIGN 공통 규칙 (2026-06-11): 한글 폰트 폴백 + 한국어 단어 낙하 방지 */
+        body { font-family: "Public Sans", "Noto Sans KR", sans-serif; word-break: keep-all; }
+        th, button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
+    </style>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary: "#3B82F6",
+            "on-primary": "#FFFFFF",
+            surface: "#0F172A",
+            card: "#1E293B",
+            border: "#334155"
+          },
+          borderRadius: {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          fontFamily: {
+            headline: ["Public Sans", "Noto Sans KR", "sans-serif"],
+            display: ["Public Sans", "Noto Sans KR", "sans-serif"],
+            body: ["Public Sans", "Noto Sans KR", "sans-serif"],
+            label: ["Public Sans", "Noto Sans KR", "sans-serif"]
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="overflow-hidden">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#0F172A] border-r border-[#1E293B] flex flex-col py-6 z-50">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-lg">domain</span>
+</div>
+<div>
+<h1 class="text-xl font-headline font-black text-white leading-none">Villa PMS</h1>
+<p class="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Villa PMS Admin</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-3 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2.5 text-[#94A3B8] hover:text-white hover:bg-[#1E293B]/50 transition-colors duration-200 font-body text-label-sm font-medium tracking-tight rounded" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span>대시보드</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-[#94A3B8] hover:text-white hover:bg-[#1E293B]/50 transition-colors duration-200 font-body text-label-sm font-medium tracking-tight rounded" href="#">
+<span class="material-symbols-outlined text-[20px]">calendar_month</span>
+<span>예약</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-[#94A3B8] hover:text-white hover:bg-[#1E293B]/50 transition-colors duration-200 font-body text-label-sm font-medium tracking-tight rounded" href="#">
+<span class="material-symbols-outlined text-[20px]">request_quote</span>
+<span>제안</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-[#94A3B8] hover:text-white hover:bg-[#1E293B]/50 transition-colors duration-200 font-body text-label-sm font-medium tracking-tight rounded" href="#">
+<span class="material-symbols-outlined text-[20px]">bed</span>
+<span>빌라</span>
+</a>
+<!-- Active Item: 청소 검수 -->
+<a class="flex items-center gap-3 px-3 py-2.5 bg-[#1E293B] text-[#3B82F6] font-bold border-r-2 border-[#3B82F6] font-body text-label-sm tracking-tight rounded-l" href="#">
+<span class="material-symbols-outlined text-[20px]">cleaning_services</span>
+<span>청소 검수</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-[#94A3B8] hover:text-white hover:bg-[#1E293B]/50 transition-colors duration-200 font-body text-label-sm font-medium tracking-tight rounded" href="#">
+<span class="material-symbols-outlined text-[20px]">payments</span>
+<span>정산</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-[#94A3B8] hover:text-white hover:bg-[#1E293B]/50 transition-colors duration-200 font-body text-label-sm font-medium tracking-tight rounded" href="#">
+<span class="material-symbols-outlined text-[20px]">group</span>
+<span>사용자</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-[#94A3B8] hover:text-white hover:bg-[#1E293B]/50 transition-colors duration-200 font-body text-label-sm font-medium tracking-tight rounded" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span>설정</span>
+</a>
+</nav>
+<div class="px-6 pt-6 border-t border-[#1E293B]">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-slate-700 overflow-hidden">
+<img alt="Admin" data-alt="A professional close-up portrait of a Korean operations manager" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCmR7sCkf5wgShZL4zTUyRtERTEq06UB_5entrM8omfPe1dSR6MRk7m3SQY_i6ORI-ZV7lW3-WfcoJmo2VaGcUzfRbdw5tANfsr_rtiPlMJHg2xYyIU_fuBu_um4FeXikD6qJ8kaHAkv6ha2yVjn6C-TFFe_Uo6BtMSPxnJdadgjl7NS6I3e-bdyKiK9s41j1TGriJc400BoV34-PX9lmnpWnvRHpZMAwyRQJvocT3WWfu-AqkY3-e5pmmDo_-3oMLhlJjQjAfUi4nc"/>
+</div>
+<div class="flex-1 min-w-0">
+<p class="text-xs font-bold text-white truncate">김운영 매니저</p>
+<p class="text-[10px] text-slate-400">관리자</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Wrapper -->
+<main class="fixed top-0 right-0 w-[calc(100%-16rem)] h-screen flex flex-col bg-[#0F172A]">
+<!-- TopNavBar -->
+<header class="flex justify-between items-center h-16 px-8 bg-[#0F172A]/80 backdrop-blur-md border-b border-[#1E293B] z-40">
+<div class="flex items-center gap-4">
+<h2 class="text-lg font-headline font-bold text-white">청소 검수</h2>
+<div class="h-4 w-px bg-slate-700"></div>
+<div class="flex items-center bg-[#1E293B] px-3 py-1.5 rounded border border-slate-700 focus-within:ring-1 focus-within:ring-[#3B82F6]">
+<span class="material-symbols-outlined text-slate-400 text-sm mr-2">search</span>
+<input class="bg-transparent border-none outline-none text-xs text-slate-200 w-48 p-0" placeholder="빌라명 또는 작업자 검색..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<button class="text-[#94A3B8] hover:text-white transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-[#0F172A]"></span>
+</button>
+<button class="text-[#94A3B8] hover:text-white transition-colors">
+<span class="material-symbols-outlined">help</span>
+</button>
+<button class="text-[#94A3B8] hover:text-white transition-colors">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</header>
+<!-- Content Area: Two Panel Layout -->
+<div class="flex-1 flex overflow-hidden">
+<!-- Left Panel: Task List (1/3) -->
+<section class="w-1/3 border-r border-[#1E293B] flex flex-col bg-[#0F172A]">
+<div class="p-4 border-b border-[#1E293B] flex items-center justify-between bg-[#1E293B]/20">
+<span class="text-xs font-bold text-slate-400 uppercase tracking-wider">검수 대기 리스트</span>
+<span class="text-[10px] px-2 py-0.5 bg-slate-800 text-slate-300 rounded-full">3건</span>
+</div>
+<div class="flex-1 overflow-y-auto custom-scrollbar">
+<!-- Selected Item -->
+<div class="p-4 border-b border-[#1E293B] bg-[#1E293B] border-l-4 border-l-[#3B82F6] cursor-pointer">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-sm font-bold text-white">쏘나씨 V12</h3>
+<span class="text-[10px] text-slate-400">14:20</span>
+</div>
+<p class="text-xs text-slate-400 mb-3">체크아웃 청소</p>
+<div class="flex items-center justify-between">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                승인 대기
+              </span>
+<span class="material-symbols-outlined text-slate-600 text-sm">chevron_right</span>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="p-4 border-b border-[#1E293B] hover:bg-[#1E293B]/30 cursor-pointer transition-colors">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-sm font-bold text-slate-200">쏘나씨 V11</h3>
+<span class="text-[10px] text-slate-500">13:45</span>
+</div>
+<p class="text-xs text-slate-500 mb-3">정기 방역</p>
+<div class="flex items-center justify-between">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-700/50 text-slate-400 border border-slate-600/50">
+                진행 중
+              </span>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="p-4 border-b border-[#1E293B] hover:bg-[#1E293B]/30 cursor-pointer transition-colors">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-sm font-bold text-slate-200">선셋 빌라 A3</h3>
+<span class="text-[10px] text-slate-500">12:10</span>
+</div>
+<p class="text-xs text-slate-500 mb-3">체크아웃 청소</p>
+<div class="flex items-center justify-between">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-green-500/10 text-green-500 border border-green-500/20">
+                승인됨
+              </span>
+</div>
+</div>
+</div>
+</section>
+<!-- Right Panel: Detail (2/3) -->
+<section class="flex-1 flex flex-col bg-[#0F172A]">
+<!-- Detail Header -->
+<div class="p-6 border-b border-[#1E293B]">
+<div class="flex items-center gap-2 mb-1">
+<h2 class="text-xl font-bold text-white">쏘나씨 V12 — 체크아웃 청소</h2>
+<span class="bg-amber-500/10 text-amber-500 text-[10px] px-2 py-0.5 rounded border border-amber-500/20 font-bold uppercase">승인 대기</span>
+</div>
+<div class="flex items-center gap-4 text-xs text-slate-400">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">photo_library</span> 사진 9장 제출됨</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">schedule</span> 제출 시간: 14:20</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-sm">person</span> 작업자: 원티 호아 (청소팀 A)</span>
+</div>
+</div>
+<!-- Scrollable Comparison Grid -->
+<div class="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-8">
+<!-- Category: 거실 -->
+<div>
+<div class="flex items-center gap-2 mb-4">
+<span class="w-1 h-4 bg-[#3B82F6] rounded"></span>
+<h4 class="text-sm font-bold text-[#E5E7EB]">거실</h4>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="space-y-2">
+<p class="text-[10px] text-[#E5E7EB] font-bold uppercase tracking-tight">기준 사진</p>
+<div class="aspect-video rounded overflow-hidden border border-[#1E293B] relative group">
+<img alt="Baseline Living Room" class="w-full h-full object-cover" data-alt="A pristine, professionally staged luxury villa living room" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCgnD1cpQL24MEPS7oex_wmtbtqCN19Y3szngCCrrylbNVCHHIGPh7FfSO9FLVzGAX68nBHYzsK69ERlhrl3ElcEFtZRjM7MjZSUadgPJMXY4ydb4tJyddJ4WEcnMqBltNFt3dXSlbgYIZ_e1BFdGLNnuWHifiwZFUkEOjDKtVmDg6P3DLkoVC3ZP0u4PHSWrzAO89-jKi7dIpy3ig2OVMaM4dYgbecvo_un_raWKuO_YPt8o27-aUsvGLF4teLxZ8-irwAJs-_wlmW"/>
+</div>
+</div>
+<div class="space-y-2">
+<p class="text-[10px] text-blue-400 font-bold uppercase tracking-tight">청소 후</p>
+<div class="aspect-video rounded overflow-hidden border border-[#3B82F6]/30 relative">
+<img alt="After Cleaning Living Room" class="w-full h-full object-cover" data-alt="A photo taken after cleaning of a luxury villa living room" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC-d5HliiKATyZaBKF-Nkm9NO1o-4JViSVtBQ5tS0cdKdhB6WQ2lGgE9zU7_6aw3S0Y0Y5nQScJs8xjZFpvhwvpquMTQ3EouL-e92TQXkARIRmk28qHO3uPRkksS9XyiecuuuCq9kMyU2O3yoWOjama6JVLMY9lswBk-zXTcMemZg6QvSfKQAy2HVsI947k2FLQkxZRnGeMl0HYo77F0NcjNx87KQTq9NplmPGlnq_QGaZRwgZqiXhH9xrpgCsBmadwyamEwr_b05z4"/>
+<div class="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-[10px] text-white">제출됨 14:15</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Category: 주방 -->
+<div>
+<div class="flex items-center gap-2 mb-4">
+<span class="w-1 h-4 bg-[#3B82F6] rounded"></span>
+<h4 class="text-sm font-bold text-[#E5E7EB]">주방</h4>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="space-y-2">
+<p class="text-[10px] text-[#E5E7EB] font-bold uppercase tracking-tight">기준 사진</p>
+<div class="aspect-video rounded overflow-hidden border border-[#1E293B]">
+<img alt="Baseline Kitchen" class="w-full h-full object-cover" data-alt="A high-end villa kitchen baseline photo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuALrmwAkfwoGAjrFb47tkaDs-sTsVIDa26De0YEs_b-xCnH3LpcDdES1cRmhnAUUXuGu-zVXI8MPF2b32rH33VTl8LluujGPUhLlfPdZlFZM3wT5jpNe8QraJ8S6hspmqm4XjCzQ4ZNfZoyMWTcsoyPlycKlJ9QmEfK7WUs0HaqRCCqHSGqt79GuOL6JZcHC82wcgmYItAfuUYww_jihwN6YWoLgOck5jUjLHzapd8nKKyUXMzafpXMAPwOGV0d6Tgswq4VNEO5LLof"/>
+</div>
+</div>
+<div class="space-y-2">
+<p class="text-[10px] text-blue-400 font-bold uppercase tracking-tight">청소 후</p>
+<div class="aspect-video rounded overflow-hidden border border-[#3B82F6]/30 relative">
+<img alt="After Cleaning Kitchen" class="w-full h-full object-cover" data-alt="A real-world inspection photo of a villa kitchen" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDBHprCJAvuGb2Em2MZXl2vTazKJZG-AK_9U7jFRYKp0IMBHhNqIwX51vMpW40iOtc9WHIa3Z8vK45NMm60sXC1UaTUZVZ0D30x0o7CGUoHBlAjbKxKsbayS-LJuyz7jHeSLvID59KAHTPPSkgsO0tjp715BKRz6gs4uIYpRe-i6jSriZypkUk3hN1QFeUybxcFHxndqRFz1u30F_xCZrW2_QSEXw_FnzwUJuRU1sgw-sgSJOvfLzuSpZoKLLy__2z5R9uwXE7eeVS7"/>
+</div>
+</div>
+</div>
+</div>
+<!-- Category: 침실 1 -->
+<div>
+<div class="flex items-center gap-2 mb-4">
+<span class="w-1 h-4 bg-[#3B82F6] rounded"></span>
+<h4 class="text-sm font-bold text-[#E5E7EB]">침실 1</h4>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="space-y-2">
+<p class="text-[10px] text-[#E5E7EB] font-bold uppercase tracking-tight">기준 사진</p>
+<div class="aspect-video rounded overflow-hidden border border-[#1E293B]">
+<img alt="Baseline Bedroom" class="w-full h-full object-cover" data-alt="A luxury master bedroom baseline setup" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBmPqf9o2HBnAfJhftr5g3XK4FbXR4TaKFuW823NoPBHa8UqFZfEk72OXWUSQvjCkFWGOr_cajVMA-ySP-hSnSkax_HO7-urbtrQLfFUoHTe-skCqauhA4vhxRxXqkFtBrGo_CE84s8PmMpJINhTyt8k20CWwlmFdP7R7WDZZT1ggwSg9hqo4JnKKtmuANJW7NgC6kxGGjIY-0Y4g0IdyZN1MjCGCm8E7zZOvjRemeCRTaF5c5tNEooE-yQIX7IavqiqSVuBy7-kxfK"/>
+</div>
+</div>
+<div class="space-y-2">
+<p class="text-[10px] text-blue-400 font-bold uppercase tracking-tight">청소 후</p>
+<div class="aspect-video rounded overflow-hidden border border-[#3B82F6]/30 relative">
+<img alt="After Cleaning Bedroom" class="w-full h-full object-cover" data-alt="A post-cleaning inspection shot of a villa bedroom" src="https://lh3.googleusercontent.com/aida-public/AB6AXuARpQrMeZitqwNfsjNVo2KdYKX-ndN2gBzUPehyhybl5-j06h3DFMzgD5DCj25u957tkUmtE7WbyhcTOpsbNQioNcJXTC8DjCfPTyHVt5oAncdra3Y-0fdNiManV-ErjsElnUW7M5EEpdoaD_ay7SbGLp5DCD4i99vuqClLpFD6zhNYu6u-0O0eDO_k3CgRvw166UYal6XABVa-5za52jbltWJ7JE9fFzSnE_D3aU8pjNFth4rQFPBXo7zpIn0nf8EvQUtKfHKMcg9I"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Action Bar -->
+<footer class="p-6 border-t border-[#1E293B] bg-[#0F172A] flex flex-col gap-4">
+<div class="flex items-center gap-4">
+<div class="flex-1">
+<input class="w-full bg-[#1E293B] border border-slate-700 text-sm text-white px-4 py-2.5 rounded focus:ring-1 focus:ring-red-500/50 focus:border-red-500/50 outline-none transition-all" placeholder="반려 사유 입력" type="text"/>
+</div>
+<button class="px-6 py-2.5 border border-red-500 text-red-500 font-bold text-sm rounded hover:bg-red-500/10 transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">cancel</span>
+              반려
+            </button>
+<button class="px-10 py-2.5 bg-green-600 text-white font-bold text-sm rounded hover:bg-green-700 transition-colors flex items-center gap-2 shadow-lg shadow-green-900/20">
+<span class="material-symbols-outlined text-sm">check_circle</span>
+              승인
+            </button>
+</div>
+<div class="flex items-center gap-2 text-slate-500">
+<span class="material-symbols-outlined text-xs">info</span>
+<p class="text-[11px] font-medium tracking-tight">승인 시 판매 가능 상태로 전환됩니다. 객실 예약 대기 리스트에서 즉시 확인 가능합니다.</p>
+</div>
+</footer>
+</section>
+</div>
+</main>
+<script>
+    document.querySelectorAll('.cursor-pointer').forEach(item => {
+      item.addEventListener('click', function() {
+        console.log('Task selected');
+      });
+    });
+  </script>
+</body></html>

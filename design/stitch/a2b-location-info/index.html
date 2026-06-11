@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Đăng ký Villa - Bước 2/4</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+                primary: "#0D9488",
+                secondary: "#F59E0B",
+                available: "#16A34A",
+                confirmed: "#2563EB",
+                hold: "#DBEAFE",
+                blocked: "#6B7280",
+                not_sellable: "#DC2626"
+            },
+            borderRadius: {
+                    "DEFAULT": "0.5rem",
+                    "lg": "1rem",
+                    "xl": "1.5rem",
+                    "full": "9999px"
+            },
+            fontFamily: {
+                    "headline": ["Be Vietnam Pro"],
+                    "display": ["Be Vietnam Pro"],
+                    "body": ["Be Vietnam Pro"],
+                    "label": ["Be Vietnam Pro"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Be Vietnam Pro', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .step-progress {
+            height: 4px;
+            background: #f3f4f6;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .step-progress-fill {
+            height: 100%;
+            background: #0D9488;
+            width: 50%; /* Step 2/4 */
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-white text-neutral-900 antialiased min-h-screen flex flex-col">
+<!-- TopAppBar (From JSON) -->
+<header class="fixed top-0 w-full z-50 bg-white dark:bg-neutral-900 border-b border-neutral-100 dark:border-neutral-800 shadow-sm flex items-center justify-between px-4 h-14">
+<button class="active:scale-95 transition-transform text-neutral-500 hover:bg-neutral-50 p-2 rounded-full">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-headline font-semibold text-lg text-teal-600 dark:text-teal-400">Đăng ký villa</h1>
+<div class="text-neutral-500 font-label font-medium text-sm">Bước 2/4</div>
+</header>
+<!-- Content Canvas -->
+<main class="flex-1 pt-20 pb-40 px-6 max-w-2xl mx-auto w-full">
+<!-- Progress Bar (Visual aid for wizard) -->
+<div class="mb-8">
+<div class="flex justify-between items-center mb-2">
+<h2 class="text-2xl font-bold tracking-tight">Vị trí &amp; tham khảo</h2>
+</div>
+<div class="step-progress">
+<div class="step-progress-fill"></div>
+</div>
+</div>
+<div class="space-y-8">
+<!-- Selected Complex Row -->
+<section>
+<label class="block text-sm font-medium text-neutral-500 mb-3">Khu vực đã chọn</label>
+<div class="flex items-center gap-4 p-4 bg-neutral-50 rounded-xl border border-neutral-100">
+<div class="w-16 h-16 rounded-lg bg-teal-50 flex items-center justify-center relative overflow-hidden flex-shrink-0">
+<img alt="Map marker" class="w-full h-full object-cover opacity-80" data-alt="A stylized aerial view of a tropical luxury resort map, showing organized villa plots and lush green landscaping. The lighting is bright and sunny, reflecting a high-end travel experience. The visual style is clean and professional with a soft teal and sand color palette consistent with a premium property management interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC12IFMw7Q7Q-mPFEQ2c0QLirw8kFFdeb1kNIyvfjeQJdsVyDVllqaosM5GMBzXrANC1FMrmRrqF1ArXPG64R67OGtjvi-rgPWH9CbpQQvz5pxejD-tKz1gqrML9CpLBK4KExVI2C9EIp0D_rMgBhswd0jRCU7ZcMXoF3k7Dfd-SB3eShu9DIE1LwFXxWXkrxehv8HJ8bD5ZSOi22n4ZxJZWaLR0Iv4CttfrV-imHrCvNRRywHUhqGNcWU2BZcDgzVOIhB1MCsnG_Qb"/>
+<span class="material-symbols-outlined absolute text-teal-600" style="font-variation-settings: 'FILL' 1;">location_on</span>
+</div>
+<div>
+<p class="font-semibold text-lg">Khu: Sonasea</p>
+<p class="text-neutral-500 text-sm">Phú Quốc, Kiên Giang</p>
+</div>
+<button class="ml-auto text-teal-600 text-sm font-semibold p-2">Thay đổi</button>
+</div>
+</section>
+<!-- Address Input -->
+<section>
+<div class="flex justify-between items-end mb-2">
+<label class="block text-sm font-medium text-neutral-700" for="address">Địa chỉ cụ thể</label>
+<span class="text-[10px] uppercase tracking-wider font-bold text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded">Không bắt buộc</span>
+</div>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-neutral-400">pin_drop</span>
+</div>
+<input class="block w-full pl-11 pr-4 py-4 bg-white border border-neutral-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all text-lg" id="address" placeholder="VD: Lô SV-01, Đường số 4..." type="text"/>
+</div>
+<p class="mt-2 text-sm text-neutral-400">Giúp khách hàng dễ dàng tìm thấy villa của bạn trên bản đồ.</p>
+</section>
+<!-- Monthly Rent Reference -->
+<section>
+<div class="flex justify-between items-end mb-2">
+<label class="block text-sm font-medium text-neutral-700" for="price">Giá thuê tháng (tham khảo)</label>
+<span class="text-[10px] uppercase tracking-wider font-bold text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded">Không bắt buộc</span>
+</div>
+<div class="relative">
+<input class="block w-full px-4 py-4 bg-white border border-neutral-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all text-lg font-semibold" id="price" placeholder="0" type="number"/>
+<div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+<span class="text-neutral-500 font-bold">VND</span>
+</div>
+</div>
+<div class="mt-3 flex items-start gap-2 p-3 bg-amber-50 rounded-lg">
+<span class="material-symbols-outlined text-amber-600 text-sm mt-0.5">info</span>
+<p class="text-xs text-amber-800 leading-relaxed">Thông tin này chỉ dùng để hệ thống đề xuất mức giá tối ưu. Bạn có thể thay đổi bất cứ lúc nào trong cài đặt giá.</p>
+</div>
+</section>
+</div>
+</main>
+<!-- BottomNavBar (From JSON Logic) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex flex-col gap-3 p-4 bg-white dark:bg-neutral-900 border-t border-neutral-100 dark:border-neutral-800 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+<!-- Continue Button (Primary Action - "Tiếp tục" label from JSON destination_count/label_texts) -->
+<button class="bg-teal-600 text-white rounded-xl py-4 px-6 flex items-center justify-center gap-2 w-full max-h-[56px] active:scale-[0.98] transition-all duration-200 font-label font-bold text-base shadow-lg shadow-teal-100">
+<span>Tiếp tục</span>
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+<!-- Skip Button (Secondary Action - "Bỏ qua" label from JSON) -->
+<button class="text-neutral-500 py-2 px-6 flex items-center justify-center w-full max-h-[56px] active:scale-[0.98] transition-all duration-200 font-label font-medium text-sm hover:text-neutral-800">
+<span>Bỏ qua bước này</span>
+</button>
+</nav>
+<!-- Background Decoration for Tropical Feel -->
+<div class="fixed top-0 right-0 -z-10 opacity-10 pointer-events-none">
+<svg height="300" viewbox="0 0 200 200" width="300" xmlns="http://www.w3.org/2000/svg">
+<path d="M44.7,-76.4C58.1,-69.2,69.5,-57.4,76.6,-43.8C83.8,-30.2,86.7,-15.1,84.7,-0.7C82.7,13.7,75.8,27.4,67.7,40.1C59.6,52.8,50.3,64.5,38.1,72.4C25.9,80.3,10.8,84.4,-3.9,90.4C-18.7,96.4,-37.4,104.3,-50.2,98.6C-63,92.9,-69.9,73.6,-76.3,57.1C-82.7,40.6,-88.6,26.9,-89.1,12.7C-89.6,-1.5,-84.7,-16.1,-78.3,-29.9C-71.9,-43.7,-64.1,-56.7,-52.4,-64.8C-40.7,-72.9,-25.1,-76.1,-9.3,-79.1C6.4,-82.1,22.1,-85,44.7,-76.4Z" fill="#0D9488" transform="translate(100 100)"></path>
+</svg>
+</div>
+<script>
+        // Micro-interaction for numeric input formatting
+        const priceInput = document.getElementById('price');
+        priceInput.addEventListener('input', (e) => {
+            // Logic for visual feedback or formatting could go here
+            // but standard numeric input is safer for this wizard step
+        });
+
+        // Simple active state visual for the Next button
+        const nextBtn = document.querySelector('nav button:first-child');
+        nextBtn.addEventListener('click', () => {
+            nextBtn.classList.add('scale-95');
+            setTimeout(() => nextBtn.classList.remove('scale-95'), 150);
+        });
+    </script>
+</body></html>

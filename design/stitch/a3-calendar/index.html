@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+
+<html class="light" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Villa PMS - Lịch</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#0D9488", // Teal 600
+                        secondary: "#F59E0B", // Warm Sand
+                        available: "#16A34A",
+                        booked: "#2563EB",
+                        held: "#DBEAFE",
+                        blocked: "#6B7280",
+                        not_sellable: "#DC2626"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        headline: ["Be Vietnam Pro"],
+                        display: ["Be Vietnam Pro"],
+                        body: ["Be Vietnam Pro"],
+                        label: ["Be Vietnam Pro"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Be Vietnam Pro', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+        
+        .date-cell {
+            aspect-ratio: 1 / 1.1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .bottom-sheet-transition {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen pb-40">
+<!-- TopAppBar -->
+<header class="bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between px-4 h-16 w-full fixed top-0 z-40">
+<div class="flex items-center gap-3">
+<button class="p-2 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-teal-600 dark:text-teal-400" data-icon="menu">menu</span>
+</button>
+<h1 class="font-headline font-semibold text-lg text-teal-600 dark:text-teal-400">Villa PMS</h1>
+</div>
+<div class="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center overflow-hidden border-2 border-teal-50">
+<img alt="Profile" class="w-full h-full object-cover" data-alt="A professional avatar of a Vietnamese resort manager, wearing a smart casual teal polo shirt. The background is a soft-focus tropical resort setting with lush greenery and white sandy beaches. High-quality digital portrait with clean lines and vibrant colors, matching a premium hospitality app aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgnEdKiO_po4Rr_gqnWj5kTuD5i3kf-ry6EPfu6P24uid9Q1p449Y8SKyfhvYP7f2JUMtOk133niI7uQpMWrrmrBVJ_KIQ8RFOJ8TlBuikPDtrDOxUiOJuVrGRiKSAumLkn--y2fE3B55l-QabsZoqkBuDkcQYMZtMyCkMgHburhgXJzQMPBPeHnwQ-g4e0uzFv4jCCE_fsj5FZNdRsGnukS8vsfka-PaNq_mulCqmWQqnCQlvtrHqAWwuICCpGucWRUaUxjFUpN7Q"/>
+</div>
+</header>
+<main class="mt-16 px-4">
+<!-- Villa Selection Chips -->
+<section class="py-4 overflow-x-auto flex gap-2 hide-scrollbar -mx-4 px-4 sticky top-16 bg-slate-50 z-30">
+<button class="px-5 py-2.5 rounded-full bg-teal-600 text-white font-medium whitespace-nowrap shadow-sm active:scale-95 transition-transform">
+                Sonasea V11
+            </button>
+<button class="px-5 py-2.5 rounded-full bg-white border border-gray-200 text-gray-600 font-medium whitespace-nowrap active:scale-95 transition-transform">
+                Sonasea V12
+            </button>
+<button class="px-5 py-2.5 rounded-full bg-white border border-gray-200 text-gray-600 font-medium whitespace-nowrap active:scale-95 transition-transform">
+                Sunset A3
+            </button>
+<button class="px-5 py-2.5 rounded-full bg-white border border-gray-200 text-gray-600 font-medium whitespace-nowrap active:scale-95 transition-transform">
+                Premier P5
+            </button>
+</section>
+<!-- Month Navigator -->
+<section class="flex items-center justify-between mb-4 mt-2">
+<h2 class="text-xl font-bold text-gray-800">Tháng 7, 2026</h2>
+<div class="flex gap-1">
+<button class="p-2 rounded-lg bg-white border border-gray-100 shadow-sm text-gray-600 active:scale-90 transition-all">
+<span class="material-symbols-outlined" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="p-2 rounded-lg bg-white border border-gray-100 shadow-sm text-gray-600 active:scale-90 transition-all">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</section>
+<!-- Calendar Container -->
+<section class="bg-white rounded-2xl p-3 shadow-sm border border-gray-100">
+<div class="grid grid-cols-7 mb-4">
+<div class="text-center text-xs font-bold text-gray-400 uppercase tracking-wider">T2</div>
+<div class="text-center text-xs font-bold text-gray-400 uppercase tracking-wider">T3</div>
+<div class="text-center text-xs font-bold text-gray-400 uppercase tracking-wider">T4</div>
+<div class="text-center text-xs font-bold text-gray-400 uppercase tracking-wider">T5</div>
+<div class="text-center text-xs font-bold text-gray-400 uppercase tracking-wider">T6</div>
+<div class="text-center text-xs font-bold text-gray-400 uppercase tracking-wider">T7</div>
+<div class="text-center text-xs font-bold text-gray-400 uppercase tracking-wider">CN</div>
+</div>
+<div class="calendar-grid">
+<!-- Row 1 (Starts Wed) -->
+<div class="date-cell bg-transparent opacity-0"></div>
+<div class="date-cell bg-transparent opacity-0"></div>
+<div class="date-cell bg-white text-available border-2 border-available">1</div>
+<div class="date-cell bg-white text-available border-2 border-available">2</div>
+<div class="date-cell bg-white text-available border-2 border-available">3</div>
+<div class="date-cell bg-white text-available border-2 border-available">4</div>
+<div class="date-cell bg-white text-available border-2 border-available">5</div>
+<!-- Row 2 -->
+<div class="date-cell bg-booked text-white shadow-sm">6</div>
+<div class="date-cell bg-booked text-white shadow-sm">7</div>
+<div class="date-cell bg-white text-available border-2 border-available">8</div>
+<div class="date-cell bg-white text-available border-2 border-available">9</div>
+<div class="date-cell bg-white text-available border-2 border-available">10</div>
+<div class="date-cell bg-white text-available border-2 border-available">11</div>
+<div class="date-cell bg-white text-available border-2 border-available">12</div>
+<!-- Row 3 -->
+<div class="date-cell bg-white text-available border-2 border-available">13</div>
+<div class="date-cell bg-white text-available border-2 border-available">14</div>
+<!-- Selection starts here -->
+<div class="date-cell bg-teal-500 text-white ring-2 ring-teal-600 ring-offset-2 z-10">15</div>
+<div class="date-cell bg-teal-500 text-white ring-2 ring-teal-600 ring-offset-2 z-10">16</div>
+<div class="date-cell bg-teal-500 text-white ring-2 ring-teal-600 ring-offset-2 z-10">17</div>
+<div class="date-cell bg-white text-available border-2 border-available">18</div>
+<div class="date-cell bg-white text-available border-2 border-available">19</div>
+<!-- Row 4 -->
+<div class="date-cell bg-held border-2 border-dashed border-booked/40 text-booked">20</div>
+<div class="date-cell bg-held border-2 border-dashed border-booked/40 text-booked">21</div>
+<div class="date-cell bg-white text-available border-2 border-available">22</div>
+<div class="date-cell bg-blocked" style="background-color: #e5e7eb; background-image: linear-gradient(45deg, #d1d5db 25%, transparent 25%, transparent 50%, #d1d5db 50%, #d1d5db 75%, transparent 75%, transparent); background-size: 8px 8px; color: #6b7280;">23</div>
+<div class="date-cell bg-blocked" style="background-color: #e5e7eb; background-image: linear-gradient(45deg, #d1d5db 25%, transparent 25%, transparent 50%, #d1d5db 50%, #d1d5db 75%, transparent 75%, transparent); background-size: 8px 8px; color: #6b7280;">24</div>
+<div class="date-cell bg-white text-available border-2 border-available">25</div>
+<div class="date-cell bg-white text-available border-2 border-available">26</div>
+<!-- Row 5 -->
+<div class="date-cell bg-white text-available border-2 border-available">27</div>
+<div class="date-cell bg-white text-available border-2 border-available">28</div>
+<div class="date-cell bg-white text-available border-2 border-available">29</div>
+<div class="date-cell bg-white text-available border-2 border-available">30</div>
+<div class="date-cell bg-white text-available border-2 border-available">31</div>
+<div class="date-cell bg-transparent opacity-0"></div>
+<div class="date-cell bg-transparent opacity-0"></div>
+</div>
+</section>
+<!-- Legend Row -->
+<section class="mt-6 flex flex-wrap justify-between gap-y-3 px-1">
+<div class="flex items-center gap-2">
+<div class="flex items-center gap-2"><div class="w-4 h-4 rounded border-2 border-available bg-white"></div><span class="text-sm font-semibold text-gray-800">Trống</span></div>
+<span class="text-xs font-medium text-gray-500">Trống</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="flex items-center gap-2"><div class="w-4 h-4 rounded bg-booked"></div><span class="text-sm font-semibold text-gray-800">Đã đặt</span></div>
+<span class="text-xs font-medium text-gray-500">Đã đặt</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="flex items-center gap-2"><div class="w-4 h-4 rounded bg-held border-2 border-dashed border-booked/40"></div><span class="text-sm font-semibold text-gray-800">Giữ chỗ</span></div>
+<span class="text-xs font-medium text-gray-500">Giữ chỗ</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="flex items-center gap-2"><div class="w-4 h-4 rounded bg-gray-200" style="background-image: linear-gradient(45deg, #d1d5db 25%, transparent 25%, transparent 50%, #d1d5db 50%, #d1d5db 75%, transparent 75%, transparent); background-size: 8px 8px;"></div><span class="text-sm font-semibold text-gray-800">Đã khóa</span></div>
+<span class="text-xs font-medium text-gray-500">Đã khóa</span>
+</div>
+</section>
+</main>
+<!-- Bottom Sheet -->
+<div class="fixed inset-x-0 bottom-0 z-[60] bottom-sheet-transition translate-y-0 pointer-events-none" id="bottom-sheet">
+<div class="bg-white rounded-t-[2rem] shadow-[0_-10px_40px_rgba(0,0,0,0.1)] p-6 pt-2 w-full max-w-lg mx-auto pointer-events-auto">
+<!-- Handle -->
+<div class="flex justify-center mb-6">
+<div class="w-12 h-1.5 bg-gray-200 rounded-full mt-2"></div>
+</div>
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-xl bg-teal-50 flex items-center justify-center text-teal-600">
+<span class="material-symbols-outlined" data-icon="date_range">date_range</span>
+</div>
+<div>
+<p class="text-sm text-gray-500 font-medium">Đã chọn 3 ngày</p>
+<h3 class="text-xl font-bold text-gray-800">15/07 - 17/07</h3>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-3 pb-8">
+<button class="w-full h-16 bg-teal-600 text-white font-bold text-lg rounded-2xl active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" data-icon="lock">lock</span>
+                    Khóa ngày
+                </button>
+<button class="w-full h-16 bg-white border-2 border-teal-600 text-teal-600 font-bold text-lg rounded-2xl active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" data-icon="lock_open">lock_open</span>
+                    Hủy khóa
+                </button>
+</div>
+</div>
+</div>
+<!-- Backdrop for Bottom Sheet (Semi-transparent) -->
+<div class="fixed inset-0 bg-slate-900/20 z-50 backdrop-blur-[2px]"></div>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center h-20 px-2 pb-safe bg-white dark:bg-slate-900 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-teal-600 bg-teal-50 dark:bg-teal-900/20 rounded-xl px-3 py-1 active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined font-variation-settings-fill" data-icon="calendar_month" style="font-variation-settings: 'FILL' 1;">calendar_month</span>
+<span class="font-label text-xs font-medium">Lịch</span>
+</a>
+<a class="flex flex-col items-center justify-center text-gray-400 hover:text-teal-500 active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="book_online">book_online</span>
+<span class="font-label text-xs font-medium">Đặt phòng</span>
+</a>
+<a class="flex flex-col items-center justify-center text-gray-400 hover:text-teal-500 active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="domain">domain</span>
+<span class="font-label text-xs font-medium">Căn hộ</span>
+</a>
+<a class="flex flex-col items-center justify-center text-gray-400 hover:text-teal-500 active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label text-xs font-medium">Cài đặt</span>
+</a>
+</nav>
+<script>
+        // Simple micro-interaction for the bottom sheet
+        const bottomSheet = document.getElementById('bottom-sheet');
+        let isSheetOpen = true;
+
+        // Auto-scroll the selected chip into view if it wasn't the first one
+        window.addEventListener('DOMContentLoaded', () => {
+            // Logic to scroll or animate could go here
+        });
+
+        // Add touch feedback or simulation of selection change
+        document.querySelectorAll('.date-cell').forEach(cell => {
+            if(!cell.classList.contains('bg-transparent')) {
+                cell.addEventListener('click', function() {
+                    // Visual feedback for cell tap
+                    this.classList.add('scale-95');
+                    setTimeout(() => this.classList.remove('scale-95'), 100);
+                });
+            }
+        });
+    </script>
+</body></html>

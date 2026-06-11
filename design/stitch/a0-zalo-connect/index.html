@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Kết nối Zalo - Villa PMS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#0D9488", // Teal
+                        secondary: "#F59E0B", // Warm Sand
+                        zalo: "#0068FF", // Zalo Blue
+                        available: "#16A34A",
+                        confirmed: "#2563EB",
+                        hold: "#DBEAFE",
+                        blocked: "#6B7280",
+                        not_sellable: "#DC2626"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        headline: ["Be Vietnam Pro"],
+                        display: ["Be Vietnam Pro"],
+                        body: ["Be Vietnam Pro"],
+                        label: ["Be Vietnam Pro"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Be Vietnam Pro', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .step-indicator-track {
+            height: 4px;
+            background-color: #E5E7EB;
+            border-radius: 2px;
+            width: 100%;
+        }
+        .step-indicator-fill {
+            height: 100%;
+            background-color: #0D9488;
+            border-radius: 2px;
+            width: 100%;
+        }
+        .zalo-shadow {
+            box-shadow: 0 10px 15px -3px rgba(0, 104, 255, 0.2), 0 4px 6px -4px rgba(0, 104, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-white text-neutral-900 min-h-screen flex flex-col antialiased">
+<!-- TopAppBar -->
+<header class="w-full top-0 sticky bg-white dark:bg-neutral-900 border-b border-neutral-100 dark:border-neutral-800 z-40 transition-colors duration-200">
+<div class="flex items-center justify-between px-4 h-14 w-full">
+<button class="w-10 h-10 flex items-center justify-center text-teal-600 hover:bg-neutral-50 rounded-full transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-headline font-semibold text-lg text-teal-600 dark:text-teal-400">Thông báo Zalo</h1>
+<div class="w-10"></div> <!-- Spacer for center alignment -->
+</div>
+</header>
+<main class="flex-1 flex flex-col px-6 py-4 max-w-md mx-auto w-full">
+<!-- Step Indicator -->
+<div class="mb-8">
+<div class="flex justify-between items-center mb-2">
+<span class="text-xs font-bold text-teal-600 uppercase tracking-widest">Bước 2/2</span>
+<span class="text-xs font-medium text-neutral-400">Hoàn tất kết nối</span>
+</div>
+<div class="step-indicator-track overflow-hidden">
+<div class="step-indicator-fill"></div>
+</div>
+</div>
+<!-- Hero Illustration -->
+<div class="flex justify-center mb-8 relative">
+<div class="absolute -z-10 w-48 h-48 bg-teal-50 rounded-full blur-3xl opacity-60 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
+<img alt="Zalo Connection Illustration" class="w-48 h-48 object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBB3sTGgcMI4X_wauu3o-B0JCpcCAckb9p_mq4x2MQLFfCxUtem-JHL8GuKTu4TVQP_G9f_2G4lsY2I9BHSzlnw39dUl1R5e7Jg5c2_mG5KU1QN48Qv-YAZ7bzmeULLzWIdQtCoZWEqqV_9fZfZcytK04IK-pwqmdVI59fxHdXLb-mFSjkyCKt-KjPgf_9wfu1VEkKUWxIhC60IbgUAJZWBp4isouEGIYAGZ0oX5GDnjVSoZzhWVinO5QgK31GNzRd3pyGxUolVrCYi"/>
+</div>
+<!-- Instructions -->
+<div class="text-center mb-10">
+<h2 class="text-2xl font-bold text-neutral-900 leading-tight mb-4">
+                Kết bạn với Villa PMS trên Zalo để nhận thông báo đặt phòng
+            </h2>
+<p class="text-neutral-500 leading-relaxed">
+                Chúng tôi sẽ gửi thông tin đặt phòng mới, lịch trống và cập nhật thanh toán trực tiếp qua Zalo của bạn.
+            </p>
+</div>
+<!-- Primary Action -->
+<div class="space-y-4">
+<button class="w-full h-14 bg-[#0068FF] zalo-shadow hover:opacity-95 active:scale-95 transition-all text-white rounded-xl flex items-center justify-center gap-3 font-semibold text-lg px-6">
+<div class="bg-white rounded-full w-8 h-8 flex items-center justify-center">
+<span class="text-[#0068FF] font-black text-xl leading-none">Z</span>
+</div>
+                Kết bạn trên Zalo
+            </button>
+</div>
+<!-- Secondary Element: QR Code -->
+<div class="mt-8 bg-neutral-50 rounded-2xl p-6 border border-neutral-100 flex flex-col items-center">
+<p class="text-sm font-medium text-neutral-600 mb-4">Hoặc quét mã QR để kết nối nhanh</p>
+<div class="w-40 h-40 bg-white p-2 rounded-xl border border-neutral-200 shadow-sm relative overflow-hidden group">
+<img alt="Zalo QR Code" class="w-full h-full opacity-90 group-hover:opacity-100 transition-opacity" data-alt="A clean, high-resolution QR code displayed on a white card background. The QR code is perfectly centered and surrounded by a thin, minimalist light gray border. The overall aesthetic is professional and modern, fitting a high-end property management system's user interface. Soft lighting emphasizes the clean, flat design of the digital element." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCIrKKsDnmLXP69IKmR8qo-t5Yy5ZwGxFfTQ2SdlR2Yhj03MWOsWyPxL7HDISl4iHcXVz5gG7-vuCflEUMeJhOtPLm6ekfqYXI26tO0sLJXRhgebaCjKuezir_iwUBF-qEtiKPGqvLyw8hsoAVZqotPwv4BKmc47TOjUdOE_ZmlmdrvCcaN_I66VRupFHUEoZYtrV7qJeqHZYe3qBoD7LgtKCdU7o23265HSubc41-Eyk7-TXUsNfmnZ7DHfqgZGJhDFqRgQmCdiO2A"/>
+<!-- Decorative Corner Accents -->
+<div class="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-teal-500"></div>
+<div class="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-teal-500"></div>
+<div class="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-teal-500"></div>
+<div class="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-teal-500"></div>
+</div>
+</div>
+<!-- Spacing for bottom nav -->
+<div class="h-24"></div>
+</main>
+<!-- Bottom Action Bar (Footer Replacement based on JSON) -->
+<footer class="fixed bottom-0 left-0 w-full bg-white dark:bg-neutral-900 flex flex-col px-6 py-6 gap-2 items-center">
+<button class="text-neutral-400 font-medium text-sm hover:text-neutral-600 active:scale-95 transition-all underline underline-offset-4">
+            Để sau
+        </button>
+</footer>
+<!-- BottomNavBar (Optional hidden Shell if focused journey requires) -->
+<!-- Applying "BottomNavBar" from JSON specifically for step context -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-between items-center px-6 py-4 gap-4 bg-white dark:bg-neutral-900 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-50 rounded-t-xl hidden">
+<button class="flex flex-col items-center justify-center text-neutral-500 h-14 px-6 hover:opacity-90 active:scale-95 transition-transform">
+<span class="material-symbols-outlined">close</span>
+<span class="font-label font-medium text-sm">Bỏ qua</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-teal-600 text-white rounded-xl h-14 px-6 hover:opacity-90 active:scale-95 transition-transform">
+<span class="material-symbols-outlined">chevron_right</span>
+<span class="font-label font-medium text-sm">Tiếp tục</span>
+</button>
+</nav>
+<script>
+        // Micro-interactions
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('click', () => {
+                // Haptic feedback simulation could go here
+            });
+        });
+
+        // Simple visibility logic for footer skip
+        window.addEventListener('scroll', () => {
+            const footer = document.querySelector('footer');
+            if (window.scrollY > 50) {
+                footer.classList.add('opacity-90');
+            } else {
+                footer.classList.remove('opacity-90');
+            }
+        });
+    </script>
+</body></html>

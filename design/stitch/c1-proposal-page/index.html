@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+
+<html lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#0D9488", // teal-600
+                        secondary: "#F59E0B", // amber-500
+                        available: "#16A34A",
+                        confirmed: "#2563EB",
+                        hold: "#DBEAFE",
+                        blocked: "#6B7280",
+                        notSellable: "#DC2626"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        headline: ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"],
+                        display: ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"],
+                        body: ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"],
+                        label: ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Be Vietnam Pro', sans-serif; -webkit-font-smoothing: antialiased; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+        .glass-card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); }
+        body { min-height: max(884px, 100dvh); }
+    
+        /* DESIGN 공통 규칙 (2026-06-11): 한글 폰트 폴백 + 한국어 단어 낙하 방지 */
+        body { font-family: "Be Vietnam Pro", "Noto Sans KR", sans-serif; word-break: keep-all; }
+        button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
+    </style>
+</head>
+<body class="bg-neutral-50 text-neutral-900 min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="bg-white dark:bg-neutral-900 border-b border-neutral-100 dark:border-neutral-800 flex justify-between items-center w-full px-4 h-14 sticky top-0 z-50">
+<button class="text-teal-600 dark:text-teal-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors duration-200 p-2 rounded-full">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="text-teal-600 font-headline font-bold text-xl">Villa PMS</h1>
+<button class="text-teal-600 dark:text-teal-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors duration-200 p-2 rounded-full">
+<span class="material-symbols-outlined">share</span>
+</button>
+</header>
+<main class="max-w-md mx-auto px-4 py-6 space-y-6">
+<!-- Header Section -->
+<section class="flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<h2 class="text-2xl font-bold font-headline tracking-tight">하나투어님을 위한 제안</h2>
+<span class="bg-amber-500 text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider animate-pulse">
+                    47시간 후 만료
+                </span>
+</div>
+<p class="text-neutral-500 text-sm">Phu Quoc 프리미엄 빌라 단독 제안서입니다.</p>
+</section>
+<!-- Reservation Summary Row -->
+<div class="bg-white border border-neutral-100 rounded-xl p-4 flex items-center gap-4 shadow-sm">
+<div class="bg-teal-50 text-teal-600 p-3 rounded-lg">
+<span class="material-symbols-outlined">calendar_month</span>
+</div>
+<div class="flex-1">
+<p class="text-sm font-semibold text-neutral-800">
+                    7월 15일 (수) → 7월 18일 (토)
+                </p>
+<p class="text-xs text-neutral-500">3박 · 성인 4명</p>
+</div>
+</div>
+<!-- Villa Option Cards -->
+<div class="space-y-6">
+<!-- Card 1 -->
+<article class="bg-white rounded-xl overflow-hidden shadow-sm border border-neutral-100 group">
+<div class="relative aspect-[4/3] overflow-hidden">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="A luxurious tropical pool villa in Phu Quoc at sunset. The scene features a pristine private infinity pool reflecting a warm orange and teal sky. Modern architectural lines of the white villa contrast with lush green palm trees. The atmosphere is serene, high-end, and perfectly lit for a premium vacation vibe." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDks2H9iJfYb_4izYi0q-PhI7w_Zj8FkPISmDn3-8MpcZz4HOjxDDUobvtwZEdZwOjJYHYklg7WhC43GGFJowJOSP4LhOlWf38b0JwHnRiGJ1WrTqzAIKE0knlYj65N-FWzSSHprldboStg1JQ8km3x4o6SdY5pCgZEVPBDHXnFsMYM5U_vXG7IurzxpgWnBaSqus-Kt4XsqfFUcIEVPnFnLmZEyjK6pgl4Zm_vUizQvDl3b2aPKaARd_WCvlYxsQUezFbwfm41_Ajy"/>
+<div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+<span class="w-2 h-2 rounded-full bg-white"></span>
+<span class="w-2 h-2 rounded-full bg-white/50"></span>
+<span class="w-2 h-2 rounded-full bg-white/50"></span>
+</div>
+</div>
+<div class="p-5 space-y-4">
+<div>
+<h3 class="text-xl font-bold font-headline mb-2">쏘나씨 V12</h3>
+<div class="flex flex-wrap gap-2">
+<span class="text-[11px] font-medium bg-neutral-100 px-2.5 py-1 rounded-md text-neutral-600 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">bed</span> 침실 3
+                            </span>
+<span class="text-[11px] font-medium bg-neutral-100 px-2.5 py-1 rounded-md text-neutral-600 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">pool</span> 수영장
+                            </span>
+<span class="text-[11px] font-medium bg-teal-50 px-2.5 py-1 rounded-md text-teal-600 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">restaurant</span> 조식 포함
+                            </span>
+</div>
+</div>
+<div class="flex justify-between items-end border-t border-neutral-50 pt-4">
+<div>
+<p class="text-[11px] text-neutral-400">1박 450,000원</p>
+<p class="text-lg font-bold text-neutral-900">총 1,350,000원</p>
+</div>
+<button class="bg-teal-600 text-white px-6 py-3 rounded-lg font-bold text-sm active:scale-95 transition-transform">
+                            이 빌라로 가예약
+                        </button>
+</div>
+</div>
+</article>
+<!-- Card 2 -->
+<article class="bg-white rounded-xl overflow-hidden shadow-sm border border-neutral-100 group">
+<div class="relative aspect-[4/3] overflow-hidden">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="A contemporary white beachfront villa with a minimalist aesthetic under clear blue skies. The image highlights a spacious open-plan living area that flows into an outdoor terrace with designer sun loungers. High contrast between the crisp white walls and the deep blue of the nearby ocean creates a fresh, premium, and trustworthy feel." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtonj9WNJKKhZOCH6IwII_JUrmk6Q-JLMqWlTmNanytBPsJJwX3Pw_YyHlVdnlhk7eIBjHM51HWS_KJvqYU1YV8c-kS_-6ZwNhJraPfOyVUmCi5bGZz6hEcSXt3Asv-FMtvhYCeTRT1-EWziSGtVsiCuxlnBK0X1_ug4vidmebeLmX92t2-2PV-mTZP1v_7-R2hafUcWZv-jOjl8F2pmpqVQT4qRfz8wj-iUi9rY-Rbc5IfBB-NCU5MabS2waUmDoTNr4HKYFCCNSt"/>
+<div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+<span class="w-2 h-2 rounded-full bg-white"></span>
+<span class="w-2 h-2 rounded-full bg-white/50"></span>
+<span class="w-2 h-2 rounded-full bg-white/50"></span>
+</div>
+</div>
+<div class="p-5 space-y-4">
+<div>
+<h3 class="text-xl font-bold font-headline mb-2">쏘나씨 V11</h3>
+<div class="flex flex-wrap gap-2">
+<span class="text-[11px] font-medium bg-neutral-100 px-2.5 py-1 rounded-md text-neutral-600 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">bed</span> 침실 3
+                            </span>
+<span class="text-[11px] font-medium bg-neutral-100 px-2.5 py-1 rounded-md text-neutral-600 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">pool</span> 수영장
+                            </span>
+<span class="text-[11px] font-medium bg-neutral-100 px-2.5 py-1 rounded-md text-neutral-400 flex items-center gap-1 line-through">
+<span class="material-symbols-outlined text-[14px]">restaurant</span> 조식 불포함
+                            </span>
+</div>
+</div>
+<div class="flex justify-between items-end border-t border-neutral-50 pt-4">
+<div>
+<p class="text-[11px] text-neutral-400">1박 410,000원</p>
+<p class="text-lg font-bold text-neutral-900">총 1,230,000원</p>
+</div>
+<button class="bg-teal-600 text-white px-6 py-3 rounded-lg font-bold text-sm active:scale-95 transition-transform">
+                            이 빌라로 가예약
+                        </button>
+</div>
+</div>
+</article>
+<!-- Card 3 -->
+<article class="bg-white rounded-xl overflow-hidden shadow-sm border border-neutral-100 group">
+<div class="relative aspect-[4/3] overflow-hidden">
+<img class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="Interior view of a luxury master bedroom in a Phu Quoc villa. Large floor-to-ceiling windows offer a breathtaking view of the sea. The decor is warm and minimalist with sand-colored textiles, light wood furniture, and teal accents. Natural morning light fills the room, emphasizing a clean, airy, and inviting atmosphere for a high-end traveler." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuJiy7GXF9DCNdAd52NxSO0_dFBRd4eFWYMxmNfEyn9_Ff1uuFYOCE97P1j6-KpVIE_MnLdNQ3MGXyIWuXjtiZM7-YmrZLPuYfhODAHlYoHJz5VPDwq-oTFiNWQsCpW0_yf-Cr-7WxJTWy795SIEqFROHuohFV8M6LPboFbzTfVinBNryM2YiWTq1CqJ6lOmzcSihIKYxROn0k9g-T3Yf5KTWm271ABDeVpw9VcC06txq-lV-7g3RUFRBisZOB5kSfeT1FH7i3M-AT"/>
+<div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+<span class="w-2 h-2 rounded-full bg-white"></span>
+<span class="w-2 h-2 rounded-full bg-white/50"></span>
+<span class="w-2 h-2 rounded-full bg-white/50"></span>
+</div>
+</div>
+<div class="p-5 space-y-4">
+<div>
+<h3 class="text-xl font-bold font-headline mb-2">선셋 빌라</h3>
+<div class="flex flex-wrap gap-2">
+<span class="text-[11px] font-medium bg-neutral-100 px-2.5 py-1 rounded-md text-neutral-600 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">bed</span> 침실 4
+                            </span>
+<span class="text-[11px] font-medium bg-neutral-100 px-2.5 py-1 rounded-md text-neutral-600 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">waves</span> 바다 전망
+                            </span>
+<span class="text-[11px] font-medium bg-teal-50 px-2.5 py-1 rounded-md text-teal-600 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">restaurant</span> 조식 포함
+                            </span>
+</div>
+</div>
+<div class="flex justify-between items-end border-t border-neutral-50 pt-4">
+<div>
+<p class="text-[11px] text-neutral-400">1박 580,000원</p>
+<p class="text-lg font-bold text-neutral-900">총 1,740,000원</p>
+</div>
+<button class="bg-teal-600 text-white px-6 py-3 rounded-lg font-bold text-sm active:scale-95 transition-transform">
+                            이 빌라로 가예약
+                        </button>
+</div>
+</div>
+</article>
+</div>
+<!-- Footer Info Card -->
+<section class="bg-neutral-100/50 rounded-2xl p-6 flex flex-col items-center text-center gap-3 border border-dashed border-neutral-200">
+<div class="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-teal-600">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">shield</span>
+</div>
+<div>
+<p class="text-neutral-800 font-bold text-base leading-snug">
+                    가예약 후 48시간 내 입금 시<br/>예약이 확정됩니다
+                </p>
+<p class="text-neutral-500 text-xs mt-2">
+                    미입금 시 가예약은 자동으로 취소될 수 있습니다.
+                </p>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="w-full px-6 py-12 flex flex-col gap-4 text-center bg-neutral-50 dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-800">
+<div class="font-headline font-bold text-neutral-900 dark:text-white">Villa PMS Phu Quoc</div>
+<div class="flex justify-center gap-4">
+<a class="font-body text-sm text-neutral-500 hover:text-teal-600 transition-colors" href="#">이용약관</a>
+<a class="font-body text-sm text-neutral-500 hover:text-teal-600 transition-colors" href="#">개인정보처리방침</a>
+<a class="font-body text-sm text-neutral-500 hover:text-teal-600 transition-colors" href="#">보증금 정책</a>
+</div>
+<p class="font-body text-sm text-neutral-500">© 2024 Villa PMS Phu Quoc. All rights reserved.</p>
+</footer>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center px-4 py-2 pb-safe bg-white dark:bg-neutral-900 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-teal-600 bg-teal-50 dark:bg-teal-900/20 rounded-xl px-3 py-1 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">calendar_today</span>
+<span class="font-label text-xs font-medium">Booking</span>
+</a>
+<a class="flex flex-col items-center justify-center text-neutral-400 hover:opacity-80 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">event_note</span>
+<span class="font-label text-xs font-medium">Calendar</span>
+</a>
+<a class="flex flex-col items-center justify-center text-neutral-400 hover:opacity-80 active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label text-xs font-medium">Settings</span>
+</a>
+</nav>
+<script>
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                const rect = e.target.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                let ripple = document.createElement('span');
+                ripple.style.position = 'absolute';
+                ripple.style.left = `${x}px`;
+                ripple.style.top = `${y}px`;
+                ripple.classList.add('ripple');
+                this.appendChild(ripple);
+                setTimeout(() => ripple.remove(), 600);
+            });
+        });
+    </script>
+</body></html>
