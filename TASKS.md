@@ -25,10 +25,10 @@
 
 ## Sprint 2 — F3 제안·가예약 (M1 W4 ~ M2 W1)
 - [x] T2.0 Stitch 디자인: B2, B5, B8, C1 → design/stitch/ (DESIGN, 테오 확인) — 2026-06-11 전체 회의 검수 — 조건부 통과
-- [ ] T2.1 제안 생성 플로우 (Stitch B2 변환) (FE/BE) — **T1.3 QA 권고**: `findSellableVillaIds`를 villaIds 생략(전체 재고) 호출하는 route는 반드시 ADMIN role 검사 — leak-checklist 점검 항목
-- [ ] T2.2 공개 제안 페이지 /p/[token] (ko, 카운트다운) (FE)
-- [ ] T2.3 HOLD 생성 트랜잭션 (동시성 잠금 + 클릭 시점 가용성 재검증·마감 안내) + 가격 스냅샷 (BE) — 재검증은 lib/availability.ts `checkAvailability(tx, …)` 트랜잭션 내 호출. **T1.3 QA 권고**: API 입력 날짜 → Date 변환 시 UTC 자정 정규화 필수 (half-open 경계 어긋남 방지)
-- [ ] T2.4 홀드 만료 cron + 확정/취소 액션 (BE)
+- [ ] T2.1 제안 생성 플로우 (Stitch B2 변환) (FE/BE) — **T1.3 QA 권고**: `findSellableVillaIds`를 villaIds 생략(전체 재고) 호출하는 route는 반드시 ADMIN role 검사 — leak-checklist 점검 항목. **T2.3 QA 이관**: "제안 생성 시 24/48h 선택"의 영속 방식 결정 필요 — (a) Proposal.holdHours 컬럼 추가(TDA 검토) 또는 (b) Phase 1은 AppSetting 전역값만 사용으로 축소. createHold는 holdHours override 인자로 양쪽 모두 수용 가능
+- [ ] T2.2 공개 제안 페이지 /p/[token] (ko, 카운트다운) (FE) — **T2.3 QA 이관(완료 기준에 포함)**: ① HoldRejectedError("SOLD_OUT")의 detail(reasons — 검수 게이트 상태 포함)을 공개 응답에 노출 금지, "마감되었습니다"만 표시 ② quoteStayForVilla의 MissingRateError 미래핑 — 라우트에서 500 아닌 안내로 처리
+- [x] T2.3 HOLD 생성 트랜잭션 (동시성 잠금 + 클릭 시점 가용성 재검증·마감 안내) + 가격 스냅샷 (BE) — 2026-06-11 완료. lib/hold.ts `createHoldFromProposalItem`: 단일 $transaction(lockVillaInventory 공용 잠금 → 제안 검증 → checkAvailability 재검증 → 스냅샷 생성), 판매가=ProposalItem 복사·원가=HOLD 시점 합산·fx=Proposal 복사, Proposal ACTIVE→USED 원자 가드(QA D-1 — 제안 레벨 race 차단), 공급자 Notification 큐(판매가 미포함). QA 2차 통과. 계약: docs/contracts/T2.3-T2.4-hold.md
+- [x] T2.4 홀드 만료 cron + 확정/취소 액션 (BE) — 2026-06-11 완료. `expireHolds`(status 가드 updateMany — 확정 경합 차단) + app/api/cron/expire-holds(CRON_SECRET Bearer), `confirmHold`(만료 시각 경과 거부)·`cancelBooking`(cancelReason 필수, HOLD 취소 허용 — QA 편차 수용) + app/api/bookings/[id]/confirm·cancel(ADMIN 전용). vitest 19개. **잔여: Railway cron 5분 주기 등록(OPS)**
 - [ ] T2.5 예약 목록(/bookings, 필터·카운트다운) + 예약 상세(상태별 액션 버튼) (Stitch B5) (FE/BE)
 - [ ] T2.6 대시보드(/dashboard): 스탯 카드 4종 + 타임라인 + 활동 피드 + iCal 충돌 경보 배너 (Stitch B1) (FE/BE)
 

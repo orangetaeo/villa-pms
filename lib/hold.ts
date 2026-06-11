@@ -1,0 +1,421 @@
+import {
+  BookingStatus,
+  NotificationType,
+  PrismaClient,
+  ProposalStatus,
+  type Booking,
+} from "@prisma/client";
+import {
+  assertValidStayRange,
+  checkAvailability,
+  lockVillaInventory,
+  type StayRange,
+} from "./availability";
+import { assertSaleAmountColumns, quoteStayForVilla } from "./pricing";
+import { writeAuditLog } from "./audit-log";
+
+/**
+ * HOLD(가예약) 수명주기 단일 소스 (SPEC F3 흐름 3~5)
+ *
+ * - 생성: /p/[token] "이 빌라로 가예약" 클릭 → 단일 트랜잭션(빌라 잠금 → 가용성
+ *   재검증 → 스냅샷 생성). 재검증 실패 시 거부("마감되었습니다") — 더블부킹 최종 방어선
+ * - 스냅샷: 판매가 = ProposalItem 복사(고객이 본 가격), 원가 = HOLD 시점 박별 합산,
+ *   환율 = Proposal 복사. 이후 요율·환율 변경 무영향
+ * - 만료: cron(5분)이 holdExpiresAt 경과 HOLD → EXPIRED, 재고 자동 복귀
+ * - 알림: 공급자 Notification(PENDING) 큐 적재만 — 실발송은 T3.5 Zalo cron.
+ *   payload에 판매가·마진 절대 미포함 (마진 비공개 원칙)
+ */
+
+const MS_PER_HOUR = 3_600_000;
+
+/** AppSetting 키 — 홀드 기본 시간 (SPEC: 기본 48h, 제안 생성 시 24/48h 선택) */
+export const HOLD_HOURS_DEFAULT_KEY = "HOLD_HOURS_DEFAULT";
+export const DEFAULT_HOLD_HOURS = 48;
+const MAX_HOLD_HOURS = 168; // 7일 — 운영 실수 방어 상한
+
+/** HOLD 거부 사유 — /p/[token] 안내 분기용 */
+export type HoldRejectReason =
+  | "PROPOSAL_ITEM_NOT_FOUND"
+  | "PROPOSAL_NOT_ACTIVE" // USED·EXPIRED·REVOKED
+  | "PROPOSAL_EXPIRED" // expiresAt 경과 (status 갱신 전이라도 시각 기준 거부)
+  | "ITEM_ALREADY_BOOKED"
+  | "SOLD_OUT" // 가용성 재검증 실패 — "마감되었습니다"
+  | "HOLD_EXPIRED" // 확정 시점에 이미 만료
+  | "INVALID_STATUS"; // 상태 전이 불가 (확정/취소)
+
+export class HoldRejectedError extends Error {
+  constructor(
+    public readonly reason: HoldRejectReason,
+    detail?: string
+  ) {
+    super(detail ? `${reason}: ${detail}` : reason);
+    this.name = "HoldRejectedError";
+  }
+}
+
+// ===================== 순수 함수 층 (단위 테스트 대상) =====================
+
+/**
+ * 홀드 시간 결정 — 우선순위: override(제안별 24/48h 선택) > AppSetting > 기본 48.
+ * 1~168 정수만 허용 — 범위 밖·비정수 override는 RangeError, 설정값 오염은 기본값 폴백
+ */
+export function resolveHoldHours(
+  settingValue: string | null | undefined,
+  override?: number
+): number {
+  if (override !== undefined) {
+    if (!Number.isInteger(override) || override < 1 || override > MAX_HOLD_HOURS) {
+      throw new RangeError(`홀드 시간은 1~${MAX_HOLD_HOURS} 정수여야 합니다: ${override}`);
+    }
+    return override;
+  }
+  if (settingValue != null) {
+    const parsed = Number(settingValue);
+    if (Number.isInteger(parsed) && parsed >= 1 && parsed <= MAX_HOLD_HOURS) return parsed;
+    // 설정값 오염은 서비스 중단 사유가 아님 — 기본값 폴백
+  }
+  return DEFAULT_HOLD_HOURS;
+}
+
+export function computeHoldExpiresAt(now: Date, holdHours: number): Date {
+  return new Date(now.getTime() + holdHours * MS_PER_HOUR);
+}
+
+export interface ProposalForHoldInput {
+  proposalStatus: ProposalStatus;
+  proposalExpiresAt: Date;
+  /** ProposalItem.bookingId — 이미 가예약된 item인지 */
+  itemBookingId: string | null;
+  now: Date;
+}
+
+/** 제안이 가예약 가능한 상태인지 순수 판정 — 거부 시 사유 반환 */
+export function evaluateProposalForHold(
+  input: ProposalForHoldInput
+): HoldRejectReason | null {
+  if (input.itemBookingId) return "ITEM_ALREADY_BOOKED";
+  if (input.proposalStatus !== ProposalStatus.ACTIVE) return "PROPOSAL_NOT_ACTIVE";
+  if (input.proposalExpiresAt.getTime() <= input.now.getTime()) return "PROPOSAL_EXPIRED";
+  return null;
+}
+
+/** 박 수 — [checkIn, checkOut) UTC 자정 규약 */
+export function countNights(range: StayRange): number {
+  assertValidStayRange(range);
+  return Math.round((range.checkOut.getTime() - range.checkIn.getTime()) / 86_400_000);
+}
+
+// ===================== DB 층 =====================
+
+export interface CreateHoldInput {
+  proposalItemId: string;
+  guestName: string;
+  guestCount: number;
+  guestPhone?: string;
+  /** 제안별 24/48h 선택 (T2.1에서 전달). 미지정 시 AppSetting → 48 */
+  holdHours?: number;
+  /** 비로그인 고객 액션이므로 null 허용 — AuditLog에는 시스템 기록 */
+  actorUserId?: string | null;
+  now: Date;
+}
+
+/**
+ * 가예약 생성 — 단일 트랜잭션: 빌라 잠금 → 제안 검증 → 가용성 재검증 → 스냅샷 생성.
+ * 실패 시 HoldRejectedError(reason) — /p/[token]에서 사유별 안내.
+ */
+export async function createHoldFromProposalItem(
+  prisma: PrismaClient,
+  input: CreateHoldInput
+): Promise<Booking> {
+  if (!input.guestName.trim()) throw new RangeError("고객명은 필수입니다");
+  if (!Number.isInteger(input.guestCount) || input.guestCount < 1) {
+    throw new RangeError(`인원수가 잘못되었습니다: ${input.guestCount}`);
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const item = await tx.proposalItem.findUnique({
+      where: { id: input.proposalItemId },
+      include: { proposal: true, villa: { select: { supplierId: true, name: true } } },
+    });
+    if (!item) throw new HoldRejectedError("PROPOSAL_ITEM_NOT_FOUND");
+
+    // 재고 경합 쓰기 공통 잠금 — CalendarBlock 생성·iCal upsert와 동일 키
+    await lockVillaInventory(tx, item.villaId);
+
+    const rejectReason = evaluateProposalForHold({
+      proposalStatus: item.proposal.status,
+      proposalExpiresAt: item.proposal.expiresAt,
+      itemBookingId: item.bookingId,
+      now: input.now,
+    });
+    if (rejectReason) throw new HoldRejectedError(rejectReason);
+
+    const range: StayRange = { checkIn: item.checkIn, checkOut: item.checkOut };
+
+    // 클릭 시점 가용성 재검증 — 제안 발송 후 iCal 차단 등으로 재고가 사라질 수 있음 (SPEC 엣지)
+    const availability = await checkAvailability(tx, item.villaId, range);
+    if (!availability.sellable) {
+      throw new HoldRejectedError("SOLD_OUT", availability.reasons.join(","));
+    }
+
+    // 판매가 = 제안 스냅샷(고객이 본 가격) — 듀얼 컬럼 정합 검증
+    const saleCurrency = item.proposal.saleCurrency;
+    assertSaleAmountColumns(saleCurrency, { krw: item.totalKrw, vnd: item.totalVnd });
+
+    // 원가 = HOLD 시점 박별 합산 스냅샷 (요율 변경 무영향)
+    const quote = await quoteStayForVilla(tx, item.villaId, range, saleCurrency);
+
+    const holdHoursSetting = await tx.appSetting.findUnique({
+      where: { key: HOLD_HOURS_DEFAULT_KEY },
+    });
+    const holdHours = resolveHoldHours(holdHoursSetting?.value, input.holdHours);
+    const holdExpiresAt = computeHoldExpiresAt(input.now, holdHours);
+
+    const booking = await tx.booking.create({
+      data: {
+        villaId: item.villaId,
+        status: BookingStatus.HOLD,
+        channel: item.proposal.channel,
+        checkIn: item.checkIn,
+        checkOut: item.checkOut,
+        nights: countNights(range),
+        guestName: input.guestName.trim(),
+        guestCount: input.guestCount,
+        guestPhone: input.guestPhone?.trim() || null,
+        agencyName: item.proposal.channel === "DIRECT" ? null : item.proposal.clientName,
+        holdExpiresAt,
+        saleCurrency,
+        totalSaleKrw: item.totalKrw,
+        totalSaleVnd: item.totalVnd,
+        fxVndPerKrw: item.proposal.fxVndPerKrw,
+        supplierCostVnd: quote.totalSupplierCostVnd,
+      },
+    });
+
+    await tx.proposalItem.update({
+      where: { id: item.id },
+      data: { bookingId: booking.id },
+    });
+    // 가예약 발생 → 제안 사용됨 (다른 item은 USED 상태로 비활성 렌더).
+    // status 가드 필수: 빌라 락은 제안 레벨을 못 지킴 — 같은 제안의 다른 빌라 item을
+    // 동시 가예약하면 서로 다른 락이라 둘 다 통과하므로, 여기서 ACTIVE→USED 원자 전환이
+    // 두 번째 트랜잭션을 차단한다 (QA D-1)
+    const used = await tx.proposal.updateMany({
+      where: { id: item.proposalId, status: ProposalStatus.ACTIVE },
+      data: { status: ProposalStatus.USED },
+    });
+    if (used.count !== 1) throw new HoldRejectedError("PROPOSAL_NOT_ACTIVE");
+
+    // 공급자 알림 큐 — 판매가·마진 미포함 (마진 비공개), 실발송은 T3.5
+    await tx.notification.create({
+      data: {
+        userId: item.villa.supplierId,
+        type: NotificationType.BOOKING_HOLD,
+        payload: {
+          bookingId: booking.id,
+          villaId: item.villaId,
+          villaName: item.villa.name,
+          checkIn: item.checkIn.toISOString().slice(0, 10),
+          checkOut: item.checkOut.toISOString().slice(0, 10),
+          guestCount: input.guestCount,
+          holdExpiresAt: holdExpiresAt.toISOString(),
+        },
+      },
+    });
+
+    await writeAuditLog({
+      db: tx,
+      userId: input.actorUserId ?? null,
+      action: "CREATE",
+      entity: "Booking",
+      entityId: booking.id,
+      changes: {
+        status: { new: BookingStatus.HOLD },
+        proposalItemId: { new: item.id },
+        holdExpiresAt: { new: holdExpiresAt.toISOString() },
+      },
+    });
+
+    return booking;
+  });
+}
+
+export interface ExpireHoldsSummary {
+  expiredCount: number;
+  bookingIds: string[];
+}
+
+/**
+ * 홀드 만료 처리 (cron 5분 주기) — holdExpiresAt 경과 HOLD → EXPIRED, 재고 자동 복귀.
+ * 개별 트랜잭션 + `status: HOLD` 가드 updateMany — 동시 확정과 경합해도 한쪽만 승리
+ */
+export async function expireHolds(prisma: PrismaClient, now: Date): Promise<ExpireHoldsSummary> {
+  const candidates = await prisma.booking.findMany({
+    where: { status: BookingStatus.HOLD, holdExpiresAt: { lte: now } },
+    select: {
+      id: true,
+      villaId: true,
+      checkIn: true,
+      checkOut: true,
+      holdExpiresAt: true,
+      villa: { select: { supplierId: true, name: true } },
+    },
+  });
+
+  const expiredIds: string[] = [];
+  for (const b of candidates) {
+    await prisma.$transaction(async (tx) => {
+      const updated = await tx.booking.updateMany({
+        where: { id: b.id, status: BookingStatus.HOLD }, // 그 사이 확정됐으면 건너뜀
+        data: { status: BookingStatus.EXPIRED },
+      });
+      if (updated.count !== 1) return;
+
+      await tx.notification.create({
+        data: {
+          userId: b.villa.supplierId,
+          type: NotificationType.HOLD_EXPIRED,
+          payload: {
+            bookingId: b.id,
+            villaId: b.villaId,
+            villaName: b.villa.name,
+            checkIn: b.checkIn.toISOString().slice(0, 10),
+            checkOut: b.checkOut.toISOString().slice(0, 10),
+          },
+        },
+      });
+      await writeAuditLog({
+        db: tx,
+        userId: null, // cron 시스템 처리
+        action: "UPDATE",
+        entity: "Booking",
+        entityId: b.id,
+        changes: { status: { old: BookingStatus.HOLD, new: BookingStatus.EXPIRED } },
+      });
+      expiredIds.push(b.id);
+    });
+  }
+
+  return { expiredCount: expiredIds.length, bookingIds: expiredIds };
+}
+
+/**
+ * 입금 확정: HOLD → CONFIRMED (ADMIN — role 검사는 route 책임).
+ * 만료 시각이 지났으면 거부 — cron 미처리 상태라도 재고 공정성 우선, 재제안으로 처리
+ */
+export async function confirmHold(
+  prisma: PrismaClient,
+  input: { bookingId: string; actorUserId: string; now: Date }
+): Promise<Booking> {
+  return prisma.$transaction(async (tx) => {
+    const booking = await tx.booking.findUnique({
+      where: { id: input.bookingId },
+      include: { villa: { select: { supplierId: true, name: true } } },
+    });
+    if (!booking) throw new HoldRejectedError("INVALID_STATUS", "예약이 없습니다");
+    if (booking.status !== BookingStatus.HOLD) {
+      throw new HoldRejectedError("INVALID_STATUS", `현재 상태: ${booking.status}`);
+    }
+    if (booking.holdExpiresAt && booking.holdExpiresAt.getTime() <= input.now.getTime()) {
+      throw new HoldRejectedError("HOLD_EXPIRED");
+    }
+
+    // status 가드 — ADMIN 동시 조작·cron 만료와의 경합에서 한쪽만 승리 (QA D-2)
+    const guarded = await tx.booking.updateMany({
+      where: { id: booking.id, status: BookingStatus.HOLD },
+      data: { status: BookingStatus.CONFIRMED },
+    });
+    if (guarded.count !== 1) {
+      throw new HoldRejectedError("INVALID_STATUS", "동시 변경이 감지되었습니다");
+    }
+    const updated = await tx.booking.findUniqueOrThrow({ where: { id: booking.id } });
+
+    await tx.notification.create({
+      data: {
+        userId: booking.villa.supplierId,
+        type: NotificationType.BOOKING_CONFIRMED,
+        payload: {
+          bookingId: booking.id,
+          villaId: booking.villaId,
+          villaName: booking.villa.name,
+          checkIn: booking.checkIn.toISOString().slice(0, 10),
+          checkOut: booking.checkOut.toISOString().slice(0, 10),
+          guestCount: booking.guestCount,
+        },
+      },
+    });
+    await writeAuditLog({
+      db: tx,
+      userId: input.actorUserId,
+      action: "UPDATE",
+      entity: "Booking",
+      entityId: booking.id,
+      changes: { status: { old: BookingStatus.HOLD, new: BookingStatus.CONFIRMED } },
+    });
+
+    return updated;
+  });
+}
+
+/**
+ * 취소: HOLD·CONFIRMED → CANCELLED, cancelReason 필수 (SPEC — ADMIN 전용, role 검사는 route).
+ * HOLD 취소 허용은 계약서 합의 편차 항목 (착오 홀드 즉시 해제, 재고 즉시 복귀)
+ */
+export async function cancelBooking(
+  prisma: PrismaClient,
+  input: { bookingId: string; cancelReason: string; actorUserId: string }
+): Promise<Booking> {
+  const reason = input.cancelReason.trim();
+  if (!reason) throw new RangeError("취소 사유(cancelReason)는 필수입니다");
+
+  return prisma.$transaction(async (tx) => {
+    const booking = await tx.booking.findUnique({
+      where: { id: input.bookingId },
+      include: { villa: { select: { supplierId: true, name: true } } },
+    });
+    if (!booking) throw new HoldRejectedError("INVALID_STATUS", "예약이 없습니다");
+    if (booking.status !== BookingStatus.HOLD && booking.status !== BookingStatus.CONFIRMED) {
+      throw new HoldRejectedError("INVALID_STATUS", `현재 상태: ${booking.status}`);
+    }
+
+    // status 가드 — ADMIN 동시 조작·cron 만료와의 경합에서 한쪽만 승리 (QA D-2)
+    const guarded = await tx.booking.updateMany({
+      where: {
+        id: booking.id,
+        status: { in: [BookingStatus.HOLD, BookingStatus.CONFIRMED] },
+      },
+      data: { status: BookingStatus.CANCELLED, cancelReason: reason },
+    });
+    if (guarded.count !== 1) {
+      throw new HoldRejectedError("INVALID_STATUS", "동시 변경이 감지되었습니다");
+    }
+    const updated = await tx.booking.findUniqueOrThrow({ where: { id: booking.id } });
+
+    await tx.notification.create({
+      data: {
+        userId: booking.villa.supplierId,
+        type: NotificationType.BOOKING_CANCELLED,
+        payload: {
+          bookingId: booking.id,
+          villaId: booking.villaId,
+          villaName: booking.villa.name,
+          checkIn: booking.checkIn.toISOString().slice(0, 10),
+          checkOut: booking.checkOut.toISOString().slice(0, 10),
+        },
+      },
+    });
+    await writeAuditLog({
+      db: tx,
+      userId: input.actorUserId,
+      action: "UPDATE",
+      entity: "Booking",
+      entityId: booking.id,
+      changes: {
+        status: { old: booking.status, new: BookingStatus.CANCELLED },
+        cancelReason: { new: reason },
+      },
+    });
+
+    return updated;
+  });
+}

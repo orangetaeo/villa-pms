@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import type { DbClient } from "@/lib/availability";
 
 type AuditAction = "CREATE" | "UPDATE" | "DELETE";
 
@@ -8,10 +9,13 @@ interface WriteAuditLogParams {
   entity: string;
   entityId: string;
   changes?: Record<string, { old?: unknown; new?: unknown }>;
+  /** 트랜잭션 안에서 원자적으로 기록할 때 tx 주입 (기본: 전역 prisma) */
+  db?: DbClient;
 }
 
 export async function writeAuditLog(params: WriteAuditLogParams): Promise<void> {
-  await prisma.auditLog.create({
+  const db = params.db ?? prisma;
+  await db.auditLog.create({
     data: {
       userId: params.userId,
       action: params.action,
