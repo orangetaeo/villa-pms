@@ -17,7 +17,7 @@
 - Prisma + PostgreSQL (Neon)
 - Railway 배포, PWA (모바일 대응)
 - 인증: NextAuth (Credentials) + Zalo 계정 연결(zaloUserId)
-- 알림: Zalo OA API (예약·홀드만료·청소요청·정산)
+- 알림: Zalo 개인 계정(zca-js, QR 로그인) — Nike 방식 재사용, ADR-0005 (예약·홀드만료·청소요청·정산)
 - 번역/OCR: Gemini API (KR↔VN 번역, 여권 OCR)
 - 이미지 저장: Railway volume 또는 Cloudflare R2 (TBD — TASKS.md 참고)
 - **디자인: Google Stitch** (stitch.withgoogle.com) — 모든 화면은 Stitch에서 먼저 생성, HTML/Tailwind export를 `design/stitch/`에 저장 후 Next.js 컴포넌트로 변환. 프롬프트와 변환 규칙은 `docs/DESIGN.md` 필독
@@ -126,9 +126,7 @@ npm run lint && npm run typecheck
 ```
 DATABASE_URL=          # Neon PostgreSQL
 NEXTAUTH_SECRET=
-ZALO_OA_ACCESS_TOKEN=  # Zalo Official Account
-ZALO_APP_ID=
-ZALO_APP_SECRET=
+ZALO_CREDS_KEY=        # zca-js credential 암호화 키 (DB에 AES-256-GCM 저장, ADR-0005)
 GEMINI_API_KEY=
 STORAGE_*=             # 이미지 저장소 (TBD)
 CRON_SECRET=           # 홀드 만료 처리용
