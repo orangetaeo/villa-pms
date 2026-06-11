@@ -19,7 +19,7 @@
 - [ ] T1.4 SUPPLIER 월 달력 (탭 토글 차단) (UX-VN)
 - [ ] T1.5 ADMIN 타임라인 매트릭스 뷰 (FE)
 - [ ] T1.6 iCal 수신 동기화 cron + 충돌 경보 (INTEG)
-- [ ] T1.7 시즌 달력 설정 화면(/settings/seasons) + 홀드 시간 설정 + lib/pricing.ts 박별 요율 합산 (Stitch B8) (FE/BE)
+- [ ] T1.7 시즌 달력 설정 화면(/settings/seasons) + 홀드 시간 설정 + ~~lib/pricing.ts 박별 요율 합산~~(2026-06-11 BE 부분 완료 — 아래 참조) (Stitch B8) (FE/BE) — **BE 완료분**: lib/pricing.ts(quoteStay 박별 합산·resolveSeason LOW 폴백·computeSalePriceVnd 마진·suggestSalePriceKrw 환산·assertSaleAmountColumns 듀얼 컬럼 검증·quoteStayForVilla tx 주입·getFxVndPerKrw), vitest 22개, QA 2차 통과. 잔여: /settings/seasons UI + 홀드 시간 설정 (FE). 계약: docs/contracts/T1.7-pricing.md
 - [ ] T1.8 ADMIN 사용자 목록(/users): Zalo 연결 뱃지·수동 매칭·비활성화 (Stitch B8) (FE)
 
 ## Sprint 2 — F3 제안·가예약 (M1 W4 ~ M2 W1)
@@ -56,7 +56,7 @@
 - [x] T6.2 수정 9장 (DESIGN): b2(채널 선택→통화 자동 전환+환율 참고 표시), c1·c3(VND 변형 — ₫ 천단위 쉼표, 별도 폴더 c1-vnd·c3-vnd), b5·b11·b12(금액 열 통화 기호 병기), b7(매출 통화별 분리 — KRW/VND 합산 금지), b10(비품 섹션 읽기 전용 + salePriceVnd 요율 열), b4(미니바 확인 체크리스트 섹션) — 2026-06-11 완료, QA 통과(반려 0건). 글자 세로 낙하 전수 수정(Noto Sans KR 폴백+keep-all/nowrap) 포함, 총 33장
 
 ### 구현 (각 스프린트에 흡수 — 담당 표기)
-- [ ] T6.3 결제 통화: lib/pricing.ts 통화 분기(saleCurrency별 박별 합산) + VillaRate salePriceVnd 편집(빌라 승인·요율 화면) + 제안·HOLD 통화/환율 스냅샷 + /settings 환율(FX_VND_PER_KRW) 입력 UI (BE/FE — Sprint 2 T2.1~T2.3과 병행)
+- [ ] T6.3 결제 통화: ~~lib/pricing.ts 통화 분기(saleCurrency별 박별 합산)~~(2026-06-11 T1.7 BE에서 완료 — KRW number/VND bigint 분기, USD 명시 거부 게이트) + VillaRate salePriceVnd 편집(빌라 승인·요율 화면) + 제안·HOLD 통화/환율 스냅샷 + /settings 환율(FX_VND_PER_KRW) 입력 UI (BE/FE — Sprint 2 T2.1~T2.3과 병행, 잔여 3건). **주의: StayQuote는 원가 포함 — ADMIN 외 응답 직렬화 금지(leak-checklist 등재)**
 - [ ] T6.4 비품: ~~마법사 4/5 비품 단계(a9 변환, 품목 사전 i18n 키는 LOC)~~(2026-06-11 T1.1에서 완료 — lib/amenities.ts 25종 + amenities.* i18n 키) + 내 빌라 상세 비품 수정 + ADMIN b10 비품 조회 (UX-VN/FE/LOC — Sprint 1 T1.2와 병행, 잔여 2건)
 - [ ] T6.5 체크아웃 미니바 확인 체크리스트 (읽기 전용, b4 변환에 포함) (FE — Sprint 3 T3.3과 병행)
 - [ ] T6.6 Zalo 채팅: webhook message 이벤트 수신(T3.7 엔드포인트 분기) → ZaloConversation/ZaloMessage 저장 + /messages 채팅 화면(48h 창 비활성) + Gemini 번역(수신 자동·발신 미리보기) + F5 알림 OUTBOUND 미러 기록 (INTEG/FE/BE — Sprint 3 T3.5·T3.7과 병행)
