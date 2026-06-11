@@ -37,7 +37,9 @@
 - [ ] T3.1 체크인: 여권 업로드 + Gemini OCR + 보증금 기록 (Stitch B3 변환) (INTEG/BE)
 - [ ] T3.2 동의서 표시 + 터치 서명 패드 (FE)
 - [ ] T3.3 체크아웃: 기준사진 비교 UI + 차감 기록 (FE/BE)
-- [ ] T3.4 CleaningTask 자동 생성 + isSellable 게이트 + 검수 목록·승인 화면(/inspections) (Stitch B6) (BE/FE)
+- [ ] T3.4 CleaningTask 자동 생성 + isSellable 게이트 + 검수 목록·승인 화면(/inspections) (Stitch B6) (BE/FE) — **BE 완료(2026-06-11)**: lib/cleaning.ts(상태기계 PENDING→제출→승인|반려·재제출, createCheckoutCleaningTask tx 주입 — T3.3에서 호출, 게이트 규칙: 미결 CHECKOUT 0건일 때만 isSellable=true — PERIODIC 우회 차단, 정기 방역 월 멱등 cron) + cleaning-tasks API 4종(role 스코프 강제) + cron/periodic-cleaning. vitest 11개, QA **통과**(동적 DB 검증 17건 — 게이트 우회 0건). 잔여: /inspections b6 변환(FE). 계약: docs/contracts/T3.4-cleaning-gate.md
+  - QA 비차단 후속 3건(BE 백로그): ① 승인 트랜잭션 villa 행 선 update 직렬화(크로스 tx race — Phase 1 ADMIN 1인이라 실위험 극저) ② submit 404/403 순서(정보성) ③ PERIODIC cron 동시 중복 방어(피해는 중복 알림뿐)
+- [ ] T3.4b **신규 빌라 게이트 초기 개방 절차 (TDA 결정 필요)** — Villa 기본 isSellable=false + setter가 청소 승인뿐 → 첫 판매 불가능(닭과 달걀). 빌라 APPROVE 시 초기 검수 태스크 자동 생성 또는 ADMIN 수동 개방 중 결정 (T3.4 QA 관찰)
 - [ ] T3.5 lib/zalo.ts OA 발송 + Notification 로그 + 재시도 cron (INTEG)
 - [ ] T3.6 여권 Zalo 전달 (임시거주신고) (INTEG)
 - [ ] T3.7 Zalo 계정 연결 온보딩: OA follow webhook + 전화번호 매칭 + ADMIN 미연결 뱃지·수동 매칭 (INTEG/UX-VN)

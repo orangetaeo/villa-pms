@@ -1,0 +1,58 @@
+import { z } from "zod";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import { submitCleaningPhotos, CleaningTransitionError } from "@/lib/cleaning";
+
+const submitSchema = z.object({
+  photoUrls: z.array(z.string().min(1)).min(1, "청소 사진은 1장 이상 필요합니다").max(30),
+});
+
+/**
+ * POST /api/cleaning-tasks/[id]/submit — 청소 사진 제출 (SPEC F4 게이트 1단계)
+ * 권한: ADMIN / 해당 빌라 SUPPLIER / 배정된 CLEANER — 그 외 403
+ */
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const { role, id: userId } = session.user;
+
+  const { id } = await params;
+  const task = await prisma.cleaningTask.findUnique({
+    where: { id },
+    select: { id: true, assigneeId: true, villa: { select: { supplierId: true } } },
+  });
+  if (!task) return Response.json({ error: "not_found" }, { status: 404 });
+
+  const allowed =
+    role === "ADMIN" ||
+    (role === "SUPPLIER" && task.villa.supplierId === userId) ||
+    (role === "CLEANER" && task.assigneeId === userId);
+  if (!allowed) return Response.json({ error: "forbidden" }, { status: 403 });
+
+  const body = await req.json().catch(() => null);
+  const parsed = submitSchema.safeParse(body);
+  if (!parsed.success) {
+    return Response.json(
+      { error: "invalid_input", fields: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const updated = await submitCleaningPhotos(prisma, {
+      taskId: id,
+      photoUrls: parsed.data.photoUrls,
+      actorUserId: userId,
+    });
+    return Response.json({ task: updated });
+  } catch (e) {
+    if (e instanceof CleaningTransitionError) {
+      return Response.json({ error: "invalid_transition", message: e.message }, { status: 409 });
+    }
+    console.error("[cleaning-tasks/submit] 실패", e);
+    return Response.json({ error: "사진 제출에 실패했습니다" }, { status: 500 });
+  }
+}
