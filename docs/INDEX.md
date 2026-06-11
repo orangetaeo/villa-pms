@@ -23,6 +23,7 @@
 | 정산·환율 | .claude/skills/fin/settlement-pattern.md |
 | 디자인 생성 (Stitch) | docs/DESIGN.md + .claude/skills/design/stitch-design.md |
 | 배포·환경변수·cron | .claude/skills/ops/deployment-pattern.md |
+| 이미지 업로드·저장소 | docs/decisions/0004-image-storage.md + lib/storage.ts·lib/image-resize.ts |
 | 번역·i18n 키·문구 | .claude/skills/loc/i18n-pattern.md |
 
 ## 3열람실 — 참고 서가 (필요 시만)
