@@ -163,3 +163,15 @@ COSTS.md  IDEAS.md  PROGRESS.md  TASKS.md
 2. 스키마 변경은 TDA 검토 후 마이그레이션
 3. 완료 시 PROGRESS.md 갱신
 4. 공급자 화면 작업 시 항상 자문: "베트남 중계인이 설명 없이 쓸 수 있는가?"
+
+## 병렬 세션 규칙 (여러 Claude 세션 동시 작업 시 — 필수)
+
+여러 세션이 같은 작업 폴더를 공유하므로, 아래 규칙 위반 시 다른 세션의 미완성 작업이 파손된다.
+
+1. **커밋은 자기 계약서 범위 파일만 명시적으로 add** — `git add -A` / `git add .` 절대 금지. git status에 모르는 파일이 있으면 다른 세션의 진행 중 작업이므로 건드리지 않는다
+2. **계약서에 "수정 금지 구역" 선언** — 다른 세션이 작업 중인 파일·디렉터리를 docs/contracts/<태스크>.md에 명시하고 절대 수정하지 않는다
+3. **공유 파일은 추가만 + 빠른 커밋** — `messages/ko.json`·`vi.json`(키 추가만), `app/globals.css`(규칙 추가만), `package.json`(원칙적 동결, 필요 시 계약서에 선언). 작업 완료 즉시 커밋해서 겹침 시간 최소화
+4. **PROGRESS.md/TASKS.md는 커밋 직전에 한 번만 갱신** — 자기 태스크 행만 수정
+5. **dev 서버는 한 세션만 실행** — 포트·Prisma 엔진 파일 잠금 충돌 방지. `prisma generate` EPERM 발생 시 다른 세션의 dev 서버가 원인
+6. **schema 변경·`prisma db push`는 한 세션 전담** (TDA 담당 세션). 다른 세션은 push 완료 확인 후 새 모델 사용
+7. **파괴적 git 명령 금지** — `git checkout .`, `git reset --hard`, `git stash` 등은 다른 세션 작업까지 날린다. 절대 실행하지 않는다
