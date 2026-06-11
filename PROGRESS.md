@@ -55,6 +55,8 @@
 
 | 2026-06-11 | T2.1(FE) | 제안 화면 완료 — **F3 판매 루프의 마지막 조각**: /proposals/new(b2 변환 — 3패널, 채널→통화 자동 전환(여행사·랜드사 VND 쉼표+결제 캡션/직접 KRW)+환율 참고 칩(FX 미설정 안내), candidates 후보 카드(photoUrl additive·warnings 배너)·최대 3개 선택·마진 요약(VND 정확/KRW 환율 참고)·24h/48h 토글·생성 모달 /p/{token} 복사) + /proposals(b12 변환 — effectiveStatus 탭·만료 카운트다운·링크 복사·회수, ResponsiveTable 재사용) + PATCH /api/proposals/[id] revoke 신규(**updateMany 상태 가드** — 공개 가예약 ACTIVE→USED 원자 전이와의 race에서 USED 덮어쓰기 차단, 404/409 사후 구분, AuditLog tx 기록). QA 1차 **반려**(D-1 revoke race High)→수정→2차 반려(D-4 i18n 키 경로)→수정→**전체 통과**(누수 0건, 비로그인 실측 401/307). 금액 합산 전부 BigInt | b2 인원 입력 제외(스키마 무필드)·b12 검색/필터/푸터 지표 미구현 — 계약 편차 기재. createdAt는 Asia/Ho_Chi_Minh 표기(dotDateVn). messages는 부분 스테이징(adminProposals만 — T1.5 패턴, T2.5 병행 키 혼입 방지). 계약: docs/contracts/T2.1-proposal-fe.md |
 
+| 2026-06-11 | T2.5 | 예약 목록·상세 완료 (b5·b11 변환, 병행 세션 — T2.1-FE·T2.2·T3.4와 충돌 0건): /bookings(탭 6종 건수·월/빌라/채널/검색 필터·체크인 임박순·PAGE_SIZE 20·HOLD 카운트다운 뱃지·EXPIRED 흐림·ResponsiveTable 카드 전환·스탯 4종 — 가동률 computeOccupancyRate: NO_SHOW 포함/HOLD·CANCELLED·EXPIRED 제외, 월 경계 클리핑) + T2.6 링크 계약 `?filter=today-checkin|today-checkout`(VN 오늘). /bookings/[id](4단계 타임라인 스트립·종결 상태 배너·가격 스냅샷(원가는 ADMIN 가드 내)·결제 기록·AuditLog 활동 로그·내부 메모). 신규 API는 PATCH note 1개뿐(zod strip — 전이 우회 불가 테스트, 401/403/404), 액션은 기존 confirm/cancel만 호출. lib/booking-stats.ts(카운트다운 구조체+가동률 — 계약 편차: format.ts 대신 신규 파일, QA 수용). vitest 20개(전체 154), QA 조건부 통과 → 프로덕션 HTTP 증적(비로그인·SUPPLIER 307, ADMIN 200+마크업, 프리셋 200) + 커밋 8cee8f3 혼입 0건 확인 → **최종 통과** | messages adminBookings 블록만 update-index 부분 스테이징(2회째 — 패턴 정착). QA 회귀 권고: 실예약 데이터 생성 시 상세·확정/취소 실연 1회. 계약: docs/contracts/T2.5-bookings.md |
+
 ## 현재 상태 (2026-06-11 기준)
 
 ### 완료된 태스크
