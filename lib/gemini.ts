@@ -9,7 +9,9 @@ import { extractJsonFromAIResponse } from "@/lib/ai-utils";
  * (QA 권고 4 — 에러 로그에는 상태 코드·메시지만).
  */
 
-const GEMINI_MODEL = "gemini-2.0-flash";
+// gemini-2.0-flash는 2026-06 기준 퇴역("no longer available" 404) — 모델 수명 주기 대비
+// GEMINI_MODEL 환경변수로 핀 교체 가능 (코드 무변경 운영 — 프로덕션 404 실측 후 교체)
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 const GEMINI_TIMEOUT_MS = 30_000;
 
 export class GeminiNotConfiguredError extends Error {
