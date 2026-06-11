@@ -17,7 +17,8 @@
 | 오픈 기준·KPI·개선 루프 | docs/LAUNCH.md |
 | API·로직 패턴 | .claude/skills/backend/ 해당 패턴 |
 | 베트남어 화면 | .claude/skills/ux-vn/vn-ux-principles.md |
-| Zalo·Gemini·iCal | .claude/skills/integ/zalo-pattern.md |
+| Zalo·Gemini | .claude/skills/integ/zalo-pattern.md |
+| iCal 동기화 | .claude/skills/integ/ical-pattern.md + lib/ical.ts |
 | 코드 검토 | .claude/skills/qa/leak-checklist.md + evaluation-criteria.md |
 | 태스크 착수 전 | docs/contracts/ 스프린트 계약 작성·합의 |
 | 정산·환율 | .claude/skills/fin/settlement-pattern.md |

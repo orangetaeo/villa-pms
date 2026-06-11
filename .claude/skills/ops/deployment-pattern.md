@@ -23,4 +23,4 @@
 - 이미지 업로드가 핵심이므로 오프라인 캐시는 조회 화면만 — 업로드는 온라인 전제
 
 ## 교훈 축적
-- (없음 — 개발 착수 전)
+- **cron 라우트 모범 패턴 (T1.6 ical-sync)**: ① CRON_SECRET 미설정 시 500 — 무인증 개방 금지 ② Bearer 검증이 어떤 DB 접근보다 선행 ③ `export const dynamic = "force-dynamic"` (GET 캐싱 방지) ④ 엔티티 단위 실패 격리(한 건의 예외가 전체 cron 중단 금지) ⑤ 요약 JSON 반환 + 에러·충돌은 console.error (Phase 1)
