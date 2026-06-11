@@ -71,7 +71,7 @@
 - [ ] T4.2 시드 스크립트: 쏘나씨 V11/V12/V25 + 썬셋 사나토 실데이터 입력 (PM)
 - [ ] T4.3 공급자 온보딩 가이드 (vi, 이미지 1장짜리) (LOC/UX-VN)
 - [ ] T4.4 베트남 사용자 1명 실사용 테스트 → 피드백 반영 (PM/UX-VN)
-- [ ] T4.5 F6 최소 정산: ADMIN 월 집계·PAID 처리 + SUPPLIER /my-earnings 원가 조회 (Stitch B7 — DESIGN 선행) (BE/FE)
+- [ ] T4.5 **(진행 중 — 세션 점유 2026-06-11, 이 영역 파일 수정 금지: app/(admin)/settlements·app/(supplier)/earnings·app/api/settlements·lib/settlement*)** F6 최소 정산: ADMIN 월 집계·PAID 처리 + SUPPLIER /my-earnings 원가 조회 (Stitch b7·a7 — 디자인 존재) (BE/FE)
 - [ ] T4.6 LAUNCH.md 오픈 체크리스트 최종 점검 → 오픈 (PM/QA/OPS)
 
 ## Phase 2 백로그
