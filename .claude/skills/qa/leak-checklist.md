@@ -27,4 +27,6 @@
 - (2026-06-11 T1.2 QA) Windows에서 dev 서버가 떠 있으면 `prisma generate`가 query engine DLL rename EPERM으로 실패 → `npm run build` 검증 전에 dev 프로세스를 내리고, 빌드 후 재기동할 것.
 - (2026-06-11 T1.7 settings QA) Windows git-bash에서 `curl -d '{"label":"한글"}'` 인라인 바디는 CP949 바이트로 전송돼 DB에 깨진 문자열이 그대로 저장됨 — 앱의 인코딩 버그로 오판하기 쉬움. 한글 페이로드 검증은 node로 UTF-8 JSON 파일을 만들어 `--data-binary @file`로 보내고, 판정도 콘솔 출력이 아닌 node에서 `===` 문자열 비교로 할 것.
 - (2026-06-11 T1.7 settings QA) 장시간 떠 있던 dev 서버가 "Jest worker child process exceptions" 상태로 좀비화되면 모든 라우트가 500을 반환 — 로그인 500을 권한 버그로 오판하지 말 것. 동적 테스트 전 `/api/auth/csrf`가 200 + JSON인지 먼저 확인하고, 아니면 dev 재기동 후 진행.
+- (2026-06-11 T1.8 QA) SSR HTML에서 `disabled` **속성** 검증 시 `/disabled/` grep은 Tailwind `disabled:cursor-not-allowed` 등 **variant 클래스에 전부 오탐**됨(8/8 disabled로 보임) — `class="..."`를 제거한 뒤 `\sdisabled(=""|\s|>)`로 판정할 것. React SSR은 boolean true 속성을 `disabled=""`로 출력함. (이번 실측: 스위치 8개 중 본인 행 2개만 속성 disabled — 정상)
+- (2026-06-11 T1.8 QA) i18n 페이지 HTML 검증은 **검증 문자열을 추측하지 말고 messages/ko.json의 실제 값을 먼저 읽고** 대조할 것 — "운영자"로 검사했으나 실제 키 값은 "관리자"라 렌더 정상인데 미검출로 오판할 뻔함.
 - (2026-06-11 T2.1 QA) **신형 컬럼 타입이 직렬화 유틸을 통과하는지 매번 확인** — Prisma.Decimal(fxVndPerKrw)이 serializeBigInt의 일반 객체 순회에 걸려 내부 구조 `{s,e,d}`로 응답됨. FX 미설정 환경에선 null이라 증상이 안 보이는 "공허 통과" — 새 타입(Decimal·Bytes 등) 컬럼이 응답에 처음 등장하는 태스크는 해당 타입 인스턴스로 직렬화 단위 테스트를 동반할 것 (수정: serialize.ts에 Prisma.Decimal.isDecimal 분기).

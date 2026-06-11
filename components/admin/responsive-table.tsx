@@ -27,6 +27,8 @@ interface ResponsiveTableProps<T> {
   /** 모바일 카드 상단 커스텀 영역 (사진·제목 등) */
   cardHeader?: (row: T) => ReactNode;
   emptyMessage?: ReactNode;
+  /** 행 추가 클래스 (비활성 행 배경 등 — 데스크톱 tr·모바일 카드 공통, T1.8 b13) */
+  rowClassName?: (row: T) => string | undefined;
 }
 
 export default function ResponsiveTable<T>({
@@ -35,6 +37,7 @@ export default function ResponsiveTable<T>({
   rowKey,
   cardHeader,
   emptyMessage,
+  rowClassName,
 }: ResponsiveTableProps<T>) {
   if (rows.length === 0) {
     return (
@@ -63,7 +66,10 @@ export default function ResponsiveTable<T>({
           </thead>
           <tbody className="divide-y divide-slate-800">
             {rows.map((row) => (
-              <tr key={rowKey(row)} className="hover:bg-slate-800/30 transition-colors">
+              <tr
+                key={rowKey(row)}
+                className={`hover:bg-slate-800/30 transition-colors ${rowClassName?.(row) ?? ""}`}
+              >
                 {columns.map((col) => (
                   <td key={col.key} className={`px-4 py-4 ${col.className ?? ""}`}>
                     {col.cell(row)}
@@ -80,7 +86,7 @@ export default function ResponsiveTable<T>({
         {rows.map((row) => (
           <div
             key={rowKey(row)}
-            className="bg-admin-card rounded-xl border border-slate-800 p-4 flex flex-col gap-2"
+            className={`bg-admin-card rounded-xl border border-slate-800 p-4 flex flex-col gap-2 ${rowClassName?.(row) ?? ""}`}
           >
             {cardHeader?.(row)}
             {columns

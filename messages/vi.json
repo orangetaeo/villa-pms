@@ -399,5 +399,57 @@
       "saved": "Đã lưu tỷ giá.",
       "error": "Lưu thất bại. Vui lòng thử lại."
     }
+  },
+  "adminUsers": {
+    "title": "Quản lý người dùng",
+    "subtitle": "Quản lý toàn bộ người dùng của hệ thống.",
+    "totalCount": "Tổng {count} người",
+    "searchPlaceholder": "Tìm theo tên, số điện thoại",
+    "tabs": {
+      "all": "Tất cả",
+      "supplier": "Nhà cung cấp",
+      "cleaner": "Dọn dẹp"
+    },
+    "roles": {
+      "ADMIN": "Quản trị viên",
+      "SUPPLIER": "Nhà cung cấp",
+      "CLEANER": "Dọn dẹp"
+    },
+    "inactiveBadge": "Ngừng hoạt động",
+    "columns": {
+      "name": "Tên",
+      "phone": "Số điện thoại",
+      "role": "Vai trò",
+      "zalo": "Liên kết Zalo",
+      "villas": "Số villa",
+      "joined": "Ngày tham gia",
+      "status": "Trạng thái"
+    },
+    "zalo": {
+      "connected": "Đã kết nối",
+      "notConnected": "Chưa kết nối",
+      "link": "Liên kết thủ công",
+      "unlink": "Hủy liên kết",
+      "unlinkConfirm": "Hủy liên kết Zalo của người dùng này? Thông báo Zalo sẽ không được gửi nữa.",
+      "pickerTitle": "Chọn người theo dõi Zalo",
+      "pickerEmpty": "Chưa có người theo dõi Zalo — sẽ hiển thị sau khi kết nối webhook (T3.7).",
+      "noName": "Không có tên",
+      "connect": "Liên kết",
+      "cancel": "Hủy",
+      "linked": "Đã liên kết Zalo.",
+      "unlinked": "Đã hủy liên kết Zalo."
+    },
+    "toggle": {
+      "activate": "Kích hoạt",
+      "deactivate": "Vô hiệu hóa",
+      "selfHint": "Không thể vô hiệu hóa tài khoản của chính bạn.",
+      "updated": "Đã cập nhật trạng thái."
+    },
+    "errors": {
+      "selfDeactivate": "Không thể vô hiệu hóa tài khoản của chính bạn.",
+      "zaloConflict": "Tài khoản Zalo này đã được liên kết với người dùng khác.",
+      "generic": "Xử lý thất bại. Vui lòng thử lại."
+    },
+    "empty": "Không có người dùng để hiển thị."
   }
 }

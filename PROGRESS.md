@@ -43,6 +43,8 @@
 
 | 2026-06-11 | T2.1(BE) | 제안 생성 BE 완료 (병행 세션 — 충돌 0건): lib/proposal.ts — defaultCurrencyForChannel(DIRECT→KRW·여행사/랜드사→VND), effectiveProposalStatus(시각 기준 서버 판정 — c2 단일 렌더 소스), uniformNightlyPrice(균일가만 perNight, 시즌 경계 null — 평균 가공 금지), generateProposalToken(crypto 192bit — cuid 추측 가능성 차단), createProposal(트랜잭션: 항목별 sellable 재검증→박별 합산 스냅샷→듀얼 컬럼 검증, 부분 생성 금지, fx 스냅샷, AuditLog). 라우트: POST·GET /api/proposals, GET /api/proposals/candidates(전체 재고 ADMIN 강제, 요율 미설정 빌라 warnings 분리). vitest 14개(전체 101). QA 1차 반려 → 2차 **통과** | **QA D-1(중대)**: Prisma.Decimal(fxVndPerKrw)이 serializeBigInt에서 {s,e,d}로 파손 — FX 미설정이면 null이라 안 보이는 "공허 통과". serialize.ts isDecimal 분기로 단일 수정(bookings/confirm 잠재 결함 동시 치유) + 교훈 leak-checklist 등재. 401/403 분리 5핸들러. 스코프 확정: holdHours Phase 1 전역값만·항목 1~3(QA 수용). 잔여: B2·b12 FE 변환. 계약: docs/contracts/T2.1-proposal-be.md |
 
+| 2026-06-11 | T1.8 | ADMIN 사용자 관리 완료 (b13-users 변환): /users — 검색·역할 탭, 역할/Zalo 연결/활성 뱃지, 활성 토글(본인 행 disabled+API 400 이중 방어), Zalo 수동 매칭(미연결 ZaloConversation 선택 연결·해제, 웹훅 전 빈 상태 안내). API: GET(select 화이트리스트 — passwordHash 차단)·PATCH(discriminated union 4액션, LINK_ZALO 중복 409, $transaction으로 ZaloConversation userId 동기화), AuditLog 전 변경 기록. QA 독립 평가 **통과**(34항목 — 비활성화→로그인 실거부→재활성화 복구 실증, 누수 0건) | CLEANER 계정 0명이라 해당 뱃지는 코드 경로 확인만 — CLEANER 생성 태스크에서 재확인. 교훈 2건 leak-checklist 등재. ResponsiveTable rowClassName prop 추가(비파괴) |
+
 ## 현재 상태 (2026-06-11 기준)
 
 ### 완료된 태스크
