@@ -26,6 +26,7 @@
 | T1.7(BE) | 가격 계산 lib/pricing.ts (박별 합산·통화 분기·마진·환산·듀얼 컬럼 검증) + vitest 22개 — T2.1·T2.3·T1.2 요율 제안의 기반 |
 | T2.3/T2.4 | HOLD 수명주기 lib/hold.ts (생성 트랜잭션·만료 cron·확정/취소) + cron/expire-holds + bookings confirm·cancel API — QA 2차 통과 |
 | T2.1(BE) | 제안 생성 lib/proposal.ts + proposals·candidates API — T2.2 /p/[token]의 기반, QA 2차 통과 |
+| T2.2 | 공개 제안 페이지 /p/[token] (c1·c2·c3 변환) + 공개 HOLD API — F3 가예약 체인 완성, QA 3차 통과 |
 
 | 2026-06-11 | T1.7(BE)/T6.3(일부) | 가격 계산 완료 (병행 세션 — T1.2·T1.4·T1.6과 충돌 0건): lib/pricing.ts 단일 소스 — 순수층(resolveSeason [start,end) half-open·LOW 폴백·겹침 PEAK>HIGH 우선, quoteStay 박별 합산+KRW number/VND bigint 통화 분기+MissingRateError, computeSalePriceVnd 마진 PERCENT 내림/FIXED_VND, suggestSalePriceKrw 1e4 스케일 BigInt half-up 환산, assertSaleAmountColumns 듀얼 컬럼 검증) + DB 래퍼(quoteStayForVilla tx 주입, getFxVndPerKrw). vitest 22개(총 40), tsconfig target ES2020 1줄(BigInt 리터럴 — 계약서 선언, 전체 typecheck 회귀 0건). QA 1차 반려(D1 USD 무검증 통과·D2 원가 노출 가이드) → 수정 후 2차 **통과** | 교훈 2건 money-pattern 등재(통화 화이트리스트 게이트·BigInt 환율 반올림), 원가 누수 점검 항목 leak-checklist 등재. **StayQuote는 원가 포함 — ADMIN 외 응답 직렬화 금지.** 잔여: /settings/seasons·환율 입력 UI(FE). 계약: docs/contracts/T1.7-pricing.md |
 
@@ -46,6 +47,8 @@
 | 2026-06-11 | T1.8 | ADMIN 사용자 관리 완료 (b13-users 변환): /users — 검색·역할 탭, 역할/Zalo 연결/활성 뱃지, 활성 토글(본인 행 disabled+API 400 이중 방어), Zalo 수동 매칭(미연결 ZaloConversation 선택 연결·해제, 웹훅 전 빈 상태 안내). API: GET(select 화이트리스트 — passwordHash 차단)·PATCH(discriminated union 4액션, LINK_ZALO 중복 409, $transaction으로 ZaloConversation userId 동기화), AuditLog 전 변경 기록. QA 독립 평가 **통과**(34항목 — 비활성화→로그인 실거부→재활성화 복구 실증, 누수 0건) | CLEANER 계정 0명이라 해당 뱃지는 코드 경로 확인만 — CLEANER 생성 태스크에서 재확인. 교훈 2건 leak-checklist 등재. ResponsiveTable rowClassName prop 추가(비파괴) |
 
 | 2026-06-11 | T1.5 | ADMIN 타임라인 매트릭스 완료 (b1 변환, 병행 세션 — T1.8·T2.1·T2.2와 충돌 0건): lib/timeline.ts 단일 소스 — 순수층(buildDayAxis UTC 자정 축·M/D 라벨 getUTC*, computeVillaRow: half-open·우선순위 CHECKED_IN>CONFIRMED>HOLD>BLOCKED·isSellable=false 공실=NOT_SELLABLE·윈도우 클리핑, 오늘=Asia/Ho_Chi_Minh 기준 — QA 합의 조건) + DB층 loadTimeline(ACTIVE 전체 — ADMIN 전용 소비 주석, select 최소화). 셀 상태 6종 enum 고정(T2.6 재사용 호환). components/admin/timeline-matrix.tsx(b1 충실: sticky 빌라명 열·범례 4종·빗금 HOLD — striped/sticky는 arbitrary value로 globals.css 무수정), /dashboard placeholder 교체. 셀에 상태만 — 고객명·금액·예약 id 비전달. vitest 14개(전체 115), QA 조건부 통과 → 배포 후 프로덕션 HTTP 3종 증적(비로그인 307·SUPPLIER 세션 307 차단·ADMIN 200+타임라인 마크업) 제출 → **최종 통과** | messages는 T1.8 미커밋 키 혼입 방지 위해 git update-index 부분 스테이징(adminDashboard만 — QA가 b48110a diff 전수 확인, 배포 원자성 유지 편차 승인). 교훈 후보: 공유 JSON 부분 스테이징 패턴. T2.6 잔여: todayIndex 계산식 교체. 계약: docs/contracts/T1.5-timeline.md |
+
+| 2026-06-11 | T2.2 | 공개 제안 페이지 완료 (병행 세션 — 충돌 0건): /p/[token] Stitch c1·c1-vnd 변환(통화 분기 — KRW "1,350,000원"/VND "25,500,000₫" 쉼표, 만료 배지, 사진 캐러셀, 날짜 요약/카드별 분기), c2 변환(만료 EXPIRED·REVOKED/마감 USED·notice — **서버 판정 단일 렌더**, 카카오·전화 버튼 AppSetting), c3 변환(가예약 입력 RHF+zod+인원 추가, 완료: 입금 안내 카드+계좌 복사+실시간 카운트다운, bg-mesh 재현) + 공개 HOLD API(교차 토큰 404, 거부 사유 expired/closed 2종 축약 — T2.3 QA 이관 이행, MissingRateError 500 금지). 미들웨어 공개 통과 확인. tests/public-format 8개(전체 123). QA 1차 반려(M1~M7 디자인 충실도·L1~L4)→수정→2차 반려(MESH_BG radial 위치)→3차 **통과**, 누수 0건 | AppSetting 신규 키 5종(은행 3·연락처 2) — T1.7 /settings 입력 UI 잔여. 교훈 2건 leak-checklist 등재(미신고 편차 반려 원칙·globals.css 동결 시 컴포넌트 내 해결). rate limit은 Phase 1 수용(QA) — IDEAS 후보. 계약: docs/contracts/T2.2-public-proposal.md |
 
 ## 현재 상태 (2026-06-11 기준)
 
