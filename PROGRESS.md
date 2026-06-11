@@ -29,6 +29,10 @@
 
 | 2026-06-11 | T1.2 | ADMIN 빌라 목록·승인·요율 완료 (b9·b10 변환): 공통 사이드바 components/admin/sidebar.tsx(9메뉴·햄버거 드로어) + ResponsiveTable 컴포넌트, /villas 목록(상태 필터 탭+승인 대기 카운트), /villas/[id] 상세(사진·비품 읽기 전용·요율 편집·승인/중단/재개). API: PATCH /api/villas/[id] 상태 전이표(409 가드)·PUT rates 시즌 upsert(supplierCostVnd 수정 차단)·GET 목록(SUPPLIER는 supplierId 스코프+select 화이트리스트로 마진 쿼리 차단). lib/format.ts(BigInt 문자열 천단위)·lib/serialize.ts. QA 독립 평가 **통과**(완료 기준 7/7, 누수 4종 ✓ — 제2 공급자 시드 교차 실증, 교훈 3건 leak-checklist 등재). nosniff 헤더 권고 반영 | 반려(REJECT)는 T1.2b로 보류(VillaStatus 반려 상태 없음 — 공급자 수정 화면과 함께 설계). 권고: rate-editor 16자리+ 입력 시 오류 안내 부재(경미). QA 시드: ADMIN 0900000002·SUPPLIER2 0900000003 — 오픈 전 삭제 대상 |
 
+| 2026-06-11 | T1.4 | SUPPLIER 월 달력 완료 (a3 변환): `app/(supplier)/calendar` — 빌라 칩 행(supplierId 스코프), 월 이동, 셀 4상태 색+패턴(Trống 초록 외곽선/Đã đặt 파랑 실선/Giữ chỗ 파선/Đã khóa 빗금), 범례, 바텀시트 Khóa ngày·Hủy khóa(MANUAL만, ICAL은 안내·과거 읽기 전용). 서버 컴포넌트가 셀 상태로 가공해 전달 — **고객명·금액·예약 id 비전달 구조**(마진·재고 비공개). POST/DELETE /api/calendar-blocks(소유권 404, 겹침 409, UTC 자정 정규화, AuditLog). 하단 탭바 components/supplier/tab-bar.tsx(4탭, 마법사에서 숨김) + /cleaning·/earnings placeholder. QA 1차 조건부 통과 → D1(advisory lock — lib/availability.ts `lockVillaInventory()` 공용 헬퍼, T2.3 HOLD와 락 키 공유)·D2(401/403 분리)·D3(과거 블록 삭제 거부) 수정 → 재검증 **통과**(누수 0건) | 합의 편차: 기간 차단 대신 단일 날짜 토글(a3 확정 디자인 우선) — 기간 UI는 IDEAS. 교훈: READ COMMITTED 재조회 race → availability-pattern.md 등재. 계약: docs/contracts/T1.4-supplier-calendar.md. 잔여: 배포 후 Playwright UI 검증 |
+
+| 2026-06-11 | T1.6 | iCal 수신 동기화 완료 (병행 세션 — T1.2·T1.7과 충돌 0건, 신규 파일만): lib/ical.ts 단일 소스 — 순수층(parseIcs: RFC 5545 언폴딩·VALUE=DATE·TZID 벽시계 직취·Z→Asia/Ho_Chi_Minh 변환·DTEND 시간 성분 올림·CANCELLED 제외, diffIcalEvents UID 멱등 분류, findEventBookingConflicts) + DB 래퍼(syncVillaIcal: **모든 URL 성공 시에만 합집합 기준 소멸 삭제 — 1개 실패 시 삭제 전면 스킵**(재고 보수), MANUAL 불변, 충돌이어도 블록 생성+보고, AuditLog 커밋 후 기록; runIcalSync 빌라 단위 실패 격리; findUnresolvedIcalConflicts — T2.6 배너용 ADMIN 전용). GET/POST /api/cron/ical-sync(CRON_SECRET Bearer 선검증, 미설정 500, force-dynamic). vitest 31개, typecheck·lint 통과, QA 계약 합의(조건 5건 반영)+독립 평가 **통과** | 공유 파일: vitest.config.ts `@` alias 1건(선언·회귀 0건). 잔여: **Railway 30분 cron 실등록(테오/OPS)**. TDA 백로그: NotificationType ICAL_CONFLICT. 교훈 .claude/skills/integ/ical-pattern.md 신설+ops cron 패턴 등재. 계약: docs/contracts/T1.6-ical-sync.md |
+
 ## 현재 상태 (2026-06-11 기준)
 
 ### 완료된 태스크
@@ -44,6 +48,9 @@
 | T1.3 | 가용성 판정 lib/availability.ts + vitest 단위 테스트 18개 — T1.4·T1.5·T2.1·T2.3의 기반 |
 | T0.4 | 이미지 저장소 — R2 백엔드+디스크 폴백 자동 선택, Railway volume 인터림, 클라 리사이즈 (ADR-0004) |
 | T1.1 | SUPPLIER 빌라 등록 마법사 5단계 (a2·a2b·a1·a9·a5 변환) + POST /api/villas + 비품 품목 사전 — QA 통과 |
+| T1.2 | ADMIN 빌라 목록·승인·요율 (b9·b10 변환) + 공통 사이드바·ResponsiveTable — QA 통과 (반려는 T1.2b 보류) |
+| T1.7(BE) | 가격 계산 lib/pricing.ts (박별 합산·통화 분기·마진·환산) + vitest 22개 — /settings UI는 잔여 |
+| T1.4 | SUPPLIER 월 달력 (a3 변환) + /api/calendar-blocks + 공급자 하단 탭바 — QA 통과 (D1~D3 수정 후 재검증) |
 
 ### 진행 중 / 대기 중
 | 태스크 | 상태 | 담당 |
@@ -53,14 +60,14 @@
 | schema v1.2 push | **완료** — 2026-06-11 T1.1 세션에서 `prisma db push` 확인 결과 already in sync (Railway CLI `railway link` 후 DATABASE_PUBLIC_URL로 실행 — 로컬 .env는 placeholder 유지) | TDA/BE |
 | R2 전환 | 대기 — 테오가 Cloudflare R2 버킷·API 토큰 발급 → Railway STORAGE_* 5종 입력 (코드 무변경) | 테오 직접 |
 
-### 다음 세션 시작 시 할 일 (2026-06-11 T1.1 세션 종료 핸드오프)
-**T0.3/T0.4/T0.5/T1.1/T1.3 완료, schema v1.2 push 완료 — 인증 기반: `auth()` 세션(user.id/role/locale), `writeAuditLog()`, lib/storage.ts(saveFile)·lib/image-resize.ts·lib/availability.ts 사용 가능**
+### 다음 세션 시작 시 할 일 (2026-06-11 T1.4 세션 종료 핸드오프)
+**Sprint 1 잔여: T1.5(타임라인)·T1.6(iCal)·T1.7 FE(/settings)·T1.8(사용자). T1.6·T2.3/T2.4는 병행 세션 진행 중이었음(lib/ical.*, lib/hold.*, app/api/bookings·cron 미커밋) — 착수 전 git status로 충돌 확인 필수**
 
-1. **T1.2** — ADMIN 빌라 목록·승인·요율: b9·b10 변환 (FE) — T1.1이 만드는 PENDING_REVIEW 빌라의 승인·마진/판매가 설정 화면. VillaRate는 marginValue=0·salePriceVnd=원가·salePriceKrw=0으로 초기화되어 있음 (T1.1에서 합의). b10 비품 현황 읽기 전용 카드 포함(T6.4 잔여)
-2. **T1.4** — SUPPLIER 월 달력 (a3 변환, 탭 토글 차단) (UX-VN) — lib/availability.ts 재사용
-3. **T1.5** — ADMIN 타임라인 매트릭스 뷰 (b1 변환) (FE)
-4. 비차단 권고 1건: app/uploads/[name]/route.ts 응답에 `X-Content-Type-Options: nosniff` 헤더 1줄 추가 (BE — QA 심층 방어 권고)
-5. 프로덕션 Playwright 검증: T1.1 마법사 E2E (SUPPLIER 계정 필요 — /signup으로 생성 가능)
+1. **T1.5** — ADMIN 타임라인 매트릭스 뷰 (b1 변환) (FE) — components/admin/sidebar.tsx·ResponsiveTable(T1.2 산출) 재사용
+2. **T1.7(FE)** — /settings/seasons 시즌 달력 + 홀드 시간 + 환율(FX_VND_PER_KRW) 입력 UI (b8 변환) (FE) — lib/pricing.ts getFxVndPerKrw 연동
+3. **T1.8** — ADMIN 사용자 목록 (b13 변환) (FE)
+4. 프로덕션 Playwright 검증: T1.1 마법사 + T1.4 캘린더 E2E (SUPPLIER 테스트 계정 0900000001)
+5. 재고 경합 쓰기 규칙: 같은 빌라 재고를 만지는 모든 트랜잭션은 첫 줄에 `lockVillaInventory(tx, villaId)` (availability-pattern.md 교훈 — T2.3 HOLD·T1.6 iCal upsert 필수)
 
 **변환 공통 규칙 (docs/DESIGN.md 필독)**: Noto Sans KR 폴백 + word-break keep-all/nowrap을 globals.css 전역 강제, 사이드바 9메뉴 공통 컴포넌트, ADMIN VND 쉼표·공급자 VND 점, 마법사 단계는 ICU `Bước {n}/{total}` (N/5), T5.5 변환 시 처리 목록(TASKS.md) 확인
 

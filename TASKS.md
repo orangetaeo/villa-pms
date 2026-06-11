@@ -17,9 +17,9 @@
 - [x] T1.2 ADMIN 빌라 승인 화면 + 요율(VillaRate) 편집 (FE) — 2026-06-11 완료 (b9·b10 변환, 공통 사이드바 9메뉴 + ResponsiveTable 컴포넌트, PATCH 상태 전이 + PUT 요율 API + GET 목록(SUPPLIER 스코프·마진 차단), QA 독립 평가 **통과** — 누수 0건·교차 스코프 실증. 계약: docs/contracts/T1.2-villa-approval.md)
 - [ ] T1.2b 빌라 반려(REJECT) 플로우 — VillaStatus 반려 상태 설계(TDA) + 공급자 빌라 수정·재제출 화면과 함께 (T1.2에서 보류 합의)
 - [x] T1.3 lib/availability.ts 가용성 판정 + 단위 테스트 (BE/QA) — 2026-06-11 완료. 순수 판정층(evaluateAvailability·overlapsHalfOpen)+DB 래퍼층(checkAvailability·findSellableVillaIds, $transaction 클라이언트 주입 가능) 분리, vitest 도입(`npm test`, 18 테스트), QA 독립 평가 통과(계약: docs/contracts/T1.3-availability.md)
-- [ ] T1.4 SUPPLIER 월 달력 (탭 토글 차단) (UX-VN)
+- [x] T1.4 SUPPLIER 월 달력 (탭 토글 차단) (UX-VN) — 2026-06-11 완료. a3 변환 /calendar(셀 4상태 색+패턴, 바텀시트 토글), POST/DELETE /api/calendar-blocks(advisory lock `lockVillaInventory`+409+AuditLog), 공급자 하단 탭바+cleaning·earnings placeholder. QA 통과(D1~D3 수정 후 재검증, 누수 0건). 계약: docs/contracts/T1.4-supplier-calendar.md. 기간 차단 UI는 IDEAS 보류
 - [ ] T1.5 ADMIN 타임라인 매트릭스 뷰 (FE)
-- [ ] T1.6 iCal 수신 동기화 cron + 충돌 경보 (INTEG)
+- [x] T1.6 iCal 수신 동기화 cron + 충돌 경보 (INTEG) — 2026-06-11 완료. lib/ical.ts(parseIcs·diff 멱등 upsert·충돌 감지·findUnresolvedIcalConflicts) + GET/POST /api/cron/ical-sync(CRON_SECRET Bearer, 미설정 500), vitest 31개, QA 독립 평가 **통과**(계약: docs/contracts/T1.6-ical-sync.md). **잔여: Railway 30분 cron 실등록(OPS/테오 — `Authorization: Bearer ${CRON_SECRET}` 헤더 포함 호출)**. 의존 메모: 충돌 경보의 사람 노출은 T2.6 배너(`findUnresolvedIcalConflicts` import, ADMIN 전용)·T3.5 Zalo 알림에서 완성. **TDA 스키마 백로그: NotificationType에 ICAL_CONFLICT 추가**(현재 enum에 없음 — QA 합의 조건 ③)
 - [ ] T1.7 시즌 달력 설정 화면(/settings/seasons) + 홀드 시간 설정 + ~~lib/pricing.ts 박별 요율 합산~~(2026-06-11 BE 부분 완료 — 아래 참조) (Stitch B8) (FE/BE) — **BE 완료분**: lib/pricing.ts(quoteStay 박별 합산·resolveSeason LOW 폴백·computeSalePriceVnd 마진·suggestSalePriceKrw 환산·assertSaleAmountColumns 듀얼 컬럼 검증·quoteStayForVilla tx 주입·getFxVndPerKrw), vitest 22개, QA 2차 통과. 잔여: /settings/seasons UI + 홀드 시간 설정 (FE). 계약: docs/contracts/T1.7-pricing.md
 - [ ] T1.8 ADMIN 사용자 목록(/users): Zalo 연결 뱃지·수동 매칭·비활성화 (Stitch B8) (FE)
 

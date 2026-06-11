@@ -89,6 +89,17 @@ export function evaluateAvailability(input: AvailabilityInput): AvailabilityResu
 
 // ===================== DB 래퍼 층 =====================
 
+/**
+ * 빌라 재고 쓰기 잠금 — 같은 빌라 재고를 두고 경합하는 모든 쓰기(HOLD 생성,
+ * CalendarBlock 생성, iCal upsert)는 트랜잭션 첫 줄에서 이 헬퍼로 **동일한 락 키**를
+ * 잡아야 한다 (availability-pattern 교훈: READ COMMITTED에서 재조회→생성만으로는
+ * race가 안 막히고, 락 키가 다르면 차단↔홀드 교차 race도 못 막는다).
+ * pg_advisory_xact_lock은 트랜잭션 종료 시 자동 해제 — $transaction 안에서만 호출할 것.
+ */
+export async function lockVillaInventory(tx: Prisma.TransactionClient, villaId: string): Promise<void> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${villaId}))`;
+}
+
 /** [start, end) 겹침 where 조건 — Booking(checkIn/checkOut)용 */
 function bookingOverlapWhere(villaId: string, range: StayRange) {
   return {

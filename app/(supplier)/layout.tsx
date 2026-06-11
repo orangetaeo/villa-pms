@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { NextIntlClientProvider } from "next-intl";
+import { TabBar } from "@/components/supplier/tab-bar";
 
 export default async function SupplierLayout({
   children,
@@ -18,8 +19,9 @@ export default async function SupplierLayout({
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
       <NextIntlClientProvider locale={locale} messages={messages}>
-        {/* TODO(a6 태스크): 모바일 하단 탭바 추가 */}
         <main>{children}</main>
+        {/* 하단 탭바 (T1.4) — 풀스크린 플로우에서는 컴포넌트가 스스로 숨김 + 본문 하단 스페이서 포함 */}
+        <TabBar />
       </NextIntlClientProvider>
     </div>
   );
