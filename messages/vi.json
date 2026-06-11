@@ -603,5 +603,111 @@
       "generic": "Xử lý thất bại. Vui lòng thử lại."
     },
     "empty": "Không có người dùng để hiển thị."
+  },
+  "adminProposals": {
+    "list": {
+      "title": "Quản lý đề xuất",
+      "create": "Tạo đề xuất",
+      "tabs": {
+        "all": "Tất cả",
+        "active": "Đang hoạt động",
+        "used": "Đã dùng",
+        "expired": "Hết hạn",
+        "revoked": "Đã thu hồi"
+      },
+      "columns": {
+        "client": "Khách / công ty du lịch",
+        "villas": "Villa bao gồm",
+        "dates": "Ngày",
+        "channel": "Kênh",
+        "createdAt": "Ngày tạo",
+        "expiry": "Còn lại",
+        "amount": "Số tiền",
+        "status": "Trạng thái",
+        "actions": "Quản lý"
+      },
+      "status": {
+        "ACTIVE": "Đang hoạt động",
+        "USED": "Đã dùng",
+        "EXPIRED": "Hết hạn",
+        "REVOKED": "Đã thu hồi"
+      },
+      "channels": {
+        "TRAVEL_AGENCY": "Công ty du lịch",
+        "LAND_AGENCY": "Land tour",
+        "DIRECT": "Trực tiếp"
+      },
+      "countdown": {
+        "hours": "Còn {hours} giờ",
+        "minutes": "Còn {minutes} phút",
+        "expired": "Đã hết hạn"
+      },
+      "copyLink": "Sao chép liên kết",
+      "copied": "Đã sao chép",
+      "revoke": "Thu hồi",
+      "revokeConfirm": "Thu hồi liên kết đề xuất này? Khách sẽ không thể xem nữa.",
+      "revoked": "Đã thu hồi đề xuất.",
+      "revokeError": "Thu hồi thất bại. Vui lòng thử lại.",
+      "loading": "Đang tải danh sách đề xuất...",
+      "loadError": "Không thể tải danh sách.",
+      "retry": "Thử lại",
+      "empty": "Không có đề xuất để hiển thị.",
+      "copyError": "Không thể sao chép liên kết."
+    },
+    "create": {
+      "title": "Tạo đề xuất",
+      "scheduleSection": "Lịch trình",
+      "checkIn": "Nhận phòng",
+      "checkOut": "Trả phòng",
+      "nights": "Tổng {nights} đêm",
+      "dateOrderError": "Ngày nhận phòng phải trước ngày trả phòng",
+      "channelSection": "Kênh bán",
+      "channels": {
+        "TRAVEL_AGENCY": "Công ty du lịch",
+        "LAND_AGENCY": "Land tour",
+        "DIRECT": "Trực tiếp"
+      },
+      "vndNotice": "Kênh công ty du lịch · land tour thanh toán bằng VND",
+      "conditionHint": "Danh sách villa có thể bán sẽ hiển thị theo điều kiện đã chọn.",
+      "results": "Kết quả tìm kiếm",
+      "resultsCount": "{count} villa khả dụng",
+      "selectDatesFirst": "Chọn ngày nhận và trả phòng để xem villa có thể bán.",
+      "loadingCandidates": "Đang tìm villa có thể bán...",
+      "emptyCandidates": "Không có villa khả dụng trong thời gian này.",
+      "candidatesError": "Không thể tải danh sách villa. Vui lòng thử lại.",
+      "warningsTitle": "Villa bị loại do chưa thiết lập giá",
+      "bedrooms": "{count} phòng ngủ",
+      "pool": "Hồ bơi",
+      "breakfast": "Có bữa sáng",
+      "stayTotal": "Tổng {nights} đêm",
+      "maxSelected": "Chỉ có thể chọn tối đa 3 villa.",
+      "summaryTitle": "Tóm tắt đề xuất",
+      "selectedVillas": "Villa đã chọn ({count})",
+      "clearAll": "Xóa tất cả",
+      "removeVilla": "Bỏ chọn",
+      "noneSelected": "Chọn 1–3 villa từ danh sách ở giữa.",
+      "clientName": "Tên khách (công ty du lịch)",
+      "clientNamePlaceholder": "VD: Khách Kim / Hana Tour",
+      "clientNameRequired": "Vui lòng nhập tên khách (công ty du lịch)",
+      "expirySection": "Thời gian hết hạn đề xuất",
+      "hours24": "24 giờ",
+      "hours48": "48 giờ",
+      "totalSale": "Tổng giá bán",
+      "marginSummary": "Tóm tắt lợi nhuận",
+      "marginReference": "Tóm tắt lợi nhuận (tham khảo tỷ giá)",
+      "finalAmount": "Số tiền đề xuất cuối cùng",
+      "fxChip": "Tỷ giá tham khảo: 1.000.000₫ ≈ {krw} KRW (tỷ giá thủ công)",
+      "fxMissing": "Chưa thiết lập tỷ giá — nhập tỷ giá trong Cài đặt để xem lợi nhuận tham khảo",
+      "submit": "Tạo liên kết",
+      "submitting": "Đang tạo...",
+      "linkHint": "Liên kết đề xuất có thể gửi cho khách qua KakaoTalk hoặc email.",
+      "successTitle": "Đã tạo liên kết đề xuất",
+      "successDesc": "Sao chép liên kết bên dưới và gửi cho khách.",
+      "copyLink": "Sao chép liên kết",
+      "copied": "Đã sao chép",
+      "goList": "Đi đến danh sách",
+      "unavailableTitle": "Một số villa không thể đề xuất",
+      "submitError": "Tạo đề xuất thất bại. Vui lòng thử lại."
+    }
   }
 }

@@ -603,5 +603,111 @@
       "generic": "처리에 실패했습니다. 다시 시도해주세요."
     },
     "empty": "표시할 사용자가 없습니다."
+  },
+  "adminProposals": {
+    "list": {
+      "title": "제안 관리",
+      "create": "제안 만들기",
+      "tabs": {
+        "all": "전체",
+        "active": "활성",
+        "used": "사용됨",
+        "expired": "만료",
+        "revoked": "회수"
+      },
+      "columns": {
+        "client": "고객/여행사명",
+        "villas": "포함 빌라",
+        "dates": "날짜",
+        "channel": "채널",
+        "createdAt": "생성일",
+        "expiry": "만료까지",
+        "amount": "금액",
+        "status": "상태",
+        "actions": "관리"
+      },
+      "status": {
+        "ACTIVE": "활성",
+        "USED": "사용됨",
+        "EXPIRED": "만료",
+        "REVOKED": "회수"
+      },
+      "channels": {
+        "TRAVEL_AGENCY": "여행사",
+        "LAND_AGENCY": "랜드사",
+        "DIRECT": "직접"
+      },
+      "countdown": {
+        "hours": "{hours}시간 남음",
+        "minutes": "{minutes}분 남음",
+        "expired": "만료됨"
+      },
+      "copyLink": "링크 복사",
+      "copied": "복사됨",
+      "revoke": "회수",
+      "revokeConfirm": "이 제안 링크를 회수할까요? 회수하면 고객이 더 이상 열람할 수 없습니다.",
+      "revoked": "제안이 회수되었습니다.",
+      "revokeError": "회수에 실패했습니다. 다시 시도해주세요.",
+      "loading": "제안 목록을 불러오는 중...",
+      "loadError": "목록을 불러오지 못했습니다.",
+      "retry": "다시 시도",
+      "empty": "표시할 제안이 없습니다.",
+      "copyError": "링크를 복사하지 못했습니다."
+    },
+    "create": {
+      "title": "제안 만들기",
+      "scheduleSection": "일정",
+      "checkIn": "체크인",
+      "checkOut": "체크아웃",
+      "nights": "총 {nights}박",
+      "dateOrderError": "체크인은 체크아웃보다 빨라야 합니다",
+      "channelSection": "판매 채널",
+      "channels": {
+        "TRAVEL_AGENCY": "여행사",
+        "LAND_AGENCY": "랜드사",
+        "DIRECT": "직접"
+      },
+      "vndNotice": "여행사·랜드사 채널은 VND로 결제됩니다",
+      "conditionHint": "선택된 조건에 따라 판매 가능한 빌라 목록이 표시됩니다.",
+      "results": "검색 결과",
+      "resultsCount": "{count}개의 빌라 이용 가능",
+      "selectDatesFirst": "체크인·체크아웃 날짜를 선택하면 판매 가능한 빌라가 표시됩니다.",
+      "loadingCandidates": "판매 가능한 빌라를 조회하는 중...",
+      "emptyCandidates": "해당 기간에 판매 가능한 빌라가 없습니다.",
+      "candidatesError": "후보 조회에 실패했습니다. 다시 시도해주세요.",
+      "warningsTitle": "요율 미설정으로 제외된 빌라",
+      "bedrooms": "침실 {count}",
+      "pool": "수영장",
+      "breakfast": "조식 가능",
+      "stayTotal": "{nights}박 합계",
+      "maxSelected": "빌라는 최대 3개까지 선택할 수 있습니다.",
+      "summaryTitle": "제안 요약",
+      "selectedVillas": "선택된 빌라 ({count})",
+      "clearAll": "모두 삭제",
+      "removeVilla": "선택 해제",
+      "noneSelected": "가운데 목록에서 빌라를 1~3개 선택하세요.",
+      "clientName": "고객명 (여행사명)",
+      "clientNamePlaceholder": "예: 한겨울 고객님 / 하나투어",
+      "clientNameRequired": "고객명(여행사명)을 입력해주세요",
+      "expirySection": "제안 만료 시간",
+      "hours24": "24시간",
+      "hours48": "48시간",
+      "totalSale": "총 판매가 합계",
+      "marginSummary": "마진 요약",
+      "marginReference": "마진 요약 (환율 참고)",
+      "finalAmount": "최종 제안 금액",
+      "fxChip": "환율 참고: 1,000,000₫ ≈ {krw}원 (수동 환율 기준)",
+      "fxMissing": "환율 미설정 — 설정에서 환율을 입력하면 마진 참고치가 표시됩니다",
+      "submit": "링크 생성",
+      "submitting": "생성 중...",
+      "linkHint": "생성된 제안 링크는 고객에게 카카오톡이나 이메일로 전송 가능합니다.",
+      "successTitle": "제안 링크가 생성되었습니다",
+      "successDesc": "아래 링크를 복사해 고객에게 전달하세요.",
+      "copyLink": "링크 복사",
+      "copied": "복사됨",
+      "goList": "목록으로 이동",
+      "unavailableTitle": "일부 빌라를 제안할 수 없습니다",
+      "submitError": "제안 생성에 실패했습니다. 다시 시도해주세요."
+    }
   }
 }

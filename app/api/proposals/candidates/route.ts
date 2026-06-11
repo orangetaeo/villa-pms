@@ -37,17 +37,22 @@ export async function GET(req: Request) {
 
     const villas = await prisma.villa.findMany({
       where: { id: { in: sellableIds } },
-      select: { id: true, name: true, complex: true, bedrooms: true, bathrooms: true, maxGuests: true, hasPool: true, breakfastAvailable: true },
+      select: {
+        id: true, name: true, complex: true, bedrooms: true, bathrooms: true, maxGuests: true, hasPool: true, breakfastAvailable: true,
+        // 대표 사진 1장 — b2 후보 카드용 additive (T2.1 FE 계약 허용 범위)
+        photos: { select: { url: true }, orderBy: { sortOrder: "asc" }, take: 1 },
+      },
       orderBy: { name: "asc" },
     });
 
     const warnings: { villaId: string; name: string; reason: string }[] = [];
     const candidates = [];
-    for (const villa of villas) {
+    for (const { photos, ...villa } of villas) {
       try {
         const quote = await quoteStayForVilla(prisma, villa.id, range, saleCurrency);
         candidates.push({
           ...villa,
+          photoUrl: photos[0]?.url ?? null,
           nights: quote.nights,
           totalSaleKrw: quote.totalSaleKrw ?? null,
           totalSaleVnd: quote.totalSaleVnd ?? null,

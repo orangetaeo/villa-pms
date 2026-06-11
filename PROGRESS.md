@@ -53,6 +53,8 @@
 
 | 2026-06-11 | T3.4(BE) | 청소 검수 게이트 완료 (병행 세션 — 충돌 0건): lib/cleaning.ts 단일 소스 — 상태기계(PENDING→제출→승인|반려→재제출, 직행 금지), createCheckoutCleaningTask(tx 주입 — T3.3 체크아웃 트랜잭션에서 게이트 닫기와 원자 묶임), **게이트 규칙 canOpenSellableGate: 같은 빌라 미결 CHECKOUT 0건일 때만 isSellable=true — PERIODIC 승인 우회 차단**, 반려는 게이트 닫힌 채 유지, 정기 방역 월 1회 멱등(monthKeyVn VN 시차 기준). API: GET 목록(ADMIN 전체/SUPPLIER 자기 빌라/CLEANER 배정분 스코프 강제), submit(3자 권한)·approve·reject(ADMIN), cron/periodic-cleaning(CRON_SECRET). vitest 11개(전체 154). QA **통과** — 동적 DB 검증 17건(throwaway 시드 실측): PERIODIC 우회 불가·연속 체크아웃 마지막 승인에만 개방·동시 제출 가드·멱등 실증, isSellable=true setter는 전 코드베이스에서 승인 함수 1곳뿐 | QA 비차단 3건 TASKS 백로그(승인 tx 직렬화·404/403 순서·cron 중복 방어), **TDA 안건 T3.4b 신설: 신규 빌라 게이트 초기 개방 절차**(닭과 달걀 — 첫 판매 경로 부재). 결함 #1(status 필터 프로토타입 체인 500)은 즉시 수정(Object.hasOwn). 계약: docs/contracts/T3.4-cleaning-gate.md |
 
+| 2026-06-11 | T2.1(FE) | 제안 화면 완료 — **F3 판매 루프의 마지막 조각**: /proposals/new(b2 변환 — 3패널, 채널→통화 자동 전환(여행사·랜드사 VND 쉼표+결제 캡션/직접 KRW)+환율 참고 칩(FX 미설정 안내), candidates 후보 카드(photoUrl additive·warnings 배너)·최대 3개 선택·마진 요약(VND 정확/KRW 환율 참고)·24h/48h 토글·생성 모달 /p/{token} 복사) + /proposals(b12 변환 — effectiveStatus 탭·만료 카운트다운·링크 복사·회수, ResponsiveTable 재사용) + PATCH /api/proposals/[id] revoke 신규(**updateMany 상태 가드** — 공개 가예약 ACTIVE→USED 원자 전이와의 race에서 USED 덮어쓰기 차단, 404/409 사후 구분, AuditLog tx 기록). QA 1차 **반려**(D-1 revoke race High)→수정→2차 반려(D-4 i18n 키 경로)→수정→**전체 통과**(누수 0건, 비로그인 실측 401/307). 금액 합산 전부 BigInt | b2 인원 입력 제외(스키마 무필드)·b12 검색/필터/푸터 지표 미구현 — 계약 편차 기재. createdAt는 Asia/Ho_Chi_Minh 표기(dotDateVn). messages는 부분 스테이징(adminProposals만 — T1.5 패턴, T2.5 병행 키 혼입 방지). 계약: docs/contracts/T2.1-proposal-fe.md |
+
 ## 현재 상태 (2026-06-11 기준)
 
 ### 완료된 태스크
