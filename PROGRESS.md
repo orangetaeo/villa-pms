@@ -57,6 +57,8 @@
 
 | 2026-06-11 | T2.5 | 예약 목록·상세 완료 (b5·b11 변환, 병행 세션 — T2.1-FE·T2.2·T3.4와 충돌 0건): /bookings(탭 6종 건수·월/빌라/채널/검색 필터·체크인 임박순·PAGE_SIZE 20·HOLD 카운트다운 뱃지·EXPIRED 흐림·ResponsiveTable 카드 전환·스탯 4종 — 가동률 computeOccupancyRate: NO_SHOW 포함/HOLD·CANCELLED·EXPIRED 제외, 월 경계 클리핑) + T2.6 링크 계약 `?filter=today-checkin|today-checkout`(VN 오늘). /bookings/[id](4단계 타임라인 스트립·종결 상태 배너·가격 스냅샷(원가는 ADMIN 가드 내)·결제 기록·AuditLog 활동 로그·내부 메모). 신규 API는 PATCH note 1개뿐(zod strip — 전이 우회 불가 테스트, 401/403/404), 액션은 기존 confirm/cancel만 호출. lib/booking-stats.ts(카운트다운 구조체+가동률 — 계약 편차: format.ts 대신 신규 파일, QA 수용). vitest 20개(전체 154), QA 조건부 통과 → 프로덕션 HTTP 증적(비로그인·SUPPLIER 307, ADMIN 200+마크업, 프리셋 200) + 커밋 8cee8f3 혼입 0건 확인 → **최종 통과** | messages adminBookings 블록만 update-index 부분 스테이징(2회째 — 패턴 정착). QA 회귀 권고: 실예약 데이터 생성 시 상세·확정/취소 실연 1회. 계약: docs/contracts/T2.5-bookings.md |
 
+| 2026-06-11 | T3.5 | Zalo OA 발송 모듈 완료: lib/zalo.ts — enqueueNotification(비즈니스 로직 유일 진입점, $transaction 주입 가능) + dispatchPendingNotifications(배치 20, 재시도 3회 — NO_ZALO_LINK 영구 제외·ZALO_TOKEN_NOT_SET는 attempt 미증가로 토큰 입력 시 자동 회복, attempt는 payload._attempt — 스키마 무변경) + 발송 성공 시 ZaloMessage(SYSTEM·OUTBOUND) 미러(b14 채팅 정합, 미러 실패는 SENT 비롤백). vi 템플릿 9종(LOC 용어 사전 준수, 마진·판매가 화이트리스트 차단 — 오염 주입 테스트). /api/cron/notifications(CRON_SECRET Bearer). vitest 22개(전체 176 회귀 0), QA 독립 평가 **통과**(5/5, 동적 검증: PENDING→FAILED 전이·영구 제외·401/500) | 잔여: 실발송 검증(토큰 대기)·Railway cron 등록(OPS). 비차단 권고 2건: 소진 FAILED 큐 기아(PERMANENT_ 접두 권고)·cron 동시 실행 중복(단일 cron 전제 수용). QA 교훈: vitest는 대문자 드라이브(C:\) 경로에서 실행 — 소문자 cwd면 러너 이중 로딩 전멸 |
+
 ## 현재 상태 (2026-06-11 기준)
 
 ### 완료된 태스크

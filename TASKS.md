@@ -40,7 +40,7 @@
 - [ ] T3.4 CleaningTask 자동 생성 + isSellable 게이트 + 검수 목록·승인 화면(/inspections) (Stitch B6) (BE/FE) — **BE 완료(2026-06-11)**: lib/cleaning.ts(상태기계 PENDING→제출→승인|반려·재제출, createCheckoutCleaningTask tx 주입 — T3.3에서 호출, 게이트 규칙: 미결 CHECKOUT 0건일 때만 isSellable=true — PERIODIC 우회 차단, 정기 방역 월 멱등 cron) + cleaning-tasks API 4종(role 스코프 강제) + cron/periodic-cleaning. vitest 11개, QA **통과**(동적 DB 검증 17건 — 게이트 우회 0건). 잔여: /inspections b6 변환(FE). 계약: docs/contracts/T3.4-cleaning-gate.md
   - QA 비차단 후속 3건(BE 백로그): ① 승인 트랜잭션 villa 행 선 update 직렬화(크로스 tx race — Phase 1 ADMIN 1인이라 실위험 극저) ② submit 404/403 순서(정보성) ③ PERIODIC cron 동시 중복 방어(피해는 중복 알림뿐)
 - [ ] T3.4b **신규 빌라 게이트 초기 개방 절차 (TDA 결정 필요)** — Villa 기본 isSellable=false + setter가 청소 승인뿐 → 첫 판매 불가능(닭과 달걀). 빌라 APPROVE 시 초기 검수 태스크 자동 생성 또는 ADMIN 수동 개방 중 결정 (T3.4 QA 관찰)
-- [ ] T3.5 lib/zalo.ts OA 발송 + Notification 로그 + 재시도 cron (INTEG)
+- [x] T3.5 lib/zalo.ts OA 발송 + Notification 로그 + 재시도 cron (INTEG) — 2026-06-11 완료. enqueueNotification(tx 주입)·dispatchPendingNotifications(재시도 3회·NO_ZALO_LINK 영구 제외·TOKEN_NOT_SET 자동 회복)·ZaloMessage SYSTEM 미러·vi 템플릿 9종(마진 오염 주입 테스트 통과). vitest 22개, QA 독립 평가 **통과**. 계약: docs/contracts/T3.5-zalo-send.md. **잔여: ① ZALO_OA_ACCESS_TOKEN 입력 후 실발송 검증 ② Railway cron에 /api/cron/notifications 5분 주기 등록(OPS — cron-ical-sync 패턴) ③ 비차단 권고: 소진 FAILED PERMANENT_ 접두 처리(큐 기아 방지)**
 - [ ] T3.6 여권 Zalo 전달 (임시거주신고) (INTEG)
 - [ ] T3.7 Zalo 계정 연결 온보딩: OA follow webhook + 전화번호 매칭 + ADMIN 미연결 뱃지·수동 매칭 (INTEG/UX-VN)
 
@@ -49,7 +49,7 @@
 - [x] T5.1 누락 화면 4장 생성: a0-login, c2-proposal-expired, c3-booking-request, a8-cleaning-tasks + 기존 화면 결함 수정: a1·a3·a5·a6, b1·b3·b4·b6·b8-settings·b8-users·b11, c1 + b8-users → b13-users 폴더 재번호 (DESIGN) — 2026-06-11 완료, LOC 피드백 2차 수정(a5 문구·a4 용어·헤더·Bước 표기·b4/b6/b10 영어) 포함
 - [x] T5.2 디자인 수정 완료 후 QA 재검수 — 전 화면 + 권한 누수 재확인 (QA) — 2026-06-11 **통과**: 누수 0건, 회귀 9건 ✓, 용어 0건. 반려 2건(c2 export 파손·c3 스크린샷 미달) 수정 후 형식 검증 완료
 - [x] T5.3 LOC 용어 사전(ko/vi) 확정 (LOC) — 2026-06-11 완료, .claude/skills/loc/i18n-pattern.md 등재 (용어 20항목 + 호칭 규칙 + 키 네이밍)
-- [ ] T5.4 Stitch 웹 UI에서 미사용 중복 화면 3건 수동 삭제 (테오) — a8 중복본(1bef1975), b13 중복본(ee420eae), c2 구버전(83ca80d7) — MCP에 삭제 도구 없음
+- [x] T5.4 Stitch 웹 UI 미사용 중복 화면 정리 (테오) — 2026-06-11 **종결**: b13 중복본(ee420eae) 삭제 완료. a8 중복본(1bef1975)·c2 구버전(83ca80d7)·Zalo 고아 3건(b6f6ee4a·52195575·c1e8f508)은 **삭제하지 않고 보존하기로 결정** — 변환은 로컬 design/stitch/가 canonical이라 실무 영향 없음(클러터일 뿐). MCP에 삭제 도구 없어 수동 탐색 부담 대비 실익 없음
 - [ ] T5.5 변환 시 처리 목록 (FE/UX-VN 변환 단계에서 일괄 해소): b3 "지우기 (CLEAR)" 괄호 영문, title 메타 11건 누락·2건 영어(Next.js metadata로 정의), c1·c2 푸터 © 영문 보일러플레이트, c2 만료/마감 2상태 병기(서버 판정값으로 1개만 렌더), 다크 디자인 시스템 designMd "VND with dots" 갱신, [2R 추가] 마법사 단계 표기 Bước N/4→N/5 재번호(ICU 변수 `Bước {n}/{total}`), b10 요율 5열 너비 조정(KRW 환산 열 클리핑), c3·c3-vnd "Step 01/02"→"단계 1/2" i18n, keep-all/nowrap 규칙 globals.css 전역 강제, 사이드바 9메뉴(메시지 추가)는 공통 컴포넌트에서 일괄 적용
 
 ## 신규 요구 후속 — 2026-06-11 테오 4건 (ADR-0003, SPEC v1.3, schema v1.2)
