@@ -175,3 +175,4 @@ COSTS.md  IDEAS.md  PROGRESS.md  TASKS.md
 5. **dev 서버는 한 세션만 실행** — 포트·Prisma 엔진 파일 잠금 충돌 방지. `prisma generate` EPERM 발생 시 다른 세션의 dev 서버가 원인
 6. **schema 변경·`prisma db push`는 한 세션 전담** (TDA 담당 세션). 다른 세션은 push 완료 확인 후 새 모델 사용
 7. **파괴적 git 명령 금지** — `git checkout .`, `git reset --hard`, `git stash` 등은 다른 세션 작업까지 날린다. 절대 실행하지 않는다
+8. **태스크 선점은 계약서 즉시 커밋으로 선언** — 태스크 착수 결정 즉시 `docs/contracts/<태스크>.md`를 **단독 커밋+푸시**한다(`chore: <태스크> 착수 선점`). 착수 전에는 반드시 ① `git pull` ② `git status`(untracked 계약서 포함) ③ `docs/contracts/` 목록 순으로 확인하고, **계약서가 이미 존재하는 태스크는 즉시 회피**한다. 동시 선점은 push 거부로 드러나므로, 푸시가 거부되면 pull 후 선점 여부를 재확인하고 늦은 쪽이 양보한다
