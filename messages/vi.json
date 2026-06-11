@@ -32,6 +32,158 @@
       "empty": "Chưa có villa đang hoạt động — sẽ hiển thị sau khi villa được duyệt."
     }
   },
+  "adminBookings": {
+    "list": {
+      "title": "Quản lý đặt phòng",
+      "searchPlaceholder": "Tìm mã đặt phòng, tên khách...",
+      "tabs": {
+        "all": "Tất cả",
+        "hold": "Giữ chỗ",
+        "confirmed": "Đã xác nhận",
+        "checkedin": "Đã nhận phòng",
+        "checkedout": "Đã trả phòng",
+        "closed": "Hủy/Hết hạn"
+      },
+      "filters": {
+        "month": "Tháng",
+        "villa": "Villa",
+        "allVillas": "Tất cả villa",
+        "channel": "Kênh",
+        "allChannels": "Tất cả kênh",
+        "reset": "Đặt lại"
+      },
+      "preset": {
+        "todayCheckin": "Nhận phòng hôm nay",
+        "todayCheckout": "Trả phòng hôm nay",
+        "clear": "Bỏ lọc"
+      },
+      "columns": {
+        "villa": "Villa",
+        "guest": "Tên khách",
+        "channel": "Kênh",
+        "checkIn": "Nhận phòng",
+        "checkOut": "Trả phòng",
+        "nights": "Đêm",
+        "amount": "Số tiền",
+        "status": "Trạng thái"
+      },
+      "empty": "Không có đặt phòng nào.",
+      "count": "Hiển thị {from}-{to} trong tổng số {total} đặt phòng",
+      "prevPage": "Trang trước",
+      "nextPage": "Trang sau"
+    },
+    "status": {
+      "HOLD": "Giữ chỗ",
+      "CONFIRMED": "Đã xác nhận",
+      "CHECKED_IN": "Đã nhận phòng",
+      "CHECKED_OUT": "Đã trả phòng",
+      "CANCELLED": "Đã hủy",
+      "EXPIRED": "Hết hạn",
+      "NO_SHOW": "Không đến"
+    },
+    "channels": {
+      "DIRECT": "Đặt trực tiếp",
+      "TRAVEL_AGENCY": "Công ty du lịch",
+      "LAND_AGENCY": "Đại lý địa phương"
+    },
+    "countdown": {
+      "hours": "Còn {n} giờ",
+      "minutes": "Còn {n} phút",
+      "expired": "Chờ xử lý hết hạn"
+    },
+    "stats": {
+      "todayCheckin": "Nhận phòng hôm nay",
+      "todayCheckout": "Trả phòng hôm nay",
+      "checkoutDone": "Hoàn tất {n}",
+      "pendingHolds": "Giữ chỗ chưa xác nhận",
+      "pendingHoldsHint": "Cần kiểm tra ngay",
+      "occupancy": "Công suất (tháng {month})"
+    },
+    "detail": {
+      "breadcrumb": "Quản lý đặt phòng",
+      "title": "Đặt phòng #{code}",
+      "steps": {
+        "hold": "Giữ chỗ",
+        "confirmed": "Xác nhận",
+        "checkedin": "Nhận phòng",
+        "checkedout": "Trả phòng"
+      },
+      "closedBanner": {
+        "CANCELLED": "Đặt phòng đã bị hủy.",
+        "EXPIRED": "Giữ chỗ đã hết hạn — phòng đã được mở lại.",
+        "NO_SHOW": "Khách không đến.",
+        "reason": "Lý do: {reason}"
+      },
+      "info": {
+        "title": "Thông tin đặt phòng",
+        "villa": "Villa",
+        "channel": "Kênh",
+        "schedule": "Lịch trình",
+        "checkIn": "Nhận phòng",
+        "checkOut": "Trả phòng",
+        "nights": "{n} đêm",
+        "guests": "Số khách",
+        "guestsValue": "Khách {name} và {n} người",
+        "phone": "Liên hệ",
+        "none": "—"
+      },
+      "price": {
+        "title": "Giá đã chốt",
+        "currencyBadge": "Tiền tệ: {currency}",
+        "totalSale": "Tổng giá bán",
+        "supplierCost": "Giá gốc nhà cung cấp",
+        "breakfast": "Bữa sáng",
+        "included": "Bao gồm",
+        "notIncluded": "Không bao gồm",
+        "locked": "Giá được khóa tại thời điểm giữ chỗ"
+      },
+      "payments": {
+        "title": "Lịch sử thanh toán",
+        "date": "Thời gian",
+        "method": "Phương thức",
+        "amount": "Số tiền",
+        "note": "Ghi chú",
+        "empty": "Chưa có thanh toán nào.",
+        "methods": {
+          "KR_BANK_TRANSFER": "Chuyển khoản Hàn Quốc",
+          "VN_BANK_TRANSFER": "Chuyển khoản Việt Nam",
+          "CASH": "Tiền mặt"
+        }
+      },
+      "actions": {
+        "confirm": "Xác nhận thanh toán",
+        "confirming": "Đang xử lý...",
+        "cancel": "Hủy",
+        "cancelHint": "Cần nhập lý do hủy",
+        "cancelPlaceholder": "Nhập lý do hủy",
+        "cancelSubmit": "Xác nhận hủy",
+        "cancelBack": "Quay lại",
+        "checkin": "Tiến hành nhận phòng",
+        "checkout": "Tiến hành trả phòng",
+        "noshow": "Xử lý không đến",
+        "comingT3": "Sẽ có ở Sprint 3",
+        "error": "Xử lý thất bại. Vui lòng thử lại."
+      },
+      "log": {
+        "title": "Nhật ký hoạt động",
+        "system": "Hệ thống",
+        "empty": "Chưa có ghi nhận.",
+        "actions": {
+          "CREATE": "Tạo đặt phòng",
+          "UPDATE": "Cập nhật",
+          "DELETE": "Xóa"
+        }
+      },
+      "memo": {
+        "title": "Ghi chú nội bộ",
+        "placeholder": "Nhập yêu cầu của khách hoặc lưu ý nội bộ...",
+        "save": "Lưu",
+        "saving": "Đang lưu...",
+        "saved": "Đã lưu",
+        "error": "Lưu thất bại"
+      }
+    }
+  },
   "adminVillas": {
     "list": {
       "title": "Quản lý villa",

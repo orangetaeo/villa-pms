@@ -32,6 +32,158 @@
       "empty": "운영 중인 빌라가 없습니다 — 빌라 승인 후 표시됩니다."
     }
   },
+  "adminBookings": {
+    "list": {
+      "title": "예약 관리",
+      "searchPlaceholder": "예약번호, 고객명 검색...",
+      "tabs": {
+        "all": "전체",
+        "hold": "가예약",
+        "confirmed": "확정",
+        "checkedin": "체크인",
+        "checkedout": "체크아웃",
+        "closed": "취소/만료"
+      },
+      "filters": {
+        "month": "월",
+        "villa": "빌라",
+        "allVillas": "전체 빌라",
+        "channel": "채널",
+        "allChannels": "전체 채널",
+        "reset": "초기화"
+      },
+      "preset": {
+        "todayCheckin": "오늘 체크인",
+        "todayCheckout": "오늘 체크아웃",
+        "clear": "해제"
+      },
+      "columns": {
+        "villa": "빌라",
+        "guest": "고객명",
+        "channel": "채널",
+        "checkIn": "체크인",
+        "checkOut": "체크아웃",
+        "nights": "박",
+        "amount": "금액",
+        "status": "상태"
+      },
+      "empty": "표시할 예약이 없습니다.",
+      "count": "전체 {total}개의 예약 중 {from}-{to} 표시",
+      "prevPage": "이전 페이지",
+      "nextPage": "다음 페이지"
+    },
+    "status": {
+      "HOLD": "가예약",
+      "CONFIRMED": "확정",
+      "CHECKED_IN": "체크인",
+      "CHECKED_OUT": "체크아웃",
+      "CANCELLED": "취소",
+      "EXPIRED": "만료",
+      "NO_SHOW": "노쇼"
+    },
+    "channels": {
+      "DIRECT": "직접 예약",
+      "TRAVEL_AGENCY": "여행사",
+      "LAND_AGENCY": "랜드사"
+    },
+    "countdown": {
+      "hours": "{n}시간 남음",
+      "minutes": "{n}분 남음",
+      "expired": "만료 처리 대기"
+    },
+    "stats": {
+      "todayCheckin": "금일 체크인",
+      "todayCheckout": "금일 체크아웃",
+      "checkoutDone": "완료 {n}",
+      "pendingHolds": "미확정 가예약",
+      "pendingHoldsHint": "즉시 확인 필요",
+      "occupancy": "가동률 ({month}월)"
+    },
+    "detail": {
+      "breadcrumb": "예약 관리",
+      "title": "예약 #{code}",
+      "steps": {
+        "hold": "가예약",
+        "confirmed": "확정",
+        "checkedin": "체크인",
+        "checkedout": "체크아웃"
+      },
+      "closedBanner": {
+        "CANCELLED": "취소된 예약입니다.",
+        "EXPIRED": "만료된 가예약입니다 — 재고가 복귀되었습니다.",
+        "NO_SHOW": "노쇼 처리된 예약입니다.",
+        "reason": "사유: {reason}"
+      },
+      "info": {
+        "title": "예약 정보",
+        "villa": "빌라",
+        "channel": "유입 채널",
+        "schedule": "일정",
+        "checkIn": "체크인",
+        "checkOut": "체크아웃",
+        "nights": "{n}박",
+        "guests": "인원",
+        "guestsValue": "고객 {name} 외 {n}명",
+        "phone": "연락처",
+        "none": "—"
+      },
+      "price": {
+        "title": "가격 스냅샷",
+        "currencyBadge": "판매 통화: {currency}",
+        "totalSale": "총 판매가",
+        "supplierCost": "공급자 원가",
+        "breakfast": "조식 포함 여부",
+        "included": "포함",
+        "notIncluded": "미포함",
+        "locked": "홀드 시점 가격으로 고정됨"
+      },
+      "payments": {
+        "title": "결제 기록",
+        "date": "일시",
+        "method": "수단",
+        "amount": "금액",
+        "note": "비고",
+        "empty": "결제 기록이 없습니다.",
+        "methods": {
+          "KR_BANK_TRANSFER": "한국 계좌이체",
+          "VN_BANK_TRANSFER": "베트남 계좌이체",
+          "CASH": "현금"
+        }
+      },
+      "actions": {
+        "confirm": "입금 확정",
+        "confirming": "처리 중...",
+        "cancel": "취소",
+        "cancelHint": "취소 사유 입력 필요",
+        "cancelPlaceholder": "취소 사유를 입력하세요",
+        "cancelSubmit": "취소 확정",
+        "cancelBack": "돌아가기",
+        "checkin": "체크인 진행",
+        "checkout": "체크아웃 진행",
+        "noshow": "노쇼 처리",
+        "comingT3": "Sprint 3에서 제공됩니다",
+        "error": "처리에 실패했습니다. 다시 시도해주세요."
+      },
+      "log": {
+        "title": "활동 로그",
+        "system": "시스템",
+        "empty": "기록이 없습니다.",
+        "actions": {
+          "CREATE": "예약 생성",
+          "UPDATE": "예약 수정",
+          "DELETE": "삭제"
+        }
+      },
+      "memo": {
+        "title": "내부 메모",
+        "placeholder": "고객 요청사항 또는 내부 특이사항을 입력하세요...",
+        "save": "저장하기",
+        "saving": "저장 중...",
+        "saved": "저장됨",
+        "error": "저장 실패"
+      }
+    }
+  },
   "adminVillas": {
     "list": {
       "title": "빌라 관리",
