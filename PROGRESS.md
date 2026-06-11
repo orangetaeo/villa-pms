@@ -38,6 +38,8 @@
 
 | 2026-06-11 | T1.7(FE) | 운영 설정 화면 완료 (b8-settings 변환): /settings — 시즌 달력 CRUD(LOW/HIGH/PEAK 뱃지, 겹침 시 경고 — PEAK>HIGH 우선 규칙 안내), 홀드 시간 스테퍼(1~168h), 환율 카드(1 KRW = x VND, 마지막 수정 시각). API: /api/seasons GET/POST/PUT/DELETE(UTC 자정 정규화·half-open·겹침 overlaps 응답) + /api/settings GET/PUT(화이트리스트 2키 — 임의 키 주입·노출 차단), 전부 ADMIN 전용+AuditLog. 환율 저장 → T1.2 요율 KRW 자동 제안 연동 확인. QA 독립 평가 **통과**(완료 기준 7/7, 6메서드 403/401 전수, 경계값 400 전수) | 비고: QA 테스트로 FX_VND_PER_KRW=18.6·HOLD=48 설정됨(무해 — 의도값 아니면 /settings에서 수정). rate-editor의 KRW 제안 float 중복 구현은 기록만(저장값 아님). 교훈 2건 leak-checklist 등재 |
 
+| 2026-06-11 | cron 등록 (OPS) | T1.6·T2.4 잔여 해소 — Railway cron 2종 실등록·가동 확인: `cron-ical-sync`(*/30)·`cron-expire-holds`(*/5), 각각 `curlimages/curl` 미니 서비스 + CRON_SECRET 참조 변수(`${{villa-pms.CRON_SECRET}}`) + Bearer 호출. 검증 3단계 통과(무인증 401 → 수동 호출 200 → 자동 실행 SUCCESS). 테오 대시보드 작업 + CLI 변수 설정 협업 | 교훈: cron 서비스 변수는 Deploy 전에(직후 실행 1회 401 CRASHED — 다음 주기 자동 회복). 등록 패턴·검증 절차 ops/deployment-pattern.md 등재. Zalo 재시도 cron(10분)은 T3.5에서 동일 패턴 |
+
 ## 현재 상태 (2026-06-11 기준)
 
 ### 완료된 태스크
