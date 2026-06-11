@@ -8,13 +8,15 @@ import { saveFile, isAllowedImageMime } from "@/lib/storage";
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export async function POST(req: Request) {
-  // 인증·권한 검사 (route handler 첫 줄 규칙) — T1.1 범위: SUPPLIER·ADMIN만.
-  // CLEANER는 청소 사진 제출 태스크(F4)에서 허용 범위 재검토 후 추가
+  // 인증·권한 검사 (route handler 첫 줄 규칙) — SUPPLIER·ADMIN·CLEANER 허용.
+  // CLEANER는 T3.8(F4 청소 사진 제출)에서 허용 — 파일 업로드 자체는 무해,
+  // 태스크 소유·배정 검증은 /api/cleaning-tasks/[id]/submit에서 수행
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
-  if (session.user.role !== "SUPPLIER" && session.user.role !== "ADMIN") {
+  const role = session.user.role;
+  if (role !== "SUPPLIER" && role !== "ADMIN" && role !== "CLEANER") {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 
