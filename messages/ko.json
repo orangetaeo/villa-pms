@@ -40,5 +40,117 @@
         "serverError": "Đã xảy ra lỗi. Vui lòng thử lại sau."
       }
     }
+  },
+  "myVillas": {
+    "title": "내 빌라",
+    "greeting": "안녕하세요, {name}",
+    "add": "빌라 추가",
+    "created": "빌라가 승인 요청되었습니다. 결과가 나오면 알려드립니다."
+  },
+  "wizard": {
+    "header": "빌라 등록",
+    "step": "{n}/{total} 단계",
+    "back": "뒤로",
+    "continue": "계속",
+    "skip": "이 단계 건너뛰기",
+    "home": "홈",
+    "submit": "완료 & 승인 요청",
+    "submitting": "전송 중...",
+    "submitError": "전송에 실패했습니다. 다시 시도해주세요.",
+    "basic": {
+      "title": "기본 정보",
+      "name": "빌라명",
+      "namePlaceholder": "예: Sonasea V12",
+      "nameRequired": "빌라명을 입력해주세요.",
+      "complex": "단지",
+      "complexPlaceholder": "단지 선택 (선택사항)",
+      "bedrooms": "침실",
+      "bedroomsHint": "독립된 침실 수",
+      "bathrooms": "욕실",
+      "bathroomsHint": "온수기/샤워 시설 포함",
+      "maxGuests": "최대 인원",
+      "maxGuestsHint": "어린이 포함",
+      "basicAmenities": "기본 시설",
+      "pool": "수영장",
+      "breakfast": "조식"
+    },
+    "location": {
+      "title": "위치·참고 정보",
+      "selectedComplex": "선택한 단지",
+      "complexValue": "단지: {complex}",
+      "noComplex": "단지 미선택",
+      "complexArea": "푸꾸옥, 끼엔장",
+      "change": "변경",
+      "address": "상세 주소",
+      "addressPlaceholder": "예: Lô SV-01, Đường số 4...",
+      "addressHint": "고객이 지도에서 빌라를 쉽게 찾을 수 있습니다.",
+      "monthlyRent": "월 임대 시세 (참고)",
+      "optional": "선택사항",
+      "rentInfo": "참고용 정보입니다. 언제든지 변경할 수 있습니다."
+    },
+    "photos": {
+      "title": "사진 업로드",
+      "counter": "{done}/{total}",
+      "counterLabel": "장 업로드됨",
+      "exterior": "외관",
+      "living": "거실",
+      "kitchen": "주방",
+      "bedroom": "침실 {n}",
+      "bathroom": "욕실 {n}",
+      "balcony": "베란다",
+      "pool": "수영장",
+      "uploading": "업로드 중...",
+      "retry": "다시 시도",
+      "emptyWarning": "업로드된 사진이 없습니다. 나중에 추가할 수 있습니다 — 계속을 한 번 더 누르면 건너뜁니다.",
+      "helper": "가로로 촬영하면 고객 예약 페이지에서 빌라가 가장 보기 좋게 표시됩니다."
+    },
+    "rates": {
+      "title": "1박 원가",
+      "subtitle": "시즌별로 1박에 받을 금액을 입력하세요.",
+      "LOW": "비수기",
+      "LOWHint": "매년 5월~9월",
+      "HIGH": "성수기",
+      "HIGHHint": "매년 10월~4월",
+      "PEAK": "극성수기 (설·연휴)",
+      "PEAKHint": "축제·설 연휴",
+      "empty": "금액 미입력"
+    }
+  },
+  "amenities": {
+    "title": "비품·시설",
+    "optional": "선택사항",
+    "categories": {
+      "KITCHEN": "주방용품",
+      "BATHROOM": "욕실용품",
+      "APPLIANCE": "가전류",
+      "MINIBAR": "미니바"
+    },
+    "items": {
+      "riceCooker": "전기밥솥",
+      "pan": "프라이팬",
+      "knifeBoard": "칼·도마",
+      "dishes": "그릇·접시",
+      "glasses": "컵",
+      "kettle": "전기포트",
+      "microwave": "전자레인지",
+      "spices": "양념",
+      "towels": "수건",
+      "shampoo": "샴푸",
+      "bodyWash": "바디워시",
+      "toothbrushKit": "칫솔·치약",
+      "hairDryer": "헤어드라이어",
+      "toiletPaper": "화장지",
+      "airConditioner": "에어컨",
+      "tv": "TV",
+      "fridge": "냉장고",
+      "washingMachine": "세탁기",
+      "wifi": "와이파이",
+      "fan": "선풍기",
+      "waterHeater": "온수기",
+      "water": "생수",
+      "softDrink": "음료",
+      "beer": "맥주",
+      "snack": "과자"
+    }
   }
 }

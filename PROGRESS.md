@@ -20,6 +20,10 @@
 
 | 2026-06-11 | T0.4 | 이미지 저장소 완료 (ADR-0004): lib/storage.ts 백엔드 자동 선택 — STORAGE_* 5종 설정 시 Cloudflare R2(S3 SDK), 미설정 시 디스크. 인터림 Railway volume(villa-pms-volume, /data) + UPLOAD_DIR=/data/uploads — 재배포 시 파일 소멸 문제 해결. app/uploads/[name] 서빙 라우트(경로 탈출 차단·immutable 캐시), lib/image-resize.ts 클라 리사이즈(긴 변 1600px·EXIF 회전·HEIC 폴백). T1.1 세션과 lib/storage.ts 공동 작업(QA MIME 화이트리스트 반영). ADMIN 계정(테오) 시드 + 프로덕션 로그인 검증 | 잔여: 테오 Cloudflare R2 버킷+API 토큰 → STORAGE_* 입력 시 R2 전환(코드 무변경). sharp 서버 압축 미채택(nixpacks 네이티브 리스크) — 클라 리사이즈로 대체 |
 
+| 2026-06-11 | T1.3 | 가용성 판정 완료 (병행 세션 — T1.1과 충돌 0건): lib/availability.ts 단일 소스 — 순수 판정층(overlapsHalfOpen·assertValidStayRange·evaluateAvailability: available/sellable 분리+사유 코드) + DB 래퍼층(checkAvailability·findSellableVillaIds, PrismaClient/$transaction 클라이언트 주입 — T2.3 HOLD 트랜잭션 재검증 재사용 설계). vitest 도입(`npm test`, vitest.config.ts), 단위 테스트 18개(half-open 경계·back-to-back 허용·비점유 4종 제외·검수 게이트 분리·복합 사유). typecheck·lint 통과, QA 독립 평가 **통과**(반려 0건) | QA 권고 2건을 TASKS.md에 부착: ① T2.3 — API 날짜 입력 UTC 자정 정규화 ② T2.1 — findSellableVillaIds 전체 조회는 ADMIN route 한정(누수 검사 항목). 계약: docs/contracts/T1.3-availability.md |
+
+| 2026-06-11 | T1.1 | SUPPLIER 빌라 등록 마법사 5단계 완료: `app/(supplier)/my-villas/new` — Stitch a2(기본정보 1/5)→a2b(위치 2/5, 건너뛰기)→a1(사진 3/5, 침실·욕실 수 동적 슬롯+즉시 업로드+클라 리사이즈)→a9(비품 4/5, 4탭+미니바 스테퍼, lib/amenities.ts 품목 사전 25종)→a5(원가 5/5, 시즌 3카드+숫자 키패드, 미입력 시 제출 disabled). ICU `Bước {n}/{total}` N/5 재번호, VND 점 구분, 헤더 "Đăng ký villa" 통일. POST /api/villas($transaction: Villa PENDING_REVIEW+Photo+Amenity+Rate, supplierId 세션 강제, writeAuditLog), lib/villa-schema.ts 공유 zod. globals.css nowrap 전역 규칙(T5.5), my-villas에 "+ Thêm villa" FAB. QA 독립 검증 **통과**(권한 누수 0건, 완료 기준 7/7) — 1차 조건부 통과의 M1(업로드 SVG stored XSS)은 MIME 화이트리스트 강제로 수정 후 재검증 통과, 교훈 leak-checklist 등재. tsc·lint·build 통과 | 합의 편차: react-hook-form 미사용(제어 컴포넌트+zod — package.json 동결 시점 결정). VillaRate 마진·판매가는 0 초기화 — T1.2 운영자 화면에서 설정. 계약: docs/contracts/T1.1-villa-wizard.md. 비차단 권고: app/uploads/[name] 응답에 X-Content-Type-Options: nosniff 1줄(BE, 다음 스프린트) |
+
 ## 현재 상태 (2026-06-11 기준)
 
 ### 완료된 태스크
@@ -32,21 +36,26 @@
 | T5.1~T5.3 | 디자인 결함 수정 + LOC 용어 사전 확정 |
 | T0.3 | 인증 완료 — NextAuth v5, /signup·/login (Stitch a0 변환), Role 미들웨어, (admin)/(supplier) 라우트 그룹 |
 | T0.5 | i18n 완료 — locale 쿠키 기반 ko/vi, auth 네임스페이스 키, Noto Sans KR 폴백 전역 |
+| T1.3 | 가용성 판정 lib/availability.ts + vitest 단위 테스트 18개 — T1.4·T1.5·T2.1·T2.3의 기반 |
+| T0.4 | 이미지 저장소 — R2 백엔드+디스크 폴백 자동 선택, Railway volume 인터림, 클라 리사이즈 (ADR-0004) |
+| T1.1 | SUPPLIER 빌라 등록 마법사 5단계 (a2·a2b·a1·a9·a5 변환) + POST /api/villas + 비품 품목 사전 — QA 통과 |
 
 ### 진행 중 / 대기 중
 | 태스크 | 상태 | 담당 |
 |---|---|---|
 | T5.4 | Stitch 중복 화면 3건 수동 삭제 대기 (테오) | 테오 직접 |
 | 디자인 추가 작업 | **완료** — 2차 전체 회의(테오 7건) 처리: 낙하 수정+신규 3장+수정 9장, 총 33장, QA 통과 (위 이력 참조) | DESIGN/QA |
-| schema v1.2 push | 대기 — 통화·VillaAmenity·ZaloConversation/Message 모델 추가분 `prisma db push` 재실행 필요 | TDA/BE |
+| schema v1.2 push | **완료** — 2026-06-11 T1.1 세션에서 `prisma db push` 확인 결과 already in sync (Railway CLI `railway link` 후 DATABASE_PUBLIC_URL로 실행 — 로컬 .env는 placeholder 유지) | TDA/BE |
+| R2 전환 | 대기 — 테오가 Cloudflare R2 버킷·API 토큰 발급 → Railway STORAGE_* 5종 입력 (코드 무변경) | 테오 직접 |
 
-### 다음 세션 시작 시 할 일 (2026-06-11 세션 종료 핸드오프)
-**T0.3/T0.5 완료 — 충돌 금지 구역 해제. 인증 기반: `auth()` 세션(user.id/role/locale), `writeAuditLog()` 유틸 사용 가능**
+### 다음 세션 시작 시 할 일 (2026-06-11 T1.1 세션 종료 핸드오프)
+**T0.3/T0.4/T0.5/T1.1/T1.3 완료, schema v1.2 push 완료 — 인증 기반: `auth()` 세션(user.id/role/locale), `writeAuditLog()`, lib/storage.ts(saveFile)·lib/image-resize.ts·lib/availability.ts 사용 가능**
 
-1. **schema v1.2 push** — `npx prisma db push` 재실행 (통화·VillaAmenity·ZaloConversation/Message 추가분 — additive라 안전) (TDA/BE)
-2. **T1.1** — SUPPLIER 빌라 등록 마법사 5단계: design/stitch/ a2(기본정보)→a2b(위치)→a1(사진)→a9(비품)→a5(원가) 변환, `app/(supplier)/my-villas/new` (UX-VN) — 로그인과 겹치지 않는 첫 페이지 작업으로 지정
-3. **T1.2** — ADMIN 빌라 목록·승인·요율: b9·b10 변환 (FE)
-4. **T0.4** — 이미지 저장소: Cloudflare R2 업로드 파이프라인 (INTEG) — T1.1 사진 단계의 의존성
+1. **T1.2** — ADMIN 빌라 목록·승인·요율: b9·b10 변환 (FE) — T1.1이 만드는 PENDING_REVIEW 빌라의 승인·마진/판매가 설정 화면. VillaRate는 marginValue=0·salePriceVnd=원가·salePriceKrw=0으로 초기화되어 있음 (T1.1에서 합의). b10 비품 현황 읽기 전용 카드 포함(T6.4 잔여)
+2. **T1.4** — SUPPLIER 월 달력 (a3 변환, 탭 토글 차단) (UX-VN) — lib/availability.ts 재사용
+3. **T1.5** — ADMIN 타임라인 매트릭스 뷰 (b1 변환) (FE)
+4. 비차단 권고 1건: app/uploads/[name]/route.ts 응답에 `X-Content-Type-Options: nosniff` 헤더 1줄 추가 (BE — QA 심층 방어 권고)
+5. 프로덕션 Playwright 검증: T1.1 마법사 E2E (SUPPLIER 계정 필요 — /signup으로 생성 가능)
 
 **변환 공통 규칙 (docs/DESIGN.md 필독)**: Noto Sans KR 폴백 + word-break keep-all/nowrap을 globals.css 전역 강제, 사이드바 9메뉴 공통 컴포넌트, ADMIN VND 쉼표·공급자 VND 점, 마법사 단계는 ICU `Bước {n}/{total}` (N/5), T5.5 변환 시 처리 목록(TASKS.md) 확인
 

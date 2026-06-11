@@ -1,0 +1,62 @@
+// 비품 품목 사전 (T1.1 — a9 디자인 기준, ADR-0003 VillaAmenity)
+// itemKey는 코드 상수 — 라벨은 i18n 키 `amenities.items.<itemKey>` (vi 기본, ko 병기)
+// 아이콘은 Material Symbols Outlined 글리프명
+
+export type AmenityCategoryKey = "KITCHEN" | "BATHROOM" | "APPLIANCE" | "MINIBAR";
+
+export interface AmenityItem {
+  itemKey: string;
+  icon: string;
+}
+
+export const AMENITY_CATEGORIES: AmenityCategoryKey[] = [
+  "KITCHEN",
+  "BATHROOM",
+  "APPLIANCE",
+  "MINIBAR",
+];
+
+export const AMENITY_ITEMS: Record<AmenityCategoryKey, AmenityItem[]> = {
+  // 주방용품 (a9 디자인 품목 그대로)
+  KITCHEN: [
+    { itemKey: "riceCooker", icon: "rice_bowl" },
+    { itemKey: "pan", icon: "skillet" },
+    { itemKey: "knifeBoard", icon: "cut" },
+    { itemKey: "dishes", icon: "restaurant" },
+    { itemKey: "glasses", icon: "local_cafe" },
+    { itemKey: "kettle", icon: "kettle" },
+    { itemKey: "microwave", icon: "microwave" },
+    { itemKey: "spices", icon: "grocery" },
+  ],
+  // 화장실용품
+  BATHROOM: [
+    { itemKey: "towels", icon: "dry_cleaning" },
+    { itemKey: "shampoo", icon: "soap" },
+    { itemKey: "bodyWash", icon: "shower" },
+    { itemKey: "toothbrushKit", icon: "dentistry" },
+    { itemKey: "hairDryer", icon: "dry" },
+    { itemKey: "toiletPaper", icon: "wc" },
+  ],
+  // 가전류
+  APPLIANCE: [
+    { itemKey: "airConditioner", icon: "ac_unit" },
+    { itemKey: "tv", icon: "tv" },
+    { itemKey: "fridge", icon: "kitchen" },
+    { itemKey: "washingMachine", icon: "local_laundry_service" },
+    { itemKey: "wifi", icon: "wifi" },
+    { itemKey: "fan", icon: "mode_fan" },
+    { itemKey: "waterHeater", icon: "thermostat" },
+  ],
+  // 미니바 — 수량 의미 있음 (+/− 스테퍼)
+  MINIBAR: [
+    { itemKey: "water", icon: "water_drop" },
+    { itemKey: "softDrink", icon: "local_drink" },
+    { itemKey: "beer", icon: "sports_bar" },
+    { itemKey: "snack", icon: "cookie" },
+  ],
+};
+
+/** 품목 사전 검증 — API에서 임의 itemKey 주입 차단 */
+export function isValidAmenity(category: AmenityCategoryKey, itemKey: string): boolean {
+  return AMENITY_ITEMS[category]?.some((item) => item.itemKey === itemKey) ?? false;
+}

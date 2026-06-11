@@ -40,5 +40,117 @@
         "serverError": "Đã xảy ra lỗi. Vui lòng thử lại sau."
       }
     }
+  },
+  "myVillas": {
+    "title": "Villa của tôi",
+    "greeting": "Xin chào, {name}",
+    "add": "Thêm villa",
+    "created": "Đã gửi villa để duyệt. Chúng tôi sẽ thông báo khi có kết quả."
+  },
+  "wizard": {
+    "header": "Đăng ký villa",
+    "step": "Bước {n}/{total}",
+    "back": "Trở lại",
+    "continue": "Tiếp tục",
+    "skip": "Bỏ qua bước này",
+    "home": "Trang chủ",
+    "submit": "Hoàn tất & Gửi duyệt",
+    "submitting": "Đang gửi...",
+    "submitError": "Gửi không thành công. Vui lòng thử lại.",
+    "basic": {
+      "title": "Thông tin cơ bản",
+      "name": "Tên villa",
+      "namePlaceholder": "VD: Sonasea V12",
+      "nameRequired": "Vui lòng nhập tên villa.",
+      "complex": "Khu",
+      "complexPlaceholder": "Chọn khu (không bắt buộc)",
+      "bedrooms": "Phòng ngủ",
+      "bedroomsHint": "Tổng số phòng ngủ riêng",
+      "bathrooms": "Phòng tắm",
+      "bathroomsHint": "Có bình nóng lạnh/vòi sen",
+      "maxGuests": "Số khách tối đa",
+      "maxGuestsHint": "Bao gồm cả trẻ em",
+      "basicAmenities": "Tiện ích cơ bản",
+      "pool": "Hồ bơi",
+      "breakfast": "Bữa sáng"
+    },
+    "location": {
+      "title": "Vị trí & tham khảo",
+      "selectedComplex": "Khu vực đã chọn",
+      "complexValue": "Khu: {complex}",
+      "noComplex": "Chưa chọn khu",
+      "complexArea": "Phú Quốc, Kiên Giang",
+      "change": "Thay đổi",
+      "address": "Địa chỉ cụ thể",
+      "addressPlaceholder": "VD: Lô SV-01, Đường số 4...",
+      "addressHint": "Giúp khách hàng dễ dàng tìm thấy villa của bạn trên bản đồ.",
+      "monthlyRent": "Giá thuê tháng (tham khảo)",
+      "optional": "Không bắt buộc",
+      "rentInfo": "Thông tin này chỉ dùng để tham khảo. Bạn có thể thay đổi bất cứ lúc nào."
+    },
+    "photos": {
+      "title": "Tải ảnh lên",
+      "counter": "{done}/{total}",
+      "counterLabel": "ảnh đã tải",
+      "exterior": "Bên ngoài",
+      "living": "Phòng khách",
+      "kitchen": "Bếp",
+      "bedroom": "Phòng ngủ {n}",
+      "bathroom": "Phòng tắm {n}",
+      "balcony": "Ban công",
+      "pool": "Hồ bơi",
+      "uploading": "Đang tải...",
+      "retry": "Thử lại",
+      "emptyWarning": "Chưa có ảnh nào. Bạn có thể thêm ảnh sau — nhấn Tiếp tục một lần nữa để bỏ qua.",
+      "helper": "Bạn nên chụp ảnh theo chiều ngang để villa hiển thị đẹp nhất trên trang đặt phòng của khách hàng."
+    },
+    "rates": {
+      "title": "Giá gốc mỗi đêm",
+      "subtitle": "Nhập giá bạn nhận cho mỗi đêm, theo từng mùa.",
+      "LOW": "Mùa thấp điểm",
+      "LOWHint": "T5 - T9 hàng năm",
+      "HIGH": "Mùa cao điểm",
+      "HIGHHint": "T10 - T4 hàng năm",
+      "PEAK": "Cao điểm lễ Tết",
+      "PEAKHint": "Lễ hội & Tết Nguyên Đán",
+      "empty": "Chưa nhập giá"
+    }
+  },
+  "amenities": {
+    "title": "Tiện nghi & đồ dùng",
+    "optional": "Không bắt buộc",
+    "categories": {
+      "KITCHEN": "Đồ bếp",
+      "BATHROOM": "Đồ phòng tắm",
+      "APPLIANCE": "Thiết bị điện",
+      "MINIBAR": "Minibar"
+    },
+    "items": {
+      "riceCooker": "Nồi cơm điện",
+      "pan": "Chảo",
+      "knifeBoard": "Dao & thớt",
+      "dishes": "Bát đĩa",
+      "glasses": "Ly cốc",
+      "kettle": "Ấm đun nước",
+      "microwave": "Lò vi sóng",
+      "spices": "Gia vị",
+      "towels": "Khăn tắm",
+      "shampoo": "Dầu gội",
+      "bodyWash": "Sữa tắm",
+      "toothbrushKit": "Bàn chải & kem",
+      "hairDryer": "Máy sấy tóc",
+      "toiletPaper": "Giấy vệ sinh",
+      "airConditioner": "Máy lạnh",
+      "tv": "Tivi",
+      "fridge": "Tủ lạnh",
+      "washingMachine": "Máy giặt",
+      "wifi": "Wifi",
+      "fan": "Quạt",
+      "waterHeater": "Bình nóng lạnh",
+      "water": "Nước suối",
+      "softDrink": "Nước ngọt",
+      "beer": "Bia",
+      "snack": "Bánh kẹo"
+    }
   }
 }

@@ -14,6 +14,25 @@ body {
   vertical-align: middle;
 }
 
+/* 채워진(FILL) 아이콘 변형 — 완료 체크·위치 핀 등 */
+.material-symbols-outlined.icon-fill {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* 배지·칩·태그/버튼/테이블 헤더/날짜·금액 셀 줄바꿈 금지 —
+   글자 세로 낙하 박멸 전역 규칙 (DESIGN.md 레이아웃·타이포 규칙, T5.5) */
+span[class*="rounded"],
+button,
+th,
+.tabular-nums {
+  white-space: nowrap;
+}
+
+/* iOS 안전영역 하단 패딩 (고정 푸터용) */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 /* 모바일 터치 최소 타겟 (WCAG 2.5.5) */
 .touch-target {
   min-height: 56px;

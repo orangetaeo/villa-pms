@@ -19,3 +19,5 @@
 - (2026-06-11 T5.2 디자인 재검수) 용어 금지어 grep 시 NOTES.md·README.md의 "금지 규칙 설명 문장"이 오탐됨 → HTML만 검사하려면 glob **/*.html로 한정.
 - (2026-06-11 2라운드 최종 검수) `overflow-x-auto` 테이블은 정적 스크린샷에서 마지막 열이 잘려 시각 검증이 불가(b10 "판매가 KRW 환산" 5열째) → 스크린샷만 믿지 말고 HTML `<th>` 개수와 스크린샷 노출 열 수를 반드시 대조. 열 누락처럼 보여도 스크롤 가능 여부(overflow 래퍼)를 먼저 확인.
 - (2026-06-11 2라운드 최종 검수) 영어 잔존·하이픈 날짜 grep은 비가시 텍스트가 오탐됨 — img alt/data-alt(이미지 생성 프롬프트), HTML 주석, material icon명(`bathroom` 등), CSS 주석의 작성일 → 매치 컨텍스트를 열어 "렌더링되는 텍스트인지" 확인 후 판정할 것.
+- (2026-06-11 T1.1 QA) 파일 업로드 확장자를 클라이언트 MIME에서 fallback 유도(`mimeType.split("/")[1]`)하면 stored XSS 벡터가 됨 — `Content-Type: image/svg`(비표준)로 위장 업로드 시 `.svg`로 저장되고 정적 서버가 image/svg+xml로 응답해 SVG 내 스크립트가 동일 출처에서 실행됨. 업로드 검증은 반드시 **MIME 화이트리스트(사전에 있는 키만 허용, fallback 금지)** + 가능하면 매직바이트 검사. `startsWith("image/")` 검사만으로는 불충분.
+- (2026-06-11 T1.1 QA) 업로드 파일명 안전 패턴(재사용 가능): `Date.now()-새니타이즈된 uploaderId-randomUUID().ext` — 사용자 입력이 파일명에 들어갈 때는 `[^a-zA-Z0-9_-]` 전부 제거하면 path traversal 원천 차단됨. 단 확장자도 동일하게 새니타이즈+화이트리스트 필요(위 항목).

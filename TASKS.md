@@ -13,7 +13,7 @@
 
 ## Sprint 1 — F1 빌라 등록 + F2 캘린더 (M1 W2~3)
 - [x] T1.0 Stitch 디자인 생성: A0~A4, B1 (docs/DESIGN.md 프롬프트) → design/stitch/ 저장 (DESIGN, 테오 확인) — 2026-06-11 전체 회의 검수 — 조건부 통과
-- [ ] T1.1 SUPPLIER 빌라 등록 마법사 (Stitch A1·A2 변환) (UX-VN)
+- [x] T1.1 SUPPLIER 빌라 등록 마법사 (Stitch A1·A2 변환) (UX-VN) — 2026-06-11 완료. 5단계(a2→a2b→a1→a9→a5) `/my-villas/new`, POST /api/villas(supplierId 세션 강제+AuditLog), 비품 품목 사전 lib/amenities.ts, QA 통과(누수 0건, M1 업로드 XSS 수정 후 재검증 ✓). 계약: docs/contracts/T1.1-villa-wizard.md
 - [ ] T1.2 ADMIN 빌라 승인 화면 + 요율(VillaRate) 편집 (FE)
 - [x] T1.3 lib/availability.ts 가용성 판정 + 단위 테스트 (BE/QA) — 2026-06-11 완료. 순수 판정층(evaluateAvailability·overlapsHalfOpen)+DB 래퍼층(checkAvailability·findSellableVillaIds, $transaction 클라이언트 주입 가능) 분리, vitest 도입(`npm test`, 18 테스트), QA 독립 평가 통과(계약: docs/contracts/T1.3-availability.md)
 - [ ] T1.4 SUPPLIER 월 달력 (탭 토글 차단) (UX-VN)
@@ -57,7 +57,7 @@
 
 ### 구현 (각 스프린트에 흡수 — 담당 표기)
 - [ ] T6.3 결제 통화: lib/pricing.ts 통화 분기(saleCurrency별 박별 합산) + VillaRate salePriceVnd 편집(빌라 승인·요율 화면) + 제안·HOLD 통화/환율 스냅샷 + /settings 환율(FX_VND_PER_KRW) 입력 UI (BE/FE — Sprint 2 T2.1~T2.3과 병행)
-- [ ] T6.4 비품: 마법사 4/5 비품 단계(a9 변환, 품목 사전 i18n 키는 LOC) + 내 빌라 상세 비품 수정 + ADMIN b10 비품 조회 (UX-VN/FE/LOC — Sprint 1 T1.1·T1.2와 병행)
+- [ ] T6.4 비품: ~~마법사 4/5 비품 단계(a9 변환, 품목 사전 i18n 키는 LOC)~~(2026-06-11 T1.1에서 완료 — lib/amenities.ts 25종 + amenities.* i18n 키) + 내 빌라 상세 비품 수정 + ADMIN b10 비품 조회 (UX-VN/FE/LOC — Sprint 1 T1.2와 병행, 잔여 2건)
 - [ ] T6.5 체크아웃 미니바 확인 체크리스트 (읽기 전용, b4 변환에 포함) (FE — Sprint 3 T3.3과 병행)
 - [ ] T6.6 Zalo 채팅: webhook message 이벤트 수신(T3.7 엔드포인트 분기) → ZaloConversation/ZaloMessage 저장 + /messages 채팅 화면(48h 창 비활성) + Gemini 번역(수신 자동·발신 미리보기) + F5 알림 OUTBOUND 미러 기록 (INTEG/FE/BE — Sprint 3 T3.5·T3.7과 병행)
 - [ ] T6.7 관리자 반응형: <1024px 햄버거 드로어 레이아웃 + ResponsiveTable 공통 컴포넌트(<768px 카드 전환 — b5·b9·b12·b13 적용) (FE — 각 화면 변환 시 적용, QA가 360×800 뷰포트 검증)
