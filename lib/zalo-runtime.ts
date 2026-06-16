@@ -13,8 +13,13 @@
  * 보안(D6): credential은 lib/zalo-credentials에서만 다룬다. 여기서는 평문 credential을
  * 절대 로그/응답에 내보내지 않는다. _pendingCreds는 onLoginSuccess 직후 즉시 폐기.
  */
-import { Zalo, type API } from "zca-js";
-import { LoginQRCallbackEventType, type LoginQRCallbackEvent } from "zca-js";
+import { Zalo, ThreadType, type API } from "zca-js";
+import {
+  LoginQRCallbackEventType,
+  type LoginQRCallbackEvent,
+  type Message,
+  type UserMessage,
+} from "zca-js";
 import {
   saveCredentials,
   loadCredentials,
@@ -22,8 +27,20 @@ import {
   type ZaloCredentials,
 } from "./zalo-credentials";
 import { writeAuditLog } from "./audit-log";
+import {
+  extractText,
+  isEchoMessage,
+  buildInboundKey,
+  saveInboundMessage,
+} from "./zalo-inbound";
 
 export type ZaloStatus = "disconnected" | "qr_pending" | "connected" | "error";
+
+/**
+ * 봇 미연결/세션 만료 — 발송 불가 (S4). attempt 미증가·자동 회복 동작은
+ * 기존 ZALO_TOKEN_NOT_SET을 계승한다(봇 재로그인 후 다음 cron에서 자동 발송, ADR-0006 D5.4).
+ */
+export const ERROR_BOT_NOT_CONNECTED = "BOT_NOT_CONNECTED";
 
 interface ZaloBotInstance {
   api: API | null;
@@ -336,12 +353,15 @@ async function onLoginSuccess(inst: ZaloBotInstance, api: API) {
     inst._pendingCreds = null;
   }
 
-  // WebSocket 리스너 시작 — 세션 유지. 끊김 시 재시도.
-  // 수신 메시지 본문 저장(S3)·발송(S4)은 후속 단계. 지금은 세션 보온만.
+  // WebSocket 리스너 시작 — 세션 유지 + 수신 저장(S3).
   try {
     api.listener.on("connected", () => {
       inst.status = "connected";
       inst.lastConnected = new Date();
+    });
+    // S3 — 수신 메시지 핸들러. UserMessage(1:1)만 처리, 그룹·에코는 스킵.
+    api.listener.on("message", (message: Message) => {
+      void handleInboundEvent(inst, message);
     });
     api.listener.on("closed", (code: number) => {
       // code 3000 = DuplicateConnection — 다른 곳에서 봇 계정 로그인됨 (D2.3, 밴 위험 신호)
@@ -364,5 +384,82 @@ async function onLoginSuccess(inst: ZaloBotInstance, api: API) {
       "[ZaloBot] 리스너 시작 실패:",
       err instanceof Error ? err.message : err
     );
+  }
+}
+
+// ── S3 수신 핸들러 ────────────────────────────────────────────
+
+/**
+ * zca-js message 이벤트 → 파싱 → DB 저장.
+ * - UserMessage(ThreadType.User)만 처리. 그룹 메시지는 무시.
+ * - 봇 본인 발신 에코(isSelf 또는 ownId 일치)는 저장 스킵 — S4 발송이 OUTBOUND를 이미 미러.
+ * - 멱등·예외 안전: 1건 실패가 리스너를 죽이지 않도록 전체 try/catch.
+ *   credential·세션 객체는 본 경로에서 다루지 않으며 로그에 메시지 본문·번호를 출력하지 않는다.
+ */
+async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Promise<void> {
+  try {
+    if (message.type !== ThreadType.User) return; // 그룹 무시
+    const userMsg = message as UserMessage;
+    const data = userMsg.data as Record<string, unknown>;
+
+    const senderId =
+      (data.uidFrom as string | undefined) ??
+      (data.userId as string | undefined) ??
+      null;
+
+    // 에코 제외 — 봇 본인 발신
+    if (isEchoMessage({ isSelf: userMsg.isSelf, senderId }, inst.ownId)) return;
+
+    const senderZaloUserId = userMsg.threadId || senderId;
+    if (!senderZaloUserId) return;
+
+    const text = extractText(userMsg.data.content);
+    if (!text) return; // 텍스트 없는 수신(첨부 전용 등)은 S5 범위 — Phase 1 스킵
+
+    await saveInboundMessage({
+      senderZaloUserId,
+      text,
+      zaloMsgId: buildInboundKey(userMsg.data),
+      displayName: (data.dName as string | undefined) ?? null,
+      // zca-js 텍스트 메시지에는 발신자 전화번호가 실리지 않음 — 본문에서 추출(saveInboundMessage 내부)
+      senderPhone: null,
+    });
+  } catch (err) {
+    // 1건 실패가 리스너를 죽이지 않게 — 본문·번호 미포함, 메시지만 기록
+    console.error(
+      "[ZaloBot] 수신 처리 실패:",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
+}
+
+// ── S4 발송 ──────────────────────────────────────────────────
+
+export type BotSendResult =
+  | { ok: true; messageId: string | null }
+  | { ok: false; error: string };
+
+/**
+ * 봇 계정으로 텍스트 1건 발송 (S4 — dispatchOne·b14 채팅 공용).
+ * 봇 미연결 시 ok:false + ERROR_BOT_NOT_CONNECTED(호출부에서 attempt 미증가 처리).
+ * 예외 없이 결과 객체 반환 — credential·세션은 절대 결과/로그에 포함하지 않는다.
+ */
+export async function sendBotMessage(
+  zaloUserId: string,
+  text: string
+): Promise<BotSendResult> {
+  const api = getBotApi();
+  if (!api) {
+    return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
+  }
+  try {
+    const res = await api.sendMessage(text, zaloUserId, ThreadType.User);
+    const msgId = res?.message?.msgId;
+    return { ok: true, messageId: msgId != null ? String(msgId) : null };
+  } catch (e) {
+    return {
+      ok: false,
+      error: `SEND_ERROR: ${e instanceof Error ? e.message : String(e)}`.slice(0, 500),
+    };
   }
 }

@@ -1,12 +1,14 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // ── mocks ─────────────────────────────────────────────────────────────
 const mockAuth = vi.fn();
 vi.mock("@/auth", () => ({ auth: (...a: unknown[]) => mockAuth(...a) }));
 vi.mock("@/lib/audit-log", () => ({ writeAuditLog: vi.fn(async () => {}) }));
 
-const mockSendZaloText = vi.fn();
-vi.mock("@/lib/zalo", () => ({ sendZaloText: (...a: unknown[]) => mockSendZaloText(...a) }));
+const mockSendBotMessage = vi.fn();
+vi.mock("@/lib/zalo-runtime", () => ({
+  sendBotMessage: (...a: unknown[]) => mockSendBotMessage(...a),
+}));
 
 const mockTranslateText = vi.fn();
 vi.mock("@/lib/gemini", () => {
@@ -64,9 +66,6 @@ import { PATCH as convPatch } from "@/app/api/zalo/conversations/[id]/route";
 const ADMIN = { user: { id: "admin1", role: "ADMIN" } };
 const SUPPLIER = { user: { id: "s1", role: "SUPPLIER" } };
 
-const recentInbound = new Date(Date.now() - 60 * 60 * 1000); // 1h 전 → 창 열림
-const expiredInbound = new Date(Date.now() - 49 * 60 * 60 * 1000); // 49h 전 → 닫힘
-
 const sendReq = (body: unknown) =>
   sendPost(
     new Request("http://local/api/zalo/messages", {
@@ -100,18 +99,15 @@ beforeEach(() => {
   mockConvFindUnique.mockResolvedValue({
     id: "c1",
     zaloUserId: "zu1",
-    lastInboundAt: recentInbound,
   });
   mockConvUpdateMany.mockResolvedValue({ count: 1 });
+  // 기본: 봇 연결됨 + 발송 성공
+  mockSendBotMessage.mockResolvedValue({ ok: true, messageId: "zmsg1" });
   tx.zaloMessage.create.mockResolvedValue({
     id: "m1",
     status: "SENT",
     createdAt: new Date("2026-06-16T10:00:00Z"),
   });
-});
-
-afterEach(() => {
-  delete process.env.ZALO_OA_ACCESS_TOKEN;
 });
 
 // ── POST /api/zalo/messages ───────────────────────────────────────────
@@ -135,23 +131,16 @@ describe("POST /api/zalo/messages — 발신 (T6.6)", () => {
     expect((await sendReq({ conversationId: "x", text: "안녕" })).status).toBe(404);
   });
 
-  it("48시간 경과 409 WINDOW_CLOSED (영속 안 함)", async () => {
+  it("48h 가드 제거(D5.5) — 수신 이력과 무관하게 항상 발신 가능(영속됨)", async () => {
     mockAuth.mockResolvedValue(ADMIN);
-    mockConvFindUnique.mockResolvedValue({
-      id: "c1",
-      zaloUserId: "zu1",
-      lastInboundAt: expiredInbound,
-    });
     const res = await sendReq({ conversationId: "c1", text: "안녕" });
-    expect(res.status).toBe(409);
-    expect((await res.json()).error).toBe("WINDOW_CLOSED");
-    expect(tx.zaloMessage.create).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(tx.zaloMessage.create).toHaveBeenCalled();
   });
 
-  it("성공: 토큰 설정 + 발송 OK → OUTBOUND CHAT SENT 적재 + lastMessageAt 갱신 + AuditLog", async () => {
+  it("성공: 봇 연결 + 발송 OK → OUTBOUND CHAT SENT 적재 + lastMessageAt 갱신 + AuditLog", async () => {
     mockAuth.mockResolvedValue(ADMIN);
-    process.env.ZALO_OA_ACCESS_TOKEN = "tok";
-    mockSendZaloText.mockResolvedValue({ ok: true, messageId: "zmsg1" });
+    mockSendBotMessage.mockResolvedValue({ ok: true, messageId: "zmsg1" });
     const res = await sendReq({ conversationId: "c1", text: "확인했습니다" });
     expect(res.status).toBe(200);
     const data = tx.zaloMessage.create.mock.calls[0]![0].data;
@@ -160,39 +149,37 @@ describe("POST /api/zalo/messages — 발신 (T6.6)", () => {
     expect(data.status).toBe("SENT");
     expect(data.sentBy).toBe("admin1");
     expect(data.zaloMsgId).toBe("zmsg1");
+    expect(mockSendBotMessage).toHaveBeenCalledWith("zu1", "확인했습니다");
     expect(tx.zaloConversation.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "c1" }, data: { lastMessageAt: expect.any(Date) } })
     );
     expect(vi.mocked(writeAuditLog)).toHaveBeenCalled();
   });
 
-  it("토큰 미설정 → FAILED 기록하되 200 (500 금지)", async () => {
+  it("봇 미연결 → FAILED 기록하되 200 (500 금지)", async () => {
     mockAuth.mockResolvedValue(ADMIN);
-    // ZALO_OA_ACCESS_TOKEN 미설정
+    mockSendBotMessage.mockResolvedValue({ ok: false, error: "BOT_NOT_CONNECTED" });
     const res = await sendReq({ conversationId: "c1", text: "확인" });
     expect(res.status).toBe(200);
     const data = tx.zaloMessage.create.mock.calls[0]![0].data;
     expect(data.status).toBe("FAILED");
-    expect(data.error).toBe("ZALO_TOKEN_NOT_SET");
-    expect(mockSendZaloText).not.toHaveBeenCalled();
+    expect(data.error).toBe("BOT_NOT_CONNECTED");
     expect(vi.mocked(writeAuditLog)).toHaveBeenCalled();
   });
 
   it("발송 실패(타임아웃 등) → FAILED 기록 + 200", async () => {
     mockAuth.mockResolvedValue(ADMIN);
-    process.env.ZALO_OA_ACCESS_TOKEN = "tok";
-    mockSendZaloText.mockResolvedValue({ ok: false, error: "TIMEOUT" });
+    mockSendBotMessage.mockResolvedValue({ ok: false, error: "SEND_ERROR: timeout" });
     const res = await sendReq({ conversationId: "c1", text: "확인" });
     expect(res.status).toBe(200);
     const data = tx.zaloMessage.create.mock.calls[0]![0].data;
     expect(data.status).toBe("FAILED");
-    expect(data.error).toBe("TIMEOUT");
+    expect(data.error).toBe("SEND_ERROR: timeout");
   });
 
   it("발신 본문에 마진·판매가 미포함 (text 그대로만 적재)", async () => {
     mockAuth.mockResolvedValue(ADMIN);
-    process.env.ZALO_OA_ACCESS_TOKEN = "tok";
-    mockSendZaloText.mockResolvedValue({ ok: true, messageId: null });
+    mockSendBotMessage.mockResolvedValue({ ok: true, messageId: null });
     await sendReq({ conversationId: "c1", text: "내일 청소 부탁드립니다" });
     const data = tx.zaloMessage.create.mock.calls[0]![0].data;
     expect(data.text).toBe("내일 청소 부탁드립니다");

@@ -104,6 +104,8 @@
 
 | 2026-06-16 | T3.5b S0~S2 | Zalo zca-js QR 로그인 MVP 완료 (ADR-0006): OA 폐기→개인계정 QR 로그인 전환 1차. ZaloAccount 모델 추가(additive db push, credential AES-256-GCM 암호문·select 격리), lib/zalo-credentials.ts(Nike 이식)·lib/zalo-runtime.ts(봇 단일 인스턴스 — Nike 멀티풀 축약, globalThis 슬롯·connectPromise mutex·code3000 중복로그인 감지), /api/zalo/qr·status(ADMIN 전용), /settings/zalo 화면(QR 생성→폴링→연결됨), instrumentation.ts(재시작 자동 재로그인 NEXT_RUNTIME 가드). railway numReplicas=1(동시로그인 밴 방지), zca-js@2.1.2, serverExternalPackages. QA 독립 평가 **통과** — **credential 누수 0건**(응답·HTML·AuditLog·로그), vitest 527 회귀 0, 실 QR 생성(16KB PNG) 확인 | **테오님 직접: /settings/zalo에서 휴대폰 Zalo QR 스캔→연결**. 잔여: S2 자동재로그인 프로덕션 1회 실측(OPS), S3 수신 리스너→/messages 실데이터, S4 발송 OA→zca-js 전환(dispatchOne 1줄), S5 이미지·번역. zalo-credentials/runtime 단위테스트 보강 권고. ADR-0006 정본 |
 
+| 2026-06-16 | T3.5b S3+S4 | Zalo 수신 리스너+발송 zca-js 전환 완료 — 알림 실발송·채팅 실수신 배선 완결: S3 lib/zalo-inbound.ts(message 리스너→ZaloConversation/ZaloMessage 저장, ThreadType.User만·그룹 제외, isSelf/ownId 에코 dedup+zaloMsgId 멱등, 전화번호 자동매칭 T3.7 — userId null+SUPPLIER phone 일치 시 User.zaloUserId 연결). S4 dispatchOne 전송 sendZaloText(OA)→sendBotMessage(getBotApi().sendMessage, ThreadType.User), ERROR_BOT_NOT_CONNECTED(attempt 미증가 자동회복), 48h 가드 제거(개인계정 D5.5 — /messages 입력창 항상 활성). enqueueNotification/dispatchPendingNotifications/buildNotificationText 시그니처 무변경(호출부 무수정). QA 독립 평가 **통과** — credential·세션·마진·고객정보 누수 0, 시그니처 변경 0, vitest 549 회귀 0, 전화번호 매칭·멱등 라이브 DB 실증 | 잔여: S5 여권이미지 실발송·vi↔ko 번역, S6 끊김 Web Push, instrumentation register() 프로덕션 1회 실측(WebSocket 상주), 실송수신(테오 봇↔테스트). 교훈 4건 leak-checklist 권고 |
+
 ## 현재 상태 (2026-06-11 기준)
 
 ### 완료된 태스크

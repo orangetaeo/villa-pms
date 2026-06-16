@@ -7,7 +7,6 @@ import {
   ZaloMessageSource,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { isReplyWindowOpen } from "@/lib/zalo-chat";
 import { Inbox, type InboxItem } from "./inbox";
 import { ChatPane, type ChatMessage, type ChatHeader } from "./chat-pane";
 
@@ -107,7 +106,8 @@ export default async function MessagesPage({
       lastText: c.messages[0]?.text ?? "",
       time: inboxTime(c.lastMessageAt, now),
       unreadCount: c.unreadCount,
-      windowExpired: !isReplyWindowOpen(c.lastInboundAt, now),
+      // ADR-0006 D5.5 — 개인계정은 48h 제약 없음. 입력창 항상 활성(만료 배지 미표시).
+      windowExpired: false,
       selected: c.id === selectedId,
     };
   });
@@ -115,7 +115,8 @@ export default async function MessagesPage({
   // 선택 대화 스레드
   let header: ChatHeader | null = null;
   let messages: ChatMessage[] = [];
-  let windowOpen = false;
+  // ADR-0006 D5.5 — 개인계정은 48h 제약 없음. 채팅 입력창 항상 활성.
+  const windowOpen = true;
 
   if (selectedId) {
     const conv = await prisma.zaloConversation.findUnique({
@@ -150,7 +151,6 @@ export default async function MessagesPage({
 
     if (conv) {
       const name = conv.user?.name ?? conv.displayName ?? "(이름 미확인)";
-      windowOpen = isReplyWindowOpen(conv.lastInboundAt, now);
       header = {
         name,
         initials: initials(name),

@@ -1,8 +1,9 @@
 // POST /api/zalo/messages — ADMIN 수동 채팅 발신 (T6.6, b14, ADR-0003)
-// 흐름: 48h 가드 → ZaloMessage(OUTBOUND·CHAT) 영속 → sendZaloText 시도 → status SENT/FAILED 갱신
+// 흐름: ZaloMessage(OUTBOUND·CHAT) 영속 → sendBotMessage 시도 → status SENT/FAILED 갱신
 //       → conversation.lastMessageAt 갱신 → AuditLog
-// 발송 실패(토큰 미설정·타임아웃·API 오류)는 status=FAILED로 기록하되 500 금지 — 영속은 200.
+// 발송 실패(봇 미연결·타임아웃·API 오류)는 status=FAILED로 기록하되 500 금지 — 영속은 200.
 // 마진·판매가·KRW 절대 미포함 (사업 원칙 2).
+// ADR-0006 D5.5: 개인계정(zca-js)은 48h CS 제약 없음 → isReplyWindowOpen 가드 제거(입력창 항상 활성).
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
@@ -13,8 +14,7 @@ import {
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
-import { sendZaloText } from "@/lib/zalo";
-import { isReplyWindowOpen } from "@/lib/zalo-chat";
+import { sendBotMessage } from "@/lib/zalo-runtime";
 
 const bodySchema = z.object({
   conversationId: z.string().min(1),
@@ -49,35 +49,24 @@ export async function POST(req: Request) {
 
   const conversation = await prisma.zaloConversation.findUnique({
     where: { id: conversationId },
-    select: { id: true, zaloUserId: true, lastInboundAt: true },
+    select: { id: true, zaloUserId: true },
   });
   if (!conversation) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
 
-  // 48h CS 응답 창 가드 — 경과 시 발신 불가 (시스템 알림은 별 경로)
-  if (!isReplyWindowOpen(conversation.lastInboundAt)) {
-    return NextResponse.json({ error: "WINDOW_CLOSED" }, { status: 409 });
-  }
-
-  // 1) 발송 시도 — 토큰 미설정/실패는 status=FAILED 기록(500 금지)
-  const token = process.env.ZALO_OA_ACCESS_TOKEN;
+  // 1) 발송 시도 — 봇 미연결/실패는 status=FAILED 기록(500 금지). 48h 가드 없음(D5.5).
   let status: ZaloMessageStatus;
   let error: string | null = null;
   let zaloMsgId: string | null = null;
 
-  if (!token) {
-    status = ZaloMessageStatus.FAILED;
-    error = "ZALO_TOKEN_NOT_SET";
+  const result = await sendBotMessage(conversation.zaloUserId, text);
+  if (result.ok) {
+    status = ZaloMessageStatus.SENT;
+    zaloMsgId = result.messageId;
   } else {
-    const result = await sendZaloText(conversation.zaloUserId, text, token);
-    if (result.ok) {
-      status = ZaloMessageStatus.SENT;
-      zaloMsgId = result.messageId;
-    } else {
-      status = ZaloMessageStatus.FAILED;
-      error = result.error;
-    }
+    status = ZaloMessageStatus.FAILED;
+    error = result.error;
   }
 
   // 2) 영속 + lastMessageAt 갱신 + AuditLog (원자적)

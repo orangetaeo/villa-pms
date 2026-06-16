@@ -10,6 +10,10 @@ import {
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
+import { sendBotMessage, ERROR_BOT_NOT_CONNECTED } from "@/lib/zalo-runtime";
+
+// 봇 미연결 상수 재노출 (S4 — 호출부가 lib/zalo에서 일괄 import하도록)
+export { ERROR_BOT_NOT_CONNECTED };
 
 /**
  * Zalo OA 발송 단일 소스 (SPEC F5, 계약: docs/contracts/T3.5-zalo-send.md)
@@ -63,12 +67,13 @@ export function withAttempt(payload: unknown, attempt: number): Prisma.InputJson
 /**
  * FAILED 알림 재시도 판정.
  * - NO_ZALO_LINK: 영구 실패 — 재시도 안 함
- * - ZALO_TOKEN_NOT_SET: attempt를 증가시키지 않으므로 항상 재시도 대상 (토큰 입력 시 자동 회복)
+ * - BOT_NOT_CONNECTED(구 ZALO_TOKEN_NOT_SET): attempt 미증가 → 항상 재시도 대상
+ *   (봇 재로그인 후 다음 cron에서 자동 발송 — ADR-0006 D5.4)
  * - 그 외(타임아웃·API 오류): attempt < MAX_SEND_ATTEMPTS 일 때만 재시도
  */
 export function isRetryableFailure(error: string | null | undefined, attempt: number): boolean {
   if (error && PERMANENT_ERRORS.has(error)) return false;
-  if (error === ERROR_TOKEN_NOT_SET) return true;
+  if (error === ERROR_TOKEN_NOT_SET || error === ERROR_BOT_NOT_CONNECTED) return true;
   return attempt < MAX_SEND_ATTEMPTS;
 }
 
@@ -330,7 +335,6 @@ type DispatchTarget = Notification & { user: { zaloUserId: string | null } };
  */
 export async function dispatchPendingNotifications(limit = 20): Promise<DispatchSummary> {
   const summary: DispatchSummary = { sent: 0, failed: 0, skipped: 0, mirrorSkipped: 0 };
-  const token = process.env.ZALO_OA_ACCESS_TOKEN;
 
   // 영구 실패(NO_ZALO_LINK)는 DB 레벨에서 제외, attempt 판정은 Json 필드라 JS에서 수행
   const candidates = await prisma.notification.findMany({
@@ -363,7 +367,7 @@ export async function dispatchPendingNotifications(limit = 20): Promise<Dispatch
 
   for (const notification of targets) {
     try {
-      await dispatchOne(notification, token, summary);
+      await dispatchOne(notification, summary);
     } catch (e) {
       // 개별 실패가 배치를 중단시키지 않게 — 기록 시도 후 다음 항목으로
       console.error(`[zalo] 알림 ${notification.id} 처리 중 예외`, e);
@@ -387,7 +391,6 @@ export async function dispatchPendingNotifications(limit = 20): Promise<Dispatch
 
 async function dispatchOne(
   notification: DispatchTarget,
-  token: string | undefined,
   summary: DispatchSummary
 ): Promise<void> {
   const attempt = getAttemptCount(notification.payload);
@@ -403,22 +406,22 @@ async function dispatchOne(
     return;
   }
 
-  // 2) 토큰 미설정 — 기록만(크래시 금지), attempt 미증가로 재시도 대상 유지 (계약 완료 기준 1)
-  if (!token) {
-    await prisma.notification.update({
-      where: { id: notification.id },
-      data: { status: NotificationStatus.FAILED, error: ERROR_TOKEN_NOT_SET },
-    });
-    summary.failed += 1;
-    return;
-  }
-
-  // 3) 발송
+  // 2) 발송 (S4 — zca-js 봇 경유). 본문 빌더는 화이트리스트 필드만 → 마진·판매가 미노출.
   const text = buildNotificationText(
     notification.type,
     notification.payload as Record<string, unknown> | null
   );
-  const result = await sendZaloText(zaloUserId, text, token);
+  const result = await sendBotMessage(zaloUserId, text);
+
+  // 봇 미연결 — 기록만(크래시 금지), attempt 미증가로 재시도 대상 유지 (D5.4)
+  if (!result.ok && result.error === ERROR_BOT_NOT_CONNECTED) {
+    await prisma.notification.update({
+      where: { id: notification.id },
+      data: { status: NotificationStatus.FAILED, error: ERROR_BOT_NOT_CONNECTED },
+    });
+    summary.failed += 1;
+    return;
+  }
 
   if (!result.ok) {
     await prisma.notification.update({
