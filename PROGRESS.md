@@ -81,6 +81,8 @@
 
 | 2026-06-16 | T4.1 | 권한 누수 4종 전수 스윕 완료 (오픈 게이트): 전 표면(API 36·페이지 26·layout 4·파일서빙 2·cron 4) 정적 분석 + 동적 실행 검증. **High 결함 0건, 사업 핵심 원칙(재고·마진 비공개) 위반 0건 → 오픈 가능 판정.** ① SUPPLIER↔SUPPLIER2 교차 스코프(빌라·캘린더·청소태스크 404/403, ADMIN 대조 전건 표시로 공허통과 방지) ② 공급자 화면·API에 margin·salePrice·fx·고객연락처 0건, 공개페이지 원가·타재고 0건, ADMIN candidates엔 원가·판매가 양성 실증 ③ 공개토큰 crypto 32자 랜덤(cuid 아님)·USED/REVOKED/EXPIRED 만료렌더(가격·빌라명 잔존 0)·HOLD 동시성 201+409·half-open 경계·경로탈출 5종 차단 ④ 무인증 API 36 전부 401/403·페이지 13 전부 307·cron 8/8 401·CLEANER 역할 격리 | 제품 코드 결함 0(수정 없음). 오탐 1건(next-error 인라인 CSS margin:0 — grep 표준식 교훈화). 환경 메모: 병렬 세션이 QA 테스트 계정(0900000002·0900000003) 비번 변경 — **테오 ADMIN(0799493138)은 정상 확인**. T1.2b WIP(/my-villas/[id] rejectionReason) 머지 후 dev 재기동 시 빌라상세 500 해소. 교훈 4건 leak-checklist 등재 |
 
+| 2026-06-16 | T6.6+T3.7 | Zalo 화면 완료 (디자인 잔여 2장 — 선점 프로토콜): 운영자 /messages(b14 2-pane — 인박스 unread·48h 경과 뱃지·검색, 대화창 vi원문+ko번역 병기[숨기기 토글]·OUTBOUND·SYSTEM 미러 버블·날짜 구분자, 48h 응답창 비활성+amber 경고/이내 ko입력+vi미리보기) + 공급자 /zalo-connect(a0 — Bước 2/2·친구추가 딥링크·QR·스킵, 연결됨/미연결 분기). lib/zalo-chat.ts isReplyWindowOpen 순수함수, lib/gemini.ts translateText additive, POST /api/zalo/messages(48h 409·토큰미설정 FAILED 200·AuditLog·마진 미포함)·translate(503 폴백)·conversations 읽음 PATCH 멱등. vitest 63개(전체 ~318), QA 독립 평가 **통과**(완료기준 9/9+1 N/A, 누수 0건 — adminMessages admin layout 화이트리스트 한정·select 금액 0). messages 부분 스테이징(adminMessages·zaloConnect만 — T1.10 myVillas/villaDetail 비혼입). | 라이브 경계: webhook 실수신·zca-js 실발송은 테오님 Zalo QR 활성화 의존(T3.5 잔여 동일 성격). 계약: docs/contracts/T6.6-T3.7-zalo-screens.md. **디자인 33장 전부 구현 완료** |
+
 ## 현재 상태 (2026-06-11 기준)
 
 ### 완료된 태스크

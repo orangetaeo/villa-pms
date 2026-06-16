@@ -63,7 +63,7 @@
 - [ ] T6.3 결제 통화: ~~lib/pricing.ts 통화 분기(saleCurrency별 박별 합산)~~(2026-06-11 T1.7 BE에서 완료 — KRW number/VND bigint 분기, USD 명시 거부 게이트) + VillaRate salePriceVnd 편집(빌라 승인·요율 화면) + 제안·HOLD 통화/환율 스냅샷 + /settings 환율(FX_VND_PER_KRW) 입력 UI (BE/FE — Sprint 2 T2.1~T2.3과 병행, 잔여 3건). **주의: StayQuote는 원가 포함 — ADMIN 외 응답 직렬화 금지(leak-checklist 등재)**
 - [ ] T6.4 비품: ~~마법사 4/5 비품 단계(a9 변환, 품목 사전 i18n 키는 LOC)~~(2026-06-11 T1.1에서 완료 — lib/amenities.ts 25종 + amenities.* i18n 키) + 내 빌라 상세 비품 수정 + ADMIN b10 비품 조회 (UX-VN/FE/LOC — Sprint 1 T1.2와 병행, 잔여 2건)
 - [x] T6.5 체크아웃 미니바 확인 체크리스트 (읽기 전용, b4 변환에 포함) (FE) — 2026-06-11 T3.3에서 완료: VillaAmenity MINIBAR 품목·수량 읽기 전용 테이블 + 수기 차감 안내. 편차: 확인 체크 열 제거(저장 데이터 없음 — 계약 기재)
-- [ ] T6.6 Zalo 채팅: webhook message 이벤트 수신(T3.7 엔드포인트 분기) → ZaloConversation/ZaloMessage 저장 + /messages 채팅 화면(48h 창 비활성) + Gemini 번역(수신 자동·발신 미리보기) + F5 알림 OUTBOUND 미러 기록 (INTEG/FE/BE — Sprint 3 T3.5·T3.7과 병행)
+- [~] T6.6 Zalo 채팅: webhook 수신 → ZaloConversation/ZaloMessage 저장 + /messages 채팅 화면 + Gemini 번역 + F5 알림 OUTBOUND 미러 (INTEG/FE/BE) — **화면·발신·번역 완료(2026-06-16)**: /messages(b14 2-pane·번역 병기·48h 비활성), POST /api/zalo/messages(48h 가드·FAILED 200·AuditLog)·translate(503)·읽음 멱등, lib/zalo-chat.ts·gemini.translateText, vitest 63개, QA **통과**(누수 0건). **잔여(라이브 활성화 의존)**: webhook 실수신·zca-js 실발송 — 테오님 활성화 시. 계약: docs/contracts/T6.6-T3.7-zalo-screens.md
 - [ ] T6.7 관리자 반응형: <1024px 햄버거 드로어 레이아웃 + ResponsiveTable 공통 컴포넌트(<768px 카드 전환 — b5·b9·b12·b13 적용) (FE — 각 화면 변환 시 적용, QA가 360×800 뷰포트 검증)
 
 ## Sprint 4 — QA·온보딩 (M2 W4)
