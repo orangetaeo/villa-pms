@@ -74,6 +74,10 @@
 - [~] **T7.2 멀티 관리자 채팅 구현 (S0~S3 완료·QA 통과 2026-06-16)** — 스키마(ZaloAccountKind·ownerAdminId·복합unique+백필 데이터손실0)→멀티풀(Map<adminId>·시스템봇 __system__·통합모드)→개인 QR→개인 스코프(where ownerAdminId — 교차누수 0 실증). 시스템 발송 무변경. **실시간 갱신 버그 수정**(force-dynamic+AutoRefresh 폴링 — 송수신 새로고침 없이 반영). vitest 578. 잔여: S4 시스템 미러 귀속·S6 끊김경보, 디자인은 라벨 수준(신규 화면 불필요) — 시스템 알림은 테오 봇 1개 유지, 관리자 채팅은 **완전 개인**(각 관리자 자기 Zalo QR 로그인, 자기 대화만 — 카톡 방식). 단일봇 런타임(ADR-0006)→멀티 인스턴스 풀 확장, ZaloAccount 멀티(시스템봇 플래그), /messages 개인 스코프, 발송 라우팅(시스템=봇/채팅=본인). 디자인 필요 화면 식별 포함. 설계 승인 후 구현·디자인
 - [ ] T7.2 (T7.1 설계 후) 구현 + Stitch 디자인 (관리자별 /settings/zalo·/messages 개인 스코프)
 
+## 신규 — 채팅 첨부·공유 (2026-06-16 테오 요구, 기획 착수)
+- [ ] **T8.1 〔진행 중·세션 점유 2026-06-16〕 채팅 첨부/공유 — TDA 설계(ADR-0008)** — ADMIN 채팅(/messages) 입력에 사진 첨부/촬영·빌라 공유·제안서 공유·정산서 공유. **상대 공급자+고객 둘 다**(상대별 누수 분기: 공급자=원가만/고객=판매가만, 마진은 양쪽 금지). 고객 대화 모델(현 ZaloConversation은 공급자 전제) 확장 필요. b14 입력창에 첨부 메뉴 디자인 신규(현 디자인 없음 → DESIGN 선행). 설계 승인 후 디자인·구현
+- [ ] T8.2 (T8.1 후) Stitch 첨부 메뉴·공유 모달 디자인 + 구현
+
 ## Sprint 4 — QA·온보딩 (M2 W4)
 - [x] T4.8 (보안 Phase 1) 인증 무차별대입·가입 스팸 방어 (OPS) — 2026-06-16 완료. lib/rate-limit.ts(인메모리 슬라이딩 윈도우) + auth.ts(전화번호 5/10분·IP 20/10분 잠금) + signup(IP 10/시간). vitest 9개, QA 조건부→통과. 계약: docs/contracts/T-sec-auth-ratelimit.md. **후속 보안 백로그(비차단)**: ① clientIp XFF rightmost 보정(프로덕션 토폴로지 실측 후) ~~② HTTP 보안 헤더~~(→T4.9 완료) ③ 다중 인스턴스 시 Redis 공유 스토어
 - [x] T4.9 (보안 Phase 1) 공개 표면 하드닝 (OPS) — 2026-06-16 완료. ① 전역 HTTP 보안 헤더 5종(next.config.ts headers — HSTS·nosniff·X-Frame-Options SAMEORIGIN·Referrer-Policy strict-origin-when-cross-origin[token referrer 누수 차단]·DNS-Prefetch off) ② 공개 HOLD POST rate limit(토큰 15/10분·IP 30/10분, 429). typecheck 0, QA 독립 평가 **통과(5/5, 결함0)**. 커밋 ce55cb2·4a6e501. 계약: docs/contracts/T-sec-public-hardening.md. **비차단 후속**: 배포 후 헤더 curl 스모크(OPS), ~~CSP 추가~~(→T4.10 Report-Only 완료)
