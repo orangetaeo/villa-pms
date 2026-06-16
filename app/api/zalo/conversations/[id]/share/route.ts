@@ -26,8 +26,18 @@ import {
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
-import { saveFile, isAllowedImageMime } from "@/lib/storage";
-import { sendChatMessageAsAdmin, sendChatImageAsAdmin } from "@/lib/zalo-runtime";
+import {
+  saveFile,
+  isAllowedImageMime,
+  saveAttachmentFile,
+  validateAttachment,
+  MAX_ATTACHMENT_SIZE,
+} from "@/lib/storage";
+import {
+  sendChatMessageAsAdmin,
+  sendChatImageAsAdmin,
+  sendChatFileAsAdmin,
+} from "@/lib/zalo-runtime";
 import {
   isCostSideType,
   isSellSideType,
@@ -146,9 +156,10 @@ export async function POST(
 
   const contentType = req.headers.get("content-type") ?? "";
 
-  // ── S1 사진 — multipart ──────────────────────────────────────
+  // ── S1 사진 / 파일 첨부 — multipart ──────────────────────────
+  // type=FILE(또는 비이미지 MIME)는 일반 파일 경로, 그 외는 사진(이미지) 경로.
   if (contentType.includes("multipart/form-data")) {
-    return handlePhoto(req, conversation, adminUserId);
+    return handleMultipart(req, conversation, adminUserId);
   }
 
   // ── S2/S3/S4 — JSON ──────────────────────────────────────────
@@ -176,9 +187,15 @@ export async function POST(
   return handleSettlement(conversation, adminUserId, body);
 }
 
-// ===================== S1 사진 =====================
+// ===================== S1 사진 / 파일 (multipart) =====================
 
-async function handlePhoto(
+/**
+ * multipart 분기 — 이미지(MIME 화이트리스트)는 photo 경로(EXIF 회전·이미지 발송),
+ * 그 외(문서 등)는 file 경로(위험 확장자 차단·크기 상한 20MB·일반 첨부 발송).
+ * form field `type`이 "FILE"이면 강제로 파일 경로(이미지여도 photo로 안 보냄 — 명시 우선).
+ * 누수 무관(파일은 ADMIN 업로드) — 양쪽 대화(공급자·고객·미분류) 모두 허용.
+ */
+async function handleMultipart(
   req: Request,
   conv: ConversationCtx,
   adminUserId: string
@@ -191,13 +208,27 @@ async function handlePhoto(
   }
   const file = formData.get("file");
   const caption = formData.get("caption");
+  const type = formData.get("type");
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "FILE_REQUIRED" }, { status: 400 });
   }
-  // MIME 화이트리스트 — svg/gif 등 위장 차단 (storage.ts MIME_EXT 재사용)
-  if (!isAllowedImageMime(file.type)) {
-    return NextResponse.json({ error: "INVALID_TYPE" }, { status: 400 });
+  const captionText =
+    typeof caption === "string" && caption.trim() ? caption.trim() : undefined;
+  const isFileType = typeof type === "string" && type.toUpperCase() === "FILE";
+
+  // 이미지면서 FILE 강제가 아니면 → photo 경로. 그 외 전부 → file 경로.
+  if (!isFileType && isAllowedImageMime(file.type)) {
+    return handlePhoto(file, conv, adminUserId, captionText);
   }
+  return handleFile(file, conv, adminUserId, captionText);
+}
+
+async function handlePhoto(
+  file: File,
+  conv: ConversationCtx,
+  adminUserId: string,
+  captionText: string | undefined
+): Promise<NextResponse> {
   if (file.size > MAX_FILE_SIZE) {
     return NextResponse.json({ error: "FILE_TOO_LARGE" }, { status: 400 });
   }
@@ -206,7 +237,6 @@ async function handlePhoto(
   // 표시·증빙용 URL 확보(R2/디스크). 같은 Buffer로 zca-js 이미지 발송(URL 재다운로드 아님).
   const { url } = await saveFile(buffer, file.type, adminUserId);
   const fileName = url.split("/").pop() ?? `image-${Date.now()}.jpg`;
-  const captionText = typeof caption === "string" && caption.trim() ? caption.trim() : undefined;
 
   const send = await sendChatImageAsAdmin(
     adminUserId,
@@ -224,6 +254,57 @@ async function handlePhoto(
     [url],
     send,
     { type: "photo", id: fileName }
+  );
+}
+
+/**
+ * 일반 파일 첨부 발송 — 비이미지 문서 등. 위험 확장자 차단·크기 상한(20MB).
+ * text엔 파일명(증빙·표시), attachmentUrls엔 저장 URL. msgType="file".
+ */
+async function handleFile(
+  file: File,
+  conv: ConversationCtx,
+  adminUserId: string,
+  captionText: string | undefined
+): Promise<NextResponse> {
+  const origName = file.name || "file";
+  // 위험 확장자·확장자 누락·이미지(별도 경로)·크기 상한 검증.
+  const valid = validateAttachment(origName, file.size);
+  if (!valid.ok) {
+    const status = valid.reason === "TOO_LARGE" ? 400 : 400;
+    return NextResponse.json(
+      { error: valid.reason, maxSize: MAX_ATTACHMENT_SIZE },
+      { status }
+    );
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const mimeType = file.type || "application/octet-stream";
+  const { url, displayName } = await saveAttachmentFile(
+    buffer,
+    origName,
+    valid.ext,
+    mimeType,
+    adminUserId
+  );
+
+  const send = await sendChatFileAsAdmin(
+    adminUserId,
+    conv.zaloUserId,
+    buffer,
+    displayName as `${string}.${string}`,
+    captionText
+  );
+
+  // 본문(text)은 파일명(다운로드 표시·증빙). 캡션이 있으면 캡션 우선.
+  return persistShare(
+    conv.id,
+    adminUserId,
+    "file",
+    captionText ?? displayName,
+    [url],
+    send,
+    { type: "file", id: displayName }
   );
 }
 

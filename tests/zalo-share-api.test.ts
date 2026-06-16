@@ -27,17 +27,45 @@ const mockSendImage = vi.fn<(...a: unknown[]) => Promise<SendResult>>(async () =
   ok: true,
   messageId: "z-img-1",
 }));
+const mockSendFile = vi.fn<(...a: unknown[]) => Promise<SendResult>>(async () => ({
+  ok: true,
+  messageId: "z-file-1",
+}));
 vi.mock("@/lib/zalo-runtime", () => ({
   sendChatMessageAsAdmin: (...a: unknown[]) => mockSendText(...a),
   sendChatImageAsAdmin: (...a: unknown[]) => mockSendImage(...a),
+  sendChatFileAsAdmin: (...a: unknown[]) => mockSendFile(...a),
 }));
 
 const mockSaveFile = vi.fn(async (..._a: unknown[]) => ({ url: "https://cdn/test-img.jpg" }));
-vi.mock("@/lib/storage", () => ({
-  saveFile: (...a: unknown[]) => mockSaveFile(...a),
-  isAllowedImageMime: (mime: string) =>
-    ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"].includes(mime),
+const mockSaveAttachment = vi.fn(async (..._a: unknown[]) => ({
+  url: "https://cdn/test-doc.pdf",
+  displayName: "계약서.pdf",
 }));
+const ATTACH_MAX = 20 * 1024 * 1024;
+vi.mock("@/lib/storage", () => {
+  // 팩토리는 호이스팅되므로 상수는 팩토리 내부에 둔다(외부 변수 참조 금지).
+  const IMG_MIMES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+  const MAX = 20 * 1024 * 1024;
+  const BLOCKED = new Set(["exe", "bat", "js", "sh", "msi"]);
+  const IMG_EXTS = ["jpg", "jpeg", "png", "webp", "heic", "heif"];
+  return {
+    saveFile: (...a: unknown[]) => mockSaveFile(...a),
+    isAllowedImageMime: (mime: string) => IMG_MIMES.includes(mime),
+    saveAttachmentFile: (...a: unknown[]) => mockSaveAttachment(...a),
+    MAX_ATTACHMENT_SIZE: MAX,
+    // 실제 storage.validateAttachment 정책을 모사(라우트 분기 검증용).
+    validateAttachment: (fileName: string, size: number) => {
+      if (size > MAX) return { ok: false, reason: "TOO_LARGE" };
+      const m = /\.([a-z0-9]+)$/i.exec(fileName.trim());
+      if (!m) return { ok: false, reason: "NO_EXTENSION" };
+      const ext = m[1].toLowerCase();
+      if (BLOCKED.has(ext)) return { ok: false, reason: "BLOCKED_TYPE" };
+      if (IMG_EXTS.includes(ext)) return { ok: false, reason: "IS_IMAGE" };
+      return { ok: true, ext };
+    },
+  };
+});
 
 // ── stateful prisma mock ──
 type Conv = {
@@ -167,6 +195,11 @@ beforeEach(() => {
   mockAuth.mockResolvedValue(ADMIN);
   mockSendText.mockResolvedValue({ ok: true, messageId: "z-msg-1" });
   mockSendImage.mockResolvedValue({ ok: true, messageId: "z-img-1" });
+  mockSendFile.mockResolvedValue({ ok: true, messageId: "z-file-1" });
+  mockSaveAttachment.mockResolvedValue({
+    url: "https://cdn/test-doc.pdf",
+    displayName: "계약서.pdf",
+  });
   lastVillaSelect = null;
   lastSettlementWhere = null;
 });
@@ -393,5 +426,93 @@ describe("발송 실패 — 텍스트 공유 FAILED 기록", () => {
     expect(res.status).toBe(200);
     const created = txMsgCreate.mock.calls[0][0].data;
     expect(created.status).toBe("FAILED");
+  });
+});
+
+describe("파일 첨부(비이미지) — 양쪽 허용, 위험 확장자·크기 정책", () => {
+  function fileReq(
+    id: string,
+    name: string,
+    mime: string,
+    bytes = 3,
+    opts?: { type?: string; caption?: string }
+  ) {
+    const fd = new FormData();
+    fd.append("file", new File([new Uint8Array(bytes)], name, { type: mime }));
+    if (opts?.caption) fd.append("caption", opts.caption);
+    if (opts?.type) fd.append("type", opts.type);
+    return POST(
+      new Request(`http://local/api/zalo/conversations/${id}/share`, {
+        method: "POST",
+        body: fd,
+      }),
+      { params: Promise.resolve({ id }) }
+    );
+  }
+
+  it("PDF 문서 200 — file 경로, attachmentUrls + 파일명 text 저장", async () => {
+    const res = await fileReq("convSup", "계약서.pdf", "application/pdf");
+    expect(res.status).toBe(200);
+    expect(mockSendFile).toHaveBeenCalledOnce();
+    expect(mockSendImage).not.toHaveBeenCalled();
+    const created = txMsgCreate.mock.calls[0][0].data;
+    expect(created.msgType).toBe("file");
+    expect(created.attachmentUrls).toEqual(["https://cdn/test-doc.pdf"]);
+    expect(created.text).toBe("계약서.pdf");
+    expect(created.status).toBe("SENT");
+  });
+
+  it("고객 대화도 파일 허용(누수 무관 — ADMIN 업로드)", async () => {
+    const res = await fileReq("convCust", "voucher.pdf", "application/pdf");
+    expect(res.status).toBe(200);
+  });
+  it("UNKNOWN 대화도 파일 허용", async () => {
+    const res = await fileReq("convUnknown", "info.docx", "application/octet-stream");
+    expect(res.status).toBe(200);
+  });
+
+  it("위험 확장자(.exe) 차단 400 BLOCKED_TYPE", async () => {
+    const res = await fileReq("convSup", "virus.exe", "application/octet-stream");
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("BLOCKED_TYPE");
+    expect(mockSendFile).not.toHaveBeenCalled();
+  });
+  it("확장자 없는 파일 차단 400 NO_EXTENSION", async () => {
+    const res = await fileReq("convSup", "README", "application/octet-stream");
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("NO_EXTENSION");
+  });
+  it("크기 상한 초과 400 TOO_LARGE", async () => {
+    const res = await fileReq(
+      "convSup",
+      "big.pdf",
+      "application/pdf",
+      ATTACH_MAX + 1
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("TOO_LARGE");
+  });
+
+  it("type=FILE 강제 시 이미지여도 file 경로(photo 미사용)", async () => {
+    // 이미지 MIME이지만 type=FILE → validateAttachment가 IS_IMAGE로 거부(이미지는 photo 경로 강제)
+    const res = await fileReq("convSup", "shot.png", "image/png", 3, { type: "FILE" });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("IS_IMAGE");
+    expect(mockSendImage).not.toHaveBeenCalled();
+  });
+  it("이미지 MIME(type 없음)은 여전히 photo 경로 — 회귀", async () => {
+    const res = await fileReq("convSup", "p.jpg", "image/jpeg");
+    expect(res.status).toBe(200);
+    expect(mockSendImage).toHaveBeenCalledOnce();
+    expect(mockSendFile).not.toHaveBeenCalled();
+  });
+
+  it("파일 발송 봇 미연결 → FAILED, 영속 200", async () => {
+    mockSendFile.mockResolvedValue({ ok: false, error: "BOT_NOT_CONNECTED" });
+    const res = await fileReq("convSup", "계약서.pdf", "application/pdf");
+    expect(res.status).toBe(200);
+    const created = txMsgCreate.mock.calls[0][0].data;
+    expect(created.status).toBe("FAILED");
+    expect(created.zaloMsgId).toBeNull();
   });
 });

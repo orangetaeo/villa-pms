@@ -7,6 +7,7 @@ interface FakeApi {
   __ownId: string;
   getOwnId: () => string;
   sendMessage: ReturnType<typeof vi.fn>;
+  getAvatarUrlProfile: ReturnType<typeof vi.fn>;
   listener: {
     on: ReturnType<typeof vi.fn>;
     start: ReturnType<typeof vi.fn>;
@@ -19,6 +20,9 @@ function makeApi(ownId: string): FakeApi {
     __ownId: ownId,
     getOwnId: () => ownId,
     sendMessage: vi.fn(async () => ({ message: { msgId: `srv-${ownId}` } })),
+    getAvatarUrlProfile: vi.fn(async (zid: string) => ({
+      [zid]: { avatar: `https://cdn/avatar-${zid}.jpg` },
+    })),
     listener: {
       on: vi.fn(),
       start: vi.fn(),
@@ -70,6 +74,26 @@ vi.mock("@/lib/zalo-credentials", () => ({
   saveCredentials: vi.fn(async () => "acc-x"),
 }));
 vi.mock("@/lib/audit-log", () => ({ writeAuditLog: vi.fn(async () => {}) }));
+
+// ── prisma mock — 아바타 백필(backfillAvatars)이 findMany/update 호출 ──
+// 소유자별 백필 대상(avatarUrl null) 대화를 반환. owner 스코프·update 호출을 검증.
+type FindManyArg = { where: { ownerAdminId: string; avatarUrl: null } };
+type UpdateArg = { where: { id: string }; data: Record<string, unknown> };
+const backfillTargetsByOwner: Record<string, { id: string; zaloUserId: string }[]> = {};
+const mockConvFindMany = vi.fn<(arg: FindManyArg) => Promise<{ id: string; zaloUserId: string }[]>>(
+  async (arg) => backfillTargetsByOwner[arg.where.ownerAdminId] ?? []
+);
+const mockConvUpdate = vi.fn<(arg: UpdateArg) => Promise<object>>(async () => ({}));
+const mockConvFindUnique = vi.fn<() => Promise<null>>(async () => null);
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    zaloConversation: {
+      findMany: (arg: FindManyArg) => mockConvFindMany(arg),
+      update: (arg: UpdateArg) => mockConvUpdate(arg),
+      findUnique: () => mockConvFindUnique(),
+    },
+  },
+}));
 vi.mock("@/lib/zalo-inbound", () => ({
   extractText: () => "",
   isSelfMessage: () => false,
@@ -98,9 +122,19 @@ beforeEach(() => {
   apisByImei.clear();
   apisByImei.set("imei-sys", makeApi("bot-sys-own"));
   apisByImei.set("imei-b", makeApi("bot-b-own"));
+  for (const k of Object.keys(backfillTargetsByOwner)) delete backfillTargetsByOwner[k];
   vi.clearAllMocks();
   mockGetSysOwner.mockResolvedValue("theo");
+  mockConvFindMany.mockImplementation(
+    async (arg) => backfillTargetsByOwner[arg.where.ownerAdminId] ?? []
+  );
+  mockConvUpdate.mockResolvedValue({});
 });
+
+/** fire-and-forget 백필(순차 + 400ms 지연)이 끝날 때까지 대기. */
+async function flushBackfill(ms = 700): Promise<void> {
+  await new Promise((r) => setTimeout(r, ms));
+}
 
 afterEach(() => {
   const g = globalThis as unknown as Record<string, unknown>;
@@ -192,5 +226,61 @@ describe("발송 라우팅 분리 (시스템 vs 개인)", () => {
     const r = await sendBotMessage("x", "y");
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toBe("BOT_NOT_CONNECTED");
+  });
+});
+
+describe("아바타 백필 트리거 (봇 연결 직후)", () => {
+  it("연결 직후 소유자별 avatarUrl null 대화를 findMany로 조회(owner 스코프)", async () => {
+    backfillTargetsByOwner["theo"] = [];
+    backfillTargetsByOwner["admin-b"] = [];
+    mockLoadAll.mockResolvedValue([systemCred, personalCred]);
+    await connectAllActive();
+    await flushBackfill(50);
+
+    // 각 인스턴스 소유자(theo=시스템봇, admin-b=개인) 스코프로 백필 조회 — 타 관리자 0.
+    const owners = mockConvFindMany.mock.calls.map((c) => c[0].where.ownerAdminId);
+    expect(owners).toContain("theo");
+    expect(owners).toContain("admin-b");
+    // 백필 쿼리는 avatarUrl null만 대상으로 한다(이미 채워진 건 제외).
+    for (const c of mockConvFindMany.mock.calls) {
+      expect(c[0].where.avatarUrl).toBeNull();
+    }
+  });
+
+  it("대상 대화는 getAvatarUrlProfile 조회 후 avatarUrl로 update", async () => {
+    backfillTargetsByOwner["theo"] = [{ id: "conv-1", zaloUserId: "zu-1" }];
+    mockLoadAll.mockResolvedValue([systemCred]);
+    await connectAllActive();
+    await flushBackfill();
+
+    // 시스템봇 API로 아바타 조회됨
+    expect(apisByImei.get("imei-sys")!.getAvatarUrlProfile).toHaveBeenCalledWith("zu-1");
+    // 성공 시 avatarUrl + avatarFetchedAt 갱신
+    const upd = mockConvUpdate.mock.calls.find((c) => c[0].where.id === "conv-1");
+    expect(upd).toBeTruthy();
+    expect(upd![0].data.avatarUrl).toBe("https://cdn/avatar-zu-1.jpg");
+    expect(upd![0].data.avatarFetchedAt).toBeInstanceOf(Date);
+  });
+
+  it("비친구·조회 실패(null)여도 avatarFetchedAt만 갱신해 재시도 억제", async () => {
+    backfillTargetsByOwner["theo"] = [{ id: "conv-x", zaloUserId: "zu-x" }];
+    mockLoadAll.mockResolvedValue([systemCred]);
+    // 비친구 → 빈 응답(avatar 없음)
+    apisByImei.get("imei-sys")!.getAvatarUrlProfile.mockResolvedValue({});
+    await connectAllActive();
+    await flushBackfill();
+
+    const upd = mockConvUpdate.mock.calls.find((c) => c[0].where.id === "conv-x");
+    expect(upd).toBeTruthy();
+    expect(upd![0].data.avatarFetchedAt).toBeInstanceOf(Date);
+    expect(upd![0].data.avatarUrl).toBeUndefined(); // URL 미교체
+  });
+
+  it("백필 대상 없으면 update 호출 0 (불필요 쓰기 없음)", async () => {
+    backfillTargetsByOwner["theo"] = [];
+    mockLoadAll.mockResolvedValue([systemCred]);
+    await connectAllActive();
+    await flushBackfill(50);
+    expect(mockConvUpdate).not.toHaveBeenCalled();
   });
 });

@@ -563,6 +563,11 @@ async function onLoginSuccess(inst: ZaloBotInstance, api: API) {
       err instanceof Error ? err.message : err
     );
   }
+
+  // ADR-0009 S6 — 봇 연결 직후 아바타 일괄 백필 (fire-and-forget, 비블로킹).
+  // 기존 대화·내가 먼저 연 대화·발신 echo 대화는 수신 트리거가 없어 아바타가 비어 있다.
+  // 이 인스턴스 소유자(ownerAdminId)의 활성 대화 중 avatarUrl 없는 것만 순차 소량 백필.
+  void backfillAvatars(inst);
 }
 
 // ── S3 수신 핸들러 ────────────────────────────────────────────
@@ -616,6 +621,9 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
         createdAt: parseZaloTs(data.ts) ?? new Date(),
         displayName,
       });
+      // ADR-0009 S6 — 내가 먼저 연 대화(발신만 있는 대화)도 아바타가 채워지도록 발신 echo 후에도 lazy 갱신.
+      // best-effort·비블로킹. 친구 아니면 null 폴백(avatarFetchedAt만 갱신해 재시도 억제).
+      void maybeRefreshAvatar(inst, senderZaloUserId);
       return;
     }
 
@@ -749,6 +757,49 @@ export async function sendChatImageAsAdmin(
   }
 }
 
+/**
+ * 관리자 본인 계정으로 일반(비이미지) 파일 발송 (Nike sendZaloImage의 비이미지 분기 정본).
+ * zca-js는 이미지와 동일한 attachments 메커니즘으로 임의 파일을 받는다(메모리 Buffer):
+ *   attachments[{ data, filename, metadata.totalSize }]. 이미지가 아니므로 EXIF 회전은 하지 않는다.
+ * filename은 zca-js 타입상 `${string}.${string}`(확장자 필수) — 호출부(share route)에서
+ * 위험 확장자 차단·크기 상한을 검증한 안전한 이름을 넘긴다. 봇 미연결 시 ok:false.
+ *
+ * 시스템봇·텍스트·이미지 발송 함수 무변경 — 본 함수만 신규 추가.
+ */
+export async function sendChatFileAsAdmin(
+  adminUserId: string,
+  zaloUserId: string,
+  buffer: Buffer,
+  fileName: `${string}.${string}`,
+  caption?: string
+): Promise<BotSendResult> {
+  const api = await getApiForAdmin(adminUserId);
+  if (!api) return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
+  try {
+    const res = await api.sendMessage(
+      {
+        msg: caption ?? "",
+        attachments: [
+          {
+            data: buffer,
+            filename: fileName,
+            metadata: { totalSize: buffer.length },
+          },
+        ],
+      },
+      zaloUserId,
+      ThreadType.User
+    );
+    const msgId = res?.message?.msgId ?? res?.attachment?.[0]?.msgId;
+    return { ok: true, messageId: msgId != null ? String(msgId) : null };
+  } catch (e) {
+    return {
+      ok: false,
+      error: `SEND_ERROR: ${e instanceof Error ? e.message : String(e)}`.slice(0, 500),
+    };
+  }
+}
+
 // ── ADR-0009 S6: 아바타 조회·캐시 ─────────────────────────────────
 
 /** 아바타 재조회 주기 — 이 기간 지난 캐시만 lazy 갱신(레이트리밋 회피). */
@@ -815,6 +866,63 @@ async function maybeRefreshAvatar(
   } catch (err) {
     console.error(
       "[ZaloPool] 아바타 lazy 갱신 실패:",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
+}
+
+/** 봇 연결 직후 백필 1회당 최대 처리 건수 — 레이트리밋 회피(소량 배치). */
+const AVATAR_BACKFILL_BATCH = 30;
+/** 백필 시 조회 간 최소 간격(ms) — Zalo API 과부하·레이트리밋 회피. */
+const AVATAR_BACKFILL_DELAY_MS = 400;
+
+/**
+ * 봇 연결 직후 아바타 일괄 백필 (ADR-0009 S6 D8.3) — fire-and-forget 전용.
+ * 수신 트리거(maybeRefreshAvatar)는 "상대가 메시지를 보낸 대화"만 커버하므로,
+ * 기존 대화·내가 먼저 연 대화·발신만 있는 대화는 avatarUrl이 영영 비어 있다.
+ * 연결 직후 이 인스턴스 소유자(ownerAdminId)의 활성 대화 중 avatarUrl 없는 것만
+ * 순차 소량(BATCH) 백필한다. 한 인스턴스는 그 소유자의 대화만 처리(타 관리자 0).
+ *
+ * 레이트리밋 회피: 순차 + 호출 간 DELAY. 실패해도 avatarFetchedAt만 갱신해 재시도 억제.
+ * 한 건 실패가 전체를 죽이지 않도록 건별 try/catch.
+ */
+async function backfillAvatars(inst: ZaloBotInstance): Promise<void> {
+  try {
+    if (!inst.ownerAdminId) return;
+    const ownerAdminId = inst.ownerAdminId;
+    // avatarUrl이 아직 없는 대화만(이미 채워진 건 maybeRefreshAvatar의 TTL이 담당).
+    // 가장 최근 대화부터 소량만 — 활성 대화 우선, 레이트리밋 회피.
+    const targets = await prisma.zaloConversation.findMany({
+      where: { ownerAdminId, avatarUrl: null },
+      orderBy: { lastMessageAt: "desc" },
+      take: AVATAR_BACKFILL_BATCH,
+      select: { id: true, zaloUserId: true },
+    });
+    if (targets.length === 0) return;
+
+    for (const conv of targets) {
+      try {
+        const url = await fetchAvatarUrl(ownerAdminId, conv.zaloUserId);
+        // 실패(비친구·조회 실패)여도 fetchedAt만 갱신해 재시도를 억제(URL은 성공 시에만 교체).
+        await prisma.zaloConversation.update({
+          where: { id: conv.id },
+          data: {
+            avatarFetchedAt: new Date(),
+            ...(url ? { avatarUrl: url } : {}),
+          },
+        });
+      } catch (err) {
+        console.error(
+          "[ZaloPool] 아바타 백필 1건 실패:",
+          err instanceof Error ? err.message : String(err)
+        );
+      }
+      // 순차 간 짧은 지연 — Zalo API 과부하 방지.
+      await new Promise((r) => setTimeout(r, AVATAR_BACKFILL_DELAY_MS));
+    }
+  } catch (err) {
+    console.error(
+      "[ZaloPool] 아바타 백필 실패:",
       err instanceof Error ? err.message : String(err)
     );
   }
