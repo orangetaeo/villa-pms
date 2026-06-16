@@ -1,10 +1,27 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Villa PMS",
   description: "푸꾸옥 빌라 임대 관리 시스템",
+  applicationName: "Villa PMS",
+  // PWA: app/manifest.ts·icon.svg·apple-icon.tsx는 Next가 자동 링크.
+  // iOS 홈화면 설치 시 전체화면(앱처럼) + 상태바 스타일.
+  appleWebApp: {
+    capable: true,
+    title: "Villa PMS",
+    statusBarStyle: "default",
+  },
+};
+
+// PWA viewport — 모바일 상태바 teal(브랜드), safe-area(노치/홈바) 대응.
+// 디자인의 safe-bottom(env safe-area-inset)과 정합하려면 viewportFit cover 필요.
+export const viewport: Viewport = {
+  themeColor: "#0D9488",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({

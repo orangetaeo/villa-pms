@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Villa PMS">
+  <rect width="512" height="512" rx="112" fill="#0D9488"/>
+  <!-- 빌라 실루엣 (흰색) — 박공 지붕 + 본체 + 문, maskable 안전 영역 내 중앙 배치 -->
+  <path d="M256 116 L398 236 H114 Z" fill="#FFFFFF"/>
+  <rect x="150" y="236" width="212" height="160" rx="16" fill="#FFFFFF"/>
+  <!-- 문 (teal 음각) -->
+  <rect x="232" y="300" width="48" height="96" rx="12" fill="#0D9488"/>
+  <!-- 창문 2개 (teal 음각) -->
+  <rect x="178" y="276" width="40" height="40" rx="8" fill="#0D9488"/>
+  <rect x="294" y="276" width="40" height="40" rx="8" fill="#0D9488"/>
+  <!-- 야자수 잎 힌트 (지붕 위 secondary amber 포인트) -->
+  <circle cx="256" cy="150" r="14" fill="#F59E0B"/>
+</svg>
