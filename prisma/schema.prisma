@@ -95,6 +95,7 @@ model Villa {
   proposalItems ProposalItem[]
   cleaningTasks CleaningTask[]
   amenities     VillaAmenity[] // 비품 (ADR-0003)
+  seasonPeriods VillaSeasonPeriod[] // 빌라별 시즌 달력 (ADR-0008) — 비면 전역 SeasonPeriod 폴백
 
   @@index([supplierId])
   @@index([status, isSellable])
@@ -134,6 +135,7 @@ model VillaAmenity {
   itemKey     String // 품목 사전 키 (코드 상수 → i18n: amenity.kettle 등). 직접 입력은 "custom"
   customLabel String? // itemKey="custom"일 때 공급자 입력 라벨 (vi)
   quantity    Int             @default(1) // MINIBAR: 비치 수량, 그 외: 1=있음
+  unitPrice   BigInt? // 미니바 고객 청구 단가 — VND 고정(통화 컬럼 없음, 동 단위). 부동소수점 금지 (ADR-0008)
   note        String?
   updatedAt   DateTime        @updatedAt
 
@@ -156,6 +158,23 @@ model SeasonPeriod {
   label     String? // "2026 설 연휴"
 
   @@index([startDate, endDate])
+}
+
+// 빌라별 시즌 기간 (ADR-0008) — 공급자가 빌라마다 직접 지정.
+// 한 빌라가 1건이라도 보유하면 그 빌라는 전적으로 이 달력으로 판정(전역 SeasonPeriod 무시),
+// 0건이면 전역 SeasonPeriod 폴백. 판정 로직은 lib/pricing.ts resolveSeason 단일 소스 유지.
+// 날짜 규약: [startDate, endDate) half-open (start 포함, end 제외).
+model VillaSeasonPeriod {
+  id        String     @id @default(cuid())
+  villaId   String
+  villa     Villa      @relation(fields: [villaId], references: [id], onDelete: Cascade)
+  season    SeasonType
+  startDate DateTime   @db.Date // 포함 (UTC 자정)
+  endDate   DateTime   @db.Date // 제외 — half-open
+  label     String?
+  createdAt DateTime   @default(now())
+
+  @@index([villaId, startDate, endDate])
 }
 
 enum MarginType {
@@ -508,6 +527,7 @@ enum NotificationType {
   TAMTRU_PASSPORT // 여권 전달 (임시거주신고)
   SETTLEMENT_READY
   VILLA_REJECTED // 빌라 반려 — 공급자에게 반려 사유 전달 (T1.2b)
+  RATE_CHANGED_DURING_PROPOSAL // 제안 진행 중 원가/요율 변경 알림 — 운영자 통지 (ADR-0008)
 }
 
 enum NotificationStatus {
