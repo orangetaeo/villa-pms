@@ -99,65 +99,81 @@
 </aside>
 <!-- Main : 2-pane Messenger -->
 <main class="ml-64 h-screen flex">
-<!-- LEFT : 공급자 인박스 -->
+<!-- LEFT : 인박스 (공급자 + 고객 혼합, 상대 타입 배지) -->
 <section class="w-[320px] shrink-0 border-r border-slate-800 bg-slate-900 flex flex-col">
 <div class="px-5 pt-6 pb-4 border-b border-slate-800">
 <h1 class="text-xl font-bold text-white tracking-tight mb-4">메시지</h1>
 <div class="relative">
 <span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-500 text-sm">search</span>
-<input class="w-full bg-slate-800/60 border-slate-700 text-sm rounded-lg pl-9 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-200 placeholder:text-slate-500" placeholder="공급자 검색" type="text">
+<input class="w-full bg-slate-800/60 border-slate-700 text-sm rounded-lg pl-9 py-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-200 placeholder:text-slate-500" placeholder="대화 검색" type="text">
+</div>
+<!-- 상대 타입 필터 칩 -->
+<div class="flex items-center gap-1.5 mt-3">
+<button class="px-2.5 py-1 rounded-full bg-blue-600 text-white text-[11px] font-bold">전체</button>
+<button class="px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 hover:text-slate-200 text-[11px] font-medium border border-slate-700">공급자</button>
+<button class="px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 hover:text-slate-200 text-[11px] font-medium border border-slate-700">고객</button>
+<button class="px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 hover:text-slate-200 text-[11px] font-medium border border-slate-700">미분류</button>
 </div>
 </div>
 <div class="flex-1 overflow-y-auto custom-scrollbar">
-<!-- 대화 1 : 선택됨 -->
+<!-- 대화 1 : 선택됨 — 공급자, 아바타 이미지 -->
 <a class="flex items-start gap-3 px-5 py-4 bg-slate-800 border-l-2 border-blue-500 cursor-pointer" href="#">
-<div class="w-10 h-10 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold text-xs shrink-0">NA</div>
+<img alt="아바타" class="w-10 h-10 rounded-full object-cover shrink-0 bg-slate-700" src="https://i.pravatar.cc/80?img=12"/>
 <div class="flex-1 min-w-0">
 <div class="flex items-center justify-between mb-0.5">
-<span class="text-sm font-bold text-white">응우옌 반 안</span>
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="text-sm font-bold text-white truncate">안 사장님</span>
+<span class="px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-400 text-[9px] font-bold shrink-0">공급자</span>
+</div>
 <span class="text-[10px] text-slate-500 tabular-nums shrink-0">14:32</span>
 </div>
 <p class="text-xs text-slate-400 truncate">Khách đã trả phòng, villa cần dọn dẹp.</p>
 </div>
 </a>
-<!-- 대화 2 : 미읽음 2 -->
+<!-- 대화 2 : 미읽음 2 — 공급자, 이니셜 폴백 -->
 <a class="flex items-start gap-3 px-5 py-4 hover:bg-slate-800/60 transition-colors cursor-pointer" href="#">
 <div class="w-10 h-10 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold text-xs shrink-0">TM</div>
 <div class="flex-1 min-w-0">
 <div class="flex items-center justify-between mb-0.5">
-<span class="text-sm font-bold text-white">쩐 티 마이</span>
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="text-sm font-bold text-white truncate">쩐 티 마이</span>
+<span class="px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-400 text-[9px] font-bold shrink-0">공급자</span>
+</div>
 <span class="text-[10px] text-slate-500 tabular-nums shrink-0">11:05</span>
 </div>
 <div class="flex items-center justify-between gap-2">
 <p class="text-xs text-slate-300 truncate font-medium">Lịch tháng 7 đã cập nhật xong rồi.</p>
-<span class="bg-blue-600 text-white text-[10px] font-black w-4.5 h-4.5 min-w-[18px] px-1 py-0.5 rounded-full text-center shrink-0">2</span>
+<span class="bg-blue-600 text-white text-[10px] font-black min-w-[18px] px-1 py-0.5 rounded-full text-center shrink-0">2</span>
 </div>
 </div>
 </a>
-<!-- 대화 3 : 48시간 경과 -->
+<!-- 대화 3 : 고객, 아바타 이미지 -->
 <a class="flex items-start gap-3 px-5 py-4 hover:bg-slate-800/60 transition-colors cursor-pointer" href="#">
-<div class="w-10 h-10 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold text-xs shrink-0">LH</div>
+<img alt="아바타" class="w-10 h-10 rounded-full object-cover shrink-0 bg-slate-700" src="https://i.pravatar.cc/80?img=32"/>
 <div class="flex-1 min-w-0">
 <div class="flex items-center justify-between mb-0.5">
-<span class="text-sm font-bold text-white">레 반 흥</span>
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="text-sm font-bold text-white truncate">하나투어 김과장</span>
+<span class="px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300 text-[9px] font-bold shrink-0">고객</span>
+</div>
 <span class="text-[10px] text-slate-500 shrink-0">어제</span>
 </div>
-<div class="flex items-center justify-between gap-2">
-<p class="text-xs text-slate-400 truncate">Cảm ơn anh đã xác nhận thanh toán.</p>
-<span class="bg-slate-700/80 text-slate-400 text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0">48시간 경과</span>
-</div>
+<p class="text-xs text-slate-400 truncate">제안서 잘 받았습니다. 검토 후 연락드릴게요.</p>
 </div>
 </a>
-<!-- 대화 4 : 미읽음 1 -->
+<!-- 대화 4 : 미분류 — 이니셜 폴백 -->
 <a class="flex items-start gap-3 px-5 py-4 hover:bg-slate-800/60 transition-colors cursor-pointer" href="#">
-<div class="w-10 h-10 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold text-xs shrink-0">PT</div>
+<div class="w-10 h-10 rounded-full bg-slate-700/60 text-slate-400 flex items-center justify-center font-bold text-xs shrink-0">?</div>
 <div class="flex-1 min-w-0">
 <div class="flex items-center justify-between mb-0.5">
-<span class="text-sm font-bold text-white">팜 반 뚜언</span>
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="text-sm font-bold text-white truncate">(이름 미확인)</span>
+<span class="px-1.5 py-0.5 rounded bg-slate-700/80 text-slate-400 text-[9px] font-bold shrink-0">미분류</span>
+</div>
 <span class="text-[10px] text-slate-500 shrink-0">어제</span>
 </div>
 <div class="flex items-center justify-between gap-2">
-<p class="text-xs text-slate-300 truncate font-medium">Villa mới đã đăng ký xong, nhờ anh duyệt.</p>
+<p class="text-xs text-slate-300 truncate font-medium">Xin chào, tôi muốn hỏi về villa.</p>
 <span class="bg-blue-600 text-white text-[10px] font-black min-w-[18px] px-1 py-0.5 rounded-full text-center shrink-0">1</span>
 </div>
 </div>
@@ -166,27 +182,64 @@
 </section>
 <!-- RIGHT : 대화창 -->
 <section class="flex-1 flex flex-col bg-[#0F172A] min-w-0">
-<!-- 대화 헤더 -->
-<header class="h-16 shrink-0 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md flex items-center justify-between px-6">
-<div class="flex items-center gap-3">
-<div class="w-9 h-9 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold text-xs">NA</div>
-<div class="flex items-center gap-2">
-<span class="text-sm font-bold text-white">응우옌 반 안</span>
-<span class="flex items-center gap-1 px-2 py-0.5 rounded bg-green-500/10 border border-green-500/20 text-green-500 text-[10px] font-bold">
+<!-- 대화 헤더 (리디자인: 아바타 + 별명편집 + 분류 + 번역 드롭다운) -->
+<header class="shrink-0 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md px-6 py-3 flex items-center justify-between gap-4">
+<!-- 좌측: 아바타 + 별명(편집) + 배지 -->
+<div class="flex items-center gap-3 min-w-0">
+<img alt="아바타" class="w-9 h-9 rounded-full object-cover shrink-0 bg-slate-700" src="https://i.pravatar.cc/72?img=12"/>
+<div class="min-w-0">
+<div class="flex items-center gap-1.5">
+<span class="text-sm font-bold text-white truncate">안 사장님</span>
+<!-- 별명 편집 연필 (D9) -->
+<button class="text-slate-500 hover:text-blue-400 transition-colors shrink-0" title="별명 편집">
+<span class="material-symbols-outlined text-[15px]">edit</span>
+</button>
+<!-- 상대 분류 배지 (D1·분류 완료) -->
+<span class="px-2 py-0.5 rounded bg-teal-500/15 text-teal-400 text-[10px] font-bold shrink-0">공급자</span>
+</div>
+<div class="flex items-center gap-1.5 mt-0.5">
+<span class="flex items-center gap-1 text-green-500 text-[10px] font-bold">
 <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Zalo 연결됨</span>
-<span class="px-2 py-0.5 rounded border border-slate-700 bg-slate-800/50 text-slate-300 text-[10px] font-medium">쏘나씨 V11</span>
+<span class="text-slate-600 text-[10px]">·</span>
+<span class="text-slate-400 text-[10px]">Zalo 원본: Nguyễn Văn An</span>
+</div>
+</div>
+</div>
+<!-- 우측: 번역언어 드롭다운 + 더보기 -->
+<div class="flex items-center gap-2 shrink-0">
+<!-- 번역언어 드롭다운 (D7) — 현재 VI 선택 상태 -->
+<div class="relative">
+<button class="flex items-center gap-1.5 pl-2.5 pr-2 py-1.5 rounded-lg bg-slate-800 border border-slate-700 hover:border-slate-600 text-slate-200 text-xs font-medium transition-colors">
+<span class="material-symbols-outlined text-[16px] text-teal-400">translate</span>
+<span>Tiếng Việt</span>
+<span class="material-symbols-outlined text-[16px] text-slate-500">expand_more</span>
+</button>
+<!-- 펼친 메뉴 (디자인 참고로 항상 표시) -->
+<div class="absolute right-0 top-full mt-1.5 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl py-1.5 z-20">
+<p class="px-3 py-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">번역 언어</p>
+<button class="w-full flex items-center justify-between px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/60">
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-slate-500">translate_off</span>끄기</span>
+</button>
+<button class="w-full flex items-center justify-between px-3 py-2 text-sm text-white bg-slate-700/40 hover:bg-slate-700/60">
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-teal-400">translate</span>Tiếng Việt (베트남어)</span>
+<span class="material-symbols-outlined text-[18px] text-teal-400">check</span>
+</button>
+<button class="w-full flex items-center justify-between px-3 py-2 text-sm text-slate-300 hover:bg-slate-700/60">
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-slate-500">translate</span>English (영어)</span>
+</button>
 </div>
 </div>
 <button class="text-slate-400 hover:bg-slate-800 rounded-full p-2 transition-colors">
 <span class="material-symbols-outlined">more_vert</span>
 </button>
+</div>
 </header>
 <!-- 메시지 스레드 -->
 <div class="flex-1 overflow-y-auto custom-scrollbar px-6 py-6 space-y-5">
 <div class="text-center"><span class="text-[10px] text-slate-600 bg-slate-800/50 px-3 py-1 rounded-full">2026.07.02</span></div>
-<!-- 수신 : vi 원문 + ko 번역 병기 -->
+<!-- 수신 : vi 원문 + ko 번역 병기 (아바타 이미지) -->
 <div class="flex items-end gap-2 max-w-[70%]">
-<div class="w-7 h-7 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold text-[10px] shrink-0">NA</div>
+<img alt="아바타" class="w-7 h-7 rounded-full object-cover shrink-0 bg-slate-700" src="https://i.pravatar.cc/56?img=12"/>
 <div>
 <div class="bg-slate-800 rounded-xl rounded-bl-sm px-4 py-3">
 <p class="text-sm text-slate-100">Khách đã trả phòng, villa cần dọn dẹp.</p>
@@ -209,6 +262,65 @@
 <div class="text-[10px] text-slate-600 tabular-nums mt-1">10:15 · 전송됨</div>
 </div>
 </div>
+<!-- 발신 : 사진 공유 카드 버블 (msgType=image) -->
+<div class="flex justify-end">
+<div class="max-w-[70%] text-right">
+<div class="bg-blue-600 rounded-xl rounded-br-sm p-1.5 inline-block text-left overflow-hidden">
+<img alt="공유 사진" class="rounded-lg w-56 h-36 object-cover" src="https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=400&q=70"/>
+<p class="text-xs text-blue-100 px-2 py-1.5">기준 사진 — 거실</p>
+</div>
+<div class="text-[10px] text-slate-600 tabular-nums mt-1">10:20 · 전송됨</div>
+</div>
+</div>
+<!-- 발신 : 빌라 공유 카드 버블 (msgType=villa_share) — 공급자: 원가 노출 -->
+<div class="flex justify-end">
+<div class="max-w-[78%] text-right">
+<div class="bg-slate-800 border border-blue-500/40 rounded-xl rounded-br-sm overflow-hidden inline-block text-left w-[320px]">
+<div class="flex items-center gap-1.5 bg-blue-600/15 border-b border-blue-500/30 px-3 py-1.5">
+<span class="material-symbols-outlined text-[16px] text-blue-400">villa</span>
+<span class="text-[11px] font-bold text-blue-300 uppercase tracking-wider">빌라 공유</span>
+<span class="ml-auto px-1.5 py-0.5 rounded bg-teal-500/15 text-teal-400 text-[9px] font-bold">원가 기준</span>
+</div>
+<div class="flex gap-3 p-3">
+<img alt="빌라" class="w-20 h-20 rounded-lg object-cover shrink-0" src="https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=200&q=70"/>
+<div class="min-w-0">
+<p class="text-sm font-bold text-white truncate">쏘나씨 V11</p>
+<p class="text-[11px] text-slate-400 mt-0.5">쏘나씨 단지 · 침실 4 · 욕실 3</p>
+<p class="text-[11px] text-slate-400 mt-0.5">수영장 · 조식 가능</p>
+<p class="text-sm font-bold text-teal-400 mt-1.5 tabular-nums">원가 2.500.000₫ / 박</p>
+</div>
+</div>
+</div>
+<div class="text-[10px] text-slate-600 tabular-nums mt-1">10:24 · 전송됨</div>
+</div>
+</div>
+<!-- 발신 : 정산 공유 카드 버블 (msgType=settlement_share) — 공급자 전용 -->
+<div class="flex justify-end">
+<div class="max-w-[78%] text-right">
+<div class="bg-slate-800 border border-amber-500/40 rounded-xl rounded-br-sm overflow-hidden inline-block text-left w-[300px]">
+<div class="flex items-center gap-1.5 bg-amber-500/10 border-b border-amber-500/30 px-3 py-1.5">
+<span class="material-symbols-outlined text-[16px] text-amber-400">receipt_long</span>
+<span class="text-[11px] font-bold text-amber-300 uppercase tracking-wider">정산서 공유</span>
+</div>
+<div class="p-3">
+<p class="text-sm font-bold text-white">2026년 6월 정산</p>
+<div class="flex items-center justify-between mt-2">
+<span class="text-[11px] text-slate-400">예약 건수</span>
+<span class="text-xs font-medium text-slate-200 tabular-nums">5건</span>
+</div>
+<div class="flex items-center justify-between mt-1">
+<span class="text-[11px] text-slate-400">상태</span>
+<span class="px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 text-[9px] font-bold">확정</span>
+</div>
+<div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-700">
+<span class="text-[11px] text-slate-400">총 지급액</span>
+<span class="text-base font-bold text-amber-400 tabular-nums">12.500.000₫</span>
+</div>
+</div>
+</div>
+<div class="text-[10px] text-slate-600 tabular-nums mt-1">10:26 · 전송됨</div>
+</div>
+</div>
 <!-- 발신 : 시스템 알림 미러 -->
 <div class="flex justify-end">
 <div class="max-w-[70%] text-right">
@@ -216,12 +328,12 @@
 <span class="inline-block bg-slate-700/80 text-slate-400 text-[9px] font-bold px-1.5 py-0.5 rounded mb-1.5">시스템 알림</span>
 <p class="text-sm text-slate-300">청소 요청이 전송되었습니다 · 쏘나씨 V11</p>
 </div>
-<div class="text-[10px] text-slate-600 tabular-nums mt-1">10:16 · 자동 발송</div>
+<div class="text-[10px] text-slate-600 tabular-nums mt-1">10:28 · 자동 발송</div>
 </div>
 </div>
 <!-- 수신 2 -->
 <div class="flex items-end gap-2 max-w-[70%]">
-<div class="w-7 h-7 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold text-[10px] shrink-0">NA</div>
+<img alt="아바타" class="w-7 h-7 rounded-full object-cover shrink-0 bg-slate-700" src="https://i.pravatar.cc/56?img=12"/>
 <div>
 <div class="bg-slate-800 rounded-xl rounded-bl-sm px-4 py-3">
 <p class="text-sm text-slate-100">Dạ được, đội dọn dẹp sẽ đến lúc 2 giờ chiều.</p>
@@ -236,14 +348,35 @@
 </div>
 </div>
 </div>
-<!-- 활성 입력창 : ko 입력 + vi 미리보기 -->
+<!-- 활성 입력창 : +첨부 버튼 + ko 입력 + vi 미리보기 -->
 <footer class="shrink-0 border-t border-slate-800 bg-slate-900 px-6 py-4">
 <div class="bg-slate-800/60 border border-slate-700 rounded-xl overflow-hidden focus-within:border-blue-500 transition-colors">
-<div class="flex items-center gap-3 px-4 pt-3">
-<input class="flex-1 bg-transparent border-none focus:ring-0 text-sm text-slate-100 placeholder:text-slate-500 p-0" placeholder="메시지 입력 (한국어)" type="text" value="내일 오전까지 청소 완료 부탁드립니다">
+<div class="flex items-center gap-2 px-3 pt-3">
+<!-- + 첨부 버튼 (D2 — 펼친 메뉴 = 공급자 대화: 사진/촬영/빌라/정산) -->
+<div class="relative shrink-0">
+<button class="w-9 h-9 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 flex items-center justify-center transition-colors" title="첨부">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+<!-- 펼친 첨부 메뉴 (디자인 참고로 항상 표시) — 공급자(SUPPLIER) 가시성 -->
+<div class="absolute left-0 bottom-full mb-2 w-52 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl py-1.5 z-20">
+<p class="px-3 py-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">첨부 · 공유 <span class="text-teal-400 normal-case">(공급자)</span></p>
+<button class="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 hover:bg-slate-700/60">
+<span class="material-symbols-outlined text-[20px] text-blue-400">photo_library</span>사진 보내기</button>
+<button class="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 hover:bg-slate-700/60">
+<span class="material-symbols-outlined text-[20px] text-blue-400">photo_camera</span>사진 촬영</button>
+<div class="my-1 border-t border-slate-700/70"></div>
+<button class="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 hover:bg-slate-700/60">
+<span class="material-symbols-outlined text-[20px] text-teal-400">villa</span>빌라 공유</button>
+<button class="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 hover:bg-slate-700/60">
+<span class="material-symbols-outlined text-[20px] text-amber-400">receipt_long</span>정산서 공유</button>
+<!-- 제안서는 공급자 대화에 미노출 (D2) -->
+</div>
+</div>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-sm text-slate-100 placeholder:text-slate-500 p-0" placeholder="메시지 입력 (한국어)" type="text" value="내일 오전까지 청소 완료 부탁드립니다"/>
 <button class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors active:scale-95 shrink-0">
 <span class="material-symbols-outlined text-sm">send</span>전송</button>
 </div>
+<!-- vi 미리보기 (번역 VI 모드일 때만 표시) -->
 <div class="flex items-center gap-2 px-4 py-2.5 mt-2 bg-slate-900/60 border-t border-slate-800">
 <span class="text-[10px] font-bold text-teal-400 shrink-0 uppercase tracking-wider">베트남어 미리보기</span>
 <p class="text-xs text-slate-400 flex-1 truncate">Vui lòng hoàn tất dọn dẹp trước sáng mai.</p>
@@ -252,7 +385,19 @@
 </button>
 </div>
 </div>
-<!-- 디자인 참고 : 48시간 경과 상태 (변환 시 단일 상태로 렌더) -->
+<!-- 디자인 참고 : 번역 OFF 상태 (한국어끼리 — 미리보기 영역 없음) -->
+<div class="border-t border-dashed border-slate-700 mt-5 pt-4">
+<p class="text-[10px] text-slate-600 font-bold uppercase tracking-wider mb-3">디자인 참고 — 번역 OFF 상태 (한국어끼리 · 미리보기 없음)</p>
+<div class="bg-slate-800/60 border border-slate-700 rounded-xl flex items-center gap-2 px-3 py-3">
+<button class="w-9 h-9 rounded-lg bg-slate-700 text-slate-200 flex items-center justify-center shrink-0" title="첨부">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</button>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-sm text-slate-100 placeholder:text-slate-500 p-0" placeholder="메시지 입력" type="text" value="제안서 확인 부탁드립니다"/>
+<button class="bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 shrink-0">
+<span class="material-symbols-outlined text-sm">send</span>전송</button>
+</div>
+</div>
+<!-- 디자인 참고 : 48시간 경과 상태 -->
 <div class="border-t border-dashed border-slate-700 mt-5 pt-4">
 <p class="text-[10px] text-slate-600 font-bold uppercase tracking-wider mb-3">디자인 참고 — 48시간 경과 상태</p>
 <div class="flex items-center gap-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-2.5 mb-3">
@@ -260,7 +405,7 @@
 <p class="text-xs text-amber-200 font-medium">마지막 수신 후 48시간이 지나 응답할 수 없습니다. 시스템 알림은 정상 발송됩니다.</p>
 </div>
 <div class="bg-slate-800/30 border border-slate-800 rounded-xl flex items-center gap-3 px-4 py-3 opacity-60">
-<input class="flex-1 bg-transparent border-none focus:ring-0 text-sm text-slate-600 placeholder:text-slate-600 p-0" disabled placeholder="공급자 응답 대기 중" type="text">
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-sm text-slate-600 placeholder:text-slate-600 p-0" disabled placeholder="공급자 응답 대기 중" type="text"/>
 <button class="bg-slate-700 text-slate-500 text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 cursor-not-allowed shrink-0" disabled>
 <span class="material-symbols-outlined text-sm">send</span>전송</button>
 </div>
