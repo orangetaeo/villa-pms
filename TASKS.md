@@ -69,6 +69,7 @@
 - [x] T6.7 관리자 반응형 — 2026-06-16 완료(Ralph Loop 자율 검증). <1024px 햄버거 드로어(layout+sidebar 공통)·ResponsiveTable(b5·b12·b13)·반응형 그리드(b9)·수동 카드(settlements) 전수 감사 결과 **결함 0, 코드 변경 불요**. 완료기준 7종 충족(typecheck 0·lint 0·test 443/443). 특수 표 5곳은 의도된 overflow-x-auto(계약 명시). 라이브 360×800은 QA 후속. 계약: docs/contracts/T6.7-admin-responsive.md
 
 ## Sprint 4 — QA·온보딩 (M2 W4)
+- [x] T4.8 (보안 Phase 1) 인증 무차별대입·가입 스팸 방어 (OPS) — 2026-06-16 완료. lib/rate-limit.ts(인메모리 슬라이딩 윈도우) + auth.ts(전화번호 5/10분·IP 20/10분 잠금) + signup(IP 10/시간). vitest 9개, QA 조건부→통과. 계약: docs/contracts/T-sec-auth-ratelimit.md. **후속 보안 백로그(비차단)**: ① clientIp XFF rightmost 보정(프로덕션 토폴로지 실측 후) ② HTTP 보안 헤더(CSP·X-Frame-Options·HSTS·Referrer-Policy — next.config.ts headers, Zalo 세션 점유 해소 후) ③ 다중 인스턴스 시 Redis 공유 스토어
 - [x] T4.0 Stitch 디자인: B7 → design/stitch/ (DESIGN, 테오 확인) — 2026-06-11 전체 회의 검수 — 조건부 통과
 - [x] T4.1 권한 누수 테스트 4종 전수 (SPEC 공통 요구) (QA) — 2026-06-16 완료. 전 표면(API route 36·페이지 26·layout 4·파일서빙 2·cron 4) 정적+동적 스윕. **High 결함 0건, 마진·재고 비공개 위반 0건 → 오픈 가능 판정.** ① SUPPLIER 교차 스코프 차단 ② 마진·원가·고객정보 비공개(ADMIN 대조군 양성 실증) ③ 공개 토큰(crypto 랜덤·상태별 만료렌더·HOLD 동시성·경로탈출) ④ 비로그인·역할(CLEANER 포함) 차단 전부 PASS. 교훈 4건 leak-checklist 등재. **오픈 전 비차단 권고: 테스트 계정 4종(0900000001~4) 삭제 — LAUNCH 체크리스트**
 - [x] T4.2 시드 스크립트: 쏘나씨 V11/V12/V25 + 썬셋 사나토 A3 (BE, 2026-06-16) — prisma/seed.ts(멱등 upsert) + tests/seed-data.test.ts(37통과). 실행 `npx tsx prisma/seed.ts`. AppSetting 7키 전체·2026 시즌달력·빌라4채×시즌3 요율+사진. 사진·계좌·연락처·가격은 placeholder(테오 실값 교체). **잔여: 프로덕션 DB 적재는 테오 확인 후 수동 실행**
