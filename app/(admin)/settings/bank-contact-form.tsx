@@ -18,13 +18,18 @@ const optionalText = (max: number) =>
     .trim()
     .max(max, { message: "tooLong" });
 
+const accountNumberField = z
+  .string()
+  .trim()
+  .refine((v) => v === "" || /^[0-9][0-9\- ]{0,39}$/.test(v), { message: "format" });
+
 const bankFormSchema = z.object({
   bankName: optionalText(100),
-  accountNumber: z
-    .string()
-    .trim()
-    .refine((v) => v === "" || /^[0-9][0-9\- ]{0,39}$/.test(v), { message: "format" }),
+  accountNumber: accountNumberField,
   accountHolder: optionalText(100),
+  vnBankName: optionalText(100),
+  vnAccountNumber: accountNumberField,
+  vnAccountHolder: optionalText(100),
   kakaoUrl: z
     .string()
     .trim()
@@ -53,6 +58,9 @@ export type BankContactInitial = {
   bankName: string;
   accountNumber: string;
   accountHolder: string;
+  vnBankName: string;
+  vnAccountNumber: string;
+  vnAccountHolder: string;
   kakaoUrl: string;
   phone: string;
 };
@@ -61,6 +69,9 @@ const FIELD_TO_KEY: Record<keyof BankFormValues, string> = {
   bankName: "BANK_NAME",
   accountNumber: "BANK_ACCOUNT_NUMBER",
   accountHolder: "BANK_ACCOUNT_HOLDER",
+  vnBankName: "BANK_VN_NAME",
+  vnAccountNumber: "BANK_VN_ACCOUNT_NUMBER",
+  vnAccountHolder: "BANK_VN_ACCOUNT_HOLDER",
   kakaoUrl: "CONTACT_KAKAO_URL",
   phone: "CONTACT_PHONE",
 };
@@ -113,69 +124,132 @@ export default function BankContactForm({ initial }: { initial: BankContactIniti
           </h2>
         </div>
       </div>
-      <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Field
-            id="bank-name"
-            label={t("bankName")}
-            error={errors.bankName ? t(`err.${errors.bankName.message}`) : null}
-          >
-            <input id="bank-name" type="text" className={inputClass} {...register("bankName")} />
-          </Field>
-          <Field
-            id="bank-account-number"
-            label={t("accountNumber")}
-            error={errors.accountNumber ? t(`err.${errors.accountNumber.message}`) : null}
-          >
-            <input
-              id="bank-account-number"
-              type="text"
-              inputMode="numeric"
-              className={`${inputClass} tabular-nums`}
-              {...register("accountNumber")}
-            />
-          </Field>
-          <Field
-            id="bank-account-holder"
-            label={t("accountHolder")}
-            error={errors.accountHolder ? t(`err.${errors.accountHolder.message}`) : null}
-          >
-            <input
-              id="bank-account-holder"
-              type="text"
-              className={inputClass}
-              {...register("accountHolder")}
-            />
-          </Field>
-          <Field
-            id="contact-phone"
-            label={t("phone")}
-            error={errors.phone ? t(`err.${errors.phone.message}`) : null}
-          >
-            <input
-              id="contact-phone"
-              type="text"
-              inputMode="tel"
-              className={`${inputClass} tabular-nums`}
-              {...register("phone")}
-            />
-          </Field>
-          <div className="md:col-span-2">
+      <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-8">
+        {/* 한국(KRW) 계좌 — KRW 예약 입금처 */}
+        <fieldset className="space-y-4">
+          <legend className="flex items-center gap-2 text-xs font-bold text-slate-300 uppercase tracking-wider">
+            <span className="text-base">🇰🇷</span>
+            {t("krSection")}
+          </legend>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Field
-              id="contact-kakao-url"
-              label={t("kakaoUrl")}
-              error={errors.kakaoUrl ? t(`err.${errors.kakaoUrl.message}`) : null}
+              id="bank-name"
+              label={t("bankName")}
+              error={errors.bankName ? t(`err.${errors.bankName.message}`) : null}
+            >
+              <input id="bank-name" type="text" className={inputClass} {...register("bankName")} />
+            </Field>
+            <Field
+              id="bank-account-number"
+              label={t("accountNumber")}
+              error={errors.accountNumber ? t(`err.${errors.accountNumber.message}`) : null}
             >
               <input
-                id="contact-kakao-url"
-                type="url"
-                placeholder="https://open.kakao.com/o/..."
+                id="bank-account-number"
+                type="text"
+                inputMode="numeric"
+                className={`${inputClass} tabular-nums`}
+                {...register("accountNumber")}
+              />
+            </Field>
+            <Field
+              id="bank-account-holder"
+              label={t("accountHolder")}
+              error={errors.accountHolder ? t(`err.${errors.accountHolder.message}`) : null}
+            >
+              <input
+                id="bank-account-holder"
+                type="text"
                 className={inputClass}
-                {...register("kakaoUrl")}
+                {...register("accountHolder")}
               />
             </Field>
           </div>
-        </div>
+        </fieldset>
+
+        {/* 베트남(VND) 계좌 — VND 예약 입금처 */}
+        <fieldset className="space-y-4 pt-2 border-t border-slate-800">
+          <legend className="flex items-center gap-2 text-xs font-bold text-slate-300 uppercase tracking-wider">
+            <span className="text-base">🇻🇳</span>
+            {t("vnSection")}
+          </legend>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Field
+              id="vn-bank-name"
+              label={t("bankName")}
+              error={errors.vnBankName ? t(`err.${errors.vnBankName.message}`) : null}
+            >
+              <input
+                id="vn-bank-name"
+                type="text"
+                className={inputClass}
+                {...register("vnBankName")}
+              />
+            </Field>
+            <Field
+              id="vn-bank-account-number"
+              label={t("accountNumber")}
+              error={errors.vnAccountNumber ? t(`err.${errors.vnAccountNumber.message}`) : null}
+            >
+              <input
+                id="vn-bank-account-number"
+                type="text"
+                inputMode="numeric"
+                className={`${inputClass} tabular-nums`}
+                {...register("vnAccountNumber")}
+              />
+            </Field>
+            <Field
+              id="vn-bank-account-holder"
+              label={t("accountHolder")}
+              error={errors.vnAccountHolder ? t(`err.${errors.vnAccountHolder.message}`) : null}
+            >
+              <input
+                id="vn-bank-account-holder"
+                type="text"
+                className={inputClass}
+                {...register("vnAccountHolder")}
+              />
+            </Field>
+          </div>
+        </fieldset>
+
+        {/* 공용 연락처 */}
+        <fieldset className="space-y-4 pt-2 border-t border-slate-800">
+          <legend className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+            {t("contactSection")}
+          </legend>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Field
+              id="contact-phone"
+              label={t("phone")}
+              error={errors.phone ? t(`err.${errors.phone.message}`) : null}
+            >
+              <input
+                id="contact-phone"
+                type="text"
+                inputMode="tel"
+                className={`${inputClass} tabular-nums`}
+                {...register("phone")}
+              />
+            </Field>
+            <div className="md:col-span-2">
+              <Field
+                id="contact-kakao-url"
+                label={t("kakaoUrl")}
+                error={errors.kakaoUrl ? t(`err.${errors.kakaoUrl.message}`) : null}
+              >
+                <input
+                  id="contact-kakao-url"
+                  type="url"
+                  placeholder="https://open.kakao.com/o/..."
+                  className={inputClass}
+                  {...register("kakaoUrl")}
+                />
+              </Field>
+            </div>
+          </div>
+        </fieldset>
         {/* 푸터: 안내 + 저장 (b8 카드 패턴) */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-4 border-t border-slate-800">
           <p className="text-xs text-slate-500">{t("hint")}</p>

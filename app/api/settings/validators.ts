@@ -5,9 +5,14 @@ import { FX_VND_PER_KRW_KEY } from "@/lib/pricing";
 import { HOLD_HOURS_DEFAULT_KEY } from "@/lib/hold";
 
 // 입금 계좌·연락처 키 (공개 제안 완료/만료 페이지가 소비)
+// 한국(KRW) 계좌 — 기존 BANK_* 키를 그대로 사용(데이터 호환). KRW 예약 입금처.
 export const BANK_NAME_KEY = "BANK_NAME";
 export const BANK_ACCOUNT_NUMBER_KEY = "BANK_ACCOUNT_NUMBER";
 export const BANK_ACCOUNT_HOLDER_KEY = "BANK_ACCOUNT_HOLDER";
+// 베트남(VND) 계좌 — VND 예약 입금처 (한국계좌와 통화로 자동 분기)
+export const BANK_VN_NAME_KEY = "BANK_VN_NAME";
+export const BANK_VN_ACCOUNT_NUMBER_KEY = "BANK_VN_ACCOUNT_NUMBER";
+export const BANK_VN_ACCOUNT_HOLDER_KEY = "BANK_VN_ACCOUNT_HOLDER";
 export const CONTACT_KAKAO_URL_KEY = "CONTACT_KAKAO_URL";
 export const CONTACT_PHONE_KEY = "CONTACT_PHONE";
 
@@ -16,6 +21,9 @@ export const CLEARABLE_KEYS = [
   BANK_NAME_KEY,
   BANK_ACCOUNT_NUMBER_KEY,
   BANK_ACCOUNT_HOLDER_KEY,
+  BANK_VN_NAME_KEY,
+  BANK_VN_ACCOUNT_NUMBER_KEY,
+  BANK_VN_ACCOUNT_HOLDER_KEY,
   CONTACT_KAKAO_URL_KEY,
   CONTACT_PHONE_KEY,
 ] as const;
@@ -54,6 +62,9 @@ export const VALIDATORS: Record<SettingKey, (value: string) => boolean> = {
   [BANK_NAME_KEY]: (value) => value.length >= 1 && value.length <= 100,
   [BANK_ACCOUNT_NUMBER_KEY]: (value) => /^[0-9][0-9\- ]{0,39}$/.test(value),
   [BANK_ACCOUNT_HOLDER_KEY]: (value) => value.length >= 1 && value.length <= 100,
+  [BANK_VN_NAME_KEY]: (value) => value.length >= 1 && value.length <= 100,
+  [BANK_VN_ACCOUNT_NUMBER_KEY]: (value) => /^[0-9][0-9\- ]{0,39}$/.test(value),
+  [BANK_VN_ACCOUNT_HOLDER_KEY]: (value) => value.length >= 1 && value.length <= 100,
   [CONTACT_KAKAO_URL_KEY]: (value) => {
     if (value.length > 300) return false;
     try {

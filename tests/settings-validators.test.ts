@@ -10,6 +10,9 @@ import {
   isSettingKey,
   BANK_NAME_KEY,
   BANK_ACCOUNT_NUMBER_KEY,
+  BANK_VN_NAME_KEY,
+  BANK_VN_ACCOUNT_NUMBER_KEY,
+  BANK_VN_ACCOUNT_HOLDER_KEY,
   CONTACT_KAKAO_URL_KEY,
   CONTACT_PHONE_KEY,
 } from "@/app/api/settings/validators";
@@ -54,6 +57,25 @@ describe("BANK_ACCOUNT_NUMBER (숫자·하이픈·공백, 숫자 시작)", () =>
   });
   it.each(["", "abc123", "-123456", "010-가나-다라"])("거부: %s", (v) => {
     expect(VALIDATORS[BANK_ACCOUNT_NUMBER_KEY](v)).toBe(false);
+  });
+});
+
+describe("베트남(VND) 계좌 키 — 한국 계좌와 동일 규칙·화이트리스트 등록", () => {
+  it("VN 키 모두 등록·clearable", () => {
+    for (const k of [BANK_VN_NAME_KEY, BANK_VN_ACCOUNT_NUMBER_KEY, BANK_VN_ACCOUNT_HOLDER_KEY]) {
+      expect(isSettingKey(k)).toBe(true);
+      expect(CLEARABLE_SET.has(k)).toBe(true);
+    }
+  });
+  it("VN 은행명·예금주 텍스트 1~100", () => {
+    expect(VALIDATORS[BANK_VN_NAME_KEY]("Vietcombank")).toBe(true);
+    expect(VALIDATORS[BANK_VN_ACCOUNT_HOLDER_KEY]("NGUYEN VAN A")).toBe(true);
+    expect(VALIDATORS[BANK_VN_NAME_KEY]("a".repeat(101))).toBe(false);
+  });
+  it("VN 계좌번호 숫자·하이픈·공백", () => {
+    expect(VALIDATORS[BANK_VN_ACCOUNT_NUMBER_KEY]("0123456789")).toBe(true);
+    expect(VALIDATORS[BANK_VN_ACCOUNT_NUMBER_KEY]("")).toBe(false);
+    expect(VALIDATORS[BANK_VN_ACCOUNT_NUMBER_KEY]("abc")).toBe(false);
   });
 });
 

@@ -15,7 +15,20 @@ import { bookingShortCode, formatPublicAmount } from "../../../_components/publi
 
 export const metadata: Metadata = { title: "가예약 완료 | Villa PMS" };
 
-const BANK_KEYS = ["BANK_NAME", "BANK_ACCOUNT_NUMBER", "BANK_ACCOUNT_HOLDER"] as const;
+// 한국(KRW)·베트남(VND) 계좌 키 — 예약 통화에 따라 자동 선택 (운영자 설정)
+const BANK_KEY_SETS = {
+  KRW: {
+    name: "BANK_NAME",
+    number: "BANK_ACCOUNT_NUMBER",
+    holder: "BANK_ACCOUNT_HOLDER",
+  },
+  VND: {
+    name: "BANK_VN_NAME",
+    number: "BANK_VN_ACCOUNT_NUMBER",
+    holder: "BANK_VN_ACCOUNT_HOLDER",
+  },
+} as const;
+const ALL_BANK_KEYS = Object.values(BANK_KEY_SETS).flatMap((s) => [s.name, s.number, s.holder]);
 
 /** c3 export bg-mesh 재현 — globals.css 동결(계약)이라 컴포넌트 인라인 */
 const MESH_BG = {
@@ -49,10 +62,13 @@ export default async function BookingDonePage({
   }
 
   const bankRows = await prisma.appSetting.findMany({
-    where: { key: { in: [...BANK_KEYS] } },
+    where: { key: { in: ALL_BANK_KEYS } },
   });
-  const bank = (k: (typeof BANK_KEYS)[number]) => bankRows.find((r) => r.key === k)?.value ?? null;
-  const hasBankInfo = bank("BANK_NAME") && bank("BANK_ACCOUNT_NUMBER");
+  // 예약 통화에 맞는 계좌 세트 선택 (VND→베트남, KRW·그 외→한국)
+  const keySet = booking.saleCurrency === "VND" ? BANK_KEY_SETS.VND : BANK_KEY_SETS.KRW;
+  const byKey = new Map(bankRows.map((r) => [r.key, r.value]));
+  const bank = (k: string) => byKey.get(k) ?? null;
+  const hasBankInfo = bank(keySet.name) && bank(keySet.number);
 
   const total = formatPublicAmount(booking.saleCurrency, booking.totalSaleKrw, booking.totalSaleVnd);
 
@@ -94,19 +110,19 @@ export default async function BookingDonePage({
               <div className="space-y-4">
                 <div className="flex justify-between items-center text-sm border-b border-gray-50 pb-3">
                   <span className="text-slate-500">은행명</span>
-                  <span className="font-semibold">{bank("BANK_NAME")}</span>
+                  <span className="font-semibold">{bank(keySet.name)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm border-b border-gray-50 pb-3">
                   <span className="text-slate-500">계좌번호</span>
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold">{bank("BANK_ACCOUNT_NUMBER")}</span>
-                    <CopyButton text={bank("BANK_ACCOUNT_NUMBER")!} />
+                    <span className="font-semibold">{bank(keySet.number)}</span>
+                    <CopyButton text={bank(keySet.number)!} />
                   </div>
                 </div>
-                {bank("BANK_ACCOUNT_HOLDER") && (
+                {bank(keySet.holder) && (
                   <div className="flex justify-between items-center text-sm border-b border-gray-50 pb-3">
                     <span className="text-slate-500">예금주</span>
-                    <span className="font-semibold">{bank("BANK_ACCOUNT_HOLDER")}</span>
+                    <span className="font-semibold">{bank(keySet.holder)}</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center pt-2">

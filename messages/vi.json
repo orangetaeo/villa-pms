@@ -821,6 +821,9 @@
     },
     "bank": {
       "title": "Tài khoản nhận tiền·Liên hệ",
+      "krSection": "Tài khoản Hàn Quốc (đặt KRW)",
+      "vnSection": "Tài khoản Việt Nam (đặt VND)",
+      "contactSection": "Liên hệ (dùng chung)",
       "bankName": "Tên ngân hàng",
       "accountNumber": "Số tài khoản",
       "accountHolder": "Chủ tài khoản",

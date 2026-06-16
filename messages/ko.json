@@ -821,6 +821,9 @@
     },
     "bank": {
       "title": "입금 계좌·연락처",
+      "krSection": "한국 계좌 (KRW 예약)",
+      "vnSection": "베트남 계좌 (VND 예약)",
+      "contactSection": "연락처 (공용)",
       "bankName": "은행명",
       "accountNumber": "계좌번호",
       "accountHolder": "예금주",

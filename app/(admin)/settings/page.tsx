@@ -15,10 +15,14 @@ import FxRateForm from "./fx-rate-form";
 import BankContactForm, { type BankContactInitial } from "./bank-contact-form";
 
 // 입금 계좌·연락처 키 (공개 제안 페이지가 소비) — /api/settings 화이트리스트와 일치
+// 한국(KRW) 계좌 + 베트남(VND) 계좌 + 공용 연락처
 const BANK_CONTACT_KEYS = [
   "BANK_NAME",
   "BANK_ACCOUNT_NUMBER",
   "BANK_ACCOUNT_HOLDER",
+  "BANK_VN_NAME",
+  "BANK_VN_ACCOUNT_NUMBER",
+  "BANK_VN_ACCOUNT_HOLDER",
   "CONTACT_KAKAO_URL",
   "CONTACT_PHONE",
 ] as const;
@@ -58,6 +62,9 @@ export default async function SettingsPage() {
     bankName: settingValue("BANK_NAME"),
     accountNumber: settingValue("BANK_ACCOUNT_NUMBER"),
     accountHolder: settingValue("BANK_ACCOUNT_HOLDER"),
+    vnBankName: settingValue("BANK_VN_NAME"),
+    vnAccountNumber: settingValue("BANK_VN_ACCOUNT_NUMBER"),
+    vnAccountHolder: settingValue("BANK_VN_ACCOUNT_HOLDER"),
     kakaoUrl: settingValue("CONTACT_KAKAO_URL"),
     phone: settingValue("CONTACT_PHONE"),
   };
