@@ -24,6 +24,7 @@ export default async function SignupPage() {
     submitting: t("submitting"),
     hasAccount: t("hasAccount"),
     loginLink: t("loginLink"),
+    back: t("back"),
     errorMessages: {
       phoneExists: t("errors.phoneExists"),
       passwordTooShort: t("errors.passwordTooShort"),

@@ -460,6 +460,7 @@
       "submitting": "처리 중...",
       "hasAccount": "이미 계정이 있으신가요?",
       "loginLink": "로그인",
+      "back": "뒤로",
       "errors": {
         "phoneExists": "이미 등록된 전화번호입니다.",
         "passwordTooShort": "비밀번호는 최소 8자 이상이어야 합니다.",

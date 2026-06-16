@@ -460,6 +460,7 @@
       "submitting": "Đang xử lý...",
       "hasAccount": "Đã có tài khoản?",
       "loginLink": "Đăng nhập",
+      "back": "Quay lại",
       "errors": {
         "phoneExists": "Số điện thoại này đã được đăng ký.",
         "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự.",

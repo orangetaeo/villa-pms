@@ -19,6 +19,7 @@ interface Labels {
   submitting: string;
   hasAccount: string;
   loginLink: string;
+  back: string;
   errorMessages: Record<string, string>;
 }
 
@@ -36,7 +37,7 @@ export default function SignupForm({ labels }: { labels: Labels }) {
             className="text-neutral-500 active:scale-95 transition-transform p-2"
             type="button"
             onClick={() => router.push("/login")}
-            aria-label="Quay lại"
+            aria-label={labels.back}
           >
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
