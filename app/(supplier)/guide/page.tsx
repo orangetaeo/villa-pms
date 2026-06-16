@@ -2,7 +2,7 @@
 // 정적 안내 화면: 판매가·마진·재고 데이터를 일절 참조하지 않음 (QA leak-checklist 자명 통과).
 // 하단 진입은 공통 TabBar(고정)가 담당하므로, 디자인의 pinned 버튼은 본문 인라인 CTA로 변환(이중 하단바 방지).
 import type { Metadata } from "next";
-import { auth } from "@/auth";
+import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getSupplierLocale } from "@/lib/locale";
@@ -88,6 +88,35 @@ export default async function GuidePage() {
             {t("ctaZalo")}
           </Link>
         </div>
+
+        {/* 계정 — 로그인 정보 + 로그아웃 (NextAuth signOut 서버 액션, 완료 후 /login) */}
+        <section className="mt-12 border-t border-slate-100 pt-6">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+            {t("accountTitle")}
+          </h3>
+          <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-white p-4">
+            <span className="flex items-center gap-3 text-sm text-slate-600">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
+                <span className="material-symbols-outlined text-slate-500">person</span>
+              </span>
+              {t("loggedInAs", { name: session.user.name ?? "" })}
+            </span>
+            <form
+              action={async () => {
+                "use server";
+                await signOut({ redirectTo: "/login" });
+              }}
+            >
+              <button
+                type="submit"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 active:scale-95"
+              >
+                <span className="material-symbols-outlined text-lg">logout</span>
+                {t("logout")}
+              </button>
+            </form>
+          </div>
+        </section>
       </main>
     </div>
   );

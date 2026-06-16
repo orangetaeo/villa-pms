@@ -673,7 +673,10 @@
     "step4Title": "Zalo 알림",
     "step4Desc": "예약과 알림을 Zalo로 받으세요.",
     "ctaStart": "시작 — 내 빌라",
-    "ctaZalo": "Zalo 연결"
+    "ctaZalo": "Zalo 연결",
+    "accountTitle": "계정",
+    "loggedInAs": "{name}님으로 로그인됨",
+    "logout": "로그아웃"
   },
   "cleaning": {
     "title": "청소",

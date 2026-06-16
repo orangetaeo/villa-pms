@@ -673,7 +673,10 @@
     "step4Title": "Thông báo Zalo",
     "step4Desc": "Nhận đặt phòng và nhắc nhở qua Zalo.",
     "ctaStart": "Bắt đầu — Villa của tôi",
-    "ctaZalo": "Kết nối Zalo"
+    "ctaZalo": "Kết nối Zalo",
+    "accountTitle": "Tài khoản",
+    "loggedInAs": "Đăng nhập với tên {name}",
+    "logout": "Đăng xuất"
   },
   "cleaning": {
     "title": "Dọn dẹp",
