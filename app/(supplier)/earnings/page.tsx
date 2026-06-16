@@ -1,6 +1,7 @@
 // SUPPLIER 수익 조회 (T4.5, SPEC F6) — design/stitch/a7-my-earnings 변환 (라이트 teal, vi, 390px)
 // 마진 비공개 원칙: select는 빌라명·기간·박수·supplierCostVnd만 —
 // 판매가(KRW/VND)·마진·고객명·고객 연락처는 조회 자체를 하지 않는다
+import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -45,6 +46,10 @@ function formatPaidDate(date: Date): string {
     year: "numeric",
   }).format(date);
 }
+
+export const metadata: Metadata = {
+  title: "Thu nhập — Villa PMS",
+};
 
 export default async function EarningsPage({
   searchParams,

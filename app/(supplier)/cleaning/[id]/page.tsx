@@ -3,6 +3,7 @@
 // 슬롯 구성은 빌라 등록(T1.1)과 동일 — buildPhotoSlots(bedrooms/bathrooms/hasPool)
 // i18n: (supplier) layout 클라 네임스페이스 화이트리스트에 cleaning이 없으므로
 //       (layout.tsx 수정 금지 구역) 라벨은 RSC에서 번역해 props로 전달한다
+import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -14,6 +15,10 @@ import {
   type PhotoSlot,
 } from "@/app/(supplier)/my-villas/new/wizard-types";
 import { CleaningSubmit, type SlotProp, type SubmitLabels } from "./cleaning-submit";
+
+export const metadata: Metadata = {
+  title: "Dọn dẹp xong — Villa PMS",
+};
 
 export default async function CleaningTaskPage({
   params,

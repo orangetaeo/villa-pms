@@ -1,6 +1,7 @@
 // SUPPLIER 월 달력 (T1.4, SPEC F2) — a3-calendar 디자인 변환
 // 재고 비공개 원칙: 클라이언트에는 날짜·상태·블록 id/source만 전달
 // (고객명·금액·예약 id는 select 단계에서 아예 조회하지 않는다)
+import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -11,6 +12,10 @@ import { addUtcDays, todayVnDateString } from "@/lib/date-vn";
 import { CalendarView, type DayCell } from "./calendar-view";
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+export const metadata: Metadata = {
+  title: "Lịch — Villa PMS",
+};
 
 export default async function SupplierCalendarPage({
   searchParams,

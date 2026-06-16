@@ -1,6 +1,7 @@
 // 청소 태스크 목록 (T3.8, SPEC F4) — design/stitch/a8-cleaning-tasks 변환
 // role 스코프: SUPPLIER=자기 빌라 / CLEANER=배정분 (T3.4 GET /api/cleaning-tasks와 동일 규칙)
 // 재고·마진 비공개: booking은 checkOut 날짜만 select — 고객명·금액 RSC 직렬화 금지
+import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -33,6 +34,10 @@ function formatDayMonth(date: Date, vnTz: boolean): string {
     timeZone: vnTz ? "Asia/Ho_Chi_Minh" : "UTC",
   }).format(date);
 }
+
+export const metadata: Metadata = {
+  title: "Dọn dẹp — Villa PMS",
+};
 
 export default async function CleaningListPage({
   searchParams,

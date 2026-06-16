@@ -51,7 +51,7 @@
 - [x] T5.2 디자인 수정 완료 후 QA 재검수 — 전 화면 + 권한 누수 재확인 (QA) — 2026-06-11 **통과**: 누수 0건, 회귀 9건 ✓, 용어 0건. 반려 2건(c2 export 파손·c3 스크린샷 미달) 수정 후 형식 검증 완료
 - [x] T5.3 LOC 용어 사전(ko/vi) 확정 (LOC) — 2026-06-11 완료, .claude/skills/loc/i18n-pattern.md 등재 (용어 20항목 + 호칭 규칙 + 키 네이밍)
 - [x] T5.4 Stitch 웹 UI 미사용 중복 화면 정리 (테오) — 2026-06-11 **종결**: b13 중복본(ee420eae) 삭제 완료. a8 중복본(1bef1975)·c2 구버전(83ca80d7)·Zalo 고아 3건(b6f6ee4a·52195575·c1e8f508)은 **삭제하지 않고 보존하기로 결정** — 변환은 로컬 design/stitch/가 canonical이라 실무 영향 없음(클러터일 뿐). MCP에 삭제 도구 없어 수동 탐색 부담 대비 실익 없음
-- [ ] T5.5 변환 시 처리 목록 (FE/UX-VN 변환 단계에서 일괄 해소): b3 "지우기 (CLEAR)" 괄호 영문, title 메타 11건 누락·2건 영어(Next.js metadata로 정의), c1·c2 푸터 © 영문 보일러플레이트, c2 만료/마감 2상태 병기(서버 판정값으로 1개만 렌더), 다크 디자인 시스템 designMd "VND with dots" 갱신, [2R 추가] 마법사 단계 표기 Bước N/4→N/5 재번호(ICU 변수 `Bước {n}/{total}`), b10 요율 5열 너비 조정(KRW 환산 열 클리핑), c3·c3-vnd "Step 01/02"→"단계 1/2" i18n, keep-all/nowrap 규칙 globals.css 전역 강제, 사이드바 9메뉴(메시지 추가)는 공통 컴포넌트에서 일괄 적용
+- [x] T5.5 변환 시 처리 목록 — **대부분 선행 태스크에서 해소, 2026-06-16 잔여 정리 완료**: ✓b3 "지우기 (CLEAR)" 영문 제거(T3.2) ✓Bước N/5 재번호(T1.1) ✓keep-all/nowrap globals.css 전역(T1.1) ✓c1·c2 © 푸터→PublicFooter 컴포넌트(T2.2) ✓c2 만료/마감 단일 렌더(T2.2) ✓c3 "단계 1/2"(T2.2) ✓사이드바 9메뉴 메시지 추가(T6.6). **2026-06-16 보강(T5.5-metadata)**: 공급자 4페이지 metadata.title 추가(calendar=Lịch·cleaning=Dọn dẹp·cleaning/[id]=Dọn dẹp xong·earnings=Thu nhập — 정적 메타, vi.json 용어 일치, typecheck 통과). 계약: docs/contracts/T5.5-metadata.md. **잔여(점유 세션 소관)**: villas/[id]·my-villas/[id]·[id]/edit·new metadata는 해당 화면 작업 세션(T1.2b·T1.10)이 추가. b10 요율 5열 너비(KRW 환산 클리핑)는 ADMIN 빌라 상세 작업 시. designMd "VND with dots"는 디자인 문서 비코드 항목(낮은 우선순위)
 
 ## 신규 요구 후속 — 2026-06-11 테오 4건 (ADR-0003, SPEC v1.3, schema v1.2)
 
