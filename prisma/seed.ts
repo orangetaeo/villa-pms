@@ -277,13 +277,15 @@ async function main() {
     const adminHash = await hash(adminPassword, 10);
     const supplierHash = await hash(supplierPassword, 10);
 
+    // 전화번호는 로그인 폼이 숫자만 남기므로(예: "+84-90-..."→"84900000000") 숫자 형식으로 저장해야 로그인 가능 (T4.2b)
     await prisma.user.upsert({
       where: { id: SEED_ADMIN_ID },
-      update: { role: Role.ADMIN, name: "테오", locale: "ko" },
+      update: { role: Role.ADMIN, name: "테오", locale: "ko", phone: "0900000010" },
       create: {
         id: SEED_ADMIN_ID,
         role: Role.ADMIN,
         name: "테오",
+        phone: "0900000010",
         email: "admin@villa-pms.local",
         passwordHash: adminHash,
         locale: "ko",
@@ -292,12 +294,12 @@ async function main() {
 
     await prisma.user.upsert({
       where: { id: SEED_SUPPLIER_ID },
-      update: { role: Role.SUPPLIER, name: "파일럿 중계인", locale: "vi" },
+      update: { role: Role.SUPPLIER, name: "파일럿 중계인", locale: "vi", phone: "0900000000" },
       create: {
         id: SEED_SUPPLIER_ID,
         role: Role.SUPPLIER,
         name: "파일럿 중계인",
-        phone: "+84-90-000-0000",
+        phone: "0900000000",
         passwordHash: supplierHash,
         locale: "vi",
       },

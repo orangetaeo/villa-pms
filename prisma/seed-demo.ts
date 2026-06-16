@@ -177,9 +177,9 @@ async function main() {
     const pw = await hash(process.env.SEED_SUPPLIER_PASSWORD ?? "villa-pms-supplier-dev", 10);
     await prisma.user.createMany({
       data: [
-        { id: SUPPLIER_GREENBAY, role: Role.SUPPLIER, name: "Trần Văn Minh", phone: "+84-90-111-2222", passwordHash: pw, locale: "vi" },
-        { id: SUPPLIER_MARINA, role: Role.SUPPLIER, name: "Nguyễn Thị Hương", phone: "+84-90-333-4444", passwordHash: pw, locale: "vi" },
-        { id: CLEANER_LAN, role: Role.CLEANER, name: "Phạm Thị Lan", phone: "+84-90-555-6666", passwordHash: pw, locale: "vi" },
+        { id: SUPPLIER_GREENBAY, role: Role.SUPPLIER, name: "Trần Văn Minh", phone: "0901112222", passwordHash: pw, locale: "vi" },
+        { id: SUPPLIER_MARINA, role: Role.SUPPLIER, name: "Nguyễn Thị Hương", phone: "0903334444", passwordHash: pw, locale: "vi" },
+        { id: CLEANER_LAN, role: Role.CLEANER, name: "Phạm Thị Lan", phone: "0905556666", passwordHash: pw, locale: "vi" },
       ],
     });
 
