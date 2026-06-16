@@ -1,6 +1,8 @@
 import {
   BookingStatus,
   CleaningStatus,
+  ProposalStatus,
+  SettlementStatus,
   type PrismaClient,
 } from "@prisma/client";
 import { parseUtcDateOnly, todayVnDateString } from "./date-vn";
@@ -132,6 +134,15 @@ export interface DashboardStats {
   nextHoldExpiryHours: number | null;
   cleaningPendingCount: number;
   cleaningPending: PendingCleaningItem[];
+  // 모바일 바로가기 박스 카운트 (b1-mobile 박스 그리드 — 3차 회의)
+  /** 진행 중 예약: 확정+투숙 중 */
+  bookingActiveCount: number;
+  /** 활성 제안: ACTIVE & 만료 전 (lib/proposal effectiveStatus 기준) */
+  proposalActiveCount: number;
+  /** 이번 달 미지급 정산: status ≠ PAID */
+  settlementPendingCount: number;
+  /** 최근 24시간 활동(AuditLog) 건수 — 활동 박스 표시값 */
+  activityRecentCount: number;
 }
 
 export async function loadDashboardStats(
@@ -151,8 +162,21 @@ export async function loadDashboardStats(
     villa: { select: { name: true } },
   } as const;
 
-  const [checkins, checkouts, holdCount, nextHold, cleaningPendingCount, cleaningPendingRows] =
-    await Promise.all([
+  const yearMonth = todayStr.slice(0, 7); // 이번 달(VN) — 정산 미지급 집계
+  const since24h = new Date(now.getTime() - 24 * 3_600_000); // 활동 박스: 최근 24시간
+
+  const [
+    checkins,
+    checkouts,
+    holdCount,
+    nextHold,
+    cleaningPendingCount,
+    cleaningPendingRows,
+    bookingActiveCount,
+    proposalActiveCount,
+    settlementPendingCount,
+    activityRecentCount,
+  ] = await Promise.all([
       // 정의는 /bookings 프리셋(today-checkin·today-checkout)과 동일 — 카드 건수와
       // 링크 목록이 일치해야 함 (QA D-2). "오늘 처리할 일" 중심: 체크인 예정(CONFIRMED)·
       // 체크아웃 예정(CHECKED_IN)만 집계, 처리 완료 건은 카드에서 제외
@@ -184,6 +208,20 @@ export async function loadDashboardStats(
           villa: { select: { name: true } },
         },
       }),
+      // 진행 중 예약: 확정+투숙 중 (HOLD·종결 제외)
+      db.booking.count({
+        where: { status: { in: [BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN] } },
+      }),
+      // 활성 제안: ACTIVE & 만료 전 (lib/proposal effectiveStatus와 동일 판정)
+      db.proposal.count({
+        where: { status: ProposalStatus.ACTIVE, expiresAt: { gt: now } },
+      }),
+      // 이번 달 미지급 정산: 생성됐으나 아직 지급(PAID) 안 된 건
+      db.settlement.count({
+        where: { yearMonth, status: { not: SettlementStatus.PAID } },
+      }),
+      // 최근 24시간 활동 건수 (활동 박스 표시값)
+      db.auditLog.count({ where: { createdAt: { gte: since24h } } }),
     ]);
 
   const toItem = (b: (typeof checkins)[number]): TodayBookingItem => ({
@@ -209,6 +247,10 @@ export async function loadDashboardStats(
       photoCount: c.photoUrls.length,
       submittedDate: vnDateLabel(c.createdAt), // VN 표시 규약 (QA D-3)
     })),
+    bookingActiveCount,
+    proposalActiveCount,
+    settlementPendingCount,
+    activityRecentCount,
   };
 }
 

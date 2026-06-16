@@ -46,6 +46,19 @@
       "unitSpot": "개소",
       "expiresIn": "최근 만료 {h}시간 후"
     },
+    "boxes": {
+      "statusTitle": "현황",
+      "shortcutTitle": "바로가기",
+      "activity": "최근 활동",
+      "bookings": "예약",
+      "proposals": "제안",
+      "settlements": "정산"
+    },
+    "activityPage": {
+      "title": "활동 내역",
+      "subtitle": "최근 활동 기록입니다.",
+      "backToDashboard": "← 대시보드"
+    },
     "banner": {
       "title": "iCal 충돌",
       "message": "{villa} — {range} 외부 예약과 내부 확정 예약이 겹칩니다",

@@ -11,7 +11,6 @@ import {
   loadActivityFeed,
   relativeTimeParts,
   type FeedDot,
-  type TodayBookingItem,
 } from "@/lib/dashboard";
 import { findUnresolvedIcalConflicts } from "@/lib/ical";
 import { countCostAlertGroups } from "@/lib/cost-alerts";
@@ -30,12 +29,6 @@ const DOT_CLASS: Record<FeedDot, string> = {
   emerald: "bg-emerald-500",
   red: "bg-red-500",
   slate: "bg-slate-500",
-};
-
-const TODAY_STATUS_BADGE: Record<string, string> = {
-  CONFIRMED: "bg-blue-600/20 text-blue-400",
-  CHECKED_IN: "bg-indigo-600/20 text-indigo-400",
-  CHECKED_OUT: "bg-slate-700/60 text-slate-300",
 };
 
 export default async function DashboardPage() {
@@ -74,23 +67,45 @@ export default async function DashboardPage() {
     return r.date;
   };
 
-  const TodayCard = ({ item, sub }: { item: TodayBookingItem; sub: string }) => (
+  // 모바일 박스 카드 (b1-mobile 박스 그리드 — 3차 회의). 숫자 + 클릭 시 리스트 이동
+  const BoxCard = ({
+    href,
+    label,
+    count,
+    unit,
+    icon,
+    iconClass,
+    badge,
+  }: {
+    href: string;
+    label: string;
+    count: number;
+    unit: string;
+    icon: string;
+    iconClass: string;
+    badge?: string | null;
+  }) => (
     <Link
-      href={`/bookings/${item.id}`}
-      className="bg-admin-card border border-slate-700/50 rounded-xl px-4 py-3 flex items-center gap-3"
+      href={href}
+      className="bg-admin-card p-4 rounded-xl border border-slate-700/50 active:scale-[0.98] hover:ring-1 hover:ring-blue-500 transition-all group"
     >
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-white">{item.villaName}</p>
-        <p className="text-[11px] text-slate-400 truncate">{sub}</p>
+      <div className="flex justify-between items-start mb-2">
+        <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+          {label}
+        </span>
+        <span className={`material-symbols-outlined ${iconClass} group-hover:scale-110 transition-transform`}>
+          {icon}
+        </span>
       </div>
-      <span
-        className={`${TODAY_STATUS_BADGE[item.status] ?? "bg-slate-700/60 text-slate-300"} text-[10px] font-bold px-2 py-0.5 rounded shrink-0`}
-      >
-        {t(`status.${item.status}`)}
-      </span>
-      <span className="material-symbols-outlined text-slate-600 text-sm shrink-0">
-        chevron_right
-      </span>
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-2xl font-bold text-white tabular-nums">{count}</span>
+        <span className="text-xs text-slate-500">{unit}</span>
+        {badge && (
+          <span className="bg-amber-500/20 text-amber-500 text-[10px] px-2 py-0.5 rounded font-bold">
+            {badge}
+          </span>
+        )}
+      </div>
     </Link>
   );
 
@@ -153,9 +168,8 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-12 gap-6">
         {/* 좌측 9: 스탯 + 타임라인/오늘 리스트 */}
         <div className="col-span-12 lg:col-span-9 space-y-6">
-          {/* 스탯 카드 4종 (b1) */}
-          {/* b1-mobile: <xl 콤팩트 2×2 그리드 */}
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 xl:gap-4">
+          {/* 스탯 카드 4종 (b1) — 데스크톱 전용. 모바일은 아래 박스 그리드(3차 회의) */}
+          <div className="hidden lg:grid grid-cols-2 xl:grid-cols-4 gap-3 xl:gap-4">
             <Link
               href="/bookings?filter=today-checkin"
               className="bg-admin-card p-4 rounded-xl border border-slate-700/50 hover:ring-1 hover:ring-blue-500 transition-all group"
@@ -241,79 +255,89 @@ export default async function DashboardPage() {
             <TimelineMatrix data={timeline} />
           </div>
 
-          {/* 모바일 <lg: 오늘 중심 리스트 (b1-mobile — 2차 회의 결정) */}
-          <div className="lg:hidden space-y-6">
+          {/* 모바일 <lg: 박스 그리드 (b1-mobile — 3차 회의). 인라인 리스트 폐기, 박스 클릭 → 리스트 */}
+          <div className="lg:hidden space-y-5">
+            {/* 현황 박스: 오늘 체크인·체크아웃·청소 검수 대기·최근 활동 */}
             <section>
               <div className="flex items-center justify-between mb-2.5 px-1">
-                <h2 className="text-sm font-bold text-white">{t("today.checkinTitle")}</h2>
+                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  {t("boxes.statusTitle")}
+                </h2>
                 <span className="text-[11px] text-slate-500 tabular-nums">{stats.todayLabel}</span>
               </div>
-              <div className="space-y-2">
-                {stats.checkinToday.length === 0 ? (
-                  <p className="text-xs text-slate-500 px-1">{t("today.empty")}</p>
-                ) : (
-                  stats.checkinToday.map((b) => (
-                    <TodayCard
-                      key={b.id}
-                      item={b}
-                      sub={`${b.guestName} · ${t("today.nights", { n: b.nights })}`}
-                    />
-                  ))
-                )}
+              <div className="grid grid-cols-2 gap-3">
+                <BoxCard
+                  href="/bookings?filter=today-checkin"
+                  label={t("stats.checkinToday")}
+                  count={stats.checkinToday.length}
+                  unit={t("stats.unitCase")}
+                  icon="login"
+                  iconClass="text-blue-500"
+                />
+                <BoxCard
+                  href="/bookings?filter=today-checkout"
+                  label={t("stats.checkoutToday")}
+                  count={stats.checkoutToday.length}
+                  unit={t("stats.unitCase")}
+                  icon="logout"
+                  iconClass="text-indigo-400"
+                />
+                <BoxCard
+                  href="/inspections"
+                  label={t("stats.cleaningPending")}
+                  count={stats.cleaningPendingCount}
+                  unit={t("stats.unitSpot")}
+                  icon="cleaning_services"
+                  iconClass="text-emerald-500"
+                />
+                <BoxCard
+                  href="/activity"
+                  label={t("boxes.activity")}
+                  count={stats.activityRecentCount}
+                  unit={t("stats.unitCase")}
+                  icon="history"
+                  iconClass="text-slate-400"
+                />
               </div>
             </section>
+
+            {/* 바로가기 박스: 예약·제안·정산 */}
             <section>
-              <h2 className="text-sm font-bold text-white mb-2.5 px-1">
-                {t("today.checkoutTitle")}
+              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5 px-1">
+                {t("boxes.shortcutTitle")}
               </h2>
-              <div className="space-y-2">
-                {stats.checkoutToday.length === 0 ? (
-                  <p className="text-xs text-slate-500 px-1">{t("today.empty")}</p>
-                ) : (
-                  stats.checkoutToday.map((b) => <TodayCard key={b.id} item={b} sub={b.guestName} />)
-                )}
-              </div>
-            </section>
-            <section>
-              <div className="flex items-center justify-between mb-2.5 px-1">
-                <h2 className="text-sm font-bold text-white">{t("today.cleaningTitle")}</h2>
-                <Link href="/inspections" className="text-[11px] text-blue-500 font-semibold">
-                  {t("today.viewAll")}
-                </Link>
-              </div>
-              <div className="space-y-2">
-                {stats.cleaningPending.length === 0 ? (
-                  <p className="text-xs text-slate-500 px-1">{t("today.empty")}</p>
-                ) : (
-                  stats.cleaningPending.map((c) => (
-                    <Link
-                      key={c.id}
-                      href={`/inspections?task=${c.id}`}
-                      className="bg-admin-card border border-slate-700/50 rounded-xl px-4 py-3 flex items-center gap-3"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-white">{c.villaName}</p>
-                        <p className="text-[11px] text-slate-400 truncate">
-                          <span className="tabular-nums">{c.submittedDate}</span> ·{" "}
-                          {t("today.photos", { n: c.photoCount })}
-                        </p>
-                      </div>
-                      <span className="bg-amber-500/20 text-amber-500 text-[10px] font-bold px-2 py-0.5 rounded shrink-0">
-                        {t("today.awaitingApproval")}
-                      </span>
-                      <span className="material-symbols-outlined text-slate-600 text-sm shrink-0">
-                        chevron_right
-                      </span>
-                    </Link>
-                  ))
-                )}
+              <div className="grid grid-cols-3 gap-3">
+                <BoxCard
+                  href="/bookings"
+                  label={t("boxes.bookings")}
+                  count={stats.bookingActiveCount}
+                  unit={t("stats.unitCase")}
+                  icon="calendar_month"
+                  iconClass="text-blue-500"
+                />
+                <BoxCard
+                  href="/proposals"
+                  label={t("boxes.proposals")}
+                  count={stats.proposalActiveCount}
+                  unit={t("stats.unitCase")}
+                  icon="rate_review"
+                  iconClass="text-amber-500"
+                />
+                <BoxCard
+                  href="/settlements"
+                  label={t("boxes.settlements")}
+                  count={stats.settlementPendingCount}
+                  unit={t("stats.unitCase")}
+                  icon="payments"
+                  iconClass="text-emerald-500"
+                />
               </div>
             </section>
           </div>
         </div>
 
-        {/* 우측 3: 최근 활동 피드 (b1) */}
-        <div className="col-span-12 lg:col-span-3">
+        {/* 우측 3: 최근 활동 피드 (b1) — 데스크톱 전용. 모바일은 활동 박스→/activity (3차 회의) */}
+        <div className="hidden lg:block col-span-12 lg:col-span-3">
           <div className="bg-admin-card rounded-xl border border-slate-700/50 flex flex-col h-full">
             <div className="p-4 border-b border-slate-700/50">
               <h3 className="font-bold text-white flex items-center gap-2 text-sm">

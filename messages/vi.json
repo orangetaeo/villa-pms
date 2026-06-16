@@ -46,6 +46,19 @@
       "unitSpot": "nơi",
       "expiresIn": "Hết hạn gần nhất sau {h} giờ"
     },
+    "boxes": {
+      "statusTitle": "Tình hình",
+      "shortcutTitle": "Lối tắt",
+      "activity": "Hoạt động gần đây",
+      "bookings": "Đặt phòng",
+      "proposals": "Đề xuất",
+      "settlements": "Quyết toán"
+    },
+    "activityPage": {
+      "title": "Nhật ký hoạt động",
+      "subtitle": "Bản ghi hoạt động gần đây.",
+      "backToDashboard": "← Bảng điều khiển"
+    },
     "banner": {
       "title": "Xung đột iCal",
       "message": "{villa} — {range} đặt phòng bên ngoài trùng với đặt phòng đã xác nhận",
