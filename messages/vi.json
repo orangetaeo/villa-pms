@@ -646,7 +646,23 @@
     "villas": "Villa",
     "calendar": "Lịch",
     "cleaning": "Dọn dẹp",
-    "earnings": "Thu nhập"
+    "earnings": "Thu nhập",
+    "guide": "Hướng dẫn"
+  },
+  "guide": {
+    "headerTitle": "Hướng dẫn nhanh",
+    "heroTitle": "4 bước để bắt đầu",
+    "heroSubtitle": "Làm theo hướng dẫn dưới đây để kích hoạt villa của bạn trên hệ thống.",
+    "step1Title": "Đăng villa",
+    "step1Desc": "Chụp ảnh từng phòng, nhập thông tin cơ bản.",
+    "step2Title": "Quản lý lịch",
+    "step2Desc": "Chạm vào ngày để mở hoặc khóa phòng trống.",
+    "step3Title": "Ảnh dọn dẹp",
+    "step3Desc": "Tải ảnh sau khi dọn để được duyệt bán.",
+    "step4Title": "Thông báo Zalo",
+    "step4Desc": "Nhận đặt phòng và nhắc nhở qua Zalo.",
+    "ctaStart": "Bắt đầu — Villa của tôi",
+    "ctaZalo": "Kết nối Zalo"
   },
   "cleaning": {
     "title": "Dọn dẹp",

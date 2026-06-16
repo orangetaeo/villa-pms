@@ -11,6 +11,7 @@ const TABS = [
   { href: "/calendar", icon: "calendar_month", key: "calendar" },
   { href: "/cleaning", icon: "cleaning_services", key: "cleaning" },
   { href: "/earnings", icon: "payments", key: "earnings" },
+  { href: "/guide", icon: "help", key: "guide" }, // 온보딩 가이드 (T4.3)
 ] as const;
 
 /** 탭바를 숨기는 풀스크린 플로우 경로 접두사 */

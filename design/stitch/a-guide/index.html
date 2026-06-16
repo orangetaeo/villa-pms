@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+
+<html class="light" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=390, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#0D9488", // teal-600
+              secondary: "#F59E0B", // amber-500
+              surface: "#FFFFFF",
+              background: "#F8FAFC",
+              "on-surface": "#0F172A",
+            },
+            borderRadius: {
+              "DEFAULT": "0.5rem",
+              "lg": "1rem",
+              "xl": "1.5rem",
+              "full": "9999px"
+            },
+            fontFamily: {
+              headline: ["Be Vietnam Pro", "sans-serif"],
+              display: ["Be Vietnam Pro", "sans-serif"],
+              body: ["Be Vietnam Pro", "sans-serif"],
+              label: ["Be Vietnam Pro", "sans-serif"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+      body {
+        font-family: 'Be Vietnam Pro', sans-serif;
+        background-color: #F8FAFC;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .card-shadow {
+        box-shadow: 0 4px 20px -2px rgba(13, 148, 136, 0.05);
+      }
+      .step-badge {
+        box-shadow: 0 2px 8px rgba(13, 148, 136, 0.2);
+      }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="antialiased text-slate-900 selection:bg-teal-100">
+<!-- Top Navigation Anchor (from JSON) -->
+<header class="flex items-center justify-between px-4 h-16 w-full bg-white dark:bg-neutral-900 border-b border-neutral-100 dark:border-neutral-800 top-0 sticky z-50">
+<button class="w-10 h-10 flex items-center justify-center text-teal-600 dark:text-teal-400 active:scale-95 transition-transform hover:bg-neutral-50 rounded-full">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-headline font-semibold text-lg text-teal-600 dark:text-teal-400">Hướng dẫn nhanh</h1>
+<div class="w-10"></div> <!-- Spacer for centering -->
+</header>
+<main class="px-5 pt-8 pb-32">
+<!-- Welcoming Hero Section -->
+<div class="text-center mb-10">
+<h2 class="text-3xl font-extrabold text-teal-600 tracking-tight mb-2">4 bước để bắt đầu</h2>
+<p class="text-slate-500 font-medium">Làm theo hướng dẫn dưới đây để kích hoạt villa của bạn trên hệ thống.</p>
+</div>
+<!-- Vertical Guide Cards -->
+<div class="space-y-6">
+<!-- Step 1 -->
+<div class="relative bg-white p-5 rounded-xl border border-slate-100 card-shadow flex items-start gap-4 active:scale-[0.98] transition-transform cursor-pointer">
+<div class="absolute -top-3 -left-2 w-8 h-8 bg-teal-600 text-white rounded-full flex items-center justify-center font-bold step-badge">1</div>
+<div class="w-14 h-14 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-teal-600 text-3xl" data-icon="add_home_work">add_home_work</span>
+</div>
+<div>
+<h3 class="font-bold text-lg text-slate-800 leading-tight">Đăng villa</h3>
+<p class="text-slate-500 text-sm mt-1">Chụp ảnh từng phòng, nhập thông tin cơ bản.</p>
+</div>
+</div>
+<!-- Step 2 -->
+<div class="relative bg-white p-5 rounded-xl border border-slate-100 card-shadow flex items-start gap-4 active:scale-[0.98] transition-transform cursor-pointer">
+<div class="absolute -top-3 -left-2 w-8 h-8 bg-teal-600 text-white rounded-full flex items-center justify-center font-bold step-badge">2</div>
+<div class="w-14 h-14 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-teal-600 text-3xl" data-icon="calendar_month">calendar_month</span>
+</div>
+<div>
+<h3 class="font-bold text-lg text-slate-800 leading-tight">Quản lý lịch</h3>
+<p class="text-slate-500 text-sm mt-1">Chạm vào ngày để mở hoặc khóa phòng trống.</p>
+</div>
+</div>
+<!-- Step 3 -->
+<div class="relative bg-white p-5 rounded-xl border border-slate-100 card-shadow flex items-start gap-4 active:scale-[0.98] transition-transform cursor-pointer">
+<div class="absolute -top-3 -left-2 w-8 h-8 bg-teal-600 text-white rounded-full flex items-center justify-center font-bold step-badge">3</div>
+<div class="w-14 h-14 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-teal-600 text-3xl" data-icon="cleaning_services">cleaning_services</span>
+</div>
+<div>
+<h3 class="font-bold text-lg text-slate-800 leading-tight">Ảnh dọn dẹp</h3>
+<p class="text-slate-500 text-sm mt-1">Tải ảnh sau khi dọn để được duyệt bán.</p>
+</div>
+</div>
+<!-- Step 4 -->
+<div class="relative bg-white p-5 rounded-xl border border-slate-100 card-shadow flex items-start gap-4 active:scale-[0.98] transition-transform cursor-pointer">
+<div class="absolute -top-3 -left-2 w-8 h-8 bg-teal-600 text-white rounded-full flex items-center justify-center font-bold step-badge">4</div>
+<div class="w-14 h-14 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-teal-600 text-3xl" data-icon="notifications_active">notifications_active</span>
+</div>
+<div>
+<h3 class="font-bold text-lg text-slate-800 leading-tight">Thông báo Zalo</h3>
+<p class="text-slate-500 text-sm mt-1">Nhận đặt phòng và nhắc nhở qua Zalo.</p>
+</div>
+</div>
+</div>
+<!-- Visual Decorative Anchor (Illustration) -->
+<div class="mt-12 opacity-80 flex flex-col items-center">
+<div class="w-full h-48 rounded-2xl overflow-hidden relative">
+<img alt="Resort landscape" class="w-full h-full object-cover" data-alt="A luxurious coastal resort landscape in Phu Quoc, Vietnam, featuring modern villas with clean lines and teal accents. The scene is illuminated by soft, golden morning sunlight reflecting off the calm turquoise ocean and pristine white sand. Lush tropical palm trees surround the architecture, creating a serene and professional hospitality atmosphere consistent with a premium travel brand." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCANnXZiPoZ9nBbC0cfs16Vx7z3gCZjunPmMY-7KjChT3bqsj4Hh6_OWgbAhVRoQyjS4GAvBPGzt4iyLLuOJE6UsaEvMRhVQy7TPaKiwY4vKHNdLmHXEPjZoDvVSs1Dj-vg9dnF8MHw7MhuvyyEtPLFxq2e7K6ateYE3BYNdoz3_sg6LaS7Q4RO5Q2Hx9yX26ljdEHVvpPJsBNL0rUUFDvkF2xKaFizG3K2xLFrXBKVNqYqk0OFlJrs_WK2Z-aQwipYLQm1vwzPMqHd"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent"></div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Shell (from JSON) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex flex-col gap-2 p-4 bg-white dark:bg-neutral-900 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] rounded-t-xl">
+<!-- Active Primary Button -->
+<button class="flex items-center justify-center bg-teal-600 text-white rounded-xl py-3 px-6 w-full font-label font-medium text-lg h-[56px] active:scale-[0.98] transition-all hover:opacity-90">
+<span class="material-symbols-outlined mr-2" data-icon="play_circle">play_circle</span>
+            Bắt đầu — Villa của tôi
+        </button>
+<!-- Inactive Secondary Action -->
+<button class="flex flex-col items-center justify-center text-teal-600 dark:text-teal-400 py-2 font-label font-medium text-sm active:scale-[0.98] transition-all hover:opacity-90">
+<span class="material-symbols-outlined text-2xl mb-0.5" data-icon="chat">chat</span>
+            Kết nối Zalo
+        </button>
+</nav>
+<script>
+        // Simple scroll visibility for the header shadow
+        window.addEventListener('scroll', () => {
+            const header = document.querySelector('header');
+            if (window.scrollY > 10) {
+                header.classList.add('shadow-md');
+                header.classList.remove('border-b');
+            } else {
+                header.classList.remove('shadow-md');
+                header.classList.add('border-b');
+            }
+        });
+
+        // Click feedback for cards
+        document.querySelectorAll('.card-shadow').forEach(card => {
+            card.addEventListener('click', () => {
+                // Future expansion: Navigate to specific tutorial
+                console.log('User clicked card: ' + card.querySelector('h3').innerText);
+            });
+        });
+    </script>
+</body></html>

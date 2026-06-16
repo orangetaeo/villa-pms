@@ -646,7 +646,23 @@
     "villas": "빌라",
     "calendar": "캘린더",
     "cleaning": "청소",
-    "earnings": "수익"
+    "earnings": "수익",
+    "guide": "안내"
+  },
+  "guide": {
+    "headerTitle": "빠른 안내",
+    "heroTitle": "시작하는 4단계",
+    "heroSubtitle": "아래 안내를 따라 빌라를 시스템에 등록하세요.",
+    "step1Title": "빌라 등록",
+    "step1Desc": "각 방 사진을 찍고 기본 정보를 입력하세요.",
+    "step2Title": "캘린더 관리",
+    "step2Desc": "날짜를 눌러 공실을 열거나 차단하세요.",
+    "step3Title": "청소 사진",
+    "step3Desc": "청소 후 사진을 올려 판매 승인을 받으세요.",
+    "step4Title": "Zalo 알림",
+    "step4Desc": "예약과 알림을 Zalo로 받으세요.",
+    "ctaStart": "시작 — 내 빌라",
+    "ctaZalo": "Zalo 연결"
   },
   "cleaning": {
     "title": "청소",
