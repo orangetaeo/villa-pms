@@ -69,7 +69,7 @@
 ## Sprint 4 — QA·온보딩 (M2 W4)
 - [x] T4.0 Stitch 디자인: B7 → design/stitch/ (DESIGN, 테오 확인) — 2026-06-11 전체 회의 검수 — 조건부 통과
 - [x] T4.1 권한 누수 테스트 4종 전수 (SPEC 공통 요구) (QA) — 2026-06-16 완료. 전 표면(API route 36·페이지 26·layout 4·파일서빙 2·cron 4) 정적+동적 스윕. **High 결함 0건, 마진·재고 비공개 위반 0건 → 오픈 가능 판정.** ① SUPPLIER 교차 스코프 차단 ② 마진·원가·고객정보 비공개(ADMIN 대조군 양성 실증) ③ 공개 토큰(crypto 랜덤·상태별 만료렌더·HOLD 동시성·경로탈출) ④ 비로그인·역할(CLEANER 포함) 차단 전부 PASS. 교훈 4건 leak-checklist 등재. **오픈 전 비차단 권고: 테스트 계정 4종(0900000001~4) 삭제 — LAUNCH 체크리스트**
-- [ ] T4.2 시드 스크립트: 쏘나씨 V11/V12/V25 + 썬셋 사나토 실데이터 입력 (PM)
+- [ ] T4.2 **(진행 중 — 세션 점유 2026-06-16)** 시드 스크립트: 쏘나씨 V11/V12/V25 + 썬셋 사나토 실데이터 입력 (PM) — prisma/seed.ts 구조 + npm script. 실제 수치(침실·가격)는 테오 확인 필요 — placeholder + 주석
 - [ ] T4.3 공급자 온보딩 가이드 (vi, 이미지 1장짜리) (LOC/UX-VN)
 - [ ] T4.4 베트남 사용자 1명 실사용 테스트 → 피드백 반영 (PM/UX-VN)
 - [x] T4.5 F6 최소 정산 (Stitch b7·a7 변환) (BE/FE/UX-VN) — 2026-06-11 완료. lib/settlement.ts(월 집계 멱등·전이표·PAID 시 SETTLEMENT_READY enqueue) + /api/settlements 3종 + /settlements(b7)·/earnings(a7, 공급자 원가만). QA 독립 평가 **통과**(결함 3건 수정: $transaction 타임아웃·i18n 사전 통째 직렬화 누수 D-2·미들웨어 /earnings 누락 D-3 — i18n은 구역별 화이트리스트 provider로 구조 개선). 계약: docs/contracts/T4.5-settlement.md. **공유 규칙 신설: 클라이언트 useTranslations 네임스페이스 추가 시 해당 구역 layout 화이트리스트에도 등록(lib/intl-messages.ts·(supplier)/layout.tsx 주석 참조)**
