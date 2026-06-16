@@ -570,6 +570,22 @@ enum ZaloMessageStatus {
   FAILED
 }
 
+// 채팅 상대 타입 (ADR-0009 D1) — 공유 누수 분기 기준.
+//  SUPPLIER: 원가만 공유 (마진·판매가 금지). CUSTOMER: 판매가만 (원가·마진 금지). UNKNOWN: 공유 잠금.
+enum ZaloCounterpartyType {
+  SUPPLIER // 공급자(중계인·부동산·분양자) — 원가만
+  CUSTOMER // 고객(여행사·여행객) — 판매가만
+  UNKNOWN // 미분류 — 공유 기능 잠금(기본값)
+}
+
+// 대화별 번역 모드 (ADR-0009 D7) — ADMIN 기준 언어는 항상 ko. 모드는 "상대 언어" 1축만 저장.
+//  OFF: 수신 자동번역·발신 미리보기 둘 다 끔(Gemini 호출 0). VI: ko↔vi. EN: ko↔en.
+enum ZaloTranslateMode {
+  OFF // 번역 끔 (한국어끼리)
+  VI // 상대 베트남어 — 수신 vi→ko, 발신 ko→vi
+  EN // 상대 영어 — 수신 en→ko, 발신 ko→en
+}
+
 // 대화 스레드 — 관리자×상대(공급자) 단위 (ADR-0007 D3).
 // ownerAdminId: 이 대화를 받은/소유한 ADMIN (개인 스코프 기준). 시스템봇 미러는 시스템봇 소유자(테오) 소유.
 // 같은 공급자가 관리자 A·B와 각각 대화하면 행 2개(ownerAdminId만 다름) — 카카오톡 모델.
@@ -581,11 +597,18 @@ model ZaloConversation {
   zaloUserId    String // 대화 상대(공급자)의 Zalo id — @unique 제거 (복합키로 이동)
   userId        String? // 매칭된 공급자 User (전역 User.zaloUserId 기준) — @unique 제거 (1:N)
   user          User?     @relation("SupplierConversations", fields: [userId], references: [id], onDelete: SetNull)
-  displayName   String? // Zalo 프로필명
+  displayName   String? // Zalo 프로필명 (원본 — nickname과 구분, ADR-0009 D9.1)
   lastMessageAt DateTime?
   lastInboundAt DateTime? // ADR-0006 D5.5 — 개인계정은 48h 제약 없음(참고 보존)
   unreadCount   Int       @default(0)
   createdAt     DateTime  @default(now())
+
+  // ADR-0009 (additive) — D1 상대 타입, D7 번역모드, D8 아바타, D9 별명.
+  counterpartyType ZaloCounterpartyType @default(UNKNOWN) // D1 — 기존 행은 SUPPLIER 백필
+  translateMode    ZaloTranslateMode    @default(OFF) // D7 — 기존 행은 VI 백필 (SUPPLIER=VI)
+  avatarUrl        String? // D8 — Zalo 아바타 URL 캐시 (없으면 이니셜 폴백)
+  avatarFetchedAt  DateTime? // D8 — 마지막 아바타 조회 시각 (주기 갱신 판단)
+  nickname         String? // D9 — ADMIN 지정 별명 (표시 최우선, displayName 원본 보존)
 
   messages ZaloMessage[]
 

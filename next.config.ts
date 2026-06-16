@@ -15,7 +15,7 @@ const CSP_REPORT_ONLY = [
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "img-src 'self' data: https://*.r2.dev https://*.r2.cloudflarestorage.com https://picsum.photos https://fastly.picsum.photos https://lh3.googleusercontent.com",
+  "img-src 'self' data: https://*.r2.dev https://*.r2.cloudflarestorage.com https://picsum.photos https://fastly.picsum.photos https://lh3.googleusercontent.com https://*.zadn.vn",
   "connect-src 'self'",
   "report-uri /api/csp-report",
 ].join("; ");
@@ -69,6 +69,13 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
+      },
+      // ADR-0009 S6/D8.4 — Zalo 프로필 아바타 CDN. getAvatarUrlProfile 응답 호스트.
+      // 실측 미확정: Zalo 아바타는 통상 s*-ava-talk.zadn.vn 등 *.zadn.vn 대역.
+      // 운영에서 실제 호스트 확인 후 좁힐 것(현재는 *.zadn.vn 와일드카드). 만료 시 이니셜 폴백.
+      {
+        protocol: "https",
+        hostname: "**.zadn.vn",
       },
     ],
   },

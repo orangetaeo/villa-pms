@@ -91,17 +91,23 @@ export async function ocrPassport(
 
 // ===================== 번역 (T6.6 — b14 Zalo 채팅) =====================
 
-/** 번역 대상 언어 — vi(공급자에게 보낼 미리보기) | ko(수신 vi 메시지 → 운영자용) */
-export type TranslateTarget = "vi" | "ko";
+/**
+ * 번역 대상 언어 (ADR-0009 D7.4) — 소스 언어는 모델 자동감지(프롬프트에서 미명시).
+ *  vi: 공급자(베트남어) 발신 미리보기. en: 영어권 발신 미리보기.
+ *  ko: 수신 메시지(vi/en) → 운영자용 한국어. ADMIN 기준 언어는 항상 ko.
+ */
+export type TranslateTarget = "vi" | "ko" | "en";
 
 const TARGET_LABEL: Record<TranslateTarget, string> = {
   vi: "Vietnamese (tiếng Việt)",
   ko: "Korean (한국어)",
+  en: "English",
 };
 
 /**
- * 짧은 채팅 메시지 번역 — ko↔vi (GEMINI_API_KEY·모델 설정 재사용).
+ * 짧은 채팅 메시지 번역 — ko↔vi / ko↔en (GEMINI_API_KEY·모델 설정 재사용).
  * 결과는 번역문만 반환(설명·따옴표 없이). 빈 입력은 빈 문자열.
+ * 번역 OFF 분기는 호출부 책임 — translateMode=OFF면 이 함수를 호출하지 않는다(D7.4).
  * @throws GeminiNotConfiguredError 키 미설정 / Error API 실패
  */
 export async function translateText(
@@ -145,4 +151,16 @@ ${trimmed}`;
   const data = (await res.json()) as GeminiGenerateResponse;
   const out = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
   return out.trim();
+}
+
+/**
+ * 대화 translateMode → 발신 미리보기 타깃 언어 (ADR-0009 D7.4).
+ *  VI → "vi", EN → "en", OFF → null(미리보기 없음 — 호출부가 스킵).
+ * 수신 자동번역의 타깃은 항상 "ko"(운영자가 읽음)이므로 별도 매핑 불필요 —
+ * 모드가 OFF가 아니면 ko로 번역한다.
+ */
+export function previewTargetForMode(mode: "OFF" | "VI" | "EN"): TranslateTarget | null {
+  if (mode === "VI") return "vi";
+  if (mode === "EN") return "en";
+  return null; // OFF
 }

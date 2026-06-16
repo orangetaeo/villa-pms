@@ -19,8 +19,10 @@ import {
   ZaloMessageSource,
   ZaloMessageStatus,
   Role,
+  type ZaloTranslateMode,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { translateText } from "@/lib/gemini";
 
 // ===================== 순수 함수 층 (단위 테스트 대상) =====================
 
@@ -146,6 +148,10 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
   saved: boolean;
   duplicated: boolean;
   matchedUserId: string | null;
+  /** 저장된 INBOUND 메시지 id (수신 자동번역 대상). 중복/미저장 시 null. */
+  messageId: string | null;
+  /** 대화 번역모드 (수신 자동번역 분기 — OFF면 번역 안 함, ADR-0009 D7.4). */
+  translateMode: ZaloTranslateMode;
 }> {
   const { ownerAdminId, isSystemBot, senderZaloUserId, text, zaloMsgId, displayName, senderPhone } =
     parsed;
@@ -160,7 +166,7 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
       zaloUserId: senderZaloUserId,
       displayName: displayName ?? undefined,
     },
-    select: { id: true, userId: true, displayName: true },
+    select: { id: true, userId: true, displayName: true, translateMode: true },
   });
 
   // 2) 멱등 — 동일 zaloMsgId 이미 있으면 스킵
@@ -170,12 +176,18 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
       select: { id: true },
     });
     if (existing) {
-      return { saved: false, duplicated: true, matchedUserId: conversation.userId };
+      return {
+        saved: false,
+        duplicated: true,
+        matchedUserId: conversation.userId,
+        messageId: null,
+        translateMode: conversation.translateMode,
+      };
     }
   }
 
   // 3) 메시지 생성
-  await prisma.zaloMessage.create({
+  const created = await prisma.zaloMessage.create({
     data: {
       conversationId: conversation.id,
       direction: ZaloMessageDirection.INBOUND,
@@ -185,6 +197,7 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
       zaloMsgId,
       status: ZaloMessageStatus.SENT,
     },
+    select: { id: true },
   });
 
   // 4) 대화 메타 갱신 (+ displayName 보강)
@@ -212,7 +225,46 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
     }
   }
 
-  return { saved: true, duplicated: false, matchedUserId };
+  return {
+    saved: true,
+    duplicated: false,
+    matchedUserId,
+    messageId: created.id,
+    translateMode: conversation.translateMode,
+  };
+}
+
+/**
+ * 수신 메시지 자동 번역 (ADR-0009 D7.4) — best-effort, 리스너 외부 fire-and-forget.
+ * 모드가 OFF면 호출 자체를 건너뛴다(Gemini 호출 0). VI/EN이면 수신 본문을 항상 ko로 번역해
+ * ZaloMessage.translatedText에 저장(운영자가 읽음). 실패는 조용히 무시(translatedText null 유지).
+ *
+ * 주의: 이 함수는 saveInboundMessage 저장 완료 후에만 호출한다(메시지 id 필요).
+ *       번역은 네트워크 호출이므로 수신 핸들러를 블로킹하지 않도록 await 없이 띄운다.
+ */
+export async function maybeTranslateInbound(
+  messageId: string,
+  text: string,
+  translateMode: ZaloTranslateMode
+): Promise<void> {
+  if (translateMode === "OFF") return; // 번역 끔 — Gemini 호출 0
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return;
+  try {
+    // 수신은 항상 ko 타깃(ADMIN 기준 언어). 소스 언어는 모델 자동감지.
+    const translated = await translateText(trimmed, "ko");
+    if (!translated) return;
+    await prisma.zaloMessage.update({
+      where: { id: messageId },
+      data: { translatedText: translated },
+    });
+  } catch (err) {
+    // 본문 에코 방지 — 상태/메시지만 (개인정보·credential 무관)
+    console.error(
+      "[zalo-inbound] 수신 자동번역 실패:",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
 }
 
 // ===================== 본인 발신 동기화 (OUTBOUND echo) =====================

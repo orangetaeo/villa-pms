@@ -23,6 +23,7 @@ import {
   type UserMessage,
 } from "zca-js";
 import { ZaloAccountKind } from "@prisma/client";
+import { prisma } from "./prisma";
 import {
   saveCredentials,
   loadAllActiveCredentials,
@@ -39,6 +40,7 @@ import {
   parseZaloTs,
   saveInboundMessage,
   saveOutboundEcho,
+  maybeTranslateInbound,
 } from "./zalo-inbound";
 
 export type ZaloStatus = "disconnected" | "qr_pending" | "connected" | "error";
@@ -618,7 +620,7 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
     }
 
     // ── 상대 발신 → INBOUND 저장(기존) ──────────────────────────
-    await saveInboundMessage({
+    const inbound = await saveInboundMessage({
       ownerAdminId: inst.ownerAdminId,
       isSystemBot: inst.isSystemBot,
       senderZaloUserId,
@@ -627,6 +629,14 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       displayName,
       senderPhone: null,
     });
+
+    // ADR-0009 S5 — 수신 자동번역(VI/EN만). 리스너 블로킹 금지: await 없이 fire-and-forget.
+    if (inbound.saved && inbound.messageId && inbound.translateMode !== "OFF") {
+      void maybeTranslateInbound(inbound.messageId, text, inbound.translateMode);
+    }
+
+    // ADR-0009 S6 — 아바타 lazy 갱신(없거나 오래됐을 때만). best-effort, 비블로킹.
+    void maybeRefreshAvatar(inst, senderZaloUserId);
   } catch (err) {
     console.error(
       "[ZaloPool] 수신 처리 실패:",
@@ -681,4 +691,75 @@ export async function sendChatMessageAsAdmin(
 ): Promise<BotSendResult> {
   const api = await getApiForAdmin(adminUserId);
   return sendVia(api, zaloUserId, text);
+}
+
+// ── ADR-0009 S6: 아바타 조회·캐시 ─────────────────────────────────
+
+/** 아바타 재조회 주기 — 이 기간 지난 캐시만 lazy 갱신(레이트리밋 회피). */
+const AVATAR_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7일
+
+/**
+ * 상대 Zalo 아바타 URL 조회 (ADR-0009 D8) — best-effort.
+ * zca-js getAvatarUrlProfile(friendIds) → { [userId]: { avatar } }. 실패/미존재면 null.
+ * 누수 0(공개 프로필 이미지). credential·전화번호 미반환.
+ */
+export async function fetchAvatarUrl(
+  adminUserId: string,
+  zaloUserId: string
+): Promise<string | null> {
+  try {
+    const api = await getApiForAdmin(adminUserId);
+    if (!api) return null;
+    const res = await api.getAvatarUrlProfile(zaloUserId);
+    const avatar = res?.[zaloUserId]?.avatar;
+    return typeof avatar === "string" && avatar.length > 0 ? avatar : null;
+  } catch (err) {
+    // URL 호스트 에코 우려 없음(프로필 공개) — 상태/메시지만
+    console.error(
+      "[ZaloPool] 아바타 조회 실패:",
+      err instanceof Error ? err.message : String(err)
+    );
+    return null;
+  }
+}
+
+/**
+ * 수신 시 아바타 lazy 갱신 (ADR-0009 D8.2) — 리스너 외부 fire-and-forget 전용.
+ * avatarUrl이 없거나 avatarFetchedAt이 TTL을 넘긴 대화만 1회 조회. 수신 핸들러를 블로킹하지 않는다.
+ * 실패는 무시(다음 수신 때 재시도). 캐시 적중이면 zca-js 호출 0.
+ */
+async function maybeRefreshAvatar(
+  inst: ZaloBotInstance,
+  zaloUserId: string
+): Promise<void> {
+  try {
+    if (!inst.ownerAdminId) return;
+    const conv = await prisma.zaloConversation.findUnique({
+      where: {
+        ownerAdminId_zaloUserId: { ownerAdminId: inst.ownerAdminId, zaloUserId },
+      },
+      select: { id: true, avatarUrl: true, avatarFetchedAt: true },
+    });
+    if (!conv) return;
+    const fresh =
+      conv.avatarUrl &&
+      conv.avatarFetchedAt &&
+      Date.now() - conv.avatarFetchedAt.getTime() < AVATAR_TTL_MS;
+    if (fresh) return; // 캐시 유효 — 조회 스킵
+
+    const url = await fetchAvatarUrl(inst.ownerAdminId, zaloUserId);
+    // 실패해도 fetchedAt은 갱신해 잦은 재시도를 막는다(URL은 성공 시에만 교체).
+    await prisma.zaloConversation.update({
+      where: { id: conv.id },
+      data: {
+        avatarFetchedAt: new Date(),
+        ...(url ? { avatarUrl: url } : {}),
+      },
+    });
+  } catch (err) {
+    console.error(
+      "[ZaloPool] 아바타 lazy 갱신 실패:",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
 }

@@ -1,11 +1,27 @@
-// PATCH /api/zalo/conversations/[id] — ADMIN 대화 읽음 처리 (T6.6, b14)
-// 대화 열람 시 unreadCount=0. 멱등(이미 0이어도 200). 읽음은 운영 메타라 AuditLog 미기록.
+// PATCH /api/zalo/conversations/[id] — ADMIN 대화 액션 (T6.6 b14 + ADR-0009 S5/S7)
+// 액션:
+//  MARK_READ            — unreadCount=0 (읽음 메타, AuditLog 미기록)
+//  SET_TRANSLATE_MODE   — 대화별 번역모드 OFF|VI|EN (D7.5, 운영 메타 — AuditLog 미기록)
+//  SET_NICKNAME         — ADMIN 지정 별명(빈값=해제, D9.3, AuditLog 기록)
+// 공통: ADMIN 전용 + 본인(ownerAdminId) 대화만 (ADR-0007 누수 차단). 타인/미존재 대화는 404.
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit-log";
 
-const bodySchema = z.object({ action: z.literal("MARK_READ") });
+// nickname: 빈 문자열/공백은 해제(null)로 정규화. 1~40자 길이 제한(D9.3).
+const NICKNAME_MAX = 40;
+
+const bodySchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("MARK_READ") }),
+  z.object({ action: z.literal("SET_TRANSLATE_MODE"), mode: z.enum(["OFF", "VI", "EN"]) }),
+  z.object({
+    action: z.literal("SET_NICKNAME"),
+    // 클라가 null 또는 문자열 전달. 문자열은 trim 후 최대 길이 검증.
+    nickname: z.string().max(NICKNAME_MAX).nullable(),
+  }),
+]);
 
 export async function PATCH(
   req: Request,
@@ -21,6 +37,7 @@ export async function PATCH(
   }
 
   const { id } = await params;
+  const ownerAdminId = session.user.id;
 
   let raw: unknown;
   try {
@@ -33,14 +50,59 @@ export async function PATCH(
     return NextResponse.json({ error: "VALIDATION_FAILED" }, { status: 400 });
   }
 
-  // updateMany — 멱등 + 본인(ownerAdminId) 대화만 (ADR-0007 누수 차단). 미존재/타인 대화는 count 0 → 404
-  const result = await prisma.zaloConversation.updateMany({
-    where: { id, ownerAdminId: session.user.id },
-    data: { unreadCount: 0 },
+  const action = parsed.data;
+
+  // ── MARK_READ ────────────────────────────────────────────────
+  if (action.action === "MARK_READ") {
+    // updateMany — 멱등 + 본인 대화만. 미존재/타인 대화는 count 0 → 404
+    const result = await prisma.zaloConversation.updateMany({
+      where: { id, ownerAdminId },
+      data: { unreadCount: 0 },
+    });
+    if (result.count === 0) {
+      return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+    }
+    return NextResponse.json({ ok: true, unreadCount: 0 });
+  }
+
+  // ── SET_TRANSLATE_MODE (D7.5) ────────────────────────────────
+  if (action.action === "SET_TRANSLATE_MODE") {
+    const result = await prisma.zaloConversation.updateMany({
+      where: { id, ownerAdminId },
+      data: { translateMode: action.mode },
+    });
+    if (result.count === 0) {
+      return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+    }
+    return NextResponse.json({ ok: true, translateMode: action.mode });
+  }
+
+  // ── SET_NICKNAME (D9.3) ──────────────────────────────────────
+  // 빈 문자열/공백 → null(별명 해제, 원래 우선순위 복귀).
+  const normalized = action.nickname?.trim() ? action.nickname.trim() : null;
+
+  // 본인 대화 확인 + 기존값(AuditLog old) 조회를 한 번에. 타인/미존재는 null → 404.
+  const existing = await prisma.zaloConversation.findFirst({
+    where: { id, ownerAdminId },
+    select: { id: true, nickname: true },
   });
-  if (result.count === 0) {
+  if (!existing) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
 
-  return NextResponse.json({ ok: true, unreadCount: 0 });
+  await prisma.zaloConversation.update({
+    where: { id: existing.id },
+    data: { nickname: normalized },
+  });
+
+  // AuditLog — 별명은 민감정보 아님(기록 가능). credential·금액 무관 (D9.3)
+  await writeAuditLog({
+    action: "UPDATE",
+    entity: "ZaloConversation",
+    entityId: existing.id,
+    userId: ownerAdminId,
+    changes: { nickname: { old: existing.nickname, new: normalized } },
+  }).catch(() => {});
+
+  return NextResponse.json({ ok: true, nickname: normalized });
 }

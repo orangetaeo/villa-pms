@@ -22,6 +22,9 @@ vi.mock("@/lib/gemini", () => {
   return {
     translateText: (...a: unknown[]) => mockTranslateText(...a),
     GeminiNotConfiguredError: FakeGeminiNotConfigured,
+    // ADR-0009 D7.4 — 실제 매핑을 그대로 사용(순수 함수, 모킹 불필요)
+    previewTargetForMode: (mode: string) =>
+      mode === "VI" ? "vi" : mode === "EN" ? "en" : null,
   };
 });
 
@@ -48,11 +51,13 @@ const tx = {
 };
 const mockConvFindFirst = vi.fn();
 const mockConvUpdateMany = vi.fn();
+const mockConvUpdate = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     zaloConversation: {
       findFirst: (...a: unknown[]) => mockConvFindFirst(...a),
       updateMany: (...a: unknown[]) => mockConvUpdateMany(...a),
+      update: (...a: unknown[]) => mockConvUpdate(...a),
     },
     $transaction: async (fn: (t: unknown) => Promise<unknown>) => fn(tx),
   },
@@ -102,6 +107,7 @@ beforeEach(() => {
     zaloUserId: "zu1",
   });
   mockConvUpdateMany.mockResolvedValue({ count: 1 });
+  mockConvUpdate.mockResolvedValue({});
   // 기본: 봇 연결됨 + 발송 성공
   mockSendChat.mockResolvedValue({ ok: true, messageId: "zmsg1" });
   tx.zaloMessage.create.mockResolvedValue({
@@ -226,6 +232,49 @@ describe("POST /api/zalo/translate — 번역 (T6.6)", () => {
   });
 });
 
+// ── POST /api/zalo/translate — ADR-0009 S5 (대화 모드 기반) ────────────
+describe("POST /api/zalo/translate — 대화 translateMode 기반 (ADR-0009 S5)", () => {
+  it("conversationId + VI → ko→vi 번역 (target=vi)", async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    mockConvFindFirst.mockResolvedValue({ translateMode: "VI" });
+    mockTranslateText.mockResolvedValue("Xin chào");
+    const res = await translateReq({ text: "안녕하세요", conversationId: "c1" });
+    expect(res.status).toBe(200);
+    expect((await res.json()).translated).toBe("Xin chào");
+    expect(mockTranslateText).toHaveBeenCalledWith("안녕하세요", "vi");
+    // 본인 대화 게이트 — ownerAdminId 포함 (누수 차단)
+    expect(mockConvFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "c1", ownerAdminId: "admin1" } })
+    );
+  });
+
+  it("conversationId + EN → ko→en 번역 (target=en)", async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    mockConvFindFirst.mockResolvedValue({ translateMode: "EN" });
+    mockTranslateText.mockResolvedValue("Hello");
+    const res = await translateReq({ text: "안녕", conversationId: "c1" });
+    expect(res.status).toBe(200);
+    expect(mockTranslateText).toHaveBeenCalledWith("안녕", "en");
+  });
+
+  it("conversationId + OFF → 미리보기 없음(Gemini 호출 0, 빈 응답)", async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    mockConvFindFirst.mockResolvedValue({ translateMode: "OFF" });
+    const res = await translateReq({ text: "안녕", conversationId: "c1" });
+    expect(res.status).toBe(200);
+    expect((await res.json()).translated).toBe("");
+    expect(mockTranslateText).not.toHaveBeenCalled();
+  });
+
+  it("conversationId 타인/미존재 대화 404 (Gemini 호출 0)", async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    mockConvFindFirst.mockResolvedValue(null);
+    const res = await translateReq({ text: "안녕", conversationId: "x" });
+    expect(res.status).toBe(404);
+    expect(mockTranslateText).not.toHaveBeenCalled();
+  });
+});
+
 // ── PATCH /api/zalo/conversations/[id] ────────────────────────────────
 describe("PATCH /api/zalo/conversations/[id] — 읽음 처리 (T6.6)", () => {
   it("비로그인 401 / SUPPLIER 403", async () => {
@@ -258,5 +307,117 @@ describe("PATCH /api/zalo/conversations/[id] — 읽음 처리 (T6.6)", () => {
     mockAuth.mockResolvedValue(ADMIN);
     mockConvUpdateMany.mockResolvedValue({ count: 0 });
     expect((await convReq("nope", { action: "MARK_READ" })).status).toBe(404);
+  });
+});
+
+// ── PATCH SET_TRANSLATE_MODE (ADR-0009 S5/D7.5) ───────────────────────
+describe("PATCH /api/zalo/conversations/[id] — SET_TRANSLATE_MODE", () => {
+  it("비로그인 401 / SUPPLIER 403", async () => {
+    mockAuth.mockResolvedValue(null);
+    expect(
+      (await convReq("c1", { action: "SET_TRANSLATE_MODE", mode: "VI" })).status
+    ).toBe(401);
+    mockAuth.mockResolvedValue(SUPPLIER);
+    expect(
+      (await convReq("c1", { action: "SET_TRANSLATE_MODE", mode: "VI" })).status
+    ).toBe(403);
+  });
+
+  it("잘못된 mode 400", async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    expect(
+      (await convReq("c1", { action: "SET_TRANSLATE_MODE", mode: "JP" })).status
+    ).toBe(400);
+  });
+
+  it("성공: 본인 대화만(ownerAdminId 게이트) translateMode 갱신", async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    const res = await convReq("c1", { action: "SET_TRANSLATE_MODE", mode: "EN" });
+    expect(res.status).toBe(200);
+    expect((await res.json()).translateMode).toBe("EN");
+    expect(mockConvUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "c1", ownerAdminId: "admin1" },
+        data: { translateMode: "EN" },
+      })
+    );
+  });
+
+  it("타인/미존재 대화 404 (count 0)", async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    mockConvUpdateMany.mockResolvedValue({ count: 0 });
+    expect(
+      (await convReq("other", { action: "SET_TRANSLATE_MODE", mode: "VI" })).status
+    ).toBe(404);
+  });
+});
+
+// ── PATCH SET_NICKNAME (ADR-0009 S7/D9.3) ─────────────────────────────
+describe("PATCH /api/zalo/conversations/[id] — SET_NICKNAME", () => {
+  it("비로그인 401 / SUPPLIER 403", async () => {
+    mockAuth.mockResolvedValue(null);
+    expect(
+      (await convReq("c1", { action: "SET_NICKNAME", nickname: "테오" })).status
+    ).toBe(401);
+    mockAuth.mockResolvedValue(SUPPLIER);
+    expect(
+      (await convReq("c1", { action: "SET_NICKNAME", nickname: "테오" })).status
+    ).toBe(403);
+  });
+
+  it("길이 초과(40자 초과) 400", async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    const long = "가".repeat(41);
+    expect((await convReq("c1", { action: "SET_NICKNAME", nickname: long })).status).toBe(400);
+  });
+
+  it("성공: 본인 대화만 별명 저장 + AuditLog 기록(old/new)", async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    mockConvFindFirst.mockResolvedValue({ id: "c1", nickname: "옛별명" });
+    const res = await convReq("c1", { action: "SET_NICKNAME", nickname: "  새별명  " });
+    expect(res.status).toBe(200);
+    expect((await res.json()).nickname).toBe("새별명"); // trim
+    // 본인 대화 게이트 — findFirst where에 ownerAdminId
+    expect(mockConvFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "c1", ownerAdminId: "admin1" } })
+    );
+    expect(mockConvUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "c1" }, data: { nickname: "새별명" } })
+    );
+    expect(vi.mocked(writeAuditLog)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity: "ZaloConversation",
+        entityId: "c1",
+        changes: { nickname: { old: "옛별명", new: "새별명" } },
+      })
+    );
+  });
+
+  it("빈 문자열/공백 → 별명 해제(null)", async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    mockConvFindFirst.mockResolvedValue({ id: "c1", nickname: "옛별명" });
+    const res = await convReq("c1", { action: "SET_NICKNAME", nickname: "   " });
+    expect(res.status).toBe(200);
+    expect((await res.json()).nickname).toBeNull();
+    expect(mockConvUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { nickname: null } })
+    );
+  });
+
+  it("null nickname → 해제", async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    mockConvFindFirst.mockResolvedValue({ id: "c1", nickname: "옛별명" });
+    const res = await convReq("c1", { action: "SET_NICKNAME", nickname: null });
+    expect(res.status).toBe(200);
+    expect((await res.json()).nickname).toBeNull();
+  });
+
+  it("타인/미존재 대화 404 (findFirst null → update·AuditLog 미호출)", async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    mockConvFindFirst.mockResolvedValue(null);
+    const res = await convReq("other", { action: "SET_NICKNAME", nickname: "x" });
+    expect(res.status).toBe(404);
+    expect(mockConvUpdate).not.toHaveBeenCalled();
+    expect(vi.mocked(writeAuditLog)).not.toHaveBeenCalled();
   });
 });

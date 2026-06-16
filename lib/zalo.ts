@@ -230,6 +230,15 @@ export function buildNotificationText(
         `Lý do: ${str(p.reason, "(không có ghi chú)")}`,
         `Vui lòng kiểm tra và cập nhật lại thông tin trong ứng dụng.`,
       ].join("\n");
+
+    case NotificationType.RATE_CHANGED_DURING_PROPOSAL:
+      // 제안 유효기간 중 빌라 요율 변경 알림 (enum만 선등록 — enqueue 사용처는 후속 세션).
+      // 원가 등 금액 미노출(마진 비공개) — 안내만. 후속에서 문구 정교화 가능.
+      return [
+        `📋 Cập nhật giá: ${villa}`,
+        `Giá thuê đã được cập nhật trong thời gian đề xuất còn hiệu lực.`,
+        `Vui lòng kiểm tra chi tiết trong ứng dụng.`,
+      ].join("\n");
   }
 }
 
