@@ -498,6 +498,7 @@
     "amenities": "Tiện nghi & đồ dùng",
     "amenitySummary": "Đồ bếp {kitchen} · Đồ phòng tắm {bathroom} · Thiết bị điện {appliance} · Minibar {minibar}",
     "noAmenities": "Chưa có đồ dùng nào",
+    "editAmenities": "Sửa",
     "price": "Giá gốc",
     "rejectionTitle": "Lý do từ chối",
     "editResubmit": "Sửa và gửi lại",
@@ -579,6 +580,11 @@
   "amenities": {
     "title": "Tiện nghi & đồ dùng",
     "optional": "Không bắt buộc",
+    "editTitle": "Chỉnh sửa tiện nghi",
+    "save": "Lưu",
+    "saving": "Đang lưu...",
+    "saveError": "Lưu thất bại. Vui lòng thử lại.",
+    "cancel": "Hủy",
     "categories": {
       "KITCHEN": "Đồ bếp",
       "BATHROOM": "Đồ phòng tắm",

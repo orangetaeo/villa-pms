@@ -267,7 +267,7 @@ export default async function VillaDetailPage({
             )}
           </div>
 
-          {/* 3. 비품 요약 */}
+          {/* 3. 비품 요약 — "수정" 진입(T6.4) */}
           <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-teal-50 text-teal-600">
@@ -288,6 +288,13 @@ export default async function VillaDetailPage({
                   </p>
                 )}
               </div>
+              <Link
+                href={`/my-villas/${villa.id}/amenities`}
+                className="flex shrink-0 items-center gap-1 rounded-lg bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-100"
+              >
+                <span className="material-symbols-outlined text-base">edit</span>
+                {t("editAmenities")}
+              </Link>
             </div>
           </div>
 

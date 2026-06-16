@@ -498,6 +498,7 @@
     "amenities": "비품·시설",
     "amenitySummary": "주방용품 {kitchen} · 욕실용품 {bathroom} · 가전류 {appliance} · 미니바 {minibar}",
     "noAmenities": "등록된 비품이 없습니다",
+    "editAmenities": "수정",
     "price": "원가",
     "rejectionTitle": "반려 사유",
     "editResubmit": "수정 후 재제출",
@@ -579,6 +580,11 @@
   "amenities": {
     "title": "비품·시설",
     "optional": "선택사항",
+    "editTitle": "비품 수정",
+    "save": "저장",
+    "saving": "저장 중...",
+    "saveError": "저장에 실패했습니다. 다시 시도하세요.",
+    "cancel": "취소",
     "categories": {
       "KITCHEN": "주방용품",
       "BATHROOM": "욕실용품",
