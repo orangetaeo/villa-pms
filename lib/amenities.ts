@@ -28,9 +28,11 @@ export const AMENITY_ITEMS: Record<AmenityCategoryKey, AmenityItem[]> = {
     { itemKey: "microwave", icon: "microwave" },
     { itemKey: "spices", icon: "grocery" },
   ],
-  // 화장실용품
+  // 화장실용품 — 수건은 대/중/소 3종 (quantity = 매일 제공 수량 의미, note에 "매일 제공" 등)
   BATHROOM: [
-    { itemKey: "towels", icon: "dry_cleaning" },
+    { itemKey: "towelLarge", icon: "dry_cleaning" },
+    { itemKey: "towelMedium", icon: "dry_cleaning" },
+    { itemKey: "towelSmall", icon: "dry_cleaning" },
     { itemKey: "shampoo", icon: "soap" },
     { itemKey: "bodyWash", icon: "shower" },
     { itemKey: "toothbrushKit", icon: "dentistry" },
@@ -56,7 +58,13 @@ export const AMENITY_ITEMS: Record<AmenityCategoryKey, AmenityItem[]> = {
   ],
 };
 
-/** 품목 사전 검증 — API에서 임의 itemKey 주입 차단 */
+/** 직접입력(custom) 허용 카테고리 — 미니바 한정 (텍스트 입력 최소화 원칙).
+ *  custom은 customLabel(공급자 vi 입력)을 필수로 동반한다 (검증은 라우트 zod에서). */
+export const CUSTOM_ALLOWED_CATEGORIES: AmenityCategoryKey[] = ["MINIBAR"];
+
+/** 품목 사전 검증 — API에서 임의 itemKey 주입 차단.
+ *  단 CUSTOM_ALLOWED_CATEGORIES(미니바)에서는 itemKey="custom"을 사전과 별개로 허용. */
 export function isValidAmenity(category: AmenityCategoryKey, itemKey: string): boolean {
+  if (itemKey === "custom") return CUSTOM_ALLOWED_CATEGORIES.includes(category);
   return AMENITY_ITEMS[category]?.some((item) => item.itemKey === itemKey) ?? false;
 }

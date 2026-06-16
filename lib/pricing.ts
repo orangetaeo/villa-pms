@@ -218,7 +218,13 @@ export async function quoteStayForVilla(
 ): Promise<StayQuote> {
   assertValidStayRange(range);
 
-  const [rates, seasonPeriods] = await Promise.all([
+  // ADR-0008 D3: 빌라별 시즌 폴백 — 반드시 2단계로 분리한다.
+  //   1) 보유 판정(count): 이 빌라가 VillaSeasonPeriod를 "하나라도" 가졌는가
+  //      → 가졌으면 그 빌라 달력으로만 판정(전역 무시), 0건이면 전역 폴백.
+  //   2) 기간 로드(교차분): 숙박 구간과 겹치는 행만 로드.
+  // ⚠️ 보유 판정을 "교차분 length>0"으로 하면, 빌라가 시즌을 지정했지만 이번 구간과
+  //    안 겹칠 때 length===0 → 잘못된 전역 폴백 버그(TDA 경고). count와 load를 섞지 말 것.
+  const [rates, villaPeriodCount] = await Promise.all([
     db.villaRate.findMany({
       where: { villaId },
       select: {
@@ -228,12 +234,23 @@ export async function quoteStayForVilla(
         salePriceKrw: true,
       },
     }),
-    // 숙박 구간과 겹치는 시즌만 로드 — half-open
-    db.seasonPeriod.findMany({
-      where: { startDate: { lt: range.checkOut }, endDate: { gt: range.checkIn } },
-      select: { season: true, startDate: true, endDate: true },
-    }),
+    db.villaSeasonPeriod.count({ where: { villaId } }),
   ]);
+
+  // 숙박 구간과 겹치는 시즌만 로드 — half-open. 보유 빌라는 빌라 집합, 0건이면 전역.
+  const seasonPeriods = villaPeriodCount > 0
+    ? await db.villaSeasonPeriod.findMany({
+        where: {
+          villaId,
+          startDate: { lt: range.checkOut },
+          endDate: { gt: range.checkIn },
+        },
+        select: { season: true, startDate: true, endDate: true },
+      })
+    : await db.seasonPeriod.findMany({
+        where: { startDate: { lt: range.checkOut }, endDate: { gt: range.checkIn } },
+        select: { season: true, startDate: true, endDate: true },
+      });
 
   return quoteStay({ ...range, saleCurrency, rates, seasonPeriods });
 }
