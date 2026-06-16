@@ -43,12 +43,13 @@ export function ChatPane({
   const t = useTranslations("adminMessages");
   const router = useRouter();
 
-  // 읽음 처리 — 대화 열람 + 미읽음 있을 때만 1회 (멱등). 성공 시 router.refresh로 뱃지 갱신.
-  const markedRef = useRef<string | null>(null);
+  // 읽음 처리 — 대화 열람 중 미읽음이 생길 때마다(열린 채 새 메시지 수신 포함) 0으로.
+  // in-flight 가드만 두어 중복 호출만 막는다(MARK_READ 성공→unreadCount 0→hasUnread false→정지).
+  // 과거의 "대화당 1회"(markedRef) 제한은 열린 대화에 새 메시지가 오면 뱃지가 안 사라지는 버그였음.
+  const markingRef = useRef(false);
   useEffect(() => {
-    if (!conversationId || !hasUnread) return;
-    if (markedRef.current === conversationId) return;
-    markedRef.current = conversationId;
+    if (!conversationId || !hasUnread || markingRef.current) return;
+    markingRef.current = true;
     void fetch(`/api/zalo/conversations/${conversationId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -57,7 +58,10 @@ export function ChatPane({
       .then((res) => {
         if (res.ok) router.refresh();
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        markingRef.current = false;
+      });
   }, [conversationId, hasUnread, router]);
 
   if (!conversationId || !header) {
