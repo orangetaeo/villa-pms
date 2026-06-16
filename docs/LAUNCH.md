@@ -68,7 +68,7 @@
 | /login · /signup (공개) | 200 ✓ |
 | /dashboard · /my-villas · /messages (보호) | 307 → /login ✓ |
 | POST /api/villas (미인증) | 403 ✓ / POST /api/settings | 405(PUT 전용) ✓ |
-| 신규 Zalo 라우트(/zalo-connect·/api/zalo/*) | 배포 진행 중(푸시 직후 404) — 배포 완료 후 재확인 필요 |
+| 신규 Zalo 라우트 | **배포 완료·재스모크 통과(2026-06-16)**: /zalo-connect·/messages 307→login, POST /api/zalo/messages·translate 401 ✓ |
 
 ### 6.2 기능별 검증 근거
 - F5 알림: `buildNotificationText` 10종 처리(BOOKING_HOLD·CONFIRMED·HOLD_EXPIRED·CANCELLED·CLEANING_REQUEST·APPROVED·REJECTED·TAMTRU_PASSPORT·SETTLEMENT_READY·VILLA_REJECTED) — LAUNCH 기준 "7종" 초과 충족
@@ -79,7 +79,7 @@
 1. **Zalo 라이브 활성화** — zca-js QR 로그인 + OA 친구추가 딥링크·QR URL 발급 → F0 실연결·F5 실발송·/messages·/zalo-connect 실동작 완성 (GEMINI·R2 활성화와 동일 성격)
 2. **파일럿 시드 프로덕션 실행** — prisma/seed.ts를 프로덕션 DB에 1회 실행
 3. **베트남 사용자 1명 실사용 테스트(T4.4)** — 설명 없이 빌라 등록 성공 관찰
-4. **배포 완료 후 Zalo 라우트 스모크 재확인** — 방금 푸시분(T6.6/T3.7) 배포 반영 대기
+4. ~~배포 후 Zalo 라우트 스모크 재확인~~ — **완료(2026-06-16)**: 배포 반영·재스모크 통과(§6.1)
 
 ### 6.4 세션 마무리 대기 (머지 후 재점검)
 - T1.10 공급자 내 빌라(a6/a10) · T3.6 여권 Zalo 전달 · T6.7 관리자 반응형 — 진행 중. 머지 시 해당 화면 스모크·누수 재확인
