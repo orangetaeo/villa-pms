@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+        .word-break-keep { word-break: keep-all; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0F172A; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            DEFAULT: '#3B82F6',
+                            dark: '#2563EB'
+                        },
+                        surface: {
+                            base: '#0F172A',
+                            card: '#1E293B',
+                            border: '#334155'
+                        }
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Public Sans"],
+                        "display": ["Public Sans"],
+                        "body": ["Public Sans"],
+                        "label": ["Public Sans"]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-[#0F172A] text-slate-200 antialiased min-h-screen overflow-x-hidden">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-screen w-64 bg-[#0F172A] border-r border-[#1E293B] flex flex-col p-4 z-50">
+<div class="mb-8 px-2">
+<h1 class="text-xl font-black text-white">Villa PMS</h1>
+<p class="text-xs text-slate-500 mt-1 uppercase tracking-wider">Operations Manager</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center space-x-3 text-slate-400 px-4 py-2 hover:bg-[#1E293B] hover:text-white transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span class="font-medium text-sm">대시보드</span>
+</a>
+<a class="flex items-center space-x-3 text-slate-400 px-4 py-2 hover:bg-[#1E293B] hover:text-white transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">calendar_month</span>
+<span class="font-medium text-sm">예약</span>
+</a>
+<!-- Active Tab: 제안 -->
+<a class="flex items-center space-x-3 bg-[#1E293B] text-[#3B82F6] font-bold rounded-lg px-4 py-2" href="#">
+<span class="material-symbols-outlined text-[20px]">edit_document</span>
+<span class="font-medium text-sm">제안</span>
+</a>
+<a class="flex items-center space-x-3 text-slate-400 px-4 py-2 hover:bg-[#1E293B] hover:text-white transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">villa</span>
+<span class="font-medium text-sm">빌라</span>
+</a>
+<a class="flex items-center space-x-3 text-slate-400 px-4 py-2 hover:bg-[#1E293B] hover:text-white transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">fact_check</span>
+<span class="font-medium text-sm">청소 검수</span>
+</a>
+<a class="flex items-center space-x-3 text-slate-400 px-4 py-2 hover:bg-[#1E293B] hover:text-white transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+<span class="font-medium text-sm">정산</span>
+</a>
+<a class="flex items-center space-x-3 text-slate-400 px-4 py-2 hover:bg-[#1E293B] hover:text-white transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">chat</span>
+<span class="font-medium text-sm">메시지</span>
+</a>
+<a class="flex items-center space-x-3 text-slate-400 px-4 py-2 hover:bg-[#1E293B] hover:text-white transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">group</span>
+<span class="font-medium text-sm">사용자</span>
+</a>
+<a class="flex items-center space-x-3 text-slate-400 px-4 py-2 hover:bg-[#1E293B] hover:text-white transition-colors rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="font-medium text-sm">설정</span>
+</a>
+</nav>
+<div class="mt-auto pt-4 border-t border-[#1E293B]">
+<div class="flex items-center space-x-3 px-2">
+<div class="w-8 h-8 rounded-full bg-[#1E293B] flex items-center justify-center border border-slate-700">
+<span class="material-symbols-outlined text-sm text-slate-400">person</span>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-white">관리자</span>
+<span class="text-[10px] text-slate-500">최고 관리자</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopAppBar -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] z-40 bg-[#0F172A]/90 backdrop-blur-md border-b border-[#1E293B] flex justify-between items-center h-16 px-8">
+<div class="flex items-center space-x-4">
+<h2 class="font-headline text-lg font-bold text-white">제안 상세 — P-2614</h2>
+</div>
+<div class="flex items-center space-x-4">
+<div class="relative group">
+<span class="material-symbols-outlined text-slate-400 group-hover:text-white cursor-pointer transition-colors">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-[#0F172A]"></span>
+</div>
+<span class="material-symbols-outlined text-slate-400 hover:text-white cursor-pointer transition-colors">help_outline</span>
+<button class="bg-[#3B82F6] hover:bg-blue-600 text-white text-xs font-bold py-2 px-4 rounded transition-all active:scale-95">신규 예약 등록</button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-64 pt-16 min-h-screen">
+<!-- ALERT BANNER: Pinned at the top of content area -->
+<div class="sticky top-16 z-30 bg-[#78350F]/20 border-b border-amber-500/20 px-8 py-4 flex items-center justify-between backdrop-blur-sm">
+<div class="flex items-center space-x-3">
+<div class="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-amber-500">warning</span>
+</div>
+<div class="word-break-keep">
+<h3 class="text-amber-500 font-bold text-sm">공급자 원가 변경됨 — 견적 중인 제안에 영향</h3>
+<p class="text-amber-200/70 text-xs mt-0.5">쏘나씨 V12 · 성수기 원가가 변경되었습니다. 판매가를 재확인하세요.</p>
+</div>
+</div>
+<div class="flex items-center space-x-4">
+<button class="bg-[#3B82F6] text-white text-xs font-bold px-4 py-2 rounded shadow-lg shadow-blue-500/10 hover:bg-blue-600 transition-colors">재확인하기</button>
+<button class="text-slate-400 hover:text-white text-xs font-medium transition-colors">나중에</button>
+</div>
+</div>
+<div class="p-8 max-w-7xl mx-auto space-y-6">
+<!-- Summary Stats (Bento Grid) -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+<div class="bg-[#1E293B] p-5 rounded-xl border border-[#334155] group hover:border-[#3B82F6] transition-colors cursor-pointer">
+<p class="text-slate-500 text-[11px] font-bold uppercase tracking-widest mb-1">총 견적 금액</p>
+<h4 class="text-2xl font-black text-white tabular-nums">4,500,000원</h4>
+<div class="mt-3 flex items-center text-[10px] text-green-500 font-bold bg-green-500/10 w-fit px-2 py-0.5 rounded">
+<span class="material-symbols-outlined text-[14px] mr-1">trending_up</span>
+<span>전월 대비 12% 상승</span>
+</div>
+</div>
+<div class="bg-[#1E293B] p-5 rounded-xl border border-[#334155] group hover:border-[#3B82F6] transition-colors cursor-pointer">
+<p class="text-slate-500 text-[11px] font-bold uppercase tracking-widest mb-1">현재 평균 마진</p>
+<h4 class="text-2xl font-black text-orange-400 tabular-nums">18.5%</h4>
+<div class="mt-3 flex items-center text-[10px] text-orange-500 font-bold bg-orange-500/10 w-fit px-2 py-0.5 rounded">
+<span class="material-symbols-outlined text-[14px] mr-1">trending_down</span>
+<span>원가 변동으로 5.5%p 하락</span>
+</div>
+</div>
+<div class="bg-[#1E293B] p-5 rounded-xl border border-[#334155] group hover:border-[#3B82F6] transition-colors cursor-pointer">
+<p class="text-slate-500 text-[11px] font-bold uppercase tracking-widest mb-1">포함 품목 수</p>
+<h4 class="text-2xl font-black text-white tabular-nums">6건</h4>
+<div class="mt-3 flex items-center text-[10px] text-slate-400 font-bold bg-slate-400/10 w-fit px-2 py-0.5 rounded">
+<span class="material-symbols-outlined text-[14px] mr-1">inventory_2</span>
+<span>숙박 2, 옵션 4</span>
+</div>
+</div>
+<div class="bg-[#1E293B] p-5 rounded-xl border border-[#334155] group hover:border-[#3B82F6] transition-colors cursor-pointer">
+<p class="text-slate-500 text-[11px] font-bold uppercase tracking-widest mb-1">제안 상태</p>
+<h4 class="text-2xl font-black text-[#3B82F6]">견적 작성 중</h4>
+<div class="mt-3 flex items-center text-[10px] text-blue-500 font-bold bg-blue-500/10 w-fit px-2 py-0.5 rounded">
+<span class="material-symbols-outlined text-[14px] mr-1" style="font-variation-settings: 'FILL' 1;">timer</span>
+<span>만료 2일 전</span>
+</div>
+</div>
+</div>
+<!-- COST COMPARISON CARD -->
+<section class="bg-[#1E293B] rounded-xl border border-[#334155] overflow-hidden shadow-2xl">
+<div class="px-6 py-5 border-b border-[#334155] flex items-center justify-between bg-slate-800/30">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-[#3B82F6]">analytics</span>
+<h3 class="text-sm font-bold text-white uppercase tracking-tight">원가 변경 비교</h3>
+</div>
+<span class="text-[10px] text-slate-500 font-medium tabular-nums">최종 업데이트: 2023-10-24 14:32</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left text-sm border-collapse">
+<thead class="bg-slate-900/40 text-slate-500 font-bold text-[11px] uppercase tracking-wider">
+<tr>
+<th class="px-6 py-3 border-b border-[#334155]">시즌 / 품목</th>
+<th class="px-6 py-3 border-b border-[#334155] text-right">변경 전 원가</th>
+<th class="px-6 py-3 border-b border-[#334155] text-right">변경 후 원가</th>
+<th class="px-6 py-3 border-b border-[#334155] text-right">현재 판매가</th>
+<th class="px-6 py-3 border-b border-[#334155] text-right">마진율</th>
+<th class="px-6 py-3 border-b border-[#334155] text-center">권장 조치</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#334155]">
+<!-- Row 1: Affected -->
+<tr class="hover:bg-slate-800/50 transition-colors bg-amber-500/[0.03]">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center space-x-3">
+<div class="w-1.5 h-6 bg-red-500 rounded-full"></div>
+<div>
+<div class="text-white font-bold text-sm">쏘나씨 V12 · 성수기</div>
+<div class="text-slate-500 text-[11px]">빌라동 전용 / 조식 포함</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 text-right tabular-nums text-slate-500 line-through">2,000,000₫</td>
+<td class="px-6 py-4 text-right">
+<div class="flex flex-col items-end">
+<span class="text-white font-black tabular-nums">2,300,000₫</span>
+<span class="text-[10px] font-bold text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded mt-1">▲ +300,000₫</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right tabular-nums text-slate-300 font-medium">980,000원</td>
+<td class="px-6 py-4 text-right tabular-nums">
+<div class="flex items-center justify-end space-x-2">
+<span class="text-slate-500 text-xs">24%</span>
+<span class="material-symbols-outlined text-[16px] text-slate-600">arrow_forward</span>
+<span class="text-orange-500 font-bold">18%</span>
+</div>
+</td>
+<td class="px-6 py-4 text-center">
+<span class="bg-red-500/10 text-red-500 border border-red-500/20 px-2.5 py-1 rounded-md text-[11px] font-bold word-break-keep">판매가 조정</span>
+</td>
+</tr>
+<!-- Row 2: Unaffected -->
+<tr class="hover:bg-slate-800/50 transition-colors opacity-70">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center space-x-3">
+<div class="w-1.5 h-6 bg-slate-700 rounded-full"></div>
+<div>
+<div class="text-slate-300 font-bold text-sm">쏘나씨 V11 · 비수기</div>
+<div class="text-slate-600 text-[11px]">일반 객실 / 단기 숙박</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 text-right tabular-nums text-slate-500">2,000,000₫</td>
+<td class="px-6 py-4 text-right tabular-nums text-slate-300">2,000,000₫</td>
+<td class="px-6 py-4 text-right tabular-nums text-slate-400 font-medium">850,000원</td>
+<td class="px-6 py-4 text-right tabular-nums">
+<span class="text-slate-400 font-medium">25%</span>
+</td>
+<td class="px-6 py-4 text-center">
+<span class="bg-slate-500/10 text-slate-500 border border-slate-500/20 px-2.5 py-1 rounded-md text-[11px] font-bold">유지</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Bottom Actions Section -->
+<div class="px-8 py-6 bg-slate-900/20 border-t border-[#334155] flex flex-col md:flex-row items-center justify-between gap-4">
+<div class="flex items-center space-x-2">
+<span class="material-symbols-outlined text-slate-500 text-sm">info</span>
+<p class="text-slate-500 text-xs font-medium word-break-keep">
+                            공급자에게는 변경 사실만 통지되며 판매가·마진은 공개되지 않습니다.
+                        </p>
+</div>
+<div class="flex items-center space-x-3 w-full md:w-auto">
+<button class="flex-1 md:flex-none border border-[#334155] text-slate-300 hover:text-white hover:bg-[#334155] px-6 py-2.5 rounded-lg text-sm font-bold transition-all">
+                            변경 무시 (원가 차이 감수)
+                        </button>
+<button class="flex-1 md:flex-none bg-[#3B82F6] hover:bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/20 transition-all active:scale-95">
+                            판매가 재확인 및 제안 갱신
+                        </button>
+</div>
+</div>
+</section>
+<!-- Detailed Grid (Timeline/History Feel) -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Activity History -->
+<div class="lg:col-span-1 bg-[#1E293B] rounded-xl border border-[#334155] p-6 h-fit">
+<h4 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">최근 히스토리</h4>
+<div class="space-y-6 relative before:content-[''] before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-700">
+<div class="relative pl-8">
+<div class="absolute left-0 top-1 w-6 h-6 bg-amber-500/20 border-2 border-amber-500 rounded-full z-10 flex items-center justify-center">
+<div class="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+</div>
+<p class="text-xs font-bold text-white mb-1">공급자 원가 변동 감지</p>
+<p class="text-[11px] text-slate-500">방금 전 · 시스템 자동</p>
+</div>
+<div class="relative pl-8">
+<div class="absolute left-0 top-1 w-6 h-6 bg-slate-800 border-2 border-slate-700 rounded-full z-10 flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px] text-slate-500">edit</span>
+</div>
+<p class="text-xs font-bold text-slate-300 mb-1">제안 초안 수정</p>
+<p class="text-[11px] text-slate-500">3시간 전 · 김관리 매니저</p>
+</div>
+<div class="relative pl-8 opacity-60">
+<div class="absolute left-0 top-1 w-6 h-6 bg-slate-800 border-2 border-slate-700 rounded-full z-10 flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px] text-slate-500">send</span>
+</div>
+<p class="text-xs font-bold text-slate-400 mb-1">최초 견적 요청 수신</p>
+<p class="text-[11px] text-slate-600">어제 18:20 · 파트너사 A</p>
+</div>
+</div>
+</div>
+<!-- Image / Content Preview -->
+<div class="lg:col-span-2 bg-[#1E293B] rounded-xl border border-[#334155] overflow-hidden group">
+<div class="relative h-64 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="A luxurious modern tropical villa at dusk with a large infinity pool reflecting the deep orange and indigo sky. The architecture features dark wood accents and sleek concrete structures, illuminated by warm, ambient architectural lighting. The scene is sophisticated and high-end, matching the professional navy and blue UI theme of an admin management system. The lighting is moody, serene, and expensive-looking." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAhqi99R-PRdiwoOC4bv2yDay3SAm9NCH6oodfUnNkMfugVwBUlW5o00rZLtiBWw8zjFbJPwLGePsDdUH4zxI2tsSwK45dJPRHr1h1PCkH-9r5G-hy3cIC6oxgmuLiKrvKtxHDnyPx5kp9sSQPl3O5hR3Zj2LN8Vwsr0Q_SF-Hrm3IfzEVq5dxZ23AYLlFD-YTwNym3UfJ878SjEyC9XswOyAfSc-RDv2jdV4F2aJI-bXyJO-AhKCaqGNDBb5zMU71REG5b1fTmRb4B"/>
+<div class="absolute inset-0 bg-gradient-to-t from-[#1E293B] via-transparent to-transparent"></div>
+<div class="absolute bottom-6 left-6">
+<span class="bg-[#3B82F6] text-white text-[10px] font-black px-2 py-1 rounded-sm uppercase tracking-widest">Main Property</span>
+<h3 class="text-2xl font-black text-white mt-2">쏘나씨 V12 프라이빗 풀빌라</h3>
+<p class="text-slate-300 text-sm mt-1">푸꾸옥 시내 15분 거리 · 프라이빗 해변 인접</p>
+</div>
+</div>
+<div class="p-6 grid grid-cols-2 gap-8">
+<div>
+<h5 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">숙박 옵션</h5>
+<ul class="space-y-2">
+<li class="flex items-center justify-between text-xs">
+<span class="text-slate-400">성수기 요금제</span>
+<span class="text-white font-bold">확정 필요</span>
+</li>
+<li class="flex items-center justify-between text-xs">
+<span class="text-slate-400">기준 인원</span>
+<span class="text-white font-bold">성인 4 / 아동 2</span>
+</li>
+</ul>
+</div>
+<div>
+<h5 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">연결 공급자</h5>
+<div class="flex items-center space-x-2">
+<div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px] text-white">business</span>
+</div>
+<span class="text-xs font-bold text-white">Vina Property Group</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Simple micro-interaction for buttons
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('mousedown', () => {
+                button.style.transform = 'scale(0.97)';
+            });
+            button.addEventListener('mouseup', () => {
+                button.style.transform = 'scale(1)';
+            });
+            button.addEventListener('mouseleave', () => {
+                button.style.transform = 'scale(1)';
+            });
+        });
+    </script>
+</body></html>

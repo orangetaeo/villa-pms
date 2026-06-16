@@ -53,7 +53,13 @@ export default async function CheckoutPage({
           amenities: {
             where: { category: "MINIBAR" },
             orderBy: { itemKey: "asc" },
-            select: { id: true, itemKey: true, customLabel: true, quantity: true },
+            select: {
+              id: true,
+              itemKey: true,
+              customLabel: true,
+              quantity: true,
+              unitPrice: true, // 미니바 고객 청구 단가(VND) — 차감액 자동계산 기준 (b16)
+            },
           },
         },
       },
@@ -82,6 +88,8 @@ export default async function CheckoutPage({
     isCustom: a.itemKey === "custom",
     itemKey: a.itemKey,
     quantity: a.quantity,
+    // 단가(VND, 동 단위 문자열) — 미설정(null)이면 차감 불가 항목(0원 처리). BigInt 직렬화 금지 → 문자열
+    unitPriceVnd: a.unitPrice != null ? a.unitPrice.toString() : null,
   }));
 
   const depositLabel =

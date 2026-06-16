@@ -1136,7 +1136,7 @@
     "item": "Món",
     "state": "Trạng thái",
     "stocked": "Có sẵn {count} cái",
-    "minibarInfo": "Món đã dùng không được tính tự động — ghi tay vào ô số tiền khấu trừ (VND).",
+    "minibarInfo": "Đơn giá được tính tự động theo giá minibar do nhà cung cấp nhập. Hư hỏng hoặc trường hợp đặc biệt hãy ghi riêng ở mục 'Báo cáo hư hỏng & thất thoát' bên dưới.",
     "damageTitle": "Báo cáo hư hỏng & mất mát",
     "damageDesc": "Nhập các bất thường phát hiện khi trả phòng.",
     "damageFound": "Phát hiện hư hỏng",
@@ -1161,7 +1161,23 @@
       "ETC": "Khác"
     },
     "generalPhotos": "Ảnh tổng thể",
-    "baselineMissing": "Không có ảnh gốc"
+    "baselineMissing": "Không có ảnh gốc",
+    "autoCalc": "Tự động tính",
+    "stockedQty": "Số lượng đặt",
+    "remainingQty": "Số lượng còn",
+    "consumedQty": "Đã dùng",
+    "unitPrice": "Đơn giá",
+    "lineDeduction": "Khấu trừ",
+    "minibarTotal": "Tổng khấu trừ minibar",
+    "noPrice": "Chưa đặt giá",
+    "decrement": "Giảm số lượng",
+    "increment": "Tăng số lượng",
+    "minibarNotePrefix": "Minibar đã dùng:",
+    "settlementTitle": "Chi tiết quyết toán tiền cọc",
+    "settlementDeposit": "Tiền cọc gốc",
+    "settlementMinibar": "Khấu trừ minibar",
+    "settlementDamage": "Khấu trừ hư hỏng",
+    "settlementRefund": "Số tiền hoàn dự kiến"
   },
   "adminMessages": {
     "title": "Tin nhắn",
@@ -1279,6 +1295,40 @@
       "fri": "S",
       "sat": "B",
       "sun": "C"
+    }
+  },
+  "adminCostAlerts": {
+    "pageTitle": "Thay đổi giá vốn khi đang báo giá",
+    "subtitle": "Đề xuất đang xử lý có giá vốn nhà cung cấp thay đổi. Hãy kiểm tra lại giá bán.",
+    "bannerTitle": "Giá vốn nhà cung cấp đã thay đổi — ảnh hưởng đề xuất đang xử lý",
+    "bannerBody": "Giá vốn đã thay đổi ở {count} đề xuất đang xử lý. Hãy kiểm tra lại giá bán.",
+    "bannerBodyOne": "Giá vốn nhà cung cấp ở đề xuất đang xử lý đã thay đổi. Hãy kiểm tra lại giá bán.",
+    "review": "Kiểm tra lại",
+    "empty": "Không có thông báo thay đổi giá vốn.",
+    "loadError": "Không tải được thông báo.",
+    "proposalLabel": "Đề xuất",
+    "client": "Khách hàng",
+    "detectedAt": "Thời điểm phát hiện",
+    "colSeason": "Mùa / Hạng mục",
+    "colOldCost": "Giá vốn trước",
+    "colNewCost": "Giá vốn sau",
+    "colSalePrice": "Giá bán hiện tại",
+    "colMargin": "Tỷ suất lợi nhuận",
+    "colAction": "Khuyến nghị",
+    "actionAdjust": "Điều chỉnh giá bán",
+    "actionKeep": "Giữ nguyên",
+    "deleted": "Đã xóa dòng giá vốn",
+    "marginImpact": "Ảnh hưởng lợi nhuận",
+    "marginNote": "Tỷ suất tính theo giá bán đã chào trong đề xuất nếu giữ nguyên.",
+    "privacyNote": "Nhà cung cấp chỉ được thông báo việc thay đổi; giá bán và lợi nhuận không được tiết lộ.",
+    "dismiss": "Đã xử lý",
+    "dismissAll": "Xử lý tất cả",
+    "dismissError": "Xử lý thất bại.",
+    "stayRange": "Lưu trú",
+    "seasons": {
+      "LOW": "Mùa thấp",
+      "HIGH": "Mùa cao",
+      "PEAK": "Cao điểm"
     }
   }
 }

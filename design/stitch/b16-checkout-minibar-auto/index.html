@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Villa PMS — 체크아웃 검수</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;800;900&amp;family=Noto+Sans+KR:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            DEFAULT: '#3B82F6',
+                            dark: '#2563EB',
+                            container: '#1E293B'
+                        },
+                        background: '#0F172A',
+                        surface: '#1E293B',
+                        danger: '#DC2626',
+                        success: '#16A34A',
+                        warning: '#F59E0B'
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        headline: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        display: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        body: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        label: ["Public Sans", "Noto Sans KR", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #0F172A;
+            color: #F8FAFC;
+            font-family: 'Public Sans', 'Noto Sans KR', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0F172A; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        .no-wrap { white-space: nowrap; }
+        .stepper-input::-webkit-inner-spin-button, 
+        .stepper-input::-webkit-outer-spin-button { appearance: none; margin: 0; }
+    </style>
+</head>
+<body class="flex min-h-screen">
+<!-- SideNavBar Shell -->
+<aside class="fixed left-0 top-0 h-full flex flex-col z-40 bg-[#0F172A] border-r border-[#1E293B] w-64">
+<div class="p-6">
+<h1 class="text-xl font-headline font-black text-white tracking-tighter">Villa PMS</h1>
+<p class="text-[10px] text-slate-500 mt-1 uppercase tracking-widest font-bold">Operation Manager</p>
+</div>
+<nav class="flex-1 px-3 space-y-1 overflow-y-auto custom-scrollbar">
+<!-- Dashboard -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span class="font-body text-label-sm tracking-tight">대시보드</span>
+</a>
+<!-- Reservation (ACTIVE) -->
+<a class="flex items-center gap-3 px-4 py-3 bg-[#1E293B] text-[#3B82F6] border-r-4 border-[#3B82F6] font-bold" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">calendar_month</span>
+<span class="font-body text-label-sm tracking-tight">예약</span>
+</a>
+<!-- Proposals -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">list_alt</span>
+<span class="font-body text-label-sm tracking-tight">제안</span>
+</a>
+<!-- Villa -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">villa</span>
+<span class="font-body text-label-sm tracking-tight">빌라</span>
+</a>
+<!-- Cleaning -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">cleaning_services</span>
+<span class="font-body text-label-sm tracking-tight">청소 검수</span>
+</a>
+<!-- Payments -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">payments</span>
+<span class="font-body text-label-sm tracking-tight">정산</span>
+</a>
+<!-- Messages -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">chat</span>
+<span class="font-body text-label-sm tracking-tight">메시지</span>
+</a>
+<!-- Users -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">group</span>
+<span class="font-body text-label-sm tracking-tight">사용자</span>
+</a>
+<!-- Settings -->
+<a class="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]">settings</span>
+<span class="font-body text-label-sm tracking-tight">설정</span>
+</a>
+</nav>
+<div class="p-4 border-t border-[#1E293B] bg-[#0F172A]">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center overflow-hidden border border-slate-700">
+<img alt="최고 관리자 프로필" class="w-full h-full object-cover" data-alt="A professional headshot of a senior Korean operations manager for a luxury villa resort. He wears a smart casual navy blazer over a crisp white shirt, with a neutral and clean office background. The lighting is soft and flattering, emphasizing a trustworthy and organized professional persona in a high-end corporate setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDFYt1_kMFV42GT3sRu9wk41-y2iGnehKmAhkjWHlqFRdVLBnsSLxI4zEtyCvmpjJh03yPmDJdpjJxT7swblOVGfb_nCGTtRZwlvQGtht9cJ8gbcBG_4wLpEsN574da1dHOmBhTTqokUoglqkGG-KAGYptX9V8_uE-SBAti7FU34vM4921MP3r4XLEXbxyZ9xePHtJ3lpI1y0jG0MbyhtNwA2Rlrie54toEgsjlTRN-m0Q6fZEjjFviBWbU_2cuW5GtaaZIz8ff8yJp"/>
+</div>
+<div>
+<p class="text-sm font-bold text-white">최고 관리자</p>
+<p class="text-[11px] text-slate-500">Operation Lead</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 ml-64 flex flex-col min-h-screen relative">
+<!-- TopAppBar Shell -->
+<header class="sticky top-0 w-full flex justify-between items-center px-8 py-4 z-30 bg-[#0F172A]/80 backdrop-blur-md border-b border-[#1E293B] shadow-sm">
+<div class="flex items-center gap-4">
+<h2 class="font-headline text-lg font-bold text-white tracking-tight">
+                    체크아웃 검수 — 예약 #B-2607
+                </h2>
+<span class="px-2.5 py-1 bg-slate-800 text-slate-300 text-[11px] font-bold rounded border border-slate-700 flex items-center gap-1.5 no-wrap">
+<span class="material-symbols-outlined text-[14px]">villa</span>
+                    쏘나씨 V12
+                </span>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<button class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+</div>
+<div class="h-6 w-px bg-slate-800 mx-2"></div>
+<div class="flex items-center gap-3">
+<span class="text-xs font-medium text-slate-400">Admin Session</span>
+<div class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<div class="flex-1 p-8 pb-32">
+<div class="max-w-6xl mx-auto space-y-6">
+<!-- Breadcrumbs & Title -->
+<div class="flex items-end justify-between">
+<div>
+<div class="flex items-center gap-2 text-xs text-slate-500 mb-2">
+<span>예약 관리</span>
+<span class="material-symbols-outlined text-[12px]">chevron_right</span>
+<span>상세 정보</span>
+<span class="material-symbols-outlined text-[12px]">chevron_right</span>
+<span class="text-slate-300">검수 및 정산</span>
+</div>
+<h3 class="text-2xl font-bold text-white tracking-tight">객실 점검 및 미니바 정산</h3>
+</div>
+<div class="text-right">
+<p class="text-xs text-slate-500 uppercase tracking-widest font-bold mb-1">Status</p>
+<span class="px-3 py-1 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full text-xs font-bold">체크아웃 진행 중</span>
+</div>
+</div>
+<!-- Main Card: Minibar Calculation -->
+<section class="bg-[#1E293B] rounded-xl border border-slate-800 shadow-xl overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/30">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">liquor</span>
+<h4 class="font-bold text-white">미니바 차감</h4>
+</div>
+<button class="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary text-xs font-bold rounded border border-primary/20 hover:bg-primary/20 transition-all">
+<span class="material-symbols-outlined text-[16px]">calculate</span>
+                            자동 계산
+                        </button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="text-[11px] font-bold text-slate-500 uppercase tracking-wider bg-slate-900/50">
+<th class="px-6 py-4 border-b border-slate-800">품목</th>
+<th class="px-6 py-4 border-b border-slate-800 text-center">비치 수량</th>
+<th class="px-6 py-4 border-b border-slate-800 text-center">남은 수량</th>
+<th class="px-6 py-4 border-b border-slate-800 text-center">소모</th>
+<th class="px-6 py-4 border-b border-slate-800 text-right">단가</th>
+<th class="px-6 py-4 border-b border-slate-800 text-right">차감액</th>
+</tr>
+</thead>
+<tbody class="text-sm tabular-nums divide-y divide-slate-800/50">
+<!-- Row 1: 생수 -->
+<tr class="hover:bg-slate-800/40 transition-colors group">
+<td class="px-6 py-4 font-medium text-slate-200">생수 (Water)</td>
+<td class="px-6 py-4 text-center text-slate-400">4</td>
+<td class="px-6 py-4 text-center">
+<div class="inline-flex items-center bg-slate-900 rounded border border-slate-700 p-0.5">
+<button class="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-white">-</button>
+<input class="w-8 bg-transparent border-none text-center text-xs font-bold focus:ring-0 p-0 stepper-input" type="number" value="2"/>
+<button class="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-white">+</button>
+</div>
+</td>
+<td class="px-6 py-4 text-center">
+<span class="px-3 py-1 bg-primary/10 text-primary font-bold rounded-md border border-primary/20">2</span>
+</td>
+<td class="px-6 py-4 text-right text-slate-400">15,000₫</td>
+<td class="px-6 py-4 text-right font-bold text-danger">30,000₫</td>
+</tr>
+<!-- Row 2: 음료 -->
+<tr class="hover:bg-slate-800/40 transition-colors group">
+<td class="px-6 py-4 font-medium text-slate-200">탄산 음료 (Coke/Sprite)</td>
+<td class="px-6 py-4 text-center text-slate-400">2</td>
+<td class="px-6 py-4 text-center">
+<div class="inline-flex items-center bg-slate-900 rounded border border-slate-700 p-0.5">
+<button class="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-white">-</button>
+<input class="w-8 bg-transparent border-none text-center text-xs font-bold focus:ring-0 p-0 stepper-input" type="number" value="0"/>
+<button class="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-white">+</button>
+</div>
+</td>
+<td class="px-6 py-4 text-center">
+<span class="px-3 py-1 bg-primary/10 text-primary font-bold rounded-md border border-primary/20">2</span>
+</td>
+<td class="px-6 py-4 text-right text-slate-400">25,000₫</td>
+<td class="px-6 py-4 text-right font-bold text-danger">50,000₫</td>
+</tr>
+<!-- Row 3: 맥주 (Dimmed) -->
+<tr class="opacity-40 bg-slate-900/20">
+<td class="px-6 py-4 font-medium text-slate-500">맥주 (Beer)</td>
+<td class="px-6 py-4 text-center text-slate-600">0</td>
+<td class="px-6 py-4 text-center text-slate-600">0</td>
+<td class="px-6 py-4 text-center">
+<span class="px-3 py-1 bg-slate-800 text-slate-600 font-bold rounded-md border border-slate-700">0</span>
+</td>
+<td class="px-6 py-4 text-right text-slate-600">40,000₫</td>
+<td class="px-6 py-4 text-right font-bold text-slate-600">0₫</td>
+</tr>
+<!-- Row 4: 과자 -->
+<tr class="hover:bg-slate-800/40 transition-colors group">
+<td class="px-6 py-4 font-medium text-slate-200">스낵류 (Snacks)</td>
+<td class="px-6 py-4 text-center text-slate-400">3</td>
+<td class="px-6 py-4 text-center">
+<div class="inline-flex items-center bg-slate-900 rounded border border-slate-700 p-0.5">
+<button class="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-white">-</button>
+<input class="w-8 bg-transparent border-none text-center text-xs font-bold focus:ring-0 p-0 stepper-input" type="number" value="1"/>
+<button class="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-white">+</button>
+</div>
+</td>
+<td class="px-6 py-4 text-center">
+<span class="px-3 py-1 bg-primary/10 text-primary font-bold rounded-md border border-primary/20">2</span>
+</td>
+<td class="px-6 py-4 text-right text-slate-400">30,000₫</td>
+<td class="px-6 py-4 text-right font-bold text-danger">60,000₫</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Summary Stripe -->
+<div class="bg-warning/5 border-t border-slate-800 px-6 py-4 flex justify-between items-center">
+<span class="text-xs font-bold text-warning uppercase tracking-widest">미니바 차감 합계</span>
+<span class="text-xl font-black text-warning tabular-nums tracking-tight">140,000₫</span>
+</div>
+</section>
+<!-- Footer Info & Calculation -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Note Box -->
+<div class="bg-slate-800/40 border border-slate-800 p-5 rounded-xl flex gap-4">
+<span class="material-symbols-outlined text-slate-500">info</span>
+<p class="text-sm text-slate-400 leading-relaxed word-break-keep-all">
+                            단가는 공급자가 입력한 미니바 가격 기준으로 자동 계산됩니다. 파손이나 특이사항이 있을 경우 '기타 차감 내역'에 별도로 기입해 주시기 바랍니다.
+                        </p>
+</div>
+<!-- Deposit Settlement Card -->
+<div class="bg-[#1E293B] border border-slate-800 rounded-xl p-6 shadow-lg">
+<h5 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">보증금 정산 상세</h5>
+<div class="space-y-3">
+<div class="flex justify-between items-center text-sm">
+<span class="text-slate-400">원천 보증금</span>
+<span class="font-bold text-slate-200 tabular-nums">5,000,000₫</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="text-slate-400">미니바 차감액 (-)</span>
+<span class="font-bold text-danger tabular-nums">140,000₫</span>
+</div>
+<div class="h-px bg-slate-800 my-2"></div>
+<div class="flex justify-between items-center">
+<span class="font-bold text-white">최종 환불 예정액</span>
+<span class="text-lg font-black text-success tabular-nums tracking-tight">4,860,000₫</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Photos Section (Placeholder for high-end UI feel) -->
+<section class="space-y-3">
+<h5 class="text-xs font-bold text-slate-500 uppercase tracking-widest px-1">객실 상태 확인 사진 (4)</h5>
+<div class="grid grid-cols-4 gap-4">
+<div class="aspect-video bg-slate-800 rounded-lg overflow-hidden border border-slate-700 relative group cursor-zoom-in">
+<img class="w-full h-full object-cover transition-transform group-hover:scale-105" data-alt="A detailed, sharp photograph of a luxury hotel minibar setup. The fridge is stocked with perfectly aligned bottles of water, colorful soda cans, and snacks. The lighting is crisp and cool, highlighting the premium glass and metal textures. The perspective is a clean eye-level shot inside a dark wood cabinet." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCeo3OVbDxJ8e_o69iXeZo2zOQerSTzO1OZfmLxQdCJr3jHT8mmCyXWQN9SIiKITpIX1n_rrX3PbXqR9Ocusszhpiuq2xppZB0bWbv7Ngb7uNmDpit0ONoyWLMFF-dytJMCmtV6xQKFpt3GWf2qfRveTDYgoBwr74pP7-oH2wz8lGtDcxOJVxE2NxrI5waNfhkYI1ZZI3JLXsT7qvHeNKDyemFSKhs1Zm1atd7wwaV1i_j_kNS3fry0YuAMTlM5wZKcfASidGVoIS2e"/>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-white">zoom_in</span>
+</div>
+</div>
+<div class="aspect-video bg-slate-800 rounded-lg overflow-hidden border border-slate-700 relative group cursor-zoom-in">
+<img class="w-full h-full object-cover transition-transform group-hover:scale-105" data-alt="A high-quality interior shot of a minimalist luxury villa bedroom after checkout. The bed is neatly made with crisp white linens, and the room is flooded with soft morning light from large floor-to-ceiling windows. The aesthetic is clean and serene with neutral tones and natural wood elements, showing a well-maintained guest room." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAC2mv8mwONZMc5JspS1sbO6NItOuQ0POtYwhjgwTVodYPgQ0SjmDh0oSPAehrcJ_5WSBg7s6jQ3izEJJAvuvADb_e5JMfMFRasP7iBkatATw2cNN7FOnrHfzAMeoXjfnM0qXQP6b17ANURJL6OAsE0NUifCgIFpMEKY31l1SO5rhb-LAML0QjKjLpi4n-tfU0d7Pi6WEP_B4D5TUXx1uU_csYgRpyxrmQemVU3gFUY0X4b3B1qsLPaw7VxHi3PZx5zKRvthvudVZ_S"/>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-white">zoom_in</span>
+</div>
+</div>
+<div class="aspect-video bg-slate-800 rounded-lg overflow-hidden border border-slate-700 relative group cursor-zoom-in">
+<img class="w-full h-full object-cover transition-transform group-hover:scale-105" data-alt="A clean, professionally styled bathroom in a modern luxury villa. The marble countertops are spotless, and the chrome fixtures are gleaming. Rolled white towels are neatly stacked on a wooden shelf. The lighting is bright and airy, emphasizing a hygienic and high-standard guest experience." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4omPYW-h_NFfmdNwfJw4Eq0tf0sjNp21KyLnd3Jd7DOH9HaxUMpAkm31gGShJZgAOp9VMtJ-eYCK4k4JdezqJZoBSZnS8PvNtzAhwhOF_uBUgQPTH2wkpcpjovHzttriZCyFmehdwzF_olHnllW8Z59vhEj_l3FxHddsUuua9cIxWURf1aC0_tXJUmaJJEFESdEFH8cd-YfrpXGOHBibIEHyTvKyyt0InyFuz6Uv00EQdPM2ZKkphcSaRjHQn64HmZ4F3j7jJEpyf"/>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+<span class="material-symbols-outlined text-white">zoom_in</span>
+</div>
+</div>
+<div class="aspect-video bg-slate-900/50 border-2 border-dashed border-slate-700 rounded-lg flex flex-col items-center justify-center text-slate-500 hover:border-primary hover:text-primary transition-all cursor-pointer">
+<span class="material-symbols-outlined text-[32px] mb-1">add_a_photo</span>
+<span class="text-[10px] font-bold uppercase tracking-tight">사진 추가</span>
+</div>
+</div>
+</section>
+</div>
+</div>
+<!-- Sticky Bottom Bar -->
+<footer class="fixed bottom-0 right-0 w-[calc(100%-16rem)] bg-[#0F172A]/90 backdrop-blur-xl border-t border-slate-800 px-8 py-4 flex items-center justify-between z-50">
+<div class="flex flex-col">
+<span class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-0.5">Total Settlement</span>
+<div class="flex items-baseline gap-2">
+<span class="text-xs text-slate-400 font-medium">최종 환불 예정액:</span>
+<span class="text-2xl font-black text-warning tabular-nums tracking-tighter">4,860,000₫</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-6 py-3 bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 font-bold rounded-lg transition-all text-sm border border-slate-700">
+                    검수 취소
+                </button>
+<div class="h-8 w-px bg-slate-800 mx-1"></div>
+<button class="px-6 py-3 bg-success/10 text-success hover:bg-success hover:text-white font-bold rounded-lg transition-all text-sm border border-success/20">
+                    보증금 전액 환불
+                </button>
+<button class="px-8 py-3 bg-warning text-slate-950 hover:bg-warning/90 font-bold rounded-lg transition-all text-sm shadow-[0_4px_20px_rgba(245,158,11,0.3)]">
+                    차감 후 환불 승인
+                </button>
+</div>
+</footer>
+</main>
+<!-- Overlay Micro-Interaction Script -->
+<script>
+        // Simple numeric stepper logic
+        document.querySelectorAll('.stepper-input').forEach(input => {
+            const row = input.closest('tr');
+            const minusBtn = input.previousElementSibling;
+            const plusBtn = input.nextElementSibling;
+            
+            minusBtn.onclick = () => {
+                if (input.value > 0) input.value = parseInt(input.value) - 1;
+                updateRow(row);
+            };
+            plusBtn.onclick = () => {
+                input.value = parseInt(input.value) + 1;
+                updateRow(row);
+            };
+        });
+
+        function updateRow(row) {
+            // Logic would go here to update consumption and amounts dynamically
+            // For a static design demo, we leave the values as provided
+        }
+    </script>
+</body></html>

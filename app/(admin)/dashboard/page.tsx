@@ -14,6 +14,7 @@ import {
   type TodayBookingItem,
 } from "@/lib/dashboard";
 import { findUnresolvedIcalConflicts } from "@/lib/ical";
+import { countCostAlertGroups } from "@/lib/cost-alerts";
 import { getFxVndPerKrw, suggestSalePriceKrw } from "@/lib/pricing";
 import { formatThousands, formatDateTime } from "@/lib/format";
 import TimelineMatrix from "@/components/admin/timeline-matrix";
@@ -54,6 +55,12 @@ export default async function DashboardPage() {
     }),
   ]);
 
+  // 견적 중 원가 변경 경보 개수 (b15, F) — 본인 ADMIN PENDING 그룹 수
+  const tCost = await getTranslations("adminCostAlerts");
+  const costAlertCount = session?.user?.id
+    ? await countCostAlertGroups(prisma, session.user.id)
+    : 0;
+
   const firstConflict = conflicts[0];
   const md = (d: Date) => `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
   // 환율 칩: 1,000,000₫ ≈ X원 (FX 미설정 시 숨김 — 2차 회의: USD 표기 폐기)
@@ -89,6 +96,28 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* 견적 중 원가 변경 경보 배너 (b15, F) — 본인 PENDING 알림 있을 때만 */}
+      {costAlertCount > 0 && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-6 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="material-symbols-outlined text-amber-500 shrink-0">warning</span>
+            <p className="text-sm font-medium text-amber-100 [word-break:keep-all]">
+              <span className="font-bold text-amber-400">{tCost("bannerTitle")}</span>
+              {" — "}
+              {costAlertCount > 1
+                ? tCost("bannerBody", { count: costAlertCount })
+                : tCost("bannerBodyOne")}
+            </p>
+          </div>
+          <Link
+            href="/cost-alerts"
+            className="bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold px-3 py-1.5 rounded shadow-lg transition-colors whitespace-nowrap shrink-0"
+          >
+            {tCost("review")}
+          </Link>
+        </div>
+      )}
+
       {/* iCal 충돌 경보 배너 (b1) — 미해결 충돌 있을 때만 */}
       {firstConflict && (
         <div className="bg-red-900/40 border border-red-800/50 rounded-xl px-6 py-3 flex items-center justify-between gap-4">

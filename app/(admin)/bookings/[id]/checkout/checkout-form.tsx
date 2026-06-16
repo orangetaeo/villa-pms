@@ -20,6 +20,8 @@ interface MinibarItem {
   isCustom: boolean;
   itemKey: string;
   quantity: number;
+  /** 미니바 고객 청구 단가(VND, 동 단위 문자열) — null이면 단가 미설정(차감 0) */
+  unitPriceVnd: string | null;
 }
 
 export default function CheckoutForm({
@@ -45,9 +47,33 @@ export default function CheckoutForm({
   const [damageFound, setDamageFound] = useState(false);
   const [damageNote, setDamageNote] = useState("");
   const [damagePhotos, setDamagePhotos] = useState<string[]>([]);
-  const [deduction, setDeduction] = useState(""); // 동 단위 숫자 문자열
+  const [deduction, setDeduction] = useState(""); // 파손 등 기타 차감 (동 단위 숫자 문자열)
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ── 미니바 차감 자동계산 (b16) ─────────────────────────────────
+  // remaining[id] = 남은 수량(스테퍼). 초기값 = 비치 수량(전부 남음 = 소모 0).
+  const [remaining, setRemaining] = useState<Record<string, number>>(() =>
+    Object.fromEntries(minibar.map((m) => [m.id, m.quantity]))
+  );
+
+  /** 남은 수량 변경 (0 ~ 비치 수량 범위로 클램프) — 스테퍼·직접입력 공통 */
+  const setRemainingClamped = (item: MinibarItem, next: number) => {
+    const clamped = Math.max(0, Math.min(item.quantity, Math.trunc(next || 0)));
+    setRemaining((r) => ({ ...r, [item.id]: clamped }));
+  };
+
+  /** 행별 자동계산 결과 — 소모 = 비치 − 남은, 차감액 = 소모 × 단가(BigInt, float 금지) */
+  const minibarRows = minibar.map((m) => {
+    const left = remaining[m.id] ?? m.quantity;
+    const consumed = Math.max(0, m.quantity - left);
+    const unit = m.unitPriceVnd ? BigInt(m.unitPriceVnd) : 0n;
+    const lineDeduction = unit * BigInt(consumed);
+    return { item: m, left, consumed, unit, lineDeduction };
+  });
+
+  /** 미니바 차감 합계(BigInt) */
+  const minibarTotal = minibarRows.reduce((sum, r) => sum + r.lineDeduction, 0n);
 
   const upload = async (file: File): Promise<string | null> => {
     try {
@@ -84,7 +110,13 @@ export default function CheckoutForm({
 
   const photoUrls = Object.values(photos);
   const deductionDigits = deduction.replace(/[^\d]/g, "");
+  const damageDeductionVnd =
+    damageFound && /^\d+$/.test(deductionDigits) ? BigInt(deductionDigits) : 0n;
   const deductionValid = /^\d+$/.test(deductionDigits) && BigInt(deductionDigits) > 0n;
+
+  // 총 차감액 = 미니바 자동 차감 + 파손 등 기타 차감 (BigInt, float 금지)
+  const totalDeductionVnd = minibarTotal + damageDeductionVnd;
+
   const canRefundFull = !damageFound && photoUrls.length >= 1 && !busy;
   const canDeduct =
     damageFound &&
@@ -92,29 +124,52 @@ export default function CheckoutForm({
     deductionValid &&
     (damageNote.trim().length > 0 || damagePhotos.length > 0) &&
     !busy;
+  // 미니바만 차감(파손 없음)으로도 "차감 후 환불 승인" 가능 — 보증금 VND일 때만
+  const canDeductMinibarOnly =
+    !damageFound && photoUrls.length >= 1 && depositVnd != null && minibarTotal > 0n && !busy;
 
   // 환불 예정액 — 보증금 VND일 때만 산출 (BigInt, float 금지)
   const refundEstimate = (() => {
     if (!depositVnd) return null;
     const deposit = BigInt(depositVnd);
-    const ded = damageFound && deductionValid ? BigInt(deductionDigits) : 0n;
-    const left = deposit > ded ? deposit - ded : 0n;
+    const left = deposit > totalDeductionVnd ? deposit - totalDeductionVnd : 0n;
     return `${formatThousands(left)}₫`;
   })();
+
+  /** 미니바 소모 요약 메모 (차감 근거 증빙 — 소모>0 항목만) */
+  const minibarNote = () => {
+    const lines = minibarRows
+      .filter((r) => r.consumed > 0)
+      .map((r) => {
+        const name = r.item.isCustom ? r.item.label : ta(r.item.itemKey);
+        return `${name} x${r.consumed} = ${formatThousands(r.lineDeduction)}₫`;
+      });
+    if (lines.length === 0) return "";
+    return `${t("minibarNotePrefix")} ${lines.join(", ")}`;
+  };
+
+  // 차감이 발생하면(미니바+파손>0) BE 보증금 차감 경로(damageFound) 사용 —
+  // 미니바 소모도 보증금 차감 근거이므로 deductionVnd로 반영(ADR-0003: 소모분 deductionVnd 반영).
+  const hasDeduction = totalDeductionVnd > 0n;
 
   const submit = async () => {
     setBusy(true);
     setError(null);
     try {
+      // 차감 근거 메모 — 파손 메모 + 미니바 소모 요약 결합 (둘 중 하나라도 있으면 전송)
+      const combinedNote = [damageFound && damageNote.trim() ? damageNote.trim() : "", minibarNote()]
+        .filter(Boolean)
+        .join("\n");
       const res = await fetch(`/api/bookings/${bookingId}/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           photoUrls,
-          damageFound,
-          damageNote: damageFound && damageNote.trim() ? damageNote.trim() : undefined,
-          damagePhotoUrls: damageFound && damagePhotos.length ? damagePhotos : undefined,
-          deductionVnd: damageFound ? deductionDigits : undefined,
+          // 보증금에서 차감하는 모든 경로(미니바 소모·파손)는 BE 차감 경로로 통일
+          damageFound: hasDeduction,
+          damageNote: hasDeduction && combinedNote ? combinedNote : undefined,
+          damagePhotoUrls: hasDeduction && damagePhotos.length ? damagePhotos : undefined,
+          deductionVnd: hasDeduction ? totalDeductionVnd.toString() : undefined,
         }),
       });
       if (!res.ok) {
@@ -211,44 +266,159 @@ export default function CheckoutForm({
         </div>
       </section>
 
-      {/* 미니바 확인 — 읽기 전용 (ADR-0003, T6.5) */}
-      <section className="bg-admin-card rounded-xl p-6 border border-slate-800 shadow-sm">
-        <div className="flex items-center gap-2 mb-6">
+      {/* 미니바 차감 자동계산 (b16) — 소모=비치−남은, 차감액=소모×단가 실시간 */}
+      <section className="bg-admin-card rounded-xl border border-slate-800 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between gap-2 px-6 py-4 border-b border-slate-800 bg-slate-800/30">
           <h3 className="text-xl font-bold flex items-center gap-2 whitespace-nowrap text-white">
             <span className="material-symbols-outlined text-admin-primary">liquor</span>
             {t("minibar")}
           </h3>
-          <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded font-medium whitespace-nowrap">
-            {t("readonly")}
+          <span className="text-[10px] bg-admin-primary/10 text-admin-primary border border-admin-primary/20 px-2 py-1 rounded font-bold whitespace-nowrap flex items-center gap-1">
+            <span className="material-symbols-outlined text-[14px]">calculate</span>
+            {t("autoCalc")}
           </span>
         </div>
+
         {minibar.length === 0 ? (
-          <p className="text-sm text-slate-500">{t("minibarEmpty")}</p>
+          <p className="text-sm text-slate-500 p-6">{t("minibarEmpty")}</p>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-slate-700">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-slate-800/50 text-slate-400 text-xs uppercase tracking-wider">
-                <tr>
-                  <th className="px-4 py-2 font-bold">{t("item")}</th>
-                  <th className="px-4 py-2 font-bold">{t("state")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700">
-                {minibar.map((m) => (
-                  <tr key={m.id} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="px-4 py-3 text-slate-200">
-                      {m.isCustom ? m.label : ta(m.itemKey)}
-                    </td>
-                    <td className="px-4 py-3 text-slate-400">
-                      {t("stocked", { count: m.quantity })}
-                    </td>
+          <>
+            {/* 데스크톱(≥768px): 표 */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-sm border-collapse tabular-nums">
+                <thead>
+                  <tr className="text-[11px] font-bold text-slate-500 uppercase tracking-wider bg-slate-900/50">
+                    <th className="px-6 py-3 border-b border-slate-800">{t("item")}</th>
+                    <th className="px-6 py-3 border-b border-slate-800 text-center">{t("stockedQty")}</th>
+                    <th className="px-6 py-3 border-b border-slate-800 text-center">{t("remainingQty")}</th>
+                    <th className="px-6 py-3 border-b border-slate-800 text-center">{t("consumedQty")}</th>
+                    <th className="px-6 py-3 border-b border-slate-800 text-right">{t("unitPrice")}</th>
+                    <th className="px-6 py-3 border-b border-slate-800 text-right">{t("lineDeduction")}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {minibarRows.map(({ item, left, consumed, unit, lineDeduction }) => {
+                    const dimmed = item.quantity === 0;
+                    return (
+                      <tr
+                        key={item.id}
+                        className={dimmed ? "opacity-40 bg-slate-900/20" : "hover:bg-slate-800/40 transition-colors"}
+                      >
+                        <td className="px-6 py-4 font-medium text-slate-200">
+                          {item.isCustom ? item.label : ta(item.itemKey)}
+                        </td>
+                        <td className="px-6 py-4 text-center text-slate-400">{item.quantity}</td>
+                        <td className="px-6 py-4 text-center">
+                          <div className="inline-flex items-center bg-slate-900 rounded border border-slate-700 p-0.5">
+                            <button
+                              type="button"
+                              aria-label={t("decrement")}
+                              disabled={dimmed || left <= 0}
+                              onClick={() => setRemainingClamped(item, left - 1)}
+                              className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-white disabled:opacity-30 disabled:hover:text-slate-500"
+                            >
+                              −
+                            </button>
+                            <input
+                              type="number"
+                              aria-label={`${item.isCustom ? item.label : ta(item.itemKey)} ${t("remainingQty")}`}
+                              min={0}
+                              max={item.quantity}
+                              value={left}
+                              disabled={dimmed}
+                              onChange={(e) => setRemainingClamped(item, parseInt(e.target.value, 10))}
+                              className="w-10 bg-transparent border-none text-center text-xs font-bold text-white focus:ring-0 p-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                            <button
+                              type="button"
+                              aria-label={t("increment")}
+                              disabled={dimmed || left >= item.quantity}
+                              onClick={() => setRemainingClamped(item, left + 1)}
+                              className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-white disabled:opacity-30 disabled:hover:text-slate-500"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span
+                            className={
+                              consumed > 0
+                                ? "px-3 py-1 bg-admin-primary/10 text-admin-primary font-bold rounded-md border border-admin-primary/20"
+                                : "px-3 py-1 bg-slate-800 text-slate-600 font-bold rounded-md border border-slate-700"
+                            }
+                          >
+                            {consumed}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right text-slate-400">
+                          {item.unitPriceVnd ? formatThousands(item.unitPriceVnd) + "₫" : t("noPrice")}
+                        </td>
+                        <td className={`px-6 py-4 text-right font-bold ${lineDeduction > 0n ? "text-red-400" : "text-slate-600"}`}>
+                          {formatThousands(lineDeduction)}₫
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 모바일(<768px): 카드 스택 */}
+            <div className="md:hidden flex flex-col divide-y divide-slate-800/60">
+              {minibarRows.map(({ item, left, consumed, lineDeduction }) => {
+                const dimmed = item.quantity === 0;
+                return (
+                  <div key={item.id} className={`p-4 ${dimmed ? "opacity-40" : ""}`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-bold text-slate-200">{item.isCustom ? item.label : ta(item.itemKey)}</span>
+                      <span className={`font-bold tabular-nums ${lineDeduction > 0n ? "text-red-400" : "text-slate-600"}`}>
+                        {formatThousands(lineDeduction)}₫
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <span className="text-slate-500">
+                        {t("stockedQty")} {item.quantity} · {t("consumedQty")}{" "}
+                        <span className="text-admin-primary font-bold tabular-nums">{consumed}</span> ·{" "}
+                        {item.unitPriceVnd ? formatThousands(item.unitPriceVnd) + "₫" : t("noPrice")}
+                      </span>
+                      <div className="inline-flex items-center bg-slate-900 rounded border border-slate-700 p-0.5 shrink-0">
+                        <button
+                          type="button"
+                          aria-label={t("decrement")}
+                          disabled={dimmed || left <= 0}
+                          onClick={() => setRemainingClamped(item, left - 1)}
+                          className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-white disabled:opacity-30"
+                        >
+                          −
+                        </button>
+                        <span className="w-8 text-center text-xs font-bold text-white tabular-nums">{left}</span>
+                        <button
+                          type="button"
+                          aria-label={t("increment")}
+                          disabled={dimmed || left >= item.quantity}
+                          onClick={() => setRemainingClamped(item, left + 1)}
+                          className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-white disabled:opacity-30"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 합계 스트라이프 */}
+            <div className="bg-amber-500/5 border-t border-slate-800 px-6 py-4 flex justify-between items-center">
+              <span className="text-xs font-bold text-amber-500 uppercase tracking-widest">{t("minibarTotal")}</span>
+              <span className="text-xl font-black text-amber-500 tabular-nums tracking-tight">
+                {formatThousands(minibarTotal)}₫
+              </span>
+            </div>
+          </>
         )}
-        <div className="mt-4 flex items-center gap-2 text-xs text-slate-500 bg-slate-800/30 p-3 rounded-lg">
+        <div className="px-6 py-4 flex items-center gap-2 text-xs text-slate-500 bg-slate-800/30">
           <span className="material-symbols-outlined text-sm">info</span>
           <p>{t("minibarInfo")}</p>
         </div>
@@ -351,6 +521,36 @@ export default function CheckoutForm({
         )}
       </section>
 
+      {/* 보증금 정산 상세 (b16) — 보증금 − 차감 합계 = 환불 예정액 자동 */}
+      {depositVnd && (
+        <section className="bg-admin-card border border-slate-800 rounded-xl p-6 shadow-sm max-w-md">
+          <h5 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">
+            {t("settlementTitle")}
+          </h5>
+          <div className="space-y-3 tabular-nums">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-slate-400">{t("settlementDeposit")}</span>
+              <span className="font-bold text-slate-200">{formatThousands(depositVnd)}₫</span>
+            </div>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-slate-400">{t("settlementMinibar")} (−)</span>
+              <span className="font-bold text-red-400">{formatThousands(minibarTotal)}₫</span>
+            </div>
+            {damageDeductionVnd > 0n && (
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-400">{t("settlementDamage")} (−)</span>
+                <span className="font-bold text-red-400">{formatThousands(damageDeductionVnd)}₫</span>
+              </div>
+            )}
+            <div className="h-px bg-slate-800 my-2" />
+            <div className="flex justify-between items-center">
+              <span className="font-bold text-white">{t("settlementRefund")}</span>
+              <span className="text-lg font-black text-emerald-400">{refundEstimate}</span>
+            </div>
+          </div>
+        </section>
+      )}
+
       {error && (
         <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-3">{error}</p>
       )}
@@ -374,7 +574,8 @@ export default function CheckoutForm({
           <div className="flex gap-4">
             <button
               type="button"
-              disabled={!canRefundFull}
+              // 차감(미니바·파손)이 1원이라도 있으면 전액 환불 불가 — 차감 후 환불 경로로 유도
+              disabled={!canRefundFull || minibarTotal > 0n}
               onClick={submit}
               className="flex items-center gap-2 px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold border border-emerald-500 shadow-lg shadow-emerald-900/20 transition-all active:scale-95 whitespace-nowrap"
             >
@@ -383,7 +584,7 @@ export default function CheckoutForm({
             </button>
             <button
               type="button"
-              disabled={!canDeduct}
+              disabled={!(canDeduct || canDeductMinibarOnly)}
               onClick={submit}
               className="flex items-center gap-2 px-10 py-4 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-lg transition-all active:scale-95 shadow-lg shadow-orange-900/20 whitespace-nowrap"
             >

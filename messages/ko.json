@@ -1136,7 +1136,7 @@
     "item": "품목",
     "state": "상태",
     "stocked": "비치 {count}개",
-    "minibarInfo": "소모된 품목은 자동 계산되지 않습니다 — 차감액(VND) 입력란에 수기로 기록하세요.",
+    "minibarInfo": "단가는 공급자가 입력한 미니바 가격 기준으로 자동 계산됩니다. 파손 등 특이사항은 아래 '파손 및 손실 리포트'에 별도로 기록하세요.",
     "damageTitle": "파손 및 손실 리포트",
     "damageDesc": "체크아웃 중 발견된 이상 내역을 입력하세요.",
     "damageFound": "파손 발견",
@@ -1161,7 +1161,23 @@
       "ETC": "기타"
     },
     "generalPhotos": "전체 상태 사진",
-    "baselineMissing": "기준 사진 없음"
+    "baselineMissing": "기준 사진 없음",
+    "autoCalc": "자동 계산",
+    "stockedQty": "비치 수량",
+    "remainingQty": "남은 수량",
+    "consumedQty": "소모",
+    "unitPrice": "단가",
+    "lineDeduction": "차감액",
+    "minibarTotal": "미니바 차감 합계",
+    "noPrice": "단가 미설정",
+    "decrement": "수량 감소",
+    "increment": "수량 증가",
+    "minibarNotePrefix": "미니바 소모:",
+    "settlementTitle": "보증금 정산 상세",
+    "settlementDeposit": "원천 보증금",
+    "settlementMinibar": "미니바 차감액",
+    "settlementDamage": "파손 차감액",
+    "settlementRefund": "최종 환불 예정액"
   },
   "adminMessages": {
     "title": "메시지",
@@ -1279,6 +1295,40 @@
       "fri": "금",
       "sat": "토",
       "sun": "일"
+    }
+  },
+  "adminCostAlerts": {
+    "pageTitle": "견적 중 원가 변경",
+    "subtitle": "공급자 원가가 변경된 진행 중 제안입니다. 판매가를 재확인하세요.",
+    "bannerTitle": "공급자 원가 변경됨 — 견적 중인 제안에 영향",
+    "bannerBody": "{count}건의 진행 중 제안에서 공급자 원가가 변경되었습니다. 판매가를 재확인하세요.",
+    "bannerBodyOne": "진행 중 제안의 공급자 원가가 변경되었습니다. 판매가를 재확인하세요.",
+    "review": "재확인하기",
+    "empty": "원가 변경 알림이 없습니다.",
+    "loadError": "알림을 불러오지 못했습니다.",
+    "proposalLabel": "제안",
+    "client": "고객",
+    "detectedAt": "감지 시각",
+    "colSeason": "시즌 / 품목",
+    "colOldCost": "변경 전 원가",
+    "colNewCost": "변경 후 원가",
+    "colSalePrice": "현재 판매가",
+    "colMargin": "마진율",
+    "colAction": "권장 조치",
+    "actionAdjust": "판매가 조정",
+    "actionKeep": "유지",
+    "deleted": "원가 행 삭제됨",
+    "marginImpact": "마진 영향",
+    "marginNote": "마진율은 제안에 제시한 판매가를 유지할 때 기준입니다.",
+    "privacyNote": "공급자에게는 변경 사실만 통지되며 판매가·마진은 공개되지 않습니다.",
+    "dismiss": "확인 완료",
+    "dismissAll": "모두 확인 처리",
+    "dismissError": "확인 처리에 실패했습니다.",
+    "stayRange": "숙박",
+    "seasons": {
+      "LOW": "비수기",
+      "HIGH": "성수기",
+      "PEAK": "극성수기"
     }
   }
 }
