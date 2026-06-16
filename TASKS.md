@@ -82,6 +82,9 @@
 ## 신규 — 채팅 상대 분류 확장 (2026-06-16 테오 요구)
 - [x] **T8.4 분류에 여행사·랜드사 추가 (ADR-0009 개정2)** — 2026-06-16 완료. ZaloCounterpartyType 5종(SUPPLIER·CUSTOMER·TRAVEL_AGENCY·LAND_AGENCY·UNKNOWN), 누수 그룹(원가측/판매가측) + currencyForType 통화 분기(여행사·랜드사 VND·직접 KRW — 보류 통화분기 해소). PATCH nativeEnum 단일 진실원, FE 분류 5종 UI·가시성 헬퍼·인박스 칩. QA 누수 4종 0건, 720 tests·build 통과.  — ZaloCounterpartyType에 TRAVEL_AGENCY·LAND_AGENCY 추가(현 SUPPLIER/CUSTOMER/UNKNOWN). 누수 그룹: "판매가 측"={CUSTOMER,TRAVEL_AGENCY,LAND_AGENCY}(판매가만·원가/마진 금지), 통화 여행사·랜드사=VND·직접고객=KRW(ADR-0003 채널 정합 — Phase2 통화분기 해소). 제안 공유 판매가측 전체 허용, 정산 SUPPLIER만. ADR-0009 D1/D2 개정 + 스키마(additive)·BE 누수그룹·FE 분류UI·b15 디자인
 
+## 신규 — 채팅 답글·리액션 (2026-06-16 테오 요구)
+- [ ] **T8.5 〔진행 중·세션 점유 2026-06-16〕 답글(인용)·리액션(하트) — TDA 스키마 선행** — zca-js addReaction(msgId+cliMsgId)·sendMessage quote. ZaloMessage에 cliMsgId·quote(인용)·reactions 필드 추가(현재 zaloMsgId만), 수신 reaction/old_reactions 이벤트 파싱. Nike extractQuote·emitZaloReaction 참고. TDA 스키마→INTEG 발송·수신→FE UI
+
 ## Sprint 4 — QA·온보딩 (M2 W4)
 - [x] T4.8 (보안 Phase 1) 인증 무차별대입·가입 스팸 방어 (OPS) — 2026-06-16 완료. lib/rate-limit.ts(인메모리 슬라이딩 윈도우) + auth.ts(전화번호 5/10분·IP 20/10분 잠금) + signup(IP 10/시간). vitest 9개, QA 조건부→통과. 계약: docs/contracts/T-sec-auth-ratelimit.md. **후속 보안 백로그(비차단)**: ① clientIp XFF rightmost 보정(프로덕션 토폴로지 실측 후) ~~② HTTP 보안 헤더~~(→T4.9 완료) ③ 다중 인스턴스 시 Redis 공유 스토어
 - [x] T4.9 (보안 Phase 1) 공개 표면 하드닝 (OPS) — 2026-06-16 완료. ① 전역 HTTP 보안 헤더 5종(next.config.ts headers — HSTS·nosniff·X-Frame-Options SAMEORIGIN·Referrer-Policy strict-origin-when-cross-origin[token referrer 누수 차단]·DNS-Prefetch off) ② 공개 HOLD POST rate limit(토큰 15/10분·IP 30/10분, 429). typecheck 0, QA 독립 평가 **통과(5/5, 결함0)**. 커밋 ce55cb2·4a6e501. 계약: docs/contracts/T-sec-public-hardening.md. **비차단 후속**: 배포 후 헤더 curl 스모크(OPS), ~~CSP 추가~~(→T4.10 Report-Only 완료)
