@@ -11,6 +11,16 @@ import { FX_VND_PER_KRW_KEY } from "@/lib/pricing";
 import SeasonManager, { type SeasonRow } from "./season-manager";
 import HoldHoursForm from "./hold-hours-form";
 import FxRateForm from "./fx-rate-form";
+import BankContactForm, { type BankContactInitial } from "./bank-contact-form";
+
+// 입금 계좌·연락처 키 (공개 제안 페이지가 소비) — /api/settings 화이트리스트와 일치
+const BANK_CONTACT_KEYS = [
+  "BANK_NAME",
+  "BANK_ACCOUNT_NUMBER",
+  "BANK_ACCOUNT_HOLDER",
+  "CONTACT_KAKAO_URL",
+  "CONTACT_PHONE",
+] as const;
 
 export const metadata: Metadata = {
   title: "설정 — Villa PMS",
@@ -21,7 +31,11 @@ export default async function SettingsPage() {
     getTranslations("adminSettings"),
     prisma.seasonPeriod.findMany({ orderBy: { startDate: "asc" } }),
     prisma.appSetting.findMany({
-      where: { key: { in: [HOLD_HOURS_DEFAULT_KEY, FX_VND_PER_KRW_KEY] } },
+      where: {
+        key: {
+          in: [HOLD_HOURS_DEFAULT_KEY, FX_VND_PER_KRW_KEY, ...BANK_CONTACT_KEYS],
+        },
+      },
     }),
   ]);
 
@@ -36,6 +50,16 @@ export default async function SettingsPage() {
 
   const holdSetting = settings.find((s) => s.key === HOLD_HOURS_DEFAULT_KEY);
   const fxSetting = settings.find((s) => s.key === FX_VND_PER_KRW_KEY);
+
+  // 입금 계좌·연락처 초기값 — 미설정은 빈 문자열 (폼 controlled 입력)
+  const settingValue = (key: string) => settings.find((s) => s.key === key)?.value ?? "";
+  const bankInitial: BankContactInitial = {
+    bankName: settingValue("BANK_NAME"),
+    accountNumber: settingValue("BANK_ACCOUNT_NUMBER"),
+    accountHolder: settingValue("BANK_ACCOUNT_HOLDER"),
+    kakaoUrl: settingValue("CONTACT_KAKAO_URL"),
+    phone: settingValue("CONTACT_PHONE"),
+  };
 
   // 홀드 시간 — 미설정/파싱 불가 시 기본 48 표시 (lib/hold DEFAULT_HOLD_HOURS)
   const parsedHold = holdSetting ? Number.parseInt(holdSetting.value, 10) : Number.NaN;
@@ -70,6 +94,9 @@ export default async function SettingsPage() {
         initialValue={fxSetting?.value ?? null}
         updatedAtText={fxSetting ? formatDateTime(fxSetting.updatedAt) : null}
       />
+
+      {/* Card 4: 입금 계좌·연락처 (b8 Card 3 변환, T1.7-bank-contact) */}
+      <BankContactForm initial={bankInitial} />
     </div>
   );
 }

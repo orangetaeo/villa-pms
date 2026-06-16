@@ -714,6 +714,24 @@
       "saving": "저장 중...",
       "saved": "환율이 저장되었습니다.",
       "error": "저장에 실패했습니다. 다시 시도해주세요."
+    },
+    "bank": {
+      "title": "입금 계좌·연락처",
+      "bankName": "은행명",
+      "accountNumber": "계좌번호",
+      "accountHolder": "예금주",
+      "phone": "전화번호",
+      "kakaoUrl": "카카오톡 URL",
+      "hint": "공개 제안 페이지의 입금 안내·문의 버튼에 표시됩니다. 비워두면 표시되지 않습니다.",
+      "save": "저장",
+      "saving": "저장 중...",
+      "saved": "저장되었습니다.",
+      "error": "저장에 실패했습니다. 다시 시도해주세요.",
+      "err": {
+        "tooLong": "입력이 너무 깁니다.",
+        "format": "형식이 올바르지 않습니다.",
+        "url": "http(s):// 로 시작하는 올바른 URL을 입력하세요."
+      }
     }
   },
   "adminSettlements": {

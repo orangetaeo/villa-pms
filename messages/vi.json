@@ -714,6 +714,24 @@
       "saving": "Đang lưu...",
       "saved": "Đã lưu tỷ giá.",
       "error": "Lưu thất bại. Vui lòng thử lại."
+    },
+    "bank": {
+      "title": "Tài khoản nhận tiền·Liên hệ",
+      "bankName": "Tên ngân hàng",
+      "accountNumber": "Số tài khoản",
+      "accountHolder": "Chủ tài khoản",
+      "phone": "Số điện thoại",
+      "kakaoUrl": "KakaoTalk URL",
+      "hint": "Hiển thị trong hướng dẫn chuyển khoản·nút liên hệ trên trang đề xuất công khai. Để trống sẽ không hiển thị.",
+      "save": "Lưu",
+      "saving": "Đang lưu...",
+      "saved": "Đã lưu.",
+      "error": "Lưu thất bại. Vui lòng thử lại.",
+      "err": {
+        "tooLong": "Nội dung quá dài.",
+        "format": "Định dạng không hợp lệ.",
+        "url": "Vui lòng nhập URL hợp lệ bắt đầu bằng http(s)://."
+      }
     }
   },
   "adminSettlements": {
