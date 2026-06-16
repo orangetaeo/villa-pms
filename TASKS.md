@@ -82,6 +82,6 @@
 - [ ] 정산 페이지 (다중 통화 수납 + VND 지급 + 환차 기록, 환전 LEDGER 패턴)
 - [ ] 월 정산서 PDF (vi) 자동 생성
 - [ ] 품질점수 로직 + 판매 후순위 정렬
-- [ ] 부가서비스(ServiceOrder) 판매 UI
+- [~] 부가서비스(ServiceOrder) 판매 — **BE 완료(2026-06-16, T7.1)**: lib/service-order.ts(전이표·검증·마진 KRW) + GET/POST /api/bookings/[id]/services + PATCH /api/services/[id], ADMIN 전용(마진 비공개)·AuditLog, vitest 17개, QA 통과(7/7 누수0). 계약: docs/contracts/T7.1-service-order-be.md. **잔여 T7.2: UI(Stitch 디자인 선행 필요 — 예약 상세에 서비스 패널)** + BE 백로그(QA Minor는 반영 완료)
 - [ ] 시즌 요율 환율 자동 갱신
 - [ ] TravelDiary 연계 직판
