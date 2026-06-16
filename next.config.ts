@@ -3,6 +3,23 @@ import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
+// CSP (Report-Only — T-sec-csp-report). 차단 없이 위반만 수집해 enforce 전 정책 정제.
+// 실제 앱 소스 반영: Google Fonts(googleapis/gstatic), 이미지(R2·picsum·googleusercontent·data).
+// script/style 'unsafe-inline'은 Next.js 인라인 부트스트랩용 — nonce화는 후속(middleware).
+const CSP_REPORT_ONLY = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'self'",
+  "form-action 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data: https://*.r2.dev https://*.r2.cloudflarestorage.com https://picsum.photos https://fastly.picsum.photos https://lh3.googleusercontent.com",
+  "connect-src 'self'",
+  "report-uri /api/csp-report",
+].join("; ");
+
 const nextConfig: NextConfig = {
   // zca-js는 네이티브/ws 의존 — 서버 번들에서 제외하여 번들링 충돌 회피 (ADR-0006 S2).
   // (Next 15: instrumentation.ts는 기본 활성, serverExternalPackages는 stable)
@@ -21,6 +38,10 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "SAMEORIGIN" }, // 클릭재킹 방어
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-DNS-Prefetch-Control", value: "off" },
+          // 미사용 브라우저 기능 비활성화 (코드상 geolocation/getUserMedia 사용 0건 확인)
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          // CSP는 Report-Only로 롤아웃 — 위반만 /api/csp-report로 수집, 앱 차단 없음 (enforce는 후속)
+          { key: "Content-Security-Policy-Report-Only", value: CSP_REPORT_ONLY },
         ],
       },
     ];
