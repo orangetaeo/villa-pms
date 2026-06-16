@@ -115,8 +115,41 @@ const VILLAS: DemoVilla[] = [
 
 const villaById = Object.fromEntries(VILLAS.map((v) => [v.id, v]));
 
-/** picsum 시드 URL (실제 사진처럼 보임). */
+/** picsum 시드 URL — 빌라 외 데모 이미지(여권·서명·청소 등 placeholder)용. */
 const pic = (seed: string) => `https://picsum.photos/seed/${seed}/1024/768`;
+
+/** Google Drive 공개 링크 이미지 CDN URL (파일을 '링크가 있는 모든 사용자' 공유 시 렌더). */
+const drive = (id: string) => `https://lh3.googleusercontent.com/d/${id}=w1280`;
+
+/**
+ * 실제 푸꾸옥 빌라 사진 (Google Drive '07. 빌라 > 푸꾸옥 빌라' > 쏘나씨 V11·V25).
+ * ⚠️ 이미지가 보이려면 Drive 폴더를 "링크가 있는 모든 사용자 — 뷰어"로 공유해야 함.
+ */
+const VILLA_DRIVE_PHOTOS: Record<string, Partial<Record<PhotoSpace, string>>> = {
+  // demo-villa-pearl ← 쏘나씨 V11/V25 혼합(독립 세트)
+  "demo-villa-pearl": {
+    EXTERIOR: "16eTi_pAWlXKA6ajXf3krMiEvEm-dOgg3",
+    LIVING: "1sSmECZruWIpcO-sy2AcDSK4SI_FxN_XQ",
+    KITCHEN: "1SW-7_jLzeTZQRkp-vN5DlARHpqBQq5X-",
+    BEDROOM: "1dvzJFt2zMCcO446NzWC9v829lbCDPbKC",
+    POOL: "1KV94zJ72eyRmIOmnRpqVj1wTNt4ITbMv",
+  },
+  // demo-villa-ocean ← 쏘나씨 V11
+  "demo-villa-ocean": {
+    EXTERIOR: "1KgwcoC3HNOXwIbkcCUAfmKeWwHF2awO-",
+    LIVING: "1uytkKLZhN2Pz-3PJ50HBbbk7c-AyeklH",
+    KITCHEN: "1NdxMj5oVoEjL-hzwtAQ3w_vUt40sJ81j",
+    BEDROOM: "1RXqP2E_D1JCPeIPDnnskpQ13zhwCU87t",
+    POOL: "1gHHe0rJJTnDiOQZ7Zm-DpY9pTUMhj3Da",
+  },
+  // demo-villa-garden ← 쏘나씨 V25 (수영장 없음)
+  "demo-villa-garden": {
+    EXTERIOR: "1U9sAsMFfcee4wqDKzPENLaD2g9MeCbYc",
+    LIVING: "1zPms_0KMWce5q0P2rUWYKmr7N9MgA1zr",
+    KITCHEN: "1yNgeW0gq7FLXS_ITNQtD8OaOh_I2OVwp",
+    BEDROOM: "1xXlIIDk9d9tnZ-aVPU2Cs2saJCMxQIR1",
+  },
+};
 
 const PHOTO_SPACES: { space: PhotoSpace; label: string | null }[] = [
   { space: PhotoSpace.EXTERIOR, label: null },
@@ -265,13 +298,16 @@ async function main() {
     }
 
     let sort = 0;
+    const drivePhotos = VILLA_DRIVE_PHOTOS[v.id] ?? {};
     for (const ps of PHOTO_SPACES) {
-      if (ps.space === PhotoSpace.POOL && !v.hasPool) continue;
+      const driveId = drivePhotos[ps.space];
+      if (!driveId) continue; // 매핑 없는 공간(예: 수영장 없는 빌라)은 건너뜀
+      const url = drive(driveId);
       const id = `${v.id}-photo-${ps.space.toLowerCase()}`;
       await prisma.villaPhoto.upsert({
         where: { id },
-        update: { url: pic(`${v.id}-${ps.space}`), space: ps.space, spaceLabel: ps.label, sortOrder: sort },
-        create: { id, villaId: v.id, space: ps.space, spaceLabel: ps.label, url: pic(`${v.id}-${ps.space}`), isBaseline: true, sortOrder: sort, uploadedBy: DEMO_ADMIN_TAG },
+        update: { url, space: ps.space, spaceLabel: ps.label, sortOrder: sort },
+        create: { id, villaId: v.id, space: ps.space, spaceLabel: ps.label, url, isBaseline: true, sortOrder: sort, uploadedBy: DEMO_ADMIN_TAG },
       });
       sort++;
     }

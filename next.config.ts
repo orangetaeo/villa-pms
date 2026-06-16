@@ -44,6 +44,11 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "fastly.picsum.photos", // picsum.photos 302 리다이렉트 대상
       },
+      // 데모 빌라 실사진 — Google Drive 공개 링크 CDN (07.빌라 > 푸꾸옥 빌라)
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+      },
     ],
   },
 };
