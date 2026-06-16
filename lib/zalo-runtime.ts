@@ -35,8 +35,8 @@ import {
 } from "./zalo-credentials";
 import { writeAuditLog } from "./audit-log";
 import {
-  extractText,
   UNKNOWN_MESSAGE_FALLBACK,
+  classifyInbound,
   isSelfMessage,
   buildInboundKey,
   parseZaloTs,
@@ -622,10 +622,17 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       return;
     }
 
+    // 메시지 타입 분류(Nike parseMessageContent 이식): zca-js msgType + content →
+    //   { msgType(text|photo|file|sticker|voice|contact|call|video|location|unknown), text, attachmentUrls }.
+    // 과거엔 전부 "text"로 하드코딩돼 본문 없는 비텍스트가 "[알 수 없는 메시지]"로 빠졌다.
+    const zaloMsgType =
+      (data.msgType as string | undefined) ?? (userMsg.type as unknown as string | undefined);
+    const classified = classifyInbound(userMsg.data.content, zaloMsgType);
+
     // 본문 추출(버그 B): action/메서드명 등 메타 필드는 절대 본문으로 새지 않는다.
-    //  - text: 사람이 작성한 본문(없으면 빈 문자열) — 자동번역은 이 값이 있을 때만.
-    //  - displayText: 표시·저장용. 첨부/리치로 본문이 비면 중립 폴백("[알 수 없는 메시지]").
-    const text = extractText(userMsg.data.content);
+    //  - text: 사람이 작성한 본문(분류 결과 text) — 자동번역은 type "text"이고 본문 있을 때만.
+    //  - displayText: 표시·저장용. 본문 없는 첨부/리치/미상이면 중립 폴백("[알 수 없는 메시지]").
+    const text = classified.text;
     const displayText = text.trim().length > 0 ? text : UNKNOWN_MESSAGE_FALLBACK;
 
     const zaloMsgId = buildInboundKey(userMsg.data);
@@ -636,9 +643,10 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
 
     // ── 본인 발신(앱 or 프로그램) → OUTBOUND 동기화 ──────────────
     if (isSelfMessage({ isSelf: userMsg.isSelf, senderId }, inst.ownId)) {
-      // 본인 발신은 본문 없는 첨부 에코까지 폴백으로 미러할 필요 낮음 — 본문 없으면 스킵.
+      // 본문도 첨부도 없는 순수 비텍스트 에코(통화·미상)는 미러 불필요 — 스킵.
       // (프로그램 S4/b14 발송이 이미 OUTBOUND를 정확히 기록하므로 중복·잡음 방지)
-      if (!text) {
+      // 단, 앱에서 직접 보낸 사진/파일/스티커/음성(첨부 있음)은 채팅에 보이도록 미러한다.
+      if (!text && classified.attachmentUrls.length === 0) {
         void maybeRefreshAvatar(inst, senderZaloUserId);
         return;
       }
@@ -646,6 +654,8 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
         ownerAdminId: inst.ownerAdminId,
         senderZaloUserId,
         text,
+        msgType: classified.msgType,
+        attachmentUrls: classified.attachmentUrls,
         zaloMsgId,
         createdAt: parseZaloTs(data.ts) ?? new Date(),
         displayName,
@@ -660,22 +670,41 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
 
     // ── 상대 발신 → INBOUND 저장(기존) ──────────────────────────
     // 첨부/리치 메시지(본문 없음)도 폴백 문구로 저장 — 수신 흔적을 잃지 않는다(버그 B).
+    // 저장 text: 타입별 분기.
+    //  - text/photo/file/contact/location: 본문(text)이 있으면 그대로(파일명·연락처명·캡션 포함).
+    //  - 본문이 비는 비텍스트(sticker/voice/call/video/unknown): 폴백 문구 대신 빈 문자열로 저장하고
+    //    FE가 msgType으로 라벨·아이콘 렌더(스티커 이미지·"음성"·"통화" 등). 단, text 타입인데 본문이 비면 폴백.
+    const storeText =
+      text.trim().length > 0
+        ? text
+        : classified.msgType === "text" || classified.msgType === "unknown"
+          ? UNKNOWN_MESSAGE_FALLBACK
+          : "";
+
     const inbound = await saveInboundMessage({
       ownerAdminId: inst.ownerAdminId,
       isSystemBot: inst.isSystemBot,
       senderZaloUserId,
-      text: displayText,
+      text: storeText,
+      msgType: classified.msgType,
+      attachmentUrls: classified.attachmentUrls,
       zaloMsgId,
       displayName,
-      // 전화번호 매칭은 사람이 쓴 실제 본문만 대상 — 폴백 문구로 오매칭 방지.
+      // 전화번호 매칭은 사람이 쓴 실제 본문만 대상 — 폴백·라벨로 오매칭 방지.
       senderPhone: null,
       cliMsgId,
       quote,
     });
 
     // ADR-0009 S5 — 수신 자동번역(VI/EN만). 리스너 블로킹 금지: await 없이 fire-and-forget.
-    // 폴백 문구는 번역하지 않는다(실제 본문 text가 있을 때만).
-    if (text && inbound.saved && inbound.messageId && inbound.translateMode !== "OFF") {
+    // 자동번역은 msgType "text"이고 실제 본문이 있을 때만(스티커·음성·통화·연락처·위치 미번역).
+    if (
+      classified.msgType === "text" &&
+      text &&
+      inbound.saved &&
+      inbound.messageId &&
+      inbound.translateMode !== "OFF"
+    ) {
       void maybeTranslateInbound(inbound.messageId, text, inbound.translateMode);
     }
 

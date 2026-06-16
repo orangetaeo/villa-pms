@@ -86,7 +86,7 @@
 - [x] **T8.5 답글(인용)·리액션(하트) (ADR-0009 개정3)** — 2026-06-16 완료. ZaloMessage cliMsgId·quoted*·reactions(additive), 수신 quote/reaction 이벤트 파싱, 발송 addReaction·sendMessage quote(REACT action·quotedMessageId), FE 인용블록·하트 picker 6종·리액션 배지. vitest 788·build 통과. 잔여(실측): 발신 cliMsgId는 echo 후 확보·SendMessageQuote 필드 봇 세션 실측 — zca-js addReaction(msgId+cliMsgId)·sendMessage quote. ZaloMessage에 cliMsgId·quote(인용)·reactions 필드 추가(현재 zaloMsgId만), 수신 reaction/old_reactions 이벤트 파싱. Nike extractQuote·emitZaloReaction 참고. TDA 스키마→INTEG 발송·수신→FE UI
 
 ## 신규 — 특수 메시지 타입 표기 (2026-06-16 테오 요구)
-- [ ] **T8.6 〔진행 중·세션 점유 2026-06-16〕 통화·네임카드·스티커·음성 등 수신 표기** — 현 saveInboundMessage msgType "text" 하드코딩 → zca-js 타입(chat.voice/sticker/recommend/contact/call/location 등) 분류·저장. Nike parseMessageContent(zalo-pool 477~) 참조. INTEG 수신 분류→FE 타입별 카드(스티커=이미지·음성/통화/네임카드=라벨)
+- [x] **T8.6 통화·네임카드·스티커·음성 등 수신 표기** — 2026-06-16 완료. saveInboundMessage msgType 분류(classifyInbound: text/photo/file/sticker/voice/contact/call/video/location/unknown, Nike parseMessageContent 이식) + FE 타입별 카드(스티커 이미지·음성/통화/연락처/동영상/위치 라벨). vitest 802·build·QA PASS(누수 0). 백로그: attachmentUrls https 스킴 화이트리스트 — 현 saveInboundMessage msgType "text" 하드코딩 → zca-js 타입(chat.voice/sticker/recommend/contact/call/location 등) 분류·저장. Nike parseMessageContent(zalo-pool 477~) 참조. INTEG 수신 분류→FE 타입별 카드(스티커=이미지·음성/통화/네임카드=라벨)
 
 ## Sprint 4 — QA·온보딩 (M2 W4)
 - [x] T4.8 (보안 Phase 1) 인증 무차별대입·가입 스팸 방어 (OPS) — 2026-06-16 완료. lib/rate-limit.ts(인메모리 슬라이딩 윈도우) + auth.ts(전화번호 5/10분·IP 20/10분 잠금) + signup(IP 10/시간). vitest 9개, QA 조건부→통과. 계약: docs/contracts/T-sec-auth-ratelimit.md. **후속 보안 백로그(비차단)**: ① clientIp XFF rightmost 보정(프로덕션 토폴로지 실측 후) ~~② HTTP 보안 헤더~~(→T4.9 완료) ③ 다중 인스턴스 시 Redis 공유 스토어

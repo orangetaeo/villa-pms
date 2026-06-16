@@ -834,6 +834,19 @@ function replyPreviewText(message: ChatMessage, t: ReturnType<typeof useTranslat
       return t("preview.proposalShare");
     case "settlement_share":
       return t("preview.settlementShare");
+    case "sticker":
+      return t("preview.sticker");
+    case "voice":
+      return t("preview.voice");
+    case "call":
+      return t("preview.call");
+    case "contact":
+      // 연락처명이 있으면 함께 — 없으면 라벨만.
+      return message.text ? t("preview.contactNamed", { name: message.text }) : t("preview.contact");
+    case "video":
+      return t("preview.video");
+    case "location":
+      return message.text || t("preview.location");
     default:
       return message.text;
   }
@@ -860,6 +873,8 @@ function InboundBubble({
     sender: contactName,
     text: replyPreviewText(message, t),
   };
+  // 특수 타입(sticker/voice/call/contact/video/location) 카드 — 발·수신 공통 분기 재사용.
+  const typeCard = renderTypeCard(message, true, t);
   return (
     <div className="group flex items-end gap-2 max-w-[80%]">
       <InboundAvatar message={message} />
@@ -881,6 +896,8 @@ function InboundBubble({
             inbound
             t={t}
           />
+        ) : typeCard ? (
+          typeCard
         ) : (
           <div className="bg-slate-800 rounded-xl rounded-bl-sm px-4 py-3">
             <p className="text-sm text-slate-100 whitespace-pre-wrap break-words">{message.text}</p>
@@ -967,10 +984,14 @@ function OutboundBubble({
   // 카드 본문(card)과 폭(maxW)만 분기로 만들고, 인용·상태·액션·리액션은 공통 셸에서 래핑.
   let card: ReactNode;
   let maxW = "max-w-[70%]";
+  // 특수 타입 카드(sticker/voice/call/contact/video/location) — 발·수신 공통 분기 재사용.
+  const typeCard = renderTypeCard(message, false, t);
   if (message.msgType === "photo" && message.attachmentUrls.length > 0) {
     card = <PhotoCard urls={message.attachmentUrls} caption={message.text} />;
   } else if (message.msgType === "file") {
     card = <FileCard fileName={message.text} url={message.attachmentUrls[0] ?? null} t={t} />;
+  } else if (typeCard) {
+    card = typeCard;
   } else if (message.msgType === "villa_share") {
     maxW = "max-w-[78%]";
     card = (
@@ -1168,6 +1189,149 @@ function FileCard({
       </div>
     </div>
   );
+}
+
+/** 스티커 카드 — 말풍선 배경 없이 webp 이미지만(~120px). 클릭 시 라이트박스로 확대. */
+function StickerCard({ urls, t }: { urls: string[]; t: ReturnType<typeof useTranslations> }) {
+  const openLightbox = useContext(LightboxContext);
+  // attachmentUrls가 없으면(흔적만 수신) 중립 라벨 폴백.
+  if (urls.length === 0) {
+    return <SimpleTypeCard icon="emoji_emotions" label={t("typeCard.sticker")} />;
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => openLightbox?.(urls, 0)}
+      title={t("typeCard.sticker")}
+      className="block cursor-zoom-in transition-transform hover:scale-105"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={urls[0]} alt={t("typeCard.sticker")} className="w-[120px] h-[120px] object-contain" />
+    </button>
+  );
+}
+
+/** 단순 타입 카드 — 아이콘 + 라벨(+ 선택적 부제). voice/call/contact/location 공통 셸. */
+function SimpleTypeCard({
+  icon,
+  label,
+  subLabel,
+  href,
+  hrefLabel,
+  inbound = false,
+}: {
+  icon: string;
+  label: string;
+  subLabel?: string | null;
+  href?: string | null;
+  hrefLabel?: string;
+  inbound?: boolean;
+}) {
+  const wrap = inbound
+    ? "bg-slate-800 rounded-xl rounded-bl-sm px-3 py-2.5 inline-flex items-center gap-3 text-left w-[240px] max-w-full"
+    : "bg-blue-600 rounded-xl rounded-br-sm px-3 py-2.5 inline-flex items-center gap-3 text-left w-[240px] max-w-full";
+  const iconWrap = inbound ? "bg-slate-700 text-slate-200" : "bg-blue-500 text-white";
+  const labelColor = inbound ? "text-slate-100" : "text-white";
+  const subColor = inbound ? "text-slate-400" : "text-blue-100/80";
+  const linkColor = inbound
+    ? "text-blue-400 hover:text-blue-300"
+    : "text-blue-100 hover:text-white";
+  return (
+    <div className={wrap}>
+      <span
+        className={`material-symbols-outlined text-[22px] w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${iconWrap}`}
+      >
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className={`text-sm font-medium truncate ${labelColor}`}>{label}</p>
+        {subLabel && <p className={`text-xs truncate ${subColor}`}>{subLabel}</p>}
+        {href && (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`mt-0.5 inline-flex items-center gap-1 text-[11px] font-bold transition-colors ${linkColor}`}
+          >
+            <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+            {hrefLabel}
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** 동영상 카드 — 썸네일 없이 movie 아이콘 + "동영상" + 보기 링크(새 탭). */
+function VideoCard({
+  url,
+  inbound = false,
+  t,
+}: {
+  url: string | null;
+  inbound?: boolean;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  return (
+    <SimpleTypeCard
+      icon="movie"
+      label={t("typeCard.video")}
+      href={url}
+      hrefLabel={t("typeCard.openVideo")}
+      inbound={inbound}
+    />
+  );
+}
+
+/**
+ * 특수 메시지 타입(sticker/voice/call/contact/video/location) → 카드. 매핑 없으면 null.
+ * inbound/outbound 공통 — 발신·수신에서 같은 분기를 재사용(중복 방지).
+ */
+function renderTypeCard(
+  message: ChatMessage,
+  inbound: boolean,
+  t: ReturnType<typeof useTranslations>
+): ReactNode | null {
+  switch (message.msgType) {
+    case "sticker":
+      return <StickerCard urls={message.attachmentUrls} t={t} />;
+    case "voice":
+      return (
+        <SimpleTypeCard
+          icon="mic"
+          label={t("typeCard.voice")}
+          href={message.attachmentUrls[0] ?? null}
+          hrefLabel={t("typeCard.playVoice")}
+          inbound={inbound}
+        />
+      );
+    case "call":
+      return <SimpleTypeCard icon="call" label={t("typeCard.call")} inbound={inbound} />;
+    case "contact":
+      return (
+        <SimpleTypeCard
+          icon="person"
+          label={t("typeCard.contact")}
+          subLabel={message.text || null}
+          inbound={inbound}
+        />
+      );
+    case "video":
+      return <VideoCard url={message.attachmentUrls[0] ?? null} inbound={inbound} t={t} />;
+    case "location":
+      return (
+        <SimpleTypeCard
+          icon="location_on"
+          label={t("typeCard.location")}
+          subLabel={message.text || null}
+          href={message.attachmentUrls[0] ?? null}
+          hrefLabel={t("typeCard.openMap")}
+          inbound={inbound}
+        />
+      );
+    default:
+      return null;
+  }
 }
 
 /** 공유 텍스트 카드 — 헤더(아이콘+라벨) + 발송 본문(누수 필터된 그대로) */

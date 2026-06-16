@@ -1266,12 +1266,30 @@
       "photo": "[Ảnh]",
       "villaShare": "[Chia sẻ villa]",
       "proposalShare": "[Chia sẻ đề xuất]",
-      "settlementShare": "[Chia sẻ quyết toán]"
+      "settlementShare": "[Chia sẻ quyết toán]",
+      "sticker": "[Nhãn dán]",
+      "voice": "[Tin nhắn thoại]",
+      "call": "[Cuộc gọi]",
+      "contact": "[Danh thiếp]",
+      "contactNamed": "[Danh thiếp] {name}",
+      "video": "[Video]",
+      "location": "[Vị trí]"
     },
     "card": {
       "villaShare": "Chia sẻ villa",
       "proposalShare": "Chia sẻ đề xuất",
       "settlementShare": "Chia sẻ quyết toán"
+    },
+    "typeCard": {
+      "sticker": "Nhãn dán",
+      "voice": "Tin nhắn thoại",
+      "playVoice": "Phát",
+      "call": "Cuộc gọi",
+      "contact": "Danh thiếp",
+      "video": "Video",
+      "openVideo": "Xem video",
+      "location": "Vị trí",
+      "openMap": "Xem trên bản đồ"
     },
     "translateMode": {
       "heading": "Ngôn ngữ dịch",

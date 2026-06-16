@@ -111,6 +111,238 @@ export function extractDisplayText(content: unknown): string {
   return text.trim().length > 0 ? text : UNKNOWN_MESSAGE_FALLBACK;
 }
 
+// ===================== 수신 메시지 타입 분류 (Nike parseMessageContent 이식) =====================
+
+/**
+ * ZaloMessage.msgType 컨벤션값 — 수신 분류 결과.
+ * 발송측 별도 값(villa_share/proposal_share/settlement_share)은 share route가 직접 지정하므로 여기 없음.
+ * 스키마가 String이라 값 추가는 자유 — FE는 미상(unknown) 폴백으로 안전 렌더.
+ */
+export type InboundMsgType =
+  | "text"
+  | "photo"
+  | "file"
+  | "sticker"
+  | "voice"
+  | "contact"
+  | "call"
+  | "video"
+  | "location"
+  | "unknown";
+
+/** classifyInbound 결과 — 저장(msgType·text·attachmentUrls)에 그대로 전달. */
+export interface ClassifiedInbound {
+  msgType: InboundMsgType;
+  /** 표시·저장용 본문. 텍스트=원문, 파일=파일명, 연락처=연락처명, 비텍스트(스티커/음성/통화/위치)=빈 문자열(FE 라벨). */
+  text: string;
+  /** 첨부 URL 목록(이미지/파일/스티커/음성/영상). 본문 전용 메시지는 빈 배열. */
+  attachmentUrls: string[];
+}
+
+/** 문서/비이미지 파일로 보이는 확장자 (chat.photo로 와도 문서면 file로 분류 — Nike 패턴). */
+const DOC_FILE_RE = /\.(pdf|docx?|xlsx?|pptx?|csv|txt|zip|rar|7z|hwp|mp4|avi|mov)(\?|$)/i;
+
+/** content 객체에서 첫 번째로 존재하는 문자열 필드 추출. 없으면 "". */
+function pickStringField(o: Record<string, unknown>, keys: readonly string[]): string {
+  for (const k of keys) {
+    const v = o[k];
+    if (typeof v === "string" && v.length > 0) return v;
+  }
+  return "";
+}
+
+/** params(문자열 JSON 또는 객체)에서 caption/msg 추출. 없으면 "". */
+function pickParamsCaption(params: unknown): string {
+  let p: unknown = params;
+  if (typeof params === "string") {
+    try {
+      p = JSON.parse(params);
+    } catch {
+      return "";
+    }
+  }
+  if (p && typeof p === "object") {
+    const po = p as Record<string, unknown>;
+    const cand = po.caption ?? po.msg;
+    if (typeof cand === "string" && cand.trim().length > 0) return cand;
+  }
+  return "";
+}
+
+/**
+ * 수신 메시지 타입 분류 (Nike parseMessageContent 정본 이식 — villa-pms 1:N 단순화).
+ *
+ * zca-js TMessage.msgType("chat.photo"·"chat.voice"·"chat.sticker"·"chat.recommend"·"chat.video"·
+ * "share.file"·통화 등) + content를 받아 { msgType(컨벤션값)·text·attachmentUrls } 반환.
+ *
+ * 분기:
+ *  - 텍스트(string·JSON캡션) → "text", text=본문
+ *  - 사진(chat.photo, 이미지) → "photo", attachmentUrls=[url] (캡션은 text)
+ *  - 문서(chat.photo지만 문서 확장자 / chat.file / share.file) → "file", text=파일명, attachmentUrls=[url]
+ *  - 영상(chat.video / share.video) → "video", attachmentUrls=[url]
+ *  - 스티커(chat.sticker) → "sticker", attachmentUrls=[webp/정적 url]
+ *  - 음성(chat.voice) → "voice", attachmentUrls=[url], text="" (FE "음성" 라벨)
+ *  - 연락처/네임카드(chat.recommend/chat.todo/phone·qrCodeUrl·gUid) → "contact", text=연락처명, attachmentUrls=[qrCodeUrl?]
+ *  - 통화(call/voip 류) → "call", text="" (FE "통화" 라벨)
+ *  - 위치(chat.location/location/gps) → "location", text=주소(있으면), attachmentUrls=[지도url?]
+ *  - 그 외 본문 없음 → "unknown" (FE 폴백)
+ *
+ * ★ extractText와 동일 원칙: action/메서드명 등 메타 필드는 절대 본문으로 새지 않는다(버그 B).
+ *   본문이 잡히면 "text"가 아니어도 캡션으로만 쓰고, 미상 본문은 빈 문자열로 둔다.
+ */
+export function classifyInbound(content: unknown, zaloMsgType?: string): ClassifiedInbound {
+  const type = (zaloMsgType ?? "").toLowerCase();
+
+  // ── 통화: content 유무와 무관하게 타입만으로 판정(본문 없음) ──
+  if (type.includes("call") || type.includes("voip")) {
+    return { msgType: "call", text: "", attachmentUrls: [] };
+  }
+
+  // ── 문자열 content: JSON(연락처/리치)이면 파싱 후 재분류, 아니면 텍스트 ──
+  if (typeof content === "string") {
+    const trimmed = content.trim();
+    if (trimmed.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed && typeof parsed === "object") {
+          const po = parsed as Record<string, unknown>;
+          // 연락처 JSON(phone/qrCodeUrl/gUid) — 객체 분기와 동일 처리
+          if (po.phone || po.qrCodeUrl || po.gUid) {
+            return classifyInbound(parsed, type || "chat.recommend");
+          }
+          // 그 외 객체는 객체 경로로 재분류(캡션만 안전 추출)
+          return classifyInbound(parsed, type);
+        }
+      } catch {
+        /* JSON 아님 — 일반 텍스트 */
+      }
+    }
+    return { msgType: "text", text: content, attachmentUrls: [] };
+  }
+
+  // ── 비객체(null/숫자 등): 타입 힌트만으로 판정, 아니면 텍스트 폴백 ──
+  if (!content || typeof content !== "object") {
+    if (type === "chat.sticker") return { msgType: "sticker", text: "", attachmentUrls: [] };
+    if (type === "chat.voice") return { msgType: "voice", text: "", attachmentUrls: [] };
+    if (type.includes("location")) return { msgType: "location", text: "", attachmentUrls: [] };
+    // 타입은 비텍스트인데 content가 없으면 흔적만 — unknown
+    if (type && type !== "webchat" && type !== "chat.text") {
+      return { msgType: "unknown", text: "", attachmentUrls: [] };
+    }
+    return { msgType: "text", text: "", attachmentUrls: [] };
+  }
+
+  const o = content as Record<string, unknown>;
+
+  // ── 스티커 ──
+  if (type === "chat.sticker") {
+    const url = pickStringField(o, ["stickerWebpUrl", "stickerUrl", "url"]);
+    return { msgType: "sticker", text: "", attachmentUrls: url ? [url] : [] };
+  }
+
+  // ── 음성 ──
+  if (type === "chat.voice") {
+    const url = pickStringField(o, ["voiceUrl", "m4aUrl", "href", "url"]);
+    return { msgType: "voice", text: "", attachmentUrls: url ? [url] : [] };
+  }
+
+  // ── 사진/문서 (chat.photo는 문서도 실어옴) ──
+  if (type === "chat.photo") {
+    const href = pickStringField(o, ["href", "hdUrl", "normalUrl", "originUrl", "url"]);
+    const nameField = pickStringField(o, ["title", "description", "fileName"]);
+    const nameToCheck = nameField || href;
+    if (DOC_FILE_RE.test(nameToCheck)) {
+      const fileName = (nameField || href.split("/").pop()?.split("?")[0] || "").normalize("NFC");
+      return { msgType: "file", text: fileName, attachmentUrls: href ? [href] : [] };
+    }
+    // 실제 이미지 — 캡션만 본문으로(메서드/action 금지)
+    let caption = pickStringField(o, ["description", "title", "msg", "caption"]);
+    if (!caption && o.params) caption = pickParamsCaption(o.params);
+    const url = href || pickStringField(o, ["thumb"]);
+    return { msgType: "photo", text: caption, attachmentUrls: url ? [url] : [] };
+  }
+
+  // ── 영상 ──
+  if (
+    type === "chat.video" ||
+    type === "share.video" ||
+    type.includes(".video")
+  ) {
+    let url = pickStringField(o, ["href", "url", "fileUrl"]);
+    if (!url && o.params) {
+      const fromParams = pickStringField(
+        (() => {
+          try {
+            return typeof o.params === "string" ? JSON.parse(o.params) : (o.params as Record<string, unknown>);
+          } catch {
+            return {};
+          }
+        })(),
+        ["href", "url"]
+      );
+      url = fromParams;
+    }
+    return { msgType: "video", text: "", attachmentUrls: url ? [url] : [] };
+  }
+
+  // ── 파일(비이미지) ──
+  if (type === "chat.file" || type === "share.file" || type.includes(".file")) {
+    const fileName = pickStringField(o, ["title", "description", "fileName"]).normalize("NFC");
+    let url = pickStringField(o, ["href", "url", "fileUrl"]);
+    if (!url && o.params) {
+      const fromParams = pickStringField(
+        (() => {
+          try {
+            return typeof o.params === "string" ? JSON.parse(o.params) : (o.params as Record<string, unknown>);
+          } catch {
+            return {};
+          }
+        })(),
+        ["href", "url"]
+      );
+      url = fromParams;
+    }
+    return { msgType: "file", text: fileName, attachmentUrls: url ? [url] : [] };
+  }
+
+  // ── 위치 ──
+  if (type.includes("location") || (typeof o.lat !== "undefined" && typeof o.lon !== "undefined")) {
+    const label = pickStringField(o, ["address", "title", "description"]);
+    const url = pickStringField(o, ["href", "url"]);
+    return { msgType: "location", text: label, attachmentUrls: url ? [url] : [] };
+  }
+
+  // ── 연락처/네임카드 ──
+  if (type === "chat.recommend" || type === "chat.todo" || o.phone || o.qrCodeUrl || o.gUid) {
+    // 운영자 수신 표시용 — 저장은 이름 위주(phone은 표시용으로만 본문에 넣지 않음).
+    const contactName = pickStringField(o, ["name", "displayName", "title", "zaloName"]);
+    const qrCodeUrl = pickStringField(o, ["qrCodeUrl"]);
+    return {
+      msgType: "contact",
+      text: contactName,
+      attachmentUrls: qrCodeUrl ? [qrCodeUrl] : [],
+    };
+  }
+
+  // ── 본문 없는 href(타입 미상) — 확장자로 이미지/파일 구분 ──
+  if (typeof o.href === "string" && o.href.length > 0 && !type) {
+    const href = o.href;
+    if (/\.(jpe?g|png|gif|webp)/i.test(href)) {
+      const caption = pickStringField(o, ["description"]);
+      return { msgType: "photo", text: caption, attachmentUrls: [href] };
+    }
+    const fileName = pickStringField(o, ["title", "description", "fileName"]).normalize("NFC");
+    return { msgType: "file", text: fileName, attachmentUrls: [href] };
+  }
+
+  // ── 마지막: 캡션 후보(extractText 화이트리스트)만 본문으로. 잡히면 text, 아니면 unknown ──
+  const caption = extractText(o);
+  if (caption.trim().length > 0) {
+    return { msgType: "text", text: caption, attachmentUrls: [] };
+  }
+  return { msgType: "unknown", text: "", attachmentUrls: [] };
+}
+
 /**
  * 베트남/한국 전화번호로 보이는 문자열인지 (전화번호 매칭 T3.7 후보 판정).
  * 공백·하이픈·점·괄호·국가코드(+84/0084)를 제거한 뒤 8~15자리 숫자면 true.
@@ -253,6 +485,10 @@ export interface ParsedInbound {
   /** 발신 상대(공급자)의 Zalo id */
   senderZaloUserId: string;
   text: string;
+  /** 분류된 메시지 타입 (classifyInbound 결과). 미지정 시 "text"로 저장(하위호환). */
+  msgType?: InboundMsgType;
+  /** 첨부 URL 목록 (이미지/파일/스티커/음성/영상). 없으면 빈 배열. */
+  attachmentUrls?: string[];
   /** zca-js 서버 msgId — ZaloMessage.zaloMsgId(멱등). 없으면 null */
   zaloMsgId: string | null;
   /** 발신자 표시명(있으면 ZaloConversation.displayName 보강용) */
@@ -292,6 +528,8 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
     isSystemBot,
     senderZaloUserId,
     text,
+    msgType,
+    attachmentUrls,
     zaloMsgId,
     displayName,
     senderPhone,
@@ -335,8 +573,9 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
       conversationId: conversation.id,
       direction: ZaloMessageDirection.INBOUND,
       source: ZaloMessageSource.USER,
-      msgType: "text",
+      msgType: msgType ?? "text",
       text: text || null,
+      attachmentUrls: attachmentUrls ?? [],
       zaloMsgId,
       cliMsgId: cliMsgId ?? null,
       quotedMsgId: quote?.quotedMsgId ?? null,
@@ -422,6 +661,10 @@ export interface ParsedOutbound {
   /** 대화 상대(수신자)의 Zalo id — self 메시지의 threadId. */
   senderZaloUserId: string;
   text: string;
+  /** 분류된 메시지 타입 (앱에서 보낸 비텍스트 동기화 시). 미지정 시 "text". */
+  msgType?: InboundMsgType;
+  /** 첨부 URL 목록. 없으면 빈 배열. */
+  attachmentUrls?: string[];
   /** zca-js 서버 msgId — 멱등 키. 프로그램(S4) 발신이 이미 저장한 것과 중복 방지. */
   zaloMsgId: string | null;
   /** 발신 시각(zca-js data.ts). 없으면 호출부에서 now 전달. 순서 꼬임 방지. */
@@ -457,6 +700,8 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
     ownerAdminId,
     senderZaloUserId,
     text,
+    msgType,
+    attachmentUrls,
     zaloMsgId,
     createdAt,
     displayName,
@@ -494,8 +739,9 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
       conversationId: conversation.id,
       direction: ZaloMessageDirection.OUTBOUND,
       source: ZaloMessageSource.CHAT,
-      msgType: "text",
+      msgType: msgType ?? "text",
       text: text || null,
+      attachmentUrls: attachmentUrls ?? [],
       zaloMsgId,
       cliMsgId: cliMsgId ?? null,
       quotedMsgId: quote?.quotedMsgId ?? null,

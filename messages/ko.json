@@ -1266,12 +1266,30 @@
       "photo": "[사진]",
       "villaShare": "[빌라 공유]",
       "proposalShare": "[제안서 공유]",
-      "settlementShare": "[정산서 공유]"
+      "settlementShare": "[정산서 공유]",
+      "sticker": "[스티커]",
+      "voice": "[음성 메시지]",
+      "call": "[통화]",
+      "contact": "[연락처]",
+      "contactNamed": "[연락처] {name}",
+      "video": "[동영상]",
+      "location": "[위치]"
     },
     "card": {
       "villaShare": "빌라 공유",
       "proposalShare": "제안서 공유",
       "settlementShare": "정산서 공유"
+    },
+    "typeCard": {
+      "sticker": "스티커",
+      "voice": "음성 메시지",
+      "playVoice": "재생",
+      "call": "통화",
+      "contact": "연락처",
+      "video": "동영상",
+      "openVideo": "동영상 보기",
+      "location": "위치",
+      "openMap": "지도에서 보기"
     },
     "translateMode": {
       "heading": "번역 언어",

@@ -10,6 +10,7 @@ import {
   isSelfMessage,
   parseZaloTs,
   buildInboundKey,
+  classifyInbound,
 } from "./zalo-inbound";
 
 describe("extractText — content 타입별 안전 파싱 (버그 B)", () => {
@@ -153,6 +154,111 @@ describe("parseZaloTs — zca-js 타임스탬프 → Date(정렬 보존)", () =>
     expect(parseZaloTs(0)).toBeNull();
     expect(parseZaloTs(-1)).toBeNull();
     expect(parseZaloTs("abc")).toBeNull();
+  });
+});
+
+describe("classifyInbound — 수신 메시지 타입 분류 (Nike parseMessageContent 이식)", () => {
+  it("문자열 → text, 본문 보존", () => {
+    const r = classifyInbound("Xin chào", "webchat");
+    expect(r.msgType).toBe("text");
+    expect(r.text).toBe("Xin chào");
+    expect(r.attachmentUrls).toEqual([]);
+  });
+
+  it("text 타입 미상(msgType 없음)도 문자열은 text", () => {
+    expect(classifyInbound("hello", undefined).msgType).toBe("text");
+  });
+
+  it("chat.photo(이미지) → photo, url 추출 + 캡션은 text", () => {
+    const r = classifyInbound(
+      { href: "https://cdn/x.jpg", description: "수영장 사진", thumb: "https://cdn/t.jpg" },
+      "chat.photo"
+    );
+    expect(r.msgType).toBe("photo");
+    expect(r.text).toBe("수영장 사진");
+    expect(r.attachmentUrls).toEqual(["https://cdn/x.jpg"]);
+  });
+
+  it("chat.photo지만 문서 확장자 → file, 파일명=text", () => {
+    const r = classifyInbound(
+      { href: "https://cdn/계약서.pdf", title: "계약서.pdf" },
+      "chat.photo"
+    );
+    expect(r.msgType).toBe("file");
+    expect(r.text).toBe("계약서.pdf");
+    expect(r.attachmentUrls).toEqual(["https://cdn/계약서.pdf"]);
+  });
+
+  it("chat.file → file, 파일명 NFC 정규화", () => {
+    const r = classifyInbound({ href: "https://cdn/doc.docx", title: "견적.docx" }, "chat.file");
+    expect(r.msgType).toBe("file");
+    expect(r.text).toBe("견적.docx");
+    expect(r.attachmentUrls).toEqual(["https://cdn/doc.docx"]);
+  });
+
+  it("chat.sticker → sticker, webp url 우선 + text 빈 문자열", () => {
+    const r = classifyInbound(
+      { stickerWebpUrl: "https://cdn/s.webp", stickerUrl: "https://cdn/s.png" },
+      "chat.sticker"
+    );
+    expect(r.msgType).toBe("sticker");
+    expect(r.text).toBe("");
+    expect(r.attachmentUrls).toEqual(["https://cdn/s.webp"]);
+  });
+
+  it("chat.voice → voice, voiceUrl + text 빈 문자열(FE 라벨)", () => {
+    const r = classifyInbound({ voiceUrl: "https://cdn/v.m4a", duration: 3000 }, "chat.voice");
+    expect(r.msgType).toBe("voice");
+    expect(r.text).toBe("");
+    expect(r.attachmentUrls).toEqual(["https://cdn/v.m4a"]);
+  });
+
+  it("chat.recommend(네임카드) → contact, 이름=text(전화번호는 본문에 안 넣음)", () => {
+    const r = classifyInbound(
+      { name: "Nguyen Van A", phone: "0901234567", qrCodeUrl: "https://cdn/qr.png" },
+      "chat.recommend"
+    );
+    expect(r.msgType).toBe("contact");
+    expect(r.text).toBe("Nguyen Van A");
+    expect(r.attachmentUrls).toEqual(["https://cdn/qr.png"]);
+  });
+
+  it("연락처 JSON 문자열도 contact로 파싱", () => {
+    const r = classifyInbound(
+      JSON.stringify({ name: "Tran B", phone: "0907654321" }),
+      undefined
+    );
+    expect(r.msgType).toBe("contact");
+    expect(r.text).toBe("Tran B");
+  });
+
+  it("통화(call) → call, content 없어도 타입만으로 판정", () => {
+    expect(classifyInbound("", "chat.call.message").msgType).toBe("call");
+    expect(classifyInbound(null, "voip").msgType).toBe("call");
+  });
+
+  it("chat.video → video, url 추출", () => {
+    const r = classifyInbound({ href: "https://cdn/clip.mp4" }, "chat.video");
+    expect(r.msgType).toBe("video");
+    expect(r.attachmentUrls).toEqual(["https://cdn/clip.mp4"]);
+  });
+
+  it("위치(location) → location, 주소가 있으면 text", () => {
+    const r = classifyInbound({ address: "Phu Quoc", lat: 10.2, lon: 103.9 }, "chat.location");
+    expect(r.msgType).toBe("location");
+    expect(r.text).toBe("Phu Quoc");
+  });
+
+  it("미상(본문·첨부 없는 리치/액션) → unknown, action 메서드명 절대 노출 안 함", () => {
+    const r = classifyInbound({ action: "sendBubbleMessage" }, "chat.bubble");
+    expect(r.msgType).toBe("unknown");
+    expect(r.text).toBe("");
+  });
+
+  it("미상 객체라도 사람이 쓴 캡션이 있으면 text로 회수(action 무시)", () => {
+    const r = classifyInbound({ action: "sendBubbleMessage", title: "공지" }, "chat.bubble");
+    expect(r.msgType).toBe("text");
+    expect(r.text).toBe("공지");
   });
 });
 
