@@ -73,7 +73,7 @@
 - [ ] T4.3 공급자 온보딩 가이드 (vi, 이미지 1장짜리) (LOC/UX-VN)
 - [ ] T4.4 베트남 사용자 1명 실사용 테스트 → 피드백 반영 (PM/UX-VN)
 - [x] T4.5 F6 최소 정산 (Stitch b7·a7 변환) (BE/FE/UX-VN) — 2026-06-11 완료. lib/settlement.ts(월 집계 멱등·전이표·PAID 시 SETTLEMENT_READY enqueue) + /api/settlements 3종 + /settlements(b7)·/earnings(a7, 공급자 원가만). QA 독립 평가 **통과**(결함 3건 수정: $transaction 타임아웃·i18n 사전 통째 직렬화 누수 D-2·미들웨어 /earnings 누락 D-3 — i18n은 구역별 화이트리스트 provider로 구조 개선). 계약: docs/contracts/T4.5-settlement.md. **공유 규칙 신설: 클라이언트 useTranslations 네임스페이스 추가 시 해당 구역 layout 화이트리스트에도 등록(lib/intl-messages.ts·(supplier)/layout.tsx 주석 참조)**
-- [ ] T4.6 LAUNCH.md 오픈 체크리스트 최종 점검 → 오픈 (PM/QA/OPS)
+- [~] T4.6 LAUNCH.md 오픈 체크리스트 최종 점검 → 오픈 (PM/QA/OPS) — **1차 전수 점검 완료(2026-06-16)**: 11항목 실측(F1~F4·F6·누수·스모크 PASS), 프로덕션 스모크 증적(health 200·보호 307·미인증 차단). **오픈 차단요인은 전부 테오님 활성화 의존**: ① Zalo 라이브(QR 로그인·OA 발급) ② 파일럿 시드 프로덕션 실행 ③ T4.4 실사용자 테스트 ④ Zalo 라우트 배포 후 재스모크. 상세: docs/LAUNCH.md §6. 계약: docs/contracts/T4.6-launch-readiness.md
 
 ## Phase 2 백로그
 - [ ] 정산 페이지 (다중 통화 수납 + VND 지급 + 환차 기록, 환전 LEDGER 패턴)
