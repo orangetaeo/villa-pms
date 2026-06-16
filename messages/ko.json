@@ -447,23 +447,23 @@
       }
     },
     "signup": {
-      "headerTitle": "Đăng ký tài khoản",
-      "title": "Đăng ký",
-      "subtitle": "Bắt đầu quản lý villa của bạn dễ dàng hơn.",
-      "name": "Họ và tên",
-      "namePlaceholder": "Nhập họ và tên",
-      "phone": "Số điện thoại",
+      "headerTitle": "회원가입",
+      "title": "회원가입",
+      "subtitle": "빌라를 더 쉽게 관리해 보세요.",
+      "name": "이름",
+      "namePlaceholder": "이름 입력",
+      "phone": "전화번호",
       "phonePlaceholder": "0xxx xxx xxx",
-      "password": "Mật khẩu",
+      "password": "비밀번호",
       "passwordPlaceholder": "••••••••",
-      "submit": "Đăng ký",
-      "submitting": "Đang xử lý...",
-      "hasAccount": "Đã có tài khoản?",
-      "loginLink": "Đăng nhập",
+      "submit": "회원가입",
+      "submitting": "처리 중...",
+      "hasAccount": "이미 계정이 있으신가요?",
+      "loginLink": "로그인",
       "errors": {
-        "phoneExists": "Số điện thoại này đã được đăng ký.",
-        "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự.",
-        "serverError": "Đã xảy ra lỗi. Vui lòng thử lại sau."
+        "phoneExists": "이미 등록된 전화번호입니다.",
+        "passwordTooShort": "비밀번호는 최소 8자 이상이어야 합니다.",
+        "serverError": "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
       }
     }
   },
