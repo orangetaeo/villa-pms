@@ -78,6 +78,8 @@
 
 | 2026-06-12 | T2.6 | 대시보드 완성 (선점 프로토콜): lib/dashboard.ts 단일 소스 — VN 기준 오늘 집계(**/bookings 프리셋과 where 절 동일 — 카드 건수=링크 목록 보장, QA D-2**), AuditLog→피드 매핑(15종 + generic 폴백 — 미지 엔티티에 깨지지 않음 테스트 증명, 여권·금액 미노출), vnDateLabel(Asia/Ho_Chi_Minh 표시 규약). b1 변환: iCal 충돌 배너(findUnresolvedIcalConflicts — 0건 미렌더, 해결하기→예약 상세), 스탯 4종(체크인/체크아웃 예정·HOLD+최근 만료 배지·청소 대기 — 각 목록 화면 링크), 좌9/우3 활동 피드(타임라인 dot·상대시간), 푸터(시스템·최근 동기화·FX 칩 — USD 표기 폐기 이행). b1-mobile: <lg 타임라인→오늘 중심 리스트(체크인/체크아웃/청소 카드)+콤팩트 2×2 스탯. vitest 9개(전체 271). QA 1차 반려(D-1 링크 대소문자·D-2 집계/프리셋 불일치·D-3 UTC 날짜) → 수정 → 2차 **통과** | 신고 편차 7건 QA 승인(썸네일·전체 로그 버튼·USD 폐기·배너 조건부·시각 미표시·충돌 피드 generic·모바일 그리드). 비차단 관찰 2건(HOLD 전역 집계 vs 월 필터 — 실무 창 극소, vi fxChip 구분자 — LOC 감수 후보). F7 관리자 화면 전부 완성. 계약: docs/contracts/T2.6-dashboard.md |
 
+| 2026-06-16 | T4.1 | 권한 누수 4종 전수 스윕 완료 (오픈 게이트): 전 표면(API 36·페이지 26·layout 4·파일서빙 2·cron 4) 정적 분석 + 동적 실행 검증. **High 결함 0건, 사업 핵심 원칙(재고·마진 비공개) 위반 0건 → 오픈 가능 판정.** ① SUPPLIER↔SUPPLIER2 교차 스코프(빌라·캘린더·청소태스크 404/403, ADMIN 대조 전건 표시로 공허통과 방지) ② 공급자 화면·API에 margin·salePrice·fx·고객연락처 0건, 공개페이지 원가·타재고 0건, ADMIN candidates엔 원가·판매가 양성 실증 ③ 공개토큰 crypto 32자 랜덤(cuid 아님)·USED/REVOKED/EXPIRED 만료렌더(가격·빌라명 잔존 0)·HOLD 동시성 201+409·half-open 경계·경로탈출 5종 차단 ④ 무인증 API 36 전부 401/403·페이지 13 전부 307·cron 8/8 401·CLEANER 역할 격리 | 제품 코드 결함 0(수정 없음). 오탐 1건(next-error 인라인 CSS margin:0 — grep 표준식 교훈화). 환경 메모: 병렬 세션이 QA 테스트 계정(0900000002·0900000003) 비번 변경 — **테오 ADMIN(0799493138)은 정상 확인**. T1.2b WIP(/my-villas/[id] rejectionReason) 머지 후 dev 재기동 시 빌라상세 500 해소. 교훈 4건 leak-checklist 등재 |
+
 ## 현재 상태 (2026-06-11 기준)
 
 ### 완료된 태스크
