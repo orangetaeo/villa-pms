@@ -60,10 +60,17 @@ export async function GET(
 
   const services = orders.map((o) => {
     const serialized = serializeBigInt(o) as Record<string, unknown>;
-    return {
-      ...serialized,
-      marginKrw: fx ? computeServiceMarginKrw(o.costVnd, o.priceKrw, fx) : null,
-    };
+    // 마진은 항목별로 격리 — 환율(AppSetting 자유 텍스트)이 깨진 형식이어도
+    // 목록 전체가 500이 되지 않도록 실패 시 null로 degrade (QA Minor-1)
+    let marginKrw: number | null = null;
+    if (fx) {
+      try {
+        marginKrw = computeServiceMarginKrw(o.costVnd, o.priceKrw, fx);
+      } catch {
+        marginKrw = null;
+      }
+    }
+    return { ...serialized, marginKrw };
   });
 
   return Response.json({ services, fxVndPerKrw: fx });
@@ -98,16 +105,15 @@ export async function POST(
   });
   if (!booking) return Response.json({ error: "not_found" }, { status: 404 });
 
-  // costVnd → BigInt (정수 문자열만)
-  let costVnd: bigint;
-  try {
-    costVnd = BigInt(String(parsed.data.costVnd));
-  } catch {
+  // costVnd → BigInt — 정수 문자열만 허용 (16진수 "0x10"·공백·"" 등 거부, QA Minor-2)
+  const costRaw = String(parsed.data.costVnd).trim();
+  if (!/^\d+$/.test(costRaw)) {
     return Response.json(
       { error: "VALIDATION_FAILED", errors: ["NEGATIVE_COST"] },
       { status: 400 }
     );
   }
+  const costVnd = BigInt(costRaw);
 
   const input: ServiceOrderInput = {
     type: parsed.data.type as ServiceType,
