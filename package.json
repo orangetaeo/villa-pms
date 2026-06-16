@@ -9,6 +9,9 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "seed": "tsx prisma/seed.ts",
+    "seed:demo": "tsx prisma/seed-demo.ts",
+    "seed:all": "tsx prisma/seed.ts && tsx prisma/seed-demo.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

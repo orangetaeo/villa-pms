@@ -178,19 +178,92 @@ export function buildAppSettings(): { key: string; value: string }[] {
   ];
 }
 
-/** 빌라당 등록 필수 충족용 placeholder 사진(외관·거실·침실 각 1장). */
+/**
+ * 빌라별 실사진 — 테오가 구글 드라이브에 올린 원본을 공개 CDN(lh3.googleusercontent.com)으로 참조.
+ * next.config.ts images.remotePatterns에 lh3.googleusercontent.com 허용됨 (데모 빌라용).
+ * placehold.co는 화이트리스트에 없어 next/image 렌더 실패 → 실사진/picsum으로 교체 (버그 수정).
+ * V11·V25는 공간별 폴더가 정리돼 있어 정확히 매핑, V12(블루)·A3(선셋타운)는 평면 폴더라 공간 휴리스틱 배정.
+ */
+const drive = (id: string) => `https://lh3.googleusercontent.com/d/${id}`;
+
+interface SeedPhoto {
+  space: PhotoSpace;
+  spaceLabel: string | null;
+  url: string;
+}
+
+export const VILLA_PHOTO_SETS: Record<string, SeedPhoto[]> = {
+  // 쏘나씨 V11 — 공간별 폴더 (외관/거실/주방/침실3/화장실/베란다)
+  "seed-villa-sonasea-v11": [
+    { space: PhotoSpace.EXTERIOR, spaceLabel: null, url: drive("1eGxWKKM0tsW4SHvBVCgaVKPsUQsf57Fy") },
+    { space: PhotoSpace.EXTERIOR, spaceLabel: "마당", url: drive("1Z_hbU7XrVyput17-J4eTn5MeqQSJBwfM") },
+    { space: PhotoSpace.LIVING, spaceLabel: null, url: drive("1UWa-1BoCQfqUCbAR9KNuvafoFElnxLJT") },
+    { space: PhotoSpace.LIVING, spaceLabel: "식탁", url: drive("1zq9hGfEx5cVBDNs3N3BUdKpsJ9acP91y") },
+    { space: PhotoSpace.KITCHEN, spaceLabel: null, url: drive("1ybV52F2ofjtFIl0asBREP1bpRYETMg_-") },
+    { space: PhotoSpace.BEDROOM, spaceLabel: "1층 침실", url: drive("1x2Lp0Rx3xLzlUhZpUw51Ml_pqW2ivM5M") },
+    { space: PhotoSpace.BEDROOM, spaceLabel: "2층 왼쪽 침실", url: drive("1DRn-BaGxdchiQRQ3HsGE5n_zL8mJEgtN") },
+    { space: PhotoSpace.BEDROOM, spaceLabel: "2층 오른쪽 침실", url: drive("1dh7V3OHGu4WzreP-xZ-NNzWo2irvRo20") },
+    { space: PhotoSpace.BATHROOM, spaceLabel: "1층 화장실", url: drive("1vcnY5QIK90_JrKBiNcSMrOZsYzfdIdT4") },
+    { space: PhotoSpace.BATHROOM, spaceLabel: "2층 화장실", url: drive("1Y4sXIEcPkXqxutyhG4VCO0L1MxJldhuw") },
+    { space: PhotoSpace.BALCONY, spaceLabel: null, url: drive("1VfZScAim-g2DaBU1HJs4QSLwvy1NDV1w") },
+  ],
+  // 쏘나씨 V12 — 블루동 평면 폴더 (공간 휴리스틱 배정)
+  "seed-villa-sonasea-v12": [
+    { space: PhotoSpace.EXTERIOR, spaceLabel: null, url: drive("1dLJrk3Uzhj2JcuDnDN62UJ7CKeE2urH_") },
+    { space: PhotoSpace.LIVING, spaceLabel: null, url: drive("1IAtDHyWq_EQZP1CUPXLyDOawGjoe3ten") },
+    { space: PhotoSpace.KITCHEN, spaceLabel: null, url: drive("1Uz3PKuTxxVpWq5eWws-pxbF6BMkyazEX") },
+    { space: PhotoSpace.BEDROOM, spaceLabel: "침실 1", url: drive("176WpU_onI44ljdMKhTBIo8f3k8hS2SCX") },
+    { space: PhotoSpace.BATHROOM, spaceLabel: null, url: drive("1FRRkZQn6HGMH_4JrrUDjw4jdTs_qGqPU") },
+  ],
+  // 쏘나씨 V25 — 공간별 폴더 (외관/거실/주방/침실3/화장실/베란다)
+  "seed-villa-sonasea-v25": [
+    { space: PhotoSpace.EXTERIOR, spaceLabel: null, url: drive("1NtY5vFfwtAgroIv_-_2MJAIWjgfZVDfo") },
+    { space: PhotoSpace.EXTERIOR, spaceLabel: "마당", url: drive("1ausldJ-VSYQiMO6dWmVidrdcPEA-FaGb") },
+    { space: PhotoSpace.LIVING, spaceLabel: null, url: drive("1bVK3x26109_b96aElCmOGFRP7pc32e0E") },
+    { space: PhotoSpace.KITCHEN, spaceLabel: null, url: drive("1Kgvjq-4tRZmGlbAzCupArdlE9RhW-Vw9") },
+    { space: PhotoSpace.KITCHEN, spaceLabel: "식탁", url: drive("1-Sy9Csg0GIxBUAEDv_eqypn-8slPi-m8") },
+    { space: PhotoSpace.BEDROOM, spaceLabel: "1층 침실", url: drive("1akaKGOBbCJHDfZbsQrR82qT4tf-sLoZJ") },
+    { space: PhotoSpace.BEDROOM, spaceLabel: "2층 왼쪽 침실", url: drive("1fY6c4cnm-uyIN6z_5VL_3DLdr4_3f7Ko") },
+    { space: PhotoSpace.BEDROOM, spaceLabel: "2층 오른쪽 침실", url: drive("1ppuzadeqPoYnbdVkcbvswHokGYPx8JhX") },
+    { space: PhotoSpace.BATHROOM, spaceLabel: "1층 화장실", url: drive("1natu_TJmsAqyqxluYKrNnRUa29mBTHn8") },
+    { space: PhotoSpace.BATHROOM, spaceLabel: "2층 화장실", url: drive("16Onhtm8uhENUqp_hdkbBC9RBCpwzcmud") },
+    { space: PhotoSpace.BALCONY, spaceLabel: null, url: drive("1d5sQ7JSqjkGRF_pm9zFbUoklpJ7YUEAz") },
+  ],
+  // 썬셋 사나토 A3 — 선셋타운_SKY 평면 폴더 12장 (공간 휴리스틱 배정)
+  "seed-villa-sunset-sanato-a3": [
+    { space: PhotoSpace.EXTERIOR, spaceLabel: null, url: drive("1eadJae7SzsZtdCk4abmepd-rGMEf-xyG") },
+    { space: PhotoSpace.EXTERIOR, spaceLabel: "전경", url: drive("11xtnlQZj6tjrQ4s76pRHU-biRPLSG9Xu") },
+    { space: PhotoSpace.LIVING, spaceLabel: null, url: drive("14-u66lzsLKJv6SB_QLlca6n_pD4Erf_X") },
+    { space: PhotoSpace.LIVING, spaceLabel: "2", url: drive("1PNjskOh78bcBOkchV4w77rUwnKpFxoTk") },
+    { space: PhotoSpace.KITCHEN, spaceLabel: null, url: drive("1x6X3oHBLxVLgd28lhDMEh4Ca2F4_4k5_") },
+    { space: PhotoSpace.KITCHEN, spaceLabel: "2", url: drive("1OcxvbfiqqIl3xo8xrNp7AgdsiZUDZjOe") },
+    { space: PhotoSpace.BEDROOM, spaceLabel: "침실 1", url: drive("1pKyC6EsHRCDw8t7XdcgkIar7XfVf8N6G") },
+    { space: PhotoSpace.BEDROOM, spaceLabel: "침실 1-2", url: drive("1gYG35MhuMAVtu1iQfHmPZDK3L_rtTOwa") },
+    { space: PhotoSpace.BEDROOM, spaceLabel: "침실 2", url: drive("1hfmxoEAen1iUWvcKp5sUP0rQ9S6Rxjd5") },
+    { space: PhotoSpace.BATHROOM, spaceLabel: null, url: drive("1Wb53FGaciSpq67WOL4AwAK3RipqeTJxg") },
+    { space: PhotoSpace.BATHROOM, spaceLabel: "2", url: drive("1FWqxEygNm3k7I5nYoxWErIJeybZcX7Hp") },
+    { space: PhotoSpace.BALCONY, spaceLabel: null, url: drive("1yEgd2kH0C6cYmhnj7VumajTPT2IVc41V") },
+  ],
+};
+
+/** 빌라당 등록 필수 충족용 사진 — VILLA_PHOTO_SETS의 실사진(외관·거실·침실 포함). */
 export function buildPhotos(villaId: string): {
   id: string;
   villaId: string;
   space: PhotoSpace;
   spaceLabel: string | null;
   url: string;
+  sortOrder: number;
 }[] {
-  return [
-    { id: `${villaId}-photo-exterior`, villaId, space: PhotoSpace.EXTERIOR, spaceLabel: null, url: `https://placehold.co/800x600?text=${villaId}-exterior` },
-    { id: `${villaId}-photo-living`, villaId, space: PhotoSpace.LIVING, spaceLabel: null, url: `https://placehold.co/800x600?text=${villaId}-living` },
-    { id: `${villaId}-photo-bedroom1`, villaId, space: PhotoSpace.BEDROOM, spaceLabel: "침실 1", url: `https://placehold.co/800x600?text=${villaId}-bedroom1` },
-  ];
+  const set = VILLA_PHOTO_SETS[villaId] ?? [];
+  return set.map((p, i) => ({
+    id: `${villaId}-photo-${String(i + 1).padStart(2, "0")}`,
+    villaId,
+    space: p.space,
+    spaceLabel: p.spaceLabel,
+    url: p.url,
+    sortOrder: i,
+  }));
 }
 
 // ===================== I/O 층 (DB 적재) =====================
@@ -303,11 +376,12 @@ async function main() {
         });
       }
 
-      for (const p of buildPhotos(v.id)) {
-        await prisma.villaPhoto.upsert({
-          where: { id: p.id },
-          update: { space: p.space, spaceLabel: p.spaceLabel, url: p.url },
-          create: { ...p, isBaseline: true, uploadedBy: SEED_ADMIN_ID },
+      // 사진 세트 교체(멱등): 기존 행 제거 후 실사진 재삽입 — 옛 placehold.co 행/잔여 id 정리
+      await prisma.villaPhoto.deleteMany({ where: { villaId: v.id } });
+      const photos = buildPhotos(v.id);
+      if (photos.length > 0) {
+        await prisma.villaPhoto.createMany({
+          data: photos.map((p) => ({ ...p, isBaseline: true, uploadedBy: SEED_ADMIN_ID })),
         });
       }
     }
