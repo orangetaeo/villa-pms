@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=390px, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#0D9488",
+                        surface: "#0F0F0F",
+                    },
+                    fontFamily: {
+                        headline: ["Be Vietnam Pro", "sans-serif"],
+                        display: ["Be Vietnam Pro", "sans-serif"],
+                        body: ["Be Vietnam Pro", "sans-serif"],
+                        label: ["Be Vietnam Pro", "sans-serif"],
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #0F0F0F;
+            font-family: 'Be Vietnam Pro', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            width: 390px;
+            height: 844px;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .active-thumb {
+            border: 2px solid #0D9488;
+            opacity: 1 !important;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="flex flex-col h-screen text-white select-none">
+<!-- Top Navigation Bar (Shared Component: TopAppBar) -->
+<!-- Applying style_shell_layout, style_bg_color, style_typography from JSON -->
+<header class="fixed top-0 w-full flex items-center justify-between px-4 h-14 z-50 bg-black/40">
+<button class="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 backdrop-blur-md active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-white">close</span>
+</button>
+<div class="px-4 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10">
+<span class="font-headline font-semibold text-white text-sm tracking-wide">3 / 12</span>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 backdrop-blur-md active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-white">delete</span>
+</button>
+</header>
+<!-- Main Photo Canvas -->
+<main class="flex-grow flex items-center justify-center relative overflow-hidden">
+<!-- Background Dark Gradient for labels -->
+<div class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60 pointer-events-none"></div>
+<!-- The Image -->
+<div class="w-full aspect-[4/3] relative group">
+<img alt="Luxury villa living room" class="w-full h-full object-cover" data-alt="A professional architectural photograph of a luxury villa living room in Phu Quoc, Vietnam. The interior features floor-to-ceiling glass windows overlooking a turquoise pool and tropical greenery. The decor is minimalist and high-end with neutral-toned linen sofas, polished marble floors, and warm wooden accents. The lighting is bright and airy with soft tropical sunlight pouring in, reflecting the premium teal and sand color palette of the brand." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCOgLetv4HGDdJRDEsd0czNS20X3AeTU1uJIUN8JcTp6OTezBiCvvJuf5grs1sfOFXTWfVh0jGuoPHa62ozPR8QqAqrb1wfX8n7762GlVV8SSaAq-YceBB89aalbHZ6SD8RDmXc8tmKPkveVqqnKScgKOWb0B_24ia_ew3ZnnzMSL2sfbUtLB-v4hdjvC_KolHBHmPeAEIj-dJehfsqiUPMWGazxm144-YJUdns4fDbaJp-qj1AxtAxLxs5QUjFwiJWUrLHuiDOPTQi"/>
+<!-- Pinch to zoom indicator -->
+<div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-40">
+<span class="material-symbols-outlined text-6xl" style="font-variation-settings: 'wght' 200;">zoom_in</span>
+</div>
+<!-- Image Navigation Arrows -->
+<button class="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-black/30 backdrop-blur-sm active:scale-90 transition-all">
+<span class="material-symbols-outlined text-white">chevron_left</span>
+</button>
+<button class="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full bg-black/30 backdrop-blur-sm active:scale-90 transition-all">
+<span class="material-symbols-outlined text-white">chevron_right</span>
+</button>
+<!-- Room Label Chip -->
+<div class="absolute bottom-6 left-1/2 -translate-x-1/2">
+<div class="flex items-center gap-2 px-4 py-2 rounded-full bg-teal-900/40 backdrop-blur-xl border border-teal-500/30">
+<span class="material-symbols-outlined text-teal-400 text-sm" style="font-variation-settings: 'FILL' 1;">king_bed</span>
+<span class="text-xs font-semibold text-white tracking-wide">Phòng khách</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Controls Area -->
+<footer class="w-full pb-10 pt-4 px-4 bg-gradient-to-t from-black to-transparent">
+<!-- Filmstrip -->
+<div class="flex gap-2 overflow-x-auto hide-scrollbar pb-6 snap-x snap-mandatory">
+<!-- Thumb 1 -->
+<div class="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden opacity-40 snap-center">
+<img class="w-full h-full object-cover" data-alt="Detail shot of a modern villa exterior with a large infinity pool reflecting the teal sky during sunrise. High contrast architectural lines." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCk4B7KzgTOdblLPFhATa4JMQz9ajPgPKklIrpiNPXc7XAFZgIrf52HC1ifw3Fx318aykREW0Bb1e9QiHd7BGpI8LkNZXnG9vM8NHLHHtYcZu_gnZ6BM9fHDa1XyiczkdSEkNOI4EQ6BNaZL46LC9qWBY4OWZLMhKaFplX0l5OQLe4x4o2atEiRs_RZGu9Ngtp63J0zr7fRvwaJ5zoYMADhfvAZrO-LRvLdPiQxHBoEr8C67AvZSXzGR3CZX7why_VVwhAk8WwugUjV"/>
+</div>
+<!-- Thumb 2 -->
+<div class="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden opacity-40 snap-center">
+<img class="w-full h-full object-cover" data-alt="A luxurious villa kitchen area with sleek white surfaces and high-end built-in appliances. The scene is bright and clean with tropical plants visible through the window." src="https://lh3.googleusercontent.com/aida-public/AB6AXuByRZ2BXCR5BMz-IcGe6AXgHMHdv_hrNxDD7B14I45CvoogIKi2Ix31I4DXGh-38UpNYZDyGHxJZw8aYCvKYVcXFqrcO6C6AYDqUFRxaQcNKpPPJ0yl7_5B4DSKi3Bc6tLgAbIxWUVALhHVF5bNpyUwnIiaFVVnG4tMq0naUJmxs3O7TOcCQnDHzLZMcCMBRUrKaVAfOdFWzuLajUGG1TgPJ_6XMkEA6LxJpzUX8WmeK8JJCloHftDnk9T8MOiZRv-tjH9MMcvEdIV9"/>
+</div>
+<!-- Thumb 3 (Active) -->
+<div class="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden active-thumb snap-center">
+<img class="w-full h-full object-cover" data-alt="Luxury villa living room focal shot emphasizing the spaciousness and the connection to the outdoor tropical garden through large glass panes." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDC0_OoltPH7qGuMso2_-GIMH8nd71JqluPMg8BrCMrp_qGAFtuP6JBJGU60Ig_qWyRdX7q2tdmz9TqEaIYBDPahINEqpQraN57e-EGJpnqEBCa3tzkuDacCZyn5avkNHmA-Um1XGHHql9tnzxBNHBtrzqoQUQrDxHnmow9iTqsRnY7XDzq53fAeaz0W_oXhEBZRive3Ap-22TCOBjCfIsCTUS4q5_ejZIFLM3ZUcUmSb-Zddtuh6NgBJ0I6A2DNyYW6VqAGdpNHCk-"/>
+</div>
+<!-- Thumb 4 -->
+<div class="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden opacity-40 snap-center">
+<img class="w-full h-full object-cover" data-alt="Close up of a premium bedroom in a Vietnamese villa. Crisp white linens, teal throw pillows, and minimalist decor under warm evening lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCBucMrcVFkMT0Zs4W5NsdZ7scAPlbww8XCw4SoQWLAiKerDhoPloD1Dfz59nucAeC2R5kA29XTfb7u41PT-pnFwpq5Gt9z1lZR4w97bK2XAVlrK4nIANrFb8Hx-s9VNnkiBhPVs_VQpEEzuuPGFweWuWW8EphK4LPd2V4mHKPHJBYI6WRVq2vJJec7-kHzxlm0axvOsENTr9UuEZS0aKES0s7cjtbynNpJTmYtVKGT7WgR9pvbyLyLG-dYZjBbDJA1dEpAYjSNxETS"/>
+</div>
+<!-- Thumb 5 -->
+<div class="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden opacity-40 snap-center">
+<img class="w-full h-full object-cover" data-alt="Luxury bathroom with a freestanding tub and panoramic views of the Phu Quoc coastline. Modern fixtures and high-contrast marble textures." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDCPmWom62qQY9_XpeoGBj4K26U8LWVnuIQuyF5o24OqWJHCfN_XngAK8LDZpfWEfpj31htz719W4dio84tyax5rbUd2Ch5sFFHWMEIq1gRzSXqOov8VI0PbGoEmZfvTbxUP4xZOJT7-ARhaePaHsEy2EjAbCtXkQEVsuuyiOdft5YRszuZ8QX9FozuiJuF8J1_9ysE1JgWWKgPQ14PwKqFyTEN3yz_SxSU3xBT5IuVjzguiep3HYmBcmMboSJqFryjZ_Sf93G1ohyI"/>
+</div>
+<!-- Thumb 6 -->
+<div class="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden opacity-40 snap-center">
+<img class="w-full h-full object-cover" data-alt="An outdoor terrace area with luxury lounge chairs next to a private pool. The sunset creates a warm sand-colored glow over the modern villa architecture." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDWHg6oHoZOSdhmcxOiRZxss9936RH43JiqCcL9I9KUjNYaWbiOLJ3NGbDtyOHBETR3t7xcLdAIx4keiWRW5VU3X08DZHKbNPziIbciFUs0YiRPF8kctF1WG1K9Uu_SBOyDLuN64BShklbvStVdN-bJvJ3IQYt9DHqFjnNo6jk5LrlaCLfBjMyA_PkfwikjHwreDLWaVRgXWt2xlXoI_IF9nkmaRagGhx8L4jpTD0aUAwaPCp63DekSMGGJo1pVFE_8HdyHg8MCjeYH"/>
+</div>
+</div>
+<!-- Progress Indicator -->
+<div class="flex justify-center items-center gap-1.5">
+<div class="w-1.5 h-1.5 rounded-full bg-white/20"></div>
+<div class="w-1.5 h-1.5 rounded-full bg-white/20"></div>
+<div class="w-2 h-2 rounded-full bg-teal-500"></div>
+<div class="w-1.5 h-1.5 rounded-full bg-white/20"></div>
+<div class="w-1.5 h-1.5 rounded-full bg-white/20"></div>
+<div class="w-1 h-1 rounded-full bg-white/20"></div>
+<div class="w-1 h-1 rounded-full bg-white/20"></div>
+<div class="w-1 h-1 rounded-full bg-white/20"></div>
+<div class="w-1 h-1 rounded-full bg-white/20"></div>
+<div class="w-1 h-1 rounded-full bg-white/20"></div>
+</div>
+</footer>
+<!-- Bottom Navigation Bar (Shared Component: BottomNavBar) -->
+<!-- JSON provided 5 icons: chevron_left, zoom_in, grid_view, info, chevron_right -->
+<!-- Executing style_shell_layout, style_bg_color, style_inactive_navigation -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center px-6 pb-6 pt-2 bg-black/60 backdrop-blur-lg rounded-t-xl">
+<button class="flex flex-col items-center justify-center text-white/60 p-3 hover:text-teal-500 active:scale-90 transition-all">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="flex flex-col items-center justify-center text-white/60 p-3 hover:text-teal-500 active:scale-90 transition-all">
+<span class="material-symbols-outlined">zoom_in</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-teal-600 text-white rounded-full p-3 active:scale-90 transition-all">
+<span class="material-symbols-outlined">grid_view</span>
+</button>
+<button class="flex flex-col items-center justify-center text-white/60 p-3 hover:text-teal-500 active:scale-90 transition-all">
+<span class="material-symbols-outlined">info</span>
+</button>
+<button class="flex flex-col items-center justify-center text-white/60 p-3 hover:text-teal-500 active:scale-90 transition-all">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</nav>
+<script>
+        // Micro-interaction for gallery thumbnails
+        const thumbnails = document.querySelectorAll('.flex-shrink-0');
+        thumbnails.forEach(thumb => {
+            thumb.addEventListener('click', () => {
+                thumbnails.forEach(t => t.classList.remove('active-thumb', 'opacity-100'));
+                thumbnails.forEach(t => t.classList.add('opacity-40'));
+                thumb.classList.add('active-thumb');
+                thumb.classList.remove('opacity-40');
+                thumb.classList.add('opacity-100');
+            });
+        });
+
+        // Simple haptic-like feedback on buttons
+        const actionButtons = document.querySelectorAll('button');
+        actionButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (window.navigator.vibrate) {
+                    window.navigator.vibrate(10);
+                }
+            });
+        });
+    </script>
+</body></html>

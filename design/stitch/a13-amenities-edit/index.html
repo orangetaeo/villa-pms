@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Tiện ích &amp; Vật tư - Villa PMS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#0D9488",
+                        'on-primary': "#FFFFFF",
+                        secondary: "#F59E0B",
+                        surface: "#FFFFFF",
+                        available: "#16A34A",
+                        confirmed: "#2563EB",
+                        hold: "#DBEAFE",
+                        blocked: "#6B7280",
+                        not_sellable: "#DC2626",
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        headline: ["Be Vietnam Pro", "sans-serif"],
+                        display: ["Be Vietnam Pro", "sans-serif"],
+                        body: ["Be Vietnam Pro", "sans-serif"],
+                        label: ["Be Vietnam Pro", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Be Vietnam Pro', sans-serif;
+            background-color: #F8FAFC;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        /* Custom Scrollbar for Tabs */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="flex justify-center items-start min-h-screen">
+<!-- Mobile Container (390px simulated) -->
+<main class="w-full max-w-[390px] bg-white min-h-screen relative shadow-2xl flex flex-col pb-24">
+<!-- TopAppBar (From JSON Source of Truth) -->
+<header class="flex items-center justify-between px-4 h-14 w-full bg-white dark:bg-neutral-900 border-b border-neutral-100 dark:border-neutral-800 sticky top-0 z-50">
+<button class="active:opacity-70 transition-opacity p-2 -ml-2">
+<span class="material-symbols-outlined text-teal-600 dark:text-teal-400" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="font-headline font-semibold text-lg text-teal-600 dark:text-teal-400">Tiện ích &amp; Vật tư</h1>
+<button class="active:opacity-70 transition-opacity font-headline font-semibold text-teal-600 dark:text-teal-400">
+                Lưu
+            </button>
+</header>
+<!-- Tabs: Horizontal scrollable chip row -->
+<div class="px-4 py-4 overflow-x-auto flex gap-2 hide-scrollbar bg-white">
+<button class="px-5 py-2.5 rounded-full bg-teal-600 text-white font-semibold whitespace-nowrap text-sm shadow-sm transition-transform active:scale-95">
+                Đồ bếp
+            </button>
+<button class="px-5 py-2.5 rounded-full bg-neutral-100 text-neutral-600 font-medium whitespace-nowrap text-sm transition-transform active:scale-95">
+                Đồ phòng tắm
+            </button>
+<button class="px-5 py-2.5 rounded-full bg-neutral-100 text-neutral-600 font-medium whitespace-nowrap text-sm transition-transform active:scale-95">
+                Thiết bị điện
+            </button>
+<button class="px-5 py-2.5 rounded-full bg-neutral-100 text-neutral-600 font-medium whitespace-nowrap text-sm transition-transform active:scale-95">
+                Minibar
+            </button>
+</div>
+<!-- Scrollable Content Canvas -->
+<section class="flex-1 px-4 space-y-6">
+<!-- List: Đồ bếp -->
+<div class="space-y-4">
+<div class="flex items-center justify-between py-1">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-teal-600" data-icon="cooking">cooking</span>
+</div>
+<span class="font-medium text-neutral-800">Nồi cơm điện</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 rounded-full border-2 border-neutral-200 flex items-center justify-center active:bg-neutral-100"><span class="material-symbols-outlined text-neutral-600">remove</span></button>
+<span class="w-6 text-center font-bold text-lg">1</span>
+<button class="w-10 h-10 rounded-full border-2 border-teal-600 flex items-center justify-center active:bg-teal-50"><span class="material-symbols-outlined text-teal-600">add</span></button>
+</div>
+</div>
+<div class="flex items-center justify-between py-1">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-teal-600" data-icon="skillet">skillet</span>
+</div>
+<span class="font-medium text-neutral-800">Chảo</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 rounded-full border-2 border-neutral-200 flex items-center justify-center active:bg-neutral-100"><span class="material-symbols-outlined text-neutral-600">remove</span></button>
+<span class="w-6 text-center font-bold text-lg">2</span>
+<button class="w-10 h-10 rounded-full border-2 border-teal-600 flex items-center justify-center active:bg-teal-50"><span class="material-symbols-outlined text-teal-600">add</span></button>
+</div>
+</div>
+<div class="flex items-center justify-between py-1">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-teal-600" data-icon="restaurant">restaurant</span>
+</div>
+<span class="font-medium text-neutral-800">Dao &amp; thớt</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 rounded-full border-2 border-neutral-200 flex items-center justify-center active:bg-neutral-100"><span class="material-symbols-outlined text-neutral-600">remove</span></button>
+<span class="w-6 text-center font-bold text-lg">1</span>
+<button class="w-10 h-10 rounded-full border-2 border-teal-600 flex items-center justify-center active:bg-teal-50"><span class="material-symbols-outlined text-teal-600">add</span></button>
+</div>
+</div>
+<div class="flex items-center justify-between py-1">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-teal-600" data-icon="flatware">flatware</span>
+</div>
+<span class="font-medium text-neutral-800">Bát đĩa</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 rounded-full border-2 border-neutral-200 flex items-center justify-center active:bg-neutral-100"><span class="material-symbols-outlined text-neutral-600">remove</span></button>
+<span class="w-6 text-center font-bold text-lg">8</span>
+<button class="w-10 h-10 rounded-full border-2 border-teal-600 flex items-center justify-center active:bg-teal-50"><span class="material-symbols-outlined text-teal-600">add</span></button>
+</div>
+</div>
+<div class="flex items-center justify-between py-1">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center">
+<span class="material-symbols-outlined text-teal-600" data-icon="wine_bar">wine_bar</span>
+</div>
+<span class="font-medium text-neutral-800">Ly cốc</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 rounded-full border-2 border-neutral-200 flex items-center justify-center active:bg-neutral-100"><span class="material-symbols-outlined text-neutral-600">remove</span></button>
+<span class="w-6 text-center font-bold text-lg">6</span>
+<button class="w-10 h-10 rounded-full border-2 border-teal-600 flex items-center justify-center active:bg-teal-50"><span class="material-symbols-outlined text-teal-600">add</span></button>
+</div>
+</div>
+<!-- Dimmed Example -->
+<div class="flex items-center justify-between py-1 opacity-40">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-neutral-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-neutral-500" data-icon="kettle">kettle</span>
+</div>
+<span class="font-medium text-neutral-800">Ấm đun nước</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 rounded-full border-2 border-neutral-200 flex items-center justify-center"><span class="material-symbols-outlined text-neutral-400">remove</span></button>
+<span class="w-6 text-center font-bold text-lg">0</span>
+<button class="w-10 h-10 rounded-full border-2 border-neutral-200 flex items-center justify-center"><span class="material-symbols-outlined text-neutral-400">add</span></button>
+</div>
+</div>
+</div>
+<!-- Specialized Towel Block -->
+<div class="pt-2">
+<h3 class="text-sm font-bold text-neutral-500 uppercase tracking-wider mb-4">Khăn tắm — số lượng cấp mỗi ngày</h3>
+<div class="bg-neutral-50 rounded-xl p-4 space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-neutral-600" data-icon="dry_cleaning">dry_cleaning</span>
+<span class="font-medium">Khăn lớn</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="w-9 h-9 rounded-full bg-white border border-neutral-200 flex items-center justify-center active:bg-neutral-100 shadow-sm"><span class="material-symbols-outlined text-sm">remove</span></button>
+<span class="w-4 text-center font-bold">2</span>
+<button class="w-9 h-9 rounded-full bg-white border border-teal-600 flex items-center justify-center active:bg-teal-50 shadow-sm"><span class="material-symbols-outlined text-sm text-teal-600">add</span></button>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-neutral-600" data-icon="dry_cleaning">dry_cleaning</span>
+<span class="font-medium">Khăn vừa</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="w-9 h-9 rounded-full bg-white border border-neutral-200 flex items-center justify-center active:bg-neutral-100 shadow-sm"><span class="material-symbols-outlined text-sm">remove</span></button>
+<span class="w-4 text-center font-bold">4</span>
+<button class="w-9 h-9 rounded-full bg-white border border-teal-600 flex items-center justify-center active:bg-teal-50 shadow-sm"><span class="material-symbols-outlined text-sm text-teal-600">add</span></button>
+</div>
+</div>
+</div>
+</div>
+<!-- Divider -->
+<div class="py-4">
+<div class="border-t border-dashed border-neutral-300 relative">
+<span class="absolute left-1/2 -top-3 -translate-x-1/2 bg-white px-3 text-xs font-semibold text-neutral-400">Tham khảo — tab Minibar</span>
+</div>
+</div>
+<!-- Minibar Reference List -->
+<div class="space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-neutral-600 text-[20px]" data-icon="water_full">water_full</span>
+<span class="font-medium">Nước suối</span>
+</div>
+<span class="text-teal-600 text-xs font-semibold ml-7">4 · 15.000₫</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 rounded-full border-2 border-neutral-200 flex items-center justify-center"><span class="material-symbols-outlined">remove</span></button>
+<span class="w-6 text-center font-bold">4</span>
+<button class="w-10 h-10 rounded-full border-2 border-teal-600 flex items-center justify-center"><span class="material-symbols-outlined text-teal-600">add</span></button>
+</div>
+</div>
+<div class="flex items-center justify-between opacity-40">
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-neutral-600 text-[20px]" data-icon="sports_bar">sports_bar</span>
+<span class="font-medium">Bia</span>
+</div>
+<span class="text-teal-600 text-xs font-semibold ml-7">0 · 40.000₫</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 rounded-full border-2 border-neutral-200 flex items-center justify-center"><span class="material-symbols-outlined">remove</span></button>
+<span class="w-6 text-center font-bold">0</span>
+<button class="w-10 h-10 rounded-full border-2 border-neutral-200 flex items-center justify-center"><span class="material-symbols-outlined">add</span></button>
+</div>
+</div>
+</div>
+<!-- Custom Minibar Entry -->
+<div class="space-y-4 pb-8">
+<button class="w-full h-14 border-2 border-dashed border-neutral-200 rounded-xl flex items-center justify-center gap-2 text-neutral-500 font-semibold active:bg-neutral-50 transition-colors">
+<span class="material-symbols-outlined">add</span>
+                    Thêm món minibar
+                </button>
+<!-- Active Editable Row -->
+<div class="bg-teal-50/50 border border-teal-100 rounded-xl p-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+<div class="flex items-start justify-between gap-4">
+<div class="flex-1 space-y-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-teal-600" data-icon="edit">edit</span>
+<input class="bg-transparent border-b border-teal-200 focus:border-teal-600 focus:ring-0 outline-none w-full font-medium text-neutral-800 p-0 text-sm" placeholder="Tên món" type="text" value="Hạt điều"/>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-teal-600 text-sm" data-icon="payments">payments</span>
+<input class="bg-transparent border-b border-teal-200 focus:border-teal-600 focus:ring-0 outline-none w-full text-xs font-semibold text-teal-600 p-0" placeholder="Giá tiền" type="number" value="35000"/>
+</div>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="flex items-center gap-3">
+<button class="w-8 h-8 rounded-full bg-white border border-neutral-200 flex items-center justify-center"><span class="material-symbols-outlined text-xs">remove</span></button>
+<span class="font-bold">1</span>
+<button class="w-8 h-8 rounded-full bg-white border border-teal-600 flex items-center justify-center text-teal-600"><span class="material-symbols-outlined text-xs">add</span></button>
+</div>
+<button class="mt-2 text-not_sellable active:opacity-50">
+<span class="material-symbols-outlined" data-icon="cancel">cancel</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Footer Button -->
+<div class="fixed bottom-0 w-full max-w-[390px] p-4 bg-white/80 backdrop-blur-lg border-t border-neutral-100 z-50">
+<button class="w-full h-14 bg-teal-600 text-white rounded-xl font-bold text-lg shadow-lg shadow-teal-600/20 active:scale-[0.98] transition-transform">
+                Lưu thay đổi
+            </button>
+</div>
+</main>
+<script>
+        // Simple Interaction Script
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                // Optional haptic feedback or visual ripple would go here
+            });
+        });
+    </script>
+</body></html>
