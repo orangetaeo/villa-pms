@@ -128,26 +128,26 @@ const drive = (id: string) => `https://lh3.googleusercontent.com/d/${id}=w1280`;
 const VILLA_DRIVE_PHOTOS: Record<string, Partial<Record<PhotoSpace, string>>> = {
   // demo-villa-pearl ← 쏘나씨 V11/V25 혼합(독립 세트)
   "demo-villa-pearl": {
-    EXTERIOR: "16eTi_pAWlXKA6ajXf3krMiEvEm-dOgg3",
-    LIVING: "1sSmECZruWIpcO-sy2AcDSK4SI_FxN_XQ",
-    KITCHEN: "1SW-7_jLzeTZQRkp-vN5DlARHpqBQq5X-",
-    BEDROOM: "1dvzJFt2zMCcO446NzWC9v829lbCDPbKC",
-    POOL: "1KV94zJ72eyRmIOmnRpqVj1wTNt4ITbMv",
+    EXTERIOR: "1eJtfsLxZ-NixoZr6iwx4t41uWl89lJM7",
+    LIVING: "1Qk-6etxQlqPyrf_wds_bjYGCSKxydkmH",
+    KITCHEN: "1VfvmwOi1CAtvlz8Kty41DTlCLXvn-csx",
+    BEDROOM: "1T2OEi4XLtbp8p6SG45HtUvDZnauDOlB-",
+    POOL: "1ausldJ-VSYQiMO6dWmVidrdcPEA-FaGb",
   },
   // demo-villa-ocean ← 쏘나씨 V11
   "demo-villa-ocean": {
-    EXTERIOR: "1KgwcoC3HNOXwIbkcCUAfmKeWwHF2awO-",
-    LIVING: "1uytkKLZhN2Pz-3PJ50HBbbk7c-AyeklH",
-    KITCHEN: "1NdxMj5oVoEjL-hzwtAQ3w_vUt40sJ81j",
-    BEDROOM: "1RXqP2E_D1JCPeIPDnnskpQ13zhwCU87t",
-    POOL: "1gHHe0rJJTnDiOQZ7Zm-DpY9pTUMhj3Da",
+    EXTERIOR: "1eGxWKKM0tsW4SHvBVCgaVKPsUQsf57Fy",
+    LIVING: "1UWa-1BoCQfqUCbAR9KNuvafoFElnxLJT",
+    KITCHEN: "1ybV52F2ofjtFIl0asBREP1bpRYETMg_-",
+    BEDROOM: "1x2Lp0Rx3xLzlUhZpUw51Ml_pqW2ivM5M",
+    POOL: "1Z_hbU7XrVyput17-J4eTn5MeqQSJBwfM",
   },
   // demo-villa-garden ← 쏘나씨 V25 (수영장 없음)
   "demo-villa-garden": {
-    EXTERIOR: "1U9sAsMFfcee4wqDKzPENLaD2g9MeCbYc",
-    LIVING: "1zPms_0KMWce5q0P2rUWYKmr7N9MgA1zr",
-    KITCHEN: "1yNgeW0gq7FLXS_ITNQtD8OaOh_I2OVwp",
-    BEDROOM: "1xXlIIDk9d9tnZ-aVPU2Cs2saJCMxQIR1",
+    EXTERIOR: "1NtY5vFfwtAgroIv_-_2MJAIWjgfZVDfo",
+    LIVING: "1bVK3x26109_b96aElCmOGFRP7pc32e0E",
+    KITCHEN: "1Kgvjq-4tRZmGlbAzCupArdlE9RhW-Vw9",
+    BEDROOM: "1akaKGOBbCJHDfZbsQrR82qT4tf-sLoZJ",
   },
 };
 
