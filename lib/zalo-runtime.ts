@@ -693,6 +693,62 @@ export async function sendChatMessageAsAdmin(
   return sendVia(api, zaloUserId, text);
 }
 
+// ── ADR-0009 S1: 이미지 발송 ──────────────────────────────────────
+
+/**
+ * 관리자 본인 계정으로 이미지 발송 (ADR-0009 S1 — Nike sendZaloImage 정본).
+ * zca-js는 메모리 Buffer만 받는다(URL 불가): attachments[{ data, filename, metadata.totalSize }].
+ * EXIF 회전 보정(sharp.rotate) — 모바일 촬영 세로 사진이 가로로 보이는 문제 방지.
+ * caption(선택)은 같은 메시지 본문으로 함께 전송. 봇 미연결 시 ok:false(ERROR_BOT_NOT_CONNECTED).
+ *
+ * 시스템봇·텍스트 발송 함수 무변경 — 본 함수만 신규 추가.
+ */
+export async function sendChatImageAsAdmin(
+  adminUserId: string,
+  zaloUserId: string,
+  buffer: Buffer,
+  fileName: string,
+  caption?: string
+): Promise<BotSendResult> {
+  const api = await getApiForAdmin(adminUserId);
+  if (!api) return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
+  try {
+    // EXIF 방향 자동 회전 — jpg/png/webp/tiff만(heic는 sharp 빌드 의존, 실패 시 원본 폴백).
+    let sendBuffer = buffer;
+    if (/\.(jpe?g|png|webp|tiff?)$/i.test(fileName)) {
+      try {
+        const sharp = (await import("sharp")).default;
+        sendBuffer = await sharp(buffer).rotate().toBuffer();
+      } catch {
+        sendBuffer = buffer; // 회전 실패는 치명적 아님 — 원본 그대로 발송
+      }
+    }
+    const safeName = (/\.[a-z0-9]+$/i.test(fileName) ? fileName : `${fileName}.jpg`) as
+      `${string}.${string}`;
+    const res = await api.sendMessage(
+      {
+        msg: caption ?? "",
+        attachments: [
+          {
+            data: sendBuffer,
+            filename: safeName,
+            metadata: { totalSize: sendBuffer.length },
+          },
+        ],
+      },
+      zaloUserId,
+      ThreadType.User
+    );
+    const msgId = res?.message?.msgId ?? res?.attachment?.[0]?.msgId;
+    return { ok: true, messageId: msgId != null ? String(msgId) : null };
+  } catch (e) {
+    return {
+      ok: false,
+      error: `SEND_ERROR: ${e instanceof Error ? e.message : String(e)}`.slice(0, 500),
+    };
+  }
+}
+
 // ── ADR-0009 S6: 아바타 조회·캐시 ─────────────────────────────────
 
 /** 아바타 재조회 주기 — 이 기간 지난 캐시만 lazy 갱신(레이트리밋 회피). */
