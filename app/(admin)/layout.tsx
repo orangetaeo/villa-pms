@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import { getLocale } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
@@ -62,10 +62,20 @@ export default async function AdminLayout({
   });
   const unreadCount = unreadAgg._sum.unreadCount ?? 0;
 
+  // 로그아웃 서버 액션 — 사이드바(클라이언트)에 전달. 완료 후 /login
+  async function logoutAction() {
+    "use server";
+    await signOut({ redirectTo: "/login" });
+  }
+
   return (
     <div className="min-h-screen bg-admin-bg text-slate-50 font-admin">
       <NextIntlClientProvider locale={locale} messages={messages}>
-      <AdminSidebar userName={session.user.name} unreadCount={unreadCount} />
+      <AdminSidebar
+        userName={session.user.name}
+        unreadCount={unreadCount}
+        logoutAction={logoutAction}
+      />
       {/* 데스크톱: 사이드바 폭만큼 밀기 / 모바일: 헤더 높이만큼 내리기 */}
       <main className="lg:pl-64 pt-14 lg:pt-0 min-h-screen">
         <div className="p-4 md:p-8">{children}</div>

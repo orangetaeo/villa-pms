@@ -16,7 +16,8 @@
     "profileName": "Quản trị viên",
     "profileRole": "Quản trị viên cấp cao",
     "openMenu": "Mở menu",
-    "closeMenu": "Đóng menu"
+    "closeMenu": "Đóng menu",
+    "logout": "Đăng xuất"
   },
   "adminDashboard": {
     "title": "Bảng điều khiển",

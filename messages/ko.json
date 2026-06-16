@@ -16,7 +16,8 @@
     "profileName": "관리자",
     "profileRole": "최고 관리자",
     "openMenu": "메뉴 열기",
-    "closeMenu": "메뉴 닫기"
+    "closeMenu": "메뉴 닫기",
+    "logout": "로그아웃"
   },
   "adminDashboard": {
     "title": "대시보드",

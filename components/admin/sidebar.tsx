@@ -31,10 +31,13 @@ const NAV_ITEMS: NavItem[] = [
 export default function AdminSidebar({
   userName,
   unreadCount = 0,
+  logoutAction,
 }: {
   userName?: string | null;
   /** 메시지 메뉴 미읽음 합계 뱃지 (T6.6, b14) */
   unreadCount?: number;
+  /** 로그아웃 서버 액션 (layout에서 NextAuth signOut 주입) */
+  logoutAction?: () => Promise<void>;
 }) {
   const t = useTranslations("nav");
   const pathname = usePathname();
@@ -126,12 +129,25 @@ export default function AdminSidebar({
           <div className="w-8 h-8 rounded-full bg-admin-primary flex items-center justify-center text-xs font-bold text-white shrink-0">
             {(userName ?? t("profileName")).slice(0, 1)}
           </div>
-          <div className="flex flex-col overflow-hidden">
+          <div className="flex flex-col overflow-hidden flex-1">
             <span className="text-sm font-bold text-white leading-none truncate">
               {userName ?? t("profileName")}
             </span>
             <span className="text-[10px] text-admin-muted">{t("profileRole")}</span>
           </div>
+          {/* 로그아웃 — NextAuth signOut 서버 액션, 완료 후 /login */}
+          {logoutAction && (
+            <form action={logoutAction}>
+              <button
+                type="submit"
+                aria-label={t("logout")}
+                title={t("logout")}
+                className="text-admin-muted hover:text-white hover:bg-admin-card rounded-lg p-2 transition-colors duration-200"
+              >
+                <span className="material-symbols-outlined text-[20px]">logout</span>
+              </button>
+            </form>
+          )}
         </div>
       </aside>
     </>
