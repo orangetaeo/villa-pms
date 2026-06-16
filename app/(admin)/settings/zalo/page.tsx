@@ -1,11 +1,12 @@
 // /settings/zalo — Zalo 봇 연결 (ADR-0006 S1, 운영자 다크)
-// RSC: 초기 상태는 getBotStatus()로 서버에서 1회 조회 → 클라이언트가 폴링으로 갱신.
+// RSC: 초기 상태는 getStatusForAdmin(본인)로 서버에서 1회 조회 → 클라이언트가 폴링으로 갱신 (ADR-0007).
 // a0-zalo-connect 디자인 의미 참고하되 이건 ADMIN 다크(운영자 봇 로그인 화면).
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { getBotStatus } from "@/lib/zalo-runtime";
+import { getStatusForAdmin } from "@/lib/zalo-runtime";
+import { getSystemBotOwnerId } from "@/lib/zalo-credentials";
 import ZaloConnectClient from "./zalo-connect-client";
 
 export const metadata: Metadata = {
@@ -22,8 +23,13 @@ export default async function ZaloSettingsPage() {
   }
 
   const t = await getTranslations("adminZalo");
-  // credential 미포함 상태 객체만 클라이언트로 전달 (D6.2)
-  const initialStatus = getBotStatus();
+  // 본인 계정 상태만 (ADR-0007) — credential 미포함 상태 객체만 클라이언트로 전달 (D6.2)
+  const initialStatus = await getStatusForAdmin(session.user!.id);
+  // 통합 모드(D1): 시스템봇 소유자(테오)는 이 계정이 시스템 알림 발송도 겸함.
+  // 최초 연결자(시스템봇 미존재)도 시스템봇이 되므로 안내 노출.
+  const systemOwnerId = await getSystemBotOwnerId();
+  const isSystemBotAccount =
+    systemOwnerId === null || systemOwnerId === session.user!.id;
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
@@ -41,7 +47,10 @@ export default async function ZaloSettingsPage() {
         </nav>
       </div>
 
-      <ZaloConnectClient initialStatus={initialStatus} />
+      <ZaloConnectClient
+        initialStatus={initialStatus}
+        isSystemBotAccount={isSystemBotAccount}
+      />
     </div>
   );
 }

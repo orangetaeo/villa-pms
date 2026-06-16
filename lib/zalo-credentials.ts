@@ -1,7 +1,10 @@
 // [SHARED-MODULE] from Nike src/lib/zalo-credentials.ts (v1.x)
-// villa-pms 적응: prisma 명명 export(import { prisma }), User.status→isActive,
-// ZaloAccount는 단일 봇(singleton). 보안(ADR-0006 D6): credentials는 AES-256-GCM 암호문,
+// villa-pms 적응: prisma 명명 export(import { prisma }), User.status→isActive.
+// ADR-0007: 멀티 계정 — kind(SYSTEM_BOT|ADMIN_PERSONAL)·userId(필수)로 분기.
+//   loadAllActiveCredentials(부팅), loadCredentialsForAccount(개인/시스템 키별).
+// 보안(ADR-0006 D6): credentials는 AES-256-GCM 암호문,
 // 절대 평문/응답/로그/AuditLog 노출 금지. findUnique/findFirst 시 credentials는 명시 select로만 로드.
+import { ZaloAccountKind } from "@prisma/client";
 import crypto from "crypto";
 
 import { prisma } from "./prisma";
@@ -46,31 +49,34 @@ export interface ZaloCredentials {
 }
 
 /**
- * Zalo 봇 자격증명을 DB에 암호화 저장 (upsert: zaloUserId 기준 단일 봇).
+ * Zalo 봇 자격증명을 DB에 암호화 저장 (ADR-0007 — kind·userId 필수).
+ * upsert 키: (userId, kind) 복합 — 관리자 1명당 kind별 1계정. zaloUserId는 봇 own id로 갱신.
  * @returns ZaloAccount.id
  */
 export async function saveCredentials(
   zaloUserId: string,
   creds: ZaloCredentials,
-  userId?: string,
+  userId: string,
+  kind: ZaloAccountKind,
   displayName?: string
 ): Promise<string> {
   const encrypted = encrypt(JSON.stringify(creds));
   const account = await prisma.zaloAccount.upsert({
-    where: { zaloUserId },
+    where: { userId_kind: { userId, kind } },
     update: {
-      credentials: encrypted,
-      isActive: true,
-      lastConnected: new Date(),
-      ...(userId && { userId }),
-      ...(displayName && { displayName }),
-    },
-    create: {
       zaloUserId,
       credentials: encrypted,
       isActive: true,
       lastConnected: new Date(),
-      userId: userId || null,
+      ...(displayName && { displayName }),
+    },
+    create: {
+      zaloUserId,
+      kind,
+      userId,
+      credentials: encrypted,
+      isActive: true,
+      lastConnected: new Date(),
       displayName,
     },
     select: { id: true }, // credentials 응답 미포함 (D6.2)
@@ -79,45 +85,42 @@ export async function saveCredentials(
 }
 
 /**
- * Zalo 봇 자격증명 비활성화 (연결 해제 시).
+ * Zalo 봇 자격증명 비활성화 (연결 해제 시). ADR-0007 — accountId 기준(정확한 단일 행).
  */
-export async function setCredentialsInactive(zaloUserId: string): Promise<void> {
+export async function setCredentialsInactive(accountId: string): Promise<void> {
   await prisma.zaloAccount.updateMany({
-    where: { zaloUserId },
+    where: { id: accountId },
     data: { isActive: false },
   });
 }
 
-/**
- * DB에서 활성 봇 계정의 자격증명 로드 (단일 봇 — 0~1건).
- * credentials는 여기서만 명시적으로 select하여 복호화한다 (D6.2).
- */
-export async function loadCredentials(): Promise<{
+/** 복호화된 계정 자격증명 (ADR-0007 — kind 포함). credentials는 평문 미노출 책임 호출부에. */
+export interface LoadedAccountCredentials {
   accountId: string;
   zaloUserId: string;
-  userId: string | null;
+  userId: string;
+  kind: ZaloAccountKind;
   displayName: string | null;
   credentials: ZaloCredentials;
-} | null> {
-  const account = await prisma.zaloAccount.findFirst({
-    where: { isActive: true },
-    orderBy: { lastConnected: "desc" },
-    select: {
-      id: true,
-      zaloUserId: true,
-      userId: true,
-      displayName: true,
-      credentials: true,
-    },
-  });
-  if (!account?.credentials) return null;
+}
 
+/** account 행 → 복호화 결과 (실패 시 null — 로그에 credential 절대 미포함). */
+function decryptAccountRow(account: {
+  id: string;
+  zaloUserId: string;
+  userId: string;
+  kind: ZaloAccountKind;
+  displayName: string | null;
+  credentials: string | null;
+}): LoadedAccountCredentials | null {
+  if (!account.credentials) return null;
   try {
     const decrypted = decrypt(account.credentials);
     return {
       accountId: account.id,
       zaloUserId: account.zaloUserId,
       userId: account.userId,
+      kind: account.kind,
       displayName: account.displayName,
       credentials: JSON.parse(decrypted),
     };
@@ -128,14 +131,56 @@ export async function loadCredentials(): Promise<{
   }
 }
 
+const CRED_SELECT = {
+  id: true,
+  zaloUserId: true,
+  userId: true,
+  kind: true,
+  displayName: true,
+  credentials: true,
+} as const;
+
 /**
- * 활성 봇 계정 ID 가져오기 (credentials 미포함).
+ * 부팅 시 모든 활성 계정 자격증명 로드 (ADR-0007 — 풀 connectAllActive용).
+ * 복호화 실패 행은 제외. credentials는 여기서만 명시 select (D6.2).
  */
-export async function getActiveAccountId(): Promise<string | null> {
-  const account = await prisma.zaloAccount.findFirst({
+export async function loadAllActiveCredentials(): Promise<LoadedAccountCredentials[]> {
+  const accounts = await prisma.zaloAccount.findMany({
     where: { isActive: true },
     orderBy: { lastConnected: "desc" },
-    select: { id: true },
+    select: CRED_SELECT,
   });
-  return account?.id ?? null;
+  const out: LoadedAccountCredentials[] = [];
+  for (const a of accounts) {
+    const d = decryptAccountRow(a);
+    if (d) out.push(d);
+  }
+  return out;
+}
+
+/**
+ * 특정 관리자×kind 계정 자격증명 로드 (개인 채팅·시스템봇 분기 재연결용).
+ */
+export async function loadCredentialsForAccount(
+  userId: string,
+  kind: ZaloAccountKind
+): Promise<LoadedAccountCredentials | null> {
+  const account = await prisma.zaloAccount.findUnique({
+    where: { userId_kind: { userId, kind } },
+    select: CRED_SELECT,
+  });
+  if (!account) return null;
+  return decryptAccountRow(account);
+}
+
+/**
+ * 활성 시스템봇 소유자(테오) userId 조회 (credentials 미포함). 미러 귀속·발송 분기용.
+ */
+export async function getSystemBotOwnerId(): Promise<string | null> {
+  const account = await prisma.zaloAccount.findFirst({
+    where: { kind: ZaloAccountKind.SYSTEM_BOT, isActive: true },
+    orderBy: { lastConnected: "desc" },
+    select: { userId: true },
+  });
+  return account?.userId ?? null;
 }

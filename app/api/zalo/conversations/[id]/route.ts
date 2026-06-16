@@ -33,9 +33,9 @@ export async function PATCH(
     return NextResponse.json({ error: "VALIDATION_FAILED" }, { status: 400 });
   }
 
-  // updateMany — 멱등 + 미존재 대화는 count 0 → 404
+  // updateMany — 멱등 + 본인(ownerAdminId) 대화만 (ADR-0007 누수 차단). 미존재/타인 대화는 count 0 → 404
   const result = await prisma.zaloConversation.updateMany({
-    where: { id },
+    where: { id, ownerAdminId: session.user.id },
     data: { unreadCount: 0 },
   });
   if (result.count === 0) {

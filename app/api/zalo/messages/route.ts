@@ -14,7 +14,7 @@ import {
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
-import { sendBotMessage } from "@/lib/zalo-runtime";
+import { sendChatMessageAsAdmin } from "@/lib/zalo-runtime";
 
 const bodySchema = z.object({
   conversationId: z.string().min(1),
@@ -47,20 +47,25 @@ export async function POST(req: Request) {
   }
   const { conversationId, text } = parsed.data;
 
-  const conversation = await prisma.zaloConversation.findUnique({
-    where: { id: conversationId },
+  // 소유 검증 — 본인(ownerAdminId) 대화에만 발신 (ADR-0007 D3.4, 타 관리자 대화 발신 차단).
+  const conversation = await prisma.zaloConversation.findFirst({
+    where: { id: conversationId, ownerAdminId: session.user.id },
     select: { id: true, zaloUserId: true },
   });
   if (!conversation) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
 
-  // 1) 발송 시도 — 봇 미연결/실패는 status=FAILED 기록(500 금지). 48h 가드 없음(D5.5).
+  // 1) 발송 시도 — 본인 계정으로 발신. 봇 미연결/실패는 status=FAILED 기록(500 금지). 48h 가드 없음(D5.5).
   let status: ZaloMessageStatus;
   let error: string | null = null;
   let zaloMsgId: string | null = null;
 
-  const result = await sendBotMessage(conversation.zaloUserId, text);
+  const result = await sendChatMessageAsAdmin(
+    session.user.id,
+    conversation.zaloUserId,
+    text
+  );
   if (result.ok) {
     status = ZaloMessageStatus.SENT;
     zaloMsgId = result.messageId;

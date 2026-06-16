@@ -32,6 +32,8 @@ vi.mock("@/lib/prisma", () => ({
 import { saveInboundMessage } from "@/lib/zalo-inbound";
 
 const base = {
+  ownerAdminId: "admin-theo",
+  isSystemBot: true, // 기본: 시스템봇 수신(전화번호 매칭 활성)
   senderZaloUserId: "sup-zalo-1",
   text: "Xin chào",
   zaloMsgId: "m-1",
@@ -49,7 +51,18 @@ beforeEach(() => {
   txArr.mockResolvedValue([{}, {}]);
 });
 
-describe("saveInboundMessage — 저장 + 메타 갱신", () => {
+describe("saveInboundMessage — 저장 + 메타 갱신 (ADR-0007 귀속)", () => {
+  it("대화 upsert는 (ownerAdminId, zaloUserId) 복합키 — 관리자별 격리", async () => {
+    await saveInboundMessage(base);
+    const where = convUpsert.mock.calls[0]![0].where;
+    expect(where).toEqual({
+      ownerAdminId_zaloUserId: { ownerAdminId: "admin-theo", zaloUserId: "sup-zalo-1" },
+    });
+    const create = convUpsert.mock.calls[0]![0].create;
+    expect(create.ownerAdminId).toBe("admin-theo");
+    expect(create.zaloUserId).toBe("sup-zalo-1");
+  });
+
   it("신규 수신: 대화 upsert + INBOUND·USER 메시지 + lastInboundAt·unread+1", async () => {
     const r = await saveInboundMessage(base);
     expect(r.saved).toBe(true);
@@ -107,5 +120,20 @@ describe("saveInboundMessage — 전화번호 매칭 (T3.7)", () => {
     const r = await saveInboundMessage({ ...base, text: "Xin chào" });
     expect(userFindFirst).not.toHaveBeenCalled();
     expect(r.matchedUserId).toBeNull();
+  });
+
+  it("개인 계정 수신(isSystemBot=false) → 전화번호여도 매칭 스킵 (D4 — User.zaloUserId 전역 오염 방지)", async () => {
+    userFindFirst.mockResolvedValue({ id: "user-9", zaloUserId: null });
+    const r = await saveInboundMessage({ ...base, isSystemBot: false, text: "0901234567" });
+    expect(userFindFirst).not.toHaveBeenCalled();
+    expect(txArr).not.toHaveBeenCalled();
+    expect(r.matchedUserId).toBeNull();
+  });
+
+  it("개인 계정 수신도 대화 저장은 정상 (귀속 관리자 격리)", async () => {
+    const r = await saveInboundMessage({ ...base, ownerAdminId: "admin-b", isSystemBot: false });
+    expect(r.saved).toBe(true);
+    const where = convUpsert.mock.calls[0]![0].where;
+    expect(where.ownerAdminId_zaloUserId.ownerAdminId).toBe("admin-b");
   });
 });

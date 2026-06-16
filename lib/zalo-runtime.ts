@@ -1,14 +1,16 @@
-// [SHARED-MODULE] from Nike src/lib/zalo-pool.ts (v1.x) — 단일 인스턴스로 축약 (ADR-0006 D5.3)
+// [SHARED-MODULE] from Nike src/lib/zalo-pool.ts (v1.x) — 멀티 계정 풀 부활 (ADR-0007 S1)
 /**
- * Zalo 봇 단일 인스턴스 매니저.
+ * Zalo 멀티 계정 풀 매니저 (ADR-0007).
  *
- * Nike의 멀티유저 풀(Map<userId, instance>)을 villa-pms 봇 1개 모델로 축약한다.
- * - globalThis.zaloBot 단일 슬롯 (D1.4) — HMR/instrumentation 중복 호출에도 1개만 생존
- * - connectPromise mutex (D2.2) — 동시 로그인 가드 (replica=1과 함께 이중 로그인 밴 방지)
- * - WebSocket 리스너는 next start Node 프로세스에 상주 (D1.3)
- *
- * 본 단계(S1~S2) 범위: connect/QR/status/getApi/disconnect.
- * 수신 리스너 본문 저장(S3)·발송(S4)은 후속 단계 — 여기서는 listener.start()로 세션만 유지.
+ * ADR-0006의 단일 슬롯(globalThis.zaloBot)을 Map<string, instance>로 확장한다.
+ *  - 풀 키: 관리자 개인 계정 = adminUserId, 시스템봇 = 예약 키 "__system__".
+ *  - 시스템 발송(dispatchOne)은 getSystemBotApi() → "__system__" 인스턴스 (무변경 분기).
+ *  - 채팅 발송/조회는 getApiForAdmin(adminUserId) → 본인 인스턴스.
+ *  - 통합 모드(D1): 테오는 SYSTEM_BOT 1계정 = "__system__" 1 인스턴스를 시스템 발송 + 본인 채팅에 공유.
+ *    같은 계정 이중 로그인 금지(code 3000 회피) — 테오 개인 채팅도 "__system__" 인스턴스를 그대로 쓴다.
+ *  - 다른 관리자(ADMIN_PERSONAL)는 각자 adminUserId 키 인스턴스.
+ *  - connectPromise mutex (D2.2) — 동시 로그인 가드. replica=1과 함께 이중 로그인 밴 방지.
+ *  - WebSocket 리스너는 next start Node 프로세스에 상주 (ADR-0006 D1.3).
  *
  * 보안(D6): credential은 lib/zalo-credentials에서만 다룬다. 여기서는 평문 credential을
  * 절대 로그/응답에 내보내지 않는다. _pendingCreds는 onLoginSuccess 직후 즉시 폐기.
@@ -20,9 +22,12 @@ import {
   type Message,
   type UserMessage,
 } from "zca-js";
+import { ZaloAccountKind } from "@prisma/client";
 import {
   saveCredentials,
-  loadCredentials,
+  loadAllActiveCredentials,
+  loadCredentialsForAccount,
+  getSystemBotOwnerId,
   setCredentialsInactive,
   type ZaloCredentials,
 } from "./zalo-credentials";
@@ -36,6 +41,9 @@ import {
 
 export type ZaloStatus = "disconnected" | "qr_pending" | "connected" | "error";
 
+/** 시스템봇 예약 풀 키 (D1) — adminUserId와 충돌하지 않는 sentinel. */
+export const SYSTEM_BOT_KEY = "__system__";
+
 /**
  * 봇 미연결/세션 만료 — 발송 불가 (S4). attempt 미증가·자동 회복 동작은
  * 기존 ZALO_TOKEN_NOT_SET을 계승한다(봇 재로그인 후 다음 cron에서 자동 발송, ADR-0006 D5.4).
@@ -43,6 +51,12 @@ export type ZaloStatus = "disconnected" | "qr_pending" | "connected" | "error";
 export const ERROR_BOT_NOT_CONNECTED = "BOT_NOT_CONNECTED";
 
 interface ZaloBotInstance {
+  /** 풀 키 (adminUserId 또는 "__system__") */
+  poolKey: string;
+  /** 이 인스턴스를 소유한 ADMIN userId (수신 귀속·미러용) */
+  ownerAdminId: string | null;
+  /** 시스템봇 인스턴스 여부 (수신 전화번호 매칭은 이것만 — D4) */
+  isSystemBot: boolean;
   api: API | null;
   status: ZaloStatus;
   lastError: string | null;
@@ -55,32 +69,79 @@ interface ZaloBotInstance {
   connectPromise: Promise<void> | null;
   /** QR 로그인 중 임시 자격증명 — onLoginSuccess에서 저장 후 즉시 폐기 */
   _pendingCreds?: ZaloCredentials | null;
-  /** QR 스캔 단계에서 받은 표시명 (GotLoginInfo엔 없어 QRCodeScanned에서 보관) */
+  /** QR 스캔 단계에서 받은 표시명 */
   _scannedName?: string | null;
-  /** 봇을 소유한 ADMIN userId (QR 시작 시점 세션) */
-  _ownerUserId?: string | null;
+  /** QR 로그인 대상 계정 종류 (저장 시 kind) */
+  _kind: ZaloAccountKind;
 }
 
-// ── globalThis 단일 슬롯 (D1.4) ───────────────────────────────
-const globalForBot = globalThis as unknown as {
-  zaloBot: ZaloBotInstance | undefined;
+// ── globalThis 멀티 풀 ───────────────────────────────────────
+const globalForPool = globalThis as unknown as {
+  zaloPool: Map<string, ZaloBotInstance> | undefined;
+  zaloPoolInitialized: boolean | undefined;
+  zaloSystemOwnerId: string | null | undefined;
 };
 
-function getInstance(): ZaloBotInstance {
-  if (!globalForBot.zaloBot) {
-    globalForBot.zaloBot = {
-      api: null,
-      status: "disconnected",
-      lastError: null,
-      qrImageBase64: null,
-      ownId: null,
-      accountId: null,
-      displayName: null,
-      lastConnected: null,
-      connectPromise: null,
-    };
+function getPool(): Map<string, ZaloBotInstance> {
+  if (!globalForPool.zaloPool) globalForPool.zaloPool = new Map();
+  return globalForPool.zaloPool;
+}
+
+function createInstance(
+  poolKey: string,
+  opts: { ownerAdminId: string | null; isSystemBot: boolean; kind: ZaloAccountKind }
+): ZaloBotInstance {
+  return {
+    poolKey,
+    ownerAdminId: opts.ownerAdminId,
+    isSystemBot: opts.isSystemBot,
+    api: null,
+    status: "disconnected",
+    lastError: null,
+    qrImageBase64: null,
+    ownId: null,
+    accountId: null,
+    displayName: null,
+    lastConnected: null,
+    connectPromise: null,
+    _kind: opts.kind,
+  };
+}
+
+/** 현재 연결 상태 읽기 — TS 좁힘 우회(상태는 비동기 콜백이 mutate). */
+function isConnected(inst: ZaloBotInstance): boolean {
+  return (inst.status as ZaloStatus) === "connected";
+}
+
+function getOrCreateInstance(
+  poolKey: string,
+  opts: { ownerAdminId: string | null; isSystemBot: boolean; kind: ZaloAccountKind }
+): ZaloBotInstance {
+  const pool = getPool();
+  let inst = pool.get(poolKey);
+  if (!inst) {
+    inst = createInstance(poolKey, opts);
+    pool.set(poolKey, inst);
+  } else {
+    // 메타 보정 (재연결·QR 재시작 시 소유자/종류 최신화)
+    if (opts.ownerAdminId) inst.ownerAdminId = opts.ownerAdminId;
+    inst.isSystemBot = opts.isSystemBot;
+    inst._kind = opts.kind;
   }
-  return globalForBot.zaloBot;
+  return inst;
+}
+
+/** 시스템봇 소유자 userId 캐시 조회 (없으면 DB 1회 로드). */
+async function resolveSystemOwnerId(): Promise<string | null> {
+  if (globalForPool.zaloSystemOwnerId !== undefined) return globalForPool.zaloSystemOwnerId;
+  const id = await getSystemBotOwnerId();
+  globalForPool.zaloSystemOwnerId = id;
+  return id;
+}
+
+/** 풀 키 해석 (kind별). 시스템봇은 항상 "__system__". */
+function poolKeyFor(adminUserId: string, kind: ZaloAccountKind): string {
+  return kind === ZaloAccountKind.SYSTEM_BOT ? SYSTEM_BOT_KEY : adminUserId;
 }
 
 // ── 공개 API ──────────────────────────────────────────────────
@@ -93,11 +154,16 @@ export interface BotStatus {
   lastError: string | null;
 }
 
-/**
- * 봇 연결 상태 (credential 미포함 — API 응답 안전).
- */
-export function getBotStatus(): BotStatus {
-  const inst = getInstance();
+const DISCONNECTED_STATUS: BotStatus = {
+  connected: false,
+  status: "disconnected",
+  displayName: null,
+  lastConnected: null,
+  lastError: null,
+};
+
+function instStatus(inst: ZaloBotInstance | undefined): BotStatus {
+  if (!inst) return DISCONNECTED_STATUS;
   return {
     connected: inst.status === "connected",
     status: inst.status,
@@ -108,47 +174,143 @@ export function getBotStatus(): BotStatus {
 }
 
 /**
- * 로그인된 zca-js API 인스턴스 (발송·조회용, S3/S4). 미연결 시 null.
+ * 시스템봇 연결 상태 (credential 미포함). 시스템 발송 모니터링용.
  */
-export function getBotApi(): API | null {
-  const inst = getInstance();
-  return inst.status === "connected" ? inst.api : null;
+export function getSystemBotStatus(): BotStatus {
+  return instStatus(getPool().get(SYSTEM_BOT_KEY));
 }
 
 /**
- * 저장된 credential로 자동 재로그인 (instrumentation 부팅 + 라우트 자동 재연결용).
- * credential이 없으면 조용히 종료(QR 대기 상태). 동시 호출은 connectPromise로 1회만.
+ * 특정 관리자 본인 계정 연결 상태 (credential 미포함 — API 응답 안전).
+ * 통합 모드: 테오(시스템봇 소유자)는 "__system__" 인스턴스 상태를 본다.
  */
-export async function connectBot(): Promise<boolean> {
-  const inst = getInstance();
-  if (inst.status === "connected") return true;
-  if (inst.connectPromise) {
-    await inst.connectPromise;
-    return getInstance().status === "connected";
-  }
+export async function getStatusForAdmin(adminUserId: string): Promise<BotStatus> {
+  const inst = await resolveAdminInstance(adminUserId);
+  return instStatus(inst);
+}
 
-  // 첫 await 이전에 동기 등록 (yield 사이 동시 호출 이중 로그인 race 방지 — Nike 패턴)
-  const flow = (async () => {
-    const saved = await loadCredentials();
-    if (!saved) {
-      // credential 없음 → QR 로그인 대기. 에러 아님.
+/**
+ * 시스템 발송용 API (dispatchOne 전용, S4). "__system__" 인스턴스. 미연결 시 null.
+ */
+export function getSystemBotApi(): API | null {
+  const inst = getPool().get(SYSTEM_BOT_KEY);
+  return inst && inst.status === "connected" ? inst.api : null;
+}
+
+/**
+ * 관리자 본인 계정의 zca-js API (채팅 발송·조회). 미연결 시 null.
+ * 통합 모드: 테오는 "__system__" 인스턴스를 공유.
+ */
+export async function getApiForAdmin(adminUserId: string): Promise<API | null> {
+  const inst = await resolveAdminInstance(adminUserId);
+  return inst && inst.status === "connected" ? inst.api : null;
+}
+
+/**
+ * 관리자 → 인스턴스 해석.
+ *  1) adminUserId 키 인스턴스(ADMIN_PERSONAL)가 있으면 그것
+ *  2) 없고 adminUserId == 시스템봇 소유자면 "__system__" 인스턴스 (통합 모드)
+ *  3) 그 외 undefined
+ */
+async function resolveAdminInstance(
+  adminUserId: string
+): Promise<ZaloBotInstance | undefined> {
+  const pool = getPool();
+  const personal = pool.get(adminUserId);
+  if (personal) return personal;
+  const systemOwner = await resolveSystemOwnerId();
+  if (systemOwner && adminUserId === systemOwner) {
+    return pool.get(SYSTEM_BOT_KEY);
+  }
+  return undefined;
+}
+
+/**
+ * 부팅 시 모든 활성 계정 순차 재로그인 (ADR-0007 — Nike connectAllUsers).
+ * credential 없으면 빈 풀로 종료. 동시 호출은 zaloPoolInitialized + connectPromise로 1회만.
+ */
+let bootConnectPromise: Promise<void> | null = null;
+
+export async function connectAllActive(): Promise<void> {
+  if (bootConnectPromise) return bootConnectPromise;
+  if (globalForPool.zaloPoolInitialized) return;
+
+  bootConnectPromise = (async () => {
+    if (globalForPool.zaloPoolInitialized) return;
+    globalForPool.zaloPoolInitialized = true;
+
+    const allCreds = await loadAllActiveCredentials();
+    if (allCreds.length === 0) {
+      console.log("[ZaloPool] 활성 계정 없음 — QR 로그인 대기");
       return;
     }
+
+    // 시스템봇 소유자 캐시 갱신
+    const sysOwner = allCreds.find((c) => c.kind === ZaloAccountKind.SYSTEM_BOT);
+    if (sysOwner) globalForPool.zaloSystemOwnerId = sysOwner.userId;
+
+    // 순차 로그인 (병렬 금지 — Zalo API 과부하·동시 로그인 트리거 회피, D2.5)
+    for (const cred of allCreds) {
+      const key = poolKeyFor(cred.userId, cred.kind);
+      const inst = getOrCreateInstance(key, {
+        ownerAdminId: cred.userId,
+        isSystemBot: cred.kind === ZaloAccountKind.SYSTEM_BOT,
+        kind: cred.kind,
+      });
+      inst.accountId = cred.accountId;
+      inst.displayName = cred.displayName;
+      try {
+        await doCredentialLogin(inst, cred.credentials);
+      } catch (err) {
+        console.error(
+          `[ZaloPool] 계정 ${cred.accountId} 재로그인 실패:`,
+          err instanceof Error ? err.message : err
+        );
+      }
+    }
+    console.log(`[ZaloPool] ${getPool().size}개 인스턴스 초기화 완료`);
+  })().finally(() => {
+    bootConnectPromise = null;
+  });
+
+  return bootConnectPromise;
+}
+
+/**
+ * 저장된 credential로 특정 계정 재로그인 (라우트 지연 연결·자가 복구용).
+ * @returns 연결 성공 여부
+ */
+export async function ensureConnectionForAccount(
+  adminUserId: string,
+  kind: ZaloAccountKind
+): Promise<boolean> {
+  const key = poolKeyFor(adminUserId, kind);
+  const inst = getOrCreateInstance(key, {
+    ownerAdminId: adminUserId,
+    isSystemBot: kind === ZaloAccountKind.SYSTEM_BOT,
+    kind,
+  });
+  if (isConnected(inst)) return true;
+  if (inst.connectPromise) {
+    await inst.connectPromise;
+    return isConnected(inst);
+  }
+
+  const flow = (async () => {
+    const saved = await loadCredentialsForAccount(adminUserId, kind);
+    if (!saved) return; // credential 없음 → QR 대기. 에러 아님.
     inst.accountId = saved.accountId;
     inst.displayName = saved.displayName;
-    inst._ownerUserId = saved.userId;
     await doCredentialLogin(inst, saved.credentials);
   })();
   inst.connectPromise = flow;
 
   try {
     await flow;
-    return getInstance().status === "connected";
+    return isConnected(inst);
   } catch (err) {
-    // flow 내 onLoginSuccess가 status를 변경했을 수 있으므로 fresh 조회
-    const cur = getInstance();
-    if (cur.status !== "connected") cur.status = "disconnected";
-    cur.lastError = err instanceof Error ? err.message : "Credential login failed";
+    if (!isConnected(inst)) inst.status = "disconnected";
+    inst.lastError = err instanceof Error ? err.message : "Credential login failed";
     return false;
   } finally {
     inst.connectPromise = null;
@@ -156,12 +318,20 @@ export async function connectBot(): Promise<boolean> {
 }
 
 /**
- * QR 로그인 시작 — QR 이미지(base64)를 반환한다.
- * 스캔 성공(GotLoginInfo→login resolve) 시 onLoginSuccess에서 credential 암호화 저장 + AuditLog.
- * @param ownerUserId 봇을 소유할 ADMIN userId (소유권·재로그인 매칭)
+ * QR 로그인 시작 — QR 이미지(base64)를 반환한다 (ADR-0007 S2).
+ * @param adminUserId 봇을 소유할 ADMIN userId
+ * @param kind SYSTEM_BOT(테오 시스템봇 겸 통합 채팅) | ADMIN_PERSONAL(개인 채팅)
  */
-export async function startBotQRLogin(ownerUserId: string): Promise<string> {
-  const inst = getInstance();
+export async function startQRLoginForAdmin(
+  adminUserId: string,
+  kind: ZaloAccountKind
+): Promise<string> {
+  const key = poolKeyFor(adminUserId, kind);
+  const inst = getOrCreateInstance(key, {
+    ownerAdminId: adminUserId,
+    isSystemBot: kind === ZaloAccountKind.SYSTEM_BOT,
+    kind,
+  });
 
   // 이미 QR 진행 중이면 기존 QR 재사용
   if (inst.status === "qr_pending" && inst.qrImageBase64) {
@@ -171,7 +341,8 @@ export async function startBotQRLogin(ownerUserId: string): Promise<string> {
   inst.status = "qr_pending";
   inst.qrImageBase64 = null;
   inst.lastError = null;
-  inst._ownerUserId = ownerUserId;
+  inst.ownerAdminId = adminUserId;
+  inst._kind = kind;
   inst._scannedName = null;
 
   return new Promise<string>((resolveQR, rejectQR) => {
@@ -225,7 +396,6 @@ export async function startBotQRLogin(ownerUserId: string): Promise<string> {
           inst.lastError = "Login returned null";
           return;
         }
-        // onLoginSuccess는 비동기(credential 저장) — 에러는 내부에서 status로 반영
         void onLoginSuccess(inst, api);
       })
       .catch((err) => {
@@ -234,7 +404,6 @@ export async function startBotQRLogin(ownerUserId: string): Promise<string> {
         rejectQR(err);
       });
 
-    // QR 생성 자체가 30초 내 안 되면 타임아웃
     setTimeout(() => {
       if (!inst.qrImageBase64) {
         rejectQR(new Error("QR generation timed out"));
@@ -244,10 +413,17 @@ export async function startBotQRLogin(ownerUserId: string): Promise<string> {
 }
 
 /**
- * 봇 연결 해제 — 리스너 정지 + credential 비활성화.
+ * 관리자 본인 계정 연결 해제 — 리스너 정지 + credential 비활성화 + 풀 제거.
+ * 통합 모드: 테오는 "__system__" 인스턴스가 대상(시스템 발송도 함께 끊김 — 운영 주의).
  */
-export async function disconnectBot(): Promise<void> {
-  const inst = getInstance();
+export async function disconnectForAdmin(
+  adminUserId: string,
+  kind: ZaloAccountKind
+): Promise<void> {
+  const key = poolKeyFor(adminUserId, kind);
+  const pool = getPool();
+  const inst = pool.get(key);
+  if (!inst) return;
 
   if (inst.api) {
     try {
@@ -262,35 +438,24 @@ export async function disconnectBot(): Promise<void> {
     }
   }
 
-  const zaloUserId = inst.ownId;
-  const ownerUserId = inst._ownerUserId;
   const accountId = inst.accountId;
+  const ownerAdminId = inst.ownerAdminId;
 
-  if (zaloUserId) {
-    await setCredentialsInactive(zaloUserId).catch((e) =>
-      console.error("[ZaloBot] 자격증명 비활성화 실패:", e instanceof Error ? e.message : e)
-    );
-  }
-
-  // AuditLog — credential 절대 미기록 (D6.2)
   if (accountId) {
+    await setCredentialsInactive(accountId).catch((e) =>
+      console.error("[ZaloPool] 자격증명 비활성화 실패:", e instanceof Error ? e.message : e)
+    );
+    // AuditLog — credential 절대 미기록 (D6.2)
     writeAuditLog({
       action: "DELETE",
       entity: "ZaloAccount",
       entityId: accountId,
-      userId: ownerUserId ?? undefined,
+      userId: ownerAdminId ?? undefined,
       changes: { type: { old: "CONNECTED", new: "DISCONNECTED" } },
     }).catch(() => {});
   }
 
-  inst.api = null;
-  inst.status = "disconnected";
-  inst.ownId = null;
-  inst.accountId = null;
-  inst.displayName = null;
-  inst.qrImageBase64 = null;
-  inst._pendingCreds = null;
-  inst.connectPromise = null;
+  pool.delete(key);
 }
 
 // ── 내부 헬퍼 ──────────────────────────────────────────────────
@@ -318,7 +483,7 @@ async function onLoginSuccess(inst: ZaloBotInstance, api: API) {
   }
 
   // QR 로그인 직후: credential 암호화 저장 (D6) — 저장 후 _pendingCreds 즉시 폐기
-  if (inst._pendingCreds && inst.ownId) {
+  if (inst._pendingCreds && inst.ownId && inst.ownerAdminId) {
     const pendingCreds = inst._pendingCreds;
     inst._pendingCreds = null;
     const displayName = inst._scannedName ?? inst.displayName ?? undefined;
@@ -326,37 +491,38 @@ async function onLoginSuccess(inst: ZaloBotInstance, api: API) {
       const accountId = await saveCredentials(
         inst.ownId,
         pendingCreds,
-        inst._ownerUserId ?? undefined,
+        inst.ownerAdminId,
+        inst._kind,
         displayName
       );
       inst.accountId = accountId;
       if (displayName) inst.displayName = displayName;
+      // 시스템봇 신규 연결 시 소유자 캐시 갱신
+      if (inst.isSystemBot) globalForPool.zaloSystemOwnerId = inst.ownerAdminId;
 
       // AuditLog — displayName만 (credential 절대 금지, D6.2)
       writeAuditLog({
         action: "CREATE",
         entity: "ZaloAccount",
         entityId: accountId,
-        userId: inst._ownerUserId ?? undefined,
+        userId: inst.ownerAdminId ?? undefined,
         changes: {
           type: { new: "CONNECT" },
+          kind: { new: inst._kind },
           displayName: { new: displayName ?? null },
         },
       }).catch(() => {});
     } catch (err) {
-      // credential 저장 실패(주로 ZALO_CREDS_KEY 미설정)를 조용히 삼키면 화면은
-      // "연결됨"으로 거짓 표시되지만 재시작 후 자동 재로그인이 불가능해진다.
-      // → 명시적으로 error 상태로 전환해 운영자가 즉시 원인을 인지하게 한다.
+      // credential 저장 실패(주로 ZALO_CREDS_KEY 미설정) → error 상태로 명시 전환
       inst.status = "error";
       inst.lastError =
         "Zalo 자격증명 저장 실패 — ZALO_CREDS_KEY 환경변수를 확인하세요 (미설정 시 재시작 후 연결이 끊깁니다)";
       console.error(
-        "[ZaloBot] credential 저장 실패:",
+        "[ZaloPool] credential 저장 실패:",
         err instanceof Error ? err.message : err
       );
     }
-  } else if (inst._pendingCreds && !inst.ownId) {
-    // QR 로그인했으나 ownId를 못 얻음 → credential 저장 불가 (영속 실패)
+  } else if (inst._pendingCreds && (!inst.ownId || !inst.ownerAdminId)) {
     inst._pendingCreds = null;
     inst.status = "error";
     inst.lastError = "Zalo 계정 ID 확인 실패 — 다시 QR 로그인하세요";
@@ -370,17 +536,15 @@ async function onLoginSuccess(inst: ZaloBotInstance, api: API) {
       inst.status = "connected";
       inst.lastConnected = new Date();
     });
-    // S3 — 수신 메시지 핸들러. UserMessage(1:1)만 처리, 그룹·에코는 스킵.
     api.listener.on("message", (message: Message) => {
       void handleInboundEvent(inst, message);
     });
     api.listener.on("closed", (code: number) => {
-      // code 3000 = DuplicateConnection — 다른 곳에서 봇 계정 로그인됨 (D2.3, 밴 위험 신호)
+      // code 3000 = DuplicateConnection — 다른 곳에서 계정 로그인됨 (D2.3, 밴 위험 신호)
       if (code === 3000) {
         inst.status = "error";
         inst.lastError = "다른 곳에서 로그인됨 (code 3000) — replica=1 확인 필요";
       } else if (inst.status === "connected") {
-        // 세션 종료 — credential은 DB에 남아 다음 connectBot()에서 자동 재로그인 (D1.2)
         inst.status = "disconnected";
         inst.lastError = `WebSocket closed (code ${code})`;
       }
@@ -388,11 +552,10 @@ async function onLoginSuccess(inst: ZaloBotInstance, api: API) {
     api.listener.on("error", (err: unknown) => {
       inst.lastError = err instanceof Error ? err.message : "listener error";
     });
-    // retryOnClose: 일시 끊김 시 zca-js가 자동 재연결 시도 (D1.2)
     api.listener.start({ retryOnClose: true });
   } catch (err) {
     console.error(
-      "[ZaloBot] 리스너 시작 실패:",
+      "[ZaloPool] 리스너 시작 실패:",
       err instanceof Error ? err.message : err
     );
   }
@@ -401,11 +564,12 @@ async function onLoginSuccess(inst: ZaloBotInstance, api: API) {
 // ── S3 수신 핸들러 ────────────────────────────────────────────
 
 /**
- * zca-js message 이벤트 → 파싱 → DB 저장.
- * - UserMessage(ThreadType.User)만 처리. 그룹 메시지는 무시.
- * - 봇 본인 발신 에코(isSelf 또는 ownId 일치)는 저장 스킵 — S4 발송이 OUTBOUND를 이미 미러.
+ * zca-js message 이벤트 → 파싱 → DB 저장 (ADR-0007 S3 — 수신 귀속).
+ * - UserMessage(ThreadType.User)만 처리. 그룹 무시.
+ * - 봇 본인 발신 에코(isSelf 또는 ownId 일치)는 저장 스킵.
+ * - 귀속: 이 인스턴스의 ownerAdminId로 ZaloConversation 복합키 귀속 (타 관리자 누수 0).
+ * - 전화번호 매칭은 시스템봇 수신만(isSystemBot=true, D4).
  * - 멱등·예외 안전: 1건 실패가 리스너를 죽이지 않도록 전체 try/catch.
- *   credential·세션 객체는 본 경로에서 다루지 않으며 로그에 메시지 본문·번호를 출력하지 않는다.
  */
 async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Promise<void> {
   try {
@@ -418,27 +582,32 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       (data.userId as string | undefined) ??
       null;
 
-    // 에코 제외 — 봇 본인 발신
     if (isEchoMessage({ isSelf: userMsg.isSelf, senderId }, inst.ownId)) return;
 
     const senderZaloUserId = userMsg.threadId || senderId;
     if (!senderZaloUserId) return;
 
+    // 귀속 관리자 미상이면 저장 불가(타 관리자 오귀속 방지) — 발생 시 드롭하고 기록
+    if (!inst.ownerAdminId) {
+      console.error("[ZaloPool] 수신 귀속 실패 — ownerAdminId 미상, 메시지 드롭");
+      return;
+    }
+
     const text = extractText(userMsg.data.content);
-    if (!text) return; // 텍스트 없는 수신(첨부 전용 등)은 S5 범위 — Phase 1 스킵
+    if (!text) return; // 텍스트 없는 수신은 S5 범위 — Phase 1 스킵
 
     await saveInboundMessage({
+      ownerAdminId: inst.ownerAdminId,
+      isSystemBot: inst.isSystemBot,
       senderZaloUserId,
       text,
       zaloMsgId: buildInboundKey(userMsg.data),
       displayName: (data.dName as string | undefined) ?? null,
-      // zca-js 텍스트 메시지에는 발신자 전화번호가 실리지 않음 — 본문에서 추출(saveInboundMessage 내부)
       senderPhone: null,
     });
   } catch (err) {
-    // 1건 실패가 리스너를 죽이지 않게 — 본문·번호 미포함, 메시지만 기록
     console.error(
-      "[ZaloBot] 수신 처리 실패:",
+      "[ZaloPool] 수신 처리 실패:",
       err instanceof Error ? err.message : String(err)
     );
   }
@@ -450,19 +619,12 @@ export type BotSendResult =
   | { ok: true; messageId: string | null }
   | { ok: false; error: string };
 
-/**
- * 봇 계정으로 텍스트 1건 발송 (S4 — dispatchOne·b14 채팅 공용).
- * 봇 미연결 시 ok:false + ERROR_BOT_NOT_CONNECTED(호출부에서 attempt 미증가 처리).
- * 예외 없이 결과 객체 반환 — credential·세션은 절대 결과/로그에 포함하지 않는다.
- */
-export async function sendBotMessage(
+async function sendVia(
+  api: API | null,
   zaloUserId: string,
   text: string
 ): Promise<BotSendResult> {
-  const api = getBotApi();
-  if (!api) {
-    return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
-  }
+  if (!api) return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
   try {
     const res = await api.sendMessage(text, zaloUserId, ThreadType.User);
     const msgId = res?.message?.msgId;
@@ -473,4 +635,28 @@ export async function sendBotMessage(
       error: `SEND_ERROR: ${e instanceof Error ? e.message : String(e)}`.slice(0, 500),
     };
   }
+}
+
+/**
+ * 시스템 알림 발송 (dispatchOne 전용, S4 — 시스템봇 인스턴스).
+ * **시그니처 무변경** — 호출부(lib/zalo.ts dispatchOne)는 그대로.
+ * 봇 미연결 시 ok:false + ERROR_BOT_NOT_CONNECTED(호출부에서 attempt 미증가 처리).
+ */
+export async function sendBotMessage(
+  zaloUserId: string,
+  text: string
+): Promise<BotSendResult> {
+  return sendVia(getSystemBotApi(), zaloUserId, text);
+}
+
+/**
+ * 관리자 본인 계정 채팅 발송 (b14 — /api/zalo/messages). 통합 모드는 시스템봇 인스턴스 공유.
+ */
+export async function sendChatMessageAsAdmin(
+  adminUserId: string,
+  zaloUserId: string,
+  text: string
+): Promise<BotSendResult> {
+  const api = await getApiForAdmin(adminUserId);
+  return sendVia(api, zaloUserId, text);
 }

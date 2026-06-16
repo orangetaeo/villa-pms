@@ -164,3 +164,26 @@
 
 ### 프로덕션 E2E 검증 (2026-06-11, 인증 배포 후)
 /login·/signup 렌더링 200(Stitch 화면), 미인증 보호 경로 → /login 리다이렉트, 테스트 계정 실로그인 → 세션 쿠키 발급 → / → /my-villas role 분기, SUPPLIER의 /dashboard 접근 차단, 오비밀번호 로그인 거부 — 전부 통과
+
+---
+
+## ADR-0007 멀티 관리자 개인 Zalo 채팅 — S0~S3 구현 완료 (2026-06-16)
+
+### 완료 단계
+- **S0 (스키마 + 백필)**: 프로덕션 DB에 안전 적용(데이터 손실 0). `scripts/zalo-multiadmin-backfill.mjs`(멱등)로 컬럼 추가 + 값 백필 → `prisma db push --accept-data-loss`로 제약 전환 2단계.
+  - `ZaloAccountKind` enum(SYSTEM_BOT|ADMIN_PERSONAL), `ZaloAccount.kind`(default SYSTEM_BOT)·`userId` NOT NULL·`@@unique([userId,kind])`
+  - `ZaloConversation.ownerAdminId`(FK, NOT NULL)·`@@unique([ownerAdminId,zaloUserId])`. 기존 `zaloUserId @unique`·`userId @unique` 제거 완료(인덱스 확인)
+  - 백필: 기존 ZaloAccount→SYSTEM_BOT(테오), 기존 대화 2건 ownerAdminId=테오. 시스템봇 소유자 테오 userId=`cmq9dzydp0000uk94gx0ip100`
+- **S1 (멀티풀 부활 + 라우팅 분리)**: `lib/zalo-runtime.ts` 단일 슬롯→`Map<string,instance>`(키: adminUserId, 시스템봇=`"__system__"`). `getSystemBotApi()`/`getApiForAdmin()`/`connectAllActive()`/`startQRLoginForAdmin(userId,kind)`/`getStatusForAdmin()`. **시스템 발송 `sendBotMessage` 시그니처·동작 무변경**(내부 `getSystemBotApi()` 분기). 통합 모드: 테오 SYSTEM_BOT 1인스턴스를 시스템 발송+개인 채팅 공유(이중 로그인 0).
+- **S2 (개인 QR)**: `/api/zalo/qr`·`status`·`/settings/zalo` 본인 계정 스코프(kind 자동 결정 — 시스템봇 소유자/최초연결=SYSTEM_BOT, 그 외 ADMIN_PERSONAL). 통합 모드 안내 라벨 추가.
+- **S3 (개인 스코프 + 수신 귀속)**: `saveInboundMessage(ownerAdminId, isSystemBot)` 복합키 upsert + 전화번호 매칭 시스템봇 수신만(D4). `/messages` `where ownerAdminId=session`(인박스+선택대화 findFirst 소유 스코프). 발신 `sendChatMessageAsAdmin(session.user.id)` + 소유 검증. mark-read도 ownerAdminId 스코프.
+
+### 검증
+- tsc 0 errors, vitest 560 passed(신규 `tests/zalo-multipool.test.ts` 포함), `next build` 성공, lint 신규 파일 0 경고
+- 누수 검증 PASS: QA Admin(다른 관리자) 대화 조회 0건, 테오 2건(라이브 DB)
+- 시스템 발송 무변경: `enqueueNotification`/`dispatchPendingNotifications`/`buildNotificationText`/cron 시그니처 그대로, dispatchOne만 미러 대화 복합키(시스템봇 소유자 귀속)로 보정
+
+### 잔여 (S4 + 디자인)
+- S4(시스템 미러 귀속 정리 일부 완료 — dispatchOne 미러는 테오 소유 복합키. 계정별 끊김 경보 Web Push는 미구현)
+- 디자인 인계 대기: ADR-0007 9절 #1(개인 연결 카드 신규)·#3(`/messages` 미연결 빈 상태 신규)는 라벨/텍스트 수준만 적용. **새 레이아웃 필요 시 DESIGN 선행** — 현재는 기존 b14/zalo-connect 컴포넌트 재사용
+- 백필 스크립트 `scripts/zalo-multiadmin-backfill.mjs` 보존(감사용, 멱등)

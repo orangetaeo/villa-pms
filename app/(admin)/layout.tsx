@@ -55,7 +55,9 @@ export default async function AdminLayout({
   const messages = pickMessages(allMessages, ADMIN_CLIENT_NAMESPACES);
 
   // 사이드바 메시지 메뉴 미읽음 합계 뱃지 (T6.6, b14)
+  // ADR-0007 개인 스코프: 본인(ownerAdminId) 대화만 합산 — 타 관리자 미읽음 누수 차단.
   const unreadAgg = await prisma.zaloConversation.aggregate({
+    where: { ownerAdminId: session.user.id },
     _sum: { unreadCount: true },
   });
   const unreadCount = unreadAgg._sum.unreadCount ?? 0;

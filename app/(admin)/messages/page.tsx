@@ -1,18 +1,25 @@
-// /messages — 운영자 Zalo 채팅 (T6.6, Stitch b14-zalo-chat 변환, ADR-0003)
+// /messages — 운영자 Zalo 채팅 (T6.6, Stitch b14-zalo-chat 변환, ADR-0003·ADR-0007)
 // RSC: ZaloConversation 인박스 + 선택 대화(?c=) 스레드 조회. select 화이트리스트 — 마진·금액 필드 미조회.
-// 라이브(실수신·실발송)는 테오님 QR 로그인 활성화 의존 — 본 화면은 DB 데이터 렌더 + 발신 영속 배선.
+// ADR-0007 개인 스코프: where ownerAdminId = session.user.id (관리자A 대화를 B가 못 봄 — 누수 0).
 import type { Metadata } from "next";
 import {
   ZaloMessageDirection,
   ZaloMessageSource,
 } from "@prisma/client";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Inbox, type InboxItem } from "./inbox";
 import { ChatPane, type ChatMessage, type ChatHeader } from "./chat-pane";
+import { AutoRefresh } from "./auto-refresh";
 
 export const metadata: Metadata = {
   title: "메시지 — Villa PMS",
 };
+
+// 수신 메시지가 폴링/refresh 없이는 RSC에 반영되지 않으므로 항상 동적 렌더링.
+// (캐시되면 router.refresh()·AutoRefresh가 옛 데이터를 받아 "새로고침해야 보임" 버그)
+export const dynamic = "force-dynamic";
 
 /** 이름에서 이니셜 2자 추출 (아바타) — 한글/라틴 공통, 공백 분할 우선 */
 function initials(name: string | null | undefined): string {
@@ -67,12 +74,19 @@ export default async function MessagesPage({
 }: {
   searchParams: Promise<{ c?: string }>;
 }) {
-  // ADMIN 보장은 (admin) layout. 여기서는 인박스·스레드 조회만.
+  // 개인 스코프 — 본인(ownerAdminId)이 받은 대화만 (ADR-0007 D3, 누수 0).
+  const session = await auth();
+  if (!session?.user?.id || session.user.role !== "ADMIN") {
+    redirect("/login");
+  }
+  const ownerAdminId = session.user.id;
+
   const { c: selectedId } = await searchParams;
   const now = new Date();
 
-  // 인박스 — 마진·금액 필드 미조회(누수 차단). 연결된 사용자명/빌라명만.
+  // 인박스 — 마진·금액 필드 미조회(누수 차단). 본인 대화만. 연결된 사용자명/빌라명만.
   const conversations = await prisma.zaloConversation.findMany({
+    where: { ownerAdminId },
     orderBy: [{ lastMessageAt: "desc" }, { createdAt: "desc" }],
     select: {
       id: true,
@@ -119,8 +133,9 @@ export default async function MessagesPage({
   const windowOpen = true;
 
   if (selectedId) {
-    const conv = await prisma.zaloConversation.findUnique({
-      where: { id: selectedId },
+    // 소유 스코프 — 본인 대화만 열람 가능(id 추측으로 타 관리자 대화 접근 차단, 누수 0).
+    const conv = await prisma.zaloConversation.findFirst({
+      where: { id: selectedId, ownerAdminId },
       select: {
         id: true,
         displayName: true,
@@ -181,6 +196,7 @@ export default async function MessagesPage({
 
   return (
     <div className="-m-4 md:-m-8 h-[calc(100vh-3.5rem)] lg:h-screen flex">
+      <AutoRefresh />
       <Inbox items={inboxItems} totalUnread={totalUnread} />
       <ChatPane
         conversationId={selectedId ?? null}

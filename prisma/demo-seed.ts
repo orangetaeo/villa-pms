@@ -533,32 +533,43 @@ async function main() {
   }
 
   // ---------- 9) Zalo 대화 (인박스 + 메시지) ----------
-  await prisma.zaloConversation.upsert({
-    where: { id: "demo-conv-tuan" },
-    update: { lastMessageAt: ts(2026, 6, 16, 8, 30), lastInboundAt: ts(2026, 6, 16, 8, 30), unreadCount: 1 },
-    create: {
-      id: "demo-conv-tuan",
-      zaloUserId: "demo-zalo-tuan",
-      userId: "demo-supplier-tuan",
-      displayName: "Anh Tuấn",
-      lastMessageAt: ts(2026, 6, 16, 8, 30),
-      lastInboundAt: ts(2026, 6, 16, 8, 30),
-      unreadCount: 1,
-      createdAt: ts(2026, 4, 1, 9),
-    },
+  // ADR-0007: 대화는 ownerAdminId(소유 ADMIN) 필수. 데모는 첫 ADMIN(테오) 소유로 귀속.
+  const demoOwnerAdmin = await prisma.user.findFirst({
+    where: { role: Role.ADMIN },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
   });
+  if (demoOwnerAdmin) {
+    await prisma.zaloConversation.upsert({
+      where: { id: "demo-conv-tuan" },
+      update: { ownerAdminId: demoOwnerAdmin.id, lastMessageAt: ts(2026, 6, 16, 8, 30), lastInboundAt: ts(2026, 6, 16, 8, 30), unreadCount: 1 },
+      create: {
+        id: "demo-conv-tuan",
+        ownerAdminId: demoOwnerAdmin.id,
+        zaloUserId: "demo-zalo-tuan",
+        userId: "demo-supplier-tuan",
+        displayName: "Anh Tuấn",
+        lastMessageAt: ts(2026, 6, 16, 8, 30),
+        lastInboundAt: ts(2026, 6, 16, 8, 30),
+        unreadCount: 1,
+        createdAt: ts(2026, 4, 1, 9),
+      },
+    });
+  }
   const msgs: { id: string; dir: ZaloMessageDirection; src: ZaloMessageSource; text: string; tr: string | null; at: Date; status: ZaloMessageStatus }[] = [
     { id: "demo-msg-1", dir: ZaloMessageDirection.OUTBOUND, src: ZaloMessageSource.SYSTEM, text: "Đặt phòng mới: Pearl Villa P7, nhận phòng 14/06.", tr: null, at: ts(2026, 6, 9, 16), status: ZaloMessageStatus.SENT },
     { id: "demo-msg-2", dir: ZaloMessageDirection.INBOUND, src: ZaloMessageSource.USER, text: "Dạ em đã chuẩn bị villa xong rồi anh.", tr: "네, 빌라 준비 다 했습니다.", at: ts(2026, 6, 13, 18), status: ZaloMessageStatus.RECEIVED },
     { id: "demo-msg-3", dir: ZaloMessageDirection.OUTBOUND, src: ZaloMessageSource.CHAT, text: "Cảm ơn anh. Khách nhận phòng 2h chiều nay nhé.", tr: "감사합니다. 손님 오늘 오후 2시 체크인입니다.", at: ts(2026, 6, 13, 18, 30), status: ZaloMessageStatus.SENT },
     { id: "demo-msg-4", dir: ZaloMessageDirection.INBOUND, src: ZaloMessageSource.USER, text: "Anh ơi, villa Garden tuần sau có khách không ạ?", tr: "사장님, Garden 빌라 다음 주 손님 있나요?", at: ts(2026, 6, 16, 8, 30), status: ZaloMessageStatus.RECEIVED },
   ];
-  for (const m of msgs) {
-    await prisma.zaloMessage.upsert({
-      where: { id: m.id },
-      update: { text: m.text, translatedText: m.tr },
-      create: { id: m.id, conversationId: "demo-conv-tuan", direction: m.dir, source: m.src, msgType: "text", text: m.text, translatedText: m.tr, status: m.status, sentBy: m.src === ZaloMessageSource.CHAT ? DEMO_ADMIN_TAG : null, createdAt: m.at },
-    });
+  if (demoOwnerAdmin) {
+    for (const m of msgs) {
+      await prisma.zaloMessage.upsert({
+        where: { id: m.id },
+        update: { text: m.text, translatedText: m.tr },
+        create: { id: m.id, conversationId: "demo-conv-tuan", direction: m.dir, source: m.src, msgType: "text", text: m.text, translatedText: m.tr, status: m.status, sentBy: m.src === ZaloMessageSource.CHAT ? DEMO_ADMIN_TAG : null, createdAt: m.at },
+      });
+    }
   }
 
   // ---------- 10) 감사 로그 (대시보드 활동 피드) ----------

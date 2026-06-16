@@ -11,6 +11,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
 import { sendBotMessage, ERROR_BOT_NOT_CONNECTED } from "@/lib/zalo-runtime";
+import { getSystemBotOwnerId } from "@/lib/zalo-credentials";
 
 // 봇 미연결 상수 재노출 (S4 — 호출부가 lib/zalo에서 일괄 import하도록)
 export { ERROR_BOT_NOT_CONNECTED };
@@ -443,10 +444,19 @@ async function dispatchOne(
   });
   summary.sent += 1;
 
-  // 5) ZaloMessage(SYSTEM·OUTBOUND) 미러 (ADR-0003) — Conversation 없으면 생략 후 집계 표기
+  // 5) ZaloMessage(SYSTEM·OUTBOUND) 미러 (ADR-0003) — Conversation 없으면 생략 후 집계 표기.
+  //    ADR-0007: 시스템 미러는 시스템봇 소유자(테오) 대화 공간에만 기록(복합키).
+  //    시스템봇 소유자 미상이면(미연결) 미러 생략 — 발송 자체(SENT)는 유효.
   try {
+    const systemOwnerId = await getSystemBotOwnerId();
+    if (!systemOwnerId) {
+      summary.mirrorSkipped += 1;
+      return;
+    }
     const conversation = await prisma.zaloConversation.findUnique({
-      where: { zaloUserId },
+      where: {
+        ownerAdminId_zaloUserId: { ownerAdminId: systemOwnerId, zaloUserId },
+      },
       select: { id: true },
     });
     if (!conversation) {

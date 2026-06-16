@@ -19,8 +19,11 @@ interface StatusPayload {
 
 export default function ZaloConnectClient({
   initialStatus,
+  isSystemBotAccount = false,
 }: {
   initialStatus: StatusPayload;
+  /** 이 계정이 시스템 알림 발송도 겸하는 시스템봇인지 (ADR-0007 통합 모드 D1) — 안내 라벨용 */
+  isSystemBotAccount?: boolean;
 }) {
   const t = useTranslations("adminZalo");
   const [status, setStatus] = useState<StatusPayload>(initialStatus);
@@ -122,6 +125,19 @@ export default function ZaloConnectClient({
         >
           {statusLabel[status.status]}
         </span>
+      </div>
+
+      {/* ADR-0007 통합 모드(D1) 안내 — 시스템봇 겸용 계정이면 시스템 알림 발송 라벨, 아니면 개인 채팅 전용 */}
+      <div
+        className={`text-xs rounded-lg px-3 py-2 border ${
+          isSystemBotAccount
+            ? "bg-sky-500/10 text-sky-300 border-sky-500/20"
+            : "bg-slate-500/10 text-slate-400 border-slate-700"
+        }`}
+      >
+        {isSystemBotAccount
+          ? "이 계정은 시스템 알림(예약·청소·정산 등) 발송도 함께 담당합니다. 연결 해제 시 알림 발송이 중단됩니다."
+          : "이 계정은 내 개인 채팅 전용입니다. 시스템 알림은 운영 대표 계정에서 발송됩니다."}
       </div>
 
       {error && (

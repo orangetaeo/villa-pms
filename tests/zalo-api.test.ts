@@ -5,9 +5,10 @@ const mockAuth = vi.fn();
 vi.mock("@/auth", () => ({ auth: (...a: unknown[]) => mockAuth(...a) }));
 vi.mock("@/lib/audit-log", () => ({ writeAuditLog: vi.fn(async () => {}) }));
 
-const mockSendBotMessage = vi.fn();
+const mockSendChat = vi.fn();
 vi.mock("@/lib/zalo-runtime", () => ({
-  sendBotMessage: (...a: unknown[]) => mockSendBotMessage(...a),
+  // ADR-0007: 채팅 발송은 sendChatMessageAsAdmin(본인 계정). 시스템 발송 sendBotMessage와 분리.
+  sendChatMessageAsAdmin: (...a: unknown[]) => mockSendChat(...a),
 }));
 
 const mockTranslateText = vi.fn();
@@ -45,12 +46,12 @@ const tx = {
   },
   zaloConversation: { update: vi.fn(async () => ({})) },
 };
-const mockConvFindUnique = vi.fn();
+const mockConvFindFirst = vi.fn();
 const mockConvUpdateMany = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     zaloConversation: {
-      findUnique: (...a: unknown[]) => mockConvFindUnique(...a),
+      findFirst: (...a: unknown[]) => mockConvFindFirst(...a),
       updateMany: (...a: unknown[]) => mockConvUpdateMany(...a),
     },
     $transaction: async (fn: (t: unknown) => Promise<unknown>) => fn(tx),
@@ -96,13 +97,13 @@ const convReq = (id: string, body: unknown) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockConvFindUnique.mockResolvedValue({
+  mockConvFindFirst.mockResolvedValue({
     id: "c1",
     zaloUserId: "zu1",
   });
   mockConvUpdateMany.mockResolvedValue({ count: 1 });
   // 기본: 봇 연결됨 + 발송 성공
-  mockSendBotMessage.mockResolvedValue({ ok: true, messageId: "zmsg1" });
+  mockSendChat.mockResolvedValue({ ok: true, messageId: "zmsg1" });
   tx.zaloMessage.create.mockResolvedValue({
     id: "m1",
     status: "SENT",
@@ -127,7 +128,7 @@ describe("POST /api/zalo/messages — 발신 (T6.6)", () => {
 
   it("미존재 대화 404", async () => {
     mockAuth.mockResolvedValue(ADMIN);
-    mockConvFindUnique.mockResolvedValue(null);
+    mockConvFindFirst.mockResolvedValue(null);
     expect((await sendReq({ conversationId: "x", text: "안녕" })).status).toBe(404);
   });
 
@@ -140,7 +141,7 @@ describe("POST /api/zalo/messages — 발신 (T6.6)", () => {
 
   it("성공: 봇 연결 + 발송 OK → OUTBOUND CHAT SENT 적재 + lastMessageAt 갱신 + AuditLog", async () => {
     mockAuth.mockResolvedValue(ADMIN);
-    mockSendBotMessage.mockResolvedValue({ ok: true, messageId: "zmsg1" });
+    mockSendChat.mockResolvedValue({ ok: true, messageId: "zmsg1" });
     const res = await sendReq({ conversationId: "c1", text: "확인했습니다" });
     expect(res.status).toBe(200);
     const data = tx.zaloMessage.create.mock.calls[0]![0].data;
@@ -149,7 +150,14 @@ describe("POST /api/zalo/messages — 발신 (T6.6)", () => {
     expect(data.status).toBe("SENT");
     expect(data.sentBy).toBe("admin1");
     expect(data.zaloMsgId).toBe("zmsg1");
-    expect(mockSendBotMessage).toHaveBeenCalledWith("zu1", "확인했습니다");
+    // ADR-0007: 본인 계정으로 발송 (adminUserId, zaloUserId, text)
+    expect(mockSendChat).toHaveBeenCalledWith("admin1", "zu1", "확인했습니다");
+    // 소유 스코프 — findFirst where에 ownerAdminId 포함 (누수 차단)
+    expect(mockConvFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "c1", ownerAdminId: "admin1" },
+      })
+    );
     expect(tx.zaloConversation.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: "c1" }, data: { lastMessageAt: expect.any(Date) } })
     );
@@ -158,7 +166,7 @@ describe("POST /api/zalo/messages — 발신 (T6.6)", () => {
 
   it("봇 미연결 → FAILED 기록하되 200 (500 금지)", async () => {
     mockAuth.mockResolvedValue(ADMIN);
-    mockSendBotMessage.mockResolvedValue({ ok: false, error: "BOT_NOT_CONNECTED" });
+    mockSendChat.mockResolvedValue({ ok: false, error: "BOT_NOT_CONNECTED" });
     const res = await sendReq({ conversationId: "c1", text: "확인" });
     expect(res.status).toBe(200);
     const data = tx.zaloMessage.create.mock.calls[0]![0].data;
@@ -169,7 +177,7 @@ describe("POST /api/zalo/messages — 발신 (T6.6)", () => {
 
   it("발송 실패(타임아웃 등) → FAILED 기록 + 200", async () => {
     mockAuth.mockResolvedValue(ADMIN);
-    mockSendBotMessage.mockResolvedValue({ ok: false, error: "SEND_ERROR: timeout" });
+    mockSendChat.mockResolvedValue({ ok: false, error: "SEND_ERROR: timeout" });
     const res = await sendReq({ conversationId: "c1", text: "확인" });
     expect(res.status).toBe(200);
     const data = tx.zaloMessage.create.mock.calls[0]![0].data;
@@ -179,7 +187,7 @@ describe("POST /api/zalo/messages — 발신 (T6.6)", () => {
 
   it("발신 본문에 마진·판매가 미포함 (text 그대로만 적재)", async () => {
     mockAuth.mockResolvedValue(ADMIN);
-    mockSendBotMessage.mockResolvedValue({ ok: true, messageId: null });
+    mockSendChat.mockResolvedValue({ ok: true, messageId: null });
     await sendReq({ conversationId: "c1", text: "내일 청소 부탁드립니다" });
     const data = tx.zaloMessage.create.mock.calls[0]![0].data;
     expect(data.text).toBe("내일 청소 부탁드립니다");
@@ -237,7 +245,10 @@ describe("PATCH /api/zalo/conversations/[id] — 읽음 처리 (T6.6)", () => {
     const res1 = await convReq("c1", { action: "MARK_READ" });
     expect(res1.status).toBe(200);
     expect(mockConvUpdateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "c1" }, data: { unreadCount: 0 } })
+      expect.objectContaining({
+        where: { id: "c1", ownerAdminId: "admin1" },
+        data: { unreadCount: 0 },
+      })
     );
     const res2 = await convReq("c1", { action: "MARK_READ" });
     expect(res2.status).toBe(200);

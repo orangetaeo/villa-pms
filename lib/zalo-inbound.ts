@@ -92,6 +92,10 @@ export function buildInboundKey(data: { msgId?: unknown }): string | null {
 // ===================== 파싱된 수신 (핸들러 ↔ 저장 경계) =====================
 
 export interface ParsedInbound {
+  /** 이 메시지를 받은 관리자 userId — ZaloConversation 귀속 복합키 (ADR-0007 D3) */
+  ownerAdminId: string;
+  /** 시스템봇 인스턴스 수신 여부 — true일 때만 전화번호 매칭(전역 온보딩, D4) */
+  isSystemBot: boolean;
   /** 발신 상대(공급자)의 Zalo id */
   senderZaloUserId: string;
   text: string;
@@ -106,29 +110,31 @@ export interface ParsedInbound {
 // ===================== DB 저장 + 전화번호 매칭 =====================
 
 /**
- * 수신 메시지 1건 저장.
- *  1) zaloUserId로 ZaloConversation upsert
+ * 수신 메시지 1건 저장 (ADR-0007 — 관리자별 귀속).
+ *  1) (ownerAdminId, zaloUserId) 복합키로 ZaloConversation upsert (관리자별 격리)
  *  2) zaloMsgId 멱등 — 이미 존재하면 저장 스킵(중복 0)
  *  3) ZaloMessage(INBOUND·USER·text) 생성
  *  4) conversation.lastMessageAt·lastInboundAt=now, unreadCount+1
- *  5) 전화번호 매칭(userId 미연결 시): 본문 전화번호 또는 senderPhone → User(SUPPLIER, phone) 조회
- *     → 매칭 시 User.zaloUserId 연결 + ZaloConversation.userId 연결
+ *  5) 전화번호 매칭: **시스템봇 수신(isSystemBot)만** (전역 온보딩, D4).
+ *     개인 계정 수신은 User.zaloUserId를 건드리지 않는다(전역 오염 방지).
  *
- * 예외 안전: 호출부(handleInboundMessage)에서 try/catch — 여기선 throw 가능.
+ * 예외 안전: 호출부(handleInboundEvent)에서 try/catch — 여기선 throw 가능.
  */
 export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
   saved: boolean;
   duplicated: boolean;
   matchedUserId: string | null;
 }> {
-  const { senderZaloUserId, text, zaloMsgId, displayName, senderPhone } = parsed;
+  const { ownerAdminId, isSystemBot, senderZaloUserId, text, zaloMsgId, displayName, senderPhone } =
+    parsed;
   const now = new Date();
 
-  // 1) 대화 upsert (없으면 생성)
+  // 1) 대화 upsert (관리자×상대 복합키 — 없으면 생성)
   const conversation = await prisma.zaloConversation.upsert({
-    where: { zaloUserId: senderZaloUserId },
+    where: { ownerAdminId_zaloUserId: { ownerAdminId, zaloUserId: senderZaloUserId } },
     update: {},
     create: {
+      ownerAdminId,
       zaloUserId: senderZaloUserId,
       displayName: displayName ?? undefined,
     },
@@ -170,9 +176,10 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
     },
   });
 
-  // 5) 전화번호 매칭 (T3.7) — 아직 User 미연결인 대화만
+  // 5) 전화번호 매칭 (T3.7) — 시스템봇 수신만(전역 온보딩, D4) + 아직 User 미연결인 대화만.
+  //    개인 계정 수신은 User.zaloUserId(전역) 오염 방지 위해 매칭 스킵.
   let matchedUserId = conversation.userId;
-  if (!conversation.userId) {
+  if (isSystemBot && !conversation.userId) {
     const phone = senderPhone ?? extractPhone(text);
     if (phone) {
       matchedUserId = await tryMatchSupplierByPhone(
