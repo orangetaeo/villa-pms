@@ -187,3 +187,19 @@
 - S4(시스템 미러 귀속 정리 일부 완료 — dispatchOne 미러는 테오 소유 복합키. 계정별 끊김 경보 Web Push는 미구현)
 - 디자인 인계 대기: ADR-0007 9절 #1(개인 연결 카드 신규)·#3(`/messages` 미연결 빈 상태 신규)는 라벨/텍스트 수준만 적용. **새 레이아웃 필요 시 DESIGN 선행** — 현재는 기존 b14/zalo-connect 컴포넌트 재사용
 - 백필 스크립트 `scripts/zalo-multiadmin-backfill.mjs` 보존(감사용, 멱등)
+
+## Phase 1 빌라 관리자 페이지 업그레이드 — 구현 완료 (2026-06-16)
+
+기획→스키마(ADR-0008)→Stitch 7화면→QA 디자인검토→구현→QA 최종검증 파이프라인 완주. QA 최종: **조건부 Go** (코드 레벨 GO, 치명 누수 0 / 실측 Playwright는 Railway 배포 반영 후 Part B 4건 재실행 필요).
+
+### 구현 항목
+- **스키마(ADR-0008, db push)**: `VillaSeasonPeriod`(빌라별 시즌 날짜), `VillaAmenity.unitPrice`(미니바 고객청구가 VND), `NotificationType.RATE_CHANGED_DURING_PROPOSAL`. 백필 없음 → 기존 견적 회귀 0(전역 폴백).
+- **BE(8129816)**: 사진 add/delete/reorder API(기준사진+진행중예약 시 409 보호, AuditLog), 공급자 원가 PATCH/DELETE(판매가·마진 서버측 재계산·응답엔 원가만, ACTIVE 제안 포함 시 운영자 알림), 빌라별 시즌 CRUD(겹침 409), 비품 PATCH 확장(unitPrice·customLabel·note), `lib/amenities.ts` 수건 대/중/소+custom, `lib/pricing.ts` 폴백 2단계(count 보유판정↔교차분 로드 분리, 회귀 테스트 4/4).
+- **공급자 5화면(e4b2aeb)**: 사진 확대 라이트박스, 사진 관리, 비품 수정 개편(전 품목 수량+미니바 직접입력/가격+수건 3종), 캘린더 예약 상세 바텀시트(확정/가예약 분기, 원가·인원·박수만), 원가 관리+빌라별 시즌.
+- **운영자 2화면(f42ae64)**: 견적중 원가변경 경보(대시보드 배너+제안 영향+판매가 재확인), 체크아웃 미니바 차감 자동계산(소모×unitPrice BigInt 실시간).
+- **i18n**: 신규 ko/vi 키, LOC vi 감수 5건 교정(기준사진 Ảnh gốc 등).
+- **디자인(439e3bb)**: Stitch export a11~a15, b15~b16.
+
+### 잔여
+- **Railway 배포 후 QA Part B 4건 실측 재검증**(비품 3종 렌더·캘린더 2상태·미니바 실시간·캘린더 응답 누수). 푸시는 완료, 빌드 지연.
+- 시즌 겹침 동시성(경/정보) → IDEAS.md 등재.

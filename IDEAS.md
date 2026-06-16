@@ -20,3 +20,4 @@
 - Zalo 채팅 고도화: 48h 창 밖 유료 메시지(Tin Giao dịch) 발신·대화 재개 유도, 관리자 이미지 발신, CLEANER 대화 인박스 (Phase 1은 텍스트 수신·48h 내 응답 중심 — ADR-0003)
 - 통화별 마진 리포트 (Booking.fxVndPerKrw 스냅샷 활용 — KRW/VND 매출·마진 분리 대시보드, ADR-0003)
 - 캘린더 기간 차단 UI: 바텀시트에서 시작~종료 범위 선택 (Phase 1은 a3 확정 디자인대로 단일 날짜 탭 토글 — T1.4 계약 합의)
+- 빌라 시즌 겹침 DB 레벨 제약: VillaSeasonPeriod 겹침 차단이 현재 앱 레벨 check-then-write(Read Committed) — 이론상 동시성 틈. 운영 부담 증가 시 PostgreSQL `EXCLUDE USING gist` 제약 또는 직렬화 격리 검토 (Phase 1은 단일 공급자 단말 편집이라 실위험 극저 — QA 2026-06-16)
