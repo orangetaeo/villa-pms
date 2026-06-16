@@ -29,7 +29,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-import { saveInboundMessage } from "@/lib/zalo-inbound";
+import { saveInboundMessage, saveOutboundEcho } from "@/lib/zalo-inbound";
 
 const base = {
   ownerAdminId: "admin-theo",
@@ -135,5 +135,60 @@ describe("saveInboundMessage — 전화번호 매칭 (T3.7)", () => {
     expect(r.saved).toBe(true);
     const where = convUpsert.mock.calls[0]![0].where;
     expect(where.ownerAdminId_zaloUserId.ownerAdminId).toBe("admin-b");
+  });
+});
+
+// ===================== 본인 발신 동기화 (OUTBOUND echo) =====================
+
+const outBase = {
+  ownerAdminId: "admin-theo",
+  senderZaloUserId: "sup-zalo-1",
+  text: "확인했습니다",
+  zaloMsgId: "out-1",
+  createdAt: new Date("2026-06-16T03:00:00.000Z"),
+  displayName: "Nguyen",
+};
+
+describe("saveOutboundEcho — 앱/프로그램 본인 발신 동기화", () => {
+  it("앱 발신(신규 msgId): OUTBOUND·CHAT 저장, createdAt=zca-js ts, lastMessageAt만 갱신", async () => {
+    const r = await saveOutboundEcho(outBase);
+    expect(r.saved).toBe(true);
+    expect(r.duplicated).toBe(false);
+
+    const data = msgCreate.mock.calls[0]![0].data;
+    expect(data.direction).toBe("OUTBOUND");
+    expect(data.source).toBe("CHAT");
+    expect(data.status).toBe("SENT");
+    expect(data.zaloMsgId).toBe("out-1");
+    expect(data.createdAt).toEqual(outBase.createdAt);
+
+    const upd = convUpdate.mock.calls[0]![0].data;
+    expect(upd.lastMessageAt).toEqual(outBase.createdAt);
+    // OUTBOUND: unread 증가·lastInboundAt 갱신 안 함
+    expect(upd.unreadCount).toBeUndefined();
+    expect(upd.lastInboundAt).toBeUndefined();
+  });
+
+  it("대화 upsert는 (ownerAdminId, 수신자 zaloUserId) 복합키 — 관리자별 격리", async () => {
+    await saveOutboundEcho(outBase);
+    const where = convUpsert.mock.calls[0]![0].where;
+    expect(where).toEqual({
+      ownerAdminId_zaloUserId: { ownerAdminId: "admin-theo", zaloUserId: "sup-zalo-1" },
+    });
+  });
+
+  it("멱등: 프로그램(S4)이 같은 zaloMsgId로 이미 저장 → 스킵(중복 0)", async () => {
+    msgFindUnique.mockResolvedValue({ id: "already-saved-by-program" });
+    const r = await saveOutboundEcho(outBase);
+    expect(r.saved).toBe(false);
+    expect(r.duplicated).toBe(true);
+    expect(msgCreate).not.toHaveBeenCalled();
+    expect(convUpdate).not.toHaveBeenCalled();
+  });
+
+  it("OUTBOUND은 전화번호 매칭 안 함 (User.zaloUserId 미변경)", async () => {
+    await saveOutboundEcho({ ...outBase, text: "0901234567" });
+    expect(userFindFirst).not.toHaveBeenCalled();
+    expect(txArr).not.toHaveBeenCalled();
   });
 });

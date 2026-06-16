@@ -72,9 +72,12 @@ vi.mock("@/lib/zalo-credentials", () => ({
 vi.mock("@/lib/audit-log", () => ({ writeAuditLog: vi.fn(async () => {}) }));
 vi.mock("@/lib/zalo-inbound", () => ({
   extractText: () => "",
+  isSelfMessage: () => false,
   isEchoMessage: () => false,
   buildInboundKey: () => null,
+  parseZaloTs: () => null,
   saveInboundMessage: vi.fn(async () => ({ saved: true, duplicated: false, matchedUserId: null })),
+  saveOutboundEcho: vi.fn(async () => ({ saved: true, duplicated: false })),
 }));
 
 import {

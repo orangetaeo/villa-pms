@@ -34,9 +34,11 @@ import {
 import { writeAuditLog } from "./audit-log";
 import {
   extractText,
-  isEchoMessage,
+  isSelfMessage,
   buildInboundKey,
+  parseZaloTs,
   saveInboundMessage,
+  saveOutboundEcho,
 } from "./zalo-inbound";
 
 export type ZaloStatus = "disconnected" | "qr_pending" | "connected" | "error";
@@ -564,11 +566,15 @@ async function onLoginSuccess(inst: ZaloBotInstance, api: API) {
 // ── S3 수신 핸들러 ────────────────────────────────────────────
 
 /**
- * zca-js message 이벤트 → 파싱 → DB 저장 (ADR-0007 S3 — 수신 귀속).
+ * zca-js message 이벤트 → 파싱 → DB 저장 (ADR-0007 S3 — 수신 귀속 + 본인 발신 동기화).
  * - UserMessage(ThreadType.User)만 처리. 그룹 무시.
- * - 봇 본인 발신 에코(isSelf 또는 ownId 일치)는 저장 스킵.
+ * - isSelf 분기(selfListen:true — 본인 다른 기기 발신도 message 이벤트로 들어옴):
+ *     · isSelf=false(상대 발신): INBOUND 저장 (unread+1, 전화번호 매칭).
+ *     · isSelf=true(본인 발신, 앱·프로그램): OUTBOUND·CHAT 동기화 저장.
+ *       앱에서 직접 보낸 메시지(프로그램 미경유)를 /messages에 반영. zaloMsgId 멱등으로
+ *       프로그램(S4) 발신과의 중복만 방지 — 시스템봇 통합 모드의 SYSTEM 미러도 동일 가드.
  * - 귀속: 이 인스턴스의 ownerAdminId로 ZaloConversation 복합키 귀속 (타 관리자 누수 0).
- * - 전화번호 매칭은 시스템봇 수신만(isSystemBot=true, D4).
+ * - 전화번호 매칭은 시스템봇 **수신(INBOUND)**만(isSystemBot=true, D4). OUTBOUND은 매칭 안 함.
  * - 멱등·예외 안전: 1건 실패가 리스너를 죽이지 않도록 전체 try/catch.
  */
 async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Promise<void> {
@@ -582,27 +588,43 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       (data.userId as string | undefined) ??
       null;
 
-    if (isEchoMessage({ isSelf: userMsg.isSelf, senderId }, inst.ownId)) return;
-
+    // 대화 상대 = threadId (self 메시지면 수신자 idTo, 상대 메시지면 발신자 uidFrom)
     const senderZaloUserId = userMsg.threadId || senderId;
     if (!senderZaloUserId) return;
 
     // 귀속 관리자 미상이면 저장 불가(타 관리자 오귀속 방지) — 발생 시 드롭하고 기록
     if (!inst.ownerAdminId) {
-      console.error("[ZaloPool] 수신 귀속 실패 — ownerAdminId 미상, 메시지 드롭");
+      console.error("[ZaloPool] 수신/발신 귀속 실패 — ownerAdminId 미상, 메시지 드롭");
       return;
     }
 
     const text = extractText(userMsg.data.content);
-    if (!text) return; // 텍스트 없는 수신은 S5 범위 — Phase 1 스킵
+    if (!text) return; // 텍스트 없는 메시지는 S5 범위 — Phase 1 스킵
 
+    const zaloMsgId = buildInboundKey(userMsg.data);
+    const displayName = (data.dName as string | undefined) ?? null;
+
+    // ── 본인 발신(앱 or 프로그램) → OUTBOUND 동기화 ──────────────
+    if (isSelfMessage({ isSelf: userMsg.isSelf, senderId }, inst.ownId)) {
+      await saveOutboundEcho({
+        ownerAdminId: inst.ownerAdminId,
+        senderZaloUserId,
+        text,
+        zaloMsgId,
+        createdAt: parseZaloTs(data.ts) ?? new Date(),
+        displayName,
+      });
+      return;
+    }
+
+    // ── 상대 발신 → INBOUND 저장(기존) ──────────────────────────
     await saveInboundMessage({
       ownerAdminId: inst.ownerAdminId,
       isSystemBot: inst.isSystemBot,
       senderZaloUserId,
       text,
-      zaloMsgId: buildInboundKey(userMsg.data),
-      displayName: (data.dName as string | undefined) ?? null,
+      zaloMsgId,
+      displayName,
       senderPhone: null,
     });
   } catch (err) {

@@ -5,6 +5,8 @@ import {
   isPhoneLike,
   extractPhone,
   isEchoMessage,
+  isSelfMessage,
+  parseZaloTs,
   buildInboundKey,
 } from "./zalo-inbound";
 
@@ -62,22 +64,47 @@ describe("extractPhone / isPhoneLike — 전화번호 추출 (T3.7)", () => {
   });
 });
 
-describe("isEchoMessage — 봇 본인 발신 에코 판정", () => {
-  it("isSelf=true는 에코", () => {
-    expect(isEchoMessage({ isSelf: true, senderId: "x" }, "bot1")).toBe(true);
+describe("isSelfMessage — 본인 발신 판정(OUTBOUND 분기)", () => {
+  it("isSelf=true는 본인 발신", () => {
+    expect(isSelfMessage({ isSelf: true, senderId: "x" }, "bot1")).toBe(true);
   });
 
-  it("발신자 id가 봇 ownId와 일치하면 에코", () => {
-    expect(isEchoMessage({ isSelf: false, senderId: "bot1" }, "bot1")).toBe(true);
+  it("발신자 id가 봇 ownId와 일치하면 본인 발신", () => {
+    expect(isSelfMessage({ isSelf: false, senderId: "bot1" }, "bot1")).toBe(true);
   });
 
-  it("상대 발신(다른 id, isSelf 아님)은 에코 아님", () => {
-    expect(isEchoMessage({ isSelf: false, senderId: "supplier1" }, "bot1")).toBe(false);
+  it("상대 발신(다른 id, isSelf 아님)은 본인 발신 아님(INBOUND)", () => {
+    expect(isSelfMessage({ isSelf: false, senderId: "supplier1" }, "bot1")).toBe(false);
   });
 
   it("봇 ownId 미상(null)이면 senderId 비교 생략 — isSelf만 신뢰", () => {
-    expect(isEchoMessage({ isSelf: false, senderId: "bot1" }, null)).toBe(false);
-    expect(isEchoMessage({ isSelf: true, senderId: "bot1" }, null)).toBe(true);
+    expect(isSelfMessage({ isSelf: false, senderId: "bot1" }, null)).toBe(false);
+    expect(isSelfMessage({ isSelf: true, senderId: "bot1" }, null)).toBe(true);
+  });
+
+  it("isEchoMessage 별칭은 isSelfMessage와 동일", () => {
+    expect(isEchoMessage).toBe(isSelfMessage);
+    expect(isEchoMessage({ isSelf: true, senderId: "x" }, "bot1")).toBe(true);
+  });
+});
+
+describe("parseZaloTs — zca-js 타임스탬프 → Date(정렬 보존)", () => {
+  it("ms epoch 문자열을 Date로", () => {
+    const d = parseZaloTs("1718506800000");
+    expect(d).toBeInstanceOf(Date);
+    expect(d!.getTime()).toBe(1718506800000);
+  });
+
+  it("ms epoch 숫자도 처리", () => {
+    expect(parseZaloTs(1718506800000)!.getTime()).toBe(1718506800000);
+  });
+
+  it("없거나 비정상(빈문자열·0·음수·NaN)이면 null → 호출부에서 now", () => {
+    expect(parseZaloTs("")).toBeNull();
+    expect(parseZaloTs(undefined)).toBeNull();
+    expect(parseZaloTs(0)).toBeNull();
+    expect(parseZaloTs(-1)).toBeNull();
+    expect(parseZaloTs("abc")).toBeNull();
   });
 });
 

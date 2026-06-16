@@ -66,16 +66,38 @@ export function extractPhone(text: string): string | null {
 }
 
 /**
- * 봇 본인 발신 에코인지 판정 — 저장 스킵 대상.
+ * 봇 본인 발신인지 판정.
  * 1) zca-js isSelf 플래그 우선, 2) 보강: 발신자 id(uidFrom/userId)가 봇 ownId와 일치.
+ *
+ * **용도 변경(2026-06)**: 과거엔 "에코 → 스킵" 판정용이었으나,
+ * 이제 본인 발신(앱·프로그램 모두)을 OUTBOUND 동기화하기 위한 **방향 분기** 판정에 쓴다.
+ * true면 OUTBOUND 경로(saveOutboundEcho), false면 INBOUND 경로(saveInboundMessage).
  */
-export function isEchoMessage(
+export function isSelfMessage(
   opts: { isSelf?: boolean; senderId?: string | null },
   botOwnId: string | null
 ): boolean {
   if (opts.isSelf === true) return true;
   if (botOwnId && opts.senderId && String(opts.senderId) === String(botOwnId)) return true;
   return false;
+}
+
+/**
+ * @deprecated isSelfMessage로 대체 — 호환 유지용 별칭. 신규 코드는 isSelfMessage 사용.
+ */
+export const isEchoMessage = isSelfMessage;
+
+/**
+ * zca-js 메시지 타임스탬프(data.ts, ms epoch 문자열/숫자) → Date. 없거나 비정상이면 null.
+ * 앱에서 직접 보낸 메시지의 발생 시각을 보존해 정렬 꼬임을 막는다.
+ */
+export function parseZaloTs(ts: unknown): Date | null {
+  let ms: number | null = null;
+  if (typeof ts === "string" && ts.length > 0) ms = Number(ts);
+  else if (typeof ts === "number") ms = ts;
+  if (ms === null || !Number.isFinite(ms) || ms <= 0) return null;
+  const d = new Date(ms);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 /**
@@ -191,6 +213,92 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
   }
 
   return { saved: true, duplicated: false, matchedUserId };
+}
+
+// ===================== 본인 발신 동기화 (OUTBOUND echo) =====================
+
+export interface ParsedOutbound {
+  /** 발신 주체 ADMIN userId(인스턴스 소유자) — ZaloConversation 귀속 복합키. */
+  ownerAdminId: string;
+  /** 대화 상대(수신자)의 Zalo id — self 메시지의 threadId. */
+  senderZaloUserId: string;
+  text: string;
+  /** zca-js 서버 msgId — 멱등 키. 프로그램(S4) 발신이 이미 저장한 것과 중복 방지. */
+  zaloMsgId: string | null;
+  /** 발신 시각(zca-js data.ts). 없으면 호출부에서 now 전달. 순서 꼬임 방지. */
+  createdAt: Date;
+  /** 상대 표시명(있으면 displayName 보강용). 없으면 null. */
+  displayName: string | null;
+}
+
+/**
+ * 본인 발신 메시지 동기화 저장 (앱/프로그램 모두 message 이벤트 isSelf=true로 들어옴, selfListen).
+ *
+ * INBOUND(saveInboundMessage)와의 차이:
+ *  - direction OUTBOUND, source CHAT (사람이 직접 보낸 것 — 수동 발신과 동일 의미)
+ *  - unreadCount **증가 안 함** (내가 보낸 것)
+ *  - 전화번호 매칭 **안 함** (수신만 매칭 — D4)
+ *  - lastInboundAt **갱신 안 함**, lastMessageAt만 갱신
+ *  - createdAt = zca-js 타임스탬프(있으면) — 앱 발신 정렬 보존
+ *
+ * 멱등(필수): zaloMsgId가 이미 ZaloMessage에 있으면 스킵 —
+ *   프로그램(S4 dispatchOne SYSTEM 미러 / b14 CHAT 발송)이 이미 같은 msgId로 저장한 경우 중복 방지.
+ *
+ * 예외 안전: 호출부(handleInboundEvent)에서 try/catch — 여기선 throw 가능.
+ */
+export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
+  saved: boolean;
+  duplicated: boolean;
+}> {
+  const { ownerAdminId, senderZaloUserId, text, zaloMsgId, createdAt, displayName } = parsed;
+
+  // 1) 대화 upsert (관리자×상대 복합키 — 없으면 생성)
+  const conversation = await prisma.zaloConversation.upsert({
+    where: { ownerAdminId_zaloUserId: { ownerAdminId, zaloUserId: senderZaloUserId } },
+    update: {},
+    create: {
+      ownerAdminId,
+      zaloUserId: senderZaloUserId,
+      displayName: displayName ?? undefined,
+    },
+    select: { id: true, displayName: true },
+  });
+
+  // 2) 멱등 — 프로그램이 이미 같은 zaloMsgId로 저장했으면 스킵 (중복 0)
+  if (zaloMsgId) {
+    const existing = await prisma.zaloMessage.findUnique({
+      where: { zaloMsgId },
+      select: { id: true },
+    });
+    if (existing) {
+      return { saved: false, duplicated: true };
+    }
+  }
+
+  // 3) OUTBOUND·CHAT 메시지 생성. sentBy 미상(앱 발신은 발송자 식별 불가) → null.
+  await prisma.zaloMessage.create({
+    data: {
+      conversationId: conversation.id,
+      direction: ZaloMessageDirection.OUTBOUND,
+      source: ZaloMessageSource.CHAT,
+      msgType: "text",
+      text: text || null,
+      zaloMsgId,
+      status: ZaloMessageStatus.SENT,
+      createdAt,
+    },
+  });
+
+  // 4) 대화 메타 — lastMessageAt만 갱신(unread·lastInboundAt 미변경). displayName 보강.
+  await prisma.zaloConversation.update({
+    where: { id: conversation.id },
+    data: {
+      lastMessageAt: createdAt,
+      ...(displayName && !conversation.displayName ? { displayName } : {}),
+    },
+  });
+
+  return { saved: true, duplicated: false };
 }
 
 /**
