@@ -68,6 +68,10 @@
 - [~] T6.6 Zalo 채팅: webhook 수신 → ZaloConversation/ZaloMessage 저장 + /messages 채팅 화면 + Gemini 번역 + F5 알림 OUTBOUND 미러 (INTEG/FE/BE) — **화면·발신·번역 완료(2026-06-16)**: /messages(b14 2-pane·번역 병기·48h 비활성), POST /api/zalo/messages(48h 가드·FAILED 200·AuditLog)·translate(503)·읽음 멱등, lib/zalo-chat.ts·gemini.translateText, vitest 63개, QA **통과**(누수 0건). **잔여(라이브 활성화 의존)**: webhook 실수신·zca-js 실발송 — 테오님 활성화 시. 계약: docs/contracts/T6.6-T3.7-zalo-screens.md
 - [x] T6.7 관리자 반응형 — 2026-06-16 완료(Ralph Loop 자율 검증). <1024px 햄버거 드로어(layout+sidebar 공통)·ResponsiveTable(b5·b12·b13)·반응형 그리드(b9)·수동 카드(settlements) 전수 감사 결과 **결함 0, 코드 변경 불요**. 완료기준 7종 충족(typecheck 0·lint 0·test 443/443). 특수 표 5곳은 의도된 overflow-x-auto(계약 명시). 라이브 360×800은 QA 후속. 계약: docs/contracts/T6.7-admin-responsive.md
 
+## 신규 — 멀티 관리자 Zalo 채팅 (2026-06-16 테오 요구, 기획 착수)
+- [ ] **T7.1 〔진행 중·세션 점유 2026-06-16〕 멀티 관리자 개인 Zalo 채팅 — TDA 설계(ADR-0007)** — 시스템 알림은 테오 봇 1개 유지, 관리자 채팅은 **완전 개인**(각 관리자 자기 Zalo QR 로그인, 자기 대화만 — 카톡 방식). 단일봇 런타임(ADR-0006)→멀티 인스턴스 풀 확장, ZaloAccount 멀티(시스템봇 플래그), /messages 개인 스코프, 발송 라우팅(시스템=봇/채팅=본인). 디자인 필요 화면 식별 포함. 설계 승인 후 구현·디자인
+- [ ] T7.2 (T7.1 설계 후) 구현 + Stitch 디자인 (관리자별 /settings/zalo·/messages 개인 스코프)
+
 ## Sprint 4 — QA·온보딩 (M2 W4)
 - [x] T4.8 (보안 Phase 1) 인증 무차별대입·가입 스팸 방어 (OPS) — 2026-06-16 완료. lib/rate-limit.ts(인메모리 슬라이딩 윈도우) + auth.ts(전화번호 5/10분·IP 20/10분 잠금) + signup(IP 10/시간). vitest 9개, QA 조건부→통과. 계약: docs/contracts/T-sec-auth-ratelimit.md. **후속 보안 백로그(비차단)**: ① clientIp XFF rightmost 보정(프로덕션 토폴로지 실측 후) ~~② HTTP 보안 헤더~~(→T4.9 완료) ③ 다중 인스턴스 시 Redis 공유 스토어
 - [x] T4.9 (보안 Phase 1) 공개 표면 하드닝 (OPS) — 2026-06-16 완료. ① 전역 HTTP 보안 헤더 5종(next.config.ts headers — HSTS·nosniff·X-Frame-Options SAMEORIGIN·Referrer-Policy strict-origin-when-cross-origin[token referrer 누수 차단]·DNS-Prefetch off) ② 공개 HOLD POST rate limit(토큰 15/10분·IP 30/10분, 429). typecheck 0, QA 독립 평가 **통과(5/5, 결함0)**. 커밋 ce55cb2·4a6e501. 계약: docs/contracts/T-sec-public-hardening.md. **비차단 후속**: 배포 후 헤더 curl 스모크(OPS), ~~CSP 추가~~(→T4.10 Report-Only 완료)
