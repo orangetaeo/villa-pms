@@ -68,7 +68,10 @@ export default async function BookingDetailPage({
       note: true,
       cancelReason: true,
       villa: { select: { id: true, name: true } },
-      checkInRecord: { select: { signatureUrl: true } }, // T3.2 — 미서명 배지·사후 서명 진입점
+      // T3.2 — 미서명 배지·사후 서명 진입점 / T3.6 — 여권 전달 가능 여부·전달 시각
+      checkInRecord: {
+        select: { signatureUrl: true, tamTruSentAt: true, passportPhotoUrls: true },
+      },
       payments: {
         orderBy: { receivedAt: "asc" },
         select: { id: true, receivedAt: true, method: true, currency: true, amount: true, note: true },
@@ -334,6 +337,8 @@ export default async function BookingDetailPage({
               booking.checkInRecord !== null &&
               !booking.checkInRecord.signatureUrl
             }
+            hasPassport={(booking.checkInRecord?.passportPhotoUrls.length ?? 0) > 0}
+            tamTruSentAt={booking.checkInRecord?.tamTruSentAt?.toISOString() ?? null}
           />
 
           {/* 활동 로그 — AuditLog 기반 */}

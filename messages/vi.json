@@ -223,7 +223,14 @@
         "comingT3": "Sẽ có ở Sprint 3",
         "error": "Xử lý thất bại. Vui lòng thử lại.",
         "unsignedBadge": "Chưa ký cam kết",
-        "postSign": "Lấy chữ ký bổ sung"
+        "postSign": "Lấy chữ ký bổ sung",
+        "tamtru": {
+          "send": "Gửi cho nhà cung cấp",
+          "resend": "Gửi lại cho nhà cung cấp",
+          "sending": "Đang gửi...",
+          "sent": "Đã gửi {time}",
+          "noZaloWarn": "Nhà cung cấp chưa liên kết Zalo — đang chờ gửi"
+        }
       },
       "log": {
         "title": "Nhật ký hoạt động",
@@ -462,9 +469,39 @@
   },
   "myVillas": {
     "title": "Villa của tôi",
+    "subtitle": "Quản lý các villa của bạn",
     "greeting": "Xin chào, {name}",
     "add": "Thêm villa",
-    "created": "Đã gửi villa để duyệt. Chúng tôi sẽ thông báo khi có kết quả."
+    "created": "Đã gửi villa để duyệt. Chúng tôi sẽ thông báo khi có kết quả.",
+    "rooms": "{bedrooms} phòng ngủ · {bathrooms} phòng tắm",
+    "viewCleaning": "Xem việc dọn dẹp",
+    "empty": "Bạn chưa có villa nào",
+    "emptyHint": "Nhấn nút Thêm villa để đăng ký villa đầu tiên.",
+    "status": {
+      "active": "Đang hoạt động",
+      "notSellable": "Chưa thể bán",
+      "pending": "Chờ duyệt",
+      "inactive": "Tạm dừng"
+    }
+  },
+  "villaDetail": {
+    "metaTitle": "{name}",
+    "basicInfo": "Thông tin cơ bản",
+    "rooms": "{bedrooms} phòng ngủ · {bathrooms} phòng tắm · Tối đa {guests} khách",
+    "pool": "Hồ bơi",
+    "breakfast": "Bữa sáng",
+    "photos": "Hình ảnh",
+    "photoCount": "{count} ảnh",
+    "noPhotos": "Chưa có ảnh nào",
+    "amenities": "Tiện nghi & đồ dùng",
+    "amenitySummary": "Đồ bếp {kitchen} · Đồ phòng tắm {bathroom} · Thiết bị điện {appliance} · Minibar {minibar}",
+    "noAmenities": "Chưa có đồ dùng nào",
+    "price": "Giá gốc",
+    "season": {
+      "LOW": "Mùa thấp điểm",
+      "HIGH": "Mùa cao điểm",
+      "PEAK": "Cao điểm lễ Tết"
+    }
   },
   "wizard": {
     "header": "Đăng ký villa",

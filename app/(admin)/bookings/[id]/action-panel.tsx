@@ -9,15 +9,33 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { BookingStatus } from "@prisma/client";
 
+/** ISO → Asia/Ho_Chi_Minh "HH:MM" (전달 완료 표시, b3 189행) */
+function formatTimeVn(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
+}
+
 export default function ActionPanel({
   bookingId,
   status,
   agreementUnsigned = false,
+  hasPassport = false,
+  tamTruSentAt = null,
 }: {
   bookingId: string;
   status: BookingStatus;
   /** T3.2 — CHECKED_IN + 체크인 기록 존재 + 동의서 미서명 (사후 서명 진입점) */
   agreementUnsigned?: boolean;
+  /** T3.6 — 여권 사진 존재 여부 (전달 버튼 노출 조건) */
+  hasPassport?: boolean;
+  /** T3.6 — 여권 공급자 전달 완료 시각(ISO). null이면 미전달 */
+  tamTruSentAt?: string | null;
 }) {
   const t = useTranslations("adminBookings.detail.actions");
   const router = useRouter();
@@ -25,6 +43,30 @@ export default function ActionPanel({
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [warn, setWarn] = useState<string | null>(null);
+
+  // 여권 전달 — 성공/재전달 시 router.refresh로 tamTruSentAt 갱신, 공급자 미연결 경고 표시
+  const sendTamTru = async () => {
+    setBusy(true);
+    setError(null);
+    setWarn(null);
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}/tamtru`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.message ?? data?.error ?? t("error"));
+        return;
+      }
+      if (data && data.supplierLinked === false) {
+        setWarn(t("tamtru.noZaloWarn"));
+      }
+      router.refresh();
+    } catch {
+      setError(t("error"));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const post = async (path: string, body?: unknown) => {
     setBusy(true);
@@ -77,6 +119,30 @@ export default function ActionPanel({
       )}
       {status === "CHECKED_IN" && (
         <div className="space-y-2">
+          {/* T3.6: 여권 공급자 전달 (임시거주신고, b3 189·193행) — 여권 존재 시만 */}
+          {hasPassport && (
+            <div className="space-y-2">
+              {tamTruSentAt && (
+                <div className="flex items-center gap-2 text-green-500">
+                  <span className="material-symbols-outlined text-sm">check_circle</span>
+                  <span className="text-xs font-bold">
+                    {t("tamtru.sent", { time: formatTimeVn(tamTruSentAt) })}
+                  </span>
+                </div>
+              )}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={sendTamTru}
+                className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-lg text-sm font-bold transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-sm">chat</span>
+                {busy ? t("tamtru.sending") : tamTruSentAt ? t("tamtru.resend") : t("tamtru.send")}
+              </button>
+              {warn && <p className="text-[11px] text-amber-400 text-center">{warn}</p>}
+            </div>
+          )}
+
           {/* T3.2: 미서명 배지 + 사후 서명 진입점 (계약 결정 1-③) */}
           {agreementUnsigned && (
             <Link

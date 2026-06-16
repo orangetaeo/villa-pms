@@ -6,6 +6,7 @@ import {
   ERROR_TOKEN_NOT_SET,
   MAX_SEND_ATTEMPTS,
   buildNotificationText,
+  extractAttachmentUrls,
   getAttemptCount,
   isRetryableFailure,
   withAttempt,
@@ -167,6 +168,22 @@ describe("buildNotificationText", () => {
 });
 
 // ===================== 재시도 판정 — payload._attempt =====================
+
+describe("extractAttachmentUrls (T3.6 — 전달 증빙)", () => {
+  it("passportPhotoUrls 문자열 배열만 추출", () => {
+    expect(
+      extractAttachmentUrls({ passportPhotoUrls: ["/api/passports/a.jpg", "/api/passports/b.jpg"] })
+    ).toEqual(["/api/passports/a.jpg", "/api/passports/b.jpg"]);
+  });
+
+  it("오염·누락 값은 빈 배열 (다른 알림 8종 영향 없음)", () => {
+    expect(extractAttachmentUrls({})).toEqual([]);
+    expect(extractAttachmentUrls(null)).toEqual([]);
+    expect(extractAttachmentUrls({ villaName: "쏘나씨 V12" })).toEqual([]);
+    expect(extractAttachmentUrls({ passportPhotoUrls: "not-array" })).toEqual([]);
+    expect(extractAttachmentUrls({ passportPhotoUrls: ["/a.jpg", 123, null] })).toEqual(["/a.jpg"]);
+  });
+});
 
 describe("getAttemptCount", () => {
   it("정상 _attempt 추출", () => {

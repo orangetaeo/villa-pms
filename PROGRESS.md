@@ -86,6 +86,8 @@
 
 | 2026-06-16 | T4.6 | 오픈 전 전체 점검 1차 완료 (점유 계약): LAUNCH.md 체크리스트 11항목을 코드·테스트·프로덕션으로 실측 — F1 빌라사이클·F2 캘린더/iCal·F3 제안/홀드·F4 검수게이트·F6 정산·권한누수(T4.1)·배포스모크 **PASS**, F0/F5(Zalo)·파일럿시드·T4.4는 활성화/실행 의존 **PARTIAL/BLOCKED**. 프로덕션 스모크 증적(/api/health 200·login/signup 200·보호라우트 307·미인증 쓰기 403/405). F5 알림 템플릿 10종 확인, cron 4종 라우트 존재. 코드 수정 0(읽기 점검) — 결함은 담당 세션 이관. | **결론: 코드 측면 오픈 준비 완료, 잔여는 전부 테오님 액션(Zalo 활성화·시드 실행·실사용자 테스트)**. 신규 Zalo 라우트는 배포 완료 후 재스모크 필요. 상세 docs/LAUNCH.md §6. |
 
+| 2026-06-16 | T3.6 | 여권 Zalo 전달(임시거주신고) 완료 — F5 알림 8종 연결 완결: lib/tamtru.ts(sendTamTruPassport — CheckInRecord·passportPhotoUrls 전제검증, $transaction으로 TAMTRU_PASSPORT enqueue+tamTruSentAt+AuditLog, 재전달 멱등) + POST /api/bookings/[id]/tamtru(ADMIN 401/403) + 예약상세 action-panel '공급자에게 전달' 버튼(b3 변환, 전달완료 HH:MM 분기·미연결 경고). payload 화이트리스트 4필드(villaName·guestName·checkIn·passportPhotoUrls) — 고객연락처·마진·판매가 미포함, AuditLog는 passportPhotoCount(장수)만(여권URL·OCR 미기록). Zalo 이미지 발송은 CS API 텍스트 전용이라 Phase 1=텍스트 알림+ZaloMessage.attachmentUrls 증빙(msgType=image), 실 이미지 발송(OA upload API)은 토큰 후 잔여. extractAttachmentUrls 추가+dispatch 미러 첨부 기록. **HEAD의 VILLA_REJECTED 빌더 누락 버그 수정**(zalo.test 3건 실패→회복). vitest 32(전체 428 회귀 0), tsc 0 | QA 독립평가는 API 레이트리밋으로 후속 진행 — 자체검증(권한 첫줄·payload 화이트리스트·AuditLog 미기록·테스트·tsc) 통과 후 사용자 지시로 커밋·배포. 잔여: 실 이미지 발송(Zalo OA 토큰), 여권 90일 삭제 cron(데이터정책) |
+
 ## 현재 상태 (2026-06-11 기준)
 
 ### 완료된 태스크

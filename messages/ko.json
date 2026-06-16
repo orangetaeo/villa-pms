@@ -223,7 +223,14 @@
         "comingT3": "Sprint 3에서 제공됩니다",
         "error": "처리에 실패했습니다. 다시 시도해주세요.",
         "unsignedBadge": "동의서 미서명",
-        "postSign": "사후 서명 받기"
+        "postSign": "사후 서명 받기",
+        "tamtru": {
+          "send": "공급자에게 전달",
+          "resend": "공급자에게 재전달",
+          "sending": "전달 중...",
+          "sent": "전달 완료 {time}",
+          "noZaloWarn": "공급자 Zalo 미연결 — 발송 대기 중입니다"
+        }
       },
       "log": {
         "title": "활동 로그",
@@ -462,9 +469,39 @@
   },
   "myVillas": {
     "title": "내 빌라",
+    "subtitle": "내 빌라를 관리하세요",
     "greeting": "안녕하세요, {name}",
     "add": "빌라 추가",
-    "created": "빌라가 승인 요청되었습니다. 결과가 나오면 알려드립니다."
+    "created": "빌라가 승인 요청되었습니다. 결과가 나오면 알려드립니다.",
+    "rooms": "침실 {bedrooms}개 · 욕실 {bathrooms}개",
+    "viewCleaning": "청소 보기",
+    "empty": "아직 등록된 빌라가 없습니다",
+    "emptyHint": "빌라 추가 버튼을 눌러 첫 빌라를 등록하세요.",
+    "status": {
+      "active": "판매중",
+      "notSellable": "판매 불가",
+      "pending": "승인 대기",
+      "inactive": "중단됨"
+    }
+  },
+  "villaDetail": {
+    "metaTitle": "{name}",
+    "basicInfo": "기본 정보",
+    "rooms": "침실 {bedrooms}개 · 욕실 {bathrooms}개 · 최대 {guests}명",
+    "pool": "수영장",
+    "breakfast": "조식",
+    "photos": "사진",
+    "photoCount": "사진 {count}장",
+    "noPhotos": "등록된 사진이 없습니다",
+    "amenities": "비품·시설",
+    "amenitySummary": "주방용품 {kitchen} · 욕실용품 {bathroom} · 가전류 {appliance} · 미니바 {minibar}",
+    "noAmenities": "등록된 비품이 없습니다",
+    "price": "원가",
+    "season": {
+      "LOW": "비수기",
+      "HIGH": "성수기",
+      "PEAK": "극성수기"
+    }
   },
   "wizard": {
     "header": "빌라 등록",

@@ -112,6 +112,21 @@ function str(value: unknown, fallback = "—"): string {
   return typeof value === "string" && value.trim().length > 0 ? value : fallback;
 }
 
+/**
+ * payload에서 첨부 URL 배열을 안전 추출 (전달 증빙용).
+ * 현재 TAMTRU_PASSPORT의 passportPhotoUrls만 미러 attachmentUrls에 기록한다.
+ * (Phase 1: 텍스트 알림 + 첨부 URL 증빙. 실 이미지 발송은 잔여 — dispatchOne 주석 참조)
+ */
+export function extractAttachmentUrls(payload: unknown): string[] {
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+    const raw = (payload as Record<string, unknown>).passportPhotoUrls;
+    if (Array.isArray(raw)) {
+      return raw.filter((u): u is string => typeof u === "string" && u.length > 0);
+    }
+  }
+  return [];
+}
+
 function num(value: unknown): string {
   return typeof value === "number" && Number.isFinite(value) ? String(value) : "—";
 }
@@ -201,6 +216,14 @@ export function buildNotificationText(
       lines.push(`Vui lòng kiểm tra chi tiết trong ứng dụng.`);
       return lines.join("\n");
     }
+
+    case NotificationType.VILLA_REJECTED:
+      // T1.2b — 빌라 반려. reason은 ADMIN 입력 사유(번역 전 ko일 수 있음 — 변수만 노출)
+      return [
+        `⚠️ Villa cần chỉnh sửa: ${villa}`,
+        `Lý do: ${str(p.reason, "(không có ghi chú)")}`,
+        `Vui lòng kiểm tra và cập nhật lại thông tin trong ứng dụng.`,
+      ].join("\n");
   }
 }
 
@@ -427,13 +450,19 @@ async function dispatchOne(
       summary.mirrorSkipped += 1;
       return;
     }
+    // 전달 증빙 — TAMTRU_PASSPORT의 여권 사진 URL을 미러에 기록 (T3.6).
+    // Phase 1은 텍스트 본문만 실제 발송됨. 실 이미지 발송(Zalo OA upload API:
+    //   /v2.0/oa/upload/image → attachment_id → message.attachment.payload)은 잔여 —
+    //   토큰·미디어 권한 확보 후 sendZaloText와 별도 발송 함수로 추가 예정.
+    const attachmentUrls = extractAttachmentUrls(notification.payload);
     await prisma.zaloMessage.create({
       data: {
         conversationId: conversation.id,
         direction: ZaloMessageDirection.OUTBOUND,
         source: ZaloMessageSource.SYSTEM,
-        msgType: "text",
+        msgType: attachmentUrls.length > 0 ? "image" : "text",
         text,
+        attachmentUrls,
         zaloMsgId: result.messageId,
         status: ZaloMessageStatus.SENT,
       },
