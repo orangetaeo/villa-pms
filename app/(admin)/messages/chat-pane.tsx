@@ -581,6 +581,13 @@ function InboundBubble({
       <div>
         {message.msgType === "photo" && message.attachmentUrls.length > 0 ? (
           <PhotoCard urls={message.attachmentUrls} caption={message.text} inbound />
+        ) : message.msgType === "file" ? (
+          <FileCard
+            fileName={message.text}
+            url={message.attachmentUrls[0] ?? null}
+            inbound
+            t={t}
+          />
         ) : (
           <div className="bg-slate-800 rounded-xl rounded-bl-sm px-4 py-3">
             <p className="text-sm text-slate-100 whitespace-pre-wrap break-words">{message.text}</p>
@@ -646,6 +653,16 @@ function OutboundBubble({
       <div className="flex justify-end">
         <div className="max-w-[70%] text-right">
           <PhotoCard urls={message.attachmentUrls} caption={message.text} />
+          {statusLine}
+        </div>
+      </div>
+    );
+  }
+  if (message.msgType === "file") {
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[70%] text-right">
+          <FileCard fileName={message.text} url={message.attachmentUrls[0] ?? null} t={t} />
           {statusLine}
         </div>
       </div>
@@ -784,6 +801,52 @@ function PhotoCard({
         )}
       </button>
       {caption && <p className={`text-xs px-2 py-1.5 ${captionColor}`}>{caption}</p>}
+    </div>
+  );
+}
+
+/** 파일 카드 버블 — 파일 아이콘 + 파일명(text) + 다운로드 링크. 발신 blue, 수신 slate (b14). */
+function FileCard({
+  fileName,
+  url,
+  inbound = false,
+  t,
+}: {
+  fileName: string;
+  url: string | null;
+  inbound?: boolean;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const wrap = inbound
+    ? "bg-slate-800 rounded-xl rounded-bl-sm px-3 py-2.5 inline-flex items-center gap-3 text-left w-[260px] max-w-full"
+    : "bg-blue-600 rounded-xl rounded-br-sm px-3 py-2.5 inline-flex items-center gap-3 text-left w-[260px] max-w-full";
+  const iconWrap = inbound ? "bg-slate-700 text-slate-200" : "bg-blue-500 text-white";
+  const nameColor = inbound ? "text-slate-100" : "text-white";
+  const linkColor = inbound
+    ? "text-blue-400 hover:text-blue-300"
+    : "text-blue-100 hover:text-white";
+  return (
+    <div className={wrap}>
+      <span
+        className={`material-symbols-outlined text-[22px] w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${iconWrap}`}
+      >
+        description
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className={`text-sm font-medium truncate ${nameColor}`}>{fileName}</p>
+        {url && (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            download
+            className={`mt-0.5 inline-flex items-center gap-1 text-[11px] font-bold transition-colors ${linkColor}`}
+          >
+            <span className="material-symbols-outlined text-[14px]">download</span>
+            {t("fileCard.download")}
+          </a>
+        )}
+      </div>
     </div>
   );
 }
@@ -960,6 +1023,7 @@ function Composer({
             villaCandidates={villaCandidates}
             proposalCandidates={proposalCandidates}
             settlementCandidates={settlementCandidates}
+            onError={setError}
             t={t}
             router={router}
           />
@@ -1014,6 +1078,9 @@ function Composer({
 
 // ════════════════════════ 첨부 메뉴 + 공유 흐름 ════════════════════════
 
+// 파일 업로드 에러코드 → i18n 라벨 키. 미매핑 코드는 generic.
+const FILE_ERROR_KEYS = new Set(["TOO_LARGE", "BLOCKED_TYPE", "IS_IMAGE", "NO_EXTENSION"]);
+
 function AttachMenu({
   conversationId,
   counterpartyType,
@@ -1021,6 +1088,7 @@ function AttachMenu({
   villaCandidates,
   proposalCandidates,
   settlementCandidates,
+  onError,
   t,
   router,
 }: {
@@ -1030,6 +1098,7 @@ function AttachMenu({
   villaCandidates: VillaCandidate[];
   proposalCandidates: ProposalCandidate[];
   settlementCandidates: SettlementCandidate[];
+  onError: (msg: string | null) => void;
   t: ReturnType<typeof useTranslations>;
   router: ReturnType<typeof useRouter>;
 }) {
@@ -1038,6 +1107,7 @@ function AttachMenu({
   const [submitting, setSubmitting] = useState(false);
   const galleryRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   // 가시성 (D2/R2-5) — 하드코딩 분기 대신 allowedShareKinds 헬퍼로 도출(분류 확장에 자동 대응).
   //  원가측(SUPPLIER)=사진+빌라+정산 / 판매가측(고객·여행사·랜드사)=사진+빌라+제안 / UNKNOWN=사진만
@@ -1061,6 +1131,39 @@ function AttachMenu({
       if (res.ok) router.refresh();
     } catch {
       /* noop */
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // 일반 파일(비이미지 문서 등) — type=FILE 강제. 에러코드별 안내를 onError로 입력 영역에 표시.
+  async function uploadFile(file: File) {
+    setSubmitting(true);
+    setOpen(false);
+    onError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("type", "FILE");
+      const res = await fetch(`/api/zalo/conversations/${conversationId}/share`, {
+        method: "POST",
+        body: fd,
+      });
+      if (res.ok) {
+        router.refresh();
+        return;
+      }
+      // 400 에러코드 → i18n 안내(매핑 없으면 generic).
+      let code: string | null = null;
+      try {
+        const data = (await res.json()) as { error?: string };
+        code = data.error ?? null;
+      } catch {
+        /* 본문 파싱 실패 → generic */
+      }
+      onError(code && FILE_ERROR_KEYS.has(code) ? t(`fileError.${code}`) : t("fileError.generic"));
+    } catch {
+      onError(t("fileError.generic"));
     } finally {
       setSubmitting(false);
     }
@@ -1123,6 +1226,18 @@ function AttachMenu({
           e.target.value = "";
         }}
       />
+      {/* 숨은 파일 입력 — 일반 파일(문서 등). accept 제한 없음(서버가 위험 확장자·크기 검증). */}
+      <input
+        ref={fileRef}
+        type="file"
+        aria-label={t("attach.file")}
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void uploadFile(f);
+          e.target.value = "";
+        }}
+      />
 
       {open && (
         <>
@@ -1151,6 +1266,17 @@ function AttachMenu({
                 photo_camera
               </span>
               {t("attach.camera")}
+            </button>
+            {/* 파일 — 상대 타입 무관 항상 표시(파일은 누수 무관). */}
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 hover:bg-slate-700/60"
+            >
+              <span className="material-symbols-outlined text-[20px] text-blue-400">
+                attach_file
+              </span>
+              {t("attach.file")}
             </button>
 
             {(canVilla || canProposal || canSettlement || locked) && (

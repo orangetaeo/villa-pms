@@ -1280,10 +1280,21 @@
       "heading": "첨부 · 공유",
       "photo": "사진 보내기",
       "camera": "사진 촬영",
+      "file": "파일 보내기",
       "villa": "빌라 공유",
       "proposal": "제안서 공유",
       "settlement": "정산서 공유",
       "lockedHint": "분류 후 빌라·제안·정산 공유 가능"
+    },
+    "fileCard": {
+      "download": "다운로드"
+    },
+    "fileError": {
+      "TOO_LARGE": "파일이 너무 큽니다 (20MB 이하만 가능)",
+      "BLOCKED_TYPE": "허용되지 않는 파일 형식입니다",
+      "IS_IMAGE": "이미지는 사진 메뉴를 사용하세요",
+      "NO_EXTENSION": "확장자가 없는 파일은 보낼 수 없습니다",
+      "generic": "파일 전송에 실패했습니다"
     },
     "settlementStatus": {
       "DRAFT": "작성중",

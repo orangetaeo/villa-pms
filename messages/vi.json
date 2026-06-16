@@ -1280,10 +1280,21 @@
       "heading": "Đính kèm · Chia sẻ",
       "photo": "Gửi ảnh",
       "camera": "Chụp ảnh",
+      "file": "Gửi tệp",
       "villa": "Chia sẻ villa",
       "proposal": "Chia sẻ đề xuất",
       "settlement": "Chia sẻ quyết toán",
       "lockedHint": "Phân loại trước để chia sẻ villa·đề xuất·quyết toán"
+    },
+    "fileCard": {
+      "download": "Tải xuống"
+    },
+    "fileError": {
+      "TOO_LARGE": "Tệp quá lớn (tối đa 20MB)",
+      "BLOCKED_TYPE": "Định dạng tệp không được phép",
+      "IS_IMAGE": "Vui lòng dùng menu ảnh cho hình ảnh",
+      "NO_EXTENSION": "Không thể gửi tệp không có phần mở rộng",
+      "generic": "Gửi tệp thất bại"
     },
     "settlementStatus": {
       "DRAFT": "Bản nháp",
