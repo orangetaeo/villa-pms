@@ -44,9 +44,12 @@ function previewText(item: InboxItem, t: ReturnType<typeof useTranslations>): st
 export function Inbox({
   items,
   totalUnread,
+  conversationSelected,
 }: {
   items: InboxItem[];
   totalUnread: number;
+  // 모바일(<lg): 대화 선택 시 인박스 숨김(채팅 전체폭). 데스크톱(lg:)은 항상 표시.
+  conversationSelected: boolean;
 }) {
   const t = useTranslations("adminMessages");
   const [query, setQuery] = useState("");
@@ -71,7 +74,11 @@ export function Inbox({
   ];
 
   return (
-    <section className="w-[280px] sm:w-[320px] shrink-0 border-r border-slate-800 bg-slate-900 flex flex-col">
+    <section
+      className={`${
+        conversationSelected ? "hidden lg:flex" : "flex"
+      } w-full lg:w-[320px] shrink-0 border-r border-slate-800 bg-slate-900 flex-col`}
+    >
       <div className="px-5 pt-6 pb-4 border-b border-slate-800">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-bold text-white tracking-tight">{t("title")}</h1>

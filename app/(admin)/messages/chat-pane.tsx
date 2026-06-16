@@ -136,8 +136,9 @@ export function ChatPane({
   }, [conversationId, hasUnread, router]);
 
   if (!conversationId || !header) {
+    // 모바일(<lg): 대화 미선택 시 인박스가 전체폭 → 빈 안내 pane 숨김. 데스크톱(lg:)만 표시.
     return (
-      <section className="flex-1 flex flex-col items-center justify-center bg-[#0F172A] min-w-0 text-center px-6">
+      <section className="hidden lg:flex flex-1 flex-col items-center justify-center bg-[#0F172A] min-w-0 text-center px-6">
         <span className="material-symbols-outlined text-slate-700 text-5xl mb-3">forum</span>
         <p className="text-sm text-slate-500">{t("selectConversation")}</p>
       </section>
@@ -219,8 +220,18 @@ function ChatHeaderBar({
 
   return (
     <header className="shrink-0 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md px-6 py-3 flex items-center justify-between gap-4">
-      {/* 좌측: 아바타 + 별명(편집) + 배지 + 연결/원본 */}
+      {/* 좌측: (모바일) 뒤로가기 + 아바타 + 별명(편집) + 배지 + 연결/원본 */}
       <div className="flex items-center gap-3 min-w-0">
+        {/* 모바일 전용 뒤로가기 — 목록(인박스)으로. 데스크톱(lg:)은 2-pane 유지라 숨김. */}
+        <button
+          type="button"
+          onClick={() => router.push("/messages")}
+          title={t("back")}
+          aria-label={t("back")}
+          className="lg:hidden -ml-1 w-9 h-9 rounded-lg text-slate-300 hover:bg-slate-800 flex items-center justify-center shrink-0 transition-colors"
+        >
+          <span className="material-symbols-outlined text-[22px]">arrow_back</span>
+        </button>
         {header.avatarUrl && !avatarBroken ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -807,7 +818,10 @@ function Composer({
   return (
     <footer className="shrink-0 border-t border-slate-800 bg-slate-900 px-6 py-4">
       {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
-      <div className="bg-slate-800/60 border border-slate-700 rounded-xl overflow-hidden focus-within:border-blue-500 transition-colors">
+      {/* overflow-hidden 제거: 첨부 메뉴(absolute bottom-full, 위로 뜸)가 잘리지 않게.
+          rounded 시각은 유지 — 번역 미리보기 바에 rounded-b-xl + overflow-hidden을 직접 부여해
+          하단 모서리만 클립(입력행 상단은 bg-transparent라 클립 불필요). */}
+      <div className="bg-slate-800/60 border border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
         <div className="flex items-center gap-2 px-3 pt-3">
           <AttachMenu
             conversationId={conversationId}
@@ -843,9 +857,10 @@ function Composer({
             {t("send")}
           </button>
         </div>
-        {/* 번역 미리보기 — OFF면 영역 자체를 미렌더 (D7.5) */}
+        {/* 번역 미리보기 — OFF면 영역 자체를 미렌더 (D7.5).
+            rounded-b-xl + overflow-hidden: 부모 overflow-hidden 제거에 따른 하단 모서리 클립 보존. */}
         {previewEnabled && (
-          <div className="flex items-center gap-2 px-4 py-2.5 mt-2 bg-slate-900/60 border-t border-slate-800">
+          <div className="flex items-center gap-2 px-4 py-2.5 mt-2 bg-slate-900/60 border-t border-slate-800 rounded-b-xl overflow-hidden">
             <span className="text-[10px] font-bold text-teal-400 shrink-0 uppercase tracking-wider">
               {previewLabel}
             </span>

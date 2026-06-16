@@ -1181,6 +1181,7 @@
   },
   "adminMessages": {
     "title": "Tin nhắn",
+    "back": "Về danh sách",
     "searchPlaceholder": "Tìm cuộc trò chuyện",
     "empty": "Không có cuộc trò chuyện",
     "windowExpiredBadge": "Quá 48 giờ",

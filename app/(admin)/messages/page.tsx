@@ -207,7 +207,13 @@ export default async function MessagesPage({
       },
     });
 
-    if (conv) {
+    // 무효·타 관리자 소유 대화 ID → 목록으로 되돌림. (모바일에선 인박스·빈 pane 둘 다 숨어
+    //  백지가 되고, 보안상으로도 ID 추측 접근을 깔끔히 차단)
+    if (!conv) {
+      redirect("/messages");
+    }
+
+    {
       const name = displayNameOf(conv);
       const counterpartyType = conv.counterpartyType as CounterpartyType;
       header = {
@@ -399,7 +405,11 @@ export default async function MessagesPage({
   return (
     <div className="-m-4 md:-m-8 h-[calc(100vh-3.5rem)] lg:h-screen flex">
       <AutoRefresh />
-      <Inbox items={inboxItems} totalUnread={totalUnread} />
+      <Inbox
+        items={inboxItems}
+        totalUnread={totalUnread}
+        conversationSelected={Boolean(selectedId)}
+      />
       <ChatPane
         conversationId={selectedId ?? null}
         header={header}

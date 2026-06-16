@@ -1181,6 +1181,7 @@
   },
   "adminMessages": {
     "title": "메시지",
+    "back": "목록으로",
     "searchPlaceholder": "대화 검색",
     "empty": "대화가 없습니다",
     "windowExpiredBadge": "48시간 경과",
