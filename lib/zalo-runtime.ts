@@ -15,14 +15,15 @@
  * 보안(D6): credential은 lib/zalo-credentials에서만 다룬다. 여기서는 평문 credential을
  * 절대 로그/응답에 내보내지 않는다. _pendingCreds는 onLoginSuccess 직후 즉시 폐기.
  */
-import { Zalo, ThreadType, type API } from "zca-js";
+import { Zalo, ThreadType, Reactions, type API } from "zca-js";
 import {
   LoginQRCallbackEventType,
   type LoginQRCallbackEvent,
   type Message,
   type UserMessage,
+  type Reaction,
 } from "zca-js";
-import { ZaloAccountKind } from "@prisma/client";
+import { Prisma, ZaloAccountKind } from "@prisma/client";
 import { prisma } from "./prisma";
 import {
   saveCredentials,
@@ -39,6 +40,8 @@ import {
   isSelfMessage,
   buildInboundKey,
   parseZaloTs,
+  buildCliMsgId,
+  extractQuote,
   saveInboundMessage,
   saveOutboundEcho,
   maybeTranslateInbound,
@@ -209,6 +212,15 @@ export function getSystemBotApi(): API | null {
 export async function getApiForAdmin(adminUserId: string): Promise<API | null> {
   const inst = await resolveAdminInstance(adminUserId);
   return inst && inst.status === "connected" ? inst.api : null;
+}
+
+/**
+ * 관리자 본인 계정의 Zalo own id (ADR-0009 R3-2 답글 인용 uidFrom 결정용). 미연결/미상이면 null.
+ * 내가 보낸(OUTBOUND) 메시지를 인용할 때 quote.uidFrom = 내 ownId가 필요하다.
+ */
+export async function getOwnIdForAdmin(adminUserId: string): Promise<string | null> {
+  const inst = await resolveAdminInstance(adminUserId);
+  return inst?.ownId ?? null;
 }
 
 /**
@@ -544,6 +556,10 @@ async function onLoginSuccess(inst: ZaloBotInstance, api: API) {
     api.listener.on("message", (message: Message) => {
       void handleInboundEvent(inst, message);
     });
+    // ADR-0009 R3-4 — 리액션 수신(단건). old_reactions(대량 동기화)는 Phase 1 스킵.
+    api.listener.on("reaction", (reaction: Reaction) => {
+      void handleReactionEvent(inst, reaction);
+    });
     api.listener.on("closed", (code: number) => {
       // code 3000 = DuplicateConnection — 다른 곳에서 계정 로그인됨 (D2.3, 밴 위험 신호)
       if (code === 3000) {
@@ -614,6 +630,9 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
 
     const zaloMsgId = buildInboundKey(userMsg.data);
     const displayName = (data.dName as string | undefined) ?? null;
+    // ADR-0009 R3-1 — cliMsgId(리액션·답글 대상)·인용 스냅샷 파싱. 수신·발신 echo 양쪽에 저장.
+    const cliMsgId = buildCliMsgId(userMsg.data);
+    const quote = extractQuote(userMsg.data);
 
     // ── 본인 발신(앱 or 프로그램) → OUTBOUND 동기화 ──────────────
     if (isSelfMessage({ isSelf: userMsg.isSelf, senderId }, inst.ownId)) {
@@ -630,6 +649,8 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
         zaloMsgId,
         createdAt: parseZaloTs(data.ts) ?? new Date(),
         displayName,
+        cliMsgId,
+        quote,
       });
       // ADR-0009 S6 — 내가 먼저 연 대화(발신만 있는 대화)도 아바타가 채워지도록 발신 echo 후에도 lazy 갱신.
       // best-effort·비블로킹. 친구 아니면 null 폴백(avatarFetchedAt만 갱신해 재시도 억제).
@@ -648,6 +669,8 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       displayName,
       // 전화번호 매칭은 사람이 쓴 실제 본문만 대상 — 폴백 문구로 오매칭 방지.
       senderPhone: null,
+      cliMsgId,
+      quote,
     });
 
     // ADR-0009 S5 — 수신 자동번역(VI/EN만). 리스너 블로킹 금지: await 없이 fire-and-forget.
@@ -661,6 +684,98 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
   } catch (err) {
     console.error(
       "[ZaloPool] 수신 처리 실패:",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
+}
+
+// ── ADR-0009 R3-4: 리액션 수신 ────────────────────────────────
+
+/** zca-js Reactions enum 값(이모티콘 코드) → 우리 키(enum 이름, 예 "HEART"). 역매핑 캐시.
+ *  Reactions가 (테스트 부분 모킹 등으로) 없으면 빈 맵 — 미상 아이콘은 원본 값 그대로 보존. */
+const REACTION_VALUE_TO_KEY: Record<string, string> = Reactions
+  ? Object.fromEntries(Object.entries(Reactions).map(([key, value]) => [value as string, key]))
+  : {};
+
+/**
+ * zca-js rIcon(Reactions 값) → DB 저장 키(enum 이름). 미상이면 원본 값 그대로(표시 못 해도 카운트 보존).
+ * 빈 문자열(Reactions.NONE = "")은 리액션 제거 신호 — 키 변환 안 함(호출부에서 rType=0으로 판정).
+ */
+function reactionIconToKey(rIcon: string): string {
+  return REACTION_VALUE_TO_KEY[rIcon] ?? rIcon;
+}
+
+/**
+ * 리액션 집계 Json 갱신 (불변 — 새 객체 반환). 아이콘 키별 카운트.
+ * add=true면 +1, false(제거)면 -1(0 이하면 키 삭제). 빈 객체는 null로 정규화(저장 단순화).
+ */
+export function applyReaction(
+  current: unknown,
+  iconKey: string,
+  add: boolean
+): Record<string, number> | null {
+  const base: Record<string, number> =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? { ...(current as Record<string, number>) }
+      : {};
+  const prev = typeof base[iconKey] === "number" ? base[iconKey] : 0;
+  const next = add ? prev + 1 : prev - 1;
+  if (next > 0) base[iconKey] = next;
+  else delete base[iconKey];
+  return Object.keys(base).length > 0 ? base : null;
+}
+
+/**
+ * 리액션 수신 이벤트 처리 (ADR-0009 R3-4) — 리스너 외부 fire-and-forget.
+ *  - reaction.data.content.rMsg[].gMsgID = 대상 메시지의 Zalo 서버 msgId.
+ *  - rIcon = Reactions 값, rType=0이면 제거(언리액션).
+ *  - 대상 ZaloMessage를 zaloMsgId로 조회하되 **이 인스턴스 소유자(ownerAdminId) 대화 스코프**로 한정
+ *    (타 관리자 대화 메시지 오갱신 차단 — ADR-0007 격리).
+ *  - reactions Json을 아이콘별 카운트로 갱신. old_reactions(대량)는 스킵.
+ * 한 건 실패가 리스너를 죽이지 않도록 전체 try/catch.
+ */
+async function handleReactionEvent(inst: ZaloBotInstance, reaction: Reaction): Promise<void> {
+  try {
+    if (!inst.ownerAdminId) return;
+    const data = reaction.data as unknown as {
+      content?: {
+        rMsg?: { gMsgID?: string | number; cMsgID?: string | number }[];
+        rIcon?: string;
+        rType?: number;
+      };
+    };
+    const content = data.content;
+    if (!content?.rMsg?.length || content.rIcon == null) return;
+
+    const isRemove = content.rType === 0;
+    const iconKey = reactionIconToKey(content.rIcon);
+    // 제거 신호인데 아이콘이 비면(NONE) 어떤 아이콘을 빼야 할지 모름 — 스킵(Phase 1 보수적).
+    if (isRemove && (!iconKey || content.rIcon === "")) return;
+
+    for (const rMsg of content.rMsg) {
+      const targetMsgId =
+        rMsg?.gMsgID != null && rMsg.gMsgID !== "" ? String(rMsg.gMsgID) : null;
+      if (!targetMsgId) continue;
+
+      // 대상 메시지 — zaloMsgId 멱등 키로 조회 + 이 관리자 대화 스코프 가드(타 관리자 누수 0).
+      const msg = await prisma.zaloMessage.findFirst({
+        where: {
+          zaloMsgId: targetMsgId,
+          conversation: { ownerAdminId: inst.ownerAdminId },
+        },
+        select: { id: true, reactions: true },
+      });
+      if (!msg) continue;
+
+      const updated = applyReaction(msg.reactions, iconKey, !isRemove);
+      await prisma.zaloMessage.update({
+        where: { id: msg.id },
+        data: { reactions: updated ?? Prisma.JsonNull },
+      });
+    }
+  } catch (err) {
+    console.error(
+      "[ZaloPool] 리액션 수신 처리 실패:",
       err instanceof Error ? err.message : String(err)
     );
   }
@@ -712,6 +827,108 @@ export async function sendChatMessageAsAdmin(
 ): Promise<BotSendResult> {
   const api = await getApiForAdmin(adminUserId);
   return sendVia(api, zaloUserId, text);
+}
+
+// ── ADR-0009 R3-2/R3-3: 답글(인용)·리액션 발송 ────────────────────
+
+/** 답글 발송에 필요한 원본 메시지 식별자·스냅샷 (ZaloMessage에서 읽어 전달). */
+export interface QuoteSource {
+  /** 원본 Zalo 서버 msgId (ZaloMessage.zaloMsgId) */
+  zaloMsgId: string;
+  /** 원본 cliMsgId (ZaloMessage.cliMsgId) — 없으면 답글 불가(호출부에서 거부) */
+  cliMsgId: string;
+  /** 원본 본문(인용에 실어 보냄). 없으면 빈 문자열 */
+  content: string;
+  /** 원본 발신자 Zalo id (uidFrom). 상대 발신이면 zaloUserId, 내 발신이면 내 ownId */
+  uidFrom: string;
+}
+
+/**
+ * 관리자 본인 계정으로 **답글(인용) 발송** (ADR-0009 R3-2).
+ * zca-js sendMessage({ msg, quote: SendMessageQuote }) — 원본의 msgId·cliMsgId·content 등을 실어 보낸다.
+ * SendMessageQuote 필수 필드: content·msgType·propertyExt·uidFrom·msgId·cliMsgId·ts·ttl.
+ *   실측 가능한 값만 채우고(원본 ZaloMessage에서 read), 미보유 필드는 zca-js 허용 기본(빈/0)으로.
+ *   → zca-js 버전별 quote 필드 요구가 다를 수 있어 실동작은 테오 봇 세션 실측 필요(R3-7 리스크 ⑬).
+ * 봇 미연결 시 ok:false(ERROR_BOT_NOT_CONNECTED). 시스템봇·기존 발송 함수 무변경.
+ */
+export async function sendChatReplyAsAdmin(
+  adminUserId: string,
+  zaloUserId: string,
+  text: string,
+  quoteSource: QuoteSource
+): Promise<BotSendResult> {
+  try {
+    const api = await getApiForAdmin(adminUserId);
+    if (!api) return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
+    // SendMessageQuote — zca-js 타입(TMessage 부분집합). 보유 식별자만 채우고 나머지는 안전 기본.
+    // 타입 단언(MessageContent.quote): 우리가 보유한 필드만 신뢰, 미보유는 빈/0(실동작 실측 — R3-7 ⑬).
+    const message = {
+      msg: text,
+      quote: {
+        content: quoteSource.content,
+        msgType: "webchat",
+        propertyExt: undefined,
+        uidFrom: quoteSource.uidFrom,
+        msgId: quoteSource.zaloMsgId,
+        cliMsgId: quoteSource.cliMsgId,
+        ts: String(Date.now()),
+        ttl: 0,
+      },
+    } as unknown as Parameters<API["sendMessage"]>[0];
+    const res = await api.sendMessage(message, zaloUserId, ThreadType.User);
+    const msgId = res?.message?.msgId ?? res?.attachment?.[0]?.msgId;
+    return { ok: true, messageId: msgId != null ? String(msgId) : null };
+  } catch (e) {
+    return {
+      ok: false,
+      error: `SEND_ERROR: ${e instanceof Error ? e.message : String(e)}`.slice(0, 500),
+    };
+  }
+}
+
+/**
+ * 발송 가능한 리액션 아이콘 키 목록(zca-js Reactions enum 이름, 예 "HEART").
+ * 라우트 검증·FE 노출 세트의 단일 진실원 — zca-js Reactions 직접 import를 라우트에서 피하기 위해 재노출.
+ */
+export const REACTION_KEYS = (Reactions ? Object.keys(Reactions) : ["HEART"]) as [
+  string,
+  ...string[],
+];
+
+export type ReactionResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+/**
+ * 관리자 본인 계정으로 **리액션 발송** (ADR-0009 R3-3) — addReaction(icon, dest).
+ * dest = { data: { msgId, cliMsgId }, threadId, type } — msgId·cliMsgId 둘 다 필수.
+ *   cliMsgId 없는 과거 메시지는 호출부(라우트)에서 거부 — 여기까지 오면 둘 다 보유 전제.
+ * iconKey는 우리 enum 키(예 "HEART") — Reactions[iconKey]로 zca-js 값 매핑. 미상이면 ok:false.
+ * 봇 미연결 시 ok:false. 시스템봇·발송 함수 무변경.
+ */
+export async function addReactionAsAdmin(
+  adminUserId: string,
+  zaloUserId: string,
+  target: { zaloMsgId: string; cliMsgId: string },
+  iconKey: string
+): Promise<ReactionResult> {
+  try {
+    const api = await getApiForAdmin(adminUserId);
+    if (!api) return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
+    const icon = (Reactions as Record<string, string>)[iconKey];
+    if (icon == null) return { ok: false, error: `UNKNOWN_REACTION: ${iconKey}`.slice(0, 100) };
+    await api.addReaction(icon as Reactions, {
+      data: { msgId: target.zaloMsgId, cliMsgId: target.cliMsgId },
+      threadId: zaloUserId,
+      type: ThreadType.User,
+    });
+    return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: `REACT_ERROR: ${e instanceof Error ? e.message : String(e)}`.slice(0, 500),
+    };
+  }
 }
 
 // ── ADR-0009 S1: 이미지 발송 ──────────────────────────────────────

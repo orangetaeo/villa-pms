@@ -1286,6 +1286,19 @@
       "hint": "Để trống sẽ bỏ biệt danh và quay lại tên gốc (tối đa 40 ký tự)",
       "zaloOriginal": "Tên Zalo gốc: {name}"
     },
+    "reply": {
+      "action": "Trả lời",
+      "cancel": "Hủy trả lời",
+      "you": "Bạn",
+      "replyingTo": "Trả lời {name}",
+      "fileFallback": "[Tệp]",
+      "notSupported": "Không thể trả lời tin nhắn cũ."
+    },
+    "react": {
+      "action": "Cảm xúc",
+      "notSupported": "Không thể thêm cảm xúc cho tin nhắn cũ.",
+      "failed": "Gửi cảm xúc thất bại. Vui lòng thử lại sau."
+    },
     "attach": {
       "button": "Đính kèm",
       "heading": "Đính kèm · Chia sẻ",

@@ -3,6 +3,7 @@
 // v1.1: AuditLog·AppSetting 추가 (ADR-0002)
 // v1.2: 채널별 결제 통화(saleCurrency·salePriceVnd·환율 스냅샷), VillaAmenity 비품, Zalo 양방향 채팅 (ADR-0003)
 // v1.2a: ZaloCounterpartyType 분류 5종 확장 — TRAVEL_AGENCY·LAND_AGENCY 추가 (ADR-0009 개정 2026-06-16, additive enum)
+// v1.2b: ZaloMessage 답글(인용)·리액션 — cliMsgId·quotedMsgId·quotedText·quotedSender·reactions 추가 (ADR-0009 개정3 2026-06-16, additive)
 
 generator client {
   provider = "prisma-client-js"
@@ -640,6 +641,20 @@ model ZaloMessage {
   error          String?
   sentBy         String? // OUTBOUND CHAT: 발신 ADMIN userId
   createdAt      DateTime             @default(now())
+
+  // ── 답글(인용)·리액션 (ADR-0009 개정3, additive) ──
+  // zca-js는 리액션(addReaction)·답글(sendMessage quote)에 Zalo 서버 msgId와 함께 cliMsgId를 요구한다.
+  // 기존 행은 cliMsgId=null(과거 메시지엔 리액션·답글 불가 — 신규 발송·수신분부터. 백필 불필요).
+  cliMsgId       String? // zca-js cliMsgId — 리액션(addReaction: msgId+cliMsgId 둘 다 필요)·답글 대상 식별. 발송·수신 시 저장
+
+  // 답글 인용 — self-relation 대신 스냅샷(단순·안전). 원본 메시지가 삭제돼도 인용 표시 보존.
+  quotedMsgId    String? // 인용된 원본 메시지의 zaloMsgId (참조용, FK 아님)
+  quotedText     String? // 인용 본문 스냅샷 (인용 블록 표시용)
+  quotedSender   String? // 인용 발신자 표시명 스냅샷
+
+  // 리액션 집계 — 수신 reaction 이벤트로 갱신. 예: { "HEART": 2, "LIKE": 1 }.
+  // Phase 1은 누가 달았는지까지는 불필요 — 아이콘별 카운트 집계만. 아이콘은 문자열(zca-js Reactions enum 키, 예 "HEART").
+  reactions      Json? // 메시지에 달린 리액션 집계
 
   @@index([conversationId, createdAt])
 }

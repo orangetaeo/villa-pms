@@ -84,6 +84,16 @@ function dayDivider(date: Date): string {
   return `${get("year")}.${get("month")}.${get("day")}`;
 }
 
+/** 리액션 Json({HEART:2,...})을 Record<string,number>로 정규화 — 양수 카운트만. 비정상/빈값은 null. */
+function normalizeReactions(value: unknown): Record<string, number> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof v === "number" && v > 0) out[k] = v;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
 /** 정산 yearMonth(YYYY-MM) → "2026년 6월 정산" 표시 라벨 */
 function settlementLabel(yearMonth: string): string {
   const [y, m] = yearMonth.split("-");
@@ -202,6 +212,10 @@ export default async function MessagesPage({
             attachmentUrls: true,
             status: true,
             createdAt: true,
+            // ADR-0009 R3-2/R3-3 — 답글 인용 스냅샷 + 리액션 집계(둘 다 누수 무관: 본문/아이콘 카운트만)
+            quotedText: true,
+            quotedSender: true,
+            reactions: true,
           },
         },
       },
@@ -250,6 +264,11 @@ export default async function MessagesPage({
           dayDivider: divider,
           avatarUrl: isInboundAvatar,
           initials: isInboundInitials,
+          // 답글 인용 스냅샷(자기 화면 표시 — R3-2). 둘 중 하나라도 있으면 인용 블록 렌더.
+          quotedText: m.quotedText,
+          quotedSender: m.quotedSender,
+          // 리액션 집계 Json {HEART:n,...} → Record<string,number>로 정규화(아니면 null). 누수 무관.
+          reactions: normalizeReactions(m.reactions),
         } satisfies ChatMessage;
       });
 

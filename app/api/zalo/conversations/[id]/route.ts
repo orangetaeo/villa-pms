@@ -6,10 +6,15 @@
 // 공통: ADMIN 전용 + 본인(ownerAdminId) 대화만 (ADR-0007 누수 차단). 타인/미존재 대화는 404.
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { ZaloCounterpartyType } from "@prisma/client";
+import { Prisma, ZaloCounterpartyType } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
+import { addReactionAsAdmin, applyReaction, REACTION_KEYS } from "@/lib/zalo-runtime";
+
+// 발송 가능한 리액션 아이콘 키(zca-js Reactions enum 이름, 예 "HEART"). DB·집계는 이 키 문자열로 저장.
+// REACTION_KEYS는 zalo-runtime이 zca-js Reactions에서 도출 — 세트 확장 시 코드 변경만(스키마 무변경, R3-5).
+const reactionIconKeySchema = z.enum(REACTION_KEYS);
 
 // nickname: 빈 문자열/공백은 해제(null)로 정규화. 1~40자 길이 제한(D9.3).
 const NICKNAME_MAX = 40;
@@ -28,6 +33,13 @@ const bodySchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("SET_COUNTERPARTY_TYPE"),
     counterpartyType: z.nativeEnum(ZaloCounterpartyType),
+  }),
+  // REACT — 메시지에 리액션(하트 등) 추가 (ADR-0009 R3-3). messageId는 본인 대화의 ZaloMessage.
+  // 발송 후 자기 reactions에도 낙관적 +1 반영. cliMsgId 없는 과거 메시지는 거부(zca-js 요구).
+  z.object({
+    action: z.literal("REACT"),
+    messageId: z.string().min(1),
+    icon: reactionIconKeySchema,
   }),
 ]);
 
@@ -109,6 +121,50 @@ export async function PATCH(
       },
     }).catch(() => {});
     return NextResponse.json({ ok: true, counterpartyType: action.counterpartyType });
+  }
+
+  // ── REACT (R3-3) — 메시지 리액션 발송 + 자기 집계 낙관적 갱신 ──
+  if (action.action === "REACT") {
+    // 본인(ownerAdminId) 대화의 메시지만 — 대화 스코프로 한정(타 관리자 메시지 거부, ADR-0007 격리).
+    const msg = await prisma.zaloMessage.findFirst({
+      where: {
+        id: action.messageId,
+        conversation: { id, ownerAdminId },
+      },
+      select: {
+        id: true,
+        zaloMsgId: true,
+        cliMsgId: true,
+        reactions: true,
+        conversation: { select: { zaloUserId: true } },
+      },
+    });
+    if (!msg) {
+      return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+    }
+    // zca-js addReaction은 msgId + cliMsgId 둘 다 필수 — 과거(미보유) 메시지는 거부(R3-4).
+    if (!msg.zaloMsgId || !msg.cliMsgId) {
+      return NextResponse.json({ error: "REACTION_NOT_SUPPORTED" }, { status: 400 });
+    }
+
+    const send = await addReactionAsAdmin(
+      ownerAdminId,
+      msg.conversation.zaloUserId,
+      { zaloMsgId: msg.zaloMsgId, cliMsgId: msg.cliMsgId },
+      action.icon
+    );
+    if (!send.ok) {
+      // 봇 미연결·발송 실패 — 집계 갱신 안 함(낙관적 반영은 발송 성공 시만). 502로 구분.
+      return NextResponse.json({ error: send.error }, { status: 502 });
+    }
+
+    // 발송 성공 — 자기 reactions에 낙관적 +1(수신 이벤트가 와도 멱등 갱신은 INTEG가 보장, R3-4).
+    const updated = applyReaction(msg.reactions, action.icon, true);
+    await prisma.zaloMessage.update({
+      where: { id: msg.id },
+      data: { reactions: updated ?? Prisma.JsonNull },
+    });
+    return NextResponse.json({ ok: true, reactions: updated ?? {} });
   }
 
   // ── SET_NICKNAME (D9.3) ──────────────────────────────────────

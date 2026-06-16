@@ -183,6 +183,66 @@ export function buildInboundKey(data: { msgId?: unknown }): string | null {
   return null;
 }
 
+/**
+ * zca-js cliMsgId 추출 (ADR-0009 개정3 R3-1) — 리액션·답글 대상 식별자.
+ * data.cliMsgId(문자열/숫자)를 문자열로 정규화. 없으면 null.
+ * 리액션(addReaction)·답글(SendMessageQuote)은 zaloMsgId(서버 id) + cliMsgId 둘 다 요구하므로
+ * 수신·발신 양쪽에서 함께 저장한다(없는 과거 메시지엔 리액션·답글 불가 — R3-4).
+ */
+export function buildCliMsgId(data: { cliMsgId?: unknown }): string | null {
+  const raw = data?.cliMsgId;
+  if (typeof raw === "string" && raw.length > 0) return raw;
+  if (typeof raw === "number" && Number.isFinite(raw) && raw !== 0) return String(raw);
+  return null;
+}
+
+/** 파싱된 인용(답글) 스냅샷 — ZaloMessage.quoted* 저장용. */
+export interface ParsedQuote {
+  /** 인용 원본 메시지 zaloMsgId (참조 힌트, FK 아님). 없으면 null */
+  quotedMsgId: string | null;
+  /** 인용 본문 스냅샷 (표시용) */
+  quotedText: string | null;
+  /** 인용 발신자 표시명 스냅샷 */
+  quotedSender: string | null;
+}
+
+/**
+ * 수신 메시지 data.quote → 인용 스냅샷 추출 (ADR-0009 R3-1, Nike extractQuote 패턴).
+ * zca-js TQuote: { msg(본문)·attach(첨부)·fromD(발신자명)·globalMsgId(원본 서버 id)·cliMsgType }.
+ *  - quote.msg → quotedText. 본문 없고 attach만 있으면 "[첨부]"로 표기.
+ *  - quote.fromD → quotedSender.
+ *  - quote.globalMsgId → quotedMsgId(문자열 정규화).
+ * quote 자체가 없으면(일반 메시지) null. 본문·발신자 둘 다 없으면 인용 아님으로 간주(undefined→null).
+ */
+export function extractQuote(data: { quote?: unknown }): ParsedQuote | null {
+  const quote = data?.quote as
+    | {
+        msg?: string;
+        attach?: string;
+        fromD?: string;
+        globalMsgId?: string | number;
+      }
+    | undefined
+    | null;
+  if (!quote || typeof quote !== "object") return null;
+
+  let quotedText: string | null =
+    typeof quote.msg === "string" && quote.msg.trim().length > 0 ? quote.msg : null;
+  if (!quotedText && typeof quote.attach === "string" && quote.attach.length > 0) {
+    quotedText = "[첨부]";
+  }
+  const quotedSender =
+    typeof quote.fromD === "string" && quote.fromD.trim().length > 0 ? quote.fromD : null;
+  const quotedMsgId =
+    quote.globalMsgId != null && quote.globalMsgId !== ""
+      ? String(quote.globalMsgId)
+      : null;
+
+  // 본문·발신자·원본id 전부 없으면 인용 데이터로 보지 않음.
+  if (!quotedText && !quotedSender && !quotedMsgId) return null;
+  return { quotedMsgId, quotedText, quotedSender };
+}
+
 // ===================== 파싱된 수신 (핸들러 ↔ 저장 경계) =====================
 
 export interface ParsedInbound {
@@ -199,6 +259,10 @@ export interface ParsedInbound {
   displayName: string | null;
   /** zca-js가 메시지에 실어 보낸 발신자 전화번호(있으면). 없으면 null */
   senderPhone: string | null;
+  /** zca-js cliMsgId — 리액션·답글 대상 식별 (ADR-0009 R3-1). 없으면 null */
+  cliMsgId?: string | null;
+  /** 수신 메시지의 인용(답글) 스냅샷 (ADR-0009 R3-1). 없으면 null */
+  quote?: ParsedQuote | null;
 }
 
 // ===================== DB 저장 + 전화번호 매칭 =====================
@@ -223,8 +287,17 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
   /** 대화 번역모드 (수신 자동번역 분기 — OFF면 번역 안 함, ADR-0009 D7.4). */
   translateMode: ZaloTranslateMode;
 }> {
-  const { ownerAdminId, isSystemBot, senderZaloUserId, text, zaloMsgId, displayName, senderPhone } =
-    parsed;
+  const {
+    ownerAdminId,
+    isSystemBot,
+    senderZaloUserId,
+    text,
+    zaloMsgId,
+    displayName,
+    senderPhone,
+    cliMsgId,
+    quote,
+  } = parsed;
   const now = new Date();
 
   // 1) 대화 upsert (관리자×상대 복합키 — 없으면 생성)
@@ -256,7 +329,7 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
     }
   }
 
-  // 3) 메시지 생성
+  // 3) 메시지 생성 (cliMsgId·인용 스냅샷 함께 저장 — ADR-0009 R3-1)
   const created = await prisma.zaloMessage.create({
     data: {
       conversationId: conversation.id,
@@ -265,6 +338,10 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
       msgType: "text",
       text: text || null,
       zaloMsgId,
+      cliMsgId: cliMsgId ?? null,
+      quotedMsgId: quote?.quotedMsgId ?? null,
+      quotedText: quote?.quotedText ?? null,
+      quotedSender: quote?.quotedSender ?? null,
       status: ZaloMessageStatus.SENT,
     },
     select: { id: true },
@@ -351,6 +428,10 @@ export interface ParsedOutbound {
   createdAt: Date;
   /** 상대 표시명(있으면 displayName 보강용). 없으면 null. */
   displayName: string | null;
+  /** zca-js cliMsgId — 내가 보낸 메시지의 리액션·답글 대상 식별 (ADR-0009 R3-1). 없으면 null */
+  cliMsgId?: string | null;
+  /** 내가 보낸 답글의 인용 스냅샷 (앱 발신 동기화 시). 없으면 null */
+  quote?: ParsedQuote | null;
 }
 
 /**
@@ -372,7 +453,16 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
   saved: boolean;
   duplicated: boolean;
 }> {
-  const { ownerAdminId, senderZaloUserId, text, zaloMsgId, createdAt, displayName } = parsed;
+  const {
+    ownerAdminId,
+    senderZaloUserId,
+    text,
+    zaloMsgId,
+    createdAt,
+    displayName,
+    cliMsgId,
+    quote,
+  } = parsed;
 
   // 1) 대화 upsert (관리자×상대 복합키 — 없으면 생성)
   const conversation = await prisma.zaloConversation.upsert({
@@ -398,6 +488,7 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
   }
 
   // 3) OUTBOUND·CHAT 메시지 생성. sentBy 미상(앱 발신은 발송자 식별 불가) → null.
+  //    cliMsgId·인용 스냅샷 함께 저장 — 내가 앱에서 보낸 메시지도 리액션·답글 대상이 되게 (ADR-0009 R3-1).
   await prisma.zaloMessage.create({
     data: {
       conversationId: conversation.id,
@@ -406,6 +497,10 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
       msgType: "text",
       text: text || null,
       zaloMsgId,
+      cliMsgId: cliMsgId ?? null,
+      quotedMsgId: quote?.quotedMsgId ?? null,
+      quotedText: quote?.quotedText ?? null,
+      quotedSender: quote?.quotedSender ?? null,
       status: ZaloMessageStatus.SENT,
       createdAt,
     },

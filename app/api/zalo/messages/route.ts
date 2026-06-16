@@ -14,11 +14,18 @@ import {
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
-import { sendChatMessageAsAdmin } from "@/lib/zalo-runtime";
+import {
+  sendChatMessageAsAdmin,
+  sendChatReplyAsAdmin,
+  getOwnIdForAdmin,
+} from "@/lib/zalo-runtime";
 
 const bodySchema = z.object({
   conversationId: z.string().min(1),
   text: z.string().trim().min(1).max(4000),
+  // ADR-0009 R3-2 — 답글(인용). 지정 시 본인 대화의 ZaloMessage를 원본으로 인용해 발송.
+  // 원본이 cliMsgId·zaloMsgId 미보유(과거 메시지)면 인용 불가 → 400.
+  quotedMessageId: z.string().min(1).optional(),
 });
 
 export async function POST(req: Request) {
@@ -45,7 +52,7 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
-  const { conversationId, text } = parsed.data;
+  const { conversationId, text, quotedMessageId } = parsed.data;
 
   // 소유 검증 — 본인(ownerAdminId) 대화에만 발신 (ADR-0007 D3.4, 타 관리자 대화 발신 차단).
   const conversation = await prisma.zaloConversation.findFirst({
@@ -56,16 +63,68 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
 
+  // ── 답글(인용) 원본 조회 (ADR-0009 R3-2) — 지정 시만. 본인 대화의 메시지여야 함. ──
+  let quoteSnapshot: {
+    quotedMsgId: string | null;
+    quotedText: string | null;
+    quotedSender: string | null;
+  } | null = null;
+  let replyQuoteSource:
+    | { zaloMsgId: string; cliMsgId: string; content: string; uidFrom: string }
+    | null = null;
+  if (quotedMessageId) {
+    const original = await prisma.zaloMessage.findFirst({
+      where: { id: quotedMessageId, conversation: { id: conversationId, ownerAdminId: session.user.id } },
+      select: {
+        zaloMsgId: true,
+        cliMsgId: true,
+        text: true,
+        direction: true,
+        conversation: { select: { displayName: true, nickname: true } },
+      },
+    });
+    if (!original) {
+      return NextResponse.json({ error: "QUOTED_NOT_FOUND" }, { status: 404 });
+    }
+    // zca-js quote는 원본 msgId + cliMsgId 둘 다 요구 — 과거(미보유) 메시지는 인용 불가(R3-4).
+    if (!original.zaloMsgId || !original.cliMsgId) {
+      return NextResponse.json({ error: "QUOTE_NOT_SUPPORTED" }, { status: 400 });
+    }
+    // 인용 uidFrom — 원본이 내 발신(OUTBOUND)이면 내 ownId, 상대 발신(INBOUND)이면 대화 상대 zaloUserId.
+    let uidFrom = conversation.zaloUserId;
+    if (original.direction === ZaloMessageDirection.OUTBOUND) {
+      uidFrom = (await getOwnIdForAdmin(session.user.id)) ?? conversation.zaloUserId;
+    }
+    const quotedSender =
+      original.direction === ZaloMessageDirection.OUTBOUND
+        ? null // 내 발신 인용 — 발신자 표시 생략(나)
+        : original.conversation.nickname ?? original.conversation.displayName ?? null;
+    quoteSnapshot = {
+      quotedMsgId: original.zaloMsgId,
+      quotedText: original.text,
+      quotedSender,
+    };
+    replyQuoteSource = {
+      zaloMsgId: original.zaloMsgId,
+      cliMsgId: original.cliMsgId,
+      content: original.text ?? "",
+      uidFrom,
+    };
+  }
+
   // 1) 발송 시도 — 본인 계정으로 발신. 봇 미연결/실패는 status=FAILED 기록(500 금지). 48h 가드 없음(D5.5).
   let status: ZaloMessageStatus;
   let error: string | null = null;
   let zaloMsgId: string | null = null;
 
-  const result = await sendChatMessageAsAdmin(
-    session.user.id,
-    conversation.zaloUserId,
-    text
-  );
+  const result = replyQuoteSource
+    ? await sendChatReplyAsAdmin(
+        session.user.id,
+        conversation.zaloUserId,
+        text,
+        replyQuoteSource
+      )
+    : await sendChatMessageAsAdmin(session.user.id, conversation.zaloUserId, text);
   if (result.ok) {
     status = ZaloMessageStatus.SENT;
     zaloMsgId = result.messageId;
@@ -88,8 +147,12 @@ export async function POST(req: Request) {
         status,
         error,
         sentBy: session.user.id,
+        // 답글이면 인용 스냅샷 기록(자기 화면 표시 — R3-2). 일반 발신이면 null.
+        quotedMsgId: quoteSnapshot?.quotedMsgId ?? null,
+        quotedText: quoteSnapshot?.quotedText ?? null,
+        quotedSender: quoteSnapshot?.quotedSender ?? null,
       },
-      select: { id: true, status: true, createdAt: true },
+      select: { id: true, status: true, createdAt: true, quotedText: true, quotedSender: true },
     });
 
     await tx.zaloConversation.update({

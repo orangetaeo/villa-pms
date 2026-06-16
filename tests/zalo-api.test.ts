@@ -9,6 +9,18 @@ const mockSendChat = vi.fn();
 vi.mock("@/lib/zalo-runtime", () => ({
   // ADR-0007: 채팅 발송은 sendChatMessageAsAdmin(본인 계정). 시스템 발송 sendBotMessage와 분리.
   sendChatMessageAsAdmin: (...a: unknown[]) => mockSendChat(...a),
+  // ADR-0009 R3 — 라우트가 모듈 평가 시 참조하는 심볼(REACTION_KEYS) + 발송/집계 헬퍼.
+  sendChatReplyAsAdmin: vi.fn(async () => ({ ok: true, messageId: "z-reply" })),
+  getOwnIdForAdmin: vi.fn(async () => "bot-own-id"),
+  addReactionAsAdmin: vi.fn(async () => ({ ok: true })),
+  REACTION_KEYS: ["HEART", "LIKE"],
+  applyReaction: (cur: Record<string, number> | null, key: string, add: boolean) => {
+    const base = cur && typeof cur === "object" ? { ...cur } : {};
+    const next = (base[key] ?? 0) + (add ? 1 : -1);
+    if (next > 0) base[key] = next;
+    else delete base[key];
+    return Object.keys(base).length ? base : null;
+  },
 }));
 
 const mockTranslateText = vi.fn();
@@ -419,5 +431,78 @@ describe("PATCH /api/zalo/conversations/[id] — SET_NICKNAME", () => {
     expect(res.status).toBe(404);
     expect(mockConvUpdate).not.toHaveBeenCalled();
     expect(vi.mocked(writeAuditLog)).not.toHaveBeenCalled();
+  });
+});
+
+// ── PATCH SET_COUNTERPARTY_TYPE (ADR-0009 D1 개정2 — 5종 분류) ─────────
+// BUG-1 회귀 방어: zod가 nativeEnum(ZaloCounterpartyType)라 5종 전부 수용 + 그 외 거부.
+describe("PATCH /api/zalo/conversations/[id] — SET_COUNTERPARTY_TYPE", () => {
+  it("비로그인 401 / SUPPLIER 403", async () => {
+    mockAuth.mockResolvedValue(null);
+    expect(
+      (await convReq("c1", { action: "SET_COUNTERPARTY_TYPE", counterpartyType: "SUPPLIER" })).status
+    ).toBe(401);
+    mockAuth.mockResolvedValue(SUPPLIER);
+    expect(
+      (await convReq("c1", { action: "SET_COUNTERPARTY_TYPE", counterpartyType: "SUPPLIER" })).status
+    ).toBe(403);
+  });
+
+  it.each(["SUPPLIER", "CUSTOMER", "TRAVEL_AGENCY", "LAND_AGENCY", "UNKNOWN"])(
+    "5종 전부 수용 200 — %s (BUG-1 회귀)",
+    async (type) => {
+      mockAuth.mockResolvedValue(ADMIN);
+      mockConvFindFirst.mockResolvedValue({ id: "c1", counterpartyType: "UNKNOWN" });
+      const res = await convReq("c1", { action: "SET_COUNTERPARTY_TYPE", counterpartyType: type });
+      expect(res.status).toBe(200);
+      expect((await res.json()).counterpartyType).toBe(type);
+      // action.counterpartyType이 그대로 prisma update data로 흐름
+      expect(mockConvUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "c1" }, data: { counterpartyType: type } })
+      );
+    }
+  );
+
+  it("잘못된 값(enum 외) 400 — update·AuditLog 미호출", async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    const res = await convReq("c1", {
+      action: "SET_COUNTERPARTY_TYPE",
+      counterpartyType: "AGENCY",
+    });
+    expect(res.status).toBe(400);
+    expect(mockConvUpdate).not.toHaveBeenCalled();
+    expect(vi.mocked(writeAuditLog)).not.toHaveBeenCalled();
+  });
+
+  it("타인/미존재 대화 404 (findFirst null → update·AuditLog 미호출)", async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    mockConvFindFirst.mockResolvedValue(null);
+    const res = await convReq("other", {
+      action: "SET_COUNTERPARTY_TYPE",
+      counterpartyType: "TRAVEL_AGENCY",
+    });
+    expect(res.status).toBe(404);
+    expect(mockConvUpdate).not.toHaveBeenCalled();
+    expect(vi.mocked(writeAuditLog)).not.toHaveBeenCalled();
+  });
+
+  it("본인 대화 게이트 — findFirst where에 ownerAdminId + AuditLog old/new 기록", async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    mockConvFindFirst.mockResolvedValue({ id: "c1", counterpartyType: "UNKNOWN" });
+    const res = await convReq("c1", {
+      action: "SET_COUNTERPARTY_TYPE",
+      counterpartyType: "LAND_AGENCY",
+    });
+    expect(res.status).toBe(200);
+    expect(mockConvFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "c1", ownerAdminId: "admin1" } })
+    );
+    expect(vi.mocked(writeAuditLog)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity: "ZaloConversation",
+        entityId: "c1",
+        changes: { counterpartyType: { old: "UNKNOWN", new: "LAND_AGENCY" } },
+      })
+    );
   });
 });

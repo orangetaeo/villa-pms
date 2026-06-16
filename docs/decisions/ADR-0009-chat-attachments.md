@@ -4,6 +4,7 @@
 상태: 제안 (TDA 설계 — 테오/QA 검토 후 승인 시 DESIGN→INTEG/BE 구현 착수)
 개정: 2026-06-16 — D7(대화별 번역언어)·D8(아바타)·D9(별명) 3건 추가(테오 추가 요구). 기존 D1~D6·결정·디자인 유지, 섹션 보완.
 개정2: 2026-06-16 — **채팅 상대 분류 5종 확장**(TRAVEL_AGENCY 여행사·LAND_AGENCY 랜드사 추가). D1 분류·D2 누수 그룹·통화 매핑 갱신(아래 "개정2" 섹션). 스키마 `ZaloCounterpartyType` additive enum 확장 + db push 적용 완료. 빌라 공유 본문 통화 분기(보류 항목) 설계 해소 — 코드 반영은 BE 후속.
+개정3: 2026-06-16 — **채팅 답글(인용)·리액션(하트)**. `ZaloMessage`에 `cliMsgId`·`quotedMsgId`·`quotedText`·`quotedSender`·`reactions` 5컬럼 additive 추가(아래 "개정3" 섹션). zca-js `addReaction`(msgId+cliMsgId)·`sendMessage` quote·리스너 `reaction` 이벤트 기반. db push 적용 완료. 발송·수신·FE는 INTEG/BE/FE 후속. 누수·통화 무관(Zalo 영역만).
 관련: ADR-0007(멀티관리자 Zalo 채팅·ZaloConversation.ownerAdminId·복합키), ADR-0006(zca-js 런타임·sendBotMessage·sendChatMessageAsAdmin), ADR-0005(zca-js 채택·이미지 발송 가능), ADR-0004(이미지 저장 R2/디스크·lib/storage), ADR-0003(통화·VillaRate·ZaloMessage.msgType), SPEC F3(제안)·F6(정산), CLAUDE.md 사업원칙 1(재고 비공개)·2(마진 비공개), reference/nike/src/lib/zalo.ts(sendZaloImage), lib/zalo-runtime.ts·lib/zalo-inbound.ts·lib/storage.ts·lib/pricing.ts, app/(admin)/messages/(page.tsx·chat-pane.tsx), app/api/zalo/messages/route.ts, design/stitch/b14-zalo-chat/
 
 > **번호 주의:** 본 ADR은 파일명 `ADR-0008-chat-attachments`로 요청되었으나, `docs/decisions/0008-per-villa-season-periods.md`가 이미 ADR-0008을 점유 중이어서 **0009**로 발급한다(중복 방지). 향후 ADR 순번 정합성은 PM이 docs/INDEX.md에서 관리.
@@ -95,6 +96,79 @@ D2의 상대별 4열 매트릭스를 **2그룹 + UNKNOWN**으로 일반화한다
 - **백필 불필요:** 기존 행은 SUPPLIER/CUSTOMER/UNKNOWN 그대로 유효(개정2 분류는 신규 지정 시에만 사용). `db push`로 enum 값만 추가 — 데이터 손실 0.
 - **코드 영향(BE 후속, TDA 범위 밖):** ① `share/route.ts` 게이트(`=== CUSTOMER` 단일 비교 → 판매가측 그룹 판정), 빌라 통화 하드코딩 제거(R2-3). ② `lib/zalo-counterparty.ts`에 그룹·통화 헬퍼 추가(권고 시그니처는 결과·인계 참조). ③ FE 메뉴 가시성(R2-5), 분류 컨트롤 UI에 여행사·랜드사 옵션 추가. **lib/zalo-share.ts 빌더는 무변경**(이미 통화 파라미터화).
 - **무영향:** D3(발송 방식)·D4(누수 차단 메커니즘 — 그룹으로 일반화만)·D5~D9·런타임·시스템봇·`/p/[token]`·정산 집계.
+
+---
+
+## 개정3 (2026-06-16) — 채팅 답글(인용)·리액션(하트)
+
+> **요지:** 채팅에서 ① 특정 메시지에 **답글(인용)**, ② 메시지에 **하트 등 리액션**을 단다(Nike에 동일 기능 존재 — `reference/nike/src/lib/zalo-pool.ts`). zca-js API는 둘 다 **Zalo 서버 `msgId` + 클라이언트 `cliMsgId` 두 식별자**를 요구하는데, 현재 `ZaloMessage`는 `zaloMsgId`(msgId)만 저장하고 `cliMsgId`가 없어 **신규 발송·수신분에 `cliMsgId`를 저장하는 것이 답글·리액션의 전제**다. 본 개정은 `ZaloMessage`에 **5개 additive 컬럼**(`cliMsgId`·`quotedMsgId`·`quotedText`·`quotedSender`·`reactions`)을 추가한다. **TDA 범위는 스키마·설계 + db push**까지이고, 발송·수신·FE는 INTEG/FE 후속이다. **Zalo 영역만 변경**(누수 분기·통화·다른 도메인 무접촉).
+
+### R3-1. zca-js API (검증 — 타입 정독 완료)
+
+- **리액션:** `api.addReaction(icon: Reactions | CustomReaction, dest: AddReactionDestination)`
+  - `Reactions` enum 값(`models/Reaction.d.ts`): `HEART="/-heart"`, `LIKE="/-strong"`, `HAHA`, `WOW`, `CRY`, `ANGRY`, `KISS`, `ROSE`, `BROKEN_HEART` … 다수. **DB엔 우리 키(enum 이름) 문자열로 저장**(예 `"HEART"`), zca-js 호출 시점에 `Reactions[키]`로 매핑.
+  - `dest = { data: { msgId, cliMsgId }, threadId, type }` — **`msgId`(Zalo 서버 id)와 `cliMsgId` 둘 다 필수.** → `ZaloMessage.zaloMsgId`(있음) + `cliMsgId`(신규) 동시 필요.
+- **답글(인용):** `api.sendMessage({ msg, quote: SendMessageQuote }, threadId, type)`
+  - `SendMessageQuote = { content, msgType, propertyExt, uidFrom, msgId, cliMsgId, ts, ttl }` — 원본 메시지의 식별자·내용 일체. 답글을 보내려면 원본의 **`cliMsgId`·`msgId`·`content`·`msgType` 등을 보관**해야 한다 → `cliMsgId` 저장이 전제.
+- **수신 리스너 이벤트(`apis/listen.d.ts`):** `reaction: [Reaction]`(단건), `old_reactions: [Reaction[], isGroup]`(대량 — Phase 1 스킵 가능). `Reaction.data`(`TReaction`)에 `msgId`·`cliMsgId`·`content.rIcon`(Reactions) 포함 → 수신 시 `msgId`로 `ZaloMessage`를 찾아 `reactions` 갱신.
+- **수신 답글:** 상대가 보낸 답글의 인용은 수신 메시지 `data.quote`로 들어온다(Nike `extractQuote` 721~746행: `quote.msg`(quoteText)·`quote.fromD`(senderName)·`quote.cliMsgType`(msgType)·`quote.globalMsgId`(원본 msgId) 파싱). → `quotedText`·`quotedSender`·`quotedMsgId`에 스냅샷 저장.
+
+### R3-2. 스키마 — `ZaloMessage` 5컬럼 추가 (additive)
+
+```prisma
+model ZaloMessage {
+  // ... 기존 필드 유지 ...
+  cliMsgId     String?  // zca-js cliMsgId — 리액션(msgId+cliMsgId 둘 다)·답글 대상 식별. 발송·수신 시 저장
+  quotedMsgId  String?  // 인용 원본 메시지 zaloMsgId (참조용, FK 아님)
+  quotedText   String?  // 인용 본문 스냅샷 (표시용)
+  quotedSender String?  // 인용 발신자 표시명 스냅샷
+  reactions    Json?    // 리액션 집계 { "HEART": 2, "LIKE": 1 } — 수신 reaction 이벤트로 갱신
+}
+```
+
+- **답글은 self-relation이 아니라 스냅샷**(`quotedMsgId`+`quotedText`+`quotedSender`). 이유: ① 인용 표시는 본문·발신자만 있으면 충분, ② 원본 메시지가 삭제·미저장(상대 과거분)이어도 인용이 보존, ③ FK self-relation의 정합성·cascade 부담 회피. `quotedMsgId`는 "원본으로 점프" 같은 후속 UX를 위한 참조 힌트(있으면 매칭, 없어도 표시 정상).
+- **리액션은 집계 Json**(아이콘별 카운트). Phase 1은 "누가 달았는지"를 저장하지 않는다(불필요·복잡). 형식은 `{ "<ReactionKey>": <count> }` 권고. (누가 달았는지·byMe 표시가 필요해지면 Phase 2에서 `[{ icon, byMe }]` 또는 별도 테이블로 확장 — additive.)
+- **`reactions`는 Prisma `Json?`** — VND/KRW 금액과 무관(부동소수점 규칙 비대상). 카운트는 정수.
+
+### R3-3. 발송·수신 시 cliMsgId·quote·reaction 동작 (INTEG/FE 후속 — 설계 명시)
+
+1. **발송 시 cliMsgId 저장:** b14 발송(`sendChatMessageAsAdmin`)·시스템 발송 경로에서 zca-js `sendMessage` 응답·생성 시점의 cliMsgId를 `ZaloMessage.cliMsgId`에 기록. (zca-js 발신 cliMsgId 노출 방식은 INTEG 구현 시 확정 — Nike는 발신 추적에 cliMsgId 사용.)
+2. **수신 시 cliMsgId·quote 저장:** `saveInboundMessage`(현 `zaloMsgId`만 저장, lib/zalo-inbound.ts:260·401)에서 파싱된 `cliMsgId`·`data.quote`(extractQuote 패턴)를 함께 저장. INBOUND·OUTBOUND echo 양쪽.
+3. **리액션 발송(답글·하트 버튼):** `addReaction(Reactions.HEART, { data:{ msgId, cliMsgId }, threadId, type })` — 대상 `ZaloMessage`의 `zaloMsgId`+`cliMsgId` 사용. 성공 시 본인 리액션을 `reactions`에 +1(낙관적) 또는 수신 이벤트로 반영.
+4. **답글 발송:** 원본 `ZaloMessage`에서 `cliMsgId`·`zaloMsgId`·본문·msgType을 읽어 `SendMessageQuote` 구성 → `sendMessage({ msg, quote }, ...)`. 보낸 답글 메시지 행에도 `quotedMsgId/quotedText/quotedSender` 스냅샷 기록(자기 화면 표시).
+5. **리액션 수신(`reaction` 이벤트):** `reaction.data.msgId`로 `ZaloMessage`를 조회 → `reactions[아이콘키]` 증감 갱신. `old_reactions`(대량 동기화)는 **Phase 1 스킵**(처리량·복잡도 — 신규 단건만).
+
+### R3-4. 멱등·정합·백필
+
+- **기존 메시지:** `cliMsgId=null`. 과거 메시지엔 리액션·답글을 걸 수 없다(zca-js가 cliMsgId 없이 거부) — **신규 발송·수신분부터** 동작. 백필 불필요(상대 cliMsgId를 소급 복원할 방법 없음).
+- **멱등:** 기존 `zaloMsgId @unique` 멱등 키는 그대로. 리액션 수신은 msgId로 메시지를 찾아 카운트를 **갱신**(중복 이벤트는 카운트 정합을 INTEG가 보장 — 단순 +1이 아니라 최신 상태 반영 권고).
+- **additive 판정:** 5개 컬럼 전부 nullable, default 없음(null), 관계·unique·제약 변경 0. `ZaloMessage` 기존 컬럼·인덱스 무변경. → **순수 additive**, `prisma db push` 안전(프로덕션 데이터 손실 0).
+
+### R3-5. 지원 리액션 아이콘 (발송)
+
+- Phase 1 발송 최소 1종: **HEART**. zca-js `Reactions`가 LIKE·HAHA·WOW·CRY·ANGRY·KISS·ROSE 등 다수 제공 → FE가 노출할 아이콘 세트는 DESIGN/FE가 결정(권고: 카카오톡류 6종 = HEART/LIKE/HAHA/WOW/CRY/ANGRY). DB·집계는 아이콘 키 문자열이므로 세트 확장은 코드 변경만(스키마 무변경).
+- **수신**은 zca-js가 보내는 모든 Reactions를 그대로 키로 저장(표시 못 하는 아이콘도 카운트는 보존).
+
+### R3-6. 단계 (개정3 — S0~S7과 독립, 누수 분기 무관)
+
+| 단계 | 범위 | 산출 | 담당 |
+|---|---|---|---|
+| **R3-S0** | 스키마 + db push | `ZaloMessage` 5컬럼 추가, generate, build 통과 | **TDA(본 개정 — 완료 대상)** |
+| **R3-S1** | cliMsgId 저장 배선 | 발송(`sendChat*`)·수신(`saveInboundMessage`/echo)에서 cliMsgId·data.quote 파싱·저장 | INTEG |
+| **R3-S2** | 답글 발송 | 원본에서 `SendMessageQuote` 구성 → `sendMessage({msg,quote})`, 보낸 행에 스냅샷 | INTEG·BE |
+| **R3-S3** | 리액션 발송 | `addReaction(HEART, dest{msgId,cliMsgId})`, `reactions` 낙관적 갱신 | INTEG·BE |
+| **R3-S4** | 리액션 수신 | `reaction` 이벤트 → msgId 조회 → `reactions` 갱신(old_reactions 스킵) | INTEG |
+| **R3-S5** | FE 표시 | 답글 인용 블록(MessageBubble), 하트 버튼(롱프레스/호버), 리액션 카운트 배지 | FE |
+
+- **누수·통화 무관:** 답글·리액션은 채팅 본문 메타데이터일 뿐 금액·원가·마진·통화와 무접촉. D2 누수 매트릭스·D4 게이트에 영향 없음. AuditLog는 기존 메시지 발송 로그에 포함(별도 추가 불필요 — 리액션 단건은 저빈도·비민감).
+
+### R3-7. 리스크
+
+| # | 리스크 | 완화책 |
+|---|---|---|
+| ⑬ | 발신 cliMsgId 확보 방식이 zca-js 버전별 상이 | INTEG 구현 시 실측(Nike 정본 참조), 못 얻으면 자기 메시지 리액션은 보류·수신분만 |
+| ⑭ | 리액션 수신 이벤트 중복·순서 → 카운트 부정합 | 단순 +1 대신 최신 상태 반영, old_reactions로 주기 재동기(Phase 2) |
+| ⑮ | 인용 스냅샷이 원본과 불일치(원본 수정) | 스냅샷은 발송 시점 고정이 의도(원본 변경 추적 안 함) — 수용 |
 
 ---
 

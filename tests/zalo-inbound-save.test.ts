@@ -192,3 +192,49 @@ describe("saveOutboundEcho — 앱/프로그램 본인 발신 동기화", () => 
     expect(txArr).not.toHaveBeenCalled();
   });
 });
+
+// ===================== ADR-0009 R3-1 — cliMsgId·인용 스냅샷 저장 =====================
+
+describe("saveInboundMessage — cliMsgId·인용 스냅샷 저장 (R3-1)", () => {
+  it("cliMsgId·quote 저장(리액션·답글 대상)", async () => {
+    await saveInboundMessage({
+      ...base,
+      cliMsgId: "cli-1",
+      quote: { quotedMsgId: "orig-9", quotedText: "원본", quotedSender: "Nguyen" },
+    });
+    const data = msgCreate.mock.calls[0]![0].data;
+    expect(data.cliMsgId).toBe("cli-1");
+    expect(data.quotedMsgId).toBe("orig-9");
+    expect(data.quotedText).toBe("원본");
+    expect(data.quotedSender).toBe("Nguyen");
+  });
+
+  it("cliMsgId·quote 미지정이면 null(과거 동작 보존)", async () => {
+    await saveInboundMessage(base);
+    const data = msgCreate.mock.calls[0]![0].data;
+    expect(data.cliMsgId).toBeNull();
+    expect(data.quotedMsgId).toBeNull();
+    expect(data.quotedText).toBeNull();
+    expect(data.quotedSender).toBeNull();
+  });
+});
+
+describe("saveOutboundEcho — cliMsgId·인용 스냅샷 저장 (R3-1)", () => {
+  it("내 발신 echo도 cliMsgId 저장(리액션 대상이 되게)", async () => {
+    await saveOutboundEcho({
+      ...outBase,
+      cliMsgId: "cli-out-1",
+      quote: { quotedMsgId: "orig-3", quotedText: "내 답글 원본", quotedSender: null },
+    });
+    const data = msgCreate.mock.calls[0]![0].data;
+    expect(data.cliMsgId).toBe("cli-out-1");
+    expect(data.quotedMsgId).toBe("orig-3");
+    expect(data.quotedText).toBe("내 답글 원본");
+  });
+
+  it("미지정이면 null", async () => {
+    await saveOutboundEcho(outBase);
+    const data = msgCreate.mock.calls[0]![0].data;
+    expect(data.cliMsgId).toBeNull();
+  });
+});

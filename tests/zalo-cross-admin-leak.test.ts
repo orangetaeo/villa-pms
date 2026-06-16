@@ -12,6 +12,12 @@ vi.mock("@/lib/audit-log", () => ({ writeAuditLog: vi.fn(async () => {}) }));
 const mockSendChat = vi.fn();
 vi.mock("@/lib/zalo-runtime", () => ({
   sendChatMessageAsAdmin: (...a: unknown[]) => mockSendChat(...a),
+  // ADR-0009 R3 — 라우트 모듈 평가 시 참조 심볼(REACTION_KEYS) + 발송/집계 헬퍼.
+  sendChatReplyAsAdmin: vi.fn(async () => ({ ok: true, messageId: "z-reply" })),
+  getOwnIdForAdmin: vi.fn(async () => "bot-own-id"),
+  addReactionAsAdmin: vi.fn(async () => ({ ok: true })),
+  REACTION_KEYS: ["HEART", "LIKE"],
+  applyReaction: () => ({ HEART: 1 }),
 }));
 
 // ── stateful 대화 저장소: id → { ownerAdminId, zaloUserId } ──

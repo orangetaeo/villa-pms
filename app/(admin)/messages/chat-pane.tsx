@@ -8,7 +8,15 @@
 // - 번역(D7): translateMode=OFF면 입력창 미리보기 숨김. VI/EN이면 해당 언어 미리보기.
 // ★ 누수: 공유 후보 목록·카드 모두 마진·반대편 통화 미포함(서버 select 화이트리스트 + page.tsx 최소 필드).
 //   상대 분류 컨트롤(b15 블록④): 헤더 드롭다운 재변경 + UNKNOWN 대화 상단 배너 → PATCH SET_COUNTERPARTY_TYPE.
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ClassifyBanner, CounterpartyDropdown } from "./counterparty-control";
@@ -20,6 +28,13 @@ import {
   SettlementShareModal,
   NicknameModal,
 } from "./share-modals";
+
+// 답글 대상 — 발송 시 quotedMessageId로 전송, 미리보기엔 발신자/본문 스냅샷.
+export interface ReplyTarget {
+  messageId: string;
+  sender: string; // 미리보기 라벨(상대 이름 또는 "나")
+  text: string; // 인용 본문(공유 카드는 라벨로 대체)
+}
 
 export type CounterpartyType =
   | "SUPPLIER"
@@ -63,7 +78,26 @@ export interface ChatMessage {
   dayDivider: string | null;
   avatarUrl: string | null;
   initials: string;
+  // 답글 인용 스냅샷(R3-2) — 둘 중 하나라도 있으면 버블 위 인용 블록 렌더.
+  quotedText: string | null;
+  quotedSender: string | null;
+  // 리액션 집계(R3-3) {HEART:2,...} — 있으면 버블 하단 배지.
+  reactions: Record<string, number> | null;
 }
+
+// 리액션 아이콘 키 → 이모지 (picker·배지 표시). 키는 REACTION_KEYS(zca-js Reactions enum)와 동일.
+// 서버에 없는 키가 와도(미래 확장) 배지엔 키 그대로 폴백 표시.
+const REACTION_EMOJI: Record<string, string> = {
+  HEART: "❤️",
+  LIKE: "👍",
+  HAHA: "😆",
+  WOW: "😮",
+  CRY: "😢",
+  ANGRY: "😠",
+};
+// picker 노출 순서 — 위 맵 키 순서(REACTION_KEYS 6종 기준). 서버 검증이 단일 진실원.
+const REACTION_PICKER_KEYS = Object.keys(REACTION_EMOJI);
+const reactionEmoji = (key: string) => REACTION_EMOJI[key] ?? key;
 
 // 공유 후보(page.tsx에서 누수 분기·최소 필드로 조회). VND 금액은 직렬화되어 string.
 export interface VillaCandidate {
@@ -120,6 +154,10 @@ export function ChatPane({
 }) {
   const t = useTranslations("adminMessages");
   const router = useRouter();
+
+  // ── 답글 대상 (R3-2) — 메시지에서 "답글" 클릭 시 Composer 위에 인용 미리보기 ──
+  // 대화 전환 시 자동 해제(아래 effect). 미리보기엔 보낸이·본문 스냅샷만 보관.
+  const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
 
   // ── 라이트박스 (채팅 이미지 확대) ──
   const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
@@ -211,6 +249,11 @@ export function ChatPane({
       });
   }, [conversationId, hasUnread, router]);
 
+  // 대화 전환 시 답글 대상 해제 — 다른 대화에 엉뚱한 인용이 남지 않도록.
+  useEffect(() => {
+    setReplyTarget(null);
+  }, [conversationId]);
+
   if (!conversationId || !header) {
     // 모바일(<lg): 대화 미선택 시 인박스가 전체폭 → 빈 안내 pane 숨김. 데스크톱(lg:)만 표시.
     return (
@@ -243,7 +286,17 @@ export function ChatPane({
             {messages.length === 0 ? (
               <p className="text-center text-xs text-slate-500 pt-8">{t("noMessages")}</p>
             ) : (
-              messages.map((m) => <MessageBubble key={m.id} message={m} t={t} />)
+              messages.map((m) => (
+                <MessageBubble
+                  key={m.id}
+                  message={m}
+                  conversationId={conversationId}
+                  contactName={header.name}
+                  onReply={setReplyTarget}
+                  t={t}
+                  router={router}
+                />
+              ))
             )}
             <div ref={bottomRef} />
           </div>
@@ -271,6 +324,8 @@ export function ChatPane({
           villaCandidates={villaCandidates}
           proposalCandidates={proposalCandidates}
           settlementCandidates={settlementCandidates}
+          replyTarget={replyTarget}
+          onClearReply={() => setReplyTarget(null)}
           onSent={markJustSent}
           t={t}
           router={router}
@@ -525,10 +580,18 @@ function TranslateDropdown({
 
 function MessageBubble({
   message,
+  conversationId,
+  contactName,
+  onReply,
   t,
+  router,
 }: {
   message: ChatMessage;
+  conversationId: string;
+  contactName: string;
+  onReply: (target: ReplyTarget) => void;
   t: ReturnType<typeof useTranslations>;
+  router: ReturnType<typeof useRouter>;
 }) {
   return (
     <>
@@ -540,10 +603,201 @@ function MessageBubble({
         </div>
       )}
 
-      {message.kind === "inbound" && <InboundBubble message={message} t={t} />}
-      {message.kind === "outbound" && <OutboundBubble message={message} t={t} />}
+      {message.kind === "inbound" && (
+        <InboundBubble
+          message={message}
+          conversationId={conversationId}
+          contactName={contactName}
+          onReply={onReply}
+          t={t}
+          router={router}
+        />
+      )}
+      {message.kind === "outbound" && (
+        <OutboundBubble
+          message={message}
+          conversationId={conversationId}
+          contactName={contactName}
+          onReply={onReply}
+          t={t}
+          router={router}
+        />
+      )}
       {message.kind === "system" && <SystemBubble message={message} t={t} />}
     </>
+  );
+}
+
+/** 답글 인용 블록 — 버블 위 작은 회색 박스(보낸이 + 본문 1~2줄). b14 slate 톤. */
+function QuotedBlock({
+  sender,
+  text,
+  align,
+  t,
+}: {
+  sender: string | null;
+  text: string;
+  align: "left" | "right";
+  t: ReturnType<typeof useTranslations>;
+}) {
+  return (
+    <div
+      className={`mb-1 max-w-full rounded-lg border-l-2 border-slate-600 bg-slate-800/60 px-2.5 py-1.5 ${
+        align === "right" ? "ml-auto text-left" : "text-left"
+      }`}
+    >
+      <p className="text-[10px] font-bold text-slate-400 truncate">
+        {sender ?? t("reply.you")}
+      </p>
+      <p className="text-[11px] text-slate-400 line-clamp-2 break-words">{text}</p>
+    </div>
+  );
+}
+
+/** 메시지 hover 액션(답글·리액션) — 버블 옆 작은 버튼군. 리액션은 6종 picker. */
+function MessageActions({
+  conversationId,
+  messageId,
+  replyTarget,
+  align,
+  onReply,
+  t,
+  router,
+}: {
+  conversationId: string;
+  messageId: string;
+  replyTarget: ReplyTarget;
+  align: "left" | "right";
+  onReply: (target: ReplyTarget) => void;
+  t: ReturnType<typeof useTranslations>;
+  router: ReturnType<typeof useRouter>;
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function react(icon: string) {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    setPickerOpen(false);
+    try {
+      const res = await fetch(`/api/zalo/conversations/${conversationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "REACT", messageId, icon }),
+      });
+      if (res.ok) {
+        router.refresh();
+        return;
+      }
+      // 400 REACTION_NOT_SUPPORTED(과거 메시지) → 안내, 502 → 발송 실패.
+      let code: string | null = null;
+      try {
+        code = ((await res.json()) as { error?: string }).error ?? null;
+      } catch {
+        /* generic */
+      }
+      if (res.status === 400 && code === "REACTION_NOT_SUPPORTED") {
+        setError(t("react.notSupported"));
+      } else {
+        setError(t("react.failed"));
+      }
+    } catch {
+      setError(t("react.failed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className={`relative flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ${
+        align === "right" ? "flex-row-reverse" : ""
+      }`}
+    >
+      {/* 답글 */}
+      <button
+        type="button"
+        onClick={() => onReply(replyTarget)}
+        disabled={busy}
+        title={t("reply.action")}
+        aria-label={t("reply.action")}
+        className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center transition-colors disabled:opacity-50"
+      >
+        <span className="material-symbols-outlined text-[16px]">reply</span>
+      </button>
+      {/* 리액션 picker 토글 */}
+      <button
+        type="button"
+        onClick={() => setPickerOpen((v) => !v)}
+        disabled={busy}
+        title={t("react.action")}
+        aria-label={t("react.action")}
+        className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center transition-colors disabled:opacity-50"
+      >
+        <span className="material-symbols-outlined text-[16px]">add_reaction</span>
+      </button>
+
+      {pickerOpen && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setPickerOpen(false)} />
+          <div
+            className={`absolute bottom-full mb-1.5 z-50 flex items-center gap-0.5 rounded-full bg-slate-800 border border-slate-700 shadow-2xl px-1.5 py-1 ${
+              align === "right" ? "right-0" : "left-0"
+            }`}
+          >
+            {REACTION_PICKER_KEYS.map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => void react(key)}
+                title={key}
+                className="w-8 h-8 rounded-full hover:bg-slate-700 flex items-center justify-center text-[18px] transition-transform hover:scale-125"
+              >
+                {reactionEmoji(key)}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {error && (
+        <span
+          className={`absolute top-full mt-1 whitespace-nowrap text-[10px] text-red-400 ${
+            align === "right" ? "right-0" : "left-0"
+          }`}
+        >
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** 리액션 배지 — reactions Json({HEART:2,...}) → 아이콘+카운트 칩. */
+function ReactionBadges({
+  reactions,
+  align,
+}: {
+  reactions: Record<string, number> | null;
+  align: "left" | "right";
+}) {
+  if (!reactions) return null;
+  const entries = Object.entries(reactions).filter(([, n]) => n > 0);
+  if (entries.length === 0) return null;
+  return (
+    <div className={`flex flex-wrap gap-1 mt-1 ${align === "right" ? "justify-end" : ""}`}>
+      {entries.map(([key, n]) => (
+        <span
+          key={key}
+          className="inline-flex items-center gap-0.5 rounded-full bg-slate-800 border border-slate-700 px-1.5 py-0.5 text-[11px] text-slate-200 tabular-nums"
+        >
+          <span className="text-[12px] leading-none">{reactionEmoji(key)}</span>
+          {n}
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -567,18 +821,57 @@ function InboundAvatar({ message }: { message: ChatMessage }) {
   );
 }
 
+/** 메시지 → 답글 미리보기용 본문(공유/사진/파일은 라벨, 일반은 본문). */
+function replyPreviewText(message: ChatMessage, t: ReturnType<typeof useTranslations>): string {
+  switch (message.msgType) {
+    case "photo":
+      return t("preview.photo");
+    case "file":
+      return message.text || t("reply.fileFallback");
+    case "villa_share":
+      return t("preview.villaShare");
+    case "proposal_share":
+      return t("preview.proposalShare");
+    case "settlement_share":
+      return t("preview.settlementShare");
+    default:
+      return message.text;
+  }
+}
+
 function InboundBubble({
   message,
+  conversationId,
+  contactName,
+  onReply,
   t,
+  router,
 }: {
   message: ChatMessage;
+  conversationId: string;
+  contactName: string;
+  onReply: (target: ReplyTarget) => void;
   t: ReturnType<typeof useTranslations>;
+  router: ReturnType<typeof useRouter>;
 }) {
   const [showTranslation, setShowTranslation] = useState(true);
+  const replyTarget: ReplyTarget = {
+    messageId: message.id,
+    sender: contactName,
+    text: replyPreviewText(message, t),
+  };
   return (
-    <div className="flex items-end gap-2 max-w-[70%]">
+    <div className="group flex items-end gap-2 max-w-[80%]">
       <InboundAvatar message={message} />
-      <div>
+      <div className="min-w-0">
+        {(message.quotedText || message.quotedSender) && (
+          <QuotedBlock
+            sender={message.quotedSender}
+            text={message.quotedText ?? ""}
+            align="left"
+            t={t}
+          />
+        )}
         {message.msgType === "photo" && message.attachmentUrls.length > 0 ? (
           <PhotoCard urls={message.attachmentUrls} caption={message.text} inbound />
         ) : message.msgType === "file" ? (
@@ -621,9 +914,19 @@ function InboundBubble({
             )}
           </div>
         )}
-        <span className="text-[10px] text-slate-600 tabular-nums mt-1 inline-block">
-          {message.time}
-        </span>
+        <div className="flex items-center gap-2 mt-1">
+          <span className="text-[10px] text-slate-600 tabular-nums">{message.time}</span>
+          <MessageActions
+            conversationId={conversationId}
+            messageId={message.id}
+            replyTarget={replyTarget}
+            align="left"
+            onReply={onReply}
+            t={t}
+            router={router}
+          />
+        </div>
+        <ReactionBadges reactions={message.reactions} align="left" />
       </div>
     </div>
   );
@@ -631,11 +934,24 @@ function InboundBubble({
 
 function OutboundBubble({
   message,
+  conversationId,
+  contactName,
+  onReply,
   t,
+  router,
 }: {
   message: ChatMessage;
+  conversationId: string;
+  contactName: string;
+  onReply: (target: ReplyTarget) => void;
   t: ReturnType<typeof useTranslations>;
+  router: ReturnType<typeof useRouter>;
 }) {
+  const replyTarget: ReplyTarget = {
+    messageId: message.id,
+    sender: t("reply.you"),
+    text: replyPreviewText(message, t),
+  };
   const statusLine = (
     <div className="text-[10px] text-slate-600 tabular-nums mt-1">
       {message.time} ·{" "}
@@ -648,92 +964,89 @@ function OutboundBubble({
   );
 
   // 공유 카드 버블 — msgType 분기 (D5). 저장 text는 발송 본문 그대로(이미 누수 필터됨).
+  // 카드 본문(card)과 폭(maxW)만 분기로 만들고, 인용·상태·액션·리액션은 공통 셸에서 래핑.
+  let card: ReactNode;
+  let maxW = "max-w-[70%]";
   if (message.msgType === "photo" && message.attachmentUrls.length > 0) {
-    return (
-      <div className="flex justify-end">
-        <div className="max-w-[70%] text-right">
-          <PhotoCard urls={message.attachmentUrls} caption={message.text} />
-          {statusLine}
-        </div>
-      </div>
+    card = <PhotoCard urls={message.attachmentUrls} caption={message.text} />;
+  } else if (message.msgType === "file") {
+    card = <FileCard fileName={message.text} url={message.attachmentUrls[0] ?? null} t={t} />;
+  } else if (message.msgType === "villa_share") {
+    maxW = "max-w-[78%]";
+    card = (
+      <ShareTextCard
+        kind="villa"
+        label={t("card.villaShare")}
+        text={message.text}
+        icon="villa"
+        border="border-blue-500/40"
+        headerBg="bg-blue-600/15 border-blue-500/30"
+        iconColor="text-blue-400"
+        titleColor="text-blue-300"
+      />
     );
-  }
-  if (message.msgType === "file") {
-    return (
-      <div className="flex justify-end">
-        <div className="max-w-[70%] text-right">
-          <FileCard fileName={message.text} url={message.attachmentUrls[0] ?? null} t={t} />
-          {statusLine}
-        </div>
-      </div>
+  } else if (message.msgType === "proposal_share") {
+    maxW = "max-w-[78%]";
+    card = (
+      <ShareTextCard
+        kind="proposal"
+        label={t("card.proposalShare")}
+        text={message.text}
+        icon="description"
+        border="border-indigo-500/40"
+        headerBg="bg-indigo-500/10 border-indigo-500/30"
+        iconColor="text-indigo-300"
+        titleColor="text-indigo-200"
+      />
     );
-  }
-  if (message.msgType === "villa_share") {
-    return (
-      <div className="flex justify-end">
-        <div className="max-w-[78%] text-right">
-          <ShareTextCard
-            kind="villa"
-            label={t("card.villaShare")}
-            text={message.text}
-            icon="villa"
-            border="border-blue-500/40"
-            headerBg="bg-blue-600/15 border-blue-500/30"
-            iconColor="text-blue-400"
-            titleColor="text-blue-300"
-          />
-          {statusLine}
-        </div>
-      </div>
+  } else if (message.msgType === "settlement_share") {
+    maxW = "max-w-[78%]";
+    card = (
+      <ShareTextCard
+        kind="settlement"
+        label={t("card.settlementShare")}
+        text={message.text}
+        icon="receipt_long"
+        border="border-amber-500/40"
+        headerBg="bg-amber-500/10 border-amber-500/30"
+        iconColor="text-amber-400"
+        titleColor="text-amber-300"
+      />
     );
-  }
-  if (message.msgType === "proposal_share") {
-    return (
-      <div className="flex justify-end">
-        <div className="max-w-[78%] text-right">
-          <ShareTextCard
-            kind="proposal"
-            label={t("card.proposalShare")}
-            text={message.text}
-            icon="description"
-            border="border-indigo-500/40"
-            headerBg="bg-indigo-500/10 border-indigo-500/30"
-            iconColor="text-indigo-300"
-            titleColor="text-indigo-200"
-          />
-          {statusLine}
-        </div>
-      </div>
-    );
-  }
-  if (message.msgType === "settlement_share") {
-    return (
-      <div className="flex justify-end">
-        <div className="max-w-[78%] text-right">
-          <ShareTextCard
-            kind="settlement"
-            label={t("card.settlementShare")}
-            text={message.text}
-            icon="receipt_long"
-            border="border-amber-500/40"
-            headerBg="bg-amber-500/10 border-amber-500/30"
-            iconColor="text-amber-400"
-            titleColor="text-amber-300"
-          />
-          {statusLine}
-        </div>
+  } else {
+    // 기본 텍스트 버블
+    card = (
+      <div className="bg-blue-600 rounded-xl rounded-br-sm px-4 py-3 inline-block text-left">
+        <p className="text-sm text-white whitespace-pre-wrap break-words">{message.text}</p>
       </div>
     );
   }
 
-  // 기본 텍스트 버블
   return (
-    <div className="flex justify-end">
-      <div className="max-w-[70%] text-right">
-        <div className="bg-blue-600 rounded-xl rounded-br-sm px-4 py-3 inline-block text-left">
-          <p className="text-sm text-white whitespace-pre-wrap break-words">{message.text}</p>
+    <div className="group flex justify-end">
+      <div className={`${maxW} text-right min-w-0`}>
+        {(message.quotedText || message.quotedSender) && (
+          <QuotedBlock
+            sender={message.quotedSender}
+            text={message.quotedText ?? ""}
+            align="right"
+            t={t}
+          />
+        )}
+        {card}
+        <div className="flex items-center justify-end gap-2">
+          <MessageActions
+            conversationId={conversationId}
+            messageId={message.id}
+            replyTarget={replyTarget}
+            align="right"
+            onReply={onReply}
+            t={t}
+            router={router}
+          />
+          {statusLine}
         </div>
-        {statusLine}
+        <ReactionBadges reactions={message.reactions} align="right" />
       </div>
     </div>
   );
@@ -898,6 +1211,8 @@ function Composer({
   villaCandidates,
   proposalCandidates,
   settlementCandidates,
+  replyTarget,
+  onClearReply,
   onSent,
   t,
   router,
@@ -910,6 +1225,8 @@ function Composer({
   villaCandidates: VillaCandidate[];
   proposalCandidates: ProposalCandidate[];
   settlementCandidates: SettlementCandidate[];
+  replyTarget: ReplyTarget | null;
+  onClearReply: () => void;
   onSent: () => void;
   t: ReturnType<typeof useTranslations>;
   router: ReturnType<typeof useRouter>;
@@ -985,19 +1302,37 @@ function Composer({
     setSending(true);
     setError(null);
     try {
+      // 답글 대상이 있으면 quotedMessageId 포함(R3-2). 일반 발신이면 생략.
+      const payload: Record<string, unknown> = { conversationId, text: body };
+      if (replyTarget) payload.quotedMessageId = replyTarget.messageId;
       const res = await fetch("/api/zalo/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversationId, text: body }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         setText("");
         setPreview("");
+        onClearReply();
         // 내가 전송 → 다음 메시지 반영 때 무조건 최하단으로(과거 보던 중이어도).
         onSent();
         router.refresh();
       } else if (res.status === 409) {
         setError(t("windowClosedWarning"));
+      } else if (res.status === 400) {
+        // QUOTE_NOT_SUPPORTED(과거 메시지 인용 불가) → 안내 후 답글 해제(일반 발신으로 재시도 유도).
+        let code: string | null = null;
+        try {
+          code = ((await res.json()) as { error?: string }).error ?? null;
+        } catch {
+          /* generic */
+        }
+        if (code === "QUOTE_NOT_SUPPORTED") {
+          setError(t("reply.notSupported"));
+          onClearReply();
+        } else {
+          setError(t("sendFailed"));
+        }
       } else {
         setError(t("sendFailed"));
       }
@@ -1014,6 +1349,29 @@ function Composer({
       {/* overflow-hidden 제거: 첨부 메뉴(absolute bottom-full, 위로 뜸)가 잘리지 않게.
           rounded 시각은 유지 — 번역 미리보기 바에 rounded-b-xl + overflow-hidden을 직접 부여해
           하단 모서리만 클립(입력행 상단은 bg-transparent라 클립 불필요). */}
+      {/* 답글 인용 미리보기 — 답글 대상 있을 때만. 취소 버튼으로 해제. */}
+      {replyTarget && (
+        <div className="flex items-start gap-2 bg-slate-800/60 border border-slate-700 rounded-lg px-3 py-2 mb-2">
+          <span className="material-symbols-outlined text-[16px] text-blue-400 mt-0.5 shrink-0">
+            reply
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-bold text-blue-300 truncate">
+              {t("reply.replyingTo", { name: replyTarget.sender })}
+            </p>
+            <p className="text-xs text-slate-400 line-clamp-2 break-words">{replyTarget.text}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClearReply}
+            title={t("reply.cancel")}
+            aria-label={t("reply.cancel")}
+            className="shrink-0 text-slate-500 hover:text-slate-200 transition-colors"
+          >
+            <span className="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
+      )}
       <div className="bg-slate-800/60 border border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
         <div className="flex items-center gap-2 px-3 pt-3">
           <AttachMenu

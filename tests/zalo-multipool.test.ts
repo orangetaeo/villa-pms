@@ -45,6 +45,8 @@ vi.mock("zca-js", () => ({
   },
   ThreadType: { User: 0, Group: 1 },
   LoginQRCallbackEventType: {},
+  // ADR-0009 R3 — zalo-runtime이 모듈 평가 시 Reactions를 참조(역매핑·키 목록). 최소 enum 제공.
+  Reactions: { HEART: "/-heart", LIKE: "/-strong", NONE: "" },
 }));
 
 // ── credentials mock ──
