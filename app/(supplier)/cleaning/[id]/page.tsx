@@ -7,6 +7,7 @@ import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { getSupplierLocale } from "@/lib/locale";
 import Image from "next/image";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -55,7 +56,7 @@ export default async function CleaningTaskPage({
   if (role === "SUPPLIER" && task.villa.supplierId !== userId) notFound();
   if (role === "CLEANER" && task.assigneeId !== userId) notFound();
 
-  const locale = session.user.locale === "ko" ? "ko" : "vi";
+  const locale = await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "cleaning" });
   // 공간 라벨은 빌라 등록 사진 단계(wizard.photos)와 동일 키 재사용 — 중복 정의 금지
   const tp = await getTranslations({ locale, namespace: "wizard.photos" });

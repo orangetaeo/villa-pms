@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { getSupplierLocale } from "@/lib/locale";
 import Image from "next/image";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -101,7 +102,7 @@ export default async function VillaDetailPage({
   if (!session?.user?.id) redirect("/login");
   if (session.user.role !== "SUPPLIER") redirect("/");
 
-  const locale = session.user.locale === "ko" ? "ko" : "vi";
+  const locale = await getSupplierLocale(session.user.locale);
   const { id } = await params;
   const villa = await getVilla(id, session.user.id);
   if (!villa) notFound();

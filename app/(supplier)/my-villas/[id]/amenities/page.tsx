@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { getSupplierLocale } from "@/lib/locale";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import AmenitiesEditor from "./amenities-editor";
@@ -34,7 +35,7 @@ export default async function EditAmenitiesPage({
   // 타인·부재 동일 404 (존재 비노출)
   if (!villa || villa.supplierId !== session.user.id) notFound();
 
-  const locale = session.user.locale === "ko" ? "ko" : "vi";
+  const locale = await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "amenities" });
 
   // 현재 비품 → 마법사 상태 규약(`category:itemKey` → 수량)

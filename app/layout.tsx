@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider } from "next-intl";
+import { cookies } from "next/headers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -29,8 +30,11 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // 접근성·SEO: 현재 locale 쿠키(미들웨어가 설정)를 <html lang>에 반영. 기본 vi
+  const cookieLocale = (await cookies()).get("locale")?.value;
+  const lang = cookieLocale === "ko" ? "ko" : "vi";
   return (
-    <html lang="vi">
+    <html lang={lang}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />

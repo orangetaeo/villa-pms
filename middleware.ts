@@ -106,9 +106,14 @@ export default auth((req) => {
   } else if (
     isSupplierCleanerPath ||
     pathname.startsWith("/signup") ||
-    pathname.startsWith("/login") // 로그인 화면은 vi 기본 (Stitch a0-login)
+    pathname.startsWith("/login")
   ) {
-    res.cookies.set("locale", "vi", { path: "/" });
+    // 공급자·인증 화면: 사용자 명시 선택(pref-locale) > 계정 기본(session) > vi 기본.
+    // (기존엔 vi 강제 → 한국어 전환 토글 도입으로 사용자 선택을 존중. Stitch a0-login 기본은 vi)
+    const prefRaw = req.cookies.get("pref-locale")?.value;
+    const pref = prefRaw === "ko" || prefRaw === "vi" ? prefRaw : undefined;
+    const userLocale = session?.user?.locale === "ko" ? "ko" : "vi";
+    res.cookies.set("locale", pref ?? userLocale, { path: "/" });
   }
 
   return res;

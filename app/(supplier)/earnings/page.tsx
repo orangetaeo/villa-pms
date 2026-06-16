@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { getSupplierLocale } from "@/lib/locale";
 import Link from "next/link";
 import { SettlementStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -61,8 +62,9 @@ export default async function EarningsPage({
   if (session.user.role !== "SUPPLIER") redirect("/");
 
   // [QA D-3] getTranslations의 명시 locale 인자는 cookie 기반 request config(i18n/request.ts)의
-  // 메시지 번들을 바꾸지 못한다 — 실제 vi 렌더는 미들웨어가 /earnings에서 locale=vi 쿠키를 설정해 보장
-  const locale = session.user.locale === "ko" ? "ko" : "vi";
+  // 메시지 번들을 바꾸지 못한다 — 실제 렌더 locale은 미들웨어가 설정하는 locale 쿠키가 결정한다.
+  // 이 변수는 주로 날짜 포맷용. (T-i18n-supplier-ko-toggle: 미들웨어가 pref-locale>계정>vi로 쿠키를 맞춤)
+  const locale = await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "earnings" });
 
   // 월 선택 — 기본 이번 달(Asia/Ho_Chi_Minh), 형식 오류는 이번 달 폴백 (calendar 패턴)

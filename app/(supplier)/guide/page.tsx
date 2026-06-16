@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { getSupplierLocale } from "@/lib/locale";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -24,8 +25,9 @@ export default async function GuidePage() {
   if (!session?.user?.id) redirect("/login");
   if (session.user.role !== "SUPPLIER") redirect("/");
 
-  // [QA D-3] 명시 locale은 메시지 번들을 바꾸지 못함 — 실제 vi 렌더는 미들웨어가 쿠키로 보장 (earnings 패턴)
-  const locale = session.user.locale === "ko" ? "ko" : "vi";
+  // [QA D-3] 명시 locale은 메시지 번들을 바꾸지 못함 — 실제 렌더 locale은 미들웨어 locale 쿠키가 결정
+  // (T-i18n-supplier-ko-toggle: pref-locale>계정>vi 우선순위). earnings 패턴
+  const locale = await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "guide" });
 
   return (

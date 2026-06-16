@@ -2,6 +2,8 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
 import { TabBar } from "@/components/supplier/tab-bar";
+import { LocaleSwitcher } from "@/components/locale-switcher";
+import { getSupplierLocale } from "@/lib/locale";
 
 // [QA D-2] 공급자 클라이언트 컴포넌트가 useTranslations로 실제 사용하는 네임스페이스만 직렬화.
 // 전체 messages를 넘기면 adminXxx 라벨(마진·판매가 운영 구조)이 RSC payload에 노출됨.
@@ -26,9 +28,9 @@ export default async function SupplierLayout({
   const session = await auth();
   if (!session) redirect("/login");
 
-  // 공급자 라우트는 사용자 locale(기본 vi) 메시지를 중첩 제공
-  // (i18n/request.ts는 cookie 기반·기본 ko — 수정 금지 구역이라 여기서 우회)
-  const locale = session.user.locale === "ko" ? "ko" : "vi";
+  // 공급자 라우트 유효 locale: 사용자 선택(pref-locale) > 계정 기본 > vi.
+  // (i18n/request.ts는 cookie 기반·기본 ko라 여기서 헬퍼로 산출)
+  const locale = await getSupplierLocale(session.user.locale);
   const allMessages = (await import(`../../messages/${locale}.json`)).default;
   // [QA D-2] admin·adminXxx 네임스페이스 직렬화 차단 — 화이트리스트만 클라이언트로 전달
   const messages = pickMessages(allMessages);
@@ -36,6 +38,7 @@ export default async function SupplierLayout({
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
       <NextIntlClientProvider locale={locale} messages={messages}>
+        <LocaleSwitcher current={locale} persist />
         <main>{children}</main>
         {/* 하단 탭바 (T1.4) — 풀스크린 플로우에서는 컴포넌트가 스스로 숨김 + 본문 하단 스페이서 포함 */}
         <TabBar />

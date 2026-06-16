@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { getSupplierLocale } from "@/lib/locale";
 import Image from "next/image";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -49,7 +50,7 @@ export default async function CleaningListPage({
   const { role, id: userId } = session.user;
   if (role !== "SUPPLIER" && role !== "CLEANER") redirect("/");
 
-  const locale = session.user.locale === "ko" ? "ko" : "vi";
+  const locale = await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "cleaning" });
   const { submitted } = await searchParams;
 

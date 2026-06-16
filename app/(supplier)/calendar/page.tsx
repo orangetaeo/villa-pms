@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { getSupplierLocale } from "@/lib/locale";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { OCCUPYING_BOOKING_STATUSES, overlapsHalfOpen } from "@/lib/availability";
@@ -26,7 +27,7 @@ export default async function SupplierCalendarPage({
   if (!session?.user?.id) redirect("/login");
   if (session.user.role !== "SUPPLIER") redirect("/");
 
-  const locale = session.user.locale === "ko" ? "ko" : "vi";
+  const locale = await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "calendar" });
 
   // 자기 빌라만 — supplierId 스코프 강제

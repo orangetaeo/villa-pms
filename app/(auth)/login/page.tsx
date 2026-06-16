@@ -2,9 +2,10 @@ import { getTranslations } from "next-intl/server";
 import { Metadata } from "next";
 import LoginForm from "./LoginForm";
 
-export const metadata: Metadata = {
-  title: "Đăng nhập - Villa PMS",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("auth.login");
+  return { title: `${t("title")} - Villa PMS` };
+}
 
 export default async function LoginPage() {
   const t = await getTranslations("auth.login");
