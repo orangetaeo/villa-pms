@@ -21,3 +21,4 @@
 - 통화별 마진 리포트 (Booking.fxVndPerKrw 스냅샷 활용 — KRW/VND 매출·마진 분리 대시보드, ADR-0003)
 - 캘린더 기간 차단 UI: 바텀시트에서 시작~종료 범위 선택 (Phase 1은 a3 확정 디자인대로 단일 날짜 탭 토글 — T1.4 계약 합의)
 - 빌라 시즌 겹침 DB 레벨 제약: VillaSeasonPeriod 겹침 차단이 현재 앱 레벨 check-then-write(Read Committed) — 이론상 동시성 틈. 운영 부담 증가 시 PostgreSQL `EXCLUDE USING gist` 제약 또는 직렬화 격리 검토 (Phase 1은 단일 공급자 단말 편집이라 실위험 극저 — QA 2026-06-16)
+- **Nike↔villa-pms Zalo 공유 세션 통합** (2026-06-16 테오 검토 — 현상유지 결정, 나중 재검토): 같은 Zalo 계정을 두 앱이 동시 로그인하면 zca-js `code 3000(DuplicateConnection)`으로 세션 충돌(번갈아 끊김). 별명·아바타·대화도 별도 DB라 미공유. **해결책 = 공유 세션 서비스**: Zalo WebSocket 세션을 1곳(공유 worker/서비스)이 유지하고 Nike·villa-pms가 REST/공유 DB로 송수신 → 같은 QR 사용 가능 + 별명·아바타·대화 전부 자동 공유. 규모: 별도 서비스 신설 + 양쪽 앱 연동 + Nike 코드 변경(모노레포/Turborepo 통합 맥락). 대안: ②Zalo 계정 2개 분리(충돌 없으나 공유 안 됨) ③현상유지(같은 계정 동시 사용 시 충돌 감수 — 현 선택). 재검토 트리거: 두 앱 동시 운영 빈도↑ 또는 별명·대화 공유 필요성↑
