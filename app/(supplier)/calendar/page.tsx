@@ -10,7 +10,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { OCCUPYING_BOOKING_STATUSES, overlapsHalfOpen } from "@/lib/availability";
 import { addUtcDays, todayVnDateString } from "@/lib/date-vn";
-import { CalendarView, type DayCell } from "./calendar-view";
+import { toDateOnlyString } from "@/lib/date-vn";
+import { CalendarView, type DayCell, type BookingDetail } from "./calendar-view";
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -78,8 +79,18 @@ export default async function SupplierCalendarPage({
         checkIn: { lt: monthEnd },
         checkOut: { gt: monthStart },
       },
-      // 날짜·상태만 — 고객명·금액·예약 id 비전달 (마진·재고 비공개 원칙)
-      select: { checkIn: true, checkOut: true, status: true },
+      // 누수 0: 공급자 본인 정산 예정액(supplierCostVnd)·인원·박수·상태·홀드만료만.
+      //   guestName·totalSale*(판매가)·guestPhone·agencyName 등은 절대 select 안 함 (마진·고객 비공개).
+      select: {
+        id: true,
+        checkIn: true,
+        checkOut: true,
+        status: true,
+        nights: true,
+        guestCount: true,
+        supplierCostVnd: true,
+        holdExpiresAt: true,
+      },
     }),
     prisma.calendarBlock.findMany({
       where: {
@@ -90,6 +101,21 @@ export default async function SupplierCalendarPage({
       select: { id: true, startDate: true, endDate: true, source: true },
     }),
   ]);
+
+  // 예약 상세 — bookingId → 바텀시트 표시 데이터(누수 안전 필드만). VND 문자열로 직렬화.
+  const bookingDetails: Record<string, BookingDetail> = {};
+  for (const b of bookings) {
+    bookingDetails[b.id] = {
+      id: b.id,
+      status: b.status === "HOLD" ? "HOLD" : "BOOKED",
+      checkIn: toDateOnlyString(b.checkIn),
+      checkOut: toDateOnlyString(b.checkOut),
+      nights: b.nights,
+      guestCount: b.guestCount,
+      supplierPayoutVnd: b.supplierCostVnd.toString(),
+      holdExpiresAt: b.holdExpiresAt ? b.holdExpiresAt.toISOString() : null,
+    };
+  }
 
   // 날짜별 셀 상태 산출 — 겹침 판정은 lib/availability의 overlapsHalfOpen만 사용
   const days: DayCell[] = [];
@@ -124,6 +150,9 @@ export default async function SupplierCalendarPage({
       ...(status === "BLOCKED" && block
         ? { blockId: block.id, blockSource: block.source }
         : {}),
+      ...((status === "BOOKED" || status === "HOLD") && booking
+        ? { bookingId: booking.id }
+        : {}),
       isPast: dateStr < todayStr,
     });
   }
@@ -138,6 +167,7 @@ export default async function SupplierCalendarPage({
       month={month}
       days={days}
       leadingBlanks={leadingBlanks}
+      bookingDetails={bookingDetails}
     />
   );
 }

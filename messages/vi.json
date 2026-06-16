@@ -508,7 +508,9 @@
       "LOW": "Mùa thấp điểm",
       "HIGH": "Mùa cao điểm",
       "PEAK": "Cao điểm lễ Tết"
-    }
+    },
+    "managePhotos": "Quản lý ảnh",
+    "manageCost": "Giá & mùa"
   },
   "wizard": {
     "header": "Đăng ký villa",
@@ -618,8 +620,18 @@
       "water": "Nước suối",
       "softDrink": "Nước ngọt",
       "beer": "Bia",
-      "snack": "Bánh kẹo"
-    }
+      "snack": "Bánh kẹo",
+      "towelLarge": "Khăn lớn",
+      "towelMedium": "Khăn vừa",
+      "towelSmall": "Khăn nhỏ"
+    },
+    "towelBlockTitle": "Khăn tắm — số lượng cấp mỗi ngày",
+    "priceLabel": "Đơn giá (đồng)",
+    "priceePlaceholder": "Giá tiền",
+    "customNamePlaceholder": "Tên món",
+    "customNameLabel": "Tên món",
+    "addCustom": "Thêm món minibar",
+    "removeCustom": "Xóa"
   },
   "calendar": {
     "title": "Lịch",
@@ -651,6 +663,20 @@
       "processing": "Đang xử lý...",
       "conflict": "Ngày này đã có đặt phòng hoặc đã khóa. Vui lòng kiểm tra lại lịch.",
       "error": "Không thành công. Vui lòng thử lại.",
+      "close": "Đóng"
+    },
+    "bookingSheet": {
+      "statusConfirmed": "Đã xác nhận",
+      "statusHold": "Giữ chỗ",
+      "expiresIn": "Hết hạn sau {time}",
+      "expired": "Đã hết hạn",
+      "checkIn": "Nhận phòng",
+      "checkOut": "Trả phòng",
+      "nights": "{count} đêm",
+      "guests": "Số khách",
+      "guestCount": "{count} khách",
+      "payoutLabel": "Tiền bạn nhận",
+      "payoutHint": "Dự kiến thanh toán",
       "close": "Đóng"
     }
   },
@@ -1202,5 +1228,57 @@
     "errorGenerate": "Tạo mã QR thất bại. Vui lòng thử lại sau.",
     "errorDisconnect": "Ngắt kết nối thất bại.",
     "refresh": "Làm mới"
+  },
+  "photoLightbox": {
+    "counter": "{current} / {total}",
+    "close": "Đóng",
+    "prev": "Ảnh trước",
+    "next": "Ảnh sau"
+  },
+  "photoManage": {
+    "title": "Quản lý ảnh",
+    "back": "Quay lại",
+    "camera": "Máy ảnh",
+    "gallery": "Thư viện",
+    "uploading": "Đang tải...",
+    "delete": "Xóa",
+    "cancel": "Hủy",
+    "moveLeft": "Lùi",
+    "moveRight": "Tiến",
+    "baselineBadge": "Ảnh đại diện",
+    "baselineWarnTitle": "Xóa ảnh đại diện?",
+    "baselineWarnBody": "Đây là ảnh dùng để kiểm tra dọn dẹp. Bạn có chắc muốn xóa?",
+    "baselineLocked": "Đang có đơn đặt phòng nên không thể xóa ảnh đại diện. Vui lòng thử lại sau khi trả phòng.",
+    "error": "Có lỗi xảy ra. Vui lòng thử lại."
+  },
+  "costSeasons": {
+    "title": "Giá gốc & mùa",
+    "back": "Quay lại",
+    "saveChanges": "Lưu thay đổi",
+    "saving": "Đang lưu...",
+    "saveError": "Lưu không thành công. Vui lòng thử lại.",
+    "overlapError": "Khoảng ngày bị trùng với mùa khác. Vui lòng chọn lại.",
+    "noPriceEntered": "Chưa nhập giá",
+    "deleteCost": "Xóa giá",
+    "appliedRange": "Áp dụng: {start} – {end}",
+    "noDateRange": "Chưa đặt khoảng ngày",
+    "editDates": "Sửa ngày",
+    "enterPriceHint": "Nhập giá gốc cho {season}",
+    "backspace": "Xóa",
+    "pickRangeTitle": "Chọn khoảng ngày {season}",
+    "pickRangeHint": "Nhấn ngày bắt đầu rồi ngày kết thúc",
+    "monthYear": "Tháng {month}, {year}",
+    "prevMonth": "Tháng trước",
+    "nextMonth": "Tháng sau",
+    "done": "Xong",
+    "wd": {
+      "mon": "H",
+      "tue": "B",
+      "wed": "T",
+      "thu": "N",
+      "fri": "S",
+      "sat": "B",
+      "sun": "C"
+    }
   }
 }

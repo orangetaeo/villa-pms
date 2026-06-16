@@ -7,23 +7,16 @@ import { auth } from "@/auth";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getSupplierLocale } from "@/lib/locale";
-import Image from "next/image";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import type { AmenityCategory, SeasonType } from "@prisma/client";
 import { formatVnd } from "@/app/(supplier)/my-villas/new/wizard-types";
+import { SPACE_ICON, SPACE_LABEL_KEY } from "@/lib/photo-spaces";
+import PhotoGrid from "./photo-grid";
+import type { LightboxPhoto } from "./photo-lightbox";
 
 // 시즌 표시 순서 (비수기 → 성수기 → 극성수기). PEAK는 강조색
 const SEASON_ORDER: SeasonType[] = ["LOW", "HIGH", "PEAK"];
-
-// 사진 공간 라벨 i18n 키 (wizard.photos.* 재사용). BEDROOM·BATHROOM은 spaceLabel 우선
-const SPACE_LABEL_KEY: Record<string, string> = {
-  EXTERIOR: "exterior",
-  LIVING: "living",
-  KITCHEN: "kitchen",
-  BALCONY: "balcony",
-  POOL: "pool",
-};
 
 /** 빌라 조회 (소유 검증 포함). rates는 supplierCostVnd만 — 판매가·마진 미조회 */
 async function getVilla(id: string, supplierId: string) {
@@ -124,9 +117,28 @@ export default async function VillaDetailPage({
   for (const a of villa.amenities) amenityCount[a.category] += 1;
   const amenityTotal = villa.amenities.length;
 
-  // 침실/욕실 번호 매김 — 같은 공간 N번째 라벨 생성용
+  // 침실/욕실 번호 매김 — 같은 공간 N번째 라벨 생성용. 라이트박스 캡션·아이콘 사전 계산.
   let bedroomNo = 0;
   let bathroomNo = 0;
+  const lightboxPhotos: LightboxPhoto[] = villa.photos.map((photo) => {
+    let caption: string;
+    if (photo.space === "BEDROOM") {
+      bedroomNo += 1;
+      caption = photo.spaceLabel || tPhoto("bedroom", { n: bedroomNo });
+    } else if (photo.space === "BATHROOM") {
+      bathroomNo += 1;
+      caption = photo.spaceLabel || tPhoto("bathroom", { n: bathroomNo });
+    } else {
+      const key = SPACE_LABEL_KEY[photo.space];
+      caption = photo.spaceLabel || (key ? tPhoto(key) : "");
+    }
+    return {
+      id: photo.id,
+      url: photo.url,
+      caption,
+      icon: SPACE_ICON[photo.space] ?? "image",
+    };
+  });
 
   // 시즌 원가 — supplierCostVnd(BigInt) → 점 구분 문자열. 정의된 시즌만, 순서 고정
   const rateBySeason = new Map(villa.rates.map((r) => [r.season, r.supplierCostVnd]));
@@ -216,55 +228,28 @@ export default async function VillaDetailPage({
             )}
           </div>
 
-          {/* 2. 사진 그리드 */}
+          {/* 2. 사진 그리드 — 탭 시 라이트박스(a11), "관리" 진입(a12) */}
           <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-teal-600">image</span>
                 <h3 className="font-semibold text-neutral-800">{t("photos")}</h3>
+                <span className="rounded bg-neutral-100 px-2 py-0.5 text-xs font-bold text-neutral-600">
+                  {t("photoCount", { count: villa.photos.length })}
+                </span>
               </div>
-              <span className="rounded bg-neutral-100 px-2 py-0.5 text-xs font-bold text-neutral-600">
-                {t("photoCount", { count: villa.photos.length })}
-              </span>
+              <Link
+                href={`/my-villas/${villa.id}/photos`}
+                className="flex shrink-0 items-center gap-1 rounded-lg bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-100"
+              >
+                <span className="material-symbols-outlined text-base">photo_library</span>
+                {t("managePhotos")}
+              </Link>
             </div>
             {villa.photos.length === 0 ? (
               <p className="py-4 text-center text-sm text-neutral-400">{t("noPhotos")}</p>
             ) : (
-              <div className="grid grid-cols-3 gap-2">
-                {villa.photos.map((photo) => {
-                  let caption: string;
-                  if (photo.space === "BEDROOM") {
-                    bedroomNo += 1;
-                    caption = photo.spaceLabel || tPhoto("bedroom", { n: bedroomNo });
-                  } else if (photo.space === "BATHROOM") {
-                    bathroomNo += 1;
-                    caption = photo.spaceLabel || tPhoto("bathroom", { n: bathroomNo });
-                  } else {
-                    const key = SPACE_LABEL_KEY[photo.space];
-                    caption = photo.spaceLabel || (key ? tPhoto(key) : "");
-                  }
-                  return (
-                    <div
-                      key={photo.id}
-                      className="relative aspect-square overflow-hidden rounded-lg bg-neutral-200"
-                    >
-                      <Image
-                        src={photo.url}
-                        alt={caption}
-                        fill
-                        unoptimized
-                        sizes="(max-width: 420px) 33vw, 140px"
-                        className="object-cover"
-                      />
-                      {caption && (
-                        <span className="absolute inset-x-0 bottom-0 truncate bg-black/40 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                          {caption}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              <PhotoGrid photos={lightboxPhotos} />
             )}
           </div>
 
@@ -299,11 +284,20 @@ export default async function VillaDetailPage({
             </div>
           </div>
 
-          {/* 4. 원가 (Giá gốc) — supplierCostVnd만. 판매가·마진 부재 */}
+          {/* 4. 원가 (Giá gốc) — supplierCostVnd만. 판매가·마진 부재. "원가·시즌 관리" 진입(a15) */}
           <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm">
-            <div className="mb-4 flex items-center gap-3">
-              <span className="material-symbols-outlined text-teal-600">payments</span>
-              <h3 className="font-semibold text-neutral-800">{t("price")}</h3>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-teal-600">payments</span>
+                <h3 className="font-semibold text-neutral-800">{t("price")}</h3>
+              </div>
+              <Link
+                href={`/my-villas/${villa.id}/cost`}
+                className="flex shrink-0 items-center gap-1 rounded-lg bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-100"
+              >
+                <span className="material-symbols-outlined text-base">edit</span>
+                {t("manageCost")}
+              </Link>
             </div>
             <div className="space-y-1">
               {SEASON_ORDER.map((season, idx) => {

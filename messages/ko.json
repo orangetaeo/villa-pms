@@ -508,7 +508,9 @@
       "LOW": "비수기",
       "HIGH": "성수기",
       "PEAK": "극성수기"
-    }
+    },
+    "managePhotos": "사진 관리",
+    "manageCost": "원가·시즌"
   },
   "wizard": {
     "header": "빌라 등록",
@@ -618,8 +620,18 @@
       "water": "생수",
       "softDrink": "음료",
       "beer": "맥주",
-      "snack": "과자"
-    }
+      "snack": "과자",
+      "towelLarge": "큰 수건",
+      "towelMedium": "중간 수건",
+      "towelSmall": "작은 수건"
+    },
+    "towelBlockTitle": "수건 — 매일 제공 수량",
+    "priceLabel": "단가 (동)",
+    "priceePlaceholder": "단가",
+    "customNamePlaceholder": "품목명",
+    "customNameLabel": "품목명",
+    "addCustom": "미니바 품목 추가",
+    "removeCustom": "삭제"
   },
   "calendar": {
     "title": "캘린더",
@@ -651,6 +663,20 @@
       "processing": "처리 중...",
       "conflict": "이미 예약 또는 차단된 날짜입니다. 캘린더를 다시 확인해주세요.",
       "error": "처리에 실패했습니다. 다시 시도해주세요.",
+      "close": "닫기"
+    },
+    "bookingSheet": {
+      "statusConfirmed": "확정",
+      "statusHold": "가예약",
+      "expiresIn": "만료까지 {time}",
+      "expired": "만료됨",
+      "checkIn": "체크인",
+      "checkOut": "체크아웃",
+      "nights": "{count}박",
+      "guests": "인원",
+      "guestCount": "{count}명",
+      "payoutLabel": "받을 금액",
+      "payoutHint": "정산 예정액",
       "close": "닫기"
     }
   },
@@ -1202,5 +1228,57 @@
     "errorGenerate": "QR 생성에 실패했습니다. 잠시 후 다시 시도하세요.",
     "errorDisconnect": "연결 해제에 실패했습니다.",
     "refresh": "새로고침"
+  },
+  "photoLightbox": {
+    "counter": "{current} / {total}",
+    "close": "닫기",
+    "prev": "이전 사진",
+    "next": "다음 사진"
+  },
+  "photoManage": {
+    "title": "사진 관리",
+    "back": "뒤로",
+    "camera": "카메라",
+    "gallery": "갤러리",
+    "uploading": "업로드 중...",
+    "delete": "삭제",
+    "cancel": "취소",
+    "moveLeft": "앞으로",
+    "moveRight": "뒤로",
+    "baselineBadge": "기준사진",
+    "baselineWarnTitle": "기준사진을 삭제할까요?",
+    "baselineWarnBody": "이 사진은 청소 검수에 사용됩니다. 정말 삭제하시겠습니까?",
+    "baselineLocked": "진행 중인 예약이 있어 기준사진을 삭제할 수 없습니다. 체크아웃 후 다시 시도해주세요.",
+    "error": "처리에 실패했습니다. 다시 시도해주세요."
+  },
+  "costSeasons": {
+    "title": "원가 · 시즌",
+    "back": "뒤로",
+    "saveChanges": "변경 저장",
+    "saving": "저장 중...",
+    "saveError": "저장에 실패했습니다. 다시 시도해주세요.",
+    "overlapError": "다른 시즌 기간과 날짜가 겹칩니다. 다시 선택해주세요.",
+    "noPriceEntered": "원가 미입력",
+    "deleteCost": "원가 삭제",
+    "appliedRange": "적용: {start} – {end}",
+    "noDateRange": "기간 미설정",
+    "editDates": "날짜 수정",
+    "enterPriceHint": "{season} 원가를 입력하세요",
+    "backspace": "지우기",
+    "pickRangeTitle": "{season} 기간 선택",
+    "pickRangeHint": "시작일과 종료일을 차례로 누르세요",
+    "monthYear": "{month}월, {year}",
+    "prevMonth": "이전 달",
+    "nextMonth": "다음 달",
+    "done": "완료",
+    "wd": {
+      "mon": "월",
+      "tue": "화",
+      "wed": "수",
+      "thu": "목",
+      "fri": "금",
+      "sat": "토",
+      "sun": "일"
+    }
   }
 }

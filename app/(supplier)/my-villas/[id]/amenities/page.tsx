@@ -29,7 +29,16 @@ export default async function EditAmenitiesPage({
       id: true,
       supplierId: true,
       name: true,
-      amenities: { select: { category: true, itemKey: true, quantity: true } },
+      amenities: {
+        select: {
+          category: true,
+          itemKey: true,
+          quantity: true,
+          unitPrice: true,
+          customLabel: true,
+          note: true,
+        },
+      },
     },
   });
   // 타인·부재 동일 404 (존재 비노출)
@@ -38,9 +47,31 @@ export default async function EditAmenitiesPage({
   const locale = await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "amenities" });
 
-  // 현재 비품 → 마법사 상태 규약(`category:itemKey` → 수량)
-  const initial: Record<string, number> = {};
-  for (const a of villa.amenities) initial[`${a.category}:${a.itemKey}`] = a.quantity;
+  // 현재 비품 → 사전 항목(수량 맵) + 미니바 커스텀 행 분리.
+  // 사전 항목 key: `category:itemKey` → 수량. 미니바 사전 항목의 단가는 별도 맵.
+  const initialQuantities: Record<string, number> = {};
+  const initialUnitPrices: Record<string, string> = {}; // `MINIBAR:itemKey` → VND 문자열
+  const initialCustom: {
+    id: string;
+    label: string;
+    quantity: number;
+    unitPrice: string;
+  }[] = [];
+  for (const a of villa.amenities) {
+    if (a.itemKey === "custom") {
+      initialCustom.push({
+        id: `c${initialCustom.length}`,
+        label: a.customLabel ?? "",
+        quantity: a.quantity,
+        unitPrice: a.unitPrice ? a.unitPrice.toString() : "",
+      });
+    } else {
+      initialQuantities[`${a.category}:${a.itemKey}`] = a.quantity;
+      if (a.category === "MINIBAR" && a.unitPrice) {
+        initialUnitPrices[`MINIBAR:${a.itemKey}`] = a.unitPrice.toString();
+      }
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-[420px]">
@@ -59,7 +90,12 @@ export default async function EditAmenitiesPage({
         <div className="h-10 w-10" />
       </header>
 
-      <AmenitiesEditor villaId={villa.id} initial={initial} />
+      <AmenitiesEditor
+        villaId={villa.id}
+        initialQuantities={initialQuantities}
+        initialUnitPrices={initialUnitPrices}
+        initialCustom={initialCustom}
+      />
     </div>
   );
 }
