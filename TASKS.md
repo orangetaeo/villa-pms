@@ -9,7 +9,7 @@
 - [x] T0.6 Railway 배포 + CRON_SECRET 크론 라우트 골격 (OPS/TDA) — 2026-06-11 배포 완료 (villa-pms-production.up.railway.app), 크론 골격은 잔여
 - [x] T0.7 reference/ 수집: Nike zalo·gemini, 환전 LEDGER·WebPush, TravelDiary 업로드·PWA 코드 복사 (INTEG) — 2026-06-11 완료. 31개 파일([SHARED-MODULE] 헤더), reference/README.md에 태스크 매핑. 시크릿 0건(자격증명 json 복사 제외). ~~주의: OA REST 전송 계층 신규 작성 필요~~ → **ADR-0005로 zca-js 확정 — Nike 전송 계층 그대로 재사용** (발송 큐·재시도·credential 포함)
 - [x] T0.8 Playwright MCP 설치·연결 — QA 실사용 검증용 (QA/TDA) — 2026-06-11 완료. .mcp.json(@playwright/mcp) + Chromium 바이너리 설치. **다음 세션 시작 시 프로젝트 MCP 승인 프롬프트에서 허용 필요** — 이후 QA가 browser_* 도구로 프로덕션 실사용 검증 가능
-- [ ] T0.9 AuditLog·AppSetting 마이그레이션 + lib/audit-log.ts(writeAuditLog) 유틸 — 이후 모든 변경 API에 동시 적용 (TDA/BE) — lib/audit-log.ts는 2026-06-11 T0.3에서 생성 완료(가입 시 적용 중), 스키마는 T0.2 db push에 포함. 잔여: v1.2 추가분 push 재실행 확인
+- [x] T0.9 AuditLog·AppSetting + 스키마 드리프트 검증 (TDA, 2026-06-16 종결) — lib/audit-log.ts(writeAuditLog) T0.3에서 생성·전 변경 API 적용 중. **prod Neon DB 드리프트 검증 완료(읽기 전용)**: v1.1(AppSetting·AuditLog)·v1.2(통화·VillaAmenity·Zalo 양방향)·T1.2b(REJECTED·rejectionReason) 10항목 전부 DB 존재 실측 → **DB ⊇ 커밋 스키마, push 불필요**. 잔여: zca-js ZaloAccount(ADR-0006) push는 그 세션 전담(스키마 1세션 원칙). 계약: docs/contracts/T0.9-schema-drift-verify.md
 
 ## Sprint 1 — F1 빌라 등록 + F2 캘린더 (M1 W2~3)
 - [x] T1.0 Stitch 디자인 생성: A0~A4, B1 (docs/DESIGN.md 프롬프트) → design/stitch/ 저장 (DESIGN, 테오 확인) — 2026-06-11 전체 회의 검수 — 조건부 통과
