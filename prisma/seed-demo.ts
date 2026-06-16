@@ -260,7 +260,7 @@ async function main() {
         : null;
 
       // 보증금: 확정 이후 단계만
-      const settled = [BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN, BookingStatus.CHECKED_OUT, BookingStatus.NO_SHOW].includes(status);
+      const settled = ([BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN, BookingStatus.CHECKED_OUT, BookingStatus.NO_SHOW] as BookingStatus[]).includes(status);
       const depositCurrency = settled ? (isKrw ? Currency.KRW : Currency.VND) : null;
       const depositAmount = settled ? (isKrw ? 100_000 : 2_000_000) : null;
       const damage = !!opts.damage;
@@ -402,7 +402,7 @@ async function main() {
         });
       }
       // 결제
-      if ([BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN, BookingStatus.CHECKED_OUT].includes(m.status)) {
+      if (([BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN, BookingStatus.CHECKED_OUT] as BookingStatus[]).includes(m.status)) {
         addPayment(m, "deposit", addDays(m.checkIn, -5));
         if (m.status === BookingStatus.CHECKED_OUT || m.status === BookingStatus.CHECKED_IN) {
           addPayment(m, "balance", m.checkIn);
