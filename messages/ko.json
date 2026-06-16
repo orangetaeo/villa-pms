@@ -1212,6 +1212,8 @@
     "counterparty": {
       "supplier": "공급자",
       "customer": "고객",
+      "travelAgency": "여행사",
+      "landAgency": "랜드사",
       "unknown": "미분류"
     },
     "classify": {
@@ -1219,6 +1221,8 @@
       "bannerHint": "분류 전에는 사진만 보낼 수 있습니다. 분류 후 빌라·제안·정산 공유가 활성화됩니다.",
       "supplier": "공급자",
       "customer": "고객",
+      "travelAgency": "여행사",
+      "landAgency": "랜드사",
       "unknown": "미분류",
       "change": "분류 변경",
       "heading": "상대 분류"
@@ -1272,6 +1276,7 @@
       "bathrooms": "욕실 {n}",
       "costPerNight": "원가 {amount} / 박",
       "salePerNight": "판매가 {amount} / 박",
+      "salePerNightVnd": "판매가 {amount} / 박",
       "villaTitle": "빌라 공유",
       "villaSubtitleSupplier": "{name} (공급자)에게 보내기 · 원가 기준",
       "villaSubtitleCustomer": "{name} (고객)에게 보내기 · 판매가",

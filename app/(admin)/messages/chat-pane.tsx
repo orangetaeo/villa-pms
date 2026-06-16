@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ClassifyBanner, CounterpartyDropdown } from "./counterparty-control";
+import { allowedShareKinds, isSellSideType } from "@/lib/zalo-counterparty";
 import {
   VillaShareModal,
   ProposalShareModal,
@@ -19,9 +20,23 @@ import {
   NicknameModal,
 } from "./share-modals";
 
-export type CounterpartyType = "SUPPLIER" | "CUSTOMER" | "UNKNOWN";
+export type CounterpartyType =
+  | "SUPPLIER"
+  | "CUSTOMER"
+  | "TRAVEL_AGENCY"
+  | "LAND_AGENCY"
+  | "UNKNOWN";
 export type TranslateMode = "OFF" | "VI" | "EN";
 export type ShareKind = "VILLA" | "PROPOSAL" | "SETTLEMENT";
+
+// 분류 5종 i18n 라벨 키 (adminMessages.counterparty.*)
+const COUNTERPARTY_LABEL_KEY: Record<CounterpartyType, string> = {
+  SUPPLIER: "counterparty.supplier",
+  CUSTOMER: "counterparty.customer",
+  TRAVEL_AGENCY: "counterparty.travelAgency",
+  LAND_AGENCY: "counterparty.landAgency",
+  UNKNOWN: "counterparty.unknown",
+};
 
 export interface ChatHeader {
   name: string;
@@ -57,9 +72,9 @@ export interface VillaCandidate {
   bedrooms: number;
   bathrooms: number;
   photoUrl: string | null;
-  priceLabelKind: "supplierCostVnd" | "salePriceKrw";
-  priceVnd: string | null; // 공급자 원가(점 표기)
-  priceKrw: number | null; // 고객 판매가(원)
+  priceLabelKind: "supplierCostVnd" | "salePriceKrw" | "salePriceVnd";
+  priceVnd: string | null; // 원가(SUPPLIER) 또는 판매가 VND(TRAVEL_AGENCY/LAND_AGENCY) — 점 표기
+  priceKrw: number | null; // 고객 판매가(원, CUSTOMER)
 }
 export interface ProposalCandidate {
   id: string;
@@ -879,17 +894,14 @@ function AttachMenu({
   const galleryRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
-  // 가시성 (D2) — SUPPLIER=사진+빌라+정산 / CUSTOMER=사진+빌라+제안 / UNKNOWN=사진만
-  const canVilla = counterpartyType === "SUPPLIER" || counterpartyType === "CUSTOMER";
-  const canProposal = counterpartyType === "CUSTOMER";
-  const canSettlement = counterpartyType === "SUPPLIER";
+  // 가시성 (D2/R2-5) — 하드코딩 분기 대신 allowedShareKinds 헬퍼로 도출(분류 확장에 자동 대응).
+  //  원가측(SUPPLIER)=사진+빌라+정산 / 판매가측(고객·여행사·랜드사)=사진+빌라+제안 / UNKNOWN=사진만
+  const kinds = allowedShareKinds(counterpartyType);
+  const canVilla = kinds.includes("VILLA");
+  const canProposal = kinds.includes("PROPOSAL");
+  const canSettlement = kinds.includes("SETTLEMENT");
   const locked = counterpartyType === "UNKNOWN";
-  const typeLabel =
-    counterpartyType === "SUPPLIER"
-      ? t("counterparty.supplier")
-      : counterpartyType === "CUSTOMER"
-        ? t("counterparty.customer")
-        : t("counterparty.unknown");
+  const typeLabel = t(COUNTERPARTY_LABEL_KEY[counterpartyType]);
 
   async function uploadPhoto(file: File) {
     setSubmitting(true);
@@ -1057,7 +1069,7 @@ function AttachMenu({
       {modal === "VILLA" && canVilla && (
         <VillaShareModal
           candidates={villaCandidates}
-          counterparty={counterpartyType === "CUSTOMER" ? "CUSTOMER" : "SUPPLIER"}
+          counterparty={isSellSideType(counterpartyType) ? "CUSTOMER" : "SUPPLIER"}
           contactName={contactName}
           onClose={() => setModal(null)}
           onSubmit={(villaId) => void shareJson({ type: "VILLA", villaId })}

@@ -2,6 +2,7 @@
 // 금액 규칙: VND = BigInt(동), KRW = Int(원). 숙박일 = @db.Date
 // v1.1: AuditLog·AppSetting 추가 (ADR-0002)
 // v1.2: 채널별 결제 통화(saleCurrency·salePriceVnd·환율 스냅샷), VillaAmenity 비품, Zalo 양방향 채팅 (ADR-0003)
+// v1.2a: ZaloCounterpartyType 분류 5종 확장 — TRAVEL_AGENCY·LAND_AGENCY 추가 (ADR-0009 개정 2026-06-16, additive enum)
 
 generator client {
   provider = "prisma-client-js"
@@ -570,12 +571,20 @@ enum ZaloMessageStatus {
   FAILED
 }
 
-// 채팅 상대 타입 (ADR-0009 D1) — 공유 누수 분기 기준.
-//  SUPPLIER: 원가만 공유 (마진·판매가 금지). CUSTOMER: 판매가만 (원가·마진 금지). UNKNOWN: 공유 잠금.
+// 채팅 상대 타입 (ADR-0009 D1, 개정 2026-06-16 분류 5종) — 공유 누수 분기 기준.
+//  누수 그룹(D2):
+//   · 원가측 = {SUPPLIER}                                 → 빌라=원가만, 정산 공유 허용, 제안 금지
+//   · 판매가측 = {CUSTOMER, TRAVEL_AGENCY, LAND_AGENCY}    → 빌라=판매가만(원가·마진 금지), 제안 허용, 정산 금지
+//   · UNKNOWN                                             → 사진만(공유 잠금)
+//  마진(marginType/marginValue)은 전 그룹 영구 금지(불변).
+//  통화 매핑(D2 통화): CUSTOMER=KRW(직접 소비자), TRAVEL_AGENCY·LAND_AGENCY=VND (ADR-0003 채널 통화 정합).
+//  → 빌라 공유 본문 saleCurrency를 분류별로 결정(BE: currencyForType()). 보류됐던 "고객 통화 분기" 해소.
 enum ZaloCounterpartyType {
-  SUPPLIER // 공급자(중계인·부동산·분양자) — 원가만
-  CUSTOMER // 고객(여행사·여행객) — 판매가만
-  UNKNOWN // 미분류 — 공유 기능 잠금(기본값)
+  SUPPLIER // 공급자(중계인·부동산·분양자) — 원가만 (원가측)
+  CUSTOMER // 직접 고객(여행객) — 판매가 KRW만 (판매가측)
+  TRAVEL_AGENCY // 여행사 — 판매가 VND만 (판매가측, ADR-0003 여행사=VND)
+  LAND_AGENCY // 랜드사 — 판매가 VND만 (판매가측, ADR-0003 랜드사=VND)
+  UNKNOWN // 미분류 — 공유 기능 잠금(기본값, 사진만)
 }
 
 // 대화별 번역 모드 (ADR-0009 D7) — ADMIN 기준 언어는 항상 ko. 모드는 "상대 언어" 1축만 저장.

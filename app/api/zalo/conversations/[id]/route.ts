@@ -6,6 +6,7 @@
 // 공통: ADMIN 전용 + 본인(ownerAdminId) 대화만 (ADR-0007 누수 차단). 타인/미존재 대화는 404.
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { ZaloCounterpartyType } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
@@ -21,11 +22,12 @@ const bodySchema = z.discriminatedUnion("action", [
     // 클라가 null 또는 문자열 전달. 문자열은 trim 후 최대 길이 검증.
     nickname: z.string().max(NICKNAME_MAX).nullable(),
   }),
-  // SET_COUNTERPARTY_TYPE — 대화 상대 분류(공급자/고객). 공유 누수 분기의 전제(ADR-0009 D1).
+  // SET_COUNTERPARTY_TYPE — 대화 상대 분류 5종(공급자/고객/여행사/랜드사/미분류, ADR-0009 D1·개정2).
   // ADMIN 수동 분류만(자동 매칭 금지). UNKNOWN으로 되돌리는 것도 허용.
+  // nativeEnum으로 Prisma ZaloCounterpartyType와 단일 진실원 — enum 확장 시 자동 동기화(누락 방지).
   z.object({
     action: z.literal("SET_COUNTERPARTY_TYPE"),
-    counterpartyType: z.enum(["SUPPLIER", "CUSTOMER", "UNKNOWN"]),
+    counterpartyType: z.nativeEnum(ZaloCounterpartyType),
   }),
 ]);
 

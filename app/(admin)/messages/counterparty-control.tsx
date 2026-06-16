@@ -28,9 +28,12 @@ async function patchType(
   }
 }
 
+// 분류 5종 (ADR-0009 개정2) — 공급자(원가측)·고객/여행사/랜드사(판매가측)·미분류
 const OPTIONS: { type: CounterpartyType; icon: string; iconColor: string; labelKey: string }[] = [
   { type: "SUPPLIER", icon: "store", iconColor: "text-teal-400", labelKey: "classify.supplier" },
   { type: "CUSTOMER", icon: "person", iconColor: "text-indigo-300", labelKey: "classify.customer" },
+  { type: "TRAVEL_AGENCY", icon: "flight", iconColor: "text-violet-300", labelKey: "classify.travelAgency" },
+  { type: "LAND_AGENCY", icon: "directions_car", iconColor: "text-blue-300", labelKey: "classify.landAgency" },
   { type: "UNKNOWN", icon: "help", iconColor: "text-slate-500", labelKey: "classify.unknown" },
 ];
 
@@ -61,7 +64,7 @@ export function ClassifyBanner({
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-white">{t("classify.bannerTitle")}</p>
           <p className="text-[11px] text-slate-400 mt-1">{t("classify.bannerHint")}</p>
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
             <button
               type="button"
               onClick={() => classify("SUPPLIER")}
@@ -79,6 +82,24 @@ export function ClassifyBanner({
             >
               <span className="material-symbols-outlined text-[16px]">person</span>
               {t("classify.customer")}
+            </button>
+            <button
+              type="button"
+              onClick={() => classify("TRAVEL_AGENCY")}
+              disabled={saving}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-violet-500/15 border border-violet-500/40 text-violet-300 text-xs font-bold hover:bg-violet-500/25 disabled:opacity-50 transition-colors"
+            >
+              <span className="material-symbols-outlined text-[16px]">flight</span>
+              {t("classify.travelAgency")}
+            </button>
+            <button
+              type="button"
+              onClick={() => classify("LAND_AGENCY")}
+              disabled={saving}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-500/15 border border-blue-500/40 text-blue-300 text-xs font-bold hover:bg-blue-500/25 disabled:opacity-50 transition-colors"
+            >
+              <span className="material-symbols-outlined text-[16px]">directions_car</span>
+              {t("classify.landAgency")}
             </button>
           </div>
         </div>
@@ -102,7 +123,9 @@ export function CounterpartyDropdown({
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const current = OPTIONS.find((o) => o.type === type) ?? OPTIONS[2];
+  const current =
+    OPTIONS.find((o) => o.type === type) ??
+    OPTIONS.find((o) => o.type === "UNKNOWN")!;
 
   async function select(next: CounterpartyType) {
     if (next === type) {

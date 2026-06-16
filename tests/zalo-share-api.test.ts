@@ -44,12 +44,19 @@ type Conv = {
   ownerAdminId: string;
   zaloUserId: string;
   userId: string | null;
-  counterpartyType: "SUPPLIER" | "CUSTOMER" | "UNKNOWN";
+  counterpartyType:
+    | "SUPPLIER"
+    | "CUSTOMER"
+    | "TRAVEL_AGENCY"
+    | "LAND_AGENCY"
+    | "UNKNOWN";
 };
 const CONVS: Record<string, Conv> = {
   convSup: { ownerAdminId: "adminA", zaloUserId: "zu-sup", userId: "supA", counterpartyType: "SUPPLIER" },
   convSupUnlinked: { ownerAdminId: "adminA", zaloUserId: "zu-sup2", userId: null, counterpartyType: "SUPPLIER" },
   convCust: { ownerAdminId: "adminA", zaloUserId: "zu-cust", userId: null, counterpartyType: "CUSTOMER" },
+  convTravel: { ownerAdminId: "adminA", zaloUserId: "zu-tra", userId: null, counterpartyType: "TRAVEL_AGENCY" },
+  convLand: { ownerAdminId: "adminA", zaloUserId: "zu-lan", userId: null, counterpartyType: "LAND_AGENCY" },
   convUnknown: { ownerAdminId: "adminA", zaloUserId: "zu-unk", userId: null, counterpartyType: "UNKNOWN" },
   convOther: { ownerAdminId: "adminB", zaloUserId: "zu-b", userId: "supB", counterpartyType: "SUPPLIER" },
 };
@@ -225,6 +232,66 @@ describe("S3 빌라 — 고객 경로(판매가만)", () => {
     expect(sentText).toContain("₩90,000");
     expect(sentText).not.toContain("1,000,000");
     expect(sentText).toContain("가격");
+  });
+});
+
+describe("S3 빌라 — 판매가측 그룹 확장(여행사·랜드사 = 판매가 VND만)", () => {
+  it("TRAVEL_AGENCY: salePriceVnd만 본문, 원가·마진·KRW 0", async () => {
+    const res = await jsonReq("convTravel", { type: "VILLA", villaId: "villa1" });
+    expect(res.status).toBe(200);
+    const ratesSel = (lastVillaSelect!.rates as { select: Record<string, boolean> }).select;
+    // 판매가측 select 화이트리스트 — 원가·마진 미조회
+    expect(ratesSel.salePriceVnd).toBe(true);
+    expect(ratesSel.salePriceKrw).toBe(true);
+    expect(ratesSel.supplierCostVnd).toBeUndefined();
+    expect(ratesSel.marginValue).toBeUndefined();
+    expect(ratesSel.marginType).toBeUndefined();
+    // 본문 — VND 판매가(1,500,000₫)만. KRW(90,000)·원가·마진 미포함
+    const sentText = mockSendText.mock.calls[0][2] as string;
+    expect(sentText).toContain("1,500,000₫");
+    expect(sentText).not.toContain("90,000");
+    expect(sentText).not.toContain("₩");
+    expect(sentText.toLowerCase()).not.toContain("margin");
+    expect(sentText).toContain("가격");
+  });
+  it("LAND_AGENCY: salePriceVnd만 본문(VND 통화)", async () => {
+    const res = await jsonReq("convLand", { type: "VILLA", villaId: "villa1" });
+    expect(res.status).toBe(200);
+    const sentText = mockSendText.mock.calls[0][2] as string;
+    expect(sentText).toContain("1,500,000₫");
+    expect(sentText).not.toContain("90,000");
+    expect(sentText).not.toContain("₩");
+  });
+  it("CUSTOMER 통화는 여전히 KRW(₩90,000) — 회귀", async () => {
+    const res = await jsonReq("convCust", { type: "VILLA", villaId: "villa1" });
+    expect(res.status).toBe(200);
+    const sentText = mockSendText.mock.calls[0][2] as string;
+    expect(sentText).toContain("₩90,000");
+  });
+});
+
+describe("S2 제안 — 판매가측 그룹 전체 허용", () => {
+  it("TRAVEL_AGENCY 제안 공유 허용 200", async () => {
+    process.env.NEXTAUTH_URL = "https://app.test";
+    const res = await jsonReq("convTravel", { type: "PROPOSAL", proposalId: "prop1" });
+    expect(res.status).toBe(200);
+    const sentText = mockSendText.mock.calls[0][2] as string;
+    expect(sentText).toContain("https://app.test/p/tok-abc");
+  });
+  it("LAND_AGENCY 제안 공유 허용 200", async () => {
+    const res = await jsonReq("convLand", { type: "PROPOSAL", proposalId: "prop1" });
+    expect(res.status).toBe(200);
+  });
+});
+
+describe("S4 정산 — 판매가측 그룹 전체 거부", () => {
+  it("TRAVEL_AGENCY 정산 공유 거부 403", async () => {
+    const res = await jsonReq("convTravel", { type: "SETTLEMENT", settlementId: "set1" });
+    expect(res.status).toBe(403);
+  });
+  it("LAND_AGENCY 정산 공유 거부 403", async () => {
+    const res = await jsonReq("convLand", { type: "SETTLEMENT", settlementId: "set1" });
+    expect(res.status).toBe(403);
   });
 });
 

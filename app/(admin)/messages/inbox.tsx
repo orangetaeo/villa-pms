@@ -65,6 +65,8 @@ export function Inbox({
     { key: "ALL", label: t("filter.all") },
     { key: "SUPPLIER", label: t("counterparty.supplier") },
     { key: "CUSTOMER", label: t("counterparty.customer") },
+    { key: "TRAVEL_AGENCY", label: t("counterparty.travelAgency") },
+    { key: "LAND_AGENCY", label: t("counterparty.landAgency") },
     { key: "UNKNOWN", label: t("counterparty.unknown") },
   ];
 
@@ -92,7 +94,7 @@ export function Inbox({
           />
         </div>
         {/* 상대 타입 필터 칩 (D1) */}
-        <div className="flex items-center gap-1.5 mt-3">
+        <div className="flex items-center gap-1.5 mt-3 flex-wrap">
           {chips.map((c) => (
             <button
               key={c.key}

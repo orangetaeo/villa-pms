@@ -14,6 +14,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { serializeBigInt } from "@/lib/serialize";
+import { isSellSideType, currencyForType } from "@/lib/zalo-counterparty";
 import { Inbox, type InboxItem } from "./inbox";
 import {
   ChatPane,
@@ -306,8 +307,12 @@ export default async function MessagesPage({
             status: s.status,
           }))
         ) as SettlementCandidate[];
-      } else if (counterpartyType === ZaloCounterpartyType.CUSTOMER) {
-        // 고객 대화 — ACTIVE+isSellable 빌라만, 판매가만(KRW). 원가·마진 미조회.
+      } else if (isSellSideType(counterpartyType)) {
+        // 판매가측 그룹(CUSTOMER/TRAVEL_AGENCY/LAND_AGENCY) — ACTIVE+isSellable 빌라만, 판매가만.
+        // 통화는 currencyForType로 분기: CUSTOMER=KRW, TRAVEL_AGENCY/LAND_AGENCY=VND.
+        // 원가(supplierCostVnd)·마진(marginType/marginValue)은 화이트리스트에서 영구 제외 — 누수 불변식.
+        const sellCurrency = currencyForType(counterpartyType);
+        const useKrw = sellCurrency === Currency.KRW;
         const villas = await prisma.villa.findMany({
           where: { status: "ACTIVE", isSellable: true },
           orderBy: { createdAt: "desc" },
@@ -321,7 +326,8 @@ export default async function MessagesPage({
             photos: { orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
             rates: {
               orderBy: { season: "asc" },
-              select: { season: true, salePriceKrw: true },
+              // 판매가만 — salePriceKrw·salePriceVnd 둘 다 화이트리스트. supplierCostVnd·margin* 미조회.
+              select: { season: true, salePriceKrw: true, salePriceVnd: true },
             },
           },
         });
@@ -335,9 +341,11 @@ export default async function MessagesPage({
               bedrooms: v.bedrooms,
               bathrooms: v.bathrooms,
               photoUrl: v.photos[0]?.url ?? null,
-              priceLabelKind: "salePriceKrw" as const,
-              priceVnd: null,
-              priceKrw: low ? low.salePriceKrw : null,
+              priceLabelKind: (useKrw ? "salePriceKrw" : "salePriceVnd") as
+                | "salePriceKrw"
+                | "salePriceVnd",
+              priceVnd: useKrw ? null : low ? low.salePriceVnd : null,
+              priceKrw: useKrw ? (low ? low.salePriceKrw : null) : null,
             };
           })
         ) as VillaCandidate[];

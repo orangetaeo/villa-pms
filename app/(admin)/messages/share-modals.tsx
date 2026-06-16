@@ -191,9 +191,11 @@ export function VillaShareModal({
                       .join(" · ")}
                   </p>
                   <p className="text-[11px] font-bold text-teal-400 tabular-nums mt-0.5">
-                    {isSupplier
+                    {v.priceLabelKind === "supplierCostVnd"
                       ? t("shareModal.costPerNight", { amount: fmtVndDot(v.priceVnd) })
-                      : t("shareModal.salePerNight", { amount: fmtKrw(v.priceKrw) })}
+                      : v.priceLabelKind === "salePriceVnd"
+                        ? t("shareModal.salePerNightVnd", { amount: fmtVndDot(v.priceVnd) })
+                        : t("shareModal.salePerNight", { amount: fmtKrw(v.priceKrw) })}
                   </p>
                 </div>
                 <span

@@ -1212,6 +1212,8 @@
     "counterparty": {
       "supplier": "Nhà cung cấp",
       "customer": "Khách hàng",
+      "travelAgency": "Đại lý du lịch",
+      "landAgency": "Đại lý mặt đất",
       "unknown": "Chưa phân loại"
     },
     "classify": {
@@ -1219,6 +1221,8 @@
       "bannerHint": "Trước khi phân loại chỉ có thể gửi ảnh. Sau khi phân loại sẽ mở khóa chia sẻ villa·đề xuất·quyết toán.",
       "supplier": "Nhà cung cấp",
       "customer": "Khách hàng",
+      "travelAgency": "Đại lý du lịch",
+      "landAgency": "Đại lý mặt đất",
       "unknown": "Chưa phân loại",
       "change": "Đổi phân loại",
       "heading": "Phân loại đối tác"
@@ -1272,6 +1276,7 @@
       "bathrooms": "{n} phòng tắm",
       "costPerNight": "Giá gốc {amount} / đêm",
       "salePerNight": "Giá bán {amount} / đêm",
+      "salePerNightVnd": "Giá bán {amount} / đêm",
       "villaTitle": "Chia sẻ villa",
       "villaSubtitleSupplier": "Gửi cho {name} (nhà cung cấp) · Theo giá gốc",
       "villaSubtitleCustomer": "Gửi cho {name} (khách hàng) · Giá bán",

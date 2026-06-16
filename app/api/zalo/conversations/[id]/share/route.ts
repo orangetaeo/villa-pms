@@ -17,7 +17,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
-  Currency,
   ProposalStatus,
   ZaloCounterpartyType,
   ZaloMessageDirection,
@@ -29,6 +28,11 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { saveFile, isAllowedImageMime } from "@/lib/storage";
 import { sendChatMessageAsAdmin, sendChatImageAsAdmin } from "@/lib/zalo-runtime";
+import {
+  isCostSideType,
+  isSellSideType,
+  currencyForType,
+} from "@/lib/zalo-counterparty";
 import {
   buildVillaShareTextForSupplier,
   buildVillaShareTextForCustomer,
@@ -231,8 +235,8 @@ async function handleProposal(
   proposalId: string,
   req: Request
 ): Promise<NextResponse> {
-  // 상대 타입 게이트 — 제안은 고객용 판매가 페이지. SUPPLIER/UNKNOWN 거부 (D2).
-  if (conv.counterpartyType !== ZaloCounterpartyType.CUSTOMER) {
+  // 상대 타입 게이트 — 제안은 판매가측 전용(/p/[token] 판매가 페이지). 원가측·UNKNOWN 거부 (R2-2).
+  if (!isSellSideType(conv.counterpartyType)) {
     return NextResponse.json({ error: "COUNTERPARTY_NOT_ALLOWED" }, { status: 403 });
   }
 
@@ -267,11 +271,9 @@ async function handleVilla(
   adminUserId: string,
   villaId: string
 ): Promise<NextResponse> {
-  // 상대 타입 게이트 — UNKNOWN은 어느 금액을 보낼지 결정 불가 → 잠금 (D2).
-  if (
-    conv.counterpartyType !== ZaloCounterpartyType.SUPPLIER &&
-    conv.counterpartyType !== ZaloCounterpartyType.CUSTOMER
-  ) {
+  // 상대 타입 게이트 — UNKNOWN은 어느 금액을 보낼지 결정 불가 → 잠금 (R2-2).
+  // 원가측=원가 경로, 판매가측=판매가 경로. 그 외(UNKNOWN)는 거부.
+  if (!isCostSideType(conv.counterpartyType) && !isSellSideType(conv.counterpartyType)) {
     return NextResponse.json({ error: "COUNTERPARTY_NOT_ALLOWED" }, { status: 403 });
   }
 
@@ -290,8 +292,8 @@ async function handleVilla(
     amenities: { select: { itemKey: true, customLabel: true } },
   } as const;
 
-  if (conv.counterpartyType === ZaloCounterpartyType.SUPPLIER) {
-    // 공급자 경로 — rates는 supplierCostVnd만 SELECT. salePrice*/margin 미조회 (D4.1).
+  if (isCostSideType(conv.counterpartyType)) {
+    // 원가측(공급자) 경로 — rates는 supplierCostVnd만 SELECT. salePrice*/margin 미조회 (D4.1).
     const villa = await prisma.villa.findUnique({
       where: { id: villaId },
       select: {
@@ -318,7 +320,8 @@ async function handleVilla(
     });
   }
 
-  // 고객 경로 — rates는 salePriceVnd/salePriceKrw만 SELECT. supplierCostVnd/margin 미조회 (D4.1).
+  // 판매가측(고객·여행사·랜드사) 경로 — rates는 salePriceVnd/salePriceKrw만 SELECT.
+  // supplierCostVnd/margin 미조회 (D4.1). 본문 통화는 currencyForType()로 분류별 결정.
   const villa = await prisma.villa.findUnique({
     where: { id: villaId },
     select: {
@@ -333,9 +336,8 @@ async function handleVilla(
   if (villa.status !== "ACTIVE" || !villa.isSellable) {
     return NextResponse.json({ error: "VILLA_NOT_SELLABLE" }, { status: 403 });
   }
-  // 통화 — 고객 맥락(여행사·랜드사=VND, 직접=KRW). counterpartyType만으론 채널 불명 →
-  // Phase 1: 고객 대화 기본 KRW(직접 소비자). 채널 세분화는 Phase 2(대화↔Booking 링크).
-  const saleCurrency = Currency.KRW;
+  // 통화 — 분류값으로 결정(R2-3): CUSTOMER=KRW, TRAVEL_AGENCY/LAND_AGENCY=VND.
+  const saleCurrency = currencyForType(conv.counterpartyType);
   const text = buildVillaShareTextForCustomer(
     toShareBase(villa, "ko"),
     villa.rates.map((r) => ({
@@ -359,8 +361,8 @@ async function handleSettlement(
   adminUserId: string,
   body: { settlementId?: string; yearMonth?: string }
 ): Promise<NextResponse> {
-  // 상대 타입 게이트 — 정산은 공급자↔운영자. CUSTOMER/UNKNOWN 거부 (D2).
-  if (conv.counterpartyType !== ZaloCounterpartyType.SUPPLIER) {
+  // 상대 타입 게이트 — 정산은 원가측(공급자)↔운영자. 판매가측·UNKNOWN 거부 (R2-2).
+  if (!isCostSideType(conv.counterpartyType)) {
     return NextResponse.json({ error: "COUNTERPARTY_NOT_ALLOWED" }, { status: 403 });
   }
   // 본인 특정 불가(미매칭 공급자)면 정산 공유 불가 (D4.2, 리스크 ④).
