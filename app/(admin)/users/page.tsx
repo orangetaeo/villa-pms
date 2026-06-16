@@ -4,7 +4,6 @@
 import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { quickRangeWhere } from "@/lib/date-vn";
 import UsersManager, { type UserRow, type UnlinkedZaloRow } from "./users-manager";
 
 export const metadata: Metadata = {
@@ -23,22 +22,13 @@ function toDotDate(date: Date): string {
   return `${get("year")}.${get("month")}.${get("day")}`;
 }
 
-export default async function UsersPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ range?: string }>;
-}) {
+export default async function UsersPage() {
   // ADMIN 보장은 (admin) layout — 여기서는 본인 행 비활성화 차단용 id만 사용
   const session = await auth();
   const selfId = session?.user?.id ?? "";
 
-  // 빠른 날짜 필터(?range=) — createdAt(가입일) 기준. "all"/무효 → undefined(조건 미적용).
-  const { range } = await searchParams;
-  const createdAtRange = quickRangeWhere(range, "timestamp");
-
   const [users, unlinked] = await Promise.all([
     prisma.user.findMany({
-      ...(createdAtRange ? { where: { createdAt: createdAtRange } } : {}),
       // select 화이트리스트 — passwordHash 절대 제외 (계약 T1.8)
       select: {
         id: true,

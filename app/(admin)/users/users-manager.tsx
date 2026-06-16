@@ -6,7 +6,6 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import QuickDateFilter from "@/components/admin/quick-date-filter";
 import ResponsiveTable, { type ResponsiveColumn } from "@/components/admin/responsive-table";
 
 export interface UserRow {
@@ -399,20 +398,6 @@ export default function UsersManager({
               {t(labelKey)}
             </button>
           ))}
-        </div>
-        {/* 빠른 날짜 필터 — 가입일(createdAt) 기준. 서버(?range=)에서 필터링, 과거형이라 nextMonth 제외 */}
-        <div className="w-full">
-          <QuickDateFilter
-            presets={[
-              "all",
-              "today",
-              "yesterday",
-              "thisWeek",
-              "lastWeek",
-              "thisMonth",
-              "lastMonth",
-            ]}
-          />
         </div>
       </section>
 
