@@ -475,11 +475,13 @@
     "created": "Đã gửi villa để duyệt. Chúng tôi sẽ thông báo khi có kết quả.",
     "rooms": "{bedrooms} phòng ngủ · {bathrooms} phòng tắm",
     "viewCleaning": "Xem việc dọn dẹp",
+    "editResubmit": "Sửa và gửi lại",
     "empty": "Bạn chưa có villa nào",
     "emptyHint": "Nhấn nút Thêm villa để đăng ký villa đầu tiên.",
     "status": {
       "active": "Đang hoạt động",
       "notSellable": "Chưa thể bán",
+      "rejected": "Bị từ chối",
       "pending": "Chờ duyệt",
       "inactive": "Tạm dừng"
     }
@@ -497,6 +499,8 @@
     "amenitySummary": "Đồ bếp {kitchen} · Đồ phòng tắm {bathroom} · Thiết bị điện {appliance} · Minibar {minibar}",
     "noAmenities": "Chưa có đồ dùng nào",
     "price": "Giá gốc",
+    "rejectionTitle": "Lý do từ chối",
+    "editResubmit": "Sửa và gửi lại",
     "season": {
       "LOW": "Mùa thấp điểm",
       "HIGH": "Mùa cao điểm",

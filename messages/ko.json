@@ -475,11 +475,13 @@
     "created": "빌라가 승인 요청되었습니다. 결과가 나오면 알려드립니다.",
     "rooms": "침실 {bedrooms}개 · 욕실 {bathrooms}개",
     "viewCleaning": "청소 보기",
+    "editResubmit": "수정 후 재제출",
     "empty": "아직 등록된 빌라가 없습니다",
     "emptyHint": "빌라 추가 버튼을 눌러 첫 빌라를 등록하세요.",
     "status": {
       "active": "판매중",
       "notSellable": "판매 불가",
+      "rejected": "반려됨",
       "pending": "승인 대기",
       "inactive": "중단됨"
     }
@@ -497,6 +499,8 @@
     "amenitySummary": "주방용품 {kitchen} · 욕실용품 {bathroom} · 가전류 {appliance} · 미니바 {minibar}",
     "noAmenities": "등록된 비품이 없습니다",
     "price": "원가",
+    "rejectionTitle": "반려 사유",
+    "editResubmit": "수정 후 재제출",
     "season": {
       "LOW": "비수기",
       "HIGH": "성수기",
