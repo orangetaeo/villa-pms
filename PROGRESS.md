@@ -2,6 +2,7 @@
 
 | 날짜 | 스프린트 | 완료 내용 | 비고 |
 |---|---|---|---|
+| 2026-06-16 | T1.7-bank-contact | 입금 계좌·연락처 설정 UI 완료 (b8 Card 3 변환, 3라운드 디자인): /settings Card 4 BankContactForm(은행명·계좌번호·예금주·전화·카카오URL) + /api/settings 배치 PUT(entries — 5키 화이트리스트·키별 검증·빈값 clear, 단일 키 경로 무변경) + validators.ts 순수 분리 + vitest 28개. 공개 제안 완료/만료 페이지가 소비하던 AppSetting 5키의 ADMIN 입력 공백(T2.2 잔여) 해소. AuditLog diff 기록. QA 독립 평가 **통과**(8/8, 누수 0건·javascript 스킴 쓰기차단·배치 원자성·DB round-trip 라이브 실증). 커밋 85a68c9 | 병렬 세션(T1.2b·T1.10·Zalo) 무충돌 — messages는 bank 하nk만 선별 스테이징. 계약: docs/contracts/T1.7-bank-contact.md |
 | 2026-06-11 | - | 사업계획서 V1.0, CLAUDE.md/SPEC.md/TASKS.md/schema.prisma 스캐폴딩 완료 | 개발 착수 전 |
 | 2026-06-11 | - | 에이전트 체계 완성: 기존 8개 + 신규 3개(DESIGN·OPS·LOC) 섭외, 스킬 3종 추가, CLAUDE.md/INDEX.md/TASKS.md 반영 | DESIGN은 Stitch MCP 직접 사용 |
 | 2026-06-11 | - | 오픈 스펙 확정(ADR-0002): SPEC v1.1(F0 가입·F6 최소 정산·엣지 케이스), 스키마 AuditLog·AppSetting 추가, LAUNCH.md 신설, 태스크 6건 추가 | 오픈 이슈 4건 해소 |
