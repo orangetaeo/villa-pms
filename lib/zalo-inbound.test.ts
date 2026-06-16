@@ -2,6 +2,8 @@
 import { describe, expect, it } from "vitest";
 import {
   extractText,
+  extractDisplayText,
+  UNKNOWN_MESSAGE_FALLBACK,
   isPhoneLike,
   extractPhone,
   isEchoMessage,
@@ -10,21 +12,67 @@ import {
   buildInboundKey,
 } from "./zalo-inbound";
 
-describe("extractText", () => {
+describe("extractText — content 타입별 안전 파싱 (버그 B)", () => {
   it("문자열 content는 그대로", () => {
     expect(extractText("Xin chào")).toBe("Xin chào");
   });
 
-  it("객체 content는 title/description/msg 우선 추출", () => {
+  it("객체 content는 캡션 후보(msg/title/description)만 추출 — msg 우선", () => {
+    expect(extractText({ msg: "M", title: "T" })).toBe("M");
     expect(extractText({ title: "T" })).toBe("T");
     expect(extractText({ description: "D" })).toBe("D");
-    expect(extractText({ msg: "M" })).toBe("M");
+    expect(extractText({ caption: "C" })).toBe("C");
+    expect(extractText({ text: "X" })).toBe("X");
+  });
+
+  it("리치/버블 메시지의 action/메서드 필드는 본문으로 새지 않는다", () => {
+    // 핵심 회귀: content.action="sendBubbleMessage" 가 본문으로 노출되던 버그
+    expect(extractText({ action: "sendBubbleMessage" })).toBe("");
+    expect(extractText({ action: "sendBubbleMessage", href: "https://x", thumb: "t" })).toBe("");
+    expect(extractText({ type: "recommend", action: "recommened.link" })).toBe("");
+  });
+
+  it("리치 메시지라도 사람이 쓴 캡션이 있으면 그 캡션만 추출(action 무시)", () => {
+    expect(extractText({ action: "sendBubbleMessage", title: "공지 제목" })).toBe("공지 제목");
+  });
+
+  it("JSON 문자열 content는 파싱해 캡션만 — 메서드명 새지 않음", () => {
+    expect(extractText('{"action":"sendBubbleMessage","title":"안녕"}')).toBe("안녕");
+    expect(extractText('{"action":"sendBubbleMessage"}')).toBe("");
+    // JSON 아닌 일반 텍스트는 그대로(중괄호 시작 아님)
+    expect(extractText("그냥 텍스트")).toBe("그냥 텍스트");
+    // 깨진 JSON은 원문 텍스트로 취급
+    expect(extractText("{not json")).toBe("{not json");
+  });
+
+  it("params 내부 캡션(이미지/파일)도 추출", () => {
+    expect(extractText({ thumb: "t", params: '{"caption":"사진 설명"}' })).toBe("사진 설명");
+    expect(extractText({ params: { msg: "객체 params" } })).toBe("객체 params");
+  });
+
+  it("빈 캡션·공백 캡션은 건너뛰어 빈 문자열", () => {
+    expect(extractText({ title: "   " })).toBe("");
+    expect(extractText({ msg: "" })).toBe("");
   });
 
   it("추출 불가(빈 객체·null·숫자)는 빈 문자열", () => {
     expect(extractText({})).toBe("");
     expect(extractText(null)).toBe("");
     expect(extractText(123)).toBe("");
+  });
+});
+
+describe("extractDisplayText — 본문 없으면 중립 폴백(메서드명 노출 금지)", () => {
+  it("실제 본문은 그대로", () => {
+    expect(extractDisplayText("Xin chào")).toBe("Xin chào");
+    expect(extractDisplayText({ title: "제목" })).toBe("제목");
+  });
+
+  it("첨부/리치(본문 없음)는 폴백 문구 — 'sendBubbleMessage' 등 절대 노출 안 함", () => {
+    expect(extractDisplayText({ action: "sendBubbleMessage" })).toBe(UNKNOWN_MESSAGE_FALLBACK);
+    expect(extractDisplayText({})).toBe(UNKNOWN_MESSAGE_FALLBACK);
+    expect(extractDisplayText(null)).toBe(UNKNOWN_MESSAGE_FALLBACK);
+    expect(extractDisplayText('{"action":"sendBubbleMessage"}')).toBe(UNKNOWN_MESSAGE_FALLBACK);
   });
 });
 

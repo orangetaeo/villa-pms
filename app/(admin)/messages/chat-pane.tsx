@@ -326,7 +326,7 @@ function ChatHeaderBar({
   }
 
   return (
-    <header className="shrink-0 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md px-6 py-3 flex items-center justify-between gap-4">
+    <header className="relative z-30 shrink-0 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md px-6 py-3 flex items-center justify-between gap-4">
       {/* 좌측: (모바일) 뒤로가기 + 아바타 + 별명(편집) + 배지 + 연결/원본 */}
       <div className="flex items-center gap-3 min-w-0">
         {/* 모바일 전용 뒤로가기 — 목록(인박스)으로. 데스크톱(lg:)은 2-pane 유지라 숨김. */}
@@ -433,7 +433,7 @@ function TranslateDropdown({
   const [saving, setSaving] = useState(false);
 
   const options: { mode: TranslateMode; label: string; icon: string; iconColor: string }[] = [
-    { mode: "OFF", label: t("translateMode.off"), icon: "translate_off", iconColor: "text-slate-500" },
+    { mode: "OFF", label: t("translateMode.off"), icon: "do_not_disturb_on", iconColor: "text-slate-500" },
     { mode: "VI", label: t("translateMode.vi"), icon: "translate", iconColor: "text-teal-400" },
     { mode: "EN", label: t("translateMode.en"), icon: "translate", iconColor: "text-teal-400" },
   ];
@@ -475,15 +475,15 @@ function TranslateDropdown({
             mode === "OFF" ? "text-slate-500" : "text-teal-400"
           }`}
         >
-          {mode === "OFF" ? "translate_off" : "translate"}
+          {mode === "OFF" ? "do_not_disturb_on" : "translate"}
         </span>
         <span>{current.label}</span>
         <span className="material-symbols-outlined text-[16px] text-slate-500">expand_more</span>
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-1.5 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl py-1.5 z-20">
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-1.5 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl py-1.5 z-50">
             <p className="px-3 py-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
               {t("translateMode.heading")}
             </p>
@@ -1079,7 +1079,13 @@ function Composer({
 // ════════════════════════ 첨부 메뉴 + 공유 흐름 ════════════════════════
 
 // 파일 업로드 에러코드 → i18n 라벨 키. 미매핑 코드는 generic.
-const FILE_ERROR_KEYS = new Set(["TOO_LARGE", "BLOCKED_TYPE", "IS_IMAGE", "NO_EXTENSION"]);
+const FILE_ERROR_KEYS = new Set([
+  "TOO_LARGE",
+  "BLOCKED_TYPE",
+  "IS_IMAGE",
+  "NO_EXTENSION",
+  "UPLOAD_FAILED",
+]);
 
 function AttachMenu({
   conversationId,
@@ -1241,8 +1247,8 @@ function AttachMenu({
 
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 bottom-full mb-2 w-52 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl py-1.5 z-20">
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 bottom-full mb-2 w-52 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl py-1.5 z-50">
             <p className="px-3 py-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
               {t("attach.heading")}{" "}
               <span className="text-teal-400 normal-case">({typeLabel})</span>

@@ -27,18 +27,88 @@ import { translateText } from "@/lib/gemini";
 // ===================== 순수 함수 층 (단위 테스트 대상) =====================
 
 /**
- * zca-js UserMessage.data.content → 표시 텍스트 추출 (단순화).
- * villa-pms 수신은 텍스트 위주 — content가 문자열이면 그대로,
- * 객체면 흔한 캡션 필드(title/description/msg)만 본다. 첨부 URL은 S5 범위라 무시.
+ * 본문을 못 뽑았을 때 표시할 폴백 — zca-js 내부 타입/메서드명("sendBubbleMessage" 등)
+ * 노출 금지(버그 B). 운영자가 "비텍스트 수신"임을 알 수 있는 중립 문구.
+ */
+export const UNKNOWN_MESSAGE_FALLBACK = "[알 수 없는 메시지]";
+
+/**
+ * content 객체에서 사람이 읽을 캡션/본문 후보 필드만 안전 추출.
+ * **action/type/href 등 메타·메서드 필드는 절대 보지 않는다** — 버그 B 재발 방지.
+ * (zca-js 리치/버블/공유 메시지의 content.action 값 "sendBubbleMessage"가
+ *  본문으로 새던 문제 차단). 캡션 후보가 비문자열·빈문자열이면 건너뛴다.
+ */
+function pickCaptionField(o: Record<string, unknown>): string | null {
+  // 사람이 작성한 본문/캡션이 들어오는 필드만 화이트리스트로 한정.
+  for (const key of ["msg", "title", "description", "caption", "text"] as const) {
+    const v = o[key];
+    if (typeof v === "string" && v.trim().length > 0) return v;
+  }
+  // params 안에 캡션이 중첩된 경우(이미지/파일 캡션) — 문자열이면 JSON 파싱 시도.
+  const params = o.params;
+  if (params) {
+    let p: unknown = params;
+    if (typeof params === "string") {
+      try {
+        p = JSON.parse(params);
+      } catch {
+        p = null;
+      }
+    }
+    if (p && typeof p === "object") {
+      const po = p as Record<string, unknown>;
+      const cand = po.caption ?? po.msg;
+      if (typeof cand === "string" && cand.trim().length > 0) return cand;
+    }
+  }
+  return null;
+}
+
+/**
+ * zca-js UserMessage.data.content → 표시 텍스트 추출 (타입별 안전 파싱, 버그 B 수정).
+ *
+ * content는 zca-js 타입상 `string | TAttachmentContent | TOtherContent`이며,
+ * 리치/버블/공유(business)·첨부 메시지는 객체로 온다. 과거 구현은 title/description/msg만
+ * 봐서, 그 필드가 없는 객체에선 ""을 반환했고, 일부 직렬화 경로에서 action 값
+ * "sendBubbleMessage"가 본문처럼 새는 문제가 있었다.
+ *
+ * 처리:
+ *  - string: JSON처럼 보이면(앞이 '{') 파싱해 캡션 추출 시도, 아니면 그대로 본문.
+ *  - object: 캡션 후보(msg/title/description/caption/text/params.caption)만 화이트리스트 추출.
+ *  - 추출 실패: "" 반환(첨부 전용 메시지). 호출부는 빈 문자열이면 폴백 처리(아래 extractDisplayText).
+ *
+ * ★ action/type/href/thumb 등 메타 필드는 절대 본문으로 쓰지 않는다.
  */
 export function extractText(content: unknown): string {
-  if (typeof content === "string") return content;
+  if (typeof content === "string") {
+    const trimmed = content.trim();
+    // JSON 문자열(파일·연락처·리치)이면 파싱해 캡션만 — 메서드/액션명 새는 것 방지.
+    if (trimmed.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed && typeof parsed === "object") {
+          return pickCaptionField(parsed as Record<string, unknown>) ?? "";
+        }
+      } catch {
+        /* JSON 아님 — 일반 텍스트로 취급 */
+      }
+    }
+    return content;
+  }
   if (content && typeof content === "object") {
-    const o = content as Record<string, unknown>;
-    const cand = o.title ?? o.description ?? o.msg;
-    if (typeof cand === "string") return cand;
+    return pickCaptionField(content as Record<string, unknown>) ?? "";
   }
   return "";
+}
+
+/**
+ * 표시용 텍스트 — extractText 결과가 비면 첨부/리치 메시지로 보고 중립 폴백.
+ * (extractText는 "본문 없음"을 ""로 구분 반환; 저장·표시 단계에서 폴백 적용)
+ * 이미지/파일 등 첨부 수신은 본문이 비어도 폴백 문구로 수신 흔적을 남긴다(버그 B).
+ */
+export function extractDisplayText(content: unknown): string {
+  const text = extractText(content);
+  return text.trim().length > 0 ? text : UNKNOWN_MESSAGE_FALLBACK;
 }
 
 /**

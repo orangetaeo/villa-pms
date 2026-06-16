@@ -35,6 +35,7 @@ import {
 import { writeAuditLog } from "./audit-log";
 import {
   extractText,
+  UNKNOWN_MESSAGE_FALLBACK,
   isSelfMessage,
   buildInboundKey,
   parseZaloTs,
@@ -605,14 +606,23 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       return;
     }
 
+    // 본문 추출(버그 B): action/메서드명 등 메타 필드는 절대 본문으로 새지 않는다.
+    //  - text: 사람이 작성한 본문(없으면 빈 문자열) — 자동번역은 이 값이 있을 때만.
+    //  - displayText: 표시·저장용. 첨부/리치로 본문이 비면 중립 폴백("[알 수 없는 메시지]").
     const text = extractText(userMsg.data.content);
-    if (!text) return; // 텍스트 없는 메시지는 S5 범위 — Phase 1 스킵
+    const displayText = text.trim().length > 0 ? text : UNKNOWN_MESSAGE_FALLBACK;
 
     const zaloMsgId = buildInboundKey(userMsg.data);
     const displayName = (data.dName as string | undefined) ?? null;
 
     // ── 본인 발신(앱 or 프로그램) → OUTBOUND 동기화 ──────────────
     if (isSelfMessage({ isSelf: userMsg.isSelf, senderId }, inst.ownId)) {
+      // 본인 발신은 본문 없는 첨부 에코까지 폴백으로 미러할 필요 낮음 — 본문 없으면 스킵.
+      // (프로그램 S4/b14 발송이 이미 OUTBOUND를 정확히 기록하므로 중복·잡음 방지)
+      if (!text) {
+        void maybeRefreshAvatar(inst, senderZaloUserId);
+        return;
+      }
       await saveOutboundEcho({
         ownerAdminId: inst.ownerAdminId,
         senderZaloUserId,
@@ -628,18 +638,21 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
     }
 
     // ── 상대 발신 → INBOUND 저장(기존) ──────────────────────────
+    // 첨부/리치 메시지(본문 없음)도 폴백 문구로 저장 — 수신 흔적을 잃지 않는다(버그 B).
     const inbound = await saveInboundMessage({
       ownerAdminId: inst.ownerAdminId,
       isSystemBot: inst.isSystemBot,
       senderZaloUserId,
-      text,
+      text: displayText,
       zaloMsgId,
       displayName,
+      // 전화번호 매칭은 사람이 쓴 실제 본문만 대상 — 폴백 문구로 오매칭 방지.
       senderPhone: null,
     });
 
     // ADR-0009 S5 — 수신 자동번역(VI/EN만). 리스너 블로킹 금지: await 없이 fire-and-forget.
-    if (inbound.saved && inbound.messageId && inbound.translateMode !== "OFF") {
+    // 폴백 문구는 번역하지 않는다(실제 본문 text가 있을 때만).
+    if (text && inbound.saved && inbound.messageId && inbound.translateMode !== "OFF") {
       void maybeTranslateInbound(inbound.messageId, text, inbound.translateMode);
     }
 
@@ -718,9 +731,9 @@ export async function sendChatImageAsAdmin(
   fileName: string,
   caption?: string
 ): Promise<BotSendResult> {
-  const api = await getApiForAdmin(adminUserId);
-  if (!api) return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
   try {
+    const api = await getApiForAdmin(adminUserId);
+    if (!api) return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
     // EXIF 방향 자동 회전 — jpg/png/webp/tiff만(heic는 sharp 빌드 의존, 실패 시 원본 폴백).
     let sendBuffer = buffer;
     if (/\.(jpe?g|png|webp|tiff?)$/i.test(fileName)) {
@@ -773,9 +786,9 @@ export async function sendChatFileAsAdmin(
   fileName: `${string}.${string}`,
   caption?: string
 ): Promise<BotSendResult> {
-  const api = await getApiForAdmin(adminUserId);
-  if (!api) return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
   try {
+    const api = await getApiForAdmin(adminUserId);
+    if (!api) return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
     const res = await api.sendMessage(
       {
         msg: caption ?? "",

@@ -1294,6 +1294,7 @@
       "BLOCKED_TYPE": "허용되지 않는 파일 형식입니다",
       "IS_IMAGE": "이미지는 사진 메뉴를 사용하세요",
       "NO_EXTENSION": "확장자가 없는 파일은 보낼 수 없습니다",
+      "UPLOAD_FAILED": "파일 저장에 실패했습니다. 잠시 후 다시 시도해 주세요",
       "generic": "파일 전송에 실패했습니다"
     },
     "settlementStatus": {

@@ -1294,6 +1294,7 @@
       "BLOCKED_TYPE": "Định dạng tệp không được phép",
       "IS_IMAGE": "Vui lòng dùng menu ảnh cho hình ảnh",
       "NO_EXTENSION": "Không thể gửi tệp không có phần mở rộng",
+      "UPLOAD_FAILED": "Lưu tệp thất bại. Vui lòng thử lại sau",
       "generic": "Gửi tệp thất bại"
     },
     "settlementStatus": {

@@ -280,14 +280,31 @@ async function handleFile(
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const mimeType = file.type || "application/octet-stream";
-  const { url, displayName } = await saveAttachmentFile(
-    buffer,
-    origName,
-    valid.ext,
-    mimeType,
-    adminUserId
-  );
 
+  // 저장(R2/디스크)은 예외 가능 — 던지면 라우트가 500으로 죽고 DB 기록도 0건이 된다(버그 A).
+  // 저장 실패는 UPLOAD_FAILED(500)로 명시 반환 → FE가 fileError.generic 안내.
+  let url: string;
+  let displayName: string;
+  try {
+    const saved = await saveAttachmentFile(
+      buffer,
+      origName,
+      valid.ext,
+      mimeType,
+      adminUserId
+    );
+    url = saved.url;
+    displayName = saved.displayName;
+  } catch (err) {
+    console.error(
+      "[share] 파일 저장 실패:",
+      err instanceof Error ? err.message : String(err)
+    );
+    return NextResponse.json({ error: "UPLOAD_FAILED" }, { status: 500 });
+  }
+
+  // 발송은 throw-safe(내부 try/catch로 {ok:false} 반환) — 봇 미연결·발송 실패도
+  // 아래 persistShare에서 FAILED(200)로 기록된다(DB 0건 방지).
   const send = await sendChatFileAsAdmin(
     adminUserId,
     conv.zaloUserId,

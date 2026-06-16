@@ -158,8 +158,8 @@ export function CounterpartyDropdown({
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-1.5 w-44 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl py-1.5 z-20">
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full mt-1.5 w-44 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl py-1.5 z-50">
             <p className="px-3 py-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
               {t("classify.heading")}
             </p>
