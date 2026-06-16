@@ -344,11 +344,22 @@ async function onLoginSuccess(inst: ZaloBotInstance, api: API) {
         },
       }).catch(() => {});
     } catch (err) {
+      // credential 저장 실패(주로 ZALO_CREDS_KEY 미설정)를 조용히 삼키면 화면은
+      // "연결됨"으로 거짓 표시되지만 재시작 후 자동 재로그인이 불가능해진다.
+      // → 명시적으로 error 상태로 전환해 운영자가 즉시 원인을 인지하게 한다.
+      inst.status = "error";
+      inst.lastError =
+        "Zalo 자격증명 저장 실패 — ZALO_CREDS_KEY 환경변수를 확인하세요 (미설정 시 재시작 후 연결이 끊깁니다)";
       console.error(
         "[ZaloBot] credential 저장 실패:",
         err instanceof Error ? err.message : err
       );
     }
+  } else if (inst._pendingCreds && !inst.ownId) {
+    // QR 로그인했으나 ownId를 못 얻음 → credential 저장 불가 (영속 실패)
+    inst._pendingCreds = null;
+    inst.status = "error";
+    inst.lastError = "Zalo 계정 ID 확인 실패 — 다시 QR 로그인하세요";
   } else {
     inst._pendingCreds = null;
   }
