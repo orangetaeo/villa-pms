@@ -88,3 +88,61 @@ export async function ocrPassport(
 
   return passportDataSchema.parse(raw);
 }
+
+// ===================== 번역 (T6.6 — b14 Zalo 채팅) =====================
+
+/** 번역 대상 언어 — vi(공급자에게 보낼 미리보기) | ko(수신 vi 메시지 → 운영자용) */
+export type TranslateTarget = "vi" | "ko";
+
+const TARGET_LABEL: Record<TranslateTarget, string> = {
+  vi: "Vietnamese (tiếng Việt)",
+  ko: "Korean (한국어)",
+};
+
+/**
+ * 짧은 채팅 메시지 번역 — ko↔vi (GEMINI_API_KEY·모델 설정 재사용).
+ * 결과는 번역문만 반환(설명·따옴표 없이). 빈 입력은 빈 문자열.
+ * @throws GeminiNotConfiguredError 키 미설정 / Error API 실패
+ */
+export async function translateText(
+  text: string,
+  target: TranslateTarget,
+  fetchFn: typeof fetch = fetch
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new GeminiNotConfiguredError();
+
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return "";
+
+  const prompt = `Translate the following message into ${TARGET_LABEL[target]}.
+Output ONLY the translation, with no quotes, no explanation, no preface.
+Keep proper nouns (villa/complex names) unchanged.
+
+Message:
+${trimmed}`;
+
+  const res = await fetchFn(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.2 },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(`Gemini API HTTP ${res.status}`);
+  }
+
+  const data = (await res.json()) as GeminiGenerateResponse;
+  const out = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  return out.trim();
+}

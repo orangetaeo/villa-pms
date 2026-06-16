@@ -1,0 +1,129 @@
+// POST /api/zalo/messages — ADMIN 수동 채팅 발신 (T6.6, b14, ADR-0003)
+// 흐름: 48h 가드 → ZaloMessage(OUTBOUND·CHAT) 영속 → sendZaloText 시도 → status SENT/FAILED 갱신
+//       → conversation.lastMessageAt 갱신 → AuditLog
+// 발송 실패(토큰 미설정·타임아웃·API 오류)는 status=FAILED로 기록하되 500 금지 — 영속은 200.
+// 마진·판매가·KRW 절대 미포함 (사업 원칙 2).
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import {
+  ZaloMessageDirection,
+  ZaloMessageSource,
+  ZaloMessageStatus,
+} from "@prisma/client";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit-log";
+import { sendZaloText } from "@/lib/zalo";
+import { isReplyWindowOpen } from "@/lib/zalo-chat";
+
+const bodySchema = z.object({
+  conversationId: z.string().min(1),
+  text: z.string().trim().min(1).max(4000),
+});
+
+export async function POST(req: Request) {
+  // 권한 검사 — ADMIN 전용 (route handler 첫 줄 role 검사 규칙)
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
+  if (session.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  }
+
+  let raw: unknown;
+  try {
+    raw = await req.json();
+  } catch {
+    return NextResponse.json({ error: "INVALID_BODY" }, { status: 400 });
+  }
+
+  const parsed = bodySchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "VALIDATION_FAILED", issues: parsed.error.flatten() },
+      { status: 400 }
+    );
+  }
+  const { conversationId, text } = parsed.data;
+
+  const conversation = await prisma.zaloConversation.findUnique({
+    where: { id: conversationId },
+    select: { id: true, zaloUserId: true, lastInboundAt: true },
+  });
+  if (!conversation) {
+    return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
+
+  // 48h CS 응답 창 가드 — 경과 시 발신 불가 (시스템 알림은 별 경로)
+  if (!isReplyWindowOpen(conversation.lastInboundAt)) {
+    return NextResponse.json({ error: "WINDOW_CLOSED" }, { status: 409 });
+  }
+
+  // 1) 발송 시도 — 토큰 미설정/실패는 status=FAILED 기록(500 금지)
+  const token = process.env.ZALO_OA_ACCESS_TOKEN;
+  let status: ZaloMessageStatus;
+  let error: string | null = null;
+  let zaloMsgId: string | null = null;
+
+  if (!token) {
+    status = ZaloMessageStatus.FAILED;
+    error = "ZALO_TOKEN_NOT_SET";
+  } else {
+    const result = await sendZaloText(conversation.zaloUserId, text, token);
+    if (result.ok) {
+      status = ZaloMessageStatus.SENT;
+      zaloMsgId = result.messageId;
+    } else {
+      status = ZaloMessageStatus.FAILED;
+      error = result.error;
+    }
+  }
+
+  // 2) 영속 + lastMessageAt 갱신 + AuditLog (원자적)
+  const now = new Date();
+  const message = await prisma.$transaction(async (tx) => {
+    const created = await tx.zaloMessage.create({
+      data: {
+        conversationId,
+        direction: ZaloMessageDirection.OUTBOUND,
+        source: ZaloMessageSource.CHAT,
+        msgType: "text",
+        text,
+        zaloMsgId,
+        status,
+        error,
+        sentBy: session.user.id,
+      },
+      select: { id: true, status: true, createdAt: true },
+    });
+
+    await tx.zaloConversation.update({
+      where: { id: conversationId },
+      data: { lastMessageAt: now },
+    });
+
+    // 감사 로그 — 데이터 변경 API 동시 기록 (글로벌 절대 규칙). 본문 텍스트는 기록하지 않음.
+    await writeAuditLog({
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "ZaloMessage",
+      entityId: created.id,
+      changes: {
+        direction: { new: "OUTBOUND" },
+        source: { new: "CHAT" },
+        status: { new: status },
+      },
+      db: tx,
+    });
+
+    return created;
+  });
+
+  return NextResponse.json({
+    id: message.id,
+    status: message.status,
+    error,
+    createdAt: message.createdAt.toISOString(),
+  });
+}

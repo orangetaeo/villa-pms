@@ -28,7 +28,14 @@ const NAV_ITEMS: NavItem[] = [
   { key: "settings", href: "/settings", icon: "settings" },
 ];
 
-export default function AdminSidebar({ userName }: { userName?: string | null }) {
+export default function AdminSidebar({
+  userName,
+  unreadCount = 0,
+}: {
+  userName?: string | null;
+  /** 메시지 메뉴 미읽음 합계 뱃지 (T6.6, b14) */
+  unreadCount?: number;
+}) {
   const t = useTranslations("nav");
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -99,7 +106,18 @@ export default function AdminSidebar({ userName }: { userName?: string | null })
                 }
               >
                 <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
-                <span>{t(item.key)}</span>
+                <span className="flex-1">{t(item.key)}</span>
+                {item.key === "messages" && unreadCount > 0 && (
+                  <span
+                    className={
+                      active
+                        ? "bg-admin-primary text-white text-[10px] font-black px-1.5 py-0.5 rounded-full"
+                        : "bg-blue-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full"
+                    }
+                  >
+                    {unreadCount}
+                  </span>
+                )}
               </Link>
             );
           })}

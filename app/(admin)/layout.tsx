@@ -4,6 +4,7 @@ import { getLocale } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
 import AdminSidebar from "@/components/admin/sidebar";
 import { pickMessages } from "@/lib/intl-messages";
+import { prisma } from "@/lib/prisma";
 
 // [QA D-2b] 루트 layout이 전체 messages 직렬화를 중단함에 따라
 // admin 클라이언트 컴포넌트용 메시지는 여기서 화이트리스트로 공급.
@@ -31,6 +32,7 @@ const ADMIN_CLIENT_NAMESPACES = [
   "adminSettings",
   "adminProposals",
   "adminInspections",
+  "adminMessages",
   "amenities",
 ] as const;
 
@@ -50,10 +52,16 @@ export default async function AdminLayout({
   const allMessages = (await import(`../../messages/${locale}.json`)).default;
   const messages = pickMessages(allMessages, ADMIN_CLIENT_NAMESPACES);
 
+  // 사이드바 메시지 메뉴 미읽음 합계 뱃지 (T6.6, b14)
+  const unreadAgg = await prisma.zaloConversation.aggregate({
+    _sum: { unreadCount: true },
+  });
+  const unreadCount = unreadAgg._sum.unreadCount ?? 0;
+
   return (
     <div className="min-h-screen bg-admin-bg text-slate-50 font-admin">
       <NextIntlClientProvider locale={locale} messages={messages}>
-      <AdminSidebar userName={session.user.name} />
+      <AdminSidebar userName={session.user.name} unreadCount={unreadCount} />
       {/* 데스크톱: 사이드바 폭만큼 밀기 / 모바일: 헤더 높이만큼 내리기 */}
       <main className="lg:pl-64 pt-14 lg:pt-0 min-h-screen">
         <div className="p-4 md:p-8">{children}</div>
