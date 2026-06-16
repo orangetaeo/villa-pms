@@ -2,6 +2,17 @@
   "app": {
     "name": "Villa PMS"
   },
+  "quickDateFilter": {
+    "all": "Tất cả",
+    "today": "Hôm nay",
+    "yesterday": "Hôm qua",
+    "thisWeek": "Tuần này",
+    "lastWeek": "Tuần trước",
+    "thisMonth": "Tháng này",
+    "lastMonth": "Tháng trước",
+    "nextMonth": "Tháng sau",
+    "label": "Khoảng thời gian"
+  },
   "nav": {
     "brandSub": "Villa PMS Admin",
     "dashboard": "Bảng điều khiển",

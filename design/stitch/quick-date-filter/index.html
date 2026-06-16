@@ -1,0 +1,49 @@
+<!doctype html>
+<!--
+  QuickDateFilter — ADMIN 날짜 빠른 필터 바 (T-admin-quick-date-filter)
+  사용자 제공 레퍼런스 이미지(라이트)를 다크 대시보드 톤으로 변환.
+  토큰: admin-primary #3B82F6 / card #1E293B / border #334155 / bg #0F172A
+  변환 대상: components/admin/quick-date-filter.tsx
+  - pill 버튼 가로 1줄, 모바일(<768px)은 가로 스크롤(overflow-x-auto)
+  - 비활성: bg-slate-900 border-slate-700 text-slate-300, hover:text-white
+  - 활성: bg-admin-primary text-white (그림자)
+  - '전체(All)' 활성 시 check 아이콘 동반
+-->
+<html lang="ko" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
+    />
+    <style>
+      body {
+        background: #0f172a;
+        font-family: "Public Sans", sans-serif;
+      }
+    </style>
+  </head>
+  <body class="p-6">
+    <!-- 빠른 날짜 필터 바 -->
+    <div class="flex items-center gap-2 overflow-x-auto pb-1">
+      <!-- 전체(All) — 활성 예시: check 아이콘 + admin-primary -->
+      <button
+        class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#3B82F6] px-3.5 py-2 text-sm font-bold text-white shadow-sm"
+      >
+        <span class="material-symbols-outlined text-[18px]">check_box</span>
+        전체
+      </button>
+      <!-- 비활성 프리셋들 -->
+      <button class="whitespace-nowrap rounded-lg border border-slate-700 bg-slate-900 px-3.5 py-2 text-sm font-medium text-slate-300 transition-colors hover:text-white">오늘</button>
+      <button class="whitespace-nowrap rounded-lg border border-slate-700 bg-slate-900 px-3.5 py-2 text-sm font-medium text-slate-300 transition-colors hover:text-white">어제</button>
+      <button class="whitespace-nowrap rounded-lg border border-slate-700 bg-slate-900 px-3.5 py-2 text-sm font-medium text-slate-300 transition-colors hover:text-white">이번주</button>
+      <button class="whitespace-nowrap rounded-lg border border-slate-700 bg-slate-900 px-3.5 py-2 text-sm font-medium text-slate-300 transition-colors hover:text-white">지난주</button>
+      <!-- 이번달 — 활성 예시 -->
+      <button class="whitespace-nowrap rounded-lg bg-[#3B82F6] px-3.5 py-2 text-sm font-bold text-white shadow-sm">이번달</button>
+      <button class="whitespace-nowrap rounded-lg border border-slate-700 bg-slate-900 px-3.5 py-2 text-sm font-medium text-slate-300 transition-colors hover:text-white">지난달</button>
+      <button class="whitespace-nowrap rounded-lg border border-slate-700 bg-slate-900 px-3.5 py-2 text-sm font-medium text-slate-300 transition-colors hover:text-white">다음달</button>
+    </div>
+  </body>
+</html>

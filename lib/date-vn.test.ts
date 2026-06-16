@@ -5,6 +5,10 @@ import {
   toDateOnlyString,
   todayVnDateString,
   addUtcDays,
+  resolveQuickRange,
+  vnDayStartUtc,
+  quickRangeWhere,
+  isQuickRangeKey,
 } from "./date-vn";
 
 describe("parseUtcDateOnly", () => {
@@ -67,5 +71,77 @@ describe("addUtcDays", () => {
   });
   it("음수 days — 역방향", () => {
     expect(toDateOnlyString(addUtcDays(parseUtcDateOnly("2026-03-01")!, -1))).toBe("2026-02-28");
+  });
+});
+
+describe("resolveQuickRange (VN 기준, 주=월요일 시작)", () => {
+  // 2026-06-16 = 화요일 (이번주 월요일 = 06-15)
+  const now = new Date("2026-06-16T03:00:00Z"); // VN 10:00 같은 날
+
+  it("all/무효/미지정 → null (날짜 제한 없음)", () => {
+    expect(resolveQuickRange("all", now)).toBeNull();
+    expect(resolveQuickRange(undefined, now)).toBeNull();
+    expect(resolveQuickRange("bogus", now)).toBeNull();
+  });
+
+  it("오늘/어제 — 반개구간 [from, to)", () => {
+    expect(resolveQuickRange("today", now)).toEqual({ from: "2026-06-16", to: "2026-06-17" });
+    expect(resolveQuickRange("yesterday", now)).toEqual({ from: "2026-06-15", to: "2026-06-16" });
+  });
+
+  it("이번주/지난주 — 월요일 시작", () => {
+    expect(resolveQuickRange("thisWeek", now)).toEqual({ from: "2026-06-15", to: "2026-06-22" });
+    expect(resolveQuickRange("lastWeek", now)).toEqual({ from: "2026-06-08", to: "2026-06-15" });
+  });
+
+  it("이번달/지난달/다음달 — 월초 경계", () => {
+    expect(resolveQuickRange("thisMonth", now)).toEqual({ from: "2026-06-01", to: "2026-07-01" });
+    expect(resolveQuickRange("lastMonth", now)).toEqual({ from: "2026-05-01", to: "2026-06-01" });
+    expect(resolveQuickRange("nextMonth", now)).toEqual({ from: "2026-07-01", to: "2026-08-01" });
+  });
+
+  it("연말 경계 — 12월의 다음달은 익년 1월", () => {
+    const dec = new Date("2026-12-10T03:00:00Z");
+    expect(resolveQuickRange("nextMonth", dec)).toEqual({ from: "2027-01-01", to: "2027-02-01" });
+    expect(resolveQuickRange("thisMonth", dec)).toEqual({ from: "2026-12-01", to: "2027-01-01" });
+  });
+
+  it("VN 자정 경계 — UTC 17:00 이후엔 익일 기준", () => {
+    const lateUtc = new Date("2026-06-16T17:00:00Z"); // VN 2026-06-17 00:00
+    expect(resolveQuickRange("today", lateUtc)).toEqual({ from: "2026-06-17", to: "2026-06-18" });
+  });
+});
+
+describe("vnDayStartUtc / quickRangeWhere", () => {
+  const now = new Date("2026-06-16T03:00:00Z");
+
+  it("vnDayStartUtc — VN 자정의 실제 UTC 순간(-7h)", () => {
+    expect(vnDayStartUtc("2026-06-16").toISOString()).toBe("2026-06-15T17:00:00.000Z");
+  });
+
+  it("kind=date — @db.Date(UTC 자정) 필드용", () => {
+    const w = quickRangeWhere("today", "date", now)!;
+    expect(w.gte.toISOString()).toBe("2026-06-16T00:00:00.000Z");
+    expect(w.lt.toISOString()).toBe("2026-06-17T00:00:00.000Z");
+  });
+
+  it("kind=timestamp — createdAt 등 UTC 순간 필드용(-7h)", () => {
+    const w = quickRangeWhere("today", "timestamp", now)!;
+    expect(w.gte.toISOString()).toBe("2026-06-15T17:00:00.000Z");
+    expect(w.lt.toISOString()).toBe("2026-06-16T17:00:00.000Z");
+  });
+
+  it("all → undefined (조건 미적용)", () => {
+    expect(quickRangeWhere("all", "date", now)).toBeUndefined();
+    expect(quickRangeWhere(undefined, "timestamp", now)).toBeUndefined();
+  });
+});
+
+describe("isQuickRangeKey", () => {
+  it("유효 키만 true", () => {
+    expect(isQuickRangeKey("thisMonth")).toBe(true);
+    expect(isQuickRangeKey("all")).toBe(true);
+    expect(isQuickRangeKey("bogus")).toBe(false);
+    expect(isQuickRangeKey(undefined)).toBe(false);
   });
 });

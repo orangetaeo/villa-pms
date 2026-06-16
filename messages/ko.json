@@ -2,6 +2,17 @@
   "app": {
     "name": "Villa PMS"
   },
+  "quickDateFilter": {
+    "all": "전체",
+    "today": "오늘",
+    "yesterday": "어제",
+    "thisWeek": "이번주",
+    "lastWeek": "지난주",
+    "thisMonth": "이번달",
+    "lastMonth": "지난달",
+    "nextMonth": "다음달",
+    "label": "기간"
+  },
   "nav": {
     "brandSub": "Villa PMS Admin",
     "dashboard": "대시보드",
