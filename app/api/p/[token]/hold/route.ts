@@ -2,6 +2,13 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createHoldFromProposalItem, HoldRejectedError } from "@/lib/hold";
 import { MissingRateError } from "@/lib/pricing";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+
+// 공개·미인증 엔드포인트 폭주 방어 (T-sec-public-hardening)
+// 토큰: 경로값이라 스푸핑 불가(1차) / IP: best-effort(XFF). 제안 ACTIVE→USED 가드로
+// 토큰당 성공 HOLD는 1건이라 본 제한은 플러드·DB 부하·로그 스팸 완화 목적.
+const HOLD_TOKEN_LIMIT = { max: 15, windowMs: 10 * 60_000 };
+const HOLD_IP_LIMIT = { max: 30, windowMs: 10 * 60_000 };
 
 /**
  * POST /api/p/[token]/hold — 공개 가예약 생성 (비로그인, SPEC F3 흐름 3)
@@ -24,6 +31,14 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
+
+  // 폭주 방어 — 토큰(스푸핑 불가)·IP(best-effort) 양 윈도우. 초과 시 429.
+  const ip = clientIp(req.headers);
+  const tokenOk = checkRateLimit(`hold:token:${token}`, HOLD_TOKEN_LIMIT).allowed;
+  const ipOk = ip ? checkRateLimit(`hold:ip:${ip}`, HOLD_IP_LIMIT).allowed : true;
+  if (!tokenOk || !ipOk) {
+    return Response.json({ error: "too_many_requests" }, { status: 429 });
+  }
 
   const body = await req.json().catch(() => null);
   const parsed = bodySchema.safeParse(body);
