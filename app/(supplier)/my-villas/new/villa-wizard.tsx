@@ -19,11 +19,18 @@ import StepRates from "./step-rates";
 
 const TOTAL_STEPS = 5;
 
-export default function VillaWizard() {
+export default function VillaWizard({
+  villaId,
+  initialState,
+}: {
+  /** T1.2b 재제출 — 있으면 PUT(수정), 없으면 POST(신규) */
+  villaId?: string;
+  initialState?: WizardState;
+} = {}) {
   const t = useTranslations("wizard");
   const router = useRouter();
   const [step, setStep] = useState(1);
-  const [state, setState] = useState<WizardState>(INITIAL_STATE);
+  const [state, setState] = useState<WizardState>(initialState ?? INITIAL_STATE);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(false);
 
@@ -72,8 +79,9 @@ export default function VillaWizard() {
       });
 
     try {
-      const res = await fetch("/api/villas", {
-        method: "POST",
+      // T1.2b — villaId 있으면 PUT(재제출), 없으면 POST(신규 등록)
+      const res = await fetch(villaId ? `/api/villas/${villaId}` : "/api/villas", {
+        method: villaId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: state.name.trim(),
@@ -91,7 +99,7 @@ export default function VillaWizard() {
         }),
       });
       if (!res.ok) throw new Error("submit failed");
-      router.push("/my-villas?created=1");
+      router.push(villaId ? `/my-villas?resubmitted=1` : "/my-villas?created=1");
       router.refresh();
     } catch {
       setSubmitError(true);

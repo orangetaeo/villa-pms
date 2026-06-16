@@ -408,6 +408,16 @@
           "UPDATE": "Sửa",
           "DELETE": "Xóa"
         }
+      },
+      "reject": "Từ chối",
+      "rejectModal": {
+        "title": "Từ chối villa",
+        "description": "Lý do từ chối sẽ được gửi đến nhà cung cấp qua Zalo.",
+        "reason": "Lý do từ chối",
+        "placeholder": "VD: Ảnh phòng ngủ quá tối, cần chụp lại.",
+        "reasonRequired": "Phải nhập lý do mới có thể từ chối.",
+        "cancel": "Hủy",
+        "confirm": "Xác nhận từ chối"
       }
     }
   },

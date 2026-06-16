@@ -14,6 +14,7 @@ const fakeTx = {
   villa: {
     findUnique: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(), // T1.2b: PATCH가 update→updateMany 가드로 전환
   },
   cleaningTask: {
     count: vi.fn(),
@@ -45,6 +46,7 @@ function resetFakes(opts: { existingTaskCount?: number; villaStatus?: string }) 
     name: "쏘나씨 V12",
   });
   fakeTx.villa.update.mockResolvedValue({ id: "v1", status: "ACTIVE" });
+  fakeTx.villa.updateMany.mockResolvedValue({ count: 1 }); // 가드 전이 성공
   fakeTx.cleaningTask.count.mockResolvedValue(opts.existingTaskCount ?? 0);
   fakeTx.cleaningTask.create.mockResolvedValue({ id: "ct1", villaId: "v1" });
   fakeTx.notification.create.mockResolvedValue({ id: "n1" });

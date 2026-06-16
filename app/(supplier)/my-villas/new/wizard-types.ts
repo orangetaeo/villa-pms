@@ -1,6 +1,7 @@
 // 마법사 공유 타입·헬퍼 (T1.1) — 상태는 부모(villa-wizard)에 보관, 뒤로가기 시 유지
 import type { Season } from "@/lib/villa-schema";
 import type { PHOTO_SPACES } from "@/lib/villa-schema";
+import { SEASONS } from "@/lib/villa-schema";
 
 export type PhotoSpace = (typeof PHOTO_SPACES)[number];
 
@@ -80,4 +81,79 @@ export function buildPhotoSlots(
 export function formatVnd(digits: string): string {
   if (!digits) return "0";
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+// ===================== 재제출 edit mode prefill (T1.2b) =====================
+
+/** space+spaceLabel → 슬롯 id 역매핑 (POST 저장 규칙의 역). 슬롯 없는 사진은 null로 drop */
+export function photoSlotId(
+  space: PhotoSpace,
+  spaceLabel: string | null,
+  slotIds: Set<string>
+): string | null {
+  let id: string | null = null;
+  switch (space) {
+    case "EXTERIOR": id = "exterior"; break;
+    case "LIVING": id = "living"; break;
+    case "KITCHEN": id = "kitchen"; break;
+    case "BALCONY": id = "balcony"; break;
+    case "POOL": id = "pool"; break;
+    case "BEDROOM": id = spaceLabel ? `bedroom-${spaceLabel}` : null; break;
+    case "BATHROOM": id = spaceLabel ? `bathroom-${spaceLabel}` : null; break;
+    default: id = null; // ETC 등 — 슬롯 없음
+  }
+  // buildPhotoSlots가 만드는 현재 슬롯에 없는 사진(초과 침실·욕실 등)은 drop (QA 조건 4)
+  return id && slotIds.has(id) ? id : null;
+}
+
+export interface VillaForEdit {
+  name: string;
+  complex: string | null;
+  address: string | null;
+  bedrooms: number;
+  bathrooms: number;
+  maxGuests: number;
+  hasPool: boolean;
+  breakfastAvailable: boolean;
+  monthlyRentVnd: string | null; // 동 단위 숫자 문자열 (null=미입력)
+  photos: { space: PhotoSpace; spaceLabel: string | null; url: string }[];
+  amenities: { category: string; itemKey: string; quantity: number }[];
+  rates: { season: Season; supplierCostVnd: string }[]; // supplierCostVnd 동 단위 문자열
+}
+
+/** Villa(+photos·amenities·rates) → WizardState. 사진은 현재 슬롯 집합 기준 매핑(초과분 drop) */
+export function villaToWizardState(villa: VillaForEdit): WizardState {
+  const slotIds = new Set(
+    buildPhotoSlots(villa.bedrooms, villa.bathrooms, villa.hasPool).map((s) => s.id)
+  );
+  const photos: Record<string, PhotoSlotState> = {};
+  for (const p of villa.photos) {
+    const id = photoSlotId(p.space, p.spaceLabel, slotIds);
+    if (id) photos[id] = { status: "done", url: p.url };
+  }
+
+  const amenities: Record<string, number> = {};
+  for (const a of villa.amenities) {
+    amenities[`${a.category}:${a.itemKey}`] = a.quantity;
+  }
+
+  const rateMap = new Map(villa.rates.map((r) => [r.season, r.supplierCostVnd]));
+  const rates = Object.fromEntries(
+    SEASONS.map((s) => [s, rateMap.get(s) ?? ""])
+  ) as Record<Season, string>;
+
+  return {
+    name: villa.name,
+    complex: villa.complex ?? "",
+    bedrooms: villa.bedrooms,
+    bathrooms: villa.bathrooms,
+    maxGuests: villa.maxGuests,
+    hasPool: villa.hasPool,
+    breakfastAvailable: villa.breakfastAvailable,
+    address: villa.address ?? "",
+    monthlyRent: villa.monthlyRentVnd ?? "",
+    photos,
+    amenities,
+    rates,
+  };
 }

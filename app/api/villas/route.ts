@@ -117,7 +117,13 @@ export async function POST(req: Request) {
   return NextResponse.json({ id: villa.id, status: villa.status }, { status: 201 });
 }
 
-const VILLA_STATUSES: VillaStatus[] = ["DRAFT", "PENDING_REVIEW", "ACTIVE", "INACTIVE"];
+const VILLA_STATUSES: VillaStatus[] = [
+  "DRAFT",
+  "PENDING_REVIEW",
+  "REJECTED", // T1.2b
+  "ACTIVE",
+  "INACTIVE",
+];
 
 export async function GET(req: Request) {
   // 권한 검사 — ADMIN·SUPPLIER만 (route handler 첫 줄 role 검사 규칙)
