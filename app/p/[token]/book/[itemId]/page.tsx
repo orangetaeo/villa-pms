@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { effectiveProposalStatus } from "@/lib/proposal";
 import { resolveHoldHours, HOLD_HOURS_DEFAULT_KEY } from "@/lib/hold";
 import { BookingForm } from "../../../_components/booking-form";
+import { PublicFooter } from "../../../_components/public-footer";
 import { formatKoDateShort, formatPublicAmount } from "../../../_components/public-format";
 
 /** /p/[token]/book/[itemId] — 가예약 입력 (Stitch c3 상태1 변환, 비로그인 ko) */
@@ -124,20 +125,7 @@ export default async function BookingRequestPage({
           <BookingForm token={token} itemId={item.id} />
         </main>
 
-        <footer className="bg-gray-50 border-t border-gray-200 w-full py-8 flex flex-col items-center gap-4 px-6 text-center">
-          <p className="text-xs text-gray-500 leading-relaxed">© 2026 Villa PMS Phu Quoc</p>
-          <div className="flex gap-4">
-            <a className="text-xs text-gray-500 underline transition-colors hover:text-teal-700" href="#">
-              이용약관
-            </a>
-            <a className="text-xs text-gray-500 underline transition-colors hover:text-teal-700" href="#">
-              개인정보처리방침
-            </a>
-            <a className="text-xs text-gray-500 underline transition-colors hover:text-teal-700" href="#">
-              보증금 정책
-            </a>
-          </div>
-        </footer>
+        <PublicFooter />
       </div>
     </div>
   );
