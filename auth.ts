@@ -46,9 +46,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         );
         if (!valid) return null;
 
-        // 로그인 성공 — 잠금 카운터 리셋(연속 정상 로그인이 한도에 안 걸리도록)
+        // 로그인 성공 — 전화번호 잠금만 리셋(연속 정상 로그인이 한도에 안 걸리도록).
+        // IP 카운터는 의도적으로 유지: 한 번 유효 로그인으로 IP 한도를 초기화해
+        // 스터핑을 재개하는 우회를 막는다 (QA 권고).
         resetRateLimit(`login:phone:${phone}`);
-        if (ip) resetRateLimit(`login:ip:${ip}`);
         return { id: user.id, name: user.name, role: user.role, locale: user.locale };
       },
     }),

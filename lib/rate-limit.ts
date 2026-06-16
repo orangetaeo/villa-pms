@@ -58,8 +58,14 @@ export function clearAllRateLimits(): void {
 }
 
 /**
- * 프록시(Railway) 뒤 클라이언트 IP 추출.
- * x-forwarded-for(쉼표 구분 첫 IP) → x-real-ip → null.
+ * 클라이언트 IP 추출 — IP 한도(rate limit)의 **best-effort** 키 용도.
+ *
+ * x-forwarded-for(쉼표 구분 첫 IP=원 클라이언트 주장값) → x-real-ip → null.
+ * 주의: leftmost 값은 클라이언트가 위조 가능 → IP 한도는 스푸핑으로 우회될 수 있다.
+ * **무차별 대입의 1차 방어는 스푸핑 불가능한 전화번호 한도(login:phone:)** 이며,
+ * IP 한도는 단순 봇을 거르는 보조 계층이다.
+ * (정석은 신뢰 프록시 홉 기준 rightmost 채택이나, Railway XFF 토폴로지를 프로덕션에서
+ *  실측하기 전에는 전원이 한 IP로 묶여 정상 사용자를 과잉 차단할 위험이 있어 보류 — 후속 백로그)
  */
 export function clientIp(headers: Headers | null | undefined): string | null {
   if (!headers) return null;

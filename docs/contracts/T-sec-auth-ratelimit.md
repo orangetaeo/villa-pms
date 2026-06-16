@@ -19,8 +19,13 @@ Phase 1 보안 점검: 로그인(`authorize`)·자가 가입(`signupAction`)에 
 - HTTP 보안 헤더(next.config.ts headers)는 해당 파일 점유로 **본 계약 제외** — 점유 해소 후 별도 태스크
 
 ## 한도(기본값)
-- 로그인/전화번호: 10분당 5회, 로그인/IP: 10분당 20회 → 초과 시 null(잠금), 성공 시 phone 키 리셋
-- 가입/IP: 1시간당 5회 → 초과 시 serverError
+- 로그인/전화번호: 10분당 5회, 로그인/IP: 10분당 20회 → 초과 시 null(잠금), **성공 시 phone 키만 리셋**(IP 카운터는 유지 — 스터핑 우회 방지, QA 권고)
+- 가입/IP: 1시간당 10회 → 초과 시 serverError (정상 사용자 오타 재시도 여유 — 봇은 수백 건이라 충분히 차단)
+
+## IP 한도의 한계 (QA Major — 비차단)
+- `clientIp`는 XFF leftmost(클라이언트 주장값)를 취해 **스푸핑 가능** → IP 한도는 best-effort 보조 계층.
+- **1차 방어는 스푸핑 불가능한 전화번호 한도**. 정석(신뢰 프록시 rightmost)은 Railway XFF 토폴로지
+  프로덕션 실측 후 보정(전원 한 IP 묶임 → 과잉 차단 회귀 방지 위해 선보류) — **후속 보안 백로그**.
 
 ## 완료 기준 (테스트 가능)
 1. lib/rate-limit.ts: 윈도우 내 max 초과 시 allowed=false·retryAfterMs>0, 윈도우 경과 후 회복, resetRateLimit 동작 — now 주입 결정적 테스트
