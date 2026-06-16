@@ -1014,10 +1014,16 @@ function OutboundBubble({
       />
     );
   } else {
-    // 기본 텍스트 버블
+    // 기본 텍스트 버블 — VI/EN 모드 발신은 원문(한국어, 흰색) 위 / 실제 발송된 번역문(연한 파랑) 아래.
+    // 상대는 번역문만 받았고, 원문은 내 기록용(route.ts 전송 번역).
     card = (
       <div className="bg-blue-600 rounded-xl rounded-br-sm px-4 py-3 inline-block text-left">
         <p className="text-sm text-white whitespace-pre-wrap break-words">{message.text}</p>
+        {message.translatedText && (
+          <p className="mt-1.5 border-t border-white/20 pt-1.5 text-xs text-blue-100/90 whitespace-pre-wrap break-words">
+            {message.translatedText}
+          </p>
+        )}
       </div>
     );
   }

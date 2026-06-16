@@ -14,6 +14,7 @@ import {
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
+import { translateText, previewTargetForMode, GeminiNotConfiguredError } from "@/lib/gemini";
 import {
   sendChatMessageAsAdmin,
   sendChatReplyAsAdmin,
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
   // 소유 검증 — 본인(ownerAdminId) 대화에만 발신 (ADR-0007 D3.4, 타 관리자 대화 발신 차단).
   const conversation = await prisma.zaloConversation.findFirst({
     where: { id: conversationId, ownerAdminId: session.user.id },
-    select: { id: true, zaloUserId: true },
+    select: { id: true, zaloUserId: true, translateMode: true },
   });
   if (!conversation) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -79,6 +80,7 @@ export async function POST(req: Request) {
         zaloMsgId: true,
         cliMsgId: true,
         text: true,
+        translatedText: true,
         direction: true,
         conversation: { select: { displayName: true, nickname: true } },
       },
@@ -107,9 +109,35 @@ export async function POST(req: Request) {
     replyQuoteSource = {
       zaloMsgId: original.zaloMsgId,
       cliMsgId: original.cliMsgId,
-      content: original.text ?? "",
+      // 인용 표시 본문 — 상대가 실제로 본 텍스트. 내 발신(OUTBOUND)은 발송된 번역문(있으면), 상대 발신은 원문.
+      content:
+        (original.direction === ZaloMessageDirection.OUTBOUND
+          ? original.translatedText ?? original.text
+          : original.text) ?? "",
       uidFrom,
     };
+  }
+
+  // 0) 발신 번역 (ADR-0009 D7 / 사용자 지시 2026-06-16) — VI/EN 모드면 번역문을 상대에게 발송하고
+  //    원문 한국어는 내 기록용으로 보관(text). 번역 실패 시 한국어 오발송을 막기 위해 발송 중단.
+  //    OFF 모드면 원문 그대로 발송(translatedText=null).
+  let outboundText = text; // 실제 상대에게 가는 본문
+  let translatedText: string | null = null; // 발송된 번역문(기록·OutboundBubble 표시)
+  const target = previewTargetForMode(conversation.translateMode);
+  if (target) {
+    try {
+      const translated = (await translateText(text, target)).trim();
+      if (translated) {
+        outboundText = translated;
+        translatedText = translated;
+      }
+    } catch (err) {
+      if (err instanceof GeminiNotConfiguredError) {
+        return NextResponse.json({ error: "TRANSLATE_NOT_CONFIGURED" }, { status: 503 });
+      }
+      // 상태 코드만 — 본문 에코 방지(QA 권고). 한국어 오발송 방지 위해 미발송.
+      return NextResponse.json({ error: "TRANSLATE_FAILED" }, { status: 502 });
+    }
   }
 
   // 1) 발송 시도 — 본인 계정으로 발신. 봇 미연결/실패는 status=FAILED 기록(500 금지). 48h 가드 없음(D5.5).
@@ -121,10 +149,10 @@ export async function POST(req: Request) {
     ? await sendChatReplyAsAdmin(
         session.user.id,
         conversation.zaloUserId,
-        text,
+        outboundText,
         replyQuoteSource
       )
-    : await sendChatMessageAsAdmin(session.user.id, conversation.zaloUserId, text);
+    : await sendChatMessageAsAdmin(session.user.id, conversation.zaloUserId, outboundText);
   if (result.ok) {
     status = ZaloMessageStatus.SENT;
     zaloMsgId = result.messageId;
@@ -142,7 +170,8 @@ export async function POST(req: Request) {
         direction: ZaloMessageDirection.OUTBOUND,
         source: ZaloMessageSource.CHAT,
         msgType: "text",
-        text,
+        text, // 원문 한국어(내 기록용)
+        translatedText, // 발송된 번역문(VI/EN 모드). OFF면 null
         zaloMsgId,
         status,
         error,
