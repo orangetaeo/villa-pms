@@ -1,16 +1,30 @@
-// /messages — 운영자 Zalo 채팅 (T6.6, Stitch b14-zalo-chat 변환, ADR-0003·ADR-0007)
+// /messages — 운영자 Zalo 채팅 (T6.6, Stitch b14-zalo-chat 변환, ADR-0003·ADR-0007·ADR-0009)
 // RSC: ZaloConversation 인박스 + 선택 대화(?c=) 스레드 조회. select 화이트리스트 — 마진·금액 필드 미조회.
 // ADR-0007 개인 스코프: where ownerAdminId = session.user.id (관리자A 대화를 B가 못 봄 — 누수 0).
+// ADR-0009: 아바타(D8)·별명(D9)·번역모드(D7)·상대타입(D1) + 공유 후보 목록(빌라/제안/정산)을
+//   상대 타입별 누수 분기로 서버에서 최소 필드만 조회해 클라(공유 모달)에 전달 — 마진·반대편 통화 미유입.
 import type { Metadata } from "next";
 import {
+  Currency,
+  ZaloCounterpartyType,
   ZaloMessageDirection,
   ZaloMessageSource,
 } from "@prisma/client";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { serializeBigInt } from "@/lib/serialize";
 import { Inbox, type InboxItem } from "./inbox";
-import { ChatPane, type ChatMessage, type ChatHeader } from "./chat-pane";
+import {
+  ChatPane,
+  type ChatMessage,
+  type ChatHeader,
+  type CounterpartyType,
+  type TranslateMode,
+  type VillaCandidate,
+  type ProposalCandidate,
+  type SettlementCandidate,
+} from "./chat-pane";
 import { AutoRefresh } from "./auto-refresh";
 
 export const metadata: Metadata = {
@@ -69,6 +83,12 @@ function dayDivider(date: Date): string {
   return `${get("year")}.${get("month")}.${get("day")}`;
 }
 
+/** 정산 yearMonth(YYYY-MM) → "2026년 6월 정산" 표시 라벨 */
+function settlementLabel(yearMonth: string): string {
+  const [y, m] = yearMonth.split("-");
+  return `${y}년 ${Number(m)}월 정산`;
+}
+
 export default async function MessagesPage({
   searchParams,
 }: {
@@ -91,6 +111,9 @@ export default async function MessagesPage({
     select: {
       id: true,
       displayName: true,
+      nickname: true,
+      avatarUrl: true,
+      counterpartyType: true,
       lastMessageAt: true,
       lastInboundAt: true,
       unreadCount: true,
@@ -104,20 +127,30 @@ export default async function MessagesPage({
       messages: {
         orderBy: { createdAt: "desc" },
         take: 1,
-        select: { text: true },
+        select: { text: true, msgType: true },
       },
     },
   });
 
   const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
 
+  // 표시명 우선순위 (D9.2): nickname > User.name > Zalo displayName > 이니셜
+  const displayNameOf = (c: {
+    nickname: string | null;
+    user: { name: string | null } | null;
+    displayName: string | null;
+  }) => c.nickname ?? c.user?.name ?? c.displayName ?? "(이름 미확인)";
+
   const inboxItems: InboxItem[] = conversations.map((c) => {
-    const name = c.user?.name ?? c.displayName ?? "(이름 미확인)";
+    const name = displayNameOf(c);
     return {
       id: c.id,
       name,
       initials: initials(name),
+      avatarUrl: c.avatarUrl,
+      counterpartyType: c.counterpartyType as CounterpartyType,
       lastText: c.messages[0]?.text ?? "",
+      lastMsgType: c.messages[0]?.msgType ?? "text",
       time: inboxTime(c.lastMessageAt, now),
       unreadCount: c.unreadCount,
       // ADR-0006 D5.5 — 개인계정은 48h 제약 없음. 입력창 항상 활성(만료 배지 미표시).
@@ -129,6 +162,9 @@ export default async function MessagesPage({
   // 선택 대화 스레드
   let header: ChatHeader | null = null;
   let messages: ChatMessage[] = [];
+  let villaCandidates: VillaCandidate[] = [];
+  let proposalCandidates: ProposalCandidate[] = [];
+  let settlementCandidates: SettlementCandidate[] = [];
   // ADR-0006 D5.5 — 개인계정은 48h 제약 없음. 채팅 입력창 항상 활성.
   const windowOpen = true;
 
@@ -139,6 +175,10 @@ export default async function MessagesPage({
       select: {
         id: true,
         displayName: true,
+        nickname: true,
+        avatarUrl: true,
+        counterpartyType: true,
+        translateMode: true,
         lastInboundAt: true,
         unreadCount: true,
         userId: true,
@@ -155,8 +195,10 @@ export default async function MessagesPage({
             id: true,
             direction: true,
             source: true,
+            msgType: true,
             text: true,
             translatedText: true,
+            attachmentUrls: true,
             status: true,
             createdAt: true,
           },
@@ -165,15 +207,24 @@ export default async function MessagesPage({
     });
 
     if (conv) {
-      const name = conv.user?.name ?? conv.displayName ?? "(이름 미확인)";
+      const name = displayNameOf(conv);
+      const counterpartyType = conv.counterpartyType as CounterpartyType;
       header = {
         name,
         initials: initials(name),
+        avatarUrl: conv.avatarUrl,
         connected: Boolean(conv.userId && conv.user?.zaloUserId),
         villaName: conv.user?.villas[0]?.name ?? null,
+        zaloOriginalName: conv.displayName,
+        counterpartyType,
+        translateMode: conv.translateMode as TranslateMode,
+        // 별명 편집 인풋 초깃값 — 현재 별명(없으면 빈 문자열)
+        nickname: conv.nickname ?? "",
       };
 
       let prevDay = "";
+      const isInboundAvatar = header.avatarUrl;
+      const isInboundInitials = header.initials;
       messages = conv.messages.map((m) => {
         const day = dayDivider(m.createdAt);
         const divider = day !== prevDay ? day : null;
@@ -183,14 +234,157 @@ export default async function MessagesPage({
         return {
           id: m.id,
           kind: isSystem ? "system" : isInbound ? "inbound" : "outbound",
+          msgType: m.msgType ?? "text",
           text: m.text ?? "",
           translatedText: m.translatedText,
+          attachmentUrls: m.attachmentUrls,
           time: msgTime(m.createdAt),
           status: m.status,
           dayDivider: divider,
-          initials: header!.initials,
+          avatarUrl: isInboundAvatar,
+          initials: isInboundInitials,
         } satisfies ChatMessage;
       });
+
+      // ── 공유 후보 목록 — 상대 타입별 누수 분기로 최소 필드만 (D2/D4) ──
+      // 마진·반대편 통화는 어떤 후보 쿼리에도 미조회. 모달은 이름·식별자 위주.
+      if (counterpartyType === ZaloCounterpartyType.SUPPLIER && conv.userId) {
+        // 공급자 대화 — 그 공급자 소유 빌라만, 원가만. 제안 후보 없음(고객 전용).
+        const villas = await prisma.villa.findMany({
+          where: { supplierId: conv.userId },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            name: true,
+            complex: true,
+            bedrooms: true,
+            bathrooms: true,
+            photos: { orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
+            rates: {
+              orderBy: { season: "asc" },
+              // LOW(비수기) 원가를 대표 표시값으로 — salePrice*/margin 미조회
+              select: { season: true, supplierCostVnd: true },
+            },
+          },
+        });
+        villaCandidates = serializeBigInt(
+          villas.map((v) => {
+            const low = v.rates.find((r) => r.season === "LOW") ?? v.rates[0];
+            return {
+              id: v.id,
+              name: v.name,
+              complex: v.complex,
+              bedrooms: v.bedrooms,
+              bathrooms: v.bathrooms,
+              photoUrl: v.photos[0]?.url ?? null,
+              priceLabelKind: "supplierCostVnd" as const,
+              priceVnd: low ? low.supplierCostVnd : null,
+              priceKrw: null,
+            };
+          })
+        ) as VillaCandidate[];
+
+        // 본인(supplierId=userId) 정산만 — totalVnd·건수·상태. 판매가·마진 없음.
+        const settlements = await prisma.settlement.findMany({
+          where: { supplierId: conv.userId },
+          orderBy: { yearMonth: "desc" },
+          select: {
+            id: true,
+            yearMonth: true,
+            totalVnd: true,
+            status: true,
+            _count: { select: { items: true } },
+          },
+        });
+        settlementCandidates = serializeBigInt(
+          settlements.map((s) => ({
+            id: s.id,
+            yearMonth: s.yearMonth,
+            label: settlementLabel(s.yearMonth),
+            totalVnd: s.totalVnd,
+            itemCount: s._count.items,
+            status: s.status,
+          }))
+        ) as SettlementCandidate[];
+      } else if (counterpartyType === ZaloCounterpartyType.CUSTOMER) {
+        // 고객 대화 — ACTIVE+isSellable 빌라만, 판매가만(KRW). 원가·마진 미조회.
+        const villas = await prisma.villa.findMany({
+          where: { status: "ACTIVE", isSellable: true },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+          select: {
+            id: true,
+            name: true,
+            complex: true,
+            bedrooms: true,
+            bathrooms: true,
+            photos: { orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
+            rates: {
+              orderBy: { season: "asc" },
+              select: { season: true, salePriceKrw: true },
+            },
+          },
+        });
+        villaCandidates = serializeBigInt(
+          villas.map((v) => {
+            const low = v.rates.find((r) => r.season === "LOW") ?? v.rates[0];
+            return {
+              id: v.id,
+              name: v.name,
+              complex: v.complex,
+              bedrooms: v.bedrooms,
+              bathrooms: v.bathrooms,
+              photoUrl: v.photos[0]?.url ?? null,
+              priceLabelKind: "salePriceKrw" as const,
+              priceVnd: null,
+              priceKrw: low ? low.salePriceKrw : null,
+            };
+          })
+        ) as VillaCandidate[];
+
+        // 제안 후보 — ACTIVE + 미만료만. 판매가 총액(채널 통화)만. 원가·마진 없음.
+        const proposals = await prisma.proposal.findMany({
+          where: { status: "ACTIVE", expiresAt: { gt: now } },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+          select: {
+            id: true,
+            clientName: true,
+            saleCurrency: true,
+            expiresAt: true,
+            items: {
+              select: {
+                totalKrw: true,
+                totalVnd: true,
+                villa: { select: { name: true } },
+              },
+            },
+          },
+        });
+        proposalCandidates = serializeBigInt(
+          proposals.map((p) => {
+            const useKrw = p.saleCurrency === Currency.KRW;
+            const totalKrw = p.items.reduce((sum, it) => sum + (it.totalKrw ?? 0), 0);
+            const totalVnd = p.items.reduce(
+              (sum, it) => sum + (it.totalVnd ?? BigInt(0)),
+              BigInt(0)
+            );
+            const expiresInHours = Math.max(
+              0,
+              Math.round((p.expiresAt.getTime() - now.getTime()) / (60 * 60 * 1000))
+            );
+            return {
+              id: p.id,
+              clientName: p.clientName,
+              villaNames: p.items.map((it) => it.villa.name),
+              currency: p.saleCurrency,
+              totalKrw: useKrw ? totalKrw : null,
+              totalVnd: useKrw ? null : totalVnd,
+              expiresInHours,
+            };
+          })
+        ) as ProposalCandidate[];
+      }
     }
   }
 
@@ -203,6 +397,9 @@ export default async function MessagesPage({
         header={header}
         messages={messages}
         windowOpen={windowOpen}
+        villaCandidates={villaCandidates}
+        proposalCandidates={proposalCandidates}
+        settlementCandidates={settlementCandidates}
         hasUnread={
           inboxItems.find((i) => i.id === selectedId)?.unreadCount
             ? true

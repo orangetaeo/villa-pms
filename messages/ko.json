@@ -1181,7 +1181,7 @@
   },
   "adminMessages": {
     "title": "메시지",
-    "searchPlaceholder": "공급자 검색",
+    "searchPlaceholder": "대화 검색",
     "empty": "대화가 없습니다",
     "windowExpiredBadge": "48시간 경과",
     "selectConversation": "왼쪽에서 대화를 선택하세요",
@@ -1203,7 +1203,95 @@
     "translateUnavailable": "번역을 사용할 수 없습니다. 원문이 그대로 전송됩니다.",
     "sendFailed": "전송에 실패했습니다. 잠시 후 다시 시도하세요.",
     "windowClosedWarning": "마지막 수신 후 48시간이 지나 응답할 수 없습니다. 시스템 알림은 정상 발송됩니다.",
-    "windowClosedPlaceholder": "공급자 응답 대기 중"
+    "windowClosedPlaceholder": "공급자 응답 대기 중",
+    "previewLabelEn": "영어 미리보기",
+    "zaloOriginalInline": "Zalo 원본: {name}",
+    "filter": {
+      "all": "전체"
+    },
+    "counterparty": {
+      "supplier": "공급자",
+      "customer": "고객",
+      "unknown": "미분류"
+    },
+    "classify": {
+      "bannerTitle": "이 대화 상대를 분류해 주세요",
+      "bannerHint": "분류 전에는 사진만 보낼 수 있습니다. 분류 후 빌라·제안·정산 공유가 활성화됩니다.",
+      "supplier": "공급자",
+      "customer": "고객",
+      "unknown": "미분류",
+      "change": "분류 변경",
+      "heading": "상대 분류"
+    },
+    "preview": {
+      "photo": "[사진]",
+      "villaShare": "[빌라 공유]",
+      "proposalShare": "[제안서 공유]",
+      "settlementShare": "[정산서 공유]"
+    },
+    "card": {
+      "villaShare": "빌라 공유",
+      "proposalShare": "제안서 공유",
+      "settlementShare": "정산서 공유"
+    },
+    "translateMode": {
+      "heading": "번역 언어",
+      "off": "끄기",
+      "vi": "Tiếng Việt",
+      "en": "English"
+    },
+    "nickname": {
+      "title": "별명 편집",
+      "edit": "별명 편집",
+      "save": "저장",
+      "hint": "비우면 별명이 해제되고 원래 이름으로 돌아갑니다 (최대 40자)",
+      "zaloOriginal": "Zalo 원본: {name}"
+    },
+    "attach": {
+      "button": "첨부",
+      "heading": "첨부 · 공유",
+      "photo": "사진 보내기",
+      "camera": "사진 촬영",
+      "villa": "빌라 공유",
+      "proposal": "제안서 공유",
+      "settlement": "정산서 공유",
+      "lockedHint": "분류 후 빌라·제안·정산 공유 가능"
+    },
+    "settlementStatus": {
+      "DRAFT": "작성중",
+      "CONFIRMED": "확정",
+      "PAID": "지급완료"
+    },
+    "shareModal": {
+      "cancel": "취소",
+      "share": "공유하기",
+      "sendLink": "링크 보내기",
+      "sendSummary": "요약 보내기",
+      "empty": "표시할 항목이 없습니다",
+      "bedrooms": "침실 {n}",
+      "bathrooms": "욕실 {n}",
+      "costPerNight": "원가 {amount} / 박",
+      "salePerNight": "판매가 {amount} / 박",
+      "villaTitle": "빌라 공유",
+      "villaSubtitleSupplier": "{name} (공급자)에게 보내기 · 원가 기준",
+      "villaSubtitleCustomer": "{name} (고객)에게 보내기 · 판매가",
+      "villaSearch": "빌라 이름·단지 검색",
+      "villaHintSupplier": "이 공급자 소유 빌라를 표시합니다",
+      "villaHintCustomer": "판매 가능(검수 완료) 빌라만 표시합니다",
+      "proposalTitle": "제안서 공유",
+      "proposalSubtitle": "{name} (고객)에게 보내기 · 공개 링크",
+      "proposalFor": "{name}님을 위한 제안",
+      "proposalEmpty": "활성 제안이 없습니다",
+      "proposalGuard": "판매가만 표시 (원가·마진 비노출)",
+      "villaCount": "빌라 {n}개",
+      "expiresIn": "{h}시간 후 만료",
+      "total": "총 {amount}",
+      "settlementTitle": "정산서 공유",
+      "settlementSubtitle": "{name} (공급자) 본인 정산만 표시",
+      "settlementEmpty": "정산 내역이 없습니다",
+      "settlementGuard": "본인 정산만 공유 가능 · 판매가·마진·타 공급자 비노출",
+      "bookingCount": "예약 {n}건"
+    }
   },
   "zaloConnect": {
     "topTitle": "Zalo 알림",

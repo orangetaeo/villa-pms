@@ -21,6 +21,12 @@ const bodySchema = z.discriminatedUnion("action", [
     // 클라가 null 또는 문자열 전달. 문자열은 trim 후 최대 길이 검증.
     nickname: z.string().max(NICKNAME_MAX).nullable(),
   }),
+  // SET_COUNTERPARTY_TYPE — 대화 상대 분류(공급자/고객). 공유 누수 분기의 전제(ADR-0009 D1).
+  // ADMIN 수동 분류만(자동 매칭 금지). UNKNOWN으로 되돌리는 것도 허용.
+  z.object({
+    action: z.literal("SET_COUNTERPARTY_TYPE"),
+    counterpartyType: z.enum(["SUPPLIER", "CUSTOMER", "UNKNOWN"]),
+  }),
 ]);
 
 export async function PATCH(
@@ -75,6 +81,32 @@ export async function PATCH(
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }
     return NextResponse.json({ ok: true, translateMode: action.mode });
+  }
+
+  // ── SET_COUNTERPARTY_TYPE (D1) — 상대 분류, 공유 누수 분기 전제 ──
+  if (action.action === "SET_COUNTERPARTY_TYPE") {
+    const existing = await prisma.zaloConversation.findFirst({
+      where: { id, ownerAdminId },
+      select: { id: true, counterpartyType: true },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+    }
+    await prisma.zaloConversation.update({
+      where: { id: existing.id },
+      data: { counterpartyType: action.counterpartyType },
+    });
+    // AuditLog — 분류 변경은 공유 권한에 영향(증빙). credential·금액 무관
+    await writeAuditLog({
+      action: "UPDATE",
+      entity: "ZaloConversation",
+      entityId: existing.id,
+      userId: ownerAdminId,
+      changes: {
+        counterpartyType: { old: existing.counterpartyType, new: action.counterpartyType },
+      },
+    }).catch(() => {});
+    return NextResponse.json({ ok: true, counterpartyType: action.counterpartyType });
   }
 
   // ── SET_NICKNAME (D9.3) ──────────────────────────────────────

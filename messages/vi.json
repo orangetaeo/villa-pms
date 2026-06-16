@@ -1181,7 +1181,7 @@
   },
   "adminMessages": {
     "title": "Tin nhắn",
-    "searchPlaceholder": "Tìm nhà cung cấp",
+    "searchPlaceholder": "Tìm cuộc trò chuyện",
     "empty": "Không có cuộc trò chuyện",
     "windowExpiredBadge": "Quá 48 giờ",
     "selectConversation": "Chọn một cuộc trò chuyện ở bên trái",
@@ -1203,7 +1203,95 @@
     "translateUnavailable": "Không thể dịch. Tin nhắn gốc sẽ được gửi.",
     "sendFailed": "Gửi thất bại. Vui lòng thử lại.",
     "windowClosedWarning": "Đã quá 48 giờ kể từ tin nhắn cuối, không thể trả lời. Thông báo hệ thống vẫn được gửi.",
-    "windowClosedPlaceholder": "Đang chờ nhà cung cấp trả lời"
+    "windowClosedPlaceholder": "Đang chờ nhà cung cấp trả lời",
+    "previewLabelEn": "Xem trước tiếng Anh",
+    "zaloOriginalInline": "Tên Zalo gốc: {name}",
+    "filter": {
+      "all": "Tất cả"
+    },
+    "counterparty": {
+      "supplier": "Nhà cung cấp",
+      "customer": "Khách hàng",
+      "unknown": "Chưa phân loại"
+    },
+    "classify": {
+      "bannerTitle": "Vui lòng phân loại đối tác của cuộc trò chuyện này",
+      "bannerHint": "Trước khi phân loại chỉ có thể gửi ảnh. Sau khi phân loại sẽ mở khóa chia sẻ villa·đề xuất·quyết toán.",
+      "supplier": "Nhà cung cấp",
+      "customer": "Khách hàng",
+      "unknown": "Chưa phân loại",
+      "change": "Đổi phân loại",
+      "heading": "Phân loại đối tác"
+    },
+    "preview": {
+      "photo": "[Ảnh]",
+      "villaShare": "[Chia sẻ villa]",
+      "proposalShare": "[Chia sẻ đề xuất]",
+      "settlementShare": "[Chia sẻ quyết toán]"
+    },
+    "card": {
+      "villaShare": "Chia sẻ villa",
+      "proposalShare": "Chia sẻ đề xuất",
+      "settlementShare": "Chia sẻ quyết toán"
+    },
+    "translateMode": {
+      "heading": "Ngôn ngữ dịch",
+      "off": "Tắt",
+      "vi": "Tiếng Việt",
+      "en": "English"
+    },
+    "nickname": {
+      "title": "Sửa biệt danh",
+      "edit": "Sửa biệt danh",
+      "save": "Lưu",
+      "hint": "Để trống sẽ bỏ biệt danh và quay lại tên gốc (tối đa 40 ký tự)",
+      "zaloOriginal": "Tên Zalo gốc: {name}"
+    },
+    "attach": {
+      "button": "Đính kèm",
+      "heading": "Đính kèm · Chia sẻ",
+      "photo": "Gửi ảnh",
+      "camera": "Chụp ảnh",
+      "villa": "Chia sẻ villa",
+      "proposal": "Chia sẻ đề xuất",
+      "settlement": "Chia sẻ quyết toán",
+      "lockedHint": "Phân loại trước để chia sẻ villa·đề xuất·quyết toán"
+    },
+    "settlementStatus": {
+      "DRAFT": "Bản nháp",
+      "CONFIRMED": "Đã xác nhận",
+      "PAID": "Đã thanh toán"
+    },
+    "shareModal": {
+      "cancel": "Hủy",
+      "share": "Chia sẻ",
+      "sendLink": "Gửi liên kết",
+      "sendSummary": "Gửi tóm tắt",
+      "empty": "Không có mục để hiển thị",
+      "bedrooms": "{n} phòng ngủ",
+      "bathrooms": "{n} phòng tắm",
+      "costPerNight": "Giá gốc {amount} / đêm",
+      "salePerNight": "Giá bán {amount} / đêm",
+      "villaTitle": "Chia sẻ villa",
+      "villaSubtitleSupplier": "Gửi cho {name} (nhà cung cấp) · Theo giá gốc",
+      "villaSubtitleCustomer": "Gửi cho {name} (khách hàng) · Giá bán",
+      "villaSearch": "Tìm theo tên·khu villa",
+      "villaHintSupplier": "Hiển thị villa của nhà cung cấp này",
+      "villaHintCustomer": "Chỉ hiển thị villa có thể bán (đã kiểm duyệt)",
+      "proposalTitle": "Chia sẻ đề xuất",
+      "proposalSubtitle": "Gửi cho {name} (khách hàng) · Liên kết công khai",
+      "proposalFor": "Đề xuất cho {name}",
+      "proposalEmpty": "Không có đề xuất đang hoạt động",
+      "proposalGuard": "Chỉ hiển thị giá bán (không lộ giá gốc·lợi nhuận)",
+      "villaCount": "{n} villa",
+      "expiresIn": "Hết hạn sau {h} giờ",
+      "total": "Tổng {amount}",
+      "settlementTitle": "Chia sẻ quyết toán",
+      "settlementSubtitle": "Chỉ hiển thị quyết toán của {name} (nhà cung cấp)",
+      "settlementEmpty": "Không có quyết toán",
+      "settlementGuard": "Chỉ chia sẻ quyết toán của chính mình · Không lộ giá bán·lợi nhuận·nhà cung cấp khác",
+      "bookingCount": "{n} đặt phòng"
+    }
   },
   "zaloConnect": {
     "topTitle": "Thông báo Zalo",
