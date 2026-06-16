@@ -2,6 +2,7 @@
 // RSC: prisma 직접 조회(시즌 목록·AppSetting). 폼·액션은 클라이언트 컴포넌트 + API fetch
 // b8 구성: 시즌 달력 카드 + 예약 설정(홀드 시간) 카드. 환율 카드는 계약(T1.7) 요구로 동일 스타일 추가
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/format";
@@ -97,6 +98,23 @@ export default async function SettingsPage() {
 
       {/* Card 4: 입금 계좌·연락처 (b8 Card 3 변환, T1.7-bank-contact) */}
       <BankContactForm initial={bankInitial} />
+
+      {/* Card 5: Zalo 봇 연결 (ADR-0006) — 별도 페이지 링크 */}
+      <Link
+        href="/settings/zalo"
+        className="flex items-center justify-between bg-admin-card border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-colors group"
+      >
+        <div className="flex items-center gap-4">
+          <span className="material-symbols-outlined text-admin-primary text-3xl">forum</span>
+          <div>
+            <h2 className="text-lg font-bold text-white">{t("zaloCardTitle")}</h2>
+            <p className="text-sm text-slate-500 mt-0.5">{t("zaloCardDesc")}</p>
+          </div>
+        </div>
+        <span className="text-sm font-bold text-admin-primary group-hover:underline whitespace-nowrap">
+          {t("zaloCardCta")} →
+        </span>
+      </Link>
     </div>
   );
 }

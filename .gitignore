@@ -51,3 +51,6 @@ qa-tmp/
 qa-tmp-*.txt
 # Playwright MCP 브라우저 세션 산출물(콘솔·페이지 덤프) — 커밋 금지
 .playwright-mcp/
+
+# Zalo zca-js QR 임시 파일 (loginQR qrPath) — credential 노출 금지 (ADR-0006 D6.2)
+qr.png

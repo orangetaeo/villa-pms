@@ -8,3 +8,6 @@ healthcheckPath = "/api/health"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
+# ADR-0006 D2.1: Zalo 봇 단일 인스턴스 강제 — 같은 봇 계정이 2 컨테이너에서
+# 동시 로그인하면 밴 위험(code 3000). 수평 스케일 금지. OPS 배포 체크리스트에도 명시.
+numReplicas = 1

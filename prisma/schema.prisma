@@ -38,6 +38,7 @@ model User {
   notifications    Notification[]
   auditLogs        AuditLog[]
   zaloConversation ZaloConversation? // Zalo 양방향 채팅 (ADR-0003)
+  zaloAccount      ZaloAccount? // 봇 계정 소유 (ADR-0006) — ADMIN만 보유, 단일 봇
 }
 
 // ===================== 빌라 =====================
@@ -580,4 +581,24 @@ model ZaloMessage {
   createdAt      DateTime             @default(now())
 
   @@index([conversationId, createdAt])
+}
+
+// ===================== Zalo 봇 계정 (ADR-0006 — zca-js 개인 계정 QR 로그인) =====================
+
+// 봇 계정 = 테오 개인 Zalo (단일 행 singleton). credential·세션·리스너의 주체.
+// 주의: ZaloAccount.zaloUserId(봇 자신의 Zalo id) ≠ User.zaloUserId / ZaloConversation.zaloUserId(대화 상대=공급자).
+//       컬럼명이 겹치지만 의미가 다르다 (ADR-0006 D3).
+// 보안(D6): credentials는 AES-256-GCM 암호문. 응답·로그·AuditLog·SSE 절대 노출 금지. select 명시 로드만.
+model ZaloAccount {
+  id            String    @id @default(cuid())
+  zaloUserId    String    @unique // 봇 계정의 Zalo own id (login 성공 후 getOwnId)
+  userId        String?   @unique // 봇을 소유한 ADMIN(테오) User.id — 소유권 검증용
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  credentials   String? // AES-256-GCM 암호문 (imei+cookie+userAgent) — 절대 평문/응답/로그 금지
+  displayName   String?
+  isActive      Boolean   @default(true)
+  lastConnected DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([isActive])
 }

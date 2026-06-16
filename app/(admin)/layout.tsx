@@ -19,6 +19,7 @@ import { prisma } from "@/lib/prisma";
 //   settings/hold-hours-form·season-manager·fx-rate-form → adminSettings
 //   proposals/proposals-list, new/proposal-create    → adminProposals
 //   inspections/inspections-view                     → adminInspections
+//   settings/zalo/zalo-connect-client                → adminZalo
 // 새 admin 클라이언트 컴포넌트에서 네임스페이스 추가 시 반드시 여기에도 추가할 것
 // (누락 시 MISSING_MESSAGE로 화면 깨짐).
 const ADMIN_CLIENT_NAMESPACES = [
@@ -33,6 +34,7 @@ const ADMIN_CLIENT_NAMESPACES = [
   "adminProposals",
   "adminInspections",
   "adminMessages",
+  "adminZalo",
   "amenities",
 ] as const;
 

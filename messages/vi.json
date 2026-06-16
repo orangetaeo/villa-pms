@@ -805,7 +805,10 @@
         "format": "Định dạng không hợp lệ.",
         "url": "Vui lòng nhập URL hợp lệ bắt đầu bằng http(s)://."
       }
-    }
+    },
+    "zaloCardTitle": "Kết nối Bot Zalo",
+    "zaloCardDesc": "Kết nối tài khoản Zalo của quản trị viên để gửi thông báo.",
+    "zaloCardCta": "Quản lý"
   },
   "adminSettlements": {
     "title": "Quản lý quyết toán",
@@ -1169,5 +1172,30 @@
     "done": "Hoàn tất",
     "connectedTitle": "Bạn đã kết nối Zalo",
     "connectedDesc": "Bạn sẽ nhận thông báo đặt phòng và cập nhật qua Zalo."
+  },
+  "adminZalo": {
+    "title": "Kết nối Bot Zalo",
+    "subtitle": "Kết nối tài khoản Zalo của quản trị viên để gửi thông báo đặt phòng, dọn dẹp và quyết toán.",
+    "breadcrumbAdmin": "Quản trị",
+    "breadcrumbSettings": "Cài đặt",
+    "breadcrumbCurrent": "Bot Zalo",
+    "cardTitle": "Phiên Bot Zalo",
+    "statusConnected": "Đã kết nối",
+    "statusDisconnected": "Chưa kết nối",
+    "statusQrPending": "Đang chờ quét QR",
+    "statusError": "Lỗi",
+    "notConnectedDesc": "Bot Zalo chưa được kết nối. Tạo mã QR rồi quét bằng ứng dụng Zalo.",
+    "generateQr": "Tạo mã QR",
+    "generating": "Đang tạo…",
+    "qrInstruction": "Mở Zalo → Thêm → Quét QR và quét mã bên dưới. (Mã QR hết hạn sau khoảng 1 phút và tự làm mới)",
+    "qrWaiting": "Đang chờ quét…",
+    "connectedAs": "Tài khoản đã kết nối",
+    "lastConnected": "Kết nối lần cuối",
+    "disconnect": "Ngắt kết nối",
+    "disconnecting": "Đang ngắt…",
+    "confirmDisconnect": "Bạn có chắc muốn ngắt kết nối bot? Sau khi ngắt sẽ không gửi được thông báo.",
+    "errorGenerate": "Tạo mã QR thất bại. Vui lòng thử lại sau.",
+    "errorDisconnect": "Ngắt kết nối thất bại.",
+    "refresh": "Làm mới"
   }
 }
