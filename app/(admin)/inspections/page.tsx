@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import type { CleaningStatus } from "@prisma/client";
+import { quickRangeWhere } from "@/lib/date-vn";
 import InspectionsView, {
   type BaselinePhoto,
   type SelectedTask,
@@ -39,7 +40,7 @@ const STATUS_RANK: Record<CleaningStatus, number> = {
 export default async function InspectionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; task?: string }>;
+  searchParams: Promise<{ status?: string; task?: string; range?: string }>;
 }) {
   // ADMIN 가드는 (admin)/layout에 있으나 페이지에서도 재검사 (프로젝트 규칙 — 권한 이중화)
   const session = await auth();
@@ -48,10 +49,15 @@ export default async function InspectionsPage({
   const params = await searchParams;
   const tab = params.status && params.status in TAB_STATUS ? params.status : "all";
   const statusFilter = TAB_STATUS[tab];
+  // 빠른 날짜 필터 — createdAt(검수 태스크 생성 시각, 정렬 기준) 기준. "all"/무효 → undefined
+  const createdAtRange = quickRangeWhere(params.range, "timestamp");
 
   const [rows, statusCounts] = await Promise.all([
     prisma.cleaningTask.findMany({
-      where: statusFilter ? { status: statusFilter } : undefined,
+      where: {
+        ...(statusFilter ? { status: statusFilter } : {}),
+        ...(createdAtRange ? { createdAt: createdAtRange } : {}),
+      },
       orderBy: { createdAt: "desc" },
       take: TAKE,
       // 화이트리스트 select — booking(고객명·금액)·assignee 절대 미포함
@@ -63,7 +69,12 @@ export default async function InspectionsPage({
         villa: { select: { name: true, complex: true } },
       },
     }),
-    prisma.cleaningTask.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.cleaningTask.groupBy({
+      by: ["status"],
+      _count: { _all: true },
+      // 탭 카운트도 날짜 필터와 일관되게 — 범위 밖 태스크는 어느 탭에도 세지 않음
+      where: createdAtRange ? { createdAt: createdAtRange } : undefined,
+    }),
   ]);
 
   // 승인 대기(PHOTOS_SUBMITTED) 우선 + 최신순
@@ -157,6 +168,7 @@ export default async function InspectionsPage({
       selected={selected}
       tab={tab}
       counts={counts}
+      range={params.range}
     />
   );
 }

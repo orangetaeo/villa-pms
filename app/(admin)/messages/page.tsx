@@ -13,6 +13,7 @@ import {
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { quickRangeWhere } from "@/lib/date-vn";
 import { serializeBigInt } from "@/lib/serialize";
 import { isSellSideType, currencyForType } from "@/lib/zalo-counterparty";
 import { Inbox, type InboxItem } from "./inbox";
@@ -93,7 +94,7 @@ function settlementLabel(yearMonth: string): string {
 export default async function MessagesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ c?: string }>;
+  searchParams: Promise<{ c?: string; range?: string }>;
 }) {
   // 개인 스코프 — 본인(ownerAdminId)이 받은 대화만 (ADR-0007 D3, 누수 0).
   const session = await auth();
@@ -102,12 +103,15 @@ export default async function MessagesPage({
   }
   const ownerAdminId = session.user.id;
 
-  const { c: selectedId } = await searchParams;
+  const { c: selectedId, range } = await searchParams;
   const now = new Date();
+
+  // 빠른 날짜 필터(?range=) — lastMessageAt(최근 활동) 기준. "all"/무효 → undefined(조건 미적용).
+  const lastMessageAtRange = quickRangeWhere(range, "timestamp", now);
 
   // 인박스 — 마진·금액 필드 미조회(누수 차단). 본인 대화만. 연결된 사용자명/빌라명만.
   const conversations = await prisma.zaloConversation.findMany({
-    where: { ownerAdminId },
+    where: { ownerAdminId, ...(lastMessageAtRange ? { lastMessageAt: lastMessageAtRange } : {}) },
     orderBy: [{ lastMessageAt: "desc" }, { createdAt: "desc" }],
     select: {
       id: true,

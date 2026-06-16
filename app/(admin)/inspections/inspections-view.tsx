@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { CleaningStatus, CleaningType, PhotoSpace } from "@prisma/client";
 import { formatDateTime } from "@/lib/format";
+import QuickDateFilter from "@/components/admin/quick-date-filter";
 
 export interface TaskListItem {
   id: string;
@@ -66,9 +67,10 @@ interface Props {
   selected: SelectedTask | null;
   tab: string;
   counts: Record<TabKey, number>;
+  range?: string;
 }
 
-export default function InspectionsView({ tasks, selected, tab, counts }: Props) {
+export default function InspectionsView({ tasks, selected, tab, counts, range }: Props) {
   const t = useTranslations("adminInspections.list");
   const td = useTranslations("adminInspections.detail");
   const router = useRouter();
@@ -171,7 +173,10 @@ export default function InspectionsView({ tasks, selected, tab, counts }: Props)
     return td("extraPhoto", { n: i - (selected?.baselinePhotos.length ?? 0) + 1 });
   };
 
-  const taskHref = (taskId: string) => `/inspections?status=${tab}&task=${taskId}`;
+  // range는 모든 내부 링크에 보존 — 탭/행 전환 시 활성 날짜 필터 유지
+  const rangeQs = range ? `&range=${range}` : "";
+  const taskHref = (taskId: string) => `/inspections?status=${tab}&task=${taskId}${rangeQs}`;
+  const tabHref = (key: TabKey) => `/inspections?status=${key}${rangeQs}`;
 
   const statusBadge = (status: CleaningStatus) => (
     <span
@@ -192,7 +197,7 @@ export default function InspectionsView({ tasks, selected, tab, counts }: Props)
             return (
               <Link
                 key={key}
-                href={`/inspections?status=${key}`}
+                href={tabHref(key)}
                 className={
                   active
                     ? "px-4 py-3 text-sm font-bold text-admin-primary border-b-2 border-admin-primary flex items-center gap-2 whitespace-nowrap"
@@ -211,6 +216,18 @@ export default function InspectionsView({ tasks, selected, tab, counts }: Props)
             );
           })}
         </div>
+        {/* 빠른 날짜 필터 — createdAt 기준, 과거 지향 목록이라 nextMonth 제외 */}
+        <QuickDateFilter
+          presets={[
+            "all",
+            "today",
+            "yesterday",
+            "thisWeek",
+            "lastWeek",
+            "thisMonth",
+            "lastMonth",
+          ]}
+        />
       </div>
 
       {/* 2패널 (b6) — 데스크톱: 좌 1/3 목록 + 우 상세 독립 스크롤 / <768px: 목록→상세 스택 */}

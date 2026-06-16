@@ -21,6 +21,7 @@ import { prisma } from "@/lib/prisma";
 //   inspections/inspections-view                     → adminInspections
 //   settings/zalo/zalo-connect-client                → adminZalo
 //   cost-alerts/cost-alerts-view                     → adminCostAlerts
+//   components/admin/quick-date-filter               → quickDateFilter
 // 새 admin 클라이언트 컴포넌트에서 네임스페이스 추가 시 반드시 여기에도 추가할 것
 // (누락 시 MISSING_MESSAGE로 화면 깨짐).
 const ADMIN_CLIENT_NAMESPACES = [
@@ -38,6 +39,7 @@ const ADMIN_CLIENT_NAMESPACES = [
   "adminZalo",
   "adminCostAlerts",
   "amenities",
+  "quickDateFilter",
 ] as const;
 
 export default async function AdminLayout({

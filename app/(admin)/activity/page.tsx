@@ -6,10 +6,23 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import { loadActivityFeed, relativeTimeParts, type FeedDot } from "@/lib/dashboard";
+import { quickRangeWhere } from "@/lib/date-vn";
+import QuickDateFilter from "@/components/admin/quick-date-filter";
 
 export const metadata: Metadata = {
   title: "활동 내역 — Villa PMS",
 };
+
+// 과거 전용 로그 → nextMonth 제외
+const ACTIVITY_PRESETS = [
+  "all",
+  "today",
+  "yesterday",
+  "thisWeek",
+  "lastWeek",
+  "thisMonth",
+  "lastMonth",
+] as const;
 
 const DOT_CLASS: Record<FeedDot, string> = {
   amber: "bg-amber-500",
@@ -20,12 +33,23 @@ const DOT_CLASS: Record<FeedDot, string> = {
   slate: "bg-slate-500",
 };
 
-export default async function ActivityPage() {
+export default async function ActivityPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ range?: string }>;
+}) {
   const now = new Date();
-  const [t, feed] = await Promise.all([
+  const { range } = await searchParams;
+  const [t, feedAll] = await Promise.all([
     getTranslations("adminDashboard"),
     loadActivityFeed(prisma, 50),
   ]);
+
+  // 빠른 날짜 필터 — createdAt(at) 기준 [gte, lt). undefined=전체
+  const window = quickRangeWhere(range, "timestamp", now);
+  const feed = window
+    ? feedAll.filter((item) => item.at >= window.gte && item.at < window.lt)
+    : feedAll;
 
   const relTime = (at: Date) => {
     const r = relativeTimeParts(now, at);
@@ -50,6 +74,9 @@ export default async function ActivityPage() {
           {t("activityPage.backToDashboard")}
         </Link>
       </div>
+
+      {/* 빠른 날짜 필터 바 (다크 톤, 목록 상단) */}
+      <QuickDateFilter presets={[...ACTIVITY_PRESETS]} />
 
       <div className="bg-admin-card rounded-xl border border-slate-700/50 p-6">
         {feed.length === 0 ? (

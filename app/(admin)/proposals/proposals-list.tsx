@@ -7,9 +7,12 @@
 // - <768px 카드 전환은 ResponsiveTable 재사용 (T6.7 — 수정 금지 컴포넌트)
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import ResponsiveTable, { type ResponsiveColumn } from "@/components/admin/responsive-table";
 import { formatThousands, formatVnd } from "@/lib/format";
+import { quickRangeWhere } from "@/lib/date-vn";
+import QuickDateFilter from "@/components/admin/quick-date-filter";
 
 type ProposalStatus = "ACTIVE" | "USED" | "EXPIRED" | "REVOKED";
 type Channel = "TRAVEL_AGENCY" | "LAND_AGENCY" | "DIRECT";
@@ -98,6 +101,8 @@ function amountLabel(p: ProposalRow): string {
 
 export default function ProposalsList() {
   const t = useTranslations("adminProposals.list");
+  const searchParams = useSearchParams();
+  const range = searchParams.get("range") ?? undefined;
   const [proposals, setProposals] = useState<ProposalRow[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [tab, setTab] = useState<TabKey>("all");
@@ -129,24 +134,34 @@ export default function ProposalsList() {
     return () => clearInterval(timer);
   }, []);
 
-  const counts = useMemo(() => {
+  // 빠른 날짜 필터 — createdAt(제안 생성 시각) 기준. URL ?range=가 진실원천.
+  // quickRangeWhere(timestamp)는 VN 자정 경계의 실제 UTC {gte, lt} 반환 (inspections RSC와 동일 규칙)
+  const dateScoped = useMemo(() => {
     const rows = proposals ?? [];
+    const where = quickRangeWhere(range, "timestamp");
+    if (!where) return rows;
+    return rows.filter((p) => {
+      const created = new Date(p.createdAt).getTime();
+      return created >= where.gte.getTime() && created < where.lt.getTime();
+    });
+  }, [proposals, range]);
+
+  const counts = useMemo(() => {
     const byStatus = (s: ProposalStatus) =>
-      rows.filter((p) => p.effectiveStatus === s).length;
+      dateScoped.filter((p) => p.effectiveStatus === s).length;
     return {
-      all: rows.length,
+      all: dateScoped.length,
       active: byStatus("ACTIVE"),
       used: byStatus("USED"),
       expired: byStatus("EXPIRED"),
       revoked: byStatus("REVOKED"),
     } satisfies Record<TabKey, number>;
-  }, [proposals]);
+  }, [dateScoped]);
 
   const filtered = useMemo(() => {
-    const rows = proposals ?? [];
-    if (tab === "all") return rows;
-    return rows.filter((p) => p.effectiveStatus === TAB_STATUS[tab]);
-  }, [proposals, tab]);
+    if (tab === "all") return dateScoped;
+    return dateScoped.filter((p) => p.effectiveStatus === TAB_STATUS[tab]);
+  }, [dateScoped, tab]);
 
   /** 공개 링크 클립보드 복사 + "복사됨" 피드백 */
   const copyLink = async (p: ProposalRow) => {
@@ -347,6 +362,21 @@ export default function ProposalsList() {
           <span className="material-symbols-outlined text-sm">add</span>
           {t("create")}
         </Link>
+      </div>
+
+      {/* 빠른 날짜 필터 — createdAt 기준, 과거 지향 목록이라 nextMonth 제외 */}
+      <div className="mb-4">
+        <QuickDateFilter
+          presets={[
+            "all",
+            "today",
+            "yesterday",
+            "thisWeek",
+            "lastWeek",
+            "thisMonth",
+            "lastMonth",
+          ]}
+        />
       </div>
 
       {/* 상태 탭 — effectiveStatus 기준 카운트 (b12) */}

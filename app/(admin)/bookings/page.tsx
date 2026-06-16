@@ -6,7 +6,7 @@ import { getTranslations } from "next-intl/server";
 import { BookingStatus, VillaStatus, type BookingChannel, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatThousands } from "@/lib/format";
-import { toDateOnlyString } from "@/lib/date-vn";
+import { toDateOnlyString, quickRangeWhere } from "@/lib/date-vn";
 import { todayInVillaTimezone } from "@/lib/timeline";
 import {
   computeOccupancyRate,
@@ -14,6 +14,7 @@ import {
   OCCUPANCY_STAY_STATUSES,
 } from "@/lib/booking-stats";
 import ResponsiveTable, { type ResponsiveColumn } from "@/components/admin/responsive-table";
+import QuickDateFilter from "@/components/admin/quick-date-filter";
 import FiltersBar from "./filters-bar";
 
 export const metadata: Metadata = {
@@ -73,6 +74,7 @@ export default async function BookingsPage({
   searchParams: Promise<{
     status?: string;
     month?: string;
+    range?: string;
     villa?: string;
     channel?: string;
     q?: string;
@@ -99,6 +101,10 @@ export default async function BookingsPage({
       : undefined;
   const page = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
 
+  // 빠른 날짜 필터(range): 활성 시 checkIn 기준으로 월 겹침 조건을 대체.
+  // undefined → 비활성('전체' 또는 월 로직 유지). preset이 있으면 무시(아래 분기에서 미사용).
+  const dateWhere = quickRangeWhere(params.range, "date");
+
   // 기본 where(상태 제외) — 탭 건수도 이 기준으로 집계.
   // 프리셋(T2.6 링크 계약)은 월·탭을 대체한다 (오늘 = Asia/Ho_Chi_Minh 기준)
   const baseWhere: Prisma.BookingWhereInput = preset
@@ -106,8 +112,10 @@ export default async function BookingsPage({
       ? { checkIn: today, status: BookingStatus.CONFIRMED }
       : { checkOut: today, status: BookingStatus.CHECKED_IN }
     : {
-        checkIn: { lt: monthRange.end },
-        checkOut: { gt: monthRange.start },
+        // range 활성 → checkIn 범위 / 비활성 → 기존 월 겹침
+        ...(dateWhere
+          ? { checkIn: dateWhere }
+          : { checkIn: { lt: monthRange.end }, checkOut: { gt: monthRange.start } }),
         ...(villaId ? { villaId } : {}),
         ...(channel ? { channel } : {}),
         ...(q
@@ -190,6 +198,7 @@ export default async function BookingsPage({
     const next = new URLSearchParams();
     if (key !== "all") next.set("status", key);
     if (params.month) next.set("month", params.month);
+    if (params.range) next.set("range", params.range);
     if (params.villa) next.set("villa", params.villa);
     if (params.channel) next.set("channel", params.channel);
     if (params.q) next.set("q", params.q);
@@ -344,7 +353,23 @@ export default async function BookingsPage({
             </Link>
           </div>
         ) : (
-          <FiltersBar villas={villas} />
+          <>
+            <div className="px-4 py-3 border-b border-slate-800">
+              <QuickDateFilter
+                presets={[
+                  "all",
+                  "today",
+                  "yesterday",
+                  "thisWeek",
+                  "lastWeek",
+                  "thisMonth",
+                  "lastMonth",
+                  "nextMonth",
+                ]}
+              />
+            </div>
+            <FiltersBar villas={villas} />
+          </>
         )}
       </div>
 

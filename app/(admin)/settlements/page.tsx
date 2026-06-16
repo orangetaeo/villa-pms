@@ -7,7 +7,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatThousands, formatVnd, formatDateTime } from "@/lib/format";
-import { toDateOnlyString, todayVnDateString } from "@/lib/date-vn";
+import { toDateOnlyString, todayVnDateString, resolveQuickRange } from "@/lib/date-vn";
 import { monthRangeUtc, SETTLEMENT_BOOKING_STATUSES } from "@/lib/settlement";
 import SettlementsView, { type SettlementRow } from "./settlements-view";
 
@@ -20,16 +20,19 @@ const YEAR_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 export default async function SettlementsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ yearMonth?: string }>;
+  searchParams: Promise<{ yearMonth?: string; range?: string }>;
 }) {
   // ADMIN 가드는 (admin)/layout에 있으나 페이지에서도 재검사 (프로젝트 규칙 — 권한 이중화)
   const session = await auth();
   if (!session || session.user?.role !== "ADMIN") redirect("/login");
 
   const params = await searchParams;
-  // ?yearMonth= 검증 — 형식 불일치는 이번 달(베트남 시간 기준)로 폴백 (UI 쿼리 파라미터)
-  const yearMonth =
-    params.yearMonth && YEAR_MONTH_RE.test(params.yearMonth)
+  // 빠른 필터(?range=)가 있으면 해당 월로 변환해 yearMonth로 사용 (range 우선).
+  // 정산은 월 단위 집계이므로 from의 "YYYY-MM"만 취한다. 없으면 기존 yearMonth 로직 유지.
+  const quickRange = resolveQuickRange(params.range);
+  const yearMonth = quickRange
+    ? quickRange.from.slice(0, 7)
+    : params.yearMonth && YEAR_MONTH_RE.test(params.yearMonth)
       ? params.yearMonth
       : todayVnDateString().slice(0, 7);
 

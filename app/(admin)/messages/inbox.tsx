@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import QuickDateFilter from "@/components/admin/quick-date-filter";
 import type { CounterpartyType } from "./chat-pane";
 import { CounterpartyBadge } from "./counterparty-badge";
 
@@ -116,6 +117,20 @@ export function Inbox({
               {c.label}
             </button>
           ))}
+        </div>
+        {/* 빠른 날짜 필터 — 최근 활동(lastMessageAt) 기준. 서버(?range=)에서 필터링, 과거형이라 nextMonth 제외 */}
+        <div className="mt-3">
+          <QuickDateFilter
+            presets={[
+              "all",
+              "today",
+              "yesterday",
+              "thisWeek",
+              "lastWeek",
+              "thisMonth",
+              "lastMonth",
+            ]}
+          />
         </div>
       </div>
 

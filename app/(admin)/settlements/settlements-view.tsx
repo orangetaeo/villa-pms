@@ -7,6 +7,7 @@
 import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import QuickDateFilter from "@/components/admin/quick-date-filter";
 
 export type SettlementStatusKey = "DRAFT" | "CONFIRMED" | "PAID";
 
@@ -226,6 +227,10 @@ export default function SettlementsView({
       <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-6 mb-8">
         <div>
           <h1 className="text-2xl font-black text-white mb-2">{t("title")}</h1>
+          {/* 빠른 월 필터 — 정산은 월 단위라 이번/지난/다음 달만. ?range= 동기화 */}
+          <div className="mb-3">
+            <QuickDateFilter presets={["thisMonth", "lastMonth", "nextMonth"]} />
+          </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-4 bg-slate-800/50 p-1.5 rounded-xl border border-slate-700/50 w-fit">
               <button
