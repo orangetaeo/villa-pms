@@ -8,10 +8,11 @@
 // - 번역(D7): translateMode=OFF면 입력창 미리보기 숨김. VI/EN이면 해당 언어 미리보기.
 // ★ 누수: 공유 후보 목록·카드 모두 마진·반대편 통화 미포함(서버 select 화이트리스트 + page.tsx 최소 필드).
 //   상대 분류 컨트롤(b15 블록④): 헤더 드롭다운 재변경 + UNKNOWN 대화 상단 배너 → PATCH SET_COUNTERPARTY_TYPE.
-import { useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ClassifyBanner, CounterpartyDropdown } from "./counterparty-control";
+import ChatPhotoLightbox from "./photo-lightbox";
 import { allowedShareKinds, isSellSideType } from "@/lib/zalo-counterparty";
 import {
   VillaShareModal,
@@ -94,6 +95,10 @@ export interface SettlementCandidate {
   status: string; // DRAFT | CONFIRMED | PAID
 }
 
+// 라이트박스 열기 핸들러 — PhotoCard(중첩 버블)에서 ChatPane 최상위로 전달용(컨텍스트).
+// (props 드릴링 회피 + 라이트박스 오버레이는 z-index/스크롤잠금 위해 ChatPane에서 렌더)
+const LightboxContext = createContext<((urls: string[], startIndex: number) => void) | null>(null);
+
 export function ChatPane({
   conversationId,
   header,
@@ -115,6 +120,77 @@ export function ChatPane({
 }) {
   const t = useTranslations("adminMessages");
   const router = useRouter();
+
+  // ── 라이트박스 (채팅 이미지 확대) ──
+  const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
+  const openLightbox = useCallback((urls: string[], startIndex: number) => {
+    if (urls.length > 0) setLightbox({ urls, index: startIndex });
+  }, []);
+
+  // ── 자동 스크롤 + "새 메시지 ↓" 버튼 (Nike 채팅 패턴) ──
+  const threadRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  // 사용자가 위로 스크롤해 과거를 보는 중인지 — 하단 근처(임계값 80px)이면 false.
+  const atBottomRef = useRef(true);
+  // 내가 방금 전송했는지 — true면 과거 보던 중이어도 무조건 하단으로(Composer가 set).
+  const justSentRef = useRef(false);
+  // 직전 렌더의 마지막 메시지 id·개수 — 폴링 refresh 후 새 메시지 유입 판단.
+  const prevLastIdRef = useRef<string | null>(null);
+  const prevCountRef = useRef(0);
+  const prevConvRef = useRef<string | null>(null);
+  const [showNewMsg, setShowNewMsg] = useState(false);
+
+  const NEAR_BOTTOM_PX = 80;
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
+    const el = threadRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+    atBottomRef.current = true;
+    setShowNewMsg(false);
+  }, []);
+
+  // 스크롤 위치 추적 — 하단 근처면 atBottom, 아니면(과거 열람 중) 자동 스크롤 보류.
+  const onThreadScroll = useCallback(() => {
+    const el = threadRef.current;
+    if (!el) return;
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const near = distance <= NEAR_BOTTOM_PX;
+    atBottomRef.current = near;
+    if (near) setShowNewMsg(false);
+  }, []);
+
+  // Composer 전송 시 호출 — 다음 메시지 반영 때 무조건 하단으로.
+  const markJustSent = useCallback(() => {
+    justSentRef.current = true;
+  }, []);
+
+  // 메시지 목록 변화 감지 → 자동 스크롤 판단 (폴링 refresh·전송·대화 전환 모두 정합)
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    const lastId = last?.id ?? null;
+    const count = messages.length;
+    const convChanged = prevConvRef.current !== conversationId;
+    const grew = count > prevCountRef.current || (lastId !== null && lastId !== prevLastIdRef.current);
+
+    if (convChanged) {
+      // 대화를 새로 열면 항상 최하단으로(읽기 시작점).
+      scrollToBottom("auto");
+    } else if (justSentRef.current) {
+      // 내가 전송 → 과거 보던 중이어도 무조건 하단.
+      justSentRef.current = false;
+      scrollToBottom("auto");
+    } else if (grew) {
+      // 새 메시지 수신: 하단 근처면 자동 스크롤, 위로 보던 중이면 "새 메시지" 버튼.
+      if (atBottomRef.current) scrollToBottom("smooth");
+      else setShowNewMsg(true);
+    }
+
+    prevLastIdRef.current = lastId;
+    prevCountRef.current = count;
+    prevConvRef.current = conversationId;
+    // conversationId·messages 변화에만 반응 (scrollToBottom은 안정 ref)
+  }, [conversationId, messages, scrollToBottom]);
 
   // 읽음 처리 — 대화 열람 중 미읽음이 생길 때마다 0으로. in-flight 가드만.
   const markingRef = useRef(false);
@@ -146,39 +222,70 @@ export function ChatPane({
   }
 
   return (
-    <section className="flex-1 flex flex-col bg-[#0F172A] min-w-0">
-      <ChatHeaderBar conversationId={conversationId} header={header} t={t} router={router} />
+    <LightboxContext.Provider value={openLightbox}>
+      <section className="flex-1 flex flex-col bg-[#0F172A] min-w-0">
+        <ChatHeaderBar conversationId={conversationId} header={header} t={t} router={router} />
 
-      {/* 미분류 대화 분류 배너 (b15 블록④) — 분류 전엔 사진만 공유 가능, 여기서 바로 분류 */}
-      {header.counterpartyType === "UNKNOWN" && (
-        <div className="shrink-0 px-6 pt-4">
-          <ClassifyBanner conversationId={conversationId} t={t} router={router} />
-        </div>
-      )}
-
-      {/* 스레드 */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-6 space-y-5">
-        {messages.length === 0 ? (
-          <p className="text-center text-xs text-slate-500 pt-8">{t("noMessages")}</p>
-        ) : (
-          messages.map((m) => <MessageBubble key={m.id} message={m} t={t} />)
+        {/* 미분류 대화 분류 배너 (b15 블록④) — 분류 전엔 사진만 공유 가능, 여기서 바로 분류 */}
+        {header.counterpartyType === "UNKNOWN" && (
+          <div className="shrink-0 px-6 pt-4">
+            <ClassifyBanner conversationId={conversationId} t={t} router={router} />
+          </div>
         )}
-      </div>
 
-      {/* 입력 푸터 */}
-      <Composer
-        conversationId={conversationId}
-        windowOpen={windowOpen}
-        translateMode={header.translateMode}
-        counterpartyType={header.counterpartyType}
-        contactName={header.name}
-        villaCandidates={villaCandidates}
-        proposalCandidates={proposalCandidates}
-        settlementCandidates={settlementCandidates}
-        t={t}
-        router={router}
-      />
-    </section>
+        {/* 스레드 — relative: "새 메시지 ↓" 플로팅 버튼 기준 */}
+        <div className="relative flex-1 min-h-0">
+          <div
+            ref={threadRef}
+            onScroll={onThreadScroll}
+            className="absolute inset-0 overflow-y-auto custom-scrollbar px-6 py-6 space-y-5"
+          >
+            {messages.length === 0 ? (
+              <p className="text-center text-xs text-slate-500 pt-8">{t("noMessages")}</p>
+            ) : (
+              messages.map((m) => <MessageBubble key={m.id} message={m} t={t} />)
+            )}
+            <div ref={bottomRef} />
+          </div>
+
+          {/* 위로 스크롤 중 새 메시지 수신 시만 표시 → 클릭하면 최하단으로 */}
+          {showNewMsg && (
+            <button
+              type="button"
+              onClick={() => scrollToBottom("smooth")}
+              className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold pl-3.5 pr-3 py-2 shadow-lg shadow-blue-900/40 transition-colors active:scale-95"
+            >
+              {t("newMessage")}
+              <span className="material-symbols-outlined text-[18px]">arrow_downward</span>
+            </button>
+          )}
+        </div>
+
+        {/* 입력 푸터 */}
+        <Composer
+          conversationId={conversationId}
+          windowOpen={windowOpen}
+          translateMode={header.translateMode}
+          counterpartyType={header.counterpartyType}
+          contactName={header.name}
+          villaCandidates={villaCandidates}
+          proposalCandidates={proposalCandidates}
+          settlementCandidates={settlementCandidates}
+          onSent={markJustSent}
+          t={t}
+          router={router}
+        />
+      </section>
+
+      {/* 라이트박스 — 최상위 z-index, 배경/X/ESC 닫기 */}
+      {lightbox && (
+        <ChatPhotoLightbox
+          urls={lightbox.urls}
+          startIndex={lightbox.index}
+          onClose={() => setLightbox(null)}
+        />
+      )}
+    </LightboxContext.Provider>
   );
 }
 
@@ -649,14 +756,33 @@ function PhotoCard({
   caption: string;
   inbound?: boolean;
 }) {
+  const openLightbox = useContext(LightboxContext);
   const wrap = inbound
     ? "bg-slate-800 rounded-xl rounded-bl-sm p-1.5 inline-block text-left overflow-hidden"
     : "bg-blue-600 rounded-xl rounded-br-sm p-1.5 inline-block text-left overflow-hidden";
   const captionColor = inbound ? "text-slate-300" : "text-blue-100";
   return (
     <div className={wrap}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={urls[0]} alt="" className="rounded-lg w-56 h-36 object-cover" />
+      {/* 클릭 → 라이트박스(원본 크기). 첫 장 기준, 여러 장이면 라이트박스에서 좌우 이동. */}
+      <button
+        type="button"
+        onClick={() => openLightbox?.(urls, 0)}
+        className="block relative rounded-lg overflow-hidden group cursor-zoom-in"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={urls[0]}
+          alt=""
+          className="rounded-lg w-56 h-36 object-cover transition-transform group-hover:scale-[1.02]"
+        />
+        {/* 여러 장 표시 배지 */}
+        {urls.length > 1 && (
+          <span className="absolute top-1.5 right-1.5 flex items-center gap-0.5 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
+            <span className="material-symbols-outlined text-[12px]">photo_library</span>
+            {urls.length}
+          </span>
+        )}
+      </button>
       {caption && <p className={`text-xs px-2 py-1.5 ${captionColor}`}>{caption}</p>}
     </div>
   );
@@ -709,6 +835,7 @@ function Composer({
   villaCandidates,
   proposalCandidates,
   settlementCandidates,
+  onSent,
   t,
   router,
 }: {
@@ -720,6 +847,7 @@ function Composer({
   villaCandidates: VillaCandidate[];
   proposalCandidates: ProposalCandidate[];
   settlementCandidates: SettlementCandidate[];
+  onSent: () => void;
   t: ReturnType<typeof useTranslations>;
   router: ReturnType<typeof useRouter>;
 }) {
@@ -802,6 +930,8 @@ function Composer({
       if (res.ok) {
         setText("");
         setPreview("");
+        // 내가 전송 → 다음 메시지 반영 때 무조건 최하단으로(과거 보던 중이어도).
+        onSent();
         router.refresh();
       } else if (res.status === 409) {
         setError(t("windowClosedWarning"));

@@ -1210,6 +1210,13 @@
     "windowClosedPlaceholder": "Đang chờ nhà cung cấp trả lời",
     "previewLabelEn": "Xem trước tiếng Anh",
     "zaloOriginalInline": "Tên Zalo gốc: {name}",
+    "newMessage": "Tin nhắn mới",
+    "lightbox": {
+      "close": "Đóng",
+      "prev": "Ảnh trước",
+      "next": "Ảnh sau",
+      "counter": "{current} / {total}"
+    },
     "filter": {
       "all": "Tất cả"
     },

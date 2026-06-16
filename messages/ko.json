@@ -1210,6 +1210,13 @@
     "windowClosedPlaceholder": "공급자 응답 대기 중",
     "previewLabelEn": "영어 미리보기",
     "zaloOriginalInline": "Zalo 원본: {name}",
+    "newMessage": "새 메시지",
+    "lightbox": {
+      "close": "닫기",
+      "prev": "이전 사진",
+      "next": "다음 사진",
+      "counter": "{current} / {total}"
+    },
     "filter": {
       "all": "전체"
     },
