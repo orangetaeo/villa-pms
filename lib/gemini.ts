@@ -139,7 +139,9 @@ ${trimmed}`;
       signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.2 },
+        // thinkingBudget:0 — 짧은 채팅 번역은 추론 불필요. gemini-2.5-flash 기본(thinking)은
+        // 번역당 ~600토큰·4초 소모 → thinking 끄면 품질 동일·~0.9초·토큰 1/8 (실측 2026-06-16).
+        generationConfig: { temperature: 0.2, thinkingConfig: { thinkingBudget: 0 } },
       }),
     }
   );
