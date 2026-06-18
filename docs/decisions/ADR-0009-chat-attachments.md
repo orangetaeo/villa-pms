@@ -78,7 +78,8 @@ D2의 상대별 4열 매트릭스를 **2그룹 + UNKNOWN**으로 일반화한다
 - `lib/zalo-share.ts`의 `buildVillaShareTextForCustomer(villa, rates, saleCurrency)`는 **이미 `saleCurrency` 파라미터로 통화가 분기**되어 있다(VND/KRW 둘 다 처리) — **빌더 변경 불필요**. route에서 분류별 통화를 전달하면 끝.
 - 판매가측 빌라 select는 **VND·KRW 두 컬럼 모두 화이트리스트로 조회**(`salePriceVnd`, `salePriceKrw`)하되 **본문엔 분류 통화 한쪽만 기재**(빌더가 `saleCurrency`로 선택). 원가·마진은 미조회(불변).
 
-### R2-4. 번역 기본값 (D7 — 변경 없음)
+### R2-4. 번역 기본값 (D7 — **개정 2026-06-18**: 기본 VI)
+> 테오 결정: 상대 대부분이 베트남어(공급자·여행사·랜드사·베트남 고객)라 **신규 대화 기본 translateMode=VI**(스키마 @default OFF→VI), 기존 OFF 대화도 일괄 VI 전환. 한국 직접 고객만 개별 OFF. (원안 R2-4: SUPPLIER=VI/CUSTOMER·UNKNOWN=OFF는 폐기)
 
 - 신규 분류(TRAVEL_AGENCY/LAND_AGENCY)는 `defaultTranslateMode`에서 **SUPPLIER가 아니므로 OFF**(기존 D7.3 규칙 그대로 — 한국 여행사·랜드사 다수, 오버트랜슬레이션 방지). 별도 분기 추가 불필요.
 - **분류 변경 시 translateMode 자동 변경 안 함**(ADMIN 수동). 기존 동작 유지.

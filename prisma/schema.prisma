@@ -615,7 +615,7 @@ model ZaloConversation {
 
   // ADR-0009 (additive) — D1 상대 타입, D7 번역모드, D8 아바타, D9 별명.
   counterpartyType ZaloCounterpartyType @default(UNKNOWN) // D1 — 기존 행은 SUPPLIER 백필
-  translateMode    ZaloTranslateMode    @default(OFF) // D7 — 기존 행은 VI 백필 (SUPPLIER=VI)
+  translateMode    ZaloTranslateMode    @default(VI) // D7 개정(2026-06-18) — 베트남 상대 위주라 기본 VI(수신 vi→ko 자동). 한국 직접 고객만 개별 OFF
   avatarUrl        String? // D8 — Zalo 아바타 URL 캐시 (없으면 이니셜 폴백)
   avatarFetchedAt  DateTime? // D8 — 마지막 아바타 조회 시각 (주기 갱신 판단)
   nickname         String? // D9 — ADMIN 지정 별명 (표시 최우선, displayName 원본 보존)
