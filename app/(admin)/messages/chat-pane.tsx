@@ -1406,6 +1406,15 @@ function Composer({
   const [translating, setTranslating] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 입력창 자동 높이 — 긴 글·줄바꿈 시 textarea가 내용만큼 늘어남(모바일 좁은 칸 가독성). 최대 140px.
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const autoGrow = () => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+  };
+  useEffect(autoGrow, [text]);
 
   const previewEnabled = translateMode !== "OFF";
   const previewLabel = translateMode === "EN" ? t("previewLabelEn") : t("previewLabel");
@@ -1555,19 +1564,24 @@ function Composer({
             t={t}
             router={router}
           />
-          <input
-            type="text"
+          <textarea
+            ref={inputRef}
+            rows={1}
             value={text}
             onChange={(e) => setText(e.target.value)}
             onBlur={translate}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
+              // IME(한글·베트남어) 조합 중 Enter는 무시(오전송 방지).
+              if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+              // Shift+Enter는 줄바꿈. 데스크톱(마우스)만 Enter 전송, 터치(모바일)는 Enter=줄바꿈.
+              if (e.shiftKey) return;
+              if (window.matchMedia("(pointer: fine)").matches) {
                 e.preventDefault();
                 void send();
               }
             }}
             placeholder={t("inputPlaceholder")}
-            className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-slate-100 placeholder:text-slate-500 p-0"
+            className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-slate-100 placeholder:text-slate-500 p-0 resize-none overflow-y-auto leading-relaxed"
           />
           <button
             type="button"
