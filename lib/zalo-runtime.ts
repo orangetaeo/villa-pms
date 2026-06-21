@@ -46,6 +46,8 @@ import {
   saveOutboundEcho,
   maybeTranslateInbound,
 } from "./zalo-inbound";
+// S2 / ADR-0010 A4 — 신규 저장 직후 Nike webhook push(fire-and-forget). 리스너 무영향.
+import { pushInboundToNike } from "./zalo-webhook";
 
 export type ZaloStatus = "disconnected" | "qr_pending" | "connected" | "error";
 
@@ -650,7 +652,7 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
         void maybeRefreshAvatar(inst, senderZaloUserId);
         return;
       }
-      await saveOutboundEcho({
+      const outbound = await saveOutboundEcho({
         ownerAdminId: inst.ownerAdminId,
         senderZaloUserId,
         text,
@@ -662,6 +664,15 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
         cliMsgId,
         quote,
       });
+      // S2 / ADR-0010 A4 — 신규 저장(saved===true)일 때만 Nike webhook push(fire-and-forget, await 없음).
+      // 중복 멱등(saved:false)이면 미발송. saveOutboundEcho는 messageId 미반환 → zaloMsgId로 식별.
+      if (outbound.saved && zaloMsgId) {
+        pushInboundToNike({
+          ref: { zaloMsgId },
+          threadId: senderZaloUserId,
+          ownerAdminId: inst.ownerAdminId,
+        });
+      }
       // ADR-0009 S6 — 내가 먼저 연 대화(발신만 있는 대화)도 아바타가 채워지도록 발신 echo 후에도 lazy 갱신.
       // best-effort·비블로킹. 친구 아니면 null 폴백(avatarFetchedAt만 갱신해 재시도 억제).
       void maybeRefreshAvatar(inst, senderZaloUserId);
@@ -695,6 +706,16 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       cliMsgId,
       quote,
     });
+
+    // S2 / ADR-0010 A4 — 신규 저장(saved===true)일 때만 Nike webhook push(fire-and-forget, await 없음).
+    // 중복 멱등(saved:false)이면 미발송. messageId로 정본 1건을 식별해 push.
+    if (inbound.saved && inbound.messageId) {
+      pushInboundToNike({
+        ref: { id: inbound.messageId },
+        threadId: senderZaloUserId,
+        ownerAdminId: inst.ownerAdminId,
+      });
+    }
 
     // ADR-0009 S5 — 수신 자동번역(VI/EN만). 리스너 블로킹 금지: await 없이 fire-and-forget.
     // 자동번역은 msgType "text"이고 실제 본문이 있을 때만(스티커·음성·통화·연락처·위치 미번역).

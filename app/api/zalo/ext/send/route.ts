@@ -14,7 +14,6 @@
 //   - 응답 DTO는 채팅 발송 결과(messageId 등 최소 필드)만. ZaloAccount.credentials·villa
 //     마진/판매가/재고 모델 절대 미참조·미반환.
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import {
   sendChatMessageAsAdmin,
@@ -23,9 +22,7 @@ import {
   addReactionAsAdmin,
   REACTION_KEYS,
 } from "@/lib/zalo-runtime";
-import { getSystemBotOwnerId } from "@/lib/zalo-credentials";
-
-const SECRET_HEADER = "x-zalo-ext-secret";
+import { isExtSecretValid, resolveSystemOwnerId } from "@/lib/zalo-ext-auth";
 
 // ── 본문 스키마 (discriminated union, kind 기준) ──────────────────────
 // threadId = 발송 대상 Zalo userId(상대 스레드). ownerAdminId는 요청에서 받지 않음(서버 결정).
@@ -70,37 +67,15 @@ const bodySchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
-/** 시크릿 게이트 — timingSafeEqual 비교. env 미설정·헤더 없음·불일치 모두 false. */
-function isSecretValid(req: Request): boolean {
-  const expected = process.env.ZALO_EXT_SHARED_SECRET;
-  if (!expected) return false; // env 미설정 → 인증 불가(401). 시크릿 값 미노출.
-  const provided = req.headers.get(SECRET_HEADER);
-  if (!provided) return false;
-  const a = Buffer.from(provided, "utf8");
-  const b = Buffer.from(expected, "utf8");
-  // 길이 다르면 timingSafeEqual이 throw — 먼저 길이 비교(불일치로 처리)하되,
-  // 길이 노출 최소화를 위해 동일 길이일 때만 정밀 비교한다.
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
-
 export async function POST(req: Request) {
-  // ── A5 시크릿 게이트 (첫 줄 인증) ──
-  if (!isSecretValid(req)) {
+  // ── A5 시크릿 게이트 (첫 줄 인증) — S1·S2 공통 헬퍼 ──
+  if (!isExtSecretValid(req)) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
   // ── A5 ownerAdminId 서버 결정 (요청 파라미터 미수용) ──
   // 1순위: SYSTEM_BOT DB 동적 해석. 2순위: env ZALO_SYSTEM_OWNER_ID. 둘 다 없으면 503.
-  let ownerAdminId: string | null = null;
-  try {
-    ownerAdminId = await getSystemBotOwnerId();
-  } catch {
-    ownerAdminId = null;
-  }
-  if (!ownerAdminId) {
-    ownerAdminId = process.env.ZALO_SYSTEM_OWNER_ID ?? null;
-  }
+  const ownerAdminId = await resolveSystemOwnerId();
   if (!ownerAdminId) {
     return NextResponse.json({ error: "SYSTEM_BOT_UNAVAILABLE" }, { status: 503 });
   }
