@@ -73,12 +73,11 @@ export function Inbox({
     { key: "UNKNOWN", label: t("counterparty.unknown") },
   ];
 
+  // 너비·모바일 hide/show·우측 구분선은 ResizableSplit wrapper가 담당.
+  // 인박스는 부여받은 폭을 채우기만 한다(w-full h-full).
+  void conversationSelected; // wrapper로 책임 이전(prop 시그니처 유지 — page.tsx 호환)
   return (
-    <section
-      className={`${
-        conversationSelected ? "hidden lg:flex" : "flex"
-      } w-full lg:w-[320px] shrink-0 border-r border-slate-800 bg-slate-900 flex-col`}
-    >
+    <section className="flex w-full h-full min-w-0 bg-slate-900 flex-col">
       <div className="px-5 pt-6 pb-4 border-b border-slate-800">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-bold text-white tracking-tight">{t("title")}</h1>

@@ -16,6 +16,7 @@ import { prisma } from "@/lib/prisma";
 import { serializeBigInt } from "@/lib/serialize";
 import { isSellSideType, currencyForType } from "@/lib/zalo-counterparty";
 import { Inbox, type InboxItem } from "./inbox";
+import { ResizableSplit } from "./resizable-split";
 import {
   ChatPane,
   type ChatMessage,
@@ -427,23 +428,31 @@ export default async function MessagesPage({
   return (
     <div className="-m-4 md:-m-8 h-[calc(100vh-3.5rem)] lg:h-screen flex">
       <AutoRefresh />
-      <Inbox
-        items={inboxItems}
-        totalUnread={totalUnread}
+      {/* 인박스|채팅 리사이즈 분할 — 데스크톱에서 구분선 드래그로 좌측 너비 조절(너비 localStorage 저장) */}
+      <ResizableSplit
         conversationSelected={Boolean(selectedId)}
-      />
-      <ChatPane
-        conversationId={selectedId ?? null}
-        header={header}
-        messages={messages}
-        windowOpen={windowOpen}
-        villaCandidates={villaCandidates}
-        proposalCandidates={proposalCandidates}
-        settlementCandidates={settlementCandidates}
-        hasUnread={
-          inboxItems.find((i) => i.id === selectedId)?.unreadCount
-            ? true
-            : false
+        inbox={
+          <Inbox
+            items={inboxItems}
+            totalUnread={totalUnread}
+            conversationSelected={Boolean(selectedId)}
+          />
+        }
+        chat={
+          <ChatPane
+            conversationId={selectedId ?? null}
+            header={header}
+            messages={messages}
+            windowOpen={windowOpen}
+            villaCandidates={villaCandidates}
+            proposalCandidates={proposalCandidates}
+            settlementCandidates={settlementCandidates}
+            hasUnread={
+              inboxItems.find((i) => i.id === selectedId)?.unreadCount
+                ? true
+                : false
+            }
+          />
         }
       />
     </div>
