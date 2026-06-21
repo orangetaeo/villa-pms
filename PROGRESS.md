@@ -2,6 +2,8 @@
 
 | 날짜 | 스프린트 | 완료 내용 | 비고 |
 |---|---|---|---|
+| 2026-06-21 | S1 세션 단일화+발송 위임 구현+QA (Nike↔villa Zalo) | **S1 코드 게이트 통과(QA 독립검증 FAIL 0)**. ① **villa(허브)** 신규 `app/api/zalo/ext/send/route.ts`(POST) — 서버-서버 발송 위임. `x-zalo-ext-secret` `crypto.timingSafeEqual` 게이트(미설정/없음/불일치→401), ownerAdminId는 요청 미수신·서버에서 `getSystemBotOwnerId()`→env `ZALO_SYSTEM_OWNER_ID`로만 결정(미해석 503), 기존 sendChat{Message,Image,Reply}AsAdmin·addReactionAsAdmin 재사용(신규 발송로직 0), 응답 DTO 최소필드(ok/kind/messageId)·credential 0. 본문 zod discriminatedUnion(TEXT/IMAGE base64/REPLY/REACTION). villa 스키마 무변경. ② **Nike(C:\Projects\Nike, 별도레포·미커밋)** 신규 `src/lib/villa-ext-client.ts`(isTheoUser=`ZALO_THEO_USER_ID` 분기·미설정시 false→기존동작/villaExtSend 20s·실패 throw/reactionIconToVillaKey) + B1 zalo-pool.ts 로그인 가드 3경로(connectAllUsers continue·connectUser return false·startQRLoginForUser throw) + qr/route.ts managed_by_villa + B2 zalo.ts 3발송함수 테오 분기 위임(additive 112ins/0del). ③ **QA 판정**: 시크릿게이트·ownerAdminId주입차단·credential비노출·타관리자격리(ADR-0007)·Nike분기안전성 전부 PASS, 양레포 typecheck clean. 완료기준 9종 중 5~8 PASS, 1~4(실송수신·code3000부재)는 **배포후 항목**(테오 협조) | **배포 미실시 — 테오 액션 대기**. 배포 절대순서: villa 배포 → Nike B1(env `ZALO_THEO_USER_ID`=테오 Nike User.id 설정 후) 배포·테오 미로그인 확인 → villa `__system__` 단독 connected 확인 → Nike B2(env `VILLA_EXT_BASE_URL`+`ZALO_EXT_SHARED_SECRET`) 전환. villa env: `ZALO_EXT_SHARED_SECRET`. Nike 커밋·푸시는 테오 검토 후. vitest는 환경 Node24 비호환으로 미실행(S1 무관, Node20에서 재실행 필요). 타 세션 WIP(lib/cleaning·hold·proposal·LAUNCH.md·partB png) 비접촉, 선별 스테이징 |
+| 2026-06-18 | PM — Nike↔villa Zalo 통합 에픽 등록 + S1 착수 준비 | ADR-0010(채택·A안·풀스펙 확정)을 작업 큐에 등록(코딩 0, 문서만). ① **TASKS.md**: "신규 에픽 — Nike↔villa Zalo 통합" 섹션 추가, S1~S5를 우선순위·의존도와 함께 등록(S1=현재 스프린트 [~]). ② **S1 계약서** docs/contracts/zalo-integration-s1.md 작성(착수 선점 단독 커밋 예정): 범위(villa A1 ext/send·A5 인증격리 / Nike B1 로그인제거·B2 발송위임), 완료기준 9종(텍스트·이미지 실발송·Nike 미로그인·code 3000 무발생·시크릿 401·credential 미반환·ownerAdminId 고정·타관리자 격리·호출부 무변경), QA 검증 6단계, **수정 금지 구역**(villa: lib/cleaning·hold·proposal·INDEX.md·LAUNCH.md 등 타 세션 WIP / Nike: 별도 레포·세션 경계), 보안체크(credential 비노출·ownerAdminId 하드코딩·채팅 전용 DTO), 배포 순서 절대규칙(Nike B1 先→villa 허브 단독 확인→B2). ③ **PROGRESS 핸드오프** 갱신(아래 §Nike↔villa Zalo 통합 에픽). 확정 의사결정 기록: A안/SPOF 수용/ETL/그룹 포함/첨부 재업로드/기능 동등 | **사용자 확정사항(테오 2026-06-18)**: ① A안(villa 허브 단독, Nike는 ext API) ② SPOF 수용(villa 다운 시 양쪽 정지 트레이드오프) ③ 과거 대화 ETL 이관 ④ 그룹채팅 포함 ⑤ 첨부 바이너리 R2 재업로드 영구보존 ⑥ forward/alias/음성STT 기능 동등 구현. 코딩 0(문서만). 타 세션 WIP(lib/cleaning·hold·proposal·INDEX.md·LAUNCH.md·partB png) 비접촉 — 신규 파일(계약서)+TASKS·PROGRESS 자기행만 선별 스테이징 |
 | 2026-06-16 | T-admin-quick-date-filter | ADMIN 8개 목록 화면에 날짜 빠른 필터 바(QuickDateFilter) 추가 완료(회의→기획→디자인→구현→독립QA). ① **공유 인프라**(커밋 184f8ff): lib/date-vn에 resolveQuickRange/vnDayStartUtc/quickRangeWhere(VN UTC+7 고정·주=월요일 시작·반개구간 [from,to)·date kind=@db.Date 자정 비교/timestamp kind=−7h 오프셋) + components/admin/quick-date-filter.tsx(pill 버튼 바 `[✓전체][오늘][어제][이번주][지난주][이번달][지난달][다음달]`, ?range= 동기화, presets prop로 노출 제어) + design/stitch/quick-date-filter 디자인 레퍼런스 + i18n quickDateFilter ko/vi 9키 + 단위테스트 22건. ② **8개 페이지 연결**: 예약(checkIn,date,8종·range 우선 월대체)·정산(yearMonth 변환,월3종)·제안(createdAt,client배열필터)·검수(createdAt,RSC)·활동(createdAt,후필터)·비용경보(detectedAt,RSC)·메시지(lastMessageAt,RSC·ownerAdminId스코프)·사용자(createdAt,RSC). ③ layout.tsx ADMIN_CLIENT_NAMESPACES에 quickDateFilter 등록(client 라벨 MISSING_MESSAGE 방지). 검증: typecheck 0·next build 컴파일+타입검증 통과(manifest ENOENT는 타 세션 dev 서버 .next 점유 환경충돌)·date-vn 22건+intl 5건 green. **QA 독립평가 PASS**(블로커 0, 누수 4종 이상무 — select 화이트리스트 무변경·where만 추가). 계약: docs/contracts/T-admin-quick-date-filter.md | **범위 정정(2026-06-16 사용자 지시)**: 메시지·사용자 2곳은 날짜 버튼 불필요 → 제거(기능 이전 상태로 완전 복원, typecheck 0). 최종 적용 6곳(예약·정산·제안·검수·활동·비용경보). **후속(경미)**: activity는 loadActivityFeed(최근50건 캡) 후필터라 오래된 범위 일부 누락 가능 — 공유 로더(lib/dashboard) where 주입은 별도 태스크로. 라이브 Playwright는 타 세션 dev 서버 점유로 보류(QA 정적 통과). 타 세션 WIP(lib/cleaning·hold·proposal·prisma/schema·zalo) 비접촉, 선별 스테이징 |
 | 2026-06-16 | TDA — 채팅 상대 분류 5종 확장 (ADR-0009 개정2) | 스키마·설계·db push까지 TDA 범위 완료. ① **ADR-0009-chat-attachments.md 개정2(2026-06-16) 분류 5종 확장** 섹션 추가(R2-1~R2-6: D1 분류·D2 누수 그룹·통화 매핑·번역 기본값·메뉴 가시성·additive 판정) + 상단 개정2 라인·결과 1줄 요약. ② **schema.prisma**: ZaloCounterpartyType에 TRAVEL_AGENCY(VND)·LAND_AGENCY(VND) 추가(additive enum), 주석에 누수 그룹·통화 명시, 헤더 v1.2a. ③ **npx prisma db push** 프로덕션(Railway) DB 적용 성공 — 백필 불필요(기존 행 SUPPLIER/CUSTOMER/UNKNOWN 유지). ④ prisma generate 신규 enum 반영 확인(Windows EPERM은 엔진 DLL rename 락일 뿐 — 동일 바이너리·코드/배포 무영향, 스테일 .tmp 36개 정리). ⑤ **typecheck 0 + next build 통과**(전 라우트 컴파일, /messages·share route 정상, 빌드 차단 0) | 핫 세션 무충돌(PROGRESS.md만 갱신). **후속 인계**: ▸ BE — share/route.ts 게이트(=== CUSTOMER 단일비교 → 판매가측 그룹 판정)·handleVilla 고객경로 saleCurrency=KRW 하드코딩 제거(분류값으로 통화 결정), lib/zalo-counterparty.ts 헬퍼 권고(isSellSideType·isCostSideType·currencyForType), lib/zalo-share.ts 빌더 무변경. ▸ FE — counterparty-control.tsx 여행사·랜드사 옵션·chat-pane 첨부 메뉴 가시성 그룹 함수 기반. ▸ LOC — 분류 라벨 i18n(여행사/랜드사 ko·vi). BE/FE/LOC 후속 태스크 생성은 PM 판단 |
 | 2026-06-16 | 보안 (Phase 1) T-sec-csp-report | CSP **Report-Only** 롤아웃 + Permissions-Policy 완료(T4.9 후속 ② CSP — 안전 롤아웃). next.config.ts: Permissions-Policy(camera/mic/geolocation=() — 미사용 grep 0건 확인) + Content-Security-Policy-Report-Only(실제 소스 반영: Google Fonts·R2·picsum·googleusercontent·data, script/style unsafe-inline은 Next 인라인용·nonce화 후속) + report-uri. 신규 app/api/csp-report(위반 수신 204·로그 JSON.stringify 이스케이프로 인젝션 차단·2000 슬라이스·IP 120/10분). typecheck 0, QA 독립 평가 **통과(5/5, 결함 0)** — Report-Only 무중단·미사용기능 정확·소스 누락 0 검증. 커밋 f92fdb0. **후속: 배포 후 헤더 curl 스모크 → 리포트 관찰 → enforce 전환(nonce script-src)**. 경미 백로그: 429 Retry-After·바디 크기 한도. 계약: docs/contracts/T-sec-csp-report.md | next.config.ts clean 확인 후 추가만+즉시 커밋 |
@@ -205,3 +207,48 @@
 ### 잔여
 - **Railway 배포 후 QA Part B 4건 실측 재검증**(비품 3종 렌더·캘린더 2상태·미니바 실시간·캘린더 응답 누수). 푸시는 완료, 빌드 지연.
 - 시즌 겹침 동시성(경/정보) → IDEAS.md 등재.
+
+---
+
+## Nike↔villa Zalo 통합 에픽 — ADR-0010 채택 (2026-06-18, S1 착수 준비)
+
+### 확정 의사결정 (테오, 2026-06-18)
+- **A안 채택**: villa-pms를 Zalo 허브로 단독 보유(세션·정본 DB), Nike는 villa ext API로 송수신. "테오 세션은 villa만 WebSocket 로그인, Nike는 테오 계정 절대 미로그인" 한 문장으로 code 3000 원천 차단. A→C(별도 zalo-gw) 무중단 승격 경로 보존.
+- **SPOF 수용**: villa(허브) 다운 시 Nike 테오 송수신도 정지 — 가용성 트레이드오프 테오 명시 수용. 완화책 끊김 경보 우선.
+- **테오 계정 한정**: villa `__system__` 인스턴스(테오 SYSTEM_BOT) 1개만 대상. 다른 ADMIN_PERSONAL 계정 0 영향(ADR-0007 ownerAdminId 격리 유지).
+- **과거 대화 ETL 이관**: 통합 이전 Nike 테오 대화·메시지를 villa 정본으로 일회성 이관(S3).
+- **그룹 채팅 포함**: villa 스키마 additive 확장(ZaloThreadType enum·threadType·groupMembers Json·senderUid, S4 마이그레이션).
+- **첨부 영구 보존**: Nike DB 첨부 바이너리를 villa R2로 재업로드(originalUrl 만료 위험 회피).
+- **기능 동등**: forward·alias(=기존 nickname 매핑)·음성STT(=lib/gemini.ts 재사용) villa 동등 구현.
+
+### 참조
+- ADR: docs/decisions/ADR-0010-nike-villa-zalo-session-chat-share.md (A안·풀스펙·Nike 실사·모델 대조표·WBS·배포순서·ETL)
+- S1 계약: docs/contracts/zalo-integration-s1.md
+- 관련: ADR-0005(zca-js), ADR-0006(런타임 단일봇·instrumentation), ADR-0007(멀티풀·`__system__`·ownerAdminId 격리)
+
+### 스프린트 (의존도순)
+| 스프린트 | 작업 | 의존 | 상태 |
+|---|---|---|---|
+| **S1 세션 단일화+발송 위임** | villa A1·A5 + Nike B1·B2 | 없음(전제) | **현재 — 계약서 작성됨, QA 합의 후 착수** |
+| S2 채팅 읽기 정본+SSE | villa A2·A3·A4 + Nike B3·B4 | S1 | 대기 |
+| S3 ETL 텍스트+첨부 | 그룹 C(C1·C2, 1:1 한정) | S1 | 대기 |
+| S4 그룹 채팅 | 그룹 D(스키마 마이그레이션+UI) + A7 + B6 + C1 그룹분 | S2 | 대기 |
+| S5 forward/alias/STT | villa A6 + Nike B5 | S1(S4와 병렬 가능) | 대기 |
+
+### 다음 단계 (S1 착수 — 핸드오프)
+1. **계약서 QA 합의** — docs/contracts/zalo-integration-s1.md를 QA가 검토·합의(완료기준 9종·검증 6단계). **합의 전 코딩 금지**.
+2. **착수 선점** — 계약서 단독 커밋·푸시(`chore: zalo-integration-s1 착수 선점`)로 점유 선언.
+3. **villa 구현(BE/INTEG)**: A5(시크릿 게이트·ownerAdminId 하드코딩·credential 미반환 DTO) → A1(`POST /api/zalo/ext/send`, 기존 sendChat* 함수 재사용). villa 스키마 무변경.
+4. **Nike 구현(Nike INTEG 세션)**: B1(테오 로그인 3경로 제거) → B2(테오 발송 villa HTTP 위임). **별도 레포·세션** — villa 세션은 ext API 계약만 제공.
+5. **배포(절대 순서)**: villa A1·A5 배포 → **Nike B1 먼저** 배포·확인(테오 미로그인) → villa 허브 단독 확인 → **그 다음 Nike B2** 전환.
+6. **QA 검증**: 시크릿 401·credential 누수 0·ownerAdminId 주입 차단·세션 단일성·실송수신(테오 협조)·회귀 0.
+
+### 테오 직접 액션 (S1 배포 시)
+- **villa Railway env 추가**: `ZALO_EXT_SHARED_SECRET`(강한 랜덤), 테오 villa userId 상수 확인(현 `__system__` 소유자 `cmq9dzydp0000uk94gx0ip100`).
+- **Nike Railway env 추가**: `VILLA_EXT_BASE_URL`(=https://villa-pms-production.up.railway.app), `ZALO_EXT_SHARED_SECRET`(villa와 **동일 값**).
+- **배포 순서 협조**: B1 배포 확인 → 허브 단독 확인 → B2 전환(순서 위반 시 code 3000·밴 위험).
+- **세션·실송수신**: villa `__system__` QR 로그인 활성 상태(/settings/zalo, ADR-0006)에서 Nike UI로 테오 텍스트·이미지 발송 실측.
+
+### 수정 금지 구역 (병렬 세션 — 2026-06-18 git status 기준)
+- villa: `lib/cleaning.ts`·`lib/hold.ts`·`lib/proposal.ts`·`docs/INDEX.md`·`LAUNCH.md`·`partB-evidence-*.png` (타 세션 WIP — 비접촉)
+- Nike: 별도 레포(C:\Projects\Nike) — B1·B2는 Nike INTEG 세션 담당, villa 세션 직접 수정 금지

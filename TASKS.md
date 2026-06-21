@@ -88,6 +88,19 @@
 ## 신규 — 특수 메시지 타입 표기 (2026-06-16 테오 요구)
 - [x] **T8.6 통화·네임카드·스티커·음성 등 수신 표기** — 2026-06-16 완료. saveInboundMessage msgType 분류(classifyInbound: text/photo/file/sticker/voice/contact/call/video/location/unknown, Nike parseMessageContent 이식) + FE 타입별 카드(스티커 이미지·음성/통화/연락처/동영상/위치 라벨). vitest 802·build·QA PASS(누수 0). 백로그: attachmentUrls https 스킴 화이트리스트 — 현 saveInboundMessage msgType "text" 하드코딩 → zca-js 타입(chat.voice/sticker/recommend/contact/call/location 등) 분류·저장. Nike parseMessageContent(zalo-pool 477~) 참조. INTEG 수신 분류→FE 타입별 카드(스티커=이미지·음성/통화/네임카드=라벨)
 
+## 신규 에픽 — Nike↔villa Zalo 통합 (2026-06-18 ADR-0010 채택, A안·풀스펙 확정)
+
+> **결정(ADR-0010)**: villa-pms를 Zalo 허브로 단독 보유(세션·정본 DB), Nike는 villa ext API로 송수신. **테오 계정에만** 적용(다른 관리자 0 영향). SPOF 수용·과거 대화 ETL·그룹채팅 포함·첨부 R2 재업로드 영구보존·forward/alias/음성STT 동등 — 전부 확정.
+> **배포 순서 절대 규칙**: Nike B1(테오 로그인 중단) 먼저 배포·확인 → villa 허브 단독 보유 확인 → B2 전환. 위반 시 code 3000(밴 위험).
+> **Nike 레포 경계**: C:\Projects\Nike는 별도 프로젝트·세션. villa 세션은 ext API 계약만 제공, Nike B작업은 Nike INTEG 세션 담당.
+
+- [~] **S1 세션 단일화 + 발송 위임 (우선순위 1) — 코드완료·QA통과, 배포 대기(테오 액션)** — villa A1(`POST /api/zalo/ext/send`)·A5(인증/격리: `ZALO_EXT_SHARED_SECRET`+ownerAdminId `getSystemBotOwnerId()`/env 서버결정) + Nike B1(테오 세션 로그인 제거)·B2(발송 villa HTTP 위임). villa=BE/INTEG, Nike=INTEG. **2026-06-21 구현+QA 독립검증 통과(FAIL 0)**: villa `app/api/zalo/ext/send/route.ts` + Nike `villa-ext-client.ts`·zalo-pool 가드3경로·zalo.ts 위임(미커밋). 배포후 검증 잔여: 실송수신·code 3000 부재(10분 윈도우)·`__system__` 단독. **배포 절대순서**: villa→Nike B1(env `ZALO_THEO_USER_ID`)→허브단독확인→Nike B2(env `VILLA_EXT_BASE_URL`+`ZALO_EXT_SHARED_SECRET`). villa 스키마 무변경. **의존: 없음(통합의 전제)**. 계약: docs/contracts/zalo-integration-s1.md
+- [ ] **S2 채팅 읽기 정본 전환 + SSE (우선순위 2)** — villa A2(`GET /ext/threads`)·A3(`GET /ext/messages`)·A4(수신 webhook push) + Nike B3(채팅 읽기 villa 정본)·B4(SSE 전파 교체, webhook 수신→emitZaloMessage·poll 폴백). 완료: Nike 테오 채팅 목록·과거 메시지가 villa 정본에서 표시, 신규 수신 webhook→SSE 실시간 양쪽 반영. **의존: S1**(세션 단일화 선행)
+- [ ] **S3 ETL 텍스트 + 첨부 재업로드 (우선순위 3)** — 그룹 C(C1 Nike→villa 과거 대화 이관 스크립트·C2 첨부 바이너리 R2 재업로드, 1:1 user 스레드 한정). 멱등(zaloMsgId), quote 2-pass, 대화 메타 재계산, 첨부 멱등키 `nike-attach/{zaloMsgId}/{index}`+재시도 큐. 완료: 통합 이전 테오 1:1 대화·첨부가 villa로 멱등 이관·과거 이미지 깨짐 0. **의존: S1**(정본 가동), 가동 중 실행 가능
+- [ ] **S4 그룹 채팅 (우선순위 4)** — 그룹 D(D1 `ZaloThreadType` enum+`threadType`·D2 `groupMembers Json`·D3 `senderUid` **additive 마이그레이션, TDA 검토 선행**·D4 b14 그룹 표시 UI) + villa A7(그룹 발송·수신) + Nike B6(테오 그룹 스레드 읽기·표시) + C1 그룹분 이관. 완료: 테오 Zalo 그룹 대화가 villa에서 발신자별 표시·발송, 과거 그룹 대화 이관. **의존: S2**(읽기·SSE 위에 그룹 얹음)
+- [ ] **S5 forward/alias/음성STT 동등 (우선순위 5)** — villa A6(forward `sendChatForwardAsAdmin`·alias=기존 nickname 매핑·음성STT `lib/gemini.ts` `transcribeVoice` 재사용) + Nike B5(테오 forward/setAlias/voiceTranslations villa 위임). 완료: villa에서 forward·alias·음성 자동 STT가 Nike와 동등 동작. **의존: S1**(발송 경로). S4와 병렬 가능(독립성 높음)
+- (S6 C안 승격 — 부하·가용성 문제 발생 시에만. villa 세션 소유 코드를 zalo-gw로 분리. ext 계약 유지 → 호스트만 변경. 트리거 시 등재)
+
 ## Sprint 4 — QA·온보딩 (M2 W4)
 - [x] T4.8 (보안 Phase 1) 인증 무차별대입·가입 스팸 방어 (OPS) — 2026-06-16 완료. lib/rate-limit.ts(인메모리 슬라이딩 윈도우) + auth.ts(전화번호 5/10분·IP 20/10분 잠금) + signup(IP 10/시간). vitest 9개, QA 조건부→통과. 계약: docs/contracts/T-sec-auth-ratelimit.md. **후속 보안 백로그(비차단)**: ① clientIp XFF rightmost 보정(프로덕션 토폴로지 실측 후) ~~② HTTP 보안 헤더~~(→T4.9 완료) ③ 다중 인스턴스 시 Redis 공유 스토어
 - [x] T4.9 (보안 Phase 1) 공개 표면 하드닝 (OPS) — 2026-06-16 완료. ① 전역 HTTP 보안 헤더 5종(next.config.ts headers — HSTS·nosniff·X-Frame-Options SAMEORIGIN·Referrer-Policy strict-origin-when-cross-origin[token referrer 누수 차단]·DNS-Prefetch off) ② 공개 HOLD POST rate limit(토큰 15/10분·IP 30/10분, 429). typecheck 0, QA 독립 평가 **통과(5/5, 결함0)**. 커밋 ce55cb2·4a6e501. 계약: docs/contracts/T-sec-public-hardening.md. **비차단 후속**: 배포 후 헤더 curl 스모크(OPS), ~~CSP 추가~~(→T4.10 Report-Only 완료)
