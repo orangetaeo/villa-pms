@@ -237,6 +237,55 @@ describe("classifyInbound — 수신 메시지 타입 분류 (Nike parseMessageC
     expect(classifyInbound(null, "voip").msgType).toBe("call");
   });
 
+  // ── zca-js 실제 타입 문자열 보정 (getClientMessageType 기준) ──
+  it("chat.recommended(zca-js 실제 타입) → contact", () => {
+    const r = classifyInbound(
+      { name: "Le C", phone: "0903334444", qrCodeUrl: "https://cdn/qr2.png" },
+      "chat.recommended"
+    );
+    expect(r.msgType).toBe("contact");
+    expect(r.text).toBe("Le C");
+    expect(r.attachmentUrls).toEqual(["https://cdn/qr2.png"]);
+  });
+
+  it("chat.gif → photo(이미지류), url 추출", () => {
+    const r = classifyInbound({ href: "https://cdn/anim.gif" }, "chat.gif");
+    expect(r.msgType).toBe("photo");
+    expect(r.attachmentUrls).toEqual(["https://cdn/anim.gif"]);
+  });
+
+  it("chat.doodle(URL 있음) → photo / (URL 없음) → unknown", () => {
+    const withUrl = classifyInbound({ href: "https://cdn/draw.png" }, "chat.doodle");
+    expect(withUrl.msgType).toBe("photo");
+    expect(withUrl.attachmentUrls).toEqual(["https://cdn/draw.png"]);
+    const noUrl = classifyInbound({ params: "{}" }, "chat.doodle");
+    expect(noUrl.msgType).toBe("unknown");
+    expect(noUrl.attachmentUrls).toEqual([]);
+  });
+
+  it("chat.link → text, 제목+URL을 본문으로 (메타 필드 노출 금지)", () => {
+    const r = classifyInbound(
+      { title: "푸꾸옥 빌라", href: "https://example.com/v", action: "recommendLink" },
+      "chat.link"
+    );
+    expect(r.msgType).toBe("text");
+    expect(r.text).toContain("푸꾸옥 빌라");
+    expect(r.text).toContain("https://example.com/v");
+    expect(r.text).not.toContain("recommendLink");
+  });
+
+  it("chat.video.msg(zca-js 실제 타입) → video", () => {
+    const r = classifyInbound({ href: "https://cdn/clip.mp4" }, "chat.video.msg");
+    expect(r.msgType).toBe("video");
+    expect(r.attachmentUrls).toEqual(["https://cdn/clip.mp4"]);
+  });
+
+  it("chat.location.new(zca-js 실제 타입) → location", () => {
+    const r = classifyInbound({ address: "Phu Quoc", lat: 10.2, lon: 103.9 }, "chat.location.new");
+    expect(r.msgType).toBe("location");
+    expect(r.text).toBe("Phu Quoc");
+  });
+
   it("chat.video → video, url 추출", () => {
     const r = classifyInbound({ href: "https://cdn/clip.mp4" }, "chat.video");
     expect(r.msgType).toBe("video");

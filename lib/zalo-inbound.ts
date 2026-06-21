@@ -175,19 +175,26 @@ function pickParamsCaption(params: unknown): string {
 /**
  * 수신 메시지 타입 분류 (Nike parseMessageContent 정본 이식 — villa-pms 1:N 단순화).
  *
- * zca-js TMessage.msgType("chat.photo"·"chat.voice"·"chat.sticker"·"chat.recommend"·"chat.video"·
- * "share.file"·통화 등) + content를 받아 { msgType(컨벤션값)·text·attachmentUrls } 반환.
+ * zca-js TMessage.msgType(실제값: "chat.photo"·"chat.voice"·"chat.sticker"·"chat.recommended"·
+ * "chat.video.msg"·"chat.location.new"·"chat.gif"·"chat.doodle"·"chat.link"·"share.file" 등 —
+ * node_modules/zca-js/dist/utils.js getClientMessageType 기준) + content를 받아
+ * { msgType(컨벤션값)·text·attachmentUrls } 반환.
+ *
+ * ※ 통화(call/voip)는 zca-js가 message 이벤트로 보내지 않는다(Listener 이벤트·msgType에 부재).
+ *   call 분기는 혹시 모를 변형 타입 대비 방어적으로만 유지 — 실수신은 기대하지 않는다.
  *
  * 분기:
  *  - 텍스트(string·JSON캡션) → "text", text=본문
  *  - 사진(chat.photo, 이미지) → "photo", attachmentUrls=[url] (캡션은 text)
+ *  - GIF/낙서(chat.gif/chat.doodle) → "photo"(이미지류로 표시). doodle은 URL 없으면 unknown 폴백.
  *  - 문서(chat.photo지만 문서 확장자 / chat.file / share.file) → "file", text=파일명, attachmentUrls=[url]
- *  - 영상(chat.video / share.video) → "video", attachmentUrls=[url]
+ *  - 영상(chat.video.msg / share.video) → "video", attachmentUrls=[url]
  *  - 스티커(chat.sticker) → "sticker", attachmentUrls=[webp/정적 url]
  *  - 음성(chat.voice) → "voice", attachmentUrls=[url], text="" (FE "음성" 라벨)
- *  - 연락처/네임카드(chat.recommend/chat.todo/phone·qrCodeUrl·gUid) → "contact", text=연락처명, attachmentUrls=[qrCodeUrl?]
- *  - 통화(call/voip 류) → "call", text="" (FE "통화" 라벨)
- *  - 위치(chat.location/location/gps) → "location", text=주소(있으면), attachmentUrls=[지도url?]
+ *  - 링크(chat.link) → "text", text=제목+URL (extractText 화이트리스트 범위 내)
+ *  - 연락처/네임카드(chat.recommended/chat.todo/phone·qrCodeUrl·gUid) → "contact", text=연락처명, attachmentUrls=[qrCodeUrl?]
+ *  - 통화(call/voip 류) → "call", text="" (방어용 — zca-js는 message로 통화를 보내지 않음)
+ *  - 위치(chat.location.new/location/gps) → "location", text=주소(있으면), attachmentUrls=[지도url?]
  *  - 그 외 본문 없음 → "unknown" (FE 폴백)
  *
  * ★ extractText와 동일 원칙: action/메서드명 등 메타 필드는 절대 본문으로 새지 않는다(버그 B).
@@ -210,8 +217,9 @@ export function classifyInbound(content: unknown, zaloMsgType?: string): Classif
         if (parsed && typeof parsed === "object") {
           const po = parsed as Record<string, unknown>;
           // 연락처 JSON(phone/qrCodeUrl/gUid) — 객체 분기와 동일 처리
+          // zca-js 실제 타입은 "chat.recommended"(getClientMessageType 38) — recommended로 폴백.
           if (po.phone || po.qrCodeUrl || po.gUid) {
-            return classifyInbound(parsed, type || "chat.recommend");
+            return classifyInbound(parsed, type || "chat.recommended");
           }
           // 그 외 객체는 객체 경로로 재분류(캡션만 안전 추출)
           return classifyInbound(parsed, type);
@@ -265,6 +273,19 @@ export function classifyInbound(content: unknown, zaloMsgType?: string): Classif
     return { msgType: "photo", text: caption, attachmentUrls: url ? [url] : [] };
   }
 
+  // ── GIF / 낙서(doodle) — 이미지류로 표시 (zca-js: chat.gif=49, chat.doodle=37) ──
+  //    chat.photo와 동일 URL 패턴 재사용(애니메이션도 이미지로 렌더). 단 doodle은
+  //    낙서 데이터라 표시 가능한 URL이 없으면 unknown 폴백(빈 이미지 방지).
+  if (type === "chat.gif" || type === "chat.doodle") {
+    const url = pickStringField(o, ["href", "hdUrl", "normalUrl", "originUrl", "url", "thumb"]);
+    if (!url) {
+      return { msgType: "unknown", text: "", attachmentUrls: [] };
+    }
+    let caption = pickStringField(o, ["description", "title", "msg", "caption"]);
+    if (!caption && o.params) caption = pickParamsCaption(o.params);
+    return { msgType: "photo", text: caption, attachmentUrls: [url] };
+  }
+
   // ── 영상 ──
   if (
     type === "chat.video" ||
@@ -286,6 +307,16 @@ export function classifyInbound(content: unknown, zaloMsgType?: string): Classif
       url = fromParams;
     }
     return { msgType: "video", text: "", attachmentUrls: url ? [url] : [] };
+  }
+
+  // ── 링크(chat.link) — 제목 + URL을 본문(text)으로 (extractText 화이트리스트 범위 내) ──
+  //    링크 공유는 사람이 읽는 캡션. 제목·설명(화이트리스트)과 href(URL)를 합쳐 text로.
+  //    action/메서드명 등 메타 필드는 절대 넣지 않는다(버그 B 원칙).
+  if (type === "chat.link") {
+    const title = pickStringField(o, ["title", "description", "msg", "caption"]);
+    const linkUrl = pickStringField(o, ["href", "url"]);
+    const text = [title, linkUrl].filter((s) => s.length > 0).join("\n");
+    return { msgType: "text", text, attachmentUrls: [] };
   }
 
   // ── 파일(비이미지) ──
@@ -316,7 +347,9 @@ export function classifyInbound(content: unknown, zaloMsgType?: string): Classif
   }
 
   // ── 연락처/네임카드 ──
-  if (type === "chat.recommend" || type === "chat.todo" || o.phone || o.qrCodeUrl || o.gUid) {
+  // zca-js 실제 타입: "chat.recommended"(getClientMessageType 38). 과거 정확매칭
+  // "chat.recommend"는 미스 → includes("recommend")로 recommend·recommended 모두 포착.
+  if (type.includes("recommend") || type === "chat.todo" || o.phone || o.qrCodeUrl || o.gUid) {
     // 운영자 수신 표시용 — 저장은 이름 위주(phone은 표시용으로만 본문에 넣지 않음).
     const contactName = pickStringField(o, ["name", "displayName", "title", "zaloName"]);
     const qrCodeUrl = pickStringField(o, ["qrCodeUrl"]);

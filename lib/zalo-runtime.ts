@@ -632,6 +632,20 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       (data.msgType as string | undefined) ?? (userMsg.type as unknown as string | undefined);
     const classified = classifyInbound(userMsg.data.content, zaloMsgType);
 
+    // [진단 로깅 — 임시, 개인정보 0] 특수타입/미상일 때만 raw zca-js 타입 문자열만 기록.
+    // content 본문·전화번호 등 개인정보는 절대 로그하지 않는다(타입 문자열 ↔ 분류결과만).
+    // 테오가 통화/위치/연락처를 실제 받으면 Railway 로그에서 실제 타입을 확인해 추가 보정용.
+    if (
+      classified.msgType === "unknown" ||
+      classified.msgType === "call" ||
+      classified.msgType === "location" ||
+      classified.msgType === "contact" ||
+      classified.msgType === "video" ||
+      classified.msgType === "sticker"
+    ) {
+      console.log("[inbound-type]", zaloMsgType ?? "(none)", "->", classified.msgType);
+    }
+
     // 본문 추출(버그 B): action/메서드명 등 메타 필드는 절대 본문으로 새지 않는다.
     //  - text: 사람이 작성한 본문(분류 결과 text) — 자동번역은 type "text"이고 본문 있을 때만.
     //  - displayText: 표시·저장용. 본문 없는 첨부/리치/미상이면 중립 폴백("[알 수 없는 메시지]").
