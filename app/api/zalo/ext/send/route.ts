@@ -19,6 +19,7 @@ import {
   sendChatMessageAsAdmin,
   sendChatImageAsAdmin,
   sendChatReplyAsAdmin,
+  sendChatForwardAsAdmin,
   addReactionAsAdmin,
   REACTION_KEYS,
 } from "@/lib/zalo-runtime";
@@ -64,6 +65,21 @@ const bodySchema = z.discriminatedUnion("kind", [
       cliMsgId: z.string().min(1),
     }),
     iconKey: z.enum(REACTION_KEYS),
+  }),
+  // 전달(forward) → sendChatForwardAsAdmin. message=원본 본문 텍스트(빈값 400).
+  // reference(선택)=원본 id·ts·logSrcType·fwLvl("전달됨" 데코용 — 미보유여도 발송).
+  z.object({
+    kind: z.literal("FORWARD"),
+    threadId: z.string().min(1),
+    message: z.string().min(1).max(4000),
+    reference: z
+      .object({
+        id: z.string().min(1),
+        ts: z.number(),
+        logSrcType: z.number(),
+        fwLvl: z.number(),
+      })
+      .optional(),
   }),
 ]);
 
@@ -137,6 +153,19 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "SEND_FAILED", reason: res.error }, { status: 502 });
       }
       return NextResponse.json({ ok: true, kind: "REPLY", messageId: res.messageId });
+    }
+
+    if (body.kind === "FORWARD") {
+      const res = await sendChatForwardAsAdmin(
+        ownerAdminId,
+        body.threadId,
+        body.message,
+        body.reference
+      );
+      if (!res.ok) {
+        return NextResponse.json({ error: "SEND_FAILED", reason: res.error }, { status: 502 });
+      }
+      return NextResponse.json({ ok: true, kind: "FORWARD", messageId: res.messageId });
     }
 
     // body.kind === "REACTION"

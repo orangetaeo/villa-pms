@@ -166,3 +166,67 @@ export function previewTargetForMode(mode: "OFF" | "VI" | "EN"): TranslateTarget
   if (mode === "EN") return "en";
   return null; // OFF
 }
+
+// ===================== 음성 STT (S5 A6-3 — 수신 voice 받아쓰기) =====================
+
+/**
+ * 음성 받아쓰기 프롬프트 (Nike transcribeAudio 차용 — 번역 금지·받아쓰기만).
+ * 소스 언어는 모델 자동감지(베트남 상대 위주). 불명확/무음이면 빈 문자열.
+ */
+const STT_PROMPT = `Transcribe the audio EXACTLY as spoken, in its original language.
+Return ONLY the transcribed text. No translation, no explanation, no labels, no timestamps, no markdown.
+If the audio is unclear or silent, return an empty string.`;
+
+/**
+ * 음성 STT(받아쓰기) — Gemini generateContent에 audio inline_data로 전달 → 텍스트 반환.
+ * ocrPassport/translateText REST 패턴 복제(키 게이트·타임아웃·x-goog-api-key·thinkingBudget:0).
+ * 결과는 받아쓴 원문(번역 X). 호출부가 필요 시 translateText로 ko 번역한다.
+ *
+ * 개인정보 주의: 오디오 base64·STT 결과를 console/AuditLog에 절대 기록하지 않는다
+ * (ocrPassport 원칙 계승 — 에러는 상태 코드·메시지만).
+ *
+ * @throws GeminiNotConfiguredError 키 미설정 / Error API 실패
+ */
+export async function transcribeVoice(
+  audioBase64: string,
+  mimeType: string,
+  fetchFn: typeof fetch = fetch
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new GeminiNotConfiguredError();
+
+  if (!audioBase64 || audioBase64.trim().length === 0) return "";
+
+  const res = await fetchFn(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: STT_PROMPT },
+              { inline_data: { mime_type: mimeType, data: audioBase64 } },
+            ],
+          },
+        ],
+        // thinkingBudget:0 — 받아쓰기는 추론 불필요(번역과 동일 원칙).
+        generationConfig: { temperature: 0, thinkingConfig: { thinkingBudget: 0 } },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    // 본문에 오디오가 에코될 수 있으므로 상태 코드만 로그
+    throw new Error(`Gemini API HTTP ${res.status}`);
+  }
+
+  const data = (await res.json()) as GeminiGenerateResponse;
+  const out = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  return out.trim();
+}

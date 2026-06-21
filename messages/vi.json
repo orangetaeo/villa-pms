@@ -1289,7 +1289,8 @@
       "video": "Video",
       "openVideo": "Xem video",
       "location": "Vị trí",
-      "openMap": "Xem trên bản đồ"
+      "openMap": "Xem trên bản đồ",
+      "voiceTranscript": "Phiên âm giọng nói"
     },
     "translateMode": {
       "heading": "Ngôn ngữ dịch",

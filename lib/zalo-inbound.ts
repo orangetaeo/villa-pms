@@ -22,7 +22,10 @@ import {
   type ZaloTranslateMode,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { translateText } from "@/lib/gemini";
+import { translateText, transcribeVoice } from "@/lib/gemini";
+// S5 A6-3 — STT 결과(translatedText) 채운 뒤 동일 메시지를 Nike로 1회 재push(멱등 zaloMsgId).
+// zalo-webhook은 prisma만 의존 → 순환 import 없음.
+import { pushInboundToNike } from "@/lib/zalo-webhook";
 
 // ===================== 순수 함수 층 (단위 테스트 대상) =====================
 
@@ -648,6 +651,67 @@ export async function maybeTranslateInbound(
     // 본문 에코 방지 — 상태/메시지만 (개인정보·credential 무관)
     console.error(
       "[zalo-inbound] 수신 자동번역 실패:",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
+}
+
+/**
+ * 수신 음성 메시지 STT (S5 A6-3) — best-effort, 리스너 외부 fire-and-forget.
+ * 모드가 OFF면 호출 자체를 건너뛴다(Gemini 호출 0 — maybeTranslateInbound와 일관).
+ * VI/EN이면: voiceUrl GET → base64 → transcribeVoice(받아쓰기) → translateText(stt,"ko")
+ *   → ZaloMessage.translatedText에 저장(운영자가 음성 내용을 ko로 읽음 — 동일 필드·동일 의미).
+ * 저장 성공 후 동일 메시지를 Nike로 1회 재push(멱등 zaloMsgId — Nike가 STT 텍스트 실시간 반영).
+ *
+ * 전체 try/catch — 1건 실패(CDN 무응답·STT 실패·번역 실패·키 미설정)가 리스너·메시지에
+ * 영향 0(translatedText null 유지, 메시지 자체는 이미 저장됨, 흔적 손실 0).
+ *
+ * 개인정보 주의: 오디오 base64·STT 결과를 console에 기록하지 않는다(상태/메시지만).
+ */
+export async function maybeTranscribeVoice(
+  messageId: string,
+  voiceUrl: string | null | undefined,
+  translateMode: ZaloTranslateMode
+): Promise<void> {
+  if (translateMode === "OFF") return; // 받아쓰기 끔 — Gemini 호출 0
+  if (!voiceUrl) return; // 음성 URL 없으면 받아쓸 대상 없음
+  try {
+    // 1) 음성 파일 다운로드 (15s 타임아웃 — Nike processVoiceAutoTranslate 패턴, CDN 무응답 보호)
+    const res = await fetch(voiceUrl, { signal: AbortSignal.timeout(15_000) });
+    if (!res.ok) return; // CDN 실패 — 흔적 없이 스킵(상태/메시지만, 본문 에코 없음)
+    const arrayBuf = await res.arrayBuffer();
+    if (arrayBuf.byteLength === 0) return;
+    const audioBase64 = Buffer.from(arrayBuf).toString("base64");
+    const mimeType = res.headers.get("content-type") || "audio/mpeg";
+
+    // 2) 받아쓰기(원문) → 3) ko 번역(운영자용). 둘 중 빈 결과면 저장 스킵.
+    const stt = await transcribeVoice(audioBase64, mimeType);
+    if (!stt || stt.trim().length === 0) return;
+    const translated = await translateText(stt, "ko");
+    if (!translated || translated.trim().length === 0) return;
+
+    // 4) translatedText UPDATE (maybeTranslateInbound와 동일 필드·동일 패턴)
+    await prisma.zaloMessage.update({
+      where: { id: messageId },
+      data: { translatedText: translated },
+    });
+
+    // 5) STT 완료 후 동일 메시지 1회 재push (멱등 zaloMsgId — Nike update). 테오 스코프 확인 겸 조회.
+    const conv = await prisma.zaloMessage.findUnique({
+      where: { id: messageId },
+      select: { conversation: { select: { ownerAdminId: true, zaloUserId: true } } },
+    });
+    if (conv?.conversation) {
+      pushInboundToNike({
+        ref: { id: messageId },
+        threadId: conv.conversation.zaloUserId,
+        ownerAdminId: conv.conversation.ownerAdminId,
+      });
+    }
+  } catch (err) {
+    // 오디오·STT 결과 에코 방지 — 상태/메시지만 (실패는 swallow, 리스너 영향 0)
+    console.error(
+      "[zalo-inbound] 수신 음성 STT 실패:",
       err instanceof Error ? err.message : String(err)
     );
   }

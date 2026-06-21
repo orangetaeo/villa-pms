@@ -45,6 +45,7 @@ import {
   saveInboundMessage,
   saveOutboundEcho,
   maybeTranslateInbound,
+  maybeTranscribeVoice,
 } from "./zalo-inbound";
 // S2 / ADR-0010 A4 — 신규 저장 직후 Nike webhook push(fire-and-forget). 리스너 무영향.
 import { pushInboundToNike } from "./zalo-webhook";
@@ -729,6 +730,17 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       void maybeTranslateInbound(inbound.messageId, text, inbound.translateMode);
     }
 
+    // S5 A6-3 — 수신 음성 STT(받아쓰기→ko 번역→translatedText). 리스너 블로킹 금지: await 없이 void.
+    // INBOUND voice만(본인 발신 echo는 위 분기에서 이미 return). OFF 모드는 헬퍼 내부에서 스킵.
+    if (
+      classified.msgType === "voice" &&
+      inbound.saved &&
+      inbound.messageId &&
+      inbound.translateMode !== "OFF"
+    ) {
+      void maybeTranscribeVoice(inbound.messageId, classified.attachmentUrls[0], inbound.translateMode);
+    }
+
     // ADR-0009 S6 — 아바타 lazy 갱신(없거나 오래됐을 때만). best-effort, 비블로킹.
     void maybeRefreshAvatar(inst, senderZaloUserId);
   } catch (err) {
@@ -877,6 +889,50 @@ export async function sendChatMessageAsAdmin(
 ): Promise<BotSendResult> {
   const api = await getApiForAdmin(adminUserId);
   return sendVia(api, zaloUserId, text);
+}
+
+/**
+ * 메시지 전달(forward) — 관리자 본인 계정으로 원본 본문 텍스트를 다른 스레드에 전달 (S5 A6-1).
+ * zca-js api.forwardMessage({ message, reference? }, [targetThreadId], ThreadType.User).
+ *   - **텍스트 content 전달 전용**: payload.message(전달할 본문)가 비면 zca-js가 throw.
+ *     첨부(이미지/파일/음성)는 forwardMessage가 직접 옮기지 못한다(범위 밖).
+ *   - reference(선택): 원본 id·ts·logSrcType·fwLvl — "전달됨" 데코용. 미보유여도 동작.
+ *   - 반환 { success[], fail[] } → BotSendResult 정규화(success[0].msgId→messageId, fail→ok:false).
+ * 봇 미연결 시 ok:false(ERROR_BOT_NOT_CONNECTED). 기존 발송 함수·시그니처 무변경 — 본 함수만 신규.
+ */
+export async function sendChatForwardAsAdmin(
+  adminUserId: string,
+  targetThreadId: string,
+  message: string,
+  reference?: { id: string; ts: number; logSrcType: number; fwLvl: number }
+): Promise<BotSendResult> {
+  // 빈 본문 방어 — zca-js가 throw하기 전에 명확한 에러로 반환(첨부 forward는 범위 밖).
+  if (!message || message.trim().length === 0) {
+    return { ok: false, error: "FORWARD_EMPTY_MESSAGE" };
+  }
+  try {
+    const api = await getApiForAdmin(adminUserId);
+    if (!api) return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
+    const res = await api.forwardMessage(
+      { message, ...(reference ? { reference } : {}) },
+      [targetThreadId],
+      ThreadType.User
+    );
+    const fail = res?.fail?.[0];
+    if (fail) {
+      return {
+        ok: false,
+        error: `FORWARD_FAILED: ${fail.error_code ?? "unknown"}`.slice(0, 200),
+      };
+    }
+    const msgId = res?.success?.[0]?.msgId;
+    return { ok: true, messageId: msgId != null ? String(msgId) : null };
+  } catch (e) {
+    return {
+      ok: false,
+      error: `FORWARD_ERROR: ${e instanceof Error ? e.message : String(e)}`.slice(0, 500),
+    };
+  }
 }
 
 // ── ADR-0009 R3-2/R3-3: 답글(인용)·리액션 발송 ────────────────────

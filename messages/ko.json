@@ -1289,7 +1289,8 @@
       "video": "동영상",
       "openVideo": "동영상 보기",
       "location": "위치",
-      "openMap": "지도에서 보기"
+      "openMap": "지도에서 보기",
+      "voiceTranscript": "음성 받아쓰기"
     },
     "translateMode": {
       "heading": "번역 언어",

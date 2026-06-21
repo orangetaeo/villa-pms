@@ -1297,13 +1297,40 @@ function renderTypeCard(
       return <StickerCard urls={message.attachmentUrls} t={t} />;
     case "voice":
       return (
-        <SimpleTypeCard
-          icon="mic"
-          label={t("typeCard.voice")}
-          href={message.attachmentUrls[0] ?? null}
-          hrefLabel={t("typeCard.playVoice")}
-          inbound={inbound}
-        />
+        <div className="flex flex-col gap-1">
+          <SimpleTypeCard
+            icon="mic"
+            label={t("typeCard.voice")}
+            href={message.attachmentUrls[0] ?? null}
+            hrefLabel={t("typeCard.playVoice")}
+            inbound={inbound}
+          />
+          {/* S5 A6 — STT 자막: 음성 받아쓰기(ko)가 있으면 mic 카드 아래 한 줄로 렌더 */}
+          {message.translatedText && (
+            <div
+              className={
+                inbound
+                  ? "bg-slate-800 rounded-xl rounded-bl-sm px-3 py-2 w-[240px] max-w-full"
+                  : "bg-blue-600 rounded-xl rounded-br-sm px-3 py-2 w-[240px] max-w-full"
+              }
+            >
+              <p
+                className={`text-sm whitespace-pre-wrap break-words ${
+                  inbound ? "text-slate-200" : "text-white"
+                }`}
+              >
+                {message.translatedText}
+                <span
+                  className={`text-[9px] font-bold ml-1.5 align-middle ${
+                    inbound ? "text-slate-500" : "text-blue-100/70"
+                  }`}
+                >
+                  {t("typeCard.voiceTranscript")}
+                </span>
+              </p>
+            </div>
+          )}
+        </div>
       );
     case "call":
       return <SimpleTypeCard icon="call" label={t("typeCard.call")} inbound={inbound} />;
