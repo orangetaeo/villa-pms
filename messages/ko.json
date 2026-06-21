@@ -1311,6 +1311,7 @@
       "you": "나",
       "replyingTo": "{name}에게 답글",
       "fileFallback": "[파일]",
+      "jumpToOriginal": "원본 메시지로 이동",
       "notSupported": "과거 메시지에는 답글을 보낼 수 없습니다."
     },
     "react": {

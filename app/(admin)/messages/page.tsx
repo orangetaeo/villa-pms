@@ -216,6 +216,9 @@ export default async function MessagesPage({
             attachmentUrls: true,
             status: true,
             createdAt: true,
+            // 인용 점프(Nike) — 자기 zaloMsgId(점프 앵커)와 인용 대상 zaloMsgId. id·msgId만, 누수 무관.
+            zaloMsgId: true,
+            quotedMsgId: true,
             // ADR-0009 R3-2/R3-3 — 답글 인용 스냅샷 + 리액션 집계(둘 다 누수 무관: 본문/아이콘 카운트만)
             quotedText: true,
             quotedSender: true,
@@ -268,6 +271,9 @@ export default async function MessagesPage({
           dayDivider: divider,
           avatarUrl: isInboundAvatar,
           initials: isInboundInitials,
+          // 인용 점프(Nike) — 자기 앵커 zaloMsgId + 인용 대상 zaloMsgId(인용 클릭 시 원본으로 스크롤).
+          zaloMsgId: m.zaloMsgId,
+          quotedMsgId: m.quotedMsgId,
           // 답글 인용 스냅샷(자기 화면 표시 — R3-2). 둘 중 하나라도 있으면 인용 블록 렌더.
           quotedText: m.quotedText,
           quotedSender: m.quotedSender,

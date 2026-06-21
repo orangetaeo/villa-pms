@@ -1311,6 +1311,7 @@
       "you": "Bạn",
       "replyingTo": "Trả lời {name}",
       "fileFallback": "[Tệp]",
+      "jumpToOriginal": "Đến tin nhắn gốc",
       "notSupported": "Không thể trả lời tin nhắn cũ."
     },
     "react": {

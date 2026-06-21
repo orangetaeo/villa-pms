@@ -78,6 +78,10 @@ export interface ChatMessage {
   dayDivider: string | null;
   avatarUrl: string | null;
   initials: string;
+  // 인용 점프(Nike) — zaloMsgId는 이 버블의 점프 앵커, quotedMsgId는 인용 대상 원본의 zaloMsgId.
+  // 둘이 일치하면 인용 클릭 시 원본으로 스크롤+하이라이트(없으면 인용 블록은 비클릭 스냅샷만).
+  zaloMsgId: string | null;
+  quotedMsgId: string | null;
   // 답글 인용 스냅샷(R3-2) — 둘 중 하나라도 있으면 버블 위 인용 블록 렌더.
   quotedText: string | null;
   quotedSender: string | null;
@@ -133,6 +137,10 @@ export interface SettlementCandidate {
 // (props 드릴링 회피 + 라이트박스 오버레이는 z-index/스크롤잠금 위해 ChatPane에서 렌더)
 const LightboxContext = createContext<((urls: string[], startIndex: number) => void) | null>(null);
 
+// 인용 클릭 → 원본 메시지로 스크롤+하이라이트(Nike). props 드릴링 회피용 컨텍스트.
+// 인자는 인용 대상 원본의 zaloMsgId. 현재 로드 범위에 없으면 무동작(폴백).
+const QuoteJumpContext = createContext<((targetMsgId: string) => void) | null>(null);
+
 export function ChatPane({
   conversationId,
   header,
@@ -186,6 +194,24 @@ export function ChatPane({
     el.scrollTo({ top: el.scrollHeight, behavior });
     atBottomRef.current = true;
     setShowNewMsg(false);
+  }, []);
+
+  // 인용 클릭 → 원본 메시지로 스크롤+하이라이트(Nike 방식). targetMsgId = 원본 zaloMsgId.
+  // 원본이 현재 로드 범위에 있으면 가운데로 스크롤 후 2초 링 하이라이트. 없으면(과거) 무동작.
+  // 복귀(맨 아래)는 사용자가 직접 스크롤하거나 답글 전송 시 기존 justSent 로직이 담당.
+  const scrollToMessage = useCallback((targetMsgId: string) => {
+    const root = threadRef.current;
+    if (!root || !targetMsgId) return;
+    const el = root.querySelector<HTMLElement>(
+      `[data-msg-id="${CSS.escape(targetMsgId)}"]`
+    );
+    if (!el) return; // 현재 범위 밖(과거 메시지) — 폴백: 무동작
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    // 잠깐 하이라이트(Nike: ring 2초). 다크 톤 — blue 링.
+    el.classList.add("ring-2", "ring-blue-500/60", "rounded-xl");
+    window.setTimeout(() => {
+      el.classList.remove("ring-2", "ring-blue-500/60", "rounded-xl");
+    }, 2000);
   }, []);
 
   // 스크롤 위치 추적 — 하단 근처면 atBottom, 아니면(과거 열람 중) 자동 스크롤 보류.
@@ -266,6 +292,7 @@ export function ChatPane({
 
   return (
     <LightboxContext.Provider value={openLightbox}>
+      <QuoteJumpContext.Provider value={scrollToMessage}>
       <section className="flex-1 flex flex-col bg-[#0F172A] min-w-0">
         <ChatHeaderBar conversationId={conversationId} header={header} t={t} router={router} />
 
@@ -331,6 +358,7 @@ export function ChatPane({
           router={router}
         />
       </section>
+      </QuoteJumpContext.Provider>
 
       {/* 라이트박스 — 최상위 z-index, 배경/X/ESC 닫기 */}
       {lightbox && (
@@ -628,30 +656,51 @@ function MessageBubble({
   );
 }
 
-/** 답글 인용 블록 — 버블 위 작은 회색 박스(보낸이 + 본문 1~2줄). b14 slate 톤. */
+/** 답글 인용 블록 — 버블 위 작은 회색 박스(보낸이 + 본문 1~2줄). b14 slate 톤.
+ *  targetMsgId(인용 대상 원본 zaloMsgId)가 있고 그 원본이 현재 로드 범위에 있으면
+ *  클릭 시 원본으로 스크롤+하이라이트(Nike). 범위 밖이면 클릭해도 무동작이므로 비클릭 표시. */
 function QuotedBlock({
   sender,
   text,
   align,
+  targetMsgId,
   t,
 }: {
   sender: string | null;
   text: string;
   align: "left" | "right";
+  targetMsgId: string | null;
   t: ReturnType<typeof useTranslations>;
 }) {
-  return (
-    <div
-      className={`mb-1 max-w-full rounded-lg border-l-2 border-slate-600 bg-slate-800/60 px-2.5 py-1.5 ${
-        align === "right" ? "ml-auto text-left" : "text-left"
-      }`}
-    >
-      <p className="text-[10px] font-bold text-slate-400 truncate">
-        {sender ?? t("reply.you")}
-      </p>
+  const jump = useContext(QuoteJumpContext);
+  // 원본이 현재 화면에 렌더돼 있을 때만 클릭 가능(Nike와 동일 — 없으면 점프 불가).
+  const canJump =
+    !!jump &&
+    !!targetMsgId &&
+    typeof document !== "undefined" &&
+    !!document.querySelector(`[data-msg-id="${CSS.escape(targetMsgId)}"]`);
+  const base = `mb-1 max-w-full rounded-lg border-l-2 border-slate-600 bg-slate-800/60 px-2.5 py-1.5 ${
+    align === "right" ? "ml-auto text-left" : "text-left"
+  }`;
+  const inner = (
+    <>
+      <p className="text-[10px] font-bold text-slate-400 truncate">{sender ?? t("reply.you")}</p>
       <p className="text-[11px] text-slate-400 line-clamp-2 break-words">{text}</p>
-    </div>
+    </>
   );
+  if (canJump) {
+    return (
+      <button
+        type="button"
+        onClick={() => targetMsgId && jump?.(targetMsgId)}
+        title={t("reply.jumpToOriginal")}
+        className={`${base} block w-full cursor-pointer transition-colors hover:bg-slate-700/60`}
+      >
+        {inner}
+      </button>
+    );
+  }
+  return <div className={base}>{inner}</div>;
 }
 
 /** 메시지 hover 액션(답글·리액션) — 버블 옆 작은 버튼군. 리액션은 6종 picker. */
@@ -876,7 +925,10 @@ function InboundBubble({
   // 특수 타입(sticker/voice/call/contact/video/location) 카드 — 발·수신 공통 분기 재사용.
   const typeCard = renderTypeCard(message, true, t);
   return (
-    <div className="group flex items-end gap-2 max-w-[80%]">
+    <div
+      data-msg-id={message.zaloMsgId ?? undefined}
+      className="group flex items-end gap-2 max-w-[80%] transition-shadow"
+    >
       <InboundAvatar message={message} />
       <div className="min-w-0">
         {(message.quotedText || message.quotedSender) && (
@@ -884,6 +936,7 @@ function InboundBubble({
             sender={message.quotedSender}
             text={message.quotedText ?? ""}
             align="left"
+            targetMsgId={message.quotedMsgId}
             t={t}
           />
         )}
@@ -1050,13 +1103,17 @@ function OutboundBubble({
   }
 
   return (
-    <div className="group flex justify-end">
+    <div
+      data-msg-id={message.zaloMsgId ?? undefined}
+      className="group flex justify-end transition-shadow"
+    >
       <div className={`${maxW} text-right min-w-0`}>
         {(message.quotedText || message.quotedSender) && (
           <QuotedBlock
             sender={message.quotedSender}
             text={message.quotedText ?? ""}
             align="right"
+            targetMsgId={message.quotedMsgId}
             t={t}
           />
         )}
