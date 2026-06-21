@@ -118,7 +118,10 @@ export default async function MessagesPage({
   // 인박스 — 마진·금액 필드 미조회(누수 차단). 본인 대화만. 연결된 사용자명/빌라명만.
   const conversations = await prisma.zaloConversation.findMany({
     where: { ownerAdminId },
-    orderBy: [{ lastMessageAt: "desc" }, { createdAt: "desc" }],
+    orderBy: [
+      { lastMessageAt: { sort: "desc", nulls: "last" } },
+      { createdAt: "desc" },
+    ],
     select: {
       id: true,
       displayName: true,
