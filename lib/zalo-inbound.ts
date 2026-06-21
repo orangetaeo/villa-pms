@@ -173,6 +173,51 @@ function pickParamsCaption(params: unknown): string {
 }
 
 /**
+ * Zalo 통화 시스템 텍스트인지 판정 (실데이터 휴리스틱).
+ *
+ * zca-js/Zalo는 통화 기록을 별도 msgType 없이 본문 text로 보낸다(베트남어):
+ *  - "Cuộc gọi"(통화), "Cuộc gọi nhỡ"(부재중), "Cuộc gọi thoại"(음성통화), "Cuộc gọi video"(영상통화) 등.
+ *
+ * 오판 최소화 원칙(매우 보수적):
+ *  - **trim 전체가** 통화 패턴일 때만 true. 일반 대화가 우연히 "Cuộc gọi"로 시작하는 경우
+ *    ("Cuộc gọi 잘 받았어요")까지 통화로 보면 안 되므로, 열린 시작 매칭(prefix)이 아니라
+ *    **알려진 통화 라벨의 정확(trim 전체) 매칭 + 단독 "Cuộc gọi" + 알려진 접미사 변형**만 인정한다.
+ *  - 베트남어(실데이터): "Cuộc gọi"(통화), "Cuộc gọi nhỡ"(부재중), "Cuộc gọi đi"(발신),
+ *    "Cuộc gọi đến"(수신), "Cuộc gọi thoại"(음성), "Cuộc gọi video"(영상), "Cuộc gọi không thành công"
+ *    /"Cuộc gọi bị nhỡ"(실패·부재) 등 — 알려진 변형 목록(정확 매칭).
+ *  - 다국어 대비는 명백한 단독 케이스만(과확장 금지): 한국어 "통화"/"영상 통화"/"음성 통화"/
+ *    "부재중 통화", 영어 "Call"/"Missed call"/"Voice call"/"Video call".
+ */
+const CALL_SYSTEM_LABELS = new Set<string>([
+  // ── 베트남어 (실데이터) ──
+  "cuộc gọi",
+  "cuộc gọi nhỡ",
+  "cuộc gọi đi",
+  "cuộc gọi đến",
+  "cuộc gọi thoại",
+  "cuộc gọi video",
+  "cuộc gọi bị nhỡ",
+  "cuộc gọi không thành công",
+  // ── 한국어 ──
+  "통화",
+  "영상 통화",
+  "음성 통화",
+  "부재중 통화",
+  // ── 영어 ──
+  "call",
+  "missed call",
+  "voice call",
+  "video call",
+]);
+
+export function isCallSystemText(text: unknown): boolean {
+  if (typeof text !== "string") return false;
+  const trimmed = text.trim();
+  if (trimmed.length === 0) return false;
+  return CALL_SYSTEM_LABELS.has(trimmed.toLowerCase());
+}
+
+/**
  * 수신 메시지 타입 분류 (Nike parseMessageContent 정본 이식 — villa-pms 1:N 단순화).
  *
  * zca-js TMessage.msgType(실제값: "chat.photo"·"chat.voice"·"chat.sticker"·"chat.recommended"·
@@ -205,6 +250,16 @@ export function classifyInbound(content: unknown, zaloMsgType?: string): Classif
 
   // ── 통화: content 유무와 무관하게 타입만으로 판정(본문 없음) ──
   if (type.includes("call") || type.includes("voip")) {
+    return { msgType: "call", text: "", attachmentUrls: [] };
+  }
+
+  // ── 통화 텍스트 휴리스틱 (실데이터: zca-js는 통화를 별도 msgType 없이 본문 text="Cuộc gọi"로 보냄) ──
+  //    문자열 content의 trim 전체가 알려진 Zalo 통화 시스템 라벨일 때만 call로 분류(오판 최소화).
+  //    "Cuộc gọi", "Cuộc gọi nhỡ"(부재중), "Cuộc gọi thoại"/"Cuộc gọi video"(음성/영상) 등 →
+  //    isCallSystemText가 알려진 라벨 정확(trim 전체) 매칭만 수행. 문장 중간/시작에 "Cuộc gọi"가
+  //    섞인 일반 대화("Cuộc gọi 잘 받았어요")는 통화로 보지 않음.
+  //    call로 분류되면 text=""·attachmentUrls=[]로 반환해 chat-pane이 통화 아이콘+라벨을 렌더한다.
+  if (typeof content === "string" && isCallSystemText(content)) {
     return { msgType: "call", text: "", attachmentUrls: [] };
   }
 

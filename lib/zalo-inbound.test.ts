@@ -11,6 +11,7 @@ import {
   parseZaloTs,
   buildInboundKey,
   classifyInbound,
+  isCallSystemText,
 } from "./zalo-inbound";
 
 describe("extractText — content 타입별 안전 파싱 (버그 B)", () => {
@@ -237,6 +238,36 @@ describe("classifyInbound — 수신 메시지 타입 분류 (Nike parseMessageC
     expect(classifyInbound(null, "voip").msgType).toBe("call");
   });
 
+  // ── 통화 텍스트 휴리스틱 (zca-js는 통화를 본문 text="Cuộc gọi"로 보냄) ──
+  it("통화 텍스트 'Cuộc gọi'(text 타입) → call, text·attachmentUrls 비움", () => {
+    const r = classifyInbound("Cuộc gọi", "webchat");
+    expect(r.msgType).toBe("call");
+    expect(r.text).toBe("");
+    expect(r.attachmentUrls).toEqual([]);
+  });
+
+  it("'Cuộc gọi nhỡ'(부재중) / 'Cuộc gọi thoại' / 'Cuộc gọi video' → call", () => {
+    expect(classifyInbound("Cuộc gọi nhỡ", undefined).msgType).toBe("call");
+    expect(classifyInbound("Cuộc gọi thoại", "webchat").msgType).toBe("call");
+    expect(classifyInbound("Cuộc gọi video", "webchat").msgType).toBe("call");
+  });
+
+  it("앞뒤 공백이 있어도 trim 후 통화 패턴이면 call", () => {
+    expect(classifyInbound("  Cuộc gọi  ", undefined).msgType).toBe("call");
+  });
+
+  it("문장 중간에 'Cuộc gọi'가 섞이면 통화로 오판하지 않음 → text(본문 보존)", () => {
+    const r = classifyInbound("Cuộc gọi 잘 받았어요", "webchat");
+    expect(r.msgType).toBe("text");
+    expect(r.text).toBe("Cuộc gọi 잘 받았어요");
+  });
+
+  it("'Cuộc gọi' 단어가 본문 안쪽에 있는 일반 대화도 text", () => {
+    const r = classifyInbound("Tôi sẽ Cuộc gọi cho bạn", undefined);
+    expect(r.msgType).toBe("text");
+    expect(r.text).toBe("Tôi sẽ Cuộc gọi cho bạn");
+  });
+
   // ── zca-js 실제 타입 문자열 보정 (getClientMessageType 기준) ──
   it("chat.recommended(zca-js 실제 타입) → contact", () => {
     const r = classifyInbound(
@@ -308,6 +339,39 @@ describe("classifyInbound — 수신 메시지 타입 분류 (Nike parseMessageC
     const r = classifyInbound({ action: "sendBubbleMessage", title: "공지" }, "chat.bubble");
     expect(r.msgType).toBe("text");
     expect(r.text).toBe("공지");
+  });
+});
+
+describe("isCallSystemText — Zalo 통화 시스템 텍스트 판정(오판 최소화)", () => {
+  it("베트남어 통화 텍스트는 시작 매칭으로 true", () => {
+    expect(isCallSystemText("Cuộc gọi")).toBe(true);
+    expect(isCallSystemText("Cuộc gọi nhỡ")).toBe(true);
+    expect(isCallSystemText("Cuộc gọi thoại")).toBe(true);
+    expect(isCallSystemText("Cuộc gọi video")).toBe(true);
+    expect(isCallSystemText("cuộc gọi")).toBe(true); // 대소문자 무시
+    expect(isCallSystemText("  Cuộc gọi  ")).toBe(true); // trim
+  });
+
+  it("문장 중간/안쪽에 'Cuộc gọi'가 섞이면 false(과매칭 방지)", () => {
+    expect(isCallSystemText("Cuộc gọi 잘 받았어요")).toBe(false);
+    expect(isCallSystemText("Tôi sẽ Cuộc gọi cho bạn")).toBe(false);
+    expect(isCallSystemText("Cuộc gọihello")).toBe(false); // 단어 경계 없음
+  });
+
+  it("명백한 단독 다국어 라벨은 정확 매칭으로 true", () => {
+    expect(isCallSystemText("통화")).toBe(true);
+    expect(isCallSystemText("영상 통화")).toBe(true);
+    expect(isCallSystemText("Missed call")).toBe(true);
+    expect(isCallSystemText("call")).toBe(true);
+  });
+
+  it("일반 대화·빈 값·비문자열은 false", () => {
+    expect(isCallSystemText("Xin chào")).toBe(false);
+    expect(isCallSystemText("통화 잘 했어요")).toBe(false); // 정확 매칭이라 false
+    expect(isCallSystemText("")).toBe(false);
+    expect(isCallSystemText("   ")).toBe(false);
+    expect(isCallSystemText(null)).toBe(false);
+    expect(isCallSystemText(123)).toBe(false);
   });
 });
 
