@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { startTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 /**
@@ -8,17 +8,21 @@ import { useRouter } from "next/navigation";
  * 주기적으로 router.refresh()해 인박스·대화 스레드를 새로 가져온다.
  * 탭이 백그라운드일 땐 폴링을 멈춰 불필요한 부하·발송량을 줄인다.
  * (실시간 SSE는 Phase 2 — 단순 폴링이 봇 1:N·관리자 소수 규모엔 충분)
+ *
+ * 성능(반응성): router.refresh()를 startTransition으로 감싸 "비긴급(저우선)"으로 처리한다.
+ * 5초 폴링의 서버 재렌더가 입력·스크롤·탭 같은 사용자 상호작용을 막지 않아 머뭇거림이 사라진다.
  */
 export function AutoRefresh({ intervalMs = 5000 }: { intervalMs?: number }) {
   const router = useRouter();
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
+    const refresh = () => startTransition(() => router.refresh());
 
     const start = () => {
       if (timer) return;
       timer = setInterval(() => {
-        if (document.visibilityState === "visible") router.refresh();
+        if (document.visibilityState === "visible") refresh();
       }, intervalMs);
     };
     const stop = () => {
@@ -30,7 +34,7 @@ export function AutoRefresh({ intervalMs = 5000 }: { intervalMs?: number }) {
 
     const onVisibility = () => {
       if (document.visibilityState === "visible") {
-        router.refresh(); // 탭 복귀 즉시 1회 갱신
+        refresh(); // 탭 복귀 즉시 1회 갱신(비블로킹)
         start();
       } else {
         stop();

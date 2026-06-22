@@ -4,6 +4,7 @@
 // ADR-0009: 아바타 img+이니셜 폴백(D8), 상대 타입 배지·필터 칩(D1).
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { CounterpartyType } from "./chat-pane";
 import { CounterpartyBadge } from "./counterparty-badge";
@@ -52,6 +53,7 @@ export function Inbox({
   conversationSelected: boolean;
 }) {
   const t = useTranslations("adminMessages");
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("ALL");
 
@@ -126,6 +128,8 @@ export function Inbox({
             <Link
               key={item.id}
               href={`/messages?c=${item.id}`}
+              // 탭 직전 해당 대화 데이터를 미리 가져와(prefetch) 열 때 머뭇거림 제거.
+              onPointerDown={() => router.prefetch(`/messages?c=${item.id}`)}
               aria-current={item.selected ? "true" : undefined}
               className={
                 item.selected
