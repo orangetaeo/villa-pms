@@ -760,8 +760,10 @@ function MessageActions({
   }
 
   return (
+    // 데스크톱(호버 가능): 평소 숨김 → 메시지 호버 시 노출(기존 UX 유지).
+    // 터치 기기(pointer: coarse): 호버가 없으므로 상시 노출 — 답글·리액션 접근성 확보.
     <div
-      className={`relative flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ${
+      className={`relative flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100 transition-opacity ${
         align === "right" ? "flex-row-reverse" : ""
       }`}
     >
@@ -941,7 +943,13 @@ function InboundBubble({
           />
         )}
         {message.msgType === "photo" && message.attachmentUrls.length > 0 ? (
-          <PhotoCard urls={message.attachmentUrls} caption={message.text} inbound />
+          <PhotoCard
+            urls={message.attachmentUrls}
+            caption={message.text}
+            inbound
+            translatedText={showTranslation ? message.translatedText : null}
+            transcriptLabel={t("typeCard.photoTranscript")}
+          />
         ) : message.msgType === "file" ? (
           <FileCard
             fileName={message.text}
@@ -1165,10 +1173,16 @@ function PhotoCard({
   urls,
   caption,
   inbound = false,
+  translatedText,
+  transcriptLabel,
 }: {
   urls: string[];
   caption: string;
   inbound?: boolean;
+  /** 이미지 OCR 번역 결과(ko) — 있으면 사진 아래 자막으로 표시. 수신 photo만 채워짐. */
+  translatedText?: string | null;
+  /** 자막 라벨(t("typeCard.photoTranscript")) — translatedText 있을 때만 사용. */
+  transcriptLabel?: string;
 }) {
   const openLightbox = useContext(LightboxContext);
   const wrap = inbound
@@ -1198,6 +1212,17 @@ function PhotoCard({
         )}
       </button>
       {caption && <p className={`text-xs px-2 py-1.5 ${captionColor}`}>{caption}</p>}
+      {/* 이미지 OCR 번역 자막 — caption 아래 한 줄(voice STT 자막과 동일 패턴). 수신 photo만 표시. */}
+      {translatedText && (
+        <p className={`text-xs px-2 pb-1.5 ${captionColor} whitespace-pre-wrap break-words`}>
+          {translatedText}
+          {transcriptLabel && (
+            <span className="text-[9px] font-bold ml-1.5 align-middle opacity-70">
+              {transcriptLabel}
+            </span>
+          )}
+        </p>
+      )}
     </div>
   );
 }

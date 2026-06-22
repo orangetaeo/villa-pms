@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 const config: Config = {
   content: [
@@ -43,7 +44,13 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // 터치(coarse 포인터) 기기 분기 변형. 채팅 메시지 액션(답글·리액션) 버튼을
+    // 호버가 없는 모바일/태블릿에서 상시 노출(`pointer-coarse:opacity-100`)하는 데 사용.
+    plugin(({ addVariant }) => {
+      addVariant("pointer-coarse", "@media (pointer: coarse)");
+    }),
+  ],
 };
 
 export default config;

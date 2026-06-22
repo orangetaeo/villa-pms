@@ -230,3 +230,80 @@ export async function transcribeVoice(
   const out = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
   return out.trim();
 }
+
+// ===================== 이미지 OCR 번역 (수신 photo 자막 — Nike ocrTranslateImage 차용) =====================
+
+/**
+ * 이미지 OCR 번역 프롬프트 (Nike ocrTranslateImage 차용 — 추출 후 번역, 번역문만 반환).
+ * 소스 언어는 모델 자동감지. 텍스트가 없으면 빈 문자열(자막 미표시).
+ * 제품/빌라명·숫자·가격·전화·날짜는 원형 유지, 줄바꿈 보존.
+ */
+const IMAGE_OCR_PROMPT_PREFIX = `You are an image OCR translator for a chat between a Korean operator and Vietnamese suppliers/guests.
+
+Rules:
+- Extract ALL visible text from this image.
+- Translate the extracted text into`;
+const IMAGE_OCR_PROMPT_SUFFIX = `.
+- Output ONLY the translated text. No explanations, labels, quotes, or markdown.
+- Keep proper nouns (villa/complex names), numbers, prices, sizes, phone numbers, and dates exactly as they are.
+- Keep emoji and special characters as they are.
+- If no text is found in the image, return an empty string.
+- If the text is already in the target language, return it unchanged.
+- Preserve line breaks where appropriate.`;
+
+/**
+ * 이미지 속 텍스트 OCR → 지정 언어 번역 — Gemini generateContent에 image inline_data로 전달.
+ * ocrPassport(이미지 inline_data) + translateText(번역 프롬프트) REST 패턴 복제
+ * (키 게이트·타임아웃·x-goog-api-key·thinkingBudget:0). 텍스트 없으면 모델이 빈 문자열 반환.
+ *
+ * 개인정보 주의: 이미지 base64·OCR 결과를 console/AuditLog에 절대 기록하지 않는다
+ * (ocrPassport 원칙 계승 — 에러는 상태 코드·메시지만).
+ *
+ * @throws GeminiNotConfiguredError 키 미설정 / Error API 실패
+ */
+export async function translateImage(
+  imageBase64: string,
+  mimeType: string,
+  target: TranslateTarget,
+  fetchFn: typeof fetch = fetch
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new GeminiNotConfiguredError();
+
+  if (!imageBase64 || imageBase64.trim().length === 0) return "";
+
+  const prompt = `${IMAGE_OCR_PROMPT_PREFIX} ${TARGET_LABEL[target]}${IMAGE_OCR_PROMPT_SUFFIX}`;
+
+  const res = await fetchFn(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: mimeType, data: imageBase64 } },
+            ],
+          },
+        ],
+        // thinkingBudget:0 — OCR+짧은 번역은 추론 불필요(translateText와 동일 원칙).
+        generationConfig: { temperature: 0.2, thinkingConfig: { thinkingBudget: 0 } },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    // 본문에 이미지가 에코될 수 있으므로 상태 코드만 로그
+    throw new Error(`Gemini API HTTP ${res.status}`);
+  }
+
+  const data = (await res.json()) as GeminiGenerateResponse;
+  const out = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  return out.trim();
+}

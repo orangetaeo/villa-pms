@@ -1290,7 +1290,8 @@
       "openVideo": "Xem video",
       "location": "Vị trí",
       "openMap": "Xem trên bản đồ",
-      "voiceTranscript": "Phiên âm giọng nói"
+      "voiceTranscript": "Phiên âm giọng nói",
+      "photoTranscript": "Dịch ảnh"
     },
     "translateMode": {
       "heading": "Ngôn ngữ dịch",

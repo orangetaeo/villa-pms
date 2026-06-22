@@ -46,6 +46,7 @@ import {
   saveOutboundEcho,
   maybeTranslateInbound,
   maybeTranscribeVoice,
+  maybeTranslatePhoto,
 } from "./zalo-inbound";
 // S2 / ADR-0010 A4 — 신규 저장 직후 Nike webhook push(fire-and-forget). 리스너 무영향.
 import { pushInboundToNike } from "./zalo-webhook";
@@ -753,6 +754,17 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       inbound.translateMode !== "OFF"
     ) {
       void maybeTranscribeVoice(inbound.messageId, classified.attachmentUrls[0], inbound.translateMode);
+    }
+
+    // 수신 사진 OCR 번역(이미지 속 글자→ko). 리스너 블로킹 금지: await 없이 void.
+    // INBOUND photo만(본인 발신 echo는 위 분기에서 이미 return). OFF 모드는 헬퍼 내부에서 스킵.
+    if (
+      classified.msgType === "photo" &&
+      inbound.saved &&
+      inbound.messageId &&
+      inbound.translateMode !== "OFF"
+    ) {
+      void maybeTranslatePhoto(inbound.messageId, classified.attachmentUrls[0], inbound.translateMode);
     }
 
     // ADR-0009 S6 — 아바타 lazy 갱신(없거나 오래됐을 때만). best-effort, 비블로킹.
