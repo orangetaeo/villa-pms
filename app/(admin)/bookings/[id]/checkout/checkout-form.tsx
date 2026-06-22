@@ -468,11 +468,22 @@ export default function CheckoutForm({
             <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
-                className="sr-only peer"
+                className="sr-only"
                 checked={damageFound}
                 onChange={(e) => setDamageFound(e.target.checked)}
               />
-              <div className="w-11 h-6 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-admin-primary" />
+              {/* 켜짐 표시를 React 상태(damageFound)가 직접 제어 — peer-checked CSS 의존 제거 */}
+              <span
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                  damageFound ? "bg-admin-primary" : "bg-slate-700"
+                }`}
+              >
+                <span
+                  className={`absolute top-[2px] h-5 w-5 rounded-full border bg-white transition-transform ${
+                    damageFound ? "translate-x-[22px] border-white" : "translate-x-[2px] border-gray-300"
+                  }`}
+                />
+              </span>
             </label>
             <span className="text-sm px-4 font-bold text-white whitespace-nowrap">
               {damageFound ? "ON" : "OFF"}

@@ -218,15 +218,25 @@ function ToggleRow({
         </div>
         <span className="font-medium text-neutral-800">{label}</span>
       </div>
-      <div className="relative inline-flex cursor-pointer items-center">
+      {/* 켜짐 표시를 React 상태(checked)가 직접 제어 — peer-checked CSS 의존 제거
+          (숨겨진 체크박스 :checked 선택자에 기대면 환경에 따라 노브가 안 움직이는 버그가 있었음) */}
+      <span
+        className={`relative inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors ${
+          checked ? "bg-teal-600" : "bg-neutral-200"
+        }`}
+      >
         <input
           type="checkbox"
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
-          className="peer sr-only"
+          className="sr-only"
         />
-        <div className="peer h-8 w-14 rounded-full bg-neutral-200 after:absolute after:start-[4px] after:top-[4px] after:h-6 after:w-6 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-teal-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none" />
-      </div>
+        <span
+          className={`absolute top-1 h-6 w-6 rounded-full border bg-white shadow transition-transform ${
+            checked ? "translate-x-7 border-white" : "translate-x-1 border-gray-300"
+          }`}
+        />
+      </span>
     </label>
   );
 }
