@@ -1914,7 +1914,7 @@ function Composer({
               }
             }}
             placeholder={t("inputPlaceholder")}
-            className="flex-1 min-w-0 bg-transparent border-none focus:ring-0 text-sm text-slate-100 placeholder:text-slate-500 p-0 resize-none overflow-y-auto leading-relaxed"
+            className="flex-1 min-w-0 bg-transparent border-none focus:ring-0 text-base lg:text-sm text-slate-100 placeholder:text-slate-500 p-0 resize-none overflow-y-auto leading-relaxed"
           />
           {/* 음성 입력 — 마이크 탭: 녹음 시작/중단 → 서버 STT → 입력창 채움(iOS 포함). 지원 기기만 노출. */}
           {recSupported && (
