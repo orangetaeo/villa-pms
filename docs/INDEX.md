@@ -21,6 +21,7 @@
 | iCal 동기화 | .claude/skills/integ/ical-pattern.md + lib/ical.ts |
 | 코드 검토 | .claude/skills/qa/leak-checklist.md + evaluation-criteria.md |
 | 태스크 착수 전 | docs/contracts/ 스프린트 계약 작성·합의 |
+| 병렬 세션(여러 Claude 동시) | docs/parallel-worktree.md — scripts/wt-new·wt-finish.ps1 격리 워크플로(폴더·인덱스·포트 분리) |
 | 정산·환율 | .claude/skills/fin/settlement-pattern.md |
 | 디자인 생성 (Stitch) | docs/DESIGN.md + .claude/skills/design/stitch-design.md |
 | 배포·환경변수·cron | .claude/skills/ops/deployment-pattern.md |
