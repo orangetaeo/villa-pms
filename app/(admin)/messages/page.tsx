@@ -28,6 +28,7 @@ import {
   type SettlementCandidate,
 } from "./chat-pane";
 import { AutoRefresh } from "./auto-refresh";
+import { NewMessageToaster } from "./new-message-toaster";
 
 export const metadata: Metadata = {
   title: "메시지 — Villa PMS",
@@ -434,6 +435,8 @@ export default async function MessagesPage({
   return (
     <div className="-m-4 md:-m-8 h-[calc(100vh-3.5rem)] lg:h-screen flex">
       <AutoRefresh />
+      {/* 다른 상대의 신규 채팅 토스트 알림 — 현재 대화 외 unread 증가 시 상단 토스트 */}
+      <NewMessageToaster items={inboxItems} selectedId={selectedId ?? null} />
       {/* 인박스|채팅 리사이즈 분할 — 데스크톱에서 구분선 드래그로 좌측 너비 조절(너비 localStorage 저장) */}
       <ResizableSplit
         conversationSelected={Boolean(selectedId)}

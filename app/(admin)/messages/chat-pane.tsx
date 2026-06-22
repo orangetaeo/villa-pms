@@ -179,6 +179,42 @@ export function ChatPane({
     setActiveActionMessageId((cur) => (cur === id ? null : id));
   }, []);
 
+  // ── 모바일 스와이프(오른쪽으로 밀기) → 리스트(인박스)로 (뒤로가기 버튼과 동일) ──
+  // 세로 스크롤·입력창과 충돌 방지: 입력창에서 시작한 터치·세로 우세 제스처는 무시.
+  // 데스크톱(lg+, 2-pane 상시)에선 비활성.
+  const swipeStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
+  const onSwipeStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length !== 1) {
+      swipeStartRef.current = null;
+      return;
+    }
+    const target = e.target as HTMLElement;
+    if (target.closest("textarea, input, [contenteditable='true']")) {
+      swipeStartRef.current = null; // 입력 중 커서 이동 제스처 보호
+      return;
+    }
+    const tch = e.touches[0];
+    swipeStartRef.current = { x: tch.clientX, y: tch.clientY, t: Date.now() };
+  }, []);
+  const onSwipeEnd = useCallback(
+    (e: React.TouchEvent) => {
+      const start = swipeStartRef.current;
+      swipeStartRef.current = null;
+      if (!start) return;
+      if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) return;
+      const tch = e.changedTouches[0];
+      if (!tch) return;
+      const dx = tch.clientX - start.x;
+      const dy = tch.clientY - start.y;
+      const dt = Date.now() - start.t;
+      // 오른쪽 ≥70px + 수평 우세(|dx|>|dy|*1.8) + 빠른 제스처(<600ms)
+      if (dx >= 70 && Math.abs(dx) > Math.abs(dy) * 1.8 && dt < 600) {
+        router.push("/messages");
+      }
+    },
+    [router],
+  );
+
   // ── 라이트박스 (채팅 이미지 확대) ──
   const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
   const openLightbox = useCallback((urls: string[], startIndex: number) => {
@@ -306,7 +342,11 @@ export function ChatPane({
   return (
     <LightboxContext.Provider value={openLightbox}>
       <QuoteJumpContext.Provider value={scrollToMessage}>
-      <section className="flex-1 flex flex-col bg-[#0F172A] min-w-0">
+      <section
+        className="flex-1 flex flex-col bg-[#0F172A] min-w-0"
+        onTouchStart={onSwipeStart}
+        onTouchEnd={onSwipeEnd}
+      >
         <ChatHeaderBar conversationId={conversationId} header={header} t={t} router={router} />
 
         {/* 미분류 대화 분류 배너 (b15 블록④) — 분류 전엔 사진만 공유 가능, 여기서 바로 분류 */}
@@ -1572,10 +1612,22 @@ function Composer({
   const autoGrow = () => {
     const el = inputRef.current;
     if (!el) return;
+    // 빈 입력은 항상 native 1줄(rows=1). 인라인 height를 비워, 마운트 시 레이아웃 미정착 상태의
+    // scrollHeight 오측정으로 빈 칸이 커진 채 고착되는 회귀를 차단(텍스트 입력 전 큰 칸 버그).
+    if (!el.value) {
+      el.style.height = "";
+      return;
+    }
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
   };
-  useEffect(autoGrow, [text]);
+  // [text] 변화 외에, 마운트 직후 한 프레임 뒤(레이아웃 정착 후)에도 재측정 — 초기 오측정 고착 방지.
+  useEffect(() => {
+    autoGrow();
+    const id = requestAnimationFrame(autoGrow);
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text]);
 
   const previewEnabled = translateMode !== "OFF";
   const previewLabel = translateMode === "EN" ? t("previewLabelEn") : t("previewLabel");

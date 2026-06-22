@@ -1267,6 +1267,10 @@
       "expand": "분류하기",
       "dismiss": "닫기"
     },
+    "newMessageToast": {
+      "fallback": "새 메시지",
+      "dismiss": "알림 닫기"
+    },
     "preview": {
       "photo": "[사진]",
       "villaShare": "[빌라 공유]",

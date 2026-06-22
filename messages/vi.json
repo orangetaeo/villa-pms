@@ -1267,6 +1267,10 @@
       "expand": "Phân loại",
       "dismiss": "Đóng"
     },
+    "newMessageToast": {
+      "fallback": "Tin nhắn mới",
+      "dismiss": "Đóng thông báo"
+    },
     "preview": {
       "photo": "[Ảnh]",
       "villaShare": "[Chia sẻ villa]",
