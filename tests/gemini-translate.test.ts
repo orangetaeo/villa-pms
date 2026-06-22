@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   translateText,
   isBrokenKoTranslation,
+  numbersPreserved,
   hangulRatio,
   GeminiNotConfiguredError,
 } from "@/lib/gemini";
@@ -73,6 +74,40 @@ describe("hangulRatio / isBrokenKoTranslation — 부분실패 감지", () => {
   });
 });
 
+describe("numbersPreserved — 금액·숫자 복사 오류 감지", () => {
+  it("실제 버그: 1,700,000 → 1,770,000(같은 자릿수 변형)을 잡는다", () => {
+    const src = "dạ sếp ơi, hôm nay cho em xin ứng 1,700,000 nữa nhé, vẫn mã QR cũ ạ";
+    const bad = "네 사장님, 오늘 1,770,000원 더 가불 신청합니다. QR 코드는 예전 것과 동일합니다.";
+    const good = "네 사장님, 오늘 1,700,000원 더 가불 신청합니다. QR 코드는 예전 것과 동일합니다.";
+    expect(numbersPreserved(src, bad)).toBe(false);
+    expect(numbersPreserved(src, good)).toBe(true);
+  });
+
+  it("천단위 구분자 차이(. ↔ ,)는 동일 숫자로 본다", () => {
+    expect(numbersPreserved("giá 1.700.000 đồng", "가격 1,700,000원")).toBe(true);
+  });
+
+  it("전화번호 같은 자릿수 변형(복사 오타)을 잡는다", () => {
+    expect(numbersPreserved("gọi 0905123456", "0905123356으로 전화하세요")).toBe(false);
+  });
+
+  it("정당한 단위어 변환은 오탐하지 않는다(nghìn/triệu/tr·만·억)", () => {
+    // "119 nghìn"(=119,000) → "119,000": 원문 큰 숫자(4자리↑) 없음 → 통과
+    expect(numbersPreserved("119 nghìn VNĐ", "119,000 VND")).toBe(true);
+    // "5000.000"(=5,000,000) → "500만": 같은 자릿수(7) 그룹이 출력에 없음 → 통과
+    expect(numbersPreserved("em thấy bán 5000.000", "베트남에서는 500만에 팔던데요")).toBe(true);
+    // "50.000.000"(=50,000,000) → "5천만": 같은 자릿수(8) 그룹 없음 → 통과
+    expect(numbersPreserved("phạt 50.000.000 đồng", "벌금 5천만 동")).toBe(true);
+    // "100tr"(=100 triệu) → "1억": 큰 숫자 없음(100<4자리 미만 취급) → 통과
+    expect(numbersPreserved("Nếu họ phạt 100tr thì nặng quá", "1억을 벌금으로 매기면 너무 심하네요")).toBe(true);
+  });
+
+  it("큰 숫자 없으면(또는 한 자리 수량) 통과 — 오탐 방지", () => {
+    expect(numbersPreserved("xin chào", "안녕하세요")).toBe(true);
+    expect(numbersPreserved("2 phòng", "방 2개")).toBe(true);
+  });
+});
+
 describe("translateText — 견고화(재시도)", () => {
   it("키 미설정 → GeminiNotConfiguredError throw (fetch 미호출)", async () => {
     delete process.env.GEMINI_API_KEY;
@@ -130,6 +165,28 @@ describe("translateText — 견고화(재시도)", () => {
     }) as unknown as typeof fetch;
     const out = await translateText(VI_SOURCE, "ko", fetchFn);
     expect(out).toBe(BROKEN_KO);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it("숫자 오역(1차) → 재시도 → 숫자 보존된 결과 반환(2회 호출)", async () => {
+    process.env.GEMINI_API_KEY = "test-key";
+    const src = "ứng 1,700,000 nhé";
+    const bad = "1,770,000원 가불해 주세요"; // 숫자 틀림
+    const good = "1,700,000원 가불해 주세요"; // 숫자 보존
+    const fetchFn = fakeFetchSequence(bad, good);
+    const out = await translateText(src, "ko", fetchFn);
+    expect(out).toBe(good);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it("숫자 오역은 vi 타겟에서도 재시도한다(모든 타겟 적용)", async () => {
+    process.env.GEMINI_API_KEY = "test-key";
+    const src = "1,700,000원 가불";
+    const bad = "ứng 1,770,000"; // 숫자 틀림
+    const good = "ứng 1,700,000"; // 숫자 보존
+    const fetchFn = fakeFetchSequence(bad, good);
+    const out = await translateText(src, "vi", fetchFn);
+    expect(out).toBe(good);
     expect(fetchFn).toHaveBeenCalledTimes(2);
   });
 

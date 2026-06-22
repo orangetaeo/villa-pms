@@ -146,13 +146,50 @@ export function isBrokenKoTranslation(source: string, output: string): boolean {
   return ratio < 0.35 && latin >= 6;
 }
 
+/**
+ * 문자열에서 "숫자 그룹"을 추출 — 천단위 구분자(,/. ·공백)는 한 숫자의 일부로 보고 제거 후 순수 digit만 반환.
+ * 예: "1,700,000" → "1700000", "1.700.000" → "1700000". 매칭 비교 전용(소수점 구분 손실 무방 — 양쪽 동일 처리).
+ */
+function digitGroups(s: string): string[] {
+  const matches = s.match(/\d[\d.,  ]*\d|\d/g) ?? [];
+  return matches.map((m) => m.replace(/\D/g, "")).filter((d) => d.length > 0);
+}
+
+/**
+ * 번역문이 원문의 금액·전화·연도 숫자를 "자릿수 보존 변형"(복사 오류) 없이 옮겼는지 판정.
+ * 잡으려는 것: 원문 1,700,000 → 번역 1,770,000 처럼 **같은 자릿수에서 숫자만 바뀐** 환각·오타.
+ * 통과시키는 것(오탐 방지): 베트남어 단위어/한국어 만·억 변환 같은 **정당한 표기 변경**
+ *   (예: "119 nghìn"→"119,000", "100tr"→"1억", "50.000.000"→"5천만") — 자릿수가 달라지므로 제외.
+ *
+ * 판정: 원문의 큰 숫자 그룹(4자리↑)마다,
+ *   - 그 숫자가 번역문에 그대로 있으면 보존(OK).
+ *   - 없는데 번역문에 **같은 자릿수의 다른 숫자**가 있으면 = 자릿수 보존 변형 → false(오역 의심).
+ *   - 같은 자릿수 그룹이 아예 없으면 = 단위 변환/포맷 변경으로 보고 통과(보수적).
+ * 한 자리·세 자리 이하나 완전 누락(전화 통째 삭제 등)은 단위변환과 구분 불가라 가드 밖 — 프롬프트 지시로 1차 방어.
+ */
+export function numbersPreserved(source: string, output: string): boolean {
+  const srcGroups = digitGroups(source).filter((d) => d.length >= 4);
+  if (srcGroups.length === 0) return true; // 검사할 큰 숫자 없음 → 통과
+  const outGroups = digitGroups(output);
+  const outSet = new Set(outGroups);
+  for (const s of srcGroups) {
+    if (outSet.has(s)) continue; // 그대로 보존됨
+    // 같은 자릿수의 다른 숫자가 출력에 있으면 = 복사 오류(오타·환각) 의심.
+    if (outGroups.some((o) => o.length === s.length && o !== s)) return false;
+    // 같은 자릿수 그룹이 없으면 = 정당한 단위 변환(nghìn/triệu/만·억)·포맷 변경으로 보고 통과.
+  }
+  return true;
+}
+
 const BASE_PROMPT_NOTE = `Translate the ENTIRE message completely; do NOT leave any part of the source untranslated.
 Output ONLY the translation, with no quotes, no explanation, no preface.
-Keep proper nouns (villa/complex names) unchanged.`;
+Keep proper nouns (villa/complex names) unchanged.
+Keep ALL numbers, money amounts, prices, dates, and phone numbers EXACTLY as written in the source — copy every digit verbatim. Do NOT round, alter, add, drop, or convert them (e.g. do not turn 1,700,000 into 170만; keep the digits).`;
 
 const RETRY_PROMPT_NOTE = `Translate the ENTIRE message; do NOT leave ANY source text untranslated.
 Output ONLY the full translation — no quotes, no explanation, no preface, no source text.
-Keep proper nouns (villa/complex names) unchanged.`;
+Keep proper nouns (villa/complex names) unchanged.
+Keep ALL numbers, money amounts, prices, dates, and phone numbers EXACTLY as written in the source — copy every digit verbatim. Do NOT round, alter, add, drop, or convert them.`;
 
 /** translateText 1회 호출(저수준) — 프롬프트·thinkingBudget를 파라미터로 받아 기본/재시도 공유. */
 async function callTranslateOnce(
@@ -226,8 +263,10 @@ ${trimmed}`;
   // 1) 기본 호출(thinkingBudget:0 유지 — 비용).
   const first = await callTranslateOnce(apiKey, basePrompt, 0, fetchFn);
 
-  // ko 타겟만 부분실패 감지·재시도(vi/en은 잔류 판정 기준 모호 → 그대로 반환).
-  if (target !== "ko" || !isBrokenKoTranslation(trimmed, first)) {
+  // 재시도 트리거: ① ko 부분실패(원문 잔류) ② 숫자 누락(금액·전화 오역, 모든 타겟).
+  const firstNumbersOk = numbersPreserved(trimmed, first);
+  const firstBroken = (target === "ko" && isBrokenKoTranslation(trimmed, first)) || !firstNumbersOk;
+  if (!firstBroken) {
     return first;
   }
 
@@ -244,12 +283,19 @@ ${trimmed}`;
     // 재시도 자체가 실패(HTTP 오류 등)하면 1차 결과라도 반환(흔적 보존).
     return first;
   }
+  if (second.length === 0) return first; // 빈 결과는 채택 안 함.
 
-  // 재시도도 부분실패면 더 나은 쪽(한글 비율↑) 반환. 빈 결과는 채택하지 않음.
-  if (second.length > 0 && hangulRatio(second) >= hangulRatio(first)) {
-    return second;
+  // 숫자 보존을 최우선으로 선택(금액 정확도 > 한글 비율). 한쪽만 보존하면 그쪽을 반환.
+  const secondNumbersOk = numbersPreserved(trimmed, second);
+  if (secondNumbersOk !== firstNumbersOk) {
+    return secondNumbersOk ? second : first;
   }
-  return first;
+
+  // 숫자 보존 동률이면: ko는 한글 비율↑ 우선, 그 외엔 재시도(강화 프롬프트) 결과 채택.
+  if (target === "ko") {
+    return hangulRatio(second) >= hangulRatio(first) ? second : first;
+  }
+  return second;
 }
 
 /**
