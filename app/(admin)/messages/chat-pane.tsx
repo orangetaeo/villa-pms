@@ -1021,6 +1021,12 @@ function InboundBubble({
     >
       <InboundAvatar message={message} />
       <div className="min-w-0">
+        {/* 상대 이름/닉네임 — 헤더 외에 스레드에서도 누구와 대화 중인지 보이게(사용자 요청). */}
+        {contactName && (
+          <span className="block pl-1 mb-0.5 text-[11px] font-medium text-slate-400 truncate">
+            {contactName}
+          </span>
+        )}
         {(message.quotedText || message.quotedSender) && (
           <QuotedBlock
             sender={message.quotedSender}

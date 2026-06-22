@@ -433,7 +433,7 @@ export default async function MessagesPage({
   }
 
   return (
-    <div className="-m-4 md:-m-8 h-[calc(100vh-3.5rem)] lg:h-screen flex">
+    <div className="-m-4 md:-m-8 h-[calc(100dvh-3.5rem)] lg:h-screen flex">
       <AutoRefresh />
       {/* 다른 상대의 신규 채팅 토스트 알림 — 현재 대화 외 unread 증가 시 상단 토스트 */}
       <NewMessageToaster items={inboxItems} selectedId={selectedId ?? null} />
