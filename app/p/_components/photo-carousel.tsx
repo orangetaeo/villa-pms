@@ -148,7 +148,7 @@ export function PhotoCarousel({ urls, alt }: { urls: string[]; alt: string }) {
             </>
           )}
 
-          <div className="relative h-[82vh] w-[92vw]" onClick={(e) => e.stopPropagation()}>
+          <div className="relative h-[82vh] w-[92vw]">
             <Image
               src={urls[lightbox]}
               alt={`${alt} 사진 ${lightbox + 1}`}

@@ -111,7 +111,8 @@ export default function ImageLightbox({ images, index, onIndexChange, labels }: 
         </>
       )}
 
-      <div className="relative h-[82vh] w-[92vw]" onClick={(e) => e.stopPropagation()}>
+      {/* 배경·이미지 어디를 눌러도 닫힘 — 컨트롤 버튼만 stopPropagation. 이미지는 클릭 흡수 없이 통과 */}
+      <div className="relative h-[82vh] w-[92vw]">
         <Image
           src={current.url}
           alt={current.label ?? ""}

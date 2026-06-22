@@ -61,7 +61,10 @@ export default function PhotoLightbox({ photos, startIndex, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-[#0F0F0F] text-white select-none">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] flex flex-col bg-[#0F0F0F] text-white select-none"
+    >
       {/* 상단 바 — 닫기 + 카운터(단일 진실원천) 만 (삭제는 사진관리에서, 1화면 1작업) */}
       <header className="absolute top-0 z-10 flex h-14 w-full items-center justify-between px-4">
         <button
@@ -102,7 +105,10 @@ export default function PhotoLightbox({ photos, startIndex, onClose }: Props) {
         {index > 0 && (
           <button
             type="button"
-            onClick={goPrev}
+            onClick={(e) => {
+              e.stopPropagation();
+              goPrev();
+            }}
             aria-label={t("prev")}
             className="absolute left-3 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 backdrop-blur-sm transition-transform active:scale-90"
           >
@@ -112,7 +118,10 @@ export default function PhotoLightbox({ photos, startIndex, onClose }: Props) {
         {index < total - 1 && (
           <button
             type="button"
-            onClick={goNext}
+            onClick={(e) => {
+              e.stopPropagation();
+              goNext();
+            }}
             aria-label={t("next")}
             className="absolute right-3 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 backdrop-blur-sm transition-transform active:scale-90"
           >
@@ -145,7 +154,10 @@ export default function PhotoLightbox({ photos, startIndex, onClose }: Props) {
             <button
               key={photo.id}
               type="button"
-              onClick={() => setIndex(i)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIndex(i);
+              }}
               aria-label={photo.caption}
               aria-current={i === index}
               className={`relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg transition-opacity ${

@@ -153,7 +153,7 @@ export default function PhotoGallery({ groups }: { groups: GalleryGroup[] }) {
             </>
           )}
 
-          <div className="relative h-[82vh] w-[92vw]" onClick={(e) => e.stopPropagation()}>
+          <div className="relative h-[82vh] w-[92vw]">
             <Image
               src={current.url}
               alt={labelFor(current)}

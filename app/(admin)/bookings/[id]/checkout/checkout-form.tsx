@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { resizeImage } from "@/lib/image-resize";
 import { formatThousands } from "@/lib/format";
+import ImageLightbox, { type LightboxImage } from "@/components/image-lightbox";
 
 interface Section {
   id: string;
@@ -50,6 +51,20 @@ export default function CheckoutForm({
   const [deduction, setDeduction] = useState(""); // 파손 등 기타 차감 (동 단위 숫자 문자열)
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<number | null>(null);
+
+  // 라이트박스 이미지 — 섹션별 기준→체크아웃 사진 (클릭 확대)
+  const lightboxImages: LightboxImage[] = sections.flatMap((s) => {
+    const items: LightboxImage[] = [];
+    if (s.baselineUrl) items.push({ url: s.baselineUrl, label: `${s.label} · ${t("baseline")}` });
+    const up = photos[s.id];
+    if (up) items.push({ url: up, label: `${s.label} · ${t("checkoutPhoto")}` });
+    return items;
+  });
+  const openLightbox = (url: string) => {
+    const idx = lightboxImages.findIndex((im) => im.url === url);
+    if (idx >= 0) setLightbox(idx);
+  };
 
   // ── 미니바 차감 자동계산 (b16) ─────────────────────────────────
   // remaining[id] = 남은 수량(스테퍼). 초기값 = 비치 수량(전부 남음 = 소모 0).
@@ -225,9 +240,14 @@ export default function CheckoutForm({
                   <div className="space-y-2">
                     <p className="text-xs text-slate-500 font-medium whitespace-nowrap">{t("baseline")}</p>
                     {section.baselineUrl ? (
-                      <div className="aspect-video rounded-lg overflow-hidden relative">
+                      <button
+                        type="button"
+                        onClick={() => openLightbox(section.baselineUrl!)}
+                        aria-label={`${section.label} — ${t("baseline")}`}
+                        className="block w-full aspect-video rounded-lg overflow-hidden relative cursor-zoom-in"
+                      >
                         <Image src={section.baselineUrl} alt={section.label} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
-                      </div>
+                      </button>
                     ) : (
                       <div className="aspect-video rounded-lg border border-slate-700 flex flex-col items-center justify-center text-slate-600">
                         <span className="material-symbols-outlined text-3xl mb-1">hide_image</span>
@@ -238,9 +258,14 @@ export default function CheckoutForm({
                   <div className="space-y-2">
                     <p className="text-xs text-slate-500 font-medium whitespace-nowrap">{t("checkoutPhoto")}</p>
                     {uploaded ? (
-                      <div className="aspect-video rounded-lg overflow-hidden relative">
+                      <button
+                        type="button"
+                        onClick={() => openLightbox(uploaded)}
+                        aria-label={`${section.label} — ${t("checkoutPhoto")}`}
+                        className="block w-full aspect-video rounded-lg overflow-hidden relative cursor-zoom-in"
+                      >
                         <Image src={uploaded} alt={`${section.label} — ${t("checkoutPhoto")}`} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
-                      </div>
+                      </button>
                     ) : (
                       <label className="aspect-video rounded-lg border-2 border-dashed border-slate-600 flex flex-col items-center justify-center text-slate-500 hover:text-white hover:border-slate-400 transition-all cursor-pointer">
                         <span className="material-symbols-outlined text-4xl mb-2">
@@ -265,6 +290,8 @@ export default function CheckoutForm({
           })}
         </div>
       </section>
+
+      <ImageLightbox images={lightboxImages} index={lightbox} onIndexChange={setLightbox} />
 
       {/* 미니바 차감 자동계산 (b16) — 소모=비치−남은, 차감액=소모×단가 실시간 */}
       <section className="bg-admin-card rounded-xl border border-slate-800 shadow-sm overflow-hidden">
