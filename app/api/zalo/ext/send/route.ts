@@ -15,6 +15,7 @@
 //     마진/판매가/재고 모델 절대 미참조·미반환.
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { prisma } from "@/lib/prisma";
 import {
   sendChatMessageAsAdmin,
   sendChatImageAsAdmin,
@@ -24,6 +25,30 @@ import {
   REACTION_KEYS,
 } from "@/lib/zalo-runtime";
 import { isExtSecretValid, resolveSystemOwnerId } from "@/lib/zalo-ext-auth";
+
+// ── threadId 정규화 (Nike→villa 발송 500 버그 수정 / ADR-0010) ─────────
+//   Nike(B3 adaptVillaThread)는 A2 threads DTO의 `id`(villa 내부 cuid)를 대화 식별자로 받아
+//   발송 시 threadId에 villa cuid를 보낸다. 그러나 zca-js는 threadId를 Zalo uid로 해석하므로
+//   cuid를 그대로 보내면 SEND_ERROR(유효하지 않은 파라미터) → 502 → Nike POST 500.
+//   해결: 발송 직전 threadId를 테오 스코프 conversation의 실제 zaloUserId로 정규화한다.
+//   - cuid(=conversation.id)로 들어와도, 진짜 zaloUserId로 들어와도 모두 올바른 주소로 발송.
+//   - 테오(ownerAdminId) 스코프 조건 필수 — 타 관리자 conversation 매칭 금지(누수 0 유지).
+//   - 매칭 실패(conversation 없음)는 하위호환·방어로 threadId 그대로 사용(로그로 흔적).
+async function resolveThreadZaloUserId(
+  ownerAdminId: string,
+  threadId: string
+): Promise<string> {
+  const conv = await prisma.zaloConversation.findFirst({
+    where: { ownerAdminId, OR: [{ id: threadId }, { zaloUserId: threadId }] },
+    select: { zaloUserId: true },
+  });
+  if (conv?.zaloUserId) return conv.zaloUserId;
+  // 미존재 — 하위호환: threadId 그대로(방어). credential·시크릿 미노출, threadId만 흔적.
+  console.warn(
+    `[zalo/ext/send] threadId 정규화 실패(테오 스코프 conversation 없음) — threadId 그대로 발송: ${threadId}`
+  );
+  return threadId;
+}
 
 // ── 본문 스키마 (discriminated union, kind 기준) ──────────────────────
 // threadId = 발송 대상 Zalo userId(상대 스레드). ownerAdminId는 요청에서 받지 않음(서버 결정).
@@ -109,10 +134,14 @@ export async function POST(req: Request) {
   }
   const body = parsed.data;
 
-  // ── 발송 (기존 함수 재사용, ownerAdminId 서버 고정) ──
+  // ── threadId 정규화 — cuid/zaloUserId 모두 실제 Zalo uid로 (전 kind 공통) ──
+  //    테오 스코프 조회. 매칭 실패 시 body.threadId 그대로(방어). ownerAdminId 무변경.
+  const threadId = await resolveThreadZaloUserId(ownerAdminId, body.threadId);
+
+  // ── 발송 (기존 함수 재사용, ownerAdminId 서버 고정, threadId 정규화본 사용) ──
   try {
     if (body.kind === "TEXT") {
-      const res = await sendChatMessageAsAdmin(ownerAdminId, body.threadId, body.text);
+      const res = await sendChatMessageAsAdmin(ownerAdminId, threadId, body.text);
       if (!res.ok) {
         return NextResponse.json({ error: "SEND_FAILED", reason: res.error }, { status: 502 });
       }
@@ -131,7 +160,7 @@ export async function POST(req: Request) {
       }
       const res = await sendChatImageAsAdmin(
         ownerAdminId,
-        body.threadId,
+        threadId,
         buffer,
         body.fileName,
         body.caption
@@ -143,7 +172,7 @@ export async function POST(req: Request) {
     }
 
     if (body.kind === "REPLY") {
-      const res = await sendChatReplyAsAdmin(ownerAdminId, body.threadId, body.text, {
+      const res = await sendChatReplyAsAdmin(ownerAdminId, threadId, body.text, {
         zaloMsgId: body.quote.zaloMsgId,
         cliMsgId: body.quote.cliMsgId,
         content: body.quote.content,
@@ -158,7 +187,7 @@ export async function POST(req: Request) {
     if (body.kind === "FORWARD") {
       const res = await sendChatForwardAsAdmin(
         ownerAdminId,
-        body.threadId,
+        threadId,
         body.message,
         body.reference
       );
@@ -171,7 +200,7 @@ export async function POST(req: Request) {
     // body.kind === "REACTION"
     const res = await addReactionAsAdmin(
       ownerAdminId,
-      body.threadId,
+      threadId,
       { zaloMsgId: body.target.zaloMsgId, cliMsgId: body.target.cliMsgId },
       body.iconKey
     );

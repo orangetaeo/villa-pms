@@ -48,7 +48,9 @@ export async function GET(req: Request) {
   // ── 테오 스코프 가드 — 테오 대화 아니면 404 (id 추측으로 타 관리자 접근 차단, 누수 0) ──
   const conv = await prisma.zaloConversation.findFirst({
     where: { id: conversationId, ownerAdminId },
-    select: { id: true },
+    // zaloUserId 추가 — 응답에 상대 Zalo id를 실어 Nike가 발송 threadId로 쓸 수 있게(점진 전환).
+    //   누수 무관(채팅 식별자, 마진·credential 아님). 테오 스코프 가드는 그대로.
+    select: { id: true, zaloUserId: true },
   });
   if (!conv) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -117,5 +119,11 @@ export async function GET(req: Request) {
     reactions: m.reactions ?? null,
   }));
 
-  return NextResponse.json({ messages, hasMore, nextBefore });
+  return NextResponse.json({
+    messages,
+    hasMore,
+    nextBefore,
+    // 상대 Zalo id — Nike가 발송 threadId로 직접 사용(점진 전환). credential·금액 아님.
+    conversationZaloUserId: conv.zaloUserId,
+  });
 }

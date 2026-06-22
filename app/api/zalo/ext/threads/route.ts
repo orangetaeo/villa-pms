@@ -33,6 +33,9 @@ export async function GET(req: Request) {
     orderBy: [{ lastMessageAt: "desc" }, { createdAt: "desc" }],
     select: {
       id: true,
+      // zaloUserId = 상대 Zalo id(채팅 식별자). Nike가 발송 시 threadId로 직접 쓸 수 있게 노출.
+      //   누수 무관(마진·판매가·credential 아님). send route가 cuid도 정규화하므로 당장은 둘 다 동작.
+      zaloUserId: true,
       displayName: true,
       nickname: true,
       avatarUrl: true,
@@ -58,6 +61,8 @@ export async function GET(req: Request) {
   // ── 응답 DTO — 계약 ③ threads 화이트리스트만 (credential·금액·마진 0건) ──
   const threads = conversations.map((c) => ({
     id: c.id,
+    // 상대 Zalo id — Nike가 발송 threadId로 직접 사용(점진 전환). credential·금액 아님.
+    zaloUserId: c.zaloUserId,
     displayName: c.displayName,
     nickname: c.nickname,
     avatarUrl: c.avatarUrl,
