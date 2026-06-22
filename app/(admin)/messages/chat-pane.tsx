@@ -356,8 +356,11 @@ export function ChatPane({
           </div>
         )}
 
-        {/* 스레드 — relative: "새 메시지 ↓" 플로팅 버튼 기준. overflow-x-hidden: 가로 스크롤(팬) 차단·내용 고정 */}
-        <div className="relative flex-1 min-h-0 overflow-x-hidden">
+        {/* 스레드 — relative: "새 메시지 ↓" 플로팅 버튼 기준.
+            래퍼엔 overflow를 두지 않는다(overflow-x-hidden을 주면 overflow-y가 auto로 계산돼
+            스크롤 컨테이너가 되며 iOS에서 내부 스크롤러와 충돌·터치 스크롤 가로채기 발생).
+            가로 팬 차단은 실제 스크롤러(아래)의 overflow-x-hidden만으로 처리. */}
+        <div className="relative flex-1 min-h-0">
           <div
             ref={threadRef}
             onScroll={onThreadScroll}
