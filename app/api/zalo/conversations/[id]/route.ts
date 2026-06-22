@@ -158,7 +158,8 @@ export async function PATCH(
       return NextResponse.json({ error: send.error }, { status: 502 });
     }
 
-    // 발송 성공 — 자기 reactions에 낙관적 +1(수신 이벤트가 와도 멱등 갱신은 INTEG가 보장, R3-4).
+    // 발송 성공 — 자기 reactions에 낙관적 +1. 같은 리액션의 self echo(reaction 이벤트)는
+    // handleReactionEvent가 isSelf로 스킵하므로 중복 가산 없음(R3-4 멱등).
     const updated = applyReaction(msg.reactions, action.icon, true);
     await prisma.zaloMessage.update({
       where: { id: msg.id },

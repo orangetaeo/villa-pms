@@ -825,6 +825,9 @@ export function applyReaction(
 async function handleReactionEvent(inst: ZaloBotInstance, reaction: Reaction): Promise<void> {
   try {
     if (!inst.ownerAdminId) return;
+    // 내 계정이 보낸 리액션 echo는 발송 라우트(REACT)에서 이미 낙관적 +1 반영됨.
+    // 여기서 또 가산하면 1회 클릭이 2로 표기되는 중복 카운트 발생 → self echo는 스킵(R3-4 멱등).
+    if (reaction.isSelf) return;
     const data = reaction.data as unknown as {
       content?: {
         rMsg?: { gMsgID?: string | number; cMsgID?: string | number }[];
