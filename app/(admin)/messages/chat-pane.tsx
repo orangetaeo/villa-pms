@@ -316,12 +316,12 @@ export function ChatPane({
           </div>
         )}
 
-        {/* 스레드 — relative: "새 메시지 ↓" 플로팅 버튼 기준 */}
-        <div className="relative flex-1 min-h-0">
+        {/* 스레드 — relative: "새 메시지 ↓" 플로팅 버튼 기준. overflow-x-hidden: 가로 스크롤(팬) 차단·내용 고정 */}
+        <div className="relative flex-1 min-h-0 overflow-x-hidden">
           <div
             ref={threadRef}
             onScroll={onThreadScroll}
-            className="absolute inset-0 overflow-y-auto custom-scrollbar px-6 py-6 space-y-5"
+            className="absolute inset-0 overflow-y-auto overflow-x-hidden custom-scrollbar px-3 lg:px-6 py-6 space-y-5"
           >
             {messages.length === 0 ? (
               <p className="text-center text-xs text-slate-500 pt-8">{t("noMessages")}</p>
