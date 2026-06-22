@@ -77,7 +77,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-admin-bg text-slate-50 font-admin">
+    <div className="min-h-dvh bg-admin-bg text-slate-50 font-admin">
       <NextIntlClientProvider locale={locale} messages={messages}>
       <AdminSidebar
         userName={session.user.name}
@@ -85,7 +85,7 @@ export default async function AdminLayout({
         logoutAction={logoutAction}
       />
       {/* 데스크톱: 사이드바 폭만큼 밀기 / 모바일: 헤더 높이만큼 내리기 */}
-      <main className="lg:pl-64 pt-14 lg:pt-0 min-h-screen">
+      <main className="lg:pl-64 pt-14 lg:pt-0 min-h-dvh">
         <div className="p-4 md:p-8">{children}</div>
       </main>
       </NextIntlClientProvider>
