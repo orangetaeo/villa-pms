@@ -364,7 +364,10 @@ export function ChatPane({
           <div
             ref={threadRef}
             onScroll={onThreadScroll}
-            className="absolute inset-0 overflow-y-auto overflow-x-hidden custom-scrollbar px-3 lg:px-6 py-6 space-y-5"
+            // 모바일 터치 스크롤 막힘 방지: 경계 튕김·스크롤 체이닝 차단(overscroll-contain) +
+            // 세로 팬 즉시 확정(touch-pan-y — 부모 좌우 스와이프와의 제스처 분별 지연 제거).
+            // 좌우 스와이프(뒤로가기)는 JS(onTouchEnd)라 touch-action 무관하게 그대로 동작.
+            className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y custom-scrollbar px-3 lg:px-6 py-6 space-y-5"
           >
             {messages.length === 0 ? (
               <p className="text-center text-xs text-slate-500 pt-8">{t("noMessages")}</p>
