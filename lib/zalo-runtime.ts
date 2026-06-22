@@ -21,6 +21,7 @@ import {
   type LoginQRCallbackEvent,
   type Message,
   type UserMessage,
+  type GroupMessage,
   type Reaction,
 } from "zca-js";
 import { Prisma, ZaloAccountKind } from "@prisma/client";
@@ -595,9 +596,12 @@ async function onLoginSuccess(inst: ZaloBotInstance, api: API) {
 
 /**
  * zca-js message 이벤트 → 파싱 → DB 저장 (ADR-0007 S3 — 수신 귀속 + 본인 발신 동기화).
- * - UserMessage(ThreadType.User)만 처리. 그룹 무시.
+ * - UserMessage(ThreadType.User) + GroupMessage(ThreadType.Group) 둘 다 처리 (ADR-0010 S4).
+ *     · USER: 대화 식별자 = threadId(상대 Zalo id), senderUid 불필요(null), threadType USER. 기존 로직.
+ *     · GROUP: 대화 식별자 = threadId(그룹 id, zaloUserId 슬롯), 발신자 = data.uidFrom → senderUid 저장,
+ *       displayName = 그룹명(있으면). 전화번호 자동매칭은 스킵(다중 발신자 → User.zaloUserId 오염 방지).
  * - isSelf 분기(selfListen:true — 본인 다른 기기 발신도 message 이벤트로 들어옴):
- *     · isSelf=false(상대 발신): INBOUND 저장 (unread+1, 전화번호 매칭).
+ *     · isSelf=false(상대 발신): INBOUND 저장 (unread+1, 전화번호 매칭은 USER만).
  *     · isSelf=true(본인 발신, 앱·프로그램): OUTBOUND·CHAT 동기화 저장.
  *       앱에서 직접 보낸 메시지(프로그램 미경유)를 /messages에 반영. zaloMsgId 멱등으로
  *       프로그램(S4) 발신과의 중복만 방지 — 시스템봇 통합 모드의 SYSTEM 미러도 동일 가드.
@@ -607,8 +611,11 @@ async function onLoginSuccess(inst: ZaloBotInstance, api: API) {
  */
 async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Promise<void> {
   try {
-    if (message.type !== ThreadType.User) return; // 그룹 무시
-    const userMsg = message as UserMessage;
+    // USER/GROUP 둘 다 처리. 그 외(미상 타입)는 스킵.
+    if (message.type !== ThreadType.User && message.type !== ThreadType.Group) return;
+    const isGroupMsg = message.type === ThreadType.Group;
+    // UserMessage·GroupMessage 모두 { data, threadId, isSelf } 형태가 동일하므로 공용 처리.
+    const userMsg = message as UserMessage | GroupMessage;
     const data = userMsg.data as Record<string, unknown>;
 
     const senderId =
@@ -616,9 +623,16 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       (data.userId as string | undefined) ??
       null;
 
-    // 대화 상대 = threadId (self 메시지면 수신자 idTo, 상대 메시지면 발신자 uidFrom)
+    // 대화 상대 = threadId.
+    //  - USER: 상대 Zalo id(self면 수신자 idTo, 상대면 uidFrom을 zca-js가 threadId로 정규화).
+    //  - GROUP: 그룹 id(zaloUserId 슬롯). 발신자(uidFrom)는 senderUid로 별도 저장.
     const senderZaloUserId = userMsg.threadId || senderId;
     if (!senderZaloUserId) return;
+
+    // 그룹 메시지의 발신자 식별자 — ZaloMessage.senderUid로 저장(누가 보냈는지). USER는 null.
+    const senderUid = isGroupMsg ? senderId : null;
+    // 저장·발송 분기용 threadType 리터럴.
+    const threadType: "USER" | "GROUP" = isGroupMsg ? "GROUP" : "USER";
 
     // 귀속 관리자 미상이면 저장 불가(타 관리자 오귀속 방지) — 발생 시 드롭하고 기록
     if (!inst.ownerAdminId) {
@@ -654,7 +668,10 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
     const displayText = text.trim().length > 0 ? text : UNKNOWN_MESSAGE_FALLBACK;
 
     const zaloMsgId = buildInboundKey(userMsg.data);
-    const displayName = (data.dName as string | undefined) ?? null;
+    // USER: data.dName = 상대 표시명 → 대화 displayName 보강에 사용.
+    // GROUP: data.dName = "발신자"명(그룹명 아님)이라 대화명으로 쓰면 오표기 → null로 두고
+    //        그룹명은 maybeRefreshGroupMembers(getGroupInfo)가 채운다. 발신자명은 groupMembers 스냅샷에서 매핑.
+    const displayName = isGroupMsg ? null : (data.dName as string | undefined) ?? null;
     // ADR-0009 R3-1 — cliMsgId(리액션·답글 대상)·인용 스냅샷 파싱. 수신·발신 echo 양쪽에 저장.
     const cliMsgId = buildCliMsgId(userMsg.data);
     const quote = extractQuote(userMsg.data);
@@ -679,7 +696,12 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
         displayName,
         cliMsgId,
         quote,
+        // ADR-0010 S4 — 그룹 echo도 threadType·senderUid(내 발신)로 미러.
+        threadType,
+        senderUid,
       });
+      // 그룹 멤버 스냅샷 best-effort 갱신(R14 대비) — 리스너 블로킹 금지(fire-and-forget).
+      if (isGroupMsg) void maybeRefreshGroupMembers(inst, senderZaloUserId);
       // S2 / ADR-0010 A4 — 신규 저장(saved===true)일 때만 Nike webhook push(fire-and-forget, await 없음).
       // 중복 멱등(saved:false)이면 미발송. saveOutboundEcho는 messageId 미반환 → zaloMsgId로 식별.
       if (outbound.saved && zaloMsgId) {
@@ -721,7 +743,16 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       senderPhone: null,
       cliMsgId,
       quote,
+      // ADR-0010 S4 — 그룹 수신: threadType GROUP + senderUid(발신자). 전화매칭은 saveInboundMessage가 GROUP이면 스킵.
+      threadType,
+      senderUid,
     });
+
+    // ADR-0010 S4 — 그룹 멤버 스냅샷 best-effort 갱신(R14 대비, 발신자명·아바타 매핑 원천).
+    //   리스너 블로킹 금지(fire-and-forget). 실패/미지원이면 조용히 건너뜀(senderUid 폴백으로 충분).
+    if (isGroupMsg && inbound.saved) {
+      void maybeRefreshGroupMembers(inst, senderZaloUserId);
+    }
 
     // S2 / ADR-0010 A4 — 신규 저장(saved===true)일 때만 Nike webhook push(fire-and-forget, await 없음).
     // 중복 멱등(saved:false)이면 미발송. messageId로 정본 1건을 식별해 push.
@@ -881,11 +912,13 @@ export type BotSendResult =
 async function sendVia(
   api: API | null,
   zaloUserId: string,
-  text: string
+  text: string,
+  // ADR-0010 S4 — 그룹 발송 지원. 기본 USER(기존 호출 동작 불변). GROUP이면 zaloUserId=그룹 id.
+  threadType: ThreadType = ThreadType.User
 ): Promise<BotSendResult> {
   if (!api) return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
   try {
-    const res = await api.sendMessage(text, zaloUserId, ThreadType.User);
+    const res = await api.sendMessage(text, zaloUserId, threadType);
     const msgId = res?.message?.msgId;
     return { ok: true, messageId: msgId != null ? String(msgId) : null };
   } catch (e) {
@@ -914,10 +947,12 @@ export async function sendBotMessage(
 export async function sendChatMessageAsAdmin(
   adminUserId: string,
   zaloUserId: string,
-  text: string
+  text: string,
+  // ADR-0010 S4 — 그룹 발송. 기본 USER(기존 호출 무영향). GROUP이면 zaloUserId=그룹 id.
+  threadType: ThreadType = ThreadType.User
 ): Promise<BotSendResult> {
   const api = await getApiForAdmin(adminUserId);
-  return sendVia(api, zaloUserId, text);
+  return sendVia(api, zaloUserId, text, threadType);
 }
 
 /**
@@ -933,7 +968,9 @@ export async function sendChatForwardAsAdmin(
   adminUserId: string,
   targetThreadId: string,
   message: string,
-  reference?: { id: string; ts: number; logSrcType: number; fwLvl: number }
+  reference?: { id: string; ts: number; logSrcType: number; fwLvl: number },
+  // ADR-0010 S4 — 그룹 전달. 기본 USER(기존 호출 무영향).
+  threadType: ThreadType = ThreadType.User
 ): Promise<BotSendResult> {
   // 빈 본문 방어 — zca-js가 throw하기 전에 명확한 에러로 반환(첨부 forward는 범위 밖).
   if (!message || message.trim().length === 0) {
@@ -945,7 +982,7 @@ export async function sendChatForwardAsAdmin(
     const res = await api.forwardMessage(
       { message, ...(reference ? { reference } : {}) },
       [targetThreadId],
-      ThreadType.User
+      threadType
     );
     const fail = res?.fail?.[0];
     if (fail) {
@@ -990,7 +1027,9 @@ export async function sendChatReplyAsAdmin(
   adminUserId: string,
   zaloUserId: string,
   text: string,
-  quoteSource: QuoteSource
+  quoteSource: QuoteSource,
+  // ADR-0010 S4 — 그룹 답글. 기본 USER(기존 호출 무영향).
+  threadType: ThreadType = ThreadType.User
 ): Promise<BotSendResult> {
   try {
     const api = await getApiForAdmin(adminUserId);
@@ -1010,7 +1049,7 @@ export async function sendChatReplyAsAdmin(
         ttl: 0,
       },
     } as unknown as Parameters<API["sendMessage"]>[0];
-    const res = await api.sendMessage(message, zaloUserId, ThreadType.User);
+    const res = await api.sendMessage(message, zaloUserId, threadType);
     const msgId = res?.message?.msgId ?? res?.attachment?.[0]?.msgId;
     return { ok: true, messageId: msgId != null ? String(msgId) : null };
   } catch (e) {
@@ -1045,7 +1084,9 @@ export async function addReactionAsAdmin(
   adminUserId: string,
   zaloUserId: string,
   target: { zaloMsgId: string; cliMsgId: string },
-  iconKey: string
+  iconKey: string,
+  // ADR-0010 S4 — 그룹 리액션. 기본 USER(기존 호출 무영향).
+  threadType: ThreadType = ThreadType.User
 ): Promise<ReactionResult> {
   try {
     const api = await getApiForAdmin(adminUserId);
@@ -1055,7 +1096,7 @@ export async function addReactionAsAdmin(
     await api.addReaction(icon as Reactions, {
       data: { msgId: target.zaloMsgId, cliMsgId: target.cliMsgId },
       threadId: zaloUserId,
-      type: ThreadType.User,
+      type: threadType,
     });
     return { ok: true };
   } catch (e) {
@@ -1081,7 +1122,9 @@ export async function sendChatImageAsAdmin(
   zaloUserId: string,
   buffer: Buffer,
   fileName: string,
-  caption?: string
+  caption?: string,
+  // ADR-0010 S4 — 그룹 이미지 발송. 기본 USER(기존 호출 무영향).
+  threadType: ThreadType = ThreadType.User
 ): Promise<BotSendResult> {
   try {
     const api = await getApiForAdmin(adminUserId);
@@ -1110,7 +1153,7 @@ export async function sendChatImageAsAdmin(
         ],
       },
       zaloUserId,
-      ThreadType.User
+      threadType
     );
     const msgId = res?.message?.msgId ?? res?.attachment?.[0]?.msgId;
     return { ok: true, messageId: msgId != null ? String(msgId) : null };
@@ -1136,7 +1179,9 @@ export async function sendChatFileAsAdmin(
   zaloUserId: string,
   buffer: Buffer,
   fileName: `${string}.${string}`,
-  caption?: string
+  caption?: string,
+  // ADR-0010 S4 — 그룹 파일 발송. 기본 USER(기존 호출 무영향).
+  threadType: ThreadType = ThreadType.User
 ): Promise<BotSendResult> {
   try {
     const api = await getApiForAdmin(adminUserId);
@@ -1153,7 +1198,7 @@ export async function sendChatFileAsAdmin(
         ],
       },
       zaloUserId,
-      ThreadType.User
+      threadType
     );
     const msgId = res?.message?.msgId ?? res?.attachment?.[0]?.msgId;
     return { ok: true, messageId: msgId != null ? String(msgId) : null };
@@ -1231,6 +1276,74 @@ async function maybeRefreshAvatar(
   } catch (err) {
     console.error(
       "[ZaloPool] 아바타 lazy 갱신 실패:",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
+}
+
+// ── ADR-0010 S4: 그룹 멤버 스냅샷 ─────────────────────────────────
+
+/**
+ * 그룹 정보·멤버 스냅샷 lazy 갱신 (ADR-0010 D2 / S4) — 리스너 외부 fire-and-forget 전용.
+ * zca-js api.getGroupInfo(groupId) → gridInfoMap[groupId].{ name, currentMems[] }.
+ *  - groupMembers = [{ zaloId, name, avatarUrl }] (공개 프로필만 — credential·금액·마진 0, 누수 무관).
+ *  - 그룹명(name)은 대화 displayName으로 보강(없을 때만 — 사용자 지정 nickname은 건드리지 않음).
+ *  - 미지원·실패(메서드 없음/네트워크/비멤버)면 조용히 스킵 — senderUid 원문 폴백으로 충분(R14).
+ *    표시는 FE가 처리(스냅샷에 없는 senderUid는 원문/이니셜 폴백).
+ *
+ * 과호출 방지: ZaloConversation에 멤버 전용 fetch 타임스탬프 컬럼이 없으므로(스키마 동결),
+ *   **멤버 스냅샷이 아직 비어 있을 때만** 1회 조회한다(부트스트랩). 멤버 변동 추종(증감 반영)은
+ *   별도 갱신 경로(FE 수동 새로고침/그룹 이벤트)에서 처리하며 여기서는 다루지 않는다(레이트리밋 우선).
+ */
+async function maybeRefreshGroupMembers(
+  inst: ZaloBotInstance,
+  groupId: string
+): Promise<void> {
+  try {
+    if (!inst.ownerAdminId) return;
+    const api = inst.api;
+    // 미연결이면 조용히 스킵(senderUid 폴백). getGroupInfo는 zca-js API 표준 메서드.
+    if (!api) return;
+
+    const conv = await prisma.zaloConversation.findUnique({
+      where: {
+        ownerAdminId_zaloUserId: { ownerAdminId: inst.ownerAdminId, zaloUserId: groupId },
+      },
+      select: { id: true, displayName: true, groupMembers: true },
+    });
+    if (!conv) return;
+    // 멤버 스냅샷이 이미 있으면 스킵(과호출 방지 — 부트스트랩 1회만).
+    const hasMembers =
+      Array.isArray(conv.groupMembers) && (conv.groupMembers as unknown[]).length > 0;
+    if (hasMembers) return;
+
+    const res = await api.getGroupInfo(groupId);
+    const info = res?.gridInfoMap?.[groupId];
+    if (!info) return;
+
+    // 멤버 스냅샷 — 공개 프로필(zaloId·이름·아바타)만. 누수 무관.
+    const members = Array.isArray(info.currentMems)
+      ? info.currentMems.map((m) => ({
+          zaloId: m.id,
+          name: m.dName || m.zaloName || "",
+          avatarUrl: m.avatar || null,
+        }))
+      : [];
+    const groupName =
+      typeof info.name === "string" && info.name.trim().length > 0 ? info.name : null;
+
+    await prisma.zaloConversation.update({
+      where: { id: conv.id },
+      data: {
+        groupMembers: members as Prisma.InputJsonValue,
+        // 그룹명은 displayName이 비어 있을 때만 보강(수동 지정 보존).
+        ...(groupName && !conv.displayName ? { displayName: groupName } : {}),
+      },
+    });
+  } catch (err) {
+    // 미지원·실패는 치명적 아님 — senderUid 폴백으로 충분. 상태/메시지만 기록(credential·본문 0).
+    console.error(
+      "[ZaloPool] 그룹 멤버 스냅샷 갱신 실패(스킵):",
       err instanceof Error ? err.message : String(err)
     );
   }

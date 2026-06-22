@@ -117,6 +117,8 @@ beforeEach(() => {
   mockConvFindFirst.mockResolvedValue({
     id: "c1",
     zaloUserId: "zu1",
+    // ADR-0010 S4 — 라우트가 threadType을 읽어 발송 ThreadType 결정. 1:1 기본 USER.
+    threadType: "USER",
   });
   mockConvUpdateMany.mockResolvedValue({ count: 1 });
   mockConvUpdate.mockResolvedValue({});
@@ -168,8 +170,8 @@ describe("POST /api/zalo/messages — 발신 (T6.6)", () => {
     expect(data.status).toBe("SENT");
     expect(data.sentBy).toBe("admin1");
     expect(data.zaloMsgId).toBe("zmsg1");
-    // ADR-0007: 본인 계정으로 발송 (adminUserId, zaloUserId, text)
-    expect(mockSendChat).toHaveBeenCalledWith("admin1", "zu1", "확인했습니다");
+    // ADR-0007: 본인 계정으로 발송 (adminUserId, zaloUserId, text). ADR-0010 S4: 4번째 인자 ThreadType(1:1=User=0).
+    expect(mockSendChat).toHaveBeenCalledWith("admin1", "zu1", "확인했습니다", 0);
     // 소유 스코프 — findFirst where에 ownerAdminId 포함 (누수 차단)
     expect(mockConvFindFirst).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -18,6 +18,8 @@ import {
   ZaloMessageDirection,
   ZaloMessageSource,
   ZaloMessageStatus,
+  ZaloThreadType,
+  Prisma,
   Role,
   type ZaloTranslateMode,
 } from "@prisma/client";
@@ -612,6 +614,21 @@ export interface ParsedInbound {
   cliMsgId?: string | null;
   /** 수신 메시지의 인용(답글) 스냅샷 (ADR-0009 R3-1). 없으면 null */
   quote?: ParsedQuote | null;
+  /**
+   * 대화 종류 (ADR-0010 그룹 D / S4). 미지정 시 "USER"(1:1) — 기존 호출 동작 불변.
+   * "GROUP"이면 zaloUserId 슬롯에 그룹 id가 들어오고, 전화번호 자동매칭을 스킵한다(다중 발신자).
+   */
+  threadType?: "USER" | "GROUP";
+  /**
+   * 그룹 메시지의 발신자 Zalo id (ADR-0010 D3 / S4). 그룹은 다중 발신자라 누가 보냈는지 식별.
+   * 1:1은 null(상대 고정). ZaloMessage.senderUid로 저장.
+   */
+  senderUid?: string | null;
+  /**
+   * 그룹 멤버 스냅샷 Json (ADR-0010 D2 / S4) — [{zaloId,name,avatarUrl}]. 미지정/없으면 미갱신.
+   * 전달되면 GROUP 대화의 groupMembers를 갱신(발신자명·아바타 매핑 원천). 누수 무관(공개 프로필).
+   */
+  groupMembers?: unknown;
 }
 
 // ===================== DB 저장 + 전화번호 매칭 =====================
@@ -648,17 +665,30 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
     senderPhone,
     cliMsgId,
     quote,
+    threadType,
+    senderUid,
+    groupMembers,
   } = parsed;
   const now = new Date();
+  // 그룹 여부 — 전화번호 매칭 가드·컬럼 저장 분기. 미지정 시 USER(기존 1:1 동작 불변).
+  const isGroup = threadType === "GROUP";
 
   // 1) 대화 upsert (관리자×상대 복합키 — 없으면 생성)
+  //    create에 threadType 반영(기본 USER). GROUP이고 groupMembers가 오면 update로 스냅샷 갱신.
   const conversation = await prisma.zaloConversation.upsert({
     where: { ownerAdminId_zaloUserId: { ownerAdminId, zaloUserId: senderZaloUserId } },
-    update: {},
+    update:
+      isGroup && groupMembers != null
+        ? { groupMembers: groupMembers as Prisma.InputJsonValue }
+        : {},
     create: {
       ownerAdminId,
       zaloUserId: senderZaloUserId,
       displayName: displayName ?? undefined,
+      threadType: isGroup ? ZaloThreadType.GROUP : ZaloThreadType.USER,
+      ...(isGroup && groupMembers != null
+        ? { groupMembers: groupMembers as Prisma.InputJsonValue }
+        : {}),
     },
     select: { id: true, userId: true, displayName: true, translateMode: true },
   });
@@ -691,6 +721,8 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
       attachmentUrls: attachmentUrls ?? [],
       zaloMsgId,
       cliMsgId: cliMsgId ?? null,
+      // 그룹 메시지 발신자 식별 (ADR-0010 D3). 1:1은 null(상대 고정).
+      senderUid: senderUid ?? null,
       quotedMsgId: quote?.quotedMsgId ?? null,
       quotedText: quote?.quotedText ?? null,
       quotedSender: quote?.quotedSender ?? null,
@@ -712,8 +744,10 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
 
   // 5) 전화번호 매칭 (T3.7) — 시스템봇 수신만(전역 온보딩, D4) + 아직 User 미연결인 대화만.
   //    개인 계정 수신은 User.zaloUserId(전역) 오염 방지 위해 매칭 스킵.
+  //    ADR-0010 S4: 그룹(GROUP)은 다중 발신자라 한 zaloUserId(=그룹 id)에 여러 사람이 섞인다.
+  //    그룹 id를 특정 User.zaloUserId로 매칭하면 전역 오염되므로 그룹은 자동 매칭을 스킵한다.
   let matchedUserId = conversation.userId;
-  if (isSystemBot && !conversation.userId) {
+  if (isSystemBot && !isGroup && !conversation.userId) {
     const phone = senderPhone ?? extractPhone(text);
     if (phone) {
       matchedUserId = await tryMatchSupplierByPhone(
@@ -910,6 +944,12 @@ export interface ParsedOutbound {
   cliMsgId?: string | null;
   /** 내가 보낸 답글의 인용 스냅샷 (앱 발신 동기화 시). 없으면 null */
   quote?: ParsedQuote | null;
+  /** 대화 종류 (ADR-0010 그룹 D / S4). 미지정 시 "USER" — 기존 1:1 echo 동작 불변. */
+  threadType?: "USER" | "GROUP";
+  /** 그룹 echo 발신자 Zalo id (보통 내 ownId). 1:1은 null. ZaloMessage.senderUid로 저장. */
+  senderUid?: string | null;
+  /** 그룹 멤버 스냅샷 Json (ADR-0010 D2). 전달되면 GROUP 대화 groupMembers 갱신. */
+  groupMembers?: unknown;
 }
 
 /**
@@ -942,16 +982,28 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
     displayName,
     cliMsgId,
     quote,
+    threadType,
+    senderUid,
+    groupMembers,
   } = parsed;
+  const isGroup = threadType === "GROUP";
 
   // 1) 대화 upsert (관리자×상대 복합키 — 없으면 생성)
+  //    create에 threadType 반영. GROUP echo에서 groupMembers가 오면 스냅샷 갱신.
   const conversation = await prisma.zaloConversation.upsert({
     where: { ownerAdminId_zaloUserId: { ownerAdminId, zaloUserId: senderZaloUserId } },
-    update: {},
+    update:
+      isGroup && groupMembers != null
+        ? { groupMembers: groupMembers as Prisma.InputJsonValue }
+        : {},
     create: {
       ownerAdminId,
       zaloUserId: senderZaloUserId,
       displayName: displayName ?? undefined,
+      threadType: isGroup ? ZaloThreadType.GROUP : ZaloThreadType.USER,
+      ...(isGroup && groupMembers != null
+        ? { groupMembers: groupMembers as Prisma.InputJsonValue }
+        : {}),
     },
     select: { id: true, displayName: true },
   });
@@ -979,6 +1031,8 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
       attachmentUrls: attachmentUrls ?? [],
       zaloMsgId,
       cliMsgId: cliMsgId ?? null,
+      // 그룹 echo 발신자(내 ownId 등). 1:1은 null. (ADR-0010 D3)
+      senderUid: senderUid ?? null,
       quotedMsgId: quote?.quotedMsgId ?? null,
       quotedText: quote?.quotedText ?? null,
       quotedSender: quote?.quotedSender ?? null,

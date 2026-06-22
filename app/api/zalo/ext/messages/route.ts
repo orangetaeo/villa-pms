@@ -93,6 +93,8 @@ export async function GET(req: Request) {
       quotedText: true,
       quotedSender: true,
       reactions: true,
+      // ADR-0010 S4 — 그룹 메시지 발신자 식별(FE가 groupMembers 스냅샷으로 이름·아바타 매핑). 1:1은 null.
+      senderUid: true,
     },
   });
 
@@ -117,6 +119,8 @@ export async function GET(req: Request) {
     quotedSender: m.quotedSender,
     // 리액션 집계(Json {HEART:n,...}) — 아이콘별 카운트만(누수 무관)
     reactions: m.reactions ?? null,
+    // 그룹 메시지 발신자 Zalo id(누수 무관 — 식별자). FE가 groupMembers로 이름·아바타 매핑. 1:1은 null.
+    senderUid: m.senderUid,
   }));
 
   return NextResponse.json({

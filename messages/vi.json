@@ -1498,6 +1498,10 @@
       "unknownName": "(Chưa rõ tên)",
       "settlementMonth": "Thanh toán tháng {month}/{year}",
       "resizeWidth": "Điều chỉnh chiều rộng danh sách hội thoại"
+    },
+    "group": {
+      "label": "Trò chuyện nhóm",
+      "memberCount": "{count} thành viên"
     }
   },
   "zaloConnect": {

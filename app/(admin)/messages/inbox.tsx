@@ -15,6 +15,10 @@ export interface InboxItem {
   initials: string;
   avatarUrl: string | null;
   counterpartyType: CounterpartyType;
+  // 그룹(단톡방) 여부 — true면 그룹 아이콘·멤버수로 1:1과 시각 구분(S4 D4).
+  isGroup: boolean;
+  // 그룹 멤버수(groupMembers 배열 길이). 0이면(스냅샷 없음) 멤버수 칩 생략.
+  memberCount: number;
   lastText: string;
   lastMsgType: string;
   time: string;
@@ -137,12 +141,33 @@ export function Inbox({
                   : "flex items-start gap-3 px-5 py-4 hover:bg-slate-800/60 transition-colors border-l-2 border-transparent"
               }
             >
-              <Avatar avatarUrl={item.avatarUrl} initials={item.initials} />
+              <Avatar
+                avatarUrl={item.avatarUrl}
+                initials={item.initials}
+                isGroup={item.isGroup}
+              />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-0.5 gap-2">
                   <div className="flex items-center gap-1.5 min-w-0">
+                    {/* 그룹 표시(D4) — 이름 앞 그룹 아이콘 + 뒤 멤버수 칩으로 1:1과 시각 구분 */}
+                    {item.isGroup && (
+                      <span
+                        className="material-symbols-outlined text-[16px] text-teal-400 shrink-0"
+                        title={t("group.label")}
+                      >
+                        groups
+                      </span>
+                    )}
                     <span className="text-sm font-bold text-white truncate">{item.name}</span>
-                    <CounterpartyBadge type={item.counterpartyType} t={t} size="xs" />
+                    {item.isGroup && item.memberCount > 0 && (
+                      <span className="shrink-0 inline-flex items-center gap-0.5 rounded-full bg-slate-800 border border-slate-700 px-1.5 py-0.5 text-[10px] font-bold text-slate-400 tabular-nums">
+                        <span className="material-symbols-outlined text-[12px] leading-none">person</span>
+                        {item.memberCount}
+                      </span>
+                    )}
+                    {!item.isGroup && (
+                      <CounterpartyBadge type={item.counterpartyType} t={t} size="xs" />
+                    )}
                   </div>
                   <span className="text-[10px] text-slate-500 tabular-nums shrink-0">
                     {item.time}
@@ -177,11 +202,20 @@ export function Inbox({
   );
 }
 
-/** 아바타 — avatarUrl 있으면 img(onError 시 이니셜 폴백), 없으면 이니셜 원 (D8.3) */
-function Avatar({ avatarUrl, initials }: { avatarUrl: string | null; initials: string }) {
+/** 아바타 — avatarUrl 있으면 img(onError 시 폴백), 없으면 폴백.
+ *  그룹(isGroup)은 폴백이 그룹 아이콘(여러 사람), 1:1은 이니셜 원 (D8.3 / S4 D4). */
+function Avatar({
+  avatarUrl,
+  initials,
+  isGroup = false,
+}: {
+  avatarUrl: string | null;
+  initials: string;
+  isGroup?: boolean;
+}) {
   const [broken, setBroken] = useState(false);
   if (avatarUrl && !broken) {
-    // 외부 Zalo CDN URL 만료 리스크 — onError 시 이니셜 폴백. next/image 대신 <img>(만료 안전).
+    // 외부 Zalo CDN URL 만료 리스크 — onError 시 폴백. next/image 대신 <img>(만료 안전).
     // eslint-disable-next-line @next/next/no-img-element
     return (
       <img
@@ -190,6 +224,14 @@ function Avatar({ avatarUrl, initials }: { avatarUrl: string | null; initials: s
         onError={() => setBroken(true)}
         className="w-10 h-10 rounded-full object-cover shrink-0 bg-slate-700"
       />
+    );
+  }
+  if (isGroup) {
+    // 그룹 폴백 — 그룹 아이콘(아바타가 없거나 깨졌을 때 1:1 이니셜 대신).
+    return (
+      <div className="w-10 h-10 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center shrink-0">
+        <span className="material-symbols-outlined text-[22px]">groups</span>
+      </div>
     );
   }
   return (

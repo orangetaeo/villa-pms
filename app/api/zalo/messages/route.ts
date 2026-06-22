@@ -11,6 +11,7 @@ import {
   ZaloMessageSource,
   ZaloMessageStatus,
 } from "@prisma/client";
+import { ThreadType } from "zca-js";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
@@ -58,11 +59,14 @@ export async function POST(req: Request) {
   // 소유 검증 — 본인(ownerAdminId) 대화에만 발신 (ADR-0007 D3.4, 타 관리자 대화 발신 차단).
   const conversation = await prisma.zaloConversation.findFirst({
     where: { id: conversationId, ownerAdminId: session.user.id },
-    select: { id: true, zaloUserId: true, translateMode: true },
+    select: { id: true, zaloUserId: true, translateMode: true, threadType: true },
   });
   if (!conversation) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
+  // ADR-0010 S4 — 그룹 대화면 ThreadType.Group으로 발송(zaloUserId=그룹 id). 1:1은 USER.
+  const sendThreadType =
+    conversation.threadType === "GROUP" ? ThreadType.Group : ThreadType.User;
 
   // ── 답글(인용) 원본 조회 (ADR-0009 R3-2) — 지정 시만. 본인 대화의 메시지여야 함. ──
   let quoteSnapshot: {
@@ -150,9 +154,15 @@ export async function POST(req: Request) {
         session.user.id,
         conversation.zaloUserId,
         outboundText,
-        replyQuoteSource
+        replyQuoteSource,
+        sendThreadType
       )
-    : await sendChatMessageAsAdmin(session.user.id, conversation.zaloUserId, outboundText);
+    : await sendChatMessageAsAdmin(
+        session.user.id,
+        conversation.zaloUserId,
+        outboundText,
+        sendThreadType
+      );
   if (result.ok) {
     status = ZaloMessageStatus.SENT;
     zaloMsgId = result.messageId;

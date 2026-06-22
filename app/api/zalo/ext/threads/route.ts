@@ -14,6 +14,26 @@ import { isExtSecretValid, resolveSystemOwnerId } from "@/lib/zalo-ext-auth";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * 그룹 멤버 스냅샷(Json)을 응답용으로 화이트리스트 정제 (ADR-0010 S4).
+ * zaloId·name·avatarUrl 3개 필드만 통과 — 예상 외 필드가 섞여도 외부로 새지 않게 강제 한정.
+ * 1:1(null)·비배열이면 null. 공개 프로필 정보만이라 credential·금액·마진과 무관.
+ */
+function sanitizeGroupMembers(
+  raw: unknown
+): { zaloId: string; name: string; avatarUrl: string | null }[] | null {
+  if (!Array.isArray(raw)) return null;
+  const members = raw
+    .filter((m): m is Record<string, unknown> => !!m && typeof m === "object")
+    .map((m) => ({
+      zaloId: typeof m.zaloId === "string" ? m.zaloId : "",
+      name: typeof m.name === "string" ? m.name : "",
+      avatarUrl: typeof m.avatarUrl === "string" ? m.avatarUrl : null,
+    }))
+    .filter((m) => m.zaloId.length > 0);
+  return members.length > 0 ? members : null;
+}
+
 export async function GET(req: Request) {
   // ── 시크릿 게이트 (첫 줄 인증) ──
   if (!isExtSecretValid(req)) {
@@ -40,6 +60,9 @@ export async function GET(req: Request) {
       nickname: true,
       avatarUrl: true,
       counterpartyType: true,
+      // ADR-0010 S4 — 그룹 표시(Nike B6·villa FE). USER|GROUP + 멤버 스냅샷(이름·아바타·zaloId만).
+      threadType: true,
+      groupMembers: true,
       lastMessageAt: true,
       lastInboundAt: true,
       unreadCount: true,
@@ -67,6 +90,9 @@ export async function GET(req: Request) {
     nickname: c.nickname,
     avatarUrl: c.avatarUrl,
     counterpartyType: c.counterpartyType,
+    // ADR-0010 S4 — 그룹 여부 + 멤버 스냅샷. 멤버는 이름·아바타·zaloId만(공개 프로필, 누수 무관).
+    threadType: c.threadType,
+    groupMembers: sanitizeGroupMembers(c.groupMembers),
     lastMessageAt: c.lastMessageAt ? c.lastMessageAt.toISOString() : null,
     lastInboundAt: c.lastInboundAt ? c.lastInboundAt.toISOString() : null,
     unreadCount: c.unreadCount,

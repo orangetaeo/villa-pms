@@ -1498,6 +1498,10 @@
       "unknownName": "(이름 미확인)",
       "settlementMonth": "{year}년 {month}월 정산",
       "resizeWidth": "대화 목록 너비 조절"
+    },
+    "group": {
+      "label": "그룹 대화",
+      "memberCount": "멤버 {count}명"
     }
   },
   "zaloConnect": {

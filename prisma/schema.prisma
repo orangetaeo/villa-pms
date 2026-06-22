@@ -6,6 +6,7 @@
 // v1.2b: ZaloMessage 답글(인용)·리액션 — cliMsgId·quotedMsgId·quotedText·quotedSender·reactions 추가 (ADR-0009 개정3 2026-06-16, additive)
 // v1.2c: ZaloCounterpartyType IGNORED 추가 — 개인/기타(업무 상대 아님) 종착 분류, 분류 배너 영구 미노출 (2026-06-22, additive enum)
 // v1.3: 빌라 판매용 정보 확장 — Villa 스칼라 13 + enum BedType·FeatureCategory + 모델 VillaBedroom·VillaFeature (ADR-0011, additive only)
+// v1.3b: Zalo 그룹 채팅 — enum ZaloThreadType + ZaloConversation.threadType·groupMembers + ZaloMessage.senderUid (ADR-0010 S4, additive only)
 // v1.3a: Villa.availabilityCheckedAt 추가 — 운영자 공실 보드 "마지막 확인일" (T-admin-availability-board, additive only)
 
 generator client {
@@ -672,6 +673,15 @@ enum ZaloTranslateMode {
   EN // 상대 영어 — 수신 en→ko, 발신 ko→en
 }
 
+// 대화 스레드 종류 (ADR-0010 그룹 D1, S4) — 1:1 개인 대화 vs 그룹(단톡방).
+//  USER: 상대 1명(zaloUserId=상대 Zalo id). 기존 모든 대화 = USER(백필 기본값).
+//  GROUP: 단톡방(zaloUserId=그룹 id). 여러 발신자가 섞임 → ZaloMessage.senderUid로 발신자 식별,
+//         ZaloConversation.groupMembers 스냅샷으로 발신자명·아바타 매핑(R14 미해석 시 senderUid 폴백).
+enum ZaloThreadType {
+  USER // 1:1 개인 대화 (기본)
+  GROUP // 그룹(단톡방)
+}
+
 // 대화 스레드 — 관리자×상대(공급자) 단위 (ADR-0007 D3).
 // ownerAdminId: 이 대화를 받은/소유한 ADMIN (개인 스코프 기준). 시스템봇 미러는 시스템봇 소유자(테오) 소유.
 // 같은 공급자가 관리자 A·B와 각각 대화하면 행 2개(ownerAdminId만 다름) — 카카오톡 모델.
@@ -696,6 +706,10 @@ model ZaloConversation {
   avatarFetchedAt  DateTime? // D8 — 마지막 아바타 조회 시각 (주기 갱신 판단)
   nickname         String? // D9 — ADMIN 지정 별명 (표시 최우선, displayName 원본 보존)
 
+  // ADR-0010 그룹 D (S4, additive) — 그룹 채팅. 기존 행은 threadType USER 백필.
+  threadType   ZaloThreadType @default(USER) // D1 — USER(1:1) | GROUP(단톡방). zaloUserId 슬롯에 그룹은 그룹 id 저장
+  groupMembers Json? // D2 — 그룹 멤버 스냅샷 [{zaloId,name,avatarUrl}]. 발신자명·아바타 매핑 원천. 1:1은 null
+
   messages ZaloMessage[]
 
   @@unique([ownerAdminId, zaloUserId]) // 관리자×상대 단위 (기존 zaloUserId @unique 대체)
@@ -716,6 +730,7 @@ model ZaloMessage {
   status         ZaloMessageStatus
   error          String?
   sentBy         String? // OUTBOUND CHAT: 발신 ADMIN userId
+  senderUid      String? // ADR-0010 그룹 D3 (S4) — 그룹 메시지의 발신자 Zalo id(누가 보냈는지). 1:1은 null(상대 고정)
   createdAt      DateTime             @default(now())
 
   // ── 답글(인용)·리액션 (ADR-0009 개정3, additive) ──

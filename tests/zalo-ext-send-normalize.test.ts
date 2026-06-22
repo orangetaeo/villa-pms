@@ -11,6 +11,7 @@
 //   4. 타 관리자 conversation의 cuid는 테오 스코프에서 매칭 안 됨 → 정규화 안 됨(누수 0).
 //   5. 정규화는 전 kind(TEXT/IMAGE/REPLY/FORWARD/REACTION)에 적용.
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ThreadType } from "zca-js";
 
 // ── 시크릿 게이트·테오 ownerAdminId 결정은 통과로 고정(정규화 로직에 집중) ──
 vi.mock("@/lib/zalo-ext-auth", () => ({
@@ -55,7 +56,8 @@ function matchConv(where: {
     }
     return true;
   });
-  return c ? { zaloUserId: c.zaloUserId } : null;
+  // ADR-0010 S4: 라우트가 conv.threadType을 읽어 발송 ThreadType 결정 — 1:1 대화는 USER.
+  return c ? { zaloUserId: c.zaloUserId, threadType: "USER" } : null;
 }
 
 vi.mock("@/lib/prisma", () => ({
@@ -87,7 +89,13 @@ describe("ext/send threadId 정규화 (Nike→villa 발송 500 버그 수정)", 
   it("cuid → zaloUserId 정규화: TEXT 발송이 실제 zaloUserId로 나간다", async () => {
     const res = await sendReq({ kind: "TEXT", threadId: "cuid-theo-1", text: "안녕" });
     expect(res.status).toBe(200);
-    expect(mockSendText).toHaveBeenCalledWith("theo", "3405637163672158317", "안녕");
+    // ADR-0010 S4 — 4번째 인자로 발송 ThreadType 전달(1:1=User). 정규화 결과는 동일.
+    expect(mockSendText).toHaveBeenCalledWith(
+      "theo",
+      "3405637163672158317",
+      "안녕",
+      ThreadType.User
+    );
   });
 
   it("zaloUserId → 그대로: 진짜 uid로 들어오면 동일 uid로 발송", async () => {
@@ -97,13 +105,18 @@ describe("ext/send threadId 정규화 (Nike→villa 발송 500 버그 수정)", 
       text: "hi",
     });
     expect(res.status).toBe(200);
-    expect(mockSendText).toHaveBeenCalledWith("theo", "3405637163672158317", "hi");
+    expect(mockSendText).toHaveBeenCalledWith(
+      "theo",
+      "3405637163672158317",
+      "hi",
+      ThreadType.User
+    );
   });
 
   it("미존재 threadId → 하위호환: threadId 그대로 발송(방어)", async () => {
     const res = await sendReq({ kind: "TEXT", threadId: "unknown-xyz", text: "y" });
     expect(res.status).toBe(200);
-    expect(mockSendText).toHaveBeenCalledWith("theo", "unknown-xyz", "y");
+    expect(mockSendText).toHaveBeenCalledWith("theo", "unknown-xyz", "y", ThreadType.User);
   });
 
   it("타 관리자 cuid → 테오 스코프 매칭 안 됨, 정규화 안 됨(누수 0)", async () => {
@@ -111,8 +124,8 @@ describe("ext/send threadId 정규화 (Nike→villa 발송 500 버그 수정)", 
     const res = await sendReq({ kind: "TEXT", threadId: "cuid-other-1", text: "엿보기" });
     expect(res.status).toBe(200);
     // adminB의 zaloUserId(zu-otherB)로 정규화되지 않음 — 들어온 값 그대로
-    expect(mockSendText).toHaveBeenCalledWith("theo", "cuid-other-1", "엿보기");
-    expect(mockSendText).not.toHaveBeenCalledWith("theo", "zu-otherB", "엿보기");
+    expect(mockSendText).toHaveBeenCalledWith("theo", "cuid-other-1", "엿보기", ThreadType.User);
+    expect(mockSendText).not.toHaveBeenCalledWith("theo", "zu-otherB", "엿보기", ThreadType.User);
   });
 
   it("IMAGE 발송도 정규화 적용", async () => {

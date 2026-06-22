@@ -10,6 +10,7 @@ import {
   ZaloCounterpartyType,
   ZaloMessageDirection,
   ZaloMessageSource,
+  ZaloThreadType,
 } from "@prisma/client";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
@@ -49,6 +50,33 @@ function initials(name: string | null | undefined): string {
     return (parts[parts.length - 2][0] + parts[parts.length - 1][0]).toUpperCase();
   }
   return n.slice(0, 2).toUpperCase();
+}
+
+/** 그룹 멤버 스냅샷 1건 — groupMembers Json([{zaloId,name,avatarUrl}]) 의 원소.
+ *  이름·아바타만 사용(누수 무관: 공개 프로필). 그 외 필드는 무시. */
+interface GroupMember {
+  zaloId: string;
+  name: string | null;
+  avatarUrl: string | null;
+}
+
+/** groupMembers Json(unknown) → GroupMember[] 정규화. zaloId 없는 항목은 제외.
+ *  null·비배열·형식 불일치는 빈 배열. 발신자명·아바타 매핑 + 멤버수 표시의 단일 진실원. */
+function parseGroupMembers(value: unknown): GroupMember[] {
+  if (!Array.isArray(value)) return [];
+  const out: GroupMember[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== "object") continue;
+    const m = raw as Record<string, unknown>;
+    const zaloId = typeof m.zaloId === "string" ? m.zaloId : null;
+    if (!zaloId) continue;
+    out.push({
+      zaloId,
+      name: typeof m.name === "string" ? m.name : null,
+      avatarUrl: typeof m.avatarUrl === "string" ? m.avatarUrl : null,
+    });
+  }
+  return out;
 }
 
 /** 인박스 시각 표기: 오늘 HH:mm / 어제 / 그 외 MM.DD (Asia/Ho_Chi_Minh) */
@@ -136,6 +164,8 @@ export default async function MessagesPage({
       nickname: true,
       avatarUrl: true,
       counterpartyType: true,
+      threadType: true,
+      groupMembers: true,
       lastMessageAt: true,
       lastInboundAt: true,
       unreadCount: true,
@@ -168,12 +198,18 @@ export default async function MessagesPage({
 
   const inboxItems: InboxItem[] = conversations.map((c) => {
     const name = displayNameOf(c, tm("inbox.unknownName"));
+    // 그룹 대화(threadType=GROUP) — 그룹 아이콘·멤버수로 1:1과 시각 구분(S4 D4).
+    const isGroup = c.threadType === ZaloThreadType.GROUP;
+    const memberCount = isGroup ? parseGroupMembers(c.groupMembers).length : 0;
     return {
       id: c.id,
       name,
       initials: initials(name),
       avatarUrl: c.avatarUrl,
       counterpartyType: c.counterpartyType as CounterpartyType,
+      isGroup,
+      // 멤버 스냅샷이 없으면(groupMembers=null) 0 → 인박스에서 멤버수 칩 생략.
+      memberCount,
       lastText: c.messages[0]?.text ?? "",
       lastMsgType: c.messages[0]?.msgType ?? "text",
       time: inboxTime(c.lastMessageAt, now, tm("inbox.yesterday")),
@@ -203,6 +239,8 @@ export default async function MessagesPage({
         nickname: true,
         avatarUrl: true,
         counterpartyType: true,
+        threadType: true,
+        groupMembers: true,
         translateMode: true,
         lastInboundAt: true,
         unreadCount: true,
@@ -221,6 +259,8 @@ export default async function MessagesPage({
             direction: true,
             source: true,
             msgType: true,
+            // 그룹 메시지 발신자 Zalo id — groupMembers 스냅샷에서 이름·아바타 해석(1:1은 null).
+            senderUid: true,
             text: true,
             translatedText: true,
             attachmentUrls: true,
@@ -247,6 +287,13 @@ export default async function MessagesPage({
     {
       const name = displayNameOf(conv, tm("inbox.unknownName"));
       const counterpartyType = conv.counterpartyType as CounterpartyType;
+      // 그룹 대화 — 버블에 발신자별 이름·아바타 표시(S4 D4). 1:1은 기존 단일 상대 그대로.
+      const isGroup = conv.threadType === ZaloThreadType.GROUP;
+      // 그룹 멤버 스냅샷 zaloId→{name,avatarUrl} 조회 맵(발신자 해석 원천). 1:1은 빈 맵.
+      const memberMap = new Map<string, GroupMember>();
+      if (isGroup) {
+        for (const m of parseGroupMembers(conv.groupMembers)) memberMap.set(m.zaloId, m);
+      }
       header = {
         name,
         initials: initials(name),
@@ -255,6 +302,7 @@ export default async function MessagesPage({
         villaName: conv.user?.villas[0]?.name ?? null,
         zaloOriginalName: conv.displayName,
         counterpartyType,
+        isGroup,
         translateMode: conv.translateMode as TranslateMode,
         // 별명 편집 인풋 초깃값 — 현재 별명(없으면 빈 문자열)
         nickname: conv.nickname ?? "",
@@ -269,6 +317,16 @@ export default async function MessagesPage({
         prevDay = day;
         const isInbound = m.direction === ZaloMessageDirection.INBOUND;
         const isSystem = m.source === ZaloMessageSource.SYSTEM;
+        // 그룹 수신 버블 발신자 해석(R14): senderUid → 멤버 스냅샷 name·avatarUrl.
+        // 미해석(멤버에 없거나 groupMembers=null) → 이름은 senderUid 원문 폴백, 아바타는 이니셜.
+        // OUTBOUND(내 발신)·SYSTEM·1:1 대화는 발신자명 불필요 → null(버블은 기존 표시).
+        let senderName: string | null = null;
+        let senderAvatarUrl: string | null = null;
+        if (isGroup && isInbound && !isSystem) {
+          const member = m.senderUid ? memberMap.get(m.senderUid) : undefined;
+          senderName = member?.name ?? m.senderUid ?? null;
+          senderAvatarUrl = member?.avatarUrl ?? null;
+        }
         return {
           id: m.id,
           kind: isSystem ? "system" : isInbound ? "inbound" : "outbound",
@@ -279,8 +337,11 @@ export default async function MessagesPage({
           time: msgTime(m.createdAt),
           status: m.status,
           dayDivider: divider,
-          avatarUrl: isInboundAvatar,
-          initials: isInboundInitials,
+          // 그룹 수신 버블은 발신자별 아바타·이니셜(senderAvatar/senderName).
+          // 1:1·OUTBOUND·SYSTEM은 대화 상대(헤더) 아바타·이니셜 그대로(회귀 0).
+          avatarUrl: senderAvatarUrl ?? isInboundAvatar,
+          initials: senderName ? initials(senderName) : isInboundInitials,
+          senderName,
           // 인용 점프(Nike) — 자기 앵커 zaloMsgId + 인용 대상 zaloMsgId(인용 클릭 시 원본으로 스크롤).
           zaloMsgId: m.zaloMsgId,
           quotedMsgId: m.quotedMsgId,

@@ -15,6 +15,7 @@
 //     마진/판매가/재고 모델 절대 미참조·미반환.
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { ThreadType } from "zca-js";
 import { prisma } from "@/lib/prisma";
 import {
   sendChatMessageAsAdmin,
@@ -34,20 +35,26 @@ import { isExtSecretValid, resolveSystemOwnerId } from "@/lib/zalo-ext-auth";
 //   - cuid(=conversation.id)로 들어와도, 진짜 zaloUserId로 들어와도 모두 올바른 주소로 발송.
 //   - 테오(ownerAdminId) 스코프 조건 필수 — 타 관리자 conversation 매칭 금지(누수 0 유지).
 //   - 매칭 실패(conversation 없음)는 하위호환·방어로 threadId 그대로 사용(로그로 흔적).
+//   ADR-0010 S4: 반환에 threadType도 포함 — GROUP 대화면 ThreadType.Group으로 발송한다.
 async function resolveThreadZaloUserId(
   ownerAdminId: string,
   threadId: string
-): Promise<string> {
+): Promise<{ zaloUserId: string; threadType: ThreadType }> {
   const conv = await prisma.zaloConversation.findFirst({
     where: { ownerAdminId, OR: [{ id: threadId }, { zaloUserId: threadId }] },
-    select: { zaloUserId: true },
+    select: { zaloUserId: true, threadType: true },
   });
-  if (conv?.zaloUserId) return conv.zaloUserId;
+  if (conv?.zaloUserId) {
+    return {
+      zaloUserId: conv.zaloUserId,
+      threadType: conv.threadType === "GROUP" ? ThreadType.Group : ThreadType.User,
+    };
+  }
   // 미존재 — 하위호환: threadId 그대로(방어). credential·시크릿 미노출, threadId만 흔적.
   console.warn(
     `[zalo/ext/send] threadId 정규화 실패(테오 스코프 conversation 없음) — threadId 그대로 발송: ${threadId}`
   );
-  return threadId;
+  return { zaloUserId: threadId, threadType: ThreadType.User };
 }
 
 // ── 본문 스키마 (discriminated union, kind 기준) ──────────────────────
@@ -136,12 +143,16 @@ export async function POST(req: Request) {
 
   // ── threadId 정규화 — cuid/zaloUserId 모두 실제 Zalo uid로 (전 kind 공통) ──
   //    테오 스코프 조회. 매칭 실패 시 body.threadId 그대로(방어). ownerAdminId 무변경.
-  const threadId = await resolveThreadZaloUserId(ownerAdminId, body.threadId);
+  //    ADR-0010 S4: GROUP 대화면 threadType=Group으로 발송(전 kind 공통).
+  const { zaloUserId: threadId, threadType } = await resolveThreadZaloUserId(
+    ownerAdminId,
+    body.threadId
+  );
 
   // ── 발송 (기존 함수 재사용, ownerAdminId 서버 고정, threadId 정규화본 사용) ──
   try {
     if (body.kind === "TEXT") {
-      const res = await sendChatMessageAsAdmin(ownerAdminId, threadId, body.text);
+      const res = await sendChatMessageAsAdmin(ownerAdminId, threadId, body.text, threadType);
       if (!res.ok) {
         return NextResponse.json({ error: "SEND_FAILED", reason: res.error }, { status: 502 });
       }
@@ -163,7 +174,8 @@ export async function POST(req: Request) {
         threadId,
         buffer,
         body.fileName,
-        body.caption
+        body.caption,
+        threadType
       );
       if (!res.ok) {
         return NextResponse.json({ error: "SEND_FAILED", reason: res.error }, { status: 502 });
@@ -172,12 +184,18 @@ export async function POST(req: Request) {
     }
 
     if (body.kind === "REPLY") {
-      const res = await sendChatReplyAsAdmin(ownerAdminId, threadId, body.text, {
-        zaloMsgId: body.quote.zaloMsgId,
-        cliMsgId: body.quote.cliMsgId,
-        content: body.quote.content,
-        uidFrom: body.quote.uidFrom,
-      });
+      const res = await sendChatReplyAsAdmin(
+        ownerAdminId,
+        threadId,
+        body.text,
+        {
+          zaloMsgId: body.quote.zaloMsgId,
+          cliMsgId: body.quote.cliMsgId,
+          content: body.quote.content,
+          uidFrom: body.quote.uidFrom,
+        },
+        threadType
+      );
       if (!res.ok) {
         return NextResponse.json({ error: "SEND_FAILED", reason: res.error }, { status: 502 });
       }
@@ -189,7 +207,8 @@ export async function POST(req: Request) {
         ownerAdminId,
         threadId,
         body.message,
-        body.reference
+        body.reference,
+        threadType
       );
       if (!res.ok) {
         return NextResponse.json({ error: "SEND_FAILED", reason: res.error }, { status: 502 });
@@ -202,7 +221,8 @@ export async function POST(req: Request) {
       ownerAdminId,
       threadId,
       { zaloMsgId: body.target.zaloMsgId, cliMsgId: body.target.cliMsgId },
-      body.iconKey
+      body.iconKey,
+      threadType
     );
     if (!res.ok) {
       return NextResponse.json({ error: "SEND_FAILED", reason: res.error }, { status: 502 });

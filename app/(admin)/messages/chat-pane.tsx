@@ -64,6 +64,8 @@ export interface ChatHeader {
   villaName: string | null;
   zaloOriginalName: string | null;
   counterpartyType: CounterpartyType;
+  // 그룹(단톡방) 여부 — true면 수신 버블에 발신자별 이름·아바타 표시(S4 D4).
+  isGroup: boolean;
   translateMode: TranslateMode;
   nickname: string;
 }
@@ -80,6 +82,9 @@ export interface ChatMessage {
   dayDivider: string | null;
   avatarUrl: string | null;
   initials: string;
+  // 그룹 수신 버블 발신자명(senderUid→groupMembers 해석, 미해석 시 senderUid 원문 폴백 R14).
+  // 1:1·OUTBOUND·SYSTEM은 null(발신자명 불필요 — 기존 표시 그대로).
+  senderName: string | null;
   // 인용 점프(Nike) — zaloMsgId는 이 버블의 점프 앵커, quotedMsgId는 인용 대상 원본의 zaloMsgId.
   // 둘이 일치하면 인용 클릭 시 원본으로 스크롤+하이라이트(없으면 인용 블록은 비클릭 스냅샷만).
   zaloMsgId: string | null;
@@ -378,6 +383,7 @@ export function ChatPane({
                   message={m}
                   conversationId={conversationId}
                   contactName={header.name}
+                  isGroup={header.isGroup}
                   onReply={setReplyTarget}
                   actionsActive={activeActionMessageId === m.id}
                   onBubbleTap={toggleActionMessage}
@@ -683,6 +689,7 @@ function MessageBubble({
   message,
   conversationId,
   contactName,
+  isGroup,
   onReply,
   actionsActive,
   onBubbleTap,
@@ -692,6 +699,7 @@ function MessageBubble({
   message: ChatMessage;
   conversationId: string;
   contactName: string;
+  isGroup: boolean;
   onReply: (target: ReplyTarget) => void;
   actionsActive: boolean;
   onBubbleTap: (id: string) => void;
@@ -713,6 +721,7 @@ function MessageBubble({
           message={message}
           conversationId={conversationId}
           contactName={contactName}
+          isGroup={isGroup}
           onReply={onReply}
           actionsActive={actionsActive}
           onBubbleTap={onBubbleTap}
@@ -993,6 +1002,7 @@ function InboundBubble({
   message,
   conversationId,
   contactName,
+  isGroup,
   onReply,
   actionsActive,
   onBubbleTap,
@@ -1002,6 +1012,7 @@ function InboundBubble({
   message: ChatMessage;
   conversationId: string;
   contactName: string;
+  isGroup: boolean;
   onReply: (target: ReplyTarget) => void;
   actionsActive: boolean;
   onBubbleTap: (id: string) => void;
@@ -1009,9 +1020,12 @@ function InboundBubble({
   router: ReturnType<typeof useRouter>;
 }) {
   const [showTranslation, setShowTranslation] = useState(true);
+  // 그룹은 발신자별 이름(senderName, 미해석 시 senderUid 폴백) — 답글 인용·하단 라벨에 사용.
+  // 1:1은 기존대로 대화 상대명(contactName).
+  const senderLabel = isGroup ? message.senderName ?? contactName : contactName;
   const replyTarget: ReplyTarget = {
     messageId: message.id,
-    sender: contactName,
+    sender: senderLabel,
     text: replyPreviewText(message, t),
   };
   // 특수 타입(sticker/voice/call/contact/video/location) 카드 — 발·수신 공통 분기 재사용.
@@ -1024,6 +1038,12 @@ function InboundBubble({
     >
       <InboundAvatar message={message} />
       <div className="min-w-0">
+        {/* 그룹 — 버블 위 발신자명(여러 발신자 구분). 미해석은 senderUid 원문 폴백(R14). */}
+        {isGroup && senderLabel && (
+          <p className="mb-0.5 text-[11px] font-bold text-teal-300/90 truncate max-w-[180px]">
+            {senderLabel}
+          </p>
+        )}
         {(message.quotedText || message.quotedSender) && (
           <QuotedBlock
             sender={message.quotedSender}
@@ -1084,8 +1104,9 @@ function InboundBubble({
           </div>
         )}
         <div className="flex items-center gap-2 mt-1">
-          {/* 상대 이름/닉네임 — 시간 왼쪽에 표시(사용자 요청). 헤더 외에도 대화 상대 식별. */}
-          {contactName && (
+          {/* 상대 이름/닉네임 — 시간 왼쪽에 표시(사용자 요청). 헤더 외에도 대화 상대 식별.
+              그룹은 발신자명을 버블 위에 이미 표시하므로 하단 라벨 생략(중복 방지). */}
+          {!isGroup && contactName && (
             <span className="text-[11px] font-medium text-slate-400 truncate max-w-[120px]">
               {contactName}
             </span>
