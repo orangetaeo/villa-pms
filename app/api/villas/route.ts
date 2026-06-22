@@ -10,13 +10,16 @@ import { serializeBigInt } from "@/lib/serialize";
 import type { Prisma, VillaStatus } from "@prisma/client";
 
 export async function POST(req: Request) {
-  // 권한 검사 — SUPPLIER 전용 (route handler 첫 줄 role 검사 규칙)
+  // 권한 검사 — SUPPLIER(자기 빌라) + ADMIN(테오 직접등록) 허용 (route handler 첫 줄 role 검사 규칙)
   const session = await auth();
-  if (!session?.user?.id || session.user.role !== "SUPPLIER") {
+  if (
+    !session?.user?.id ||
+    (session.user.role !== "SUPPLIER" && session.user.role !== "ADMIN")
+  ) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
-  // supplierId는 세션에서 강제 — 바디의 supplierId는 무시한다
-  const supplierId = session.user.id;
+  const actorId = session.user.id; // 실제 등록 수행자(업로더·감사로그 주체)
+  const role = session.user.role;
 
   let body: unknown;
   try {
@@ -33,6 +36,24 @@ export async function POST(req: Request) {
     );
   }
   const data = parsed.data;
+
+  // 귀속 공급자 결정 — SUPPLIER는 세션 강제(바디 supplierId 무시), ADMIN은 바디 supplierId(존재·역할 검증)
+  let supplierId: string;
+  if (role === "SUPPLIER") {
+    supplierId = actorId;
+  } else {
+    if (!data.supplierId) {
+      return NextResponse.json({ error: "SUPPLIER_REQUIRED" }, { status: 400 });
+    }
+    const supplier = await prisma.user.findUnique({
+      where: { id: data.supplierId },
+      select: { id: true, role: true },
+    });
+    if (!supplier || supplier.role !== "SUPPLIER") {
+      return NextResponse.json({ error: "INVALID_SUPPLIER" }, { status: 400 });
+    }
+    supplierId = supplier.id;
+  }
 
   const villa = await prisma.$transaction(async (tx) => {
     const created = await tx.villa.create({
@@ -59,7 +80,7 @@ export async function POST(req: Request) {
           spaceLabel: photo.spaceLabel ?? null,
           url: photo.url,
           sortOrder: photo.sortOrder,
-          uploadedBy: supplierId, // 증빙: 업로더 기록
+          uploadedBy: actorId, // 증빙: 실제 업로더 기록(ADMIN 직접등록 시 ADMIN)
         })),
       });
     }
@@ -96,12 +117,14 @@ export async function POST(req: Request) {
 
   // 감사 로그 — 데이터 변경 API 동시 기록 (글로벌 절대 규칙)
   await writeAuditLog({
-    userId: supplierId,
+    userId: actorId,
     action: "CREATE",
     entity: "Villa",
     entityId: villa.id,
     changes: {
       status: { new: "PENDING_REVIEW" },
+      // ADMIN 직접등록 시 actor(ADMIN)와 귀속 공급자가 다름 — 귀속 대상 기록
+      supplierId: { new: supplierId },
       name: { new: data.name },
       bedrooms: { new: data.bedrooms },
       bathrooms: { new: data.bathrooms },

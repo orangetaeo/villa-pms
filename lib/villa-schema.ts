@@ -23,6 +23,8 @@ const vndDigits = z.string().regex(/^\d{1,15}$/);
 const vndPositiveDigits = z.string().regex(/^[1-9]\d{0,14}$/);
 
 export const villaCreateSchema = z.object({
+  // 귀속 공급자 — ADMIN 직접등록 시에만 사용(존재·role=SUPPLIER 검증은 서버). SUPPLIER 등록 시 무시(세션 강제)
+  supplierId: z.string().trim().min(1).max(40).optional(),
   // 기본 정보 (1/5)
   name: z.string().trim().min(1).max(100),
   complex: z.string().trim().max(100).optional(),

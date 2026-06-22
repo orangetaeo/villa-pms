@@ -3,7 +3,7 @@
 // 1/5 기본 정보 (a2-basic-info) — 빌라명·단지·스테퍼 3종·수영장/조식 토글
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import type { WizardState } from "./wizard-types";
+import type { SupplierOption, WizardState } from "./wizard-types";
 
 // 단지명은 고유명사 — 번역하지 않는다 (i18n 용어 사전 규칙)
 const COMPLEXES = ["Sonasea", "Sunset Sanato", "Vinpearl"];
@@ -13,14 +13,23 @@ interface Props {
   update: (patch: Partial<WizardState>) => void;
   onNext: () => void;
   onHome: () => void;
+  /** ADMIN 직접등록 모드 — 귀속 공급자 선택 노출·필수 */
+  isAdmin: boolean;
+  suppliers: SupplierOption[];
 }
 
-export default function StepBasic({ state, update, onNext, onHome }: Props) {
+export default function StepBasic({ state, update, onNext, onHome, isAdmin, suppliers }: Props) {
   const t = useTranslations("wizard.basic");
   const tw = useTranslations("wizard");
   const [nameError, setNameError] = useState(false);
+  const [supplierError, setSupplierError] = useState(false);
 
   function handleContinue() {
+    // ADMIN 직접등록은 귀속 공급자 선택 필수
+    if (isAdmin && !state.supplierId) {
+      setSupplierError(true);
+      return;
+    }
     if (!state.name.trim()) {
       setNameError(true);
       return;
@@ -33,6 +42,41 @@ export default function StepBasic({ state, update, onNext, onHome }: Props) {
       <main className="flex-1 overflow-y-auto px-4 pb-32 pt-6">
         <div className="mx-auto max-w-md space-y-8">
           <h2 className="px-1 text-2xl font-bold text-neutral-900">{t("title")}</h2>
+
+          {/* 귀속 공급자 — ADMIN 직접등록 전용 (공급자 화면에는 노출 안 됨) */}
+          {isAdmin && (
+            <section className="space-y-3">
+              <label className="block px-1 text-sm font-semibold text-neutral-700" htmlFor="supplier-select">
+                {t("supplier")}
+              </label>
+              <div className="relative">
+                <select
+                  id="supplier-select"
+                  value={state.supplierId}
+                  onChange={(e) => {
+                    update({ supplierId: e.target.value });
+                    if (e.target.value) setSupplierError(false);
+                  }}
+                  className={`h-14 w-full appearance-none rounded-xl border-2 bg-white px-4 text-lg font-medium transition-colors focus:border-teal-600 focus:ring-0 ${
+                    supplierError ? "border-red-400" : "border-neutral-100"
+                  }`}
+                >
+                  <option value="">{t("supplierPlaceholder")}</option>
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.phone ? `${s.name} (${s.phone})` : s.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2">
+                  <span className="material-symbols-outlined text-neutral-400">expand_more</span>
+                </div>
+              </div>
+              {supplierError && (
+                <p className="px-1 text-sm font-medium text-red-600">{t("supplierRequired")}</p>
+              )}
+            </section>
+          )}
 
           {/* 빌라명 */}
           <section className="space-y-3">

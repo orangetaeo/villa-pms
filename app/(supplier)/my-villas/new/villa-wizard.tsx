@@ -9,6 +9,7 @@ import {
   INITIAL_STATE,
   buildPhotoSlots,
   type PhotoSlotState,
+  type SupplierOption,
   type WizardState,
 } from "./wizard-types";
 import StepBasic from "./step-basic";
@@ -22,10 +23,15 @@ const TOTAL_STEPS = 5;
 export default function VillaWizard({
   villaId,
   initialState,
+  isAdmin = false,
+  suppliers = [],
 }: {
   /** T1.2b 재제출 — 있으면 PUT(수정), 없으면 POST(신규) */
   villaId?: string;
   initialState?: WizardState;
+  /** ADMIN 직접등록 모드 — 1단계에서 귀속 공급자 선택 노출 */
+  isAdmin?: boolean;
+  suppliers?: SupplierOption[];
 } = {}) {
   const t = useTranslations("wizard");
   const router = useRouter();
@@ -84,6 +90,8 @@ export default function VillaWizard({
         method: villaId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          // ADMIN 직접등록 시에만 의미 — SUPPLIER는 서버가 세션으로 강제(바디 무시)
+          supplierId: state.supplierId || undefined,
           name: state.name.trim(),
           complex: state.complex || undefined,
           bedrooms: state.bedrooms,
@@ -131,6 +139,8 @@ export default function VillaWizard({
           update={update}
           onNext={goNext}
           onHome={() => router.push("/my-villas")}
+          isAdmin={isAdmin}
+          suppliers={suppliers}
         />
       )}
       {step === 2 && (

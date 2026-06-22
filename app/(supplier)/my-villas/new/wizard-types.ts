@@ -10,7 +10,16 @@ export interface PhotoSlotState {
   url?: string;
 }
 
+/** ADMIN 직접등록 시 귀속 공급자 선택 옵션 */
+export interface SupplierOption {
+  id: string;
+  name: string;
+  phone: string | null;
+}
+
 export interface WizardState {
+  // 0. 귀속 공급자 — ADMIN 직접등록 시에만 사용("" = 미선택). SUPPLIER는 빈 값(서버가 세션 강제)
+  supplierId: string;
   // 1/5 기본 정보
   name: string;
   complex: string; // "" = 미선택
@@ -31,6 +40,7 @@ export interface WizardState {
 }
 
 export const INITIAL_STATE: WizardState = {
+  supplierId: "",
   name: "",
   complex: "",
   bedrooms: 3,
@@ -143,6 +153,7 @@ export function villaToWizardState(villa: VillaForEdit): WizardState {
   ) as Record<Season, string>;
 
   return {
+    supplierId: "", // 재제출(edit)은 공급자 컨텍스트 — 서버가 세션 강제, 미사용
     name: villa.name,
     complex: villa.complex ?? "",
     bedrooms: villa.bedrooms,
