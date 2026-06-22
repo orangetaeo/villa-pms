@@ -14,15 +14,16 @@ const createSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  // 권한 검사 — SUPPLIER 전용 (route handler 첫 줄 role 검사 규칙, 비로그인 401/타롤 403 분리)
+  // 권한 검사 — SUPPLIER(자기 빌라) + ADMIN(전체 빌라) 허용 (비로그인 401/타롤 403 분리)
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
-  if (session.user.role !== "SUPPLIER") {
+  const role = session.user.role;
+  if (role !== "SUPPLIER" && role !== "ADMIN") {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
-  const supplierId = session.user.id;
+  const actorId = session.user.id;
 
   let body: unknown;
   try {
@@ -51,9 +52,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "PAST_DATE" }, { status: 400 });
   }
 
-  // 빌라 소유권 검증 — 타인 빌라는 존재 여부도 노출하지 않음 (404)
+  // 빌라 조회 — SUPPLIER 는 자기 빌라(supplierId 스코프)만, ADMIN 은 전체 빌라 대상(스코프 없음).
+  // 어느 쪽이든 대상 빌라가 없으면 404 (SUPPLIER 는 타인 빌라 존재 여부도 비노출)
   const villa = await prisma.villa.findFirst({
-    where: { id: parsed.data.villaId, supplierId },
+    where: {
+      id: parsed.data.villaId,
+      ...(role === "SUPPLIER" ? { supplierId: actorId } : {}),
+    },
     select: { id: true },
   });
   if (!villa) {
@@ -80,7 +85,7 @@ export async function POST(req: Request) {
         startDate,
         endDate,
         source: "MANUAL",
-        createdBy: supplierId,
+        createdBy: actorId,
       },
     });
     return { conflict: false as const, block };
@@ -92,7 +97,7 @@ export async function POST(req: Request) {
 
   // 감사 로그 — 데이터 변경 API 동시 기록 (글로벌 절대 규칙)
   await writeAuditLog({
-    userId: supplierId,
+    userId: actorId,
     action: "CREATE",
     entity: "CalendarBlock",
     entityId: result.block.id,

@@ -6,6 +6,7 @@
 // v1.2b: ZaloMessage 답글(인용)·리액션 — cliMsgId·quotedMsgId·quotedText·quotedSender·reactions 추가 (ADR-0009 개정3 2026-06-16, additive)
 // v1.2c: ZaloCounterpartyType IGNORED 추가 — 개인/기타(업무 상대 아님) 종착 분류, 분류 배너 영구 미노출 (2026-06-22, additive enum)
 // v1.3: 빌라 판매용 정보 확장 — Villa 스칼라 13 + enum BedType·FeatureCategory + 모델 VillaBedroom·VillaFeature (ADR-0011, additive only)
+// v1.3a: Villa.availabilityCheckedAt 추가 — 운영자 공실 보드 "마지막 확인일" (T-admin-availability-board, additive only)
 
 generator client {
   provider = "prisma-client-js"
@@ -109,6 +110,8 @@ model Villa {
   isSellable      Boolean     @default(false) // 청소 검수 게이트 통과 여부
   qualityScore    Int         @default(100) // Phase 2: 누적 품질점수
   icalImportUrls  String[] // 외부 채널 iCal 수신 URL (Airbnb 등)
+  // 운영자가 이 빌라의 공실을 공급자에게 마지막으로 확인한 시각. null = 아직 확인 안 함("확인필요"로 표시)
+  availabilityCheckedAt DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 

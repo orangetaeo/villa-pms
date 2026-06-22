@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Villa PMS - 공실 보드</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;family=Noto+Sans+KR:wght@300;400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+        darkMode: "class",
+        theme: {
+            extend: {
+                colors: {
+                    primary: { DEFAULT: "#3B82F6", dark: "#2563EB" },
+                    slate: { 800: "#1E293B", 900: "#0F172A", 950: "#020617" }
+                },
+                borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                fontFamily: {
+                    "headline": ["Public Sans", "Noto Sans KR", "sans-serif"],
+                    "display": ["Public Sans", "Noto Sans KR", "sans-serif"],
+                    "body": ["Public Sans", "Noto Sans KR", "sans-serif"],
+                    "label": ["Public Sans", "Noto Sans KR", "sans-serif"]
+                }
+            },
+        },
+    }
+</script>
+<style>
+    body { background-color: #0F172A; color: #F8FAFC; word-break: keep-all; }
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; font-size: 20px; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: #0F172A; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 5px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    .nowrap-cell { white-space: nowrap; }
+
+    /* ===== Availability board cell tokens (color + pattern, 색약 대응) ===== */
+    /* 공실(AVAILABLE): 비어있음 — 거의 빈 셀 + 옅은 점 hover */
+    .cell-available { background-color: transparent; }
+    .cell-available:hover { background-color: rgba(59,130,246,0.10); }
+
+    /* 운영자 차단(MANUAL block): 슬레이트 채움 + 정방향(45°) 빗금 */
+    .cell-manual {
+        background-color: #475569;
+        background-image: repeating-linear-gradient(45deg, rgba(15,23,42,0.55) 0, rgba(15,23,42,0.55) 2px, transparent 2px, transparent 7px);
+    }
+    .cell-manual:hover { background-color: #64748B; }
+
+    /* iCal 차단(ICAL block): 호박색(앰버) 채움 + 역방향(-45°) 빗금 + sync 아이콘 (읽기전용) */
+    .cell-ical {
+        background-color: rgba(245,158,11,0.22);
+        background-image: repeating-linear-gradient(-45deg, rgba(245,158,11,0.55) 0, rgba(245,158,11,0.55) 2px, transparent 2px, transparent 7px);
+        cursor: not-allowed;
+    }
+
+    /* 오늘 열 강조 */
+    .col-today { box-shadow: inset 1px 0 0 #3B82F6, inset -1px 0 0 #3B82F6; }
+    /* 주말 열 살짝 어둡게 */
+    .col-weekend { background-color: rgba(2,6,23,0.35); }
+    /* 월 경계 좌측 라인 */
+    .month-edge { box-shadow: inset 2px 0 0 #334155; }
+
+    .sticky-col { position: sticky; left: 0; z-index: 20; background-color: #1E293B; }
+    .grid-cell { width: 34px; min-width: 34px; height: 44px; border-right: 1px solid rgba(30,41,59,0.6); border-bottom: 1px solid rgba(30,41,59,0.6); cursor: pointer; transition: background-color .12s; }
+</style>
+</head>
+<body class="font-body antialiased overflow-hidden">
+
+<!-- ===== SideNavBar (b5 canonical 8-menu) ===== -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#0F172A] border-r border-[#1E293B] shadow-xl flex flex-col py-4 z-50">
+<div class="px-6 mb-8">
+<h1 class="text-xl font-headline font-black text-white tracking-tight">Villa PMS</h1>
+<p class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-1">Villa PMS Admin</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors nowrap-cell" href="#">
+<span class="material-symbols-outlined mr-3">dashboard</span><span class="text-sm font-medium">대시보드</span></a>
+<a class="flex items-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors nowrap-cell" href="#">
+<span class="material-symbols-outlined mr-3">calendar_month</span><span class="text-sm font-medium">예약</span></a>
+<a class="flex items-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors nowrap-cell" href="#">
+<span class="material-symbols-outlined mr-3">rate_review</span><span class="text-sm font-medium">제안</span></a>
+<!-- 빌라 (그룹 활성) -->
+<a class="flex items-center text-white bg-[#3B82F6] rounded-lg mx-2 my-1 px-4 py-2 nowrap-cell" href="#">
+<span class="material-symbols-outlined mr-3">villa</span><span class="text-sm font-medium">빌라</span></a>
+<a class="flex items-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors nowrap-cell" href="#">
+<span class="material-symbols-outlined mr-3">fact_check</span><span class="text-sm font-medium">청소 검수</span></a>
+<a class="flex items-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors nowrap-cell" href="#">
+<span class="material-symbols-outlined mr-3">payments</span><span class="text-sm font-medium">정산</span></a>
+<a class="flex items-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors nowrap-cell" href="#">
+<span class="material-symbols-outlined mr-3">group</span><span class="text-sm font-medium">사용자</span></a>
+<a class="flex items-center text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 transition-colors nowrap-cell" href="#">
+<span class="material-symbols-outlined mr-3">settings</span><span class="text-sm font-medium">설정</span></a>
+</nav>
+<div class="mt-auto px-4 py-4 border-t border-slate-700/50">
+<div class="flex items-center gap-3 px-2 py-2">
+<div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border border-slate-600">
+<span class="material-symbols-outlined text-slate-400">person</span></div>
+<div class="min-w-0"><p class="text-xs font-bold text-white truncate">관리자</p><p class="text-[10px] text-slate-500">최고 관리자</p></div>
+</div>
+</div>
+</aside>
+
+<!-- ===== Main ===== -->
+<main class="ml-64 flex flex-col h-screen">
+<!-- TopAppBar -->
+<header class="shrink-0 bg-[#0F172A] border-b border-slate-800 flex justify-between items-center h-16 px-6 z-40">
+<nav class="flex items-center text-sm text-slate-400 font-medium nowrap-cell">
+<span>빌라</span>
+<span class="material-symbols-outlined mx-2 text-xs">chevron_right</span>
+<span class="text-[#3B82F6] font-bold">공실 보드</span>
+</nav>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2 text-xs text-slate-400 nowrap-cell">
+<span class="material-symbols-outlined text-slate-500 text-sm">sync</span>
+<span>iCal 동기화: 오늘 09:14</span>
+</div>
+<div class="flex items-center gap-2 border-l border-slate-800 pl-4">
+<button class="p-2 text-slate-400 hover:text-white transition-colors"><span class="material-symbols-outlined">notifications</span></button>
+</div>
+</div>
+</header>
+
+<!-- Page Content -->
+<div class="p-6 flex flex-col flex-1 min-h-0 gap-4">
+
+<!-- Title + intent -->
+<div class="flex items-start justify-between gap-4">
+<div>
+<h2 class="text-lg font-black text-white nowrap-cell">빌라별 공실 보드</h2>
+<p class="text-xs text-slate-500 mt-0.5">공급자에게 확인한 공실 상태를 날짜별로 잠그거나 풀어 관리합니다. 예약·금액 정보는 표시하지 않습니다.</p>
+</div>
+<div class="flex items-center gap-2 shrink-0">
+<div class="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-lg px-3 py-1.5 text-xs font-bold nowrap-cell">
+<span class="material-symbols-outlined text-[16px]">priority_high</span>확인 필요 4개
+</div>
+</div>
+</div>
+
+<!-- ===== Filter / Period bar ===== -->
+<div class="bg-[#1E293B] rounded-xl border border-slate-800/50 shadow-sm p-3 flex flex-wrap items-center gap-3">
+<!-- Search -->
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">search</span>
+<input class="bg-slate-900 border-slate-700 text-sm rounded-lg pl-9 pr-4 py-2 w-56 focus:ring-1 focus:ring-[#3B82F6] focus:border-[#3B82F6]" placeholder="빌라명 검색..." type="text"/>
+</div>
+<!-- Area filter -->
+<div class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 nowrap-cell">
+<span class="text-[11px] text-slate-500 font-bold uppercase tracking-wider">지역</span>
+<select class="bg-transparent border-none text-sm text-slate-300 p-0 pr-6 focus:ring-0 cursor-pointer">
+<option>전체 지역</option><option>쏘나씨</option><option>썬셋 사나토</option><option>그랜드월드</option>
+</select>
+</div>
+<!-- 확인 필요만 toggle -->
+<label class="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 cursor-pointer nowrap-cell">
+<input type="checkbox" class="rounded bg-slate-800 border-slate-600 text-[#3B82F6] focus:ring-[#3B82F6] w-4 h-4"/>
+<span class="text-sm text-slate-300 font-medium">확인 필요만</span>
+</label>
+
+<!-- spacer -->
+<div class="flex-1"></div>
+
+<!-- Period navigator -->
+<button class="px-3 py-2 rounded-lg border border-slate-700 text-slate-300 text-xs font-bold hover:bg-slate-800 transition nowrap-cell">오늘</button>
+<div class="flex items-center gap-1 bg-slate-900 border border-slate-700 rounded-lg px-1 py-1 nowrap-cell">
+<button class="w-7 h-7 flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-slate-800"><span class="material-symbols-outlined text-sm">chevron_left</span></button>
+<span class="px-2 text-sm font-bold text-white tabular-nums">2026년 6월 ~ 8월</span>
+<button class="w-7 h-7 flex items-center justify-center rounded-md text-slate-400 hover:text-white hover:bg-slate-800"><span class="material-symbols-outlined text-sm">chevron_right</span></button>
+</div>
+</div>
+
+<!-- ===== Legend ===== -->
+<div class="flex flex-wrap items-center gap-x-6 gap-y-2 px-1">
+<div class="flex items-center gap-2 nowrap-cell">
+<span class="inline-block w-5 h-5 rounded border border-slate-600 cell-available"></span>
+<span class="text-sm font-medium text-slate-300">공실</span>
+</div>
+<div class="flex items-center gap-2 nowrap-cell">
+<span class="inline-block w-5 h-5 rounded border border-slate-600 cell-manual"></span>
+<span class="text-sm font-medium text-slate-300">잠금 (운영자 차단)</span>
+</div>
+<div class="flex items-center gap-2 nowrap-cell">
+<span class="inline-block w-5 h-5 rounded border border-amber-500/40 cell-ical relative">
+<span class="material-symbols-outlined text-amber-400 absolute inset-0 flex items-center justify-center" style="font-size:12px;">sync</span>
+</span>
+<span class="text-sm font-medium text-slate-300">외부 채널 잠금 (iCal · 읽기전용)</span>
+</div>
+<div class="flex items-center gap-2 nowrap-cell ml-auto">
+<span class="material-symbols-outlined text-green-500 text-[18px]">check_circle</span>
+<span class="text-sm font-medium text-slate-300">확인됨</span>
+<span class="material-symbols-outlined text-amber-400 text-[18px] ml-3">warning</span>
+<span class="text-sm font-medium text-slate-300">확인 필요 (오래됨)</span>
+</div>
+</div>
+
+<!-- ===== Timeline grid ===== -->
+<div class="bg-[#1E293B] rounded-xl border border-slate-800/50 shadow-lg flex-1 min-h-0 overflow-auto relative">
+<table class="border-collapse" style="table-layout:fixed;">
+<!-- ===== Header: month row + day row ===== -->
+<thead>
+<!-- Month row -->
+<tr>
+<th class="sticky-col text-left px-4 py-2 align-bottom" style="z-index:30; top:0; min-width:220px; width:220px; background:#0F172A; border-bottom:1px solid #1E293B; border-right:1px solid #1E293B;">
+<span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">빌라 (8)</span>
+</th>
+<th class="sticky top-0 text-left px-3 py-2 text-sm font-black text-white month-edge nowrap-cell" colspan="9" style="background:#0F172A; border-bottom:1px solid #1E293B; z-index:25;">2026년 6월</th>
+<th class="sticky top-0 text-left px-3 py-2 text-sm font-black text-white month-edge nowrap-cell" colspan="9" style="background:#0F172A; border-bottom:1px solid #1E293B; z-index:25;">2026년 7월</th>
+<th class="sticky top-0 text-left px-3 py-2 text-sm font-black text-white month-edge nowrap-cell" colspan="9" style="background:#0F172A; border-bottom:1px solid #1E293B; z-index:25;">2026년 8월</th>
+</tr>
+<!-- Day row -->
+<tr id="dayrow">
+<th class="sticky-col text-left px-4 py-2" style="z-index:30; top:34px; min-width:220px; width:220px; background:#1E293B; border-bottom:1px solid #1E293B; border-right:1px solid #1E293B;">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-600 text-sm">search</span>
+<input class="bg-slate-900 border-slate-700 text-xs rounded-md pl-7 pr-2 py-1 w-full focus:ring-1 focus:ring-[#3B82F6]" placeholder="이 화면에서 빌라 찾기" type="text"/>
+</div>
+</th>
+<!-- day cells injected by script -->
+</tr>
+</thead>
+<tbody id="gridbody">
+<!-- rows injected by script -->
+</tbody>
+</table>
+</div>
+
+</div><!-- /page content -->
+</main>
+
+<!-- ===== Lock/Unlock popover (AVAILABLE / MANUAL cell tap) ===== -->
+<div id="popover" class="hidden fixed z-[60] w-64 bg-[#1E293B] border border-slate-700 rounded-xl shadow-2xl p-4">
+<div class="flex items-center justify-between mb-1">
+<p id="pop-villa" class="text-xs text-slate-400 font-medium truncate">쏘나씨 V12</p>
+<button onclick="closePop()" class="text-slate-500 hover:text-white"><span class="material-symbols-outlined text-sm">close</span></button>
+</div>
+<p id="pop-date" class="text-base font-black text-white tabular-nums mb-1">2026.07.15 (수)</p>
+<p id="pop-state" class="text-xs text-slate-400 mb-3">현재 상태: <span class="text-slate-200 font-bold">공실</span></p>
+<div class="flex gap-2">
+<button class="flex-1 flex items-center justify-center gap-1.5 bg-slate-600 hover:bg-slate-500 text-white text-sm font-bold py-2.5 rounded-lg transition nowrap-cell">
+<span class="material-symbols-outlined text-[16px]">lock</span>잠금
+</button>
+<button class="flex-1 flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold py-2.5 rounded-lg border border-slate-700 transition nowrap-cell">
+<span class="material-symbols-outlined text-[16px]">lock_open</span>해제
+</button>
+</div>
+<p class="text-[10px] text-slate-500 mt-2.5 leading-relaxed">잠금 시 해당 날짜는 판매 후보에서 제외됩니다. 변경 즉시 저장됩니다.</p>
+</div>
+
+<!-- ===== iCal read-only popover (reference, hidden) ===== -->
+<div id="popover-ical" class="hidden fixed z-[60] w-64 bg-[#1E293B] border border-amber-500/40 rounded-xl shadow-2xl p-4">
+<div class="flex items-center justify-between mb-1">
+<p class="text-xs text-amber-400 font-bold flex items-center gap-1 nowrap-cell"><span class="material-symbols-outlined text-sm">sync</span>외부 채널 잠금</p>
+<button onclick="closePop()" class="text-slate-500 hover:text-white"><span class="material-symbols-outlined text-sm">close</span></button>
+</div>
+<p class="text-base font-black text-white tabular-nums mb-1">2026.07.16 (목)</p>
+<p class="text-xs text-slate-400 mb-2">iCal 동기화로 자동 잠긴 날짜입니다.</p>
+<div class="flex items-center gap-2 bg-slate-900 rounded-lg px-3 py-2 text-xs text-slate-400 nowrap-cell">
+<span class="material-symbols-outlined text-slate-500 text-sm">link</span>출처: Airbnb 캘린더
+</div>
+<div class="mt-3 flex items-center gap-2 bg-slate-800/60 rounded-lg px-3 py-2 text-[11px] text-slate-500 leading-relaxed">
+<span class="material-symbols-outlined text-slate-500 text-sm shrink-0">info</span>
+외부 채널 잠금은 이 화면에서 수정할 수 없습니다. 채널 원본에서 변경하세요.
+</div>
+</div>
+
+<script>
+// ===== Build 3-month day grid (compressed sample: 9 days/month for design) =====
+const COLS = [
+  { m: 6, days: [12,13,14,15,16,17,18,19,20] },
+  { m: 7, days: [12,13,14,15,16,17,18,19,20] },
+  { m: 8, days: [1,2,3,4,5,6,7,8,9] },
+];
+const DOW = ['일','월','화','수','목','금','토'];
+const TODAY = { m: 6, d: 14 }; // 강조용
+
+// flat list of all columns
+const allCols = [];
+COLS.forEach(month => month.days.forEach((d, i) => allCols.push({ m: month.m, d, monthStart: i === 0 })));
+
+// fake day-of-week for sample (so weekends shade); just rotate
+function dow(idx){ return (idx + 3) % 7; }
+
+// ---- day header ----
+const dayrow = document.getElementById('dayrow');
+allCols.forEach((c, idx) => {
+  const w = dow(idx);
+  const isWeekend = (w === 0 || w === 6);
+  const isToday = (c.m === TODAY.m && c.d === TODAY.d);
+  const th = document.createElement('th');
+  th.className = 'sticky top-0 px-0 py-1 text-center align-middle nowrap-cell'
+    + (c.monthStart ? ' month-edge' : '')
+    + (isToday ? ' col-today' : '')
+    + (isWeekend ? ' col-weekend' : '');
+  th.style.cssText = 'top:34px; min-width:34px; width:34px; background:#1E293B; border-bottom:1px solid #1E293B; z-index:24;';
+  th.innerHTML = `<div class="text-[10px] font-bold ${isToday?'text-[#3B82F6]':(isWeekend?'text-rose-400':'text-slate-400')} tabular-nums leading-none">${c.d}</div>`
+    + `<div class="text-[9px] ${isToday?'text-[#3B82F6]':'text-slate-600'} leading-none mt-0.5">${DOW[w]}</div>`;
+  dayrow.appendChild(th);
+});
+
+// ===== Villa rows (sample) =====
+// lastChecked: {ok:true, label} or {ok:false, label}
+// cells: array per col -> 'A'(available) | 'M'(manual) | 'I'(ical)
+const VILLAS = [
+  { name:'쏘나씨 V11', area:'쏘나씨', beds:'침실 3 · 욕실 2', chk:{ok:true,  label:'6/20'}, pat:'AAMMMAAAA AAAAAIIIA AAAAAMMMA' },
+  { name:'쏘나씨 V12', area:'쏘나씨', beds:'침실 4 · 욕실 3', chk:{ok:false, label:'5/28'}, pat:'AAAAAAAAA AAMMIIIAA AAAAAAAAA' },
+  { name:'썬셋 사나토 A3', area:'썬셋 사나토', beds:'침실 2 · 욕실 2', chk:{ok:true, label:'6/21'}, pat:'MMAAAAAAA AAAAAAAMM IIIAAAAAA' },
+  { name:'썬셋 사나토 B7', area:'썬셋 사나토', beds:'침실 5 · 욕실 4', chk:{ok:false, label:'5/12'}, pat:'AAAAAAAAA AAAAAAAAA AAAAAAAAA' },
+  { name:'그랜드월드 G21', area:'그랜드월드', beds:'침실 3 · 욕실 3', chk:{ok:true, label:'6/19'}, pat:'AAAIIIAAA MMMAAAAAA AAAAAMMAA' },
+  { name:'그랜드월드 G22', area:'그랜드월드', beds:'침실 2 · 욕실 1', chk:{ok:false, label:'4/30'}, pat:'AAAAAAAAA AAAAAAAAA IIIIIAAAA' },
+  { name:'사오비치 빌라 S5', area:'사오비치', beds:'침실 4 · 욕실 3', chk:{ok:true, label:'6/22'}, pat:'AAMMMAAAA AAAAAAAAA AAMMMAAAA' },
+  { name:'사오비치 빌라 S6', area:'사오비치', beds:'침실 6 · 욕실 5', chk:{ok:false, label:'5/03'}, pat:'AAAAAAAAA AAIIIAAAA AAAAAAAAA' },
+];
+
+const body = document.getElementById('gridbody');
+VILLAS.forEach((v, ri) => {
+  const states = v.pat.replace(/\s/g,'').split('');
+  const tr = document.createElement('tr');
+  tr.className = 'group';
+
+  // sticky villa name cell + badge
+  const name = document.createElement('td');
+  name.className = 'sticky-col px-4 py-1.5 align-middle';
+  name.style.cssText = 'min-width:220px; width:220px; border-right:1px solid #1E293B; border-bottom:1px solid rgba(30,41,59,0.6);';
+  const badge = v.chk.ok
+    ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 text-[10px] font-bold border border-green-500/20 nowrap-cell"><span class="material-symbols-outlined" style="font-size:13px;">check_circle</span>확인 ${v.chk.label}</span>`
+    : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 text-[10px] font-bold border border-amber-500/30 nowrap-cell animate-pulse"><span class="material-symbols-outlined" style="font-size:13px;">warning</span>확인필요 ${v.chk.label}</span>`;
+  name.innerHTML =
+    `<div class="flex items-center justify-between gap-2">
+       <div class="min-w-0">
+         <p class="text-sm font-bold text-slate-100 truncate nowrap-cell">${v.name}</p>
+         <p class="text-[10px] text-slate-500 truncate nowrap-cell">${v.beds}</p>
+       </div>
+       ${badge}
+     </div>`;
+  tr.appendChild(name);
+
+  // day cells
+  states.forEach((s, idx) => {
+    const w = dow(idx);
+    const isWeekend = (w === 0 || w === 6);
+    const isToday = (allCols[idx].m === TODAY.m && allCols[idx].d === TODAY.d);
+    const td = document.createElement('td');
+    let cls = 'grid-cell relative';
+    if (allCols[idx].monthStart) cls += ' month-edge';
+    if (isToday) cls += ' col-today';
+    if (s === 'A') { cls += ' cell-available' + (isWeekend ? ' col-weekend' : ''); td.title='공실'; }
+    if (s === 'M') { cls += ' cell-manual'; td.title='잠금 (운영자 차단)'; }
+    if (s === 'I') { cls += ' cell-ical'; td.title='외부 채널 잠금 (iCal)'; }
+    td.className = cls;
+    if (s === 'I') {
+      td.innerHTML = `<span class="material-symbols-outlined text-amber-300/90 absolute inset-0 flex items-center justify-center pointer-events-none" style="font-size:13px;">sync</span>`;
+      td.onclick = (e)=>openPop(e, v.name, allCols[idx], 'I');
+    } else {
+      td.onclick = (e)=>openPop(e, v.name, allCols[idx], s);
+    }
+    tr.appendChild(td);
+  });
+  body.appendChild(tr);
+});
+
+// ===== Popover logic =====
+const pop = document.getElementById('popover');
+const popI = document.getElementById('popover-ical');
+function closePop(){ pop.classList.add('hidden'); popI.classList.add('hidden'); }
+function openPop(e, villa, col, state){
+  closePop();
+  const dateStr = `2026.${String(col.m).padStart(2,'0')}.${String(col.d).padStart(2,'0')}`;
+  if (state === 'I'){
+    popI.style.left = Math.min(e.clientX, window.innerWidth-280) + 'px';
+    popI.style.top  = Math.min(e.clientY+8, window.innerHeight-220) + 'px';
+    popI.querySelector('.font-black').textContent = dateStr + ' (목)';
+    popI.classList.remove('hidden');
+    return;
+  }
+  document.getElementById('pop-villa').textContent = villa;
+  document.getElementById('pop-date').textContent = dateStr;
+  document.getElementById('pop-state').innerHTML = '현재 상태: <span class="text-slate-200 font-bold">' + (state==='M'?'잠금':'공실') + '</span>';
+  pop.style.left = Math.min(e.clientX, window.innerWidth-280) + 'px';
+  pop.style.top  = Math.min(e.clientY+8, window.innerHeight-200) + 'px';
+  pop.classList.remove('hidden');
+}
+document.addEventListener('click', (e)=>{
+  if (!pop.contains(e.target) && !popI.contains(e.target) && !e.target.closest('.grid-cell')) closePop();
+});
+</script>
+</body></html>

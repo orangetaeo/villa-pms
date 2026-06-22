@@ -1,4 +1,5 @@
-import { BookingStatus, Prisma, PrismaClient, VillaStatus } from "@prisma/client";
+import { BlockSource, BookingStatus, Prisma, PrismaClient, VillaStatus } from "@prisma/client";
+import { addUtcDays, parseUtcDateOnly, toDateOnlyString } from "@/lib/date-vn";
 
 /**
  * 가용성 판정 단일 소스 (SPEC F2)
@@ -198,4 +199,199 @@ export async function findSellableVillaIds(
     ...busyBlocks.map((b) => b.villaId),
   ]);
   return candidateIds.filter((id) => !busy.has(id));
+}
+
+// ===================== 운영자 공실 보드 (T-admin-availability-board) =====================
+//
+// ADMIN 전용 빌라×날짜 잠금/공실 보드용 집계. 채널매니저 스타일 타임라인의 데이터 계층.
+//
+// ⚠ 재고/마진 비공개 원칙: 이 보드는 **CalendarBlock(MANUAL/ICAL) 잠금과 공실만** 다룬다.
+//   판매예약(Booking: HOLD/CONFIRMED/CHECKED_IN)은 절대 포함하지 않는다 — 외부 채널·우리
+//   판매분이 한 화면에서 섞이면 재고 노출이 되므로, 이 헬퍼는 booking 테이블을 조회조차 하지 않는다.
+//
+// 날짜 모델: CalendarBlock.startDate(포함)~endDate(제외) half-open. 보드 기간도 [start, end).
+//   모든 날짜는 @db.Date 규칙대로 UTC 자정으로 다룬다 (date-vn.parseUtcDateOnly).
+
+/** 보드 셀 상태 — 한 빌라의 한 날짜 */
+export type BoardCellStatus = "AVAILABLE" | "MANUAL" | "ICAL";
+
+/**
+ * 보드 한 셀(빌라×날짜).
+ * blockId 는 MANUAL 일 때만 채워지며, 그 날짜의 해제 가능한 CalendarBlock id(FE 해제용).
+ * AVAILABLE/ICAL 은 항상 null — ICAL 은 읽기전용이라 해제 id 가 불필요하다.
+ */
+export interface BoardCell {
+  status: BoardCellStatus;
+  /** MANUAL 셀의 해제 대상 CalendarBlock id. AVAILABLE/ICAL 은 null */
+  blockId: string | null;
+}
+
+/** 보드 한 행(빌라) */
+export interface AvailabilityBoardVilla {
+  id: string;
+  name: string;
+  /** 지역 필터·그룹핑용 단지명(Villa.complex). 미입력 빌라는 null */
+  complex: string | null;
+  /** 운영자가 이 빌라 공실을 공급자에게 마지막으로 확인한 시각(ISO) — null=아직 확인 안 함 */
+  availabilityCheckedAt: string | null;
+  /**
+   * 날짜별 셀. days[i] 는 columns[i] 날짜에 대응(인덱스 정렬).
+   * status==AVAILABLE 인 날짜만 잠금 가능(공실), MANUAL/ICAL 은 잠금된 날짜.
+   * MANUAL 셀의 blockId 로 해당 날짜를 해제(DELETE)한다.
+   */
+  days: BoardCell[];
+}
+
+/** getAvailabilityBoard 반환 타입 — FE 인계용 (export) */
+export interface AvailabilityBoard {
+  /** 기간 시작(포함) YYYY-MM-DD, UTC 자정 기준 */
+  startDate: string;
+  /** 기간 끝(제외) YYYY-MM-DD */
+  endDate: string;
+  /** 날짜 컬럼 헤더. 각 빌라 days 배열과 인덱스 1:1 대응 */
+  columns: string[];
+  /** 빌라명 오름차순 정렬된 행 목록 */
+  villas: AvailabilityBoardVilla[];
+}
+
+export interface GetAvailabilityBoardParams {
+  /** 기간 시작 월 "YYYY-MM" — 해당 월 1일부터 */
+  startMonth: string;
+  /** 조회 개월 수 (기본 3) */
+  monthCount?: number;
+  /** 지역 필터 = Villa.complex 정확 일치 (선택) */
+  area?: string;
+  /** 빌라명 부분일치 검색 (선택, 대소문자 무시) */
+  search?: string;
+}
+
+/** "YYYY-MM" → 해당 월 1일 UTC 자정. 무효 형식이면 null */
+function parseMonthStart(yyyymm: string): Date | null {
+  if (!/^\d{4}-\d{2}$/.test(yyyymm)) return null;
+  return parseUtcDateOnly(`${yyyymm}-01`);
+}
+
+/** [start, end) UTC 자정 구간의 날짜 컬럼 배열 "YYYY-MM-DD" */
+function buildDateColumns(start: Date, end: Date): string[] {
+  const cols: string[] = [];
+  for (let d = start; d.getTime() < end.getTime(); d = addUtcDays(d, 1)) {
+    cols.push(toDateOnlyString(d));
+  }
+  return cols;
+}
+
+/**
+ * 운영자 공실 보드 집계.
+ *
+ * 대상 빌라: status ∈ {ACTIVE, INACTIVE} (운영 대상 — DRAFT/PENDING_REVIEW/REJECTED 제외).
+ * 기간: startMonth 1일 ~ (startMonth + monthCount)월 1일 [start, end) UTC 자정.
+ *
+ * N+1 회피: 빌라 1쿼리 + 해당 빌라들 CalendarBlock 1쿼리(기간 겹침)로 가져와 메모리에서 조립.
+ *
+ * MANUAL/ICAL 겹침 우선순위: 같은 날 두 소스가 모두 겹치면 **ICAL 우선**으로 표시한다.
+ *   근거 — ICAL 은 외부 채널 원본(읽기전용)이라 이 화면에서 수정 불가하고, MANUAL 로
+ *   덮어 보이면 운영자가 "해제 가능"으로 오인할 수 있다. 수정 불가한 사실(ICAL)을 우선 노출해
+ *   잘못된 해제 시도를 막는다.
+ *
+ * @throws RangeError startMonth 형식 오류 또는 monthCount 범위 오류
+ */
+export async function getAvailabilityBoard(
+  db: DbClient,
+  params: GetAvailabilityBoardParams
+): Promise<AvailabilityBoard> {
+  const monthCount = params.monthCount ?? 3;
+  if (!Number.isInteger(monthCount) || monthCount < 1 || monthCount > 12) {
+    throw new RangeError(`monthCount는 1~12 정수여야 합니다: ${params.monthCount}`);
+  }
+  const start = parseMonthStart(params.startMonth);
+  if (!start) {
+    throw new RangeError(`startMonth 형식 오류(YYYY-MM): ${params.startMonth}`);
+  }
+  // (startMonth + monthCount)월 1일 — UTC 월 산술
+  const end = new Date(
+    Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + monthCount, 1)
+  );
+
+  const columns = buildDateColumns(start, end);
+  // 날짜 → 컬럼 인덱스 매핑 (블록 전개 시 O(1) 채움)
+  const colIndex = new Map<string, number>();
+  columns.forEach((c, i) => colIndex.set(c, i));
+
+  // ── 빌라 목록 (1쿼리) ──
+  const search = params.search?.trim();
+  const area = params.area?.trim();
+  const villas = await db.villa.findMany({
+    where: {
+      status: { in: [VillaStatus.ACTIVE, VillaStatus.INACTIVE] },
+      ...(area ? { complex: area } : {}),
+      ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
+    },
+    select: { id: true, name: true, complex: true, availabilityCheckedAt: true },
+    orderBy: { name: "asc" },
+  });
+
+  if (villas.length === 0) {
+    return {
+      startDate: toDateOnlyString(start),
+      endDate: toDateOnlyString(end),
+      columns,
+      villas: [],
+    };
+  }
+
+  // ── 해당 빌라들의 기간 겹침 CalendarBlock (1쿼리) ──
+  const villaIds = villas.map((v) => v.id);
+  const blocks = await db.calendarBlock.findMany({
+    where: {
+      villaId: { in: villaIds },
+      startDate: { lt: end }, // half-open 겹침: block.start < range.end
+      endDate: { gt: start }, // AND block.end > range.start
+    },
+    select: { id: true, villaId: true, startDate: true, endDate: true, source: true },
+  });
+
+  // 빌라별 days 배열 초기화 (전부 AVAILABLE)
+  const daysByVilla = new Map<string, BoardCell[]>();
+  for (const v of villas) {
+    daysByVilla.set(
+      v.id,
+      columns.map(() => ({ status: "AVAILABLE", blockId: null }) as BoardCell)
+    );
+  }
+
+  // 블록 구간 [startDate, endDate) 를 날짜별로 전개해 채움
+  for (const block of blocks) {
+    const days = daysByVilla.get(block.villaId);
+    if (!days) continue;
+    // 보드 기간으로 클램프
+    const from = block.startDate.getTime() > start.getTime() ? block.startDate : start;
+    const to = block.endDate.getTime() < end.getTime() ? block.endDate : end;
+    for (let d = from; d.getTime() < to.getTime(); d = addUtcDays(d, 1)) {
+      const idx = colIndex.get(toDateOnlyString(d));
+      if (idx === undefined) continue;
+      // 겹침 우선순위: ICAL > MANUAL (이미 ICAL 이면 덮지 않음)
+      if (block.source === BlockSource.ICAL) {
+        // ICAL 확정 — 읽기전용이라 blockId 불필요(FE 미사용)
+        days[idx] = { status: "ICAL", blockId: null };
+      } else if (days[idx].status !== "ICAL") {
+        // MANUAL — 해제 대상 id 채움. 같은 날 여러 MANUAL 겹치면 마지막 것이 남음(해제 가능 단일 id면 충분)
+        days[idx] = { status: "MANUAL", blockId: block.id };
+      }
+    }
+  }
+
+  return {
+    startDate: toDateOnlyString(start),
+    endDate: toDateOnlyString(end),
+    columns,
+    villas: villas.map((v) => ({
+      id: v.id,
+      name: v.name,
+      complex: v.complex,
+      availabilityCheckedAt: v.availabilityCheckedAt
+        ? v.availabilityCheckedAt.toISOString()
+        : null,
+      days: daysByVilla.get(v.id)!,
+    })),
+  };
 }

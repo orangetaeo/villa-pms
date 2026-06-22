@@ -10,15 +10,16 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // 권한 검사 — SUPPLIER 전용 (route handler 첫 줄 role 검사 규칙, 비로그인 401/타롤 403 분리)
+  // 권한 검사 — SUPPLIER(자기 빌라 블록) + ADMIN(전체 블록) 허용 (비로그인 401/타롤 403 분리)
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
-  if (session.user.role !== "SUPPLIER") {
+  const role = session.user.role;
+  if (role !== "SUPPLIER" && role !== "ADMIN") {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
-  const supplierId = session.user.id;
+  const actorId = session.user.id;
 
   const { id } = await params;
 
@@ -33,8 +34,11 @@ export async function DELETE(
     },
   });
 
-  // 소유권 검증 — 타인 빌라 블록은 존재 여부도 노출하지 않음 (404)
-  if (!block || block.villa.supplierId !== supplierId) {
+  // 블록 존재 확인 — ADMIN 은 소유권 스코프 없이 존재만, SUPPLIER 는 자기 빌라 블록만(아니면 404)
+  if (!block) {
+    return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
+  if (role === "SUPPLIER" && block.villa.supplierId !== actorId) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
   if (block.source !== "MANUAL") {
@@ -49,7 +53,7 @@ export async function DELETE(
 
   // 감사 로그 — 데이터 변경 API 동시 기록 (글로벌 절대 규칙)
   await writeAuditLog({
-    userId: supplierId,
+    userId: actorId,
     action: "DELETE",
     entity: "CalendarBlock",
     entityId: block.id,
