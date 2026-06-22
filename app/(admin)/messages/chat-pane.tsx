@@ -1645,7 +1645,7 @@ function Composer({
       return;
     }
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+    el.style.height = `${Math.min(el.scrollHeight, 96)}px`;
   };
   // [text] 변화 외에, 마운트 직후 한 프레임 뒤(레이아웃 정착 후)에도 재측정 — 초기 오측정 고착 방지.
   useEffect(() => {
@@ -1856,7 +1856,7 @@ function Composer({
   }
 
   return (
-    <footer className="shrink-0 border-t border-slate-800 bg-slate-900 px-6 py-4">
+    <footer className="shrink-0 border-t border-slate-800 bg-slate-900 px-3 py-3 lg:px-6 lg:py-4">
       {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
       {/* overflow-hidden 제거: 첨부 메뉴(absolute bottom-full, 위로 뜸)가 잘리지 않게.
           rounded 시각은 유지 — 번역 미리보기 바에 rounded-b-xl + overflow-hidden을 직접 부여해
@@ -1885,7 +1885,7 @@ function Composer({
         </div>
       )}
       <div className="bg-slate-800/60 border border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
-        <div className="flex items-center gap-2 px-3 pt-3">
+        <div className="flex items-center gap-1.5 px-2.5 pt-3">
           <AttachMenu
             conversationId={conversationId}
             counterpartyType={counterpartyType}
@@ -1914,7 +1914,7 @@ function Composer({
               }
             }}
             placeholder={t("inputPlaceholder")}
-            className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-slate-100 placeholder:text-slate-500 p-0 resize-none overflow-y-auto leading-relaxed"
+            className="flex-1 min-w-0 bg-transparent border-none focus:ring-0 text-sm text-slate-100 placeholder:text-slate-500 p-0 resize-none overflow-y-auto leading-relaxed"
           />
           {/* 음성 입력 — 마이크 탭: 녹음 시작/중단 → 서버 STT → 입력창 채움(iOS 포함). 지원 기기만 노출. */}
           {recSupported && (
@@ -1939,10 +1939,11 @@ function Composer({
             type="button"
             onClick={send}
             disabled={!text.trim() || sending}
-            className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 transition-colors active:scale-95 shrink-0"
+            aria-label={t("send")}
+            className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold w-9 h-9 lg:w-auto lg:h-auto lg:px-4 lg:py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors active:scale-95 shrink-0"
           >
-            <span className="material-symbols-outlined text-sm">send</span>
-            {t("send")}
+            <span className="material-symbols-outlined text-[20px] lg:text-sm">send</span>
+            <span className="hidden lg:inline">{t("send")}</span>
           </button>
         </div>
         {/* 번역 미리보기 — OFF면 영역 자체를 미렌더 (D7.5).
