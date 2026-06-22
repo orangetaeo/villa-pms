@@ -4,6 +4,7 @@
 // ADR-0009: 아바타(D8)·별명(D9)·번역모드(D7)·상대타입(D1) + 공유 후보 목록(빌라/제안/정산)을
 //   상대 타입별 누수 분기로 서버에서 최소 필드만 조회해 클라(공유 모달)에 전달 — 마진·반대편 통화 미유입.
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import {
   Currency,
   ZaloCounterpartyType,
@@ -30,9 +31,10 @@ import {
 import { AutoRefresh } from "./auto-refresh";
 import { NewMessageToaster } from "./new-message-toaster";
 
-export const metadata: Metadata = {
-  title: "메시지 — Villa PMS",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("pageTitles");
+  return { title: `${t("messages")} — Villa PMS` };
+}
 
 // 수신 메시지가 폴링/refresh 없이는 RSC에 반영되지 않으므로 항상 동적 렌더링.
 // (캐시되면 router.refresh()·AutoRefresh가 옛 데이터를 받아 "새로고침해야 보임" 버그)
@@ -50,7 +52,7 @@ function initials(name: string | null | undefined): string {
 }
 
 /** 인박스 시각 표기: 오늘 HH:mm / 어제 / 그 외 MM.DD (Asia/Ho_Chi_Minh) */
-function inboxTime(date: Date | null, now: Date): string {
+function inboxTime(date: Date | null, now: Date, yesterdayLabel: string): string {
   if (!date) return "";
   const tz = "Asia/Ho_Chi_Minh";
   const fmt = (d: Date, opts: Intl.DateTimeFormatOptions) =>
@@ -60,7 +62,7 @@ function inboxTime(date: Date | null, now: Date): string {
   const yesterday = dayKey(new Date(now.getTime() - 24 * 60 * 60 * 1000));
   const key = dayKey(date);
   if (key === today) return fmt(date, { hour: "2-digit", minute: "2-digit", hour12: false });
-  if (key === yesterday) return "어제";
+  if (key === yesterday) return yesterdayLabel;
   return fmt(date, { month: "2-digit", day: "2-digit" }).replace(/\.$/, "").replace(/\. /, ".");
 }
 
@@ -96,10 +98,13 @@ function normalizeReactions(value: unknown): Record<string, number> | null {
   return Object.keys(out).length > 0 ? out : null;
 }
 
-/** 정산 yearMonth(YYYY-MM) → "2026년 6월 정산" 표시 라벨 */
-function settlementLabel(yearMonth: string): string {
+/** 정산 yearMonth(YYYY-MM) → 표시 라벨. 최종 문자열 생성은 i18n 콜백에 위임 */
+function settlementLabel(
+  yearMonth: string,
+  label: (year: number, month: number) => string
+): string {
   const [y, m] = yearMonth.split("-");
-  return `${y}년 ${Number(m)}월 정산`;
+  return label(Number(y), Number(m));
 }
 
 export default async function MessagesPage({
@@ -113,6 +118,7 @@ export default async function MessagesPage({
     redirect("/login");
   }
   const ownerAdminId = session.user.id;
+  const tm = await getTranslations("adminMessages");
 
   const { c: selectedId } = await searchParams;
   const now = new Date();
@@ -151,14 +157,17 @@ export default async function MessagesPage({
   const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
 
   // 표시명 우선순위 (D9.2): nickname > User.name > Zalo displayName > 이니셜
-  const displayNameOf = (c: {
-    nickname: string | null;
-    user: { name: string | null } | null;
-    displayName: string | null;
-  }) => c.nickname ?? c.user?.name ?? c.displayName ?? "(이름 미확인)";
+  const displayNameOf = (
+    c: {
+      nickname: string | null;
+      user: { name: string | null } | null;
+      displayName: string | null;
+    },
+    unknownLabel: string
+  ) => c.nickname ?? c.user?.name ?? c.displayName ?? unknownLabel;
 
   const inboxItems: InboxItem[] = conversations.map((c) => {
-    const name = displayNameOf(c);
+    const name = displayNameOf(c, tm("inbox.unknownName"));
     return {
       id: c.id,
       name,
@@ -167,7 +176,7 @@ export default async function MessagesPage({
       counterpartyType: c.counterpartyType as CounterpartyType,
       lastText: c.messages[0]?.text ?? "",
       lastMsgType: c.messages[0]?.msgType ?? "text",
-      time: inboxTime(c.lastMessageAt, now),
+      time: inboxTime(c.lastMessageAt, now, tm("inbox.yesterday")),
       unreadCount: c.unreadCount,
       // ADR-0006 D5.5 — 개인계정은 48h 제약 없음. 입력창 항상 활성(만료 배지 미표시).
       windowExpired: false,
@@ -236,7 +245,7 @@ export default async function MessagesPage({
     }
 
     {
-      const name = displayNameOf(conv);
+      const name = displayNameOf(conv, tm("inbox.unknownName"));
       const counterpartyType = conv.counterpartyType as CounterpartyType;
       header = {
         name,
@@ -337,7 +346,9 @@ export default async function MessagesPage({
           settlements.map((s) => ({
             id: s.id,
             yearMonth: s.yearMonth,
-            label: settlementLabel(s.yearMonth),
+            label: settlementLabel(s.yearMonth, (year, month) =>
+              tm("inbox.settlementMonth", { year, month })
+            ),
             totalVnd: s.totalVnd,
             itemCount: s._count.items,
             status: s.status,

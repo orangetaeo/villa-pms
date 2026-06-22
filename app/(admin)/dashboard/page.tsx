@@ -18,9 +18,10 @@ import { getFxVndPerKrw, suggestSalePriceKrw } from "@/lib/pricing";
 import { formatThousands, formatDateTime } from "@/lib/format";
 import TimelineMatrix from "@/components/admin/timeline-matrix";
 
-export const metadata: Metadata = {
-  title: "대시보드 — Villa PMS",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("pageTitles");
+  return { title: `${t("dashboard")} — Villa PMS` };
+}
 
 const DOT_CLASS: Record<FeedDot, string> = {
   amber: "bg-amber-500",

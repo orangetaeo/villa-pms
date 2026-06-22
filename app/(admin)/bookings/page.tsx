@@ -17,9 +17,10 @@ import ResponsiveTable, { type ResponsiveColumn } from "@/components/admin/respo
 import QuickDateFilter from "@/components/admin/quick-date-filter";
 import FiltersBar from "./filters-bar";
 
-export const metadata: Metadata = {
-  title: "예약 관리 — Villa PMS",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("pageTitles");
+  return { title: `${t("bookings")} — Villa PMS` };
+}
 
 const PAGE_SIZE = 20; // 계약 고정 (QA 권고)
 

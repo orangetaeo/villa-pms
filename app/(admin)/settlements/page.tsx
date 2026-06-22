@@ -3,6 +3,7 @@
 // 매출 요약은 통화별 분리(KRW/VND 합산 금지 — ADR-0003), 공급자 지급은 VND 단일.
 // 금액: BigInt → 문자열 → lib/format (Number() 캐스팅 금지 — money-pattern)
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -11,9 +12,10 @@ import { toDateOnlyString, todayVnDateString, resolveQuickRange } from "@/lib/da
 import { monthRangeUtc, SETTLEMENT_BOOKING_STATUSES } from "@/lib/settlement";
 import SettlementsView, { type SettlementRow } from "./settlements-view";
 
-export const metadata: Metadata = {
-  title: "정산 — Villa PMS",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("pageTitles");
+  return { title: `${t("settlements")} — Villa PMS` };
+}
 
 const YEAR_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 

@@ -5,14 +5,21 @@
 // <1024px: 햄버거 헤더 + 드로어 (b1-mobile 헤더 패턴, T6.7)
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
+import type { AppLocale } from "@/lib/locale";
 
 interface NavItem {
   key: string;
   href: string;
   icon: string;
+}
+
+const ONE_YEAR = 60 * 60 * 24 * 365;
+
+function setLocaleCookie(name: string, value: string) {
+  document.cookie = `${name}=${value};path=/;max-age=${ONE_YEAR};samesite=lax`;
 }
 
 // 순서 고정 — DESIGN.md "운영자 표준 사이드바 9메뉴" (화면별 재수정 금지)
@@ -32,16 +39,21 @@ export default function AdminSidebar({
   userName,
   unreadCount = 0,
   logoutAction,
+  currentLocale = "ko",
 }: {
   userName?: string | null;
   /** 메시지 메뉴 미읽음 합계 뱃지 (T6.6, b14) */
   unreadCount?: number;
   /** 로그아웃 서버 액션 (layout에서 NextAuth signOut 주입) */
   logoutAction?: () => Promise<void>;
+  /** 현재 표시 언어 — 하단 VI/KO 토글 활성 상태 표시 (베트남 직원 직접 관리 대응) */
+  currentLocale?: AppLocale;
 }) {
   const t = useTranslations("nav");
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
 
   // 경로 이동 시 드로어 자동 닫기
   useEffect(() => {
@@ -50,6 +62,20 @@ export default function AdminSidebar({
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
+
+  // 언어 전환 — pref-locale(사용자 선택)·locale(next-intl 읽는 값) 쿠키 즉시 반영 후
+  // 계정 기본 locale을 DB에 영속(/api/locale), router.refresh로 RSC 재렌더.
+  const changeLocale = (code: AppLocale) => {
+    if (code === currentLocale || pending) return;
+    setLocaleCookie("pref-locale", code);
+    setLocaleCookie("locale", code);
+    fetch("/api/locale", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locale: code }),
+    }).catch(() => {});
+    startTransition(() => router.refresh());
+  };
 
   return (
     <>
@@ -125,29 +151,63 @@ export default function AdminSidebar({
             );
           })}
         </nav>
-        <div className="pt-4 mt-auto border-t border-admin-card flex items-center gap-3 px-2">
-          <div className="w-8 h-8 rounded-full bg-admin-primary flex items-center justify-center text-xs font-bold text-white shrink-0">
-            {(userName ?? t("profileName")).slice(0, 1)}
+        <div className="pt-4 mt-auto border-t border-admin-card flex flex-col gap-3 px-2">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-admin-primary flex items-center justify-center text-xs font-bold text-white shrink-0">
+              {(userName ?? t("profileName")).slice(0, 1)}
+            </div>
+            <div className="flex flex-col overflow-hidden flex-1">
+              <span className="text-sm font-bold text-white leading-none truncate">
+                {userName ?? t("profileName")}
+              </span>
+              <span className="text-[10px] text-admin-muted">{t("profileRole")}</span>
+            </div>
+            {/* 로그아웃 — NextAuth signOut 서버 액션, 완료 후 /login */}
+            {logoutAction && (
+              <form action={logoutAction}>
+                <button
+                  type="submit"
+                  aria-label={t("logout")}
+                  title={t("logout")}
+                  className="text-admin-muted hover:text-white hover:bg-admin-card rounded-lg p-2 transition-colors duration-200"
+                >
+                  <span className="material-symbols-outlined text-[20px]">logout</span>
+                </button>
+              </form>
+            )}
           </div>
-          <div className="flex flex-col overflow-hidden flex-1">
-            <span className="text-sm font-bold text-white leading-none truncate">
-              {userName ?? t("profileName")}
-            </span>
-            <span className="text-[10px] text-admin-muted">{t("profileRole")}</span>
+          {/* 언어 토글(VI/KO) — 베트남 직원이 직접 운영 화면을 쓸 수 있도록. 다크 테마 */}
+          <div
+            className="flex items-center gap-0.5 rounded-lg bg-admin-card p-0.5"
+            role="group"
+            aria-label="Language / Ngôn ngữ / 언어"
+          >
+            {(
+              [
+                { code: "vi", label: "VI", aria: "Tiếng Việt" },
+                { code: "ko", label: "KO", aria: "한국어" },
+              ] as const
+            ).map(({ code, label, aria }) => {
+              const active = code === currentLocale;
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => changeLocale(code)}
+                  aria-label={aria}
+                  aria-pressed={active}
+                  disabled={pending}
+                  className={
+                    active
+                      ? "flex-1 rounded-md bg-admin-primary px-2.5 py-1.5 text-xs font-bold text-white"
+                      : "flex-1 rounded-md px-2.5 py-1.5 text-xs font-semibold text-admin-muted transition-colors hover:text-white disabled:opacity-50"
+                  }
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
-          {/* 로그아웃 — NextAuth signOut 서버 액션, 완료 후 /login */}
-          {logoutAction && (
-            <form action={logoutAction}>
-              <button
-                type="submit"
-                aria-label={t("logout")}
-                title={t("logout")}
-                className="text-admin-muted hover:text-white hover:bg-admin-card rounded-lg p-2 transition-colors duration-200"
-              >
-                <span className="material-symbols-outlined text-[20px]">logout</span>
-              </button>
-            </form>
-          )}
         </div>
       </aside>
     </>

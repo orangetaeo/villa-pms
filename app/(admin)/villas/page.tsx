@@ -7,9 +7,10 @@ import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import type { VillaStatus } from "@prisma/client";
 
-export const metadata: Metadata = {
-  title: "빌라 관리 — Villa PMS",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("pageTitles");
+  return { title: `${t("villas")} — Villa PMS` };
+}
 
 const PAGE_SIZE = 12;
 

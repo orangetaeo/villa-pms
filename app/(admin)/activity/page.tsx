@@ -9,9 +9,10 @@ import { loadActivityFeed, relativeTimeParts, type FeedDot } from "@/lib/dashboa
 import { quickRangeWhere } from "@/lib/date-vn";
 import QuickDateFilter from "@/components/admin/quick-date-filter";
 
-export const metadata: Metadata = {
-  title: "활동 내역 — Villa PMS",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("pageTitles");
+  return { title: `${t("activity")} — Villa PMS` };
+}
 
 // 과거 전용 로그 → nextMonth 제외
 const ACTIVITY_PRESETS = [

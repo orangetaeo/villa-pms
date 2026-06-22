@@ -9,9 +9,10 @@ import { getStatusForAdmin } from "@/lib/zalo-runtime";
 import { getSystemBotOwnerId } from "@/lib/zalo-credentials";
 import ZaloConnectClient from "./zalo-connect-client";
 
-export const metadata: Metadata = {
-  title: "Zalo 봇 연결 — Villa PMS",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("pageTitles");
+  return { title: `${t("zalo")} — Villa PMS` };
+}
 
 // 봇 런타임 상태는 매 요청 조회 (캐시 금지)
 export const dynamic = "force-dynamic";

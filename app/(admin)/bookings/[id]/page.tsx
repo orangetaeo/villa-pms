@@ -12,9 +12,10 @@ import { formatRemainingHours } from "@/lib/booking-stats";
 import ActionPanel from "./action-panel";
 import MemoBox from "./memo-box";
 
-export const metadata: Metadata = {
-  title: "예약 상세 — Villa PMS",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("pageTitles");
+  return { title: `${t("bookingDetail")} — Villa PMS` };
+}
 
 const STEP_INDEX: Partial<Record<BookingStatus, number>> = {
   [BookingStatus.HOLD]: 0,

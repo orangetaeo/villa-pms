@@ -12,7 +12,10 @@ import CheckoutForm from "./checkout-form";
  * 기준 사진 비교 + 미니바 읽기 전용(ADR-0003) + 파손 리포트 + 보증금 처리
  */
 
-export const metadata: Metadata = { title: "체크아웃 검수 — Villa PMS" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("pageTitles");
+  return { title: `${t("checkout")} — Villa PMS` };
+}
 
 /** 기준 사진 공간 정렬 순서 (b4: 거실→주방→침실→…) */
 const SPACE_ORDER: PhotoSpace[] = [

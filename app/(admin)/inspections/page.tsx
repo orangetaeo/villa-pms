@@ -2,6 +2,7 @@
 // RSC: prisma 직접 조회 (T1.5 패턴 — 신규 API 표면 0). 승인/반려 액션만 기존 BE API 소비.
 // leak-checklist: select 화이트리스트 — booking·고객명·금액·assignee 미포함 (구조적 보장)
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -13,9 +14,10 @@ import InspectionsView, {
   type TaskListItem,
 } from "./inspections-view";
 
-export const metadata: Metadata = {
-  title: "청소 검수 — Villa PMS",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("pageTitles");
+  return { title: `${t("inspections")} — Villa PMS` };
+}
 
 // 페이지네이션 범위 밖 (계약) — 상한 take 200
 const TAKE = 200;

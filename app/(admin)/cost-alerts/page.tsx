@@ -9,7 +9,10 @@ import { quickRangeWhere } from "@/lib/date-vn";
 import QuickDateFilter from "@/components/admin/quick-date-filter";
 import CostAlertsView from "./cost-alerts-view";
 
-export const metadata: Metadata = { title: "견적 중 원가 변경 — Villa PMS" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("pageTitles");
+  return { title: `${t("costAlerts")} — Villa PMS` };
+}
 
 // 과거 전용 경보 → nextMonth 제외
 const COST_ALERT_PRESETS = [

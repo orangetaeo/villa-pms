@@ -1491,6 +1491,12 @@
       "settlementEmpty": "정산 내역이 없습니다",
       "settlementGuard": "본인 정산만 공유 가능 · 판매가·마진·타 공급자 비노출",
       "bookingCount": "예약 {n}건"
+    },
+    "inbox": {
+      "yesterday": "어제",
+      "unknownName": "(이름 미확인)",
+      "settlementMonth": "{year}년 {month}월 정산",
+      "resizeWidth": "대화 목록 너비 조절"
     }
   },
   "zaloConnect": {
@@ -1657,5 +1663,24 @@
     "partyNo": "파티 불가",
     "parkingOk": "주차 {count}대",
     "parkingNo": "주차 불가"
+  },
+  "pageTitles": {
+    "activity": "활동 내역",
+    "bookings": "예약 관리",
+    "checkin": "체크인",
+    "checkout": "체크아웃 검수",
+    "bookingDetail": "예약 상세",
+    "costAlerts": "견적 중 원가 변경",
+    "dashboard": "대시보드",
+    "inspections": "청소 검수",
+    "messages": "메시지",
+    "proposalNew": "제안 만들기",
+    "proposals": "제안 관리",
+    "settings": "설정",
+    "zalo": "Zalo 봇 연결",
+    "settlements": "정산",
+    "users": "사용자 관리",
+    "villas": "빌라 관리",
+    "villaDetail": "빌라 상세"
   }
 }

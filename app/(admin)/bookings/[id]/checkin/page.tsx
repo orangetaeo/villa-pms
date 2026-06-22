@@ -10,9 +10,10 @@ import { toDateOnlyString } from "@/lib/date-vn";
 import CheckinForm from "./checkin-form";
 import PostSignForm from "./post-sign-form";
 
-export const metadata: Metadata = {
-  title: "체크인 — Villa PMS",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("pageTitles");
+  return { title: `${t("checkin")} — Villa PMS` };
+}
 
 export default async function CheckinPage({
   params,

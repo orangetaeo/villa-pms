@@ -50,12 +50,13 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
+  const t = await getTranslations("pageTitles");
   const villa = await prisma.villa.findUnique({
     where: { id },
     select: { name: true },
   });
   return {
-    title: villa ? `${villa.name} — Villa PMS` : "빌라 상세 — Villa PMS",
+    title: villa ? `${villa.name} — Villa PMS` : `${t("villaDetail")} — Villa PMS`,
   };
 }
 

@@ -83,6 +83,7 @@ export default async function AdminLayout({
         userName={session.user.name}
         unreadCount={unreadCount}
         logoutAction={logoutAction}
+        currentLocale={locale === "vi" ? "vi" : "ko"}
       />
       {/* 데스크톱: 사이드바 폭만큼 밀기 / 모바일: 헤더 높이만큼 내리기 */}
       <main className="lg:pl-64 pt-14 lg:pt-0 min-h-dvh">

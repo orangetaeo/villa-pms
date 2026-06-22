@@ -1491,6 +1491,12 @@
       "settlementEmpty": "Không có quyết toán",
       "settlementGuard": "Chỉ chia sẻ quyết toán của chính mình · Không lộ giá bán·lợi nhuận·nhà cung cấp khác",
       "bookingCount": "{n} đặt phòng"
+    },
+    "inbox": {
+      "yesterday": "Hôm qua",
+      "unknownName": "(Chưa rõ tên)",
+      "settlementMonth": "Thanh toán tháng {month}/{year}",
+      "resizeWidth": "Điều chỉnh chiều rộng danh sách hội thoại"
     }
   },
   "zaloConnect": {
@@ -1657,5 +1663,24 @@
     "partyNo": "Cấm tiệc",
     "parkingOk": "Đỗ {count} xe",
     "parkingNo": "Không có chỗ đỗ"
+  },
+  "pageTitles": {
+    "activity": "Lịch sử hoạt động",
+    "bookings": "Quản lý đặt phòng",
+    "checkin": "Nhận phòng",
+    "checkout": "Kiểm tra trả phòng",
+    "bookingDetail": "Chi tiết đặt phòng",
+    "costAlerts": "Thay đổi giá vốn khi báo giá",
+    "dashboard": "Bảng điều khiển",
+    "inspections": "Kiểm tra dọn dẹp",
+    "messages": "Tin nhắn",
+    "proposalNew": "Tạo đề xuất",
+    "proposals": "Quản lý đề xuất",
+    "settings": "Cài đặt",
+    "zalo": "Kết nối bot Zalo",
+    "settlements": "Thanh toán",
+    "users": "Quản lý người dùng",
+    "villas": "Quản lý villa",
+    "villaDetail": "Chi tiết villa"
   }
 }

@@ -11,6 +11,7 @@
 // chat-pane.tsx에 그대로 있고 건드리지 않는다.
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 
 const STORAGE_KEY = "villa-messages-inbox-width-px";
 const DEFAULT_WIDTH = 320; // 기존 lg:w-[320px]와 동일 — 초기값/폴백
@@ -32,6 +33,7 @@ export function ResizableSplit({
   // 모바일에서 대화 선택 시 인박스 wrapper도 숨겨 채팅이 전체폭이 되도록(Inbox 내부 로직과 정합).
   conversationSelected: boolean;
 }) {
+  const t = useTranslations("adminMessages");
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDesktop, setIsDesktop] = useState(false);
   const [width, setWidth] = useState(DEFAULT_WIDTH);
@@ -106,7 +108,7 @@ export function ResizableSplit({
         onMouseDown={handleResizeStart}
         role="separator"
         aria-orientation="vertical"
-        aria-label="대화 목록 너비 조절"
+        aria-label={t("inbox.resizeWidth")}
         className="relative hidden lg:block w-1 shrink-0 cursor-col-resize bg-slate-800 hover:bg-blue-500/60 active:bg-blue-500 transition-colors"
       >
         {/* 클릭 영역 확대용 투명 오버레이(시각 폭 1px이라 잡기 어려움 방지) */}

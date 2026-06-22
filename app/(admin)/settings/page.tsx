@@ -27,9 +27,10 @@ const BANK_CONTACT_KEYS = [
   "CONTACT_PHONE",
 ] as const;
 
-export const metadata: Metadata = {
-  title: "설정 — Villa PMS",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("pageTitles");
+  return { title: `${t("settings")} — Villa PMS` };
+}
 
 export default async function SettingsPage() {
   const [t, periods, settings] = await Promise.all([

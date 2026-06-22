@@ -101,8 +101,14 @@ export default auth((req) => {
 
   // locale 쿠키 설정 (redirect 이후에는 도달하지 않으므로 여기서만 처리)
   const res = NextResponse.next();
+  const prefRaw = req.cookies.get("pref-locale")?.value;
+  const pref = prefRaw === "ko" || prefRaw === "vi" ? prefRaw : undefined;
   if (isAdminOnlyPath) {
-    res.cookies.set("locale", "ko", { path: "/" });
+    // 운영자 화면: 기본 ko(테오). 단 베트남 직원이 직접 관리하는 경우를 위해
+    // 계정 기본 locale이 vi면 vi, 그리고 토글(pref-locale)이 최우선.
+    // (기존엔 ko 강제 → 토글 도입으로 베트남어 전환 허용)
+    const adminDefault = session?.user?.locale === "vi" ? "vi" : "ko";
+    res.cookies.set("locale", pref ?? adminDefault, { path: "/" });
   } else if (
     isSupplierCleanerPath ||
     pathname.startsWith("/signup") ||
@@ -110,8 +116,6 @@ export default auth((req) => {
   ) {
     // 공급자·인증 화면: 사용자 명시 선택(pref-locale) > 계정 기본(session) > vi 기본.
     // (기존엔 vi 강제 → 한국어 전환 토글 도입으로 사용자 선택을 존중. Stitch a0-login 기본은 vi)
-    const prefRaw = req.cookies.get("pref-locale")?.value;
-    const pref = prefRaw === "ko" || prefRaw === "vi" ? prefRaw : undefined;
     const userLocale = session?.user?.locale === "ko" ? "ko" : "vi";
     res.cookies.set("locale", pref ?? userLocale, { path: "/" });
   }
