@@ -1,7 +1,8 @@
 "use client";
 
 // 운영자(ADMIN) 공통 사이드바 — Stitch b9/b10 사이드바 마크업 기준 (T1.2)
-// DESIGN.md 표준: 9메뉴 순서 고정(ADR-0003) — 대시보드/예약/제안/빌라/청소 검수/정산/메시지/사용자/설정
+// DESIGN.md 표준: 10메뉴 순서 고정(ADR-0003 + 공실 보드 추가) —
+//   대시보드/예약/제안/빌라/공실 보드/청소 검수/정산/메시지/사용자/설정
 // <1024px: 햄버거 헤더 + 드로어 (b1-mobile 헤더 패턴, T6.7)
 
 import Link from "next/link";
@@ -22,12 +23,14 @@ function setLocaleCookie(name: string, value: string) {
   document.cookie = `${name}=${value};path=/;max-age=${ONE_YEAR};samesite=lax`;
 }
 
-// 순서 고정 — DESIGN.md "운영자 표준 사이드바 9메뉴" (화면별 재수정 금지)
+// 순서 고정 — DESIGN.md "운영자 표준 사이드바 10메뉴" (화면별 재수정 금지)
+// 공실 보드(T-admin-availability-board): 빌라 운영군(빌라→공실 보드→청소 검수)에 배치
 const NAV_ITEMS: NavItem[] = [
   { key: "dashboard", href: "/dashboard", icon: "dashboard" },
   { key: "bookings", href: "/bookings", icon: "calendar_month" },
   { key: "proposals", href: "/proposals", icon: "rate_review" },
   { key: "villas", href: "/villas", icon: "villa" },
+  { key: "availability", href: "/availability", icon: "event_available" },
   { key: "inspections", href: "/inspections", icon: "cleaning_services" },
   { key: "settlements", href: "/settlements", icon: "payments" },
   { key: "messages", href: "/messages", icon: "chat" },
