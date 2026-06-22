@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>빌라 판매정보 편집 · Villa PMS Admin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;900&amp;family=Noto+Sans+KR:wght@300;400;500;700;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: { DEFAULT: "#3B82F6", dark: "#2563EB" },
+                        background: "#0F172A",
+                        surface: "#1E293B",
+                        border: "#334155"
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                    fontFamily: {
+                        headline: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                        body: ["Public Sans", "Noto Sans KR", "sans-serif"],
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+        body { background-color: #0F172A; color: #F8FAFC; word-break: keep-all; }
+        .whitespace-nowrap { white-space: nowrap; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0F172A; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        /* iOS-style toggle */
+        .toggle { width: 44px; height: 24px; background: #334155; border-radius: 9999px; position: relative; transition: background .2s; cursor: pointer; flex-shrink: 0; }
+        .toggle::after { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 9999px; background: #fff; transition: transform .2s; }
+        .toggle.on { background: #3B82F6; }
+        .toggle.on::after { transform: translateX(20px); }
+        /* selectable feature chip */
+        .chip { cursor: pointer; transition: all .15s; }
+    </style>
+</head>
+<body class="font-body antialiased">
+<!-- SideNavBar (b10 standard) -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#0F172A] border-r border-[#1E293B] flex flex-col py-6 z-50">
+<div class="px-6 mb-8">
+<h1 class="text-xl font-headline font-black text-white">Villa PMS</h1>
+<p class="text-[10px] text-slate-500 uppercase tracking-widest mt-1 whitespace-nowrap">Villa PMS Admin</p>
+</div>
+<nav class="flex-1 px-3 space-y-1">
+<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200 whitespace-nowrap" href="#"><span class="material-symbols-outlined mr-3">dashboard</span><span class="text-sm font-medium">대시보드</span></a>
+<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200 whitespace-nowrap" href="#"><span class="material-symbols-outlined mr-3">calendar_month</span><span class="text-sm font-medium">예약</span></a>
+<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200 whitespace-nowrap" href="#"><span class="material-symbols-outlined mr-3">list_alt</span><span class="text-sm font-medium">제안</span></a>
+<a class="flex items-center px-3 py-2.5 rounded-lg bg-blue-600/10 text-[#3B82F6] border-r-4 border-[#3B82F6] font-bold transition-all duration-200 whitespace-nowrap" href="#"><span class="material-symbols-outlined mr-3">home_work</span><span class="text-sm">빌라</span></a>
+<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200 whitespace-nowrap" href="#"><span class="material-symbols-outlined mr-3">cleaning_services</span><span class="text-sm font-medium">청소 검수</span></a>
+<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200 whitespace-nowrap" href="#"><span class="material-symbols-outlined mr-3">payments</span><span class="text-sm font-medium">정산</span></a>
+<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200 whitespace-nowrap" href="#"><span class="material-symbols-outlined mr-3">group</span><span class="text-sm font-medium">사용자</span></a>
+<a class="flex items-center px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition-all duration-200 whitespace-nowrap" href="#"><span class="material-symbols-outlined mr-3">settings</span><span class="text-sm font-medium">설정</span></a>
+</nav>
+<div class="px-6 pt-6 border-t border-slate-800 mt-auto">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 text-xs font-bold">관</div>
+<div class="flex flex-col overflow-hidden">
+<span class="text-xs font-bold text-slate-200 whitespace-nowrap">관리자</span>
+<span class="text-[10px] text-slate-500 whitespace-nowrap">최고 관리자</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopNavBar -->
+<header class="fixed top-0 right-0 left-64 h-16 bg-[#0F172A]/80 backdrop-blur-md border-b border-slate-800 flex justify-between items-center px-8 z-40">
+<div class="flex items-center gap-2 text-xs text-slate-500">
+<a class="hover:text-slate-300 whitespace-nowrap" href="#">빌라</a>
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+<a class="hover:text-slate-300 whitespace-nowrap" href="#">쏘나씨 V12</a>
+<span class="material-symbols-outlined text-sm">chevron_right</span>
+<span class="text-slate-300 whitespace-nowrap">판매정보</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-slate-400 hover:text-slate-200 transition-opacity"><span class="material-symbols-outlined">notifications</span></button>
+<button class="text-slate-400 hover:text-slate-200 transition-opacity"><span class="material-symbols-outlined">account_circle</span></button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-24 px-8 pb-12">
+<!-- Detail Header -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
+<div>
+<div class="flex items-center gap-3 mb-2">
+<h2 class="text-3xl font-black text-white tracking-tight">쏘나씨 V12</h2>
+<span class="px-2.5 py-0.5 rounded text-[11px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 whitespace-nowrap">승인 대기</span>
+</div>
+<div class="flex items-center gap-4 text-sm text-slate-400">
+<div class="flex items-center gap-1.5 whitespace-nowrap"><span class="material-symbols-outlined text-sm">person</span><span>Nguyễn Văn An</span></div>
+<div class="w-px h-3 bg-slate-700"></div>
+<div class="flex items-center gap-1.5 text-[#3B82F6] whitespace-nowrap"><span class="material-symbols-outlined text-sm">chat_bubble</span><span>Zalo 연결됨</span></div>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="px-5 py-2.5 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 text-sm font-bold transition-all whitespace-nowrap">변경 취소</button>
+<button class="px-5 py-2.5 rounded-lg bg-[#3B82F6] hover:bg-blue-500 text-white text-sm font-bold shadow-lg shadow-blue-900/20 transition-all whitespace-nowrap flex items-center gap-1.5"><span class="material-symbols-outlined text-sm">save</span>판매정보 저장</button>
+</div>
+</div>
+<!-- Detail Tabs (판매정보 active) — 본 화면이 b10 상세 안의 탭임을 보여줌 -->
+<div class="flex items-center gap-1 border-b border-slate-800 mb-8">
+<a class="px-4 py-3 text-sm font-medium text-slate-400 hover:text-slate-200 whitespace-nowrap border-b-2 border-transparent" href="#">사진·기본정보</a>
+<a class="px-4 py-3 text-sm font-bold text-[#3B82F6] whitespace-nowrap border-b-2 border-[#3B82F6]" href="#">판매정보</a>
+<a class="px-4 py-3 text-sm font-medium text-slate-400 hover:text-slate-200 whitespace-nowrap border-b-2 border-transparent" href="#">요율</a>
+<a class="px-4 py-3 text-sm font-medium text-slate-400 hover:text-slate-200 whitespace-nowrap border-b-2 border-transparent" href="#">비품</a>
+<a class="px-4 py-3 text-sm font-medium text-slate-400 hover:text-slate-200 whitespace-nowrap border-b-2 border-transparent" href="#">iCal 연동</a>
+</div>
+<!-- Two Column Layout -->
+<div class="grid grid-cols-12 gap-8">
+<!-- LEFT: ② 잠자리 구성 + ⑤ 셀링포인트 -->
+<div class="col-span-12 lg:col-span-7 space-y-6">
+<!-- ② 잠자리 구성 -->
+<section class="bg-surface rounded-xl border border-slate-800 shadow-xl overflow-hidden">
+<div class="p-6 border-b border-slate-800 flex items-center justify-between">
+<h3 class="text-lg font-bold flex items-center gap-2 whitespace-nowrap"><span class="material-symbols-outlined text-[#3B82F6]">king_bed</span>잠자리 구성</h3>
+<div class="flex items-center gap-2.5">
+<span class="text-xs text-slate-400 whitespace-nowrap">엑스트라베드 가능</span>
+<div class="toggle on" onclick="this.classList.toggle('on')" role="switch" aria-checked="true" tabindex="0"></div>
+</div>
+</div>
+<div class="p-6 space-y-4">
+<!-- 침실 1 카드 -->
+<div class="rounded-lg bg-slate-900/40 border border-slate-800 p-4">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded-full bg-blue-600/15 text-[#3B82F6] text-xs font-black flex items-center justify-center">1</span>
+<input class="bg-transparent border-0 border-b border-slate-700 focus:border-blue-500 focus:ring-0 text-sm font-bold text-slate-100 px-1 py-0.5 w-44 placeholder:text-slate-600" type="text" value="마스터룸" placeholder="침실 라벨 (선택)"/>
+</div>
+<button class="text-slate-500 hover:text-red-400 transition-colors flex items-center gap-1 text-[11px] whitespace-nowrap"><span class="material-symbols-outlined text-sm">delete</span>삭제</button>
+</div>
+<!-- 침대 행들 -->
+<div class="space-y-2.5 mb-3">
+<div class="flex items-center gap-2">
+<select class="flex-1 bg-slate-900 border-slate-700 rounded-lg text-xs text-slate-200 focus:ring-1 focus:ring-blue-500 h-9 py-0">
+<option>킹 베드</option><option>퀸 베드</option><option>더블 베드</option><option>싱글 베드</option><option>트윈 (싱글 2)</option><option>2층 침대</option>
+</select>
+<div class="flex items-center bg-slate-900 border border-slate-700 rounded-lg h-9">
+<button class="w-8 h-9 text-slate-400 hover:text-white flex items-center justify-center"><span class="material-symbols-outlined text-sm">remove</span></button>
+<span class="w-7 text-center text-sm font-bold text-slate-100 tabular-nums">1</span>
+<button class="w-8 h-9 text-slate-400 hover:text-white flex items-center justify-center"><span class="material-symbols-outlined text-sm">add</span></button>
+</div>
+<button class="w-9 h-9 rounded-lg text-slate-500 hover:text-red-400 hover:bg-slate-800 flex items-center justify-center flex-shrink-0"><span class="material-symbols-outlined text-sm">close</span></button>
+</div>
+<div class="flex items-center gap-2">
+<select class="flex-1 bg-slate-900 border-slate-700 rounded-lg text-xs text-slate-200 focus:ring-1 focus:ring-blue-500 h-9 py-0">
+<option>싱글 베드</option><option>킹 베드</option><option>퀸 베드</option><option>더블 베드</option><option>트윈 (싱글 2)</option><option>2층 침대</option>
+</select>
+<div class="flex items-center bg-slate-900 border border-slate-700 rounded-lg h-9">
+<button class="w-8 h-9 text-slate-400 hover:text-white flex items-center justify-center"><span class="material-symbols-outlined text-sm">remove</span></button>
+<span class="w-7 text-center text-sm font-bold text-slate-100 tabular-nums">1</span>
+<button class="w-8 h-9 text-slate-400 hover:text-white flex items-center justify-center"><span class="material-symbols-outlined text-sm">add</span></button>
+</div>
+<button class="w-9 h-9 rounded-lg text-slate-500 hover:text-red-400 hover:bg-slate-800 flex items-center justify-center flex-shrink-0"><span class="material-symbols-outlined text-sm">close</span></button>
+</div>
+</div>
+<button class="text-xs font-bold text-[#3B82F6] hover:text-blue-400 flex items-center gap-1 whitespace-nowrap mb-4"><span class="material-symbols-outlined text-sm">add</span>침대 추가</button>
+<!-- 침실 수용인원 -->
+<div class="flex items-center justify-between pt-3 border-t border-slate-800">
+<span class="text-xs text-slate-400 flex items-center gap-1.5 whitespace-nowrap"><span class="material-symbols-outlined text-sm">group</span>이 침실 수용 인원</span>
+<div class="flex items-center bg-slate-900 border border-slate-700 rounded-lg h-9">
+<button class="w-8 h-9 text-slate-400 hover:text-white flex items-center justify-center"><span class="material-symbols-outlined text-sm">remove</span></button>
+<span class="w-7 text-center text-sm font-bold text-slate-100 tabular-nums">3</span>
+<button class="w-8 h-9 text-slate-400 hover:text-white flex items-center justify-center"><span class="material-symbols-outlined text-sm">add</span></button>
+</div>
+</div>
+</div>
+<!-- 침실 2 카드 (간략) -->
+<div class="rounded-lg bg-slate-900/40 border border-slate-800 p-4">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-2">
+<span class="w-6 h-6 rounded-full bg-blue-600/15 text-[#3B82F6] text-xs font-black flex items-center justify-center">2</span>
+<input class="bg-transparent border-0 border-b border-slate-700 focus:border-blue-500 focus:ring-0 text-sm font-bold text-slate-100 px-1 py-0.5 w-44 placeholder:text-slate-600" type="text" value="" placeholder="침실 라벨 (선택)"/>
+</div>
+<button class="text-slate-500 hover:text-red-400 transition-colors flex items-center gap-1 text-[11px] whitespace-nowrap"><span class="material-symbols-outlined text-sm">delete</span>삭제</button>
+</div>
+<div class="space-y-2.5 mb-3">
+<div class="flex items-center gap-2">
+<select class="flex-1 bg-slate-900 border-slate-700 rounded-lg text-xs text-slate-200 focus:ring-1 focus:ring-blue-500 h-9 py-0">
+<option>퀸 베드</option><option>킹 베드</option><option>더블 베드</option><option>싱글 베드</option><option>트윈 (싱글 2)</option><option>2층 침대</option>
+</select>
+<div class="flex items-center bg-slate-900 border border-slate-700 rounded-lg h-9">
+<button class="w-8 h-9 text-slate-400 hover:text-white flex items-center justify-center"><span class="material-symbols-outlined text-sm">remove</span></button>
+<span class="w-7 text-center text-sm font-bold text-slate-100 tabular-nums">1</span>
+<button class="w-8 h-9 text-slate-400 hover:text-white flex items-center justify-center"><span class="material-symbols-outlined text-sm">add</span></button>
+</div>
+<button class="w-9 h-9 rounded-lg text-slate-500 hover:text-red-400 hover:bg-slate-800 flex items-center justify-center flex-shrink-0"><span class="material-symbols-outlined text-sm">close</span></button>
+</div>
+</div>
+<button class="text-xs font-bold text-[#3B82F6] hover:text-blue-400 flex items-center gap-1 whitespace-nowrap mb-4"><span class="material-symbols-outlined text-sm">add</span>침대 추가</button>
+<div class="flex items-center justify-between pt-3 border-t border-slate-800">
+<span class="text-xs text-slate-400 flex items-center gap-1.5 whitespace-nowrap"><span class="material-symbols-outlined text-sm">group</span>이 침실 수용 인원</span>
+<div class="flex items-center bg-slate-900 border border-slate-700 rounded-lg h-9">
+<button class="w-8 h-9 text-slate-400 hover:text-white flex items-center justify-center"><span class="material-symbols-outlined text-sm">remove</span></button>
+<span class="w-7 text-center text-sm font-bold text-slate-100 tabular-nums">2</span>
+<button class="w-8 h-9 text-slate-400 hover:text-white flex items-center justify-center"><span class="material-symbols-outlined text-sm">add</span></button>
+</div>
+</div>
+</div>
+<!-- + 침실 추가 -->
+<button class="w-full rounded-lg border-2 border-dashed border-slate-700 hover:border-blue-500/50 hover:bg-slate-800/30 text-slate-400 hover:text-[#3B82F6] py-3 text-sm font-bold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap"><span class="material-symbols-outlined text-base">add</span>침실 추가</button>
+<!-- 검증 안내 (maxGuests 대조) -->
+<div class="p-3 bg-amber-500/5 rounded-lg border border-amber-500/20 flex items-start gap-2">
+<span class="material-symbols-outlined text-amber-500 text-sm mt-0.5">info</span>
+<p class="text-[11px] text-slate-400 leading-relaxed">침실 수용 인원 합계 <span class="font-bold text-slate-200 tabular-nums">5명</span> · 기본 정보 최대 인원 <span class="font-bold text-slate-200 tabular-nums">6명</span>. 합계가 최대 인원과 달라도 저장됩니다(엑스트라베드 포함 가능).</p>
+</div>
+</div>
+</section>
+<!-- ⑤ 셀링포인트 태그 -->
+<section class="bg-surface rounded-xl border border-slate-800 shadow-xl overflow-hidden">
+<div class="p-6 border-b border-slate-800">
+<h3 class="text-lg font-bold flex items-center gap-2 whitespace-nowrap"><span class="material-symbols-outlined text-[#3B82F6]">sell</span>셀링포인트 태그</h3>
+<p class="text-xs text-slate-500 mt-1">공개 제안 페이지 상단에 강조 표시됩니다. 카테고리별로 해당 항목을 선택하세요.</p>
+</div>
+<div class="p-6 space-y-5">
+<!-- 뷰 -->
+<div>
+<p class="text-xs font-bold text-slate-500 mb-2.5 uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5"><span class="material-symbols-outlined text-sm text-slate-600">visibility</span>뷰</p>
+<div class="flex flex-wrap gap-2">
+<button class="chip px-3 py-1.5 rounded-full text-xs font-medium bg-blue-600/15 text-[#3B82F6] border border-blue-500/40 flex items-center gap-1.5 whitespace-nowrap"><span class="material-symbols-outlined text-sm">waves</span>바다뷰<span class="material-symbols-outlined text-sm">check</span></button>
+<button class="chip px-3 py-1.5 rounded-full text-xs font-medium bg-slate-900/60 text-slate-400 border border-slate-700 hover:border-slate-500 flex items-center gap-1.5 whitespace-nowrap"><span class="material-symbols-outlined text-sm">landscape</span>마운틴뷰</button>
+<button class="chip px-3 py-1.5 rounded-full text-xs font-medium bg-slate-900/60 text-slate-400 border border-slate-700 hover:border-slate-500 flex items-center gap-1.5 whitespace-nowrap"><span class="material-symbols-outlined text-sm">location_city</span>시티뷰</button>
+</div>
+</div>
+<!-- 시설 -->
+<div>
+<p class="text-xs font-bold text-slate-500 mb-2.5 uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5"><span class="material-symbols-outlined text-sm text-slate-600">chair</span>시설</p>
+<div class="flex flex-wrap gap-2">
+<button class="chip px-3 py-1.5 rounded-full text-xs font-medium bg-blue-600/15 text-[#3B82F6] border border-blue-500/40 flex items-center gap-1.5 whitespace-nowrap"><span class="material-symbols-outlined text-sm">outdoor_grill</span>BBQ<span class="material-symbols-outlined text-sm">check</span></button>
+<button class="chip px-3 py-1.5 rounded-full text-xs font-medium bg-slate-900/60 text-slate-400 border border-slate-700 hover:border-slate-500 flex items-center gap-1.5 whitespace-nowrap"><span class="material-symbols-outlined text-sm">elevator</span>엘리베이터</button>
+<button class="chip px-3 py-1.5 rounded-full text-xs font-medium bg-blue-600/15 text-[#3B82F6] border border-blue-500/40 flex items-center gap-1.5 whitespace-nowrap"><span class="material-symbols-outlined text-sm">bolt</span>발전기<span class="material-symbols-outlined text-sm">check</span></button>
+<button class="chip px-3 py-1.5 rounded-full text-xs font-medium bg-slate-900/60 text-slate-400 border border-slate-700 hover:border-slate-500 flex items-center gap-1.5 whitespace-nowrap"><span class="material-symbols-outlined text-sm">pool</span>키즈풀</button>
+<button class="chip px-3 py-1.5 rounded-full text-xs font-medium bg-blue-600/15 text-[#3B82F6] border border-blue-500/40 flex items-center gap-1.5 whitespace-nowrap"><span class="material-symbols-outlined text-sm">pool</span>프라이빗풀<span class="material-symbols-outlined text-sm">check</span></button>
+<button class="chip px-3 py-1.5 rounded-full text-xs font-medium bg-slate-900/60 text-slate-400 border border-slate-700 hover:border-slate-500 flex items-center gap-1.5 whitespace-nowrap"><span class="material-symbols-outlined text-sm">fitness_center</span>헬스장</button>
+</div>
+</div>
+<!-- 입지 -->
+<div>
+<p class="text-xs font-bold text-slate-500 mb-2.5 uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5"><span class="material-symbols-outlined text-sm text-slate-600">distance</span>입지</p>
+<div class="flex flex-wrap gap-2">
+<button class="chip px-3 py-1.5 rounded-full text-xs font-medium bg-slate-900/60 text-slate-400 border border-slate-700 hover:border-slate-500 flex items-center gap-1.5 whitespace-nowrap"><span class="material-symbols-outlined text-sm">golf_course</span>골프장 인근</button>
+<button class="chip px-3 py-1.5 rounded-full text-xs font-medium bg-blue-600/15 text-[#3B82F6] border border-blue-500/40 flex items-center gap-1.5 whitespace-nowrap"><span class="material-symbols-outlined text-sm">beach_access</span>해변 바로앞<span class="material-symbols-outlined text-sm">check</span></button>
+<button class="chip px-3 py-1.5 rounded-full text-xs font-medium bg-slate-900/60 text-slate-400 border border-slate-700 hover:border-slate-500 flex items-center gap-1.5 whitespace-nowrap"><span class="material-symbols-outlined text-sm">storefront</span>마트 인근</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- RIGHT: ③ 위치·접근성 + ④ 이용규칙 -->
+<div class="col-span-12 lg:col-span-5 space-y-6">
+<!-- ③ 위치·접근성 -->
+<section class="bg-surface rounded-xl border border-slate-800 shadow-xl overflow-hidden">
+<div class="p-6 border-b border-slate-800">
+<h3 class="text-lg font-bold flex items-center gap-2 whitespace-nowrap"><span class="material-symbols-outlined text-[#3B82F6]">location_on</span>위치·접근성</h3>
+</div>
+<div class="p-6 space-y-4">
+<div>
+<label class="block text-xs font-bold text-slate-400 mb-1.5 whitespace-nowrap">구글맵 링크</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">map</span>
+<input class="w-full bg-slate-900 border-slate-700 rounded-lg pl-9 pr-3 h-10 text-xs text-slate-200 focus:ring-1 focus:ring-blue-500" type="text" placeholder="https://maps.app.goo.gl/..." value="https://maps.app.goo.gl/aZx9..."/>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-3">
+<div>
+<label class="block text-xs font-bold text-slate-400 mb-1.5 whitespace-nowrap">해변 거리</label>
+<div class="flex items-center bg-slate-900 border border-slate-700 rounded-lg h-10 px-3 focus-within:ring-1 focus-within:ring-blue-500">
+<input class="flex-1 w-full bg-transparent border-0 focus:ring-0 text-sm text-slate-200 tabular-nums p-0" type="text" value="350"/>
+<span class="text-xs text-slate-500 ml-1 whitespace-nowrap">m</span>
+</div>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-400 mb-1.5 whitespace-nowrap">전용면적</label>
+<div class="flex items-center bg-slate-900 border border-slate-700 rounded-lg h-10 px-3 focus-within:ring-1 focus-within:ring-blue-500">
+<input class="flex-1 w-full bg-transparent border-0 focus:ring-0 text-sm text-slate-200 tabular-nums p-0" type="text" value="220"/>
+<span class="text-xs text-slate-500 ml-1 whitespace-nowrap">㎡</span>
+</div>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-400 mb-1.5 whitespace-nowrap">층수</label>
+<div class="flex items-center bg-slate-900 border border-slate-700 rounded-lg h-10 px-3 focus-within:ring-1 focus-within:ring-blue-500">
+<input class="flex-1 w-full bg-transparent border-0 focus:ring-0 text-sm text-slate-200 tabular-nums p-0" type="text" value="2"/>
+<span class="text-xs text-slate-500 ml-1 whitespace-nowrap">층</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- ④ 이용규칙 -->
+<section class="bg-surface rounded-xl border border-slate-800 shadow-xl overflow-hidden">
+<div class="p-6 border-b border-slate-800">
+<h3 class="text-lg font-bold flex items-center gap-2 whitespace-nowrap"><span class="material-symbols-outlined text-[#3B82F6]">gavel</span>이용규칙</h3>
+</div>
+<div class="p-6 space-y-5">
+<!-- 체크인/아웃 -->
+<div class="grid grid-cols-2 gap-3">
+<div>
+<label class="block text-xs font-bold text-slate-400 mb-1.5 whitespace-nowrap">체크인 시간</label>
+<select class="w-full bg-slate-900 border-slate-700 rounded-lg text-sm text-slate-200 focus:ring-1 focus:ring-blue-500 h-10 py-0 tabular-nums">
+<option>13:00</option><option>13:30</option><option selected>14:00</option><option>14:30</option><option>15:00</option><option>15:30</option><option>16:00</option>
+</select>
+</div>
+<div>
+<label class="block text-xs font-bold text-slate-400 mb-1.5 whitespace-nowrap">체크아웃 시간</label>
+<select class="w-full bg-slate-900 border-slate-700 rounded-lg text-sm text-slate-200 focus:ring-1 focus:ring-blue-500 h-10 py-0 tabular-nums">
+<option>10:00</option><option>10:30</option><option selected>11:00</option><option>11:30</option><option>12:00</option><option>12:30</option>
+</select>
+</div>
+</div>
+<!-- 토글 3개 -->
+<div class="space-y-2">
+<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-900/40 border border-slate-800">
+<span class="text-sm text-slate-200 flex items-center gap-2 whitespace-nowrap"><span class="material-symbols-outlined text-base text-slate-400">smoking_rooms</span>흡연 가능</span>
+<div class="toggle" onclick="this.classList.toggle('on')" role="switch" aria-checked="false" tabindex="0"></div>
+</div>
+<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-900/40 border border-slate-800">
+<span class="text-sm text-slate-200 flex items-center gap-2 whitespace-nowrap"><span class="material-symbols-outlined text-base text-slate-400">pets</span>반려동물 가능</span>
+<div class="toggle on" onclick="this.classList.toggle('on')" role="switch" aria-checked="true" tabindex="0"></div>
+</div>
+<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-900/40 border border-slate-800">
+<span class="text-sm text-slate-200 flex items-center gap-2 whitespace-nowrap"><span class="material-symbols-outlined text-base text-slate-400">celebration</span>파티 가능</span>
+<div class="toggle" onclick="this.classList.toggle('on')" role="switch" aria-checked="false" tabindex="0"></div>
+</div>
+</div>
+<!-- 주차 -->
+<div class="flex items-center justify-between py-2 px-3 rounded-lg bg-slate-900/40 border border-slate-800">
+<span class="text-sm text-slate-200 flex items-center gap-2 whitespace-nowrap"><span class="material-symbols-outlined text-base text-slate-400">local_parking</span>주차 가능 대수</span>
+<div class="flex items-center bg-slate-900 border border-slate-700 rounded-lg h-9">
+<button class="w-8 h-9 text-slate-400 hover:text-white flex items-center justify-center"><span class="material-symbols-outlined text-sm">remove</span></button>
+<span class="w-7 text-center text-sm font-bold text-slate-100 tabular-nums">2</span>
+<button class="w-8 h-9 text-slate-400 hover:text-white flex items-center justify-center"><span class="material-symbols-outlined text-sm">add</span></button>
+</div>
+</div>
+<!-- 기준 보증금 -->
+<div>
+<label class="block text-xs font-bold text-slate-400 mb-1.5 whitespace-nowrap">기준 보증금 (VND)</label>
+<div class="flex items-center bg-slate-900 border border-slate-700 rounded-lg h-10 px-3 focus-within:ring-1 focus-within:ring-blue-500">
+<input class="flex-1 w-full bg-transparent border-0 focus:ring-0 text-sm text-slate-200 text-right tabular-nums p-0" type="text" value="5.000.000"/>
+<span class="text-sm text-slate-500 ml-1 whitespace-nowrap">₫</span>
+</div>
+<p class="text-[10px] text-slate-500 mt-1.5">현지 결제 보증금 기본값입니다. 예약별 보증금과 별개입니다.</p>
+</div>
+<!-- 와이파이 (공개 안 됨 경고) -->
+<div class="rounded-lg border border-amber-500/25 bg-amber-500/[0.04] p-3.5">
+<div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 mb-3">
+<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-amber-500 text-base">lock</span><span class="text-xs font-bold text-amber-400 whitespace-nowrap">와이파이</span></span>
+<span class="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 text-[10px] font-bold whitespace-nowrap">공개 안 됨 · 체크인 화면 전용</span>
+</div>
+<div class="space-y-2.5">
+<div>
+<label class="block text-[11px] text-slate-400 mb-1 whitespace-nowrap">네트워크 이름 (SSID)</label>
+<input class="w-full bg-slate-900 border-slate-700 rounded-lg px-3 h-9 text-xs text-slate-200 focus:ring-1 focus:ring-blue-500" type="text" value="SonaseaV12_5G"/>
+</div>
+<div>
+<label class="block text-[11px] text-slate-400 mb-1 whitespace-nowrap">비밀번호</label>
+<input class="w-full bg-slate-900 border-slate-700 rounded-lg px-3 h-9 text-xs text-slate-200 focus:ring-1 focus:ring-blue-500" type="text" value="••••••••••"/>
+</div>
+</div>
+<p class="text-[10px] text-amber-400/70 mt-2.5 flex items-start gap-1"><span class="material-symbols-outlined text-xs mt-0.5">visibility_off</span>고객 제안 페이지에는 절대 노출되지 않습니다.</p>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+<script>
+        // toggle keyboard support
+        document.querySelectorAll('.toggle').forEach(t => {
+            t.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t.classList.toggle('on'); } });
+        });
+        // chip select toggle (visual demo)
+        document.querySelectorAll('.chip').forEach(c => {
+            c.addEventListener('click', () => {
+                const on = c.classList.contains('bg-blue-600/15');
+                if (on) {
+                    c.className = c.className.replace('bg-blue-600/15','bg-slate-900/60').replace('text-[#3B82F6]','text-slate-400').replace('border-blue-500/40','border-slate-700 hover:border-slate-500');
+                    const chk = c.querySelector('.material-symbols-outlined:last-child');
+                    if (chk && chk.textContent.trim()==='check') chk.remove();
+                } else {
+                    c.className = c.className.replace('bg-slate-900/60','bg-blue-600/15').replace('text-slate-400','text-[#3B82F6]').replace('border-slate-700 hover:border-slate-500','border-blue-500/40');
+                    const chk = document.createElement('span');
+                    chk.className = 'material-symbols-outlined text-sm';
+                    chk.textContent = 'check';
+                    c.appendChild(chk);
+                }
+            });
+        });
+</script>
+</body></html>

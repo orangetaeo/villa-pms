@@ -338,6 +338,11 @@
       "unsignedHint": "서명 없이도 체크인 완료가 가능합니다 — 미서명 건은 체크인 화면에서 사후 서명할 수 있습니다.",
       "postSignBadge": "사후 서명",
       "postSignDesc": "이 예약은 서명 없이 체크인되었습니다. 아래 동의서에 고객 서명을 받아 기록을 완성해주세요."
+    },
+    "wifi": {
+      "title": "와이파이 안내",
+      "ssid": "네트워크",
+      "password": "비밀번호"
     }
   },
   "adminVillas": {
@@ -450,6 +455,58 @@
         "reasonRequired": "사유를 입력해야 반려할 수 있습니다.",
         "cancel": "취소",
         "confirm": "반려 확정"
+      }
+    },
+    "sales": {
+      "tabs": {
+        "overview": "상세",
+        "sales": "판매정보"
+      },
+      "save": "판매정보 저장",
+      "saving": "저장 중…",
+      "saved": "저장되었습니다",
+      "saveError": "저장에 실패했습니다",
+      "bedding": {
+        "title": "잠자리 구성",
+        "extraBed": "엑스트라베드 가능",
+        "roomLabel": "침실 라벨",
+        "roomLabelPlaceholder": "침실 라벨 (선택)",
+        "removeRoom": "삭제",
+        "addRoom": "침실 추가",
+        "bedType": "침대 종류",
+        "bedCount": "침대 개수",
+        "addBed": "침대 추가",
+        "removeBed": "침대 제거",
+        "capacity": "이 침실 수용 인원",
+        "capacityNote": "침실 수용 인원 합계 <b>{sum}명</b> · 기본 정보 최대 인원 <b>{max}명</b>. 합계가 최대 인원과 달라도 저장됩니다(엑스트라베드 포함 가능)."
+      },
+      "location": {
+        "title": "위치·접근성",
+        "mapUrl": "구글맵 링크",
+        "beachDistance": "해변 거리",
+        "area": "전용면적",
+        "floors": "층수",
+        "floorUnit": "층"
+      },
+      "rules": {
+        "title": "이용규칙",
+        "checkIn": "체크인 시간",
+        "checkOut": "체크아웃 시간",
+        "smoking": "흡연 가능",
+        "pets": "반려동물 가능",
+        "party": "파티 가능",
+        "parking": "주차 가능 대수",
+        "deposit": "기준 보증금 (VND)",
+        "depositNote": "현지 결제 보증금 기본값입니다. 예약별 보증금과 별개입니다.",
+        "wifi": "와이파이",
+        "wifiBadge": "공개 안 됨 · 체크인 화면 전용",
+        "wifiSsid": "네트워크 이름 (SSID)",
+        "wifiPassword": "비밀번호",
+        "wifiHint": "고객 제안 페이지에는 절대 노출되지 않습니다."
+      },
+      "features": {
+        "title": "셀링포인트 태그",
+        "subtitle": "공개 제안 페이지 상단에 강조 표시됩니다. 카테고리별로 해당 항목을 선택하세요."
       }
     }
   },
@@ -1519,6 +1576,35 @@
       "LOW": "비수기",
       "HIGH": "성수기",
       "PEAK": "극성수기"
+    }
+  },
+  "bedding": {
+    "KING": "킹 베드",
+    "QUEEN": "퀸 베드",
+    "DOUBLE": "더블 베드",
+    "SINGLE": "싱글 베드",
+    "TWIN": "트윈 (싱글 2)",
+    "BUNK": "2층 침대"
+  },
+  "features": {
+    "categories": {
+      "VIEW": "뷰",
+      "FACILITY": "시설",
+      "LOCATION": "입지"
+    },
+    "items": {
+      "viewSea": "바다뷰",
+      "viewMountain": "마운틴뷰",
+      "viewCity": "시티뷰",
+      "bbq": "BBQ",
+      "elevator": "엘리베이터",
+      "generator": "발전기",
+      "kidsPool": "키즈풀",
+      "privatePool": "프라이빗풀",
+      "gym": "헬스장",
+      "golfNearby": "골프장 인근",
+      "beachFront": "해변 바로앞",
+      "marketNearby": "마트 인근"
     }
   }
 }

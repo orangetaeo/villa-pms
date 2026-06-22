@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 //   bookings/[id]/checkin/checkin-form               → adminCheckin
 //   bookings/[id]/checkout/checkout-form             → adminCheckout, amenities(.items)
 //   villas/[id]/villa-actions·rate-editor            → adminVillas
+//   villas/[id]/sales-editor·detail-tabs             → adminVillas(.sales), bedding, features
 //   users/users-manager                              → adminUsers
 //   settlements/settlements-view                     → adminSettlements
 //   settings/hold-hours-form·season-manager·fx-rate-form → adminSettings
@@ -40,6 +41,9 @@ const ADMIN_CLIENT_NAMESPACES = [
   "adminCostAlerts",
   "amenities",
   "quickDateFilter",
+  // 판매정보 입력 폼(sales-editor·detail-tabs) — ADR-0011
+  "bedding",
+  "features",
 ] as const;
 
 export default async function AdminLayout({

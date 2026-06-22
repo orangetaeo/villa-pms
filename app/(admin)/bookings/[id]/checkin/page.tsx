@@ -74,6 +74,30 @@ export default async function CheckinPage({
         </div>
       </div>
 
+      {/* 와이파이 안내 (ADR-0011) — ADMIN 전용 화면이라 노출 OK. /p 공개페이지엔 절대 미노출 */}
+      {(booking.villa.wifiSsid || booking.villa.wifiPassword) && (
+        <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-800 flex items-center gap-3">
+          <span className="material-symbols-outlined text-admin-primary">wifi</span>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+              {t("wifi.title")}
+            </span>
+            {booking.villa.wifiSsid && (
+              <span className="text-slate-300">
+                <span className="text-slate-500">{t("wifi.ssid")}</span>{" "}
+                <span className="font-bold text-white">{booking.villa.wifiSsid}</span>
+              </span>
+            )}
+            {booking.villa.wifiPassword && (
+              <span className="text-slate-300">
+                <span className="text-slate-500">{t("wifi.password")}</span>{" "}
+                <span className="font-bold text-white tabular-nums">{booking.villa.wifiPassword}</span>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {postSignMode ? (
         <PostSignForm bookingId={booking.id} hasPool={booking.villa.hasPool} />
       ) : (

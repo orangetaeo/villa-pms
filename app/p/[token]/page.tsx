@@ -14,6 +14,9 @@ import {
   formatKoDateLong,
   formatPublicAmount,
 } from "../_components/public-format";
+import { VillaSalesSection } from "../_components/villa-sales-section";
+import type { BedTypeKey } from "@/lib/bedding";
+import type { FeatureCategoryKey } from "@/lib/features";
 
 /**
  * /p/[token] — 공개 제안 페이지 (비로그인, ko) — Stitch c1/c1-vnd 변환 (SPEC F3 흐름 2)
@@ -67,6 +70,7 @@ export default async function ProposalPage({
             select: {
               name: true,
               bedrooms: true,
+              maxGuests: true,
               hasPool: true,
               breakfastAvailable: true,
               // 판매정보 공개 필드 (마진·판매가 아님 — 누수 무관). wifi 2종은 제외
@@ -213,6 +217,35 @@ export default async function ProposalPage({
                       </p>
                     )}
                   </div>
+
+                  {/* 판매정보 표시 섹션 (ADR-0011, c1-villa-details) — wifi 미렌더(BE select 제외) */}
+                  <VillaSalesSection
+                    villa={{
+                      maxGuests: item.villa.maxGuests,
+                      googleMapUrl: item.villa.googleMapUrl,
+                      beachDistanceM: item.villa.beachDistanceM,
+                      areaSqm: item.villa.areaSqm,
+                      floors: item.villa.floors,
+                      checkInTime: item.villa.checkInTime,
+                      checkOutTime: item.villa.checkOutTime,
+                      smokingAllowed: item.villa.smokingAllowed,
+                      petsAllowed: item.villa.petsAllowed,
+                      partyAllowed: item.villa.partyAllowed,
+                      parkingSlots: item.villa.parkingSlots,
+                      baseDepositVnd: item.villa.baseDepositVnd,
+                      extraBedAvailable: item.villa.extraBedAvailable,
+                      bedrooms: item.villa.bedroomDetails.map((b) => ({
+                        roomIndex: b.roomIndex,
+                        bedType: b.bedType as BedTypeKey,
+                        bedCount: b.bedCount,
+                      })),
+                      features: item.villa.features.map((f) => ({
+                        category: f.category as FeatureCategoryKey,
+                        featureKey: f.featureKey,
+                      })),
+                    }}
+                  />
+
                   <div className="flex justify-between items-end border-t border-neutral-50 pt-4">
                     <div>
                       {nightly != null && (

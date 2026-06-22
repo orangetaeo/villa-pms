@@ -338,6 +338,11 @@
       "unsignedHint": "Có thể hoàn tất nhận phòng không cần chữ ký — ký bổ sung sau tại màn hình nhận phòng.",
       "postSignBadge": "Ký bổ sung",
       "postSignDesc": "Đặt phòng này đã nhận phòng chưa có chữ ký. Vui lòng lấy chữ ký khách theo bản cam kết dưới đây."
+    },
+    "wifi": {
+      "title": "Thông tin Wifi",
+      "ssid": "Mạng",
+      "password": "Mật khẩu"
     }
   },
   "adminVillas": {
@@ -450,6 +455,58 @@
         "reasonRequired": "Phải nhập lý do mới có thể từ chối.",
         "cancel": "Hủy",
         "confirm": "Xác nhận từ chối"
+      }
+    },
+    "sales": {
+      "tabs": {
+        "overview": "Chi tiết",
+        "sales": "Thông tin bán"
+      },
+      "save": "Lưu thông tin bán",
+      "saving": "Đang lưu…",
+      "saved": "Đã lưu",
+      "saveError": "Lưu thất bại",
+      "bedding": {
+        "title": "Cấu hình giường ngủ",
+        "extraBed": "Có giường phụ",
+        "roomLabel": "Nhãn phòng ngủ",
+        "roomLabelPlaceholder": "Nhãn phòng (tùy chọn)",
+        "removeRoom": "Xóa",
+        "addRoom": "Thêm phòng ngủ",
+        "bedType": "Loại giường",
+        "bedCount": "Số giường",
+        "addBed": "Thêm giường",
+        "removeBed": "Bỏ giường",
+        "capacity": "Sức chứa phòng này",
+        "capacityNote": "Tổng sức chứa phòng ngủ <b>{sum} người</b> · Số khách tối đa <b>{max} người</b>. Vẫn lưu được dù tổng khác số tối đa (có thể dùng giường phụ)."
+      },
+      "location": {
+        "title": "Vị trí · Tiếp cận",
+        "mapUrl": "Liên kết Google Maps",
+        "beachDistance": "Cách biển",
+        "area": "Diện tích",
+        "floors": "Số tầng",
+        "floorUnit": "tầng"
+      },
+      "rules": {
+        "title": "Quy định sử dụng",
+        "checkIn": "Giờ nhận phòng",
+        "checkOut": "Giờ trả phòng",
+        "smoking": "Cho hút thuốc",
+        "pets": "Cho thú cưng",
+        "party": "Cho tiệc",
+        "parking": "Số chỗ đậu xe",
+        "deposit": "Tiền cọc cơ bản (VND)",
+        "depositNote": "Giá trị cọc mặc định thanh toán tại chỗ. Khác với cọc theo từng đặt phòng.",
+        "wifi": "Wifi",
+        "wifiBadge": "Không công khai · Chỉ màn hình nhận phòng",
+        "wifiSsid": "Tên mạng (SSID)",
+        "wifiPassword": "Mật khẩu",
+        "wifiHint": "Không bao giờ hiển thị trên trang đề xuất cho khách."
+      },
+      "features": {
+        "title": "Điểm nổi bật",
+        "subtitle": "Hiển thị nổi bật ở đầu trang đề xuất công khai. Chọn các mục theo từng nhóm."
       }
     }
   },
@@ -1519,6 +1576,35 @@
       "LOW": "Mùa thấp điểm",
       "HIGH": "Mùa cao điểm",
       "PEAK": "Cao điểm lễ Tết"
+    }
+  },
+  "bedding": {
+    "KING": "Giường King",
+    "QUEEN": "Giường Queen",
+    "DOUBLE": "Giường đôi",
+    "SINGLE": "Giường đơn",
+    "TWIN": "Hai giường đơn",
+    "BUNK": "Giường tầng"
+  },
+  "features": {
+    "categories": {
+      "VIEW": "Tầm nhìn",
+      "FACILITY": "Tiện ích",
+      "LOCATION": "Vị trí"
+    },
+    "items": {
+      "viewSea": "Hướng biển",
+      "viewMountain": "Hướng núi",
+      "viewCity": "Hướng thành phố",
+      "bbq": "BBQ",
+      "elevator": "Thang máy",
+      "generator": "Máy phát điện",
+      "kidsPool": "Hồ bơi trẻ em",
+      "privatePool": "Hồ bơi riêng",
+      "gym": "Phòng gym",
+      "golfNearby": "Gần sân golf",
+      "beachFront": "Sát biển",
+      "marketNearby": "Gần chợ"
     }
   }
 }

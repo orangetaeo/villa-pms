@@ -9,8 +9,12 @@ import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import { formatVnd, formatDateTime } from "@/lib/format";
 import type { AmenityCategory, PhotoSpace, SeasonType } from "@prisma/client";
+import type { FeatureCategoryKey } from "@/lib/features";
+import type { BedTypeKey } from "@/lib/bedding";
 import RateEditor, { type RateRow } from "./rate-editor";
 import VillaActions from "./villa-actions";
+import DetailTabs from "./detail-tabs";
+import SalesEditor, { type SalesInitial } from "./sales-editor";
 
 const SPACE_ORDER: PhotoSpace[] = [
   "EXTERIOR",
@@ -86,6 +90,12 @@ export default async function VillaDetailPage({
             salePriceKrw: true,
           },
         },
+        // 판매정보 (ADR-0011) — ADMIN 상세는 wifi 포함 OK (운영 화면, /p 공개페이지만 제외)
+        bedroomDetails: {
+          orderBy: { roomIndex: "asc" },
+          select: { roomIndex: true, roomLabel: true, bedType: true, bedCount: true, capacity: true },
+        },
+        features: { select: { category: true, featureKey: true } },
       },
     }),
     prisma.appSetting.findUnique({ where: { key: "FX_VND_PER_KRW" } }),
@@ -139,10 +149,39 @@ export default async function VillaDetailPage({
   const amenityLabel = (itemKey: string, customLabel: string | null) =>
     itemKey === "custom" && customLabel ? customLabel : tAmenity(`items.${itemKey}`);
 
-  return (
+  // 판매정보 폼 초기값 (ADR-0011) — BigInt·정수는 문자열 변환(클라이언트 경계 직렬화)
+  const salesInitial: SalesInitial = {
+    googleMapUrl: villa.googleMapUrl ?? "",
+    beachDistanceM: villa.beachDistanceM != null ? String(villa.beachDistanceM) : "",
+    areaSqm: villa.areaSqm != null ? String(villa.areaSqm) : "",
+    floors: villa.floors != null ? String(villa.floors) : "",
+    checkInTime: villa.checkInTime,
+    checkOutTime: villa.checkOutTime,
+    smokingAllowed: villa.smokingAllowed,
+    petsAllowed: villa.petsAllowed,
+    partyAllowed: villa.partyAllowed,
+    parkingSlots: villa.parkingSlots,
+    baseDepositVnd: villa.baseDepositVnd != null ? villa.baseDepositVnd.toString() : "",
+    wifiSsid: villa.wifiSsid ?? "",
+    wifiPassword: villa.wifiPassword ?? "",
+    extraBedAvailable: villa.extraBedAvailable,
+    bedrooms: villa.bedroomDetails.map((b) => ({
+      roomIndex: b.roomIndex,
+      roomLabel: b.roomLabel,
+      bedType: b.bedType as BedTypeKey,
+      bedCount: b.bedCount,
+      capacity: b.capacity,
+    })),
+    features: villa.features.map((f) => ({
+      category: f.category as FeatureCategoryKey,
+      featureKey: f.featureKey,
+    })),
+  };
+
+  const header = (
     <div>
       {/* 상세 헤더 (b10) */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
         <div>
           <Link
             href="/villas"
@@ -185,7 +224,11 @@ export default async function VillaDetailPage({
         </div>
         <VillaActions villaId={villa.id} status={villa.status} />
       </div>
+    </div>
+  );
 
+  const overview = (
+    <div>
       {/* 2단 레이아웃 (b10) */}
       <div className="grid grid-cols-12 gap-8">
         {/* 좌측: 사진 + 기본 정보 */}
@@ -386,6 +429,15 @@ export default async function VillaDetailPage({
           )}
         </div>
       </div>
+    </div>
+  );
+
+  const sales = <SalesEditor villaId={villa.id} maxGuests={villa.maxGuests} initial={salesInitial} />;
+
+  return (
+    <div>
+      {header}
+      <DetailTabs overview={overview} sales={sales} />
     </div>
   );
 }

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>빌라 상세정보 · Villa PMS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#0D9488",
+                        secondary: "#F59E0B"
+                    },
+                    borderRadius: { "DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px" },
+                    fontFamily: {
+                        headline: ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"],
+                        body: ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: "Be Vietnam Pro", "Noto Sans KR", sans-serif; -webkit-font-smoothing: antialiased; word-break: keep-all; }
+        button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+        body { min-height: max(884px, 100dvh); }
+    </style>
+</head>
+<body class="bg-neutral-50 text-neutral-900 min-h-screen">
+<!-- TopAppBar (c1 standard) -->
+<header class="bg-white border-b border-neutral-100 flex justify-between items-center w-full px-4 h-14 sticky top-0 z-50">
+<button class="text-teal-600 hover:bg-neutral-50 transition-colors duration-200 p-2 rounded-full"><span class="material-symbols-outlined">arrow_back</span></button>
+<h1 class="text-teal-600 font-headline font-bold text-xl">Villa PMS</h1>
+<button class="text-teal-600 hover:bg-neutral-50 transition-colors duration-200 p-2 rounded-full"><span class="material-symbols-outlined">share</span></button>
+</header>
+<main class="max-w-md mx-auto px-4 py-6 space-y-6">
+<!-- 컨텍스트: 이 화면은 c1 빌라 카드 안/아래에 붙는 "빌라 상세정보" 읽기전용 섹션 -->
+<p class="text-[11px] font-bold text-neutral-400 uppercase tracking-widest text-center">디자인 참고 — c1 빌라 카드 내부 "상세정보" 섹션</p>
+<!-- Villa Detail Card -->
+<article class="bg-white rounded-xl overflow-hidden shadow-sm border border-neutral-100">
+<!-- 사진 (c1 카드 상단 동일) -->
+<div class="relative aspect-[4/3] overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A luxurious tropical pool villa in Phu Quoc at sunset with a private infinity pool reflecting a warm orange and teal sky, modern white architecture and lush palm trees." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDks2H9iJfYb_4izYi0q-PhI7w_Zj8FkPISmDn3-8MpcZz4HOjxDDUobvtwZEdZwOjJYHYklg7WhC43GGFJowJOSP4LhOlWf38b0JwHnRiGJ1WrTqzAIKE0knlYj65N-FWzSSHprldboStg1JQ8km3x4o6SdY5pCgZEVPBDHXnFsMYM5U_vXG7IurzxpgWnBaSqus-Kt4XsqfFUcIEVPnFnLmZEyjK6pgl4Zm_vUizQvDl3b2aPKaARd_WCvlYxsQUezFbwfm41_Ajy"/>
+<div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+<span class="w-2 h-2 rounded-full bg-white"></span>
+<span class="w-2 h-2 rounded-full bg-white/50"></span>
+<span class="w-2 h-2 rounded-full bg-white/50"></span>
+</div>
+</div>
+<div class="p-5 space-y-5">
+<!-- 빌라명 -->
+<div>
+<h3 class="text-xl font-bold font-headline mb-3">쏘나씨 V12</h3>
+<!-- ⑤ 셀링포인트 태그 띠 (강조) -->
+<div class="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1 pb-1">
+<span class="shrink-0 text-[12px] font-semibold bg-teal-600 text-white px-3 py-1.5 rounded-full flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px]" style="font-variation-settings:'FILL' 1;">waves</span>바다뷰</span>
+<span class="shrink-0 text-[12px] font-semibold bg-teal-50 text-teal-700 px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-teal-100"><span class="material-symbols-outlined text-[16px]">beach_access</span>해변 바로앞</span>
+<span class="shrink-0 text-[12px] font-semibold bg-teal-50 text-teal-700 px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-teal-100"><span class="material-symbols-outlined text-[16px]">pool</span>프라이빗풀</span>
+<span class="shrink-0 text-[12px] font-semibold bg-teal-50 text-teal-700 px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-teal-100"><span class="material-symbols-outlined text-[16px]">outdoor_grill</span>BBQ</span>
+<span class="shrink-0 text-[12px] font-semibold bg-teal-50 text-teal-700 px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-teal-100"><span class="material-symbols-outlined text-[16px]">bolt</span>발전기</span>
+</div>
+</div>
+<!-- ② 잠자리 요약 -->
+<section class="rounded-xl bg-neutral-50 border border-neutral-100 p-4">
+<div class="flex items-center justify-between mb-3">
+<h4 class="text-sm font-bold text-neutral-800 flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px] text-teal-600">king_bed</span>잠자리 구성</h4>
+<span class="text-[12px] font-bold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-full flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">group</span>최대 8인</span>
+</div>
+<div class="flex items-center gap-2 flex-wrap mb-3">
+<span class="text-[12px] font-medium bg-white border border-neutral-200 px-2.5 py-1 rounded-md text-neutral-700">침실 3개</span>
+<span class="text-neutral-300">·</span>
+<span class="text-[12px] font-medium bg-white border border-neutral-200 px-2.5 py-1 rounded-md text-neutral-700 flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">king_bed</span>킹 2</span>
+<span class="text-[12px] font-medium bg-white border border-neutral-200 px-2.5 py-1 rounded-md text-neutral-700 flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">bed</span>퀸 1</span>
+<span class="text-[12px] font-medium bg-white border border-neutral-200 px-2.5 py-1 rounded-md text-neutral-700 flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">single_bed</span>싱글 2</span>
+</div>
+<div class="flex items-center gap-1.5 text-[12px] text-teal-700 font-medium"><span class="material-symbols-outlined text-[16px]">add_circle</span>엑스트라베드 추가 가능</div>
+</section>
+<!-- ③ 위치 -->
+<section class="rounded-xl bg-neutral-50 border border-neutral-100 overflow-hidden">
+<a class="block relative h-28 group" href="#">
+<img class="w-full h-full object-cover" data-alt="Map thumbnail showing the villa location on the coast of Phu Quoc with a teal map pin." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtonj9WNJKKhZOCH6IwII_JUrmk6Q-JLMqWlTmNanytBPsJJwX3Pw_YyHlVdnlhk7eIBjHM51HWS_KJvqYU1YV8c-kS_-6ZwNhJraPfOyVUmCi5bGZz6hEcSXt3Asv-FMtvhYCeTRT1-EWziSGtVsiCuxlnBK0X1_ug4vidmebeLmX92t2-2PV-mTZP1v_7-R2hafUcWZv-jOjl8F2pmpqVQT4qRfz8wj-iUi9rY-Rbc5IfBB-NCU5MabS2waUmDoTNr4HKYFCCNSt"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+<span class="absolute top-2 right-2 bg-white/95 text-teal-700 text-[11px] font-bold px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">map</span>지도 보기</span>
+<div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow"><span class="material-symbols-outlined text-3xl" style="font-variation-settings:'FILL' 1;">location_on</span></div>
+</a>
+<div class="grid grid-cols-3 divide-x divide-neutral-100 border-t border-neutral-100">
+<div class="p-3 text-center">
+<span class="material-symbols-outlined text-teal-600 text-[20px]">beach_access</span>
+<p class="text-[11px] text-neutral-400 mt-0.5">해변까지</p>
+<p class="text-sm font-bold text-neutral-800 tabular-nums">350m</p>
+</div>
+<div class="p-3 text-center">
+<span class="material-symbols-outlined text-teal-600 text-[20px]">square_foot</span>
+<p class="text-[11px] text-neutral-400 mt-0.5">전용면적</p>
+<p class="text-sm font-bold text-neutral-800 tabular-nums">220㎡</p>
+</div>
+<div class="p-3 text-center">
+<span class="material-symbols-outlined text-teal-600 text-[20px]">stairs</span>
+<p class="text-[11px] text-neutral-400 mt-0.5">층수</p>
+<p class="text-sm font-bold text-neutral-800 tabular-nums">2층</p>
+</div>
+</div>
+</section>
+<!-- ④ 이용규칙 (와이파이 항목 없음 — §4.3 누수 차단) -->
+<section class="rounded-xl bg-neutral-50 border border-neutral-100 p-4">
+<h4 class="text-sm font-bold text-neutral-800 flex items-center gap-1.5 mb-3"><span class="material-symbols-outlined text-[18px] text-teal-600">schedule</span>이용 안내</h4>
+<!-- 체크인/아웃 -->
+<div class="grid grid-cols-2 gap-3 mb-3">
+<div class="bg-white rounded-lg border border-neutral-100 p-3 text-center">
+<p class="text-[11px] text-neutral-400">체크인</p>
+<p class="text-base font-bold text-neutral-800 tabular-nums">14:00</p>
+</div>
+<div class="bg-white rounded-lg border border-neutral-100 p-3 text-center">
+<p class="text-[11px] text-neutral-400">체크아웃</p>
+<p class="text-base font-bold text-neutral-800 tabular-nums">11:00</p>
+</div>
+</div>
+<!-- 규칙 아이콘 행 -->
+<div class="grid grid-cols-4 gap-2 mb-3">
+<div class="flex flex-col items-center gap-1 bg-white rounded-lg border border-neutral-100 py-2.5">
+<span class="material-symbols-outlined text-[20px] text-neutral-300">smoking_rooms</span>
+<span class="text-[11px] text-neutral-500">금연</span>
+</div>
+<div class="flex flex-col items-center gap-1 bg-white rounded-lg border border-neutral-100 py-2.5">
+<span class="material-symbols-outlined text-[20px] text-teal-600">pets</span>
+<span class="text-[11px] font-semibold text-teal-700">반려동물</span>
+</div>
+<div class="flex flex-col items-center gap-1 bg-white rounded-lg border border-neutral-100 py-2.5">
+<span class="material-symbols-outlined text-[20px] text-neutral-300">celebration</span>
+<span class="text-[11px] text-neutral-500">파티 불가</span>
+</div>
+<div class="flex flex-col items-center gap-1 bg-white rounded-lg border border-neutral-100 py-2.5">
+<span class="material-symbols-outlined text-[20px] text-teal-600">local_parking</span>
+<span class="text-[11px] font-semibold text-teal-700">주차 2대</span>
+</div>
+</div>
+<!-- 보증금 안내 -->
+<div class="flex items-start gap-2 bg-white rounded-lg border border-neutral-100 p-3">
+<span class="material-symbols-outlined text-[18px] text-teal-600 mt-0.5">account_balance_wallet</span>
+<div>
+<p class="text-[12px] font-semibold text-neutral-800">현지 보증금 안내</p>
+<p class="text-[11px] text-neutral-500 leading-relaxed mt-0.5">체크인 시 현지에서 보증금 <span class="font-bold text-neutral-700 tabular-nums">5,000,000₫</span> 가 요청될 수 있으며, 체크아웃 검수 후 환불됩니다.</p>
+</div>
+</div>
+</section>
+<!-- 가격 + CTA (c1 원본 동일 패턴, 카드 마무리) -->
+<div class="flex justify-between items-end border-t border-neutral-100 pt-4">
+<div>
+<p class="text-[11px] text-neutral-400">1박 450,000원</p>
+<p class="text-lg font-bold text-neutral-900">총 1,350,000원</p>
+</div>
+<button class="bg-teal-600 text-white px-4 py-3 rounded-lg font-bold text-sm shrink-0 active:scale-95 transition-transform">이 빌라로 가예약</button>
+</div>
+</div>
+</article>
+<!-- 누수 확인 노트 (디자인 참고용 — 변환 시 미렌더) -->
+<div class="rounded-xl bg-amber-50 border border-amber-200 p-3 flex items-start gap-2">
+<span class="material-symbols-outlined text-amber-600 text-[18px] mt-0.5">visibility_off</span>
+<p class="text-[11px] text-amber-800 leading-relaxed"><span class="font-bold">설계 참고:</span> 와이파이 SSID·비밀번호는 이 공개 페이지에 표시하지 않습니다 (설계 §4.3 누수 차단). 체크인 화면 전용입니다.</p>
+</div>
+</main>
+</body></html>
