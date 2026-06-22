@@ -424,9 +424,9 @@ function ChatHeaderBar({
   }
 
   return (
-    <header className="relative z-30 shrink-0 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md px-6 py-3 flex items-center justify-between gap-4">
+    <header className="relative z-30 shrink-0 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md px-3 py-2.5 lg:px-6 lg:py-3 flex items-center justify-between gap-2 lg:gap-4">
       {/* 좌측: (모바일) 뒤로가기 + 아바타 + 별명(편집) + 배지 + 연결/원본 */}
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-2 lg:gap-3 min-w-0">
         {/* 모바일 전용 뒤로가기 — 목록(인박스)으로. 데스크톱(lg:)은 2-pane 유지라 숨김. */}
         <button
           type="button"
@@ -461,14 +461,26 @@ function ChatHeaderBar({
             >
               <span className="material-symbols-outlined text-[15px]">edit</span>
             </button>
-            <CounterpartyDropdown
-              conversationId={conversationId}
-              type={header.counterpartyType}
-              t={t}
-              router={router}
-            />
+            {/* 데스크톱: 분류 드롭다운을 이름 옆에. 모바일은 폭 부족 → 아래 줄로 이동(아래 인스턴스) */}
+            <div className="hidden lg:block">
+              <CounterpartyDropdown
+                conversationId={conversationId}
+                type={header.counterpartyType}
+                t={t}
+                router={router}
+              />
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            {/* 모바일: 분류 드롭다운을 둘째 줄로(이름 줄 혼잡·오버플로 방지) */}
+            <div className="lg:hidden">
+              <CounterpartyDropdown
+                conversationId={conversationId}
+                type={header.counterpartyType}
+                t={t}
+                router={router}
+              />
+            </div>
             {header.connected && (
               <span className="flex items-center gap-1 text-green-500 text-[10px] font-bold">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
