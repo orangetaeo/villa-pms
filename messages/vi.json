@@ -384,7 +384,10 @@
       "photos": {
         "title": "Ảnh phòng và tiện ích",
         "count": "Tổng {count} ảnh",
-        "empty": "Chưa có ảnh nào."
+        "empty": "Chưa có ảnh nào.",
+        "close": "Đóng",
+        "prev": "Ảnh trước",
+        "next": "Ảnh sau"
       },
       "spaces": {
         "EXTERIOR": "Bên ngoài",

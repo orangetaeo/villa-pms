@@ -384,7 +384,10 @@
       "photos": {
         "title": "객실 및 시설 사진",
         "count": "총 {count}장",
-        "empty": "등록된 사진이 없습니다."
+        "empty": "등록된 사진이 없습니다.",
+        "close": "닫기",
+        "prev": "이전 사진",
+        "next": "다음 사진"
       },
       "spaces": {
         "EXTERIOR": "외관",

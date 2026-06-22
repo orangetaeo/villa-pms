@@ -3,7 +3,6 @@
 // 제외(계약): iCal URL 관리(T1.6), 사진 추가·교체, isSellable 토글(T3.4)
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
@@ -16,6 +15,7 @@ import VillaActions from "./villa-actions";
 import ForceSellableAction from "./force-sellable-action";
 import DetailTabs from "./detail-tabs";
 import SalesEditor, { type SalesInitial } from "./sales-editor";
+import PhotoGallery from "./photo-gallery";
 
 const SPACE_ORDER: PhotoSpace[] = [
   "EXTERIOR",
@@ -261,36 +261,7 @@ export default async function VillaDetailPage({
             {photoGroups.length === 0 ? (
               <p className="text-sm text-admin-muted py-6 text-center">{t("photos.empty")}</p>
             ) : (
-              <div className="space-y-8">
-                {photoGroups.map((group) => (
-                  <div key={group.space}>
-                    <p className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider whitespace-nowrap">
-                      {t(`spaces.${group.space}`)}
-                    </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {group.photos.map((photo) => (
-                        <div
-                          key={photo.id}
-                          className="aspect-video rounded-lg overflow-hidden bg-slate-800 group relative"
-                        >
-                          <Image
-                            src={photo.url}
-                            alt={photo.spaceLabel ?? t(`spaces.${photo.space}`)}
-                            fill
-                            sizes="(max-width: 1024px) 50vw, 20vw"
-                            className="object-cover group-hover:scale-105 transition-transform duration-500"
-                          />
-                          {photo.spaceLabel && (
-                            <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/60 text-[10px] font-bold text-white">
-                              {photo.spaceLabel}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <PhotoGallery groups={photoGroups} />
             )}
           </div>
 
