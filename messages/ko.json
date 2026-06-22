@@ -591,7 +591,28 @@
       "PEAK": "극성수기"
     },
     "managePhotos": "사진 관리",
-    "manageCost": "원가·시즌"
+    "manageCost": "원가·시즌",
+    "sales": {
+      "title": "판매 정보",
+      "readOnly": "보기 전용",
+      "bedding": "침실 & 침대",
+      "maxGuests": "최대 {count}인",
+      "bedroomCount": "침실 {count}개",
+      "extraBed": "엑스트라베드 추가 가능",
+      "location": "위치",
+      "viewMap": "지도 보기",
+      "beachDistance": "해변까지",
+      "area": "전용면적",
+      "areaValue": "{value}㎡",
+      "floors": "층수",
+      "floorsValue": "{count}층",
+      "stay": "이용 규칙",
+      "checkIn": "체크인",
+      "checkOut": "체크아웃",
+      "depositTitle": "현지 보증금",
+      "depositNote": "체크인 시 현지에서 보증금 {amount}₫가 요청될 수 있으며, 체크아웃 검수 후 환불됩니다.",
+      "managedNote": "이 정보는 운영자가 입력합니다. 수정이 필요하면 운영자에게 알려주세요."
+    }
   },
   "wizard": {
     "header": "빌라 등록",
@@ -1606,5 +1627,15 @@
       "beachFront": "해변 바로앞",
       "marketNearby": "마트 인근"
     }
+  },
+  "villaRules": {
+    "smokingOk": "흡연 가능",
+    "smokingNo": "금연",
+    "petsOk": "반려동물",
+    "petsNo": "반려동물 불가",
+    "partyOk": "파티 가능",
+    "partyNo": "파티 불가",
+    "parkingOk": "주차 {count}대",
+    "parkingNo": "주차 불가"
   }
 }

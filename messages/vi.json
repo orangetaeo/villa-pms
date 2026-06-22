@@ -591,7 +591,28 @@
       "PEAK": "Cao điểm lễ Tết"
     },
     "managePhotos": "Quản lý ảnh",
-    "manageCost": "Giá & mùa"
+    "manageCost": "Giá & mùa",
+    "sales": {
+      "title": "Thông tin bán hàng",
+      "readOnly": "Chỉ xem",
+      "bedding": "Phòng ngủ & giường",
+      "maxGuests": "Tối đa {count} khách",
+      "bedroomCount": "{count} phòng ngủ",
+      "extraBed": "Có thể thêm giường phụ",
+      "location": "Vị trí",
+      "viewMap": "Xem bản đồ",
+      "beachDistance": "Ra biển",
+      "area": "Diện tích",
+      "areaValue": "{value}㎡",
+      "floors": "Số tầng",
+      "floorsValue": "{count} tầng",
+      "stay": "Quy định lưu trú",
+      "checkIn": "Nhận phòng",
+      "checkOut": "Trả phòng",
+      "depositTitle": "Tiền đặt cọc tại villa",
+      "depositNote": "Khi nhận phòng có thể yêu cầu cọc {amount}₫, hoàn lại sau khi kiểm tra trả phòng.",
+      "managedNote": "Thông tin này do quản lý nhập. Cần sửa, vui lòng báo quản lý."
+    }
   },
   "wizard": {
     "header": "Đăng ký villa",
@@ -1606,5 +1627,15 @@
       "beachFront": "Sát biển",
       "marketNearby": "Gần chợ"
     }
+  },
+  "villaRules": {
+    "smokingOk": "Được hút thuốc",
+    "smokingNo": "Cấm hút",
+    "petsOk": "Thú cưng",
+    "petsNo": "Cấm thú cưng",
+    "partyOk": "Được tổ chức tiệc",
+    "partyNo": "Cấm tiệc",
+    "parkingOk": "Đỗ {count} xe",
+    "parkingNo": "Không có chỗ đỗ"
   }
 }
