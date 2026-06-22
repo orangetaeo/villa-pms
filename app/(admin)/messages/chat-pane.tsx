@@ -171,24 +171,11 @@ export function ChatPane({
   // 평소 숨김. PC는 group-hover로 표시(CSS). 터치 기기는 호버가 없으므로 버블을 탭하면
   // 해당 메시지 id를 활성화해 그 메시지의 액션만 표시(토글). null이면 모두 숨김.
   const [activeActionMessageId, setActiveActionMessageId] = useState<string | null>(null);
-  // 터치(호버 불가) 기기 여부 — pointer:coarse 또는 hover:none. 탭 토글은 이때만 동작.
-  const [isTouch, setIsTouch] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const mq = window.matchMedia("(pointer: coarse), (hover: none)");
-    const apply = () => setIsTouch(mq.matches);
-    apply();
-    mq.addEventListener?.("change", apply);
-    return () => mq.removeEventListener?.("change", apply);
+  // 버블 클릭 토글 — PC·모바일 공통. 버블을 클릭/탭하면 그 메시지 액션(답글·리액션)을
+  // 표시하고, 같은 버블 재클릭 시 해제. PC는 호버(group-hover)로도 노출되며, 클릭하면 고정.
+  const toggleActionMessage = useCallback((id: string) => {
+    setActiveActionMessageId((cur) => (cur === id ? null : id));
   }, []);
-  // 버블 탭 토글 — 터치 기기에서만 활성 메시지 id 토글(같은 버블 재탭 시 해제).
-  const toggleActionMessage = useCallback(
-    (id: string) => {
-      if (!isTouch) return;
-      setActiveActionMessageId((cur) => (cur === id ? null : id));
-    },
-    [isTouch],
-  );
 
   // ── 라이트박스 (채팅 이미지 확대) ──
   const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
