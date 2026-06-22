@@ -1249,7 +1249,8 @@
       "customer": "Khách hàng",
       "travelAgency": "Đại lý du lịch",
       "landAgency": "Đại lý mặt đất",
-      "unknown": "Chưa phân loại"
+      "unknown": "Chưa phân loại",
+      "ignored": "Cá nhân/Khác"
     },
     "classify": {
       "bannerTitle": "Vui lòng phân loại đối tác của cuộc trò chuyện này",
@@ -1259,8 +1260,12 @@
       "travelAgency": "Đại lý du lịch",
       "landAgency": "Đại lý mặt đất",
       "unknown": "Chưa phân loại",
+      "ignored": "Cá nhân/Khác",
+      "ignoredHint": "Đánh dấu là cuộc trò chuyện cá nhân/khác, không phải đối tác công việc. Sẽ không hiện thông báo phân loại nữa.",
       "change": "Đổi phân loại",
-      "heading": "Phân loại đối tác"
+      "heading": "Phân loại đối tác",
+      "expand": "Phân loại",
+      "dismiss": "Đóng"
     },
     "preview": {
       "photo": "[Ảnh]",

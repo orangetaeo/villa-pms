@@ -1249,7 +1249,8 @@
       "customer": "고객",
       "travelAgency": "여행사",
       "landAgency": "랜드사",
-      "unknown": "미분류"
+      "unknown": "미분류",
+      "ignored": "개인/기타"
     },
     "classify": {
       "bannerTitle": "이 대화 상대를 분류해 주세요",
@@ -1259,8 +1260,12 @@
       "travelAgency": "여행사",
       "landAgency": "랜드사",
       "unknown": "미분류",
+      "ignored": "개인/기타",
+      "ignoredHint": "업무 상대가 아닌 개인·기타 대화로 표시합니다. 분류 안내가 더 이상 뜨지 않습니다.",
       "change": "분류 변경",
-      "heading": "상대 분류"
+      "heading": "상대 분류",
+      "expand": "분류하기",
+      "dismiss": "닫기"
     },
     "preview": {
       "photo": "[사진]",

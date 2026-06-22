@@ -41,17 +41,19 @@ export type CounterpartyType =
   | "CUSTOMER"
   | "TRAVEL_AGENCY"
   | "LAND_AGENCY"
-  | "UNKNOWN";
+  | "UNKNOWN"
+  | "IGNORED"; // 개인/기타(업무 상대 아님) — 종착 분류, 배너 미노출
 export type TranslateMode = "OFF" | "VI" | "EN";
 export type ShareKind = "VILLA" | "PROPOSAL" | "SETTLEMENT";
 
-// 분류 5종 i18n 라벨 키 (adminMessages.counterparty.*)
+// 분류 6종 i18n 라벨 키 (adminMessages.counterparty.*)
 const COUNTERPARTY_LABEL_KEY: Record<CounterpartyType, string> = {
   SUPPLIER: "counterparty.supplier",
   CUSTOMER: "counterparty.customer",
   TRAVEL_AGENCY: "counterparty.travelAgency",
   LAND_AGENCY: "counterparty.landAgency",
   UNKNOWN: "counterparty.unknown",
+  IGNORED: "counterparty.ignored",
 };
 
 export interface ChatHeader {

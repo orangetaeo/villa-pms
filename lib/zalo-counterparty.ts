@@ -71,9 +71,10 @@ export type ShareKind = "PHOTO" | "VILLA" | "PROPOSAL" | "SETTLEMENT";
  *  - 원가측(SUPPLIER): 사진 + 빌라 + 정산
  *  - 판매가측(CUSTOMER/TRAVEL_AGENCY/LAND_AGENCY): 사진 + 빌라 + 제안
  *  - UNKNOWN: 사진만(분류 후 활성)
+ *  - IGNORED(개인/기타, 업무 상대 아님): 사진만 — UNKNOWN과 동일 잠금, 단 분류 배너는 미노출(종착)
  */
 export function allowedShareKinds(type: ZaloCounterpartyType): ShareKind[] {
   if (isCostSideType(type)) return ["PHOTO", "VILLA", "SETTLEMENT"];
   if (isSellSideType(type)) return ["PHOTO", "VILLA", "PROPOSAL"];
-  return ["PHOTO"]; // UNKNOWN
+  return ["PHOTO"]; // UNKNOWN · IGNORED
 }

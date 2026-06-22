@@ -4,6 +4,7 @@
 // v1.2: 채널별 결제 통화(saleCurrency·salePriceVnd·환율 스냅샷), VillaAmenity 비품, Zalo 양방향 채팅 (ADR-0003)
 // v1.2a: ZaloCounterpartyType 분류 5종 확장 — TRAVEL_AGENCY·LAND_AGENCY 추가 (ADR-0009 개정 2026-06-16, additive enum)
 // v1.2b: ZaloMessage 답글(인용)·리액션 — cliMsgId·quotedMsgId·quotedText·quotedSender·reactions 추가 (ADR-0009 개정3 2026-06-16, additive)
+// v1.2c: ZaloCounterpartyType IGNORED 추가 — 개인/기타(업무 상대 아님) 종착 분류, 분류 배너 영구 미노출 (2026-06-22, additive enum)
 
 generator client {
   provider = "prisma-client-js"
@@ -585,7 +586,8 @@ enum ZaloCounterpartyType {
   CUSTOMER // 직접 고객(여행객) — 판매가 KRW만 (판매가측)
   TRAVEL_AGENCY // 여행사 — 판매가 VND만 (판매가측, ADR-0003 여행사=VND)
   LAND_AGENCY // 랜드사 — 판매가 VND만 (판매가측, ADR-0003 랜드사=VND)
-  UNKNOWN // 미분류 — 공유 기능 잠금(기본값, 사진만)
+  UNKNOWN // 미분류 — 공유 기능 잠금(기본값, 사진만). 분류 배너 노출 대상
+  IGNORED // 개인/기타(업무 상대 아님) — 종착 분류, 배너 미노출, 공유 잠금(사진만). 개인 Zalo·스팸 등
 }
 
 // 대화별 번역 모드 (ADR-0009 D7) — ADMIN 기준 언어는 항상 ko. 모드는 "상대 언어" 1축만 저장.
