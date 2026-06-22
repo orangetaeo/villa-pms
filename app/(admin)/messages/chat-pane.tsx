@@ -343,7 +343,7 @@ export function ChatPane({
     <LightboxContext.Provider value={openLightbox}>
       <QuoteJumpContext.Provider value={scrollToMessage}>
       <section
-        className="flex-1 flex flex-col bg-[#0F172A] min-w-0"
+        className="flex-1 flex flex-col bg-[#0F172A] min-w-0 overflow-x-clip"
         onTouchStart={onSwipeStart}
         onTouchEnd={onSwipeEnd}
       >
