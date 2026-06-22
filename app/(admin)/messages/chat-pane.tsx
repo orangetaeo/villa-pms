@@ -1354,7 +1354,7 @@ function FileCard({
   return (
     <div className={wrap}>
       <span
-        className={`material-symbols-outlined text-[22px] w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${iconWrap}`}
+        className={`material-symbols-outlined text-[22px] leading-none translate-y-[3px] w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${iconWrap}`}
       >
         description
       </span>
@@ -1425,7 +1425,7 @@ function SimpleTypeCard({
   return (
     <div className={wrap}>
       <span
-        className={`material-symbols-outlined text-[22px] w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${iconWrap}`}
+        className={`material-symbols-outlined text-[22px] leading-none translate-y-[3px] w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${iconWrap}`}
       >
         {icon}
       </span>
