@@ -625,10 +625,48 @@ export interface ParsedInbound {
    */
   senderUid?: string | null;
   /**
+   * 그룹 메시지 발신자의 표시명 (zca-js data.dName — 그룹에선 발신자명). 1:1은 null.
+   * 매 메시지마다 발신자(senderUid+이 이름)를 groupMembers 스냅샷에 점진 누적 → getGroupInfo가
+   * 멤버를 안 줘도 "발언한 사람"의 이름은 항상 해석된다(버블 발신자명, R14 폴백 해소).
+   */
+  senderName?: string | null;
+  /**
    * 그룹 멤버 스냅샷 Json (ADR-0010 D2 / S4) — [{zaloId,name,avatarUrl}]. 미지정/없으면 미갱신.
    * 전달되면 GROUP 대화의 groupMembers를 갱신(발신자명·아바타 매핑 원천). 누수 무관(공개 프로필).
    */
   groupMembers?: unknown;
+}
+
+/**
+ * 그룹 멤버 스냅샷에 발신자 1명을 병합 (ADR-0010 S4 — 점진 누적).
+ * 기존 배열에 동일 zaloId가 없거나 이름이 비어 있으면 추가/보강. avatar는 보존(여기선 메시지에 없어 미설정).
+ * 변경이 없으면 null 반환(불필요한 DB write 회피). 누수 무관(공개 프로필 zaloId·name만).
+ */
+export function mergeGroupMember(
+  existing: unknown,
+  member: { zaloId: string; name: string }
+): { zaloId: string; name: string; avatarUrl: string | null }[] | null {
+  if (!member.zaloId) return null;
+  const list = Array.isArray(existing)
+    ? (existing as { zaloId?: unknown; name?: unknown; avatarUrl?: unknown }[])
+        .filter((m) => m && typeof m === "object" && typeof m.zaloId === "string")
+        .map((m) => ({
+          zaloId: m.zaloId as string,
+          name: typeof m.name === "string" ? m.name : "",
+          avatarUrl: typeof m.avatarUrl === "string" ? m.avatarUrl : null,
+        }))
+    : [];
+  const idx = list.findIndex((m) => m.zaloId === member.zaloId);
+  if (idx === -1) {
+    list.push({ zaloId: member.zaloId, name: member.name, avatarUrl: null });
+    return list;
+  }
+  // 이미 있고 이름이 비어 있던 경우만 이름 보강(아바타 등 기존 값 보존).
+  if (!list[idx].name && member.name) {
+    list[idx] = { ...list[idx], name: member.name };
+    return list;
+  }
+  return null; // 변경 없음
 }
 
 // ===================== DB 저장 + 전화번호 매칭 =====================
@@ -667,6 +705,7 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
     quote,
     threadType,
     senderUid,
+    senderName,
     groupMembers,
   } = parsed;
   const now = new Date();
@@ -690,7 +729,7 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
         ? { groupMembers: groupMembers as Prisma.InputJsonValue }
         : {}),
     },
-    select: { id: true, userId: true, displayName: true, translateMode: true },
+    select: { id: true, userId: true, displayName: true, translateMode: true, groupMembers: true },
   });
 
   // 2) 멱등 — 동일 zaloMsgId 이미 있으면 스킵
@@ -731,7 +770,13 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
     select: { id: true },
   });
 
-  // 4) 대화 메타 갱신 (+ displayName 보강)
+  // 4) 대화 메타 갱신 (+ displayName 보강 + 그룹 발신자 점진 누적)
+  //    그룹: 매 메시지 발신자(senderUid+senderName)를 groupMembers에 누적 → getGroupInfo가 멤버를
+  //    안 줘도 "발언한 사람"의 이름은 항상 해석된다(버블 발신자명, R14 원문 폴백 해소). 변경 없으면 미갱신.
+  const mergedMembers =
+    isGroup && senderUid && senderName
+      ? mergeGroupMember(conversation.groupMembers, { zaloId: senderUid, name: senderName })
+      : null;
   await prisma.zaloConversation.update({
     where: { id: conversation.id },
     data: {
@@ -739,6 +784,7 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
       lastInboundAt: now,
       unreadCount: { increment: 1 },
       ...(displayName && !conversation.displayName ? { displayName } : {}),
+      ...(mergedMembers ? { groupMembers: mergedMembers as Prisma.InputJsonValue } : {}),
     },
   });
 

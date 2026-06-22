@@ -672,6 +672,9 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
     // GROUP: data.dName = "발신자"명(그룹명 아님)이라 대화명으로 쓰면 오표기 → null로 두고
     //        그룹명은 maybeRefreshGroupMembers(getGroupInfo)가 채운다. 발신자명은 groupMembers 스냅샷에서 매핑.
     const displayName = isGroupMsg ? null : (data.dName as string | undefined) ?? null;
+    // GROUP: data.dName = 발신자명 → groupMembers 점진 누적용(saveInboundMessage가 senderUid와 병합).
+    //        getGroupInfo가 멤버를 안 줘도 발언자 이름은 항상 해석됨(R14 원문 폴백 해소). 1:1은 null.
+    const senderName = isGroupMsg ? ((data.dName as string | undefined) ?? null) : null;
     // ADR-0009 R3-1 — cliMsgId(리액션·답글 대상)·인용 스냅샷 파싱. 수신·발신 echo 양쪽에 저장.
     const cliMsgId = buildCliMsgId(userMsg.data);
     const quote = extractQuote(userMsg.data);
@@ -743,9 +746,11 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       senderPhone: null,
       cliMsgId,
       quote,
-      // ADR-0010 S4 — 그룹 수신: threadType GROUP + senderUid(발신자). 전화매칭은 saveInboundMessage가 GROUP이면 스킵.
+      // ADR-0010 S4 — 그룹 수신: threadType GROUP + senderUid(발신자) + senderName(발신자명, groupMembers 점진 누적).
+      //   전화매칭은 saveInboundMessage가 GROUP이면 스킵.
       threadType,
       senderUid,
+      senderName,
     });
 
     // ADR-0010 S4 — 그룹 멤버 스냅샷 best-effort 갱신(R14 대비, 발신자명·아바타 매핑 원천).
