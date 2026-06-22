@@ -13,6 +13,7 @@ import type { FeatureCategoryKey } from "@/lib/features";
 import type { BedTypeKey } from "@/lib/bedding";
 import RateEditor, { type RateRow } from "./rate-editor";
 import VillaActions from "./villa-actions";
+import ForceSellableAction from "./force-sellable-action";
 import DetailTabs from "./detail-tabs";
 import SalesEditor, { type SalesInitial } from "./sales-editor";
 
@@ -202,6 +203,11 @@ export default async function VillaDetailPage({
                 {tList("notSellable")}
               </span>
             )}
+            {villa.status === "ACTIVE" && villa.isSellable && (
+              <span className="px-2.5 py-0.5 rounded text-[11px] font-bold shrink-0 bg-green-500/10 text-green-500 border border-green-500/20">
+                {tList("sellable")}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-4 text-sm text-slate-400">
             <div className="flex items-center gap-1.5 whitespace-nowrap">
@@ -222,7 +228,15 @@ export default async function VillaDetailPage({
             )}
           </div>
         </div>
-        <VillaActions villaId={villa.id} status={villa.status} />
+        <div className="flex flex-col items-start md:items-end gap-2">
+          <div className="flex items-center gap-2">
+            {/* 강제 판매가능 (ADR-0012) — ACTIVE이며 아직 판매불가일 때만 노출 */}
+            {villa.status === "ACTIVE" && !villa.isSellable && (
+              <ForceSellableAction villaId={villa.id} />
+            )}
+            <VillaActions villaId={villa.id} status={villa.status} />
+          </div>
+        </div>
       </div>
     </div>
   );

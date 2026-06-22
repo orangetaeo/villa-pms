@@ -369,7 +369,8 @@
       "count": "Hiển thị {from}-{to} trong tổng số {total} villa",
       "prevPage": "Trang trước",
       "nextPage": "Trang sau",
-      "noSupplier": "Không rõ nhà cung cấp"
+      "noSupplier": "Không rõ nhà cung cấp",
+      "sellable": "Có thể bán"
     },
     "detail": {
       "back": "Danh sách villa",
@@ -455,7 +456,23 @@
         "reasonRequired": "Phải nhập lý do mới có thể từ chối.",
         "cancel": "Hủy",
         "confirm": "Xác nhận từ chối"
-      }
+      },
+      "forceSellable": "Buộc cho phép bán",
+      "forceModal": {
+        "title": "Chuyển sang trạng thái có thể bán",
+        "warning": "Bỏ qua kiểm tra dọn dẹp và chuyển ngay sang trạng thái có thể bán.",
+        "description": "Đây là xử lý ngoại lệ bỏ qua cổng kiểm tra, lý do sẽ được ghi vào nhật ký kiểm toán. (ADR-0012)",
+        "reasonLabel": "Lý do (tùy chọn)",
+        "reasonPlaceholder": "VD: Đội Theo đã kiểm tra trực tiếp, cần bán ngay",
+        "cancel": "Hủy",
+        "confirm": "Buộc cho phép bán"
+      },
+      "forceSuccess": "Đã chuyển sang trạng thái có thể bán.",
+      "forceAlreadyOpen": "Đã ở trạng thái có thể bán.",
+      "forceCheckoutWarning": "Đã chuyển nhưng còn việc dọn dẹp trả phòng chưa hoàn tất. Cần kiểm tra.",
+      "forceInvalidStatus": "Chỉ có thể chuyển villa ở trạng thái ACTIVE sang có thể bán.",
+      "forceForbidden": "Không có quyền.",
+      "forceError": "Chuyển đổi thất bại. Vui lòng thử lại."
     },
     "sales": {
       "tabs": {

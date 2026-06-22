@@ -369,7 +369,8 @@
       "count": "총 {total}개의 빌라 중 {from}-{to} 표시",
       "prevPage": "이전 페이지",
       "nextPage": "다음 페이지",
-      "noSupplier": "공급자 미상"
+      "noSupplier": "공급자 미상",
+      "sellable": "판매가능"
     },
     "detail": {
       "back": "빌라 목록",
@@ -455,7 +456,23 @@
         "reasonRequired": "사유를 입력해야 반려할 수 있습니다.",
         "cancel": "취소",
         "confirm": "반려 확정"
-      }
+      },
+      "forceSellable": "강제 판매가능",
+      "forceModal": {
+        "title": "강제 판매가능 전환",
+        "warning": "청소 검수를 건너뛰고 즉시 판매가능으로 전환합니다.",
+        "description": "검수 게이트를 생략하는 예외 처리이며, 사유는 감사 로그에 기록됩니다. (ADR-0012)",
+        "reasonLabel": "사유 (선택)",
+        "reasonPlaceholder": "예: 테오 팀 직접 검수 완료, 즉시 판매 필요",
+        "cancel": "취소",
+        "confirm": "강제 판매가능 전환"
+      },
+      "forceSuccess": "판매가능으로 전환되었습니다.",
+      "forceAlreadyOpen": "이미 판매가능 상태입니다.",
+      "forceCheckoutWarning": "전환되었으나 미결 체크아웃 청소가 있습니다. 확인이 필요합니다.",
+      "forceInvalidStatus": "ACTIVE 상태의 빌라만 강제 판매가능으로 전환할 수 있습니다.",
+      "forceForbidden": "권한이 없습니다.",
+      "forceError": "전환에 실패했습니다. 다시 시도해 주세요."
     },
     "sales": {
       "tabs": {
