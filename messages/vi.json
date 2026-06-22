@@ -647,6 +647,9 @@
     "submitError": "Gửi không thành công. Vui lòng thử lại.",
     "basic": {
       "title": "Thông tin cơ bản",
+      "supplier": "Nhà cung cấp",
+      "supplierPlaceholder": "Chọn nhà cung cấp",
+      "supplierRequired": "Vui lòng chọn nhà cung cấp.",
       "name": "Tên villa",
       "namePlaceholder": "VD: Sonasea V12",
       "nameRequired": "Vui lòng nhập tên villa.",

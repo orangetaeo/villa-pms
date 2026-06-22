@@ -647,6 +647,9 @@
     "submitError": "전송에 실패했습니다. 다시 시도해주세요.",
     "basic": {
       "title": "기본 정보",
+      "supplier": "공급자",
+      "supplierPlaceholder": "공급자 선택",
+      "supplierRequired": "공급자를 선택해주세요.",
       "name": "빌라명",
       "namePlaceholder": "예: Sonasea V12",
       "nameRequired": "빌라명을 입력해주세요.",

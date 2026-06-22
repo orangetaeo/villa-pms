@@ -8,7 +8,6 @@ import { auth } from "@/auth";
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getSupplierLocale } from "@/lib/locale";
-import Image from "next/image";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import {
@@ -16,6 +15,7 @@ import {
   type PhotoSlot,
 } from "@/app/(supplier)/my-villas/new/wizard-types";
 import { CleaningSubmit, type SlotProp, type SubmitLabels } from "./cleaning-submit";
+import CleaningPhotosView from "./cleaning-photos-view";
 
 export const metadata: Metadata = {
   title: "Dọn dẹp xong — Villa PMS",
@@ -181,29 +181,18 @@ export default async function CleaningTaskPage({
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-md p-4">
-        <div className="grid grid-cols-2 gap-4">
-          {task.photoUrls.map((url, i) => (
-            <div key={url} className="relative">
-              <div className="relative aspect-square w-full overflow-hidden rounded-xl border border-neutral-200 bg-neutral-200 shadow-sm">
-                <Image
-                  src={url}
-                  alt={labelsMatch ? slotProps[i].label : ""}
-                  fill
-                  unoptimized
-                  sizes="(max-width: 768px) 50vw, 200px"
-                  className="object-cover"
-                />
-              </div>
-              {labelsMatch && (
-                <p className="mt-2 text-center text-sm font-medium text-neutral-700">
-                  {slotProps[i].label}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-      </main>
+      <CleaningPhotosView
+        photos={task.photoUrls.map((url, i) => ({
+          url,
+          label: labelsMatch ? slotProps[i].label : undefined,
+        }))}
+        showLabels={labelsMatch}
+        lightboxLabels={{
+          close: t("lightbox.close"),
+          prev: t("lightbox.prev"),
+          next: t("lightbox.next"),
+        }}
+      />
     </>
   );
 }
