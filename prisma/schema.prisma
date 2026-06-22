@@ -5,6 +5,7 @@
 // v1.2a: ZaloCounterpartyType 분류 5종 확장 — TRAVEL_AGENCY·LAND_AGENCY 추가 (ADR-0009 개정 2026-06-16, additive enum)
 // v1.2b: ZaloMessage 답글(인용)·리액션 — cliMsgId·quotedMsgId·quotedText·quotedSender·reactions 추가 (ADR-0009 개정3 2026-06-16, additive)
 // v1.2c: ZaloCounterpartyType IGNORED 추가 — 개인/기타(업무 상대 아님) 종착 분류, 분류 배너 영구 미노출 (2026-06-22, additive enum)
+// v1.3: 빌라 판매용 정보 확장 — Villa 스칼라 13 + enum BedType·FeatureCategory + 모델 VillaBedroom·VillaFeature (ADR-0011, additive only)
 
 generator client {
   provider = "prisma-client-js"
@@ -69,36 +70,58 @@ enum PhotoSpace {
 }
 
 model Villa {
-  id                 String      @id @default(cuid())
+  id                 String  @id @default(cuid())
   supplierId         String
-  supplier           User        @relation("SupplierVillas", fields: [supplierId], references: [id])
+  supplier           User    @relation("SupplierVillas", fields: [supplierId], references: [id])
   name               String // 예: 쏘나씨 V12
   complex            String? // 단지명: 쏘나씨, 썬셋 사나토
   address            String?
   bedrooms           Int
   bathrooms          Int
   maxGuests          Int
-  hasPool            Boolean     @default(false)
-  breakfastAvailable Boolean     @default(false) // 조식 가능 여부
+  hasPool            Boolean @default(false)
+  breakfastAvailable Boolean @default(false) // 조식 가능 여부
   monthlyRentVnd     BigInt? // 참고용 월 임대 시세
   description        String?
   descriptionVi      String?
-  status             VillaStatus @default(DRAFT)
-  rejectionReason    String? // 마지막 반려 사유 (T1.2b) — 재제출 시 null 클리어, 이력은 AuditLog
-  isSellable         Boolean     @default(false) // 청소 검수 게이트 통과 여부
-  qualityScore       Int         @default(100) // Phase 2: 누적 품질점수
-  icalImportUrls     String[] // 외부 채널 iCal 수신 URL (Airbnb 등)
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
 
-  photos        VillaPhoto[]
-  rates         VillaRate[]
-  blocks        CalendarBlock[]
-  bookings      Booking[]
-  proposalItems ProposalItem[]
-  cleaningTasks CleaningTask[]
-  amenities     VillaAmenity[] // 비품 (ADR-0003)
-  seasonPeriods VillaSeasonPeriod[] // 빌라별 시즌 달력 (ADR-0008) — 비면 전역 SeasonPeriod 폴백
+  // ── 판매용 정보 확장 (v1.3 / ADR-0011) — additive only, 기존 컬럼 변경 없음 ──
+  // ③ 위치·접근성 — 모두 정수 단위(부동소수점 금지). 미입력 허용(nullable)
+  googleMapUrl      String? // 구글맵 공유 링크 (place URL) — ADMIN 입력
+  beachDistanceM    Int? // 해변까지 거리(미터, 정수). ㎞ 환산은 표시단에서
+  areaSqm           Int? // 전용면적(㎡, 정수). 소수점 면적은 반올림 입력
+  floors            Int? // 층수(정수). 단층=1, 복층=2
+  // ④ 이용규칙
+  checkInTime       Int     @default(840) // 분 단위(0~1439). 840 = 14:00
+  checkOutTime      Int     @default(660) // 분 단위. 660 = 11:00
+  smokingAllowed    Boolean @default(false)
+  petsAllowed       Boolean @default(false)
+  partyAllowed      Boolean @default(false)
+  parkingSlots      Int     @default(0) // 주차 가능 대수
+  baseDepositVnd    BigInt? // 기준 보증금(VND BigInt, 동 단위). Booking.depositAmount와 별개(빌라 기본값)
+  wifiSsid          String? // 와이파이 이름 — 공개 노출 가능
+  wifiPassword      String? // ⚠ 와이파이 비번 — /p 공개페이지 절대 노출 금지(체크인 화면 전용). select 화이트리스트 §4.3
+  // ⑤ 엑스트라베드 — 빌라 단위 토글(침실별 아님)
+  extraBedAvailable Boolean @default(false)
+
+  status          VillaStatus @default(DRAFT)
+  rejectionReason String? // 마지막 반려 사유 (T1.2b) — 재제출 시 null 클리어, 이력은 AuditLog
+  isSellable      Boolean     @default(false) // 청소 검수 게이트 통과 여부
+  qualityScore    Int         @default(100) // Phase 2: 누적 품질점수
+  icalImportUrls  String[] // 외부 채널 iCal 수신 URL (Airbnb 등)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  photos         VillaPhoto[]
+  rates          VillaRate[]
+  blocks         CalendarBlock[]
+  bookings       Booking[]
+  proposalItems  ProposalItem[]
+  cleaningTasks  CleaningTask[]
+  amenities      VillaAmenity[] // 비품 (ADR-0003)
+  seasonPeriods  VillaSeasonPeriod[] // 빌라별 시즌 달력 (ADR-0008) — 비면 전역 SeasonPeriod 폴백
+  bedroomDetails VillaBedroom[] // ② 침실별 잠자리 구성 (ADR-0011) — 기존 Int 컬럼 bedrooms와 별개
+  features       VillaFeature[] // ⑤ 셀링포인트 태그 (ADR-0011, 사전 패턴)
 
   @@index([supplierId])
   @@index([status, isSellable])
@@ -117,6 +140,54 @@ model VillaPhoto {
   createdAt  DateTime   @default(now())
 
   @@index([villaId, space])
+}
+
+// ===================== 판매용 정보 확장 (v1.3 — ADR-0011) =====================
+
+// 침대 종류 — 코드 사전(lib/bedding.ts)과 정합. enum으로 고정해 임의값 차단.
+// 테오 확정(2026-06-22): 6종. TWIN = 싱글 2개 구성 침실 표기용.
+enum BedType {
+  KING // 킹
+  QUEEN // 퀸
+  DOUBLE // 더블
+  SINGLE // 싱글
+  TWIN // 트윈 (싱글 2개)
+  BUNK // 2층 침대
+}
+
+// 셀링포인트 분류 — 표시 그룹핑·필터용
+enum FeatureCategory {
+  VIEW // 뷰 (바다/마운틴/시티 — 다중 가능)
+  FACILITY // 시설 (BBQ·엘리베이터·발전기·키즈풀 등)
+  LOCATION // 입지 (골프장 인근 등)
+}
+
+// ② 침실별 잠자리 구성 (ADR-0011). VillaPhoto / VillaAmenity 와 동일한 1:N 자식 패턴.
+// 한 침실에 침대가 여러 종류면 행을 여러 개(같은 villaId·roomIndex, bedType만 다름) 둔다.
+model VillaBedroom {
+  id        String  @id @default(cuid())
+  villaId   String
+  villa     Villa   @relation(fields: [villaId], references: [id], onDelete: Cascade)
+  roomIndex Int // 침실 번호(1-base). VillaPhoto.spaceLabel "침실1"과 의미 정합
+  roomLabel String? // 자유 라벨("마스터룸", "2층 침실") — 미입력 시 표시단에서 "침실N"
+  bedType   BedType
+  bedCount  Int     @default(1) // 이 종류 침대 개수
+  capacity  Int? // 이 침실 수용 인원(선택). 같은 roomIndex 행들은 동일값 — BE 검증
+
+  @@index([villaId, roomIndex])
+}
+
+// ⑤ 셀링포인트 태그 (ADR-0011). VillaAmenity 사전 패턴 재사용 — featureKey는 lib/features.ts 사전 키.
+// 다중선택 = 체크된 featureKey마다 행 1개. 화이트리스트 검증은 isValidFeature()(lib/features.ts).
+model VillaFeature {
+  id         String          @id @default(cuid())
+  villaId    String
+  villa      Villa           @relation(fields: [villaId], references: [id], onDelete: Cascade)
+  category   FeatureCategory
+  featureKey String // 사전 키 (코드 상수 → i18n: features.items.viewSea 등)
+
+  @@unique([villaId, featureKey]) // 같은 태그 중복 방지
+  @@index([villaId, category])
 }
 
 // ===================== 비품 (v1.2 — ADR-0003) =====================
@@ -647,16 +718,16 @@ model ZaloMessage {
   // ── 답글(인용)·리액션 (ADR-0009 개정3, additive) ──
   // zca-js는 리액션(addReaction)·답글(sendMessage quote)에 Zalo 서버 msgId와 함께 cliMsgId를 요구한다.
   // 기존 행은 cliMsgId=null(과거 메시지엔 리액션·답글 불가 — 신규 발송·수신분부터. 백필 불필요).
-  cliMsgId       String? // zca-js cliMsgId — 리액션(addReaction: msgId+cliMsgId 둘 다 필요)·답글 대상 식별. 발송·수신 시 저장
+  cliMsgId String? // zca-js cliMsgId — 리액션(addReaction: msgId+cliMsgId 둘 다 필요)·답글 대상 식별. 발송·수신 시 저장
 
   // 답글 인용 — self-relation 대신 스냅샷(단순·안전). 원본 메시지가 삭제돼도 인용 표시 보존.
-  quotedMsgId    String? // 인용된 원본 메시지의 zaloMsgId (참조용, FK 아님)
-  quotedText     String? // 인용 본문 스냅샷 (인용 블록 표시용)
-  quotedSender   String? // 인용 발신자 표시명 스냅샷
+  quotedMsgId  String? // 인용된 원본 메시지의 zaloMsgId (참조용, FK 아님)
+  quotedText   String? // 인용 본문 스냅샷 (인용 블록 표시용)
+  quotedSender String? // 인용 발신자 표시명 스냅샷
 
   // 리액션 집계 — 수신 reaction 이벤트로 갱신. 예: { "HEART": 2, "LIKE": 1 }.
   // Phase 1은 누가 달았는지까지는 불필요 — 아이콘별 카운트 집계만. 아이콘은 문자열(zca-js Reactions enum 키, 예 "HEART").
-  reactions      Json? // 메시지에 달린 리액션 집계
+  reactions Json? // 메시지에 달린 리액션 집계
 
   @@index([conversationId, createdAt])
 }

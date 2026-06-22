@@ -27,6 +27,7 @@
 | 이미지 업로드·저장소 | docs/decisions/0004-image-storage.md + lib/storage.ts·lib/image-resize.ts |
 | Zalo 알림 방식(zca-js) | docs/decisions/ADR-0005-zalo-zca-js.md + reference/nike/ zalo 코드 |
 | Nike↔villa Zalo 세션·채팅 공유(테오 계정) **[채택·풀스펙]** | docs/decisions/ADR-0010-nike-villa-zalo-session-chat-share.md — A안 확정(villa 허브·SPOF 수용), Nike 실사 완료, 모델 대조표·WBS·배포순서·ETL. **풀스펙 확정(R10/R12/R13 해소)**: 그룹채팅 포함(스키마 D: threadType·groupMembers·senderUid, S4 마이그레이션)·과거 첨부 R2 재업로드 영구보존·forward/alias/음성STT 동등구현(STT=lib/gemini.ts 재사용). 스프린트 S1~S5. **S1 계약: docs/contracts/zalo-integration-s1.md / S2 계약: docs/contracts/zalo-integration-s2.md(읽기 정본 전환 A2·A3·A4 + webhook→SSE B3·B4, villa→Nike HMAC) / S3 계약: docs/contracts/zalo-integration-s3.md(과거 대화·첨부 ETL C1·C2, 1:1 USER 한정, 멱등 zaloMsgId·quote 2-pass·첨부 R2 키 nike-attach/{zaloMsgId}/{index}) / S5 계약: docs/contracts/zalo-integration-s5.md(forward·alias·음성STT 동등 A6·B5, 스키마 무변경 — forward=zca-js forwardMessage 텍스트전달+ext kind:FORWARD, alias=기존 nickname·SET_NICKNAME 읽기단방향, STT=lib/gemini.ts transcribeVoice→translatedText)** |
+| 빌라 판매용 정보(잠자리·위치·이용규칙·셀링포인트) **[채택]** | docs/decisions/ADR-0011-villa-sales-fields.md + docs/villa-sales-data-design.md(정본) — Villa 스칼라 13·VillaBedroom·VillaFeature·lib/features.ts·lib/bedding.ts. ⚠ wifiPassword·wifiSsid는 /p 공개페이지 select 제외(체크인 전용) |
 | 빌라별 시즌·가격 판정 | docs/decisions/0008-per-villa-season-periods.md + lib/pricing.ts(resolveSeason·quoteStayForVilla) |
 | 번역·i18n 키·문구 | .claude/skills/loc/i18n-pattern.md |
 
