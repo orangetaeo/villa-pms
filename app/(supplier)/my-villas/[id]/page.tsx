@@ -14,6 +14,11 @@ import { formatVnd } from "@/app/(supplier)/my-villas/new/wizard-types";
 import { SPACE_ICON, SPACE_LABEL_KEY } from "@/lib/photo-spaces";
 import PhotoGrid from "./photo-grid";
 import type { LightboxPhoto } from "./photo-lightbox";
+import {
+  SupplierVillaSalesSection,
+  type SupplierVillaSalesLabels,
+} from "./villa-sales-section";
+import type { BedTypeKey } from "@/lib/bedding";
 
 // 시즌 표시 순서 (비수기 → 성수기 → 극성수기). PEAK는 강조색
 const SEASON_ORDER: SeasonType[] = ["LOW", "HIGH", "PEAK"];
@@ -44,6 +49,27 @@ async function getVilla(id: string, supplierId: string) {
       // 누수 차단 — supplierCostVnd만. sale/margin 필드는 select에 부재
       rates: {
         select: { season: true, supplierCostVnd: true },
+      },
+      // 판매정보 표시 (ADR-0011, a16) — 누수 무관 필드만.
+      // ⛔ wifiSsid·wifiPassword 미포함(§4.3 체크인 전용), salePriceVnd·salePriceKrw·marginType·marginValue 미포함(사업원칙 2)
+      googleMapUrl: true,
+      beachDistanceM: true,
+      areaSqm: true,
+      floors: true,
+      checkInTime: true,
+      checkOutTime: true,
+      smokingAllowed: true,
+      petsAllowed: true,
+      partyAllowed: true,
+      parkingSlots: true,
+      baseDepositVnd: true,
+      extraBedAvailable: true,
+      bedroomDetails: {
+        orderBy: [{ roomIndex: "asc" }],
+        select: { roomIndex: true, bedType: true, bedCount: true },
+      },
+      features: {
+        select: { category: true, featureKey: true },
       },
     },
   });
@@ -104,6 +130,17 @@ export default async function VillaDetailPage({
   const tPhoto = await getTranslations({ locale, namespace: "wizard.photos" });
   // 상태 라벨은 myVillas.status.* 재사용 (중복 정의 금지)
   const tStatus = await getTranslations({ locale, namespace: "myVillas.status" });
+  // 판매정보 섹션 라벨 (a16) — sales/rules/bedding/features 4개 네임스페이스 번역자 주입
+  const tSales = await getTranslations({ locale, namespace: "villaDetail.sales" });
+  const tRule = await getTranslations({ locale, namespace: "villaRules" });
+  const tBed = await getTranslations({ locale, namespace: "bedding" });
+  const tFeature = await getTranslations({ locale, namespace: "features.items" });
+  const salesLabels: SupplierVillaSalesLabels = {
+    s: (key, values) => tSales(key, values),
+    rule: (key, values) => tRule(key, values),
+    bed: (bedType: BedTypeKey) => tBed(bedType),
+    feature: (featureKey) => tFeature(featureKey),
+  };
 
   const badge = resolveBadge(villa.status, villa.isSellable);
 
@@ -330,6 +367,35 @@ export default async function VillaDetailPage({
               })}
             </div>
           </div>
+
+          {/* 5. 판매정보 (읽기 전용, a16) — 기존 섹션 아래. 와이파이·판매가·마진 부재 */}
+          <SupplierVillaSalesSection
+            villa={{
+              maxGuests: villa.maxGuests,
+              googleMapUrl: villa.googleMapUrl,
+              beachDistanceM: villa.beachDistanceM,
+              areaSqm: villa.areaSqm,
+              floors: villa.floors,
+              checkInTime: villa.checkInTime,
+              checkOutTime: villa.checkOutTime,
+              smokingAllowed: villa.smokingAllowed,
+              petsAllowed: villa.petsAllowed,
+              partyAllowed: villa.partyAllowed,
+              parkingSlots: villa.parkingSlots,
+              baseDepositVnd: villa.baseDepositVnd,
+              extraBedAvailable: villa.extraBedAvailable,
+              bedroomDetails: villa.bedroomDetails as {
+                roomIndex: number;
+                bedType: BedTypeKey;
+                bedCount: number;
+              }[],
+              features: villa.features as {
+                category: import("@/lib/features").FeatureCategoryKey;
+                featureKey: string;
+              }[],
+            }}
+            labels={salesLabels}
+          />
         </div>
       </main>
     </div>
