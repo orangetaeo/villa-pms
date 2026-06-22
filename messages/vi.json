@@ -120,7 +120,7 @@
   "adminBookings": {
     "list": {
       "title": "Quản lý đặt phòng",
-      "searchPlaceholder": "Tìm mã đặt phòng, tên khách...",
+      "searchPlaceholder": "Tìm mã đặt phòng, tên khách, đại lý, villa...",
       "tabs": {
         "all": "Tất cả",
         "hold": "Giữ chỗ",
@@ -131,6 +131,8 @@
       },
       "filters": {
         "month": "Tháng",
+        "area": "Khu vực",
+        "allAreas": "Tất cả khu vực",
         "villa": "Villa",
         "allVillas": "Tất cả villa",
         "channel": "Kênh",
@@ -349,6 +351,13 @@
   "adminVillas": {
     "list": {
       "title": "Quản lý villa",
+      "searchPlaceholder": "Tìm tên villa, khu, địa chỉ, nhà cung cấp...",
+      "filters": {
+        "area": "Khu vực",
+        "allAreas": "Tất cả khu vực",
+        "reset": "Đặt lại"
+      },
+      "emptyFiltered": "Không có villa nào khớp với điều kiện tìm kiếm.",
       "tabs": {
         "all": "Tất cả",
         "pending": "Chờ duyệt",
@@ -1205,7 +1214,9 @@
         "PERIODIC": "Dọn dẹp định kỳ"
       },
       "empty": "Không có việc dọn dẹp nào.",
-      "selectPrompt": "Chọn một việc từ danh sách bên trái."
+      "selectPrompt": "Chọn một việc từ danh sách bên trái.",
+      "area": "Khu vực",
+      "allAreas": "Tất cả khu vực"
     },
     "detail": {
       "photosSubmitted": "Đã gửi {count} ảnh",

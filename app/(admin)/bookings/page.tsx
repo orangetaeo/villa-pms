@@ -76,6 +76,7 @@ export default async function BookingsPage({
     status?: string;
     month?: string;
     range?: string;
+    area?: string;
     villa?: string;
     channel?: string;
     q?: string;
@@ -91,6 +92,7 @@ export default async function BookingsPage({
   const tab = params.status && params.status in TAB_STATUSES ? params.status : "all";
   const defaultMonth = toDateOnlyString(today).slice(0, 7);
   const monthRange = parseMonth(params.month) ?? parseMonth(defaultMonth)!;
+  const area = params.area?.trim() || undefined;
   const villaId = params.villa || undefined;
   const channel = CHANNELS.includes(params.channel as BookingChannel)
     ? (params.channel as BookingChannel)
@@ -118,12 +120,16 @@ export default async function BookingsPage({
           ? { checkIn: dateWhere }
           : { checkIn: { lt: monthRange.end }, checkOut: { gt: monthRange.start } }),
         ...(villaId ? { villaId } : {}),
+        // 지역(area) = 빌라 단지명(complex) 정확 일치 (재고 비공개 — villa 관계 필터)
+        ...(area ? { villa: { is: { complex: area } } } : {}),
         ...(channel ? { channel } : {}),
         ...(q
           ? {
               OR: [
                 { guestName: { contains: q, mode: "insensitive" as const } },
                 { id: { contains: q } },
+                { agencyName: { contains: q, mode: "insensitive" as const } },
+                { villa: { is: { name: { contains: q, mode: "insensitive" as const } } } },
               ],
             }
           : {}),
@@ -162,7 +168,7 @@ export default async function BookingsPage({
       prisma.villa.findMany({
         where: { status: { in: [VillaStatus.ACTIVE, VillaStatus.INACTIVE] } },
         orderBy: [{ complex: "asc" }, { name: "asc" }],
-        select: { id: true, name: true },
+        select: { id: true, name: true, complex: true },
       }),
       prisma.villa.count({ where: { status: VillaStatus.ACTIVE } }),
       prisma.booking.findMany({
@@ -195,11 +201,17 @@ export default async function BookingsPage({
   const monthLabel = monthRange.start.getUTCMonth() + 1;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // 지역(area) 옵션 = 운영 대상 빌라의 단지명(complex) distinct, complex asc 정렬됨
+  const areaOptions = Array.from(
+    new Set(villas.map((v) => v.complex).filter((c): c is string => !!c))
+  );
+
   const tabHref = (key: string) => {
     const next = new URLSearchParams();
     if (key !== "all") next.set("status", key);
     if (params.month) next.set("month", params.month);
     if (params.range) next.set("range", params.range);
+    if (params.area) next.set("area", params.area);
     if (params.villa) next.set("villa", params.villa);
     if (params.channel) next.set("channel", params.channel);
     if (params.q) next.set("q", params.q);
@@ -369,7 +381,7 @@ export default async function BookingsPage({
                 ]}
               />
             </div>
-            <FiltersBar villas={villas} />
+            <FiltersBar villas={villas} areas={areaOptions} />
           </>
         )}
       </div>

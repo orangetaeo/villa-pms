@@ -9,7 +9,13 @@ interface VillaOption {
   name: string;
 }
 
-export default function FiltersBar({ villas }: { villas: VillaOption[] }) {
+export default function FiltersBar({
+  villas,
+  areas,
+}: {
+  villas: VillaOption[];
+  areas: string[];
+}) {
   const t = useTranslations("adminBookings");
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -26,6 +32,7 @@ export default function FiltersBar({ villas }: { villas: VillaOption[] }) {
   };
 
   const month = searchParams.get("month") ?? "";
+  const area = searchParams.get("area") ?? "";
   const villa = searchParams.get("villa") ?? "";
   const channel = searchParams.get("channel") ?? "";
   const q = searchParams.get("q") ?? "";
@@ -44,11 +51,34 @@ export default function FiltersBar({ villas }: { villas: VillaOption[] }) {
           onChange={(e) => apply({ month: e.target.value })}
         />
       </div>
+      {areas.length > 0 && (
+        <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 whitespace-nowrap">
+          <span className="text-xs text-slate-500 font-bold uppercase tracking-wider mr-1">
+            {t("list.filters.area")}
+          </span>
+          <select
+            aria-label={t("list.filters.area")}
+            className="bg-transparent border-none text-sm text-slate-300 p-0 focus:ring-0 cursor-pointer"
+            value={area}
+            onChange={(e) => apply({ area: e.target.value })}
+          >
+            <option value="" className="bg-slate-900">
+              {t("list.filters.allAreas")}
+            </option>
+            {areas.map((a) => (
+              <option key={a} value={a} className="bg-slate-900">
+                {a}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 whitespace-nowrap">
         <span className="text-xs text-slate-500 font-bold uppercase tracking-wider mr-1">
           {t("list.filters.villa")}
         </span>
         <select
+          aria-label={t("list.filters.villa")}
           className="bg-transparent border-none text-sm text-slate-300 p-0 focus:ring-0 cursor-pointer"
           value={villa}
           onChange={(e) => apply({ villa: e.target.value })}

@@ -5,7 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
-import type { VillaStatus } from "@prisma/client";
+import type { Prisma, VillaStatus } from "@prisma/client";
+import VillasFilters from "./villas-filters";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
@@ -32,19 +33,37 @@ const STATUS_BADGE_CLASS: Record<string, string> = {
 export default async function VillasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; page?: string }>;
+  searchParams: Promise<{ status?: string; page?: string; area?: string; q?: string }>;
 }) {
   const t = await getTranslations("adminVillas.list");
   const params = await searchParams;
   const tab = params.status && params.status in TAB_STATUS ? params.status : "all";
   const statusFilter = TAB_STATUS[tab];
+  const area = params.area?.trim() || undefined;
+  const q = params.q?.trim() || undefined;
   const page = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
 
-  const where = statusFilter
-    ? { status: statusFilter }
-    : { status: { in: LISTED_STATUSES } };
+  // 검색 조건 — 지역(단지명 complex 정확 일치) + 텍스트(빌라명·단지·주소·공급자명).
+  // 상태와 분리해 두어 탭 카운트도 검색 범위 안에서 집계한다.
+  const searchWhere: Prisma.VillaWhereInput = {
+    ...(area ? { complex: area } : {}),
+    ...(q
+      ? {
+          OR: [
+            { name: { contains: q, mode: "insensitive" as const } },
+            { complex: { contains: q, mode: "insensitive" as const } },
+            { address: { contains: q, mode: "insensitive" as const } },
+            { supplier: { is: { name: { contains: q, mode: "insensitive" as const } } } },
+          ],
+        }
+      : {}),
+  };
+  const where: Prisma.VillaWhereInput = {
+    ...searchWhere,
+    ...(statusFilter ? { status: statusFilter } : { status: { in: LISTED_STATUSES } }),
+  };
 
-  const [villas, total, statusCounts] = await Promise.all([
+  const [villas, total, statusCounts, complexRows] = await Promise.all([
     prisma.villa.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -72,10 +91,21 @@ export default async function VillasPage({
     prisma.villa.count({ where }),
     prisma.villa.groupBy({
       by: ["status"],
-      where: { status: { in: LISTED_STATUSES } },
+      where: { status: { in: LISTED_STATUSES }, ...searchWhere },
       _count: { _all: true },
     }),
+    // 지역(area) 옵션 = 운영 목록 대상 빌라의 단지명(complex) distinct
+    prisma.villa.findMany({
+      where: { status: { in: LISTED_STATUSES }, complex: { not: null } },
+      distinct: ["complex"],
+      orderBy: { complex: "asc" },
+      select: { complex: true },
+    }),
   ]);
+
+  const areaOptions = complexRows
+    .map((r) => r.complex)
+    .filter((c): c is string => !!c);
 
   const countOf = (s: VillaStatus) =>
     statusCounts.find((c) => c.status === s)?._count._all ?? 0;
@@ -89,8 +119,19 @@ export default async function VillasPage({
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const to = Math.min(page * PAGE_SIZE, total);
-  const pageHref = (p: number) =>
-    `/villas?status=${tab}&page=${p}`;
+
+  // 탭·페이지 링크는 검색(area·q) 조건을 보존한다
+  const buildHref = (next: { status?: string; page?: number }) => {
+    const sp = new URLSearchParams();
+    if (next.status && next.status !== "all") sp.set("status", next.status);
+    if (area) sp.set("area", area);
+    if (q) sp.set("q", q);
+    if (next.page && next.page > 1) sp.set("page", String(next.page));
+    const qs = sp.toString();
+    return qs ? `/villas?${qs}` : "/villas";
+  };
+  const tabHref = (key: string) => buildHref({ status: key });
+  const pageHref = (p: number) => buildHref({ status: tab, page: p });
 
   const tabs = [
     { key: "all", label: t("tabs.all") },
@@ -103,14 +144,17 @@ export default async function VillasPage({
     <div>
       {/* 페이지 헤더 + 필터 탭 (b9) */}
       <div className="flex flex-col gap-6 mb-8">
-        <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
+          <VillasFilters areas={areaOptions} />
+        </div>
         <div className="flex items-center gap-2 border-b border-admin-card overflow-x-auto">
           {tabs.map(({ key, label }) => {
             const active = tab === key;
             return (
               <Link
                 key={key}
-                href={`/villas?status=${key}`}
+                href={tabHref(key)}
                 className={
                   active
                     ? "px-4 py-3 text-sm font-bold text-admin-primary border-b-2 border-admin-primary flex items-center gap-2 whitespace-nowrap"
@@ -138,7 +182,7 @@ export default async function VillasPage({
       {/* 빌라 카드 그리드 (b9 — 모바일 1열 카드 전환) */}
       {villas.length === 0 ? (
         <div className="bg-admin-card rounded-xl border border-slate-800 p-12 text-center text-sm text-admin-muted">
-          {t("empty")}
+          {area || q ? t("emptyFiltered") : t("empty")}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">

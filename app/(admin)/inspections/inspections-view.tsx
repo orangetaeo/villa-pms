@@ -69,9 +69,19 @@ interface Props {
   tab: string;
   counts: Record<TabKey, number>;
   range?: string;
+  area?: string;
+  areaOptions: string[];
 }
 
-export default function InspectionsView({ tasks, selected, tab, counts, range }: Props) {
+export default function InspectionsView({
+  tasks,
+  selected,
+  tab,
+  counts,
+  range,
+  area,
+  areaOptions,
+}: Props) {
   const t = useTranslations("adminInspections.list");
   const td = useTranslations("adminInspections.detail");
   const router = useRouter();
@@ -191,10 +201,21 @@ export default function InspectionsView({ tasks, selected, tab, counts, range }:
     if (idx >= 0) setLightbox(idx);
   };
 
-  // range는 모든 내부 링크에 보존 — 탭/행 전환 시 활성 날짜 필터 유지
+  // range·area는 모든 내부 링크에 보존 — 탭/행 전환 시 활성 날짜·지역 필터 유지
   const rangeQs = range ? `&range=${range}` : "";
-  const taskHref = (taskId: string) => `/inspections?status=${tab}&task=${taskId}${rangeQs}`;
-  const tabHref = (key: TabKey) => `/inspections?status=${key}${rangeQs}`;
+  const areaQs = area ? `&area=${encodeURIComponent(area)}` : "";
+  const taskHref = (taskId: string) =>
+    `/inspections?status=${tab}&task=${taskId}${rangeQs}${areaQs}`;
+  const tabHref = (key: TabKey) => `/inspections?status=${key}${rangeQs}${areaQs}`;
+
+  // 지역 변경 — 목록이 바뀌므로 선택(task)은 해제, 탭·날짜는 유지
+  const changeArea = (value: string) => {
+    const sp = new URLSearchParams();
+    sp.set("status", tab);
+    if (range) sp.set("range", range);
+    if (value) sp.set("area", value);
+    router.replace(`/inspections?${sp.toString()}`);
+  };
 
   const statusBadge = (status: CleaningStatus) => (
     <span
@@ -234,18 +255,42 @@ export default function InspectionsView({ tasks, selected, tab, counts, range }:
             );
           })}
         </div>
-        {/* 빠른 날짜 필터 — createdAt 기준, 과거 지향 목록이라 nextMonth 제외 */}
-        <QuickDateFilter
-          presets={[
-            "all",
-            "today",
-            "yesterday",
-            "thisWeek",
-            "lastWeek",
-            "thisMonth",
-            "lastMonth",
-          ]}
-        />
+        {/* 빠른 날짜 필터 + 지역(단지) 필터 — createdAt 기준, 과거 지향 목록이라 nextMonth 제외 */}
+        <div className="flex flex-wrap items-center gap-3">
+          <QuickDateFilter
+            presets={[
+              "all",
+              "today",
+              "yesterday",
+              "thisWeek",
+              "lastWeek",
+              "thisMonth",
+              "lastMonth",
+            ]}
+          />
+          {areaOptions.length > 0 && (
+            <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 whitespace-nowrap">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                {t("area")}
+              </span>
+              <select
+                aria-label={t("area")}
+                className="cursor-pointer border-none bg-transparent p-0 pr-6 text-sm text-slate-300 focus:ring-0"
+                value={area ?? ""}
+                onChange={(e) => changeArea(e.target.value)}
+              >
+                <option value="" className="bg-slate-900">
+                  {t("allAreas")}
+                </option>
+                {areaOptions.map((a) => (
+                  <option key={a} value={a} className="bg-slate-900">
+                    {a}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 2패널 (b6) — 데스크톱: 좌 1/3 목록 + 우 상세 독립 스크롤 / <768px: 목록→상세 스택 */}

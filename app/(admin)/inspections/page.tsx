@@ -6,7 +6,7 @@ import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import type { CleaningStatus } from "@prisma/client";
+import { VillaStatus, type CleaningStatus, type Prisma } from "@prisma/client";
 import { quickRangeWhere } from "@/lib/date-vn";
 import InspectionsView, {
   type BaselinePhoto,
@@ -42,7 +42,7 @@ const STATUS_RANK: Record<CleaningStatus, number> = {
 export default async function InspectionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; task?: string; range?: string }>;
+  searchParams: Promise<{ status?: string; task?: string; range?: string; area?: string }>;
 }) {
   // ADMIN 가드는 (admin)/layout에 있으나 페이지에서도 재검사 (프로젝트 규칙 — 권한 이중화)
   const session = await auth();
@@ -51,14 +51,21 @@ export default async function InspectionsPage({
   const params = await searchParams;
   const tab = params.status && params.status in TAB_STATUS ? params.status : "all";
   const statusFilter = TAB_STATUS[tab];
+  const area = params.area?.trim() || undefined;
   // 빠른 날짜 필터 — createdAt(검수 태스크 생성 시각, 정렬 기준) 기준. "all"/무효 → undefined
   const createdAtRange = quickRangeWhere(params.range, "timestamp");
 
-  const [rows, statusCounts] = await Promise.all([
+  // 날짜·지역(단지명 complex) 공통 필터 — 탭 카운트도 같은 범위에서 집계
+  const scopeWhere: Prisma.CleaningTaskWhereInput = {
+    ...(createdAtRange ? { createdAt: createdAtRange } : {}),
+    ...(area ? { villa: { is: { complex: area } } } : {}),
+  };
+
+  const [rows, statusCounts, complexRows] = await Promise.all([
     prisma.cleaningTask.findMany({
       where: {
         ...(statusFilter ? { status: statusFilter } : {}),
-        ...(createdAtRange ? { createdAt: createdAtRange } : {}),
+        ...scopeWhere,
       },
       orderBy: { createdAt: "desc" },
       take: TAKE,
@@ -74,10 +81,24 @@ export default async function InspectionsPage({
     prisma.cleaningTask.groupBy({
       by: ["status"],
       _count: { _all: true },
-      // 탭 카운트도 날짜 필터와 일관되게 — 범위 밖 태스크는 어느 탭에도 세지 않음
-      where: createdAtRange ? { createdAt: createdAtRange } : undefined,
+      // 탭 카운트도 날짜·지역 필터와 일관되게 — 범위 밖 태스크는 어느 탭에도 세지 않음
+      where: scopeWhere,
+    }),
+    // 지역(area) 옵션 = 운영 대상 빌라의 단지명(complex) distinct (공실 보드 패턴 준용)
+    prisma.villa.findMany({
+      where: {
+        status: { in: [VillaStatus.ACTIVE, VillaStatus.INACTIVE] },
+        complex: { not: null },
+      },
+      distinct: ["complex"],
+      orderBy: { complex: "asc" },
+      select: { complex: true },
     }),
   ]);
+
+  const areaOptions = complexRows
+    .map((r) => r.complex)
+    .filter((c): c is string => !!c);
 
   // 승인 대기(PHOTOS_SUBMITTED) 우선 + 최신순
   rows.sort(
@@ -171,6 +192,8 @@ export default async function InspectionsPage({
       tab={tab}
       counts={counts}
       range={params.range}
+      area={area}
+      areaOptions={areaOptions}
     />
   );
 }
