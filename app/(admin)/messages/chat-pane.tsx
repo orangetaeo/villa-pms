@@ -1024,12 +1024,6 @@ function InboundBubble({
     >
       <InboundAvatar message={message} />
       <div className="min-w-0">
-        {/* 상대 이름/닉네임 — 헤더 외에 스레드에서도 누구와 대화 중인지 보이게(사용자 요청). */}
-        {contactName && (
-          <span className="block pl-1 mb-0.5 text-[11px] font-medium text-slate-400 truncate">
-            {contactName}
-          </span>
-        )}
         {(message.quotedText || message.quotedSender) && (
           <QuotedBlock
             sender={message.quotedSender}
@@ -1090,6 +1084,12 @@ function InboundBubble({
           </div>
         )}
         <div className="flex items-center gap-2 mt-1">
+          {/* 상대 이름/닉네임 — 시간 왼쪽에 표시(사용자 요청). 헤더 외에도 대화 상대 식별. */}
+          {contactName && (
+            <span className="text-[11px] font-medium text-slate-400 truncate max-w-[120px]">
+              {contactName}
+            </span>
+          )}
           <span className="text-[10px] text-slate-600 tabular-nums">{message.time}</span>
           <MessageActions
             conversationId={conversationId}
