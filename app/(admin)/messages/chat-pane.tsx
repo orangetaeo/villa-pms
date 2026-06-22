@@ -1576,6 +1576,20 @@ function ShareTextCard({
 
 // ════════════════════════ Composer ════════════════════════
 
+/** Blob → base64(접두 data: 제거) — 음성 STT 업로드용. FileReader 기반(브라우저). */
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      const comma = result.indexOf(",");
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("read failed"));
+    reader.readAsDataURL(blob);
+  });
+}
+
 function Composer({
   conversationId,
   windowOpen,
@@ -1610,6 +1624,15 @@ function Composer({
   const [translating, setTranslating] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // ── 음성 입력(STT) — MediaRecorder 녹음 → 서버(Gemini)에서 받아쓰기 → 입력창 채움 ──
+  // iOS Safari는 Web Speech 미지원 → 녹음 후 서버 STT(전 플랫폼 동작). recSupported일 때만 버튼 노출.
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [recSupported, setRecSupported] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recChunksRef = useRef<Blob[]>([]);
+  const recStreamRef = useRef<MediaStream | null>(null);
+  const recAutoStopRef = useRef<number | null>(null);
   // 입력창 자동 높이 — 긴 글·줄바꿈 시 textarea가 내용만큼 늘어남(모바일 좁은 칸 가독성). 최대 140px.
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const autoGrow = () => {
@@ -1631,6 +1654,20 @@ function Composer({
     return () => cancelAnimationFrame(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text]);
+
+  // 음성 입력 지원 감지(getUserMedia + MediaRecorder) + 언마운트 시 마이크 정리.
+  useEffect(() => {
+    setRecSupported(
+      typeof navigator !== "undefined" &&
+        !!navigator.mediaDevices?.getUserMedia &&
+        typeof window !== "undefined" &&
+        typeof window.MediaRecorder !== "undefined",
+    );
+    return () => {
+      if (recAutoStopRef.current != null) window.clearTimeout(recAutoStopRef.current);
+      recStreamRef.current?.getTracks().forEach((tr) => tr.stop());
+    };
+  }, []);
 
   const previewEnabled = translateMode !== "OFF";
   const previewLabel = translateMode === "EN" ? t("previewLabelEn") : t("previewLabel");
@@ -1661,8 +1698,10 @@ function Composer({
     );
   }
 
-  async function translate() {
-    if (!previewEnabled || !text.trim()) {
+  async function translate(override?: string) {
+    // override(STT 결과 등)가 문자열이면 그걸, 아니면 현재 입력값을 번역.
+    const value = (typeof override === "string" ? override : text).trim();
+    if (!previewEnabled || !value) {
       setPreview("");
       return;
     }
@@ -1673,7 +1712,7 @@ function Composer({
       const res = await fetch("/api/zalo/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: text.trim(), conversationId }),
+        body: JSON.stringify({ text: value, conversationId }),
       });
       if (res.ok) {
         const data = (await res.json()) as { translated: string };
@@ -1738,6 +1777,84 @@ function Composer({
     }
   }
 
+  // ── 음성 입력: 녹음 시작 ──
+  async function startRecording() {
+    if (recording || transcribing) return;
+    setError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recStreamRef.current = stream;
+      const mr = new MediaRecorder(stream);
+      recChunksRef.current = [];
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) recChunksRef.current.push(e.data);
+      };
+      mr.onstop = () => void finishRecording(mr.mimeType);
+      mediaRecorderRef.current = mr;
+      mr.start();
+      setRecording(true);
+      // 안전장치 — 60초 자동 중단(과대 업로드·잊고 켜둠 방지)
+      recAutoStopRef.current = window.setTimeout(() => stopRecording(), 60_000);
+    } catch {
+      setError(t("voiceInput.micDenied"));
+      recStreamRef.current?.getTracks().forEach((tr) => tr.stop());
+      recStreamRef.current = null;
+    }
+  }
+
+  // ── 음성 입력: 녹음 중단(→ onstop에서 finishRecording) ──
+  function stopRecording() {
+    if (recAutoStopRef.current != null) {
+      window.clearTimeout(recAutoStopRef.current);
+      recAutoStopRef.current = null;
+    }
+    const mr = mediaRecorderRef.current;
+    if (mr && mr.state !== "inactive") mr.stop();
+    setRecording(false);
+    recStreamRef.current?.getTracks().forEach((tr) => tr.stop());
+    recStreamRef.current = null;
+  }
+
+  // ── 녹음 종료 → 서버 STT → 입력창에 추가 + 번역 미리보기 갱신 ──
+  async function finishRecording(mimeType: string) {
+    const blob = new Blob(recChunksRef.current, { type: mimeType || "audio/webm" });
+    recChunksRef.current = [];
+    mediaRecorderRef.current = null;
+    if (blob.size === 0) return;
+    setTranscribing(true);
+    setError(null);
+    try {
+      const audioBase64 = await blobToBase64(blob);
+      const res = await fetch("/api/zalo/transcribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audioBase64, mimeType: blob.type || "audio/webm" }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { text: string };
+        const stt = (data.text ?? "").trim();
+        if (!stt) {
+          setError(t("voiceInput.empty"));
+          return;
+        }
+        // 기존 입력 뒤에 받아쓴 텍스트를 이어 붙임(실시간 DOM 값 기준 — 최신 보장).
+        const before = (inputRef.current?.value ?? "").trim();
+        const fullText = before ? `${before} ${stt}` : stt;
+        setText(fullText);
+        void translate(fullText); // 번역 미리보기 즉시 갱신(stale 방지 — override 전달)
+        inputRef.current?.focus();
+      } else if (res.status === 503) {
+        setError(t("translateUnavailable")); // STT 키 미설정
+      } else {
+        setError(t("voiceInput.failed"));
+      }
+    } catch {
+      setError(t("voiceInput.failed"));
+    } finally {
+      setTranscribing(false);
+    }
+  }
+
   return (
     <footer className="shrink-0 border-t border-slate-800 bg-slate-900 px-6 py-4">
       {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
@@ -1785,7 +1902,7 @@ function Composer({
             rows={1}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            onBlur={translate}
+            onBlur={() => translate()}
             onKeyDown={(e) => {
               // IME(한글·베트남어) 조합 중 Enter는 무시(오전송 방지).
               if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
@@ -1799,6 +1916,25 @@ function Composer({
             placeholder={t("inputPlaceholder")}
             className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-slate-100 placeholder:text-slate-500 p-0 resize-none overflow-y-auto leading-relaxed"
           />
+          {/* 음성 입력 — 마이크 탭: 녹음 시작/중단 → 서버 STT → 입력창 채움(iOS 포함). 지원 기기만 노출. */}
+          {recSupported && (
+            <button
+              type="button"
+              onClick={recording ? stopRecording : startRecording}
+              disabled={transcribing || sending}
+              title={recording ? t("voiceInput.stop") : t("voiceInput.start")}
+              aria-label={recording ? t("voiceInput.stop") : t("voiceInput.start")}
+              className={
+                recording
+                  ? "shrink-0 w-9 h-9 rounded-lg bg-red-600 text-white flex items-center justify-center animate-pulse"
+                  : "shrink-0 w-9 h-9 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-slate-700/60 flex items-center justify-center transition-colors disabled:opacity-50"
+              }
+            >
+              <span className="material-symbols-outlined text-[20px]">
+                {transcribing ? "more_horiz" : recording ? "stop" : "mic"}
+              </span>
+            </button>
+          )}
           <button
             type="button"
             onClick={send}
@@ -1821,7 +1957,7 @@ function Composer({
             </p>
             <button
               type="button"
-              onClick={translate}
+              onClick={() => translate()}
               title={t("retranslate")}
               className="text-slate-500 hover:text-slate-300 transition-colors shrink-0"
             >

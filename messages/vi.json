@@ -1228,6 +1228,13 @@
     "previewEmpty": "Bản dịch sẽ hiển thị khi bạn nhập",
     "translating": "Đang dịch…",
     "retranslate": "Dịch lại",
+    "voiceInput": {
+      "start": "Nhập bằng giọng nói",
+      "stop": "Dừng ghi âm",
+      "micDenied": "Cần quyền truy cập micro. Vui lòng cho phép trong cài đặt trình duyệt.",
+      "failed": "Nhận dạng giọng nói thất bại. Vui lòng thử lại.",
+      "empty": "Không nhận dạng được giọng nói. Vui lòng nói lại."
+    },
     "translateUnavailable": "Không thể dịch. Tin nhắn gốc sẽ được gửi.",
     "sendFailed": "Gửi thất bại. Vui lòng thử lại.",
     "windowClosedWarning": "Đã quá 48 giờ kể từ tin nhắn cuối, không thể trả lời. Thông báo hệ thống vẫn được gửi.",

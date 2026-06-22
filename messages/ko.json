@@ -1228,6 +1228,13 @@
     "previewEmpty": "한국어로 입력하면 번역이 표시됩니다",
     "translating": "번역 중…",
     "retranslate": "다시 번역",
+    "voiceInput": {
+      "start": "음성 입력",
+      "stop": "녹음 중지",
+      "micDenied": "마이크 권한이 필요합니다. 브라우저 설정에서 허용해 주세요.",
+      "failed": "음성 인식에 실패했습니다. 다시 시도해 주세요.",
+      "empty": "음성을 인식하지 못했습니다. 다시 말씀해 주세요."
+    },
     "translateUnavailable": "번역을 사용할 수 없습니다. 원문이 그대로 전송됩니다.",
     "sendFailed": "전송에 실패했습니다. 잠시 후 다시 시도하세요.",
     "windowClosedWarning": "마지막 수신 후 48시간이 지나 응답할 수 없습니다. 시스템 알림은 정상 발송됩니다.",
