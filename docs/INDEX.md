@@ -30,6 +30,7 @@
 | 빌라 판매용 정보(잠자리·위치·이용규칙·셀링포인트) **[채택]** | docs/decisions/ADR-0011-villa-sales-fields.md + docs/villa-sales-data-design.md(정본) — Villa 스칼라 13·VillaBedroom·VillaFeature·lib/features.ts·lib/bedding.ts. ⚠ wifiPassword·wifiSsid는 /p 공개페이지 select 제외(체크인 전용) |
 | 빌라별 시즌·가격 판정 | docs/decisions/0008-per-villa-season-periods.md + lib/pricing.ts(resolveSeason·quoteStayForVilla) |
 | 번역·i18n 키·문구 | .claude/skills/loc/i18n-pattern.md |
+| ADMIN 강제 판매가능(검수 게이트 오버라이드) **[채택]** | docs/decisions/ADR-0012-admin-force-sellable.md + lib/villa-gate.ts(forceOpenSellableGate, ACTIVE만·멱등·CHECKOUT 보존·전량 감사) — POST /api/villas/[id]/force-sellable, lib/cleaning.ts 불변 |
 
 ## 3열람실 — 참고 서가 (필요 시만)
 | 문서 | 내용 |
