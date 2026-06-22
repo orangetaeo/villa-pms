@@ -2,7 +2,7 @@
 
 // 빌라 상세 사진 갤러리 + 클릭 확대 라이트박스 (b10) — 클릭 시 전체화면 확대,
 // 좌우 이동(키보드 ←→), Esc·배경·X 닫기. 마진·판매가 등 민감 정보 없음(사진 URL·공간 라벨만).
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 
@@ -20,7 +20,7 @@ interface GalleryGroup {
 
 export default function PhotoGallery({ groups }: { groups: GalleryGroup[] }) {
   const t = useTranslations("adminVillas.detail");
-  const flat = groups.flatMap((g) => g.photos);
+  const flat = useMemo(() => groups.flatMap((g) => g.photos), [groups]);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   const close = useCallback(() => setOpenIndex(null), []);
@@ -47,6 +47,20 @@ export default function PhotoGallery({ groups }: { groups: GalleryGroup[] }) {
       document.body.style.overflow = "";
     };
   }, [openIndex, close, prev, next]);
+
+  // 인접 이미지(다음·이전) 브라우저 캐시 워밍 — 화살표 누르면 즉시 뜨도록 미리 로드
+  useEffect(() => {
+    if (openIndex === null || flat.length < 2) return;
+    const neighbors = [
+      flat[(openIndex + 1) % flat.length]?.url,
+      flat[(openIndex - 1 + flat.length) % flat.length]?.url,
+    ];
+    for (const url of neighbors) {
+      if (!url) continue;
+      const img = new window.Image();
+      img.src = url;
+    }
+  }, [openIndex, flat]);
 
   const labelFor = (p: GalleryPhoto) => p.spaceLabel ?? t(`spaces.${p.space}`);
   const current = openIndex === null ? null : flat[openIndex];
@@ -147,6 +161,7 @@ export default function PhotoGallery({ groups }: { groups: GalleryGroup[] }) {
               sizes="92vw"
               className="object-contain"
               priority
+              unoptimized
             />
           </div>
 
