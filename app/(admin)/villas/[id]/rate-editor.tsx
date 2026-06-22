@@ -143,7 +143,7 @@ export default function RateEditor({
       ) : (
         <>
           <div className="p-0 overflow-x-auto">
-            <table className="w-full min-w-[560px] text-left text-xs border-collapse">
+            <table className="w-full min-w-[600px] text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-900/50 text-slate-500 uppercase">
                   <th className="px-3 py-3 font-bold border-b border-slate-800">
@@ -188,7 +188,7 @@ export default function RateEditor({
                               type="text"
                               inputMode="numeric"
                               aria-label={t("colMargin")}
-                              className="w-14 h-8 bg-slate-900 border border-slate-700 rounded text-center text-xs text-slate-100 tabular-nums"
+                              className="w-16 h-9 bg-slate-900 border border-slate-700 rounded px-2 text-center text-xs text-slate-100 tabular-nums"
                               value={field.value}
                               onChange={(e) => {
                                 field.onChange(toDigits(e.target.value));
@@ -206,7 +206,7 @@ export default function RateEditor({
                           render={({ field }) => (
                             <select
                               aria-label={t("colMargin")}
-                              className="h-8 bg-slate-900 border border-slate-700 rounded text-[10px] text-slate-100 px-1 py-0"
+                              className="h-9 bg-slate-900 border border-slate-700 rounded px-2 text-xs text-slate-100"
                               value={field.value}
                               onChange={(e) => {
                                 field.onChange(e.target.value);
@@ -230,7 +230,7 @@ export default function RateEditor({
                             type="text"
                             inputMode="numeric"
                             aria-label={t("colSaleVnd")}
-                            className="w-28 h-8 bg-slate-900 border border-slate-700 rounded text-right text-xs text-slate-100 tabular-nums"
+                            className="w-32 h-9 bg-slate-900 border border-slate-700 rounded px-2.5 text-right text-xs text-slate-100 tabular-nums"
                             value={field.value ? `${formatThousands(field.value)}₫` : ""}
                             onChange={(e) => {
                               const digits = toDigits(e.target.value);
@@ -256,7 +256,7 @@ export default function RateEditor({
                             type="text"
                             inputMode="numeric"
                             aria-label={t("colSaleKrw")}
-                            className="w-24 h-8 bg-slate-900 border border-slate-700 rounded text-right text-xs font-bold text-slate-100 tabular-nums"
+                            className="w-28 h-9 bg-slate-900 border border-slate-700 rounded px-2.5 text-right text-xs font-bold text-slate-100 tabular-nums"
                             value={field.value ? `₩${formatThousands(field.value)}` : "₩0"}
                             onChange={(e) => {
                               const digits = toDigits(e.target.value);
