@@ -99,11 +99,17 @@ export default function ForceSellableAction({ villaId }: { villaId: string }) {
       {/* 확인 모달 — 검수 생략 경고 + 선택 사유 (villa-actions 반려 모달 패턴) */}
       {open && (
         <div
+          onClick={() => {
+            if (!pending) setOpen(false);
+          }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-[480px] bg-admin-card border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-[480px] bg-admin-card border border-slate-700 rounded-xl shadow-2xl overflow-hidden"
+          >
             <div className="p-6">
               <div className="mb-5">
                 <h4 className="text-xl font-bold text-white mb-1 flex items-center gap-2">

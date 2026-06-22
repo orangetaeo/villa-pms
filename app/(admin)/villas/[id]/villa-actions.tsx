@@ -117,11 +117,17 @@ export default function VillaActions({
       {/* 반려 모달 (b10 디자인 참고) */}
       {rejectOpen && (
         <div
+          onClick={() => {
+            if (!pending) setRejectOpen(false);
+          }}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-[480px] bg-admin-card border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-[480px] bg-admin-card border border-slate-700 rounded-xl shadow-2xl overflow-hidden"
+          >
             <div className="p-6">
               <div className="mb-6">
                 <h4 className="text-xl font-bold text-white mb-1">{t("rejectModal.title")}</h4>
