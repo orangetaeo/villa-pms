@@ -31,6 +31,78 @@
     "closeMenu": "Đóng menu",
     "logout": "Đăng xuất"
   },
+  "availabilityBoard": {
+    "title": "Lịch trống theo villa",
+    "subtitle": "Quản lý tình trạng trống đã xác nhận với nhà cung cấp, khóa hoặc mở từng ngày. Không hiển thị thông tin đặt phòng và giá.",
+    "breadcrumbVilla": "Villa",
+    "breadcrumbCurrent": "Lịch trống",
+    "needCheckChip": "Cần kiểm tra {n}",
+    "villaCount": "Villa ({n})",
+    "search": "Tìm tên villa...",
+    "area": "Khu vực",
+    "allAreas": "Tất cả khu vực",
+    "needCheckOnly": "Chỉ cần kiểm tra",
+    "today": "Hôm nay",
+    "period": "{start} ~ {end}",
+    "periodMonth": "Tháng {month}/{year}",
+    "prevPeriod": "Kỳ trước",
+    "nextPeriod": "Kỳ sau",
+    "legend": {
+      "available": "Trống",
+      "manual": "Khóa (quản trị viên chặn)",
+      "ical": "Khóa kênh ngoài (iCal · chỉ đọc)",
+      "checked": "Đã xác nhận",
+      "needCheck": "Cần kiểm tra (đã lâu)"
+    },
+    "badge": {
+      "checked": "Xác nhận {date}",
+      "needCheck": "Cần kiểm tra {date}",
+      "never": "Chưa xác nhận"
+    },
+    "confirmCheck": "Đã xác nhận",
+    "empty": "Không có villa phù hợp với điều kiện.",
+    "cell": {
+      "available": "Trống",
+      "manual": "Khóa (quản trị viên chặn)",
+      "ical": "Khóa kênh ngoài (iCal)"
+    },
+    "weekdays": {
+      "0": "CN",
+      "1": "T2",
+      "2": "T3",
+      "3": "T4",
+      "4": "T5",
+      "5": "T6",
+      "6": "T7"
+    },
+    "popover": {
+      "stateLabel": "Trạng thái hiện tại",
+      "stateAvailable": "Trống",
+      "stateManual": "Khóa",
+      "lock": "Khóa",
+      "unlock": "Mở khóa",
+      "processing": "Đang xử lý...",
+      "hint": "Khi khóa, ngày đó sẽ bị loại khỏi danh sách có thể bán. Thay đổi được lưu ngay.",
+      "conflict": "Đã có đặt phòng/khóa nên không thể thay đổi.",
+      "error": "Đã xảy ra lỗi khi xử lý. Vui lòng thử lại.",
+      "close": "Đóng"
+    },
+    "icalPopover": {
+      "title": "Khóa kênh ngoài",
+      "desc": "Đây là ngày bị khóa tự động qua đồng bộ iCal.",
+      "info": "Khóa kênh ngoài không thể chỉnh sửa ở màn hình này. Hãy thay đổi tại nguồn của kênh."
+    },
+    "rangePopover": {
+      "days": "Đã chọn {n} ngày",
+      "dateRange": "{start} ~ {end}",
+      "summary": "Trống {lockable} ngày · Khóa {unlockable} ngày",
+      "lock": "Khóa ({n} ngày)",
+      "unlock": "Mở khóa ({n} ngày)",
+      "hint": "Chỉ khóa ngày trống và chỉ mở ngày đang khóa. Loại trừ ngày của kênh ngoài (iCal) và ngày đã đặt.",
+      "processing": "Đang xử lý...",
+      "error": "Đã xảy ra lỗi khi xử lý. Vui lòng thử lại."
+    }
+  },
   "adminDashboard": {
     "title": "Bảng điều khiển",
     "greeting": "Xin chào, {name}",
@@ -1690,6 +1762,7 @@
     "checkout": "Kiểm tra trả phòng",
     "bookingDetail": "Chi tiết đặt phòng",
     "costAlerts": "Thay đổi giá vốn khi báo giá",
+    "availability": "Lịch trống theo villa",
     "dashboard": "Bảng điều khiển",
     "inspections": "Kiểm tra dọn dẹp",
     "messages": "Tin nhắn",

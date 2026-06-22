@@ -1763,6 +1763,16 @@
       "title": "외부 채널 잠금",
       "desc": "iCal 동기화로 자동 잠긴 날짜입니다.",
       "info": "외부 채널 잠금은 이 화면에서 수정할 수 없습니다. 채널 원본에서 변경하세요."
+    },
+    "rangePopover": {
+      "days": "{n}일 선택",
+      "dateRange": "{start} ~ {end}",
+      "summary": "공실 {lockable}일 · 잠금 {unlockable}일",
+      "lock": "잠금 ({n}일)",
+      "unlock": "해제 ({n}일)",
+      "hint": "공실만 잠그고, 잠금만 해제합니다. 외부 채널(iCal)·예약 날짜는 제외됩니다.",
+      "processing": "처리 중...",
+      "error": "처리 중 오류가 발생했습니다. 다시 시도해 주세요."
     }
   }
 }

@@ -70,6 +70,14 @@ export interface BoardStrings {
   icalTitle: string;
   icalDesc: string;
   icalInfo: string;
+  rangeDays: string; // contains {n}
+  rangeDateRange: string; // contains {start} {end}
+  rangeSummary: string; // contains {lockable} {unlockable}
+  rangeLock: string; // contains {n}
+  rangeUnlock: string; // contains {n}
+  rangeHint: string;
+  rangeProcessing: string;
+  rangeError: string;
 }
 
 interface Props {
@@ -78,7 +86,7 @@ interface Props {
   rows: BoardRow[];
   areaOptions: string[];
   startMonth: string;
-  prevMonth: string;
+  prevMonth: string | null; // null = 현재 기간(이전이 전부 과거) → 비활성
   nextMonth: string;
   thisMonth: string;
   periodLabel: string;
@@ -112,6 +120,9 @@ const BOARD_CSS = `
 .ab-month-edge { box-shadow: inset 2px 0 0 #334155; }
 .ab-sticky-col { position: sticky; left: 0; z-index: 20; background-color: #1E293B; }
 .ab-grid-cell { width: 36px; min-width: 36px; height: 44px; border-right: 1px solid rgba(30,41,59,0.6); border-bottom: 1px solid rgba(30,41,59,0.6); cursor: pointer; transition: background-color .12s; padding: 0; }
+.ab-range-sel { box-shadow: inset 0 0 0 2px #3B82F6; background-color: rgba(59,130,246,0.22) !important; background-image: none !important; }
+.ab-dragging { user-select: none; -webkit-user-select: none; }
+.ab-dragging .ab-grid-cell { cursor: ew-resize; }
 `;
 
 const ROW_H = 34; // 월 헤더 행 높이 (일 행 sticky top 계산용)
@@ -119,6 +130,23 @@ const ROW_H = 34; // 월 헤더 행 높이 (일 행 sticky top 계산용)
 type PopState =
   | { kind: "block"; villaId: string; villaName: string; col: BoardColumn; status: "AVAILABLE" | "MANUAL"; blockId: string | null; x: number; y: number }
   | { kind: "ical"; col: BoardColumn; x: number; y: number };
+
+/** 가로 드래그 진행 상태 (마우스/펜 전용) */
+interface DragState {
+  villaId: string;
+  anchorIdx: number;
+  overIdx: number;
+}
+
+/** 드래그로 확정된 범위 팝오버 */
+interface RangePop {
+  villaId: string;
+  villaName: string;
+  lo: number; // 시작 컬럼 인덱스 (포함)
+  hi: number; // 끝 컬럼 인덱스 (포함)
+  x: number;
+  y: number;
+}
 
 /** YYYY-MM-DD → "YYYY.MM.DD (요일)" */
 function fmtDateDow(iso: string, weekdays: string[]): string {
@@ -152,6 +180,56 @@ export default function AvailabilityBoardClient({
   const [pending, setPending] = useState(false);
   const [errorKey, setErrorKey] = useState<"conflict" | "error" | null>(null);
 
+  // ── 가로 드래그 범위 선택 (마우스/펜 전용) ──
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const [rangePop, setRangePop] = useState<RangePop | null>(null);
+  const [rangePending, setRangePending] = useState(false);
+  const [rangeError, setRangeError] = useState(false);
+  // 드래그로 여러 셀 이동했는지 — 뒤따르는 onClick 이 단일 팝오버를 또 열지 않도록 가드
+  const movedRef = useRef(false);
+  // 최신 drag 값을 window pointerup 핸들러에서 읽기 위한 ref
+  const dragRef = useRef<DragState | null>(null);
+  dragRef.current = drag;
+
+  // 드래그 종료 — window pointerup 한 번만 등록
+  useEffect(() => {
+    function onUp() {
+      const d = dragRef.current;
+      if (!d) return;
+      const lo = Math.min(d.anchorIdx, d.overIdx);
+      const hi = Math.max(d.anchorIdx, d.overIdx);
+      setDrag(null);
+      dragRef.current = null;
+      if (lo === hi) {
+        // 움직임 없음 → 단일 셀 동작은 onClick 가 처리. 여기선 아무것도 안 함.
+        movedRef.current = false;
+        return;
+      }
+      // 여러 셀 → 범위 팝오버. 뒤따르는 onClick 차단 플래그 유지(클릭 핸들러가 리셋)
+      movedRef.current = true;
+      const row = rows.find((r) => r.id === d.villaId);
+      if (!row) return;
+      const cx = lastPointerRef.current.x;
+      const cy = lastPointerRef.current.y;
+      setErrorKey(null);
+      setPop(null);
+      setRangeError(false);
+      setRangePop({
+        villaId: d.villaId,
+        villaName: row.name,
+        lo,
+        hi,
+        x: Math.max(8, Math.min(cx, window.innerWidth - 280)),
+        y: Math.max(8, Math.min(cy + 8, window.innerHeight - 260)),
+      });
+    }
+    window.addEventListener("pointerup", onUp);
+    return () => window.removeEventListener("pointerup", onUp);
+  }, [rows]);
+
+  // 마지막 포인터 좌표 (범위 팝오버 위치 산출용)
+  const lastPointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
   // 화면 밖 클릭 → 팝오버 닫기
   const popRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -167,6 +245,22 @@ export default function AvailabilityBoardClient({
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [pop, pending]);
+
+  // 범위 팝오버 외부 클릭 닫기
+  const rangePopRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!rangePop) return;
+    function onDoc(e: MouseEvent) {
+      if (rangePending) return;
+      const target = e.target as HTMLElement;
+      if (rangePopRef.current?.contains(target)) return;
+      if (target.closest("[data-ab-cell]")) return;
+      setRangePop(null);
+      setRangeError(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [rangePop, rangePending]);
 
   function closePop() {
     if (pending) return;
@@ -195,7 +289,35 @@ export default function AvailabilityBoardClient({
     return optimistic[`${villaId}|${iso}`] ?? rows.find((r) => r.id === villaId)!.days[idx];
   }
 
+  // ── 드래그 시작 (마우스/펜 + 주버튼, ICAL 셀 제외) ──
+  function onCellPointerDown(
+    e: React.PointerEvent,
+    row: BoardRow,
+    idx: number,
+    cell: BoardCell
+  ) {
+    if (e.pointerType !== "mouse" && e.pointerType !== "pen") return; // 터치는 기존 탭 유지
+    if (e.button !== 0) return; // 주버튼만
+    if (cell.status === "ICAL") return; // iCal 셀에서 드래그 시작 안 함
+    lastPointerRef.current = { x: e.clientX, y: e.clientY };
+    movedRef.current = false;
+    setDrag({ villaId: row.id, anchorIdx: idx, overIdx: idx });
+  }
+
+  // 같은 행 위로 드래그 — overIdx 갱신
+  function onCellPointerEnter(e: React.PointerEvent, villaId: string, idx: number) {
+    const d = dragRef.current;
+    if (!d || d.villaId !== villaId) return;
+    lastPointerRef.current = { x: e.clientX, y: e.clientY };
+    if (d.overIdx !== idx) setDrag({ ...d, overIdx: idx });
+  }
+
   function onCellTap(e: React.MouseEvent, row: BoardRow, col: BoardColumn, cell: BoardCell) {
+    // 드래그로 범위 선택된 직후의 click 은 무시 (단일 팝오버 중복 오픈 방지)
+    if (movedRef.current) {
+      movedRef.current = false;
+      return;
+    }
     setErrorKey(null);
     const x = Math.min(e.clientX, window.innerWidth - 280);
     const y = Math.min(e.clientY + 8, window.innerHeight - 220);
@@ -260,6 +382,87 @@ export default function AvailabilityBoardClient({
       setErrorKey("error");
     } finally {
       setPending(false);
+    }
+  }
+
+  // 범위 구간 상태 집계 — lockable(AVAILABLE 수), unlockable(MANUAL 수). ICAL 제외.
+  function rangeCounts(rp: RangePop): { lockable: number; unlockable: number } {
+    let lockable = 0;
+    let unlockable = 0;
+    for (let idx = rp.lo; idx <= rp.hi; idx++) {
+      const st = cellOf(rp.villaId, idx).status;
+      if (st === "AVAILABLE") lockable += 1;
+      else if (st === "MANUAL") unlockable += 1;
+    }
+    return { lockable, unlockable };
+  }
+
+  // 범위 일괄 잠금/해제 — 낙관적 오버레이 + bulk API, 실패 시 롤백
+  async function submitRange(action: "lock" | "unlock") {
+    if (!rangePop || rangePending) return;
+    const rp = rangePop;
+    setRangePending(true);
+    setRangeError(false);
+
+    // 낙관적: lock → AVAILABLE 셀을 MANUAL 로, unlock → MANUAL 셀을 AVAILABLE 로
+    const prevByKey: Record<string, BoardCell | undefined> = {};
+    setOptimistic((o) => {
+      const next = { ...o };
+      for (let idx = rp.lo; idx <= rp.hi; idx++) {
+        const iso = columns[idx].iso;
+        const key = `${rp.villaId}|${iso}`;
+        const st = cellOf(rp.villaId, idx).status;
+        if (action === "lock" && st === "AVAILABLE") {
+          prevByKey[key] = o[key];
+          next[key] = { status: "MANUAL", blockId: null };
+        } else if (action === "unlock" && st === "MANUAL") {
+          prevByKey[key] = o[key];
+          next[key] = { status: "AVAILABLE", blockId: null };
+        }
+      }
+      return next;
+    });
+
+    try {
+      const res = await fetch("/api/calendar-blocks/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          villaId: rp.villaId,
+          startDate: columns[rp.lo].iso,
+          endDate: columns[rp.hi].iso, // inclusive
+          action,
+        }),
+      });
+      if (res.ok) {
+        setRangePop(null);
+        router.refresh(); // 서버 재조회 → 정확 blockId·skip 결과 반영
+      } else {
+        // 롤백
+        setOptimistic((o) => {
+          const n = { ...o };
+          for (const key of Object.keys(prevByKey)) {
+            const prev = prevByKey[key];
+            if (prev === undefined) delete n[key];
+            else n[key] = prev;
+          }
+          return n;
+        });
+        setRangeError(true);
+      }
+    } catch {
+      setOptimistic((o) => {
+        const n = { ...o };
+        for (const key of Object.keys(prevByKey)) {
+          const prev = prevByKey[key];
+          if (prev === undefined) delete n[key];
+          else n[key] = prev;
+        }
+        return n;
+      });
+      setRangeError(true);
+    } finally {
+      setRangePending(false);
     }
   }
 
@@ -355,8 +558,9 @@ export default function AvailabilityBoardClient({
           <button
             type="button"
             aria-label={s.prevPeriod}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-800 hover:text-white"
-            onClick={() => navigate({ startMonth: prevMonth })}
+            disabled={!prevMonth}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+            onClick={() => prevMonth && navigate({ startMonth: prevMonth })}
           >
             <span className="material-symbols-outlined text-sm">chevron_left</span>
           </button>
@@ -402,7 +606,7 @@ export default function AvailabilityBoardClient({
       </div>
 
       {/* ===== 타임라인 격자 ===== */}
-      <div className="ab-scroll relative overflow-auto rounded-xl border border-slate-800/50 bg-admin-card shadow-lg">
+      <div className={"ab-scroll relative overflow-auto rounded-xl border border-slate-800/50 bg-admin-card shadow-lg" + (drag ? " ab-dragging" : "")}>
         {rows.length === 0 ? (
           <div className="flex items-center justify-center py-16 text-sm text-slate-500">
             {s.empty}
@@ -572,6 +776,13 @@ export default function AvailabilityBoardClient({
                       } else {
                         cls += " ab-cell-ical";
                       }
+                      // 드래그 중인 빌라의 선택 구간 하이라이트
+                      const inDragRange =
+                        drag !== null &&
+                        drag.villaId === row.id &&
+                        idx >= Math.min(drag.anchorIdx, drag.overIdx) &&
+                        idx <= Math.max(drag.anchorIdx, drag.overIdx);
+                      if (inDragRange) cls += " ab-range-sel";
                       const title =
                         cell.status === "AVAILABLE"
                           ? s.cellAvailable
@@ -584,6 +795,8 @@ export default function AvailabilityBoardClient({
                           data-ab-cell
                           className={cls}
                           title={title}
+                          onPointerDown={(e) => onCellPointerDown(e, row, idx, cell)}
+                          onPointerEnter={(e) => onCellPointerEnter(e, row.id, idx)}
                           onClick={(e) => onCellTap(e, row, c, cell)}
                         >
                           {cell.status === "ICAL" && (
@@ -688,6 +901,79 @@ export default function AvailabilityBoardClient({
           </div>
         </div>
       )}
+
+      {/* ===== 범위 잠금/해제 팝오버 (드래그 선택) ===== */}
+      {rangePop &&
+        (() => {
+          const { lockable, unlockable } = rangeCounts(rangePop);
+          const dayCount = rangePop.hi - rangePop.lo + 1;
+          const startLabel = fmtDateDow(columns[rangePop.lo].iso, s.weekdays);
+          const endLabel = fmtDateDow(columns[rangePop.hi].iso, s.weekdays);
+          return (
+            <div
+              ref={rangePopRef}
+              className="fixed z-[60] w-72 rounded-xl border border-slate-700 bg-admin-card p-4 shadow-2xl"
+              style={{ left: rangePop.x, top: rangePop.y }}
+            >
+              <div className="mb-1 flex items-center justify-between">
+                <p className="truncate text-xs font-medium text-slate-400">{rangePop.villaName}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (rangePending) return;
+                    setRangePop(null);
+                    setRangeError(false);
+                  }}
+                  className="text-slate-500 hover:text-white"
+                  aria-label={s.popClose}
+                >
+                  <span className="material-symbols-outlined text-sm">close</span>
+                </button>
+              </div>
+              <p className="mb-0.5 text-sm font-black tabular-nums text-white">
+                {s.rangeDateRange.replace("{start}", startLabel).replace("{end}", endLabel)}
+              </p>
+              <p className="mb-2 text-xs font-bold text-admin-primary">
+                {s.rangeDays.replace("{n}", String(dayCount))}
+              </p>
+              <p className="mb-3 text-xs text-slate-400">
+                {s.rangeSummary
+                  .replace("{lockable}", String(lockable))
+                  .replace("{unlockable}", String(unlockable))}
+              </p>
+              {rangeError && (
+                <p className="mb-3 rounded-lg bg-red-500/10 p-2.5 text-xs font-medium text-red-400">
+                  {s.rangeError}
+                </p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={rangePending || lockable === 0}
+                  onClick={() => submitRange("lock")}
+                  className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-slate-600 py-2.5 text-sm font-bold text-white transition hover:bg-slate-500 disabled:opacity-40"
+                >
+                  <span className="material-symbols-outlined text-[16px]">lock</span>
+                  {rangePending
+                    ? s.rangeProcessing
+                    : s.rangeLock.replace("{n}", String(lockable))}
+                </button>
+                <button
+                  type="button"
+                  disabled={rangePending || unlockable === 0}
+                  onClick={() => submitRange("unlock")}
+                  className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-slate-700 disabled:opacity-40"
+                >
+                  <span className="material-symbols-outlined text-[16px]">lock_open</span>
+                  {rangePending
+                    ? s.rangeProcessing
+                    : s.rangeUnlock.replace("{n}", String(unlockable))}
+                </button>
+              </div>
+              <p className="mt-2.5 text-[10px] leading-relaxed text-slate-500">{s.rangeHint}</p>
+            </div>
+          );
+        })()}
     </>
   );
 }

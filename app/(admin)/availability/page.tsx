@@ -62,14 +62,22 @@ export default async function AvailabilityPage({
 
   const todayStr = todayVnDateString();
   const defaultMonth = todayStr.slice(0, 7);
-  const startMonth = normalizeMonth(params.startMonth) ?? defaultMonth;
+  // 과거 기간 URL 진입 방지 — startMonth 가 현재월보다 과거면 현재월로 클램프
+  const rawStartMonth = normalizeMonth(params.startMonth) ?? defaultMonth;
+  const startMonth = rawStartMonth < defaultMonth ? defaultMonth : rawStartMonth;
   const area = params.area?.trim() || undefined;
   const search = params.search?.trim() || undefined;
   const needCheckOnly = params.needCheck === "1";
 
   // 지역(area) 옵션 = 운영 대상 빌라의 complex distinct (재고 비공개 — 운영 대상만)
   const [board, complexRows] = await Promise.all([
-    getAvailabilityBoard(prisma, { startMonth, monthCount: MONTH_COUNT, area, search }),
+    getAvailabilityBoard(prisma, {
+      startMonth,
+      monthCount: MONTH_COUNT,
+      area,
+      search,
+      minDate: todayStr, // 과거 컬럼 제거 (BE 클램프, columns·days 인덱스 1:1 유지)
+    }),
     prisma.villa.findMany({
       where: {
         status: { in: [VillaStatus.ACTIVE, VillaStatus.INACTIVE] },
@@ -193,6 +201,14 @@ export default async function AvailabilityPage({
     icalTitle: t("icalPopover.title"),
     icalDesc: t("icalPopover.desc"),
     icalInfo: t("icalPopover.info"),
+    rangeDays: t("rangePopover.days", { n: "{n}" }),
+    rangeDateRange: t("rangePopover.dateRange", { start: "{start}", end: "{end}" }),
+    rangeSummary: t("rangePopover.summary", { lockable: "{lockable}", unlockable: "{unlockable}" }),
+    rangeLock: t("rangePopover.lock", { n: "{n}" }),
+    rangeUnlock: t("rangePopover.unlock", { n: "{n}" }),
+    rangeHint: t("rangePopover.hint"),
+    rangeProcessing: t("rangePopover.processing"),
+    rangeError: t("rangePopover.error"),
   };
 
   return (
@@ -217,7 +233,7 @@ export default async function AvailabilityPage({
         rows={rows}
         areaOptions={areaOptions}
         startMonth={startMonth}
-        prevMonth={shiftMonth(startMonth, -MONTH_COUNT)}
+        prevMonth={startMonth > defaultMonth ? shiftMonth(startMonth, -MONTH_COUNT) : null}
         nextMonth={shiftMonth(startMonth, MONTH_COUNT)}
         thisMonth={defaultMonth}
         periodLabel={periodLabel}

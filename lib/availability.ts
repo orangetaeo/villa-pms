@@ -263,6 +263,13 @@ export interface GetAvailabilityBoardParams {
   area?: string;
   /** 빌라명 부분일치 검색 (선택, 대소문자 무시) */
   search?: string;
+  /**
+   * 과거 컬럼 클램프 "YYYY-MM-DD" (선택, 보통 todayVnDateString()).
+   * 주어지면 columns(및 각 빌라 days) 생성 시작을 max(기간시작, minDate) 로 클램프해
+   * 그 이전(과거) 날짜 컬럼은 아예 생성하지 않는다 (columns·days 인덱스 1:1 유지).
+   * 미지정 시 기존 동작(기간 시작부터) — 하위호환.
+   */
+  minDate?: string;
 }
 
 /** "YYYY-MM" → 해당 월 1일 UTC 자정. 무효 형식이면 null */
@@ -303,14 +310,25 @@ export async function getAvailabilityBoard(
   if (!Number.isInteger(monthCount) || monthCount < 1 || monthCount > 12) {
     throw new RangeError(`monthCount는 1~12 정수여야 합니다: ${params.monthCount}`);
   }
-  const start = parseMonthStart(params.startMonth);
-  if (!start) {
+  const monthStart = parseMonthStart(params.startMonth);
+  if (!monthStart) {
     throw new RangeError(`startMonth 형식 오류(YYYY-MM): ${params.startMonth}`);
   }
   // (startMonth + monthCount)월 1일 — UTC 월 산술
   const end = new Date(
-    Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + monthCount, 1)
+    Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + monthCount, 1)
   );
+
+  // 과거 컬럼 클램프 — minDate 가 주어지면 max(기간시작, minDate) 로 시작을 당긴다.
+  // minDate >= end 이면 컬럼이 비고(과거 전체), days 도 빈 배열이 되어 인덱스 정렬 유지.
+  let start = monthStart;
+  if (params.minDate) {
+    const min = parseUtcDateOnly(params.minDate);
+    if (!min) {
+      throw new RangeError(`minDate 형식 오류(YYYY-MM-DD): ${params.minDate}`);
+    }
+    if (min.getTime() > start.getTime()) start = min;
+  }
 
   const columns = buildDateColumns(start, end);
   // 날짜 → 컬럼 인덱스 매핑 (블록 전개 시 O(1) 채움)

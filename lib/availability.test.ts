@@ -4,8 +4,10 @@ import {
   OCCUPYING_BOOKING_STATUSES,
   assertValidStayRange,
   evaluateAvailability,
+  getAvailabilityBoard,
   overlapsHalfOpen,
 } from "./availability";
+import type { DbClient } from "./availability";
 
 /** @db.Date 규약과 동일하게 UTC 자정 Date 생성 */
 const d = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
@@ -107,6 +109,59 @@ describe("evaluateAvailability — SPEC F2 판정식", () => {
     );
     expect(r.available).toBe(false);
     expect(r.sellable).toBe(false);
+  });
+});
+
+describe("getAvailabilityBoard — minDate 과거 컬럼 클램프", () => {
+  // getAvailabilityBoard 는 db.villa.findMany / db.calendarBlock.findMany 만 호출.
+  // 그 둘만 구현한 최소 스텁으로 컬럼/days 생성 로직(순수)을 검증한다 (실 DB 불필요).
+  const stubDb = (villas: { id: string; name: string }[]): DbClient =>
+    ({
+      villa: {
+        findMany: async () =>
+          villas.map((v) => ({
+            ...v,
+            complex: null,
+            availabilityCheckedAt: null,
+          })),
+      },
+      calendarBlock: {
+        findMany: async () => [],
+      },
+    }) as unknown as DbClient;
+
+  it("minDate 미지정 시 기간 시작(월 1일)부터 컬럼 생성 (하위호환)", async () => {
+    const board = await getAvailabilityBoard(stubDb([{ id: "v1", name: "A" }]), {
+      startMonth: "2026-07",
+      monthCount: 1,
+    });
+    expect(board.startDate).toBe("2026-07-01");
+    expect(board.columns[0]).toBe("2026-07-01");
+    expect(board.columns).toHaveLength(31); // 7월 31일
+    expect(board.villas[0].days).toHaveLength(31); // days 인덱스 1:1
+  });
+
+  it("minDate 가 기간 시작 이후면 그 날짜로 컬럼 시작 클램프 + days 길이 일치", async () => {
+    const board = await getAvailabilityBoard(stubDb([{ id: "v1", name: "A" }]), {
+      startMonth: "2026-07",
+      monthCount: 1,
+      minDate: "2026-07-10",
+    });
+    expect(board.startDate).toBe("2026-07-10");
+    expect(board.columns[0]).toBe("2026-07-10");
+    expect(board.columns).toHaveLength(22); // 7/10 ~ 7/31 = 22일
+    expect(board.villas[0].days).toHaveLength(22); // columns 와 동일
+    expect(board.columns).not.toContain("2026-07-09"); // 과거 컬럼 미생성
+  });
+
+  it("minDate 가 기간 시작 이전이면 클램프 없음 (기간 시작 유지)", async () => {
+    const board = await getAvailabilityBoard(stubDb([{ id: "v1", name: "A" }]), {
+      startMonth: "2026-07",
+      monthCount: 1,
+      minDate: "2026-06-01",
+    });
+    expect(board.startDate).toBe("2026-07-01");
+    expect(board.columns).toHaveLength(31);
   });
 });
 
