@@ -1884,8 +1884,16 @@ function Composer({
           </button>
         </div>
       )}
-      <div className="bg-slate-800/60 border border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors">
-        <div className="flex items-center gap-1.5 px-2.5 pt-3">
+      {/* 입력 박스 — 빈 영역(패딩·우측 여백) 탭도 입력창 포커스(Zalo식). 버튼 탭은 제외. */}
+      <div
+        className="bg-slate-800/60 border border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors cursor-text"
+        onClick={(e) => {
+          if (!(e.target as HTMLElement).closest("button, a, [role='button']")) {
+            inputRef.current?.focus();
+          }
+        }}
+      >
+        <div className="flex items-end gap-1.5 px-2.5 py-2.5">
           <AttachMenu
             conversationId={conversationId}
             counterpartyType={counterpartyType}
@@ -1914,7 +1922,7 @@ function Composer({
               }
             }}
             placeholder={t("inputPlaceholder")}
-            className="flex-1 min-w-0 bg-transparent border-none focus:ring-0 text-base lg:text-sm text-slate-100 placeholder:text-slate-500 p-0 resize-none overflow-y-auto leading-relaxed"
+            className="flex-1 min-w-0 bg-transparent border-none focus:ring-0 text-base lg:text-sm text-slate-100 placeholder:text-slate-500 px-0 py-2 resize-none overflow-y-auto leading-relaxed"
           />
           {/* 음성 입력 — 마이크 탭: 녹음 시작/중단 → 서버 STT → 입력창 채움(iOS 포함). 지원 기기만 노출. */}
           {recSupported && (
