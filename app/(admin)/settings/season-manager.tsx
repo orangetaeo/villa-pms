@@ -5,7 +5,7 @@
 // 겹침(overlaps)은 차단이 아닌 경고 — PEAK > HIGH > LOW 우선 규칙 안내만 표시
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -51,6 +51,16 @@ const inputClass =
 
 export default function SeasonManager({ periods }: { periods: SeasonRow[] }) {
   const t = useTranslations("adminSettings.seasons");
+  const locale = useLocale();
+
+  // 네이티브 date 입력칸 어디를 눌러도 달력이 열리도록
+  const openDatePicker = (e: React.MouseEvent<HTMLInputElement>) => {
+    try {
+      e.currentTarget.showPicker?.();
+    } catch {
+      // showPicker 미지원·비활성 컨텍스트는 무시
+    }
+  };
   const router = useRouter();
   // null = 폼 닫힘, "new" = 추가, 그 외 = 수정 대상 id
   const [editing, setEditing] = useState<string | null>(null);
@@ -250,13 +260,25 @@ export default function SeasonManager({ periods }: { periods: SeasonRow[] }) {
               <span className="block text-xs font-medium text-slate-400 mb-1.5">
                 {t("form.startDate")}
               </span>
-              <input type="date" {...register("startDate")} className={inputClass} />
+              <input
+                type="date"
+                lang={locale}
+                onClick={openDatePicker}
+                {...register("startDate")}
+                className={`${inputClass} cursor-pointer`}
+              />
             </label>
             <label className="block">
               <span className="block text-xs font-medium text-slate-400 mb-1.5">
                 {t("form.endDate")}
               </span>
-              <input type="date" {...register("endDate")} className={inputClass} />
+              <input
+                type="date"
+                lang={locale}
+                onClick={openDatePicker}
+                {...register("endDate")}
+                className={`${inputClass} cursor-pointer`}
+              />
             </label>
             <label className="block">
               <span className="block text-xs font-medium text-slate-400 mb-1.5">

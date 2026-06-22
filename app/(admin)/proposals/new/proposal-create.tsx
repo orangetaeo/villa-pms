@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -52,7 +52,17 @@ function nightsBetween(checkIn: string, checkOut: string): number {
 
 export default function ProposalCreate() {
   const t = useTranslations("adminProposals.create");
+  const locale = useLocale();
   const router = useRouter();
+
+  // 네이티브 date 입력칸 어디를 눌러도 달력이 열리도록 (아이콘 외 영역 클릭 포함)
+  const openDatePicker = (e: React.MouseEvent<HTMLInputElement>) => {
+    try {
+      e.currentTarget.showPicker?.();
+    } catch {
+      // showPicker 미지원·비활성 컨텍스트는 무시(기본 동작 유지)
+    }
+  };
 
   const formSchema = useMemo(
     () =>
@@ -289,8 +299,10 @@ export default function ProposalCreate() {
                 <input
                   id="proposal-check-in"
                   type="date"
+                  lang={locale}
+                  onClick={openDatePicker}
                   {...register("checkIn")}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-100 tabular-nums [color-scheme:dark]"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-100 tabular-nums [color-scheme:dark] cursor-pointer"
                 />
               </div>
               <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
@@ -306,8 +318,10 @@ export default function ProposalCreate() {
                 <input
                   id="proposal-check-out"
                   type="date"
+                  lang={locale}
+                  onClick={openDatePicker}
                   {...register("checkOut")}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-100 tabular-nums [color-scheme:dark]"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-100 tabular-nums [color-scheme:dark] cursor-pointer"
                 />
               </div>
               {(errors.checkIn || errors.checkOut) && (
