@@ -1322,13 +1322,31 @@ async function maybeRefreshGroupMembers(
     if (!info) return;
 
     // 멤버 스냅샷 — 공개 프로필(zaloId·이름·아바타)만. 누수 무관.
-    const members = Array.isArray(info.currentMems)
+    // 1순위: getGroupInfo.currentMems(프로필 동봉). 단 실관측상 비어 오는 그룹이 있음(테스트 그룹 BBBBB 등).
+    let members = Array.isArray(info.currentMems)
       ? info.currentMems.map((m) => ({
           zaloId: m.id,
           name: m.dName || m.zaloName || "",
           avatarUrl: m.avatar || null,
         }))
       : [];
+    // 2순위(폴백): currentMems가 비면 memberIds(전체 멤버 id)로 getGroupMembersInfo 프로필 조회.
+    //   getGroupInfo는 멤버 id 목록만 주고 프로필은 별도 API로 받아야 하는 그룹이 있다(R14 해소).
+    //   안전 상한 200(대형 그룹 페이로드·레이트리밋 보호). 실패는 그룹명만 저장하고 스킵(폴백 유지).
+    if (members.length === 0 && Array.isArray(info.memberIds) && info.memberIds.length > 0) {
+      try {
+        const ids = info.memberIds.slice(0, 200);
+        const mres = await api.getGroupMembersInfo(ids);
+        const profiles = mres?.profiles ?? {};
+        members = Object.values(profiles).map((pf) => ({
+          zaloId: pf.id,
+          name: pf.displayName || pf.zaloName || "",
+          avatarUrl: pf.avatar || null,
+        }));
+      } catch {
+        /* 멤버 프로필 조회 실패 — 그룹명만 저장, 멤버는 다음 메시지에 재시도(폴백 senderUid 유지) */
+      }
+    }
     const groupName =
       typeof info.name === "string" && info.name.trim().length > 0 ? info.name : null;
 
