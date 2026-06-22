@@ -432,7 +432,7 @@ export default async function MessagesPage({
   }
 
   return (
-    <div className="-m-4 md:-m-8 h-[calc(100vh-3.5rem)] lg:h-screen flex overflow-x-hidden">
+    <div className="-m-4 md:-m-8 h-[calc(100vh-3.5rem)] lg:h-screen flex">
       <AutoRefresh />
       {/* 인박스|채팅 리사이즈 분할 — 데스크톱에서 구분선 드래그로 좌측 너비 조절(너비 localStorage 저장) */}
       <ResizableSplit
