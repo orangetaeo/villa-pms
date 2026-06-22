@@ -760,10 +760,10 @@ function MessageActions({
   }
 
   return (
-    // 데스크톱(호버 가능): 평소 숨김 → 메시지 호버 시 노출(기존 UX 유지).
-    // 터치 기기(pointer: coarse): 호버가 없으므로 상시 노출 — 답글·리액션 접근성 확보.
+    // PC·모바일 모두 상시 노출(평소 약간 흐림 → 호버 시 진하게). 호버 의존 시
+    // 기능 존재를 모르는 문제 해결. 색 대비도 높여 어두운 배경에서 잘 보이게.
     <div
-      className={`relative flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100 transition-opacity ${
+      className={`relative flex items-center gap-0.5 opacity-80 hover:opacity-100 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ${
         align === "right" ? "flex-row-reverse" : ""
       }`}
     >
@@ -774,7 +774,7 @@ function MessageActions({
         disabled={busy}
         title={t("reply.action")}
         aria-label={t("reply.action")}
-        className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center transition-colors disabled:opacity-50"
+        className="w-7 h-7 rounded-full bg-slate-700 hover:bg-blue-600 text-slate-200 hover:text-white border border-slate-600 flex items-center justify-center transition-colors disabled:opacity-50"
       >
         <span className="material-symbols-outlined text-[16px]">reply</span>
       </button>
@@ -785,7 +785,7 @@ function MessageActions({
         disabled={busy}
         title={t("react.action")}
         aria-label={t("react.action")}
-        className="w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 flex items-center justify-center transition-colors disabled:opacity-50"
+        className="w-7 h-7 rounded-full bg-slate-700 hover:bg-blue-600 text-slate-200 hover:text-white border border-slate-600 flex items-center justify-center transition-colors disabled:opacity-50"
       >
         <span className="material-symbols-outlined text-[16px]">add_reaction</span>
       </button>
