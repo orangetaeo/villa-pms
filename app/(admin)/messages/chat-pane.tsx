@@ -167,6 +167,29 @@ export function ChatPane({
   // 대화 전환 시 자동 해제(아래 effect). 미리보기엔 보낸이·본문 스냅샷만 보관.
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
 
+  // ── 액션 버튼 가시성 (PC=호버 / 모바일=탭 토글) ──
+  // 평소 숨김. PC는 group-hover로 표시(CSS). 터치 기기는 호버가 없으므로 버블을 탭하면
+  // 해당 메시지 id를 활성화해 그 메시지의 액션만 표시(토글). null이면 모두 숨김.
+  const [activeActionMessageId, setActiveActionMessageId] = useState<string | null>(null);
+  // 터치(호버 불가) 기기 여부 — pointer:coarse 또는 hover:none. 탭 토글은 이때만 동작.
+  const [isTouch, setIsTouch] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(pointer: coarse), (hover: none)");
+    const apply = () => setIsTouch(mq.matches);
+    apply();
+    mq.addEventListener?.("change", apply);
+    return () => mq.removeEventListener?.("change", apply);
+  }, []);
+  // 버블 탭 토글 — 터치 기기에서만 활성 메시지 id 토글(같은 버블 재탭 시 해제).
+  const toggleActionMessage = useCallback(
+    (id: string) => {
+      if (!isTouch) return;
+      setActiveActionMessageId((cur) => (cur === id ? null : id));
+    },
+    [isTouch],
+  );
+
   // ── 라이트박스 (채팅 이미지 확대) ──
   const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
   const openLightbox = useCallback((urls: string[], startIndex: number) => {
@@ -275,9 +298,10 @@ export function ChatPane({
       });
   }, [conversationId, hasUnread, router]);
 
-  // 대화 전환 시 답글 대상 해제 — 다른 대화에 엉뚱한 인용이 남지 않도록.
+  // 대화 전환 시 답글 대상·활성 액션 해제 — 다른 대화에 엉뚱한 인용/액션이 남지 않도록.
   useEffect(() => {
     setReplyTarget(null);
+    setActiveActionMessageId(null);
   }, [conversationId]);
 
   if (!conversationId || !header) {
@@ -320,6 +344,8 @@ export function ChatPane({
                   conversationId={conversationId}
                   contactName={header.name}
                   onReply={setReplyTarget}
+                  actionsActive={activeActionMessageId === m.id}
+                  onBubbleTap={toggleActionMessage}
                   t={t}
                   router={router}
                 />
@@ -611,6 +637,8 @@ function MessageBubble({
   conversationId,
   contactName,
   onReply,
+  actionsActive,
+  onBubbleTap,
   t,
   router,
 }: {
@@ -618,6 +646,8 @@ function MessageBubble({
   conversationId: string;
   contactName: string;
   onReply: (target: ReplyTarget) => void;
+  actionsActive: boolean;
+  onBubbleTap: (id: string) => void;
   t: ReturnType<typeof useTranslations>;
   router: ReturnType<typeof useRouter>;
 }) {
@@ -637,6 +667,8 @@ function MessageBubble({
           conversationId={conversationId}
           contactName={contactName}
           onReply={onReply}
+          actionsActive={actionsActive}
+          onBubbleTap={onBubbleTap}
           t={t}
           router={router}
         />
@@ -647,6 +679,8 @@ function MessageBubble({
           conversationId={conversationId}
           contactName={contactName}
           onReply={onReply}
+          actionsActive={actionsActive}
+          onBubbleTap={onBubbleTap}
           t={t}
           router={router}
         />
@@ -703,12 +737,15 @@ function QuotedBlock({
   return <div className={base}>{inner}</div>;
 }
 
-/** 메시지 hover 액션(답글·리액션) — 버블 옆 작은 버튼군. 리액션은 6종 picker. */
+/** 메시지 액션(답글·리액션) — 버블 옆 작은 버튼군. 리액션은 6종 picker.
+ *  가시성: 평소 숨김. PC=버블 호버 시(group-hover)·포커스 시(focus-within),
+ *  모바일=버블 탭으로 active=true일 때. picker가 열려 있으면 계속 표시. 색 대비는 유지. */
 function MessageActions({
   conversationId,
   messageId,
   replyTarget,
   align,
+  active,
   onReply,
   t,
   router,
@@ -717,6 +754,7 @@ function MessageActions({
   messageId: string;
   replyTarget: ReplyTarget;
   align: "left" | "right";
+  active: boolean;
   onReply: (target: ReplyTarget) => void;
   t: ReturnType<typeof useTranslations>;
   router: ReturnType<typeof useRouter>;
@@ -759,13 +797,14 @@ function MessageActions({
     }
   }
 
+  // 평소 숨김(opacity-0). PC는 group-hover/focus-within으로 표시(CSS).
+  // 모바일은 버블 탭으로 active=true일 때, 그리고 picker가 열려 있으면 항상 표시.
+  const forceShow = active || pickerOpen;
   return (
-    // PC·모바일 모두 상시 노출(평소 약간 흐림 → 호버 시 진하게). 호버 의존 시
-    // 기능 존재를 모르는 문제 해결. 색 대비도 높여 어두운 배경에서 잘 보이게.
     <div
-      className={`relative flex items-center gap-0.5 opacity-80 hover:opacity-100 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ${
-        align === "right" ? "flex-row-reverse" : ""
-      }`}
+      className={`relative flex items-center gap-0.5 transition-opacity group-hover:opacity-100 focus-within:opacity-100 ${
+        forceShow ? "opacity-100" : "opacity-0"
+      } ${align === "right" ? "flex-row-reverse" : ""}`}
     >
       {/* 답글 */}
       <button
@@ -908,6 +947,8 @@ function InboundBubble({
   conversationId,
   contactName,
   onReply,
+  actionsActive,
+  onBubbleTap,
   t,
   router,
 }: {
@@ -915,6 +956,8 @@ function InboundBubble({
   conversationId: string;
   contactName: string;
   onReply: (target: ReplyTarget) => void;
+  actionsActive: boolean;
+  onBubbleTap: (id: string) => void;
   t: ReturnType<typeof useTranslations>;
   router: ReturnType<typeof useRouter>;
 }) {
@@ -929,6 +972,7 @@ function InboundBubble({
   return (
     <div
       data-msg-id={message.zaloMsgId ?? undefined}
+      onClick={() => onBubbleTap(message.id)}
       className="group flex items-end gap-2 max-w-[80%] transition-shadow"
     >
       <InboundAvatar message={message} />
@@ -999,6 +1043,7 @@ function InboundBubble({
             messageId={message.id}
             replyTarget={replyTarget}
             align="left"
+            active={actionsActive}
             onReply={onReply}
             t={t}
             router={router}
@@ -1015,6 +1060,8 @@ function OutboundBubble({
   conversationId,
   contactName,
   onReply,
+  actionsActive,
+  onBubbleTap,
   t,
   router,
 }: {
@@ -1022,6 +1069,8 @@ function OutboundBubble({
   conversationId: string;
   contactName: string;
   onReply: (target: ReplyTarget) => void;
+  actionsActive: boolean;
+  onBubbleTap: (id: string) => void;
   t: ReturnType<typeof useTranslations>;
   router: ReturnType<typeof useRouter>;
 }) {
@@ -1113,6 +1162,7 @@ function OutboundBubble({
   return (
     <div
       data-msg-id={message.zaloMsgId ?? undefined}
+      onClick={() => onBubbleTap(message.id)}
       className="group flex justify-end transition-shadow"
     >
       <div className={`${maxW} text-right min-w-0`}>
@@ -1132,6 +1182,7 @@ function OutboundBubble({
             messageId={message.id}
             replyTarget={replyTarget}
             align="right"
+            active={actionsActive}
             onReply={onReply}
             t={t}
             router={router}
