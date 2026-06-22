@@ -13,6 +13,7 @@ import { useTranslations } from "next-intl";
 import type { CleaningStatus, CleaningType, PhotoSpace } from "@prisma/client";
 import { formatDateTime } from "@/lib/format";
 import QuickDateFilter from "@/components/admin/quick-date-filter";
+import ImageLightbox, { type LightboxImage } from "@/components/image-lightbox";
 
 export interface TaskListItem {
   id: string;
@@ -76,6 +77,7 @@ export default function InspectionsView({ tasks, selected, tab, counts, range }:
   const router = useRouter();
 
   const [busy, setBusy] = useState(false);
+  const [lightbox, setLightbox] = useState<number | null>(null);
   const [rejectMode, setRejectMode] = useState(false);
   const [rejectNote, setRejectNote] = useState("");
   const [message, setMessage] = useState<{ tone: "ok" | "gate" | "error"; text: string } | null>(
@@ -171,6 +173,22 @@ export default function InspectionsView({ tasks, selected, tab, counts, range }:
     const baseline = selected?.baselinePhotos[i];
     if (baseline) return baseline.spaceLabel ?? td(`spaces.${baseline.space}`);
     return td("extraPhoto", { n: i - (selected?.baselinePhotos.length ?? 0) + 1 });
+  };
+
+  // 라이트박스 이미지 목록 — 쌍별 기준→청소후 순서대로 평탄화 (클릭 시 해당 위치에서 확대)
+  const lightboxImages: LightboxImage[] = selected
+    ? Array.from({ length: pairCount }, (_, i) => {
+        const items: LightboxImage[] = [];
+        const baseline = selected.baselinePhotos[i];
+        const submittedUrl = selected.photoUrls[i];
+        if (baseline) items.push({ url: baseline.url, label: `${pairLabel(i)} · ${td("baseline")}` });
+        if (submittedUrl) items.push({ url: submittedUrl, label: `${pairLabel(i)} · ${td("after")}` });
+        return items;
+      }).flat()
+    : [];
+  const openLightbox = (url: string) => {
+    const idx = lightboxImages.findIndex((im) => im.url === url);
+    if (idx >= 0) setLightbox(idx);
   };
 
   // range는 모든 내부 링크에 보존 — 탭/행 전환 시 활성 날짜 필터 유지
@@ -376,7 +394,12 @@ export default function InspectionsView({ tasks, selected, tab, counts, range }:
                               <p className="text-[10px] text-[#E5E7EB] font-bold uppercase tracking-tight">
                                 {td("baseline")}
                               </p>
-                              <div className="aspect-video rounded overflow-hidden border border-admin-card relative bg-slate-800">
+                              <button
+                                type="button"
+                                onClick={() => openLightbox(baseline.url)}
+                                aria-label={`${pairLabel(i)} — ${td("baseline")}`}
+                                className="block w-full aspect-video rounded overflow-hidden border border-admin-card relative bg-slate-800 cursor-zoom-in"
+                              >
                                 <Image
                                   src={baseline.url}
                                   alt={`${pairLabel(i)} — ${td("baseline")}`}
@@ -384,7 +407,7 @@ export default function InspectionsView({ tasks, selected, tab, counts, range }:
                                   sizes="(max-width: 768px) 100vw, 33vw"
                                   className="object-cover"
                                 />
-                              </div>
+                              </button>
                             </div>
                           ) : (
                             <div className="space-y-2">
@@ -402,7 +425,12 @@ export default function InspectionsView({ tasks, selected, tab, counts, range }:
                               <p className="text-[10px] text-blue-400 font-bold uppercase tracking-tight">
                                 {td("after")}
                               </p>
-                              <div className="aspect-video rounded overflow-hidden border border-admin-primary/30 relative bg-slate-800">
+                              <button
+                                type="button"
+                                onClick={() => openLightbox(submittedUrl)}
+                                aria-label={`${pairLabel(i)} — ${td("after")}`}
+                                className="block w-full aspect-video rounded overflow-hidden border border-admin-primary/30 relative bg-slate-800 cursor-zoom-in"
+                              >
                                 <Image
                                   src={submittedUrl}
                                   alt={`${pairLabel(i)} — ${td("after")}`}
@@ -410,7 +438,7 @@ export default function InspectionsView({ tasks, selected, tab, counts, range }:
                                   sizes="(max-width: 768px) 100vw, 33vw"
                                   className="object-cover"
                                 />
-                              </div>
+                              </button>
                             </div>
                           ) : (
                             <div className="space-y-2">
@@ -525,6 +553,8 @@ export default function InspectionsView({ tasks, selected, tab, counts, range }:
           )}
         </section>
       </div>
+
+      <ImageLightbox images={lightboxImages} index={lightbox} onIndexChange={setLightbox} />
     </div>
   );
 }
