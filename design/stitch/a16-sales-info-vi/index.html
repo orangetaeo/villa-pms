@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=390, initial-scale=1.0" name="viewport"/>
+<title>Thông tin bán hàng - Villa PMS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#0D9488",
+                        secondary: "#F59E0B",
+                        surface: "#FFFFFF"
+                    },
+                    borderRadius: { "DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px" },
+                    fontFamily: {
+                        headline: ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"],
+                        body: ["Be Vietnam Pro", "Noto Sans KR", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Be Vietnam Pro', 'Noto Sans KR', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            background-color: #F8FAFC;
+            word-break: keep-all;
+            -webkit-font-smoothing: antialiased;
+        }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+        th, button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        body { min-height: max(884px, 100dvh); }
+        .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 24px); }
+    </style>
+</head>
+<body class="antialiased text-slate-900">
+<!-- TopAppBar (a-series supplier standard) -->
+<header class="fixed top-0 left-0 w-full z-50 flex items-center px-4 h-14 bg-white border-b border-gray-100 shadow-sm">
+<button class="w-10 h-10 flex items-center justify-center rounded-full active:scale-95 transition-transform hover:bg-gray-50">
+<span class="material-symbols-outlined text-teal-600">arrow_back</span>
+</button>
+<h1 class="flex-1 text-center font-headline font-semibold text-lg text-teal-600">Villa Sonasea V12</h1>
+<span class="w-10 h-10"></span>
+</header>
+
+<main class="pt-14 max-w-[390px] mx-auto min-h-screen">
+
+<!-- ───────────────────────────────────────────────────────────
+     컨텍스트: 이 화면은 공급자 /my-villas/[id] 상세의 기존 섹션
+     (기본정보·사진·비품요약·원가) "아래에 붙는" 읽기전용 판매정보 섹션.
+     상단의 회색 섹션 4개는 기존 화면(a10) 재현 — 변환 시엔 그대로 두고
+     아래 "Thông tin bán hàng" 카드만 신규 추가한다.
+     ─────────────────────────────────────────────────────────── -->
+
+<div class="px-4 pt-4">
+<p class="text-[10px] font-bold text-slate-300 uppercase tracking-widest text-center">↓ Mục mới · gắn dưới các mục có sẵn (a10)</p>
+</div>
+
+<!-- 기존 섹션 미니 재현 (맥락용 — 변환 시 a10 그대로) -->
+<div class="flex flex-col gap-2 px-4 pt-3">
+<div class="w-full bg-white p-3 rounded-xl shadow-sm flex items-center gap-3 border border-slate-100 opacity-60">
+<div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-400"><span class="material-symbols-outlined text-[20px]">info</span></div>
+<div class="flex-1"><h3 class="font-semibold text-slate-500 text-sm">Thông tin cơ bản · Hình ảnh · Tiện nghi · Giá gốc</h3><p class="text-xs text-slate-400">(các mục có sẵn)</p></div>
+<span class="material-symbols-outlined text-slate-300">chevron_right</span>
+</div>
+</div>
+
+<!-- ════════════ 신규: 판매정보 섹션 (읽기 전용) ════════════ -->
+<section class="px-4 pt-4 pb-28">
+
+<!-- 섹션 헤더 -->
+<div class="flex items-center justify-between mb-3 px-1">
+<h2 class="font-headline font-bold text-base text-slate-800 flex items-center gap-2">
+<span class="material-symbols-outlined text-teal-600" style="font-variation-settings:'FILL' 1;">sell</span>
+Thông tin bán hàng
+</h2>
+<span class="flex items-center gap-1 text-[11px] font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">
+<span class="material-symbols-outlined text-[14px]">lock</span>Chỉ xem
+</span>
+</div>
+
+<article class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+<div class="p-4 space-y-4">
+
+<!-- ⑤ 셀링포인트 태그 띠 -->
+<div>
+<div class="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1 pb-1">
+<span class="shrink-0 text-[12px] font-semibold bg-teal-600 text-white px-3 py-2 rounded-full flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px]" style="font-variation-settings:'FILL' 1;">waves</span>View biển</span>
+<span class="shrink-0 text-[12px] font-semibold bg-teal-50 text-teal-700 px-3 py-2 rounded-full flex items-center gap-1.5 border border-teal-100"><span class="material-symbols-outlined text-[16px]">beach_access</span>Sát biển</span>
+<span class="shrink-0 text-[12px] font-semibold bg-teal-50 text-teal-700 px-3 py-2 rounded-full flex items-center gap-1.5 border border-teal-100"><span class="material-symbols-outlined text-[16px]">pool</span>Hồ bơi riêng</span>
+<span class="shrink-0 text-[12px] font-semibold bg-teal-50 text-teal-700 px-3 py-2 rounded-full flex items-center gap-1.5 border border-teal-100"><span class="material-symbols-outlined text-[16px]">outdoor_grill</span>BBQ</span>
+<span class="shrink-0 text-[12px] font-semibold bg-teal-50 text-teal-700 px-3 py-2 rounded-full flex items-center gap-1.5 border border-teal-100"><span class="material-symbols-outlined text-[16px]">bolt</span>Máy phát điện</span>
+</div>
+</div>
+
+<!-- ② 잠자리 구성 -->
+<section class="rounded-xl bg-slate-50 border border-slate-100 p-4">
+<div class="flex items-center justify-between mb-3">
+<h4 class="text-sm font-bold text-slate-800 flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px] text-teal-600">king_bed</span>Phòng ngủ &amp; giường</h4>
+<span class="text-[12px] font-bold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-full flex items-center gap-1 border border-teal-100"><span class="material-symbols-outlined text-[14px]">group</span>Tối đa 8 khách</span>
+</div>
+<div class="flex items-center gap-2 flex-wrap mb-3">
+<span class="text-[12px] font-semibold bg-white border border-slate-200 px-2.5 py-1.5 rounded-md text-slate-700">3 phòng ngủ</span>
+<span class="text-slate-300">·</span>
+<span class="text-[12px] font-medium bg-white border border-slate-200 px-2.5 py-1.5 rounded-md text-slate-700 flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">king_bed</span>King 2</span>
+<span class="text-[12px] font-medium bg-white border border-slate-200 px-2.5 py-1.5 rounded-md text-slate-700 flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">bed</span>Queen 1</span>
+<span class="text-[12px] font-medium bg-white border border-slate-200 px-2.5 py-1.5 rounded-md text-slate-700 flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">single_bed</span>Đơn 2</span>
+</div>
+<div class="flex items-center gap-1.5 text-[12px] text-teal-700 font-medium"><span class="material-symbols-outlined text-[16px]">add_circle</span>Có thể thêm giường phụ</div>
+</section>
+
+<!-- ③ 위치 -->
+<section class="rounded-xl bg-slate-50 border border-slate-100 overflow-hidden">
+<a class="block relative h-28 group" href="#">
+<img class="w-full h-full object-cover" data-alt="Map thumbnail showing the villa location on the coast of Phu Quoc with a teal map pin." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtonj9WNJKKhZOCH6IwII_JUrmk6Q-JLMqWlTmNanytBPsJJwX3Pw_YyHlVdnlhk7eIBjHM51HWS_KJvqYU1YV8c-kS_-6ZwNhJraPfOyVUmCi5bGZz6hEcSXt3Asv-FMtvhYCeTRT1-EWziSGtVsiCuxlnBK0X1_ug4vidmebeLmX92t2-2PV-mTZP1v_7-R2hafUcWZv-jOjl8F2pmpqVQT4qRfz8wj-iUi9rY-Rbc5IfBB-NCU5MabS2waUmDoTNr4HKYFCCNSt"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+<span class="absolute top-2 right-2 bg-white/95 text-teal-700 text-[11px] font-bold px-2.5 py-1.5 rounded-full shadow-sm flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">map</span>Xem bản đồ</span>
+<div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white drop-shadow"><span class="material-symbols-outlined text-3xl" style="font-variation-settings:'FILL' 1;">location_on</span></div>
+</a>
+<div class="grid grid-cols-3 divide-x divide-slate-100 border-t border-slate-100">
+<div class="p-3 text-center">
+<span class="material-symbols-outlined text-teal-600 text-[20px]">beach_access</span>
+<p class="text-[11px] text-slate-400 mt-0.5">Ra biển</p>
+<p class="text-sm font-bold text-slate-800 tabular-nums">350m</p>
+</div>
+<div class="p-3 text-center">
+<span class="material-symbols-outlined text-teal-600 text-[20px]">square_foot</span>
+<p class="text-[11px] text-slate-400 mt-0.5">Diện tích</p>
+<p class="text-sm font-bold text-slate-800 tabular-nums">220㎡</p>
+</div>
+<div class="p-3 text-center">
+<span class="material-symbols-outlined text-teal-600 text-[20px]">stairs</span>
+<p class="text-[11px] text-slate-400 mt-0.5">Số tầng</p>
+<p class="text-sm font-bold text-slate-800 tabular-nums">2 tầng</p>
+</div>
+</div>
+</section>
+
+<!-- ④ 이용규칙 (와이파이 항목 없음 — §4.3 누수 차단) -->
+<section class="rounded-xl bg-slate-50 border border-slate-100 p-4">
+<h4 class="text-sm font-bold text-slate-800 flex items-center gap-1.5 mb-3"><span class="material-symbols-outlined text-[18px] text-teal-600">schedule</span>Quy định lưu trú</h4>
+<!-- 체크인/아웃 -->
+<div class="grid grid-cols-2 gap-3 mb-3">
+<div class="bg-white rounded-lg border border-slate-100 p-3 text-center">
+<p class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><span class="material-symbols-outlined text-[14px] text-teal-600">login</span>Nhận phòng</p>
+<p class="text-base font-bold text-slate-800 tabular-nums mt-0.5">14:00</p>
+</div>
+<div class="bg-white rounded-lg border border-slate-100 p-3 text-center">
+<p class="text-[11px] text-slate-400 flex items-center justify-center gap-1"><span class="material-symbols-outlined text-[14px] text-teal-600">logout</span>Trả phòng</p>
+<p class="text-base font-bold text-slate-800 tabular-nums mt-0.5">11:00</p>
+</div>
+</div>
+<!-- 규칙 아이콘 행 (on/off 상태 — 아이콘 중심, 텍스트 최소) -->
+<div class="grid grid-cols-4 gap-2 mb-3">
+<div class="flex flex-col items-center gap-1 bg-white rounded-lg border border-slate-100 py-3">
+<span class="material-symbols-outlined text-[22px] text-slate-300">smoking_rooms</span>
+<span class="text-[11px] text-slate-400">Cấm hút</span>
+</div>
+<div class="flex flex-col items-center gap-1 bg-white rounded-lg border border-teal-100 py-3">
+<span class="material-symbols-outlined text-[22px] text-teal-600">pets</span>
+<span class="text-[11px] font-semibold text-teal-700">Thú cưng</span>
+</div>
+<div class="flex flex-col items-center gap-1 bg-white rounded-lg border border-slate-100 py-3">
+<span class="material-symbols-outlined text-[22px] text-slate-300">celebration</span>
+<span class="text-[11px] text-slate-400">Cấm tiệc</span>
+</div>
+<div class="flex flex-col items-center gap-1 bg-white rounded-lg border border-teal-100 py-3">
+<span class="material-symbols-outlined text-[22px] text-teal-600">local_parking</span>
+<span class="text-[11px] font-semibold text-teal-700">Đỗ 2 xe</span>
+</div>
+</div>
+<!-- 기준 보증금 (KRW 아님 — VND 현지 보증금만, 마진/판매가 절대 없음) -->
+<div class="flex items-start gap-2 bg-white rounded-lg border border-slate-100 p-3">
+<span class="material-symbols-outlined text-[18px] text-teal-600 mt-0.5">account_balance_wallet</span>
+<div>
+<p class="text-[12px] font-semibold text-slate-800">Tiền đặt cọc tại villa</p>
+<p class="text-[11px] text-slate-500 leading-relaxed mt-0.5">Khi nhận phòng có thể yêu cầu cọc <span class="font-bold text-slate-700 tabular-nums">5.000.000₫</span>, hoàn lại sau khi kiểm tra trả phòng.</p>
+</div>
+</div>
+</section>
+
+<!-- 읽기전용 안내 (작게) -->
+<div class="flex items-center gap-2 px-1 pt-1">
+<span class="material-symbols-outlined text-slate-400 text-[16px]">info</span>
+<p class="text-[11px] text-slate-400 leading-snug">Thông tin này do quản lý nhập. Cần sửa, vui lòng báo quản lý.</p>
+</div>
+
+</div>
+</article>
+
+<!-- ⚠ 누수 확인 노트 (디자인 참고용 — 변환 시 미렌더) -->
+<div class="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-3 flex items-start gap-2">
+<span class="material-symbols-outlined text-amber-600 text-[18px] mt-0.5">visibility_off</span>
+<p class="text-[11px] text-amber-800 leading-relaxed"><span class="font-bold">Ghi chú thiết kế:</span> Không hiển thị WiFi (tên/mật khẩu) ở bất kỳ màn hình nào ngoài màn nhận phòng (§4.3). Không có giá bán (KRW) / lợi nhuận. Mục WiFi đã được bỏ hoàn toàn.</p>
+</div>
+
+</section>
+</main>
+
+<!-- BottomTabBar (a-series supplier standard) -->
+<nav class="fixed bottom-0 left-0 w-full max-w-[390px] left-1/2 -translate-x-1/2 bg-white border-t border-slate-100 grid grid-cols-4 safe-bottom z-40">
+<button class="flex flex-col items-center justify-center gap-0.5 py-2 text-teal-600">
+<span class="material-symbols-outlined text-[24px]" style="font-variation-settings:'FILL' 1;">home</span>
+<span class="text-[10px] font-semibold">Villa</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-0.5 py-2 text-slate-400">
+<span class="material-symbols-outlined text-[24px]">calendar_month</span>
+<span class="text-[10px]">Lịch</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-0.5 py-2 text-slate-400">
+<span class="material-symbols-outlined text-[24px]">cleaning_services</span>
+<span class="text-[10px]">Dọn dẹp</span>
+</button>
+<button class="flex flex-col items-center justify-center gap-0.5 py-2 text-slate-400">
+<span class="material-symbols-outlined text-[24px]">person</span>
+<span class="text-[10px]">Tài khoản</span>
+</button>
+</nav>
+
+</body></html>
