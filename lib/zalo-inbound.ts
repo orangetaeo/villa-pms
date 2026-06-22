@@ -36,6 +36,14 @@ import { pushInboundToNike } from "@/lib/zalo-webhook";
 export const UNKNOWN_MESSAGE_FALLBACK = "[알 수 없는 메시지]";
 
 /**
+ * zca-js 내부 메서드/액션 토큰 — 사람이 읽을 본문·이름이 절대 아니다.
+ * 통화 기록은 별도 msgType 없이 버블 객체로 오는데, 캡션 대신 title/name/action 등에
+ * 이 토큰("sendBubbleMessage")만 담겨 온다(실관측 2026-06-22 — 연락처로 오분류 + 토큰이
+ * 본문으로 노출되던 버그). 이 토큰만 있는 버블은 통화로 인식한다(classifyInbound).
+ */
+const BENIGN_METHOD_TOKENS = new Set(["sendBubbleMessage"]);
+
+/**
  * content 객체에서 사람이 읽을 캡션/본문 후보 필드만 안전 추출.
  * **action/type/href 등 메타·메서드 필드는 절대 보지 않는다** — 버그 B 재발 방지.
  * (zca-js 리치/버블/공유 메시지의 content.action 값 "sendBubbleMessage"가
@@ -299,6 +307,20 @@ export function classifyInbound(content: unknown, zaloMsgType?: string): Classif
   }
 
   const o = content as Record<string, unknown>;
+
+  // ── 통화 버블(zca-js 메서드 토큰) ──
+  // 통화 기록은 별도 msgType 없이 버블 객체로 오며, 사람이 읽을 캡션 대신 title/name/action에
+  // 내부 메서드 토큰("sendBubbleMessage")만 담겨 온다(실관측). gUid가 함께 와서 연락처로
+  // 오분류되고 토큰이 본문으로 새던 문제를, contact 분기보다 먼저 통화로 잡아 차단한다.
+  // 신호는 **이름/제목 필드(name·displayName·title·zaloName)가 토큰**인 경우다(통화 시 contactName으로
+  // 새던 출처). action 토큰만으로는 판정하지 않는다 — action="sendBubbleMessage"는 캡션 있는 일반
+  // 비즈니스/공유 버블에도 붙기 때문(그 경우는 기존대로 text/unknown 유지). 사람 캡션이 없을 때만 통화로 본다.
+  const tokenName = pickStringField(o, ["name", "displayName", "title", "zaloName"]);
+  const humanCaption = pickCaptionField(o);
+  const captionIsTokenOrEmpty = !humanCaption || BENIGN_METHOD_TOKENS.has(humanCaption);
+  if (captionIsTokenOrEmpty && BENIGN_METHOD_TOKENS.has(tokenName)) {
+    return { msgType: "call", text: "", attachmentUrls: [] };
+  }
 
   // ── 스티커 ──
   if (type === "chat.sticker") {

@@ -238,6 +238,39 @@ describe("classifyInbound — 수신 메시지 타입 분류 (Nike parseMessageC
     expect(classifyInbound(null, "voip").msgType).toBe("call");
   });
 
+  // ── 통화 버블(zca-js 메서드 토큰 "sendBubbleMessage") — 실관측 오분류 회귀 ──
+  it("메서드 토큰 버블(gUid 동반) → call, 토큰이 연락처명·본문으로 새지 않음", () => {
+    // 과거: gUid로 contact 분기, title=토큰이 contact name으로 노출됨
+    const r = classifyInbound({ title: "sendBubbleMessage", gUid: "g123" }, "chat.recommended");
+    expect(r.msgType).toBe("call");
+    expect(r.text).toBe("");
+    expect(r.attachmentUrls).toEqual([]);
+  });
+
+  it("이름/제목 필드가 토큰인 버블 → call (캡션 없음)", () => {
+    expect(classifyInbound({ title: "sendBubbleMessage" }, undefined).msgType).toBe("call");
+    expect(classifyInbound({ name: "sendBubbleMessage" }, undefined).msgType).toBe("call");
+  });
+
+  it("action만 토큰인 일반 비즈니스 버블(이름·캡션 없음)은 call 아님 → 기존대로 unknown", () => {
+    // action="sendBubbleMessage"는 캡션 있는 공유/공지 버블에도 붙음 → 통화로 오판하지 않는다.
+    expect(classifyInbound({ action: "sendBubbleMessage" }, "chat.business").msgType).toBe(
+      "unknown"
+    );
+  });
+
+  it("캡션 있는 정상 버블(action=토큰 + 실제 title)은 call이 아니라 text 보존", () => {
+    const r = classifyInbound({ action: "sendBubbleMessage", title: "공지 제목" }, undefined);
+    expect(r.msgType).toBe("text");
+    expect(r.text).toBe("공지 제목");
+  });
+
+  it("진짜 연락처(이름+전화)는 여전히 contact (토큰 아님)", () => {
+    const r = classifyInbound({ name: "홍길동", phone: "0901234567" }, "chat.recommended");
+    expect(r.msgType).toBe("contact");
+    expect(r.text).toBe("홍길동");
+  });
+
   // ── 통화 텍스트 휴리스틱 (zca-js는 통화를 본문 text="Cuộc gọi"로 보냄) ──
   it("통화 텍스트 'Cuộc gọi'(text 타입) → call, text·attachmentUrls 비움", () => {
     const r = classifyInbound("Cuộc gọi", "webchat");
