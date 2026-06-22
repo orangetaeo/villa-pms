@@ -60,7 +60,7 @@ export default function ChatPhotoLightbox({ urls, startIndex, onClose }: Props) 
 
   return (
     <div
-      // 배경(이미지 외) 클릭 시 닫기 — 이미지/버튼은 stopPropagation으로 보호
+      // 배경·이미지 어디를 눌러도 닫힘 — 좌우 이동·닫기 버튼만 stopPropagation
       onClick={onClose}
       className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 backdrop-blur-sm select-none"
       role="dialog"
@@ -100,7 +100,6 @@ export default function ChatPhotoLightbox({ urls, startIndex, onClose }: Props) 
           key={current}
           src={current}
           alt=""
-          onClick={(e) => e.stopPropagation()}
           className="max-h-[100dvh] max-w-[100vw] object-contain"
         />
       </div>
