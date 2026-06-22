@@ -1,4 +1,4 @@
-// Nike↔villa Zalo 통합 S3 — 과거 대화·첨부 ETL (ADR-0010 그룹 C, 계약 zalo-integration-s3.md)
+// Nike↔villa Zalo 통합 S3+S4 — 과거 대화·첨부 ETL (ADR-0010 그룹 C, 계약 zalo-integration-s3.md·s4.md)
 //
 // 일회성 운영자 수동 실행 ETL. Nike(원천)→villa(정본) 단방향·멱등.
 //   npx tsx scripts/etl-nike-zalo.ts [--dry-run] [--limit N] [--attachments-only]
@@ -7,8 +7,14 @@
 //       raw SQL read만(write/delete 0). credentials 컬럼은 select 안 함.
 // 타깃: villa DB(lib/prisma) 쓰기 + 첨부 villa 저장소(R2/디스크) 업로드.
 //
-// 범위(절대): 테오 단일 accountId AND threadType="user"(그룹 skip — S4). villa 스키마 무변경.
+// 범위(절대): 테오 단일 accountId. **S4(C1-그룹분): threadType="user"(1:1)+"group"(단톡방) 모두 이관.**
+//   - 1:1(USER): 기존 S3 경로 그대로. ZaloConversation.threadType=USER, senderUid=null.
+//   - 그룹(GROUP): ZaloConversation.threadType=GROUP, zaloUserId=그룹 id, displayName=그룹명,
+//     groupMembers=발신자 스냅샷(Nike에 멤버 로스터 컬럼이 없어 그룹 메시지의 distinct senderUid+senderName으로
+//     best-effort 도출, avatarUrl=null — villa 런타임 getGroupMembersInfo가 추후 보강), 메시지별 senderUid 매핑.
+//   villa 스키마: S4 마이그레이션 완료 전제(ZaloThreadType enum·threadType·groupMembers·senderUid).
 // 보안: Nike read only, NIKE_DATABASE_URL 값 로그 미출력, credential·마진 비참조.
+//       groupMembers는 zaloId·이름만(공개 프로필 — 누수 무관, 아바타는 Nike 미보유라 null).
 //
 // 의존성: @prisma/client(villa + Nike datasourceUrl raw), @aws-sdk/client-s3, node fs/path — 신규 deps 0.
 //         (Nike 전용 pg 클라이언트 대신 PrismaClient datasourceUrl + $queryRawUnsafe로 pg 의존 회피)
@@ -22,7 +28,9 @@ import {
   ZaloMessageSource,
   ZaloMessageStatus,
   ZaloCounterpartyType,
+  ZaloThreadType,
 } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSystemBotOwnerId } from "@/lib/zalo-credentials";
 
@@ -72,7 +80,8 @@ interface NikeThreadRow {
   zaloThreadId: string;
   displayName: string;
   avatar: string;
-  threadType: string;
+  threadType: string; // "user" | "group" — Nike ZaloThread.threadType @default("user")
+  memberCount: number | null; // 그룹 멤버수(있으면). Nike엔 멤버 로스터 컬럼이 없어 카운트만 보유
 }
 
 interface NikeMessageRow {
@@ -85,6 +94,8 @@ interface NikeMessageRow {
   msgType: string;
   timestamp: Date;
   cliMsgId: string | null;
+  senderUid: string | null; // 그룹 발신자 Zalo id (Nike ZaloMessage.senderUid). 1:1은 보통 null
+  senderName: string | null; // 발신자 표시명 (Nike ZaloMessage.senderName) — groupMembers 도출용
   quoteText: string | null;
   quoteSender: string | null;
   quoteMsgId: string | null; // = globalMsgId 체계
@@ -275,13 +286,17 @@ async function runPool<T>(items: T[], concurrency: number, worker: (item: T) => 
 // ===================== 집계 카운터 =====================
 const stats = {
   threadsTotal: 0,
-  threadsUser: 0,
-  threadsGroupSkipped: 0,
+  threadsUser: 0, // 처리한 1:1(USER) 스레드
+  threadsGroup: 0, // 처리한 그룹(GROUP) 스레드 (S4 — 더 이상 skip 안 함)
   conversationsUpserted: 0,
+  conversationsUserUpserted: 0,
+  conversationsGroupUpserted: 0,
+  groupMembersSnapshotted: 0, // groupMembers 스냅샷을 1명 이상 채운 그룹 대화 수
   messagesProcessed: 0,
   messagesInserted: 0,
   messagesSkipped: 0, // 멱등 중복
   messagesFailed: 0,
+  messagesWithSenderUid: 0, // 그룹 메시지 중 senderUid를 채운 건수
   quoteLinked: 0,
   quoteUnresolved: 0,
   ocrBackfilled: 0,
@@ -297,7 +312,7 @@ const stats = {
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
-  console.log("=== Nike↔villa Zalo S3 ETL ===");
+  console.log("=== Nike↔villa Zalo S3+S4 ETL (1:1 + 그룹) ===");
   console.log(
     `옵션: dry-run=${opts.dryRun} attachments-only=${opts.attachmentsOnly} limit=${opts.limit ?? "전체"}`
   );
@@ -344,19 +359,20 @@ async function main() {
     const nikeAccountId = accountRows[0].id;
     console.log(`Nike 테오 accountId: ${nikeAccountId}`);
 
-    // --- USER 스레드 조회 (그룹 skip) ---
-    const allThreads = await nike.$queryRawUnsafe<(NikeThreadRow & { threadType: string })[]>(
-      `SELECT "id", "zaloThreadId", "displayName", "avatar", "threadType"
+    // --- 스레드 조회 (S4 — user + group 모두) ---
+    const allThreads = await nike.$queryRawUnsafe<NikeThreadRow[]>(
+      `SELECT "id", "zaloThreadId", "displayName", "avatar", "threadType", "memberCount"
        FROM "ZaloThread" WHERE "accountId" = $1`,
       nikeAccountId
     );
     stats.threadsTotal = allThreads.length;
-    let userThreads = allThreads.filter((t) => t.threadType === "user");
-    stats.threadsGroupSkipped = allThreads.length - userThreads.length;
-    if (opts.limit != null) userThreads = userThreads.slice(0, opts.limit);
-    stats.threadsUser = userThreads.length;
+    // user + group 둘 다 처리. 알 수 없는 threadType 값은 USER로 폴백(보수적).
+    let threads = allThreads.filter((t) => t.threadType === "user" || t.threadType === "group");
+    if (opts.limit != null) threads = threads.slice(0, opts.limit);
+    const userCount = threads.filter((t) => t.threadType === "user").length;
+    const groupCount = threads.filter((t) => t.threadType === "group").length;
     console.log(
-      `Nike 스레드: 전체 ${stats.threadsTotal} / user ${userThreads.length} / group skip ${stats.threadsGroupSkipped}`
+      `Nike 스레드: 전체 ${stats.threadsTotal} / 처리대상 ${threads.length} (user ${userCount} / group ${groupCount})`
     );
 
     // globalMsgId → villa zaloMsgId 사전 (quote 2-pass용). villa zaloMsgId = Nike zaloMsgId 그대로.
@@ -374,14 +390,58 @@ async function main() {
     }
     const attachJobs: AttachJob[] = [];
 
-    for (const thread of userThreads) {
+    for (const thread of threads) {
+      const isGroup = thread.threadType === "group";
+      if (isGroup) stats.threadsGroup++;
+      else stats.threadsUser++;
+
+      // --- 메시지 조회 (createdAt=timestamp 순) — 그룹 멤버 스냅샷 도출에 senderUid/senderName 필요해 upsert보다 먼저 ---
+      const messages = await nike.$queryRawUnsafe<NikeMessageRow[]>(
+        `SELECT "id", "zaloMsgId", "globalMsgId", "direction", "text", "translatedText",
+                "msgType", "timestamp", "cliMsgId", "senderUid", "senderName",
+                "quoteText", "quoteSender", "quoteMsgId"
+         FROM "ZaloMessage" WHERE "threadId" = $1 ORDER BY "timestamp" ASC`,
+        thread.id
+      );
+
+      // --- 그룹 멤버 스냅샷 도출 (Nike엔 멤버 로스터 컬럼이 없음 → 그룹 메시지의 distinct senderUid+senderName으로 best-effort) ---
+      // villa groupMembers 형태: [{zaloId,name,avatarUrl}]. 아바타는 Nike 메시지에 없으므로 null(런타임 getGroupMembersInfo가 추후 보강).
+      // 1:1은 null(상대 고정 — 멤버 개념 없음).
+      let groupMembers: Prisma.InputJsonValue | undefined = undefined;
+      if (isGroup) {
+        const byUid = new Map<string, string | null>(); // zaloId → name(최신 우선)
+        for (const m of messages) {
+          const uid = m.senderUid?.trim();
+          if (!uid) continue;
+          const name = m.senderName?.trim() || null;
+          // 이름이 있으면 갱신(나중 메시지 이름이 더 최신일 수 있음). 기존이 이름 없을 때만 채움.
+          if (!byUid.has(uid) || (name && !byUid.get(uid))) byUid.set(uid, name);
+        }
+        if (byUid.size > 0) {
+          groupMembers = Array.from(byUid.entries()).map(([zaloId, name]) => ({
+            zaloId,
+            name,
+            avatarUrl: null,
+          }));
+        }
+        // byUid.size===0 → groupMembers undefined → 컬럼 null 유지(Nike에 발신자 식별 데이터 없음). 로그.
+      }
+
       // --- C1: 대화 upsert (멱등 키 (ownerAdminId, zaloUserId)) ---
       if (!opts.attachmentsOnly && !opts.dryRun) {
         await prisma.zaloConversation.upsert({
           where: {
             ownerAdminId_zaloUserId: { ownerAdminId, zaloUserId: thread.zaloThreadId },
           },
-          update: {}, // 메타는 메시지 삽입 후 재계산
+          // 재실행 멱등: 그룹 메타(threadType/groupMembers/displayName)는 갱신 대상(멤버 스냅샷 보강·displayName 변동 반영).
+          // 1:1(USER) 재실행은 threadType=USER·groupMembers 미설정으로 동일 결과(no-op과 동치).
+          update: isGroup
+            ? {
+                threadType: ZaloThreadType.GROUP,
+                ...(groupMembers !== undefined ? { groupMembers } : {}),
+                ...(thread.displayName?.trim() ? { displayName: thread.displayName } : {}),
+              }
+            : {}, // USER는 메타만 메시지 삽입 후 재계산(기존 동작 보존)
           create: {
             ownerAdminId,
             zaloUserId: thread.zaloThreadId,
@@ -390,11 +450,24 @@ async function main() {
             counterpartyType: ZaloCounterpartyType.UNKNOWN,
             unreadCount: 0,
             userId: null,
+            threadType: isGroup ? ZaloThreadType.GROUP : ZaloThreadType.USER,
+            ...(groupMembers !== undefined ? { groupMembers } : {}),
             // translateMode 는 스키마 @default(VI)
           },
         });
       }
       stats.conversationsUpserted++;
+      if (isGroup) {
+        stats.conversationsGroupUpserted++;
+        if (groupMembers !== undefined) stats.groupMembersSnapshotted++;
+        else
+          console.warn(
+            `[ETL] 그룹 멤버 스냅샷 도출 실패(senderUid 데이터 없음) — groupMembers=null 유지 ` +
+              `zaloThreadId=${thread.zaloThreadId} (villa 런타임 getGroupMembersInfo가 추후 보강)`
+          );
+      } else {
+        stats.conversationsUserUpserted++;
+      }
 
       const conversation =
         opts.dryRun || opts.attachmentsOnly
@@ -406,14 +479,6 @@ async function main() {
               where: { ownerAdminId_zaloUserId: { ownerAdminId, zaloUserId: thread.zaloThreadId } },
               select: { id: true },
             });
-
-      // --- 메시지 조회 (createdAt=timestamp 순) ---
-      const messages = await nike.$queryRawUnsafe<NikeMessageRow[]>(
-        `SELECT "id", "zaloMsgId", "globalMsgId", "direction", "text", "translatedText",
-                "msgType", "timestamp", "cliMsgId", "quoteText", "quoteSender", "quoteMsgId"
-         FROM "ZaloMessage" WHERE "threadId" = $1 ORDER BY "timestamp" ASC`,
-        thread.id
-      );
 
       // 첨부·리액션 일괄 조회 (메시지 id 기준) — Nike read only.
       const msgIds = messages.map((m) => m.id);
@@ -472,6 +537,9 @@ async function main() {
           }
         }
 
+        // 그룹 메시지 발신자 식별 — 그룹만 senderUid 저장(1:1은 상대 고정이라 null, S3 동작 보존).
+        const senderUid = isGroup && msg.senderUid?.trim() ? msg.senderUid : null;
+
         // quote 스냅샷 (1-pass에서 채움). quotedMsgId는 2-pass에서 연결.
         const hasQuote = !!(msg.quoteText || msg.quoteSender || msg.quoteMsgId);
         if (hasQuote && msg.quoteMsgId) {
@@ -480,6 +548,7 @@ async function main() {
 
         if (opts.dryRun) {
           stats.messagesInserted++; // 예상 신규(중복 판정은 본 실행에서)
+          if (senderUid) stats.messagesWithSenderUid++;
           continue;
         }
 
@@ -505,6 +574,7 @@ async function main() {
               attachmentUrls: [], // 첨부는 사후 보강 패스에서 채움(멱등 키 업로드)
               zaloMsgId: msg.zaloMsgId,
               cliMsgId: msg.cliMsgId ?? null,
+              senderUid, // 그룹 발신자(1:1은 null)
               quotedMsgId: null, // 2-pass에서 연결
               quotedText: msg.quoteText ?? null,
               quotedSender: msg.quoteSender ?? null,
@@ -516,6 +586,7 @@ async function main() {
             },
           });
           stats.messagesInserted++;
+          if (senderUid) stats.messagesWithSenderUid++;
         } catch (err) {
           stats.messagesFailed++;
           console.error(
@@ -699,10 +770,15 @@ async function main() {
 
 function printSummary(opts: Options) {
   console.log("\n=== ETL 요약 ===");
-  console.log(`[스레드] 전체=${stats.threadsTotal} user=${stats.threadsUser} group-skip=${stats.threadsGroupSkipped}`);
-  console.log(`[대화] upsert=${stats.conversationsUpserted}`);
   console.log(
-    `[메시지] 처리=${stats.messagesProcessed} 삽입=${stats.messagesInserted} skip(멱등)=${stats.messagesSkipped} 실패=${stats.messagesFailed}`
+    `[스레드] 전체=${stats.threadsTotal} 처리 user=${stats.threadsUser} group=${stats.threadsGroup}`
+  );
+  console.log(
+    `[대화] upsert=${stats.conversationsUpserted} (user=${stats.conversationsUserUpserted} group=${stats.conversationsGroupUpserted}) ` +
+      `groupMembers 스냅샷 채움=${stats.groupMembersSnapshotted}/${stats.conversationsGroupUpserted}`
+  );
+  console.log(
+    `[메시지] 처리=${stats.messagesProcessed} 삽입=${stats.messagesInserted} skip(멱등)=${stats.messagesSkipped} 실패=${stats.messagesFailed} senderUid채움=${stats.messagesWithSenderUid}`
   );
   console.log(`[quote] 연결=${stats.quoteLinked} 미해석(스냅샷유지)=${stats.quoteUnresolved}`);
   console.log(`[OCR/STT 보강] translatedText 보강=${stats.ocrBackfilled}`);
