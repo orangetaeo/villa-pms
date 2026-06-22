@@ -62,11 +62,38 @@ export default async function ProposalPage({
           totalVnd: true,
           bookingId: true,
           villa: {
+            // ⚠ select 화이트리스트 — wifiSsid·wifiPassword 절대 미포함 (ADR-0011 §4.3).
+            // findUnique({where})로 전체 컬럼 로드 후 직렬화 금지 — 신규 공개 필드만 명시 추가.
             select: {
               name: true,
               bedrooms: true,
               hasPool: true,
               breakfastAvailable: true,
+              // 판매정보 공개 필드 (마진·판매가 아님 — 누수 무관). wifi 2종은 제외
+              googleMapUrl: true,
+              beachDistanceM: true,
+              areaSqm: true,
+              floors: true,
+              checkInTime: true,
+              checkOutTime: true,
+              smokingAllowed: true,
+              petsAllowed: true,
+              partyAllowed: true,
+              parkingSlots: true,
+              baseDepositVnd: true, // 기준 보증금은 고객 안내용 — 공개 OK
+              extraBedAvailable: true,
+              bedroomDetails: {
+                orderBy: { roomIndex: "asc" },
+                select: {
+                  roomIndex: true,
+                  roomLabel: true,
+                  bedType: true,
+                  bedCount: true,
+                  capacity: true,
+                },
+              },
+              features: { select: { category: true, featureKey: true } },
+              // ⛔ wifiSsid·wifiPassword 미포함 (체크인 화면 전용)
               photos: {
                 orderBy: { sortOrder: "asc" },
                 take: 5,

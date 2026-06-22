@@ -31,7 +31,9 @@ export default async function CheckinPage({
       guestCount: true,
       checkIn: true,
       checkOut: true,
-      villa: { select: { name: true, hasPool: true } },
+      // wifiSsid·wifiPassword는 ADMIN 권한 게이트((admin) 레이아웃) 뒤에서만 로드 — 체크인 화면 전용
+      // (/p 공개페이지에는 절대 select 금지, ADR-0011 §4.3). 표시는 FE 단계.
+      villa: { select: { name: true, hasPool: true, wifiSsid: true, wifiPassword: true } },
       checkInRecord: { select: { signatureUrl: true } },
     },
   });
