@@ -1046,7 +1046,10 @@
     "roles": {
       "ADMIN": "관리자",
       "SUPPLIER": "공급자",
-      "CLEANER": "청소"
+      "CLEANER": "청소",
+      "OWNER": "오너",
+      "MANAGER": "매니저",
+      "STAFF": "직원"
     },
     "inactiveBadge": "비활성",
     "columns": {
@@ -1081,9 +1084,32 @@
     "errors": {
       "selfDeactivate": "본인 계정은 비활성화할 수 없습니다.",
       "zaloConflict": "이미 다른 사용자에 연결된 Zalo 계정입니다.",
-      "generic": "처리에 실패했습니다. 다시 시도해주세요."
+      "generic": "처리에 실패했습니다. 다시 시도해주세요.",
+      "phoneTaken": "이미 사용 중인 전화번호입니다.",
+      "passwordTooShort": "비밀번호는 8자 이상이어야 합니다.",
+      "hasVillas": "보유 빌라가 있는 공급자는 다른 역할로 변경할 수 없습니다. 먼저 빌라를 이전하세요.",
+      "cannotChangeOwnRole": "본인 계정의 역할은 변경할 수 없습니다."
     },
-    "empty": "표시할 사용자가 없습니다."
+    "empty": "표시할 사용자가 없습니다.",
+    "addUser": {
+      "button": "사용자 추가",
+      "title": "사용자 추가",
+      "subtitle": "새 계정을 생성합니다. 생성된 전화번호·비밀번호로 로그인할 수 있습니다.",
+      "name": "이름",
+      "phone": "전화번호",
+      "password": "비밀번호",
+      "role": "역할",
+      "submit": "생성",
+      "cancel": "취소",
+      "success": "사용자가 생성되었습니다."
+    },
+    "roleChange": {
+      "label": "역할 변경",
+      "edit": "역할 변경",
+      "placeholder": "역할 선택",
+      "selfHint": "본인 계정의 역할은 변경할 수 없습니다.",
+      "success": "역할이 변경되었습니다."
+    }
   },
   "adminProposals": {
     "list": {

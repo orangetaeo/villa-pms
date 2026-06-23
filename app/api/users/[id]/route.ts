@@ -7,11 +7,15 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isSystemAdmin } from "@/lib/permissions";
 
+// 부여 가능 역할 — OWNER·ADMIN 제외(권한상승 표면 차단, 계약 A2)
+const ASSIGNABLE_ROLES = ["MANAGER", "STAFF", "SUPPLIER", "CLEANER"] as const;
+
 const patchSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("DEACTIVATE") }),
   z.object({ action: z.literal("ACTIVATE") }),
   z.object({ action: z.literal("LINK_ZALO"), zaloUserId: z.string().min(1) }),
   z.object({ action: z.literal("UNLINK_ZALO") }),
+  z.object({ action: z.literal("CHANGE_ROLE"), role: z.enum(ASSIGNABLE_ROLES) }),
 ]);
 
 export async function PATCH(
@@ -53,13 +57,53 @@ export async function PATCH(
     );
   }
 
+  // 본인 역할 변경 금지 — 자기 강등·락아웃 방지 (계약 A2)
+  if (input.action === "CHANGE_ROLE" && id === session.user.id) {
+    return NextResponse.json(
+      { error: "CANNOT_CHANGE_OWN_ROLE" },
+      { status: 400 }
+    );
+  }
+
   // 트랜잭션 — 대상 확인·중복 검사·갱신·Zalo 동기화·감사 로그를 원자적으로 처리
   const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.findUnique({
       where: { id },
-      select: { id: true, isActive: true, zaloUserId: true },
+      select: {
+        id: true,
+        role: true,
+        isActive: true,
+        zaloUserId: true,
+        _count: { select: { villas: true } },
+      },
     });
     if (!user) return { kind: "NOT_FOUND" as const };
+
+    if (input.action === "CHANGE_ROLE") {
+      // 빌라 고아 방지 — SUPPLIER가 빌라 보유 중인데 비SUPPLIER로 변경 시 차단
+      // (villa.supplierId 스코프 깨짐 방지, 계약 A2)
+      if (
+        user.role === "SUPPLIER" &&
+        input.role !== "SUPPLIER" &&
+        user._count.villas > 0
+      ) {
+        return { kind: "HAS_VILLAS" as const };
+      }
+      const updated = await tx.user.update({
+        where: { id },
+        data: { role: input.role },
+        select: { id: true, isActive: true, zaloUserId: true, role: true },
+      });
+      await writeAuditLog({
+        userId: session.user.id,
+        action: "UPDATE",
+        entity: "User",
+        entityId: id,
+        changes: { role: { old: user.role, new: updated.role } },
+        db: tx,
+      });
+      return { kind: "OK" as const, user: updated };
+    }
 
     if (input.action === "ACTIVATE" || input.action === "DEACTIVATE") {
       const nextActive = input.action === "ACTIVATE";
@@ -155,10 +199,15 @@ export async function PATCH(
   if (result.kind === "ZALO_CONFLICT") {
     return NextResponse.json({ error: "ZALO_ALREADY_LINKED" }, { status: 409 });
   }
+  if (result.kind === "HAS_VILLAS") {
+    return NextResponse.json({ error: "HAS_VILLAS" }, { status: 409 });
+  }
 
   return NextResponse.json({
     id: result.user.id,
     isActive: result.user.isActive,
     zaloUserId: result.user.zaloUserId,
+    // CHANGE_ROLE 시 변경된 role 포함 (다른 액션엔 undefined → 직렬화에서 생략)
+    ...("role" in result.user ? { role: result.user.role } : {}),
   });
 }

@@ -1118,7 +1118,10 @@
     "roles": {
       "ADMIN": "Quản trị viên",
       "SUPPLIER": "Nhà cung cấp",
-      "CLEANER": "Dọn dẹp"
+      "CLEANER": "Dọn dẹp",
+      "OWNER": "Chủ sở hữu",
+      "MANAGER": "Quản lý",
+      "STAFF": "Nhân viên"
     },
     "inactiveBadge": "Ngừng hoạt động",
     "columns": {
@@ -1153,9 +1156,32 @@
     "errors": {
       "selfDeactivate": "Không thể vô hiệu hóa tài khoản của chính bạn.",
       "zaloConflict": "Tài khoản Zalo này đã được liên kết với người dùng khác.",
-      "generic": "Xử lý thất bại. Vui lòng thử lại."
+      "generic": "Xử lý thất bại. Vui lòng thử lại.",
+      "phoneTaken": "Số điện thoại đã được sử dụng.",
+      "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự.",
+      "hasVillas": "Nhà cung cấp đang sở hữu villa không thể đổi sang vai trò khác. Hãy chuyển villa trước.",
+      "cannotChangeOwnRole": "Không thể thay đổi vai trò của tài khoản chính bạn."
     },
-    "empty": "Không có người dùng để hiển thị."
+    "empty": "Không có người dùng để hiển thị.",
+    "addUser": {
+      "button": "Thêm người dùng",
+      "title": "Thêm người dùng",
+      "subtitle": "Tạo tài khoản mới. Có thể đăng nhập bằng số điện thoại và mật khẩu đã tạo.",
+      "name": "Tên",
+      "phone": "Số điện thoại",
+      "password": "Mật khẩu",
+      "role": "Vai trò",
+      "submit": "Tạo",
+      "cancel": "Hủy",
+      "success": "Đã tạo người dùng."
+    },
+    "roleChange": {
+      "label": "Đổi vai trò",
+      "edit": "Đổi vai trò",
+      "placeholder": "Chọn vai trò",
+      "selfHint": "Không thể thay đổi vai trò của tài khoản chính bạn.",
+      "success": "Đã thay đổi vai trò."
+    }
   },
   "adminProposals": {
     "list": {
