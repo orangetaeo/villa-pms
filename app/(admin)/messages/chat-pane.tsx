@@ -1105,10 +1105,10 @@ function InboundBubble({
         )}
         <div className="flex items-center gap-2 mt-1">
           {/* 상대 이름/닉네임 — 시간 왼쪽에 표시(사용자 요청). 헤더 외에도 대화 상대 식별.
-              그룹은 발신자명을 버블 위에 이미 표시하므로 하단 라벨 생략(중복 방지). */}
-          {!isGroup && contactName && (
+              그룹은 발신자명(senderLabel)을, 1:1은 대화 상대명(contactName)을 시간 옆에 표시. */}
+          {(isGroup ? senderLabel : contactName) && (
             <span className="text-[11px] font-medium text-slate-400 truncate max-w-[120px]">
-              {contactName}
+              {isGroup ? senderLabel : contactName}
             </span>
           )}
           <span className="text-[10px] text-slate-600 tabular-nums">{message.time}</span>
