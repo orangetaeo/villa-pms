@@ -70,6 +70,22 @@ export interface ChatHeader {
   nickname: string;
 }
 
+// 그룹 @멘션 후보 — page.tsx parseGroupMembers 결과(이름·아바타·zaloId만, 누수 무관: 공개 프로필).
+//  uid는 zca-js 멘션 메타의 uid(@All은 page에서 안 넘기고 입력창이 "-1"로 합성).
+export interface GroupMember {
+  zaloId: string;
+  name: string | null;
+  avatarUrl: string | null;
+}
+
+// zca-js 멘션 메타(서버 POST body의 mentions[]) — pos=본문 문자 오프셋, len="@이름" 토큰 길이,
+//  uid=멤버 zaloId(@All="-1"). 본문(text)은 "@이름" 토큰을 포함한 채 전송된다.
+export interface MentionData {
+  pos: number;
+  uid: string;
+  len: number;
+}
+
 export interface ChatMessage {
   id: string;
   kind: "inbound" | "outbound" | "system";
@@ -109,6 +125,17 @@ const REACTION_EMOJI: Record<string, string> = {
 // picker 노출 순서 — 위 맵 키 순서(REACTION_KEYS 6종 기준). 서버 검증이 단일 진실원.
 const REACTION_PICKER_KEYS = Object.keys(REACTION_EMOJI);
 const reactionEmoji = (key: string) => REACTION_EMOJI[key] ?? key;
+
+/** 이름 → 이니셜 2자(@멘션 드롭다운 아바타 폴백). page.tsx initials와 동일 규칙. */
+function memberInitials(name: string | null | undefined): string {
+  const n = (name ?? "").trim();
+  if (!n) return "?";
+  const parts = n.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[parts.length - 2][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return n.slice(0, 2).toUpperCase();
+}
 
 // 공유 후보(page.tsx에서 누수 분기·최소 필드로 조회). VND 금액은 직렬화되어 string.
 export interface VillaCandidate {
@@ -154,6 +181,7 @@ export function ChatPane({
   messages,
   windowOpen,
   hasUnread,
+  groupMembers,
   villaCandidates,
   proposalCandidates,
   settlementCandidates,
@@ -163,6 +191,8 @@ export function ChatPane({
   messages: ChatMessage[];
   windowOpen: boolean;
   hasUnread: boolean;
+  // 그룹 @멘션 후보(그룹 아닐 땐 빈 배열) — Composer 입력창 드롭다운에 사용.
+  groupMembers: GroupMember[];
   villaCandidates: VillaCandidate[];
   proposalCandidates: ProposalCandidate[];
   settlementCandidates: SettlementCandidate[];
@@ -415,6 +445,8 @@ export function ChatPane({
           translateMode={header.translateMode}
           counterpartyType={header.counterpartyType}
           contactName={header.name}
+          isGroup={header.isGroup}
+          groupMembers={groupMembers}
           villaCandidates={villaCandidates}
           proposalCandidates={proposalCandidates}
           settlementCandidates={settlementCandidates}
@@ -1675,6 +1707,8 @@ function Composer({
   translateMode,
   counterpartyType,
   contactName,
+  isGroup,
+  groupMembers,
   villaCandidates,
   proposalCandidates,
   settlementCandidates,
@@ -1689,6 +1723,9 @@ function Composer({
   translateMode: TranslateMode;
   counterpartyType: CounterpartyType;
   contactName: string;
+  // 그룹 대화일 때만 @멘션 동작(1:1은 멘션 없음, 기존 그대로).
+  isGroup: boolean;
+  groupMembers: GroupMember[];
   villaCandidates: VillaCandidate[];
   proposalCandidates: ProposalCandidate[];
   settlementCandidates: SettlementCandidate[];
@@ -1703,6 +1740,18 @@ function Composer({
   const [translating, setTranslating] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // ── @멘션 (그룹 대화 전용, Nike chat-input 패턴 이식) ──────────────────────
+  // mentionQuery: null이면 드롭다운 닫힘. ""이면 "@"만 친 상태(전체 후보). 문자열이면 이름 검색어.
+  // mentionStartRef: 현재 입력 중인 "@" 의 본문 인덱스(선택 시 그 자리부터 토큰 치환).
+  // mentionsRef: 확정된 멘션 메타(pos/uid/len) 목록 — 발송 시 POST body로. 본문 편집 시 위치 재계산.
+  // @All은 page에서 안 넘어오므로 입력창이 uid "-1" 합성 옵션을 후보 맨 위에 추가.
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionList, setMentionList] = useState<{ uid: string; name: string; avatarUrl: string | null }[]>([]);
+  const [mentionIdx, setMentionIdx] = useState(0);
+  const mentionStartRef = useRef<number>(-1);
+  const mentionsRef = useRef<MentionData[]>([]);
+  // @All 합성 옵션(uid "-1") — 후보 맨 위. 멤버 이름과 동일 형식으로 selectMention에서 처리.
+  const ALL_UID = "-1";
   // ── 음성 입력(STT) — MediaRecorder 녹음 → 서버(Gemini)에서 받아쓰기 → 입력창 채움 ──
   // iOS Safari는 Web Speech 미지원 → 녹음 후 서버 STT(전 플랫폼 동작). recSupported일 때만 버튼 노출.
   const [recording, setRecording] = useState(false);
@@ -1733,6 +1782,14 @@ function Composer({
     return () => cancelAnimationFrame(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text]);
+
+  // 대화 전환 시 @멘션 상태 초기화 — 다른 대화에 엉뚱한 멘션 메타가 남지 않도록(누수·오발송 방지).
+  useEffect(() => {
+    mentionsRef.current = [];
+    setMentionQuery(null);
+    setMentionList([]);
+    mentionStartRef.current = -1;
+  }, [conversationId]);
 
   // 음성 입력 지원 감지(getUserMedia + MediaRecorder) + 언마운트 시 마이크 정리.
   useEffect(() => {
@@ -1818,6 +1875,12 @@ function Composer({
       // 답글 대상이 있으면 quotedMessageId 포함(R3-2). 일반 발신이면 생략.
       const payload: Record<string, unknown> = { conversationId, text: body };
       if (replyTarget) payload.quotedMessageId = replyTarget.messageId;
+      // @멘션(그룹 전용) — 본문에 여전히 토큰이 살아있는 멘션만 전송. body는 trim된 본문이므로
+      // 선행 공백이 없는 한 pos는 그대로 유효(textarea 본문엔 선행 공백을 두지 않음).
+      if (isGroup && mentionsRef.current.length > 0) {
+        const valid = mentionsRef.current.filter((m) => body.slice(m.pos, m.pos + m.len).startsWith("@"));
+        if (valid.length > 0) payload.mentions = valid;
+      }
       const res = await fetch("/api/zalo/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1826,6 +1889,8 @@ function Composer({
       if (res.ok) {
         setText("");
         setPreview("");
+        mentionsRef.current = [];
+        closeMention();
         onClearReply();
         // 내가 전송 → 다음 메시지 반영 때 무조건 최하단으로(과거 보던 중이어도).
         onSent();
@@ -1855,6 +1920,102 @@ function Composer({
       setSending(false);
     }
   }
+
+  // ── @멘션: 드롭다운 닫기 ──
+  const closeMention = () => {
+    setMentionQuery(null);
+    setMentionList([]);
+    mentionStartRef.current = -1;
+  };
+
+  // ── @멘션: 입력 변경 핸들러 (setText + @ 감지 + 기존 멘션 위치 검증) ──
+  // 1:1 대화·비그룹은 멘션 없이 setText만(기존 동작 그대로).
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const next = e.target.value;
+    setText(next);
+
+    // 본문 편집 시 기존 멘션이 여전히 "@…" 토큰으로 그 자리에 있는지 검증 → 깨진 멘션 제거(Nike).
+    // (정확한 shift 추적은 어려우므로, 토큰이 더 이상 일치하지 않으면 그 멘션은 버린다.)
+    if (mentionsRef.current.length > 0) {
+      mentionsRef.current = mentionsRef.current.filter((m) => {
+        const token = next.slice(m.pos, m.pos + m.len);
+        return token.startsWith("@");
+      });
+    }
+
+    if (!isGroup) {
+      closeMention();
+      return;
+    }
+
+    const cursor = e.target.selectionStart ?? next.length;
+    const before = next.slice(0, cursor);
+    const atIdx = before.lastIndexOf("@");
+    // "@"가 줄 맨 앞이거나 공백 뒤일 때만 멘션 트리거(이메일·중간 @ 오작동 방지).
+    if (atIdx >= 0 && (atIdx === 0 || /\s/.test(before[atIdx - 1]))) {
+      const query = before.slice(atIdx + 1);
+      // 토큰 안에 공백이 들어오면 멘션 입력 종료(이미 이름 선택했거나 일반 문장).
+      if (/\s/.test(query)) {
+        closeMention();
+        return;
+      }
+      mentionStartRef.current = atIdx;
+      const q = query.toLowerCase();
+      // @All 옵션: 빈 검색어이거나 "all"/"전체"/"tất cả"가 검색어를 포함할 때 맨 위 노출.
+      const allLabel = t("mention.all"); // "@전체" / "@Tất cả"
+      const allMatches =
+        q === "" ||
+        "all".includes(q) ||
+        "전체".includes(q) ||
+        allLabel.toLowerCase().includes(q) ||
+        "tất cả".includes(q);
+      const filtered = groupMembers
+        .filter((m) => (m.name ?? "").toLowerCase().includes(q))
+        .map((m) => ({ uid: m.zaloId, name: m.name ?? m.zaloId, avatarUrl: m.avatarUrl }));
+      const list = allMatches
+        ? [{ uid: ALL_UID, name: allLabel, avatarUrl: null }, ...filtered]
+        : filtered;
+      setMentionList(list.slice(0, 8));
+      setMentionIdx(0);
+      setMentionQuery(query);
+    } else {
+      closeMention();
+    }
+  };
+
+  // ── @멘션: 후보 선택 → 본문에 "@이름 " 삽입 + 멘션 메타 기록 ──
+  const selectMention = (member: { uid: string; name: string; avatarUrl: string | null }) => {
+    const start = mentionStartRef.current;
+    if (start < 0) return;
+    const el = inputRef.current;
+    const cursor = el?.selectionStart ?? text.length;
+    const beforeAt = text.slice(0, start);
+    const after = text.slice(cursor);
+    // @All은 "@전체 "(라벨 그대로), 일반 멤버는 "@이름 ". len은 trim 길이(끝 공백 제외).
+    const token = `${member.name} `;
+    const insert = member.uid === ALL_UID ? `${member.name} ` : token;
+    const newVal = beforeAt + insert + after;
+    setText(newVal);
+
+    // 삽입 지점(start) 뒤에 있던 기존 멘션들은 길이 변화만큼 pos shift.
+    const replacedLen = cursor - start; // 교체된 "@검색어" 길이
+    const shift = insert.length - replacedLen;
+    if (shift !== 0) {
+      mentionsRef.current = mentionsRef.current.map((m) =>
+        m.pos > start ? { ...m, pos: m.pos + shift } : m,
+      );
+    }
+    // 새 멘션 메타 — len은 끝 공백 제외("@이름" 토큰 길이). uid는 zaloId(@All="-1").
+    mentionsRef.current.push({ pos: start, uid: member.uid, len: insert.trimEnd().length });
+
+    closeMention();
+    // 커서를 삽입한 토큰 뒤로 이동 + 포커스.
+    requestAnimationFrame(() => {
+      const pos = beforeAt.length + insert.length;
+      el?.setSelectionRange(pos, pos);
+      el?.focus();
+    });
+  };
 
   // ── 음성 입력: 녹음 시작 ──
   async function startRecording() {
@@ -1963,6 +2124,58 @@ function Composer({
           </button>
         </div>
       )}
+      {/* @멘션 드롭다운 (그룹 전용) — "@" 입력 시 멤버 후보. ↑↓ 이동·Enter/Tab 선택·Esc 닫기.
+          @전체(uid -1) 맨 위. 다크 톤(slate). 입력 박스 위에 흐름상 표시(잘림 없음). */}
+      {isGroup && mentionQuery !== null && mentionList.length > 0 && (
+        <div className="mb-2 max-h-56 overflow-y-auto bg-slate-800 border border-slate-700 rounded-xl shadow-2xl py-1.5 custom-scrollbar">
+          <p className="px-3 py-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            {t("mention.heading")}
+          </p>
+          {mentionList.map((m, i) => {
+            const isAll = m.uid === ALL_UID;
+            return (
+              <button
+                key={m.uid}
+                type="button"
+                // onMouseDown(onClick 아님): textarea blur 전에 선택 처리 → 본문 삽입 보장(blur 번역과 충돌 방지).
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  selectMention(m);
+                }}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
+                  i === mentionIdx ? "bg-slate-700/70 text-white" : "text-slate-200 hover:bg-slate-700/50"
+                }`}
+              >
+                {isAll ? (
+                  <span className="w-7 h-7 rounded-full bg-blue-500/15 text-blue-400 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-[18px]">group</span>
+                  </span>
+                ) : m.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={m.avatarUrl}
+                    alt=""
+                    className="w-7 h-7 rounded-full object-cover shrink-0 bg-slate-700"
+                  />
+                ) : (
+                  <span className="w-7 h-7 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold text-[10px] shrink-0">
+                    {memberInitials(m.name)}
+                  </span>
+                )}
+                <span className="min-w-0 flex-1 text-left">
+                  <span className="block truncate font-medium">{m.name}</span>
+                  {isAll && (
+                    <span className="block text-[10px] text-slate-500 truncate">
+                      {t("mention.allHint")}
+                    </span>
+                  )}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* 입력 박스 — 빈 영역(패딩·우측 여백) 탭도 입력창 포커스(Zalo식). 버튼 탭은 제외. */}
       <div
         className="bg-slate-800/60 border border-slate-700 rounded-xl focus-within:border-blue-500 transition-colors cursor-text"
@@ -1988,9 +2201,32 @@ function Composer({
             ref={inputRef}
             rows={1}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleTextChange}
             onBlur={() => translate()}
             onKeyDown={(e) => {
+              // @멘션 드롭다운 열림 + IME 조합 아님 → 키보드 탐색(↑↓ 이동, Enter/Tab 선택, Esc 닫기).
+              if (mentionQuery !== null && mentionList.length > 0 && !e.nativeEvent.isComposing) {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setMentionIdx((i) => Math.min(i + 1, mentionList.length - 1));
+                  return;
+                }
+                if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setMentionIdx((i) => Math.max(i - 1, 0));
+                  return;
+                }
+                if (e.key === "Enter" || e.key === "Tab") {
+                  e.preventDefault();
+                  selectMention(mentionList[mentionIdx]);
+                  return;
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  closeMention();
+                  return;
+                }
+              }
               // IME(한글·베트남어) 조합 중 Enter는 무시(오전송 방지).
               if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
               // Shift+Enter는 줄바꿈. 데스크톱(마우스)만 Enter 전송, 터치(모바일)는 Enter=줄바꿈.

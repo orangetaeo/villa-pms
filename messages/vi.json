@@ -1594,6 +1594,12 @@
       "loading": "Đang dịch…",
       "empty": "Không nhận ra chữ",
       "failed": "Dịch thất bại"
+    },
+    "mention": {
+      "all": "@Tất cả",
+      "allHint": "Thông báo cho mọi người",
+      "heading": "Nhắc thành viên",
+      "noMembers": "Không có thành viên"
     }
   },
   "zaloConnect": {

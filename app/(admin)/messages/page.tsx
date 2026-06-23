@@ -223,6 +223,9 @@ export default async function MessagesPage({
   // 선택 대화 스레드
   let header: ChatHeader | null = null;
   let messages: ChatMessage[] = [];
+  // 그룹 대화 @멘션용 멤버 목록(이름·아바타·zaloId만 — 누수 무관: 공개 프로필).
+  // 그룹이 아니면 빈 배열 → ChatPane 입력창은 @멘션 비활성(1:1 기존 그대로).
+  let groupMembers: GroupMember[] = [];
   let villaCandidates: VillaCandidate[] = [];
   let proposalCandidates: ProposalCandidate[] = [];
   let settlementCandidates: SettlementCandidate[] = [];
@@ -292,7 +295,10 @@ export default async function MessagesPage({
       // 그룹 멤버 스냅샷 zaloId→{name,avatarUrl} 조회 맵(발신자 해석 원천). 1:1은 빈 맵.
       const memberMap = new Map<string, GroupMember>();
       if (isGroup) {
-        for (const m of parseGroupMembers(conv.groupMembers)) memberMap.set(m.zaloId, m);
+        const parsed = parseGroupMembers(conv.groupMembers);
+        for (const m of parsed) memberMap.set(m.zaloId, m);
+        // @멘션 드롭다운에 넘길 멤버 목록(그룹일 때만). 이름·아바타·zaloId만.
+        groupMembers = parsed;
       }
       header = {
         name,
@@ -525,6 +531,7 @@ export default async function MessagesPage({
             header={header}
             messages={messages}
             windowOpen={windowOpen}
+            groupMembers={groupMembers}
             villaCandidates={villaCandidates}
             proposalCandidates={proposalCandidates}
             settlementCandidates={settlementCandidates}

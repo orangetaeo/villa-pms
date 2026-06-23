@@ -1522,6 +1522,12 @@
       "loading": "번역 중…",
       "empty": "인식된 글자 없음",
       "failed": "번역 실패"
+    },
+    "mention": {
+      "all": "@전체",
+      "allHint": "모두에게 알림",
+      "heading": "멤버 멘션",
+      "noMembers": "멤버가 없습니다"
     }
   },
   "zaloConnect": {
