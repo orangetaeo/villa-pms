@@ -608,7 +608,9 @@
       },
       "features": {
         "title": "Điểm nổi bật",
-        "subtitle": "Hiển thị nổi bật ở đầu trang đề xuất công khai. Chọn các mục theo từng nhóm."
+        "subtitle": "Hiển thị nổi bật ở đầu trang đề xuất công khai. Chọn các mục theo từng nhóm.",
+        "hasPool": "Có hồ bơi",
+        "poolAutoNote": "Đã chọn thẻ hồ bơi nên 'Có hồ bơi' được tự động áp dụng."
       }
     }
   },
@@ -794,6 +796,7 @@
     "editTitle": "Chỉnh sửa tiện nghi",
     "save": "Lưu",
     "saving": "Đang lưu...",
+    "saved": "Đã lưu",
     "saveError": "Lưu thất bại. Vui lòng thử lại.",
     "cancel": "Hủy",
     "categories": {
