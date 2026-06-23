@@ -1038,12 +1038,7 @@ function InboundBubble({
     >
       <InboundAvatar message={message} />
       <div className="min-w-0">
-        {/* 그룹 — 버블 위 발신자명(여러 발신자 구분). 미해석은 senderUid 원문 폴백(R14). */}
-        {isGroup && senderLabel && (
-          <p className="mb-0.5 text-[11px] font-bold text-teal-300/90 truncate max-w-[180px]">
-            {senderLabel}
-          </p>
-        )}
+        {/* 그룹 발신자명은 버블 위가 아니라 하단 시간 옆에만 표시(사용자 요청 — 더 깔끔). */}
         {(message.quotedText || message.quotedSender) && (
           <QuotedBlock
             sender={message.quotedSender}
