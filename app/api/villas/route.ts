@@ -8,7 +8,7 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { villaCreateSchema, SEASONS } from "@/lib/villa-schema";
 import { serializeBigInt } from "@/lib/serialize";
 import type { Prisma, VillaStatus } from "@prisma/client";
-import { isOperator } from "@/lib/permissions";
+import { isOperator, canViewFinance } from "@/lib/permissions";
 
 export async function POST(req: Request) {
   // 권한 검사 — SUPPLIER(자기 빌라) + ADMIN(테오 직접등록) 허용 (route handler 첫 줄 role 검사 규칙)
@@ -173,6 +173,8 @@ export async function GET(req: Request) {
   };
 
   if (isOperator(role)) {
+    // S-RBAC-3: 판매가·마진은 canViewFinance(OWNER/MANAGER/ADMIN)만. STAFF는 원가만(SUPPLIER 동일 가시성).
+    const showFinance = canViewFinance(role);
     const villas = await prisma.villa.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -184,10 +186,15 @@ export async function GET(req: Request) {
             id: true,
             season: true,
             supplierCostVnd: true,
-            marginType: true,
-            marginValue: true,
-            salePriceVnd: true,
-            salePriceKrw: true,
+            // STAFF면 marginType·marginValue·salePriceVnd·salePriceKrw select 자체에서 제외
+            ...(showFinance
+              ? {
+                  marginType: true,
+                  marginValue: true,
+                  salePriceVnd: true,
+                  salePriceKrw: true,
+                }
+              : {}),
           },
         },
         photos: { orderBy: { sortOrder: "asc" }, take: 1 },

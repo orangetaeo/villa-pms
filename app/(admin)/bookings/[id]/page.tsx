@@ -5,6 +5,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { BookingStatus } from "@prisma/client";
+import { auth } from "@/auth";
+import { canViewFinance } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime, formatThousands } from "@/lib/format";
 import { toDateOnlyString } from "@/lib/date-vn";
@@ -47,6 +49,10 @@ export default async function BookingDetailPage({
   const { id } = await params;
   const now = new Date();
 
+  // S-RBAC-3: STAFF는 재무(판매가·결제 금액) 비공개 — select·렌더 모두에서 제외 (1차 서버 방어)
+  const session = await auth();
+  const showFinance = canViewFinance(session?.user?.role);
+
   const booking = await prisma.booking.findUnique({
     where: { id },
     select: {
@@ -62,9 +68,9 @@ export default async function BookingDetailPage({
       guestPhone: true,
       holdExpiresAt: true,
       saleCurrency: true,
-      totalSaleKrw: true,
-      totalSaleVnd: true,
-      supplierCostVnd: true,
+      // 판매가(KRW·VND)는 canViewFinance만 — STAFF면 select 자체에서 제외
+      ...(showFinance ? { totalSaleKrw: true, totalSaleVnd: true } : {}),
+      supplierCostVnd: true, // 원가는 STAFF도 OK (SUPPLIER 동일 가시성)
       breakfastIncluded: true,
       note: true,
       cancelReason: true,
@@ -75,7 +81,14 @@ export default async function BookingDetailPage({
       },
       payments: {
         orderBy: { receivedAt: "asc" },
-        select: { id: true, receivedAt: true, method: true, currency: true, amount: true, note: true },
+        // STAFF: 결제 금액(currency·amount)도 재무 → 상태(날짜·수단·메모)만. canViewFinance만 금액 select.
+        select: {
+          id: true,
+          receivedAt: true,
+          method: true,
+          note: true,
+          ...(showFinance ? { currency: true, amount: true } : {}),
+        },
       },
     },
   });
@@ -103,10 +116,13 @@ export default async function BookingDetailPage({
       ? formatRemainingHours(booking.holdExpiresAt, now)
       : null;
 
+  // 판매가 표시 문자열 — showFinance일 때만 (STAFF는 select에서 빠져 undefined)
   const totalSale =
-    booking.saleCurrency === "KRW"
-      ? `${formatThousands(booking.totalSaleKrw ?? 0)}원`
-      : `${formatThousands(booking.totalSaleVnd ?? 0n)}₫`;
+    showFinance && "totalSaleKrw" in booking
+      ? booking.saleCurrency === "KRW"
+        ? `${formatThousands(booking.totalSaleKrw ?? 0)}원`
+        : `${formatThousands(booking.totalSaleVnd ?? 0n)}₫`
+      : null;
 
   const logStatusChange = (changes: unknown): string | null => {
     if (changes && typeof changes === "object" && "status" in changes) {
@@ -257,10 +273,13 @@ export default async function BookingDetailPage({
               </span>
             </div>
             <div className="p-6 grid grid-cols-2 gap-y-6">
-              <div>
-                <p className="text-xs text-admin-muted mb-1">{t("detail.price.totalSale")}</p>
-                <p className="text-xl font-extrabold text-white tabular-nums">{totalSale}</p>
-              </div>
+              {/* 판매가(총액) — canViewFinance만. STAFF는 행 자체 비표시(원가만) */}
+              {showFinance && totalSale && (
+                <div>
+                  <p className="text-xs text-admin-muted mb-1">{t("detail.price.totalSale")}</p>
+                  <p className="text-xl font-extrabold text-white tabular-nums">{totalSale}</p>
+                </div>
+              )}
               <div>
                 <p className="text-xs text-admin-muted mb-1">{t("detail.price.supplierCost")}</p>
                 <p className="text-xl font-extrabold text-admin-muted tabular-nums">
@@ -303,7 +322,10 @@ export default async function BookingDetailPage({
                     <tr>
                       <th className="px-6 py-3">{t("detail.payments.date")}</th>
                       <th className="px-6 py-3">{t("detail.payments.method")}</th>
-                      <th className="px-6 py-3 text-right">{t("detail.payments.amount")}</th>
+                      {/* 결제 금액 열 — canViewFinance만 (STAFF는 입금 상태만, 금액 비표시) */}
+                      {showFinance && (
+                        <th className="px-6 py-3 text-right">{t("detail.payments.amount")}</th>
+                      )}
                       <th className="px-6 py-3">{t("detail.payments.note")}</th>
                     </tr>
                   </thead>
@@ -314,10 +336,12 @@ export default async function BookingDetailPage({
                         <td className="px-6 py-4 text-white whitespace-nowrap">
                           {t(`detail.payments.methods.${p.method}`)}
                         </td>
-                        <td className="px-6 py-4 font-semibold text-white text-right tabular-nums whitespace-nowrap">
-                          {formatThousands(p.amount)}
-                          {p.currency === "KRW" ? "원" : p.currency === "VND" ? "₫" : " USD"}
-                        </td>
+                        {showFinance && "amount" in p && (
+                          <td className="px-6 py-4 font-semibold text-white text-right tabular-nums whitespace-nowrap">
+                            {formatThousands(p.amount)}
+                            {p.currency === "KRW" ? "원" : p.currency === "VND" ? "₫" : " USD"}
+                          </td>
+                        )}
                         <td className="px-6 py-4 text-admin-muted">{p.note ?? "—"}</td>
                       </tr>
                     ))}

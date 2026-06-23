@@ -5,6 +5,7 @@ import { NextIntlClientProvider } from "next-intl";
 import AdminSidebar from "@/components/admin/sidebar";
 import { pickMessages } from "@/lib/intl-messages";
 import { prisma } from "@/lib/prisma";
+import { isOperator } from "@/lib/permissions";
 
 // [QA D-2b] 루트 layout이 전체 messages 직렬화를 중단함에 따라
 // admin 클라이언트 컴포넌트용 메시지는 여기서 화이트리스트로 공급.
@@ -53,7 +54,8 @@ export default async function AdminLayout({
 }) {
   const session = await auth();
 
-  if (!session || session.user?.role !== "ADMIN") {
+  // S-RBAC-3: 운영자 전체(OWNER/MANAGER/STAFF/ADMIN) 진입 허용. 재무 마스킹은 각 화면 책임.
+  if (!session?.user?.id || !isOperator(session.user.role)) {
     redirect("/login");
   }
 

@@ -52,7 +52,7 @@ import {
 } from "@/lib/zalo-share";
 import koMessages from "@/messages/ko.json";
 import viMessages from "@/messages/vi.json";
-import { isOperator } from "@/lib/permissions";
+import { isOperator, canViewFinance } from "@/lib/permissions";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB (uploads 라우트와 동일)
 
@@ -179,11 +179,26 @@ export async function POST(
   }
   const body = parsed.data;
 
+  // [S-RBAC-3] 판매가·정산이 본문에 실리는 공유는 재무 권한 필요(STAFF 차단).
+  // STAFF는 공급자(원가측) 빌라 공유·사진/파일만 가능. 마진 비공개 원칙을 share 경로까지 확장.
+  // PROPOSAL=판매가 링크, SETTLEMENT=정산금액, VILLA 고객분기=판매가 → canViewFinance 게이트.
   if (body.type === "PROPOSAL") {
+    if (!canViewFinance(session.user.role)) {
+      return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+    }
     return handleProposal(conversation, adminUserId, body.proposalId, req);
   }
   if (body.type === "VILLA") {
+    if (
+      isSellSideType(conversation.counterpartyType) &&
+      !canViewFinance(session.user.role)
+    ) {
+      return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+    }
     return handleVilla(conversation, adminUserId, body.villaId);
+  }
+  if (!canViewFinance(session.user.role)) {
+    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
   return handleSettlement(conversation, adminUserId, body);
 }

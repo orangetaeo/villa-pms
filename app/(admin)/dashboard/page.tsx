@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
+import { canViewFinance } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { loadTimeline } from "@/lib/timeline";
 import {
@@ -49,11 +50,16 @@ export default async function DashboardPage() {
     }),
   ]);
 
-  // 견적 중 원가 변경 경보 개수 (b15, F) — 본인 ADMIN PENDING 그룹 수
+  // S-RBAC-3: STAFF는 정산·매출·원가경보 등 재무 위젯 비표시 (canViewFinance 게이트)
+  const showFinance = canViewFinance(session?.user?.role);
+
+  // 견적 중 원가 변경 경보 개수 (b15, F) — 본인 ADMIN PENDING 그룹 수.
+  // 원가경보(/cost-alerts)는 재무 영역(미들웨어 차단 대상)이므로 STAFF에는 0 처리(배너 미표시)
   const tCost = await getTranslations("adminCostAlerts");
-  const costAlertCount = session?.user?.id
-    ? await countCostAlertGroups(prisma, session.user.id)
-    : 0;
+  const costAlertCount =
+    showFinance && session?.user?.id
+      ? await countCostAlertGroups(prisma, session.user.id)
+      : 0;
 
   const firstConflict = conflicts[0];
   const md = (d: Date) => `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
@@ -302,12 +308,12 @@ export default async function DashboardPage() {
               </div>
             </section>
 
-            {/* 바로가기 박스: 예약·제안·정산 */}
+            {/* 바로가기 박스: 예약(전 운영자) + 제안·정산(canViewFinance만) */}
             <section>
               <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2.5 px-1">
                 {t("boxes.shortcutTitle")}
               </h2>
-              <div className="grid grid-cols-3 gap-3">
+              <div className={`grid gap-3 ${showFinance ? "grid-cols-3" : "grid-cols-1"}`}>
                 <BoxCard
                   href="/bookings"
                   label={t("boxes.bookings")}
@@ -316,22 +322,27 @@ export default async function DashboardPage() {
                   icon="calendar_month"
                   iconClass="text-blue-500"
                 />
-                <BoxCard
-                  href="/proposals"
-                  label={t("boxes.proposals")}
-                  count={stats.proposalActiveCount}
-                  unit={t("stats.unitCase")}
-                  icon="rate_review"
-                  iconClass="text-amber-500"
-                />
-                <BoxCard
-                  href="/settlements"
-                  label={t("boxes.settlements")}
-                  count={stats.settlementPendingCount}
-                  unit={t("stats.unitCase")}
-                  icon="payments"
-                  iconClass="text-emerald-500"
-                />
+                {/* 제안·정산 = 재무/가격 영역. STAFF는 미들웨어 차단 대상이므로 박스도 비표시 */}
+                {showFinance && (
+                  <>
+                    <BoxCard
+                      href="/proposals"
+                      label={t("boxes.proposals")}
+                      count={stats.proposalActiveCount}
+                      unit={t("stats.unitCase")}
+                      icon="rate_review"
+                      iconClass="text-amber-500"
+                    />
+                    <BoxCard
+                      href="/settlements"
+                      label={t("boxes.settlements")}
+                      count={stats.settlementPendingCount}
+                      unit={t("stats.unitCase")}
+                      icon="payments"
+                      iconClass="text-emerald-500"
+                    />
+                  </>
+                )}
               </div>
             </section>
           </div>
@@ -392,7 +403,8 @@ export default async function DashboardPage() {
             <div>{t("footer.lastSync", { at: formatDateTime(lastSync.createdAt) })}</div>
           )}
         </div>
-        {fxKrw !== null && (
+        {/* 환율 칩(₫→원 환산) = 재무 신호 → canViewFinance만 */}
+        {showFinance && fxKrw !== null && (
           <div className="flex items-center px-2 py-0.5 rounded border border-slate-700 bg-slate-800/50 text-white text-[10px] font-medium tabular-nums">
             {t("footer.fxChip", { krw: formatThousands(fxKrw) })}
           </div>

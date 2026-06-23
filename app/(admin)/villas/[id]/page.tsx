@@ -5,6 +5,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { auth } from "@/auth";
+import { canViewFinance } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { formatVnd, formatDateTime } from "@/lib/format";
 import type { AmenityCategory, PhotoSpace, SeasonType } from "@prisma/client";
@@ -66,6 +68,9 @@ export default async function VillaDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  // S-RBAC-3: STAFF는 요율의 판매가·마진 비공개(원가만) — select·렌더 모두에서 제외 (1차 서버 방어)
+  const session = await auth();
+  const showFinance = canViewFinance(session?.user?.role);
   const [t, tList, tAmenity, villa, fxSetting, auditLogs] = await Promise.all([
     getTranslations("adminVillas.detail"),
     getTranslations("adminVillas.list"),
@@ -83,13 +88,18 @@ export default async function VillaDetailPage({
           select: { id: true, category: true, itemKey: true, customLabel: true, quantity: true },
         },
         rates: {
+          // 판매가·마진은 canViewFinance만 — STAFF면 supplierCostVnd만 select
           select: {
             season: true,
             supplierCostVnd: true,
-            marginType: true,
-            marginValue: true,
-            salePriceVnd: true,
-            salePriceKrw: true,
+            ...(showFinance
+              ? {
+                  marginType: true,
+                  marginValue: true,
+                  salePriceVnd: true,
+                  salePriceKrw: true,
+                }
+              : {}),
           },
         },
         // 판매정보 (ADR-0011) — ADMIN 상세는 wifi 포함 OK (운영 화면, /p 공개페이지만 제외)
@@ -123,19 +133,29 @@ export default async function VillaDetailPage({
   })).filter((g) => g.photos.length > 0);
 
   // 요율 — BigInt는 클라이언트 경계에서 직렬화 불가 → 문자열 변환 (Number() 캐스팅 금지)
-  const rateRows: RateRow[] = SEASON_ORDER.flatMap((season) => {
+  // showFinance(canViewFinance)일 때만 판매가·마진 포함 RateRow 구성. STAFF는 원가 읽기뷰만 사용.
+  const rateRows: RateRow[] = showFinance
+    ? SEASON_ORDER.flatMap((season) => {
+        const rate = villa.rates.find((r) => r.season === season);
+        if (!rate || !("marginType" in rate)) return [];
+        return [
+          {
+            season,
+            supplierCostVnd: rate.supplierCostVnd.toString(),
+            marginType: rate.marginType,
+            marginValue: rate.marginValue.toString(),
+            salePriceVnd: rate.salePriceVnd.toString(),
+            salePriceKrw: rate.salePriceKrw,
+          },
+        ];
+      })
+    : [];
+
+  // STAFF용 원가 읽기뷰 행 (판매가·마진 없음)
+  const costOnlyRows = SEASON_ORDER.flatMap((season) => {
     const rate = villa.rates.find((r) => r.season === season);
     if (!rate) return [];
-    return [
-      {
-        season,
-        supplierCostVnd: rate.supplierCostVnd.toString(),
-        marginType: rate.marginType,
-        marginValue: rate.marginValue.toString(),
-        salePriceVnd: rate.salePriceVnd.toString(),
-        salePriceKrw: rate.salePriceKrw,
-      },
-    ];
+    return [{ season, supplierCostVnd: rate.supplierCostVnd }];
   });
 
   const fxVndPerKrw = fxSetting ? Number.parseFloat(fxSetting.value) || null : null;
@@ -334,8 +354,52 @@ export default async function VillaDetailPage({
 
         {/* 우측: 요율 + 비품 + 수정 이력 */}
         <div className="col-span-12 lg:col-span-5 space-y-6">
-          {/* 시즌 요율 편집 (클라이언트) */}
-          <RateEditor villaId={villa.id} rates={rateRows} fxVndPerKrw={fxVndPerKrw} />
+          {/* 시즌 요율 — 편집은 가격설정 권한(canViewFinance). STAFF는 원가 읽기뷰로 강등 */}
+          {showFinance ? (
+            <RateEditor villaId={villa.id} rates={rateRows} fxVndPerKrw={fxVndPerKrw} />
+          ) : (
+            <div className="bg-admin-card rounded-xl border border-slate-800 shadow-xl overflow-hidden">
+              <div className="p-6 border-b border-slate-800 flex items-center gap-2">
+                <h2 className="text-lg font-bold flex items-center gap-2 whitespace-nowrap">
+                  <span className="material-symbols-outlined text-admin-primary">payments</span>
+                  {t("rates.title")}
+                </h2>
+                <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-500 text-[10px] font-bold whitespace-nowrap">
+                  {t("amenitiesCard.readOnly")}
+                </span>
+              </div>
+              {costOnlyRows.length === 0 ? (
+                <p className="p-6 text-sm text-admin-muted text-center">{t("rates.empty")}</p>
+              ) : (
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-900/50 text-slate-500 uppercase">
+                      <th className="px-3 py-3 font-bold border-b border-slate-800">
+                        {t("rates.colSeason")}
+                      </th>
+                      <th className="px-3 py-3 font-bold border-b border-slate-800 text-right">
+                        {t("rates.colCost")}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {costOnlyRows.map((row) => (
+                      <tr key={row.season}>
+                        <td className="px-3 py-4">
+                          <span className="px-2 py-0.5 rounded font-bold whitespace-nowrap bg-slate-800 text-slate-300">
+                            {t(`rates.seasons.${row.season}`)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-4 text-right text-slate-300 whitespace-nowrap tabular-nums">
+                          {formatVnd(row.supplierCostVnd)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
 
           {/* 비품 현황 — 읽기 전용 (b10) */}
           <div className="bg-admin-card rounded-xl p-6 border border-slate-800 shadow-xl">
