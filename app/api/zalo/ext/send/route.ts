@@ -289,6 +289,15 @@ export async function POST(req: Request) {
     }
 
     if (body.kind === "REPLY") {
+      // 인용 uidFrom 보정 — Nike는 테오 세션 store가 비어 그룹 인용 uidFrom을 그룹 id로 보낼 수 있다.
+      //   villa가 정본이므로 인용 원문(zaloMsgId)의 senderUid를 직접 조회해 있으면 그것으로 덮는다
+      //   (그룹 답글 전송 실패 수정). 없으면(1:1·미상) Nike가 보낸 uidFrom 유지.
+      let replyUidFrom = body.quote.uidFrom;
+      const quoted = await prisma.zaloMessage.findFirst({
+        where: { zaloMsgId: body.quote.zaloMsgId, conversation: { ownerAdminId } },
+        select: { senderUid: true },
+      });
+      if (quoted?.senderUid) replyUidFrom = quoted.senderUid;
       const res = await sendChatReplyAsAdmin(
         ownerAdminId,
         threadId,
@@ -297,7 +306,7 @@ export async function POST(req: Request) {
           zaloMsgId: body.quote.zaloMsgId,
           cliMsgId: body.quote.cliMsgId,
           content: body.quote.content,
-          uidFrom: body.quote.uidFrom,
+          uidFrom: replyUidFrom,
         },
         threadType,
         await reanchorExtMentions(conversationId, body.text, body.mentions)
