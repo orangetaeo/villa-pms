@@ -1516,6 +1516,12 @@
     "group": {
       "label": "그룹 대화",
       "memberCount": "멤버 {count}명"
+    },
+    "photoTranslate": {
+      "button": "번역",
+      "loading": "번역 중…",
+      "empty": "인식된 글자 없음",
+      "failed": "번역 실패"
     }
   },
   "zaloConnect": {

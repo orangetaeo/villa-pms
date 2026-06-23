@@ -1055,6 +1055,8 @@ function InboundBubble({
             inbound
             translatedText={showTranslation ? message.translatedText : null}
             transcriptLabel={t("typeCard.photoTranscript")}
+            messageId={message.id}
+            t={t}
           />
         ) : message.msgType === "file" ? (
           <FileCard
@@ -1295,20 +1297,58 @@ function PhotoCard({
   inbound = false,
   translatedText,
   transcriptLabel,
+  messageId,
+  t,
 }: {
   urls: string[];
   caption: string;
   inbound?: boolean;
-  /** 이미지 OCR 번역 결과(ko) — 있으면 사진 아래 자막으로 표시. 수신 photo만 채워짐. */
+  /** 이미지 OCR 번역 결과(ko) — 있으면 사진 아래 자막으로 표시. 과거 자동번역분 또는 on-demand 결과. */
   translatedText?: string | null;
-  /** 자막 라벨(t("typeCard.photoTranscript")) — translatedText 있을 때만 사용. */
+  /** 자막 라벨(t("typeCard.photoTranscript")) — 번역 결과 있을 때만 사용. */
   transcriptLabel?: string;
+  /** 수신 메시지 id — 있으면 "번역" 버튼으로 on-demand OCR 번역 호출(사진 자동번역 폐지, 2026-06-23). */
+  messageId?: string;
+  t?: ReturnType<typeof useTranslations>;
 }) {
   const openLightbox = useContext(LightboxContext);
+  // on-demand 번역 상태: 번역문(로컬) / 로딩 / "글자 없음"·실패.
+  const [localTranslated, setLocalTranslated] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [note, setNote] = useState<string | null>(null); // 글자 없음/실패 안내
+  const shown = localTranslated ?? translatedText ?? null;
+
+  async function handleTranslate() {
+    if (!messageId || loading) return;
+    setLoading(true);
+    setNote(null);
+    try {
+      const res = await fetch(`/api/zalo/messages/${messageId}/translate-photo`, {
+        method: "POST",
+      });
+      const data = (await res.json().catch(() => ({}))) as { translated?: string };
+      if (res.ok) {
+        if (data.translated && data.translated.trim().length > 0) {
+          setLocalTranslated(data.translated);
+        } else {
+          setNote(t?.("photoTranslate.empty") ?? ""); // 인식된 글자 없음
+        }
+      } else {
+        setNote(t?.("photoTranslate.failed") ?? "");
+      }
+    } catch {
+      setNote(t?.("photoTranslate.failed") ?? "");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const wrap = inbound
     ? "bg-slate-800 rounded-xl rounded-bl-sm p-1.5 inline-block text-left overflow-hidden"
     : "bg-blue-600 rounded-xl rounded-br-sm p-1.5 inline-block text-left overflow-hidden";
   const captionColor = inbound ? "text-slate-300" : "text-blue-100";
+  // "번역" 버튼: 수신 사진 + messageId 있고, 아직 번역문/안내가 없을 때만 노출.
+  const canTranslate = inbound && !!messageId && !shown && !note;
   return (
     <div className={wrap}>
       {/* 클릭 → 라이트박스(원본 크기). 첫 장 기준, 여러 장이면 라이트박스에서 좌우 이동. */}
@@ -1332,10 +1372,22 @@ function PhotoCard({
         )}
       </button>
       {caption && <p className={`text-xs px-2 py-1.5 ${captionColor}`}>{caption}</p>}
-      {/* 이미지 OCR 번역 자막 — caption 아래 한 줄(voice STT 자막과 동일 패턴). 수신 photo만 표시. */}
-      {translatedText && (
+      {/* on-demand 번역 버튼 (사진 자동번역 폐지 — 사용자가 누를 때만 OCR 번역). */}
+      {canTranslate && (
+        <button
+          type="button"
+          onClick={handleTranslate}
+          disabled={loading}
+          className="mx-2 mb-1.5 mt-0.5 flex items-center gap-1 rounded-md bg-slate-700/70 px-2 py-1 text-[11px] font-medium text-slate-200 hover:bg-slate-600 disabled:opacity-60 transition-colors"
+        >
+          <span className="material-symbols-outlined text-[14px]">translate</span>
+          {loading ? t?.("photoTranslate.loading") ?? "..." : t?.("photoTranslate.button") ?? "번역"}
+        </button>
+      )}
+      {/* 번역 결과(자막) — caption 아래 한 줄(voice STT 자막과 동일 패턴). */}
+      {shown && (
         <p className={`text-xs px-2 pb-1.5 ${captionColor} whitespace-pre-wrap break-words`}>
-          {translatedText}
+          {shown}
           {transcriptLabel && (
             <span className="text-[9px] font-bold ml-1.5 align-middle opacity-70">
               {transcriptLabel}
@@ -1343,6 +1395,8 @@ function PhotoCard({
           )}
         </p>
       )}
+      {/* 글자 없음/실패 안내 */}
+      {note && <p className="text-[10px] px-2 pb-1.5 text-slate-500">{note}</p>}
     </div>
   );
 }

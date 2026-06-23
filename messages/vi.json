@@ -1588,6 +1588,12 @@
     "group": {
       "label": "Trò chuyện nhóm",
       "memberCount": "{count} thành viên"
+    },
+    "photoTranslate": {
+      "button": "Dịch",
+      "loading": "Đang dịch…",
+      "empty": "Không nhận ra chữ",
+      "failed": "Dịch thất bại"
     }
   },
   "zaloConnect": {
