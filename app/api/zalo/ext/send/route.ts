@@ -31,6 +31,33 @@ import {
   REACTION_KEYS,
 } from "@/lib/zalo-runtime";
 import { isExtSecretValid, resolveSystemOwnerId } from "@/lib/zalo-ext-auth";
+import { reanchorMentionsByName, type ZaloMention } from "@/lib/zalo-mentions";
+
+/**
+ * Nike 위임 발송의 @멘션 위치 재정렬 — Nike는 번역 후 본문(text)을 보내지만 mentions pos/len은
+ * 번역 전(ko) 기준이라 어긋난다. 대화의 groupMembers(uid→이름)로 발송 본문에서 다시 찾아 보정.
+ * conversationId/멘션 없으면 원본 그대로(방어). 멤버 못 찾은 멘션은 버림(잘못된 멘션 방지).
+ */
+async function reanchorExtMentions(
+  conversationId: string | null,
+  text: string,
+  mentions: ZaloMention[] | undefined
+): Promise<ZaloMention[] | undefined> {
+  if (!mentions || mentions.length === 0 || !conversationId) return mentions;
+  const conv = await prisma.zaloConversation.findUnique({
+    where: { id: conversationId },
+    select: { groupMembers: true },
+  });
+  const map = new Map<string, string>();
+  if (Array.isArray(conv?.groupMembers)) {
+    for (const m of conv!.groupMembers as { zaloId?: unknown; name?: unknown }[]) {
+      if (m && typeof m.zaloId === "string" && typeof m.name === "string" && m.name) {
+        map.set(m.zaloId, m.name);
+      }
+    }
+  }
+  return reanchorMentionsByName(text, mentions, map);
+}
 
 // ── threadId 정규화 (Nike→villa 발송 500 버그 수정 / ADR-0010) ─────────
 //   Nike(B3 adaptVillaThread)는 A2 threads DTO의 `id`(villa 내부 cuid)를 대화 식별자로 받아
@@ -219,12 +246,13 @@ export async function POST(req: Request) {
   // ── 발송 (기존 함수 재사용, ownerAdminId 서버 고정, threadId 정규화본 사용) ──
   try {
     if (body.kind === "TEXT") {
+      const textMentions = await reanchorExtMentions(conversationId, body.text, body.mentions);
       const res = await sendChatMessageAsAdmin(
         ownerAdminId,
         threadId,
         body.text,
         threadType,
-        body.mentions
+        textMentions
       );
       if (!res.ok) {
         return NextResponse.json({ error: "SEND_FAILED", reason: res.error }, { status: 502 });
@@ -272,7 +300,7 @@ export async function POST(req: Request) {
           uidFrom: body.quote.uidFrom,
         },
         threadType,
-        body.mentions
+        await reanchorExtMentions(conversationId, body.text, body.mentions)
       );
       if (!res.ok) {
         return NextResponse.json({ error: "SEND_FAILED", reason: res.error }, { status: 502 });

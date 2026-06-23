@@ -16,6 +16,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { translateText, previewTargetForMode, GeminiNotConfiguredError } from "@/lib/gemini";
+import { reanchorMentions } from "@/lib/zalo-mentions";
 import {
   sendChatMessageAsAdmin,
   sendChatReplyAsAdmin,
@@ -149,6 +150,14 @@ export async function POST(req: Request) {
     }
   }
 
+  // 0b) @멘션 위치 재정렬 — 번역으로 본문이 바뀌면 mention pos/len이 어긋나 멘션이 안 걸린다.
+  //     번역된 outboundText에서 멘션 토큰("@이름")을 다시 찾아 위치 재계산(못 찾으면 해당 멘션 버림).
+  //     OFF 모드(번역 안 함, outboundText===text)면 그대로 사용.
+  const outboundMentions =
+    mentions && mentions.length > 0 && outboundText !== text
+      ? reanchorMentions(text, outboundText, mentions)
+      : mentions;
+
   // 1) 발송 시도 — 본인 계정으로 발신. 봇 미연결/실패는 status=FAILED 기록(500 금지). 48h 가드 없음(D5.5).
   let status: ZaloMessageStatus;
   let error: string | null = null;
@@ -161,14 +170,14 @@ export async function POST(req: Request) {
         outboundText,
         replyQuoteSource,
         sendThreadType,
-        mentions
+        outboundMentions
       )
     : await sendChatMessageAsAdmin(
         session.user.id,
         conversation.zaloUserId,
         outboundText,
         sendThreadType,
-        mentions
+        outboundMentions
       );
   if (result.ok) {
     status = ZaloMessageStatus.SENT;

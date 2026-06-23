@@ -1750,6 +1750,11 @@ function Composer({
   const [mentionIdx, setMentionIdx] = useState(0);
   const mentionStartRef = useRef<number>(-1);
   const mentionsRef = useRef<MentionData[]>([]);
+  // 키보드로 선택된 멘션 항목 ref — mentionIdx 변경 시 드롭다운 스크롤을 따라가게(scrollIntoView).
+  const activeMentionRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    activeMentionRef.current?.scrollIntoView({ block: "nearest" });
+  }, [mentionIdx, mentionQuery]);
   // @All 합성 옵션(uid "-1") — 후보 맨 위. 멤버 이름과 동일 형식으로 selectMention에서 처리.
   const ALL_UID = "-1";
   // ── 음성 입력(STT) — MediaRecorder 녹음 → 서버(Gemini)에서 받아쓰기 → 입력창 채움 ──
@@ -2137,6 +2142,8 @@ function Composer({
               <button
                 key={m.uid}
                 type="button"
+                // 키보드(↑↓)로 선택된 항목 — 드롭다운 스크롤이 따라가도록 ref 부착(아래 useEffect).
+                ref={i === mentionIdx ? activeMentionRef : null}
                 // onMouseDown(onClick 아님): textarea blur 전에 선택 처리 → 본문 삽입 보장(blur 번역과 충돌 방지).
                 onMouseDown={(e) => {
                   e.preventDefault();
