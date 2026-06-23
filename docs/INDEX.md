@@ -33,6 +33,7 @@
 | 빌라별 시즌·가격 판정 | docs/decisions/0008-per-villa-season-periods.md + lib/pricing.ts(resolveSeason·quoteStayForVilla) |
 | 번역·i18n 키·문구 | .claude/skills/loc/i18n-pattern.md |
 | ADMIN 강제 판매가능(검수 게이트 오버라이드) **[채택]** | docs/decisions/ADR-0012-admin-force-sellable.md + lib/villa-gate.ts(forceOpenSellableGate, ACTIVE만·멱등·CHECKOUT 보존·전량 감사) — POST /api/villas/[id]/force-sellable, lib/cleaning.ts 불변 |
+| 운영자 권한 3단계(OWNER/MANAGER/STAFF) **[채택·S-RBAC-1 진행]** | docs/decisions/ADR-0013-operator-rbac-tiers.md + docs/contracts/S-RBAC-1.md — ADMIN→OWNER. 돈 경계 {OWNER,MANAGER} vs STAFF(§6.1 입금확인 금액숨김), OWNER↔MANAGER=시스템통제, 카뱅 알림파싱 Phase 2(§6.2). 핵심=lib/permissions.ts capability 헬퍼. additive 전략(ADMIN 유지→S-RBAC-2서 치환·제거) |
 
 ## 3열람실 — 참고 서가 (필요 시만)
 | 문서 | 내용 |

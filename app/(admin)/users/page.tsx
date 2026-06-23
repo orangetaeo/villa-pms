@@ -54,7 +54,10 @@ export default async function UsersPage() {
 
   const userRows: UserRow[] = users.map((u) => ({
     id: u.id,
-    role: u.role,
+    // [S-RBAC-1 transition] Role enum이 OWNER/MANAGER/STAFF로 확장됐으나
+    // 이 화면의 UserRow·뱃지·i18n 정식 대응은 S-RBAC-3 몫. 현재 OWNER/MANAGER/STAFF
+    // 계정은 0개(생성은 S-RBAC-4)라 캐스트가 무해. S-RBAC-3에서 UserRow.role을 Role로 확장하며 제거.
+    role: u.role as UserRow["role"],
     name: u.name,
     phone: u.phone,
     zaloUserId: u.zaloUserId,
