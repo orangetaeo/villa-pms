@@ -83,6 +83,7 @@ export default async function AdminLayout({
       <NextIntlClientProvider locale={locale} messages={messages}>
       <AdminSidebar
         userName={session.user.name}
+        role={session.user.role}
         unreadCount={unreadCount}
         logoutAction={logoutAction}
         currentLocale={locale === "vi" ? "vi" : "ko"}

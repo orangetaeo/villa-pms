@@ -10,11 +10,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import type { AppLocale } from "@/lib/locale";
+import { canViewFinance, isSystemAdmin, type Role } from "@/lib/permissions";
 
 interface NavItem {
   key: string;
   href: string;
   icon: string;
+  /** 표시 조건 — 미지정이면 운영자 전체(isOperator). 재무·시스템 메뉴는 역할별 노출 (S-RBAC) */
+  cap?: (r?: Role) => boolean;
 }
 
 const ONE_YEAR = 60 * 60 * 24 * 365;
@@ -28,23 +31,28 @@ function setLocaleCookie(name: string, value: string) {
 const NAV_ITEMS: NavItem[] = [
   { key: "dashboard", href: "/dashboard", icon: "dashboard" },
   { key: "bookings", href: "/bookings", icon: "calendar_month" },
-  { key: "proposals", href: "/proposals", icon: "rate_review" },
+  // 제안·정산=재무(canViewFinance) — STAFF 미노출. 클릭 시 게이트로도 차단되지만 메뉴부터 숨김
+  { key: "proposals", href: "/proposals", icon: "rate_review", cap: canViewFinance },
   { key: "villas", href: "/villas", icon: "villa" },
   { key: "availability", href: "/availability", icon: "event_available" },
   { key: "inspections", href: "/inspections", icon: "cleaning_services" },
-  { key: "settlements", href: "/settlements", icon: "payments" },
+  { key: "settlements", href: "/settlements", icon: "payments", cap: canViewFinance },
   { key: "messages", href: "/messages", icon: "chat" },
-  { key: "users", href: "/users", icon: "group" },
-  { key: "settings", href: "/settings", icon: "settings" },
+  // 사용자·설정=시스템(isSystemAdmin) — OWNER만 노출 (MANAGER/STAFF 미노출)
+  { key: "users", href: "/users", icon: "group", cap: isSystemAdmin },
+  { key: "settings", href: "/settings", icon: "settings", cap: isSystemAdmin },
 ];
 
 export default function AdminSidebar({
   userName,
+  role,
   unreadCount = 0,
   logoutAction,
   currentLocale = "ko",
 }: {
   userName?: string | null;
+  /** 사용자 역할 — NAV 역할별 필터 + 역할 라벨 표시 (S-RBAC) */
+  role?: Role;
   /** 메시지 메뉴 미읽음 합계 뱃지 (T6.6, b14) */
   unreadCount?: number;
   /** 로그아웃 서버 액션 (layout에서 NextAuth signOut 주입) */
@@ -53,6 +61,9 @@ export default function AdminSidebar({
   currentLocale?: AppLocale;
 }) {
   const t = useTranslations("nav");
+  const tRoles = useTranslations("adminUsers");
+  // 역할별 NAV 필터 — cap 미지정은 운영자 전체 노출, 재무·시스템 메뉴는 역할 충족 시만
+  const navItems = NAV_ITEMS.filter((item) => !item.cap || item.cap(role));
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -124,7 +135,7 @@ export default function AdminSidebar({
           </p>
         </div>
         <nav className="flex-1 flex flex-col gap-1 overflow-y-auto">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const active = isActive(item.href);
             return (
               <Link
@@ -163,7 +174,9 @@ export default function AdminSidebar({
               <span className="text-sm font-bold text-white leading-none truncate">
                 {userName ?? t("profileName")}
               </span>
-              <span className="text-[10px] text-admin-muted">{t("profileRole")}</span>
+              <span className="text-[10px] text-admin-muted">
+                {role ? tRoles(`roles.${role}`) : t("profileRole")}
+              </span>
             </div>
             {/* 로그아웃 — NextAuth signOut 서버 액션, 완료 후 /login */}
             {logoutAction && (
