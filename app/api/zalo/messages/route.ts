@@ -29,6 +29,10 @@ const bodySchema = z.object({
   // ADR-0009 R3-2 — 답글(인용). 지정 시 본인 대화의 ZaloMessage를 원본으로 인용해 발송.
   // 원본이 cliMsgId·zaloMsgId 미보유(과거 메시지)면 인용 불가 → 400.
   quotedMessageId: z.string().min(1).optional(),
+  // 그룹 @멘션(선택) — 본문 "@이름" 토큰 위치·대상 uid(@all="-1"). zca-js 실제 멘션으로 발송.
+  mentions: z
+    .array(z.object({ pos: z.number().int().min(0), uid: z.string().min(1), len: z.number().int().min(1) }))
+    .optional(),
 });
 
 export async function POST(req: Request) {
@@ -55,7 +59,7 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
-  const { conversationId, text, quotedMessageId } = parsed.data;
+  const { conversationId, text, quotedMessageId, mentions } = parsed.data;
 
   // 소유 검증 — 본인(ownerAdminId) 대화에만 발신 (ADR-0007 D3.4, 타 관리자 대화 발신 차단).
   const conversation = await prisma.zaloConversation.findFirst({
@@ -156,13 +160,15 @@ export async function POST(req: Request) {
         conversation.zaloUserId,
         outboundText,
         replyQuoteSource,
-        sendThreadType
+        sendThreadType,
+        mentions
       )
     : await sendChatMessageAsAdmin(
         session.user.id,
         conversation.zaloUserId,
         outboundText,
-        sendThreadType
+        sendThreadType,
+        mentions
       );
   if (result.ok) {
     status = ZaloMessageStatus.SENT;

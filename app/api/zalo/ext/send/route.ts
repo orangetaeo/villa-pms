@@ -120,6 +120,11 @@ const replyQuoteSchema = z.object({
   uidFrom: z.string().min(1),
 });
 
+// 그룹 @멘션 — 본문 내 "@이름" 토큰 위치·대상 uid(@all="-1"). villa가 zca-js 실제 멘션으로 전송.
+const mentionSchema = z.array(
+  z.object({ pos: z.number().int().min(0), uid: z.string().min(1), len: z.number().int().min(1) })
+);
+
 const bodySchema = z.discriminatedUnion("kind", [
   // 텍스트 발송 → sendChatMessageAsAdmin
   z.object({
@@ -128,6 +133,8 @@ const bodySchema = z.discriminatedUnion("kind", [
     text: z.string().min(1).max(4000), // 실제 발송 본문(번역문 vi 등)
     // 발신자가 입력한 원문(예: 한국어). 있으면 villa가 text=원문·translatedText=발송문으로 저장(역번역 아님 — 원문 그대로 보존).
     originalText: z.string().max(4000).optional(),
+    // 그룹 @멘션(선택) — villa가 zca-js 실제 멘션으로 전송.
+    mentions: mentionSchema.optional(),
   }),
   // 이미지 발송 → sendChatImageAsAdmin. 바이너리는 base64로 전달(서버-서버 JSON).
   z.object({
@@ -145,6 +152,8 @@ const bodySchema = z.discriminatedUnion("kind", [
     quote: replyQuoteSchema,
     // 발신자 입력 원문(있으면 villa가 ko+vi로 저장 — TEXT와 동일).
     originalText: z.string().max(4000).optional(),
+    // 그룹 @멘션(선택).
+    mentions: mentionSchema.optional(),
   }),
   // 리액션 발송 → addReactionAsAdmin
   z.object({
@@ -210,7 +219,13 @@ export async function POST(req: Request) {
   // ── 발송 (기존 함수 재사용, ownerAdminId 서버 고정, threadId 정규화본 사용) ──
   try {
     if (body.kind === "TEXT") {
-      const res = await sendChatMessageAsAdmin(ownerAdminId, threadId, body.text, threadType);
+      const res = await sendChatMessageAsAdmin(
+        ownerAdminId,
+        threadId,
+        body.text,
+        threadType,
+        body.mentions
+      );
       if (!res.ok) {
         return NextResponse.json({ error: "SEND_FAILED", reason: res.error }, { status: 502 });
       }
@@ -256,7 +271,8 @@ export async function POST(req: Request) {
           content: body.quote.content,
           uidFrom: body.quote.uidFrom,
         },
-        threadType
+        threadType,
+        body.mentions
       );
       if (!res.ok) {
         return NextResponse.json({ error: "SEND_FAILED", reason: res.error }, { status: 502 });

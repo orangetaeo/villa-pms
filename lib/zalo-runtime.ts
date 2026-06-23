@@ -907,16 +907,29 @@ export type BotSendResult =
   | { ok: true; messageId: string | null }
   | { ok: false; error: string };
 
+/**
+ * Zalo @멘션 1건 — 본문(text) 내 "@이름" 토큰의 위치·길이·대상 uid.
+ * pos=본문 문자 오프셋, len="@이름" 길이, uid=멘션 대상 Zalo id(@all=특수값 "-1").
+ * 본문은 멘션 토큰을 포함한 상태로 그대로 전송하고, 이 배열로 zca-js가 실제 멘션을 건다.
+ */
+export type ZaloMention = { pos: number; uid: string; len: number };
+
 async function sendVia(
   api: API | null,
   zaloUserId: string,
   text: string,
   // ADR-0010 S4 — 그룹 발송 지원. 기본 USER(기존 호출 동작 불변). GROUP이면 zaloUserId=그룹 id.
-  threadType: ThreadType = ThreadType.User
+  threadType: ThreadType = ThreadType.User,
+  // 그룹 @멘션 — 있으면 MessageContent {msg, mentions}로 전송(zca-js 실제 멘션). 없으면 plain string(불변).
+  mentions?: ZaloMention[]
 ): Promise<BotSendResult> {
   if (!api) return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
   try {
-    const res = await api.sendMessage(text, zaloUserId, threadType);
+    const payload =
+      mentions && mentions.length > 0
+        ? ({ msg: text, mentions } as unknown as Parameters<API["sendMessage"]>[0])
+        : text;
+    const res = await api.sendMessage(payload, zaloUserId, threadType);
     const msgId = res?.message?.msgId;
     return { ok: true, messageId: msgId != null ? String(msgId) : null };
   } catch (e) {
@@ -947,10 +960,12 @@ export async function sendChatMessageAsAdmin(
   zaloUserId: string,
   text: string,
   // ADR-0010 S4 — 그룹 발송. 기본 USER(기존 호출 무영향). GROUP이면 zaloUserId=그룹 id.
-  threadType: ThreadType = ThreadType.User
+  threadType: ThreadType = ThreadType.User,
+  // 그룹 @멘션(선택) — sendVia가 {msg,mentions}로 전송.
+  mentions?: ZaloMention[]
 ): Promise<BotSendResult> {
   const api = await getApiForAdmin(adminUserId);
-  return sendVia(api, zaloUserId, text, threadType);
+  return sendVia(api, zaloUserId, text, threadType, mentions);
 }
 
 /**
@@ -1027,7 +1042,9 @@ export async function sendChatReplyAsAdmin(
   text: string,
   quoteSource: QuoteSource,
   // ADR-0010 S4 — 그룹 답글. 기본 USER(기존 호출 무영향).
-  threadType: ThreadType = ThreadType.User
+  threadType: ThreadType = ThreadType.User,
+  // 그룹 @멘션(선택) — 답글 본문에 멘션 포함 시.
+  mentions?: ZaloMention[]
 ): Promise<BotSendResult> {
   try {
     const api = await getApiForAdmin(adminUserId);
@@ -1046,6 +1063,7 @@ export async function sendChatReplyAsAdmin(
         ts: String(Date.now()),
         ttl: 0,
       },
+      ...(mentions && mentions.length > 0 ? { mentions } : {}),
     } as unknown as Parameters<API["sendMessage"]>[0];
     const res = await api.sendMessage(message, zaloUserId, threadType);
     const msgId = res?.message?.msgId ?? res?.attachment?.[0]?.msgId;
