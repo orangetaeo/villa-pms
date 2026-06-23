@@ -61,8 +61,10 @@ async function notifyAdminsRateChanged(
   }
 ) {
   if (args.proposalIds.length === 0) return;
+  // [S-RBAC-final] 요율변경 알림 수신자 = 운영 최상위(OWNER). ADMIN은 transition 잔존값
+  // 이라 둘 다 포함해 마이그레이션 전/후 무중단(테오 ADMIN→OWNER 데이터 플립과 순서 무관).
   const admins = await tx.user.findMany({
-    where: { role: "ADMIN" },
+    where: { role: { in: ["OWNER", "ADMIN"] } },
     select: { id: true },
   });
   if (admins.length === 0) return;

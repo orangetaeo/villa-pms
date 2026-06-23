@@ -280,10 +280,10 @@ async function main() {
     // 전화번호는 로그인 폼이 숫자만 남기므로(예: "+84-90-..."→"84900000000") 숫자 형식으로 저장해야 로그인 가능 (T4.2b)
     await prisma.user.upsert({
       where: { id: SEED_ADMIN_ID },
-      update: { role: Role.ADMIN, name: "테오", locale: "ko", phone: "0900000010" },
+      update: { role: Role.OWNER, name: "테오", locale: "ko", phone: "0900000010" },
       create: {
         id: SEED_ADMIN_ID,
-        role: Role.ADMIN,
+        role: Role.OWNER, // S-RBAC-final: 테오 = OWNER (구 ADMIN)
         name: "테오",
         phone: "0900000010",
         email: "admin@villa-pms.local",
