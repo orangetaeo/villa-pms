@@ -16,6 +16,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { ThreadType } from "zca-js";
+import {
+  ZaloMessageDirection,
+  ZaloMessageSource,
+  ZaloMessageStatus,
+} from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   sendChatMessageAsAdmin,
@@ -39,22 +44,71 @@ import { isExtSecretValid, resolveSystemOwnerId } from "@/lib/zalo-ext-auth";
 async function resolveThreadZaloUserId(
   ownerAdminId: string,
   threadId: string
-): Promise<{ zaloUserId: string; threadType: ThreadType }> {
+): Promise<{ zaloUserId: string; threadType: ThreadType; conversationId: string | null }> {
   const conv = await prisma.zaloConversation.findFirst({
     where: { ownerAdminId, OR: [{ id: threadId }, { zaloUserId: threadId }] },
-    select: { zaloUserId: true, threadType: true },
+    select: { id: true, zaloUserId: true, threadType: true },
   });
   if (conv?.zaloUserId) {
     return {
       zaloUserId: conv.zaloUserId,
       threadType: conv.threadType === "GROUP" ? ThreadType.Group : ThreadType.User,
+      conversationId: conv.id,
     };
   }
   // 미존재 — 하위호환: threadId 그대로(방어). credential·시크릿 미노출, threadId만 흔적.
   console.warn(
     `[zalo/ext/send] threadId 정규화 실패(테오 스코프 conversation 없음) — threadId 그대로 발송: ${threadId}`
   );
-  return { zaloUserId: threadId, threadType: ThreadType.User };
+  return { zaloUserId: threadId, threadType: ThreadType.User, conversationId: null };
+}
+
+/**
+ * Nike 위임 발송(ko 원문 보유)을 villa 정본에 ko+vi로 저장 (2026-06-23).
+ * Nike는 한국어로 입력 → 번역문(vi)을 Zalo로 보내는데, villa는 self-echo로 vi만 저장돼
+ * 운영자 화면에 한국어 원문이 사라졌다. originalText(ko)가 오면 villa도 자체 발송과 동일하게
+ * text=원문(ko)·translatedText=발송문(vi)으로 저장(OutboundBubble이 둘 다 표시).
+ *
+ * 멱등·레이스 안전: zaloMsgId 기준 upsert — self-echo(saveOutboundEcho)가 먼저/나중에 와도
+ *   ① ext/send가 먼저면 create → echo는 zaloMsgId 존재로 skip.
+ *   ② echo가 먼저(vi·translatedText=null)면 update로 text=ko·translatedText=vi 보강.
+ * zaloMsgId 없으면(발송 응답에 msgId 부재) 키가 없어 echo에 위임(원문 없이 vi만 — 드묾).
+ */
+async function persistOutboundOriginal(
+  conversationId: string,
+  ownerAdminId: string,
+  zaloMsgId: string | null,
+  originalText: string,
+  sentText: string
+): Promise<void> {
+  if (!zaloMsgId) return;
+  try {
+    await prisma.zaloMessage.upsert({
+      where: { zaloMsgId },
+      update: { text: originalText, translatedText: sentText },
+      create: {
+        conversationId,
+        direction: ZaloMessageDirection.OUTBOUND,
+        source: ZaloMessageSource.CHAT,
+        msgType: "text",
+        text: originalText,
+        translatedText: sentText,
+        zaloMsgId,
+        status: ZaloMessageStatus.SENT,
+        sentBy: ownerAdminId,
+      },
+    });
+    await prisma.zaloConversation.update({
+      where: { id: conversationId },
+      data: { lastMessageAt: new Date() },
+    });
+  } catch (err) {
+    // 저장 실패가 발송 성공 응답을 막지 않도록 swallow(메시지는 이미 발송됨). 상태만 로그.
+    console.error(
+      "[zalo/ext/send] 원문 저장 실패(발송은 성공):",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
 }
 
 // ── 본문 스키마 (discriminated union, kind 기준) ──────────────────────
@@ -71,7 +125,9 @@ const bodySchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("TEXT"),
     threadId: z.string().min(1),
-    text: z.string().min(1).max(4000),
+    text: z.string().min(1).max(4000), // 실제 발송 본문(번역문 vi 등)
+    // 발신자가 입력한 원문(예: 한국어). 있으면 villa가 text=원문·translatedText=발송문으로 저장(역번역 아님 — 원문 그대로 보존).
+    originalText: z.string().max(4000).optional(),
   }),
   // 이미지 발송 → sendChatImageAsAdmin. 바이너리는 base64로 전달(서버-서버 JSON).
   z.object({
@@ -87,6 +143,8 @@ const bodySchema = z.discriminatedUnion("kind", [
     threadId: z.string().min(1),
     text: z.string().min(1).max(4000),
     quote: replyQuoteSchema,
+    // 발신자 입력 원문(있으면 villa가 ko+vi로 저장 — TEXT와 동일).
+    originalText: z.string().max(4000).optional(),
   }),
   // 리액션 발송 → addReactionAsAdmin
   z.object({
@@ -144,7 +202,7 @@ export async function POST(req: Request) {
   // ── threadId 정규화 — cuid/zaloUserId 모두 실제 Zalo uid로 (전 kind 공통) ──
   //    테오 스코프 조회. 매칭 실패 시 body.threadId 그대로(방어). ownerAdminId 무변경.
   //    ADR-0010 S4: GROUP 대화면 threadType=Group으로 발송(전 kind 공통).
-  const { zaloUserId: threadId, threadType } = await resolveThreadZaloUserId(
+  const { zaloUserId: threadId, threadType, conversationId } = await resolveThreadZaloUserId(
     ownerAdminId,
     body.threadId
   );
@@ -155,6 +213,10 @@ export async function POST(req: Request) {
       const res = await sendChatMessageAsAdmin(ownerAdminId, threadId, body.text, threadType);
       if (!res.ok) {
         return NextResponse.json({ error: "SEND_FAILED", reason: res.error }, { status: 502 });
+      }
+      // 원문(ko) 보존 — 있으면 villa 정본에 ko+vi로 저장(역번역 아님, 원문 그대로). conversationId 없으면 echo 위임.
+      if (body.originalText && conversationId) {
+        await persistOutboundOriginal(conversationId, ownerAdminId, res.messageId, body.originalText, body.text);
       }
       return NextResponse.json({ ok: true, kind: "TEXT", messageId: res.messageId });
     }
@@ -198,6 +260,9 @@ export async function POST(req: Request) {
       );
       if (!res.ok) {
         return NextResponse.json({ error: "SEND_FAILED", reason: res.error }, { status: 502 });
+      }
+      if (body.originalText && conversationId) {
+        await persistOutboundOriginal(conversationId, ownerAdminId, res.messageId, body.originalText, body.text);
       }
       return NextResponse.json({ ok: true, kind: "REPLY", messageId: res.messageId });
     }
