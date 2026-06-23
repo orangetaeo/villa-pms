@@ -92,7 +92,9 @@ export async function POST(req: Request) {
         text: true,
         translatedText: true,
         direction: true,
-        conversation: { select: { displayName: true, nickname: true } },
+        // 그룹 인용 — 원문의 실제 발신자 식별(uidFrom). 1:1은 null.
+        senderUid: true,
+        conversation: { select: { displayName: true, nickname: true, groupMembers: true } },
       },
     });
     if (!original) {
@@ -102,15 +104,33 @@ export async function POST(req: Request) {
     if (!original.zaloMsgId || !original.cliMsgId) {
       return NextResponse.json({ error: "QUOTE_NOT_SUPPORTED" }, { status: 400 });
     }
-    // 인용 uidFrom — 원본이 내 발신(OUTBOUND)이면 내 ownId, 상대 발신(INBOUND)이면 대화 상대 zaloUserId.
+    // 인용 uidFrom — zca-js는 인용 원문의 **실제 발신자 uid**를 요구한다.
+    //  · 내 발신(OUTBOUND): 내 ownId.
+    //  · 상대 발신(INBOUND): 그룹이면 원문 발신자 senderUid(★버그수정 — 그룹 id로 보내면 거부→전송실패),
+    //    1:1이면 senderUid 없음 → 대화 상대 zaloUserId.
     let uidFrom = conversation.zaloUserId;
     if (original.direction === ZaloMessageDirection.OUTBOUND) {
       uidFrom = (await getOwnIdForAdmin(session.user.id)) ?? conversation.zaloUserId;
+    } else if (original.senderUid) {
+      uidFrom = original.senderUid;
     }
-    const quotedSender =
-      original.direction === ZaloMessageDirection.OUTBOUND
-        ? null // 내 발신 인용 — 발신자 표시 생략(나)
-        : original.conversation.nickname ?? original.conversation.displayName ?? null;
+    // 인용 발신자 표시명 — 그룹이면 groupMembers에서 senderUid→이름, 아니면 대화 상대명.
+    let quotedSender: string | null = null;
+    if (original.direction !== ZaloMessageDirection.OUTBOUND) {
+      if (original.senderUid && Array.isArray(original.conversation.groupMembers)) {
+        const found = (original.conversation.groupMembers as { zaloId?: unknown; name?: unknown }[]).find(
+          (m) => m && typeof m.zaloId === "string" && m.zaloId === original.senderUid
+        );
+        quotedSender =
+          (found && typeof found.name === "string" ? found.name : null) ??
+          original.senderUid ??
+          original.conversation.nickname ??
+          original.conversation.displayName ??
+          null;
+      } else {
+        quotedSender = original.conversation.nickname ?? original.conversation.displayName ?? null;
+      }
+    }
     quoteSnapshot = {
       quotedMsgId: original.zaloMsgId,
       quotedText: original.text,
