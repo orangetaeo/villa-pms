@@ -13,6 +13,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -174,6 +175,53 @@ const LightboxContext = createContext<((urls: string[], startIndex: number) => v
 // 인용 클릭 → 원본 메시지로 스크롤+하이라이트(Nike). props 드릴링 회피용 컨텍스트.
 // 인자는 인용 대상 원본의 zaloMsgId. 현재 로드 범위에 없으면 무동작(폴백).
 const QuoteJumpContext = createContext<((targetMsgId: string) => void) | null>(null);
+
+// 멘션 강조용 이름 목록(그룹 멤버명 + @전체 라벨 변형) — 버블 본문에서 "@이름"을 Zalo처럼 강조.
+// 그룹 대화에서만 채워지고, 1:1은 빈 배열(강조 없음).
+const MentionNamesContext = createContext<string[]>([]);
+
+/** 정규식 특수문자 이스케이프. */
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * 본문에서 "@이름"(그룹 멤버명/@전체)을 찾아 Zalo처럼 강조 렌더.
+ * names 컨텍스트가 비었거나 "@"가 없으면 원문 그대로. 긴 이름 우선 매칭(부분 겹침 방지).
+ * highlightClass로 버블 배경(어두운 slate / 파란 outbound)에 맞는 색을 받는다.
+ */
+function MentionText({
+  text,
+  highlightClass = "text-sky-400 font-medium",
+}: {
+  text: string;
+  highlightClass?: string;
+}) {
+  const names = useContext(MentionNamesContext);
+  if (!text || names.length === 0 || !text.includes("@")) return <>{text}</>;
+  const escaped = names
+    .filter(Boolean)
+    .map(escapeRegExp)
+    .sort((a, b) => b.length - a.length);
+  if (escaped.length === 0) return <>{text}</>;
+  const re = new RegExp(`@(?:${escaped.join("|")})`, "g");
+  const out: ReactNode[] = [];
+  let last = 0;
+  let key = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    out.push(
+      <span key={key++} className={highlightClass}>
+        {m[0]}
+      </span>
+    );
+    last = m.index + m[0].length;
+    if (re.lastIndex === m.index) re.lastIndex++; // 0길이 매칭 방지
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return <>{out}</>;
+}
 
 export function ChatPane({
   conversationId,
@@ -374,9 +422,23 @@ export function ChatPane({
     );
   }
 
+  // 멘션 강조 이름 — 그룹이면 멤버명 + @전체 라벨 변형. 버블 본문 "@이름"을 Zalo처럼 강조(MentionText).
+  const mentionNames = header?.isGroup
+    ? [
+        ...groupMembers.map((m) => m.name).filter((n): n is string => !!n),
+        "전체",
+        "Tất cả",
+        "tất cả",
+        "All",
+        "all",
+        "모두",
+      ]
+    : [];
+
   return (
     <LightboxContext.Provider value={openLightbox}>
       <QuoteJumpContext.Provider value={scrollToMessage}>
+      <MentionNamesContext.Provider value={mentionNames}>
       <section
         className="flex-1 flex flex-col bg-[#0F172A] min-w-0 overflow-x-clip"
         onTouchStart={onSwipeStart}
@@ -457,6 +519,7 @@ export function ChatPane({
           router={router}
         />
       </section>
+      </MentionNamesContext.Provider>
       </QuoteJumpContext.Provider>
 
       {/* 라이트박스 — 최상위 z-index, 배경/X/ESC 닫기 */}
@@ -1101,11 +1164,11 @@ function InboundBubble({
           typeCard
         ) : (
           <div className="bg-slate-800 rounded-xl rounded-bl-sm px-4 py-3">
-            <p className="text-sm text-slate-100 whitespace-pre-wrap break-words">{message.text}</p>
+            <p className="text-sm text-slate-100 whitespace-pre-wrap break-words"><MentionText text={message.text} /></p>
             {message.translatedText && showTranslation && (
               <div className="border-t border-slate-700 mt-2 pt-2 flex items-start justify-between gap-3">
                 <p className="text-sm text-slate-300 flex-1 whitespace-pre-wrap break-words">
-                  {message.translatedText}
+                  <MentionText text={message.translatedText} />
                   <span className="text-[9px] text-slate-500 font-bold ml-1.5 align-middle">
                     {t("translationLabel")}
                   </span>
@@ -1252,10 +1315,12 @@ function OutboundBubble({
     // 상대는 번역문만 받았고, 원문은 내 기록용(route.ts 전송 번역).
     card = (
       <div className="bg-blue-600 rounded-xl rounded-br-sm px-4 py-3 inline-block text-left">
-        <p className="text-sm text-white whitespace-pre-wrap break-words">{message.text}</p>
+        <p className="text-sm text-white whitespace-pre-wrap break-words">
+          <MentionText text={message.text} highlightClass="font-bold text-sky-200" />
+        </p>
         {message.translatedText && (
           <p className="mt-1.5 border-t border-white/20 pt-1.5 text-xs text-blue-100/90 whitespace-pre-wrap break-words">
-            {message.translatedText}
+            <MentionText text={message.translatedText} highlightClass="font-bold text-white" />
           </p>
         )}
       </div>
