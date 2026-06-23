@@ -1131,7 +1131,8 @@
       "zalo": "Liên kết Zalo",
       "villas": "Số villa",
       "joined": "Ngày tham gia",
-      "status": "Trạng thái"
+      "status": "Trạng thái",
+      "actions": "Thao tác"
     },
     "zalo": {
       "connected": "Đã kết nối",
@@ -1181,6 +1182,16 @@
       "placeholder": "Chọn vai trò",
       "selfHint": "Không thể thay đổi vai trò của tài khoản chính bạn.",
       "success": "Đã thay đổi vai trò."
+    },
+    "resetPassword": {
+      "action": "Đặt lại mật khẩu",
+      "confirm": "Đặt lại mật khẩu cho {name}? Một mật khẩu tạm thời mới sẽ được tạo và mật khẩu cũ sẽ không dùng được nữa.",
+      "title": "Đã cấp mật khẩu tạm thời",
+      "subtitle": "Mật khẩu tạm thời của {name}. Hãy gửi cho người dùng.",
+      "copy": "Sao chép",
+      "copied": "Đã sao chép",
+      "warning": "Mật khẩu này chỉ hiển thị một lần. Đóng cửa sổ sẽ không xem lại được. Hãy gửi cho người dùng và hướng dẫn họ tự đổi.",
+      "close": "Đóng"
     }
   },
   "adminProposals": {

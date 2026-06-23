@@ -1,7 +1,9 @@
 // PATCH /api/users/[id] — ADMIN 사용자 관리 (T1.8, SPEC F0)
-// 활성/비활성 토글 + Zalo 수동 연결·해제. 본인 비활성화 금지(락아웃 방지)
+// 활성/비활성 토글 + Zalo 수동 연결·해제 + 비번 초기화. 본인 비활성화 금지(락아웃 방지)
+import { randomInt } from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
@@ -10,12 +12,24 @@ import { isSystemAdmin } from "@/lib/permissions";
 // 부여 가능 역할 — OWNER·ADMIN 제외(권한상승 표면 차단, 계약 A2)
 const ASSIGNABLE_ROLES = ["MANAGER", "STAFF", "SUPPLIER", "CLEANER"] as const;
 
+// 임시 비밀번호 생성 — 혼동 문자(0/O, 1/l/I) 제외, 기본 10자.
+// OWNER가 사용자에게 Zalo 등으로 전달 → 사용자가 직접 변경 가정.
+const TEMP_PW_ALPHABET = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+function generateTempPassword(length = 10): string {
+  let out = "";
+  for (let i = 0; i < length; i += 1) {
+    out += TEMP_PW_ALPHABET[randomInt(TEMP_PW_ALPHABET.length)];
+  }
+  return out;
+}
+
 const patchSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("DEACTIVATE") }),
   z.object({ action: z.literal("ACTIVATE") }),
   z.object({ action: z.literal("LINK_ZALO"), zaloUserId: z.string().min(1) }),
   z.object({ action: z.literal("UNLINK_ZALO") }),
   z.object({ action: z.literal("CHANGE_ROLE"), role: z.enum(ASSIGNABLE_ROLES) }),
+  z.object({ action: z.literal("RESET_PASSWORD") }),
 ]);
 
 export async function PATCH(
@@ -65,6 +79,12 @@ export async function PATCH(
     );
   }
 
+  // 비번 초기화 — 임시 비밀번호 생성·해시는 트랜잭션 밖(bcrypt는 무거움).
+  // 평문은 응답으로 1회만 반환하고 감사 로그·DB엔 절대 저장하지 않는다.
+  const tempPassword =
+    input.action === "RESET_PASSWORD" ? generateTempPassword() : null;
+  const tempPasswordHash = tempPassword ? await bcrypt.hash(tempPassword, 10) : null;
+
   // 트랜잭션 — 대상 확인·중복 검사·갱신·Zalo 동기화·감사 로그를 원자적으로 처리
   const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.findUnique({
@@ -100,6 +120,24 @@ export async function PATCH(
         entity: "User",
         entityId: id,
         changes: { role: { old: user.role, new: updated.role } },
+        db: tx,
+      });
+      return { kind: "OK" as const, user: updated };
+    }
+
+    if (input.action === "RESET_PASSWORD") {
+      const updated = await tx.user.update({
+        where: { id },
+        data: { passwordHash: tempPasswordHash! },
+        select: { id: true, isActive: true, zaloUserId: true },
+      });
+      // 감사 로그 — 초기화 사실만 기록(평문·해시 절대 미기록, leak-checklist)
+      await writeAuditLog({
+        userId: session.user.id,
+        action: "UPDATE",
+        entity: "User",
+        entityId: id,
+        changes: { passwordReset: { new: true } },
         db: tx,
       });
       return { kind: "OK" as const, user: updated };
@@ -209,5 +247,7 @@ export async function PATCH(
     zaloUserId: result.user.zaloUserId,
     // CHANGE_ROLE 시 변경된 role 포함 (다른 액션엔 undefined → 직렬화에서 생략)
     ...("role" in result.user ? { role: result.user.role } : {}),
+    // RESET_PASSWORD 시 임시 비밀번호 1회 반환 (화면에서 OWNER에게만 표시 후 폐기)
+    ...(tempPassword ? { tempPassword } : {}),
   });
 }

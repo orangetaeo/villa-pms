@@ -98,6 +98,11 @@ export default function UsersManager({
   const [addError, setAddError] = useState<string | null>(null);
   // 역할 변경 진입 행 id (B3)
   const [roleEditId, setRoleEditId] = useState<string | null>(null);
+  // 비번 초기화 결과 — 임시 비밀번호 1회 표시 모달 (닫으면 다시 못 봄)
+  const [resetResult, setResetResult] = useState<{ name: string; password: string } | null>(
+    null
+  );
+  const [copied, setCopied] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -225,6 +230,42 @@ export default function UsersManager({
       t("roleChange.success")
     );
     if (ok) setRoleEditId(null);
+  };
+
+  // 비번 초기화 (RESET_PASSWORD) — 임시 비밀번호를 받아 1회 모달 표시.
+  // patchUser는 본문을 반환하지 않으므로(refresh만) 별도 fetch로 tempPassword 수신.
+  const onResetPassword = async (user: UserRow) => {
+    if (!window.confirm(t("resetPassword.confirm", { name: user.name }))) return;
+    setBusyId(user.id);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "RESET_PASSWORD" }),
+      });
+      const data = (await res.json().catch(() => null)) as { tempPassword?: string } | null;
+      if (!res.ok || !data?.tempPassword) {
+        setMessage({ tone: "error", text: t("errors.generic") });
+        return;
+      }
+      setCopied(false);
+      setResetResult({ name: user.name, password: data.tempPassword });
+    } catch {
+      setMessage({ tone: "error", text: t("errors.generic") });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const onCopyTempPassword = async () => {
+    if (!resetResult) return;
+    try {
+      await navigator.clipboard.writeText(resetResult.password);
+      setCopied(true);
+    } catch {
+      // 클립보드 차단 환경 — 사용자가 직접 선택해 복사
+    }
   };
 
   // Zalo 연결 셀 (b13: 점 + 연결됨/미연결 + 수동 연결 링크)
@@ -461,6 +502,24 @@ export default function UsersManager({
       className: "text-center",
       headerClassName: "text-center",
     },
+    {
+      key: "actions",
+      header: t("columns.actions"),
+      cell: (u) => (
+        <button
+          type="button"
+          disabled={busyId === u.id}
+          onClick={() => void onResetPassword(u)}
+          title={t("resetPassword.action")}
+          className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-admin-primary disabled:opacity-50 whitespace-nowrap"
+        >
+          <span className="material-symbols-outlined text-sm">lock_reset</span>
+          {t("resetPassword.action")}
+        </button>
+      ),
+      className: "text-center",
+      headerClassName: "text-center",
+    },
   ];
 
   return (
@@ -624,6 +683,51 @@ export default function UsersManager({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 비번 초기화 결과 — 임시 비밀번호 1회 표시 (닫으면 다시 못 봄) */}
+      {resetResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-2xl">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="material-symbols-outlined text-emerald-400">lock_reset</span>
+              <h2 className="text-lg font-bold text-white">{t("resetPassword.title")}</h2>
+            </div>
+            <p className="text-xs text-slate-400 mb-5">
+              {t("resetPassword.subtitle", { name: resetResult.name })}
+            </p>
+
+            <div className="flex items-center gap-2 mb-4">
+              <code className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-base font-mono font-bold text-emerald-300 tracking-wider text-center select-all">
+                {resetResult.password}
+              </code>
+              <button
+                type="button"
+                onClick={() => void onCopyTempPassword()}
+                className="inline-flex items-center gap-1 px-3 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition-colors whitespace-nowrap"
+              >
+                <span className="material-symbols-outlined text-sm">
+                  {copied ? "check" : "content_copy"}
+                </span>
+                {copied ? t("resetPassword.copied") : t("resetPassword.copy")}
+              </button>
+            </div>
+
+            <p className="text-[11px] text-amber-400/90 leading-relaxed mb-5">
+              {t("resetPassword.warning")}
+            </p>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setResetResult(null)}
+                className="px-4 py-2 rounded-lg text-sm font-bold bg-admin-primary hover:bg-admin-primary-dark text-white transition-colors"
+              >
+                {t("resetPassword.close")}
+              </button>
+            </div>
           </div>
         </div>
       )}

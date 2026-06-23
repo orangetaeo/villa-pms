@@ -1059,7 +1059,8 @@
       "zalo": "Zalo 연결",
       "villas": "보유 빌라",
       "joined": "가입일",
-      "status": "상태"
+      "status": "상태",
+      "actions": "관리"
     },
     "zalo": {
       "connected": "연결됨",
@@ -1109,6 +1110,16 @@
       "placeholder": "역할 선택",
       "selfHint": "본인 계정의 역할은 변경할 수 없습니다.",
       "success": "역할이 변경되었습니다."
+    },
+    "resetPassword": {
+      "action": "비번 초기화",
+      "confirm": "{name} 님의 비밀번호를 초기화할까요? 임시 비밀번호가 새로 생성되며 기존 비밀번호는 사용할 수 없게 됩니다.",
+      "title": "임시 비밀번호 발급됨",
+      "subtitle": "{name} 님의 임시 비밀번호입니다. 사용자에게 전달하세요.",
+      "copy": "복사",
+      "copied": "복사됨",
+      "warning": "이 비밀번호는 지금만 표시됩니다. 창을 닫으면 다시 볼 수 없습니다. 사용자에게 전달 후 직접 변경하도록 안내하세요.",
+      "close": "닫기"
     }
   },
   "adminProposals": {
