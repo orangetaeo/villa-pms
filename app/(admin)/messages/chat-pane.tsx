@@ -1996,9 +1996,9 @@ function Composer({
     const cursor = el?.selectionStart ?? text.length;
     const beforeAt = text.slice(0, start);
     const after = text.slice(cursor);
-    // @All은 "@전체 "(라벨 그대로), 일반 멤버는 "@이름 ". len은 trim 길이(끝 공백 제외).
-    const token = `${member.name} `;
-    const insert = member.uid === ALL_UID ? `${member.name} ` : token;
+    // @All은 라벨에 이미 "@"가 있으므로 그대로("@전체 "), 일반 멤버는 "@"를 붙인다("@이름 ").
+    //  ★ 버그수정: 개별 멤버에 "@"를 안 붙이면 발송 시 startsWith("@") 필터에 걸려 멘션이 전부 빠졌다.
+    const insert = member.uid === ALL_UID ? `${member.name} ` : `@${member.name} `;
     const newVal = beforeAt + insert + after;
     setText(newVal);
 
