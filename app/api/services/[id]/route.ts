@@ -10,6 +10,7 @@ import {
   isServiceOrderStatus,
   InvalidServiceTransitionError,
 } from "@/lib/service-order";
+import { isOperator } from "@/lib/permissions";
 
 const patchSchema = z.object({
   status: z.string(),
@@ -23,7 +24,7 @@ export async function PATCH(
   if (!session?.user) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!isOperator(session.user.role)) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 

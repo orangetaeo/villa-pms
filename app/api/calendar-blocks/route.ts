@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { checkAvailability, lockVillaInventory } from "@/lib/availability";
 import { addUtcDays, parseUtcDateOnly, todayVnDateString } from "@/lib/date-vn";
+import { isOperator } from "@/lib/permissions";
 
 const createSchema = z.object({
   villaId: z.string().min(1),
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
   const role = session.user.role;
-  if (role !== "SUPPLIER" && role !== "ADMIN") {
+  if (role !== "SUPPLIER" && !isOperator(role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
   const actorId = session.user.id;

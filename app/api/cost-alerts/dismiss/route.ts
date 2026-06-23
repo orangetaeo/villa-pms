@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { NotificationType } from "@prisma/client";
+import { isSystemAdmin } from "@/lib/permissions";
 
 const schema = z.object({
   notificationIds: z.array(z.string().min(1)).min(1).max(100),
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
   if (!session?.user?.id) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!isSystemAdmin(session.user.role)) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
   const adminId = session.user.id;

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { signAgreement, AgreementRejectedError } from "@/lib/checkin";
+import { isOperator } from "@/lib/permissions";
 
 /**
  * POST /api/bookings/[id]/agreement — 사후 서명 (T3.2 계약 결정 2, ADMIN 전용)
@@ -19,7 +20,7 @@ export async function POST(
 ) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN") {
+  if (!isOperator(session.user.role)) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 

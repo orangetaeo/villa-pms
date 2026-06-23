@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { auth } from "@/auth";
 import { GeminiNotConfiguredError, ocrPassport } from "@/lib/gemini";
+import { isOperator } from "@/lib/permissions";
 
 /**
  * POST /api/ocr/passport — 여권 OCR (T3.1, ADMIN 전용)
@@ -19,7 +20,7 @@ const ocrSchema = z.object({
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN") {
+  if (!isOperator(session.user.role)) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 

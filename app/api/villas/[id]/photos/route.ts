@@ -9,6 +9,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { PHOTO_SPACES } from "@/lib/villa-schema";
+import { isOperator } from "@/lib/permissions";
 
 // 진행 중 예약 — 기준사진(baseline) 증빙 무결성 보호 대상 상태
 const ACTIVE_BOOKING_STATUSES = ["HOLD", "CONFIRMED", "CHECKED_IN"] as const;
@@ -68,7 +69,7 @@ export async function POST(
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
   const { role, id: userId } = session.user;
-  if (role !== "SUPPLIER" && role !== "ADMIN") {
+  if (role !== "SUPPLIER" && !isOperator(role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
   const { id: villaId } = await params;
@@ -151,7 +152,7 @@ export async function DELETE(
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
   const { role, id: userId } = session.user;
-  if (role !== "SUPPLIER" && role !== "ADMIN") {
+  if (role !== "SUPPLIER" && !isOperator(role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
   const { id: villaId } = await params;
@@ -240,7 +241,7 @@ export async function PATCH(
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
   const { role, id: userId } = session.user;
-  if (role !== "SUPPLIER" && role !== "ADMIN") {
+  if (role !== "SUPPLIER" && !isOperator(role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
   const { id: villaId } = await params;

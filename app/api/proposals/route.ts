@@ -8,6 +8,7 @@ import {
   effectiveProposalStatus,
   ProposalRejectedError,
 } from "@/lib/proposal";
+import { canSetPrice } from "@/lib/permissions";
 
 /** 제안 생성·목록 — 전부 ADMIN 전용 (재고 비공개 원칙: 후보·제안 관리는 운영자만) */
 
@@ -43,7 +44,7 @@ const createSchema = z.object({
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN") {
+  if (!canSetPrice(session.user.role)) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
 export async function GET() {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN") {
+  if (!canSetPrice(session.user.role)) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 

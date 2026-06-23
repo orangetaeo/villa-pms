@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { CleaningStatus, type Prisma } from "@prisma/client";
+import { isOperator } from "@/lib/permissions";
 
 /**
  * GET /api/cleaning-tasks — 청소 태스크 목록 (/inspections b6·a8용)
@@ -20,7 +21,7 @@ export async function GET(req: Request) {
       : {};
 
   let scope: Prisma.CleaningTaskWhereInput;
-  if (role === "ADMIN") {
+  if (isOperator(role)) {
     scope = {};
   } else if (role === "SUPPLIER") {
     scope = { villa: { supplierId: userId } }; // 자기 빌라만 — 타인 데이터 차단

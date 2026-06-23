@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { completeCheckout, CheckoutRejectedError } from "@/lib/checkout";
 import { serializeBigInt } from "@/lib/serialize";
+import { isOperator } from "@/lib/permissions";
 
 /** POST /api/bookings/[id]/checkout — 체크아웃 완료 (ADMIN 전용, SPEC F4) */
 
@@ -24,7 +25,7 @@ export async function POST(
 ) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN") {
+  if (!isOperator(session.user.role)) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 

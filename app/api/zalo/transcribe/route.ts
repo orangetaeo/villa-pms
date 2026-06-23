@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { GeminiNotConfiguredError, transcribeVoice } from "@/lib/gemini";
+import { isOperator } from "@/lib/permissions";
 
 // base64 길이 상한(약 6MB 오디오) — 과대 업로드 방지. 클라가 60초 자동중단도 함.
 const MAX_BASE64_LEN = 8_000_000;
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!isOperator(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 

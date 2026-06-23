@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { cancelBooking, HoldRejectedError } from "@/lib/hold";
 import { serializeBigInt } from "@/lib/serialize";
+import { isOperator } from "@/lib/permissions";
 
 const cancelSchema = z.object({
   cancelReason: z.string().trim().min(1, "취소 사유는 필수입니다"),
@@ -15,7 +16,7 @@ export async function POST(
 ) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN") {
+  if (!isOperator(session.user.role)) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 

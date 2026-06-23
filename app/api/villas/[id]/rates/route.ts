@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { SEASONS, type Season } from "@/lib/villa-schema";
+import { canSetPrice } from "@/lib/permissions";
 
 /** VND 동 단위 / 퍼센트 숫자 문자열 — BigInt는 JSON 직렬화 불가하므로 문자열로 수신 */
 const digits = z.string().regex(/^\d{1,15}$/);
@@ -48,7 +49,7 @@ export async function PUT(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!canSetPrice(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 

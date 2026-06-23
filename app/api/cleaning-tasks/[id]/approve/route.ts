@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { approveCleaningTask, CleaningTransitionError } from "@/lib/cleaning";
+import { isOperator } from "@/lib/permissions";
 
 /** POST /api/cleaning-tasks/[id]/approve — 검수 승인 → 게이트 규칙 통과 시 isSellable=true (ADMIN 전용) */
 export async function POST(
@@ -9,7 +10,7 @@ export async function POST(
 ) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN") {
+  if (!isOperator(session.user.role)) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 

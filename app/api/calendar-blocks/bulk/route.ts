@@ -15,6 +15,7 @@ import {
   toDateOnlyString,
   todayVnDateString,
 } from "@/lib/date-vn";
+import { isOperator } from "@/lib/permissions";
 
 const MAX_RANGE_DAYS = 92; // 범위 일수 상한 (inclusive)
 
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
   const role = session.user.role;
-  if (role !== "SUPPLIER" && role !== "ADMIN") {
+  if (role !== "SUPPLIER" && !isOperator(role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
   const actorId = session.user.id;

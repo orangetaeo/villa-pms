@@ -52,6 +52,7 @@ import {
 } from "@/lib/zalo-share";
 import koMessages from "@/messages/ko.json";
 import viMessages from "@/messages/vi.json";
+import { isOperator } from "@/lib/permissions";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB (uploads 라우트와 동일)
 
@@ -139,7 +140,7 @@ export async function POST(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!isOperator(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
   const adminUserId = session.user.id;

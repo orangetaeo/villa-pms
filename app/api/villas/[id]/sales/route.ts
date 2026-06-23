@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isValidFeature, type FeatureCategoryKey } from "@/lib/features";
 import { BED_TYPES } from "@/lib/bedding";
+import { canSetPrice } from "@/lib/permissions";
 
 // VND 동 단위 양수 문자열 (기준 보증금 — BigInt는 JSON 직렬화 불가하므로 문자열 수신)
 const vndDigits = z.string().regex(/^[1-9]\d{0,14}$/);
@@ -102,7 +103,7 @@ export async function PATCH(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!canSetPrice(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
   const actorUserId = session.user.id;

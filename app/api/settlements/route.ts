@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { serializeBigInt } from "@/lib/serialize";
 import { generateMonthlySettlements, monthRangeUtc } from "@/lib/settlement";
+import { canViewFinance, isSystemAdmin } from "@/lib/permissions";
 
 const YEAR_MONTH_SCHEMA = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "YYYY-MM 형식 필요");
 
@@ -17,7 +18,7 @@ export async function GET(req: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!canViewFinance(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!isSystemAdmin(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 

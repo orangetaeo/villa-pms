@@ -2,6 +2,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
+import { isOperator } from "@/lib/permissions";
 
 /**
  * PATCH /api/bookings/[id] — 내부 메모(note) 전용 수정 (T2.5, b11 내부 메모 카드)
@@ -19,7 +20,7 @@ export async function PATCH(
 ) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN") {
+  if (!isOperator(session.user.role)) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 

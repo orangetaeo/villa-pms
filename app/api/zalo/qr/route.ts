@@ -6,6 +6,7 @@ import { ZaloAccountKind } from "@prisma/client";
 import { auth } from "@/auth";
 import { startQRLoginForAdmin, disconnectForAdmin } from "@/lib/zalo-runtime";
 import { getSystemBotOwnerId } from "@/lib/zalo-credentials";
+import { isSystemAdmin } from "@/lib/permissions";
 
 // zca-js는 네이티브/ws 의존 — Node 런타임 강제, 캐시 금지
 export const runtime = "nodejs";
@@ -28,7 +29,7 @@ export async function POST() {
   if (!session?.user?.id) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!isSystemAdmin(session.user.role)) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 
@@ -49,7 +50,7 @@ export async function DELETE() {
   if (!session?.user?.id) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!isSystemAdmin(session.user.role)) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 

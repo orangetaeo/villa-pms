@@ -8,13 +8,14 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { villaCreateSchema, SEASONS } from "@/lib/villa-schema";
 import { serializeBigInt } from "@/lib/serialize";
 import type { Prisma, VillaStatus } from "@prisma/client";
+import { isOperator } from "@/lib/permissions";
 
 export async function POST(req: Request) {
   // 권한 검사 — SUPPLIER(자기 빌라) + ADMIN(테오 직접등록) 허용 (route handler 첫 줄 role 검사 규칙)
   const session = await auth();
   if (
     !session?.user?.id ||
-    (session.user.role !== "SUPPLIER" && session.user.role !== "ADMIN")
+    (session.user.role !== "SUPPLIER" && !isOperator(session.user.role))
   ) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
@@ -155,7 +156,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
   const { role, id: userId } = session.user;
-  if (role !== "ADMIN" && role !== "SUPPLIER") {
+  if (!isOperator(role) && role !== "SUPPLIER") {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 
@@ -171,7 +172,7 @@ export async function GET(req: Request) {
     ...(role === "SUPPLIER" ? { supplierId: userId } : {}),
   };
 
-  if (role === "ADMIN") {
+  if (isOperator(role)) {
     const villas = await prisma.villa.findMany({
       where,
       orderBy: { createdAt: "desc" },

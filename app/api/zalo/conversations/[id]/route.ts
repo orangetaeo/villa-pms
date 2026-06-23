@@ -11,6 +11,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { addReactionAsAdmin, applyReaction, REACTION_KEYS } from "@/lib/zalo-runtime";
+import { isOperator } from "@/lib/permissions";
 
 // 발송 가능한 리액션 아이콘 키(zca-js Reactions enum 이름, 예 "HEART"). DB·집계는 이 키 문자열로 저장.
 // REACTION_KEYS는 zalo-runtime이 zca-js Reactions에서 도출 — 세트 확장 시 코드 변경만(스키마 무변경, R3-5).
@@ -52,7 +53,7 @@ export async function PATCH(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!isOperator(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 

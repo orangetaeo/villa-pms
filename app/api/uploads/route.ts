@@ -4,6 +4,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { saveFile, isAllowedImageMime } from "@/lib/storage";
+import { isOperator } from "@/lib/permissions";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
   const role = session.user.role;
-  if (role !== "SUPPLIER" && role !== "ADMIN" && role !== "CLEANER") {
+  if (role !== "SUPPLIER" && !isOperator(role) && role !== "CLEANER") {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 

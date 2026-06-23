@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { savePassportFile, isAllowedImageMime } from "@/lib/storage";
+import { isOperator } from "@/lib/permissions";
 
 /**
  * POST /api/uploads/passport — 여권 사진 업로드 (T3.1, QA 합의 조건 A)
@@ -15,7 +16,7 @@ export async function POST(req: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!isOperator(session.user.role)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 

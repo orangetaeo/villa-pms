@@ -13,13 +13,14 @@ import {
   type ServiceOrderInput,
 } from "@/lib/service-order";
 import type { ServiceType } from "@prisma/client";
+import { canSetPrice } from "@/lib/permissions";
 
 async function requireAdmin() {
   const session = await auth();
   if (!session?.user) {
     return { error: Response.json({ error: "unauthorized" }, { status: 401 }) };
   }
-  if (session.user.role !== "ADMIN") {
+  if (!canSetPrice(session.user.role)) {
     return { error: Response.json({ error: "forbidden" }, { status: 403 }) };
   }
   return { userId: session.user.id };

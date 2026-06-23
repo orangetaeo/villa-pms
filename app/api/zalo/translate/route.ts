@@ -13,6 +13,7 @@ import {
   translateText,
   type TranslateTarget,
 } from "@/lib/gemini";
+import { isOperator } from "@/lib/permissions";
 
 const bodySchema = z.object({
   text: z.string().min(1).max(4000),
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!isOperator(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 

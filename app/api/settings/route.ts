@@ -6,6 +6,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
+import { isSystemAdmin } from "@/lib/permissions";
 import {
   SETTING_KEYS,
   CLEARABLE_SET,
@@ -19,7 +20,7 @@ async function requireAdmin() {
   if (!session?.user?.id) {
     return { error: NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 }) };
   }
-  if (session.user.role !== "ADMIN") {
+  if (!isSystemAdmin(session.user.role)) {
     return { error: NextResponse.json({ error: "FORBIDDEN" }, { status: 403 }) };
   }
   return { userId: session.user.id };

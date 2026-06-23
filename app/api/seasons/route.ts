@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { parseUtcDateOnly, toDateOnlyString } from "@/lib/date-vn";
+import { isSystemAdmin } from "@/lib/permissions";
 
 // route.ts는 HTTP 메서드 외 export 금지(Next 빌드 검증) — [id]/route.ts에 동일 헬퍼 중복 유지
 const seasonBodySchema = z.object({
@@ -58,7 +59,7 @@ export async function GET() {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!isSystemAdmin(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 
@@ -74,7 +75,7 @@ export async function POST(req: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!isSystemAdmin(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 

@@ -21,6 +21,7 @@ import {
   sendChatReplyAsAdmin,
   getOwnIdForAdmin,
 } from "@/lib/zalo-runtime";
+import { isOperator } from "@/lib/permissions";
 
 const bodySchema = z.object({
   conversationId: z.string().min(1),
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!isOperator(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 

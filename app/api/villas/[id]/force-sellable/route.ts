@@ -7,6 +7,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { forceOpenSellableGate, VillaGateError } from "@/lib/villa-gate";
+import { canOverrideGate } from "@/lib/permissions";
 
 const bodySchema = z.object({
   // 선택이지만 권장 — 없으면 기본 사유. trim 후 최대 500.
@@ -22,7 +23,7 @@ export async function POST(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!canOverrideGate(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 

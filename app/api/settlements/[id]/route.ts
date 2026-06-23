@@ -11,6 +11,7 @@ import {
   SettlementTransitionError,
   transitionSettlement,
 } from "@/lib/settlement";
+import { canViewFinance, isSystemAdmin } from "@/lib/permissions";
 
 export async function GET(
   _req: Request,
@@ -21,7 +22,7 @@ export async function GET(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!canViewFinance(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 
@@ -79,7 +80,7 @@ export async function PATCH(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!isSystemAdmin(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 

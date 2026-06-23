@@ -3,6 +3,7 @@ import path from "path";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getPassportDir, EXT_MIME } from "@/lib/storage";
+import { isOperator } from "@/lib/permissions";
 
 /**
  * GET /api/passports/<파일명> — 여권 사진 서빙 (T3.1, QA 합의 조건 A)
@@ -20,7 +21,7 @@ export async function GET(
   if (!session?.user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!isOperator(session.user.role)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 

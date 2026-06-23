@@ -9,6 +9,7 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { createInitialInspectionTask } from "@/lib/cleaning";
 import { villaCreateSchema, SEASONS } from "@/lib/villa-schema";
 import { NotificationType, type VillaStatus } from "@prisma/client";
+import { isOperator } from "@/lib/permissions";
 
 const patchSchema = z.object({
   action: z.enum(["APPROVE", "REJECT", "DEACTIVATE", "REACTIVATE"]),
@@ -36,7 +37,7 @@ export async function PATCH(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
-  if (session.user.role !== "ADMIN") {
+  if (!isOperator(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 

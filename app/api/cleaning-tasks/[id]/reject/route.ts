@@ -2,6 +2,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { rejectCleaningTask, CleaningTransitionError } from "@/lib/cleaning";
+import { isOperator } from "@/lib/permissions";
 
 const rejectSchema = z.object({
   rejectNote: z.string().trim().min(1, "반려 사유는 필수입니다").max(1000),
@@ -14,7 +15,7 @@ export async function POST(
 ) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN") {
+  if (!isOperator(session.user.role)) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 

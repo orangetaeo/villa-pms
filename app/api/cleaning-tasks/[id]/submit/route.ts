@@ -2,6 +2,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { submitCleaningPhotos, CleaningTransitionError } from "@/lib/cleaning";
+import { isOperator } from "@/lib/permissions";
 
 const submitSchema = z.object({
   // max 50 — a4 슬롯 이론 최대 45장(침실·욕실 동적) 수용 (T3.8 QA D-1)
@@ -28,7 +29,7 @@ export async function POST(
   if (!task) return Response.json({ error: "not_found" }, { status: 404 });
 
   const allowed =
-    role === "ADMIN" ||
+    isOperator(role) ||
     (role === "SUPPLIER" && task.villa.supplierId === userId) ||
     (role === "CLEANER" && task.assigneeId === userId);
   if (!allowed) return Response.json({ error: "forbidden" }, { status: 403 });

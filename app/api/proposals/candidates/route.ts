@@ -5,6 +5,7 @@ import { quoteStayForVilla, MissingRateError } from "@/lib/pricing";
 import { parseUtcDateOnly } from "@/lib/date-vn";
 import { serializeBigInt } from "@/lib/serialize";
 import { Currency } from "@prisma/client";
+import { canSetPrice } from "@/lib/permissions";
 
 /**
  * GET /api/proposals/candidates?checkIn&checkOut&saleCurrency — 제안 생성용 후보 빌라.
@@ -14,7 +15,7 @@ import { Currency } from "@prisma/client";
 export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (session.user.role !== "ADMIN") {
+  if (!canSetPrice(session.user.role)) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 
