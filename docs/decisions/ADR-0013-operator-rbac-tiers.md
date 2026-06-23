@@ -191,4 +191,7 @@ export const canSetPrice = (r?: Role) => r === "OWNER" || r === "MANAGER";
 2. **S-RBAC-2 (BE)**: API 라우트 capability 치환 + 권한 누수 테스트 일괄.
 3. **S-RBAC-3 (FE)**: middleware 게이트 + 대시보드 역할별 위젯 + 재무 필드 마스킹.
 4. **S-RBAC-4 (FE+LOC)**: 계정관리(역할부여) UI(OWNER) + 역할명 i18n.
+   ⚠️ **S-RBAC-3(필드 마스킹) 완료 전에는 실제 MANAGER/STAFF 계정을 생성하지 말 것.**
+   S-RBAC-2가 운영 라우트 접근을 STAFF까지 넓히므로, 마스킹 전 STAFF 계정이 생기면
+   예약 상세 등에서 KRW 누수. 계정이 0개인 동안은 안전(전부 ADMIN/OWNER).
 5. (이후) 통계·매출·이윤 화면은 게이트 위에 자유롭게 추가.
