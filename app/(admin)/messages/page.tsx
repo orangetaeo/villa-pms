@@ -15,6 +15,7 @@ import {
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { isOperator } from "@/lib/permissions";
 import { serializeBigInt } from "@/lib/serialize";
 import { isSellSideType, currencyForType } from "@/lib/zalo-counterparty";
 import { Inbox, type InboxItem } from "./inbox";
@@ -142,7 +143,9 @@ export default async function MessagesPage({
 }) {
   // 개인 스코프 — 본인(ownerAdminId)이 받은 대화만 (ADR-0007 D3, 누수 0).
   const session = await auth();
-  if (!session?.user?.id || session.user.role !== "ADMIN") {
+  // RBAC(ADR-0013) — 운영자(OWNER/MANAGER/STAFF/ADMIN) 허용. 과거 'ADMIN' 하드코딩은 OWNER로
+  // 마이그된 테오가 /messages→/login→/dashboard로 튕기던 버그(RBAC 마이그 누락). 미들웨어와 동일 술어.
+  if (!session?.user?.id || !isOperator(session.user.role)) {
     redirect("/login");
   }
   const ownerAdminId = session.user.id;
