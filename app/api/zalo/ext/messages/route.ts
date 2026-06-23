@@ -50,10 +50,22 @@ export async function GET(req: Request) {
     where: { id: conversationId, ownerAdminId },
     // zaloUserId 추가 — 응답에 상대 Zalo id를 실어 Nike가 발송 threadId로 쓸 수 있게(점진 전환).
     //   누수 무관(채팅 식별자, 마진·credential 아님). 테오 스코프 가드는 그대로.
-    select: { id: true, zaloUserId: true },
+    // groupMembers 추가 — 그룹 메시지의 senderUid를 이름으로 풀어 senderName으로 내려준다(B6).
+    select: { id: true, zaloUserId: true, groupMembers: true },
   });
   if (!conv) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
+
+  // ── 그룹 발신자 매핑 (ADR-0010 B6) — senderUid → 이름. groupMembers 스냅샷에서 1회 구축. ──
+  //   1:1(groupMembers 없음)이면 빈 맵 → senderName 항상 null(기존 동작 불변). 누수 무관(공개 프로필명).
+  const memberNameByUid = new Map<string, string>();
+  if (Array.isArray(conv.groupMembers)) {
+    for (const m of conv.groupMembers as { zaloId?: unknown; name?: unknown }[]) {
+      if (m && typeof m.zaloId === "string" && typeof m.name === "string" && m.name) {
+        memberNameByUid.set(m.zaloId, m.name);
+      }
+    }
   }
 
   // ── before 커서 해석: createdAt ISO 우선, 실패 시 메시지 id로 조회 ──
@@ -121,6 +133,8 @@ export async function GET(req: Request) {
     reactions: m.reactions ?? null,
     // 그룹 메시지 발신자 Zalo id(누수 무관 — 식별자). FE가 groupMembers로 이름·아바타 매핑. 1:1은 null.
     senderUid: m.senderUid,
+    // 발신자 표시명 — groupMembers 스냅샷에서 풀어 내려줌(B6: Nike가 버블에 발신자명 표시). 미해석/1:1은 null.
+    senderName: m.senderUid ? (memberNameByUid.get(m.senderUid) ?? null) : null,
   }));
 
   return NextResponse.json({
