@@ -9,7 +9,7 @@ import { auth } from "@/auth";
 import { canViewFinance } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { formatVnd, formatDateTime } from "@/lib/format";
-import type { AmenityCategory, PhotoSpace, SeasonType } from "@prisma/client";
+import type { PhotoSpace, SeasonType } from "@prisma/client";
 import type { FeatureCategoryKey } from "@/lib/features";
 import type { BedTypeKey } from "@/lib/bedding";
 import RateEditor, { type RateRow } from "./rate-editor";
@@ -17,6 +17,7 @@ import VillaActions from "./villa-actions";
 import ForceSellableAction from "./force-sellable-action";
 import DetailTabs from "./detail-tabs";
 import SalesEditor, { type SalesInitial } from "./sales-editor";
+import AdminAmenitiesEditor, { type AmenityCustomRow } from "./amenities-editor";
 import PhotoGallery from "./photo-gallery";
 
 const SPACE_ORDER: PhotoSpace[] = [
@@ -31,13 +32,6 @@ const SPACE_ORDER: PhotoSpace[] = [
 ];
 
 const SEASON_ORDER: SeasonType[] = ["LOW", "HIGH", "PEAK"];
-
-const AMENITY_CATEGORY_ICON: Record<AmenityCategory, string> = {
-  KITCHEN: "restaurant",
-  BATHROOM: "soap",
-  APPLIANCE: "devices",
-  MINIBAR: "liquor",
-};
 
 const STATUS_BADGE_CLASS: Record<string, string> = {
   PENDING_REVIEW: "bg-amber-500/10 text-amber-500 border border-amber-500/20",
@@ -71,10 +65,9 @@ export default async function VillaDetailPage({
   // S-RBAC-3: STAFF는 요율의 판매가·마진 비공개(원가만) — select·렌더 모두에서 제외 (1차 서버 방어)
   const session = await auth();
   const showFinance = canViewFinance(session?.user?.role);
-  const [t, tList, tAmenity, villa, fxSetting, auditLogs] = await Promise.all([
+  const [t, tList, villa, fxSetting, auditLogs] = await Promise.all([
     getTranslations("adminVillas.detail"),
     getTranslations("adminVillas.list"),
-    getTranslations("amenities"),
     prisma.villa.findUnique({
       where: { id },
       include: {
@@ -85,7 +78,8 @@ export default async function VillaDetailPage({
         },
         amenities: {
           orderBy: { category: "asc" },
-          select: { id: true, category: true, itemKey: true, customLabel: true, quantity: true },
+          // unitPrice(미니바 고객청구가)·note는 관리자 편집용으로 포함 (원가·마진 아님 — 누수 무관)
+          select: { id: true, category: true, itemKey: true, customLabel: true, quantity: true, unitPrice: true, note: true },
         },
         rates: {
           // 판매가·마진은 canViewFinance만 — STAFF면 supplierCostVnd만 select
@@ -160,16 +154,25 @@ export default async function VillaDetailPage({
 
   const fxVndPerKrw = fxSetting ? Number.parseFloat(fxSetting.value) || null : null;
 
-  // 비품 카테고리 요약 (b10 — 2x2 읽기 전용)
-  const amenityCategories = (["KITCHEN", "BATHROOM", "APPLIANCE", "MINIBAR"] as const)
-    .map((category) => ({
-      category,
-      count: villa.amenities.filter((a) => a.category === category).length,
-    }))
-    .filter((c) => c.count > 0);
-  const minibarItems = villa.amenities.filter((a) => a.category === "MINIBAR");
-  const amenityLabel = (itemKey: string, customLabel: string | null) =>
-    itemKey === "custom" && customLabel ? customLabel : tAmenity(`items.${itemKey}`);
+  // 비품 편집기 초기값 (Batch A — 관리자 CRUD). 사전 항목은 수량 맵, 미니바는 단가 맵, custom은 별도 행.
+  const amenityQuantities: Record<string, number> = {};
+  const amenityUnitPrices: Record<string, string> = {};
+  const amenityCustom: AmenityCustomRow[] = [];
+  for (const a of villa.amenities) {
+    if (a.itemKey === "custom") {
+      amenityCustom.push({
+        id: a.id,
+        label: a.customLabel ?? "",
+        quantity: a.quantity,
+        unitPrice: a.unitPrice != null ? a.unitPrice.toString() : "",
+      });
+    } else {
+      amenityQuantities[`${a.category}:${a.itemKey}`] = a.quantity;
+      if (a.category === "MINIBAR" && a.unitPrice != null) {
+        amenityUnitPrices[`MINIBAR:${a.itemKey}`] = a.unitPrice.toString();
+      }
+    }
+  }
 
   // 판매정보 폼 초기값 (ADR-0011) — BigInt·정수는 문자열 변환(클라이언트 경계 직렬화)
   const salesInitial: SalesInitial = {
@@ -187,6 +190,7 @@ export default async function VillaDetailPage({
     wifiSsid: villa.wifiSsid ?? "",
     wifiPassword: villa.wifiPassword ?? "",
     extraBedAvailable: villa.extraBedAvailable,
+    hasPool: villa.hasPool,
     bedrooms: villa.bedroomDetails.map((b) => ({
       roomIndex: b.roomIndex,
       roomLabel: b.roomLabel,
@@ -401,58 +405,13 @@ export default async function VillaDetailPage({
             </div>
           )}
 
-          {/* 비품 현황 — 읽기 전용 (b10) */}
-          <div className="bg-admin-card rounded-xl p-6 border border-slate-800 shadow-xl">
-            <div className="flex items-center gap-2 mb-5">
-              <h2 className="text-lg font-bold flex items-center gap-2 whitespace-nowrap">
-                <span className="material-symbols-outlined text-admin-primary">inventory_2</span>
-                {t("amenitiesCard.title")}
-              </h2>
-              <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-500 text-[10px] font-bold whitespace-nowrap">
-                {t("amenitiesCard.readOnly")}
-              </span>
-            </div>
-            {villa.amenities.length === 0 ? (
-              <p className="text-sm text-admin-muted py-4 text-center">
-                {t("amenitiesCard.empty")}
-              </p>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  {amenityCategories.map(({ category, count }) => (
-                    <div
-                      key={category}
-                      className="p-3 rounded-lg bg-slate-900/30 border border-slate-800/50 flex items-center gap-3"
-                    >
-                      <span className="material-symbols-outlined text-slate-400 text-lg">
-                        {AMENITY_CATEGORY_ICON[category]}
-                      </span>
-                      <span className="text-xs text-slate-300 font-medium whitespace-nowrap">
-                        {t("amenitiesCard.categoryCount", {
-                          category: tAmenity(`categories.${category}`),
-                          count,
-                        })}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                {minibarItems.length > 0 && (
-                  <div className="p-3 bg-slate-900/50 rounded-lg border border-slate-800">
-                    <p className="text-[10px] text-slate-400 flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-slate-500 uppercase">
-                        {t("amenitiesCard.minibarLabel")}
-                      </span>
-                      <span>
-                        {minibarItems
-                          .map((m) => `${amenityLabel(m.itemKey, m.customLabel)} ${m.quantity}`)
-                          .join(" · ")}
-                      </span>
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+          {/* 비품 현황 — 관리자 편집 가능 (Batch A) */}
+          <AdminAmenitiesEditor
+            villaId={villa.id}
+            initialQuantities={amenityQuantities}
+            initialUnitPrices={amenityUnitPrices}
+            initialCustom={amenityCustom}
+          />
 
           {/* 수정 이력 (AuditLog — b10 Action Log) */}
           {auditLogs.length > 0 && (

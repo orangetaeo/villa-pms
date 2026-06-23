@@ -21,10 +21,10 @@ const nonNegInt = z.number().int().min(0);
 
 const bedroomSchema = z.object({
   roomIndex: z.number().int().min(1).max(50),
-  roomLabel: z.string().trim().min(1).max(60).optional(),
+  roomLabel: z.string().trim().min(1).max(60).nullable().optional(), // 라벨 미입력 시 클라이언트가 null 전송
   bedType: z.enum(BED_TYPES), // enum 화이트리스트 — 임의 bedType 차단
   bedCount: z.number().int().min(1).max(20),
-  capacity: z.number().int().min(1).max(50).optional(),
+  capacity: z.number().int().min(1).max(50).nullable().optional(), // 수용인원 0(미입력) 시 null 전송
 });
 
 const featureSchema = z.object({
@@ -51,6 +51,8 @@ const salesPatchSchema = z
     wifiPassword: z.string().trim().max(100).nullable().optional(),
     // ⑤ 엑스트라베드 — 빌라 단위 토글
     extraBedAvailable: z.boolean().optional(),
+    // 수영장 유무 — 셀링포인트 풀 태그가 켜지면 서버가 true로 강제 보정(아래)
+    hasPool: z.boolean().optional(),
     // ② 침실 구성 (전체 교체) / ⑤ 셀링포인트 태그 (전체 교체)
     bedrooms: z.array(bedroomSchema).max(50),
     features: z.array(featureSchema).max(40),
@@ -77,11 +79,13 @@ const salesPatchSchema = z
       seenFeatures.add(f.featureKey);
     });
     // 같은 roomIndex 행들의 capacity는 동일값이어야 함 (침실 단위 1값 — 설계 §1.2)
-    const capByRoom = new Map<number, number | undefined>();
+    // null(미입력)·undefined는 동일 취급 → ?? null로 정규화 후 비교
+    const capByRoom = new Map<number, number | null>();
     data.bedrooms.forEach((b, index) => {
+      const cap = b.capacity ?? null;
       if (capByRoom.has(b.roomIndex)) {
         const prev = capByRoom.get(b.roomIndex);
-        if (prev !== b.capacity) {
+        if (prev !== cap) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: ["bedrooms", index, "capacity"],
@@ -89,7 +93,7 @@ const salesPatchSchema = z
           });
         }
       } else {
-        capByRoom.set(b.roomIndex, b.capacity);
+        capByRoom.set(b.roomIndex, cap);
       }
     });
   });
@@ -142,9 +146,16 @@ export async function PATCH(
   set("wifiSsid", data.wifiSsid);
   set("wifiPassword", data.wifiPassword);
   set("extraBedAvailable", data.extraBedAvailable);
+  set("hasPool", data.hasPool);
   if (data.baseDepositVnd !== undefined) {
     scalarData.baseDepositVnd = data.baseDepositVnd === null ? null : BigInt(data.baseDepositVnd);
   }
+  // 수영장 자동 보정 — 셀링포인트에 풀 태그(프라이빗풀·키즈풀)가 있으면 hasPool=true 강제.
+  // (해제는 자동으로 하지 않음 — 태그를 끄면 위 set()의 클라이언트 값이 그대로 반영된다)
+  const hasPoolFeature = data.features.some(
+    (f) => f.featureKey === "privatePool" || f.featureKey === "kidsPool"
+  );
+  if (hasPoolFeature) scalarData.hasPool = true;
 
   const result = await prisma.$transaction(async (tx) => {
     const villa = await tx.villa.findUnique({

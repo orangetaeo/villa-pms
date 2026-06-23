@@ -123,6 +123,14 @@ describe("zod 검증 — 화이트리스트·범위·url", () => {
     const res = await req({ ...BASE, googleMapUrl: "https://maps.google.com/?q=x" });
     expect(res.status).toBe(200);
   });
+  it("roomLabel·capacity null 허용 (라벨/수용인원 미입력 침실 — 폼이 null 전송)", async () => {
+    // 회귀: optional만 두면 null이 거부되어 "저장 실패"가 났음. nullable 허용 확인
+    const res = await req({
+      ...BASE,
+      bedrooms: [{ roomIndex: 1, roomLabel: null, bedType: "KING", bedCount: 1, capacity: null }],
+    });
+    expect(res.status).toBe(200);
+  });
   it("같은 roomIndex capacity 불일치 거부", async () => {
     const res = await req({
       ...BASE,
@@ -177,6 +185,21 @@ describe("성공 — 스칼라 update + 자식 전체 교체 영속", () => {
     }>;
     expect(bedData).toHaveLength(2);
     expect(bedData[1].roomLabel).toBeNull();
+  });
+
+  it("셀링포인트 풀 태그(privatePool) 있으면 hasPool=true 강제 (수영장 자동보정)", async () => {
+    const res = await req({
+      ...BASE,
+      hasPool: false,
+      features: [{ category: "FACILITY", featureKey: "privatePool" }],
+    });
+    expect(res.status).toBe(200);
+    expect(tx.villa.update.mock.calls[0][0].data.hasPool).toBe(true);
+  });
+  it("풀 태그 없고 hasPool=false면 그대로 false (자동 OFF 안 함)", async () => {
+    const res = await req({ ...BASE, hasPool: false, features: [] });
+    expect(res.status).toBe(200);
+    expect(tx.villa.update.mock.calls[0][0].data.hasPool).toBe(false);
   });
 
   it("빈 bedrooms·features 허용 (전체 해제) — createMany 미호출, deleteMany만", async () => {

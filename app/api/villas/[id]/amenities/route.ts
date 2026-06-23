@@ -1,5 +1,6 @@
-// PATCH /api/villas/[id]/amenities — SUPPLIER 비품 전체 교체 (T6.4)
-// 자기 빌라(supplierId 스코프)만. 비품은 승인 게이트 무관(Phase 1 표기·조회용) → villa.status 불변.
+// PATCH /api/villas/[id]/amenities — 비품 전체 교체 (T6.4 / Batch A 관리자 CRUD 확장)
+// SUPPLIER는 자기 빌라(supplierId 스코프)만. 운영자(isOperator)는 모든 빌라 편집 가능(테오팀 직접수집).
+// 비품은 승인 게이트 무관(Phase 1 표기·조회용) → villa.status 불변.
 // 누수 0: VillaRate(판매가·마진)를 일절 조회·수정하지 않는다. itemKey는 lib/amenities 사전 값만.
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -7,6 +8,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isValidAmenity } from "@/lib/amenities";
+import { isOperator } from "@/lib/permissions";
 
 // VND 동 단위 양수 문자열 (미니바 고객 청구 단가 — BigInt는 JSON 직렬화 불가하므로 문자열 수신)
 const vndPositiveDigits = z.string().regex(/^[1-9]\d{0,14}$/);
@@ -59,10 +61,12 @@ export async function PATCH(
   if (!session?.user?.id) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
-  if (session.user.role !== "SUPPLIER") {
+  // SUPPLIER(자기 빌라만) 또는 운영자(모든 빌라) — 그 외 차단
+  const isSupplier = session.user.role === "SUPPLIER";
+  if (!isSupplier && !isOperator(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
-  const supplierId = session.user.id;
+  const actorId = session.user.id;
   const { id } = await params;
 
   let body: unknown;
@@ -85,8 +89,9 @@ export async function PATCH(
       where: { id },
       select: { id: true, supplierId: true, _count: { select: { amenities: true } } },
     });
-    // 타인 빌라·미존재는 동일하게 404 (존재 자체를 누설하지 않음)
-    if (!villa || villa.supplierId !== supplierId) return { kind: "NOT_FOUND" as const };
+    // 미존재 404. SUPPLIER는 타인 빌라도 404(존재 자체 미누설). 운영자는 모든 빌라 허용.
+    if (!villa) return { kind: "NOT_FOUND" as const };
+    if (isSupplier && villa.supplierId !== actorId) return { kind: "NOT_FOUND" as const };
 
     const oldCount = villa._count.amenities;
     await tx.villaAmenity.deleteMany({ where: { villaId: id } });
@@ -117,7 +122,7 @@ export async function PATCH(
       .join(",");
     await writeAuditLog({
       db: tx,
-      userId: supplierId,
+      userId: actorId,
       action: "UPDATE",
       entity: "Villa",
       entityId: id,

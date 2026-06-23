@@ -49,6 +49,7 @@ export interface SalesInitial {
   wifiSsid: string;
   wifiPassword: string;
   extraBedAvailable: boolean;
+  hasPool: boolean; // 수영장 유무 — 셀링포인트 풀 태그 체크 시 자동 ON (저장 시 보정)
   bedrooms: { roomIndex: number; roomLabel: string | null; bedType: BedTypeKey; bedCount: number; capacity: number | null }[];
   features: { category: FeatureCategoryKey; featureKey: string }[];
 }
@@ -92,9 +93,14 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
 
   const [rooms, setRooms] = useState<BedroomCard[]>(() => groupBedrooms(initial.bedrooms));
   const [extraBed, setExtraBed] = useState(initial.extraBedAvailable);
+  const [hasPool, setHasPool] = useState(initial.hasPool);
   const [selectedFeatures, setSelectedFeatures] = useState<Set<string>>(
     () => new Set(initial.features.map((f) => f.featureKey))
   );
+
+  // 셀링포인트에 풀 태그(프라이빗풀·키즈풀)가 켜지면 '수영장 있음'을 자동 반영(해제 시 자동 OFF는 안 함 — 수동 토글 존중)
+  const poolFeatureOn = selectedFeatures.has("privatePool") || selectedFeatures.has("kidsPool");
+  const effectiveHasPool = hasPool || poolFeatureOn;
 
   // ③ 위치
   const [googleMapUrl, setGoogleMapUrl] = useState(initial.googleMapUrl);
@@ -218,6 +224,7 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
       wifiSsid: wifiSsid.trim() || null,
       wifiPassword: wifiPassword.trim() || null,
       extraBedAvailable: extraBed,
+      hasPool: effectiveHasPool, // 풀 태그 켜져 있으면 자동 true (서버에서도 동일 보정)
       bedrooms,
       features,
     };
@@ -388,11 +395,31 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
           {/* ⑤ 셀링포인트 */}
           <section className="bg-admin-card rounded-xl border border-slate-800 shadow-xl overflow-hidden">
             <div className="p-6 border-b border-slate-800">
-              <h3 className="text-lg font-bold flex items-center gap-2 whitespace-nowrap">
-                <span className="material-symbols-outlined text-admin-primary">sell</span>
-                {t("features.title")}
-              </h3>
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-lg font-bold flex items-center gap-2 whitespace-nowrap">
+                  <span className="material-symbols-outlined text-admin-primary">sell</span>
+                  {t("features.title")}
+                </h3>
+                {/* 수영장 유무 — 수동 토글. 풀 태그가 켜지면 자동 ON·잠금 (해제 불가, 태그를 끄면 풀린다) */}
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xs text-slate-400 flex items-center gap-1 whitespace-nowrap">
+                    <span className="material-symbols-outlined text-sm">pool</span>
+                    {t("features.hasPool")}
+                  </span>
+                  <Toggle
+                    on={effectiveHasPool}
+                    onChange={poolFeatureOn ? () => {} : setHasPool}
+                    label={t("features.hasPool")}
+                  />
+                </div>
+              </div>
               <p className="text-xs text-slate-500 mt-1">{t("features.subtitle")}</p>
+              {poolFeatureOn && (
+                <p className="text-[11px] text-admin-primary mt-1.5 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm">info</span>
+                  {t("features.poolAutoNote")}
+                </p>
+              )}
             </div>
             <div className="p-6 space-y-5">
               {FEATURE_CATEGORIES.map((category) => (
