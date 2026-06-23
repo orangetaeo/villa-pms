@@ -5,6 +5,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
+import { canViewFinance } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatThousands, formatVnd, formatDateTime } from "@/lib/format";
@@ -24,9 +25,9 @@ export default async function SettlementsPage({
 }: {
   searchParams: Promise<{ yearMonth?: string; range?: string }>;
 }) {
-  // ADMIN 가드는 (admin)/layout에 있으나 페이지에서도 재검사 (프로젝트 규칙 — 권한 이중화)
+  // 재무 권한자(OWNER/MANAGER) 가드 — 정산=매출·지급(ADR-0013 finance). STAFF 차단. layout과 이중화.
   const session = await auth();
-  if (!session || session.user?.role !== "ADMIN") redirect("/login");
+  if (!session || !canViewFinance(session.user?.role)) redirect("/login");
 
   const params = await searchParams;
   // 빠른 필터(?range=)가 있으면 해당 월로 변환해 yearMonth로 사용 (range 우선).

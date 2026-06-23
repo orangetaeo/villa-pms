@@ -4,6 +4,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
+import { isOperator } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { VillaStatus, type CleaningStatus, type Prisma } from "@prisma/client";
@@ -44,9 +45,9 @@ export default async function InspectionsPage({
 }: {
   searchParams: Promise<{ status?: string; task?: string; range?: string; area?: string }>;
 }) {
-  // ADMIN 가드는 (admin)/layout에 있으나 페이지에서도 재검사 (프로젝트 규칙 — 권한 이중화)
+  // 운영자(OWNER/MANAGER/STAFF) 가드 — 검수는 STAFF 업무(ADR-0013). layout과 이중화.
   const session = await auth();
-  if (!session || session.user?.role !== "ADMIN") redirect("/login");
+  if (!session || !isOperator(session.user?.role)) redirect("/login");
 
   const params = await searchParams;
   const tab = params.status && params.status in TAB_STATUS ? params.status : "all";

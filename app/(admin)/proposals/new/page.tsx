@@ -3,6 +3,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
+import { canViewFinance } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import ProposalCreate from "./proposal-create";
 
@@ -12,9 +13,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ProposalNewPage() {
-  // ADMIN 가드는 (admin)/layout에 있으나 페이지에서도 재검사 (프로젝트 규칙 — 권한 이중화)
+  // 재무 권한자(OWNER/MANAGER) 가드 — 제안 생성=가격 설정(ADR-0013). STAFF 차단. layout과 이중화.
   const session = await auth();
-  if (!session || session.user?.role !== "ADMIN") redirect("/login");
+  if (!session || !canViewFinance(session.user?.role)) redirect("/login");
 
   return <ProposalCreate />;
 }

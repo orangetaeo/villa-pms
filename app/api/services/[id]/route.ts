@@ -10,7 +10,7 @@ import {
   isServiceOrderStatus,
   InvalidServiceTransitionError,
 } from "@/lib/service-order";
-import { isOperator } from "@/lib/permissions";
+import { canSetPrice } from "@/lib/permissions";
 
 const patchSchema = z.object({
   status: z.string(),
@@ -24,7 +24,9 @@ export async function PATCH(
   if (!session?.user) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
-  if (!isOperator(session.user.role)) {
+  // [QA H-2] ServiceOrder 응답은 priceKrw·costVnd를 포함 → 재무 권한자만(STAFF 차단).
+  // 형제 GET /api/bookings/[id]/services와 동일하게 canSetPrice로 게이트(마진 비공개).
+  if (!canSetPrice(session.user.role)) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 

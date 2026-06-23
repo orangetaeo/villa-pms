@@ -16,6 +16,7 @@ import {
   isOperator,
   canViewFinance,
   isSystemAdmin,
+  canSetPrice,
   type Role,
 } from "@/lib/permissions";
 
@@ -33,6 +34,24 @@ function bookingSelectKeys(role: Role): string[] {
     "saleCurrency",
     "supplierCostVnd", // 원가는 STAFF도 OK
     "guestName",
+  ];
+  if (canViewFinance(role)) base.push("totalSaleKrw", "totalSaleVnd");
+  return base;
+}
+
+/** booking 목록(app/(admin)/bookings/page.tsx)의 select 키 — QA H-1 회귀 가드 */
+function bookingListSelectKeys(role: Role): string[] {
+  const base = [
+    "id",
+    "status",
+    "channel",
+    "agencyName",
+    "guestName",
+    "checkIn",
+    "checkOut",
+    "nights",
+    "saleCurrency",
+    "holdExpiresAt",
   ];
   if (canViewFinance(role)) base.push("totalSaleKrw", "totalSaleVnd");
   return base;
@@ -251,6 +270,50 @@ describe("(B) 등급표 무결성 — 계약 A2 경로 집합 고정", () => {
         expect(cap(role)).toBe(true);
       }
     }
+  });
+});
+
+describe("(A) booking 목록 select — QA H-1: STAFF는 판매가 부재 (RSC→클라 페이로드 누수 0)", () => {
+  it("STAFF: totalSale* 부재", () => {
+    const keys = bookingListSelectKeys("STAFF");
+    expect(keys).not.toContain("totalSaleKrw");
+    expect(keys).not.toContain("totalSaleVnd");
+    expect(keys).toContain("guestName"); // 운영 필드는 유지
+  });
+  it.each<Role>(["OWNER", "MANAGER", "ADMIN"])("%s: totalSale* 존재", (role) => {
+    const keys = bookingListSelectKeys(role);
+    expect(keys).toContain("totalSaleKrw");
+    expect(keys).toContain("totalSaleVnd");
+  });
+});
+
+// RSC 페이지·민감 라우트 가드 등급 (QA H-2·M-1 회귀 가드) — 페이지가 쓰는 capability 술어
+const PAGE_GUARD: { name: string; cap: (r?: Role) => boolean }[] = [
+  // M-1: 6개 RSC 페이지 (messages는 이월 — 별도)
+  { name: "/inspections", cap: isOperator },
+  { name: "/proposals", cap: canViewFinance },
+  { name: "/proposals/new", cap: canViewFinance },
+  { name: "/settlements", cap: canViewFinance },
+  { name: "/settings/zalo", cap: isSystemAdmin },
+  // H-2: services PATCH는 priceKrw 반환 → canSetPrice (형제 GET과 정합)
+  { name: "PATCH /api/services/[id]", cap: canSetPrice },
+];
+
+describe("(D) 페이지·라우트 가드 등급 — QA H-2·M-1 회귀", () => {
+  it("STAFF: 검수만 통과, 재무·시스템·서비스PATCH 차단", () => {
+    expect(PAGE_GUARD.find((p) => p.name === "/inspections")!.cap("STAFF")).toBe(true);
+    for (const n of ["/proposals", "/settlements", "/settings/zalo", "PATCH /api/services/[id]"]) {
+      expect(PAGE_GUARD.find((p) => p.name === n)!.cap("STAFF")).toBe(false);
+    }
+  });
+  it("MANAGER: 재무·서비스 통과, 시스템(zalo설정)만 차단", () => {
+    for (const n of ["/inspections", "/proposals", "/settlements", "PATCH /api/services/[id]"]) {
+      expect(PAGE_GUARD.find((p) => p.name === n)!.cap("MANAGER")).toBe(true);
+    }
+    expect(PAGE_GUARD.find((p) => p.name === "/settings/zalo")!.cap("MANAGER")).toBe(false);
+  });
+  it.each<Role>(["OWNER", "ADMIN"])("%s: 전부 통과 (회귀 0)", (role) => {
+    for (const { cap } of PAGE_GUARD) expect(cap(role)).toBe(true);
   });
 });
 

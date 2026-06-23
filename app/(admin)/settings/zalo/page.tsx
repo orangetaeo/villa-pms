@@ -4,6 +4,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
+import { isSystemAdmin } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import { getStatusForAdmin } from "@/lib/zalo-runtime";
 import { getSystemBotOwnerId } from "@/lib/zalo-credentials";
@@ -18,8 +19,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export const dynamic = "force-dynamic";
 
 export default async function ZaloSettingsPage() {
+  // 시스템 관리자(OWNER) 가드 — Zalo 봇 연결=시스템 설정(ADR-0013). MANAGER/STAFF 차단.
   const session = await auth();
-  if (!session || session.user?.role !== "ADMIN") {
+  if (!session || !isSystemAdmin(session.user?.role)) {
     redirect("/login");
   }
 

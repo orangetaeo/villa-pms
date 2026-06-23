@@ -4,6 +4,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { BookingStatus, VillaStatus, type BookingChannel, type Prisma } from "@prisma/client";
+import { auth } from "@/auth";
+import { canViewFinance } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { formatThousands } from "@/lib/format";
 import { toDateOnlyString, quickRangeWhere } from "@/lib/date-vn";
@@ -85,6 +87,10 @@ export default async function BookingsPage({
   }>;
 }) {
   const t = await getTranslations("adminBookings");
+  // [S-RBAC-3 보강] STAFF 재무 마스킹 — 판매가(KRW/VND)는 canViewFinance만.
+  // 목록 select에서 제외해야 RSC→클라(ResponsiveTable) 페이로드 누수도 차단(QA H-1).
+  const session = await auth();
+  const showFinance = canViewFinance(session?.user?.role);
   const params = await searchParams;
   const now = new Date();
   const today = todayInVillaTimezone(now);
@@ -157,8 +163,8 @@ export default async function BookingsPage({
           checkOut: true,
           nights: true,
           saleCurrency: true,
-          totalSaleKrw: true,
-          totalSaleVnd: true,
+          // 판매가는 재무 권한자만 select (STAFF는 키 자체 부재 → 클라 페이로드 누수 0)
+          ...(showFinance ? { totalSaleKrw: true, totalSaleVnd: true } : {}),
           holdExpiresAt: true,
           villa: { select: { name: true } },
         },
@@ -226,10 +232,14 @@ export default async function BookingsPage({
   };
 
   type Row = (typeof rows)[number];
-  const amountCell = (b: Row) =>
-    b.saleCurrency === "KRW"
-      ? `${formatThousands(b.totalSaleKrw ?? 0)}원`
-      : `${formatThousands(b.totalSaleVnd ?? 0n)}₫`;
+  const amountCell = (b: Row) => {
+    // showFinance=false면 키 부재(union narrowing) — STAFF엔 amount 컬럼 자체를 안 그림
+    const krw = "totalSaleKrw" in b ? b.totalSaleKrw : null;
+    const vnd = "totalSaleVnd" in b ? b.totalSaleVnd : null;
+    return b.saleCurrency === "KRW"
+      ? `${formatThousands(krw ?? 0)}원`
+      : `${formatThousands(vnd ?? 0n)}₫`;
+  };
 
   const statusBadge = (b: Row) => {
     if (b.status === BookingStatus.HOLD) {
@@ -304,17 +314,22 @@ export default async function BookingsPage({
       className: "text-center",
       cell: (b) => <span className="text-sm text-slate-400 tabular-nums">{b.nights}</span>,
     },
-    {
-      key: "amount",
-      header: t("list.columns.amount"),
-      headerClassName: "text-right",
-      className: "text-right",
-      cell: (b) => (
-        <span className="text-sm font-bold text-slate-200 tabular-nums whitespace-nowrap">
-          {amountCell(b)}
-        </span>
-      ),
-    },
+    // 판매가 컬럼 — 재무 권한자만 (STAFF 미표시)
+    ...(showFinance
+      ? [
+          {
+            key: "amount",
+            header: t("list.columns.amount"),
+            headerClassName: "text-right",
+            className: "text-right",
+            cell: (b: Row) => (
+              <span className="text-sm font-bold text-slate-200 tabular-nums whitespace-nowrap">
+                {amountCell(b)}
+              </span>
+            ),
+          },
+        ]
+      : []),
     {
       key: "status",
       header: t("list.columns.status"),
