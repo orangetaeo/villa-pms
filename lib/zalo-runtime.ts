@@ -658,6 +658,23 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       classified.msgType === "sticker"
     ) {
       console.log("[inbound-type]", zaloMsgType ?? "(none)", "->", classified.msgType);
+      // contact/unknown은 오분류(지도/링크 공유 등) 진단을 위해 content **키 이름만** 추가 기록.
+      //   값(URL·전화·이름)은 절대 로그 금지 — 키 목록만으로 필드 구조 파악(개인정보 0).
+      if (classified.msgType === "contact" || classified.msgType === "unknown") {
+        const c = userMsg.data.content;
+        if (c && typeof c === "object") {
+          const keys = Object.keys(c as Record<string, unknown>);
+          let paramKeys: string[] = [];
+          const pv = (c as Record<string, unknown>).params;
+          try {
+            const pp = typeof pv === "string" ? JSON.parse(pv) : pv;
+            if (pp && typeof pp === "object") paramKeys = Object.keys(pp as Record<string, unknown>);
+          } catch {
+            /* params 비JSON */
+          }
+          console.log("[inbound-type-keys]", classified.msgType, "content:", keys.join(","), "params:", paramKeys.join(","));
+        }
+      }
     }
 
     // 본문 추출(버그 B): action/메서드명 등 메타 필드는 절대 본문으로 새지 않는다.

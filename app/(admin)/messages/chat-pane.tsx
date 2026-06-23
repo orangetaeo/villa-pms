@@ -1592,9 +1592,9 @@ function SimpleTypeCard({
   return (
     <div className={wrap}>
       <span
-        className={`material-symbols-outlined text-[22px] leading-none translate-y-[3px] w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${iconWrap}`}
+        className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 self-center ${iconWrap}`}
       >
-        {icon}
+        <span className="material-symbols-outlined text-[22px] leading-none">{icon}</span>
       </span>
       <div className="min-w-0 flex-1">
         <p className={`text-sm font-medium truncate ${labelColor}`}>{label}</p>

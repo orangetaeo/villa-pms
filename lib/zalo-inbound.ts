@@ -425,13 +425,43 @@ export function classifyInbound(content: unknown, zaloMsgType?: string): Classif
     return { msgType: "location", text: label, attachmentUrls: url ? [url] : [] };
   }
 
-  // ── 연락처/네임카드 ──
-  // zca-js 실제 타입: "chat.recommended"(getClientMessageType 38). 과거 정확매칭
-  // "chat.recommend"는 미스 → includes("recommend")로 recommend·recommended 모두 포착.
+  // ── 연락처/네임카드 OR 링크·지도·POI 공유 ──
+  // zca-js 실제 타입: "chat.recommended"(getClientMessageType 38). includes("recommend")로 포착.
+  // ★ 주의: Zalo "recommended"는 **네임카드뿐 아니라 링크/구글지도/POI 공유**도 같은 타입으로 온다.
+  //   과거엔 전부 contact로 떨궈, 지도 URL 공유가 "빈 연락처"로 표시되던 버그(실관측 2026-06-23).
+  //   구분: 연락처 식별자(phone/qrCodeUrl/gUid)가 있으면 네임카드, http URL(href/url)이 있으면 링크/지도.
+  //   리치 공유는 url·thumb·title이 params(JSON)에 중첩될 수 있어 top-level + params 양쪽을 본다.
   if (type.includes("recommend") || type === "chat.todo" || o.phone || o.qrCodeUrl || o.gUid) {
-    // 운영자 수신 표시용 — 저장은 이름 위주(phone은 표시용으로만 본문에 넣지 않음).
-    const contactName = pickStringField(o, ["name", "displayName", "title", "zaloName"]);
-    const qrCodeUrl = pickStringField(o, ["qrCodeUrl"]);
+    // params(문자열 JSON 또는 객체) 병합 조회용.
+    let p: Record<string, unknown> = {};
+    if (o.params) {
+      try {
+        p = typeof o.params === "string" ? JSON.parse(o.params) : (o.params as Record<string, unknown>);
+      } catch {
+        p = {};
+      }
+    }
+    const pick2 = (keys: readonly string[]) =>
+      pickStringField(o, keys) || pickStringField(p, keys);
+
+    const sharedUrl = pick2(["href", "url", "link"]);
+    const isHttpLink = /^https?:\/\//i.test(sharedUrl);
+    const hasContactId = !!(o.phone || o.qrCodeUrl || o.gUid || p.phone || p.qrCodeUrl);
+
+    // 링크/지도/POI 공유(http URL 보유 + 연락처 식별자 없음) → 링크로(썸네일 있으면 사진+캡션).
+    if (isHttpLink && !hasContactId) {
+      const title = pick2(["title", "description", "desc", "msg", "caption", "name"]);
+      const thumb = pick2(["thumb", "thumbUrl", "thumb_url", "hdUrl", "normalUrl", "photoUrl", "image"]);
+      const text = [title, sharedUrl].filter((s) => s.length > 0).join("\n");
+      if (thumb && /^https?:\/\//i.test(thumb) && thumb !== sharedUrl) {
+        return { msgType: "photo", text, attachmentUrls: [thumb] };
+      }
+      if (text) return { msgType: "text", text, attachmentUrls: [] };
+    }
+
+    // 진짜 네임카드 — 이름 위주(phone은 표시용으로만, 본문엔 안 넣음).
+    const contactName = pick2(["name", "displayName", "title", "zaloName"]);
+    const qrCodeUrl = pickStringField(o, ["qrCodeUrl"]) || pickStringField(p, ["qrCodeUrl"]);
     return {
       msgType: "contact",
       text: contactName,
