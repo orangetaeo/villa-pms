@@ -9,6 +9,8 @@ import { ExpiredView } from "../_components/expired-view";
 import { PublicFooter } from "../_components/public-footer";
 import { PhotoCarousel } from "../_components/photo-carousel";
 import { ShareButton } from "../_components/share-button";
+import { CopyButton } from "../_components/copy-button";
+import { getPublicBankInfo } from "../_components/public-bank";
 import {
   formatExpiryBadge,
   formatKoDateLong,
@@ -128,6 +130,8 @@ export default async function ProposalPage({
   const holdHours = resolveHoldHours(holdSetting?.value);
 
   const currency = proposal.saleCurrency;
+  // #6a — 입금 계좌 안내(메인 페이지). 통화별 계좌 자동 선택. 미설정 시 null(섹션 미렌더).
+  const bank = await getPublicBankInfo(currency);
   const nightsOf = (a: Date, b: Date) => Math.round((b.getTime() - a.getTime()) / 86_400_000);
 
   // 전 항목 날짜가 같으면 요약 행, 다르면 카드별 날짜 표기 (계약 편차)
@@ -285,6 +289,38 @@ export default async function ProposalPage({
             </p>
           </div>
         </section>
+
+        {/* #6a 입금 계좌 안내 — 통화별 회사 계좌(금액은 가예약 후 안내). 미설정 시 미렌더 */}
+        {bank && (
+          <section className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-6 space-y-4">
+            <div className="space-y-1">
+              <p className="text-xs font-bold text-teal-600 tracking-wider">입금 계좌</p>
+              <h4 className="text-base font-bold">무통장 입금 안내</h4>
+            </div>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center text-sm border-b border-neutral-50 pb-3">
+                <span className="text-neutral-500">은행명</span>
+                <span className="font-semibold">{bank.name}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm border-b border-neutral-50 pb-3">
+                <span className="text-neutral-500">계좌번호</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">{bank.number}</span>
+                  <CopyButton text={bank.number} />
+                </div>
+              </div>
+              {bank.holder && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-neutral-500">예금주</span>
+                  <span className="font-semibold">{bank.holder}</span>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-neutral-400 leading-relaxed">
+              입금 금액은 가예약 후 안내되며, 입금 확인 후 예약이 확정됩니다.
+            </p>
+          </section>
+        )}
       </main>
 
       <PublicFooter />
