@@ -61,6 +61,7 @@ export default async function CheckinSheetPage({
       guestName: true,
       guestCount: true,
       guestPhone: true,
+      guestRoster: true,
       checkIn: true,
       checkOut: true,
       nights: true,
@@ -182,6 +183,14 @@ export default async function CheckinSheetPage({
                         label={t("sheet.guests")}
                         value={t("sheet.guestsValue", { n: b.guestCount, max: v.maxGuests })}
                       />
+                      {b.guestRoster && (
+                        <div className="col-span-2">
+                          <dt className="text-[11px] uppercase tracking-widest text-slate-400">
+                            {t("sheet.roster")}
+                          </dt>
+                          <dd className="font-semibold whitespace-pre-wrap">{b.guestRoster}</dd>
+                        </div>
+                      )}
                       <Field label={t("sheet.phone")} value={b.guestPhone || "—"} />
                       <Field
                         label={t("sheet.channel")}

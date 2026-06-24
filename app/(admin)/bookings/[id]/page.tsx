@@ -13,6 +13,7 @@ import { toDateOnlyString } from "@/lib/date-vn";
 import { formatRemainingHours } from "@/lib/booking-stats";
 import ActionPanel from "./action-panel";
 import MemoBox from "./memo-box";
+import RosterBox from "./roster-box";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
@@ -66,6 +67,7 @@ export default async function BookingDetailPage({
       guestName: true,
       guestCount: true,
       guestPhone: true,
+      guestRoster: true,
       holdExpiresAt: true,
       saleCurrency: true,
       // 판매가(KRW·VND)는 canViewFinance만 — STAFF면 select 자체에서 제외
@@ -365,6 +367,15 @@ export default async function BookingDetailPage({
             hasPassport={(booking.checkInRecord?.passportPhotoUrls.length ?? 0) > 0}
             tamTruSentAt={booking.checkInRecord?.tamTruSentAt?.toISOString() ?? null}
           />
+
+          {/* 실제 투숙객 명단 (T-guest-roster) — 확정~체크인 전날 입력. 종결 상태는 비표시 */}
+          {!terminal && (
+            <RosterBox
+              bookingId={booking.id}
+              initialRoster={booking.guestRoster}
+              showReminder={booking.status === BookingStatus.CONFIRMED && !booking.guestRoster}
+            />
+          )}
 
           {/* 활동 로그 — AuditLog 기반 */}
           <section className="bg-admin-card rounded-xl overflow-hidden shadow-sm border border-[#334155]">

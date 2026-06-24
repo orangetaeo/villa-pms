@@ -388,6 +388,16 @@
         "saving": "Đang lưu...",
         "saved": "Đã lưu",
         "error": "Lưu thất bại"
+      },
+      "roster": {
+        "title": "Danh sách khách thực tế",
+        "hint": "Đặt phòng qua đại lý có thể khác khách thực tế. Nhập tên thật sau khi xác nhận thanh toán, trước ngày nhận phòng.",
+        "reminder": "Sắp đến ngày nhận phòng — hãy nhập danh sách khách.",
+        "placeholder": "VD: Kim Hak-tae / Lee Young-hee",
+        "save": "Lưu",
+        "saving": "Đang lưu...",
+        "saved": "Đã lưu",
+        "error": "Lưu thất bại"
       }
     }
   },
@@ -1952,6 +1962,7 @@
       "guest": "Khách",
       "guests": "Số khách",
       "guestsValue": "{n} khách (tối đa {max})",
+      "roster": "Danh sách khách",
       "phone": "Liên hệ",
       "channel": "Kênh",
       "stay": "Lưu trú",

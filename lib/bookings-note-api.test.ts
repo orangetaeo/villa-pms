@@ -59,7 +59,8 @@ describe("PATCH /api/bookings/[id] — note 전용", () => {
     expect(mockUpdate).toHaveBeenCalledWith({
       where: { id: "bk1" },
       data: { note: "새 메모" },
-      select: { id: true, note: true },
+      // T-guest-roster: select에 guestRoster 추가됨 (note·guestRoster 부분 수정 지원)
+      select: { id: true, note: true, guestRoster: true },
     });
     expect(vi.mocked(writeAuditLog)).toHaveBeenCalledWith(
       expect.objectContaining({
