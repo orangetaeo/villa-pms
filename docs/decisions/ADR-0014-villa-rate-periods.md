@@ -170,7 +170,7 @@ return /* 기존 quoteStay(VillaRate+SeasonPeriod) 경로 그대로 */;
 ### 단계 (각 단계 독립 배포·검증)
 - **Phase A (완료)**: dual-read 공존. 신규 입력 경로 라이브, 구 편집기 잔존.
 - **Phase B (완료 2026-06-24, 커밋 ddf2274)**: 전 빌라(11건) VillaRatePeriod 전환(전제 1·2 충족, 전역폴백 9건은 전역 비-LOW 기간 복제, scripts/migrate-rate-periods.ts·inspect-rate-state.ts) → `quoteStayForVilla` 구 분기 제거(신규 경로 단일, base 없으면 MissingBaseRateError). 구 API(rates·cost·seasons)·구 편집기(rate-editor·cost-seasons-editor) 제거. 쓰기(생성/수정/시드)는 `buildRatePeriodRowsFromSeasonCosts`, 표시/경보/공유는 `representativeRatesBySeason`. `MissingBaseRateError extends MissingRateError`로 proposal/candidates catch 호환. typecheck0·격리build0·테스트 통과·독립 QA PASS. **유지**: SeasonType·전역 SeasonPeriod(생성 날짜 템플릿)·등록 마법사 UX·VillaRate/VillaSeasonPeriod 테이블(Phase C 대상).
-- **Phase C (미착수)**: 구 테이블/컬럼 제거(`VillaRate`·`VillaSeasonPeriod`). **비가역** — 별도 ADR + DB 백업 + Postgres/Prisma 제거 주의(ADR-0013의 ADMIN enum 사례: enum/테이블 DROP은 미지원·위험하니 deprecated 유지가 종종 더 안전). 데이터 가치(과거 원가 이력)는 AuditLog에 잔존하므로 손실 아님.
+- **Phase C (완료 2026-06-24, ADR-0015·커밋 0616127)**: 구 테이블 `VillaRate`·`VillaSeasonPeriod` DROP(백업 후, `prisma db push --accept-data-loss`). VillaRatePeriod 단일 소스 확정. FK안전·코드참조0·스냅샷무영향. 상세·롤백 절차는 ADR-0015. **요율 다기간화 에픽 종결.**
 
 ### 검증 쿼리 (Phase B 진입 게이트)
 ```sql
