@@ -734,6 +734,7 @@
     },
     "managePhotos": "Quản lý ảnh",
     "manageCost": "Giá & mùa",
+    "manageRatePeriods": "Nhập giá gốc theo giai đoạn",
     "sales": {
       "title": "Thông tin bán hàng",
       "readOnly": "Chỉ xem",
@@ -1741,6 +1742,27 @@
     "baselineWarnBody": "Đây là ảnh dùng để kiểm tra dọn dẹp. Bạn có chắc muốn xóa?",
     "baselineLocked": "Đang có đơn đặt phòng nên không thể xóa ảnh gốc. Vui lòng thử lại sau khi trả phòng.",
     "error": "Có lỗi xảy ra. Vui lòng thử lại."
+  },
+  "supplierRatePeriods": {
+    "title": "Giá gốc theo giai đoạn",
+    "back": "Quay lại",
+    "intro": "Đặt giá cơ bản (mùa thấp điểm), rồi thêm các giai đoạn cao điểm và nhập giá gốc cho từng giai đoạn. Giá bán do quản trị viên quyết định.",
+    "baseTitle": "Giá cơ bản (chuẩn mùa thấp điểm)",
+    "baseHint": "Giá gốc cho ngày không thuộc giai đoạn đặc biệt",
+    "cost": "Giá gốc mỗi đêm",
+    "labelPlaceholder": "Tên giai đoạn (vd: Tết 2026)",
+    "periodLabel": "Tên giai đoạn",
+    "removePeriod": "Xóa",
+    "seasons": { "LOW": "Mùa thấp điểm", "HIGH": "Mùa cao điểm", "PEAK": "Cao điểm lễ Tết" },
+    "startDate": "Ngày bắt đầu",
+    "endDate": "Ngày kết thúc",
+    "addPeriod": "Thêm giai đoạn",
+    "save": "Lưu",
+    "saving": "Đang lưu...",
+    "baseCostRequired": "Vui lòng nhập giá gốc cơ bản.",
+    "periodIncomplete": "Vui lòng nhập đầy đủ ngày và giá gốc cho mỗi giai đoạn.",
+    "invalid": "Các giai đoạn bị trùng hoặc ngày không hợp lệ.",
+    "saveError": "Lưu thất bại. Vui lòng thử lại."
   },
   "costSeasons": {
     "title": "Giá gốc & mùa",

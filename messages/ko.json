@@ -662,6 +662,7 @@
     },
     "managePhotos": "사진 관리",
     "manageCost": "원가·시즌",
+    "manageRatePeriods": "기간별 원가 입력",
     "sales": {
       "title": "판매 정보",
       "readOnly": "보기 전용",
@@ -1669,6 +1670,27 @@
     "baselineWarnBody": "이 사진은 청소 검수에 사용됩니다. 정말 삭제하시겠습니까?",
     "baselineLocked": "진행 중인 예약이 있어 기준사진을 삭제할 수 없습니다. 체크아웃 후 다시 시도해주세요.",
     "error": "처리에 실패했습니다. 다시 시도해주세요."
+  },
+  "supplierRatePeriods": {
+    "title": "기간별 원가",
+    "back": "뒤로",
+    "intro": "기본요금(비수기)을 정하고, 성수기·극성수기 기간을 추가해 기간마다 원가를 입력하세요. 판매가는 운영자가 정합니다.",
+    "baseTitle": "기본요금 (비수기 기준)",
+    "baseHint": "특별 기간이 아닌 날짜의 원가",
+    "cost": "1박 원가",
+    "labelPlaceholder": "기간 이름 (예: 2026 설)",
+    "periodLabel": "기간 이름",
+    "removePeriod": "삭제",
+    "seasons": { "LOW": "비수기", "HIGH": "성수기", "PEAK": "극성수기" },
+    "startDate": "시작일",
+    "endDate": "종료일",
+    "addPeriod": "기간 추가",
+    "save": "저장",
+    "saving": "저장 중...",
+    "baseCostRequired": "기본요금 원가를 입력하세요.",
+    "periodIncomplete": "각 기간의 날짜와 원가를 모두 입력하세요.",
+    "invalid": "기간이 겹치거나 날짜가 올바르지 않습니다.",
+    "saveError": "저장에 실패했습니다. 다시 시도하세요."
   },
   "costSeasons": {
     "title": "원가 · 시즌",
