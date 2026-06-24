@@ -469,7 +469,9 @@ export function ChatPane({
   }, []);
 
   // 메시지 목록 변화 감지 → 자동 스크롤 판단 (폴링 refresh·전송·대화 전환 모두 정합)
-  useEffect(() => {
+  // useLayoutEffect: 대화 전환/전송 시 paint 전에 최하단으로 점프 → 위에서 아래로 스크롤되는 게
+  // 보이지 않고 처음부터 최신 메시지가 보인다(useEffect면 top 1프레임 노출 후 점프).
+  useLayoutEffect(() => {
     const last = messages[messages.length - 1];
     const lastId = last?.id ?? null;
     const count = messages.length;
