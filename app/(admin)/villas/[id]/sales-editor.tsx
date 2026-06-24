@@ -325,7 +325,7 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
                           value={bed.bedType}
                           onChange={(e) => patchBed(room.id, bed.id, { bedType: e.target.value as BedTypeKey })}
                           aria-label={t("bedding.bedType")}
-                          className="flex-1 bg-slate-900 border-slate-700 rounded-lg text-xs text-slate-200 focus:ring-1 focus:ring-blue-500 h-9 py-0"
+                          className="flex-1 bg-slate-900 border-slate-700 rounded-lg text-xs text-slate-200 focus:ring-1 focus:ring-blue-500 h-10 px-3 py-0"
                         >
                           {BED_TYPES.map((bt) => (
                             <option key={bt} value={bt}>
@@ -541,7 +541,7 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
                     value={checkInTime}
                     onChange={(e) => setCheckInTime(e.target.value)}
                     aria-label={t("rules.checkIn")}
-                    className="w-full bg-slate-900 border-slate-700 rounded-lg text-sm text-slate-200 focus:ring-1 focus:ring-blue-500 h-10 py-0 tabular-nums"
+                    className="w-full bg-slate-900 border-slate-700 rounded-lg text-sm text-slate-200 focus:ring-1 focus:ring-blue-500 h-10 px-3 py-0 tabular-nums"
                   >
                     {TIME_OPTIONS.map((opt) => (
                       <option key={opt} value={opt}>
@@ -558,7 +558,7 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
                     value={checkOutTime}
                     onChange={(e) => setCheckOutTime(e.target.value)}
                     aria-label={t("rules.checkOut")}
-                    className="w-full bg-slate-900 border-slate-700 rounded-lg text-sm text-slate-200 focus:ring-1 focus:ring-blue-500 h-10 py-0 tabular-nums"
+                    className="w-full bg-slate-900 border-slate-700 rounded-lg text-sm text-slate-200 focus:ring-1 focus:ring-blue-500 h-10 px-3 py-0 tabular-nums"
                   >
                     {TIME_OPTIONS.map((opt) => (
                       <option key={opt} value={opt}>
