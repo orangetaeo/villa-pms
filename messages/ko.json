@@ -1913,5 +1913,42 @@
     "rangeModeLabel": "범위 선택",
     "rangeModeHint": "시작 날짜를 탭하세요. (스크롤 후 끝 날짜 탭)",
     "rangeModeAnchorHint": "끝 날짜를 탭하세요. 같은 날짜를 다시 탭하면 단일 선택."
+  },
+  "adminCheckinSheet": {
+    "title": "오늘의 체크인 시트",
+    "entryButton": "오늘 체크인 출력",
+    "printButton": "프린트",
+    "prevDay": "이전 날",
+    "nextDay": "다음 날",
+    "today": "오늘",
+    "count": "{n}건",
+    "empty": "선택한 날짜에 체크인 예정(확정) 예약이 없습니다.",
+    "sheet": {
+      "checkInDate": "체크인",
+      "reservation": "예약 정보",
+      "guest": "게스트",
+      "guests": "인원",
+      "guestsValue": "{n}명 (최대 {max}명)",
+      "phone": "연락처",
+      "channel": "채널",
+      "stay": "숙박",
+      "nights": "{n}박",
+      "times": "체크인 / 체크아웃 시각",
+      "breakfast": "조식",
+      "yes": "포함",
+      "no": "불포함",
+      "deposit": "보증금",
+      "depositNone": "보증금 없음",
+      "depositHeld": "보증금 수취 완료",
+      "depositRequired": "현장 수취 필요",
+      "wifi": "와이파이",
+      "wifiId": "네트워크",
+      "wifiPw": "비밀번호",
+      "agreement": "이용 동의서",
+      "alreadySigned": "앱에서 서명 완료된 예약입니다.",
+      "guestSign": "게스트 서명",
+      "staffConfirm": "담당자 확인",
+      "signDate": "서명일"
+    }
   }
 }

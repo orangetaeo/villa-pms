@@ -107,6 +107,7 @@ export default async function BookingsPage({
   }>;
 }) {
   const t = await getTranslations("adminBookings");
+  const ts = await getTranslations("adminCheckinSheet");
   // [S-RBAC-3 보강] STAFF 재무 마스킹 — 판매가(KRW/VND)는 canViewFinance만.
   // 목록 select에서 제외해야 RSC→클라(ResponsiveTable) 페이로드 누수도 차단(QA H-1).
   const session = await auth();
@@ -360,7 +361,16 @@ export default async function BookingsPage({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white">{t("list.title")}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-white">{t("list.title")}</h1>
+        <Link
+          href="/bookings/checkin-sheet"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-admin-primary text-white text-sm font-bold hover:opacity-90 active:scale-[0.98] transition-all"
+        >
+          <span className="material-symbols-outlined text-base">print</span>
+          {ts("entryButton")}
+        </Link>
+      </div>
 
       {/* 상태 필터 카드 그리드 (대시보드 스타일) — 검색 상단에 개수 배지 카드로 표시 */}
       <div className="grid grid-cols-3 lg:grid-cols-6 gap-2.5 lg:gap-3">
