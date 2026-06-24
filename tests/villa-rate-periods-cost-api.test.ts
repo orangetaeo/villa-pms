@@ -14,9 +14,11 @@ const tx = {
     create: vi.fn(async (_a: { data: Record<string, unknown> }) => ({})),
     deleteMany: vi.fn(async () => ({})),
   },
-  proposal: { findMany: vi.fn(async () => []) },
-  user: { findMany: vi.fn(async () => []) },
-  notification: { createMany: vi.fn(async () => ({})) },
+  proposal: { findMany: vi.fn(async (): Promise<{ id: string }[]> => []) },
+  user: { findMany: vi.fn(async (): Promise<{ id: string }[]> => []) },
+  notification: {
+    createMany: vi.fn(async (_a: { data: Array<{ payload: Record<string, unknown> }> }) => ({})),
+  },
 };
 const transactionSpy = vi.fn(async (fn: (t: unknown) => Promise<unknown>) => fn(tx));
 vi.mock("@/lib/prisma", () => ({
@@ -115,6 +117,38 @@ describe("마진 보존·판매가 재계산·누수0 (SUPPLIER 소유)", () => 
     ]);
     await req({ ...BODY, periods: [] }); // pOld 미포함 → 삭제
     expect(tx.villaRatePeriod.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["pOld"] } } });
+  });
+
+  it("원가 변경 + ACTIVE 제안 → cost-alerts 호환 알림(season·old/newCostVnd) 발송", async () => {
+    // 기존 base 원가 900,000 → 신규 1,000,000(변경). cost-alerts.ts가 BigInt(oldCostVnd) 읽으므로 필수 필드.
+    tx.villaRatePeriod.findMany.mockResolvedValue([
+      { id: "b1", isBase: true, season: "LOW", supplierCostVnd: 900000n, marginType: "PERCENT", marginValue: 20n },
+    ]);
+    tx.proposal.findMany.mockResolvedValue([{ id: "pr1" }]);
+    tx.user.findMany.mockResolvedValue([{ id: "a1" }]);
+    const res = await req(BODY);
+    expect(res.status).toBe(200);
+    const notif = tx.notification.createMany.mock.calls[0][0].data;
+    const baseAlert = notif.find((n) => n.payload.season === "LOW");
+    expect(baseAlert?.payload).toMatchObject({
+      season: "LOW",
+      oldCostVnd: "900000",
+      newCostVnd: "1000000",
+      proposalId: "pr1",
+      villaId: "v1",
+    });
+  });
+
+  it("원가 변경 없으면 알림·제안조회 안 함 (신규 기간 추가만)", async () => {
+    // base 원가 동일(1,000,000), BODY의 기간은 신규(id 없음) → 변경 추적 0
+    tx.villaRatePeriod.findMany.mockResolvedValue([
+      { id: "b1", isBase: true, season: "LOW", supplierCostVnd: 1000000n, marginType: "PERCENT", marginValue: 20n },
+    ]);
+    tx.proposal.findMany.mockResolvedValue([{ id: "pr1" }]);
+    tx.user.findMany.mockResolvedValue([{ id: "a1" }]);
+    await req(BODY);
+    expect(tx.proposal.findMany).not.toHaveBeenCalled(); // costChanges 0 → 단락
+    expect(tx.notification.createMany).not.toHaveBeenCalled();
   });
 
   it("겹치는 기간 거부 (400)", async () => {

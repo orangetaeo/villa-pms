@@ -92,7 +92,16 @@ export async function loadCostAlerts(
   const parsed = notifs
     .map((n) => {
       const p = n.payload as unknown as RatePayload | null;
-      if (!p || typeof p.proposalId !== "string" || typeof p.villaId !== "string") return null;
+      // 방어: season·oldCostVnd 없는 payload(예: 기간별 원가 일괄변경의 비호환 형태)는 건너뜀
+      //  — 없으면 아래 BigInt(p.oldCostVnd)가 throw해 경보 페이지·대시보드 배너가 통째로 깨진다.
+      if (
+        !p ||
+        typeof p.proposalId !== "string" ||
+        typeof p.villaId !== "string" ||
+        typeof p.season !== "string" ||
+        typeof p.oldCostVnd !== "string"
+      )
+        return null;
       return { id: n.id, createdAt: n.createdAt, p };
     })
     .filter((x): x is { id: string; createdAt: Date; p: RatePayload } => x !== null);

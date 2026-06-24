@@ -11,7 +11,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { computeSalePriceVnd, suggestSalePriceKrw, getFxVndPerKrw } from "@/lib/pricing";
-import { MarginType, NotificationType, ProposalStatus } from "@prisma/client";
+import { MarginType, NotificationType, ProposalStatus, type SeasonType } from "@prisma/client";
 
 const vndPositiveDigits = z.string().regex(/^[1-9]\d{0,14}$/); // 원가 — 0 불가
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -87,8 +87,10 @@ export async function PATCH(
 
     const existing = await tx.villaRatePeriod.findMany({
       where: { villaId },
-      select: { id: true, isBase: true, marginType: true, marginValue: true },
+      select: { id: true, isBase: true, season: true, supplierCostVnd: true, marginType: true, marginValue: true },
     });
+    // 원가 변경 추적 (견적중 알림용 — 호환 payload: season·old/newCostVnd)
+    const costChanges: { season: SeasonType; oldCostVnd: bigint; newCostVnd: bigint | null }[] = [];
     const existingBase = existing.find((e) => e.isBase);
     const existingById = new Map(existing.filter((e) => !e.isBase).map((e) => [e.id, e]));
     // 신규 기간이 상속할 마진 = 기본요금 마진. base가 아직 없으면 0마진(판매가=원가, ADMIN이 책정)
@@ -108,6 +110,9 @@ export async function PATCH(
       : inheritMargin;
     const baseP = priceFrom(baseCost, baseM);
     if (existingBase) {
+      if (existingBase.supplierCostVnd !== baseCost) {
+        costChanges.push({ season: base.season, oldCostVnd: existingBase.supplierCostVnd, newCostVnd: baseCost });
+      }
       await tx.villaRatePeriod.update({
         where: { id: existingBase.id },
         data: { season: base.season, supplierCostVnd: baseCost, label: base.label ?? null, ...baseP },
@@ -131,6 +136,9 @@ export async function PATCH(
       const price = priceFrom(cost, m);
       const dates = { startDate: toUtc(p.startDate), endDate: toUtc(p.endDate) };
       if (match) {
+        if (match.supplierCostVnd !== cost) {
+          costChanges.push({ season: p.season, oldCostVnd: match.supplierCostVnd, newCostVnd: cost });
+        }
         await tx.villaRatePeriod.update({
           where: { id: match.id },
           data: { season: p.season, ...dates, label: p.label ?? null, supplierCostVnd: cost, ...price },
@@ -145,25 +153,42 @@ export async function PATCH(
         });
       }
     }
-    // 공급자가 제거한 기존 기간 삭제
+    // 공급자가 제거한 기존 기간 삭제 (삭제도 원가 변경 추적 — newCost null)
     const toDelete = [...existingById.keys()].filter((idv) => !keepIds.has(idv));
+    for (const idv of toDelete) {
+      const removed = existingById.get(idv)!;
+      costChanges.push({ season: removed.season, oldCostVnd: removed.supplierCostVnd, newCostVnd: null });
+    }
     if (toDelete.length > 0) await tx.villaRatePeriod.deleteMany({ where: { id: { in: toDelete } } });
 
-    // ── 견적중 변경 알림 (ADMIN) ──
-    const activeProposals = await tx.proposal.findMany({
-      where: { status: ProposalStatus.ACTIVE, items: { some: { villaId } } },
-      select: { id: true },
-    });
+    // ── 견적중 변경 알림 (ADMIN) — 원가가 실제 바뀐 행마다 호환 payload(season·old/newCostVnd) ──
+    // cost-alerts 소비처와 동일 형태여야 한다(season·oldCostVnd 필수 — 없으면 그 페이지가 throw).
+    const activeProposals =
+      costChanges.length > 0
+        ? await tx.proposal.findMany({
+            where: { status: ProposalStatus.ACTIVE, items: { some: { villaId } } },
+            select: { id: true },
+          })
+        : [];
     if (activeProposals.length > 0) {
       const admins = await tx.user.findMany({ where: { role: { in: ["OWNER", "ADMIN"] } }, select: { id: true } });
       if (admins.length > 0) {
         await tx.notification.createMany({
           data: activeProposals.flatMap((pr) =>
-            admins.map((a) => ({
-              userId: a.id,
-              type: NotificationType.RATE_CHANGED_DURING_PROPOSAL,
-              payload: { villaId, villaName: villa.name, proposalId: pr.id, change: "ratePeriodsCost" },
-            }))
+            admins.flatMap((a) =>
+              costChanges.map((c) => ({
+                userId: a.id,
+                type: NotificationType.RATE_CHANGED_DURING_PROPOSAL,
+                payload: {
+                  villaId,
+                  villaName: villa.name,
+                  season: c.season,
+                  oldCostVnd: c.oldCostVnd.toString(),
+                  newCostVnd: c.newCostVnd === null ? null : c.newCostVnd.toString(),
+                  proposalId: pr.id,
+                },
+              }))
+            )
           ),
         });
       }

@@ -122,6 +122,14 @@ export default function RatePeriodEditor({
   async function handleSave() {
     setSaving(true);
     setMessage(null);
+    // 사전 검증 — 기간은 시작·종료일 필수 (없으면 서버 400 → 혼란스러운 안내 방지)
+    for (const p of periods) {
+      if (!p.startDate || !p.endDate) {
+        setMessage({ ok: false, text: t("invalid") });
+        setSaving(false);
+        return;
+      }
+    }
     const packFields = (f: RateFields) => ({
       season: f.season,
       supplierCostVnd: f.supplierCostVnd || "0",
