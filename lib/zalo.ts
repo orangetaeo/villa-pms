@@ -239,6 +239,14 @@ export function buildNotificationText(
         `Giá thuê đã được cập nhật trong thời gian đề xuất còn hiệu lực.`,
         `Vui lòng kiểm tra chi tiết trong ứng dụng.`,
       ].join("\n");
+
+    case NotificationType.ROSTER_REMINDER:
+      // 수신자=운영자(테오) → 한국어. 체크인 임박·명단 미입력 안내 (가격·마진 미노출).
+      return [
+        `📋 투숙객 명단 미입력: ${villa}`,
+        `체크인: ${formatDateVi(p.checkIn)} · 예약자: ${str(p.guestName)} (${num(p.guestCount)}명)`,
+        `곧 체크인입니다. 실제 투숙객 명단을 확인·입력하거나 여행사에 안내해주세요.`,
+      ].join("\n");
   }
 }
 

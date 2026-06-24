@@ -127,6 +127,18 @@ describe("buildNotificationText", () => {
     expect(text).not.toContain("undefined");
   });
 
+  it("ROSTER_REMINDER — 운영자 대상 한국어, 빌라·게스트 표시 (가격 없음)", () => {
+    const text = buildNotificationText(NotificationType.ROSTER_REMINDER, {
+      villaName: "쏘나씨 V11",
+      checkIn: "2026-07-10",
+      guestName: "김학태",
+      guestCount: 4,
+    });
+    expect(text).toContain("쏘나씨 V11");
+    expect(text).toContain("김학태");
+    expect(text).toContain("투숙객 명단");
+  });
+
   it("마진 비공개 — payload에 판매가·마진이 섞여 들어와도 본문에 절대 미노출", () => {
     const polluted = {
       ...BASE_PAYLOAD,
