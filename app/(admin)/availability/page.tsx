@@ -211,6 +211,10 @@ export default async function AvailabilityPage({
     rangeError: t("rangePopover.error"),
     collapseList: t("collapseList"),
     expandList: t("expandList"),
+    selectHint: t("selectHint"),
+    rangeModeLabel: t("rangeModeLabel"),
+    rangeModeHint: t("rangeModeHint"),
+    rangeModeAnchorHint: t("rangeModeAnchorHint"),
   };
 
   return (

@@ -126,7 +126,11 @@
       "hint": "Chỉ khóa ngày trống và chỉ mở ngày đang khóa. Loại trừ ngày của kênh ngoài (iCal) và ngày đã đặt.",
       "processing": "Đang xử lý...",
       "error": "Đã xảy ra lỗi khi xử lý. Vui lòng thử lại."
-    }
+    },
+    "selectHint": "Nhấn giữ một ô rồi kéo để chọn nhiều ngày cùng lúc.",
+    "rangeModeLabel": "Chọn khoảng",
+    "rangeModeHint": "Chạm ngày bắt đầu. (cuộn rồi chạm ngày kết thúc)",
+    "rangeModeAnchorHint": "Chạm ngày kết thúc. Chạm lại cùng ngày để chọn một ngày."
   },
   "adminDashboard": {
     "title": "Bảng điều khiển",

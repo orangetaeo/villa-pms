@@ -80,6 +80,10 @@ export interface BoardStrings {
   rangeError: string;
   collapseList: string; // 빌라명 열 접기 토글 라벨
   expandList: string; // 빌라명 열 펴기 토글 라벨
+  selectHint: string; // 길게눌러 드래그 안내
+  rangeModeLabel: string; // 범위 선택(두 번 탭) 토글 라벨
+  rangeModeHint: string; // 범위 선택 모드 ON, 시작 전 안내
+  rangeModeAnchorHint: string; // 범위 선택 모드 ON, 시작 탭 후 안내
 }
 
 interface Props {
@@ -133,11 +137,12 @@ type PopState =
   | { kind: "block"; villaId: string; villaName: string; col: BoardColumn; status: "AVAILABLE" | "MANUAL"; blockId: string | null; x: number; y: number }
   | { kind: "ical"; col: BoardColumn; x: number; y: number };
 
-/** 가로 드래그 진행 상태 (마우스/펜 전용) */
+/** 가로 드래그 진행 상태 (마우스/펜 = 즉시 드래그, 터치 = 길게눌러 드래그) */
 interface DragState {
   villaId: string;
   anchorIdx: number;
   overIdx: number;
+  touch?: boolean; // 터치 길게눌러 드래그로 시작됨 → 종료는 touchend 가 담당
 }
 
 /** 드래그로 확정된 범위 팝오버 */
@@ -186,55 +191,169 @@ export default function AvailabilityBoardClient({
   const [pending, setPending] = useState(false);
   const [errorKey, setErrorKey] = useState<"conflict" | "error" | null>(null);
 
-  // ── 가로 드래그 범위 선택 (마우스/펜 전용) ──
+  // ── 가로 드래그 범위 선택 (마우스/펜 = 즉시, 터치 = 길게눌러) ──
   const [drag, setDrag] = useState<DragState | null>(null);
   const [rangePop, setRangePop] = useState<RangePop | null>(null);
   const [rangePending, setRangePending] = useState(false);
   const [rangeError, setRangeError] = useState(false);
+  // 두 번 탭(보조 모드): 시작 날짜 탭 → (스크롤) → 끝 날짜 탭. 긴 범위용. 길게눌러 드래그와 병행.
+  const [rangeMode, setRangeMode] = useState(false);
+  const [tapAnchor, setTapAnchor] = useState<{ villaId: string; idx: number } | null>(null);
   // 드래그로 여러 셀 이동했는지 — 뒤따르는 onClick 이 단일 팝오버를 또 열지 않도록 가드
   const movedRef = useRef(false);
-  // 최신 drag 값을 window pointerup 핸들러에서 읽기 위한 ref
+  // 최신 drag 값을 window pointerup / touchend 핸들러에서 읽기 위한 ref
   const dragRef = useRef<DragState | null>(null);
   dragRef.current = drag;
+  // 마지막 포인터/터치 좌표 (범위 팝오버 위치 산출용)
+  const lastPointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  // 가로 스크롤 컨테이너 (터치 네이티브 리스너 부착용)
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
-  // 드래그 종료 — window pointerup 한 번만 등록
+  // 범위 팝오버 열기 — 드래그·두 번 탭 공통. 화면 밖으로 안 나가게 좌표 클램프.
+  function openRangePop(villaId: string, villaName: string, lo: number, hi: number, x: number, y: number) {
+    setErrorKey(null);
+    setPop(null);
+    setRangeError(false);
+    setRangePop({
+      villaId,
+      villaName,
+      lo,
+      hi,
+      x: Math.max(8, Math.min(x, window.innerWidth - 280)),
+      y: Math.max(8, Math.min(y + 8, window.innerHeight - 260)),
+    });
+  }
+
+  // 드래그 확정 → 범위 팝오버. 마우스/펜은 pointerup, 터치는 touchend 에서 호출.
+  function finalizeDrag(d: DragState) {
+    const lo = Math.min(d.anchorIdx, d.overIdx);
+    const hi = Math.max(d.anchorIdx, d.overIdx);
+    setDrag(null);
+    dragRef.current = null;
+    if (lo === hi) {
+      // 움직임 없음 → 단일 셀 동작은 onClick 가 처리. 여기선 아무것도 안 함.
+      movedRef.current = false;
+      return;
+    }
+    // 여러 셀 → 범위 팝오버. 뒤따르는 onClick 차단 플래그 유지(클릭 핸들러가 리셋)
+    movedRef.current = true;
+    const row = rows.find((r) => r.id === d.villaId);
+    if (!row) return;
+    openRangePop(d.villaId, row.name, lo, hi, lastPointerRef.current.x, lastPointerRef.current.y);
+  }
+  // 최신 finalizeDrag 를 네이티브 리스너(mount 1회 등록)에서 stale 없이 호출
+  const finalizeRef = useRef(finalizeDrag);
+  finalizeRef.current = finalizeDrag;
+
+  // 드래그 종료(마우스/펜) — window pointerup 한 번만 등록. 터치는 touch:true 라 건너뜀.
   useEffect(() => {
     function onUp() {
       const d = dragRef.current;
-      if (!d) return;
-      const lo = Math.min(d.anchorIdx, d.overIdx);
-      const hi = Math.max(d.anchorIdx, d.overIdx);
-      setDrag(null);
-      dragRef.current = null;
-      if (lo === hi) {
-        // 움직임 없음 → 단일 셀 동작은 onClick 가 처리. 여기선 아무것도 안 함.
-        movedRef.current = false;
-        return;
-      }
-      // 여러 셀 → 범위 팝오버. 뒤따르는 onClick 차단 플래그 유지(클릭 핸들러가 리셋)
-      movedRef.current = true;
-      const row = rows.find((r) => r.id === d.villaId);
-      if (!row) return;
-      const cx = lastPointerRef.current.x;
-      const cy = lastPointerRef.current.y;
-      setErrorKey(null);
-      setPop(null);
-      setRangeError(false);
-      setRangePop({
-        villaId: d.villaId,
-        villaName: row.name,
-        lo,
-        hi,
-        x: Math.max(8, Math.min(cx, window.innerWidth - 280)),
-        y: Math.max(8, Math.min(cy + 8, window.innerHeight - 260)),
-      });
+      if (!d || d.touch) return; // 터치 드래그는 touchend 가 확정
+      finalizeRef.current(d);
     }
     window.addEventListener("pointerup", onUp);
     return () => window.removeEventListener("pointerup", onUp);
-  }, [rows]);
+  }, []);
 
-  // 마지막 포인터 좌표 (범위 팝오버 위치 산출용)
-  const lastPointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  // ── 터치: 길게눌러(0.4s) 드래그로 범위 선택 ──
+  // 누른 직후 0.4s 안에 손가락이 움직이면 스크롤 의도로 보고 취소(정상 스크롤 유지).
+  // 0.4s 유지되면 선택 모드 진입 → touchmove preventDefault 로 스크롤 잠그고 손가락 밑 셀 추적.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const LONG_PRESS_MS = 400;
+    const MOVE_CANCEL_PX = 8; // 진입 전 이 이상 움직이면 스크롤로 간주
+    let timer: number | null = null;
+    let anchorVillaId: string | null = null;
+    let startX = 0;
+    let startY = 0;
+    let dragging = false;
+
+    function cellAt(x: number, y: number): { villaId: string; idx: number; ical: boolean } | null {
+      const t = (document.elementFromPoint(x, y) as HTMLElement | null)?.closest(
+        "[data-ab-cell]"
+      ) as HTMLElement | null;
+      if (!t) return null;
+      const villaId = t.getAttribute("data-villa");
+      const idx = Number(t.getAttribute("data-idx"));
+      if (!villaId || Number.isNaN(idx)) return null;
+      return { villaId, idx, ical: t.classList.contains("ab-cell-ical") };
+    }
+
+    function clearTimer() {
+      if (timer != null) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+    }
+
+    function onTouchStart(e: TouchEvent) {
+      if (e.touches.length !== 1) return; // 멀티터치(핀치 등) 무시
+      const tt = e.touches[0];
+      const c = cellAt(tt.clientX, tt.clientY);
+      if (!c || c.ical) return; // 셀 밖 / iCal 셀에선 시작 안 함
+      startX = tt.clientX;
+      startY = tt.clientY;
+      anchorVillaId = c.villaId;
+      dragging = false;
+      clearTimer();
+      timer = window.setTimeout(() => {
+        timer = null;
+        dragging = true;
+        navigator.vibrate?.(30); // 진입 햅틱
+        lastPointerRef.current = { x: startX, y: startY };
+        setDrag({ villaId: c.villaId, anchorIdx: c.idx, overIdx: c.idx, touch: true });
+      }, LONG_PRESS_MS);
+    }
+
+    function onTouchMove(e: TouchEvent) {
+      const tt = e.touches[0];
+      if (!tt) return;
+      if (!dragging) {
+        // 진입 전 움직임 → 스크롤 의도. 타이머 취소하고 브라우저 기본 스크롤 허용.
+        if (timer != null) {
+          const dx = Math.abs(tt.clientX - startX);
+          const dy = Math.abs(tt.clientY - startY);
+          if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) {
+            clearTimer();
+            anchorVillaId = null;
+          }
+        }
+        return;
+      }
+      // 선택 모드 — 스크롤 잠그고 손가락 밑 셀로 범위 확장(같은 빌라 행 안에서만)
+      e.preventDefault();
+      lastPointerRef.current = { x: tt.clientX, y: tt.clientY };
+      const c = cellAt(tt.clientX, tt.clientY);
+      if (c && c.villaId === anchorVillaId) {
+        const d = dragRef.current;
+        if (d && d.overIdx !== c.idx) setDrag({ ...d, overIdx: c.idx });
+      }
+    }
+
+    function onTouchEnd() {
+      clearTimer();
+      if (dragging) {
+        dragging = false;
+        const d = dragRef.current;
+        if (d) finalizeRef.current(d);
+      }
+      anchorVillaId = null;
+    }
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+    el.addEventListener("touchcancel", onTouchEnd);
+    return () => {
+      clearTimer();
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, []);
 
   // 화면 밖 클릭 → 팝오버 닫기
   const popRef = useRef<HTMLDivElement | null>(null);
@@ -318,10 +437,38 @@ export default function AvailabilityBoardClient({
     if (d.overIdx !== idx) setDrag({ ...d, overIdx: idx });
   }
 
-  function onCellTap(e: React.MouseEvent, row: BoardRow, col: BoardColumn, cell: BoardCell) {
+  function onCellTap(e: React.MouseEvent, row: BoardRow, col: BoardColumn, cell: BoardCell, idx: number) {
     // 드래그로 범위 선택된 직후의 click 은 무시 (단일 팝오버 중복 오픈 방지)
     if (movedRef.current) {
       movedRef.current = false;
+      return;
+    }
+    // ── 두 번 탭 범위 모드: 첫 탭=시작, 둘째 탭=끝 → 범위 팝오버 ──
+    if (rangeMode && cell.status !== "ICAL") {
+      if (!tapAnchor || tapAnchor.villaId !== row.id) {
+        // 시작 지정(또는 다른 빌라로 시작점 이동)
+        setTapAnchor({ villaId: row.id, idx });
+        return;
+      }
+      const lo = Math.min(tapAnchor.idx, idx);
+      const hi = Math.max(tapAnchor.idx, idx);
+      setTapAnchor(null);
+      if (lo === hi) {
+        // 같은 날짜 재탭 → 단일 잠금/해제 팝오버로 폴백
+        setErrorKey(null);
+        setPop({
+          kind: "block",
+          villaId: row.id,
+          villaName: row.name,
+          col,
+          status: cell.status,
+          blockId: cell.blockId,
+          x: Math.min(e.clientX, window.innerWidth - 280),
+          y: Math.min(e.clientY + 8, window.innerHeight - 220),
+        });
+        return;
+      }
+      openRangePop(row.id, row.name, lo, hi, e.clientX, e.clientY);
       return;
     }
     setErrorKey(null);
@@ -611,8 +758,32 @@ export default function AvailabilityBoardClient({
         </div>
       </div>
 
+      {/* ===== 범위 선택 도구막대 (두 번 탭 토글 + 안내) ===== */}
+      <div className="flex flex-wrap items-center gap-2 px-1">
+        <button
+          type="button"
+          onClick={() => {
+            setRangeMode((v) => !v);
+            setTapAnchor(null);
+          }}
+          aria-pressed={rangeMode ? "true" : "false"}
+          className={
+            "inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-bold transition " +
+            (rangeMode
+              ? "border-admin-primary bg-admin-primary/15 text-admin-primary"
+              : "border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800")
+          }
+        >
+          <span className="material-symbols-outlined text-[16px]">date_range</span>
+          {s.rangeModeLabel}
+        </button>
+        <span className="text-[11px] leading-relaxed text-slate-500">
+          {rangeMode ? (tapAnchor ? s.rangeModeAnchorHint : s.rangeModeHint) : s.selectHint}
+        </span>
+      </div>
+
       {/* ===== 타임라인 격자 ===== */}
-      <div className={"ab-scroll relative overflow-auto rounded-xl border border-slate-800/50 bg-admin-card shadow-lg" + (drag ? " ab-dragging" : "")}>
+      <div ref={scrollRef} className={"ab-scroll relative overflow-auto rounded-xl border border-slate-800/50 bg-admin-card shadow-lg" + (drag ? " ab-dragging" : "")}>
         {rows.length === 0 ? (
           <div className="flex items-center justify-center py-16 text-sm text-slate-500">
             {s.empty}
@@ -831,6 +1002,9 @@ export default function AvailabilityBoardClient({
                         idx >= Math.min(drag.anchorIdx, drag.overIdx) &&
                         idx <= Math.max(drag.anchorIdx, drag.overIdx);
                       if (inDragRange) cls += " ab-range-sel";
+                      // 두 번 탭 모드: 시작 셀 강조
+                      if (tapAnchor && tapAnchor.villaId === row.id && tapAnchor.idx === idx)
+                        cls += " ab-range-sel";
                       const title =
                         cell.status === "AVAILABLE"
                           ? s.cellAvailable
@@ -841,11 +1015,13 @@ export default function AvailabilityBoardClient({
                         <td
                           key={c.iso}
                           data-ab-cell
+                          data-villa={row.id}
+                          data-idx={idx}
                           className={cls}
                           title={title}
                           onPointerDown={(e) => onCellPointerDown(e, row, idx, cell)}
                           onPointerEnter={(e) => onCellPointerEnter(e, row.id, idx)}
-                          onClick={(e) => onCellTap(e, row, c, cell)}
+                          onClick={(e) => onCellTap(e, row, c, cell, idx)}
                         >
                           {cell.status === "ICAL" && (
                             <span
