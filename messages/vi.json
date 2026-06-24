@@ -580,7 +580,9 @@
         "addBed": "Thêm giường",
         "removeBed": "Bỏ giường",
         "capacity": "Sức chứa phòng này",
-        "capacityNote": "Tổng sức chứa phòng ngủ <b>{sum} người</b> · Số khách tối đa <b>{max} người</b>. Vẫn lưu được dù tổng khác số tối đa (có thể dùng giường phụ)."
+        "capacityNote": "Tổng sức chứa phòng ngủ <b>{sum} người</b> · Số khách tối đa <b>{max} người</b>. Vẫn lưu được dù tổng khác số tối đa (có thể dùng giường phụ).",
+        "bathroom": "Phòng tắm riêng của phòng này",
+        "bathroomNote": "Tổng phòng tắm riêng <b>{total}</b> — khi lưu sẽ tự động cập nhật vào tổng số phòng tắm của villa."
       },
       "location": {
         "title": "Vị trí · Tiếp cận",
