@@ -11,6 +11,7 @@ export interface SheetLabels {
   reservation: string;
   guest: string;
   guests: string;
+  roster: string;
   phone: string;
   channel: string;
   stay: string;
@@ -40,6 +41,7 @@ export interface SheetLabels {
 export const SHEET_LABELS: Record<SheetLang, SheetLabels> = {
   ko: {
     checkInDate: "체크인", reservation: "예약 정보", guest: "게스트", guests: "인원",
+    roster: "투숙객 명단",
     phone: "연락처", channel: "채널", stay: "숙박", times: "체크인 / 체크아웃 시각",
     breakfast: "조식", yes: "포함", no: "불포함",
     deposit: "보증금", depositNone: "보증금 없음", depositHeld: "보증금 수취 완료",
@@ -54,6 +56,7 @@ export const SHEET_LABELS: Record<SheetLang, SheetLabels> = {
   },
   vi: {
     checkInDate: "Nhận phòng", reservation: "Thông tin đặt phòng", guest: "Khách", guests: "Số khách",
+    roster: "Danh sách khách",
     phone: "Liên hệ", channel: "Kênh", stay: "Lưu trú", times: "Giờ nhận / trả phòng",
     breakfast: "Bữa sáng", yes: "Có", no: "Không",
     deposit: "Tiền đặt cọc", depositNone: "Không có tiền cọc", depositHeld: "Đã nhận tiền cọc",
@@ -68,6 +71,7 @@ export const SHEET_LABELS: Record<SheetLang, SheetLabels> = {
   },
   en: {
     checkInDate: "Check-in", reservation: "Reservation", guest: "Guest", guests: "Guests",
+    roster: "Guest list",
     phone: "Phone", channel: "Channel", stay: "Stay", times: "Check-in / Check-out time",
     breakfast: "Breakfast", yes: "Included", no: "Not included",
     deposit: "Deposit", depositNone: "No deposit", depositHeld: "Deposit received",
@@ -82,6 +86,7 @@ export const SHEET_LABELS: Record<SheetLang, SheetLabels> = {
   },
   zh: {
     checkInDate: "入住", reservation: "预订信息", guest: "客人", guests: "人数",
+    roster: "入住客人名单",
     phone: "联系电话", channel: "渠道", stay: "住宿", times: "入住 / 退房时间",
     breakfast: "早餐", yes: "含", no: "不含",
     deposit: "押金", depositNone: "无押金", depositHeld: "已收押金",
@@ -96,6 +101,7 @@ export const SHEET_LABELS: Record<SheetLang, SheetLabels> = {
   },
   ru: {
     checkInDate: "Заезд", reservation: "Бронирование", guest: "Гость", guests: "Гостей",
+    roster: "Список гостей",
     phone: "Телефон", channel: "Канал", stay: "Проживание", times: "Время заезда / выезда",
     breakfast: "Завтрак", yes: "Включён", no: "Не включён",
     deposit: "Депозит", depositNone: "Без депозита", depositHeld: "Депозит получен",

@@ -67,6 +67,7 @@ export default async function CheckinSheetPage({
       guestName: true,
       guestCount: true,
       guestPhone: true,
+      guestRoster: true,
       checkIn: true,
       checkOut: true,
       nights: true,
@@ -198,6 +199,14 @@ export default async function CheckinSheetPage({
                     <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                       <Field label={L.guest} value={b.guestName} />
                       <Field label={L.guests} value={L.guestsValue(b.guestCount, v.maxGuests)} />
+                      {b.guestRoster && (
+                        <div className="col-span-2">
+                          <dt className="text-[11px] uppercase tracking-widest text-slate-400">
+                            {L.roster}
+                          </dt>
+                          <dd className="font-semibold whitespace-pre-wrap">{b.guestRoster}</dd>
+                        </div>
+                      )}
                       <Field label={L.phone} value={b.guestPhone || "—"} />
                       <Field
                         label={L.channel}

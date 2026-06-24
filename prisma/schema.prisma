@@ -381,9 +381,10 @@ model Booking {
   checkIn           DateTime       @db.Date
   checkOut          DateTime       @db.Date // exclusive
   nights            Int
-  guestName         String
+  guestName         String // 예약 식별명 (가예약 시점) — 여행사 채널은 최종 투숙객과 다를 수 있음
   guestCount        Int
   guestPhone        String?
+  guestRoster       String? // 실제 투숙객 명단(예: "김학태 / 이영희") — 입금 확정~체크인 전날 ADMIN 입력, 여권 OCR 전 준비용 (T-guest-roster)
   agencyName        String?
   holdExpiresAt     DateTime? // HOLD 상태에서만 사용 (24~48h)
   // 금액 — HOLD 시점 스냅샷. saleCurrency에 해당하는 통화 컬럼만 채운다 (ADR-0003)
