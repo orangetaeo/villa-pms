@@ -29,14 +29,14 @@ export default async function EditAmenitiesPage({
       id: true,
       supplierId: true,
       name: true,
+      // 미니바는 회사 직접운영(#2a) — 공급자 prefill에서 제외. unitPrice(고객 청구가=우리 판매가)는
+      // 공급자 페이지에서 아예 조회하지 않는다(비-MINIBAR 수량만 필요).
       amenities: {
+        where: { category: { not: "MINIBAR" } },
         select: {
           category: true,
           itemKey: true,
           quantity: true,
-          unitPrice: true,
-          customLabel: true,
-          note: true,
         },
       },
     },
@@ -47,30 +47,10 @@ export default async function EditAmenitiesPage({
   const locale = await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "amenities" });
 
-  // 현재 비품 → 사전 항목(수량 맵) + 미니바 커스텀 행 분리.
-  // 사전 항목 key: `category:itemKey` → 수량. 미니바 사전 항목의 단가는 별도 맵.
+  // 현재 비품(미니바 제외) → 사전 항목 수량 맵. key: `category:itemKey` → 수량.
   const initialQuantities: Record<string, number> = {};
-  const initialUnitPrices: Record<string, string> = {}; // `MINIBAR:itemKey` → VND 문자열
-  const initialCustom: {
-    id: string;
-    label: string;
-    quantity: number;
-    unitPrice: string;
-  }[] = [];
   for (const a of villa.amenities) {
-    if (a.itemKey === "custom") {
-      initialCustom.push({
-        id: `c${initialCustom.length}`,
-        label: a.customLabel ?? "",
-        quantity: a.quantity,
-        unitPrice: a.unitPrice ? a.unitPrice.toString() : "",
-      });
-    } else {
-      initialQuantities[`${a.category}:${a.itemKey}`] = a.quantity;
-      if (a.category === "MINIBAR" && a.unitPrice) {
-        initialUnitPrices[`MINIBAR:${a.itemKey}`] = a.unitPrice.toString();
-      }
-    }
+    initialQuantities[`${a.category}:${a.itemKey}`] = a.quantity;
   }
 
   return (
@@ -90,12 +70,7 @@ export default async function EditAmenitiesPage({
         <div className="h-10 w-10" />
       </header>
 
-      <AmenitiesEditor
-        villaId={villa.id}
-        initialQuantities={initialQuantities}
-        initialUnitPrices={initialUnitPrices}
-        initialCustom={initialCustom}
-      />
+      <AmenitiesEditor villaId={villa.id} initialQuantities={initialQuantities} />
     </div>
   );
 }
