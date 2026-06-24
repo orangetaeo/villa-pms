@@ -851,6 +851,19 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
  * 주의: 이 함수는 saveInboundMessage 저장 완료 후에만 호출한다(메시지 id 필요).
  *       번역은 네트워크 호출이므로 수신 핸들러를 블로킹하지 않도록 await 없이 띄운다.
  */
+/**
+ * 본문이 이미 한국어인지 판정 — 수신 자동번역(타깃 ko) 스킵용.
+ * Gemini에 한국어를 "ko로 번역"시키면 ko→ko 패러프레이즈(불필요한 재작성)가 나온다(실관측 2026-06-24).
+ * 한글(음절·자모)이 라틴 문자(영어·베트남어)보다 많거나 같으면 한국어로 본다(숫자·기호는 무시).
+ */
+export function isProbablyKorean(text: string): boolean {
+  if (!text) return false;
+  const hangul = (text.match(/[가-힣ᄀ-ᇿ㄰-㆏]/g) || []).length;
+  if (hangul === 0) return false;
+  const latin = (text.match(/[A-Za-zÀ-ɏẠ-ỿ]/g) || []).length;
+  return hangul >= latin;
+}
+
 export async function maybeTranslateInbound(
   messageId: string,
   text: string,
@@ -859,6 +872,8 @@ export async function maybeTranslateInbound(
   if (translateMode === "OFF") return; // 번역 끔 — Gemini 호출 0
   const trimmed = text.trim();
   if (trimmed.length === 0) return;
+  // 이미 한국어인 수신은 번역 스킵 — ko→ko 패러프레이즈 방지(운영자는 원문 그대로 읽음).
+  if (isProbablyKorean(trimmed)) return;
   try {
     // 수신은 항상 ko 타깃(ADMIN 기준 언어). 소스 언어는 모델 자동감지.
     const translated = await translateText(trimmed, "ko");
@@ -907,7 +922,10 @@ export async function maybeTranscribeVoice(
     // 2) 받아쓰기(원문) → 3) ko 번역(운영자용). 둘 중 빈 결과면 저장 스킵.
     const stt = await transcribeVoice(audioBase64, mimeType);
     if (!stt || stt.trim().length === 0) return;
-    const translated = await translateText(stt, "ko");
+    // 받아쓴 게 이미 한국어면 ko→ko 패러프레이즈 방지 — STT 원문을 그대로 자막으로.
+    const translated = isProbablyKorean(stt.trim())
+      ? stt.trim()
+      : await translateText(stt, "ko");
     if (!translated || translated.trim().length === 0) return;
 
     // 4) translatedText UPDATE (maybeTranslateInbound와 동일 필드·동일 패턴)
