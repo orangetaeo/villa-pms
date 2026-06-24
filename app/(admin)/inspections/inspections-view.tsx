@@ -451,7 +451,7 @@ export default function InspectionsView({
                           <span className="w-1 h-4 bg-admin-primary rounded" aria-hidden />
                           <h4 className="text-sm font-bold text-[#E5E7EB]">{pairLabel(i)}</h4>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3 sm:gap-4">
                           {/* 기준 사진 — 개수 불일치(없음) 시 청소 후 단독 표시 */}
                           {baseline ? (
                             <div className="space-y-2">
@@ -468,7 +468,7 @@ export default function InspectionsView({
                                   src={baseline.url}
                                   alt={`${pairLabel(i)} — ${td("baseline")}`}
                                   fill
-                                  sizes="(max-width: 768px) 100vw, 33vw"
+                                  sizes="(max-width: 768px) 50vw, 33vw"
                                   className="object-cover"
                                 />
                               </button>
@@ -499,7 +499,7 @@ export default function InspectionsView({
                                   src={submittedUrl}
                                   alt={`${pairLabel(i)} — ${td("after")}`}
                                   fill
-                                  sizes="(max-width: 768px) 100vw, 33vw"
+                                  sizes="(max-width: 768px) 50vw, 33vw"
                                   className="object-cover"
                                 />
                               </button>
