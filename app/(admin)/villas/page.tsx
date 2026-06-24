@@ -185,9 +185,8 @@ export default async function VillasPage({
           {area || q ? t("emptyFiltered") : t("empty")}
         </div>
       ) : (
-        <>
-        {/* 모바일(<md): 왼쪽 썸네일 + 접기/펴기 리스트 (Nike 리스트 패턴) */}
-        <div className="md:hidden flex flex-col gap-3">
+        <div className="flex flex-col gap-3">
+          {/* 왼쪽 썸네일 + 접기/펴기 리스트 (PC·모바일 공통, Nike 패턴) */}
           {villas.map((villa) => {
             const inactive = villa.status === "INACTIVE";
             const pending = villa.status === "PENDING_REVIEW";
@@ -201,10 +200,10 @@ export default async function VillasPage({
                   inactive ? "opacity-80" : ""
                 }`}
               >
-                <summary className="list-none cursor-pointer select-none flex items-center gap-3 p-3 [&::-webkit-details-marker]:hidden">
+                <summary className="list-none cursor-pointer select-none flex items-center gap-3 sm:gap-4 p-3 sm:p-4 [&::-webkit-details-marker]:hidden">
                   {/* 왼쪽 썸네일 */}
                   <div
-                    className={`relative w-16 h-16 shrink-0 rounded-lg overflow-hidden bg-slate-800 ${
+                    className={`relative w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-lg overflow-hidden bg-slate-800 ${
                       inactive ? "grayscale" : ""
                     }`}
                   >
@@ -213,7 +212,7 @@ export default async function VillasPage({
                         src={photoUrl}
                         alt={villa.name}
                         fill
-                        sizes="64px"
+                        sizes="(min-width: 640px) 80px, 64px"
                         className="object-cover"
                       />
                     ) : (
@@ -231,7 +230,7 @@ export default async function VillasPage({
                             {villa.complex}
                           </span>
                         )}
-                        <h3 className="text-sm font-bold text-white truncate">{villa.name}</h3>
+                        <h3 className="text-sm sm:text-base font-bold text-white truncate">{villa.name}</h3>
                       </div>
                       <span
                         className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded uppercase ${STATUS_BADGE_CLASS[villa.status] ?? "bg-admin-inactive text-white"}`}
@@ -305,120 +304,6 @@ export default async function VillasPage({
             );
           })}
         </div>
-        {/* 데스크톱(md+): 사진 카드 그리드 (기존 유지) */}
-        <div className="hidden md:grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {villas.map((villa) => {
-            const inactive = villa.status === "INACTIVE";
-            const pending = villa.status === "PENDING_REVIEW";
-            const photoUrl = villa.photos[0]?.url;
-            return (
-              <div
-                key={villa.id}
-                className={`bg-admin-card rounded-xl overflow-hidden group hover:ring-1 hover:ring-admin-primary/50 transition-all ${
-                  inactive ? "opacity-80" : ""
-                }`}
-              >
-                <div className={`relative h-48 ${inactive ? "grayscale" : ""}`}>
-                  {photoUrl ? (
-                    <Image
-                      src={photoUrl}
-                      alt={villa.name}
-                      fill
-                      sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-slate-800 flex items-center justify-center text-slate-600">
-                      <span className="material-symbols-outlined text-5xl">villa</span>
-                    </div>
-                  )}
-                  <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/70 to-transparent" />
-                  <div className="absolute top-4 left-4 flex gap-2">
-                    <span
-                      className={`text-[10px] font-bold px-2 py-1 rounded uppercase ${STATUS_BADGE_CLASS[villa.status] ?? "bg-admin-inactive text-white"}`}
-                    >
-                      {t(`status.${villa.status}`)}
-                    </span>
-                    {villa.status === "ACTIVE" && !villa.isSellable && (
-                      <span className="bg-transparent border border-admin-alert text-admin-alert text-[10px] font-bold px-2 py-0.5 rounded uppercase">
-                        {t("notSellable")}
-                      </span>
-                    )}
-                  </div>
-                  <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end">
-                    <div className="flex flex-col">
-                      {villa.complex && (
-                        <span className="text-[10px] text-white/70 uppercase tracking-widest font-bold">
-                          {villa.complex}
-                        </span>
-                      )}
-                      <h3 className="text-lg font-bold text-white">{villa.name}</h3>
-                    </div>
-                  </div>
-                </div>
-                <div className="p-5 flex flex-col gap-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2 text-admin-muted min-w-0">
-                      <span className="material-symbols-outlined text-sm shrink-0">person</span>
-                      <span className="font-medium text-slate-50 truncate">
-                        {villa.supplier?.name ?? t("noSupplier")}
-                      </span>
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                      <span className="flex items-center gap-1 text-[11px] bg-admin-bg px-2 py-1 rounded text-admin-muted">
-                        <span className="material-symbols-outlined text-[14px]">bed</span>{" "}
-                        {villa.bedrooms}
-                      </span>
-                      {villa.hasPool && (
-                        <span className="flex items-center gap-1 text-[11px] bg-admin-bg px-2 py-1 rounded text-admin-muted">
-                          <span className="material-symbols-outlined text-[14px]">pool</span>
-                        </span>
-                      )}
-                      {villa.breakfastAvailable && (
-                        <span className="flex items-center gap-1 text-[11px] bg-admin-bg px-2 py-1 rounded text-admin-muted">
-                          <span className="material-symbols-outlined text-[14px]">restaurant</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {villa.status === "ACTIVE" && !villa.isSellable && (
-                    <div className="flex items-center gap-2 p-2 rounded bg-red-900/20 border border-red-900/30">
-                      <span className="material-symbols-outlined text-admin-alert text-sm">
-                        cleaning_services
-                      </span>
-                      <span className="text-[11px] text-admin-alert font-medium">
-                        {t("cleaningPending")}
-                      </span>
-                    </div>
-                  )}
-                  {villa._count.ratePeriods === 0 && (
-                    <div className="flex items-center gap-2 p-2 rounded bg-amber-900/20 border border-amber-900/30">
-                      <span className="material-symbols-outlined text-admin-pending text-sm">
-                        payments
-                      </span>
-                      <span className="text-[11px] text-admin-pending font-medium">
-                        {t("noRates")}
-                      </span>
-                    </div>
-                  )}
-                  <div className="pt-4 border-t border-admin-bg">
-                    <Link
-                      href={`/villas/${villa.id}`}
-                      className={
-                        pending
-                          ? "block text-center w-full bg-admin-primary hover:bg-admin-primary-dark text-white font-bold py-2.5 rounded-lg text-sm transition-colors"
-                          : "block text-center w-full border border-admin-border text-white hover:bg-admin-border font-bold py-2.5 rounded-lg text-sm transition-colors"
-                      }
-                    >
-                      {pending ? t("review") : t("detail")}
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        </>
       )}
 
       {/* 페이지네이션 (b9) */}
