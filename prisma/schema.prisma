@@ -11,6 +11,7 @@
 // v1.3c: 운영자 권한 3단계 — enum Role에 OWNER·MANAGER·STAFF 추가 (ADR-0013 S-RBAC-1, additive only — ADMIN 유지·transition 중 OWNER 동일취급, 치환·제거는 S-RBAC-2)
 // v1.4: VillaBedroom.bathroomCount 추가 — 침실별 전용욕실 개수, Villa.bathrooms 자동 합산 (Batch A 3, additive only)
 // v1.5: VillaRatePeriod 추가 — 기간별 요금(기본요금+웃돈기간 N), dual-read 공존 (ADR-0014, additive only — VillaRate·VillaSeasonPeriod 무변경)
+// v1.6: 구 요율 테이블 제거 — VillaRate·VillaSeasonPeriod DROP, VillaRatePeriod 단일 소스 (ADR-0015 Phase C, 전 빌라 전환·백업 완료 후)
 // v1.4: VillaBedroom.bathroomCount 추가 — 침실별 전용욕실 개수, Villa.bathrooms 자동 합산 (Batch A 3, additive only)
 
 generator client {
@@ -126,14 +127,12 @@ model Villa {
   updatedAt       DateTime    @updatedAt
 
   photos         VillaPhoto[]
-  rates          VillaRate[]
   blocks         CalendarBlock[]
   bookings       Booking[]
   proposalItems  ProposalItem[]
   cleaningTasks  CleaningTask[]
   amenities      VillaAmenity[] // 비품 (ADR-0003)
-  seasonPeriods  VillaSeasonPeriod[] // 빌라별 시즌 달력 (ADR-0008) — 비면 전역 SeasonPeriod 폴백
-  ratePeriods    VillaRatePeriod[] // 기간별 요금 (ADR-0014) — 비면 VillaRate+seasonPeriods 폴백(dual-read)
+  ratePeriods    VillaRatePeriod[] // 기간별 요금 단일 소스 (ADR-0014/0015) — 구 VillaRate·VillaSeasonPeriod 제거됨
   bedroomDetails VillaBedroom[] // ② 침실별 잠자리 구성 (ADR-0011) — 기존 Int 컬럼 bedrooms와 별개
   features       VillaFeature[] // ⑤ 셀링포인트 태그 (ADR-0011, 사전 패턴)
 
@@ -249,49 +248,16 @@ model SeasonPeriod {
   @@index([startDate, endDate])
 }
 
-// 빌라별 시즌 기간 (ADR-0008) — 공급자가 빌라마다 직접 지정.
-// 한 빌라가 1건이라도 보유하면 그 빌라는 전적으로 이 달력으로 판정(전역 SeasonPeriod 무시),
-// 0건이면 전역 SeasonPeriod 폴백. 판정 로직은 lib/pricing.ts resolveSeason 단일 소스 유지.
-// 날짜 규약: [startDate, endDate) half-open (start 포함, end 제외).
-model VillaSeasonPeriod {
-  id        String     @id @default(cuid())
-  villaId   String
-  villa     Villa      @relation(fields: [villaId], references: [id], onDelete: Cascade)
-  season    SeasonType
-  startDate DateTime   @db.Date // 포함 (UTC 자정)
-  endDate   DateTime   @db.Date // 제외 — half-open
-  label     String?
-  createdAt DateTime   @default(now())
-
-  @@index([villaId, startDate, endDate])
-}
-
 enum MarginType {
   PERCENT
   FIXED_VND // v1.2: FIXED_KRW → FIXED_VND. 마진 기준통화를 원가와 동일한 VND로 통일 (ADR-0003)
 }
 
-// 가격 산정 기준통화 = VND: salePriceVnd = 원가 + 마진 (자동계산 후 ADMIN 오버라이드)
-// salePriceKrw = salePriceVnd × AppSetting["FX_VND_PER_KRW"] 환산 제안 후 ADMIN 라운딩 오버라이드
-model VillaRate {
-  id              String     @id @default(cuid())
-  villaId         String
-  villa           Villa      @relation(fields: [villaId], references: [id], onDelete: Cascade)
-  season          SeasonType
-  supplierCostVnd BigInt // 공급자 원가/박 — 공급자가 입력
-  marginType      MarginType @default(PERCENT)
-  marginValue     BigInt // PERCENT: %, FIXED_VND: 동
-  salePriceVnd    BigInt // 판매가/박 — VND 채널 (랜드사·여행사, ADR-0003)
-  salePriceKrw    Int // 판매가/박 — KRW 채널 (직접 소비자)
-  updatedAt       DateTime   @updatedAt
-
-  @@unique([villaId, season])
-}
-
-// 기간별 요금 (ADR-0014) — VillaSeasonPeriod(날짜)+VillaRate(시즌가격)를 기간 단위 요금 행으로 통합.
-// isBase=true: 비수기 기본요금(날짜 무관·폴백), villa당 정확히 1개(앱 트랜잭션 보장).
+// 기간별 요금 (ADR-0014) — 빌라 요율 단일 소스. 가격 산정 기준통화 = VND.
+//   salePriceVnd = 원가 + 마진(자동계산 후 ADMIN 오버라이드), salePriceKrw = salePriceVnd × FX 환산 후 라운딩.
+// isBase=true: 비수기 기본요금(날짜 무관·배경), villa당 정확히 1개(앱 트랜잭션 보장).
 // isBase=false: 웃돈 기간(startDate·endDate 필수, half-open). 같은 빌라 내 겹침 입력단계 거부.
-// dual-read(quoteStayForVilla): villa가 1행이라도 보유하면 이 경로, 0건이면 기존 VillaRate+SeasonPeriod 폴백.
+// 견적(quoteStayForVilla): base + 숙박구간 교차기간으로 박별 합산(ADR-0015에서 구 VillaRate 폴백 제거, 단일 경로).
 // 권한: 공급자=supplierCostVnd만, 관리자(canSetPrice)=margin·salePrice (API select/입력 화이트리스트로 분리).
 model VillaRatePeriod {
   id              String     @id @default(cuid())

@@ -1,0 +1,376 @@
+{
+  "exportedAt": "2026-06-24",
+  "villaRate": [
+    {
+      "id": "cmq9fgnmr000smr0f5xh4p9qd",
+      "villaId": "cmq9fgnmf0001mr0f81z2sdwo",
+      "season": "LOW",
+      "supplierCostVnd": "2000000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "2400000n",
+      "salePriceKrw": 135000,
+      "updatedAt": "2026-06-11T11:46:05.161Z"
+    },
+    {
+      "id": "cmq9fgnmr000tmr0f3q6qv3ho",
+      "villaId": "cmq9fgnmf0001mr0f81z2sdwo",
+      "season": "HIGH",
+      "supplierCostVnd": "2500000n",
+      "marginType": "FIXED_VND",
+      "marginValue": "500000n",
+      "salePriceVnd": "3500000n",
+      "salePriceKrw": 197000,
+      "updatedAt": "2026-06-11T11:46:05.292Z"
+    },
+    {
+      "id": "cmq9fgnmr000umr0fk7u75kzh",
+      "villaId": "cmq9fgnmf0001mr0f81z2sdwo",
+      "season": "PEAK",
+      "supplierCostVnd": "3000000n",
+      "marginType": "PERCENT",
+      "marginValue": "30n",
+      "salePriceVnd": "5200000n",
+      "salePriceKrw": 293000,
+      "updatedAt": "2026-06-11T11:46:05.356Z"
+    },
+    {
+      "id": "cmq9jkncj000wns0f4l8a2gyx",
+      "villaId": "cmq9jknc50005ns0f66ug3yj4",
+      "season": "LOW",
+      "supplierCostVnd": "2000000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "2400000n",
+      "salePriceKrw": 133000,
+      "updatedAt": "2026-06-11T17:13:39.274Z"
+    },
+    {
+      "id": "cmq9jkncj000xns0ffyvghua3",
+      "villaId": "cmq9jknc50005ns0f66ug3yj4",
+      "season": "HIGH",
+      "supplierCostVnd": "2500000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "3000000n",
+      "salePriceKrw": 166000,
+      "updatedAt": "2026-06-11T17:13:40.175Z"
+    },
+    {
+      "id": "cmq9jkncj000yns0fyamy4p13",
+      "villaId": "cmq9jknc50005ns0f66ug3yj4",
+      "season": "PEAK",
+      "supplierCostVnd": "3000000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "3600000n",
+      "salePriceKrw": 200000,
+      "updatedAt": "2026-06-11T17:13:40.573Z"
+    },
+    {
+      "id": "cmqpbnfm3000ap30f1tm3r8go",
+      "villaId": "cmqpbnflw0001p30fq2nl42r4",
+      "season": "LOW",
+      "supplierCostVnd": "2000000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "2400000n",
+      "salePriceKrw": 127000,
+      "updatedAt": "2026-06-22T14:41:55.084Z"
+    },
+    {
+      "id": "cmqpbnfm3000bp30ft1pj5b31",
+      "villaId": "cmqpbnflw0001p30fq2nl42r4",
+      "season": "HIGH",
+      "supplierCostVnd": "3000000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "3600000n",
+      "salePriceKrw": 191000,
+      "updatedAt": "2026-06-22T14:41:55.087Z"
+    },
+    {
+      "id": "cmqpbnfm3000cp30f3izwf9md",
+      "villaId": "cmqpbnflw0001p30fq2nl42r4",
+      "season": "PEAK",
+      "supplierCostVnd": "4000000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "4800000n",
+      "salePriceKrw": 254000,
+      "updatedAt": "2026-06-22T14:41:55.088Z"
+    },
+    {
+      "id": "cmqgfnhp90000uk8gwibtrtqd",
+      "villaId": "demo-villa-greenbay-b2",
+      "season": "LOW",
+      "supplierCostVnd": "3200000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "3840000n",
+      "salePriceKrw": 203000,
+      "updatedAt": "2026-06-16T09:21:39.934Z"
+    },
+    {
+      "id": "cmqgfnhpa0001uk8gxd9j8h9z",
+      "villaId": "demo-villa-greenbay-b2",
+      "season": "HIGH",
+      "supplierCostVnd": "4480000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "5376000n",
+      "salePriceKrw": 285000,
+      "updatedAt": "2026-06-16T09:21:39.934Z"
+    },
+    {
+      "id": "cmqgfnhpa0002uk8g6curq1ch",
+      "villaId": "demo-villa-greenbay-b2",
+      "season": "PEAK",
+      "supplierCostVnd": "6080000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "7296000n",
+      "salePriceKrw": 387000,
+      "updatedAt": "2026-06-16T09:21:39.934Z"
+    },
+    {
+      "id": "cmqgfni2v0003uk8gkpg7otsm",
+      "villaId": "demo-villa-marina-c5",
+      "season": "LOW",
+      "supplierCostVnd": "2800000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "3360000n",
+      "salePriceKrw": 178000,
+      "updatedAt": "2026-06-16T09:21:40.424Z"
+    },
+    {
+      "id": "cmqgfni2v0004uk8g2tnlbnk3",
+      "villaId": "demo-villa-marina-c5",
+      "season": "HIGH",
+      "supplierCostVnd": "3920000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "4704000n",
+      "salePriceKrw": 249000,
+      "updatedAt": "2026-06-16T09:21:40.424Z"
+    },
+    {
+      "id": "cmqgfni2v0005uk8gvlsxpibq",
+      "villaId": "demo-villa-marina-c5",
+      "season": "PEAK",
+      "supplierCostVnd": "5320000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "6384000n",
+      "salePriceKrw": 338000,
+      "updatedAt": "2026-06-16T09:21:40.424Z"
+    },
+    {
+      "id": "cmqgei62e0001ukyw1caat5kv",
+      "villaId": "seed-villa-sonasea-v11",
+      "season": "LOW",
+      "supplierCostVnd": "3000000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "3600000n",
+      "salePriceKrw": 191000,
+      "updatedAt": "2026-06-16T10:00:19.938Z"
+    },
+    {
+      "id": "cmqgei65f0003ukywvzaip78q",
+      "villaId": "seed-villa-sonasea-v11",
+      "season": "HIGH",
+      "supplierCostVnd": "4500000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "5400000n",
+      "salePriceKrw": 286000,
+      "updatedAt": "2026-06-16T10:00:20.048Z"
+    },
+    {
+      "id": "cmqgei66x0005ukywt661pkgt",
+      "villaId": "seed-villa-sonasea-v11",
+      "season": "PEAK",
+      "supplierCostVnd": "6000000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "7200000n",
+      "salePriceKrw": 382000,
+      "updatedAt": "2026-06-16T10:00:20.103Z"
+    },
+    {
+      "id": "cmqgei6jg0007ukywqxssnna5",
+      "villaId": "seed-villa-sonasea-v12",
+      "season": "LOW",
+      "supplierCostVnd": "3800000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "4560000n",
+      "salePriceKrw": 242000,
+      "updatedAt": "2026-06-16T10:00:20.538Z"
+    },
+    {
+      "id": "cmqgei6l00009ukywda1l7vh0",
+      "villaId": "seed-villa-sonasea-v12",
+      "season": "HIGH",
+      "supplierCostVnd": "5500000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "6600000n",
+      "salePriceKrw": 350000,
+      "updatedAt": "2026-06-16T10:00:20.593Z"
+    },
+    {
+      "id": "cmqgei6p0000bukywppog4pzm",
+      "villaId": "seed-villa-sonasea-v12",
+      "season": "PEAK",
+      "supplierCostVnd": "7500000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "9000000n",
+      "salePriceKrw": 477000,
+      "updatedAt": "2026-06-16T10:00:20.648Z"
+    },
+    {
+      "id": "cmqgei737000dukywqtycl2vj",
+      "villaId": "seed-villa-sonasea-v25",
+      "season": "LOW",
+      "supplierCostVnd": "5000000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "6000000n",
+      "salePriceKrw": 318000,
+      "updatedAt": "2026-06-16T10:00:21.032Z"
+    },
+    {
+      "id": "cmqgei75i000fukywlt9nhipk",
+      "villaId": "seed-villa-sonasea-v25",
+      "season": "HIGH",
+      "supplierCostVnd": "7000000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "8400000n",
+      "salePriceKrw": 445000,
+      "updatedAt": "2026-06-16T10:00:21.089Z"
+    },
+    {
+      "id": "cmqgei777000hukywcwc6zjni",
+      "villaId": "seed-villa-sonasea-v25",
+      "season": "PEAK",
+      "supplierCostVnd": "9500000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "11400000n",
+      "salePriceKrw": 604000,
+      "updatedAt": "2026-06-16T10:00:21.145Z"
+    },
+    {
+      "id": "cmqgei7qi000jukywj0cfxpj0",
+      "villaId": "seed-villa-sunset-sanato-a3",
+      "season": "LOW",
+      "supplierCostVnd": "2500000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "3000000n",
+      "salePriceKrw": 159000,
+      "updatedAt": "2026-06-16T10:00:21.476Z"
+    },
+    {
+      "id": "cmqgei7s0000lukywkku3uq2l",
+      "villaId": "seed-villa-sunset-sanato-a3",
+      "season": "HIGH",
+      "supplierCostVnd": "3800000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "4560000n",
+      "salePriceKrw": 242000,
+      "updatedAt": "2026-06-16T10:00:21.531Z"
+    },
+    {
+      "id": "cmqgei7w6000nukywc1sjnalq",
+      "villaId": "seed-villa-sunset-sanato-a3",
+      "season": "PEAK",
+      "supplierCostVnd": "5000000n",
+      "marginType": "PERCENT",
+      "marginValue": "20n",
+      "salePriceVnd": "6000000n",
+      "salePriceKrw": 318000,
+      "updatedAt": "2026-06-16T10:00:21.586Z"
+    },
+    {
+      "id": "cmqhkx9ov003cmk0fex1gerqa",
+      "villaId": "cmqhkx9of0035mk0fwcdfrast",
+      "season": "LOW",
+      "supplierCostVnd": "5555555n",
+      "marginType": "PERCENT",
+      "marginValue": "0n",
+      "salePriceVnd": "5555555n",
+      "salePriceKrw": 0,
+      "updatedAt": "2026-06-17T04:37:00.367Z"
+    },
+    {
+      "id": "cmqhkx9ov003dmk0fhtcvh4we",
+      "villaId": "cmqhkx9of0035mk0fwcdfrast",
+      "season": "HIGH",
+      "supplierCostVnd": "22222n",
+      "marginType": "PERCENT",
+      "marginValue": "0n",
+      "salePriceVnd": "22222n",
+      "salePriceKrw": 0,
+      "updatedAt": "2026-06-17T04:37:00.367Z"
+    },
+    {
+      "id": "cmqhkx9ov003emk0fw2qeulmr",
+      "villaId": "cmqhkx9of0035mk0fwcdfrast",
+      "season": "PEAK",
+      "supplierCostVnd": "5555n",
+      "marginType": "PERCENT",
+      "marginValue": "0n",
+      "salePriceVnd": "5555n",
+      "salePriceKrw": 0,
+      "updatedAt": "2026-06-17T04:37:00.367Z"
+    }
+  ],
+  "villaSeasonPeriod": [
+    {
+      "id": "cmqgkprt60005s40fvm3k7lqw",
+      "villaId": "cmq9jknc50005ns0f66ug3yj4",
+      "season": "LOW",
+      "startDate": "2026-01-01T00:00:00.000Z",
+      "endDate": "2026-01-25T00:00:00.000Z",
+      "label": null,
+      "createdAt": "2026-06-16T11:43:24.427Z"
+    }
+  ],
+  "seasonPeriod": [
+    {
+      "id": "cmq9h99of0000oa0f2p6yd9sc",
+      "season": "LOW",
+      "startDate": "2026-04-01T00:00:00.000Z",
+      "endDate": "2026-09-30T00:00:00.000Z",
+      "label": null
+    },
+    {
+      "id": "seed-season-2026-tet",
+      "season": "PEAK",
+      "startDate": "2026-02-14T00:00:00.000Z",
+      "endDate": "2026-02-22T00:00:00.000Z",
+      "label": "2026 설 연휴"
+    },
+    {
+      "id": "seed-season-2026-summer",
+      "season": "HIGH",
+      "startDate": "2026-06-01T00:00:00.000Z",
+      "endDate": "2026-09-01T00:00:00.000Z",
+      "label": "2026 여름 성수기"
+    },
+    {
+      "id": "seed-season-2026-yearend",
+      "season": "PEAK",
+      "startDate": "2026-12-24T00:00:00.000Z",
+      "endDate": "2027-01-03T00:00:00.000Z",
+      "label": "2026 연말·신정"
+    }
+  ]
+}

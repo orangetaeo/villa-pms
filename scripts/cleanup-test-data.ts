@@ -49,7 +49,7 @@ async function auditVillas() {
           proposalItems: true,
           cleaningTasks: true,
           photos: true,
-          rates: true,
+          ratePeriods: true,
           amenities: true,
           blocks: true,
         },
@@ -69,7 +69,7 @@ async function auditVillas() {
     console.log(
       `  ${safe ? '✅ 삭제가능' : '⛔ 수동검토'}  "${v.name}" (${v.id})\n` +
         `      공급자: ${v.supplier.name} / ${v.supplier.phone ?? '-'}\n` +
-        `      자식: 사진${v._count.photos}·요율${v._count.rates}·비품${v._count.amenities}·차단${v._count.blocks} (Cascade)\n` +
+        `      자식: 사진${v._count.photos}·요율${v._count.ratePeriods}·비품${v._count.amenities}·차단${v._count.blocks} (Cascade)\n` +
         (safe ? '' : `      ⛔ 차단요인: ${blockers.join(', ')} — 자동 삭제 안 함\n`),
     )
     return { villa: v, safe }
