@@ -35,6 +35,8 @@ const featureSchema = z.object({
 
 const salesPatchSchema = z
   .object({
+    // 공급 출처 — DIRECT면 공실 보드에 우리 판매예약이 표시됨 (T-availability-direct-booking-popover)
+    source: z.enum(["SUPPLIER", "DIRECT"]).optional(),
     // ③ 위치·접근성 — 모두 정수, nullable. null = 미입력으로 클리어
     googleMapUrl: z.string().url().startsWith("https://").max(2000).nullable().optional(),
     beachDistanceM: nonNegInt.max(100000).nullable().optional(),
@@ -150,6 +152,7 @@ export async function PATCH(
   const set = <K extends keyof typeof data>(key: K, value: unknown) => {
     if (value !== undefined) scalarData[key as string] = value;
   };
+  set("source", data.source);
   set("googleMapUrl", data.googleMapUrl);
   set("beachDistanceM", data.beachDistanceM);
   set("areaSqm", data.areaSqm);
