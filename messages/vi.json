@@ -82,6 +82,7 @@
       "available": "Trống",
       "manual": "Khóa (quản trị viên chặn)",
       "ical": "Khóa kênh ngoài (iCal · chỉ đọc)",
+      "booking": "Đặt phòng (villa tự cung cấp)",
       "checked": "Đã xác nhận",
       "needCheck": "Cần kiểm tra (đã lâu)"
     },
@@ -95,7 +96,8 @@
     "cell": {
       "available": "Trống",
       "manual": "Khóa (quản trị viên chặn)",
-      "ical": "Khóa kênh ngoài (iCal)"
+      "ical": "Khóa kênh ngoài (iCal)",
+      "booking": "Đặt phòng (villa tự cung cấp) — nhấn để xem chi tiết"
     },
     "weekdays": {
       "0": "CN",
@@ -122,6 +124,28 @@
       "title": "Khóa kênh ngoài",
       "desc": "Đây là ngày bị khóa tự động qua đồng bộ iCal.",
       "info": "Khóa kênh ngoài không thể chỉnh sửa ở màn hình này. Hãy thay đổi tại nguồn của kênh."
+    },
+    "bookingPopover": {
+      "statusHold": "Giữ chỗ",
+      "statusConfirmed": "Đã xác nhận",
+      "statusCheckedIn": "Đã nhận phòng",
+      "nights": "{n} đêm",
+      "guest": "Khách",
+      "guestCount": "{n} người",
+      "channel": "Kênh",
+      "channelTravel": "Cty du lịch",
+      "channelLand": "Land",
+      "channelDirect": "Trực tiếp",
+      "cost": "Giá gốc",
+      "sale": "Giá bán",
+      "deposit": "Tiền cọc",
+      "depositNone": "Không",
+      "depositHeld": "Đang giữ",
+      "depositRefunded": "Đã hoàn",
+      "depositPartial": "Trừ một phần",
+      "holdExpires": "Còn {time}",
+      "holdExpired": "Đã hết hạn",
+      "openDetail": "Xem chi tiết đặt phòng"
     },
     "rangePopover": {
       "days": "Đã chọn {n} ngày",

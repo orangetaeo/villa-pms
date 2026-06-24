@@ -70,6 +70,14 @@ enum VillaStatus {
   INACTIVE // 중단
 }
 
+// 빌라 공급 출처 (T-availability-direct-booking-popover).
+// SUPPLIER = 외부 공급자(중계인·부동산·분양자)가 등록 — 재고/예약 비공개 대상.
+// DIRECT   = 테오팀이 직접 수집·공급 — 외부 공급자가 없어 공실 보드에서 우리 예약을 노출해도 누수 없음.
+enum VillaSource {
+  SUPPLIER
+  DIRECT
+}
+
 enum PhotoSpace {
   EXTERIOR // 외관
   LIVING // 거실
@@ -117,6 +125,9 @@ model Villa {
   extraBedAvailable Boolean @default(false)
 
   status          VillaStatus @default(DRAFT)
+  // 공급 출처 — 기존 빌라는 전부 SUPPLIER(default)로 백필. DIRECT는 ADMIN만 지정(별도 폼).
+  // 공실 보드는 DIRECT 빌라에 한해 우리 판매예약을 셀에 표시한다 (재고 비공개 예외 — 누수 대상 없음).
+  source          VillaSource @default(SUPPLIER)
   rejectionReason String? // 마지막 반려 사유 (T1.2b) — 재제출 시 null 클리어, 이력은 AuditLog
   isSellable      Boolean     @default(false) // 청소 검수 게이트 통과 여부
   qualityScore    Int         @default(100) // Phase 2: 누적 품질점수
