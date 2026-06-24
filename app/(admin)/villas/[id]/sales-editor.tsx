@@ -31,6 +31,7 @@ interface BedroomCard {
   id: string; // 로컬 키
   roomLabel: string;
   capacity: number; // 0 = 미입력 취급
+  bathroomCount: number; // 이 침실 전용욕실 개수 (0 = 없음)
   beds: BedRow[];
 }
 
@@ -50,7 +51,7 @@ export interface SalesInitial {
   wifiPassword: string;
   extraBedAvailable: boolean;
   hasPool: boolean; // 수영장 유무 — 셀링포인트 풀 태그 체크 시 자동 ON (저장 시 보정)
-  bedrooms: { roomIndex: number; roomLabel: string | null; bedType: BedTypeKey; bedCount: number; capacity: number | null }[];
+  bedrooms: { roomIndex: number; roomLabel: string | null; bedType: BedTypeKey; bedCount: number; capacity: number | null; bathroomCount: number }[];
   features: { category: FeatureCategoryKey; featureKey: string }[];
 }
 
@@ -77,6 +78,7 @@ function groupBedrooms(rows: SalesInitial["bedrooms"]): BedroomCard[] {
         id: localId(),
         roomLabel: r.roomLabel ?? "",
         capacity: r.capacity ?? 0,
+        bathroomCount: r.bathroomCount ?? 0,
         beds: [],
       });
     }
@@ -126,7 +128,7 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
   function addRoom() {
     setRooms((prev) => [
       ...prev,
-      { id: localId(), roomLabel: "", capacity: 2, beds: [{ id: localId(), bedType: "KING", bedCount: 1 }] },
+      { id: localId(), roomLabel: "", capacity: 2, bathroomCount: 1, beds: [{ id: localId(), bedType: "KING", bedCount: 1 }] },
     ]);
   }
   function removeRoom(roomId: string) {
@@ -171,6 +173,9 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
     rooms.flatMap((r, i) => [{ roomIndex: i + 1, capacity: r.capacity }])
   );
 
+  // 전용욕실 합계 — 저장 시 Villa.bathrooms로 자동 반영 (서버도 동일 합산)
+  const bathroomTotal = rooms.reduce((sum, r) => sum + r.bathroomCount, 0);
+
   // 숫자 문자열 정규화 (음수·비숫자 제거)
   const digits = (v: string) => v.replace(/\D/g, "");
 
@@ -192,6 +197,7 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
           bedType: bed.bedType,
           bedCount: bed.bedCount,
           capacity,
+          bathroomCount: room.bathroomCount,
         });
       }
     });
@@ -366,6 +372,20 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
                       ariaLabel={t("bedding.capacity")}
                     />
                   </div>
+
+                  {/* 전용욕실 */}
+                  <div className="flex items-center justify-between pt-3">
+                    <span className="text-xs text-slate-400 flex items-center gap-1.5 whitespace-nowrap">
+                      <span className="material-symbols-outlined text-sm">bathroom</span>
+                      {t("bedding.bathroom")}
+                    </span>
+                    <Stepper
+                      value={room.bathroomCount}
+                      min={0}
+                      onChange={(n) => patchRoom(room.id, { bathroomCount: n })}
+                      ariaLabel={t("bedding.bathroom")}
+                    />
+                  </div>
                 </div>
               ))}
 
@@ -385,6 +405,17 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
                   {t.rich("bedding.capacityNote", {
                     sum: capacitySum,
                     max: maxGuests,
+                    b: (chunks) => <span className="font-bold text-slate-200 tabular-nums">{chunks}</span>,
+                  })}
+                </p>
+              </div>
+
+              {/* 전용욕실 합계 → 빌라 총 욕실수 자동 반영 안내 */}
+              <div className="p-3 bg-blue-500/5 rounded-lg border border-blue-500/20 flex items-start gap-2">
+                <span className="material-symbols-outlined text-admin-primary text-sm mt-0.5">bathroom</span>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  {t.rich("bedding.bathroomNote", {
+                    total: bathroomTotal,
                     b: (chunks) => <span className="font-bold text-slate-200 tabular-nums">{chunks}</span>,
                   })}
                 </p>

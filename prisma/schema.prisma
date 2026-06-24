@@ -9,6 +9,7 @@
 // v1.3a: Villa.availabilityCheckedAt 추가 — 운영자 공실 보드 "마지막 확인일" (T-admin-availability-board, additive only)
 // v1.3b: Zalo 그룹 채팅 — enum ZaloThreadType + ZaloConversation.threadType·groupMembers + ZaloMessage.senderUid (ADR-0010 S4, additive only)
 // v1.3c: 운영자 권한 3단계 — enum Role에 OWNER·MANAGER·STAFF 추가 (ADR-0013 S-RBAC-1, additive only — ADMIN 유지·transition 중 OWNER 동일취급, 치환·제거는 S-RBAC-2)
+// v1.4: VillaBedroom.bathroomCount 추가 — 침실별 전용욕실 개수, Villa.bathrooms 자동 합산 (Batch A 3, additive only)
 
 generator client {
   provider = "prisma-client-js"
@@ -181,6 +182,7 @@ model VillaBedroom {
   bedType   BedType
   bedCount  Int     @default(1) // 이 종류 침대 개수
   capacity  Int? // 이 침실 수용 인원(선택). 같은 roomIndex 행들은 동일값 — BE 검증
+  bathroomCount Int @default(0) // 이 침실 전용(ensuite) 욕실 개수. 같은 roomIndex 행들은 동일값 — BE 검증. Villa.bathrooms는 침실 합계로 자동 갱신 (v1.4)
 
   @@index([villaId, roomIndex])
 }

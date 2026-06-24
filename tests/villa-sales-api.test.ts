@@ -131,6 +131,16 @@ describe("zod 검증 — 화이트리스트·범위·url", () => {
     });
     expect(res.status).toBe(200);
   });
+  it("같은 roomIndex bathroomCount 불일치 거부", async () => {
+    const res = await req({
+      ...BASE,
+      bedrooms: [
+        { roomIndex: 1, bedType: "KING", bedCount: 1, capacity: 2, bathroomCount: 1 },
+        { roomIndex: 1, bedType: "SINGLE", bedCount: 1, capacity: 2, bathroomCount: 2 },
+      ],
+    });
+    expect(res.status).toBe(400);
+  });
   it("같은 roomIndex capacity 불일치 거부", async () => {
     const res = await req({
       ...BASE,
@@ -187,6 +197,25 @@ describe("성공 — 스칼라 update + 자식 전체 교체 영속", () => {
     expect(bedData[1].roomLabel).toBeNull();
   });
 
+  it("전용욕실 자동합산 — Villa.bathrooms = roomIndex별 bathroomCount 합 (중복 행 1회)", async () => {
+    const res = await req({
+      ...BASE,
+      bedrooms: [
+        // 1번방: 침대 2행이지만 bathroomCount는 동일(2) → 방 단위 1회만 합산
+        { roomIndex: 1, bedType: "KING", bedCount: 1, capacity: 2, bathroomCount: 2 },
+        { roomIndex: 1, bedType: "SINGLE", bedCount: 1, capacity: 2, bathroomCount: 2 },
+        // 2번방: bathroomCount 1
+        { roomIndex: 2, bedType: "TWIN", bedCount: 2, capacity: 2, bathroomCount: 1 },
+      ],
+    });
+    expect(res.status).toBe(200);
+    expect(tx.villa.update.mock.calls[0][0].data.bathrooms).toBe(3); // 2 + 1
+  });
+  it("빈 bedrooms면 bathrooms 자동갱신 안 함 (기존 값 보존)", async () => {
+    const res = await req({ ...BASE, bedrooms: [] });
+    expect(res.status).toBe(200);
+    expect(tx.villa.update.mock.calls[0][0].data.bathrooms).toBeUndefined();
+  });
   it("셀링포인트 풀 태그(privatePool) 있으면 hasPool=true 강제 (수영장 자동보정)", async () => {
     const res = await req({
       ...BASE,

@@ -25,6 +25,7 @@ const bedroomSchema = z.object({
   bedType: z.enum(BED_TYPES), // enum 화이트리스트 — 임의 bedType 차단
   bedCount: z.number().int().min(1).max(20),
   capacity: z.number().int().min(1).max(50).nullable().optional(), // 수용인원 0(미입력) 시 null 전송
+  bathroomCount: z.number().int().min(0).max(20).optional(), // 이 침실 전용욕실 개수 (0=없음)
 });
 
 const featureSchema = z.object({
@@ -96,6 +97,22 @@ const salesPatchSchema = z
         capByRoom.set(b.roomIndex, cap);
       }
     });
+    // 같은 roomIndex 행들의 bathroomCount도 동일값이어야 함 (침실 단위 1값 — 자동 합산 정합)
+    const bathByRoom = new Map<number, number>();
+    data.bedrooms.forEach((b, index) => {
+      const bath = b.bathroomCount ?? 0;
+      if (bathByRoom.has(b.roomIndex)) {
+        if (bathByRoom.get(b.roomIndex) !== bath) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["bedrooms", index, "bathroomCount"],
+            message: `roomIndex ${b.roomIndex} bathroomCount mismatch`,
+          });
+        }
+      } else {
+        bathByRoom.set(b.roomIndex, bath);
+      }
+    });
   });
 
 export async function PATCH(
@@ -157,6 +174,18 @@ export async function PATCH(
   );
   if (hasPoolFeature) scalarData.hasPool = true;
 
+  // 침실별 전용욕실 합계 → Villa.bathrooms 자동 갱신 (같은 roomIndex 행은 동일값이므로 roomIndex별 1회만 합산).
+  // 침실 데이터가 있을 때만 반영 — 빈 배열(침실 전체 해제)일 땐 기존 bathrooms 보존(0으로 덮지 않음).
+  if (data.bedrooms.length > 0) {
+    const bathByRoom = new Map<number, number>();
+    for (const b of data.bedrooms) {
+      if (!bathByRoom.has(b.roomIndex)) bathByRoom.set(b.roomIndex, b.bathroomCount ?? 0);
+    }
+    let bathroomSum = 0;
+    for (const v of bathByRoom.values()) bathroomSum += v;
+    scalarData.bathrooms = bathroomSum;
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     const villa = await tx.villa.findUnique({
       where: { id },
@@ -178,6 +207,7 @@ export async function PATCH(
           bedType: b.bedType,
           bedCount: b.bedCount,
           capacity: b.capacity ?? null,
+          bathroomCount: b.bathroomCount ?? 0,
         })),
       });
     }

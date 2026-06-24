@@ -99,7 +99,7 @@ export default async function VillaDetailPage({
         // 판매정보 (ADR-0011) — ADMIN 상세는 wifi 포함 OK (운영 화면, /p 공개페이지만 제외)
         bedroomDetails: {
           orderBy: { roomIndex: "asc" },
-          select: { roomIndex: true, roomLabel: true, bedType: true, bedCount: true, capacity: true },
+          select: { roomIndex: true, roomLabel: true, bedType: true, bedCount: true, capacity: true, bathroomCount: true },
         },
         features: { select: { category: true, featureKey: true } },
       },
@@ -197,6 +197,7 @@ export default async function VillaDetailPage({
       bedType: b.bedType as BedTypeKey,
       bedCount: b.bedCount,
       capacity: b.capacity,
+      bathroomCount: b.bathroomCount,
     })),
     features: villa.features.map((f) => ({
       category: f.category as FeatureCategoryKey,
