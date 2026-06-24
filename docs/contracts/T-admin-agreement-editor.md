@@ -1,8 +1,19 @@
 # T-admin-agreement-editor — 이용 동의서 운영자 편집 화면
 
-> 상태: **대기(BLOCKED)** — 아래 "의존성" 해소 후 착수. 본 계약서는 슬롯 선점 + 회의 합의용 초안.
+> 상태: **Phase A 구현완료(QA 조건부통과, 브랜치 wt/agreement-editor 23c8e5f) / Phase B 대기(BLOCKED)**
 > 담당(제안): TDA(스키마 결정) → BE(API) → FE(설정 폼) → LOC(다국어 입력 검수) → QA
-> 작성일: 2026-06-24
+> 작성일: 2026-06-24 · 갱신: 2026-06-25
+
+## ⓿ 진행 분할 (QA 검수 23c8e5f 반영 — 완료 오인 방지)
+
+QA 결과 인프라는 전부 PASS(권한 ADMIN전용·감사로그·검증·폴백·이력·i18n·client/server 경계, 보안 누수 0).
+단 "편집→실제 서명 문서 반영"(D1)·"서명 버전 스탬프"(D2)는 충돌 구역(체크인/인쇄 읽기 경로 = 진행 중 리팩터링 소유)이라 의도적으로 후속 분리.
+
+- **Phase A (완료, 브랜치 보류)** — DB 저장소·편집 화면·API·검증·감사·이력·i18n. main 미병합(리팩터링과 lib/agreement.ts·messages 충돌 회피).
+  - 저장소 결정: **TDA가 AppSetting JSON 채택**(전용 모델 대신) — 병렬 세션 `prisma db push`/`generate` EPERM이 타 세션 빌드를 깨는 기록된 사고 회피. 전용 모델은 Phase B에서 안전한 창에 마이그레이션.
+- **Phase B (대기, 의존성 해소 후)** — D1: `agreement-section.tsx`·인쇄 시트가 `getAgreementContent()`를 읽도록 일원화. D2: `CheckInRecord.agreementVersion` 컬럼 + 서명 시 `agreementVersionLabel` 스탬프. 둘 다 리팩터링 머지 후 충돌 없이 수행.
+
+> 완료 기준 §5.2(저장→체크인 반영)·§5.3(서명 버전 일치)은 **Phase B에서 충족**. Phase A 단독으로 "전체 완료" 주장 금지.
 
 ## 1. 배경 / 문제
 
