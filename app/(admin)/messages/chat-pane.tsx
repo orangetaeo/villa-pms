@@ -373,8 +373,12 @@ export function ChatPane({
   const prevCountRef = useRef(0);
   const prevConvRef = useRef<string | null>(null);
   const [showNewMsg, setShowNewMsg] = useState(false);
+  // 위로 많이 올라가면(하단에서 멀어지면) "맨 아래로" 버튼 표시 — 최신 메시지로 빠르게 복귀.
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
 
   const NEAR_BOTTOM_PX = 80;
+  // "맨 아래로" 버튼 표시 임계 — 하단에서 이 이상 멀어지면 표시(근처 깜빡임 방지).
+  const SCROLL_BTN_PX = 300;
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
     const el = threadRef.current;
@@ -382,6 +386,7 @@ export function ChatPane({
     el.scrollTo({ top: el.scrollHeight, behavior });
     atBottomRef.current = true;
     setShowNewMsg(false);
+    setShowScrollBottom(false);
   }, []);
 
   // 인용 클릭 → 원본 메시지로 스크롤+하이라이트(Nike 방식). targetMsgId = 원본 zaloMsgId.
@@ -457,6 +462,7 @@ export function ChatPane({
     const near = distance <= NEAR_BOTTOM_PX;
     atBottomRef.current = near;
     if (near) setShowNewMsg(false);
+    setShowScrollBottom(distance > SCROLL_BTN_PX);
     // 상단 근처에 닿으면 이전 메시지 로드(중복 호출은 loadOlder 내부 가드).
     if (el.scrollTop < NEAR_BOTTOM_PX && hasOlder && !loadingOlderRef.current) {
       void loadOlder();
@@ -637,6 +643,19 @@ export function ChatPane({
             >
               {t("newMessage")}
               <span className="material-symbols-outlined text-[18px]">arrow_downward</span>
+            </button>
+          )}
+
+          {/* 위로 많이 올라갔을 때 표시 → 클릭하면 최신(맨 아래)으로. "새 메시지" 핀이 있으면 그쪽이 우선. */}
+          {showScrollBottom && !showNewMsg && (
+            <button
+              type="button"
+              onClick={() => scrollToBottom("smooth")}
+              aria-label={t("scrollToBottom")}
+              title={t("scrollToBottom")}
+              className="absolute bottom-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-slate-700/90 hover:bg-slate-600 text-white shadow-lg shadow-black/40 ring-1 ring-white/10 backdrop-blur transition-colors active:scale-95"
+            >
+              <span className="material-symbols-outlined text-[22px]">arrow_downward</span>
             </button>
           )}
         </div>
@@ -1593,39 +1612,42 @@ function PhotoCard({
   const canTranslate = inbound && !!messageId && !shown && !note;
   return (
     <div className={wrap}>
-      {/* 클릭 → 라이트박스(원본 크기). 첫 장 기준, 여러 장이면 라이트박스에서 좌우 이동. */}
-      <button
-        type="button"
-        onClick={() => openLightbox?.(urls, 0)}
-        className="block relative rounded-lg overflow-hidden group cursor-zoom-in"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={urls[0]}
-          alt=""
-          className="rounded-lg w-56 h-36 object-cover transition-transform group-hover:scale-[1.02]"
-        />
-        {/* 여러 장 표시 배지 */}
-        {urls.length > 1 && (
-          <span className="absolute top-1.5 right-1.5 flex items-center gap-0.5 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
-            <span className="material-symbols-outlined text-[12px]">photo_library</span>
-            {urls.length}
-          </span>
-        )}
-      </button>
-      {caption && <p className={`text-xs px-2 py-1.5 ${captionColor}`}>{caption}</p>}
-      {/* on-demand 번역 버튼 (사진 자동번역 폐지 — 사용자가 누를 때만 OCR 번역). */}
-      {canTranslate && (
+      {/* 이미지 + 오버레이 래퍼 — 번역 버튼을 사진 위(좌하단)에 띄운다. */}
+      <div className="relative">
+        {/* 클릭 → 라이트박스(원본 크기). 첫 장 기준, 여러 장이면 라이트박스에서 좌우 이동. */}
         <button
           type="button"
-          onClick={handleTranslate}
-          disabled={loading}
-          className="mx-2 mb-1.5 mt-0.5 flex items-center gap-1 rounded-md bg-slate-700/70 px-2 py-1 text-[11px] font-medium text-slate-200 hover:bg-slate-600 disabled:opacity-60 transition-colors"
+          onClick={() => openLightbox?.(urls, 0)}
+          className="block relative rounded-lg overflow-hidden group cursor-zoom-in"
         >
-          <span className="material-symbols-outlined text-[14px]">translate</span>
-          {loading ? t?.("photoTranslate.loading") ?? "..." : t?.("photoTranslate.button") ?? "번역"}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={urls[0]}
+            alt=""
+            className="rounded-lg w-56 h-36 object-cover transition-transform group-hover:scale-[1.02]"
+          />
+          {/* 여러 장 표시 배지 */}
+          {urls.length > 1 && (
+            <span className="absolute top-1.5 right-1.5 flex items-center gap-0.5 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
+              <span className="material-symbols-outlined text-[12px]">photo_library</span>
+              {urls.length}
+            </span>
+          )}
         </button>
-      )}
+        {/* on-demand 번역 버튼 — 사진 위 좌하단 오버레이 (사진 자동번역 폐지, 사용자가 누를 때만 OCR 번역). */}
+        {canTranslate && (
+          <button
+            type="button"
+            onClick={handleTranslate}
+            disabled={loading}
+            className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm hover:bg-black/75 disabled:opacity-60 transition-colors active:scale-95 shadow-lg shadow-black/30"
+          >
+            <span className="material-symbols-outlined text-[14px]">translate</span>
+            {loading ? t?.("photoTranslate.loading") ?? "..." : t?.("photoTranslate.button") ?? "번역"}
+          </button>
+        )}
+      </div>
+      {caption && <p className={`text-xs px-2 py-1.5 ${captionColor}`}>{caption}</p>}
       {/* 번역 결과(자막) — caption 아래 한 줄(voice STT 자막과 동일 패턴). */}
       {shown && (
         <p className={`text-xs px-2 pb-1.5 ${captionColor} whitespace-pre-wrap break-words`}>
