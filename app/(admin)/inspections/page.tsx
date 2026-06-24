@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { VillaStatus, type CleaningStatus, type Prisma } from "@prisma/client";
 import { quickRangeWhere } from "@/lib/date-vn";
+import { parsePageParams } from "@/lib/pagination";
 import InspectionsView, {
   type BaselinePhoto,
   type SelectedTask,
@@ -20,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: `${t("inspections")} — Villa PMS` };
 }
 
-// 페이지네이션 범위 밖 (계약) — 상한 take 200
+// 우선순위 JS 정렬을 위해 상한 200까지 적재 후 그 안에서 page/pageSize 분할 (정렬 보존)
 const TAKE = 200;
 
 // 탭 키 ↔ CleaningStatus 매핑 (승인 대기를 전체 다음에 배치 — b6 "pending approval on top")
@@ -43,7 +44,14 @@ const STATUS_RANK: Record<CleaningStatus, number> = {
 export default async function InspectionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; task?: string; range?: string; area?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    task?: string;
+    range?: string;
+    area?: string;
+    page?: string;
+    pageSize?: string;
+  }>;
 }) {
   // 운영자(OWNER/MANAGER/STAFF) 가드 — 검수는 STAFF 업무(ADR-0013). layout과 이중화.
   const session = await auth();
@@ -118,7 +126,14 @@ export default async function InspectionsPage({
     rejected: countOf("REJECTED"),
   };
 
-  const tasks: TaskListItem[] = rows.map((r) => ({
+  // 정렬된 전체(상한 200) 안에서 현재 페이지만 슬라이스 — 우선순위 정렬 보존
+  const { page, pageSize, skip, take } = parsePageParams({
+    page: params.page,
+    pageSize: params.pageSize,
+  });
+  const pagedRows = rows.slice(skip, skip + take);
+
+  const tasks: TaskListItem[] = pagedRows.map((r) => ({
     id: r.id,
     type: r.type,
     status: r.status,
@@ -127,11 +142,12 @@ export default async function InspectionsPage({
     complex: r.villa.complex,
   }));
 
-  // 행 선택 — ?task= 쿼리 파라미터 (새로고침 시 선택 유지). 없으면 첫 행 자동 선택 (b6).
+  // 행 선택 — ?task= 쿼리 파라미터 (새로고침 시 선택 유지). 없으면 전역 첫 행 자동 선택 (b6).
+  // 페이지 슬라이스가 아니라 정렬된 전체의 첫 행(rows[0])으로 고정 → 페이지 이동 시 우측 상세 불변
   // 현재 탭 목록 밖이어도 params.task를 그대로 신뢰 (QA D-2): 승인 대기 탭에서 승인하면
   // 태스크가 필터에서 빠지지만 선택·배너는 유지돼야 함 — 상세는 findUnique라 목록과 무관,
   // 무효 id면 아래 findUnique가 null을 반환해 placeholder 렌더로 안전
-  const selectedId = params.task || tasks[0]?.id;
+  const selectedId = params.task || rows[0]?.id;
 
   // 선택 태스크 상세 — 같은 빌라의 기준 사진(isBaseline) join. 역시 booking·금액 미포함
   let selected: SelectedTask | null = null;
@@ -197,6 +213,7 @@ export default async function InspectionsPage({
       range={params.range}
       area={area}
       areaOptions={areaOptions}
+      pagination={{ total: rows.length, page, pageSize }}
     />
   );
 }

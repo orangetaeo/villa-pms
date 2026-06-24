@@ -13,6 +13,7 @@ import { useTranslations } from "next-intl";
 import type { CleaningStatus, CleaningType, PhotoSpace } from "@prisma/client";
 import { formatDateTime } from "@/lib/format";
 import QuickDateFilter from "@/components/admin/quick-date-filter";
+import PaginationBar from "@/components/pagination-bar";
 import ImageLightbox, { type LightboxImage } from "@/components/image-lightbox";
 
 export interface TaskListItem {
@@ -73,6 +74,8 @@ interface Props {
   range?: string;
   area?: string;
   areaOptions: string[];
+  /** 좌측 큐 페이지네이션 (URL 모드) — total=정렬된 전체(상한 200) */
+  pagination: { total: number; page: number; pageSize: number };
 }
 
 export default function InspectionsView({
@@ -84,6 +87,7 @@ export default function InspectionsView({
   range,
   area,
   areaOptions,
+  pagination,
 }: Props) {
   const t = useTranslations("adminInspections.list");
   const td = useTranslations("adminInspections.detail");
@@ -309,7 +313,7 @@ export default function InspectionsView({
               {t("queueHeader")}
             </span>
             <span className="text-[10px] px-2 py-0.5 bg-slate-800 text-slate-300 rounded-full">
-              {t("countBadge", { count: tasks.length })}
+              {t("countBadge", { count: counts[tab as TabKey] ?? pagination.total })}
             </span>
           </div>
           <div className="flex-1 overflow-y-auto">
@@ -354,6 +358,16 @@ export default function InspectionsView({
               })
             )}
           </div>
+          {/* 큐 페이지네이션 (URL 모드, 다크) — 1페이지뿐이어도 요약·개수선택 노출 */}
+          {pagination.total > 0 && (
+            <div className="shrink-0 px-3 pb-3">
+              <PaginationBar
+                total={pagination.total}
+                page={pagination.page}
+                pageSize={pagination.pageSize}
+              />
+            </div>
+          )}
         </section>
 
         {/* 우측: 상세 패널 — 모바일은 선택 시에만 표시(목록 대체) */}
