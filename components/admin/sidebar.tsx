@@ -11,6 +11,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import type { AppLocale } from "@/lib/locale";
 import { canViewFinance, isSystemAdmin, type Role } from "@/lib/permissions";
+import { ADMIN_FULLSCREEN_PREFIXES } from "@/components/admin/mobile-nav-spacer";
 
 interface NavItem {
   key: string;
@@ -64,6 +65,11 @@ export default function AdminSidebar({
   const tRoles = useTranslations("adminUsers");
   // 역할별 NAV 필터 — cap 미지정은 운영자 전체 노출, 재무·시스템 메뉴는 역할 충족 시만
   const navItems = NAV_ITEMS.filter((item) => !item.cap || item.cap(role));
+  // 모바일 하단 네비 중앙 돌출 항목 — 재무 권한자는 정산(추후 매출 페이지와 분리, IDEAS.md),
+  // 권한 없는 STAFF는 공실 보드로 대체(정산은 미들웨어 차단 대상이라 노출 금지)
+  const centerItem = canViewFinance(role)
+    ? { href: "/settlements", icon: "payments", key: "settlements" }
+    : { href: "/availability", icon: "event_available", key: "availability" };
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -90,6 +96,49 @@ export default function AdminSidebar({
     }).catch(() => {});
     startTransition(() => router.refresh());
   };
+
+  // 하단 네비 일반 항목 (좌/우) — 아이콘 + 라벨, 활성 강조 + 미읽음 배지
+  const BottomItem = ({
+    href,
+    icon,
+    label,
+    badge = 0,
+  }: {
+    href: string;
+    icon: string;
+    label: string;
+    badge?: number;
+  }) => {
+    const active = isActive(href);
+    return (
+      <Link
+        href={href}
+        aria-current={active ? "page" : undefined}
+        className={`relative flex flex-col items-center justify-center gap-0.5 w-16 transition-transform active:scale-95 ${
+          active ? "text-admin-primary" : "text-slate-400"
+        }`}
+      >
+        <span
+          className={
+            active
+              ? "material-symbols-outlined text-[22px] [font-variation-settings:'FILL'_1]"
+              : "material-symbols-outlined text-[22px]"
+          }
+        >
+          {icon}
+        </span>
+        <span className="text-[10px] font-medium">{label}</span>
+        {badge > 0 && (
+          <span className="absolute top-0 right-2 bg-blue-600 text-white text-[9px] font-black px-1.5 py-px rounded-full leading-tight">
+            {badge}
+          </span>
+        )}
+      </Link>
+    );
+  };
+  const centerActive = isActive(centerItem.href);
+  // 풀스크린 라우트(채팅 등 100dvh 레이아웃)에서는 하단 네비 숨김 — 입력창 가림 방지
+  const showBottomNav = !ADMIN_FULLSCREEN_PREFIXES.some((p) => pathname.startsWith(p));
 
   return (
     <>
@@ -235,6 +284,49 @@ export default function AdminSidebar({
           </div>
         </div>
       </aside>
+
+      {/* 모바일 하단 네비게이션 (Nike 스타일 — 중앙 돌출 FAB). lg 이상은 좌측 사이드바 사용 */}
+      {showBottomNav && (
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 h-16 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 flex items-stretch justify-around px-1">
+        <BottomItem href="/dashboard" icon="dashboard" label={t("dashboard")} />
+        <BottomItem href="/bookings" icon="calendar_month" label={t("bookings")} />
+
+        {/* 중앙 돌출 강조 — 정산(재무) / STAFF는 공실 보드 */}
+        <Link
+          href={centerItem.href}
+          aria-current={centerActive ? "page" : undefined}
+          className="relative flex w-16 flex-col items-center justify-end pb-1.5"
+        >
+          <span
+            className={`absolute -top-6 flex h-14 w-14 items-center justify-center rounded-full text-white ring-4 ring-admin-bg transition-transform active:scale-95 ${
+              centerActive
+                ? "bg-admin-primary shadow-lg shadow-admin-primary/40"
+                : "bg-admin-primary/90 shadow-lg shadow-admin-primary/20"
+            }`}
+          >
+            <span className="material-symbols-outlined">{centerItem.icon}</span>
+          </span>
+          <span
+            className={`text-[10px] font-bold ${centerActive ? "text-admin-primary" : "text-slate-400"}`}
+          >
+            {t(centerItem.key)}
+          </span>
+        </Link>
+
+        <BottomItem href="/messages" icon="chat" label={t("messages")} badge={unreadCount} />
+
+        {/* 더보기 — 기존 드로어(open) 열기 */}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={t("openMenu")}
+          className="flex w-16 flex-col items-center justify-center gap-0.5 text-slate-400 transition-transform active:scale-95"
+        >
+          <span className="material-symbols-outlined text-[22px]">menu</span>
+          <span className="text-[10px] font-medium">{t("more")}</span>
+        </button>
+      </nav>
+      )}
     </>
   );
 }

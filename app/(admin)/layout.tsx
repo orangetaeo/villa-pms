@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getLocale } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
 import AdminSidebar from "@/components/admin/sidebar";
+import MobileNavSpacer from "@/components/admin/mobile-nav-spacer";
 import { pickMessages } from "@/lib/intl-messages";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
@@ -93,6 +94,8 @@ export default async function AdminLayout({
       {/* 데스크톱: 사이드바 폭만큼 밀기 / 모바일: 헤더 높이만큼 내리기 */}
       <main className="lg:pl-64 pt-14 lg:pt-0 min-h-dvh">
         <div className="p-4 md:p-8">{children}</div>
+        {/* 모바일 하단 네비에 콘텐츠가 가리지 않도록 인-플로우 스페이서 (풀스크린 라우트는 자동 0) */}
+        <MobileNavSpacer />
       </main>
       </NextIntlClientProvider>
     </div>

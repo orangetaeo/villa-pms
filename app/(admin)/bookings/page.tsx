@@ -37,6 +37,24 @@ const TAB_STATUSES: Record<string, BookingStatus[] | undefined> = {
 };
 const TAB_ORDER = ["all", "hold", "confirmed", "checkedin", "checkedout", "closed"];
 
+// 상태 필터 카드(대시보드 스타일) 아이콘 — 탭 키 ↔ Material Symbol + 색
+const TAB_ICON: Record<string, string> = {
+  all: "apps",
+  hold: "hourglass_top",
+  confirmed: "check_circle",
+  checkedin: "login",
+  checkedout: "logout",
+  closed: "cancel",
+};
+const TAB_ICON_CLASS: Record<string, string> = {
+  all: "text-slate-400",
+  hold: "text-amber-500",
+  confirmed: "text-admin-primary",
+  checkedin: "text-indigo-400",
+  checkedout: "text-slate-400",
+  closed: "text-red-400",
+};
+
 const CHANNELS: BookingChannel[] = ["DIRECT", "TRAVEL_AGENCY", "LAND_AGENCY"];
 
 // b5 상태 배지 클래스
@@ -348,33 +366,45 @@ export default async function BookingsPage({
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-white">{t("list.title")}</h1>
 
-      {/* 필터·탭 카드 (b5) */}
-      <div className="bg-admin-card rounded-xl border border-slate-800/50 shadow-sm overflow-hidden">
-        <div className="flex border-b border-slate-800 overflow-x-auto">
-          {TAB_ORDER.map((key) => {
-            const active = !preset && tab === key;
-            return (
-              <Link
-                key={key}
-                href={tabHref(key)}
-                className={
-                  active
-                    ? "px-6 py-4 text-sm font-bold border-b-2 border-admin-primary text-admin-primary whitespace-nowrap"
-                    : "px-6 py-4 text-sm font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent transition-colors whitespace-nowrap"
-                }
-              >
-                {t(`list.tabs.${key}`)}{" "}
+      {/* 상태 필터 카드 그리드 (대시보드 스타일) — 검색 상단에 개수 배지 카드로 표시 */}
+      <div className="grid grid-cols-3 lg:grid-cols-6 gap-2.5 lg:gap-3">
+        {TAB_ORDER.map((key) => {
+          const active = !preset && tab === key;
+          return (
+            <Link
+              key={key}
+              href={tabHref(key)}
+              aria-current={active ? "page" : undefined}
+              className={
+                active
+                  ? "bg-admin-card p-3 rounded-xl border-2 border-admin-primary ring-1 ring-admin-primary/30 flex flex-col gap-1 transition-all"
+                  : "bg-admin-card p-3 rounded-xl border border-slate-700/50 hover:ring-1 hover:ring-admin-primary/50 active:scale-[0.98] flex flex-col gap-1 transition-all"
+              }
+            >
+              <div className="flex items-center justify-between gap-1">
                 <span
-                  className={`ml-2 px-1.5 py-0.5 rounded text-[11px] ${
-                    active ? "bg-admin-primary/10" : "bg-slate-800"
+                  className={`text-[10px] lg:text-[11px] font-bold uppercase tracking-wider whitespace-nowrap ${
+                    active ? "text-admin-primary" : "text-slate-400"
                   }`}
                 >
-                  {countOf(TAB_STATUSES[key])}
+                  {t(`list.tabs.${key}`)}
                 </span>
-              </Link>
-            );
-          })}
-        </div>
+                <span className={`material-symbols-outlined text-[18px] shrink-0 ${TAB_ICON_CLASS[key]}`}>
+                  {TAB_ICON[key]}
+                </span>
+              </div>
+              <span
+                className={`text-2xl font-black tabular-nums ${active ? "text-white" : "text-slate-200"}`}
+              >
+                {countOf(TAB_STATUSES[key])}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* 필터 카드 (b5) */}
+      <div className="bg-admin-card rounded-xl border border-slate-800/50 shadow-sm overflow-hidden">
         {preset ? (
           <div className="p-4 flex items-center gap-3">
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-admin-primary/10 border border-admin-primary/30 text-admin-primary text-sm font-bold">
