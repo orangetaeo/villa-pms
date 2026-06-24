@@ -25,6 +25,10 @@ import { hash } from "bcryptjs";
 import { HOLD_HOURS_DEFAULT_KEY } from "../lib/hold";
 import { FX_VND_PER_KRW_KEY, buildRatePeriodRowsFromSeasonCosts } from "../lib/pricing";
 import {
+  CANCELLATION_POLICY_KEY,
+  DEFAULT_CANCELLATION_POLICY,
+} from "../lib/cancellation-policy";
+import {
   BANK_NAME_KEY,
   BANK_ACCOUNT_NUMBER_KEY,
   BANK_ACCOUNT_HOLDER_KEY,
@@ -168,6 +172,8 @@ export function buildAppSettings(): { key: string; value: string }[] {
   return [
     { key: HOLD_HOURS_DEFAULT_KEY, value: "48" },
     { key: FX_VND_PER_KRW_KEY, value: String(SEED_FX_VND_PER_KRW) },
+    // 취소·환불 정책 기본값 (#6b) — 30일 100% / 14일 50% / 이후 불가
+    { key: CANCELLATION_POLICY_KEY, value: JSON.stringify(DEFAULT_CANCELLATION_POLICY) },
     // ⚠️ placeholder — 테오 실제 입금 계좌로 교체
     { key: BANK_NAME_KEY, value: "국민은행" },
     { key: BANK_ACCOUNT_NUMBER_KEY, value: "123456-04-567890" },

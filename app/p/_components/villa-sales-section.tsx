@@ -10,6 +10,7 @@ import {
 } from "@/lib/sales-display";
 import type { BedTypeKey } from "@/lib/bedding";
 import type { FeatureCategoryKey } from "@/lib/features";
+import { cancellationTiers, type CancellationPolicy } from "@/lib/cancellation-policy";
 
 // 공개 표시용 한국어 라벨·아이콘 (c1-villa-details 디자인 그대로)
 const BED_LABEL_KO: Record<BedTypeKey, string> = {
@@ -75,7 +76,14 @@ export interface VillaSalesData {
   features: { category: FeatureCategoryKey; featureKey: string }[];
 }
 
-export function VillaSalesSection({ villa }: { villa: VillaSalesData }) {
+export function VillaSalesSection({
+  villa,
+  cancellationPolicy,
+}: {
+  villa: VillaSalesData;
+  /** 전 빌라 공용 취소·환불 정책 (#6b) — enabled일 때만 표시 */
+  cancellationPolicy?: CancellationPolicy;
+}) {
   const beds = aggregateBeds(villa.bedrooms);
   const bedroomCount = countBedrooms(villa.bedrooms);
   const distance = formatDistanceM(villa.beachDistanceM);
@@ -250,6 +258,37 @@ export function VillaSalesSection({ villa }: { villa: VillaSalesData }) {
                 </span>{" "}
                 가 요청될 수 있으며, 체크아웃 검수 후 환불됩니다.
               </p>
+            </div>
+          </div>
+        )}
+        {/* 취소·환불 정책 (#6b) — 전 빌라 공용, enabled일 때만 */}
+        {cancellationPolicy?.enabled && (
+          <div className="flex items-start gap-2 bg-white rounded-lg border border-neutral-100 p-3 mt-3">
+            <span className="material-symbols-outlined text-[18px] text-teal-600 mt-0.5">
+              event_busy
+            </span>
+            <div>
+              <p className="text-[12px] font-semibold text-neutral-800">취소·환불 정책</p>
+              <ul className="text-[11px] text-neutral-500 leading-relaxed mt-1 space-y-0.5">
+                {cancellationTiers(cancellationPolicy).map((tier) => (
+                  <li key={tier.kind} className="flex items-baseline gap-1.5">
+                    <span className="text-teal-600 leading-none">·</span>
+                    <span>
+                      {tier.kind === "none" ? (
+                        <>
+                          체크인 <span className="font-semibold text-neutral-700 tabular-nums">{tier.days}일</span> 이내 취소 시{" "}
+                          <span className="font-bold text-neutral-700">환불 불가</span>
+                        </>
+                      ) : (
+                        <>
+                          체크인 <span className="font-semibold text-neutral-700 tabular-nums">{tier.days}일</span> 전까지 취소 시{" "}
+                          <span className="font-bold text-neutral-700 tabular-nums">{tier.pct}%</span> 환불
+                        </>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         )}

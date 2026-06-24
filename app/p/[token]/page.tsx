@@ -12,6 +12,11 @@ import { ShareButton } from "../_components/share-button";
 import { CopyButton } from "../_components/copy-button";
 import { getPublicBankInfo } from "../_components/public-bank";
 import {
+  CANCELLATION_POLICY_KEY,
+  parseCancellationPolicy,
+  type CancellationPolicy,
+} from "@/lib/cancellation-policy";
+import {
   formatExpiryBadge,
   formatKoDateLong,
   formatPublicAmount,
@@ -35,6 +40,15 @@ async function getContactSettings() {
   });
   const get = (k: string) => rows.find((r) => r.key === k)?.value ?? null;
   return { kakaoUrl: get("CONTACT_KAKAO_URL"), phone: get("CONTACT_PHONE") };
+}
+
+// 취소·환불 정책 (#6b) — 전 빌라 공용. 미설정·손상 시 기본값 폴백(공개 표시 안전).
+async function getCancellationPolicy(): Promise<CancellationPolicy> {
+  const row = await prisma.appSetting.findUnique({
+    where: { key: CANCELLATION_POLICY_KEY },
+    select: { value: true },
+  });
+  return parseCancellationPolicy(row?.value);
 }
 
 export default async function ProposalPage({
@@ -132,6 +146,8 @@ export default async function ProposalPage({
   const currency = proposal.saleCurrency;
   // #6a — 입금 계좌 안내(메인 페이지). 통화별 계좌 자동 선택. 미설정 시 null(섹션 미렌더).
   const bank = await getPublicBankInfo(currency);
+  // #6b — 취소·환불 정책(전 빌라 공용). 각 빌라 카드에 동일 전달.
+  const cancellationPolicy = await getCancellationPolicy();
   const nightsOf = (a: Date, b: Date) => Math.round((b.getTime() - a.getTime()) / 86_400_000);
 
   // 전 항목 날짜가 같으면 요약 행, 다르면 카드별 날짜 표기 (계약 편차)
@@ -248,6 +264,7 @@ export default async function ProposalPage({
                         featureKey: f.featureKey,
                       })),
                     }}
+                    cancellationPolicy={cancellationPolicy}
                   />
 
                   <div className="flex justify-between items-end border-t border-neutral-50 pt-4">

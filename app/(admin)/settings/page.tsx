@@ -9,10 +9,15 @@ import { formatDateTime } from "@/lib/format";
 import { toDateOnlyString } from "@/lib/date-vn";
 import { HOLD_HOURS_DEFAULT_KEY, DEFAULT_HOLD_HOURS } from "@/lib/hold";
 import { FX_VND_PER_KRW_KEY } from "@/lib/pricing";
+import {
+  CANCELLATION_POLICY_KEY,
+  parseCancellationPolicy,
+} from "@/lib/cancellation-policy";
 import SeasonManager, { type SeasonRow } from "./season-manager";
 import HoldHoursForm from "./hold-hours-form";
 import FxRateForm from "./fx-rate-form";
 import BankContactForm, { type BankContactInitial } from "./bank-contact-form";
+import CancellationPolicyForm from "./cancellation-policy-form";
 
 // 입금 계좌·연락처 키 (공개 제안 페이지가 소비) — /api/settings 화이트리스트와 일치
 // 한국(KRW) 계좌 + 베트남(VND) 계좌 + 공용 연락처
@@ -39,7 +44,12 @@ export default async function SettingsPage() {
     prisma.appSetting.findMany({
       where: {
         key: {
-          in: [HOLD_HOURS_DEFAULT_KEY, FX_VND_PER_KRW_KEY, ...BANK_CONTACT_KEYS],
+          in: [
+            HOLD_HOURS_DEFAULT_KEY,
+            FX_VND_PER_KRW_KEY,
+            CANCELLATION_POLICY_KEY,
+            ...BANK_CONTACT_KEYS,
+          ],
         },
       },
     }),
@@ -56,6 +66,10 @@ export default async function SettingsPage() {
 
   const holdSetting = settings.find((s) => s.key === HOLD_HOURS_DEFAULT_KEY);
   const fxSetting = settings.find((s) => s.key === FX_VND_PER_KRW_KEY);
+  // 취소·환불 정책 — 미설정·손상 시 기본값 폴백
+  const cancellationPolicy = parseCancellationPolicy(
+    settings.find((s) => s.key === CANCELLATION_POLICY_KEY)?.value
+  );
 
   // 입금 계좌·연락처 초기값 — 미설정은 빈 문자열 (폼 controlled 입력)
   const settingValue = (key: string) => settings.find((s) => s.key === key)?.value ?? "";
@@ -107,7 +121,10 @@ export default async function SettingsPage() {
       {/* Card 4: 입금 계좌·연락처 (b8 Card 3 변환, T1.7-bank-contact) */}
       <BankContactForm initial={bankInitial} />
 
-      {/* Card 5: Zalo 봇 연결 (ADR-0006) — 별도 페이지 링크 */}
+      {/* Card 5: 취소·환불 정책 — 공개 제안 페이지 표시 (#6b) */}
+      <CancellationPolicyForm initial={cancellationPolicy} />
+
+      {/* Card 6: Zalo 봇 연결 (ADR-0006) — 별도 페이지 링크 */}
       <Link
         href="/settings/zalo"
         className="flex items-center justify-between bg-admin-card border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-colors group"
