@@ -198,7 +198,8 @@ export function MessagesClient({
   );
 
   return (
-    <div className="-m-4 md:-m-8 h-[calc(100dvh-3.5rem)] lg:h-screen flex">
+    // 모바일: 헤더(3.5rem)+하단 네비(4rem) 제외한 높이 / 데스크톱: 풀높이(하단 네비 없음)
+    <div className="-m-4 md:-m-8 h-[calc(100dvh-7.5rem)] lg:h-screen flex">
       {/* 다른 상대의 신규 채팅 토스트 — 클릭 시 onSelect로 클라이언트 전환(서버 왕복 없음) */}
       <NewMessageToaster
         items={itemsWithSelection}

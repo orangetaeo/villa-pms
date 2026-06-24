@@ -55,6 +55,8 @@
     }
   },
   "availabilityBoard": {
+    "collapseList": "Thu gọn danh sách villa",
+    "expandList": "Mở rộng danh sách villa",
     "title": "Lịch trống theo villa",
     "subtitle": "Quản lý tình trạng trống đã xác nhận với nhà cung cấp, khóa hoặc mở từng ngày. Không hiển thị thông tin đặt phòng và giá.",
     "breadcrumbVilla": "Villa",

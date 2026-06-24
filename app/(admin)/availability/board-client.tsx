@@ -78,6 +78,8 @@ export interface BoardStrings {
   rangeHint: string;
   rangeProcessing: string;
   rangeError: string;
+  collapseList: string; // 빌라명 열 접기 토글 라벨
+  expandList: string; // 빌라명 열 펴기 토글 라벨
 }
 
 interface Props {
@@ -171,6 +173,10 @@ export default function AvailabilityBoardClient({
   strings: s,
 }: Props) {
   const router = useRouter();
+
+  // 빌라명 열(sticky) 접기/펴기 — 모바일에서 달력 가시 영역 확보용. 접으면 48px(상태 아이콘만)
+  const [villaColCollapsed, setVillaColCollapsed] = useState(false);
+  const colW = villaColCollapsed ? 48 : 240;
 
   // 낙관적 셀 상태 오버레이: "villaId|iso" → BoardCell. 서버 refresh 시 비움.
   const [optimistic, setOptimistic] = useState<Record<string, BoardCell>>({});
@@ -617,20 +623,43 @@ export default function AvailabilityBoardClient({
               {/* 월 라벨 행 */}
               <tr>
                 <th
-                  className="ab-sticky-col px-4 py-2 text-left align-bottom"
+                  className={
+                    "ab-sticky-col py-2 text-left align-bottom " +
+                    (villaColCollapsed ? "px-1" : "px-4")
+                  }
                   style={{
                     zIndex: 30,
                     top: 0,
-                    minWidth: 240,
-                    width: 240,
+                    minWidth: colW,
+                    width: colW,
                     background: "#0F172A",
                     borderBottom: "1px solid #1E293B",
                     borderRight: "1px solid #1E293B",
                   }}
                 >
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                    {s.villaCount}
-                  </span>
+                  <div
+                    className={
+                      "flex items-center gap-1 " +
+                      (villaColCollapsed ? "justify-center" : "justify-between")
+                    }
+                  >
+                    {!villaColCollapsed && (
+                      <span className="truncate text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        {s.villaCount}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setVillaColCollapsed((v) => !v)}
+                      aria-label={villaColCollapsed ? s.expandList : s.collapseList}
+                      title={villaColCollapsed ? s.expandList : s.collapseList}
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-slate-700 text-slate-400 transition hover:bg-slate-800 hover:text-white"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">
+                        {villaColCollapsed ? "chevron_right" : "chevron_left"}
+                      </span>
+                    </button>
+                  </div>
                 </th>
                 {monthGroups.map((g) => (
                   <th
@@ -654,8 +683,8 @@ export default function AvailabilityBoardClient({
                   style={{
                     zIndex: 30,
                     top: ROW_H,
-                    minWidth: 240,
-                    width: 240,
+                    minWidth: colW,
+                    width: colW,
                     background: "#1E293B",
                     borderBottom: "1px solid #1E293B",
                     borderRight: "1px solid #1E293B",
@@ -711,14 +740,32 @@ export default function AvailabilityBoardClient({
                   <tr key={row.id} className="group">
                     {/* sticky 빌라명 + 확인 뱃지 + 확인했음 */}
                     <td
-                      className="ab-sticky-col px-4 py-1.5 align-middle"
+                      className={
+                        "ab-sticky-col align-middle " +
+                        (villaColCollapsed ? "px-1 py-1.5" : "px-4 py-1.5")
+                      }
                       style={{
-                        minWidth: 240,
-                        width: 240,
+                        minWidth: colW,
+                        width: colW,
                         borderRight: "1px solid #1E293B",
                         borderBottom: "1px solid rgba(30,41,59,0.6)",
                       }}
                     >
+                      {villaColCollapsed ? (
+                        <div
+                          className="flex items-center justify-center"
+                          title={`${row.name}${row.complex ? ` · ${row.complex}` : ""}`}
+                        >
+                          <span
+                            className={
+                              "material-symbols-outlined text-[16px] " +
+                              (needCheck ? "text-amber-400" : "text-green-500")
+                            }
+                          >
+                            {needCheck ? "warning" : "check_circle"}
+                          </span>
+                        </div>
+                      ) : (
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-bold text-slate-100 nowrap-cell">
@@ -762,6 +809,7 @@ export default function AvailabilityBoardClient({
                           </button>
                         </div>
                       </div>
+                      )}
                     </td>
                     {/* 날짜 셀 */}
                     {columns.map((c, idx) => {

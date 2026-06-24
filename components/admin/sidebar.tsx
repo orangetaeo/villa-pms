@@ -11,7 +11,6 @@ import { useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import type { AppLocale } from "@/lib/locale";
 import { canViewFinance, isSystemAdmin, type Role } from "@/lib/permissions";
-import { ADMIN_FULLSCREEN_PREFIXES } from "@/components/admin/mobile-nav-spacer";
 
 interface NavItem {
   key: string;
@@ -137,8 +136,6 @@ export default function AdminSidebar({
     );
   };
   const centerActive = isActive(centerItem.href);
-  // 풀스크린 라우트(채팅 등 100dvh 레이아웃)에서는 하단 네비 숨김 — 입력창 가림 방지
-  const showBottomNav = !ADMIN_FULLSCREEN_PREFIXES.some((p) => pathname.startsWith(p));
 
   return (
     <>
@@ -285,8 +282,8 @@ export default function AdminSidebar({
         </div>
       </aside>
 
-      {/* 모바일 하단 네비게이션 (Nike 스타일 — 중앙 돌출 FAB). lg 이상은 좌측 사이드바 사용 */}
-      {showBottomNav && (
+      {/* 모바일 하단 네비게이션 (Nike 스타일 — 중앙 돌출 FAB). lg 이상은 좌측 사이드바 사용.
+          /messages 등 풀스크린 라우트도 표시(각 화면이 네비 높이만큼 자체 높이 보정) */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 h-16 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 flex items-stretch justify-around px-1">
         <BottomItem href="/dashboard" icon="dashboard" label={t("dashboard")} />
         <BottomItem href="/bookings" icon="calendar_month" label={t("bookings")} />
@@ -326,7 +323,6 @@ export default function AdminSidebar({
           <span className="text-[10px] font-medium">{t("more")}</span>
         </button>
       </nav>
-      )}
     </>
   );
 }

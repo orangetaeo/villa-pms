@@ -1826,6 +1826,8 @@
     "availability": "공실 보드"
   },
   "availabilityBoard": {
+    "collapseList": "빌라 목록 접기",
+    "expandList": "빌라 목록 펴기",
     "title": "빌라별 공실 보드",
     "subtitle": "공급자에게 확인한 공실 상태를 날짜별로 잠그거나 풀어 관리합니다. 예약·금액 정보는 표시하지 않습니다.",
     "breadcrumbVilla": "빌라",
