@@ -29,7 +29,29 @@
     "profileRole": "Quản trị viên cấp cao",
     "openMenu": "Mở menu",
     "closeMenu": "Đóng menu",
+    "account": "Đổi mật khẩu",
     "logout": "Đăng xuất"
+  },
+  "account": {
+    "title": "Tài khoản của tôi",
+    "subtitle": "Quản lý mật khẩu tài khoản.",
+    "changeTitle": "Đổi mật khẩu",
+    "changeSubtitle": "Nếu bạn nhận được mật khẩu tạm thời, hãy đổi sang mật khẩu của riêng bạn.",
+    "currentPassword": "Mật khẩu hiện tại",
+    "newPassword": "Mật khẩu mới",
+    "confirmPassword": "Xác nhận mật khẩu mới",
+    "hint": "Nhập ít nhất 8 ký tự.",
+    "submit": "Đổi mật khẩu",
+    "submitting": "Đang đổi...",
+    "success": "Đã đổi mật khẩu.",
+    "back": "Quay lại",
+    "errors": {
+      "tooShort": "Mật khẩu phải có ít nhất 8 ký tự.",
+      "mismatch": "Mật khẩu mới không khớp.",
+      "same": "Hãy nhập mật khẩu khác với mật khẩu hiện tại.",
+      "wrongCurrent": "Mật khẩu hiện tại không đúng.",
+      "generic": "Xử lý thất bại. Vui lòng thử lại."
+    }
   },
   "availabilityBoard": {
     "title": "Lịch trống theo villa",

@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
 import { TabBar } from "@/components/supplier/tab-bar";
+import { AccountLink } from "@/components/supplier/account-link";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { getSupplierLocale } from "@/lib/locale";
 
@@ -10,7 +11,7 @@ import { getSupplierLocale } from "@/lib/locale";
 // 전수 grep 근거: calendar-view(calendar), villa-wizard·step-*(wizard, amenities), tab-bar(tabs).
 // 서버 컴포넌트(getTranslations: earnings/cleaning/my-villas 등)는 이 목록과 무관.
 // 새 공급자 화면에서 클라이언트 useTranslations 네임스페이스 추가 시 반드시 여기에도 추가할 것.
-const SUPPLIER_CLIENT_NAMESPACES = ["calendar", "wizard", "amenities", "tabs"] as const;
+const SUPPLIER_CLIENT_NAMESPACES = ["calendar", "wizard", "amenities", "tabs", "account"] as const;
 
 function pickMessages(all: AbstractIntlMessages): AbstractIntlMessages {
   const picked: AbstractIntlMessages = {};
@@ -39,6 +40,7 @@ export default async function SupplierLayout({
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
       <NextIntlClientProvider locale={locale} messages={messages}>
         <LocaleSwitcher current={locale} persist />
+        <AccountLink />
         <main>{children}</main>
         {/* 하단 탭바 (T1.4) — 풀스크린 플로우에서는 컴포넌트가 스스로 숨김 + 본문 하단 스페이서 포함 */}
         <TabBar />

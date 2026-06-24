@@ -45,6 +45,8 @@ const ADMIN_CLIENT_NAMESPACES = [
   // 판매정보 입력 폼(sales-editor·detail-tabs) — ADR-0011
   "bedding",
   "features",
+  // 본인 비밀번호 변경 폼(/account) — change-password-form
+  "account",
 ] as const;
 
 export default async function AdminLayout({

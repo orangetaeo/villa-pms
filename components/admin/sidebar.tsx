@@ -178,6 +178,15 @@ export default function AdminSidebar({
                 {role ? tRoles(`roles.${role}`) : t("profileRole")}
               </span>
             </div>
+            {/* 본인 비밀번호 변경 진입 (/account) */}
+            <Link
+              href="/account"
+              aria-label={t("account")}
+              title={t("account")}
+              className="text-admin-muted hover:text-white hover:bg-admin-card rounded-lg p-2 transition-colors duration-200"
+            >
+              <span className="material-symbols-outlined text-[20px]">manage_accounts</span>
+            </Link>
             {/* 로그아웃 — NextAuth signOut 서버 액션, 완료 후 /login */}
             {logoutAction && (
               <form action={logoutAction}>
