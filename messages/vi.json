@@ -1478,6 +1478,8 @@
     "settlementRefund": "Số tiền hoàn dự kiến"
   },
   "adminMessages": {
+    "headerCollapse": "Thu gọn tiêu đề",
+    "headerExpand": "Mở rộng tiêu đề",
     "title": "Tin nhắn",
     "back": "Về danh sách",
     "searchPlaceholder": "Tìm cuộc trò chuyện",

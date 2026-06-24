@@ -711,6 +711,9 @@ function ChatHeaderBar({
   const [avatarBroken, setAvatarBroken] = useState(false);
   const [nicknameOpen, setNicknameOpen] = useState(false);
   const [nicknameSaving, setNicknameSaving] = useState(false);
+  // 모바일 헤더 접기 — 기본 접힘(컴팩트). 대화 전환 시 ChatPane key 재마운트로 자동 초기화.
+  // 접으면 저빈도 컨트롤(분류·별명편집·연결/원본/빌라)을 숨겨 채팅 영역 확보. 데스크톱(lg)은 항상 전체.
+  const [headerExpanded, setHeaderExpanded] = useState(false);
   const refresh = useMutationRefresh(router); // perf #2: 클라이언트 전환 시 스레드 재fetch, 레거시면 router.refresh
 
   async function saveNickname(value: string) {
@@ -766,7 +769,7 @@ function ChatHeaderBar({
               type="button"
               onClick={() => setNicknameOpen(true)}
               title={t("nickname.edit")}
-              className="text-slate-500 hover:text-blue-400 transition-colors shrink-0"
+              className={`text-slate-500 hover:text-blue-400 transition-colors shrink-0 lg:inline ${headerExpanded ? "inline" : "hidden"}`}
             >
               <span className="material-symbols-outlined text-[15px]">edit</span>
             </button>
@@ -780,7 +783,9 @@ function ChatHeaderBar({
               />
             </div>
           </div>
-          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+          <div
+            className={`items-center gap-1.5 mt-1 flex-wrap lg:flex ${headerExpanded ? "flex" : "hidden"}`}
+          >
             {/* 모바일: 분류 드롭다운을 둘째 줄로(이름 줄 혼잡·오버플로 방지) */}
             <div className="lg:hidden">
               <CounterpartyDropdown
@@ -813,14 +818,25 @@ function ChatHeaderBar({
         </div>
       </div>
 
-      {/* 우측: 번역언어 드롭다운 */}
-      <div className="flex items-center gap-2 shrink-0">
+      {/* 우측: 번역언어 드롭다운(항상 노출 — 대화 중 가장 자주 쓰는 컨트롤) + 모바일 헤더 펼침 토글 */}
+      <div className="flex items-center gap-1 lg:gap-2 shrink-0">
         <TranslateDropdown
           conversationId={conversationId}
           mode={header.translateMode}
           t={t}
           router={router}
         />
+        <button
+          type="button"
+          onClick={() => setHeaderExpanded((v) => !v)}
+          aria-label={headerExpanded ? t("headerCollapse") : t("headerExpand")}
+          title={headerExpanded ? t("headerCollapse") : t("headerExpand")}
+          className="lg:hidden w-9 h-9 rounded-lg text-slate-400 hover:bg-slate-800 flex items-center justify-center shrink-0 transition-colors"
+        >
+          <span className="material-symbols-outlined text-[20px]">
+            {headerExpanded ? "expand_less" : "expand_more"}
+          </span>
+        </button>
       </div>
 
       {nicknameOpen && (

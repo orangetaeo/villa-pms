@@ -1404,6 +1404,8 @@
     "settlementRefund": "최종 환불 예정액"
   },
   "adminMessages": {
+    "headerCollapse": "헤더 접기",
+    "headerExpand": "헤더 펴기",
     "title": "메시지",
     "back": "목록으로",
     "searchPlaceholder": "대화 검색",
