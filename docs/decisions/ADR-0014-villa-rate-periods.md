@@ -187,3 +187,16 @@ WHERE NOT EXISTS (SELECT 1 FROM "VillaRatePeriod" rp WHERE rp."villaId"=v.id)
 
 ### 권고
 현 시점은 **Phase A 유지**가 적정(라이브 빌라 소수, 테오팀 점진 전환). 전 빌라 전환 완료가 확인되면 Phase B ADR을 신규 작성해 구 분기/편집기 제거를 한 스프린트로 진행. Phase C(테이블 DROP)는 충분한 안정화 기간 후, 백업 전제로만.
+
+## dual-read 비인지 소비처 (디버깅 발견 2026-06-24 — Phase B 정리 대상)
+
+`quoteStayForVilla`는 dual-read로 전환됐지만, **`VillaRate`/`VillaSeasonPeriod`를 가격·원가 표시로 직접 읽는 다른 소비처**는 신규 경로(VillaRatePeriod) 빌라에서 **stale/부재 값**을 보인다. 견적(제안·예약)은 `quoteStayForVilla`를 거치므로 영향 없음 — 아래는 "대표 가격/원가 표시"에 한함.
+
+| 소비처 | 현재 | 신규경로 빌라 영향 | Phase B 조치 |
+|---|---|---|---|
+| Zalo 빌라 공유 (`app/(admin)/messages/page.tsx` 약 444–465) | `v.rates.find(LOW) ?? rates[0]` 대표가격 | VillaRate stale/부재 → 공유 가격 틀림/누락 | dual-read 인지 대표가격 헬퍼(있으면 VillaRatePeriod base 사용) |
+| STAFF 원가 읽기뷰 (`app/(admin)/villas/[id]/page.tsx` costOnlyRows) | `villa.rates`(VillaRate) 시즌 원가 | 신규경로 빌라는 원가 stale/empty | STAFF용 VillaRatePeriod 원가 읽기뷰 |
+
+> **현 시점(Phase A) 영향 잠복**: 변환된 빌라가 거의 없어 실사용 영향 미미. 변환 진행 전 위 2건을 **dual-read 인지 공통 헬퍼**(예: `lib/pricing.ts`에 `representativeRateForVilla(villaId)`)로 일원화하면 근본 해소. 일괄 변환(후속2) 실행 **전에** 처리 권장.
+>
+> ⚠️ messages/page.tsx는 타 세션(Zalo) 활성 구역 — 수정 시 조율 필요(직접 충돌 회피).
