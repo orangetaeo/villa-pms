@@ -37,6 +37,7 @@ interface BedroomCard {
 }
 
 export interface SalesInitial {
+  source: "SUPPLIER" | "DIRECT"; // 공급 출처 — DIRECT면 공실 보드에 우리 예약 표시
   googleMapUrl: string;
   beachDistanceM: string; // 숫자 문자열 (빈 = 미입력)
   areaSqm: string;
@@ -121,6 +122,9 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
   const [baseDepositVnd, setBaseDepositVnd] = useState(initial.baseDepositVnd);
   const [wifiSsid, setWifiSsid] = useState(initial.wifiSsid);
   const [wifiPassword, setWifiPassword] = useState(initial.wifiPassword);
+
+  // 공급 출처 (SUPPLIER/DIRECT) — DIRECT면 공실 보드에 우리 판매예약이 표시됨
+  const [source, setSource] = useState<"SUPPLIER" | "DIRECT">(initial.source);
 
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -217,6 +221,7 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
     const num = (v: string): number | null => (v === "" ? null : Number(v));
 
     const body = {
+      source,
       googleMapUrl: googleMapUrl.trim() || null,
       beachDistanceM: num(beachDistanceM),
       areaSqm: num(areaSqm),
@@ -483,8 +488,46 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
           </CollapsibleCard>
         </div>
 
-        {/* RIGHT: ③ 위치 + ④ 규칙 */}
+        {/* RIGHT: 출처 + ③ 위치 + ④ 규칙 */}
         <div className="col-span-12 lg:col-span-5 space-y-6">
+          {/* 공급 출처 (SUPPLIER/DIRECT) */}
+          <CollapsibleCard title={t("source.title")} icon="storefront">
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                {(["SUPPLIER", "DIRECT"] as const).map((opt) => {
+                  const on = source === opt;
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setSource(opt)}
+                      aria-pressed={on}
+                      className={`rounded-lg border px-3 py-3 text-left transition-all ${
+                        on
+                          ? "border-admin-primary bg-blue-600/15 ring-1 ring-admin-primary"
+                          : "border-slate-700 bg-slate-900 hover:border-slate-600"
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5 text-sm font-bold text-slate-100">
+                        <span className="material-symbols-outlined text-base">
+                          {opt === "DIRECT" ? "verified" : "handshake"}
+                        </span>
+                        {opt === "DIRECT" ? t("source.direct") : t("source.supplier")}
+                      </span>
+                      <span className="mt-1 block text-[11px] leading-relaxed text-slate-400">
+                        {opt === "DIRECT" ? t("source.directDesc") : t("source.supplierDesc")}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-slate-500">
+                <span className="material-symbols-outlined text-sm">info</span>
+                {t("source.hint")}
+              </p>
+            </div>
+          </CollapsibleCard>
+
           {/* ③ 위치·접근성 */}
           <CollapsibleCard title={t("location.title")} icon="location_on">
             <div className="space-y-4">

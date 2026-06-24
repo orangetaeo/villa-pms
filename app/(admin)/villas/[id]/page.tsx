@@ -194,6 +194,7 @@ export default async function VillaDetailPage({
 
   // 판매정보 폼 초기값 (ADR-0011) — BigInt·정수는 문자열 변환(클라이언트 경계 직렬화)
   const salesInitial: SalesInitial = {
+    source: villa.source,
     googleMapUrl: villa.googleMapUrl ?? "",
     beachDistanceM: villa.beachDistanceM != null ? String(villa.beachDistanceM) : "",
     areaSqm: villa.areaSqm != null ? String(villa.areaSqm) : "",

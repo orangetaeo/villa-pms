@@ -657,6 +657,14 @@
       "saving": "Đang lưu…",
       "saved": "Đã lưu",
       "saveError": "Lưu thất bại",
+      "source": {
+        "title": "Nguồn cung cấp",
+        "supplier": "Nhà cung cấp đăng",
+        "supplierDesc": "Villa do nhà cung cấp bên ngoài (môi giới·BĐS) cung cấp",
+        "direct": "Tự cung cấp",
+        "directDesc": "Villa do chúng tôi (đội Theo) trực tiếp thu thập·cung cấp",
+        "hint": "Khi đặt là tự cung cấp, bạn có thể xem ngay đặt phòng của villa này trên bảng phòng trống."
+      },
       "bedding": {
         "title": "Cấu hình giường ngủ",
         "extraBed": "Có giường phụ",
