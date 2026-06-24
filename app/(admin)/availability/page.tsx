@@ -1,9 +1,12 @@
 // /availability — 운영자 빌라별 공실 보드 (T-admin-availability-board, Stitch b11 변환)
 // RSC: prisma 직접 조회 (가용성 집계는 lib/availability.ts 단일 소스). (admin) 레이아웃 가드 하 ADMIN 전용.
-// ⚠ 재고/마진 비공개: 이 보드는 CalendarBlock(MANUAL/ICAL) 잠금·공실만 다룬다. Booking 은 조회조차 안 함.
+// ⚠ 재고/마진 비공개: SUPPLIER 빌라는 CalendarBlock(MANUAL/ICAL) 잠금·공실만 다룬다.
+//   DIRECT(직접공급) 빌라만 우리 판매예약을 BOOKING 셀로 표시하고, 판매가는 canViewFinance 게이트로 가린다.
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { VillaStatus } from "@prisma/client";
+import { auth } from "@/auth";
+import { canViewFinance } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { getAvailabilityBoard } from "@/lib/availability";
 import { todayVnDateString } from "@/lib/date-vn";
@@ -69,6 +72,11 @@ export default async function AvailabilityPage({
   const search = params.search?.trim() || undefined;
   const needCheckOnly = params.needCheck === "1";
 
+  // S-RBAC-3: DIRECT 빌라 예약 셀의 판매가(KRW/VND)는 canViewFinance(OWNER/MANAGER/ADMIN)만.
+  // STAFF 면 false → 집계 단계에서 판매가가 select·전송에서 제외된다 (1차 서버 방어).
+  const session = await auth();
+  const showFinance = canViewFinance(session?.user?.role);
+
   // 지역(area) 옵션 = 운영 대상 빌라의 complex distinct (재고 비공개 — 운영 대상만)
   const [board, complexRows] = await Promise.all([
     getAvailabilityBoard(prisma, {
@@ -77,6 +85,7 @@ export default async function AvailabilityPage({
       area,
       search,
       minDate: todayStr, // 과거 컬럼 제거 (BE 클램프, columns·days 인덱스 1:1 유지)
+      canViewFinance: showFinance,
     }),
     prisma.villa.findMany({
       where: {
@@ -175,6 +184,7 @@ export default async function AvailabilityPage({
     legendAvailable: t("legend.available"),
     legendManual: t("legend.manual"),
     legendIcal: t("legend.ical"),
+    legendBooking: t("legend.booking"),
     legendChecked: t("legend.checked"),
     legendNeedCheck: t("legend.needCheck"),
     badgeChecked: t("badge.checked", { date: "{date}" }),
@@ -185,6 +195,28 @@ export default async function AvailabilityPage({
     cellAvailable: t("cell.available"),
     cellManual: t("cell.manual"),
     cellIcal: t("cell.ical"),
+    cellBooking: t("cell.booking"),
+    // ── DIRECT 빌라 예약 팝오버 ──
+    bkStatusHold: t("bookingPopover.statusHold"),
+    bkStatusConfirmed: t("bookingPopover.statusConfirmed"),
+    bkStatusCheckedIn: t("bookingPopover.statusCheckedIn"),
+    bkNights: t("bookingPopover.nights", { n: "{n}" }),
+    bkGuest: t("bookingPopover.guest"),
+    bkGuestCount: t("bookingPopover.guestCount", { n: "{n}" }),
+    bkChannel: t("bookingPopover.channel"),
+    bkChannelTravel: t("bookingPopover.channelTravel"),
+    bkChannelLand: t("bookingPopover.channelLand"),
+    bkChannelDirect: t("bookingPopover.channelDirect"),
+    bkCost: t("bookingPopover.cost"),
+    bkSale: t("bookingPopover.sale"),
+    bkDeposit: t("bookingPopover.deposit"),
+    bkDepositNone: t("bookingPopover.depositNone"),
+    bkDepositHeld: t("bookingPopover.depositHeld"),
+    bkDepositRefunded: t("bookingPopover.depositRefunded"),
+    bkDepositPartial: t("bookingPopover.depositPartial"),
+    bkHoldExpires: t("bookingPopover.holdExpires", { time: "{time}" }),
+    bkHoldExpired: t("bookingPopover.holdExpired"),
+    bkOpenDetail: t("bookingPopover.openDetail"),
     weekdays: [0, 1, 2, 3, 4, 5, 6].map((i) =>
       t(`weekdays.${i}` as "weekdays.0")
     ),

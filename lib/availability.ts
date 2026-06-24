@@ -1,4 +1,13 @@
-import { BlockSource, BookingStatus, Prisma, PrismaClient, VillaStatus } from "@prisma/client";
+import {
+  BlockSource,
+  BookingChannel,
+  BookingStatus,
+  DepositStatus,
+  Prisma,
+  PrismaClient,
+  VillaSource,
+  VillaStatus,
+} from "@prisma/client";
 import { addUtcDays, parseUtcDateOnly, toDateOnlyString } from "@/lib/date-vn";
 
 /**
@@ -205,25 +214,64 @@ export async function findSellableVillaIds(
 //
 // ADMIN 전용 빌라×날짜 잠금/공실 보드용 집계. 채널매니저 스타일 타임라인의 데이터 계층.
 //
-// ⚠ 재고/마진 비공개 원칙: 이 보드는 **CalendarBlock(MANUAL/ICAL) 잠금과 공실만** 다룬다.
-//   판매예약(Booking: HOLD/CONFIRMED/CHECKED_IN)은 절대 포함하지 않는다 — 외부 채널·우리
-//   판매분이 한 화면에서 섞이면 재고 노출이 되므로, 이 헬퍼는 booking 테이블을 조회조차 하지 않는다.
+// ⚠ 재고/마진 비공개 원칙: SUPPLIER(외부 공급자) 빌라는 **CalendarBlock(MANUAL/ICAL) 잠금과 공실만**
+//   다루고 판매예약(Booking)을 절대 포함하지 않는다 — 공급자 재고와 우리 판매분이 섞이면 재고 노출.
+//   예외: DIRECT(테오팀 직접공급) 빌라는 외부 공급자가 없어 노출 대상이 없으므로, 우리 판매예약
+//   (HOLD/CONFIRMED/CHECKED_IN)을 BOOKING 셀로 표시한다. 판매가는 canViewFinance 게이트로 가린다.
 //
 // 날짜 모델: CalendarBlock.startDate(포함)~endDate(제외) half-open. 보드 기간도 [start, end).
 //   모든 날짜는 @db.Date 규칙대로 UTC 자정으로 다룬다 (date-vn.parseUtcDateOnly).
 
-/** 보드 셀 상태 — 한 빌라의 한 날짜 */
-export type BoardCellStatus = "AVAILABLE" | "MANUAL" | "ICAL";
+/**
+ * 보드 셀 상태 — 한 빌라의 한 날짜.
+ * BOOKING 은 **DIRECT(직접공급) 빌라에서만** 나타난다 — 우리 판매예약(HOLD/CONFIRMED/CHECKED_IN).
+ * SUPPLIER 빌라는 재고 비공개 원칙대로 BOOKING 셀을 절대 갖지 않는다.
+ */
+export type BoardCellStatus = "AVAILABLE" | "MANUAL" | "ICAL" | "BOOKING";
+
+/**
+ * 보드 한 셀의 예약 요약 (BOOKING 셀 전용, DIRECT 빌라).
+ * 같은 예약이 걸친 모든 날짜 셀이 동일 요약을 공유한다.
+ * ⚠ 재무 게이트: saleCurrency·totalSaleKrw·totalSaleVnd 는 canViewFinance(OWNER/MANAGER/ADMIN)
+ *   일 때만 채워지고, STAFF 는 DB select 단계에서 제외되어 항상 null 이다 (S-RBAC-3).
+ *   마진은 어떤 경우에도 포함하지 않는다.
+ */
+export interface BoardBookingSummary {
+  id: string;
+  status: "HOLD" | "CONFIRMED" | "CHECKED_IN";
+  /** 체크인일 YYYY-MM-DD (포함) */
+  checkIn: string;
+  /** 체크아웃일 YYYY-MM-DD (제외) */
+  checkOut: string;
+  nights: number;
+  guestName: string;
+  guestCount: number;
+  channel: BookingChannel;
+  agencyName: string | null;
+  /** 공급자 원가 (VND, 동 단위) — BigInt 직렬화 문자열. STAFF 도 가시 */
+  supplierCostVnd: string;
+  depositStatus: DepositStatus;
+  /** HOLD 만료 시각 ISO — HOLD 가 아니면 null */
+  holdExpiresAt: string | null;
+  // ── 재무 게이트 (canViewFinance=false 면 전부 null) ──
+  saleCurrency: "KRW" | "VND" | null;
+  totalSaleKrw: number | null;
+  /** BigInt 직렬화 문자열 */
+  totalSaleVnd: string | null;
+}
 
 /**
  * 보드 한 셀(빌라×날짜).
  * blockId 는 MANUAL 일 때만 채워지며, 그 날짜의 해제 가능한 CalendarBlock id(FE 해제용).
- * AVAILABLE/ICAL 은 항상 null — ICAL 은 읽기전용이라 해제 id 가 불필요하다.
+ * AVAILABLE/ICAL/BOOKING 은 항상 null.
+ * booking 은 BOOKING 셀에만 채워진다.
  */
 export interface BoardCell {
   status: BoardCellStatus;
-  /** MANUAL 셀의 해제 대상 CalendarBlock id. AVAILABLE/ICAL 은 null */
+  /** MANUAL 셀의 해제 대상 CalendarBlock id. 그 외 null */
   blockId: string | null;
+  /** BOOKING 셀의 예약 요약 (DIRECT 빌라). 그 외 undefined/null */
+  booking?: BoardBookingSummary | null;
 }
 
 /** 보드 한 행(빌라) */
@@ -270,6 +318,12 @@ export interface GetAvailabilityBoardParams {
    * 미지정 시 기존 동작(기간 시작부터) — 하위호환.
    */
   minDate?: string;
+  /**
+   * 재무 가시성 — DIRECT 빌라 예약 셀의 판매가(saleCurrency·totalSaleKrw·totalSaleVnd) 포함 여부.
+   * 기본 false(안전): STAFF·미지정은 판매가가 DB select 단계에서 제외되어 누수 없음 (S-RBAC-3).
+   * 호출부(page.tsx)가 canViewFinance(role) 결과를 넘긴다.
+   */
+  canViewFinance?: boolean;
 }
 
 /** "YYYY-MM" → 해당 월 1일 UTC 자정. 무효 형식이면 null */
@@ -344,7 +398,7 @@ export async function getAvailabilityBoard(
       ...(area ? { complex: area } : {}),
       ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
     },
-    select: { id: true, name: true, complex: true, availabilityCheckedAt: true },
+    select: { id: true, name: true, complex: true, availabilityCheckedAt: true, source: true },
     orderBy: { name: "asc" },
   });
 
@@ -394,6 +448,76 @@ export async function getAvailabilityBoard(
       } else if (days[idx].status !== "ICAL") {
         // MANUAL — 해제 대상 id 채움. 같은 날 여러 MANUAL 겹치면 마지막 것이 남음(해제 가능 단일 id면 충분)
         days[idx] = { status: "MANUAL", blockId: block.id };
+      }
+    }
+  }
+
+  // ── DIRECT(직접공급) 빌라의 우리 판매예약을 셀에 덮어쓴다 ──
+  // 재고 비공개 예외: SUPPLIER 빌라는 절대 조회하지 않는다(외부 공급자에게 노출될 재고가 없는 DIRECT만).
+  // 예약은 잠금(MANUAL/ICAL)보다 우선 표시한다 — 블록 채움 이후에 덮어쓰므로 BOOKING 이 최종 우선.
+  const canViewFinance = params.canViewFinance === true;
+  const directVillaIds = villas.filter((v) => v.source === VillaSource.DIRECT).map((v) => v.id);
+  if (directVillaIds.length > 0) {
+    const bookings = await db.booking.findMany({
+      where: {
+        villaId: { in: directVillaIds },
+        status: { in: [...OCCUPYING_BOOKING_STATUSES] },
+        checkIn: { lt: end }, // half-open 겹침: booking.checkIn < range.end
+        checkOut: { gt: start }, // AND booking.checkOut > range.start
+      },
+      select: {
+        id: true,
+        villaId: true,
+        status: true,
+        channel: true,
+        agencyName: true,
+        checkIn: true,
+        checkOut: true,
+        nights: true,
+        guestName: true,
+        guestCount: true,
+        supplierCostVnd: true, // 원가는 STAFF 도 가시
+        depositStatus: true,
+        holdExpiresAt: true,
+        // 판매가(통화·KRW·VND)는 canViewFinance 일 때만 select — STAFF 면 DB 단계에서 제외(누수 1차 방어)
+        ...(canViewFinance ? { saleCurrency: true, totalSaleKrw: true, totalSaleVnd: true } : {}),
+      },
+    });
+
+    for (const b of bookings) {
+      const days = daysByVilla.get(b.villaId);
+      if (!days) continue;
+      // 재무 필드 — select 에 없으면 런타임에도 undefined. 게이트 OFF 면 명시적으로 null.
+      const fin = b as {
+        saleCurrency?: "KRW" | "VND";
+        totalSaleKrw?: number | null;
+        totalSaleVnd?: bigint | null;
+      };
+      const summary: BoardBookingSummary = {
+        id: b.id,
+        status: b.status as "HOLD" | "CONFIRMED" | "CHECKED_IN",
+        checkIn: toDateOnlyString(b.checkIn),
+        checkOut: toDateOnlyString(b.checkOut),
+        nights: b.nights,
+        guestName: b.guestName,
+        guestCount: b.guestCount,
+        channel: b.channel,
+        agencyName: b.agencyName,
+        supplierCostVnd: b.supplierCostVnd.toString(),
+        depositStatus: b.depositStatus,
+        holdExpiresAt: b.holdExpiresAt ? b.holdExpiresAt.toISOString() : null,
+        saleCurrency: canViewFinance ? (fin.saleCurrency ?? null) : null,
+        totalSaleKrw: canViewFinance ? (fin.totalSaleKrw ?? null) : null,
+        totalSaleVnd:
+          canViewFinance && fin.totalSaleVnd != null ? fin.totalSaleVnd.toString() : null,
+      };
+      // 예약 구간 [checkIn, checkOut) 을 보드 기간으로 클램프해 날짜별로 덮어쓴다
+      const from = b.checkIn.getTime() > start.getTime() ? b.checkIn : start;
+      const to = b.checkOut.getTime() < end.getTime() ? b.checkOut : end;
+      for (let d = from; d.getTime() < to.getTime(); d = addUtcDays(d, 1)) {
+        const idx = colIndex.get(toDateOnlyString(d));
+        if (idx === undefined) continue;
+        days[idx] = { status: "BOOKING", blockId: null, booking: summary };
       }
     }
   }

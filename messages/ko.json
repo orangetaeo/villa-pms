@@ -1880,6 +1880,7 @@
       "available": "공실",
       "manual": "잠금 (운영자 차단)",
       "ical": "외부 채널 잠금 (iCal · 읽기전용)",
+      "booking": "예약 (직접공급 빌라)",
       "checked": "확인됨",
       "needCheck": "확인 필요 (오래됨)"
     },
@@ -1893,7 +1894,8 @@
     "cell": {
       "available": "공실",
       "manual": "잠금 (운영자 차단)",
-      "ical": "외부 채널 잠금 (iCal)"
+      "ical": "외부 채널 잠금 (iCal)",
+      "booking": "예약 (직접공급 빌라) — 클릭해 상세 보기"
     },
     "weekdays": {
       "0": "일",
@@ -1920,6 +1922,28 @@
       "title": "외부 채널 잠금",
       "desc": "iCal 동기화로 자동 잠긴 날짜입니다.",
       "info": "외부 채널 잠금은 이 화면에서 수정할 수 없습니다. 채널 원본에서 변경하세요."
+    },
+    "bookingPopover": {
+      "statusHold": "가예약",
+      "statusConfirmed": "확정",
+      "statusCheckedIn": "체크인",
+      "nights": "{n}박",
+      "guest": "게스트",
+      "guestCount": "{n}명",
+      "channel": "채널",
+      "channelTravel": "여행사",
+      "channelLand": "랜드사",
+      "channelDirect": "직판",
+      "cost": "원가",
+      "sale": "판매가",
+      "deposit": "보증금",
+      "depositNone": "없음",
+      "depositHeld": "보관중",
+      "depositRefunded": "환불완료",
+      "depositPartial": "일부차감",
+      "holdExpires": "만료까지 {time}",
+      "holdExpired": "만료됨",
+      "openDetail": "예약 상세 열기"
     },
     "rangePopover": {
       "days": "{n}일 선택",

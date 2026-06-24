@@ -7,7 +7,8 @@
 // i18n: (admin)/layout.tsx 화이트리스트 수정 금지 → 모든 문구를 서버에서 props(strings)로 받음.
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { BoardCell } from "@/lib/availability";
+import Link from "next/link";
+import type { BoardBookingSummary, BoardCell } from "@/lib/availability";
 
 export interface BoardColumn {
   iso: string; // YYYY-MM-DD
@@ -46,6 +47,7 @@ export interface BoardStrings {
   legendAvailable: string;
   legendManual: string;
   legendIcal: string;
+  legendBooking: string;
   legendChecked: string;
   legendNeedCheck: string;
   badgeChecked: string; // contains {date}
@@ -56,6 +58,28 @@ export interface BoardStrings {
   cellAvailable: string;
   cellManual: string;
   cellIcal: string;
+  cellBooking: string;
+  // ── DIRECT 빌라 예약 팝오버 ──
+  bkStatusHold: string;
+  bkStatusConfirmed: string;
+  bkStatusCheckedIn: string;
+  bkNights: string; // {n}
+  bkGuest: string;
+  bkGuestCount: string; // {n}
+  bkChannel: string;
+  bkChannelTravel: string;
+  bkChannelLand: string;
+  bkChannelDirect: string;
+  bkCost: string;
+  bkSale: string;
+  bkDeposit: string;
+  bkDepositNone: string;
+  bkDepositHeld: string;
+  bkDepositRefunded: string;
+  bkDepositPartial: string;
+  bkHoldExpires: string; // {time}
+  bkHoldExpired: string;
+  bkOpenDetail: string;
   weekdays: string[]; // [일,월,…,토]
   popStateLabel: string;
   popStateAvailable: string;
@@ -121,6 +145,14 @@ const BOARD_CSS = `
   background-image: repeating-linear-gradient(-45deg, rgba(245,158,11,0.55) 0, rgba(245,158,11,0.55) 2px, transparent 2px, transparent 7px);
   cursor: not-allowed;
 }
+.ab-cell-booking-confirmed { background-color: #0F766E; cursor: pointer; }
+.ab-cell-booking-confirmed:hover { background-color: #0D9488; }
+.ab-cell-booking-hold {
+  background-color: rgba(13,148,136,0.30);
+  background-image: repeating-linear-gradient(45deg, rgba(13,148,136,0.65) 0, rgba(13,148,136,0.65) 2px, transparent 2px, transparent 7px);
+  cursor: pointer;
+}
+.ab-cell-booking-hold:hover { background-color: rgba(13,148,136,0.45); }
 .ab-col-today { box-shadow: inset 1px 0 0 #3B82F6, inset -1px 0 0 #3B82F6; }
 .ab-col-weekend { background-color: rgba(2,6,23,0.35); }
 .ab-month-edge { box-shadow: inset 2px 0 0 #334155; }
@@ -135,7 +167,8 @@ const ROW_H = 34; // 월 헤더 행 높이 (일 행 sticky top 계산용)
 
 type PopState =
   | { kind: "block"; villaId: string; villaName: string; col: BoardColumn; status: "AVAILABLE" | "MANUAL"; blockId: string | null; x: number; y: number }
-  | { kind: "ical"; col: BoardColumn; x: number; y: number };
+  | { kind: "ical"; col: BoardColumn; x: number; y: number }
+  | { kind: "booking"; villaName: string; booking: BoardBookingSummary; x: number; y: number };
 
 /** 가로 드래그 진행 상태 (마우스/펜 = 즉시 드래그, 터치 = 길게눌러 드래그) */
 interface DragState {
@@ -160,6 +193,30 @@ function fmtDateDow(iso: string, weekdays: string[]): string {
   const [y, m, d] = iso.split("-").map(Number);
   const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
   return `${y}.${String(m).padStart(2, "0")}.${String(d).padStart(2, "0")} (${weekdays[dow]})`;
+}
+
+/** YYYY-MM-DD → "M/D" (예약 팝오버 기간 표기용) */
+function fmtMd(iso: string): string {
+  const [, m, d] = iso.split("-");
+  return `${Number(m)}/${Number(d)}`;
+}
+
+/** 천 단위 콤마 — 숫자/BigInt 문자열 모두 안전(부동소수점 미사용) */
+function fmtThousands(v: number | string): string {
+  return v.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+/**
+ * HOLD 만료까지 남은 시간 "Xh Ym" / "Ym". 이미 지났으면 null.
+ * 팝오버는 클릭 시 클라이언트에서만 렌더되므로 Date.now() 하이드레이션 불일치 없음.
+ */
+function fmtHoldRemaining(iso: string): string | null {
+  const ms = new Date(iso).getTime() - Date.now();
+  if (ms <= 0) return null;
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
 export default function AvailabilityBoardClient({
@@ -423,7 +480,7 @@ export default function AvailabilityBoardClient({
   ) {
     if (e.pointerType !== "mouse" && e.pointerType !== "pen") return; // 터치는 기존 탭 유지
     if (e.button !== 0) return; // 주버튼만
-    if (cell.status === "ICAL") return; // iCal 셀에서 드래그 시작 안 함
+    if (cell.status === "ICAL" || cell.status === "BOOKING") return; // iCal·예약 셀은 읽기전용 — 드래그 시작 안 함
     lastPointerRef.current = { x: e.clientX, y: e.clientY };
     movedRef.current = false;
     setDrag({ villaId: row.id, anchorIdx: idx, overIdx: idx });
@@ -441,6 +498,22 @@ export default function AvailabilityBoardClient({
     // 드래그로 범위 선택된 직후의 click 은 무시 (단일 팝오버 중복 오픈 방지)
     if (movedRef.current) {
       movedRef.current = false;
+      return;
+    }
+    // 예약 셀(BOOKING, DIRECT 빌라) → 범위 모드와 무관하게 예약 팝오버 (읽기전용).
+    // BOOKING 셀은 잠금/범위 대상이 아니므로 어떤 경우에도 여기서 종료한다.
+    if (cell.status === "BOOKING") {
+      setTapAnchor(null);
+      setErrorKey(null);
+      if (cell.booking) {
+        setPop({
+          kind: "booking",
+          villaName: row.name,
+          booking: cell.booking,
+          x: Math.min(e.clientX, window.innerWidth - 296),
+          y: Math.min(e.clientY + 8, window.innerHeight - 320),
+        });
+      }
       return;
     }
     // ── 두 번 탭 범위 모드: 첫 탭=시작, 둘째 탭=끝 → 범위 팝오버 ──
@@ -750,6 +823,10 @@ export default function AvailabilityBoardClient({
           </span>
           <span className="text-sm font-medium text-slate-300">{s.legendIcal}</span>
         </div>
+        <div className="flex items-center gap-2 whitespace-nowrap">
+          <span className="ab-cell-booking-confirmed inline-block h-5 w-5 rounded border border-teal-500/40" />
+          <span className="text-sm font-medium text-slate-300">{s.legendBooking}</span>
+        </div>
         <div className="ml-auto flex items-center gap-2 whitespace-nowrap">
           <span className="material-symbols-outlined text-[18px] text-green-500">check_circle</span>
           <span className="text-sm font-medium text-slate-300">{s.legendChecked}</span>
@@ -992,8 +1069,14 @@ export default function AvailabilityBoardClient({
                         cls += " ab-cell-available" + (c.isWeekend ? " ab-col-weekend" : "");
                       } else if (cell.status === "MANUAL") {
                         cls += " ab-cell-manual";
-                      } else {
+                      } else if (cell.status === "ICAL") {
                         cls += " ab-cell-ical";
+                      } else {
+                        // BOOKING (DIRECT 빌라) — HOLD 는 점선 패턴, 확정/체크인은 단색
+                        cls +=
+                          cell.booking?.status === "HOLD"
+                            ? " ab-cell-booking-hold"
+                            : " ab-cell-booking-confirmed";
                       }
                       // 드래그 중인 빌라의 선택 구간 하이라이트
                       const inDragRange =
@@ -1010,7 +1093,9 @@ export default function AvailabilityBoardClient({
                           ? s.cellAvailable
                           : cell.status === "MANUAL"
                             ? s.cellManual
-                            : s.cellIcal;
+                            : cell.status === "ICAL"
+                              ? s.cellIcal
+                              : s.cellBooking;
                       return (
                         <td
                           key={c.iso}
@@ -1125,6 +1210,128 @@ export default function AvailabilityBoardClient({
           </div>
         </div>
       )}
+
+      {/* ===== DIRECT 빌라 예약 팝오버 (읽기전용) ===== */}
+      {pop?.kind === "booking" &&
+        (() => {
+          const b = pop.booking;
+          const statusLabel =
+            b.status === "HOLD"
+              ? s.bkStatusHold
+              : b.status === "CONFIRMED"
+                ? s.bkStatusConfirmed
+                : s.bkStatusCheckedIn;
+          const badgeCls =
+            b.status === "HOLD"
+              ? "bg-amber-500/10 border border-amber-500/30 text-amber-400"
+              : b.status === "CHECKED_IN"
+                ? "bg-indigo-500/15 border border-indigo-500/30 text-indigo-300"
+                : "bg-teal-500/15 border border-teal-500/30 text-teal-300";
+          const channelLabel =
+            b.channel === "TRAVEL_AGENCY"
+              ? s.bkChannelTravel
+              : b.channel === "LAND_AGENCY"
+                ? s.bkChannelLand
+                : s.bkChannelDirect;
+          const depositLabel =
+            b.depositStatus === "HELD"
+              ? s.bkDepositHeld
+              : b.depositStatus === "REFUNDED"
+                ? s.bkDepositRefunded
+                : b.depositStatus === "PARTIAL_DEDUCTED"
+                  ? s.bkDepositPartial
+                  : s.bkDepositNone;
+          const remaining =
+            b.status === "HOLD" && b.holdExpiresAt ? fmtHoldRemaining(b.holdExpiresAt) : undefined;
+          // 판매가 — saleCurrency 가 null 이면 재무 게이트 차단(STAFF) → 행 자체 미표시
+          const saleText =
+            b.saleCurrency === "KRW" && b.totalSaleKrw != null
+              ? `₩${fmtThousands(b.totalSaleKrw)}`
+              : b.saleCurrency === "VND" && b.totalSaleVnd != null
+                ? `${fmtThousands(b.totalSaleVnd)} VND`
+                : null;
+          return (
+            <div
+              ref={popRef}
+              className="fixed z-[60] w-72 rounded-xl border border-teal-600/50 bg-admin-card p-4 shadow-2xl"
+              style={{ left: pop.x, top: pop.y }}
+            >
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="truncate text-xs font-medium text-slate-400">{pop.villaName}</p>
+                <button
+                  type="button"
+                  onClick={closePop}
+                  className="shrink-0 text-slate-500 hover:text-white"
+                  aria-label={s.popClose}
+                >
+                  <span className="material-symbols-outlined text-sm">close</span>
+                </button>
+              </div>
+              <div className="mb-2 flex items-center gap-2">
+                <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${badgeCls}`}>
+                  {statusLabel}
+                </span>
+                <span className="text-sm font-black tabular-nums text-white">
+                  {fmtMd(b.checkIn)} ~ {fmtMd(b.checkOut)}
+                </span>
+                <span className="text-xs font-medium text-slate-400">
+                  {s.bkNights.replace("{n}", String(b.nights))}
+                </span>
+              </div>
+              <dl className="space-y-1.5 text-xs">
+                <div className="flex justify-between gap-2">
+                  <dt className="text-slate-500">{s.bkGuest}</dt>
+                  <dd className="truncate font-medium text-slate-200">
+                    {b.guestName}{" "}
+                    <span className="text-slate-400">
+                      {s.bkGuestCount.replace("{n}", String(b.guestCount))}
+                    </span>
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-slate-500">{s.bkChannel}</dt>
+                  <dd className="truncate font-medium text-slate-200">
+                    {channelLabel}
+                    {b.agencyName ? ` · ${b.agencyName}` : ""}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-slate-500">{s.bkCost}</dt>
+                  <dd className="font-medium tabular-nums text-slate-200">
+                    {fmtThousands(b.supplierCostVnd)} VND
+                  </dd>
+                </div>
+                {saleText && (
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-slate-500">{s.bkSale}</dt>
+                    <dd className="font-bold tabular-nums text-teal-300">{saleText}</dd>
+                  </div>
+                )}
+                <div className="flex justify-between gap-2">
+                  <dt className="text-slate-500">{s.bkDeposit}</dt>
+                  <dd className="font-medium text-slate-200">{depositLabel}</dd>
+                </div>
+                {b.status === "HOLD" && (
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-slate-500">⏳</dt>
+                    <dd className="font-bold text-amber-400">
+                      {remaining
+                        ? s.bkHoldExpires.replace("{time}", remaining)
+                        : s.bkHoldExpired}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+              <Link
+                href={`/bookings/${b.id}`}
+                className="mt-3 flex items-center justify-center gap-1.5 rounded-lg bg-teal-600 py-2.5 text-sm font-bold text-white transition hover:bg-teal-500"
+              >
+                {s.bkOpenDetail}
+                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+              </Link>
+            </div>
+          );
+        })()}
 
       {/* ===== 범위 잠금/해제 팝오버 (드래그 선택) ===== */}
       {rangePop &&
