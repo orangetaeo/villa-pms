@@ -731,6 +731,10 @@ model ZaloConversation {
   user          User?     @relation("SupplierConversations", fields: [userId], references: [id], onDelete: SetNull)
   displayName   String? // Zalo 프로필명 (원본 — nickname과 구분, ADR-0009 D9.1)
   lastMessageAt DateTime?
+  // 인박스 미리보기 비정규화(perf, 2026-06-24) — 대화별 messages take1 서브쿼리 제거(클릭마다 재실행되던 인박스 병목).
+  // 마지막 메시지 본문·타입. 메시지 쓰기 경로가 lastMessageAt와 함께 갱신. 표시 전용(누수 무관: 본문/타입만).
+  lastMessageText String?
+  lastMessageType String?
   lastInboundAt DateTime? // ADR-0006 D5.5 — 개인계정은 48h 제약 없음(참고 보존)
   unreadCount   Int       @default(0)
   createdAt     DateTime  @default(now())

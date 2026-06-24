@@ -348,7 +348,12 @@ export async function POST(req: Request) {
 
     await tx.zaloConversation.update({
       where: { id: conversationId },
-      data: { lastMessageAt: now },
+      data: {
+        lastMessageAt: now,
+        // 인박스 미리보기 비정규화(perf) — 운영자 발신 원문 캐시.
+        lastMessageText: text,
+        lastMessageType: "text",
+      },
     });
 
     // 감사 로그 — 데이터 변경 API 동시 기록 (글로벌 절대 규칙). 본문 텍스트는 기록하지 않음.

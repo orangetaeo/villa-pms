@@ -104,7 +104,12 @@ async function persistShare(
     });
     await tx.zaloConversation.update({
       where: { id: conversationId },
-      data: { lastMessageAt: now },
+      data: {
+        lastMessageAt: now,
+        // 인박스 미리보기 비정규화(perf) — 공유 카드 본문·타입 캐시.
+        lastMessageText: text,
+        lastMessageType: msgType,
+      },
     });
     // AuditLog — 본문·금액·credential 미기록 (D4.5)
     await writeAuditLog({

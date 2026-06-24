@@ -142,16 +142,15 @@ export default async function MessagesPage({
       lastInboundAt: true,
       unreadCount: true,
       userId: true,
+      // 인박스 미리보기 비정규화(perf, 2026-06-24) — 대화별 messages take1 서브쿼리 제거.
+      // 그 서브쿼리(463개 대화 × 최신 1건 정렬)가 클릭마다 재실행되던 인박스 병목이었다.
+      lastMessageText: true,
+      lastMessageType: true,
       user: {
         select: {
           name: true,
           villas: { select: { name: true }, take: 1, orderBy: { createdAt: "asc" } },
         },
-      },
-      messages: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
-        select: { text: true, msgType: true },
       },
     },
   });
@@ -182,8 +181,8 @@ export default async function MessagesPage({
       isGroup,
       // 멤버 스냅샷이 없으면(groupMembers=null) 0 → 인박스에서 멤버수 칩 생략.
       memberCount,
-      lastText: c.messages[0]?.text ?? "",
-      lastMsgType: c.messages[0]?.msgType ?? "text",
+      lastText: c.lastMessageText ?? "",
+      lastMsgType: c.lastMessageType ?? "text",
       time: inboxTime(c.lastMessageAt, now, tm("inbox.yesterday")),
       unreadCount: c.unreadCount,
       // ADR-0006 D5.5 — 개인계정은 48h 제약 없음. 입력창 항상 활성(만료 배지 미표시).

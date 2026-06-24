@@ -811,6 +811,9 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
     where: { id: conversation.id },
     data: {
       lastMessageAt: now,
+      // 인박스 미리보기 비정규화(perf) — 수신 본문·타입 캐시. 표시 전용(누수 무관).
+      lastMessageText: text || null,
+      lastMessageType: msgType ?? "text",
       lastInboundAt: now,
       unreadCount: { increment: 1 },
       ...(displayName && !conversation.displayName ? { displayName } : {}),
@@ -1140,6 +1143,9 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
     where: { id: conversation.id },
     data: {
       lastMessageAt: createdAt,
+      // 인박스 미리보기 비정규화(perf) — 발신 echo 본문·타입 캐시.
+      lastMessageText: text || null,
+      lastMessageType: msgType ?? "text",
       ...(displayName && !conversation.displayName ? { displayName } : {}),
     },
   });

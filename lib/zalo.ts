@@ -491,7 +491,12 @@ async function dispatchOne(
     });
     await prisma.zaloConversation.update({
       where: { id: conversation.id },
-      data: { lastMessageAt: new Date() },
+      data: {
+        lastMessageAt: new Date(),
+        // 인박스 미리보기 비정규화(perf) — 발신 본문·타입 캐시.
+        lastMessageText: text,
+        lastMessageType: attachmentUrls.length > 0 ? "image" : "text",
+      },
     });
   } catch (e) {
     // 미러는 채팅 UI 표시용 부가 기록 — 실패해도 발송 자체(SENT)는 유효

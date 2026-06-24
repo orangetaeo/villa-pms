@@ -127,7 +127,12 @@ async function persistOutboundOriginal(
     });
     await prisma.zaloConversation.update({
       where: { id: conversationId },
-      data: { lastMessageAt: new Date() },
+      data: {
+        lastMessageAt: new Date(),
+        // 인박스 미리보기 비정규화(perf) — Nike 위임 발신 원문 캐시.
+        lastMessageText: originalText,
+        lastMessageType: "text",
+      },
     });
   } catch (err) {
     // 저장 실패가 발송 성공 응답을 막지 않도록 swallow(메시지는 이미 발송됨). 상태만 로그.
