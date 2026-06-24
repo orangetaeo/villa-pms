@@ -1668,6 +1668,7 @@
       "label": "Trò chuyện nhóm",
       "memberCount": "{count} thành viên"
     },
+    "loadingOlder": "Đang tải tin nhắn cũ hơn…",
     "photoTranslate": {
       "button": "Dịch",
       "loading": "Đang dịch…",

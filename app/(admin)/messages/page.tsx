@@ -8,8 +8,6 @@ import { getTranslations } from "next-intl/server";
 import {
   Currency,
   ZaloCounterpartyType,
-  ZaloMessageDirection,
-  ZaloMessageSource,
   ZaloThreadType,
 } from "@prisma/client";
 import { auth } from "@/auth";
@@ -19,6 +17,8 @@ import { isOperator } from "@/lib/permissions";
 import { serializeBigInt } from "@/lib/serialize";
 import { isSellSideType, currencyForType } from "@/lib/zalo-counterparty";
 import { pickRepresentativeRate } from "@/lib/pricing";
+// 메시지 매핑 단일 진실원 — page.tsx 초기 로드와 이전 메시지 GET이 동일 함수로 매핑(prepend 정합).
+import { toChatMessages } from "@/lib/zalo-chat-message";
 import { Inbox, type InboxItem } from "./inbox";
 import { ResizableSplit } from "./resizable-split";
 import {
@@ -94,38 +94,6 @@ function inboxTime(date: Date | null, now: Date, yesterdayLabel: string): string
   if (key === today) return fmt(date, { hour: "2-digit", minute: "2-digit", hour12: false });
   if (key === yesterday) return yesterdayLabel;
   return fmt(date, { month: "2-digit", day: "2-digit" }).replace(/\.$/, "").replace(/\. /, ".");
-}
-
-/** 스레드 메시지 시각 HH:mm (Asia/Ho_Chi_Minh) */
-function msgTime(date: Date): string {
-  return new Intl.DateTimeFormat("ko-KR", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(date);
-}
-
-/** 날짜 구분자 YYYY.MM.DD (Asia/Ho_Chi_Minh) */
-function dayDivider(date: Date): string {
-  const parts = new Intl.DateTimeFormat("ko-KR", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
-  return `${get("year")}.${get("month")}.${get("day")}`;
-}
-
-/** 리액션 Json({HEART:2,...})을 Record<string,number>로 정규화 — 양수 카운트만. 비정상/빈값은 null. */
-function normalizeReactions(value: unknown): Record<string, number> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const out: Record<string, number> = {};
-  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-    if (typeof v === "number" && v > 0) out[k] = v;
-  }
-  return Object.keys(out).length > 0 ? out : null;
 }
 
 /** 정산 yearMonth(YYYY-MM) → 표시 라벨. 최종 문자열 생성은 i18n 콜백에 위임 */
@@ -227,6 +195,12 @@ export default async function MessagesPage({
   // 선택 대화 스레드
   let header: ChatHeader | null = null;
   let messages: ChatMessage[] = [];
+  // 초기엔 최근 80개만 로드(즉시 표시). 더 있으면 hasOlder=true + oldestCursor(가장 오래된 createdAt ISO)로
+  // ChatPane이 상단 스크롤 시 이전 메시지를 점진 로드(prepend). 80개 이하면 동작 변화 0.
+  let hasOlder = false;
+  let oldestCursor: string | null = null;
+  // 초기 로드 개수 — 81개 조회로 "더 있음" 판단(80개로 슬라이스).
+  const INITIAL_TAKE = 80;
   // 그룹 대화 @멘션용 멤버 목록(이름·아바타·zaloId만 — 누수 무관: 공개 프로필).
   // 그룹이 아니면 빈 배열 → ChatPane 입력창은 @멘션 비활성(1:1 기존 그대로).
   let groupMembers: GroupMember[] = [];
@@ -260,7 +234,9 @@ export default async function MessagesPage({
           },
         },
         messages: {
-          orderBy: { createdAt: "asc" },
+          // 성능: 최근 메시지부터 INITIAL_TAKE+1건만(4000+ 대화 즉시 표시). 아래서 asc로 재정렬.
+          orderBy: { createdAt: "desc" },
+          take: INITIAL_TAKE + 1,
           select: {
             id: true,
             direction: true,
@@ -318,50 +294,21 @@ export default async function MessagesPage({
         nickname: conv.nickname ?? "",
       };
 
-      let prevDay = "";
-      const isInboundAvatar = header.avatarUrl;
-      const isInboundInitials = header.initials;
-      messages = conv.messages.map((m) => {
-        const day = dayDivider(m.createdAt);
-        const divider = day !== prevDay ? day : null;
-        prevDay = day;
-        const isInbound = m.direction === ZaloMessageDirection.INBOUND;
-        const isSystem = m.source === ZaloMessageSource.SYSTEM;
-        // 그룹 수신 버블 발신자 해석(R14): senderUid → 멤버 스냅샷 name·avatarUrl.
-        // 미해석(멤버에 없거나 groupMembers=null) → 이름은 senderUid 원문 폴백, 아바타는 이니셜.
-        // OUTBOUND(내 발신)·SYSTEM·1:1 대화는 발신자명 불필요 → null(버블은 기존 표시).
-        let senderName: string | null = null;
-        let senderAvatarUrl: string | null = null;
-        if (isGroup && isInbound && !isSystem) {
-          const member = m.senderUid ? memberMap.get(m.senderUid) : undefined;
-          senderName = member?.name ?? m.senderUid ?? null;
-          senderAvatarUrl = member?.avatarUrl ?? null;
-        }
-        return {
-          id: m.id,
-          kind: isSystem ? "system" : isInbound ? "inbound" : "outbound",
-          msgType: m.msgType ?? "text",
-          text: m.text ?? "",
-          translatedText: m.translatedText,
-          attachmentUrls: m.attachmentUrls,
-          time: msgTime(m.createdAt),
-          status: m.status,
-          dayDivider: divider,
-          // 그룹 수신 버블은 발신자별 아바타·이니셜(senderAvatar/senderName).
-          // 1:1·OUTBOUND·SYSTEM은 대화 상대(헤더) 아바타·이니셜 그대로(회귀 0).
-          avatarUrl: senderAvatarUrl ?? isInboundAvatar,
-          initials: senderName ? initials(senderName) : isInboundInitials,
-          senderName,
-          // 인용 점프(Nike) — 자기 앵커 zaloMsgId + 인용 대상 zaloMsgId(인용 클릭 시 원본으로 스크롤).
-          zaloMsgId: m.zaloMsgId,
-          quotedMsgId: m.quotedMsgId,
-          // 답글 인용 스냅샷(자기 화면 표시 — R3-2). 둘 중 하나라도 있으면 인용 블록 렌더.
-          quotedText: m.quotedText,
-          quotedSender: m.quotedSender,
-          // 리액션 집계 Json {HEART:n,...} → Record<string,number>로 정규화(아니면 null). 누수 무관.
-          reactions: normalizeReactions(m.reactions),
-        } satisfies ChatMessage;
-      });
+      // 최근순(desc)으로 INITIAL_TAKE+1건 조회됨 — "더 있음" 판단 후 표시 순서(asc)로 재정렬.
+      // 81개면 더 있음(hasOlder) → 80개로 슬라이스, 80개 이하면 동작 변화 0(hasOlder=false).
+      const rowsDesc = conv.messages;
+      hasOlder = rowsDesc.length > INITIAL_TAKE;
+      const recentDesc = hasOlder ? rowsDesc.slice(0, INITIAL_TAKE) : rowsDesc;
+      // 화면 표시 순서(오래된→최신). 가장 오래된 로드 메시지의 createdAt = 이전 더보기 커서.
+      const recentAsc = recentDesc.slice().reverse();
+      oldestCursor = recentAsc.length > 0 ? recentAsc[0].createdAt.toISOString() : null;
+      // 매핑은 공용 유틸로 일원화(GET 엔드포인트와 동일 결과 — prepend 정합).
+      messages = toChatMessages(recentAsc, {
+        isGroup,
+        memberMap,
+        headerAvatarUrl: header.avatarUrl,
+        headerInitials: header.initials,
+      }) as ChatMessage[];
 
       // ── 공유 후보 목록 — 상대 타입별 누수 분기로 최소 필드만 (D2/D4) ──
       // 마진·반대편 통화는 어떤 후보 쿼리에도 미조회. 모달은 이름·식별자 위주.
@@ -546,6 +493,8 @@ export default async function MessagesPage({
             conversationId={selectedId ?? null}
             header={header}
             messages={messages}
+            hasOlder={hasOlder}
+            oldestCursor={oldestCursor}
             windowOpen={windowOpen}
             groupMembers={groupMembers}
             villaCandidates={villaCandidates}

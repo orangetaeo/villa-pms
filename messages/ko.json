@@ -1596,6 +1596,7 @@
       "label": "그룹 대화",
       "memberCount": "멤버 {count}명"
     },
+    "loadingOlder": "이전 메시지 불러오는 중…",
     "photoTranslate": {
       "button": "번역",
       "loading": "번역 중…",

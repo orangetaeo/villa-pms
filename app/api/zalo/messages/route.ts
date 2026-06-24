@@ -23,6 +23,7 @@ import {
   getOwnIdForAdmin,
 } from "@/lib/zalo-runtime";
 import { isOperator } from "@/lib/permissions";
+import { toChatMessages, chatInitials } from "@/lib/zalo-chat-message";
 
 const bodySchema = z.object({
   conversationId: z.string().min(1),
@@ -35,6 +36,121 @@ const bodySchema = z.object({
     .array(z.object({ pos: z.number().int().min(0), uid: z.string().min(1), len: z.number().int().min(1) }))
     .optional(),
 });
+
+// GET /api/zalo/messages?conversationId&before&limit — ADMIN 이전 메시지 점진 로드(prepend).
+//   /messages 채팅창이 상단 스크롤 시 호출. 초기 80개 위로 더 과거 메시지를 페이지네이션.
+//
+// 보안:
+//   - 첫 줄 인증: 운영자(isOperator) 아니면 401/403. ext/messages(시크릿)와 달리 세션 인증.
+//   - 본인 스코프: where { id: conversationId, ownerAdminId = session.user.id }. 타 관리자 대화 404(누수 0).
+//   - 누수 0: 매핑은 page.tsx와 동일한 toChatMessages 화이트리스트. 마진·판매가·supplierCost·credential 미조회.
+const DEFAULT_OLDER_LIMIT = 80;
+const MAX_OLDER_LIMIT = 200;
+
+export async function GET(req: Request) {
+  // 권한 검사 — ADMIN 전용 (POST와 동일 패턴)
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
+  if (!isOperator(session.user.role)) {
+    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  }
+
+  const url = new URL(req.url);
+  const conversationId = url.searchParams.get("conversationId");
+  if (!conversationId) {
+    return NextResponse.json({ error: "MISSING_CONVERSATION_ID" }, { status: 400 });
+  }
+  const before = url.searchParams.get("before");
+  if (!before) {
+    return NextResponse.json({ error: "MISSING_BEFORE" }, { status: 400 });
+  }
+  const beforeDate = new Date(before);
+  if (Number.isNaN(beforeDate.getTime())) {
+    return NextResponse.json({ error: "INVALID_BEFORE" }, { status: 400 });
+  }
+  const limitRaw = Number(url.searchParams.get("limit"));
+  const limit =
+    Number.isFinite(limitRaw) && limitRaw > 0
+      ? Math.min(Math.floor(limitRaw), MAX_OLDER_LIMIT)
+      : DEFAULT_OLDER_LIMIT;
+
+  // 본인 스코프 가드 — 본인(ownerAdminId) 대화만(id 추측으로 타 관리자 접근 차단, 누수 0).
+  // 헤더 아바타·이니셜 매핑 정합을 위해 displayName 우선순위 재료(nickname/user.name/displayName)도 조회.
+  const conv = await prisma.zaloConversation.findFirst({
+    where: { id: conversationId, ownerAdminId: session.user.id },
+    select: {
+      id: true,
+      displayName: true,
+      nickname: true,
+      avatarUrl: true,
+      threadType: true,
+      groupMembers: true,
+      user: { select: { name: true } },
+    },
+  });
+  if (!conv) {
+    return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
+
+  // 그룹 멤버 스냅샷 zaloId→{name,avatarUrl} (1:1은 빈 맵, senderName 항상 null). 공개 프로필만(누수 무관).
+  const isGroup = conv.threadType === "GROUP";
+  const memberMap = new Map<string, { name: string | null; avatarUrl: string | null }>();
+  if (isGroup && Array.isArray(conv.groupMembers)) {
+    for (const m of conv.groupMembers as { zaloId?: unknown; name?: unknown; avatarUrl?: unknown }[]) {
+      if (m && typeof m.zaloId === "string") {
+        memberMap.set(m.zaloId, {
+          name: typeof m.name === "string" ? m.name : null,
+          avatarUrl: typeof m.avatarUrl === "string" ? m.avatarUrl : null,
+        });
+      }
+    }
+  }
+  // 헤더(대화 상대) 아바타·이니셜 — page.tsx displayNameOf 우선순위(nickname > user.name > displayName).
+  const headerName = conv.nickname ?? conv.user?.name ?? conv.displayName ?? "";
+
+  // 이전 메시지 조회 — before 이전(createdAt < before)에서 최신순 limit건. 본인 대화 스코프 재확인.
+  const rows = await prisma.zaloMessage.findMany({
+    where: {
+      conversationId,
+      conversation: { ownerAdminId: session.user.id },
+      createdAt: { lt: beforeDate },
+    },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      direction: true,
+      source: true,
+      msgType: true,
+      senderUid: true,
+      text: true,
+      translatedText: true,
+      attachmentUrls: true,
+      status: true,
+      createdAt: true,
+      zaloMsgId: true,
+      quotedMsgId: true,
+      quotedText: true,
+      quotedSender: true,
+      reactions: true,
+    },
+  });
+
+  const hasMore = rows.length === limit;
+  // 화면 표시 순서(오래된→최신)로 재정렬 후 page.tsx와 동일 매핑.
+  const ordered = rows.slice().reverse();
+  const nextCursor = ordered.length > 0 ? ordered[0].createdAt.toISOString() : null;
+  const messages = toChatMessages(ordered, {
+    isGroup,
+    memberMap,
+    headerAvatarUrl: conv.avatarUrl,
+    headerInitials: chatInitials(headerName),
+  });
+
+  return NextResponse.json({ messages, hasMore, nextCursor });
+}
 
 export async function POST(req: Request) {
   // 권한 검사 — ADMIN 전용 (route handler 첫 줄 role 검사 규칙)

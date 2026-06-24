@@ -13,6 +13,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -226,7 +227,9 @@ function MentionText({
 export function ChatPane({
   conversationId,
   header,
-  messages,
+  messages: initialMessages,
+  hasOlder: initialHasOlder,
+  oldestCursor: initialOldestCursor,
   windowOpen,
   hasUnread,
   groupMembers,
@@ -236,7 +239,11 @@ export function ChatPane({
 }: {
   conversationId: string | null;
   header: ChatHeader | null;
+  // 초기 최근 80개(asc). 상단 스크롤 시 GET으로 이전 메시지를 받아 앞에 prepend(로컬 state로 누적).
   messages: ChatMessage[];
+  // 더 과거 메시지 존재 여부 + 이전 더보기 커서(가장 오래된 로드 메시지 createdAt ISO).
+  hasOlder: boolean;
+  oldestCursor: string | null;
   windowOpen: boolean;
   hasUnread: boolean;
   // 그룹 @멘션 후보(그룹 아닐 땐 빈 배열) — Composer 입력창 드롭다운에 사용.
@@ -247,6 +254,34 @@ export function ChatPane({
 }) {
   const t = useTranslations("adminMessages");
   const router = useRouter();
+
+  // ── 이전 메시지 점진 로드 (성능 — 초기 80개만, 상단 스크롤 시 prepend) ──
+  // prop(initialMessages)=최근 80개(asc, 폴링 refresh로 갱신). olderMessages=상단 GET으로 받은
+  // 더 과거 메시지(asc) 누적. 최종 messages = [...older, ...initial] (id 중복 제거).
+  // 이 구조라 폴링 refresh가 와도(새 메시지 유입) prepend된 과거가 보존되고 최신도 정합.
+  const [olderMessages, setOlderMessages] = useState<ChatMessage[]>([]);
+  const [hasOlder, setHasOlder] = useState(initialHasOlder);
+  // 이전 더보기 커서 — 가장 오래된 "로드된" 메시지의 createdAt ISO. 초기엔 prop, prepend마다 갱신.
+  const oldestCursorRef = useRef<string | null>(initialOldestCursor);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+
+  // 대화 전환 시 prepend 누적·커서·hasOlder 리셋(다른 대화 과거가 남지 않도록).
+  useEffect(() => {
+    setOlderMessages([]);
+    setHasOlder(initialHasOlder);
+    oldestCursorRef.current = initialOldestCursor;
+    // conversationId 변경 시에만 리셋. initialHasOlder/Cursor는 같은 대화 내 폴링으로도 바뀔 수 있으나
+    // 그 경우(맨아래 최신 80개 갱신)엔 older 보존이 맞으므로 의존성에서 제외.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId]);
+
+  // 최종 표시 메시지 = prepend된 과거(older) + prop 최근 80개. id 중복 제거(경계 안전).
+  const messages = useMemo(() => {
+    if (olderMessages.length === 0) return initialMessages;
+    const seen = new Set(initialMessages.map((m) => m.id));
+    const olderUnique = olderMessages.filter((m) => !seen.has(m.id));
+    return [...olderUnique, ...initialMessages];
+  }, [olderMessages, initialMessages]);
 
   // ── 답글 대상 (R3-2) — 메시지에서 "답글" 클릭 시 Composer 위에 인용 미리보기 ──
   // 대화 전환 시 자동 해제(아래 effect). 미리보기엔 보낸이·본문 스냅샷만 보관.
@@ -345,7 +380,54 @@ export function ChatPane({
     }, 2000);
   }, []);
 
+  // ── 이전 메시지 prepend 시 스크롤 위치 보존 ──
+  // prepend 직전 scrollHeight를 기억 → DOM 갱신 후(useLayoutEffect) 늘어난 높이만큼 scrollTop 보정.
+  // 사용자가 보던 메시지가 같은 화면 위치에 머물러 점프가 없게 한다(무한 위로 로딩의 표준 패턴).
+  const pendingPrependRef = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const el = threadRef.current;
+    if (el && pendingPrependRef.current !== null) {
+      const delta = el.scrollHeight - pendingPrependRef.current;
+      el.scrollTop += delta;
+      pendingPrependRef.current = null;
+    }
+  }, [olderMessages]);
+
+  // 이전 메시지 로드 — GET /api/zalo/messages?before=커서. 받은 older를 앞에 prepend(스크롤 보존).
+  const loadingOlderRef = useRef(false);
+  const loadOlder = useCallback(async () => {
+    if (loadingOlderRef.current || !conversationId || !hasOlder) return;
+    const cursor = oldestCursorRef.current;
+    if (!cursor) return;
+    loadingOlderRef.current = true;
+    setLoadingOlder(true);
+    try {
+      const params = new URLSearchParams({ conversationId, before: cursor });
+      const res = await fetch(`/api/zalo/messages?${params.toString()}`);
+      if (!res.ok) return; // 실패는 조용히 — 다음 스크롤에 재시도
+      const data = (await res.json()) as {
+        messages: ChatMessage[];
+        hasMore: boolean;
+        nextCursor: string | null;
+      };
+      if (data.messages.length > 0) {
+        // prepend 직전 scrollHeight 기억(useLayoutEffect가 보정).
+        const el = threadRef.current;
+        pendingPrependRef.current = el ? el.scrollHeight : null;
+        setOlderMessages((prev) => [...data.messages, ...prev]);
+        oldestCursorRef.current = data.nextCursor ?? cursor;
+      }
+      setHasOlder(data.hasMore);
+    } catch {
+      /* noop — 다음 상단 스크롤에 재시도 */
+    } finally {
+      loadingOlderRef.current = false;
+      setLoadingOlder(false);
+    }
+  }, [conversationId, hasOlder]);
+
   // 스크롤 위치 추적 — 하단 근처면 atBottom, 아니면(과거 열람 중) 자동 스크롤 보류.
+  // 상단 근처(<80px) + hasOlder + 미로딩이면 이전 메시지 점진 로드(prepend).
   const onThreadScroll = useCallback(() => {
     const el = threadRef.current;
     if (!el) return;
@@ -353,7 +435,11 @@ export function ChatPane({
     const near = distance <= NEAR_BOTTOM_PX;
     atBottomRef.current = near;
     if (near) setShowNewMsg(false);
-  }, []);
+    // 상단 근처에 닿으면 이전 메시지 로드(중복 호출은 loadOlder 내부 가드).
+    if (el.scrollTop < NEAR_BOTTOM_PX && hasOlder && !loadingOlderRef.current) {
+      void loadOlder();
+    }
+  }, [hasOlder, loadOlder]);
 
   // Composer 전송 시 호출 — 다음 메시지 반영 때 무조건 하단으로.
   const markJustSent = useCallback(() => {
@@ -366,7 +452,12 @@ export function ChatPane({
     const lastId = last?.id ?? null;
     const count = messages.length;
     const convChanged = prevConvRef.current !== conversationId;
-    const grew = count > prevCountRef.current || (lastId !== null && lastId !== prevLastIdRef.current);
+    // 신규 메시지 판단은 "마지막(최신) 메시지 id 변화"로만 — 이전 메시지 prepend는 count만 늘고
+    // lastId는 그대로라 grew=false(스크롤 보존은 useLayoutEffect 담당, 자동 스크롤·새메시지 버튼 미발동).
+    // 직전이 빈 목록(lastId=null)이었다가 채워진 경우(초기 로드)도 새 메시지로 간주.
+    const grew =
+      (lastId !== null && lastId !== prevLastIdRef.current) ||
+      (prevLastIdRef.current === null && count > 0);
 
     if (convChanged) {
       // 대화를 새로 열면 항상 최하단으로(읽기 시작점).
@@ -466,6 +557,13 @@ export function ChatPane({
             // 좌우 스와이프(뒤로가기)는 JS(onTouchEnd)라 touch-action 무관하게 그대로 동작.
             className="absolute inset-0 overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y custom-scrollbar px-3 lg:px-6 py-6 space-y-5"
           >
+            {/* 이전 메시지 로딩 표시 — 상단 스크롤로 점진 로드 중일 때만(스크롤 보존됨). */}
+            {loadingOlder && (
+              <div className="flex items-center justify-center gap-2 pb-1 text-[11px] text-slate-500">
+                <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                {t("loadingOlder")}
+              </div>
+            )}
             {messages.length === 0 ? (
               <p className="text-center text-xs text-slate-500 pt-8">{t("noMessages")}</p>
             ) : (
