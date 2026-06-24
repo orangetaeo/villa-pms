@@ -10,6 +10,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import ResponsiveTable, { type ResponsiveColumn } from "@/components/admin/responsive-table";
+import PaginationBar from "@/components/pagination-bar";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { formatThousands, formatVnd } from "@/lib/format";
 import { quickRangeWhere } from "@/lib/date-vn";
 import QuickDateFilter from "@/components/admin/quick-date-filter";
@@ -162,6 +164,15 @@ export default function ProposalsList() {
     if (tab === "all") return dateScoped;
     return dateScoped.filter((p) => p.effectiveStatus === TAB_STATUS[tab]);
   }, [dateScoped, tab]);
+
+  // 클라 페이지네이션 — 탭/날짜 필터 바뀌면 1페이지로. (전체 로드 후 메모리 슬라이스)
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  useEffect(() => setPage(1), [tab, range]);
+  const paged = useMemo(
+    () => filtered.slice((page - 1) * pageSize, page * pageSize),
+    [filtered, page, pageSize]
+  );
 
   /** 공개 링크 클립보드 복사 + "복사됨" 피드백 */
   const copyLink = async (p: ProposalRow) => {
@@ -447,9 +458,10 @@ export default function ProposalsList() {
           </button>
         </div>
       ) : (
+        <>
         <ResponsiveTable
           columns={columns}
-          rows={filtered}
+          rows={paged}
           rowKey={(p) => p.id}
           emptyMessage={t("empty")}
           rowClassName={(p) => (p.effectiveStatus === "EXPIRED" ? "opacity-60" : undefined)}
@@ -480,6 +492,17 @@ export default function ProposalsList() {
             </div>
           )}
         />
+        <PaginationBar
+          total={filtered.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={(s) => {
+            setPageSize(s);
+            setPage(1);
+          }}
+        />
+        </>
       )}
     </div>
   );

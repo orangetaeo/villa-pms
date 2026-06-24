@@ -7,13 +7,14 @@ import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import type { Prisma, VillaStatus } from "@prisma/client";
 import VillasFilters from "./villas-filters";
+import PaginationBar from "@/components/pagination-bar";
+import { parsePageParams } from "@/lib/pagination";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
   return { title: `${t("villas")} — Villa PMS` };
 }
 
-const PAGE_SIZE = 12;
 
 // 탭 키 ↔ Villa.status 매핑 (DRAFT는 등록 미완료 — 운영자 목록에서 제외)
 const TAB_STATUS: Record<string, VillaStatus | undefined> = {
@@ -33,7 +34,7 @@ const STATUS_BADGE_CLASS: Record<string, string> = {
 export default async function VillasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; page?: string; area?: string; q?: string }>;
+  searchParams: Promise<{ status?: string; page?: string; pageSize?: string; area?: string; q?: string }>;
 }) {
   const t = await getTranslations("adminVillas.list");
   const params = await searchParams;
@@ -41,7 +42,7 @@ export default async function VillasPage({
   const statusFilter = TAB_STATUS[tab];
   const area = params.area?.trim() || undefined;
   const q = params.q?.trim() || undefined;
-  const page = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
+  const { page, pageSize, skip, take } = parsePageParams(params);
 
   // 검색 조건 — 지역(단지명 complex 정확 일치) + 텍스트(빌라명·단지·주소·공급자명).
   // 상태와 분리해 두어 탭 카운트도 검색 범위 안에서 집계한다.
@@ -67,8 +68,8 @@ export default async function VillasPage({
     prisma.villa.findMany({
       where,
       orderBy: { createdAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
+      skip,
+      take,
       select: {
         id: true,
         name: true,
@@ -116,22 +117,16 @@ export default async function VillasPage({
     inactive: countOf("INACTIVE"),
   };
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
-  const to = Math.min(page * PAGE_SIZE, total);
-
-  // 탭·페이지 링크는 검색(area·q) 조건을 보존한다
-  const buildHref = (next: { status?: string; page?: number }) => {
+  // 탭 링크는 검색(area·q) + 페이지당 개수(pageSize)를 보존한다 (페이지 번호는 1로 리셋)
+  const tabHref = (key: string) => {
     const sp = new URLSearchParams();
-    if (next.status && next.status !== "all") sp.set("status", next.status);
+    if (key !== "all") sp.set("status", key);
     if (area) sp.set("area", area);
     if (q) sp.set("q", q);
-    if (next.page && next.page > 1) sp.set("page", String(next.page));
+    if (params.pageSize) sp.set("pageSize", params.pageSize);
     const qs = sp.toString();
     return qs ? `/villas?${qs}` : "/villas";
   };
-  const tabHref = (key: string) => buildHref({ status: key });
-  const pageHref = (p: number) => buildHref({ status: tab, page: p });
 
   const tabs = [
     { key: "all", label: t("tabs.all") },
@@ -306,45 +301,8 @@ export default async function VillasPage({
         </div>
       )}
 
-      {/* 페이지네이션 (b9) */}
-      {total > 0 && (
-        <div className="mt-12 flex flex-col sm:flex-row items-center gap-4 justify-between">
-          <span className="text-sm text-admin-muted">
-            {t("count", { total, from, to })}
-          </span>
-          {totalPages > 1 && (
-            <div className="flex items-center gap-1">
-              <Link
-                href={pageHref(Math.max(1, page - 1))}
-                aria-label={t("prevPage")}
-                className="w-8 h-8 flex items-center justify-center rounded bg-admin-card text-admin-muted hover:text-white transition-colors"
-              >
-                <span className="material-symbols-outlined text-sm">chevron_left</span>
-              </Link>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                <Link
-                  key={p}
-                  href={pageHref(p)}
-                  className={
-                    p === page
-                      ? "w-8 h-8 flex items-center justify-center rounded bg-admin-primary text-white font-bold text-xs"
-                      : "w-8 h-8 flex items-center justify-center rounded bg-admin-card text-admin-muted hover:text-white font-bold text-xs"
-                  }
-                >
-                  {p}
-                </Link>
-              ))}
-              <Link
-                href={pageHref(Math.min(totalPages, page + 1))}
-                aria-label={t("nextPage")}
-                className="w-8 h-8 flex items-center justify-center rounded bg-admin-card text-admin-muted hover:text-white transition-colors"
-              >
-                <span className="material-symbols-outlined text-sm">chevron_right</span>
-              </Link>
-            </div>
-          )}
-        </div>
-      )}
+      {/* 페이지네이션 — 행 수 요약 + 페이지당 개수(10/20/30/50/100) + 숫자 페이지 */}
+      <PaginationBar total={total} page={page} pageSize={pageSize} />
     </div>
   );
 }

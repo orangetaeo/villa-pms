@@ -1829,6 +1829,12 @@
     "villaDetail": "빌라 상세",
     "availability": "공실 보드"
   },
+  "pagination": {
+    "summary": "{from}–{to} · 총 {total}건",
+    "perPage": "페이지당",
+    "prev": "이전",
+    "next": "다음"
+  },
   "availabilityBoard": {
     "collapseList": "빌라 목록 접기",
     "expandList": "빌라 목록 펴기",

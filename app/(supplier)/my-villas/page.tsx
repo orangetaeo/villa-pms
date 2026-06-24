@@ -10,6 +10,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import type { Villa } from "@prisma/client";
+import PaginationBar from "@/components/pagination-bar";
+import { parsePageParams } from "@/lib/pagination";
 
 export const metadata: Metadata = {
   title: "Villa của tôi",
@@ -37,7 +39,7 @@ const BADGE_CLASS: Record<BadgeKind, string> = {
 export default async function MyVillasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ created?: string }>;
+  searchParams: Promise<{ created?: string; page?: string; pageSize?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -45,7 +47,9 @@ export default async function MyVillasPage({
 
   const locale = await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "myVillas" });
-  const { created } = await searchParams;
+  const params = await searchParams;
+  const { created } = params;
+  const { page, pageSize, skip, take } = parsePageParams(params);
 
   // supplierId 스코프 — 자기 빌라만. 대표 사진(첫 isBaseline) 1장 + 상태 필드만 select (요율 미조회)
   const villas = await prisma.villa.findMany({
@@ -67,6 +71,9 @@ export default async function MyVillasPage({
       },
     },
   });
+  // 페이지네이션 — 자기 빌라 수는 적어 take:200 캡 내에서 메모리 슬라이스로 충분
+  const totalVillas = villas.length;
+  const pagedVillas = villas.slice(skip, skip + take);
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pt-6 pb-28">
@@ -94,7 +101,7 @@ export default async function MyVillasPage({
         </div>
       ) : (
         <div className="space-y-6">
-          {villas.map((villa) => {
+          {pagedVillas.map((villa) => {
             const badge = resolveBadge(villa.status, villa.isSellable);
             const thumb = villa.photos[0]?.url;
             return (
@@ -175,6 +182,9 @@ export default async function MyVillasPage({
           })}
         </div>
       )}
+
+      {/* 페이지네이션 — 행 수 요약 + 페이지당 개수(라이트) */}
+      <PaginationBar total={totalVillas} page={page} pageSize={pageSize} light />
 
       {/* 마법사 진입 FAB — a6 디자인 톤 (teal 플로팅). 탭바 위로 띄움 */}
       <Link

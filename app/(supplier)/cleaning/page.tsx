@@ -10,6 +10,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import type { CleaningStatus, Prisma } from "@prisma/client";
+import PaginationBar from "@/components/pagination-bar";
+import { parsePageParams } from "@/lib/pagination";
 
 // a8 상태 배지 4종: Chờ dọn(주황) / Đã gửi(파랑) / Đã duyệt(초록) / Bị từ chối(빨강 외곽선)
 const STATUS_BADGE: Record<CleaningStatus, string> = {
@@ -43,7 +45,7 @@ export const metadata: Metadata = {
 export default async function CleaningListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ submitted?: string }>;
+  searchParams: Promise<{ submitted?: string; page?: string; pageSize?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -52,7 +54,9 @@ export default async function CleaningListPage({
 
   const locale = await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "cleaning" });
-  const { submitted } = await searchParams;
+  const params = await searchParams;
+  const { submitted } = params;
+  const { page, pageSize, skip, take } = parsePageParams(params);
 
   const scope: Prisma.CleaningTaskWhereInput =
     role === "SUPPLIER" ? { villa: { supplierId: userId } } : { assigneeId: userId };
@@ -86,6 +90,9 @@ export default async function CleaningListPage({
   const sorted = [...tasks].sort(
     (a, b) => STATUS_RANK[a.status] - STATUS_RANK[b.status]
   );
+  // 페이지네이션 — 미결 우선 정렬을 보존하기 위해 정렬 후 메모리 슬라이스(take:200 캡 내)
+  const totalTasks = sorted.length;
+  const pagedTasks = sorted.slice(skip, skip + take);
 
   const todayLabel = new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "vi-VN", {
     day: "numeric",
@@ -132,7 +139,7 @@ export default async function CleaningListPage({
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {sorted.map((task) => {
+            {pagedTasks.map((task) => {
               const refDate = task.booking?.checkOut ?? task.dueDate ?? task.createdAt;
               const isTimestamp = !task.booking?.checkOut && !task.dueDate;
               const thumb = task.villa.photos[0]?.url;
@@ -186,6 +193,9 @@ export default async function CleaningListPage({
             })}
           </div>
         )}
+
+        {/* 페이지네이션 — 행 수 요약 + 페이지당 개수(라이트) */}
+        <PaginationBar total={totalTasks} page={page} pageSize={pageSize} light />
       </main>
     </>
   );

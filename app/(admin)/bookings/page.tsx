@@ -18,13 +18,14 @@ import {
 import ResponsiveTable, { type ResponsiveColumn } from "@/components/admin/responsive-table";
 import QuickDateFilter from "@/components/admin/quick-date-filter";
 import FiltersBar from "./filters-bar";
+import PaginationBar from "@/components/pagination-bar";
+import { parsePageParams } from "@/lib/pagination";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
   return { title: `${t("bookings")} — Villa PMS` };
 }
 
-const PAGE_SIZE = 20; // 계약 고정 (QA 권고)
 
 // 탭 키 ↔ 상태 매핑. closed = 종결 3종 (b5 "취소/만료" 탭)
 const TAB_STATUSES: Record<string, BookingStatus[] | undefined> = {
@@ -101,6 +102,7 @@ export default async function BookingsPage({
     channel?: string;
     q?: string;
     page?: string;
+    pageSize?: string;
     filter?: string;
   }>;
 }) {
@@ -126,7 +128,7 @@ export default async function BookingsPage({
     params.filter === "today-checkin" || params.filter === "today-checkout"
       ? params.filter
       : undefined;
-  const page = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
+  const { page, pageSize, skip, take } = parsePageParams(params);
 
   // 빠른 날짜 필터(range): 활성 시 checkIn 기준으로 월 겹침 조건을 대체.
   // undefined → 비활성('전체' 또는 월 로직 유지). preset이 있으면 무시(아래 분기에서 미사용).
@@ -169,8 +171,8 @@ export default async function BookingsPage({
       prisma.booking.findMany({
         where,
         orderBy: { checkIn: "asc" }, // 체크인 임박순 (SPEC F7)
-        skip: (page - 1) * PAGE_SIZE,
-        take: PAGE_SIZE,
+        skip,
+        take,
         select: {
           id: true,
           status: true,
@@ -223,7 +225,6 @@ export default async function BookingsPage({
     monthRange.end
   );
   const monthLabel = monthRange.start.getUTCMonth() + 1;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   // 지역(area) 옵션 = 운영 대상 빌라의 단지명(complex) distinct, complex asc 정렬됨
   const areaOptions = Array.from(
@@ -239,14 +240,9 @@ export default async function BookingsPage({
     if (params.villa) next.set("villa", params.villa);
     if (params.channel) next.set("channel", params.channel);
     if (params.q) next.set("q", params.q);
+    if (params.pageSize) next.set("pageSize", params.pageSize);
     const qs = next.toString();
     return qs ? `/bookings?${qs}` : "/bookings";
-  };
-  const pageHref = (p: number) => {
-    const next = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) if (v) next.set(k, v);
-    next.set("page", String(p));
-    return `/bookings?${next.toString()}`;
   };
 
   type Row = (typeof rows)[number];
@@ -465,45 +461,8 @@ export default async function BookingsPage({
         )}
       />
 
-      {/* 푸터 페이지네이션 (b5) */}
-      {total > 0 && (
-        <div className="bg-slate-900/50 rounded-xl border border-slate-800 px-6 py-4 flex items-center justify-between">
-          <p className="text-xs text-slate-500 whitespace-nowrap">
-            {t("list.count", {
-              total,
-              from: (page - 1) * PAGE_SIZE + 1,
-              to: Math.min(page * PAGE_SIZE, total),
-            })}
-          </p>
-          <div className="flex items-center gap-1">
-            <Link
-              aria-label={t("list.prevPage")}
-              aria-disabled={page <= 1}
-              href={page > 1 ? pageHref(page - 1) : "#"}
-              className={`w-8 h-8 flex items-center justify-center rounded-md border border-slate-700 transition-all ${
-                page > 1 ? "text-slate-300 hover:text-white hover:bg-slate-800" : "text-slate-600 pointer-events-none"
-              }`}
-            >
-              <span className="material-symbols-outlined text-sm">chevron_left</span>
-            </Link>
-            <div className="px-4 py-1 text-xs font-bold text-slate-300 whitespace-nowrap">
-              {page} / {totalPages}
-            </div>
-            <Link
-              aria-label={t("list.nextPage")}
-              aria-disabled={page >= totalPages}
-              href={page < totalPages ? pageHref(page + 1) : "#"}
-              className={`w-8 h-8 flex items-center justify-center rounded-md border border-slate-700 transition-all ${
-                page < totalPages
-                  ? "text-slate-300 hover:text-white hover:bg-slate-800"
-                  : "text-slate-600 pointer-events-none"
-              }`}
-            >
-              <span className="material-symbols-outlined text-sm">chevron_right</span>
-            </Link>
-          </div>
-        </div>
-      )}
+      {/* 페이지네이션 — 행 수 요약 + 페이지당 개수(10/20/30/50/100) + 숫자 페이지 */}
+      <PaginationBar total={total} page={page} pageSize={pageSize} />
 
       {/* 스탯 미니그리드 (b5) — 금일 3종은 전역(오늘 VN 기준), 가동률만 선택 월 (계약 명시) */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

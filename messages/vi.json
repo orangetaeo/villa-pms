@@ -54,6 +54,12 @@
       "generic": "Xử lý thất bại. Vui lòng thử lại."
     }
   },
+  "pagination": {
+    "summary": "{from}–{to} · Tổng {total}",
+    "perPage": "Mỗi trang",
+    "prev": "Trước",
+    "next": "Sau"
+  },
   "availabilityBoard": {
     "collapseList": "Thu gọn danh sách villa",
     "expandList": "Mở rộng danh sách villa",

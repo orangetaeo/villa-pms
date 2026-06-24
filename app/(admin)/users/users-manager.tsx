@@ -3,11 +3,13 @@
 // 사용자 관리 (T1.8 — Stitch b13-users 변환)
 // 목록은 RSC props, 활성 토글·Zalo 수동 매칭은 PATCH /api/users/[id] → router.refresh()
 // <768px는 ResponsiveTable 카드 전환 (T6.7 패턴)
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { Role } from "@/lib/permissions";
 import ResponsiveTable, { type ResponsiveColumn } from "@/components/admin/responsive-table";
+import PaginationBar from "@/components/pagination-bar";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 // 부여 가능 역할 — OWNER·ADMIN 제외(권한상승 표면 차단, 계약 A1/A2)
 const ASSIGNABLE_ROLES = ["MANAGER", "STAFF", "SUPPLIER", "CLEANER"] as const;
@@ -112,6 +114,15 @@ export default function UsersManager({
       return u.name.toLowerCase().includes(q) || (u.phone ?? "").toLowerCase().includes(q);
     });
   }, [users, tab, query]);
+
+  // 클라 페이지네이션 — 검색/탭 변경 시 1페이지로 (전체 props 로드 후 메모리 슬라이스)
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  useEffect(() => setPage(1), [tab, query]);
+  const paged = useMemo(
+    () => filtered.slice((page - 1) * pageSize, page * pageSize),
+    [filtered, page, pageSize]
+  );
 
   /** PATCH 공통 — 409=Zalo 중복, 400(DEACTIVATE)=본인 비활성화 */
   const patchUser = async (
@@ -596,7 +607,7 @@ export default function UsersManager({
       {/* 사용자 테이블 (b13) — <768px 카드 전환 (T6.7) */}
       <ResponsiveTable
         columns={columns}
-        rows={filtered}
+        rows={paged}
         rowKey={(u) => u.id}
         emptyMessage={t("empty")}
         rowClassName={(u) => (u.isActive ? undefined : "bg-slate-900/40")}
@@ -620,6 +631,18 @@ export default function UsersManager({
             </div>
           </div>
         )}
+      />
+
+      {/* 페이지네이션 — 행 수 요약 + 페이지당 개수(10/20/30/50/100) */}
+      <PaginationBar
+        total={filtered.length}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => {
+          setPageSize(s);
+          setPage(1);
+        }}
       />
 
       {/* 계정 생성 모달 (B2) */}
