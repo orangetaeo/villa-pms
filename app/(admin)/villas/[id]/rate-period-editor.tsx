@@ -286,14 +286,14 @@ function RateFieldsRow({
   tr: ReturnType<typeof useTranslations>;
 }) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
       {/* season */}
       <Field label={tr("colSeason")}>
         <select
           value={fields.season}
           onChange={(e) => onPatch({ season: e.target.value as Season })}
           aria-label={tr("colSeason")}
-          className={`w-full h-9 rounded border border-slate-700 px-2 text-xs font-bold ${SEASON_BADGE[fields.season]}`}
+          className={`w-full h-10 rounded border border-slate-700 px-3 text-xs font-bold ${SEASON_BADGE[fields.season]}`}
         >
           {SEASONS.map((s) => (
             <option key={s} value={s} className="bg-slate-900 text-slate-100">
@@ -313,20 +313,20 @@ function RateFieldsRow({
       </Field>
       {/* 마진 */}
       <Field label={tr("colMargin")}>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           <input
             type="text"
             inputMode="numeric"
             value={fields.marginValue}
             onChange={(e) => onPatch({ marginValue: toDigits(e.target.value) }, true)}
             aria-label={tr("colMargin")}
-            className="w-12 h-9 bg-slate-900 border border-slate-700 rounded px-1.5 text-center text-xs text-slate-100 tabular-nums"
+            className="flex-1 min-w-0 h-10 bg-slate-900 border border-slate-700 rounded px-3 text-center text-xs text-slate-100 tabular-nums"
           />
           <select
             value={fields.marginType}
             onChange={(e) => onPatch({ marginType: e.target.value as MarginType }, true)}
             aria-label={tr("colMargin")}
-            className="h-9 bg-slate-900 border border-slate-700 rounded px-1 text-[11px] text-slate-100"
+            className="h-10 shrink-0 bg-slate-900 border border-slate-700 rounded px-2 text-[11px] text-slate-100"
           >
             <option value="PERCENT">{tr("percent")}</option>
             <option value="FIXED_VND">{tr("fixed")}</option>
@@ -356,7 +356,7 @@ function RateFieldsRow({
             onPatch({ salePriceKrw: d ? Number.parseInt(d, 10) : 0 });
           }}
           aria-label={tr("colSaleKrw")}
-          className="w-full h-9 bg-slate-900 border border-slate-700 rounded px-2 text-right text-xs font-bold text-slate-100 tabular-nums"
+          className="w-full h-10 bg-slate-900 border border-slate-700 rounded px-3 text-right text-xs font-bold text-slate-100 tabular-nums"
         />
       </Field>
     </div>
@@ -366,7 +366,7 @@ function RateFieldsRow({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider whitespace-nowrap">
+      <label className="block text-[10px] font-bold text-slate-500 mb-2 uppercase tracking-wider whitespace-nowrap">
         {label}
       </label>
       {children}
@@ -386,7 +386,7 @@ function NumInput({
   ariaLabel: string;
 }) {
   return (
-    <div className="flex items-center bg-slate-900 border border-slate-700 rounded h-9 px-2 focus-within:ring-1 focus-within:ring-blue-500">
+    <div className="flex items-center bg-slate-900 border border-slate-700 rounded h-10 px-3 focus-within:ring-1 focus-within:ring-blue-500">
       <input
         type="text"
         inputMode="numeric"

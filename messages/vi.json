@@ -606,6 +606,8 @@
         "overview": "Chi tiết",
         "sales": "Thông tin bán"
       },
+      "expandAll": "Mở tất cả",
+      "collapseAll": "Thu gọn tất cả",
       "save": "Lưu thông tin bán",
       "saving": "Đang lưu…",
       "saved": "Đã lưu",

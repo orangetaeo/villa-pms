@@ -532,6 +532,8 @@
         "overview": "상세",
         "sales": "판매정보"
       },
+      "expandAll": "모두 펼치기",
+      "collapseAll": "모두 접기",
       "save": "판매정보 저장",
       "saving": "저장 중…",
       "saved": "저장되었습니다",
