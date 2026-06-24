@@ -4,7 +4,7 @@
 // 임의 디자인 금지 규칙 준수: users-manager 모달(admin)·my-villas 카드(supplier)의
 // 기존 스타일 토큰을 variant로 재사용. 로직(현재 비번 검증·교체)은 양쪽 동일.
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { useTranslations } from "next-intl";
 
 type Variant = "admin" | "supplier";
@@ -35,7 +35,6 @@ const THEME: Record<
 
 export default function ChangePasswordForm({ variant }: { variant: Variant }) {
   const t = useTranslations("account");
-  const router = useRouter();
   const theme = THEME[variant];
 
   const [current, setCurrent] = useState("");
@@ -83,8 +82,9 @@ export default function ChangePasswordForm({ variant }: { variant: Variant }) {
       setCurrent("");
       setNext("");
       setConfirm("");
-      // 세션은 그대로 유효 — 화면 갱신만
-      router.refresh();
+      // 변경 후 재로그인 — 강제변경 플래그가 담긴 JWT를 새 값으로 갱신(보안상 권장).
+      // 강제변경 사용자는 이걸로 게이트가 풀리고, 자발적 변경자도 새 비번으로 재인증.
+      await signOut({ redirectTo: "/login" });
     } catch {
       setMessage({ tone: "error", text: t("errors.generic") });
     } finally {

@@ -43,6 +43,8 @@ model User {
   zaloUserId   String?  @unique // Zalo OA 알림 수신용
   locale       String   @default("vi") // vi | ko
   isActive     Boolean  @default(true)
+  // 임시 비밀번호(OWNER 초기화·계정생성) 발급 시 true → 본인이 변경 전까지 다른 화면 차단
+  mustChangePassword Boolean @default(false)
   createdAt    DateTime @default(now())
 
   villas        Villa[]        @relation("SupplierVillas")

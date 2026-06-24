@@ -128,7 +128,8 @@ export async function PATCH(
     if (input.action === "RESET_PASSWORD") {
       const updated = await tx.user.update({
         where: { id },
-        data: { passwordHash: tempPasswordHash! },
+        // 임시 비번 발급 → 사용자가 직접 변경 전까지 다른 화면 차단(mustChangePassword)
+        data: { passwordHash: tempPasswordHash!, mustChangePassword: true },
         select: { id: true, isActive: true, zaloUserId: true },
       });
       // 감사 로그 — 초기화 사실만 기록(평문·해시 절대 미기록, leak-checklist)

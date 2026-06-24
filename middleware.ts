@@ -58,6 +58,20 @@ export default auth((req) => {
   const session = req.auth;
   const role = session?.user?.role as Role | undefined;
 
+  // 비밀번호 강제 변경 게이트 — 임시 비번(초기화·계정생성) 사용자는 본인이 변경 전까지
+  // 변경 화면(운영자 /account · 공급자 /profile)·변경 API·언어 API만 허용, 그 외는 차단.
+  // (기존 세션엔 플래그 부재(undefined→통과) → 락아웃 없음. 변경 후 재로그인으로 해제)
+  if (session?.user?.mustChangePassword) {
+    const changePath = isOperator(role) ? "/account" : "/profile";
+    const allowed =
+      pathname === changePath ||
+      pathname.startsWith("/api/account/password") ||
+      pathname.startsWith("/api/locale");
+    if (!allowed) {
+      return NextResponse.redirect(new URL(changePath, req.url));
+    }
+  }
+
   const isOperatorProtected = matchesPath(pathname, OPERATOR_PROTECTED_PATHS);
   const isSharedOperatorPath = matchesPath(pathname, SHARED_OPERATOR_PATHS);
   const isSupplierCleanerPath = matchesPath(pathname, SUPPLIER_CLEANER_PATHS);

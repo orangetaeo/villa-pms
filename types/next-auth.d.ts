@@ -8,6 +8,7 @@ declare module "next-auth" {
   interface User {
     role: UserRole;
     locale: string;
+    mustChangePassword?: boolean;
   }
 
   interface Session {
@@ -15,6 +16,7 @@ declare module "next-auth" {
       id: string;
       role: UserRole;
       locale: string;
+      mustChangePassword?: boolean;
     } & DefaultSession["user"];
   }
 }
@@ -24,5 +26,6 @@ declare module "@auth/core/jwt" {
     id: string;
     role: UserRole;
     locale: string;
+    mustChangePassword?: boolean;
   }
 }

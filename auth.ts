@@ -37,6 +37,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             locale: true,
             passwordHash: true,
             isActive: true,
+            mustChangePassword: true,
           },
         });
         if (!user?.passwordHash || !user.isActive) return null;
@@ -50,7 +51,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // IP 카운터는 의도적으로 유지: 한 번 유효 로그인으로 IP 한도를 초기화해
         // 스터핑을 재개하는 우회를 막는다 (QA 권고).
         resetRateLimit(`login:phone:${phone}`);
-        return { id: user.id, name: user.name, role: user.role, locale: user.locale };
+        return {
+          id: user.id,
+          name: user.name,
+          role: user.role,
+          locale: user.locale,
+          mustChangePassword: user.mustChangePassword,
+        };
       },
     }),
   ],
@@ -60,6 +67,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.id = user.id as string;
         token.role = user.role;
         token.locale = user.locale;
+        token.mustChangePassword = user.mustChangePassword;
       }
       return token;
     },
@@ -67,6 +75,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       session.user.id = token.id;
       session.user.role = token.role;
       session.user.locale = token.locale;
+      session.user.mustChangePassword = token.mustChangePassword;
       return session;
     },
   },

@@ -141,6 +141,8 @@ export async function POST(req: Request) {
       role,
       locale,
       isActive: true,
+      // OWNER가 정한 초기 비번 → 사용자가 첫 로그인 후 직접 변경하도록 강제
+      mustChangePassword: true,
     },
     // 응답 select 화이트리스트 — passwordHash 절대 제외 (계약 A1)
     select: {
