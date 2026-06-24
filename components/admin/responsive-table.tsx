@@ -24,8 +24,14 @@ interface ResponsiveTableProps<T> {
   columns: ResponsiveColumn<T>[];
   rows: T[];
   rowKey: (row: T) => string;
-  /** 모바일 카드 상단 커스텀 영역 (사진·제목 등) */
+  /** 모바일 카드 상단 커스텀 영역 (사진·제목 등) — 비접이식 카드에서 사용 */
   cardHeader?: (row: T) => ReactNode;
+  /**
+   * 모바일 카드 접힘 요약(2줄). 제공 시 카드가 아코디언(<details>)으로 전환:
+   * 접힘=이 요약만, 탭하면 hideOnCard가 아닌 나머지 컬럼이 펼쳐짐.
+   * (훅 미사용 — 네이티브 <details>로 RSC 호환 유지, 모바일 빈 공간/세로길이 해결)
+   */
+  cardSummary?: (row: T) => ReactNode;
   emptyMessage?: ReactNode;
   /** 행 추가 클래스 (비활성 행 배경 등 — 데스크톱 tr·모바일 카드 공통, T1.8 b13) */
   rowClassName?: (row: T) => string | undefined;
@@ -36,6 +42,7 @@ export default function ResponsiveTable<T>({
   rows,
   rowKey,
   cardHeader,
+  cardSummary,
   emptyMessage,
   rowClassName,
 }: ResponsiveTableProps<T>) {
@@ -83,15 +90,49 @@ export default function ResponsiveTable<T>({
 
       {/* 모바일(<768px): 카드 스택 */}
       <div className="md:hidden flex flex-col gap-3">
-        {rows.map((row) => (
-          <div
-            key={rowKey(row)}
-            className={`bg-admin-card rounded-xl border border-slate-800 p-4 flex flex-col gap-2 ${rowClassName?.(row) ?? ""}`}
-          >
-            {cardHeader?.(row)}
-            {columns
-              .filter((col) => !col.hideOnCard)
-              .map((col) => (
+        {rows.map((row) => {
+          const cardRows = columns.filter((col) => !col.hideOnCard);
+
+          // 아코디언 모드 — cardSummary 제공 시 접힘/펼침 (네이티브 <details>, JS 불필요)
+          if (cardSummary) {
+            return (
+              <details
+                key={rowKey(row)}
+                className={`group bg-admin-card rounded-xl border border-slate-800 overflow-hidden ${rowClassName?.(row) ?? ""}`}
+              >
+                <summary className="list-none cursor-pointer select-none p-4 flex items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
+                  <div className="min-w-0 flex-1">{cardSummary(row)}</div>
+                  <span
+                    className="material-symbols-outlined shrink-0 text-slate-500 text-xl transition-transform group-open:rotate-180"
+                    aria-hidden
+                  >
+                    expand_more
+                  </span>
+                </summary>
+                {cardRows.length > 0 && (
+                  <div className="px-4 pb-4 pt-3 flex flex-col gap-2 border-t border-slate-800/60">
+                    {cardRows.map((col) => (
+                      <div key={col.key} className="flex items-start justify-between gap-3 text-sm">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase shrink-0 pt-0.5">
+                          {col.header}
+                        </span>
+                        <span className="text-slate-200 text-right min-w-0">{col.cell(row)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </details>
+            );
+          }
+
+          // 기존 비접이식 카드 (cardHeader 전용 소비처 호환)
+          return (
+            <div
+              key={rowKey(row)}
+              className={`bg-admin-card rounded-xl border border-slate-800 p-4 flex flex-col gap-2 ${rowClassName?.(row) ?? ""}`}
+            >
+              {cardHeader?.(row)}
+              {cardRows.map((col) => (
                 <div key={col.key} className="flex items-center justify-between gap-3 text-sm">
                   <span className="text-[11px] font-bold text-slate-500 uppercase shrink-0">
                     {col.header}
@@ -99,8 +140,9 @@ export default function ResponsiveTable<T>({
                   <span className="text-slate-200 text-right min-w-0">{col.cell(row)}</span>
                 </div>
               ))}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </>
   );

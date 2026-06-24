@@ -274,11 +274,13 @@ export default async function BookingsPage({
           {b.villa.name}
         </Link>
       ),
+      hideOnCard: true, // 모바일은 cardSummary로 표시
     },
     {
       key: "guest",
       header: t("list.columns.guest"),
       cell: (b) => <span className="text-sm text-slate-300 whitespace-nowrap">{b.guestName}</span>,
+      hideOnCard: true, // 모바일은 cardSummary로 표시
     },
     {
       key: "channel",
@@ -313,6 +315,7 @@ export default async function BookingsPage({
       headerClassName: "text-center",
       className: "text-center",
       cell: (b) => <span className="text-sm text-slate-400 tabular-nums">{b.nights}</span>,
+      hideOnCard: true, // 모바일은 cardSummary로 표시
     },
     // 판매가 컬럼 — 재무 권한자만 (STAFF 미표시)
     ...(showFinance
@@ -327,6 +330,7 @@ export default async function BookingsPage({
                 {amountCell(b)}
               </span>
             ),
+            hideOnCard: true, // 모바일은 cardSummary로 표시
           },
         ]
       : []),
@@ -336,6 +340,7 @@ export default async function BookingsPage({
       headerClassName: "text-center",
       className: "text-center",
       cell: statusBadge,
+      hideOnCard: true, // 모바일은 cardSummary로 표시
     },
   ];
 
@@ -410,6 +415,24 @@ export default async function BookingsPage({
           b.status === BookingStatus.EXPIRED ? "relative opacity-60" : "relative"
         }
         emptyMessage={t("list.empty")}
+        cardSummary={(b) => (
+          <div className="flex flex-col gap-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <Link
+                href={`/bookings/${b.id}`}
+                className="text-sm font-semibold text-slate-200 truncate hover:text-white"
+              >
+                {b.villa.name}
+              </Link>
+              {statusBadge(b)}
+            </div>
+            <span className="text-sm text-slate-300 truncate">{b.guestName}</span>
+            <span className="text-xs text-slate-400 tabular-nums">
+              {fmtDate(b.checkIn)} → {fmtDate(b.checkOut)} · {t("list.card.nights", { n: b.nights })}
+              {showFinance ? ` · ${amountCell(b)}` : ""}
+            </span>
+          </div>
+        )}
       />
 
       {/* 푸터 페이지네이션 (b5) */}

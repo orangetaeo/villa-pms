@@ -285,6 +285,7 @@ export default function ProposalsList() {
           ))}
         </div>
       ),
+      hideOnCard: true, // 모바일은 cardSummary로 표시
     },
     {
       key: "dates",
@@ -298,6 +299,7 @@ export default function ProposalsList() {
           {stayRangeLabel(p.items)}
         </span>
       ),
+      hideOnCard: true, // 모바일은 cardSummary로 표시
     },
     {
       key: "channel",
@@ -336,11 +338,13 @@ export default function ProposalsList() {
           {amountLabel(p)}
         </span>
       ),
+      hideOnCard: true, // 모바일은 cardSummary로 표시
     },
     {
       key: "status",
       header: t("columns.status"),
       cell: statusBadge,
+      hideOnCard: true, // 모바일은 cardSummary로 표시
     },
     {
       key: "actions",
@@ -449,10 +453,30 @@ export default function ProposalsList() {
           rowKey={(p) => p.id}
           emptyMessage={t("empty")}
           rowClassName={(p) => (p.effectiveStatus === "EXPIRED" ? "opacity-60" : undefined)}
-          cardHeader={(p) => (
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800 gap-2">
-              <span className="font-bold text-white text-sm truncate">{p.clientName}</span>
-              {statusBadge(p)}
+          cardSummary={(p) => (
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold text-white text-sm truncate">{p.clientName}</span>
+                {statusBadge(p)}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {p.items.map((item) => (
+                  <span
+                    key={item.id}
+                    className="px-2 py-0.5 bg-slate-800 text-admin-muted text-[10px] rounded border border-slate-700"
+                  >
+                    {item.villa.name}
+                  </span>
+                ))}
+              </div>
+              <span
+                className={`text-xs tabular-nums ${
+                  p.effectiveStatus === "EXPIRED" ? "text-slate-500 line-through" : "text-slate-300"
+                }`}
+              >
+                {stayRangeLabel(p.items)}
+                {amountLabel(p) ? ` · ${amountLabel(p)}` : ""}
+              </span>
             </div>
           )}
         />

@@ -251,7 +251,10 @@
       "empty": "Không có đặt phòng nào.",
       "count": "Hiển thị {from}-{to} trong tổng số {total} đặt phòng",
       "prevPage": "Trang trước",
-      "nextPage": "Trang sau"
+      "nextPage": "Trang sau",
+      "card": {
+        "nights": "{n} đêm"
+      }
     },
     "status": {
       "HOLD": "Giữ chỗ",
@@ -1366,6 +1369,7 @@
       },
       "empty": "Không có việc dọn dẹp nào.",
       "selectPrompt": "Chọn một việc từ danh sách bên trái.",
+      "backToList": "Quay lại danh sách",
       "area": "Khu vực",
       "allAreas": "Tất cả khu vực"
     },

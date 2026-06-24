@@ -295,8 +295,12 @@ export default function InspectionsView({
 
       {/* 2패널 (b6) — 데스크톱: 좌 1/3 목록 + 우 상세 독립 스크롤 / <768px: 목록→상세 스택 */}
       <div className="bg-admin-bg border border-admin-card rounded-xl overflow-hidden flex flex-col md:flex-row md:h-[calc(100vh-16rem)] md:min-h-[480px]">
-        {/* 좌측: 태스크 목록 */}
-        <section className="md:w-1/3 md:border-r border-b md:border-b-0 border-admin-card flex flex-col shrink-0 max-h-[40vh] md:max-h-none">
+        {/* 좌측: 태스크 목록 — 모바일은 마스터-디테일(선택 시 목록 숨기고 상세 전체화면) */}
+        <section
+          className={`md:w-1/3 md:border-r border-b md:border-b-0 border-admin-card flex-col shrink-0 md:max-h-none md:flex ${
+            selected ? "hidden md:flex" : "flex"
+          }`}
+        >
           <div className="p-4 border-b border-admin-card flex items-center justify-between bg-admin-card/20 shrink-0">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
               {t("queueHeader")}
@@ -349,8 +353,10 @@ export default function InspectionsView({
           </div>
         </section>
 
-        {/* 우측: 상세 패널 */}
-        <section className="flex-1 flex flex-col min-w-0">
+        {/* 우측: 상세 패널 — 모바일은 선택 시에만 표시(목록 대체) */}
+        <section
+          className={`flex-1 flex-col min-w-0 ${selected ? "flex" : "hidden md:flex"}`}
+        >
           {!selected ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-3 p-12 text-sm text-admin-muted">
               <span className="material-symbols-outlined text-4xl text-slate-700" aria-hidden>
@@ -360,6 +366,16 @@ export default function InspectionsView({
             </div>
           ) : (
             <>
+              {/* 모바일 전용: 목록으로 돌아가기 */}
+              <Link
+                href={tabHref(tab as TabKey)}
+                className="md:hidden flex items-center gap-1 px-4 pt-4 -mb-2 text-sm font-medium text-admin-muted hover:text-white"
+              >
+                <span className="material-symbols-outlined text-base" aria-hidden>
+                  arrow_back
+                </span>
+                {t("backToList")}
+              </Link>
               {/* 상세 헤더 */}
               <div className="p-6 border-b border-admin-card shrink-0">
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
