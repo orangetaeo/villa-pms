@@ -43,7 +43,8 @@ const dtFmt = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit",
   hour: "2-digit",
   minute: "2-digit",
-  hour12: false,
+  // hourCycle h23: 클라 컴포넌트라 SSR↔하이드레이션 시각이 자정 "24"/"00"로 갈리면 React #418 → "00" 고정
+  hourCycle: "h23",
 });
 function dotDateTime(iso: string): string {
   const parts = dtFmt.formatToParts(new Date(iso));
