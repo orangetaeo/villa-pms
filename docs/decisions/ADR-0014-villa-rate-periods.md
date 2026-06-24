@@ -200,3 +200,19 @@ WHERE NOT EXISTS (SELECT 1 FROM "VillaRatePeriod" rp WHERE rp."villaId"=v.id)
 > **현 시점(Phase A) 영향 잠복**: 변환된 빌라가 거의 없어 실사용 영향 미미. 변환 진행 전 위 2건을 **dual-read 인지 공통 헬퍼**(예: `lib/pricing.ts`에 `representativeRateForVilla(villaId)`)로 일원화하면 근본 해소. 일괄 변환(후속2) 실행 **전에** 처리 권장.
 >
 > ⚠️ messages/page.tsx는 타 세션(Zalo) 활성 구역 — 수정 시 조율 필요(직접 충돌 회피).
+
+## 디버깅 (2026-06-24, Phase C 후 4영역 병렬 조사)
+
+생성/시드(A)·cost-alerts(B)·표시(C)·견적통합(D) 4영역을 병렬 점검. **누수 불변식 전 경로 PASS, 견적/제안/예약/스냅샷 무결성 정상.**
+
+### 수정 완료
+- **[표시 버그] `representativeRatesBySeason` HIGH/PEAK가 기간 부재 시 base(LOW) 폴백** (커밋 2fadafa): 비수기 원가를 "성수기" 라벨로 오표시 + cost-alerts가 HIGH/PEAK 원가변경 마진을 base(LOW) 판매가로 오산. → 해당 시즌 실제 기간 있을 때만 반환(없으면 키 미포함), LOW=base 유지. 단위테스트 4건 신규(기존 0건이라 미검출됐음).
+
+### 잠복·설계 한계 (현 데이터 미발현 — 후속 검토)
+- **[A·설계] 마법사 3원가(LOW/HIGH/PEAK) → N기간 사상은 손실적**: 전역 PEAK가 2개(설·연말)면 단일 `costs.PEAK`가 두 기간에 동일 복제 → 기간별 다른 원가는 생성 시 불가, ADMIN이 `rate-periods` PATCH로 분리해야 함. (구 모델도 시즌당 1행이라 동일 제약 — 회귀 아님.)
+- **[A·잠복] HIGH/PEAK 원가 유실**: 전역 SeasonPeriod에 해당 시즌 창이 없으면 마법사 입력 HIGH/PEAK 원가가 어디에도 저장 안 됨(base만 생성). 현 전역시즌은 HIGH+PEAK 보유라 미발현. 신규 환경/연도 전환 시 위험 → 생성 시 경고 또는 UX 안내 검토(TDA).
+- **[A·잠복] 생성 경로 기간 겹침 미검증**: `rate-periods` PATCH는 겹침 거부하나 생성(`buildRatePeriodRowsFromSeasonCosts`)은 전역시즌이 겹치면 겹친 기간 생성(견적은 `resolveRatePeriod` precedence로 결정적 처리). 겹침 검증 헬퍼 공유 권장.
+- **[A·구조] base 단일성 DB 제약 부재**: villa당 isBase=true 1행을 코드 규율(deleteMany→create)로만 보장. Postgres partial unique index 검토(TDA).
+- **[A·기존] 마진 0 placeholder 견적 위험**: 승인 전 빌라(margin0·krw0)가 견적되면 0원/마진0 판매가 산출 가능(구 생성도 동일). isSellable 게이트로 대부분 차단되나 가격 가드 부재.
+- **[B·기존] cost-alerts 같은시즌 다중기간**: 둘째 PEAK 원가변경 알림도 첫 PEAK 판매가로 마진 표시(season 단위 한계, ADMIN 정보 패널). 근본 해소는 payload가 기간 id/판매가 운반 필요.
+- **[D·테스트] `quoteStayForVilla` 교차로드 where 회귀 방어 약함**: 테스트 mock이 where 조건식을 손으로 복제 → 실 DB 통합테스트 1건 권장.
