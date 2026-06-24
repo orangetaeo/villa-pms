@@ -160,14 +160,16 @@ const PHOTO_SPACES: { space: PhotoSpace; label: string | null }[] = [
   { space: PhotoSpace.POOL, label: null },
 ];
 
-const AMENITIES: { category: AmenityCategory; itemKey: string; quantity: number }[] = [
+const AMENITIES: { category: AmenityCategory; itemKey: string; quantity: number; unitPrice?: bigint }[] = [
   { category: AmenityCategory.KITCHEN, itemKey: "kettle", quantity: 1 },
-  { category: AmenityCategory.KITCHEN, itemKey: "refrigerator", quantity: 1 },
+  { category: AmenityCategory.KITCHEN, itemKey: "fridge", quantity: 1 },
   { category: AmenityCategory.APPLIANCE, itemKey: "tv", quantity: 1 },
   { category: AmenityCategory.APPLIANCE, itemKey: "washingMachine", quantity: 1 },
   { category: AmenityCategory.BATHROOM, itemKey: "hairDryer", quantity: 1 },
-  { category: AmenityCategory.MINIBAR, itemKey: "water", quantity: 6 },
-  { category: AmenityCategory.MINIBAR, itemKey: "beer", quantity: 4 },
+  // 미니바 — 고객 청구 단가(VND). 체크인 시트 미니바 정산표 데모용 (수량=비치, 단가 표시)
+  { category: AmenityCategory.MINIBAR, itemKey: "water", quantity: 6, unitPrice: 20_000n },
+  { category: AmenityCategory.MINIBAR, itemKey: "softDrink", quantity: 6, unitPrice: 20_000n },
+  { category: AmenityCategory.MINIBAR, itemKey: "beer", quantity: 4, unitPrice: 40_000n },
 ];
 
 // ===================== 예약 정의 =====================
@@ -331,8 +333,15 @@ async function main() {
       const id = `${v.id}-am-${a.itemKey}`;
       await prisma.villaAmenity.upsert({
         where: { id },
-        update: { quantity: a.quantity },
-        create: { id, villaId: v.id, category: a.category, itemKey: a.itemKey, quantity: a.quantity },
+        update: { quantity: a.quantity, unitPrice: a.unitPrice ?? null },
+        create: {
+          id,
+          villaId: v.id,
+          category: a.category,
+          itemKey: a.itemKey,
+          quantity: a.quantity,
+          unitPrice: a.unitPrice ?? null,
+        },
       });
     }
   }
