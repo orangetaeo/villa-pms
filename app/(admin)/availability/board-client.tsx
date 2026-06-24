@@ -585,9 +585,20 @@ export default function AvailabilityBoardClient({
             })
           : await fetch(`/api/calendar-blocks/${pop.blockId}`, { method: "DELETE" });
       if (res.ok) {
+        if (action === "lock") {
+          // 생성된 블록 id 를 오버레이에 반영 → 잠근 직후 같은 셀을 다시 열어도 해제 가능.
+          // (기존 버그: blockId=null 오버레이가 refresh 된 서버값을 가려 해제 버튼이 계속 비활성)
+          try {
+            const data: { id?: string } = await res.json();
+            if (data?.id) {
+              setOptimistic((o) => ({ ...o, [key]: { status: "MANUAL", blockId: data.id! } }));
+            }
+          } catch {
+            /* 응답 파싱 실패 — 다음 새로고침에서 서버 값으로 정확 반영 */
+          }
+        }
         setPop(null);
         router.refresh(); // 서버 재조회 → 정확한 blockId 동기화 후 오버레이 폐기
-        // refresh 후에도 오버레이가 잠깐 남아 깜빡임 방지: 성공 셀은 유지(서버 값과 동일)
       } else {
         // 롤백
         setOptimistic((o) => {
@@ -662,6 +673,13 @@ export default function AvailabilityBoardClient({
       });
       if (res.ok) {
         setRangePop(null);
+        // 이번에 설정한 오버레이(blockId=null)를 제거 → refresh 된 서버값(정확한 blockId)이 적용되어
+        // 일괄 잠금한 셀도 곧바로 해제 가능. (bulk API 는 생성된 블록 id 를 돌려주지 않음)
+        setOptimistic((o) => {
+          const n = { ...o };
+          for (const key of Object.keys(prevByKey)) delete n[key];
+          return n;
+        });
         router.refresh(); // 서버 재조회 → 정확 blockId·skip 결과 반영
       } else {
         // 롤백
