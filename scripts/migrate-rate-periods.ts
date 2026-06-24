@@ -1,13 +1,15 @@
 // 기존 빌라 → VillaRatePeriod 일괄 변환 (ADR-0014 후속 2/3)
 //
 // 변환 규칙 (멱등·안전):
-//  - 대상: VillaRatePeriod 0건(미전환) + LOW VillaRate 보유(기본요금 형성 가능) + VillaSeasonPeriod 1건 이상.
-//    · VillaSeasonPeriod 0건(전역 SeasonPeriod 폴백) 빌라는 SKIP — 전역 겹침을 비겹침으로 변환하는 위험 회피.
-//      그대로 두면 dual-read가 구 경로로 견적(무회귀). 필요 시 운영자가 신규 편집기로 개별 전환.
+//  - 대상: VillaRatePeriod 0건(미전환) + LOW VillaRate 보유(기본요금 형성 가능).
+//  - 기간 소스: 빌라 자체 VillaSeasonPeriod가 있으면 그것, 0건이면 전역 SeasonPeriod의 비-LOW(HIGH/PEAK).
+//    · 전역 LOW(예: 04-01~09-30 6개월 배경)는 복제하지 않음 — base(isBase, LOW)가 배경을 담당하고,
+//      전역 LOW는 HIGH와 겹쳐(구 모델은 precedence로 해결) 그대로 옮기면 신규 겹침거부에 걸린다.
+//      비-LOW만 옮기면 구 resolveSeason(precedence)과 결과 동일·겹침 없음(Phase B 전역폴백 정리, ADR-0014).
 //  - base  = LOW VillaRate → VillaRatePeriod{ isBase:true, season:LOW, 원가·마진·판매가 그대로 }.
-//  - 기간  = 각 VillaSeasonPeriod → VillaRatePeriod{ isBase:false, 날짜, season, 그 시즌 VillaRate의 원가·마진·판매가 }.
+//  - 기간  = 각 소스 기간 → VillaRatePeriod{ isBase:false, 날짜, season, 그 시즌 VillaRate의 원가·마진·판매가 }.
 //            매칭 VillaRate 없는 시즌의 기간은 SKIP(로그) — 신규 모델에선 base로 폴백되므로 가격 누락 없음.
-//  - 겹침 가드: VillaSeasonPeriod는 입력단계 겹침 거부(ADR-0008)이나, 만약 겹침 발견 시 그 빌라 전체 SKIP(로그).
+//  - 겹침 가드: 소스 기간에 겹침 발견 시 그 빌라 전체 SKIP(로그).
 //  - 트랜잭션: 빌라 단위. 부분 생성 방지.
 //
 // 실행:  npx tsx scripts/migrate-rate-periods.ts --dry   (미리보기, 쓰기 없음)
@@ -37,6 +39,11 @@ function hasOverlap(periods: { startDate: Date; endDate: Date }[]): boolean {
 async function main() {
   console.log(`[migrate-rate-periods] ${DRY ? "DRY-RUN (쓰기 없음)" : "LIVE 변환"} 시작`);
 
+  // 전역 SeasonPeriod의 비-LOW(HIGH/PEAK)만 — 빌라 자체 시즌이 없을 때 기간 소스로 사용.
+  const globalNonLow = (
+    await prisma.seasonPeriod.findMany({ select: { season: true, startDate: true, endDate: true, label: true } })
+  ).filter((p) => p.season !== "LOW");
+
   const villas = await prisma.villa.findMany({
     select: {
       id: true,
@@ -57,25 +64,24 @@ async function main() {
       skipped.push({ villa: v.name, reason: "이미 변환됨(VillaRatePeriod 보유)" });
       continue;
     }
-    if (v._count.seasonPeriods === 0) {
-      skipped.push({ villa: v.name, reason: "전역 시즌 폴백(VillaSeasonPeriod 0건) — 구 경로 유지" });
-      continue;
-    }
     const rateBySeason = new Map<SeasonType, RateBySeason>(
       v.rates.map((r) => [r.season, r as RateBySeason])
     );
     const lowRate = rateBySeason.get("LOW");
     if (!lowRate) {
-      skipped.push({ villa: v.name, reason: "LOW VillaRate 없음 — 기본요금 형성 불가" });
+      skipped.push({ villa: v.name, reason: "LOW VillaRate 없음 — 기본요금 형성 불가(별도 처리 필요)" });
       continue;
     }
-    if (hasOverlap(v.seasonPeriods)) {
-      skipped.push({ villa: v.name, reason: "VillaSeasonPeriod 겹침 — 수동 확인 필요" });
+    // 기간 소스: 빌라 자체 시즌 있으면 그것, 없으면 전역 비-LOW.
+    const sourcePeriods = v.seasonPeriods.length > 0 ? v.seasonPeriods : globalNonLow;
+    const sourceLabel = v.seasonPeriods.length > 0 ? "빌라시즌" : "전역폴백";
+    if (hasOverlap(sourcePeriods)) {
+      skipped.push({ villa: v.name, reason: `${sourceLabel} 기간 겹침 — 수동 확인 필요` });
       continue;
     }
 
     // 기간 행 구성 (매칭 VillaRate 있는 것만)
-    const periodRows = v.seasonPeriods.flatMap((p) => {
+    const periodRows = sourcePeriods.flatMap((p) => {
       const rate = rateBySeason.get(p.season);
       if (!rate) {
         console.log(`  · [${v.name}] ${p.season} 기간(${p.startDate.toISOString().slice(0, 10)}~)에 매칭 VillaRate 없음 → 기간 스킵(base 폴백)`);
@@ -96,7 +102,7 @@ async function main() {
       }];
     });
 
-    console.log(`  ✓ [${v.name}] 기본요금 1 + 기간 ${periodRows.length} 생성 ${DRY ? "(예정)" : ""}`);
+    console.log(`  ✓ [${v.name}] 기본요금 1 + 기간 ${periodRows.length}(${sourceLabel}) 생성 ${DRY ? "(예정)" : ""}`);
 
     if (!DRY) {
       await prisma.$transaction(async (tx) => {
