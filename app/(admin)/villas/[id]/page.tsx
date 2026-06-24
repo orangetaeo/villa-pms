@@ -12,7 +12,7 @@ import { formatVnd, formatDateTime } from "@/lib/format";
 import type { PhotoSpace, SeasonType } from "@prisma/client";
 import type { FeatureCategoryKey } from "@/lib/features";
 import type { BedTypeKey } from "@/lib/bedding";
-import RateEditor, { type RateRow } from "./rate-editor";
+import RatePeriodEditor, { type RatePeriodInitial } from "./rate-period-editor";
 import VillaActions from "./villa-actions";
 import ForceSellableAction from "./force-sellable-action";
 import DetailTabs from "./detail-tabs";
@@ -126,25 +126,6 @@ export default async function VillaDetailPage({
     photos: villa.photos.filter((p) => p.space === space),
   })).filter((g) => g.photos.length > 0);
 
-  // 요율 — BigInt는 클라이언트 경계에서 직렬화 불가 → 문자열 변환 (Number() 캐스팅 금지)
-  // showFinance(canViewFinance)일 때만 판매가·마진 포함 RateRow 구성. STAFF는 원가 읽기뷰만 사용.
-  const rateRows: RateRow[] = showFinance
-    ? SEASON_ORDER.flatMap((season) => {
-        const rate = villa.rates.find((r) => r.season === season);
-        if (!rate || !("marginType" in rate)) return [];
-        return [
-          {
-            season,
-            supplierCostVnd: rate.supplierCostVnd.toString(),
-            marginType: rate.marginType,
-            marginValue: rate.marginValue.toString(),
-            salePriceVnd: rate.salePriceVnd.toString(),
-            salePriceKrw: rate.salePriceKrw,
-          },
-        ];
-      })
-    : [];
-
   // STAFF용 원가 읽기뷰 행 (판매가·마진 없음)
   const costOnlyRows = SEASON_ORDER.flatMap((season) => {
     const rate = villa.rates.find((r) => r.season === season);
@@ -153,6 +134,59 @@ export default async function VillaDetailPage({
   });
 
   const fxVndPerKrw = fxSetting ? Number.parseFloat(fxSetting.value) || null : null;
+
+  // 기간별 요금 (ADR-0014) — 판매가 포함이라 canViewFinance(showFinance)일 때만 로드(누수 차단).
+  // 초기값: 기존 VillaRatePeriod 우선, 없으면 기존 LOW VillaRate에서 기본요금 시드(빈 폼 방지).
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  let ratePeriodInitial: RatePeriodInitial = { base: null, periods: [] };
+  if (showFinance) {
+    const rpRows = await prisma.villaRatePeriod.findMany({
+      where: { villaId: id },
+      orderBy: [{ isBase: "desc" }, { startDate: "asc" }],
+      select: {
+        season: true, isBase: true, startDate: true, endDate: true, label: true,
+        supplierCostVnd: true, marginType: true, marginValue: true, salePriceVnd: true, salePriceKrw: true,
+      },
+    });
+    const baseRow = rpRows.find((r) => r.isBase);
+    const seedLow = villa.rates.find((r) => r.season === "LOW" && "marginType" in r);
+    ratePeriodInitial = {
+      base: baseRow
+        ? {
+            season: baseRow.season,
+            supplierCostVnd: baseRow.supplierCostVnd.toString(),
+            marginType: baseRow.marginType,
+            marginValue: baseRow.marginValue.toString(),
+            salePriceVnd: baseRow.salePriceVnd.toString(),
+            salePriceKrw: baseRow.salePriceKrw,
+            label: baseRow.label ?? "",
+          }
+        : seedLow && "marginType" in seedLow
+          ? {
+              season: "LOW",
+              supplierCostVnd: seedLow.supplierCostVnd.toString(),
+              marginType: seedLow.marginType,
+              marginValue: seedLow.marginValue.toString(),
+              salePriceVnd: seedLow.salePriceVnd.toString(),
+              salePriceKrw: seedLow.salePriceKrw,
+              label: "",
+            }
+          : null,
+      periods: rpRows
+        .filter((r) => !r.isBase)
+        .map((r) => ({
+          season: r.season,
+          startDate: r.startDate ? iso(r.startDate) : "",
+          endDate: r.endDate ? iso(r.endDate) : "",
+          supplierCostVnd: r.supplierCostVnd.toString(),
+          marginType: r.marginType,
+          marginValue: r.marginValue.toString(),
+          salePriceVnd: r.salePriceVnd.toString(),
+          salePriceKrw: r.salePriceKrw,
+          label: r.label ?? "",
+        })),
+    };
+  }
 
   // 비품 편집기 초기값 (Batch A — 관리자 CRUD). 사전 항목은 수량 맵, 미니바는 단가 맵, custom은 별도 행.
   const amenityQuantities: Record<string, number> = {};
@@ -359,9 +393,9 @@ export default async function VillaDetailPage({
 
         {/* 우측: 요율 + 비품 + 수정 이력 */}
         <div className="col-span-12 lg:col-span-5 space-y-6">
-          {/* 시즌 요율 — 편집은 가격설정 권한(canViewFinance). STAFF는 원가 읽기뷰로 강등 */}
+          {/* 기간별 요금 (ADR-0014) — 편집은 가격설정 권한(canViewFinance). STAFF는 원가 읽기뷰로 강등 */}
           {showFinance ? (
-            <RateEditor villaId={villa.id} rates={rateRows} fxVndPerKrw={fxVndPerKrw} />
+            <RatePeriodEditor villaId={villa.id} fxVndPerKrw={fxVndPerKrw} initial={ratePeriodInitial} />
           ) : (
             <div className="bg-admin-card rounded-xl border border-slate-800 shadow-xl overflow-hidden">
               <div className="p-6 border-b border-slate-800 flex items-center gap-2">
