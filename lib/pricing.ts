@@ -146,22 +146,24 @@ export function buildRatePeriodRowsFromSeasonCosts(
 
 /**
  * 시즌별 "대표" 요금 행 추출 (ADR-0014 Phase B) — 구 VillaRate(시즌 키) 표시/원가경보를 신규 경로로 대체.
- * 한 빌라의 VillaRatePeriod 행들에서 시즌별 대표값을 만든다: LOW=base, HIGH/PEAK=그 시즌 첫 기간(없으면 base).
- * 표시·경보용(견적 아님). T는 호출자 select 필드(누수 책임은 호출자 — base/period 동일 필드집합 전제).
+ * 한 빌라의 VillaRatePeriod 행들에서 시즌별 대표값을 만든다:
+ *   - LOW  = base(기본요금) 행.
+ *   - HIGH/PEAK = 그 시즌의 (비-base) 첫 기간. **해당 시즌 기간이 없으면 키 자체를 비운다(미포함).**
+ * ⚠️ 디버깅 수정(2026-06-24): 과거엔 HIGH/PEAK 기간이 없으면 base(LOW)로 폴백했는데,
+ *    그 결과 화면이 비수기 원가를 "성수기" 라벨로 오표시하고 cost-alerts가 HIGH/PEAK 원가변경
+ *    마진을 base(LOW) 판매가로 오산했다. 이제 실제 그 시즌 기간이 있을 때만 반환 → 소비처는
+ *    없는 시즌을 그냥 표시 생략(정확). 여러 기간이 같은 시즌이면 첫 기간만 대표(표시·경보용 단순화).
+ * 표시·경보용(견적 아님 — 견적은 quoteStayForVilla). T는 호출자 select 필드(누수 책임은 호출자).
  */
 export function representativeRatesBySeason<
   T extends { season: SeasonType; isBase: boolean }
 >(ratePeriods: T[]): Partial<Record<SeasonType, T>> {
   const base = ratePeriods.find((r) => r.isBase) ?? null;
   const out: Partial<Record<SeasonType, T>> = {};
-  for (const season of [SeasonType.LOW, SeasonType.HIGH, SeasonType.PEAK]) {
-    if (season === SeasonType.LOW) {
-      if (base) out.LOW = base;
-    } else {
-      const period = ratePeriods.find((r) => !r.isBase && r.season === season);
-      const rep = period ?? base;
-      if (rep) out[season] = rep;
-    }
+  if (base) out.LOW = base;
+  for (const season of [SeasonType.HIGH, SeasonType.PEAK]) {
+    const period = ratePeriods.find((r) => !r.isBase && r.season === season);
+    if (period) out[season] = period; // base 폴백 제거 — 없으면 미포함
   }
   return out;
 }

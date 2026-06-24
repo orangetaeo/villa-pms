@@ -5,6 +5,7 @@ import {
   quoteStayByPeriod,
   quoteStayForVilla,
   pickRepresentativeRate,
+  representativeRatesBySeason,
   MissingBaseRateError,
   type RatePeriodLike,
 } from "@/lib/pricing";
@@ -124,6 +125,36 @@ describe("pickRepresentativeRate — base 우선 대표가격 선택 (비인지 
   });
   it("아무 요율도 없으면 null", () => {
     expect(pickRepresentativeRate(null, [])).toBeNull();
+  });
+});
+
+describe("representativeRatesBySeason — 시즌별 대표행(표시·경보용), HIGH/PEAK base 폴백 없음", () => {
+  const baseRow = { season: SeasonType.LOW, isBase: true, supplierCostVnd: 1_000_000n };
+  const highRow = { season: SeasonType.HIGH, isBase: false, supplierCostVnd: 2_000_000n };
+  const peak1 = { season: SeasonType.PEAK, isBase: false, supplierCostVnd: 5_000_000n };
+  const peak2 = { season: SeasonType.PEAK, isBase: false, supplierCostVnd: 8_000_000n };
+
+  it("LOW=base, HIGH/PEAK=해당 시즌 기간", () => {
+    const rep = representativeRatesBySeason([baseRow, highRow, peak1]);
+    expect(rep.LOW).toBe(baseRow);
+    expect(rep.HIGH).toBe(highRow);
+    expect(rep.PEAK).toBe(peak1);
+  });
+  it("HIGH/PEAK 기간 없으면 그 키 미포함 (base 폴백 금지 — 비수기 원가를 성수기로 오표시 방지)", () => {
+    const rep = representativeRatesBySeason([baseRow]);
+    expect(rep.LOW).toBe(baseRow);
+    expect(rep.HIGH).toBeUndefined();
+    expect(rep.PEAK).toBeUndefined();
+  });
+  it("같은 시즌 다중 기간이면 첫 기간만 대표", () => {
+    const rep = representativeRatesBySeason([baseRow, peak1, peak2]);
+    expect(rep.PEAK).toBe(peak1);
+    expect(rep.HIGH).toBeUndefined();
+  });
+  it("base 없으면 LOW도 미포함 (빈 요율 빌라)", () => {
+    const rep = representativeRatesBySeason([highRow]);
+    expect(rep.LOW).toBeUndefined();
+    expect(rep.HIGH).toBe(highRow);
   });
 });
 
