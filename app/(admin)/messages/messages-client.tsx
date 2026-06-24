@@ -217,7 +217,10 @@ export function MessagesClient({
         }
         chat={
           <ChatPane
-            key={selectedId ?? "none"}
+            // thread 도착 시 ChatPane를 완전한 데이터로 재마운트한다. (로딩 중 thread=null로 먼저
+            // 마운트되면 hasOlder/oldestCursor가 false/null로 굳어 "이전 메시지 더보기"가 영영 안 됐다.)
+            // 폴링(같은 대화 thread 갱신)은 thread!=null 유지라 key 불변 → 재마운트 없이 메시지만 갱신.
+            key={selectedId == null ? "none" : thread == null ? `loading:${selectedId}` : selectedId}
             conversationId={selectedId}
             header={thread?.header ?? null}
             messages={thread?.messages ?? []}
