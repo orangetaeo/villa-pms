@@ -3,6 +3,10 @@
 // auth/prisma 의존이 없어 테스트 가능 — 라우트는 이 규칙을 호출만 한다.
 import { FX_VND_PER_KRW_KEY } from "@/lib/pricing";
 import { HOLD_HOURS_DEFAULT_KEY } from "@/lib/hold";
+import {
+  CANCELLATION_POLICY_KEY,
+  isValidCancellationPolicy,
+} from "@/lib/cancellation-policy";
 
 // 입금 계좌·연락처 키 (공개 제안 완료/만료 페이지가 소비)
 // 한국(KRW) 계좌 — 기존 BANK_* 키를 그대로 사용(데이터 호환). KRW 예약 입금처.
@@ -31,6 +35,7 @@ export const CLEARABLE_KEYS = [
 export const SETTING_KEYS = [
   HOLD_HOURS_DEFAULT_KEY,
   FX_VND_PER_KRW_KEY,
+  CANCELLATION_POLICY_KEY, // 취소·환불 정책 JSON (#6b) — 비-clearable(항상 값 존재)
   ...CLEARABLE_KEYS,
 ] as const;
 export type SettingKey = (typeof SETTING_KEYS)[number];
@@ -75,4 +80,12 @@ export const VALIDATORS: Record<SettingKey, (value: string) => boolean> = {
     }
   },
   [CONTACT_PHONE_KEY]: (value) => /^[0-9+(][0-9+\-() ]{0,29}$/.test(value),
+  // 취소·환불 정책 — JSON 파싱 후 정합성 검증(fullDays>partialDays≥0, 0≤pct≤100)
+  [CANCELLATION_POLICY_KEY]: (value) => {
+    try {
+      return isValidCancellationPolicy(JSON.parse(value));
+    } catch {
+      return false;
+    }
+  },
 };
