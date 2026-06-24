@@ -366,6 +366,14 @@ export default async function VillaDetailPage({
                 );
               })}
             </div>
+            {/* 기간별 원가 (ADR-0014) — 같은 시즌을 여러 기간으로 나눠 원가 입력 */}
+            <Link
+              href={`/my-villas/${villa.id}/rate-periods`}
+              className="mt-3 flex items-center justify-center gap-1.5 rounded-lg border border-teal-200 py-2.5 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-50"
+            >
+              <span className="material-symbols-outlined text-base">date_range</span>
+              {t("manageRatePeriods")}
+            </Link>
           </div>
 
           {/* 5. 판매정보 (읽기 전용, a16) — 기존 섹션 아래. 와이파이·판매가·마진 부재 */}
