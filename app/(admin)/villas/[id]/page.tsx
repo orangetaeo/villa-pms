@@ -19,6 +19,7 @@ import DetailTabs from "./detail-tabs";
 import SalesEditor, { type SalesInitial } from "./sales-editor";
 import AdminAmenitiesEditor, { type AmenityCustomRow } from "./amenities-editor";
 import PhotoGallery from "./photo-gallery";
+import CollapsibleCard from "@/components/admin/collapsible-card";
 
 const SPACE_ORDER: PhotoSpace[] = [
   "EXTERIOR",
@@ -291,29 +292,24 @@ export default async function VillaDetailPage({
         {/* 좌측: 사진 + 기본 정보 */}
         <div className="col-span-12 lg:col-span-7 space-y-6">
           {/* 공간별 사진 그리드 */}
-          <div className="bg-admin-card rounded-xl p-6 border border-slate-800 shadow-xl">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold flex items-center gap-2 whitespace-nowrap">
-                <span className="material-symbols-outlined text-admin-primary">collections</span>
-                {t("photos.title")}
-              </h2>
+          <CollapsibleCard
+            title={t("photos.title")}
+            icon="collections"
+            headerMeta={
               <span className="text-xs text-slate-500 whitespace-nowrap">
                 {t("photos.count", { count: villa.photos.length })}
               </span>
-            </div>
+            }
+          >
             {photoGroups.length === 0 ? (
               <p className="text-sm text-admin-muted py-6 text-center">{t("photos.empty")}</p>
             ) : (
               <PhotoGallery groups={photoGroups} />
             )}
-          </div>
+          </CollapsibleCard>
 
           {/* 기본 정보 요약 */}
-          <div className="bg-admin-card rounded-xl p-6 border border-slate-800 shadow-xl">
-            <h2 className="text-lg font-bold mb-5 flex items-center gap-2 whitespace-nowrap">
-              <span className="material-symbols-outlined text-admin-primary">info</span>
-              {t("info.title")}
-            </h2>
+          <CollapsibleCard title={t("info.title")} icon="info">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="p-3 rounded-lg bg-slate-900/50 border border-slate-800 text-center">
                 <span className="material-symbols-outlined text-slate-400 block mb-1">bed</span>
@@ -371,7 +367,7 @@ export default async function VillaDetailPage({
                 )}
               </dl>
             )}
-          </div>
+          </CollapsibleCard>
         </div>
 
         {/* 우측: 요율 + 비품 + 수정 이력 */}
@@ -380,18 +376,17 @@ export default async function VillaDetailPage({
           {showFinance ? (
             <RatePeriodEditor villaId={villa.id} fxVndPerKrw={fxVndPerKrw} initial={ratePeriodInitial} />
           ) : (
-            <div className="bg-admin-card rounded-xl border border-slate-800 shadow-xl overflow-hidden">
-              <div className="p-6 border-b border-slate-800 flex items-center gap-2">
-                <h2 className="text-lg font-bold flex items-center gap-2 whitespace-nowrap">
-                  <span className="material-symbols-outlined text-admin-primary">payments</span>
-                  {t("rates.title")}
-                </h2>
+            <CollapsibleCard
+              title={t("rates.title")}
+              icon="payments"
+              headerMeta={
                 <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-500 text-[10px] font-bold whitespace-nowrap">
                   {t("amenitiesCard.readOnly")}
                 </span>
-              </div>
+              }
+            >
               {costOnlyRows.length === 0 ? (
-                <p className="p-6 text-sm text-admin-muted text-center">{t("rates.empty")}</p>
+                <p className="text-sm text-admin-muted text-center">{t("rates.empty")}</p>
               ) : (
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
@@ -425,7 +420,7 @@ export default async function VillaDetailPage({
                   </tbody>
                 </table>
               )}
-            </div>
+            </CollapsibleCard>
           )}
 
           {/* 비품 현황 — 관리자 편집 가능 (Batch A) */}
@@ -438,10 +433,7 @@ export default async function VillaDetailPage({
 
           {/* 수정 이력 (AuditLog — b10 Action Log) */}
           {auditLogs.length > 0 && (
-            <div className="bg-admin-card/50 rounded-xl p-4 border border-slate-800/50">
-              <p className="text-[10px] font-bold text-slate-500 mb-3 uppercase tracking-widest whitespace-nowrap">
-                {t("history.title")}
-              </p>
+            <CollapsibleCard title={t("history.title")} icon="history">
               <div className="space-y-2">
                 {auditLogs.map((log) => (
                   <div key={log.id} className="flex items-center justify-between gap-3 text-[10px]">
@@ -457,7 +449,7 @@ export default async function VillaDetailPage({
                   </div>
                 ))}
               </div>
-            </div>
+            </CollapsibleCard>
           )}
         </div>
       </div>

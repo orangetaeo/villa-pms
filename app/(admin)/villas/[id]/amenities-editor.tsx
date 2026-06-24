@@ -13,6 +13,7 @@ import {
   type AmenityCategoryKey,
 } from "@/lib/amenities";
 import { formatThousands } from "@/lib/format";
+import CollapsibleCard from "@/components/admin/collapsible-card";
 
 const TOWEL_KEYS = ["towelLarge", "towelMedium", "towelSmall"];
 
@@ -128,13 +129,11 @@ export default function AdminAmenitiesEditor({
   const towelItems = AMENITY_ITEMS.BATHROOM.filter((i) => TOWEL_KEYS.includes(i.itemKey));
 
   return (
-    <div className="bg-admin-card rounded-xl border border-slate-800 shadow-xl overflow-hidden">
-      <div className="p-6 border-b border-slate-800 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold flex items-center gap-2 whitespace-nowrap">
-          <span className="material-symbols-outlined text-admin-primary">inventory_2</span>
-          {t("editTitle")}
-        </h2>
-        <div className="flex items-center gap-3">
+    <CollapsibleCard
+      title={t("editTitle")}
+      icon="inventory_2"
+      action={
+        <>
           {message && (
             <span
               role="status"
@@ -152,10 +151,10 @@ export default function AdminAmenitiesEditor({
             <span className="material-symbols-outlined text-sm">save</span>
             {saving ? t("saving") : t("save")}
           </button>
-        </div>
-      </div>
-
-      <div className="p-6 space-y-5">
+        </>
+      }
+    >
+      <div className="space-y-5">
         {/* 카테고리 탭 */}
         <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {AMENITY_CATEGORIES.map((category) => (
@@ -313,7 +312,7 @@ export default function AdminAmenitiesEditor({
           </div>
         )}
       </div>
-    </div>
+    </CollapsibleCard>
   );
 }
 

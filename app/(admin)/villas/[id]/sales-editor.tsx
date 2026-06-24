@@ -20,6 +20,7 @@ import {
   buildTimeOptions,
   sumRoomCapacity,
 } from "@/lib/sales-display";
+import CollapsibleCard from "@/components/admin/collapsible-card";
 
 // ── 클라이언트 폼 상태 타입 ────────────────────────────
 interface BedRow {
@@ -278,18 +279,17 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
         {/* LEFT: ② 잠자리 + ⑤ 셀링포인트 */}
         <div className="col-span-12 lg:col-span-7 space-y-6">
           {/* ② 잠자리 구성 */}
-          <section className="bg-admin-card rounded-xl border border-slate-800 shadow-xl overflow-hidden">
-            <div className="p-6 border-b border-slate-800 flex items-center justify-between">
-              <h3 className="text-lg font-bold flex items-center gap-2 whitespace-nowrap">
-                <span className="material-symbols-outlined text-admin-primary">king_bed</span>
-                {t("bedding.title")}
-              </h3>
-              <div className="flex items-center gap-2.5">
+          <CollapsibleCard
+            title={t("bedding.title")}
+            icon="king_bed"
+            action={
+              <>
                 <span className="text-xs text-slate-400 whitespace-nowrap">{t("bedding.extraBed")}</span>
                 <Toggle on={extraBed} onChange={setExtraBed} label={t("bedding.extraBed")} />
-              </div>
-            </div>
-            <div className="p-6 space-y-4">
+              </>
+            }
+          >
+            <div className="space-y-4">
               {rooms.map((room, i) => (
                 <div key={room.id} className="rounded-lg bg-slate-900/40 border border-slate-800 p-4">
                   <div className="flex items-center justify-between mb-4">
@@ -421,38 +421,35 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
                 </p>
               </div>
             </div>
-          </section>
+          </CollapsibleCard>
 
           {/* ⑤ 셀링포인트 */}
-          <section className="bg-admin-card rounded-xl border border-slate-800 shadow-xl overflow-hidden">
-            <div className="p-6 border-b border-slate-800">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-lg font-bold flex items-center gap-2 whitespace-nowrap">
-                  <span className="material-symbols-outlined text-admin-primary">sell</span>
-                  {t("features.title")}
-                </h3>
-                {/* 수영장 유무 — 수동 토글. 풀 태그가 켜지면 자동 ON·잠금 (해제 불가, 태그를 끄면 풀린다) */}
-                <div className="flex items-center gap-2.5">
-                  <span className="text-xs text-slate-400 flex items-center gap-1 whitespace-nowrap">
-                    <span className="material-symbols-outlined text-sm">pool</span>
-                    {t("features.hasPool")}
-                  </span>
-                  <Toggle
-                    on={effectiveHasPool}
-                    onChange={poolFeatureOn ? () => {} : setHasPool}
-                    label={t("features.hasPool")}
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">{t("features.subtitle")}</p>
-              {poolFeatureOn && (
-                <p className="text-[11px] text-admin-primary mt-1.5 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-sm">info</span>
-                  {t("features.poolAutoNote")}
-                </p>
-              )}
-            </div>
-            <div className="p-6 space-y-5">
+          <CollapsibleCard
+            title={t("features.title")}
+            icon="sell"
+            action={
+              /* 수영장 유무 — 수동 토글. 풀 태그가 켜지면 자동 ON·잠금 (해제 불가, 태그를 끄면 풀린다) */
+              <>
+                <span className="text-xs text-slate-400 flex items-center gap-1 whitespace-nowrap">
+                  <span className="material-symbols-outlined text-sm">pool</span>
+                  {t("features.hasPool")}
+                </span>
+                <Toggle
+                  on={effectiveHasPool}
+                  onChange={poolFeatureOn ? () => {} : setHasPool}
+                  label={t("features.hasPool")}
+                />
+              </>
+            }
+          >
+            <p className="text-xs text-slate-500 mb-4">{t("features.subtitle")}</p>
+            {poolFeatureOn && (
+              <p className="text-[11px] text-admin-primary mb-4 flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm">info</span>
+                {t("features.poolAutoNote")}
+              </p>
+            )}
+            <div className="space-y-5">
               {FEATURE_CATEGORIES.map((category) => (
                 <div key={category}>
                   <p className="text-xs font-bold text-slate-500 mb-2.5 uppercase tracking-wider whitespace-nowrap">
@@ -483,20 +480,14 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
                 </div>
               ))}
             </div>
-          </section>
+          </CollapsibleCard>
         </div>
 
         {/* RIGHT: ③ 위치 + ④ 규칙 */}
         <div className="col-span-12 lg:col-span-5 space-y-6">
           {/* ③ 위치·접근성 */}
-          <section className="bg-admin-card rounded-xl border border-slate-800 shadow-xl overflow-hidden">
-            <div className="p-6 border-b border-slate-800">
-              <h3 className="text-lg font-bold flex items-center gap-2 whitespace-nowrap">
-                <span className="material-symbols-outlined text-admin-primary">location_on</span>
-                {t("location.title")}
-              </h3>
-            </div>
-            <div className="p-6 space-y-4">
+          <CollapsibleCard title={t("location.title")} icon="location_on">
+            <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-400 mb-1.5 whitespace-nowrap">
                   {t("location.mapUrl")}
@@ -535,17 +526,11 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
                 />
               </div>
             </div>
-          </section>
+          </CollapsibleCard>
 
           {/* ④ 이용규칙 */}
-          <section className="bg-admin-card rounded-xl border border-slate-800 shadow-xl overflow-hidden">
-            <div className="p-6 border-b border-slate-800">
-              <h3 className="text-lg font-bold flex items-center gap-2 whitespace-nowrap">
-                <span className="material-symbols-outlined text-admin-primary">gavel</span>
-                {t("rules.title")}
-              </h3>
-            </div>
-            <div className="p-6 space-y-5">
+          <CollapsibleCard title={t("rules.title")} icon="gavel">
+            <div className="space-y-5">
               {/* 체크인/아웃 */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -660,7 +645,7 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
                 </p>
               </div>
             </div>
-          </section>
+          </CollapsibleCard>
         </div>
       </div>
     </div>

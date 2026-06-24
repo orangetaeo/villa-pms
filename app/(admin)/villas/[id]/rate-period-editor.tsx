@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { formatThousands } from "@/lib/format";
+import CollapsibleCard from "@/components/admin/collapsible-card";
 
 type Season = "LOW" | "HIGH" | "PEAK";
 type MarginType = "PERCENT" | "FIXED_VND";
@@ -164,16 +165,11 @@ export default function RatePeriodEditor({
   }
 
   return (
-    <div className="bg-admin-card rounded-xl border border-slate-800 shadow-xl overflow-hidden">
-      <div className="p-6 border-b border-slate-800 flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-bold flex items-center gap-2 whitespace-nowrap">
-            <span className="material-symbols-outlined text-admin-primary">date_range</span>
-            {t("title")}
-          </h2>
-          <p className="text-xs text-slate-500 mt-1">{t("subtitle")}</p>
-        </div>
-        <div className="flex items-center gap-3">
+    <CollapsibleCard
+      title={t("title")}
+      icon="date_range"
+      action={
+        <>
           {message && (
             <span role="status" className={`text-xs font-medium ${message.ok ? "text-emerald-500" : "text-red-400"}`}>
               {message.text}
@@ -188,10 +184,10 @@ export default function RatePeriodEditor({
             <span className="material-symbols-outlined text-sm">save</span>
             {saving ? tr("saving") : tr("save")}
           </button>
-        </div>
-      </div>
-
-      <div className="p-6 space-y-5">
+        </>
+      }
+    >
+      <div className="space-y-5">
         {/* 기본요금 (비수기 기준·폴백) */}
         <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] p-4">
           <div className="flex items-center gap-2 mb-3">
@@ -273,7 +269,7 @@ export default function RatePeriodEditor({
           </button>
         </div>
       </div>
-    </div>
+    </CollapsibleCard>
   );
 }
 
