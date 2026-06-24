@@ -4,6 +4,7 @@
 import { auth } from "@/auth";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { representativeRatesBySeason } from "@/lib/pricing";
 import VillaWizard from "@/app/(supplier)/my-villas/new/villa-wizard";
 import {
   villaToWizardState,
@@ -40,8 +41,8 @@ export default async function EditVillaPage({
         select: { space: true, spaceLabel: true, url: true },
       },
       amenities: { select: { category: true, itemKey: true, quantity: true } },
-      // 누수 차단 — supplierCostVnd만 (마진·판매가 미조회)
-      rates: { select: { season: true, supplierCostVnd: true } },
+      // 누수 차단 — supplierCostVnd만 (마진·판매가 미조회, ADR-0014 VillaRatePeriod)
+      ratePeriods: { select: { season: true, isBase: true, supplierCostVnd: true } },
     },
   });
 
@@ -62,10 +63,14 @@ export default async function EditVillaPage({
     monthlyRentVnd: villa.monthlyRentVnd ? villa.monthlyRentVnd.toString() : null,
     photos: villa.photos,
     amenities: villa.amenities,
-    rates: villa.rates.map((r) => ({
-      season: r.season,
-      supplierCostVnd: r.supplierCostVnd.toString(),
-    })),
+    // 시즌 대표 원가행(LOW=base, HIGH/PEAK=그 시즌 첫 기간 없으면 base) → 마법사 rates 입력 prefill.
+    rates: (() => {
+      const rep = representativeRatesBySeason(villa.ratePeriods);
+      return (["LOW", "HIGH", "PEAK"] as const).flatMap((season) => {
+        const r = rep[season];
+        return r ? [{ season, supplierCostVnd: r.supplierCostVnd.toString() }] : [];
+      });
+    })(),
   };
 
   return <VillaWizard villaId={villa.id} initialState={villaToWizardState(forEdit)} />;

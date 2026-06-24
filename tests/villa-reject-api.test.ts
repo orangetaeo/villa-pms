@@ -10,7 +10,13 @@ const tx = {
   villa: { findUnique: vi.fn(), updateMany: vi.fn() },
   villaPhoto: { deleteMany: vi.fn(async () => ({})), createMany: vi.fn(async () => ({})) },
   villaAmenity: { deleteMany: vi.fn(async () => ({})), createMany: vi.fn(async () => ({})) },
-  villaRate: { deleteMany: vi.fn(async () => ({})), createMany: vi.fn(async () => ({})) },
+  // ADR-0014: 요율은 VillaRatePeriod (base 1행 + 전역 비-LOW 시즌 N행). 전역 시즌 없으면 base만.
+  villaRatePeriod: {
+    deleteMany: vi.fn(async () => ({})),
+    create: vi.fn(async () => ({})),
+    createMany: vi.fn(async () => ({})),
+  },
+  seasonPeriod: { findMany: vi.fn(async () => []) },
   notification: {
     create: vi.fn(
       async (_a: { data: { userId: string; type: string; payload: { reason: string } } }) => ({})
@@ -148,7 +154,7 @@ describe("PUT /api/villas/[id] — 재제출 (T1.2b)", () => {
     const res = await putReq(VALID_PUT_BODY);
     expect(res.status).toBe(409);
     // rate deleteMany가 호출되지 않아야 함 (마진 보존)
-    expect(tx.villaRate.deleteMany).not.toHaveBeenCalled();
+    expect(tx.villaRatePeriod.deleteMany).not.toHaveBeenCalled();
   });
 
   it("zod 검증 실패(원가 누락) 400", async () => {
@@ -170,7 +176,9 @@ describe("PUT /api/villas/[id] — 재제출 (T1.2b)", () => {
       })
     );
     expect(tx.villaPhoto.deleteMany).toHaveBeenCalled();
-    expect(tx.villaRate.createMany).toHaveBeenCalled();
+    // base 1행은 항상 create. 전역 비-LOW 시즌이 있을 때만 createMany(여기선 빈 시즌 → create만).
+    expect(tx.villaRatePeriod.deleteMany).toHaveBeenCalled();
+    expect(tx.villaRatePeriod.create).toHaveBeenCalled();
     expect(vi.mocked(writeAuditLog)).toHaveBeenCalled();
   });
 });

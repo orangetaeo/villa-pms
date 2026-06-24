@@ -9,7 +9,9 @@ const tx = {
   villa: { create: vi.fn(async () => ({ id: "villa-new", status: "PENDING_REVIEW" })) },
   villaPhoto: { createMany: vi.fn(async () => ({})) },
   villaAmenity: { createMany: vi.fn(async () => ({})) },
-  villaRate: { createMany: vi.fn(async () => ({})) },
+  // ADR-0014: 요율은 VillaRatePeriod (base 1행 + 전역 비-LOW 시즌 N행).
+  villaRatePeriod: { create: vi.fn(async () => ({})), createMany: vi.fn(async () => ({})) },
+  seasonPeriod: { findMany: vi.fn(async () => []) },
 };
 const mockUserFindUnique = vi.fn();
 vi.mock("@/lib/prisma", () => ({

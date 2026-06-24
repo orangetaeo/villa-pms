@@ -85,7 +85,7 @@ export default async function VillasPage({
           take: 1,
           select: { url: true },
         },
-        _count: { select: { rates: true } },
+        _count: { select: { ratePeriods: true } },
       },
     }),
     prisma.villa.count({ where }),
@@ -270,7 +270,7 @@ export default async function VillasPage({
                       </span>
                     </div>
                   )}
-                  {villa._count.rates === 0 && (
+                  {villa._count.ratePeriods === 0 && (
                     <div className="flex items-center gap-2 p-2 rounded bg-amber-900/20 border border-amber-900/30">
                       <span className="material-symbols-outlined text-admin-pending text-sm">
                         payments

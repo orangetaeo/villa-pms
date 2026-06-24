@@ -26,6 +26,7 @@ import {
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
+import { representativeRatesBySeason } from "@/lib/pricing";
 import {
   saveFile,
   isAllowedImageMime,
@@ -412,12 +413,12 @@ async function handleVilla(
   } as const;
 
   if (isCostSideType(conv.counterpartyType)) {
-    // 원가측(공급자) 경로 — rates는 supplierCostVnd만 SELECT. salePrice*/margin 미조회 (D4.1).
+    // 원가측(공급자) 경로 — ratePeriods는 supplierCostVnd만 SELECT. salePrice*/margin 미조회 (D4.1, ADR-0014).
     const villa = await prisma.villa.findUnique({
       where: { id: villaId },
       select: {
         ...base,
-        rates: { select: { season: true, supplierCostVnd: true } },
+        ratePeriods: { select: { season: true, isBase: true, supplierCostVnd: true } },
       },
     });
     if (!villa) {
@@ -428,9 +429,14 @@ async function handleVilla(
     if (!conv.userId || villa.supplierId !== conv.userId) {
       return NextResponse.json({ error: "VILLA_NOT_OWNED" }, { status: 403 });
     }
+    // 시즌 대표 원가행(LOW=base, HIGH/PEAK=그 시즌 첫 기간 없으면 base) → 시즌별 한 줄.
+    const rep = representativeRatesBySeason(villa.ratePeriods);
     const text = buildVillaShareTextForSupplier(
       toShareBase(villa, "vi"),
-      villa.rates.map((r) => ({ season: r.season, supplierCostVnd: r.supplierCostVnd }))
+      (["LOW", "HIGH", "PEAK"] as const).flatMap((season) => {
+        const r = rep[season];
+        return r ? [{ season, supplierCostVnd: r.supplierCostVnd }] : [];
+      })
     );
     const send = await sendChatMessageAsAdmin(adminUserId, conv.zaloUserId, text);
     return persistShare(conv.id, adminUserId, "villa_share", text, [], send, {
@@ -439,13 +445,13 @@ async function handleVilla(
     });
   }
 
-  // 판매가측(고객·여행사·랜드사) 경로 — rates는 salePriceVnd/salePriceKrw만 SELECT.
-  // supplierCostVnd/margin 미조회 (D4.1). 본문 통화는 currencyForType()로 분류별 결정.
+  // 판매가측(고객·여행사·랜드사) 경로 — ratePeriods는 salePriceVnd/salePriceKrw만 SELECT.
+  // supplierCostVnd/margin 미조회 (D4.1, ADR-0014). 본문 통화는 currencyForType()로 분류별 결정.
   const villa = await prisma.villa.findUnique({
     where: { id: villaId },
     select: {
       ...base,
-      rates: { select: { season: true, salePriceVnd: true, salePriceKrw: true } },
+      ratePeriods: { select: { season: true, isBase: true, salePriceVnd: true, salePriceKrw: true } },
     },
   });
   if (!villa) {
@@ -457,13 +463,14 @@ async function handleVilla(
   }
   // 통화 — 분류값으로 결정(R2-3): CUSTOMER=KRW, TRAVEL_AGENCY/LAND_AGENCY=VND.
   const saleCurrency = currencyForType(conv.counterpartyType);
+  // 시즌 대표 판매가행 → 시즌별 한 줄.
+  const repSale = representativeRatesBySeason(villa.ratePeriods);
   const text = buildVillaShareTextForCustomer(
     toShareBase(villa, "ko"),
-    villa.rates.map((r) => ({
-      season: r.season,
-      salePriceVnd: r.salePriceVnd,
-      salePriceKrw: r.salePriceKrw,
-    })),
+    (["LOW", "HIGH", "PEAK"] as const).flatMap((season) => {
+      const r = repSale[season];
+      return r ? [{ season, salePriceVnd: r.salePriceVnd, salePriceKrw: r.salePriceKrw }] : [];
+    }),
     saleCurrency
   );
   const send = await sendChatMessageAsAdmin(adminUserId, conv.zaloUserId, text);

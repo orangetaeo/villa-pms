@@ -10,6 +10,7 @@
 // 마진·판매가·KRW 노출은 운영자 화면에서만 정당(공급자·공개 화면에는 절대 이 로더 사용 금지).
 import type { PrismaClient } from "@prisma/client";
 import { NotificationType, ProposalStatus } from "@prisma/client";
+import { representativeRatesBySeason } from "./pricing";
 
 export interface CostAlertRow {
   /** 알림 id (확인 처리용) */
@@ -122,20 +123,28 @@ export async function loadCostAlerts(
   });
   const proposalMap = new Map(proposals.map((p) => [p.id, p]));
 
-  // 영향 villa의 현재 시즌 판매가 조회 (villaId+season 쌍)
-  const villaSeasonKeys = Array.from(
-    new Set(parsed.map((x) => `${x.p.villaId}::${x.p.season}`))
-  );
-  const rates = await prisma.villaRate.findMany({
-    where: {
-      OR: villaSeasonKeys.map((k) => {
-        const [villaId, season] = k.split("::");
-        return { villaId, season: season as "LOW" | "HIGH" | "PEAK" };
-      }),
-    },
-    select: { villaId: true, season: true, salePriceVnd: true },
+  // 영향 villa의 현재 시즌 판매가 조회 (ADR-0014 — VillaRatePeriod 시즌 대표행).
+  //   판매가만 select(원가·마진 미조회 — ADMIN 전용 로더지만 최소 select 유지).
+  const villaIds = Array.from(new Set(parsed.map((x) => x.p.villaId)));
+  const ratePeriods = await prisma.villaRatePeriod.findMany({
+    where: { villaId: { in: villaIds } },
+    select: { villaId: true, season: true, isBase: true, salePriceVnd: true },
   });
-  const rateMap = new Map(rates.map((r) => [`${r.villaId}::${r.season}`, r.salePriceVnd]));
+  // villaId별로 묶어 시즌 대표행(LOW=base, HIGH/PEAK=그 시즌 첫 기간 없으면 base) → (villaId::season) 판매가 맵.
+  const byVilla = new Map<string, { season: "LOW" | "HIGH" | "PEAK"; isBase: boolean; salePriceVnd: bigint }[]>();
+  for (const r of ratePeriods) {
+    const arr = byVilla.get(r.villaId) ?? [];
+    arr.push({ season: r.season as "LOW" | "HIGH" | "PEAK", isBase: r.isBase, salePriceVnd: r.salePriceVnd });
+    byVilla.set(r.villaId, arr);
+  }
+  const rateMap = new Map<string, bigint>();
+  for (const [villaId, rows] of byVilla) {
+    const rep = representativeRatesBySeason(rows);
+    for (const season of ["LOW", "HIGH", "PEAK"] as const) {
+      const r = rep[season];
+      if (r) rateMap.set(`${villaId}::${season}`, r.salePriceVnd);
+    }
+  }
 
   // 제안별 그룹 구성
   const groups = new Map<string, CostAlertGroup>();

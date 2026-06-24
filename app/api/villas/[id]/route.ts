@@ -7,9 +7,10 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { createInitialInspectionTask } from "@/lib/cleaning";
-import { villaCreateSchema, SEASONS } from "@/lib/villa-schema";
+import { villaCreateSchema } from "@/lib/villa-schema";
 import { NotificationType, type VillaStatus } from "@prisma/client";
 import { isOperator } from "@/lib/permissions";
+import { buildRatePeriodRowsFromSeasonCosts } from "@/lib/pricing";
 
 const patchSchema = z.object({
   action: z.enum(["APPROVE", "REJECT", "DEACTIVATE", "REACTIVATE"]),
@@ -232,21 +233,26 @@ export async function PUT(
       });
     }
 
-    await tx.villaRate.deleteMany({ where: { villaId: id } });
-    await tx.villaRate.createMany({
-      data: SEASONS.map((season) => {
-        const cost = BigInt(data.rates[season]);
-        return {
-          villaId: id,
-          season,
-          supplierCostVnd: cost,
-          marginType: "PERCENT" as const,
-          marginValue: BigInt(0),
-          salePriceVnd: cost,
-          salePriceKrw: 0,
-        };
-      }),
+    // 요율(ADR-0014 VillaRatePeriod) 전체 교체 — REJECTED는 ADMIN 미승인 상태라 마진 리셋 안전.
+    //   base(LOW 배경) 1행 + 전역 비-LOW 시즌 스냅샷 N행. 마진·판매가는 placeholder.
+    await tx.villaRatePeriod.deleteMany({ where: { villaId: id } });
+    const globalSeasons = await tx.seasonPeriod.findMany({
+      select: { season: true, startDate: true, endDate: true, label: true },
     });
+    const { base, periods } = buildRatePeriodRowsFromSeasonCosts(
+      {
+        LOW: BigInt(data.rates.LOW),
+        HIGH: BigInt(data.rates.HIGH),
+        PEAK: BigInt(data.rates.PEAK),
+      },
+      globalSeasons
+    );
+    await tx.villaRatePeriod.create({ data: { ...base, villaId: id } });
+    if (periods.length > 0) {
+      await tx.villaRatePeriod.createMany({
+        data: periods.map((p) => ({ ...p, villaId: id })),
+      });
+    }
 
     return { kind: "OK" as const };
   });

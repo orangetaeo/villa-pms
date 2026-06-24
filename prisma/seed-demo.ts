@@ -23,7 +23,6 @@ import {
   Role,
   VillaStatus,
   PhotoSpace,
-  SeasonType,
   MarginType,
   BookingStatus,
   BookingChannel,
@@ -45,9 +44,11 @@ import {
   SEED_SUPPLIER_ID,
   SEED_FX_VND_PER_KRW,
   SEED_MARGIN_PERCENT,
+  SEED_SEASONS,
   applyMarginVnd,
   vndToKrwRounded,
 } from "./seed";
+import { buildRatePeriodRowsFromSeasonCosts } from "../lib/pricing";
 
 // ===================== 상수·헬퍼 =====================
 
@@ -169,7 +170,7 @@ async function main() {
     await prisma.calendarBlock.deleteMany({ where: { OR: [{ id: pfx("demo-block-") }, { villaId: { in: myVillaIds } }] } });
     await prisma.booking.deleteMany({ where: { OR: [{ id: pfx("demo-bk-") }, { villaId: { in: myVillaIds } }] } });
     await prisma.villaPhoto.deleteMany({ where: { villaId: { in: myVillaIds } } });
-    await prisma.villaRate.deleteMany({ where: { villaId: { in: myVillaIds } } });
+    await prisma.villaRatePeriod.deleteMany({ where: { villaId: { in: myVillaIds } } });
     await prisma.villa.deleteMany({ where: { id: { in: myVillaIds } } });
     await prisma.user.deleteMany({ where: { id: { in: myUserIds } } });
 
@@ -197,22 +198,29 @@ async function main() {
           status: VillaStatus.ACTIVE, isSellable: true, icalImportUrls: [],
         },
       });
+      // 요율(ADR-0014 VillaRatePeriod) — base(LOW 배경) + 전역 비-LOW 시즌 스냅샷(실마진 적용).
       const low = VILLA_COST_VND[v.id];
-      const rates = [
-        { season: SeasonType.LOW, cost: low },
-        { season: SeasonType.HIGH, cost: (low * 14n) / 10n },
-        { season: SeasonType.PEAK, cost: (low * 19n) / 10n },
-      ];
-      await prisma.villaRate.createMany({
-        data: rates.map((r) => {
-          const salePriceVnd = applyMarginVnd(r.cost, SEED_MARGIN_PERCENT);
-          return {
-            villaId: v.id, season: r.season, supplierCostVnd: r.cost,
-            marginType: MarginType.PERCENT, marginValue: SEED_MARGIN_PERCENT,
-            salePriceVnd, salePriceKrw: vndToKrwRounded(salePriceVnd, FX),
-          };
-        }),
+      const withMargin = (cost: bigint) => {
+        const salePriceVnd = applyMarginVnd(cost, SEED_MARGIN_PERCENT);
+        return {
+          marginType: MarginType.PERCENT,
+          marginValue: SEED_MARGIN_PERCENT,
+          salePriceVnd,
+          salePriceKrw: vndToKrwRounded(salePriceVnd, FX),
+        };
+      };
+      const { base, periods } = buildRatePeriodRowsFromSeasonCosts(
+        { LOW: low, HIGH: (low * 14n) / 10n, PEAK: (low * 19n) / 10n },
+        SEED_SEASONS.map((s) => ({ season: s.season, startDate: s.startDate, endDate: s.endDate, label: s.label }))
+      );
+      await prisma.villaRatePeriod.create({
+        data: { ...base, ...withMargin(base.supplierCostVnd), villaId: v.id },
       });
+      if (periods.length > 0) {
+        await prisma.villaRatePeriod.createMany({
+          data: periods.map((p) => ({ ...p, ...withMargin(p.supplierCostVnd), villaId: v.id })),
+        });
+      }
       const spaces: { space: PhotoSpace; label: string | null }[] = [
         { space: PhotoSpace.EXTERIOR, label: null },
         { space: PhotoSpace.LIVING, label: null },

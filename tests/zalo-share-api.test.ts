@@ -122,9 +122,9 @@ vi.mock("@/lib/prisma", () => ({
         lastVillaSelect = arg.select;
         if (arg.where.id !== "villa1") return null;
         // 두 경로 모두에 대응하는 풀 레코드를 두되, **mock이 select를 그대로 반영**하도록
-        // select에 있는 rates 형태만 채운다(실DB의 select 화이트리스트 동작 모사).
-        const ratesSel = (arg.select.rates as { select: Record<string, boolean> }).select;
-        const rateRow: Record<string, unknown> = { season: "LOW" };
+        // select에 있는 ratePeriods 형태만 채운다(ADR-0014 — 실DB select 화이트리스트 동작 모사).
+        const ratesSel = (arg.select.ratePeriods as { select: Record<string, boolean> }).select;
+        const rateRow: Record<string, unknown> = { season: "LOW", isBase: true };
         if (ratesSel.supplierCostVnd) rateRow.supplierCostVnd = 1000000n;
         if (ratesSel.salePriceVnd) rateRow.salePriceVnd = 1500000n;
         if (ratesSel.salePriceKrw) rateRow.salePriceKrw = 90000;
@@ -140,7 +140,7 @@ vi.mock("@/lib/prisma", () => ({
           status: "ACTIVE",
           isSellable: true,
           amenities: [{ itemKey: "kettle", customLabel: null }],
-          rates: [rateRow],
+          ratePeriods: [rateRow],
         };
       }),
     },
@@ -230,7 +230,7 @@ describe("S3 빌라 — 공급자 경로(원가만)", () => {
     const res = await jsonReq("convSup", { type: "VILLA", villaId: "villa1" });
     expect(res.status).toBe(200);
     // select 화이트리스트: rates에 supplierCostVnd만, salePrice*/margin 키 없음
-    const ratesSel = (lastVillaSelect!.rates as { select: Record<string, boolean> }).select;
+    const ratesSel = (lastVillaSelect!.ratePeriods as { select: Record<string, boolean> }).select;
     expect(ratesSel.supplierCostVnd).toBe(true);
     expect(ratesSel.salePriceVnd).toBeUndefined();
     expect(ratesSel.salePriceKrw).toBeUndefined();
@@ -254,7 +254,7 @@ describe("S3 빌라 — 고객 경로(판매가만)", () => {
   it("supplierCost/margin select 안 함, 본문에 원가/마진 0", async () => {
     const res = await jsonReq("convCust", { type: "VILLA", villaId: "villa1" });
     expect(res.status).toBe(200);
-    const ratesSel = (lastVillaSelect!.rates as { select: Record<string, boolean> }).select;
+    const ratesSel = (lastVillaSelect!.ratePeriods as { select: Record<string, boolean> }).select;
     expect(ratesSel.salePriceVnd).toBe(true);
     expect(ratesSel.salePriceKrw).toBe(true);
     expect(ratesSel.supplierCostVnd).toBeUndefined();
@@ -272,7 +272,7 @@ describe("S3 빌라 — 판매가측 그룹 확장(여행사·랜드사 = 판매
   it("TRAVEL_AGENCY: salePriceVnd만 본문, 원가·마진·KRW 0", async () => {
     const res = await jsonReq("convTravel", { type: "VILLA", villaId: "villa1" });
     expect(res.status).toBe(200);
-    const ratesSel = (lastVillaSelect!.rates as { select: Record<string, boolean> }).select;
+    const ratesSel = (lastVillaSelect!.ratePeriods as { select: Record<string, boolean> }).select;
     // 판매가측 select 화이트리스트 — 원가·마진 미조회
     expect(ratesSel.salePriceVnd).toBe(true);
     expect(ratesSel.salePriceKrw).toBe(true);

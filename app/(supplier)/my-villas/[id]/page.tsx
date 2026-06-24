@@ -9,6 +9,7 @@ import { getTranslations } from "next-intl/server";
 import { getSupplierLocale } from "@/lib/locale";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { representativeRatesBySeason } from "@/lib/pricing";
 import type { AmenityCategory, SeasonType } from "@prisma/client";
 import { formatVnd } from "@/app/(supplier)/my-villas/new/wizard-types";
 import { SPACE_ICON, SPACE_LABEL_KEY } from "@/lib/photo-spaces";
@@ -46,9 +47,9 @@ async function getVilla(id: string, supplierId: string) {
       amenities: {
         select: { category: true },
       },
-      // 누수 차단 — supplierCostVnd만. sale/margin 필드는 select에 부재
-      rates: {
-        select: { season: true, supplierCostVnd: true },
+      // 누수 차단 — supplierCostVnd만(ADR-0014 VillaRatePeriod). sale/margin 필드는 select에 부재
+      ratePeriods: {
+        select: { season: true, isBase: true, supplierCostVnd: true },
       },
       // 판매정보 표시 (ADR-0011, a16) — 누수 무관 필드만.
       // ⛔ wifiSsid·wifiPassword 미포함(§4.3 체크인 전용), salePriceVnd·salePriceKrw·marginType·marginValue 미포함(사업원칙 2)
@@ -177,8 +178,14 @@ export default async function VillaDetailPage({
     };
   });
 
-  // 시즌 원가 — supplierCostVnd(BigInt) → 점 구분 문자열. 정의된 시즌만, 순서 고정
-  const rateBySeason = new Map(villa.rates.map((r) => [r.season, r.supplierCostVnd]));
+  // 시즌 원가 — VillaRatePeriod 시즌 대표행(LOW=base, HIGH/PEAK=그 시즌 첫 기간 없으면 base)의 원가.
+  //   supplierCostVnd(BigInt) → 점 구분 문자열. 정의된 시즌만, 순서 고정.
+  const repRates = representativeRatesBySeason(villa.ratePeriods);
+  const rateBySeason = new Map<SeasonType, bigint>();
+  for (const season of SEASON_ORDER) {
+    const r = repRates[season];
+    if (r) rateBySeason.set(season, r.supplierCostVnd);
+  }
 
   return (
     <div className="mx-auto w-full max-w-[420px]">
@@ -321,20 +328,13 @@ export default async function VillaDetailPage({
             </div>
           </div>
 
-          {/* 4. 원가 (Giá gốc) — supplierCostVnd만. 판매가·마진 부재. "원가·시즌 관리" 진입(a15) */}
+          {/* 4. 원가 (Giá gốc) — supplierCostVnd만. 판매가·마진 부재. 편집은 기간별 원가(rate-periods, ADR-0014) */}
           <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-teal-600">payments</span>
                 <h3 className="font-semibold text-neutral-800">{t("price")}</h3>
               </div>
-              <Link
-                href={`/my-villas/${villa.id}/cost`}
-                className="flex shrink-0 items-center gap-1 rounded-lg bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-100"
-              >
-                <span className="material-symbols-outlined text-base">edit</span>
-                {t("manageCost")}
-              </Link>
             </div>
             <div className="space-y-1">
               {SEASON_ORDER.map((season, idx) => {

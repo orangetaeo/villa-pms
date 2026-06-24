@@ -23,7 +23,7 @@ import {
 } from "@prisma/client";
 import { hash } from "bcryptjs";
 import { HOLD_HOURS_DEFAULT_KEY } from "../lib/hold";
-import { FX_VND_PER_KRW_KEY } from "../lib/pricing";
+import { FX_VND_PER_KRW_KEY, buildRatePeriodRowsFromSeasonCosts } from "../lib/pricing";
 import {
   BANK_NAME_KEY,
   BANK_ACCOUNT_NUMBER_KEY,
@@ -354,27 +354,40 @@ async function main() {
         },
       });
 
-      for (const r of v.rates) {
-        const salePriceVnd = applyMarginVnd(r.supplierCostVnd, SEED_MARGIN_PERCENT);
-        const salePriceKrw = vndToKrwRounded(salePriceVnd, SEED_FX_VND_PER_KRW);
-        await prisma.villaRate.upsert({
-          where: { villaId_season: { villaId: v.id, season: r.season } },
-          update: {
-            supplierCostVnd: r.supplierCostVnd,
-            marginType: MarginType.PERCENT,
-            marginValue: SEED_MARGIN_PERCENT,
-            salePriceVnd,
-            salePriceKrw,
-          },
-          create: {
-            villaId: v.id,
-            season: r.season,
-            supplierCostVnd: r.supplierCostVnd,
-            marginType: MarginType.PERCENT,
-            marginValue: SEED_MARGIN_PERCENT,
-            salePriceVnd,
-            salePriceKrw,
-          },
+      // 요율(ADR-0014 VillaRatePeriod) — 기본요금(LOW 배경) + 전역 비-LOW 시즌 스냅샷.
+      //   buildRatePeriodRowsFromSeasonCosts로 base/periods 구조(날짜·시즌)를 만들고,
+      //   파일럿 시드는 실마진(SEED_MARGIN_PERCENT)을 적용한 sale 값으로 덮어쓴다.
+      //   멱등성: 빌라별 deleteMany → create + createMany (upsert 대신 전량 재생성).
+      const costsBySeason: Record<SeasonType, bigint> = {
+        [SeasonType.LOW]: 0n,
+        [SeasonType.HIGH]: 0n,
+        [SeasonType.PEAK]: 0n,
+      };
+      for (const r of v.rates) costsBySeason[r.season] = r.supplierCostVnd;
+      const withMargin = (cost: bigint) => {
+        const salePriceVnd = applyMarginVnd(cost, SEED_MARGIN_PERCENT);
+        return {
+          marginType: MarginType.PERCENT,
+          marginValue: SEED_MARGIN_PERCENT,
+          salePriceVnd,
+          salePriceKrw: vndToKrwRounded(salePriceVnd, SEED_FX_VND_PER_KRW),
+        };
+      };
+      const { base, periods } = buildRatePeriodRowsFromSeasonCosts(
+        {
+          LOW: costsBySeason[SeasonType.LOW],
+          HIGH: costsBySeason[SeasonType.HIGH],
+          PEAK: costsBySeason[SeasonType.PEAK],
+        },
+        SEED_SEASONS.map((s) => ({ season: s.season, startDate: s.startDate, endDate: s.endDate, label: s.label }))
+      );
+      await prisma.villaRatePeriod.deleteMany({ where: { villaId: v.id } });
+      await prisma.villaRatePeriod.create({
+        data: { ...base, ...withMargin(base.supplierCostVnd), villaId: v.id },
+      });
+      if (periods.length > 0) {
+        await prisma.villaRatePeriod.createMany({
+          data: periods.map((p) => ({ ...p, ...withMargin(p.supplierCostVnd), villaId: v.id })),
         });
       }
 
@@ -391,7 +404,7 @@ async function main() {
     const counts = {
       users: await prisma.user.count(),
       villas: await prisma.villa.count(),
-      rates: await prisma.villaRate.count(),
+      ratePeriods: await prisma.villaRatePeriod.count(),
       photos: await prisma.villaPhoto.count(),
       seasons: await prisma.seasonPeriod.count(),
       settings: await prisma.appSetting.count(),

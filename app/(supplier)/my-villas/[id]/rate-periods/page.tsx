@@ -1,6 +1,5 @@
 // 공급자 기간별 원가 (ADR-0014 후속) — 기본요금 + 웃돈 기간 N의 원가만 입력.
 // 누수 0: VillaRatePeriod는 supplierCostVnd·날짜만 select. salePrice*/margin* 미조회(구조적 보장).
-// 기존 VillaRatePeriod 없으면 구 VillaRate LOW 원가를 기본요금 시드(전환 편의).
 import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { notFound, redirect } from "next/navigation";
@@ -35,7 +34,6 @@ export default async function SupplierRatePeriodsPage({
         orderBy: [{ isBase: "desc" }, { startDate: "asc" }],
         select: { id: true, isBase: true, season: true, startDate: true, endDate: true, supplierCostVnd: true, label: true },
       },
-      rates: { select: { season: true, supplierCostVnd: true } }, // 시드용(구 경로 LOW 원가)
     },
   });
   if (!villa || villa.supplierId !== session.user.id) notFound();
@@ -44,10 +42,9 @@ export default async function SupplierRatePeriodsPage({
   const t = await getTranslations({ locale, namespace: "supplierRatePeriods" });
 
   const baseRow = villa.ratePeriods.find((r) => r.isBase);
-  const seedLowCost = villa.rates.find((r) => r.season === "LOW")?.supplierCostVnd;
   const base = baseRow
     ? { season: baseRow.season, supplierCostVnd: baseRow.supplierCostVnd.toString(), label: baseRow.label ?? "" }
-    : { season: "LOW" as const, supplierCostVnd: seedLowCost ? seedLowCost.toString() : "", label: "" };
+    : { season: "LOW" as const, supplierCostVnd: "", label: "" };
 
   const periods: InitialRatePeriod[] = villa.ratePeriods
     .filter((r) => !r.isBase)

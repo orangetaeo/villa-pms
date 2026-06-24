@@ -36,6 +36,7 @@ import {
   ZaloMessageStatus,
 } from "@prisma/client";
 import { hash } from "bcryptjs";
+import { buildRatePeriodRowsFromSeasonCosts } from "../lib/pricing";
 
 const prisma = new PrismaClient();
 
@@ -270,6 +271,10 @@ async function main() {
   });
 
   // ---------- 2) 빌라 + 요율 + 사진 + 비품 ----------
+  // 전역 SeasonPeriod(seed.ts 적재) — VillaRatePeriod 웃돈 기간의 날짜 템플릿. 없으면 base만 생성.
+  const globalSeasons = await prisma.seasonPeriod.findMany({
+    select: { season: true, startDate: true, endDate: true, label: true },
+  });
   for (const v of VILLAS) {
     await prisma.villa.upsert({
       where: { id: v.id },
@@ -287,13 +292,23 @@ async function main() {
       },
     });
 
-    for (const season of [SeasonType.LOW, SeasonType.HIGH, SeasonType.PEAK]) {
-      const cost = v.rate[season];
+    // 요율(ADR-0014 VillaRatePeriod) — base(LOW 배경) + 전역 비-LOW 시즌 스냅샷(실마진 적용).
+    //   전역 SeasonPeriod(seed.ts가 적재) 날짜 템플릿 사용. 멱등: 빌라별 deleteMany → create.
+    const withMargin = (cost: bigint) => {
       const sv = saleVnd(cost);
-      await prisma.villaRate.upsert({
-        where: { villaId_season: { villaId: v.id, season } },
-        update: { supplierCostVnd: cost, marginType: MarginType.PERCENT, marginValue: MARGIN, salePriceVnd: sv, salePriceKrw: saleKrw(sv) },
-        create: { villaId: v.id, season, supplierCostVnd: cost, marginType: MarginType.PERCENT, marginValue: MARGIN, salePriceVnd: sv, salePriceKrw: saleKrw(sv) },
+      return { marginType: MarginType.PERCENT, marginValue: MARGIN, salePriceVnd: sv, salePriceKrw: saleKrw(sv) };
+    };
+    const { base, periods } = buildRatePeriodRowsFromSeasonCosts(
+      { LOW: v.rate.LOW, HIGH: v.rate.HIGH, PEAK: v.rate.PEAK },
+      globalSeasons
+    );
+    await prisma.villaRatePeriod.deleteMany({ where: { villaId: v.id } });
+    await prisma.villaRatePeriod.create({
+      data: { ...base, ...withMargin(base.supplierCostVnd), villaId: v.id },
+    });
+    if (periods.length > 0) {
+      await prisma.villaRatePeriod.createMany({
+        data: periods.map((p) => ({ ...p, ...withMargin(p.supplierCostVnd), villaId: v.id })),
       });
     }
 

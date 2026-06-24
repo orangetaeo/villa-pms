@@ -12,7 +12,8 @@ function makerisma(notifPayloads: unknown[]) {
       ),
     },
     proposal: { findMany: vi.fn(async () => [{ id: "pr1", token: "tok", clientName: "C", saleCurrency: "VND", items: [] }]) },
-    villaRate: { findMany: vi.fn(async () => []) },
+    // ADR-0014: 판매가 조회는 VillaRatePeriod 시즌 대표행 기반(구 villaRate 제거).
+    villaRatePeriod: { findMany: vi.fn(async () => []) },
   } as unknown as PrismaClient;
 }
 

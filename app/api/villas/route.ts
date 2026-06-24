@@ -5,10 +5,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
-import { villaCreateSchema, SEASONS } from "@/lib/villa-schema";
+import { villaCreateSchema } from "@/lib/villa-schema";
 import { serializeBigInt } from "@/lib/serialize";
 import type { Prisma, VillaStatus } from "@prisma/client";
 import { isOperator, canViewFinance } from "@/lib/permissions";
+import { buildRatePeriodRowsFromSeasonCosts, representativeRatesBySeason } from "@/lib/pricing";
 
 export async function POST(req: Request) {
   // 권한 검사 — SUPPLIER(자기 빌라) + ADMIN(테오 직접등록) 허용 (route handler 첫 줄 role 검사 규칙)
@@ -97,21 +98,25 @@ export async function POST(req: Request) {
       });
     }
 
-    // 마진·판매가는 운영자가 T1.2 승인 화면에서 설정 — 생성 시 초기값
-    await tx.villaRate.createMany({
-      data: SEASONS.map((season) => {
-        const cost = BigInt(data.rates[season]);
-        return {
-          villaId: created.id,
-          season,
-          supplierCostVnd: cost,
-          marginType: "PERCENT" as const,
-          marginValue: BigInt(0),
-          salePriceVnd: cost,
-          salePriceKrw: 0,
-        };
-      }),
+    // 요율(ADR-0014 VillaRatePeriod) — 기본요금(base, LOW 배경) 1행 + 전역 비-LOW 시즌 스냅샷 N행.
+    // 마진·판매가는 운영자가 T1.2 승인 화면에서 설정 — 생성 시 placeholder(margin 0·sale=cost·krw 0).
+    const globalSeasons = await tx.seasonPeriod.findMany({
+      select: { season: true, startDate: true, endDate: true, label: true },
     });
+    const { base, periods } = buildRatePeriodRowsFromSeasonCosts(
+      {
+        LOW: BigInt(data.rates.LOW),
+        HIGH: BigInt(data.rates.HIGH),
+        PEAK: BigInt(data.rates.PEAK),
+      },
+      globalSeasons
+    );
+    await tx.villaRatePeriod.create({ data: { ...base, villaId: created.id } });
+    if (periods.length > 0) {
+      await tx.villaRatePeriod.createMany({
+        data: periods.map((p) => ({ ...p, villaId: created.id })),
+      });
+    }
 
     return created;
   });
@@ -175,16 +180,17 @@ export async function GET(req: Request) {
   if (isOperator(role)) {
     // S-RBAC-3: 판매가·마진은 canViewFinance(OWNER/MANAGER/ADMIN)만. STAFF는 원가만(SUPPLIER 동일 가시성).
     const showFinance = canViewFinance(role);
+    // ADR-0014: 요율은 VillaRatePeriod. 응답은 기존 소비처 호환을 위해 시즌별 대표행 rates:[{season,...}] 배열로 재구성.
+    //   showFinance면 판매가·마진 포함, STAFF는 supplierCostVnd만 select(누수 불변식 유지).
     const villas = await prisma.villa.findMany({
       where,
       orderBy: { createdAt: "desc" },
       include: {
         supplier: { select: { id: true, name: true, phone: true } },
-        rates: {
-          orderBy: { season: "asc" },
+        ratePeriods: {
           select: {
-            id: true,
             season: true,
+            isBase: true,
             supplierCostVnd: true,
             // STAFF면 marginType·marginValue·salePriceVnd·salePriceKrw select 자체에서 제외
             ...(showFinance
@@ -201,7 +207,18 @@ export async function GET(req: Request) {
         _count: { select: { photos: true, bookings: true, amenities: true } },
       },
     });
-    return NextResponse.json(serializeBigInt(villas));
+    // ratePeriods → 시즌별 대표행 rates 배열(LOW=base, HIGH/PEAK=그 시즌 첫 기간 없으면 base)로 변환.
+    const shaped = villas.map(({ ratePeriods, ...v }) => {
+      const rep = representativeRatesBySeason(ratePeriods);
+      const rates = (["LOW", "HIGH", "PEAK"] as const)
+        .map((season) => {
+          const r = rep[season];
+          return r ? { ...r, season } : null;
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null);
+      return { ...v, rates };
+    });
+    return NextResponse.json(serializeBigInt(shaped));
   }
 
   // SUPPLIER — 마진·판매가(marginType·marginValue·salePriceVnd·salePriceKrw) 절대 미포함
@@ -221,13 +238,24 @@ export async function GET(req: Request) {
       status: true,
       isSellable: true,
       createdAt: true,
-      rates: {
-        orderBy: { season: "asc" },
-        select: { season: true, supplierCostVnd: true }, // 자기 원가만
+      ratePeriods: {
+        // 자기 원가만 — sale/margin 필드는 select에 부재(누수 불변식 구조적 보장)
+        select: { season: true, isBase: true, supplierCostVnd: true },
       },
       photos: { orderBy: { sortOrder: "asc" }, take: 1 },
       _count: { select: { photos: true, amenities: true } },
     },
   });
-  return NextResponse.json(serializeBigInt(villas));
+  // ratePeriods → 시즌별 대표 원가행 rates 배열(원가만)로 변환 — 기존 소비처 호환.
+  const shaped = villas.map(({ ratePeriods, ...v }) => {
+    const rep = representativeRatesBySeason(ratePeriods);
+    const rates = (["LOW", "HIGH", "PEAK"] as const)
+      .map((season) => {
+        const r = rep[season];
+        return r ? { season, supplierCostVnd: r.supplierCostVnd } : null;
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+    return { ...v, rates };
+  });
+  return NextResponse.json(serializeBigInt(shaped));
 }

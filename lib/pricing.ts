@@ -26,25 +26,14 @@ const SEASON_PRECEDENCE: Record<SeasonType, number> = {
   [SeasonType.LOW]: 0,
 };
 
-export interface SeasonPeriodLike {
-  season: SeasonType;
-  /** 시작일 (포함) — @db.Date, UTC 자정 */
-  startDate: Date;
-  /** 종료일 (제외) — [startDate, endDate) half-open, 프로젝트 날짜 규약 통일 */
-  endDate: Date;
-}
-
-export interface VillaRateLike {
-  season: SeasonType;
-  supplierCostVnd: bigint;
-  salePriceVnd: bigint;
-  salePriceKrw: number;
-}
-
-/** 해당 시즌의 VillaRate가 없을 때 — 요율 미설정 빌라는 견적 불가 */
+/**
+ * 요율 미설정으로 견적 불가 (구 VillaRate 시즌 기반). ADR-0014 Phase B에서 견적 경로가
+ * VillaRatePeriod 단일 경로가 된 뒤로는 MissingBaseRateError(하위 클래스)가 실제로 throw되지만,
+ * 기존 소비처(lib/proposal.ts·proposals/candidates)가 이 타입으로 catch하므로 베이스 타입으로 유지.
+ */
 export class MissingRateError extends Error {
   constructor(public readonly season: SeasonType) {
-    super(`시즌 ${season}의 요율(VillaRate)이 설정되지 않았습니다`);
+    super(`시즌 ${season}의 요율이 설정되지 않았습니다`);
     this.name = "MissingRateError";
   }
 }
@@ -57,18 +46,6 @@ function assertSupportedSaleCurrency(saleCurrency: Currency): void {
 }
 
 // ===================== 순수 함수 층 (단위 테스트 대상) =====================
-
-/** 날짜가 속한 시즌 판정 — 미등록은 LOW, 겹침은 PEAK > HIGH > LOW */
-export function resolveSeason(date: Date, periods: SeasonPeriodLike[]): SeasonType {
-  const t = date.getTime();
-  let season: SeasonType = SeasonType.LOW;
-  for (const p of periods) {
-    if (p.startDate.getTime() <= t && t < p.endDate.getTime()) {
-      if (SEASON_PRECEDENCE[p.season] > SEASON_PRECEDENCE[season]) season = p.season;
-    }
-  }
-  return season;
-}
 
 export interface NightQuote {
   /** 숙박일 (그 날 밤) — UTC 자정 */
@@ -93,60 +70,101 @@ export interface StayQuote {
   totalSupplierCostVnd: bigint;
 }
 
-export interface QuoteStayInput extends StayRange {
-  saleCurrency: Currency;
-  rates: VillaRateLike[];
-  seasonPeriods: SeasonPeriodLike[];
-}
-
-/** 박별 합산 견적 — DB 조회 결과를 받아 계산하는 순수 함수 */
-export function quoteStay(input: QuoteStayInput): StayQuote {
-  assertSupportedSaleCurrency(input.saleCurrency);
-  assertValidStayRange(input);
-
-  const rateBySeason = new Map<SeasonType, VillaRateLike>(
-    input.rates.map((r) => [r.season, r])
-  );
-
-  const nightly: NightQuote[] = [];
-  let totalSaleKrw = 0;
-  let totalSaleVnd = 0n;
-  let totalSupplierCostVnd = 0n;
-
-  const nights = Math.round(
-    (input.checkOut.getTime() - input.checkIn.getTime()) / MS_PER_DAY
-  );
-
-  for (let i = 0; i < nights; i++) {
-    const date = new Date(input.checkIn.getTime() + i * MS_PER_DAY);
-    const season = resolveSeason(date, input.seasonPeriods);
-    const rate = rateBySeason.get(season);
-    if (!rate) throw new MissingRateError(season);
-
-    const night: NightQuote = { date, season, costVnd: rate.supplierCostVnd };
-    if (input.saleCurrency === Currency.KRW) {
-      night.saleKrw = rate.salePriceKrw;
-      totalSaleKrw += rate.salePriceKrw;
-    } else {
-      night.saleVnd = rate.salePriceVnd;
-      totalSaleVnd += rate.salePriceVnd;
-    }
-    totalSupplierCostVnd += rate.supplierCostVnd;
-    nightly.push(night);
-  }
-
-  return {
-    nights,
-    saleCurrency: input.saleCurrency,
-    nightly,
-    ...(input.saleCurrency === Currency.KRW
-      ? { totalSaleKrw }
-      : { totalSaleVnd }),
-    totalSupplierCostVnd,
-  };
-}
-
 // ===================== 기간별 요금 (ADR-0014) — 순수 함수 층 =====================
+
+/** 빌라 생성/수정 입력의 시즌별 원가 (LOW/HIGH/PEAK, 동 단위 BigInt). */
+export interface SeasonCostsVnd {
+  LOW: bigint;
+  HIGH: bigint;
+  PEAK: bigint;
+}
+
+/** VillaRatePeriod 생성용 행 (Prisma create 입력 호환 — villaId는 호출자가 부여) */
+export interface RatePeriodCreateRow {
+  season: SeasonType;
+  isBase: boolean;
+  startDate: Date | null;
+  endDate: Date | null;
+  label: string | null;
+  supplierCostVnd: bigint;
+  marginType: MarginType;
+  marginValue: bigint;
+  salePriceVnd: bigint;
+  salePriceKrw: number;
+}
+
+/** 전역 SeasonPeriod(또는 그 비-LOW 부분집합) — 생성 시 HIGH/PEAK 기간 날짜 템플릿 */
+export interface SeasonWindow {
+  season: SeasonType;
+  startDate: Date;
+  endDate: Date;
+  label: string | null;
+}
+
+/**
+ * 빌라 생성/수정 입력의 시즌별 원가(LOW/HIGH/PEAK)를 VillaRatePeriod 행으로 변환 (ADR-0014 Phase B).
+ *
+ * 구 모델은 빌라가 LOW/HIGH/PEAK 원가(날짜 없음)를 갖고 전역 SeasonPeriod가 날짜를 제공했다.
+ * 신규 모델은 기본요금(base, LOW 배경) 1행 + 날짜 있는 웃돈 기간 N행. 이 함수가 그 사상을 담당:
+ * - base = LOW 원가 (isBase, 날짜 null·배경). 마진·판매가는 placeholder(운영자 승인 화면서 책정) —
+ *   구 `villaRate.createMany` 생성 시맨틱(margin PERCENT 0, sale=cost, krw 0) 그대로 보존.
+ * - 기간 = 전역 SeasonPeriod의 비-LOW(HIGH/PEAK) 각각을, 그 시즌의 입력 원가로 스냅샷.
+ *   전역 LOW(예: 6개월 배경)는 base가 담당하므로 복제하지 않음 — 겹침 회피 + 구 resolveSeason(precedence)과
+ *   결과 동일. (scripts/migrate-rate-periods.ts의 전역폴백 변환 규칙과 동일.)
+ *
+ * 전역 비-LOW 시즌이 없으면 base만 생성(HIGH/PEAK 원가는 날짜 출처가 없어 미반영 — 운영자가 편집기로 기간 추가).
+ */
+export function buildRatePeriodRowsFromSeasonCosts(
+  costs: SeasonCostsVnd,
+  globalSeasons: SeasonWindow[]
+): { base: RatePeriodCreateRow; periods: RatePeriodCreateRow[] } {
+  const row = (
+    season: SeasonType,
+    cost: bigint,
+    isBase: boolean,
+    startDate: Date | null,
+    endDate: Date | null,
+    label: string | null
+  ): RatePeriodCreateRow => ({
+    season,
+    isBase,
+    startDate,
+    endDate,
+    label,
+    supplierCostVnd: cost,
+    marginType: MarginType.PERCENT,
+    marginValue: 0n,
+    salePriceVnd: cost,
+    salePriceKrw: 0,
+  });
+  const base = row(SeasonType.LOW, costs.LOW, true, null, null, null);
+  const periods = globalSeasons
+    .filter((s) => s.season !== SeasonType.LOW)
+    .map((s) => row(s.season, costs[s.season as "HIGH" | "PEAK"], false, s.startDate, s.endDate, s.label));
+  return { base, periods };
+}
+
+/**
+ * 시즌별 "대표" 요금 행 추출 (ADR-0014 Phase B) — 구 VillaRate(시즌 키) 표시/원가경보를 신규 경로로 대체.
+ * 한 빌라의 VillaRatePeriod 행들에서 시즌별 대표값을 만든다: LOW=base, HIGH/PEAK=그 시즌 첫 기간(없으면 base).
+ * 표시·경보용(견적 아님). T는 호출자 select 필드(누수 책임은 호출자 — base/period 동일 필드집합 전제).
+ */
+export function representativeRatesBySeason<
+  T extends { season: SeasonType; isBase: boolean }
+>(ratePeriods: T[]): Partial<Record<SeasonType, T>> {
+  const base = ratePeriods.find((r) => r.isBase) ?? null;
+  const out: Partial<Record<SeasonType, T>> = {};
+  for (const season of [SeasonType.LOW, SeasonType.HIGH, SeasonType.PEAK]) {
+    if (season === SeasonType.LOW) {
+      if (base) out.LOW = base;
+    } else {
+      const period = ratePeriods.find((r) => !r.isBase && r.season === season);
+      const rep = period ?? base;
+      if (rep) out[season] = rep;
+    }
+  }
+  return out;
+}
 
 /** 기간별 요금 행 (ADR-0014) — 날짜 범위 + 가격을 한 행에. base는 startDate/endDate null. */
 export interface RatePeriodLike {
@@ -161,10 +179,16 @@ export interface RatePeriodLike {
   salePriceKrw: number;
 }
 
-/** 기본요금(base) 부재로 견적 불가 — 기간별 경로 빌라는 base가 필수 */
-export class MissingBaseRateError extends Error {
+/**
+ * 기본요금(base) 부재로 견적 불가 — 기간별 경로 빌라는 base가 필수.
+ * MissingRateError를 상속한다(ADR-0014 Phase B): 기존 소비처(lib/proposal.ts·
+ * proposals/candidates)가 `instanceof MissingRateError`로 "요율 미설정 빌라 제외"를
+ * 처리하므로, 단일 경로 전환 후에도 그 catch가 그대로 동작하도록 호환 유지.
+ */
+export class MissingBaseRateError extends MissingRateError {
   constructor() {
-    super("기간별 요금 빌라에 기본요금(isBase) 행이 없습니다");
+    super(SeasonType.LOW);
+    this.message = "기간별 요금 빌라에 기본요금(isBase) 행이 없습니다";
     this.name = "MissingBaseRateError";
   }
 }
@@ -327,7 +351,9 @@ export function assertSaleAmountColumns(
 export const FX_VND_PER_KRW_KEY = "FX_VND_PER_KRW";
 
 /**
- * 단일 빌라 견적 — VillaRate·SeasonPeriod 로드 후 quoteStay.
+ * 단일 빌라 견적 (ADR-0014 Phase B — VillaRatePeriod 단일 경로).
+ * 기본요금(base, isBase=true) + 숙박 구간 교차 웃돈 기간을 로드해 quoteStayByPeriod로 박별 합산.
+ * base가 없으면 견적 불가 → MissingBaseRateError(MissingRateError 하위 — 소비처 catch 호환).
  * @param db PrismaClient 또는 트랜잭션 클라이언트 (T2.3 HOLD 스냅샷은 tx 주입)
  */
 export async function quoteStayForVilla(
@@ -338,9 +364,6 @@ export async function quoteStayForVilla(
 ): Promise<StayQuote> {
   assertValidStayRange(range);
 
-  // ADR-0014 dual-read: 이 빌라가 VillaRatePeriod를 1건이라도 보유하면 기간별 경로.
-  //   보유는 count로 판정(ADR-0008 교훈 — 교차분 length로 폴백 판정 금지), 기간은 교차분만 로드.
-  //   0건이면 아래 기존 경로(VillaRate+VillaSeasonPeriod/전역) 그대로 — 무회귀.
   const RP_SELECT = {
     season: true,
     isBase: true,
@@ -350,58 +373,20 @@ export async function quoteStayForVilla(
     salePriceVnd: true,
     salePriceKrw: true,
   } as const;
-  const ratePeriodCount = await db.villaRatePeriod.count({ where: { villaId } });
-  if (ratePeriodCount > 0) {
-    const [base, periods] = await Promise.all([
-      db.villaRatePeriod.findFirst({ where: { villaId, isBase: true }, select: RP_SELECT }),
-      db.villaRatePeriod.findMany({
-        where: {
-          villaId,
-          isBase: false,
-          startDate: { lt: range.checkOut },
-          endDate: { gt: range.checkIn },
-        },
-        select: RP_SELECT,
-      }),
-    ]);
-    return quoteStayByPeriod({ ...range, saleCurrency, base, periods });
-  }
-
-  // ADR-0008 D3: 빌라별 시즌 폴백 — 반드시 2단계로 분리한다.
-  //   1) 보유 판정(count): 이 빌라가 VillaSeasonPeriod를 "하나라도" 가졌는가
-  //      → 가졌으면 그 빌라 달력으로만 판정(전역 무시), 0건이면 전역 폴백.
-  //   2) 기간 로드(교차분): 숙박 구간과 겹치는 행만 로드.
-  // ⚠️ 보유 판정을 "교차분 length>0"으로 하면, 빌라가 시즌을 지정했지만 이번 구간과
-  //    안 겹칠 때 length===0 → 잘못된 전역 폴백 버그(TDA 경고). count와 load를 섞지 말 것.
-  const [rates, villaPeriodCount] = await Promise.all([
-    db.villaRate.findMany({
-      where: { villaId },
-      select: {
-        season: true,
-        supplierCostVnd: true,
-        salePriceVnd: true,
-        salePriceKrw: true,
+  const [base, periods] = await Promise.all([
+    db.villaRatePeriod.findFirst({ where: { villaId, isBase: true }, select: RP_SELECT }),
+    db.villaRatePeriod.findMany({
+      where: {
+        villaId,
+        isBase: false,
+        startDate: { lt: range.checkOut },
+        endDate: { gt: range.checkIn },
       },
+      select: RP_SELECT,
     }),
-    db.villaSeasonPeriod.count({ where: { villaId } }),
   ]);
-
-  // 숙박 구간과 겹치는 시즌만 로드 — half-open. 보유 빌라는 빌라 집합, 0건이면 전역.
-  const seasonPeriods = villaPeriodCount > 0
-    ? await db.villaSeasonPeriod.findMany({
-        where: {
-          villaId,
-          startDate: { lt: range.checkOut },
-          endDate: { gt: range.checkIn },
-        },
-        select: { season: true, startDate: true, endDate: true },
-      })
-    : await db.seasonPeriod.findMany({
-        where: { startDate: { lt: range.checkOut }, endDate: { gt: range.checkIn } },
-        select: { season: true, startDate: true, endDate: true },
-      });
-
-  return quoteStay({ ...range, saleCurrency, rates, seasonPeriods });
+  if (!base) throw new MissingBaseRateError();
+  return quoteStayByPeriod({ ...range, saleCurrency, base, periods });
 }
 
 /** 환율 스냅샷용 조회 — 미설정이면 null (제안 생성 UI에서 ADMIN 입력 유도) */

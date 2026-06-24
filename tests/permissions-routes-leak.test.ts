@@ -72,7 +72,7 @@ import { POST as bookingCheckin } from "@/app/api/bookings/[id]/checkin/route";
 import { POST as cleaningApprove } from "@/app/api/cleaning-tasks/[id]/approve/route";
 import { POST as calendarBlockPost } from "@/app/api/calendar-blocks/route";
 import { PATCH as salesPatch } from "@/app/api/villas/[id]/sales/route";
-import { PUT as ratesPut } from "@/app/api/villas/[id]/rates/route";
+import { PATCH as ratePeriodsPatch } from "@/app/api/villas/[id]/rate-periods/route";
 import { POST as proposalsPost } from "@/app/api/proposals/route";
 import { POST as forceSellablePost } from "@/app/api/villas/[id]/force-sellable/route";
 import { GET as usersGet } from "@/app/api/users/route";
@@ -103,8 +103,8 @@ describe("(A) STAFF — 재무·시스템 라우트 차단 (403)", () => {
   it("villas/[id]/sales PATCH(canSetPrice) 403", async () => {
     expect((await salesPatch(jsonReq("http://l/api/villas/v1/sales", "PATCH", {}), idParams)).status).toBe(403);
   });
-  it("villas/[id]/rates PUT(canSetPrice) 403", async () => {
-    expect((await ratesPut(jsonReq("http://l/api/villas/v1/rates", "PUT", {}), idParams)).status).toBe(403);
+  it("villas/[id]/rate-periods PATCH(canSetPrice) 403", async () => {
+    expect((await ratePeriodsPatch(jsonReq("http://l/api/villas/v1/rate-periods", "PATCH", {}), idParams)).status).toBe(403);
   });
   it("proposals POST(canSetPrice) 403", async () => {
     expect((await proposalsPost(jsonReq("http://l/api/proposals", "POST", {}))).status).toBe(403);
