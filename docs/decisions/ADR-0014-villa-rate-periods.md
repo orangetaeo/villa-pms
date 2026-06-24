@@ -151,3 +151,39 @@ return /* 기존 quoteStay(VillaRate+SeasonPeriod) 경로 그대로 */;
 2. API: `VillaRatePeriod` 전체교체 PATCH(공급자 원가 / 관리자 판매가 권한 분리) + 겹침 거부.
 3. 공급자 편집기(기본요금+기간 N) · 관리자 요율 편집기(기간별 판매가).
 4. 테스트: 신규 경로 박별 합산·base 폴백·겹침 거부·dual-read 분기·누수 0·스냅샷 무영향.
+
+### 구현 현황 (2026-06-24)
+- [x] 1 스키마+엔진(df3bd16) · 2 관리자 API(9e51fc4) · 3 관리자 편집기(8d855f1·ae04e74)
+- [x] 후속1 공급자 자가 다기간 원가 입력 — `/api/villas/[id]/rate-periods/cost` + 공급자 모바일 편집기(589c07c·31b0afb)
+- [x] 후속2 일괄 변환 스크립트 `scripts/migrate-rate-periods.ts`(멱등·dry-run, a8cd71d)
+
+## 구 모델 Deprecate 검토 (후속 3/3)
+
+`VillaRate`·`VillaSeasonPeriod`는 dual-read 폴백 경로라 **즉시 제거 금지**. 아래 전제 충족 후 단계적으로만.
+
+### 제거 전제조건 (전부 충족 시에만)
+1. **전 ACTIVE 빌라가 `VillaRatePeriod` 보유**(base 1행 필수). 변환 스크립트(후속2) + 신규 편집기로 도달.
+2. **전역 `SeasonPeriod` 폴백 빌라 0** — 변환 스크립트는 전역폴백 빌라를 SKIP하므로, 이들은 운영자가 신규 편집기로 개별 전환 필요.
+3. **코드에서 구 모델의 가격 참조 0** — `quoteStayForVilla`의 dual-read 구(舊) 분기 제거(신규 경로 단일화), 구 API/편집기(`/rates`·`/cost`·`/seasons`·`rate-editor`·`cost-seasons-editor`) 제거 또는 신규로 리다이렉트.
+4. 제안·예약 스냅샷은 이미 구 모델 미참조(SPEC F3) → 무관.
+
+### 단계 (각 단계 독립 배포·검증)
+- **Phase A (현재)**: dual-read 공존. 신규 입력 경로 라이브, 구 편집기도 잔존(혼선 최소화 위해 구 편집기 신규 안내 배너 권장).
+- **Phase B**: 전제 1~2 충족 확인 → `quoteStayForVilla`에서 구 분기 제거(신규 경로만). 구 API/편집기 제거. **회귀 테스트 필수**(전 빌라 견적 신규 경로로 동일/의도값).
+- **Phase C**: 구 테이블/컬럼 제거(`VillaRate`·`VillaSeasonPeriod`). **비가역** — 별도 ADR + DB 백업 + Postgres/Prisma 제거 주의(ADR-0013의 ADMIN enum 사례: enum/테이블 DROP은 미지원·위험하니 deprecated 유지가 종종 더 안전). 데이터 가치(과거 원가 이력)는 AuditLog에 잔존하므로 손실 아님.
+
+### 검증 쿼리 (Phase B 진입 게이트)
+```sql
+-- ① base 미보유(미전환) ACTIVE 빌라 수 = 0 이어야 함
+SELECT count(*) FROM "Villa" v
+WHERE v.status = 'ACTIVE'
+  AND NOT EXISTS (SELECT 1 FROM "VillaRatePeriod" rp WHERE rp."villaId"=v.id AND rp."isBase"=true);
+
+-- ② 전역 SeasonPeriod 폴백 의존 빌라(VillaRatePeriod 0 AND VillaSeasonPeriod 0) = 0 이어야 함
+SELECT count(*) FROM "Villa" v
+WHERE NOT EXISTS (SELECT 1 FROM "VillaRatePeriod" rp WHERE rp."villaId"=v.id)
+  AND NOT EXISTS (SELECT 1 FROM "VillaSeasonPeriod" sp WHERE sp."villaId"=v.id);
+```
+
+### 권고
+현 시점은 **Phase A 유지**가 적정(라이브 빌라 소수, 테오팀 점진 전환). 전 빌라 전환 완료가 확인되면 Phase B ADR을 신규 작성해 구 분기/편집기 제거를 한 스프린트로 진행. Phase C(테이블 DROP)는 충분한 안정화 기간 후, 백업 전제로만.

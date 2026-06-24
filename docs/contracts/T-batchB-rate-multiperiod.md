@@ -13,6 +13,11 @@
 - [x] 관리자 기간별 요금 편집기 + page.tsx 연결(showFinance, 누수차단) + i18n (8d855f1·ae04e74)
 - [x] 테스트: pricing 35 + rate-periods-api 10 (전 71 통과)
 
+## 후속 3건 완료 (2026-06-24)
+- [x] ①공급자 자가 다기간 원가 입력 — `/api/villas/[id]/rate-periods/cost`(마진보존·상속·누수0) + 공급자 모바일 편집기 + 진입링크 + i18n (589c07c·31b0afb, 테스트 8)
+- [x] ②일괄 변환 스크립트 `scripts/migrate-rate-periods.ts`(멱등·dry-run·안전범위) (a8cd71d)
+- [x] ③구 모델 deprecate 검토 — ADR-0014에 전제조건·Phase A/B/C·검증쿼리·권고(Phase A 유지) 추가
+
 ## 완료 기준 (ADR 단계) — ADR-0014 작성 완료(제안 상태, TDA 승인 대기)
 - [x] 기간별 요금 데이터 모델 확정 (`VillaRatePeriod` — D1)
 - [x] `lib/pricing.ts` 가격 판정 변경 설계 (dual-read 폴백 — D2·D4, ADR-0008 패턴 재사용)
