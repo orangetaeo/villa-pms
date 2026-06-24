@@ -95,14 +95,15 @@ describe("발신 — 관리자 B는 관리자 A 대화로 발신 불가 (누수 
     const res = await sendReq({ conversationId: "convA", text: "안녕" });
     expect(res.status).toBe(200);
     // 본인 계정으로만 발송 (adminA, convA의 상대 zaloUserId). ADR-0010 S4: 4번째 인자 ThreadType(1:1=User=0).
-    expect(mockSendChat).toHaveBeenCalledWith("adminA", "zu-A", "안녕", 0);
+    // 5번째 인자: @멘션(미멘션이면 undefined — ce389e6 발송 체인 mentions 통과).
+    expect(mockSendChat).toHaveBeenCalledWith("adminA", "zu-A", "안녕", 0, undefined);
   });
 
   it("adminB 세션 → 본인 convB 발신 → 200, adminA로는 절대 발송 안 됨", async () => {
     mockAuth.mockResolvedValue({ user: { id: "adminB", role: "ADMIN" } });
     const res = await sendReq({ conversationId: "convB", text: "hi" });
     expect(res.status).toBe(200);
-    expect(mockSendChat).toHaveBeenCalledWith("adminB", "zu-B", "hi", 0);
+    expect(mockSendChat).toHaveBeenCalledWith("adminB", "zu-B", "hi", 0, undefined);
   });
 });
 

@@ -171,15 +171,21 @@ describe("POST /api/zalo/messages — 발신 (T6.6)", () => {
     expect(data.sentBy).toBe("admin1");
     expect(data.zaloMsgId).toBe("zmsg1");
     // ADR-0007: 본인 계정으로 발송 (adminUserId, zaloUserId, text). ADR-0010 S4: 4번째 인자 ThreadType(1:1=User=0).
-    expect(mockSendChat).toHaveBeenCalledWith("admin1", "zu1", "확인했습니다", 0);
+    // 5번째 인자: @멘션(미멘션이면 undefined — ce389e6 발송 체인 mentions 통과).
+    expect(mockSendChat).toHaveBeenCalledWith("admin1", "zu1", "확인했습니다", 0, undefined);
     // 소유 스코프 — findFirst where에 ownerAdminId 포함 (누수 차단)
     expect(mockConvFindFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "c1", ownerAdminId: "admin1" },
       })
     );
+    // data는 objectContaining — lastMessageAt 갱신을 검증하되 인박스 비정규화 캐시
+    // (lastMessageText·lastMessageType, 10a0fd1)가 함께 들어와도 허용.
     expect(tx.zaloConversation.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "c1" }, data: { lastMessageAt: expect.any(Date) } })
+      expect.objectContaining({
+        where: { id: "c1" },
+        data: expect.objectContaining({ lastMessageAt: expect.any(Date) }),
+      })
     );
     expect(vi.mocked(writeAuditLog)).toHaveBeenCalled();
   });

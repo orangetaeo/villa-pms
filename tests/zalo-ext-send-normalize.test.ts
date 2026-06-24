@@ -67,6 +67,11 @@ vi.mock("@/lib/prisma", () => ({
         matchConv(arg.where)
       ),
     },
+    // REPLY 분기가 인용 원문 senderUid를 조회(route.ts, 8c007f7 그룹 답글 수정).
+    // 1:1 정규화 테스트는 그룹 발신자 보정이 없으므로 null 반환(Nike uidFrom 유지).
+    zaloMessage: {
+      findFirst: vi.fn(async () => null),
+    },
   },
 }));
 
@@ -90,11 +95,13 @@ describe("ext/send threadId 정규화 (Nike→villa 발송 500 버그 수정)", 
     const res = await sendReq({ kind: "TEXT", threadId: "cuid-theo-1", text: "안녕" });
     expect(res.status).toBe(200);
     // ADR-0010 S4 — 4번째 인자로 발송 ThreadType 전달(1:1=User). 정규화 결과는 동일.
+    // 5번째 인자: @멘션(미멘션이면 undefined — ce389e6 발송 체인 mentions 통과).
     expect(mockSendText).toHaveBeenCalledWith(
       "theo",
       "3405637163672158317",
       "안녕",
-      ThreadType.User
+      ThreadType.User,
+      undefined
     );
   });
 
@@ -109,14 +116,15 @@ describe("ext/send threadId 정규화 (Nike→villa 발송 500 버그 수정)", 
       "theo",
       "3405637163672158317",
       "hi",
-      ThreadType.User
+      ThreadType.User,
+      undefined
     );
   });
 
   it("미존재 threadId → 하위호환: threadId 그대로 발송(방어)", async () => {
     const res = await sendReq({ kind: "TEXT", threadId: "unknown-xyz", text: "y" });
     expect(res.status).toBe(200);
-    expect(mockSendText).toHaveBeenCalledWith("theo", "unknown-xyz", "y", ThreadType.User);
+    expect(mockSendText).toHaveBeenCalledWith("theo", "unknown-xyz", "y", ThreadType.User, undefined);
   });
 
   it("타 관리자 cuid → 테오 스코프 매칭 안 됨, 정규화 안 됨(누수 0)", async () => {
@@ -124,8 +132,8 @@ describe("ext/send threadId 정규화 (Nike→villa 발송 500 버그 수정)", 
     const res = await sendReq({ kind: "TEXT", threadId: "cuid-other-1", text: "엿보기" });
     expect(res.status).toBe(200);
     // adminB의 zaloUserId(zu-otherB)로 정규화되지 않음 — 들어온 값 그대로
-    expect(mockSendText).toHaveBeenCalledWith("theo", "cuid-other-1", "엿보기", ThreadType.User);
-    expect(mockSendText).not.toHaveBeenCalledWith("theo", "zu-otherB", "엿보기", ThreadType.User);
+    expect(mockSendText).toHaveBeenCalledWith("theo", "cuid-other-1", "엿보기", ThreadType.User, undefined);
+    expect(mockSendText).not.toHaveBeenCalledWith("theo", "zu-otherB", "엿보기", ThreadType.User, undefined);
   });
 
   it("IMAGE 발송도 정규화 적용", async () => {
