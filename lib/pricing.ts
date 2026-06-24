@@ -146,6 +146,106 @@ export function quoteStay(input: QuoteStayInput): StayQuote {
   };
 }
 
+// ===================== 기간별 요금 (ADR-0014) — 순수 함수 층 =====================
+
+/** 기간별 요금 행 (ADR-0014) — 날짜 범위 + 가격을 한 행에. base는 startDate/endDate null. */
+export interface RatePeriodLike {
+  season: SeasonType;
+  isBase: boolean;
+  /** isBase=false일 때만 채움. 포함 — @db.Date UTC 자정 */
+  startDate: Date | null;
+  /** isBase=false일 때만. 제외 — [start,end) half-open */
+  endDate: Date | null;
+  supplierCostVnd: bigint;
+  salePriceVnd: bigint;
+  salePriceKrw: number;
+}
+
+/** 기본요금(base) 부재로 견적 불가 — 기간별 경로 빌라는 base가 필수 */
+export class MissingBaseRateError extends Error {
+  constructor() {
+    super("기간별 요금 빌라에 기본요금(isBase) 행이 없습니다");
+    this.name = "MissingBaseRateError";
+  }
+}
+
+/**
+ * 날짜의 적용 요금 판정 (ADR-0014 D2) — 그 날짜를 덮는 웃돈 기간 우선, 없으면 기본요금.
+ * 입력 단계서 겹침을 거부하므로 보통 매칭은 0~1개. 방어적으로 겹침 시 PEAK>HIGH>LOW,
+ * 같으면 startDate 늦은 것(최근 지정) 우선 — 결정적.
+ */
+export function resolveRatePeriod(
+  date: Date,
+  periods: RatePeriodLike[],
+  base: RatePeriodLike | null
+): RatePeriodLike {
+  const t = date.getTime();
+  let best: RatePeriodLike | null = null;
+  for (const p of periods) {
+    if (p.isBase || !p.startDate || !p.endDate) continue;
+    if (p.startDate.getTime() <= t && t < p.endDate.getTime()) {
+      if (
+        !best ||
+        SEASON_PRECEDENCE[p.season] > SEASON_PRECEDENCE[best.season] ||
+        (SEASON_PRECEDENCE[p.season] === SEASON_PRECEDENCE[best.season] &&
+          p.startDate.getTime() > (best.startDate?.getTime() ?? -Infinity))
+      ) {
+        best = p;
+      }
+    }
+  }
+  if (best) return best;
+  if (!base) throw new MissingBaseRateError();
+  return base;
+}
+
+export interface QuoteStayByPeriodInput extends StayRange {
+  saleCurrency: Currency;
+  /** 기본요금 행 (isBase=true). 없으면 견적 불가 */
+  base: RatePeriodLike | null;
+  /** 웃돈 기간 (isBase=false) — 보통 숙박 구간 교차분만 로드 */
+  periods: RatePeriodLike[];
+}
+
+/** 기간별 박별 합산 견적 (ADR-0014) — quoteStay의 기간 판정 버전. 순수 함수 */
+export function quoteStayByPeriod(input: QuoteStayByPeriodInput): StayQuote {
+  assertSupportedSaleCurrency(input.saleCurrency);
+  assertValidStayRange(input);
+
+  const nightly: NightQuote[] = [];
+  let totalSaleKrw = 0;
+  let totalSaleVnd = 0n;
+  let totalSupplierCostVnd = 0n;
+
+  const nights = Math.round(
+    (input.checkOut.getTime() - input.checkIn.getTime()) / MS_PER_DAY
+  );
+
+  for (let i = 0; i < nights; i++) {
+    const date = new Date(input.checkIn.getTime() + i * MS_PER_DAY);
+    const rate = resolveRatePeriod(date, input.periods, input.base);
+
+    const night: NightQuote = { date, season: rate.season, costVnd: rate.supplierCostVnd };
+    if (input.saleCurrency === Currency.KRW) {
+      night.saleKrw = rate.salePriceKrw;
+      totalSaleKrw += rate.salePriceKrw;
+    } else {
+      night.saleVnd = rate.salePriceVnd;
+      totalSaleVnd += rate.salePriceVnd;
+    }
+    totalSupplierCostVnd += rate.supplierCostVnd;
+    nightly.push(night);
+  }
+
+  return {
+    nights,
+    saleCurrency: input.saleCurrency,
+    nightly,
+    ...(input.saleCurrency === Currency.KRW ? { totalSaleKrw } : { totalSaleVnd }),
+    totalSupplierCostVnd,
+  };
+}
+
 /**
  * 마진 자동계산: salePriceVnd = 원가 + 마진 (T1.2 요율 편집의 제안값 — ADMIN 오버라이드 가능)
  * PERCENT는 BigInt 정수 나눗셈(내림) — VND는 소수 없음
@@ -217,6 +317,35 @@ export async function quoteStayForVilla(
   saleCurrency: Currency
 ): Promise<StayQuote> {
   assertValidStayRange(range);
+
+  // ADR-0014 dual-read: 이 빌라가 VillaRatePeriod를 1건이라도 보유하면 기간별 경로.
+  //   보유는 count로 판정(ADR-0008 교훈 — 교차분 length로 폴백 판정 금지), 기간은 교차분만 로드.
+  //   0건이면 아래 기존 경로(VillaRate+VillaSeasonPeriod/전역) 그대로 — 무회귀.
+  const RP_SELECT = {
+    season: true,
+    isBase: true,
+    startDate: true,
+    endDate: true,
+    supplierCostVnd: true,
+    salePriceVnd: true,
+    salePriceKrw: true,
+  } as const;
+  const ratePeriodCount = await db.villaRatePeriod.count({ where: { villaId } });
+  if (ratePeriodCount > 0) {
+    const [base, periods] = await Promise.all([
+      db.villaRatePeriod.findFirst({ where: { villaId, isBase: true }, select: RP_SELECT }),
+      db.villaRatePeriod.findMany({
+        where: {
+          villaId,
+          isBase: false,
+          startDate: { lt: range.checkOut },
+          endDate: { gt: range.checkIn },
+        },
+        select: RP_SELECT,
+      }),
+    ]);
+    return quoteStayByPeriod({ ...range, saleCurrency, base, periods });
+  }
 
   // ADR-0008 D3: 빌라별 시즌 폴백 — 반드시 2단계로 분리한다.
   //   1) 보유 판정(count): 이 빌라가 VillaSeasonPeriod를 "하나라도" 가졌는가

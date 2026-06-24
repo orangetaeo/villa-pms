@@ -44,6 +44,8 @@ function makeDb(opts: {
   const villaCount = vi.fn(async () => opts.villaPeriods.length);
 
   const db = {
+    // ADR-0014 dual-read: 이 스위트는 구(VillaRate+SeasonPeriod) 경로 검증 → ratePeriod 0건으로 고정
+    villaRatePeriod: { count: vi.fn(async () => 0), findFirst: vi.fn(), findMany: vi.fn() },
     villaRate: { findMany: vi.fn(async () => RATES) },
     villaSeasonPeriod: { count: villaCount, findMany: villaFindMany },
     seasonPeriod: { findMany: globalFindMany },

@@ -1,6 +1,6 @@
 # ADR-0014 — 빌라 기간별 요금(VillaRatePeriod) 도입
 
-- 상태: **제안(Proposed)** — TDA 검토·승인 대기. 회의 확정(2026-06-23) 기반 설계.
+- 상태: **승인(Accepted)** — 2026-06-24 사용자(테오) 승인. 구현 스프린트 착수.
 - 날짜: 2026-06-24
 - 관련: ADR-0003(통화·요율), ADR-0008(빌라별 시즌 기간), SPEC F3(가격), `lib/pricing.ts`
 - 영향 대상: `VillaRate`·`VillaSeasonPeriod`(공존/마이그레이션), `lib/pricing.ts`, `app/api/villas/[id]/rates`·`seasons`·`cost`, 공급자 원가·시즌 편집기, 관리자 요율 편집기
