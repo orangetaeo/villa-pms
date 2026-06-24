@@ -247,6 +247,26 @@ export function quoteStayByPeriod(input: QuoteStayByPeriodInput): StayQuote {
 }
 
 /**
+ * dual-read 대표 요금 행 선택 (ADR-0014) — 단일 대표가격이 필요한 "비인지 소비처"
+ * (Zalo 빌라 공유 카드, STAFF 원가 읽기뷰 등)가 변환된 빌라에서 stale 가격을 보이지
+ * 않도록 일원화한 선택기.
+ *
+ * - `baseRatePeriod`(VillaRatePeriod isBase=true)가 있으면 그것이 대표값(신규 경로).
+ * - 없으면 기존 VillaRate에서 LOW(비수기), 없으면 첫 행, 그것도 없으면 null.
+ *
+ * ⚠️ 누수 책임 분리: 이 함수는 "행 선택"만 한다. 어떤 필드가 노출되는지는 전적으로
+ *    호출자의 select에 달려 있다 — 원가 전용 소비처는 base/rates 양쪽에 supplierCostVnd만,
+ *    판매가 전용 소비처는 salePrice* 만 select 해야 누수 불변식이 유지된다(같은 필드 집합).
+ */
+export function pickRepresentativeRate<T extends { season: SeasonType }>(
+  baseRatePeriod: T | null | undefined,
+  rates: T[]
+): T | null {
+  if (baseRatePeriod) return baseRatePeriod;
+  return rates.find((r) => r.season === SeasonType.LOW) ?? rates[0] ?? null;
+}
+
+/**
  * 마진 자동계산: salePriceVnd = 원가 + 마진 (T1.2 요율 편집의 제안값 — ADMIN 오버라이드 가능)
  * PERCENT는 BigInt 정수 나눗셈(내림) — VND는 소수 없음
  */

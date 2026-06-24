@@ -126,18 +126,37 @@ export default async function VillaDetailPage({
     photos: villa.photos.filter((p) => p.space === space),
   })).filter((g) => g.photos.length > 0);
 
-  // STAFF용 원가 읽기뷰 행 (판매가·마진 없음)
-  const costOnlyRows = SEASON_ORDER.flatMap((season) => {
-    const rate = villa.rates.find((r) => r.season === season);
-    if (!rate) return [];
-    return [{ season, supplierCostVnd: rate.supplierCostVnd }];
-  });
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+
+  // STAFF용 원가 읽기뷰 행 (판매가·마진 없음).
+  // ADR-0014 dual-read: 변환된 빌라는 VillaRatePeriod 원가(기본요금+웃돈기간), 미변환은
+  // 기존 시즌별 VillaRate. 원가 전용 select(supplierCostVnd만) — STAFF 누수 불변식 유지.
+  // showFinance면 우측 편집기가 기간을 보여주므로 이 읽기뷰 쿼리는 생략(불필요 조회 방지).
+  const costRatePeriods = showFinance
+    ? []
+    : await prisma.villaRatePeriod.findMany({
+        where: { villaId: id },
+        orderBy: [{ isBase: "desc" }, { startDate: "asc" }],
+        select: { id: true, season: true, isBase: true, startDate: true, endDate: true, supplierCostVnd: true },
+      });
+  const costOnlyRows =
+    costRatePeriods.length > 0
+      ? costRatePeriods.map((r) => ({
+          key: r.id,
+          season: r.season,
+          dateRange: r.startDate && r.endDate ? `${iso(r.startDate)} ~ ${iso(r.endDate)}` : null,
+          supplierCostVnd: r.supplierCostVnd,
+        }))
+      : SEASON_ORDER.flatMap((season) => {
+          const rate = villa.rates.find((r) => r.season === season);
+          if (!rate) return [];
+          return [{ key: season as string, season, dateRange: null, supplierCostVnd: rate.supplierCostVnd }];
+        });
 
   const fxVndPerKrw = fxSetting ? Number.parseFloat(fxSetting.value) || null : null;
 
   // 기간별 요금 (ADR-0014) — 판매가 포함이라 canViewFinance(showFinance)일 때만 로드(누수 차단).
   // 초기값: 기존 VillaRatePeriod 우선, 없으면 기존 LOW VillaRate에서 기본요금 시드(빈 폼 방지).
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
   let ratePeriodInitial: RatePeriodInitial = { base: null, periods: [] };
   if (showFinance) {
     const rpRows = await prisma.villaRatePeriod.findMany({
@@ -423,11 +442,16 @@ export default async function VillaDetailPage({
                   </thead>
                   <tbody className="divide-y divide-slate-800">
                     {costOnlyRows.map((row) => (
-                      <tr key={row.season}>
+                      <tr key={row.key}>
                         <td className="px-3 py-4">
                           <span className="px-2 py-0.5 rounded font-bold whitespace-nowrap bg-slate-800 text-slate-300">
                             {t(`rates.seasons.${row.season}`)}
                           </span>
+                          {row.dateRange && (
+                            <span className="ml-2 text-[11px] text-slate-500 whitespace-nowrap tabular-nums">
+                              {row.dateRange}
+                            </span>
+                          )}
                         </td>
                         <td className="px-3 py-4 text-right text-slate-300 whitespace-nowrap tabular-nums">
                           {formatVnd(row.supplierCostVnd)}

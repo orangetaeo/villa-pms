@@ -4,6 +4,7 @@ import {
   resolveRatePeriod,
   quoteStayByPeriod,
   quoteStayForVilla,
+  pickRepresentativeRate,
   MissingBaseRateError,
   type RatePeriodLike,
 } from "@/lib/pricing";
@@ -114,6 +115,25 @@ function makeDb(ratePeriods: RatePeriodLike[]) {
   } as unknown as DbClient;
   return { db, seasonFindMany, villaRateFindMany };
 }
+
+describe("pickRepresentativeRate — dual-read 대표가격 선택 (비인지 소비처 일원화)", () => {
+  const lowRate = { season: SeasonType.LOW, supplierCostVnd: 1_000_000n };
+  const highRate = { season: SeasonType.HIGH, supplierCostVnd: 2_000_000n };
+
+  it("base 기간행 있으면 그것이 대표값 (변환된 빌라 — stale 회피)", () => {
+    const baseRP = { season: SeasonType.LOW, supplierCostVnd: 9_000_000n };
+    expect(pickRepresentativeRate(baseRP, [lowRate, highRate])).toBe(baseRP);
+  });
+  it("base 없으면 LOW VillaRate 폴백 (미변환 빌라)", () => {
+    expect(pickRepresentativeRate(null, [highRate, lowRate])).toBe(lowRate);
+  });
+  it("base·LOW 둘 다 없으면 첫 행", () => {
+    expect(pickRepresentativeRate(undefined, [highRate])).toBe(highRate);
+  });
+  it("아무 요율도 없으면 null", () => {
+    expect(pickRepresentativeRate(null, [])).toBeNull();
+  });
+});
 
 describe("quoteStayForVilla — ADR-0014 dual-read", () => {
   it("ratePeriod 보유 → 신규 경로, 구 VillaRate/SeasonPeriod 미조회", async () => {

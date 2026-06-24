@@ -18,6 +18,7 @@ import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
 import { serializeBigInt } from "@/lib/serialize";
 import { isSellSideType, currencyForType } from "@/lib/zalo-counterparty";
+import { pickRepresentativeRate } from "@/lib/pricing";
 import { Inbox, type InboxItem } from "./inbox";
 import { ResizableSplit } from "./resizable-split";
 import {
@@ -381,11 +382,17 @@ export default async function MessagesPage({
               // LOW(비수기) 원가를 대표 표시값으로 — salePrice*/margin 미조회
               select: { season: true, supplierCostVnd: true },
             },
+            // ADR-0014 dual-read: 변환된 빌라는 기본요금(base) 행이 대표 원가. 원가 전용 select.
+            ratePeriods: {
+              where: { isBase: true },
+              take: 1,
+              select: { season: true, supplierCostVnd: true },
+            },
           },
         });
         villaCandidates = serializeBigInt(
           villas.map((v) => {
-            const low = v.rates.find((r) => r.season === "LOW") ?? v.rates[0];
+            const low = pickRepresentativeRate(v.ratePeriods[0], v.rates);
             return {
               id: v.id,
               name: v.name,
@@ -446,11 +453,17 @@ export default async function MessagesPage({
               // 판매가만 — salePriceKrw·salePriceVnd 둘 다 화이트리스트. supplierCostVnd·margin* 미조회.
               select: { season: true, salePriceKrw: true, salePriceVnd: true },
             },
+            // ADR-0014 dual-read: 변환된 빌라는 기본요금(base) 행이 대표 판매가. 판매가 전용 select(누수 불변식).
+            ratePeriods: {
+              where: { isBase: true },
+              take: 1,
+              select: { season: true, salePriceKrw: true, salePriceVnd: true },
+            },
           },
         });
         villaCandidates = serializeBigInt(
           villas.map((v) => {
-            const low = v.rates.find((r) => r.season === "LOW") ?? v.rates[0];
+            const low = pickRepresentativeRate(v.ratePeriods[0], v.rates);
             return {
               id: v.id,
               name: v.name,
