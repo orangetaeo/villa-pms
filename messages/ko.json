@@ -466,6 +466,20 @@
         "invalidNumber": "숫자만 입력해주세요.",
         "empty": "공급자가 입력한 시즌 원가가 없습니다."
       },
+      "ratePeriods": {
+        "title": "기간별 요금",
+        "subtitle": "기본요금(비수기) + 성·극성수기 기간을 여러 개 추가해 기간마다 다른 가격을 매깁니다.",
+        "baseTitle": "기본요금 (비수기 기준)",
+        "baseHint": "어떤 기간에도 안 걸린 날짜의 가격",
+        "labelPlaceholder": "기간 이름 (예: 2026 설)",
+        "periodLabel": "기간 이름",
+        "removePeriod": "삭제",
+        "startDate": "시작일",
+        "endDate": "종료일",
+        "halfOpenHint": "종료일 제외",
+        "addPeriod": "기간 추가",
+        "invalid": "기간이 겹치거나 날짜가 올바르지 않습니다. 확인해주세요."
+      },
       "amenitiesCard": {
         "title": "비품 현황",
         "readOnly": "읽기 전용",

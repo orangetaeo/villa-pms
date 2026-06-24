@@ -538,6 +538,20 @@
         "invalidNumber": "Chỉ nhập số.",
         "empty": "Nhà cung cấp chưa nhập giá gốc theo mùa."
       },
+      "ratePeriods": {
+        "title": "Giá theo giai đoạn",
+        "subtitle": "Giá cơ bản (mùa thấp điểm) + thêm nhiều giai đoạn cao điểm để đặt giá khác nhau cho từng giai đoạn.",
+        "baseTitle": "Giá cơ bản (chuẩn mùa thấp điểm)",
+        "baseHint": "Giá cho ngày không thuộc giai đoạn nào",
+        "labelPlaceholder": "Tên giai đoạn (vd: Tết 2026)",
+        "periodLabel": "Tên giai đoạn",
+        "removePeriod": "Xóa",
+        "startDate": "Ngày bắt đầu",
+        "endDate": "Ngày kết thúc",
+        "halfOpenHint": "Không gồm ngày kết thúc",
+        "addPeriod": "Thêm giai đoạn",
+        "invalid": "Các giai đoạn bị trùng hoặc ngày không hợp lệ. Vui lòng kiểm tra."
+      },
       "amenitiesCard": {
         "title": "Tiện nghi & đồ dùng",
         "readOnly": "Chỉ xem",
