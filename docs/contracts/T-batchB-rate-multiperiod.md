@@ -2,9 +2,16 @@
 
 회의 확정(2026-06-23): 시즌(비/성/극성수기) 분류는 유지하되 **기간별 요금**. 비수기=기본요금 1개 + 성/극성수기 웃돈 기간 N개. 공급자도 여러 기간 입력, 관리자는 각 기간 소비자가 책정.
 
-## 이번 스프린트 범위 = ADR 설계만
-- `docs/decisions/ADR-0014-villa-rate-periods.md` 작성 (스키마·가격로직·마이그레이션·UI 계약·대안)
-- 코드/스키마 구현은 ADR 승인 후 **별도 스프린트**(마이그레이션 한 세션 전담)
+## 진행: ADR 설계 → 승인 → 구현 (완료)
+- `docs/decisions/ADR-0014-villa-rate-periods.md` 작성·**승인(Accepted, 2026-06-24)**
+- 구현 완료(아래 "구현 완료" 참조). 공급자 자가 다기간 입력은 후속.
+
+## 구현 완료 (2026-06-24)
+- [x] schema `VillaRatePeriod`(기본요금+웃돈기간) additive·db push (df3bd16)
+- [x] `lib/pricing.ts` resolveRatePeriod·quoteStayByPeriod + quoteStayForVilla dual-read (df3bd16)
+- [x] `PATCH /api/villas/[id]/rate-periods` canSetPrice·전체교체·base필수·겹침거부 (9e51fc4)
+- [x] 관리자 기간별 요금 편집기 + page.tsx 연결(showFinance, 누수차단) + i18n (8d855f1·ae04e74)
+- [x] 테스트: pricing 35 + rate-periods-api 10 (전 71 통과)
 
 ## 완료 기준 (ADR 단계) — ADR-0014 작성 완료(제안 상태, TDA 승인 대기)
 - [x] 기간별 요금 데이터 모델 확정 (`VillaRatePeriod` — D1)
