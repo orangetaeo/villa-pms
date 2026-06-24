@@ -2,11 +2,17 @@
 
 // 동의서 섹션 (T3.2, b3 §3 변환) — 스크롤 동의서(수영장 조항은 hasPool일 때만 자동 포함,
 // SPEC F4 체크인 4) + 터치 서명 패드. 서명 완료 시 비공개 경로 url을 부모에 전달.
+// 동의서 본문은 lib/agreement 단일 소스에서 현재 앱 로케일(ko/vi)로 렌더(인쇄 시트와 공용).
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import {
+  AGREEMENT_CLAUSES,
+  AGREEMENT_DOC_TITLE,
+  AGREEMENT_VERSION,
+  buildClauseOrder,
+  type AgreementLang,
+} from "@/lib/agreement";
 import SignaturePad from "./signature-pad";
-
-const BASE_CLAUSES = ["c1", "c2", "c4", "c5", "c6", "c7"] as const;
 
 export default function AgreementSection({
   hasPool,
@@ -19,12 +25,12 @@ export default function AgreementSection({
   onSigned: (url: string) => void;
 }) {
   const t = useTranslations("adminCheckin.agreement");
+  const locale = useLocale();
+  const lang: AgreementLang = locale === "vi" ? "vi" : "ko"; // 디지털 체크인은 앱 로케일(ko/vi)
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
 
   // 수영장 빌라는 c2 다음에 수영장 조항 자동 삽입 — 번호는 순서대로 재부여
-  const clauses: string[] = hasPool
-    ? ["c1", "c2", "pool", "c4", "c5", "c6", "c7"]
-    : [...BASE_CLAUSES];
+  const clauses = buildClauseOrder(hasPool);
 
   return (
     <section className="bg-slate-800 rounded-xl border border-slate-700 shadow-lg overflow-hidden">
@@ -36,20 +42,21 @@ export default function AgreementSection({
       </div>
       <div className="p-6 space-y-6">
         <div className="h-48 overflow-y-auto bg-slate-900 border border-slate-700 rounded-lg p-4 text-xs text-slate-400 leading-relaxed space-y-3">
-          <p className="font-bold text-slate-200">{t("docTitle")}</p>
+          <p className="font-bold text-slate-200">{AGREEMENT_DOC_TITLE[lang]}</p>
           {clauses.map((key, i) =>
             key === "pool" ? (
               <div key={key} className="bg-blue-600/10 border-l-2 border-blue-500 p-2 my-2">
                 <p className="text-blue-400 font-bold">
-                  {i + 1}. {t("poolClause")}
+                  {i + 1}. {AGREEMENT_CLAUSES.pool[lang]}
                 </p>
               </div>
             ) : (
               <p key={key}>
-                {i + 1}. {t(key)}
+                {i + 1}. {AGREEMENT_CLAUSES[key][lang]}
               </p>
             )
           )}
+          <p className="text-[10px] text-slate-600 pt-1">v{AGREEMENT_VERSION}</p>
         </div>
 
         {signedUrl ? (

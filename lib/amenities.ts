@@ -17,16 +17,25 @@ export const AMENITY_CATEGORIES: AmenityCategoryKey[] = [
 ];
 
 export const AMENITY_ITEMS: Record<AmenityCategoryKey, AmenityItem[]> = {
-  // 주방용품 (a9 디자인 품목 그대로)
+  // 주방용품 (a9 디자인 품목 + 일반 휴양 빌라 표준 보강)
   KITCHEN: [
     { itemKey: "riceCooker", icon: "rice_bowl" },
+    { itemKey: "stove", icon: "stovetop" },
     { itemKey: "pan", icon: "skillet" },
+    { itemKey: "pot", icon: "soup_kitchen" },
     { itemKey: "knifeBoard", icon: "cut" },
     { itemKey: "dishes", icon: "restaurant" },
+    { itemKey: "cutlery", icon: "restaurant_menu" },
     { itemKey: "glasses", icon: "local_cafe" },
+    { itemKey: "mug", icon: "coffee" },
     { itemKey: "kettle", icon: "kettle" },
     { itemKey: "microwave", icon: "microwave" },
+    { itemKey: "toaster", icon: "bakery_dining" },
+    { itemKey: "waterPurifier", icon: "water_pump" },
+    { itemKey: "dishSoap", icon: "wash" },
+    { itemKey: "bottleOpener", icon: "wine_bar" },
     { itemKey: "spices", icon: "grocery" },
+    { itemKey: "trashBin", icon: "delete" },
   ],
   // 화장실용품 — 수건은 대/중/소 3종 (quantity = 매일 제공 수량 의미, note에 "매일 제공" 등)
   BATHROOM: [
@@ -34,10 +43,16 @@ export const AMENITY_ITEMS: Record<AmenityCategoryKey, AmenityItem[]> = {
     { itemKey: "towelMedium", icon: "dry_cleaning" },
     { itemKey: "towelSmall", icon: "dry_cleaning" },
     { itemKey: "shampoo", icon: "soap" },
+    { itemKey: "conditioner", icon: "soap" },
     { itemKey: "bodyWash", icon: "shower" },
+    { itemKey: "soap", icon: "wash" },
+    { itemKey: "handWash", icon: "wash" },
     { itemKey: "toothbrushKit", icon: "dentistry" },
     { itemKey: "hairDryer", icon: "dry" },
+    { itemKey: "bathMat", icon: "bathtub" },
+    { itemKey: "slippers", icon: "steps" },
     { itemKey: "toiletPaper", icon: "wc" },
+    { itemKey: "bathTrashBin", icon: "delete" },
   ],
   // 가전류
   APPLIANCE: [
@@ -45,15 +60,22 @@ export const AMENITY_ITEMS: Record<AmenityCategoryKey, AmenityItem[]> = {
     { itemKey: "tv", icon: "tv" },
     { itemKey: "fridge", icon: "kitchen" },
     { itemKey: "washingMachine", icon: "local_laundry_service" },
+    { itemKey: "dryingRack", icon: "dry" },
+    { itemKey: "iron", icon: "iron" },
+    { itemKey: "vacuum", icon: "cleaning_services" },
     { itemKey: "wifi", icon: "wifi" },
     { itemKey: "fan", icon: "mode_fan" },
     { itemKey: "waterHeater", icon: "thermostat" },
+    { itemKey: "dehumidifier", icon: "humidity_low" },
+    { itemKey: "speaker", icon: "speaker" },
+    { itemKey: "safeBox", icon: "lock" },
   ],
   // 미니바 — 수량 의미 있음 (+/− 스테퍼)
   MINIBAR: [
     { itemKey: "water", icon: "water_drop" },
     { itemKey: "softDrink", icon: "local_drink" },
     { itemKey: "beer", icon: "sports_bar" },
+    { itemKey: "coffeeTea", icon: "coffee_maker" },
     { itemKey: "snack", icon: "cookie" },
   ],
 };

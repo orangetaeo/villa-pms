@@ -10,16 +10,21 @@ import { toDateOnlyString, parseUtcDateOnly, addUtcDays } from "@/lib/date-vn";
 import { todayInVillaTimezone } from "@/lib/timeline";
 import { minutesToHHMM } from "@/lib/sales-display";
 import { formatThousands } from "@/lib/format";
+import {
+  AGREEMENT_CLAUSES,
+  AGREEMENT_DOC_TITLE,
+  AGREEMENT_VERSION,
+  buildClauseOrder,
+  isAgreementLang,
+  type AgreementLang,
+} from "@/lib/agreement";
 import PrintButton from "./print-button";
+import AgreementLangSelect from "./agreement-lang-select";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminCheckinSheet");
   return { title: `${t("title")} — Villa PMS` };
 }
-
-// 동의서 조항 — 기존 체크인 동의서(adminCheckin.agreement)와 동일 구성 재사용.
-// 수영장 빌라는 c2 다음에 pool 조항 자동 삽입(번호 재부여), SPEC F4.
-const BASE_CLAUSES = ["c1", "c2", "c4", "c5", "c6", "c7"];
 
 function money(amount: number, currency: Currency): string {
   const n = formatThousands(amount);
@@ -29,10 +34,9 @@ function money(amount: number, currency: Currency): string {
 export default async function CheckinSheetPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; lang?: string }>;
 }) {
   const t = await getTranslations("adminCheckinSheet");
-  const ta = await getTranslations("adminCheckin.agreement");
   const tb = await getTranslations("adminBookings");
   const params = await searchParams;
 
@@ -41,6 +45,10 @@ export default async function CheckinSheetPage({
   const dateStr =
     params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : todayStr;
   const date = parseUtcDateOnly(dateStr) ?? today;
+
+  // 게스트 언어 선택 — 기본 vi. 인쇄 동의서는 한국어(기록용) + 게스트 언어 병기(같으면 1개).
+  const guestLang: AgreementLang = isAgreementLang(params.lang) ? params.lang : "vi";
+  const agreementLangs: AgreementLang[] = guestLang === "ko" ? ["ko"] : ["ko", guestLang];
 
   // 금일 체크인 = CONFIRMED (기존 "오늘 체크인" 프리셋·통계와 동일 의미)
   const bookings = await prisma.booking.findMany({
@@ -83,6 +91,8 @@ export default async function CheckinSheetPage({
   const prevStr = toDateOnlyString(addUtcDays(date, -1));
   const nextStr = toDateOnlyString(addUtcDays(date, 1));
   const isToday = dateStr === todayStr;
+  // 날짜 이동 링크에 선택 언어 보존 (기본 vi는 생략)
+  const langQs = guestLang === "vi" ? "" : `&lang=${guestLang}`;
 
   const navLink =
     "inline-flex items-center justify-center w-9 h-9 rounded-lg border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors";
@@ -97,22 +107,26 @@ export default async function CheckinSheetPage({
           </Link>
           <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <Link href={`/bookings/checkin-sheet?date=${prevStr}`} className={navLink} aria-label={t("prevDay")}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href={`/bookings/checkin-sheet?date=${prevStr}${langQs}`} className={navLink} aria-label={t("prevDay")}>
             <span className="material-symbols-outlined text-base">chevron_left</span>
           </Link>
           <div className="px-3 py-2 rounded-lg bg-admin-card border border-slate-700 text-sm font-bold text-white tabular-nums whitespace-nowrap">
             {fmt(date)}
             {isToday && <span className="ml-2 text-[11px] text-admin-primary">{t("today")}</span>}
           </div>
-          <Link href={`/bookings/checkin-sheet?date=${nextStr}`} className={navLink} aria-label={t("nextDay")}>
+          <Link href={`/bookings/checkin-sheet?date=${nextStr}${langQs}`} className={navLink} aria-label={t("nextDay")}>
             <span className="material-symbols-outlined text-base">chevron_right</span>
           </Link>
           {!isToday && (
-            <Link href="/bookings/checkin-sheet" className="text-sm text-slate-400 hover:text-white underline px-1">
+            <Link
+              href={`/bookings/checkin-sheet${langQs ? `?${langQs.slice(1)}` : ""}`}
+              className="text-sm text-slate-400 hover:text-white underline px-1"
+            >
               {t("today")}
             </Link>
           )}
+          <AgreementLangSelect value={guestLang} label={t("langSelect")} />
           <PrintButton label={t("printButton")} />
         </div>
       </div>
@@ -129,9 +143,7 @@ export default async function CheckinSheetPage({
         <div className="print-sheet space-y-6">
           {bookings.map((b) => {
             const v = b.villa;
-            const clauses = v.hasPool
-              ? ["c1", "c2", "pool", "c4", "c5", "c6", "c7"]
-              : [...BASE_CLAUSES];
+            const clauseOrder = buildClauseOrder(v.hasPool);
             const hasDeposit = b.depositAmount != null && b.depositCurrency != null;
             const depositHeld = b.depositStatus === "HELD";
             const alreadySigned = !!b.checkInRecord?.signatureUrl;
@@ -250,19 +262,28 @@ export default async function CheckinSheetPage({
                     </section>
                   )}
 
-                  {/* ④ 동의서 + 서명란 */}
+                  {/* ④ 동의서 + 서명란 — 한국어(기록용) + 게스트 언어 병기 */}
                   <section>
-                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">
-                      {t("sheet.agreement")}
+                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center justify-between">
+                      <span>{t("sheet.agreement")}</span>
+                      <span className="text-[10px] font-normal normal-case tracking-normal text-slate-400">
+                        v{AGREEMENT_VERSION}
+                      </span>
                     </h3>
-                    <p className="text-sm font-bold mb-1">{ta("docTitle")}</p>
-                    <ol className="text-[11px] leading-relaxed text-slate-600 space-y-1">
-                      {clauses.map((key, i) => (
-                        <li key={key}>
-                          {i + 1}. {key === "pool" ? ta("poolClause") : ta(key)}
-                        </li>
+                    <div className="space-y-3">
+                      {agreementLangs.map((lang) => (
+                        <div key={lang}>
+                          <p className="text-sm font-bold mb-1">{AGREEMENT_DOC_TITLE[lang]}</p>
+                          <ol className="text-[11px] leading-relaxed text-slate-600 space-y-1">
+                            {clauseOrder.map((key, i) => (
+                              <li key={key}>
+                                {i + 1}. {AGREEMENT_CLAUSES[key][lang]}
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
                       ))}
-                    </ol>
+                    </div>
 
                     {alreadySigned ? (
                       <p className="mt-3 text-xs font-bold text-green-700">{t("sheet.alreadySigned")}</p>
