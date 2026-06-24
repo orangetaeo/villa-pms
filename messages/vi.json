@@ -1902,5 +1902,42 @@
     "users": "Quản lý người dùng",
     "villas": "Quản lý villa",
     "villaDetail": "Chi tiết villa"
+  },
+  "adminCheckinSheet": {
+    "title": "Phiếu nhận phòng hôm nay",
+    "entryButton": "In phiếu nhận phòng",
+    "printButton": "In",
+    "prevDay": "Ngày trước",
+    "nextDay": "Ngày sau",
+    "today": "Hôm nay",
+    "count": "{n} đặt phòng",
+    "empty": "Không có đặt phòng (đã xác nhận) nhận phòng vào ngày đã chọn.",
+    "sheet": {
+      "checkInDate": "Nhận phòng",
+      "reservation": "Thông tin đặt phòng",
+      "guest": "Khách",
+      "guests": "Số khách",
+      "guestsValue": "{n} khách (tối đa {max})",
+      "phone": "Liên hệ",
+      "channel": "Kênh",
+      "stay": "Lưu trú",
+      "nights": "{n} đêm",
+      "times": "Giờ nhận / trả phòng",
+      "breakfast": "Bữa sáng",
+      "yes": "Có",
+      "no": "Không",
+      "deposit": "Tiền đặt cọc",
+      "depositNone": "Không có tiền cọc",
+      "depositHeld": "Đã nhận tiền cọc",
+      "depositRequired": "Cần thu tại chỗ",
+      "wifi": "WiFi",
+      "wifiId": "Mạng",
+      "wifiPw": "Mật khẩu",
+      "agreement": "Bản đồng ý sử dụng",
+      "alreadySigned": "Đặt phòng đã được ký trên ứng dụng.",
+      "guestSign": "Chữ ký khách",
+      "staffConfirm": "Xác nhận nhân viên",
+      "signDate": "Ngày ký"
+    }
   }
 }

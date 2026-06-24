@@ -51,3 +51,42 @@ input:focus {
   border-color: #3b82f6 !important;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
 }
+
+/* ============ 체크인 시트 인쇄 (T-admin-checkin-sheet) ============ */
+/* 예약 1건 = A4 1페이지. 화면 미리보기는 흰 종이 카드, 인쇄 시 크롬(사이드바·헤더·네비·버튼) 숨김. */
+.print-page {
+  break-inside: avoid;
+}
+@media print {
+  @page {
+    margin: 12mm;
+  }
+  /* 화면 전체를 숨기고 시트(.print-sheet)만 노출 */
+  body * {
+    visibility: hidden;
+  }
+  .print-sheet,
+  .print-sheet * {
+    visibility: visible;
+  }
+  .print-sheet {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  .no-print {
+    display: none !important;
+  }
+  /* 예약마다 페이지 분할 (마지막 장은 빈 페이지 방지) */
+  .print-page {
+    break-after: page;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    max-width: none !important;
+  }
+  .print-page:last-child {
+    break-after: auto;
+  }
+}
