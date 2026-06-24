@@ -1584,8 +1584,11 @@
       "settlementSubtitle": "{name} (공급자) 본인 정산만 표시",
       "settlementEmpty": "정산 내역이 없습니다",
       "settlementGuard": "본인 정산만 공유 가능 · 판매가·마진·타 공급자 비노출",
-      "bookingCount": "예약 {n}건"
+      "bookingCount": "예약 {n}건",
+      "loadingTitle": "공유 항목 불러오는 중",
+      "loadingSubtitle": "잠시만 기다려 주세요"
     },
+    "shareCandidatesLoading": "공유 항목을 불러오는 중…",
     "inbox": {
       "yesterday": "어제",
       "unknownName": "(이름 미확인)",

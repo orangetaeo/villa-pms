@@ -28,6 +28,7 @@ import {
   VillaShareModal,
   ProposalShareModal,
   SettlementShareModal,
+  ShareLoadingModal,
   NicknameModal,
 } from "./share-modals";
 
@@ -233,9 +234,6 @@ export function ChatPane({
   windowOpen,
   hasUnread,
   groupMembers,
-  villaCandidates,
-  proposalCandidates,
-  settlementCandidates,
 }: {
   conversationId: string | null;
   header: ChatHeader | null;
@@ -248,9 +246,6 @@ export function ChatPane({
   hasUnread: boolean;
   // 그룹 @멘션 후보(그룹 아닐 땐 빈 배열) — Composer 입력창 드롭다운에 사용.
   groupMembers: GroupMember[];
-  villaCandidates: VillaCandidate[];
-  proposalCandidates: ProposalCandidate[];
-  settlementCandidates: SettlementCandidate[];
 }) {
   const t = useTranslations("adminMessages");
   const router = useRouter();
@@ -607,9 +602,6 @@ export function ChatPane({
           contactName={header.name}
           isGroup={header.isGroup}
           groupMembers={groupMembers}
-          villaCandidates={villaCandidates}
-          proposalCandidates={proposalCandidates}
-          settlementCandidates={settlementCandidates}
           replyTarget={replyTarget}
           onClearReply={() => setReplyTarget(null)}
           onSent={markJustSent}
@@ -1872,9 +1864,6 @@ function Composer({
   contactName,
   isGroup,
   groupMembers,
-  villaCandidates,
-  proposalCandidates,
-  settlementCandidates,
   replyTarget,
   onClearReply,
   onSent,
@@ -1889,9 +1878,6 @@ function Composer({
   // 그룹 대화일 때만 @멘션 동작(1:1은 멘션 없음, 기존 그대로).
   isGroup: boolean;
   groupMembers: GroupMember[];
-  villaCandidates: VillaCandidate[];
-  proposalCandidates: ProposalCandidate[];
-  settlementCandidates: SettlementCandidate[];
   replyTarget: ReplyTarget | null;
   onClearReply: () => void;
   onSent: () => void;
@@ -2360,9 +2346,6 @@ function Composer({
             conversationId={conversationId}
             counterpartyType={counterpartyType}
             contactName={contactName}
-            villaCandidates={villaCandidates}
-            proposalCandidates={proposalCandidates}
-            settlementCandidates={settlementCandidates}
             onError={setError}
             t={t}
             router={router}
@@ -2479,9 +2462,6 @@ function AttachMenu({
   conversationId,
   counterpartyType,
   contactName,
-  villaCandidates,
-  proposalCandidates,
-  settlementCandidates,
   onError,
   t,
   router,
@@ -2489,9 +2469,6 @@ function AttachMenu({
   conversationId: string;
   counterpartyType: CounterpartyType;
   contactName: string;
-  villaCandidates: VillaCandidate[];
-  proposalCandidates: ProposalCandidate[];
-  settlementCandidates: SettlementCandidate[];
   onError: (msg: string | null) => void;
   t: ReturnType<typeof useTranslations>;
   router: ReturnType<typeof useRouter>;
@@ -2502,6 +2479,56 @@ function AttachMenu({
   const galleryRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // 공유 후보 지연 조회(perf) — 매 클릭이 아니라 공유 모달을 처음 열 때 1회만 GET.
+  // 같은 대화에서 재오픈 시 캐시 재사용(cands!==null이면 재조회 안 함). conversationId 바뀌면 리셋.
+  type Cands = {
+    villa: VillaCandidate[];
+    proposal: ProposalCandidate[];
+    settlement: SettlementCandidate[];
+  };
+  const [cands, setCands] = useState<Cands | null>(null);
+  const [candsLoading, setCandsLoading] = useState(false);
+
+  useEffect(() => {
+    // 대화 전환 시 이전 대화의 후보 캐시 무효화(누수·혼선 방지).
+    setCands(null);
+    setCandsLoading(false);
+  }, [conversationId]);
+
+  async function loadCandidates() {
+    if (cands !== null || candsLoading) return; // 이미 로드됐거나 진행 중이면 스킵
+    setCandsLoading(true);
+    try {
+      const res = await fetch(
+        `/api/zalo/conversations/${conversationId}/candidates`
+      );
+      if (!res.ok) throw new Error(`candidates ${res.status}`);
+      const data = (await res.json()) as {
+        villaCandidates: VillaCandidate[];
+        proposalCandidates: ProposalCandidate[];
+        settlementCandidates: SettlementCandidate[];
+      };
+      setCands({
+        villa: data.villaCandidates ?? [],
+        proposal: data.proposalCandidates ?? [],
+        settlement: data.settlementCandidates ?? [],
+      });
+    } catch (e) {
+      // 치명 아님 — 빈 목록으로 모달은 열되 콘솔에만 기록.
+      console.error("공유 후보 조회 실패", e);
+      setCands({ villa: [], proposal: [], settlement: [] });
+    } finally {
+      setCandsLoading(false);
+    }
+  }
+
+  // 공유 모달 열기 — 메뉴 닫고 모달 종류 지정 + 후보 지연 조회 트리거.
+  function openShareModal(kind: "VILLA" | "PROPOSAL" | "SETTLEMENT") {
+    setOpen(false);
+    setModal(kind);
+    void loadCandidates();
+  }
 
   // 가시성 (D2/R2-5) — 하드코딩 분기 대신 allowedShareKinds 헬퍼로 도출(분류 확장에 자동 대응).
   //  원가측(SUPPLIER)=사진+빌라+정산 / 판매가측(고객·여행사·랜드사)=사진+빌라+제안 / UNKNOWN=사진만
@@ -2680,10 +2707,7 @@ function AttachMenu({
             {canVilla && (
               <button
                 type="button"
-                onClick={() => {
-                  setOpen(false);
-                  setModal("VILLA");
-                }}
+                onClick={() => openShareModal("VILLA")}
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 hover:bg-slate-700/60"
               >
                 <span className="material-symbols-outlined text-[20px] text-teal-400">villa</span>
@@ -2693,10 +2717,7 @@ function AttachMenu({
             {canProposal && (
               <button
                 type="button"
-                onClick={() => {
-                  setOpen(false);
-                  setModal("PROPOSAL");
-                }}
+                onClick={() => openShareModal("PROPOSAL")}
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 hover:bg-slate-700/60"
               >
                 <span className="material-symbols-outlined text-[20px] text-blue-400">
@@ -2708,10 +2729,7 @@ function AttachMenu({
             {canSettlement && (
               <button
                 type="button"
-                onClick={() => {
-                  setOpen(false);
-                  setModal("SETTLEMENT");
-                }}
+                onClick={() => openShareModal("SETTLEMENT")}
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 hover:bg-slate-700/60"
               >
                 <span className="material-symbols-outlined text-[20px] text-amber-400">
@@ -2730,10 +2748,13 @@ function AttachMenu({
         </>
       )}
 
-      {/* 공유 선택 모달 */}
-      {modal === "VILLA" && canVilla && (
+      {/* 공유 선택 모달 — 후보 지연 조회(perf). 도착 전(cands===null)엔 로딩 셸 표시. */}
+      {modal !== null && cands === null && (
+        <ShareLoadingModal onClose={() => setModal(null)} t={t} />
+      )}
+      {modal === "VILLA" && canVilla && cands !== null && (
         <VillaShareModal
-          candidates={villaCandidates}
+          candidates={cands.villa}
           counterparty={isSellSideType(counterpartyType) ? "CUSTOMER" : "SUPPLIER"}
           contactName={contactName}
           onClose={() => setModal(null)}
@@ -2742,9 +2763,9 @@ function AttachMenu({
           t={t}
         />
       )}
-      {modal === "PROPOSAL" && canProposal && (
+      {modal === "PROPOSAL" && canProposal && cands !== null && (
         <ProposalShareModal
-          candidates={proposalCandidates}
+          candidates={cands.proposal}
           contactName={contactName}
           onClose={() => setModal(null)}
           onSubmit={(proposalId) => void shareJson({ type: "PROPOSAL", proposalId })}
@@ -2752,9 +2773,9 @@ function AttachMenu({
           t={t}
         />
       )}
-      {modal === "SETTLEMENT" && canSettlement && (
+      {modal === "SETTLEMENT" && canSettlement && cands !== null && (
         <SettlementShareModal
-          candidates={settlementCandidates}
+          candidates={cands.settlement}
           contactName={contactName}
           onClose={() => setModal(null)}
           onSubmit={(settlementId) => void shareJson({ type: "SETTLEMENT", settlementId })}

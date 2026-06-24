@@ -76,6 +76,40 @@ function ModalShell({
   );
 }
 
+// 공유 후보 지연 조회 중 표시(perf) — 후보를 모달 첫 오픈 시 GET하므로 도착 전 잠깐 스피너.
+// 빌라/제안/정산 공통(어떤 종류든 동일 로딩 셸). 취소만 가능, 발송 버튼 없음.
+export function ShareLoadingModal({
+  onClose,
+  t,
+}: {
+  onClose: () => void;
+  t: T;
+}) {
+  return (
+    <ModalShell
+      title={t("shareModal.loadingTitle")}
+      subtitle={t("shareModal.loadingSubtitle")}
+      onClose={onClose}
+      footer={
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex-1 py-2.5 rounded-lg bg-slate-800 text-slate-300 text-sm font-bold hover:bg-slate-700"
+        >
+          {t("shareModal.cancel")}
+        </button>
+      }
+    >
+      <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 px-5 py-12">
+        <span className="material-symbols-outlined text-3xl text-slate-500 animate-spin">
+          progress_activity
+        </span>
+        <p className="text-xs text-slate-400">{t("shareCandidatesLoading")}</p>
+      </div>
+    </ModalShell>
+  );
+}
+
 // ─────────────────────── 빌라 선택 모달 ───────────────────────
 
 export function VillaShareModal({

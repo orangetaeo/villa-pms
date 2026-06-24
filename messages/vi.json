@@ -1656,8 +1656,11 @@
       "settlementSubtitle": "Chỉ hiển thị quyết toán của {name} (nhà cung cấp)",
       "settlementEmpty": "Không có quyết toán",
       "settlementGuard": "Chỉ chia sẻ quyết toán của chính mình · Không lộ giá bán·lợi nhuận·nhà cung cấp khác",
-      "bookingCount": "{n} đặt phòng"
+      "bookingCount": "{n} đặt phòng",
+      "loadingTitle": "Đang tải mục chia sẻ",
+      "loadingSubtitle": "Vui lòng đợi một chút"
     },
+    "shareCandidatesLoading": "Đang tải mục chia sẻ…",
     "inbox": {
       "yesterday": "Hôm qua",
       "unknownName": "(Chưa rõ tên)",

@@ -1,22 +1,16 @@
 // /messages — 운영자 Zalo 채팅 (T6.6, Stitch b14-zalo-chat 변환, ADR-0003·ADR-0007·ADR-0009)
 // RSC: ZaloConversation 인박스 + 선택 대화(?c=) 스레드 조회. select 화이트리스트 — 마진·금액 필드 미조회.
 // ADR-0007 개인 스코프: where ownerAdminId = session.user.id (관리자A 대화를 B가 못 봄 — 누수 0).
-// ADR-0009: 아바타(D8)·별명(D9)·번역모드(D7)·상대타입(D1) + 공유 후보 목록(빌라/제안/정산)을
-//   상대 타입별 누수 분기로 서버에서 최소 필드만 조회해 클라(공유 모달)에 전달 — 마진·반대편 통화 미유입.
+// ADR-0009: 아바타(D8)·별명(D9)·번역모드(D7)·상대타입(D1)만 조회.
+//   공유 후보(빌라/제안/정산)는 클릭 비용에서 분리(perf, 2026-06-24) — 공유 모달 첫 오픈 시
+//   GET /api/zalo/conversations/[id]/candidates로 지연 조회한다(누수 분기는 그 라우트가 보존).
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import {
-  Currency,
-  ZaloCounterpartyType,
-  ZaloThreadType,
-} from "@prisma/client";
+import { ZaloThreadType } from "@prisma/client";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
-import { serializeBigInt } from "@/lib/serialize";
-import { isSellSideType, currencyForType } from "@/lib/zalo-counterparty";
-import { pickRepresentativeRate } from "@/lib/pricing";
 // 메시지 매핑 단일 진실원 — page.tsx 초기 로드와 이전 메시지 GET이 동일 함수로 매핑(prepend 정합).
 import { toChatMessages } from "@/lib/zalo-chat-message";
 import { Inbox, type InboxItem } from "./inbox";
@@ -27,9 +21,6 @@ import {
   type ChatHeader,
   type CounterpartyType,
   type TranslateMode,
-  type VillaCandidate,
-  type ProposalCandidate,
-  type SettlementCandidate,
 } from "./chat-pane";
 import { AutoRefresh } from "./auto-refresh";
 import { NewMessageToaster } from "./new-message-toaster";
@@ -97,14 +88,6 @@ function inboxTime(date: Date | null, now: Date, yesterdayLabel: string): string
 }
 
 /** 정산 yearMonth(YYYY-MM) → 표시 라벨. 최종 문자열 생성은 i18n 콜백에 위임 */
-function settlementLabel(
-  yearMonth: string,
-  label: (year: number, month: number) => string
-): string {
-  const [y, m] = yearMonth.split("-");
-  return label(Number(y), Number(m));
-}
-
 export default async function MessagesPage({
   searchParams,
 }: {
@@ -203,9 +186,6 @@ export default async function MessagesPage({
   // 그룹 대화 @멘션용 멤버 목록(이름·아바타·zaloId만 — 누수 무관: 공개 프로필).
   // 그룹이 아니면 빈 배열 → ChatPane 입력창은 @멘션 비활성(1:1 기존 그대로).
   let groupMembers: GroupMember[] = [];
-  let villaCandidates: VillaCandidate[] = [];
-  let proposalCandidates: ProposalCandidate[] = [];
-  let settlementCandidates: SettlementCandidate[] = [];
   // ADR-0006 D5.5 — 개인계정은 48h 제약 없음. 채팅 입력창 항상 활성.
   const windowOpen = true;
 
@@ -308,167 +288,8 @@ export default async function MessagesPage({
         headerAvatarUrl: header.avatarUrl,
         headerInitials: header.initials,
       }) as ChatMessage[];
-
-      // ── 공유 후보 목록 — 상대 타입별 누수 분기로 최소 필드만 (D2/D4) ──
-      // 마진·반대편 통화는 어떤 후보 쿼리에도 미조회. 모달은 이름·식별자 위주.
-      if (counterpartyType === ZaloCounterpartyType.SUPPLIER && conv.userId) {
-        // 공급자 대화 — 그 공급자 소유 빌라만, 원가만. 제안 후보 없음(고객 전용).
-        const villas = await prisma.villa.findMany({
-          where: { supplierId: conv.userId },
-          orderBy: { createdAt: "desc" },
-          select: {
-            id: true,
-            name: true,
-            complex: true,
-            bedrooms: true,
-            bathrooms: true,
-            photos: { orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
-            rates: {
-              orderBy: { season: "asc" },
-              // LOW(비수기) 원가를 대표 표시값으로 — salePrice*/margin 미조회
-              select: { season: true, supplierCostVnd: true },
-            },
-            // ADR-0014 dual-read: 변환된 빌라는 기본요금(base) 행이 대표 원가. 원가 전용 select.
-            ratePeriods: {
-              where: { isBase: true },
-              take: 1,
-              select: { season: true, supplierCostVnd: true },
-            },
-          },
-        });
-        villaCandidates = serializeBigInt(
-          villas.map((v) => {
-            const low = pickRepresentativeRate(v.ratePeriods[0], v.rates);
-            return {
-              id: v.id,
-              name: v.name,
-              complex: v.complex,
-              bedrooms: v.bedrooms,
-              bathrooms: v.bathrooms,
-              photoUrl: v.photos[0]?.url ?? null,
-              priceLabelKind: "supplierCostVnd" as const,
-              priceVnd: low ? low.supplierCostVnd : null,
-              priceKrw: null,
-            };
-          })
-        ) as VillaCandidate[];
-
-        // 본인(supplierId=userId) 정산만 — totalVnd·건수·상태. 판매가·마진 없음.
-        const settlements = await prisma.settlement.findMany({
-          where: { supplierId: conv.userId },
-          orderBy: { yearMonth: "desc" },
-          select: {
-            id: true,
-            yearMonth: true,
-            totalVnd: true,
-            status: true,
-            _count: { select: { items: true } },
-          },
-        });
-        settlementCandidates = serializeBigInt(
-          settlements.map((s) => ({
-            id: s.id,
-            yearMonth: s.yearMonth,
-            label: settlementLabel(s.yearMonth, (year, month) =>
-              tm("inbox.settlementMonth", { year, month })
-            ),
-            totalVnd: s.totalVnd,
-            itemCount: s._count.items,
-            status: s.status,
-          }))
-        ) as SettlementCandidate[];
-      } else if (isSellSideType(counterpartyType)) {
-        // 판매가측 그룹(CUSTOMER/TRAVEL_AGENCY/LAND_AGENCY) — ACTIVE+isSellable 빌라만, 판매가만.
-        // 통화는 currencyForType로 분기: CUSTOMER=KRW, TRAVEL_AGENCY/LAND_AGENCY=VND.
-        // 원가(supplierCostVnd)·마진(marginType/marginValue)은 화이트리스트에서 영구 제외 — 누수 불변식.
-        const sellCurrency = currencyForType(counterpartyType);
-        const useKrw = sellCurrency === Currency.KRW;
-        const villas = await prisma.villa.findMany({
-          where: { status: "ACTIVE", isSellable: true },
-          orderBy: { createdAt: "desc" },
-          take: 50,
-          select: {
-            id: true,
-            name: true,
-            complex: true,
-            bedrooms: true,
-            bathrooms: true,
-            photos: { orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
-            rates: {
-              orderBy: { season: "asc" },
-              // 판매가만 — salePriceKrw·salePriceVnd 둘 다 화이트리스트. supplierCostVnd·margin* 미조회.
-              select: { season: true, salePriceKrw: true, salePriceVnd: true },
-            },
-            // ADR-0014 dual-read: 변환된 빌라는 기본요금(base) 행이 대표 판매가. 판매가 전용 select(누수 불변식).
-            ratePeriods: {
-              where: { isBase: true },
-              take: 1,
-              select: { season: true, salePriceKrw: true, salePriceVnd: true },
-            },
-          },
-        });
-        villaCandidates = serializeBigInt(
-          villas.map((v) => {
-            const low = pickRepresentativeRate(v.ratePeriods[0], v.rates);
-            return {
-              id: v.id,
-              name: v.name,
-              complex: v.complex,
-              bedrooms: v.bedrooms,
-              bathrooms: v.bathrooms,
-              photoUrl: v.photos[0]?.url ?? null,
-              priceLabelKind: (useKrw ? "salePriceKrw" : "salePriceVnd") as
-                | "salePriceKrw"
-                | "salePriceVnd",
-              priceVnd: useKrw ? null : low ? low.salePriceVnd : null,
-              priceKrw: useKrw ? (low ? low.salePriceKrw : null) : null,
-            };
-          })
-        ) as VillaCandidate[];
-
-        // 제안 후보 — ACTIVE + 미만료만. 판매가 총액(채널 통화)만. 원가·마진 없음.
-        const proposals = await prisma.proposal.findMany({
-          where: { status: "ACTIVE", expiresAt: { gt: now } },
-          orderBy: { createdAt: "desc" },
-          take: 50,
-          select: {
-            id: true,
-            clientName: true,
-            saleCurrency: true,
-            expiresAt: true,
-            items: {
-              select: {
-                totalKrw: true,
-                totalVnd: true,
-                villa: { select: { name: true } },
-              },
-            },
-          },
-        });
-        proposalCandidates = serializeBigInt(
-          proposals.map((p) => {
-            const useKrw = p.saleCurrency === Currency.KRW;
-            const totalKrw = p.items.reduce((sum, it) => sum + (it.totalKrw ?? 0), 0);
-            const totalVnd = p.items.reduce(
-              (sum, it) => sum + (it.totalVnd ?? BigInt(0)),
-              BigInt(0)
-            );
-            const expiresInHours = Math.max(
-              0,
-              Math.round((p.expiresAt.getTime() - now.getTime()) / (60 * 60 * 1000))
-            );
-            return {
-              id: p.id,
-              clientName: p.clientName,
-              villaNames: p.items.map((it) => it.villa.name),
-              currency: p.saleCurrency,
-              totalKrw: useKrw ? totalKrw : null,
-              totalVnd: useKrw ? null : totalVnd,
-              expiresInHours,
-            };
-          })
-        ) as ProposalCandidate[];
-      }
+      // 공유 후보(빌라/제안/정산)는 여기서 조회하지 않는다(perf) — 공유 모달 첫 오픈 시
+      // GET /api/zalo/conversations/[id]/candidates로 지연 조회(누수 분기는 그 라우트가 보존).
     }
   }
 
@@ -496,9 +317,6 @@ export default async function MessagesPage({
             oldestCursor={oldestCursor}
             windowOpen={windowOpen}
             groupMembers={groupMembers}
-            villaCandidates={villaCandidates}
-            proposalCandidates={proposalCandidates}
-            settlementCandidates={settlementCandidates}
             hasUnread={
               inboxItems.find((i) => i.id === selectedId)?.unreadCount
                 ? true
