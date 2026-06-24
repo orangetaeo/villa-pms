@@ -49,9 +49,12 @@ function previewBody(item: InboxItem, t: ReturnType<typeof useTranslations>): st
 export function NewMessageToaster({
   items,
   selectedId,
+  onSelect,
 }: {
   items: InboxItem[];
   selectedId: string | null;
+  // perf #2: 있으면 클릭 시 클라이언트 전환(MessagesClient.handleSelect). 없으면 레거시 router.push(?c=).
+  onSelect?: (id: string) => void;
 }) {
   const router = useRouter();
   const t = useTranslations("adminMessages");
@@ -107,7 +110,8 @@ export function NewMessageToaster({
 
   function openConversation(convId: string, key: string) {
     dismiss(key);
-    router.push(`/messages?c=${convId}`);
+    if (onSelect) onSelect(convId);
+    else router.push(`/messages?c=${convId}`);
   }
 
   if (toasts.length === 0) return null;

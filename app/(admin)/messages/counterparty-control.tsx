@@ -8,6 +8,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { CounterpartyType } from "./chat-pane";
+// perf #2: 분류 변경 후 갱신 — MessagesClient 하위면 스레드 재fetch(서버 왕복 없음), 레거시면 router.refresh.
+import { useMutationRefresh } from "./chat-pane";
 
 type T = ReturnType<typeof useTranslations>;
 type Router = ReturnType<typeof useRouter>;
@@ -66,6 +68,7 @@ export function ClassifyBanner({
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState(false); // 모바일 버튼 줄 펼침
   const [dismissed, setDismissed] = useState(false); // 모바일 접기(세션, 대화별)
+  const refresh = useMutationRefresh(router); // perf #2
 
   const dismissKey = `vp-classify-dismiss-${conversationId}`;
 
@@ -93,7 +96,7 @@ export function ClassifyBanner({
     setSaving(true);
     const ok = await patchType(conversationId, next);
     setSaving(false);
-    if (ok) router.refresh(); // 분류되면 UNKNOWN 아님 → 배너 자체가 사라짐
+    if (ok) refresh(); // 분류되면 UNKNOWN 아님 → 배너 자체가 사라짐
   }
 
   // 공통 버튼 줄 — 데스크톱·모바일 펼침에서 재사용.
@@ -178,6 +181,7 @@ export function CounterpartyDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const refresh = useMutationRefresh(router); // perf #2
 
   const current =
     OPTIONS.find((o) => o.type === type) ??
@@ -193,7 +197,7 @@ export function CounterpartyDropdown({
     setSaving(false);
     if (ok) {
       setOpen(false);
-      router.refresh();
+      refresh();
     }
   }
 

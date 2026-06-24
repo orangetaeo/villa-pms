@@ -182,6 +182,19 @@ const QuoteJumpContext = createContext<((targetMsgId: string) => void) | null>(n
 // 그룹 대화에서만 채워지고, 1:1은 빈 배열(강조 없음).
 const MentionNamesContext = createContext<string[]>([]);
 
+// perf #2: 채팅 내 변경(발신·리액션·공유·별명·번역·분류) 후 화면 갱신 신호.
+//  - 레거시(MessagesClient 없이 단독 ChatPane): null → 각 사이트가 router.refresh()로 RSC 재조회.
+//  - MessagesClient 하위: onMutated 주입 → 서버 왕복 없이 스레드+인박스 즉시 재fetch(클라이언트 전환).
+// useMutationRefresh()는 onMutated가 있으면 그걸, 없으면 router.refresh()를 호출하는 함수를 반환.
+const MutationContext = createContext<(() => void) | null>(null);
+export function useMutationRefresh(router: ReturnType<typeof useRouter>): () => void {
+  const onMutated = useContext(MutationContext);
+  return useCallback(() => {
+    if (onMutated) onMutated();
+    else router.refresh();
+  }, [onMutated, router]);
+}
+
 /** 정규식 특수문자 이스케이프. */
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -234,6 +247,10 @@ export function ChatPane({
   windowOpen,
   hasUnread,
   groupMembers,
+  loading = false,
+  onBack,
+  onMarkedRead,
+  onMutated,
 }: {
   conversationId: string | null;
   header: ChatHeader | null;
@@ -246,6 +263,14 @@ export function ChatPane({
   hasUnread: boolean;
   // 그룹 @멘션 후보(그룹 아닐 땐 빈 배열) — Composer 입력창 드롭다운에 사용.
   groupMembers: GroupMember[];
+  // perf #2: 클라이언트 전환 중 스레드 로딩(선택됐으나 thread 아직 미도착) — 빈 상태 대신 스피너.
+  loading?: boolean;
+  // perf #2: 모바일 뒤로가기/스와이프 → 인박스 복귀(있으면 router.push("/messages") 대신 호출).
+  onBack?: () => void;
+  // perf #2: MARK_READ PATCH 성공 시 로컬 인박스 unread=0 갱신(있으면 router.refresh() 대신 호출).
+  onMarkedRead?: () => void;
+  // perf #2: 발신·리액션·공유·별명·번역·분류 변경 후 즉시 갱신(있으면 router.refresh() 대신 스레드 재fetch).
+  onMutated?: () => void;
 }) {
   const t = useTranslations("adminMessages");
   const router = useRouter();
@@ -322,10 +347,12 @@ export function ChatPane({
       const dt = Date.now() - start.t;
       // 오른쪽 ≥70px + 수평 우세(|dx|>|dy|*1.8) + 빠른 제스처(<600ms)
       if (dx >= 70 && Math.abs(dx) > Math.abs(dy) * 1.8 && dt < 600) {
-        router.push("/messages");
+        // perf #2: onBack(클라이언트 전환)이 있으면 그걸로, 없으면 레거시 서버 네비게이션.
+        if (onBack) onBack();
+        else router.push("/messages");
       }
     },
-    [router],
+    [router, onBack],
   );
 
   // ── 라이트박스 (채팅 이미지 확대) ──
@@ -484,13 +511,17 @@ export function ChatPane({
       body: JSON.stringify({ action: "MARK_READ" }),
     })
       .then((res) => {
-        if (res.ok) router.refresh();
+        if (res.ok) {
+          // perf #2: 클라이언트 전환 시 로컬 인박스 unread=0(폴링이 서버 정합 보장). 없으면 레거시 refresh.
+          if (onMarkedRead) onMarkedRead();
+          else router.refresh();
+        }
       })
       .catch(() => {})
       .finally(() => {
         markingRef.current = false;
       });
-  }, [conversationId, hasUnread, router]);
+  }, [conversationId, hasUnread, router, onMarkedRead]);
 
   // 대화 전환 시 답글 대상·활성 액션 해제 — 다른 대화에 엉뚱한 인용/액션이 남지 않도록.
   useEffect(() => {
@@ -499,6 +530,17 @@ export function ChatPane({
   }, [conversationId]);
 
   if (!conversationId || !header) {
+    // perf #2: 대화는 선택됐으나 스레드 로딩 중(클라이언트 전환) — 빈 안내 대신 스피너.
+    //   모바일에선 선택 즉시 인박스가 숨고 이 pane이 전체폭이 되므로, 로딩 중엔 flex(표시)로 둔다.
+    if (conversationId && loading) {
+      return (
+        <section className="flex flex-1 flex-col items-center justify-center bg-[#0F172A] min-w-0 text-center px-6">
+          <span className="material-symbols-outlined text-slate-600 text-4xl mb-2 animate-spin">
+            progress_activity
+          </span>
+        </section>
+      );
+    }
     // 모바일(<lg): 대화 미선택 시 인박스가 전체폭 → 빈 안내 pane 숨김. 데스크톱(lg:)만 표시.
     return (
       <section className="hidden lg:flex flex-1 flex-col items-center justify-center bg-[#0F172A] min-w-0 text-center px-6">
@@ -525,12 +567,13 @@ export function ChatPane({
     <LightboxContext.Provider value={openLightbox}>
       <QuoteJumpContext.Provider value={scrollToMessage}>
       <MentionNamesContext.Provider value={mentionNames}>
+      <MutationContext.Provider value={onMutated ?? null}>
       <section
         className="flex-1 flex flex-col bg-[#0F172A] min-w-0 overflow-x-clip"
         onTouchStart={onSwipeStart}
         onTouchEnd={onSwipeEnd}
       >
-        <ChatHeaderBar conversationId={conversationId} header={header} t={t} router={router} />
+        <ChatHeaderBar conversationId={conversationId} header={header} t={t} router={router} onBack={onBack} />
 
         {/* 미분류 대화 분류 배너 (b15 블록④) — 분류 전엔 사진만 공유 가능, 여기서 바로 분류 */}
         {header.counterpartyType === "UNKNOWN" && (
@@ -609,6 +652,7 @@ export function ChatPane({
           router={router}
         />
       </section>
+      </MutationContext.Provider>
       </MentionNamesContext.Provider>
       </QuoteJumpContext.Provider>
 
@@ -631,15 +675,19 @@ function ChatHeaderBar({
   header,
   t,
   router,
+  onBack,
 }: {
   conversationId: string;
   header: ChatHeader;
   t: ReturnType<typeof useTranslations>;
   router: ReturnType<typeof useRouter>;
+  // perf #2: 모바일 뒤로가기 — 있으면 클라이언트 전환(인박스 복귀), 없으면 레거시 서버 네비게이션.
+  onBack?: () => void;
 }) {
   const [avatarBroken, setAvatarBroken] = useState(false);
   const [nicknameOpen, setNicknameOpen] = useState(false);
   const [nicknameSaving, setNicknameSaving] = useState(false);
+  const refresh = useMutationRefresh(router); // perf #2: 클라이언트 전환 시 스레드 재fetch, 레거시면 router.refresh
 
   async function saveNickname(value: string) {
     setNicknameSaving(true);
@@ -651,7 +699,7 @@ function ChatHeaderBar({
       });
       if (res.ok) {
         setNicknameOpen(false);
-        router.refresh();
+        refresh();
       }
     } catch {
       /* noop — 실패 시 모달 유지 */
@@ -667,7 +715,7 @@ function ChatHeaderBar({
         {/* 모바일 전용 뒤로가기 — 목록(인박스)으로. 데스크톱(lg:)은 2-pane 유지라 숨김. */}
         <button
           type="button"
-          onClick={() => router.push("/messages")}
+          onClick={() => (onBack ? onBack() : router.push("/messages"))}
           title={t("back")}
           aria-label={t("back")}
           className="lg:hidden -ml-1 w-9 h-9 rounded-lg text-slate-300 hover:bg-slate-800 flex items-center justify-center shrink-0 transition-colors"
@@ -778,6 +826,7 @@ function TranslateDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const refresh = useMutationRefresh(router); // perf #2
 
   const options: { mode: TranslateMode; label: string; icon: string; iconColor: string }[] = [
     { mode: "OFF", label: t("translateMode.off"), icon: "do_not_disturb_on", iconColor: "text-slate-500" },
@@ -800,7 +849,7 @@ function TranslateDropdown({
       });
       if (res.ok) {
         setOpen(false);
-        router.refresh();
+        refresh();
       }
     } catch {
       /* noop */
@@ -1003,6 +1052,7 @@ function MessageActions({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const refresh = useMutationRefresh(router); // perf #2
 
   async function react(icon: string) {
     if (busy) return;
@@ -1016,7 +1066,7 @@ function MessageActions({
         body: JSON.stringify({ action: "REACT", messageId, icon }),
       });
       if (res.ok) {
-        router.refresh();
+        refresh();
         return;
       }
       // 400 REACTION_NOT_SUPPORTED(과거 메시지) → 안내, 502 → 발송 실패.
@@ -1889,6 +1939,7 @@ function Composer({
   const [translating, setTranslating] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const refresh = useMutationRefresh(router); // perf #2: 발신 후 스레드 즉시 재fetch(클라) 또는 router.refresh(레거시)
   // ── @멘션 (그룹 대화 전용, Nike chat-input 패턴 이식) ──────────────────────
   // mentionQuery: null이면 드롭다운 닫힘. ""이면 "@"만 친 상태(전체 후보). 문자열이면 이름 검색어.
   // mentionStartRef: 현재 입력 중인 "@" 의 본문 인덱스(선택 시 그 자리부터 토큰 치환).
@@ -2048,7 +2099,7 @@ function Composer({
         onClearReply();
         // 내가 전송 → 다음 메시지 반영 때 무조건 최하단으로(과거 보던 중이어도).
         onSent();
-        router.refresh();
+        refresh();
       } else if (res.status === 409) {
         setError(t("windowClosedWarning"));
       } else if (res.status === 400) {
@@ -2476,6 +2527,7 @@ function AttachMenu({
   const [open, setOpen] = useState(false);
   const [modal, setModal] = useState<null | "VILLA" | "PROPOSAL" | "SETTLEMENT">(null);
   const [submitting, setSubmitting] = useState(false);
+  const refresh = useMutationRefresh(router); // perf #2: 공유/업로드 후 스레드 즉시 재fetch 또는 router.refresh
   const galleryRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -2549,7 +2601,7 @@ function AttachMenu({
         method: "POST",
         body: fd,
       });
-      if (res.ok) router.refresh();
+      if (res.ok) refresh();
     } catch {
       /* noop */
     } finally {
@@ -2571,7 +2623,7 @@ function AttachMenu({
         body: fd,
       });
       if (res.ok) {
-        router.refresh();
+        refresh();
         return;
       }
       // 400 에러코드 → i18n 안내(매핑 없으면 generic).
@@ -2600,7 +2652,7 @@ function AttachMenu({
       });
       if (res.ok) {
         setModal(null);
-        router.refresh();
+        refresh();
       }
     } catch {
       /* noop */

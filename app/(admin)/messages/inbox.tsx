@@ -2,6 +2,7 @@
 
 // /messages 좌측 인박스 (b14 LEFT pane) — 공급자+고객 혼합 목록 + 검색 + 상대 타입 필터
 // ADR-0009: 아바타 img+이니셜 폴백(D8), 상대 타입 배지·필터 칩(D1).
+// perf #2: onSelect가 있으면 클라이언트 전환(button, 서버 왕복 없음). 없으면(레거시) <Link href=?c=>.
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -50,11 +51,14 @@ export function Inbox({
   items,
   totalUnread,
   conversationSelected,
+  onSelect,
 }: {
   items: InboxItem[];
   totalUnread: number;
   // 모바일(<lg): 대화 선택 시 인박스 숨김(채팅 전체폭). 데스크톱(lg:)은 항상 표시.
   conversationSelected: boolean;
+  // perf #2: 있으면 클릭 시 서버 네비게이션 대신 클라이언트 전환(MessagesClient.handleSelect).
+  onSelect?: (id: string) => void;
 }) {
   const t = useTranslations("adminMessages");
   const router = useRouter();
@@ -128,19 +132,13 @@ export function Inbox({
         {filtered.length === 0 ? (
           <p className="px-5 py-8 text-center text-xs text-slate-500">{t("empty")}</p>
         ) : (
-          filtered.map((item) => (
-            <Link
-              key={item.id}
-              href={`/messages?c=${item.id}`}
-              // 탭 직전 해당 대화 데이터를 미리 가져와(prefetch) 열 때 머뭇거림 제거.
-              onPointerDown={() => router.prefetch(`/messages?c=${item.id}`)}
-              aria-current={item.selected ? "true" : undefined}
-              className={
-                item.selected
-                  ? "flex items-start gap-3 px-5 py-4 bg-slate-800 border-l-2 border-blue-500"
-                  : "flex items-start gap-3 px-5 py-4 hover:bg-slate-800/60 transition-colors border-l-2 border-transparent"
-              }
-            >
+          filtered.map((item) => {
+            const itemClass =
+              item.selected
+                ? "flex items-start gap-3 px-5 py-4 bg-slate-800 border-l-2 border-blue-500"
+                : "flex items-start gap-3 px-5 py-4 hover:bg-slate-800/60 transition-colors border-l-2 border-transparent";
+            const inner = (
+              <>
               <Avatar
                 avatarUrl={item.avatarUrl}
                 initials={item.initials}
@@ -194,8 +192,35 @@ export function Inbox({
                   ) : null}
                 </div>
               </div>
-            </Link>
-          ))
+              </>
+            );
+            // perf #2: onSelect면 클라이언트 전환(button — 서버 왕복 없음). 없으면 레거시 <Link href=?c=>.
+            if (onSelect) {
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onSelect(item.id)}
+                  aria-current={item.selected ? "true" : undefined}
+                  className={`${itemClass} w-full text-left`}
+                >
+                  {inner}
+                </button>
+              );
+            }
+            return (
+              <Link
+                key={item.id}
+                href={`/messages?c=${item.id}`}
+                // 탭 직전 해당 대화 데이터를 미리 가져와(prefetch) 열 때 머뭇거림 제거.
+                onPointerDown={() => router.prefetch(`/messages?c=${item.id}`)}
+                aria-current={item.selected ? "true" : undefined}
+                className={itemClass}
+              >
+                {inner}
+              </Link>
+            );
+          })
         )}
       </div>
     </section>
