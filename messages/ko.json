@@ -182,7 +182,8 @@
       "prevPage": "이전 페이지",
       "nextPage": "다음 페이지",
       "card": {
-        "nights": "{n}박"
+        "nights": "{n}박",
+        "viewDetail": "상세 보기"
       }
     },
     "status": {

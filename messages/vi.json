@@ -266,7 +266,8 @@
       "prevPage": "Trang trước",
       "nextPage": "Trang sau",
       "card": {
-        "nights": "{n} đêm"
+        "nights": "{n} đêm",
+        "viewDetail": "Xem chi tiết"
       }
     },
     "status": {

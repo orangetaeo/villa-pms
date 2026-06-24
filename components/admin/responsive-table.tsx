@@ -32,6 +32,8 @@ interface ResponsiveTableProps<T> {
    * (훅 미사용 — 네이티브 <details>로 RSC 호환 유지, 모바일 빈 공간/세로길이 해결)
    */
   cardSummary?: (row: T) => ReactNode;
+  /** 아코디언 펼침 본문 하단 액션(예: "상세 보기" 버튼) — cardSummary와 함께 사용 */
+  cardFooter?: (row: T) => ReactNode;
   emptyMessage?: ReactNode;
   /** 행 추가 클래스 (비활성 행 배경 등 — 데스크톱 tr·모바일 카드 공통, T1.8 b13) */
   rowClassName?: (row: T) => string | undefined;
@@ -43,6 +45,7 @@ export default function ResponsiveTable<T>({
   rowKey,
   cardHeader,
   cardSummary,
+  cardFooter,
   emptyMessage,
   rowClassName,
 }: ResponsiveTableProps<T>) {
@@ -109,7 +112,7 @@ export default function ResponsiveTable<T>({
                     expand_more
                   </span>
                 </summary>
-                {cardRows.length > 0 && (
+                {(cardRows.length > 0 || cardFooter) && (
                   <div className="px-4 pb-4 pt-3 flex flex-col gap-2 border-t border-slate-800/60">
                     {cardRows.map((col) => (
                       <div key={col.key} className="flex items-start justify-between gap-3 text-sm">
@@ -119,6 +122,7 @@ export default function ResponsiveTable<T>({
                         <span className="text-slate-200 text-right min-w-0">{col.cell(row)}</span>
                       </div>
                     ))}
+                    {cardFooter?.(row)}
                   </div>
                 )}
               </details>

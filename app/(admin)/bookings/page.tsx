@@ -444,12 +444,7 @@ export default async function BookingsPage({
         cardSummary={(b) => (
           <div className="flex flex-col gap-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
-              <Link
-                href={`/bookings/${b.id}`}
-                className="text-sm font-semibold text-slate-200 truncate hover:text-white"
-              >
-                {b.villa.name}
-              </Link>
+              <span className="text-sm font-semibold text-slate-200 truncate">{b.villa.name}</span>
               {statusBadge(b)}
             </div>
             <span className="text-sm text-slate-300 truncate">{b.guestName}</span>
@@ -458,6 +453,15 @@ export default async function BookingsPage({
               {showFinance ? ` · ${amountCell(b)}` : ""}
             </span>
           </div>
+        )}
+        cardFooter={(b) => (
+          <Link
+            href={`/bookings/${b.id}`}
+            className="mt-1 flex items-center justify-center gap-1.5 w-full py-2.5 rounded-lg bg-admin-primary/10 border border-admin-primary/30 text-admin-primary text-sm font-bold hover:bg-admin-primary/20 transition-colors"
+          >
+            {t("list.card.viewDetail")}
+            <span className="material-symbols-outlined text-base">arrow_forward</span>
+          </Link>
         )}
       />
 
