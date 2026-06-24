@@ -143,6 +143,15 @@ export default async function BookingDonePage({
             <HoldCountdown expiresAtIso={booking.holdExpiresAt.toISOString()} />
           )}
 
+          {/* 투숙객 명단 셀프 입력 (안 B) — 실제 투숙객 성함을 미리 입력 */}
+          <Link
+            href={`/p/${token}/roster/${booking.id}`}
+            className="w-full h-14 bg-teal-600 text-white font-bold rounded-lg shadow-lg shadow-teal-100 active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined text-xl">group_add</span>
+            투숙객 명단 입력하기
+          </Link>
+
           <div className="flex gap-3">
             <Link
               href={`/p/${token}`}
