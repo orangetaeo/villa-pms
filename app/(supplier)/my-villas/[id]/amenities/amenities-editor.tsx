@@ -1,9 +1,10 @@
 "use client";
 
-// C 비품 수정 개편 (a13-amenities-edit) — 전 카테고리(주방/화장실/가전/미니바) 모든 품목 수량 스테퍼.
-// 수건 대/중/소 3종 '매일 제공 수량'(화장실 탭 내 별도 블록). 미니바 사전 항목 + 직접입력 행(라벨+가격+수량) 추가/삭제.
-// PATCH /api/villas/[id]/amenities — unitPrice·customLabel·note 전송. 저장 후 상세 복귀.
-// 마진 비공개: 가격은 미니바 '공급자 본인 원가(고객 청구 단가)'에만. 판매가·마진·KRW 없음.
+// C 비품 수정 (a13-amenities-edit) — 주방/화장실/가전 품목 수량 스테퍼 + 수건 대/중/소 매일 제공 수량.
+// 미니바는 우리 회사가 직접 운영(#2a) — 공급자 편집 대상 아님: 탭·단가·커스텀 행 모두 제거.
+//   미니바 단가(unitPrice)는 고객 청구가(우리 판매가)라 공급자 비노출이 원칙. 서버(amenities PATCH)도 SUPPLIER MINIBAR를 drop.
+// PATCH /api/villas/[id]/amenities — 비-MINIBAR amenity만 전송. 저장 후 상세 복귀.
+// 마진 비공개: 판매가·마진·KRW·미니바 단가 일절 없음.
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -12,40 +13,24 @@ import {
   AMENITY_ITEMS,
   type AmenityCategoryKey,
 } from "@/lib/amenities";
-import { formatVnd } from "@/app/(supplier)/my-villas/new/wizard-types";
 
 // 수건 3종 itemKey (화장실 탭 내 '매일 제공 수량' 블록으로 별도 묶음)
 const TOWEL_KEYS = ["towelLarge", "towelMedium", "towelSmall"];
 
-interface CustomRow {
-  id: string; // 클라 로컬 키
-  label: string;
-  quantity: number;
-  unitPrice: string; // VND 동 단위 문자열
-}
+// 공급자 편집 카테고리 — 미니바는 회사 직접운영이라 제외(#2a).
+const SUPPLIER_CATEGORIES = AMENITY_CATEGORIES.filter((c) => c !== "MINIBAR");
 
 interface Props {
   villaId: string;
-  /** 사전 항목 수량 — key `${category}:${itemKey}` → 수량 */
+  /** 사전 항목 수량 — key `${category}:${itemKey}` → 수량 (미니바 제외) */
   initialQuantities: Record<string, number>;
-  /** 미니바 사전 항목 단가 — key `MINIBAR:${itemKey}` → VND 문자열 */
-  initialUnitPrices: Record<string, string>;
-  /** 미니바 직접입력 행 */
-  initialCustom: CustomRow[];
 }
 
-export default function AmenitiesEditor({
-  villaId,
-  initialQuantities,
-  initialUnitPrices,
-  initialCustom,
-}: Props) {
+export default function AmenitiesEditor({ villaId, initialQuantities }: Props) {
   const t = useTranslations("amenities");
   const router = useRouter();
 
   const [quantities, setQuantities] = useState<Record<string, number>>(initialQuantities);
-  const [unitPrices, setUnitPrices] = useState<Record<string, string>>(initialUnitPrices);
-  const [customRows, setCustomRows] = useState<CustomRow[]>(initialCustom);
   const [activeTab, setActiveTab] = useState<AmenityCategoryKey>("KITCHEN");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
@@ -63,57 +48,18 @@ export default function AmenitiesEditor({
     });
   }
 
-  function setMinibarPrice(itemKey: string, digits: string) {
-    setUnitPrices((prev) => ({ ...prev, [`MINIBAR:${itemKey}`]: digits.replace(/\D/g, "") }));
-  }
-
-  // ── 미니바 커스텀 행 ──────────────────────────────
-  function addCustom() {
-    setCustomRows((prev) => [
-      ...prev,
-      { id: `c${Date.now()}`, label: "", quantity: 1, unitPrice: "" },
-    ]);
-  }
-  function updateCustom(id: string, patch: Partial<CustomRow>) {
-    setCustomRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
-  }
-  function removeCustom(id: string) {
-    setCustomRows((prev) => prev.filter((r) => r.id !== id));
-  }
-
   async function handleSave() {
     setSaving(true);
     setError(false);
-    // 사전 항목(수량 > 0)
-    const payload: {
-      category: string;
-      itemKey: string;
-      quantity: number;
-      unitPrice?: string;
-      customLabel?: string;
-    }[] = [];
+    // 사전 항목(수량 > 0). 미니바는 회사 운영이라 공급자 전송 대상 아님 — MINIBAR 제외(#2a).
+    const payload: { category: string; itemKey: string; quantity: number }[] = [];
     for (const [key, quantity] of Object.entries(quantities)) {
       if (quantity <= 0) continue;
       const idx = key.indexOf(":");
       const category = key.slice(0, idx);
       const itemKey = key.slice(idx + 1);
-      const entry: (typeof payload)[number] = { category, itemKey, quantity };
-      // 미니바 사전 항목 단가 동반
-      const price = unitPrices[`MINIBAR:${itemKey}`];
-      if (category === "MINIBAR" && price) entry.unitPrice = price;
-      payload.push(entry);
-    }
-    // 미니바 커스텀 행 — 라벨 있는 것만
-    for (const row of customRows) {
-      const label = row.label.trim();
-      if (!label || row.quantity <= 0) continue;
-      payload.push({
-        category: "MINIBAR",
-        itemKey: "custom",
-        quantity: row.quantity,
-        customLabel: label,
-        ...(row.unitPrice ? { unitPrice: row.unitPrice } : {}),
-      });
+      if (category === "MINIBAR") continue; // 회사 운영 — 공급자 미전송(서버도 drop)
+      payload.push({ category, itemKey, quantity });
     }
 
     try {
@@ -141,9 +87,9 @@ export default function AmenitiesEditor({
 
   return (
     <div className="mx-auto max-w-md space-y-6 px-4 pb-28 pt-6">
-      {/* 카테고리 탭 칩 (가로 스크롤) */}
+      {/* 카테고리 탭 칩 (가로 스크롤) — 미니바 제외(회사 직접운영) */}
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {AMENITY_CATEGORIES.map((category) => (
+        {SUPPLIER_CATEGORIES.map((category) => (
           <button
             key={category}
             type="button"
@@ -209,110 +155,6 @@ export default function AmenitiesEditor({
         </div>
       )}
 
-      {/* 미니바 — 사전 항목(수량 + 단가) + 커스텀 행 추가/삭제 */}
-      {activeTab === "MINIBAR" && (
-        <div className="space-y-4">
-          {AMENITY_ITEMS.MINIBAR.map((item) => {
-            const quantity = qtyOf("MINIBAR", item.itemKey);
-            const price = unitPrices[`MINIBAR:${item.itemKey}`] ?? "";
-            return (
-              <div
-                key={item.itemKey}
-                className="flex items-center justify-between rounded-xl border-2 border-neutral-100 bg-white p-4"
-              >
-                <div className="flex min-w-0 flex-1 flex-col gap-2">
-                  <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-[20px] text-neutral-600">
-                      {item.icon}
-                    </span>
-                    <span className="font-medium text-neutral-800">{t(`items.${item.itemKey}`)}</span>
-                  </div>
-                  {/* 단가 입력 (공급자 본인 원가 — 점 구분 미리보기) */}
-                  <div className="ml-8 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-teal-600">payments</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={price ? formatVnd(price) : ""}
-                      onChange={(e) => setMinibarPrice(item.itemKey, e.target.value)}
-                      placeholder={t("priceePlaceholder")}
-                      aria-label={t("priceLabel")}
-                      className="w-24 border-b border-teal-200 bg-transparent p-0 text-xs font-semibold text-teal-600 outline-none focus:border-teal-600"
-                    />
-                    <span className="text-xs font-semibold text-teal-600">₫</span>
-                  </div>
-                </div>
-                <Stepper quantity={quantity} onChange={(q) => setQty("MINIBAR", item.itemKey, q)} />
-              </div>
-            );
-          })}
-
-          {/* 커스텀 행 */}
-          {customRows.map((row) => (
-            <div
-              key={row.id}
-              className="rounded-xl border border-teal-100 bg-teal-50/50 p-4"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-teal-600">edit</span>
-                    <input
-                      type="text"
-                      value={row.label}
-                      onChange={(e) => updateCustom(row.id, { label: e.target.value })}
-                      placeholder={t("customNamePlaceholder")}
-                      aria-label={t("customNameLabel")}
-                      maxLength={60}
-                      className="w-full border-b border-teal-200 bg-transparent p-0 text-sm font-medium text-neutral-800 outline-none focus:border-teal-600"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-teal-600">payments</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={row.unitPrice ? formatVnd(row.unitPrice) : ""}
-                      onChange={(e) =>
-                        updateCustom(row.id, { unitPrice: e.target.value.replace(/\D/g, "") })
-                      }
-                      placeholder={t("priceePlaceholder")}
-                      aria-label={t("priceLabel")}
-                      className="w-24 border-b border-teal-200 bg-transparent p-0 text-xs font-semibold text-teal-600 outline-none focus:border-teal-600"
-                    />
-                    <span className="text-xs font-semibold text-teal-600">₫</span>
-                  </div>
-                </div>
-                <div className="flex flex-col items-center gap-2">
-                  <Stepper
-                    compact
-                    quantity={row.quantity}
-                    onChange={(q) => updateCustom(row.id, { quantity: Math.max(0, q) })}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeCustom(row.id)}
-                    aria-label={t("removeCustom")}
-                    className="mt-1 text-red-500 active:opacity-50"
-                  >
-                    <span className="material-symbols-outlined">cancel</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-
-          <button
-            type="button"
-            onClick={addCustom}
-            className="flex h-14 w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-neutral-200 font-semibold text-neutral-500 transition-colors active:bg-neutral-50"
-          >
-            <span className="material-symbols-outlined">add</span>
-            {t("addCustom")}
-          </button>
-        </div>
-      )}
-
       {error && (
         <p className="rounded-lg bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700" role="alert">
           {t("saveError")}
@@ -343,7 +185,7 @@ export default function AmenitiesEditor({
   );
 }
 
-/** 수량 스테퍼 (−/숫자/+). compact는 수건·커스텀 행용 작은 크기 */
+/** 수량 스테퍼 (−/숫자/+). compact는 수건 행용 작은 크기 */
 function Stepper({
   quantity,
   onChange,
