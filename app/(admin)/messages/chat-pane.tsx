@@ -479,12 +479,15 @@ export function ChatPane({
     // 신규 메시지 판단은 "마지막(최신) 메시지 id 변화"로만 — 이전 메시지 prepend는 count만 늘고
     // lastId는 그대로라 grew=false(스크롤 보존은 useLayoutEffect 담당, 자동 스크롤·새메시지 버튼 미발동).
     // 직전이 빈 목록(lastId=null)이었다가 채워진 경우(초기 로드)도 새 메시지로 간주.
-    const grew =
-      (lastId !== null && lastId !== prevLastIdRef.current) ||
-      (prevLastIdRef.current === null && count > 0);
+    // 초기 채움 — 빈 목록(lastId=null)이 처음 채워짐. 클라 전환은 빈 마운트(로딩)→메시지 도착 2단계라
+    // convChanged가 빈 단계에서 소진되고, 채워질 땐 이 케이스로 온다. 반드시 즉시(auto) 점프해야
+    // smooth 애니메이션(위→아래 스크롤)이 안 보인다.
+    const initialFill = prevLastIdRef.current === null && count > 0;
+    // 새 메시지(최신 id 변화) — prepend(과거 로드)는 lastId 불변이라 미발동.
+    const grew = lastId !== null && lastId !== prevLastIdRef.current;
 
-    if (convChanged) {
-      // 대화를 새로 열면 항상 최하단으로(읽기 시작점).
+    if (convChanged || initialFill) {
+      // 대화를 새로 열면(또는 로딩 후 첫 채움) 항상 최하단으로 즉시 점프(읽기 시작점).
       scrollToBottom("auto");
     } else if (justSentRef.current) {
       // 내가 전송 → 과거 보던 중이어도 무조건 하단.
