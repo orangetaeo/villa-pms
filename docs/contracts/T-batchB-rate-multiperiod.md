@@ -18,6 +18,11 @@
 - [x] ②일괄 변환 스크립트 `scripts/migrate-rate-periods.ts`(멱등·dry-run·안전범위) (a8cd71d)
 - [x] ③구 모델 deprecate 검토 — ADR-0014에 전제조건·Phase A/B/C·검증쿼리·권고(Phase A 유지) 추가
 
+## 후속 4 — dual-read 소비처 일원화 + 일괄 변환 실행 (2026-06-24, 4c9eccd)
+- [x] 비인지 소비처 3곳을 `pickRepresentativeRate`(lib/pricing.ts) 헬퍼로 일원화 — Zalo 공급자 원가뷰·판매가측 뷰(messages/page.tsx)·STAFF 원가뷰(villas/[id]). base 기간행 우선→LOW VillaRate 폴백. 누수책임=호출자 select. 테스트 +4·QA PASS·build 그린.
+- [x] 일괄 변환 LIVE 실행(헬퍼 배포 선행) — TEST1 1건 변환, 10건 전역폴백 skip. 멱등 확인.
+- [ ] Phase B: 전 빌라 전환 확인 SQL 후 구 dual-read 분기·구 편집기/API 제거 — 전역폴백 빌라 10건 미전환이라 시기상조 가능, 재검토 필요.
+
 ## 완료 기준 (ADR 단계) — ADR-0014 작성 완료(제안 상태, TDA 승인 대기)
 - [x] 기간별 요금 데이터 모델 확정 (`VillaRatePeriod` — D1)
 - [x] `lib/pricing.ts` 가격 판정 변경 설계 (dual-read 폴백 — D2·D4, ADR-0008 패턴 재사용)
