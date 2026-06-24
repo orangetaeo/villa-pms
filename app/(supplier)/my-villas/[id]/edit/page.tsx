@@ -63,11 +63,16 @@ export default async function EditVillaPage({
     monthlyRentVnd: villa.monthlyRentVnd ? villa.monthlyRentVnd.toString() : null,
     photos: villa.photos,
     amenities: villa.amenities,
-    // 시즌 대표 원가행(LOW=base, HIGH/PEAK=그 시즌 첫 기간 없으면 base) → 마법사 rates 입력 prefill.
+    // 마법사 rates 입력 prefill — LOW=base, HIGH/PEAK=그 시즌 첫 기간.
+    //   ⚠️ prefill은 base(LOW) 폴백이 필요하다(표시·경보와 상반): 마법사는 3시즌 원가를 모두
+    //   필수로 받아 비면 제출 잠김(step-rates allEntered). HIGH/PEAK 기간이 아직 없는 빌라
+    //   (전역 시즌 미설정 시 생성분 등)는 base 원가로 채워 재제출을 막지 않는다.
+    //   representativeRatesBySeason 자체는 폴백 없음(디버깅 수정) — 여기서만 명시적 폴백.
     rates: (() => {
       const rep = representativeRatesBySeason(villa.ratePeriods);
+      const base = rep.LOW ?? null;
       return (["LOW", "HIGH", "PEAK"] as const).flatMap((season) => {
-        const r = rep[season];
+        const r = rep[season] ?? base;
         return r ? [{ season, supplierCostVnd: r.supplierCostVnd.toString() }] : [];
       });
     })(),
