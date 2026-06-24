@@ -216,3 +216,19 @@ WHERE NOT EXISTS (SELECT 1 FROM "VillaRatePeriod" rp WHERE rp."villaId"=v.id)
 - **[A·기존] 마진 0 placeholder 견적 위험**: 승인 전 빌라(margin0·krw0)가 견적되면 0원/마진0 판매가 산출 가능(구 생성도 동일). isSellable 게이트로 대부분 차단되나 가격 가드 부재.
 - **[B·기존] cost-alerts 같은시즌 다중기간**: 둘째 PEAK 원가변경 알림도 첫 PEAK 판매가로 마진 표시(season 단위 한계, ADMIN 정보 패널). 근본 해소는 payload가 기간 id/판매가 운반 필요.
 - **[D·테스트] `quoteStayForVilla` 교차로드 where 회귀 방어 약함**: 테스트 mock이 where 조건식을 손으로 복제 → 실 DB 통합테스트 1건 권장.
+
+## 디버깅 라운드2 (2026-06-24, 추가 4렌즈: cost-alerts·수정후 UX·동시성/무결성·E2E)
+
+representativeRatesBySeason 수정 후 재조사 + 새 렌즈. **누수 불변식 재PASS, 견적/스냅샷 무결성 재확인.**
+
+### 수정 완료
+- **[G HIGH] 미책정(0원) 빌라 후보 노출** (커밋 후속): 생성 placeholder(margin0·sale=cost·krw0)인 빌라가 KRW 채널에서 0원 판매가로 제안/고객공유될 수 있음(실 DB `,ㅏㅏㅏㅏ` ACTIVE·전행 krw0 확인, 현재 isSellable=false로 차단되나 승인 시 노출). → `app/api/proposals/candidates/route.ts`에 판매가 0 가드 추가(MissingRate와 동일하게 "판매가 미책정" warning + 후보 제외). 고객 노출 진입점(제안 후보) 차단.
+
+### 잠복·정책 (현 데이터 미발현 또는 정책 결정 필요 — 미수정·추적)
+- **[F HIGH] base 단일성 DB 제약 부재**: villa당 isBase=true 1행을 코드 규율(deleteMany→create)로만 보장. base-부재 빌라에 동시 쓰기 2건이면 base 2행 가능 → `quoteStayForVilla` findFirst 비결정. **현재 전 빌라 base 보유 + POST가 단일 트랜잭션 생성이라 실현 거의 불가.** 근본해소=partial unique index `CREATE UNIQUE INDEX ... ON "VillaRatePeriod"("villaId") WHERE "isBase"`, 단 **db push 워크플로에선 schema 미표현 인덱스가 다음 push에 사라짐** → prisma migrate 전환 시 도입 권장(TDA).
+- **[F HIGH/정책] rate-periods PATCH status 가드 부재 + PUT 재제출이 관리자 책정 삭제**: REJECTED/PENDING 빌라에 관리자가 미리 마진·판매가 책정 후 공급자 PUT 재제출하면 deleteMany로 소멸. 또 ACTIVE 빌라 전체교체에 RATE_CHANGED 알림 없음. "REJECTED는 미승인이라 리셋 안전" 주석 전제를 PATCH가 보장 안 함. **정책 결정 필요**(PATCH에 status 가드 vs PUT을 원가만 갱신) — TDA/PM.
+- **[B MED] base.season LOW 미강제**: 편집기가 base 행도 season 선택 UI 공유 → base.season=HIGH 저장 가능. representativeRatesBySeason는 base→LOW 슬롯 고정이라 cost-alerts payload.season(=base.season)과 어긋나 마진 미표시 가능. 편집기 UX 깨짐 우려로 z.literal 강제 안 함 — 표시 영향만, 추적.
+- **[B MED] cost-alerts 같은시즌 다중기간 마진 오산**: 둘째 PEAK 원가변경도 첫 PEAK 판매가로 마진 표시(payload에 기간 식별자 없음). ADMIN 정보 패널 한정, 가격 변경 아님. 근본해소=payload에 ratePeriodId 운반(계약 변경, TDA).
+- **[G MED] fx=null 시 공급자 cost PATCH가 salePriceKrw=0 기록**: KRW 미책정 재고 발생원. 현재 FX 설정돼 미발현. fx 미설정 시 ADMIN 경고 검토.
+- **[G LOW] suggestSalePriceKrw 오염 환율 시 500**: getFxVndPerKrw 형식 미검증. 환율 입력 UI 검증 있으면 무해.
+- **[E LOW] 공급자 상세 원가카드 "성수기 미설정" 빈상태 안내 부재**: 수정으로 base만 표시 시(정직해짐) 미설정 안내 칩 추가 권고. 미관.

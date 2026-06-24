@@ -51,6 +51,15 @@ export async function GET(req: Request) {
     for (const { photos, ...villa } of villas) {
       try {
         const quote = await quoteStayForVilla(prisma, villa.id, range, saleCurrency);
+        // 미책정 가드 (ADR-0014 디버깅) — 판매가 0(마진·환율 미책정 placeholder)인 빌라는 후보 제외.
+        //   생성 시 margin0·sale=cost·krw0 placeholder가 들어가는데, 그대로 제안되면 KRW 채널 0원·
+        //   VND 채널 마진0이 고객에게 나간다. MissingRate와 동일하게 ADMIN에 사유 안내(책정 유도).
+        const saleTotal =
+          saleCurrency === Currency.KRW ? quote.totalSaleKrw ?? 0 : quote.totalSaleVnd ?? 0n;
+        if (!saleTotal) {
+          warnings.push({ villaId: villa.id, name: villa.name, reason: "판매가 미책정" });
+          continue;
+        }
         candidates.push({
           ...villa,
           photoUrl: photos[0]?.url ?? null,
