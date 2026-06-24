@@ -22,7 +22,9 @@ export function formatKrw(value: number): string {
   return `₩${formatThousands(Math.trunc(value))}`;
 }
 
-/** 타임스탬프 → YYYY.MM.DD HH:mm (Asia/Ho_Chi_Minh 표시 규칙) */
+/** 타임스탬프 → YYYY.MM.DD HH:mm (Asia/Ho_Chi_Minh 표시 규칙)
+ *  hourCycle "h23" 명시: hour12:false만 두면 자정(00시)을 Node ICU는 "24", 브라우저 ICU는
+ *  "00"로 렌더해 SSR↔클라 텍스트 불일치(React #418 하이드레이션 오류)가 발생 → "h23"로 양쪽 "00" 고정 */
 export function formatDateTime(date: Date): string {
   const parts = new Intl.DateTimeFormat("ko-KR", {
     timeZone: "Asia/Ho_Chi_Minh",
@@ -31,7 +33,7 @@ export function formatDateTime(date: Date): string {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-    hour12: false,
+    hourCycle: "h23",
   }).formatToParts(date);
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
   return `${get("year")}.${get("month")}.${get("day")} ${get("hour")}:${get("minute")}`;
