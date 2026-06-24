@@ -190,6 +190,8 @@ export default async function InspectionsPage({
       key={selected?.id ?? "none"}
       tasks={tasks}
       selected={selected}
+      // 모바일 마스터-디테일: 첫 태스크 자동선택(데스크톱용)과 구분해, ?task= 명시 시에만 상세 표시
+      taskSelected={!!params.task}
       tab={tab}
       counts={counts}
       range={params.range}

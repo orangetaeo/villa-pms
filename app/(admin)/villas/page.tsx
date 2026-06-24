@@ -185,7 +185,128 @@ export default async function VillasPage({
           {area || q ? t("emptyFiltered") : t("empty")}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <>
+        {/* 모바일(<md): 왼쪽 썸네일 + 접기/펴기 리스트 (Nike 리스트 패턴) */}
+        <div className="md:hidden flex flex-col gap-3">
+          {villas.map((villa) => {
+            const inactive = villa.status === "INACTIVE";
+            const pending = villa.status === "PENDING_REVIEW";
+            const photoUrl = villa.photos[0]?.url;
+            const needsCleaning = villa.status === "ACTIVE" && !villa.isSellable;
+            const noRates = villa._count.ratePeriods === 0;
+            return (
+              <details
+                key={villa.id}
+                className={`group bg-admin-card rounded-xl border border-slate-800 overflow-hidden ${
+                  inactive ? "opacity-80" : ""
+                }`}
+              >
+                <summary className="list-none cursor-pointer select-none flex items-center gap-3 p-3 [&::-webkit-details-marker]:hidden">
+                  {/* 왼쪽 썸네일 */}
+                  <div
+                    className={`relative w-16 h-16 shrink-0 rounded-lg overflow-hidden bg-slate-800 ${
+                      inactive ? "grayscale" : ""
+                    }`}
+                  >
+                    {photoUrl ? (
+                      <Image
+                        src={photoUrl}
+                        alt={villa.name}
+                        fill
+                        sizes="64px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-600">
+                        <span className="material-symbols-outlined">villa</span>
+                      </div>
+                    )}
+                  </div>
+                  {/* 본문 */}
+                  <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        {villa.complex && (
+                          <span className="block text-[10px] text-admin-muted uppercase tracking-wider font-bold truncate">
+                            {villa.complex}
+                          </span>
+                        )}
+                        <h3 className="text-sm font-bold text-white truncate">{villa.name}</h3>
+                      </div>
+                      <span
+                        className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded uppercase ${STATUS_BADGE_CLASS[villa.status] ?? "bg-admin-inactive text-white"}`}
+                      >
+                        {t(`status.${villa.status}`)}
+                      </span>
+                    </div>
+                    <span className="text-xs text-admin-muted truncate">
+                      {villa.supplier?.name ?? t("noSupplier")}
+                    </span>
+                    <div className="flex items-center gap-2 text-[11px] text-admin-muted">
+                      <span className="inline-flex items-center gap-0.5">
+                        <span className="material-symbols-outlined text-[14px]">bed</span>
+                        {villa.bedrooms}
+                      </span>
+                      {villa.hasPool && (
+                        <span className="material-symbols-outlined text-[14px]">pool</span>
+                      )}
+                      {villa.breakfastAvailable && (
+                        <span className="material-symbols-outlined text-[14px]">restaurant</span>
+                      )}
+                      {(needsCleaning || noRates) && (
+                        <span className="material-symbols-outlined text-[14px] text-admin-alert">
+                          warning
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {/* chevron */}
+                  <span
+                    className="material-symbols-outlined shrink-0 text-slate-500 text-xl transition-transform group-open:rotate-180"
+                    aria-hidden
+                  >
+                    expand_more
+                  </span>
+                </summary>
+                {/* 펼침 상세 — 경고 + 상세/검수 버튼 */}
+                <div className="px-3 pb-3 pt-1 border-t border-slate-800/60 flex flex-col gap-2">
+                  {needsCleaning && (
+                    <div className="flex items-center gap-2 p-2 rounded bg-red-900/20 border border-red-900/30">
+                      <span className="material-symbols-outlined text-admin-alert text-sm">
+                        cleaning_services
+                      </span>
+                      <span className="text-[11px] text-admin-alert font-medium">
+                        {t("cleaningPending")}
+                      </span>
+                    </div>
+                  )}
+                  {noRates && (
+                    <div className="flex items-center gap-2 p-2 rounded bg-amber-900/20 border border-amber-900/30">
+                      <span className="material-symbols-outlined text-admin-pending text-sm">
+                        payments
+                      </span>
+                      <span className="text-[11px] text-admin-pending font-medium">
+                        {t("noRates")}
+                      </span>
+                    </div>
+                  )}
+                  <Link
+                    href={`/villas/${villa.id}`}
+                    className={
+                      pending
+                        ? "block text-center w-full bg-admin-primary hover:bg-admin-primary-dark text-white font-bold py-2.5 rounded-lg text-sm transition-colors"
+                        : "block text-center w-full border border-admin-border text-white hover:bg-admin-border font-bold py-2.5 rounded-lg text-sm transition-colors"
+                    }
+                  >
+                    {pending ? t("review") : t("detail")}
+                  </Link>
+                </div>
+              </details>
+            );
+          })}
+        </div>
+        {/* 데스크톱(md+): 사진 카드 그리드 (기존 유지) */}
+        <div className="hidden md:grid md:grid-cols-2 xl:grid-cols-3 gap-6">
           {villas.map((villa) => {
             const inactive = villa.status === "INACTIVE";
             const pending = villa.status === "PENDING_REVIEW";
@@ -297,6 +418,7 @@ export default async function VillasPage({
             );
           })}
         </div>
+        </>
       )}
 
       {/* 페이지네이션 (b9) */}
