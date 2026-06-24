@@ -34,6 +34,7 @@ export interface SheetLabels {
   nights: (n: number) => string;
   guestsValue: (n: number, max: number) => string;
   channels: { DIRECT: string; TRAVEL_AGENCY: string; LAND_AGENCY: string };
+  amenityTable: { item: string; price: string; stocked: string; remaining: string; total: string };
 }
 
 export const SHEET_LABELS: Record<SheetLang, SheetLabels> = {
@@ -49,6 +50,7 @@ export const SHEET_LABELS: Record<SheetLang, SheetLabels> = {
     nights: (n) => `${n}박`,
     guestsValue: (n, max) => `${n}명 (최대 ${max}명)`,
     channels: { DIRECT: "직접 예약", TRAVEL_AGENCY: "여행사", LAND_AGENCY: "랜드사" },
+    amenityTable: { item: "항목", price: "가격", stocked: "수량", remaining: "남은수량", total: "합계" },
   },
   vi: {
     checkInDate: "Nhận phòng", reservation: "Thông tin đặt phòng", guest: "Khách", guests: "Số khách",
@@ -62,6 +64,7 @@ export const SHEET_LABELS: Record<SheetLang, SheetLabels> = {
     nights: (n) => `${n} đêm`,
     guestsValue: (n, max) => `${n} khách (tối đa ${max})`,
     channels: { DIRECT: "Đặt trực tiếp", TRAVEL_AGENCY: "Công ty du lịch", LAND_AGENCY: "Land tour" },
+    amenityTable: { item: "Hạng mục", price: "Giá", stocked: "Số lượng", remaining: "Còn lại", total: "Tổng" },
   },
   en: {
     checkInDate: "Check-in", reservation: "Reservation", guest: "Guest", guests: "Guests",
@@ -75,6 +78,7 @@ export const SHEET_LABELS: Record<SheetLang, SheetLabels> = {
     nights: (n) => `${n} night(s)`,
     guestsValue: (n, max) => `${n} guest(s) (max ${max})`,
     channels: { DIRECT: "Direct", TRAVEL_AGENCY: "Travel agency", LAND_AGENCY: "Land operator" },
+    amenityTable: { item: "Item", price: "Price", stocked: "Qty", remaining: "Remaining", total: "Total" },
   },
   zh: {
     checkInDate: "入住", reservation: "预订信息", guest: "客人", guests: "人数",
@@ -88,6 +92,7 @@ export const SHEET_LABELS: Record<SheetLang, SheetLabels> = {
     nights: (n) => `${n}晚`,
     guestsValue: (n, max) => `${n}人 (最多${max}人)`,
     channels: { DIRECT: "直接预订", TRAVEL_AGENCY: "旅行社", LAND_AGENCY: "地接社" },
+    amenityTable: { item: "项目", price: "单价", stocked: "数量", remaining: "剩余", total: "合计" },
   },
   ru: {
     checkInDate: "Заезд", reservation: "Бронирование", guest: "Гость", guests: "Гостей",
@@ -101,6 +106,7 @@ export const SHEET_LABELS: Record<SheetLang, SheetLabels> = {
     nights: (n) => `${n} ноч.`,
     guestsValue: (n, max) => `${n} гост. (макс. ${max})`,
     channels: { DIRECT: "Прямое", TRAVEL_AGENCY: "Турагентство", LAND_AGENCY: "Местный оператор" },
+    amenityTable: { item: "Позиция", price: "Цена", stocked: "Кол-во", remaining: "Остаток", total: "Итого" },
   },
 };
 

@@ -3,6 +3,7 @@
 // 마진 비공개 — 판매가·원가는 select·렌더 어디에도 없음. 보증금만 노출.
 // 인쇄 문서 전체(라벨·비품·동의서)가 선택한 게스트 언어(?lang)로 렌더된다. 툴바는 no-print(앱 로케일 유지).
 import type { Metadata } from "next";
+import { Fragment } from "react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { BookingStatus, type Currency } from "@prisma/client";
@@ -86,9 +87,16 @@ export default async function CheckinSheetPage({
           // WiFi — ADMIN 전용 체크인 화면이라 노출 OK (/p 공개페이지엔 절대 금지)
           wifiSsid: true,
           wifiPassword: true,
-          // 비품 — 입실 시 확인용. 단가/마진 없음(itemKey·라벨·수량만)
+          // 비품 — 입실 확인 + 미니바 정산표용. unitPrice = 미니바 고객 청구 단가(VND, 게스트 노출 OK).
+          // ※ 빌라 판매가(totalSale*)·원가(supplierCostVnd)와 무관 — 마진 비공개 규칙 대상 아님.
           amenities: {
-            select: { category: true, itemKey: true, customLabel: true, quantity: true },
+            select: {
+              category: true,
+              itemKey: true,
+              customLabel: true,
+              quantity: true,
+              unitPrice: true,
+            },
           },
         },
       },
@@ -267,29 +275,54 @@ export default async function CheckinSheetPage({
                     </section>
                   )}
 
-                  {/* ④ 비품 — 카테고리별, 선택 언어 라벨 */}
+                  {/* ④ 비품 — 박스 표. 미니바는 가격·수량 인쇄, 남은수량·합계는 체크아웃 시 손기입 */}
                   {amenityGroups.length > 0 && (
                     <section>
                       <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">
                         {L.amenities}
                       </h3>
-                      <div className="space-y-1.5 text-sm">
-                        {amenityGroups.map((g) => (
-                          <div key={g.cat} className="flex gap-2">
-                            <span className="text-[11px] font-bold text-slate-500 w-24 shrink-0 pt-0.5">
-                              {AMENITY_CATEGORY_LABEL[g.cat][lang]}
-                            </span>
-                            <span className="text-slate-700">
-                              {g.items
-                                .map((a) => {
-                                  const name = amenityLabel(a.itemKey, lang, a.customLabel);
-                                  return a.quantity > 1 ? `${name} ×${a.quantity}` : name;
-                                })
-                                .join(" · ")}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                      <table className="w-full border-collapse border border-slate-400 text-sm">
+                        <thead>
+                          <tr className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-500">
+                            <th className="border border-slate-300 px-2 py-1.5 text-left">{L.amenityTable.item}</th>
+                            <th className="border border-slate-300 px-2 py-1.5 text-right w-24">{L.amenityTable.price}</th>
+                            <th className="border border-slate-300 px-2 py-1.5 text-center w-14">{L.amenityTable.stocked}</th>
+                            <th className="border border-slate-300 px-2 py-1.5 text-center w-24">{L.amenityTable.remaining}</th>
+                            <th className="border border-slate-300 px-2 py-1.5 text-right w-24">{L.amenityTable.total}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {amenityGroups.map((g) => (
+                            <Fragment key={g.cat}>
+                              <tr className="bg-slate-50">
+                                <td
+                                  colSpan={5}
+                                  className="border border-slate-300 px-2 py-1 text-[11px] font-bold text-slate-600"
+                                >
+                                  {AMENITY_CATEGORY_LABEL[g.cat][lang]}
+                                </td>
+                              </tr>
+                              {g.items.map((a, i) => (
+                                <tr key={`${g.cat}-${a.itemKey}-${i}`}>
+                                  <td className="border border-slate-300 px-2 py-2">
+                                    {amenityLabel(a.itemKey, lang, a.customLabel)}
+                                  </td>
+                                  <td className="border border-slate-300 px-2 py-2 text-right tabular-nums">
+                                    {a.unitPrice != null ? `${formatThousands(a.unitPrice)}₫` : ""}
+                                  </td>
+                                  <td className="border border-slate-300 px-2 py-2 text-center tabular-nums">
+                                    {a.quantity}
+                                  </td>
+                                  {/* 남은수량 — 체크아웃 시 손기입(빈 칸) */}
+                                  <td className="border border-slate-300 px-2 py-2"></td>
+                                  {/* 합계 — 체크아웃 시 손기입(빈 칸) */}
+                                  <td className="border border-slate-300 px-2 py-2"></td>
+                                </tr>
+                              ))}
+                            </Fragment>
+                          ))}
+                        </tbody>
+                      </table>
                     </section>
                   )}
 
