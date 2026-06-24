@@ -9,10 +9,12 @@ import { formatDateTime } from "@/lib/format";
 import { toDateOnlyString } from "@/lib/date-vn";
 import { HOLD_HOURS_DEFAULT_KEY, DEFAULT_HOLD_HOURS } from "@/lib/hold";
 import { FX_VND_PER_KRW_KEY } from "@/lib/pricing";
+import { getAgreementContent } from "@/lib/agreement-store";
 import SeasonManager, { type SeasonRow } from "./season-manager";
 import HoldHoursForm from "./hold-hours-form";
 import FxRateForm from "./fx-rate-form";
 import BankContactForm, { type BankContactInitial } from "./bank-contact-form";
+import AgreementForm from "./agreement-form";
 
 // 입금 계좌·연락처 키 (공개 제안 페이지가 소비) — /api/settings 화이트리스트와 일치
 // 한국(KRW) 계좌 + 베트남(VND) 계좌 + 공용 연락처
@@ -33,7 +35,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function SettingsPage() {
-  const [t, periods, settings] = await Promise.all([
+  const [t, periods, settings, agreement] = await Promise.all([
     getTranslations("adminSettings"),
     prisma.seasonPeriod.findMany({ orderBy: { startDate: "asc" } }),
     prisma.appSetting.findMany({
@@ -43,6 +45,7 @@ export default async function SettingsPage() {
         },
       },
     }),
+    getAgreementContent(),
   ]);
 
   // @db.Date → "YYYY-MM-DD" 직렬화 (클라이언트 경계, 시간대 오해 방지)
@@ -106,6 +109,9 @@ export default async function SettingsPage() {
 
       {/* Card 4: 입금 계좌·연락처 (b8 Card 3 변환, T1.7-bank-contact) */}
       <BankContactForm initial={bankInitial} />
+
+      {/* Card 5: 이용 동의서 — 전 빌라 공용 단일 동의서 편집 (T-admin-agreement-editor) */}
+      <AgreementForm initial={agreement} />
 
       {/* Card 5: Zalo 봇 연결 (ADR-0006) — 별도 페이지 링크 */}
       <Link

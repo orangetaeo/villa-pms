@@ -89,3 +89,78 @@ export const AGREEMENT_CLAUSES: Record<string, LangMap> = {
     ru: "Гости несут ответственность за происшествия, вызванные несоблюдением правил.",
   },
 };
+
+// ===================== 운영자 편집 가능 콘텐츠 (T-admin-agreement-editor) =====================
+// 위 코드 상수는 "기본값(시드)"이고, 운영자가 /settings에서 편집한 발행본은 DB(AppSetting JSON)에
+// 저장한다. 전 빌라 공용 단일 동의서이므로 키 1개로 충분. 전용 모델(AgreementTemplate)·서명 버전
+// 스탬프는 후속(리팩터링 머지 + 안전한 db push 창)에서 마이그레이션 — 계약서 참조.
+
+/** AppSetting 키 — 현재 발행본 + 과거 판본 이력(서명 시점 문구 추적용) */
+export const AGREEMENT_CONTENT_KEY = "AGREEMENT_CONTENT";
+export const AGREEMENT_HISTORY_KEY = "AGREEMENT_HISTORY";
+export const AGREEMENT_HISTORY_MAX = 20;
+
+/** 편집 대상 조항 키 — 순서 고정. pool은 수영장 빌라에서만 노출되나 문구는 항상 편집·보관 */
+export const AGREEMENT_CLAUSE_KEYS = ["c1", "c2", "pool", "c4", "c5", "c6", "c7"] as const;
+export type AgreementClauseKey = (typeof AGREEMENT_CLAUSE_KEYS)[number];
+
+export interface AgreementContent {
+  /** 저장마다 1씩 증가 — 인쇄·디지털 동의서 표기 및 서명 추적 키 */
+  rev: number;
+  /** 마지막 저장 시각 (ISO) — 미저장(시드 기본값)은 빈 문자열 */
+  updatedAt: string;
+  docTitle: Record<AgreementLang, string>;
+  clauses: Record<AgreementClauseKey, Record<AgreementLang, string>>;
+}
+
+/** 코드 상수(기존 단일 소스)로부터 기본 콘텐츠 생성 — 최초 저장 전 폴백 */
+export function buildDefaultAgreementContent(): AgreementContent {
+  const clauses = {} as Record<AgreementClauseKey, Record<AgreementLang, string>>;
+  for (const key of AGREEMENT_CLAUSE_KEYS) {
+    clauses[key] = { ...(AGREEMENT_CLAUSES[key] as Record<AgreementLang, string>) };
+  }
+  return { rev: 1, updatedAt: "", docTitle: { ...AGREEMENT_DOC_TITLE }, clauses };
+}
+
+/** 버전 라벨 — 인쇄물·기록 표기용 (예: "r3") */
+export function agreementVersionLabel(content: AgreementContent): string {
+  return `r${content.rev}`;
+}
+
+/** 법적 완결성 검증 — 모든 조항 × 모든 언어가 비어있지 않아야 발행 가능 (누락 방지) */
+export function validateAgreementContent(
+  content: AgreementContent
+): { ok: true } | { ok: false; missing: string[] } {
+  const missing: string[] = [];
+  for (const lang of AGREEMENT_LANGS) {
+    if (!content.docTitle?.[lang]?.trim()) missing.push(`docTitle.${lang}`);
+  }
+  for (const key of AGREEMENT_CLAUSE_KEYS) {
+    for (const lang of AGREEMENT_LANGS) {
+      if (!content.clauses?.[key]?.[lang]?.trim()) missing.push(`${key}.${lang}`);
+    }
+  }
+  return missing.length === 0 ? { ok: true } : { ok: false, missing };
+}
+
+/** 외부 입력(폼/JSON)을 안전한 AgreementContent로 정규화 — 알 수 없는 키 제거·트림·rev 증가 */
+export function normalizeAgreementContent(raw: unknown, prevRev: number): AgreementContent {
+  const obj = (raw ?? {}) as Record<string, unknown>;
+  const docTitleIn = (obj.docTitle ?? {}) as Record<string, unknown>;
+  const clausesIn = (obj.clauses ?? {}) as Record<string, Record<string, unknown>>;
+
+  const docTitle = {} as Record<AgreementLang, string>;
+  for (const lang of AGREEMENT_LANGS) {
+    docTitle[lang] = String(docTitleIn[lang] ?? "").trim();
+  }
+  const clauses = {} as Record<AgreementClauseKey, Record<AgreementLang, string>>;
+  for (const key of AGREEMENT_CLAUSE_KEYS) {
+    const c = (clausesIn[key] ?? {}) as Record<string, unknown>;
+    const langMap = {} as Record<AgreementLang, string>;
+    for (const lang of AGREEMENT_LANGS) {
+      langMap[lang] = String(c[lang] ?? "").trim();
+    }
+    clauses[key] = langMap;
+  }
+  return { rev: prevRev + 1, updatedAt: new Date().toISOString(), docTitle, clauses };
+}

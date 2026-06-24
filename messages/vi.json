@@ -1048,6 +1048,27 @@
     "subtitle": "Quản lý chính sách chung cho vận hành villa và đặt phòng.",
     "breadcrumbAdmin": "Quản trị",
     "breadcrumbCurrent": "Cài đặt",
+    "agreement": {
+      "title": "Bản cam kết sử dụng",
+      "description": "Nội quy & cam kết an toàn dùng chung cho mọi villa. Nhấn vào tab ngôn ngữ để nhập đủ 5 ngôn ngữ rồi lưu — phiên bản sẽ tăng và áp dụng vào bản cam kết khi nhận phòng.",
+      "versionLabel": "Phiên bản",
+      "docTitleLabel": "Tiêu đề văn bản",
+      "poolHint": "Chỉ hiển thị với villa có hồ bơi",
+      "clauseLabels": {
+        "c1": "Cung cấp thông tin hộ chiếu",
+        "c2": "Cấm hút thuốc toàn bộ",
+        "pool": "An toàn hồ bơi",
+        "c4": "Bồi thường hư hỏng",
+        "c5": "Hạn chế ồn ban đêm",
+        "c6": "Miễn trừ mất tài sản",
+        "c7": "Trách nhiệm khi không tuân thủ"
+      },
+      "save": "Lưu bản cam kết",
+      "saving": "Đang lưu...",
+      "saved": "Đã lưu",
+      "error": "Lưu thất bại. Vui lòng thử lại.",
+      "incomplete": "Vui lòng nhập tất cả mục của mọi ngôn ngữ. (Số còn thiếu hiển thị ở huy hiệu đỏ)"
+    },
     "seasons": {
       "title": "Lịch mùa",
       "add": "Thêm giai đoạn",
