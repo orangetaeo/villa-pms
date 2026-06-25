@@ -39,12 +39,10 @@ export default async function ServiceCatalogPage() {
       id: true,
       type: true,
       nameKo: true,
-      nameVi: true,
-      nameEn: true,
+      nameI18n: true,
       descKo: true,
-      descVi: true,
+      descI18n: true,
       unitLabelKo: true,
-      priceKrw: true,
       priceVnd: true,
       photoUrl: true,
       options: true,
@@ -54,17 +52,15 @@ export default async function ServiceCatalogPage() {
     },
   });
 
-  // BigInt → 문자열 직렬화(클라 경계). costVnd는 showCost일 때만 포함.
+  // BigInt → 문자열 직렬화(클라 경계). costVnd는 showCost일 때만 포함. 가격은 VND 단일통화.
   const rows: CatalogRow[] = items.map((it) => ({
     id: it.id,
     type: it.type,
     nameKo: it.nameKo,
-    nameVi: it.nameVi ?? "",
-    nameEn: it.nameEn ?? "",
+    nameI18n: it.nameI18n ?? null,
     descKo: it.descKo ?? "",
-    descVi: it.descVi ?? "",
+    descI18n: it.descI18n ?? null,
     unitLabelKo: it.unitLabelKo ?? "",
-    priceKrw: it.priceKrw ?? null,
     priceVnd: it.priceVnd?.toString() ?? null,
     photoUrl: it.photoUrl ?? "",
     options: it.options ?? null,

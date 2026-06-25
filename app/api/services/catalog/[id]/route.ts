@@ -1,4 +1,5 @@
-// /api/services/catalog/[id] — 카탈로그 항목 수정·삭제 (ADR-0019 S2). canSetPrice(OWNER/MANAGER).
+// /api/services/catalog/[id] — 카탈로그 항목 수정·삭제 (ADR-0019 v2). canSetPrice(OWNER/MANAGER).
+//   한국어만 입력 → 저장 시 Gemini 자동번역(nameI18n/descI18n/옵션 labelI18n). 가격은 priceVnd 단일통화(필수).
 //   costVnd는 canViewFinance만 갱신. 삭제는 하드 삭제(주문은 가격 스냅샷을 자체 보유하므로 무영향).
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -7,25 +8,21 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { canViewFinance, canSetPrice, type Role } from "@/lib/permissions";
 import { validateCatalogItem, SERVICE_TYPE_VALUES } from "@/lib/service-catalog";
-import type { Prisma } from "@prisma/client";
+import { buildCatalogI18n } from "@/lib/service-i18n";
+import { Prisma } from "@prisma/client";
 
+// 입력은 한국어만 — nameVi/nameEn·옵션 labelVi·priceKrw 입력 제거(저장 시 자동번역).
 const optionDefSchema = z.object({
   key: z.string().min(1).max(40),
   labelKo: z.string().min(1).max(80),
-  labelVi: z.string().max(80).optional().nullable(),
-  priceKrw: z.number().int().min(0).max(100_000_000).optional().nullable(),
   priceVnd: z.string().regex(/^\d{1,15}$/).optional().nullable(),
 });
 const patchSchema = z.object({
   type: z.enum(SERVICE_TYPE_VALUES as unknown as [string, ...string[]]),
   nameKo: z.string().min(1).max(120),
-  nameVi: z.string().max(120).optional().nullable(),
-  nameEn: z.string().max(120).optional().nullable(),
   descKo: z.string().max(1000).optional().nullable(),
-  descVi: z.string().max(1000).optional().nullable(),
   unitLabelKo: z.string().max(40).optional().nullable(),
-  priceKrw: z.number().int().min(0).max(100_000_000).optional().nullable(),
-  priceVnd: z.string().regex(/^\d{1,15}$/).optional().nullable(),
+  priceVnd: z.string().regex(/^\d{1,15}$/),
   costVnd: z.string().regex(/^\d{1,15}$/).optional().nullable(),
   photoUrl: z.string().max(500).optional().nullable(),
   options: z
@@ -62,7 +59,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const errs = validateCatalogItem({
     type: d.type,
     nameKo: d.nameKo,
-    priceKrw: d.priceKrw ?? null,
     priceVnd: d.priceVnd ?? null,
     costVnd: d.costVnd ?? null,
     options: d.options ?? null,
@@ -78,20 +74,22 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       ? { costVnd: d.costVnd != null && d.costVnd !== "" ? BigInt(d.costVnd) : null }
       : {};
 
+  // 자동번역(best-effort) — 실패 시 i18n 없이 ko 폴백 저장(저장 자체는 실패 안 함).
+  const i18n = await buildCatalogI18n({ nameKo: d.nameKo, descKo: d.descKo, options: d.options });
+
   await prisma.serviceCatalogItem.update({
     where: { id },
     data: {
       type: d.type as Prisma.ServiceCatalogItemUpdateInput["type"],
       nameKo: d.nameKo,
-      nameVi: d.nameVi ?? null,
-      nameEn: d.nameEn ?? null,
+      nameI18n: i18n.nameI18n != null ? (i18n.nameI18n as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
       descKo: d.descKo ?? null,
-      descVi: d.descVi ?? null,
+      descI18n: i18n.descI18n != null ? (i18n.descI18n as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
       unitLabelKo: d.unitLabelKo ?? null,
-      priceKrw: d.priceKrw ?? null,
-      priceVnd: d.priceVnd != null && d.priceVnd !== "" ? BigInt(d.priceVnd) : null,
+      priceKrw: null, // 미사용 — KRW는 표시 시점 환율로 파생
+      priceVnd: BigInt(d.priceVnd),
       photoUrl: d.photoUrl ?? null,
-      options: (d.options ?? undefined) as Prisma.InputJsonValue | undefined,
+      options: i18n.options != null ? (i18n.options as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
       ...(d.active !== undefined ? { active: d.active } : {}),
       ...(d.sortOrder !== undefined ? { sortOrder: d.sortOrder } : {}),
       ...costUpdate,

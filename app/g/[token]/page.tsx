@@ -14,6 +14,7 @@ import {
   type PublicLang,
 } from "@/lib/public-i18n";
 import { parseCatalogOptions } from "@/lib/service-catalog";
+import { pickI18n } from "@/lib/service-display";
 import { AMENITY_CATEGORY_LABEL, amenityLabel, type SheetLang } from "@/lib/checkin-sheet-i18n";
 import { GuestExpiredView } from "../_components/guest-expired-view";
 import GuestFlow from "../_components/guest-flow";
@@ -30,36 +31,16 @@ export const metadata: Metadata = { title: "체크인 — Villa Go" };
 // 어메니티 카테고리 표시 순서(미니바는 별도 섹션이라 제외)
 const AMENITY_ORDER = ["KITCHEN", "BATHROOM", "APPLIANCE"];
 
-/** 카탈로그 옵션 1그룹 → 언어 해석된 GuestOption[] (라벨 ko/vi 폴백, KRW/VND 그대로). */
+/** 카탈로그 옵션 1그룹 → 언어 해석된 GuestOption[] (라벨은 labelI18n에서 pickI18n, VND만). */
 function mapOptions(
-  defs: { key: string; labelKo: string; labelVi?: string | null; priceKrw?: number | null; priceVnd?: string | null }[],
+  defs: { key: string; labelKo: string; labelI18n?: unknown; priceVnd?: string | null }[],
   lang: PublicLang
 ): GuestOption[] {
   return defs.map((o) => ({
     key: o.key,
-    // 옵션 라벨은 ko/vi만 보유 — vi 선택 시 labelVi, 그 외(en/zh/ru)는 ko 폴백
-    label: lang === "vi" && o.labelVi ? o.labelVi : o.labelKo,
-    priceKrw: o.priceKrw ?? null,
+    label: pickI18n(o.labelKo, o.labelI18n ?? null, lang),
     priceVnd: o.priceVnd ?? null,
   }));
-}
-
-/** 카탈로그명/설명 언어 해석 — nameEn은 en/zh/ru 폴백, vi는 nameVi, 기본 ko. */
-function pickName(
-  c: { nameKo: string; nameVi: string | null; nameEn: string | null },
-  lang: PublicLang
-): string {
-  if (lang === "vi" && c.nameVi) return c.nameVi;
-  if ((lang === "en" || lang === "zh" || lang === "ru") && c.nameEn) return c.nameEn;
-  return c.nameKo;
-}
-
-function pickDesc(
-  c: { descKo: string | null; descVi: string | null },
-  lang: PublicLang
-): string | null {
-  if (lang === "vi" && c.descVi) return c.descVi;
-  return c.descKo;
 }
 
 async function getContactSettings() {
@@ -123,10 +104,9 @@ export default async function GuestCheckinPage({
     return {
       id: c.id,
       type: c.type,
-      name: pickName(c, lang),
-      desc: pickDesc(c, lang),
+      name: pickI18n(c.nameKo, c.nameI18n, lang),
+      desc: c.descKo ? pickI18n(c.descKo, c.descI18n, lang) : null,
       unitLabel: c.unitLabelKo, // 단위 라벨은 ko만 보유 — 모든 언어 ko 표기
-      priceKrw: c.priceKrw,
       priceVnd: c.priceVnd,
       photoUrl: c.photoUrl,
       variants: mapOptions(opts.variants ?? [], lang),
@@ -170,6 +150,7 @@ export default async function GuestCheckinPage({
         agreement={agreement}
         catalog={catalog}
         requestedOrders={requestedOrders}
+        fxVndPerKrw={data.fxVndPerKrw}
       />
     </div>
   );

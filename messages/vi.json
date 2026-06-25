@@ -1428,7 +1428,9 @@
       "saving": "Đang lưu...",
       "cancel": "Hủy",
       "noPrice": "Nhập ít nhất một giá bán KRW hoặc VND.",
-      "validationFailed": "Vui lòng kiểm tra dữ liệu nhập."
+      "validationFailed": "Vui lòng kiểm tra dữ liệu nhập.",
+      "autoTranslateHint": "Bản dịch tiếng Việt·Anh·Trung·Nga được tạo tự động khi lưu. Chỉ cần nhập tiếng Hàn.",
+      "priceRequired": "Giá bán (VND) là bắt buộc."
     }
   },
   "adminServiceOrders": {

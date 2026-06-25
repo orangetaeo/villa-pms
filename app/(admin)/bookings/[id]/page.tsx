@@ -160,7 +160,6 @@ export default async function BookingDetailPage({
         type: true,
         nameKo: true,
         unitLabelKo: true,
-        priceKrw: true,
         priceVnd: true,
         options: true,
       },
@@ -219,7 +218,6 @@ export default async function BookingDetailPage({
     type: c.type,
     nameKo: c.nameKo,
     unitLabelKo: c.unitLabelKo ?? "",
-    priceKrw: c.priceKrw ?? null,
     priceVnd: c.priceVnd?.toString() ?? null,
     options: c.options ?? null,
   }));

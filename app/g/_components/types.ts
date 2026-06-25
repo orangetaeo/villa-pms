@@ -26,11 +26,10 @@ export interface GuestMinibarView {
   priceVnd: string;
 }
 
-/** G4 옵션 카드 — options는 파싱·언어해석 완료된 형태 */
+/** G4 옵션 카드 — options는 파싱·언어해석 완료된 형태. 가격은 VND 단일통화(KRW는 표시 시점 환율 파생). */
 export interface GuestOption {
   key: string;
   label: string; // 언어별 라벨
-  priceKrw: number | null;
   priceVnd: string | null;
 }
 
@@ -40,7 +39,6 @@ export interface GuestCatalogView {
   name: string; // 언어별 이름
   desc: string | null;
   unitLabel: string | null;
-  priceKrw: number | null;
   priceVnd: string | null;
   photoUrl: string | null;
   variants: GuestOption[];
@@ -73,4 +71,6 @@ export interface GuestFlowProps {
   };
   catalog: GuestCatalogView[];
   requestedOrders: GuestRequestedOrder[];
+  /** 현재 환율(1 KRW당 VND, 문자열). 미설정이면 null → KRW 표시 생략, VND만. */
+  fxVndPerKrw: string | null;
 }

@@ -20,8 +20,7 @@ export interface OrderCatalogItem {
   type: string;
   nameKo: string;
   unitLabelKo: string;
-  priceKrw: number | null;
-  priceVnd: string | null;
+  priceVnd: string | null; // 판매가 VND(단일통화) — KRW는 주문 생성 시 환율 스냅샷
   options: unknown;
 }
 
@@ -399,7 +398,7 @@ function AddOrderForm({
     if (!item) return null;
     try {
       return resolveOrderPricing(
-        { priceKrw: item.priceKrw, priceVnd: item.priceVnd ? BigInt(item.priceVnd) : null },
+        { priceVnd: item.priceVnd ? BigInt(item.priceVnd) : null },
         options,
         { variantKey: variantKey || null, addonKeys, modifierKeys, quantity: qty }
       );
@@ -577,14 +576,9 @@ function AddOrderForm({
         <div className="flex items-center justify-between bg-admin-bg border border-slate-700 rounded-lg px-4 py-2.5">
           <span className="text-sm text-slate-400">{t("total")}</span>
           <div className="text-right tabular-nums">
-            {preview.totalPriceKrw != null && (
-              <p className="text-white font-bold">{formatThousands(preview.totalPriceKrw)}원</p>
-            )}
-            {preview.totalPriceVnd != null && (
-              <p className="text-slate-300 font-semibold">
-                {formatThousands(preview.totalPriceVnd.toString())}₫
-              </p>
-            )}
+            <p className="text-white font-bold">
+              {formatThousands(preview.totalPriceVnd.toString())}₫
+            </p>
           </div>
         </div>
       )}

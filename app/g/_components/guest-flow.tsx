@@ -14,7 +14,8 @@ import type { PublicLang } from "@/lib/public-i18n";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import GuestSignaturePad from "./guest-signature-pad";
 import { OptionCard, type CardSelection } from "./option-card";
-import { guestPrice, guestVnd, guestDateRange } from "./guest-format";
+import { guestPrice, guestVnd, guestKrw, guestDateRange } from "./guest-format";
+import { priceKrwCeil } from "@/lib/service-display";
 import type { GuestFlowProps, GuestRequestedOrder } from "./types";
 
 type Step = 0 | 1 | 2 | 3 | 4; // 0=G1, 1=G2, 2=G3, 3=G4, 4=G5
@@ -24,6 +25,7 @@ const toVndStr = (v: bigint | null): string | null => (v == null ? null : v.toSt
 
 export default function GuestFlow(props: GuestFlowProps) {
   const { token, lang, booking, amenityGroups, minibar, agreement, catalog } = props;
+  const fx = props.fxVndPerKrw; // 환율(1 KRW당 VND) — KRW 표시 파생
   const L = GUEST_LABELS[lang];
 
   const [step, setStep] = useState<Step>(0);
@@ -56,17 +58,15 @@ export default function GuestFlow(props: GuestFlowProps) {
     const map: Record<string, CatalogOptions> = {};
     for (const c of catalog) {
       map[c.id] = {
-        variants: c.variants.map((o) => ({ key: o.key, labelKo: o.label, priceKrw: o.priceKrw, priceVnd: o.priceVnd })),
-        addons: c.addons.map((o) => ({ key: o.key, labelKo: o.label, priceKrw: o.priceKrw, priceVnd: o.priceVnd })),
-        modifiers: c.modifiers.map((o) => ({ key: o.key, labelKo: o.label, priceKrw: o.priceKrw, priceVnd: o.priceVnd })),
+        variants: c.variants.map((o) => ({ key: o.key, labelKo: o.label, priceVnd: o.priceVnd })),
+        addons: c.addons.map((o) => ({ key: o.key, labelKo: o.label, priceVnd: o.priceVnd })),
+        modifiers: c.modifiers.map((o) => ({ key: o.key, labelKo: o.label, priceVnd: o.priceVnd })),
       };
     }
     return map;
   }, [catalog]);
 
   const grandTotal = useMemo(() => {
-    let krw = 0;
-    let hasKrw = false;
     let vnd = 0n;
     let hasVnd = false;
     for (const c of catalog) {
@@ -74,24 +74,22 @@ export default function GuestFlow(props: GuestFlowProps) {
       if (!sel || sel.quantity < 1) continue;
       try {
         const p = resolveOrderPricing(
-          { priceKrw: c.priceKrw, priceVnd: c.priceVnd ? BigInt(c.priceVnd) : null },
+          { priceVnd: c.priceVnd ? BigInt(c.priceVnd) : null },
           cardOptions[c.id],
           { variantKey: sel.variantKey, addonKeys: sel.addonKeys, modifierKeys: sel.modifierKeys, quantity: sel.quantity }
         );
-        if (p.totalPriceKrw != null) { krw += p.totalPriceKrw; hasKrw = true; }
-        if (p.totalPriceVnd != null) { vnd += p.totalPriceVnd; hasVnd = true; }
+        vnd += p.totalPriceVnd;
+        hasVnd = true;
       } catch (e) {
         if (!(e instanceof ServiceSelectionError)) throw e;
       }
     }
-    return { krw, hasKrw, vnd, hasVnd };
+    return { vnd, hasVnd };
   }, [catalog, selections, cardOptions]);
 
-  const grandTotalStr = grandTotal.hasKrw
-    ? guestPrice(grandTotal.krw, null, lang)
-    : grandTotal.hasVnd
-      ? guestVnd(grandTotal.vnd.toString())
-      : guestPrice(0, null, lang);
+  const grandTotalStr = grandTotal.hasVnd
+    ? guestPrice(grandTotal.vnd.toString(), fx, lang)
+    : guestPrice("0", fx, lang);
 
   const anySelected = catalog.some((c) => (selections[c.id]?.quantity ?? 0) > 0);
 
@@ -144,17 +142,17 @@ export default function GuestFlow(props: GuestFlowProps) {
           }),
         });
         if (!res.ok) throw new Error(`HTTP_${res.status}`);
-        // 미리보기 가격으로 G5 표시(서버 재계산값과 동일해야 함)
+        // 미리보기 가격으로 G5 표시(서버 재계산값과 동일해야 함) — VND가 진실원천, KRW는 환율 파생
         let prKrw: number | null = null;
         let prVnd: string | null = null;
         try {
           const p = resolveOrderPricing(
-            { priceKrw: c.priceKrw, priceVnd: c.priceVnd ? BigInt(c.priceVnd) : null },
+            { priceVnd: c.priceVnd ? BigInt(c.priceVnd) : null },
             cardOptions[c.id],
             { variantKey: sel.variantKey, addonKeys: sel.addonKeys, modifierKeys: sel.modifierKeys, quantity: sel.quantity }
           );
-          prKrw = p.totalPriceKrw;
           prVnd = toVndStr(p.totalPriceVnd);
+          prKrw = fx ? priceKrwCeil(p.totalPriceVnd, fx) : null;
         } catch { /* 미리보기 실패는 무시 */ }
         const data = await res.json();
         created.push({
@@ -479,6 +477,7 @@ export default function GuestFlow(props: GuestFlowProps) {
                   item={c}
                   labels={L.addons}
                   lang={lang}
+                  fx={fx}
                   selection={
                     selections[c.id] ?? {
                       variantKey: c.variants[0]?.key ?? null,
@@ -517,6 +516,7 @@ export default function GuestFlow(props: GuestFlowProps) {
       {step === 4 && (
         <ResultScreen
           lang={lang}
+          fx={fx}
           signed={signed}
           signedVersion={signedVersion}
           orders={requestedOrders}
@@ -618,29 +618,32 @@ function LangChips({ current }: { current: PublicLang }) {
 
 function ResultScreen({
   lang,
+  fx,
   signed,
   signedVersion,
   orders,
 }: {
   lang: PublicLang;
+  fx: string | null;
   signed: boolean;
   signedVersion: string | null;
   orders: GuestRequestedOrder[];
 }) {
   const L = GUEST_LABELS[lang];
+  // 주문 스냅샷 합계 — 저장된 priceKrw 스냅샷(>0) 우선, 없으면 VND 합산.
   const total = useMemo(() => {
     let krw = 0;
     let hasKrw = false;
     let vnd = 0n;
     let hasVnd = false;
     for (const o of orders) {
-      if (o.priceKrw != null) { krw += o.priceKrw; hasKrw = true; }
+      if (o.priceKrw != null && o.priceKrw > 0) { krw += o.priceKrw; hasKrw = true; }
       if (o.priceVnd != null && o.priceVnd !== "") { vnd += BigInt(o.priceVnd); hasVnd = true; }
     }
     return { krw, hasKrw, vnd, hasVnd };
   }, [orders]);
   const totalStr = total.hasKrw
-    ? guestPrice(total.krw, null, lang)
+    ? guestKrw(total.krw, lang)
     : total.hasVnd
       ? guestVnd(total.vnd.toString())
       : null;
@@ -692,7 +695,9 @@ function ResultScreen({
                     {statusLabel(o.status)}
                   </span>
                   <span className="text-sm font-bold text-slate-900 tabular-nums">
-                    {guestPrice(o.priceKrw, o.priceVnd, lang)}
+                    {o.priceKrw != null && o.priceKrw > 0
+                      ? guestKrw(o.priceKrw, lang)
+                      : guestPrice(o.priceVnd, fx, lang)}
                   </span>
                 </div>
               </div>

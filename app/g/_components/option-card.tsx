@@ -38,6 +38,7 @@ export function OptionCard({
   item,
   labels,
   lang,
+  fx,
   selection,
   onChange,
   badgeText,
@@ -45,6 +46,7 @@ export function OptionCard({
   item: GuestCatalogView;
   labels: GuestLabels["addons"];
   lang: PublicLang;
+  fx: string | null; // 환율(1 KRW당 VND) — KRW 표시 파생
   selection: CardSelection;
   onChange: (next: CardSelection) => void;
   badgeText: string;
@@ -65,7 +67,7 @@ export function OptionCard({
     if (selection.quantity < 1) return null;
     try {
       return resolveOrderPricing(
-        { priceKrw: item.priceKrw, priceVnd: item.priceVnd ? BigInt(item.priceVnd) : null },
+        { priceVnd: item.priceVnd ? BigInt(item.priceVnd) : null },
         options,
         {
           variantKey: selection.variantKey,
@@ -82,8 +84,8 @@ export function OptionCard({
 
   const previewStr =
     preview != null
-      ? guestPrice(preview.totalPriceKrw, toVndStr(preview.totalPriceVnd), lang)
-      : guestPrice(item.priceKrw, item.priceVnd, lang);
+      ? guestPrice(toVndStr(preview.totalPriceVnd), fx, lang)
+      : guestPrice(item.priceVnd, fx, lang);
 
   const selectedAddons = item.addons.filter((a) => selection.addonKeys.includes(a.key));
 
@@ -160,7 +162,7 @@ export function OptionCard({
                         on ? "text-slate-900" : "text-slate-700"
                       }`}
                     >
-                      {guestPrice(v.priceKrw, v.priceVnd, lang)}
+                      {guestPrice(v.priceVnd, fx, lang)}
                     </p>
                   </button>
                 );
@@ -188,7 +190,7 @@ export function OptionCard({
                   <span className="text-sm text-slate-800">{a.label}</span>
                 </span>
                 <span className="text-xs font-semibold text-teal-600 tabular-nums">
-                  {guestPriceDelta(a.priceKrw, a.priceVnd, lang)}
+                  {guestPriceDelta(a.priceVnd, fx, lang)}
                 </span>
               </label>
             ))}
@@ -228,7 +230,7 @@ export function OptionCard({
             <span className="text-sm font-semibold text-slate-800">{m.label}</span>
             <span className="flex items-center gap-2">
               <span className="text-xs font-bold text-teal-600 tabular-nums">
-                {guestPriceDelta(m.priceKrw, m.priceVnd, lang)}
+                {guestPriceDelta(m.priceVnd, fx, lang)}
               </span>
               <input
                 type="checkbox"
@@ -302,7 +304,7 @@ export function OptionCard({
                     <span className="text-sm text-slate-800">{a.label}</span>
                   </span>
                   <span className="text-sm font-semibold text-slate-900 tabular-nums">
-                    {guestPriceDelta(a.priceKrw, a.priceVnd, lang)}
+                    {guestPriceDelta(a.priceVnd, fx, lang)}
                   </span>
                 </label>
               ))}
@@ -329,5 +331,5 @@ export function OptionCard({
 }
 
 function optToDef(o: GuestOption) {
-  return { key: o.key, labelKo: o.label, priceKrw: o.priceKrw, priceVnd: o.priceVnd };
+  return { key: o.key, labelKo: o.label, priceVnd: o.priceVnd };
 }

@@ -1320,7 +1320,9 @@
       "saving": "저장 중...",
       "cancel": "취소",
       "noPrice": "판매가는 KRW·VND 중 최소 1개를 입력하세요.",
-      "validationFailed": "입력값을 확인하세요."
+      "validationFailed": "입력값을 확인하세요.",
+      "autoTranslateHint": "베트남어·영어·중국어·러시아어 번역은 저장 시 자동 생성됩니다. 한국어만 입력하세요.",
+      "priceRequired": "판매가(VND)는 필수입니다."
     }
   },
   "adminServiceOrders": {
