@@ -462,17 +462,6 @@ export default function ProposalsList() {
             <option value="LAND_AGENCY">{t("channels.LAND_AGENCY")}</option>
             <option value="DIRECT">{t("channels.DIRECT")}</option>
           </select>
-          <QuickDateFilter
-            presets={[
-              "all",
-              "today",
-              "yesterday",
-              "thisWeek",
-              "lastWeek",
-              "thisMonth",
-              "lastMonth",
-            ]}
-          />
         </div>
         {/* 날짜 범위 — 숙박 기간(체크인~체크아웃 겹침) + 생성일 커스텀 */}
         <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-x-5 gap-y-2">
@@ -522,6 +511,18 @@ export default function ProposalsList() {
             </button>
           )}
         </div>
+        {/* 빠른 날짜 프리셋 — 생성일(createdAt) 기준, 날짜 범위 행 아래 배치 */}
+        <QuickDateFilter
+          presets={[
+            "all",
+            "today",
+            "yesterday",
+            "thisWeek",
+            "lastWeek",
+            "thisMonth",
+            "lastMonth",
+          ]}
+        />
       </div>
 
       {/* 상태 탭 — effectiveStatus 기준 카운트 (b12) */}
