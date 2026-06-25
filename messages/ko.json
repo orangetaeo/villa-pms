@@ -1341,7 +1341,18 @@
       "loadError": "목록을 불러오지 못했습니다.",
       "retry": "다시 시도",
       "empty": "표시할 제안이 없습니다.",
-      "copyError": "링크를 복사하지 못했습니다."
+      "copyError": "링크를 복사하지 못했습니다.",
+      "searchPlaceholder": "고객·여행사명 또는 빌라명 검색",
+      "searchClear": "검색 지우기",
+      "searchEmpty": "\"{query}\" 검색 결과가 없습니다.",
+      "channelFilterLabel": "채널",
+      "channelFilterAll": "전체 채널",
+      "stayRangeLabel": "숙박 기간",
+      "createdRangeLabel": "생성일",
+      "dateFrom": "시작",
+      "dateTo": "종료",
+      "clearFilters": "필터 초기화",
+      "filterEmpty": "조건에 맞는 제안이 없습니다."
     },
     "create": {
       "title": "제안 만들기",

@@ -108,6 +108,16 @@ export default function ProposalsList() {
   const [proposals, setProposals] = useState<ProposalRow[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [tab, setTab] = useState<TabKey>("all");
+  // 검색어 — 고객/여행사명 + 포함 빌라명 대상 (in-memory 즉시 필터).
+  const [query, setQuery] = useState("");
+  // 채널 필터 — "ALL"=전체. 상태=탭, 검색=텍스트가 담당하고 채널은 별도 드롭다운.
+  const [channel, setChannel] = useState<Channel | "ALL">("ALL");
+  // 숙박 기간 범위 (체크인~체크아웃 겹침) — "YYYY-MM-DD" 또는 "".
+  const [stayFrom, setStayFrom] = useState("");
+  const [stayTo, setStayTo] = useState("");
+  // 생성일 커스텀 범위 (빠른 프리셋과 별개, AND 결합) — "YYYY-MM-DD" 또는 "".
+  const [createdFrom, setCreatedFrom] = useState("");
+  const [createdTo, setCreatedTo] = useState("");
   // 분 단위 카운트다운 틱 (계약: 분 단위 갱신이면 충분)
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -148,27 +158,62 @@ export default function ProposalsList() {
     });
   }, [proposals, range]);
 
+  // 통합 필터 — 채널 + 생성일 커스텀 범위 + 숙박 기간 범위 + 텍스트 검색을 dateScoped(빠른 프리셋) 위에 AND 결합.
+  // 탭 카운트 이전에 적용 → 탭 배지 숫자도 모든 필터 결과를 반영.
+  const searchScoped = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return dateScoped.filter((p) => {
+      // 채널
+      if (channel !== "ALL" && p.channel !== channel) return false;
+      // 생성일 커스텀 범위 (VN 날짜 기준)
+      if (createdFrom || createdTo) {
+        const created = vnDateFmt.format(new Date(p.createdAt)); // "YYYY-MM-DD"
+        if (createdFrom && created < createdFrom) return false;
+        if (createdTo && created > createdTo) return false;
+      }
+      // 숙박 기간 범위 — 항목 중 하나라도 [stayFrom, stayTo]와 겹치면 통과
+      if (stayFrom || stayTo) {
+        const overlaps = p.items.some((i) => {
+          const ci = i.checkIn.slice(0, 10);
+          const co = i.checkOut.slice(0, 10);
+          if (stayFrom && co <= stayFrom) return false; // 체크아웃이 범위 시작 이전 → 겹침 없음
+          if (stayTo && ci > stayTo) return false; // 체크인이 범위 종료 이후 → 겹침 없음
+          return true;
+        });
+        if (!overlaps) return false;
+      }
+      // 텍스트 검색 (고객/여행사명 또는 포함 빌라명 부분일치)
+      if (q) {
+        const hit =
+          p.clientName.toLowerCase().includes(q) ||
+          p.items.some((i) => i.villa.name.toLowerCase().includes(q));
+        if (!hit) return false;
+      }
+      return true;
+    });
+  }, [dateScoped, query, channel, createdFrom, createdTo, stayFrom, stayTo]);
+
   const counts = useMemo(() => {
     const byStatus = (s: ProposalStatus) =>
-      dateScoped.filter((p) => p.effectiveStatus === s).length;
+      searchScoped.filter((p) => p.effectiveStatus === s).length;
     return {
-      all: dateScoped.length,
+      all: searchScoped.length,
       active: byStatus("ACTIVE"),
       used: byStatus("USED"),
       expired: byStatus("EXPIRED"),
       revoked: byStatus("REVOKED"),
     } satisfies Record<TabKey, number>;
-  }, [dateScoped]);
+  }, [searchScoped]);
 
   const filtered = useMemo(() => {
-    if (tab === "all") return dateScoped;
-    return dateScoped.filter((p) => p.effectiveStatus === TAB_STATUS[tab]);
-  }, [dateScoped, tab]);
+    if (tab === "all") return searchScoped;
+    return searchScoped.filter((p) => p.effectiveStatus === TAB_STATUS[tab]);
+  }, [searchScoped, tab]);
 
   // 클라 페이지네이션 — 탭/날짜 필터 바뀌면 1페이지로. (전체 로드 후 메모리 슬라이스)
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-  useEffect(() => setPage(1), [tab, range]);
+  useEffect(() => setPage(1), [tab, range, query, channel, createdFrom, createdTo, stayFrom, stayTo]);
   const paged = useMemo(
     () => filtered.slice((page - 1) * pageSize, page * pageSize),
     [filtered, page, pageSize]
@@ -379,19 +424,121 @@ export default function ProposalsList() {
         </Link>
       </div>
 
-      {/* 빠른 날짜 필터 — createdAt 기준, 과거 지향 목록이라 nextMonth 제외 */}
-      <div className="mb-4">
-        <QuickDateFilter
-          presets={[
-            "all",
-            "today",
-            "yesterday",
-            "thisWeek",
-            "lastWeek",
-            "thisMonth",
-            "lastMonth",
-          ]}
-        />
+      {/* 필터 — 1행: 검색 + 채널 + 생성일 빠른 프리셋 / 2행: 숙박 기간·생성일 커스텀 범위 */}
+      <div className="flex flex-col gap-3 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          {/* 텍스트 검색 — 고객/여행사명·빌라명 */}
+          <div className="relative">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">
+              search
+            </span>
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("searchPlaceholder")}
+              className="w-full sm:w-72 bg-admin-card border border-admin-border text-sm text-slate-300 rounded-lg pl-9 pr-9 py-2 focus:ring-1 focus:ring-admin-primary focus:border-admin-primary transition-all"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                title={t("searchClear")}
+                aria-label={t("searchClear")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+              >
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            )}
+          </div>
+          {/* 채널 드롭다운 */}
+          <select
+            value={channel}
+            onChange={(e) => setChannel(e.target.value as Channel | "ALL")}
+            aria-label={t("channelFilterLabel")}
+            className="bg-admin-card border border-admin-border text-sm text-slate-300 rounded-lg px-3 py-2 focus:ring-1 focus:ring-admin-primary focus:border-admin-primary transition-all"
+          >
+            <option value="ALL">{t("channelFilterAll")}</option>
+            <option value="TRAVEL_AGENCY">{t("channels.TRAVEL_AGENCY")}</option>
+            <option value="LAND_AGENCY">{t("channels.LAND_AGENCY")}</option>
+            <option value="DIRECT">{t("channels.DIRECT")}</option>
+          </select>
+          <QuickDateFilter
+            presets={[
+              "all",
+              "today",
+              "yesterday",
+              "thisWeek",
+              "lastWeek",
+              "thisMonth",
+              "lastMonth",
+            ]}
+          />
+        </div>
+        {/* 날짜 범위 — 숙박 기간(체크인~체크아웃 겹침) + 생성일 커스텀 */}
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-x-5 gap-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-admin-muted whitespace-nowrap">
+              {t("stayRangeLabel")}
+            </span>
+            <input
+              type="date"
+              value={stayFrom}
+              max={stayTo || undefined}
+              onChange={(e) => setStayFrom(e.target.value)}
+              aria-label={`${t("stayRangeLabel")} ${t("dateFrom")}`}
+              className="bg-admin-card border border-admin-border text-sm text-slate-300 rounded-lg px-2.5 py-1.5 [color-scheme:dark] focus:ring-1 focus:ring-admin-primary focus:border-admin-primary"
+            />
+            <span className="text-admin-muted text-xs">~</span>
+            <input
+              type="date"
+              value={stayTo}
+              min={stayFrom || undefined}
+              onChange={(e) => setStayTo(e.target.value)}
+              aria-label={`${t("stayRangeLabel")} ${t("dateTo")}`}
+              className="bg-admin-card border border-admin-border text-sm text-slate-300 rounded-lg px-2.5 py-1.5 [color-scheme:dark] focus:ring-1 focus:ring-admin-primary focus:border-admin-primary"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-admin-muted whitespace-nowrap">
+              {t("createdRangeLabel")}
+            </span>
+            <input
+              type="date"
+              value={createdFrom}
+              max={createdTo || undefined}
+              onChange={(e) => setCreatedFrom(e.target.value)}
+              aria-label={`${t("createdRangeLabel")} ${t("dateFrom")}`}
+              className="bg-admin-card border border-admin-border text-sm text-slate-300 rounded-lg px-2.5 py-1.5 [color-scheme:dark] focus:ring-1 focus:ring-admin-primary focus:border-admin-primary"
+            />
+            <span className="text-admin-muted text-xs">~</span>
+            <input
+              type="date"
+              value={createdTo}
+              min={createdFrom || undefined}
+              onChange={(e) => setCreatedTo(e.target.value)}
+              aria-label={`${t("createdRangeLabel")} ${t("dateTo")}`}
+              className="bg-admin-card border border-admin-border text-sm text-slate-300 rounded-lg px-2.5 py-1.5 [color-scheme:dark] focus:ring-1 focus:ring-admin-primary focus:border-admin-primary"
+            />
+          </div>
+          {(stayFrom || stayTo || createdFrom || createdTo || channel !== "ALL" || query) && (
+            <button
+              type="button"
+              onClick={() => {
+                setStayFrom("");
+                setStayTo("");
+                setCreatedFrom("");
+                setCreatedTo("");
+                setChannel("ALL");
+                setQuery("");
+              }}
+              className="flex items-center gap-1 text-xs font-semibold text-admin-muted hover:text-white transition-colors"
+            >
+              <span className="material-symbols-outlined text-sm">filter_alt_off</span>
+              {t("clearFilters")}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 상태 탭 — effectiveStatus 기준 카운트 (b12) */}
@@ -463,7 +610,13 @@ export default function ProposalsList() {
           columns={columns}
           rows={paged}
           rowKey={(p) => p.id}
-          emptyMessage={t("empty")}
+          emptyMessage={
+            query.trim()
+              ? t("searchEmpty", { query: query.trim() })
+              : channel !== "ALL" || stayFrom || stayTo || createdFrom || createdTo
+                ? t("filterEmpty")
+                : t("empty")
+          }
           rowClassName={(p) => (p.effectiveStatus === "EXPIRED" ? "opacity-60" : undefined)}
           cardSummary={(p) => (
             <div className="flex flex-col gap-1.5 min-w-0">

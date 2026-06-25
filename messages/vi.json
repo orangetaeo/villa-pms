@@ -1449,7 +1449,18 @@
       "loadError": "Không thể tải danh sách.",
       "retry": "Thử lại",
       "empty": "Không có đề xuất để hiển thị.",
-      "copyError": "Không thể sao chép liên kết."
+      "copyError": "Không thể sao chép liên kết.",
+      "searchPlaceholder": "Tìm theo tên khách/đại lý hoặc tên villa",
+      "searchClear": "Xóa tìm kiếm",
+      "searchEmpty": "Không có kết quả cho \"{query}\".",
+      "channelFilterLabel": "Kênh",
+      "channelFilterAll": "Tất cả kênh",
+      "stayRangeLabel": "Thời gian lưu trú",
+      "createdRangeLabel": "Ngày tạo",
+      "dateFrom": "Từ",
+      "dateTo": "Đến",
+      "clearFilters": "Xóa bộ lọc",
+      "filterEmpty": "Không có đề xuất phù hợp với điều kiện."
     },
     "create": {
       "title": "Tạo đề xuất",
