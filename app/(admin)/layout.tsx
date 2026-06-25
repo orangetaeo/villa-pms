@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { getLocale } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
 import AdminSidebar from "@/components/admin/sidebar";
-import MobileNavSpacer from "@/components/admin/mobile-nav-spacer";
+import MobileNavSpacer, { ADMIN_FULLSCREEN_PREFIXES } from "@/components/admin/mobile-nav-spacer";
+import PullToRefresh from "@/components/pull-to-refresh";
 import { pickMessages } from "@/lib/intl-messages";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
@@ -96,6 +97,8 @@ export default async function AdminLayout({
         logoutAction={logoutAction}
         currentLocale={locale === "vi" ? "vi" : "ko"}
       />
+      {/* 모바일 당겨서 새로고침 — 전 admin 페이지 공용(풀스크린 라우트 자동 제외) */}
+      <PullToRefresh fullscreenPrefixes={ADMIN_FULLSCREEN_PREFIXES} variant="dark" />
       {/* 데스크톱: 사이드바 폭만큼 밀기 / 모바일: 헤더 높이만큼 내리기 */}
       <main className="lg:pl-64 pt-14 lg:pt-0 min-h-dvh">
         <div className="p-4 md:p-8">{children}</div>

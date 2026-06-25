@@ -14,14 +14,14 @@ const TABS = [
   { href: "/guide", icon: "help", key: "guide" }, // 온보딩 가이드 (T4.3)
 ] as const;
 
-/** 탭바를 숨기는 풀스크린 플로우 경로 접두사 */
-const FULLSCREEN_PREFIXES = ["/my-villas/new"];
+/** 탭바를 숨기는 풀스크린 플로우 경로 접두사 (당겨서 새로고침도 동일하게 제외) */
+export const SUPPLIER_FULLSCREEN_PREFIXES = ["/my-villas/new"];
 
 export function TabBar() {
   const t = useTranslations("tabs");
   const pathname = usePathname();
 
-  if (FULLSCREEN_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+  if (SUPPLIER_FULLSCREEN_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return null;
   }
 

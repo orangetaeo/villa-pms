@@ -1,8 +1,9 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
-import { TabBar } from "@/components/supplier/tab-bar";
+import { TabBar, SUPPLIER_FULLSCREEN_PREFIXES } from "@/components/supplier/tab-bar";
 import { AccountLink } from "@/components/supplier/account-link";
+import PullToRefresh from "@/components/pull-to-refresh";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { getSupplierLocale } from "@/lib/locale";
 
@@ -41,6 +42,8 @@ export default async function SupplierLayout({
       <NextIntlClientProvider locale={locale} messages={messages}>
         <LocaleSwitcher current={locale} persist />
         <AccountLink />
+        {/* 모바일 당겨서 새로고침 — 공급자 전 화면(라이트 테마, 풀스크린 마법사 제외) */}
+        <PullToRefresh fullscreenPrefixes={SUPPLIER_FULLSCREEN_PREFIXES} variant="light" />
         <main>{children}</main>
         {/* 하단 탭바 (T1.4) — 풀스크린 플로우에서는 컴포넌트가 스스로 숨김 + 본문 하단 스페이서 포함 */}
         <TabBar />

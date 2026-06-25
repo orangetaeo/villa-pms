@@ -152,7 +152,11 @@ export default function AdminSidebar({
         >
           <span className="material-symbols-outlined">{open ? "close" : "menu"}</span>
         </button>
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 leading-none">
+        <Link
+          href="/dashboard"
+          aria-label={t("dashboard")}
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 leading-none"
+        >
           <VillaGoMark className="h-6 w-auto" />
           <div className="flex flex-col items-start gap-0.5">
             <VillaGoWordmark
@@ -164,7 +168,7 @@ export default function AdminSidebar({
               {t("brandSub")}
             </span>
           </div>
-        </div>
+        </Link>
         {/* 우측 균형 유지용 (b1-mobile 알림 자리 — 알림은 T6.x) */}
         <div className="w-10" aria-hidden />
       </header>
@@ -184,7 +188,11 @@ export default function AdminSidebar({
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="px-2 py-4 mb-4 flex items-center gap-2.5">
+        <Link
+          href="/dashboard"
+          aria-label={t("dashboard")}
+          className="px-2 py-4 mb-4 flex items-center gap-2.5 rounded-lg hover:bg-admin-card transition-colors duration-200"
+        >
           <VillaGoMark className="h-9 w-auto shrink-0" />
           <div>
             <VillaGoWordmark
@@ -196,7 +204,7 @@ export default function AdminSidebar({
               {t("brandSub")}
             </p>
           </div>
-        </div>
+        </Link>
         <nav className="flex-1 flex flex-col gap-1 overflow-y-auto">
           {navItems.map((item) => {
             const active = isActive(item.href);
