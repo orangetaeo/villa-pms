@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { resizeImage } from "@/lib/image-resize";
 import { formatThousands } from "@/lib/format";
+import { computeGuestBill, type GuestSettlementMethodValue } from "@/lib/checkout-settlement";
 import ImageLightbox, { type LightboxImage } from "@/components/image-lightbox";
 
 interface Section {
@@ -23,12 +24,27 @@ interface MinibarItem {
   unitPriceVnd: string;
 }
 
+/** 확정 부가옵션(CONFIRMED|DELIVERED) — 게스트 청구서용. 판매가만(원가 비노출, ADR-0019 S4). */
+export interface ConfirmedServiceOrder {
+  id: string;
+  /** 표시명(카탈로그명 또는 유형 라벨, 서버 해석) */
+  name: string;
+  quantity: number;
+  /** 판매가 KRW (스냅샷, 없으면 null) */
+  priceKrw: number | null;
+  /** 판매가 VND (스냅샷 문자열, 없으면 null) */
+  priceVnd: string | null;
+}
+
+const SETTLEMENT_METHODS: GuestSettlementMethodValue[] = ["CASH", "BANK_TRANSFER", "OTHER"];
+
 export default function CheckoutForm({
   bookingId,
   sections,
   minibar,
   depositLabel,
   depositVnd,
+  confirmedOrders,
 }: {
   bookingId: string;
   sections: Section[];
@@ -36,6 +52,8 @@ export default function CheckoutForm({
   depositLabel: string | null;
   /** 보증금이 VND일 때만 — 환불 예정액 계산용 (동 단위 숫자 문자열) */
   depositVnd: string | null;
+  /** 확정 부가옵션(CONFIRMED|DELIVERED) — 게스트 청구서 합산용. 판매가만. */
+  confirmedOrders: ConfirmedServiceOrder[];
 }) {
   const t = useTranslations("adminCheckout");
   const router = useRouter();
@@ -49,6 +67,10 @@ export default function CheckoutForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<number | null>(null);
+
+  // 게스트 통합정산 수납 (ADR-0019 S4) — 결제수단(선택)·메모. 미선택도 허용(청구액만 기록·미수납).
+  const [settlementMethod, setSettlementMethod] = useState<GuestSettlementMethodValue | null>(null);
+  const [settlementNote, setSettlementNote] = useState("");
 
   // 라이트박스 이미지 — 섹션별 기준→체크아웃 사진 (클릭 확대)
   const lightboxImages: LightboxImage[] = sections.flatMap((s) => {
@@ -86,6 +108,17 @@ export default function CheckoutForm({
 
   /** 미니바 차감 합계(BigInt) */
   const minibarTotal = minibarRows.reduce((sum, r) => sum + r.lineDeduction, 0n);
+
+  // ── 게스트 청구서 합산 (ADR-0019 S4) ───────────────────────────
+  //   미니바 소비(실시간 미리보기, 단가는 서버 스냅샷이 정본) + 확정 부가옵션(판매가만).
+  //   통화별 분리(ADR-0003): VND/KRW 합산 금지. 보증금 차감은 별개(아래 보증금 정산 섹션).
+  const guestBill = computeGuestBill(
+    minibarTotal,
+    confirmedOrders.map((o) => ({
+      priceKrw: o.priceKrw,
+      priceVnd: o.priceVnd != null ? BigInt(o.priceVnd) : null,
+    }))
+  );
 
   const upload = async (file: File): Promise<string | null> => {
     try {
@@ -189,6 +222,10 @@ export default function CheckoutForm({
           deductionVnd: hasDeduction ? totalDeductionVnd.toString() : undefined,
           // 미니바 품목별 판매 캡처(매출·마진 통계 소스). 0건이면 빈 배열(라인 미생성).
           minibarLines: minibarLines.length ? minibarLines : undefined,
+          // 게스트 통합정산 수납(ADR-0019 S4) — 결제수단 선택 시에만. 미선택이면 청구액만 기록(미수납).
+          settlement: settlementMethod
+            ? { method: settlementMethod, note: settlementNote.trim() || undefined }
+            : undefined,
         }),
       });
       if (!res.ok) {
@@ -425,6 +462,149 @@ export default function CheckoutForm({
         <div className="px-6 py-4 flex items-center gap-2 text-xs text-slate-500 bg-slate-800/30">
           <span className="material-symbols-outlined text-sm">info</span>
           <p>{t("minibarInfo")}</p>
+        </div>
+      </section>
+
+      {/* 게스트 통합 청구서 (ADR-0019 S4, b20 청구서 미니요약) — 미니바 + 확정 부가옵션, 통화별 분리 */}
+      <section className="bg-admin-card border border-slate-800 rounded-xl p-6 shadow-sm space-y-5">
+        <h3 className="text-xl font-bold flex items-center gap-2 whitespace-nowrap text-white">
+          <span className="material-symbols-outlined text-emerald-400">receipt_long</span>
+          {t("guestBillTitle")}
+        </h3>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 좌: 합산 내역 */}
+          <div className="space-y-4">
+            {/* 미니바 소비 합계(실시간 미리보기) */}
+            <div className="flex justify-between items-center text-sm border-b border-slate-800 pb-3">
+              <span className="text-slate-400">{t("guestBillMinibar")}</span>
+              <span className="font-bold text-slate-200 tabular-nums">
+                {formatThousands(guestBill.minibarVnd)}₫
+              </span>
+            </div>
+
+            {/* 확정 부가옵션 목록 (판매가만) */}
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                {t("guestBillServices")}
+              </p>
+              {confirmedOrders.length === 0 ? (
+                <p className="text-xs text-slate-600">{t("guestBillNoServices")}</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {confirmedOrders.map((o) => (
+                    <li
+                      key={o.id}
+                      className="flex justify-between items-start gap-3 text-sm"
+                    >
+                      <span className="text-slate-300">
+                        {o.name}
+                        {o.quantity > 1 && (
+                          <span className="text-slate-500"> ×{o.quantity}</span>
+                        )}
+                      </span>
+                      <span className="text-right tabular-nums shrink-0">
+                        {o.priceKrw != null && (
+                          <span className="block text-slate-200 font-semibold">
+                            {formatThousands(o.priceKrw)}원
+                          </span>
+                        )}
+                        {o.priceVnd != null && (
+                          <span className="block text-slate-400">
+                            {formatThousands(o.priceVnd)}₫
+                          </span>
+                        )}
+                        {o.priceKrw == null && o.priceVnd == null && (
+                          <span className="text-slate-600">—</span>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* 총 청구액 — 통화별 표기(합산 금지, ADR-0003) */}
+            <div className="border-t border-slate-800 pt-3 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-white">{t("guestBillTotalVnd")}</span>
+                <span className="text-lg font-black text-emerald-400 tabular-nums">
+                  {formatThousands(guestBill.totalVnd)}₫
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-white">{t("guestBillTotalKrw")}</span>
+                <span className="text-lg font-black text-emerald-400 tabular-nums">
+                  {formatThousands(guestBill.totalKrw)}원
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed pt-1">
+                {t("guestBillCurrencyNote")}
+              </p>
+            </div>
+          </div>
+
+          {/* 우: 결제수단(선택) + 메모 */}
+          <div className="bg-admin-bg border border-slate-800 rounded-lg p-5 space-y-4 self-start">
+            <div>
+              <p className="text-xs font-bold text-slate-400 tracking-wider mb-3">
+                {t("settlementMethod")}
+              </p>
+              <div className="flex flex-col gap-2">
+                {SETTLEMENT_METHODS.map((m) => (
+                  <label
+                    key={m}
+                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border cursor-pointer transition-colors ${
+                      settlementMethod === m
+                        ? "border-admin-primary bg-admin-primary/10"
+                        : "border-slate-700 hover:border-slate-500"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="settlementMethod"
+                      className="accent-admin-primary"
+                      checked={settlementMethod === m}
+                      onChange={() => setSettlementMethod(m)}
+                    />
+                    <span className="text-sm font-medium text-slate-200">
+                      {t(`settlementMethods.${m}`)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {settlementMethod && (
+                <button
+                  type="button"
+                  onClick={() => setSettlementMethod(null)}
+                  className="mt-2 text-xs text-slate-500 hover:text-slate-300"
+                >
+                  {t("settlementClear")}
+                </button>
+              )}
+              <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
+                {t("settlementOptionalNote")}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label
+                className="text-xs font-bold text-slate-400 tracking-wider"
+                htmlFor="settlementNote"
+              >
+                {t("settlementNote")}
+              </label>
+              <textarea
+                id="settlementNote"
+                value={settlementNote}
+                onChange={(e) => setSettlementNote(e.target.value)}
+                rows={2}
+                maxLength={500}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-white focus:ring-admin-primary focus:border-admin-primary outline-none"
+                placeholder={t("settlementNotePlaceholder")}
+              />
+            </div>
+          </div>
         </div>
       </section>
 

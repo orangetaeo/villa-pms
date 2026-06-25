@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<!--
+  G1 — 게스트 셀프 체크인 홈/예약 확인 (ADR-0019 §5.1, SPEC F9)
+  라우트: /g/[token] (비로그인, ko 기본). C1/C3 라이트·신뢰감 톤 계승.
+  마진 비공개 절대원칙: 빌라명·날짜·박수·인원만. 원가·마진·판매가·타예약·전체재고 절대 비노출.
+  브랜드 "Villa Go". 모바일 390px. 날짜 YYYY.MM.DD 점표기, 샘플연도 2026.
+-->
+<html lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>체크인 — Villa Go</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    theme: { extend: {
+      colors: { primary: "#0D9488", secondary: "#F59E0B", confirmed: "#2563EB", ok: "#16A34A" },
+      borderRadius: { "DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px" },
+      fontFamily: { headline: ["Be Vietnam Pro","Noto Sans KR","sans-serif"], body: ["Be Vietnam Pro","Noto Sans KR","sans-serif"] }
+    } }
+  }
+</script>
+<style>
+  body { font-family: "Be Vietnam Pro", "Noto Sans KR", sans-serif; word-break: keep-all; min-height: max(884px, 100dvh); }
+  button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+  .bg-mesh { background-color:#ffffff; background-image: radial-gradient(at 0% 0%, rgba(13,148,136,0.06) 0px, transparent 50%), radial-gradient(at 100% 0%, rgba(245,158,11,0.05) 0px, transparent 55%); }
+</style>
+</head>
+<body class="antialiased text-slate-900 bg-slate-50">
+<div class="max-w-md mx-auto min-h-screen bg-mesh flex flex-col shadow-2xl relative">
+
+<!-- TOP APP BAR -->
+<header class="w-full sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-slate-100 flex items-center justify-center h-14 px-4">
+  <div class="flex items-center gap-2">
+    <span class="material-symbols-outlined text-teal-600" style="font-variation-settings:'FILL' 1;">location_on</span>
+    <h1 class="font-headline font-extrabold text-lg tracking-tight text-slate-900">Villa <span class="text-teal-600">Go</span></h1>
+  </div>
+</header>
+
+<main class="flex-grow px-6 py-7 space-y-7">
+
+  <!-- Greeting -->
+  <section class="space-y-2">
+    <p class="text-sm font-semibold text-teal-600">셀프 체크인</p>
+    <h2 class="text-2xl font-extrabold tracking-tight text-slate-900 leading-snug">체크인을 시작합니다</h2>
+    <p class="text-sm text-slate-500 leading-relaxed">도착 전 미리 비품 확인·동의서 서명·옵션 선택을 마치면 현장 절차가 빨라집니다.</p>
+  </section>
+
+  <!-- Booking summary card -->
+  <section class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+    <img class="w-full h-44 object-cover" alt="쏘나씨 V11 빌라 외관" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDzgy38hmiX94oB6uMfEavhTX4SWezuXdH-K5KLwElfQxUcovgI7q7XfaV2uagZNAN0cY8a10Xs9Yi45-hI1hV9WSrForXFhKeKZaMjukDDHaDfuoxnmsXf-lZ_6isBRqk5TIhhNjjzPtNUHQHsE-yIkvts7bYLcuQGj8HJb-0LG-jfZD2iNt5MF6s1wu5cmuVPXxx5XUU6E_dN6HM8fpG7NkcANupfw9Z8v8MBuI3-aG520KSHpqiWeD5u52N5Z6lmNO98oIfHmWv1"/>
+    <div class="p-5 space-y-4">
+      <div class="flex items-start justify-between gap-3">
+        <h3 class="font-bold text-lg text-slate-900">쏘나씨 V11</h3>
+        <span class="shrink-0 bg-teal-50 text-teal-700 text-[11px] font-bold px-2.5 py-1 rounded-full">예약 확정</span>
+      </div>
+      <div class="space-y-2.5">
+        <div class="flex items-center gap-3 text-sm">
+          <span class="material-symbols-outlined text-slate-400 text-[20px]">calendar_today</span>
+          <span class="text-slate-700 font-medium tabular-nums">2026.07.15 (수) ~ 2026.07.18 (토)</span>
+          <span class="ml-auto text-slate-500 font-semibold">3박</span>
+        </div>
+        <div class="flex items-center gap-3 text-sm">
+          <span class="material-symbols-outlined text-slate-400 text-[20px]">group</span>
+          <span class="text-slate-700 font-medium">성인 4명</span>
+        </div>
+        <div class="flex items-center gap-3 text-sm">
+          <span class="material-symbols-outlined text-slate-400 text-[20px]">schedule</span>
+          <span class="text-slate-700 font-medium">체크인 15:00 · 체크아웃 11:00</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4-step progress -->
+  <section>
+    <ol class="flex items-center justify-between">
+      <li class="flex flex-col items-center gap-1.5 flex-1">
+        <span class="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center text-sm font-bold">1</span>
+        <span class="text-[11px] font-semibold text-slate-700">비품 확인</span>
+      </li>
+      <li class="h-px flex-1 bg-slate-200 mt-[-18px]"></li>
+      <li class="flex flex-col items-center gap-1.5 flex-1">
+        <span class="w-9 h-9 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-sm font-bold">2</span>
+        <span class="text-[11px] font-medium text-slate-400">이용 동의</span>
+      </li>
+      <li class="h-px flex-1 bg-slate-200 mt-[-18px]"></li>
+      <li class="flex flex-col items-center gap-1.5 flex-1">
+        <span class="w-9 h-9 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-sm font-bold">3</span>
+        <span class="text-[11px] font-medium text-slate-400">옵션 선택</span>
+      </li>
+      <li class="h-px flex-1 bg-slate-200 mt-[-18px]"></li>
+      <li class="flex flex-col items-center gap-1.5 flex-1">
+        <span class="w-9 h-9 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-sm font-bold">4</span>
+        <span class="text-[11px] font-medium text-slate-400">완료</span>
+      </li>
+    </ol>
+  </section>
+
+  <!-- Reassuring note -->
+  <div class="bg-slate-50 border border-slate-100 rounded-xl p-4 flex gap-3">
+    <span class="material-symbols-outlined text-slate-400 text-[20px]">lock</span>
+    <p class="text-xs text-slate-500 leading-relaxed">이 링크는 고객님의 예약 한 건에만 연결됩니다. 약 2분이면 끝납니다.</p>
+  </div>
+
+</main>
+
+<!-- Sticky CTA -->
+<div class="sticky bottom-0 bg-white/95 backdrop-blur border-t border-slate-100 px-6 py-4">
+  <button class="w-full h-14 bg-teal-600 text-white font-bold rounded-xl shadow-lg shadow-teal-600/20 active:scale-[0.98] transition-transform flex items-center justify-center gap-2">
+    체크인 진행하기
+    <span class="material-symbols-outlined">arrow_forward</span>
+  </button>
+</div>
+
+<!-- FOOTER -->
+<footer class="bg-slate-50 border-t border-slate-100 py-6 flex flex-col items-center gap-2 px-6 text-center">
+  <p class="font-headline font-extrabold text-sm text-slate-400">Villa <span class="text-teal-600/70">Go</span></p>
+  <p class="text-[11px] text-slate-400">문의사항은 예약하신 여행사로 연락해 주세요.</p>
+</footer>
+
+</div>
+</body></html>

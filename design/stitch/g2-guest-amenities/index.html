@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<!--
+  G2 — 게스트 비품 확인 (ADR-0019 §5.2, SPEC F9 단계2) · step 1/4
+  라우트: /g/[token]. 어메니티(읽기전용 칩) + 미니바(품목·비치수량·판매가만).
+  ★마진 비공개: costVnd·마진·KRW↔VND 환산 절대 비노출. 미니바는 unitPriceVnd 판매가만.
+  브랜드 "Villa Go". VND 쉼표(15,000₫).
+-->
+<html lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>비품 확인 — Villa Go</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = { theme: { extend: {
+    colors: { primary: "#0D9488", secondary: "#F59E0B" },
+    borderRadius: { "DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px" },
+    fontFamily: { headline: ["Be Vietnam Pro","Noto Sans KR","sans-serif"], body: ["Be Vietnam Pro","Noto Sans KR","sans-serif"] }
+  } } }
+</script>
+<style>
+  body { font-family: "Be Vietnam Pro", "Noto Sans KR", sans-serif; word-break: keep-all; min-height: max(884px, 100dvh); }
+  button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+</style>
+</head>
+<body class="antialiased text-slate-900 bg-slate-50">
+<div class="max-w-md mx-auto min-h-screen bg-white flex flex-col shadow-2xl relative">
+
+<!-- TOP APP BAR + progress -->
+<header class="w-full sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-slate-100">
+  <div class="flex items-center h-14 px-3">
+    <button class="p-2 rounded-full hover:bg-slate-50 active:scale-95"><span class="material-symbols-outlined text-slate-600">arrow_back</span></button>
+    <h1 class="font-bold text-base text-slate-900 ml-1">비품 확인</h1>
+    <span class="ml-auto text-xs font-bold text-slate-400 tabular-nums">1/4</span>
+  </div>
+  <div class="h-1 bg-slate-100"><div class="h-1 bg-teal-600 w-1/4"></div></div>
+</header>
+
+<main class="flex-grow px-5 py-6 space-y-7">
+
+  <p class="text-sm text-slate-500 leading-relaxed">빌라에 비치된 비품입니다. 가볍게 확인하신 뒤 다음으로 넘어가 주세요.</p>
+
+  <!-- 주방 -->
+  <section class="space-y-3">
+    <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2"><span class="material-symbols-outlined text-teal-600 text-[20px]">cooking</span>주방</h3>
+    <div class="flex flex-wrap gap-2">
+      <span class="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-full px-3 py-1.5">전기밥솥</span>
+      <span class="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-full px-3 py-1.5">전자레인지</span>
+      <span class="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-full px-3 py-1.5">냄비·프라이팬</span>
+      <span class="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-full px-3 py-1.5">식기·컵</span>
+      <span class="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-full px-3 py-1.5">전기포트</span>
+    </div>
+  </section>
+
+  <!-- 욕실 -->
+  <section class="space-y-3">
+    <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2"><span class="material-symbols-outlined text-teal-600 text-[20px]">bathtub</span>욕실</h3>
+    <div class="flex flex-wrap gap-2">
+      <span class="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-full px-3 py-1.5">수건</span>
+      <span class="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-full px-3 py-1.5">샴푸·바디워시</span>
+      <span class="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-full px-3 py-1.5">헤어드라이어</span>
+      <span class="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-full px-3 py-1.5">비누</span>
+    </div>
+  </section>
+
+  <!-- 가전 -->
+  <section class="space-y-3">
+    <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2"><span class="material-symbols-outlined text-teal-600 text-[20px]">tv</span>가전</h3>
+    <div class="flex flex-wrap gap-2">
+      <span class="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-full px-3 py-1.5">에어컨</span>
+      <span class="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-full px-3 py-1.5">TV</span>
+      <span class="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-full px-3 py-1.5">와이파이</span>
+      <span class="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-full px-3 py-1.5">냉장고</span>
+      <span class="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-full px-3 py-1.5">세탁기</span>
+    </div>
+  </section>
+
+  <!-- 미니바 (판매가만) -->
+  <section class="space-y-3">
+    <div class="flex items-center justify-between">
+      <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2"><span class="material-symbols-outlined text-secondary text-[20px]">local_bar</span>미니바</h3>
+      <span class="text-[11px] font-semibold text-slate-400">소비 시 유료</span>
+    </div>
+    <div class="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100 overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3.5">
+        <div><p class="text-sm font-semibold text-slate-800">생수</p><p class="text-[11px] text-slate-400">비치 4개</p></div>
+        <span class="text-sm font-bold text-slate-900 tabular-nums">15,000₫</span>
+      </div>
+      <div class="flex items-center justify-between px-4 py-3.5">
+        <div><p class="text-sm font-semibold text-slate-800">탄산음료</p><p class="text-[11px] text-slate-400">비치 2개</p></div>
+        <span class="text-sm font-bold text-slate-900 tabular-nums">25,000₫</span>
+      </div>
+      <div class="flex items-center justify-between px-4 py-3.5">
+        <div><p class="text-sm font-semibold text-slate-800">맥주</p><p class="text-[11px] text-slate-400">비치 2개</p></div>
+        <span class="text-sm font-bold text-slate-900 tabular-nums">40,000₫</span>
+      </div>
+      <div class="flex items-center justify-between px-4 py-3.5">
+        <div><p class="text-sm font-semibold text-slate-800">스낵·과자</p><p class="text-[11px] text-slate-400">비치 3개</p></div>
+        <span class="text-sm font-bold text-slate-900 tabular-nums">30,000₫</span>
+      </div>
+    </div>
+    <div class="bg-slate-50 border border-slate-100 rounded-lg p-3 flex gap-2">
+      <span class="material-symbols-outlined text-slate-400 text-[18px]">info</span>
+      <p class="text-xs text-slate-500 leading-relaxed">소비하신 미니바는 체크아웃 시 정산됩니다 (현금/계좌이체).</p>
+    </div>
+  </section>
+
+  <!-- Confirm checkbox -->
+  <label class="flex items-center gap-3 bg-teal-50/60 border border-teal-100 rounded-xl px-4 py-4 cursor-pointer">
+    <input type="checkbox" class="w-6 h-6 rounded-md border-slate-300 text-teal-600 focus:ring-teal-500"/>
+    <span class="text-sm font-semibold text-slate-800">비품을 확인했습니다</span>
+  </label>
+
+</main>
+
+<!-- Sticky CTA -->
+<div class="sticky bottom-0 bg-white/95 backdrop-blur border-t border-slate-100 px-5 py-4">
+  <button class="w-full h-14 bg-teal-600 text-white font-bold rounded-xl shadow-lg shadow-teal-600/20 active:scale-[0.98] transition-transform">다음</button>
+</div>
+
+</div>
+</body></html>

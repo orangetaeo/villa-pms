@@ -148,6 +148,23 @@ export default async function SettingsPage() {
         </span>
       </Link>
 
+      {/* Card 6b: 서비스 카탈로그 (ADR-0019 S2) — 부가서비스 판매 메뉴 관리. 별도 페이지 링크 */}
+      <Link
+        href="/settings/services"
+        className="flex items-center justify-between bg-admin-card border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-colors group"
+      >
+        <div className="flex items-center gap-4">
+          <span className="material-symbols-outlined text-admin-primary text-3xl">restaurant</span>
+          <div>
+            <h2 className="text-lg font-bold text-white">{t("servicesCardTitle")}</h2>
+            <p className="text-sm text-slate-500 mt-0.5">{t("servicesCardDesc")}</p>
+          </div>
+        </div>
+        <span className="text-sm font-bold text-admin-primary group-hover:underline whitespace-nowrap">
+          {t("servicesCardCta")} →
+        </span>
+      </Link>
+
       {/* Card 7: Zalo 봇 연결 (ADR-0006) — 별도 페이지 링크 */}
       <Link
         href="/settings/zalo"

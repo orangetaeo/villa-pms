@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<!--
+  b19 — 서비스 카탈로그 (ADR-0019 §4.2·§6, SPEC F8) · 운영자(ADMIN) 다크
+  ServiceCatalogItem CRUD(이름 ko/vi/en, 판매가 KRW/VND, 원가 VND, 단위, 사진, 옵션, active/정렬).
+  ★매입원가(costVnd)·마진은 canViewFinance 전용. 게스트/공급자엔 절대 비노출(서버 select 화이트리스트).
+  VND 쉼표(1,650,000₫). 다크 #0F172A/#1E293B/#3B82F6. 브랜드 "Villa Go".
+-->
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>서비스 카탈로그 · Villa Go Admin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = { darkMode:"class", theme:{ extend:{
+    colors:{ brand:{ primary:"#3B82F6", navy:"#0F172A", slate:"#1E293B" } },
+    borderRadius:{ "DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px" },
+    fontFamily:{ headline:["Public Sans","Noto Sans KR","sans-serif"], body:["Public Sans","Noto Sans KR","sans-serif"] }
+  } } }
+</script>
+<style>
+  .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; vertical-align:middle; }
+  body { font-family:"Public Sans","Noto Sans KR",sans-serif; word-break:keep-all; }
+  th, button, .tabular-nums, span[class*="rounded"] { white-space:nowrap; }
+  ::-webkit-scrollbar { width:8px; height:8px; } ::-webkit-scrollbar-track { background:#0F172A; }
+  ::-webkit-scrollbar-thumb { background:#334155; border-radius:4px; }
+</style>
+</head>
+<body class="bg-[#0F172A] text-slate-200 font-body antialiased">
+
+<!-- Sidebar -->
+<aside class="h-screen w-64 fixed left-0 top-0 border-r border-slate-800 bg-[#0F172A] flex flex-col py-4 z-50">
+  <div class="px-6 mb-8"><h1 class="text-xl font-headline font-black text-white">Villa Go</h1><p class="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Villa Go Admin</p></div>
+  <nav class="flex-1 space-y-1 overflow-y-auto">
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">dashboard</span><span class="text-sm font-medium">대시보드</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">calendar_month</span><span class="text-sm font-medium">예약</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">rate_review</span><span class="text-sm font-medium">제안</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">villa</span><span class="text-sm font-medium">빌라</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">grid_view</span><span class="text-sm font-medium">공실 보드</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">fact_check</span><span class="text-sm font-medium">청소 검수</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">payments</span><span class="text-sm font-medium">정산</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">chat</span><span class="text-sm font-medium">메시지</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">group</span><span class="text-sm font-medium">사용자</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">analytics</span><span class="text-sm font-medium">통계</span></a>
+    <a class="text-white bg-[#3B82F6] rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">restaurant</span><span class="text-sm font-medium">서비스 카탈로그</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">settings</span><span class="text-sm font-medium">설정</span></a>
+  </nav>
+  <div class="px-4 mt-auto pt-4"><div class="bg-slate-800/50 rounded-xl p-3 flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">관</div><div class="overflow-hidden"><p class="text-sm font-bold text-white truncate">관리자</p><p class="text-[10px] text-slate-500">최고 관리자</p></div></div></div>
+</aside>
+
+<!-- Main -->
+<main class="ml-64 flex flex-col min-h-screen">
+  <header class="sticky top-0 z-40 bg-[#0F172A] border-b border-slate-800 flex justify-between items-center h-16 px-6">
+    <div class="flex items-center gap-3"><h2 class="text-lg font-bold text-white">서비스 카탈로그</h2><span class="text-slate-600">/</span><span class="text-sm text-slate-400">부가서비스 판매 메뉴 관리</span></div>
+    <button class="flex items-center gap-2 bg-[#3B82F6] hover:bg-blue-600 text-white text-sm font-bold rounded-lg px-4 py-2"><span class="material-symbols-outlined text-[18px]">add</span>메뉴 추가</button>
+  </header>
+
+  <div class="flex-1 p-6">
+    <!-- Card grid -->
+    <div class="grid grid-cols-3 gap-5">
+
+      <!-- BBQ -->
+      <div class="bg-[#1E293B] border border-slate-800 rounded-xl overflow-hidden">
+        <div class="relative h-32"><img class="w-full h-full object-cover" alt="통돼지 BBQ" src="https://images.unsplash.com/photo-1529193591184-b1d58069ecdd?w=500&q=70"/><span class="absolute top-2 left-2 bg-orange-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">BBQ</span><span class="absolute top-2 right-2 bg-emerald-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">판매중</span></div>
+        <div class="p-4 space-y-2.5">
+          <h3 class="font-bold text-white">통돼지 BBQ</h3>
+          <div class="space-y-1 text-sm">
+            <div class="flex justify-between"><span class="text-slate-400">판매가</span><span class="font-bold text-white tabular-nums">1,800,000원</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">판매가(VND)</span><span class="text-slate-300 tabular-nums">1,650,000₫</span></div>
+            <div class="flex justify-between"><span class="text-slate-500 flex items-center gap-1">매입원가<span class="material-symbols-outlined text-[12px] text-slate-600">visibility</span></span><span class="text-slate-500 tabular-nums">1,200,000₫</span></div>
+          </div>
+          <div class="flex items-center justify-between pt-1">
+            <span class="bg-emerald-500/15 text-emerald-400 text-[11px] font-bold px-2.5 py-1 rounded-full">마진 27%</span>
+            <label class="inline-flex items-center cursor-pointer"><input type="checkbox" checked class="sr-only peer"><div class="w-9 h-5 bg-slate-700 peer-checked:bg-[#3B82F6] rounded-full relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 peer-checked:after:translate-x-4 after:transition"></div></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 차량 렌트 (옵션 칩) -->
+      <div class="bg-[#1E293B] border border-slate-800 rounded-xl overflow-hidden">
+        <div class="relative h-32"><img class="w-full h-full object-cover" alt="차량 렌트" src="https://images.unsplash.com/photo-1549924231-f129b911e442?w=500&q=70"/><span class="absolute top-2 left-2 bg-emerald-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">차량</span><span class="absolute top-2 right-2 bg-emerald-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">판매중</span></div>
+        <div class="p-4 space-y-2.5">
+          <h3 class="font-bold text-white">차량 렌트 (7인승)</h3>
+          <div class="space-y-1 text-sm">
+            <div class="flex justify-between"><span class="text-slate-400">판매가</span><span class="font-bold text-white tabular-nums">700,000원</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">판매가(VND)</span><span class="text-slate-300 tabular-nums">640,000₫</span></div>
+            <div class="flex justify-between"><span class="text-slate-500 flex items-center gap-1">매입원가<span class="material-symbols-outlined text-[12px] text-slate-600">visibility</span></span><span class="text-slate-500 tabular-nums">480,000₫</span></div>
+          </div>
+          <div class="flex flex-wrap gap-1.5 pt-0.5">
+            <span class="bg-slate-700/60 text-slate-300 text-[10px] font-medium px-2 py-0.5 rounded-full">기사 포함</span>
+            <span class="bg-slate-700/60 text-slate-300 text-[10px] font-medium px-2 py-0.5 rounded-full">기사 불포함 −200,000원</span>
+          </div>
+          <div class="flex items-center justify-between pt-1">
+            <span class="bg-emerald-500/15 text-emerald-400 text-[11px] font-bold px-2.5 py-1 rounded-full">마진 25%</span>
+            <label class="inline-flex items-center cursor-pointer"><input type="checkbox" checked class="sr-only peer"><div class="w-9 h-5 bg-slate-700 peer-checked:bg-[#3B82F6] rounded-full relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 peer-checked:after:translate-x-4 after:transition"></div></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 입장권 -->
+      <div class="bg-[#1E293B] border border-slate-800 rounded-xl overflow-hidden">
+        <div class="relative h-32"><img class="w-full h-full object-cover" alt="입장권" src="https://images.unsplash.com/photo-1583244532610-2a234e7c3aec?w=500&q=70"/><span class="absolute top-2 left-2 bg-sky-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">티켓</span><span class="absolute top-2 right-2 bg-emerald-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">판매중</span></div>
+        <div class="p-4 space-y-2.5">
+          <h3 class="font-bold text-white">선월드 입장권</h3>
+          <div class="space-y-1 text-sm">
+            <div class="flex justify-between"><span class="text-slate-400">판매가</span><span class="font-bold text-white tabular-nums">95,000원</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">판매가(VND)</span><span class="text-slate-300 tabular-nums">870,000₫</span></div>
+            <div class="flex justify-between"><span class="text-slate-500 flex items-center gap-1">매입원가<span class="material-symbols-outlined text-[12px] text-slate-600">visibility</span></span><span class="text-slate-500 tabular-nums">700,000₫</span></div>
+          </div>
+          <div class="flex items-center justify-between pt-1">
+            <span class="bg-emerald-500/15 text-emerald-400 text-[11px] font-bold px-2.5 py-1 rounded-full">마진 20%</span>
+            <label class="inline-flex items-center cursor-pointer"><input type="checkbox" checked class="sr-only peer"><div class="w-9 h-5 bg-slate-700 peer-checked:bg-[#3B82F6] rounded-full relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 peer-checked:after:translate-x-4 after:transition"></div></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 일일 가이드 -->
+      <div class="bg-[#1E293B] border border-slate-800 rounded-xl overflow-hidden">
+        <div class="relative h-32"><img class="w-full h-full object-cover" alt="일일 가이드" src="https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=500&q=70"/><span class="absolute top-2 left-2 bg-violet-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">가이드</span><span class="absolute top-2 right-2 bg-emerald-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">판매중</span></div>
+        <div class="p-4 space-y-2.5">
+          <h3 class="font-bold text-white">일일 가이드</h3>
+          <div class="space-y-1 text-sm">
+            <div class="flex justify-between"><span class="text-slate-400">판매가</span><span class="font-bold text-white tabular-nums">350,000원</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">판매가(VND)</span><span class="text-slate-300 tabular-nums">320,000₫</span></div>
+            <div class="flex justify-between"><span class="text-slate-500 flex items-center gap-1">매입원가<span class="material-symbols-outlined text-[12px] text-slate-600">visibility</span></span><span class="text-slate-500 tabular-nums">250,000₫</span></div>
+          </div>
+          <div class="flex items-center justify-between pt-1">
+            <span class="bg-emerald-500/15 text-emerald-400 text-[11px] font-bold px-2.5 py-1 rounded-full">마진 22%</span>
+            <label class="inline-flex items-center cursor-pointer"><input type="checkbox" checked class="sr-only peer"><div class="w-9 h-5 bg-slate-700 peer-checked:bg-[#3B82F6] rounded-full relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 peer-checked:after:translate-x-4 after:transition"></div></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 오토바이 렌트 (비활성) -->
+      <div class="bg-[#1E293B] border border-slate-800 rounded-xl overflow-hidden opacity-70">
+        <div class="relative h-32"><img class="w-full h-full object-cover grayscale" alt="오토바이 렌트" src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=500&q=70"/><span class="absolute top-2 left-2 bg-rose-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">오토바이</span><span class="absolute top-2 right-2 bg-slate-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">중단</span></div>
+        <div class="p-4 space-y-2.5">
+          <h3 class="font-bold text-white">오토바이 렌트</h3>
+          <div class="space-y-1 text-sm">
+            <div class="flex justify-between"><span class="text-slate-400">판매가</span><span class="font-bold text-white tabular-nums">120,000원</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">판매가(VND)</span><span class="text-slate-300 tabular-nums">110,000₫</span></div>
+            <div class="flex justify-between"><span class="text-slate-500 flex items-center gap-1">매입원가<span class="material-symbols-outlined text-[12px] text-slate-600">visibility</span></span><span class="text-slate-500 tabular-nums">80,000₫</span></div>
+          </div>
+          <div class="flex items-center justify-between pt-1">
+            <span class="bg-emerald-500/15 text-emerald-400 text-[11px] font-bold px-2.5 py-1 rounded-full">마진 27%</span>
+            <label class="inline-flex items-center cursor-pointer"><input type="checkbox" class="sr-only peer"><div class="w-9 h-5 bg-slate-700 peer-checked:bg-[#3B82F6] rounded-full relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 peer-checked:after:translate-x-4 after:transition"></div></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit modal preview card -->
+      <div class="bg-[#1E293B] border-2 border-[#3B82F6]/50 rounded-xl p-4 space-y-3">
+        <div class="flex items-center gap-2 pb-2 border-b border-slate-800"><span class="material-symbols-outlined text-[#3B82F6]">edit</span><h3 class="font-bold text-white text-sm">메뉴 편집 — 통돼지 BBQ</h3></div>
+        <div class="space-y-2.5 text-xs">
+          <div class="grid grid-cols-3 gap-2">
+            <div><label class="text-slate-500">이름 (ko)</label><input value="통돼지 BBQ" class="mt-1 w-full bg-[#0F172A] border border-slate-700 rounded px-2 py-1.5 text-white"/></div>
+            <div><label class="text-slate-500">이름 (vi)</label><input value="BBQ heo quay" class="mt-1 w-full bg-[#0F172A] border border-slate-700 rounded px-2 py-1.5 text-white"/></div>
+            <div><label class="text-slate-500">이름 (en)</label><input value="Whole Pig BBQ" class="mt-1 w-full bg-[#0F172A] border border-slate-700 rounded px-2 py-1.5 text-white"/></div>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <div><label class="text-slate-500">판매가 KRW</label><input value="1,800,000" class="mt-1 w-full bg-[#0F172A] border border-slate-700 rounded px-2 py-1.5 text-white tabular-nums text-right"/></div>
+            <div><label class="text-slate-500">판매가 VND</label><input value="1,650,000" class="mt-1 w-full bg-[#0F172A] border border-slate-700 rounded px-2 py-1.5 text-white tabular-nums text-right"/></div>
+            <div><label class="text-slate-500">원가 VND</label><input value="1,200,000" class="mt-1 w-full bg-[#0F172A] border border-slate-700 rounded px-2 py-1.5 text-amber-300 tabular-nums text-right"/></div>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div><label class="text-slate-500">단위</label><input value="1마리" class="mt-1 w-full bg-[#0F172A] border border-slate-700 rounded px-2 py-1.5 text-white"/></div>
+            <div><label class="text-slate-500">사진</label><button class="mt-1 w-full bg-[#0F172A] border border-dashed border-slate-700 rounded px-2 py-1.5 text-slate-400 flex items-center justify-center gap-1"><span class="material-symbols-outlined text-[14px]">upload</span>업로드</button></div>
+          </div>
+          <div><label class="text-slate-500">옵션</label><button class="mt-1 w-full bg-[#0F172A] border border-dashed border-slate-700 rounded px-2 py-1.5 text-slate-400 flex items-center justify-center gap-1"><span class="material-symbols-outlined text-[14px]">add</span>옵션 추가 (사이즈/구성)</button></div>
+          <div class="flex items-center justify-between pt-1"><span class="text-slate-400">판매 활성</span><label class="inline-flex items-center cursor-pointer"><input type="checkbox" checked class="sr-only peer"><div class="w-9 h-5 bg-slate-700 peer-checked:bg-[#3B82F6] rounded-full relative after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 peer-checked:after:translate-x-4 after:transition"></div></label></div>
+          <button class="w-full h-10 bg-[#3B82F6] hover:bg-blue-600 text-white font-bold rounded-lg mt-1">저장</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+</body></html>

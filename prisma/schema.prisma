@@ -284,6 +284,33 @@ model VillaMinibarStock {
   @@index([villaId])
 }
 
+// 미니바 실재고 이동 원장 (ADR-0019 S1). 현재고는 캐시 컬럼이 아니라 이 원장의 ΣqtyDelta로 산출한다
+//   (VillaMinibarStock 행은 표준 추종 시 삭제되는 sparse 구조라 현재고 캐시를 둘 수 없음 — 원장 단일소스).
+//   RESTOCK(+입고, unitCostVnd 매입단가→MinibarItem.costVnd 갱신) / CONSUME(−체크아웃 소모) / ADJUST(±수동 보정).
+//   현재고(빌라×품목) = ΣqtyDelta, 부족 = 현재고 < 비치목표(par = VillaMinibarStock.qty ?? MinibarItem.stockQty).
+//   ★ unitCostVnd(원가)는 운영자(canViewFinance) 전용 — 공급자·공개 라우트 비노출(마진 비공개 원칙2).
+enum MinibarMovementType {
+  RESTOCK // 입고(매입)
+  CONSUME // 소모(체크아웃)
+  ADJUST // 수동 보정(분실·실사)
+}
+
+model MinibarStockMovement {
+  id            String              @id @default(cuid())
+  villaId       String
+  minibarItemId String
+  type          MinibarMovementType
+  qtyDelta      Int // +입고 / −소모·차감 (현재고 = ΣqtyDelta)
+  unitCostVnd   BigInt? // RESTOCK 매입 단가(VND, 동) — 운영자 전용
+  bookingId     String? // CONSUME 출처 예약
+  note          String?
+  createdBy     String
+  createdAt     DateTime            @default(now())
+
+  @@index([villaId, minibarItemId])
+  @@index([createdAt])
+}
+
 // ===================== 시즌·요율 =====================
 
 enum SeasonType {
@@ -478,9 +505,27 @@ model CheckInRecord {
   tamTruSentAt      DateTime? // 공급자에게 여권 전달 완료 시각
   agreementSignedAt DateTime? // 안전수칙·기물파손 동의서 서명
   signatureUrl      String?
+  agreementVersion  String? // 서명 시점 동의서 판본(lib/agreement.ts AGREEMENT_VERSION) — 어느 판본에 서명했는지 추적 (ADR-0019 S3)
   notes             String?
   createdBy         String
   createdAt         DateTime  @default(now())
+}
+
+// 게스트 셀프 체크인 토큰 (ADR-0019 S3) — 예약별 1토큰, /g/[token] 비로그인 접근.
+//   단일 예약 스코프(재고 비공개 원칙1). 만료(기본 checkOut+1일)·회수 시 차단. 재발급=새 토큰(이전 revoke).
+model GuestCheckinToken {
+  id          String    @id @default(cuid())
+  bookingId   String    @unique
+  token       String    @unique
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  firstUsedAt DateTime?
+  // 게스트가 셀프로 서명한 동의서 — CheckInRecord가 아닌 토큰에 보관(관리자 completeCheckIn이
+  //   기존 CheckInRecord 없음을 요구하므로 충돌 방지). 관리자 체크인 폼이 이 서명을 그대로 채택(input.signatureUrl).
+  agreementSignedAt DateTime?
+  signatureUrl      String? // /api/passports/sig-* (비공개 증빙 경로)
+  agreementVersion  String?
+  createdAt   DateTime  @default(now())
 }
 
 model CheckOutRecord {
@@ -495,11 +540,25 @@ model CheckOutRecord {
   // 미니바 판매 총액(VND) — 보증금 차감(deductionVnd, 파손+미니바 혼합)과 별개로 미니바 매출만 분리 집계용.
   // 라인 합계의 비정규화 캐시(= Σ CheckoutMinibarLine.lineVnd). 미니바 통계 KPI 빠른 합산.
   minibarChargeVnd BigInt?
+  // 게스트 통합 청구·정산 (ADR-0019 S4) — 미니바 소비 + 확정 부가옵션 합계. 보증금(deductionVnd)과 별개.
+  //   통화별 분리(ADR-0003): VND/KRW 합산 금지. 체크아웃 시 현금/계좌이체로 수납.
+  guestChargeVnd   BigInt? // 미니바 + VND 옵션 합계
+  guestChargeKrw   Int? // KRW 옵션 합계
+  settlementMethod GuestSettlementMethod?
+  settledAt        DateTime?
+  settlementNote   String?
   refundedAt      DateTime?
   createdBy       String
   createdAt       DateTime  @default(now())
 
   minibarLines    CheckoutMinibarLine[]
+}
+
+// 게스트 체크아웃 정산 결제수단 (ADR-0019 S4) — PG 없음, 현장 수납.
+enum GuestSettlementMethod {
+  CASH // 현금
+  BANK_TRANSFER // 계좌이체
+  OTHER // 기타
 }
 
 // 체크아웃 미니바 판매 라인(품목별 스냅샷) — 미니바 매출·품목 인기·(원가 입력 후)마진 통계의 단일 소스.
@@ -682,8 +741,11 @@ enum ServiceType {
   BBQ // 통돼지 바베큐
   TICKET // 입장권
   GUIDE // 가이드
-  CAR_RENTAL // 차량+기사
+  CAR_RENTAL // 차량 렌트(기사 포함/불포함은 옵션)
   BREAKFAST // 조식 배달
+  MOTORBIKE_RENTAL // 오토바이 렌트 (ADR-0019)
+  MASSAGE // 마사지 — 풋/바디(아로마·핫스톤·건식), 출장 옵션 (ADR-0019)
+  BARBER // 이발소(귀) — 시간 + 세부시술 (ADR-0019)
 }
 
 enum ServiceOrderStatus {
@@ -693,6 +755,38 @@ enum ServiceOrderStatus {
   CANCELLED
 }
 
+// 부가서비스 주문 출처 — 게스트 셀프 요청(GUEST) vs 운영자 직접(ADMIN). ADR-0019.
+enum ServiceRequestedVia {
+  ADMIN
+  GUEST
+}
+
+// 부가서비스 판매 카탈로그(주문형) — 회사 공통 1세트(미니바와 동형, villaId 없음). ADR-0019 §4.2.
+//   게스트가 /g/[token]에서 고르는 "메뉴". active만 노출. 판매가(priceKrw/priceVnd)만 게스트 노출,
+//   ★ costVnd(매입원가)는 운영자(canViewFinance) 전용 — 게스트·공급자·공개 라우트 절대 비노출(원칙2).
+//   options = { variants:[1택·가격대체], addons:[다중·가산], modifiers:[토글·가산] } (시간티어·세부시술·출장).
+model ServiceCatalogItem {
+  id          String      @id @default(cuid())
+  type        ServiceType
+  nameKo      String
+  nameVi      String?
+  nameEn      String?
+  descKo      String?
+  descVi      String?
+  unitLabelKo String? // "1마리" "1인" "1일" 등 단위 표기
+  priceKrw    Int? // 판매가 KRW (게스트 표시)
+  priceVnd    BigInt? // 판매가 VND (현지·여행사 채널)
+  costVnd     BigInt? // 참고 매입원가 — ★게스트·공급자 비노출
+  photoUrl    String?
+  options     Json? // {variants:[...], addons:[...], modifiers:[...]}
+  active      Boolean     @default(true)
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([active, sortOrder])
+}
+
 model ServiceOrder {
   id          String             @id @default(cuid())
   bookingId   String
@@ -700,10 +794,17 @@ model ServiceOrder {
   type        ServiceType
   status      ServiceOrderStatus @default(REQUESTED)
   serviceDate DateTime?          @db.Date
-  costVnd     BigInt // 매입 원가
-  priceKrw    Int // 판매가
+  costVnd     BigInt // 매입 원가 — 게스트 요청 단계는 0(placeholder), 운영자 확정 시 실원가
+  priceKrw    Int // 판매가 KRW (스냅샷)
   vendorName  String?
   note        String?
+  // ADR-0019 — 카탈로그 연결·게스트 요청 확장
+  catalogItemId   String? // 어느 카탈로그 메뉴에서 왔는지
+  quantity        Int                 @default(1)
+  selectedOptions Json? // 선택 variant·addon·modifier 스냅샷(가격 포함)
+  requestedVia    ServiceRequestedVia @default(ADMIN)
+  guestNote       String?
+  priceVnd        BigInt? // 판매가 VND (스냅샷, 현지·여행사 채널)
   createdAt   DateTime           @default(now())
 }
 

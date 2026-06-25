@@ -10,7 +10,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import type { AppLocale } from "@/lib/locale";
-import { canViewFinance, isSystemAdmin, type Role } from "@/lib/permissions";
+import { canViewFinance, canSetPrice, isSystemAdmin, type Role } from "@/lib/permissions";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 
 interface NavItem {
@@ -35,11 +35,15 @@ const NAV_ITEMS: NavItem[] = [
   // 제안·정산=재무(canViewFinance) — STAFF 미노출. 클릭 시 게이트로도 차단되지만 메뉴부터 숨김
   { key: "proposals", href: "/proposals", icon: "rate_review", cap: canViewFinance },
   { key: "villas", href: "/villas", icon: "villa" },
+  // 미니바 실재고(ADR-0019 S1) — 빌라 운영군(빌라→재고→공실 보드). cap 미지정=전 운영자 노출
+  { key: "inventory", href: "/inventory", icon: "inventory_2" },
   { key: "availability", href: "/availability", icon: "event_available" },
   { key: "inspections", href: "/inspections", icon: "cleaning_services" },
   { key: "settlements", href: "/settlements", icon: "payments", cap: canViewFinance },
   // 통계(T-admin-statistics) — 정산 카테고리 아래 배치(사용자 요청). 전 운영자 노출(탭별 금액 게이트는 페이지 내부)
   { key: "statistics", href: "/statistics", icon: "analytics" },
+  // 서비스 카탈로그(ADR-0019 S2) — 부가서비스 판매 메뉴. 가격 설정 권한(canSetPrice=OWNER/MANAGER)만 노출
+  { key: "services", href: "/settings/services", icon: "restaurant", cap: canSetPrice },
   { key: "messages", href: "/messages", icon: "chat" },
   // 사용자·설정=시스템(isSystemAdmin) — OWNER만 노출 (MANAGER/STAFF 미노출)
   { key: "users", href: "/users", icon: "group", cap: isSystemAdmin },
