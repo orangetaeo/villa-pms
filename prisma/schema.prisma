@@ -709,8 +709,11 @@ enum ServiceType {
   BBQ // 통돼지 바베큐
   TICKET // 입장권
   GUIDE // 가이드
-  CAR_RENTAL // 차량+기사
+  CAR_RENTAL // 차량 렌트(기사 포함/불포함은 옵션)
   BREAKFAST // 조식 배달
+  MOTORBIKE_RENTAL // 오토바이 렌트 (ADR-0019)
+  MASSAGE // 마사지 — 풋/바디(아로마·핫스톤·건식), 출장 옵션 (ADR-0019)
+  BARBER // 이발소(귀) — 시간 + 세부시술 (ADR-0019)
 }
 
 enum ServiceOrderStatus {
@@ -720,6 +723,38 @@ enum ServiceOrderStatus {
   CANCELLED
 }
 
+// 부가서비스 주문 출처 — 게스트 셀프 요청(GUEST) vs 운영자 직접(ADMIN). ADR-0019.
+enum ServiceRequestedVia {
+  ADMIN
+  GUEST
+}
+
+// 부가서비스 판매 카탈로그(주문형) — 회사 공통 1세트(미니바와 동형, villaId 없음). ADR-0019 §4.2.
+//   게스트가 /g/[token]에서 고르는 "메뉴". active만 노출. 판매가(priceKrw/priceVnd)만 게스트 노출,
+//   ★ costVnd(매입원가)는 운영자(canViewFinance) 전용 — 게스트·공급자·공개 라우트 절대 비노출(원칙2).
+//   options = { variants:[1택·가격대체], addons:[다중·가산], modifiers:[토글·가산] } (시간티어·세부시술·출장).
+model ServiceCatalogItem {
+  id          String      @id @default(cuid())
+  type        ServiceType
+  nameKo      String
+  nameVi      String?
+  nameEn      String?
+  descKo      String?
+  descVi      String?
+  unitLabelKo String? // "1마리" "1인" "1일" 등 단위 표기
+  priceKrw    Int? // 판매가 KRW (게스트 표시)
+  priceVnd    BigInt? // 판매가 VND (현지·여행사 채널)
+  costVnd     BigInt? // 참고 매입원가 — ★게스트·공급자 비노출
+  photoUrl    String?
+  options     Json? // {variants:[...], addons:[...], modifiers:[...]}
+  active      Boolean     @default(true)
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([active, sortOrder])
+}
+
 model ServiceOrder {
   id          String             @id @default(cuid())
   bookingId   String
@@ -727,10 +762,17 @@ model ServiceOrder {
   type        ServiceType
   status      ServiceOrderStatus @default(REQUESTED)
   serviceDate DateTime?          @db.Date
-  costVnd     BigInt // 매입 원가
-  priceKrw    Int // 판매가
+  costVnd     BigInt // 매입 원가 — 게스트 요청 단계는 0(placeholder), 운영자 확정 시 실원가
+  priceKrw    Int // 판매가 KRW (스냅샷)
   vendorName  String?
   note        String?
+  // ADR-0019 — 카탈로그 연결·게스트 요청 확장
+  catalogItemId   String? // 어느 카탈로그 메뉴에서 왔는지
+  quantity        Int                 @default(1)
+  selectedOptions Json? // 선택 variant·addon·modifier 스냅샷(가격 포함)
+  requestedVia    ServiceRequestedVia @default(ADMIN)
+  guestNote       String?
+  priceVnd        BigInt? // 판매가 VND (스냅샷, 현지·여행사 채널)
   createdAt   DateTime           @default(now())
 }
 
