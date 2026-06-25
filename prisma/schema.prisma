@@ -505,9 +505,27 @@ model CheckInRecord {
   tamTruSentAt      DateTime? // 공급자에게 여권 전달 완료 시각
   agreementSignedAt DateTime? // 안전수칙·기물파손 동의서 서명
   signatureUrl      String?
+  agreementVersion  String? // 서명 시점 동의서 판본(lib/agreement.ts AGREEMENT_VERSION) — 어느 판본에 서명했는지 추적 (ADR-0019 S3)
   notes             String?
   createdBy         String
   createdAt         DateTime  @default(now())
+}
+
+// 게스트 셀프 체크인 토큰 (ADR-0019 S3) — 예약별 1토큰, /g/[token] 비로그인 접근.
+//   단일 예약 스코프(재고 비공개 원칙1). 만료(기본 checkOut+1일)·회수 시 차단. 재발급=새 토큰(이전 revoke).
+model GuestCheckinToken {
+  id          String    @id @default(cuid())
+  bookingId   String    @unique
+  token       String    @unique
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  firstUsedAt DateTime?
+  // 게스트가 셀프로 서명한 동의서 — CheckInRecord가 아닌 토큰에 보관(관리자 completeCheckIn이
+  //   기존 CheckInRecord 없음을 요구하므로 충돌 방지). 관리자 체크인 폼이 이 서명을 그대로 채택(input.signatureUrl).
+  agreementSignedAt DateTime?
+  signatureUrl      String? // /api/passports/sig-* (비공개 증빙 경로)
+  agreementVersion  String?
+  createdAt   DateTime  @default(now())
 }
 
 model CheckOutRecord {
