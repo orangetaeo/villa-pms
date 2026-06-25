@@ -16,6 +16,7 @@
   "nav": {
     "brandSub": "Villa PMS Admin",
     "dashboard": "대시보드",
+    "statistics": "통계",
     "bookings": "예약",
     "proposals": "제안",
     "villas": "빌라",
@@ -2000,7 +2001,8 @@
     "users": "사용자 관리",
     "villas": "빌라 관리",
     "villaDetail": "빌라 상세",
-    "availability": "공실 보드"
+    "availability": "공실 보드",
+    "statistics": "통계"
   },
   "pagination": {
     "summary": "{from}–{to} · 총 {total}건",
@@ -2146,6 +2148,134 @@
       "guestSign": "게스트 서명",
       "staffConfirm": "담당자 확인",
       "signDate": "서명일"
+    }
+  },
+  "adminStatistics": {
+    "title": "통계",
+    "subtitle": "사업 성과 분석",
+    "tabs": {
+      "overview": "개요",
+      "occupancy": "가동률",
+      "villas": "빌라 성과",
+      "operations": "운영지표"
+    },
+    "range": {
+      "6": "최근 6개월",
+      "12": "최근 12개월",
+      "label": "기간",
+      "year": "연도"
+    },
+    "channels": {
+      "TRAVEL_AGENCY": "여행사",
+      "LAND_AGENCY": "랜드사",
+      "DIRECT": "직접"
+    },
+    "common": {
+      "changeFromPrev": "전월 대비",
+      "noData": "표시할 데이터가 없습니다",
+      "fxSnapshotNote": "환율 스냅샷 기준 참고",
+      "fxSnapshotNoteShort": "환율 스냅샷 참고",
+      "bookingsUnit": "건",
+      "nightsUnit": "박"
+    },
+    "overview": {
+      "basisNote": "매출 인식 = 체크아웃 월 기준 · 통화별 분리 집계 (KRW·VND 합산하지 않음)",
+      "fxMissingNote": "환율 미기록 예약 {count}건은 마진 집계에서 제외",
+      "kpi": {
+        "krwRevenue": "이번 달 KRW 매출",
+        "krwRevenueNote": "직접(DIRECT) 채널",
+        "vndRevenue": "이번 달 VND 매출",
+        "vndRevenueNote": "여행사·랜드사 채널",
+        "margin": "환산 마진",
+        "marginNote": "VND 환산 기준",
+        "marginRate": "평균 마진율",
+        "marginRateNote": "VND 환산 기준"
+      },
+      "revenueChart": {
+        "title": "월별 매출 추이",
+        "subtitle": "KRW·VND 분리 표시 (좌·우 축 별도) — 합산 아님",
+        "krwLegend": "KRW (좌축, 원)",
+        "vndLegend": "VND (우축, ₫)"
+      },
+      "channelChart": {
+        "title": "채널별 비중",
+        "byCount": "건수",
+        "byRevenue": "매출",
+        "totalBookings": "총 예약 건"
+      }
+    },
+    "occupancy": {
+      "kpi": {
+        "currentRate": "이번 달 전체 가동률",
+        "change": "전월 대비",
+        "changeNote": "전월 {prev}% → 이번 달 {current}%",
+        "avgNights": "평균 박수 / 예약",
+        "avgNightsNote": "이번 달 {bookings}예약 · 총 {nights}박"
+      },
+      "trendChart": {
+        "title": "월별 가동률 추이",
+        "subtitle": "최근 12개월 · 0~100%",
+        "legend": "전체 가동률"
+      },
+      "villaChart": {
+        "title": "빌라별 가동률 (내림차순)",
+        "allComplexes": "전체 단지"
+      }
+    },
+    "villas": {
+      "gateNote": "매출·환산마진 컬럼은 권한(OWNER·MANAGER) 전용 — STAFF 계정에는 서버에서 제거되어 페이로드에 포함되지 않습니다.",
+      "topChart": {
+        "title": "상위 10 빌라",
+        "byRate": "가동률",
+        "byBookings": "예약수",
+        "byRevenue": "매출"
+      },
+      "table": {
+        "title": "빌라 랭킹",
+        "hint": "컬럼 클릭으로 정렬 · <768px 카드 전환",
+        "name": "빌라명",
+        "complex": "단지",
+        "bookings": "예약수",
+        "nights": "점유박",
+        "rate": "가동률",
+        "krwRevenue": "KRW매출",
+        "vndRevenue": "VND매출",
+        "margin": "환산마진",
+        "marginRef": "참고",
+        "noComplex": "단지 미지정"
+      }
+    },
+    "operations": {
+      "funnel": {
+        "title": "제안 전환 깔때기",
+        "subtitle": "제안 생성 → 가예약 → 확정 → 체크아웃 · 단계별 전환율",
+        "proposals": "제안 생성",
+        "reserved": "가예약",
+        "confirmed": "확정",
+        "checkedOut": "체크아웃",
+        "overallLabel": "전체 전환율 (제안→체크아웃)"
+      },
+      "ratios": {
+        "holdExpiry": "홀드 만료율",
+        "holdExpiryNote": "생성 HOLD {created}건 중 {expired}건 만료",
+        "cancel": "취소율",
+        "cancelNote": "전체 예약 대비",
+        "noShow": "NO_SHOW율",
+        "noShowNote": "체크아웃+노쇼 대비"
+      },
+      "cleaning": {
+        "title": "청소 검수",
+        "avgTurnaround": "평균 처리시간",
+        "hoursUnit": "시간",
+        "pending": "미결(승인 대기)",
+        "rejectRate": "반려율 (제출 대비)"
+      },
+      "deposit": {
+        "title": "보증금 차감",
+        "gateBadge": "권한 전용",
+        "note": "부분 차감(PARTIAL_DEDUCTED) {count}건 합계",
+        "staffNote": "STAFF 계정엔 이 카드 미노출"
+      }
     }
   }
 }

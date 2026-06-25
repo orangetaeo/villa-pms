@@ -24,6 +24,7 @@ const FINANCE_PATHS = ["/settlements", "/cost-alerts", "/proposals", "/earnings"
 // (/calendar·/cleaning·/my-villas는 SUPPLIER/CLEANER도 접근하므로 아래 공유 게이트에서 별도 처리)
 const OPERATOR_ONLY_PATHS = [
   "/dashboard",
+  "/statistics",
   "/villas",
   "/bookings",
   "/inspections",

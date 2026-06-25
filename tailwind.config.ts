@@ -26,6 +26,9 @@ const config: Config = {
           active: "#16A34A",
           inactive: "#475569",
           alert: "#DC2626",
+          // 통계 통화 구분색 (b17 Stitch): KRW=블루(admin-primary 동일), VND=에메랄드
+          krw: "#3B82F6",
+          vnd: "#10B981",
         },
       },
       borderRadius: {

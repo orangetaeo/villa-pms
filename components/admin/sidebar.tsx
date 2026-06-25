@@ -30,6 +30,8 @@ function setLocaleCookie(name: string, value: string) {
 // 공실 보드(T-admin-availability-board): 빌라 운영군(빌라→공실 보드→청소 검수)에 배치
 const NAV_ITEMS: NavItem[] = [
   { key: "dashboard", href: "/dashboard", icon: "dashboard" },
+  // 통계(T-admin-statistics) — 전 운영자 노출(탭별 금액 게이트는 페이지 내부)
+  { key: "statistics", href: "/statistics", icon: "analytics" },
   { key: "bookings", href: "/bookings", icon: "calendar_month" },
   // 제안·정산=재무(canViewFinance) — STAFF 미노출. 클릭 시 게이트로도 차단되지만 메뉴부터 숨김
   { key: "proposals", href: "/proposals", icon: "rate_review", cap: canViewFinance },
