@@ -1196,7 +1196,10 @@
       "phoneTaken": "이미 사용 중인 전화번호입니다.",
       "passwordTooShort": "비밀번호는 8자 이상이어야 합니다.",
       "hasVillas": "보유 빌라가 있는 공급자는 다른 역할로 변경할 수 없습니다. 먼저 빌라를 이전하세요.",
-      "cannotChangeOwnRole": "본인 계정의 역할은 변경할 수 없습니다."
+      "cannotChangeOwnRole": "본인 계정의 역할은 변경할 수 없습니다.",
+      "cannotDeleteSelf": "본인 계정은 삭제할 수 없습니다.",
+      "cannotDeleteOwner": "최상위 관리자(소유자) 계정은 삭제할 수 없습니다.",
+      "hasVillasDelete": "보유 빌라가 있는 공급자는 삭제할 수 없습니다. 먼저 빌라를 이전하세요."
     },
     "empty": "표시할 사용자가 없습니다.",
     "addUser": {
@@ -1227,6 +1230,12 @@
       "copied": "복사됨",
       "warning": "이 비밀번호는 지금만 표시됩니다. 창을 닫으면 다시 볼 수 없습니다. 사용자에게 전달 후 직접 변경하도록 안내하세요.",
       "close": "닫기"
+    },
+    "delete": {
+      "action": "삭제",
+      "selfHint": "본인 계정은 삭제할 수 없습니다.",
+      "confirm": "{name} 님을 삭제할까요? 목록과 로그인에서 제외되며, 데이터와 빌라는 보존됩니다.",
+      "success": "회원이 삭제되었습니다."
     }
   },
   "adminProposals": {

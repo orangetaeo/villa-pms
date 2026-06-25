@@ -252,3 +252,87 @@ export async function PATCH(
     ...(tempPassword ? { tempPassword } : {}),
   });
 }
+
+// DELETE /api/users/[id] — 회원 소프트 삭제 (deletedAt 스탬프).
+// 완전 삭제 아님: 데이터·빌라는 보존하고 목록·로그인에서만 제외. 복구는 DB에서 deletedAt=null.
+// 차단: 본인(락아웃), OWNER(최상위 권한 보호), 빌라 보유 SUPPLIER(고아 방지 — 먼저 이관).
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  // 권한 검사 — ADMIN 전용 (route handler 첫 줄 role 검사 규칙)
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
+  if (!isSystemAdmin(session.user.role)) {
+    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  }
+
+  const { id } = await params;
+
+  // 본인 삭제 금지 — ADMIN 락아웃 방지
+  if (id === session.user.id) {
+    return NextResponse.json({ error: "CANNOT_DELETE_SELF" }, { status: 400 });
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        role: true,
+        deletedAt: true,
+        zaloUserId: true,
+        _count: { select: { villas: true } },
+      },
+    });
+    if (!user) return { kind: "NOT_FOUND" as const };
+    // 이미 삭제됨 — 멱등 처리 (성공으로 응답)
+    if (user.deletedAt) return { kind: "OK" as const };
+    // OWNER 보호 — 최상위 권한 계정은 삭제 불가 (권한상승·시스템 고립 방지)
+    if (user.role === "OWNER") return { kind: "CANNOT_DELETE_OWNER" as const };
+    // 빌라 보유 공급자 — 삭제 시 빌라가 고아되므로 차단 (CHANGE_ROLE과 동일 정책)
+    if (user.role === "SUPPLIER" && user._count.villas > 0) {
+      return { kind: "HAS_VILLAS" as const };
+    }
+
+    await tx.user.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        // 비활성화 동시 적용 — isActive 기반 로직도 삭제된 계정을 차단하도록
+        isActive: false,
+        // Zalo 식별자 해제 — @unique 점유 해제로 다른 계정이 동일 Zalo 재연결 가능
+        zaloUserId: null,
+      },
+    });
+    // 소프트 삭제로 끊긴 대화는 userId 분리 (UNLINK_ZALO와 동일)
+    await tx.zaloConversation.updateMany({
+      where: { userId: id },
+      data: { userId: null },
+    });
+
+    await writeAuditLog({
+      userId: session.user.id,
+      action: "DELETE",
+      entity: "User",
+      entityId: id,
+      changes: { deletedAt: { old: null, new: "(soft-deleted)" } },
+      db: tx,
+    });
+    return { kind: "OK" as const };
+  });
+
+  if (result.kind === "NOT_FOUND") {
+    return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
+  if (result.kind === "CANNOT_DELETE_OWNER") {
+    return NextResponse.json({ error: "CANNOT_DELETE_OWNER" }, { status: 403 });
+  }
+  if (result.kind === "HAS_VILLAS") {
+    return NextResponse.json({ error: "HAS_VILLAS" }, { status: 409 });
+  }
+
+  return NextResponse.json({ id, deleted: true });
+}
