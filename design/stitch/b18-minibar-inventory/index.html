@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<!--
+  b18 — 미니바 재고 (ADR-0019 §4.1·§6, SPEC F8) · 운영자(ADMIN) 다크
+  현재고(onHandQty) vs 비치목표(par). 입고 → onHandQty 증가 + MinibarItem.costVnd 갱신 → 미니바 마진 통계 활성.
+  부족 경보(현재고<par) 배너+필터. 매입단가(VND, 쉼표)는 canViewFinance 전용.
+  다크 #0F172A/#1E293B/#3B82F6, Public Sans+Noto Sans KR. 브랜드 "Villa Go".
+-->
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>미니바 재고 · Villa Go Admin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = { darkMode:"class", theme:{ extend:{
+    colors:{ brand:{ primary:"#3B82F6", navy:"#0F172A", slate:"#1E293B" } },
+    borderRadius:{ "DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px" },
+    fontFamily:{ headline:["Public Sans","Noto Sans KR","sans-serif"], body:["Public Sans","Noto Sans KR","sans-serif"] }
+  } } }
+</script>
+<style>
+  .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; vertical-align:middle; }
+  body { font-family:"Public Sans","Noto Sans KR",sans-serif; word-break:keep-all; }
+  th, button, .tabular-nums, span[class*="rounded"] { white-space:nowrap; }
+  ::-webkit-scrollbar { width:8px; height:8px; } ::-webkit-scrollbar-track { background:#0F172A; }
+  ::-webkit-scrollbar-thumb { background:#334155; border-radius:4px; }
+</style>
+</head>
+<body class="bg-[#0F172A] text-slate-200 font-body antialiased">
+
+<!-- Sidebar (표준 10메뉴 + 통계) -->
+<aside class="h-screen w-64 fixed left-0 top-0 border-r border-slate-800 bg-[#0F172A] flex flex-col py-4 z-50">
+  <div class="px-6 mb-8">
+    <h1 class="text-xl font-headline font-black text-white">Villa Go</h1>
+    <p class="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Villa Go Admin</p>
+  </div>
+  <nav class="flex-1 space-y-1 overflow-y-auto">
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">dashboard</span><span class="text-sm font-medium">대시보드</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">calendar_month</span><span class="text-sm font-medium">예약</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">rate_review</span><span class="text-sm font-medium">제안</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">villa</span><span class="text-sm font-medium">빌라</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">grid_view</span><span class="text-sm font-medium">공실 보드</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">fact_check</span><span class="text-sm font-medium">청소 검수</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">payments</span><span class="text-sm font-medium">정산</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">chat</span><span class="text-sm font-medium">메시지</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">group</span><span class="text-sm font-medium">사용자</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">analytics</span><span class="text-sm font-medium">통계</span></a>
+    <!-- Active: 설정 > 미니바 재고 -->
+    <a class="text-white bg-[#3B82F6] rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">inventory_2</span><span class="text-sm font-medium">미니바 재고</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">settings</span><span class="text-sm font-medium">설정</span></a>
+  </nav>
+  <div class="px-4 mt-auto pt-4">
+    <div class="bg-slate-800/50 rounded-xl p-3 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">관</div>
+      <div class="overflow-hidden"><p class="text-sm font-bold text-white truncate">관리자</p><p class="text-[10px] text-slate-500">최고 관리자</p></div>
+    </div>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="ml-64 flex flex-col min-h-screen">
+  <header class="sticky top-0 z-40 bg-[#0F172A] border-b border-slate-800 flex justify-between items-center h-16 px-6">
+    <div class="flex items-center gap-3"><h2 class="text-lg font-bold text-white">미니바 재고</h2><span class="text-slate-600">/</span><span class="text-sm text-slate-400">빌라별 현재고 · 입고 관리</span></div>
+    <div class="flex items-center gap-4 text-slate-400">
+      <div class="flex items-center px-2 py-0.5 rounded border border-slate-700 bg-slate-800/50 text-white text-[10px] font-medium tabular-nums">1,000,000₫ ≈ 53,000원</div>
+      <button class="relative hover:text-white"><span class="material-symbols-outlined">notifications</span><span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-[#0F172A]"></span></button>
+    </div>
+  </header>
+
+  <div class="flex-1 p-6 space-y-5">
+
+    <!-- Red alert banner -->
+    <div class="bg-red-500/10 border border-red-500/40 rounded-xl px-5 py-4 flex items-center gap-3">
+      <span class="material-symbols-outlined text-red-400">warning</span>
+      <p class="text-sm font-semibold text-red-300">재고 부족 · 3개 빌라 보충 필요</p>
+      <button class="ml-auto text-xs font-bold text-red-300 bg-red-500/15 hover:bg-red-500/25 rounded-lg px-3 py-1.5">부족만 보기</button>
+    </div>
+
+    <div class="grid grid-cols-3 gap-6 items-start">
+
+      <!-- Table (2 cols) -->
+      <div class="col-span-2 bg-[#1E293B] border border-slate-800 rounded-xl overflow-hidden">
+        <div class="flex items-center gap-2 px-5 py-3 border-b border-slate-800">
+          <button class="text-xs font-bold rounded-lg px-3 py-1.5 bg-[#3B82F6] text-white">전체</button>
+          <button class="text-xs font-medium rounded-lg px-3 py-1.5 text-slate-400 hover:text-white hover:bg-slate-800">부족만</button>
+        </div>
+        <table class="w-full text-sm">
+          <thead class="text-slate-400 text-xs border-b border-slate-800">
+            <tr>
+              <th class="text-left font-semibold px-5 py-3">빌라</th>
+              <th class="text-left font-semibold px-3 py-3">품목</th>
+              <th class="text-right font-semibold px-3 py-3">비치 목표</th>
+              <th class="text-right font-semibold px-3 py-3">현재고</th>
+              <th class="text-center font-semibold px-3 py-3">상태</th>
+              <th class="text-right font-semibold px-5 py-3"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800">
+            <tr class="hover:bg-slate-800/40">
+              <td class="px-5 py-3 font-medium text-white">쏘나씨 V11</td><td class="px-3 py-3 text-slate-300">생수</td>
+              <td class="px-3 py-3 text-right tabular-nums text-slate-300">4</td><td class="px-3 py-3 text-right tabular-nums font-bold text-red-400">1</td>
+              <td class="px-3 py-3 text-center"><span class="bg-red-500/15 text-red-400 text-[11px] font-bold px-2.5 py-1 rounded-full">부족</span></td>
+              <td class="px-5 py-3 text-right"><button class="text-xs font-bold bg-[#3B82F6] hover:bg-blue-600 text-white rounded-lg px-3 py-1.5">입고</button></td>
+            </tr>
+            <tr class="hover:bg-slate-800/40">
+              <td class="px-5 py-3 font-medium text-white">쏘나씨 V11</td><td class="px-3 py-3 text-slate-300">맥주</td>
+              <td class="px-3 py-3 text-right tabular-nums text-slate-300">2</td><td class="px-3 py-3 text-right tabular-nums text-slate-200">2</td>
+              <td class="px-3 py-3 text-center"><span class="bg-emerald-500/15 text-emerald-400 text-[11px] font-bold px-2.5 py-1 rounded-full">충분</span></td>
+              <td class="px-5 py-3 text-right"><button class="text-xs font-bold border border-slate-700 hover:bg-slate-800 text-slate-300 rounded-lg px-3 py-1.5">입고</button></td>
+            </tr>
+            <tr class="hover:bg-slate-800/40">
+              <td class="px-5 py-3 font-medium text-white">쏘나씨 V12</td><td class="px-3 py-3 text-slate-300">탄산음료</td>
+              <td class="px-3 py-3 text-right tabular-nums text-slate-300">2</td><td class="px-3 py-3 text-right tabular-nums font-bold text-red-400">0</td>
+              <td class="px-3 py-3 text-center"><span class="bg-red-500/15 text-red-400 text-[11px] font-bold px-2.5 py-1 rounded-full">부족</span></td>
+              <td class="px-5 py-3 text-right"><button class="text-xs font-bold bg-[#3B82F6] hover:bg-blue-600 text-white rounded-lg px-3 py-1.5">입고</button></td>
+            </tr>
+            <tr class="hover:bg-slate-800/40">
+              <td class="px-5 py-3 font-medium text-white">썬셋 사나토 A3</td><td class="px-3 py-3 text-slate-300">스낵·과자</td>
+              <td class="px-3 py-3 text-right tabular-nums text-slate-300">3</td><td class="px-3 py-3 text-right tabular-nums font-bold text-red-400">1</td>
+              <td class="px-3 py-3 text-center"><span class="bg-red-500/15 text-red-400 text-[11px] font-bold px-2.5 py-1 rounded-full">부족</span></td>
+              <td class="px-5 py-3 text-right"><button class="text-xs font-bold bg-[#3B82F6] hover:bg-blue-600 text-white rounded-lg px-3 py-1.5">입고</button></td>
+            </tr>
+            <tr class="hover:bg-slate-800/40">
+              <td class="px-5 py-3 font-medium text-white">썬셋 사나토 A3</td><td class="px-3 py-3 text-slate-300">생수</td>
+              <td class="px-3 py-3 text-right tabular-nums text-slate-300">4</td><td class="px-3 py-3 text-right tabular-nums text-slate-200">4</td>
+              <td class="px-3 py-3 text-center"><span class="bg-emerald-500/15 text-emerald-400 text-[11px] font-bold px-2.5 py-1 rounded-full">충분</span></td>
+              <td class="px-5 py-3 text-right"><button class="text-xs font-bold border border-slate-700 hover:bg-slate-800 text-slate-300 rounded-lg px-3 py-1.5">입고</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 입고 form (right) -->
+      <div class="bg-[#1E293B] border border-slate-800 rounded-xl p-5 space-y-4 sticky top-24">
+        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-[#3B82F6]">add_box</span><h3 class="font-bold text-white">입고 기록</h3></div>
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-slate-400">빌라</label>
+          <select class="w-full bg-[#0F172A] border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#3B82F6] focus:ring-0"><option>쏘나씨 V11</option><option>쏘나씨 V12</option><option>썬셋 사나토 A3</option></select>
+        </div>
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-slate-400">품목</label>
+          <select class="w-full bg-[#0F172A] border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#3B82F6] focus:ring-0"><option>생수</option><option>탄산음료</option><option>맥주</option><option>스낵·과자</option></select>
+        </div>
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-slate-400">입고 수량</label>
+          <div class="flex items-center gap-3">
+            <button class="w-10 h-10 rounded-lg border border-slate-700 text-slate-300 text-lg hover:bg-slate-800">−</button>
+            <span class="flex-1 text-center text-lg font-bold text-white tabular-nums">10</span>
+            <button class="w-10 h-10 rounded-lg bg-[#3B82F6] text-white text-lg hover:bg-blue-600">+</button>
+          </div>
+        </div>
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-slate-400 flex items-center gap-1.5">매입 단가 (VND) <span class="material-symbols-outlined text-[14px] text-slate-500" title="canViewFinance 전용">visibility</span></label>
+          <div class="relative">
+            <input value="9,000" class="w-full bg-[#0F172A] border border-slate-700 rounded-lg pl-3 pr-8 py-2.5 text-sm text-white tabular-nums text-right focus:border-[#3B82F6] focus:ring-0"/>
+            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">₫</span>
+          </div>
+        </div>
+        <div class="bg-[#0F172A] border border-slate-800 rounded-lg p-3 flex gap-2">
+          <span class="material-symbols-outlined text-slate-500 text-[18px]">lightbulb</span>
+          <p class="text-[11px] text-slate-400 leading-relaxed">매입 단가 입력 시 미니바 마진 통계가 활성화됩니다.</p>
+        </div>
+        <button class="w-full h-12 bg-[#3B82F6] hover:bg-blue-600 text-white font-bold rounded-lg">입고 기록</button>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+</body></html>

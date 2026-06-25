@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<!--
+  G3 — 게스트 이용 동의서 서명 (ADR-0019 §5.3, SPEC F9 단계3) · step 2/4
+  라우트: /g/[token]. lib/agreement.ts 본문(수영장 빌라 자동 조항) + 5개국어(?lang=).
+  서명 패드 → CheckInRecord.agreementSignedAt·signatureUrl·agreementVersion.
+  버전 칩 "버전 2026-06". 마진/가격 미노출.
+-->
+<html lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>이용 동의서 — Villa Go</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = { theme: { extend: {
+    colors: { primary: "#0D9488", secondary: "#F59E0B" },
+    borderRadius: { "DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px" },
+    fontFamily: { headline: ["Be Vietnam Pro","Noto Sans KR","sans-serif"], body: ["Be Vietnam Pro","Noto Sans KR","sans-serif"] }
+  } } }
+</script>
+<style>
+  body { font-family: "Be Vietnam Pro", "Noto Sans KR", sans-serif; word-break: keep-all; min-height: max(884px, 100dvh); }
+  button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; vertical-align: middle; }
+  .sign-pad { background-image: repeating-linear-gradient(45deg, rgba(13,148,136,.03) 0, rgba(13,148,136,.03) 2px, transparent 2px, transparent 8px); }
+</style>
+</head>
+<body class="antialiased text-slate-900 bg-slate-50">
+<div class="max-w-md mx-auto min-h-screen bg-white flex flex-col shadow-2xl relative">
+
+<!-- TOP APP BAR + progress -->
+<header class="w-full sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-slate-100">
+  <div class="flex items-center h-14 px-3">
+    <button class="p-2 rounded-full hover:bg-slate-50 active:scale-95"><span class="material-symbols-outlined text-slate-600">arrow_back</span></button>
+    <h1 class="font-bold text-base text-slate-900 ml-1">이용 동의서</h1>
+    <span class="ml-auto text-xs font-bold text-slate-400 tabular-nums">2/4</span>
+  </div>
+  <div class="h-1 bg-slate-100"><div class="h-1 bg-teal-600 w-2/4"></div></div>
+</header>
+
+<main class="flex-grow px-5 py-6 space-y-6">
+
+  <!-- Title + version + language -->
+  <section class="space-y-3">
+    <div class="flex items-center justify-between gap-3">
+      <h2 class="text-lg font-extrabold text-slate-900">빌라 이용 동의서</h2>
+      <span class="shrink-0 bg-slate-100 text-slate-500 text-[11px] font-bold px-2.5 py-1 rounded-full">버전 2026-06</span>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button class="text-xs font-bold bg-teal-600 text-white rounded-full px-3 py-1.5">한국어</button>
+      <button class="text-xs font-medium bg-slate-50 border border-slate-200 text-slate-600 rounded-full px-3 py-1.5">Tiếng Việt</button>
+      <button class="text-xs font-medium bg-slate-50 border border-slate-200 text-slate-600 rounded-full px-3 py-1.5">English</button>
+      <button class="text-xs font-medium bg-slate-50 border border-slate-200 text-slate-600 rounded-full px-3 py-1.5">中文</button>
+      <button class="text-xs font-medium bg-slate-50 border border-slate-200 text-slate-600 rounded-full px-3 py-1.5">Русский</button>
+    </div>
+  </section>
+
+  <!-- Scrollable clauses -->
+  <section class="border border-slate-200 rounded-xl bg-slate-50/50 p-4 h-56 overflow-y-auto space-y-4 text-sm leading-relaxed text-slate-600">
+    <div>
+      <p class="font-bold text-slate-800 mb-1">1. 안전 수칙</p>
+      <p>빌라 내 시설을 안전하게 이용해 주세요. 야간 외부 활동 시 주의하시고, 화재 예방을 위해 실내 흡연을 삼가 주세요.</p>
+    </div>
+    <div>
+      <p class="font-bold text-slate-800 mb-1">2. 수영장 안전</p>
+      <p>수영장에는 안전 요원이 없습니다. 어린이는 반드시 보호자와 함께 이용하고, 음주 후 수영을 금합니다. 야간(22:00 이후) 이용을 자제해 주세요.</p>
+    </div>
+    <div>
+      <p class="font-bold text-slate-800 mb-1">3. 기물 파손</p>
+      <p>고의 또는 부주의로 인한 시설·비품 파손 시 보증금에서 차감될 수 있습니다. 체크아웃 검수 시 사진으로 확인합니다.</p>
+    </div>
+    <div>
+      <p class="font-bold text-slate-800 mb-1">4. 보증금</p>
+      <p>보증금은 체크아웃 검수 후 파손·미니바·옵션 정산을 마치고 반환됩니다.</p>
+    </div>
+  </section>
+
+  <!-- Signature pad -->
+  <section class="space-y-2">
+    <div class="flex items-center justify-between">
+      <label class="text-sm font-bold text-slate-800">서명</label>
+      <button class="text-xs font-semibold text-teal-600 hover:underline flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">ink_eraser</span>지우기</button>
+    </div>
+    <div class="sign-pad relative border-2 border-dashed border-teal-200 rounded-xl h-40 flex items-center justify-center bg-white">
+      <span class="text-slate-300 text-sm font-medium">여기에 서명해주세요</span>
+    </div>
+  </section>
+
+  <!-- Agree checkbox -->
+  <label class="flex items-center gap-3 cursor-pointer">
+    <input type="checkbox" class="w-6 h-6 rounded-md border-slate-300 text-teal-600 focus:ring-teal-500"/>
+    <span class="text-sm font-semibold text-slate-800">위 내용에 동의하며 서명합니다</span>
+  </label>
+
+</main>
+
+<!-- Sticky CTA (disabled until signed) -->
+<div class="sticky bottom-0 bg-white/95 backdrop-blur border-t border-slate-100 px-5 py-4">
+  <button disabled class="w-full h-14 bg-slate-200 text-slate-400 font-bold rounded-xl cursor-not-allowed">동의하고 서명 완료</button>
+</div>
+
+</div>
+</body></html>
