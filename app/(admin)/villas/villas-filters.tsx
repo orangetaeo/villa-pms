@@ -6,7 +6,20 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
-export default function VillasFilters({ areas }: { areas: string[] }) {
+interface SupplierOption {
+  id: string;
+  name: string;
+  count: number;
+  deleted: boolean;
+}
+
+export default function VillasFilters({
+  areas,
+  suppliers,
+}: {
+  areas: string[];
+  suppliers: SupplierOption[];
+}) {
   const t = useTranslations("adminVillas.list");
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -23,7 +36,8 @@ export default function VillasFilters({ areas }: { areas: string[] }) {
 
   const area = searchParams.get("area") ?? "";
   const q = searchParams.get("q") ?? "";
-  const hasFilter = Boolean(area || q);
+  const supplier = searchParams.get("supplier") ?? "";
+  const hasFilter = Boolean(area || q || supplier);
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -42,6 +56,29 @@ export default function VillasFilters({ areas }: { areas: string[] }) {
           }}
         />
       </div>
+      {/* 공급자 — 이름+빌라 수 드롭다운 (베트남 이름 타이핑 회피). 삭제된 공급자는 표시 */}
+      {suppliers.length > 0 && (
+        <div className="flex items-center gap-2 bg-admin-card border border-admin-border rounded-lg px-3 py-2 whitespace-nowrap">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            {t("filters.supplier")}
+          </span>
+          <select
+            aria-label={t("filters.supplier")}
+            className="cursor-pointer border-none bg-transparent p-0 pr-6 text-sm text-slate-300 focus:ring-0 max-w-[200px]"
+            value={supplier}
+            onChange={(e) => apply({ supplier: e.target.value })}
+          >
+            <option value="" className="bg-slate-900">
+              {t("filters.allSuppliers")}
+            </option>
+            {suppliers.map((s) => (
+              <option key={s.id} value={s.id} className="bg-slate-900">
+                {s.name} ({s.count}){s.deleted ? ` · ${t("supplierDeleted")}` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       {/* 지역(단지) */}
       {areas.length > 0 && (
         <div className="flex items-center gap-2 bg-admin-card border border-admin-border rounded-lg px-3 py-2 whitespace-nowrap">
@@ -70,7 +107,7 @@ export default function VillasFilters({ areas }: { areas: string[] }) {
         <button
           type="button"
           className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors text-sm px-2 whitespace-nowrap"
-          onClick={() => apply({ q: "", area: "" })}
+          onClick={() => apply({ q: "", area: "", supplier: "" })}
         >
           <span className="material-symbols-outlined text-sm">refresh</span>
           {t("filters.reset")}
