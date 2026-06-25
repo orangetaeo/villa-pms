@@ -24,5 +24,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS "MinibarItem_itemKey_key" ON "MinibarItem"("it
 CREATE INDEX IF NOT EXISTS "MinibarItem_active_sortOrder_idx" ON "MinibarItem"("active", "sortOrder");
 
 -- ┌─ S3: per-villa MINIBAR 행 폐기 (배포·검증 + 표준 품목 입력 완료 후에만!) ─
--- ⚠ 아래는 검증·표준입력 전 실행 금지. 별도 단계로 수동 실행.
+-- ✅ 2026-06-25 실행 완료: 0c3908f 배포 SUCCESS 확인 + 표준품목 5종(생수·맥주·소주·콜라·과자, nameVi 포함) 입력 확인 후
+--    17행 삭제(잔존 0). 백업 _backup_minibar_amenity_20260625(17행)로 복구 가능.
 -- DELETE FROM "VillaAmenity" WHERE "category" = 'MINIBAR';
