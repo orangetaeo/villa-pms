@@ -12,6 +12,7 @@ import {
   buildInboundKey,
   classifyInbound,
   isCallSystemText,
+  buildCallDetail,
 } from "./zalo-inbound";
 
 describe("extractText — content 타입별 안전 파싱 (버그 B)", () => {
@@ -421,5 +422,58 @@ describe("buildInboundKey — 멱등 키(zaloMsgId)", () => {
     expect(buildInboundKey({})).toBeNull();
     expect(buildInboundKey({ msgId: "" })).toBeNull();
     expect(buildInboundKey({ msgId: undefined })).toBeNull();
+  });
+});
+
+describe("buildCallDetail — 통화 params → 구조화 텍스트", () => {
+  const call = (params: Record<string, unknown>) =>
+    buildCallDetail({ title: "sendBubbleMessage", action: "sendBubbleMessage", params });
+
+  it("발신 완료(reason 없음, duration>0) → CALL:out:done:N:audio", () => {
+    expect(call({ duration: 3, isCaller: 1, calltype: 0 })).toBe("CALL:out:done:3:audio");
+  });
+
+  it("수신 완료(isCaller=0) → CALL:in:done:N:audio", () => {
+    expect(call({ duration: 12, isCaller: 0, calltype: 0 })).toBe("CALL:in:done:12:audio");
+  });
+
+  it("취소/미응답(reason=4) → missed, duration 0", () => {
+    expect(call({ duration: 0, reason: 4, isCaller: 1, calltype: 0 })).toBe(
+      "CALL:out:missed:0:audio"
+    );
+  });
+
+  it("거절(reason=3) — 수신/발신 모두 rejected", () => {
+    expect(call({ duration: 0, reason: 3, isCaller: 0, calltype: 0 })).toBe(
+      "CALL:in:rejected:0:audio"
+    );
+    expect(call({ duration: 0, reason: 3, isCaller: 1, calltype: 0 })).toBe(
+      "CALL:out:rejected:0:audio"
+    );
+  });
+
+  it("영상통화(calltype!=0) → video", () => {
+    expect(call({ duration: 5, isCaller: 1, calltype: 1 })).toBe("CALL:out:done:5:video");
+  });
+
+  it("params를 JSON 문자열로 줘도 파싱", () => {
+    expect(
+      buildCallDetail({ params: JSON.stringify({ duration: 7, isCaller: 0, calltype: 0 }) })
+    ).toBe("CALL:in:done:7:audio");
+  });
+
+  it("params 없거나 통화 신호(calltype/duration) 없으면 '' (일반 통화 폴백)", () => {
+    expect(buildCallDetail({ title: "x" })).toBe("");
+    expect(buildCallDetail("Cuộc gọi")).toBe("");
+    expect(buildCallDetail(null)).toBe("");
+  });
+
+  it("classifyInbound 통화 버블 → text에 CALL 상세 포함", () => {
+    const out = classifyInbound(
+      { title: "sendBubbleMessage", params: { duration: 3, reason: 4, isCaller: 1, calltype: 0 } },
+      "chat.recommended"
+    );
+    expect(out.msgType).toBe("call");
+    expect(out.text).toBe("CALL:out:missed:0:audio");
   });
 });
