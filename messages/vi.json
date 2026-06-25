@@ -371,7 +371,38 @@
           "KR_BANK_TRANSFER": "Chuyển khoản Hàn Quốc",
           "VN_BANK_TRANSFER": "Chuyển khoản Việt Nam",
           "CASH": "Tiền mặt"
-        }
+        },
+        "summary": {
+          "title": "Tóm tắt thu tiền",
+          "expected": "Giá bán báo giá",
+          "collected": "Đã thu thực tế",
+          "outstanding": "Còn thiếu",
+          "overpaid": "Thu vượt",
+          "fxUnknown": "Chưa rõ tỷ giá — không tính được công nợ"
+        },
+        "statusLabel": {
+          "UNPAID": "Chưa thu",
+          "PARTIAL": "Thu một phần",
+          "PAID": "Đã thu đủ",
+          "OVERPAID": "Thu vượt",
+          "FX_UNKNOWN": "Chưa rõ tỷ giá"
+        },
+        "add": "Thêm thanh toán",
+        "form": {
+          "currency": "Tiền tệ",
+          "amount": "Số tiền",
+          "method": "Phương thức",
+          "receivedAt": "Ngày thu",
+          "fxRate": "Tỷ giá khi thu (VND/1KRW)",
+          "note": "Ghi chú (tùy chọn)",
+          "save": "Lưu",
+          "saving": "Đang lưu...",
+          "cancel": "Hủy"
+        },
+        "delete": "Xóa",
+        "confirmDelete": "Xóa bản ghi thanh toán này?",
+        "addError": "Lưu thanh toán thất bại.",
+        "fxRequired": "Thu KRW cần nhập tỷ giá."
       },
       "actions": {
         "confirm": "Xác nhận thanh toán",
@@ -1291,8 +1322,12 @@
       "title": "Lợi nhuận vận hành (doanh thu·chênh lệch tỷ giá·lãi)",
       "bookingCount": "Theo {count} đặt phòng",
       "collected": "Đã thu",
-      "collectedVndEq": "Quy đổi VND",
+      "collectedVndEq": "Quy đổi VND (báo giá)",
       "fxSnapshotNote": "Theo tỷ giá tại thời điểm đặt",
+      "actualCollected": "Đã thu thực tế",
+      "actualCollectedSub": "Tiền vào thực (Payment)",
+      "outstanding": "Còn thiếu",
+      "outstandingSub": "Quy đổi báo giá − đã thu",
       "payout": "Chi nhà cung cấp",
       "payoutSub": "Giá gốc (VND)",
       "margin": "Lãi",
