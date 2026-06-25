@@ -112,12 +112,10 @@ export default function ProposalsList() {
   const [query, setQuery] = useState("");
   // 채널 필터 — "ALL"=전체. 상태=탭, 검색=텍스트가 담당하고 채널은 별도 드롭다운.
   const [channel, setChannel] = useState<Channel | "ALL">("ALL");
-  // 숙박 기간 범위 (체크인~체크아웃 겹침) — "YYYY-MM-DD" 또는 "".
-  const [stayFrom, setStayFrom] = useState("");
-  const [stayTo, setStayTo] = useState("");
-  // 생성일 커스텀 범위 (빠른 프리셋과 별개, AND 결합) — "YYYY-MM-DD" 또는 "".
-  const [createdFrom, setCreatedFrom] = useState("");
-  const [createdTo, setCreatedTo] = useState("");
+  // 날짜 범위 — 기준(숙박 기간/생성일) 단일 선택 + 단일 from~to. "YYYY-MM-DD" 또는 "".
+  const [dateMode, setDateMode] = useState<"stay" | "created">("stay");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   // 분 단위 카운트다운 틱 (계약: 분 단위 갱신이면 충분)
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -165,22 +163,23 @@ export default function ProposalsList() {
     return dateScoped.filter((p) => {
       // 채널
       if (channel !== "ALL" && p.channel !== channel) return false;
-      // 생성일 커스텀 범위 (VN 날짜 기준)
-      if (createdFrom || createdTo) {
-        const created = vnDateFmt.format(new Date(p.createdAt)); // "YYYY-MM-DD"
-        if (createdFrom && created < createdFrom) return false;
-        if (createdTo && created > createdTo) return false;
-      }
-      // 숙박 기간 범위 — 항목 중 하나라도 [stayFrom, stayTo]와 겹치면 통과
-      if (stayFrom || stayTo) {
-        const overlaps = p.items.some((i) => {
-          const ci = i.checkIn.slice(0, 10);
-          const co = i.checkOut.slice(0, 10);
-          if (stayFrom && co <= stayFrom) return false; // 체크아웃이 범위 시작 이전 → 겹침 없음
-          if (stayTo && ci > stayTo) return false; // 체크인이 범위 종료 이후 → 겹침 없음
-          return true;
-        });
-        if (!overlaps) return false;
+      // 날짜 범위 — 기준(생성일/숙박 기간)에 따라 한 가지만 적용
+      if (dateFrom || dateTo) {
+        if (dateMode === "created") {
+          const created = vnDateFmt.format(new Date(p.createdAt)); // "YYYY-MM-DD"
+          if (dateFrom && created < dateFrom) return false;
+          if (dateTo && created > dateTo) return false;
+        } else {
+          // 숙박 기간 — 항목 중 하나라도 [dateFrom, dateTo]와 겹치면 통과
+          const overlaps = p.items.some((i) => {
+            const ci = i.checkIn.slice(0, 10);
+            const co = i.checkOut.slice(0, 10);
+            if (dateFrom && co <= dateFrom) return false; // 체크아웃이 범위 시작 이전 → 겹침 없음
+            if (dateTo && ci > dateTo) return false; // 체크인이 범위 종료 이후 → 겹침 없음
+            return true;
+          });
+          if (!overlaps) return false;
+        }
       }
       // 텍스트 검색 (고객/여행사명 또는 포함 빌라명 부분일치)
       if (q) {
@@ -191,7 +190,7 @@ export default function ProposalsList() {
       }
       return true;
     });
-  }, [dateScoped, query, channel, createdFrom, createdTo, stayFrom, stayTo]);
+  }, [dateScoped, query, channel, dateMode, dateFrom, dateTo]);
 
   const counts = useMemo(() => {
     const byStatus = (s: ProposalStatus) =>
@@ -213,7 +212,7 @@ export default function ProposalsList() {
   // 클라 페이지네이션 — 탭/날짜 필터 바뀌면 1페이지로. (전체 로드 후 메모리 슬라이스)
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-  useEffect(() => setPage(1), [tab, range, query, channel, createdFrom, createdTo, stayFrom, stayTo]);
+  useEffect(() => setPage(1), [tab, range, query, channel, dateMode, dateFrom, dateTo]);
   const paged = useMemo(
     () => filtered.slice((page - 1) * pageSize, page * pageSize),
     [filtered, page, pageSize]
@@ -478,57 +477,41 @@ export default function ProposalsList() {
         {/* 날짜 범위 — 숙박 기간(체크인~체크아웃 겹침) + 생성일 커스텀 */}
         <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-x-5 gap-y-2">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-admin-muted whitespace-nowrap">
-              {t("stayRangeLabel")}
-            </span>
+            {/* 날짜 기준 — 숙박 기간 / 생성일 단일 선택 */}
+            <select
+              value={dateMode}
+              onChange={(e) => setDateMode(e.target.value as "stay" | "created")}
+              aria-label={t("dateBasisLabel")}
+              className="bg-admin-card border border-admin-border text-xs font-semibold text-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-1 focus:ring-admin-primary focus:border-admin-primary"
+            >
+              <option value="stay">{t("stayRangeLabel")}</option>
+              <option value="created">{t("createdRangeLabel")}</option>
+            </select>
             <input
               type="date"
-              value={stayFrom}
-              max={stayTo || undefined}
-              onChange={(e) => setStayFrom(e.target.value)}
-              aria-label={`${t("stayRangeLabel")} ${t("dateFrom")}`}
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={(e) => setDateFrom(e.target.value)}
+              aria-label={`${t(dateMode === "stay" ? "stayRangeLabel" : "createdRangeLabel")} ${t("dateFrom")}`}
               className="bg-admin-card border border-admin-border text-sm text-slate-300 rounded-lg px-2.5 py-1.5 [color-scheme:dark] focus:ring-1 focus:ring-admin-primary focus:border-admin-primary"
             />
             <span className="text-admin-muted text-xs">~</span>
             <input
               type="date"
-              value={stayTo}
-              min={stayFrom || undefined}
-              onChange={(e) => setStayTo(e.target.value)}
-              aria-label={`${t("stayRangeLabel")} ${t("dateTo")}`}
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(e) => setDateTo(e.target.value)}
+              aria-label={`${t(dateMode === "stay" ? "stayRangeLabel" : "createdRangeLabel")} ${t("dateTo")}`}
               className="bg-admin-card border border-admin-border text-sm text-slate-300 rounded-lg px-2.5 py-1.5 [color-scheme:dark] focus:ring-1 focus:ring-admin-primary focus:border-admin-primary"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-admin-muted whitespace-nowrap">
-              {t("createdRangeLabel")}
-            </span>
-            <input
-              type="date"
-              value={createdFrom}
-              max={createdTo || undefined}
-              onChange={(e) => setCreatedFrom(e.target.value)}
-              aria-label={`${t("createdRangeLabel")} ${t("dateFrom")}`}
-              className="bg-admin-card border border-admin-border text-sm text-slate-300 rounded-lg px-2.5 py-1.5 [color-scheme:dark] focus:ring-1 focus:ring-admin-primary focus:border-admin-primary"
-            />
-            <span className="text-admin-muted text-xs">~</span>
-            <input
-              type="date"
-              value={createdTo}
-              min={createdFrom || undefined}
-              onChange={(e) => setCreatedTo(e.target.value)}
-              aria-label={`${t("createdRangeLabel")} ${t("dateTo")}`}
-              className="bg-admin-card border border-admin-border text-sm text-slate-300 rounded-lg px-2.5 py-1.5 [color-scheme:dark] focus:ring-1 focus:ring-admin-primary focus:border-admin-primary"
-            />
-          </div>
-          {(stayFrom || stayTo || createdFrom || createdTo || channel !== "ALL" || query) && (
+          {(dateFrom || dateTo || channel !== "ALL" || query) && (
             <button
               type="button"
               onClick={() => {
-                setStayFrom("");
-                setStayTo("");
-                setCreatedFrom("");
-                setCreatedTo("");
+                setDateMode("stay");
+                setDateFrom("");
+                setDateTo("");
                 setChannel("ALL");
                 setQuery("");
               }}
@@ -613,7 +596,7 @@ export default function ProposalsList() {
           emptyMessage={
             query.trim()
               ? t("searchEmpty", { query: query.trim() })
-              : channel !== "ALL" || stayFrom || stayTo || createdFrom || createdTo
+              : channel !== "ALL" || dateFrom || dateTo
                 ? t("filterEmpty")
                 : t("empty")
           }

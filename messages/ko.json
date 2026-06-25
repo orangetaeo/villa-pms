@@ -1351,6 +1351,7 @@
       "searchEmpty": "\"{query}\" 검색 결과가 없습니다.",
       "channelFilterLabel": "채널",
       "channelFilterAll": "전체 채널",
+      "dateBasisLabel": "날짜 기준",
       "stayRangeLabel": "숙박 기간",
       "createdRangeLabel": "생성일",
       "dateFrom": "시작",

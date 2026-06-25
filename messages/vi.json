@@ -1459,6 +1459,7 @@
       "searchEmpty": "Không có kết quả cho \"{query}\".",
       "channelFilterLabel": "Kênh",
       "channelFilterAll": "Tất cả kênh",
+      "dateBasisLabel": "Loại ngày",
       "stayRangeLabel": "Thời gian lưu trú",
       "createdRangeLabel": "Ngày tạo",
       "dateFrom": "Từ",
