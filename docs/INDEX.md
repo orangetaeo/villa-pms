@@ -15,7 +15,7 @@
 | 스키마·아키텍처 | prisma/schema.prisma + docs/decisions/ 최신 ADR |
 | 작업 시작·종료 | TASKS.md, PROGRESS.md |
 | 오픈 기준·KPI·개선 루프 | docs/LAUNCH.md |
-| 베트남 공급자 실사용 테스트(T4.4) | docs/T4.4-pilot-test-kit.md — 과제카드(vi)·관찰 체크리스트(ko)·사후 설문·합격 기준 |
+| 오픈까지 남은 일·테오님 액션 대기 | docs/BACKLOG-WAITING.md — 외부/테오님 대기 항목 통합 트래커(A 차단요인·B Zalo실연결·C 실행대기·D 타세션영역·E 자원·F Phase2). 상태 요약, 진실원천은 TASKS·LAUNCH |
 | API·로직 패턴 | .claude/skills/backend/ 해당 패턴 |
 | 베트남어 화면 | .claude/skills/ux-vn/vn-ux-principles.md |
 | Zalo·Gemini | .claude/skills/integ/zalo-pattern.md |
