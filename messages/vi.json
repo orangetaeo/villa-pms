@@ -49,6 +49,8 @@
     "submitting": "Đang đổi...",
     "success": "Đã đổi mật khẩu.",
     "back": "Quay lại",
+    "showPassword": "Hiện mật khẩu",
+    "hidePassword": "Ẩn mật khẩu",
     "errors": {
       "tooShort": "Mật khẩu phải có ít nhất 8 ký tự.",
       "mismatch": "Mật khẩu mới không khớp.",
