@@ -1820,6 +1820,62 @@ function VideoCard({
 }
 
 /**
+ * 통화 구조화 텍스트 파싱 — zalo-inbound buildCallDetail이 만든
+ * "CALL:<out|in>:<done|missed|rejected|unknown>:<durSec>:<audio|video>". 상세 없으면 null.
+ */
+function parseCallText(text: string | null | undefined): {
+  direction: "outgoing" | "incoming";
+  status: "done" | "missed" | "rejected" | "unknown";
+  durationSec?: number;
+  video: boolean;
+} | null {
+  if (!text || !text.startsWith("CALL:")) return null;
+  const [, dir, st, durStr, vt] = text.split(":");
+  const durSec = parseInt(durStr ?? "", 10);
+  return {
+    direction: dir === "out" ? "outgoing" : "incoming",
+    status: st === "done" || st === "missed" || st === "rejected" ? st : "unknown",
+    durationSec: Number.isFinite(durSec) ? durSec : undefined,
+    video: vt === "video",
+  };
+}
+
+/** 통화 카드 — 구조화 상세(방향·결과·통화시간·음/영상)를 SimpleTypeCard로 렌더. */
+function renderCallCard(
+  text: string | null | undefined,
+  inbound: boolean,
+  t: ReturnType<typeof useTranslations>
+): ReactNode {
+  const c = parseCallText(text);
+  if (!c) return <SimpleTypeCard icon="call" label={t("typeCard.call")} inbound={inbound} />;
+
+  const failed = c.status === "missed" || c.status === "rejected";
+  const icon = failed ? "phone_missed" : c.direction === "outgoing" ? "call_made" : "call_received";
+  const label =
+    c.status === "missed" && c.direction === "incoming"
+      ? t("typeCard.callMissed")
+      : c.direction === "outgoing"
+        ? t("typeCard.callOut")
+        : t("typeCard.callIn");
+  const media = c.video ? t("typeCard.callVideo") : t("typeCard.callAudio");
+
+  let detail = "";
+  if (c.status === "rejected") {
+    detail =
+      c.direction === "outgoing" ? t("typeCard.callRejectedByPeer") : t("typeCard.callRejectedByMe");
+  } else if (c.status === "missed") {
+    detail = t("typeCard.callNoAnswer");
+  } else if (c.durationSec != null && c.durationSec > 0) {
+    detail =
+      c.durationSec >= 60
+        ? t("typeCard.callDurMin", { m: Math.floor(c.durationSec / 60), s: c.durationSec % 60 })
+        : t("typeCard.callDurSec", { s: c.durationSec });
+  }
+  const subLabel = detail ? `${media} · ${detail}` : media;
+  return <SimpleTypeCard icon={icon} label={label} subLabel={subLabel} inbound={inbound} />;
+}
+
+/**
  * 특수 메시지 타입(sticker/voice/call/contact/video/location) → 카드. 매핑 없으면 null.
  * inbound/outbound 공통 — 발신·수신에서 같은 분기를 재사용(중복 방지).
  */
@@ -1869,7 +1925,7 @@ function renderTypeCard(
         </div>
       );
     case "call":
-      return <SimpleTypeCard icon="call" label={t("typeCard.call")} inbound={inbound} />;
+      return renderCallCard(message.text, inbound, t);
     case "contact":
       return (
         <SimpleTypeCard
