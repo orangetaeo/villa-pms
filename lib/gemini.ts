@@ -96,14 +96,12 @@ export async function ocrPassport(
  *  vi: 공급자(베트남어) 발신 미리보기. en: 영어권 발신 미리보기.
  *  ko: 수신 메시지(vi/en) → 운영자용 한국어. ADMIN 기준 언어는 항상 ko.
  */
-export type TranslateTarget = "vi" | "ko" | "en" | "zh" | "ru";
+export type TranslateTarget = "vi" | "ko" | "en";
 
 const TARGET_LABEL: Record<TranslateTarget, string> = {
   vi: "Vietnamese (tiếng Việt)",
   ko: "Korean (한국어)",
   en: "English",
-  zh: "Chinese (中文, Simplified)",
-  ru: "Russian (Русский)",
 };
 
 /** 한글 음절 비율 — ko 번역 부분실패 감지용. 문자(letter)만 분모로 본다(숫자·기호 제외). */

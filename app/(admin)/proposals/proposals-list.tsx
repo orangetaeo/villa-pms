@@ -108,8 +108,6 @@ export default function ProposalsList() {
   const [proposals, setProposals] = useState<ProposalRow[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [tab, setTab] = useState<TabKey>("all");
-  // 검색어 — 고객/여행사명 + 포함 빌라명 대상 (in-memory 즉시 필터). 채널·상태=탭, 생성일=날짜 필터가 담당.
-  const [query, setQuery] = useState("");
   // 분 단위 카운트다운 틱 (계약: 분 단위 갱신이면 충분)
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -150,38 +148,27 @@ export default function ProposalsList() {
     });
   }, [proposals, range]);
 
-  // 검색 필터 — 고객/여행사명 또는 포함 빌라명에 검색어 부분일치(대소문자·공백 무시).
-  // 날짜 필터 다음, 탭 카운트 이전에 적용 → 탭 배지 숫자도 검색 결과를 반영.
-  const searchScoped = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return dateScoped;
-    return dateScoped.filter((p) => {
-      if (p.clientName.toLowerCase().includes(q)) return true;
-      return p.items.some((i) => i.villa.name.toLowerCase().includes(q));
-    });
-  }, [dateScoped, query]);
-
   const counts = useMemo(() => {
     const byStatus = (s: ProposalStatus) =>
-      searchScoped.filter((p) => p.effectiveStatus === s).length;
+      dateScoped.filter((p) => p.effectiveStatus === s).length;
     return {
-      all: searchScoped.length,
+      all: dateScoped.length,
       active: byStatus("ACTIVE"),
       used: byStatus("USED"),
       expired: byStatus("EXPIRED"),
       revoked: byStatus("REVOKED"),
     } satisfies Record<TabKey, number>;
-  }, [searchScoped]);
+  }, [dateScoped]);
 
   const filtered = useMemo(() => {
-    if (tab === "all") return searchScoped;
-    return searchScoped.filter((p) => p.effectiveStatus === TAB_STATUS[tab]);
-  }, [searchScoped, tab]);
+    if (tab === "all") return dateScoped;
+    return dateScoped.filter((p) => p.effectiveStatus === TAB_STATUS[tab]);
+  }, [dateScoped, tab]);
 
   // 클라 페이지네이션 — 탭/날짜 필터 바뀌면 1페이지로. (전체 로드 후 메모리 슬라이스)
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-  useEffect(() => setPage(1), [tab, range, query]);
+  useEffect(() => setPage(1), [tab, range]);
   const paged = useMemo(
     () => filtered.slice((page - 1) * pageSize, page * pageSize),
     [filtered, page, pageSize]
@@ -392,31 +379,8 @@ export default function ProposalsList() {
         </Link>
       </div>
 
-      {/* 검색 + 빠른 날짜 필터 — 검색은 고객/여행사명·빌라명 대상, 날짜는 createdAt 기준 */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-        <div className="relative">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">
-            search
-          </span>
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t("searchPlaceholder")}
-            className="w-full sm:w-72 bg-admin-card border border-admin-border text-sm text-slate-300 rounded-lg pl-9 pr-9 py-2 focus:ring-1 focus:ring-admin-primary focus:border-admin-primary transition-all"
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => setQuery("")}
-              title={t("searchClear")}
-              aria-label={t("searchClear")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
-            >
-              <span className="material-symbols-outlined text-base">close</span>
-            </button>
-          )}
-        </div>
+      {/* 빠른 날짜 필터 — createdAt 기준, 과거 지향 목록이라 nextMonth 제외 */}
+      <div className="mb-4">
         <QuickDateFilter
           presets={[
             "all",
@@ -499,7 +463,7 @@ export default function ProposalsList() {
           columns={columns}
           rows={paged}
           rowKey={(p) => p.id}
-          emptyMessage={query.trim() ? t("searchEmpty", { query: query.trim() }) : t("empty")}
+          emptyMessage={t("empty")}
           rowClassName={(p) => (p.effectiveStatus === "EXPIRED" ? "opacity-60" : undefined)}
           cardSummary={(p) => (
             <div className="flex flex-col gap-1.5 min-w-0">

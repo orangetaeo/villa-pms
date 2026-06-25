@@ -505,7 +505,6 @@
   "adminVillas": {
     "list": {
       "title": "Quản lý villa",
-      "newVilla": "Đăng ký villa",
       "searchPlaceholder": "Tìm tên villa, khu, địa chỉ, nhà cung cấp...",
       "filters": {
         "area": "Khu vực",
@@ -1099,23 +1098,6 @@
     "emptyHint": "Doanh thu sẽ hiển thị sau khi khách trả phòng."
   },
   "adminSettings": {
-    "agreement": {
-      "title": "Bản cam kết sử dụng",
-      "description": "Soạn tiêu đề và nội dung bằng tiếng Hàn rồi lưu — hệ thống sẽ tự động dịch sang tiếng Việt, Anh, Trung, Nga và phát hành. Không cần nhập các ngôn ngữ khác. Sau khi lưu có thể xem kết quả dịch bên dưới.",
-      "versionLabel": "Phiên bản",
-      "koTitleLabel": "Tiêu đề văn bản (tiếng Hàn)",
-      "koBodyLabel": "Nội dung (tiếng Hàn)",
-      "bodyPlaceholder": "Ví dụ)\n1. Mọi khách phải cung cấp thông tin hộ chiếu khi nhận phòng.\n2. Cấm hút thuốc trong toàn bộ villa, vi phạm có thể bị tính phí vệ sinh.\n3. Hư hỏng nội thất có thể bị trừ vào tiền cọc.",
-      "bodyHint": "Tự đánh số (1. 2. 3.) và soạn tự do. Xuống dòng được giữ nguyên.",
-      "otherLangs": "Kết quả dịch (tự động · chỉ đọc)",
-      "geminiError": "Chức năng dịch chưa được cấu hình. Liên hệ quản trị viên. (GEMINI_API_KEY)",
-      "translateFailed": "Dịch thất bại. Vui lòng lưu lại sau giây lát.",
-      "save": "Lưu (tự động dịch & phát hành)",
-      "saving": "Đang lưu·dịch...",
-      "saved": "Đã lưu",
-      "error": "Lưu thất bại. Vui lòng thử lại.",
-      "incomplete": "Hãy nhập tiêu đề và nội dung tiếng Hàn."
-    },
     "title": "Cài đặt hệ thống",
     "subtitle": "Quản lý chính sách chung cho vận hành villa và đặt phòng.",
     "breadcrumbAdmin": "Quản trị",
@@ -1454,10 +1436,7 @@
       "loadError": "Không thể tải danh sách.",
       "retry": "Thử lại",
       "empty": "Không có đề xuất để hiển thị.",
-      "copyError": "Không thể sao chép liên kết.",
-      "searchPlaceholder": "Tìm theo tên khách/đại lý hoặc tên villa",
-      "searchClear": "Xóa tìm kiếm",
-      "searchEmpty": "Không có kết quả cho \"{query}\"."
+      "copyError": "Không thể sao chép liên kết."
     },
     "create": {
       "title": "Tạo đề xuất",

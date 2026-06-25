@@ -19,8 +19,7 @@ import { isOperator } from "@/lib/permissions";
 //   villas/[id]/sales-editor·detail-tabs             → adminVillas(.sales), bedding, features
 //   users/users-manager                              → adminUsers
 //   settlements/settlements-view                     → adminSettlements
-//   settings/hold-hours-form·season-manager·fx-rate-form·agreement-form → adminSettings
-//   settings/minibar/minibar-manager                 → adminMinibar
+//   settings/hold-hours-form·season-manager·fx-rate-form → adminSettings
 //   proposals/proposals-list, new/proposal-create    → adminProposals
 //   inspections/inspections-view                     → adminInspections
 //   settings/zalo/zalo-connect-client                → adminZalo
@@ -37,7 +36,6 @@ const ADMIN_CLIENT_NAMESPACES = [
   "adminUsers",
   "adminSettlements",
   "adminSettings",
-  "adminMinibar",
   "adminProposals",
   "adminInspections",
   "adminMessages",

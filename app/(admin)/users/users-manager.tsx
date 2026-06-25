@@ -4,7 +4,6 @@
 // 목록은 RSC props, 활성 토글·Zalo 수동 매칭은 PATCH /api/users/[id] → router.refresh()
 // <768px는 ResponsiveTable 카드 전환 (T6.7 패턴)
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { Role } from "@/lib/permissions";
@@ -270,35 +269,6 @@ export default function UsersManager({
     }
   };
 
-  // 회원 소프트 삭제 (DELETE) — 확인 후 목록·로그인에서 제외(데이터는 보존).
-  // 400=본인, 403=OWNER, 409=빌라 보유 공급자 → 사유별 안내.
-  const onDelete = async (user: UserRow) => {
-    if (!window.confirm(t("delete.confirm", { name: user.name }))) return;
-    setBusyId(user.id);
-    setMessage(null);
-    try {
-      const res = await fetch(`/api/users/${user.id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const errKey =
-          res.status === 400
-            ? "errors.cannotDeleteSelf"
-            : res.status === 403
-              ? "errors.cannotDeleteOwner"
-              : res.status === 409
-                ? "errors.hasActiveBookings"
-                : "errors.generic";
-        setMessage({ tone: "error", text: t(errKey) });
-        return;
-      }
-      setMessage({ tone: "ok", text: t("delete.success") });
-      router.refresh();
-    } catch {
-      setMessage({ tone: "error", text: t("errors.generic") });
-    } finally {
-      setBusyId(null);
-    }
-  };
-
   const onCopyTempPassword = async () => {
     if (!resetResult) return;
     try {
@@ -517,23 +487,11 @@ export default function UsersManager({
       header: t("columns.villas"),
       cell: (u) =>
         u.role === "SUPPLIER" ? (
-          u.villaCount > 0 ? (
-            // 빌라 수 클릭 → 해당 공급자 빌라 목록으로 이동 (베트남 이름 검색 회피)
-            <Link
-              href={`/villas?supplier=${u.id}`}
-              title={t("viewVillas")}
-              className="inline-flex items-center gap-1 text-sm font-bold tabular-nums text-admin-primary hover:underline"
-            >
-              {u.villaCount}
-              <span className="material-symbols-outlined text-[14px]">open_in_new</span>
-            </Link>
-          ) : (
-            <span
-              className={`text-sm font-bold tabular-nums ${u.isActive ? "text-slate-300" : "text-[#9CA3AF]"}`}
-            >
-              {u.villaCount}
-            </span>
-          )
+          <span
+            className={`text-sm font-bold tabular-nums ${u.isActive ? "text-slate-300" : "text-[#9CA3AF]"}`}
+          >
+            {u.villaCount}
+          </span>
         ) : (
           <span className="text-sm text-slate-500">-</span>
         ),
@@ -559,34 +517,18 @@ export default function UsersManager({
     {
       key: "actions",
       header: t("columns.actions"),
-      cell: (u) => {
-        const isSelf = u.id === selfId;
-        return (
-          <div className="flex items-center justify-end md:justify-center gap-3">
-            <button
-              type="button"
-              disabled={busyId === u.id}
-              onClick={() => void onResetPassword(u)}
-              title={t("resetPassword.action")}
-              className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-admin-primary disabled:opacity-50 whitespace-nowrap"
-            >
-              <span className="material-symbols-outlined text-sm">lock_reset</span>
-              {t("resetPassword.action")}
-            </button>
-            {/* 소프트 삭제 — 본인·OWNER는 비활성(서버도 400/403 방어) */}
-            <button
-              type="button"
-              disabled={busyId === u.id || isSelf || u.role === "OWNER"}
-              onClick={() => void onDelete(u)}
-              title={isSelf ? t("delete.selfHint") : t("delete.action")}
-              className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-red-400 disabled:opacity-40 disabled:hover:text-slate-400 whitespace-nowrap"
-            >
-              <span className="material-symbols-outlined text-sm">delete</span>
-              {t("delete.action")}
-            </button>
-          </div>
-        );
-      },
+      cell: (u) => (
+        <button
+          type="button"
+          disabled={busyId === u.id}
+          onClick={() => void onResetPassword(u)}
+          title={t("resetPassword.action")}
+          className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-admin-primary disabled:opacity-50 whitespace-nowrap"
+        >
+          <span className="material-symbols-outlined text-sm">lock_reset</span>
+          {t("resetPassword.action")}
+        </button>
+      ),
       className: "text-center",
       headerClassName: "text-center",
     },

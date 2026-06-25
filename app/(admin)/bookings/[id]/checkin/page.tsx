@@ -7,7 +7,6 @@ import { getTranslations } from "next-intl/server";
 import { BookingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { toDateOnlyString } from "@/lib/date-vn";
-import { getAgreementContent } from "@/lib/agreement-store";
 import CheckinForm from "./checkin-form";
 import PostSignForm from "./post-sign-form";
 
@@ -48,9 +47,6 @@ export default async function CheckinPage({
   if (booking.status !== BookingStatus.CONFIRMED && !postSignMode) {
     redirect(`/bookings/${booking.id}`); // 체크인 가능·사후 서명 상태가 아니면 상세로
   }
-
-  // 발행본 동의서 — 운영자 편집본(AppSetting) 또는 코드 기본값 폴백. 서명 화면에 주입.
-  const agreement = await getAgreementContent();
 
   const fmt = (d: Date) => toDateOnlyString(d).replaceAll("-", ".");
 
@@ -104,12 +100,12 @@ export default async function CheckinPage({
       )}
 
       {postSignMode ? (
-        <PostSignForm bookingId={booking.id} agreement={agreement} />
+        <PostSignForm bookingId={booking.id} hasPool={booking.villa.hasPool} />
       ) : (
         <CheckinForm
           bookingId={booking.id}
           guestCount={booking.guestCount}
-          agreement={agreement}
+          hasPool={booking.villa.hasPool}
         />
       )}
     </div>

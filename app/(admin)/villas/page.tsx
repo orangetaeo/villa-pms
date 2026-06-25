@@ -34,7 +34,7 @@ const STATUS_BADGE_CLASS: Record<string, string> = {
 export default async function VillasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; page?: string; pageSize?: string; area?: string; q?: string; supplier?: string }>;
+  searchParams: Promise<{ status?: string; page?: string; pageSize?: string; area?: string; q?: string }>;
 }) {
   const t = await getTranslations("adminVillas.list");
   const params = await searchParams;
@@ -42,13 +42,11 @@ export default async function VillasPage({
   const statusFilter = TAB_STATUS[tab];
   const area = params.area?.trim() || undefined;
   const q = params.q?.trim() || undefined;
-  const supplierId = params.supplier?.trim() || undefined;
   const { page, pageSize, skip, take } = parsePageParams(params);
 
-  // 검색 조건 — 공급자(정확 id) + 지역(단지명 complex 정확 일치) + 텍스트(빌라명·단지·주소·공급자명).
+  // 검색 조건 — 지역(단지명 complex 정확 일치) + 텍스트(빌라명·단지·주소·공급자명).
   // 상태와 분리해 두어 탭 카운트도 검색 범위 안에서 집계한다.
   const searchWhere: Prisma.VillaWhereInput = {
-    ...(supplierId ? { supplierId } : {}),
     ...(area ? { complex: area } : {}),
     ...(q
       ? {
@@ -66,7 +64,7 @@ export default async function VillasPage({
     ...(statusFilter ? { status: statusFilter } : { status: { in: LISTED_STATUSES } }),
   };
 
-  const [villas, total, statusCounts, complexRows, supplierCountRows] = await Promise.all([
+  const [villas, total, statusCounts, complexRows] = await Promise.all([
     prisma.villa.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -81,7 +79,7 @@ export default async function VillasPage({
         bedrooms: true,
         hasPool: true,
         breakfastAvailable: true,
-        supplier: { select: { id: true, name: true, deletedAt: true } },
+        supplier: { select: { name: true } },
         // 첫 사진 — PhotoSpace enum 정의 순서상 EXTERIOR 우선
         photos: {
           orderBy: [{ space: "asc" }, { sortOrder: "asc" }],
@@ -104,30 +102,11 @@ export default async function VillasPage({
       orderBy: { complex: "asc" },
       select: { complex: true },
     }),
-    // 공급자 필터 옵션 = 운영 목록 대상 빌라의 공급자별 빌라 수 (현재 필터와 무관하게 전체 목록 제공)
-    prisma.villa.groupBy({
-      by: ["supplierId"],
-      where: { status: { in: LISTED_STATUSES } },
-      _count: { _all: true },
-    }),
   ]);
 
   const areaOptions = complexRows
     .map((r) => r.complex)
     .filter((c): c is string => !!c);
-
-  // 공급자 옵션 — id별 빌라 수 + 이름·삭제여부 병합 (이름순). 베트남 이름 타이핑 회피용 드롭다운.
-  const supplierUsers = await prisma.user.findMany({
-    where: { id: { in: supplierCountRows.map((r) => r.supplierId) } },
-    select: { id: true, name: true, deletedAt: true },
-  });
-  const supplierOptions = supplierCountRows
-    .map((r) => {
-      const u = supplierUsers.find((s) => s.id === r.supplierId);
-      return u ? { id: u.id, name: u.name, count: r._count._all, deleted: !!u.deletedAt } : null;
-    })
-    .filter((o): o is { id: string; name: string; count: number; deleted: boolean } => o !== null)
-    .sort((a, b) => a.name.localeCompare(b.name));
 
   const countOf = (s: VillaStatus) =>
     statusCounts.find((c) => c.status === s)?._count._all ?? 0;
@@ -138,11 +117,10 @@ export default async function VillasPage({
     inactive: countOf("INACTIVE"),
   };
 
-  // 탭 링크는 검색(supplier·area·q) + 페이지당 개수(pageSize)를 보존한다 (페이지 번호는 1로 리셋)
+  // 탭 링크는 검색(area·q) + 페이지당 개수(pageSize)를 보존한다 (페이지 번호는 1로 리셋)
   const tabHref = (key: string) => {
     const sp = new URLSearchParams();
     if (key !== "all") sp.set("status", key);
-    if (supplierId) sp.set("supplier", supplierId);
     if (area) sp.set("area", area);
     if (q) sp.set("q", q);
     if (params.pageSize) sp.set("pageSize", params.pageSize);
@@ -162,27 +140,8 @@ export default async function VillasPage({
       {/* 페이지 헤더 + 필터 탭 (b9) */}
       <div className="flex flex-col gap-6 mb-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
-            {/* 대행 등록 — 운영자가 공급자 명의로 신규 빌라 등록(마법사 isAdmin 모드 → PENDING_REVIEW) */}
-            <Link
-              href="/my-villas/new"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-admin-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-admin-primary-dark lg:hidden"
-            >
-              <span className="material-symbols-outlined text-[18px]">add</span>
-              {t("newVilla")}
-            </Link>
-          </div>
-          <div className="flex items-center gap-3">
-            <VillasFilters areas={areaOptions} suppliers={supplierOptions} />
-            <Link
-              href="/my-villas/new"
-              className="hidden shrink-0 items-center gap-1.5 rounded-lg bg-admin-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-admin-primary-dark lg:inline-flex"
-            >
-              <span className="material-symbols-outlined text-[18px]">add</span>
-              {t("newVilla")}
-            </Link>
-          </div>
+          <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
+          <VillasFilters areas={areaOptions} />
         </div>
         <div className="flex items-center gap-2 border-b border-admin-card overflow-x-auto">
           {tabs.map(({ key, label }) => {
@@ -276,11 +235,6 @@ export default async function VillasPage({
                     </div>
                     <span className="text-xs text-admin-muted truncate">
                       {villa.supplier?.name ?? t("noSupplier")}
-                      {villa.supplier?.deletedAt && (
-                        <span className="ml-1.5 px-1.5 py-0.5 rounded bg-red-900/30 text-red-400 text-[9px] font-bold align-middle whitespace-nowrap">
-                          {t("supplierDeleted")}
-                        </span>
-                      )}
                     </span>
                     <div className="flex items-center gap-2 text-[11px] text-admin-muted">
                       <span className="inline-flex items-center gap-0.5">
@@ -293,16 +247,9 @@ export default async function VillasPage({
                       {villa.breakfastAvailable && (
                         <span className="material-symbols-outlined text-[14px]">restaurant</span>
                       )}
-                      {needsCleaning && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-900/20 text-admin-alert font-medium">
-                          <span className="material-symbols-outlined text-[14px]">cleaning_services</span>
-                          {t("cleaningPending")}
-                        </span>
-                      )}
-                      {noRates && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-900/20 text-admin-pending font-medium">
-                          <span className="material-symbols-outlined text-[14px]">payments</span>
-                          {t("noRates")}
+                      {(needsCleaning || noRates) && (
+                        <span className="material-symbols-outlined text-[14px] text-admin-alert">
+                          warning
                         </span>
                       )}
                     </div>
@@ -315,9 +262,28 @@ export default async function VillasPage({
                     expand_more
                   </span>
                 </summary>
-                {/* 펼침 상세 — 상세/검수 버튼.
-                    경고(청소 검수·요율 미설정)는 요약 행 뱃지에서 항상 보이므로 여기선 중복 제거. */}
+                {/* 펼침 상세 — 경고 + 상세/검수 버튼 */}
                 <div className="px-3 pb-3 pt-1 border-t border-slate-800/60 flex flex-col gap-2">
+                  {needsCleaning && (
+                    <div className="flex items-center gap-2 p-2 rounded bg-red-900/20 border border-red-900/30">
+                      <span className="material-symbols-outlined text-admin-alert text-sm">
+                        cleaning_services
+                      </span>
+                      <span className="text-[11px] text-admin-alert font-medium">
+                        {t("cleaningPending")}
+                      </span>
+                    </div>
+                  )}
+                  {noRates && (
+                    <div className="flex items-center gap-2 p-2 rounded bg-amber-900/20 border border-amber-900/30">
+                      <span className="material-symbols-outlined text-admin-pending text-sm">
+                        payments
+                      </span>
+                      <span className="text-[11px] text-admin-pending font-medium">
+                        {t("noRates")}
+                      </span>
+                    </div>
+                  )}
                   <Link
                     href={`/villas/${villa.id}`}
                     className={

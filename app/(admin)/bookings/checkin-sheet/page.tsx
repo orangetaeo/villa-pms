@@ -15,11 +15,13 @@ import { formatThousands } from "@/lib/format";
 import { AMENITY_CATEGORIES } from "@/lib/amenities";
 import { minibarItemName } from "@/lib/minibar";
 import {
-  agreementVersionLabel,
+  AGREEMENT_CLAUSES,
+  AGREEMENT_DOC_TITLE,
+  AGREEMENT_VERSION,
+  buildClauseOrder,
   isAgreementLang,
   type AgreementLang,
 } from "@/lib/agreement";
-import { getAgreementContent } from "@/lib/agreement-store";
 import { SHEET_LABELS, AMENITY_CATEGORY_LABEL, amenityLabel } from "@/lib/checkin-sheet-i18n";
 import PrintButton from "./print-button";
 import AgreementLangSelect from "./agreement-lang-select";
@@ -54,9 +56,6 @@ export default async function CheckinSheetPage({
   const defaultLang: AgreementLang = isAgreementLang(appLocale) ? appLocale : "ko";
   const lang: AgreementLang = isAgreementLang(params.lang) ? params.lang : defaultLang;
   const L = SHEET_LABELS[lang];
-
-  // 발행본 동의서 — 운영자 편집본(AppSetting) 또는 코드 기본값 폴백. 인쇄 시트에 반영.
-  const agreement = await getAgreementContent();
 
   // 미니바 회사표준(#2b) — 전 빌라 공통 1세트. 인쇄 시트에 표준 목록 + 소모 손기입란.
   const minibarStandard = await prisma.minibarItem.findMany({
@@ -171,6 +170,7 @@ export default async function CheckinSheetPage({
         <div className="print-sheet space-y-6">
           {bookings.map((b) => {
             const v = b.villa;
+            const clauseOrder = buildClauseOrder(v.hasPool);
             const hasDeposit = b.depositAmount != null && b.depositCurrency != null;
             const depositHeld = b.depositStatus === "HELD";
             const alreadySigned = !!b.checkInRecord?.signatureUrl;
@@ -387,14 +387,17 @@ export default async function CheckinSheetPage({
                     <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center justify-between">
                       <span>{L.agreement}</span>
                       <span className="text-[10px] font-normal normal-case tracking-normal text-slate-400">
-                        {agreementVersionLabel(agreement)}
+                        v{AGREEMENT_VERSION}
                       </span>
                     </h3>
-                    <p className="text-sm font-bold mb-1">{agreement.docTitle[lang]}</p>
-                    {/* 자유 텍스트 본문 — 운영자가 번호 매긴 그대로 줄바꿈 보존 */}
-                    <p className="text-[11px] leading-relaxed text-slate-600 whitespace-pre-line">
-                      {agreement.body[lang]}
-                    </p>
+                    <p className="text-sm font-bold mb-1">{AGREEMENT_DOC_TITLE[lang]}</p>
+                    <ol className="text-[11px] leading-relaxed text-slate-600 space-y-1">
+                      {clauseOrder.map((key, i) => (
+                        <li key={key}>
+                          {i + 1}. {AGREEMENT_CLAUSES[key][lang]}
+                        </li>
+                      ))}
+                    </ol>
 
                     {alreadySigned ? (
                       <p className="mt-3 text-xs font-bold text-green-700">{L.alreadySigned}</p>

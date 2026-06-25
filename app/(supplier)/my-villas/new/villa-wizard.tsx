@@ -107,15 +107,7 @@ export default function VillaWizard({
         }),
       });
       if (!res.ok) throw new Error("submit failed");
-      // 운영자 대행 신규등록은 빌라 관리의 "승인 대기" 탭으로 복귀(공급자 화면 /my-villas로 새지 않게).
-      // 재제출(PUT)·공급자 신규는 기존대로 /my-villas.
-      const next =
-        isAdmin && !villaId
-          ? "/villas?status=pending"
-          : villaId
-            ? "/my-villas?resubmitted=1"
-            : "/my-villas?created=1";
-      router.push(next);
+      router.push(villaId ? `/my-villas?resubmitted=1` : "/my-villas?created=1");
       router.refresh();
     } catch {
       setSubmitError(true);
