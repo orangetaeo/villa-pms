@@ -32,6 +32,9 @@ type Filter = "ALL" | CounterpartyType;
 
 /** 마지막 메시지 미리보기 — 공유 메시지는 텍스트가 비거나 요약이므로 종류 라벨로 폴백 */
 function previewText(item: InboxItem, t: ReturnType<typeof useTranslations>): string {
+  // 통화는 text에 구조화 상세("CALL:out:done:3:audio")가 담겨 Nike 카드용으로 흐른다.
+  //   villa 인박스엔 원시 토큰 노출 금지 → 타입 라벨로 치환(lastText보다 우선).
+  if (item.lastMsgType === "call") return t("preview.call");
   if (item.lastText) return item.lastText;
   switch (item.lastMsgType) {
     case "photo":

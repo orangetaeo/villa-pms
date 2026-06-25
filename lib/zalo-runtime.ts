@@ -660,18 +660,9 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       console.log("[inbound-type]", zaloMsgType ?? "(none)", "->", classified.msgType);
       // contact/unknown은 오분류(지도/링크 공유 등) 진단을 위해 content **키 이름만** 추가 기록.
       //   값(URL·전화·이름)은 절대 로그 금지 — 키 목록만으로 필드 구조 파악(개인정보 0).
-      // call도 진단: 발신 통화 sub-type(부재중/거절/완료)·통화시간이 zca-js 페이로드에
-      //   존재하는지 확인용. self(방향)도 함께 기록. 문자열 content는 Zalo 시스템 라벨
-      //   ("Cuộc gọi nhỡ" 등 — 개인정보 아님)이라 sub-type 판별 위해 원문(60자) 기록.
-      if (
-        classified.msgType === "contact" ||
-        classified.msgType === "unknown" ||
-        classified.msgType === "call"
-      ) {
+      if (classified.msgType === "contact" || classified.msgType === "unknown") {
         const c = userMsg.data.content;
-        if (typeof c === "string") {
-          console.log("[inbound-type-str]", classified.msgType, "self:", userMsg.isSelf, "raw:", c.slice(0, 60));
-        } else if (c && typeof c === "object") {
+        if (c && typeof c === "object") {
           const keys = Object.keys(c as Record<string, unknown>);
           let paramKeys: string[] = [];
           const pv = (c as Record<string, unknown>).params;
@@ -681,25 +672,7 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
           } catch {
             /* params 비JSON */
           }
-          console.log("[inbound-type-keys]", classified.msgType, "self:", userMsg.isSelf, "content:", keys.join(","), "params:", paramKeys.join(","));
-          // call: params 값까지 기록(통화 메타데이터 — duration/reason/isCaller/calltype, 개인정보 아님).
-          //   부재중/거절/완료 매핑 + 통화시간 단위 + 음성/영상 판별용. 값 확정 후 진단 제거 예정.
-          if (classified.msgType === "call") {
-            try {
-              const pp = typeof pv === "string" ? JSON.parse(pv) : pv;
-              const p = (pp ?? {}) as Record<string, unknown>;
-              console.log(
-                "[call-params]",
-                "self:", userMsg.isSelf,
-                "duration:", JSON.stringify(p.duration),
-                "reason:", JSON.stringify(p.reason),
-                "isCaller:", JSON.stringify(p.isCaller),
-                "calltype:", JSON.stringify(p.calltype)
-              );
-            } catch {
-              /* params 비JSON */
-            }
-          }
+          console.log("[inbound-type-keys]", classified.msgType, "content:", keys.join(","), "params:", paramKeys.join(","));
         }
       }
     }

@@ -255,12 +255,53 @@ export function isCallSystemText(text: unknown): boolean {
  * ★ extractText와 동일 원칙: action/메서드명 등 메타 필드는 절대 본문으로 새지 않는다(버그 B).
  *   본문이 잡히면 "text"가 아니어도 캡션으로만 쓰고, 미상 본문은 빈 문자열로 둔다.
  */
+
+/**
+ * 통화 버블 content.params에서 구조화 통화 상세 텍스트 생성(없으면 "").
+ *
+ * params(JSON): duration(초)·reason·isCaller·calltype. 실측 매핑(2026-06-25, 테오↔조윤희 5종 통화):
+ *   - reason 없음 + duration>0 → done(완료), reason=3 → rejected(거절), reason=4 → missed(취소/미응답)
+ *   - isCaller=1 → out(발신), 0 → in(수신). calltype=0 → audio(음성), 그 외 → video(영상)
+ *
+ * 형식: "CALL:<out|in>:<done|missed|rejected|unknown>:<durSec>:<audio|video>"
+ *   Nike(adaptVillaMessage→parseCallMessage)가 파싱해 방향·결과·시간·음/영상 카드를 렌더한다.
+ *   villa 자체 UI는 msgType="call"로 렌더(이 text 미사용)하며, inbox 미리보기는 call 타입을
+ *   라벨로 치환해 원시 토큰 노출을 막는다(previewText). params 없으면 ""(일반 통화 폴백).
+ */
+export function buildCallDetail(content: unknown): string {
+  if (!content || typeof content !== "object") return "";
+  const o = content as Record<string, unknown>;
+  let p: Record<string, unknown> | null = null;
+  const pv = o.params;
+  if (pv && typeof pv === "object") p = pv as Record<string, unknown>;
+  else if (typeof pv === "string") {
+    try {
+      const j = JSON.parse(pv);
+      if (j && typeof j === "object") p = j as Record<string, unknown>;
+    } catch {
+      /* params 비JSON — 상세 불가 */
+    }
+  }
+  if (!p || (p.calltype == null && p.duration == null)) return "";
+  const durSec = Math.max(0, Math.floor(Number(p.duration) || 0));
+  const reason = p.reason == null ? null : Number(p.reason);
+  const dir = Number(p.isCaller) === 1 ? "out" : "in";
+  const vtype = Number(p.calltype) !== 0 ? "video" : "audio";
+  let status: "done" | "missed" | "rejected" | "unknown";
+  if (reason == null) status = durSec > 0 ? "done" : "missed";
+  else if (reason === 3) status = "rejected";
+  else if (reason === 4) status = "missed";
+  else status = "unknown";
+  return `CALL:${dir}:${status}:${durSec}:${vtype}`;
+}
+
 export function classifyInbound(content: unknown, zaloMsgType?: string): ClassifiedInbound {
   const type = (zaloMsgType ?? "").toLowerCase();
 
-  // ── 통화: content 유무와 무관하게 타입만으로 판정(본문 없음) ──
+  // ── 통화: content 유무와 무관하게 타입만으로 판정 ──
+  //   객체 content면 params에서 방향·결과·시간 상세를 구조화 텍스트로 보존(Nike 카드용).
   if (type.includes("call") || type.includes("voip")) {
-    return { msgType: "call", text: "", attachmentUrls: [] };
+    return { msgType: "call", text: buildCallDetail(content), attachmentUrls: [] };
   }
 
   // ── 통화 텍스트 휴리스틱 (실데이터: zca-js는 통화를 별도 msgType 없이 본문 text="Cuộc gọi"로 보냄) ──
@@ -321,7 +362,8 @@ export function classifyInbound(content: unknown, zaloMsgType?: string): Classif
   const humanCaption = pickCaptionField(o);
   const captionIsTokenOrEmpty = !humanCaption || BENIGN_METHOD_TOKENS.has(humanCaption);
   if (captionIsTokenOrEmpty && BENIGN_METHOD_TOKENS.has(tokenName)) {
-    return { msgType: "call", text: "", attachmentUrls: [] };
+    // 통화 버블 — params(duration/reason/isCaller/calltype)에서 상세 보존(Nike 카드용). 없으면 "".
+    return { msgType: "call", text: buildCallDetail(o), attachmentUrls: [] };
   }
 
   // ── 스티커 ──
