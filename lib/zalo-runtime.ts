@@ -697,10 +697,13 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
 
     // ── 본인 발신(앱 or 프로그램) → OUTBOUND 동기화 ──────────────
     if (isSelfMessage({ isSelf: userMsg.isSelf, senderId }, inst.ownId)) {
-      // 본문도 첨부도 없는 순수 비텍스트 에코(통화·미상)는 미러 불필요 — 스킵.
+      // 본문도 첨부도 없는 순수 비텍스트 에코(미상 등)는 미러 불필요 — 스킵.
       // (프로그램 S4/b14 발송이 이미 OUTBOUND를 정확히 기록하므로 중복·잡음 방지)
       // 단, 앱에서 직접 보낸 사진/파일/스티커/음성(첨부 있음)은 채팅에 보이도록 미러한다.
-      if (!text && classified.attachmentUrls.length === 0) {
+      // ★ 통화(call)는 예외: 발신 통화는 앱에서만 일어나 프로그램 OUTBOUND 기록이 없다.
+      //   여기서 스킵하면 발신 통화 기록이 영영 유실(수신 통화는 INBOUND로 보이나 발신은 안 보임).
+      //   → call echo는 OUTBOUND로 저장해 Nike에도 push(발신 통화 카드 표시). 멱등은 zaloMsgId로 보장.
+      if (!text && classified.attachmentUrls.length === 0 && classified.msgType !== "call") {
         void maybeRefreshAvatar(inst, senderZaloUserId);
         return;
       }
