@@ -1305,6 +1305,14 @@
     "ledgerVerified": "Đã đối chiếu sổ kép — số dư theo từng loại tiền cân bằng",
     "ledgerWarning": "Phát hiện sai lệch sổ kép",
     "ledgerWarningDetail": "Kiểm tra tính toàn vẹn sổ phát hiện sai lệch: {detail}",
+    "ledgerBal": {
+      "title": "Số dư sổ kế toán (sổ kép)",
+      "cash": "Tiền mặt nắm giữ",
+      "payable": "Công nợ phải trả NCC",
+      "revenue": "Doanh thu (ghi nhận)",
+      "cogs": "Giá vốn NCC",
+      "fx": "Lãi/lỗ tỷ giá"
+    },
     "monthPrev": "Tháng trước",
     "monthNext": "Tháng sau",
     "generate": "Chạy tổng hợp",

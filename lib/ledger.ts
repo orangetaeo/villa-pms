@@ -367,3 +367,51 @@ export async function verifyLedger(db: DbClient): Promise<LedgerVerifyResult> {
     discrepancies,
   };
 }
+
+// ===================== 잔액 대시보드 (S5) =====================
+
+/** 계정×통화 잔액 1줄 (verifyLedger.accountBalances 형태) */
+export interface AccountBalanceRow {
+  account: LedgerAccount;
+  currency: Currency;
+  amount: string; // BigInt 문자열(부호 포함)
+}
+
+/**
+ * 운영자 표시용 잔액 요약 — 전부 BigInt 문자열(클라 포맷은 호출부).
+ * 부호 해석(차변+/대변−):
+ *  - 보유현금(자산, 차변): 잔액 그대로 (양수=보유).
+ *  - 미지급채무(부채, 대변 −): 갚을 돈 = −잔액 (양수=미지급).
+ *  - 매출(수익, 대변 −): 인식 매출 = −잔액 (통화별).
+ *  - 원가(비용, 차변): 그대로.
+ *  - 환차손익: 순이익 = −잔액 (양수=이익, 음수=손실).
+ */
+export interface LedgerBalanceSummary {
+  cashKrw: string;
+  cashVnd: string;
+  supplierPayableVnd: string; // 미지급 채무(양수=갚을 돈)
+  revenueKrw: string;
+  revenueVnd: string;
+  cogsVnd: string;
+  fxGainLossVnd: string; // 순환차손익(양수=이익)
+}
+
+/** 잔액 행 배열 → 표시용 요약 (순수). 누락 계정은 0. */
+export function summarizeLedgerBalances(
+  rows: readonly AccountBalanceRow[]
+): LedgerBalanceSummary {
+  const bal = (account: LedgerAccount, currency: Currency): bigint => {
+    const row = rows.find((r) => r.account === account && r.currency === currency);
+    return row ? BigInt(row.amount) : 0n;
+  };
+  return {
+    cashKrw: bal(LedgerAccount.CASH_KRW, Currency.KRW).toString(),
+    cashVnd: bal(LedgerAccount.CASH_VND, Currency.VND).toString(),
+    // 대변(−) → 양수 표기로 반전
+    supplierPayableVnd: (-bal(LedgerAccount.SUPPLIER_PAYABLE, Currency.VND)).toString(),
+    revenueKrw: (-bal(LedgerAccount.REVENUE, Currency.KRW)).toString(),
+    revenueVnd: (-bal(LedgerAccount.REVENUE, Currency.VND)).toString(),
+    cogsVnd: bal(LedgerAccount.COGS, Currency.VND).toString(),
+    fxGainLossVnd: (-bal(LedgerAccount.FX_GAIN_LOSS, Currency.VND)).toString(),
+  };
+}
