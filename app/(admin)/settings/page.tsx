@@ -18,6 +18,8 @@ import HoldHoursForm from "./hold-hours-form";
 import FxRateForm from "./fx-rate-form";
 import BankContactForm, { type BankContactInitial } from "./bank-contact-form";
 import CancellationPolicyForm from "./cancellation-policy-form";
+import { getAgreementContent } from "@/lib/agreement-store";
+import AgreementForm from "./agreement-form";
 
 // 입금 계좌·연락처 키 (공개 제안 페이지가 소비) — /api/settings 화이트리스트와 일치
 // 한국(KRW) 계좌 + 베트남(VND) 계좌 + 공용 연락처
@@ -38,7 +40,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function SettingsPage() {
-  const [t, periods, settings] = await Promise.all([
+  const [t, periods, settings, agreement] = await Promise.all([
     getTranslations("adminSettings"),
     prisma.seasonPeriod.findMany({ orderBy: { startDate: "asc" } }),
     prisma.appSetting.findMany({
@@ -53,6 +55,7 @@ export default async function SettingsPage() {
         },
       },
     }),
+    getAgreementContent(),
   ]);
 
   // @db.Date → "YYYY-MM-DD" 직렬화 (클라이언트 경계, 시간대 오해 방지)
@@ -123,6 +126,10 @@ export default async function SettingsPage() {
 
       {/* Card 5: 취소·환불 정책 — 공개 제안 페이지 표시 (#6b) */}
       <CancellationPolicyForm initial={cancellationPolicy} />
+
+      {/* Card 6: 이용 동의서 — 전 빌라 공용 단일 동의서 편집 (T-admin-agreement-editor).
+          저장 전엔 코드 기본값 폴백 → 편집·발행 시 체크인·인쇄 동의서에 반영 */}
+      <AgreementForm initial={agreement} />
 
       {/* Card 6: 미니바 회사표준 품목 (#2b) — 별도 페이지 링크 */}
       <Link

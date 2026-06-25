@@ -6,10 +6,10 @@
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
-  AGREEMENT_CLAUSES,
-  AGREEMENT_DOC_TITLE,
-  AGREEMENT_VERSION,
+  agreementVersionLabel,
   buildClauseOrder,
+  type AgreementContent,
+  type AgreementClauseKey,
   type AgreementLang,
 } from "@/lib/agreement";
 import SignaturePad from "./signature-pad";
@@ -17,11 +17,14 @@ import SignaturePad from "./signature-pad";
 export default function AgreementSection({
   hasPool,
   sectionNo,
+  agreement,
   onSigned,
 }: {
   hasPool: boolean;
   /** b3 섹션 번호 배지 (체크인 폼 3, 사후 서명 모드 1) */
   sectionNo: number;
+  /** 발행본 동의서 콘텐츠(운영자 편집본 또는 코드 기본값) — RSC에서 store 조회 후 주입 */
+  agreement: AgreementContent;
   onSigned: (url: string) => void;
 }) {
   const t = useTranslations("adminCheckin.agreement");
@@ -42,21 +45,21 @@ export default function AgreementSection({
       </div>
       <div className="p-6 space-y-6">
         <div className="h-48 overflow-y-auto bg-slate-900 border border-slate-700 rounded-lg p-4 text-xs text-slate-400 leading-relaxed space-y-3">
-          <p className="font-bold text-slate-200">{AGREEMENT_DOC_TITLE[lang]}</p>
+          <p className="font-bold text-slate-200">{agreement.docTitle[lang]}</p>
           {clauses.map((key, i) =>
             key === "pool" ? (
               <div key={key} className="bg-blue-600/10 border-l-2 border-blue-500 p-2 my-2">
                 <p className="text-blue-400 font-bold">
-                  {i + 1}. {AGREEMENT_CLAUSES.pool[lang]}
+                  {i + 1}. {agreement.clauses.pool[lang]}
                 </p>
               </div>
             ) : (
               <p key={key}>
-                {i + 1}. {AGREEMENT_CLAUSES[key][lang]}
+                {i + 1}. {agreement.clauses[key as AgreementClauseKey][lang]}
               </p>
             )
           )}
-          <p className="text-[10px] text-slate-600 pt-1">v{AGREEMENT_VERSION}</p>
+          <p className="text-[10px] text-slate-600 pt-1">{agreementVersionLabel(agreement)}</p>
         </div>
 
         {signedUrl ? (

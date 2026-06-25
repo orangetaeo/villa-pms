@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { resizeImage } from "@/lib/image-resize";
 import AgreementSection from "./agreement-section";
+import type { AgreementContent } from "@/lib/agreement";
 
 interface PassportEntry {
   url: string; // /api/passports/<name>
@@ -52,11 +53,14 @@ export default function CheckinForm({
   bookingId,
   guestCount,
   hasPool,
+  agreement,
 }: {
   bookingId: string;
   guestCount: number;
   /** 수영장 조항 자동 포함 여부 (SPEC F4 체크인 4, T3.2) */
   hasPool: boolean;
+  /** 발행본 동의서 콘텐츠 — RSC에서 store 조회 후 주입 */
+  agreement: AgreementContent;
 }) {
   const t = useTranslations("adminCheckin");
   const router = useRouter();
@@ -357,7 +361,7 @@ export default function CheckinForm({
       </section>
 
       {/* Section 3: 동의서 + 터치 서명 (T3.2, b3 §3) */}
-      <AgreementSection hasPool={hasPool} sectionNo={3} onSigned={setSignatureUrl} />
+      <AgreementSection hasPool={hasPool} sectionNo={3} agreement={agreement} onSigned={setSignatureUrl} />
       {!signatureUrl && (
         <p className="text-center text-[11px] text-amber-400/80">{t("agreement.unsignedHint")}</p>
       )}
