@@ -35,7 +35,7 @@ import DateRangeFilter from "@/components/admin/statistics/date-range-filter";
 import MinibarChart from "@/components/admin/statistics/minibar-chart";
 import ServiceChart from "@/components/admin/statistics/service-chart";
 
-export type TabKey = "overview" | "occupancy" | "villas" | "operations";
+export type TabKey = "overview" | "occupancy" | "villas" | "operations" | "ancillary";
 
 export interface StatisticsProps {
   fin: boolean;
@@ -54,12 +54,14 @@ export interface StatisticsProps {
   operations: OperationsStats;
 }
 
-const ALL_TABS: TabKey[] = ["overview", "occupancy", "villas", "operations"];
+// ancillary(부가서비스·미니바)는 operations 바로 다음(운영지표 옆)에 배치.
+const ALL_TABS: TabKey[] = ["overview", "occupancy", "villas", "operations", "ancillary"];
 const TAB_ICONS: Record<TabKey, string> = {
   overview: "payments",
   occupancy: "event_available",
   villas: "leaderboard",
   operations: "conversion_path",
+  ancillary: "room_service",
 };
 
 export default function StatisticsClient(props: StatisticsProps) {
@@ -67,8 +69,12 @@ export default function StatisticsClient(props: StatisticsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // 개요·부가서비스/미니바 탭은 매출=재무 전용 → fin=false(STAFF)면 둘 다 미노출(누수 유지).
   const tabs = useMemo(
-    () => (props.fin ? ALL_TABS : ALL_TABS.filter((x) => x !== "overview")),
+    () =>
+      props.fin
+        ? ALL_TABS
+        : ALL_TABS.filter((x) => x !== "overview" && x !== "ancillary"),
     [props.fin]
   );
 
@@ -132,9 +138,7 @@ export default function StatisticsClient(props: StatisticsProps) {
 
       {/* 탭 콘텐츠 */}
       <div className="py-6 space-y-6">
-        {tab === "overview" && props.overview && (
-          <OverviewTab data={props.overview} minibar={props.minibar} services={props.services} />
-        )}
+        {tab === "overview" && props.overview && <OverviewTab data={props.overview} />}
         {tab === "occupancy" && <OccupancyTab data={props.occupancy} />}
         {tab === "villas" && (
           <VillasTab rows={props.villas} hasFinance={props.fin} />
@@ -142,22 +146,18 @@ export default function StatisticsClient(props: StatisticsProps) {
         {tab === "operations" && (
           <OperationsTab data={props.operations} funnel={props.funnel} fin={props.fin} />
         )}
+        {tab === "ancillary" && (props.minibar || props.services) && (
+          <AncillaryTab minibar={props.minibar} services={props.services} />
+        )}
       </div>
     </div>
   );
 }
 
 // ── 탭1. 개요 ────────────────────────────────────────────────
-// minibar는 canViewFinance일 때만 page가 내려보냄(매출=재무 누수 차단). props.minibar &&로 가드.
-function OverviewTab({
-  data,
-  minibar,
-  services,
-}: {
-  data: OverviewStats;
-  minibar?: MinibarStats;
-  services?: ServiceOrderStats;
-}) {
+// KPI·매출추이는 빌라+부가서비스+미니바 합산 총계(BE가 loadOverviewStats에서 통합).
+// 통화 분리(KRW·VND)는 그대로 유지. 미니바·부가서비스 상세는 ancillary 탭으로 분리됨.
+function OverviewTab({ data }: { data: OverviewStats }) {
   const t = useTranslations("adminStatistics");
   const k = data.current;
   const fxMissing = data.trend.reduce((s, m) => s + m.fxMissingCount, 0);
@@ -263,13 +263,30 @@ function OverviewTab({
           />
         </div>
       </div>
-
-      {/* 미니바 판매 — canViewFinance 전용(page가 fin일 때만 minibar 전달). 없으면 섹션 자체 미렌더. */}
-      {minibar && <MinibarSection data={minibar} />}
-
-      {/* 부가서비스 매출 — canViewFinance 전용(page가 fin일 때만 services 전달). 없으면 섹션 자체 미렌더. */}
-      {services && <ServiceSection data={services} />}
     </>
+  );
+}
+
+// ── 탭5. 부가서비스·미니바 ───────────────────────────────────
+// 매출=재무 → page가 canViewFinance일 때만 minibar/services 전달(STAFF면 props 자체 부재 → 탭 미노출).
+// 미니바 섹션 + 부가서비스 섹션을 한 범주로 세로 스택.
+function AncillaryTab({
+  minibar,
+  services,
+}: {
+  minibar?: MinibarStats;
+  services?: ServiceOrderStats;
+}) {
+  const t = useTranslations("adminStatistics");
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-base font-bold text-white">{t("ancillary.title")}</h2>
+        <p className="text-[11px] text-slate-500">{t("ancillary.subtitle")}</p>
+      </div>
+      {minibar && <MinibarSection data={minibar} />}
+      {services && <ServiceSection data={services} />}
+    </div>
   );
 }
 

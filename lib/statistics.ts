@@ -392,12 +392,26 @@ export interface ChannelStat {
   vndRevenueText: string;
 }
 
+/**
+ * OverviewStats — 개요 탭 집계.
+ *
+ * ★ 통합 총계: trend(버킷별)·current(기간 총계·직전 동기간 대비)의 매출·마진은
+ *   **빌라 + 부가서비스(ServiceOrder) + 미니바(CheckoutMinibarLine) 합산**이다.
+ *   - KRW 매출 = 빌라 collectedKrw + 부가서비스 priceKrw
+ *   - VND 매출 = 빌라 collectedVnd + 미니바 lineVnd + 부가서비스 priceVnd
+ *   - 마진(VND) = 빌라 marginVnd + 미니바 마진(원가 라인) + 부가서비스 마진(원가&VND 라인)
+ *   통화(KRW·VND)는 절대 한 숫자로 합치지 않는다(ADR-0003). marginRatePct 분모는 VND 기준
+ *   (빌라 collectedVndEquivalent + 미니바 VND + 부가서비스 VND) — KRW 매출은 환산 없이 제외.
+ * ★ channels(채널 도넛)는 **빌라 예약 기준 유지**(부가서비스·미니바 미반영).
+ * ★ RevenueTrendPoint/RevenueKpi 인터페이스는 그대로(필드 추가 없음 — 값만 통합).
+ */
 export interface OverviewStats {
   /** 버킷 키 배열(차트 x축 순서) */
   bucketKeys: string[];
   trend: RevenueTrendPoint[];
-  /** 기간 총계 KPI(+ 직전 동기간 대비) */
+  /** 기간 총계 KPI(+ 직전 동기간 대비) — 빌라+부가서비스+미니바 합산 */
   current: RevenueKpi;
+  /** 채널별(빌라 예약 기준 유지 — 부가서비스·미니바 미반영) */
   channels: ChannelStat[];
 }
 
@@ -423,10 +437,101 @@ function rowsInRange<T extends { checkOut: Date }>(rows: T[], start: Date, end: 
   );
 }
 
+// ── 개요 통합용 부가서비스·미니바 보조 집계 (작업: 개요=빌라+부가서비스+미니바 합산) ──
+//
+// loadMinibarStats·loadServiceOrderStats는 무수정(상세 탭이 그대로 detail로 씀). 개요 KPI/추이는
+// 그 함수들과 "동일 규칙"으로 라인을 합산하기 위해, 같은 매출인식(체크아웃일)·통화분리·마진규칙을
+// 적용하는 경량 헬퍼를 별도로 둔다(전체 통계 함수를 재호출하지 않고 버킷별 부분합만 필요하므로).
+
+/** 미니바 라인 1행 — checkOut(=booking.checkOut)으로 버킷 귀속 */
+interface MinibarContribRow {
+  lineVnd: bigint;
+  /** 원가 스냅샷 있는 라인만 마진 산입 (loadMinibarStats와 동일: costVnd & lineCostVnd 둘 다 not null) */
+  costVnd: bigint | null;
+  lineCostVnd: bigint | null;
+  checkOut: Date;
+}
+
+/** 부가서비스 라인 1행 — checkOut(=booking.checkOut)으로 버킷 귀속 */
+interface ServiceContribRow {
+  priceKrw: number;
+  priceVnd: bigint | null;
+  costVnd: bigint;
+  checkOut: Date;
+}
+
+const MINIBAR_CONTRIB_SELECT = {
+  lineVnd: true,
+  costVnd: true,
+  lineCostVnd: true,
+  checkOutRecord: { select: { booking: { select: { checkOut: true } } } },
+} as const;
+
+const SERVICE_CONTRIB_SELECT = {
+  priceKrw: true,
+  priceVnd: true,
+  costVnd: true,
+  booking: { select: { checkOut: true } },
+} as const;
+
+/** 부가서비스·미니바의 한 범위 기여분 — 통화 분리 유지(KRW·VND 미합산), 마진은 VND. */
+interface AncillaryContrib {
+  /** 부가서비스 KRW 매출 합 */
+  krw: number;
+  /** 미니바+부가서비스 VND 매출 합 */
+  vnd: bigint;
+  /** 미니바+부가서비스 마진 합 (원가 있는 라인만, KRW 라인 제외 — ADR-0003) */
+  marginVnd: bigint;
+  /** marginRatePct 분모 기여 = VND 매출(=vnd와 동일). KRW 매출은 환산 없이 분모/마진에서 제외 */
+  vndDenominator: bigint;
+}
+
+/**
+ * sumAncillaryInRange — [start, end) 내 미니바·부가서비스 라인의 기여분 합산.
+ * - 매출인식 = 체크아웃일(미니바=checkOutRecord→booking.checkOut, 부가서비스=booking.checkOut) — 빌라와 정합.
+ * - VND 매출 = Σ 미니바 lineVnd + Σ 부가서비스 priceVnd(not null). KRW 매출 = Σ 부가서비스 priceKrw.
+ * - 마진(VND) = 미니바(costVnd&lineCostVnd 있는 라인 Σ(lineVnd−lineCostVnd))
+ *             + 부가서비스(costVnd>0 & priceVnd 있는 라인 Σ(priceVnd−costVnd)).
+ *   KRW 라인·원가 미입력 라인은 마진 제외(loadMinibarStats·loadServiceOrderStats와 동일, ADR-0003).
+ * - vndDenominator(=VND 매출)은 marginRatePct 분모용. KRW 매출은 마진이 VND 기준이라 분모에서 제외.
+ * BigInt로만 합산(부동소수점 금지).
+ */
+function sumAncillaryInRange(
+  minibar: MinibarContribRow[],
+  services: ServiceContribRow[],
+  start: Date,
+  end: Date
+): AncillaryContrib {
+  let krw = 0;
+  let vnd = 0n;
+  let marginVnd = 0n;
+
+  for (const r of rowsInRange(minibar, start, end)) {
+    vnd += r.lineVnd;
+    if (r.costVnd != null && r.lineCostVnd != null) {
+      marginVnd += r.lineVnd - r.lineCostVnd;
+    }
+  }
+  for (const r of rowsInRange(services, start, end)) {
+    krw += r.priceKrw;
+    if (r.priceVnd != null) {
+      vnd += r.priceVnd;
+      if (r.costVnd > 0n) marginVnd += r.priceVnd - r.costVnd;
+    }
+  }
+
+  return { krw, vnd, marginVnd, vndDenominator: vnd };
+}
+
 /**
  * loadOverviewStats — 재무 전용(canViewFinance 게이트는 호출부(page.tsx)에서 확인 후 호출).
  * 버킷별 매출추이 + 기간 총계 KPI(직전 동기간 대비) + 채널별 건수·매출.
- * 매출 인식 = 체크아웃일, SETTLEMENT_BOOKING_STATUSES. 통화 분리·마진 환산은 summarizeFinance.
+ *
+ * ★ 매출·마진 총계는 **빌라 + 부가서비스(ServiceOrder) + 미니바(CheckoutMinibarLine) 합산**이다.
+ *   trend/current 모두 세 소스를 더한다(통화 분리 유지 — KRW·VND 미합산, ADR-0003).
+ *   채널(channels)은 빌라 예약 기준만 유지(부가서비스·미니바 미반영).
+ * 매출 인식 = 체크아웃일, 빌라=SETTLEMENT_BOOKING_STATUSES / 부가서비스=CONFIRMED·DELIVERED /
+ *   미니바=전체 라인(체크아웃 발생분). 통화 분리·빌라 마진 환산은 summarizeFinance.
  */
 export async function loadOverviewStats(
   period: StatsPeriod,
@@ -436,55 +541,127 @@ export async function loadOverviewStats(
   // 추이·총계 + 직전 동기간 KPI를 위해 previous.from(있으면)까지 한 번에 조회
   const queryStart = period.previous ? period.previous.from : period.from;
 
-  const rows: RevenueSourceRow[] = await db.booking.findMany({
-    where: {
-      status: { in: SETTLEMENT_STATUS_FILTER },
-      checkOut: { gte: queryStart, lt: period.to },
-    },
-    select: REVENUE_SELECT,
-  });
+  // 빌라 매출(booking) + 부가서비스(ServiceOrder) + 미니바(CheckoutMinibarLine)를
+  //   동일 윈도우 [queryStart, period.to)로 병렬 조회. 이후 rowsInRange로 버킷/기간/직전 클리핑.
+  const [rows, serviceRowsRaw, minibarRowsRaw] = await Promise.all([
+    db.booking.findMany({
+      where: {
+        status: { in: SETTLEMENT_STATUS_FILTER },
+        checkOut: { gte: queryStart, lt: period.to },
+      },
+      select: REVENUE_SELECT,
+    }) as Promise<RevenueSourceRow[]>,
+    db.serviceOrder.findMany({
+      where: {
+        status: { in: [ServiceOrderStatus.CONFIRMED, ServiceOrderStatus.DELIVERED] },
+        booking: { checkOut: { gte: queryStart, lt: period.to } },
+      },
+      select: SERVICE_CONTRIB_SELECT,
+    }),
+    db.checkoutMinibarLine.findMany({
+      where: {
+        checkOutRecord: {
+          booking: { checkOut: { gte: queryStart, lt: period.to } },
+        },
+      },
+      select: MINIBAR_CONTRIB_SELECT,
+    }),
+  ]);
+
+  // 부가서비스·미니바 라인을 checkOut 평탄화(버킷 귀속용)
+  const serviceRows: ServiceContribRow[] = serviceRowsRaw.map((o) => ({
+    priceKrw: o.priceKrw,
+    priceVnd: o.priceVnd,
+    costVnd: o.costVnd,
+    checkOut: o.booking.checkOut,
+  }));
+  const minibarRows: MinibarContribRow[] = minibarRowsRaw.map((l) => ({
+    lineVnd: l.lineVnd,
+    costVnd: l.costVnd,
+    lineCostVnd: l.lineCostVnd,
+    checkOut: l.checkOutRecord.booking.checkOut,
+  }));
 
   const inPeriodRows = rowsInRange(rows, period.from, period.to);
 
-  // 버킷별 추이 — period.buckets 순회([start, end) 클리핑)
+  /** 한 범위 [start, end)의 통합(빌라+부가서비스+미니바) 매출·마진 블록 산출. */
+  function integratedBlock(start: Date, end: Date): {
+    krwRevenue: number;
+    vndRevenue: bigint;
+    marginVnd: bigint;
+    /** marginRatePct 분모(VND): 빌라 환산 + 부가서비스·미니바 VND */
+    vndDenominator: bigint;
+    fxMissingCount: number;
+  } {
+    const villaList = rowsInRange(rows, start, end);
+    const s = summarizeFinance(villaList.map(toFinanceBooking));
+    const anc = sumAncillaryInRange(minibarRows, serviceRows, start, end);
+    // VND·마진은 BigInt로만 합산(부동소수점 금지) — number 변환은 직렬화 경계(toIntegratedFields)에서.
+    return {
+      krwRevenue: s.collectedKrw + anc.krw,
+      vndRevenue: s.collectedVnd + anc.vnd,
+      marginVnd: s.marginVnd + anc.marginVnd,
+      vndDenominator: s.collectedVndEquivalent + anc.vndDenominator,
+      fxMissingCount: s.fxMissingCount,
+    };
+  }
+
+  /** 통합 블록 → 직렬화 쌍(KRW·VND·마진 텍스트, marginRatePct). 통화 분리 유지. */
+  function toIntegratedFields(b: ReturnType<typeof integratedBlock>) {
+    const krw = toKrwAmount(b.krwRevenue);
+    const vnd = toVndAmount(b.vndRevenue);
+    const margin = toVndAmount(b.marginVnd);
+    // 마진율 = 통합 마진VND / 통합 VND분모 × 100. 분모 0이면 null(÷0 방지). KRW 매출은 분모/마진서 제외.
+    const marginRatePct =
+      b.vndDenominator > 0n
+        ? Math.round((Number(b.marginVnd) / Number(b.vndDenominator)) * 1000) / 10
+        : null;
+    return {
+      krwRevenue: krw.krw,
+      krwRevenueText: krw.krwText,
+      vndRevenue: vnd.vnd,
+      vndRevenueText: vnd.vndText,
+      marginVnd: margin.vnd,
+      marginVndText: margin.vndText,
+      marginRatePct,
+      fxMissingCount: b.fxMissingCount,
+    };
+  }
+
+  // 버킷별 추이 — period.buckets 순회([start, end) 클리핑), 통합 합산
   const trend: RevenueTrendPoint[] = period.buckets.map((bucket) => {
-    const list = rowsInRange(rows, bucket.start, bucket.end);
-    const block = toFinanceBlock(summarizeFinance(list.map(toFinanceBooking)));
+    const f = toIntegratedFields(integratedBlock(bucket.start, bucket.end));
     return {
       bucketKey: bucket.key,
       label: bucket.label,
-      krwRevenue: block.krwRevenue,
-      krwRevenueText: block.krwRevenueText,
-      vndRevenue: block.vndRevenue,
-      vndRevenueText: block.vndRevenueText,
-      marginVnd: block.marginVnd,
-      marginVndText: block.marginVndText,
-      fxMissingCount: block.fxMissingCount,
+      krwRevenue: f.krwRevenue,
+      krwRevenueText: f.krwRevenueText,
+      vndRevenue: f.vndRevenue,
+      vndRevenueText: f.vndRevenueText,
+      marginVnd: f.marginVnd,
+      marginVndText: f.marginVndText,
+      fxMissingCount: f.fxMissingCount,
     };
   });
 
-  // 기간 총계 KPI + 직전 동기간 대비
-  const currentBlock = toFinanceBlock(summarizeFinance(inPeriodRows.map(toFinanceBooking)));
-  const prevBlock = period.previous
-    ? toFinanceBlock(
-        summarizeFinance(
-          rowsInRange(rows, period.previous.from, period.previous.to).map(toFinanceBooking)
-        )
-      )
+  // 기간 총계 KPI + 직전 동기간 대비 — 모두 통합 합산 기준
+  const currentFields = toIntegratedFields(integratedBlock(period.from, period.to));
+  const prevFields = period.previous
+    ? toIntegratedFields(integratedBlock(period.previous.from, period.previous.to))
     : null;
 
   const current: RevenueKpi = {
-    krwRevenue: currentBlock.krwRevenue,
-    krwRevenueText: currentBlock.krwRevenueText,
-    vndRevenue: currentBlock.vndRevenue,
-    vndRevenueText: currentBlock.vndRevenueText,
-    marginVnd: currentBlock.marginVnd,
-    marginVndText: currentBlock.marginVndText,
-    marginRatePct: currentBlock.marginRatePct,
-    fxMissingCount: currentBlock.fxMissingCount,
-    krwChangePct: prevBlock ? changeRate(currentBlock.krwRevenue, prevBlock.krwRevenue) : null,
-    vndChangePct: prevBlock ? changeRate(currentBlock.vndRevenue, prevBlock.vndRevenue) : null,
-    marginChangePct: prevBlock ? changeRate(currentBlock.marginVnd, prevBlock.marginVnd) : null,
+    krwRevenue: currentFields.krwRevenue,
+    krwRevenueText: currentFields.krwRevenueText,
+    vndRevenue: currentFields.vndRevenue,
+    vndRevenueText: currentFields.vndRevenueText,
+    marginVnd: currentFields.marginVnd,
+    marginVndText: currentFields.marginVndText,
+    marginRatePct: currentFields.marginRatePct,
+    fxMissingCount: currentFields.fxMissingCount,
+    krwChangePct: prevFields ? changeRate(currentFields.krwRevenue, prevFields.krwRevenue) : null,
+    vndChangePct: prevFields ? changeRate(currentFields.vndRevenue, prevFields.vndRevenue) : null,
+    marginChangePct: prevFields ? changeRate(currentFields.marginVnd, prevFields.marginVnd) : null,
   };
 
   // 채널별 — 기간 [from, to) 내 매출만

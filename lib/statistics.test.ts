@@ -6,6 +6,7 @@ import {
   resolveStatsPeriod,
   loadMinibarStats,
   loadServiceOrderStats,
+  loadOverviewStats,
   toVndAmount,
   toKrwAmount,
   toFinanceBooking,
@@ -533,5 +534,261 @@ describe("loadServiceOrderStats — 부가서비스 매출 집계", () => {
     expect(s.marginVnd).toBeNull();
     expect(s.costMissingCount).toBe(0);
     expect(s.trend.every((b) => b.revenueKrw === 0 && b.revenueVnd === 0)).toBe(true);
+  });
+});
+
+// ===================================================================
+// loadOverviewStats — 개요 통합(빌라 + 부가서비스 + 미니바 합산)
+//   매출·마진 총계가 세 소스 합이며, KRW·VND는 통화 분리(미합산) 유지인지 검증.
+// ===================================================================
+interface MockBookingRow {
+  status: string;
+  channel: string;
+  saleCurrency: Currency;
+  totalSaleKrw: number | null;
+  totalSaleVnd: bigint | null;
+  supplierCostVnd: bigint;
+  fxVndPerKrw: string | null;
+  checkOut: Date;
+}
+
+/**
+ * loadOverviewStats용 통합 mock db — booking·serviceOrder·checkoutMinibarLine 3개 findMany.
+ * 각 findMany는 where(status·checkOut 범위)로 필터링까지 흉내(실제 쿼리 시맨틱과 동일).
+ */
+function mockOverviewDb(args: {
+  bookings?: MockBookingRow[];
+  services?: MockOrder[];
+  minibar?: MockLine[];
+}): PrismaClient {
+  const bookings = args.bookings ?? [];
+  const services = args.services ?? [];
+  const minibar = args.minibar ?? [];
+  return {
+    booking: {
+      findMany: async (q: {
+        where: { status: { in: string[] }; checkOut: { gte: Date; lt: Date } };
+      }) => {
+        const { status, checkOut } = q.where;
+        return bookings
+          .filter(
+            (b) =>
+              status.in.includes(b.status) &&
+              b.checkOut.getTime() >= checkOut.gte.getTime() &&
+              b.checkOut.getTime() < checkOut.lt.getTime()
+          )
+          .map((b) => ({
+            checkOut: b.checkOut,
+            channel: b.channel,
+            saleCurrency: b.saleCurrency,
+            totalSaleKrw: b.totalSaleKrw,
+            totalSaleVnd: b.totalSaleVnd,
+            supplierCostVnd: b.supplierCostVnd,
+            fxVndPerKrw: b.fxVndPerKrw,
+          }));
+      },
+    },
+    serviceOrder: {
+      findMany: async (q: {
+        where: {
+          status: { in: string[] };
+          booking: { checkOut: { gte: Date; lt: Date } };
+        };
+      }) => {
+        const { status, booking } = q.where;
+        return services
+          .filter(
+            (o) =>
+              status.in.includes(o.status) &&
+              o.checkOut.getTime() >= booking.checkOut.gte.getTime() &&
+              o.checkOut.getTime() < booking.checkOut.lt.getTime()
+          )
+          .map((o) => ({
+            priceKrw: o.priceKrw,
+            priceVnd: o.priceVnd,
+            costVnd: o.costVnd,
+            booking: { checkOut: o.checkOut },
+          }));
+      },
+    },
+    checkoutMinibarLine: {
+      findMany: async (q: {
+        where: { checkOutRecord: { booking: { checkOut: { gte: Date; lt: Date } } } };
+      }) => {
+        const { gte, lt } = q.where.checkOutRecord.booking.checkOut;
+        return minibar
+          .filter((l) => l.checkOut.getTime() >= gte.getTime() && l.checkOut.getTime() < lt.getTime())
+          .map((l) => ({
+            lineVnd: l.lineVnd,
+            costVnd: l.costVnd,
+            lineCostVnd: l.lineCostVnd,
+            checkOutRecord: { booking: { checkOut: l.checkOut } },
+          }));
+      },
+    },
+  } as unknown as PrismaClient;
+}
+
+describe("loadOverviewStats — 개요 통합(빌라+부가서비스+미니바)", () => {
+  const period: StatsPeriod = resolveStatsPeriod({ range: "thisMonth" }, NOW);
+
+  // 공통 빌라 예약: VND 채널 1건 — 매출 30,000,000 / 원가 20,000,000 → 마진 10,000,000 — 06-05
+  const villaVnd: MockBookingRow = {
+    status: "CHECKED_OUT",
+    channel: "TRAVEL_AGENCY",
+    saleCurrency: Currency.VND,
+    totalSaleKrw: null,
+    totalSaleVnd: 30_000_000n,
+    supplierCostVnd: 20_000_000n,
+    fxVndPerKrw: null,
+    checkOut: new Date("2026-06-05T00:00:00.000Z"),
+  };
+  // KRW 채널 1건 — 1,000,000원 × 18.5 = 18,500,000 VND환산 / 원가 15,000,000 → 마진 3,500,000 — 06-05
+  const villaKrw: MockBookingRow = {
+    status: "CHECKED_OUT",
+    channel: "DIRECT",
+    saleCurrency: Currency.KRW,
+    totalSaleKrw: 1_000_000,
+    totalSaleVnd: null,
+    supplierCostVnd: 15_000_000n,
+    fxVndPerKrw: "18.5000",
+    checkOut: new Date("2026-06-05T00:00:00.000Z"),
+  };
+
+  it("빌라-only(부가서비스·미니바 0건) = 종전 빌라 결과와 동일(회귀)", async () => {
+    const db = mockOverviewDb({ bookings: [villaVnd, villaKrw] });
+    const s = await loadOverviewStats(period, NOW, db);
+
+    // 빌라만: KRW 1,000,000원 / VND 30,000,000₫ / 마진 10M+3.5M=13.5M
+    expect(s.current.krwRevenue).toBe(1_000_000);
+    expect(s.current.vndRevenue).toBe(30_000_000);
+    expect(s.current.marginVnd).toBe(13_500_000);
+    // 마진율 = 13.5M / (VND수납 30M + KRW환산 18.5M = 48.5M) × 100 ≈ 27.8%
+    expect(s.current.marginRatePct).toBe(27.8);
+    // 채널(빌라 기준 유지)
+    const ta = s.channels.find((c) => c.channel === "TRAVEL_AGENCY")!;
+    expect(ta.vndRevenue).toBe(30_000_000);
+  });
+
+  it("부가서비스·미니바가 KPI·버킷에 합산(통화 분리 유지 — KRW·VND 미합산)", async () => {
+    const db = mockOverviewDb({
+      bookings: [villaVnd, villaKrw],
+      // 부가서비스: BBQ VND 800,000(원가 500,000)·마사지 KRW 120,000(원가 0) — 06-05
+      services: [
+        { type: "BBQ", priceKrw: 0, priceVnd: 800_000n, costVnd: 500_000n, quantity: 1, status: "DELIVERED", checkOut: new Date("2026-06-05T00:00:00.000Z") },
+        { type: "MASSAGE", priceKrw: 120_000, priceVnd: null, costVnd: 0n, quantity: 1, status: "CONFIRMED", checkOut: new Date("2026-06-05T00:00:00.000Z") },
+      ],
+      // 미니바: 콜라 VND 60,000(원가 lineCost 40,000) — 06-05
+      minibar: [
+        { nameKo: "콜라", consumedQty: 2, lineVnd: 60_000n, costVnd: 20_000n, lineCostVnd: 40_000n, checkOut: new Date("2026-06-05T00:00:00.000Z") },
+      ],
+    });
+    const s = await loadOverviewStats(period, NOW, db);
+
+    // KRW 매출 = 빌라 1,000,000 + 부가서비스 120,000 = 1,120,000원
+    expect(s.current.krwRevenue).toBe(1_120_000);
+    expect(s.current.krwRevenueText).toBe("1,120,000원");
+    // VND 매출 = 빌라 30,000,000 + 미니바 60,000 + 부가서비스 800,000 = 30,860,000₫
+    expect(s.current.vndRevenue).toBe(30_860_000);
+    expect(s.current.vndRevenueText).toBe("30,860,000₫");
+    // KRW·VND가 한 숫자로 합산되지 않음(별개 필드 — 구조적 분리)
+    expect(s.current.krwRevenue).not.toBe(s.current.vndRevenue);
+
+    // 마진 = 빌라 13,500,000 + 미니바(60k−40k=20k) + 부가서비스(800k−500k=300k) = 13,820,000
+    expect(s.current.marginVnd).toBe(13_820_000);
+    expect(s.current.marginVndText).toBe("13,820,000₫");
+    // 마진율 = 13,820,000 / (빌라환산 48.5M + 미니바 60k + 부가서비스 800k = 49,360,000) × 100 ≈ 28.0%
+    expect(s.current.marginRatePct).toBe(28);
+
+    // 버킷 추이 — 06-05 버킷에 세 소스 합산 반영
+    const b0605 = s.trend.find((b) => b.bucketKey === "2026-06-05")!;
+    expect(b0605.krwRevenue).toBe(1_120_000);
+    expect(b0605.vndRevenue).toBe(30_860_000);
+    expect(b0605.marginVnd).toBe(13_820_000);
+    // 다른 버킷(데이터 없음)은 0
+    const b0610 = s.trend.find((b) => b.bucketKey === "2026-06-10")!;
+    expect(b0610.krwRevenue).toBe(0);
+    expect(b0610.vndRevenue).toBe(0);
+    expect(b0610.marginVnd).toBe(0);
+
+    // 채널 도넛은 빌라 기준 유지(부가서비스·미니바 미반영) — TRAVEL_AGENCY VND 30M 그대로
+    const ta = s.channels.find((c) => c.channel === "TRAVEL_AGENCY")!;
+    expect(ta.vndRevenue).toBe(30_000_000);
+    const direct = s.channels.find((c) => c.channel === "DIRECT")!;
+    expect(direct.krwRevenue).toBe(1_000_000);
+  });
+
+  it("부가서비스 KRW 라인·원가 미입력 라인은 마진서 제외(ADR-0003)", async () => {
+    const db = mockOverviewDb({
+      // KRW 매출 + costVnd 있어도 priceVnd 없으면 마진 제외(환산 없음)
+      services: [
+        { type: "MASSAGE", priceKrw: 100_000, priceVnd: null, costVnd: 300_000n, quantity: 1, status: "DELIVERED", checkOut: new Date("2026-06-10T00:00:00.000Z") },
+        { type: "BBQ", priceKrw: 0, priceVnd: 800_000n, costVnd: 500_000n, quantity: 1, status: "DELIVERED", checkOut: new Date("2026-06-11T00:00:00.000Z") },
+      ],
+      // 원가 미입력 미니바 라인 — 매출만, 마진 제외
+      minibar: [
+        { nameKo: "물", consumedQty: 1, lineVnd: 10_000n, costVnd: null, lineCostVnd: null, checkOut: new Date("2026-06-12T00:00:00.000Z") },
+      ],
+    });
+    const s = await loadOverviewStats(period, NOW, db);
+
+    expect(s.current.krwRevenue).toBe(100_000);
+    expect(s.current.vndRevenue).toBe(810_000); // 800k + 10k
+    // 마진 = BBQ만(800k−500k=300k). KRW 라인·원가미입력 미니바 제외
+    expect(s.current.marginVnd).toBe(300_000);
+    // 마진율 = 300k / VND분모(810k) × 100 ≈ 37.0%
+    expect(s.current.marginRatePct).toBe(37);
+  });
+
+  it("VND 매출 0 → marginRatePct null(÷0 방지)", async () => {
+    // KRW 매출만(환산 불가 — fx 없음) → VND 분모 0
+    const db = mockOverviewDb({
+      services: [
+        { type: "MASSAGE", priceKrw: 100_000, priceVnd: null, costVnd: 0n, quantity: 1, status: "DELIVERED", checkOut: new Date("2026-06-10T00:00:00.000Z") },
+      ],
+    });
+    const s = await loadOverviewStats(period, NOW, db);
+    expect(s.current.krwRevenue).toBe(100_000);
+    expect(s.current.vndRevenue).toBe(0);
+    expect(s.current.marginVnd).toBe(0);
+    expect(s.current.marginRatePct).toBeNull();
+  });
+
+  it("직전 동기간 대비(changePct) — 통합 총계 기준", async () => {
+    // 커스텀 06-11~06-20(span 10) → previous = 06-01~06-11
+    const p10 = resolveStatsPeriod({ from: "2026-06-11", to: "2026-06-20" }, NOW);
+    expect(p10.previous).not.toBeNull();
+
+    const db = mockOverviewDb({
+      // 현재 기간(06-15): 빌라 VND 20,000,000
+      bookings: [
+        { status: "CHECKED_OUT", channel: "TRAVEL_AGENCY", saleCurrency: Currency.VND, totalSaleKrw: null, totalSaleVnd: 20_000_000n, supplierCostVnd: 10_000_000n, fxVndPerKrw: null, checkOut: new Date("2026-06-15T00:00:00.000Z") },
+      ],
+      // 현재 기간(06-15): 부가서비스 VND 1,000,000 / previous(06-05): 부가서비스 VND 500,000
+      services: [
+        { type: "BBQ", priceKrw: 0, priceVnd: 1_000_000n, costVnd: 0n, quantity: 1, status: "DELIVERED", checkOut: new Date("2026-06-15T00:00:00.000Z") },
+        { type: "BBQ", priceKrw: 0, priceVnd: 500_000n, costVnd: 0n, quantity: 1, status: "DELIVERED", checkOut: new Date("2026-06-05T00:00:00.000Z") },
+      ],
+      // previous(06-05): 미니바 VND 500,000
+      minibar: [
+        { nameKo: "콜라", consumedQty: 1, lineVnd: 500_000n, costVnd: null, lineCostVnd: null, checkOut: new Date("2026-06-05T00:00:00.000Z") },
+      ],
+    });
+    const s = await loadOverviewStats(p10, NOW, db);
+
+    // current VND = 빌라 20,000,000 + 부가서비스 1,000,000 = 21,000,000
+    expect(s.current.vndRevenue).toBe(21_000_000);
+    // previous VND = 부가서비스 500,000 + 미니바 500,000 = 1,000,000
+    // changePct = (21,000,000 − 1,000,000) / 1,000,000 × 100 = 2000%
+    expect(s.current.vndChangePct).toBe(2000);
+  });
+
+  it("전부 0건 → 매출·마진 0·marginRatePct null·버킷 전부 0", async () => {
+    const s = await loadOverviewStats(period, NOW, mockOverviewDb({}));
+    expect(s.current.krwRevenue).toBe(0);
+    expect(s.current.vndRevenue).toBe(0);
+    expect(s.current.marginVnd).toBe(0);
+    expect(s.current.marginRatePct).toBeNull();
+    expect(s.trend.every((b) => b.krwRevenue === 0 && b.vndRevenue === 0 && b.marginVnd === 0)).toBe(true);
   });
 });

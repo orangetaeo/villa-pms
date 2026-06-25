@@ -2415,7 +2415,8 @@
       "overview": "개요",
       "occupancy": "가동률",
       "villas": "빌라 성과",
-      "operations": "운영지표"
+      "operations": "운영지표",
+      "ancillary": "부가서비스·미니바"
     },
     "range": {
       "6": "최근 6개월",
@@ -2437,7 +2438,7 @@
       "nightsUnit": "박"
     },
     "overview": {
-      "basisNote": "매출 인식 = 체크아웃 월 기준 · 통화별 분리 집계 (KRW·VND 합산하지 않음)",
+      "basisNote": "매출 인식 = 체크아웃 월 기준 · 빌라+부가서비스+미니바 합산 · 통화별 분리 집계 (KRW·VND 합산하지 않음)",
       "fxMissingNote": "환율 미기록 예약 {count}건은 마진 집계에서 제외",
       "kpi": {
         "krwRevenue": "KRW 매출",
@@ -2451,7 +2452,7 @@
       },
       "revenueChart": {
         "title": "월별 매출 추이",
-        "subtitle": "KRW·VND 분리 표시 (좌·우 축 별도) — 합산 아님",
+        "subtitle": "빌라+부가서비스+미니바 포함 · KRW·VND 분리 표시 (좌·우 축 별도) — 통화 합산 아님",
         "krwLegend": "KRW (좌축, 원)",
         "vndLegend": "VND (우축, ₫)"
       },
@@ -2603,6 +2604,10 @@
         "MASSAGE": "마사지",
         "BARBER": "이발"
       }
+    },
+    "ancillary": {
+      "title": "부가서비스·미니바 매출",
+      "subtitle": "미니바 판매와 부가서비스 매출·마진을 한곳에 모아 봅니다 (개요 KPI에는 합산 포함)"
     }
   },
   "adminGuestToken": {
