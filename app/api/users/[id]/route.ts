@@ -255,7 +255,8 @@ export async function PATCH(
 
 // DELETE /api/users/[id] — 회원 소프트 삭제 (deletedAt 스탬프).
 // 완전 삭제 아님: 데이터·빌라는 보존하고 목록·로그인에서만 제외. 복구는 DB에서 deletedAt=null.
-// 차단: 본인(락아웃), OWNER(최상위 권한 보호), 빌라 보유 SUPPLIER(고아 방지 — 먼저 이관).
+// 차단: 본인(락아웃), OWNER(최상위 권한 보호), 진행 중 예약·체크인 보유(거래 사고 방지).
+// 빌라만 보유(진행 거래 없음)는 삭제 허용 — 빌라는 '공급자 삭제됨'으로 보존.
 export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -287,7 +288,17 @@ export async function DELETE(
     // OWNER 보호 — 최상위 권한 계정은 삭제 불가 (권한상승·시스템 고립 방지)
     if (user.role === "OWNER") return { kind: "CANNOT_DELETE_OWNER" as const };
     // 공급자가 빌라를 보유해도 삭제 허용 — 빌라 정보(supplierId 포함)는 그대로 보존되고
-    // 빌라 목록에 '공급자 삭제됨'으로 표시된다(운영자 결정). 고아 차단하지 않음.
+    // 빌라 목록에 '공급자 삭제됨'으로 표시된다(운영자 결정). 단, 진행 중 거래가 있으면 차단.
+    // 진행 중 예약·체크인(HOLD·CONFIRMED·CHECKED_IN)이 걸린 빌라 보유 시 삭제 불가 —
+    // 투숙 중/예정 거래의 알림·정산·연락 주체가 사라지는 사고 방지. 종료 상태는 무관.
+    const activeBooking = await tx.booking.findFirst({
+      where: {
+        villa: { is: { supplierId: id } },
+        status: { in: ["HOLD", "CONFIRMED", "CHECKED_IN"] },
+      },
+      select: { id: true },
+    });
+    if (activeBooking) return { kind: "HAS_ACTIVE_BOOKINGS" as const };
 
     await tx.user.update({
       where: { id },
@@ -321,6 +332,9 @@ export async function DELETE(
   }
   if (result.kind === "CANNOT_DELETE_OWNER") {
     return NextResponse.json({ error: "CANNOT_DELETE_OWNER" }, { status: 403 });
+  }
+  if (result.kind === "HAS_ACTIVE_BOOKINGS") {
+    return NextResponse.json({ error: "HAS_ACTIVE_BOOKINGS" }, { status: 409 });
   }
 
   return NextResponse.json({ id, deleted: true });

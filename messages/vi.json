@@ -1319,7 +1319,8 @@
       "cannotChangeOwnRole": "Không thể thay đổi vai trò của tài khoản chính bạn.",
       "cannotDeleteSelf": "Không thể xóa tài khoản của chính bạn.",
       "cannotDeleteOwner": "Không thể xóa tài khoản quản trị cấp cao nhất (chủ sở hữu).",
-      "hasVillasDelete": "Không thể xóa nhà cung cấp đang sở hữu villa. Hãy chuyển villa trước."
+      "hasVillasDelete": "Không thể xóa nhà cung cấp đang sở hữu villa. Hãy chuyển villa trước.",
+      "hasActiveBookings": "Không thể xóa nhà cung cấp đang có đặt phòng hoặc khách đang lưu trú. Hãy thử lại sau khi giao dịch kết thúc."
     },
     "empty": "Không có người dùng để hiển thị.",
     "addUser": {

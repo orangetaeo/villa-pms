@@ -284,7 +284,9 @@ export default function UsersManager({
             ? "errors.cannotDeleteSelf"
             : res.status === 403
               ? "errors.cannotDeleteOwner"
-              : "errors.generic";
+              : res.status === 409
+                ? "errors.hasActiveBookings"
+                : "errors.generic";
         setMessage({ tone: "error", text: t(errKey) });
         return;
       }
