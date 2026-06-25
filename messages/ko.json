@@ -1364,6 +1364,14 @@
     "ledgerVerified": "복식부기 검증됨 — 통화별 장부 균형 정상",
     "ledgerWarning": "복식부기 불일치 감지",
     "ledgerWarningDetail": "장부 무결성 점검에서 불일치가 발견됐습니다: {detail}",
+    "ledgerBal": {
+      "title": "장부 잔액 (복식부기)",
+      "cash": "보유 현금",
+      "payable": "공급자 미지급 채무",
+      "revenue": "매출 (인식)",
+      "cogs": "공급자 원가",
+      "fx": "환차 손익"
+    },
     "monthPrev": "이전 달",
     "monthNext": "다음 달",
     "generate": "집계 실행",
@@ -2413,7 +2421,7 @@
       "DIRECT": "직접"
     },
     "common": {
-      "changeFromPrev": "전월 대비",
+      "changeFromPrev": "직전 기간 대비",
       "noData": "표시할 데이터가 없습니다",
       "fxSnapshotNote": "환율 스냅샷 기준 참고",
       "fxSnapshotNoteShort": "환율 스냅샷 참고",
@@ -2424,9 +2432,9 @@
       "basisNote": "매출 인식 = 체크아웃 월 기준 · 통화별 분리 집계 (KRW·VND 합산하지 않음)",
       "fxMissingNote": "환율 미기록 예약 {count}건은 마진 집계에서 제외",
       "kpi": {
-        "krwRevenue": "이번 달 KRW 매출",
+        "krwRevenue": "KRW 매출",
         "krwRevenueNote": "직접(DIRECT) 채널",
-        "vndRevenue": "이번 달 VND 매출",
+        "vndRevenue": "VND 매출",
         "vndRevenueNote": "여행사·랜드사 채널",
         "margin": "환산 마진",
         "marginNote": "VND 환산 기준",
@@ -2448,15 +2456,15 @@
     },
     "occupancy": {
       "kpi": {
-        "currentRate": "이번 달 전체 가동률",
-        "change": "전월 대비",
-        "changeNote": "전월 {prev}% → 이번 달 {current}%",
+        "currentRate": "전체 가동률",
+        "change": "직전 기간 대비",
+        "changeNote": "직전 {prev}% → 현재 {current}%",
         "avgNights": "평균 박수 / 예약",
-        "avgNightsNote": "이번 달 {bookings}예약 · 총 {nights}박"
+        "avgNightsNote": "{bookings}건 · 총 {nights}박"
       },
       "trendChart": {
         "title": "월별 가동률 추이",
-        "subtitle": "최근 12개월 · 0~100%",
+        "subtitle": "0~100%",
         "legend": "전체 가동률"
       },
       "villaChart": {

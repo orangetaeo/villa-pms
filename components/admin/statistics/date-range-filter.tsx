@@ -7,7 +7,7 @@
 //   - presetKey 있으면 해당 칩 활성, 커스텀이면 칩 비활성 + 달력 강조.
 // 프리셋 라벨은 공용 quickDateFilter 네임스페이스 재사용(중복 키 회피). 다크 admin 토큰.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
@@ -45,6 +45,14 @@ export default function DateRangeFilter({
   const [from, setFrom] = useState(fromText);
   const [to, setTo] = useState(toText);
 
+  // 소프트 내비게이션(프리셋 클릭·커스텀 적용) 후 적용 기간(props)이 바뀌면 입력을 재동기화한다.
+  // (App Router는 이 client 컴포넌트를 remount하지 않아 useState 초기값이 stale로 고정되는 문제 해결 —
+  //  프리셋 적용 후에도 옛 커스텀 값이 남아 '적용' 버튼이 활성→프리셋을 덮어쓰던 BUG-1)
+  useEffect(() => {
+    setFrom(fromText);
+    setTo(toText);
+  }, [fromText, toText]);
+
   const onPreset = (key: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("range", key);
@@ -65,8 +73,10 @@ export default function DateRangeFilter({
   };
 
   const invalidRange = !!from && !!to && to < from;
-  // 이미 적용된 값과 동일하면 적용 버튼 비활성(불필요 재요청 회피)
-  const unchanged = isCustom && from === fromText && to === toText;
+  // 입력이 현재 적용 기간과 같으면 적용 버튼 비활성(불필요 재요청 회피).
+  // 프리셋 적용 직후엔 입력이 그 기간으로 동기화되므로(useEffect) 여기서도 비활성 →
+  // 활성 버튼으로 프리셋을 동일범위 커스텀으로 덮어쓰는 군더더기 동작 차단(isCustom 조건 제거).
+  const unchanged = from === fromText && to === toText;
 
   const inputClass =
     "bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 px-2.5 py-1.5 " +

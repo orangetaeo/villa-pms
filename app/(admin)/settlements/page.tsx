@@ -12,7 +12,11 @@ import { formatThousands, formatVnd, formatDateTime } from "@/lib/format";
 import { toDateOnlyString, todayVnDateString, resolveQuickRange } from "@/lib/date-vn";
 import { monthRangeUtc, SETTLEMENT_BOOKING_STATUSES } from "@/lib/settlement";
 import { summarizeFinance, type FinanceBooking } from "@/lib/settlement-finance";
-import { verifyLedger } from "@/lib/ledger";
+import {
+  verifyLedger,
+  summarizeLedgerBalances,
+  type LedgerBalanceSummary,
+} from "@/lib/ledger";
 import SettlementsView, { type SettlementRow } from "./settlements-view";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -191,18 +195,58 @@ export default async function SettlementsPage({
     bookingCount: finance.bookingCount,
   };
 
-  // 복식부기 LEDGER 무결성 검증 (ADMIN 전용, ADR-0018) — 불균형 시에만 경고 배너.
-  // 마이그레이션 미적용 등으로 실패하면 배너 생략(페이지는 정상 렌더).
+  // 복식부기 LEDGER 검증 + 잔액 (ADMIN 전용, ADR-0018 / S5). verifyLedger 1회로 배너·패널 공용.
+  // 마이그레이션 미적용 등으로 실패하면 둘 다 생략(페이지는 정상 렌더).
   let ledgerWarn: string | null = null;
+  let ledgerBalances: LedgerBalanceSummary | null = null;
   try {
     const v = await verifyLedger(prisma);
     if (!v.balanced || !v.payableReconciled) {
       ledgerWarn = v.discrepancies.join(" · ");
     }
+    ledgerBalances = summarizeLedgerBalances(v.accountBalances);
   } catch {
     ledgerWarn = null;
+    ledgerBalances = null;
   }
   const tLedger = await getTranslations("adminSettlements");
+
+  // 잔액 패널 표시값(server 포맷) — KRW는 원, VND는 부호 포함 ₫. (마진 비공개와 무관: ADMIN 장부)
+  const balanceCards = ledgerBalances
+    ? [
+        {
+          key: "cash",
+          label: tLedger("ledgerBal.cash"),
+          lines: [
+            `${formatThousands(Number(ledgerBalances.cashKrw))}원`,
+            fmtSignedVnd(BigInt(ledgerBalances.cashVnd)),
+          ],
+        },
+        {
+          key: "payable",
+          label: tLedger("ledgerBal.payable"),
+          lines: [fmtSignedVnd(BigInt(ledgerBalances.supplierPayableVnd))],
+        },
+        {
+          key: "revenue",
+          label: tLedger("ledgerBal.revenue"),
+          lines: [
+            `${formatThousands(Number(ledgerBalances.revenueKrw))}원`,
+            fmtSignedVnd(BigInt(ledgerBalances.revenueVnd)),
+          ],
+        },
+        {
+          key: "cogs",
+          label: tLedger("ledgerBal.cogs"),
+          lines: [fmtSignedVnd(BigInt(ledgerBalances.cogsVnd))],
+        },
+        {
+          key: "fx",
+          label: tLedger("ledgerBal.fx"),
+          lines: [fmtSignedVnd(BigInt(ledgerBalances.fxGainLossVnd))],
+        },
+      ]
+    : [];
 
   return (
     <>
@@ -216,6 +260,41 @@ export default async function SettlementsPage({
             {tLedger("ledgerWarningDetail", { detail: ledgerWarn })}
           </p>
         </div>
+      )}
+      {ledgerBalances && (
+        <section className="mb-4 rounded-xl border border-slate-700/60 bg-slate-900/40 p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="material-symbols-outlined text-base text-slate-400">
+              account_balance
+            </span>
+            <h2 className="text-sm font-bold text-slate-200">
+              {tLedger("ledgerBal.title")}
+            </h2>
+            {!ledgerWarn && (
+              <span className="ml-auto text-[11px] font-bold text-emerald-400">
+                ✓ {tLedger("ledgerVerified")}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {balanceCards.map((c) => (
+              <div
+                key={c.key}
+                className="rounded-lg border border-slate-700/50 bg-slate-800/40 px-3 py-2.5"
+              >
+                <p className="text-[11px] text-slate-400">{c.label}</p>
+                {c.lines.map((ln, i) => (
+                  <p
+                    key={i}
+                    className="mt-0.5 text-sm font-bold tabular-nums text-slate-100"
+                  >
+                    {ln}
+                  </p>
+                ))}
+              </div>
+            ))}
+          </div>
+        </section>
       )}
       <SettlementsView
         yearMonth={yearMonth}
