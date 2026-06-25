@@ -660,9 +660,18 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       console.log("[inbound-type]", zaloMsgType ?? "(none)", "->", classified.msgType);
       // contact/unknown은 오분류(지도/링크 공유 등) 진단을 위해 content **키 이름만** 추가 기록.
       //   값(URL·전화·이름)은 절대 로그 금지 — 키 목록만으로 필드 구조 파악(개인정보 0).
-      if (classified.msgType === "contact" || classified.msgType === "unknown") {
+      // call도 진단: 발신 통화 sub-type(부재중/거절/완료)·통화시간이 zca-js 페이로드에
+      //   존재하는지 확인용. self(방향)도 함께 기록. 문자열 content는 Zalo 시스템 라벨
+      //   ("Cuộc gọi nhỡ" 등 — 개인정보 아님)이라 sub-type 판별 위해 원문(60자) 기록.
+      if (
+        classified.msgType === "contact" ||
+        classified.msgType === "unknown" ||
+        classified.msgType === "call"
+      ) {
         const c = userMsg.data.content;
-        if (c && typeof c === "object") {
+        if (typeof c === "string") {
+          console.log("[inbound-type-str]", classified.msgType, "self:", userMsg.isSelf, "raw:", c.slice(0, 60));
+        } else if (c && typeof c === "object") {
           const keys = Object.keys(c as Record<string, unknown>);
           let paramKeys: string[] = [];
           const pv = (c as Record<string, unknown>).params;
@@ -672,7 +681,7 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
           } catch {
             /* params 비JSON */
           }
-          console.log("[inbound-type-keys]", classified.msgType, "content:", keys.join(","), "params:", paramKeys.join(","));
+          console.log("[inbound-type-keys]", classified.msgType, "self:", userMsg.isSelf, "content:", keys.join(","), "params:", paramKeys.join(","));
         }
       }
     }
@@ -697,10 +706,13 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
 
     // ── 본인 발신(앱 or 프로그램) → OUTBOUND 동기화 ──────────────
     if (isSelfMessage({ isSelf: userMsg.isSelf, senderId }, inst.ownId)) {
-      // 본문도 첨부도 없는 순수 비텍스트 에코(통화·미상)는 미러 불필요 — 스킵.
+      // 본문도 첨부도 없는 순수 비텍스트 에코(미상 등)는 미러 불필요 — 스킵.
       // (프로그램 S4/b14 발송이 이미 OUTBOUND를 정확히 기록하므로 중복·잡음 방지)
       // 단, 앱에서 직접 보낸 사진/파일/스티커/음성(첨부 있음)은 채팅에 보이도록 미러한다.
-      if (!text && classified.attachmentUrls.length === 0) {
+      // ★ 통화(call)는 예외: 발신 통화는 앱에서만 일어나 프로그램 OUTBOUND 기록이 없다.
+      //   여기서 스킵하면 발신 통화 기록이 영영 유실(수신 통화는 INBOUND로 보이나 발신은 안 보임).
+      //   → call echo는 OUTBOUND로 저장해 Nike에도 push(발신 통화 카드 표시). 멱등은 zaloMsgId로 보장.
+      if (!text && classified.attachmentUrls.length === 0 && classified.msgType !== "call") {
         void maybeRefreshAvatar(inst, senderZaloUserId);
         return;
       }
