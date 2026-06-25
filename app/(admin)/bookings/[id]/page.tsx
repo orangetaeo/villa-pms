@@ -16,6 +16,11 @@ import PaperDocsSection from "./paper-docs-section";
 import MemoBox from "./memo-box";
 import RosterBox from "./roster-box";
 import PaymentPanel from "./payment-panel";
+import ServiceOrdersPanel, {
+  type OrderRow,
+  type OrderCatalogItem,
+  type SelectedOptionSnapshot,
+} from "./service-orders-panel";
 import { summarizeCollection } from "@/lib/payment";
 import { krwToVndSnapshot } from "@/lib/pricing";
 
@@ -121,6 +126,100 @@ export default async function BookingDetailPage({
       user: { select: { name: true } },
     },
   });
+
+  // ── 부가서비스 주문 패널 (ADR-0019 S2) ──
+  // 원가(costVnd)는 showFinance(canViewFinance)만 select·직렬화. 카탈로그명은 주문에 연결해 표시.
+  const tServices = await getTranslations("adminServices");
+  const [serviceOrdersRaw, activeCatalog] = await Promise.all([
+    prisma.serviceOrder.findMany({
+      where: { bookingId: id },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        type: true,
+        status: true,
+        quantity: true,
+        priceKrw: true,
+        priceVnd: true,
+        requestedVia: true,
+        guestNote: true,
+        selectedOptions: true,
+        catalogItemId: true,
+        ...(showFinance ? { costVnd: true } : {}),
+      },
+    }),
+    prisma.serviceCatalogItem.findMany({
+      where: { active: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      // 판매가만 — 원가는 주문 추가 UI에 불필요하므로 select 자체에서 제외
+      select: {
+        id: true,
+        type: true,
+        nameKo: true,
+        unitLabelKo: true,
+        priceKrw: true,
+        priceVnd: true,
+        options: true,
+      },
+    }),
+  ]);
+
+  // 주문에 연결된 카탈로그명 조회(삭제됐을 수 있으니 type 라벨로 폴백)
+  const catalogNameById = new Map(activeCatalog.map((c) => [c.id, c.nameKo]));
+  const missingIds = serviceOrdersRaw
+    .map((o) => o.catalogItemId)
+    .filter((cid): cid is string => !!cid && !catalogNameById.has(cid));
+  if (missingIds.length > 0) {
+    const extras = await prisma.serviceCatalogItem.findMany({
+      where: { id: { in: missingIds } },
+      select: { id: true, nameKo: true },
+    });
+    for (const e of extras) catalogNameById.set(e.id, e.nameKo);
+  }
+
+  const parseSnapshot = (raw: unknown): SelectedOptionSnapshot[] => {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter((s): s is { group: string; key: string; labelKo: string } =>
+        !!s && typeof s === "object" && typeof (s as { labelKo?: unknown }).labelKo === "string"
+      )
+      .map((s) => ({
+        group: (s.group === "addon" || s.group === "modifier" ? s.group : "variant") as
+          | "variant"
+          | "addon"
+          | "modifier",
+        key: String(s.key ?? ""),
+        labelKo: s.labelKo,
+      }));
+  };
+
+  const serviceOrders: OrderRow[] = serviceOrdersRaw.map((o) => ({
+    id: o.id,
+    type: o.type,
+    status: o.status,
+    nameKo:
+      (o.catalogItemId && catalogNameById.get(o.catalogItemId)) ||
+      tServices(`types.${o.type}`),
+    quantity: o.quantity,
+    priceKrw: o.priceKrw,
+    priceVnd: o.priceVnd?.toString() ?? null,
+    requestedVia: o.requestedVia,
+    guestNote: o.guestNote,
+    selectedOptions: parseSnapshot(o.selectedOptions),
+    ...(showFinance && "costVnd" in o
+      ? { costVnd: (o as { costVnd: bigint }).costVnd.toString() }
+      : {}),
+  }));
+
+  const serviceCatalog: OrderCatalogItem[] = activeCatalog.map((c) => ({
+    id: c.id,
+    type: c.type,
+    nameKo: c.nameKo,
+    unitLabelKo: c.unitLabelKo ?? "",
+    priceKrw: c.priceKrw ?? null,
+    priceVnd: c.priceVnd?.toString() ?? null,
+    options: c.options ?? null,
+  }));
 
   const code = booking.id.slice(-8);
   const stepIndex = STEP_INDEX[booking.status];
@@ -431,6 +530,16 @@ export default async function BookingDetailPage({
               </div>
             )}
           </section>
+          )}
+
+          {/* 부가서비스 주문 패널 (ADR-0019 S2, b20) — 종결(취소·만료·노쇼) 예약엔 비표시 */}
+          {!terminal && (
+            <ServiceOrdersPanel
+              bookingId={booking.id}
+              catalog={serviceCatalog}
+              orders={serviceOrders}
+              showCost={showFinance}
+            />
           )}
         </div>
 
