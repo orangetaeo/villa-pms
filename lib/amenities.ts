@@ -20,7 +20,7 @@ export const AMENITY_ITEMS: Record<AmenityCategoryKey, AmenityItem[]> = {
   // 주방용품 (a9 디자인 품목 + 일반 휴양 빌라 표준 보강)
   KITCHEN: [
     { itemKey: "riceCooker", icon: "rice_bowl" },
-    { itemKey: "stove", icon: "stovetop" },
+    { itemKey: "stove", icon: "cooking" },
     { itemKey: "pan", icon: "skillet" },
     { itemKey: "pot", icon: "soup_kitchen" },
     { itemKey: "knifeBoard", icon: "cut" },
