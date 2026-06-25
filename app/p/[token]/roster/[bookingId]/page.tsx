@@ -89,7 +89,7 @@ export default async function RosterInputPage({
           >
             <span className="material-symbols-outlined text-teal-600">arrow_back</span>
           </Link>
-          <span className="flex items-center gap-1.5 ml-2">
+          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5">
             <VillaGoMark className="h-5 w-auto" />
             <VillaGoWordmark className="text-lg" villa="text-slate-900" go="text-teal-600" />
           </span>

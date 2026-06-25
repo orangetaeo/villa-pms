@@ -152,7 +152,7 @@ export default function AdminSidebar({
         >
           <span className="material-symbols-outlined">{open ? "close" : "menu"}</span>
         </button>
-        <div className="flex items-center gap-2 leading-none">
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 leading-none">
           <VillaGoMark className="h-6 w-auto" />
           <div className="flex flex-col items-start gap-0.5">
             <VillaGoWordmark
