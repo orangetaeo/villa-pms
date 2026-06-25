@@ -2413,7 +2413,8 @@
       "overview": "Tổng quan",
       "occupancy": "Tỷ lệ lấp đầy",
       "villas": "Hiệu suất villa",
-      "operations": "Chỉ số vận hành"
+      "operations": "Chỉ số vận hành",
+      "ancillary": "Dịch vụ bổ sung · Minibar"
     },
     "range": {
       "6": "6 tháng gần nhất",
@@ -2435,7 +2436,7 @@
       "nightsUnit": "đêm"
     },
     "overview": {
-      "basisNote": "Doanh thu tính theo tháng trả phòng · Tách riêng theo loại tiền (không cộng gộp KRW·VND)",
+      "basisNote": "Ghi nhận doanh thu = theo tháng trả phòng · Gộp villa+dịch vụ bổ sung+minibar · Tách riêng theo loại tiền (không cộng gộp KRW·VND)",
       "fxMissingNote": "{count} đặt phòng thiếu tỷ giá bị loại khỏi tính lợi nhuận",
       "kpi": {
         "krwRevenue": "Doanh thu KRW",
@@ -2449,7 +2450,7 @@
       },
       "revenueChart": {
         "title": "Xu hướng doanh thu theo tháng",
-        "subtitle": "Hiển thị tách KRW·VND (trục trái·phải riêng) — không cộng gộp",
+        "subtitle": "Bao gồm villa+dịch vụ bổ sung+minibar · Hiển thị tách KRW·VND (trục trái·phải riêng) — không cộng gộp loại tiền",
         "krwLegend": "KRW (trục trái, won)",
         "vndLegend": "VND (trục phải, ₫)"
       },
@@ -2601,6 +2602,10 @@
         "MASSAGE": "Massage",
         "BARBER": "Cắt tóc"
       }
+    },
+    "ancillary": {
+      "title": "Doanh thu dịch vụ bổ sung · Minibar",
+      "subtitle": "Xem doanh thu·biên lợi nhuận của minibar và dịch vụ bổ sung ở cùng một nơi (đã gộp vào KPI Tổng quan)"
     }
   },
   "adminGuestToken": {

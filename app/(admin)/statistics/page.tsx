@@ -26,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: `${t("statistics")} — Villa Go` };
 }
 
-const TAB_KEYS: TabKey[] = ["overview", "occupancy", "villas", "operations"];
+const TAB_KEYS: TabKey[] = ["overview", "occupancy", "villas", "operations", "ancillary"];
 
 export default async function StatisticsPage({
   searchParams,
@@ -56,7 +56,8 @@ export default async function StatisticsPage({
       : fin
         ? "overview"
         : "occupancy";
-  if (activeTab === "overview" && !fin) activeTab = "occupancy";
+  // 개요·부가서비스/미니바(ancillary)는 매출=재무 전용 — STAFF가 ?tab으로 와도 차단(누수·빈탭 방지).
+  if ((activeTab === "overview" || activeTab === "ancillary") && !fin) activeTab = "occupancy";
 
   // 데이터 로드 — 금액 게이트는 여기서 끝낸다(period 단일 주입).
   //  · overview·minibar: fin일 때만 (페이로드에 금액 자체 부재 — 매출=재무)
