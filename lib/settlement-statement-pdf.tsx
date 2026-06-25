@@ -2,6 +2,10 @@
 //
 // 순수 모델(lib/settlement-statement.ts)을 받아 PDF Buffer 생성. server 전용(renderToBuffer).
 // 폰트: 베트남어 글리프 위해 Noto Sans TTF 번들(assets/fonts). 기본 Helvetica는 베트남어 미지원.
+// ★ 한글 데이터(빌라명·공급자명이 한국어일 수 있음 — 예: "쏘나씨 V11", "파일럿 중계인") 깨짐 방지:
+//   react-pdf(v4)는 글리프 단위 폰트 폴백이 없어 NotoSans(한글 미수록)로는 한글이 깨진다.
+//   → 동적 텍스트를 한글/비한글 런으로 분리해, 한글 런만 NanumGothic으로 렌더(MixedText).
+//   정적 베트남어 라벨·숫자·베트남어 이름은 그대로 NotoSans(정상).
 import * as React from "react"; // react-pdf 렌더는 JSX 클래식 런타임 경로(renderToBuffer)에서 React 전역 필요
 import path from "path";
 import {
@@ -32,9 +36,63 @@ function ensureFonts(): void {
       { src: path.join(FONT_DIR, "NotoSans-Bold.ttf"), fontWeight: "bold" },
     ],
   });
+  // 한글 글리프 — 한국어 빌라명·공급자명 깨짐 방지 (NotoSans엔 한글 없음)
+  Font.register({
+    family: "NanumGothic",
+    fonts: [
+      { src: path.join(FONT_DIR, "NanumGothic-Regular.ttf") },
+      { src: path.join(FONT_DIR, "NanumGothic-Bold.ttf"), fontWeight: "bold" },
+    ],
+  });
   // 단어 단위 줄바꿈만(하이픈 분절 비활성) — 베트남어/숫자 깨짐 방지
   Font.registerHyphenationCallback((word) => [word]);
   fontsRegistered = true;
+}
+
+// ── 한글/CJK 런 분리 렌더 (글리프 폴백 부재 우회) ─────────────────────
+/** 한글 음절·자모 및 CJK 한자/문장부호 → NanumGothic으로 라우팅할 코드포인트인지 */
+function isCjkCodePoint(cp: number): boolean {
+  return (
+    (cp >= 0xac00 && cp <= 0xd7a3) || // 한글 음절
+    (cp >= 0x1100 && cp <= 0x11ff) || // 한글 자모
+    (cp >= 0x3130 && cp <= 0x318f) || // 호환 자모
+    (cp >= 0xa960 && cp <= 0xa97f) || // 자모 확장 A
+    (cp >= 0xd7b0 && cp <= 0xd7ff) || // 자모 확장 B
+    (cp >= 0x4e00 && cp <= 0x9fff) || // CJK 한자
+    (cp >= 0x3400 && cp <= 0x4dbf) || // CJK 확장 A
+    (cp >= 0x3000 && cp <= 0x303f) || // CJK 문장부호
+    (cp >= 0xff00 && cp <= 0xffef) // 전각 영숫자·기호
+  );
+}
+
+/** 문자열을 한글(CJK)/비한글 런으로 분리 — 인접 동종 문자 묶음 */
+function splitScriptRuns(text: string): { text: string; cjk: boolean }[] {
+  const runs: { text: string; cjk: boolean }[] = [];
+  for (const ch of text) {
+    const cjk = isCjkCodePoint(ch.codePointAt(0) ?? 0);
+    const last = runs[runs.length - 1];
+    if (last && last.cjk === cjk) last.text += ch;
+    else runs.push({ text: ch, cjk });
+  }
+  return runs;
+}
+
+/**
+ * 동적 텍스트(빌라명·공급자명)의 자식 노드 — 한글 런만 NanumGothic span으로, 나머지는 부모 폰트(NotoSans) 상속.
+ * 한글이 없으면 원문 문자열 그대로(불필요한 span 미생성). 호출부가 스타일 있는 부모 <Text>로 감싼다.
+ */
+function mixedTextChildren(value: string): React.ReactNode {
+  const runs = splitScriptRuns(value);
+  if (!runs.some((r) => r.cjk)) return value;
+  return runs.map((r, i) =>
+    r.cjk ? (
+      <Text key={i} style={{ fontFamily: "NanumGothic" }}>
+        {r.text}
+      </Text>
+    ) : (
+      <Text key={i}>{r.text}</Text>
+    )
+  );
 }
 
 // ── 베트남어 라벨 (문서 전용 — UI 아닌 정산 문서라 인라인) ─────────────
@@ -118,7 +176,7 @@ function StatementDocument({ model }: { model: StatementModel }) {
 
         <View style={styles.metaRow}>
           <Text style={styles.metaLabel}>{L.supplier}</Text>
-          <Text style={styles.metaValue}>{model.supplierName}</Text>
+          <Text style={styles.metaValue}>{mixedTextChildren(model.supplierName)}</Text>
         </View>
         <View style={styles.metaRow}>
           <Text style={styles.metaLabel}>{L.period}</Text>
@@ -138,7 +196,7 @@ function StatementDocument({ model }: { model: StatementModel }) {
           </View>
           {model.rows.map((r, i) => (
             <View style={styles.tr} key={i}>
-              <Text style={styles.cVilla}>{r.villaName}</Text>
+              <Text style={styles.cVilla}>{mixedTextChildren(r.villaName)}</Text>
               <Text style={styles.cCheckout}>{r.checkOut}</Text>
               <Text style={styles.cNights}>{r.nights}</Text>
               <Text style={styles.cAmount}>{r.amount}</Text>
