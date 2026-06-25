@@ -31,6 +31,8 @@ export default async function UsersPage() {
 
   const [users, unlinked] = await Promise.all([
     prisma.user.findMany({
+      // 소프트 삭제된 계정 제외 (deletedAt=null만 노출)
+      where: { deletedAt: null },
       // select 화이트리스트 — passwordHash 절대 제외 (계약 T1.8)
       select: {
         id: true,
