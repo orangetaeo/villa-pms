@@ -682,6 +682,24 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
             /* params 비JSON */
           }
           console.log("[inbound-type-keys]", classified.msgType, "self:", userMsg.isSelf, "content:", keys.join(","), "params:", paramKeys.join(","));
+          // call: params 값까지 기록(통화 메타데이터 — duration/reason/isCaller/calltype, 개인정보 아님).
+          //   부재중/거절/완료 매핑 + 통화시간 단위 + 음성/영상 판별용. 값 확정 후 진단 제거 예정.
+          if (classified.msgType === "call") {
+            try {
+              const pp = typeof pv === "string" ? JSON.parse(pv) : pv;
+              const p = (pp ?? {}) as Record<string, unknown>;
+              console.log(
+                "[call-params]",
+                "self:", userMsg.isSelf,
+                "duration:", JSON.stringify(p.duration),
+                "reason:", JSON.stringify(p.reason),
+                "isCaller:", JSON.stringify(p.isCaller),
+                "calltype:", JSON.stringify(p.calltype)
+              );
+            } catch {
+              /* params 비JSON */
+            }
+          }
         }
       }
     }
