@@ -13,6 +13,7 @@ import { canViewFinance } from "@/lib/permissions";
 import { serializeBigInt } from "@/lib/serialize";
 import { krwToVndSnapshot } from "@/lib/pricing";
 import { computeVndEquivalent, summarizeCollection } from "@/lib/payment";
+import { postCollection } from "@/lib/ledger";
 
 const createSchema = z.object({
   currency: z.nativeEnum(Currency),
@@ -110,6 +111,15 @@ export async function POST(
         receivedAt: new Date(body.receivedAt),
         note: body.note,
       },
+    });
+    // 복식부기 LEDGER — COLLECTION 분개 (CASH_{C} +/ REVENUE −, paymentId 멱등, ADR-0018)
+    // currency는 KRW·VND만(computeVndEquivalent가 그 외 차단) → cashAccountFor 안전.
+    await postCollection(tx, {
+      paymentId: created.id,
+      currency: body.currency,
+      amount: body.amount,
+      occurredAt: created.receivedAt,
+      createdBy: session.user.id,
     });
     await writeAuditLog({
       userId: session.user.id,

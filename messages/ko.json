@@ -1194,6 +1194,9 @@
   },
   "adminSettlements": {
     "title": "정산 관리",
+    "ledgerVerified": "복식부기 검증됨 — 통화별 장부 균형 정상",
+    "ledgerWarning": "복식부기 불일치 감지",
+    "ledgerWarningDetail": "장부 무결성 점검에서 불일치가 발견됐습니다: {detail}",
     "monthPrev": "이전 달",
     "monthNext": "다음 달",
     "generate": "집계 실행",

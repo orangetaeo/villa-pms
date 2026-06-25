@@ -1302,6 +1302,9 @@
   },
   "adminSettlements": {
     "title": "Quản lý quyết toán",
+    "ledgerVerified": "Đã đối chiếu sổ kép — số dư theo từng loại tiền cân bằng",
+    "ledgerWarning": "Phát hiện sai lệch sổ kép",
+    "ledgerWarningDetail": "Kiểm tra tính toàn vẹn sổ phát hiện sai lệch: {detail}",
     "monthPrev": "Tháng trước",
     "monthNext": "Tháng sau",
     "generate": "Chạy tổng hợp",

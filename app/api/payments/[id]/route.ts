@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { canViewFinance } from "@/lib/permissions";
+import { reverseCollection } from "@/lib/ledger";
 
 /** DELETE — 결제 기록 삭제 (ADMIN 전용) */
 export async function DELETE(
@@ -31,6 +32,8 @@ export async function DELETE(
     if (!payment) return { kind: "NOT_FOUND" as const };
 
     await tx.payment.delete({ where: { id } });
+    // 복식부기 LEDGER — COLLECTION 분개 역분개(정정). 분개선은 cascade 삭제 (ADR-0018)
+    await reverseCollection(tx, id);
     await writeAuditLog({
       userId: session.user.id,
       action: "DELETE",

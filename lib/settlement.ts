@@ -8,6 +8,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { enqueueNotification } from "@/lib/zalo";
+import { postCostAccrual, postFxAdjustment, postPayout } from "@/lib/ledger";
 
 /**
  * 최소 정산 단일 소스 (SPEC F6, 계약: docs/contracts/T4.5-settlement.md)
@@ -342,6 +343,44 @@ export async function transitionSettlement(
     });
     if (guarded.count !== 1) {
       throw new SettlementTransitionError(settlement.status, action);
+    }
+
+    // 복식부기 LEDGER 분개 (ADR-0018) — 전이별 멱등. totalVnd 0(빈 정산)은 분개 없음.
+    if (settlement.totalVnd > 0n) {
+      if (action === "COLLECT") {
+        // COST_ACCRUAL: COGS +/ SUPPLIER_PAYABLE − (수납 시 원가·채무 인식)
+        await postCostAccrual(tx, {
+          settlementId: settlement.id,
+          totalVnd: settlement.totalVnd,
+          occurredAt: now,
+          createdBy: actorId,
+        });
+      } else if (action === "MARK_PAID") {
+        // COLLECT를 건너뛴 직접 지급(CONFIRMED→PAID 하위호환)이면 원가 적립이 없으므로
+        // 먼저 COST_ACCRUAL을 멱등 보장(이미 있으면 no-op) 후 PAYOUT — 채무 잔액 0 유지.
+        await postCostAccrual(tx, {
+          settlementId: settlement.id,
+          totalVnd: settlement.totalVnd,
+          occurredAt: now,
+          createdBy: actorId,
+        });
+        // PAYOUT: SUPPLIER_PAYABLE +/ CASH_VND − (채무 상계·현금 유출)
+        await postPayout(tx, {
+          settlementId: settlement.id,
+          totalVnd: settlement.totalVnd,
+          occurredAt: now,
+          createdBy: actorId,
+        });
+      }
+    }
+    if (action === "ADJUST_FX") {
+      // FX_ADJUSTMENT: CASH_VND ±/ FX_GAIN_LOSS ∓ (정산당 replace, 0이면 기존만 제거)
+      await postFxAdjustment(tx, {
+        settlementId: settlement.id,
+        fxAdjustmentVnd: fxAdjustmentVnd ?? 0n,
+        occurredAt: now,
+        createdBy: actorId,
+      });
     }
 
     if (action === "MARK_PAID") {
