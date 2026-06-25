@@ -148,6 +148,7 @@ model Villa {
   ratePeriods    VillaRatePeriod[] // 기간별 요금 단일 소스 (ADR-0014/0015) — 구 VillaRate·VillaSeasonPeriod 제거됨
   bedroomDetails VillaBedroom[] // ② 침실별 잠자리 구성 (ADR-0011) — 기존 Int 컬럼 bedrooms와 별개
   features       VillaFeature[] // ⑤ 셀링포인트 태그 (ADR-0011, 사전 패턴)
+  minibarStocks  VillaMinibarStock[] // #2c: 빌라별 미니바 비치수량 오버라이드 (가격은 회사표준 유지)
 
   @@index([supplierId])
   @@index([status, isSellable])
@@ -258,7 +259,25 @@ model MinibarItem {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  villaStocks  VillaMinibarStock[] // #2c: 이 품목의 빌라별 비치수량 오버라이드
+
   @@index([active, sortOrder])
+}
+
+// 빌라별 미니바 비치수량 오버라이드 (#2c) — 냉장고 크기·현재 재고가 빌라마다 달라 stockQty를 빌라별로 조정.
+//   ★ 수량(qty)만 빌라별이다. 가격(unitPriceVnd)은 회사표준(MinibarItem) 그대로 — 빌라별로 두지 않는다(원칙2 마진 비공개 유지).
+//   오버라이드 행이 없는 (빌라×품목)은 MinibarItem.stockQty를 그대로 사용한다(기본값). 편집은 ADMIN 전용.
+model VillaMinibarStock {
+  id            String      @id @default(cuid())
+  villaId       String
+  villa         Villa       @relation(fields: [villaId], references: [id], onDelete: Cascade)
+  minibarItemId String
+  minibarItem   MinibarItem @relation(fields: [minibarItemId], references: [id], onDelete: Cascade)
+  qty           Int // 이 빌라의 실제 비치 수량 (0 이상)
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([villaId, minibarItemId])
+  @@index([villaId])
 }
 
 // ===================== 시즌·요율 =====================

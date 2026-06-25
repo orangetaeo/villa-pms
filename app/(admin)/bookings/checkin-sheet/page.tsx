@@ -58,17 +58,12 @@ export default async function CheckinSheetPage({
   // 발행본 동의서 — 운영자 편집본(AppSetting) 또는 코드 기본값 폴백. 인쇄 시트에 반영.
   const agreement = await getAgreementContent();
 
-  // 미니바 회사표준(#2b) — 전 빌라 공통 1세트. 인쇄 시트에 표준 목록 + 소모 손기입란.
+  // 미니바 회사표준(#2b) — 전 빌라 공통 1세트(품목·단가). 비치수량은 #2c 빌라별 오버라이드 가능.
   const minibarStandard = await prisma.minibarItem.findMany({
     where: { active: true },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    select: { nameKo: true, nameVi: true, unitPriceVnd: true, stockQty: true },
+    select: { id: true, nameKo: true, nameVi: true, unitPriceVnd: true, stockQty: true },
   });
-  const minibarRows = minibarStandard.map((m) => ({
-    label: minibarItemName(m, lang),
-    unitPriceVnd: m.unitPriceVnd,
-    stockQty: m.stockQty,
-  }));
 
   // 금일 체크인 = CONFIRMED (기존 "오늘 체크인" 프리셋·통계와 동일 의미)
   const bookings = await prisma.booking.findMany({
@@ -92,6 +87,7 @@ export default async function CheckinSheetPage({
       depositStatus: true,
       villa: {
         select: {
+          id: true,
           name: true,
           complex: true,
           address: true,
@@ -118,6 +114,21 @@ export default async function CheckinSheetPage({
       checkInRecord: { select: { signatureUrl: true } },
     },
   });
+
+  // #2c 빌라별 미니바 비치수량 오버라이드 — 오늘 체크인 빌라들의 override만 조회. 없으면 표준 stockQty 사용.
+  const sheetVillaIds = [...new Set(bookings.map((b) => b.villa.id))];
+  const minibarOverrides = sheetVillaIds.length
+    ? await prisma.villaMinibarStock.findMany({
+        where: { villaId: { in: sheetVillaIds } },
+        select: { villaId: true, minibarItemId: true, qty: true },
+      })
+    : [];
+  const overrideByVilla = new Map<string, Map<string, number>>();
+  for (const o of minibarOverrides) {
+    const m = overrideByVilla.get(o.villaId) ?? new Map<string, number>();
+    m.set(o.minibarItemId, o.qty);
+    overrideByVilla.set(o.villaId, m);
+  }
 
   const fmt = (d: Date) => toDateOnlyString(d).replaceAll("-", ".");
   const prevStr = toDateOnlyString(addUtcDays(date, -1));
@@ -182,6 +193,14 @@ export default async function CheckinSheetPage({
                 items: v.amenities.filter((a) => a.category === cat),
               }))
               .filter((g) => g.items.length > 0);
+
+            // #2c 미니바 행 — 이 빌라의 오버라이드 수량(없으면 회사표준 stockQty). 단가는 회사표준 그대로.
+            const villaOv = overrideByVilla.get(v.id);
+            const mbRows = minibarStandard.map((m) => ({
+              label: minibarItemName(m, lang),
+              unitPriceVnd: m.unitPriceVnd,
+              stockQty: villaOv?.get(m.id) ?? m.stockQty,
+            }));
 
             return (
               <article
@@ -351,7 +370,7 @@ export default async function CheckinSheetPage({
                   )}
 
                   {/* ④-2 미니바(회사표준, #2b) — 표준 품목·단가 인쇄, 소모 수량·합계는 체크아웃 시 손기입 */}
-                  {minibarRows.length > 0 && (
+                  {mbRows.length > 0 && (
                     <section>
                       <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">
                         {L.minibar.title}
@@ -367,7 +386,7 @@ export default async function CheckinSheetPage({
                           </tr>
                         </thead>
                         <tbody>
-                          {minibarRows.map((m, i) => (
+                          {mbRows.map((m, i) => (
                             <tr key={`mb-${i}`}>
                               <td className="border border-slate-300 px-2 py-2">{m.label}</td>
                               <td className="border border-slate-300 px-2 py-2 text-right tabular-nums">

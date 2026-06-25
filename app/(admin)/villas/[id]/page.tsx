@@ -19,6 +19,7 @@ import ForceSellableAction from "./force-sellable-action";
 import DetailTabs from "./detail-tabs";
 import SalesEditor, { type SalesInitial } from "./sales-editor";
 import AdminAmenitiesEditor from "./amenities-editor";
+import MinibarStockEditor, { type MinibarStockItem } from "./minibar-stock-editor";
 import PhotoGallery from "./photo-gallery";
 import CollapsibleCard from "@/components/admin/collapsible-card";
 
@@ -88,6 +89,8 @@ export default async function VillaDetailPage({
           select: { roomIndex: true, roomLabel: true, bedType: true, bedCount: true, capacity: true, bathroomCount: true },
         },
         features: { select: { category: true, featureKey: true } },
+        // #2c 빌라별 미니바 비치수량 오버라이드 — 가격 아님(수량만), 누수 무관
+        minibarStocks: { select: { minibarItemId: true, qty: true } },
       },
     }),
     prisma.appSetting.findUnique({ where: { key: "FX_VND_PER_KRW" } }),
@@ -188,6 +191,17 @@ export default async function VillaDetailPage({
     if (a.category === "MINIBAR" || a.itemKey === "custom") continue;
     amenityQuantities[`${a.category}:${a.itemKey}`] = a.quantity;
   }
+
+  // 회사표준 미니바 + 빌라별 수량 오버라이드(#2c) — 편집기 초기값.
+  //   qty = 이 빌라의 오버라이드(있으면) ?? 회사표준 stockQty. 가격은 finance 권한자만 문자열로 전달(원칙2).
+  const villaStockMap = new Map(villa.minibarStocks.map((s) => [s.minibarItemId, s.qty]));
+  const minibarEditorItems: MinibarStockItem[] = minibarStandard.map((m) => ({
+    id: m.id,
+    label: minibarItemName(m, locale),
+    standardQty: m.stockQty,
+    qty: villaStockMap.get(m.id) ?? m.stockQty,
+    priceLabel: showFinance ? `${formatVnd(m.unitPriceVnd)}` : null,
+  }));
 
   // 판매정보 폼 초기값 (ADR-0011) — BigInt·정수는 문자열 변환(클라이언트 경계 직렬화)
   const salesInitial: SalesInitial = {
@@ -425,48 +439,9 @@ export default async function VillaDetailPage({
           {/* 비품 현황 — 관리자 편집 가능 (Batch A). 미니바는 회사표준(#2b)으로 분리 */}
           <AdminAmenitiesEditor villaId={villa.id} initialQuantities={amenityQuantities} />
 
-          {/* 회사표준 미니바 (#2b, ADR-0016) — 전 빌라 공통 1세트. 모든 빌라(신규 포함) 자동 적용을 읽기 전용으로 확인.
-              단가(=판매가)는 canViewFinance일 때만 렌더(STAFF 마진 비공개, 원칙2). 편집은 설정→미니바 단일 경로. */}
-          <CollapsibleCard
-            title={t("minibarCard.title")}
-            icon="liquor"
-            headerMeta={
-              <Link
-                href="/settings/minibar"
-                className="text-xs text-admin-primary hover:underline whitespace-nowrap"
-              >
-                {t("minibarCard.manageLink")}
-              </Link>
-            }
-          >
-            {minibarStandard.length === 0 ? (
-              <p className="text-sm text-admin-muted py-6 text-center">{t("minibarCard.empty")}</p>
-            ) : (
-              <>
-                <p className="text-xs text-slate-500 mb-3">{t("minibarCard.note")}</p>
-                <ul className="divide-y divide-slate-800">
-                  {minibarStandard.map((m) => (
-                    <li key={m.id} className="flex items-center gap-3 py-2.5">
-                      <span className="material-symbols-outlined text-slate-500 text-lg shrink-0">
-                        liquor
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm text-slate-200 truncate">{minibarItemName(m, locale)}</p>
-                        <p className="text-[11px] text-slate-500">
-                          {t("minibarCard.stockBadge", { n: m.stockQty })}
-                        </p>
-                      </div>
-                      {showFinance && (
-                        <span className="text-xs font-semibold text-admin-primary tabular-nums whitespace-nowrap shrink-0">
-                          {formatVnd(m.unitPriceVnd)}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </CollapsibleCard>
+          {/* 회사표준 미니바 + 빌라별 수량 (#2b/#2c) — 품목·단가는 회사표준 1세트(설정→미니바),
+              비치 수량만 이 빌라에 맞게 조정(냉장고 크기·재고 차이). 단가는 finance 권한자만 표시(원칙2). */}
+          <MinibarStockEditor villaId={villa.id} items={minibarEditorItems} />
 
           {/* 수정 이력 (AuditLog — b10 Action Log) */}
           {auditLogs.length > 0 && (
