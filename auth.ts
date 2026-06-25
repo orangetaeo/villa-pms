@@ -38,9 +38,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             passwordHash: true,
             isActive: true,
             mustChangePassword: true,
+            deletedAt: true,
           },
         });
-        if (!user?.passwordHash || !user.isActive) return null;
+        // 소프트 삭제된 계정은 비활성과 동일하게 로그인 차단(실패와 구분 불가)
+        if (!user?.passwordHash || !user.isActive || user.deletedAt) return null;
         const valid = await bcrypt.compare(
           credentials.password as string,
           user.passwordHash
