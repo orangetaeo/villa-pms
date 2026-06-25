@@ -1,5 +1,6 @@
 // GET/PUT /api/agreement — 이용 동의서 콘텐츠 조회·발행 (ADMIN 전용, T-admin-agreement-editor)
-// 전 빌라 공용 단일 동의서. 발행마다 rev +1, 직전본 이력 보존, 감사 로그 기록.
+// 전 빌라 공용 단일 동의서. 운영자는 한국어만 입력하고, 발행(PUT) 시 서버가 나머지 4개 언어를
+// Gemini로 자동 번역해 저장한다(별도 번역 버튼 없음). 발행마다 rev +1, 직전본 이력 보존, 감사 로그.
 // 저장소: AppSetting JSON (스키마 무변경) — lib/agreement-store.ts
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
@@ -8,6 +9,10 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { isSystemAdmin } from "@/lib/permissions";
 import { getAgreementContent, saveAgreementContent } from "@/lib/agreement-store";
 import { normalizeAgreementContent, validateAgreementContent } from "@/lib/agreement";
+import { translateText, GeminiNotConfiguredError, type TranslateTarget } from "@/lib/gemini";
+
+// 한국어 원문 → 자동 번역 대상 (ko 제외, AGREEMENT_LANGS와 정합)
+const TRANSLATE_TARGETS: TranslateTarget[] = ["vi", "en", "zh", "ru"];
 
 async function requireAdmin() {
   const session = await auth();
@@ -41,14 +46,44 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: "INVALID_BODY" }, { status: 400 });
   }
 
-  // 현재 rev 기준 정규화(+1) — 알 수 없는 키 제거·트림
-  const current = await getAgreementContent();
-  const next = normalizeAgreementContent(body, current.rev);
+  // 운영자 입력은 한국어만 신뢰 — 나머지 언어는 서버가 번역으로 채운다(클라 전달 무시)
+  const obj = (body ?? {}) as { docTitle?: { ko?: unknown }; body?: { ko?: unknown } };
+  const koTitle = String(obj.docTitle?.ko ?? "").trim();
+  const koBody = String(obj.body?.ko ?? "").trim();
+  if (!koTitle || !koBody) {
+    return NextResponse.json({ error: "INCOMPLETE" }, { status: 400 });
+  }
 
-  // 법적 완결성 — 모든 조항 × 모든 언어 필수 (누락 발행 차단)
+  const current = await getAgreementContent();
+
+  // 한국어 → vi·en·zh·ru 자동 번역 (제목·본문 각각, 병렬). 번호·줄바꿈은 numbersPreserved 가드.
+  let docTitle: Record<string, string>;
+  let bodyMap: Record<string, string>;
+  try {
+    const translated = await Promise.all(
+      TRANSLATE_TARGETS.map(async (lang) => {
+        const [t, b] = await Promise.all([translateText(koTitle, lang), translateText(koBody, lang)]);
+        return { lang, t, b };
+      })
+    );
+    docTitle = { ko: koTitle };
+    bodyMap = { ko: koBody };
+    for (const r of translated) {
+      docTitle[r.lang] = r.t;
+      bodyMap[r.lang] = r.b;
+    }
+  } catch (e) {
+    if (e instanceof GeminiNotConfiguredError) {
+      return NextResponse.json({ error: "GEMINI_NOT_CONFIGURED" }, { status: 503 });
+    }
+    return NextResponse.json({ error: "TRANSLATE_FAILED" }, { status: 502 });
+  }
+
+  // 정규화(+1)·법적 완결성 검증 — 번역이 한 언어라도 비면 발행 차단(재시도 유도)
+  const next = normalizeAgreementContent({ docTitle, body: bodyMap }, current.rev);
   const check = validateAgreementContent(next);
   if (!check.ok) {
-    return NextResponse.json({ error: "INCOMPLETE", missing: check.missing }, { status: 400 });
+    return NextResponse.json({ error: "TRANSLATE_FAILED", missing: check.missing }, { status: 502 });
   }
 
   await saveAgreementContent(prisma, next);

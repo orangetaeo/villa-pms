@@ -1,8 +1,8 @@
 "use client";
 
-// 이용 동의서 편집 카드 (T-admin-agreement-editor, 2026-06-25 개정).
-// 운영자는 한국어 제목+본문(1.2.3. 자유 번호)만 입력하고, "번역하기"로 vi·en·zh·ru를 자동 생성.
-// 다른 언어는 직접 입력하지 않음(읽기전용 미리보기). 저장(PUT /api/agreement) 시 5개 언어 발행, rev +1.
+// 이용 동의서 편집 카드 (T-admin-agreement-editor, 2026-06-25 개정 2).
+// 운영자는 한국어 제목+본문(1.2.3. 자유 번호)만 입력하고 저장하면, 서버(PUT /api/agreement)가
+// vi·en·zh·ru를 자동 번역해 발행한다(별도 번역 버튼 없음). 저장 후 번역 결과를 읽기전용 미리보기로 확인.
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -22,85 +22,51 @@ export default function AgreementForm({ initial }: { initial: AgreementContent }
   const router = useRouter();
   const [content, setContent] = useState<AgreementContent>(initial);
   const [saving, setSaving] = useState(false);
-  const [translating, setTranslating] = useState(false);
-  // 한국어 수정 후 미번역 상태 — 다른 언어가 stale이므로 저장 차단(번역 강제)
-  const [koDirty, setKoDirty] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   const setKoTitle = (value: string) => {
     setContent((c) => ({ ...c, docTitle: { ...c.docTitle, ko: value } }));
-    setKoDirty(true);
     setMessage(null);
   };
   const setKoBody = (value: string) => {
     setContent((c) => ({ ...c, body: { ...c.body, ko: value } }));
-    setKoDirty(true);
     setMessage(null);
   };
 
   const koReady = content.docTitle.ko.trim().length > 0 && content.body.ko.trim().length > 0;
 
-  // 번역 — 한국어 원문 → vi·en·zh·ru 일괄 생성(서버 Gemini). 결과를 상태에 병합.
-  const onTranslate = async () => {
+  // 발행 저장 — 한국어만 전송. 서버가 vi·en·zh·ru 자동 번역 후 저장하고 전체 콘텐츠를 반환.
+  const onSave = async () => {
     if (!koReady) {
-      setMessage({ ok: false, text: t("emptyKo") });
+      setMessage({ ok: false, text: t("incomplete") });
       return;
     }
-    setTranslating(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/agreement/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docTitle: content.docTitle.ko, body: content.body.ko }),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as { error?: string } | null;
-        const key = data?.error === "GEMINI_NOT_CONFIGURED" ? "geminiError" : "translateFailed";
-        setMessage({ ok: false, text: t(key) });
-        return;
-      }
-      const data = (await res.json()) as {
-        docTitle: Record<string, string>;
-        body: Record<string, string>;
-      };
-      setContent((c) => {
-        const docTitle = { ...c.docTitle };
-        const body = { ...c.body };
-        for (const lang of OTHER_LANGS) {
-          docTitle[lang] = data.docTitle[lang] ?? "";
-          body[lang] = data.body[lang] ?? "";
-        }
-        return { ...c, docTitle, body };
-      });
-      setKoDirty(false);
-      setMessage({ ok: true, text: t("translated") });
-    } catch {
-      setMessage({ ok: false, text: t("translateFailed") });
-    } finally {
-      setTranslating(false);
-    }
-  };
-
-  // 발행 저장 — 5개 언어 전체. 한국어 미번역(koDirty) 시 차단.
-  const onSave = async () => {
     setSaving(true);
     setMessage(null);
     try {
       const res = await fetch("/api/agreement", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docTitle: content.docTitle, body: content.body }),
+        body: JSON.stringify({
+          docTitle: { ko: content.docTitle.ko },
+          body: { ko: content.body.ko },
+        }),
       });
-      if (res.status === 400) {
+      if (!res.ok) {
         const data = (await res.json().catch(() => null)) as { error?: string } | null;
-        setMessage({ ok: false, text: data?.error === "INCOMPLETE" ? t("incomplete") : t("error") });
+        const key =
+          res.status === 400
+            ? "incomplete"
+            : data?.error === "GEMINI_NOT_CONFIGURED"
+              ? "geminiError"
+              : data?.error === "TRANSLATE_FAILED"
+                ? "translateFailed"
+                : "error";
+        setMessage({ ok: false, text: t(key) });
         return;
       }
-      if (!res.ok) throw new Error(`HTTP_${res.status}`);
       const data = (await res.json()) as { content: AgreementContent };
       setContent(data.content);
-      setKoDirty(false);
       setMessage({ ok: true, text: t("saved") });
       router.refresh();
     } catch {
@@ -159,26 +125,7 @@ export default function AgreementForm({ initial }: { initial: AgreementContent }
           <p className="text-[11px] text-slate-500">{t("bodyHint")}</p>
         </div>
 
-        {/* 번역 버튼 */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <button
-            type="button"
-            onClick={onTranslate}
-            disabled={translating || !koReady}
-            className="bg-slate-800 hover:bg-slate-700 border border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed text-slate-100 px-5 py-2.5 rounded-lg font-bold text-sm transition-all flex items-center gap-2 whitespace-nowrap"
-          >
-            <span className="material-symbols-outlined text-lg">translate</span>
-            {translating ? t("translating") : t("translate")}
-          </button>
-          {koDirty && hasTranslations && (
-            <span className="text-xs font-medium text-amber-400 flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm">warning</span>
-              {t("needTranslate")}
-            </span>
-          )}
-        </div>
-
-        {/* 번역 결과 미리보기 — 읽기전용(직접 입력 안 함). 운영자 확인용 */}
+        {/* 번역 결과 미리보기 — 읽기전용(자동 생성). 저장 후 갱신 */}
         {hasTranslations && (
           <details className="rounded-lg border border-slate-800 bg-slate-900/40">
             <summary className="cursor-pointer select-none px-4 py-3 text-xs font-bold text-slate-300 uppercase tracking-wide flex items-center gap-2">
@@ -199,7 +146,7 @@ export default function AgreementForm({ initial }: { initial: AgreementContent }
           </details>
         )}
 
-        {/* 저장(발행) */}
+        {/* 저장(발행) — 저장 시 서버가 자동 번역 */}
         <div className="h-px bg-slate-800 w-full" />
         <div className="flex justify-end items-center gap-3">
           {message && (
@@ -213,11 +160,10 @@ export default function AgreementForm({ initial }: { initial: AgreementContent }
           <button
             type="button"
             onClick={onSave}
-            disabled={saving || !koReady || koDirty}
-            title={koDirty ? t("needTranslate") : undefined}
+            disabled={saving || !koReady}
             className="bg-admin-primary hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-8 py-2.5 rounded-lg font-bold text-sm shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 whitespace-nowrap"
           >
-            <span className="material-symbols-outlined text-lg">save</span>
+            <span className="material-symbols-outlined text-lg">{saving ? "translate" : "save"}</span>
             {saving ? t("saving") : t("save")}
           </button>
         </div>
