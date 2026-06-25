@@ -628,6 +628,54 @@ model SettlementItem {
   amountVnd    BigInt
 }
 
+// ===================== 복식부기 LEDGER (정산 2차 P2-3, ADR-0018) =====================
+// 모든 자금 이동을 통화별 균형 분개(차변 +, 대변 −)로 적재. 무결성은 회계항등식(통화별 합 0)으로 검증.
+// ★ ADMIN(canViewFinance) 전용 — 계정잔액·매출·환차는 공급자에 절대 노출 금지.
+
+enum LedgerAccount {
+  CASH_KRW // 자산 — 한국 계좌 KRW 현금
+  CASH_VND // 자산 — 베트남 계좌 VND 현금
+  SUPPLIER_PAYABLE // 부채 — 공급자 지급 채무(VND)
+  REVENUE // 수익 — 숙박 판매 매출(수납 통화 그대로)
+  COGS // 비용 — 공급자 원가(VND), SUPPLIER_PAYABLE 대차 상대
+  FX_GAIN_LOSS // 손익 — 환차(VND)
+}
+
+enum LedgerEntryType {
+  COLLECTION // 고객 수납 (Payment) — CASH_{C} +/ REVENUE −
+  COST_ACCRUAL // 원가·채무 적립 (Settlement COLLECT) — COGS +/ SUPPLIER_PAYABLE −
+  PAYOUT // 공급자 지급 (Settlement MARK_PAID) — SUPPLIER_PAYABLE +/ CASH_VND −
+  FX_ADJUSTMENT // 환차 (Settlement ADJUST_FX) — CASH_VND ±/ FX_GAIN_LOSS ∓
+}
+
+model LedgerTransaction {
+  id           String          @id @default(cuid())
+  type         LedgerEntryType
+  occurredAt   DateTime // 자금 이동 실제 시각
+  // 출처 역참조 — 멱등·추적용 (정확히 하나만 채움)
+  paymentId    String?         @unique // COLLECTION 1:1 멱등
+  settlementId String? // COST_ACCRUAL·PAYOUT·FX (정산당 type별 1건)
+  memo         String?
+  createdBy    String
+  createdAt    DateTime        @default(now())
+  lines        LedgerLine[]
+
+  @@index([settlementId, type])
+}
+
+model LedgerLine {
+  id            String            @id @default(cuid())
+  transactionId String
+  transaction   LedgerTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  account       LedgerAccount
+  currency      Currency // KRW·VND
+  // 차변(+)·대변(−)을 부호로. 자산·비용↑ = +, 부채·수익↑ = −. VND 동·KRW 원, float 금지.
+  amount        BigInt
+
+  @@index([transactionId])
+  @@index([account, currency])
+}
+
 // ===================== 부가서비스 (Phase 2) =====================
 
 enum ServiceType {

@@ -12,6 +12,7 @@ import { formatThousands, formatVnd, formatDateTime } from "@/lib/format";
 import { toDateOnlyString, todayVnDateString, resolveQuickRange } from "@/lib/date-vn";
 import { monthRangeUtc, SETTLEMENT_BOOKING_STATUSES } from "@/lib/settlement";
 import { summarizeFinance, type FinanceBooking } from "@/lib/settlement-finance";
+import { verifyLedger } from "@/lib/ledger";
 import SettlementsView, { type SettlementRow } from "./settlements-view";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -190,12 +191,38 @@ export default async function SettlementsPage({
     bookingCount: finance.bookingCount,
   };
 
+  // 복식부기 LEDGER 무결성 검증 (ADMIN 전용, ADR-0018) — 불균형 시에만 경고 배너.
+  // 마이그레이션 미적용 등으로 실패하면 배너 생략(페이지는 정상 렌더).
+  let ledgerWarn: string | null = null;
+  try {
+    const v = await verifyLedger(prisma);
+    if (!v.balanced || !v.payableReconciled) {
+      ledgerWarn = v.discrepancies.join(" · ");
+    }
+  } catch {
+    ledgerWarn = null;
+  }
+  const tLedger = await getTranslations("adminSettlements");
+
   return (
-    <SettlementsView
-      yearMonth={yearMonth}
-      summary={summary}
-      financeSummary={financeSummary}
-      rows={rows}
-    />
+    <>
+      {ledgerWarn && (
+        <div
+          role="alert"
+          className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300"
+        >
+          <p className="font-semibold">⚠ {tLedger("ledgerWarning")}</p>
+          <p className="mt-1 text-red-300/80">
+            {tLedger("ledgerWarningDetail", { detail: ledgerWarn })}
+          </p>
+        </div>
+      )}
+      <SettlementsView
+        yearMonth={yearMonth}
+        summary={summary}
+        financeSummary={financeSummary}
+        rows={rows}
+      />
+    </>
   );
 }
