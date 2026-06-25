@@ -8,6 +8,7 @@ import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { isOperator, canViewFinance, canSetPrice } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { getFxVndPerKrw } from "@/lib/pricing";
 import ServiceCatalogManager, { type CatalogRow } from "./catalog-manager";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -31,6 +32,8 @@ export default async function ServiceCatalogPage() {
 
   const showCost = canViewFinance(role);
   const canEdit = canSetPrice(role);
+  // 환율(1 KRW당 VND) — KRW 미리보기용. 미설정이면 null → 클라에서 미리보기 생략.
+  const fx = await getFxVndPerKrw(prisma);
 
   // 원가는 canViewFinance만 — select에서부터 제외(클라 조건부 렌더 의존 금지, 원칙2)
   const items = await prisma.serviceCatalogItem.findMany({
@@ -85,7 +88,12 @@ export default async function ServiceCatalogPage() {
         <p className="text-sm text-slate-500 mt-1">{t("subtitle")}</p>
       </div>
 
-      <ServiceCatalogManager initialItems={rows} showCost={showCost} canEdit={canEdit} />
+      <ServiceCatalogManager
+        initialItems={rows}
+        showCost={showCost}
+        canEdit={canEdit}
+        fx={fx}
+      />
     </div>
   );
 }

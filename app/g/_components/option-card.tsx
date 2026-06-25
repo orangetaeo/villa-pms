@@ -19,6 +19,10 @@ export interface CardSelection {
   addonKeys: string[];
   modifierKeys: string[];
   quantity: number;
+  /** 희망 날짜(YYYY-MM-DD, 투숙기간 내). 미선택이면 null. (#3) */
+  serviceDate: string | null;
+  /** 희망 시간(HH:MM 자유 입력). 미선택이면 null. (#3) */
+  serviceTime: string | null;
 }
 
 const TYPE_BADGE: Record<string, string> = {
@@ -42,6 +46,8 @@ export function OptionCard({
   selection,
   onChange,
   badgeText,
+  dateMin,
+  dateMax,
 }: {
   item: GuestCatalogView;
   labels: GuestLabels["addons"];
@@ -50,6 +56,9 @@ export function OptionCard({
   selection: CardSelection;
   onChange: (next: CardSelection) => void;
   badgeText: string;
+  /** 희망 날짜 입력 가능 범위(YYYY-MM-DD) — 투숙 체크인~체크아웃. (#3) */
+  dateMin: string;
+  dateMax: string;
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -241,6 +250,40 @@ export function OptionCard({
             </span>
           </label>
         ))}
+
+        {/* 희망 날짜·시간 (#3) — 수량 선택 시 노출 */}
+        {active && (
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <div>
+              <label className="text-[11px] font-bold text-slate-500 mb-1 block">
+                {labels.serviceDateLabel}
+              </label>
+              <input
+                type="date"
+                min={dateMin}
+                max={dateMax}
+                aria-label={labels.serviceDateLabel}
+                title={labels.serviceDateLabel}
+                value={selection.serviceDate ?? ""}
+                onChange={(e) => onChange({ ...selection, serviceDate: e.target.value || null })}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:ring-teal-500 focus:border-teal-500"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold text-slate-500 mb-1 block">
+                {labels.serviceTimeLabel}
+              </label>
+              <input
+                type="time"
+                aria-label={labels.serviceTimeLabel}
+                title={labels.serviceTimeLabel}
+                value={selection.serviceTime ?? ""}
+                onChange={(e) => onChange({ ...selection, serviceTime: e.target.value || null })}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:ring-teal-500 focus:border-teal-500"
+              />
+            </div>
+          </div>
+        )}
 
         {/* 가격 + 수량 스테퍼 */}
         <div className="flex items-center justify-between pt-1">

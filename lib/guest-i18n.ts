@@ -14,8 +14,8 @@ export interface GuestLabels {
   back: string;
   confirm: string;
   done: string;
-  // 진행 단계 라벨 (4스텝)
-  steps: { amenities: string; agreement: string; addons: string; done: string };
+  // 진행 단계 라벨 (4스텝: 비품→동의→여권→완료)
+  steps: { amenities: string; agreement: string; passport: string; done: string };
   stepCount: (cur: number, total: number) => string;
   // G1 예약 확인
   home: {
@@ -57,9 +57,24 @@ export interface GuestLabels {
     alreadySignedAt: (v: string) => string;
     error: string;
   };
-  // G4 옵션
+  // G4 여권 사진(신규)
+  passport: {
+    title: string;
+    intro: string;
+    privacyNote: string; // "임시거주신고용, 비공개 보관"
+    slotLabel: (n: number) => string; // "투숙객 N"
+    addPhoto: string; // "사진 추가"
+    retake: string; // "다시 찍기"
+    uploading: string;
+    uploaded: string; // 업로드 완료
+    error: string;
+    skip: string; // 건너뛰기
+    finishCta: string; // 완료로
+  };
+  // 옵션 페이지(별도 라우트 /g/[token]/options)
   addons: {
     title: string;
+    pageIntro: string; // 옵션 페이지 상단 안내
     banner: string;
     optionLabel: string; // "옵션 선택"
     timeLabel: string; // "시간 선택"
@@ -78,6 +93,13 @@ export interface GuestLabels {
     perUnit: (label: string) => string;
     variantRequired: string;
     goNext: string; // 옵션 없이 다음
+    // 희망 날짜·시간(신규)
+    serviceDateLabel: string; // "희망 날짜"
+    serviceTimeLabel: string; // "희망 시간"
+    serviceTimePlaceholder: string; // "예: 14:00"
+    priceInquiry: string; // 환율 미설정 시 "가격 문의"
+    backToCheckin: string; // 체크인으로 돌아가기
+    empty: string;
   };
   // G5 완료
   result: {
@@ -93,6 +115,8 @@ export interface GuestLabels {
     settleNote: string;
     empty: string;
     finishCta: string;
+    openOptionsCta: string; // "부가 옵션 신청하기" — 옵션 페이지로 이동
+    optionsHint: string; // 옵션 버튼 보조 문구
   };
   footerNote: string;
 }
@@ -113,7 +137,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
     back: "뒤로",
     confirm: "확인",
     done: "완료",
-    steps: { amenities: "비품 확인", agreement: "이용 동의", addons: "옵션 선택", done: "완료" },
+    steps: { amenities: "비품 확인", agreement: "이용 동의", passport: "여권 사진", done: "완료" },
     stepCount: (c, t) => `${c}/${t}`,
     home: {
       kicker: "셀프 체크인",
@@ -152,8 +176,22 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       alreadySignedAt: (v) => `버전 ${v}`,
       error: "서명 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.",
     },
+    passport: {
+      title: "여권 사진",
+      intro: "투숙객 전원의 여권 사진을 한 장씩 촬영해 주세요.",
+      privacyNote: "임시거주신고용으로만 사용되며 비공개로 안전하게 보관됩니다.",
+      slotLabel: (n) => `투숙객 ${n}`,
+      addPhoto: "사진 촬영·선택",
+      retake: "다시 선택",
+      uploading: "업로드 중…",
+      uploaded: "업로드 완료",
+      error: "업로드 중 문제가 발생했습니다. 다시 시도해주세요.",
+      skip: "나중에 하기",
+      finishCta: "체크인 완료",
+    },
     addons: {
-      title: "옵션 선택",
+      title: "부가 옵션 신청",
+      pageIntro: "투숙 중 필요한 옵션을 언제든 신청하실 수 있습니다.",
       banner: "요청 후 운영자 확인 시 확정됩니다. 결제는 체크아웃 시 현금/계좌이체로 정산합니다.",
       optionLabel: "옵션 선택",
       timeLabel: "시간 선택",
@@ -172,6 +210,12 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       perUnit: (l) => `/ ${l}`,
       variantRequired: "옵션을 선택해주세요",
       goNext: "옵션 없이 완료",
+      serviceDateLabel: "희망 날짜",
+      serviceTimeLabel: "희망 시간",
+      serviceTimePlaceholder: "예: 14:00",
+      priceInquiry: "가격 문의",
+      backToCheckin: "체크인 화면으로",
+      empty: "현재 신청 가능한 옵션이 없습니다.",
     },
     result: {
       title: "체크인 정보가\n접수되었습니다",
@@ -186,6 +230,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       settleNote: "미니바 및 선택하신 옵션은 체크아웃 시 정산됩니다 (현금/계좌이체). 운영자 확인 후 최종 금액을 안내해 드립니다.",
       empty: "아직 요청한 옵션이 없습니다.",
       finishCta: "확인",
+      openOptionsCta: "부가 옵션 신청하기",
+      optionsHint: "BBQ·마사지·차량 등 투숙 중 필요한 서비스를 신청하실 수 있습니다.",
     },
     footerNote: "문의사항은 예약하신 여행사로 연락해 주세요.",
   },
@@ -197,7 +243,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
     back: "Back",
     confirm: "Confirm",
     done: "Done",
-    steps: { amenities: "Amenities", agreement: "Agreement", addons: "Options", done: "Done" },
+    steps: { amenities: "Amenities", agreement: "Agreement", passport: "Passport", done: "Done" },
     stepCount: (c, t) => `${c}/${t}`,
     home: {
       kicker: "Self check-in",
@@ -236,8 +282,22 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       alreadySignedAt: (v) => `Version ${v}`,
       error: "Something went wrong while signing. Please try again shortly.",
     },
+    passport: {
+      title: "Passport photos",
+      intro: "Please take one passport photo for each guest.",
+      privacyNote: "Used only for temporary residence registration and stored securely in private.",
+      slotLabel: (n) => `Guest ${n}`,
+      addPhoto: "Take / choose photo",
+      retake: "Choose again",
+      uploading: "Uploading…",
+      uploaded: "Uploaded",
+      error: "Upload failed. Please try again.",
+      skip: "Do this later",
+      finishCta: "Finish check-in",
+    },
     addons: {
-      title: "Options",
+      title: "Add-on options",
+      pageIntro: "You can request options anytime during your stay.",
       banner: "Requests are confirmed after the operator reviews them. Payment is settled at check-out (cash/bank transfer).",
       optionLabel: "Choose option",
       timeLabel: "Choose duration",
@@ -256,6 +316,12 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       perUnit: (l) => `/ ${l}`,
       variantRequired: "Please choose an option",
       goNext: "Finish without options",
+      serviceDateLabel: "Preferred date",
+      serviceTimeLabel: "Preferred time",
+      serviceTimePlaceholder: "e.g. 14:00",
+      priceInquiry: "Ask for price",
+      backToCheckin: "Back to check-in",
+      empty: "No options are available right now.",
     },
     result: {
       title: "Your check-in info\nhas been received",
@@ -270,6 +336,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       settleNote: "Minibar and selected options are settled at check-out (cash/bank transfer). The operator will confirm the final amount.",
       empty: "No options requested yet.",
       finishCta: "Done",
+      openOptionsCta: "Request add-on options",
+      optionsHint: "Request services you may need during your stay, such as BBQ, massage, or a car.",
     },
     footerNote: "For inquiries, please contact your travel agency.",
   },
@@ -281,7 +349,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
     back: "Назад",
     confirm: "Подтвердить",
     done: "Готово",
-    steps: { amenities: "Удобства", agreement: "Соглашение", addons: "Опции", done: "Готово" },
+    steps: { amenities: "Удобства", agreement: "Соглашение", passport: "Паспорт", done: "Готово" },
     stepCount: (c, t) => `${c}/${t}`,
     home: {
       kicker: "Самостоятельное заселение",
@@ -320,8 +388,22 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       alreadySignedAt: (v) => `Версия ${v}`,
       error: "Произошла ошибка при подписании. Повторите попытку позже.",
     },
+    passport: {
+      title: "Фото паспорта",
+      intro: "Пожалуйста, сделайте по одному фото паспорта каждого гостя.",
+      privacyNote: "Используется только для регистрации временного проживания и хранится конфиденциально.",
+      slotLabel: (n) => `Гость ${n}`,
+      addPhoto: "Снять / выбрать фото",
+      retake: "Выбрать снова",
+      uploading: "Загрузка…",
+      uploaded: "Загружено",
+      error: "Ошибка загрузки. Повторите попытку.",
+      skip: "Сделать позже",
+      finishCta: "Завершить заселение",
+    },
     addons: {
-      title: "Опции",
+      title: "Дополнительные опции",
+      pageIntro: "Вы можете запросить опции в любое время во время проживания.",
       banner: "Запросы подтверждаются после проверки оператором. Оплата при выезде (наличные/перевод).",
       optionLabel: "Выберите опцию",
       timeLabel: "Выберите длительность",
@@ -340,6 +422,12 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       perUnit: (l) => `/ ${l}`,
       variantRequired: "Выберите опцию",
       goNext: "Завершить без опций",
+      serviceDateLabel: "Желаемая дата",
+      serviceTimeLabel: "Желаемое время",
+      serviceTimePlaceholder: "напр. 14:00",
+      priceInquiry: "Уточнить цену",
+      backToCheckin: "Назад к заселению",
+      empty: "Сейчас нет доступных опций.",
     },
     result: {
       title: "Данные заселения\nприняты",
@@ -354,6 +442,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       settleNote: "Мини-бар и выбранные опции оплачиваются при выезде (наличные/перевод). Оператор подтвердит итоговую сумму.",
       empty: "Опции ещё не запрошены.",
       finishCta: "Готово",
+      openOptionsCta: "Запросить доп. опции",
+      optionsHint: "Запросите услуги, которые могут понадобиться во время проживания: барбекю, массаж, авто.",
     },
     footerNote: "По вопросам обращайтесь в ваше турагентство.",
   },
@@ -365,7 +455,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
     back: "返回",
     confirm: "确认",
     done: "完成",
-    steps: { amenities: "设施确认", agreement: "使用同意", addons: "选项", done: "完成" },
+    steps: { amenities: "设施确认", agreement: "使用同意", passport: "护照照片", done: "完成" },
     stepCount: (c, t) => `${c}/${t}`,
     home: {
       kicker: "自助入住",
@@ -404,8 +494,22 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       alreadySignedAt: (v) => `版本 ${v}`,
       error: "签名处理出现问题，请稍后再试。",
     },
+    passport: {
+      title: "护照照片",
+      intro: "请为每位住客各拍摄一张护照照片。",
+      privacyNote: "仅用于临时居住登记，并以非公开方式安全保管。",
+      slotLabel: (n) => `住客 ${n}`,
+      addPhoto: "拍摄 / 选择照片",
+      retake: "重新选择",
+      uploading: "上传中…",
+      uploaded: "已上传",
+      error: "上传出现问题，请重试。",
+      skip: "稍后再做",
+      finishCta: "完成入住",
+    },
     addons: {
-      title: "选项",
+      title: "附加选项",
+      pageIntro: "入住期间您可随时申请所需选项。",
       banner: "请求经运营者确认后即确定。付款于退房时以现金/转账结算。",
       optionLabel: "选择选项",
       timeLabel: "选择时长",
@@ -424,6 +528,12 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       perUnit: (l) => `/ ${l}`,
       variantRequired: "请选择选项",
       goNext: "不选选项直接完成",
+      serviceDateLabel: "期望日期",
+      serviceTimeLabel: "期望时间",
+      serviceTimePlaceholder: "例如 14:00",
+      priceInquiry: "价格咨询",
+      backToCheckin: "返回入住页面",
+      empty: "目前没有可申请的选项。",
     },
     result: {
       title: "入住信息\n已受理",
@@ -438,6 +548,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       settleNote: "迷你吧及所选选项将在退房时结算（现金/转账）。运营者确认后将告知最终金额。",
       empty: "尚未请求任何选项。",
       finishCta: "确认",
+      openOptionsCta: "申请附加选项",
+      optionsHint: "可申请入住期间所需服务，如烧烤、按摩、用车等。",
     },
     footerNote: "如有疑问，请联系您预订的旅行社。",
   },
@@ -449,7 +561,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
     back: "Quay lại",
     confirm: "Xác nhận",
     done: "Hoàn tất",
-    steps: { amenities: "Tiện nghi", agreement: "Đồng ý", addons: "Tùy chọn", done: "Hoàn tất" },
+    steps: { amenities: "Tiện nghi", agreement: "Đồng ý", passport: "Hộ chiếu", done: "Hoàn tất" },
     stepCount: (c, t) => `${c}/${t}`,
     home: {
       kicker: "Tự nhận phòng",
@@ -488,8 +600,22 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       alreadySignedAt: (v) => `Phiên bản ${v}`,
       error: "Đã xảy ra lỗi khi ký. Vui lòng thử lại sau.",
     },
+    passport: {
+      title: "Ảnh hộ chiếu",
+      intro: "Vui lòng chụp một ảnh hộ chiếu cho mỗi khách lưu trú.",
+      privacyNote: "Chỉ dùng để khai báo tạm trú và được lưu giữ riêng tư, an toàn.",
+      slotLabel: (n) => `Khách ${n}`,
+      addPhoto: "Chụp / chọn ảnh",
+      retake: "Chọn lại",
+      uploading: "Đang tải lên…",
+      uploaded: "Đã tải lên",
+      error: "Tải lên gặp sự cố. Vui lòng thử lại.",
+      skip: "Để sau",
+      finishCta: "Hoàn tất nhận phòng",
+    },
     addons: {
-      title: "Tùy chọn",
+      title: "Tùy chọn bổ sung",
+      pageIntro: "Bạn có thể yêu cầu tùy chọn bất cứ lúc nào trong thời gian lưu trú.",
       banner: "Yêu cầu được xác nhận sau khi người vận hành kiểm tra. Thanh toán khi trả phòng (tiền mặt/chuyển khoản).",
       optionLabel: "Chọn tùy chọn",
       timeLabel: "Chọn thời lượng",
@@ -508,6 +634,12 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       perUnit: (l) => `/ ${l}`,
       variantRequired: "Vui lòng chọn tùy chọn",
       goNext: "Hoàn tất không chọn tùy chọn",
+      serviceDateLabel: "Ngày mong muốn",
+      serviceTimeLabel: "Giờ mong muốn",
+      serviceTimePlaceholder: "vd: 14:00",
+      priceInquiry: "Hỏi giá",
+      backToCheckin: "Về trang nhận phòng",
+      empty: "Hiện chưa có tùy chọn nào.",
     },
     result: {
       title: "Thông tin nhận phòng\nđã được ghi nhận",
@@ -522,6 +654,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       settleNote: "Minibar và các tùy chọn đã chọn sẽ được tính khi trả phòng (tiền mặt/chuyển khoản). Người vận hành sẽ xác nhận số tiền cuối cùng.",
       empty: "Chưa yêu cầu tùy chọn nào.",
       finishCta: "Xác nhận",
+      openOptionsCta: "Yêu cầu tùy chọn bổ sung",
+      optionsHint: "Yêu cầu dịch vụ cần trong thời gian lưu trú như BBQ, massage, thuê xe.",
     },
     footerNote: "Mọi thắc mắc vui lòng liên hệ công ty du lịch của bạn.",
   },

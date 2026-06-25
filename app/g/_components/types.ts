@@ -56,6 +56,13 @@ export interface GuestRequestedOrder {
   priceVnd: string | null;
 }
 
+export interface GuestAgreementView {
+  version: string;
+  docTitle: string;
+  clauses: { key: string; content: string }[];
+}
+
+/** 체크인 흐름(예약→비품→동의→여권→완료) props — 옵션 선택은 별도 페이지로 분리. */
 export interface GuestFlowProps {
   token: string;
   lang: PublicLang;
@@ -64,13 +71,18 @@ export interface GuestFlowProps {
   booking: GuestBookingView;
   amenityGroups: GuestAmenityGroup[];
   minibar: GuestMinibarView[];
-  agreement: {
-    version: string;
-    docTitle: string;
-    clauses: { key: string; content: string }[];
-  };
+  agreement: GuestAgreementView;
+  /** 현재 환율(1 KRW당 VND, 문자열). 미설정이면 null → KRW 표시 생략, VND만. */
+  fxVndPerKrw: string | null;
+}
+
+/** 옵션 선택 페이지(/g/[token]/options) props — 체크인과 독립 라우트, 투숙 중 접근. */
+export interface GuestOptionsProps {
+  token: string;
+  lang: PublicLang;
+  booking: GuestBookingView;
   catalog: GuestCatalogView[];
   requestedOrders: GuestRequestedOrder[];
-  /** 현재 환율(1 KRW당 VND, 문자열). 미설정이면 null → KRW 표시 생략, VND만. */
+  /** 현재 환율(1 KRW당 VND, 문자열). 미설정이면 null → "가격 문의". */
   fxVndPerKrw: string | null;
 }

@@ -6,10 +6,11 @@
 //   ★ 가격은 VND 단일통화(priceVnd 필수). 게스트 KRW는 표시 시점 환율로 파생 — 저장 안 함.
 //   ★ 관리자 입력은 한국어만(nameKo/descKo/옵션 labelKo). nameVi/nameEn/descVi·옵션 labelVi는 서버가 Gemini로 자동번역.
 //   옵션 빌더: variants(1택·가격대체)/addons(다중·가산)/modifiers(토글·가산).
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { formatThousands } from "@/lib/format";
+import { priceKrwCeil } from "@/lib/service-display";
 import { parseCatalogOptions, SERVICE_TYPE_VALUES } from "@/lib/service-catalog";
 
 export interface CatalogRow {
@@ -98,14 +99,17 @@ export default function ServiceCatalogManager({
   initialItems,
   showCost,
   canEdit,
+  fx,
 }: {
   initialItems: CatalogRow[];
   showCost: boolean;
   canEdit: boolean;
+  fx: string | null; // 1 KRW당 VND. null이면 KRW 미리보기 생략.
 }) {
   const t = useTranslations("adminServices");
   const router = useRouter();
 
+  const [typeFilter, setTypeFilter] = useState<string>("ALL"); // 타입 카테고리 탭
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<FormDraft>(emptyForm(0));
@@ -274,6 +278,22 @@ export default function ServiceCatalogManager({
     }
   }
 
+  // 타입 카테고리 탭 — 등장하는 타입만 노출(+ 전체). 빌라관리 상태 탭 패턴.
+  const typeTabs = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const it of initialItems) counts[it.type] = (counts[it.type] ?? 0) + 1;
+    const present = SERVICE_TYPE_VALUES.filter((tp) => counts[tp] > 0);
+    return [
+      { key: "ALL", label: t("filters.allTypes"), count: initialItems.length },
+      ...present.map((tp) => ({ key: tp, label: t(`types.${tp}`), count: counts[tp] })),
+    ];
+  }, [initialItems, t]);
+
+  const visibleItems = useMemo(
+    () => (typeFilter === "ALL" ? initialItems : initialItems.filter((it) => it.type === typeFilter)),
+    [initialItems, typeFilter]
+  );
+
   return (
     <section className="space-y-5">
       <div className="flex items-center justify-between gap-3">
@@ -298,11 +318,44 @@ export default function ServiceCatalogManager({
         )}
       </div>
 
+      {/* 타입 카테고리 탭 (빌라관리 상태 탭 스타일) */}
+      {initialItems.length > 0 && (
+        <div className="flex items-center gap-2 border-b border-admin-card overflow-x-auto">
+          {typeTabs.map(({ key, label, count }) => {
+            const active = typeFilter === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setTypeFilter(key)}
+                className={
+                  active
+                    ? "px-4 py-3 text-sm font-bold text-admin-primary border-b-2 border-admin-primary flex items-center gap-2 whitespace-nowrap"
+                    : "px-4 py-3 text-sm font-medium text-admin-muted hover:text-white transition-colors flex items-center gap-2 whitespace-nowrap"
+                }
+              >
+                {label}
+                <span
+                  className={`px-1.5 py-0.5 rounded text-[10px] bg-admin-card ${
+                    active ? "text-admin-primary" : "text-admin-muted"
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 리스트 — 빌라관리형 행(썸네일·이름·타입배지·판매가·원가/마진·active·수정/삭제) */}
       {initialItems.length === 0 ? (
         <p className="text-sm text-slate-500 py-12 text-center">{t("empty")}</p>
+      ) : visibleItems.length === 0 ? (
+        <p className="text-sm text-slate-500 py-12 text-center">{t("emptyFiltered")}</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-          {initialItems.map((item) => {
+        <div className="flex flex-col gap-3">
+          {visibleItems.map((item) => {
             const pct = showCost ? marginPct(item.priceVnd, item.costVnd) : null;
             const opts = parseCatalogOptions(item.options);
             const chips = [
@@ -313,135 +366,137 @@ export default function ServiceCatalogManager({
             return (
               <div
                 key={item.id}
-                className={`bg-admin-card border border-slate-800 rounded-xl overflow-hidden ${
-                  item.active ? "" : "opacity-70"
+                className={`bg-admin-card rounded-xl border border-slate-800 overflow-hidden ${
+                  item.active ? "" : "opacity-80"
                 }`}
               >
-                <div className="relative h-32 bg-slate-900">
-                  {item.photoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      className={`w-full h-full object-cover ${item.active ? "" : "grayscale"}`}
-                      alt={item.nameKo}
-                      src={item.photoUrl}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-700">
-                      <span className="material-symbols-outlined text-4xl">restaurant</span>
-                    </div>
-                  )}
-                  <span
-                    className={`absolute top-2 left-2 text-white text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      TYPE_BADGE[item.type] ?? "bg-slate-600/90"
+                <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4">
+                  {/* 썸네일 */}
+                  <div
+                    className={`relative w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-lg overflow-hidden bg-slate-800 ${
+                      item.active ? "" : "grayscale"
                     }`}
                   >
-                    {t(`types.${item.type}`)}
-                  </span>
-                  <span
-                    className={`absolute top-2 right-2 text-white text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      item.active ? "bg-emerald-500/90" : "bg-slate-600/90"
-                    }`}
-                  >
-                    {item.active ? t("active") : t("inactive")}
-                  </span>
-                </div>
-                <div className="p-4 space-y-2.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-bold text-white">
-                      {item.nameKo}
-                      {item.unitLabelKo && (
-                        <span className="ml-1.5 text-xs text-slate-500 font-medium">
-                          / {item.unitLabelKo}
-                        </span>
-                      )}
-                    </h3>
-                  </div>
-                  <div className="space-y-1 text-sm">
-                    {item.priceVnd != null && (
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">{t("salePrice")}</span>
-                        <span className="font-bold text-white tabular-nums">
-                          {formatThousands(item.priceVnd)}₫
-                        </span>
+                    {item.photoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        className="w-full h-full object-cover"
+                        alt={item.nameKo}
+                        src={item.photoUrl}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-600">
+                        <span className="material-symbols-outlined">restaurant</span>
                       </div>
                     )}
-                    {/* 매입원가 — showCost(canViewFinance)일 때만. STAFF엔 데이터 자체가 없음 */}
-                    {showCost && item.costVnd != null && (
-                      <div className="flex justify-between">
+                  </div>
+                  {/* 본문 */}
+                  <div className="min-w-0 flex-1 flex flex-col gap-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <span
+                          className={`inline-block text-white text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 ${
+                            TYPE_BADGE[item.type] ?? "bg-slate-600/90"
+                          }`}
+                        >
+                          {t(`types.${item.type}`)}
+                        </span>
+                        <h3 className="text-sm sm:text-base font-bold text-white truncate">
+                          {item.nameKo}
+                          {item.unitLabelKo && (
+                            <span className="ml-1.5 text-xs text-slate-500 font-medium">
+                              / {item.unitLabelKo}
+                            </span>
+                          )}
+                        </h3>
+                      </div>
+                      <span
+                        className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                          item.active ? "bg-emerald-500/90 text-white" : "bg-slate-600/90 text-white"
+                        }`}
+                      >
+                        {item.active ? t("active") : t("inactive")}
+                      </span>
+                    </div>
+                    {/* 가격 행 */}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                      {item.priceVnd != null && (
+                        <span className="text-slate-300">
+                          {t("salePrice")}{" "}
+                          <span className="font-bold text-white tabular-nums">
+                            {formatThousands(item.priceVnd)}₫
+                          </span>
+                        </span>
+                      )}
+                      {/* 매입원가 — showCost(canViewFinance)만. STAFF엔 데이터 없음 */}
+                      {showCost && item.costVnd != null && (
                         <span className="text-slate-500 flex items-center gap-1">
-                          {t("cost")}
                           <span className="material-symbols-outlined text-[12px] text-slate-600">
                             visibility
                           </span>
+                          {t("cost")}{" "}
+                          <span className="tabular-nums">{formatThousands(item.costVnd)}₫</span>
                         </span>
-                        <span className="text-slate-500 tabular-nums">
-                          {formatThousands(item.costVnd)}₫
+                      )}
+                      {pct != null && (
+                        <span className="bg-emerald-500/15 text-emerald-400 text-[11px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
+                          {t("margin", { pct })}
                         </span>
+                      )}
+                    </div>
+                    {chips.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {chips.map((c) => (
+                          <span
+                            key={c.key}
+                            className="bg-slate-700/60 text-slate-300 text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
+                          >
+                            {c.labelKo}
+                          </span>
+                        ))}
                       </div>
                     )}
                   </div>
-
-                  {chips.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 pt-0.5">
-                      {chips.map((c) => (
+                  {/* 액션 */}
+                  {canEdit && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(item)}
+                        aria-label={t("edit")}
+                        disabled={busy}
+                        className="text-slate-500 hover:text-admin-primary transition-colors disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-lg">edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(item.id)}
+                        aria-label={t("delete")}
+                        disabled={busy}
+                        className="text-slate-500 hover:text-red-400 transition-colors disabled:opacity-50"
+                      >
+                        <span className="material-symbols-outlined text-lg">delete</span>
+                      </button>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={item.active}
+                        aria-label={t("active")}
+                        disabled={busy}
+                        onClick={() => handleToggle(item)}
+                        className={`relative w-9 h-5 rounded-full transition-colors shrink-0 disabled:opacity-50 ${
+                          item.active ? "bg-admin-primary" : "bg-slate-700"
+                        }`}
+                      >
                         <span
-                          key={c.key}
-                          className="bg-slate-700/60 text-slate-300 text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
-                        >
-                          {c.labelKo}
-                        </span>
-                      ))}
+                          className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
+                            item.active ? "translate-x-4" : ""
+                          }`}
+                        />
+                      </button>
                     </div>
                   )}
-
-                  <div className="flex items-center justify-between pt-1">
-                    {pct != null ? (
-                      <span className="bg-emerald-500/15 text-emerald-400 text-[11px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap">
-                        {t("margin", { pct })}
-                      </span>
-                    ) : (
-                      <span />
-                    )}
-                    {canEdit && (
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(item)}
-                          aria-label={t("edit")}
-                          disabled={busy}
-                          className="text-slate-500 hover:text-admin-primary transition-colors disabled:opacity-50"
-                        >
-                          <span className="material-symbols-outlined text-lg">edit</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item.id)}
-                          aria-label={t("delete")}
-                          disabled={busy}
-                          className="text-slate-500 hover:text-red-400 transition-colors disabled:opacity-50"
-                        >
-                          <span className="material-symbols-outlined text-lg">delete</span>
-                        </button>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={item.active}
-                          aria-label={t("active")}
-                          disabled={busy}
-                          onClick={() => handleToggle(item)}
-                          className={`relative w-9 h-5 rounded-full transition-colors shrink-0 disabled:opacity-50 ${
-                            item.active ? "bg-admin-primary" : "bg-slate-700"
-                          }`}
-                        >
-                          <span
-                            className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
-                              item.active ? "translate-x-4" : ""
-                            }`}
-                          />
-                        </button>
-                      </div>
-                    )}
-                  </div>
                 </div>
               </div>
             );
@@ -457,6 +512,7 @@ export default function ServiceCatalogManager({
           editing={editingId != null}
           busy={busy}
           error={formError}
+          fx={fx}
           onSave={handleSave}
           onClose={() => setModalOpen(false)}
           t={t}
@@ -474,6 +530,7 @@ function CatalogModal({
   editing,
   busy,
   error,
+  fx,
   onSave,
   onClose,
   t,
@@ -484,6 +541,7 @@ function CatalogModal({
   editing: boolean;
   busy: boolean;
   error: string | null;
+  fx: string | null;
   onSave: () => void;
   onClose: () => void;
   t: ReturnType<typeof useTranslations>;
@@ -492,6 +550,42 @@ function CatalogModal({
     "mt-1 w-full bg-admin-bg border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white focus:border-admin-primary focus:outline-none";
   const numCls = `${inputCls} tabular-nums text-right`;
   const labelCls = "text-xs text-slate-500";
+
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // 사진 파일 업로드 → POST /api/uploads({url}) → photoUrl 세팅
+  async function handleUpload(file: File) {
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/uploads", { method: "POST", body: fd });
+      if (!res.ok) throw new Error(`HTTP_${res.status}`);
+      const data = (await res.json()) as { url?: string };
+      if (!data.url) throw new Error("NO_URL");
+      setDraft((d) => ({ ...d, photoUrl: data.url as string }));
+    } catch {
+      setUploadError(t("form.uploadError"));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  // KRW 미리보기 — fx 있고 priceVnd 유효할 때만. priceKrwCeil(1000원 올림).
+  const krwPreview =
+    fx && draft.priceVnd
+      ? (() => {
+          try {
+            const krw = priceKrwCeil(BigInt(draft.priceVnd), fx);
+            return krw > 0 ? formatThousands(krw) : null;
+          } catch {
+            return null;
+          }
+        })()
+      : null;
 
   return (
     <div
@@ -557,6 +651,12 @@ function CatalogModal({
               onChange={(e) => setDraft((d) => ({ ...d, priceVnd: digits(e.target.value) }))}
               className={numCls}
             />
+            {/* KRW 미리보기 — 환율 자동, 저장 안 함(참고용). fx 미설정이면 생략. */}
+            {krwPreview && (
+              <p className="text-[11px] text-slate-500 mt-1 text-right">
+                {t("form.krwPreview", { krw: krwPreview })}
+              </p>
+            )}
           </div>
           {showCost && (
             <div>
@@ -584,14 +684,53 @@ function CatalogModal({
             />
           </div>
           <div>
-            <label className={labelCls}>{t("form.photoUrl")}</label>
-            <input
-              value={draft.photoUrl}
-              onChange={(e) => setDraft((d) => ({ ...d, photoUrl: e.target.value }))}
-              placeholder={t("form.photoPlaceholder")}
-              maxLength={500}
-              className={inputCls}
-            />
+            <label className={labelCls}>{t("form.photo")}</label>
+            <div className="mt-1 flex items-center gap-3">
+              {/* 썸네일 미리보기 */}
+              <div className="relative w-16 h-16 shrink-0 rounded-lg overflow-hidden bg-admin-bg border border-slate-700">
+                {draft.photoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="w-full h-full object-cover" alt="" src={draft.photoUrl} />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-700">
+                    <span className="material-symbols-outlined">image</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  aria-label={t("form.photoUpload")}
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleUpload(f);
+                    e.target.value = ""; // 같은 파일 재선택 허용
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                  className="inline-flex items-center gap-1.5 bg-admin-bg border border-slate-700 hover:border-admin-primary text-slate-200 text-xs font-bold rounded px-3 py-1.5 disabled:opacity-50 whitespace-nowrap transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[16px]">upload</span>
+                  {uploading ? t("form.uploading") : draft.photoUrl ? t("form.photoReplace") : t("form.photoUpload")}
+                </button>
+                {draft.photoUrl && !uploading && (
+                  <button
+                    type="button"
+                    onClick={() => setDraft((d) => ({ ...d, photoUrl: "" }))}
+                    className="text-[11px] text-slate-500 hover:text-red-400 text-left whitespace-nowrap"
+                  >
+                    {t("form.photoRemove")}
+                  </button>
+                )}
+                {uploadError && <p className="text-[11px] text-red-400">{uploadError}</p>}
+              </div>
+            </div>
           </div>
         </div>
 

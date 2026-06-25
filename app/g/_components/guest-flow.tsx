@@ -1,31 +1,24 @@
 "use client";
 
-// app/g/_components/guest-flow.tsx — 게스트 셀프 체크인 5단계 한 흐름 (ADR-0019 S3, design g1~g5)
-//   G1 예약확인 → G2 비품 → G3 동의서 서명 → G4 옵션 → G5 완료. 단계는 클라 state(라우트 전환 없음).
-//   ★마진 비공개: 판매가만 렌더. 원가·마진·환산·타예약 0(서버 props에 애초 없음).
-import { useMemo, useState } from "react";
-import {
-  resolveOrderPricing,
-  ServiceSelectionError,
-  type CatalogOptions,
-} from "@/lib/service-catalog";
+// app/g/_components/guest-flow.tsx — 게스트 셀프 체크인 흐름 (ADR-0019 v2 게스트 UI 개편)
+//   G1 예약확인 → G2 비품 → G3 동의서 서명 → G4 여권 사진(신규) → G5 완료. 단계는 클라 state(라우트 전환 없음).
+//   옵션 선택은 흐름에서 분리 → 완료 화면의 "부가 옵션 신청하기" → /g/[token]/options.
+//   ★마진 비공개: 판매가만 렌더(미니바=KRW 환율 파생). 원가·마진·환산내역·타예약 0(서버 props에 애초 없음).
+import { useState } from "react";
 import { GUEST_LABELS } from "@/lib/guest-i18n";
 import type { PublicLang } from "@/lib/public-i18n";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import GuestSignaturePad from "./guest-signature-pad";
-import { OptionCard, type CardSelection } from "./option-card";
-import { guestPrice, guestVnd, guestKrw, guestDateRange } from "./guest-format";
-import { priceKrwCeil } from "@/lib/service-display";
-import type { GuestFlowProps, GuestRequestedOrder } from "./types";
+import GuestPassportStep from "./guest-passport-step";
+import { guestPrice, guestDateRange } from "./guest-format";
+import type { GuestFlowProps } from "./types";
 
-type Step = 0 | 1 | 2 | 3 | 4; // 0=G1, 1=G2, 2=G3, 3=G4, 4=G5
-const STEP_KEYS = ["amenities", "agreement", "addons", "done"] as const;
-
-const toVndStr = (v: bigint | null): string | null => (v == null ? null : v.toString());
+type Step = 0 | 1 | 2 | 3 | 4; // 0=G1 예약, 1=G2 비품, 2=G3 동의, 3=G4 여권, 4=G5 완료
+const STEP_KEYS = ["amenities", "agreement", "passport", "done"] as const;
 
 export default function GuestFlow(props: GuestFlowProps) {
-  const { token, lang, booking, amenityGroups, minibar, agreement, catalog } = props;
-  const fx = props.fxVndPerKrw; // 환율(1 KRW당 VND) — KRW 표시 파생
+  const { token, lang, booking, amenityGroups, minibar, agreement } = props;
+  const fx = props.fxVndPerKrw; // 환율(1 KRW당 VND) — 미니바 KRW 표시 파생
   const L = GUEST_LABELS[lang];
 
   const [step, setStep] = useState<Step>(0);
@@ -36,62 +29,6 @@ export default function GuestFlow(props: GuestFlowProps) {
   const [agreeChecked, setAgreeChecked] = useState(false);
   const [submittingAgreement, setSubmittingAgreement] = useState(false);
   const [agreementError, setAgreementError] = useState<string | null>(null);
-
-  // G4 선택 상태(카탈로그 항목별)
-  const [selections, setSelections] = useState<Record<string, CardSelection>>(() =>
-    Object.fromEntries(
-      catalog.map((c) => [
-        c.id,
-        { variantKey: c.variants[0]?.key ?? null, addonKeys: [], modifierKeys: [], quantity: 0 },
-      ])
-    )
-  );
-  const [submittingOrders, setSubmittingOrders] = useState(false);
-  const [ordersError, setOrdersError] = useState<string | null>(null);
-  // G5에 보여줄 요청 내역(서버 props + 새로 요청한 것 병합)
-  const [requestedOrders, setRequestedOrders] = useState<GuestRequestedOrder[]>(
-    props.requestedOrders
-  );
-
-  // ── G4 합계 미리보기(선택된 항목 합산) ──
-  const cardOptions = useMemo(() => {
-    const map: Record<string, CatalogOptions> = {};
-    for (const c of catalog) {
-      map[c.id] = {
-        variants: c.variants.map((o) => ({ key: o.key, labelKo: o.label, priceVnd: o.priceVnd })),
-        addons: c.addons.map((o) => ({ key: o.key, labelKo: o.label, priceVnd: o.priceVnd })),
-        modifiers: c.modifiers.map((o) => ({ key: o.key, labelKo: o.label, priceVnd: o.priceVnd })),
-      };
-    }
-    return map;
-  }, [catalog]);
-
-  const grandTotal = useMemo(() => {
-    let vnd = 0n;
-    let hasVnd = false;
-    for (const c of catalog) {
-      const sel = selections[c.id];
-      if (!sel || sel.quantity < 1) continue;
-      try {
-        const p = resolveOrderPricing(
-          { priceVnd: c.priceVnd ? BigInt(c.priceVnd) : null },
-          cardOptions[c.id],
-          { variantKey: sel.variantKey, addonKeys: sel.addonKeys, modifierKeys: sel.modifierKeys, quantity: sel.quantity }
-        );
-        vnd += p.totalPriceVnd;
-        hasVnd = true;
-      } catch (e) {
-        if (!(e instanceof ServiceSelectionError)) throw e;
-      }
-    }
-    return { vnd, hasVnd };
-  }, [catalog, selections, cardOptions]);
-
-  const grandTotalStr = grandTotal.hasVnd
-    ? guestPrice(grandTotal.vnd.toString(), fx, lang)
-    : guestPrice("0", fx, lang);
-
-  const anySelected = catalog.some((c) => (selections[c.id]?.quantity ?? 0) > 0);
 
   // ── 동의서 서명 확정 ──
   const submitAgreement = async () => {
@@ -113,64 +50,6 @@ export default function GuestFlow(props: GuestFlowProps) {
       setAgreementError(L.agreement.error);
     } finally {
       setSubmittingAgreement(false);
-    }
-  };
-
-  // ── 옵션 요청 ──
-  const submitOrders = async () => {
-    if (submittingOrders) return;
-    const chosen = catalog.filter((c) => (selections[c.id]?.quantity ?? 0) > 0);
-    if (chosen.length === 0) {
-      setStep(4);
-      return;
-    }
-    setSubmittingOrders(true);
-    setOrdersError(null);
-    try {
-      const created: GuestRequestedOrder[] = [];
-      for (const c of chosen) {
-        const sel = selections[c.id];
-        const res = await fetch(`/api/g/${token}/service-orders`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            catalogItemId: c.id,
-            variantKey: sel.variantKey ?? undefined,
-            addonKeys: sel.addonKeys,
-            modifierKeys: sel.modifierKeys,
-            quantity: sel.quantity,
-          }),
-        });
-        if (!res.ok) throw new Error(`HTTP_${res.status}`);
-        // 미리보기 가격으로 G5 표시(서버 재계산값과 동일해야 함) — VND가 진실원천, KRW는 환율 파생
-        let prKrw: number | null = null;
-        let prVnd: string | null = null;
-        try {
-          const p = resolveOrderPricing(
-            { priceVnd: c.priceVnd ? BigInt(c.priceVnd) : null },
-            cardOptions[c.id],
-            { variantKey: sel.variantKey, addonKeys: sel.addonKeys, modifierKeys: sel.modifierKeys, quantity: sel.quantity }
-          );
-          prVnd = toVndStr(p.totalPriceVnd);
-          prKrw = fx ? priceKrwCeil(p.totalPriceVnd, fx) : null;
-        } catch { /* 미리보기 실패는 무시 */ }
-        const data = await res.json();
-        created.push({
-          id: data?.id ?? c.id,
-          type: c.type,
-          name: c.name,
-          status: "REQUESTED",
-          quantity: sel.quantity,
-          priceKrw: prKrw,
-          priceVnd: prVnd,
-        });
-      }
-      setRequestedOrders((prev) => [...created, ...prev]);
-      setStep(4);
-    } catch {
-      setOrdersError(L.addons.error);
-    } finally {
-      setSubmittingOrders(false);
     }
   };
 
@@ -334,12 +213,15 @@ export default function GuestFlow(props: GuestFlowProps) {
                 </div>
                 <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100 overflow-hidden">
                   {minibar.map((m) => (
-                    <div key={m.itemKey} className="flex items-center justify-between px-4 py-3.5">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">{m.name}</p>
+                    <div key={m.itemKey} className="flex items-center justify-between px-4 py-3.5 gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 truncate">{m.name}</p>
+                        {/* #4 비치 수량 — 미니바 항목마다 노출 */}
                         <p className="text-[11px] text-slate-400">{L.amenities.stocked(m.qty)}</p>
                       </div>
-                      <span className="text-sm font-bold text-slate-900 tabular-nums">{guestVnd(m.priceVnd)}</span>
+                      <span className="shrink-0 text-sm font-bold text-slate-900 tabular-nums">
+                        {guestPrice(m.priceVnd, fx, lang)}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -459,67 +341,44 @@ export default function GuestFlow(props: GuestFlowProps) {
         </>
       )}
 
-      {/* ───────── G4 옵션 선택 ───────── */}
+      {/* ───────── G4 여권 사진(신규) ───────── */}
       {step === 3 && (
         <>
-          <main className="flex-grow px-4 py-5 space-y-4 pb-40 bg-slate-50">
-            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex gap-3">
-              <span className="material-symbols-outlined text-amber-500 text-[20px]">info</span>
-              <p className="text-xs text-amber-800 leading-relaxed">{L.addons.banner}</p>
-            </div>
-
-            {catalog.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-10">{L.result.empty}</p>
-            ) : (
-              catalog.map((c) => (
-                <OptionCard
-                  key={c.id}
-                  item={c}
-                  labels={L.addons}
-                  lang={lang}
-                  fx={fx}
-                  selection={
-                    selections[c.id] ?? {
-                      variantKey: c.variants[0]?.key ?? null,
-                      addonKeys: [],
-                      modifierKeys: [],
-                      quantity: 0,
-                    }
-                  }
-                  onChange={(next) => setSelections((prev) => ({ ...prev, [c.id]: next }))}
-                  badgeText={typeBadgeLabel(c.type)}
-                />
-              ))
-            )}
-            {ordersError && <p className="text-xs text-red-500 text-center">{ordersError}</p>}
+          <main className="flex-grow px-5 py-6">
+            <GuestPassportStep
+              token={token}
+              guestCount={booking.guestCount}
+              labels={L.passport}
+            />
           </main>
-          <div className="sticky bottom-0 bg-white border-t border-slate-100 px-4 py-3.5 space-y-3 shadow-[0_-4px_16px_rgba(0,0,0,0.04)]">
-            {anySelected && (
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-500">{L.addons.estTotal}</span>
-                <span className="text-xl font-extrabold text-teal-600 tabular-nums">{grandTotalStr}</span>
-              </div>
-            )}
-            <button
-              type="button"
-              disabled={submittingOrders}
-              onClick={submitOrders}
-              className="w-full h-14 bg-teal-600 disabled:opacity-60 text-white font-bold rounded-xl shadow-lg shadow-teal-600/20 active:scale-[0.98] transition-transform"
-            >
-              {submittingOrders ? L.addons.requesting : anySelected ? L.addons.requestCta : L.addons.goNext}
-            </button>
-          </div>
+          <StickyBar>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setStep(4)}
+                className="w-full h-14 bg-teal-600 text-white font-bold rounded-xl shadow-lg shadow-teal-600/20 active:scale-[0.98] transition-transform"
+              >
+                {L.passport.finishCta}
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep(4)}
+                className="w-full h-10 text-slate-400 text-sm font-semibold"
+              >
+                {L.passport.skip}
+              </button>
+            </div>
+          </StickyBar>
         </>
       )}
 
       {/* ───────── G5 완료 ───────── */}
       {step === 4 && (
         <ResultScreen
+          token={token}
           lang={lang}
-          fx={fx}
           signed={signed}
           signedVersion={signedVersion}
-          orders={requestedOrders}
         />
       )}
 
@@ -552,7 +411,7 @@ function headerTitle(step: Step, L: (typeof GUEST_LABELS)[PublicLang]): string {
     case 0: return L.brandTagline;
     case 1: return L.amenities.title;
     case 2: return L.agreement.title;
-    case 3: return L.addons.title;
+    case 3: return L.passport.title;
     case 4: return L.result.title.replace(/\n/g, " ");
   }
 }
@@ -563,21 +422,6 @@ const CATEGORY_ICON: Record<string, string> = {
   APPLIANCE: "tv",
   MINIBAR: "local_bar",
 };
-
-function typeBadgeLabel(type: string): string {
-  // 카탈로그명이 이미 표시되므로 배지는 짧은 타입 라벨(언어 중립 약어) — 미정의 타입은 원문
-  const map: Record<string, string> = {
-    MASSAGE: "SPA",
-    BARBER: "BARBER",
-    CAR_RENTAL: "CAR",
-    MOTORBIKE_RENTAL: "BIKE",
-    BBQ: "BBQ",
-    TICKET: "TICKET",
-    GUIDE: "GUIDE",
-    BREAKFAST: "BREAKFAST",
-  };
-  return map[type] ?? type;
-}
 
 /** 언어 칩(동의서 본문 언어 전환) — 선택 시 ?lang= 갱신해 서버 재렌더(조항 번역 반영). */
 function LangChips({ current }: { current: PublicLang }) {
@@ -617,39 +461,18 @@ function LangChips({ current }: { current: PublicLang }) {
 }
 
 function ResultScreen({
+  token,
   lang,
-  fx,
   signed,
   signedVersion,
-  orders,
 }: {
+  token: string;
   lang: PublicLang;
-  fx: string | null;
   signed: boolean;
   signedVersion: string | null;
-  orders: GuestRequestedOrder[];
 }) {
   const L = GUEST_LABELS[lang];
-  // 주문 스냅샷 합계 — 저장된 priceKrw 스냅샷(>0) 우선, 없으면 VND 합산.
-  const total = useMemo(() => {
-    let krw = 0;
-    let hasKrw = false;
-    let vnd = 0n;
-    let hasVnd = false;
-    for (const o of orders) {
-      if (o.priceKrw != null && o.priceKrw > 0) { krw += o.priceKrw; hasKrw = true; }
-      if (o.priceVnd != null && o.priceVnd !== "") { vnd += BigInt(o.priceVnd); hasVnd = true; }
-    }
-    return { krw, hasKrw, vnd, hasVnd };
-  }, [orders]);
-  const totalStr = total.hasKrw
-    ? guestKrw(total.krw, lang)
-    : total.hasVnd
-      ? guestVnd(total.vnd.toString())
-      : null;
-
-  const statusLabel = (s: string) =>
-    s === "REQUESTED" ? L.result.statusPending : s === "CONFIRMED" ? L.result.statusConfirmed : L.result.statusOther;
+  const optionsHref = `/g/${token}/options${lang === "ko" ? "" : `?lang=${lang}`}`;
 
   return (
     <main className="flex-grow px-5 py-7 space-y-6 bg-white">
@@ -679,38 +502,17 @@ function ResultScreen({
         </section>
       )}
 
-      {orders.length > 0 && (
-        <section className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-100">
-            <h3 className="text-sm font-bold text-slate-800">{L.result.requestedTitle}</h3>
-          </div>
-          <div className="divide-y divide-slate-100">
-            {orders.map((o) => (
-              <div key={o.id} className="flex items-center justify-between px-4 py-3.5">
-                <p className="text-sm font-semibold text-slate-800">
-                  {o.name} <span className="text-slate-400 font-normal">× {o.quantity}</span>
-                </p>
-                <div className="flex items-center gap-2">
-                  <span className="bg-amber-50 text-amber-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    {statusLabel(o.status)}
-                  </span>
-                  <span className="text-sm font-bold text-slate-900 tabular-nums">
-                    {o.priceKrw != null && o.priceKrw > 0
-                      ? guestKrw(o.priceKrw, lang)
-                      : guestPrice(o.priceVnd, fx, lang)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-          {totalStr && (
-            <div className="flex items-center justify-between px-4 py-3.5 bg-slate-50">
-              <span className="text-sm font-semibold text-slate-600">{L.result.estTotal}</span>
-              <span className="text-base font-extrabold text-teal-600 tabular-nums">{totalStr}</span>
-            </div>
-          )}
-        </section>
-      )}
+      {/* 부가 옵션 신청 유도 — 옵션 페이지로 이동 */}
+      <section className="bg-gradient-to-br from-teal-50 to-white border border-teal-100 rounded-2xl p-5 space-y-3">
+        <p className="text-sm text-slate-500 leading-relaxed">{L.result.optionsHint}</p>
+        <a
+          href={optionsHref}
+          className="w-full h-14 bg-teal-600 text-white font-bold rounded-xl shadow-lg shadow-teal-600/20 active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+        >
+          <span className="material-symbols-outlined">add_shopping_cart</span>
+          {L.result.openOptionsCta}
+        </a>
+      </section>
 
       <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex gap-3">
         <span className="material-symbols-outlined text-slate-400 text-[20px]">payments</span>
