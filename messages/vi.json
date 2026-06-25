@@ -2228,7 +2228,7 @@
       "DIRECT": "Trực tiếp"
     },
     "common": {
-      "changeFromPrev": "So với tháng trước",
+      "changeFromPrev": "So với kỳ trước",
       "noData": "Không có dữ liệu để hiển thị",
       "fxSnapshotNote": "Tham khảo theo tỷ giá ghi nhận",
       "fxSnapshotNoteShort": "Tham khảo tỷ giá",
@@ -2239,9 +2239,9 @@
       "basisNote": "Doanh thu tính theo tháng trả phòng · Tách riêng theo loại tiền (không cộng gộp KRW·VND)",
       "fxMissingNote": "{count} đặt phòng thiếu tỷ giá bị loại khỏi tính lợi nhuận",
       "kpi": {
-        "krwRevenue": "Doanh thu KRW tháng này",
+        "krwRevenue": "Doanh thu KRW",
         "krwRevenueNote": "Kênh trực tiếp (DIRECT)",
-        "vndRevenue": "Doanh thu VND tháng này",
+        "vndRevenue": "Doanh thu VND",
         "vndRevenueNote": "Kênh du lịch · land",
         "margin": "Lợi nhuận quy đổi",
         "marginNote": "Quy đổi theo VND",
@@ -2263,15 +2263,15 @@
     },
     "occupancy": {
       "kpi": {
-        "currentRate": "Tỷ lệ lấp đầy tháng này",
-        "change": "So với tháng trước",
-        "changeNote": "Tháng trước {prev}% → tháng này {current}%",
+        "currentRate": "Tỷ lệ lấp đầy chung",
+        "change": "So với kỳ trước",
+        "changeNote": "Kỳ trước {prev}% → hiện tại {current}%",
         "avgNights": "Số đêm TB / đặt phòng",
-        "avgNightsNote": "{bookings} đặt phòng · tổng {nights} đêm tháng này"
+        "avgNightsNote": "{bookings} lượt · tổng {nights} đêm"
       },
       "trendChart": {
         "title": "Xu hướng tỷ lệ lấp đầy theo tháng",
-        "subtitle": "12 tháng gần nhất · 0~100%",
+        "subtitle": "0~100%",
         "legend": "Tỷ lệ lấp đầy chung"
       },
       "villaChart": {
