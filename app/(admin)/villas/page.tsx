@@ -296,28 +296,9 @@ export default async function VillasPage({
                     expand_more
                   </span>
                 </summary>
-                {/* 펼침 상세 — 경고 + 상세/검수 버튼 */}
+                {/* 펼침 상세 — 상세/검수 버튼.
+                    경고(청소 검수·요율 미설정)는 요약 행 뱃지에서 항상 보이므로 여기선 중복 제거. */}
                 <div className="px-3 pb-3 pt-1 border-t border-slate-800/60 flex flex-col gap-2">
-                  {needsCleaning && (
-                    <div className="flex items-center gap-2 p-2 rounded bg-red-900/20 border border-red-900/30">
-                      <span className="material-symbols-outlined text-admin-alert text-sm">
-                        cleaning_services
-                      </span>
-                      <span className="text-[11px] text-admin-alert font-medium">
-                        {t("cleaningPending")}
-                      </span>
-                    </div>
-                  )}
-                  {noRates && (
-                    <div className="flex items-center gap-2 p-2 rounded bg-amber-900/20 border border-amber-900/30">
-                      <span className="material-symbols-outlined text-admin-pending text-sm">
-                        payments
-                      </span>
-                      <span className="text-[11px] text-admin-pending font-medium">
-                        {t("noRates")}
-                      </span>
-                    </div>
-                  )}
                   <Link
                     href={`/villas/${villa.id}`}
                     className={
