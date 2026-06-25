@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { formatThousands, formatVnd, formatDateTime } from "@/lib/format";
 import { toDateOnlyString, todayVnDateString, resolveQuickRange } from "@/lib/date-vn";
 import { monthRangeUtc, SETTLEMENT_BOOKING_STATUSES } from "@/lib/settlement";
+import { summarizeFinance, type FinanceBooking } from "@/lib/settlement-finance";
 import SettlementsView, { type SettlementRow } from "./settlements-view";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -41,12 +42,13 @@ export default async function SettlementsPage({
 
   const { start, end } = monthRangeUtc(yearMonth);
 
-  const [settlements, revenue] = await Promise.all([
+  const [settlements, revenue, settledBookings] = await Promise.all([
     prisma.settlement.findMany({
       where: { yearMonth },
       orderBy: { supplier: { name: "asc" } },
       select: {
         id: true,
+        supplierId: true,
         totalVnd: true,
         status: true,
         paidAt: true,
@@ -77,10 +79,60 @@ export default async function SettlementsPage({
       },
       _sum: { totalSaleKrw: true, totalSaleVnd: true },
     }),
+    // 운영자 손익(수납·환산·환차·마진) 파생용 — 정산 대상 예약의 금액·통화·환율 스냅샷 + 공급자.
+    // ★ ADMIN(canViewFinance) 전용 — 마진·VND환산은 server에서만 계산, 공급자 미노출.
+    prisma.booking.findMany({
+      where: {
+        status: { in: [...SETTLEMENT_BOOKING_STATUSES] },
+        checkOut: { gte: start, lt: end },
+      },
+      select: {
+        saleCurrency: true,
+        totalSaleKrw: true,
+        totalSaleVnd: true,
+        supplierCostVnd: true,
+        fxVndPerKrw: true,
+        villa: { select: { supplierId: true } },
+      },
+    }),
   ]);
 
   // 총 지급액 — BigInt 합산 (Number 변환 금지)
   const totalPayoutVnd = settlements.reduce((sum, s) => sum + s.totalVnd, 0n);
+
+  // ── 운영자 손익 파생 (정산 고도화 1차) — 스키마 무변경, 기존 필드에서 계산 ──
+  // Decimal(14,4) fxVndPerKrw → 문자열(krwToVndSnapshot 입력). KRW 예약 VND 환산 스냅샷.
+  const toFinanceBooking = (b: {
+    saleCurrency: (typeof settledBookings)[number]["saleCurrency"];
+    totalSaleKrw: number | null;
+    totalSaleVnd: bigint | null;
+    supplierCostVnd: bigint;
+    fxVndPerKrw: { toString(): string } | null;
+  }): FinanceBooking => ({
+    saleCurrency: b.saleCurrency,
+    totalSaleKrw: b.totalSaleKrw,
+    totalSaleVnd: b.totalSaleVnd,
+    supplierCostVnd: b.supplierCostVnd,
+    fxVndPerKrw: b.fxVndPerKrw != null ? b.fxVndPerKrw.toString() : null,
+  });
+  const financeBookings = settledBookings.map(toFinanceBooking);
+  const finance = summarizeFinance(financeBookings);
+
+  // 공급자별 마진(ADMIN 전용) — supplierId별 그룹 → 합계. 정산 행에 매칭.
+  const bySupplier = new Map<string, FinanceBooking[]>();
+  for (const b of settledBookings) {
+    const list = bySupplier.get(b.villa.supplierId) ?? [];
+    list.push(toFinanceBooking(b));
+    bySupplier.set(b.villa.supplierId, list);
+  }
+  const marginBySupplier = new Map<string, bigint>();
+  for (const [supplierId, list] of bySupplier) {
+    marginBySupplier.set(supplierId, summarizeFinance(list).marginVnd);
+  }
+
+  // 음수(역마진) 포함 VND 표기
+  const fmtSignedVnd = (v: bigint) =>
+    v < 0n ? `-${formatVnd((-v).toString())}` : formatVnd(v.toString());
 
   // 클라이언트 경계 직렬화 — BigInt는 문자열, 날짜는 표시 문자열로 변환
   const rows: SettlementRow[] = settlements.map((s) => ({
@@ -88,6 +140,10 @@ export default async function SettlementsPage({
     supplierName: s.supplier.name,
     supplierPhone: s.supplier.phone,
     totalVndText: formatVnd(s.totalVnd.toString()),
+    // 운영자 마진(ADMIN 전용) — 이 공급자 예약들의 (수납 VND환산 − 지급) 합. 데이터 없으면 null.
+    marginVndText: marginBySupplier.has(s.supplierId)
+      ? fmtSignedVnd(marginBySupplier.get(s.supplierId)!)
+      : null,
     status: s.status,
     // b7: "2026.07.31 완료" — 날짜만 (Asia/Ho_Chi_Minh 표시 규칙)
     paidAtText: s.paidAt ? formatDateTime(s.paidAt).split(" ")[0] : null,
@@ -108,5 +164,24 @@ export default async function SettlementsPage({
     totalPayoutText: formatVnd(totalPayoutVnd.toString()),
   };
 
-  return <SettlementsView yearMonth={yearMonth} summary={summary} rows={rows} />;
+  // 운영자 손익 요약(ADMIN 전용, 정산 고도화 1차) — 수납·VND환산·지급·마진·환율미상.
+  const financeSummary = {
+    collectedKrwText: `${formatThousands(finance.collectedKrw)}원`,
+    collectedVndText: formatVnd(finance.collectedVnd.toString()),
+    collectedVndEquivalentText: formatVnd(finance.collectedVndEquivalent.toString()),
+    payoutText: formatVnd(finance.payoutVnd.toString()),
+    marginVndText: fmtSignedVnd(finance.marginVnd),
+    marginPositive: finance.marginVnd >= 0n,
+    fxMissingCount: finance.fxMissingCount,
+    bookingCount: finance.bookingCount,
+  };
+
+  return (
+    <SettlementsView
+      yearMonth={yearMonth}
+      summary={summary}
+      financeSummary={financeSummary}
+      rows={rows}
+    />
+  );
 }

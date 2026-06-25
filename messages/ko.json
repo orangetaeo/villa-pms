@@ -1144,10 +1144,23 @@
       "totalPayout": "총 지급액 (VND)",
       "currencyNote": "통화별 별도 집계 — KRW와 VND는 합산하지 않습니다"
     },
+    "finance": {
+      "title": "운영자 손익 (매출·환차·마진)",
+      "bookingCount": "{count}건 기준",
+      "collected": "수납",
+      "collectedVndEq": "VND 환산 합",
+      "fxSnapshotNote": "예약별 스냅샷 환율 적용",
+      "payout": "공급자 지급",
+      "payoutSub": "원가 (VND)",
+      "margin": "마진",
+      "marginSub": "수납 VND환산 − 지급",
+      "fxMissing": "환율 스냅샷 미상 {count}건 — VND환산·마진에서 제외"
+    },
     "table": {
       "colSupplier": "공급자 정보 / 상세 항목",
       "colCount": "건수 / 박수",
       "colTotal": "총 금액 (VND)",
+      "colMargin": "마진 (VND)",
       "colStatus": "상태",
       "colActions": "관리",
       "bookingCount": "예약 {count}건",

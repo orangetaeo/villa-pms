@@ -329,6 +329,27 @@ export function suggestSalePriceKrw(salePriceVnd: bigint, fxVndPerKrw: string): 
 }
 
 /**
+ * KRW→VND 환산 (정산 손익 환산용, 정산 고도화): vnd = krw × fxVndPerKrw (1 KRW = x VND).
+ * suggestSalePriceKrw의 역방향. 환율은 Decimal(14,4) 문자열 → 1e4 스케일 BigInt, half-up 반올림(float 금지).
+ * 환율 스냅샷(Booking.fxVndPerKrw)을 받아 KRW 수납액을 VND 환산한다.
+ */
+export function krwToVndSnapshot(krw: number, fxVndPerKrw: string): bigint {
+  if (!Number.isInteger(krw) || krw < 0) {
+    throw new RangeError(`잘못된 KRW 금액: ${krw} (음이 아닌 정수)`);
+  }
+  if (!/^\d+(\.\d{1,4})?$/.test(fxVndPerKrw)) {
+    throw new RangeError(`잘못된 환율 형식: ${fxVndPerKrw} (소수 4자리까지 숫자)`);
+  }
+  const [int, frac = ""] = fxVndPerKrw.split(".");
+  const fxScaled = BigInt(int + frac.padEnd(4, "0")); // 환율 × 1e4
+  if (fxScaled <= 0n) throw new RangeError("환율은 0보다 커야 합니다");
+
+  // vnd = krw × (fxScaled / 1e4) = krw × fxScaled / 1e4 — half-up 반올림
+  const numerator = BigInt(krw) * fxScaled;
+  return (numerator + 5_000n) / 10_000n;
+}
+
+/**
  * 듀얼 컬럼 검증 (SPEC F3): ProposalItem·Booking 금액은 saleCurrency에 해당하는
  * 통화 컬럼만 채워야 한다. KRW ⇒ krw 필수·vnd 금지 / VND ⇒ 반대.
  */

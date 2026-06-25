@@ -1252,10 +1252,23 @@
       "totalPayout": "Tổng thanh toán (VND)",
       "currencyNote": "Tổng hợp riêng theo từng loại tiền — không cộng gộp KRW và VND"
     },
+    "finance": {
+      "title": "Lợi nhuận vận hành (doanh thu·chênh lệch tỷ giá·lãi)",
+      "bookingCount": "Theo {count} đặt phòng",
+      "collected": "Đã thu",
+      "collectedVndEq": "Quy đổi VND",
+      "fxSnapshotNote": "Theo tỷ giá tại thời điểm đặt",
+      "payout": "Chi nhà cung cấp",
+      "payoutSub": "Giá gốc (VND)",
+      "margin": "Lãi",
+      "marginSub": "Quy đổi VND đã thu − chi",
+      "fxMissing": "{count} đặt phòng thiếu tỷ giá — loại khỏi quy đổi·lãi"
+    },
     "table": {
       "colSupplier": "Nhà cung cấp / chi tiết",
       "colCount": "Số đặt phòng / đêm",
       "colTotal": "Tổng tiền (VND)",
+      "colMargin": "Lãi (VND)",
       "colStatus": "Trạng thái",
       "colActions": "Quản lý",
       "bookingCount": "{count} đặt phòng",

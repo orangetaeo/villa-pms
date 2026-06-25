@@ -24,6 +24,8 @@ export interface SettlementRow {
   supplierName: string;
   supplierPhone: string | null;
   totalVndText: string;
+  /** 운영자 마진(ADMIN 전용) — 이 공급자 예약의 수납 VND환산 − 지급. 데이터 없으면 null */
+  marginVndText: string | null;
   status: SettlementStatusKey;
   paidAtText: string | null; // "2026.07.31"
   items: SettlementItemRow[];
@@ -34,6 +36,18 @@ interface SummaryProps {
   vndRevenueText: string;
   supplierCount: number;
   totalPayoutText: string;
+}
+
+/** 운영자 손익 요약(ADMIN 전용, 정산 고도화 1차) */
+export interface FinanceSummaryProps {
+  collectedKrwText: string;
+  collectedVndText: string;
+  collectedVndEquivalentText: string;
+  payoutText: string;
+  marginVndText: string;
+  marginPositive: boolean;
+  fxMissingCount: number;
+  bookingCount: number;
 }
 
 // b7 상태 뱃지 색 (초안/확정/지급완료)
@@ -54,10 +68,12 @@ function shiftMonth(yearMonth: string, delta: number): string {
 export default function SettlementsView({
   yearMonth,
   summary,
+  financeSummary,
   rows,
 }: {
   yearMonth: string;
   summary: SummaryProps;
+  financeSummary: FinanceSummaryProps;
   rows: SettlementRow[];
 }) {
   const t = useTranslations("adminSettlements");
@@ -307,6 +323,52 @@ export default function SettlementsView({
         </div>
       </div>
 
+      {/* 운영자 손익 요약 (정산 고도화 1차) — 수납→VND환산→지급→마진. ADMIN(canViewFinance) 전용 */}
+      <section className="mb-8 bg-admin-card border border-slate-800 rounded-2xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-slate-800 bg-slate-800/30 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-admin-primary text-[20px]">trending_up</span>
+            <h2 className="font-bold text-slate-100 text-sm whitespace-nowrap">{t("finance.title")}</h2>
+          </div>
+          <span className="text-[10px] text-slate-500 whitespace-nowrap">
+            {t("finance.bookingCount", { count: financeSummary.bookingCount })}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-slate-800">
+          {/* 수납 (통화별) */}
+          <FinanceCell label={t("finance.collected")} sub={t("summary.currencyNote")}>
+            <span className="block text-sm font-bold text-slate-100 tabular-nums">{financeSummary.collectedKrwText}</span>
+            <span className="block text-sm font-bold text-slate-100 tabular-nums">{financeSummary.collectedVndText}</span>
+          </FinanceCell>
+          {/* VND 환산 합 */}
+          <FinanceCell label={t("finance.collectedVndEq")} sub={t("finance.fxSnapshotNote")}>
+            <span className="text-lg font-black text-slate-100 tabular-nums">{financeSummary.collectedVndEquivalentText}</span>
+          </FinanceCell>
+          {/* 지급 (공급자 원가) */}
+          <FinanceCell label={t("finance.payout")} sub={t("finance.payoutSub")}>
+            <span className="text-lg font-black text-amber-400 tabular-nums">{financeSummary.payoutText}</span>
+          </FinanceCell>
+          {/* 마진 */}
+          <FinanceCell label={t("finance.margin")} sub={t("finance.marginSub")}>
+            <span
+              className={`text-lg font-black tabular-nums ${
+                financeSummary.marginPositive ? "text-emerald-400" : "text-red-400"
+              }`}
+            >
+              {financeSummary.marginVndText}
+            </span>
+          </FinanceCell>
+        </div>
+        {financeSummary.fxMissingCount > 0 && (
+          <div className="px-5 py-2.5 border-t border-slate-800 bg-amber-500/5 flex items-center gap-1.5 text-amber-500">
+            <span className="material-symbols-outlined text-sm">warning</span>
+            <span className="text-[11px] font-medium">
+              {t("finance.fxMissing", { count: financeSummary.fxMissingCount })}
+            </span>
+          </div>
+        )}
+      </section>
+
       {/* 집계 결과·에러 배너 */}
       {notice && (
         <div
@@ -340,6 +402,9 @@ export default function SettlementsView({
                   </th>
                   <th className="py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right whitespace-nowrap">
                     {t("table.colTotal")}
+                  </th>
+                  <th className="py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right whitespace-nowrap">
+                    {t("table.colMargin")}
                   </th>
                   <th className="py-4 px-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center whitespace-nowrap">
                     {t("table.colStatus")}
@@ -400,12 +465,27 @@ export default function SettlementsView({
                         <td className="py-4 px-6 text-right font-bold tabular-nums text-white">
                           {row.totalVndText}
                         </td>
+                        <td className="py-4 px-6 text-right tabular-nums whitespace-nowrap">
+                          {row.marginVndText ? (
+                            <span
+                              className={
+                                row.marginVndText.startsWith("-")
+                                  ? "font-bold text-red-400"
+                                  : "font-bold text-emerald-400"
+                              }
+                            >
+                              {row.marginVndText}
+                            </span>
+                          ) : (
+                            <span className="text-slate-600">—</span>
+                          )}
+                        </td>
                         <td className="py-4 px-6 text-center">{statusBadge(row.status)}</td>
                         <td className="py-4 px-6 text-right">{actionCell(row)}</td>
                       </tr>
                       {isOpen && (
                         <tr className="bg-slate-900/20 border-b border-slate-800/50">
-                          <td className="p-0" colSpan={5}>
+                          <td className="p-0" colSpan={6}>
                             <div className="px-16 py-4">{detailGrid(row)}</div>
                           </td>
                         </tr>
@@ -445,6 +525,18 @@ export default function SettlementsView({
                     </span>
                     <span className="font-bold tabular-nums text-white">{row.totalVndText}</span>
                   </div>
+                  {row.marginVndText && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-500 whitespace-nowrap">{t("table.colMargin")}</span>
+                      <span
+                        className={`font-bold tabular-nums ${
+                          row.marginVndText.startsWith("-") ? "text-red-400" : "text-emerald-400"
+                        }`}
+                      >
+                        {row.marginVndText}
+                      </span>
+                    </div>
+                  )}
                   <button
                     type="button"
                     aria-expanded={isOpen}
@@ -472,6 +564,27 @@ export default function SettlementsView({
         <span className="material-symbols-outlined text-sm">info</span>
         <p className="text-[12px] font-medium whitespace-nowrap">{t("footerNote")}</p>
       </footer>
+    </div>
+  );
+}
+
+// 운영자 손익 셀 (정산 고도화) — 라벨 + 값 + 보조설명. ADMIN 전용 패널 내부.
+function FinanceCell({
+  label,
+  sub,
+  children,
+}: {
+  label: string;
+  sub?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="p-4 flex flex-col gap-1">
+      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+        {label}
+      </span>
+      <div className="leading-tight">{children}</div>
+      {sub && <span className="text-[10px] text-slate-600 leading-tight">{sub}</span>}
     </div>
   );
 }
