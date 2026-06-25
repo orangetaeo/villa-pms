@@ -198,6 +198,20 @@ export default function SettlementsView({
     void runTransition(id, "ADJUST_FX", cleaned);
   };
 
+  // 월 정산서 PDF(vi) — 생성(최신 반영) 후 새 탭으로 열기 (P2-4). ADMIN 전용 라우트.
+  const downloadStatement = async (id: string) => {
+    setPendingId(id);
+    try {
+      const res = await fetch(`/api/settlements/${id}/statement`, { method: "POST" });
+      if (!res.ok) throw new Error(`HTTP_${res.status}`);
+      window.open(`/api/settlements/${id}/statement`, "_blank", "noopener");
+    } catch {
+      setNotice({ kind: "error", text: t("actions.error") });
+    } finally {
+      setPendingId(null);
+    }
+  };
+
   const statusBadge = (status: SettlementStatusKey) => (
     <span
       className={`px-3 py-1 rounded-md text-[10px] font-bold border whitespace-nowrap ${STATUS_BADGE[status]}`}
@@ -214,6 +228,8 @@ export default function SettlementsView({
     "border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 disabled:opacity-50 text-[11px] font-bold px-3 py-1.5 rounded transition-all whitespace-nowrap";
   const payBtn =
     "bg-admin-primary hover:bg-admin-primary-dark disabled:opacity-50 text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-95 shadow-lg shadow-blue-900/40 whitespace-nowrap";
+  const stmtBtn =
+    "border border-slate-500/40 text-slate-300 hover:bg-slate-500/10 disabled:opacity-50 text-[11px] font-bold px-3 py-1.5 rounded transition-all whitespace-nowrap";
 
   const actionCell = (row: SettlementRow) => {
     const busy = pendingId === row.id;
@@ -225,6 +241,12 @@ export default function SettlementsView({
     const fxButton = (label: string) => (
       <button type="button" disabled={busy} onClick={() => promptAdjustFx(row.id)} className={fxBtn}>
         {label}
+      </button>
+    );
+    // 정산서 PDF(vi) 생성·다운로드 — DRAFT 외 모든 상태에서 노출 (P2-4)
+    const statementButton = (
+      <button type="button" disabled={busy} onClick={() => downloadStatement(row.id)} className={stmtBtn}>
+        {busy ? t("actions.processing") : t("actions.statement")}
       </button>
     );
 
@@ -241,6 +263,7 @@ export default function SettlementsView({
           <button type="button" disabled={busy} onClick={() => runTransition(row.id, "COLLECT")} className={outlineBtn}>
             {busy ? t("actions.processing") : t("actions.collect")}
           </button>
+          {statementButton}
           {payButton}
         </div>
       );
@@ -249,6 +272,7 @@ export default function SettlementsView({
       return (
         <div className="flex justify-end items-center gap-2 flex-wrap">
           {fxButton(t("actions.adjustFx"))}
+          {statementButton}
           {payButton}
         </div>
       );
@@ -257,16 +281,18 @@ export default function SettlementsView({
       return (
         <div className="flex justify-end items-center gap-2 flex-wrap">
           {fxButton(t("actions.adjustFxRedo"))}
+          {statementButton}
           {payButton}
         </div>
       );
     }
     return (
-      <div className="flex justify-end items-center gap-2 text-emerald-500 whitespace-nowrap">
+      <div className="flex justify-end items-center gap-2 flex-wrap text-emerald-500 whitespace-nowrap">
         <span className="material-symbols-outlined text-sm">check_circle</span>
         <span className="text-[11px] font-bold tabular-nums">
           {t("actions.paidAt", { date: row.paidAtText ?? "" })}
         </span>
+        {statementButton}
       </div>
     );
   };

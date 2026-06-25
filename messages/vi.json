@@ -1425,6 +1425,7 @@
       "adjustFxPrompt": "Nhập số tiền chênh lệch tỷ giá (VND). Lãi là số dương, lỗ là số âm (vd: -150000).",
       "adjustFxInvalid": "Số tiền chênh lệch phải là số nguyên (VND).",
       "markPaid": "Đánh dấu đã thanh toán",
+      "statement": "Phiếu quyết toán",
       "markPaidDialog": "Đánh dấu đã thanh toán? Hệ thống sẽ gửi thông báo quyết toán cho nhà cung cấp.",
       "paidAt": "Hoàn tất {date}",
       "processing": "Đang xử lý...",
