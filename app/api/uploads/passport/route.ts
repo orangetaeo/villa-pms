@@ -39,9 +39,10 @@ export async function POST(req: Request) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  // T3.2 — kind=signature면 sig- 접두 (여권/서명 증빙 구분: 삭제 정책 분리)
+  // 증빙 종류별 접두 분리(삭제·열람 정책 구분): signature→sig-, paper-doc(#1 체크인 종이서류)→doc-, 여권→무접두
   const kind = formData.get("kind");
-  const prefix = kind === "signature" ? "sig-" : undefined;
+  const prefix =
+    kind === "signature" ? "sig-" : kind === "paper-doc" ? "doc-" : undefined;
   const { fileName } = await savePassportFile(buffer, file.type, session.user.id, prefix);
 
   return NextResponse.json({ url: `/api/passports/${fileName}` }, { status: 201 });

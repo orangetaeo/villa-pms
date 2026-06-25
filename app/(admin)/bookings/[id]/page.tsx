@@ -12,6 +12,7 @@ import { formatDateTime, formatThousands } from "@/lib/format";
 import { toDateOnlyString } from "@/lib/date-vn";
 import { formatRemainingHours } from "@/lib/booking-stats";
 import ActionPanel from "./action-panel";
+import PaperDocsSection from "./paper-docs-section";
 import MemoBox from "./memo-box";
 import RosterBox from "./roster-box";
 
@@ -79,7 +80,12 @@ export default async function BookingDetailPage({
       villa: { select: { id: true, name: true } },
       // T3.2 — 미서명 배지·사후 서명 진입점 / T3.6 — 여권 전달 가능 여부·전달 시각
       checkInRecord: {
-        select: { signatureUrl: true, tamTruSentAt: true, passportPhotoUrls: true },
+        select: {
+          signatureUrl: true,
+          tamTruSentAt: true,
+          passportPhotoUrls: true,
+          paperDocUrls: true, // #1 체크인 종이서류(비공개 증빙)
+        },
       },
       payments: {
         orderBy: { receivedAt: "asc" },
@@ -367,6 +373,14 @@ export default async function BookingDetailPage({
             hasPassport={(booking.checkInRecord?.passportPhotoUrls.length ?? 0) > 0}
             tamTruSentAt={booking.checkInRecord?.tamTruSentAt?.toISOString() ?? null}
           />
+
+          {/* #1 체크인 종이서류 사진 — 체크인 기록이 있을 때(post-checkin)만. 비공개 증빙 */}
+          {booking.checkInRecord !== null && (
+            <PaperDocsSection
+              bookingId={booking.id}
+              initialUrls={booking.checkInRecord.paperDocUrls}
+            />
+          )}
 
           {/* 실제 투숙객 명단 (T-guest-roster) — 확정~체크인 전날 입력. 종결 상태는 비표시 */}
           {!terminal && (

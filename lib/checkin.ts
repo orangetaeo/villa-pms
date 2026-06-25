@@ -52,6 +52,24 @@ export interface CheckInInput {
 /** 서명 파일은 비공개 증빙 파이프라인 경로만 허용 (T3.1 조건 A 정합, T3.2 계약 결정 3) */
 export const PRIVATE_EVIDENCE_PATH = /^\/api\/passports\/[a-zA-Z0-9._-]+$/;
 
+/** #1 체크인 종이서류 — 비공개 증빙 doc- 접두 경로만 허용(공개 URL·여권/서명 URL 혼입 차단, QA 가드레일 a) */
+export const PAPER_DOC_PATH = /^\/api\/passports\/doc-[a-zA-Z0-9._-]+$/;
+
+/** 종이서류 URL 배열 검증 — 위반 시 RangeError(API 400). 빈 배열 허용(전체 삭제). 최대 30장. */
+export function assertPaperDocUrls(urls: unknown): asserts urls is string[] {
+  if (!Array.isArray(urls)) {
+    throw new RangeError("paperDocUrls는 배열이어야 합니다");
+  }
+  if (urls.length > 30) {
+    throw new RangeError("종이서류는 최대 30장까지 업로드할 수 있습니다");
+  }
+  for (const u of urls) {
+    if (typeof u !== "string" || !PAPER_DOC_PATH.test(u)) {
+      throw new RangeError("종이서류 이미지는 비공개 증빙 경로(/api/passports/doc-…)만 허용됩니다");
+    }
+  }
+}
+
 // ===================== 순수 함수 층 (단위 테스트 대상) =====================
 
 const ALLOWED_DEPOSIT_CURRENCIES: Currency[] = [

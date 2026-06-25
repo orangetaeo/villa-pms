@@ -422,6 +422,15 @@
         "saving": "Đang lưu...",
         "saved": "Đã lưu",
         "error": "Lưu thất bại"
+      },
+      "paperDocs": {
+        "title": "Ảnh giấy tờ",
+        "hint": "Chụp và lưu giấy tờ nhận khi nhận phòng (bản đồng ý đã ký, v.v.).",
+        "count": "{n}/{max}",
+        "upload": "Chụp · tải giấy tờ",
+        "uploading": "Đang tải lên…",
+        "remove": "Xóa",
+        "error": "Tải lên thất bại. Vui lòng thử lại."
       }
     }
   },
