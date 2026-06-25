@@ -1,4 +1,4 @@
-// GET/POST /api/admin/minibar — 미니바 회사표준 품목(MinibarItem) 목록·생성 (#2b, ADR-0015)
+// GET/POST /api/admin/minibar — 미니바 회사표준 품목(MinibarItem) 목록·생성 (#2b, ADR-0016)
 //
 // 권한(첫 줄): 읽기 isOperator / 쓰기 canSetPrice(가격이 걸린 작업, STAFF 차단).
 //   unitPriceVnd = 우리 판매가 → 공급자·공개 라우트 비노출. MinibarItem엔 villaId가 없어 구조적으로 도달 불가.

@@ -1,4 +1,4 @@
--- #2b 미니바 회사표준 전환 (ADR-0015) — 수동 raw SQL 마이그레이션
+-- #2b 미니바 회사표준 전환 (ADR-0016) — 수동 raw SQL 마이그레이션
 -- 절대 `prisma db push` 금지(Villa.source 등 드리프트 드롭 위험, [[db-schema-drift-villa-source]]).
 -- 순서 엄수: S0 → S1 → 코드 배포 → 검증 → 표준 품목 입력 완료 → S3.
 --

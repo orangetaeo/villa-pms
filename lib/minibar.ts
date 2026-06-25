@@ -1,4 +1,4 @@
-// lib/minibar.ts — 미니바 회사표준(MinibarItem, #2b ADR-0015) 공유 모듈.
+// lib/minibar.ts — 미니바 회사표준(MinibarItem, #2b ADR-0016) 공유 모듈.
 //
 // MinibarItem은 전 빌라 공통 1세트다(villaId 없음). unitPriceVnd = 우리 회사 고객 청구 단가(판매가).
 //   ★ 공급자·공개(/p) 라우트에서 절대 조회 금지 — 마진 비공개 원칙2. 이 모듈은 운영자 화면 전용 헬퍼만 제공한다.

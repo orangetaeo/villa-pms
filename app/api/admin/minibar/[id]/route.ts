@@ -1,4 +1,4 @@
-// PATCH/DELETE /api/admin/minibar/[id] — 미니바 표준 품목 수정·삭제 (#2b, ADR-0015)
+// PATCH/DELETE /api/admin/minibar/[id] — 미니바 표준 품목 수정·삭제 (#2b, ADR-0016)
 //
 // 권한(첫 줄): canSetPrice(가격이 걸린 작업, STAFF 차단). AuditLog 필수.
 // 부분 수정(PATCH) — 전달된 필드만 갱신. unitPriceVnd는 VND 동 단위 비음수 문자열.

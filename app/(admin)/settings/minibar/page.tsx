@@ -1,4 +1,4 @@
-// /settings/minibar — 미니바 회사표준 품목 관리 (#2b, ADR-0015)
+// /settings/minibar — 미니바 회사표준 품목 관리 (#2b, ADR-0016)
 // RSC: MinibarItem 전체 조회((admin) 레이아웃 운영자 가드 하). 판매가 노출 화면이므로 canSetPrice 게이트.
 //   전 빌라 공통 1세트(빌라별 오버라이드 없음). 테오가 여기서 품목·단가를 직접 입력한다.
 import type { Metadata } from "next";
