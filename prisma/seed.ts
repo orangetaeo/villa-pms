@@ -32,6 +32,9 @@ import {
   BANK_NAME_KEY,
   BANK_ACCOUNT_NUMBER_KEY,
   BANK_ACCOUNT_HOLDER_KEY,
+  BANK_VN_NAME_KEY,
+  BANK_VN_ACCOUNT_NUMBER_KEY,
+  BANK_VN_ACCOUNT_HOLDER_KEY,
   CONTACT_KAKAO_URL_KEY,
   CONTACT_PHONE_KEY,
   SETTING_KEYS,
@@ -174,10 +177,14 @@ export function buildAppSettings(): { key: string; value: string }[] {
     { key: FX_VND_PER_KRW_KEY, value: String(SEED_FX_VND_PER_KRW) },
     // 취소·환불 정책 기본값 (#6b) — 30일 100% / 14일 50% / 이후 불가
     { key: CANCELLATION_POLICY_KEY, value: JSON.stringify(DEFAULT_CANCELLATION_POLICY) },
-    // ⚠️ placeholder — 테오 실제 입금 계좌로 교체
+    // ⚠️ placeholder — 테오 실제 입금 계좌로 교체 (한국 KRW 계좌)
     { key: BANK_NAME_KEY, value: "국민은행" },
     { key: BANK_ACCOUNT_NUMBER_KEY, value: "123456-04-567890" },
     { key: BANK_ACCOUNT_HOLDER_KEY, value: "테오" },
+    // ⚠️ placeholder — 베트남 VND 계좌 (VND 예약 입금처, 통화로 자동 분기)
+    { key: BANK_VN_NAME_KEY, value: "Vietcombank" },
+    { key: BANK_VN_ACCOUNT_NUMBER_KEY, value: "0123456789" },
+    { key: BANK_VN_ACCOUNT_HOLDER_KEY, value: "THEO" },
     // ⚠️ placeholder — 테오 실제 문의 채널로 교체
     { key: CONTACT_KAKAO_URL_KEY, value: "https://open.kakao.com/o/example" },
     { key: CONTACT_PHONE_KEY, value: "+82-10-0000-0000" },
