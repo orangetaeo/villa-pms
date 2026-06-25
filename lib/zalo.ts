@@ -10,7 +10,12 @@ import {
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
-import { sendBotMessage, ERROR_BOT_NOT_CONNECTED } from "@/lib/zalo-runtime";
+import {
+  sendBotMessage,
+  sendBotMessageWithAttachments,
+  ERROR_BOT_NOT_CONNECTED,
+  type BotAttachment,
+} from "@/lib/zalo-runtime";
 import { getSystemBotOwnerId } from "@/lib/zalo-credentials";
 
 // 봇 미연결 상수 재노출 (S4 — 호출부가 lib/zalo에서 일괄 import하도록)
@@ -418,6 +423,59 @@ export async function dispatchPendingNotifications(limit = 20): Promise<Dispatch
   return summary;
 }
 
+/** 정산서 PDF Buffer → 봇 첨부 (순수). 파일명 quyet-toan-{YYYY-MM}.pdf. */
+export function buildStatementAttachment(
+  buffer: Buffer,
+  yearMonth: string
+): BotAttachment {
+  const safe = yearMonth.replace(/[^0-9-]/g, "") || "statement";
+  return {
+    data: buffer,
+    filename: `quyet-toan-${safe}.pdf`,
+    totalSize: buffer.length,
+  };
+}
+
+/**
+ * SETTLEMENT_READY 알림의 정산서 PDF 첨부 해석 — private/statements 파일을 읽어 첨부로.
+ * 미생성이면 정산서 서비스(동적 import, react-pdf 포함)로 온디맨드 생성 후 재읽기.
+ * 어떤 실패든 null 반환 → 호출부는 텍스트 발송으로 graceful 폴백.
+ */
+async function resolveStatementAttachment(
+  notification: DispatchTarget
+): Promise<BotAttachment | null> {
+  if (notification.type !== NotificationType.SETTLEMENT_READY) return null;
+  const payload = notification.payload as Record<string, unknown> | null;
+  const settlementId =
+    typeof payload?.settlementId === "string" ? payload.settlementId : null;
+  if (!settlementId) return null;
+  try {
+    const [{ getStatementDir, statementFileName }, fsmod, pathmod] = await Promise.all([
+      import("@/lib/storage"),
+      import("fs/promises"),
+      import("path"),
+    ]);
+    const filePath = pathmod.join(getStatementDir(), statementFileName(settlementId));
+    let buffer: Buffer;
+    try {
+      buffer = await fsmod.readFile(filePath);
+    } catch {
+      // 미생성 — 온디맨드 생성 후 재읽기
+      const { generateSettlementStatement } = await import(
+        "@/lib/settlement-statement-service"
+      );
+      const saved = await generateSettlementStatement(settlementId, "system:zalo-dispatch");
+      if (!saved) return null;
+      buffer = await fsmod.readFile(filePath);
+    }
+    const yearMonth =
+      typeof payload?.yearMonth === "string" ? payload.yearMonth : "statement";
+    return buildStatementAttachment(buffer, yearMonth);
+  } catch {
+    return null; // 첨부 실패 → 텍스트 발송 폴백 (발송 누락 없음)
+  }
+}
+
 async function dispatchOne(
   notification: DispatchTarget,
   summary: DispatchSummary
@@ -440,7 +498,12 @@ async function dispatchOne(
     notification.type,
     notification.payload as Record<string, unknown> | null
   );
-  const result = await sendBotMessage(zaloUserId, text);
+  // 정산서 PDF 첨부(SETTLEMENT_READY) — 있으면 파일 첨부 발송, 없으면 기존 텍스트 발송(폴백).
+  const attachment = await resolveStatementAttachment(notification);
+  const sentFile = attachment != null;
+  const result = attachment
+    ? await sendBotMessageWithAttachments(zaloUserId, text, [attachment])
+    : await sendBotMessage(zaloUserId, text);
 
   // 봇 미연결 — 기록만(크래시 금지), attempt 미증가로 재시도 대상 유지 (D5.4)
   if (!result.ok && result.error === ERROR_BOT_NOT_CONNECTED) {
@@ -495,13 +558,23 @@ async function dispatchOne(
     // Phase 1은 텍스트 본문만 실제 발송됨. 실 이미지 발송(Zalo OA upload API:
     //   /v2.0/oa/upload/image → attachment_id → message.attachment.payload)은 잔여 —
     //   토큰·미디어 권한 확보 후 sendZaloText와 별도 발송 함수로 추가 예정.
-    const attachmentUrls = extractAttachmentUrls(notification.payload);
+    let attachmentUrls = extractAttachmentUrls(notification.payload);
+    // 정산서 PDF 파일 발송 시 — 미러에 다운로드 경로 기록 + msgType "file" (이미지와 구분).
+    if (sentFile && attachmentUrls.length === 0) {
+      const sp = (notification.payload as Record<string, unknown> | null)?.statementPath;
+      if (typeof sp === "string") attachmentUrls = [sp];
+    }
+    const msgType = sentFile
+      ? "file"
+      : attachmentUrls.length > 0
+        ? "image"
+        : "text";
     await prisma.zaloMessage.create({
       data: {
         conversationId: conversation.id,
         direction: ZaloMessageDirection.OUTBOUND,
         source: ZaloMessageSource.SYSTEM,
-        msgType: attachmentUrls.length > 0 ? "image" : "text",
+        msgType,
         text,
         attachmentUrls,
         zaloMsgId: result.messageId,
@@ -514,7 +587,7 @@ async function dispatchOne(
         lastMessageAt: new Date(),
         // 인박스 미리보기 비정규화(perf) — 발신 본문·타입 캐시.
         lastMessageText: text,
-        lastMessageType: attachmentUrls.length > 0 ? "image" : "text",
+        lastMessageType: msgType,
       },
     });
   } catch (e) {
