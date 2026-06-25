@@ -93,6 +93,8 @@ export default async function SettlementsPage({
         supplierCostVnd: true,
         fxVndPerKrw: true,
         villa: { select: { supplierId: true } },
+        // 정산 2차 P2-1 — 실수납 합산용 (Payment.vndEquivalent). ADMIN 전용.
+        payments: { select: { vndEquivalent: true } },
       },
     }),
   ]);
@@ -117,6 +119,14 @@ export default async function SettlementsPage({
   });
   const financeBookings = settledBookings.map(toFinanceBooking);
   const finance = summarizeFinance(financeBookings);
+
+  // 실수납 합계 (정산 2차 P2-1) — 예약별 Payment.vndEquivalent 합. 견적 환산(collectedVndEquivalent) 대비 미수.
+  // 1차 마진은 견적 기준 유지(마진 기준 실수납 전환은 P2-2 회계 결정). 여기선 실수납·미수만 병기.
+  const actualCollectedVnd = settledBookings.reduce(
+    (sum, b) => sum + b.payments.reduce((s, p) => s + (p.vndEquivalent ?? 0n), 0n),
+    0n
+  );
+  const outstandingVnd = finance.collectedVndEquivalent - actualCollectedVnd;
 
   // 공급자별 마진(ADMIN 전용) — supplierId별 그룹 → 합계. 정산 행에 매칭.
   const bySupplier = new Map<string, FinanceBooking[]>();
@@ -169,6 +179,10 @@ export default async function SettlementsPage({
     collectedKrwText: `${formatThousands(finance.collectedKrw)}원`,
     collectedVndText: formatVnd(finance.collectedVnd.toString()),
     collectedVndEquivalentText: formatVnd(finance.collectedVndEquivalent.toString()),
+    // 정산 2차 P2-1 — 실수납 합계·미수(견적 환산 − 실수납). 미수 양수=받을 돈, 음수=초과수납.
+    actualCollectedText: formatVnd(actualCollectedVnd.toString()),
+    outstandingText: fmtSignedVnd(outstandingVnd),
+    outstandingPositive: outstandingVnd > 0n,
     payoutText: formatVnd(finance.payoutVnd.toString()),
     marginVndText: fmtSignedVnd(finance.marginVnd),
     marginPositive: finance.marginVnd >= 0n,

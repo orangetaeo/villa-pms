@@ -15,6 +15,9 @@ import ActionPanel from "./action-panel";
 import PaperDocsSection from "./paper-docs-section";
 import MemoBox from "./memo-box";
 import RosterBox from "./roster-box";
+import PaymentPanel from "./payment-panel";
+import { summarizeCollection } from "@/lib/payment";
+import { krwToVndSnapshot } from "@/lib/pricing";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
@@ -71,8 +74,10 @@ export default async function BookingDetailPage({
       guestRoster: true,
       holdExpiresAt: true,
       saleCurrency: true,
-      // 판매가(KRW·VND)는 canViewFinance만 — STAFF면 select 자체에서 제외
-      ...(showFinance ? { totalSaleKrw: true, totalSaleVnd: true } : {}),
+      // 판매가(KRW·VND)·환율 스냅샷은 canViewFinance만 — STAFF면 select 자체에서 제외
+      ...(showFinance
+        ? { totalSaleKrw: true, totalSaleVnd: true, fxVndPerKrw: true }
+        : {}),
       supplierCostVnd: true, // 원가는 STAFF도 OK (SUPPLIER 동일 가시성)
       breakfastIncluded: true,
       note: true,
@@ -95,7 +100,9 @@ export default async function BookingDetailPage({
           receivedAt: true,
           method: true,
           note: true,
-          ...(showFinance ? { currency: true, amount: true } : {}),
+          ...(showFinance
+            ? { currency: true, amount: true, vndEquivalent: true }
+            : {}),
         },
       },
     },
@@ -130,6 +137,63 @@ export default async function BookingDetailPage({
       ? booking.saleCurrency === "KRW"
         ? `${formatThousands(booking.totalSaleKrw ?? 0)}원`
         : `${formatThousands(booking.totalSaleVnd ?? 0n)}₫`
+      : null;
+
+  // 수납 요약 (정산 2차 P2-1) — showFinance만. 견적 판매가 VND환산 대비 실수납.
+  // ★ 공급자 비노출: showFinance=false면 paymentPanel 자체를 렌더하지 않는다.
+  const paymentPanel =
+    showFinance && "totalSaleKrw" in booking
+      ? (() => {
+          const b = booking as typeof booking & {
+            totalSaleKrw: number | null;
+            totalSaleVnd: bigint | null;
+            fxVndPerKrw: { toString(): string } | null;
+          };
+          const expected =
+            b.saleCurrency === "VND"
+              ? (b.totalSaleVnd ?? 0n)
+              : b.fxVndPerKrw
+                ? krwToVndSnapshot(b.totalSaleKrw ?? 0, b.fxVndPerKrw.toString())
+                : null;
+          const likes = b.payments.map((p) => ({
+            currency: (p as { currency: "KRW" | "VND" }).currency,
+            amount: (p as { amount: bigint }).amount,
+            vndEquivalent: (p as { vndEquivalent: bigint | null }).vndEquivalent,
+          }));
+          const s =
+            expected != null
+              ? summarizeCollection(likes, expected)
+              : null;
+          const collected = likes.reduce(
+            (sum, p) => sum + (p.vndEquivalent ?? 0n),
+            0n
+          );
+          return {
+            saleCurrency: b.saleCurrency as "KRW" | "VND",
+            defaultFx: b.fxVndPerKrw ? b.fxVndPerKrw.toString() : null,
+            payments: b.payments.map((p) => ({
+              id: p.id,
+              receivedAt: p.receivedAt.toISOString(),
+              method: p.method,
+              currency: (p as { currency?: string }).currency,
+              amount: (p as { amount?: bigint }).amount?.toString(),
+              note: p.note,
+            })),
+            summary: {
+              collectedVndEquivalent: (s?.collectedVndEquivalent ?? collected).toString(),
+              expectedVndEquivalent:
+                s != null ? s.expectedVndEquivalent.toString() : null,
+              outstandingVnd: s != null ? s.outstandingVnd.toString() : null,
+              status: (s?.status ?? "FX_UNKNOWN") as
+                | "UNPAID"
+                | "PARTIAL"
+                | "PAID"
+                | "OVERPAID"
+                | "FX_UNKNOWN",
+              paymentCount: b.payments.length,
+            },
+          };
+        })()
       : null;
 
   const logStatusChange = (changes: unknown): string | null => {
@@ -316,7 +380,16 @@ export default async function BookingDetailPage({
             </div>
           </section>
 
-          {/* 결제 기록 */}
+          {/* 결제 기록 — ADMIN(canViewFinance)은 실수납 패널(요약·추가·삭제), STAFF는 읽기전용(금액 비표시) */}
+          {paymentPanel ? (
+            <PaymentPanel
+              bookingId={booking.id}
+              saleCurrency={paymentPanel.saleCurrency}
+              defaultFx={paymentPanel.defaultFx}
+              payments={paymentPanel.payments}
+              summary={paymentPanel.summary}
+            />
+          ) : (
           <section className="bg-admin-card rounded-xl overflow-hidden shadow-sm border border-[#334155]">
             <div className="px-6 py-4 border-b border-slate-700">
               <h2 className="font-bold text-sm text-white">{t("detail.payments.title")}</h2>
@@ -358,6 +431,7 @@ export default async function BookingDetailPage({
               </div>
             )}
           </section>
+          )}
         </div>
 
         {/* 우측 (33%) */}

@@ -262,7 +262,38 @@
           "KR_BANK_TRANSFER": "한국 계좌이체",
           "VN_BANK_TRANSFER": "베트남 계좌이체",
           "CASH": "현금"
-        }
+        },
+        "summary": {
+          "title": "수납 요약",
+          "expected": "견적 판매가",
+          "collected": "실수납 합계",
+          "outstanding": "미수",
+          "overpaid": "초과 수납",
+          "fxUnknown": "환율 미상 — 미수 산출 불가"
+        },
+        "statusLabel": {
+          "UNPAID": "미수납",
+          "PARTIAL": "부분 수납",
+          "PAID": "완납",
+          "OVERPAID": "초과 수납",
+          "FX_UNKNOWN": "환율 미상"
+        },
+        "add": "결제 추가",
+        "form": {
+          "currency": "통화",
+          "amount": "금액",
+          "method": "수단",
+          "receivedAt": "수납일",
+          "fxRate": "수납 환율 (VND/1KRW)",
+          "note": "비고 (선택)",
+          "save": "저장",
+          "saving": "저장 중...",
+          "cancel": "취소"
+        },
+        "delete": "삭제",
+        "confirmDelete": "이 결제 기록을 삭제할까요?",
+        "addError": "결제 저장에 실패했습니다.",
+        "fxRequired": "KRW 수납은 환율 입력이 필요합니다."
       },
       "actions": {
         "confirm": "입금 확정",
@@ -1177,8 +1208,12 @@
       "title": "운영자 손익 (매출·환차·마진)",
       "bookingCount": "{count}건 기준",
       "collected": "수납",
-      "collectedVndEq": "VND 환산 합",
+      "collectedVndEq": "VND 환산 합 (견적)",
       "fxSnapshotNote": "예약별 스냅샷 환율 적용",
+      "actualCollected": "실수납 합계",
+      "actualCollectedSub": "실제 입금 (Payment)",
+      "outstanding": "미수",
+      "outstandingSub": "견적 환산 − 실수납",
       "payout": "공급자 지급",
       "payoutSub": "원가 (VND)",
       "margin": "마진",

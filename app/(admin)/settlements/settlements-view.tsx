@@ -43,6 +43,11 @@ export interface FinanceSummaryProps {
   collectedKrwText: string;
   collectedVndText: string;
   collectedVndEquivalentText: string;
+  /** 정산 2차 P2-1 — 실수납 합계(Payment.vndEquivalent 합) */
+  actualCollectedText: string;
+  /** 미수(견적 환산 − 실수납). 양수=받을 돈, 음수=초과수납 */
+  outstandingText: string;
+  outstandingPositive: boolean;
   payoutText: string;
   marginVndText: string;
   marginPositive: boolean;
@@ -340,9 +345,23 @@ export default function SettlementsView({
             <span className="block text-sm font-bold text-slate-100 tabular-nums">{financeSummary.collectedKrwText}</span>
             <span className="block text-sm font-bold text-slate-100 tabular-nums">{financeSummary.collectedVndText}</span>
           </FinanceCell>
-          {/* VND 환산 합 */}
+          {/* VND 환산 합 (견적 기준) */}
           <FinanceCell label={t("finance.collectedVndEq")} sub={t("finance.fxSnapshotNote")}>
             <span className="text-lg font-black text-slate-100 tabular-nums">{financeSummary.collectedVndEquivalentText}</span>
+          </FinanceCell>
+          {/* 실수납 합계 (정산 2차 P2-1 — 실제 입금) */}
+          <FinanceCell label={t("finance.actualCollected")} sub={t("finance.actualCollectedSub")}>
+            <span className="text-lg font-black text-slate-100 tabular-nums">{financeSummary.actualCollectedText}</span>
+          </FinanceCell>
+          {/* 미수 (견적 환산 − 실수납) */}
+          <FinanceCell label={t("finance.outstanding")} sub={t("finance.outstandingSub")}>
+            <span
+              className={`text-lg font-black tabular-nums ${
+                financeSummary.outstandingPositive ? "text-red-400" : "text-emerald-400"
+              }`}
+            >
+              {financeSummary.outstandingText}
+            </span>
           </FinanceCell>
           {/* 지급 (공급자 원가) */}
           <FinanceCell label={t("finance.payout")} sub={t("finance.payoutSub")}>
