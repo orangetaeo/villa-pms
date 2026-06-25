@@ -317,16 +317,16 @@ function RateFieldsRow({
           <input
             type="text"
             inputMode="numeric"
-            value={fields.marginValue}
+            value={fields.marginType === "FIXED_VND" ? (fields.marginValue ? formatThousands(fields.marginValue) : "") : fields.marginValue}
             onChange={(e) => onPatch({ marginValue: toDigits(e.target.value) }, true)}
             aria-label={tr("colMargin")}
-            className="flex-1 min-w-0 h-10 bg-slate-900 border border-slate-700 rounded px-3 text-center text-xs text-slate-100 tabular-nums"
+            className="flex-1 min-w-0 h-10 bg-slate-900 border border-slate-700 rounded px-2 text-right text-xs text-slate-100 tabular-nums"
           />
           <select
             value={fields.marginType}
             onChange={(e) => onPatch({ marginType: e.target.value as MarginType }, true)}
             aria-label={tr("colMargin")}
-            className="h-10 shrink-0 bg-slate-900 border border-slate-700 rounded px-2 text-[11px] text-slate-100"
+            className="h-10 w-[4.25rem] shrink-0 bg-slate-900 border border-slate-700 rounded px-1.5 text-[11px] text-slate-100"
           >
             <option value="PERCENT">{tr("percent")}</option>
             <option value="FIXED_VND">{tr("fixed")}</option>
