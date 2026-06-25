@@ -6,11 +6,13 @@ import {
   ERROR_TOKEN_NOT_SET,
   MAX_SEND_ATTEMPTS,
   buildNotificationText,
+  buildStatementAttachment,
   extractAttachmentUrls,
   getAttemptCount,
   isRetryableFailure,
   withAttempt,
 } from "./zalo";
+import { buildSendPayload, type BotAttachment } from "./zalo-runtime";
 
 // ===================== buildNotificationText — 9종 vi 템플릿 =====================
 
@@ -249,5 +251,55 @@ describe("isRetryableFailure", () => {
   it("error null(이전 기록 없음) — attempt 기준만 적용", () => {
     expect(isRetryableFailure(null, 0)).toBe(true);
     expect(isRetryableFailure(undefined, MAX_SEND_ATTEMPTS)).toBe(false);
+  });
+});
+
+// ===================== 정산서 파일 첨부 (Zalo) =====================
+
+describe("buildSendPayload — 발송 payload 구성", () => {
+  const att: BotAttachment = { data: Buffer.from("PDF"), filename: "quyet-toan-2026-07.pdf", totalSize: 3 };
+
+  it("멘션·첨부 없으면 plain string(기존 동작 불변)", () => {
+    expect(buildSendPayload("xin chào")).toBe("xin chào");
+    expect(buildSendPayload("a", [], [])).toBe("a");
+  });
+
+  it("첨부 있으면 MessageContent로 zca-js 형태 매핑(metadata.totalSize)", () => {
+    const p = buildSendPayload("Bảng thanh toán", undefined, [att]);
+    expect(typeof p).toBe("object");
+    if (typeof p === "object") {
+      expect(p.msg).toBe("Bảng thanh toán");
+      expect(p.attachments).toEqual([
+        { data: att.data, filename: "quyet-toan-2026-07.pdf", metadata: { totalSize: 3 } },
+      ]);
+      expect(p.mentions).toBeUndefined();
+    }
+  });
+
+  it("멘션만 있으면 mentions 포함(첨부 없음)", () => {
+    const p = buildSendPayload("@all", [{ pos: 0, uid: "-1", len: 4 }]);
+    if (typeof p === "object") {
+      expect(p.mentions).toHaveLength(1);
+      expect(p.attachments).toBeUndefined();
+    }
+  });
+});
+
+describe("buildStatementAttachment — 정산서 첨부", () => {
+  it("파일명 quyet-toan-{YYYY-MM}.pdf + totalSize=버퍼 길이", () => {
+    const buf = Buffer.from("%PDF-1.7 ...");
+    const a = buildStatementAttachment(buf, "2026-07");
+    expect(a.filename).toBe("quyet-toan-2026-07.pdf");
+    expect(a.totalSize).toBe(buf.length);
+    expect(a.data).toBe(buf);
+  });
+
+  it("yearMonth 비정상 문자 제거, 비면 statement 폴백", () => {
+    expect(buildStatementAttachment(Buffer.from("x"), "2026/07!!").filename).toBe(
+      "quyet-toan-202607.pdf"
+    );
+    expect(buildStatementAttachment(Buffer.from("x"), "").filename).toBe(
+      "quyet-toan-statement.pdf"
+    );
   });
 });

@@ -931,6 +931,52 @@ export type BotSendResult =
  */
 export type ZaloMention = { pos: number; uid: string; len: number };
 
+/**
+ * 봇 파일 첨부 1건 — Buffer + 확장자 포함 파일명 + 총 바이트.
+ * zca-js AttachmentSource(object 형태)로 매핑되어 sendMessage가 업로드한다.
+ */
+export interface BotAttachment {
+  data: Buffer;
+  filename: string; // 확장자 포함 (예: quyet-toan-2026-07.pdf)
+  totalSize: number;
+}
+
+type ZaloAttachmentObject = {
+  data: Buffer;
+  filename: string;
+  metadata: { totalSize: number };
+};
+type ZaloSendPayload =
+  | string
+  | { msg: string; mentions?: ZaloMention[]; attachments?: ZaloAttachmentObject[] };
+
+/**
+ * 발송 payload 구성 (순수, 테스트 대상).
+ * 멘션·첨부가 모두 없으면 plain string(기존 동작 불변). 하나라도 있으면 MessageContent.
+ */
+export function buildSendPayload(
+  text: string,
+  mentions?: ZaloMention[],
+  attachments?: BotAttachment[]
+): ZaloSendPayload {
+  const hasMentions = !!mentions && mentions.length > 0;
+  const hasAttachments = !!attachments && attachments.length > 0;
+  if (!hasMentions && !hasAttachments) return text;
+  return {
+    msg: text,
+    ...(hasMentions ? { mentions } : {}),
+    ...(hasAttachments
+      ? {
+          attachments: attachments!.map((a) => ({
+            data: a.data,
+            filename: a.filename,
+            metadata: { totalSize: a.totalSize },
+          })),
+        }
+      : {}),
+  };
+}
+
 async function sendVia(
   api: API | null,
   zaloUserId: string,
@@ -938,14 +984,15 @@ async function sendVia(
   // ADR-0010 S4 — 그룹 발송 지원. 기본 USER(기존 호출 동작 불변). GROUP이면 zaloUserId=그룹 id.
   threadType: ThreadType = ThreadType.User,
   // 그룹 @멘션 — 있으면 MessageContent {msg, mentions}로 전송(zca-js 실제 멘션). 없으면 plain string(불변).
-  mentions?: ZaloMention[]
+  mentions?: ZaloMention[],
+  // 파일 첨부(선택) — 있으면 MessageContent.attachments로 전송(정산서 PDF 등).
+  attachments?: BotAttachment[]
 ): Promise<BotSendResult> {
   if (!api) return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
   try {
-    const payload =
-      mentions && mentions.length > 0
-        ? ({ msg: text, mentions } as unknown as Parameters<API["sendMessage"]>[0])
-        : text;
+    const payload = buildSendPayload(text, mentions, attachments) as unknown as Parameters<
+      API["sendMessage"]
+    >[0];
     const res = await api.sendMessage(payload, zaloUserId, threadType);
     const msgId = res?.message?.msgId;
     return { ok: true, messageId: msgId != null ? String(msgId) : null };
@@ -967,6 +1014,18 @@ export async function sendBotMessage(
   text: string
 ): Promise<BotSendResult> {
   return sendVia(getSystemBotApi(), zaloUserId, text);
+}
+
+/**
+ * 시스템 알림 + 파일 첨부 발송 (정산서 PDF 등). 시스템봇 인스턴스.
+ * 첨부가 비면 sendBotMessage와 동일(plain text). 봇 미연결 시 ERROR_BOT_NOT_CONNECTED.
+ */
+export async function sendBotMessageWithAttachments(
+  zaloUserId: string,
+  text: string,
+  attachments: BotAttachment[]
+): Promise<BotSendResult> {
+  return sendVia(getSystemBotApi(), zaloUserId, text, ThreadType.User, undefined, attachments);
 }
 
 /**
