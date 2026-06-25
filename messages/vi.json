@@ -1960,7 +1960,11 @@
     "labelPlaceholder": "Tên giai đoạn (vd: Tết 2026)",
     "periodLabel": "Tên giai đoạn",
     "removePeriod": "Xóa",
-    "seasons": { "LOW": "Mùa thấp điểm", "HIGH": "Mùa cao điểm", "PEAK": "Cao điểm lễ Tết" },
+    "seasons": {
+      "LOW": "Mùa thấp điểm",
+      "HIGH": "Mùa cao điểm",
+      "PEAK": "Cao điểm lễ Tết"
+    },
     "startDate": "Ngày bắt đầu",
     "endDate": "Ngày kết thúc",
     "addPeriod": "Thêm giai đoạn",

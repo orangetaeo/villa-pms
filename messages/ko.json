@@ -1852,7 +1852,11 @@
     "labelPlaceholder": "기간 이름 (예: 2026 설)",
     "periodLabel": "기간 이름",
     "removePeriod": "삭제",
-    "seasons": { "LOW": "비수기", "HIGH": "성수기", "PEAK": "극성수기" },
+    "seasons": {
+      "LOW": "비수기",
+      "HIGH": "성수기",
+      "PEAK": "극성수기"
+    },
     "startDate": "시작일",
     "endDate": "종료일",
     "addPeriod": "기간 추가",
