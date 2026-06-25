@@ -528,7 +528,13 @@
       "signError": "Lưu chữ ký thất bại. Vui lòng thử lại.",
       "unsignedHint": "Có thể hoàn tất nhận phòng không cần chữ ký — ký bổ sung sau tại màn hình nhận phòng.",
       "postSignBadge": "Ký bổ sung",
-      "postSignDesc": "Đặt phòng này đã nhận phòng chưa có chữ ký. Vui lòng lấy chữ ký khách theo bản cam kết dưới đây."
+      "postSignDesc": "Đặt phòng này đã nhận phòng chưa có chữ ký. Vui lòng lấy chữ ký khách theo bản cam kết dưới đây.",
+      "guestSigned": {
+        "title": "Khách đã ký trước đó",
+        "meta": "Phiên bản {version} · Ký lúc {at}",
+        "resign": "Ký lại tại chỗ",
+        "useGuest": "Dùng nguyên chữ ký của khách"
+      }
     },
     "wifi": {
       "title": "Thông tin Wifi",
@@ -2555,6 +2561,45 @@
         "qty": "Số lượng tiêu thụ",
         "revenue": "Doanh thu",
         "empty": "Chưa có ghi nhận bán minibar nào"
+      }
+    },
+    "services": {
+      "title": "Doanh thu dịch vụ bổ sung",
+      "subtitle": "Theo ngày trả phòng · Đã xác nhận/hoàn tất",
+      "kpi": {
+        "revenueKrw": "Doanh thu dịch vụ (KRW)",
+        "revenueKrwNote": "Tổng giá bán kênh hãng lữ hành (won)",
+        "revenueVnd": "Doanh thu dịch vụ (VND)",
+        "revenueVndNote": "Tổng giá bán kênh nội địa (₫)",
+        "margin": "Lợi nhuận dịch vụ",
+        "marginVndNote": "Chỉ phần đã nhập giá vốn (VND) — doanh thu KRW không quy đổi nên bị loại",
+        "marginPartialNote": "{count} dòng chưa nhập giá vốn bị loại khỏi lợi nhuận",
+        "costMissing": "Chưa nhập giá vốn",
+        "costMissingNote": "{count} dòng chưa nhập giá vốn — nhập giá vốn đơn hàng thì lợi nhuận sẽ tự hiển thị"
+      },
+      "trendChart": {
+        "title": "Xu hướng doanh thu dịch vụ",
+        "subtitle": "Tổng giá bán theo kỳ (tách theo tiền tệ)",
+        "krwLegend": "Doanh thu KRW",
+        "vndLegend": "Doanh thu VND"
+      },
+      "topTypes": {
+        "title": "Doanh thu theo dịch vụ",
+        "type": "Dịch vụ",
+        "qty": "Số đơn",
+        "revenueKrw": "KRW",
+        "revenueVnd": "VND",
+        "empty": "Chưa có ghi nhận bán dịch vụ nào"
+      },
+      "types": {
+        "BBQ": "BBQ",
+        "TICKET": "Vé",
+        "GUIDE": "Hướng dẫn viên",
+        "CAR_RENTAL": "Thuê xe",
+        "BREAKFAST": "Bữa sáng",
+        "MOTORBIKE_RENTAL": "Thuê xe máy",
+        "MASSAGE": "Massage",
+        "BARBER": "Cắt tóc"
       }
     }
   },

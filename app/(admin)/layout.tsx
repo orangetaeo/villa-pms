@@ -40,6 +40,11 @@ const ADMIN_CLIENT_NAMESPACES = [
   "adminSettlements",
   "adminSettings",
   "adminMinibar",
+  // ADR-0019 — 미니바 실재고·부가서비스 카탈로그/주문·게스트 토큰 (클라이언트 컴포넌트 네임스페이스)
+  "inventory",
+  "adminServices",
+  "adminServiceOrders",
+  "adminGuestToken",
   "adminProposals",
   "adminInspections",
   "adminMessages",
