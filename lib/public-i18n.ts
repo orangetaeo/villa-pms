@@ -5,7 +5,8 @@
 //   PUBLIC_LABELS[lang]를 자식에 주입한다. 클라이언트 컴포넌트는 라벨 slice를 props로 받는다.
 //
 // 범위: 정적 UI 텍스트만 5개 언어. 빌라명·설명·가격·전화번호 등 동적 데이터는 원문 유지(1차).
-// ⚠ ru(러시아어)는 감수 자원 미확보 → 기계품질 1차 번역. LOC 감수 후속(TODO: ru-review).
+// ⚠ ru(러시아어)는 2026-06-25 1차 품질 감수 반영(спал.→спальни, 권한 표현 разрешено 통일,
+//   수량 단위 чел./авто 복원). 원어민 최종 감수는 여전히 권장(TODO: ru-native-review).
 
 import type { BedTypeKey } from "@/lib/bedding";
 
@@ -514,7 +515,7 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
     },
   },
 
-  // ─────────────────────────────── Русский (기계품질, 감수 필요) ───────────────────────────────
+  // ─────────────────────────────── Русский (1차 감수 반영, 원어민 최종 감수 권장) ───────────────────────────────
   ru: {
     back: "Назад",
     share: "Поделиться",
@@ -528,7 +529,7 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       forClient: (name) => `Предложение для ${name}`,
       subtitle: "Эксклюзивная подборка премиальных вилл на Фукуоке.",
       nights: (n) => `${n} ноч.`,
-      bedrooms: (n) => `${n} спал.`,
+      bedrooms: (n) => `${n} спальни`,
       pool: "Бассейн",
       breakfastOn: "Завтрак включён",
       breakfastOff: "Без завтрака",
@@ -546,7 +547,7 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
     },
     sales: {
       beddingTitle: "Спальные места",
-      maxGuests: (n) => `До ${n}`,
+      maxGuests: (n) => `До ${n} чел.`,
       bedroomCount: (n) => `${n} спальни`,
       extraBed: "Доступна доп. кровать",
       mapView: "На карте",
@@ -557,13 +558,13 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       rulesTitle: "Информация",
       checkIn: "Заезд",
       checkOut: "Выезд",
-      smokingOn: "Курение можно",
+      smokingOn: "Курение разрешено",
       smokingOff: "Не курить",
-      petsOn: "Питомцы можно",
+      petsOn: "Питомцы разрешены",
       petsOff: "Без питомцев",
-      partyOn: "Вечеринки можно",
+      partyOn: "Вечеринки разрешены",
       partyOff: "Без вечеринок",
-      parkingOn: (n) => `Парковка ${n}`,
+      parkingOn: (n) => `Парковка ${n} авто`,
       parkingOff: "Без парковки",
       depositTitle: "Местный депозит",
       depositBefore: "При заезде на месте может потребоваться депозит ",
