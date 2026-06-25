@@ -124,7 +124,24 @@ export default async function SettingsPage() {
       {/* Card 5: 취소·환불 정책 — 공개 제안 페이지 표시 (#6b) */}
       <CancellationPolicyForm initial={cancellationPolicy} />
 
-      {/* Card 6: Zalo 봇 연결 (ADR-0006) — 별도 페이지 링크 */}
+      {/* Card 6: 미니바 회사표준 품목 (#2b) — 별도 페이지 링크 */}
+      <Link
+        href="/settings/minibar"
+        className="flex items-center justify-between bg-admin-card border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-colors group"
+      >
+        <div className="flex items-center gap-4">
+          <span className="material-symbols-outlined text-admin-primary text-3xl">liquor</span>
+          <div>
+            <h2 className="text-lg font-bold text-white">{t("minibarCardTitle")}</h2>
+            <p className="text-sm text-slate-500 mt-0.5">{t("minibarCardDesc")}</p>
+          </div>
+        </div>
+        <span className="text-sm font-bold text-admin-primary group-hover:underline whitespace-nowrap">
+          {t("minibarCardCta")} →
+        </span>
+      </Link>
+
+      {/* Card 7: Zalo 봇 연결 (ADR-0006) — 별도 페이지 링크 */}
       <Link
         href="/settings/zalo"
         className="flex items-center justify-between bg-admin-card border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-colors group"

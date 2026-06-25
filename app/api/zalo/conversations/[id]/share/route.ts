@@ -409,7 +409,11 @@ async function handleVilla(
     supplierId: true,
     status: true,
     isSellable: true,
-    amenities: { select: { itemKey: true, customLabel: true } },
+    // #2b: 미니바는 회사표준(MinibarItem) — 공급자·고객 공유 명칭에서 제외(공급자 미관여 원칙, 전환기 명칭 누수 차단).
+    amenities: {
+      where: { category: { not: "MINIBAR" } },
+      select: { itemKey: true, customLabel: true },
+    },
   } as const;
 
   if (isCostSideType(conv.counterpartyType)) {

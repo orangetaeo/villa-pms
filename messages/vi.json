@@ -1202,9 +1202,37 @@
         "url": "Vui lòng nhập URL hợp lệ bắt đầu bằng http(s)://."
       }
     },
+    "minibarCardTitle": "Minibar tiêu chuẩn công ty",
+    "minibarCardDesc": "Quản lý danh mục và đơn giá minibar dùng chung cho mọi villa.",
+    "minibarCardCta": "Quản lý",
     "zaloCardTitle": "Kết nối Bot Zalo",
     "zaloCardDesc": "Kết nối tài khoản Zalo của quản trị viên để gửi thông báo.",
     "zaloCardCta": "Quản lý"
+  },
+  "adminMinibar": {
+    "title": "Minibar tiêu chuẩn công ty",
+    "subtitle": "Một bộ minibar dùng chung cho mọi villa. Danh mục và đơn giá thêm ở đây sẽ áp dụng cho việc trả phòng và phiếu nhận phòng của tất cả villa.",
+    "back": "Về cài đặt",
+    "forbidden": "Bạn không có quyền xem màn hình này.",
+    "listTitle": "Danh mục tiêu chuẩn",
+    "empty": "Chưa có món minibar nào. Hãy thêm bên dưới.",
+    "addTitle": "Thêm món mới",
+    "addButton": "Thêm",
+    "nameKoLabel": "Tên (tiếng Hàn)",
+    "nameKoPlaceholder": "VD: 생수",
+    "nameViLabel": "Tên tiếng Việt (tùy chọn)",
+    "nameViPlaceholder": "VD: Nước suối",
+    "priceLabel": "Đơn giá (VND)",
+    "pricePlaceholder": "Đơn giá",
+    "activeLabel": "Hiển thị",
+    "edit": "Sửa",
+    "delete": "Xóa",
+    "deleteConfirm": "Xóa món này?",
+    "deleted": "Đã xóa",
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "saved": "Đã lưu",
+    "error": "Lưu thất bại"
   },
   "adminSettlements": {
     "title": "Quản lý quyết toán",

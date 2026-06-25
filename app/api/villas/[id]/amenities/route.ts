@@ -84,12 +84,11 @@ export async function PATCH(
   }
   const data = parsed.data;
 
-  // #2a 미니바 직접운영 — 공급자는 미니바 미관여(unitPrice=고객 청구가=우리 판매가, 공급자 비노출 원칙).
-  //   공급자 요청에선 MINIBAR 항목을 silent drop한다(403 금지 — 마법사·에디터가 전 카테고리를 한
-  //   배열로 보내므로 거부 시 타월 등 비-MINIBAR 저장까지 실패). 운영자(ADMIN)는 그대로 미니바 운영.
-  const incomingAmenities = isSupplier
-    ? data.amenities.filter((a) => a.category !== "MINIBAR")
-    : data.amenities;
+  // #2b 미니바 회사표준 분리 — 미니바는 더 이상 빌라별이 아니다(MinibarItem, /settings/minibar).
+  //   누가 보내든 MINIBAR 항목은 무시(silent drop)한다. 마법사·에디터가 전 카테고리를 한 배열로
+  //   보내므로 403 거부 대신 drop — 타월 등 비-MINIBAR 저장이 함께 실패하지 않게 한다.
+  //   기존 per-villa MINIBAR 행은 폐기(S3) 전까지 보존: deleteMany를 비-MINIBAR로 스코프한다.
+  const incomingAmenities = data.amenities.filter((a) => a.category !== "MINIBAR");
 
   const result = await prisma.$transaction(async (tx) => {
     const villa = await tx.villa.findUnique({
@@ -101,11 +100,9 @@ export async function PATCH(
     if (isSupplier && villa.supplierId !== actorId) return { kind: "NOT_FOUND" as const };
 
     const oldCount = villa._count.amenities;
-    // 공급자: 비-MINIBAR만 교체하고 기존 MINIBAR(회사 운영분)는 보존 — deleteMany를 비-MINIBAR로 스코프.
-    //   (전체 deleteMany면 공급자의 amenity 저장이 회사가 운영하는 미니바 데이터를 통째로 wipe함)
-    // 운영자: 전체 교체(미니바 포함 운영).
+    // 비-MINIBAR만 교체 — 기존 MINIBAR(회사표준 전환 전 레거시 행)는 S3 폐기까지 보존.
     await tx.villaAmenity.deleteMany({
-      where: isSupplier ? { villaId: id, category: { not: "MINIBAR" } } : { villaId: id },
+      where: { villaId: id, category: { not: "MINIBAR" } },
     });
     if (incomingAmenities.length > 0) {
       await tx.villaAmenity.createMany({
@@ -114,11 +111,8 @@ export async function PATCH(
           category: amenity.category,
           itemKey: amenity.itemKey,
           quantity: amenity.quantity,
-          // 고객 청구 단가는 MINIBAR만 — 그 외 카테고리의 unitPrice는 무시 (null)
-          unitPrice:
-            amenity.category === "MINIBAR" && amenity.unitPrice
-              ? BigInt(amenity.unitPrice)
-              : null,
+          // 미니바 단가는 더 이상 빌라별 저장 안 함 — unitPrice는 항상 null.
+          unitPrice: null,
           // custom일 때만 라벨 저장 (사전 항목은 i18n 키로 표기)
           customLabel: amenity.itemKey === "custom" ? amenity.customLabel ?? null : null,
           note: amenity.note ?? null,
@@ -126,13 +120,7 @@ export async function PATCH(
       });
     }
 
-    // 글로벌 규칙 — 변경 추적. 비품 개수 + 미니바 단가 스냅샷.
-    // ⚠ unitPrice는 미니바 고객 청구 단가(= 우리 회사 판매가)이며 공급자 원가가 아니다.
-    //   공급자 입력은 위에서 drop되므로 이 스냅샷은 운영자(ADMIN) 입력분만. BigInt는 Json에 못 넣어 문자열화.
-    const minibarPricing = incomingAmenities
-      .filter((a) => a.category === "MINIBAR" && a.unitPrice)
-      .map((a) => `${a.itemKey === "custom" ? a.customLabel : a.itemKey}=${a.unitPrice}`)
-      .join(",");
+    // 글로벌 규칙 — 변경 추적. 비-MINIBAR 비품 개수만(미니바 단가 스냅샷 제거).
     await writeAuditLog({
       db: tx,
       userId: actorId,
@@ -141,7 +129,6 @@ export async function PATCH(
       entityId: id,
       changes: {
         amenities: { old: oldCount, new: incomingAmenities.length },
-        ...(minibarPricing ? { minibarUnitPriceVnd: { new: minibarPricing } } : {}),
       },
     });
 

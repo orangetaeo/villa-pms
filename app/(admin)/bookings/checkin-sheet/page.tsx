@@ -13,6 +13,7 @@ import { todayInVillaTimezone } from "@/lib/timeline";
 import { minutesToHHMM } from "@/lib/sales-display";
 import { formatThousands } from "@/lib/format";
 import { AMENITY_CATEGORIES } from "@/lib/amenities";
+import { minibarItemName } from "@/lib/minibar";
 import {
   AGREEMENT_CLAUSES,
   AGREEMENT_DOC_TITLE,
@@ -55,6 +56,17 @@ export default async function CheckinSheetPage({
   const defaultLang: AgreementLang = isAgreementLang(appLocale) ? appLocale : "ko";
   const lang: AgreementLang = isAgreementLang(params.lang) ? params.lang : defaultLang;
   const L = SHEET_LABELS[lang];
+
+  // 미니바 회사표준(#2b) — 전 빌라 공통 1세트. 인쇄 시트에 표준 목록 + 소모 손기입란.
+  const minibarStandard = await prisma.minibarItem.findMany({
+    where: { active: true },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: { nameKo: true, nameVi: true, unitPriceVnd: true },
+  });
+  const minibarRows = minibarStandard.map((m) => ({
+    label: minibarItemName(m, lang),
+    unitPriceVnd: m.unitPriceVnd,
+  }));
 
   // 금일 체크인 = CONFIRMED (기존 "오늘 체크인" 프리셋·통계와 동일 의미)
   const bookings = await prisma.booking.findMany({
@@ -162,11 +174,13 @@ export default async function CheckinSheetPage({
             const hasDeposit = b.depositAmount != null && b.depositCurrency != null;
             const depositHeld = b.depositStatus === "HELD";
             const alreadySigned = !!b.checkInRecord?.signatureUrl;
-            // 비품 — 카테고리 순서대로 그룹화
-            const amenityGroups = AMENITY_CATEGORIES.map((cat) => ({
-              cat,
-              items: v.amenities.filter((a) => a.category === cat),
-            })).filter((g) => g.items.length > 0);
+            // 비품 — 카테고리 순서대로 그룹화. 미니바는 회사표준(#2b)으로 분리 → 빌라별 그룹에서 제외.
+            const amenityGroups = AMENITY_CATEGORIES.filter((cat) => cat !== "MINIBAR")
+              .map((cat) => ({
+                cat,
+                items: v.amenities.filter((a) => a.category === cat),
+              }))
+              .filter((g) => g.items.length > 0);
 
             return (
               <article
@@ -329,6 +343,39 @@ export default async function CheckinSheetPage({
                                 </tr>
                               ))}
                             </Fragment>
+                          ))}
+                        </tbody>
+                      </table>
+                    </section>
+                  )}
+
+                  {/* ④-2 미니바(회사표준, #2b) — 표준 품목·단가 인쇄, 소모 수량·합계는 체크아웃 시 손기입 */}
+                  {minibarRows.length > 0 && (
+                    <section>
+                      <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">
+                        {L.minibar.title}
+                      </h3>
+                      <table className="w-full border-collapse border border-slate-400 text-sm">
+                        <thead>
+                          <tr className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-500">
+                            <th className="border border-slate-300 px-2 py-1.5 text-left">{L.amenityTable.item}</th>
+                            <th className="border border-slate-300 px-2 py-1.5 text-right w-24">{L.amenityTable.price}</th>
+                            <th className="border border-slate-300 px-2 py-1.5 text-center w-20">{L.minibar.consumed}</th>
+                            <th className="border border-slate-300 px-2 py-1.5 text-right w-24">{L.amenityTable.total}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {minibarRows.map((m, i) => (
+                            <tr key={`mb-${i}`}>
+                              <td className="border border-slate-300 px-2 py-2">{m.label}</td>
+                              <td className="border border-slate-300 px-2 py-2 text-right tabular-nums">
+                                {formatThousands(m.unitPriceVnd)}₫
+                              </td>
+                              {/* 소모 수량 — 체크아웃 시 손기입(빈 칸) */}
+                              <td className="border border-slate-300 px-2 py-2"></td>
+                              {/* 합계 — 체크아웃 시 손기입(빈 칸) */}
+                              <td className="border border-slate-300 px-2 py-2"></td>
+                            </tr>
                           ))}
                         </tbody>
                       </table>

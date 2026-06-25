@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { BookingStatus, PhotoSpace } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatKrw, formatVnd } from "@/lib/format";
+import { minibarItemName } from "@/lib/minibar";
 import CheckoutForm from "./checkout-form";
 
 /**
  * /bookings/[id]/checkout — 체크아웃 검수 (Stitch b4 변환, T3.3)
- * 기준 사진 비교 + 미니바 읽기 전용(ADR-0003) + 파손 리포트 + 보증금 처리
+ * 기준 사진 비교 + 미니바 회사표준 소모 입력(#2b, MinibarItem) + 파손 리포트 + 보증금 처리
  */
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -35,39 +36,37 @@ export default async function CheckoutPage({
   params: Promise<{ id: string }>;
 }) {
   const t = await getTranslations("adminCheckout");
+  const locale = await getLocale();
   const { id } = await params;
 
-  const booking = await prisma.booking.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      status: true,
-      guestName: true,
-      depositAmount: true,
-      depositCurrency: true,
-      villa: {
-        select: {
-          name: true,
-          photos: {
-            where: { isBaseline: true },
-            orderBy: { sortOrder: "asc" },
-            select: { id: true, space: true, spaceLabel: true, url: true },
-          },
-          amenities: {
-            where: { category: "MINIBAR" },
-            orderBy: { itemKey: "asc" },
-            select: {
-              id: true,
-              itemKey: true,
-              customLabel: true,
-              quantity: true,
-              unitPrice: true, // 미니바 고객 청구 단가(VND) — 차감액 자동계산 기준 (b16)
+  // 미니바는 회사표준 1세트(#2b, MinibarItem) — 전 빌라 공통. 빌라별 amenities(MINIBAR) 비참조.
+  const [booking, minibarItems] = await Promise.all([
+    prisma.booking.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        guestName: true,
+        depositAmount: true,
+        depositCurrency: true,
+        villa: {
+          select: {
+            name: true,
+            photos: {
+              where: { isBaseline: true },
+              orderBy: { sortOrder: "asc" },
+              select: { id: true, space: true, spaceLabel: true, url: true },
             },
           },
         },
       },
-    },
-  });
+    }),
+    prisma.minibarItem.findMany({
+      where: { active: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { id: true, nameKo: true, nameVi: true, unitPriceVnd: true },
+    }),
+  ]);
   if (!booking) notFound();
 
   // 공간 순서대로 비교 섹션 구성 — 라벨은 spaceLabel 우선, 없으면 공간명
@@ -85,14 +84,11 @@ export default async function CheckoutPage({
     sections.push({ id: "general", label: t("generalPhotos"), baselineUrl: null });
   }
 
-  const minibar = booking.villa.amenities.map((a) => ({
-    id: a.id,
-    label: a.itemKey === "custom" ? (a.customLabel ?? "—") : a.itemKey,
-    isCustom: a.itemKey === "custom",
-    itemKey: a.itemKey,
-    quantity: a.quantity,
-    // 단가(VND, 동 단위 문자열) — 미설정(null)이면 차감 불가 항목(0원 처리). BigInt 직렬화 금지 → 문자열
-    unitPriceVnd: a.unitPrice != null ? a.unitPrice.toString() : null,
+  // 회사표준 미니바 — 표시명은 로케일별(vi/ko), 단가는 우리 판매가(BigInt → 문자열).
+  const minibar = minibarItems.map((m) => ({
+    id: m.id,
+    label: minibarItemName(m, locale),
+    unitPriceVnd: m.unitPriceVnd.toString(),
   }));
 
   const depositLabel =

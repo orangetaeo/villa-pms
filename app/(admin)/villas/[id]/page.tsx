@@ -17,7 +17,7 @@ import VillaActions from "./villa-actions";
 import ForceSellableAction from "./force-sellable-action";
 import DetailTabs from "./detail-tabs";
 import SalesEditor, { type SalesInitial } from "./sales-editor";
-import AdminAmenitiesEditor, { type AmenityCustomRow } from "./amenities-editor";
+import AdminAmenitiesEditor from "./amenities-editor";
 import PhotoGallery from "./photo-gallery";
 import CollapsibleCard from "@/components/admin/collapsible-card";
 
@@ -172,24 +172,12 @@ export default async function VillaDetailPage({
     };
   }
 
-  // 비품 편집기 초기값 (Batch A — 관리자 CRUD). 사전 항목은 수량 맵, 미니바는 단가 맵, custom은 별도 행.
+  // 비품 편집기 초기값 (Batch A — 관리자 CRUD). 사전 항목 수량 맵만.
+  //   #2b: 미니바는 회사표준(MinibarItem)으로 분리 — 빌라별 미니바·custom 행은 편집 대상 아님(스킵).
   const amenityQuantities: Record<string, number> = {};
-  const amenityUnitPrices: Record<string, string> = {};
-  const amenityCustom: AmenityCustomRow[] = [];
   for (const a of villa.amenities) {
-    if (a.itemKey === "custom") {
-      amenityCustom.push({
-        id: a.id,
-        label: a.customLabel ?? "",
-        quantity: a.quantity,
-        unitPrice: a.unitPrice != null ? a.unitPrice.toString() : "",
-      });
-    } else {
-      amenityQuantities[`${a.category}:${a.itemKey}`] = a.quantity;
-      if (a.category === "MINIBAR" && a.unitPrice != null) {
-        amenityUnitPrices[`MINIBAR:${a.itemKey}`] = a.unitPrice.toString();
-      }
-    }
+    if (a.category === "MINIBAR" || a.itemKey === "custom") continue;
+    amenityQuantities[`${a.category}:${a.itemKey}`] = a.quantity;
   }
 
   // 판매정보 폼 초기값 (ADR-0011) — BigInt·정수는 문자열 변환(클라이언트 경계 직렬화)
@@ -425,13 +413,8 @@ export default async function VillaDetailPage({
             </CollapsibleCard>
           )}
 
-          {/* 비품 현황 — 관리자 편집 가능 (Batch A) */}
-          <AdminAmenitiesEditor
-            villaId={villa.id}
-            initialQuantities={amenityQuantities}
-            initialUnitPrices={amenityUnitPrices}
-            initialCustom={amenityCustom}
-          />
+          {/* 비품 현황 — 관리자 편집 가능 (Batch A). 미니바는 회사표준(#2b)으로 분리 */}
+          <AdminAmenitiesEditor villaId={villa.id} initialQuantities={amenityQuantities} />
 
           {/* 수정 이력 (AuditLog — b10 Action Log) */}
           {auditLogs.length > 0 && (

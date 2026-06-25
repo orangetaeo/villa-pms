@@ -118,3 +118,23 @@ describe("POST /api/villas — 권한", () => {
     expect(res.status).toBe(403);
   });
 });
+
+describe("#2b 생성 시 MINIBAR 비품 drop (회사표준 분리)", () => {
+  it("마법사가 MINIBAR를 보내도 createMany엔 비-MINIBAR만 저장", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "sup-1", role: "SUPPLIER" } });
+    const res = await postReq({
+      ...VALID_BODY,
+      amenities: [
+        { category: "KITCHEN", itemKey: "riceCooker", quantity: 1 },
+        { category: "MINIBAR", itemKey: "water", quantity: 5 },
+      ],
+    });
+    expect(res.status).toBe(201);
+    const arg = (tx.villaAmenity.createMany.mock.calls[0] as unknown[])[0] as {
+      data: { category: string }[];
+    };
+    const cats = arg.data.map((a) => a.category);
+    expect(cats).toContain("KITCHEN");
+    expect(cats).not.toContain("MINIBAR");
+  });
+});

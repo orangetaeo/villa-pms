@@ -87,9 +87,12 @@ export async function POST(req: Request) {
       });
     }
 
-    if (data.amenities.length > 0) {
+    // #2b: 미니바는 회사표준(MinibarItem)으로 분리 — 빌라별 저장 안 함.
+    //   마법사가 MINIBAR를 보내도 drop(PATCH 경로와 동일 정책, 신규 villa MINIBAR 행 유입 차단).
+    const createAmenities = data.amenities.filter((a) => a.category !== "MINIBAR");
+    if (createAmenities.length > 0) {
       await tx.villaAmenity.createMany({
-        data: data.amenities.map((amenity) => ({
+        data: createAmenities.map((amenity) => ({
           villaId: created.id,
           category: amenity.category,
           itemKey: amenity.itemKey,

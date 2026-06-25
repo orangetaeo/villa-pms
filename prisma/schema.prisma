@@ -243,6 +243,23 @@ model VillaAmenity {
   @@index([villaId, category])
 }
 
+// 미니바 회사표준 1세트 (#2b, ADR-0015). 빌라별이 아니라 전 빌라 공통 — villaId 없음(공급자 쿼리 구조적 도달 불가).
+//   unitPriceVnd = 우리 회사 고객 청구 단가(= 판매가). 공급자·공개(/p) 라우트엔 절대 노출 금지(마진 비공개 원칙2).
+//   체크아웃은 소모 수량 직접 입력 → 차감액 = 소모 × unitPriceVnd (BigInt, 부동소수점 금지).
+model MinibarItem {
+  id           String   @id @default(cuid())
+  itemKey      String   @unique // 안정 식별 코드(자동생성 mb_*) — 표시명 변경과 무관한 키
+  nameKo       String // 한국어 품목명 (운영자 표시)
+  nameVi       String? // 베트남어 품목명 (선택)
+  unitPriceVnd BigInt // 고객 청구 단가 VND, 동 단위. 우리 판매가 — 공급자 비노출
+  sortOrder    Int      @default(0)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([active, sortOrder])
+}
+
 // ===================== 시즌·요율 =====================
 
 enum SeasonType {

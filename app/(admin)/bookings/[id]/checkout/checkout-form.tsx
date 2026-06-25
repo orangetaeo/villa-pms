@@ -1,6 +1,6 @@
 "use client";
 
-// 체크아웃 검수 폼 (b4 변환, T3.3) — 공간별 비교 업로드 + 미니바 읽기 전용 +
+// 체크아웃 검수 폼 (b4 변환, T3.3) — 공간별 비교 업로드 + 미니바 소모 입력(#2b) +
 // 파손 리포트 + 하단 고정 액션 바 (전액 환불 / 차감 후 환불 승인)
 import { useState } from "react";
 import Image from "next/image";
@@ -17,12 +17,10 @@ interface Section {
 }
 interface MinibarItem {
   id: string;
+  /** 회사표준 품목 표시명(로케일별 서버 해석) */
   label: string;
-  isCustom: boolean;
-  itemKey: string;
-  quantity: number;
-  /** 미니바 고객 청구 단가(VND, 동 단위 문자열) — null이면 단가 미설정(차감 0) */
-  unitPriceVnd: string | null;
+  /** 미니바 고객 청구 단가(= 우리 판매가, VND 동 단위 문자열) */
+  unitPriceVnd: string;
 }
 
 export default function CheckoutForm({
@@ -40,7 +38,6 @@ export default function CheckoutForm({
   depositVnd: string | null;
 }) {
   const t = useTranslations("adminCheckout");
-  const ta = useTranslations("amenities.items");
   const router = useRouter();
 
   const [photos, setPhotos] = useState<Record<string, string>>({}); // sectionId → url
@@ -66,25 +63,25 @@ export default function CheckoutForm({
     if (idx >= 0) setLightbox(idx);
   };
 
-  // ── 미니바 차감 자동계산 (b16) ─────────────────────────────────
-  // remaining[id] = 남은 수량(스테퍼). 초기값 = 비치 수량(전부 남음 = 소모 0).
-  const [remaining, setRemaining] = useState<Record<string, number>>(() =>
-    Object.fromEntries(minibar.map((m) => [m.id, m.quantity]))
-  );
+  // ── 미니바 소모 입력 (#2b) ─────────────────────────────────────
+  // 회사표준 모델엔 빌라 비치수량이 없다 → 소모 수량을 직접 입력한다(역산 폐기).
+  // consumed[id] = 소모 수량(스테퍼·직접입력). 초기값 0.
+  const [consumedMap, setConsumedMap] = useState<Record<string, number>>({});
 
-  /** 남은 수량 변경 (0 ~ 비치 수량 범위로 클램프) — 스테퍼·직접입력 공통 */
-  const setRemainingClamped = (item: MinibarItem, next: number) => {
-    const clamped = Math.max(0, Math.min(item.quantity, Math.trunc(next || 0)));
-    setRemaining((r) => ({ ...r, [item.id]: clamped }));
+  const MAX_CONSUMED = 99; // 상한 (오입력 방지)
+
+  /** 소모 수량 변경 (0 ~ MAX_CONSUMED 클램프) — 스테퍼·직접입력 공통 */
+  const setConsumedClamped = (item: MinibarItem, next: number) => {
+    const clamped = Math.max(0, Math.min(MAX_CONSUMED, Math.trunc(next || 0)));
+    setConsumedMap((c) => ({ ...c, [item.id]: clamped }));
   };
 
-  /** 행별 자동계산 결과 — 소모 = 비치 − 남은, 차감액 = 소모 × 단가(BigInt, float 금지) */
+  /** 행별 결과 — 차감액 = 소모 × 단가(BigInt, float 금지) */
   const minibarRows = minibar.map((m) => {
-    const left = remaining[m.id] ?? m.quantity;
-    const consumed = Math.max(0, m.quantity - left);
-    const unit = m.unitPriceVnd ? BigInt(m.unitPriceVnd) : 0n;
+    const consumed = consumedMap[m.id] ?? 0;
+    const unit = BigInt(m.unitPriceVnd);
     const lineDeduction = unit * BigInt(consumed);
-    return { item: m, left, consumed, unit, lineDeduction };
+    return { item: m, consumed, unit, lineDeduction };
   });
 
   /** 미니바 차감 합계(BigInt) */
@@ -155,10 +152,7 @@ export default function CheckoutForm({
   const minibarNote = () => {
     const lines = minibarRows
       .filter((r) => r.consumed > 0)
-      .map((r) => {
-        const name = r.item.isCustom ? r.item.label : ta(r.item.itemKey);
-        return `${name} x${r.consumed} = ${formatThousands(r.lineDeduction)}₫`;
-      });
+      .map((r) => `${r.item.label} x${r.consumed} = ${formatThousands(r.lineDeduction)}₫`);
     if (lines.length === 0) return "";
     return `${t("minibarNotePrefix")} ${lines.join(", ")}`;
   };
@@ -310,130 +304,103 @@ export default function CheckoutForm({
           <p className="text-sm text-slate-500 p-6">{t("minibarEmpty")}</p>
         ) : (
           <>
-            {/* 데스크톱(≥768px): 표 */}
+            {/* 데스크톱(≥768px): 표 — 소모 수량 직접 입력 */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-sm border-collapse tabular-nums">
                 <thead>
                   <tr className="text-[11px] font-bold text-slate-500 uppercase tracking-wider bg-slate-900/50">
                     <th className="px-6 py-3 border-b border-slate-800">{t("item")}</th>
-                    <th className="px-6 py-3 border-b border-slate-800 text-center">{t("stockedQty")}</th>
-                    <th className="px-6 py-3 border-b border-slate-800 text-center">{t("remainingQty")}</th>
-                    <th className="px-6 py-3 border-b border-slate-800 text-center">{t("consumedQty")}</th>
                     <th className="px-6 py-3 border-b border-slate-800 text-right">{t("unitPrice")}</th>
+                    <th className="px-6 py-3 border-b border-slate-800 text-center">{t("consumedQty")}</th>
                     <th className="px-6 py-3 border-b border-slate-800 text-right">{t("lineDeduction")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {minibarRows.map(({ item, left, consumed, unit, lineDeduction }) => {
-                    const dimmed = item.quantity === 0;
-                    return (
-                      <tr
-                        key={item.id}
-                        className={dimmed ? "opacity-40 bg-slate-900/20" : "hover:bg-slate-800/40 transition-colors"}
-                      >
-                        <td className="px-6 py-4 font-medium text-slate-200">
-                          {item.isCustom ? item.label : ta(item.itemKey)}
-                        </td>
-                        <td className="px-6 py-4 text-center text-slate-400">{item.quantity}</td>
-                        <td className="px-6 py-4 text-center">
-                          <div className="inline-flex items-center bg-slate-900 rounded border border-slate-700 p-0.5">
-                            <button
-                              type="button"
-                              aria-label={t("decrement")}
-                              disabled={dimmed || left <= 0}
-                              onClick={() => setRemainingClamped(item, left - 1)}
-                              className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-white disabled:opacity-30 disabled:hover:text-slate-500"
-                            >
-                              −
-                            </button>
-                            <input
-                              type="number"
-                              aria-label={`${item.isCustom ? item.label : ta(item.itemKey)} ${t("remainingQty")}`}
-                              min={0}
-                              max={item.quantity}
-                              value={left}
-                              disabled={dimmed}
-                              onChange={(e) => setRemainingClamped(item, parseInt(e.target.value, 10))}
-                              className="w-10 bg-transparent border-none text-center text-xs font-bold text-white focus:ring-0 p-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
-                            />
-                            <button
-                              type="button"
-                              aria-label={t("increment")}
-                              disabled={dimmed || left >= item.quantity}
-                              onClick={() => setRemainingClamped(item, left + 1)}
-                              className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-white disabled:opacity-30 disabled:hover:text-slate-500"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span
-                            className={
-                              consumed > 0
-                                ? "px-3 py-1 bg-admin-primary/10 text-admin-primary font-bold rounded-md border border-admin-primary/20"
-                                : "px-3 py-1 bg-slate-800 text-slate-600 font-bold rounded-md border border-slate-700"
-                            }
+                  {minibarRows.map(({ item, consumed, lineDeduction }) => (
+                    <tr key={item.id} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="px-6 py-4 font-medium text-slate-200">{item.label}</td>
+                      <td className="px-6 py-4 text-right text-slate-400">
+                        {formatThousands(item.unitPriceVnd)}₫
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="inline-flex items-center bg-slate-900 rounded border border-slate-700 p-0.5">
+                          <button
+                            type="button"
+                            aria-label={t("decrement")}
+                            disabled={consumed <= 0}
+                            onClick={() => setConsumedClamped(item, consumed - 1)}
+                            className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-white disabled:opacity-30 disabled:hover:text-slate-500"
                           >
-                            {consumed}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right text-slate-400">
-                          {item.unitPriceVnd ? formatThousands(item.unitPriceVnd) + "₫" : t("noPrice")}
-                        </td>
-                        <td className={`px-6 py-4 text-right font-bold ${lineDeduction > 0n ? "text-red-400" : "text-slate-600"}`}>
-                          {formatThousands(lineDeduction)}₫
-                        </td>
-                      </tr>
-                    );
-                  })}
+                            −
+                          </button>
+                          <input
+                            type="number"
+                            aria-label={`${item.label} ${t("consumedQty")}`}
+                            min={0}
+                            max={99}
+                            value={consumed}
+                            onChange={(e) => setConsumedClamped(item, parseInt(e.target.value, 10))}
+                            className="w-10 bg-transparent border-none text-center text-xs font-bold text-white focus:ring-0 p-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                          <button
+                            type="button"
+                            aria-label={t("increment")}
+                            disabled={consumed >= 99}
+                            onClick={() => setConsumedClamped(item, consumed + 1)}
+                            className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-white disabled:opacity-30 disabled:hover:text-slate-500"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </td>
+                      <td className={`px-6 py-4 text-right font-bold ${lineDeduction > 0n ? "text-red-400" : "text-slate-600"}`}>
+                        {formatThousands(lineDeduction)}₫
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
 
             {/* 모바일(<768px): 카드 스택 */}
             <div className="md:hidden flex flex-col divide-y divide-slate-800/60">
-              {minibarRows.map(({ item, left, consumed, lineDeduction }) => {
-                const dimmed = item.quantity === 0;
-                return (
-                  <div key={item.id} className={`p-4 ${dimmed ? "opacity-40" : ""}`}>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="font-bold text-slate-200">{item.isCustom ? item.label : ta(item.itemKey)}</span>
-                      <span className={`font-bold tabular-nums ${lineDeduction > 0n ? "text-red-400" : "text-slate-600"}`}>
-                        {formatThousands(lineDeduction)}₫
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 text-xs">
-                      <span className="text-slate-500">
-                        {t("stockedQty")} {item.quantity} · {t("consumedQty")}{" "}
-                        <span className="text-admin-primary font-bold tabular-nums">{consumed}</span> ·{" "}
-                        {item.unitPriceVnd ? formatThousands(item.unitPriceVnd) + "₫" : t("noPrice")}
-                      </span>
-                      <div className="inline-flex items-center bg-slate-900 rounded border border-slate-700 p-0.5 shrink-0">
-                        <button
-                          type="button"
-                          aria-label={t("decrement")}
-                          disabled={dimmed || left <= 0}
-                          onClick={() => setRemainingClamped(item, left - 1)}
-                          className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-white disabled:opacity-30"
-                        >
-                          −
-                        </button>
-                        <span className="w-8 text-center text-xs font-bold text-white tabular-nums">{left}</span>
-                        <button
-                          type="button"
-                          aria-label={t("increment")}
-                          disabled={dimmed || left >= item.quantity}
-                          onClick={() => setRemainingClamped(item, left + 1)}
-                          className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-white disabled:opacity-30"
-                        >
-                          +
-                        </button>
-                      </div>
+              {minibarRows.map(({ item, consumed, lineDeduction }) => (
+                <div key={item.id} className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-bold text-slate-200">{item.label}</span>
+                    <span className={`font-bold tabular-nums ${lineDeduction > 0n ? "text-red-400" : "text-slate-600"}`}>
+                      {formatThousands(lineDeduction)}₫
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-xs">
+                    <span className="text-slate-500">
+                      {formatThousands(item.unitPriceVnd)}₫ · {t("consumedQty")}{" "}
+                      <span className="text-admin-primary font-bold tabular-nums">{consumed}</span>
+                    </span>
+                    <div className="inline-flex items-center bg-slate-900 rounded border border-slate-700 p-0.5 shrink-0">
+                      <button
+                        type="button"
+                        aria-label={t("decrement")}
+                        disabled={consumed <= 0}
+                        onClick={() => setConsumedClamped(item, consumed - 1)}
+                        className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-white disabled:opacity-30"
+                      >
+                        −
+                      </button>
+                      <span className="w-8 text-center text-xs font-bold text-white tabular-nums">{consumed}</span>
+                      <button
+                        type="button"
+                        aria-label={t("increment")}
+                        disabled={consumed >= 99}
+                        onClick={() => setConsumedClamped(item, consumed + 1)}
+                        className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-white disabled:opacity-30"
+                      >
+                        +
+                      </button>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
 
             {/* 합계 스트라이프 */}
