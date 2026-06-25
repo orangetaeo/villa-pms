@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<!--
+  b17-statistics-villas — 통계화면 / 탭3. 빌라 성과 [전 운영자, 금액 컬럼만 canViewFinance 게이트]
+  T-admin-statistics §5 탭3. 랭킹 테이블(정렬) + 상위10 막대(정렬 토글). <768 카드 전환.
+  STAFF: 매출·마진 컬럼 숨김(서버 가공). 여기 디자인엔 금액 컬럼을 노란 점선으로 "게이트 구역" 표기.
+  통화 분리: KRW매출·VND매출 별도 컬럼(합산 안 함).
+-->
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>통계 — 빌라 성과 · Villa PMS Admin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0F172A; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    body { font-family: "Public Sans", "Noto Sans KR", sans-serif; word-break: keep-all; }
+    th, button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
+    .bar-h { background: linear-gradient(to right, #3B82F6, #60A5FA); }
+    /* 금액 게이트 구역 표시 (STAFF에겐 서버에서 제거) */
+    .fin-gate { box-shadow: inset 0 0 0 9999px rgba(245,158,11,0.04); }
+</style>
+</head>
+<body class="bg-[#0F172A] text-slate-200 antialiased overflow-hidden">
+
+<aside class="h-screen w-64 fixed left-0 top-0 border-r border-slate-800 shadow-xl bg-[#0F172A] flex flex-col py-4 z-50">
+<div class="px-6 mb-8"><h1 class="text-xl font-black text-white">Villa PMS</h1><p class="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Villa PMS Admin</p></div>
+<nav class="flex-1 space-y-1 overflow-y-auto">
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">dashboard</span><span class="text-sm font-medium">대시보드</span></a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">calendar_month</span><span class="text-sm font-medium">예약</span></a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">rate_review</span><span class="text-sm font-medium">제안</span></a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">villa</span><span class="text-sm font-medium">빌라</span></a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">grid_view</span><span class="text-sm font-medium">공실 보드</span></a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">fact_check</span><span class="text-sm font-medium">청소 검수</span></a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">payments</span><span class="text-sm font-medium">정산</span></a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">chat</span><span class="text-sm font-medium">메시지</span></a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">group</span><span class="text-sm font-medium">사용자</span></a>
+<a class="text-white bg-[#3B82F6] rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">analytics</span><span class="text-sm font-medium">통계</span></a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">settings</span><span class="text-sm font-medium">설정</span></a>
+</nav>
+<div class="px-4 mt-auto pt-4"><div class="bg-slate-800/50 rounded-xl p-3 flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">관</div><div class="overflow-hidden"><p class="text-sm font-bold text-white truncate">관리자</p><p class="text-[10px] text-slate-500">최고 관리자</p></div></div></div>
+</aside>
+
+<main class="ml-64 flex flex-col h-screen">
+<header class="sticky top-0 z-40 bg-[#0F172A] border-b border-slate-800 flex justify-between items-center h-16 px-6 shrink-0">
+<div class="flex items-center gap-3"><h2 class="text-lg font-bold text-white">통계</h2><span class="text-slate-600">/</span><span class="text-sm text-slate-400">사업 성과 분석</span></div>
+<div class="flex items-center gap-4 text-slate-400">
+<div class="flex items-center px-2 py-0.5 rounded border border-slate-700 bg-slate-800/50 text-white text-[10px] font-medium tabular-nums">1,000,000₫ ≈ 53,000원</div>
+<button class="hover:text-white relative"><span class="material-symbols-outlined">notifications</span><span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-[#0F172A]"></span></button>
+<button class="hover:text-white"><span class="material-symbols-outlined">account_circle</span></button>
+</div>
+</header>
+
+<div class="flex-1 overflow-y-auto bg-[#0F172A]">
+<div class="px-6 pt-5">
+<div class="flex items-end justify-between border-b border-slate-800">
+<div class="flex gap-1">
+<a class="px-4 py-3 text-sm font-medium text-slate-400 hover:text-white border-b-2 border-transparent -mb-px flex items-center gap-2" href="#"><span class="material-symbols-outlined text-base">payments</span>개요</a>
+<a class="px-4 py-3 text-sm font-medium text-slate-400 hover:text-white border-b-2 border-transparent -mb-px flex items-center gap-2" href="#"><span class="material-symbols-outlined text-base">event_available</span>가동률</a>
+<a class="px-4 py-3 text-sm font-bold text-white border-b-2 border-[#3B82F6] -mb-px flex items-center gap-2" href="#"><span class="material-symbols-outlined text-base">leaderboard</span>빌라 성과</a>
+<a class="px-4 py-3 text-sm font-medium text-slate-400 hover:text-white border-b-2 border-transparent -mb-px flex items-center gap-2" href="#"><span class="material-symbols-outlined text-base">conversion_path</span>운영지표</a>
+</div>
+<div class="flex items-center gap-1 bg-slate-900 rounded-lg p-1 mb-2 border border-slate-800">
+<button class="px-3 py-1 text-xs font-bold rounded bg-[#3B82F6] text-white">최근 6개월</button>
+<button class="px-3 py-1 text-xs font-medium rounded text-slate-400 hover:text-white">12개월</button>
+<button class="px-3 py-1 text-xs font-medium rounded text-slate-400 hover:text-white">연도</button>
+</div>
+</div>
+</div>
+
+<div class="p-6 space-y-6">
+<!-- 게이트 안내 -->
+<div class="flex items-center gap-2 text-[11px] text-amber-400/80 bg-amber-500/5 border border-amber-500/20 rounded-lg px-3 py-2">
+<span class="material-symbols-outlined text-sm">lock</span>
+매출·환산마진 컬럼은 <b class="text-amber-300 mx-1">권한(OWNER·MANAGER)</b> 전용 — STAFF 계정에는 서버에서 제거되어 페이로드에 포함되지 않습니다.
+</div>
+
+<!-- 상위 10 막대 차트 (정렬 토글) -->
+<div class="bg-[#1E293B] rounded-xl border border-slate-700/50 p-5">
+<div class="flex justify-between items-center mb-4">
+<h3 class="font-bold text-white">상위 10 빌라</h3>
+<div class="flex items-center gap-1 bg-slate-900 rounded-lg p-0.5 border border-slate-800 text-[11px]">
+<button class="px-2.5 py-1 rounded bg-[#3B82F6] text-white font-bold">가동률</button>
+<button class="px-2.5 py-1 rounded text-slate-400 hover:text-white font-medium">예약수</button>
+<button class="px-2.5 py-1 rounded text-slate-400 hover:text-white font-medium">매출</button>
+</div>
+</div>
+<div class="space-y-2.5" data-recharts="BarChart top10">
+<div class="flex items-center gap-3"><span class="w-36 shrink-0 text-xs text-slate-300 truncate">쏘나씨 V25</span><div class="flex-1 h-5 bg-slate-700/30 rounded"><div class="h-full bar-h rounded" style="width:100%"></div></div><span class="w-10 text-right text-xs text-slate-400 tabular-nums">88%</span></div>
+<div class="flex items-center gap-3"><span class="w-36 shrink-0 text-xs text-slate-300 truncate">썬셋 사나토 A3</span><div class="flex-1 h-5 bg-slate-700/30 rounded"><div class="h-full bar-h rounded" style="width:92%"></div></div><span class="w-10 text-right text-xs text-slate-400 tabular-nums">81%</span></div>
+<div class="flex items-center gap-3"><span class="w-36 shrink-0 text-xs text-slate-300 truncate">쏘나씨 V11</span><div class="flex-1 h-5 bg-slate-700/30 rounded"><div class="h-full bar-h rounded" style="width:84%"></div></div><span class="w-10 text-right text-xs text-slate-400 tabular-nums">74%</span></div>
+<div class="flex items-center gap-3"><span class="w-36 shrink-0 text-xs text-slate-300 truncate">쏘나씨 V12</span><div class="flex-1 h-5 bg-slate-700/30 rounded"><div class="h-full bar-h rounded" style="width:76%"></div></div><span class="w-10 text-right text-xs text-slate-400 tabular-nums">67%</span></div>
+<div class="flex items-center gap-3"><span class="w-36 shrink-0 text-xs text-slate-300 truncate">썬셋 사나토 B1</span><div class="flex-1 h-5 bg-slate-700/30 rounded"><div class="h-full bar-h rounded" style="width:59%"></div></div><span class="w-10 text-right text-xs text-slate-400 tabular-nums">52%</span></div>
+</div>
+</div>
+
+<!-- 랭킹 테이블 (정렬 가능) -->
+<div class="bg-[#1E293B] rounded-xl border border-slate-700/50 overflow-hidden">
+<div class="p-4 border-b border-slate-700/50 flex justify-between items-center">
+<h3 class="font-bold text-white">빌라 랭킹</h3>
+<span class="text-[11px] text-slate-500">컬럼 클릭으로 정렬 · &lt;768px 카드 전환</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full border-collapse text-sm">
+<thead>
+<tr class="bg-slate-900/50 text-[11px] text-slate-500 uppercase tracking-wider">
+<th class="p-3 text-left cursor-pointer hover:text-slate-300">빌라명</th>
+<th class="p-3 text-left cursor-pointer hover:text-slate-300">단지</th>
+<th class="p-3 text-right cursor-pointer hover:text-slate-300">예약수</th>
+<th class="p-3 text-right cursor-pointer hover:text-slate-300">점유박</th>
+<th class="p-3 text-right cursor-pointer hover:text-slate-300 text-white">가동률 <span class="material-symbols-outlined text-[14px] align-middle">arrow_downward</span></th>
+<!-- 금액 게이트 컬럼들 -->
+<th class="p-3 text-right cursor-pointer hover:text-slate-300 fin-gate">KRW매출</th>
+<th class="p-3 text-right cursor-pointer hover:text-slate-300 fin-gate">VND매출</th>
+<th class="p-3 text-right cursor-pointer hover:text-slate-300 fin-gate">환산마진 <span class="text-amber-500 normal-case">참고</span></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-800">
+<tr class="hover:bg-slate-800/30">
+<td class="p-3 font-medium text-slate-200">쏘나씨 V25</td><td class="p-3 text-slate-400">쏘나씨</td>
+<td class="p-3 text-right tabular-nums text-slate-300">11</td><td class="p-3 text-right tabular-nums text-slate-300">41</td>
+<td class="p-3 text-right tabular-nums text-white font-bold">88%</td>
+<td class="p-3 text-right tabular-nums text-slate-300 fin-gate">3,200,000원</td><td class="p-3 text-right tabular-nums text-slate-300 fin-gate">24,500,000₫</td><td class="p-3 text-right tabular-nums text-emerald-400 fin-gate">9,800,000₫</td>
+</tr>
+<tr class="hover:bg-slate-800/30">
+<td class="p-3 font-medium text-slate-200">썬셋 사나토 A3</td><td class="p-3 text-slate-400">썬셋</td>
+<td class="p-3 text-right tabular-nums text-slate-300">9</td><td class="p-3 text-right tabular-nums text-slate-300">38</td>
+<td class="p-3 text-right tabular-nums text-white font-bold">81%</td>
+<td class="p-3 text-right tabular-nums text-slate-300 fin-gate">2,150,000원</td><td class="p-3 text-right tabular-nums text-slate-300 fin-gate">19,300,000₫</td><td class="p-3 text-right tabular-nums text-emerald-400 fin-gate">7,400,000₫</td>
+</tr>
+<tr class="hover:bg-slate-800/30">
+<td class="p-3 font-medium text-slate-200">쏘나씨 V11</td><td class="p-3 text-slate-400">쏘나씨</td>
+<td class="p-3 text-right tabular-nums text-slate-300">8</td><td class="p-3 text-right tabular-nums text-slate-300">31</td>
+<td class="p-3 text-right tabular-nums text-white font-bold">74%</td>
+<td class="p-3 text-right tabular-nums text-slate-300 fin-gate">1,980,000원</td><td class="p-3 text-right tabular-nums text-slate-300 fin-gate">15,600,000₫</td><td class="p-3 text-right tabular-nums text-emerald-400 fin-gate">5,900,000₫</td>
+</tr>
+<tr class="hover:bg-slate-800/30">
+<td class="p-3 font-medium text-slate-200">쏘나씨 V12</td><td class="p-3 text-slate-400">쏘나씨</td>
+<td class="p-3 text-right tabular-nums text-slate-300">7</td><td class="p-3 text-right tabular-nums text-slate-300">28</td>
+<td class="p-3 text-right tabular-nums text-white font-bold">67%</td>
+<td class="p-3 text-right tabular-nums text-slate-300 fin-gate">1,650,000원</td><td class="p-3 text-right tabular-nums text-slate-300 fin-gate">12,800,000₫</td><td class="p-3 text-right tabular-nums text-emerald-400 fin-gate">4,300,000₫</td>
+</tr>
+<tr class="hover:bg-slate-800/30">
+<td class="p-3 font-medium text-slate-200">썬셋 사나토 B1</td><td class="p-3 text-slate-400">썬셋</td>
+<td class="p-3 text-right tabular-nums text-slate-300">5</td><td class="p-3 text-right tabular-nums text-slate-300">22</td>
+<td class="p-3 text-right tabular-nums text-white font-bold">52%</td>
+<td class="p-3 text-right tabular-nums text-slate-300 fin-gate">980,000원</td><td class="p-3 text-right tabular-nums text-slate-300 fin-gate">8,400,000₫</td><td class="p-3 text-right tabular-nums text-emerald-400 fin-gate">2,800,000₫</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

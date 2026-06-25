@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<!--
+  b17-statistics-operations — 통계화면 / 탭4. 운영지표(전환·운영) [전 운영자, 금액 부분만 게이트]
+  T-admin-statistics §5 탭4. 제안 전환 깔때기(4단계+전환율%) + 운영비율 카드3(홀드만료/취소/NO_SHOW) +
+  청소검수(평균처리시간/미결/반려율) + 보증금 차감(VND, canViewFinance).
+-->
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>통계 — 운영지표 · Villa PMS Admin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0F172A; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    body { font-family: "Public Sans", "Noto Sans KR", sans-serif; word-break: keep-all; }
+    th, button, .tabular-nums, span[class*="rounded"] { white-space: nowrap; }
+</style>
+</head>
+<body class="bg-[#0F172A] text-slate-200 antialiased overflow-hidden">
+
+<aside class="h-screen w-64 fixed left-0 top-0 border-r border-slate-800 shadow-xl bg-[#0F172A] flex flex-col py-4 z-50">
+<div class="px-6 mb-8"><h1 class="text-xl font-black text-white">Villa PMS</h1><p class="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Villa PMS Admin</p></div>
+<nav class="flex-1 space-y-1 overflow-y-auto">
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">dashboard</span><span class="text-sm font-medium">대시보드</span></a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">calendar_month</span><span class="text-sm font-medium">예약</span></a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">rate_review</span><span class="text-sm font-medium">제안</span></a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">villa</span><span class="text-sm font-medium">빌라</span></a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">grid_view</span><span class="text-sm font-medium">공실 보드</span></a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">fact_check</span><span class="text-sm font-medium">청소 검수</span></a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">payments</span><span class="text-sm font-medium">정산</span></a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">chat</span><span class="text-sm font-medium">메시지</span></a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">group</span><span class="text-sm font-medium">사용자</span></a>
+<a class="text-white bg-[#3B82F6] rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">analytics</span><span class="text-sm font-medium">통계</span></a>
+<a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 my-1 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">settings</span><span class="text-sm font-medium">설정</span></a>
+</nav>
+<div class="px-4 mt-auto pt-4"><div class="bg-slate-800/50 rounded-xl p-3 flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">관</div><div class="overflow-hidden"><p class="text-sm font-bold text-white truncate">관리자</p><p class="text-[10px] text-slate-500">최고 관리자</p></div></div></div>
+</aside>
+
+<main class="ml-64 flex flex-col h-screen">
+<header class="sticky top-0 z-40 bg-[#0F172A] border-b border-slate-800 flex justify-between items-center h-16 px-6 shrink-0">
+<div class="flex items-center gap-3"><h2 class="text-lg font-bold text-white">통계</h2><span class="text-slate-600">/</span><span class="text-sm text-slate-400">사업 성과 분석</span></div>
+<div class="flex items-center gap-4 text-slate-400">
+<div class="flex items-center px-2 py-0.5 rounded border border-slate-700 bg-slate-800/50 text-white text-[10px] font-medium tabular-nums">1,000,000₫ ≈ 53,000원</div>
+<button class="hover:text-white relative"><span class="material-symbols-outlined">notifications</span><span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-[#0F172A]"></span></button>
+<button class="hover:text-white"><span class="material-symbols-outlined">account_circle</span></button>
+</div>
+</header>
+
+<div class="flex-1 overflow-y-auto bg-[#0F172A]">
+<div class="px-6 pt-5">
+<div class="flex items-end justify-between border-b border-slate-800">
+<div class="flex gap-1">
+<a class="px-4 py-3 text-sm font-medium text-slate-400 hover:text-white border-b-2 border-transparent -mb-px flex items-center gap-2" href="#"><span class="material-symbols-outlined text-base">payments</span>개요</a>
+<a class="px-4 py-3 text-sm font-medium text-slate-400 hover:text-white border-b-2 border-transparent -mb-px flex items-center gap-2" href="#"><span class="material-symbols-outlined text-base">event_available</span>가동률</a>
+<a class="px-4 py-3 text-sm font-medium text-slate-400 hover:text-white border-b-2 border-transparent -mb-px flex items-center gap-2" href="#"><span class="material-symbols-outlined text-base">leaderboard</span>빌라 성과</a>
+<a class="px-4 py-3 text-sm font-bold text-white border-b-2 border-[#3B82F6] -mb-px flex items-center gap-2" href="#"><span class="material-symbols-outlined text-base">conversion_path</span>운영지표</a>
+</div>
+<div class="flex items-center gap-1 bg-slate-900 rounded-lg p-1 mb-2 border border-slate-800">
+<button class="px-3 py-1 text-xs font-bold rounded bg-[#3B82F6] text-white">최근 6개월</button>
+<button class="px-3 py-1 text-xs font-medium rounded text-slate-400 hover:text-white">12개월</button>
+<button class="px-3 py-1 text-xs font-medium rounded text-slate-400 hover:text-white">연도</button>
+</div>
+</div>
+</div>
+
+<div class="p-6 space-y-6">
+<!-- 제안 전환 깔때기 4단계 -->
+<div class="bg-[#1E293B] rounded-xl border border-slate-700/50 p-5">
+<div class="flex justify-between items-center mb-5">
+<div><h3 class="font-bold text-white">제안 전환 깔때기</h3><p class="text-[11px] text-slate-500 mt-0.5">제안 생성 → 가예약 → 확정 → 체크아웃 · 단계별 전환율</p></div>
+</div>
+<div class="flex items-stretch gap-2" data-recharts="FunnelChart 4-stage">
+<!-- 단계1 -->
+<div class="flex-1 flex flex-col items-center">
+<div class="w-full h-28 rounded-lg bg-[#3B82F6] flex flex-col items-center justify-center text-white"><span class="text-2xl font-bold tabular-nums">62</span><span class="text-[11px] opacity-90">제안 생성</span></div>
+</div>
+<div class="flex items-center"><div class="text-center px-1"><span class="material-symbols-outlined text-slate-500">chevron_right</span><div class="text-[10px] text-emerald-400 font-bold tabular-nums">74%</div></div></div>
+<!-- 단계2 -->
+<div class="flex-1 flex flex-col items-center">
+<div class="w-full h-24 mt-2 rounded-lg bg-[#3B82F6]/85 flex flex-col items-center justify-center text-white"><span class="text-2xl font-bold tabular-nums">46</span><span class="text-[11px] opacity-90">가예약</span></div>
+</div>
+<div class="flex items-center"><div class="text-center px-1"><span class="material-symbols-outlined text-slate-500">chevron_right</span><div class="text-[10px] text-emerald-400 font-bold tabular-nums">63%</div></div></div>
+<!-- 단계3 -->
+<div class="flex-1 flex flex-col items-center">
+<div class="w-full h-20 mt-4 rounded-lg bg-[#3B82F6]/70 flex flex-col items-center justify-center text-white"><span class="text-2xl font-bold tabular-nums">29</span><span class="text-[11px] opacity-90">확정</span></div>
+</div>
+<div class="flex items-center"><div class="text-center px-1"><span class="material-symbols-outlined text-slate-500">chevron_right</span><div class="text-[10px] text-emerald-400 font-bold tabular-nums">93%</div></div></div>
+<!-- 단계4 -->
+<div class="flex-1 flex flex-col items-center">
+<div class="w-full h-16 mt-6 rounded-lg bg-[#10B981] flex flex-col items-center justify-center text-white"><span class="text-2xl font-bold tabular-nums">27</span><span class="text-[11px] opacity-90">체크아웃</span></div>
+</div>
+</div>
+<div class="mt-4 pt-3 border-t border-slate-700/50 flex items-center justify-between text-[11px]">
+<span class="text-slate-500">전체 전환율 (제안→체크아웃)</span>
+<span class="text-white font-bold tabular-nums">43.5%</span>
+</div>
+</div>
+
+<!-- 운영 비율 카드 3 -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div class="bg-[#1E293B] p-4 rounded-xl border border-slate-700/50">
+<div class="flex justify-between items-start mb-2"><span class="text-xs font-medium text-slate-400 uppercase tracking-wider">홀드 만료율</span><span class="material-symbols-outlined text-amber-500">hourglass_disabled</span></div>
+<div class="flex items-baseline gap-1"><span class="text-3xl font-bold text-white tabular-nums">17.4</span><span class="text-sm text-slate-400">%</span></div>
+<p class="mt-2 text-[11px] text-slate-500">생성 HOLD 46건 중 8건 만료</p>
+</div>
+<div class="bg-[#1E293B] p-4 rounded-xl border border-slate-700/50">
+<div class="flex justify-between items-start mb-2"><span class="text-xs font-medium text-slate-400 uppercase tracking-wider">취소율</span><span class="material-symbols-outlined text-red-400">cancel</span></div>
+<div class="flex items-baseline gap-1"><span class="text-3xl font-bold text-white tabular-nums">6.2</span><span class="text-sm text-slate-400">%</span></div>
+<p class="mt-2 text-[11px] text-slate-500">전체 예약 48건 중 3건 취소</p>
+</div>
+<div class="bg-[#1E293B] p-4 rounded-xl border border-slate-700/50">
+<div class="flex justify-between items-start mb-2"><span class="text-xs font-medium text-slate-400 uppercase tracking-wider">NO_SHOW율</span><span class="material-symbols-outlined text-orange-400">person_off</span></div>
+<div class="flex items-baseline gap-1"><span class="text-3xl font-bold text-white tabular-nums">3.6</span><span class="text-sm text-slate-400">%</span></div>
+<p class="mt-2 text-[11px] text-slate-500">체크아웃+노쇼 28건 중 1건</p>
+</div>
+</div>
+
+<!-- 청소 검수 + 보증금 차감 -->
+<div class="grid grid-cols-12 gap-4">
+<!-- 청소 검수 (3지표) -->
+<div class="col-span-12 lg:col-span-8 bg-[#1E293B] rounded-xl border border-slate-700/50 p-5">
+<h3 class="font-bold text-white mb-4 flex items-center gap-2"><span class="material-symbols-outlined text-emerald-400 text-lg">cleaning_services</span>청소 검수</h3>
+<div class="grid grid-cols-3 gap-4">
+<div class="text-center p-3 rounded-lg bg-slate-900/40">
+<span class="material-symbols-outlined text-blue-400">timer</span>
+<div class="mt-1 text-2xl font-bold text-white tabular-nums">4.2<span class="text-sm text-slate-400">시간</span></div>
+<p class="text-[11px] text-slate-500 mt-1">평균 처리시간</p>
+</div>
+<div class="text-center p-3 rounded-lg bg-slate-900/40">
+<span class="material-symbols-outlined text-amber-400">pending_actions</span>
+<div class="mt-1 text-2xl font-bold text-white tabular-nums">2<span class="text-sm text-slate-400">건</span></div>
+<p class="text-[11px] text-slate-500 mt-1">미결(승인 대기)</p>
+</div>
+<div class="text-center p-3 rounded-lg bg-slate-900/40">
+<span class="material-symbols-outlined text-red-400">thumb_down</span>
+<div class="mt-1 text-2xl font-bold text-white tabular-nums">8.5<span class="text-sm text-slate-400">%</span></div>
+<p class="text-[11px] text-slate-500 mt-1">반려율 (제출 대비)</p>
+</div>
+</div>
+</div>
+<!-- 보증금 차감 (canViewFinance) -->
+<div class="col-span-12 lg:col-span-4 bg-[#1E293B] rounded-xl border border-slate-700/50 p-5 relative">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-bold text-white flex items-center gap-2"><span class="material-symbols-outlined text-orange-400 text-lg">price_change</span>보증금 차감</h3>
+<span class="inline-flex items-center gap-1 text-[10px] text-amber-400/80 bg-amber-500/10 px-1.5 py-0.5 rounded"><span class="material-symbols-outlined text-[11px]">lock</span>권한 전용</span>
+</div>
+<div class="mt-3"><div class="flex items-baseline gap-1"><span class="text-3xl font-bold text-orange-300 tabular-nums">4,200,000</span><span class="text-sm text-slate-400">₫</span></div></div>
+<p class="mt-2 text-[11px] text-slate-500">부분 차감(PARTIAL_DEDUCTED) <span class="text-slate-300 tabular-nums">3건</span> 합계</p>
+<p class="mt-1 text-[10px] text-slate-600">STAFF 계정엔 이 카드 미노출</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>
