@@ -1357,11 +1357,20 @@
     "status": {
       "DRAFT": "Bản nháp",
       "CONFIRMED": "Đã xác nhận",
+      "COLLECTED": "Đã thu tiền",
+      "FX_ADJUSTED": "Đã điều chỉnh tỷ giá",
       "PAID": "Đã thanh toán"
     },
     "actions": {
       "confirm": "Xác nhận",
       "confirmDialog": "Xác nhận quyết toán này? Sau khi xác nhận sẽ không tổng hợp lại.",
+      "collect": "Đã thu tiền",
+      "collectDialog": "Đã thu tiền khách và có đủ nguồn để chi cho nhà cung cấp?",
+      "adjustFx": "Điều chỉnh tỷ giá",
+      "adjustFxRedo": "Điều chỉnh lại tỷ giá",
+      "adjustFxDialog": "Phản ánh chênh lệch tỷ giá?",
+      "adjustFxPrompt": "Nhập số tiền chênh lệch tỷ giá (VND). Lãi là số dương, lỗ là số âm (vd: -150000).",
+      "adjustFxInvalid": "Số tiền chênh lệch phải là số nguyên (VND).",
       "markPaid": "Đánh dấu đã thanh toán",
       "markPaidDialog": "Đánh dấu đã thanh toán? Hệ thống sẽ gửi thông báo quyết toán cho nhà cung cấp.",
       "paidAt": "Hoàn tất {date}",
