@@ -29,6 +29,14 @@ const checkoutSchema = z.object({
     )
     .max(100)
     .optional(),
+  // 게스트 통합정산 수납 (ADR-0019 S4) — 현금/계좌이체/기타. 미지정이면 청구액만 기록(미수납).
+  settlement: z
+    .object({
+      method: z.enum(["CASH", "BANK_TRANSFER", "OTHER"]),
+      note: z.string().trim().max(500).optional().nullable(),
+    })
+    .optional()
+    .nullable(),
 });
 
 export async function POST(
@@ -60,6 +68,7 @@ export async function POST(
       damagePhotoUrls: parsed.data.damagePhotoUrls,
       deductionVnd: parsed.data.deductionVnd ? BigInt(parsed.data.deductionVnd) : null,
       minibarLines: parsed.data.minibarLines,
+      settlement: parsed.data.settlement ?? null,
       actorUserId: session.user.id,
       now: new Date(),
     });

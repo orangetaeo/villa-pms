@@ -540,11 +540,25 @@ model CheckOutRecord {
   // 미니바 판매 총액(VND) — 보증금 차감(deductionVnd, 파손+미니바 혼합)과 별개로 미니바 매출만 분리 집계용.
   // 라인 합계의 비정규화 캐시(= Σ CheckoutMinibarLine.lineVnd). 미니바 통계 KPI 빠른 합산.
   minibarChargeVnd BigInt?
+  // 게스트 통합 청구·정산 (ADR-0019 S4) — 미니바 소비 + 확정 부가옵션 합계. 보증금(deductionVnd)과 별개.
+  //   통화별 분리(ADR-0003): VND/KRW 합산 금지. 체크아웃 시 현금/계좌이체로 수납.
+  guestChargeVnd   BigInt? // 미니바 + VND 옵션 합계
+  guestChargeKrw   Int? // KRW 옵션 합계
+  settlementMethod GuestSettlementMethod?
+  settledAt        DateTime?
+  settlementNote   String?
   refundedAt      DateTime?
   createdBy       String
   createdAt       DateTime  @default(now())
 
   minibarLines    CheckoutMinibarLine[]
+}
+
+// 게스트 체크아웃 정산 결제수단 (ADR-0019 S4) — PG 없음, 현장 수납.
+enum GuestSettlementMethod {
+  CASH // 현금
+  BANK_TRANSFER // 계좌이체
+  OTHER // 기타
 }
 
 // 체크아웃 미니바 판매 라인(품목별 스냅샷) — 미니바 매출·품목 인기·(원가 입력 후)마진 통계의 단일 소스.

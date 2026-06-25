@@ -1,12 +1,14 @@
 import {
   BookingStatus,
   DepositStatus,
+  ServiceOrderStatus,
   PrismaClient,
   type Booking,
   type CheckOutRecord,
 } from "@prisma/client";
 import { createCheckoutCleaningTask } from "./cleaning";
 import { writeAuditLog } from "./audit-log";
+import { computeGuestBill, type GuestSettlementMethodValue } from "./checkout-settlement";
 
 /**
  * 체크아웃 단일 소스 (SPEC F4 체크아웃 1~4)
@@ -88,6 +90,8 @@ export interface CompleteCheckoutInput {
   deductionVnd?: bigint | null;
   /** 미니바 소모 라인(consumed>0만 전송 권장 — 0/음수는 서버에서 무시) */
   minibarLines?: MinibarLineInput[];
+  /** 게스트 통합정산(미니바+확정옵션) 수납 — 입력 시 결제수단·수납시각 기록 (ADR-0019 S4) */
+  settlement?: { method: GuestSettlementMethodValue; note?: string | null } | null;
   actorUserId: string;
   now: Date;
 }
@@ -212,6 +216,32 @@ export async function completeCheckout(
       });
     }
 
+    // ── 게스트 통합 청구 합산·정산 (ADR-0019 S4) ─────────────────────────
+    // 미니바 소비 + 확정 부가옵션(CONFIRMED|DELIVERED). 통화별 분리(VND/KRW 합산 금지).
+    //   settlement 입력 시 결제수단(현금/계좌이체/기타)·수납시각 기록. 보증금 차감과는 별개.
+    const svcOrders = await tx.serviceOrder.findMany({
+      where: {
+        bookingId: booking.id,
+        status: { in: [ServiceOrderStatus.CONFIRMED, ServiceOrderStatus.DELIVERED] },
+      },
+      select: { priceKrw: true, priceVnd: true },
+    });
+    const bill = computeGuestBill(minibarChargeVnd, svcOrders);
+    await tx.checkOutRecord.update({
+      where: { id: record.id },
+      data: {
+        guestChargeVnd: bill.totalVnd > 0n ? bill.totalVnd : null,
+        guestChargeKrw: bill.totalKrw > 0 ? bill.totalKrw : null,
+        ...(input.settlement
+          ? {
+              settlementMethod: input.settlement.method,
+              settledAt: input.now,
+              settlementNote: input.settlement.note?.trim() || null,
+            }
+          : {}),
+      },
+    });
+
     // 게이트 닫기 + 청소 태스크 생성 — 체크아웃과 원자적 (SPEC F4 체크아웃 4)
     await createCheckoutCleaningTask(tx, {
       bookingId: booking.id,
@@ -237,10 +267,8 @@ export async function completeCheckout(
     });
 
     const updated = await tx.booking.findUniqueOrThrow({ where: { id: booking.id } });
-    // record는 minibar update 전 스냅샷일 수 있어 최신본 재조회(minibarChargeVnd 반영)
-    const finalRecord = minibarChargeVnd != null
-      ? await tx.checkOutRecord.findUniqueOrThrow({ where: { id: record.id } })
-      : record;
+    // record는 minibar·게스트청구 update 전 스냅샷이므로 최신본 재조회(항상 update됨)
+    const finalRecord = await tx.checkOutRecord.findUniqueOrThrow({ where: { id: record.id } });
     return { booking: updated, record: finalRecord };
   });
 }

@@ -82,11 +82,14 @@ function makeTxMock(opts: {
   transitionCount?: number;
   /** 미니바 품목 마스터(서버 스냅샷 조회 대상). 미지정 시 빈 세트. */
   minibarItems?: Array<{ id: string; nameKo: string; unitPriceVnd: bigint; costVnd: bigint | null }>;
+  /** 확정 부가옵션(게스트 청구 합산 대상). 미지정 시 빈 세트. */
+  serviceOrders?: Array<{ priceKrw: number | null; priceVnd: bigint | null }>;
 }) {
   if (opts.booking && !opts.booking.depositStatus) {
     opts.booking.depositStatus = DepositStatus.HELD;
   }
   const items = opts.minibarItems ?? [];
+  let recordState: Record<string, unknown> = { id: "cor1" };
   return {
     booking: {
       findUnique: vi.fn(async () => opts.booking ?? null),
@@ -97,15 +100,16 @@ function makeTxMock(opts: {
       updateMany: vi.fn(async () => ({ count: opts.transitionCount ?? 1 })),
     },
     checkOutRecord: {
-      create: vi.fn(async (args: { data: Record<string, unknown> }) => ({
-        id: "cor1",
-        ...args.data,
-      })),
-      update: vi.fn(async (args: { data: Record<string, unknown> }) => ({
-        id: "cor1",
-        ...args.data,
-      })),
-      findUniqueOrThrow: vi.fn(async () => ({ id: "cor1" })),
+      // 누적 상태 추적 — create→update(minibar·게스트청구)→findUniqueOrThrow 재조회가 현실적으로 동작
+      create: vi.fn(async (args: { data: Record<string, unknown> }) => {
+        recordState = { id: "cor1", ...args.data };
+        return recordState;
+      }),
+      update: vi.fn(async (args: { data: Record<string, unknown> }) => {
+        recordState = { ...recordState, ...args.data };
+        return recordState;
+      }),
+      findUniqueOrThrow: vi.fn(async () => recordState),
     },
     minibarItem: {
       findMany: vi.fn(async (args: { where: { id: { in: string[] } } }) =>
@@ -123,6 +127,9 @@ function makeTxMock(opts: {
         id: "msm1",
         ...args.data,
       })),
+    },
+    serviceOrder: {
+      findMany: vi.fn(async () => opts.serviceOrders ?? []),
     },
   };
 }
@@ -344,11 +351,15 @@ describe("completeCheckout — 상태 가드·원자성 (계약 완료 기준)",
     );
   });
 
-  it("미니바 0건: 라인 미생성·minibarChargeVnd 미갱신", async () => {
+  it("미니바 0건: 라인 미생성·minibarChargeVnd 미갱신(게스트청구 update만)", async () => {
     const tx = makeTxMock({ booking: { id: "bk1", status: BookingStatus.CHECKED_IN } });
     await completeCheckout(makePrismaMock(tx), { ...BASE_INPUT, minibarLines: [] });
     expect(tx.checkoutMinibarLine.create).not.toHaveBeenCalled();
-    expect(tx.checkOutRecord.update).not.toHaveBeenCalled();
+    expect(tx.minibarStockMovement.create).not.toHaveBeenCalled();
+    // 미니바 비정규화 캐시(minibarChargeVnd)는 갱신되지 않는다(ADR-0019 S4: 게스트청구 update는 minibarChargeVnd 미포함)
+    for (const call of tx.checkOutRecord.update.mock.calls) {
+      expect((call[0] as { data: Record<string, unknown> }).data).not.toHaveProperty("minibarChargeVnd");
+    }
   });
 
   it("알 수 없는 itemId → RangeError(서버 거부)", async () => {
