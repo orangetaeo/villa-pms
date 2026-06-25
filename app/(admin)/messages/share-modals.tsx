@@ -369,6 +369,8 @@ export function ProposalShareModal({
 const SETTLEMENT_STATUS_STYLE: Record<string, string> = {
   DRAFT: "bg-slate-600/30 text-slate-300",
   CONFIRMED: "bg-green-500/15 text-green-400",
+  COLLECTED: "bg-violet-500/15 text-violet-400",
+  FX_ADJUSTED: "bg-amber-500/15 text-amber-400",
   PAID: "bg-blue-500/15 text-blue-400",
 };
 

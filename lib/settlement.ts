@@ -71,15 +71,31 @@ export function groupBySupplier(
   return groups;
 }
 
-export type SettlementAction = "CONFIRM" | "MARK_PAID";
+// 지급 생애주기 (정산 2차 P2-2): DRAFT→CONFIRMED→COLLECTED→FX_ADJUSTED→PAID.
+// 환차(ADJUST_FX)는 선택 단계 — 환차 없는 정산은 건너뛰고 PAID 가능. 기존 CONFIRMED 정산 호환.
+export type SettlementAction = "CONFIRM" | "COLLECT" | "ADJUST_FX" | "MARK_PAID";
 
-/** 허용 전이표 — 그 외 전이는 409 의미의 SettlementTransitionError */
+/** 허용 전이표 — from 배열 중 현재 상태가 있어야 통과. 그 외는 409 SettlementTransitionError */
 export const SETTLEMENT_TRANSITIONS: Record<
   SettlementAction,
-  { from: SettlementStatus; to: SettlementStatus }
+  { from: SettlementStatus[]; to: SettlementStatus }
 > = {
-  CONFIRM: { from: SettlementStatus.DRAFT, to: SettlementStatus.CONFIRMED },
-  MARK_PAID: { from: SettlementStatus.CONFIRMED, to: SettlementStatus.PAID },
+  CONFIRM: { from: [SettlementStatus.DRAFT], to: SettlementStatus.CONFIRMED },
+  COLLECT: { from: [SettlementStatus.CONFIRMED], to: SettlementStatus.COLLECTED },
+  // 환차 반영·재조정 — COLLECTED 또는 이미 FX_ADJUSTED(금액 정정)에서 허용
+  ADJUST_FX: {
+    from: [SettlementStatus.COLLECTED, SettlementStatus.FX_ADJUSTED],
+    to: SettlementStatus.FX_ADJUSTED,
+  },
+  // 지급 완료 — 환차 단계 선택적이므로 CONFIRMED·COLLECTED·FX_ADJUSTED 어디서든 가능
+  MARK_PAID: {
+    from: [
+      SettlementStatus.CONFIRMED,
+      SettlementStatus.COLLECTED,
+      SettlementStatus.FX_ADJUSTED,
+    ],
+    to: SettlementStatus.PAID,
+  },
 };
 
 export class SettlementNotFoundError extends Error {
@@ -108,7 +124,7 @@ export function assertSettlementTransition(
   action: SettlementAction
 ): SettlementStatus {
   const transition = SETTLEMENT_TRANSITIONS[action];
-  if (current !== transition.from) {
+  if (!transition.from.includes(current)) {
     throw new SettlementTransitionError(current, action);
   }
   return transition.to;
@@ -296,7 +312,8 @@ export async function transitionSettlement(
   id: string,
   action: SettlementAction,
   actorId: string,
-  db: PrismaClient = prisma
+  db: PrismaClient = prisma,
+  opts: { fxAdjustmentVnd?: bigint } = {}
 ): Promise<Settlement> {
   return db.$transaction(async (tx) => {
     const settlement = await tx.settlement.findUnique({
@@ -307,12 +324,19 @@ export async function transitionSettlement(
 
     const nextStatus = assertSettlementTransition(settlement.status, action);
     const now = new Date();
+    // 환차 금액 — ADJUST_FX일 때만(+이익/−손실). 0n 허용(환차 없음 명시 기록).
+    const fxAdjustmentVnd =
+      action === "ADJUST_FX" ? (opts.fxAdjustmentVnd ?? 0n) : undefined;
 
     // status 가드 — 동시 요청 경합에서 한쪽만 승리 (cleaning 패턴)
     const guarded = await tx.settlement.updateMany({
       where: { id, status: settlement.status },
       data: {
         status: nextStatus,
+        ...(action === "COLLECT" ? { collectedAt: now } : {}),
+        ...(action === "ADJUST_FX"
+          ? { fxAdjustedAt: now, fxAdjustmentVnd }
+          : {}),
         ...(action === "MARK_PAID" ? { paidAt: now } : {}),
       },
     });
@@ -342,6 +366,13 @@ export async function transitionSettlement(
       entityId: settlement.id,
       changes: {
         status: { old: settlement.status, new: nextStatus },
+        ...(action === "COLLECT" ? { collectedAt: { new: now.toISOString() } } : {}),
+        ...(action === "ADJUST_FX"
+          ? {
+              fxAdjustedAt: { new: now.toISOString() },
+              fxAdjustmentVnd: { new: (fxAdjustmentVnd ?? 0n).toString() },
+            }
+          : {}),
         ...(action === "MARK_PAID" ? { paidAt: { new: now.toISOString() } } : {}),
       },
     });

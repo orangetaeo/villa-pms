@@ -560,6 +560,8 @@ model Payment {
 enum SettlementStatus {
   DRAFT
   CONFIRMED
+  COLLECTED // 고객 실수납 완료 — 공급자 지급 재원 확보 (정산 2차 P2-2)
+  FX_ADJUSTED // 환차(수납 KRW vs 지급 VND 차이) 수동 반영 완료 (정산 2차 P2-2)
   PAID
 }
 
@@ -571,6 +573,11 @@ model Settlement {
   yearMonth    String // "2026-07"
   totalVnd     BigInt
   status       SettlementStatus @default(DRAFT)
+  // 생애주기 타임스탬프 (정산 2차 P2-2) — 각 단계 진입 시각
+  collectedAt  DateTime? // COLLECTED 진입 (고객 수납 완료 확인)
+  fxAdjustedAt DateTime? // FX_ADJUSTED 진입 (환차 반영)
+  // 환차 손익 (VND, +이익/−손실) — 수납 KRW환산 vs 지급 VND 차이를 운영자 수동 입력
+  fxAdjustmentVnd BigInt?
   paidAt       DateTime?
   statementUrl String? // 베트남어 정산서 PDF
   createdAt    DateTime         @default(now())

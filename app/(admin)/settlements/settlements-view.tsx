@@ -9,7 +9,12 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import QuickDateFilter from "@/components/admin/quick-date-filter";
 
-export type SettlementStatusKey = "DRAFT" | "CONFIRMED" | "PAID";
+export type SettlementStatusKey =
+  | "DRAFT"
+  | "CONFIRMED"
+  | "COLLECTED"
+  | "FX_ADJUSTED"
+  | "PAID";
 
 export interface SettlementItemRow {
   id: string;
@@ -59,6 +64,8 @@ export interface FinanceSummaryProps {
 const STATUS_BADGE: Record<SettlementStatusKey, string> = {
   DRAFT: "bg-slate-500/10 text-slate-500 border-slate-700/50",
   CONFIRMED: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  COLLECTED: "bg-violet-500/20 text-violet-400 border-violet-500/30",
+  FX_ADJUSTED: "bg-amber-500/20 text-amber-400 border-amber-500/30",
   PAID: "bg-emerald-500/20 text-emerald-500 border-emerald-500/30",
 };
 
@@ -138,18 +145,31 @@ export default function SettlementsView({
     }
   };
 
-  // 상태 전이 — DRAFT→확정 / CONFIRMED→지급 완료 (confirm 다이얼로그 + 409 안내)
-  const runTransition = async (id: string, action: "CONFIRM" | "MARK_PAID") => {
-    const message =
-      action === "CONFIRM" ? t("actions.confirmDialog") : t("actions.markPaidDialog");
-    if (!window.confirm(message)) return;
+  // 상태 전이 (P2-2 생애주기) — DRAFT→확정→수납완료→(환차)→지급완료. confirm + 409 안내.
+  type TransitionAction = "CONFIRM" | "COLLECT" | "ADJUST_FX" | "MARK_PAID";
+  const runTransition = async (
+    id: string,
+    action: TransitionAction,
+    fxAdjustmentVnd?: string
+  ) => {
+    const dialog: Record<TransitionAction, string> = {
+      CONFIRM: t("actions.confirmDialog"),
+      COLLECT: t("actions.collectDialog"),
+      ADJUST_FX: t("actions.adjustFxDialog"),
+      MARK_PAID: t("actions.markPaidDialog"),
+    };
+    // ADJUST_FX는 prompt에서 이미 금액 확인 — 중복 confirm 생략
+    if (action !== "ADJUST_FX" && !window.confirm(dialog[action])) return;
     setPendingId(id);
     setNotice(null);
     try {
       const res = await fetch(`/api/settlements/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({
+          action,
+          ...(fxAdjustmentVnd != null ? { fxAdjustmentVnd } : {}),
+        }),
       });
       if (res.status === 409) {
         // INVALID_TRANSITION — 다른 곳에서 이미 처리됨. 안내 후 최신 상태 재조회
@@ -166,6 +186,18 @@ export default function SettlementsView({
     }
   };
 
+  // 환차 조정 — 금액(VND, +이익/−손실)을 prompt로 받아 ADJUST_FX 전이
+  const promptAdjustFx = (id: string) => {
+    const raw = window.prompt(t("actions.adjustFxPrompt"));
+    if (raw == null) return;
+    const cleaned = raw.trim().replace(/[,\s]/g, "");
+    if (!/^-?\d+$/.test(cleaned)) {
+      setNotice({ kind: "error", text: t("actions.adjustFxInvalid") });
+      return;
+    }
+    void runTransition(id, "ADJUST_FX", cleaned);
+  };
+
   const statusBadge = (status: SettlementStatusKey) => (
     <span
       className={`px-3 py-1 rounded-md text-[10px] font-bold border whitespace-nowrap ${STATUS_BADGE[status]}`}
@@ -174,31 +206,59 @@ export default function SettlementsView({
     </span>
   );
 
-  // b7 관리 열 — DRAFT: 확정(아웃라인) / CONFIRMED: 지급 완료 처리(블루) / PAID: 완료 표시
+  // b7 관리 열 — 생애주기(P2-2): DRAFT→확정 / CONFIRMED→수납완료·지급 / COLLECTED→환차·지급 /
+  //   FX_ADJUSTED→환차재조정·지급 / PAID→완료 표시. 환차는 선택 단계.
+  const outlineBtn =
+    "border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 disabled:opacity-50 text-[11px] font-bold px-3 py-1.5 rounded transition-all whitespace-nowrap";
+  const fxBtn =
+    "border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 disabled:opacity-50 text-[11px] font-bold px-3 py-1.5 rounded transition-all whitespace-nowrap";
+  const payBtn =
+    "bg-admin-primary hover:bg-admin-primary-dark disabled:opacity-50 text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-95 shadow-lg shadow-blue-900/40 whitespace-nowrap";
+
   const actionCell = (row: SettlementRow) => {
     const busy = pendingId === row.id;
+    const payButton = (
+      <button type="button" disabled={busy} onClick={() => runTransition(row.id, "MARK_PAID")} className={payBtn}>
+        {busy ? t("actions.processing") : t("actions.markPaid")}
+      </button>
+    );
+    const fxButton = (label: string) => (
+      <button type="button" disabled={busy} onClick={() => promptAdjustFx(row.id)} className={fxBtn}>
+        {label}
+      </button>
+    );
+
     if (row.status === "DRAFT") {
       return (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => runTransition(row.id, "CONFIRM")}
-          className="border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 disabled:opacity-50 text-[11px] font-bold px-3 py-1.5 rounded transition-all whitespace-nowrap"
-        >
+        <button type="button" disabled={busy} onClick={() => runTransition(row.id, "CONFIRM")} className={outlineBtn}>
           {busy ? t("actions.processing") : t("actions.confirm")}
         </button>
       );
     }
     if (row.status === "CONFIRMED") {
       return (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => runTransition(row.id, "MARK_PAID")}
-          className="bg-admin-primary hover:bg-admin-primary-dark disabled:opacity-50 text-white text-[11px] font-bold px-3 py-1.5 rounded transition-all active:scale-95 shadow-lg shadow-blue-900/40 whitespace-nowrap"
-        >
-          {busy ? t("actions.processing") : t("actions.markPaid")}
-        </button>
+        <div className="flex justify-end items-center gap-2 flex-wrap">
+          <button type="button" disabled={busy} onClick={() => runTransition(row.id, "COLLECT")} className={outlineBtn}>
+            {busy ? t("actions.processing") : t("actions.collect")}
+          </button>
+          {payButton}
+        </div>
+      );
+    }
+    if (row.status === "COLLECTED") {
+      return (
+        <div className="flex justify-end items-center gap-2 flex-wrap">
+          {fxButton(t("actions.adjustFx"))}
+          {payButton}
+        </div>
+      );
+    }
+    if (row.status === "FX_ADJUSTED") {
+      return (
+        <div className="flex justify-end items-center gap-2 flex-wrap">
+          {fxButton(t("actions.adjustFxRedo"))}
+          {payButton}
+        </div>
       );
     }
     return (
