@@ -286,7 +286,7 @@ function RateFieldsRow({
   tr: ReturnType<typeof useTranslations>;
 }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
       {/* season */}
       <Field label={tr("colSeason")}>
         <select
@@ -311,8 +311,8 @@ function RateFieldsRow({
           ariaLabel={tr("colCost")}
         />
       </Field>
-      {/* 마진 */}
-      <Field label={tr("colMargin")}>
+      {/* 마진 — 정액 모드에서 큰 금액이 들어가므로 2칸 폭(6열 그리드) 확보 */}
+      <Field label={tr("colMargin")} className="lg:col-span-2">
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -363,9 +363,17 @@ function RateFieldsRow({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div>
+    <div className={className}>
       <label className="block text-[10px] font-bold text-slate-500 mb-2 uppercase tracking-wider whitespace-nowrap">
         {label}
       </label>
