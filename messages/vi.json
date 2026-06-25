@@ -1454,7 +1454,10 @@
       "loadError": "Không thể tải danh sách.",
       "retry": "Thử lại",
       "empty": "Không có đề xuất để hiển thị.",
-      "copyError": "Không thể sao chép liên kết."
+      "copyError": "Không thể sao chép liên kết.",
+      "searchPlaceholder": "Tìm theo tên khách/đại lý hoặc tên villa",
+      "searchClear": "Xóa tìm kiếm",
+      "searchEmpty": "Không có kết quả cho \"{query}\"."
     },
     "create": {
       "title": "Tạo đề xuất",
