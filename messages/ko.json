@@ -474,6 +474,20 @@
     },
     "detail": {
       "back": "빌라 목록",
+      "nameVi": {
+        "title": "베트남어 병기명",
+        "desc": "공급자·외부 화면에 한국어명과 함께 표시됩니다. ‘Gemini 제안’으로 음역을 받은 뒤 확인·수정해 저장하세요.",
+        "placeholder": "예: Sonasea V11",
+        "suggest": "Gemini 제안",
+        "suggesting": "제안 중…",
+        "save": "저장",
+        "saving": "저장 중…",
+        "saved": "저장됨",
+        "preview": "표시 예:",
+        "errGemini": "Gemini API 키가 설정되지 않았습니다.",
+        "errSuggest": "제안을 가져오지 못했습니다.",
+        "errSave": "저장에 실패했습니다."
+      },
       "zaloConnected": "Zalo 연결됨",
       "zaloNotConnected": "Zalo 미연결",
       "approve": "승인",

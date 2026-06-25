@@ -400,6 +400,7 @@ async function handleVilla(
   // 공통 빌라 메타(금액 무관). amenities는 라벨용 itemKey/customLabel만.
   const base = {
     name: true,
+    nameVi: true,
     complex: true,
     bedrooms: true,
     bathrooms: true,
@@ -550,6 +551,7 @@ async function handleSettlement(
 function toShareBase(
   villa: {
     name: string;
+    nameVi: string | null;
     complex: string | null;
     bedrooms: number;
     bathrooms: number;
@@ -562,6 +564,7 @@ function toShareBase(
 ): VillaShareBase {
   return {
     name: villa.name,
+    nameVi: villa.nameVi,
     complex: villa.complex,
     bedrooms: villa.bedrooms,
     bathrooms: villa.bathrooms,

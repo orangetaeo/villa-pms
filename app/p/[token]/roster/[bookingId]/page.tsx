@@ -16,6 +16,7 @@ import {
   PUBLIC_LOCALE_COOKIE,
   resolvePublicLang,
 } from "@/lib/public-i18n";
+import { formatVillaName } from "@/lib/villa-name";
 
 /**
  * /p/[token]/roster/[bookingId] — 여행사 셀프 투숙객 명단 입력 (비로그인, 5개 언어 #5, 안 B)
@@ -65,7 +66,7 @@ export default async function RosterInputPage({
       nights: true,
       guestCount: true,
       guestRoster: true,
-      villa: { select: { name: true } },
+      villa: { select: { name: true, nameVi: true } },
       proposalItem: { select: { proposal: { select: { token: true } } } },
     },
   });
@@ -107,7 +108,9 @@ export default async function RosterInputPage({
           {/* 예약 요약 — 가격 없음(마진 비공개), 어느 예약인지 확인용만 */}
           <div className="bg-white rounded-2xl shadow-xl shadow-slate-100/50 border border-gray-100 p-5 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-slate-900 font-bold">{booking.villa.name}</span>
+              <span className="text-slate-900 font-bold">
+                {formatVillaName({ name: booking.villa.name, nameVi: booking.villa.nameVi })}
+              </span>
               <span className="px-3 py-1 bg-gray-100 text-slate-600 text-xs font-bold rounded-full">
                 {bookingShortCode(booking.id)}
               </span>

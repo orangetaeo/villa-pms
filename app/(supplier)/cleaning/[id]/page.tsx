@@ -16,6 +16,7 @@ import {
 } from "@/app/(supplier)/my-villas/new/wizard-types";
 import { CleaningSubmit, type SlotProp, type SubmitLabels } from "./cleaning-submit";
 import CleaningPhotosView from "./cleaning-photos-view";
+import { formatVillaName } from "@/lib/villa-name";
 
 export const metadata: Metadata = {
   title: "Dọn dẹp xong — Villa Go",
@@ -44,6 +45,7 @@ export default async function CleaningTaskPage({
         select: {
           supplierId: true, // 소유 검증용 — 클라이언트로 비전달
           name: true,
+          nameVi: true,
           bedrooms: true,
           bathrooms: true,
           hasPool: true,
@@ -55,6 +57,11 @@ export default async function CleaningTaskPage({
   if (!task) notFound();
   if (role === "SUPPLIER" && task.villa.supplierId !== userId) notFound();
   if (role === "CLEANER" && task.assigneeId !== userId) notFound();
+
+  const villaDisplayName = formatVillaName({
+    name: task.villa.name,
+    nameVi: task.villa.nameVi,
+  });
 
   const locale = await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "cleaning" });
@@ -123,7 +130,7 @@ export default async function CleaningTaskPage({
     return (
       <CleaningSubmit
         taskId={task.id}
-        villaName={task.villa.name}
+        villaName={villaDisplayName}
         todayLabel={todayLabel}
         slots={slotProps}
         rejectNote={task.status === "REJECTED" ? task.rejectNote : null}
@@ -154,7 +161,7 @@ export default async function CleaningTaskPage({
       <header className="mt-14 border-b border-neutral-100 bg-white px-4 py-6">
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl font-bold text-neutral-900">{t("submittedPhotos")}</h2>
-          <span className="font-semibold text-teal-600">{task.villa.name}</span>
+          <span className="font-semibold text-teal-600">{villaDisplayName}</span>
         </div>
         {/* 상태 안내 — 승인 대기(파랑) / 승인됨(초록) */}
         <div

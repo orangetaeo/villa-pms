@@ -8,6 +8,7 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { saveStatementFile } from "@/lib/storage";
 import { generateStatementPdf } from "@/lib/settlement-statement-pdf";
 import { toDateOnlyString, todayVnDateString } from "@/lib/date-vn";
+import { formatVillaName } from "@/lib/villa-name";
 
 /**
  * 정산서 PDF 생성·저장·statementUrl 갱신. 정산 없으면 null.
@@ -33,7 +34,7 @@ export async function generateSettlementStatement(
             select: {
               checkOut: true,
               nights: true,
-              villa: { select: { name: true } },
+              villa: { select: { name: true, nameVi: true } },
             },
           },
         },
@@ -45,7 +46,10 @@ export async function generateSettlementStatement(
   // 체크아웃 오름차순 정렬 후 표시 라인 구성
   const lines = s.items
     .map((it) => ({
-      villaName: it.booking.villa.name,
+      villaName: formatVillaName({
+        name: it.booking.villa.name,
+        nameVi: it.booking.villa.nameVi,
+      }),
       checkOutRaw: it.booking.checkOut,
       checkOut: toDateOnlyString(it.booking.checkOut).replaceAll("-", "."),
       nights: it.booking.nights,

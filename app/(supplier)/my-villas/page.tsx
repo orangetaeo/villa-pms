@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import type { Villa } from "@prisma/client";
 import PaginationBar from "@/components/pagination-bar";
 import { parsePageParams } from "@/lib/pagination";
+import { formatVillaName } from "@/lib/villa-name";
 
 export const metadata: Metadata = {
   title: "Villa của tôi",
@@ -59,6 +60,7 @@ export default async function MyVillasPage({
     select: {
       id: true,
       name: true,
+      nameVi: true,
       bedrooms: true,
       bathrooms: true,
       status: true,
@@ -135,7 +137,9 @@ export default async function MyVillasPage({
                   </div>
                   <div className="p-4">
                     <div className="mb-2 flex items-center justify-between">
-                      <h2 className="text-xl font-bold text-neutral-900">{villa.name}</h2>
+                      <h2 className="text-xl font-bold text-neutral-900">
+                        {formatVillaName({ name: villa.name, nameVi: villa.nameVi })}
+                      </h2>
                       <span className="material-symbols-outlined text-neutral-500">
                         chevron_right
                       </span>
