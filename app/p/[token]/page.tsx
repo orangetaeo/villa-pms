@@ -183,7 +183,8 @@ export default async function ProposalPage({
     <div className="bg-neutral-50 text-neutral-900 min-h-screen">
       <header className="bg-white border-b border-neutral-100 flex justify-between items-center w-full px-4 h-14 sticky top-0 z-50">
         <span className="w-10" />
-        <span className="flex items-center gap-1.5">
+        {/* 화면 정중앙 고정 — 좌우 컨트롤 폭과 무관하게 중앙 정렬 */}
+        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5">
           <VillaGoMark className="h-6 w-auto" />
           <VillaGoWordmark className="text-xl" villa="text-slate-900" go="text-teal-600" />
         </span>
