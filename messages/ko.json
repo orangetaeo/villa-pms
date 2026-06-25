@@ -20,6 +20,7 @@
     "bookings": "예약",
     "proposals": "제안",
     "villas": "빌라",
+    "inventory": "재고",
     "availability": "공실 보드",
     "inspections": "청소 검수",
     "settlements": "정산",
@@ -1162,6 +1163,55 @@
     "zaloCardTitle": "Zalo 봇 연결",
     "zaloCardDesc": "예약·청소·정산 알림을 보내는 운영자 Zalo 계정을 연결합니다.",
     "zaloCardCta": "관리"
+  },
+  "inventory": {
+    "title": "미니바 재고",
+    "subtitle": "빌라별 현재고 vs 비치 목표 · 입고 관리",
+    "headerSub": "빌라별 현재고 · 입고 관리",
+    "filterAll": "전체",
+    "filterLow": "부족만",
+    "col": {
+      "villa": "빌라",
+      "item": "품목",
+      "par": "비치 목표",
+      "onHand": "현재고",
+      "status": "상태",
+      "action": ""
+    },
+    "status": {
+      "low": "부족",
+      "ok": "충분"
+    },
+    "restockBtn": "입고",
+    "empty": "표시할 재고가 없습니다. ACTIVE 빌라와 미니바 품목을 먼저 등록하세요.",
+    "emptyLow": "부족한 품목이 없습니다.",
+    "banner": {
+      "title": "재고 부족",
+      "body": "{items}개 품목 보충 필요 · {villas}개 빌라",
+      "bodyOne": "1개 품목 보충 필요",
+      "review": "재고 보기"
+    },
+    "form": {
+      "title": "입고 기록",
+      "villa": "빌라",
+      "item": "품목",
+      "qty": "입고 수량",
+      "mode": "유형",
+      "modeRestock": "입고",
+      "modeAdjust": "보정",
+      "adjustHint": "보정은 실사·분실 반영용입니다. 음수도 입력할 수 있습니다.",
+      "unitCost": "매입 단가 (VND)",
+      "unitCostHint": "매입 단가 입력 시 미니바 마진 통계가 활성화됩니다.",
+      "note": "메모 (선택)",
+      "submit": "입고 기록",
+      "submitting": "기록 중…",
+      "selectVilla": "빌라 선택",
+      "selectItem": "품목 선택",
+      "saved": "입고가 기록되었습니다.",
+      "savedCost": "입고 {n}건 기록 · 매입 단가 갱신됨",
+      "error": "기록에 실패했습니다. 다시 시도하세요.",
+      "invalidQty": "수량을 확인하세요."
+    }
   },
   "adminMinibar": {
     "title": "미니바 회사표준",

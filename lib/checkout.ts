@@ -108,7 +108,7 @@ export async function completeCheckout(
   return prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findUnique({
       where: { id: input.bookingId },
-      select: { id: true, status: true, depositStatus: true },
+      select: { id: true, status: true, depositStatus: true, villaId: true },
     });
     if (!booking) throw new CheckoutRejectedError("NOT_FOUND");
     if (booking.status === BookingStatus.CHECKED_OUT) {
@@ -189,6 +189,18 @@ export async function completeCheckout(
             costVnd: item.costVnd,
             lineVnd,
             lineCostVnd,
+          },
+        });
+        // 실재고 차감 — 소모분을 이동 원장에 CONSUME(−)로 기록 (ADR-0019 S1).
+        //   현재고 = ΣqtyDelta이므로 별도 차감 컬럼 갱신 불필요. 출처 예약(bookingId) 보존.
+        await tx.minibarStockMovement.create({
+          data: {
+            villaId: booking.villaId,
+            minibarItemId: item.id,
+            type: "CONSUME",
+            qtyDelta: -l.consumedQty,
+            bookingId: booking.id,
+            createdBy: input.actorUserId,
           },
         });
       }

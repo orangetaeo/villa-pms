@@ -35,6 +35,8 @@ const NAV_ITEMS: NavItem[] = [
   // 제안·정산=재무(canViewFinance) — STAFF 미노출. 클릭 시 게이트로도 차단되지만 메뉴부터 숨김
   { key: "proposals", href: "/proposals", icon: "rate_review", cap: canViewFinance },
   { key: "villas", href: "/villas", icon: "villa" },
+  // 미니바 실재고(ADR-0019 S1) — 빌라 운영군(빌라→재고→공실 보드). cap 미지정=전 운영자 노출
+  { key: "inventory", href: "/inventory", icon: "inventory_2" },
   { key: "availability", href: "/availability", icon: "event_available" },
   { key: "inspections", href: "/inspections", icon: "cleaning_services" },
   { key: "settlements", href: "/settlements", icon: "payments", cap: canViewFinance },

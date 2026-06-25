@@ -20,6 +20,7 @@
     "bookings": "Đặt phòng",
     "proposals": "Đề xuất",
     "villas": "Villa",
+    "inventory": "Kho",
     "availability": "Lịch trống",
     "inspections": "Kiểm tra dọn dẹp",
     "settlements": "Thanh toán",
@@ -1270,6 +1271,55 @@
     "zaloCardTitle": "Kết nối Bot Zalo",
     "zaloCardDesc": "Kết nối tài khoản Zalo của quản trị viên để gửi thông báo.",
     "zaloCardCta": "Quản lý"
+  },
+  "inventory": {
+    "title": "Kho minibar",
+    "subtitle": "Tồn kho hiện tại vs định mức theo villa · Quản lý nhập kho",
+    "headerSub": "Tồn kho theo villa · Quản lý nhập kho",
+    "filterAll": "Tất cả",
+    "filterLow": "Chỉ thiếu",
+    "col": {
+      "villa": "Villa",
+      "item": "Mặt hàng",
+      "par": "Định mức",
+      "onHand": "Tồn kho",
+      "status": "Trạng thái",
+      "action": ""
+    },
+    "status": {
+      "low": "Thiếu",
+      "ok": "Đủ"
+    },
+    "restockBtn": "Nhập kho",
+    "empty": "Không có dữ liệu kho. Hãy thêm villa ACTIVE và mặt hàng minibar trước.",
+    "emptyLow": "Không có mặt hàng nào thiếu.",
+    "banner": {
+      "title": "Thiếu hàng",
+      "body": "Cần bổ sung {items} mặt hàng · {villas} villa",
+      "bodyOne": "Cần bổ sung 1 mặt hàng",
+      "review": "Xem kho"
+    },
+    "form": {
+      "title": "Ghi nhập kho",
+      "villa": "Villa",
+      "item": "Mặt hàng",
+      "qty": "Số lượng nhập",
+      "mode": "Loại",
+      "modeRestock": "Nhập kho",
+      "modeAdjust": "Điều chỉnh",
+      "adjustHint": "Điều chỉnh dùng cho kiểm kê thực tế·thất thoát. Có thể nhập số âm.",
+      "unitCost": "Giá nhập (VND)",
+      "unitCostHint": "Nhập giá nhập sẽ kích hoạt thống kê lợi nhuận minibar.",
+      "note": "Ghi chú (tùy chọn)",
+      "submit": "Ghi nhập kho",
+      "submitting": "Đang lưu…",
+      "selectVilla": "Chọn villa",
+      "selectItem": "Chọn mặt hàng",
+      "saved": "Đã ghi nhập kho.",
+      "savedCost": "Đã ghi {n} lần nhập · cập nhật giá nhập",
+      "error": "Lưu thất bại. Vui lòng thử lại.",
+      "invalidQty": "Vui lòng kiểm tra số lượng."
+    }
   },
   "adminMinibar": {
     "title": "Minibar tiêu chuẩn công ty",
