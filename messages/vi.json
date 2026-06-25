@@ -2532,5 +2532,18 @@
         "empty": "Chưa có ghi nhận bán minibar nào"
       }
     }
+  },
+  "adminGuestToken": {
+    "title": "Liên kết tự nhận phòng cho khách",
+    "desc": "Liên kết gửi cho khách. Khách có thể kiểm tra tiện nghi, ký bản đồng ý và yêu cầu tùy chọn trước.",
+    "active": "Đang hoạt động",
+    "revoked": "Đã thu hồi",
+    "issue": "Tạo liên kết",
+    "reissue": "Tạo lại liên kết",
+    "revoke": "Thu hồi",
+    "copy": "Sao chép",
+    "copied": "Đã chép",
+    "signed": "Khách đã ký bản đồng ý",
+    "error": "Đã xảy ra lỗi. Vui lòng thử lại sau."
   }
 }

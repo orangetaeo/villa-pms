@@ -34,6 +34,7 @@ export interface GuestCatalogItem {
   unitLabelKo: string | null;
   priceKrw: number | null;
   priceVnd: string | null;
+  photoUrl: string | null;
   options: unknown; // variants/addons/modifiers — 판매가만(원가 없음)
 }
 
@@ -137,7 +138,7 @@ export async function loadGuestCheckin(
       select: {
         id: true, type: true, nameKo: true, nameVi: true, nameEn: true,
         descKo: true, descVi: true, unitLabelKo: true,
-        priceKrw: true, priceVnd: true, options: true,
+        priceKrw: true, priceVnd: true, photoUrl: true, options: true,
       },
     }),
     prisma.serviceOrder.findMany({
@@ -184,6 +185,7 @@ export async function loadGuestCheckin(
       unitLabelKo: c.unitLabelKo,
       priceKrw: c.priceKrw,
       priceVnd: c.priceVnd?.toString() ?? null,
+      photoUrl: c.photoUrl,
       options: c.options,
     })),
     agreement: {

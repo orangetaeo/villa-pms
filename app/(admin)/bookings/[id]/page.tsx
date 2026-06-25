@@ -3,6 +3,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import { BookingStatus } from "@prisma/client";
 import { auth } from "@/auth";
@@ -23,6 +24,8 @@ import ServiceOrdersPanel, {
 } from "./service-orders-panel";
 import { summarizeCollection } from "@/lib/payment";
 import { krwToVndSnapshot } from "@/lib/pricing";
+import { guestTokenState } from "@/lib/guest-checkin";
+import GuestTokenCard, { type GuestTokenState } from "./guest-token-card";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
@@ -294,6 +297,26 @@ export default async function BookingDetailPage({
           };
         })()
       : null;
+
+  // 게스트 셀프 체크인 토큰 카드 props (ADR-0019 S3) — GuestCheckinToken은 Booking 역관계가 없어 별도 조회.
+  //   절대 URL용 origin 산출(프록시 헤더).
+  const tokenRow = await prisma.guestCheckinToken.findUnique({
+    where: { bookingId: id },
+    select: { token: true, expiresAt: true, revokedAt: true, agreementSignedAt: true },
+  });
+  const hdrs = await headers();
+  const proto = hdrs.get("x-forwarded-proto") ?? "https";
+  const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host") ?? "";
+  const origin = host ? `${proto}://${host}` : "";
+  const guestToken: GuestTokenState | null = tokenRow
+    ? {
+        token: tokenRow.token,
+        url: `/g/${tokenRow.token}`,
+        expiresAt: tokenRow.expiresAt.toISOString(),
+        revoked: guestTokenState(tokenRow, now) === "REVOKED",
+        signedAt: tokenRow.agreementSignedAt?.toISOString() ?? null,
+      }
+    : null;
 
   const logStatusChange = (changes: unknown): string | null => {
     if (changes && typeof changes === "object" && "status" in changes) {
@@ -572,6 +595,11 @@ export default async function BookingDetailPage({
               initialRoster={booking.guestRoster}
               showReminder={booking.status === BookingStatus.CONFIRMED && !booking.guestRoster}
             />
+          )}
+
+          {/* 게스트 셀프 체크인 링크 (ADR-0019 S3) — 종결 상태는 비표시 */}
+          {!terminal && (
+            <GuestTokenCard bookingId={booking.id} initial={guestToken} origin={origin} />
           )}
 
           {/* 활동 로그 — AuditLog 기반 */}
