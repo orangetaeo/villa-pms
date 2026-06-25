@@ -12,11 +12,20 @@ const paymentCreate = vi.fn();
 const paymentFindMany = vi.fn();
 const paymentFindUniqueTx = vi.fn();
 const paymentDeleteTx = vi.fn();
+const ledgerFindUnique = vi.fn();
+const ledgerCreate = vi.fn();
+const ledgerDeleteMany = vi.fn();
 const tx = {
   payment: {
     create: (...a: unknown[]) => paymentCreate(...a),
     findUnique: (...a: unknown[]) => paymentFindUniqueTx(...a),
     delete: (...a: unknown[]) => paymentDeleteTx(...a),
+  },
+  // LEDGER 복식부기 적재(ADR-0018) — postCollection/reverseCollection이 tx에서 호출.
+  ledgerTransaction: {
+    findUnique: (...a: unknown[]) => ledgerFindUnique(...a),
+    create: (...a: unknown[]) => ledgerCreate(...a),
+    deleteMany: (...a: unknown[]) => ledgerDeleteMany(...a),
   },
 };
 vi.mock("@/lib/prisma", () => ({
@@ -72,6 +81,9 @@ beforeEach(() => {
     ...data,
   }));
   paymentFindMany.mockResolvedValue([]);
+  ledgerFindUnique.mockResolvedValue(null); // 멱등 가드: 기존 거래 없음
+  ledgerCreate.mockResolvedValue({ id: "ledger-1" });
+  ledgerDeleteMany.mockResolvedValue({ count: 1 });
 });
 
 describe("POST /api/bookings/[id]/payments — 결제 기록 가드·계산", () => {

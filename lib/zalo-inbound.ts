@@ -292,7 +292,9 @@ export function buildCallDetail(content: unknown): string {
   else if (reason === 3) status = "rejected";
   else if (reason === 4) status = "missed";
   else status = "unknown";
-  return `CALL:${dir}:${status}:${durSec}:${vtype}`;
+  // 연결 안 된 통화(missed/rejected)는 통화시간 없음 — params.duration은 벨 울린 시간일 뿐이므로 0으로 정규화.
+  const outDur = status === "missed" || status === "rejected" ? 0 : durSec;
+  return `CALL:${dir}:${status}:${outDur}:${vtype}`;
 }
 
 export function classifyInbound(content: unknown, zaloMsgType?: string): ClassifiedInbound {
