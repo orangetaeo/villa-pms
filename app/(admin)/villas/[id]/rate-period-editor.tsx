@@ -286,7 +286,9 @@ function RateFieldsRow({
   tr: ReturnType<typeof useTranslations>;
 }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+    // 2줄 배치 — 윗줄(입력): 시즌·원가·마진 / 아랫줄(결과): 판매가 VND·KRW.
+    // 6개를 한 줄에 넣으면 금액이 잘려 3열 그리드로 자연 줄바꿈(3+2).
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       {/* season */}
       <Field label={tr("colSeason")}>
         <select
@@ -311,8 +313,8 @@ function RateFieldsRow({
           ariaLabel={tr("colCost")}
         />
       </Field>
-      {/* 마진 — 정액 모드에서 큰 금액이 들어가므로 2칸 폭(6열 그리드) 확보 */}
-      <Field label={tr("colMargin")} className="lg:col-span-2">
+      {/* 마진 */}
+      <Field label={tr("colMargin")}>
         <div className="flex items-center gap-2">
           <input
             type="text"
