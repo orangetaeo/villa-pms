@@ -525,6 +525,9 @@ model GuestCheckinToken {
   agreementSignedAt DateTime?
   signatureUrl      String? // /api/passports/sig-* (비공개 증빙 경로)
   agreementVersion  String?
+  // 게스트 셀프 여권 사진(동의서 후 단계, ADR-0019 v2 #1) — 인원수만큼, 비공개 증빙(/api/passports).
+  //   OCR은 관리자 체크인 단계에서. 관리자 completeCheckIn이 채택(passportPhotoUrls).
+  passportPhotoUrls String[] @default([])
   createdAt   DateTime  @default(now())
 }
 
@@ -768,17 +771,19 @@ enum ServiceRequestedVia {
 model ServiceCatalogItem {
   id          String      @id @default(cuid())
   type        ServiceType
-  nameKo      String
-  nameVi      String?
-  nameEn      String?
-  descKo      String?
-  descVi      String?
+  nameKo      String // 관리자 입력(한국어만). en/vi/zh/ru는 저장 시 Gemini 자동번역 → nameI18n (ADR-0019 v2)
+  nameVi      String? // (레거시) — nameI18n.vi로 대체, 하위호환 유지
+  nameEn      String? // (레거시) — nameI18n.en로 대체
+  nameI18n    Json? // 자동번역 {en,vi,zh,ru} — 게스트 화면 언어전환용
+  descKo      String? // 관리자 입력(한국어만). 저장 시 자동번역 → descI18n
+  descVi      String? // (레거시)
+  descI18n    Json? // 자동번역 {en,vi,zh,ru}
   unitLabelKo String? // "1마리" "1인" "1일" 등 단위 표기
-  priceKrw    Int? // 판매가 KRW (게스트 표시)
-  priceVnd    BigInt? // 판매가 VND (현지·여행사 채널)
-  costVnd     BigInt? // 참고 매입원가 — ★게스트·공급자 비노출
-  photoUrl    String?
-  options     Json? // {variants:[...], addons:[...], modifiers:[...]}
+  priceKrw    Int? // (미사용) 게스트 KRW는 priceVnd×환율 올림으로 표시-시점 산출(저장 안 함)
+  priceVnd    BigInt? // 판매가 VND — 관리자 입력 기준 통화
+  costVnd     BigInt? // 참고 매입원가 VND — ★게스트·공급자 비노출
+  photoUrl    String? // 이미지 업로드 결과 URL(/api/uploads)
+  options     Json? // {variants:[{key,labelKo,labelI18n,priceVnd},...], addons, modifiers} — 라벨도 자동번역
   active      Boolean     @default(true)
   sortOrder   Int         @default(0)
   createdAt   DateTime    @default(now())
@@ -793,9 +798,10 @@ model ServiceOrder {
   booking     Booking            @relation(fields: [bookingId], references: [id])
   type        ServiceType
   status      ServiceOrderStatus @default(REQUESTED)
-  serviceDate DateTime?          @db.Date
+  serviceDate DateTime?          @db.Date // 희망 일자(투숙기간 내)
+  serviceTime String? // 희망 시각 자유입력 "HH:MM" (ADR-0019 v2 #3)
   costVnd     BigInt // 매입 원가 — 게스트 요청 단계는 0(placeholder), 운영자 확정 시 실원가
-  priceKrw    Int // 판매가 KRW (스냅샷)
+  priceKrw    Int // 판매가 KRW (주문 시점 환율 스냅샷)
   vendorName  String?
   note        String?
   // ADR-0019 — 카탈로그 연결·게스트 요청 확장

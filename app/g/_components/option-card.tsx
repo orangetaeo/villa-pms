@@ -19,6 +19,10 @@ export interface CardSelection {
   addonKeys: string[];
   modifierKeys: string[];
   quantity: number;
+  /** 희망 날짜(YYYY-MM-DD, 투숙기간 내). 미선택이면 null. (#3) */
+  serviceDate: string | null;
+  /** 희망 시간(HH:MM 자유 입력). 미선택이면 null. (#3) */
+  serviceTime: string | null;
 }
 
 const TYPE_BADGE: Record<string, string> = {
@@ -38,16 +42,23 @@ export function OptionCard({
   item,
   labels,
   lang,
+  fx,
   selection,
   onChange,
   badgeText,
+  dateMin,
+  dateMax,
 }: {
   item: GuestCatalogView;
   labels: GuestLabels["addons"];
   lang: PublicLang;
+  fx: string | null; // 환율(1 KRW당 VND) — KRW 표시 파생
   selection: CardSelection;
   onChange: (next: CardSelection) => void;
   badgeText: string;
+  /** 희망 날짜 입력 가능 범위(YYYY-MM-DD) — 투숙 체크인~체크아웃. (#3) */
+  dateMin: string;
+  dateMax: string;
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -65,7 +76,7 @@ export function OptionCard({
     if (selection.quantity < 1) return null;
     try {
       return resolveOrderPricing(
-        { priceKrw: item.priceKrw, priceVnd: item.priceVnd ? BigInt(item.priceVnd) : null },
+        { priceVnd: item.priceVnd ? BigInt(item.priceVnd) : null },
         options,
         {
           variantKey: selection.variantKey,
@@ -82,8 +93,8 @@ export function OptionCard({
 
   const previewStr =
     preview != null
-      ? guestPrice(preview.totalPriceKrw, toVndStr(preview.totalPriceVnd), lang)
-      : guestPrice(item.priceKrw, item.priceVnd, lang);
+      ? guestPrice(toVndStr(preview.totalPriceVnd), fx, lang)
+      : guestPrice(item.priceVnd, fx, lang);
 
   const selectedAddons = item.addons.filter((a) => selection.addonKeys.includes(a.key));
 
@@ -160,7 +171,7 @@ export function OptionCard({
                         on ? "text-slate-900" : "text-slate-700"
                       }`}
                     >
-                      {guestPrice(v.priceKrw, v.priceVnd, lang)}
+                      {guestPrice(v.priceVnd, fx, lang)}
                     </p>
                   </button>
                 );
@@ -188,7 +199,7 @@ export function OptionCard({
                   <span className="text-sm text-slate-800">{a.label}</span>
                 </span>
                 <span className="text-xs font-semibold text-teal-600 tabular-nums">
-                  {guestPriceDelta(a.priceKrw, a.priceVnd, lang)}
+                  {guestPriceDelta(a.priceVnd, fx, lang)}
                 </span>
               </label>
             ))}
@@ -228,7 +239,7 @@ export function OptionCard({
             <span className="text-sm font-semibold text-slate-800">{m.label}</span>
             <span className="flex items-center gap-2">
               <span className="text-xs font-bold text-teal-600 tabular-nums">
-                {guestPriceDelta(m.priceKrw, m.priceVnd, lang)}
+                {guestPriceDelta(m.priceVnd, fx, lang)}
               </span>
               <input
                 type="checkbox"
@@ -239,6 +250,40 @@ export function OptionCard({
             </span>
           </label>
         ))}
+
+        {/* 희망 날짜·시간 (#3) — 수량 선택 시 노출 */}
+        {active && (
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <div>
+              <label className="text-[11px] font-bold text-slate-500 mb-1 block">
+                {labels.serviceDateLabel}
+              </label>
+              <input
+                type="date"
+                min={dateMin}
+                max={dateMax}
+                aria-label={labels.serviceDateLabel}
+                title={labels.serviceDateLabel}
+                value={selection.serviceDate ?? ""}
+                onChange={(e) => onChange({ ...selection, serviceDate: e.target.value || null })}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:ring-teal-500 focus:border-teal-500"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold text-slate-500 mb-1 block">
+                {labels.serviceTimeLabel}
+              </label>
+              <input
+                type="time"
+                aria-label={labels.serviceTimeLabel}
+                title={labels.serviceTimeLabel}
+                value={selection.serviceTime ?? ""}
+                onChange={(e) => onChange({ ...selection, serviceTime: e.target.value || null })}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:ring-teal-500 focus:border-teal-500"
+              />
+            </div>
+          </div>
+        )}
 
         {/* 가격 + 수량 스테퍼 */}
         <div className="flex items-center justify-between pt-1">
@@ -302,7 +347,7 @@ export function OptionCard({
                     <span className="text-sm text-slate-800">{a.label}</span>
                   </span>
                   <span className="text-sm font-semibold text-slate-900 tabular-nums">
-                    {guestPriceDelta(a.priceKrw, a.priceVnd, lang)}
+                    {guestPriceDelta(a.priceVnd, fx, lang)}
                   </span>
                 </label>
               ))}
@@ -329,5 +374,5 @@ export function OptionCard({
 }
 
 function optToDef(o: GuestOption) {
-  return { key: o.key, labelKo: o.label, priceKrw: o.priceKrw, priceVnd: o.priceVnd };
+  return { key: o.key, labelKo: o.label, priceVnd: o.priceVnd };
 }

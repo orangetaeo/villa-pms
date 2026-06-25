@@ -14,6 +14,8 @@ import {
   resolveOrderPricing,
   ServiceSelectionError,
 } from "@/lib/service-catalog";
+import { priceKrwCeil } from "@/lib/service-display";
+import { getFxVndPerKrw } from "@/lib/pricing";
 import type { Prisma } from "@prisma/client";
 
 const createSchema = z.object({
@@ -23,6 +25,7 @@ const createSchema = z.object({
   modifierKeys: z.array(z.string().max(40)).max(40).optional(),
   quantity: z.number().int().min(1).max(999),
   serviceDate: z.string().optional().nullable(),
+  serviceTime: z.string().regex(/^\d{2}:\d{2}$/).optional().nullable(),
   guestNote: z.string().max(500).optional().nullable(),
   note: z.string().max(500).optional().nullable(),
   status: z.enum(["REQUESTED", "CONFIRMED"]).optional(),
@@ -45,6 +48,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     type: o.type,
     status: o.status,
     serviceDate: o.serviceDate,
+    serviceTime: o.serviceTime,
     priceKrw: o.priceKrw,
     priceVnd: o.priceVnd?.toString() ?? null,
     quantity: o.quantity,
@@ -95,11 +99,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "CATALOG_ITEM_NOT_FOUND" }, { status: 404 });
   }
 
-  // 서버 가격 재계산(클라 금액 신뢰 금지) — 알 수 없는 옵션 key·수량 위반은 거부
+  // 서버 가격 재계산(클라 금액 신뢰 금지) — VND 단일통화. 알 수 없는 옵션 key·수량 위반은 거부
   let pricing;
   try {
     pricing = resolveOrderPricing(
-      { priceKrw: item.priceKrw, priceVnd: item.priceVnd },
+      { priceVnd: item.priceVnd },
       parseCatalogOptions(item.options),
       {
         variantKey: d.variantKey,
@@ -115,15 +119,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     throw e;
   }
 
+  // KRW 스냅샷 — 현재 환율로 VND→KRW 올림(미설정이면 0). VND가 진실원천.
+  const fx = await getFxVndPerKrw(prisma);
+  const priceKrw = fx ? priceKrwCeil(pricing.totalPriceVnd, fx) : 0;
+
   const created = await prisma.serviceOrder.create({
     data: {
       bookingId: id,
       type: item.type,
       status: d.status ?? "REQUESTED",
       serviceDate,
+      serviceTime: d.serviceTime ?? null,
       // 원가는 운영자 확정 단계에서 입력(PATCH) — 생성 시 0 placeholder
       costVnd: 0n,
-      priceKrw: pricing.totalPriceKrw ?? 0,
+      priceKrw,
       priceVnd: pricing.totalPriceVnd,
       catalogItemId: item.id,
       quantity: pricing.quantity,
@@ -144,8 +153,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     changes: {
       bookingId: { new: id },
       catalogItemId: { new: item.id },
-      priceKrw: { new: pricing.totalPriceKrw },
-      priceVnd: { new: pricing.totalPriceVnd?.toString() ?? null },
+      priceKrw: { new: priceKrw },
+      priceVnd: { new: pricing.totalPriceVnd.toString() },
     },
   });
 

@@ -8,6 +8,7 @@ import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { isOperator, canViewFinance, canSetPrice } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { getFxVndPerKrw } from "@/lib/pricing";
 import ServiceCatalogManager, { type CatalogRow } from "./catalog-manager";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -31,6 +32,8 @@ export default async function ServiceCatalogPage() {
 
   const showCost = canViewFinance(role);
   const canEdit = canSetPrice(role);
+  // 환율(1 KRW당 VND) — KRW 미리보기용. 미설정이면 null → 클라에서 미리보기 생략.
+  const fx = await getFxVndPerKrw(prisma);
 
   // 원가는 canViewFinance만 — select에서부터 제외(클라 조건부 렌더 의존 금지, 원칙2)
   const items = await prisma.serviceCatalogItem.findMany({
@@ -39,12 +42,10 @@ export default async function ServiceCatalogPage() {
       id: true,
       type: true,
       nameKo: true,
-      nameVi: true,
-      nameEn: true,
+      nameI18n: true,
       descKo: true,
-      descVi: true,
+      descI18n: true,
       unitLabelKo: true,
-      priceKrw: true,
       priceVnd: true,
       photoUrl: true,
       options: true,
@@ -54,17 +55,15 @@ export default async function ServiceCatalogPage() {
     },
   });
 
-  // BigInt → 문자열 직렬화(클라 경계). costVnd는 showCost일 때만 포함.
+  // BigInt → 문자열 직렬화(클라 경계). costVnd는 showCost일 때만 포함. 가격은 VND 단일통화.
   const rows: CatalogRow[] = items.map((it) => ({
     id: it.id,
     type: it.type,
     nameKo: it.nameKo,
-    nameVi: it.nameVi ?? "",
-    nameEn: it.nameEn ?? "",
+    nameI18n: it.nameI18n ?? null,
     descKo: it.descKo ?? "",
-    descVi: it.descVi ?? "",
+    descI18n: it.descI18n ?? null,
     unitLabelKo: it.unitLabelKo ?? "",
-    priceKrw: it.priceKrw ?? null,
     priceVnd: it.priceVnd?.toString() ?? null,
     photoUrl: it.photoUrl ?? "",
     options: it.options ?? null,
@@ -89,7 +88,12 @@ export default async function ServiceCatalogPage() {
         <p className="text-sm text-slate-500 mt-1">{t("subtitle")}</p>
       </div>
 
-      <ServiceCatalogManager initialItems={rows} showCost={showCost} canEdit={canEdit} />
+      <ServiceCatalogManager
+        initialItems={rows}
+        showCost={showCost}
+        canEdit={canEdit}
+        fx={fx}
+      />
     </div>
   );
 }

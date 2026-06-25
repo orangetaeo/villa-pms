@@ -1,6 +1,7 @@
-// /api/services/catalog — 부가서비스 판매 카탈로그 (ADR-0019 S2)
-//   GET: 운영자 목록(원가 costVnd는 canViewFinance만 — STAFF 페이로드에서 제거).
-//   POST: 카탈로그 항목 생성(canSetPrice = OWNER/MANAGER). costVnd는 canViewFinance만 저장.
+// /api/services/catalog — 부가서비스 판매 카탈로그 (ADR-0019 v2)
+//   GET: 운영자 목록(원가 costVnd는 canViewFinance만 — STAFF 페이로드에서 제거). nameKo+nameI18n 등 노출.
+//   POST: 카탈로그 항목 생성(canSetPrice = OWNER/MANAGER). 한국어만 입력 → 저장 시 Gemini 자동번역.
+//     가격은 priceVnd 단일통화(필수). costVnd는 canViewFinance만 저장. KRW는 표시 시점 환율로 파생.
 // ★ 마진 비공개: 게스트·공급자·공개 라우트는 이 엔드포인트에 도달 불가(운영자 전용).
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -9,13 +10,13 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator, canViewFinance, canSetPrice, type Role } from "@/lib/permissions";
 import { validateCatalogItem, SERVICE_TYPE_VALUES } from "@/lib/service-catalog";
+import { buildCatalogI18n } from "@/lib/service-i18n";
 import type { Prisma } from "@prisma/client";
 
+// 입력은 한국어만 — nameVi/nameEn·옵션 labelVi·priceKrw 입력 제거(저장 시 자동번역).
 const optionDefSchema = z.object({
   key: z.string().min(1).max(40),
   labelKo: z.string().min(1).max(80),
-  labelVi: z.string().max(80).optional().nullable(),
-  priceKrw: z.number().int().min(0).max(100_000_000).optional().nullable(),
   priceVnd: z.string().regex(/^\d{1,15}$/).optional().nullable(),
 });
 const optionsSchema = z
@@ -30,13 +31,9 @@ const optionsSchema = z
 const createSchema = z.object({
   type: z.enum(SERVICE_TYPE_VALUES as unknown as [string, ...string[]]),
   nameKo: z.string().min(1).max(120),
-  nameVi: z.string().max(120).optional().nullable(),
-  nameEn: z.string().max(120).optional().nullable(),
   descKo: z.string().max(1000).optional().nullable(),
-  descVi: z.string().max(1000).optional().nullable(),
   unitLabelKo: z.string().max(40).optional().nullable(),
-  priceKrw: z.number().int().min(0).max(100_000_000).optional().nullable(),
-  priceVnd: z.string().regex(/^\d{1,15}$/).optional().nullable(),
+  priceVnd: z.string().regex(/^\d{1,15}$/),
   costVnd: z.string().regex(/^\d{1,15}$/).optional().nullable(),
   photoUrl: z.string().max(500).optional().nullable(),
   options: optionsSchema,
@@ -55,19 +52,18 @@ export async function GET() {
     orderBy: [{ active: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
   });
   // 원가는 canViewFinance만 — 서버에서 제거(클라 조건부 렌더 의존 금지). BigInt는 문자열로 직렬화.
+  //   가격은 priceVnd 단일통화(KRW는 표시 시점 환율로 파생 — 저장·노출 안 함).
   const data = items.map((it) => ({
     id: it.id,
     type: it.type,
     nameKo: it.nameKo,
-    nameVi: it.nameVi,
-    nameEn: it.nameEn,
+    nameI18n: it.nameI18n,
     descKo: it.descKo,
-    descVi: it.descVi,
+    descI18n: it.descI18n,
     unitLabelKo: it.unitLabelKo,
-    priceKrw: it.priceKrw,
     priceVnd: it.priceVnd?.toString() ?? null,
     photoUrl: it.photoUrl,
-    options: it.options,
+    options: it.options, // {variants/addons/modifiers: [{key,labelKo,labelI18n,priceVnd}]}
     active: it.active,
     sortOrder: it.sortOrder,
     ...(showCost ? { costVnd: it.costVnd?.toString() ?? null } : {}),
@@ -94,11 +90,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "VALIDATION_FAILED", issues: parsed.error.flatten() }, { status: 400 });
   }
   const d = parsed.data;
-  // 순수 교차검증(타입·이름·최소1가격·옵션 키)
+  // 순수 교차검증(타입·이름·priceVnd 필수·옵션 키)
   const errs = validateCatalogItem({
     type: d.type,
     nameKo: d.nameKo,
-    priceKrw: d.priceKrw ?? null,
     priceVnd: d.priceVnd ?? null,
     costVnd: d.costVnd ?? null,
     options: d.options ?? null,
@@ -107,21 +102,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "VALIDATION_FAILED", codes: errs }, { status: 400 });
   }
 
+  // 자동번역(best-effort): nameKo+descKo+옵션 labelKo → nameI18n/descI18n/옵션 labelI18n.
+  //   GEMINI 미설정/실패 시 i18n 없이(ko 폴백) 저장 — 저장 자체를 실패시키지 않는다.
+  const i18n = await buildCatalogI18n({ nameKo: d.nameKo, descKo: d.descKo, options: d.options });
+
   const created = await prisma.serviceCatalogItem.create({
     data: {
       type: d.type as Prisma.ServiceCatalogItemCreateInput["type"],
       nameKo: d.nameKo,
-      nameVi: d.nameVi ?? null,
-      nameEn: d.nameEn ?? null,
+      nameI18n: (i18n.nameI18n ?? undefined) as unknown as Prisma.InputJsonValue | undefined,
       descKo: d.descKo ?? null,
-      descVi: d.descVi ?? null,
+      descI18n: (i18n.descI18n ?? undefined) as unknown as Prisma.InputJsonValue | undefined,
       unitLabelKo: d.unitLabelKo ?? null,
-      priceKrw: d.priceKrw ?? null,
-      priceVnd: d.priceVnd != null && d.priceVnd !== "" ? BigInt(d.priceVnd) : null,
+      priceKrw: null, // 미사용 — 게스트 KRW는 priceVnd×환율 올림으로 표시-시점 산출
+      priceVnd: BigInt(d.priceVnd),
       // 원가는 canViewFinance만 — STAFF가 보내도 무시
       costVnd: canFinance && d.costVnd != null && d.costVnd !== "" ? BigInt(d.costVnd) : null,
       photoUrl: d.photoUrl ?? null,
-      options: (d.options ?? undefined) as Prisma.InputJsonValue | undefined,
+      options: (i18n.options ?? undefined) as Prisma.InputJsonValue | undefined,
       active: d.active ?? true,
       sortOrder: d.sortOrder ?? 0,
     },

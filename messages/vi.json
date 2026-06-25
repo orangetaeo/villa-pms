@@ -1331,6 +1331,14 @@
       "savedCost": "Đã ghi {n} lần nhập · cập nhật giá nhập",
       "error": "Lưu thất bại. Vui lòng thử lại.",
       "invalidQty": "Vui lòng kiểm tra số lượng."
+    },
+    "villaSelect": {
+      "label": "Chọn villa",
+      "searchPlaceholder": "Tìm villa…",
+      "noMatch": "Không có villa phù hợp",
+      "none": "Chưa chọn villa",
+      "lowSuffix": "thiếu {n}",
+      "lowJump": "Villa thiếu hàng"
     }
   },
   "adminMinibar": {
@@ -1430,8 +1438,21 @@
       "saving": "Đang lưu...",
       "cancel": "Hủy",
       "noPrice": "Nhập ít nhất một giá bán KRW hoặc VND.",
-      "validationFailed": "Vui lòng kiểm tra dữ liệu nhập."
-    }
+      "validationFailed": "Vui lòng kiểm tra dữ liệu nhập.",
+      "autoTranslateHint": "Bản dịch tiếng Việt·Anh·Trung·Nga được tạo tự động khi lưu. Chỉ cần nhập tiếng Hàn.",
+      "priceRequired": "Giá bán (VND) là bắt buộc.",
+      "photo": "Ảnh",
+      "photoUpload": "Tải ảnh lên",
+      "photoReplace": "Đổi ảnh",
+      "photoRemove": "Xóa ảnh",
+      "uploading": "Đang tải…",
+      "uploadError": "Tải ảnh thất bại. Vui lòng thử lại.",
+      "krwPreview": "≈ ₩{krw} (theo tỷ giá tự động)"
+    },
+    "filters": {
+      "allTypes": "Tất cả"
+    },
+    "emptyFiltered": "Không có mục nào thuộc loại này."
   },
   "adminServiceOrders": {
     "title": "Đơn dịch vụ bổ sung",
@@ -2621,6 +2642,10 @@
     "copy": "Sao chép",
     "copied": "Đã chép",
     "signed": "Khách đã ký bản đồng ý",
-    "error": "Đã xảy ra lỗi. Vui lòng thử lại sau."
+    "error": "Đã xảy ra lỗi. Vui lòng thử lại sau.",
+    "qrCheckin": "QR Nhận phòng",
+    "qrOptions": "QR Đặt dịch vụ",
+    "copyLink": "Sao chép link",
+    "qrUnavailable": "Không tạo được QR"
   }
 }
