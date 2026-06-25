@@ -623,6 +623,13 @@
         "minibarLabel": "Minibar:",
         "empty": "Chưa có đồ dùng nào."
       },
+      "minibarCard": {
+        "title": "Minibar tiêu chuẩn công ty",
+        "note": "Một bộ chung cho tất cả villa. Tự động áp dụng cho mọi villa (kể cả villa mới đăng ký); quản lý mục và đơn giá tại Cài đặt → Minibar.",
+        "manageLink": "Quản lý tiêu chuẩn",
+        "empty": "Chưa có mục minibar tiêu chuẩn. Thêm tại Cài đặt → Minibar.",
+        "stockBadge": "Mặc định {n}"
+      },
       "history": {
         "title": "Lịch sử chỉnh sửa",
         "system": "Hệ thống",

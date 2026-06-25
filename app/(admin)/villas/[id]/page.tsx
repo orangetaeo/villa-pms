@@ -4,11 +4,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getTranslations, getLocale } from "next-intl/server";
 import { auth } from "@/auth";
 import { canViewFinance } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { formatVnd, formatDateTime } from "@/lib/format";
+import { minibarItemName } from "@/lib/minibar";
 import type { PhotoSpace } from "@prisma/client";
 import type { FeatureCategoryKey } from "@/lib/features";
 import type { BedTypeKey } from "@/lib/bedding";
@@ -64,9 +65,10 @@ export default async function VillaDetailPage({
   // S-RBAC-3: STAFF는 요율의 판매가·마진 비공개(원가만) — select·렌더 모두에서 제외 (1차 서버 방어)
   const session = await auth();
   const showFinance = canViewFinance(session?.user?.role);
-  const [t, tList, villa, fxSetting, auditLogs] = await Promise.all([
+  const [t, tList, locale, villa, fxSetting, auditLogs, minibarStandard] = await Promise.all([
     getTranslations("adminVillas.detail"),
     getTranslations("adminVillas.list"),
+    getLocale(),
     prisma.villa.findUnique({
       where: { id },
       include: {
@@ -99,6 +101,13 @@ export default async function VillaDetailPage({
         createdAt: true,
         user: { select: { name: true } },
       },
+    }),
+    // 회사표준 미니바(#2b, ADR-0016) — 전 빌라 공통 1세트. 빌라와 무관하게 active 품목을 읽어 상세에 표시.
+    //   unitPriceVnd(=우리 판매가)는 RSC에서 canViewFinance일 때만 렌더 → 클라이언트로 직렬화되지 않음(원칙2).
+    prisma.minibarItem.findMany({
+      where: { active: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { id: true, nameKo: true, nameVi: true, unitPriceVnd: true, stockQty: true },
     }),
   ]);
 
@@ -415,6 +424,49 @@ export default async function VillaDetailPage({
 
           {/* 비품 현황 — 관리자 편집 가능 (Batch A). 미니바는 회사표준(#2b)으로 분리 */}
           <AdminAmenitiesEditor villaId={villa.id} initialQuantities={amenityQuantities} />
+
+          {/* 회사표준 미니바 (#2b, ADR-0016) — 전 빌라 공통 1세트. 모든 빌라(신규 포함) 자동 적용을 읽기 전용으로 확인.
+              단가(=판매가)는 canViewFinance일 때만 렌더(STAFF 마진 비공개, 원칙2). 편집은 설정→미니바 단일 경로. */}
+          <CollapsibleCard
+            title={t("minibarCard.title")}
+            icon="liquor"
+            headerMeta={
+              <Link
+                href="/settings/minibar"
+                className="text-xs text-admin-primary hover:underline whitespace-nowrap"
+              >
+                {t("minibarCard.manageLink")}
+              </Link>
+            }
+          >
+            {minibarStandard.length === 0 ? (
+              <p className="text-sm text-admin-muted py-6 text-center">{t("minibarCard.empty")}</p>
+            ) : (
+              <>
+                <p className="text-xs text-slate-500 mb-3">{t("minibarCard.note")}</p>
+                <ul className="divide-y divide-slate-800">
+                  {minibarStandard.map((m) => (
+                    <li key={m.id} className="flex items-center gap-3 py-2.5">
+                      <span className="material-symbols-outlined text-slate-500 text-lg shrink-0">
+                        liquor
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-slate-200 truncate">{minibarItemName(m, locale)}</p>
+                        <p className="text-[11px] text-slate-500">
+                          {t("minibarCard.stockBadge", { n: m.stockQty })}
+                        </p>
+                      </div>
+                      {showFinance && (
+                        <span className="text-xs font-semibold text-admin-primary tabular-nums whitespace-nowrap shrink-0">
+                          {formatVnd(m.unitPriceVnd)}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </CollapsibleCard>
 
           {/* 수정 이력 (AuditLog — b10 Action Log) */}
           {auditLogs.length > 0 && (
