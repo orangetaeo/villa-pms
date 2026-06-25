@@ -16,6 +16,7 @@
   "nav": {
     "brandSub": "Villa PMS Admin",
     "dashboard": "Bảng điều khiển",
+    "statistics": "Thống kê",
     "bookings": "Đặt phòng",
     "proposals": "Đề xuất",
     "villas": "Villa",
@@ -1960,7 +1961,11 @@
     "labelPlaceholder": "Tên giai đoạn (vd: Tết 2026)",
     "periodLabel": "Tên giai đoạn",
     "removePeriod": "Xóa",
-    "seasons": { "LOW": "Mùa thấp điểm", "HIGH": "Mùa cao điểm", "PEAK": "Cao điểm lễ Tết" },
+    "seasons": {
+      "LOW": "Mùa thấp điểm",
+      "HIGH": "Mùa cao điểm",
+      "PEAK": "Cao điểm lễ Tết"
+    },
     "startDate": "Ngày bắt đầu",
     "endDate": "Ngày kết thúc",
     "addPeriod": "Thêm giai đoạn",
@@ -2092,7 +2097,8 @@
     "settlements": "Thanh toán",
     "users": "Quản lý người dùng",
     "villas": "Quản lý villa",
-    "villaDetail": "Chi tiết villa"
+    "villaDetail": "Chi tiết villa",
+    "statistics": "Thống kê"
   },
   "adminCheckinSheet": {
     "title": "Phiếu nhận phòng hôm nay",
@@ -2130,6 +2136,134 @@
       "guestSign": "Chữ ký khách",
       "staffConfirm": "Xác nhận nhân viên",
       "signDate": "Ngày ký"
+    }
+  },
+  "adminStatistics": {
+    "title": "Thống kê",
+    "subtitle": "Phân tích hiệu quả kinh doanh",
+    "tabs": {
+      "overview": "Tổng quan",
+      "occupancy": "Tỷ lệ lấp đầy",
+      "villas": "Hiệu suất villa",
+      "operations": "Chỉ số vận hành"
+    },
+    "range": {
+      "6": "6 tháng gần nhất",
+      "12": "12 tháng gần nhất",
+      "label": "Khoảng thời gian",
+      "year": "Theo năm"
+    },
+    "channels": {
+      "TRAVEL_AGENCY": "Công ty du lịch",
+      "LAND_AGENCY": "Land",
+      "DIRECT": "Trực tiếp"
+    },
+    "common": {
+      "changeFromPrev": "So với tháng trước",
+      "noData": "Không có dữ liệu để hiển thị",
+      "fxSnapshotNote": "Tham khảo theo tỷ giá ghi nhận",
+      "fxSnapshotNoteShort": "Tham khảo tỷ giá",
+      "bookingsUnit": "lượt",
+      "nightsUnit": "đêm"
+    },
+    "overview": {
+      "basisNote": "Doanh thu tính theo tháng trả phòng · Tách riêng theo loại tiền (không cộng gộp KRW·VND)",
+      "fxMissingNote": "{count} đặt phòng thiếu tỷ giá bị loại khỏi tính lợi nhuận",
+      "kpi": {
+        "krwRevenue": "Doanh thu KRW tháng này",
+        "krwRevenueNote": "Kênh trực tiếp (DIRECT)",
+        "vndRevenue": "Doanh thu VND tháng này",
+        "vndRevenueNote": "Kênh du lịch · land",
+        "margin": "Lợi nhuận quy đổi",
+        "marginNote": "Quy đổi theo VND",
+        "marginRate": "Tỷ suất lợi nhuận TB",
+        "marginRateNote": "Quy đổi theo VND"
+      },
+      "revenueChart": {
+        "title": "Xu hướng doanh thu theo tháng",
+        "subtitle": "Hiển thị tách KRW·VND (trục trái·phải riêng) — không cộng gộp",
+        "krwLegend": "KRW (trục trái, won)",
+        "vndLegend": "VND (trục phải, ₫)"
+      },
+      "channelChart": {
+        "title": "Tỷ trọng theo kênh",
+        "byCount": "Số lượt",
+        "byRevenue": "Doanh thu",
+        "totalBookings": "Tổng số đặt phòng"
+      }
+    },
+    "occupancy": {
+      "kpi": {
+        "currentRate": "Tỷ lệ lấp đầy tháng này",
+        "change": "So với tháng trước",
+        "changeNote": "Tháng trước {prev}% → tháng này {current}%",
+        "avgNights": "Số đêm TB / đặt phòng",
+        "avgNightsNote": "{bookings} đặt phòng · tổng {nights} đêm tháng này"
+      },
+      "trendChart": {
+        "title": "Xu hướng tỷ lệ lấp đầy theo tháng",
+        "subtitle": "12 tháng gần nhất · 0~100%",
+        "legend": "Tỷ lệ lấp đầy chung"
+      },
+      "villaChart": {
+        "title": "Tỷ lệ lấp đầy theo villa (giảm dần)",
+        "allComplexes": "Tất cả khu"
+      }
+    },
+    "villas": {
+      "gateNote": "Cột doanh thu·lợi nhuận chỉ dành cho quyền (OWNER·MANAGER) — với tài khoản STAFF dữ liệu được loại ở máy chủ và không có trong payload.",
+      "topChart": {
+        "title": "Top 10 villa",
+        "byRate": "Tỷ lệ lấp đầy",
+        "byBookings": "Số đặt phòng",
+        "byRevenue": "Doanh thu"
+      },
+      "table": {
+        "title": "Bảng xếp hạng villa",
+        "hint": "Nhấn cột để sắp xếp · chuyển thẻ ở <768px",
+        "name": "Tên villa",
+        "complex": "Khu",
+        "bookings": "Số đặt phòng",
+        "nights": "Đêm lấp đầy",
+        "rate": "Tỷ lệ lấp đầy",
+        "krwRevenue": "Doanh thu KRW",
+        "vndRevenue": "Doanh thu VND",
+        "margin": "Lợi nhuận quy đổi",
+        "marginRef": "tham khảo",
+        "noComplex": "Chưa có khu"
+      }
+    },
+    "operations": {
+      "funnel": {
+        "title": "Phễu chuyển đổi đề xuất",
+        "subtitle": "Tạo đề xuất → giữ chỗ → xác nhận → trả phòng · tỷ lệ chuyển đổi từng bước",
+        "proposals": "Tạo đề xuất",
+        "reserved": "Giữ chỗ",
+        "confirmed": "Xác nhận",
+        "checkedOut": "Trả phòng",
+        "overallLabel": "Tỷ lệ chuyển đổi tổng (đề xuất→trả phòng)"
+      },
+      "ratios": {
+        "holdExpiry": "Tỷ lệ giữ chỗ hết hạn",
+        "holdExpiryNote": "{expired}/{created} lượt giữ chỗ hết hạn",
+        "cancel": "Tỷ lệ hủy",
+        "cancelNote": "Trên tổng đặt phòng",
+        "noShow": "Tỷ lệ NO_SHOW",
+        "noShowNote": "Trên tổng trả phòng + no-show"
+      },
+      "cleaning": {
+        "title": "Kiểm tra dọn phòng",
+        "avgTurnaround": "Thời gian xử lý TB",
+        "hoursUnit": "giờ",
+        "pending": "Chờ duyệt",
+        "rejectRate": "Tỷ lệ từ chối (trên số nộp)"
+      },
+      "deposit": {
+        "title": "Khấu trừ tiền cọc",
+        "gateBadge": "Chỉ quyền hạn",
+        "note": "Tổng {count} lượt khấu trừ một phần (PARTIAL_DEDUCTED)",
+        "staffNote": "Tài khoản STAFF không thấy thẻ này"
+      }
     }
   }
 }

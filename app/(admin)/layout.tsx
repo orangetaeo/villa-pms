@@ -30,6 +30,7 @@ import { isOperator } from "@/lib/permissions";
 // (누락 시 MISSING_MESSAGE로 화면 깨짐).
 const ADMIN_CLIENT_NAMESPACES = [
   "nav",
+  "adminStatistics",
   "adminBookings",
   "adminCheckin",
   "adminCheckout",
