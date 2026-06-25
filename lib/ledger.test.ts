@@ -8,6 +8,8 @@ import {
   buildPayoutLines,
   cashAccountFor,
   sumByCurrency,
+  summarizeLedgerBalances,
+  type AccountBalanceRow,
   type JournalLine,
 } from "@/lib/ledger";
 
@@ -159,5 +161,48 @@ describe("전체 생애주기 합산 — 마진·환차 도출", () => {
     expect(bal.get(LedgerAccount.SUPPLIER_PAYABLE)).toBe(0n); // 적립 −18M + 지급 +18M = 0(완납)
     expect(bal.get(LedgerAccount.CASH_VND)).toBe(-17_500_000n); // 지급 −18M + 환차 +0.5M
     expect(bal.get(LedgerAccount.FX_GAIN_LOSS)).toBe(-500_000n); // 환차 이익(대변)
+  });
+});
+
+describe("summarizeLedgerBalances — 잔액 대시보드 부호 해석", () => {
+  const rows: AccountBalanceRow[] = [
+    { account: LedgerAccount.CASH_KRW, currency: Currency.KRW, amount: "1000000" },
+    { account: LedgerAccount.CASH_VND, currency: Currency.VND, amount: "-17500000" },
+    { account: LedgerAccount.SUPPLIER_PAYABLE, currency: Currency.VND, amount: "-5000000" },
+    { account: LedgerAccount.REVENUE, currency: Currency.KRW, amount: "-1000000" },
+    { account: LedgerAccount.REVENUE, currency: Currency.VND, amount: "-3000000" },
+    { account: LedgerAccount.COGS, currency: Currency.VND, amount: "18000000" },
+    { account: LedgerAccount.FX_GAIN_LOSS, currency: Currency.VND, amount: "-500000" },
+  ];
+
+  it("부호 해석 — 현금 그대로, 채무·매출·환차는 반전(양수=의미)", () => {
+    const s = summarizeLedgerBalances(rows);
+    expect(s.cashKrw).toBe("1000000"); // 보유 KRW
+    expect(s.cashVnd).toBe("-17500000"); // 보유 VND(음수=지급 초과 상태 그대로 노출)
+    expect(s.supplierPayableVnd).toBe("5000000"); // 미지급 채무(−5M 대변 → +5M 갚을 돈)
+    expect(s.revenueKrw).toBe("1000000"); // 매출(−1M → +1M)
+    expect(s.revenueVnd).toBe("3000000");
+    expect(s.cogsVnd).toBe("18000000"); // 원가 그대로
+    expect(s.fxGainLossVnd).toBe("500000"); // 환차 순이익(−0.5M 대변 → +0.5M 이익)
+  });
+
+  it("누락 계정·빈 장부는 0", () => {
+    const s = summarizeLedgerBalances([]);
+    expect(s).toEqual({
+      cashKrw: "0",
+      cashVnd: "0",
+      supplierPayableVnd: "0",
+      revenueKrw: "0",
+      revenueVnd: "0",
+      cogsVnd: "0",
+      fxGainLossVnd: "0",
+    });
+  });
+
+  it("환차 손실(차변 +) → 음수 순손익", () => {
+    const s = summarizeLedgerBalances([
+      { account: LedgerAccount.FX_GAIN_LOSS, currency: Currency.VND, amount: "300000" },
+    ]);
+    expect(s.fxGainLossVnd).toBe("-300000"); // 손실
   });
 });

@@ -1197,6 +1197,14 @@
     "ledgerVerified": "복식부기 검증됨 — 통화별 장부 균형 정상",
     "ledgerWarning": "복식부기 불일치 감지",
     "ledgerWarningDetail": "장부 무결성 점검에서 불일치가 발견됐습니다: {detail}",
+    "ledgerBal": {
+      "title": "장부 잔액 (복식부기)",
+      "cash": "보유 현금",
+      "payable": "공급자 미지급 채무",
+      "revenue": "매출 (인식)",
+      "cogs": "공급자 원가",
+      "fx": "환차 손익"
+    },
     "monthPrev": "이전 달",
     "monthNext": "다음 달",
     "generate": "집계 실행",
