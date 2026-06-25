@@ -401,8 +401,11 @@
       "filters": {
         "area": "지역",
         "allAreas": "전체 지역",
+        "supplier": "공급자",
+        "allSuppliers": "전체 공급자",
         "reset": "초기화"
       },
+      "supplierDeleted": "삭제됨",
       "emptyFiltered": "검색 조건에 맞는 빌라가 없습니다.",
       "tabs": {
         "all": "전체",
@@ -1245,7 +1248,8 @@
       "selfHint": "본인 계정은 삭제할 수 없습니다.",
       "confirm": "{name} 님을 삭제할까요? 목록과 로그인에서 제외되며, 데이터와 빌라는 보존됩니다.",
       "success": "회원이 삭제되었습니다."
-    }
+    },
+    "viewVillas": "이 공급자의 빌라 보기"
   },
   "adminProposals": {
     "list": {

@@ -279,23 +279,15 @@ export async function DELETE(
   const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.findUnique({
       where: { id },
-      select: {
-        id: true,
-        role: true,
-        deletedAt: true,
-        zaloUserId: true,
-        _count: { select: { villas: true } },
-      },
+      select: { id: true, role: true, deletedAt: true, zaloUserId: true },
     });
     if (!user) return { kind: "NOT_FOUND" as const };
     // 이미 삭제됨 — 멱등 처리 (성공으로 응답)
     if (user.deletedAt) return { kind: "OK" as const };
     // OWNER 보호 — 최상위 권한 계정은 삭제 불가 (권한상승·시스템 고립 방지)
     if (user.role === "OWNER") return { kind: "CANNOT_DELETE_OWNER" as const };
-    // 빌라 보유 공급자 — 삭제 시 빌라가 고아되므로 차단 (CHANGE_ROLE과 동일 정책)
-    if (user.role === "SUPPLIER" && user._count.villas > 0) {
-      return { kind: "HAS_VILLAS" as const };
-    }
+    // 공급자가 빌라를 보유해도 삭제 허용 — 빌라 정보(supplierId 포함)는 그대로 보존되고
+    // 빌라 목록에 '공급자 삭제됨'으로 표시된다(운영자 결정). 고아 차단하지 않음.
 
     await tx.user.update({
       where: { id },
@@ -329,9 +321,6 @@ export async function DELETE(
   }
   if (result.kind === "CANNOT_DELETE_OWNER") {
     return NextResponse.json({ error: "CANNOT_DELETE_OWNER" }, { status: 403 });
-  }
-  if (result.kind === "HAS_VILLAS") {
-    return NextResponse.json({ error: "HAS_VILLAS" }, { status: 409 });
   }
 
   return NextResponse.json({ id, deleted: true });

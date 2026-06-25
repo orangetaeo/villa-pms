@@ -509,8 +509,11 @@
       "filters": {
         "area": "Khu vực",
         "allAreas": "Tất cả khu vực",
+        "supplier": "Nhà cung cấp",
+        "allSuppliers": "Tất cả nhà cung cấp",
         "reset": "Đặt lại"
       },
+      "supplierDeleted": "Đã xóa",
       "emptyFiltered": "Không có villa nào khớp với điều kiện tìm kiếm.",
       "tabs": {
         "all": "Tất cả",
@@ -1353,7 +1356,8 @@
       "selfHint": "Không thể xóa tài khoản của chính bạn.",
       "confirm": "Xóa {name}? Tài khoản sẽ bị loại khỏi danh sách và không đăng nhập được, nhưng dữ liệu và villa vẫn được giữ lại.",
       "success": "Đã xóa người dùng."
-    }
+    },
+    "viewVillas": "Xem villa của nhà cung cấp này"
   },
   "adminProposals": {
     "list": {

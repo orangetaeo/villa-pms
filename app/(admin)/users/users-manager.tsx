@@ -4,6 +4,7 @@
 // 목록은 RSC props, 활성 토글·Zalo 수동 매칭은 PATCH /api/users/[id] → router.refresh()
 // <768px는 ResponsiveTable 카드 전환 (T6.7 패턴)
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { Role } from "@/lib/permissions";
@@ -283,9 +284,7 @@ export default function UsersManager({
             ? "errors.cannotDeleteSelf"
             : res.status === 403
               ? "errors.cannotDeleteOwner"
-              : res.status === 409
-                ? "errors.hasVillasDelete"
-                : "errors.generic";
+              : "errors.generic";
         setMessage({ tone: "error", text: t(errKey) });
         return;
       }
@@ -516,11 +515,23 @@ export default function UsersManager({
       header: t("columns.villas"),
       cell: (u) =>
         u.role === "SUPPLIER" ? (
-          <span
-            className={`text-sm font-bold tabular-nums ${u.isActive ? "text-slate-300" : "text-[#9CA3AF]"}`}
-          >
-            {u.villaCount}
-          </span>
+          u.villaCount > 0 ? (
+            // 빌라 수 클릭 → 해당 공급자 빌라 목록으로 이동 (베트남 이름 검색 회피)
+            <Link
+              href={`/villas?supplier=${u.id}`}
+              title={t("viewVillas")}
+              className="inline-flex items-center gap-1 text-sm font-bold tabular-nums text-admin-primary hover:underline"
+            >
+              {u.villaCount}
+              <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+            </Link>
+          ) : (
+            <span
+              className={`text-sm font-bold tabular-nums ${u.isActive ? "text-slate-300" : "text-[#9CA3AF]"}`}
+            >
+              {u.villaCount}
+            </span>
+          )
         ) : (
           <span className="text-sm text-slate-500">-</span>
         ),

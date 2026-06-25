@@ -34,7 +34,7 @@ const STATUS_BADGE_CLASS: Record<string, string> = {
 export default async function VillasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; page?: string; pageSize?: string; area?: string; q?: string }>;
+  searchParams: Promise<{ status?: string; page?: string; pageSize?: string; area?: string; q?: string; supplier?: string }>;
 }) {
   const t = await getTranslations("adminVillas.list");
   const params = await searchParams;
@@ -42,11 +42,13 @@ export default async function VillasPage({
   const statusFilter = TAB_STATUS[tab];
   const area = params.area?.trim() || undefined;
   const q = params.q?.trim() || undefined;
+  const supplierId = params.supplier?.trim() || undefined;
   const { page, pageSize, skip, take } = parsePageParams(params);
 
-  // 검색 조건 — 지역(단지명 complex 정확 일치) + 텍스트(빌라명·단지·주소·공급자명).
+  // 검색 조건 — 공급자(정확 id) + 지역(단지명 complex 정확 일치) + 텍스트(빌라명·단지·주소·공급자명).
   // 상태와 분리해 두어 탭 카운트도 검색 범위 안에서 집계한다.
   const searchWhere: Prisma.VillaWhereInput = {
+    ...(supplierId ? { supplierId } : {}),
     ...(area ? { complex: area } : {}),
     ...(q
       ? {
@@ -64,7 +66,7 @@ export default async function VillasPage({
     ...(statusFilter ? { status: statusFilter } : { status: { in: LISTED_STATUSES } }),
   };
 
-  const [villas, total, statusCounts, complexRows] = await Promise.all([
+  const [villas, total, statusCounts, complexRows, supplierCountRows] = await Promise.all([
     prisma.villa.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -79,7 +81,7 @@ export default async function VillasPage({
         bedrooms: true,
         hasPool: true,
         breakfastAvailable: true,
-        supplier: { select: { name: true } },
+        supplier: { select: { id: true, name: true, deletedAt: true } },
         // 첫 사진 — PhotoSpace enum 정의 순서상 EXTERIOR 우선
         photos: {
           orderBy: [{ space: "asc" }, { sortOrder: "asc" }],
@@ -102,11 +104,30 @@ export default async function VillasPage({
       orderBy: { complex: "asc" },
       select: { complex: true },
     }),
+    // 공급자 필터 옵션 = 운영 목록 대상 빌라의 공급자별 빌라 수 (현재 필터와 무관하게 전체 목록 제공)
+    prisma.villa.groupBy({
+      by: ["supplierId"],
+      where: { status: { in: LISTED_STATUSES } },
+      _count: { _all: true },
+    }),
   ]);
 
   const areaOptions = complexRows
     .map((r) => r.complex)
     .filter((c): c is string => !!c);
+
+  // 공급자 옵션 — id별 빌라 수 + 이름·삭제여부 병합 (이름순). 베트남 이름 타이핑 회피용 드롭다운.
+  const supplierUsers = await prisma.user.findMany({
+    where: { id: { in: supplierCountRows.map((r) => r.supplierId) } },
+    select: { id: true, name: true, deletedAt: true },
+  });
+  const supplierOptions = supplierCountRows
+    .map((r) => {
+      const u = supplierUsers.find((s) => s.id === r.supplierId);
+      return u ? { id: u.id, name: u.name, count: r._count._all, deleted: !!u.deletedAt } : null;
+    })
+    .filter((o): o is { id: string; name: string; count: number; deleted: boolean } => o !== null)
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const countOf = (s: VillaStatus) =>
     statusCounts.find((c) => c.status === s)?._count._all ?? 0;
@@ -117,10 +138,11 @@ export default async function VillasPage({
     inactive: countOf("INACTIVE"),
   };
 
-  // 탭 링크는 검색(area·q) + 페이지당 개수(pageSize)를 보존한다 (페이지 번호는 1로 리셋)
+  // 탭 링크는 검색(supplier·area·q) + 페이지당 개수(pageSize)를 보존한다 (페이지 번호는 1로 리셋)
   const tabHref = (key: string) => {
     const sp = new URLSearchParams();
     if (key !== "all") sp.set("status", key);
+    if (supplierId) sp.set("supplier", supplierId);
     if (area) sp.set("area", area);
     if (q) sp.set("q", q);
     if (params.pageSize) sp.set("pageSize", params.pageSize);
@@ -141,7 +163,7 @@ export default async function VillasPage({
       <div className="flex flex-col gap-6 mb-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
-          <VillasFilters areas={areaOptions} />
+          <VillasFilters areas={areaOptions} suppliers={supplierOptions} />
         </div>
         <div className="flex items-center gap-2 border-b border-admin-card overflow-x-auto">
           {tabs.map(({ key, label }) => {
@@ -235,6 +257,11 @@ export default async function VillasPage({
                     </div>
                     <span className="text-xs text-admin-muted truncate">
                       {villa.supplier?.name ?? t("noSupplier")}
+                      {villa.supplier?.deletedAt && (
+                        <span className="ml-1.5 px-1.5 py-0.5 rounded bg-red-900/30 text-red-400 text-[9px] font-bold align-middle whitespace-nowrap">
+                          {t("supplierDeleted")}
+                        </span>
+                      )}
                     </span>
                     <div className="flex items-center gap-2 text-[11px] text-admin-muted">
                       <span className="inline-flex items-center gap-0.5">
@@ -247,9 +274,16 @@ export default async function VillasPage({
                       {villa.breakfastAvailable && (
                         <span className="material-symbols-outlined text-[14px]">restaurant</span>
                       )}
-                      {(needsCleaning || noRates) && (
-                        <span className="material-symbols-outlined text-[14px] text-admin-alert">
-                          warning
+                      {needsCleaning && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-900/20 text-admin-alert font-medium">
+                          <span className="material-symbols-outlined text-[14px]">cleaning_services</span>
+                          {t("cleaningPending")}
+                        </span>
+                      )}
+                      {noRates && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-900/20 text-admin-pending font-medium">
+                          <span className="material-symbols-outlined text-[14px]">payments</span>
+                          {t("noRates")}
                         </span>
                       )}
                     </div>
