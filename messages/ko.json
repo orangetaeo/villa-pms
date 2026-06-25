@@ -397,6 +397,7 @@
   "adminVillas": {
     "list": {
       "title": "빌라 관리",
+      "newVilla": "신규등록",
       "searchPlaceholder": "빌라명, 단지, 주소, 공급자 검색...",
       "filters": {
         "area": "지역",

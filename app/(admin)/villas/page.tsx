@@ -162,8 +162,27 @@ export default async function VillasPage({
       {/* 페이지 헤더 + 필터 탭 (b9) */}
       <div className="flex flex-col gap-6 mb-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
-          <VillasFilters areas={areaOptions} suppliers={supplierOptions} />
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
+            {/* 대행 등록 — 운영자가 공급자 명의로 신규 빌라 등록(마법사 isAdmin 모드 → PENDING_REVIEW) */}
+            <Link
+              href="/my-villas/new"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-admin-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-admin-primary-dark lg:hidden"
+            >
+              <span className="material-symbols-outlined text-[18px]">add</span>
+              {t("newVilla")}
+            </Link>
+          </div>
+          <div className="flex items-center gap-3">
+            <VillasFilters areas={areaOptions} suppliers={supplierOptions} />
+            <Link
+              href="/my-villas/new"
+              className="hidden shrink-0 items-center gap-1.5 rounded-lg bg-admin-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-admin-primary-dark lg:inline-flex"
+            >
+              <span className="material-symbols-outlined text-[18px]">add</span>
+              {t("newVilla")}
+            </Link>
+          </div>
         </div>
         <div className="flex items-center gap-2 border-b border-admin-card overflow-x-auto">
           {tabs.map(({ key, label }) => {

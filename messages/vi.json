@@ -505,6 +505,7 @@
   "adminVillas": {
     "list": {
       "title": "Quản lý villa",
+      "newVilla": "Đăng ký villa",
       "searchPlaceholder": "Tìm tên villa, khu, địa chỉ, nhà cung cấp...",
       "filters": {
         "area": "Khu vực",
