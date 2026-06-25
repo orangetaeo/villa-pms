@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { PUBLIC_LABELS, type PublicLang } from "@/lib/public-i18n";
 
-/** c3 입금 카드 계좌번호 "복사" 버튼 (디자인 export 144~149행) */
-export function CopyButton({ text }: { text: string }) {
+/** c3 입금 카드 계좌번호 복사 버튼 (#5 5개 언어) */
+export function CopyButton({ text, lang }: { text: string; lang: PublicLang }) {
+  const t = PUBLIC_LABELS[lang];
   const [copied, setCopied] = useState(false);
 
   const onCopy = async () => {
@@ -22,7 +24,7 @@ export function CopyButton({ text }: { text: string }) {
       onClick={onCopy}
       className="text-teal-600 text-xs font-bold hover:underline"
     >
-      {copied ? "복사됨" : "복사"}
+      {copied ? t.copied : t.copy}
     </button>
   );
 }

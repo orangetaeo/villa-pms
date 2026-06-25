@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { PUBLIC_LABELS, type PublicLang } from "@/lib/public-i18n";
 
-/** c1 빌라 카드 사진 캐러셀 — 스크롤 스냅 + 하단 dots. 탭하면 전체화면 확대(라이트박스). */
-export function PhotoCarousel({ urls, alt }: { urls: string[]; alt: string }) {
+/** c1 빌라 카드 사진 캐러셀 (#5 5개 언어 aria) — 스크롤 스냅 + 하단 dots + 전체화면 확대. */
+export function PhotoCarousel({ urls, alt, lang }: { urls: string[]; alt: string; lang: PublicLang }) {
+  const t = PUBLIC_LABELS[lang].carousel;
   const [active, setActive] = useState(0);
   const trackRef = useRef<HTMLDivElement>(null);
   const [lightbox, setLightbox] = useState<number | null>(null);
@@ -72,12 +74,12 @@ export function PhotoCarousel({ urls, alt }: { urls: string[]; alt: string }) {
             type="button"
             key={url}
             onClick={() => setLightbox(i)}
-            aria-label={`${alt} 사진 ${i + 1} 확대`}
+            aria-label={t.zoom(alt, i + 1)}
             className="relative w-full h-full shrink-0 snap-center cursor-zoom-in"
           >
             <Image
               src={url}
-              alt={`${alt} 사진 ${i + 1}`}
+              alt={t.photo(alt, i + 1)}
               fill
               sizes="(max-width: 448px) 100vw, 448px"
               className="object-cover"
@@ -108,14 +110,14 @@ export function PhotoCarousel({ urls, alt }: { urls: string[]; alt: string }) {
         <div
           role="dialog"
           aria-modal="true"
-          aria-label={`${alt} 사진`}
+          aria-label={t.dialog(alt)}
           onClick={close}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4"
         >
           <button
             type="button"
             onClick={close}
-            aria-label="닫기"
+            aria-label={t.close}
             className="absolute top-4 right-4 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
           >
             <span className="material-symbols-outlined">close</span>
@@ -125,7 +127,7 @@ export function PhotoCarousel({ urls, alt }: { urls: string[]; alt: string }) {
             <>
               <button
                 type="button"
-                aria-label="이전 사진"
+                aria-label={t.prev}
                 onClick={(e) => {
                   e.stopPropagation();
                   prev();
@@ -136,7 +138,7 @@ export function PhotoCarousel({ urls, alt }: { urls: string[]; alt: string }) {
               </button>
               <button
                 type="button"
-                aria-label="다음 사진"
+                aria-label={t.next}
                 onClick={(e) => {
                   e.stopPropagation();
                   next();
@@ -151,7 +153,7 @@ export function PhotoCarousel({ urls, alt }: { urls: string[]; alt: string }) {
           <div className="relative h-[82vh] w-[92vw]">
             <Image
               src={urls[lightbox]}
-              alt={`${alt} 사진 ${lightbox + 1}`}
+              alt={t.photo(alt, lightbox + 1)}
               fill
               sizes="92vw"
               className="object-contain"

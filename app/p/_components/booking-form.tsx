@@ -1,30 +1,45 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { PUBLIC_LABELS, type PublicLang } from "@/lib/public-i18n";
 
-/** c3 상태1 폼 — 이름·연락처(+인원, 계약 편차) → POST /api/p/[token]/hold */
-
-const formSchema = z.object({
-  guestName: z.string().trim().min(1, "성함을 입력해주세요"),
-  guestPhone: z
-    .string()
-    .trim()
-    .regex(/^[0-9+\-\s]{9,20}$/, "연락처를 정확히 입력해주세요"),
-  guestCount: z.coerce.number().int().min(1, "인원을 선택해주세요").max(16),
-});
-
-type FormValues = z.infer<typeof formSchema>;
+/** c3 상태1 폼 (#5 5개 언어) — 이름·연락처·인원 → POST /api/p/[token]/hold */
 
 const inputClass =
   "w-full h-14 px-4 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none transition-all";
 
-export function BookingForm({ token, itemId }: { token: string; itemId: string }) {
+export function BookingForm({
+  token,
+  itemId,
+  lang,
+}: {
+  token: string;
+  itemId: string;
+  lang: PublicLang;
+}) {
+  const t = PUBLIC_LABELS[lang].bookingForm;
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+
+  // 검증 메시지는 언어별 — 스키마를 labels로 구성(모듈 상단 하드코딩 제거)
+  const formSchema = useMemo(
+    () =>
+      z.object({
+        guestName: z.string().trim().min(1, t.errName),
+        guestPhone: z
+          .string()
+          .trim()
+          .regex(/^[0-9+\-\s]{9,20}$/, t.errPhone),
+        guestCount: z.coerce.number().int().min(1, t.errCount).max(16),
+      }),
+    [t]
+  );
+  type FormValues = z.infer<typeof formSchema>;
+
   const {
     register,
     handleSubmit,
@@ -44,15 +59,15 @@ export function BookingForm({ token, itemId }: { token: string; itemId: string }
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.bookingId) {
-        router.replace(`/p/${token}/done/${data.bookingId}`);
+        router.replace(`/p/${token}/done/${data.bookingId}?lang=${lang}`);
         return;
       }
       // 거부 사유는 expired/closed 2종으로만 수신 (검수 게이트 등 내부 사유 미노출)
       const notice = data?.error === "expired" ? "expired" : "closed";
-      router.replace(`/p/${token}?notice=${notice}`);
+      router.replace(`/p/${token}?notice=${notice}&lang=${lang}`);
     } catch {
       setSubmitting(false);
-      alert("신청 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      alert(t.alertError);
     }
   };
 
@@ -61,12 +76,12 @@ export function BookingForm({ token, itemId }: { token: string; itemId: string }
       <div className="space-y-4">
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-1.5" htmlFor="guestName">
-            이름
+            {t.name}
           </label>
           <input
             id="guestName"
             className={inputClass}
-            placeholder="성함을 입력해주세요"
+            placeholder={t.namePlaceholder}
             type="text"
             {...register("guestName")}
           />
@@ -76,7 +91,7 @@ export function BookingForm({ token, itemId }: { token: string; itemId: string }
         </div>
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-1.5" htmlFor="guestPhone">
-            연락처
+            {t.phone}
           </label>
           <input
             id="guestPhone"
@@ -91,12 +106,12 @@ export function BookingForm({ token, itemId }: { token: string; itemId: string }
         </div>
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-1.5" htmlFor="guestCount">
-            인원
+            {t.count}
           </label>
           <select id="guestCount" className={inputClass} {...register("guestCount")}>
             {Array.from({ length: 16 }, (_, i) => i + 1).map((n) => (
               <option key={n} value={n}>
-                {n}명
+                {t.countOption(n)}
               </option>
             ))}
           </select>
@@ -110,7 +125,7 @@ export function BookingForm({ token, itemId }: { token: string; itemId: string }
         disabled={submitting}
         className="w-full h-14 bg-teal-600 text-white font-bold rounded-lg shadow-lg shadow-teal-100 active:scale-[0.98] transition-transform disabled:opacity-60"
       >
-        {submitting ? "신청 처리 중…" : "가예약 신청하기"}
+        {submitting ? t.submitting : t.submit}
       </button>
     </form>
   );

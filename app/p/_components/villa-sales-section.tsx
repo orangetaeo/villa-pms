@@ -1,5 +1,5 @@
-// 공개 제안페이지 빌라 판매정보 표시 섹션 (ADR-0011, c1-villa-details 변환 — 라이트/한국어, 읽기전용)
-// /p/[token] 빌라 카드 안에 렌더. 공개 페이지는 next-intl 미사용(기존 패턴) → 한국어 하드코딩.
+// 공개 제안페이지 빌라 판매정보 표시 섹션 (ADR-0011, c1-villa-details 변환 — 라이트, 읽기전용)
+// #5: 5개 언어(lib/public-i18n). lang prop으로 라벨 주입. 빌라명·면적 등 데이터는 원문 유지.
 // ⚠ 와이파이(wifiSsid·wifiPassword) 절대 렌더 금지 — BE select에서 이미 제외(데이터에 없음), FE도 참조 안 함.
 import { formatThousands } from "@/lib/format";
 import {
@@ -11,16 +11,9 @@ import {
 import type { BedTypeKey } from "@/lib/bedding";
 import type { FeatureCategoryKey } from "@/lib/features";
 import { cancellationTiers, type CancellationPolicy } from "@/lib/cancellation-policy";
+import { PUBLIC_LABELS, BED_LABELS, FEATURE_LABELS, type PublicLang } from "@/lib/public-i18n";
 
-// 공개 표시용 한국어 라벨·아이콘 (c1-villa-details 디자인 그대로)
-const BED_LABEL_KO: Record<BedTypeKey, string> = {
-  KING: "킹",
-  QUEEN: "퀸",
-  DOUBLE: "더블",
-  SINGLE: "싱글",
-  TWIN: "트윈",
-  BUNK: "2층",
-};
+// 아이콘만 (텍스트 아님 — 언어 무관). 라벨은 lib/public-i18n BED_LABELS/FEATURE_LABELS.
 const BED_ICON: Record<BedTypeKey, string> = {
   KING: "king_bed",
   QUEEN: "bed",
@@ -28,20 +21,6 @@ const BED_ICON: Record<BedTypeKey, string> = {
   SINGLE: "single_bed",
   TWIN: "single_bed",
   BUNK: "bunk_bed",
-};
-const FEATURE_LABEL_KO: Record<string, string> = {
-  viewSea: "바다뷰",
-  viewMountain: "마운틴뷰",
-  viewCity: "시티뷰",
-  bbq: "BBQ",
-  elevator: "엘리베이터",
-  generator: "발전기",
-  kidsPool: "키즈풀",
-  privatePool: "프라이빗풀",
-  gym: "헬스장",
-  golfNearby: "골프장 인근",
-  beachFront: "해변 바로앞",
-  marketNearby: "마트 인근",
 };
 const FEATURE_ICON: Record<string, string> = {
   viewSea: "waves",
@@ -79,11 +58,16 @@ export interface VillaSalesData {
 export function VillaSalesSection({
   villa,
   cancellationPolicy,
+  lang,
 }: {
   villa: VillaSalesData;
   /** 전 빌라 공용 취소·환불 정책 (#6b) — enabled일 때만 표시 */
   cancellationPolicy?: CancellationPolicy;
+  lang: PublicLang;
 }) {
+  const t = PUBLIC_LABELS[lang].sales;
+  const bedLabel = BED_LABELS[lang];
+  const featLabel = FEATURE_LABELS[lang];
   const beds = aggregateBeds(villa.bedrooms);
   const bedroomCount = countBedrooms(villa.bedrooms);
   const distance = formatDistanceM(villa.beachDistanceM);
@@ -91,7 +75,7 @@ export function VillaSalesSection({
   const hasBedding = villa.bedrooms.length > 0;
   const hasLocation = villa.googleMapUrl || distance || villa.areaSqm != null || villa.floors != null;
   // 셀링포인트 칩 띠 — 사전 순서 무관, 들어온 순서대로
-  const features = villa.features.filter((f) => FEATURE_LABEL_KO[f.featureKey]);
+  const features = villa.features.filter((f) => featLabel[f.featureKey]);
 
   return (
     <div className="space-y-4">
@@ -113,7 +97,7 @@ export function VillaSalesSection({
               >
                 {FEATURE_ICON[f.featureKey]}
               </span>
-              {FEATURE_LABEL_KO[f.featureKey]}
+              {featLabel[f.featureKey]}
             </span>
           ))}
         </div>
@@ -125,16 +109,16 @@ export function VillaSalesSection({
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-sm font-bold text-neutral-800 flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[18px] text-teal-600">king_bed</span>
-              잠자리 구성
+              {t.beddingTitle}
             </h4>
             <span className="text-[12px] font-bold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-full flex items-center gap-1">
               <span className="material-symbols-outlined text-[14px]">group</span>
-              최대 {villa.maxGuests}인
+              {t.maxGuests(villa.maxGuests)}
             </span>
           </div>
           <div className="flex items-center gap-2 flex-wrap mb-3">
             <span className="text-[12px] font-medium bg-white border border-neutral-200 px-2.5 py-1 rounded-md text-neutral-700">
-              침실 {bedroomCount}개
+              {t.bedroomCount(bedroomCount)}
             </span>
             {beds.map(({ bedType, count }) => (
               <span
@@ -142,14 +126,14 @@ export function VillaSalesSection({
                 className="text-[12px] font-medium bg-white border border-neutral-200 px-2.5 py-1 rounded-md text-neutral-700 flex items-center gap-1"
               >
                 <span className="material-symbols-outlined text-[14px]">{BED_ICON[bedType]}</span>
-                {BED_LABEL_KO[bedType]} {count}
+                {bedLabel[bedType]} {count}
               </span>
             ))}
           </div>
           {villa.extraBedAvailable && (
             <div className="flex items-center gap-1.5 text-[12px] text-teal-700 font-medium">
               <span className="material-symbols-outlined text-[16px]">add_circle</span>
-              엑스트라베드 추가 가능
+              {t.extraBed}
             </div>
           )}
         </section>
@@ -166,7 +150,7 @@ export function VillaSalesSection({
               rel="noopener noreferrer"
             >
               <span className="absolute top-2 right-2 bg-white/95 text-teal-700 text-[11px] font-bold px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1">
-                <span className="material-symbols-outlined text-[14px]">map</span>지도 보기
+                <span className="material-symbols-outlined text-[14px]">map</span>{t.mapView}
               </span>
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-teal-600">
                 <span className="material-symbols-outlined text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>
@@ -180,22 +164,22 @@ export function VillaSalesSection({
               {distance && (
                 <div className="p-3 text-center">
                   <span className="material-symbols-outlined text-teal-600 text-[20px]">beach_access</span>
-                  <p className="text-[11px] text-neutral-400 mt-0.5">해변까지</p>
+                  <p className="text-[11px] text-neutral-400 mt-0.5">{t.beach}</p>
                   <p className="text-sm font-bold text-neutral-800 tabular-nums">{distance}</p>
                 </div>
               )}
               {villa.areaSqm != null && (
                 <div className="p-3 text-center">
                   <span className="material-symbols-outlined text-teal-600 text-[20px]">square_foot</span>
-                  <p className="text-[11px] text-neutral-400 mt-0.5">전용면적</p>
+                  <p className="text-[11px] text-neutral-400 mt-0.5">{t.area}</p>
                   <p className="text-sm font-bold text-neutral-800 tabular-nums">{villa.areaSqm}㎡</p>
                 </div>
               )}
               {villa.floors != null && (
                 <div className="p-3 text-center">
                   <span className="material-symbols-outlined text-teal-600 text-[20px]">stairs</span>
-                  <p className="text-[11px] text-neutral-400 mt-0.5">층수</p>
-                  <p className="text-sm font-bold text-neutral-800 tabular-nums">{villa.floors}층</p>
+                  <p className="text-[11px] text-neutral-400 mt-0.5">{t.floors}</p>
+                  <p className="text-sm font-bold text-neutral-800 tabular-nums">{t.floorUnit(villa.floors)}</p>
                 </div>
               )}
             </div>
@@ -207,16 +191,16 @@ export function VillaSalesSection({
       <section className="rounded-xl bg-neutral-50 border border-neutral-100 p-4">
         <h4 className="text-sm font-bold text-neutral-800 flex items-center gap-1.5 mb-3">
           <span className="material-symbols-outlined text-[18px] text-teal-600">schedule</span>
-          이용 안내
+          {t.rulesTitle}
         </h4>
         {/* 체크인/아웃 */}
         <div className="grid grid-cols-2 gap-3 mb-3">
           <div className="bg-white rounded-lg border border-neutral-100 p-3 text-center">
-            <p className="text-[11px] text-neutral-400">체크인</p>
+            <p className="text-[11px] text-neutral-400">{t.checkIn}</p>
             <p className="text-base font-bold text-neutral-800 tabular-nums">{minutesToHHMM(villa.checkInTime)}</p>
           </div>
           <div className="bg-white rounded-lg border border-neutral-100 p-3 text-center">
-            <p className="text-[11px] text-neutral-400">체크아웃</p>
+            <p className="text-[11px] text-neutral-400">{t.checkOut}</p>
             <p className="text-base font-bold text-neutral-800 tabular-nums">{minutesToHHMM(villa.checkOutTime)}</p>
           </div>
         </div>
@@ -225,22 +209,22 @@ export function VillaSalesSection({
           <RuleTile
             icon="smoking_rooms"
             on={villa.smokingAllowed}
-            label={villa.smokingAllowed ? "흡연 가능" : "금연"}
+            label={villa.smokingAllowed ? t.smokingOn : t.smokingOff}
           />
           <RuleTile
             icon="pets"
             on={villa.petsAllowed}
-            label={villa.petsAllowed ? "반려동물" : "반려동물 불가"}
+            label={villa.petsAllowed ? t.petsOn : t.petsOff}
           />
           <RuleTile
             icon="celebration"
             on={villa.partyAllowed}
-            label={villa.partyAllowed ? "파티 가능" : "파티 불가"}
+            label={villa.partyAllowed ? t.partyOn : t.partyOff}
           />
           <RuleTile
             icon="local_parking"
             on={villa.parkingSlots > 0}
-            label={villa.parkingSlots > 0 ? `주차 ${villa.parkingSlots}대` : "주차 불가"}
+            label={villa.parkingSlots > 0 ? t.parkingOn(villa.parkingSlots) : t.parkingOff}
           />
         </div>
         {/* 보증금 안내 */}
@@ -250,13 +234,13 @@ export function VillaSalesSection({
               account_balance_wallet
             </span>
             <div>
-              <p className="text-[12px] font-semibold text-neutral-800">현지 보증금 안내</p>
+              <p className="text-[12px] font-semibold text-neutral-800">{t.depositTitle}</p>
               <p className="text-[11px] text-neutral-500 leading-relaxed mt-0.5">
-                체크인 시 현지에서 보증금{" "}
+                {t.depositBefore}
                 <span className="font-bold text-neutral-700 tabular-nums">
                   {formatThousands(villa.baseDepositVnd)}₫
-                </span>{" "}
-                가 요청될 수 있으며, 체크아웃 검수 후 환불됩니다.
+                </span>
+                {t.depositAfter}
               </p>
             </div>
           </div>
@@ -268,7 +252,7 @@ export function VillaSalesSection({
               event_busy
             </span>
             <div>
-              <p className="text-[12px] font-semibold text-neutral-800">취소·환불 정책</p>
+              <p className="text-[12px] font-semibold text-neutral-800">{t.cancelTitle}</p>
               <ul className="text-[11px] text-neutral-500 leading-relaxed mt-1 space-y-0.5">
                 {cancellationTiers(cancellationPolicy).map((tier) => (
                   <li key={tier.kind} className="flex items-baseline gap-1.5">
@@ -276,13 +260,18 @@ export function VillaSalesSection({
                     <span>
                       {tier.kind === "none" ? (
                         <>
-                          체크인 <span className="font-semibold text-neutral-700 tabular-nums">{tier.days}일</span> 이내 취소 시{" "}
-                          <span className="font-bold text-neutral-700">환불 불가</span>
+                          {t.cancelNoneBefore}
+                          <span className="font-semibold text-neutral-700 tabular-nums">{tier.days}</span>
+                          {t.cancelNoneMid}
+                          <span className="font-bold text-neutral-700">{t.cancelNoneAfter}</span>
                         </>
                       ) : (
                         <>
-                          체크인 <span className="font-semibold text-neutral-700 tabular-nums">{tier.days}일</span> 전까지 취소 시{" "}
-                          <span className="font-bold text-neutral-700 tabular-nums">{tier.pct}%</span> 환불
+                          {t.cancelTierBefore}
+                          <span className="font-semibold text-neutral-700 tabular-nums">{tier.days}</span>
+                          {t.cancelTierMid}
+                          <span className="font-bold text-neutral-700 tabular-nums">{tier.pct}</span>
+                          {t.cancelTierAfter}
                         </>
                       )}
                     </span>

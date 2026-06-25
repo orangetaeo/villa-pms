@@ -1,19 +1,35 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { BookingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { toDateOnlyString } from "@/lib/date-vn";
 import { PublicFooter } from "../../../_components/public-footer";
+import { LangSelector } from "../../../_components/lang-selector";
 import { bookingShortCode } from "../../../_components/public-format";
 import { RosterForm } from "../../../_components/roster-form";
+import {
+  PUBLIC_LABELS,
+  PUBLIC_META,
+  PUBLIC_LOCALE_COOKIE,
+  resolvePublicLang,
+} from "@/lib/public-i18n";
 
 /**
- * /p/[token]/roster/[bookingId] — 여행사 셀프 투숙객 명단 입력 (비로그인, ko, 안 B)
+ * /p/[token]/roster/[bookingId] — 여행사 셀프 투숙객 명단 입력 (비로그인, 5개 언어 #5, 안 B)
  * 교차 토큰 가드 + HOLD/CONFIRMED만. 마진 비공개: 판매가·원가·fx 절대 미select.
  */
 
-export const metadata: Metadata = { title: "투숙객 명단 입력 | Villa PMS" };
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ lang?: string }>;
+}): Promise<Metadata> {
+  const { lang: langParam } = await searchParams;
+  const cookieLang = (await cookies()).get(PUBLIC_LOCALE_COOKIE)?.value;
+  return { title: `${PUBLIC_META[resolvePublicLang(langParam, cookieLang)].roster} | Villa PMS` };
+}
 
 /** c3 export bg-mesh 재현 (done 페이지와 동일) */
 const MESH_BG = {
@@ -27,10 +43,16 @@ function fmtDate(d: Date): string {
 
 export default async function RosterInputPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string; bookingId: string }>;
+  searchParams: Promise<{ lang?: string }>;
 }) {
   const { token, bookingId } = await params;
+  const { lang: langParam } = await searchParams;
+  const cookieLang = (await cookies()).get(PUBLIC_LOCALE_COOKIE)?.value;
+  const lang = resolvePublicLang(langParam, cookieLang);
+  const t = PUBLIC_LABELS[lang];
 
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
@@ -60,21 +82,22 @@ export default async function RosterInputPage({
       >
         <header className="w-full top-0 sticky z-50 bg-white border-b border-gray-100 shadow-sm flex items-center px-4 h-14">
           <Link
-            href={`/p/${token}/done/${booking.id}`}
-            aria-label="뒤로 가기"
+            href={`/p/${token}/done/${booking.id}?lang=${lang}`}
+            aria-label={t.back}
             className="active:scale-95 transition-transform hover:bg-gray-50 p-2 rounded-full"
           >
             <span className="material-symbols-outlined text-teal-600">arrow_back</span>
           </Link>
           <h1 className="font-semibold text-lg text-teal-600 ml-2">Villa PMS</h1>
+          <div className="ml-auto">
+            <LangSelector current={lang} />
+          </div>
         </header>
 
         <main className="flex-grow p-6 space-y-6 py-8">
           <div className="space-y-2">
-            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">투숙객 명단 입력</h2>
-            <p className="text-sm text-slate-500 leading-relaxed">
-              실제 투숙하실 분들의 성함을 입력해주세요. 체크인 준비(임시거주신고)에 사용됩니다.
-            </p>
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{t.rosterPage.title}</h2>
+            <p className="text-sm text-slate-500 leading-relaxed">{t.rosterPage.subtitle}</p>
           </div>
 
           {/* 예약 요약 — 가격 없음(마진 비공개), 어느 예약인지 확인용만 */}
@@ -90,7 +113,7 @@ export default async function RosterInputPage({
               <span className="text-slate-300">→</span>
               <span className="tabular-nums font-semibold">{fmtDate(booking.checkOut)}</span>
               <span className="px-2 py-0.5 bg-teal-50 text-teal-700 text-[11px] font-bold rounded-full">
-                {booking.nights}박 · {booking.guestCount}명
+                {t.rosterPage.summary(booking.nights, booking.guestCount)}
               </span>
             </div>
           </div>
@@ -100,11 +123,12 @@ export default async function RosterInputPage({
               token={token}
               bookingId={booking.id}
               initialRoster={booking.guestRoster}
+              lang={lang}
             />
           </div>
         </main>
 
-        <PublicFooter />
+        <PublicFooter lang={lang} />
       </div>
     </div>
   );

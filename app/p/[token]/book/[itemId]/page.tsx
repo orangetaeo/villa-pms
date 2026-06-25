@@ -2,17 +2,34 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { ProposalStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { effectiveProposalStatus } from "@/lib/proposal";
 import { resolveHoldHours, HOLD_HOURS_DEFAULT_KEY } from "@/lib/hold";
 import { BookingForm } from "../../../_components/booking-form";
 import { PublicFooter } from "../../../_components/public-footer";
-import { formatKoDateShort, formatPublicAmount } from "../../../_components/public-format";
+import { LangSelector } from "../../../_components/lang-selector";
+import { formatPublicAmount } from "../../../_components/public-format";
+import {
+  PUBLIC_LABELS,
+  PUBLIC_META,
+  PUBLIC_LOCALE_COOKIE,
+  resolvePublicLang,
+  formatPublicDateShort,
+} from "@/lib/public-i18n";
 
-/** /p/[token]/book/[itemId] — 가예약 입력 (Stitch c3 상태1 변환, 비로그인 ko) */
+/** /p/[token]/book/[itemId] — 가예약 입력 (Stitch c3 상태1 변환, 비로그인, 5개 언어 #5) */
 
-export const metadata: Metadata = { title: "가예약 신청 | Villa PMS" };
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ lang?: string }>;
+}): Promise<Metadata> {
+  const { lang: langParam } = await searchParams;
+  const cookieLang = (await cookies()).get(PUBLIC_LOCALE_COOKIE)?.value;
+  return { title: `${PUBLIC_META[resolvePublicLang(langParam, cookieLang)].book} | Villa PMS` };
+}
 
 /** c3 export bg-mesh 재현 — globals.css 동결(계약)이라 컴포넌트 인라인 */
 const MESH_BG = {
@@ -22,10 +39,16 @@ const MESH_BG = {
 
 export default async function BookingRequestPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string; itemId: string }>;
+  searchParams: Promise<{ lang?: string }>;
 }) {
   const { token, itemId } = await params;
+  const { lang: langParam } = await searchParams;
+  const cookieLang = (await cookies()).get(PUBLIC_LOCALE_COOKIE)?.value;
+  const lang = resolvePublicLang(langParam, cookieLang);
+  const t = PUBLIC_LABELS[lang];
 
   const item = await prisma.proposalItem.findUnique({
     where: { id: itemId },
@@ -51,7 +74,7 @@ export default async function BookingRequestPage({
   const now = new Date();
   const status = effectiveProposalStatus(item.proposal.status, item.proposal.expiresAt, now);
   if (status !== ProposalStatus.ACTIVE || item.bookingId) {
-    redirect(`/p/${token}`); // 메인이 서버 판정값으로 만료/마감 렌더
+    redirect(`/p/${token}?lang=${lang}`); // 메인이 서버 판정값으로 만료/마감 렌더
   }
 
   const holdSetting = await prisma.appSetting.findUnique({
@@ -68,19 +91,22 @@ export default async function BookingRequestPage({
       <div className="max-w-md mx-auto min-h-screen bg-neutral-50 flex flex-col shadow-2xl relative" style={MESH_BG}>
         <header className="w-full top-0 sticky z-50 bg-white border-b border-gray-100 shadow-sm flex items-center px-4 h-14">
           <Link
-            href={`/p/${token}`}
-            aria-label="뒤로 가기"
+            href={`/p/${token}?lang=${lang}`}
+            aria-label={t.back}
             className="active:scale-95 transition-transform hover:bg-gray-50 p-2 rounded-full"
           >
             <span className="material-symbols-outlined text-teal-600">arrow_back</span>
           </Link>
           <h1 className="font-semibold text-lg text-teal-600 ml-2">Villa PMS</h1>
+          <div className="ml-auto">
+            <LangSelector current={lang} />
+          </div>
         </header>
 
         <main className="flex-grow p-6 space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-slate-800">가예약 신청</h2>
-            <span className="text-xs font-medium text-slate-400">단계 1/2</span>
+            <h2 className="text-xl font-bold text-slate-800">{t.bookPage.title}</h2>
+            <span className="text-xs font-medium text-slate-400">{t.bookPage.step}</span>
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -104,12 +130,12 @@ export default async function BookingRequestPage({
               <h3 className="font-bold text-lg">{item.villa.name}</h3>
               <div className="flex items-center text-slate-500 text-sm">
                 <span className="material-symbols-outlined text-sm mr-1">calendar_today</span>
-                {formatKoDateShort(item.checkIn)} ~ {formatKoDateShort(item.checkOut)} · {nights}박
+                {formatPublicDateShort(item.checkIn, lang)} ~ {formatPublicDateShort(item.checkOut, lang)} · {t.proposal.nights(nights)}
               </div>
               <div className="pt-2 border-t border-dashed border-gray-200 flex justify-between items-center">
-                <span className="text-sm text-slate-500">총 결제 금액</span>
+                <span className="text-sm text-slate-500">{t.bookPage.totalLabel}</span>
                 <span className="text-xl font-extrabold text-teal-600">
-                  {formatPublicAmount(item.proposal.saleCurrency, item.totalKrw, item.totalVnd)}
+                  {formatPublicAmount(item.proposal.saleCurrency, item.totalKrw, item.totalVnd, lang)}
                 </span>
               </div>
             </div>
@@ -117,15 +143,13 @@ export default async function BookingRequestPage({
 
           <div className="bg-amber-50 border border-amber-100 p-4 rounded-lg flex gap-3">
             <span className="material-symbols-outlined text-amber-500">schedule</span>
-            <p className="text-sm text-amber-800 leading-relaxed">
-              제출 후 {holdHours}시간 동안 해당 빌라가 홀드됩니다. 입금 확인 후 예약이 확정됩니다.
-            </p>
+            <p className="text-sm text-amber-800 leading-relaxed">{t.bookPage.holdInfo(holdHours)}</p>
           </div>
 
-          <BookingForm token={token} itemId={item.id} />
+          <BookingForm token={token} itemId={item.id} lang={lang} />
         </main>
 
-        <PublicFooter />
+        <PublicFooter lang={lang} />
       </div>
     </div>
   );
