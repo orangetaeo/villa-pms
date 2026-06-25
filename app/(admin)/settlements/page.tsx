@@ -16,7 +16,7 @@ import SettlementsView, { type SettlementRow } from "./settlements-view";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
-  return { title: `${t("settlements")} — Villa PMS` };
+  return { title: `${t("settlements")} — Villa Go` };
 }
 
 const YEAR_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;

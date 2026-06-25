@@ -11,6 +11,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import type { AppLocale } from "@/lib/locale";
 import { canViewFinance, isSystemAdmin, type Role } from "@/lib/permissions";
+import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 
 interface NavItem {
   key: string;
@@ -151,11 +152,18 @@ export default function AdminSidebar({
         >
           <span className="material-symbols-outlined">{open ? "close" : "menu"}</span>
         </button>
-        <div className="flex flex-col items-center leading-none gap-0.5">
-          <span className="text-base font-bold text-white">Villa PMS</span>
-          <span className="text-[8px] text-slate-500 uppercase tracking-widest font-bold">
-            {t("brandSub")}
-          </span>
+        <div className="flex items-center gap-2 leading-none">
+          <VillaGoMark className="h-6 w-auto" />
+          <div className="flex flex-col items-start gap-0.5">
+            <VillaGoWordmark
+              className="text-base"
+              villa="text-white"
+              go="text-teal-400"
+            />
+            <span className="text-[8px] text-slate-500 uppercase tracking-widest font-bold">
+              {t("brandSub")}
+            </span>
+          </div>
         </div>
         {/* 우측 균형 유지용 (b1-mobile 알림 자리 — 알림은 T6.x) */}
         <div className="w-10" aria-hidden />
@@ -176,11 +184,18 @@ export default function AdminSidebar({
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="px-2 py-4 mb-4">
-          <h1 className="text-xl font-bold text-white">Villa PMS</h1>
-          <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">
-            {t("brandSub")}
-          </p>
+        <div className="px-2 py-4 mb-4 flex items-center gap-2.5">
+          <VillaGoMark className="h-9 w-auto shrink-0" />
+          <div>
+            <VillaGoWordmark
+              className="text-xl"
+              villa="text-white"
+              go="text-teal-400"
+            />
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">
+              {t("brandSub")}
+            </p>
+          </div>
         </div>
         <nav className="flex-1 flex flex-col gap-1 overflow-y-auto">
           {navItems.map((item) => {

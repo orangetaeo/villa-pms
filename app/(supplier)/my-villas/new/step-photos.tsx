@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { resizeImage } from "@/lib/image-resize";
+import { watermarkImage } from "@/lib/watermark";
 import {
   buildPhotoSlots,
   type PhotoSlot,
@@ -62,13 +63,16 @@ export default function StepPhotos({ state, setPhoto, onNext, onBack }: Props) {
     try {
       // 클라 리사이즈 (T0.4 lib/image-resize): 긴 변 1600px JPEG 재인코딩 —
       // 5MB 넘는 휴대폰 카메라 원본도 통과. 크기 검사는 리사이즈 결과 기준
-      const blob = await resizeImage(file);
+      const resized = await resizeImage(file);
+      // 도용 방지 워터마크를 저장 파일에 굽는다 (lib/watermark) — 빌라 마케팅 사진 전용
+      const blob = await watermarkImage(resized);
       if (blob.size > MAX_FILE_SIZE) {
         setPhoto(slotId, { status: "error" });
         return;
       }
       const formData = new FormData();
-      formData.append("file", blob, file.name);
+      // 워터마크 출력은 JPEG — 확장자도 .jpg로 맞춘다(서버는 blob MIME으로 저장)
+      formData.append("file", blob, file.name.replace(/\.[^.]+$/, "") + ".jpg");
       const res = await fetch("/api/uploads", { method: "POST", body: formData });
       if (!res.ok) throw new Error("upload failed");
       const { url } = (await res.json()) as { url: string };

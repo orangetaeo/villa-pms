@@ -11,7 +11,7 @@ import MinibarManager, { type MinibarRow } from "./minibar-manager";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminMinibar");
-  return { title: `${t("title")} — Villa PMS` };
+  return { title: `${t("title")} — Villa Go` };
 }
 
 export default async function MinibarSettingsPage() {

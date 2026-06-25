@@ -49,7 +49,7 @@ function formatPaidDate(date: Date): string {
 }
 
 export const metadata: Metadata = {
-  title: "Thu nhập — Villa PMS",
+  title: "Thu nhập — Villa Go",
 };
 
 export default async function EarningsPage({

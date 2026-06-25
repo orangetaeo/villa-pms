@@ -36,7 +36,7 @@ const BANK_CONTACT_KEYS = [
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
-  return { title: `${t("settings")} — Villa PMS` };
+  return { title: `${t("settings")} — Villa Go` };
 }
 
 export default async function SettingsPage() {

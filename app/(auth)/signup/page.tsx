@@ -4,7 +4,7 @@ import SignupForm from "./SignupForm";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("auth.signup");
-  return { title: `${t("title")} - Villa PMS` };
+  return { title: `${t("title")} - Villa Go` };
 }
 
 export default async function SignupPage() {

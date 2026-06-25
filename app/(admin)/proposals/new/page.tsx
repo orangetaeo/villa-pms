@@ -9,7 +9,7 @@ import ProposalCreate from "./proposal-create";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
-  return { title: `${t("proposalNew")} — Villa PMS` };
+  return { title: `${t("proposalNew")} — Villa Go` };
 }
 
 export default async function ProposalNewPage() {

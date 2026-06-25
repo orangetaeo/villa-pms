@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { loginAction } from "./actions";
+import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 
 interface Labels {
   title: string;
@@ -26,13 +27,13 @@ export default function LoginForm({ labels }: { labels: Labels }) {
       {/* 로고 & 브랜드 */}
       <header className="flex flex-col items-center mb-12">
         <div className="w-16 h-16 bg-teal-600 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
-          <span className="material-symbols-outlined text-white text-4xl">
-            holiday_village
-          </span>
+          <VillaGoMark reverse className="h-9 w-auto" />
         </div>
-        <h1 className="font-headline font-extrabold text-2xl text-teal-600 tracking-tight">
-          Villa PMS
-        </h1>
+        <VillaGoWordmark
+          className="font-headline text-2xl"
+          villa="text-slate-900"
+          go="text-teal-600"
+        />
       </header>
 
       {/* 로그인 폼 */}

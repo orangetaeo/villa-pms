@@ -23,7 +23,7 @@ import { parsePageParams } from "@/lib/pagination";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
-  return { title: `${t("bookings")} — Villa PMS` };
+  return { title: `${t("bookings")} — Villa Go` };
 }
 
 

@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Villa PMS"
+    "name": "Villa Go"
   },
   "quickDateFilter": {
     "all": "전체",
@@ -14,7 +14,7 @@
     "label": "기간"
   },
   "nav": {
-    "brandSub": "Villa PMS Admin",
+    "brandSub": "Villa Go Admin",
     "dashboard": "대시보드",
     "statistics": "통계",
     "bookings": "예약",
@@ -665,7 +665,7 @@
   "auth": {
     "login": {
       "title": "로그인",
-      "subtitle": "Villa PMS 관리자 포털",
+      "subtitle": "Villa Go 관리자 포털",
       "phone": "전화번호",
       "phonePlaceholder": "전화번호 입력",
       "password": "비밀번호",
@@ -1832,7 +1832,7 @@
     "topTitle": "Zalo 알림",
     "step": "단계 2/2",
     "stepLabel": "연결 완료",
-    "heroTitle": "예약 알림을 받으려면 Zalo에서 Villa PMS와 친구를 맺으세요",
+    "heroTitle": "예약 알림을 받으려면 Zalo에서 Villa Go와 친구를 맺으세요",
     "heroDesc": "새 예약 정보, 공실, 결제 업데이트를 Zalo로 직접 보내드립니다.",
     "addFriend": "Zalo에서 친구 추가",
     "oaUnavailable": "연결 기능이 곧 열립니다. 나중에 다시 시도해 주세요.",

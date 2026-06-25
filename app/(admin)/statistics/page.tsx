@@ -20,7 +20,7 @@ import StatisticsClient, { type TabKey } from "./statistics-client";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
-  return { title: `${t("statistics")} — Villa PMS` };
+  return { title: `${t("statistics")} — Villa Go` };
 }
 
 const TAB_KEYS: TabKey[] = ["overview", "occupancy", "villas", "operations"];

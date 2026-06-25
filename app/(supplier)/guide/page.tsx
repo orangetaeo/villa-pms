@@ -9,7 +9,7 @@ import { getSupplierLocale } from "@/lib/locale";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Hướng dẫn — Villa PMS",
+  title: "Hướng dẫn — Villa Go",
 };
 
 // 4개 핵심 기능 → 각 기능 화면으로 이동(탭하면 바로 시작 가능). 아이콘은 material-symbols.

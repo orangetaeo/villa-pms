@@ -18,7 +18,7 @@ import InspectionsView, {
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
-  return { title: `${t("inspections")} — Villa PMS` };
+  return { title: `${t("inspections")} — Villa Go` };
 }
 
 // 우선순위 JS 정렬을 위해 상한 200까지 적재 후 그 안에서 page/pageSize 분할 (정렬 보존)

@@ -14,7 +14,7 @@ import { MessagesClient } from "./messages-client";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
-  return { title: `${t("messages")} — Villa PMS` };
+  return { title: `${t("messages")} — Villa Go` };
 }
 
 // 수신 메시지가 폴링 없이는 RSC에 반영되지 않으므로 초기 SSR은 항상 동적(딥링크 신선도).

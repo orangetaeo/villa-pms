@@ -13,7 +13,7 @@ import PostSignForm from "./post-sign-form";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
-  return { title: `${t("checkin")} — Villa PMS` };
+  return { title: `${t("checkin")} — Villa Go` };
 }
 
 export default async function CheckinPage({

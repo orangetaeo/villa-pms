@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { ZaloConnectActions } from "./zalo-connect-actions";
 
 export const metadata: Metadata = {
-  title: "Kết nối Zalo — Villa PMS",
+  title: "Kết nối Zalo — Villa Go",
 };
 
 export default async function ZaloConnectPage() {

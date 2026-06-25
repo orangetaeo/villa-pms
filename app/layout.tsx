@@ -4,14 +4,14 @@ import { cookies } from "next/headers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Villa PMS",
+  title: "Villa Go",
   description: "푸꾸옥 빌라 임대 관리 시스템",
-  applicationName: "Villa PMS",
+  applicationName: "Villa Go",
   // PWA: app/manifest.ts·icon.svg·apple-icon.tsx는 Next가 자동 링크.
   // iOS 홈화면 설치 시 전체화면(앱처럼) + 상태바 스타일.
   appleWebApp: {
     capable: true,
-    title: "Villa PMS",
+    title: "Villa Go",
     statusBarStyle: "default",
   },
 };

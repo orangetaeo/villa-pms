@@ -10,6 +10,7 @@ import { ExpiredView } from "../_components/expired-view";
 import { PublicFooter } from "../_components/public-footer";
 import { PhotoCarousel } from "../_components/photo-carousel";
 import { ShareButton } from "../_components/share-button";
+import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import { CopyButton } from "../_components/copy-button";
 import { LangSelector } from "../_components/lang-selector";
 import { getPublicBankInfo } from "../_components/public-bank";
@@ -46,7 +47,7 @@ export async function generateMetadata({
   const { lang: langParam } = await searchParams;
   const cookieLang = (await cookies()).get(PUBLIC_LOCALE_COOKIE)?.value;
   const lang = resolvePublicLang(langParam, cookieLang);
-  return { title: `${PUBLIC_META[lang].proposal} | Villa PMS` };
+  return { title: `${PUBLIC_META[lang].proposal} | Villa Go` };
 }
 
 async function getContactSettings() {
@@ -182,10 +183,13 @@ export default async function ProposalPage({
     <div className="bg-neutral-50 text-neutral-900 min-h-screen">
       <header className="bg-white border-b border-neutral-100 flex justify-between items-center w-full px-4 h-14 sticky top-0 z-50">
         <span className="w-10" />
-        <h1 className="text-teal-600 font-bold text-xl">Villa PMS</h1>
+        <span className="flex items-center gap-1.5">
+          <VillaGoMark className="h-6 w-auto" />
+          <VillaGoWordmark className="text-xl" villa="text-slate-900" go="text-teal-600" />
+        </span>
         <div className="flex items-center gap-1">
           <LangSelector current={lang} />
-          <ShareButton title={`${t.proposal.forClient(proposal.clientName)} | Villa PMS`} lang={lang} />
+          <ShareButton title={`${t.proposal.forClient(proposal.clientName)} | Villa Go`} lang={lang} />
         </div>
       </header>
 

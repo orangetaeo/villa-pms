@@ -21,7 +21,7 @@ import { krwToVndSnapshot } from "@/lib/pricing";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
-  return { title: `${t("bookingDetail")} — Villa PMS` };
+  return { title: `${t("bookingDetail")} — Villa Go` };
 }
 
 const STEP_INDEX: Partial<Record<BookingStatus, number>> = {

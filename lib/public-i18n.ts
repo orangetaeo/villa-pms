@@ -30,7 +30,7 @@ export function resolvePublicLang(
   return "ko";
 }
 
-/** 페이지 <title> (브라우저 탭) — "<페이지> | Villa PMS" */
+/** 페이지 <title> (브라우저 탭) — "<페이지> | Villa Go" */
 export const PUBLIC_META: Record<PublicLang, { proposal: string; book: string; done: string; roster: string }> = {
   ko: { proposal: "빌라 제안", book: "가예약 신청", done: "가예약 완료", roster: "투숙객 명단 입력" },
   en: { proposal: "Villa Proposal", book: "Reservation Request", done: "Reservation Received", roster: "Enter Guest List" },

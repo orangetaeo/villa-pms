@@ -9,7 +9,7 @@ import UsersManager, { type UserRow, type UnlinkedZaloRow } from "./users-manage
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
-  return { title: `${t("users")} — Villa PMS` };
+  return { title: `${t("users")} — Villa Go` };
 }
 
 /** 가입일 → YYYY.MM.DD (DESIGN.md 점 표기, Asia/Ho_Chi_Minh 표시 규칙) */

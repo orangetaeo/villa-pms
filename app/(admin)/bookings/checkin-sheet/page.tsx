@@ -26,7 +26,7 @@ import AgreementLangSelect from "./agreement-lang-select";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminCheckinSheet");
-  return { title: `${t("title")} — Villa PMS` };
+  return { title: `${t("title")} — Villa Go` };
 }
 
 function money(amount: number, currency: Currency): string {

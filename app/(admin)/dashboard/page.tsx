@@ -21,7 +21,7 @@ import TimelineMatrix from "@/components/admin/timeline-matrix";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
-  return { title: `${t("dashboard")} — Villa PMS` };
+  return { title: `${t("dashboard")} — Villa Go` };
 }
 
 const DOT_CLASS: Record<FeedDot, string> = {

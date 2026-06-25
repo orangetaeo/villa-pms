@@ -15,7 +15,7 @@ import CheckoutForm from "./checkout-form";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
-  return { title: `${t("checkout")} — Villa PMS` };
+  return { title: `${t("checkout")} — Villa Go` };
 }
 
 /** 기준 사진 공간 정렬 순서 (b4: 거실→주방→침실→…) */

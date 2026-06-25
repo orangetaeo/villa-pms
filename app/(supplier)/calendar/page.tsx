@@ -16,7 +16,7 @@ import { CalendarView, type DayCell, type BookingDetail } from "./calendar-view"
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export const metadata: Metadata = {
-  title: "Lịch — Villa PMS",
+  title: "Lịch — Villa Go",
 };
 
 export default async function SupplierCalendarPage({

@@ -10,6 +10,7 @@ import { resolveHoldHours, HOLD_HOURS_DEFAULT_KEY } from "@/lib/hold";
 import { BookingForm } from "../../../_components/booking-form";
 import { PublicFooter } from "../../../_components/public-footer";
 import { LangSelector } from "../../../_components/lang-selector";
+import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import { formatPublicAmount } from "../../../_components/public-format";
 import {
   PUBLIC_LABELS,
@@ -28,7 +29,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { lang: langParam } = await searchParams;
   const cookieLang = (await cookies()).get(PUBLIC_LOCALE_COOKIE)?.value;
-  return { title: `${PUBLIC_META[resolvePublicLang(langParam, cookieLang)].book} | Villa PMS` };
+  return { title: `${PUBLIC_META[resolvePublicLang(langParam, cookieLang)].book} | Villa Go` };
 }
 
 /** c3 export bg-mesh 재현 — globals.css 동결(계약)이라 컴포넌트 인라인 */
@@ -97,7 +98,10 @@ export default async function BookingRequestPage({
           >
             <span className="material-symbols-outlined text-teal-600">arrow_back</span>
           </Link>
-          <h1 className="font-semibold text-lg text-teal-600 ml-2">Villa PMS</h1>
+          <span className="flex items-center gap-1.5 ml-2">
+            <VillaGoMark className="h-5 w-auto" />
+            <VillaGoWordmark className="text-lg" villa="text-slate-900" go="text-teal-600" />
+          </span>
           <div className="ml-auto">
             <LangSelector current={lang} />
           </div>

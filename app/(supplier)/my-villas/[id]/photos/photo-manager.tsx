@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { resizeImage } from "@/lib/image-resize";
+import { watermarkImage } from "@/lib/watermark";
 import { SPACE_ICON } from "@/lib/photo-spaces";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -107,13 +108,16 @@ export default function PhotoManager({
     setErrorKey(null);
     setUploadingKey(section.key);
     try {
-      const blob = await resizeImage(file);
+      const resized = await resizeImage(file);
+      // 도용 방지 워터마크를 저장 파일에 굽는다 (lib/watermark) — 빌라 마케팅 사진 전용
+      const blob = await watermarkImage(resized);
       if (blob.size > MAX_FILE_SIZE) {
         setErrorKey("error");
         return;
       }
       const fd = new FormData();
-      fd.append("file", blob, file.name);
+      // 워터마크 출력은 JPEG — 확장자도 .jpg로 맞춘다(서버는 blob MIME으로 저장)
+      fd.append("file", blob, file.name.replace(/\.[^.]+$/, "") + ".jpg");
       const up = await fetch("/api/uploads", { method: "POST", body: fd });
       if (!up.ok) throw new Error("upload");
       const { url } = (await up.json()) as { url: string };

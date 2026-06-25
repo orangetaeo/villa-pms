@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "Villa PMS"
+    "name": "Villa Go"
   },
   "quickDateFilter": {
     "all": "Tất cả",
@@ -14,7 +14,7 @@
     "label": "Khoảng thời gian"
   },
   "nav": {
-    "brandSub": "Villa PMS Admin",
+    "brandSub": "Villa Go Admin",
     "dashboard": "Bảng điều khiển",
     "statistics": "Thống kê",
     "bookings": "Đặt phòng",
@@ -773,7 +773,7 @@
   "auth": {
     "login": {
       "title": "Đăng nhập",
-      "subtitle": "Cổng quản lý Villa PMS",
+      "subtitle": "Cổng quản lý Villa Go",
       "phone": "Số điện thoại",
       "phonePlaceholder": "Nhập số điện thoại",
       "password": "Mật khẩu",
@@ -1940,7 +1940,7 @@
     "topTitle": "Thông báo Zalo",
     "step": "Bước 2/2",
     "stepLabel": "Hoàn tất kết nối",
-    "heroTitle": "Kết bạn với Villa PMS trên Zalo để nhận thông báo đặt phòng",
+    "heroTitle": "Kết bạn với Villa Go trên Zalo để nhận thông báo đặt phòng",
     "heroDesc": "Chúng tôi sẽ gửi thông tin đặt phòng mới, lịch trống và cập nhật thanh toán trực tiếp qua Zalo của bạn.",
     "addFriend": "Kết bạn trên Zalo",
     "oaUnavailable": "Tính năng kết nối sẽ sớm được mở. Vui lòng quay lại sau.",

@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signupAction } from "./actions";
+import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 
 interface Labels {
   headerTitle: string;
@@ -50,8 +51,13 @@ export default function SignupForm({ labels }: { labels: Labels }) {
       <main className="flex-1 px-6 pt-8 pb-32 max-w-md mx-auto w-full">
         {/* 브랜드 헤더 */}
         <div className="mb-10">
-          <span className="font-headline font-bold text-teal-600 text-sm tracking-wider uppercase mb-1 block">
-            Villa PMS
+          <span className="flex items-center gap-1.5 mb-2">
+            <VillaGoMark className="h-5 w-auto" />
+            <VillaGoWordmark
+              className="font-headline text-base"
+              villa="text-slate-900"
+              go="text-teal-600"
+            />
           </span>
           <h2 className="text-3xl font-bold text-neutral-900 tracking-tight">
             {labels.title}

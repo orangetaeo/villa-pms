@@ -19,7 +19,7 @@ import AvailabilityBoardClient, {
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
-  return { title: `${t("availability")} — Villa PMS` };
+  return { title: `${t("availability")} — Villa Go` };
 }
 
 const MONTH_COUNT = 3;

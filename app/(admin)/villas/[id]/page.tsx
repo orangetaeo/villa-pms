@@ -53,7 +53,7 @@ export async function generateMetadata({
     select: { name: true },
   });
   return {
-    title: villa ? `${villa.name} — Villa PMS` : `${t("villaDetail")} — Villa PMS`,
+    title: villa ? `${villa.name} — Villa Go` : `${t("villaDetail")} — Villa Go`,
   };
 }
 
