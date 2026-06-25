@@ -10,11 +10,9 @@ import type { AgreementContent } from "@/lib/agreement";
 
 export default function PostSignForm({
   bookingId,
-  hasPool,
   agreement,
 }: {
   bookingId: string;
-  hasPool: boolean;
   /** 발행본 동의서 콘텐츠 — RSC에서 store 조회 후 주입 */
   agreement: AgreementContent;
 }) {
@@ -47,7 +45,7 @@ export default function PostSignForm({
       <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 text-sm text-amber-400">
         {t("postSignDesc")}
       </div>
-      <AgreementSection hasPool={hasPool} sectionNo={1} agreement={agreement} onSigned={onSigned} />
+      <AgreementSection sectionNo={1} agreement={agreement} onSigned={onSigned} />
       {error && <p className="text-center text-xs text-red-400">{error}</p>}
     </div>
   );

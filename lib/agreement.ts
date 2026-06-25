@@ -100,9 +100,12 @@ export const AGREEMENT_CONTENT_KEY = "AGREEMENT_CONTENT";
 export const AGREEMENT_HISTORY_KEY = "AGREEMENT_HISTORY";
 export const AGREEMENT_HISTORY_MAX = 20;
 
-/** 편집 대상 조항 키 — 순서 고정. pool은 수영장 빌라에서만 노출되나 문구는 항상 편집·보관 */
-export const AGREEMENT_CLAUSE_KEYS = ["c1", "c2", "pool", "c4", "c5", "c6", "c7"] as const;
-export type AgreementClauseKey = (typeof AGREEMENT_CLAUSE_KEYS)[number];
+// 콘텐츠 모델(2026-06-25 개정): 조항 7칸 구조 → 언어별 자유 텍스트 본문(body) 1개.
+// 운영자는 한국어 docTitle+body만 입력하고, 나머지 언어(vi·en·zh·ru)는 번역 기능으로 채운다.
+// body는 "1.\n2.\n3." 식 줄바꿈 텍스트를 그대로 보존(렌더 시 whitespace-pre-line).
+
+/** 기본 본문 시드용 조항 순서 — 코드 상수(AGREEMENT_CLAUSES)를 번호 본문으로 합쳐 폴백 생성 */
+const DEFAULT_BODY_ORDER = ["c1", "c2", "pool", "c4", "c5", "c6", "c7"] as const;
 
 export interface AgreementContent {
   /** 저장마다 1씩 증가 — 인쇄·디지털 동의서 표기 및 서명 추적 키 */
@@ -110,16 +113,22 @@ export interface AgreementContent {
   /** 마지막 저장 시각 (ISO) — 미저장(시드 기본값)은 빈 문자열 */
   updatedAt: string;
   docTitle: Record<AgreementLang, string>;
-  clauses: Record<AgreementClauseKey, Record<AgreementLang, string>>;
+  /** 자유 텍스트 본문 — 운영자가 번호 매겨 직접 작성, 줄바꿈 보존 */
+  body: Record<AgreementLang, string>;
+}
+
+/** 코드 상수(기존 조항)를 번호 본문으로 합쳐 언어별 기본 body 생성 */
+function buildDefaultBody(lang: AgreementLang): string {
+  return DEFAULT_BODY_ORDER.map((k, i) => `${i + 1}. ${AGREEMENT_CLAUSES[k][lang]}`).join("\n");
 }
 
 /** 코드 상수(기존 단일 소스)로부터 기본 콘텐츠 생성 — 최초 저장 전 폴백 */
 export function buildDefaultAgreementContent(): AgreementContent {
-  const clauses = {} as Record<AgreementClauseKey, Record<AgreementLang, string>>;
-  for (const key of AGREEMENT_CLAUSE_KEYS) {
-    clauses[key] = { ...(AGREEMENT_CLAUSES[key] as Record<AgreementLang, string>) };
+  const body = {} as Record<AgreementLang, string>;
+  for (const lang of AGREEMENT_LANGS) {
+    body[lang] = buildDefaultBody(lang);
   }
-  return { rev: 1, updatedAt: "", docTitle: { ...AGREEMENT_DOC_TITLE }, clauses };
+  return { rev: 1, updatedAt: "", docTitle: { ...AGREEMENT_DOC_TITLE }, body };
 }
 
 /** 버전 라벨 — 인쇄물·기록 표기용 (예: "r3") */
@@ -127,40 +136,29 @@ export function agreementVersionLabel(content: AgreementContent): string {
   return `r${content.rev}`;
 }
 
-/** 법적 완결성 검증 — 모든 조항 × 모든 언어가 비어있지 않아야 발행 가능 (누락 방지) */
+/** 법적 완결성 검증 — 모든 언어의 제목·본문이 비어있지 않아야 발행 가능 (번역 누락 방지) */
 export function validateAgreementContent(
   content: AgreementContent
 ): { ok: true } | { ok: false; missing: string[] } {
   const missing: string[] = [];
   for (const lang of AGREEMENT_LANGS) {
     if (!content.docTitle?.[lang]?.trim()) missing.push(`docTitle.${lang}`);
-  }
-  for (const key of AGREEMENT_CLAUSE_KEYS) {
-    for (const lang of AGREEMENT_LANGS) {
-      if (!content.clauses?.[key]?.[lang]?.trim()) missing.push(`${key}.${lang}`);
-    }
+    if (!content.body?.[lang]?.trim()) missing.push(`body.${lang}`);
   }
   return missing.length === 0 ? { ok: true } : { ok: false, missing };
 }
 
-/** 외부 입력(폼/JSON)을 안전한 AgreementContent로 정규화 — 알 수 없는 키 제거·트림·rev 증가 */
+/** 외부 입력(폼/JSON)을 안전한 AgreementContent로 정규화 — docTitle·body만 추출·트림·rev 증가 */
 export function normalizeAgreementContent(raw: unknown, prevRev: number): AgreementContent {
   const obj = (raw ?? {}) as Record<string, unknown>;
   const docTitleIn = (obj.docTitle ?? {}) as Record<string, unknown>;
-  const clausesIn = (obj.clauses ?? {}) as Record<string, Record<string, unknown>>;
+  const bodyIn = (obj.body ?? {}) as Record<string, unknown>;
 
   const docTitle = {} as Record<AgreementLang, string>;
+  const body = {} as Record<AgreementLang, string>;
   for (const lang of AGREEMENT_LANGS) {
     docTitle[lang] = String(docTitleIn[lang] ?? "").trim();
+    body[lang] = String(bodyIn[lang] ?? "").trim();
   }
-  const clauses = {} as Record<AgreementClauseKey, Record<AgreementLang, string>>;
-  for (const key of AGREEMENT_CLAUSE_KEYS) {
-    const c = (clausesIn[key] ?? {}) as Record<string, unknown>;
-    const langMap = {} as Record<AgreementLang, string>;
-    for (const lang of AGREEMENT_LANGS) {
-      langMap[lang] = String(c[lang] ?? "").trim();
-    }
-    clauses[key] = langMap;
-  }
-  return { rev: prevRev + 1, updatedAt: new Date().toISOString(), docTitle, clauses };
+  return { rev: prevRev + 1, updatedAt: new Date().toISOString(), docTitle, body };
 }

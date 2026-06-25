@@ -16,9 +16,7 @@ import { AMENITY_CATEGORIES } from "@/lib/amenities";
 import { minibarItemName } from "@/lib/minibar";
 import {
   agreementVersionLabel,
-  buildClauseOrder,
   isAgreementLang,
-  type AgreementClauseKey,
   type AgreementLang,
 } from "@/lib/agreement";
 import { getAgreementContent } from "@/lib/agreement-store";
@@ -173,7 +171,6 @@ export default async function CheckinSheetPage({
         <div className="print-sheet space-y-6">
           {bookings.map((b) => {
             const v = b.villa;
-            const clauseOrder = buildClauseOrder(v.hasPool);
             const hasDeposit = b.depositAmount != null && b.depositCurrency != null;
             const depositHeld = b.depositStatus === "HELD";
             const alreadySigned = !!b.checkInRecord?.signatureUrl;
@@ -394,13 +391,10 @@ export default async function CheckinSheetPage({
                       </span>
                     </h3>
                     <p className="text-sm font-bold mb-1">{agreement.docTitle[lang]}</p>
-                    <ol className="text-[11px] leading-relaxed text-slate-600 space-y-1">
-                      {clauseOrder.map((key, i) => (
-                        <li key={key}>
-                          {i + 1}. {agreement.clauses[key as AgreementClauseKey][lang]}
-                        </li>
-                      ))}
-                    </ol>
+                    {/* 자유 텍스트 본문 — 운영자가 번호 매긴 그대로 줄바꿈 보존 */}
+                    <p className="text-[11px] leading-relaxed text-slate-600 whitespace-pre-line">
+                      {agreement.body[lang]}
+                    </p>
 
                     {alreadySigned ? (
                       <p className="mt-3 text-xs font-bold text-green-700">{L.alreadySigned}</p>

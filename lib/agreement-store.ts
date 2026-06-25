@@ -17,7 +17,7 @@ export async function getAgreementContent(db: DbClient = prisma): Promise<Agreem
   if (!row) return buildDefaultAgreementContent();
   try {
     const parsed = JSON.parse(row.value) as AgreementContent;
-    if (parsed && typeof parsed.rev === "number" && parsed.clauses && parsed.docTitle) {
+    if (parsed && typeof parsed.rev === "number" && parsed.body && parsed.docTitle) {
       return parsed;
     }
   } catch {

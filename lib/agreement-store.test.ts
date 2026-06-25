@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 
 import {
-  AGREEMENT_CLAUSE_KEYS,
   AGREEMENT_LANGS,
   AGREEMENT_CONTENT_KEY,
   AGREEMENT_HISTORY_KEY,
@@ -47,26 +46,27 @@ function makeDb() {
 // ===================== 순수 헬퍼 =====================
 
 describe("buildDefaultAgreementContent — 코드 상수 시드", () => {
-  it("rev 1 + 모든 조항×언어가 채워져 검증 통과", () => {
+  it("rev 1 + 모든 언어의 제목·본문이 채워져 검증 통과", () => {
     const c = buildDefaultAgreementContent();
     expect(c.rev).toBe(1);
     expect(c.updatedAt).toBe("");
-    for (const key of AGREEMENT_CLAUSE_KEYS) {
-      for (const lang of AGREEMENT_LANGS) {
-        expect(c.clauses[key][lang].length).toBeGreaterThan(0);
-      }
+    for (const lang of AGREEMENT_LANGS) {
+      expect(c.docTitle[lang].length).toBeGreaterThan(0);
+      expect(c.body[lang].length).toBeGreaterThan(0);
+      // 본문은 번호 매긴 다줄 텍스트 — "1." 로 시작
+      expect(c.body[lang]).toContain("1.");
     }
     expect(validateAgreementContent(c)).toEqual({ ok: true });
   });
 });
 
 describe("validateAgreementContent — 법적 완결성", () => {
-  it("한 조항의 한 언어라도 비면 missing에 잡힌다", () => {
+  it("한 언어의 본문이라도 비면 missing에 잡힌다", () => {
     const c = buildDefaultAgreementContent();
-    c.clauses.c5.vi = "   "; // 공백만 = 비어있음
+    c.body.vi = "   "; // 공백만 = 비어있음
     const r = validateAgreementContent(c);
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.missing).toContain("c5.vi");
+    if (!r.ok) expect(r.missing).toContain("body.vi");
   });
 
   it("docTitle 누락도 잡힌다", () => {
@@ -79,24 +79,20 @@ describe("validateAgreementContent — 법적 완결성", () => {
 });
 
 describe("normalizeAgreementContent — 정규화·rev 증가·키 화이트리스트", () => {
-  it("알 수 없는 조항/언어 키를 제거하고 trim, rev는 prev+1", () => {
+  it("알 수 없는 언어 키를 제거하고 trim, rev는 prev+1", () => {
     const raw = {
       rev: 999, // 클라이언트가 보낸 rev는 무시되어야 함
       docTitle: { ko: "  제목  ", xx: "침입" },
-      clauses: {
-        c1: { ko: "조항", evil: "주입" },
-        hacker: { ko: "없어야 함" },
-      },
+      body: { ko: "  1. 본문  ", evil: "주입" },
     };
     const next = normalizeAgreementContent(raw, 4);
     expect(next.rev).toBe(5); // prev+1, 999 무시
     expect(next.docTitle.ko).toBe("제목"); // trim
     expect((next.docTitle as Record<string, string>).xx).toBeUndefined();
-    expect(next.clauses.c1.ko).toBe("조항");
-    expect((next.clauses.c1 as Record<string, string>).evil).toBeUndefined();
-    expect((next.clauses as Record<string, unknown>).hacker).toBeUndefined();
+    expect(next.body.ko).toBe("1. 본문"); // trim
+    expect((next.body as Record<string, string>).evil).toBeUndefined();
     // 누락 언어는 빈 문자열로 채워짐(검증에서 INCOMPLETE로 걸림)
-    expect(next.clauses.c1.vi).toBe("");
+    expect(next.body.vi).toBe("");
   });
 });
 

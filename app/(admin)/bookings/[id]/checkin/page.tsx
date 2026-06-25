@@ -104,12 +104,11 @@ export default async function CheckinPage({
       )}
 
       {postSignMode ? (
-        <PostSignForm bookingId={booking.id} hasPool={booking.villa.hasPool} agreement={agreement} />
+        <PostSignForm bookingId={booking.id} agreement={agreement} />
       ) : (
         <CheckinForm
           bookingId={booking.id}
           guestCount={booking.guestCount}
-          hasPool={booking.villa.hasPool}
           agreement={agreement}
         />
       )}
