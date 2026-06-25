@@ -35,6 +35,7 @@ export default async function MinibarSettingsPage() {
       nameKo: true,
       nameVi: true,
       unitPriceVnd: true,
+      stockQty: true,
       sortOrder: true,
       active: true,
     },
@@ -44,6 +45,7 @@ export default async function MinibarSettingsPage() {
     nameKo: m.nameKo,
     nameVi: m.nameVi ?? "",
     unitPriceVnd: m.unitPriceVnd.toString(),
+    stockQty: m.stockQty,
     sortOrder: m.sortOrder,
     active: m.active,
   }));

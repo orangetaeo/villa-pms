@@ -252,6 +252,7 @@ model MinibarItem {
   nameKo       String // 한국어 품목명 (운영자 표시)
   nameVi       String? // 베트남어 품목명 (선택)
   unitPriceVnd BigInt // 고객 청구 단가 VND, 동 단위. 우리 판매가 — 공급자 비노출
+  stockQty     Int      @default(1) // 기본 비치 수량 — 각 빌라에 기본 비치하는 개수(체크아웃 소모 계산 기준)
   sortOrder    Int      @default(0)
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())

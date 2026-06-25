@@ -16,6 +16,8 @@ const createSchema = z.object({
   nameVi: z.string().trim().max(60).optional(),
   // VND 동 단위 비음수 정수 문자열 (우리 판매가)
   unitPriceVnd: z.string().regex(MINIBAR_VND_DIGITS),
+  // 기본 비치 수량 — 각 빌라 표준 비치 개수 (체크아웃 소모 계산 기준)
+  stockQty: z.number().int().min(0).max(999).optional(),
   sortOrder: z.number().int().min(0).max(9999).optional(),
   active: z.boolean().optional(),
 });
@@ -38,6 +40,7 @@ export async function GET() {
       nameKo: true,
       nameVi: true,
       unitPriceVnd: true,
+      stockQty: true,
       sortOrder: true,
       active: true,
     },
@@ -79,6 +82,7 @@ export async function POST(req: Request) {
       nameKo: data.nameKo,
       nameVi: data.nameVi?.trim() ? data.nameVi.trim() : null,
       unitPriceVnd: BigInt(data.unitPriceVnd),
+      stockQty: data.stockQty ?? 1,
       sortOrder: data.sortOrder ?? 0,
       active: data.active ?? true,
     },
@@ -88,6 +92,7 @@ export async function POST(req: Request) {
       nameKo: true,
       nameVi: true,
       unitPriceVnd: true,
+      stockQty: true,
       sortOrder: true,
       active: true,
     },

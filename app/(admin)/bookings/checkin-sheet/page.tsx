@@ -15,13 +15,11 @@ import { formatThousands } from "@/lib/format";
 import { AMENITY_CATEGORIES } from "@/lib/amenities";
 import { minibarItemName } from "@/lib/minibar";
 import {
-  AGREEMENT_CLAUSES,
-  AGREEMENT_DOC_TITLE,
-  AGREEMENT_VERSION,
-  buildClauseOrder,
+  agreementVersionLabel,
   isAgreementLang,
   type AgreementLang,
 } from "@/lib/agreement";
+import { getAgreementContent } from "@/lib/agreement-store";
 import { SHEET_LABELS, AMENITY_CATEGORY_LABEL, amenityLabel } from "@/lib/checkin-sheet-i18n";
 import PrintButton from "./print-button";
 import AgreementLangSelect from "./agreement-lang-select";
@@ -57,15 +55,19 @@ export default async function CheckinSheetPage({
   const lang: AgreementLang = isAgreementLang(params.lang) ? params.lang : defaultLang;
   const L = SHEET_LABELS[lang];
 
+  // 발행본 동의서 — 운영자 편집본(AppSetting) 또는 코드 기본값 폴백. 인쇄 시트에 반영.
+  const agreement = await getAgreementContent();
+
   // 미니바 회사표준(#2b) — 전 빌라 공통 1세트. 인쇄 시트에 표준 목록 + 소모 손기입란.
   const minibarStandard = await prisma.minibarItem.findMany({
     where: { active: true },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    select: { nameKo: true, nameVi: true, unitPriceVnd: true },
+    select: { nameKo: true, nameVi: true, unitPriceVnd: true, stockQty: true },
   });
   const minibarRows = minibarStandard.map((m) => ({
     label: minibarItemName(m, lang),
     unitPriceVnd: m.unitPriceVnd,
+    stockQty: m.stockQty,
   }));
 
   // 금일 체크인 = CONFIRMED (기존 "오늘 체크인" 프리셋·통계와 동일 의미)
@@ -170,7 +172,6 @@ export default async function CheckinSheetPage({
         <div className="print-sheet space-y-6">
           {bookings.map((b) => {
             const v = b.villa;
-            const clauseOrder = buildClauseOrder(v.hasPool);
             const hasDeposit = b.depositAmount != null && b.depositCurrency != null;
             const depositHeld = b.depositStatus === "HELD";
             const alreadySigned = !!b.checkInRecord?.signatureUrl;
@@ -360,6 +361,7 @@ export default async function CheckinSheetPage({
                           <tr className="bg-slate-100 text-[11px] uppercase tracking-wider text-slate-500">
                             <th className="border border-slate-300 px-2 py-1.5 text-left">{L.amenityTable.item}</th>
                             <th className="border border-slate-300 px-2 py-1.5 text-right w-24">{L.amenityTable.price}</th>
+                            <th className="border border-slate-300 px-2 py-1.5 text-center w-16">{L.amenityTable.stocked}</th>
                             <th className="border border-slate-300 px-2 py-1.5 text-center w-20">{L.minibar.consumed}</th>
                             <th className="border border-slate-300 px-2 py-1.5 text-right w-24">{L.amenityTable.total}</th>
                           </tr>
@@ -370,6 +372,10 @@ export default async function CheckinSheetPage({
                               <td className="border border-slate-300 px-2 py-2">{m.label}</td>
                               <td className="border border-slate-300 px-2 py-2 text-right tabular-nums">
                                 {formatThousands(m.unitPriceVnd)}₫
+                              </td>
+                              {/* 기본 비치 수량 — 표준값 인쇄(소모 계산 기준) */}
+                              <td className="border border-slate-300 px-2 py-2 text-center tabular-nums">
+                                {m.stockQty}
                               </td>
                               {/* 소모 수량 — 체크아웃 시 손기입(빈 칸) */}
                               <td className="border border-slate-300 px-2 py-2"></td>
@@ -387,17 +393,14 @@ export default async function CheckinSheetPage({
                     <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center justify-between">
                       <span>{L.agreement}</span>
                       <span className="text-[10px] font-normal normal-case tracking-normal text-slate-400">
-                        v{AGREEMENT_VERSION}
+                        {agreementVersionLabel(agreement)}
                       </span>
                     </h3>
-                    <p className="text-sm font-bold mb-1">{AGREEMENT_DOC_TITLE[lang]}</p>
-                    <ol className="text-[11px] leading-relaxed text-slate-600 space-y-1">
-                      {clauseOrder.map((key, i) => (
-                        <li key={key}>
-                          {i + 1}. {AGREEMENT_CLAUSES[key][lang]}
-                        </li>
-                      ))}
-                    </ol>
+                    <p className="text-sm font-bold mb-1">{agreement.docTitle[lang]}</p>
+                    {/* 자유 텍스트 본문 — 운영자가 번호 매긴 그대로 줄바꿈 보존 */}
+                    <p className="text-[11px] leading-relaxed text-slate-600 whitespace-pre-line">
+                      {agreement.body[lang]}
+                    </p>
 
                     {alreadySigned ? (
                       <p className="mt-3 text-xs font-bold text-green-700">{L.alreadySigned}</p>

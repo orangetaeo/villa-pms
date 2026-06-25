@@ -15,6 +15,7 @@ const patchSchema = z
     nameKo: z.string().trim().min(1).max(60).optional(),
     nameVi: z.string().trim().max(60).nullable().optional(),
     unitPriceVnd: z.string().regex(MINIBAR_VND_DIGITS).optional(),
+    stockQty: z.number().int().min(0).max(999).optional(),
     sortOrder: z.number().int().min(0).max(9999).optional(),
     active: z.boolean().optional(),
   })
@@ -51,7 +52,7 @@ export async function PATCH(
 
   const existing = await prisma.minibarItem.findUnique({
     where: { id },
-    select: { id: true, nameKo: true, unitPriceVnd: true, active: true },
+    select: { id: true, nameKo: true, unitPriceVnd: true, stockQty: true, active: true },
   });
   if (!existing) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -63,6 +64,7 @@ export async function PATCH(
       ...(data.nameKo !== undefined ? { nameKo: data.nameKo } : {}),
       ...(data.nameVi !== undefined ? { nameVi: data.nameVi?.trim() ? data.nameVi.trim() : null } : {}),
       ...(data.unitPriceVnd !== undefined ? { unitPriceVnd: BigInt(data.unitPriceVnd) } : {}),
+      ...(data.stockQty !== undefined ? { stockQty: data.stockQty } : {}),
       ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
       ...(data.active !== undefined ? { active: data.active } : {}),
     },
@@ -72,6 +74,7 @@ export async function PATCH(
       nameKo: true,
       nameVi: true,
       unitPriceVnd: true,
+      stockQty: true,
       sortOrder: true,
       active: true,
     },
@@ -84,6 +87,9 @@ export async function PATCH(
   }
   if (data.unitPriceVnd !== undefined && BigInt(data.unitPriceVnd) !== existing.unitPriceVnd) {
     changes.unitPriceVnd = { old: existing.unitPriceVnd.toString(), new: updated.unitPriceVnd.toString() };
+  }
+  if (data.stockQty !== undefined && data.stockQty !== existing.stockQty) {
+    changes.stockQty = { old: existing.stockQty, new: updated.stockQty };
   }
   if (data.active !== undefined && data.active !== existing.active) {
     changes.active = { old: existing.active, new: updated.active };

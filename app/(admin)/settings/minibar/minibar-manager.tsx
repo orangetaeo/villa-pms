@@ -13,6 +13,7 @@ export interface MinibarRow {
   nameKo: string;
   nameVi: string;
   unitPriceVnd: string; // VND 동 단위 문자열
+  stockQty: number; // 기본 비치 수량
   sortOrder: number;
   active: boolean;
 }
@@ -21,9 +22,16 @@ interface Draft {
   nameKo: string;
   nameVi: string;
   unitPriceVnd: string;
+  stockQty: string; // 숫자 입력(문자열) — 전송 시 정수 변환, 빈값=1
 }
 
-const EMPTY_DRAFT: Draft = { nameKo: "", nameVi: "", unitPriceVnd: "" };
+const EMPTY_DRAFT: Draft = { nameKo: "", nameVi: "", unitPriceVnd: "", stockQty: "1" };
+
+/** 드래프트 수량 → 정수(빈값·0미만 방지, 기본 1) */
+const draftQty = (d: Draft) => {
+  const n = Number.parseInt(d.stockQty, 10);
+  return Number.isFinite(n) && n >= 0 ? n : 1;
+};
 
 export default function MinibarManager({ initialItems }: { initialItems: MinibarRow[] }) {
   const t = useTranslations("adminMinibar");
@@ -52,6 +60,7 @@ export default function MinibarManager({ initialItems }: { initialItems: Minibar
           nameKo: addDraft.nameKo.trim(),
           nameVi: addDraft.nameVi.trim() || undefined,
           unitPriceVnd: addDraft.unitPriceVnd,
+          stockQty: draftQty(addDraft),
           sortOrder: initialItems.length,
         }),
       });
@@ -78,6 +87,7 @@ export default function MinibarManager({ initialItems }: { initialItems: Minibar
           nameKo: draft.nameKo.trim(),
           nameVi: draft.nameVi.trim() || null,
           unitPriceVnd: draft.unitPriceVnd,
+          stockQty: draftQty(draft),
         }),
       });
       if (!res.ok) throw new Error();
@@ -127,7 +137,12 @@ export default function MinibarManager({ initialItems }: { initialItems: Minibar
 
   function startEdit(item: MinibarRow) {
     setEditingId(item.id);
-    setDraft({ nameKo: item.nameKo, nameVi: item.nameVi, unitPriceVnd: item.unitPriceVnd });
+    setDraft({
+      nameKo: item.nameKo,
+      nameVi: item.nameVi,
+      unitPriceVnd: item.unitPriceVnd,
+      stockQty: String(item.stockQty),
+    });
     setMessage(null);
   }
 
@@ -182,6 +197,9 @@ export default function MinibarManager({ initialItems }: { initialItems: Minibar
                 </p>
                 <p className="text-xs text-admin-primary font-semibold tabular-nums">
                   {formatThousands(item.unitPriceVnd)}₫
+                  <span className="ml-2 text-slate-500 font-medium">
+                    {t("stockBadge", { n: item.stockQty })}
+                  </span>
                 </p>
               </div>
               {/* 표시 토글 */}
@@ -227,7 +245,7 @@ export default function MinibarManager({ initialItems }: { initialItems: Minibar
         {/* 새 품목 추가 */}
         <div className="rounded-lg border-2 border-dashed border-slate-700 p-3.5 space-y-3">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">{t("addTitle")}</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <input
               type="text"
               value={addDraft.nameKo}
@@ -259,6 +277,20 @@ export default function MinibarManager({ initialItems }: { initialItems: Minibar
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-admin-primary font-semibold tabular-nums focus:border-admin-primary focus:outline-none"
               />
               <span className="text-sm text-admin-primary font-semibold">₫</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={addDraft.stockQty}
+                onChange={(e) =>
+                  setAddDraft((d) => ({ ...d, stockQty: e.target.value.replace(/\D/g, "") }))
+                }
+                placeholder={t("qtyPlaceholder")}
+                aria-label={t("qtyLabel")}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 tabular-nums focus:border-admin-primary focus:outline-none"
+              />
+              <span className="text-sm text-slate-500 whitespace-nowrap">{t("qtyUnit")}</span>
             </div>
           </div>
           <div className="flex justify-end">
@@ -298,7 +330,7 @@ function EditRow({
 }) {
   return (
     <div className="rounded-lg border border-admin-primary/40 bg-blue-600/[0.06] p-3.5 space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <input
           type="text"
           value={draft.nameKo}
@@ -330,6 +362,18 @@ function EditRow({
             className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-admin-primary font-semibold tabular-nums focus:border-admin-primary focus:outline-none"
           />
           <span className="text-sm text-admin-primary font-semibold">₫</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <input
+            type="text"
+            inputMode="numeric"
+            value={draft.stockQty}
+            onChange={(e) => setDraft((d) => ({ ...d, stockQty: e.target.value.replace(/\D/g, "") }))}
+            placeholder={t("qtyPlaceholder")}
+            aria-label={t("qtyLabel")}
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 tabular-nums focus:border-admin-primary focus:outline-none"
+          />
+          <span className="text-sm text-slate-500 whitespace-nowrap">{t("qtyUnit")}</span>
         </div>
       </div>
       <div className="flex justify-end gap-2">
