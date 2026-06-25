@@ -13,23 +13,15 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { MonthlyRevenuePoint } from "@/lib/statistics";
+import type { RevenueTrendPoint } from "@/lib/statistics";
 
 const KRW = "#3B82F6"; // admin-krw
 const VND = "#10B981"; // admin-vnd
 const GRID = "#33415533";
 const AXIS = "#64748B";
 
-/** monthKey "YYYY-MM" → "MM"(또는 연 전환 시 "YY.MM") 짧은 라벨 */
-function shortMonth(monthKey: string, prevKey?: string): string {
-  const [y, m] = monthKey.split("-");
-  if (!prevKey || prevKey.split("-")[0] !== y) return `${y.slice(2)}.${m}`;
-  return m;
-}
-
-interface ChartRow extends MonthlyRevenuePoint {
-  label: string;
-}
+// 라벨은 로더(StatsPeriod.buckets)가 제공한다(일='MM-DD', 월='YYYY-MM').
+type ChartRow = RevenueTrendPoint;
 
 function RevenueTooltip({
   active,
@@ -66,14 +58,11 @@ export default function RevenueChart({
   krwLegend,
   vndLegend,
 }: {
-  data: MonthlyRevenuePoint[];
+  data: RevenueTrendPoint[];
   krwLegend: string;
   vndLegend: string;
 }) {
-  const rows: ChartRow[] = data.map((d, i) => ({
-    ...d,
-    label: shortMonth(d.monthKey, data[i - 1]?.monthKey),
-  }));
+  const rows: ChartRow[] = data;
 
   return (
     <ResponsiveContainer width="100%" height={288}>

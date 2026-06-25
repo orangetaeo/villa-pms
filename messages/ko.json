@@ -2311,6 +2311,36 @@
         "note": "부분 차감(PARTIAL_DEDUCTED) {count}건 합계",
         "staffNote": "STAFF 계정엔 이 카드 미노출"
       }
+    },
+    "dateFilter": {
+      "from": "시작일",
+      "to": "종료일",
+      "apply": "기간 적용",
+      "invalidRange": "종료일이 시작일보다 빠를 수 없습니다"
+    },
+    "minibar": {
+      "title": "미니바 판매",
+      "subtitle": "체크아웃 기준 · VND",
+      "kpi": {
+        "revenue": "미니바 매출",
+        "revenueNote": "체크아웃 시점 판매가 합계 (₫)",
+        "margin": "미니바 마진",
+        "marginPartialNote": "원가 미입력 {count}건은 마진에서 제외",
+        "costMissing": "원가 미입력",
+        "costMissingNote": "원가 미입력 {count}건 — 품목 원가를 입력하면 마진이 자동 표시됩니다"
+      },
+      "trendChart": {
+        "title": "미니바 매출 추이",
+        "subtitle": "기간별 판매가 합계 (₫)",
+        "legend": "미니바 매출"
+      },
+      "topItems": {
+        "title": "품목별 판매",
+        "name": "품목",
+        "qty": "소모수량",
+        "revenue": "매출",
+        "empty": "아직 미니바 판매 기록이 없습니다"
+      }
     }
   }
 }

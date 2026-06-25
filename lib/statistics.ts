@@ -15,12 +15,11 @@
 import {
   BookingChannel,
   BookingStatus,
-  ProposalStatus,
   type PrismaClient,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatThousands, formatVnd } from "@/lib/format";
-import { monthRangeUtc, SETTLEMENT_BOOKING_STATUSES } from "@/lib/settlement";
+import { SETTLEMENT_BOOKING_STATUSES } from "@/lib/settlement";
 import {
   summarizeFinance,
   type FinanceBooking,
@@ -32,89 +31,201 @@ import {
   type OccupancyBookingRange,
 } from "@/lib/booking-stats";
 import { effectiveProposalStatus } from "@/lib/proposal";
-import { monthKeyVn } from "@/lib/cleaning";
+import {
+  resolveQuickRange,
+  parseUtcDateOnly,
+  addUtcDays,
+  todayVnDateString,
+  toDateOnlyString,
+} from "@/lib/date-vn";
 
 // ===================================================================
 // 순수 함수 층 (단위 테스트 대상 — DB 무관)
 // ===================================================================
 
-/** 기간 필터 — 최근 6/12개월 또는 특정 연도(12개월). 계약 §5 우상단 기간 필터. */
-export type StatsRange = "6" | "12" | { year: number };
-
 const MS_PER_DAY = 86_400_000;
 
-/** range 파싱 결과 — 월키 배열(과거→현재 정렬)과 전체 [start, end) UTC 창. */
-export interface RangePeriod {
-  /** "YYYY-MM" 오름차순(가장 오래된 달 → 최신 달) */
-  monthKeys: string[];
-  /** 가장 오래된 달의 1일 UTC 자정 */
-  start: Date;
-  /** 가장 최신 달의 익월 1일 UTC 자정 (exclusive) */
-  end: Date;
-}
-
-/** "YYYY-MM" → 그 달 1일 UTC 자정 Date (월키 산술용 내부 헬퍼) */
-function monthKeyToUtcStart(monthKey: string): Date {
-  // monthRangeUtc는 형식 검증 포함 — 재사용으로 정합 유지
-  return monthRangeUtc(monthKey).start;
-}
-
-/** UTC 자정 Date → "YYYY-MM" (월키. range 산출 내부용) */
+/** UTC 자정 Date → "YYYY-MM" (월키. 월 버킷 키 산출용) */
 function utcMonthKey(d: Date): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-/**
- * range → 월키 배열 + 전체 창. 순수 함수(테스트 대상).
- * - "6"/"12": now가 속한 달을 포함해 과거 N개월(오름차순).
- * - { year }: 해당 연도 1~12월.
- * 기준월은 Asia/Ho_Chi_Minh(monthKeyVn) — @db.Date는 UTC 자정이므로 월 경계는 UTC로 처리.
- */
-export function resolveRangePeriod(range: StatsRange, now: Date): RangePeriod {
-  if (typeof range === "object") {
-    const { year } = range;
-    if (!Number.isInteger(year) || year < 2000 || year > 2999) {
-      throw new RangeError(`잘못된 연도: ${year}`);
-    }
-    const monthKeys = Array.from(
-      { length: 12 },
-      (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`
-    );
-    return {
-      monthKeys,
-      start: new Date(Date.UTC(year, 0, 1)),
-      end: new Date(Date.UTC(year + 1, 0, 1)),
-    };
-  }
+// ===================================================================
+// 기간 필터 v2 — 임의 [from, to) + 적응형 버킷 (작업 A)
+// ===================================================================
+//
+// 월 단위 6/12 프리셋(StatsRange)을 폐기하고 임의 달력 기간으로 일반화한다.
+// FE page.tsx가 searchParams(range|from|to)를 단 한 번 resolveStatsPeriod로 해석해
+// StatsPeriod를 만들어 모든 로더에 주입한다(단일 해석). 집계 의미(통화분리·summarizeFinance·
+// 가동률·전환)는 전혀 바꾸지 않고, 시간창/버킷 레이어만 교체한다.
 
-  const count = range === "6" ? 6 : 12;
-  // 기준 = VN 기준 현재 달. @db.Date 월 경계는 UTC 자정으로 다룬다(계약 §4.1).
-  const currentKey = monthKeyVn(now); // "YYYY-MM"
-  const currentStart = monthKeyToUtcStart(currentKey);
-  const monthKeys: string[] = [];
-  for (let i = count - 1; i >= 0; i--) {
-    const d = new Date(
-      Date.UTC(currentStart.getUTCFullYear(), currentStart.getUTCMonth() - i, 1)
-    );
-    monthKeys.push(utcMonthKey(d));
-  }
-  return {
-    monthKeys,
-    start: monthKeyToUtcStart(monthKeys[0]),
-    // 마지막 달의 익월 1일
-    end: new Date(Date.UTC(currentStart.getUTCFullYear(), currentStart.getUTCMonth() + 1, 1)),
-  };
+/** 통계 프리셋 키 — date-vn QUICK_RANGE_KEYS에서 nextMonth(미래)는 통계 제외 */
+export const STATS_PRESET_KEYS = [
+  "all",
+  "today",
+  "yesterday",
+  "thisWeek",
+  "lastWeek",
+  "thisMonth",
+  "lastMonth",
+] as const;
+export type StatsPresetKey = (typeof STATS_PRESET_KEYS)[number];
+
+function isStatsPresetKey(key: string | undefined): key is StatsPresetKey {
+  return !!key && (STATS_PRESET_KEYS as readonly string[]).includes(key);
 }
 
-/** range 문자열(URL 쿼리) → StatsRange. "6"·"12"·"YYYY"(연도). 무효는 기본 "12". */
-export function parseStatsRange(raw: string | undefined): StatsRange {
-  if (raw === "6") return "6";
-  if (raw === "12") return "12";
-  if (raw && /^\d{4}$/.test(raw)) {
-    const year = Number(raw);
-    if (year >= 2000 && year <= 2999) return { year };
+/** [start, end) UTC 한 버킷. label은 표시용(일='MM-DD', 월='YYYY-MM'). */
+export interface StatsBucket {
+  key: string;
+  start: Date;
+  end: Date;
+  label: string;
+}
+
+/**
+ * 해석된 통계 기간 — 모든 로더 입력. 직렬화 가능 부분(fromText/toText/presetKey/granularity)은
+ * 그대로 client에 내려 보낼 수 있다(Date는 서버 로더 전용).
+ */
+export interface StatsPeriod {
+  /** [from, to) UTC 자정 — to는 배타(half-open) */
+  from: Date;
+  to: Date;
+  /** 'YYYY-MM-DD' 달력 입력·표시용. toText는 포함일(=실제 to − 1일) */
+  fromText: string;
+  toText: string;
+  granularity: "day" | "month";
+  buckets: StatsBucket[];
+  /** 직전 동일 길이 창 [from-span, from). 'all'·데이터부족 시 null */
+  previous: { from: Date; to: Date } | null;
+  /** UI 강조용 프리셋 키. 커스텀이면 null */
+  presetKey: string | null;
+}
+
+/** day 버킷 라벨 'MM-DD' (UTC 자정 기준) */
+function dayLabel(d: Date): string {
+  return toDateOnlyString(d).slice(5); // 'YYYY-MM-DD' → 'MM-DD'
+}
+
+/** 적응형 버킷 생성 — granularity에 따라 일/월 버킷을 [from, to) 클리핑하여 산출 */
+function buildBuckets(
+  from: Date,
+  to: Date,
+  granularity: "day" | "month"
+): StatsBucket[] {
+  const buckets: StatsBucket[] = [];
+  if (granularity === "day") {
+    for (let cur = from; cur.getTime() < to.getTime(); cur = addUtcDays(cur, 1)) {
+      const end = addUtcDays(cur, 1);
+      const clippedEnd = end.getTime() > to.getTime() ? to : end;
+      buckets.push({
+        key: toDateOnlyString(cur),
+        start: cur,
+        end: clippedEnd,
+        label: dayLabel(cur),
+      });
+    }
+    return buckets;
   }
-  return "12";
+  // month — VN 월키별 1버킷, 각 버킷 start/end는 [from, to) 클리핑
+  let cur = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1));
+  while (cur.getTime() < to.getTime()) {
+    const monthStart = cur;
+    const monthEnd = new Date(
+      Date.UTC(cur.getUTCFullYear(), cur.getUTCMonth() + 1, 1)
+    );
+    const start = monthStart.getTime() < from.getTime() ? from : monthStart;
+    const end = monthEnd.getTime() > to.getTime() ? to : monthEnd;
+    buckets.push({
+      key: utcMonthKey(monthStart),
+      start,
+      end,
+      label: utcMonthKey(monthStart),
+    });
+    cur = monthEnd;
+  }
+  return buckets;
+}
+
+/** spanDays(=일 수) → granularity. 92일 이하면 일 버킷, 초과면 월 버킷. */
+function pickGranularity(spanDays: number): "day" | "month" {
+  return spanDays <= 92 ? "day" : "month";
+}
+
+/**
+ * resolveStatsPeriod — searchParams(range|from|to)를 단일 해석해 StatsPeriod 산출.
+ * - 커스텀(from·to 둘 다) 우선: from=parseUtcDateOnly(from), to=addUtcDays(to, 1)(포함→배타).
+ * - 프리셋: resolveQuickRange(key)로 [from, to) 달력일. 'all'은 데이터 최소일~내일.
+ * - 무효·미지정: thisMonth.
+ * granularity: spanDays≤92 → 'day'(하루당 1버킷), 그 외 → 'month'(VN 월키별 1버킷).
+ * previous: span=to−from, previous={from−span, from}. 'all'은 null.
+ *
+ * @param dataFloor 'all' 산출용 데이터 최소일(min(checkOut) 등). 미지정·데이터 없으면 to−1개월.
+ */
+export function resolveStatsPeriod(
+  params: { range?: string; from?: string; to?: string },
+  now: Date = new Date(),
+  dataFloor?: Date | null
+): StatsPeriod {
+  // 내일(VN 기준) — 'all'의 to(배타). 진행 중 오늘까지 포함.
+  const todayUtc = parseUtcDateOnly(todayVnDateString(now))!;
+  const tomorrowUtc = addUtcDays(todayUtc, 1);
+
+  let from: Date;
+  let to: Date;
+  let presetKey: string | null = null;
+
+  const customFrom = params.from ? parseUtcDateOnly(params.from) : null;
+  const customTo = params.to ? parseUtcDateOnly(params.to) : null;
+
+  if (customFrom && customTo && customTo.getTime() >= customFrom.getTime()) {
+    // 커스텀 우선 — to는 사용자가 고른 포함일 → 배타로 +1일
+    from = customFrom;
+    to = addUtcDays(customTo, 1);
+    presetKey = null;
+  } else if (isStatsPresetKey(params.range)) {
+    presetKey = params.range!;
+    if (params.range === "all") {
+      // 데이터 최소일 ~ 내일. 데이터 없으면 to−1개월.
+      to = tomorrowUtc;
+      const floor =
+        dataFloor && !Number.isNaN(dataFloor.getTime())
+          ? new Date(Date.UTC(dataFloor.getUTCFullYear(), dataFloor.getUTCMonth(), dataFloor.getUTCDate()))
+          : new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth() - 1, to.getUTCDate()));
+      from = floor.getTime() < to.getTime() ? floor : new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth() - 1, to.getUTCDate()));
+    } else {
+      const r = resolveQuickRange(params.range, now)!; // all 외 프리셋은 항상 non-null
+      from = parseUtcDateOnly(r.from)!;
+      to = parseUtcDateOnly(r.to)!;
+    }
+  } else {
+    // 무효·미지정 → thisMonth
+    presetKey = "thisMonth";
+    const r = resolveQuickRange("thisMonth", now)!;
+    from = parseUtcDateOnly(r.from)!;
+    to = parseUtcDateOnly(r.to)!;
+  }
+
+  const spanDays = Math.round((to.getTime() - from.getTime()) / MS_PER_DAY);
+  const granularity = pickGranularity(spanDays);
+  const buckets = buildBuckets(from, to, granularity);
+
+  // previous: 직전 동일 길이 창. 'all'은 의미가 없어 null.
+  const previous =
+    presetKey === "all" || spanDays <= 0
+      ? null
+      : { from: new Date(from.getTime() - spanDays * MS_PER_DAY), to: from };
+
+  return {
+    from,
+    to,
+    fromText: toDateOnlyString(from),
+    toText: toDateOnlyString(addUtcDays(to, -1)), // 배타 to → 포함 표시일
+    granularity,
+    buckets,
+    previous,
+    presetKey,
+  };
 }
 
 /**
@@ -221,11 +332,27 @@ export function toFinanceBlock(s: FinanceSummary): FinanceBlock {
 const SETTLEMENT_STATUS_FILTER = [...SETTLEMENT_BOOKING_STATUSES];
 const OCCUPANCY_STATUS_FILTER = [...OCCUPANCY_STAY_STATUSES];
 
+/**
+ * 'all' 프리셋 산출용 데이터 최소일 — min(booking.checkOut). 없으면 null.
+ * page.tsx가 resolveStatsPeriod의 dataFloor 인자로 주입한다(데이터 없으면 to−1개월 폴백).
+ */
+export async function loadDataFloor(db: PrismaClient = prisma): Promise<Date | null> {
+  const first = await db.booking.findFirst({
+    where: { status: { in: SETTLEMENT_STATUS_FILTER } },
+    orderBy: { checkOut: "asc" },
+    select: { checkOut: true },
+  });
+  return first?.checkOut ?? null;
+}
+
 // ── 1. 개요(매출·마진) — canViewFinance 전용 ────────────────────────
 
-/** 월별 매출 추이 1행 (통화 분리). 합산 금지 — KRW·VND 나란히. */
-export interface MonthlyRevenuePoint {
-  monthKey: string;
+/** 버킷별 매출 추이 1행 (통화 분리). 합산 금지 — KRW·VND 나란히. */
+export interface RevenueTrendPoint {
+  /** 버킷 키(일='YYYY-MM-DD', 월='YYYY-MM') */
+  bucketKey: string;
+  /** 표시 라벨(일='MM-DD', 월='YYYY-MM') */
+  label: string;
   krwRevenue: number;
   krwRevenueText: string;
   vndRevenue: number;
@@ -237,9 +364,8 @@ export interface MonthlyRevenuePoint {
   fxMissingCount: number;
 }
 
-/** KPI(이번달/전월) + 전월 대비. 통화 분리. */
+/** KPI(기간 총계) + 직전 동기간 대비. 통화 분리. */
 export interface RevenueKpi {
-  monthKey: string;
   krwRevenue: number;
   krwRevenueText: string;
   vndRevenue: number;
@@ -248,7 +374,7 @@ export interface RevenueKpi {
   marginVndText: string;
   marginRatePct: number | null;
   fxMissingCount: number;
-  /** 전월 대비 증감률(%) — 이전값 0이면 null */
+  /** 직전 동기간 대비 증감률(%) — previous 없음·이전값 0이면 null */
   krwChangePct: number | null;
   vndChangePct: number | null;
   marginChangePct: number | null;
@@ -265,10 +391,11 @@ export interface ChannelStat {
 }
 
 export interface OverviewStats {
-  range: { monthKeys: string[] };
-  monthly: MonthlyRevenuePoint[];
+  /** 버킷 키 배열(차트 x축 순서) */
+  bucketKeys: string[];
+  trend: RevenueTrendPoint[];
+  /** 기간 총계 KPI(+ 직전 동기간 대비) */
   current: RevenueKpi;
-  previous: RevenueKpi;
   channels: ChannelStat[];
 }
 
@@ -277,56 +404,53 @@ interface RevenueSourceRow extends FinanceSourceRow {
   channel: BookingChannel;
 }
 
+const REVENUE_SELECT = {
+  checkOut: true,
+  channel: true,
+  saleCurrency: true,
+  totalSaleKrw: true,
+  totalSaleVnd: true,
+  supplierCostVnd: true,
+  fxVndPerKrw: true,
+} as const;
+
+/** [start, end) 내 행만 필터 (체크아웃 @db.Date UTC 경계) */
+function rowsInRange<T extends { checkOut: Date }>(rows: T[], start: Date, end: Date): T[] {
+  return rows.filter(
+    (r) => r.checkOut.getTime() >= start.getTime() && r.checkOut.getTime() < end.getTime()
+  );
+}
+
 /**
  * loadOverviewStats — 재무 전용(canViewFinance 게이트는 호출부(page.tsx)에서 확인 후 호출).
- * 최근 N개월 월별 매출추이 + 이번달/전월 KPI + 채널별 건수·매출.
- * 매출 인식 = 체크아웃 월, SETTLEMENT_BOOKING_STATUSES. 통화 분리·마진 환산은 summarizeFinance.
+ * 버킷별 매출추이 + 기간 총계 KPI(직전 동기간 대비) + 채널별 건수·매출.
+ * 매출 인식 = 체크아웃일, SETTLEMENT_BOOKING_STATUSES. 통화 분리·마진 환산은 summarizeFinance.
  */
 export async function loadOverviewStats(
-  range: StatsRange,
-  now: Date = new Date(),
+  period: StatsPeriod,
+  _now: Date = new Date(),
   db: PrismaClient = prisma
 ): Promise<OverviewStats> {
-  const period = resolveRangePeriod(range, now);
-  // 추이 + 전월 KPI를 위해 한 달 더 과거까지 조회 (전월 대비 산출용)
-  const prevStart = new Date(
-    Date.UTC(period.start.getUTCFullYear(), period.start.getUTCMonth() - 1, 1)
-  );
-  const prevKey = utcMonthKey(prevStart);
+  // 추이·총계 + 직전 동기간 KPI를 위해 previous.from(있으면)까지 한 번에 조회
+  const queryStart = period.previous ? period.previous.from : period.from;
 
   const rows: RevenueSourceRow[] = await db.booking.findMany({
     where: {
       status: { in: SETTLEMENT_STATUS_FILTER },
-      checkOut: { gte: prevStart, lt: period.end },
+      checkOut: { gte: queryStart, lt: period.to },
     },
-    select: {
-      checkOut: true,
-      channel: true,
-      saleCurrency: true,
-      totalSaleKrw: true,
-      totalSaleVnd: true,
-      supplierCostVnd: true,
-      fxVndPerKrw: true,
-    },
+    select: REVENUE_SELECT,
   });
 
-  // 체크아웃이 속한 월키(UTC 경계 — @db.Date)로 버킷팅
-  const byMonth = new Map<string, RevenueSourceRow[]>();
-  for (const r of rows) {
-    const key = utcMonthKey(r.checkOut);
-    const list = byMonth.get(key) ?? [];
-    list.push(r);
-    byMonth.set(key, list);
-  }
+  const inPeriodRows = rowsInRange(rows, period.from, period.to);
 
-  const summarizeMonth = (key: string): FinanceSummary =>
-    summarizeFinance((byMonth.get(key) ?? []).map(toFinanceBooking));
-
-  const monthly: MonthlyRevenuePoint[] = period.monthKeys.map((key) => {
-    const s = summarizeMonth(key);
-    const block = toFinanceBlock(s);
+  // 버킷별 추이 — period.buckets 순회([start, end) 클리핑)
+  const trend: RevenueTrendPoint[] = period.buckets.map((bucket) => {
+    const list = rowsInRange(rows, bucket.start, bucket.end);
+    const block = toFinanceBlock(summarizeFinance(list.map(toFinanceBooking)));
     return {
-      monthKey: key,
+      bucketKey: bucket.key,
+      label: bucket.label,
       krwRevenue: block.krwRevenue,
       krwRevenueText: block.krwRevenueText,
       vndRevenue: block.vndRevenue,
@@ -337,42 +461,33 @@ export async function loadOverviewStats(
     };
   });
 
-  const buildKpi = (key: string, prevSummary: FinanceSummary): RevenueKpi => {
-    const s = summarizeMonth(key);
-    const block = toFinanceBlock(s);
-    const prevBlock = toFinanceBlock(prevSummary);
-    return {
-      monthKey: key,
-      krwRevenue: block.krwRevenue,
-      krwRevenueText: block.krwRevenueText,
-      vndRevenue: block.vndRevenue,
-      vndRevenueText: block.vndRevenueText,
-      marginVnd: block.marginVnd,
-      marginVndText: block.marginVndText,
-      marginRatePct: block.marginRatePct,
-      fxMissingCount: block.fxMissingCount,
-      krwChangePct: changeRate(block.krwRevenue, prevBlock.krwRevenue),
-      vndChangePct: changeRate(block.vndRevenue, prevBlock.vndRevenue),
-      marginChangePct: changeRate(block.marginVnd, prevBlock.marginVnd),
-    };
+  // 기간 총계 KPI + 직전 동기간 대비
+  const currentBlock = toFinanceBlock(summarizeFinance(inPeriodRows.map(toFinanceBooking)));
+  const prevBlock = period.previous
+    ? toFinanceBlock(
+        summarizeFinance(
+          rowsInRange(rows, period.previous.from, period.previous.to).map(toFinanceBooking)
+        )
+      )
+    : null;
+
+  const current: RevenueKpi = {
+    krwRevenue: currentBlock.krwRevenue,
+    krwRevenueText: currentBlock.krwRevenueText,
+    vndRevenue: currentBlock.vndRevenue,
+    vndRevenueText: currentBlock.vndRevenueText,
+    marginVnd: currentBlock.marginVnd,
+    marginVndText: currentBlock.marginVndText,
+    marginRatePct: currentBlock.marginRatePct,
+    fxMissingCount: currentBlock.fxMissingCount,
+    krwChangePct: prevBlock ? changeRate(currentBlock.krwRevenue, prevBlock.krwRevenue) : null,
+    vndChangePct: prevBlock ? changeRate(currentBlock.vndRevenue, prevBlock.vndRevenue) : null,
+    marginChangePct: prevBlock ? changeRate(currentBlock.marginVnd, prevBlock.marginVnd) : null,
   };
 
-  const currentKey = period.monthKeys[period.monthKeys.length - 1];
-  const previousKey = period.monthKeys[period.monthKeys.length - 2] ?? prevKey;
-  const beforePreviousKey = utcMonthKey(
-    new Date(Date.UTC(monthKeyToUtcStart(previousKey).getUTCFullYear(), monthKeyToUtcStart(previousKey).getUTCMonth() - 1, 1))
-  );
-
-  const current = buildKpi(currentKey, summarizeMonth(previousKey));
-  const previous = buildKpi(previousKey, summarizeMonth(beforePreviousKey));
-
-  // 채널별 — 기간(period.start~end) 내 매출만(전월 보조 데이터 제외)
-  const inPeriod = (r: RevenueSourceRow) =>
-    r.checkOut.getTime() >= period.start.getTime() &&
-    r.checkOut.getTime() < period.end.getTime();
+  // 채널별 — 기간 [from, to) 내 매출만
   const byChannel = new Map<BookingChannel, RevenueSourceRow[]>();
-  for (const r of rows) {
-    if (!inPeriod(r)) continue;
+  for (const r of inPeriodRows) {
     const list = byChannel.get(r.channel) ?? [];
     list.push(r);
     byChannel.set(r.channel, list);
@@ -397,18 +512,19 @@ export async function loadOverviewStats(
   });
 
   return {
-    range: { monthKeys: period.monthKeys },
-    monthly,
+    bucketKeys: period.buckets.map((b) => b.key),
+    trend,
     current,
-    previous,
     channels,
   };
 }
 
 // ── 2. 가동률(점유율) — 전 운영자 ───────────────────────────────────
 
-export interface MonthlyOccupancyPoint {
-  monthKey: string;
+export interface OccupancyTrendPoint {
+  /** 버킷 키(일='YYYY-MM-DD', 월='YYYY-MM') */
+  bucketKey: string;
+  label: string;
   /** 가동률(%) 0~100, 소수 1자리 */
   ratePct: number;
 }
@@ -422,17 +538,17 @@ export interface VillaOccupancy {
 }
 
 export interface OccupancyStats {
-  /** 최근 12개월 추이(라인) */
-  monthly: MonthlyOccupancyPoint[];
-  /** 이번 달 전체 가동률(%) */
+  /** 버킷별 가동률 추이(라인) */
+  trend: OccupancyTrendPoint[];
+  /** 기간 전체 가동률(%) */
   currentRatePct: number;
-  /** 전월 대비 증감(%포인트, 소수 1자리). 전월 0%면 null */
+  /** 직전 동기간 대비 증감(%포인트, 소수 1자리). previous 없음·이전 0%면 null */
   changePct: number | null;
-  /** 이번 달 평균 박수(점유박/예약수). 예약 0건이면 0 */
+  /** 기간 평균 박수(점유박/예약수). 예약 0건이면 0 */
   avgNights: number;
-  /** 이번 달 점유 예약수 */
+  /** 기간 점유 예약수 */
   bookingCount: number;
-  /** 빌라별 가동률 내림차순(이번 달) */
+  /** 빌라별 가동률 내림차순(기간) */
   villas: VillaOccupancy[];
 }
 
@@ -440,39 +556,33 @@ interface OccupancyBookingRow extends OccupancyBookingRange {
   villaId: string;
 }
 
-/** half-open [checkIn, checkOut) 의 [monthStart, monthEnd) 클리핑 점유박 (computeOccupancyRate와 동일 규약) */
-function clippedNights(b: OccupancyBookingRange, monthStart: Date, monthEnd: Date): number {
-  const start = Math.max(b.checkIn.getTime(), monthStart.getTime());
-  const end = Math.min(b.checkOut.getTime(), monthEnd.getTime());
+/** half-open [checkIn, checkOut) 의 [winStart, winEnd) 클리핑 점유박 (computeOccupancyRate와 동일 규약) */
+function clippedNights(b: OccupancyBookingRange, winStart: Date, winEnd: Date): number {
+  const start = Math.max(b.checkIn.getTime(), winStart.getTime());
+  const end = Math.min(b.checkOut.getTime(), winEnd.getTime());
   if (end <= start) return 0;
   return Math.round((end - start) / MS_PER_DAY);
 }
 
 /**
- * loadOccupancyStats — 전 운영자. 월별 가동률 추이(최근 12개월, computeOccupancyRate 재사용)
- * + 이번달 전체 가동률·전월대비·평균박수 + 빌라별 가동률 내림차순. 점유상태=OCCUPANCY_STAY_STATUSES.
- * 분모 빌라수 = 현재 ACTIVE 근사(헬퍼 주석과 동일 — 월 중 승인 시점 무시).
+ * loadOccupancyStats — 전 운영자. 버킷별 가동률 추이(computeOccupancyRate 재사용)
+ * + 기간 전체 가동률·직전 동기간 대비·평균박수 + 빌라별 가동률 내림차순. 점유상태=OCCUPANCY_STAY_STATUSES.
+ * 분모 빌라수 = 현재 ACTIVE 근사(헬퍼 주석과 동일 — 기간 중 승인 시점 무시).
+ * 가동률 분모: 버킷별 (ACTIVE × 버킷일수), 전체 (ACTIVE × 기간일수).
  */
 export async function loadOccupancyStats(
-  range: StatsRange,
-  now: Date = new Date(),
+  period: StatsPeriod,
+  _now: Date = new Date(),
   db: PrismaClient = prisma
 ): Promise<OccupancyStats> {
-  const period = resolveRangePeriod(range, now);
-  // 추이는 항상 최근 12개월(계약 §5.탭2) — range가 6이어도 추이는 12개월 일관 표시.
-  // 단, range가 연도면 그 12개월을 사용. range가 "6"/"12"면 12개월 윈도우로 보정.
-  const trailing12 =
-    typeof range === "object" ? period : resolveRangePeriod("12", now);
-
-  // 점유 후보 예약 일괄 조회 — 추이 윈도우 ∪ 이번 달을 모두 덮는 [start, end)
-  const windowStart = trailing12.start;
-  const windowEnd = trailing12.end;
+  // 추이·총계·직전 동기간을 모두 덮는 윈도우 — previous.from(있으면)부터
+  const windowStart = period.previous ? period.previous.from : period.from;
+  const windowEnd = period.to;
 
   const [bookings, activeVillaCount, villas] = await Promise.all([
     db.booking.findMany({
       where: {
         status: { in: OCCUPANCY_STATUS_FILTER },
-        // 윈도우와 겹치는 예약만 (checkOut > windowStart AND checkIn < windowEnd)
         checkIn: { lt: windowEnd },
         checkOut: { gt: windowStart },
       },
@@ -487,29 +597,28 @@ export async function loadOccupancyStats(
 
   const rows: OccupancyBookingRow[] = bookings;
 
-  // 월별 추이 — 각 월마다 computeOccupancyRate(전체 ACTIVE 분모) 재사용
-  const monthly: MonthlyOccupancyPoint[] = trailing12.monthKeys.map((key) => {
-    const { start, end } = monthRangeUtc(key);
-    const ratePct = computeOccupancyRate(rows, activeVillaCount, start, end);
-    return { monthKey: key, ratePct };
+  // 버킷별 추이 — 각 버킷마다 computeOccupancyRate(전체 ACTIVE 분모) 재사용
+  const trend: OccupancyTrendPoint[] = period.buckets.map((bucket) => {
+    const ratePct = computeOccupancyRate(rows, activeVillaCount, bucket.start, bucket.end);
+    return { bucketKey: bucket.key, label: bucket.label, ratePct };
   });
 
-  // 이번 달(VN 기준 현재 달) 상세
-  const currentKey = monthKeyVn(now);
-  const { start: curStart, end: curEnd } = monthRangeUtc(currentKey);
-  const currentRatePct = computeOccupancyRate(rows, activeVillaCount, curStart, curEnd);
-  const prevStart = new Date(Date.UTC(curStart.getUTCFullYear(), curStart.getUTCMonth() - 1, 1));
-  const prevEnd = curStart;
-  const prevRatePct = computeOccupancyRate(rows, activeVillaCount, prevStart, prevEnd);
+  // 기간 전체 가동률(분모 = ACTIVE × 기간일수)
+  const currentRatePct = computeOccupancyRate(rows, activeVillaCount, period.from, period.to);
+  const prevRatePct = period.previous
+    ? computeOccupancyRate(rows, activeVillaCount, period.previous.from, period.previous.to)
+    : null;
   const changePct =
-    prevRatePct === 0 ? null : Math.round((currentRatePct - prevRatePct) * 10) / 10;
+    prevRatePct == null || prevRatePct === 0
+      ? null
+      : Math.round((currentRatePct - prevRatePct) * 10) / 10;
 
-  // 이번 달 빌라별 점유박 + 예약수
-  const monthDays = Math.round((curEnd.getTime() - curStart.getTime()) / MS_PER_DAY);
+  // 기간 빌라별 점유박 + 예약수
+  const periodDays = Math.round((period.to.getTime() - period.from.getTime()) / MS_PER_DAY);
   const nightsByVilla = new Map<string, number>();
   let currentBookingCount = 0;
   for (const b of rows) {
-    const n = clippedNights(b, curStart, curEnd);
+    const n = clippedNights(b, period.from, period.to);
     if (n <= 0) continue;
     currentBookingCount += 1;
     nightsByVilla.set(b.villaId, (nightsByVilla.get(b.villaId) ?? 0) + n);
@@ -523,15 +632,15 @@ export async function loadOccupancyStats(
   const villaStats: VillaOccupancy[] = villas.map((v) => {
     const occupiedNights = nightsByVilla.get(v.id) ?? 0;
     const ratePct =
-      monthDays > 0
-        ? Math.round(Math.min((occupiedNights / monthDays) * 100, 100) * 10) / 10
+      periodDays > 0
+        ? Math.round(Math.min((occupiedNights / periodDays) * 100, 100) * 10) / 10
         : 0;
     return { villaId: v.id, name: v.name, complex: v.complex, occupiedNights, ratePct };
   });
   villaStats.sort((a, b) => b.ratePct - a.ratePct || b.occupiedNights - a.occupiedNights);
 
   return {
-    monthly,
+    trend,
     currentRatePct,
     changePct,
     avgNights,
@@ -565,30 +674,29 @@ export interface VillaPerformanceRow {
  * 가동률 분모 = 해당 빌라의 (기간 월수 × 평균 월일수) 근사 — 빌라별 점유박/기간일수.
  */
 export async function loadVillaPerformance(
-  range: StatsRange,
+  period: StatsPeriod,
   includeFinance: boolean,
-  now: Date = new Date(),
+  _now: Date = new Date(),
   db: PrismaClient = prisma
 ): Promise<VillaPerformanceRow[]> {
-  const period = resolveRangePeriod(range, now);
-  const periodDays = Math.round((period.end.getTime() - period.start.getTime()) / MS_PER_DAY);
+  const periodDays = Math.round((period.to.getTime() - period.from.getTime()) / MS_PER_DAY);
 
   // 점유: 기간 내 점유상태 예약 (가동률·예약수·박수)
   const occBookings = await db.booking.findMany({
     where: {
       status: { in: OCCUPANCY_STATUS_FILTER },
-      checkIn: { lt: period.end },
-      checkOut: { gt: period.start },
+      checkIn: { lt: period.to },
+      checkOut: { gt: period.from },
     },
     select: { villaId: true, status: true, checkIn: true, checkOut: true },
   });
 
-  // 매출: 정산 기준(체크아웃 월·SETTLEMENT_BOOKING_STATUSES) — includeFinance일 때만
+  // 매출: 정산 기준(체크아웃일·SETTLEMENT_BOOKING_STATUSES) — includeFinance일 때만
   const finBookings = includeFinance
     ? await db.booking.findMany({
         where: {
           status: { in: SETTLEMENT_STATUS_FILTER },
-          checkOut: { gte: period.start, lt: period.end },
+          checkOut: { gte: period.from, lt: period.to },
         },
         select: {
           villaId: true,
@@ -609,7 +717,7 @@ export async function loadVillaPerformance(
   const nightsByVilla = new Map<string, number>();
   const bookingCountByVilla = new Map<string, number>();
   for (const b of occBookings) {
-    const n = clippedNights(b, period.start, period.end);
+    const n = clippedNights(b, period.from, period.to);
     if (n <= 0) continue;
     nightsByVilla.set(b.villaId, (nightsByVilla.get(b.villaId) ?? 0) + n);
     bookingCountByVilla.set(b.villaId, (bookingCountByVilla.get(b.villaId) ?? 0) + 1);
@@ -679,15 +787,14 @@ export interface FunnelStats {
  * effectiveProposalStatus로 만료 반영(생성 카운트는 만료 무관 전수, 표시 라벨용으로 만료 분리 가능).
  */
 export async function loadFunnelStats(
-  range: StatsRange,
+  period: StatsPeriod,
   now: Date = new Date(),
   db: PrismaClient = prisma
 ): Promise<FunnelStats> {
-  const period = resolveRangePeriod(range, now);
-
-  // 기간 내 생성된 제안 + 항목의 연결 예약 상태
+  // 기간 내 생성된 제안 + 항목의 연결 예약 상태.
+  // createdAt은 timestamp(UTC 순간) — period.from/to는 UTC 자정 경계로 그대로 사용(기존 규약 유지).
   const proposals = await db.proposal.findMany({
-    where: { createdAt: { gte: period.start, lt: period.end } },
+    where: { createdAt: { gte: period.from, lt: period.to } },
     select: {
       status: true,
       expiresAt: true,
@@ -772,16 +879,14 @@ export interface OperationsStats {
  *   정밀 처리시간은 후속 태스크(AuditLog 조인)로 분리.
  */
 export async function loadOperationsStats(
-  range: StatsRange,
+  period: StatsPeriod,
   includeFinance: boolean,
-  now: Date = new Date(),
+  _now: Date = new Date(),
   db: PrismaClient = prisma
 ): Promise<OperationsStats> {
-  const period = resolveRangePeriod(range, now);
-
   // 기간 내 생성 예약 — 홀드·취소·노쇼 비율 모집단
   const bookings = await db.booking.findMany({
-    where: { createdAt: { gte: period.start, lt: period.end } },
+    where: { createdAt: { gte: period.from, lt: period.to } },
     select: { status: true, depositStatus: true, depositDeductVnd: true },
   });
 
@@ -802,15 +907,15 @@ export async function loadOperationsStats(
   // 청소 검수 — 기간 내 승인된 태스크의 평균 처리시간(근사) + 현재 미결 + 반려율
   const [approvedTasks, pendingCount, rejectedCount, submittedNowCount] = await Promise.all([
     db.cleaningTask.findMany({
-      where: { approvedAt: { gte: period.start, lt: period.end } },
+      where: { approvedAt: { gte: period.from, lt: period.to } },
       select: { createdAt: true, approvedAt: true },
     }),
     db.cleaningTask.count({ where: { status: "PHOTOS_SUBMITTED" } }),
     db.cleaningTask.count({
-      where: { status: "REJECTED", createdAt: { gte: period.start, lt: period.end } },
+      where: { status: "REJECTED", createdAt: { gte: period.from, lt: period.to } },
     }),
     db.cleaningTask.count({
-      where: { status: "PHOTOS_SUBMITTED", createdAt: { gte: period.start, lt: period.end } },
+      where: { status: "PHOTOS_SUBMITTED", createdAt: { gte: period.from, lt: period.to } },
     }),
   ]);
 
@@ -858,4 +963,166 @@ export async function loadOperationsStats(
   }
 
   return stats;
+}
+
+// ── 6. 미니바 통계 — canViewFinance 전용 (작업 C) ────────────────────
+//
+// CheckoutMinibarLine을 checkOutRecord→booking.checkOut 기준 [from, to)로 집계
+// (매출 인식 = 체크아웃 — 다른 매출과 정합). 판매가·원가는 체크아웃 시점 스냅샷.
+//   ★ 매출=재무 → canViewFinance 전용. 호출부 page.tsx에서 fin일 때만 호출.
+//   ★ 원가(costVnd) 미입력 라인은 마진 계산에서 제외하고 costMissingCount로 분리 표기.
+
+/** 버킷별 미니바 매출 추이 1행 (VND, 직렬화 쌍) */
+export interface MinibarTrendPoint {
+  bucketKey: string;
+  label: string;
+  revenueVnd: number;
+  revenueVndText: string;
+}
+
+/** 품목별 인기/매출 1행 (소모수량합·매출합 내림차순) */
+export interface MinibarItemStat {
+  /** 품목명 스냅샷(nameKo) — 품목 삭제돼도 라인에 보존 */
+  nameKo: string;
+  /** 소모 수량 합 */
+  consumedQty: number;
+  revenueVnd: number;
+  revenueVndText: string;
+}
+
+export interface MinibarStats {
+  /** 총 미니바 매출(VND) */
+  revenueVnd: number;
+  revenueVndText: string;
+  /** 버킷별 매출 추이 */
+  trend: MinibarTrendPoint[];
+  /** 품목별 top(매출 내림차순) */
+  topItems: MinibarItemStat[];
+  /**
+   * 미니바 마진(VND) = Σ(원가있는 라인 lineVnd) − Σ lineCostVnd. 음수(역마진) 보존.
+   * 원가 입력 라인이 하나도 없으면 null → "원가 미입력" 표기.
+   */
+  marginVnd: number | null;
+  marginVndText: string | null;
+  /** 원가(costVnd) 미입력 라인 수 — 마진에서 제외된 라인 카운트 */
+  costMissingCount: number;
+}
+
+interface MinibarLineRow {
+  nameKo: string;
+  consumedQty: number;
+  lineVnd: bigint;
+  costVnd: bigint | null;
+  lineCostVnd: bigint | null;
+  checkOut: Date;
+}
+
+/**
+ * loadMinibarStats — 미니바 매출·품목 인기·마진 집계 (canViewFinance 전용).
+ * 체크아웃일(booking.checkOut) [from, to) 기준. 버킷별 추이는 period.buckets 순회.
+ * BigInt 합산 후 마지막에 number/문자열 변환(부동소수점 금지). 매출액은 안전정수 범위 내.
+ */
+export async function loadMinibarStats(
+  period: StatsPeriod,
+  _now: Date = new Date(),
+  db: PrismaClient = prisma
+): Promise<MinibarStats> {
+  const lines = await db.checkoutMinibarLine.findMany({
+    where: {
+      checkOutRecord: {
+        booking: { checkOut: { gte: period.from, lt: period.to } },
+      },
+    },
+    select: {
+      nameKo: true,
+      consumedQty: true,
+      lineVnd: true,
+      costVnd: true,
+      lineCostVnd: true,
+      checkOutRecord: { select: { booking: { select: { checkOut: true } } } },
+    },
+  });
+
+  const rows: MinibarLineRow[] = lines.map((l) => ({
+    nameKo: l.nameKo,
+    consumedQty: l.consumedQty,
+    lineVnd: l.lineVnd,
+    costVnd: l.costVnd,
+    lineCostVnd: l.lineCostVnd,
+    checkOut: l.checkOutRecord.booking.checkOut,
+  }));
+
+  // 총 매출 (BigInt 합산)
+  let totalRevenue = 0n;
+  for (const r of rows) totalRevenue += r.lineVnd;
+  const revAmt = toVndAmount(totalRevenue);
+
+  // 버킷별 매출 추이
+  const trend: MinibarTrendPoint[] = period.buckets.map((bucket) => {
+    let sum = 0n;
+    for (const r of rows) {
+      const t = r.checkOut.getTime();
+      if (t >= bucket.start.getTime() && t < bucket.end.getTime()) sum += r.lineVnd;
+    }
+    const amt = toVndAmount(sum);
+    return {
+      bucketKey: bucket.key,
+      label: bucket.label,
+      revenueVnd: amt.vnd,
+      revenueVndText: amt.vndText,
+    };
+  });
+
+  // 품목별 top — nameKo 스냅샷별 소모수량·매출 합산
+  const byName = new Map<string, { consumedQty: number; revenue: bigint }>();
+  for (const r of rows) {
+    const cur = byName.get(r.nameKo) ?? { consumedQty: 0, revenue: 0n };
+    cur.consumedQty += r.consumedQty;
+    cur.revenue += r.lineVnd;
+    byName.set(r.nameKo, cur);
+  }
+  const topItems: MinibarItemStat[] = [...byName.entries()]
+    .map(([nameKo, v]) => {
+      const amt = toVndAmount(v.revenue);
+      return {
+        nameKo,
+        consumedQty: v.consumedQty,
+        revenueVnd: amt.vnd,
+        revenueVndText: amt.vndText,
+      };
+    })
+    .sort((a, b) => b.revenueVnd - a.revenueVnd || b.consumedQty - a.consumedQty);
+
+  // 마진 — 원가(costVnd) 스냅샷이 있는 라인만 합산. 역마진(음수) 보존.
+  //   원가 입력 라인이 0이면 margin=null("원가 미입력"). costVnd 없는 라인은 costMissingCount.
+  let marginRevenue = 0n; // Σ lineVnd (원가있는 라인만)
+  let marginCost = 0n; // Σ lineCostVnd
+  let costPresentCount = 0;
+  let costMissingCount = 0;
+  for (const r of rows) {
+    if (r.costVnd != null && r.lineCostVnd != null) {
+      marginRevenue += r.lineVnd;
+      marginCost += r.lineCostVnd;
+      costPresentCount += 1;
+    } else {
+      costMissingCount += 1;
+    }
+  }
+  let marginVnd: number | null = null;
+  let marginVndText: string | null = null;
+  if (costPresentCount > 0) {
+    const m = toVndAmount(marginRevenue - marginCost);
+    marginVnd = m.vnd;
+    marginVndText = m.vndText;
+  }
+
+  return {
+    revenueVnd: revAmt.vnd,
+    revenueVndText: revAmt.vndText,
+    trend,
+    topItems,
+    marginVnd,
+    marginVndText,
+    costMissingCount,
+  };
 }

@@ -2311,6 +2311,36 @@
         "note": "Tổng {count} lượt khấu trừ một phần (PARTIAL_DEDUCTED)",
         "staffNote": "Tài khoản STAFF không thấy thẻ này"
       }
+    },
+    "dateFilter": {
+      "from": "Từ ngày",
+      "to": "Đến ngày",
+      "apply": "Áp dụng",
+      "invalidRange": "Ngày kết thúc không được trước ngày bắt đầu"
+    },
+    "minibar": {
+      "title": "Bán minibar",
+      "subtitle": "Theo ngày trả phòng · VND",
+      "kpi": {
+        "revenue": "Doanh thu minibar",
+        "revenueNote": "Tổng giá bán tại thời điểm trả phòng (₫)",
+        "margin": "Lợi nhuận minibar",
+        "marginPartialNote": "{count} dòng chưa nhập giá vốn bị loại khỏi lợi nhuận",
+        "costMissing": "Chưa nhập giá vốn",
+        "costMissingNote": "{count} dòng chưa nhập giá vốn — nhập giá vốn sản phẩm thì lợi nhuận sẽ tự hiển thị"
+      },
+      "trendChart": {
+        "title": "Xu hướng doanh thu minibar",
+        "subtitle": "Tổng giá bán theo kỳ (₫)",
+        "legend": "Doanh thu minibar"
+      },
+      "topItems": {
+        "title": "Bán theo sản phẩm",
+        "name": "Sản phẩm",
+        "qty": "Số lượng tiêu thụ",
+        "revenue": "Doanh thu",
+        "empty": "Chưa có ghi nhận bán minibar nào"
+      }
     }
   }
 }
