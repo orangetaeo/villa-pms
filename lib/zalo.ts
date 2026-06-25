@@ -219,6 +219,17 @@ export function buildNotificationText(
       const lines = [`💰 Bảng thanh toán tháng ${str(p.yearMonth)} đã sẵn sàng.`];
       const total = formatVndVi(p.totalVnd); // 공급자 자신의 정산액(원가 기반)만 — 마진·판매가 아님
       if (total !== null) lines.push(`Tổng: ${total}₫`);
+      // 월 정산서 PDF 다운로드 링크 (P2-4) — statementPath 있고 base URL 설정 시. 링크는 로그인 게이트.
+      const stmtPath =
+        typeof p.statementPath === "string" && p.statementPath.startsWith("/")
+          ? p.statementPath
+          : null;
+      const base = (
+        process.env.VILLA_PUBLIC_BASE_URL ||
+        process.env.NEXTAUTH_URL ||
+        ""
+      ).replace(/\/+$/, "");
+      if (stmtPath && base) lines.push(`📄 Tải phiếu quyết toán: ${base}${stmtPath}`);
       lines.push(`Vui lòng kiểm tra chi tiết trong ứng dụng.`);
       return lines.join("\n");
     }

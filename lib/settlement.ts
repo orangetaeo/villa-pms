@@ -392,6 +392,8 @@ export async function transitionSettlement(
           settlementId: settlement.id,
           yearMonth: settlement.yearMonth,
           totalVnd: settlement.totalVnd.toString(),
+          // 월 정산서 PDF 다운로드 경로 (P2-4) — 알림 텍스트에 링크로 노출(로그인 게이트).
+          statementPath: `/api/settlements/${settlement.id}/statement`,
         },
         db: tx,
       });

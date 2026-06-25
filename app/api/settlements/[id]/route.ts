@@ -12,6 +12,7 @@ import {
   transitionSettlement,
 } from "@/lib/settlement";
 import { canViewFinance, isSystemAdmin } from "@/lib/permissions";
+import { generateSettlementStatement } from "@/lib/settlement-statement-service";
 
 export async function GET(
   _req: Request,
@@ -118,6 +119,15 @@ export async function PATCH(
       prisma,
       { fxAdjustmentVnd: parsed.data.fxAdjustmentVnd }
     );
+    // MARK_PAID 시 월 정산서 PDF 선생성(best-effort) — 알림 링크가 즉시 동작하도록 (P2-4).
+    // 생성 실패가 전이(이미 커밋)를 되돌리지 않게 try/catch. 미생성이어도 다운로드 시 재시도 가능.
+    if (parsed.data.action === "MARK_PAID") {
+      try {
+        await generateSettlementStatement(id, session.user.id);
+      } catch (err) {
+        console.error(`[settlement] ${id} 정산서 생성 실패(전이는 유효)`, err);
+      }
+    }
     return NextResponse.json({
       settlement: serializeBigInt({
         id: settlement.id,
