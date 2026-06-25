@@ -420,7 +420,13 @@
       "signError": "서명 저장에 실패했습니다. 다시 시도해주세요.",
       "unsignedHint": "서명 없이도 체크인 완료가 가능합니다 — 미서명 건은 체크인 화면에서 사후 서명할 수 있습니다.",
       "postSignBadge": "사후 서명",
-      "postSignDesc": "이 예약은 서명 없이 체크인되었습니다. 아래 동의서에 고객 서명을 받아 기록을 완성해주세요."
+      "postSignDesc": "이 예약은 서명 없이 체크인되었습니다. 아래 동의서에 고객 서명을 받아 기록을 완성해주세요.",
+      "guestSigned": {
+        "title": "게스트가 이미 서명함",
+        "meta": "판본 {version} · {at} 서명",
+        "resign": "현장에서 다시 서명받기",
+        "useGuest": "게스트 서명을 그대로 사용"
+      }
     },
     "wifi": {
       "title": "와이파이 안내",
@@ -2555,6 +2561,45 @@
         "qty": "소모수량",
         "revenue": "매출",
         "empty": "아직 미니바 판매 기록이 없습니다"
+      }
+    },
+    "services": {
+      "title": "부가서비스 매출",
+      "subtitle": "체크아웃 기준 · 확정/제공 완료",
+      "kpi": {
+        "revenueKrw": "부가서비스 매출 (KRW)",
+        "revenueKrwNote": "여행사 채널 판매가 합계 (원)",
+        "revenueVnd": "부가서비스 매출 (VND)",
+        "revenueVndNote": "현지 채널 판매가 합계 (₫)",
+        "margin": "부가서비스 마진",
+        "marginVndNote": "원가 입력분(VND)만 — KRW 매출은 환산 없이 제외",
+        "marginPartialNote": "원가 미입력 {count}건은 마진에서 제외",
+        "costMissing": "원가 미입력",
+        "costMissingNote": "원가 미입력 {count}건 — 주문 원가를 입력하면 마진이 자동 표시됩니다"
+      },
+      "trendChart": {
+        "title": "부가서비스 매출 추이",
+        "subtitle": "기간별 판매가 합계 (통화 분리)",
+        "krwLegend": "KRW 매출",
+        "vndLegend": "VND 매출"
+      },
+      "topTypes": {
+        "title": "서비스별 매출",
+        "type": "서비스",
+        "qty": "주문수",
+        "revenueKrw": "KRW",
+        "revenueVnd": "VND",
+        "empty": "아직 부가서비스 판매 기록이 없습니다"
+      },
+      "types": {
+        "BBQ": "BBQ",
+        "TICKET": "티켓",
+        "GUIDE": "가이드",
+        "CAR_RENTAL": "차량",
+        "BREAKFAST": "조식",
+        "MOTORBIKE_RENTAL": "오토바이",
+        "MASSAGE": "마사지",
+        "BARBER": "이발"
       }
     }
   },

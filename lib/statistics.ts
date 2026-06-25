@@ -15,6 +15,8 @@
 import {
   BookingChannel,
   BookingStatus,
+  ServiceOrderStatus,
+  type ServiceType,
   type PrismaClient,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -1121,6 +1123,194 @@ export async function loadMinibarStats(
     revenueVndText: revAmt.vndText,
     trend,
     topItems,
+    marginVnd,
+    marginVndText,
+    costMissingCount,
+  };
+}
+
+// ── 7. 부가서비스(ServiceOrder) 매출 통계 — canViewFinance 전용 (ADR-0019 후속) ──
+//
+// ServiceOrder를 booking.checkOut 기준 [from, to)로 집계(매출 인식 = 체크아웃 — 미니바·정산과 정합).
+// CONFIRMED·DELIVERED 상태만(REQUESTED=미확정, CANCELLED=취소 제외).
+//   ★ 매출=재무 → canViewFinance 전용. 호출부 page.tsx에서 fin일 때만 호출.
+//   ★ 통화 분리(ADR-0003): 판매가 KRW(priceKrw, 여행사 채널)와 VND(priceVnd, 현지)는 절대 합산 금지 —
+//     각 통화별 합·추이를 별도 계열로 유지. 마진은 원가가 VND(costVnd)뿐이므로 VND 라인만 산출.
+//   ★ 원가(costVnd) 미입력(=0/null) 라인은 마진에서 제외하고 costMissingCount로 분리 표기.
+
+/** 버킷별 부가서비스 매출 추이 1행 (KRW·VND 2계열, 직렬화 쌍) */
+export interface ServiceTrendPoint {
+  bucketKey: string;
+  label: string;
+  revenueKrw: number;
+  revenueKrwText: string;
+  revenueVnd: number;
+  revenueVndText: string;
+}
+
+/** 타입(ServiceType)별 매출 1행 (KRW·VND 분리, 합산 금지) */
+export interface ServiceTypeStat {
+  type: ServiceType;
+  /** 주문 건수 합(quantity 합) */
+  quantity: number;
+  revenueKrw: number;
+  revenueKrwText: string;
+  revenueVnd: number;
+  revenueVndText: string;
+}
+
+export interface ServiceOrderStats {
+  /** 총 부가서비스 매출 — 통화별 분리(합산 금지) */
+  revenueKrw: number;
+  revenueKrwText: string;
+  revenueVnd: number;
+  revenueVndText: string;
+  /** 버킷별 매출 추이(KRW·VND 2계열) */
+  trend: ServiceTrendPoint[];
+  /** 타입별 매출 top(VND→KRW 내림차순) */
+  topTypes: ServiceTypeStat[];
+  /**
+   * 부가서비스 마진(VND) = Σ(원가있는 라인 priceVnd) − Σ(원가있는 라인 costVnd). 음수(역마진) 보존.
+   * 원가(costVnd>0) & priceVnd 있는 라인이 하나도 없으면 null → "원가 미입력" 표기.
+   *   ★ 마진은 VND만(원가가 VND뿐) — KRW 매출 라인은 환산 없이 마진에서 제외(ADR-0003).
+   */
+  marginVnd: number | null;
+  marginVndText: string | null;
+  /** 원가(costVnd) 미입력(0/null) 라인 수 — 마진에서 제외된 라인 카운트 */
+  costMissingCount: number;
+}
+
+interface ServiceLineRow {
+  type: ServiceType;
+  priceKrw: number;
+  priceVnd: bigint | null;
+  costVnd: bigint;
+  quantity: number;
+  checkOut: Date;
+}
+
+/**
+ * loadServiceOrderStats — 부가서비스 매출·타입별 인기·마진 집계 (canViewFinance 전용).
+ * 체크아웃일(booking.checkOut) [from, to) 기준, status CONFIRMED·DELIVERED만.
+ * 통화(KRW·VND) 별도 합산(합치지 않음, ADR-0003). BigInt 합산 후 number/문자열 변환.
+ *   priceKrw·quantity는 라인 합(priceKrw는 단가가 아닌 라인 스냅샷 합계로 취급 — 미니바 lineVnd와 동형).
+ */
+export async function loadServiceOrderStats(
+  period: StatsPeriod,
+  _now: Date = new Date(),
+  db: PrismaClient = prisma
+): Promise<ServiceOrderStats> {
+  const orders = await db.serviceOrder.findMany({
+    where: {
+      status: { in: [ServiceOrderStatus.CONFIRMED, ServiceOrderStatus.DELIVERED] },
+      booking: { checkOut: { gte: period.from, lt: period.to } },
+    },
+    select: {
+      type: true,
+      priceKrw: true,
+      priceVnd: true,
+      costVnd: true,
+      quantity: true,
+      booking: { select: { checkOut: true } },
+    },
+  });
+
+  const rows: ServiceLineRow[] = orders.map((o) => ({
+    type: o.type,
+    priceKrw: o.priceKrw,
+    priceVnd: o.priceVnd,
+    costVnd: o.costVnd,
+    quantity: o.quantity,
+    checkOut: o.booking.checkOut,
+  }));
+
+  // 총 매출 — 통화별 분리 합산(절대 합치지 않음). KRW=Int 합(number), VND=BigInt 합.
+  let totalKrw = 0;
+  let totalVnd = 0n;
+  for (const r of rows) {
+    totalKrw += r.priceKrw;
+    if (r.priceVnd != null) totalVnd += r.priceVnd;
+  }
+  const krwAmt = toKrwAmount(totalKrw);
+  const vndAmt = toVndAmount(totalVnd);
+
+  // 버킷별 매출 추이 — KRW·VND 2계열
+  const trend: ServiceTrendPoint[] = period.buckets.map((bucket) => {
+    let kSum = 0;
+    let vSum = 0n;
+    for (const r of rows) {
+      const t = r.checkOut.getTime();
+      if (t >= bucket.start.getTime() && t < bucket.end.getTime()) {
+        kSum += r.priceKrw;
+        if (r.priceVnd != null) vSum += r.priceVnd;
+      }
+    }
+    const k = toKrwAmount(kSum);
+    const v = toVndAmount(vSum);
+    return {
+      bucketKey: bucket.key,
+      label: bucket.label,
+      revenueKrw: k.krw,
+      revenueKrwText: k.krwText,
+      revenueVnd: v.vnd,
+      revenueVndText: v.vndText,
+    };
+  });
+
+  // 타입별 top — ServiceType별 수량·매출(통화 분리) 합산
+  const byType = new Map<ServiceType, { quantity: number; krw: number; vnd: bigint }>();
+  for (const r of rows) {
+    const cur = byType.get(r.type) ?? { quantity: 0, krw: 0, vnd: 0n };
+    cur.quantity += r.quantity;
+    cur.krw += r.priceKrw;
+    if (r.priceVnd != null) cur.vnd += r.priceVnd;
+    byType.set(r.type, cur);
+  }
+  const topTypes: ServiceTypeStat[] = [...byType.entries()]
+    .map(([type, v]) => {
+      const k = toKrwAmount(v.krw);
+      const a = toVndAmount(v.vnd);
+      return {
+        type,
+        quantity: v.quantity,
+        revenueKrw: k.krw,
+        revenueKrwText: k.krwText,
+        revenueVnd: a.vnd,
+        revenueVndText: a.vndText,
+      };
+    })
+    .sort((a, b) => b.revenueVnd - a.revenueVnd || b.revenueKrw - a.revenueKrw);
+
+  // 마진(VND만) — costVnd>0 & priceVnd 있는 라인만. 역마진(음수) 보존.
+  //   costVnd=0(placeholder)/priceVnd 없음 라인은 costMissingCount.
+  let marginRevenue = 0n; // Σ priceVnd (원가있는 VND 라인)
+  let marginCost = 0n; // Σ costVnd
+  let costPresentCount = 0;
+  let costMissingCount = 0;
+  for (const r of rows) {
+    if (r.costVnd > 0n && r.priceVnd != null) {
+      marginRevenue += r.priceVnd;
+      marginCost += r.costVnd;
+      costPresentCount += 1;
+    } else {
+      costMissingCount += 1;
+    }
+  }
+  let marginVnd: number | null = null;
+  let marginVndText: string | null = null;
+  if (costPresentCount > 0) {
+    const m = toVndAmount(marginRevenue - marginCost);
+    marginVnd = m.vnd;
+    marginVndText = m.vndText;
+  }
+
+  return {
+    revenueKrw: krwAmt.krw,
+    revenueKrwText: krwAmt.krwText,
+    revenueVnd: vndAmt.vnd,
+    revenueVndText: vndAmt.vndText,
+    trend,
+    topTypes,
     marginVnd,
     marginVndText,
     costMissingCount,

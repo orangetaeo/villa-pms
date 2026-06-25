@@ -49,22 +49,39 @@ async function blobToBase64(blob: Blob): Promise<string> {
   return dataUrl.slice(dataUrl.indexOf(",") + 1);
 }
 
+/** ADR-0019 후속 — 게스트가 /g에서 셀프 서명한 동의서(있을 때만 page가 전달) */
+export interface GuestSignature {
+  signatureUrl: string;
+  agreementVersion: string | null;
+  /** ISO 문자열(표시용) */
+  signedAt: string | null;
+}
+
 export default function CheckinForm({
   bookingId,
   guestCount,
   agreement,
+  guestSignature,
 }: {
   bookingId: string;
   guestCount: number;
   /** 발행본 동의서 콘텐츠 — RSC에서 store 조회 후 주입 */
   agreement: AgreementContent;
+  /** 게스트 셀프 서명(/g) — 있으면 기본 채택, 운영자가 현장 재서명으로 덮어쓸 수 있음 */
+  guestSignature?: GuestSignature | null;
 }) {
   const t = useTranslations("adminCheckin");
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
   const [passports, setPassports] = useState<PassportEntry[]>([]);
   // T3.2 — 동의서 터치 서명(선택). 무서명 체크인 허용 — 사후 서명 경로 존재 (계약 결정 1·2)
-  const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
+  //   ADR-0019 후속 — 게스트 셀프 서명이 있으면 그 URL을 기본 채택(운영자 재서명 전까지).
+  const [signatureUrl, setSignatureUrl] = useState<string | null>(
+    guestSignature?.signatureUrl ?? null
+  );
+  // 게스트 서명을 채택 중인지(=현장 재서명 모드 아님). 게스트 서명 없으면 항상 false.
+  const [resign, setResign] = useState(false);
+  const adoptingGuest = Boolean(guestSignature) && !resign;
   const [uploading, setUploading] = useState(false);
   const [depositSkipped, setDepositSkipped] = useState(false);
   const [depositAmount, setDepositAmount] = useState("");
@@ -174,6 +191,10 @@ export default function CheckinForm({
                 currency: depositCurrency,
               },
           signatureUrl, // T3.2 — null이면 무서명 체크인 (미서명 배지·사후 서명으로 해소)
+          // ADR-0019 후속 — 게스트 서명 채택 시 토큰 판본 동봉(현장 재서명이면 생략 → 서버 null)
+          ...(adoptingGuest && guestSignature?.agreementVersion
+            ? { agreementVersion: guestSignature.agreementVersion }
+            : {}),
         }),
       });
       if (!res.ok) {
@@ -358,9 +379,67 @@ export default function CheckinForm({
       </section>
 
       {/* Section 3: 동의서 + 터치 서명 (T3.2, b3 §3) */}
-      <AgreementSection sectionNo={3} agreement={agreement} onSigned={setSignatureUrl} />
-      {!signatureUrl && (
-        <p className="text-center text-[11px] text-amber-400/80">{t("agreement.unsignedHint")}</p>
+      {adoptingGuest && guestSignature ? (
+        <section className="bg-slate-800 rounded-xl border border-slate-700 shadow-lg overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-700 flex items-center gap-3">
+            <span className="w-7 h-7 flex items-center justify-center bg-blue-600 rounded-full text-xs font-bold text-white">
+              3
+            </span>
+            <h3 className="font-bold text-slate-100">{t("agreement.title")}</h3>
+          </div>
+          <div className="p-6 space-y-4">
+            {/* 게스트 셀프 서명 채택 안내 배지 */}
+            <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-3">
+              <span className="material-symbols-outlined icon-fill text-green-500">draw</span>
+              <div className="text-sm">
+                <p className="font-bold text-green-400">{t("agreement.guestSigned.title")}</p>
+                <p className="text-[11px] text-slate-400">
+                  {t("agreement.guestSigned.meta", {
+                    version: guestSignature.agreementVersion ?? "-",
+                    at: guestSignature.signedAt
+                      ? new Date(guestSignature.signedAt).toLocaleString()
+                      : "-",
+                  })}
+                </p>
+              </div>
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element -- ADMIN 가드 API 서빙 */}
+            <img
+              src={guestSignature.signatureUrl}
+              alt={t("agreement.signatureLabel")}
+              className="max-h-32 rounded-md border border-slate-700 bg-white p-2"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                setResign(true);
+                setSignatureUrl(null);
+              }}
+              className="text-xs font-bold text-blue-400 hover:text-blue-300 underline"
+            >
+              {t("agreement.guestSigned.resign")}
+            </button>
+          </div>
+        </section>
+      ) : (
+        <>
+          {guestSignature && (
+            <button
+              type="button"
+              onClick={() => {
+                setResign(false);
+                setSignatureUrl(guestSignature.signatureUrl);
+              }}
+              className="block mx-auto text-xs font-bold text-slate-400 hover:text-slate-200 underline"
+            >
+              {t("agreement.guestSigned.useGuest")}
+            </button>
+          )}
+          <AgreementSection sectionNo={3} agreement={agreement} onSigned={setSignatureUrl} />
+          {!signatureUrl && (
+            <p className="text-center text-[11px] text-amber-400/80">{t("agreement.unsignedHint")}</p>
+          )}
+        </>
       )}
 
       {/* 공급자 전달(T3.6) 섹션은 해당 태스크에서 추가 — 미렌더 (T3.1 계약 조건 B) */}

@@ -17,6 +17,7 @@ import {
   loadFunnelStats,
   loadOperationsStats,
   loadMinibarStats,
+  loadServiceOrderStats,
 } from "@/lib/statistics";
 import StatisticsClient, { type TabKey } from "./statistics-client";
 
@@ -61,14 +62,16 @@ export default async function StatisticsPage({
   //  · overview·minibar: fin일 때만 (페이로드에 금액 자체 부재 — 매출=재무)
   //  · villas·operations: includeFinance=fin (false면 금액 키 없음)
   //  · occupancy·funnel: 항상
-  const [overview, minibar, occupancy, villas, funnel, operations] = await Promise.all([
-    fin ? loadOverviewStats(period) : Promise.resolve(undefined),
-    fin ? loadMinibarStats(period) : Promise.resolve(undefined),
-    loadOccupancyStats(period),
-    loadVillaPerformance(period, fin),
-    loadFunnelStats(period),
-    loadOperationsStats(period, fin),
-  ]);
+  const [overview, minibar, services, occupancy, villas, funnel, operations] =
+    await Promise.all([
+      fin ? loadOverviewStats(period) : Promise.resolve(undefined),
+      fin ? loadMinibarStats(period) : Promise.resolve(undefined),
+      fin ? loadServiceOrderStats(period) : Promise.resolve(undefined),
+      loadOccupancyStats(period),
+      loadVillaPerformance(period, fin),
+      loadFunnelStats(period),
+      loadOperationsStats(period, fin),
+    ]);
 
   // client로 내려보낼 직렬화 가능 period(Date 제외 — 표시·URL 동기화용).
   const periodMeta = {
@@ -85,6 +88,7 @@ export default async function StatisticsPage({
       period={periodMeta}
       overview={overview}
       minibar={minibar}
+      services={services}
       occupancy={occupancy}
       villas={villas}
       funnel={funnel}

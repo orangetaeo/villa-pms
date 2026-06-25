@@ -14,6 +14,7 @@ import type {
   FunnelStats,
   OperationsStats,
   MinibarStats,
+  ServiceOrderStats,
 } from "@/lib/statistics";
 
 /** 직렬화 가능한 기간 메타(page.tsx가 period에서 추려 내려보냄) */
@@ -32,6 +33,7 @@ import VillaRankTable from "@/components/admin/statistics/villa-rank-table";
 import Funnel from "@/components/admin/statistics/funnel";
 import DateRangeFilter from "@/components/admin/statistics/date-range-filter";
 import MinibarChart from "@/components/admin/statistics/minibar-chart";
+import ServiceChart from "@/components/admin/statistics/service-chart";
 
 export type TabKey = "overview" | "occupancy" | "villas" | "operations";
 
@@ -44,6 +46,8 @@ export interface StatisticsProps {
   overview?: OverviewStats;
   /** fin=true일 때만 존재 — 미니바 매출·마진(재무) */
   minibar?: MinibarStats;
+  /** fin=true일 때만 존재 — 부가서비스 매출·마진(재무, ADR-0019 후속) */
+  services?: ServiceOrderStats;
   occupancy: OccupancyStats;
   villas: VillaPerformanceRow[];
   funnel: FunnelStats;
@@ -129,7 +133,7 @@ export default function StatisticsClient(props: StatisticsProps) {
       {/* 탭 콘텐츠 */}
       <div className="py-6 space-y-6">
         {tab === "overview" && props.overview && (
-          <OverviewTab data={props.overview} minibar={props.minibar} />
+          <OverviewTab data={props.overview} minibar={props.minibar} services={props.services} />
         )}
         {tab === "occupancy" && <OccupancyTab data={props.occupancy} />}
         {tab === "villas" && (
@@ -145,7 +149,15 @@ export default function StatisticsClient(props: StatisticsProps) {
 
 // ── 탭1. 개요 ────────────────────────────────────────────────
 // minibar는 canViewFinance일 때만 page가 내려보냄(매출=재무 누수 차단). props.minibar &&로 가드.
-function OverviewTab({ data, minibar }: { data: OverviewStats; minibar?: MinibarStats }) {
+function OverviewTab({
+  data,
+  minibar,
+  services,
+}: {
+  data: OverviewStats;
+  minibar?: MinibarStats;
+  services?: ServiceOrderStats;
+}) {
   const t = useTranslations("adminStatistics");
   const k = data.current;
   const fxMissing = data.trend.reduce((s, m) => s + m.fxMissingCount, 0);
@@ -254,7 +266,147 @@ function OverviewTab({ data, minibar }: { data: OverviewStats; minibar?: Minibar
 
       {/* 미니바 판매 — canViewFinance 전용(page가 fin일 때만 minibar 전달). 없으면 섹션 자체 미렌더. */}
       {minibar && <MinibarSection data={minibar} />}
+
+      {/* 부가서비스 매출 — canViewFinance 전용(page가 fin일 때만 services 전달). 없으면 섹션 자체 미렌더. */}
+      {services && <ServiceSection data={services} />}
     </>
+  );
+}
+
+// ── 개요 탭 하위. 부가서비스 매출 섹션 (canViewFinance 전용, ADR-0019 후속) ───
+// 통화 분리(ADR-0003): KRW·VND 매출 카드 2개 별도. 마진은 VND만(원가가 VND뿐) — null이면 원가 미입력.
+function ServiceSection({ data }: { data: ServiceOrderStats }) {
+  const t = useTranslations("adminStatistics");
+  const hasMargin = data.marginVnd != null;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-2 pt-2">
+        <span className="material-symbols-outlined text-emerald-400 text-lg">room_service</span>
+        <h2 className="text-base font-bold text-white">{t("services.title")}</h2>
+        <span className="text-[11px] text-slate-500">{t("services.subtitle")}</span>
+      </div>
+
+      {/* KPI: KRW 매출 + VND 매출(통화 분리) + 마진(null이면 원가 미입력 배지) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <KpiCard
+          label={t("services.kpi.revenueKrw")}
+          value={data.revenueKrwText}
+          accent="krw"
+          icon="room_service"
+          iconClassName="text-admin-krw"
+          footer={<p className="text-[10px] text-slate-500">{t("services.kpi.revenueKrwNote")}</p>}
+        />
+        <KpiCard
+          label={t("services.kpi.revenueVnd")}
+          value={data.revenueVndText}
+          accent="vnd"
+          icon="room_service"
+          iconClassName="text-admin-vnd"
+          footer={<p className="text-[10px] text-slate-500">{t("services.kpi.revenueVndNote")}</p>}
+        />
+        <div className="bg-admin-card p-4 rounded-xl border border-slate-700/50">
+          <div className="flex justify-between items-start mb-2">
+            <span className="text-xs font-medium text-admin-muted uppercase tracking-wider">
+              {t("services.kpi.margin")}
+            </span>
+            <span className="material-symbols-outlined text-amber-400">savings</span>
+          </div>
+          {hasMargin ? (
+            <>
+              <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-bold text-white tabular-nums">
+                  {data.marginVndText}
+                </span>
+              </div>
+              <p className="mt-2 text-[10px] text-slate-500">{t("services.kpi.marginVndNote")}</p>
+              {data.costMissingCount > 0 && (
+                <p className="mt-1 text-[10px] text-slate-500">
+                  {t("services.kpi.marginPartialNote", { count: data.costMissingCount })}
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 text-xs text-amber-400/90 bg-amber-500/10 px-2 py-1 rounded">
+                  <span className="material-symbols-outlined text-[14px]">price_change</span>
+                  {t("services.kpi.costMissing")}
+                </span>
+              </div>
+              <p className="mt-2 text-[10px] text-slate-500">
+                {t("services.kpi.costMissingNote", { count: data.costMissingCount })}
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-6">
+        {/* 추이 막대 — KRW·VND 2계열 */}
+        <div className="col-span-12 xl:col-span-7 bg-admin-card rounded-xl border border-slate-700/50 p-5">
+          <div className="flex justify-between items-center mb-4 gap-3 flex-wrap">
+            <div>
+              <h3 className="font-bold text-white">{t("services.trendChart.title")}</h3>
+              <p className="text-[11px] text-slate-500 mt-0.5">{t("services.trendChart.subtitle")}</p>
+            </div>
+            <div className="flex items-center gap-4 text-xs">
+              <div className="flex items-center gap-1.5 text-slate-300">
+                <span className="w-3 h-3 rounded-sm bg-admin-krw" />
+                {t("services.trendChart.krwLegend")}
+              </div>
+              <div className="flex items-center gap-1.5 text-slate-300">
+                <span className="w-3 h-3 rounded-sm bg-admin-vnd" />
+                {t("services.trendChart.vndLegend")}
+              </div>
+            </div>
+          </div>
+          <ServiceChart
+            data={data.trend}
+            krwLegend={t("services.trendChart.krwLegend")}
+            vndLegend={t("services.trendChart.vndLegend")}
+          />
+        </div>
+
+        {/* 타입별 top */}
+        <div className="col-span-12 xl:col-span-5 bg-admin-card rounded-xl border border-slate-700/50 p-5">
+          <h3 className="font-bold text-white mb-4">{t("services.topTypes.title")}</h3>
+          {data.topTypes.length === 0 ? (
+            <p className="text-sm text-admin-muted text-center py-8">{t("services.topTypes.empty")}</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[11px] text-admin-muted uppercase tracking-wider border-b border-slate-700/50">
+                  <th className="text-left font-medium py-2">{t("services.topTypes.type")}</th>
+                  <th className="text-right font-medium py-2">{t("services.topTypes.qty")}</th>
+                  <th className="text-right font-medium py-2">{t("services.topTypes.revenueKrw")}</th>
+                  <th className="text-right font-medium py-2">{t("services.topTypes.revenueVnd")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.topTypes.map((row, i) => (
+                  <tr
+                    key={`${row.type}-${i}`}
+                    className="border-b border-slate-800/60 last:border-0"
+                  >
+                    <td className="py-2 text-slate-200 truncate max-w-[8rem]">
+                      {t(`services.types.${row.type}`)}
+                    </td>
+                    <td className="py-2 text-right text-slate-400 tabular-nums">{row.quantity}</td>
+                    <td className="py-2 text-right text-admin-krw tabular-nums">
+                      {row.revenueKrwText}
+                    </td>
+                    <td className="py-2 text-right text-admin-vnd tabular-nums font-medium">
+                      {row.revenueVndText}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

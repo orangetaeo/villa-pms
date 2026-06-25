@@ -44,6 +44,8 @@ export interface CheckInInput {
   deposit: CheckInDepositInput | null;
   /** T3.2 — 터치 서명 PNG의 비공개 서빙 경로(/api/passports/sig-…). 무서명 체크인 허용(계약 결정 1) */
   signatureUrl?: string | null;
+  /** 서명 시점 동의서 판본 — 게스트 셀프 서명 채택 시 토큰의 agreementVersion 전달(ADR-0019 후속). 없으면 null */
+  agreementVersion?: string | null;
   notes?: string;
   actorUserId: string;
   now?: Date;
@@ -151,6 +153,8 @@ export async function completeCheckIn(prisma: PrismaClient, input: CheckInInput)
         // T3.2 — 체크인 중 서명 완료 시 함께 기록 (무서명이면 null — 사후 서명 경로)
         signatureUrl: input.signatureUrl ?? null,
         agreementSignedAt: input.signatureUrl ? input.now ?? new Date() : null,
+        // 서명이 있을 때만 판본 기록(게스트 셀프 서명 채택 시 토큰 판본 보존). 무서명이면 null
+        agreementVersion: input.signatureUrl ? input.agreementVersion ?? null : null,
         notes: input.notes ?? null,
         createdBy: input.actorUserId,
       },

@@ -5,6 +5,7 @@ import {
   changeRate,
   resolveStatsPeriod,
   loadMinibarStats,
+  loadServiceOrderStats,
   toVndAmount,
   toKrwAmount,
   toFinanceBooking,
@@ -384,5 +385,153 @@ describe("loadMinibarStats — 미니바 통계 집계", () => {
     expect(s.marginVnd).toBeNull();
     expect(s.costMissingCount).toBe(0);
     expect(s.trend.every((b) => b.revenueVnd === 0)).toBe(true);
+  });
+});
+
+// ===================================================================
+// ADR-0019 후속 #1 — loadServiceOrderStats (부가서비스 매출·통화분리·마진·기간필터)
+// ===================================================================
+interface MockOrder {
+  type: string;
+  priceKrw: number;
+  priceVnd: bigint | null;
+  costVnd: bigint;
+  quantity: number;
+  status: string;
+  checkOut: Date; // booking.checkOut
+}
+
+/** loadServiceOrderStats용 mock db — findMany가 where(status·checkOut)로 필터링까지 흉내 */
+function mockServiceDb(orders: MockOrder[]): PrismaClient {
+  return {
+    serviceOrder: {
+      findMany: async (args: {
+        where: {
+          status: { in: string[] };
+          booking: { checkOut: { gte: Date; lt: Date } };
+        };
+      }) => {
+        const { status, booking } = args.where;
+        return orders
+          .filter(
+            (o) =>
+              status.in.includes(o.status) &&
+              o.checkOut.getTime() >= booking.checkOut.gte.getTime() &&
+              o.checkOut.getTime() < booking.checkOut.lt.getTime()
+          )
+          .map((o) => ({
+            type: o.type,
+            priceKrw: o.priceKrw,
+            priceVnd: o.priceVnd,
+            costVnd: o.costVnd,
+            quantity: o.quantity,
+            booking: { checkOut: o.checkOut },
+          }));
+      },
+    },
+  } as unknown as PrismaClient;
+}
+
+describe("loadServiceOrderStats — 부가서비스 매출 집계", () => {
+  const period: StatsPeriod = resolveStatsPeriod({ range: "thisMonth" }, NOW);
+
+  it("통화별 분리 매출·추이·타입 top (합산 금지)", async () => {
+    const orders: MockOrder[] = [
+      // BBQ 1건 — VND 채널 800,000 (원가 500,000) — 06-05, DELIVERED
+      { type: "BBQ", priceKrw: 0, priceVnd: 800_000n, costVnd: 500_000n, quantity: 1, status: "DELIVERED", checkOut: new Date("2026-06-05T00:00:00.000Z") },
+      // 마사지 2건 — KRW 채널 120,000원 (원가 미입력=0) — 06-05, CONFIRMED
+      { type: "MASSAGE", priceKrw: 120_000, priceVnd: null, costVnd: 0n, quantity: 2, status: "CONFIRMED", checkOut: new Date("2026-06-05T00:00:00.000Z") },
+      // BBQ 1건 — VND 800,000 (원가 500,000) — 06-20, CONFIRMED
+      { type: "BBQ", priceKrw: 0, priceVnd: 800_000n, costVnd: 500_000n, quantity: 1, status: "CONFIRMED", checkOut: new Date("2026-06-20T00:00:00.000Z") },
+    ];
+    const s = await loadServiceOrderStats(period, NOW, mockServiceDb(orders));
+
+    // 통화별 분리 합 — KRW 120,000원 / VND 1,600,000₫ (절대 합치지 않음)
+    expect(s.revenueKrw).toBe(120_000);
+    expect(s.revenueKrwText).toBe("120,000원");
+    expect(s.revenueVnd).toBe(1_600_000);
+    expect(s.revenueVndText).toBe("1,600,000₫");
+
+    // 버킷 추이 — 06-05: KRW 120k + VND 800k, 06-20: VND 800k
+    const b0605 = s.trend.find((b) => b.bucketKey === "2026-06-05")!;
+    const b0620 = s.trend.find((b) => b.bucketKey === "2026-06-20")!;
+    expect(b0605.revenueKrw).toBe(120_000);
+    expect(b0605.revenueVnd).toBe(800_000);
+    expect(b0620.revenueKrw).toBe(0);
+    expect(b0620.revenueVnd).toBe(800_000);
+    expect(s.trend).toHaveLength(30);
+
+    // 타입 top — BBQ(VND 1.6M) > MASSAGE(VND 0), VND 내림차순
+    expect(s.topTypes.map((r) => r.type)).toEqual(["BBQ", "MASSAGE"]);
+    expect(s.topTypes[0]).toMatchObject({ type: "BBQ", quantity: 2, revenueVnd: 1_600_000, revenueKrw: 0 });
+    expect(s.topTypes[1]).toMatchObject({ type: "MASSAGE", quantity: 2, revenueKrw: 120_000, revenueVnd: 0 });
+
+    // 마진(VND만) — 원가있는 BBQ 2건: Σ priceVnd(1.6M) − Σ costVnd(1.0M) = 600,000
+    expect(s.marginVnd).toBe(600_000);
+    expect(s.marginVndText).toBe("600,000₫");
+    // 원가 미입력 = MASSAGE 1건(costVnd=0)
+    expect(s.costMissingCount).toBe(1);
+  });
+
+  it("기간 필터 — 범위 밖·취소·미확정 제외", async () => {
+    const orders: MockOrder[] = [
+      // 범위 안·DELIVERED → 포함
+      { type: "TICKET", priceKrw: 0, priceVnd: 100_000n, costVnd: 0n, quantity: 1, status: "DELIVERED", checkOut: new Date("2026-06-10T00:00:00.000Z") },
+      // 범위 밖(5월) → 제외
+      { type: "TICKET", priceKrw: 0, priceVnd: 999_000n, costVnd: 0n, quantity: 1, status: "DELIVERED", checkOut: new Date("2026-05-10T00:00:00.000Z") },
+      // 범위 안이나 REQUESTED → 제외
+      { type: "GUIDE", priceKrw: 0, priceVnd: 999_000n, costVnd: 0n, quantity: 1, status: "REQUESTED", checkOut: new Date("2026-06-11T00:00:00.000Z") },
+      // 범위 안이나 CANCELLED → 제외
+      { type: "GUIDE", priceKrw: 0, priceVnd: 999_000n, costVnd: 0n, quantity: 1, status: "CANCELLED", checkOut: new Date("2026-06-12T00:00:00.000Z") },
+    ];
+    const s = await loadServiceOrderStats(period, NOW, mockServiceDb(orders));
+    expect(s.revenueVnd).toBe(100_000);
+    expect(s.topTypes.map((r) => r.type)).toEqual(["TICKET"]);
+  });
+
+  it("원가 전무 → margin null (\"원가 미입력\" 표기)", async () => {
+    const orders: MockOrder[] = [
+      { type: "BARBER", priceKrw: 0, priceVnd: 50_000n, costVnd: 0n, quantity: 1, status: "DELIVERED", checkOut: new Date("2026-06-10T00:00:00.000Z") },
+    ];
+    const s = await loadServiceOrderStats(period, NOW, mockServiceDb(orders));
+    expect(s.revenueVnd).toBe(50_000);
+    expect(s.marginVnd).toBeNull();
+    expect(s.marginVndText).toBeNull();
+    expect(s.costMissingCount).toBe(1);
+  });
+
+  it("KRW 라인은 마진서 제외 — 원가는 VND뿐(ADR-0003 환산 없음)", async () => {
+    const orders: MockOrder[] = [
+      // KRW 매출이지만 priceVnd 없음 → costVnd 있어도 마진 제외, costMissing
+      { type: "MASSAGE", priceKrw: 100_000, priceVnd: null, costVnd: 300_000n, quantity: 1, status: "DELIVERED", checkOut: new Date("2026-06-10T00:00:00.000Z") },
+      // VND 매출 + 원가 → 마진 산입
+      { type: "BBQ", priceKrw: 0, priceVnd: 800_000n, costVnd: 500_000n, quantity: 1, status: "DELIVERED", checkOut: new Date("2026-06-11T00:00:00.000Z") },
+    ];
+    const s = await loadServiceOrderStats(period, NOW, mockServiceDb(orders));
+    // 마진 = BBQ만: 800k − 500k = 300,000 (KRW 라인 환산 없이 제외)
+    expect(s.marginVnd).toBe(300_000);
+    expect(s.costMissingCount).toBe(1);
+    expect(s.revenueKrw).toBe(100_000);
+    expect(s.revenueVnd).toBe(800_000);
+  });
+
+  it("역마진(음수) 보존", async () => {
+    const orders: MockOrder[] = [
+      { type: "CAR_RENTAL", priceKrw: 0, priceVnd: 400_000n, costVnd: 600_000n, quantity: 1, status: "CONFIRMED", checkOut: new Date("2026-06-10T00:00:00.000Z") },
+    ];
+    const s = await loadServiceOrderStats(period, NOW, mockServiceDb(orders));
+    expect(s.marginVnd).toBe(-200_000);
+    expect(s.marginVndText).toBe("-200,000₫");
+    expect(s.costMissingCount).toBe(0);
+  });
+
+  it("0건 → 매출 0·top 빈배열·margin null", async () => {
+    const s = await loadServiceOrderStats(period, NOW, mockServiceDb([]));
+    expect(s.revenueKrw).toBe(0);
+    expect(s.revenueVnd).toBe(0);
+    expect(s.topTypes).toEqual([]);
+    expect(s.marginVnd).toBeNull();
+    expect(s.costMissingCount).toBe(0);
+    expect(s.trend.every((b) => b.revenueKrw === 0 && b.revenueVnd === 0)).toBe(true);
   });
 });
