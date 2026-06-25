@@ -13,21 +13,14 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { MonthlyOccupancyPoint } from "@/lib/statistics";
+import type { OccupancyTrendPoint } from "@/lib/statistics";
 
 const BLUE = "#3B82F6";
 const GRID = "#33415533";
 const AXIS = "#64748B";
 
-function shortMonth(monthKey: string, prevKey?: string): string {
-  const [y, m] = monthKey.split("-");
-  if (!prevKey || prevKey.split("-")[0] !== y) return `${y.slice(2)}.${m}`;
-  return m;
-}
-
-interface ChartRow extends MonthlyOccupancyPoint {
-  label: string;
-}
+// 라벨은 로더(StatsPeriod.buckets)가 제공한다(일='MM-DD', 월='YYYY-MM').
+type ChartRow = OccupancyTrendPoint;
 
 function OccTooltip({
   active,
@@ -56,13 +49,10 @@ export default function OccupancyLine({
   data,
   legend,
 }: {
-  data: MonthlyOccupancyPoint[];
+  data: OccupancyTrendPoint[];
   legend: string;
 }) {
-  const rows: ChartRow[] = data.map((d, i) => ({
-    ...d,
-    label: shortMonth(d.monthKey, data[i - 1]?.monthKey),
-  }));
+  const rows: ChartRow[] = data;
 
   return (
     <ResponsiveContainer width="100%" height={256}>

@@ -9,12 +9,14 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { canViewFinance, isOperator } from "@/lib/permissions";
 import {
-  parseStatsRange,
+  resolveStatsPeriod,
+  loadDataFloor,
   loadOverviewStats,
   loadOccupancyStats,
   loadVillaPerformance,
   loadFunnelStats,
   loadOperationsStats,
+  loadMinibarStats,
 } from "@/lib/statistics";
 import StatisticsClient, { type TabKey } from "./statistics-client";
 
@@ -28,7 +30,7 @@ const TAB_KEYS: TabKey[] = ["overview", "occupancy", "villas", "operations"];
 export default async function StatisticsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; range?: string }>;
+  searchParams: Promise<{ tab?: string; range?: string; from?: string; to?: string }>;
 }) {
   // 운영자 가드 — layout과 이중화(방어적). 비운영자는 라우트 자체 차단.
   const session = await auth();
@@ -36,9 +38,15 @@ export default async function StatisticsPage({
 
   const fin = canViewFinance(session.user.role);
   const params = await searchParams;
-  const range = parseStatsRange(params.range);
-  // URL로 내려보낼 정규화된 range 문자열 ("6"|"12"|"YYYY")
-  const rangeStr = typeof range === "object" ? String(range.year) : range;
+
+  // 기간 단일 해석 — 'all'은 데이터 최소일(min checkOut) 필요 → 사전 조회.
+  //   'all'이 아니면 dataFloor 불필요(불필요한 쿼리 회피).
+  const dataFloor = params.range === "all" ? await loadDataFloor() : null;
+  const period = resolveStatsPeriod(
+    { range: params.range, from: params.from, to: params.to },
+    new Date(),
+    dataFloor
+  );
 
   // 탭 결정 — 기본=fin?overview:occupancy. STAFF가 ?tab=overview로 와도 overview 차단.
   let activeTab: TabKey =
@@ -49,24 +57,34 @@ export default async function StatisticsPage({
         : "occupancy";
   if (activeTab === "overview" && !fin) activeTab = "occupancy";
 
-  // 데이터 로드 — 금액 게이트는 여기서 끝낸다.
-  //  · overview: fin일 때만 (페이로드에 금액 자체 부재)
+  // 데이터 로드 — 금액 게이트는 여기서 끝낸다(period 단일 주입).
+  //  · overview·minibar: fin일 때만 (페이로드에 금액 자체 부재 — 매출=재무)
   //  · villas·operations: includeFinance=fin (false면 금액 키 없음)
   //  · occupancy·funnel: 항상
-  const [overview, occupancy, villas, funnel, operations] = await Promise.all([
-    fin ? loadOverviewStats(range) : Promise.resolve(undefined),
-    loadOccupancyStats(range),
-    loadVillaPerformance(range, fin),
-    loadFunnelStats(range),
-    loadOperationsStats(range, fin),
+  const [overview, minibar, occupancy, villas, funnel, operations] = await Promise.all([
+    fin ? loadOverviewStats(period) : Promise.resolve(undefined),
+    fin ? loadMinibarStats(period) : Promise.resolve(undefined),
+    loadOccupancyStats(period),
+    loadVillaPerformance(period, fin),
+    loadFunnelStats(period),
+    loadOperationsStats(period, fin),
   ]);
+
+  // client로 내려보낼 직렬화 가능 period(Date 제외 — 표시·URL 동기화용).
+  const periodMeta = {
+    fromText: period.fromText,
+    toText: period.toText,
+    granularity: period.granularity,
+    presetKey: period.presetKey,
+  };
 
   return (
     <StatisticsClient
       fin={fin}
       activeTab={activeTab}
-      range={rangeStr}
+      period={periodMeta}
       overview={overview}
+      minibar={minibar}
       occupancy={occupancy}
       villas={villas}
       funnel={funnel}

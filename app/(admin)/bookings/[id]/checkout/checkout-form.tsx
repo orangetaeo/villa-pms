@@ -169,6 +169,14 @@ export default function CheckoutForm({
       const combinedNote = [damageFound && damageNote.trim() ? damageNote.trim() : "", minibarNote()]
         .filter(Boolean)
         .join("\n");
+      // 미니바 판매 라인 — 소모>0만. 가격은 보내지 않는다(서버가 스냅샷 재계산, 마진 비공개).
+      const minibarLines = minibarRows
+        .filter((r) => r.consumed > 0)
+        .map((r) => ({
+          minibarItemId: r.item.id,
+          consumedQty: r.consumed,
+          stockedQty: 0, // 회사표준 모델엔 비치수량 없음 — 0 스냅샷(소모 직접 입력)
+        }));
       const res = await fetch(`/api/bookings/${bookingId}/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -179,6 +187,8 @@ export default function CheckoutForm({
           damageNote: hasDeduction && combinedNote ? combinedNote : undefined,
           damagePhotoUrls: hasDeduction && damagePhotos.length ? damagePhotos : undefined,
           deductionVnd: hasDeduction ? totalDeductionVnd.toString() : undefined,
+          // 미니바 품목별 판매 캡처(매출·마진 통계 소스). 0건이면 빈 배열(라인 미생성).
+          minibarLines: minibarLines.length ? minibarLines : undefined,
         }),
       });
       if (!res.ok) {

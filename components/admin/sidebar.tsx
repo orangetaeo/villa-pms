@@ -31,8 +31,6 @@ function setLocaleCookie(name: string, value: string) {
 // 공실 보드(T-admin-availability-board): 빌라 운영군(빌라→공실 보드→청소 검수)에 배치
 const NAV_ITEMS: NavItem[] = [
   { key: "dashboard", href: "/dashboard", icon: "dashboard" },
-  // 통계(T-admin-statistics) — 전 운영자 노출(탭별 금액 게이트는 페이지 내부)
-  { key: "statistics", href: "/statistics", icon: "analytics" },
   { key: "bookings", href: "/bookings", icon: "calendar_month" },
   // 제안·정산=재무(canViewFinance) — STAFF 미노출. 클릭 시 게이트로도 차단되지만 메뉴부터 숨김
   { key: "proposals", href: "/proposals", icon: "rate_review", cap: canViewFinance },
@@ -40,6 +38,8 @@ const NAV_ITEMS: NavItem[] = [
   { key: "availability", href: "/availability", icon: "event_available" },
   { key: "inspections", href: "/inspections", icon: "cleaning_services" },
   { key: "settlements", href: "/settlements", icon: "payments", cap: canViewFinance },
+  // 통계(T-admin-statistics) — 정산 카테고리 아래 배치(사용자 요청). 전 운영자 노출(탭별 금액 게이트는 페이지 내부)
+  { key: "statistics", href: "/statistics", icon: "analytics" },
   { key: "messages", href: "/messages", icon: "chat" },
   // 사용자·설정=시스템(isSystemAdmin) — OWNER만 노출 (MANAGER/STAFF 미노출)
   { key: "users", href: "/users", icon: "group", cap: isSystemAdmin },

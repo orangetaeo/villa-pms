@@ -15,7 +15,9 @@ import { writeAuditLog } from "./audit-log";
  * - 보증금 상태기계: 파손 없음 → REFUNDED / 파손 → PARTIAL_DEDUCTED + 차감액(VND BigInt) 필수
  * - 같은 트랜잭션에서 createCheckoutCleaningTask 호출 — CleaningTask(CHECKOUT) 생성과
  *   villa.isSellable=false(게이트 닫기)가 체크아웃과 원자적으로 묶인다
- * - 미니바는 읽기 전용 표시(ADR-0003) — 소모분은 deductionVnd에 수기 반영, 자동 차감 없음
+ * - 미니바 소모분은 deductionVnd(보증금 차감)에 합산 반영(ADR-0003) + 품목별 판매 라인을
+ *   CheckoutMinibarLine으로 저장(미니바 매출·마진 통계 소스). 가격·원가는 서버가 MinibarItem에서
+ *   조회해 스냅샷(클라가 보낸 가격 신뢰 금지 — 무결성·마진 비공개). minibarChargeVnd=ΣlineVnd.
  */
 
 export class CheckoutRejectedError extends Error {
@@ -67,6 +69,15 @@ export function resolveDepositOutcome(
   return { depositStatus: DepositStatus.REFUNDED, deductionVnd: null };
 }
 
+/** 체크아웃 미니바 소모 입력(클라 전송) — 가격은 받지 않는다(서버가 스냅샷 재계산). */
+export interface MinibarLineInput {
+  minibarItemId: string;
+  /** 소모 수량(정수 ≥ 0, 0은 라인 미생성) */
+  consumedQty: number;
+  /** 비치 수량 스냅샷("남은 수량" 입력 UX 대비) — 정수 ≥ 0 */
+  stockedQty: number;
+}
+
 export interface CompleteCheckoutInput {
   bookingId: string;
   /** 공간별 상태 사진 (기준 사진과 비교용) — 1장 이상 */
@@ -75,6 +86,8 @@ export interface CompleteCheckoutInput {
   damageNote?: string;
   damagePhotoUrls?: string[];
   deductionVnd?: bigint | null;
+  /** 미니바 소모 라인(consumed>0만 전송 권장 — 0/음수는 서버에서 무시) */
+  minibarLines?: MinibarLineInput[];
   actorUserId: string;
   now: Date;
 }
@@ -137,6 +150,56 @@ export async function completeCheckout(
       },
     });
 
+    // ── 미니바 판매 라인 캡처 (작업 B) ─────────────────────────────────
+    // 서버가 MinibarItem을 조회해 unitPriceVnd·costVnd·nameKo를 스냅샷한다(클라 가격 신뢰 금지).
+    //   lineVnd = consumedQty × unitPriceVnd, lineCostVnd = costVnd ? consumedQty × costVnd : null.
+    //   minibarChargeVnd = ΣlineVnd. 0건이면 null(라인 미생성). BigInt — 부동소수점 금지.
+    let minibarChargeVnd: bigint | null = null;
+    const validLines = (input.minibarLines ?? []).filter(
+      (l) => Number.isInteger(l.consumedQty) && l.consumedQty > 0
+    );
+    if (validLines.length > 0) {
+      const itemIds = [...new Set(validLines.map((l) => l.minibarItemId))];
+      const items = await tx.minibarItem.findMany({
+        where: { id: { in: itemIds } },
+        select: { id: true, nameKo: true, unitPriceVnd: true, costVnd: true },
+      });
+      const itemMap = new Map(items.map((i) => [i.id, i]));
+      // 알 수 없는 itemId는 라우트 zod에서 1차 거부하나, 방어적으로 여기서도 차단
+      const unknown = itemIds.filter((id) => !itemMap.has(id));
+      if (unknown.length > 0) {
+        throw new RangeError(`알 수 없는 미니바 품목: ${unknown.join(", ")}`);
+      }
+
+      let chargeSum = 0n;
+      for (const l of validLines) {
+        const item = itemMap.get(l.minibarItemId)!;
+        const qty = BigInt(l.consumedQty);
+        const lineVnd = item.unitPriceVnd * qty;
+        const lineCostVnd = item.costVnd != null ? item.costVnd * qty : null;
+        chargeSum += lineVnd;
+        await tx.checkoutMinibarLine.create({
+          data: {
+            checkOutRecordId: record.id,
+            minibarItemId: item.id,
+            nameKo: item.nameKo,
+            stockedQty: Number.isInteger(l.stockedQty) && l.stockedQty >= 0 ? l.stockedQty : 0,
+            consumedQty: l.consumedQty,
+            unitPriceVnd: item.unitPriceVnd,
+            costVnd: item.costVnd,
+            lineVnd,
+            lineCostVnd,
+          },
+        });
+      }
+      minibarChargeVnd = chargeSum;
+      // 비정규화 캐시 갱신 — record는 이미 생성됐으므로 update로 합계 반영
+      await tx.checkOutRecord.update({
+        where: { id: record.id },
+        data: { minibarChargeVnd },
+      });
+    }
+
     // 게이트 닫기 + 청소 태스크 생성 — 체크아웃과 원자적 (SPEC F4 체크아웃 4)
     await createCheckoutCleaningTask(tx, {
       bookingId: booking.id,
@@ -156,10 +219,16 @@ export async function completeCheckout(
         // BigInt는 Json 컬럼에 직접 못 들어감 — 문자열 기록
         depositDeductVnd: { new: outcome.deductionVnd?.toString() ?? null },
         checkOutRecordId: { new: record.id },
+        // 미니바 판매 합계(라인 캡처) — BigInt는 문자열로 기록
+        minibarChargeVnd: { new: minibarChargeVnd?.toString() ?? null },
       },
     });
 
     const updated = await tx.booking.findUniqueOrThrow({ where: { id: booking.id } });
-    return { booking: updated, record };
+    // record는 minibar update 전 스냅샷일 수 있어 최신본 재조회(minibarChargeVnd 반영)
+    const finalRecord = minibarChargeVnd != null
+      ? await tx.checkOutRecord.findUniqueOrThrow({ where: { id: record.id } })
+      : record;
+    return { booking: updated, record: finalRecord };
   });
 }

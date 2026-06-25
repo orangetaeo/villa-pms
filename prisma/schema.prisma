@@ -253,6 +253,9 @@ model MinibarItem {
   nameKo       String // 한국어 품목명 (운영자 표시)
   nameVi       String? // 베트남어 품목명 (선택)
   unitPriceVnd BigInt // 고객 청구 단가 VND, 동 단위. 우리 판매가 — 공급자 비노출
+  // 매입 원가 VND(동) — 추후 "원가 입력 UI" 신설 시 채움(현재 nullable). 미니바 마진=판매−원가 통계용.
+  // ★ 공급자·공개 라우트 절대 비노출(마진 비공개 원칙2). 원가 미입력이면 마진 통계는 "원가 미입력"으로 표기.
+  costVnd      BigInt?
   stockQty     Int      @default(1) // 기본 비치 수량 — 각 빌라에 기본 비치하는 개수(체크아웃 소모 계산 기준)
   sortOrder    Int      @default(0)
   active       Boolean  @default(true)
@@ -260,6 +263,7 @@ model MinibarItem {
   updatedAt    DateTime @updatedAt
 
   villaStocks  VillaMinibarStock[] // #2c: 이 품목의 빌라별 비치수량 오버라이드
+  checkoutLines CheckoutMinibarLine[] // 체크아웃 판매 라인(통계 소스) — 품목 삭제 시 라인은 SetNull로 보존
 
   @@index([active, sortOrder])
 }
@@ -488,9 +492,37 @@ model CheckOutRecord {
   damageNote      String?
   damagePhotoUrls String[]
   deductionVnd    BigInt?
+  // 미니바 판매 총액(VND) — 보증금 차감(deductionVnd, 파손+미니바 혼합)과 별개로 미니바 매출만 분리 집계용.
+  // 라인 합계의 비정규화 캐시(= Σ CheckoutMinibarLine.lineVnd). 미니바 통계 KPI 빠른 합산.
+  minibarChargeVnd BigInt?
   refundedAt      DateTime?
   createdBy       String
   createdAt       DateTime  @default(now())
+
+  minibarLines    CheckoutMinibarLine[]
+}
+
+// 체크아웃 미니바 판매 라인(품목별 스냅샷) — 미니바 매출·품목 인기·(원가 입력 후)마진 통계의 단일 소스.
+//   소모량 기반(consumedQty) 저장. 입력 UX가 "남은 수량"으로 바뀌어도 consumedQty=stockedQty−remaining로 동일하게 저장된다.
+//   판매단가(unitPriceVnd)·원가(costVnd)는 체크아웃 시점 MinibarItem 값 스냅샷(이후 가격 변경 무관). costVnd는 원가 미입력 시 null.
+//   ★ ADMIN(canViewFinance) 전용 집계 — 공급자·공개 라우트 비노출(마진 비공개).
+model CheckoutMinibarLine {
+  id               String         @id @default(cuid())
+  checkOutRecordId String
+  checkOutRecord   CheckOutRecord @relation(fields: [checkOutRecordId], references: [id], onDelete: Cascade)
+  minibarItemId    String? // 품목 참조 — 품목 삭제돼도 라인 보존(SetNull)
+  minibarItem      MinibarItem?   @relation(fields: [minibarItemId], references: [id], onDelete: SetNull)
+  nameKo           String // 품목명 스냅샷(표시·삭제 대비)
+  stockedQty       Int            @default(0) // 비치 수량 스냅샷("남은 수량" 입력 UX 대비)
+  consumedQty      Int // 소모 수량
+  unitPriceVnd     BigInt // 판매 단가 스냅샷(VND, 동)
+  costVnd          BigInt? // 매입 원가 스냅샷(VND, 동) — 원가 미입력이면 null
+  lineVnd          BigInt // 판매액 = consumedQty × unitPriceVnd
+  lineCostVnd      BigInt? // 원가액 = consumedQty × costVnd (costVnd null이면 null)
+  createdAt        DateTime       @default(now())
+
+  @@index([checkOutRecordId])
+  @@index([minibarItemId])
 }
 
 // ===================== 청소 검수 게이트 =====================
