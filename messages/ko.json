@@ -1788,7 +1788,24 @@
     "settlementDeposit": "원천 보증금",
     "settlementMinibar": "미니바 차감액",
     "settlementDamage": "파손 차감액",
-    "settlementRefund": "최종 환불 예정액"
+    "settlementRefund": "최종 환불 예정액",
+    "guestBillTitle": "체크아웃 게스트 청구서",
+    "guestBillMinibar": "미니바 소비 합계",
+    "guestBillServices": "확정 부가옵션",
+    "guestBillNoServices": "확정된 부가옵션이 없습니다",
+    "guestBillTotalVnd": "₫ 총 청구액",
+    "guestBillTotalKrw": "₩ 총 청구액",
+    "guestBillCurrencyNote": "통화별 별도 집계 — KRW와 VND는 합산하지 않습니다. 보증금 차감·환불은 별도입니다.",
+    "settlementMethod": "결제수단 (체크아웃 정산)",
+    "settlementMethods": {
+      "CASH": "현금",
+      "BANK_TRANSFER": "계좌이체",
+      "OTHER": "기타"
+    },
+    "settlementClear": "선택 해제",
+    "settlementOptionalNote": "결제수단을 선택하지 않으면 청구액만 기록되고 미수납 상태로 남습니다.",
+    "settlementNote": "정산 메모 (선택)",
+    "settlementNotePlaceholder": "예: 현금 USD로 수령, 잔액 환불"
   },
   "adminMessages": {
     "headerCollapse": "헤더 접기",

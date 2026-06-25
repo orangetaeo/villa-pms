@@ -1896,7 +1896,24 @@
     "settlementDeposit": "Tiền cọc gốc",
     "settlementMinibar": "Khấu trừ minibar",
     "settlementDamage": "Khấu trừ hư hỏng",
-    "settlementRefund": "Số tiền hoàn dự kiến"
+    "settlementRefund": "Số tiền hoàn dự kiến",
+    "guestBillTitle": "Hóa đơn khách khi trả phòng",
+    "guestBillMinibar": "Tổng tiêu thụ minibar",
+    "guestBillServices": "Dịch vụ thêm đã xác nhận",
+    "guestBillNoServices": "Chưa có dịch vụ thêm nào được xác nhận",
+    "guestBillTotalVnd": "₫ Tổng phải thu",
+    "guestBillTotalKrw": "₩ Tổng phải thu",
+    "guestBillCurrencyNote": "Tính riêng theo từng loại tiền — không cộng gộp KRW và VND. Khấu trừ và hoàn tiền cọc được tính riêng.",
+    "settlementMethod": "Hình thức thanh toán (quyết toán trả phòng)",
+    "settlementMethods": {
+      "CASH": "Tiền mặt",
+      "BANK_TRANSFER": "Chuyển khoản",
+      "OTHER": "Khác"
+    },
+    "settlementClear": "Bỏ chọn",
+    "settlementOptionalNote": "Nếu không chọn hình thức thanh toán, chỉ ghi nhận số tiền phải thu và để ở trạng thái chưa thu.",
+    "settlementNote": "Ghi chú quyết toán (tùy chọn)",
+    "settlementNotePlaceholder": "VD: Nhận tiền mặt USD, hoàn phần còn lại"
   },
   "adminMessages": {
     "headerCollapse": "Thu gọn tiêu đề",
