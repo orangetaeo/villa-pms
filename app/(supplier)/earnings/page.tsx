@@ -114,7 +114,17 @@ export default async function EarningsPage({
 
   return (
     <main className="mx-auto max-w-md space-y-6 px-4 py-6">
-      <h1 className="text-xl font-bold text-slate-900">{t("title")}</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-slate-900">{t("title")}</h1>
+        {/* 정산서 목록 진입 (a8) — 새 탭 미추가, 수익 화면에서 진입 */}
+        <Link
+          href="/my-settlements"
+          className="inline-flex items-center gap-1 rounded-full border border-teal-200 bg-teal-50 px-3 py-1.5 text-sm font-bold text-teal-700 transition-all active:scale-95"
+        >
+          <span className="material-symbols-outlined text-[18px]">receipt_long</span>
+          {t("viewStatements")}
+        </Link>
+      </div>
 
       {/* 월 선택 (a7 Month Selector) — ?yearMonth= Link 네비게이션 */}
       <section className="flex items-center justify-between rounded-xl border border-slate-100 bg-white p-3 shadow-sm">

@@ -1140,7 +1140,22 @@
     "transactionCount": "{count} Giao dịch",
     "nights": "{count} đêm",
     "empty": "Chưa có doanh thu",
-    "emptyHint": "Doanh thu sẽ hiển thị sau khi khách trả phòng."
+    "emptyHint": "Doanh thu sẽ hiển thị sau khi khách trả phòng.",
+    "viewStatements": "Bảng quyết toán"
+  },
+  "supplierSettlements": {
+    "title": "Bảng quyết toán",
+    "subtitle": "Quyết toán theo từng tháng. Nhấn để xem chi tiết PDF.",
+    "back": "Quay lại",
+    "monthLabel": "Tháng {month}, {year}",
+    "totalLabel": "Tổng cộng",
+    "statusPaid": "Đã thanh toán",
+    "statusPending": "Chờ thanh toán",
+    "viewPdf": "Xem PDF",
+    "viewPdfAria": "Xem PDF bảng quyết toán tháng {month}, {year}",
+    "pdfPreparing": "Đang chuẩn bị",
+    "empty": "Chưa có bảng quyết toán",
+    "emptyHint": "Bảng quyết toán sẽ xuất hiện ở đây vào cuối mỗi tháng."
   },
   "adminSettings": {
     "agreement": {

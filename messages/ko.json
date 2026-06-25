@@ -1032,7 +1032,22 @@
     "transactionCount": "{count}건",
     "nights": "{count}박",
     "empty": "수익 내역이 없습니다",
-    "emptyHint": "고객 체크아웃 후 수익이 표시됩니다."
+    "emptyHint": "고객 체크아웃 후 수익이 표시됩니다.",
+    "viewStatements": "정산서 보기"
+  },
+  "supplierSettlements": {
+    "title": "정산서",
+    "subtitle": "월별 정산 내역입니다. 눌러서 PDF를 확인하세요.",
+    "back": "뒤로",
+    "monthLabel": "{year}년 {month}월",
+    "totalLabel": "합계",
+    "statusPaid": "지급 완료",
+    "statusPending": "지급 대기",
+    "viewPdf": "PDF 보기",
+    "viewPdfAria": "{year}년 {month}월 정산서 PDF 보기",
+    "pdfPreparing": "준비 중",
+    "empty": "정산서가 아직 없습니다",
+    "emptyHint": "정산서는 매월 말에 여기에 표시됩니다."
   },
   "adminSettings": {
     "agreement": {

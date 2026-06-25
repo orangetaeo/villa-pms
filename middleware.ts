@@ -45,10 +45,10 @@ const OPERATOR_PROTECTED_PATHS = [
 // [QA D-3] /earnings·/cleaning은 SUPPLIER 탭바 노출 및 청소 권한으로 함께 허용
 type SupplierRole = "SUPPLIER" | "CLEANER";
 const SUPPLIER_CLEANER_ALLOWED: Record<SupplierRole, string[]> = {
-  SUPPLIER: ["/my-villas", "/calendar", "/cleaning", "/earnings"],
+  SUPPLIER: ["/my-villas", "/calendar", "/cleaning", "/earnings", "/my-settlements"],
   CLEANER: ["/cleaning"],
 };
-const SUPPLIER_CLEANER_PATHS = ["/my-villas", "/calendar", "/cleaning", "/earnings"];
+const SUPPLIER_CLEANER_PATHS = ["/my-villas", "/calendar", "/cleaning", "/earnings", "/my-settlements"];
 
 function matchesPath(pathname: string, paths: string[]): boolean {
   return paths.some((p) => pathname === p || pathname.startsWith(p + "/"));
