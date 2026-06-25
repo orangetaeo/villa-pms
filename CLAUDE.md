@@ -164,7 +164,25 @@ COSTS.md  IDEAS.md  PROGRESS.md  TASKS.md
 
 ## 병렬 세션 규칙 (여러 Claude 세션 동시 작업 시 — 필수)
 
-여러 세션이 같은 작업 폴더를 공유하므로, 아래 규칙 위반 시 다른 세션의 미완성 작업이 파손된다.
+### 0. ★최우선★ 세션 격리 = worktree (공유 폴더 직접 커밋 금지)
+
+**여러 세션이 같은 폴더(`C:\Projects\villa-pms`)를 공유하면 git의 index·HEAD가 하나뿐이라 서로의 최신 파일을 트리에서 떨어뜨린다(실제 배포 빌드 깨짐 사고 2회 발생). 근본 해결은 세션마다 별도 worktree.**
+
+- **새 작업을 시작하는 세션은 먼저 자기 worktree로 격리한다.** 공유 메인 폴더(`villa-pms`)에서는 커밋하지 않는다 — 메인 폴더는 병합·PR 검토·읽기 전용으로만.
+- 격리 절차(사용자 안내):
+  ```
+  powershell -ExecutionPolicy Bypass -File scripts\wt-new.ps1 -Name <작업이름>
+  cd C:\Projects\_worktrees\villa-pms-<작업이름>
+  claude
+  ```
+  → 자기 폴더·자기 git index·자기 .next·자기 포트(자동). 그 세션은 `wt/<이름>` 브랜치에서 **평범하게** 커밋(전용 인덱스 꼼수 불필요).
+- **마무리**: 그 worktree 세션에서 `scripts\wt-finish.ps1` 또는 PR로 main 병합 → worktree 정리.
+- 메인 폴더에서 실행된 세션이 코드 변경을 하려는데 다른 세션이 동시 작동 중일 가능성이 있으면, **먼저 위 격리를 안내**하고 메인에서 직접 커밋하지 않는다.
+- 참고 함정: [[private-index-drops-untracked-files]](커밋 후 `git cat-file -e origin/main:<파일>` 검증 필수), [[parallel-session-worktree-isolation]], [[worktree-junction-recursive-delete-hazard]].
+
+### 공유 폴더에서 불가피하게 작업할 때만 (fallback — 위 0 못 쓸 때)
+
+아래 규칙 위반 시 다른 세션의 미완성 작업이 파손된다.
 
 1. **커밋은 자기 계약서 범위 파일만 명시적으로 add** — `git add -A` / `git add .` 절대 금지. git status에 모르는 파일이 있으면 다른 세션의 진행 중 작업이므로 건드리지 않는다
 2. **계약서에 "수정 금지 구역" 선언** — 다른 세션이 작업 중인 파일·디렉터리를 docs/contracts/<태스크>.md에 명시하고 절대 수정하지 않는다
