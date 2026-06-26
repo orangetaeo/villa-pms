@@ -172,15 +172,15 @@ export default async function CheckoutPage({
   return (
     <div className="max-w-7xl mx-auto pb-32">
       {/* 헤더 — b4 TopAppBar 콘텐츠 영역 변환 */}
-      <div className="flex items-center gap-4 mb-8">
+      <div className="flex items-center flex-wrap gap-x-4 gap-y-2 mb-8">
         <Link
           href={`/bookings/${booking.id}`}
           aria-label={t("back")}
-          className="text-slate-400 hover:text-white transition-colors"
+          className="text-slate-400 hover:text-white transition-colors shrink-0"
         >
           <span className="material-symbols-outlined">arrow_back</span>
         </Link>
-        <h2 className="font-bold text-lg text-white whitespace-nowrap">
+        <h2 className="font-bold text-lg text-white">
           {t("title")} - {t("bookingNo", { code: booking.id.slice(-4).toUpperCase() })}
         </h2>
         <span className="bg-admin-card text-slate-400 text-xs px-2 py-1 rounded border border-slate-700 whitespace-nowrap">

@@ -73,7 +73,7 @@ export default async function CheckinPage({
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Context Banner (b3) */}
-      <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-800 flex items-center justify-between">
+      <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-white mb-1">
             {t("banner.title", { code: booking.id.slice(-8), villa: booking.villa.name })}
@@ -85,7 +85,7 @@ export default async function CheckinPage({
               : booking.guestName}
           </p>
         </div>
-        <div className="flex flex-col items-end">
+        <div className="flex flex-col items-start sm:items-end shrink-0">
           <span className="px-3 py-1 bg-blue-600/20 text-blue-500 border border-blue-600/30 rounded-full text-xs font-bold whitespace-nowrap">
             {postSignMode ? t("agreement.postSignBadge") : t("banner.inProgress")}
           </span>

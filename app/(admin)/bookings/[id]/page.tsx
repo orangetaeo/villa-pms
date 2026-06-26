@@ -463,7 +463,7 @@ export default async function BookingDetailPage({
             style={{ width: `${(stepIndex / (steps.length - 1)) * 80}%` }}
           ></div>
           {steps.map((step, i) => (
-            <div key={step} className="relative z-10 flex flex-col items-center gap-2 px-6">
+            <div key={step} className="relative z-10 flex flex-col items-center gap-2 px-2 sm:px-6">
               {i === stepIndex ? (
                 <div className="w-6 h-6 rounded-full bg-admin-primary border-4 border-admin-card ring-2 ring-admin-primary/30 flex items-center justify-center">
                   <span className="material-symbols-outlined text-[10px] text-white font-bold">check</span>

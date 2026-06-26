@@ -457,6 +457,7 @@ function ServiceSection({ data }: { data: ServiceOrderStats }) {
           {data.topTypes.length === 0 ? (
             <p className="text-sm text-admin-muted text-center py-8">{t("services.topTypes.empty")}</p>
           ) : (
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[11px] text-admin-muted uppercase tracking-wider border-b border-slate-700/50">
@@ -486,6 +487,7 @@ function ServiceSection({ data }: { data: ServiceOrderStats }) {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>
@@ -498,6 +500,7 @@ function ServiceSection({ data }: { data: ServiceOrderStats }) {
           {data.topItems.length === 0 ? (
             <p className="text-sm text-admin-muted text-center py-8">{t("services.topItems.empty")}</p>
           ) : (
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[11px] text-admin-muted uppercase tracking-wider border-b border-slate-700/50">
@@ -521,6 +524,7 @@ function ServiceSection({ data }: { data: ServiceOrderStats }) {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
 
@@ -530,6 +534,7 @@ function ServiceSection({ data }: { data: ServiceOrderStats }) {
           {data.topVendors.length === 0 ? (
             <p className="text-sm text-admin-muted text-center py-8">{t("services.topVendors.empty")}</p>
           ) : (
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[11px] text-admin-muted uppercase tracking-wider border-b border-slate-700/50">
@@ -550,6 +555,7 @@ function ServiceSection({ data }: { data: ServiceOrderStats }) {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>
@@ -640,6 +646,7 @@ function MinibarSection({ data }: { data: MinibarStats }) {
           {data.topItems.length === 0 ? (
             <p className="text-sm text-admin-muted text-center py-8">{t("minibar.topItems.empty")}</p>
           ) : (
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[11px] text-admin-muted uppercase tracking-wider border-b border-slate-700/50">
@@ -660,6 +667,7 @@ function MinibarSection({ data }: { data: MinibarStats }) {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

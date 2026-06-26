@@ -139,7 +139,7 @@ export default function PaymentPanel({
       </div>
 
       {/* 수납 요약 */}
-      <div className="px-6 py-4 border-b border-slate-700 grid grid-cols-3 gap-4 text-sm">
+      <div className="px-6 py-4 border-b border-slate-700 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-sm">
         <div>
           <p className="text-[11px] text-admin-muted uppercase tracking-wider">{t("summary.expected")}</p>
           <p className="font-semibold text-white tabular-nums">

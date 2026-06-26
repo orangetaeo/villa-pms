@@ -104,7 +104,7 @@ export default async function SettingsPage() {
           <h1 className="text-2xl font-bold text-white tracking-tight">{t("title")}</h1>
           <p className="text-sm text-slate-500 mt-1">{t("subtitle")}</p>
         </div>
-        <nav className="flex text-xs text-slate-500 gap-2 whitespace-nowrap">
+        <nav className="hidden sm:flex text-xs text-slate-500 gap-2 whitespace-nowrap">
           <span>{t("breadcrumbAdmin")}</span>
           <span>/</span>
           <span className="text-slate-300">{t("breadcrumbCurrent")}</span>

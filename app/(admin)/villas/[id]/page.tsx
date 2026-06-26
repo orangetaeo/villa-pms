@@ -248,8 +248,8 @@ export default async function VillaDetailPage({
             <span className="material-symbols-outlined text-sm">arrow_back</span>
             {t("back")}
           </Link>
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-black text-white tracking-tight">{villa.name}</h1>
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">{villa.name}</h1>
             <span
               className={`px-2.5 py-0.5 rounded text-[11px] font-bold shrink-0 ${STATUS_BADGE_CLASS[villa.status]}`}
             >
@@ -266,7 +266,7 @@ export default async function VillaDetailPage({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-4 text-sm text-slate-400">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-slate-400">
             <div className="flex items-center gap-1.5 whitespace-nowrap">
               <span className="material-symbols-outlined text-sm">person</span>
               <span>{villa.supplier?.name ?? tList("noSupplier")}</span>
