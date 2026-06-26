@@ -2,6 +2,83 @@
   "app": {
     "name": "Villa Go"
   },
+  "partner": {
+    "tabs": {
+      "bookings": "예약 현황",
+      "receivables": "미수",
+      "proposals": "제안서"
+    },
+    "bookings": {
+      "title": "예약 현황",
+      "subtitle": "우리에게 예약하신 빌라 내역입니다.",
+      "nights": "{count}박",
+      "guests": "{count}명",
+      "roomCharge": "객실료",
+      "empty": "예약 내역이 없습니다",
+      "emptyHint": "예약이 등록되면 여기에 표시됩니다."
+    },
+    "receivables": {
+      "title": "미수 현황",
+      "subtitle": "청구·납부·미수 잔액을 확인하세요.",
+      "outstanding": "미수 잔액",
+      "totalBilled": "총 청구",
+      "totalPaid": "총 납부",
+      "listTitle": "예약별 채권",
+      "invoiceTitle": "청구서",
+      "total": "총액",
+      "paid": "납부",
+      "balance": "잔액",
+      "due": "기한 {date}",
+      "empty": "채권 내역이 없습니다",
+      "invoiceEmpty": "발행된 청구서가 없습니다"
+    },
+    "proposals": {
+      "title": "받은 제안서",
+      "subtitle": "받으신 빌라 제안 링크입니다.",
+      "villaCount": "빌라 {count}개",
+      "expires": "만료 {date}",
+      "empty": "받은 제안서가 없습니다",
+      "emptyHint": "운영자가 제안서를 보내면 여기에 표시됩니다."
+    },
+    "status": {
+      "HOLD": "가예약",
+      "CONFIRMED": "확정",
+      "CHECKED_IN": "투숙 중",
+      "CHECKED_OUT": "체크아웃",
+      "CANCELLED": "취소",
+      "EXPIRED": "만료",
+      "NO_SHOW": "노쇼"
+    },
+    "receivableStatus": {
+      "PENDING": "미입금",
+      "PARTIAL": "일부 입금",
+      "PAID": "완납",
+      "OVERDUE": "연체",
+      "WRITTEN_OFF": "대손"
+    },
+    "invoiceStatus": {
+      "DRAFT": "작성 중",
+      "ISSUED": "발행",
+      "PARTIAL": "일부 입금",
+      "PAID": "완납",
+      "OVERDUE": "연체",
+      "VOID": "취소"
+    },
+    "proposalStatus": {
+      "ACTIVE": "유효",
+      "USED": "예약 발생",
+      "EXPIRED": "만료",
+      "REVOKED": "회수"
+    },
+    "approvalGate": {
+      "pendingTitle": "가입 승인 대기 중",
+      "pendingBody": "가입 신청이 운영자 검토 중입니다. 승인되면 이곳에서 예약·미수를 확인할 수 있습니다.",
+      "rejectedTitle": "가입이 거절되었습니다",
+      "rejectedBody": "죄송합니다. 가입 신청이 승인되지 않았습니다.",
+      "rejectedReasonLabel": "사유",
+      "changePassword": "비밀번호 변경"
+    }
+  },
   "quickDateFilter": {
     "all": "전체",
     "today": "오늘",

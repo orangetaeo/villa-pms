@@ -2,6 +2,83 @@
   "app": {
     "name": "Villa Go"
   },
+  "partner": {
+    "tabs": {
+      "bookings": "Đặt phòng",
+      "receivables": "Công nợ",
+      "proposals": "Đề xuất"
+    },
+    "bookings": {
+      "title": "Tình trạng đặt phòng",
+      "subtitle": "Danh sách villa quý vị đã đặt qua chúng tôi.",
+      "nights": "{count} đêm",
+      "guests": "{count} khách",
+      "roomCharge": "Tiền phòng",
+      "empty": "Chưa có đặt phòng nào",
+      "emptyHint": "Đặt phòng sẽ hiển thị ở đây khi được tạo."
+    },
+    "receivables": {
+      "title": "Tình trạng công nợ",
+      "subtitle": "Xem số đã lập hóa đơn, đã thanh toán và còn nợ.",
+      "outstanding": "Số còn nợ",
+      "totalBilled": "Tổng hóa đơn",
+      "totalPaid": "Đã thanh toán",
+      "listTitle": "Công nợ theo đặt phòng",
+      "invoiceTitle": "Hóa đơn",
+      "total": "Tổng",
+      "paid": "Đã trả",
+      "balance": "Còn lại",
+      "due": "Hạn {date}",
+      "empty": "Chưa có công nợ nào",
+      "invoiceEmpty": "Chưa có hóa đơn nào được phát hành"
+    },
+    "proposals": {
+      "title": "Đề xuất đã nhận",
+      "subtitle": "Các liên kết đề xuất villa quý vị đã nhận.",
+      "villaCount": "{count} villa",
+      "expires": "Hết hạn {date}",
+      "empty": "Chưa có đề xuất nào",
+      "emptyHint": "Đề xuất sẽ hiển thị ở đây khi quản trị viên gửi."
+    },
+    "status": {
+      "HOLD": "Giữ chỗ",
+      "CONFIRMED": "Đã xác nhận",
+      "CHECKED_IN": "Đang lưu trú",
+      "CHECKED_OUT": "Đã trả phòng",
+      "CANCELLED": "Đã hủy",
+      "EXPIRED": "Hết hạn",
+      "NO_SHOW": "Không đến"
+    },
+    "receivableStatus": {
+      "PENDING": "Chưa thanh toán",
+      "PARTIAL": "Thanh toán một phần",
+      "PAID": "Đã thanh toán đủ",
+      "OVERDUE": "Quá hạn",
+      "WRITTEN_OFF": "Nợ xấu"
+    },
+    "invoiceStatus": {
+      "DRAFT": "Nháp",
+      "ISSUED": "Đã phát hành",
+      "PARTIAL": "Thanh toán một phần",
+      "PAID": "Đã thanh toán đủ",
+      "OVERDUE": "Quá hạn",
+      "VOID": "Đã hủy"
+    },
+    "proposalStatus": {
+      "ACTIVE": "Còn hiệu lực",
+      "USED": "Đã đặt phòng",
+      "EXPIRED": "Hết hạn",
+      "REVOKED": "Đã thu hồi"
+    },
+    "approvalGate": {
+      "pendingTitle": "Đang chờ duyệt đăng ký",
+      "pendingBody": "Đăng ký của quý vị đang được quản trị viên xem xét. Sau khi được duyệt, quý vị có thể xem đặt phòng và công nợ tại đây.",
+      "rejectedTitle": "Đăng ký bị từ chối",
+      "rejectedBody": "Rất tiếc, đăng ký của quý vị không được chấp thuận.",
+      "rejectedReasonLabel": "Lý do",
+      "changePassword": "Đổi mật khẩu"
+    }
+  },
   "quickDateFilter": {
     "all": "Tất cả",
     "today": "Hôm nay",
