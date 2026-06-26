@@ -1443,6 +1443,16 @@
     "cancel": "취소",
     "saving": "저장 중…",
     "saveFailed": "저장에 실패했습니다",
+    "assign": {
+      "title": "파트너 지정",
+      "none": "지정된 파트너가 없습니다",
+      "select": "파트너 선택",
+      "assign": "지정",
+      "receivable": "미수",
+      "locked": "채권이 생성되어 변경할 수 없습니다 (취소 후 재예약)",
+      "vndOnly": "파트너 채권은 VND 객실료 예약에만 적용됩니다",
+      "failed": "지정에 실패했습니다"
+    },
     "overdue": "연체",
     "outstanding": "미수 잔액",
     "creditInfo": "신용 조건",
