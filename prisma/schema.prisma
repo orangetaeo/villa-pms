@@ -444,12 +444,22 @@ enum BookingChannel {
   DIRECT // 직접 소비자
 }
 
+// 누가 이 예약을 판매했는가 (F10 양방향 모델, ADR-0021)
+// OPERATOR=우리 재판매(정산 대상) / SUPPLIER=공급자 직접판매(정산 제외, 공급자 100%)
+// ※ 단어 DIRECT는 BookingChannel.DIRECT(결제통화)·Villa.source=DIRECT(소싱)와 충돌 → seller로 표현
+enum BookingSeller {
+  OPERATOR
+  SUPPLIER
+}
+
 model Booking {
   id                String         @id @default(cuid())
   villaId           String
   villa             Villa          @relation(fields: [villaId], references: [id])
   status            BookingStatus
   channel           BookingChannel
+  seller            BookingSeller  @default(OPERATOR) // F10: 판매 주체. SUPPLIER=공급자 직접판매(정산 제외) — ADR-0021
+  supplierSalePriceVnd BigInt?     // 공급자가 자기 고객에게 받은 금액(공급자 직접판매 기록용, 우리 회계 무관)
   checkIn           DateTime       @db.Date
   checkOut          DateTime       @db.Date // exclusive
   nights            Int
@@ -1043,6 +1053,7 @@ enum NotificationType {
   VILLA_REJECTED // 빌라 반려 — 공급자에게 반려 사유 전달 (T1.2b)
   RATE_CHANGED_DURING_PROPOSAL // 제안 진행 중 원가/요율 변경 알림 — 운영자 통지 (ADR-0008)
   ROSTER_REMINDER // 체크인 D-3 투숙객 명단 미입력 — 운영자(테오) 리마인드 (T-roster-reminder-cron)
+  SUPPLIER_DIRECT_BOOKING // 공급자 직접예약 생성 — 운영자에게 선점 기회 통지 (F10, ADR-0021)
   VENDOR_PO // 원천 공급자에게 부가서비스 발주 — 수신자=공급자 User(vi) (ADR-0023 S2)
   VENDOR_PO_RESPONSE // 공급자 가부 응답 → 운영자 통지(ko) (ADR-0023 S2)
 }

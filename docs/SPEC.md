@@ -303,6 +303,44 @@ available(villa, range) =
 
 ---
 
+## F10. 공급자 직접 판매 채널 (양방향 모델 — ADR-0021)
+
+> 원래 사업 모델 복원: 공급자가 자기 빌라를 **자기 고객에게 직접 판매** → 그 공실이 **실시간으로 운영자에게 공유** → 운영자가 **선점해 한국 채널에 재판매**. 현재는 공급자가 정보 입력만 가능(판매 불가)해 단방향. 상세·결정은 ADR-0021.
+
+**사용자:** SUPPLIER (직접예약 생성), ADMIN (선점·재판매)
+
+### 확정 결정 (테오 2026-06-26 — ADR-0021)
+- **판매 방식**: 둘 다(단계적) — Phase A 수동 기록 → Phase B 공급자 판매 링크
+- **충돌 우선권**: **선착순** (운영자 선점 우선권 없음, 같은 가용성 레이어에 먼저 잡은 쪽이 임자)
+- **수익**: **공급자 100%** (직접판매액 전부 공급자 것, 수수료 없음, 정산 제외)
+- **검수 미승인 빌라 직접판매**: **허용** (게이트는 우리 재판매만 막음, 직접판매는 공급자 책임)
+
+### 핵심 원리 — 공유 가용성 + 선착순
+- 운영자(`seller=OPERATOR`)와 공급자(`seller=SUPPLIER`)가 같은 빌라·같은 캘린더에 독립 판매를 동시 운영
+- 공급자 직접예약 생성도 **기존 lib/availability.ts 트랜잭션 잠금(lockVillaInventory + checkAvailability)을 그대로 통과** → 선착순 자동 보장(우선권 비교 로직 불필요)
+- 공급자는 운영자 예약을 "예약됨"만(마진 비공개), 운영자는 공급자 직접예약을 타임라인 별도 셀로 봄(선점 판단)
+
+### Phase A — 공급자 직접예약 수동 기록 (MVP)
+1. SUPPLIER `/calendar`: 빈 날짜 탭 → "직접 예약 기록" → 체크인/아웃·고객명·인원·(선택)받은 금액(VND)·(선택)연락처
+2. `POST /api/supplier/bookings` → 가용성 게이트 통과 → `Booking(seller=SUPPLIER, status=CONFIRMED)` + `writeAuditLog()`
+3. 선착순 패배 시 409 "이미 예약된 날짜입니다"(상세 비노출). 공급자가 먼저 잡으면 운영자가 못 홀드
+4. ADMIN: 타임라인 매트릭스 신규 셀 "공급자 직접예약" + `/bookings` seller 필터
+5. 정산(F6): `seller=OPERATOR`만 집계 → 직접예약 제외
+6. 체크인·아웃 검수(D5 — 정식 F4 적용): 직접예약 게스트도 여권 OCR·이용 동의서 서명·보증금·체크아웃 사진 비교·청소를 모두 받음. **공급자가 자기 빌라 현장에서 vi 모바일로 직접 수행**(임시거주신고도 공급자 본인 처리 → "운영자 전달" 단계 제외). lib/checkin·checkout 재사용, `seller=SUPPLIER`+자기 supplierId 스코프. 체크아웃 시 CleaningTask + isSellable=false 동일. 단 직접판매 *개시*는 게이트 우회(D4)
+7. Zalo: 직접예약 생성 시 운영자에게 정보성 알림(`SUPPLIER_DIRECT_BOOKING`)
+
+### Phase B — 공급자 판매 링크 (별도 스프린트)
+- 공급자가 자기 판매가(`VillaRatePeriod.supplierSalePriceVnd`) 입력 → 공급자별 공개 토큰 링크 생성(Proposal 재사용, supplierId 스코프) → 자기 고객 셀프 가예약(HOLD) → 공급자 입금 확인 → CONFIRMED
+- 보안: 공급자 자기 빌라·자기 판매가만 노출, 우리 salePriceKrw·마진·타 공급자 빌라 절대 비노출
+
+### 데이터 모델 (additive raw SQL ALTER — db push 금지)
+- `Booking.seller` enum `BookingSeller{OPERATOR|SUPPLIER}` @default(OPERATOR) — 기존 예약 안전 백필
+- `Booking.supplierSalePriceVnd BigInt?` — 공급자 자기 기록용(우리 회계 무관)
+- `VillaRatePeriod.supplierSalePriceVnd BigInt?` — Phase B 판매 링크 견적용(salePriceVnd/마진과 별개)
+- **네이밍 주의**: 공급자 직접판매는 `seller=SUPPLIER`로 표현. 단어 `DIRECT`(BookingChannel.DIRECT·Villa.source=DIRECT와 충돌) 재사용 금지
+
+### 권한 테스트 필수 케이스
+- 공급자가 타인 빌라 직접예약 생성 → 403 / 직접예약 응답에 운영자 판매가·마진 → 0건 / 정산에 seller=SUPPLIER 혼입 → 0건 / Phase B 링크에서 타 공급자 빌라·우리 판매가 도달 → 불가
 ## F11. 부가서비스 원천 공급자 중계 (ADR-0023)
 
 > 부가서비스(과일 바구니·도시락·BBQ·렌트·마사지 등)는 **우리가 중계만** 한다: 요청 접수 → 원천 공급자에 Zalo 발주 → 공급자가 우리 페이지에서 예약현황 확인·가부 결정 → 우리에게 통보 → 우리가 고객 확정·공급자 정산. 상세·결정은 ADR-0023.

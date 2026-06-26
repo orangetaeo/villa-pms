@@ -203,16 +203,22 @@ describe("POST /api/ocr/passport", () => {
     delete process.env.GEMINI_API_KEY;
   });
 
-  it("비로그인 401 / SUPPLIER 403", async () => {
+  // T10.5(F10 D5): 공급자도 자기 게스트 체크인 여권 OCR 허용. 비로그인·그 외 역할(CLEANER 등)은 차단.
+  it("비로그인 401 / CLEANER 403 / SUPPLIER 통과(키 미설정 503)", async () => {
     const body = JSON.stringify({ imageBase64: "aGk=", mimeType: "image/jpeg" });
     mockAuth.mockResolvedValue(null);
     let res = await ocrPost(
       new Request("http://local/api/ocr/passport", { method: "POST", body })
     );
     expect(res.status).toBe(401);
-    mockAuth.mockResolvedValue({ user: { id: "s1", role: "SUPPLIER" } });
+    // CLEANER는 OCR 권한 없음 → 403
+    mockAuth.mockResolvedValue({ user: { id: "c1", role: "CLEANER" } });
     res = await ocrPost(new Request("http://local/api/ocr/passport", { method: "POST", body }));
     expect(res.status).toBe(403);
+    // SUPPLIER는 권한 통과 — GEMINI 키 미설정이라 503(수동 입력 폴백). 403이 아니어야 함.
+    mockAuth.mockResolvedValue({ user: { id: "s1", role: "SUPPLIER" } });
+    res = await ocrPost(new Request("http://local/api/ocr/passport", { method: "POST", body }));
+    expect(res.status).toBe(503);
   });
 
   it("mime 화이트리스트 밖(svg 등) 400", async () => {

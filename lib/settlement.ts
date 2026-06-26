@@ -1,4 +1,5 @@
 import {
+  BookingSeller,
   BookingStatus,
   NotificationType,
   SettlementStatus,
@@ -177,6 +178,8 @@ export async function generateMonthlySettlements(
         where: {
           status: { in: [...SETTLEMENT_BOOKING_STATUSES] },
           checkOut: { gte: start, lt: end },
+          // F10: 공급자 직접판매(seller=SUPPLIER)는 공급자 100% 수금이라 정산 제외 — ADR-0021 D3
+          seller: BookingSeller.OPERATOR,
         },
         select: {
           id: true,

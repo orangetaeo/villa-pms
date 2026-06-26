@@ -1,4 +1,5 @@
 import {
+  BookingSeller,
   BookingStatus,
   VillaStatus,
   type PrismaClient,
@@ -22,8 +23,11 @@ const VILLA_TIMEZONE = "Asia/Ho_Chi_Minh";
 export const TIMELINE_DAYS = 30;
 
 /**
- * 셀 상태 — T2.6 대시보드 재사용 호환 계약 (이름 변경 금지).
- * 우선순위: CHECKED_IN > CONFIRMED > HOLD > BLOCKED > (EMPTY | NOT_SELLABLE)
+ * 셀 상태 — T2.6 대시보드 재사용 호환 계약 (이름 변경·순서 변경 금지, 추가만 — T1.5 계약).
+ * 우선순위: CHECKED_IN > (CONFIRMED | SUPPLIER_DIRECT) > HOLD > BLOCKED > (EMPTY | NOT_SELLABLE)
+ *
+ * SUPPLIER_DIRECT(F10/ADR-0021): seller=SUPPLIER 공급자 직접예약의 점유 셀.
+ * 운영자 전용 화면에서만 별도 색으로 식별 — 점유 사실만 표시(공급자 판매가는 미포함).
  */
 export type TimelineCellState =
   | "EMPTY" // 공실 (판매 가능)
@@ -31,7 +35,8 @@ export type TimelineCellState =
   | "CONFIRMED" // 확정 — 파랑 실선
   | "CHECKED_IN" // 투숙 중 — 인디고
   | "BLOCKED" // 차단(수동·iCal) — 회색
-  | "NOT_SELLABLE"; // 공실이지만 청소 검수 게이트 미통과 — 빨강 테두리
+  | "NOT_SELLABLE" // 공실이지만 청소 검수 게이트 미통과 — 빨강 테두리
+  | "SUPPLIER_DIRECT"; // 공급자 직접예약(F10) — 점유, 별도 색(운영자 전용)
 
 export interface TimelineRow {
   villaId: string;
@@ -94,6 +99,8 @@ export interface TimelineVillaInput {
 
 export interface TimelineBookingRange {
   status: BookingStatus;
+  /** 판매 주체 — SUPPLIER면 점유 셀을 SUPPLIER_DIRECT로 분류 (F10). 미지정 시 OPERATOR 취급 */
+  seller?: BookingSeller;
   checkIn: Date;
   checkOut: Date;
 }
@@ -112,11 +119,29 @@ const BOOKING_CELL_PRIORITY: Record<string, TimelineCellState> = {
 const CELL_RANK: Record<TimelineCellState, number> = {
   CHECKED_IN: 4,
   CONFIRMED: 3,
+  // SUPPLIER_DIRECT = CONFIRMED와 동급 점유(색만 구분, F10). CONFIRMED와 겹치면 둘 다 점유
+  // 사실이 동일하므로 먼저 만난 쪽 유지(rank 동률 → 갱신 안 함) — 색 안정성 우선.
+  SUPPLIER_DIRECT: 3,
   HOLD: 2,
   BLOCKED: 1,
   NOT_SELLABLE: 0,
   EMPTY: 0,
 };
+
+/**
+ * 한 예약의 셀 상태를 분류한다. seller=SUPPLIER의 점유 상태(CONFIRMED 등)는
+ * SUPPLIER_DIRECT로 분류(F10) — 색만 구분, 점유 우선순위는 운영자 확정과 동급.
+ * 비점유 상태(CANCELLED 등)는 null(재고 복귀 — 무시).
+ */
+function bookingCellState(booking: TimelineBookingRange): TimelineCellState | null {
+  const base = BOOKING_CELL_PRIORITY[booking.status];
+  if (!base) return null;
+  // 공급자 직접예약(점유)은 색만 별도. CHECKED_IN은 운영 동작상 그대로 둔다(투숙 중 최우선).
+  if (booking.seller === BookingSeller.SUPPLIER && base === "CONFIRMED") {
+    return "SUPPLIER_DIRECT";
+  }
+  return base;
+}
 
 /**
  * 한 빌라의 축 전체 셀 상태를 산출하는 순수 함수.
@@ -143,7 +168,7 @@ export function computeVillaRow(
       }
     }
     for (const booking of bookings) {
-      const cellState = BOOKING_CELL_PRIORITY[booking.status];
+      const cellState = bookingCellState(booking);
       if (!cellState) continue; // 비점유 상태(CANCELLED 등)는 재고 복귀 — 무시
       if (
         overlapsHalfOpen(day, dayEnd, booking.checkIn, booking.checkOut) &&
@@ -193,7 +218,8 @@ export async function loadTimeline(
         checkIn: { lt: rangeEnd },
         checkOut: { gt: from },
       },
-      select: { villaId: true, status: true, checkIn: true, checkOut: true },
+      // seller 포함(F10) — SUPPLIER 직접예약 셀 분류용. 판매가·고객 식별 정보는 미포함.
+      select: { villaId: true, status: true, seller: true, checkIn: true, checkOut: true },
     }),
     db.calendarBlock.findMany({
       where: {

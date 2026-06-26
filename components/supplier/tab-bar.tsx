@@ -9,13 +9,16 @@ import { useTranslations } from "next-intl";
 const TABS = [
   { href: "/my-villas", icon: "house", key: "villas" },
   { href: "/calendar", icon: "calendar_month", key: "calendar" },
+  { href: "/my-bookings", icon: "book_online", key: "bookings" }, // T10.5 직접예약 검수 진입점
   { href: "/cleaning", icon: "cleaning_services", key: "cleaning" },
   { href: "/earnings", icon: "payments", key: "earnings" },
   { href: "/guide", icon: "help", key: "guide" }, // 온보딩 가이드 (T4.3)
 ] as const;
 
-/** 탭바를 숨기는 풀스크린 플로우 경로 접두사 (당겨서 새로고침도 동일하게 제외) */
-export const SUPPLIER_FULLSCREEN_PREFIXES = ["/my-villas/new"];
+/** 탭바를 숨기는 풀스크린 플로우 경로 접두사 (당겨서 새로고침도 동일하게 제외).
+ *  체크인·아웃 검수 상세는 자체 앱바 + fixed 하단 CTA라 풀스크린(탭바·당겨새로고침 제외).
+ *  목록 "/my-bookings"는 일반 탭이므로 "/my-bookings/" (하위 상세)만 매칭. */
+export const SUPPLIER_FULLSCREEN_PREFIXES = ["/my-villas/new", "/my-bookings/"];
 
 export function TabBar() {
   const t = useTranslations("tabs");
@@ -29,7 +32,7 @@ export function TabBar() {
     <>
       {/* 본문 하단 패딩 확보용 스페이서 — 고정 탭바에 콘텐츠가 가리지 않도록 */}
       <div aria-hidden className="h-20" />
-      <nav className="fixed bottom-0 left-0 z-50 flex h-16 w-full items-center justify-around rounded-t-xl border-t border-neutral-100 bg-white px-2 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+      <nav className="fixed bottom-0 left-0 z-50 flex h-16 w-full items-center justify-around rounded-t-xl border-t border-neutral-100 bg-white px-1 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
         {TABS.map((tab) => {
           const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
           return (
@@ -39,8 +42,8 @@ export function TabBar() {
               aria-current={active ? "page" : undefined}
               className={
                 active
-                  ? "flex flex-col items-center justify-center rounded-xl bg-teal-50 px-3 py-1 font-bold text-teal-600 transition-transform duration-150 active:scale-95"
-                  : "flex flex-col items-center justify-center px-3 py-1 text-neutral-500 transition-transform duration-150 active:scale-95"
+                  ? "flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl bg-teal-50 px-1 py-1 font-bold text-teal-600 transition-transform duration-150 active:scale-95"
+                  : "flex min-w-0 flex-1 flex-col items-center justify-center px-1 py-1 text-neutral-500 transition-transform duration-150 active:scale-95"
               }
             >
               <span
@@ -52,7 +55,7 @@ export function TabBar() {
               >
                 {tab.icon}
               </span>
-              <span className="text-xs font-medium">{t(tab.key)}</span>
+              <span className="max-w-full truncate text-[11px] font-medium">{t(tab.key)}</span>
             </Link>
           );
         })}

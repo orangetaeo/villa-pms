@@ -12,7 +12,17 @@ import { getSupplierLocale } from "@/lib/locale";
 // 전수 grep 근거: calendar-view(calendar), villa-wizard·step-*(wizard, amenities), tab-bar(tabs).
 // 서버 컴포넌트(getTranslations: earnings/cleaning/my-villas 등)는 이 목록과 무관.
 // 새 공급자 화면에서 클라이언트 useTranslations 네임스페이스 추가 시 반드시 여기에도 추가할 것.
-const SUPPLIER_CLIENT_NAMESPACES = ["calendar", "wizard", "amenities", "tabs", "account", "pagination"] as const;
+const SUPPLIER_CLIENT_NAMESPACES = [
+  "calendar",
+  "wizard",
+  "amenities",
+  "tabs",
+  "account",
+  "pagination",
+  // T10.5 — 공급자 체크인·아웃 검수 폼(클라이언트). 운영자 adminCheckin/adminCheckout과 분리된 vi 네임스페이스(누수 차단).
+  "supplierCheckin",
+  "supplierCheckout",
+] as const;
 
 function pickMessages(all: AbstractIntlMessages): AbstractIntlMessages {
   const picked: AbstractIntlMessages = {};

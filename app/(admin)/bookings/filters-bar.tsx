@@ -35,6 +35,7 @@ export default function FiltersBar({
   const area = searchParams.get("area") ?? "";
   const villa = searchParams.get("villa") ?? "";
   const channel = searchParams.get("channel") ?? "";
+  const seller = searchParams.get("seller") ?? "";
   const q = searchParams.get("q") ?? "";
 
   return (
@@ -113,6 +114,27 @@ export default function FiltersBar({
           </option>
           <option value="LAND_AGENCY" className="bg-slate-900">
             {t("channels.LAND_AGENCY")}
+          </option>
+        </select>
+      </div>
+      <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 whitespace-nowrap">
+        <span className="text-xs text-slate-500 font-bold uppercase tracking-wider mr-1">
+          {t("list.filters.seller")}
+        </span>
+        <select
+          aria-label={t("list.filters.seller")}
+          className="bg-transparent border-none text-sm text-slate-300 p-0 focus:ring-0 cursor-pointer"
+          value={seller}
+          onChange={(e) => apply({ seller: e.target.value })}
+        >
+          <option value="" className="bg-slate-900">
+            {t("list.filters.allSellers")}
+          </option>
+          <option value="OPERATOR" className="bg-slate-900">
+            {t("list.filters.sellerOperator")}
+          </option>
+          <option value="SUPPLIER" className="bg-slate-900">
+            {t("list.filters.sellerSupplier")}
           </option>
         </select>
       </div>

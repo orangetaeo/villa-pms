@@ -264,6 +264,15 @@ export function buildNotificationText(
         `곧 체크인입니다. 실제 투숙객 명단을 확인·입력하거나 여행사에 안내해주세요.`,
       ].join("\n");
 
+    case NotificationType.SUPPLIER_DIRECT_BOOKING:
+      // F10 — 수신자=운영자(테오) → 한국어. 공급자가 자기 고객에 직접 판매·기록 → 선착순 점유.
+      // 공급자 수금액(supplierSalePriceVnd)은 공급자 정보이므로 알림에 미포함.
+      return [
+        `🏠 공급자 직접예약 등록: ${villa}`,
+        `체크인: ${formatDateVi(p.checkIn)} → 체크아웃: ${formatDateVi(p.checkOut)} · ${num(p.guestCount)}명`,
+        `공급자가 직접 판매한 예약입니다. 해당 날짜는 점유 처리되었습니다.`,
+      ].join("\n");
+
     case NotificationType.VENDOR_PO: {
       // 수신자=원천 공급자 → 베트남어(vi). 발주(주문) 알림.
       // ★ 금액(판매가·원가) 미노출 — 공급자는 앱(/vendor)에서 자기 발주만 확인·가부.

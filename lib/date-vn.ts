@@ -31,6 +31,30 @@ export function addUtcDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * DAY_MS);
 }
 
+/** "YYYY-MM-DD"에 days를 더한 "YYYY-MM-DD" (UTC 자정 기준, 음수 허용).
+ *  클라이언트·서버 공용 순수 함수. 잘못된 형식은 입력을 그대로 반환. */
+export function addDateOnlyDays(dateStr: string, days: number): string {
+  const base = parseUtcDateOnly(dateStr);
+  if (!base) return dateStr;
+  return toDateOnlyString(addUtcDays(base, days));
+}
+
+/** 직접예약 다박: 체크인 "YYYY-MM-DD" + 박수(nights ≥ 1) → 체크아웃 "YYYY-MM-DD" (half-open, exclusive).
+ *  nights는 1 미만이면 1로, 정수가 아니면 내림. checkOut = checkIn + nights. */
+export function checkOutFromNights(checkIn: string, nights: number): string {
+  const n = Math.max(1, Math.floor(nights));
+  return addDateOnlyDays(checkIn, n);
+}
+
+/** 두 "YYYY-MM-DD" 사이 박수(checkOut exclusive). checkOut ≤ checkIn이면 0. 잘못된 형식은 0. */
+export function nightsBetween(checkIn: string, checkOut: string): number {
+  const a = parseUtcDateOnly(checkIn);
+  const b = parseUtcDateOnly(checkOut);
+  if (!a || !b) return 0;
+  const diff = Math.round((b.getTime() - a.getTime()) / DAY_MS);
+  return diff > 0 ? diff : 0;
+}
+
 // ── 빠른 날짜 필터 (QuickDateFilter, T-admin-quick-date-filter) ──
 // VN(Asia/Ho_Chi_Minh)은 UTC+7 고정(DST 없음). 주(week)는 월요일 시작.
 

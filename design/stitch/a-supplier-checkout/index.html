@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html class="light" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Villa PMS — Trả phòng (Check-out)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+        darkMode: "class",
+        theme: { extend: {
+            colors: { primary:"#0D9488", secondary:"#F59E0B", available:"#16A34A", booked:"#2563EB", danger:"#DC2626" },
+            borderRadius: { "DEFAULT":"0.5rem","lg":"1rem","xl":"1.5rem","full":"9999px" },
+            fontFamily: { headline:["Be Vietnam Pro","sans-serif"], body:["Be Vietnam Pro","sans-serif"], label:["Be Vietnam Pro","sans-serif"], mono:["JetBrains Mono","monospace"] }
+        } }
+    }
+</script>
+<style>
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    body { min-height: max(884px, 100dvh); }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .dashed { background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='14' ry='14' stroke='%23CBD5E1FF' stroke-width='2' stroke-dasharray='6%2c 8'/%3e%3c/svg%3e"); }
+</style>
+</head>
+<body class="bg-neutral-50 font-body text-neutral-900">
+
+<!-- ===== App bar ===== -->
+<header class="bg-white border-b border-neutral-100 shadow-sm w-full top-0 sticky z-30">
+<div class="flex items-center gap-3 px-3 h-16">
+<button class="w-10 h-10 flex items-center justify-center rounded-full text-neutral-500 active:scale-90 transition-transform">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<div class="flex-1">
+<h1 class="font-headline font-bold text-lg leading-tight">Trả phòng</h1>
+<p class="text-xs text-neutral-400 font-medium">Sonasea V12 · Trần Minh + 5</p>
+</div>
+<span class="px-3 py-1 bg-teal-50 text-teal-700 border border-teal-100 rounded-full text-xs font-bold whitespace-nowrap">16/07</span>
+</div>
+</header>
+
+<main class="px-4 pt-4 pb-44 space-y-4 max-w-md mx-auto">
+
+<!-- ===== Photo comparison grid ===== -->
+<section>
+<div class="flex items-center justify-between mb-3 px-1">
+<h2 class="font-bold text-neutral-800 flex items-center gap-2"><span class="material-symbols-outlined text-teal-600">photo_library</span> So sánh phòng</h2>
+<div class="flex gap-3 text-[10px] text-neutral-400 font-semibold">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-booked"></span>Gốc</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-available"></span>Hiện tại</span>
+</div>
+</div>
+
+<!-- Phòng khách (done) -->
+<div class="bg-white rounded-2xl border border-neutral-100 shadow-sm p-3 mb-3">
+<div class="flex items-center justify-between mb-2 px-1">
+<h3 class="font-bold text-neutral-700 text-sm">Phòng khách</h3>
+<span class="text-[10px] text-available bg-green-50 px-2 py-0.5 rounded-full font-bold">Đã chụp</span>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<div class="space-y-1">
+<p class="text-[10px] text-neutral-400 font-bold uppercase px-0.5">Ảnh gốc</p>
+<div class="aspect-[4/3] rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center text-neutral-300"><span class="material-symbols-outlined text-3xl">weekend</span></div>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] text-neutral-400 font-bold uppercase px-0.5">Ảnh hiện tại</p>
+<div class="aspect-[4/3] rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center text-neutral-300 relative">
+<span class="material-symbols-outlined text-3xl">weekend</span>
+<span class="absolute bottom-1 right-1 w-5 h-5 bg-available rounded-full flex items-center justify-center text-white"><span class="material-symbols-outlined text-[12px]" style="font-variation-settings:'FILL' 1;">check</span></span>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Bếp (done) -->
+<div class="bg-white rounded-2xl border border-neutral-100 shadow-sm p-3 mb-3">
+<div class="flex items-center justify-between mb-2 px-1">
+<h3 class="font-bold text-neutral-700 text-sm">Bếp</h3>
+<span class="text-[10px] text-available bg-green-50 px-2 py-0.5 rounded-full font-bold">Đã chụp</span>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<div class="space-y-1">
+<p class="text-[10px] text-neutral-400 font-bold uppercase px-0.5">Ảnh gốc</p>
+<div class="aspect-[4/3] rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center text-neutral-300"><span class="material-symbols-outlined text-3xl">countertops</span></div>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] text-neutral-400 font-bold uppercase px-0.5">Ảnh hiện tại</p>
+<div class="aspect-[4/3] rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center text-neutral-300 relative">
+<span class="material-symbols-outlined text-3xl">countertops</span>
+<span class="absolute bottom-1 right-1 w-5 h-5 bg-available rounded-full flex items-center justify-center text-white"><span class="material-symbols-outlined text-[12px]" style="font-variation-settings:'FILL' 1;">check</span></span>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Hồ bơi (needs photo) -->
+<div class="bg-white rounded-2xl border border-neutral-100 shadow-sm p-3">
+<div class="flex items-center justify-between mb-2 px-1">
+<h3 class="font-bold text-neutral-700 text-sm">Hồ bơi</h3>
+<span class="text-[10px] text-secondary bg-amber-50 px-2 py-0.5 rounded-full font-bold">Chưa chụp</span>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<div class="space-y-1">
+<p class="text-[10px] text-neutral-400 font-bold uppercase px-0.5">Ảnh gốc</p>
+<div class="aspect-[4/3] rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center text-neutral-300"><span class="material-symbols-outlined text-3xl">pool</span></div>
+</div>
+<div class="space-y-1">
+<p class="text-[10px] text-neutral-400 font-bold uppercase px-0.5">Ảnh hiện tại</p>
+<button class="dashed w-full aspect-[4/3] rounded-xl flex flex-col items-center justify-center gap-1 text-teal-600 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-3xl">photo_camera</span>
+<span class="text-[11px] font-bold">Chụp ảnh</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ===== Damage report ===== -->
+<section class="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
+<div class="px-4 py-3 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-danger">report</span>
+<h2 class="font-bold text-neutral-800">Hư hỏng</h2>
+</div>
+<!-- toggle ON -->
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked type="checkbox" class="sr-only peer"/>
+<div class="w-12 h-7 bg-neutral-200 rounded-full peer peer-checked:bg-danger after:content-[''] after:absolute after:top-1 after:left-1 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5 after:shadow"></div>
+</label>
+</div>
+<!-- conditional fields (shown because toggle ON) -->
+<div class="px-4 pb-4 space-y-4 border-t border-neutral-100 pt-4">
+<p class="text-[11px] text-neutral-400 font-medium -mt-1">Bật khi có hư hỏng để thêm ảnh &amp; số tiền trừ.</p>
+<div>
+<label class="text-[10px] text-neutral-400 font-bold uppercase">Ảnh hư hỏng</label>
+<div class="mt-1.5 flex gap-2">
+<div class="relative w-24 h-24 rounded-xl overflow-hidden border-2 border-danger/40 bg-neutral-100 flex items-center justify-center text-neutral-300">
+<span class="material-symbols-outlined text-2xl">broken_image</span>
+<button class="absolute top-1 right-1 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center text-white"><span class="material-symbols-outlined text-[13px]">close</span></button>
+</div>
+<button class="dashed w-24 h-24 rounded-xl flex flex-col items-center justify-center gap-1 text-neutral-400 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-2xl">add_a_photo</span>
+</button>
+</div>
+</div>
+<div>
+<label class="text-[10px] text-neutral-400 font-bold uppercase">Số tiền trừ</label>
+<div class="mt-1.5 flex items-center gap-2 bg-red-50 border-2 border-danger/40 rounded-xl px-4 h-14 focus-within:ring-2 focus-within:ring-danger">
+<span class="material-symbols-outlined text-danger">remove_circle</span>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-lg font-extrabold tabular-nums text-danger placeholder-red-200 p-0" inputmode="numeric" type="text" value="1.500.000"/>
+<span class="text-danger font-bold">₫</span>
+</div>
+</div>
+</div>
+</section>
+
+<!-- ===== Deposit settlement summary ===== -->
+<section class="bg-teal-600 rounded-2xl p-5 text-white shadow-lg shadow-teal-900/10">
+<div class="space-y-2.5 text-sm">
+<div class="flex justify-between"><span class="opacity-80">Tiền cọc đã nhận</span><span class="font-semibold tabular-nums">5.000.000₫</span></div>
+<div class="flex justify-between"><span class="opacity-80">Trừ hư hỏng</span><span class="font-semibold tabular-nums text-amber-200">− 1.500.000₫</span></div>
+<div class="border-t border-white/20 pt-3 flex justify-between items-center">
+<span class="font-bold">Hoàn lại khách</span>
+<span class="text-2xl font-extrabold tabular-nums">3.500.000₫</span>
+</div>
+</div>
+</section>
+
+<!-- ===== Minibar consumption settlement (ADR-0021 D6) ===== -->
+<!-- 미니바=운영자 재고·매출. 공급자 체크아웃에서 소비분 정산 입력. 판매가(VND)만 — 원가·마진 비노출 -->
+<section class="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
+<div class="px-4 py-3 border-b border-neutral-100 flex items-center gap-2">
+<span class="material-symbols-outlined text-teal-600">local_bar</span>
+<h2 class="font-bold text-neutral-800">Minibar đã dùng</h2>
+<span class="ml-auto text-[10px] font-bold text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-full whitespace-nowrap">Nhập số đã dùng</span>
+</div>
+<div class="divide-y divide-neutral-100">
+
+<!-- item: Nước suối -->
+<div class="flex items-center gap-3 px-4 py-3">
+<div class="flex-1 min-w-0">
+<p class="font-semibold text-neutral-800 leading-tight">Nước suối</p>
+<p class="text-[11px] text-neutral-400">Bày 4 · 15.000₫ / chai</p>
+</div>
+<div class="flex items-center gap-2.5 shrink-0">
+<button type="button" class="w-9 h-9 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-500 active:scale-90 transition-transform"><span class="material-symbols-outlined text-[18px]">remove</span></button>
+<span class="text-lg font-extrabold w-6 text-center tabular-nums">2</span>
+<button type="button" class="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center active:scale-90 transition-transform shadow-sm"><span class="material-symbols-outlined text-[18px]">add</span></button>
+</div>
+<div class="w-20 text-right shrink-0">
+<span class="font-bold tabular-nums text-neutral-800">30.000₫</span>
+</div>
+</div>
+
+<!-- item: Nước ngọt -->
+<div class="flex items-center gap-3 px-4 py-3">
+<div class="flex-1 min-w-0">
+<p class="font-semibold text-neutral-800 leading-tight">Nước ngọt</p>
+<p class="text-[11px] text-neutral-400">Bày 2 · 20.000₫ / lon</p>
+</div>
+<div class="flex items-center gap-2.5 shrink-0">
+<button type="button" class="w-9 h-9 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-500 active:scale-90 transition-transform"><span class="material-symbols-outlined text-[18px]">remove</span></button>
+<span class="text-lg font-extrabold w-6 text-center tabular-nums">1</span>
+<button type="button" class="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center active:scale-90 transition-transform shadow-sm"><span class="material-symbols-outlined text-[18px]">add</span></button>
+</div>
+<div class="w-20 text-right shrink-0">
+<span class="font-bold tabular-nums text-neutral-800">20.000₫</span>
+</div>
+</div>
+
+<!-- item: Bia (none consumed) -->
+<div class="flex items-center gap-3 px-4 py-3">
+<div class="flex-1 min-w-0">
+<p class="font-semibold text-neutral-800 leading-tight">Bia</p>
+<p class="text-[11px] text-neutral-400">Bày 6 · 35.000₫ / lon</p>
+</div>
+<div class="flex items-center gap-2.5 shrink-0">
+<button type="button" class="w-9 h-9 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-300 active:scale-90 transition-transform"><span class="material-symbols-outlined text-[18px]">remove</span></button>
+<span class="text-lg font-extrabold w-6 text-center tabular-nums text-neutral-300">0</span>
+<button type="button" class="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center active:scale-90 transition-transform shadow-sm"><span class="material-symbols-outlined text-[18px]">add</span></button>
+</div>
+<div class="w-20 text-right shrink-0">
+<span class="font-bold tabular-nums text-neutral-300">0₫</span>
+</div>
+</div>
+
+<!-- item: Bánh kẹo -->
+<div class="flex items-center gap-3 px-4 py-3">
+<div class="flex-1 min-w-0">
+<p class="font-semibold text-neutral-800 leading-tight">Bánh kẹo</p>
+<p class="text-[11px] text-neutral-400">Bày 3 · 25.000₫ / gói</p>
+</div>
+<div class="flex items-center gap-2.5 shrink-0">
+<button type="button" class="w-9 h-9 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-500 active:scale-90 transition-transform"><span class="material-symbols-outlined text-[18px]">remove</span></button>
+<span class="text-lg font-extrabold w-6 text-center tabular-nums">3</span>
+<button type="button" class="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center active:scale-90 transition-transform shadow-sm"><span class="material-symbols-outlined text-[18px]">add</span></button>
+</div>
+<div class="w-20 text-right shrink-0">
+<span class="font-bold tabular-nums text-neutral-800">75.000₫</span>
+</div>
+</div>
+
+</div>
+<!-- minibar total -->
+<div class="flex items-center justify-between px-4 py-3 bg-teal-50 border-t border-teal-100">
+<span class="font-bold text-teal-800">Tổng minibar</span>
+<span class="text-xl font-extrabold tabular-nums text-teal-700">125.000₫</span>
+</div>
+</section>
+
+</main>
+
+<!-- ===== Sticky action ===== -->
+<div class="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-neutral-100 px-4 pt-3 pb-safe z-40">
+<button class="w-full h-14 bg-teal-600 text-white font-bold text-lg rounded-2xl shadow-lg shadow-teal-900/10 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mb-3">
+<span class="material-symbols-outlined">logout</span>
+Hoàn tất trả phòng
+</button>
+</div>
+</body></html>
