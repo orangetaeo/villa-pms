@@ -2405,7 +2405,8 @@
       "contact": "[Danh thiếp]",
       "contactNamed": "[Danh thiếp] {name}",
       "video": "[Video]",
-      "location": "[Vị trí]"
+      "location": "[Vị trí]",
+      "link": "[Liên kết]"
     },
     "card": {
       "villaShare": "Chia sẻ villa",
@@ -2455,11 +2456,11 @@
       "replyingTo": "Trả lời {name}",
       "fileFallback": "[Tệp]",
       "jumpToOriginal": "Đến tin nhắn gốc",
-      "notSupported": "Không thể trả lời tin nhắn cũ."
+      "notSupported": "Tin nhắn này nhận trước khi có tính năng trả lời nên không trích dẫn được. Tin nhắn gần đây vẫn trả lời được."
     },
     "react": {
       "action": "Cảm xúc",
-      "notSupported": "Không thể thêm cảm xúc cho tin nhắn cũ.",
+      "notSupported": "Tin nhắn này nhận trước khi có tính năng cảm xúc nên không thêm được. Tin nhắn gần đây vẫn thêm được.",
       "failed": "Gửi cảm xúc thất bại. Vui lòng thử lại sau."
     },
     "attach": {

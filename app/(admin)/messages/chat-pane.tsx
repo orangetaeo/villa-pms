@@ -113,6 +113,9 @@ export interface ChatMessage {
   quotedSender: string | null;
   // 리액션 집계(R3-3) {HEART:2,...} — 있으면 버블 하단 배지.
   reactions: Record<string, number> | null;
+  // 답글·리액션 가능 여부 — zca-js는 인용/리액션에 cliMsgId+zaloMsgId를 모두 요구한다.
+  // 답글 기능 배포 전 옛 메시지(cliMsgId 없음)는 인용·리액션 불가 → 액션 버튼을 숨긴다(실패할 동작 비노출).
+  canInteract: boolean;
 }
 
 // 리액션 아이콘 키 → 이모지 (picker·배지 표시). 키는 REACTION_KEYS(zca-js Reactions enum)와 동일.
@@ -1163,6 +1166,7 @@ function MessageActions({
   replyTarget,
   align,
   active,
+  canInteract,
   onReply,
   t,
   router,
@@ -1172,6 +1176,9 @@ function MessageActions({
   replyTarget: ReplyTarget;
   align: "left" | "right";
   active: boolean;
+  // 답글·리액션 가능 여부(cliMsgId+zaloMsgId 보유). false면 액션 버튼을 렌더하지 않는다 —
+  // 옛 메시지(기능 배포 전)는 zca-js가 인용·리액션을 못 보내므로 "실패할 동작"을 애초에 숨긴다.
+  canInteract: boolean;
   onReply: (target: ReplyTarget) => void;
   t: ReturnType<typeof useTranslations>;
   router: ReturnType<typeof useRouter>;
@@ -1214,6 +1221,10 @@ function MessageActions({
       setBusy(false);
     }
   }
+
+  // 인용·리액션 불가 메시지(옛 메시지 — cliMsgId 없음)는 액션 버튼 자체를 숨긴다.
+  //   → 사용자가 답글/리액션을 시도해 "보낼 수 없습니다" 오류를 보는 일이 없게(혼란 방지).
+  if (!canInteract) return null;
 
   // 평소 숨김(opacity-0). PC는 group-hover/focus-within으로 표시(CSS).
   // 모바일은 버블 탭으로 active=true일 때, 그리고 picker가 열려 있으면 항상 표시.
@@ -1355,6 +1366,9 @@ function replyPreviewText(message: ChatMessage, t: ReturnType<typeof useTranslat
       return t("preview.video");
     case "location":
       return message.text || t("preview.location");
+    case "link":
+      // 링크 카드 — 제목(text 첫 줄)이 있으면 그걸, 없으면 라벨.
+      return message.text.split("\n")[0]?.trim() || t("preview.link");
     default:
       return message.text;
   }
@@ -1410,7 +1424,9 @@ function InboundBubble({
             t={t}
           />
         )}
-        {message.msgType === "photo" && message.attachmentUrls.length > 0 ? (
+        {message.msgType === "link" ? (
+          <LinkPreviewCard message={message} inbound t={t} />
+        ) : message.msgType === "photo" && message.attachmentUrls.length > 0 ? (
           <PhotoCard
             urls={message.attachmentUrls}
             caption={message.text}
@@ -1477,6 +1493,7 @@ function InboundBubble({
             replyTarget={replyTarget}
             align="left"
             active={actionsActive}
+            canInteract={message.canInteract}
             onReply={onReply}
             t={t}
             router={router}
@@ -1529,7 +1546,10 @@ function OutboundBubble({
   let maxW = "max-w-[70%]";
   // 특수 타입 카드(sticker/voice/call/contact/video/location) — 발·수신 공통 분기 재사용.
   const typeCard = renderTypeCard(message, false, t);
-  if (message.msgType === "photo" && message.attachmentUrls.length > 0) {
+  if (message.msgType === "link") {
+    maxW = "max-w-[78%]";
+    card = <LinkPreviewCard message={message} inbound={false} t={t} />;
+  } else if (message.msgType === "photo" && message.attachmentUrls.length > 0) {
     card = <PhotoCard urls={message.attachmentUrls} caption={message.text} />;
   } else if (message.msgType === "file") {
     card = <FileCard fileName={message.text} url={message.attachmentUrls[0] ?? null} t={t} />;
@@ -1630,6 +1650,7 @@ function OutboundBubble({
             replyTarget={replyTarget}
             align="right"
             active={actionsActive}
+            canInteract={message.canInteract}
             onReply={onReply}
             t={t}
             router={router}
@@ -1843,6 +1864,89 @@ function StickerCard({ urls, t }: { urls: string[]; t: ReturnType<typeof useTran
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={urls[0]} alt={t("typeCard.sticker")} className="w-[120px] h-[120px] object-contain" />
     </button>
+  );
+}
+
+/**
+ * 링크/구글지도/장소 공유 미리보기 카드 (msgType "link").
+ * 인코딩(zalo-inbound makeLinkCard): attachmentUrls[0]=링크 URL, [1]=썸네일(선택),
+ *   text="제목\n설명"(설명 선택). 카드 클릭 시 URL 열기 — 모바일은 OS 유니버설 링크로
+ *   구글지도 앱(또는 브라우저)이 바로 뜬다(사용자 요청). 첨부 이미지처럼 썸네일+제목+설명+도메인.
+ */
+function LinkPreviewCard({
+  message,
+  inbound,
+  t,
+}: {
+  message: ChatMessage;
+  inbound: boolean;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const url = message.attachmentUrls[0] ?? "";
+  const thumb = message.attachmentUrls[1] ?? null;
+  const lines = message.text
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const title = lines[0] ?? url;
+  const description = lines.slice(1).join(" ");
+  let domain = "";
+  try {
+    domain = new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    /* URL 파싱 실패 — 도메인 생략 */
+  }
+  const isMap = isGoogleMapsUrl(url);
+
+  // 발신(blue 버블)·수신(slate 버블)별 색. 카드 자체는 항상 약간 어두운 패널 + 테두리.
+  const shell = inbound ? "bg-slate-900/60 border-slate-700" : "bg-blue-700/40 border-blue-400/40";
+  const titleColor = inbound ? "text-slate-100" : "text-white";
+  const descColor = inbound ? "text-slate-400" : "text-blue-100/90";
+  const domainColor = inbound ? "text-slate-500" : "text-blue-100/70";
+  const urlLinkColor = inbound ? "text-blue-400 hover:text-blue-300" : "text-white hover:text-blue-50";
+
+  return (
+    <div className="flex flex-col gap-1 w-[260px] max-w-full">
+      {/* 상단 원본 URL — 첨부 이미지처럼 링크 위에 노출(클릭 가능). 길면 한 줄로 자름. */}
+      {url && (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className={`block text-xs truncate underline decoration-1 underline-offset-2 ${urlLinkColor}`}
+        >
+          {url}
+        </a>
+      )}
+      {/* 미리보기 카드 — 전체 클릭 시 링크(지도 앱) 열기 */}
+      <a
+        href={url || undefined}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className={`block overflow-hidden rounded-xl border ${shell} transition-colors hover:brightness-110`}
+      >
+        {thumb && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={thumb} alt="" className="w-full h-36 object-cover bg-slate-800" />
+        )}
+        <div className="px-3 py-2">
+          <p className={`text-sm font-bold leading-snug line-clamp-2 ${titleColor}`}>{title}</p>
+          {description && (
+            <p className={`mt-0.5 text-xs line-clamp-1 ${descColor}`}>{description}</p>
+          )}
+          {domain && (
+            <p className={`mt-1 flex items-center gap-1 text-[11px] ${domainColor}`}>
+              <span className="material-symbols-outlined text-[14px] leading-none">
+                {isMap ? "location_on" : "link"}
+              </span>
+              <span className="truncate">{domain}</span>
+            </p>
+          )}
+        </div>
+      </a>
+    </div>
   );
 }
 

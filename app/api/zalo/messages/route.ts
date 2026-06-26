@@ -133,6 +133,7 @@ export async function GET(req: Request) {
       createdAt: true,
       zaloMsgId: true,
       globalMsgId: true,
+      cliMsgId: true,
       quotedMsgId: true,
       quotedText: true,
       quotedSender: true,
