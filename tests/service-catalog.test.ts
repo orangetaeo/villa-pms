@@ -3,6 +3,8 @@ import {
   parseCatalogOptions,
   validateCatalogItem,
   resolveOrderPricing,
+  stripOptionCosts,
+  generateOptionKey,
   ServiceSelectionError,
   type CatalogItemInput,
   type CatalogOptions,
@@ -48,6 +50,69 @@ describe("validateCatalogItem — VND 전용", () => {
   it("옵션 가격 형식 위반", () => {
     const options: CatalogOptions = { addons: [{ key: "a", labelKo: "족욕", priceVnd: "bad" }] };
     expect(validateCatalogItem({ ...base, options })).toContain("INVALID_OPTION");
+  });
+  it("옵션 원가 형식 위반(costVnd)", () => {
+    const options: CatalogOptions = {
+      variants: [{ key: "90", labelKo: "90분", priceVnd: "850000", costVnd: "abc" }],
+    };
+    expect(validateCatalogItem({ ...base, options })).toContain("INVALID_OPTION");
+  });
+  it("옵션 원가·설명 정상은 통과", () => {
+    const options: CatalogOptions = {
+      variants: [
+        { key: "90", labelKo: "90분", priceVnd: "850000", costVnd: "500000", descKo: "전신 + 발마사지" },
+      ],
+    };
+    expect(validateCatalogItem({ ...base, options })).toEqual([]);
+  });
+});
+
+describe("stripOptionCosts — 마진 비공개(원칙2)", () => {
+  const withCosts: CatalogOptions = {
+    variants: [
+      { key: "90", labelKo: "90분", priceVnd: "850000", costVnd: "500000", descKo: "전신", descI18n: { en: "Full", vi: "Toàn thân", zh: "全身", ru: "Всё" } },
+    ],
+    addons: [{ key: "foot", labelKo: "족욕", priceVnd: "80000", costVnd: "30000" }],
+    modifiers: [{ key: "home", labelKo: "출장", priceVnd: "100000", costVnd: "60000" }],
+  };
+
+  it("모든 그룹에서 costVnd 키 자체를 제거(어떤 옵션에도 cost 없음)", () => {
+    const out = stripOptionCosts(withCosts);
+    const allOpts = [...(out.variants ?? []), ...(out.addons ?? []), ...(out.modifiers ?? [])];
+    expect(allOpts.length).toBe(3);
+    for (const o of allOpts) {
+      expect("costVnd" in o).toBe(false);
+    }
+  });
+
+  it("판매가·라벨·설명·번역은 보존", () => {
+    const out = stripOptionCosts(withCosts);
+    expect(out.variants?.[0]).toMatchObject({
+      key: "90",
+      labelKo: "90분",
+      priceVnd: "850000",
+      descKo: "전신",
+      descI18n: { en: "Full", vi: "Toàn thân", zh: "全身", ru: "Всё" },
+    });
+    expect(out.addons?.[0].priceVnd).toBe("80000");
+  });
+
+  it("null/비객체는 그대로 반환", () => {
+    expect(stripOptionCosts(null)).toBeNull();
+    expect(stripOptionCosts(undefined)).toBeUndefined();
+  });
+
+  it("원본을 변형하지 않음(불변)", () => {
+    stripOptionCosts(withCosts);
+    expect(withCosts.variants?.[0].costVnd).toBe("500000");
+  });
+});
+
+describe("generateOptionKey — 코드칸 제거(자동 key)", () => {
+  it("매번 비어있지 않은 유일한 key 생성", () => {
+    const keys = new Set(Array.from({ length: 50 }, () => generateOptionKey()));
+    expect(keys.size).toBe(50);
+    for (const k of keys) expect(k.length).toBeGreaterThan(3);
   });
 });
 
