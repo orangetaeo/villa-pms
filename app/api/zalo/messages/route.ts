@@ -24,6 +24,7 @@ import {
 } from "@/lib/zalo-runtime";
 import { isOperator } from "@/lib/permissions";
 import { toChatMessages, chatInitials } from "@/lib/zalo-chat-message";
+import { resolveQuotedAnchors } from "@/lib/zalo-quote-anchor";
 
 const bodySchema = z.object({
   conversationId: z.string().min(1),
@@ -131,6 +132,7 @@ export async function GET(req: Request) {
       status: true,
       createdAt: true,
       zaloMsgId: true,
+      globalMsgId: true,
       quotedMsgId: true,
       quotedText: true,
       quotedSender: true,
@@ -142,12 +144,14 @@ export async function GET(req: Request) {
   // 화면 표시 순서(오래된→최신)로 재정렬 후 page.tsx와 동일 매핑.
   const ordered = rows.slice().reverse();
   const nextCursor = ordered.length > 0 ? ordered[0].createdAt.toISOString() : null;
-  const messages = toChatMessages(ordered, {
+  const mapped = toChatMessages(ordered, {
     isGroup,
     memberMap,
     headerAvatarUrl: conv.avatarUrl,
     headerInitials: chatInitials(headerName),
   });
+  // 답글 인용 점프 앵커 변환 — 수신 답글의 quotedMsgId(globalMsgId)를 버블 앵커 zaloMsgId로 치환(prepend 정합).
+  const messages = await resolveQuotedAnchors(mapped, ordered, conversationId);
 
   return NextResponse.json({ messages, hasMore, nextCursor });
 }

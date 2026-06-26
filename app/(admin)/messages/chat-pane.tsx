@@ -238,6 +238,93 @@ function MentionText({
   return <>{out}</>;
 }
 
+// 본문 내 http(s) URL 탐지. 끝의 마침표·괄호 등은 아래에서 따로 다듬는다(URL 뒤 문장부호 흡수 방지).
+const URL_RE = /(https?:\/\/[^\s]+)/g;
+// URL 끝에 붙은 문장부호 — 링크에서 제외하고 일반 텍스트로 되돌린다.
+const URL_TRAILING_RE = /[.,;:!?)\]}"'»]+$/;
+
+/** 구글지도 공유 링크인지(지도 앱으로 바로 열리는 URL). 짧은 링크(goo.gl/maps·maps.app.goo.gl) 포함. */
+function isGoogleMapsUrl(url: string): boolean {
+  return /(?:google\.[a-z.]+\/maps|maps\.google\.[a-z.]+|goo\.gl\/maps|maps\.app\.goo\.gl|g\.co\/maps)/i.test(
+    url
+  );
+}
+
+/**
+ * 본문을 URL 링크 + @멘션 강조로 렌더(MentionText 합성).
+ * - http(s) URL → 새 탭 링크(target=_blank). 모바일에선 OS 유니버설 링크로 해당 앱이 열린다.
+ * - 구글지도 URL → 긴 URL 대신 "📍 지도 열기" 칩으로(클릭 시 지도 앱). 사용자 요청(지도 링크 공유 시 바로 열기).
+ * - URL이 아닌 구간 → 기존 MentionText(그룹 @이름 강조).
+ * 링크 클릭이 버블 탭(액션 토글)으로 전파되지 않도록 stopPropagation.
+ */
+function RichText({
+  text,
+  highlightClass = "text-sky-400 font-medium",
+  linkClass = "underline decoration-1 underline-offset-2 break-all",
+  mapChipClass = "bg-slate-700/70 text-slate-100 hover:bg-slate-600",
+  t,
+}: {
+  text: string;
+  highlightClass?: string;
+  linkClass?: string;
+  mapChipClass?: string;
+  t?: ReturnType<typeof useTranslations>;
+}) {
+  if (!text || !text.includes("http")) {
+    return <MentionText text={text} highlightClass={highlightClass} />;
+  }
+  const out: ReactNode[] = [];
+  let last = 0;
+  let key = 0;
+  let m: RegExpExecArray | null;
+  URL_RE.lastIndex = 0;
+  while ((m = URL_RE.exec(text)) !== null) {
+    if (m.index > last) {
+      out.push(
+        <MentionText key={key++} text={text.slice(last, m.index)} highlightClass={highlightClass} />
+      );
+    }
+    let url = m[0];
+    // URL 끝 문장부호는 링크에서 떼어 일반 텍스트로(괄호로 감싼 링크·문장 끝 마침표 대응).
+    const trail = url.match(URL_TRAILING_RE)?.[0] ?? "";
+    if (trail) url = url.slice(0, url.length - trail.length);
+    const isMap = isGoogleMapsUrl(url);
+    out.push(
+      isMap ? (
+        <a
+          key={key++}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className={`inline-flex items-center gap-1 align-middle rounded-full px-2 py-0.5 my-0.5 text-[12px] font-bold transition-colors ${mapChipClass}`}
+        >
+          <span className="material-symbols-outlined text-[15px] leading-none">location_on</span>
+          {t?.("typeCard.openMap") ?? "지도 열기"}
+        </a>
+      ) : (
+        <a
+          key={key++}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className={linkClass}
+        >
+          {url}
+        </a>
+      )
+    );
+    if (trail) out.push(trail);
+    last = m.index + m[0].length;
+    if (URL_RE.lastIndex === m.index) URL_RE.lastIndex++;
+  }
+  if (last < text.length) {
+    out.push(<MentionText key={key++} text={text.slice(last)} highlightClass={highlightClass} />);
+  }
+  return <>{out}</>;
+}
+
 export function ChatPane({
   conversationId,
   header,
@@ -1344,11 +1431,11 @@ function InboundBubble({
           typeCard
         ) : (
           <div className="bg-slate-800 rounded-xl rounded-bl-sm px-4 py-3">
-            <p className="text-sm text-slate-100 whitespace-pre-wrap break-words"><MentionText text={message.text} /></p>
+            <p className="text-sm text-slate-100 whitespace-pre-wrap break-words"><RichText text={message.text} t={t} /></p>
             {message.translatedText && showTranslation && (
               <div className="border-t border-slate-700 mt-2 pt-2 flex items-start justify-between gap-3">
                 <p className="text-sm text-slate-300 flex-1 whitespace-pre-wrap break-words">
-                  <MentionText text={message.translatedText} />
+                  <RichText text={message.translatedText} t={t} />
                   <span className="text-[9px] text-slate-500 font-bold ml-1.5 align-middle">
                     {t("translationLabel")}
                   </span>
@@ -1496,11 +1583,23 @@ function OutboundBubble({
     card = (
       <div className="bg-blue-600 rounded-xl rounded-br-sm px-4 py-3 inline-block text-left">
         <p className="text-sm text-white whitespace-pre-wrap break-words">
-          <MentionText text={message.text} highlightClass="font-bold text-sky-200" />
+          <RichText
+            text={message.text}
+            highlightClass="font-bold text-sky-200"
+            linkClass="underline decoration-1 underline-offset-2 break-all text-white"
+            mapChipClass="bg-white/20 text-white hover:bg-white/30"
+            t={t}
+          />
         </p>
         {message.translatedText && (
           <p className="mt-1.5 border-t border-white/20 pt-1.5 text-xs text-blue-100/90 whitespace-pre-wrap break-words">
-            <MentionText text={message.translatedText} highlightClass="font-bold text-white" />
+            <RichText
+              text={message.translatedText}
+              highlightClass="font-bold text-white"
+              linkClass="underline decoration-1 underline-offset-2 break-all text-white"
+              mapChipClass="bg-white/20 text-white hover:bg-white/30"
+              t={t}
+            />
           </p>
         )}
       </div>

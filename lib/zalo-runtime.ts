@@ -40,6 +40,7 @@ import {
   classifyInbound,
   isSelfMessage,
   buildInboundKey,
+  buildGlobalMsgId,
   parseZaloTs,
   buildCliMsgId,
   extractQuote,
@@ -684,6 +685,9 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
     const displayText = text.trim().length > 0 ? text : UNKNOWN_MESSAGE_FALLBACK;
 
     const zaloMsgId = buildInboundKey(userMsg.data);
+    // 답글 인용 점프 앵커 변환용 — 메시지별 globalMsgId 보관(quote.globalMsgId와 동일 체계). 없으면 null.
+    // zca-js TMessage 타입엔 globalMsgId 선언이 없으나 런타임엔 실려 온다(Nike도 msg.globalMsgId 사용) → 캐스트.
+    const globalMsgId = buildGlobalMsgId(userMsg.data as { globalMsgId?: unknown });
     // USER: data.dName = 상대 표시명 → 대화 displayName 보강에 사용.
     // GROUP: data.dName = "발신자"명(그룹명 아님)이라 대화명으로 쓰면 오표기 → null로 두고
     //        그룹명은 maybeRefreshGroupMembers(getGroupInfo)가 채운다. 발신자명은 groupMembers 스냅샷에서 매핑.
@@ -711,6 +715,7 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
         msgType: classified.msgType,
         attachmentUrls: classified.attachmentUrls,
         zaloMsgId,
+        globalMsgId,
         createdAt: parseZaloTs(data.ts) ?? new Date(),
         displayName,
         cliMsgId,
@@ -757,6 +762,7 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       msgType: classified.msgType,
       attachmentUrls: classified.attachmentUrls,
       zaloMsgId,
+      globalMsgId,
       displayName,
       // 전화번호 매칭은 사람이 쓴 실제 본문만 대상 — 폴백·라벨로 오매칭 방지.
       senderPhone: null,

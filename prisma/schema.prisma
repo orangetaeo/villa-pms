@@ -1186,11 +1186,18 @@ model ZaloMessage {
   quotedText   String? // 인용 본문 스냅샷 (인용 블록 표시용)
   quotedSender String? // 인용 발신자 표시명 스냅샷
 
+  // 답글 인용 점프 앵커 변환용 (additive) — zca-js quote.globalMsgId는 버블 앵커 zaloMsgId(=msgId)와
+  // 다른 ID 체계라, 수신 답글의 quotedMsgId(=globalMsgId)를 zaloMsgId로 변환하려면 메시지별 globalMsgId
+  // 보관이 필요하다(Nike resolveQuoteMsgIds 패턴). 기존 행은 null — 신규 수신·발신분부터(백필 불필요).
+  globalMsgId  String? // zca-js globalMsgId — 답글 인용 앵커(globalMsgId→zaloMsgId) 변환 키
+
   // 리액션 집계 — 수신 reaction 이벤트로 갱신. 예: { "HEART": 2, "LIKE": 1 }.
   // Phase 1은 누가 달았는지까지는 불필요 — 아이콘별 카운트 집계만. 아이콘은 문자열(zca-js Reactions enum 키, 예 "HEART").
   reactions Json? // 메시지에 달린 리액션 집계
 
   @@index([conversationId, createdAt])
+  // 답글 인용 앵커 DB 폴백(배치 밖 원본) 조회용 — where conversationId + globalMsgId in [...].
+  @@index([conversationId, globalMsgId])
 }
 
 // ===================== Zalo 봇 계정 (ADR-0006 — zca-js 개인 계정 QR 로그인) =====================

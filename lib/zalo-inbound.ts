@@ -617,6 +617,19 @@ export function buildCliMsgId(data: { cliMsgId?: unknown }): string | null {
   return null;
 }
 
+/**
+ * zca-js globalMsgId 추출 (답글 인용 점프 앵커 변환용).
+ * 답글의 quote.globalMsgId와 동일 ID 체계 — 메시지별 globalMsgId를 저장해 두면, 수신 답글의
+ * quotedMsgId(=원본 globalMsgId)를 버블 앵커 zaloMsgId(=msgId)로 변환할 수 있다(Nike 패턴).
+ * data.globalMsgId(문자열/숫자)를 문자열 정규화. 없으면 null(과거 메시지 — 점프 불가, 무해).
+ */
+export function buildGlobalMsgId(data: { globalMsgId?: unknown }): string | null {
+  const raw = data?.globalMsgId;
+  if (typeof raw === "string" && raw.length > 0) return raw;
+  if (typeof raw === "number" && Number.isFinite(raw) && raw !== 0) return String(raw);
+  return null;
+}
+
 /** 파싱된 인용(답글) 스냅샷 — ZaloMessage.quoted* 저장용. */
 export interface ParsedQuote {
   /** 인용 원본 메시지 zaloMsgId (참조 힌트, FK 아님). 없으면 null */
@@ -680,6 +693,8 @@ export interface ParsedInbound {
   attachmentUrls?: string[];
   /** zca-js 서버 msgId — ZaloMessage.zaloMsgId(멱등). 없으면 null */
   zaloMsgId: string | null;
+  /** zca-js globalMsgId — 답글 인용 점프 앵커 변환용(quote.globalMsgId와 동일 체계). 없으면 null */
+  globalMsgId?: string | null;
   /** 발신자 표시명(있으면 ZaloConversation.displayName 보강용) */
   displayName: string | null;
   /** zca-js가 메시지에 실어 보낸 발신자 전화번호(있으면). 없으면 null */
@@ -773,6 +788,7 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
     msgType,
     attachmentUrls,
     zaloMsgId,
+    globalMsgId,
     displayName,
     senderPhone,
     cliMsgId,
@@ -833,6 +849,7 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
       text: text || null,
       attachmentUrls: attachmentUrls ?? [],
       zaloMsgId,
+      globalMsgId: globalMsgId ?? null,
       cliMsgId: cliMsgId ?? null,
       // 그룹 메시지 발신자 식별 (ADR-0010 D3). 1:1은 null(상대 고정).
       senderUid: senderUid ?? null,
@@ -1077,6 +1094,8 @@ export interface ParsedOutbound {
   attachmentUrls?: string[];
   /** zca-js 서버 msgId — 멱등 키. 프로그램(S4) 발신이 이미 저장한 것과 중복 방지. */
   zaloMsgId: string | null;
+  /** zca-js globalMsgId — 답글 인용 점프 앵커 변환용. 프로그램 발신분(route)은 echo로 보강. 없으면 null */
+  globalMsgId?: string | null;
   /** 발신 시각(zca-js data.ts). 없으면 호출부에서 now 전달. 순서 꼬임 방지. */
   createdAt: Date;
   /** 상대 표시명(있으면 displayName 보강용). 없으면 null. */
@@ -1119,6 +1138,7 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
     msgType,
     attachmentUrls,
     zaloMsgId,
+    globalMsgId,
     createdAt,
     displayName,
     cliMsgId,
@@ -1150,12 +1170,21 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
   });
 
   // 2) 멱등 — 프로그램이 이미 같은 zaloMsgId로 저장했으면 스킵 (중복 0)
+  //    단, route(POST /api/zalo/messages) 발신은 zca-js send가 globalMsgId를 안 돌려줘 null로 저장된다.
+  //    self-echo에는 globalMsgId가 실려 오므로, 기존 행에 없으면 여기서 보강(답글 인용 점프 앵커 — 상대가
+  //    내 발신을 인용해 답글하면 quote.globalMsgId가 이 값과 매칭돼야 점프됨). 첫 echo 1회만 update.
   if (zaloMsgId) {
     const existing = await prisma.zaloMessage.findUnique({
       where: { zaloMsgId },
-      select: { id: true },
+      select: { id: true, globalMsgId: true },
     });
     if (existing) {
+      if (globalMsgId && !existing.globalMsgId) {
+        await prisma.zaloMessage.update({
+          where: { id: existing.id },
+          data: { globalMsgId },
+        });
+      }
       return { saved: false, duplicated: true };
     }
   }
@@ -1171,6 +1200,7 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
       text: text || null,
       attachmentUrls: attachmentUrls ?? [],
       zaloMsgId,
+      globalMsgId: globalMsgId ?? null,
       cliMsgId: cliMsgId ?? null,
       // 그룹 echo 발신자(내 ownId 등). 1:1은 null. (ADR-0010 D3)
       senderUid: senderUid ?? null,
