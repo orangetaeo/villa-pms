@@ -291,6 +291,8 @@ export interface AvailabilityBoardVilla {
   complex: string | null;
   /** 운영자가 이 빌라 공실을 공급자에게 마지막으로 확인한 시각(ISO) — null=아직 확인 안 함 */
   availabilityCheckedAt: string | null;
+  /** 청소 검수 통과율 기반 품질점수(0~100) — 판매 후순위 정렬·표시 (ADMIN 전용) */
+  qualityScore: number;
   /**
    * 날짜별 셀. days[i] 는 columns[i] 날짜에 대응(인덱스 정렬).
    * status==AVAILABLE 인 날짜만 잠금 가능(공실), MANUAL/ICAL 은 잠금된 날짜.
@@ -407,8 +409,9 @@ export async function getAvailabilityBoard(
       ...(area ? { complex: area } : {}),
       ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
     },
-    select: { id: true, name: true, complex: true, availabilityCheckedAt: true, source: true },
-    orderBy: { name: "asc" },
+    select: { id: true, name: true, complex: true, availabilityCheckedAt: true, source: true, qualityScore: true },
+    // 판매 후순위 정렬: 품질점수 내림차순, 동점은 이름순 (Phase 2)
+    orderBy: [{ qualityScore: "desc" }, { name: "asc" }],
   });
 
   if (villas.length === 0) {
@@ -542,6 +545,7 @@ export async function getAvailabilityBoard(
       availabilityCheckedAt: v.availabilityCheckedAt
         ? v.availabilityCheckedAt.toISOString()
         : null,
+      qualityScore: v.qualityScore,
       days: daysByVilla.get(v.id)!,
     })),
   };

@@ -5,8 +5,30 @@ import {
   OPEN_CLEANING_STATUSES,
   assertCleaningTransition,
   canOpenSellableGate,
+  computeQualityScore,
   monthKeyVn,
 } from "./cleaning";
+
+describe("computeQualityScore — 청소 검수 통과율 (Phase 2)", () => {
+  it("결정된 검수 0건 → 100 (신규 빌라 중립 상위)", () => {
+    expect(computeQualityScore(0, 0)).toBe(100);
+  });
+  it("전부 승인 → 100", () => {
+    expect(computeQualityScore(5, 0)).toBe(100);
+  });
+  it("전부 반려 → 0", () => {
+    expect(computeQualityScore(0, 3)).toBe(0);
+  });
+  it("4승인 1반려 → 80", () => {
+    expect(computeQualityScore(4, 1)).toBe(80);
+  });
+  it("2승인 1반려 → 67(반올림)", () => {
+    expect(computeQualityScore(2, 1)).toBe(67);
+  });
+  it("음수 방어 → 100", () => {
+    expect(computeQualityScore(-1, -1)).toBe(100);
+  });
+});
 
 describe("assertCleaningTransition — 상태기계 (SPEC F4 게이트)", () => {
   it("허용 전이: PENDING→제출, REJECTED→재제출, 제출→승인|반려", () => {

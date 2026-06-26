@@ -151,6 +151,7 @@ export default async function AvailabilityPage({
       complex: v.complex,
       checkedLabel: checked ? fmtMd(checked.slice(0, 10)) : null,
       needCheck: isStale,
+      qualityScore: v.qualityScore,
       days: v.days,
     };
   });
@@ -174,6 +175,7 @@ export default async function AvailabilityPage({
   // 쓸 수 없으므로(layout 수정 금지 구역), 필요한 문구를 서버에서 번역해 props 로 전달한다.
   const strings: BoardStrings = {
     villaCount: t("villaCount", { n: board.villas.length }),
+    qualityTitle: t("qualityTitle"),
     search: t("search"),
     area: t("area"),
     allAreas: t("allAreas"),

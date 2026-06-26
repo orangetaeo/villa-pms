@@ -177,6 +177,8 @@ function makeGateFake(opts: GateFakeOpts) {
     villa: { update: villaUpdate },
     notification: { create: vi.fn(async () => ({ id: "n1" })) },
   };
+  // 품질점수 재계산(recomputeVillaQualityScore)이 게이트 이후 호출하는 count 2건의 기본값(0)
+  tx.cleaningTask.count.mockResolvedValue(0);
   if (opts.taskType === "CHECKOUT") {
     tx.cleaningTask.count.mockResolvedValueOnce(opts.openCheckoutCount);
   } else {
@@ -223,7 +225,11 @@ describe("approveCleaningTask 게이트 개방 — ADR-0006 v2", () => {
       now: NOW,
     });
     expect(gateOpened).toBe(false);
-    expect(villaUpdate).not.toHaveBeenCalled();
+    // 게이트 미개방 확인 — isSellable 업데이트는 없어야(품질점수 update는 별개로 허용)
+    expect(villaUpdate).not.toHaveBeenCalledWith({
+      where: { id: "v1" },
+      data: { isSellable: true },
+    });
   });
 
   it("미결 CHECKOUT 존재 시 첫 APPROVED여도 게이트 미개방 (체크아웃 게이트 우회 차단)", async () => {
@@ -238,7 +244,11 @@ describe("approveCleaningTask 게이트 개방 — ADR-0006 v2", () => {
       now: NOW,
     });
     expect(gateOpened).toBe(false);
-    expect(villaUpdate).not.toHaveBeenCalled();
+    // 게이트 미개방 확인 — isSellable 업데이트는 없어야(품질점수 update는 별개로 허용)
+    expect(villaUpdate).not.toHaveBeenCalledWith({
+      where: { id: "v1" },
+      data: { isSellable: true },
+    });
   });
 
   it("CHECKOUT 승인 경로 회귀 — 미결 0건이면 개방 (T3.4 기존 동작 유지)", async () => {
