@@ -2,6 +2,7 @@
 // route.ts와 단위 테스트(tests/settings-validators.test.ts)가 공유하는 순수 모듈.
 // auth/prisma 의존이 없어 테스트 가능 — 라우트는 이 규칙을 호출만 한다.
 import { FX_VND_PER_KRW_KEY } from "@/lib/pricing";
+import { FX_AUTO_UPDATE_KEY } from "@/lib/fx-auto-update";
 import { HOLD_HOURS_DEFAULT_KEY } from "@/lib/hold";
 import {
   CANCELLATION_POLICY_KEY,
@@ -35,6 +36,7 @@ export const CLEARABLE_KEYS = [
 export const SETTING_KEYS = [
   HOLD_HOURS_DEFAULT_KEY,
   FX_VND_PER_KRW_KEY,
+  FX_AUTO_UPDATE_KEY, // 판매가 환율 자동 갱신 토글 "on"/"off" — 비-clearable(off로 저장)
   CANCELLATION_POLICY_KEY, // 취소·환불 정책 JSON (#6b) — 비-clearable(항상 값 존재)
   ...CLEARABLE_KEYS,
 ] as const;
@@ -64,6 +66,8 @@ export const VALIDATORS: Record<SettingKey, (value: string) => boolean> = {
     if (!/^\d+(\.\d{1,4})?$/.test(value)) return false;
     return Number(value) > 0; // "0", "0.0000" 거부
   },
+  // 자동 갱신 토글 — "on"|"off"만 허용 (그 외 값 주입 차단)
+  [FX_AUTO_UPDATE_KEY]: (value) => value === "on" || value === "off",
   [BANK_NAME_KEY]: (value) => value.length >= 1 && value.length <= 100,
   [BANK_ACCOUNT_NUMBER_KEY]: (value) => /^[0-9][0-9\- ]{0,39}$/.test(value),
   [BANK_ACCOUNT_HOLDER_KEY]: (value) => value.length >= 1 && value.length <= 100,

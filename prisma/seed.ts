@@ -24,6 +24,7 @@ import {
 import { hash } from "bcryptjs";
 import { HOLD_HOURS_DEFAULT_KEY } from "../lib/hold";
 import { FX_VND_PER_KRW_KEY, buildRatePeriodRowsFromSeasonCosts } from "../lib/pricing";
+import { FX_AUTO_UPDATE_KEY } from "../lib/fx-auto-update";
 import {
   CANCELLATION_POLICY_KEY,
   DEFAULT_CANCELLATION_POLICY,
@@ -175,6 +176,8 @@ export function buildAppSettings(): { key: string; value: string }[] {
   return [
     { key: HOLD_HOURS_DEFAULT_KEY, value: "48" },
     { key: FX_VND_PER_KRW_KEY, value: String(SEED_FX_VND_PER_KRW) },
+    // 판매가 환율 자동 갱신 — 기본 OFF(운영자가 /settings에서 명시적으로 켜야 동작)
+    { key: FX_AUTO_UPDATE_KEY, value: "off" },
     // 취소·환불 정책 기본값 (#6b) — 30일 100% / 14일 50% / 이후 불가
     { key: CANCELLATION_POLICY_KEY, value: JSON.stringify(DEFAULT_CANCELLATION_POLICY) },
     // ⚠️ placeholder — 테오 실제 입금 계좌로 교체 (한국 KRW 계좌)

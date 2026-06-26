@@ -9,6 +9,7 @@ import { formatDateTime } from "@/lib/format";
 import { toDateOnlyString } from "@/lib/date-vn";
 import { HOLD_HOURS_DEFAULT_KEY, DEFAULT_HOLD_HOURS } from "@/lib/hold";
 import { FX_VND_PER_KRW_KEY } from "@/lib/pricing";
+import { FX_AUTO_UPDATE_KEY, isFxAutoUpdateOn } from "@/lib/fx-auto-update";
 import {
   CANCELLATION_POLICY_KEY,
   parseCancellationPolicy,
@@ -49,6 +50,7 @@ export default async function SettingsPage() {
           in: [
             HOLD_HOURS_DEFAULT_KEY,
             FX_VND_PER_KRW_KEY,
+            FX_AUTO_UPDATE_KEY,
             CANCELLATION_POLICY_KEY,
             ...BANK_CONTACT_KEYS,
           ],
@@ -119,6 +121,9 @@ export default async function SettingsPage() {
       <FxRateForm
         initialValue={fxSetting?.value ?? null}
         updatedAtText={fxSetting ? formatDateTime(fxSetting.updatedAt) : null}
+        autoUpdate={isFxAutoUpdateOn(
+          settings.find((s) => s.key === FX_AUTO_UPDATE_KEY)?.value
+        )}
       />
 
       {/* Card 4: 입금 계좌·연락처 (b8 Card 3 변환, T1.7-bank-contact) */}
