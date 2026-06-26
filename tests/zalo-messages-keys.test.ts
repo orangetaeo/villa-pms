@@ -133,7 +133,10 @@ describe("i18n 키 — zaloConnect (a0)", () => {
 
 describe("i18n 키 — nav.messages", () => {
   it("ko/vi 모두 nav.messages 보유", () => {
-    expect((ko.nav as Record<string, string>).messages?.length).toBeGreaterThan(0);
-    expect((vi.nav as Record<string, string>).messages?.length).toBeGreaterThan(0);
+    // nav는 groups(중첩 객체)를 포함 → Record<string,string> 직접 캐스팅 불가, unknown 경유
+    expect((ko.nav as unknown as Record<string, string>).messages?.length).toBeGreaterThan(0);
+    expect((vi.nav as unknown as Record<string, string>).messages?.length).toBeGreaterThan(0);
+    expect((ko.nav.groups as Record<string, string>).sales?.length).toBeGreaterThan(0);
+    expect((vi.nav.groups as Record<string, string>).sales?.length).toBeGreaterThan(0);
   });
 });

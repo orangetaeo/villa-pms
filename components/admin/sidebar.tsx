@@ -13,7 +13,7 @@ import type { AppLocale } from "@/lib/locale";
 import { canViewFinance, canSetPrice, isSystemAdmin, type Role } from "@/lib/permissions";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 
-interface NavItem {
+interface NavLeaf {
   key: string;
   href: string;
   icon: string;
@@ -21,37 +21,75 @@ interface NavItem {
   cap?: (r?: Role) => boolean;
 }
 
+/** 아코디언 그룹 — group은 nav.groups.<group> i18n 키, items는 펼침 시 자식 메뉴 */
+interface NavGroup {
+  group: string;
+  icon: string;
+  items: NavLeaf[];
+}
+
+type NavEntry = NavLeaf | NavGroup;
+
+const isGroup = (e: NavEntry): e is NavGroup =>
+  (e as NavGroup).items !== undefined;
+
 const ONE_YEAR = 60 * 60 * 24 * 365;
 
 function setLocaleCookie(name: string, value: string) {
   document.cookie = `${name}=${value};path=/;max-age=${ONE_YEAR};samesite=lax`;
 }
 
-// 순서 고정 — DESIGN.md "운영자 표준 사이드바 10메뉴" (화면별 재수정 금지)
-// 공실 보드(T-admin-availability-board): 빌라 운영군(빌라→공실 보드→청소 검수)에 배치
-const NAV_ITEMS: NavItem[] = [
+// 카테고리 누적으로 네비 줄이 길어져 비슷한 메뉴를 아코디언 그룹으로 묶음(사용자 요청).
+// 최상위 = 대시보드 / 예약·판매 / 빌라 운영 / 재무 / 메시지 / 시스템 (6줄)
+// 단독 항목(대시보드·메시지)은 그룹 없이 그대로 노출, 나머지는 그룹 펼침 시 표시.
+// cap 규칙은 자식 항목에 그대로 유지 — 그룹은 보이는 자식이 0개면 통째로 숨김.
+const NAV: NavEntry[] = [
   { key: "dashboard", href: "/dashboard", icon: "dashboard" },
-  { key: "bookings", href: "/bookings", icon: "calendar_month" },
-  // 제안·정산=재무(canViewFinance) — STAFF 미노출. 클릭 시 게이트로도 차단되지만 메뉴부터 숨김
-  { key: "proposals", href: "/proposals", icon: "rate_review", cap: canViewFinance },
-  { key: "villas", href: "/villas", icon: "villa" },
-  // 미니바 실재고(ADR-0019 S1) — 빌라 운영군(빌라→재고→공실 보드). cap 미지정=전 운영자 노출
-  { key: "inventory", href: "/inventory", icon: "inventory_2" },
-  { key: "availability", href: "/availability", icon: "event_available" },
-  { key: "inspections", href: "/inspections", icon: "cleaning_services" },
-  { key: "settlements", href: "/settlements", icon: "payments", cap: canViewFinance },
-  // 파트너 관리(ADR-0022) — 여행사·랜드사 미수·여신. 재무(canViewFinance)만 노출
-  { key: "partners", href: "/partners", icon: "handshake", cap: canViewFinance },
-  // 미수/여신 대시보드(ADR-0022 PARTNER-3) — 전 파트너 미수 Aging·연체. 재무만 노출
-  { key: "receivables", href: "/receivables", icon: "request_quote", cap: canViewFinance },
-  // 통계(T-admin-statistics) — 정산 카테고리 아래 배치(사용자 요청). 전 운영자 노출(탭별 금액 게이트는 페이지 내부)
-  { key: "statistics", href: "/statistics", icon: "analytics" },
-  // 서비스 카탈로그(ADR-0019 S2) — 부가서비스 판매 메뉴. 가격 설정 권한(canSetPrice=OWNER/MANAGER)만 노출
-  { key: "services", href: "/settings/services", icon: "restaurant", cap: canSetPrice },
+  {
+    group: "sales",
+    icon: "sell",
+    items: [
+      { key: "bookings", href: "/bookings", icon: "calendar_month" },
+      // 제안=재무(canViewFinance) — STAFF 미노출. 클릭 시 게이트로도 차단되지만 메뉴부터 숨김
+      { key: "proposals", href: "/proposals", icon: "rate_review", cap: canViewFinance },
+    ],
+  },
+  {
+    group: "operations",
+    icon: "villa",
+    items: [
+      { key: "villas", href: "/villas", icon: "villa" },
+      { key: "availability", href: "/availability", icon: "event_available" },
+      // 미니바 실재고(ADR-0019 S1). cap 미지정=전 운영자 노출
+      { key: "inventory", href: "/inventory", icon: "inventory_2" },
+      { key: "inspections", href: "/inspections", icon: "cleaning_services" },
+      // 서비스 카탈로그(ADR-0019 S2) — 가격 설정 권한(canSetPrice=OWNER/MANAGER)만 노출
+      { key: "services", href: "/settings/services", icon: "restaurant", cap: canSetPrice },
+    ],
+  },
+  {
+    group: "finance",
+    icon: "account_balance_wallet",
+    items: [
+      { key: "settlements", href: "/settlements", icon: "payments", cap: canViewFinance },
+      // 파트너 관리(ADR-0022) — 여행사·랜드사 미수·여신. 재무만 노출
+      { key: "partners", href: "/partners", icon: "handshake", cap: canViewFinance },
+      // 미수/여신 대시보드(ADR-0022 PARTNER-3) — 전 파트너 미수 Aging·연체. 재무만 노출
+      { key: "receivables", href: "/receivables", icon: "request_quote", cap: canViewFinance },
+      // 통계(T-admin-statistics) — 전 운영자 노출(탭별 금액 게이트는 페이지 내부)
+      { key: "statistics", href: "/statistics", icon: "analytics" },
+    ],
+  },
   { key: "messages", href: "/messages", icon: "chat" },
-  // 사용자·설정=시스템(isSystemAdmin) — OWNER만 노출 (MANAGER/STAFF 미노출)
-  { key: "users", href: "/users", icon: "group", cap: isSystemAdmin },
-  { key: "settings", href: "/settings", icon: "settings", cap: isSystemAdmin },
+  {
+    group: "system",
+    icon: "settings",
+    items: [
+      // 사용자·설정=시스템(isSystemAdmin) — OWNER만 노출 (MANAGER/STAFF 미노출)
+      { key: "users", href: "/users", icon: "group", cap: isSystemAdmin },
+      { key: "settings", href: "/settings", icon: "settings", cap: isSystemAdmin },
+    ],
+  },
 ];
 
 export default function AdminSidebar({
@@ -73,8 +111,14 @@ export default function AdminSidebar({
 }) {
   const t = useTranslations("nav");
   const tRoles = useTranslations("adminUsers");
-  // 역할별 NAV 필터 — cap 미지정은 운영자 전체 노출, 재무·시스템 메뉴는 역할 충족 시만
-  const navItems = NAV_ITEMS.filter((item) => !item.cap || item.cap(role));
+  // 역할별 NAV 필터 — cap 미지정은 운영자 전체 노출, 재무·시스템 메뉴는 역할 충족 시만.
+  // 그룹은 보이는 자식이 0개면 통째로 제거.
+  const canSee = (leaf: NavLeaf) => !leaf.cap || leaf.cap(role);
+  const navEntries: NavEntry[] = NAV.flatMap((e): NavEntry[] => {
+    if (!isGroup(e)) return canSee(e) ? [e] : [];
+    const items = e.items.filter(canSee);
+    return items.length ? [{ ...e, items }] : [];
+  });
   // 모바일 하단 네비 중앙 돌출 항목 — 재무 권한자는 정산(추후 매출 페이지와 분리, IDEAS.md),
   // 권한 없는 STAFF는 공실 보드로 대체(정산은 미들웨어 차단 대상이라 노출 금지)
   const centerItem = canViewFinance(role)
@@ -84,6 +128,11 @@ export default function AdminSidebar({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  // 아코디언 펼침 상태 — 사용자가 토글한 그룹만 기록. 미기록 그룹은 활성 경로 포함 시 자동 펼침.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  // current=현재 펼침 여부(자동 펼침 포함) — 그 반대로 명시 기록
+  const toggleGroup = (g: string, current: boolean) =>
+    setOpenGroups((prev) => ({ ...prev, [g]: !current }));
 
   // 경로 이동 시 드로어 자동 닫기
   useEffect(() => {
@@ -146,6 +195,84 @@ export default function AdminSidebar({
       </Link>
     );
   };
+  // 사이드바 단일 메뉴 링크 (그룹 자식은 indented로 들여쓰기)
+  const NavLeafLink = ({
+    item,
+    indented = false,
+  }: {
+    item: NavLeaf;
+    indented?: boolean;
+  }) => {
+    const active = isActive(item.href);
+    return (
+      <Link
+        href={item.href}
+        aria-current={active ? "page" : undefined}
+        className={
+          (active
+            ? "bg-admin-card text-admin-primary font-bold"
+            : "text-admin-muted hover:text-white hover:bg-admin-card font-medium transition-colors duration-200") +
+          " flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm" +
+          (indented ? " pl-9" : "")
+        }
+      >
+        <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
+        <span className="flex-1">{t(item.key)}</span>
+        {item.key === "messages" && unreadCount > 0 && (
+          <span
+            className={
+              active
+                ? "bg-admin-primary text-white text-[10px] font-black px-1.5 py-0.5 rounded-full"
+                : "bg-blue-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full"
+            }
+          >
+            {unreadCount}
+          </span>
+        )}
+      </Link>
+    );
+  };
+
+  // 아코디언 그룹 — 헤더 클릭으로 펼침/접힘. 활성 경로 포함 그룹은 기본 펼침,
+  // 접힌 채로 활성 자식을 가지면 헤더를 강조색으로 표시(현 위치 표지).
+  const NavGroupBlock = ({ group }: { group: NavGroup }) => {
+    const containsActive = group.items.some((it) => isActive(it.href));
+    const expanded = openGroups[group.group] ?? containsActive;
+    return (
+      <div className="flex flex-col gap-1">
+        <button
+          type="button"
+          onClick={() => toggleGroup(group.group, expanded)}
+          aria-expanded={expanded}
+          className={
+            (containsActive && !expanded
+              ? "text-admin-primary "
+              : "text-admin-muted ") +
+            "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium hover:text-white hover:bg-admin-card transition-colors duration-200"
+          }
+        >
+          <span className="material-symbols-outlined text-[20px]">{group.icon}</span>
+          <span className="flex-1 text-left">{t(`groups.${group.group}`)}</span>
+          <span
+            className={
+              "material-symbols-outlined text-[20px] transition-transform duration-200 " +
+              (expanded ? "rotate-180" : "")
+            }
+          >
+            expand_more
+          </span>
+        </button>
+        {expanded && (
+          <div className="flex flex-col gap-1">
+            {group.items.map((it) => (
+              <NavLeafLink key={it.key} item={it} indented />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const centerActive = isActive(centerItem.href);
 
   return (
@@ -214,35 +341,13 @@ export default function AdminSidebar({
           </div>
         </Link>
         <nav className="flex-1 flex flex-col gap-1 overflow-y-auto">
-          {navItems.map((item) => {
-            const active = isActive(item.href);
-            return (
-              <Link
-                key={item.key}
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className={
-                  active
-                    ? "flex items-center gap-3 px-3 py-2.5 bg-admin-card text-admin-primary font-bold rounded-lg text-sm"
-                    : "flex items-center gap-3 px-3 py-2.5 text-admin-muted hover:text-white hover:bg-admin-card rounded-lg transition-colors duration-200 text-sm font-medium"
-                }
-              >
-                <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
-                <span className="flex-1">{t(item.key)}</span>
-                {item.key === "messages" && unreadCount > 0 && (
-                  <span
-                    className={
-                      active
-                        ? "bg-admin-primary text-white text-[10px] font-black px-1.5 py-0.5 rounded-full"
-                        : "bg-blue-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full"
-                    }
-                  >
-                    {unreadCount}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+          {navEntries.map((entry) =>
+            isGroup(entry) ? (
+              <NavGroupBlock key={entry.group} group={entry} />
+            ) : (
+              <NavLeafLink key={entry.key} item={entry} />
+            ),
+          )}
         </nav>
         <div className="pt-4 mt-auto border-t border-admin-card flex flex-col gap-3 px-2">
           <div className="flex items-center gap-3">

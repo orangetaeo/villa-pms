@@ -36,7 +36,13 @@
     "closeMenu": "메뉴 닫기",
     "more": "더보기",
     "account": "비밀번호 변경",
-    "logout": "로그아웃"
+    "logout": "로그아웃",
+    "groups": {
+      "sales": "예약·판매",
+      "operations": "빌라 운영",
+      "finance": "재무",
+      "system": "시스템"
+    }
   },
   "account": {
     "title": "내 계정",

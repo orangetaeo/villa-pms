@@ -36,7 +36,13 @@
     "closeMenu": "Đóng menu",
     "more": "Thêm",
     "account": "Đổi mật khẩu",
-    "logout": "Đăng xuất"
+    "logout": "Đăng xuất",
+    "groups": {
+      "sales": "Đặt phòng & Bán",
+      "operations": "Vận hành villa",
+      "finance": "Tài chính",
+      "system": "Hệ thống"
+    }
   },
   "account": {
     "title": "Tài khoản của tôi",
