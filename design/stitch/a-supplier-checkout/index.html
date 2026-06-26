@@ -168,6 +168,88 @@
 </div>
 </section>
 
+<!-- ===== Minibar consumption settlement (ADR-0021 D6) ===== -->
+<!-- 미니바=운영자 재고·매출. 공급자 체크아웃에서 소비분 정산 입력. 판매가(VND)만 — 원가·마진 비노출 -->
+<section class="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
+<div class="px-4 py-3 border-b border-neutral-100 flex items-center gap-2">
+<span class="material-symbols-outlined text-teal-600">local_bar</span>
+<h2 class="font-bold text-neutral-800">Minibar đã dùng</h2>
+<span class="ml-auto text-[10px] font-bold text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-full whitespace-nowrap">Nhập số đã dùng</span>
+</div>
+<div class="divide-y divide-neutral-100">
+
+<!-- item: Nước suối -->
+<div class="flex items-center gap-3 px-4 py-3">
+<div class="flex-1 min-w-0">
+<p class="font-semibold text-neutral-800 leading-tight">Nước suối</p>
+<p class="text-[11px] text-neutral-400">Bày 4 · 15.000₫ / chai</p>
+</div>
+<div class="flex items-center gap-2.5 shrink-0">
+<button type="button" class="w-9 h-9 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-500 active:scale-90 transition-transform"><span class="material-symbols-outlined text-[18px]">remove</span></button>
+<span class="text-lg font-extrabold w-6 text-center tabular-nums">2</span>
+<button type="button" class="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center active:scale-90 transition-transform shadow-sm"><span class="material-symbols-outlined text-[18px]">add</span></button>
+</div>
+<div class="w-20 text-right shrink-0">
+<span class="font-bold tabular-nums text-neutral-800">30.000₫</span>
+</div>
+</div>
+
+<!-- item: Nước ngọt -->
+<div class="flex items-center gap-3 px-4 py-3">
+<div class="flex-1 min-w-0">
+<p class="font-semibold text-neutral-800 leading-tight">Nước ngọt</p>
+<p class="text-[11px] text-neutral-400">Bày 2 · 20.000₫ / lon</p>
+</div>
+<div class="flex items-center gap-2.5 shrink-0">
+<button type="button" class="w-9 h-9 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-500 active:scale-90 transition-transform"><span class="material-symbols-outlined text-[18px]">remove</span></button>
+<span class="text-lg font-extrabold w-6 text-center tabular-nums">1</span>
+<button type="button" class="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center active:scale-90 transition-transform shadow-sm"><span class="material-symbols-outlined text-[18px]">add</span></button>
+</div>
+<div class="w-20 text-right shrink-0">
+<span class="font-bold tabular-nums text-neutral-800">20.000₫</span>
+</div>
+</div>
+
+<!-- item: Bia (none consumed) -->
+<div class="flex items-center gap-3 px-4 py-3">
+<div class="flex-1 min-w-0">
+<p class="font-semibold text-neutral-800 leading-tight">Bia</p>
+<p class="text-[11px] text-neutral-400">Bày 6 · 35.000₫ / lon</p>
+</div>
+<div class="flex items-center gap-2.5 shrink-0">
+<button type="button" class="w-9 h-9 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-300 active:scale-90 transition-transform"><span class="material-symbols-outlined text-[18px]">remove</span></button>
+<span class="text-lg font-extrabold w-6 text-center tabular-nums text-neutral-300">0</span>
+<button type="button" class="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center active:scale-90 transition-transform shadow-sm"><span class="material-symbols-outlined text-[18px]">add</span></button>
+</div>
+<div class="w-20 text-right shrink-0">
+<span class="font-bold tabular-nums text-neutral-300">0₫</span>
+</div>
+</div>
+
+<!-- item: Bánh kẹo -->
+<div class="flex items-center gap-3 px-4 py-3">
+<div class="flex-1 min-w-0">
+<p class="font-semibold text-neutral-800 leading-tight">Bánh kẹo</p>
+<p class="text-[11px] text-neutral-400">Bày 3 · 25.000₫ / gói</p>
+</div>
+<div class="flex items-center gap-2.5 shrink-0">
+<button type="button" class="w-9 h-9 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-500 active:scale-90 transition-transform"><span class="material-symbols-outlined text-[18px]">remove</span></button>
+<span class="text-lg font-extrabold w-6 text-center tabular-nums">3</span>
+<button type="button" class="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center active:scale-90 transition-transform shadow-sm"><span class="material-symbols-outlined text-[18px]">add</span></button>
+</div>
+<div class="w-20 text-right shrink-0">
+<span class="font-bold tabular-nums text-neutral-800">75.000₫</span>
+</div>
+</div>
+
+</div>
+<!-- minibar total -->
+<div class="flex items-center justify-between px-4 py-3 bg-teal-50 border-t border-teal-100">
+<span class="font-bold text-teal-800">Tổng minibar</span>
+<span class="text-xl font-extrabold tabular-nums text-teal-700">125.000₫</span>
+</div>
+</section>
+
 </main>
 
 <!-- ===== Sticky action ===== -->
