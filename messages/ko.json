@@ -1044,6 +1044,28 @@
     "empty": "수익 내역이 없습니다",
     "emptyHint": "고객 체크아웃 후 수익이 표시됩니다."
   },
+  "supplierStats": {
+    "segStats": "통계",
+    "segDetail": "정산 내역",
+    "period_thisMonth": "이번 달",
+    "period_lastMonth": "지난 달",
+    "period_year": "올해",
+    "kpiRevenue": "총 수익",
+    "kpiOccupancy": "가동율",
+    "kpiBookings": "예약",
+    "kpiAvgNights": "평균 박수",
+    "unitCount": "건",
+    "unitNights": "박",
+    "vsPrev": "직전 대비",
+    "revenueTrendTitle": "수익 추이",
+    "occupancyTrendTitle": "가동율 추이",
+    "revenueLegend": "수익",
+    "occupancyLegend": "가동율",
+    "villaPerfTitle": "빌라별 성과",
+    "villaNights": "{count}박 점유",
+    "empty": "아직 통계 데이터가 없습니다",
+    "emptyHint": "빌라를 등록하고 예약이 생기면 매출·가동율이 표시됩니다."
+  },
   "adminSettings": {
     "agreement": {
       "title": "이용 동의서",

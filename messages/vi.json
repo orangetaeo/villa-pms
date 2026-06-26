@@ -1152,6 +1152,28 @@
     "empty": "Chưa có doanh thu",
     "emptyHint": "Doanh thu sẽ hiển thị sau khi khách trả phòng."
   },
+  "supplierStats": {
+    "segStats": "Thống kê",
+    "segDetail": "Chi tiết",
+    "period_thisMonth": "Tháng này",
+    "period_lastMonth": "Tháng trước",
+    "period_year": "Năm nay",
+    "kpiRevenue": "Tổng thu nhập",
+    "kpiOccupancy": "Tỷ lệ lấp đầy",
+    "kpiBookings": "Lượt đặt",
+    "kpiAvgNights": "Số đêm TB",
+    "unitCount": "lượt",
+    "unitNights": "đêm",
+    "vsPrev": "so với kỳ trước",
+    "revenueTrendTitle": "Xu hướng thu nhập",
+    "occupancyTrendTitle": "Xu hướng lấp đầy",
+    "revenueLegend": "Thu nhập",
+    "occupancyLegend": "Tỷ lệ lấp đầy",
+    "villaPerfTitle": "Theo từng villa",
+    "villaNights": "Đã lấp {count} đêm",
+    "empty": "Chưa có dữ liệu thống kê",
+    "emptyHint": "Thống kê doanh thu và tỷ lệ lấp đầy sẽ hiển thị khi có lượt đặt."
+  },
   "adminSettings": {
     "agreement": {
       "title": "Bản cam kết sử dụng",

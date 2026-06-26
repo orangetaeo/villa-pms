@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>Thống kê - Villa PMS</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#0D9488", // Teal
+              secondary: "#F59E0B", // Warm Sand
+              success: "#16A34A",
+              hold: "#2563EB",
+              blocked: "#6B7280",
+              error: "#DC2626"
+            },
+            borderRadius: {
+              "DEFAULT": "0.5rem",
+              "lg": "1rem",
+              "xl": "1.5rem",
+              "full": "9999px"
+            },
+            fontFamily: {
+              headline: ["Be Vietnam Pro"],
+              display: ["Be Vietnam Pro"],
+              body: ["Be Vietnam Pro"],
+              label: ["Be Vietnam Pro"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .active-nav-fill .material-symbols-outlined {
+        font-variation-settings: 'FILL' 1;
+      }
+      body {
+        font-family: 'Be Vietnam Pro', sans-serif;
+        -webkit-tap-highlight-color: transparent;
+        min-height: max(884px, 100dvh);
+      }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen pb-32">
+
+<!-- Top AppBar -->
+<nav class="w-full top-0 sticky bg-white shadow-sm z-50">
+<div class="flex justify-between items-center px-4 h-16 w-full">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-xl bg-teal-600 flex items-center justify-center text-white">
+<span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">monitoring</span>
+</div>
+<h1 class="font-headline font-semibold text-lg text-teal-600">Villa PMS</h1>
+</div>
+<button class="text-teal-600 active:scale-95 transition-transform p-2">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</nav>
+
+<main class="px-4 py-5 max-w-md mx-auto space-y-5">
+
+<!-- Segmented control: Thống kê | Chi tiết -->
+<div class="bg-slate-200/70 p-1 rounded-xl flex">
+<button class="flex-1 flex items-center justify-center gap-1.5 h-11 rounded-lg bg-white text-teal-700 font-bold shadow-sm transition-all">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings:'FILL' 1;">bar_chart</span>
+Thống kê
+</button>
+<button class="flex-1 flex items-center justify-center gap-1.5 h-11 rounded-lg text-slate-500 font-medium transition-all active:scale-95">
+<span class="material-symbols-outlined text-[20px]">receipt_long</span>
+Chi tiết
+</button>
+</div>
+
+<!-- Period chips -->
+<div class="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1">
+<button class="shrink-0 px-4 h-10 rounded-full bg-teal-600 text-white text-sm font-semibold shadow-sm active:scale-95 transition-all whitespace-nowrap">Tháng này</button>
+<button class="shrink-0 px-4 h-10 rounded-full bg-white border border-slate-200 text-slate-600 text-sm font-medium active:scale-95 transition-all whitespace-nowrap">Tháng trước</button>
+<button class="shrink-0 px-4 h-10 rounded-full bg-white border border-slate-200 text-slate-600 text-sm font-medium active:scale-95 transition-all whitespace-nowrap">Năm nay</button>
+</div>
+
+<!-- KPI grid 2x2 -->
+<section class="grid grid-cols-2 gap-3">
+<!-- Total revenue -->
+<div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex flex-col gap-2">
+<div class="w-9 h-9 rounded-full bg-teal-50 flex items-center justify-center text-teal-600">
+<span class="material-symbols-outlined text-[20px]">payments</span>
+</div>
+<p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Tổng doanh thu</p>
+<p class="text-xl font-extrabold text-teal-700 leading-tight whitespace-nowrap tabular-nums">45.000.000₫</p>
+</div>
+<!-- Occupancy -->
+<div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex flex-col gap-2">
+<div class="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
+<span class="material-symbols-outlined text-[20px]">event_available</span>
+</div>
+<p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Tỷ lệ lấp đầy</p>
+<p class="text-2xl font-extrabold text-slate-800 leading-tight tabular-nums">78%</p>
+</div>
+<!-- Bookings -->
+<div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex flex-col gap-2">
+<div class="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+<span class="material-symbols-outlined text-[20px]">calendar_month</span>
+</div>
+<p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Số lượt đặt</p>
+<p class="text-2xl font-extrabold text-slate-800 leading-tight tabular-nums">12</p>
+</div>
+<!-- Avg nights -->
+<div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex flex-col gap-2">
+<div class="w-9 h-9 rounded-full bg-amber-50 flex items-center justify-center text-amber-600">
+<span class="material-symbols-outlined text-[20px]">dark_mode</span>
+</div>
+<p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Số đêm trung bình</p>
+<p class="text-2xl font-extrabold text-slate-800 leading-tight tabular-nums">2,8</p>
+</div>
+</section>
+
+<!-- Revenue bar chart -->
+<section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-bold text-slate-800">Doanh thu theo tháng</h3>
+<span class="text-[11px] font-semibold px-2 py-0.5 bg-teal-50 text-teal-600 rounded-md whitespace-nowrap">₫ / triệu</span>
+</div>
+<div class="flex items-end justify-between gap-2 h-40">
+<!-- bars: heights relative to a 160px track -->
+<div class="flex-1 flex flex-col items-center gap-2">
+<div class="w-full max-w-[26px] rounded-t-lg bg-teal-200" style="height:64px"></div>
+<span class="text-[11px] font-medium text-slate-400">T2</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2">
+<div class="w-full max-w-[26px] rounded-t-lg bg-teal-300" style="height:88px"></div>
+<span class="text-[11px] font-medium text-slate-400">T3</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2">
+<div class="w-full max-w-[26px] rounded-t-lg bg-teal-300" style="height:76px"></div>
+<span class="text-[11px] font-medium text-slate-400">T4</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2">
+<div class="w-full max-w-[26px] rounded-t-lg bg-teal-400" style="height:108px"></div>
+<span class="text-[11px] font-medium text-slate-400">T5</span>
+</div>
+<div class="flex-1 flex flex-col items-center gap-2">
+<div class="w-full max-w-[26px] rounded-t-lg bg-teal-400" style="height:96px"></div>
+<span class="text-[11px] font-medium text-slate-400">T6</span>
+</div>
+<!-- highlighted current month -->
+<div class="flex-1 flex flex-col items-center gap-2">
+<div class="relative w-full max-w-[26px] rounded-t-lg bg-teal-600" style="height:130px">
+<span class="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-teal-700 whitespace-nowrap">45tr</span>
+</div>
+<span class="text-[11px] font-bold text-teal-700">T7</span>
+</div>
+</div>
+</section>
+
+<!-- Occupancy area/line chart -->
+<section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+<div class="flex items-center justify-between mb-3">
+<h3 class="font-bold text-slate-800">Tỷ lệ lấp đầy</h3>
+<span class="text-[11px] font-semibold px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-md whitespace-nowrap">0 – 100%</span>
+</div>
+<div class="relative">
+<svg viewBox="0 0 320 140" class="w-full h-40" preserveAspectRatio="none">
+<defs>
+<linearGradient id="occFill" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0%" stop-color="#0D9488" stop-opacity="0.28"/>
+<stop offset="100%" stop-color="#0D9488" stop-opacity="0.02"/>
+</linearGradient>
+</defs>
+<!-- gridlines -->
+<line x1="0" y1="35" x2="320" y2="35" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="3 4"/>
+<line x1="0" y1="70" x2="320" y2="70" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="3 4"/>
+<line x1="0" y1="105" x2="320" y2="105" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="3 4"/>
+<!-- area fill (y: lower value = higher occupancy) -->
+<path d="M0,86 L64,72 L128,80 L192,46 L256,52 L320,30 L320,140 L0,140 Z" fill="url(#occFill)"/>
+<!-- line -->
+<path d="M0,86 L64,72 L128,80 L192,46 L256,52 L320,30" fill="none" stroke="#0D9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<!-- dots -->
+<circle cx="0" cy="86" r="4" fill="#0D9488"/>
+<circle cx="64" cy="72" r="4" fill="#0D9488"/>
+<circle cx="128" cy="80" r="4" fill="#0D9488"/>
+<circle cx="192" cy="46" r="4" fill="#0D9488"/>
+<circle cx="256" cy="52" r="4" fill="#0D9488"/>
+<circle cx="320" cy="30" r="5" fill="#ffffff" stroke="#0D9488" stroke-width="3"/>
+</svg>
+<div class="flex justify-between mt-1">
+<span class="text-[11px] font-medium text-slate-400">T2</span>
+<span class="text-[11px] font-medium text-slate-400">T3</span>
+<span class="text-[11px] font-medium text-slate-400">T4</span>
+<span class="text-[11px] font-medium text-slate-400">T5</span>
+<span class="text-[11px] font-medium text-slate-400">T6</span>
+<span class="text-[11px] font-bold text-teal-700">T7</span>
+</div>
+</div>
+</section>
+
+<!-- Per-villa performance -->
+<div>
+<div class="flex items-center justify-between mb-3">
+<h3 class="font-bold text-slate-800 text-lg">Theo từng villa</h3>
+<span class="text-xs font-semibold px-2 py-1 bg-slate-200 text-slate-600 rounded-md whitespace-nowrap">3 villa</span>
+</div>
+<div class="space-y-3">
+
+<!-- Villa 1 -->
+<div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 space-y-3">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-teal-600 text-[20px]">home_work</span>
+<h4 class="font-bold text-slate-900">Sonasea V11</h4>
+</div>
+<p class="font-extrabold text-teal-700 text-lg tabular-nums whitespace-nowrap">18.500.000₫</p>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex-1 h-2.5 rounded-full bg-slate-100 overflow-hidden">
+<div class="h-full rounded-full bg-teal-500" style="width:82%"></div>
+</div>
+<span class="text-sm font-bold text-slate-700 tabular-nums w-12 text-right">82%</span>
+</div>
+<p class="text-[11px] text-slate-400 font-medium">Tỷ lệ lấp đầy tháng này</p>
+</div>
+
+<!-- Villa 2 -->
+<div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 space-y-3">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-teal-600 text-[20px]">home_work</span>
+<h4 class="font-bold text-slate-900">Sonasea V12</h4>
+</div>
+<p class="font-extrabold text-teal-700 text-lg tabular-nums whitespace-nowrap">15.200.000₫</p>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex-1 h-2.5 rounded-full bg-slate-100 overflow-hidden">
+<div class="h-full rounded-full bg-teal-500" style="width:71%"></div>
+</div>
+<span class="text-sm font-bold text-slate-700 tabular-nums w-12 text-right">71%</span>
+</div>
+<p class="text-[11px] text-slate-400 font-medium">Tỷ lệ lấp đầy tháng này</p>
+</div>
+
+<!-- Villa 3 -->
+<div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 space-y-3">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-teal-600 text-[20px]">home_work</span>
+<h4 class="font-bold text-slate-900">Sunset Sanato A3</h4>
+</div>
+<p class="font-extrabold text-teal-700 text-lg tabular-nums whitespace-nowrap">11.300.000₫</p>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex-1 h-2.5 rounded-full bg-slate-100 overflow-hidden">
+<div class="h-full rounded-full bg-teal-500" style="width:64%"></div>
+</div>
+<span class="text-sm font-bold text-slate-700 tabular-nums w-12 text-right">64%</span>
+</div>
+<p class="text-[11px] text-slate-400 font-medium">Tỷ lệ lấp đầy tháng này</p>
+</div>
+
+</div>
+</div>
+
+</main>
+
+<!-- Bottom Navigation (5 tabs) -->
+<nav class="fixed bottom-0 w-full z-50 h-20 pb-safe bg-white border-t border-slate-100 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+<div class="flex justify-around items-center w-full h-full px-1">
+<a class="flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 transition-all duration-200 active:scale-90 w-16" href="#">
+<span class="material-symbols-outlined">home_work</span>
+<span class="font-label text-[11px] font-medium mt-0.5">Villa</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 transition-all duration-200 active:scale-90 w-16" href="#">
+<span class="material-symbols-outlined">calendar_month</span>
+<span class="font-label text-[11px] font-medium mt-0.5">Lịch</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 transition-all duration-200 active:scale-90 w-16" href="#">
+<span class="material-symbols-outlined">cleaning_services</span>
+<span class="font-label text-[11px] font-medium mt-0.5">Dọn dẹp</span>
+</a>
+<a class="flex flex-col items-center justify-center text-teal-600 bg-teal-50 rounded-xl px-2 py-1 transition-all duration-200 active:scale-90 active-nav-fill" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">payments</span>
+<span class="font-label text-[11px] font-medium mt-0.5">Thu nhập</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 transition-all duration-200 active:scale-90 w-16" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="font-label text-[11px] font-medium mt-0.5">Hướng dẫn</span>
+</a>
+</div>
+</nav>
+
+</body></html>
