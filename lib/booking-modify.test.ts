@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { BookingStatus, Currency } from "@prisma/client";
+import { BookingStatus, CreditTier, Currency } from "@prisma/client";
 import {
   BookingModifyRejectedError,
   modifiableKind,
@@ -68,6 +68,7 @@ interface BookingRow {
   supplierCostVnd: bigint;
   villa: { supplierId: string };
   receivable: { id: string } | null;
+  partner: { creditTier: CreditTier; paymentTermDays: number } | null;
 }
 
 function defaultBooking(over: Partial<BookingRow> = {}): BookingRow {
@@ -88,6 +89,7 @@ function defaultBooking(over: Partial<BookingRow> = {}): BookingRow {
     supplierCostVnd: 2_400_000n,
     villa: { supplierId: "sup1" },
     receivable: null,
+    partner: null,
     ...over,
   };
 }
@@ -105,6 +107,8 @@ interface FakeTxOpts {
   baseRate?: { supplierCostVnd: bigint; salePriceVnd: bigint; salePriceKrw: number };
   /** 알림 빌라명/공급자 (notifyVilla findUnique) */
   notifyVilla?: { supplierId: string; name: string } | null;
+  /** 기존 채권 dueDate (partnerReceivable.findUnique 반환) */
+  receivableDueDate?: Date;
 }
 
 function makeTx(opts: FakeTxOpts) {
@@ -115,6 +119,7 @@ function makeTx(opts: FakeTxOpts) {
   );
   const notifCreate = vi.fn(async (_args: { data: Record<string, unknown> }) => ({}));
   const auditCreate = vi.fn(async (_args: { data: Record<string, unknown> }) => ({}));
+  const rcvUpdate = vi.fn(async (_args: { where: { id: string }; data: { dueDate: Date } }) => ({}));
   const base = opts.baseRate ?? {
     supplierCostVnd: 800_000n,
     salePriceVnd: 1_000_000n,
@@ -169,13 +174,19 @@ function makeTx(opts: FakeTxOpts) {
     },
     notification: { create: notifCreate },
     auditLog: { create: auditCreate },
+    partnerReceivable: {
+      findUnique: vi.fn(async () => ({
+        dueDate: opts.receivableDueDate ?? utc("2026-07-10"),
+      })),
+      update: rcvUpdate,
+    },
   };
 
   const prisma = {
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
   } as never;
 
-  return { prisma, tx, updateMany, notifCreate, auditCreate, bookingCount };
+  return { prisma, tx, updateMany, notifCreate, auditCreate, bookingCount, rcvUpdate };
 }
 
 describe("modifyBooking — 상태 게이트", () => {
@@ -401,6 +412,63 @@ describe("modifyBooking — 파트너 채권 정합", () => {
       guestCount: 3,
     });
     expect(res.changedFields).toEqual(["guestCount"]);
+  });
+
+  it("채권 존재 + 체류 시프트(체크인 변경·박수/금액 동일) → 허용 + dueDate 재산정(등급A=새 체크인일)", async () => {
+    const { prisma, rcvUpdate } = makeTx({
+      booking: defaultBooking({
+        receivable: { id: "rcv1" },
+        partner: { creditTier: CreditTier.A, paymentTermDays: 0 },
+      }),
+      receivableDueDate: utc("2026-07-10"),
+      otherOverlapCount: 0,
+    });
+    const res = await modifyBooking(prisma, {
+      bookingId: "b1",
+      actorUserId: "u1",
+      now: utc("2026-07-01"),
+      checkIn: utc("2026-07-11"),
+      checkOut: utc("2026-07-14"), // 여전히 3박 → 금액 동일(허용)
+    });
+    expect(res.changedFields).toContain("checkIn");
+    expect(rcvUpdate).toHaveBeenCalledOnce();
+    expect(rcvUpdate.mock.calls[0][0].data.dueDate.toISOString().slice(0, 10)).toBe("2026-07-11");
+  });
+
+  it("채권 존재(등급B termDays=7) + 체류 시프트 → dueDate = 새 체크인일 + 7", async () => {
+    const { prisma, rcvUpdate } = makeTx({
+      booking: defaultBooking({
+        receivable: { id: "rcv1" },
+        partner: { creditTier: CreditTier.B, paymentTermDays: 7 },
+      }),
+      receivableDueDate: utc("2026-07-17"),
+      otherOverlapCount: 0,
+    });
+    await modifyBooking(prisma, {
+      bookingId: "b1",
+      actorUserId: "u1",
+      now: utc("2026-07-01"),
+      checkIn: utc("2026-07-11"),
+      checkOut: utc("2026-07-14"),
+    });
+    expect(rcvUpdate).toHaveBeenCalledOnce();
+    expect(rcvUpdate.mock.calls[0][0].data.dueDate.toISOString().slice(0, 10)).toBe("2026-07-18");
+  });
+
+  it("채권 존재 + 인원만 변경(날짜 불변) → dueDate 갱신 안 함", async () => {
+    const { prisma, rcvUpdate } = makeTx({
+      booking: defaultBooking({
+        receivable: { id: "rcv1" },
+        partner: { creditTier: CreditTier.A, paymentTermDays: 0 },
+      }),
+    });
+    await modifyBooking(prisma, {
+      bookingId: "b1",
+      actorUserId: "u1",
+      now: utc("2026-07-01"),
+      guestCount: 3,
+    });
+    expect(rcvUpdate).not.toHaveBeenCalled();
   });
 });
 
