@@ -11,8 +11,7 @@ import {
 } from "@/lib/service-catalog";
 import { catalogImage } from "@/lib/service-image";
 import type { GuestLabels } from "@/lib/guest-i18n";
-import type { PublicLang } from "@/lib/public-i18n";
-import { guestPrice, guestPriceDelta } from "./guest-format";
+import { guestVndPrice, guestVndDelta } from "./guest-format";
 import type { GuestCatalogView, GuestOption } from "./types";
 
 export interface CardSelection {
@@ -42,8 +41,6 @@ const toVndStr = (v: bigint | null): string | null => (v == null ? null : v.toSt
 export function OptionCard({
   item,
   labels,
-  lang,
-  fx,
   selection,
   onChange,
   badgeText,
@@ -52,8 +49,6 @@ export function OptionCard({
 }: {
   item: GuestCatalogView;
   labels: GuestLabels["addons"];
-  lang: PublicLang;
-  fx: string | null; // 환율(1 KRW당 VND) — KRW 표시 파생
   selection: CardSelection;
   onChange: (next: CardSelection) => void;
   badgeText: string;
@@ -94,8 +89,8 @@ export function OptionCard({
 
   const previewStr =
     preview != null
-      ? guestPrice(toVndStr(preview.totalPriceVnd), fx, lang)
-      : guestPrice(item.priceVnd, fx, lang);
+      ? guestVndPrice(toVndStr(preview.totalPriceVnd))
+      : guestVndPrice(item.priceVnd);
 
   const selectedAddons = item.addons.filter((a) => selection.addonKeys.includes(a.key));
 
@@ -174,7 +169,7 @@ export function OptionCard({
                         on ? "text-slate-900" : "text-slate-700"
                       }`}
                     >
-                      {guestPrice(v.priceVnd, fx, lang)}
+                      {guestVndPrice(v.priceVnd)}
                     </p>
                     {v.desc && (
                       <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{v.desc}</p>
@@ -208,7 +203,7 @@ export function OptionCard({
                   </span>
                 </span>
                 <span className="text-xs font-semibold text-teal-600 tabular-nums shrink-0">
-                  {guestPriceDelta(a.priceVnd, fx, lang)}
+                  {guestVndDelta(a.priceVnd)}
                 </span>
               </label>
             ))}
@@ -251,7 +246,7 @@ export function OptionCard({
             </span>
             <span className="flex items-center gap-2 shrink-0">
               <span className="text-xs font-bold text-teal-600 tabular-nums">
-                {guestPriceDelta(m.priceVnd, fx, lang)}
+                {guestVndDelta(m.priceVnd)}
               </span>
               <input
                 type="checkbox"
@@ -362,7 +357,7 @@ export function OptionCard({
                     </span>
                   </span>
                   <span className="text-sm font-semibold text-slate-900 tabular-nums shrink-0">
-                    {guestPriceDelta(a.priceVnd, fx, lang)}
+                    {guestVndDelta(a.priceVnd)}
                   </span>
                 </label>
               ))}

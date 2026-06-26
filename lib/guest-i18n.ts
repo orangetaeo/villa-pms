@@ -98,6 +98,7 @@ export interface GuestLabels {
     serviceTimeLabel: string; // "희망 시간"
     serviceTimePlaceholder: string; // "예: 14:00"
     priceInquiry: string; // 환율 미설정 시 "가격 문의"
+    rateNote: string; // 하단 환산액 안내 "오늘 환율 기준"
     backToCheckin: string; // 체크인으로 돌아가기
     empty: string;
   };
@@ -214,6 +215,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       serviceTimeLabel: "희망 시간",
       serviceTimePlaceholder: "예: 14:00",
       priceInquiry: "가격 문의",
+      rateNote: "오늘 환율 기준",
       backToCheckin: "체크인 화면으로",
       empty: "현재 신청 가능한 옵션이 없습니다.",
     },
@@ -320,6 +322,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       serviceTimeLabel: "Preferred time",
       serviceTimePlaceholder: "e.g. 14:00",
       priceInquiry: "Ask for price",
+      rateNote: "Today's exchange rate",
       backToCheckin: "Back to check-in",
       empty: "No options are available right now.",
     },
@@ -426,6 +429,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       serviceTimeLabel: "Желаемое время",
       serviceTimePlaceholder: "напр. 14:00",
       priceInquiry: "Уточнить цену",
+      rateNote: "По курсу на сегодня",
       backToCheckin: "Назад к заселению",
       empty: "Сейчас нет доступных опций.",
     },
@@ -532,6 +536,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       serviceTimeLabel: "期望时间",
       serviceTimePlaceholder: "例如 14:00",
       priceInquiry: "价格咨询",
+      rateNote: "按今日汇率",
       backToCheckin: "返回入住页面",
       empty: "目前没有可申请的选项。",
     },
@@ -638,6 +643,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       serviceTimeLabel: "Giờ mong muốn",
       serviceTimePlaceholder: "vd: 14:00",
       priceInquiry: "Hỏi giá",
+      rateNote: "Theo tỷ giá hôm nay",
       backToCheckin: "Về trang nhận phòng",
       empty: "Hiện chưa có tùy chọn nào.",
     },
