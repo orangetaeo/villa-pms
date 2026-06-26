@@ -75,16 +75,52 @@
 
   <!-- 구현 현황 요약 -->
   <div class="status">
-    <h3>📌 구현 현황 (실제 코드 대조, 2026-06-26 최신)</h3>
+    <h3>📌 구현 현황 (실제 코드 대조, 2026-06-27 최신)</h3>
     <ul>
       <li><span class="ok">✅ 거의 전부 라이브</span> — 빌라 검수·청소 게이트·가예약/홀드만료·체크인/아웃·게스트 셀프체크인·부가서비스 발주 중계·원천공급자 가입·정산 생애주기·iCal 동기화·취소/노쇼까지 모두 배포됨.</li>
-      <li><span class="ok">✅ 분기 흐름 빈칸 없음</span> — 파트너 청구서(invoice) 화면(청구서 탭·PDF(vi/ko/zh/ru)·Zalo 발송, PR #44·#57)에 이어 <b>청구서 수납 → 복식부기 LEDGER 적재·정정(취소)</b>까지 연결 완료(ADR-0027, PR #54·#58). 모든 핵심 분기가 코드에 존재.</li>
-      <li><span class="ok">✅ 최근 추가·배포</span> — <b>메시지 실시간 SSE</b>(ADR-0024) · <b>비밀번호 자가 재설정(Zalo 코드)</b>(ADR-0025) · <b>빌라 위치 지도 임베드</b>(ADR-0026) · <b>공급자 직접판매(양방향)·공개 판매링크</b>(ADR-0021, PR #48·#52) · <b>미니바 전환 자동 회수(RECOVER)</b>(PR #59) · <b>Railway cron 4종 등록·검증</b>(알림·연체·로스터리마인더·주기청소).</li>
-      <li>🟡 진행 중(Accepted): <b>파트너 포털 + 통합 회원가입</b>(ADR-0028) — 파트너 로그인해 자기 고객 예약·미수만 열람, /signup 유형선택(공급자/벤더/파트너) 통합.</li>
-      <li>🟡 Phase 2 보류(빈칸 아님): 정확 통화별 마진 리포트(현재 근사 표시) · 미니바 소모 자동 차감(현재 수기).</li>
+      <li><span class="ok">✅ 회원가입 통합 완료</span> — <b>/signup 한 곳에서 유형 선택</b>(① 빌라 공급자 ② 부가서비스 공급자 ③ 파트너 여행사·랜드사). 공급자는 즉시 자동로그인, 벤더·파트너는 <b>자가가입→운영자 승인 게이트</b>. <b>파트너 포털 <code>/partner</code></b>(자기 고객 예약·미수·받은 제안서 열람)까지 배포(ADR-0028). 상세 분기는 아래 <b>⓪ 회원가입 흐름</b> 참고.</li>
+      <li><span class="ok">✅ 분기 흐름 빈칸 없음</span> — 파트너 청구서(invoice) 화면(청구서 탭·PDF(vi/ko/zh/ru)·Zalo 발송, PR #44·#57)에 이어 <b>청구서 수납 → 복식부기 LEDGER 적재·정정(취소)</b>까지 연결 완료(ADR-0027). 모든 핵심 분기가 코드에 존재.</li>
+      <li><span class="ok">✅ 최근 추가·배포</span> — <b>메시지 실시간 SSE</b>(ADR-0024) · <b>비밀번호 자가 재설정(Zalo 코드)</b>(ADR-0025) · <b>빌라 위치 지도 임베드</b>(ADR-0026) · <b>공급자 직접판매(양방향)·공개 판매링크</b>(ADR-0021) · <b>미니바 전환 자동 회수(RECOVER)</b> · <b>매출관리 <code>/revenue</code>·예약 변경·미니바 소모 자동계산</b>(PR #74) · <b>Railway cron 4종 등록·검증</b>.</li>
+      <li>🟡 Phase 2 보류(빈칸 아님): 정확 통화별 마진 리포트(현재 근사 표시) · 품질점수 정렬 등.</li>
       <li>👉 <b>추가로 필요한 개발 항목(필수/있으면 좋음)은 맨 아래 ⑧</b>에 정리.</li>
     </ul>
   </div>
+
+  <!-- ⓪ 회원가입 -->
+  <section>
+    <h2>⓪ 회원가입 → 유형별 승인 분기 <span class="tag gate">즉시 / 승인 대기 / 거절</span> <span class="tag live">✅ 라이브 · ADR-0028</span></h2>
+    <p class="desc"><code>/signup</code> 한 곳에서 <b>가입 유형</b>을 고르면 유형별로 다른 흐름을 탑니다. <b>빌라 공급자</b>는 가입 즉시 자동 로그인(승인 불필요), <b>부가서비스 공급자(벤더)</b>와 <b>파트너(여행사·랜드사)</b>는 <b>자가가입 후 운영자 승인</b>을 받아야 로그인·이용이 가능합니다. (가입 스팸 방어: IP당 시간당 10건 한도)</p>
+    <pre class="mermaid">
+flowchart TD
+  START["🔑 통합 가입 진입<br/>/signup (유형 선택 화면)"]:::entry --> Q{"가입 유형?"}:::dec
+  Q -->|"① 빌라 공급자"| SUP["🟢 공급자 가입<br/>/signup?type=supplier"]:::sup
+  Q -->|"② 부가서비스 공급자"| VEN["🟪 벤더 가입<br/>/vendor-signup"]:::vendor
+  Q -->|"③ 파트너(여행사·랜드사)"| PAR["🔵 파트너 가입<br/>/signup?type=partner"]:::partner
+
+  SUP --> SUPC(["User(SUPPLIER, vi) 즉시 생성<br/>승인 게이트 없음"]):::state
+  SUPC --> SUPL["✅ 자동 로그인<br/>→ /my-villas"]:::okbox
+
+  VEN --> VENC(["User + ServiceVendor<br/>PENDING_APPROVAL"]):::state --> VQ{"운영자 승인<br/>/settings/vendors"}:::dec
+  VQ -->|"✅ 승인"| VENOK["✅ /vendor 로그인<br/>카탈로그 배정·발주 수신"]:::okbox
+  VQ -->|"❌ 거절"| VENRJ(["REJECTED"]):::state
+
+  PAR --> PARC(["User(PARTNER, ko) + Partner<br/>PENDING_APPROVAL"]):::state --> PQ{"운영자 승인<br/>/users · /partners"}:::dec
+  PQ -->|"✅ 승인 + 여신·한도·결제조건 설정"| PAROK["✅ /partner 포털<br/>고객 예약·미수·받은 제안서 열람"]:::okbox
+  PQ -->|"❌ 거절"| PARRJ(["REJECTED"]):::state
+
+  LOGIN["🔑 로그인 /login"]:::entry -.->|"비번 분실"| FP["/forgot-password → /reset-password<br/>(Zalo 코드 인증, ADR-0025)"]:::entry
+  classDef entry fill:#22203a,stroke:#9a8ad6,color:#efeaff,stroke-width:2px;
+  classDef sup fill:#0f2e2a,stroke:#27c79a,color:#fff;
+  classDef vendor fill:#2b1d3a,stroke:#b07cff,color:#fff;
+  classDef partner fill:#16263f,stroke:#5b9bd6,color:#fff;
+  classDef state fill:#1b2a3f,stroke:#5b8fd6,color:#dbe9ff;
+  classDef dec fill:#3a1f2c,stroke:#e0556f,color:#ffd9e0;
+  classDef okbox fill:#10331f,stroke:#3ad17f,color:#d6ffe8,stroke-width:2px;
+    </pre>
+    <p class="note">유형별 차이 한눈에 — <b>공급자(SUPPLIER)</b>: 즉시 사용(자가 비번·자동 로그인). <b>벤더(VENDOR)</b>·<b>파트너(PARTNER)</b>: <code>PENDING_APPROVAL</code>로 시작 → 운영자가 승인해야 로그인. 파트너는 승인 시 운영자가 <b>여신/신용한도/결제조건</b>을 함께 설정(가입자가 못 정함). 세 경로 모두 phone 숫자정규화·bcrypt·감사로그(User/Partner 생성) 기록.</p>
+  </section>
+
+  <hr class="div">
 
   <!-- ① 큰 그림 -->
   <section>
@@ -210,7 +246,7 @@ flowchart TD
   <!-- ⑥ 원천공급자 가입 + ⑦ 정산/미수 -->
   <section>
     <h2>⑥ 원천공급자 가입 승인 &nbsp;·&nbsp; ⑦ 정산·미수 상태 흐름 <span class="tag gate">승인·거절 / 수납·연체</span> <span class="tag live">✅ 라이브</span></h2>
-    <p class="desc">자가가입은 운영자 승인 후 발주 수신이 가능합니다. 정산·미수는 단계별 상태로 진행됩니다. (VendorApprovalStatus·SettlementStatus·ReceivableStatus)<br/>🟡 <b>통합 회원가입(ADR-0028, 진행 중)</b>: <code>/signup</code>에서 유형(빌라공급자·부가서비스공급자·파트너) 선택 → 모두 자가가입→운영자 승인. 파트너는 로그인 후 자기 고객 예약·미수만 열람.</p>
+    <p class="desc">자가가입은 운영자 승인 후 발주 수신이 가능합니다. 정산·미수는 단계별 상태로 진행됩니다. (VendorApprovalStatus·SettlementStatus·ReceivableStatus)<br/>✅ <b>통합 회원가입·파트너 포털 배포 완료(ADR-0028)</b>: 가입 분기는 위 <b>⓪ 회원가입 흐름</b> 참고. 파트너는 승인 후 <code>/partner</code>에서 자기 고객 예약·미수·받은 제안서만 열람(미니바·옵션 내역 비노출).</p>
     <pre class="mermaid">
 flowchart LR
   subgraph SU ["⑥ 원천공급자 가입"]
@@ -279,16 +315,14 @@ flowchart LR
         <h4>🟡 있으면 좋은 기능 (Phase 2 백로그)</h4>
         <ul class="nicelist">
           <li><b>매출관리 페이지 /sales</b> — 정산과 별개로 기간별 판매 실적 집계 <span class="s">(테오 2026-06-24 제안)</span></li>
-          <li><b>통화별 마진 리포트</b> — KRW/VND 매출·마진 분리 대시보드</li>
-          <li><b>미니바 소모 자동 차감</b> — 체크아웃 입력 → 재고 차감·보충 알림 <span class="s">(현재 수기, 전환 자동 회수 RECOVER만 완료 PR #59)</span></li>
+          <li><b>통화별 마진 리포트</b> — KRW/VND 매출·마진 분리 대시보드 <span class="s">(매출관리 /revenue 완료, 마진 분리는 후속)</span></li>
           <li><b>환율 자동 갱신 cron</b> — FX_VND_PER_KRW <span class="s">(현재 /settings 수동)</span></li>
-          <li><b>예약 변경 기능</b> <span class="s">(현재 취소 후 재생성)</span></li>
           <li><b>빌라 위치 지도 — 전체 다중핀 보드</b> <span class="s">(개별 임베드 ADR-0026 완료, 좌표필드 도입 시 후속)</span></li>
           <li><b>품질점수 + 판매 후순위 정렬</b></li>
           <li><b>감사·알림 발송 로그 조회 화면</b> <span class="s">(현재 기록만)</span></li>
           <li><b>SMS 폴백 · 여행사 월간 리포트 자동발송 · 캘린더 기간차단 UI · 관리자 하단탭</b></li>
         </ul>
-        <p class="note" style="margin-top:10px">✅ 최근 완료되어 목록에서 제외: 메시지 실시간 SSE(ADR-0024) · 비밀번호 자가 재설정(ADR-0025) · 빌라 위치 지도 임베드(ADR-0026) · 파트너 셀프 포털/통합 회원가입(ADR-0028, 진행 중).</p>
+        <p class="note" style="margin-top:10px">✅ 최근 완료되어 목록에서 제외: 메시지 실시간 SSE(ADR-0024) · 비밀번호 자가 재설정(ADR-0025) · 빌라 위치 지도 임베드(ADR-0026) · <b>통합 회원가입·파트너 포털(ADR-0028)</b> · <b>매출관리 /revenue · 예약 변경 · 미니바 소모 자동계산(PR #74)</b>.</p>
       </div>
     </div>
   </section>
@@ -299,15 +333,18 @@ flowchart LR
     <p class="desc">분기와 무관하게 메뉴에서 어디로 들어가는지(허브→상세)만 보는 지도입니다.</p>
     <pre class="mermaid">
 flowchart LR
-  NAV(["🟣 관리자 사이드바"]):::hubA --> DASH["대시보드"]:::admin & BOOK["예약→상세→체크인/아웃"]:::admin & PROP["제안→생성"]:::admin & VIL["빌라→상세"]:::admin & AVA["공실보드"]:::admin & INS["청소검수"]:::admin & INV["미니바 재고"]:::admin & STL["정산"]:::admin & PAR["파트너→상세→청구서"]:::admin & REC["미수·여신"]:::admin & STA["통계"]:::admin & MSG["메시지(SSE)"]:::admin & ACT["활동로그"]:::admin & CFG["설정→서비스/벤더/미니바/Zalo"]:::admin & USR["사용자"]:::admin
+  NAV(["🟣 관리자 사이드바"]):::hubA --> DASH["대시보드"]:::admin & BOOK["예약→상세→체크인/아웃→예약변경"]:::admin & PROP["제안→생성"]:::admin & VIL["빌라→상세"]:::admin & AVA["공실보드"]:::admin & INS["청소검수"]:::admin & INV["미니바 재고"]:::admin & STL["정산"]:::admin & RVN["매출관리 /revenue"]:::admin & PAR["파트너→상세→청구서"]:::admin & REC["미수·여신"]:::admin & STA["통계"]:::admin & MSG["메시지(SSE)"]:::admin & ACT["활동로그"]:::admin & CFG["설정→서비스/벤더/미니바/Zalo"]:::admin & USR["사용자"]:::admin
   TAB(["🟢 공급자 탭바"]):::hubS --> MV["내 빌라→사진/편의시설/요금/판매링크"]:::sup & CAL["캘린더"]:::sup & MYB["직접예약 /my-bookings→체크인/아웃"]:::sup & CLN["청소→상세"]:::sup & EAR["수익"]:::sup & GUI["안내→Zalo연결"]:::sup
-  AUTH(["🔑 공통 인증"]):::hubV --> LGN["로그인"]:::admin & SGN["통합 가입 /signup"]:::admin & FPW["비번 재설정<br/>/forgot-password→/reset-password"]:::admin
+  AUTH(["🔑 공통 인증·가입"]):::hubV --> LGN["로그인"]:::admin & SGN["통합 가입 /signup<br/>(공급자·벤더·파트너)"]:::admin & FPW["비번 재설정<br/>/forgot-password→/reset-password"]:::admin
   VEN(["🟪 원천공급자/벤더"]):::hubV --> VD["발주함 /vendor"]:::sup & VST["통계 /vendor/stats"]:::sup
+  PRT(["🔵 파트너 포털"]):::hubP --> PHOME["/partner"]:::partner & PPRO["받은 제안서 /partner/proposals"]:::partner & PREC["미수 /partner/receivables"]:::partner
   classDef hubA fill:#4a32b8,stroke:#b9a6ff,color:#fff,stroke-width:2px;
   classDef hubS fill:#16a37b,stroke:#9fe9d2,color:#fff,stroke-width:2px;
   classDef hubV fill:#6b3fb0,stroke:#cdb4ff,color:#fff,stroke-width:2px;
+  classDef hubP fill:#1f4a7a,stroke:#8fc0f0,color:#fff,stroke-width:2px;
   classDef admin fill:#241a4d,stroke:#7c5cff,color:#fff;
   classDef sup fill:#0f2e2a,stroke:#27c79a,color:#fff;
+  classDef partner fill:#16263f,stroke:#5b9bd6,color:#fff;
     </pre>
   </section>
 
