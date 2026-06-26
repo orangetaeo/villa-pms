@@ -1855,6 +1855,56 @@
       "stay": "Lưu trú",
       "total": "Tiền phòng",
       "status": "Trạng thái"
+    },
+    "tabs": {
+      "overview": "Tổng quan",
+      "invoices": "Hóa đơn"
+    },
+    "invoices": {
+      "title": "Hóa đơn thanh toán",
+      "hint": "Gộp các khoản phải thu chưa lập hóa đơn theo kỳ và phát hành hóa đơn. Sau khi phát hành, gửi qua PDF/Zalo.",
+      "empty": "Chưa có hóa đơn",
+      "createTitle": "Tạo hóa đơn",
+      "periodStart": "Từ ngày",
+      "periodEnd": "Đến ngày",
+      "generate": "Tạo hóa đơn",
+      "creating": "Đang tạo…",
+      "count": "{n} khoản",
+      "period": "Kỳ thanh toán",
+      "due": "Hạn thanh toán",
+      "total": "Số tiền",
+      "paid": "Đã thu",
+      "status": "Trạng thái",
+      "invoiceStatus": {
+        "DRAFT": "Nháp",
+        "ISSUED": "Đã phát hành",
+        "PARTIAL": "Thu một phần",
+        "PAID": "Đã thanh toán",
+        "VOID": "Đã hủy"
+      },
+      "action": {
+        "issue": "Phát hành",
+        "void": "Hủy",
+        "pay": "Ghi nhận thu",
+        "pdf": "PDF",
+        "zalo": "Gửi Zalo"
+      },
+      "payTitle": "Ghi nhận thu",
+      "payAmount": "Số tiền thu (VND)",
+      "paySubmit": "Ghi nhận",
+      "confirmVoid": "Hủy hóa đơn này? Các khoản phải thu sẽ có thể lập hóa đơn lại.",
+      "generating": "Đang tạo PDF…",
+      "sending": "Đang gửi Zalo…",
+      "sentWithFile": "Đã gửi hóa đơn (kèm PDF) qua Zalo",
+      "sentTextOnly": "Đã gửi nội dung hóa đơn qua Zalo (không đính kèm PDF)",
+      "err": {
+        "PERIOD_EXISTS": "Đã có hóa đơn cho kỳ này",
+        "NO_RECEIVABLES": "Không có khoản phải thu nào để lập hóa đơn",
+        "NO_ZALO_LINK": "Đối tác chưa có Zalo UID",
+        "SEND_FAILED": "Gửi Zalo thất bại (kiểm tra kết nối bot)",
+        "INVALID_STATUS": "Không thể thực hiện ở trạng thái hiện tại",
+        "generic": "Xử lý thất bại"
+      }
     }
   },
   "adminSettlements": {

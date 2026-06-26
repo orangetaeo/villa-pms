@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import ResponsiveTable, { type ResponsiveColumn } from "@/components/admin/responsive-table";
 import { formatVnd, formatThousands } from "@/lib/format";
 import PartnerForm, { type PartnerFormValues } from "../partner-form";
+import PartnerInvoicesTab from "./partner-invoices-tab";
 
 export interface SerializedPartnerDetail {
   partner: {
@@ -66,6 +67,7 @@ export default function PartnerDetailView({ detail }: { detail: SerializedPartne
   const router = useRouter();
   const p = detail.partner;
   const [editing, setEditing] = useState(false);
+  const [tab, setTab] = useState<"overview" | "invoices">("overview");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -218,6 +220,28 @@ export default function PartnerDetailView({ detail }: { detail: SerializedPartne
         </div>
       ) : (
         <>
+          {/* 탭 전환 */}
+          <div className="flex gap-1 border-b border-slate-800">
+            {(["overview", "invoices"] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setTab(key)}
+                className={`-mb-px border-b-2 px-4 py-2 text-sm font-bold transition-colors ${
+                  tab === key
+                    ? "border-admin-primary text-white"
+                    : "border-transparent text-admin-muted hover:text-slate-300"
+                }`}
+              >
+                {t(`tabs.${key}`)}
+              </button>
+            ))}
+          </div>
+
+          {tab === "invoices" ? (
+            <PartnerInvoicesTab partnerId={p.id} />
+          ) : (
+            <>
           {/* 미수 요약 + Aging */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <div className="rounded-xl border border-slate-800 bg-admin-card p-4">
@@ -295,6 +319,8 @@ export default function PartnerDetailView({ detail }: { detail: SerializedPartne
               emptyMessage={t("noBookings")}
             />
           </section>
+            </>
+          )}
         </>
       )}
     </div>

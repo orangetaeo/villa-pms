@@ -1747,6 +1747,56 @@
       "stay": "숙박",
       "total": "객실료",
       "status": "상태"
+    },
+    "tabs": {
+      "overview": "현황",
+      "invoices": "청구서"
+    },
+    "invoices": {
+      "title": "마감 청구서",
+      "hint": "미청구 잔금 채권을 기간으로 묶어 청구서를 발행합니다. 발행 후 PDF·Zalo로 발송하세요.",
+      "empty": "청구서가 없습니다",
+      "createTitle": "청구서 생성",
+      "periodStart": "기간 시작",
+      "periodEnd": "기간 종료",
+      "generate": "청구서 생성",
+      "creating": "생성 중…",
+      "count": "{n}건 채권",
+      "period": "청구 기간",
+      "due": "지급 기한",
+      "total": "청구액",
+      "paid": "수납액",
+      "status": "상태",
+      "invoiceStatus": {
+        "DRAFT": "초안",
+        "ISSUED": "발행",
+        "PARTIAL": "부분수납",
+        "PAID": "완납",
+        "VOID": "무효"
+      },
+      "action": {
+        "issue": "발행",
+        "void": "무효화",
+        "pay": "수납 기록",
+        "pdf": "PDF",
+        "zalo": "Zalo 발송"
+      },
+      "payTitle": "수납 기록",
+      "payAmount": "수납액 (VND)",
+      "paySubmit": "기록",
+      "confirmVoid": "이 청구서를 무효화할까요? 묶인 채권은 다시 청구 가능해집니다.",
+      "generating": "PDF 생성 중…",
+      "sending": "Zalo 발송 중…",
+      "sentWithFile": "Zalo로 청구서(PDF 첨부)를 발송했습니다",
+      "sentTextOnly": "Zalo로 청구서 본문을 발송했습니다 (PDF 첨부 실패)",
+      "err": {
+        "PERIOD_EXISTS": "같은 기간의 청구서가 이미 있습니다",
+        "NO_RECEIVABLES": "청구할 잔금 채권이 없습니다",
+        "NO_ZALO_LINK": "파트너에 Zalo 연락처(UID)가 없습니다",
+        "SEND_FAILED": "Zalo 발송에 실패했습니다 (봇 연결 확인)",
+        "INVALID_STATUS": "현재 상태에서는 할 수 없습니다",
+        "generic": "처리에 실패했습니다"
+      }
     }
   },
   "adminSettlements": {
