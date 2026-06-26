@@ -6,8 +6,9 @@ import {
   ReceivableStatus,
   type Prisma,
 } from "@prisma/client";
-import { postCollection } from "@/lib/ledger";
+import { postCollection, reverseCollection } from "@/lib/ledger";
 import { writeAuditLog } from "@/lib/audit-log";
+import { applyPaymentToReceivable } from "@/lib/partner-booking";
 
 /**
  * 파트너 마감 청구서(PartnerInvoice) 서비스 (ADR-0022 PARTNER-3b).
@@ -270,6 +271,95 @@ export async function recordInvoicePayment(
       db: tx,
     });
   }
+
+  return updated;
+}
+
+/**
+ * 청구서 수납 정정(취소) — 잘못 기록한 청구서 수납 1건을 되돌린다 (ADR-0027 D3).
+ * Payment 삭제 + COLLECTION 역분개 + invoice.paidVnd 차감·상태 재계산 +
+ * (완납이 풀리면) 묶인 채권 정산 원복(balancePaidVnd 0·상태 재계산).
+ * paymentId가 해당 invoiceId의 청구서 수납이 아니면 NOT_FOUND.
+ */
+export async function reverseInvoicePayment(
+  tx: Tx,
+  input: { invoiceId: string; paymentId: string; createdBy: string }
+) {
+  const payment = await tx.payment.findUnique({
+    where: { id: input.paymentId },
+    select: { id: true, invoiceId: true, amount: true, currency: true },
+  });
+  if (!payment || payment.invoiceId !== input.invoiceId) {
+    throw new InvoiceError("NOT_FOUND");
+  }
+
+  const inv = await tx.partnerInvoice.findUnique({
+    where: { id: input.invoiceId },
+    select: {
+      id: true,
+      status: true,
+      totalVnd: true,
+      paidVnd: true,
+      receivables: {
+        select: { id: true, totalVnd: true, depositPaidVnd: true, status: true },
+      },
+    },
+  });
+  if (!inv) throw new InvoiceError("NOT_FOUND");
+  // VOID·DRAFT 청구서는 정정 불가 — VOID는 채권이 이미 unlink돼 paidVnd만 잔존하므로
+  // 취소하면 근거 채권 없는 청구서가 부활(상태 손상). DRAFT엔 애초에 수납이 없음.
+  if (
+    inv.status === PartnerInvoiceStatus.VOID ||
+    inv.status === PartnerInvoiceStatus.DRAFT
+  ) {
+    throw new InvoiceError("INVALID_STATUS", `현재 상태: ${inv.status}`);
+  }
+
+  // COLLECTION 역분개 + Payment 삭제
+  await reverseCollection(tx, payment.id);
+  await tx.payment.delete({ where: { id: payment.id } });
+
+  // 청구서 수납액 차감·상태 재계산
+  const paidVnd = inv.paidVnd - payment.amount > 0n ? inv.paidVnd - payment.amount : 0n;
+  const status = invoiceStatusAfterPayment(inv.totalVnd, paidVnd);
+  const updated = await tx.partnerInvoice.update({
+    where: { id: inv.id },
+    data: {
+      paidVnd,
+      status,
+      paidAt: status === PartnerInvoiceStatus.PAID ? undefined : null,
+    },
+  });
+
+  // 완납이 풀리면(PAID→그 외) 이 청구서로 정산됐던 채권 원복 — balancePaidVnd 0, 상태 재계산.
+  // (invoiced 채권은 직접 잔금입금이 차단되므로 청구서 정산 외 balancePaidVnd 출처 없음)
+  if (status !== PartnerInvoiceStatus.PAID) {
+    for (const r of inv.receivables) {
+      if (r.status !== ReceivableStatus.PAID) continue;
+      const reverted = applyPaymentToReceivable(
+        { totalVnd: r.totalVnd, depositPaidVnd: r.depositPaidVnd, balancePaidVnd: 0n },
+        "BALANCE",
+        0n
+      );
+      await tx.partnerReceivable.update({
+        where: { id: r.id },
+        data: { balancePaidVnd: reverted.balancePaidVnd, status: reverted.status },
+      });
+    }
+  }
+
+  await writeAuditLog({
+    userId: input.createdBy,
+    action: "DELETE",
+    entity: "Payment",
+    entityId: payment.id,
+    changes: {
+      invoiceId: { old: inv.id, new: null },
+      amount: { old: `${payment.currency} ${payment.amount}`, new: null },
+      reason: { old: null, new: "청구서 수납 정정" },
+    },
+    db: tx,
+  });
 
   return updated;
 }

@@ -82,7 +82,7 @@ KRW 직접 입금 추적은 본 ADR 범위 밖(현 청구서가 VND 표시이므
 
 - **D1 통화**: VND 단일. 청구서가 VND 표시 → COLLECTION은 CASH_VND/REVENUE(VND). KRW 직접입금은 범위 밖(후속).
 - **D2 백필**: 실거래만(데모 `demo-` 접두 제외). 시점 = `paidAt ?? issuedAt ?? createdAt`. 이중계상 방지 = 이미 Payment row로 적재된 금액을 뺀 부족분만.
-- **D3 정정**: 후속. 이번 범위는 적재만. 안전장치로 청구서 연결 Payment(`invoiceId`)는 `DELETE /api/payments/[id]` 차단(409, paidVnd·채권 정합 보호).
+- **D3 정정**: ✅ 구현됨(후속 스프린트). `reverseInvoicePayment` — 개별 청구서 수납 취소(Payment 삭제 + COLLECTION 역분개 + paidVnd 차감·상태 재계산 + 완납 해제 시 묶인 채권 원복 balancePaidVnd 0·상태 재계산). API `DELETE /api/partner-invoices/[id]/payments/[paymentId]` + GET 수납 목록 + 청구서 탭 "수납 내역/취소" UI(ko·vi). 예약경로 `DELETE /api/payments/[id]`는 청구서 연결 결제 차단 유지(전용 경로로만 정정).
 - **D4 모델**: 안 A — 기존 `Payment` 재사용(`bookingId` nullable). 신규 모델·LEDGER FK 없음.
 
 ## 구현 (완료)
@@ -91,7 +91,7 @@ KRW 직접 입금 추적은 본 ADR 범위 밖(현 청구서가 VND 표시이므
 - **S1** `recordInvoicePayment(tx, {…, createdBy})`: `add>0`이면 Payment(VND·invoiceId·partnerId·bookingId 없음) 생성 → `postCollection(paymentId 멱등)`. 동일 트랜잭션. `app/api/partner-invoices/[id]/payments` 가 `createdBy=session.user.id` 전달.
 - **S2** `scripts/backfill-invoice-collections.ts`: 실거래 청구서 `paidVnd` 누락분만 합성 Payment(`bf-invpay-{id}`)+COLLECTION 멱등 생성.
 - **S3 — 불필요(확인됨)**: `verifyLedger`는 COLLECTION을 통화별 균형으로만 보고 SUPPLIER_PAYABLE만 교차검증 → 청구서 COLLECTION 추가로 깨지지 않음. 변경 0줄.
-- **S4** D3 후속(미구현). DELETE 가드만 선반영.
+- **S4** ✅ D3 정정 흐름 구현: `reverseInvoicePayment` + `DELETE .../payments/[paymentId]` + GET 목록 + 청구서 탭 UI(ko·vi). 단위테스트 3건(차감·완납해제 채권원복·NOT_FOUND).
 - **검증**: typecheck0 · next build 통과 · vitest 1847 그린(partner-invoice COLLECTION 적재·균형·add=0 미생성 신규 2건 포함).
 
 ## 배포 순서
