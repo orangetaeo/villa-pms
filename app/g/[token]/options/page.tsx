@@ -21,15 +21,23 @@ import type { GuestCatalogView, GuestOption, GuestRequestedOrder } from "../../_
 
 export const metadata: Metadata = { title: "부가 옵션 — Villa Go" };
 
-/** 카탈로그 옵션 1그룹 → 언어 해석된 GuestOption[] (라벨은 labelI18n에서 pickI18n, VND만). */
+/** 카탈로그 옵션 1그룹 → 언어 해석된 GuestOption[] (라벨·설명은 i18n에서 pickI18n, VND만 — 원가 미포함=누수 0). */
 function mapOptions(
-  defs: { key: string; labelKo: string; labelI18n?: unknown; priceVnd?: string | null }[],
+  defs: {
+    key: string;
+    labelKo: string;
+    labelI18n?: unknown;
+    priceVnd?: string | null;
+    descKo?: string | null;
+    descI18n?: unknown;
+  }[],
   lang: PublicLang
 ): GuestOption[] {
   return defs.map((o) => ({
     key: o.key,
     label: pickI18n(o.labelKo, o.labelI18n ?? null, lang),
     priceVnd: o.priceVnd ?? null,
+    desc: o.descKo ? pickI18n(o.descKo, o.descI18n ?? null, lang) : null,
   }));
 }
 

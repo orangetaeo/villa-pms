@@ -31,6 +31,7 @@ export interface GuestOption {
   key: string;
   label: string; // 언어별 라벨
   priceVnd: string | null;
+  desc?: string | null; // 옵션별 설명(언어별) — 원가는 포함 안 함(누수 0)
 }
 
 export interface GuestCatalogView {

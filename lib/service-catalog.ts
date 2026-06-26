@@ -45,6 +45,12 @@ export interface CatalogOptionDef {
   labelI18n?: LabelI18n | null;
   /** VND 금액(동, "숫자문자열") — variant=대체가, addon/modifier=가산액. */
   priceVnd?: string | null;
+  /** 관리자 입력 한국어 설명(옵션별, 선택) — 소비자 노출 OK. */
+  descKo?: string | null;
+  /** 저장 시 Gemini 자동번역된 설명 {en,vi,zh,ru}(패스스루). */
+  descI18n?: LabelI18n | null;
+  /** ★매입원가 VND(동, "숫자문자열") — 운영자(canViewFinance) 전용. 공개 경계에서 반드시 제거(stripOptionCosts). */
+  costVnd?: string | null;
 }
 
 export interface CatalogOptions {
@@ -69,6 +75,36 @@ export function parseCatalogOptions(raw: unknown): CatalogOptions {
     addons: arr(o.addons),
     modifiers: arr(o.modifiers),
   };
+}
+
+/**
+ * ★마진 비공개(원칙2): 옵션별 costVnd를 모든 그룹에서 제거한 새 options를 반환.
+ *   게스트·STAFF 등 비-재무 경계에서 options를 내보내기 직전에 반드시 적용한다.
+ *   입력이 옵션 형태가 아니면 그대로 반환(null/undefined 포함).
+ */
+export function stripOptionCosts<T>(raw: T): T {
+  if (!raw || typeof raw !== "object") return raw;
+  const o = raw as Record<string, unknown>;
+  const strip = (v: unknown): unknown =>
+    Array.isArray(v)
+      ? v.map((x) => {
+          if (!x || typeof x !== "object") return x;
+          const { costVnd: _omit, ...rest } = x as Record<string, unknown>;
+          void _omit;
+          return rest;
+        })
+      : v;
+  return {
+    ...o,
+    variants: strip(o.variants),
+    addons: strip(o.addons),
+    modifiers: strip(o.modifiers),
+  } as T;
+}
+
+/** 옵션 행 자동 key 생성 — 코드 칸 제거(관리자는 이름·가격만 입력). 같은 항목 내 유일하면 충분. */
+export function generateOptionKey(): string {
+  return `opt_${Math.random().toString(36).slice(2, 8)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
 // ── 카탈로그 항목 입력 검증 (CRUD) ──────────────────────────────────────────
@@ -117,6 +153,13 @@ export function validateCatalogItem(input: CatalogItemInput): CatalogItemError[]
         if (seen.has(opt.key)) errors.push("DUP_OPTION_KEY");
         seen.add(opt.key);
         if (!validPriceVnd(opt.priceVnd)) {
+          errors.push("INVALID_OPTION");
+        }
+        // 옵션별 원가도 VND 숫자문자열, 설명은 길이 제한(1000)
+        if (!validPriceVnd(opt.costVnd)) {
+          errors.push("INVALID_OPTION");
+        }
+        if (opt.descKo != null && opt.descKo.length > 1000) {
           errors.push("INVALID_OPTION");
         }
       }

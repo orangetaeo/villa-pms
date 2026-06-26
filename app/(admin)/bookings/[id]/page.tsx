@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { formatDateTime, formatThousands } from "@/lib/format";
 import { toDateOnlyString } from "@/lib/date-vn";
 import { formatRemainingHours } from "@/lib/booking-stats";
+import { stripOptionCosts } from "@/lib/service-catalog";
 import ActionPanel from "./action-panel";
 import PaperDocsSection from "./paper-docs-section";
 import MemoBox from "./memo-box";
@@ -223,7 +224,8 @@ export default async function BookingDetailPage({
     nameKo: c.nameKo,
     unitLabelKo: c.unitLabelKo ?? "",
     priceVnd: c.priceVnd?.toString() ?? null,
-    options: c.options ?? null,
+    // 주문 패널은 옵션 원가를 쓰지 않음 — 클라 노출 차단 위해 항상 제거(원칙2)
+    options: stripOptionCosts(c.options ?? null),
   }));
 
   const code = booking.id.slice(-8);

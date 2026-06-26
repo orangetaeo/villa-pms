@@ -176,6 +176,9 @@ export function OptionCard({
                     >
                       {guestPrice(v.priceVnd, fx, lang)}
                     </p>
+                    {v.desc && (
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{v.desc}</p>
+                    )}
                   </button>
                 );
               })}
@@ -192,16 +195,19 @@ export function OptionCard({
                 key={a.key}
                 className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 cursor-pointer"
               >
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-2 min-w-0">
                   <input
                     type="checkbox"
                     checked={selection.addonKeys.includes(a.key)}
                     onChange={() => toggleAddon(a.key)}
-                    className="w-5 h-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                    className="w-5 h-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 shrink-0"
                   />
-                  <span className="text-sm text-slate-800">{a.label}</span>
+                  <span className="min-w-0">
+                    <span className="text-sm text-slate-800 block">{a.label}</span>
+                    {a.desc && <span className="text-[11px] text-slate-400 block leading-snug">{a.desc}</span>}
+                  </span>
                 </span>
-                <span className="text-xs font-semibold text-teal-600 tabular-nums">
+                <span className="text-xs font-semibold text-teal-600 tabular-nums shrink-0">
                   {guestPriceDelta(a.priceVnd, fx, lang)}
                 </span>
               </label>
@@ -239,8 +245,11 @@ export function OptionCard({
             key={m.key}
             className="flex items-center justify-between rounded-xl border border-fuchsia-100 bg-fuchsia-50/40 px-3 py-2.5 cursor-pointer"
           >
-            <span className="text-sm font-semibold text-slate-800">{m.label}</span>
-            <span className="flex items-center gap-2">
+            <span className="min-w-0">
+              <span className="text-sm font-semibold text-slate-800 block">{m.label}</span>
+              {m.desc && <span className="text-[11px] text-slate-400 block leading-snug">{m.desc}</span>}
+            </span>
+            <span className="flex items-center gap-2 shrink-0">
               <span className="text-xs font-bold text-teal-600 tabular-nums">
                 {guestPriceDelta(m.priceVnd, fx, lang)}
               </span>
@@ -340,16 +349,19 @@ export function OptionCard({
                   key={a.key}
                   className="flex items-center justify-between px-2 py-3 cursor-pointer"
                 >
-                  <span className="flex items-center gap-3">
+                  <span className="flex items-center gap-3 min-w-0">
                     <input
                       type="checkbox"
                       checked={selection.addonKeys.includes(a.key)}
                       onChange={() => toggleAddon(a.key)}
-                      className="w-5 h-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                      className="w-5 h-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 shrink-0"
                     />
-                    <span className="text-sm text-slate-800">{a.label}</span>
+                    <span className="min-w-0">
+                      <span className="text-sm text-slate-800 block">{a.label}</span>
+                      {a.desc && <span className="text-[11px] text-slate-400 block leading-snug">{a.desc}</span>}
+                    </span>
                   </span>
-                  <span className="text-sm font-semibold text-slate-900 tabular-nums">
+                  <span className="text-sm font-semibold text-slate-900 tabular-nums shrink-0">
                     {guestPriceDelta(a.priceVnd, fx, lang)}
                   </span>
                 </label>
