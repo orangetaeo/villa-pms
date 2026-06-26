@@ -152,6 +152,6 @@
 - [x] 정산 페이지 (다중 통화 수납 + VND 지급 + 환차 기록, 환전 LEDGER 패턴) — **✅완료·배포: P2-1 실수납·P2-2 상태/환차·P2-3 복식부기 LEDGER(ADR-0018)·S5 계정별 잔액 대시보드 전부 배포(2026-06-25~26)**
 - [x] 월 정산서 PDF (vi) 자동 생성 — **✅완료·배포(P2-4, PR #20). 공급자 정산서 목록 UI(PR #25)·정산완료 Zalo PDF 파일첨부 포함**
 - [x] 품질점수 로직 + 판매 후순위 정렬 — **✅완료·배포(PR #63, 2026-06-26)**. 청소 검수 통과율로 Villa.qualityScore 산정(검수 승인/반려 시 재계산)·제안 후보·공실보드 qualityScore desc 정렬·ADMIN ★배지. 누수0 QA PASS. 백필 실행. 계약: docs/contracts/T-villa-quality-score.md. 후속(선택): 누적 반려 이력 가중·정렬 통합테스트
-- [~] 부가서비스(ServiceOrder) 판매 — **BE 완료(2026-06-16, T7.1)**: lib/service-order.ts(전이표·검증·마진 KRW) + GET/POST /api/bookings/[id]/services + PATCH /api/services/[id], ADMIN 전용(마진 비공개)·AuditLog, vitest 17개, QA 통과(7/7 누수0). 계약: docs/contracts/T7.1-service-order-be.md. **잔여 T7.2: UI(Stitch 디자인 선행 필요 — 예약 상세에 서비스 패널)** + BE 백로그(QA Minor는 반영 완료)
+- [x] 부가서비스(ServiceOrder) 판매 — **✅완료**. T7.2 UI는 **ADR-0019/0023 카탈로그+원천공급자 발주 에픽이 흡수·대체**(예약 상세 `ServiceOrdersPanel`(Stitch b20)·`/api/bookings/[id]/service-orders`·`/api/service-orders/[id]`·`service-catalog`, 카탈로그 관리 `/settings/services`·`/api/services/catalog`, 마진 비공개 showCost 게이트 — PR #40·#43 배포, 메모리 [[addon-source-vendor-brokerage]]). 초기 T7.1 단독 BE(`lib/service-order.ts` 검증·마진 + `/api/bookings/[id]/services`·`/api/services/[id]`)는 어떤 UI에도 연결 안 된 고아 코드여서 **제거**(2026-06-26, wt/service-order-ui). `lib/service-order.ts`는 양 시스템 공유 **전이 상태머신만 잔존**(라이브 service-orders/[id] 재사용). 계약: docs/contracts/T7.1-service-order-be.md(BE 이력)·T7.2-cleanup.md(정리)
 - [ ] 시즌 요율 환율 자동 갱신
 - [ ] TravelDiary 연계 직판

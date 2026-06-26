@@ -1,30 +1,17 @@
-// lib/service-order 순수 로직 테스트 (T7.1, Phase 2)
+// lib/service-order 상태 전이 상태머신 테스트
+// (T7.1의 판매 입력검증·마진 테스트는 해당 BE가 ADR-0019/0023 카탈로그 시스템으로
+//  대체·제거되며 함께 제거됨. 양 시스템이 공유하는 전이 로직만 검증한다.)
 import { describe, it, expect } from "vitest";
 import {
   canTransitionService,
   assertServiceTransition,
   InvalidServiceTransitionError,
-  isServiceType,
   isServiceOrderStatus,
-  validateServiceOrderInput,
-  computeServiceMarginKrw,
-  SERVICE_TYPES,
   SERVICE_ORDER_STATUSES,
-  type ServiceOrderInput,
 } from "./service-order";
 
-const baseInput: ServiceOrderInput = {
-  type: "BBQ",
-  costVnd: 1_500_000n,
-  priceKrw: 120_000,
-  serviceDate: "2026-07-15",
-  vendorName: "Quán BBQ Phú Quốc",
-  note: "통돼지 1마리",
-};
-
-describe("타입·상태 가드", () => {
-  it("SERVICE_TYPES 5종, STATUSES 4종", () => {
-    expect([...SERVICE_TYPES]).toEqual(["BBQ", "TICKET", "GUIDE", "CAR_RENTAL", "BREAKFAST"]);
+describe("상태 가드", () => {
+  it("STATUSES 4종", () => {
     expect([...SERVICE_ORDER_STATUSES]).toEqual([
       "REQUESTED",
       "CONFIRMED",
@@ -32,9 +19,7 @@ describe("타입·상태 가드", () => {
       "CANCELLED",
     ]);
   });
-  it("isServiceType / isServiceOrderStatus", () => {
-    expect(isServiceType("BBQ")).toBe(true);
-    expect(isServiceType("MASSAGE")).toBe(false);
+  it("isServiceOrderStatus", () => {
     expect(isServiceOrderStatus("DELIVERED")).toBe(true);
     expect(isServiceOrderStatus("DONE")).toBe(false);
   });
@@ -59,80 +44,5 @@ describe("상태 전이표", () => {
     expect(() => assertServiceTransition("DELIVERED", "CANCELLED")).toThrow(
       InvalidServiceTransitionError
     );
-  });
-});
-
-describe("validateServiceOrderInput", () => {
-  it("정상 입력 — 오류 0", () => {
-    expect(validateServiceOrderInput(baseInput)).toEqual([]);
-  });
-  it("serviceDate·vendor·note 생략(null) 허용", () => {
-    expect(
-      validateServiceOrderInput({
-        ...baseInput,
-        serviceDate: null,
-        vendorName: null,
-        note: null,
-      })
-    ).toEqual([]);
-    expect(validateServiceOrderInput({ ...baseInput, serviceDate: "" })).toEqual([]);
-  });
-  it("잘못된 type", () => {
-    expect(
-      validateServiceOrderInput({ ...baseInput, type: "SPA" as never })
-    ).toContain("INVALID_TYPE");
-  });
-  it("음수 원가 / BigInt 아님", () => {
-    expect(validateServiceOrderInput({ ...baseInput, costVnd: -1n })).toContain(
-      "NEGATIVE_COST"
-    );
-    expect(
-      validateServiceOrderInput({ ...baseInput, costVnd: 1000 as never })
-    ).toContain("NEGATIVE_COST");
-  });
-  it("판매가 — 정수 아님/음수", () => {
-    expect(validateServiceOrderInput({ ...baseInput, priceKrw: -100 })).toContain(
-      "INVALID_PRICE"
-    );
-    expect(validateServiceOrderInput({ ...baseInput, priceKrw: 1.5 })).toContain(
-      "INVALID_PRICE"
-    );
-  });
-  it("실존하지 않는 serviceDate", () => {
-    expect(
-      validateServiceOrderInput({ ...baseInput, serviceDate: "2026-02-31" })
-    ).toContain("INVALID_SERVICE_DATE");
-    expect(
-      validateServiceOrderInput({ ...baseInput, serviceDate: "07/15/2026" })
-    ).toContain("INVALID_SERVICE_DATE");
-  });
-  it("vendor/note 길이 초과", () => {
-    expect(
-      validateServiceOrderInput({ ...baseInput, vendorName: "a".repeat(101) })
-    ).toContain("VENDOR_TOO_LONG");
-    expect(
-      validateServiceOrderInput({ ...baseInput, note: "a".repeat(501) })
-    ).toContain("NOTE_TOO_LONG");
-  });
-  it("0원 원가·판매가 허용 (무료 서비스)", () => {
-    expect(
-      validateServiceOrderInput({ ...baseInput, costVnd: 0n, priceKrw: 0 })
-    ).toEqual([]);
-  });
-});
-
-describe("computeServiceMarginKrw (판매가 KRW − 원가 VND→KRW)", () => {
-  it("정상 마진 — fx 1 KRW = 18 VND, 원가 1,800,000₫ → 100,000원, 판매가 120,000원 → 마진 20,000원", () => {
-    expect(computeServiceMarginKrw(1_800_000n, 120_000, "18")).toBe(20_000);
-  });
-  it("역마진(음수) 가능", () => {
-    // 원가 1,800,000₫ → 100,000원, 판매가 80,000원 → -20,000원
-    expect(computeServiceMarginKrw(1_800_000n, 80_000, "18")).toBe(-20_000);
-  });
-  it("원가 0 → 마진 = 판매가 전액", () => {
-    expect(computeServiceMarginKrw(0n, 50_000, "18")).toBe(50_000);
-  });
-  it("잘못된 환율 형식은 거부(RangeError 전파)", () => {
-    expect(() => computeServiceMarginKrw(1_000_000n, 50_000, "abc")).toThrow(RangeError);
   });
 });
