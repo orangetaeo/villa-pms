@@ -1539,6 +1539,16 @@
     "cancel": "Hủy",
     "saving": "Đang lưu…",
     "saveFailed": "Lưu thất bại",
+    "assign": {
+      "title": "Gán đối tác",
+      "none": "Chưa gán đối tác",
+      "select": "Chọn đối tác",
+      "assign": "Gán",
+      "receivable": "Công nợ",
+      "locked": "Đã tạo công nợ, không thể thay đổi (hủy rồi đặt lại)",
+      "vndOnly": "Công nợ đối tác chỉ áp dụng cho đặt phòng tính bằng VND",
+      "failed": "Gán thất bại"
+    },
     "overdue": "Quá hạn",
     "outstanding": "Công nợ",
     "creditInfo": "Điều kiện tín dụng",
