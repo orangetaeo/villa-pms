@@ -3409,6 +3409,49 @@
       "serverError": "Đã xảy ra lỗi. Vui lòng thử lại sau."
     }
   },
+  "signupChooser": {
+    "headerTitle": "Đăng ký",
+    "title": "Bạn muốn đăng ký với tư cách nào?",
+    "subtitle": "Vui lòng chọn loại tài khoản đăng ký.",
+    "supplierTitle": "Nhà cung cấp villa",
+    "supplierDesc": "Đăng villa của bạn và quản lý lịch, giá vốn.",
+    "vendorTitle": "Nhà cung cấp dịch vụ",
+    "vendorDesc": "Nhận đơn đặt dịch vụ như trái cây, cơm hộp.",
+    "partnerTitle": "Đối tác (Công ty du lịch / Land)",
+    "partnerDesc": "Đối tác quản lý tình trạng đặt phòng, công nợ, đề xuất.",
+    "hasAccount": "Đã có tài khoản?",
+    "loginLink": "Đăng nhập",
+    "back": "Quay lại"
+  },
+  "partnerSignup": {
+    "headerTitle": "Đăng ký đối tác",
+    "title": "Đăng ký đối tác",
+    "subtitle": "Đăng ký làm đối tác công ty du lịch / land. Sau khi quản trị viên duyệt, bạn có thể dùng cổng đối tác.",
+    "name": "Tên công ty",
+    "namePlaceholder": "VD: Công ty du lịch OO",
+    "typeLabel": "Loại đối tác",
+    "typeTravel": "Công ty du lịch",
+    "typeLand": "Công ty Land",
+    "phone": "Số điện thoại",
+    "phonePlaceholder": "Nhập số điện thoại",
+    "password": "Mật khẩu",
+    "passwordPlaceholder": "Ít nhất 8 ký tự",
+    "email": "Email (tùy chọn)",
+    "emailPlaceholder": "name@company.com",
+    "submit": "Gửi đăng ký",
+    "submitting": "Đang gửi...",
+    "back": "Quay lại",
+    "hasAccount": "Đã có tài khoản?",
+    "loginLink": "Đăng nhập",
+    "successTitle": "Đã gửi đăng ký!",
+    "successBody": "Đăng ký của bạn đang chờ quản trị viên duyệt. Sau khi được duyệt, bạn có thể đăng nhập để sử dụng cổng đối tác.",
+    "goLogin": "Đến trang đăng nhập",
+    "errors": {
+      "phoneExists": "Số điện thoại này đã được đăng ký.",
+      "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự.",
+      "serverError": "Đã xảy ra lỗi. Vui lòng thử lại sau."
+    }
+  },
   "supplierSellLink": {
     "title": "Liên kết bán phòng",
     "back": "Quay lại",
