@@ -900,6 +900,14 @@ enum ServiceVendorStatus {
   VENDOR_REJECTED // 공급자 거절 → 운영자 대체 지정 또는 취소
 }
 
+// 원천 공급자 가입 승인 상태 (ADR-0023 S5) — 자가 회원가입 + 운영자 승인.
+//   기존 행·운영자 직접생성 = APPROVED(default). 자가가입 = PENDING_APPROVAL → 운영자 승인해야 발주 수신·대시보드 활성.
+enum VendorApprovalStatus {
+  PENDING_APPROVAL // 자가가입 후 운영자 승인 대기
+  APPROVED // 승인됨 — 카탈로그 배정·발주 수신 가능
+  REJECTED // 거절됨
+}
+
 // 원천 공급자(부가서비스 외부 거래처) — 빌라 SUPPLIER와 무관한 별도 엔티티. ADR-0023 §4.1.
 //   우리가 중계: 요청 → Zalo 발주 → 공급자 /vendor에서 가부 → 우리 확정·정산.
 //   ★ 공급자는 자기 발주의 costVnd(=우리 지급액)만. 우리 판매가·마진·타 공급자 발주 절대 비노출.
@@ -914,6 +922,10 @@ model ServiceVendor {
   bankInfo   Json? // 정산 계좌(은행·계좌·예금주) — ★운영자(canViewFinance) 전용
   note       String?
   active     Boolean  @default(true)
+  // ADR-0023 S5 — 자가 회원가입 승인 게이트
+  approvalStatus  VendorApprovalStatus @default(APPROVED) // 자가가입=PENDING_APPROVAL, 기존·운영자생성=APPROVED
+  rejectionReason String? // 거절 사유(운영자 입력)
+  approvedAt      DateTime?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -921,6 +933,7 @@ model ServiceVendor {
   orders       ServiceOrder[]
 
   @@index([active])
+  @@index([approvalStatus])
 }
 
 // 부가서비스 판매 카탈로그(주문형) — 회사 공통 1세트(미니바와 동형, villaId 없음). ADR-0019 §4.2.

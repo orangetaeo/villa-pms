@@ -14,6 +14,8 @@ export interface BankInfoDraft {
   holder: string;
 }
 
+export type ApprovalStatus = "PENDING_APPROVAL" | "APPROVED" | "REJECTED";
+
 export interface VendorRow {
   id: string;
   name: string;
@@ -23,6 +25,8 @@ export interface VendorRow {
   note: string;
   active: boolean;
   hasAccount: boolean;
+  approvalStatus: ApprovalStatus;
+  rejectionReason: string;
   catalogCount: number;
   bankInfo?: BankInfoDraft; // showBank(canViewFinance)일 때만 존재
 }
@@ -74,6 +78,8 @@ export default function VendorsManager({
   const [accountPhone, setAccountPhone] = useState("");
   const [accountPassword, setAccountPassword] = useState("");
   const [accountError, setAccountError] = useState<string | null>(null);
+  // 자가가입 거절 사유 입력 모달 — 대상 공급자(null=닫힘)
+  const [rejectVendor, setRejectVendor] = useState<VendorRow | null>(null);
 
   const refresh = () => router.refresh();
   const fail = () => setMessage({ ok: false, text: t("error") });
@@ -252,6 +258,42 @@ export default function VendorsManager({
     }
   }
 
+  // ── 자가가입 승인/거절 (ADR-0023 S5) — PATCH /api/vendors/[id]/approval ──────
+  async function handleApproval(
+    v: VendorRow,
+    action: "APPROVE" | "REJECT",
+    rejectionReason?: string
+  ) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/vendors/${v.id}/approval`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          ...(action === "REJECT" ? { rejectionReason: rejectionReason || null } : {}),
+        }),
+      });
+      if (!res.ok) {
+        setMessage({ ok: false, text: t("approvalError") });
+        return;
+      }
+      setRejectVendor(null);
+      setMessage({ ok: true, text: action === "APPROVE" ? t("approved") : t("rejected") });
+      refresh();
+    } catch {
+      setMessage({ ok: false, text: t("approvalError") });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function handleApprove(v: VendorRow) {
+    if (!confirm(t("approveConfirm"))) return;
+    void handleApproval(v, "APPROVE");
+  }
+
   return (
     <section className="space-y-5">
       <div className="flex items-center justify-between gap-3">
@@ -305,13 +347,16 @@ export default function VendorsManager({
                         )}
                       </h3>
                     </div>
-                    <span
-                      className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                        v.active ? "bg-emerald-500/90 text-white" : "bg-slate-600/90 text-white"
-                      }`}
-                    >
-                      {v.active ? t("active") : t("inactive")}
-                    </span>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <ApprovalBadge status={v.approvalStatus} t={t} />
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                          v.active ? "bg-emerald-500/90 text-white" : "bg-slate-600/90 text-white"
+                        }`}
+                      >
+                        {v.active ? t("active") : t("inactive")}
+                      </span>
+                    </div>
                   </div>
                   {/* 연락 행 */}
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400">
@@ -418,9 +463,57 @@ export default function VendorsManager({
                   </div>
                 )}
               </div>
+
+              {/* 자가가입 승인 대기 — 승인/거절 액션 바 (canEdit만) */}
+              {canEdit && v.approvalStatus === "PENDING_APPROVAL" && (
+                <div className="flex items-center gap-2 border-t border-slate-800 bg-amber-500/5 px-3 py-2.5 sm:px-4">
+                  <span className="flex items-center gap-1 text-[11px] font-bold text-amber-400">
+                    <span className="material-symbols-outlined text-[15px]">hourglass_top</span>
+                    {t("statusPending")}
+                  </span>
+                  <span className="flex-1" />
+                  <button
+                    type="button"
+                    onClick={() => setRejectVendor(v)}
+                    disabled={busy}
+                    className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-bold text-slate-300 hover:border-red-400 hover:text-red-400 disabled:opacity-50 transition-colors"
+                  >
+                    {t("reject")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApprove(v)}
+                    disabled={busy}
+                    className="flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">check</span>
+                    {t("approve")}
+                  </button>
+                </div>
+              )}
+
+              {/* 거절됨 — 사유 표시 (있을 때) */}
+              {v.approvalStatus === "REJECTED" && v.rejectionReason && (
+                <div className="border-t border-slate-800 bg-red-500/5 px-3 py-2 sm:px-4">
+                  <p className="text-[11px] text-red-300">
+                    <span className="font-bold">{t("rejectReasonLabel")}:</span>{" "}
+                    {v.rejectionReason}
+                  </p>
+                </div>
+              )}
             </div>
           ))}
         </div>
+      )}
+
+      {rejectVendor && canEdit && (
+        <RejectModal
+          vendorName={rejectVendor.name}
+          busy={busy}
+          onReject={(reason) => handleApproval(rejectVendor, "REJECT", reason)}
+          onClose={() => setRejectVendor(null)}
+          t={t}
+        />
       )}
 
       {modalOpen && canEdit && (
@@ -452,6 +545,113 @@ export default function VendorsManager({
         />
       )}
     </section>
+  );
+}
+
+// ── 승인 상태 배지 (ADR-0023 S5) ───────────────────────────────────────────────
+function ApprovalBadge({
+  status,
+  t,
+}: {
+  status: ApprovalStatus;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const map: Record<ApprovalStatus, { cls: string; key: string; icon: string }> = {
+    PENDING_APPROVAL: {
+      cls: "bg-amber-500/90 text-white",
+      key: "statusPending",
+      icon: "hourglass_top",
+    },
+    APPROVED: { cls: "bg-sky-500/90 text-white", key: "statusApproved", icon: "verified" },
+    REJECTED: { cls: "bg-red-500/90 text-white", key: "statusRejected", icon: "block" },
+  };
+  const m = map[status];
+  return (
+    <span
+      className={`flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase whitespace-nowrap ${m.cls}`}
+    >
+      <span className="material-symbols-outlined text-[12px]">{m.icon}</span>
+      {t(m.key)}
+    </span>
+  );
+}
+
+// ── 자가가입 거절 사유 입력 모달 (ADR-0023 S5) ─────────────────────────────────
+function RejectModal({
+  vendorName,
+  busy,
+  onReject,
+  onClose,
+  t,
+}: {
+  vendorName: string;
+  busy: boolean;
+  onReject: (reason: string) => void;
+  onClose: () => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const [reason, setReason] = useState("");
+  return (
+    <div
+      className="fixed inset-0 z-[60] bg-black/60 flex items-start justify-center overflow-y-auto p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-admin-card border-2 border-red-500/30 rounded-xl w-full max-w-md my-8 p-5 space-y-3.5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-800">
+          <h3 className="font-bold text-white text-sm flex items-center gap-2">
+            <span className="material-symbols-outlined text-red-400">block</span>
+            {t("rejectModalTitle")}
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t("rejectCancel")}
+            className="text-slate-500 hover:text-white"
+          >
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <p className="text-xs text-slate-400">
+          <span className="font-bold text-slate-300">{vendorName}</span>
+        </p>
+
+        <div>
+          <label className="text-xs text-slate-500">{t("rejectReasonLabel")}</label>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder={t("rejectReasonPlaceholder")}
+            maxLength={500}
+            rows={3}
+            className="mt-1 w-full bg-admin-bg border border-slate-700 rounded px-2.5 py-2 text-sm text-white focus:border-red-400 focus:outline-none"
+          />
+        </div>
+
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="px-4 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white disabled:opacity-50"
+          >
+            {t("rejectCancel")}
+          </button>
+          <button
+            type="button"
+            onClick={() => onReject(reason.trim())}
+            disabled={busy}
+            className="bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white px-6 py-2 rounded-lg font-bold text-sm flex items-center gap-1.5 transition-all"
+          >
+            <span className="material-symbols-outlined text-base">block</span>
+            {t("rejectConfirm")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

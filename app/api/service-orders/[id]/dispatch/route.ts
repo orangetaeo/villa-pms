@@ -36,6 +36,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           id: true,
           name: true,
           userId: true,
+          approvalStatus: true,
           user: { select: { zaloUserId: true } },
         },
       },
@@ -53,6 +54,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     : null;
   const itemName = item?.nameKo ?? order.vendorName ?? "—";
   if (!order.vendorId) return NextResponse.json({ error: "NO_VENDOR" }, { status: 400 });
+  // 승인 게이트 — 미승인 공급자(자가가입 대기·거절)에는 발주 불가 (ADR-0023 S5)
+  if (order.vendor?.approvalStatus !== "APPROVED") {
+    return NextResponse.json({ error: "VENDOR_NOT_APPROVED" }, { status: 409 });
+  }
   if (!canDispatch(order)) {
     return NextResponse.json(
       { error: "CANNOT_DISPATCH", status: order.status, vendorStatus: order.vendorStatus },

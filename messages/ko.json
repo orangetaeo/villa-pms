@@ -122,6 +122,14 @@
       "settledLabel": "정산 완료",
       "topItemsTitle": "인기 품목",
       "itemMeta": "{orders}건 · {qty}개"
+    },
+    "approvalGate": {
+      "pendingTitle": "가입 승인 대기 중",
+      "pendingBody": "가입 신청이 운영자 검토 중입니다. 승인되면 이곳에서 발주를 받을 수 있습니다.",
+      "rejectedTitle": "가입이 거절되었습니다",
+      "rejectedBody": "죄송합니다. 가입 신청이 승인되지 않았습니다.",
+      "rejectedReasonLabel": "사유",
+      "changePassword": "비밀번호 변경"
     }
   },
   "adminDashboard": {
@@ -753,7 +761,8 @@
         "invalidCredentials": "전화번호 또는 비밀번호가 올바르지 않습니다.",
         "accountDisabled": "비활성화된 계정입니다. 관리자에게 문의하세요.",
         "serverError": "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
-      }
+      },
+      "vendorSignupLink": "원천 공급자로 가입"
     },
     "signup": {
       "headerTitle": "회원가입",
@@ -1431,7 +1440,24 @@
     "accountError": "계정 생성에 실패했습니다. 다시 시도해주세요.",
     "accountUnlink": "계정 해제",
     "accountUnlinkConfirm": "이 공급자의 로그인 계정을 해제할까요? 계정은 비활성화되고 로그인할 수 없게 됩니다.",
-    "accountUnlinked": "계정이 해제되었습니다."
+    "accountUnlinked": "계정이 해제되었습니다.",
+    "statusPending": "승인 대기",
+    "statusApproved": "승인됨",
+    "statusRejected": "거절됨",
+    "selfSignupBadge": "자가 가입",
+    "pendingSectionTitle": "승인 대기",
+    "approve": "승인",
+    "reject": "거절",
+    "approveConfirm": "이 공급자를 승인할까요? 승인 후 발주를 받을 수 있습니다.",
+    "approved": "공급자를 승인했습니다.",
+    "rejected": "가입을 거절했습니다.",
+    "rejectModalTitle": "가입 거절",
+    "rejectReasonLabel": "거절 사유 (선택)",
+    "rejectReasonPlaceholder": "사유는 공급자에게 표시됩니다",
+    "rejectConfirm": "거절",
+    "rejectCancel": "취소",
+    "approvalError": "처리에 실패했습니다. 다시 시도해주세요.",
+    "bankSignupBadge": "정산계좌"
   },
   "adminServices": {
     "title": "서비스 카탈로그",
@@ -1672,12 +1698,37 @@
       "status": "상태",
       "memo": "메모"
     },
-    "types": { "TRAVEL_AGENCY": "여행사", "LAND_AGENCY": "랜드사" },
-    "tiers": { "A": "A · 선불", "B": "B · 단기여신", "C": "C · 특별계약" },
-    "tierShort": { "A": "선불", "B": "여신", "C": "특별" },
-    "statuses": { "ACTIVE": "활성", "SUSPENDED": "보류", "BLOCKED": "차단" },
-    "cycles": { "NONE": "없음(선불)", "WEEKLY": "주간", "BIWEEKLY": "15일", "MONTHLY": "월간" },
-    "aging": { "0-7": "0-7일", "8-15": "8-15일", "16-30": "16-30일", "30+": "30일+" },
+    "types": {
+      "TRAVEL_AGENCY": "여행사",
+      "LAND_AGENCY": "랜드사"
+    },
+    "tiers": {
+      "A": "A · 선불",
+      "B": "B · 단기여신",
+      "C": "C · 특별계약"
+    },
+    "tierShort": {
+      "A": "선불",
+      "B": "여신",
+      "C": "특별"
+    },
+    "statuses": {
+      "ACTIVE": "활성",
+      "SUSPENDED": "보류",
+      "BLOCKED": "차단"
+    },
+    "cycles": {
+      "NONE": "없음(선불)",
+      "WEEKLY": "주간",
+      "BIWEEKLY": "15일",
+      "MONTHLY": "월간"
+    },
+    "aging": {
+      "0-7": "0-7일",
+      "8-15": "8-15일",
+      "16-30": "16-30일",
+      "30+": "30일+"
+    },
     "receivableStatus": {
       "PENDING": "미입금",
       "PARTIAL": "부분입금",
@@ -1685,8 +1736,18 @@
       "OVERDUE": "연체",
       "WRITTEN_OFF": "대손"
     },
-    "rcv": { "dueDate": "기한", "total": "객실료", "paid": "입금", "status": "상태" },
-    "bk": { "villa": "빌라", "stay": "숙박", "total": "객실료", "status": "상태" }
+    "rcv": {
+      "dueDate": "기한",
+      "total": "객실료",
+      "paid": "입금",
+      "status": "상태"
+    },
+    "bk": {
+      "villa": "빌라",
+      "stay": "숙박",
+      "total": "객실료",
+      "status": "상태"
+    }
   },
   "adminSettlements": {
     "title": "정산 관리",
@@ -2948,5 +3009,41 @@
     "qrOptions": "옵션 요청 QR",
     "copyLink": "링크 복사",
     "qrUnavailable": "QR을 만들 수 없습니다"
+  },
+  "vendorSignup": {
+    "headerTitle": "원천 공급자 가입",
+    "title": "원천 공급자 가입",
+    "subtitle": "부가서비스 발주를 받으려면 가입하세요. 운영자 승인 후 발주 수신이 시작됩니다.",
+    "name": "상호 / 거래처명",
+    "namePlaceholder": "예: 푸꾸옥 과일가게 A",
+    "phone": "전화번호",
+    "phonePlaceholder": "0xxx xxx xxx",
+    "password": "비밀번호",
+    "passwordPlaceholder": "최소 8자 이상",
+    "zalo": "Zalo ID (선택)",
+    "zaloPlaceholder": "Zalo 사용자 ID",
+    "zaloHint": "발주 알림 수신용입니다.",
+    "bankTitle": "정산 받을 계좌 (선택)",
+    "bank": "은행",
+    "bankPlaceholder": "예: Vietcombank",
+    "account": "계좌번호",
+    "accountPlaceholder": "계좌번호",
+    "holder": "예금주",
+    "holderPlaceholder": "예금주명",
+    "note": "메모 (선택)",
+    "notePlaceholder": "운영자에게 전할 내용",
+    "submit": "가입 신청",
+    "submitting": "전송 중...",
+    "back": "뒤로",
+    "hasAccount": "이미 계정이 있으신가요?",
+    "loginLink": "로그인",
+    "successTitle": "가입 신청 완료!",
+    "successBody": "가입 신청이 접수되어 운영자 승인을 기다리고 있습니다. 승인되면 로그인하여 발주를 받을 수 있습니다.",
+    "goLogin": "로그인 페이지로",
+    "errors": {
+      "phoneExists": "이미 등록된 전화번호입니다.",
+      "passwordTooShort": "비밀번호는 최소 8자 이상이어야 합니다.",
+      "serverError": "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+    }
   }
 }
