@@ -13,6 +13,7 @@ import { ZaloThreadType } from "@prisma/client";
 import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import { toChatMessages } from "@/lib/zalo-chat-message";
+import { resolveQuotedAnchors } from "@/lib/zalo-quote-anchor";
 import type { InboxItem } from "./inbox";
 import type {
   ChatMessage,
@@ -212,6 +213,7 @@ export async function getThreadData(
           status: true,
           createdAt: true,
           zaloMsgId: true,
+          globalMsgId: true,
           quotedMsgId: true,
           quotedText: true,
           quotedSender: true,
@@ -255,12 +257,14 @@ export async function getThreadData(
   const recentDesc = hasOlder ? rowsDesc.slice(0, INITIAL_TAKE) : rowsDesc;
   const recentAsc = recentDesc.slice().reverse();
   const oldestCursor = recentAsc.length > 0 ? recentAsc[0].createdAt.toISOString() : null;
-  const messages = toChatMessages(recentAsc, {
+  const mapped = toChatMessages(recentAsc, {
     isGroup,
     memberMap,
     headerAvatarUrl: header.avatarUrl,
     headerInitials: header.initials,
-  }) as ChatMessage[];
+  });
+  // 답글 인용 점프 앵커 변환 — 수신 답글의 quotedMsgId(globalMsgId)를 버블 앵커 zaloMsgId로 치환.
+  const messages = (await resolveQuotedAnchors(mapped, recentAsc, conv.id)) as ChatMessage[];
 
   return {
     header,

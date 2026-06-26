@@ -64,6 +64,8 @@ export interface ChatMessageRow {
   status: string;
   createdAt: Date;
   zaloMsgId: string | null;
+  /** zca-js globalMsgId — 답글 인용 앵커 변환용(resolveQuotedAnchors). 선택(미조회 경로 호환). */
+  globalMsgId?: string | null;
   quotedMsgId: string | null;
   quotedText: string | null;
   quotedSender: string | null;
