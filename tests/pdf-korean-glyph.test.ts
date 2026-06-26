@@ -37,13 +37,21 @@ describe("PDF 한글 글리프 폴백 — 유실 재발 가드", () => {
     expect(existsSync(path.join(root, "assets/fonts/NanumGothic-Bold.ttf"))).toBe(true);
   });
 
-  it("청구서·정산서 PDF가 공용 글리프 헬퍼로 동적 텍스트를 감싼다", () => {
+  it("청구서·정산서 PDF가 공용 글리프 헬퍼로 텍스트를 감싼다", () => {
     for (const f of ["lib/partner-invoice-pdf.tsx", "lib/settlement-statement-pdf.tsx"]) {
       const src = read(f);
       expect(src, `${f} must import shared font module`).toContain('from "@/lib/pdf-fonts"');
-      // 빌라명·파트너/공급자명 등 한글 가능 동적 텍스트는 mixedTextChildren으로 감쌀 것
-      expect(src, `${f} must wrap villa/partner name`).toContain("mixedTextChildren(");
+      // 한글 가능 텍스트(라벨·빌라명·이름)는 mixedTextChildren(직접 또는 T 별칭)으로 감쌀 것
+      expect(src, `${f} must reference mixedTextChildren`).toContain("mixedTextChildren");
     }
+  });
+
+  it("청구서 PDF는 라벨까지 글리프 폴백으로 감싼다 (ko 라벨 한글 깨짐 방지)", () => {
+    const src = read("lib/partner-invoice-pdf.tsx");
+    // 정적 라벨(L.title 등)도 NotoSans로는 한글이 깨지므로 폴백 래퍼(T=mixedTextChildren)로 감쌀 것
+    expect(src).toContain("const T = mixedTextChildren");
+    expect(src).toContain("{T(L.title)}");
+    expect(src).toContain("{T(L.colVilla)}");
   });
 
   it("청구서 PDF가 파트너 국가별 언어(ko/vi/en) 라벨 사전을 가진다", () => {

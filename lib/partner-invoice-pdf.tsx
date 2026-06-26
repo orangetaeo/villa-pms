@@ -155,70 +155,73 @@ const styles = StyleSheet.create({
 
 function InvoiceDocument({ model }: { model: InvoiceStatementModel }) {
   const L = LABELS[model.locale]; // 파트너 국가로 결정된 출력 언어
+  // 모든 텍스트(라벨 포함)에 한글 글리프 폴백 — ko 라벨이 한글이라 NotoSans로는 깨짐.
+  // 한글 런만 NanumGothic, 베트남어/라틴/숫자는 NotoSans 유지(혼합 안전).
+  const T = mixedTextChildren;
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.brand}>{L.brand}</Text>
-        <Text style={styles.title}>{L.title}</Text>
+        <Text style={styles.brand}>{T(L.brand)}</Text>
+        <Text style={styles.title}>{T(L.title)}</Text>
 
         <View style={styles.metaRow}>
-          <Text style={styles.metaLabel}>{L.partner}</Text>
-          <Text style={styles.metaValue}>{mixedTextChildren(model.partnerName)}</Text>
+          <Text style={styles.metaLabel}>{T(L.partner)}</Text>
+          <Text style={styles.metaValue}>{T(model.partnerName)}</Text>
         </View>
         <View style={styles.metaRow}>
-          <Text style={styles.metaLabel}>{L.invoiceNo}</Text>
-          <Text style={styles.metaValue}>{model.invoiceNo}</Text>
+          <Text style={styles.metaLabel}>{T(L.invoiceNo)}</Text>
+          <Text style={styles.metaValue}>{T(model.invoiceNo)}</Text>
         </View>
         <View style={styles.metaRow}>
-          <Text style={styles.metaLabel}>{L.period}</Text>
+          <Text style={styles.metaLabel}>{T(L.period)}</Text>
           <Text style={styles.metaValue}>
-            {model.periodStart} ~ {model.periodEnd}
+            {T(`${model.periodStart} ~ ${model.periodEnd}`)}
           </Text>
         </View>
         <View style={styles.metaRow}>
-          <Text style={styles.metaLabel}>{L.due}</Text>
-          <Text style={styles.metaDue}>{model.dueDate}</Text>
+          <Text style={styles.metaLabel}>{T(L.due)}</Text>
+          <Text style={styles.metaDue}>{T(model.dueDate)}</Text>
         </View>
         <View style={styles.metaRow}>
-          <Text style={styles.metaLabel}>{L.issued}</Text>
-          <Text style={styles.metaValue}>{model.issuedAt}</Text>
+          <Text style={styles.metaLabel}>{T(L.issued)}</Text>
+          <Text style={styles.metaValue}>{T(model.issuedAt)}</Text>
         </View>
 
         <View style={styles.table}>
           <View style={styles.th}>
-            <Text style={styles.cVilla}>{L.colVilla}</Text>
-            <Text style={styles.cStay}>{L.colStay}</Text>
-            <Text style={styles.cNights}>{L.colNights}</Text>
-            <Text style={styles.cAmount}>{L.colAmount}</Text>
+            <Text style={styles.cVilla}>{T(L.colVilla)}</Text>
+            <Text style={styles.cStay}>{T(L.colStay)}</Text>
+            <Text style={styles.cNights}>{T(L.colNights)}</Text>
+            <Text style={styles.cAmount}>{T(L.colAmount)}</Text>
           </View>
           {model.rows.map((r, i) => (
             <View style={styles.tr} key={i}>
-              <Text style={styles.cVilla}>{mixedTextChildren(r.villaName)}</Text>
-              <Text style={styles.cStay}>{r.stay}</Text>
-              <Text style={styles.cNights}>{r.nights}</Text>
-              <Text style={styles.cAmount}>{r.amount}</Text>
+              <Text style={styles.cVilla}>{T(r.villaName)}</Text>
+              <Text style={styles.cStay}>{T(r.stay)}</Text>
+              <Text style={styles.cNights}>{T(r.nights)}</Text>
+              <Text style={styles.cAmount}>{T(r.amount)}</Text>
             </View>
           ))}
         </View>
 
         <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>{L.total}</Text>
-          <Text style={styles.totalValue}>{model.total}</Text>
+          <Text style={styles.totalLabel}>{T(L.total)}</Text>
+          <Text style={styles.totalValue}>{T(model.total)}</Text>
         </View>
         {model.paid && (
           <View style={styles.subRow}>
-            <Text style={styles.subLabel}>{L.paid}</Text>
-            <Text style={styles.subValue}>{model.paid}</Text>
+            <Text style={styles.subLabel}>{T(L.paid)}</Text>
+            <Text style={styles.subValue}>{T(model.paid)}</Text>
           </View>
         )}
         {model.outstanding && (
           <View style={styles.subRow}>
-            <Text style={styles.outLabel}>{L.outstanding}</Text>
-            <Text style={styles.outValue}>{model.outstanding}</Text>
+            <Text style={styles.outLabel}>{T(L.outstanding)}</Text>
+            <Text style={styles.outValue}>{T(model.outstanding)}</Text>
           </View>
         )}
 
-        <Text style={styles.note}>{L.note}</Text>
+        <Text style={styles.note}>{T(L.note)}</Text>
       </Page>
     </Document>
   );
