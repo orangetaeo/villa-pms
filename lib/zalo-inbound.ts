@@ -141,6 +141,7 @@ export type InboundMsgType =
   | "call"
   | "video"
   | "location"
+  | "link" // 링크/구글지도/장소 공유 — 썸네일+제목+설명+URL을 리치 카드로(FE LinkPreviewCard)
   | "unknown";
 
 /** classifyInbound 결과 — 저장(msgType·text·attachmentUrls)에 그대로 전달. */
@@ -297,6 +298,28 @@ export function buildCallDetail(content: unknown): string {
   return `CALL:${dir}:${status}:${outDur}:${vtype}`;
 }
 
+/**
+ * 링크/구글지도/장소 공유 → "link" 카드 분류 (FE LinkPreviewCard용).
+ * 인코딩(스키마 변경 없이 text·attachmentUrls만 사용):
+ *  - attachmentUrls[0] = 링크 URL(항상, 카드 클릭 시 열기 — 모바일은 지도/브라우저 앱). [1] = 썸네일(있으면).
+ *  - text = "제목"(+ 줄바꿈 + "설명"). 제목=장소명, 설명=별점·카테고리 등(있을 때, 제목과 다를 때만).
+ * 제목이 비면 URL을 제목 자리로(렌더 폴백). 인박스 미리보기는 text 첫 줄(제목)을 그대로 보여준다.
+ */
+function makeLinkCard(
+  title: string,
+  description: string,
+  url: string,
+  thumb: string
+): ClassifiedInbound {
+  const cleanTitle = title.trim();
+  const cleanDesc =
+    description.trim() && description.trim() !== cleanTitle ? description.trim() : "";
+  const textLines = [cleanTitle || url, ...(cleanDesc ? [cleanDesc] : [])];
+  const urls = [url];
+  if (thumb && /^https?:\/\//i.test(thumb) && thumb !== url) urls.push(thumb);
+  return { msgType: "link", text: textLines.join("\n"), attachmentUrls: urls };
+}
+
 export function classifyInbound(content: unknown, zaloMsgType?: string): ClassifiedInbound {
   const type = (zaloMsgType ?? "").toLowerCase();
 
@@ -436,9 +459,23 @@ export function classifyInbound(content: unknown, zaloMsgType?: string): Classif
   //    링크 공유는 사람이 읽는 캡션. 제목·설명(화이트리스트)과 href(URL)를 합쳐 text로.
   //    action/메서드명 등 메타 필드는 절대 넣지 않는다(버그 B 원칙).
   if (type === "chat.link") {
-    const title = pickStringField(o, ["title", "description", "msg", "caption"]);
+    const title = pickStringField(o, ["title", "name"]);
+    const desc = pickStringField(o, ["description", "desc", "caption", "msg"]);
     const linkUrl = pickStringField(o, ["href", "url"]);
-    const text = [title, linkUrl].filter((s) => s.length > 0).join("\n");
+    const thumb = pickStringField(o, [
+      "thumb",
+      "thumbUrl",
+      "thumb_url",
+      "hdUrl",
+      "normalUrl",
+      "photoUrl",
+      "image",
+    ]);
+    // http(s) URL이 있으면 리치 링크 카드. 없으면 기존 텍스트 폴백.
+    if (/^https?:\/\//i.test(linkUrl)) {
+      return makeLinkCard(title, desc, linkUrl, thumb);
+    }
+    const text = [title || desc, linkUrl].filter((s) => s.length > 0).join("\n");
     return { msgType: "text", text, attachmentUrls: [] };
   }
 
@@ -492,15 +529,13 @@ export function classifyInbound(content: unknown, zaloMsgType?: string): Classif
     const isHttpLink = /^https?:\/\//i.test(sharedUrl);
     const hasContactId = !!(o.phone || o.qrCodeUrl || o.gUid || p.phone || p.qrCodeUrl);
 
-    // 링크/지도/POI 공유(http URL 보유 + 연락처 식별자 없음) → 링크로(썸네일 있으면 사진+캡션).
+    // 링크/지도/POI 공유(http URL 보유 + 연락처 식별자 없음) → 리치 링크 카드("link").
+    //   제목=장소명, 설명=별점·카테고리 등(별도 필드), 썸네일=미리보기 이미지, URL=클릭 시 지도/브라우저 앱.
     if (isHttpLink && !hasContactId) {
-      const title = pick2(["title", "description", "desc", "msg", "caption", "name"]);
+      const title = pick2(["title", "name"]);
+      const desc = pick2(["description", "desc", "address", "caption", "msg"]);
       const thumb = pick2(["thumb", "thumbUrl", "thumb_url", "hdUrl", "normalUrl", "photoUrl", "image"]);
-      const text = [title, sharedUrl].filter((s) => s.length > 0).join("\n");
-      if (thumb && /^https?:\/\//i.test(thumb) && thumb !== sharedUrl) {
-        return { msgType: "photo", text, attachmentUrls: [thumb] };
-      }
-      if (text) return { msgType: "text", text, attachmentUrls: [] };
+      return makeLinkCard(title, desc, sharedUrl, thumb);
     }
 
     // 진짜 네임카드 — 이름 위주(phone은 표시용으로만, 본문엔 안 넣음).
@@ -1176,14 +1211,17 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
   if (zaloMsgId) {
     const existing = await prisma.zaloMessage.findUnique({
       where: { zaloMsgId },
-      select: { id: true, globalMsgId: true },
+      select: { id: true, globalMsgId: true, cliMsgId: true },
     });
     if (existing) {
-      if (globalMsgId && !existing.globalMsgId) {
-        await prisma.zaloMessage.update({
-          where: { id: existing.id },
-          data: { globalMsgId },
-        });
+      // route(POST) 발신은 zca-js send가 globalMsgId·cliMsgId를 안 돌려줘 null로 저장된다.
+      // self-echo엔 둘 다 실려 오므로 기존 행에 없으면 보강 — 그래야 내가 보낸 메시지에도 답글·리액션 가능
+      // (cliMsgId)·상대가 내 발신 인용 시 점프(globalMsgId). 첫 echo 1회만 update.
+      const patch: { globalMsgId?: string; cliMsgId?: string } = {};
+      if (globalMsgId && !existing.globalMsgId) patch.globalMsgId = globalMsgId;
+      if (cliMsgId && !existing.cliMsgId) patch.cliMsgId = cliMsgId;
+      if (Object.keys(patch).length > 0) {
+        await prisma.zaloMessage.update({ where: { id: existing.id }, data: patch });
       }
       return { saved: false, duplicated: true };
     }

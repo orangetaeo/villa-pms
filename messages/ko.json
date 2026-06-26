@@ -2385,7 +2385,8 @@
       "contact": "[연락처]",
       "contactNamed": "[연락처] {name}",
       "video": "[동영상]",
-      "location": "[위치]"
+      "location": "[위치]",
+      "link": "[링크]"
     },
     "card": {
       "villaShare": "빌라 공유",
@@ -2435,11 +2436,11 @@
       "replyingTo": "{name}에게 답글",
       "fileFallback": "[파일]",
       "jumpToOriginal": "원본 메시지로 이동",
-      "notSupported": "과거 메시지에는 답글을 보낼 수 없습니다."
+      "notSupported": "이 메시지는 답글 기능 적용 전에 받은 것이라 인용할 수 없어요. 최근 메시지에는 답글이 됩니다."
     },
     "react": {
       "action": "리액션",
-      "notSupported": "과거 메시지에는 리액션을 추가할 수 없습니다.",
+      "notSupported": "이 메시지는 리액션 기능 적용 전에 받은 것이라 추가할 수 없어요. 최근 메시지에는 리액션이 됩니다.",
       "failed": "리액션 전송에 실패했습니다. 잠시 후 다시 시도하세요."
     },
     "attach": {

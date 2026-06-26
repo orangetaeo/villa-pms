@@ -55,6 +55,7 @@ function dto(id: string, quotedMsgId: string | null): ChatMessageDTO {
     quotedText: quotedMsgId ? "원본" : null,
     quotedSender: null,
     reactions: null,
+    canInteract: true,
   };
 }
 
