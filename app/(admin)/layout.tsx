@@ -27,10 +27,13 @@ import { isOperator } from "@/lib/permissions";
 //   settings/zalo/zalo-connect-client                → adminZalo
 //   cost-alerts/cost-alerts-view                     → adminCostAlerts
 //   components/admin/quick-date-filter               → quickDateFilter
+//   sales/sales-client                               → adminSales (+adminStatistics 탭 재사용)
 // 새 admin 클라이언트 컴포넌트에서 네임스페이스 추가 시 반드시 여기에도 추가할 것
 // (누락 시 MISSING_MESSAGE로 화면 깨짐).
 const ADMIN_CLIENT_NAMESPACES = [
   "nav",
+  // 매출관리 /sales(sales-client) 헤더 — 탭 콘텐츠는 adminStatistics(OverviewTab/VillasTab) 재사용
+  "adminSales",
   "adminStatistics",
   "adminBookings",
   "adminCheckin",

@@ -93,6 +93,7 @@
   "nav": {
     "brandSub": "Villa Go Admin",
     "dashboard": "Bảng điều khiển",
+    "sales": "Doanh thu",
     "statistics": "Thống kê",
     "bookings": "Đặt phòng",
     "proposals": "Đề xuất",
@@ -3033,7 +3034,8 @@
     "users": "Quản lý người dùng",
     "villas": "Quản lý villa",
     "villaDetail": "Chi tiết villa",
-    "statistics": "Thống kê"
+    "statistics": "Thống kê",
+    "sales": "Doanh thu"
   },
   "adminCheckinSheet": {
     "title": "Phiếu nhận phòng hôm nay",
@@ -3071,6 +3073,14 @@
       "guestSign": "Chữ ký khách",
       "staffConfirm": "Xác nhận nhân viên",
       "signDate": "Ngày ký"
+    }
+  },
+  "adminSales": {
+    "title": "Doanh thu",
+    "subtitle": "Kết quả bán hàng · doanh thu theo kỳ",
+    "villaSection": {
+      "title": "Doanh thu theo villa",
+      "subtitle": "Xếp hạng doanh thu·lợi nhuận theo villa trong kỳ (doanh thu đã xác nhận)"
     }
   },
   "adminStatistics": {

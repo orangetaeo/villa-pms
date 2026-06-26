@@ -93,6 +93,7 @@
   "nav": {
     "brandSub": "Villa Go Admin",
     "dashboard": "대시보드",
+    "sales": "매출",
     "statistics": "통계",
     "bookings": "예약",
     "proposals": "제안",
@@ -2924,7 +2925,8 @@
     "villas": "빌라 관리",
     "villaDetail": "빌라 상세",
     "availability": "공실 보드",
-    "statistics": "통계"
+    "statistics": "통계",
+    "sales": "매출"
   },
   "pagination": {
     "summary": "{from}–{to} · 총 {total}건",
@@ -3071,6 +3073,14 @@
       "guestSign": "게스트 서명",
       "staffConfirm": "담당자 확인",
       "signDate": "서명일"
+    }
+  },
+  "adminSales": {
+    "title": "매출",
+    "subtitle": "판매 실적·기간별 매출",
+    "villaSection": {
+      "title": "빌라별 매출",
+      "subtitle": "기간 내 빌라별 매출·마진 순위 (확정 매출 기준)"
     }
   },
   "adminStatistics": {

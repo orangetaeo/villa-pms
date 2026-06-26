@@ -157,7 +157,8 @@ export default function StatisticsClient(props: StatisticsProps) {
 // ── 탭1. 개요 ────────────────────────────────────────────────
 // KPI·매출추이는 빌라+부가서비스+미니바 합산 총계(BE가 loadOverviewStats에서 통합).
 // 통화 분리(KRW·VND)는 그대로 유지. 미니바·부가서비스 상세는 ancillary 탭으로 분리됨.
-function OverviewTab({ data }: { data: OverviewStats }) {
+// export: 매출관리 페이지 /sales(sales-client)가 동일 매출 뷰를 중복 없이 재사용.
+export function OverviewTab({ data }: { data: OverviewStats }) {
   const t = useTranslations("adminStatistics");
   const k = data.current;
   const fxMissing = data.trend.reduce((s, m) => s + m.fxMissingCount, 0);
@@ -680,7 +681,8 @@ function VillaOccupancyBars({
 }
 
 // ── 탭3. 빌라 성과 ───────────────────────────────────────────
-function VillasTab({
+// export: /sales가 "빌라별 매출 랭킹"으로 재사용(hasFinance=true 고정).
+export function VillasTab({
   rows,
   hasFinance,
 }: {

@@ -71,6 +71,8 @@ const NAV: NavEntry[] = [
     group: "finance",
     icon: "account_balance_wallet",
     items: [
+      // 매출관리(IDEAS 2026-06-24) — 판매 실적·기간별 매출 집계. 정산과 별개·재무만 노출
+      { key: "sales", href: "/sales", icon: "trending_up", cap: canViewFinance },
       { key: "settlements", href: "/settlements", icon: "payments", cap: canViewFinance },
       // 파트너 관리(ADR-0022) — 여행사·랜드사 미수·여신. 재무만 노출
       { key: "partners", href: "/partners", icon: "handshake", cap: canViewFinance },
@@ -119,10 +121,10 @@ export default function AdminSidebar({
     const items = e.items.filter(canSee);
     return items.length ? [{ ...e, items }] : [];
   });
-  // 모바일 하단 네비 중앙 돌출 항목 — 재무 권한자는 정산(추후 매출 페이지와 분리, IDEAS.md),
-  // 권한 없는 STAFF는 공실 보드로 대체(정산은 미들웨어 차단 대상이라 노출 금지)
+  // 모바일 하단 네비 중앙 돌출 항목 — 재무 권한자는 매출(IDEAS 2026-06-24: 정산→매출 교체),
+  // 권한 없는 STAFF는 공실 보드로 대체(매출/정산은 미들웨어 차단 대상이라 노출 금지)
   const centerItem = canViewFinance(role)
-    ? { href: "/settlements", icon: "payments", key: "settlements" }
+    ? { href: "/sales", icon: "trending_up", key: "sales" }
     : { href: "/availability", icon: "event_available", key: "availability" };
   const pathname = usePathname();
   const router = useRouter();
