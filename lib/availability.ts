@@ -84,6 +84,15 @@ export interface AvailabilityInput {
   overlappingBlockCount: number;
 }
 
+/**
+ * 점유(예약·차단 겹침) 사유 개수 — BOOKING_OVERLAP·BLOCK_OVERLAP만 센다.
+ * NOT_SELLABLE(검수 게이트)·VILLA_NOT_ACTIVE는 제외 — "재고가 이미 잡혔는가"만 판정할 때 사용
+ * (직접예약 D4: 검수 게이트 무시하고 점유 여부만 본다 / calendar-block 차단 충돌 판정과 동일 의미).
+ */
+export function countOverlapReasons(reasons: UnavailableReason[]): number {
+  return reasons.filter((r) => r === "BOOKING_OVERLAP" || r === "BLOCK_OVERLAP").length;
+}
+
 /** DB 조회 결과를 받아 가용성을 판정하는 순수 함수 */
 export function evaluateAvailability(input: AvailabilityInput): AvailabilityResult {
   const reasons: UnavailableReason[] = [];

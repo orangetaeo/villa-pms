@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<!--
+  b20 — 예약 상세 "부가옵션 주문" 패널 + 체크아웃 게스트 청구서 (ADR-0019 §6·§6.5, SPEC F8) · ADMIN 다크
+  ServiceOrder 행: 메뉴명·수량·상태(요청/확정/제공완료/취소)·출처(GUEST/운영자)·판매가·원가(canViewFinance)·행 액션.
+  확정 시 가격 확인 입력. "게스트 요청 대기" 하이라이트.
+  체크아웃 청구서: 미니바 소비 + 확정 옵션 + 결제수단(현금/계좌이체). 통화 분리(합산 금지·ADR-0003).
+  다크 #0F172A/#1E293B/#3B82F6. VND 쉼표. 브랜드 "Villa Go".
+-->
+<html class="dark" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>예약 상세 — 부가옵션 주문 · Villa Go Admin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = { darkMode:"class", theme:{ extend:{
+    colors:{ brand:{ primary:"#3B82F6", navy:"#0F172A", slate:"#1E293B" } },
+    borderRadius:{ "DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px" },
+    fontFamily:{ headline:["Public Sans","Noto Sans KR","sans-serif"], body:["Public Sans","Noto Sans KR","sans-serif"] }
+  } } }
+</script>
+<style>
+  .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; vertical-align:middle; }
+  body { font-family:"Public Sans","Noto Sans KR",sans-serif; word-break:keep-all; }
+  th, button, .tabular-nums, span[class*="rounded"] { white-space:nowrap; }
+  ::-webkit-scrollbar { width:8px; height:8px; } ::-webkit-scrollbar-track { background:#0F172A; }
+  ::-webkit-scrollbar-thumb { background:#334155; border-radius:4px; }
+</style>
+</head>
+<body class="bg-[#0F172A] text-slate-200 font-body antialiased">
+
+<!-- Sidebar -->
+<aside class="h-screen w-64 fixed left-0 top-0 border-r border-slate-800 bg-[#0F172A] flex flex-col py-4 z-50">
+  <div class="px-6 mb-8"><h1 class="text-xl font-headline font-black text-white">Villa Go</h1><p class="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Villa Go Admin</p></div>
+  <nav class="flex-1 space-y-1 overflow-y-auto">
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">dashboard</span><span class="text-sm font-medium">대시보드</span></a>
+    <a class="text-white bg-[#3B82F6] rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">calendar_month</span><span class="text-sm font-medium">예약</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">rate_review</span><span class="text-sm font-medium">제안</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">villa</span><span class="text-sm font-medium">빌라</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">grid_view</span><span class="text-sm font-medium">공실 보드</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">fact_check</span><span class="text-sm font-medium">청소 검수</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">payments</span><span class="text-sm font-medium">정산</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">chat</span><span class="text-sm font-medium">메시지</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">group</span><span class="text-sm font-medium">사용자</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">analytics</span><span class="text-sm font-medium">통계</span></a>
+    <a class="text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg mx-2 px-4 py-2 flex items-center gap-3" href="#"><span class="material-symbols-outlined">settings</span><span class="text-sm font-medium">설정</span></a>
+  </nav>
+  <div class="px-4 mt-auto pt-4"><div class="bg-slate-800/50 rounded-xl p-3 flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">관</div><div class="overflow-hidden"><p class="text-sm font-bold text-white truncate">관리자</p><p class="text-[10px] text-slate-500">최고 관리자</p></div></div></div>
+</aside>
+
+<!-- Main -->
+<main class="ml-64 flex flex-col min-h-screen">
+  <header class="sticky top-0 z-40 bg-[#0F172A] border-b border-slate-800 flex justify-between items-center h-16 px-6">
+    <div class="flex items-center gap-3">
+      <button class="text-slate-400 hover:text-white"><span class="material-symbols-outlined">arrow_back</span></button>
+      <h2 class="text-lg font-bold text-white">예약 B-2611</h2>
+      <span class="bg-blue-500/15 text-blue-400 text-[11px] font-bold px-2.5 py-1 rounded-full">체크인</span>
+      <span class="text-slate-600">·</span><span class="text-sm text-slate-400">쏘나씨 V11 · 2026.07.15~07.18</span>
+    </div>
+  </header>
+
+  <div class="flex-1 p-6 max-w-5xl space-y-5">
+
+    <!-- 부가옵션 주문 패널 -->
+    <section class="bg-[#1E293B] border border-slate-800 rounded-xl overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-800">
+        <h3 class="font-bold text-white flex items-center gap-2"><span class="material-symbols-outlined text-[#3B82F6]">restaurant</span>부가옵션 주문</h3>
+        <span class="bg-amber-500/15 text-amber-400 text-[11px] font-bold px-3 py-1 rounded-full flex items-center gap-1.5"><span class="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse"></span>게스트 요청 1건 대기</span>
+      </div>
+      <table class="w-full text-sm">
+        <thead class="text-slate-400 text-xs border-b border-slate-800">
+          <tr>
+            <th class="text-left font-semibold px-5 py-2.5">메뉴명</th>
+            <th class="text-center font-semibold px-2 py-2.5">수량</th>
+            <th class="text-center font-semibold px-2 py-2.5">출처</th>
+            <th class="text-right font-semibold px-3 py-2.5">판매가</th>
+            <th class="text-right font-semibold px-3 py-2.5">원가</th>
+            <th class="text-center font-semibold px-3 py-2.5">상태</th>
+            <th class="text-right font-semibold px-5 py-2.5">처리</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-800">
+          <!-- 게스트 요청 대기 row (highlight) -->
+          <tr class="bg-amber-500/5">
+            <td class="px-5 py-3 font-medium text-white">통돼지 BBQ</td>
+            <td class="px-2 py-3 text-center tabular-nums text-slate-300">1</td>
+            <td class="px-2 py-3 text-center"><span class="bg-teal-500/15 text-teal-300 text-[10px] font-bold px-2 py-0.5 rounded-full">GUEST</span></td>
+            <td class="px-3 py-3 text-right tabular-nums text-white font-semibold">1,800,000원</td>
+            <td class="px-3 py-3 text-right tabular-nums text-slate-500">—</td>
+            <td class="px-3 py-3 text-center"><span class="bg-amber-500/15 text-amber-400 text-[11px] font-bold px-2.5 py-1 rounded-full">요청</span></td>
+            <td class="px-5 py-3">
+              <div class="flex items-center justify-end gap-2">
+                <input placeholder="확정가" value="1,800,000" class="w-24 bg-[#0F172A] border border-slate-700 rounded px-2 py-1 text-xs text-white tabular-nums text-right focus:border-[#3B82F6] focus:ring-0"/>
+                <button class="text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-2.5 py-1.5">확정</button>
+                <button class="text-xs font-bold border border-slate-700 hover:bg-slate-800 text-slate-400 rounded-lg px-2.5 py-1.5">취소</button>
+              </div>
+            </td>
+          </tr>
+          <tr class="hover:bg-slate-800/40">
+            <td class="px-5 py-3 font-medium text-white">차량 렌트 (기사 포함)</td>
+            <td class="px-2 py-3 text-center tabular-nums text-slate-300">1</td>
+            <td class="px-2 py-3 text-center"><span class="bg-teal-500/15 text-teal-300 text-[10px] font-bold px-2 py-0.5 rounded-full">GUEST</span></td>
+            <td class="px-3 py-3 text-right tabular-nums text-white font-semibold">700,000원</td>
+            <td class="px-3 py-3 text-right tabular-nums text-slate-400">480,000₫</td>
+            <td class="px-3 py-3 text-center"><span class="bg-blue-500/15 text-blue-400 text-[11px] font-bold px-2.5 py-1 rounded-full">확정</span></td>
+            <td class="px-5 py-3"><div class="flex items-center justify-end gap-2"><button class="text-xs font-bold bg-[#3B82F6] hover:bg-blue-600 text-white rounded-lg px-2.5 py-1.5">제공완료</button><button class="text-xs font-bold border border-slate-700 hover:bg-slate-800 text-slate-400 rounded-lg px-2.5 py-1.5">취소</button></div></td>
+          </tr>
+          <tr class="hover:bg-slate-800/40">
+            <td class="px-5 py-3 font-medium text-white">선월드 입장권</td>
+            <td class="px-2 py-3 text-center tabular-nums text-slate-300">2</td>
+            <td class="px-2 py-3 text-center"><span class="bg-slate-600/40 text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded-full">운영자</span></td>
+            <td class="px-3 py-3 text-right tabular-nums text-white font-semibold">190,000원</td>
+            <td class="px-3 py-3 text-right tabular-nums text-slate-400">1,400,000₫</td>
+            <td class="px-3 py-3 text-center"><span class="bg-emerald-500/15 text-emerald-400 text-[11px] font-bold px-2.5 py-1 rounded-full">제공완료</span></td>
+            <td class="px-5 py-3 text-right text-slate-600 text-xs">—</td>
+          </tr>
+          <tr class="hover:bg-slate-800/40 opacity-60">
+            <td class="px-5 py-3 font-medium text-slate-300 line-through">오토바이 렌트</td>
+            <td class="px-2 py-3 text-center tabular-nums text-slate-400">1</td>
+            <td class="px-2 py-3 text-center"><span class="bg-teal-500/15 text-teal-300 text-[10px] font-bold px-2 py-0.5 rounded-full">GUEST</span></td>
+            <td class="px-3 py-3 text-right tabular-nums text-slate-400">120,000원</td>
+            <td class="px-3 py-3 text-right tabular-nums text-slate-500">—</td>
+            <td class="px-3 py-3 text-center"><span class="bg-slate-600/30 text-slate-400 text-[11px] font-bold px-2.5 py-1 rounded-full">취소</span></td>
+            <td class="px-5 py-3 text-right text-slate-600 text-xs">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- 체크아웃 게스트 청구서 mini-summary -->
+    <section class="bg-[#1E293B] border border-slate-800 rounded-xl p-5 space-y-4">
+      <h3 class="font-bold text-white flex items-center gap-2"><span class="material-symbols-outlined text-emerald-400">receipt_long</span>체크아웃 게스트 청구서</h3>
+      <div class="grid grid-cols-2 gap-5">
+        <!-- 합산 -->
+        <div class="space-y-2.5">
+          <div class="flex justify-between text-sm border-b border-slate-800 pb-2.5">
+            <span class="text-slate-400">미니바 소비 합계</span>
+            <span class="text-white font-semibold tabular-nums">235,000₫</span>
+          </div>
+          <div class="flex justify-between text-sm border-b border-slate-800 pb-2.5">
+            <span class="text-slate-400">확정 옵션 합계 (KRW)</span>
+            <span class="text-white font-semibold tabular-nums">890,000원</span>
+          </div>
+          <p class="text-[11px] text-slate-500 leading-relaxed">통화별 별도 집계 — KRW와 VND는 합산하지 않습니다. 보증금 환불·파손 차감은 별도 표기.</p>
+          <div class="flex justify-between text-sm pt-1">
+            <span class="text-slate-400">보증금 (별도)</span>
+            <span class="text-slate-300 tabular-nums">7,500,000₫ 보관 중</span>
+          </div>
+        </div>
+        <!-- 결제수단 -->
+        <div class="space-y-3 bg-[#0F172A] border border-slate-800 rounded-lg p-4">
+          <label class="text-xs font-semibold text-slate-400">결제수단 (체크아웃 정산)</label>
+          <select class="w-full bg-[#1E293B] border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#3B82F6] focus:ring-0">
+            <option>현금</option><option>계좌이체</option><option>기타</option>
+          </select>
+          <div class="flex items-center justify-between text-sm pt-1">
+            <span class="text-slate-400">게스트 청구액</span>
+            <div class="text-right">
+              <p class="text-white font-bold tabular-nums">235,000₫</p>
+              <p class="text-white font-bold tabular-nums">+ 890,000원</p>
+            </div>
+          </div>
+          <button class="w-full h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg">정산 완료 기록</button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+</body></html>

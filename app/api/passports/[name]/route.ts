@@ -4,10 +4,14 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getPassportDir, EXT_MIME } from "@/lib/storage";
 import { isOperator } from "@/lib/permissions";
+import { fileBelongsToUploader } from "@/lib/passport-name";
 
 /**
- * GET /api/passports/<파일명> — 여권 사진 서빙 (T3.1, QA 합의 조건 A)
- * 첫 줄 ADMIN 검사 — 공개 /uploads 라우트와 달리 비로그인·SUPPLIER 차단.
+ * GET /api/passports/<파일명> — 여권·서명 증빙 서빙 (T3.1, QA 합의 조건 A)
+ * 운영자(ADMIN)는 전체 접근. 공급자(SUPPLIER)는 F10 D5(T10.5)에서 본인이 업로드한 파일만 접근.
+ *   파일명에 업로더 id가 박혀 있으므로(storage.buildFileName: ts-uploaderId-uuid.ext) 본인 업로드분만 매칭한다.
+ *   → 공급자는 자기 게스트분 여권/서명만 보고, 운영자·타 공급자 게스트분은 도달 불가(타인 여권 차단).
+ * 비로그인·CLEANER 등은 모두 차단.
  * private,no-store: 프록시·브라우저 캐시 잔존 차단 (여권 90일 삭제 정책 정합).
  */
 
@@ -18,16 +22,22 @@ export async function GET(
   { params }: { params: Promise<{ name: string }> }
 ) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-  if (!isOperator(session.user.role)) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
   const { name } = await params;
   if (!SAFE_NAME.test(name) || name.includes("..")) {
     return NextResponse.json({ error: "invalid_name" }, { status: 400 });
+  }
+
+  // 운영자=전체 / 공급자=본인 업로드 파일만(파일명 업로더 id 매칭). 그 외 역할 차단.
+  const allowed =
+    isOperator(session.user.role) ||
+    (session.user.role === "SUPPLIER" &&
+      fileBelongsToUploader(name, session.user.id));
+  if (!allowed) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
   let buffer: Buffer;

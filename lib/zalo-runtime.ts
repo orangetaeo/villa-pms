@@ -40,6 +40,7 @@ import {
   classifyInbound,
   isSelfMessage,
   buildInboundKey,
+  buildGlobalMsgId,
   parseZaloTs,
   buildCliMsgId,
   extractQuote,
@@ -684,6 +685,9 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
     const displayText = text.trim().length > 0 ? text : UNKNOWN_MESSAGE_FALLBACK;
 
     const zaloMsgId = buildInboundKey(userMsg.data);
+    // 답글 인용 점프 앵커 변환용 — 메시지별 globalMsgId 보관(quote.globalMsgId와 동일 체계). 없으면 null.
+    // zca-js TMessage 타입엔 globalMsgId 선언이 없으나 런타임엔 실려 온다(Nike도 msg.globalMsgId 사용) → 캐스트.
+    const globalMsgId = buildGlobalMsgId(userMsg.data as { globalMsgId?: unknown });
     // USER: data.dName = 상대 표시명 → 대화 displayName 보강에 사용.
     // GROUP: data.dName = "발신자"명(그룹명 아님)이라 대화명으로 쓰면 오표기 → null로 두고
     //        그룹명은 maybeRefreshGroupMembers(getGroupInfo)가 채운다. 발신자명은 groupMembers 스냅샷에서 매핑.
@@ -711,6 +715,7 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
         msgType: classified.msgType,
         attachmentUrls: classified.attachmentUrls,
         zaloMsgId,
+        globalMsgId,
         createdAt: parseZaloTs(data.ts) ?? new Date(),
         displayName,
         cliMsgId,
@@ -757,6 +762,7 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       msgType: classified.msgType,
       attachmentUrls: classified.attachmentUrls,
       zaloMsgId,
+      globalMsgId,
       displayName,
       // 전화번호 매칭은 사람이 쓴 실제 본문만 대상 — 폴백·라벨로 오매칭 방지.
       senderPhone: null,
@@ -931,6 +937,52 @@ export type BotSendResult =
  */
 export type ZaloMention = { pos: number; uid: string; len: number };
 
+/**
+ * 봇 파일 첨부 1건 — Buffer + 확장자 포함 파일명 + 총 바이트.
+ * zca-js AttachmentSource(object 형태)로 매핑되어 sendMessage가 업로드한다.
+ */
+export interface BotAttachment {
+  data: Buffer;
+  filename: string; // 확장자 포함 (예: quyet-toan-2026-07.pdf)
+  totalSize: number;
+}
+
+type ZaloAttachmentObject = {
+  data: Buffer;
+  filename: string;
+  metadata: { totalSize: number };
+};
+type ZaloSendPayload =
+  | string
+  | { msg: string; mentions?: ZaloMention[]; attachments?: ZaloAttachmentObject[] };
+
+/**
+ * 발송 payload 구성 (순수, 테스트 대상).
+ * 멘션·첨부가 모두 없으면 plain string(기존 동작 불변). 하나라도 있으면 MessageContent.
+ */
+export function buildSendPayload(
+  text: string,
+  mentions?: ZaloMention[],
+  attachments?: BotAttachment[]
+): ZaloSendPayload {
+  const hasMentions = !!mentions && mentions.length > 0;
+  const hasAttachments = !!attachments && attachments.length > 0;
+  if (!hasMentions && !hasAttachments) return text;
+  return {
+    msg: text,
+    ...(hasMentions ? { mentions } : {}),
+    ...(hasAttachments
+      ? {
+          attachments: attachments!.map((a) => ({
+            data: a.data,
+            filename: a.filename,
+            metadata: { totalSize: a.totalSize },
+          })),
+        }
+      : {}),
+  };
+}
+
 async function sendVia(
   api: API | null,
   zaloUserId: string,
@@ -938,14 +990,15 @@ async function sendVia(
   // ADR-0010 S4 — 그룹 발송 지원. 기본 USER(기존 호출 동작 불변). GROUP이면 zaloUserId=그룹 id.
   threadType: ThreadType = ThreadType.User,
   // 그룹 @멘션 — 있으면 MessageContent {msg, mentions}로 전송(zca-js 실제 멘션). 없으면 plain string(불변).
-  mentions?: ZaloMention[]
+  mentions?: ZaloMention[],
+  // 파일 첨부(선택) — 있으면 MessageContent.attachments로 전송(정산서 PDF 등).
+  attachments?: BotAttachment[]
 ): Promise<BotSendResult> {
   if (!api) return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
   try {
-    const payload =
-      mentions && mentions.length > 0
-        ? ({ msg: text, mentions } as unknown as Parameters<API["sendMessage"]>[0])
-        : text;
+    const payload = buildSendPayload(text, mentions, attachments) as unknown as Parameters<
+      API["sendMessage"]
+    >[0];
     const res = await api.sendMessage(payload, zaloUserId, threadType);
     const msgId = res?.message?.msgId;
     return { ok: true, messageId: msgId != null ? String(msgId) : null };
@@ -967,6 +1020,18 @@ export async function sendBotMessage(
   text: string
 ): Promise<BotSendResult> {
   return sendVia(getSystemBotApi(), zaloUserId, text);
+}
+
+/**
+ * 시스템 알림 + 파일 첨부 발송 (정산서 PDF 등). 시스템봇 인스턴스.
+ * 첨부가 비면 sendBotMessage와 동일(plain text). 봇 미연결 시 ERROR_BOT_NOT_CONNECTED.
+ */
+export async function sendBotMessageWithAttachments(
+  zaloUserId: string,
+  text: string,
+  attachments: BotAttachment[]
+): Promise<BotSendResult> {
+  return sendVia(getSystemBotApi(), zaloUserId, text, ThreadType.User, undefined, attachments);
 }
 
 /**

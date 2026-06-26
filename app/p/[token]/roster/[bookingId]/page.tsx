@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { toDateOnlyString } from "@/lib/date-vn";
 import { PublicFooter } from "../../../_components/public-footer";
 import { LangSelector } from "../../../_components/lang-selector";
+import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import { bookingShortCode } from "../../../_components/public-format";
 import { RosterForm } from "../../../_components/roster-form";
 import {
@@ -28,7 +29,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { lang: langParam } = await searchParams;
   const cookieLang = (await cookies()).get(PUBLIC_LOCALE_COOKIE)?.value;
-  return { title: `${PUBLIC_META[resolvePublicLang(langParam, cookieLang)].roster} | Villa PMS` };
+  return { title: `${PUBLIC_META[resolvePublicLang(langParam, cookieLang)].roster} | Villa Go` };
 }
 
 /** c3 export bg-mesh 재현 (done 페이지와 동일) */
@@ -88,7 +89,10 @@ export default async function RosterInputPage({
           >
             <span className="material-symbols-outlined text-teal-600">arrow_back</span>
           </Link>
-          <h1 className="font-semibold text-lg text-teal-600 ml-2">Villa PMS</h1>
+          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5">
+            <VillaGoMark className="h-5 w-auto" />
+            <VillaGoWordmark className="text-lg" villa="text-slate-900" go="text-teal-600" />
+          </span>
           <div className="ml-auto">
             <LangSelector current={lang} />
           </div>

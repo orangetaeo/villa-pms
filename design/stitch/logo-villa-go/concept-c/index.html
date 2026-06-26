@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Villa Go — Logo Presentation Board (Concept C: Rising Sun + Villa)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    /* 프로젝트 공통: 한글/베트남어 폰트 폴백 + 세로 낙하 방지 */
+    body {
+      font-family: 'Be Vietnam Pro', 'Noto Sans KR', sans-serif;
+      background-color: #F8FAFC;
+      color: #1E293B;
+      word-break: keep-all;
+      -webkit-font-smoothing: antialiased;
+    }
+    .label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #94A3B8;
+      margin-bottom: 0.75rem;
+      display: block;
+      white-space: nowrap;
+    }
+    .wordmark { white-space: nowrap; }
+  </style>
+</head>
+<body class="min-h-screen p-12">
+  <div class="max-w-[1200px] mx-auto">
+    <!-- Header -->
+    <header class="mb-16 border-b border-slate-200 pb-8 flex justify-between items-end">
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight">Villa Go</h1>
+        <p class="text-slate-500 mt-1">Brand Identity — Concept C: 떠오르는 해 + 빌라 (Phu Quoc sunrise)</p>
+      </div>
+      <div class="text-right">
+        <span class="text-xs font-medium text-slate-400">Project: Villa PMS Rebrand</span>
+      </div>
+    </header>
+
+    <!-- Reusable mark defined inline per placement (rising sun arc behind peaked roof + horizon) -->
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-12 gap-8">
+
+      <!-- 1. Hero Lockup -->
+      <section class="col-span-12 bg-white rounded-3xl border border-slate-100 p-16 flex flex-col items-center justify-center min-h-[400px] shadow-sm mb-8">
+        <span class="label">Hero Lockup</span>
+        <div class="flex flex-col items-center gap-6">
+          <svg width="150" height="110" viewBox="0 0 150 110" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Villa Go sunrise mark">
+            <!-- sun disc (sand) rising behind the roof -->
+            <circle cx="75" cy="58" r="30" fill="#F59E0B"/>
+            <!-- sun rays (sand), short ticks above -->
+            <g stroke="#F59E0B" stroke-width="5" stroke-linecap="round">
+              <path d="M75 14v9"/>
+              <path d="M45 24l5 8"/>
+              <path d="M105 24l-5 8"/>
+            </g>
+            <!-- peaked villa roof (teal) sitting over the sun -->
+            <path d="M27 78 75 38l48 40" stroke="#0D9488" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+            <!-- horizon line (teal) -->
+            <path d="M12 96h126" stroke="#0D9488" stroke-width="9" stroke-linecap="round"/>
+          </svg>
+          <div class="wordmark text-7xl font-bold tracking-tight">
+            <span style="color: #1E293B">Villa</span><span style="color: #0D9488"> Go</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Horizontal Variant -->
+      <section class="col-span-6 bg-white rounded-3xl border border-slate-100 p-12 flex flex-col items-center justify-center shadow-sm">
+        <span class="label">Horizontal Lockup</span>
+        <div class="flex items-center gap-4">
+          <svg width="66" height="48" viewBox="0 0 150 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="75" cy="58" r="30" fill="#F59E0B"/>
+            <g stroke="#F59E0B" stroke-width="5" stroke-linecap="round">
+              <path d="M75 14v9"/><path d="M45 24l5 8"/><path d="M105 24l-5 8"/>
+            </g>
+            <path d="M27 78 75 38l48 40" stroke="#0D9488" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 96h126" stroke="#0D9488" stroke-width="9" stroke-linecap="round"/>
+          </svg>
+          <div class="wordmark text-3xl font-bold tracking-tight">
+            <span style="color: #1E293B">Villa</span><span style="color: #0D9488"> Go</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Stacked Variant -->
+      <section class="col-span-6 bg-white rounded-3xl border border-slate-100 p-12 flex flex-col items-center justify-center shadow-sm">
+        <span class="label">Stacked Lockup</span>
+        <div class="flex flex-col items-center gap-3">
+          <svg width="78" height="57" viewBox="0 0 150 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="75" cy="58" r="30" fill="#F59E0B"/>
+            <g stroke="#F59E0B" stroke-width="5" stroke-linecap="round">
+              <path d="M75 14v9"/><path d="M45 24l5 8"/><path d="M105 24l-5 8"/>
+            </g>
+            <path d="M27 78 75 38l48 40" stroke="#0D9488" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 96h126" stroke="#0D9488" stroke-width="9" stroke-linecap="round"/>
+          </svg>
+          <div class="wordmark text-3xl font-bold tracking-tight">
+            <span style="color: #1E293B">Villa</span><span style="color: #0D9488"> Go</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Monochrome Variant -->
+      <section class="col-span-4 bg-white rounded-3xl border border-slate-100 p-12 flex flex-col items-center justify-center shadow-sm">
+        <span class="label">Monochrome (Teal)</span>
+        <div class="flex items-center gap-3">
+          <svg width="52" height="38" viewBox="0 0 150 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="75" cy="58" r="30" fill="none" stroke="#0D9488" stroke-width="6"/>
+            <g stroke="#0D9488" stroke-width="5" stroke-linecap="round">
+              <path d="M75 14v9"/><path d="M45 24l5 8"/><path d="M105 24l-5 8"/>
+            </g>
+            <path d="M27 78 75 38l48 40" stroke="#0D9488" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 96h126" stroke="#0D9488" stroke-width="9" stroke-linecap="round"/>
+          </svg>
+          <div class="wordmark text-2xl font-bold tracking-tight">
+            <span style="color: #0D9488">Villa Go</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. App Icon Preview -->
+      <section class="col-span-4 bg-white rounded-3xl border border-slate-100 p-12 flex flex-col items-center justify-center shadow-sm">
+        <span class="label">App Icon Grid</span>
+        <div class="flex items-end gap-6">
+          <!-- Large: warm teal tile, sun+roof in white/sand -->
+          <div class="w-20 h-20 rounded-2xl flex items-center justify-center shadow-sm" style="background-color: #0D9488">
+            <svg width="52" height="38" viewBox="0 0 150 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="75" cy="58" r="30" fill="#FBBF24"/>
+              <path d="M27 78 75 38l48 40" stroke="#FFFFFF" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M12 96h126" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <!-- Medium -->
+          <div class="w-12 h-12 rounded-xl flex items-center justify-center shadow-sm" style="background-color: #0D9488">
+            <svg width="32" height="24" viewBox="0 0 150 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="75" cy="58" r="30" fill="#FBBF24"/>
+              <path d="M27 78 75 38l48 40" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <!-- Small -->
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center shadow-sm" style="background-color: #0D9488">
+            <svg width="22" height="16" viewBox="0 0 150 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="75" cy="60" r="26" fill="#FBBF24"/>
+              <path d="M27 78 75 38l48 40" stroke="#FFFFFF" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. On Dark Panel -->
+      <section class="col-span-4 bg-[#0F172A] rounded-3xl p-12 flex flex-col items-center justify-center shadow-lg">
+        <span class="label !text-slate-500">Reverse (On Dark)</span>
+        <div class="flex items-center gap-4">
+          <svg width="60" height="44" viewBox="0 0 150 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="75" cy="58" r="30" fill="#FBBF24"/>
+            <g stroke="#FBBF24" stroke-width="5" stroke-linecap="round">
+              <path d="M75 14v9"/><path d="M45 24l5 8"/><path d="M105 24l-5 8"/>
+            </g>
+            <path d="M27 78 75 38l48 40" stroke="#2DD4BF" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M12 96h126" stroke="#2DD4BF" stroke-width="9" stroke-linecap="round"/>
+          </svg>
+          <div class="wordmark text-2xl font-bold tracking-tight">
+            <span class="text-white">Villa</span><span style="color: #2DD4BF"> Go</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. Color Chips -->
+      <section class="col-span-12 bg-white rounded-3xl border border-slate-100 p-12 shadow-sm">
+        <span class="label">Color Palette</span>
+        <div class="grid grid-cols-3 gap-6">
+          <div class="flex items-center gap-4">
+            <div class="w-16 h-16 rounded-2xl shadow-inner border border-slate-100" style="background-color: #1E293B"></div>
+            <div>
+              <p class="font-bold text-sm">Ink</p>
+              <p class="font-mono text-xs text-slate-400">#1E293B</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-4">
+            <div class="w-16 h-16 rounded-2xl shadow-inner border border-slate-100" style="background-color: #0D9488"></div>
+            <div>
+              <p class="font-bold text-sm">Teal (Primary)</p>
+              <p class="font-mono text-xs text-slate-400">#0D9488</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-4">
+            <div class="w-16 h-16 rounded-2xl shadow-inner border border-slate-100" style="background-color: #F59E0B"></div>
+            <div>
+              <p class="font-bold text-sm">Sand (Secondary)</p>
+              <p class="font-mono text-xs text-slate-400">#F59E0B</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Footer Meta -->
+    <footer class="mt-16 text-center">
+      <p class="text-[10px] text-slate-300 font-bold uppercase tracking-[0.2em]">Local composition (Stitch shell) · Villa Go Concept C · 2026</p>
+    </footer>
+  </div>
+</body>
+</html>

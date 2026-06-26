@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import { BookingStatus, PhotoSpace } from "@prisma/client";
+import { BookingStatus, PhotoSpace, ServiceOrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatKrw, formatVnd } from "@/lib/format";
 import { minibarItemName } from "@/lib/minibar";
-import CheckoutForm from "./checkout-form";
+import CheckoutForm, { type ConfirmedServiceOrder } from "./checkout-form";
 
 /**
  * /bookings/[id]/checkout — 체크아웃 검수 (Stitch b4 변환, T3.3)
@@ -15,7 +15,7 @@ import CheckoutForm from "./checkout-form";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
-  return { title: `${t("checkout")} — Villa PMS` };
+  return { title: `${t("checkout")} — Villa Go` };
 }
 
 /** 기준 사진 공간 정렬 순서 (b4: 거실→주방→침실→…) */
@@ -36,11 +36,13 @@ export default async function CheckoutPage({
   params: Promise<{ id: string }>;
 }) {
   const t = await getTranslations("adminCheckout");
+  const tServices = await getTranslations("adminServices");
   const locale = await getLocale();
   const { id } = await params;
 
   // 미니바는 회사표준 1세트(#2b, MinibarItem) — 전 빌라 공통. 빌라별 amenities(MINIBAR) 비참조.
-  const [booking, minibarItems] = await Promise.all([
+  // 게스트 청구서(ADR-0019 S4): 확정 부가옵션(CONFIRMED|DELIVERED)만 — 판매가만(원가 costVnd 미select·마진 비공개).
+  const [booking, minibarItems, confirmedOrdersRaw] = await Promise.all([
     prisma.booking.findUnique({
       where: { id },
       select: {
@@ -66,8 +68,46 @@ export default async function CheckoutPage({
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       select: { id: true, nameKo: true, nameVi: true, unitPriceVnd: true },
     }),
+    prisma.serviceOrder.findMany({
+      where: {
+        bookingId: id,
+        status: { in: [ServiceOrderStatus.CONFIRMED, ServiceOrderStatus.DELIVERED] },
+      },
+      orderBy: { createdAt: "asc" },
+      // 판매가만 — costVnd는 select에서 제외(마진 비공개).
+      select: {
+        id: true,
+        type: true,
+        quantity: true,
+        priceKrw: true,
+        priceVnd: true,
+        catalogItemId: true,
+      },
+    }),
   ]);
   if (!booking) notFound();
+
+  // 확정 부가옵션 표시명 — 연결된 카탈로그명(없으면 type 라벨). 판매가만 노출.
+  const catalogIds = confirmedOrdersRaw
+    .map((o) => o.catalogItemId)
+    .filter((cid): cid is string => !!cid);
+  const catalogNameById = new Map<string, string>();
+  if (catalogIds.length > 0) {
+    const cats = await prisma.serviceCatalogItem.findMany({
+      where: { id: { in: catalogIds } },
+      select: { id: true, nameKo: true },
+    });
+    for (const c of cats) catalogNameById.set(c.id, c.nameKo);
+  }
+  const confirmedOrders: ConfirmedServiceOrder[] = confirmedOrdersRaw.map((o) => ({
+    id: o.id,
+    name:
+      (o.catalogItemId && catalogNameById.get(o.catalogItemId)) ||
+      tServices(`types.${o.type}`),
+    quantity: o.quantity,
+    priceKrw: o.priceKrw > 0 ? o.priceKrw : null,
+    priceVnd: o.priceVnd != null ? o.priceVnd.toString() : null,
+  }));
 
   // 공간 순서대로 비교 섹션 구성 — 라벨은 spaceLabel 우선, 없으면 공간명
   const sections: { id: string; label: string; baselineUrl: string | null }[] = [
@@ -142,6 +182,7 @@ export default async function CheckoutPage({
           minibar={minibar}
           depositLabel={depositLabel}
           depositVnd={depositVnd}
+          confirmedOrders={confirmedOrders}
         />
       )}
     </div>

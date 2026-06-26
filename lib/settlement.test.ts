@@ -55,22 +55,47 @@ describe("monthRangeUtc — [월초, 익월초) UTC (SPEC F6: 집계 기준 = �
   });
 });
 
-describe("assertSettlementTransition — DRAFT→CONFIRMED→PAID 전이표 (계약 완료 기준 2)", () => {
-  it("정방향: DRAFT+CONFIRM → CONFIRMED, CONFIRMED+MARK_PAID → PAID", () => {
+describe("assertSettlementTransition — DRAFT→CONFIRMED→COLLECTED→FX_ADJUSTED→PAID (P2-2)", () => {
+  it("정방향 생애주기 전 단계", () => {
     expect(assertSettlementTransition(SettlementStatus.DRAFT, "CONFIRM")).toBe(
       SettlementStatus.CONFIRMED
     );
+    expect(assertSettlementTransition(SettlementStatus.CONFIRMED, "COLLECT")).toBe(
+      SettlementStatus.COLLECTED
+    );
+    expect(assertSettlementTransition(SettlementStatus.COLLECTED, "ADJUST_FX")).toBe(
+      SettlementStatus.FX_ADJUSTED
+    );
+    expect(assertSettlementTransition(SettlementStatus.FX_ADJUSTED, "MARK_PAID")).toBe(
+      SettlementStatus.PAID
+    );
+  });
+
+  it("환차는 선택 단계 — MARK_PAID는 CONFIRMED·COLLECTED·FX_ADJUSTED 어디서든 가능", () => {
     expect(assertSettlementTransition(SettlementStatus.CONFIRMED, "MARK_PAID")).toBe(
       SettlementStatus.PAID
+    );
+    expect(assertSettlementTransition(SettlementStatus.COLLECTED, "MARK_PAID")).toBe(
+      SettlementStatus.PAID
+    );
+  });
+
+  it("환차 재조정 — FX_ADJUSTED에서 ADJUST_FX 재실행 허용", () => {
+    expect(assertSettlementTransition(SettlementStatus.FX_ADJUSTED, "ADJUST_FX")).toBe(
+      SettlementStatus.FX_ADJUSTED
     );
   });
 
   it("건너뛰기·역방향·중복은 전부 SettlementTransitionError (409 의미)", () => {
     const invalid: [SettlementStatus, SettlementAction][] = [
       [SettlementStatus.DRAFT, "MARK_PAID"], // 건너뛰기
+      [SettlementStatus.DRAFT, "COLLECT"], // 건너뛰기
       [SettlementStatus.CONFIRMED, "CONFIRM"], // 중복
+      [SettlementStatus.CONFIRMED, "ADJUST_FX"], // 수납 전 환차 불가
+      [SettlementStatus.COLLECTED, "CONFIRM"], // 역방향
       [SettlementStatus.PAID, "CONFIRM"], // 역방향 — PAID 후 불변
       [SettlementStatus.PAID, "MARK_PAID"], // 중복 지급
+      [SettlementStatus.PAID, "ADJUST_FX"], // PAID 후 불변
     ];
     for (const [current, action] of invalid) {
       expect(() => assertSettlementTransition(current, action), `${current}+${action}`).toThrow(

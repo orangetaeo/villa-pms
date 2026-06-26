@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Villa Go — 페이지 분기 흐름도 (State & Branch Map)</title>
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:'Malgun Gothic','맑은 고딕',sans-serif;
+         background:radial-gradient(circle at 25% 0%, #241652, #130c2e 60%, #0b0820); color:#ece8fb; }
+  .wrap { max-width:1500px; margin:0 auto; padding:36px 26px 90px; }
+  h1 { font-size:34px; font-weight:800; letter-spacing:-1px; margin:0 0 6px; }
+  .sub { color:#b6abe6; font-size:16px; margin-bottom:20px; }
+  .legend { display:flex; gap:16px; flex-wrap:wrap; font-size:13px; margin-bottom:14px; }
+  .legend span { display:flex; align-items:center; gap:6px; color:#d7cffb; }
+  .sw { width:14px; height:14px; border-radius:4px; display:inline-block; }
+  .shapes { display:flex; gap:18px; flex-wrap:wrap; font-size:13px; color:#bcb2e6; margin-bottom:28px;
+            background:rgba(255,255,255,.04); border:1px solid rgba(150,120,255,.2); border-radius:12px; padding:10px 16px; }
+  .shapes b { color:#fff; }
+
+  section { background:rgba(255,255,255,.035); border:1px solid rgba(150,120,255,.22);
+            border-radius:18px; padding:22px 24px 12px; margin-bottom:26px; }
+  section h2 { font-size:21px; font-weight:800; margin:0 0 4px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  section .desc { color:#ada3da; font-size:14px; margin:0 0 14px; }
+  .tag { font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:999px; }
+  .tag.gate { background:rgba(255,90,90,.16); color:#ff9d9d; border:1px solid #e0556f; }
+  .tag.flow { background:rgba(255,180,70,.18); color:#f4c97a; border:1px solid #e8a23c; }
+  .tag.appx { background:rgba(150,150,170,.16); color:#cfcfe0; border:1px solid #8a8aa0; }
+  .tag.live { background:rgba(58,209,127,.16); color:#7ff0b4; border:1px solid #3ad17f; }
+  .tag.todo { background:rgba(255,70,70,.2); color:#ff9b9b; border:1px solid #ff5a5a; }
+  .status { background:rgba(255,70,70,.07); border:1px solid rgba(255,90,90,.35); border-radius:14px;
+            padding:16px 20px; margin-bottom:28px; }
+  .status h3 { margin:0 0 8px; font-size:17px; color:#ffd0d0; }
+  .status ul { margin:0; padding-left:20px; }
+  .status li { font-size:14px; margin-bottom:5px; color:#e7dcf0; }
+  .status li b { color:#ff9b9b; }
+  .status .ok { color:#7ff0b4; }
+  .mermaid { background:transparent; text-align:center; overflow-x:auto; }
+  .mermaid svg { max-width:100%; height:auto; }
+  code { background:#241a4d; padding:1px 6px; border-radius:5px; color:#cbbcff; font-size:12.5px; }
+  .note { font-size:13px; color:#8f86bd; margin:8px 2px 18px; }
+  hr.div { border:none; border-top:1px dashed rgba(160,140,255,.25); margin:34px 0 26px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  @media (max-width:820px){ .cols { grid-template-columns:1fr; } }
+  .col h4 { margin:0 0 12px; font-size:16px; font-weight:800; }
+  .col.must h4 { color:#ff9b9b; }
+  .col.nice h4 { color:#f4c97a; }
+  .card { border-radius:12px; padding:13px 15px; margin-bottom:11px; }
+  .card.must { background:rgba(255,70,70,.08); border:1px solid rgba(255,90,90,.4); }
+  .card .t { font-weight:800; font-size:15px; color:#ffd9d9; margin-bottom:3px; }
+  .card .d { font-size:13px; color:#d8cfe8; line-height:1.5; }
+  .card .why { font-size:12px; color:#ffb0b0; margin-top:4px; }
+  ul.nicelist { margin:0; padding:0; list-style:none; }
+  ul.nicelist li { background:rgba(255,180,70,.07); border:1px solid rgba(255,180,70,.28);
+                   border-radius:10px; padding:9px 13px; margin-bottom:8px; font-size:13.5px; color:#f3e7d2; }
+  ul.nicelist li b { color:#f4c97a; }
+  ul.nicelist li .s { color:#b6a98a; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔀 Villa Go 페이지 분기 흐름도</h1>
+  <div class="sub">각 단계의 <b>결과(성공·실패 / 승인·반려 / 입금·만료 / 통과·거부)</b>에 따라 <b>어느 화면·상태로 가는지</b>를 그린 지도입니다. 실제 코드의 상태값(enum)·분기 조건·리다이렉트 기반.</div>
+  <div class="legend">
+    <span><span class="sw" style="background:#7c5cff"></span>🟣 관리자</span>
+    <span><span class="sw" style="background:#27c79a"></span>🟢 공급자</span>
+    <span><span class="sw" style="background:#e8a23c"></span>🟠 손님</span>
+    <span><span class="sw" style="background:#b07cff"></span>🟪 원천공급자</span>
+    <span><span class="sw" style="background:#d65a6f"></span>◇ 결정 분기</span>
+    <span><span class="sw" style="background:#3a3a4a"></span>⏰ 자동(cron)</span>
+  </div>
+  <div class="shapes">
+    <span>📐 도형: <b>[네모]</b>=화면/페이지 · <b>◇마름모</b>=조건 분기 · <b>([둥근])</b>=상태값 · <b>실선</b>=결과 이동 · <b>점선</b>=자동/예외</span>
+  </div>
+
+  <!-- 구현 현황 요약 -->
+  <div class="status">
+    <h3>📌 구현 현황 (실제 코드 대조, 2026-06-26)</h3>
+    <ul>
+      <li><span class="ok">✅ 거의 전부 라이브</span> — 빌라 검수·청소 게이트·가예약/홀드만료·체크인/아웃·게스트 셀프체크인·부가서비스 발주 중계·원천공급자 가입·정산 생애주기·iCal 동기화·취소/노쇼까지 모두 배포됨.</li>
+      <li><span class="ok">✅ 분기 흐름 빈칸 없음</span> — 마지막 빈칸이던 <b>파트너 청구서(invoice) 운영자 화면</b>도 방금 <b>PR #44(wt/partner-3b-ui)로 머지 완료</b>(청구서 탭·PDF(vi)·Zalo 발송). 모든 핵심 분기가 코드에 존재.</li>
+      <li>🟡 Phase 2 보류(빈칸 아님): 메시지 실시간 SSE(현재 폴링) · 정확 마진 리포트(현재 근사 표시).</li>
+      <li>👉 <b>추가로 필요한 개발 항목(필수/있으면 좋음)은 맨 아래 ⑧</b>에 정리.</li>
+    </ul>
+  </div>
+
+  <!-- ① 큰 그림 -->
+  <section>
+    <h2>① 전체 업무 파이프라인 <span class="tag flow">존 횡단 흐름</span> <span class="tag live">✅ 라이브</span></h2>
+    <p class="desc">공급자 등록 → 관리자 판매 → 손님 예약 → 체크인·아웃 → 정산. 아래 ②~⑦이 각 구간의 상세 분기입니다.</p>
+    <pre class="mermaid">
+flowchart LR
+  SUP1["🟢 빌라 등록<br/>/my-villas/new"]:::sup --> V["🟣 검수·가격<br/>/villas"]:::admin --> PROPN["🟣 제안 생성<br/>/proposals/new"]:::admin
+  PROPN -->|"링크 발송"| P["🟠 제안 열람<br/>/p/:token"]:::guest --> BK["🟠 가예약→완료<br/>/p/:token/done"]:::guest
+  BK -->|"입금 확정"| BOOK["🟣 예약<br/>/bookings"]:::admin --> CI["🟣 체크인<br/>/checkin"]:::admin
+  CI -->|"체크인 링크"| GG["🟠 셀프체크인<br/>/g/:token"]:::guest --> CO["🟣 체크아웃<br/>/checkout"]:::admin --> SET["🟣 정산<br/>/settlements"]:::admin
+  SET -.->|"정산서"| SUP1
+  classDef admin fill:#2a1f55,stroke:#7c5cff,color:#fff,stroke-width:2px;
+  classDef sup fill:#0f2e2a,stroke:#27c79a,color:#fff,stroke-width:2px;
+  classDef guest fill:#3a2a10,stroke:#e8a23c,color:#fff,stroke-width:2px;
+    </pre>
+  </section>
+
+  <hr class="div">
+
+  <!-- ② 빌라 등록·검수 -->
+  <section>
+    <h2>② 빌라 등록 → 검수 분기 <span class="tag gate">승인 / 반려</span> <span class="tag live">✅ 라이브</span></h2>
+    <p class="desc">공급자가 빌라를 올리면 운영자 검수를 거칩니다. 반려되면 수정 화면으로 돌아가 재제출합니다. (VillaStatus)</p>
+    <pre class="mermaid">
+flowchart TD
+  NEW["🟢 빌라 등록 마법사<br/>/my-villas/new"]:::sup --> S0(["상태: DRAFT 등록중"]):::state
+  S0 -->|"제출"| S1(["PENDING_REVIEW 승인대기"]):::state
+  S1 --> Q1{"운영자 검수<br/>/villas/:id"}:::dec
+  Q1 -->|"✅ 승인"| OK(["ACTIVE 운영중"]):::state
+  Q1 -->|"❌ 반려 (사유)"| RJ(["REJECTED 반려"]):::state
+  RJ --> ED["🟢 수정 화면<br/>/my-villas/:id/edit"]:::sup
+  ED -->|"재제출"| S1
+  OK -->|"중단"| INA(["INACTIVE 중단"]):::state
+  OK -.->|"판매하려면 청소검수 필요 ③"| GATE["🧹 청소 검수 게이트"]:::gatebox
+  classDef sup fill:#0f2e2a,stroke:#27c79a,color:#fff;
+  classDef state fill:#1b2a3f,stroke:#5b8fd6,color:#dbe9ff;
+  classDef dec fill:#3a1f2c,stroke:#e0556f,color:#ffd9e0;
+  classDef gatebox fill:#3a2a10,stroke:#e8a23c,color:#fff;
+    </pre>
+  </section>
+
+  <!-- ③ 청소 검수 게이트 -->
+  <section>
+    <h2>③ 청소 검수 게이트 → 판매가능 분기 <span class="tag gate">승인 / 반려 · 핵심 원칙</span> <span class="tag live">✅ 라이브</span></h2>
+    <p class="desc">청소 사진이 운영자 승인을 받아야만 빌라가 <code>isSellable=true</code>(판매가능)가 됩니다. 반려되면 재청소로 돌아갑니다. (CleaningStatus)</p>
+    <pre class="mermaid">
+flowchart TD
+  T0(["PENDING 청소 대기"]):::state --> CW["🟢 청소 상세·사진 제출<br/>/cleaning/:id"]:::sup
+  CW -->|"사진 업로드"| T1(["PHOTOS_SUBMITTED 승인대기"]):::state
+  T1 --> INS["🟣 청소 검수<br/>/inspections"]:::admin
+  INS --> Q{"운영자 검수"}:::dec
+  Q -->|"✅ 승인"| AP(["APPROVED"]):::state --> SELL["🟢 villa.isSellable = true<br/>= 판매가능 ✅"]:::okbox
+  Q -->|"❌ 반려"| RJ(["REJECTED"]):::state --> RECLEAN["🟢 재청소<br/>다시 /cleaning"]:::sup
+  RECLEAN --> T0
+  SELL -.->|"Zalo 알림: CLEANING_APPROVED"| SUPN["🟢 공급자 알림"]:::sup
+  RJ -.->|"Zalo 알림: CLEANING_REJECTED"| SUPN
+  classDef sup fill:#0f2e2a,stroke:#27c79a,color:#fff;
+  classDef admin fill:#2a1f55,stroke:#7c5cff,color:#fff;
+  classDef state fill:#1b2a3f,stroke:#5b8fd6,color:#dbe9ff;
+  classDef dec fill:#3a1f2c,stroke:#e0556f,color:#ffd9e0;
+  classDef okbox fill:#10331f,stroke:#3ad17f,color:#d6ffe8,stroke-width:2px;
+    </pre>
+  </section>
+
+  <!-- ④ 가예약 → 확정 → 체크인/아웃 -->
+  <section>
+    <h2>④ 가예약 → 확정 → 체크인·체크아웃 분기 <span class="tag gate">성공·실패 / 입금·만료 / 통과·노쇼</span> <span class="tag live">✅ 라이브</span></h2>
+    <p class="desc">제안 링크에서 가예약이 성공하면 완료 페이지, 만료·마감이면 안내와 함께 제안 페이지로 돌아갑니다. 홀드기간 내 입금 여부가 확정/자동해제를 가릅니다. (ProposalStatus·BookingStatus·DepositStatus)</p>
+    <pre class="mermaid">
+flowchart TD
+  PV["🟠 제안 열람<br/>/p/:token"]:::guest --> Q1{"가예약 클릭<br/>유효기간·재고 OK?"}:::dec
+  Q1 -->|"✅ 성공"| DONE["🟠 가예약 완료<br/>/p/:token/done/:id"]:::guest
+  Q1 -->|"❌ 만료·마감"| BACK["🟠 제안+안내 배너<br/>/p/:token?notice=expired"]:::guest
+  DONE --> ST1(["Booking=HOLD · Proposal=USED"]):::state
+  ST1 --> Q2{"홀드기간 내 입금?"}:::dec
+  Q2 -->|"💰 입금 확정 (운영자 /bookings)"| CONF(["CONFIRMED 확정"]):::state
+  Q2 -->|"⏰ 미입금 만료 (cron)"| EXP(["EXPIRED 자동해제<br/>→ 공실 복귀"]):::auto
+  EXP -.->|"Zalo: HOLD_EXPIRED"| NS1["🟠 알림"]:::guest
+  CONF --> CIN["🟣 체크인 검수<br/>/bookings/:id/checkin"]:::admin
+  CIN --> Q3{"여권·서명·보증금 OK?"}:::dec
+  Q3 -->|"✅ 통과"| CIO(["CHECKED_IN · Deposit=HELD"]):::state
+  Q3 -->|"조건 미충족"| BID["🟣 예약 상세로 복귀<br/>/bookings/:id"]:::admin
+  CIO -->|"체크인 링크"| GG["🟠 셀프 체크인·부가주문<br/>/g/:token → /options"]:::guest
+  GG --> COUT["🟣 체크아웃 정산<br/>/bookings/:id/checkout"]:::admin
+  COUT --> Q4{"보증금 처리"}:::dec
+  Q4 -->|"이상 없음"| RF(["REFUNDED 전액환불"]):::state
+  Q4 -->|"손상·미납"| PD(["PARTIAL_DEDUCTED 일부차감"]):::state
+  RF --> OUT(["CHECKED_OUT 완료"]):::state
+  PD --> OUT
+  CONF -.->|"손님 미도착"| NOS(["NO_SHOW"]):::auto
+  CONF -.->|"취소"| CAN(["CANCELLED"]):::auto
+  OUT -.->|"정산 집계 ⑦"| SET["🟣 /settlements"]:::admin
+  classDef guest fill:#3a2a10,stroke:#e8a23c,color:#fff;
+  classDef admin fill:#2a1f55,stroke:#7c5cff,color:#fff;
+  classDef state fill:#1b2a3f,stroke:#5b8fd6,color:#dbe9ff;
+  classDef dec fill:#3a1f2c,stroke:#e0556f,color:#ffd9e0;
+  classDef auto fill:#2b2b36,stroke:#9a9ab0,color:#e7e7f0;
+    </pre>
+  </section>
+
+  <!-- ⑤ 부가서비스 발주 -->
+  <section>
+    <h2>⑤ 부가서비스 발주 → 공급자 가부 분기 <span class="tag gate">수락 / 거부</span> <span class="tag live">✅ 라이브</span></h2>
+    <p class="desc">게스트·운영자가 부가서비스를 주문하면 Zalo로 원천공급자에게 발주되고, 공급자가 <code>/vendor</code>에서 수락·거부합니다. (ServiceOrderStatus)</p>
+    <pre class="mermaid">
+flowchart TD
+  ORD["🟠 게스트 주문 /g/:token/options<br/>또는 🟣 운영자 주문"]:::guest --> R0(["REQUESTED 요청"]):::state
+  R0 -->|"Zalo 발주"| VD["🟪 원천공급자 발주함<br/>/vendor"]:::vendor
+  VD --> Q{"공급자 가부"}:::dec
+  Q -->|"✅ 수락"| CF(["CONFIRMED 확정"]):::state --> DV(["DELIVERED 제공완료"]):::state
+  Q -->|"❌ 거부"| CN(["CANCELLED 취소"]):::state
+  DV -.->|"건별 정산"| VS["🟪 공급자 통계·정산<br/>/vendor/stats"]:::vendor
+  classDef guest fill:#3a2a10,stroke:#e8a23c,color:#fff;
+  classDef vendor fill:#2b1d3a,stroke:#b07cff,color:#fff;
+  classDef state fill:#1b2a3f,stroke:#5b8fd6,color:#dbe9ff;
+  classDef dec fill:#3a1f2c,stroke:#e0556f,color:#ffd9e0;
+    </pre>
+  </section>
+
+  <!-- ⑥ 원천공급자 가입 + ⑦ 정산/미수 -->
+  <section>
+    <h2>⑥ 원천공급자 가입 승인 &nbsp;·&nbsp; ⑦ 정산·미수 상태 흐름 <span class="tag gate">승인·거절 / 수납·연체</span> <span class="tag live">✅ 라이브</span></h2>
+    <p class="desc">자가가입은 운영자 승인 후 발주 수신이 가능합니다. 정산·미수는 단계별 상태로 진행됩니다. (VendorApprovalStatus·SettlementStatus·ReceivableStatus)</p>
+    <pre class="mermaid">
+flowchart LR
+  subgraph SU ["⑥ 원천공급자 가입"]
+    direction TB
+    VSIGN["🟪 자가가입<br/>/vendor-signup"]:::vendor --> PA(["PENDING_APPROVAL 대기"]):::state
+    PA --> QV{"운영자 승인<br/>/settings/vendors"}:::dec
+    QV -->|"✅ 승인"| AP(["APPROVED<br/>→ /vendor 로그인 가능"]):::state
+    QV -->|"❌ 거절"| RJ(["REJECTED"]):::state
+  end
+  subgraph SE ["⑦ 공급자 정산 (Settlement)"]
+    direction TB
+    D1(["DRAFT"]):::state --> C1(["CONFIRMED"]):::state --> CO1(["COLLECTED 고객수납"]):::state --> FX(["FX_ADJUSTED 환차반영"]):::state --> P1(["PAID 지급완료"]):::state
+  end
+  subgraph RE ["⑦ 파트너 미수 (Receivable)"]
+    direction TB
+    PE(["PENDING 미입금"]):::state --> PT(["PARTIAL 일부입금"]):::state --> PD(["PAID 완납"]):::state
+    PE -.->|"기한 경과 (cron)"| OV(["OVERDUE 연체"]):::auto
+    OV -.->|"도망 등"| WO(["WRITTEN_OFF 대손"]):::auto
+  end
+  subgraph IV ["⑦-b 파트너 청구서 (Invoice) — PR #44 완료"]
+    direction TB
+    API["✅ API·데이터<br/>/api/partner-invoices"]:::okbox2
+    API --> UI["✅ 청구서 탭<br/>/partners/:id"]:::okbox2
+    UI -->|"발송"| PDFZ["✅ 청구서 PDF(vi)·Zalo 발송"]:::okbox2
+  end
+  classDef vendor fill:#2b1d3a,stroke:#b07cff,color:#fff;
+  classDef state fill:#1b2a3f,stroke:#5b8fd6,color:#dbe9ff;
+  classDef dec fill:#3a1f2c,stroke:#e0556f,color:#ffd9e0;
+  classDef auto fill:#2b2b36,stroke:#9a9ab0,color:#e7e7f0;
+  classDef okbox2 fill:#10331f,stroke:#3ad17f,color:#d6ffe8;
+  classDef todo fill:#3d1416,stroke:#ff5a5a,color:#ffd6d6,stroke-width:2px;
+    </pre>
+  </section>
+
+  <hr class="div">
+
+  <!-- ⑧ 추가 개발 항목 검토 -->
+  <section>
+    <h2>⑧ 추가로 필요한 개발 항목 <span class="tag todo">🔴 필수</span> <span class="tag flow">🟡 있으면 좋음</span></h2>
+    <p class="desc">실제 코드·TASKS.md·IDEAS.md 대조로 도출. <b>🔴 필수</b>=현 운영에 실제로 막혀 있거나 누락되면 사고 위험. <b>🟡 있으면 좋음</b>=Phase 2 백로그. 구분은 <b>제안</b>이며 테오 판단으로 조정 가능.</p>
+    <div class="cols">
+      <div class="col must">
+        <h4>🔴 꼭 필요한 기능 (필수)</h4>
+        <div class="card" style="background:rgba(58,209,127,.08);border:1px solid rgba(58,209,127,.4)">
+          <div class="t" style="color:#9ff0c4">✅ (방금 완료) 파트너 청구서 발행 화면</div>
+          <div class="d">PR #44로 청구서 탭·PDF(vi)·Zalo 발송 머지 완료. 잔여 확인: 수납 시 LEDGER COLLECTION 연결 여부.</div>
+        </div>
+        <div class="card must">
+          <div class="t">1. Zalo 세션 끊김 경보 (S6)</div>
+          <div class="d">알림 채널(zca-js QR 세션)이 끊기면 운영자에게 즉시 경보. 자동 재연결 유도.</div>
+          <div class="why">왜 필수: 세션이 죽은 걸 모르면 <b>예약·홀드만료·청소 알림이 통째로 누락</b>되어 운영 마비.</div>
+        </div>
+        <div class="card must">
+          <div class="t">2. Zalo 증빙 이미지 첨부 발송 (S5)</div>
+          <div class="d">여권·동의서 서명 등 체크인 증빙 이미지를 Zalo로 첨부 전송.</div>
+          <div class="why">왜 필수: 현재 텍스트 위주 — <b>증빙 사진 전달 경로</b>가 닫혀 있음.</div>
+        </div>
+        <div class="card must">
+          <div class="t">3. 러시아어(ru) 원어민 최종 감수</div>
+          <div class="d">게스트 다통화/체크인 화면 ru 번역의 원어민 검수(현재 1차 기계감수).</div>
+          <div class="why">왜 필수: ru 게스트 응대 중인데 <b>어색한 번역은 신뢰·전환 저하</b>. (자원 미확보 상태)</div>
+        </div>
+      </div>
+      <div class="col nice">
+        <h4>🟡 있으면 좋은 기능 (Phase 2 백로그)</h4>
+        <ul class="nicelist">
+          <li><b>매출관리 페이지 /sales</b> — 정산과 별개로 기간별 판매 실적 집계 <span class="s">(테오 2026-06-24 제안)</span></li>
+          <li><b>통화별 마진 리포트</b> — KRW/VND 매출·마진 분리 대시보드</li>
+          <li><b>미니바 소모 자동 차감</b> — 체크아웃 입력 → 재고 차감·보충 알림 <span class="s">(현재 수기)</span></li>
+          <li><b>환율 자동 갱신 cron</b> — FX_VND_PER_KRW <span class="s">(현재 /settings 수동)</span></li>
+          <li><b>메시지 실시간(SSE)</b> <span class="s">(현재 폴링 — 소규모엔 충분)</span></li>
+          <li><b>비밀번호 자가 재설정</b> <span class="s">(현재 ADMIN 수동)</span></li>
+          <li><b>예약 변경 기능</b> <span class="s">(현재 취소 후 재생성)</span></li>
+          <li><b>빌라 위치 지도 뷰</b> — Leaflet(TravelDiary 재사용)</li>
+          <li><b>품질점수 + 판매 후순위 정렬</b></li>
+          <li><b>파트너 셀프 포털</b> — B2B 로그인/토큰 링크 <span class="s">(PARTNER-4)</span></li>
+          <li><b>감사·알림 발송 로그 조회 화면</b> <span class="s">(현재 기록만)</span></li>
+          <li><b>SMS 폴백 · 여행사 월간 리포트 자동발송 · 캘린더 기간차단 UI · 관리자 하단탭</b></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 부록: 네비게이션 맵 (이동만) -->
+  <section>
+    <h2>부록 · 메뉴 네비게이션 맵 <span class="tag appx">단순 화면 이동</span></h2>
+    <p class="desc">분기와 무관하게 메뉴에서 어디로 들어가는지(허브→상세)만 보는 지도입니다.</p>
+    <pre class="mermaid">
+flowchart LR
+  NAV(["🟣 관리자 사이드바"]):::hubA --> DASH["대시보드"]:::admin & BOOK["예약→상세→체크인/아웃"]:::admin & PROP["제안→생성"]:::admin & VIL["빌라→상세"]:::admin & AVA["공실보드"]:::admin & INS["청소검수"]:::admin & STL["정산"]:::admin & PAR["파트너→상세"]:::admin & REC["미수·여신"]:::admin & STA["통계"]:::admin & MSG["메시지"]:::admin & CFG["설정→서비스/벤더/Zalo"]:::admin & USR["사용자"]:::admin
+  TAB(["🟢 공급자 탭바"]):::hubS --> MV["내 빌라→사진/편의시설/요금"]:::sup & CAL["캘린더"]:::sup & CLN["청소→상세"]:::sup & EAR["수익"]:::sup & GUI["안내→Zalo연결"]:::sup
+  classDef hubA fill:#4a32b8,stroke:#b9a6ff,color:#fff,stroke-width:2px;
+  classDef hubS fill:#16a37b,stroke:#9fe9d2,color:#fff,stroke-width:2px;
+  classDef admin fill:#241a4d,stroke:#7c5cff,color:#fff;
+  classDef sup fill:#0f2e2a,stroke:#27c79a,color:#fff;
+    </pre>
+  </section>
+
+  <p class="note">출처: <code>prisma/schema.prisma</code> 상태 enum(VillaStatus·BookingStatus·CleaningStatus·DepositStatus·ProposalStatus·ServiceOrderStatus·VendorApprovalStatus·SettlementStatus·ReceivableStatus) + 각 페이지의 분기 리다이렉트·검수 로직.</p>
+</div>
+
+<script src="mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: false, theme: 'dark', securityLevel: 'loose',
+    flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis', nodeSpacing: 40, rankSpacing: 55 },
+    themeVariables: { fontFamily: "'Malgun Gothic', sans-serif", fontSize: '14px' }
+  });
+  mermaid.run({ querySelector: 'pre.mermaid' });
+</script>
+</body>
+</html>

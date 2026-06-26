@@ -13,7 +13,7 @@ import PostSignForm from "./post-sign-form";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
-  return { title: `${t("checkin")} — Villa PMS` };
+  return { title: `${t("checkin")} — Villa Go` };
 }
 
 export default async function CheckinPage({
@@ -40,6 +40,22 @@ export default async function CheckinPage({
     },
   });
   if (!booking) notFound();
+
+  // ADR-0019 후속 — 게스트가 /g에서 셀프 서명한 동의서를 관리자 체크인이 자동 채택.
+  //   토큰에 서명이 있고 아직 CheckInRecord 서명이 없을 때만 폼에 prop으로 전달(아래 CheckinForm).
+  const guestToken = await prisma.guestCheckinToken.findUnique({
+    where: { bookingId: id },
+    select: { signatureUrl: true, agreementSignedAt: true, agreementVersion: true },
+  });
+  const guestSignature =
+    guestToken?.signatureUrl && !booking.checkInRecord?.signatureUrl
+      ? {
+          signatureUrl: guestToken.signatureUrl,
+          agreementVersion: guestToken.agreementVersion ?? null,
+          signedAt: guestToken.agreementSignedAt?.toISOString() ?? null,
+        }
+      : null;
+
   // T3.2 사후 서명 모드 — CHECKED_IN + 체크인 기록 존재 + 미서명 (계약 결정 2)
   const postSignMode =
     booking.status === BookingStatus.CHECKED_IN &&
@@ -110,6 +126,7 @@ export default async function CheckinPage({
           bookingId={booking.id}
           guestCount={booking.guestCount}
           agreement={agreement}
+          guestSignature={guestSignature}
         />
       )}
     </div>

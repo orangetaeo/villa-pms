@@ -4,9 +4,11 @@ import { savePassportFile, isAllowedImageMime } from "@/lib/storage";
 import { isOperator } from "@/lib/permissions";
 
 /**
- * POST /api/uploads/passport — 여권 사진 업로드 (T3.1, QA 합의 조건 A)
- * 공개 /api/uploads와 분리: ADMIN 전용, 항상 디스크 비공개 저장,
- * 반환 URL은 ADMIN 가드 서빙 라우트(/api/passports/<name>)만 가리킨다.
+ * POST /api/uploads/passport — 여권·서명 사진 업로드 (T3.1, QA 합의 조건 A)
+ * 공개 /api/uploads와 분리: 항상 디스크 비공개 저장,
+ * 반환 URL은 가드 서빙 라우트(/api/passports/<name>)만 가리킨다.
+ * 권한: 운영자(ADMIN) + 공급자(SUPPLIER, F10 D5 — 자기 게스트 체크인·아웃 증빙).
+ *   저장 파일명에 업로더 id가 박히므로(storage.buildFileName) 공급자는 자기 업로드분만 서빙 라우트에서 다시 볼 수 있다.
  */
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -16,7 +18,8 @@ export async function POST(req: Request) {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  if (!isOperator(session.user.role)) {
+  // 운영자 또는 공급자만 — 공급자 업로드는 파일명 업로더 id로 본인 스코프 자동 한정
+  if (!isOperator(session.user.role) && session.user.role !== "SUPPLIER") {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 

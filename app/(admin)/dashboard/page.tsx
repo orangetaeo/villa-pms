@@ -15,13 +15,14 @@ import {
 } from "@/lib/dashboard";
 import { findUnresolvedIcalConflicts } from "@/lib/ical";
 import { countCostAlertGroups } from "@/lib/cost-alerts";
+import { loadInventoryShortageSummary } from "@/lib/minibar-inventory-load";
 import { getFxVndPerKrw, suggestSalePriceKrw } from "@/lib/pricing";
 import { formatThousands, formatDateTime } from "@/lib/format";
 import TimelineMatrix from "@/components/admin/timeline-matrix";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
-  return { title: `${t("dashboard")} — Villa PMS` };
+  return { title: `${t("dashboard")} — Villa Go` };
 }
 
 const DOT_CLASS: Record<FeedDot, string> = {
@@ -35,20 +36,24 @@ const DOT_CLASS: Record<FeedDot, string> = {
 
 export default async function DashboardPage() {
   const now = new Date();
-  const [session, t, timeline, stats, feed, conflicts, fx, lastSync] = await Promise.all([
-    auth(),
-    getTranslations("adminDashboard"),
-    loadTimeline(prisma),
-    loadDashboardStats(prisma, now),
-    loadActivityFeed(prisma),
-    findUnresolvedIcalConflicts(prisma), // ADMIN 전용 전제 — 레이아웃 가드 아래
-    getFxVndPerKrw(prisma),
-    prisma.calendarBlock.findFirst({
-      where: { source: "ICAL" },
-      orderBy: { createdAt: "desc" },
-      select: { createdAt: true },
-    }),
-  ]);
+  const [session, t, tInv, timeline, stats, feed, conflicts, fx, lastSync, inventory] =
+    await Promise.all([
+      auth(),
+      getTranslations("adminDashboard"),
+      getTranslations("inventory"),
+      loadTimeline(prisma),
+      loadDashboardStats(prisma, now),
+      loadActivityFeed(prisma),
+      findUnresolvedIcalConflicts(prisma), // ADMIN 전용 전제 — 레이아웃 가드 아래
+      getFxVndPerKrw(prisma),
+      prisma.calendarBlock.findFirst({
+        where: { source: "ICAL" },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
+      }),
+      // 미니바 부족 집계(원가 무관 — 현재고 vs par만, 전 운영자 노출 가능)
+      loadInventoryShortageSummary(prisma),
+    ]);
 
   // S-RBAC-3: STAFF는 정산·매출·원가경보 등 재무 위젯 비표시 (canViewFinance 게이트)
   const showFinance = canViewFinance(session?.user?.role);
@@ -163,6 +168,31 @@ export default async function DashboardPage() {
             className="bg-red-600 hover:bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded shadow-lg transition-colors whitespace-nowrap shrink-0"
           >
             {t("banner.resolve")}
+          </Link>
+        </div>
+      )}
+
+      {/* 미니바 재고 부족 배너 (ADR-0019 S1) — 부족 품목 있을 때만. 원가 무관(전 운영자) */}
+      {inventory.lowItemCount > 0 && (
+        <div className="bg-red-500/10 border border-red-500/40 rounded-xl px-6 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="material-symbols-outlined text-red-400 shrink-0">inventory_2</span>
+            <p className="text-sm font-medium text-red-200 [word-break:keep-all]">
+              <span className="font-bold text-red-300">{tInv("banner.title")}</span>
+              {" — "}
+              {inventory.lowItemCount > 1
+                ? tInv("banner.body", {
+                    items: inventory.lowItemCount,
+                    villas: inventory.lowVillaCount,
+                  })
+                : tInv("banner.bodyOne")}
+            </p>
+          </div>
+          <Link
+            href="/inventory"
+            className="bg-red-600 hover:bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded shadow-lg transition-colors whitespace-nowrap shrink-0"
+          >
+            {tInv("banner.review")}
           </Link>
         </div>
       )}

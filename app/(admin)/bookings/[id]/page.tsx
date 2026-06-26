@@ -3,6 +3,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import { BookingStatus } from "@prisma/client";
 import { auth } from "@/auth";
@@ -11,14 +12,26 @@ import { prisma } from "@/lib/prisma";
 import { formatDateTime, formatThousands } from "@/lib/format";
 import { toDateOnlyString } from "@/lib/date-vn";
 import { formatRemainingHours } from "@/lib/booking-stats";
+import { stripOptionCosts } from "@/lib/service-catalog";
 import ActionPanel from "./action-panel";
 import PaperDocsSection from "./paper-docs-section";
 import MemoBox from "./memo-box";
 import RosterBox from "./roster-box";
+import PaymentPanel from "./payment-panel";
+import ServiceOrdersPanel, {
+  type OrderRow,
+  type OrderCatalogItem,
+  type SelectedOptionSnapshot,
+} from "./service-orders-panel";
+import { summarizeCollection } from "@/lib/payment";
+import { krwToVndSnapshot } from "@/lib/pricing";
+import { guestTokenState } from "@/lib/guest-checkin";
+import GuestTokenCard, { type GuestTokenState } from "./guest-token-card";
+import PartnerAssignCard from "./partner-assign-card";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
-  return { title: `${t("bookingDetail")} — Villa PMS` };
+  return { title: `${t("bookingDetail")} — Villa Go` };
 }
 
 const STEP_INDEX: Partial<Record<BookingStatus, number>> = {
@@ -71,8 +84,25 @@ export default async function BookingDetailPage({
       guestRoster: true,
       holdExpiresAt: true,
       saleCurrency: true,
-      // 판매가(KRW·VND)는 canViewFinance만 — STAFF면 select 자체에서 제외
-      ...(showFinance ? { totalSaleKrw: true, totalSaleVnd: true } : {}),
+      // 판매가(KRW·VND)·환율 스냅샷은 canViewFinance만 — STAFF면 select 자체에서 제외
+      ...(showFinance
+        ? {
+            totalSaleKrw: true,
+            totalSaleVnd: true,
+            fxVndPerKrw: true,
+            // 파트너 지정·미수(ADR-0022 PARTNER-2c) — 재무 전용
+            partnerId: true,
+            partner: { select: { id: true, name: true } },
+            receivable: {
+              select: {
+                status: true,
+                totalVnd: true,
+                depositPaidVnd: true,
+                balancePaidVnd: true,
+              },
+            },
+          }
+        : {}),
       supplierCostVnd: true, // 원가는 STAFF도 OK (SUPPLIER 동일 가시성)
       breakfastIncluded: true,
       note: true,
@@ -95,7 +125,9 @@ export default async function BookingDetailPage({
           receivedAt: true,
           method: true,
           note: true,
-          ...(showFinance ? { currency: true, amount: true } : {}),
+          ...(showFinance
+            ? { currency: true, amount: true, vndEquivalent: true }
+            : {}),
         },
       },
     },
@@ -115,6 +147,121 @@ export default async function BookingDetailPage({
     },
   });
 
+  // ── 부가서비스 주문 패널 (ADR-0019 S2) ──
+  // 원가(costVnd)는 showFinance(canViewFinance)만 select·직렬화. 카탈로그명은 주문에 연결해 표시.
+  const tServices = await getTranslations("adminServices");
+  const [serviceOrdersRaw, activeCatalog] = await Promise.all([
+    prisma.serviceOrder.findMany({
+      where: { bookingId: id },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        type: true,
+        status: true,
+        serviceDate: true,
+        serviceTime: true,
+        quantity: true,
+        priceKrw: true,
+        priceVnd: true,
+        requestedVia: true,
+        guestNote: true,
+        selectedOptions: true,
+        catalogItemId: true,
+        // ADR-0023 S2 — 원천 공급자 발주 흐름(발주·수락·정산)
+        vendorId: true,
+        vendorStatus: true,
+        poSentAt: true,
+        vendorRespondedAt: true,
+        vendorRejectReason: true,
+        vendorSettledAt: true,
+        vendorSettleMethod: true,
+        vendor: { select: { name: true } },
+        ...(showFinance ? { costVnd: true } : {}),
+      },
+    }),
+    prisma.serviceCatalogItem.findMany({
+      where: { active: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      // 판매가만 — 원가는 주문 추가 UI에 불필요하므로 select 자체에서 제외
+      select: {
+        id: true,
+        type: true,
+        nameKo: true,
+        unitLabelKo: true,
+        priceVnd: true,
+        options: true,
+      },
+    }),
+  ]);
+
+  // 주문에 연결된 카탈로그명 조회(삭제됐을 수 있으니 type 라벨로 폴백)
+  const catalogNameById = new Map(activeCatalog.map((c) => [c.id, c.nameKo]));
+  const missingIds = serviceOrdersRaw
+    .map((o) => o.catalogItemId)
+    .filter((cid): cid is string => !!cid && !catalogNameById.has(cid));
+  if (missingIds.length > 0) {
+    const extras = await prisma.serviceCatalogItem.findMany({
+      where: { id: { in: missingIds } },
+      select: { id: true, nameKo: true },
+    });
+    for (const e of extras) catalogNameById.set(e.id, e.nameKo);
+  }
+
+  const parseSnapshot = (raw: unknown): SelectedOptionSnapshot[] => {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter((s): s is { group: string; key: string; labelKo: string } =>
+        !!s && typeof s === "object" && typeof (s as { labelKo?: unknown }).labelKo === "string"
+      )
+      .map((s) => ({
+        group: (s.group === "addon" || s.group === "modifier" ? s.group : "variant") as
+          | "variant"
+          | "addon"
+          | "modifier",
+        key: String(s.key ?? ""),
+        labelKo: s.labelKo,
+      }));
+  };
+
+  const serviceOrders: OrderRow[] = serviceOrdersRaw.map((o) => ({
+    id: o.id,
+    type: o.type,
+    status: o.status,
+    serviceDate: o.serviceDate ? o.serviceDate.toISOString().slice(0, 10) : null,
+    serviceTime: o.serviceTime,
+    nameKo:
+      (o.catalogItemId && catalogNameById.get(o.catalogItemId)) ||
+      tServices(`types.${o.type}`),
+    quantity: o.quantity,
+    priceKrw: o.priceKrw,
+    priceVnd: o.priceVnd?.toString() ?? null,
+    requestedVia: o.requestedVia,
+    guestNote: o.guestNote,
+    selectedOptions: parseSnapshot(o.selectedOptions),
+    // ADR-0023 S2 — 원천 공급자 발주 흐름
+    vendorId: o.vendorId,
+    vendorName: o.vendor?.name ?? null,
+    vendorStatus: o.vendorStatus,
+    poSentAt: o.poSentAt?.toISOString() ?? null,
+    vendorRespondedAt: o.vendorRespondedAt?.toISOString() ?? null,
+    vendorRejectReason: o.vendorRejectReason,
+    vendorSettledAt: o.vendorSettledAt?.toISOString() ?? null,
+    vendorSettleMethod: o.vendorSettleMethod,
+    ...(showFinance && "costVnd" in o
+      ? { costVnd: (o as { costVnd: bigint }).costVnd.toString() }
+      : {}),
+  }));
+
+  const serviceCatalog: OrderCatalogItem[] = activeCatalog.map((c) => ({
+    id: c.id,
+    type: c.type,
+    nameKo: c.nameKo,
+    unitLabelKo: c.unitLabelKo ?? "",
+    priceVnd: c.priceVnd?.toString() ?? null,
+    // 주문 패널은 옵션 원가를 쓰지 않음 — 클라 노출 차단 위해 항상 제거(원칙2)
+    options: stripOptionCosts(c.options ?? null),
+  }));
+
   const code = booking.id.slice(-8);
   const stepIndex = STEP_INDEX[booking.status];
   const terminal = stepIndex === undefined;
@@ -131,6 +278,115 @@ export default async function BookingDetailPage({
         ? `${formatThousands(booking.totalSaleKrw ?? 0)}원`
         : `${formatThousands(booking.totalSaleVnd ?? 0n)}₫`
       : null;
+
+  // 수납 요약 (정산 2차 P2-1) — showFinance만. 견적 판매가 VND환산 대비 실수납.
+  // ★ 공급자 비노출: showFinance=false면 paymentPanel 자체를 렌더하지 않는다.
+  const paymentPanel =
+    showFinance && "totalSaleKrw" in booking
+      ? (() => {
+          const b = booking as typeof booking & {
+            totalSaleKrw: number | null;
+            totalSaleVnd: bigint | null;
+            fxVndPerKrw: { toString(): string } | null;
+          };
+          const expected =
+            b.saleCurrency === "VND"
+              ? (b.totalSaleVnd ?? 0n)
+              : b.fxVndPerKrw
+                ? krwToVndSnapshot(b.totalSaleKrw ?? 0, b.fxVndPerKrw.toString())
+                : null;
+          const likes = b.payments.map((p) => ({
+            currency: (p as { currency: "KRW" | "VND" }).currency,
+            amount: (p as { amount: bigint }).amount,
+            vndEquivalent: (p as { vndEquivalent: bigint | null }).vndEquivalent,
+          }));
+          const s =
+            expected != null
+              ? summarizeCollection(likes, expected)
+              : null;
+          const collected = likes.reduce(
+            (sum, p) => sum + (p.vndEquivalent ?? 0n),
+            0n
+          );
+          return {
+            saleCurrency: b.saleCurrency as "KRW" | "VND",
+            defaultFx: b.fxVndPerKrw ? b.fxVndPerKrw.toString() : null,
+            payments: b.payments.map((p) => ({
+              id: p.id,
+              receivedAt: p.receivedAt.toISOString(),
+              method: p.method,
+              currency: (p as { currency?: string }).currency,
+              amount: (p as { amount?: bigint }).amount?.toString(),
+              note: p.note,
+            })),
+            summary: {
+              collectedVndEquivalent: (s?.collectedVndEquivalent ?? collected).toString(),
+              expectedVndEquivalent:
+                s != null ? s.expectedVndEquivalent.toString() : null,
+              outstandingVnd: s != null ? s.outstandingVnd.toString() : null,
+              status: (s?.status ?? "FX_UNKNOWN") as
+                | "UNPAID"
+                | "PARTIAL"
+                | "PAID"
+                | "OVERPAID"
+                | "FX_UNKNOWN",
+              paymentCount: b.payments.length,
+            },
+          };
+        })()
+      : null;
+
+  // 파트너 지정 카드 props (ADR-0022 PARTNER-2c) — 재무 + 여행사/랜드사 채널만.
+  const partnerCard =
+    showFinance &&
+    (booking.channel === "TRAVEL_AGENCY" || booking.channel === "LAND_AGENCY") &&
+    "partnerId" in booking
+      ? (() => {
+          const b = booking as typeof booking & {
+            partner: { id: string; name: string } | null;
+            receivable: {
+              status: string;
+              totalVnd: bigint;
+              depositPaidVnd: bigint;
+              balancePaidVnd: bigint;
+            } | null;
+          };
+          const rcv = b.receivable
+            ? {
+                status: b.receivable.status,
+                totalVnd: b.receivable.totalVnd.toString(),
+                outstandingVnd: (() => {
+                  const o =
+                    b.receivable.totalVnd -
+                    b.receivable.depositPaidVnd -
+                    b.receivable.balancePaidVnd;
+                  return (o > 0n ? o : 0n).toString();
+                })(),
+              }
+            : null;
+          return { current: b.partner, receivable: rcv };
+        })()
+      : null;
+
+  // 게스트 셀프 체크인 토큰 카드 props (ADR-0019 S3) — GuestCheckinToken은 Booking 역관계가 없어 별도 조회.
+  //   절대 URL용 origin 산출(프록시 헤더).
+  const tokenRow = await prisma.guestCheckinToken.findUnique({
+    where: { bookingId: id },
+    select: { token: true, expiresAt: true, revokedAt: true, agreementSignedAt: true },
+  });
+  const hdrs = await headers();
+  const proto = hdrs.get("x-forwarded-proto") ?? "https";
+  const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host") ?? "";
+  const origin = host ? `${proto}://${host}` : "";
+  const guestToken: GuestTokenState | null = tokenRow
+    ? {
+        token: tokenRow.token,
+        url: `/g/${tokenRow.token}`,
+        expiresAt: tokenRow.expiresAt.toISOString(),
+        revoked: guestTokenState(tokenRow, now) === "REVOKED",
+        signedAt: tokenRow.agreementSignedAt?.toISOString() ?? null,
+      }
+    : null;
 
   const logStatusChange = (changes: unknown): string | null => {
     if (changes && typeof changes === "object" && "status" in changes) {
@@ -316,7 +572,16 @@ export default async function BookingDetailPage({
             </div>
           </section>
 
-          {/* 결제 기록 */}
+          {/* 결제 기록 — ADMIN(canViewFinance)은 실수납 패널(요약·추가·삭제), STAFF는 읽기전용(금액 비표시) */}
+          {paymentPanel ? (
+            <PaymentPanel
+              bookingId={booking.id}
+              saleCurrency={paymentPanel.saleCurrency}
+              defaultFx={paymentPanel.defaultFx}
+              payments={paymentPanel.payments}
+              summary={paymentPanel.summary}
+            />
+          ) : (
           <section className="bg-admin-card rounded-xl overflow-hidden shadow-sm border border-[#334155]">
             <div className="px-6 py-4 border-b border-slate-700">
               <h2 className="font-bold text-sm text-white">{t("detail.payments.title")}</h2>
@@ -358,6 +623,19 @@ export default async function BookingDetailPage({
               </div>
             )}
           </section>
+          )}
+
+          {/* 부가서비스 주문 패널 (ADR-0019 S2, b20) — 종결(취소·만료·노쇼) 예약엔 비표시 */}
+          {!terminal && (
+            <ServiceOrdersPanel
+              bookingId={booking.id}
+              catalog={serviceCatalog}
+              orders={serviceOrders}
+              showCost={showFinance}
+              dateMin={booking.checkIn.toISOString().slice(0, 10)}
+              dateMax={booking.checkOut.toISOString().slice(0, 10)}
+            />
+          )}
         </div>
 
         {/* 우측 (33%) */}
@@ -374,6 +652,17 @@ export default async function BookingDetailPage({
             tamTruSentAt={booking.checkInRecord?.tamTruSentAt?.toISOString() ?? null}
           />
 
+          {/* 파트너 지정·미수 (ADR-0022 PARTNER-2c) — 재무 + 여행사/랜드사 채널만 */}
+          {partnerCard && (
+            <PartnerAssignCard
+              bookingId={booking.id}
+              channel={booking.channel as "TRAVEL_AGENCY" | "LAND_AGENCY"}
+              saleCurrency={booking.saleCurrency as "KRW" | "VND" | "USD"}
+              current={partnerCard.current}
+              receivable={partnerCard.receivable}
+            />
+          )}
+
           {/* #1 체크인 종이서류 사진 — 체크인 기록이 있을 때(post-checkin)만. 비공개 증빙 */}
           {booking.checkInRecord !== null && (
             <PaperDocsSection
@@ -389,6 +678,11 @@ export default async function BookingDetailPage({
               initialRoster={booking.guestRoster}
               showReminder={booking.status === BookingStatus.CONFIRMED && !booking.guestRoster}
             />
+          )}
+
+          {/* 게스트 셀프 체크인 링크 (ADR-0019 S3) — 종결 상태는 비표시 */}
+          {!terminal && (
+            <GuestTokenCard bookingId={booking.id} initial={guestToken} origin={origin} />
           )}
 
           {/* 활동 로그 — AuditLog 기반 */}

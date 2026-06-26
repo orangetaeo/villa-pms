@@ -64,6 +64,10 @@ export interface ChatMessageRow {
   status: string;
   createdAt: Date;
   zaloMsgId: string | null;
+  /** zca-js globalMsgId — 답글 인용 앵커 변환용(resolveQuotedAnchors). 선택(미조회 경로 호환). */
+  globalMsgId?: string | null;
+  /** zca-js cliMsgId — 답글·리액션 가능 판정용(zca-js가 둘 다 요구). 선택(미조회 경로 호환). */
+  cliMsgId?: string | null;
   quotedMsgId: string | null;
   quotedText: string | null;
   quotedSender: string | null;
@@ -89,6 +93,8 @@ export interface ChatMessageDTO {
   quotedText: string | null;
   quotedSender: string | null;
   reactions: Record<string, number> | null;
+  /** 답글·리액션 가능 여부 — cliMsgId·zaloMsgId 둘 다 있을 때만 true(zca-js 요구). 옛 메시지=false. */
+  canInteract: boolean;
 }
 
 export interface ToChatMessagesOptions {
@@ -148,6 +154,9 @@ export function toChatMessages(
       quotedText: m.quotedText,
       quotedSender: m.quotedSender,
       reactions: normalizeReactions(m.reactions),
+      // 답글·리액션은 zca-js가 cliMsgId+zaloMsgId(서버 msgId)를 모두 요구 — 둘 다 있을 때만 가능.
+      // 옛 메시지(기능 배포 전, cliMsgId 없음)는 false → 액션 버튼 숨김(FE MessageActions).
+      canInteract: Boolean(m.cliMsgId && m.zaloMsgId),
     } satisfies ChatMessageDTO;
   });
 }

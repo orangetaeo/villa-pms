@@ -8,6 +8,9 @@ import { HoldCountdown } from "../../../_components/hold-countdown";
 import { CopyButton } from "../../../_components/copy-button";
 import { PublicFooter } from "../../../_components/public-footer";
 import { LangSelector } from "../../../_components/lang-selector";
+import { PartnerAddonSection } from "../../../_components/partner-addon-section";
+import { loadPartnerAddon } from "@/lib/partner-addon-load";
+import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import { bookingShortCode, formatPublicAmount } from "../../../_components/public-format";
 import {
   PUBLIC_LABELS,
@@ -28,7 +31,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { lang: langParam } = await searchParams;
   const cookieLang = (await cookies()).get(PUBLIC_LOCALE_COOKIE)?.value;
-  return { title: `${PUBLIC_META[resolvePublicLang(langParam, cookieLang)].done} | Villa PMS` };
+  return { title: `${PUBLIC_META[resolvePublicLang(langParam, cookieLang)].done} | Villa Go` };
 }
 
 // 한국(KRW)·베트남(VND) 계좌 키 — 예약 통화에 따라 자동 선택 (운영자 설정)
@@ -94,6 +97,9 @@ export default async function BookingDonePage({
 
   const total = formatPublicAmount(booking.saleCurrency, booking.totalSaleKrw, booking.totalSaleVnd, lang);
 
+  // 파트너(여행사/랜드사) 부가서비스 요청 — PARTNER 자격 카탈로그만(서버 필터), 판매가만(원가·vendor 비노출)
+  const partnerAddon = await loadPartnerAddon(booking.id, booking.saleCurrency, lang);
+
   return (
     <div className="text-slate-900 antialiased">
       <div className="max-w-md mx-auto min-h-screen bg-neutral-50 flex flex-col shadow-2xl relative" style={MESH_BG}>
@@ -105,7 +111,10 @@ export default async function BookingDonePage({
           >
             <span className="material-symbols-outlined text-teal-600">arrow_back</span>
           </Link>
-          <h1 className="font-semibold text-lg text-teal-600 ml-2">Villa PMS</h1>
+          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5">
+            <VillaGoMark className="h-5 w-auto" />
+            <VillaGoWordmark className="text-lg" villa="text-slate-900" go="text-teal-600" />
+          </span>
           <div className="ml-auto">
             <LangSelector current={lang} />
           </div>
@@ -176,6 +185,19 @@ export default async function BookingDonePage({
             <span className="material-symbols-outlined text-xl">group_add</span>
             {t.donePage.rosterCta}
           </Link>
+
+          {/* 부가서비스 요청 (ADR-0023 S4) — 과일 바구니·도시락 등 PARTNER 자격 항목만 */}
+          {partnerAddon.catalog.length > 0 && (
+            <PartnerAddonSection
+              token={token}
+              bookingId={booking.id}
+              lang={lang}
+              saleCurrency={booking.saleCurrency}
+              fxVndPerKrw={partnerAddon.fxVndPerKrw}
+              catalog={partnerAddon.catalog}
+              requestedOrders={partnerAddon.requestedOrders}
+            />
+          )}
 
           <div className="flex gap-3">
             <Link

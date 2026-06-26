@@ -13,7 +13,17 @@ import type {
   VillaPerformanceRow,
   FunnelStats,
   OperationsStats,
+  MinibarStats,
+  ServiceOrderStats,
 } from "@/lib/statistics";
+
+/** 직렬화 가능한 기간 메타(page.tsx가 period에서 추려 내려보냄) */
+export interface StatsPeriodMeta {
+  fromText: string;
+  toText: string;
+  granularity: "day" | "month";
+  presetKey: string | null;
+}
 import { formatThousands } from "@/lib/format";
 import KpiCard from "@/components/admin/statistics/kpi-card";
 import RevenueChart from "@/components/admin/statistics/revenue-chart";
@@ -21,38 +31,50 @@ import ChannelDonut from "@/components/admin/statistics/channel-donut";
 import OccupancyLine from "@/components/admin/statistics/occupancy-line";
 import VillaRankTable from "@/components/admin/statistics/villa-rank-table";
 import Funnel from "@/components/admin/statistics/funnel";
+import DateRangeFilter from "@/components/admin/statistics/date-range-filter";
+import MinibarChart from "@/components/admin/statistics/minibar-chart";
+import ServiceChart from "@/components/admin/statistics/service-chart";
 
-export type TabKey = "overview" | "occupancy" | "villas" | "operations";
+export type TabKey = "overview" | "occupancy" | "villas" | "operations" | "ancillary";
 
 export interface StatisticsProps {
   fin: boolean;
   activeTab: TabKey;
-  range: string; // "6" | "12" | "YYYY"
+  /** 해석된 기간 메타(프리셋·커스텀 표시·granularity) */
+  period: StatsPeriodMeta;
   /** fin=true일 때만 존재 — 없으면 개요 탭 자체 미노출 */
   overview?: OverviewStats;
+  /** fin=true일 때만 존재 — 미니바 매출·마진(재무) */
+  minibar?: MinibarStats;
+  /** fin=true일 때만 존재 — 부가서비스 매출·마진(재무, ADR-0019 후속) */
+  services?: ServiceOrderStats;
   occupancy: OccupancyStats;
   villas: VillaPerformanceRow[];
   funnel: FunnelStats;
   operations: OperationsStats;
 }
 
-const ALL_TABS: TabKey[] = ["overview", "occupancy", "villas", "operations"];
+// ancillary(부가서비스·미니바)는 operations 바로 다음(운영지표 옆)에 배치.
+const ALL_TABS: TabKey[] = ["overview", "occupancy", "villas", "operations", "ancillary"];
 const TAB_ICONS: Record<TabKey, string> = {
   overview: "payments",
   occupancy: "event_available",
   villas: "leaderboard",
   operations: "conversion_path",
+  ancillary: "room_service",
 };
-
-const RANGE_PRESETS = ["6", "12"] as const;
 
 export default function StatisticsClient(props: StatisticsProps) {
   const t = useTranslations("adminStatistics");
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // 개요·부가서비스/미니바 탭은 매출=재무 전용 → fin=false(STAFF)면 둘 다 미노출(누수 유지).
   const tabs = useMemo(
-    () => (props.fin ? ALL_TABS : ALL_TABS.filter((x) => x !== "overview")),
+    () =>
+      props.fin
+        ? ALL_TABS
+        : ALL_TABS.filter((x) => x !== "overview" && x !== "ancillary"),
     [props.fin]
   );
 
@@ -60,27 +82,16 @@ export default function StatisticsClient(props: StatisticsProps) {
     tabs.includes(props.activeTab) ? props.activeTab : tabs[0]
   );
 
-  const updateQuery = useCallback(
-    (next: { tab?: TabKey; range?: string }) => {
+  // 탭 전환만 client 상태 — 기간 필터(프리셋/커스텀)는 DateRangeFilter가 URL 동기화 담당
+  const onTab = useCallback(
+    (next: TabKey) => {
+      setTab(next);
       const params = new URLSearchParams(searchParams.toString());
-      if (next.tab) params.set("tab", next.tab);
-      if (next.range) params.set("range", next.range);
+      params.set("tab", next);
       router.replace(`?${params.toString()}`, { scroll: false });
     },
     [router, searchParams]
   );
-
-  const onTab = (next: TabKey) => {
-    setTab(next);
-    updateQuery({ tab: next });
-  };
-
-  // 기간 변경은 서버 재집계가 필요하므로 router.replace로 RSC 재요청(데이터 갱신)
-  const onRange = (next: string) => updateQuery({ tab, range: next });
-
-  const isYearRange = !RANGE_PRESETS.includes(props.range as "6" | "12");
-  const currentYear = new Date().getFullYear();
-  const yearOptions = [currentYear, currentYear - 1, currentYear - 2];
 
   return (
     <div>
@@ -115,50 +126,19 @@ export default function StatisticsClient(props: StatisticsProps) {
           })}
         </div>
 
-        {/* 기간 필터 */}
-        <div className="flex items-center gap-1 bg-slate-900 rounded-lg p-1 mb-2 border border-slate-800">
-          {RANGE_PRESETS.map((r) => {
-            const active = !isYearRange && props.range === r;
-            return (
-              <button
-                key={r}
-                type="button"
-                onClick={() => onRange(r)}
-                className={
-                  active
-                    ? "px-3 py-1 text-xs font-bold rounded bg-admin-primary text-white"
-                    : "px-3 py-1 text-xs font-medium rounded text-slate-400 hover:text-white"
-                }
-              >
-                {t(`range.${r}`)}
-              </button>
-            );
-          })}
-          <select
-            aria-label={t("range.year")}
-            value={isYearRange ? props.range : ""}
-            onChange={(e) => e.target.value && onRange(e.target.value)}
-            className={`bg-transparent border-0 text-xs rounded px-2 py-1 focus:ring-0 ${
-              isYearRange ? "text-white font-bold" : "text-slate-400"
-            }`}
-          >
-            <option value="" disabled>
-              {t("range.year")}
-            </option>
-            {yearOptions.map((y) => (
-              <option key={y} value={String(y)} className="bg-slate-900 text-white">
-                {y}
-              </option>
-            ))}
-          </select>
+        {/* 기간 필터 — 프리셋 칩 + 커스텀 달력(from/to). URL(?range= 또는 ?from=&to=) 동기화. */}
+        <div className="mb-2">
+          <DateRangeFilter
+            presetKey={props.period.presetKey}
+            fromText={props.period.fromText}
+            toText={props.period.toText}
+          />
         </div>
       </div>
 
       {/* 탭 콘텐츠 */}
       <div className="py-6 space-y-6">
-        {tab === "overview" && props.overview && (
-          <OverviewTab data={props.overview} />
-        )}
+        {tab === "overview" && props.overview && <OverviewTab data={props.overview} />}
         {tab === "occupancy" && <OccupancyTab data={props.occupancy} />}
         {tab === "villas" && (
           <VillasTab rows={props.villas} hasFinance={props.fin} />
@@ -166,16 +146,21 @@ export default function StatisticsClient(props: StatisticsProps) {
         {tab === "operations" && (
           <OperationsTab data={props.operations} funnel={props.funnel} fin={props.fin} />
         )}
+        {tab === "ancillary" && (props.minibar || props.services) && (
+          <AncillaryTab minibar={props.minibar} services={props.services} />
+        )}
       </div>
     </div>
   );
 }
 
 // ── 탭1. 개요 ────────────────────────────────────────────────
+// KPI·매출추이는 빌라+부가서비스+미니바 합산 총계(BE가 loadOverviewStats에서 통합).
+// 통화 분리(KRW·VND)는 그대로 유지. 미니바·부가서비스 상세는 ancillary 탭으로 분리됨.
 function OverviewTab({ data }: { data: OverviewStats }) {
   const t = useTranslations("adminStatistics");
   const k = data.current;
-  const fxMissing = data.monthly.reduce((s, m) => s + m.fxMissingCount, 0);
+  const fxMissing = data.trend.reduce((s, m) => s + m.fxMissingCount, 0);
 
   return (
     <>
@@ -258,7 +243,7 @@ function OverviewTab({ data }: { data: OverviewStats }) {
             </div>
           </div>
           <RevenueChart
-            data={data.monthly}
+            data={data.trend}
             krwLegend={t("overview.revenueChart.krwLegend")}
             vndLegend={t("overview.revenueChart.vndLegend")}
           />
@@ -279,6 +264,276 @@ function OverviewTab({ data }: { data: OverviewStats }) {
         </div>
       </div>
     </>
+  );
+}
+
+// ── 탭5. 부가서비스·미니바 ───────────────────────────────────
+// 매출=재무 → page가 canViewFinance일 때만 minibar/services 전달(STAFF면 props 자체 부재 → 탭 미노출).
+// 미니바 섹션 + 부가서비스 섹션을 한 범주로 세로 스택.
+function AncillaryTab({
+  minibar,
+  services,
+}: {
+  minibar?: MinibarStats;
+  services?: ServiceOrderStats;
+}) {
+  const t = useTranslations("adminStatistics");
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-base font-bold text-white">{t("ancillary.title")}</h2>
+        <p className="text-[11px] text-slate-500">{t("ancillary.subtitle")}</p>
+      </div>
+      {minibar && <MinibarSection data={minibar} />}
+      {services && <ServiceSection data={services} />}
+    </div>
+  );
+}
+
+// ── 개요 탭 하위. 부가서비스 매출 섹션 (canViewFinance 전용, ADR-0019 후속) ───
+// 통화 분리(ADR-0003): KRW·VND 매출 카드 2개 별도. 마진은 VND만(원가가 VND뿐) — null이면 원가 미입력.
+function ServiceSection({ data }: { data: ServiceOrderStats }) {
+  const t = useTranslations("adminStatistics");
+  const hasMargin = data.marginVnd != null;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-2 pt-2">
+        <span className="material-symbols-outlined text-emerald-400 text-lg">room_service</span>
+        <h2 className="text-base font-bold text-white">{t("services.title")}</h2>
+        <span className="text-[11px] text-slate-500">{t("services.subtitle")}</span>
+      </div>
+
+      {/* KPI: KRW 매출 + VND 매출(통화 분리) + 마진(null이면 원가 미입력 배지) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <KpiCard
+          label={t("services.kpi.revenueKrw")}
+          value={data.revenueKrwText}
+          accent="krw"
+          icon="room_service"
+          iconClassName="text-admin-krw"
+          footer={<p className="text-[10px] text-slate-500">{t("services.kpi.revenueKrwNote")}</p>}
+        />
+        <KpiCard
+          label={t("services.kpi.revenueVnd")}
+          value={data.revenueVndText}
+          accent="vnd"
+          icon="room_service"
+          iconClassName="text-admin-vnd"
+          footer={<p className="text-[10px] text-slate-500">{t("services.kpi.revenueVndNote")}</p>}
+        />
+        <div className="bg-admin-card p-4 rounded-xl border border-slate-700/50">
+          <div className="flex justify-between items-start mb-2">
+            <span className="text-xs font-medium text-admin-muted uppercase tracking-wider">
+              {t("services.kpi.margin")}
+            </span>
+            <span className="material-symbols-outlined text-amber-400">savings</span>
+          </div>
+          {hasMargin ? (
+            <>
+              <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-bold text-white tabular-nums">
+                  {data.marginVndText}
+                </span>
+              </div>
+              <p className="mt-2 text-[10px] text-slate-500">{t("services.kpi.marginVndNote")}</p>
+              {data.costMissingCount > 0 && (
+                <p className="mt-1 text-[10px] text-slate-500">
+                  {t("services.kpi.marginPartialNote", { count: data.costMissingCount })}
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 text-xs text-amber-400/90 bg-amber-500/10 px-2 py-1 rounded">
+                  <span className="material-symbols-outlined text-[14px]">price_change</span>
+                  {t("services.kpi.costMissing")}
+                </span>
+              </div>
+              <p className="mt-2 text-[10px] text-slate-500">
+                {t("services.kpi.costMissingNote", { count: data.costMissingCount })}
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-6">
+        {/* 추이 막대 — KRW·VND 2계열 */}
+        <div className="col-span-12 xl:col-span-7 bg-admin-card rounded-xl border border-slate-700/50 p-5">
+          <div className="flex justify-between items-center mb-4 gap-3 flex-wrap">
+            <div>
+              <h3 className="font-bold text-white">{t("services.trendChart.title")}</h3>
+              <p className="text-[11px] text-slate-500 mt-0.5">{t("services.trendChart.subtitle")}</p>
+            </div>
+            <div className="flex items-center gap-4 text-xs">
+              <div className="flex items-center gap-1.5 text-slate-300">
+                <span className="w-3 h-3 rounded-sm bg-admin-krw" />
+                {t("services.trendChart.krwLegend")}
+              </div>
+              <div className="flex items-center gap-1.5 text-slate-300">
+                <span className="w-3 h-3 rounded-sm bg-admin-vnd" />
+                {t("services.trendChart.vndLegend")}
+              </div>
+            </div>
+          </div>
+          <ServiceChart
+            data={data.trend}
+            krwLegend={t("services.trendChart.krwLegend")}
+            vndLegend={t("services.trendChart.vndLegend")}
+          />
+        </div>
+
+        {/* 타입별 top */}
+        <div className="col-span-12 xl:col-span-5 bg-admin-card rounded-xl border border-slate-700/50 p-5">
+          <h3 className="font-bold text-white mb-4">{t("services.topTypes.title")}</h3>
+          {data.topTypes.length === 0 ? (
+            <p className="text-sm text-admin-muted text-center py-8">{t("services.topTypes.empty")}</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[11px] text-admin-muted uppercase tracking-wider border-b border-slate-700/50">
+                  <th className="text-left font-medium py-2">{t("services.topTypes.type")}</th>
+                  <th className="text-right font-medium py-2">{t("services.topTypes.qty")}</th>
+                  <th className="text-right font-medium py-2">{t("services.topTypes.revenueKrw")}</th>
+                  <th className="text-right font-medium py-2">{t("services.topTypes.revenueVnd")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.topTypes.map((row, i) => (
+                  <tr
+                    key={`${row.type}-${i}`}
+                    className="border-b border-slate-800/60 last:border-0"
+                  >
+                    <td className="py-2 text-slate-200 truncate max-w-[8rem]">
+                      {t(`services.types.${row.type}`)}
+                    </td>
+                    <td className="py-2 text-right text-slate-400 tabular-nums">{row.quantity}</td>
+                    <td className="py-2 text-right text-admin-krw tabular-nums">
+                      {row.revenueKrwText}
+                    </td>
+                    <td className="py-2 text-right text-admin-vnd tabular-nums font-medium">
+                      {row.revenueVndText}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 개요 탭 하위. 미니바 판매 섹션 (canViewFinance 전용) ───────────
+function MinibarSection({ data }: { data: MinibarStats }) {
+  const t = useTranslations("adminStatistics");
+  const hasMargin = data.marginVnd != null;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-2 pt-2">
+        <span className="material-symbols-outlined text-emerald-400 text-lg">local_bar</span>
+        <h2 className="text-base font-bold text-white">{t("minibar.title")}</h2>
+        <span className="text-[11px] text-slate-500">{t("minibar.subtitle")}</span>
+      </div>
+
+      {/* KPI: 미니바 매출 + 마진(null이면 원가 미입력 배지) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <KpiCard
+          label={t("minibar.kpi.revenue")}
+          value={data.revenueVndText}
+          accent="vnd"
+          icon="local_bar"
+          iconClassName="text-admin-vnd"
+          footer={
+            <p className="text-[10px] text-slate-500">{t("minibar.kpi.revenueNote")}</p>
+          }
+        />
+        <div className="bg-admin-card p-4 rounded-xl border border-slate-700/50">
+          <div className="flex justify-between items-start mb-2">
+            <span className="text-xs font-medium text-admin-muted uppercase tracking-wider">
+              {t("minibar.kpi.margin")}
+            </span>
+            <span className="material-symbols-outlined text-amber-400">savings</span>
+          </div>
+          {hasMargin ? (
+            <>
+              <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-bold text-white tabular-nums">
+                  {data.marginVndText}
+                </span>
+              </div>
+              {data.costMissingCount > 0 && (
+                <p className="mt-2 text-[10px] text-slate-500">
+                  {t("minibar.kpi.marginPartialNote", { count: data.costMissingCount })}
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 text-xs text-amber-400/90 bg-amber-500/10 px-2 py-1 rounded">
+                  <span className="material-symbols-outlined text-[14px]">price_change</span>
+                  {t("minibar.kpi.costMissing")}
+                </span>
+              </div>
+              <p className="mt-2 text-[10px] text-slate-500">
+                {t("minibar.kpi.costMissingNote", { count: data.costMissingCount })}
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-12 gap-6">
+        {/* 추이 막대 */}
+        <div className="col-span-12 xl:col-span-7 bg-admin-card rounded-xl border border-slate-700/50 p-5">
+          <div className="flex justify-between items-center mb-4 gap-3 flex-wrap">
+            <div>
+              <h3 className="font-bold text-white">{t("minibar.trendChart.title")}</h3>
+              <p className="text-[11px] text-slate-500 mt-0.5">{t("minibar.trendChart.subtitle")}</p>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-slate-300">
+              <span className="w-3 h-3 rounded-sm bg-admin-vnd" />
+              {t("minibar.trendChart.legend")}
+            </div>
+          </div>
+          <MinibarChart data={data.trend} legend={t("minibar.trendChart.legend")} />
+        </div>
+
+        {/* 품목별 top */}
+        <div className="col-span-12 xl:col-span-5 bg-admin-card rounded-xl border border-slate-700/50 p-5">
+          <h3 className="font-bold text-white mb-4">{t("minibar.topItems.title")}</h3>
+          {data.topItems.length === 0 ? (
+            <p className="text-sm text-admin-muted text-center py-8">{t("minibar.topItems.empty")}</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[11px] text-admin-muted uppercase tracking-wider border-b border-slate-700/50">
+                  <th className="text-left font-medium py-2">{t("minibar.topItems.name")}</th>
+                  <th className="text-right font-medium py-2">{t("minibar.topItems.qty")}</th>
+                  <th className="text-right font-medium py-2">{t("minibar.topItems.revenue")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.topItems.slice(0, 10).map((item, i) => (
+                  <tr key={`${item.nameKo}-${i}`} className="border-b border-slate-800/60 last:border-0">
+                    <td className="py-2 text-slate-200 truncate max-w-[10rem]">{item.nameKo}</td>
+                    <td className="py-2 text-right text-slate-400 tabular-nums">{item.consumedQty}</td>
+                    <td className="py-2 text-right text-white tabular-nums font-medium">
+                      {item.revenueVndText}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -355,7 +610,7 @@ function OccupancyTab({ data }: { data: OccupancyStats }) {
             {t("occupancy.trendChart.legend")}
           </div>
         </div>
-        <OccupancyLine data={data.monthly} legend={t("occupancy.trendChart.legend")} />
+        <OccupancyLine data={data.trend} legend={t("occupancy.trendChart.legend")} />
       </div>
 
       <VillaOccupancyBars villas={data.villas} />

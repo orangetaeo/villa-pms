@@ -1,4 +1,5 @@
 import {
+  BookingSeller,
   BookingStatus,
   NotificationType,
   SettlementStatus,
@@ -8,6 +9,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { enqueueNotification } from "@/lib/zalo";
+import { postCostAccrual, postFxAdjustment, postPayout } from "@/lib/ledger";
 
 /**
  * 최소 정산 단일 소스 (SPEC F6, 계약: docs/contracts/T4.5-settlement.md)
@@ -71,15 +73,31 @@ export function groupBySupplier(
   return groups;
 }
 
-export type SettlementAction = "CONFIRM" | "MARK_PAID";
+// 지급 생애주기 (정산 2차 P2-2): DRAFT→CONFIRMED→COLLECTED→FX_ADJUSTED→PAID.
+// 환차(ADJUST_FX)는 선택 단계 — 환차 없는 정산은 건너뛰고 PAID 가능. 기존 CONFIRMED 정산 호환.
+export type SettlementAction = "CONFIRM" | "COLLECT" | "ADJUST_FX" | "MARK_PAID";
 
-/** 허용 전이표 — 그 외 전이는 409 의미의 SettlementTransitionError */
+/** 허용 전이표 — from 배열 중 현재 상태가 있어야 통과. 그 외는 409 SettlementTransitionError */
 export const SETTLEMENT_TRANSITIONS: Record<
   SettlementAction,
-  { from: SettlementStatus; to: SettlementStatus }
+  { from: SettlementStatus[]; to: SettlementStatus }
 > = {
-  CONFIRM: { from: SettlementStatus.DRAFT, to: SettlementStatus.CONFIRMED },
-  MARK_PAID: { from: SettlementStatus.CONFIRMED, to: SettlementStatus.PAID },
+  CONFIRM: { from: [SettlementStatus.DRAFT], to: SettlementStatus.CONFIRMED },
+  COLLECT: { from: [SettlementStatus.CONFIRMED], to: SettlementStatus.COLLECTED },
+  // 환차 반영·재조정 — COLLECTED 또는 이미 FX_ADJUSTED(금액 정정)에서 허용
+  ADJUST_FX: {
+    from: [SettlementStatus.COLLECTED, SettlementStatus.FX_ADJUSTED],
+    to: SettlementStatus.FX_ADJUSTED,
+  },
+  // 지급 완료 — 환차 단계 선택적이므로 CONFIRMED·COLLECTED·FX_ADJUSTED 어디서든 가능
+  MARK_PAID: {
+    from: [
+      SettlementStatus.CONFIRMED,
+      SettlementStatus.COLLECTED,
+      SettlementStatus.FX_ADJUSTED,
+    ],
+    to: SettlementStatus.PAID,
+  },
 };
 
 export class SettlementNotFoundError extends Error {
@@ -108,7 +126,7 @@ export function assertSettlementTransition(
   action: SettlementAction
 ): SettlementStatus {
   const transition = SETTLEMENT_TRANSITIONS[action];
-  if (current !== transition.from) {
+  if (!transition.from.includes(current)) {
     throw new SettlementTransitionError(current, action);
   }
   return transition.to;
@@ -160,6 +178,8 @@ export async function generateMonthlySettlements(
         where: {
           status: { in: [...SETTLEMENT_BOOKING_STATUSES] },
           checkOut: { gte: start, lt: end },
+          // F10: 공급자 직접판매(seller=SUPPLIER)는 공급자 100% 수금이라 정산 제외 — ADR-0021 D3
+          seller: BookingSeller.OPERATOR,
         },
         select: {
           id: true,
@@ -296,7 +316,8 @@ export async function transitionSettlement(
   id: string,
   action: SettlementAction,
   actorId: string,
-  db: PrismaClient = prisma
+  db: PrismaClient = prisma,
+  opts: { fxAdjustmentVnd?: bigint } = {}
 ): Promise<Settlement> {
   return db.$transaction(async (tx) => {
     const settlement = await tx.settlement.findUnique({
@@ -307,17 +328,62 @@ export async function transitionSettlement(
 
     const nextStatus = assertSettlementTransition(settlement.status, action);
     const now = new Date();
+    // 환차 금액 — ADJUST_FX일 때만(+이익/−손실). 0n 허용(환차 없음 명시 기록).
+    const fxAdjustmentVnd =
+      action === "ADJUST_FX" ? (opts.fxAdjustmentVnd ?? 0n) : undefined;
 
     // status 가드 — 동시 요청 경합에서 한쪽만 승리 (cleaning 패턴)
     const guarded = await tx.settlement.updateMany({
       where: { id, status: settlement.status },
       data: {
         status: nextStatus,
+        ...(action === "COLLECT" ? { collectedAt: now } : {}),
+        ...(action === "ADJUST_FX"
+          ? { fxAdjustedAt: now, fxAdjustmentVnd }
+          : {}),
         ...(action === "MARK_PAID" ? { paidAt: now } : {}),
       },
     });
     if (guarded.count !== 1) {
       throw new SettlementTransitionError(settlement.status, action);
+    }
+
+    // 복식부기 LEDGER 분개 (ADR-0018) — 전이별 멱등. totalVnd 0(빈 정산)은 분개 없음.
+    if (settlement.totalVnd > 0n) {
+      if (action === "COLLECT") {
+        // COST_ACCRUAL: COGS +/ SUPPLIER_PAYABLE − (수납 시 원가·채무 인식)
+        await postCostAccrual(tx, {
+          settlementId: settlement.id,
+          totalVnd: settlement.totalVnd,
+          occurredAt: now,
+          createdBy: actorId,
+        });
+      } else if (action === "MARK_PAID") {
+        // COLLECT를 건너뛴 직접 지급(CONFIRMED→PAID 하위호환)이면 원가 적립이 없으므로
+        // 먼저 COST_ACCRUAL을 멱등 보장(이미 있으면 no-op) 후 PAYOUT — 채무 잔액 0 유지.
+        await postCostAccrual(tx, {
+          settlementId: settlement.id,
+          totalVnd: settlement.totalVnd,
+          occurredAt: now,
+          createdBy: actorId,
+        });
+        // PAYOUT: SUPPLIER_PAYABLE +/ CASH_VND − (채무 상계·현금 유출)
+        await postPayout(tx, {
+          settlementId: settlement.id,
+          totalVnd: settlement.totalVnd,
+          occurredAt: now,
+          createdBy: actorId,
+        });
+      }
+    }
+    if (action === "ADJUST_FX") {
+      // FX_ADJUSTMENT: CASH_VND ±/ FX_GAIN_LOSS ∓ (정산당 replace, 0이면 기존만 제거)
+      await postFxAdjustment(tx, {
+        settlementId: settlement.id,
+        fxAdjustmentVnd: fxAdjustmentVnd ?? 0n,
+        occurredAt: now,
+        createdBy: actorId,
+      });
     }
 
     if (action === "MARK_PAID") {
@@ -329,6 +395,8 @@ export async function transitionSettlement(
           settlementId: settlement.id,
           yearMonth: settlement.yearMonth,
           totalVnd: settlement.totalVnd.toString(),
+          // 월 정산서 PDF 다운로드 경로 (P2-4) — 알림 텍스트에 링크로 노출(로그인 게이트).
+          statementPath: `/api/settlements/${settlement.id}/statement`,
         },
         db: tx,
       });
@@ -342,6 +410,13 @@ export async function transitionSettlement(
       entityId: settlement.id,
       changes: {
         status: { old: settlement.status, new: nextStatus },
+        ...(action === "COLLECT" ? { collectedAt: { new: now.toISOString() } } : {}),
+        ...(action === "ADJUST_FX"
+          ? {
+              fxAdjustedAt: { new: now.toISOString() },
+              fxAdjustmentVnd: { new: (fxAdjustmentVnd ?? 0n).toString() },
+            }
+          : {}),
         ...(action === "MARK_PAID" ? { paidAt: { new: now.toISOString() } } : {}),
       },
     });

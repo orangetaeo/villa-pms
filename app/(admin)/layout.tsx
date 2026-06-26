@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { getLocale } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
 import AdminSidebar from "@/components/admin/sidebar";
-import MobileNavSpacer from "@/components/admin/mobile-nav-spacer";
+import MobileNavSpacer, { ADMIN_FULLSCREEN_PREFIXES } from "@/components/admin/mobile-nav-spacer";
+import PullToRefresh from "@/components/pull-to-refresh";
 import { pickMessages } from "@/lib/intl-messages";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
@@ -20,7 +21,7 @@ import { isOperator } from "@/lib/permissions";
 //   users/users-manager                              → adminUsers
 //   settlements/settlements-view                     → adminSettlements
 //   settings/hold-hours-form·season-manager·fx-rate-form·agreement-form → adminSettings
-//   settings/minibar/minibar-manager                 → adminMinibar
+//   inventory/inventory-tabs·minibar-manager         → inventory, adminMinibar
 //   proposals/proposals-list, new/proposal-create    → adminProposals
 //   inspections/inspections-view                     → adminInspections
 //   settings/zalo/zalo-connect-client                → adminZalo
@@ -37,8 +38,15 @@ const ADMIN_CLIENT_NAMESPACES = [
   "adminVillas",
   "adminUsers",
   "adminSettlements",
+  // 파트너 관리(ADR-0022 PARTNER-2) — partners-manager·partner-form·partner-detail
+  "adminPartners",
   "adminSettings",
   "adminMinibar",
+  // ADR-0019 — 미니바 실재고·부가서비스 카탈로그/주문·게스트 토큰 (클라이언트 컴포넌트 네임스페이스)
+  "inventory",
+  "adminServices",
+  "adminServiceOrders",
+  "adminGuestToken",
   "adminProposals",
   "adminInspections",
   "adminMessages",
@@ -96,6 +104,8 @@ export default async function AdminLayout({
         logoutAction={logoutAction}
         currentLocale={locale === "vi" ? "vi" : "ko"}
       />
+      {/* 모바일 당겨서 새로고침 — 전 admin 페이지 공용(풀스크린 라우트 자동 제외) */}
+      <PullToRefresh fullscreenPrefixes={ADMIN_FULLSCREEN_PREFIXES} variant="dark" />
       {/* 데스크톱: 사이드바 폭만큼 밀기 / 모바일: 헤더 높이만큼 내리기 */}
       <main className="lg:pl-64 pt-14 lg:pt-0 min-h-dvh">
         <div className="p-4 md:p-8">{children}</div>

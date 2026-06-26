@@ -40,6 +40,8 @@ const checkinSchema = z.object({
     .regex(/^\/api\/passports\/[a-zA-Z0-9._-]+$/)
     .nullable()
     .optional(),
+  // ADR-0019 후속 — 게스트 셀프 서명 채택 시 토큰 판본 전달(선택)
+  agreementVersion: z.string().max(50).nullable().optional(),
 });
 
 export async function POST(
@@ -69,6 +71,7 @@ export async function POST(
       passportData: parsed.data.passportData,
       deposit: parsed.data.deposit,
       signatureUrl: parsed.data.signatureUrl ?? null,
+      agreementVersion: parsed.data.agreementVersion ?? null,
       notes: parsed.data.notes,
       actorUserId: session.user.id,
     });

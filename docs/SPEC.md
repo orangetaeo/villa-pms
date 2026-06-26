@@ -241,6 +241,152 @@ available(villa, range) =
 
 ---
 
+## F8. 재고·부가서비스 판매 (Phase 2 — ADR-0019)
+
+> 미니바 = 실재고 추적 / 서비스(BBQ·티켓·가이드·차량·오토바이 렌트) = 주문형 발주. 상세 설계·스키마는 ADR-0019.
+
+**사용자:** ADMIN
+
+### 미니바 실재고
+- 빌라별 **현재고(onHandQty)** 와 **비치 목표(par, VillaMinibarStock.qty)** 를 분리 관리
+- **입고 화면**: 빌라·품목·입고수량·**매입 단가(VND)** 입력 → 현재고 증가 + `MinibarItem.costVnd` 갱신(회사표준 1세트) → 미니바 마진 통계 자동 활성
+- **부족 경보**: `현재고 < 비치 목표` 빌라·품목을 대시보드 배너 + 재고 화면 필터로 노출
+- 체크아웃 소모(F4)는 현재고 차감 + 이동이력(`MinibarStockMovement`) 기록
+- **가격·품목은 빌라별로 두지 않음**(ADR-0016 유지) — 빌라별은 수량·현재고뿐
+
+### 서비스 카탈로그(주문형)
+- `ServiceCatalogItem`: 판매 메뉴 1세트(회사 공통) — 이름(ko/vi/en)·판매가(KRW/VND)·**원가(운영자 전용)**·단위·사진·옵션(차량 기사 포함/불포함 등)·active/정렬
+- `ServiceType`에 추가: `MOTORBIKE_RENTAL`(오토바이), `MASSAGE`(마사지), `BARBER`(이발소(귀))
+  - **마사지**(종류별 카탈로그 항목, 출장 가능): 풋마사지(30/60분) · 바디마사지 아로마/핫스톤/건식(30/60/90/120분)
+  - **이발소(귀)**: 60/90분 + 세부시술 족욕·귀청소·면도·손발톱·콧털·스톤마사지·오이팩·허벌케어·전신/발/두피 마사지·태국식 스트레칭·베트남식 샴푸
+- **옵션 3종 구조**(카탈로그 `options`): `variants`(상호배타 1택, 가격 대체 — 시간 티어·기사 포함/불포함), `addons`(다중 선택 가산 — 이발소 세부 시술), `modifiers`(토글 가산 — 출장비). 합계는 서버 재계산
+- 주문(ServiceOrder)은 카탈로그에서 가격 스냅샷, 게스트 요청은 `requestedVia=GUEST·status=REQUESTED`
+- **처리 흐름**: 게스트/운영자 요청(REQUESTED) → 운영자 가능 여부·가격 확정(CONFIRMED) → 제공(DELIVERED). 예약 상세 패널 + 대시보드 신규 요청 알림
+- 결제는 **체크아웃 시 통합 정산**(현금/계좌이체, Phase 1 PG 없음 — ADR-0019 D3)
+
+### 체크아웃 게스트 정산 (ADR-0019 §6.5)
+- 체크아웃 화면(F4)에 **게스트 청구서** 합산: 미니바 소비분(소비수량×판매가) + 확정 부가옵션(ServiceOrder CONFIRMED/DELIVERED 판매가)
+- 보증금 환불/파손 차감은 별도 표기(보증금은 게스트↔운영자, 공급자 정산 F6 무관)
+- 결제수단 기록: 현금/계좌이체/기타 + 수납 시각·메모, 통화별 분리(합산 금지)
+
+### 화면
+- ADMIN: 미니바 재고 현황·입고, 서비스 카탈로그 관리(`/settings/services`), 예약 상세 옵션 주문 패널
+- 매출·원가·마진은 **운영자(canViewFinance) 전용**, 통화별 분리(ADR-0003)
+
+---
+
+## F9. 게스트 셀프 체크인 (Phase 2 — ADR-0019)
+
+> 한국 여행객(비로그인)이 모바일로 체크인 절차 일부를 셀프 수행. 접근 = 예약별 토큰 링크 + QR.
+
+**사용자:** (비로그인) 게스트
+
+### 접근
+- 예약별 `GuestCheckinToken` 발급 → `/g/[token]` (ko 기본, `?lang=`로 ko/vi/en/zh/ru)
+- 토큰 전달: 빌라 현관 QR 비치 / 여행사·카톡 링크 전송. 만료(기본 체크아웃+1일)·회수 시 차단
+- **단일 예약 스코프** — 다른 예약·전체 재고 도달 불가(재고 비공개 원칙1)
+
+### 흐름 (한 화면 다단계)
+1. **예약 확인** — 빌라명·날짜·박수·인원만(마진·재고 비노출)
+2. **비품 목록 확인** — 어메니티 + 미니바 비치 품목(미니바 **판매가** 표시, 원가·마진 비노출) → "확인" 체크
+3. **이용 동의서 서명** — `lib/agreement.ts` 본문(수영장 빌라 자동 조항), 모바일 서명 패드 → `CheckInRecord.agreementSignedAt·signatureUrl·agreementVersion`
+4. **부가옵션 선택** — `ServiceCatalogItem(active)` 카드(사진·판매가·단위·옵션)·수량 선택 → "요청하기" → `ServiceOrder(REQUESTED, GUEST)`. **결제 없음**, "운영자 확인 후 확정" 안내
+5. **완료** — 요청 내역 요약 + "현장/체크아웃 정산" 안내. 재진입 시 조회 가능
+
+### 규칙
+- 게스트는 **판매가만** 본다(미니바·옵션). `costVnd`·마진은 절대 비노출
+- 게스트 요청 금액은 서버 재계산(클라 변조 방지), 운영자 확정 전까지 REQUESTED
+- 여권 업로드는 본 범위 제외(현장 ADMIN 체크인 유지) — 후속 옵션
+
+### 화면 (Stitch)
+- G1 예약 확인 · G2 비품 확인 · G3 동의서 서명 · G4 옵션 선택 · G5 요청 완료 (모바일, 라이트, ko, `/p` 톤 계승)
+
+---
+
+## F10. 공급자 직접 판매 채널 (양방향 모델 — ADR-0021)
+
+> 원래 사업 모델 복원: 공급자가 자기 빌라를 **자기 고객에게 직접 판매** → 그 공실이 **실시간으로 운영자에게 공유** → 운영자가 **선점해 한국 채널에 재판매**. 현재는 공급자가 정보 입력만 가능(판매 불가)해 단방향. 상세·결정은 ADR-0021.
+
+**사용자:** SUPPLIER (직접예약 생성), ADMIN (선점·재판매)
+
+### 확정 결정 (테오 2026-06-26 — ADR-0021)
+- **판매 방식**: 둘 다(단계적) — Phase A 수동 기록 → Phase B 공급자 판매 링크
+- **충돌 우선권**: **선착순** (운영자 선점 우선권 없음, 같은 가용성 레이어에 먼저 잡은 쪽이 임자)
+- **수익**: **공급자 100%** (직접판매액 전부 공급자 것, 수수료 없음, 정산 제외)
+- **검수 미승인 빌라 직접판매**: **허용** (게이트는 우리 재판매만 막음, 직접판매는 공급자 책임)
+
+### 핵심 원리 — 공유 가용성 + 선착순
+- 운영자(`seller=OPERATOR`)와 공급자(`seller=SUPPLIER`)가 같은 빌라·같은 캘린더에 독립 판매를 동시 운영
+- 공급자 직접예약 생성도 **기존 lib/availability.ts 트랜잭션 잠금(lockVillaInventory + checkAvailability)을 그대로 통과** → 선착순 자동 보장(우선권 비교 로직 불필요)
+- 공급자는 운영자 예약을 "예약됨"만(마진 비공개), 운영자는 공급자 직접예약을 타임라인 별도 셀로 봄(선점 판단)
+
+### Phase A — 공급자 직접예약 수동 기록 (MVP)
+1. SUPPLIER `/calendar`: 빈 날짜 탭 → "직접 예약 기록" → 체크인/아웃·고객명·인원·(선택)받은 금액(VND)·(선택)연락처
+2. `POST /api/supplier/bookings` → 가용성 게이트 통과 → `Booking(seller=SUPPLIER, status=CONFIRMED)` + `writeAuditLog()`
+3. 선착순 패배 시 409 "이미 예약된 날짜입니다"(상세 비노출). 공급자가 먼저 잡으면 운영자가 못 홀드
+4. ADMIN: 타임라인 매트릭스 신규 셀 "공급자 직접예약" + `/bookings` seller 필터
+5. 정산(F6): `seller=OPERATOR`만 집계 → 직접예약 제외
+6. 체크인·아웃 검수(D5 — 정식 F4 적용): 직접예약 게스트도 여권 OCR·이용 동의서 서명·보증금·체크아웃 사진 비교·청소를 모두 받음. **공급자가 자기 빌라 현장에서 vi 모바일로 직접 수행**(임시거주신고도 공급자 본인 처리 → "운영자 전달" 단계 제외). lib/checkin·checkout 재사용, `seller=SUPPLIER`+자기 supplierId 스코프. 체크아웃 시 CleaningTask + isSellable=false 동일. 단 직접판매 *개시*는 게이트 우회(D4)
+7. Zalo: 직접예약 생성 시 운영자에게 정보성 알림(`SUPPLIER_DIRECT_BOOKING`)
+
+### Phase B — 공급자 판매 링크 (별도 스프린트)
+- 공급자가 자기 판매가(`VillaRatePeriod.supplierSalePriceVnd`) 입력 → 공급자별 공개 토큰 링크 생성(Proposal 재사용, supplierId 스코프) → 자기 고객 셀프 가예약(HOLD) → 공급자 입금 확인 → CONFIRMED
+- 보안: 공급자 자기 빌라·자기 판매가만 노출, 우리 salePriceKrw·마진·타 공급자 빌라 절대 비노출
+
+### 데이터 모델 (additive raw SQL ALTER — db push 금지)
+- `Booking.seller` enum `BookingSeller{OPERATOR|SUPPLIER}` @default(OPERATOR) — 기존 예약 안전 백필
+- `Booking.supplierSalePriceVnd BigInt?` — 공급자 자기 기록용(우리 회계 무관)
+- `VillaRatePeriod.supplierSalePriceVnd BigInt?` — Phase B 판매 링크 견적용(salePriceVnd/마진과 별개)
+- **네이밍 주의**: 공급자 직접판매는 `seller=SUPPLIER`로 표현. 단어 `DIRECT`(BookingChannel.DIRECT·Villa.source=DIRECT와 충돌) 재사용 금지
+
+### 권한 테스트 필수 케이스
+- 공급자가 타인 빌라 직접예약 생성 → 403 / 직접예약 응답에 운영자 판매가·마진 → 0건 / 정산에 seller=SUPPLIER 혼입 → 0건 / Phase B 링크에서 타 공급자 빌라·우리 판매가 도달 → 불가
+## F11. 부가서비스 원천 공급자 중계 (ADR-0023)
+
+> 부가서비스(과일 바구니·도시락·BBQ·렌트·마사지 등)는 **우리가 중계만** 한다: 요청 접수 → 원천 공급자에 Zalo 발주 → 공급자가 우리 페이지에서 예약현황 확인·가부 결정 → 우리에게 통보 → 우리가 고객 확정·공급자 정산. 상세·결정은 ADR-0023.
+
+**사용자:** VENDOR(신규 역할 — 원천 공급자), ADMIN(중계·확정·정산), PARTNER(여행사/랜드사 요청), GUEST(소비자 요청)
+
+### 확정 결정 (테오 2026-06-26 — ADR-0023)
+- **공급자 접근**: **로그인 계정(Role=VENDOR) + 전용 대시보드 `/vendor`** (영구 거래처, 통계까지)
+- **엔티티**: **완전 별도 `ServiceVendor`** (빌라 SUPPLIER와 무관한 외부 거래처)
+- **정산**: **발주 건별 즉시 정산 기록** (누적 원장 아님)
+- **발주 게이트**: 2단계 — 공급자 수락 후에야 운영자가 고객에 확정(거절 시 대체/취소)
+
+### 과일 메뉴 + 요청 주체 자격(audience)
+- **과일 바구니** = 여행사/랜드사(PARTNER)만 요청 (소비자 비노출)
+- **과일 도시락** = 여행사/랜드사 + 소비자(GUEST) 모두 요청
+- 일반화: 모든 카탈로그 항목이 `audiences ∈ [ADMIN|PARTNER|GUEST]` 선언 → 채널별 카탈로그 서버 필터
+
+### 채널별 요청 경로
+| 채널 | 라우트 | requestedVia | 노출 |
+|---|---|---|---|
+| 운영자 | 예약 상세 패널(기존) | ADMIN | 전체 |
+| 여행사/랜드사 | `/p/[token]` 부가서비스 요청 섹션(신규) | PARTNER | audiences∋PARTNER |
+| 소비자 | `/g/[token]` 옵션 선택(ADR-0019) | GUEST | audiences∋GUEST (도시락○ 바구니✕) |
+
+### 흐름 (발주→가부→확정→정산)
+1. 요청 → `ServiceOrder(REQUESTED, vendorId=카탈로그 공급자)` → Zalo 발주 to `vendor.zaloUserId`
+2. `vendorStatus=PENDING_VENDOR` → 공급자 `/vendor`에서 예약현황 확인 → 수락/거절
+3. 수락 → `VENDOR_ACCEPTED` → 운영자 고객확정 `CONFIRMED` → `DELIVERED` → 건별 정산 `vendorSettledAt`
+4. 거절 → `VENDOR_REJECTED` → 운영자 대체 공급자 재발주 또는 `CANCELLED`
+
+### `/vendor` 대시보드 (vi, 모바일 — 빌라 공급자 패턴 미러)
+- 발주함(가부 응답) · 예약현황(자기 발주만) · 정산내역(건별 미정산/완료) · 통계 `/vendor/stats`(KPI=매출 ΣcostVnd·발주수·수락율·인기품목, lib/vendor-stats supplierId 스코프 패턴 복제)
+
+### 데이터 모델 (additive raw SQL ALTER — db push 금지)
+- `Role` += `VENDOR` / `ServiceType` += `FRUIT` / `ServiceRequestedVia` += `PARTNER`
+- 신규 `ServiceVendor`(userId 1:1 선택·zaloUserId 발주대상·bankInfo 운영자전용) + `enum ServiceVendorStatus{PENDING_VENDOR|VENDOR_ACCEPTED|VENDOR_REJECTED}`
+- `ServiceCatalogItem` += `vendorId`·`audiences Json`
+- `ServiceOrder` += `vendorId·vendorStatus·poSentAt·vendorRespondedAt·vendorRejectReason·vendorSettledAt·vendorSettleMethod·vendorSettleNote` (정산액=기존 costVnd 재사용)
+
+### 누수 점검 필수 케이스
+- `/vendor/*` 응답에 우리 판매가·마진·타 공급자 발주·전체 재고 → 0건(vendorId 스코프·화이트리스트)
+- `/g` 카탈로그·주문에 과일 바구니(audiences∌GUEST) → 0건 / `/p` costVnd·공급자 신원 → 0건
+- 공급자 발주 카드에 게스트 개인정보 → 0건 (빌라·날짜·수량·인원만) / `bankInfo`·costVnd는 canViewFinance 전용
+
+---
+
 ## 공통 비기능 요구
 
 - 모바일 퍼스트 (공급자 화면 기준 뷰포트 ~390px), PWA 설치 가능

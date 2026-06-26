@@ -28,6 +28,8 @@ import { translateText, transcribeVoice, translateImage } from "@/lib/gemini";
 // S5 A6-3 — STT 결과(translatedText) 채운 뒤 동일 메시지를 Nike로 1회 재push(멱등 zaloMsgId).
 // zalo-webhook은 prisma만 의존 → 순환 import 없음.
 import { pushInboundToNike } from "@/lib/zalo-webhook";
+// 실시간(SSE) — 신규 수신 저장 후 ownerAdminId 채널로 "inbound" 신호 발행(인박스 즉시 갱신).
+import { publish as publishRealtime } from "@/lib/realtime-bus";
 
 // ===================== 순수 함수 층 (단위 테스트 대상) =====================
 
@@ -141,6 +143,7 @@ export type InboundMsgType =
   | "call"
   | "video"
   | "location"
+  | "link" // 링크/구글지도/장소 공유 — 썸네일+제목+설명+URL을 리치 카드로(FE LinkPreviewCard)
   | "unknown";
 
 /** classifyInbound 결과 — 저장(msgType·text·attachmentUrls)에 그대로 전달. */
@@ -292,7 +295,31 @@ export function buildCallDetail(content: unknown): string {
   else if (reason === 3) status = "rejected";
   else if (reason === 4) status = "missed";
   else status = "unknown";
-  return `CALL:${dir}:${status}:${durSec}:${vtype}`;
+  // 연결 안 된 통화(missed/rejected)는 통화시간 없음 — params.duration은 벨 울린 시간일 뿐이므로 0으로 정규화.
+  const outDur = status === "missed" || status === "rejected" ? 0 : durSec;
+  return `CALL:${dir}:${status}:${outDur}:${vtype}`;
+}
+
+/**
+ * 링크/구글지도/장소 공유 → "link" 카드 분류 (FE LinkPreviewCard용).
+ * 인코딩(스키마 변경 없이 text·attachmentUrls만 사용):
+ *  - attachmentUrls[0] = 링크 URL(항상, 카드 클릭 시 열기 — 모바일은 지도/브라우저 앱). [1] = 썸네일(있으면).
+ *  - text = "제목"(+ 줄바꿈 + "설명"). 제목=장소명, 설명=별점·카테고리 등(있을 때, 제목과 다를 때만).
+ * 제목이 비면 URL을 제목 자리로(렌더 폴백). 인박스 미리보기는 text 첫 줄(제목)을 그대로 보여준다.
+ */
+function makeLinkCard(
+  title: string,
+  description: string,
+  url: string,
+  thumb: string
+): ClassifiedInbound {
+  const cleanTitle = title.trim();
+  const cleanDesc =
+    description.trim() && description.trim() !== cleanTitle ? description.trim() : "";
+  const textLines = [cleanTitle || url, ...(cleanDesc ? [cleanDesc] : [])];
+  const urls = [url];
+  if (thumb && /^https?:\/\//i.test(thumb) && thumb !== url) urls.push(thumb);
+  return { msgType: "link", text: textLines.join("\n"), attachmentUrls: urls };
 }
 
 export function classifyInbound(content: unknown, zaloMsgType?: string): ClassifiedInbound {
@@ -434,9 +461,23 @@ export function classifyInbound(content: unknown, zaloMsgType?: string): Classif
   //    링크 공유는 사람이 읽는 캡션. 제목·설명(화이트리스트)과 href(URL)를 합쳐 text로.
   //    action/메서드명 등 메타 필드는 절대 넣지 않는다(버그 B 원칙).
   if (type === "chat.link") {
-    const title = pickStringField(o, ["title", "description", "msg", "caption"]);
+    const title = pickStringField(o, ["title", "name"]);
+    const desc = pickStringField(o, ["description", "desc", "caption", "msg"]);
     const linkUrl = pickStringField(o, ["href", "url"]);
-    const text = [title, linkUrl].filter((s) => s.length > 0).join("\n");
+    const thumb = pickStringField(o, [
+      "thumb",
+      "thumbUrl",
+      "thumb_url",
+      "hdUrl",
+      "normalUrl",
+      "photoUrl",
+      "image",
+    ]);
+    // http(s) URL이 있으면 리치 링크 카드. 없으면 기존 텍스트 폴백.
+    if (/^https?:\/\//i.test(linkUrl)) {
+      return makeLinkCard(title, desc, linkUrl, thumb);
+    }
+    const text = [title || desc, linkUrl].filter((s) => s.length > 0).join("\n");
     return { msgType: "text", text, attachmentUrls: [] };
   }
 
@@ -490,15 +531,13 @@ export function classifyInbound(content: unknown, zaloMsgType?: string): Classif
     const isHttpLink = /^https?:\/\//i.test(sharedUrl);
     const hasContactId = !!(o.phone || o.qrCodeUrl || o.gUid || p.phone || p.qrCodeUrl);
 
-    // 링크/지도/POI 공유(http URL 보유 + 연락처 식별자 없음) → 링크로(썸네일 있으면 사진+캡션).
+    // 링크/지도/POI 공유(http URL 보유 + 연락처 식별자 없음) → 리치 링크 카드("link").
+    //   제목=장소명, 설명=별점·카테고리 등(별도 필드), 썸네일=미리보기 이미지, URL=클릭 시 지도/브라우저 앱.
     if (isHttpLink && !hasContactId) {
-      const title = pick2(["title", "description", "desc", "msg", "caption", "name"]);
+      const title = pick2(["title", "name"]);
+      const desc = pick2(["description", "desc", "address", "caption", "msg"]);
       const thumb = pick2(["thumb", "thumbUrl", "thumb_url", "hdUrl", "normalUrl", "photoUrl", "image"]);
-      const text = [title, sharedUrl].filter((s) => s.length > 0).join("\n");
-      if (thumb && /^https?:\/\//i.test(thumb) && thumb !== sharedUrl) {
-        return { msgType: "photo", text, attachmentUrls: [thumb] };
-      }
-      if (text) return { msgType: "text", text, attachmentUrls: [] };
+      return makeLinkCard(title, desc, sharedUrl, thumb);
     }
 
     // 진짜 네임카드 — 이름 위주(phone은 표시용으로만, 본문엔 안 넣음).
@@ -615,6 +654,19 @@ export function buildCliMsgId(data: { cliMsgId?: unknown }): string | null {
   return null;
 }
 
+/**
+ * zca-js globalMsgId 추출 (답글 인용 점프 앵커 변환용).
+ * 답글의 quote.globalMsgId와 동일 ID 체계 — 메시지별 globalMsgId를 저장해 두면, 수신 답글의
+ * quotedMsgId(=원본 globalMsgId)를 버블 앵커 zaloMsgId(=msgId)로 변환할 수 있다(Nike 패턴).
+ * data.globalMsgId(문자열/숫자)를 문자열 정규화. 없으면 null(과거 메시지 — 점프 불가, 무해).
+ */
+export function buildGlobalMsgId(data: { globalMsgId?: unknown }): string | null {
+  const raw = data?.globalMsgId;
+  if (typeof raw === "string" && raw.length > 0) return raw;
+  if (typeof raw === "number" && Number.isFinite(raw) && raw !== 0) return String(raw);
+  return null;
+}
+
 /** 파싱된 인용(답글) 스냅샷 — ZaloMessage.quoted* 저장용. */
 export interface ParsedQuote {
   /** 인용 원본 메시지 zaloMsgId (참조 힌트, FK 아님). 없으면 null */
@@ -678,6 +730,8 @@ export interface ParsedInbound {
   attachmentUrls?: string[];
   /** zca-js 서버 msgId — ZaloMessage.zaloMsgId(멱등). 없으면 null */
   zaloMsgId: string | null;
+  /** zca-js globalMsgId — 답글 인용 점프 앵커 변환용(quote.globalMsgId와 동일 체계). 없으면 null */
+  globalMsgId?: string | null;
   /** 발신자 표시명(있으면 ZaloConversation.displayName 보강용) */
   displayName: string | null;
   /** zca-js가 메시지에 실어 보낸 발신자 전화번호(있으면). 없으면 null */
@@ -771,6 +825,7 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
     msgType,
     attachmentUrls,
     zaloMsgId,
+    globalMsgId,
     displayName,
     senderPhone,
     cliMsgId,
@@ -831,6 +886,7 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
       text: text || null,
       attachmentUrls: attachmentUrls ?? [],
       zaloMsgId,
+      globalMsgId: globalMsgId ?? null,
       cliMsgId: cliMsgId ?? null,
       // 그룹 메시지 발신자 식별 (ADR-0010 D3). 1:1은 null(상대 고정).
       senderUid: senderUid ?? null,
@@ -877,6 +933,14 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
         phone
       );
     }
+  }
+
+  // 실시간(SSE) — 신규 수신 저장 완료(중복 아님) 후 본인(ownerAdminId) 채널로 "inbound" 신호 발행.
+  // 비블로킹·예외 격리: 발행 실패가 저장 결과/리스너에 영향 없게 try/catch로 감싼다(신호일 뿐).
+  try {
+    publishRealtime(ownerAdminId, { type: "inbound", conversationId: conversation.id });
+  } catch {
+    /* 실시간 발행 실패는 무해 — 클라이언트 폴백/다음 신호로 갱신 */
   }
 
   return {
@@ -1075,6 +1139,8 @@ export interface ParsedOutbound {
   attachmentUrls?: string[];
   /** zca-js 서버 msgId — 멱등 키. 프로그램(S4) 발신이 이미 저장한 것과 중복 방지. */
   zaloMsgId: string | null;
+  /** zca-js globalMsgId — 답글 인용 점프 앵커 변환용. 프로그램 발신분(route)은 echo로 보강. 없으면 null */
+  globalMsgId?: string | null;
   /** 발신 시각(zca-js data.ts). 없으면 호출부에서 now 전달. 순서 꼬임 방지. */
   createdAt: Date;
   /** 상대 표시명(있으면 displayName 보강용). 없으면 null. */
@@ -1117,6 +1183,7 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
     msgType,
     attachmentUrls,
     zaloMsgId,
+    globalMsgId,
     createdAt,
     displayName,
     cliMsgId,
@@ -1148,12 +1215,24 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
   });
 
   // 2) 멱등 — 프로그램이 이미 같은 zaloMsgId로 저장했으면 스킵 (중복 0)
+  //    단, route(POST /api/zalo/messages) 발신은 zca-js send가 globalMsgId를 안 돌려줘 null로 저장된다.
+  //    self-echo에는 globalMsgId가 실려 오므로, 기존 행에 없으면 여기서 보강(답글 인용 점프 앵커 — 상대가
+  //    내 발신을 인용해 답글하면 quote.globalMsgId가 이 값과 매칭돼야 점프됨). 첫 echo 1회만 update.
   if (zaloMsgId) {
     const existing = await prisma.zaloMessage.findUnique({
       where: { zaloMsgId },
-      select: { id: true },
+      select: { id: true, globalMsgId: true, cliMsgId: true },
     });
     if (existing) {
+      // route(POST) 발신은 zca-js send가 globalMsgId·cliMsgId를 안 돌려줘 null로 저장된다.
+      // self-echo엔 둘 다 실려 오므로 기존 행에 없으면 보강 — 그래야 내가 보낸 메시지에도 답글·리액션 가능
+      // (cliMsgId)·상대가 내 발신 인용 시 점프(globalMsgId). 첫 echo 1회만 update.
+      const patch: { globalMsgId?: string; cliMsgId?: string } = {};
+      if (globalMsgId && !existing.globalMsgId) patch.globalMsgId = globalMsgId;
+      if (cliMsgId && !existing.cliMsgId) patch.cliMsgId = cliMsgId;
+      if (Object.keys(patch).length > 0) {
+        await prisma.zaloMessage.update({ where: { id: existing.id }, data: patch });
+      }
       return { saved: false, duplicated: true };
     }
   }
@@ -1169,6 +1248,7 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
       text: text || null,
       attachmentUrls: attachmentUrls ?? [],
       zaloMsgId,
+      globalMsgId: globalMsgId ?? null,
       cliMsgId: cliMsgId ?? null,
       // 그룹 echo 발신자(내 ownId 등). 1:1은 null. (ADR-0010 D3)
       senderUid: senderUid ?? null,

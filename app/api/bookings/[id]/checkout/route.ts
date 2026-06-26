@@ -17,6 +17,26 @@ const checkoutSchema = z.object({
     .string()
     .regex(/^\d+$/, "차감액은 동 단위 숫자여야 합니다")
     .optional(),
+  // 미니바 판매 라인 — 가격은 받지 않는다(서버가 MinibarItem 스냅샷 재계산, 마진 비공개).
+  //   qty는 정수≥0, consumed>0만 캡처. 알 수 없는 itemId는 lib/checkout이 트랜잭션에서 거부.
+  minibarLines: z
+    .array(
+      z.object({
+        minibarItemId: z.string().min(1),
+        consumedQty: z.number().int().min(0).max(99),
+        stockedQty: z.number().int().min(0).max(999),
+      })
+    )
+    .max(100)
+    .optional(),
+  // 게스트 통합정산 수납 (ADR-0019 S4) — 현금/계좌이체/기타. 미지정이면 청구액만 기록(미수납).
+  settlement: z
+    .object({
+      method: z.enum(["CASH", "BANK_TRANSFER", "OTHER"]),
+      note: z.string().trim().max(500).optional().nullable(),
+    })
+    .optional()
+    .nullable(),
 });
 
 export async function POST(
@@ -47,6 +67,8 @@ export async function POST(
       damageNote: parsed.data.damageNote,
       damagePhotoUrls: parsed.data.damagePhotoUrls,
       deductionVnd: parsed.data.deductionVnd ? BigInt(parsed.data.deductionVnd) : null,
+      minibarLines: parsed.data.minibarLines,
+      settlement: parsed.data.settlement ?? null,
       actorUserId: session.user.id,
       now: new Date(),
     });

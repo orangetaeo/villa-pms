@@ -11,7 +11,7 @@ import QuickDateFilter from "@/components/admin/quick-date-filter";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
-  return { title: `${t("activity")} — Villa PMS` };
+  return { title: `${t("activity")} — Villa Go` };
 }
 
 // 과거 전용 로그 → nextMonth 제외

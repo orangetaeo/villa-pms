@@ -25,6 +25,14 @@ import { ClassifyBanner, CounterpartyDropdown } from "./counterparty-control";
 import ChatPhotoLightbox from "./photo-lightbox";
 import { allowedShareKinds, isSellSideType } from "@/lib/zalo-counterparty";
 import {
+  URL_RE,
+  URL_TRAILING_RE,
+  isGoogleMapsUrl,
+  extractLinkPreview,
+  getSoleMapsUrl,
+  type LinkPreview,
+} from "@/lib/chat-link-preview";
+import {
   VillaShareModal,
   ProposalShareModal,
   SettlementShareModal,
@@ -113,6 +121,9 @@ export interface ChatMessage {
   quotedSender: string | null;
   // 리액션 집계(R3-3) {HEART:2,...} — 있으면 버블 하단 배지.
   reactions: Record<string, number> | null;
+  // 답글·리액션 가능 여부 — zca-js는 인용/리액션에 cliMsgId+zaloMsgId를 모두 요구한다.
+  // 답글 기능 배포 전 옛 메시지(cliMsgId 없음)는 인용·리액션 불가 → 액션 버튼을 숨긴다(실패할 동작 비노출).
+  canInteract: boolean;
 }
 
 // 리액션 아이콘 키 → 이모지 (picker·배지 표시). 키는 REACTION_KEYS(zca-js Reactions enum)와 동일.
@@ -235,6 +246,81 @@ function MentionText({
     if (re.lastIndex === m.index) re.lastIndex++; // 0길이 매칭 방지
   }
   if (last < text.length) out.push(text.slice(last));
+  return <>{out}</>;
+}
+
+/**
+ * 본문을 URL 링크 + @멘션 강조로 렌더(MentionText 합성).
+ * - http(s) URL → 새 탭 링크(target=_blank). 모바일에선 OS 유니버설 링크로 해당 앱이 열린다.
+ * - 구글지도 URL → 긴 URL 대신 "📍 지도 열기" 칩으로(클릭 시 지도 앱). 사용자 요청(지도 링크 공유 시 바로 열기).
+ * - URL이 아닌 구간 → 기존 MentionText(그룹 @이름 강조).
+ * 링크 클릭이 버블 탭(액션 토글)으로 전파되지 않도록 stopPropagation.
+ */
+function RichText({
+  text,
+  highlightClass = "text-sky-400 font-medium",
+  linkClass = "underline decoration-1 underline-offset-2 break-all",
+  mapChipClass = "bg-slate-700/70 text-slate-100 hover:bg-slate-600",
+  t,
+}: {
+  text: string;
+  highlightClass?: string;
+  linkClass?: string;
+  mapChipClass?: string;
+  t?: ReturnType<typeof useTranslations>;
+}) {
+  if (!text || !text.includes("http")) {
+    return <MentionText text={text} highlightClass={highlightClass} />;
+  }
+  const out: ReactNode[] = [];
+  let last = 0;
+  let key = 0;
+  let m: RegExpExecArray | null;
+  URL_RE.lastIndex = 0;
+  while ((m = URL_RE.exec(text)) !== null) {
+    if (m.index > last) {
+      out.push(
+        <MentionText key={key++} text={text.slice(last, m.index)} highlightClass={highlightClass} />
+      );
+    }
+    let url = m[0];
+    // URL 끝 문장부호는 링크에서 떼어 일반 텍스트로(괄호로 감싼 링크·문장 끝 마침표 대응).
+    const trail = url.match(URL_TRAILING_RE)?.[0] ?? "";
+    if (trail) url = url.slice(0, url.length - trail.length);
+    const isMap = isGoogleMapsUrl(url);
+    out.push(
+      isMap ? (
+        <a
+          key={key++}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className={`inline-flex items-center gap-1 align-middle rounded-full px-2 py-0.5 my-0.5 text-[12px] font-bold transition-colors ${mapChipClass}`}
+        >
+          <span className="material-symbols-outlined text-[15px] leading-none">location_on</span>
+          {t?.("typeCard.openMap") ?? "지도 열기"}
+        </a>
+      ) : (
+        <a
+          key={key++}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className={linkClass}
+        >
+          {url}
+        </a>
+      )
+    );
+    if (trail) out.push(trail);
+    last = m.index + m[0].length;
+    if (URL_RE.lastIndex === m.index) URL_RE.lastIndex++;
+  }
+  if (last < text.length) {
+    out.push(<MentionText key={key++} text={text.slice(last)} highlightClass={highlightClass} />);
+  }
   return <>{out}</>;
 }
 
@@ -1076,6 +1162,7 @@ function MessageActions({
   replyTarget,
   align,
   active,
+  canInteract,
   onReply,
   t,
   router,
@@ -1085,6 +1172,9 @@ function MessageActions({
   replyTarget: ReplyTarget;
   align: "left" | "right";
   active: boolean;
+  // 답글·리액션 가능 여부(cliMsgId+zaloMsgId 보유). false면 액션 버튼을 렌더하지 않는다 —
+  // 옛 메시지(기능 배포 전)는 zca-js가 인용·리액션을 못 보내므로 "실패할 동작"을 애초에 숨긴다.
+  canInteract: boolean;
   onReply: (target: ReplyTarget) => void;
   t: ReturnType<typeof useTranslations>;
   router: ReturnType<typeof useRouter>;
@@ -1127,6 +1217,10 @@ function MessageActions({
       setBusy(false);
     }
   }
+
+  // 인용·리액션 불가 메시지(옛 메시지 — cliMsgId 없음)는 액션 버튼 자체를 숨긴다.
+  //   → 사용자가 답글/리액션을 시도해 "보낼 수 없습니다" 오류를 보는 일이 없게(혼란 방지).
+  if (!canInteract) return null;
 
   // 평소 숨김(opacity-0). PC는 group-hover/focus-within으로 표시(CSS).
   // 모바일은 버블 탭으로 active=true일 때, 그리고 picker가 열려 있으면 항상 표시.
@@ -1268,6 +1362,9 @@ function replyPreviewText(message: ChatMessage, t: ReturnType<typeof useTranslat
       return t("preview.video");
     case "location":
       return message.text || t("preview.location");
+    case "link":
+      // 링크 카드 — 제목(text 첫 줄)이 있으면 그걸, 없으면 라벨.
+      return message.text.split("\n")[0]?.trim() || t("preview.link");
     default:
       return message.text;
   }
@@ -1305,6 +1402,11 @@ function InboundBubble({
   };
   // 특수 타입(sticker/voice/call/contact/video/location) 카드 — 발·수신 공통 분기 재사용.
   const typeCard = renderTypeCard(message, true, t);
+  // 링크/구글지도 미리보기 — "link" 타입 또는 사진+URL캡션(장소 공유)이면 리치 카드로.
+  const inboundLinkPreview = linkPreviewProps(message);
+  // 글자만 보낸 지도 링크(text, 이미지 없음) → 서버 unfurl 카드(지연 로드).
+  const inboundMapsUrl =
+    !inboundLinkPreview && message.msgType === "text" ? getSoleMapsUrl(message.text) : null;
   return (
     <div
       data-msg-id={message.zaloMsgId ?? undefined}
@@ -1323,7 +1425,11 @@ function InboundBubble({
             t={t}
           />
         )}
-        {message.msgType === "photo" && message.attachmentUrls.length > 0 ? (
+        {inboundLinkPreview ? (
+          <LinkPreviewCard {...inboundLinkPreview} inbound />
+        ) : inboundMapsUrl ? (
+          <MapsLinkPreview url={inboundMapsUrl} inbound t={t} />
+        ) : message.msgType === "photo" && message.attachmentUrls.length > 0 ? (
           <PhotoCard
             urls={message.attachmentUrls}
             caption={message.text}
@@ -1344,11 +1450,11 @@ function InboundBubble({
           typeCard
         ) : (
           <div className="bg-slate-800 rounded-xl rounded-bl-sm px-4 py-3">
-            <p className="text-sm text-slate-100 whitespace-pre-wrap break-words"><MentionText text={message.text} /></p>
+            <p className="text-sm text-slate-100 whitespace-pre-wrap break-words"><RichText text={message.text} t={t} /></p>
             {message.translatedText && showTranslation && (
               <div className="border-t border-slate-700 mt-2 pt-2 flex items-start justify-between gap-3">
                 <p className="text-sm text-slate-300 flex-1 whitespace-pre-wrap break-words">
-                  <MentionText text={message.translatedText} />
+                  <RichText text={message.translatedText} t={t} />
                   <span className="text-[9px] text-slate-500 font-bold ml-1.5 align-middle">
                     {t("translationLabel")}
                   </span>
@@ -1390,6 +1496,7 @@ function InboundBubble({
             replyTarget={replyTarget}
             align="left"
             active={actionsActive}
+            canInteract={message.canInteract}
             onReply={onReply}
             t={t}
             router={router}
@@ -1442,7 +1549,16 @@ function OutboundBubble({
   let maxW = "max-w-[70%]";
   // 특수 타입 카드(sticker/voice/call/contact/video/location) — 발·수신 공통 분기 재사용.
   const typeCard = renderTypeCard(message, false, t);
-  if (message.msgType === "photo" && message.attachmentUrls.length > 0) {
+  const outboundLinkPreview = linkPreviewProps(message);
+  const outboundMapsUrl =
+    !outboundLinkPreview && message.msgType === "text" ? getSoleMapsUrl(message.text) : null;
+  if (outboundLinkPreview) {
+    maxW = "max-w-[78%]";
+    card = <LinkPreviewCard {...outboundLinkPreview} inbound={false} />;
+  } else if (outboundMapsUrl) {
+    maxW = "max-w-[78%]";
+    card = <MapsLinkPreview url={outboundMapsUrl} inbound={false} t={t} />;
+  } else if (message.msgType === "photo" && message.attachmentUrls.length > 0) {
     card = <PhotoCard urls={message.attachmentUrls} caption={message.text} />;
   } else if (message.msgType === "file") {
     card = <FileCard fileName={message.text} url={message.attachmentUrls[0] ?? null} t={t} />;
@@ -1496,11 +1612,23 @@ function OutboundBubble({
     card = (
       <div className="bg-blue-600 rounded-xl rounded-br-sm px-4 py-3 inline-block text-left">
         <p className="text-sm text-white whitespace-pre-wrap break-words">
-          <MentionText text={message.text} highlightClass="font-bold text-sky-200" />
+          <RichText
+            text={message.text}
+            highlightClass="font-bold text-sky-200"
+            linkClass="underline decoration-1 underline-offset-2 break-all text-white"
+            mapChipClass="bg-white/20 text-white hover:bg-white/30"
+            t={t}
+          />
         </p>
         {message.translatedText && (
           <p className="mt-1.5 border-t border-white/20 pt-1.5 text-xs text-blue-100/90 whitespace-pre-wrap break-words">
-            <MentionText text={message.translatedText} highlightClass="font-bold text-white" />
+            <RichText
+              text={message.translatedText}
+              highlightClass="font-bold text-white"
+              linkClass="underline decoration-1 underline-offset-2 break-all text-white"
+              mapChipClass="bg-white/20 text-white hover:bg-white/30"
+              t={t}
+            />
           </p>
         )}
       </div>
@@ -1531,6 +1659,7 @@ function OutboundBubble({
             replyTarget={replyTarget}
             align="right"
             active={actionsActive}
+            canInteract={message.canInteract}
             onReply={onReply}
             t={t}
             router={router}
@@ -1747,6 +1876,173 @@ function StickerCard({ urls, t }: { urls: string[]; t: ReturnType<typeof useTran
   );
 }
 
+/** 메시지 → 링크 미리보기(이미지+제목+URL). 링크 카드로 볼 게 아니면 null. (lib/chat-link-preview) */
+function linkPreviewProps(message: ChatMessage): LinkPreview | null {
+  return extractLinkPreview(message.msgType, message.text, message.attachmentUrls);
+}
+
+/**
+ * 링크/구글지도/장소 공유 미리보기 카드 — 이미지(있으면) + 제목 + 설명 + 도메인.
+ * 카드 클릭 시 URL 열기 — 모바일은 OS 유니버설 링크로 구글지도 앱(또는 브라우저)이 바로 뜬다(사용자 요청).
+ */
+function LinkPreviewCard({
+  url,
+  imageUrl,
+  title,
+  description,
+  inbound,
+  onImageError,
+}: LinkPreview & { inbound: boolean; onImageError?: () => void }) {
+  const thumb = imageUrl;
+  let domain = "";
+  try {
+    domain = new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    /* URL 파싱 실패 — 도메인 생략 */
+  }
+  const isMap = isGoogleMapsUrl(url);
+  // 제목이 비면 도메인을, 그것도 없으면 URL을 제목 자리에.
+  const displayTitle = title || domain || url;
+
+  // 발신(blue 버블)·수신(slate 버블)별 색. 카드 자체는 항상 약간 어두운 패널 + 테두리.
+  const shell = inbound ? "bg-slate-900/60 border-slate-700" : "bg-blue-700/40 border-blue-400/40";
+  const titleColor = inbound ? "text-slate-100" : "text-white";
+  const descColor = inbound ? "text-slate-400" : "text-blue-100/90";
+  const domainColor = inbound ? "text-slate-500" : "text-blue-100/70";
+  const urlLinkColor = inbound ? "text-blue-400 hover:text-blue-300" : "text-white hover:text-blue-50";
+
+  return (
+    <div className="flex flex-col gap-1 w-[260px] max-w-full">
+      {/* 상단 원본 URL — 첨부 이미지처럼 링크 위에 노출(클릭 가능). 길면 한 줄로 자름. */}
+      {url && (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className={`block text-xs truncate underline decoration-1 underline-offset-2 ${urlLinkColor}`}
+        >
+          {url}
+        </a>
+      )}
+      {/* 미리보기 카드 — 전체 클릭 시 링크(지도 앱) 열기 */}
+      <a
+        href={url || undefined}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className={`block overflow-hidden rounded-xl border ${shell} transition-colors hover:brightness-110`}
+      >
+        {thumb && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={thumb}
+            alt=""
+            onError={onImageError}
+            className="w-full h-36 object-cover bg-slate-800"
+          />
+        )}
+        <div className="px-3 py-2">
+          <p className={`text-sm font-bold leading-snug line-clamp-2 ${titleColor}`}>{displayTitle}</p>
+          {description && (
+            <p className={`mt-0.5 text-xs line-clamp-1 ${descColor}`}>{description}</p>
+          )}
+          {domain && (
+            <p className={`mt-1 flex items-center gap-1 text-[11px] ${domainColor}`}>
+              <span className="material-symbols-outlined text-[14px] leading-none">
+                {isMap ? "location_on" : "link"}
+              </span>
+              <span className="truncate">{domain}</span>
+            </p>
+          )}
+        </div>
+      </a>
+    </div>
+  );
+}
+
+// 지도 링크 미리보기(unfurl) 클라이언트 캐시 — 같은 URL을 폴링 재렌더마다 다시 fetch하지 않게.
+//  null=아직 안 받음. {image,title}=받음(image=null이면 펼치기 실패 → 칩 폴백).
+const mapsPreviewCache = new Map<string, { image: string | null; title: string | null }>();
+
+/**
+ * 글자만 붙여넣은 구글지도 링크(text 타입, 이미지 없음)를 카드로 — 서버 unfurl(정적 지도+장소명) 지연 로드.
+ * GET /api/zalo/link-preview?url= 로 1회 조회(모듈 캐시로 중복 방지). 이미지가 오면 LinkPreviewCard,
+ * 로딩 중·실패·이미지 깨짐이면 칩(RichText 지도 칩)으로 폴백 — 항상 클릭 시 지도 앱은 열린다.
+ * ※ 매장 실사진이 아니라 위치 지도 이미지다(붙여넣은 링크엔 실사진이 없음).
+ */
+function MapsLinkPreview({
+  url,
+  inbound,
+  t,
+}: {
+  url: string;
+  inbound: boolean;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const [preview, setPreview] = useState<{ image: string | null; title: string | null } | null>(
+    () => mapsPreviewCache.get(url) ?? null
+  );
+  const [imgBroken, setImgBroken] = useState(false);
+
+  useEffect(() => {
+    setImgBroken(false);
+    const cached = mapsPreviewCache.get(url);
+    if (cached) {
+      setPreview(cached);
+      return;
+    }
+    let alive = true;
+    fetch(`/api/zalo/link-preview?url=${encodeURIComponent(url)}`)
+      .then((r) => (r.ok ? (r.json() as Promise<{ image?: string | null; title?: string | null }>) : null))
+      .then((d) => {
+        const v = { image: d?.image ?? null, title: d?.title ?? null };
+        mapsPreviewCache.set(url, v);
+        if (alive) setPreview(v);
+      })
+      .catch(() => {
+        const v = { image: null, title: null };
+        mapsPreviewCache.set(url, v);
+        if (alive) setPreview(v);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [url]);
+
+  if (preview?.image && !imgBroken) {
+    return (
+      <LinkPreviewCard
+        url={url}
+        imageUrl={preview.image}
+        title={preview.title ?? ""}
+        description=""
+        inbound={inbound}
+        onImageError={() => setImgBroken(true)}
+      />
+    );
+  }
+  // 폴백 — RichText가 지도 URL을 "지도에서 보기" 칩으로 렌더(로딩 중/실패에도 클릭 가능).
+  return inbound ? (
+    <div className="bg-slate-800 rounded-xl rounded-bl-sm px-4 py-3">
+      <p className="text-sm text-slate-100 break-words">
+        <RichText text={url} t={t} />
+      </p>
+    </div>
+  ) : (
+    <div className="bg-blue-600 rounded-xl rounded-br-sm px-4 py-3 inline-block text-left">
+      <p className="text-sm text-white break-words">
+        <RichText
+          text={url}
+          linkClass="underline decoration-1 underline-offset-2 break-all text-white"
+          mapChipClass="bg-white/20 text-white hover:bg-white/30"
+          t={t}
+        />
+      </p>
+    </div>
+  );
+}
+
 /** 단순 타입 카드 — 아이콘 + 라벨(+ 선택적 부제). voice/call/contact/location 공통 셸. */
 function SimpleTypeCard({
   icon,
@@ -1820,6 +2116,62 @@ function VideoCard({
 }
 
 /**
+ * 통화 구조화 텍스트 파싱 — zalo-inbound buildCallDetail이 만든
+ * "CALL:<out|in>:<done|missed|rejected|unknown>:<durSec>:<audio|video>". 상세 없으면 null.
+ */
+function parseCallText(text: string | null | undefined): {
+  direction: "outgoing" | "incoming";
+  status: "done" | "missed" | "rejected" | "unknown";
+  durationSec?: number;
+  video: boolean;
+} | null {
+  if (!text || !text.startsWith("CALL:")) return null;
+  const [, dir, st, durStr, vt] = text.split(":");
+  const durSec = parseInt(durStr ?? "", 10);
+  return {
+    direction: dir === "out" ? "outgoing" : "incoming",
+    status: st === "done" || st === "missed" || st === "rejected" ? st : "unknown",
+    durationSec: Number.isFinite(durSec) ? durSec : undefined,
+    video: vt === "video",
+  };
+}
+
+/** 통화 카드 — 구조화 상세(방향·결과·통화시간·음/영상)를 SimpleTypeCard로 렌더. */
+function renderCallCard(
+  text: string | null | undefined,
+  inbound: boolean,
+  t: ReturnType<typeof useTranslations>
+): ReactNode {
+  const c = parseCallText(text);
+  if (!c) return <SimpleTypeCard icon="call" label={t("typeCard.call")} inbound={inbound} />;
+
+  const failed = c.status === "missed" || c.status === "rejected";
+  const icon = failed ? "phone_missed" : c.direction === "outgoing" ? "call_made" : "call_received";
+  const label =
+    c.status === "missed" && c.direction === "incoming"
+      ? t("typeCard.callMissed")
+      : c.direction === "outgoing"
+        ? t("typeCard.callOut")
+        : t("typeCard.callIn");
+  const media = c.video ? t("typeCard.callVideo") : t("typeCard.callAudio");
+
+  let detail = "";
+  if (c.status === "rejected") {
+    detail =
+      c.direction === "outgoing" ? t("typeCard.callRejectedByPeer") : t("typeCard.callRejectedByMe");
+  } else if (c.status === "missed") {
+    detail = t("typeCard.callNoAnswer");
+  } else if (c.durationSec != null && c.durationSec > 0) {
+    detail =
+      c.durationSec >= 60
+        ? t("typeCard.callDurMin", { m: Math.floor(c.durationSec / 60), s: c.durationSec % 60 })
+        : t("typeCard.callDurSec", { s: c.durationSec });
+  }
+  const subLabel = detail ? `${media} · ${detail}` : media;
+  return <SimpleTypeCard icon={icon} label={label} subLabel={subLabel} inbound={inbound} />;
+}
+
+/**
  * 특수 메시지 타입(sticker/voice/call/contact/video/location) → 카드. 매핑 없으면 null.
  * inbound/outbound 공통 — 발신·수신에서 같은 분기를 재사용(중복 방지).
  */
@@ -1869,7 +2221,7 @@ function renderTypeCard(
         </div>
       );
     case "call":
-      return <SimpleTypeCard icon="call" label={t("typeCard.call")} inbound={inbound} />;
+      return renderCallCard(message.text, inbound, t);
     case "contact":
       return (
         <SimpleTypeCard

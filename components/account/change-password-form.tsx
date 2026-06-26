@@ -40,6 +40,8 @@ export default function ChangePasswordForm({ variant }: { variant: Variant }) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
+  // 현재 비번 보기 토글 — 자동완성된 옛 비번이 칸에 들어왔는지 눈으로 확인용
+  const [showCurrent, setShowCurrent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 
@@ -96,14 +98,29 @@ export default function ChangePasswordForm({ variant }: { variant: Variant }) {
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <label className="flex flex-col gap-1.5">
         <span className={theme.label}>{t("currentPassword")}</span>
-        <input
-          type="password"
-          autoComplete="current-password"
-          required
-          value={current}
-          onChange={(e) => setCurrent(e.target.value)}
-          className={theme.input}
-        />
+        <div className="relative">
+          <input
+            type={showCurrent ? "text" : "password"}
+            // 자동완성 끔 — 초기화 직후 브라우저가 옛 저장 비번을 채워 오발송하는 문제 방지
+            // (QA 2026-06-25: autofill된 옛 비번이 WRONG_PASSWORD를 유발)
+            autoComplete="off"
+            required
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+            className={`${theme.input} w-full pr-11`}
+          />
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => setShowCurrent((v) => !v)}
+            aria-label={showCurrent ? t("hidePassword") : t("showPassword")}
+            className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 active:text-teal-600 transition-colors"
+          >
+            <span className="material-symbols-outlined text-lg">
+              {showCurrent ? "visibility_off" : "visibility"}
+            </span>
+          </button>
+        </div>
       </label>
       <label className="flex flex-col gap-1.5">
         <span className={theme.label}>{t("newPassword")}</span>

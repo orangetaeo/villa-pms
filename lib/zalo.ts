@@ -10,7 +10,12 @@ import {
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
-import { sendBotMessage, ERROR_BOT_NOT_CONNECTED } from "@/lib/zalo-runtime";
+import {
+  sendBotMessage,
+  sendBotMessageWithAttachments,
+  ERROR_BOT_NOT_CONNECTED,
+  type BotAttachment,
+} from "@/lib/zalo-runtime";
 import { getSystemBotOwnerId } from "@/lib/zalo-credentials";
 
 // 봇 미연결 상수 재노출 (S4 — 호출부가 lib/zalo에서 일괄 import하도록)
@@ -219,6 +224,17 @@ export function buildNotificationText(
       const lines = [`💰 Bảng thanh toán tháng ${str(p.yearMonth)} đã sẵn sàng.`];
       const total = formatVndVi(p.totalVnd); // 공급자 자신의 정산액(원가 기반)만 — 마진·판매가 아님
       if (total !== null) lines.push(`Tổng: ${total}₫`);
+      // 월 정산서 PDF 다운로드 링크 (P2-4) — statementPath 있고 base URL 설정 시. 링크는 로그인 게이트.
+      const stmtPath =
+        typeof p.statementPath === "string" && p.statementPath.startsWith("/")
+          ? p.statementPath
+          : null;
+      const base = (
+        process.env.VILLA_PUBLIC_BASE_URL ||
+        process.env.NEXTAUTH_URL ||
+        ""
+      ).replace(/\/+$/, "");
+      if (stmtPath && base) lines.push(`📄 Tải phiếu quyết toán: ${base}${stmtPath}`);
       lines.push(`Vui lòng kiểm tra chi tiết trong ứng dụng.`);
       return lines.join("\n");
     }
@@ -247,6 +263,40 @@ export function buildNotificationText(
         `체크인: ${formatDateVi(p.checkIn)} · 예약자: ${str(p.guestName)} (${num(p.guestCount)}명)`,
         `곧 체크인입니다. 실제 투숙객 명단을 확인·입력하거나 여행사에 안내해주세요.`,
       ].join("\n");
+
+    case NotificationType.SUPPLIER_DIRECT_BOOKING:
+      // F10 — 수신자=운영자(테오) → 한국어. 공급자가 자기 고객에 직접 판매·기록 → 선착순 점유.
+      // 공급자 수금액(supplierSalePriceVnd)은 공급자 정보이므로 알림에 미포함.
+      return [
+        `🏠 공급자 직접예약 등록: ${villa}`,
+        `체크인: ${formatDateVi(p.checkIn)} → 체크아웃: ${formatDateVi(p.checkOut)} · ${num(p.guestCount)}명`,
+        `공급자가 직접 판매한 예약입니다. 해당 날짜는 점유 처리되었습니다.`,
+      ].join("\n");
+
+    case NotificationType.VENDOR_PO: {
+      // 수신자=원천 공급자 → 베트남어(vi). 발주(주문) 알림.
+      // ★ 금액(판매가·원가) 미노출 — 공급자는 앱(/vendor)에서 자기 발주만 확인·가부.
+      const lines = [`🧺 Đơn đặt hàng mới: ${str(p.itemName)} x${num(p.quantity)}`];
+      lines.push(`Địa điểm: ${villa}`);
+      if (typeof p.serviceDate === "string" && p.serviceDate.length > 0) {
+        lines.push(`Ngày: ${formatDateVi(p.serviceDate)}`);
+      }
+      lines.push(`Vui lòng kiểm tra và xác nhận trong ứng dụng (/vendor).`);
+      return lines.join("\n");
+    }
+
+    case NotificationType.VENDOR_PO_RESPONSE: {
+      // 수신자=운영자(테오) → 한국어(ko). 공급자 가부 응답 통지.
+      const vendorName = str(p.vendorName);
+      const itemName = str(p.itemName);
+      if (p.accepted === true) {
+        return `✅ 공급자 수락: ${vendorName} — ${itemName} (${villa})`;
+      }
+      return [
+        `❌ 공급자 거절: ${vendorName} — ${itemName} (${villa})`,
+        `사유: ${str(p.rejectReason, "(사유 없음)")}`,
+      ].join("\n");
+    }
   }
 }
 
@@ -407,6 +457,59 @@ export async function dispatchPendingNotifications(limit = 20): Promise<Dispatch
   return summary;
 }
 
+/** 정산서 PDF Buffer → 봇 첨부 (순수). 파일명 quyet-toan-{YYYY-MM}.pdf. */
+export function buildStatementAttachment(
+  buffer: Buffer,
+  yearMonth: string
+): BotAttachment {
+  const safe = yearMonth.replace(/[^0-9-]/g, "") || "statement";
+  return {
+    data: buffer,
+    filename: `quyet-toan-${safe}.pdf`,
+    totalSize: buffer.length,
+  };
+}
+
+/**
+ * SETTLEMENT_READY 알림의 정산서 PDF 첨부 해석 — private/statements 파일을 읽어 첨부로.
+ * 미생성이면 정산서 서비스(동적 import, react-pdf 포함)로 온디맨드 생성 후 재읽기.
+ * 어떤 실패든 null 반환 → 호출부는 텍스트 발송으로 graceful 폴백.
+ */
+async function resolveStatementAttachment(
+  notification: DispatchTarget
+): Promise<BotAttachment | null> {
+  if (notification.type !== NotificationType.SETTLEMENT_READY) return null;
+  const payload = notification.payload as Record<string, unknown> | null;
+  const settlementId =
+    typeof payload?.settlementId === "string" ? payload.settlementId : null;
+  if (!settlementId) return null;
+  try {
+    const [{ getStatementDir, statementFileName }, fsmod, pathmod] = await Promise.all([
+      import("@/lib/storage"),
+      import("fs/promises"),
+      import("path"),
+    ]);
+    const filePath = pathmod.join(getStatementDir(), statementFileName(settlementId));
+    let buffer: Buffer;
+    try {
+      buffer = await fsmod.readFile(filePath);
+    } catch {
+      // 미생성 — 온디맨드 생성 후 재읽기
+      const { generateSettlementStatement } = await import(
+        "@/lib/settlement-statement-service"
+      );
+      const saved = await generateSettlementStatement(settlementId, "system:zalo-dispatch");
+      if (!saved) return null;
+      buffer = await fsmod.readFile(filePath);
+    }
+    const yearMonth =
+      typeof payload?.yearMonth === "string" ? payload.yearMonth : "statement";
+    return buildStatementAttachment(buffer, yearMonth);
+  } catch {
+    return null; // 첨부 실패 → 텍스트 발송 폴백 (발송 누락 없음)
+  }
+}
+
 async function dispatchOne(
   notification: DispatchTarget,
   summary: DispatchSummary
@@ -429,7 +532,12 @@ async function dispatchOne(
     notification.type,
     notification.payload as Record<string, unknown> | null
   );
-  const result = await sendBotMessage(zaloUserId, text);
+  // 정산서 PDF 첨부(SETTLEMENT_READY) — 있으면 파일 첨부 발송, 없으면 기존 텍스트 발송(폴백).
+  const attachment = await resolveStatementAttachment(notification);
+  const sentFile = attachment != null;
+  const result = attachment
+    ? await sendBotMessageWithAttachments(zaloUserId, text, [attachment])
+    : await sendBotMessage(zaloUserId, text);
 
   // 봇 미연결 — 기록만(크래시 금지), attempt 미증가로 재시도 대상 유지 (D5.4)
   if (!result.ok && result.error === ERROR_BOT_NOT_CONNECTED) {
@@ -484,13 +592,23 @@ async function dispatchOne(
     // Phase 1은 텍스트 본문만 실제 발송됨. 실 이미지 발송(Zalo OA upload API:
     //   /v2.0/oa/upload/image → attachment_id → message.attachment.payload)은 잔여 —
     //   토큰·미디어 권한 확보 후 sendZaloText와 별도 발송 함수로 추가 예정.
-    const attachmentUrls = extractAttachmentUrls(notification.payload);
+    let attachmentUrls = extractAttachmentUrls(notification.payload);
+    // 정산서 PDF 파일 발송 시 — 미러에 다운로드 경로 기록 + msgType "file" (이미지와 구분).
+    if (sentFile && attachmentUrls.length === 0) {
+      const sp = (notification.payload as Record<string, unknown> | null)?.statementPath;
+      if (typeof sp === "string") attachmentUrls = [sp];
+    }
+    const msgType = sentFile
+      ? "file"
+      : attachmentUrls.length > 0
+        ? "image"
+        : "text";
     await prisma.zaloMessage.create({
       data: {
         conversationId: conversation.id,
         direction: ZaloMessageDirection.OUTBOUND,
         source: ZaloMessageSource.SYSTEM,
-        msgType: attachmentUrls.length > 0 ? "image" : "text",
+        msgType,
         text,
         attachmentUrls,
         zaloMsgId: result.messageId,
@@ -503,7 +621,7 @@ async function dispatchOne(
         lastMessageAt: new Date(),
         // 인박스 미리보기 비정규화(perf) — 발신 본문·타입 캐시.
         lastMessageText: text,
-        lastMessageType: attachmentUrls.length > 0 ? "image" : "text",
+        lastMessageType: msgType,
       },
     });
   } catch (e) {

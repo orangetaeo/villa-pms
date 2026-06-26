@@ -45,6 +45,8 @@ function previewText(item: InboxItem, t: ReturnType<typeof useTranslations>): st
       return t("preview.proposalShare");
     case "settlement_share":
       return t("preview.settlementShare");
+    case "link":
+      return t("preview.link");
     default:
       return "—";
   }

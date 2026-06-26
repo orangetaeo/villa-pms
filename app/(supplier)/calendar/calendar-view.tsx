@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { formatVnd } from "@/app/(supplier)/my-villas/new/wizard-types";
+import { checkOutFromNights } from "@/lib/date-vn";
 
 export interface DayCell {
   date: string; // YYYY-MM-DD (UTC 자정 기준)
@@ -40,10 +41,26 @@ interface CalendarViewProps {
 }
 
 type SheetState =
+  // 빈 날짜 탭 → 2-옵션(차단 vs 직접예약 기록) + 직접예약 폼 (F10 a-direct-booking)
   | { mode: "lock"; date: string }
   | { mode: "unlock"; date: string; blockId: string }
   | { mode: "ical"; date: string }
   | { mode: "booking"; bookingId: string };
+
+/** YYYY-MM-DD → VN 요일 라벨 키 (T2=월 … CN=일). 디자인 a-direct-booking "(T2)" 힌트 */
+function vnWeekdayKey(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  // UTC 자정 기준 요일 (0=일 … 6=토). VN 표기: T2~T7(월~토), CN(일)
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][dow];
+}
+
+/** VND 천단위 dot 포맷 (vi 규칙). 숫자 외 입력 제거 후 4500000 → "4.500.000" */
+function formatVndInput(raw: string): string {
+  const digits = raw.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+  if (!digits) return "";
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
 
 /** 대각 빗금 패턴 (a3 차단 셀) — globals.css 수정 금지라 Tailwind arbitrary value 사용 */
 const HATCH_CLASS =
@@ -75,6 +92,14 @@ export function CalendarView({
   const [pending, setPending] = useState(false);
   const [errorKey, setErrorKey] = useState<"conflict" | "error" | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  // 빈 날짜 시트의 선택 액션: 차단(lock) vs 직접예약 기록(direct) — a-direct-booking 2-옵션 칩
+  const [emptyAction, setEmptyAction] = useState<"lock" | "direct">("lock");
+  // 직접예약 폼 입력 (직접예약 active일 때만 사용)
+  const [guestName, setGuestName] = useState("");
+  const [guestCount, setGuestCount] = useState(2);
+  const [nights, setNights] = useState(1); // 박수 스테퍼 (1~30). 체크아웃 = 체크인 + nights
+  const [amountVnd, setAmountVnd] = useState(""); // dot 포맷 문자열
+  const [contact, setContact] = useState("");
 
   // 홀드 만료 카운트다운 — 예약 바텀시트가 열려 있을 때만 1초 틱
   const booking =
@@ -101,10 +126,20 @@ export function CalendarView({
     router.replace(`/calendar?villaId=${villaId}&month=${m}`);
   }
 
+  function resetDirectForm() {
+    setEmptyAction("lock");
+    setGuestName("");
+    setGuestCount(2);
+    setNights(1);
+    setAmountVnd("");
+    setContact("");
+  }
+
   function closeSheet() {
     if (pending) return;
     setSheet(null);
     setErrorKey(null);
+    resetDirectForm();
   }
 
   function onCellTap(cell: DayCell) {
@@ -117,6 +152,7 @@ export function CalendarView({
     // 과거 공실/차단은 읽기 전용
     if (cell.isPast) return;
     if (cell.status === "AVAILABLE") {
+      resetDirectForm(); // 빈 날짜 시트는 항상 "차단" 기본 + 직접예약 폼 초기화
       setSheet({ mode: "lock", date: cell.date });
     } else if (cell.blockSource === "MANUAL" && cell.blockId) {
       setSheet({ mode: "unlock", date: cell.date, blockId: cell.blockId });
@@ -140,6 +176,44 @@ export function CalendarView({
           : await fetch(`/api/calendar-blocks/${sheet.blockId}`, { method: "DELETE" });
       if (res.ok) {
         setSheet(null);
+        router.refresh();
+      } else {
+        setErrorKey(res.status === 409 ? "conflict" : "error");
+      }
+    } catch {
+      setErrorKey("error");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  // 직접예약 기록 제출 — POST /api/supplier/bookings. 다박: [date, date+nights) half-open.
+  async function submitDirectBooking() {
+    if (!sheet || sheet.mode !== "lock" || pending) return;
+    if (!guestName.trim()) {
+      setErrorKey("error");
+      return;
+    }
+    setPending(true);
+    setErrorKey(null);
+    try {
+      const digits = amountVnd.replace(/\D/g, "");
+      const res = await fetch("/api/supplier/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          villaId: selectedVillaId,
+          checkIn: sheet.date,
+          checkOut: checkOutFromNights(sheet.date, nights),
+          guestName: guestName.trim(),
+          guestCount,
+          ...(contact.trim() ? { guestPhone: contact.trim() } : {}),
+          ...(digits ? { supplierSalePriceVnd: Number(digits) } : {}),
+        }),
+      });
+      if (res.ok) {
+        setSheet(null);
+        resetDirectForm();
         router.refresh();
       } else {
         setErrorKey(res.status === 409 ? "conflict" : "error");
@@ -286,14 +360,71 @@ export function CalendarView({
                     </div>
                   </div>
 
+                  {/* 빈 날짜(lock) — 2-옵션 칩: 차단 vs 직접예약 기록 (a-direct-booking) */}
+                  {sheet.mode === "lock" && (
+                    <div className="mb-4 grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEmptyAction("lock");
+                          setErrorKey(null);
+                        }}
+                        className={
+                          emptyAction === "lock"
+                            ? "flex h-20 flex-col items-center justify-center gap-1 rounded-xl border-2 border-teal-600 bg-teal-50 text-teal-700 shadow-sm transition-transform active:scale-[0.98]"
+                            : "flex h-20 flex-col items-center justify-center gap-1 rounded-xl border-2 border-gray-200 bg-white text-gray-600 transition-transform active:scale-[0.98]"
+                        }
+                      >
+                        <span className="material-symbols-outlined">lock</span>
+                        <span className="text-sm font-semibold">{t("sheet.lock")}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEmptyAction("direct");
+                          setErrorKey(null);
+                        }}
+                        className={
+                          emptyAction === "direct"
+                            ? "flex h-20 flex-col items-center justify-center gap-1 rounded-xl border-2 border-teal-600 bg-teal-50 text-teal-700 shadow-sm transition-transform active:scale-[0.98]"
+                            : "flex h-20 flex-col items-center justify-center gap-1 rounded-xl border-2 border-gray-200 bg-white text-gray-600 transition-transform active:scale-[0.98]"
+                        }
+                      >
+                        <span className="material-symbols-outlined">book_online</span>
+                        <span className="text-center text-sm font-bold leading-tight">
+                          {t("direct.recordOption")}
+                        </span>
+                      </button>
+                    </div>
+                  )}
+
                   {errorKey && (
                     <p className="mb-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-600">
                       {t(`sheet.${errorKey}`)}
                     </p>
                   )}
 
+                  {/* 직접예약 폼 (직접예약 옵션 active) */}
+                  {sheet.mode === "lock" && emptyAction === "direct" && (
+                    <DirectBookingForm
+                      date={sheet.date}
+                      nights={nights}
+                      setNights={setNights}
+                      guestName={guestName}
+                      setGuestName={setGuestName}
+                      guestCount={guestCount}
+                      setGuestCount={setGuestCount}
+                      amountVnd={amountVnd}
+                      setAmountVnd={setAmountVnd}
+                      contact={contact}
+                      setContact={setContact}
+                      pending={pending}
+                      onSubmit={submitDirectBooking}
+                    />
+                  )}
+
                   <div className="flex flex-col gap-3 pb-8">
-                    {sheet.mode === "lock" && (
+                    {sheet.mode === "lock" && emptyAction === "lock" && (
                       <button
                         type="button"
                         onClick={submit}
@@ -472,5 +603,235 @@ function BookingSheet({
         {t("close")}
       </button>
     </div>
+  );
+}
+
+/** 직접예약 기록 폼 (F10 a-direct-booking) — 박수 스테퍼·고객명(필수)·인원·받은 금액(선택)·연락처(선택).
+ *  다박: 체크인=선택일, 박수 스테퍼(1~30)로 체크아웃 자동계산(read-only 표시). 비기술 vi 단순성 우선.
+ *  마진·재고 비공개: KRW·판매가·우리 마진 없음. 금액은 공급자가 받은 VND뿐. */
+function DirectBookingForm({
+  date,
+  nights,
+  setNights,
+  guestName,
+  setGuestName,
+  guestCount,
+  setGuestCount,
+  amountVnd,
+  setAmountVnd,
+  contact,
+  setContact,
+  pending,
+  onSubmit,
+}: {
+  date: string;
+  nights: number;
+  setNights: (v: number) => void;
+  guestName: string;
+  setGuestName: (v: string) => void;
+  guestCount: number;
+  setGuestCount: (v: number) => void;
+  amountVnd: string;
+  setAmountVnd: (v: string) => void;
+  contact: string;
+  setContact: (v: string) => void;
+  pending: boolean;
+  onSubmit: () => void;
+}) {
+  const t = useTranslations("calendar.direct");
+  const checkOut = checkOutFromNights(date, nights);
+
+  return (
+    <form
+      className="space-y-5 pb-8"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit();
+      }}
+    >
+      {/* 날짜 (체크인=선택값, 체크아웃=박수 자동계산. 요일 힌트 — a-direct-booking) */}
+      <div>
+        <label className="text-xs font-bold uppercase tracking-wide text-neutral-400">
+          {t("dateLabel")}
+        </label>
+        <div className="mt-2 flex items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 p-4">
+          <div className="flex flex-col">
+            <span className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+              {t("checkIn")}
+            </span>
+            <span className="text-lg font-bold">
+              {formatDateVn(date)}{" "}
+              <span className="text-sm font-medium text-neutral-400">
+                ({t(`weekdayShort.${vnWeekdayKey(date)}`)})
+              </span>
+            </span>
+          </div>
+          <span className="material-symbols-outlined text-neutral-300">east</span>
+          <div className="flex flex-col items-end">
+            <span className="mb-0.5 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+              {t("checkOut")}
+            </span>
+            <span className="text-lg font-bold">
+              {formatDateVn(checkOut)}{" "}
+              <span className="text-sm font-medium text-neutral-400">
+                ({t(`weekdayShort.${vnWeekdayKey(checkOut)}`)})
+              </span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 박수 스테퍼 (1~30박) — 체크아웃 자동계산. 비기술 vi 사용자 단순성 우선 */}
+      <div>
+        <label className="text-xs font-bold uppercase tracking-wide text-neutral-400">
+          {t("nightsLabel")}
+        </label>
+        <div className="mt-2 flex h-16 items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 px-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-50 text-teal-600">
+              <span className="material-symbols-outlined">dark_mode</span>
+            </div>
+            <span className="text-base font-semibold">
+              {t("nights", { count: nights })}
+            </span>
+          </div>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              aria-label={t("decreaseNights")}
+              onClick={() => setNights(Math.max(1, nights - 1))}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition-transform active:scale-90 disabled:opacity-40"
+              disabled={nights <= 1}
+            >
+              <span className="material-symbols-outlined">remove</span>
+            </button>
+            <span className="w-7 text-center text-2xl font-extrabold tabular-nums">
+              {nights}
+            </span>
+            <button
+              type="button"
+              aria-label={t("increaseNights")}
+              onClick={() => setNights(Math.min(30, nights + 1))}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-teal-600 text-white shadow-sm transition-transform active:scale-90 disabled:opacity-40"
+              disabled={nights >= 30}
+            >
+              <span className="material-symbols-outlined">add</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 고객명 (유일 필수 텍스트) */}
+      <div>
+        <label className="text-xs font-bold uppercase tracking-wide text-neutral-400">
+          {t("guestName")} <span className="text-[#DC2626]">*</span>
+        </label>
+        <div className="mt-2 flex h-14 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 focus-within:ring-2 focus-within:ring-teal-500">
+          <span className="material-symbols-outlined text-neutral-400">person</span>
+          <input
+            className="min-w-0 flex-1 border-none bg-transparent p-0 text-base font-medium placeholder-neutral-300 focus:ring-0"
+            placeholder={t("guestNamePlaceholder")}
+            type="text"
+            value={guestName}
+            maxLength={100}
+            onChange={(e) => setGuestName(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* 인원 스테퍼 */}
+      <div>
+        <label className="text-xs font-bold uppercase tracking-wide text-neutral-400">
+          {t("guestCount")}
+        </label>
+        <div className="mt-2 flex h-16 items-center justify-between rounded-xl border border-neutral-100 bg-neutral-50 px-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-50 text-teal-600">
+              <span className="material-symbols-outlined">groups</span>
+            </div>
+            <span className="text-base font-semibold">{t("guestsWord")}</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              aria-label={t("decrease")}
+              onClick={() => setGuestCount(Math.max(1, guestCount - 1))}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition-transform active:scale-90"
+            >
+              <span className="material-symbols-outlined">remove</span>
+            </button>
+            <span className="w-7 text-center text-2xl font-extrabold tabular-nums">
+              {guestCount}
+            </span>
+            <button
+              type="button"
+              aria-label={t("increase")}
+              onClick={() => setGuestCount(Math.min(50, guestCount + 1))}
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-teal-600 text-white shadow-sm transition-transform active:scale-90"
+            >
+              <span className="material-symbols-outlined">add</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 받은 금액 VND (선택) — 천단위 dot 자동 포맷 */}
+      <div>
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-bold uppercase tracking-wide text-neutral-400">
+            {t("amountLabel")}
+          </label>
+          <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-bold text-neutral-400">
+            {t("optional")}
+          </span>
+        </div>
+        <div className="mt-2 flex h-14 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 focus-within:ring-2 focus-within:ring-teal-500">
+          <span className="material-symbols-outlined text-neutral-400">payments</span>
+          <input
+            className="min-w-0 flex-1 border-none bg-transparent p-0 text-lg font-bold tabular-nums placeholder-neutral-300 focus:ring-0"
+            inputMode="numeric"
+            placeholder="0"
+            type="text"
+            value={amountVnd}
+            onChange={(e) => setAmountVnd(formatVndInput(e.target.value))}
+          />
+          <span className="font-bold text-neutral-400">₫</span>
+        </div>
+      </div>
+
+      {/* 연락처 (선택) */}
+      <div>
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-bold uppercase tracking-wide text-neutral-400">
+            {t("contactLabel")}
+          </label>
+          <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-bold text-neutral-400">
+            {t("optional")}
+          </span>
+        </div>
+        <div className="mt-2 flex h-14 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 focus-within:ring-2 focus-within:ring-teal-500">
+          <span className="material-symbols-outlined text-neutral-400">call</span>
+          <input
+            className="min-w-0 flex-1 border-none bg-transparent p-0 text-base font-medium tabular-nums placeholder-neutral-300 focus:ring-0"
+            inputMode="tel"
+            placeholder={t("contactPlaceholder")}
+            type="tel"
+            maxLength={30}
+            value={contact}
+            onChange={(e) => setContact(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* 저장 */}
+      <button
+        type="submit"
+        disabled={pending || !guestName.trim()}
+        className="mt-2 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-teal-600 text-lg font-bold text-white shadow-lg shadow-teal-900/10 transition-all active:scale-[0.98] disabled:opacity-60"
+      >
+        <span className="material-symbols-outlined">check_circle</span>
+        {pending ? t("saving") : t("save")}
+      </button>
+    </form>
   );
 }

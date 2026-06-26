@@ -5,8 +5,8 @@ import type { MetadataRoute } from "next";
 // 아이콘은 app/icon.svg(파비콘 겸용) 단일 소스 — sizes "any" + maskable 패딩.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Villa PMS Phu Quoc",
-    short_name: "Villa PMS",
+    name: "Villa Go",
+    short_name: "Villa Go",
     description: "푸꾸옥 빌라 임대 관리 시스템 — Quản lý villa Phú Quốc",
     lang: "vi",
     dir: "ltr",

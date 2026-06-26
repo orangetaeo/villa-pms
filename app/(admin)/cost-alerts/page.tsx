@@ -11,7 +11,7 @@ import CostAlertsView from "./cost-alerts-view";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
-  return { title: `${t("costAlerts")} — Villa PMS` };
+  return { title: `${t("costAlerts")} — Villa Go` };
 }
 
 // 과거 전용 경보 → nextMonth 제외

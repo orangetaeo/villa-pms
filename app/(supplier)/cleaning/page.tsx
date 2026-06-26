@@ -39,7 +39,7 @@ function formatDayMonth(date: Date, vnTz: boolean): string {
 }
 
 export const metadata: Metadata = {
-  title: "Dọn dẹp — Villa PMS",
+  title: "Dọn dẹp — Villa Go",
 };
 
 export default async function CleaningListPage({

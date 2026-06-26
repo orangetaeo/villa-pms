@@ -78,12 +78,18 @@ describe("resolveDepositOutcome — 보증금 상태기계 (SPEC F4 체크아웃
 // ===================== DB층 — mocked prisma (QA D1) =====================
 
 function makeTxMock(opts: {
-  booking?: { id: string; status: BookingStatus; depositStatus?: DepositStatus } | null;
+  booking?: { id: string; status: BookingStatus; depositStatus?: DepositStatus; villaId?: string } | null;
   transitionCount?: number;
+  /** 미니바 품목 마스터(서버 스냅샷 조회 대상). 미지정 시 빈 세트. */
+  minibarItems?: Array<{ id: string; nameKo: string; unitPriceVnd: bigint; costVnd: bigint | null }>;
+  /** 확정 부가옵션(게스트 청구 합산 대상). 미지정 시 빈 세트. */
+  serviceOrders?: Array<{ priceKrw: number | null; priceVnd: bigint | null }>;
 }) {
   if (opts.booking && !opts.booking.depositStatus) {
     opts.booking.depositStatus = DepositStatus.HELD;
   }
+  const items = opts.minibarItems ?? [];
+  let recordState: Record<string, unknown> = { id: "cor1" };
   return {
     booking: {
       findUnique: vi.fn(async () => opts.booking ?? null),
@@ -94,10 +100,36 @@ function makeTxMock(opts: {
       updateMany: vi.fn(async () => ({ count: opts.transitionCount ?? 1 })),
     },
     checkOutRecord: {
+      // 누적 상태 추적 — create→update(minibar·게스트청구)→findUniqueOrThrow 재조회가 현실적으로 동작
+      create: vi.fn(async (args: { data: Record<string, unknown> }) => {
+        recordState = { id: "cor1", ...args.data };
+        return recordState;
+      }),
+      update: vi.fn(async (args: { data: Record<string, unknown> }) => {
+        recordState = { ...recordState, ...args.data };
+        return recordState;
+      }),
+      findUniqueOrThrow: vi.fn(async () => recordState),
+    },
+    minibarItem: {
+      findMany: vi.fn(async (args: { where: { id: { in: string[] } } }) =>
+        items.filter((i) => args.where.id.in.includes(i.id))
+      ),
+    },
+    checkoutMinibarLine: {
       create: vi.fn(async (args: { data: Record<string, unknown> }) => ({
-        id: "cor1",
+        id: "cml1",
         ...args.data,
       })),
+    },
+    minibarStockMovement: {
+      create: vi.fn(async (args: { data: Record<string, unknown> }) => ({
+        id: "msm1",
+        ...args.data,
+      })),
+    },
+    serviceOrder: {
+      findMany: vi.fn(async () => opts.serviceOrders ?? []),
     },
   };
 }
@@ -249,6 +281,98 @@ describe("completeCheckout — 상태 가드·원자성 (계약 완료 기준)",
         data: expect.objectContaining({ damageNote: null, damagePhotoUrls: [] }),
       })
     );
+  });
+
+  // ── 미니바 판매 라인 캡처 (작업 B) ──────────────────────────────────
+  it("미니바 라인 캡처: 서버가 MinibarItem 스냅샷으로 lineVnd 재계산(클라 가격 무시)", async () => {
+    const tx = makeTxMock({
+      booking: { id: "bk1", status: BookingStatus.CHECKED_IN, villaId: "v1" },
+      minibarItems: [
+        { id: "mb_cola", nameKo: "콜라", unitPriceVnd: 30_000n, costVnd: 20_000n },
+        { id: "mb_water", nameKo: "물", unitPriceVnd: 10_000n, costVnd: null },
+      ],
+    });
+    await completeCheckout(makePrismaMock(tx), {
+      ...BASE_INPUT,
+      minibarLines: [
+        { minibarItemId: "mb_cola", consumedQty: 2, stockedQty: 0 },
+        { minibarItemId: "mb_water", consumedQty: 1, stockedQty: 0 },
+        { minibarItemId: "mb_cola", consumedQty: 0, stockedQty: 0 }, // 0은 무시
+      ],
+    });
+
+    // 콜라 라인 — lineVnd = 2 × 30,000 = 60,000, lineCostVnd = 2 × 20,000 = 40,000 (스냅샷)
+    expect(tx.checkoutMinibarLine.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          checkOutRecordId: "cor1",
+          minibarItemId: "mb_cola",
+          nameKo: "콜라",
+          consumedQty: 2,
+          unitPriceVnd: 30_000n,
+          costVnd: 20_000n,
+          lineVnd: 60_000n,
+          lineCostVnd: 40_000n,
+        }),
+      })
+    );
+    // 물 라인 — costVnd null → lineCostVnd null
+    expect(tx.checkoutMinibarLine.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          minibarItemId: "mb_water",
+          lineVnd: 10_000n,
+          costVnd: null,
+          lineCostVnd: null,
+        }),
+      })
+    );
+    // 0 소모는 라인 미생성 → 총 2회만
+    expect(tx.checkoutMinibarLine.create).toHaveBeenCalledTimes(2);
+    // 실재고 CONSUME 이동 — 소모분만큼 음수 delta, 출처 예약 보존 (ADR-0019 S1)
+    expect(tx.minibarStockMovement.create).toHaveBeenCalledTimes(2);
+    expect(tx.minibarStockMovement.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          villaId: "v1",
+          minibarItemId: "mb_cola",
+          type: "CONSUME",
+          qtyDelta: -2,
+          bookingId: "bk1",
+        }),
+      })
+    );
+    // minibarChargeVnd = ΣlineVnd = 70,000 비정규화 캐시 갱신
+    expect(tx.checkOutRecord.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "cor1" },
+        data: { minibarChargeVnd: 70_000n },
+      })
+    );
+  });
+
+  it("미니바 0건: 라인 미생성·minibarChargeVnd 미갱신(게스트청구 update만)", async () => {
+    const tx = makeTxMock({ booking: { id: "bk1", status: BookingStatus.CHECKED_IN } });
+    await completeCheckout(makePrismaMock(tx), { ...BASE_INPUT, minibarLines: [] });
+    expect(tx.checkoutMinibarLine.create).not.toHaveBeenCalled();
+    expect(tx.minibarStockMovement.create).not.toHaveBeenCalled();
+    // 미니바 비정규화 캐시(minibarChargeVnd)는 갱신되지 않는다(ADR-0019 S4: 게스트청구 update는 minibarChargeVnd 미포함)
+    for (const call of tx.checkOutRecord.update.mock.calls) {
+      expect((call[0] as { data: Record<string, unknown> }).data).not.toHaveProperty("minibarChargeVnd");
+    }
+  });
+
+  it("알 수 없는 itemId → RangeError(서버 거부)", async () => {
+    const tx = makeTxMock({
+      booking: { id: "bk1", status: BookingStatus.CHECKED_IN },
+      minibarItems: [{ id: "mb_cola", nameKo: "콜라", unitPriceVnd: 30_000n, costVnd: null }],
+    });
+    await expect(
+      completeCheckout(makePrismaMock(tx), {
+        ...BASE_INPUT,
+        minibarLines: [{ minibarItemId: "mb_ghost", consumedQty: 1, stockedQty: 0 }],
+      })
+    ).rejects.toThrow(RangeError);
   });
 });
 

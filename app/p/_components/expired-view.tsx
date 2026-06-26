@@ -1,6 +1,7 @@
 import { PublicFooter } from "./public-footer";
 import { ShareButton } from "./share-button";
 import { LangSelector } from "./lang-selector";
+import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import { PUBLIC_LABELS, type PublicLang } from "@/lib/public-i18n";
 
 /**
@@ -24,10 +25,13 @@ export function ExpiredView({
   return (
     <div className="bg-neutral-50 text-neutral-900 min-h-screen flex flex-col items-center">
       <header className="bg-white border-b border-neutral-100 flex justify-between items-center w-full px-4 h-14 sticky top-0 z-50">
-        <span className="text-teal-600 font-bold text-xl">Villa PMS</span>
-        <div className="flex items-center gap-1">
+        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5">
+          <VillaGoMark className="h-6 w-auto" />
+          <VillaGoWordmark className="text-xl" villa="text-slate-900" go="text-teal-600" />
+        </span>
+        <div className="flex items-center gap-1 ml-auto">
           <LangSelector current={lang} />
-          <ShareButton title="Villa PMS" lang={lang} />
+          <ShareButton title="Villa Go" lang={lang} />
         </div>
       </header>
 

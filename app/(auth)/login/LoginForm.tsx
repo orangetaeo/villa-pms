@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { loginAction } from "./actions";
+import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 
 interface Labels {
   title: string;
@@ -12,8 +13,10 @@ interface Labels {
   passwordPlaceholder: string;
   submit: string;
   submitting: string;
+  forgotPassword: string;
   noAccount: string;
   signupLink: string;
+  vendorSignupLink: string;
   errorMessages: Record<string, string>;
 }
 
@@ -26,13 +29,13 @@ export default function LoginForm({ labels }: { labels: Labels }) {
       {/* 로고 & 브랜드 */}
       <header className="flex flex-col items-center mb-12">
         <div className="w-16 h-16 bg-teal-600 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
-          <span className="material-symbols-outlined text-white text-4xl">
-            holiday_village
-          </span>
+          <VillaGoMark reverse className="h-9 w-auto" />
         </div>
-        <h1 className="font-headline font-extrabold text-2xl text-teal-600 tracking-tight">
-          Villa PMS
-        </h1>
+        <VillaGoWordmark
+          className="font-headline text-2xl"
+          villa="text-slate-900"
+          go="text-teal-600"
+        />
       </header>
 
       {/* 로그인 폼 */}
@@ -110,8 +113,18 @@ export default function LoginForm({ labels }: { labels: Labels }) {
             </div>
           </div>
 
+          {/* 비밀번호 찾기 링크 */}
+          <div className="text-right">
+            <Link
+              className="text-sm font-semibold text-slate-500 hover:text-teal-600 transition-colors"
+              href="/forgot-password"
+            >
+              {labels.forgotPassword}
+            </Link>
+          </div>
+
           {/* 로그인 버튼 */}
-          <div className="pt-4">
+          <div className="pt-2">
             <button
               className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-bold text-lg rounded-xl touch-target shadow-md active:scale-[0.98] transition-all flex items-center justify-center gap-2"
               type="submit"
@@ -122,14 +135,21 @@ export default function LoginForm({ labels }: { labels: Labels }) {
           </div>
         </form>
 
-        {/* 회원가입 링크 */}
-        <div className="text-center pt-4">
+        {/* 회원가입 링크 — 빌라 공급자 + 원천 공급자(부가서비스) */}
+        <div className="text-center pt-4 space-y-3">
           <Link
-            className="text-slate-600 font-medium hover:text-teal-600 transition-colors"
+            className="block text-slate-600 font-medium hover:text-teal-600 transition-colors"
             href="/signup"
           >
             {labels.noAccount}{" "}
             <span className="text-teal-600 font-bold">{labels.signupLink}</span>
+          </Link>
+          <Link
+            className="inline-flex items-center gap-1 text-sm text-slate-500 font-semibold hover:text-teal-600 transition-colors"
+            href="/vendor-signup"
+          >
+            <span className="material-symbols-outlined text-[18px]">storefront</span>
+            {labels.vendorSignupLink}
           </Link>
         </div>
       </section>

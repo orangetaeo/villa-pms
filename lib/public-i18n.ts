@@ -30,7 +30,7 @@ export function resolvePublicLang(
   return "ko";
 }
 
-/** 페이지 <title> (브라우저 탭) — "<페이지> | Villa PMS" */
+/** 페이지 <title> (브라우저 탭) — "<페이지> | Villa Go" */
 export const PUBLIC_META: Record<PublicLang, { proposal: string; book: string; done: string; roster: string }> = {
   ko: { proposal: "빌라 제안", book: "가예약 신청", done: "가예약 완료", roster: "투숙객 명단 입력" },
   en: { proposal: "Villa Proposal", book: "Reservation Request", done: "Reservation Received", roster: "Enter Guest List" },
@@ -247,6 +247,25 @@ export interface PublicLabels {
     subtitle: string;
     summary: (nights: number, guests: number) => string;
   };
+  // 파트너(여행사/랜드사) 부가서비스 요청 섹션 (ADR-0023 S4)
+  partnerAddon: {
+    label: string; // 작은 라벨
+    title: string;
+    subtitle: string;
+    empty: string;
+    priceInquiry: string; // KRW 환율 미설정 시
+    increase: string; // 수량 +
+    decrease: string; // 수량 −
+    requestCta: string;
+    requesting: string;
+    requested: string; // 요청 접수 안내
+    error: string;
+    requestedTitle: string; // 요청 내역 제목
+    statusPending: string;
+    statusConfirmed: string;
+    statusOther: string;
+    settleNote: string;
+  };
   // 사진 캐러셀 aria
   carousel: {
     zoom: (alt: string, n: number) => string;
@@ -377,6 +396,24 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       subtitle: "실제 투숙하실 분들의 성함을 입력해주세요. 체크인 준비(임시거주신고)에 사용됩니다.",
       summary: (nights, guests) => `${nights}박 · ${guests}명`,
     },
+    partnerAddon: {
+      label: "부가서비스",
+      title: "부가서비스 요청",
+      subtitle: "과일 바구니·도시락 등 필요한 부가서비스를 선택해 요청하세요. 운영자 확인 후 안내해 드립니다.",
+      empty: "현재 요청 가능한 부가서비스가 없습니다.",
+      priceInquiry: "가격 문의",
+      increase: "수량 추가",
+      decrease: "수량 감소",
+      requestCta: "부가서비스 요청하기",
+      requesting: "요청 처리 중…",
+      requested: "요청이 접수되었습니다. 운영자 확인 후 안내해 드립니다.",
+      error: "요청 처리에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      requestedTitle: "요청 내역",
+      statusPending: "확인 중",
+      statusConfirmed: "확정",
+      statusOther: "처리 중",
+      settleNote: "요청하신 부가서비스는 운영자 확인 후 안내되며, 최종 금액은 별도로 안내됩니다.",
+    },
     carousel: {
       zoom: (alt, n) => `${alt} 사진 ${n} 확대`,
       photo: (alt, n) => `${alt} 사진 ${n}`,
@@ -504,6 +541,24 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       title: "Enter guest list",
       subtitle: "Enter the names of the actual guests. Used to prepare check-in (temporary residence registration).",
       summary: (nights, guests) => `${nights} night${nights === 1 ? "" : "s"} · ${guests} guest${guests === 1 ? "" : "s"}`,
+    },
+    partnerAddon: {
+      label: "Add-ons",
+      title: "Request add-on services",
+      subtitle: "Select add-ons such as a fruit basket or lunch box. We'll confirm and follow up after review.",
+      empty: "No add-on services are available to request right now.",
+      priceInquiry: "Ask for price",
+      increase: "Increase quantity",
+      decrease: "Decrease quantity",
+      requestCta: "Request add-ons",
+      requesting: "Submitting…",
+      requested: "Your request has been received. We'll follow up after review.",
+      error: "Failed to submit. Please try again shortly.",
+      requestedTitle: "Requested items",
+      statusPending: "Reviewing",
+      statusConfirmed: "Confirmed",
+      statusOther: "Processing",
+      settleNote: "Requested add-ons are confirmed after review; the final amount is shared separately.",
     },
     carousel: {
       zoom: (alt, n) => `Zoom ${alt} photo ${n}`,
@@ -633,6 +688,24 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       subtitle: "Укажите имена фактических гостей. Используется для подготовки к заезду (регистрация).",
       summary: (nights, guests) => `${nights} ноч. · ${guests} гост.`,
     },
+    partnerAddon: {
+      label: "Доп. услуги",
+      title: "Запрос доп. услуг",
+      subtitle: "Выберите доп. услуги: фруктовая корзина, ланч-бокс и др. Подтвердим после проверки.",
+      empty: "Сейчас нет доступных доп. услуг для запроса.",
+      priceInquiry: "Уточнить цену",
+      increase: "Увеличить количество",
+      decrease: "Уменьшить количество",
+      requestCta: "Запросить доп. услуги",
+      requesting: "Отправка…",
+      requested: "Запрос принят. Свяжемся после проверки.",
+      error: "Не удалось отправить. Повторите попытку позже.",
+      requestedTitle: "Запрошенные позиции",
+      statusPending: "На проверке",
+      statusConfirmed: "Подтверждено",
+      statusOther: "В обработке",
+      settleNote: "Запрошенные услуги подтверждаются после проверки; итоговая сумма сообщается отдельно.",
+    },
     carousel: {
       zoom: (alt, n) => `Увеличить фото ${alt} ${n}`,
       photo: (alt, n) => `${alt} фото ${n}`,
@@ -761,6 +834,24 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       subtitle: "请输入实际入住客人的姓名。用于入住准备（临时居住登记）。",
       summary: (nights, guests) => `${nights}晚 · ${guests}人`,
     },
+    partnerAddon: {
+      label: "附加服务",
+      title: "申请附加服务",
+      subtitle: "可选择水果篮、便当等附加服务。运营方确认后将另行告知。",
+      empty: "目前没有可申请的附加服务。",
+      priceInquiry: "价格咨询",
+      increase: "增加数量",
+      decrease: "减少数量",
+      requestCta: "申请附加服务",
+      requesting: "提交中…",
+      requested: "申请已受理。运营方确认后将另行告知。",
+      error: "提交失败，请稍后再试。",
+      requestedTitle: "申请记录",
+      statusPending: "确认中",
+      statusConfirmed: "已确认",
+      statusOther: "处理中",
+      settleNote: "所申请的附加服务将在运营方确认后告知，最终金额另行通知。",
+    },
     carousel: {
       zoom: (alt, n) => `放大 ${alt} 照片 ${n}`,
       photo: (alt, n) => `${alt} 照片 ${n}`,
@@ -888,6 +979,24 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       title: "Nhập danh sách khách",
       subtitle: "Nhập tên những khách thực tế lưu trú. Dùng để chuẩn bị nhận phòng (khai báo tạm trú).",
       summary: (nights, guests) => `${nights} đêm · ${guests} khách`,
+    },
+    partnerAddon: {
+      label: "Dịch vụ thêm",
+      title: "Yêu cầu dịch vụ thêm",
+      subtitle: "Chọn các dịch vụ thêm như giỏ trái cây, hộp cơm... Chúng tôi sẽ xác nhận và thông báo sau khi xem xét.",
+      empty: "Hiện chưa có dịch vụ thêm nào để yêu cầu.",
+      priceInquiry: "Hỏi giá",
+      increase: "Tăng số lượng",
+      decrease: "Giảm số lượng",
+      requestCta: "Yêu cầu dịch vụ thêm",
+      requesting: "Đang gửi…",
+      requested: "Đã nhận yêu cầu. Chúng tôi sẽ thông báo sau khi xem xét.",
+      error: "Gửi thất bại. Vui lòng thử lại sau.",
+      requestedTitle: "Các mục đã yêu cầu",
+      statusPending: "Đang xác nhận",
+      statusConfirmed: "Đã xác nhận",
+      statusOther: "Đang xử lý",
+      settleNote: "Dịch vụ đã yêu cầu sẽ được xác nhận sau khi xem xét; số tiền cuối cùng sẽ được thông báo riêng.",
     },
     carousel: {
       zoom: (alt, n) => `Phóng to ảnh ${alt} ${n}`,

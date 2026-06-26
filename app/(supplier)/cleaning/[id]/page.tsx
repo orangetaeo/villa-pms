@@ -18,7 +18,7 @@ import { CleaningSubmit, type SlotProp, type SubmitLabels } from "./cleaning-sub
 import CleaningPhotosView from "./cleaning-photos-view";
 
 export const metadata: Metadata = {
-  title: "Dọn dẹp xong — Villa PMS",
+  title: "Dọn dẹp xong — Villa Go",
 };
 
 export default async function CleaningTaskPage({

@@ -12,6 +12,7 @@ import {
   transitionSettlement,
 } from "@/lib/settlement";
 import { canViewFinance, isSystemAdmin } from "@/lib/permissions";
+import { generateSettlementStatement } from "@/lib/settlement-statement-service";
 
 export async function GET(
   _req: Request,
@@ -36,6 +37,9 @@ export async function GET(
       yearMonth: true,
       totalVnd: true,
       status: true,
+      collectedAt: true,
+      fxAdjustedAt: true,
+      fxAdjustmentVnd: true,
       paidAt: true,
       statementUrl: true,
       createdAt: true,
@@ -68,7 +72,12 @@ export async function GET(
 }
 
 const patchSchema = z.object({
-  action: z.enum(["CONFIRM", "MARK_PAID"]),
+  action: z.enum(["CONFIRM", "COLLECT", "ADJUST_FX", "MARK_PAID"]),
+  // 환차 금액(VND, +이익/−손실) — ADJUST_FX일 때만 사용. 문자열·숫자 허용 → BigInt.
+  fxAdjustmentVnd: z
+    .union([z.string().regex(/^-?\d+$/), z.number().int()])
+    .transform((v) => BigInt(v))
+    .optional(),
 });
 
 export async function PATCH(
@@ -102,12 +111,30 @@ export async function PATCH(
   }
 
   try {
-    // 전이 + paidAt + SETTLEMENT_READY 큐 + AuditLog — 모두 lib 트랜잭션 내부
-    const settlement = await transitionSettlement(id, parsed.data.action, session.user.id);
+    // 전이 + 단계 타임스탬프/환차 + SETTLEMENT_READY 큐 + AuditLog — 모두 lib 트랜잭션 내부
+    const settlement = await transitionSettlement(
+      id,
+      parsed.data.action,
+      session.user.id,
+      prisma,
+      { fxAdjustmentVnd: parsed.data.fxAdjustmentVnd }
+    );
+    // MARK_PAID 시 월 정산서 PDF 선생성(best-effort) — 알림 링크가 즉시 동작하도록 (P2-4).
+    // 생성 실패가 전이(이미 커밋)를 되돌리지 않게 try/catch. 미생성이어도 다운로드 시 재시도 가능.
+    if (parsed.data.action === "MARK_PAID") {
+      try {
+        await generateSettlementStatement(id, session.user.id);
+      } catch (err) {
+        console.error(`[settlement] ${id} 정산서 생성 실패(전이는 유효)`, err);
+      }
+    }
     return NextResponse.json({
       settlement: serializeBigInt({
         id: settlement.id,
         status: settlement.status,
+        collectedAt: settlement.collectedAt,
+        fxAdjustedAt: settlement.fxAdjustedAt,
+        fxAdjustmentVnd: settlement.fxAdjustmentVnd,
         paidAt: settlement.paidAt,
         totalVnd: settlement.totalVnd,
       }),

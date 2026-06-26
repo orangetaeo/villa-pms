@@ -1,6 +1,7 @@
-// SUPPLIER 수익 조회 (T4.5, SPEC F6) — design/stitch/a7-my-earnings 변환 (라이트 teal, vi, 390px)
-// 마진 비공개 원칙: select는 빌라명·기간·박수·supplierCostVnd만 —
-// 판매가(KRW/VND)·마진·고객명·고객 연락처는 조회 자체를 하지 않는다
+// SUPPLIER 수익·통계 (T4.5/T-supplier-statistics, SPEC F6) — design/stitch a7-my-earnings·a8-my-statistics
+// 마진 비공개 원칙: select·집계는 빌라명·기간·박수·supplierCostVnd만 —
+// 판매가(KRW/VND)·마진·고객명·연락처는 조회 자체를 하지 않는다.
+// 상단 세그먼트: 통계(기본) | 정산 내역. 통계=StatsSection, 정산내역=월별 내역(기존).
 import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
@@ -11,6 +12,7 @@ import { SettlementStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { SETTLEMENT_BOOKING_STATUSES, monthRangeUtc } from "@/lib/settlement";
 import { todayVnDateString } from "@/lib/date-vn";
+import StatsSection from "@/components/supplier/stats/stats-section";
 
 const YEAR_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -49,26 +51,78 @@ function formatPaidDate(date: Date): string {
 }
 
 export const metadata: Metadata = {
-  title: "Thu nhập — Villa PMS",
+  title: "Thu nhập — Villa Go",
 };
 
 export default async function EarningsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ yearMonth?: string }>;
+  searchParams: Promise<{ yearMonth?: string; view?: string; range?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   if (session.user.role !== "SUPPLIER") redirect("/");
 
-  // [QA D-3] getTranslations의 명시 locale 인자는 cookie 기반 request config(i18n/request.ts)의
-  // 메시지 번들을 바꾸지 못한다 — 실제 렌더 locale은 미들웨어가 설정하는 locale 쿠키가 결정한다.
-  // 이 변수는 주로 날짜 포맷용. (T-i18n-supplier-ko-toggle: 미들웨어가 pref-locale>계정>vi로 쿠키를 맞춤)
   const locale = await getSupplierLocale(session.user.locale);
+  const tSeg = await getTranslations({ locale, namespace: "supplierStats" });
+
+  const { yearMonth: yearMonthParam, view, range } = await searchParams;
+  const isDetail = view === "detail";
+
+  return (
+    <main className="mx-auto max-w-md space-y-6 px-4 py-6">
+      {/* 세그먼트 컨트롤 — 통계 | 정산 내역 */}
+      <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+        <Link
+          href="/earnings?view=stats"
+          aria-current={!isDetail ? "page" : undefined}
+          className={
+            !isDetail
+              ? "rounded-lg bg-white py-2 text-center text-sm font-bold text-teal-700 shadow-sm"
+              : "rounded-lg py-2 text-center text-sm font-medium text-slate-500"
+          }
+        >
+          {tSeg("segStats")}
+        </Link>
+        <Link
+          href="/earnings?view=detail"
+          aria-current={isDetail ? "page" : undefined}
+          className={
+            isDetail
+              ? "rounded-lg bg-white py-2 text-center text-sm font-bold text-teal-700 shadow-sm"
+              : "rounded-lg py-2 text-center text-sm font-medium text-slate-500"
+          }
+        >
+          {tSeg("segDetail")}
+        </Link>
+      </div>
+
+      {isDetail ? (
+        <EarningsDetail
+          locale={locale}
+          supplierId={session.user.id}
+          yearMonthParam={yearMonthParam}
+        />
+      ) : (
+        <StatsSection supplierId={session.user.id} locale={locale} range={range} />
+      )}
+    </main>
+  );
+}
+
+// ── 정산 내역(기존 월별 화면) — view=detail ──────────────────────────
+async function EarningsDetail({
+  locale,
+  supplierId,
+  yearMonthParam,
+}: {
+  locale: string;
+  supplierId: string;
+  yearMonthParam?: string;
+}) {
   const t = await getTranslations({ locale, namespace: "earnings" });
 
   // 월 선택 — 기본 이번 달(Asia/Ho_Chi_Minh), 형식 오류는 이번 달 폴백 (calendar 패턴)
-  const { yearMonth: yearMonthParam } = await searchParams;
   const currentMonth = todayVnDateString().slice(0, 7);
   const yearMonth =
     yearMonthParam && YEAR_MONTH_RE.test(yearMonthParam) ? yearMonthParam : currentMonth;
@@ -80,7 +134,7 @@ export default async function EarningsPage({
       where: {
         status: { in: [...SETTLEMENT_BOOKING_STATUSES] }, // CHECKED_OUT·NO_SHOW
         checkOut: { gte: start, lt: end },
-        villa: { supplierId: session.user.id },
+        villa: { supplierId },
       },
       orderBy: { checkIn: "asc" },
       // 마진 비공개 — 원가·기간·빌라명만 select (판매가·마진·고객 필드 비조회)
@@ -95,7 +149,7 @@ export default async function EarningsPage({
     }),
     prisma.settlement.findUnique({
       where: {
-        supplierId_yearMonth: { supplierId: session.user.id, yearMonth },
+        supplierId_yearMonth: { supplierId, yearMonth },
       },
       select: { status: true, paidAt: true },
     }),
@@ -113,13 +167,13 @@ export default async function EarningsPage({
   const yearNum = Number(yearMonth.slice(0, 4));
 
   return (
-    <main className="mx-auto max-w-md space-y-6 px-4 py-6">
+    <div className="space-y-6">
       <h1 className="text-xl font-bold text-slate-900">{t("title")}</h1>
 
-      {/* 월 선택 (a7 Month Selector) — ?yearMonth= Link 네비게이션 */}
+      {/* 월 선택 (a7 Month Selector) — ?view=detail&yearMonth= Link 네비게이션 */}
       <section className="flex items-center justify-between rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
         <Link
-          href={`/earnings?yearMonth=${shiftMonth(yearMonth, -1)}`}
+          href={`/earnings?view=detail&yearMonth=${shiftMonth(yearMonth, -1)}`}
           aria-label={t("prevMonth")}
           className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-600 transition-all active:scale-90"
         >
@@ -134,7 +188,7 @@ export default async function EarningsPage({
           </span>
         </div>
         <Link
-          href={`/earnings?yearMonth=${shiftMonth(yearMonth, 1)}`}
+          href={`/earnings?view=detail&yearMonth=${shiftMonth(yearMonth, 1)}`}
           aria-label={t("nextMonth")}
           className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-600 transition-all active:scale-90"
         >
@@ -215,15 +269,13 @@ export default async function EarningsPage({
                   {isPaid ? t("paidLabel") : t("pendingLabel")}
                 </span>
               </div>
-              <p
-                className={`text-lg font-bold ${isPaid ? "text-teal-700" : "text-slate-600"}`}
-              >
+              <p className={`text-lg font-bold ${isPaid ? "text-teal-700" : "text-slate-600"}`}>
                 {formatVndDot(booking.supplierCostVnd)}
               </p>
             </div>
           ))}
         </div>
       )}
-    </main>
+    </div>
   );
 }
