@@ -165,6 +165,46 @@ describe("getAvailabilityBoard — minDate 과거 컬럼 클램프", () => {
   });
 });
 
+describe("getAvailabilityBoard — 판매 후순위 정렬 (품질점수 desc, Phase 2)", () => {
+  // findMany 에 넘긴 orderBy 를 포착하고, DB 반환 순서를 board.villas 가 보존하는지 본다.
+  const captureDb = (villas: { id: string; name: string; qualityScore: number }[]) => {
+    let orderBy: unknown = null;
+    const db = {
+      villa: {
+        findMany: async (args: { orderBy?: unknown }) => {
+          orderBy = args.orderBy ?? null;
+          return villas.map((v) => ({
+            ...v,
+            complex: null,
+            availabilityCheckedAt: null,
+            source: null,
+          }));
+        },
+      },
+      calendarBlock: { findMany: async () => [] },
+    } as unknown as DbClient;
+    return { db, orderBy: () => orderBy };
+  };
+
+  it("findMany 를 [{qualityScore:desc},{name:asc}] 로 정렬 요청한다", async () => {
+    const { db, orderBy } = captureDb([{ id: "v1", name: "A", qualityScore: 100 }]);
+    await getAvailabilityBoard(db, { startMonth: "2026-07", monthCount: 1 });
+    expect(orderBy()).toEqual([{ qualityScore: "desc" }, { name: "asc" }]);
+  });
+
+  it("DB 가 점수 desc 로 준 순서를 board.villas 가 그대로 보존한다", async () => {
+    // DB(정렬 위임) 반환 순서: 높은 점수 먼저
+    const { db } = captureDb([
+      { id: "high", name: "B", qualityScore: 100 },
+      { id: "mid", name: "A", qualityScore: 67 },
+      { id: "low", name: "C", qualityScore: 0 },
+    ]);
+    const board = await getAvailabilityBoard(db, { startMonth: "2026-07", monthCount: 1 });
+    expect(board.villas.map((v) => v.id)).toEqual(["high", "mid", "low"]);
+    expect(board.villas.map((v) => v.qualityScore)).toEqual([100, 67, 0]);
+  });
+});
+
 describe("OCCUPYING_BOOKING_STATUSES — 점유 상태 정의", () => {
   it("HOLD·CONFIRMED·CHECKED_IN만 점유", () => {
     expect([...OCCUPYING_BOOKING_STATUSES].sort()).toEqual(
