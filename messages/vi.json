@@ -3139,7 +3139,7 @@
       "nightsUnit": "đêm"
     },
     "overview": {
-      "basisNote": "Ghi nhận doanh thu = theo tháng trả phòng · Gộp villa+dịch vụ bổ sung+minibar · Tách riêng theo loại tiền (không cộng gộp KRW·VND)",
+      "basisNote": "Ghi nhận doanh thu = theo tháng trả phòng · Chỉ villa (phòng) · Tách theo tiền tệ (không cộng KRW·VND). Bao gồm dịch vụ·minibar xem bảng tổng hợp bên dưới",
       "fxMissingNote": "{count} đặt phòng thiếu tỷ giá bị loại khỏi tính lợi nhuận",
       "kpi": {
         "krwRevenue": "Doanh thu KRW",
@@ -3162,6 +3162,19 @@
         "byCount": "Số lượt",
         "byRevenue": "Doanh thu",
         "totalBookings": "Tổng số đặt phòng"
+      },
+      "integrated": {
+        "title": "Tổng hợp (Villa + Dịch vụ + Minibar)",
+        "subtitle": "Tổng kỳ — doanh thu·lợi nhuận quy đổi theo nguồn (tách tiền tệ)",
+        "colSource": "Phân loại",
+        "colKrw": "Doanh thu KRW",
+        "colVnd": "Doanh thu VND",
+        "colMargin": "Lợi nhuận quy đổi (VND)",
+        "rowVilla": "Villa (phòng)",
+        "rowServices": "Dịch vụ",
+        "rowMinibar": "Minibar",
+        "rowTotal": "Tổng",
+        "marginRate": "Tỷ suất LN"
       }
     },
     "occupancy": {

@@ -3139,7 +3139,7 @@
       "nightsUnit": "박"
     },
     "overview": {
-      "basisNote": "매출 인식 = 체크아웃 월 기준 · 빌라+부가서비스+미니바 합산 · 통화별 분리 집계 (KRW·VND 합산하지 않음)",
+      "basisNote": "매출 인식 = 체크아웃 월 기준 · 순수 빌라(객실)만 · 통화별 분리 집계 (KRW·VND 합산하지 않음). 부가서비스·미니바 포함 통합은 아래 합산표 참고",
       "fxMissingNote": "환율 미기록 예약 {count}건은 마진 집계에서 제외",
       "kpi": {
         "krwRevenue": "KRW 매출",
@@ -3162,6 +3162,19 @@
         "byCount": "건수",
         "byRevenue": "매출",
         "totalBookings": "총 예약 건"
+      },
+      "integrated": {
+        "title": "통합 합산 (빌라+부가서비스+미니바)",
+        "subtitle": "기간 합계 — 소스별 매출·환산 마진 (통화 분리)",
+        "colSource": "구분",
+        "colKrw": "KRW 매출",
+        "colVnd": "VND 매출",
+        "colMargin": "환산 마진(VND)",
+        "rowVilla": "빌라(객실)",
+        "rowServices": "부가서비스",
+        "rowMinibar": "미니바",
+        "rowTotal": "합계",
+        "marginRate": "마진율"
       }
     },
     "occupancy": {
