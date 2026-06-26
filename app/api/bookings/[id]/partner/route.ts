@@ -7,7 +7,15 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { canViewFinance } from "@/lib/permissions";
-import { ensureReceivableForBooking } from "@/lib/partner-booking";
+import { ensureReceivableForBooking, evaluateConfirmCredit } from "@/lib/partner-booking";
+
+/** 여신 게이트 차단 — 트랜잭션 롤백용 (lib/hold.ts confirm 패턴과 정합) */
+class CreditBlockedError extends Error {
+  constructor(public readonly reason: string) {
+    super(reason);
+    this.name = "CreditBlockedError";
+  }
+}
 
 const schema = z.object({ partnerId: z.string().min(1).nullable() });
 
@@ -65,21 +73,37 @@ export async function PUT(
     }
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.booking.update({ where: { id }, data: { partnerId } });
-    // 확정 이후 상태에서 새로 지정하면 채권 즉시 생성(멱등)
-    if (partnerId && POST_HOLD.has(booking.status)) {
-      await ensureReceivableForBooking(tx, id, new Date());
-    }
-    await writeAuditLog({
-      db: tx,
-      userId: session.user.id,
-      action: "UPDATE",
-      entity: "Booking",
-      entityId: id,
-      changes: { partnerId: { old: booking.partnerId, new: partnerId } },
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.booking.update({ where: { id }, data: { partnerId } });
+      // 확정 이후 상태에서 새로 지정하면 채권 즉시 생성(멱등)
+      if (partnerId && POST_HOLD.has(booking.status)) {
+        // 여신 게이트 재실행(ADR-0022) — confirm과 동일. 차단 파트너(한도초과·연체·
+        // BLOCKED/SUSPENDED)에 채권 생성 우회 차단. update 후 평가해 새 partnerId 기준.
+        const credit = await evaluateConfirmCredit(tx, id, new Date());
+        if (!credit.allowed) {
+          throw new CreditBlockedError(credit.reason ?? "OVER_LIMIT");
+        }
+        await ensureReceivableForBooking(tx, id, new Date());
+      }
+      await writeAuditLog({
+        db: tx,
+        userId: session.user.id,
+        action: "UPDATE",
+        entity: "Booking",
+        entityId: id,
+        changes: { partnerId: { old: booking.partnerId, new: partnerId } },
+      });
     });
-  });
+  } catch (e) {
+    if (e instanceof CreditBlockedError) {
+      return NextResponse.json(
+        { error: "PARTNER_CREDIT_BLOCKED", reason: e.reason },
+        { status: 409 }
+      );
+    }
+    throw e;
+  }
 
   return NextResponse.json({ ok: true, partnerId });
 }
