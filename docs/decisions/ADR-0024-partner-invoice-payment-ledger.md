@@ -1,6 +1,6 @@
 # ADR-0024 — 파트너 청구서 수납 → LEDGER COLLECTION 연결
 
-- 상태: **Proposed** (TDA 초안, 테오 결정 대기)
+- 상태: **Accepted** (테오 확정 2026-06-26: D1~D4 전부 권장값 채택 → 구현 완료)
 - 일자: 2026-06-26
 - 관련: [[ADR-0018-settlement-double-entry-ledger]](복식부기 LEDGER·현금주의), [[ADR-0022-partner-receivables-credit]](파트너 AR·청구서), 메모리 [[partner-b2b-receivables-plan]]·[[settlement-finance-status]]
 - 코드 근거: `lib/ledger.ts`(postCollection·reverseCollection·verifyLedger), `lib/partner-invoice.ts`(recordInvoicePayment), `app/api/bookings/[id]/payments/route.ts`(COLLECTION 적재 경로), `app/api/partner-invoices/[id]/payments/route.ts`(미연결 경로), `prisma/schema.prisma`(Payment.invoiceId 기존 존재)
@@ -78,21 +78,27 @@ KRW 직접 입금 추적은 본 ADR 범위 밖(현 청구서가 VND 표시이므
 
 `paidVnd > 0`인 **실거래 청구서**(데모 제외, ADR-0018 #3)는 개별 수납 이벤트 행이 없어 재구성 불가 → 청구서당 현재 `paidVnd` 1건을 단일 Payment(invoiceId, receivedAt=paidAt 또는 issuedAt) + COLLECTION으로 멱등 생성. 멱등 키 = invoiceId 기준 백필 Payment 1건(중복 실행 시 skip). → **D2**.
 
-## 결정 대기 항목 (테오/TDA)
+## 결정 (테오 확정 2026-06-26 — 전부 권장값)
 
-- **D1 통화**: 청구서 수납 VND 단일로 충분(권장) vs 향후 KRW 직접입금도 추적?
-- **D2 백필**: 기존 청구서 `paidVnd` LEDGER 소급 적재 — 실거래만(권장). 시점(=paidAt/issuedAt) 확정.
-- **D3 정정 흐름**: 청구서 수납 역분개(취소·정정) API를 이번 범위에 포함 vs 후속.
-- **D4 모델**: 안 A(Payment 재사용·bookingId nullable, 권장) vs 안 B(신규 모델).
+- **D1 통화**: VND 단일. 청구서가 VND 표시 → COLLECTION은 CASH_VND/REVENUE(VND). KRW 직접입금은 범위 밖(후속).
+- **D2 백필**: 실거래만(데모 `demo-` 접두 제외). 시점 = `paidAt ?? issuedAt ?? createdAt`. 이중계상 방지 = 이미 Payment row로 적재된 금액을 뺀 부족분만.
+- **D3 정정**: 후속. 이번 범위는 적재만. 안전장치로 청구서 연결 Payment(`invoiceId`)는 `DELETE /api/payments/[id]` 차단(409, paidVnd·채권 정합 보호).
+- **D4 모델**: 안 A — 기존 `Payment` 재사용(`bookingId` nullable). 신규 모델·LEDGER FK 없음.
 
-## 구현 단계 (확정 후, 별도 스프린트)
+## 구현 (완료)
 
-- **S0** 스키마: `Payment.bookingId` nullable raw ALTER + generate(1세션 전담). 앱 레벨 "bookingId XOR invoiceId" 가드.
-- **S1** `recordInvoicePayment`: Payment row 생성 + `postCollection` 동일 트랜잭션 적재. 단위테스트(증분 적재·균형·멱등).
-- **S2** 백필 스크립트: 실거래 청구서 `paidVnd` → Payment + COLLECTION 멱등 생성.
-- **S3** `verifyLedger` 교차검증 확장(청구서 수납 포함 매출·현금 일치) + 무결성 테스트.
-- **S4** (D3 채택 시) 청구서 수납 정정 API + reverseCollection 연결.
-- **검증**: typecheck0·next build·LEDGER 통화별 항등식·누수 스캔(청구서 COLLECTION ADMIN 전용).
+- **S0** 스키마: `Payment.bookingId` → `String?`(+ relation optional). raw ALTER `prisma/migrations-manual/2026-06-26-invoice-payment-ledger.sql`. 파급 측정: `payment.bookingId` 직접 읽는 커밋 코드는 DELETE 감사로그 1곳뿐(안전).
+- **S1** `recordInvoicePayment(tx, {…, createdBy})`: `add>0`이면 Payment(VND·invoiceId·partnerId·bookingId 없음) 생성 → `postCollection(paymentId 멱등)`. 동일 트랜잭션. `app/api/partner-invoices/[id]/payments` 가 `createdBy=session.user.id` 전달.
+- **S2** `scripts/backfill-invoice-collections.ts`: 실거래 청구서 `paidVnd` 누락분만 합성 Payment(`bf-invpay-{id}`)+COLLECTION 멱등 생성.
+- **S3 — 불필요(확인됨)**: `verifyLedger`는 COLLECTION을 통화별 균형으로만 보고 SUPPLIER_PAYABLE만 교차검증 → 청구서 COLLECTION 추가로 깨지지 않음. 변경 0줄.
+- **S4** D3 후속(미구현). DELETE 가드만 선반영.
+- **검증**: typecheck0 · next build 통과 · vitest 1847 그린(partner-invoice COLLECTION 적재·균형·add=0 미생성 신규 2건 포함).
+
+## 배포 순서
+
+1. 라이브 DB raw ALTER 적용(`2026-06-26-invoice-payment-ledger.sql`) + `prisma generate`.
+2. 코드 머지·배포.
+3. `npx tsx scripts/backfill-invoice-collections.ts` 백필(멱등, 재실행 안전).
 
 ## 대안 (기각)
 
@@ -101,4 +107,4 @@ KRW 직접 입금 추적은 본 ADR 범위 밖(현 청구서가 VND 표시이므
 
 ## 결과
 
-확정 시 별도 스프린트로 구현(브랜치 `wt/ledger-collection`). 본 ADR은 Proposed — D1~D4 확정 후 Accepted 전환.
+브랜치 `wt/ledger-collection`에서 D1~D4 권장값으로 구현 완료(typecheck0·build·1847테스트). 배포 시 위 3단계 순서 준수. D3(청구서 수납 정정 흐름)은 후속.

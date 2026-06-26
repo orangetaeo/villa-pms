@@ -10,11 +10,12 @@
 
 수납 경로가 둘인데 청구서 경로만 LEDGER 미적재 → B2B 매출이 복식부기에서 누락. `Payment.invoiceId` 필드는 이미 존재하나 `recordInvoicePayment`가 Payment row를 안 만들고 paidVnd만 누적. 상세·설계안·대기결정(D1~D4)은 ADR-0024 참조.
 
-## 이번 작업 (Phase 1 — 기획)
+## 진행
 
 - [x] ADR-0024 초안 작성 (Proposed)
-- [ ] 테오 결정 D1(통화)·D2(백필)·D3(정정)·D4(모델) 확정 → ADR Accepted 전환
-- [ ] (Accepted 후) 구현 스프린트 계약서 별도 작성
+- [x] 테오 D1~D4 전부 권장값 확정 → ADR **Accepted**
+- [x] 구현 완료(S0 스키마·S1 recordInvoicePayment·S2 백필, S3 불필요 확인, S4 D3 후속). typecheck0·next build·vitest 1847 그린.
+- [ ] 배포: 라이브 DB raw ALTER → 머지 → 백필 스크립트 실행
 
 ## 수정 금지 구역 (병렬 세션 규칙 #2)
 

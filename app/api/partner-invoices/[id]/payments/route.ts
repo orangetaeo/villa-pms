@@ -40,7 +40,12 @@ export async function POST(
   const now = parsed.data.receivedAt ? new Date(parsed.data.receivedAt) : new Date();
   try {
     const updated = await prisma.$transaction((tx) =>
-      recordInvoicePayment(tx, { invoiceId: id, amountVnd: parsed.data.amountVnd, now })
+      recordInvoicePayment(tx, {
+        invoiceId: id,
+        amountVnd: parsed.data.amountVnd,
+        now,
+        createdBy: session.user.id,
+      })
     );
     await writeAuditLog({
       userId: session.user.id,

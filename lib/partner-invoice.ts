@@ -1,8 +1,12 @@
 import {
+  Currency,
   PartnerInvoiceStatus,
+  PaymentMethod,
+  PaymentPurpose,
   ReceivableStatus,
   type Prisma,
 } from "@prisma/client";
+import { postCollection } from "@/lib/ledger";
 
 /**
  * 파트너 마감 청구서(PartnerInvoice) 서비스 (ADR-0022 PARTNER-3b).
@@ -160,12 +164,13 @@ export async function issueInvoice(tx: Tx, invoiceId: string, now: Date) {
  */
 export async function recordInvoicePayment(
   tx: Tx,
-  input: { invoiceId: string; amountVnd: bigint; now: Date }
+  input: { invoiceId: string; amountVnd: bigint; now: Date; createdBy: string }
 ) {
   const inv = await tx.partnerInvoice.findUnique({
     where: { id: input.invoiceId },
     select: {
       id: true,
+      partnerId: true,
       status: true,
       totalVnd: true,
       paidVnd: true,
@@ -207,6 +212,34 @@ export async function recordInvoicePayment(
         },
       });
     }
+  }
+
+  // 복식부기 LEDGER — 청구서로 들어온 현금을 COLLECTION으로 적재 (ADR-0024).
+  // 청구서는 VND 표시 → CASH_VND +add / REVENUE −add. 수납 이벤트당 Payment row 1건이
+  // 멱등 앵커(paymentId @unique). 선금은 예약경로에서 이미 적재됐고 청구서 totalVnd는
+  // 잔금만이므로 이중계상 없음. add=0(과입금·0원)이면 분개·Payment 생성 안 함.
+  if (add > 0n) {
+    const payment = await tx.payment.create({
+      data: {
+        currency: Currency.VND,
+        amount: add,
+        method: PaymentMethod.VN_BANK_TRANSFER,
+        vndEquivalent: add,
+        receivedAt: input.now,
+        purpose: PaymentPurpose.BALANCE,
+        partnerId: inv.partnerId,
+        invoiceId: inv.id,
+        // bookingId 없음 — 청구서는 여러 예약에 걸침(ADR-0024).
+      },
+    });
+    await postCollection(tx, {
+      paymentId: payment.id,
+      currency: Currency.VND,
+      amount: add,
+      occurredAt: input.now,
+      createdBy: input.createdBy,
+      memo: `청구서 ${inv.id} 수납`,
+    });
   }
 
   return updated;
