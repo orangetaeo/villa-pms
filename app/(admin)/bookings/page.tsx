@@ -3,7 +3,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { BookingStatus, VillaStatus, type BookingChannel, type Prisma } from "@prisma/client";
+import { BookingSeller, BookingStatus, VillaStatus, type BookingChannel, type Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { canViewFinance } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -100,6 +100,7 @@ export default async function BookingsPage({
     area?: string;
     villa?: string;
     channel?: string;
+    seller?: string;
     q?: string;
     page?: string;
     pageSize?: string;
@@ -124,6 +125,11 @@ export default async function BookingsPage({
   const channel = CHANNELS.includes(params.channel as BookingChannel)
     ? (params.channel as BookingChannel)
     : undefined;
+  // F10: 판매주체 필터 (전체/운영자/공급자). 운영자 전용 화면 — 직접예약 식별/조회.
+  const seller =
+    params.seller === BookingSeller.OPERATOR || params.seller === BookingSeller.SUPPLIER
+      ? (params.seller as BookingSeller)
+      : undefined;
   const q = params.q?.trim() || undefined;
   const preset =
     params.filter === "today-checkin" || params.filter === "today-checkout"
@@ -150,6 +156,7 @@ export default async function BookingsPage({
         // 지역(area) = 빌라 단지명(complex) 정확 일치 (재고 비공개 — villa 관계 필터)
         ...(area ? { villa: { is: { complex: area } } } : {}),
         ...(channel ? { channel } : {}),
+        ...(seller ? { seller } : {}),
         ...(q
           ? {
               OR: [
@@ -178,6 +185,7 @@ export default async function BookingsPage({
           id: true,
           status: true,
           channel: true,
+          seller: true, // F10: 직접예약 뱃지·식별 (점유 사실만 — 공급자 판매가 미포함)
           agencyName: true,
           guestName: true,
           checkIn: true,
@@ -240,6 +248,7 @@ export default async function BookingsPage({
     if (params.area) next.set("area", params.area);
     if (params.villa) next.set("villa", params.villa);
     if (params.channel) next.set("channel", params.channel);
+    if (params.seller) next.set("seller", params.seller);
     if (params.q) next.set("q", params.q);
     if (params.pageSize) next.set("pageSize", params.pageSize);
     const qs = next.toString();
@@ -277,17 +286,28 @@ export default async function BookingsPage({
     return <span className={STATUS_BADGE[b.status]}>{t(`status.${b.status}`)}</span>;
   };
 
+  // F10 공급자 직접예약 뱃지 — 타임라인 청록과 동계열. 점유 사실만(판매가 미표시).
+  const directBadge = (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-teal-500/15 border border-teal-500/30 text-teal-300 text-[10px] font-bold whitespace-nowrap">
+      <span className="material-symbols-outlined text-[12px]">handshake</span>
+      {t("list.directBadge")}
+    </span>
+  );
+
   const columns: ResponsiveColumn<Row>[] = [
     {
       key: "villa",
       header: t("list.columns.villa"),
       cell: (b) => (
-        <Link
-          href={`/bookings/${b.id}`}
-          className="text-sm font-semibold text-slate-200 whitespace-nowrap after:absolute after:inset-0"
-        >
-          {b.villa.name}
-        </Link>
+        <span className="inline-flex items-center gap-2">
+          <Link
+            href={`/bookings/${b.id}`}
+            className="text-sm font-semibold text-slate-200 whitespace-nowrap after:absolute after:inset-0"
+          >
+            {b.villa.name}
+          </Link>
+          {b.seller === BookingSeller.SUPPLIER && directBadge}
+        </span>
       ),
       hideOnCard: true, // 모바일은 cardSummary로 표시
     },
@@ -454,7 +474,10 @@ export default async function BookingsPage({
         cardSummary={(b) => (
           <div className="flex flex-col gap-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-semibold text-slate-200 truncate">{b.villa.name}</span>
+              <span className="flex items-center gap-2 min-w-0">
+                <span className="text-sm font-semibold text-slate-200 truncate">{b.villa.name}</span>
+                {b.seller === BookingSeller.SUPPLIER && directBadge}
+              </span>
               {statusBadge(b)}
             </div>
             <span className="text-sm text-slate-300 truncate">{b.guestName}</span>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BookingStatus } from "@prisma/client";
+import { BookingSeller, BookingStatus } from "@prisma/client";
 import {
   buildDayAxis,
   computeVillaRow,
@@ -179,5 +179,98 @@ describe("computeVillaRow — 판매불가·비점유 제외", () => {
     const cells = cellsOf(SELLABLE, [], []);
     expect(cells).toHaveLength(10);
     expect(new Set(cells)).toEqual(new Set(["EMPTY"]));
+  });
+});
+
+describe("computeVillaRow — F10 공급자 직접예약(SUPPLIER_DIRECT) 분류", () => {
+  it("seller=SUPPLIER 확정 예약: 점유 셀이 SUPPLIER_DIRECT(색만 구분), 체크아웃일은 공실", () => {
+    const cells = cellsOf(
+      SELLABLE,
+      [
+        {
+          status: BookingStatus.CONFIRMED,
+          seller: BookingSeller.SUPPLIER,
+          checkIn: d("2026-07-02"),
+          checkOut: d("2026-07-05"),
+        },
+      ],
+      []
+    );
+    expect(cells[0]).toBe("EMPTY"); // 7/1
+    expect(cells[1]).toBe("SUPPLIER_DIRECT"); // 7/2
+    expect(cells[3]).toBe("SUPPLIER_DIRECT"); // 7/4
+    expect(cells[4]).toBe("EMPTY"); // 7/5 체크아웃일 (half-open)
+  });
+
+  it("seller=OPERATOR(또는 미지정) 확정 예약은 기존대로 CONFIRMED", () => {
+    const operator = cellsOf(
+      SELLABLE,
+      [
+        {
+          status: BookingStatus.CONFIRMED,
+          seller: BookingSeller.OPERATOR,
+          checkIn: d("2026-07-02"),
+          checkOut: d("2026-07-04"),
+        },
+      ],
+      []
+    );
+    const unset = cellsOf(
+      SELLABLE,
+      [{ status: BookingStatus.CONFIRMED, checkIn: d("2026-07-02"), checkOut: d("2026-07-04") }],
+      []
+    );
+    expect(operator[1]).toBe("CONFIRMED");
+    expect(unset[1]).toBe("CONFIRMED"); // seller 미지정 = OPERATOR 취급
+  });
+
+  it("공급자 직접예약이 CHECKED_IN이면 투숙 중 우선(SUPPLIER_DIRECT 아님 — 운영 동작 보존)", () => {
+    const cells = cellsOf(
+      SELLABLE,
+      [
+        {
+          status: BookingStatus.CHECKED_IN,
+          seller: BookingSeller.SUPPLIER,
+          checkIn: d("2026-07-02"),
+          checkOut: d("2026-07-04"),
+        },
+      ],
+      []
+    );
+    expect(cells[1]).toBe("CHECKED_IN");
+    expect(cells[2]).toBe("CHECKED_IN");
+  });
+
+  it("SUPPLIER_DIRECT는 HOLD·BLOCKED보다 점유 우선(확정 동급 rank)", () => {
+    const cells = cellsOf(
+      SELLABLE,
+      [
+        {
+          status: BookingStatus.CONFIRMED,
+          seller: BookingSeller.SUPPLIER,
+          checkIn: d("2026-07-03"),
+          checkOut: d("2026-07-05"),
+        },
+        { status: BookingStatus.HOLD, checkIn: d("2026-07-03"), checkOut: d("2026-07-05") },
+      ],
+      [{ startDate: d("2026-07-03"), endDate: d("2026-07-04") }]
+    );
+    expect(cells[2]).toBe("SUPPLIER_DIRECT"); // 7/3 — HOLD·BLOCKED 위
+  });
+
+  it("seller=SUPPLIER라도 비점유 상태(CANCELLED)는 무시 — 재고 복귀", () => {
+    const cells = cellsOf(
+      SELLABLE,
+      [
+        {
+          status: BookingStatus.CANCELLED,
+          seller: BookingSeller.SUPPLIER,
+          checkIn: d("2026-07-02"),
+          checkOut: d("2026-07-05"),
+        },
+      ],
+      []
+    );
+    expect(cells.every((c) => c === "EMPTY")).toBe(true);
   });
 });

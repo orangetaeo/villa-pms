@@ -66,6 +66,7 @@
     "timeline": {
       "title": "빌라별 예약 현황 (30일)",
       "legendConfirmed": "확정",
+      "legendSupplierDirect": "공급자 직접예약",
       "legendHold": "가예약",
       "legendBlocked": "차단",
       "legendNotSellable": "판매불가",
@@ -165,6 +166,10 @@
         "allVillas": "전체 빌라",
         "channel": "채널",
         "allChannels": "전체 채널",
+        "seller": "판매주체",
+        "allSellers": "전체",
+        "sellerOperator": "운영자",
+        "sellerSupplier": "공급자 직접",
         "reset": "초기화"
       },
       "preset": {
@@ -189,7 +194,8 @@
       "card": {
         "nights": "{n}박",
         "viewDetail": "상세 보기"
-      }
+      },
+      "directBadge": "공급자 직접"
     },
     "status": {
       "HOLD": "가예약",

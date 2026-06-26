@@ -14,6 +14,8 @@ const CELL_STATE_CLASS: Record<TimelineCellState, string> = {
   HOLD: " border border-dashed border-amber-500 bg-[repeating-linear-gradient(45deg,#F59E0B22,#F59E0B22_10px,#F59E0B44_10px,#F59E0B44_20px)]",
   BLOCKED: " bg-slate-600",
   NOT_SELLABLE: " border-2 border-red-600",
+  // F10 공급자 직접예약 — 확정(파랑)과 구분되는 청록 실선 (운영자 전용 식별)
+  SUPPLIER_DIRECT: " bg-teal-500 shadow-inner",
 };
 
 const STICKY_COL =
@@ -29,6 +31,9 @@ export default async function TimelineMatrix({ data }: { data: TimelineData }) {
         <div className="flex gap-2 text-slate-200 text-[10px]">
           <div className="flex items-center gap-1">
             <span className="w-2 h-2 rounded bg-blue-600"></span> {t("legendConfirmed")}
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded bg-teal-500"></span> {t("legendSupplierDirect")}
           </div>
           <div className="flex items-center gap-1">
             <span className="w-2 h-2 rounded bg-amber-500/40 border border-amber-500 border-dashed"></span>{" "}
