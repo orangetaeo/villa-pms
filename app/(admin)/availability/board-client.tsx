@@ -32,11 +32,13 @@ export interface BoardRow {
   complex: string | null;
   checkedLabel: string | null; // "M/D" or null
   needCheck: boolean;
+  qualityScore: number; // 청소 검수 통과율(0~100) — 판매 후순위 정렬·표시 (Phase 2)
   days: BoardCell[];
 }
 
 export interface BoardStrings {
   villaCount: string;
+  qualityTitle: string; // 품질점수 배지 툴팁 (Phase 2)
   search: string;
   area: string;
   allAreas: string;
@@ -1042,6 +1044,19 @@ export default function AvailabilityBoardClient({
                               {row.complex}
                             </p>
                           )}
+                          <span
+                            className={
+                              "mt-0.5 inline-block rounded px-1 py-px text-[9px] font-bold tabular-nums " +
+                              (row.qualityScore >= 90
+                                ? "bg-green-500/15 text-green-400"
+                                : row.qualityScore >= 70
+                                  ? "bg-amber-500/15 text-amber-400"
+                                  : "bg-red-500/15 text-red-400")
+                            }
+                            title={s.qualityTitle}
+                          >
+                            ★ {row.qualityScore}
+                          </span>
                         </div>
                         <div className="flex shrink-0 items-center gap-1.5">
                           {needCheck ? (

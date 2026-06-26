@@ -58,6 +58,32 @@ export function canOpenSellableGate(openCheckoutTaskCount: number): boolean {
   return openCheckoutTaskCount === 0;
 }
 
+/**
+ * 빌라 품질점수(0~100) — 청소 검수 통과율 (Phase 2, 테오 2026-06-26).
+ * 결정된 검수(현재 상태 APPROVED·REJECTED)가 0건이면 100(신규 빌라 중립 상위),
+ * 아니면 round(100 * 승인 / (승인+반려)). 판매 후순위 정렬 키.
+ * v1=현재 상태 기준(반려를 고쳐 재승인하면 회복). 누적 반려 이력 가중은 후속.
+ */
+export function computeQualityScore(approvedCount: number, rejectedCount: number): number {
+  const decided = approvedCount + rejectedCount;
+  if (decided <= 0) return 100;
+  return Math.round((approvedCount / decided) * 100);
+}
+
+/** 빌라의 현재 검수 이력으로 qualityScore 재계산·저장 (트랜잭션 주입). */
+export async function recomputeVillaQualityScore(
+  db: DbClient,
+  villaId: string
+): Promise<number> {
+  const [approved, rejected] = await Promise.all([
+    db.cleaningTask.count({ where: { villaId, status: CleaningStatus.APPROVED } }),
+    db.cleaningTask.count({ where: { villaId, status: CleaningStatus.REJECTED } }),
+  ]);
+  const qualityScore = computeQualityScore(approved, rejected);
+  await db.villa.update({ where: { id: villaId }, data: { qualityScore } });
+  return qualityScore;
+}
+
 /** 정기 방역 멱등 키 — Asia/Ho_Chi_Minh 기준 YYYY-MM */
 export function monthKeyVn(date: Date): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -249,6 +275,9 @@ export async function approveCleaningTask(
       }
     }
 
+    // 품질점수 재계산 — 이번 승인 반영(검수 통과율, Phase 2)
+    await recomputeVillaQualityScore(tx, task.villaId);
+
     await tx.notification.create({
       data: {
         userId: notifyTargetUserId(task, task.villa.supplierId),
@@ -306,6 +335,9 @@ export async function rejectCleaningTask(
     if (guarded.count !== 1) {
       throw new CleaningTransitionError(task.status, CleaningStatus.REJECTED);
     }
+
+    // 품질점수 재계산 — 이번 반려 반영(검수 통과율, Phase 2)
+    await recomputeVillaQualityScore(tx, task.villaId);
 
     await tx.notification.create({
       data: {

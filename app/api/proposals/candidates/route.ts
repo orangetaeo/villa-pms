@@ -40,10 +40,12 @@ export async function GET(req: Request) {
       where: { id: { in: sellableIds } },
       select: {
         id: true, name: true, complex: true, bedrooms: true, bathrooms: true, maxGuests: true, hasPool: true, breakfastAvailable: true,
+        qualityScore: true, // 판매 후순위 정렬·표시 (ADMIN 전용 — 본 route는 canSetPrice 게이트, ...villa로 응답 포함)
         // 대표 사진 1장 — b2 후보 카드용 additive (T2.1 FE 계약 허용 범위)
         photos: { select: { url: true }, orderBy: { sortOrder: "asc" }, take: 1 },
       },
-      orderBy: { name: "asc" },
+      // 판매 후순위: 품질점수 내림차순, 동점은 이름순 (Phase 2)
+      orderBy: [{ qualityScore: "desc" }, { name: "asc" }],
     });
 
     const warnings: { villaId: string; name: string; reason: string }[] = [];

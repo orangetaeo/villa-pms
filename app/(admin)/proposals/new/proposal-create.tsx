@@ -39,6 +39,7 @@ interface Candidate {
   maxGuests: number;
   hasPool: boolean;
   breakfastAvailable: boolean;
+  qualityScore: number; // 청소 검수 통과율(0~100) — 후순위 정렬·표시 (Phase 2)
   photoUrl: string | null;
   nights: number;
   totalSaleKrw: number | null;
@@ -523,6 +524,18 @@ export default function ProposalCreate() {
                             >
                               {c.name}
                             </h3>
+                            <span
+                              className={`mt-0.5 inline-block rounded px-1.5 py-px text-[10px] font-bold tabular-nums ${
+                                c.qualityScore >= 90
+                                  ? "bg-green-500/15 text-green-400"
+                                  : c.qualityScore >= 70
+                                    ? "bg-amber-500/15 text-amber-400"
+                                    : "bg-red-500/15 text-red-400"
+                              }`}
+                              title={t("qualityTitle")}
+                            >
+                              ★ {c.qualityScore}
+                            </span>
                           </div>
                           {isSelected ? (
                             <span className="material-symbols-outlined text-admin-primary icon-fill shrink-0">
