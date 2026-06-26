@@ -10,14 +10,16 @@ import path from "node:path";
 import { partnerInvoiceLocale } from "@/lib/partner-country";
 
 describe("파트너 국가 → 청구서 PDF 언어 매핑", () => {
-  it("KR=ko, VN=vi, 미지정=vi(기존동작), 그 외=en", () => {
+  it("KR=ko, VN=vi, CN=zh, RU=ru, US=en, 미지정=vi(기존동작), 그 외=en", () => {
     expect(partnerInvoiceLocale("KR")).toBe("ko");
     expect(partnerInvoiceLocale("VN")).toBe("vi");
+    expect(partnerInvoiceLocale("CN")).toBe("zh");
+    expect(partnerInvoiceLocale("RU")).toBe("ru");
+    expect(partnerInvoiceLocale("US")).toBe("en");
     expect(partnerInvoiceLocale(null)).toBe("vi");
     expect(partnerInvoiceLocale(undefined)).toBe("vi");
     expect(partnerInvoiceLocale("")).toBe("vi");
-    expect(partnerInvoiceLocale("CN")).toBe("en");
-    expect(partnerInvoiceLocale("RU")).toBe("en");
+    expect(partnerInvoiceLocale("XX")).toBe("en");
   });
 });
 
@@ -32,9 +34,10 @@ describe("PDF 한글 글리프 폴백 — 유실 재발 가드", () => {
     expect(src).toContain("export function mixedTextChildren");
   });
 
-  it("NanumGothic 폰트 파일(Regular/Bold)이 번들되어 있다", () => {
+  it("NanumGothic(한글)·NotoSansSC(중국어) 폰트가 번들되어 있다", () => {
     expect(existsSync(path.join(root, "assets/fonts/NanumGothic-Regular.ttf"))).toBe(true);
     expect(existsSync(path.join(root, "assets/fonts/NanumGothic-Bold.ttf"))).toBe(true);
+    expect(existsSync(path.join(root, "assets/fonts/NotoSansSC-Regular.ttf"))).toBe(true);
   });
 
   it("청구서·정산서 PDF가 공용 글리프 헬퍼로 텍스트를 감싼다", () => {
@@ -48,15 +51,17 @@ describe("PDF 한글 글리프 폴백 — 유실 재발 가드", () => {
 
   it("청구서 PDF는 라벨까지 글리프 폴백으로 감싼다 (ko 라벨 한글 깨짐 방지)", () => {
     const src = read("lib/partner-invoice-pdf.tsx");
-    // 정적 라벨(L.title 등)도 NotoSans로는 한글이 깨지므로 폴백 래퍼(T=mixedTextChildren)로 감쌀 것
-    expect(src).toContain("const T = mixedTextChildren");
+    // 정적 라벨(L.title 등)도 NotoSans로는 한글/한자가 깨지므로 폴백 래퍼 T로 감쌀 것
+    expect(src).toContain("mixedTextChildren(s, hanFont)");
     expect(src).toContain("{T(L.title)}");
     expect(src).toContain("{T(L.colVilla)}");
   });
 
-  it("청구서 PDF가 파트너 국가별 언어(ko/vi/en) 라벨 사전을 가진다", () => {
+  it("청구서 PDF가 파트너 국가별 언어(ko/vi/en/ru/zh) 라벨 사전을 가진다", () => {
     const src = read("lib/partner-invoice-pdf.tsx");
     expect(src).toContain("Record<InvoiceLocale, InvoiceLabels>");
-    for (const loc of ["vi:", "ko:", "en:"]) expect(src).toContain(loc);
+    for (const loc of ["vi:", "ko:", "en:", "ru:", "zh:"]) expect(src).toContain(loc);
+    // 중국어 청구서는 한자 런을 NotoSansSC로 라우팅
+    expect(src).toContain('"NotoSansSC"');
   });
 });

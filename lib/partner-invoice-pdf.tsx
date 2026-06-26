@@ -92,6 +92,40 @@ const LABELS: Record<InvoiceLocale, InvoiceLabels> = {
     outstanding: "Outstanding",
     note: "The amount above is the room charge payable to Villa Go. Please complete payment before the due date. For any questions, please contact Villa Go.",
   },
+  ru: {
+    title: "СЧЁТ НА ОПЛАТУ",
+    brand: "Villa Go",
+    partner: "Партнёр",
+    invoiceNo: "Номер счёта",
+    period: "Период",
+    due: "Срок оплаты",
+    issued: "Дата выставления",
+    colVilla: "Вилла",
+    colStay: "Период проживания",
+    colNights: "Ночей",
+    colAmount: "Сумма",
+    total: "Итого",
+    paid: "Оплачено",
+    outstanding: "Остаток",
+    note: "Указанная сумма — плата за проживание, подлежащая оплате Villa Go. Пожалуйста, оплатите до истечения срока. По всем вопросам обращайтесь в Villa Go.",
+  },
+  zh: {
+    title: "付款账单",
+    brand: "Villa Go",
+    partner: "合作伙伴",
+    invoiceNo: "账单编号",
+    period: "账单周期",
+    due: "付款期限",
+    issued: "开具日期",
+    colVilla: "别墅",
+    colStay: "入住期间",
+    colNights: "晚数",
+    colAmount: "金额",
+    total: "合计",
+    paid: "已付",
+    outstanding: "未付余额",
+    note: "上述金额为应支付给 Villa Go 的房费，请在期限前完成付款。如有疑问，请联系 Villa Go。",
+  },
 };
 
 const styles = StyleSheet.create({
@@ -155,9 +189,10 @@ const styles = StyleSheet.create({
 
 function InvoiceDocument({ model }: { model: InvoiceStatementModel }) {
   const L = LABELS[model.locale]; // 파트너 국가로 결정된 출력 언어
-  // 모든 텍스트(라벨 포함)에 한글 글리프 폴백 — ko 라벨이 한글이라 NotoSans로는 깨짐.
-  // 한글 런만 NanumGothic, 베트남어/라틴/숫자는 NotoSans 유지(혼합 안전).
-  const T = mixedTextChildren;
+  // 모든 텍스트(라벨 포함)에 글리프 폴백 — 라벨이 한글/한자면 NotoSans로는 깨짐.
+  // 한글→NanumGothic, 한자→(중국어 청구서) NotoSansSC / (그 외) NanumGothic, 라틴·키릴·숫자→NotoSans.
+  const hanFont = model.locale === "zh" ? "NotoSansSC" : "NanumGothic";
+  const T = (s: string) => mixedTextChildren(s, hanFont);
   return (
     <Document>
       <Page size="A4" style={styles.page}>
