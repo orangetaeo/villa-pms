@@ -3318,6 +3318,24 @@
         "MASSAGE": "Massage",
         "BARBER": "Cắt tóc",
         "FRUIT": "Trái cây"
+      },
+      "topItems": {
+        "title": "Top sản phẩm bán chạy",
+        "subtitle": "Vé·món nào bán nhiều nhất",
+        "empty": "Chưa có bán",
+        "item": "Sản phẩm",
+        "qty": "SL",
+        "revenueKrw": "DT KRW",
+        "revenueVnd": "DT VND"
+      },
+      "topVendors": {
+        "title": "Top nhà cung cấp",
+        "subtitle": "Dùng nhà cung cấp nào nhiều",
+        "empty": "Chưa có",
+        "vendor": "Nhà cung cấp",
+        "orders": "Số đơn",
+        "revenueVnd": "DT VND",
+        "payoutVnd": "Chi trả NCC (VND)"
       }
     },
     "ancillary": {

@@ -3318,6 +3318,24 @@
         "MASSAGE": "마사지",
         "BARBER": "이발",
         "FRUIT": "과일"
+      },
+      "topItems": {
+        "title": "품목별 판매 Top",
+        "subtitle": "어떤 티켓·메뉴가 많이 팔렸나",
+        "empty": "판매 내역 없음",
+        "item": "품목",
+        "qty": "수량",
+        "revenueKrw": "KRW 매출",
+        "revenueVnd": "VND 매출"
+      },
+      "topVendors": {
+        "title": "거래처별 이용 Top",
+        "subtitle": "어떤 업체를 많이 이용했나",
+        "empty": "이용 내역 없음",
+        "vendor": "거래처",
+        "orders": "건수",
+        "revenueVnd": "VND 매출",
+        "payoutVnd": "업체 지급(VND)"
       }
     },
     "ancillary": {

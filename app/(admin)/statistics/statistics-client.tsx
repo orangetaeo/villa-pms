@@ -489,6 +489,70 @@ function ServiceSection({ data }: { data: ServiceOrderStats }) {
           )}
         </div>
       </div>
+
+      {/* 품목별(어떤 티켓·메뉴) · 거래처별(어떤 업체) 이용 — 2단 */}
+      <div className="grid grid-cols-12 gap-6">
+        <div className="col-span-12 xl:col-span-6 bg-admin-card rounded-xl border border-slate-700/50 p-5">
+          <h3 className="font-bold text-white mb-1">{t("services.topItems.title")}</h3>
+          <p className="text-[11px] text-slate-500 mb-4">{t("services.topItems.subtitle")}</p>
+          {data.topItems.length === 0 ? (
+            <p className="text-sm text-admin-muted text-center py-8">{t("services.topItems.empty")}</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[11px] text-admin-muted uppercase tracking-wider border-b border-slate-700/50">
+                  <th className="text-left font-medium py-2">{t("services.topItems.item")}</th>
+                  <th className="text-right font-medium py-2">{t("services.topItems.qty")}</th>
+                  <th className="text-right font-medium py-2">{t("services.topItems.revenueKrw")}</th>
+                  <th className="text-right font-medium py-2">{t("services.topItems.revenueVnd")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.topItems.map((row, i) => (
+                  <tr key={`${row.itemId}-${i}`} className="border-b border-slate-800/60 last:border-0">
+                    <td className="py-2 text-slate-200 truncate max-w-[10rem]">
+                      <span className="text-[10px] text-slate-500 mr-1.5">{t(`services.types.${row.type}`)}</span>
+                      {row.label}
+                    </td>
+                    <td className="py-2 text-right text-slate-400 tabular-nums">{row.quantity}</td>
+                    <td className="py-2 text-right text-admin-krw tabular-nums">{row.revenueKrwText}</td>
+                    <td className="py-2 text-right text-admin-vnd tabular-nums font-medium">{row.revenueVndText}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="col-span-12 xl:col-span-6 bg-admin-card rounded-xl border border-slate-700/50 p-5">
+          <h3 className="font-bold text-white mb-1">{t("services.topVendors.title")}</h3>
+          <p className="text-[11px] text-slate-500 mb-4">{t("services.topVendors.subtitle")}</p>
+          {data.topVendors.length === 0 ? (
+            <p className="text-sm text-admin-muted text-center py-8">{t("services.topVendors.empty")}</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[11px] text-admin-muted uppercase tracking-wider border-b border-slate-700/50">
+                  <th className="text-left font-medium py-2">{t("services.topVendors.vendor")}</th>
+                  <th className="text-right font-medium py-2">{t("services.topVendors.orders")}</th>
+                  <th className="text-right font-medium py-2">{t("services.topVendors.revenueVnd")}</th>
+                  <th className="text-right font-medium py-2">{t("services.topVendors.payoutVnd")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.topVendors.map((row, i) => (
+                  <tr key={`${row.vendorId}-${i}`} className="border-b border-slate-800/60 last:border-0">
+                    <td className="py-2 text-slate-200 truncate max-w-[10rem]">{row.name}</td>
+                    <td className="py-2 text-right text-slate-400 tabular-nums">{row.orderCount}</td>
+                    <td className="py-2 text-right text-admin-vnd tabular-nums font-medium">{row.revenueVndText}</td>
+                    <td className="py-2 text-right text-amber-300/90 tabular-nums">{row.payoutVndText}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
