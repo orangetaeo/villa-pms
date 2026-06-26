@@ -172,12 +172,15 @@ function makeGateFake(opts: GateFakeOpts) {
       updateMany: vi.fn(async () => ({ count: 1 })),
       // count 호출 순서: (PERIODIC일 때) ① APPROVED 수 → ② 미결 CHECKOUT / (CHECKOUT일 때) ① 미결 CHECKOUT
       count: vi.fn(),
+      // v2 품질점수 재계산(recomputeVillaQualityScore)이 호출 — 빈 목록이면 점수 100 조기반환(게이트 테스트는 점수 무관)
+      findMany: vi.fn(async () => []),
       findUniqueOrThrow: vi.fn(async () => ({ id: "task1", status: "APPROVED" })),
     },
+    auditLog: { count: vi.fn(async () => 0) },
     villa: { update: villaUpdate },
     notification: { create: vi.fn(async () => ({ id: "n1" })) },
   };
-  // 품질점수 재계산(recomputeVillaQualityScore)이 게이트 이후 호출하는 count 2건의 기본값(0)
+  // count 는 이제 게이트 판정에서만 소비(품질점수는 findMany/auditLog 경로). 기본값 0
   tx.cleaningTask.count.mockResolvedValue(0);
   if (opts.taskType === "CHECKOUT") {
     tx.cleaningTask.count.mockResolvedValueOnce(opts.openCheckoutCount);
