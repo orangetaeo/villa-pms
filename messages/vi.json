@@ -59,6 +59,47 @@
       "generic": "Xử lý thất bại. Vui lòng thử lại."
     }
   },
+  "vendor": {
+    "title": "Đơn đặt hàng",
+    "subtitle": "Đơn đặt hàng nhận được và lịch giao của bạn.",
+    "loading": "Đang tải...",
+    "loadError": "Tải thất bại. Nhấn để thử lại.",
+    "submitting": "Đang xử lý...",
+    "payLabel": "Số tiền thanh toán",
+    "accept": "Nhận đơn",
+    "reject": "Từ chối",
+    "tab": {
+      "inbox": "Đơn mới",
+      "schedule": "Lịch giao",
+      "settlement": "Thanh toán"
+    },
+    "status": {
+      "accepted": "Đã nhận"
+    },
+    "empty": {
+      "inbox": "Chưa có đơn mới",
+      "inboxHint": "Đơn đặt hàng mới sẽ hiện ở đây.",
+      "schedule": "Chưa có lịch giao",
+      "scheduleHint": "Đơn bạn đã nhận sẽ hiện ở đây.",
+      "settlement": "Chưa có khoản thanh toán",
+      "settlementHint": "Số tiền cho đơn đã nhận sẽ hiện ở đây."
+    },
+    "settle": {
+      "pendingTotal": "Chờ thanh toán",
+      "paidTotal": "Đã thanh toán",
+      "pendingTitle": "Chờ thanh toán",
+      "paidTitle": "Đã thanh toán",
+      "pending": "Chờ thanh toán",
+      "paid": "Đã thanh toán"
+    },
+    "rejectSheet": {
+      "title": "Từ chối đơn này?",
+      "placeholder": "Lý do từ chối (không bắt buộc)",
+      "cancel": "Hủy",
+      "confirm": "Từ chối"
+    },
+    "firstLoginNotice": "Bạn đang dùng mật khẩu tạm thời. Hãy đổi sang mật khẩu riêng để bắt đầu nhận đơn."
+  },
   "pagination": {
     "summary": "{from}–{to} · Tổng {total}",
     "perPage": "Mỗi trang",
@@ -1442,7 +1483,24 @@
       "saving": "Đang lưu...",
       "cancel": "Hủy",
       "validationFailed": "Vui lòng kiểm tra dữ liệu nhập."
-    }
+    },
+    "createAccountButton": "Tạo tài khoản đăng nhập",
+    "accountModalTitle": "Tạo tài khoản đăng nhập cho nhà cung cấp",
+    "accountModalDesc": "Tạo tài khoản để nhà cung cấp đăng nhập vào trang /vendor. Nhập số điện thoại và mật khẩu tạm thời, sau khi tạo hãy chuyển trực tiếp cho nhà cung cấp.",
+    "accountPhone": "Số điện thoại",
+    "accountPhonePlaceholder": "VD: 0901234567",
+    "accountPassword": "Mật khẩu tạm thời (từ 8 ký tự)",
+    "accountPasswordPlaceholder": "Mật khẩu tạm thời",
+    "accountCreate": "Tạo tài khoản",
+    "accountCreating": "Đang tạo...",
+    "accountCancel": "Hủy",
+    "accountCreated": "Đã tạo tài khoản. Hãy chuyển số điện thoại và mật khẩu tạm thời cho nhà cung cấp.",
+    "accountPhoneTaken": "Số điện thoại đã được sử dụng.",
+    "accountExists": "Nhà cung cấp này đã có tài khoản liên kết.",
+    "accountError": "Tạo tài khoản thất bại. Vui lòng thử lại.",
+    "accountUnlink": "Hủy liên kết tài khoản",
+    "accountUnlinkConfirm": "Hủy liên kết tài khoản đăng nhập của nhà cung cấp này? Tài khoản sẽ bị vô hiệu hóa và không thể đăng nhập.",
+    "accountUnlinked": "Đã hủy liên kết tài khoản."
   },
   "adminServices": {
     "title": "Danh mục dịch vụ",

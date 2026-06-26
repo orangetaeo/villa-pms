@@ -69,6 +69,11 @@ export default function VendorsManager({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  // 로그인 계정 생성 모달 — 대상 공급자 + 입력값
+  const [accountVendor, setAccountVendor] = useState<VendorRow | null>(null);
+  const [accountPhone, setAccountPhone] = useState("");
+  const [accountPassword, setAccountPassword] = useState("");
+  const [accountError, setAccountError] = useState<string | null>(null);
 
   const refresh = () => router.refresh();
   const fail = () => setMessage({ ok: false, text: t("error") });
@@ -189,6 +194,64 @@ export default function VendorsManager({
     }
   }
 
+  function openAccount(v: VendorRow) {
+    setAccountVendor(v);
+    setAccountPhone(v.phone || "");
+    setAccountPassword("");
+    setAccountError(null);
+  }
+
+  async function handleCreateAccount() {
+    if (!accountVendor) return;
+    setAccountError(null);
+    if (accountPassword.trim().length < 8) {
+      setAccountError(t("form.validationFailed"));
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/vendors/${accountVendor.id}/account`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: accountPhone.trim(),
+          password: accountPassword,
+        }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        if (data.error === "PHONE_TAKEN") setAccountError(t("accountPhoneTaken"));
+        else if (data.error === "ACCOUNT_EXISTS") setAccountError(t("accountExists"));
+        else setAccountError(t("accountError"));
+        return;
+      }
+      setAccountVendor(null);
+      setMessage({ ok: true, text: t("accountCreated") });
+      refresh();
+    } catch {
+      setAccountError(t("accountError"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleUnlinkAccount(v: VendorRow) {
+    if (!confirm(t("accountUnlinkConfirm"))) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/vendors/${v.id}/account`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setMessage({ ok: true, text: t("accountUnlinked") });
+      refresh();
+    } catch {
+      fail();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section className="space-y-5">
       <div className="flex items-center justify-between gap-3">
@@ -277,10 +340,34 @@ export default function VendorsManager({
                         {t("catalogBadge", { n: v.catalogCount })}
                       </span>
                     )}
-                    {v.hasAccount && (
-                      <span className="bg-sky-500/15 text-sky-400 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
-                        {t("accountBadge")}
+                    {v.hasAccount ? (
+                      <span className="flex items-center gap-1.5">
+                        <span className="bg-sky-500/15 text-sky-400 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">
+                          {t("accountBadge")}
+                        </span>
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={() => handleUnlinkAccount(v)}
+                            disabled={busy}
+                            className="text-[10px] font-medium text-slate-500 hover:text-red-400 underline underline-offset-2 disabled:opacity-50 whitespace-nowrap"
+                          >
+                            {t("accountUnlink")}
+                          </button>
+                        )}
                       </span>
+                    ) : (
+                      canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => openAccount(v)}
+                          disabled={busy}
+                          className="flex items-center gap-1 bg-slate-700/60 hover:bg-slate-600/60 text-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap disabled:opacity-50 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[12px]">person_add</span>
+                          {t("createAccountButton")}
+                        </button>
+                      )
                     )}
                     {showBank && v.bankInfo && (v.bankInfo.bank || v.bankInfo.account) && (
                       <span className="bg-emerald-500/15 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap flex items-center gap-1">
@@ -349,7 +436,129 @@ export default function VendorsManager({
           t={t}
         />
       )}
+
+      {accountVendor && canEdit && (
+        <AccountModal
+          vendorName={accountVendor.name}
+          phone={accountPhone}
+          setPhone={setAccountPhone}
+          password={accountPassword}
+          setPassword={setAccountPassword}
+          busy={busy}
+          error={accountError}
+          onCreate={handleCreateAccount}
+          onClose={() => setAccountVendor(null)}
+          t={t}
+        />
+      )}
     </section>
+  );
+}
+
+// ── 로그인 계정 생성 모달 (ADR-0023 §6) ────────────────────────────────────────
+// 전화·임시비번 입력 → POST /api/vendors/[id]/account. 생성 후 공급자에게 전달 안내.
+function AccountModal({
+  vendorName,
+  phone,
+  setPhone,
+  password,
+  setPassword,
+  busy,
+  error,
+  onCreate,
+  onClose,
+  t,
+}: {
+  vendorName: string;
+  phone: string;
+  setPhone: (v: string) => void;
+  password: string;
+  setPassword: (v: string) => void;
+  busy: boolean;
+  error: string | null;
+  onCreate: () => void;
+  onClose: () => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const inputCls =
+    "mt-1 w-full bg-admin-bg border border-slate-700 rounded px-2.5 py-1.5 text-sm text-white focus:border-admin-primary focus:outline-none";
+  const labelCls = "text-xs text-slate-500";
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] bg-black/60 flex items-start justify-center overflow-y-auto p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-admin-card border-2 border-admin-primary/40 rounded-xl w-full max-w-md my-8 p-5 space-y-3.5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-800">
+          <h3 className="font-bold text-white text-sm flex items-center gap-2">
+            <span className="material-symbols-outlined text-admin-primary">person_add</span>
+            {t("accountModalTitle")}
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t("accountCancel")}
+            className="text-slate-500 hover:text-white"
+          >
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <p className="text-xs text-slate-400 leading-relaxed">
+          <span className="font-bold text-slate-300">{vendorName}</span>
+          {" — "}
+          {t("accountModalDesc")}
+        </p>
+
+        <div>
+          <label className={labelCls}>{t("accountPhone")}</label>
+          <input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder={t("accountPhonePlaceholder")}
+            maxLength={40}
+            className={inputCls}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>{t("accountPassword")}</label>
+          <input
+            type="text"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={t("accountPasswordPlaceholder")}
+            maxLength={100}
+            className={inputCls}
+          />
+        </div>
+
+        {error && <p className="text-xs text-red-400 font-medium">{error}</p>}
+
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="px-4 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white disabled:opacity-50 whitespace-nowrap"
+          >
+            {t("accountCancel")}
+          </button>
+          <button
+            type="button"
+            onClick={onCreate}
+            disabled={busy}
+            className="bg-admin-primary hover:bg-blue-600 disabled:opacity-50 text-white px-6 py-2 rounded-lg font-bold text-sm flex items-center gap-1.5 whitespace-nowrap transition-all"
+          >
+            <span className="material-symbols-outlined text-base">person_add</span>
+            {busy ? t("accountCreating") : t("accountCreate")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
