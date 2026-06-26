@@ -26,6 +26,8 @@ const dateOnly = z
 const createSchema = z.object({
   clientName: z.string().trim().min(1, "고객명(여행사명)은 필수입니다"),
   channel: z.enum(["TRAVEL_AGENCY", "LAND_AGENCY", "DIRECT"]),
+  partnerId: z.string().min(1).optional(), // 여행사·랜드사 파트너 연결(선택). 없으면 일반 소비자
+
   saleCurrency: z.enum(["KRW", "VND"]).optional(), // 미지정 시 채널 기본값
   expiresInHours: z.number().int().min(1).max(336).optional(),
   note: z.string().trim().max(2000).optional(),
