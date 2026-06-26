@@ -145,6 +145,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       priceKrw,
       priceVnd: pricing.totalPriceVnd,
       catalogItemId: item.id,
+      vendorId: item.vendorId, // 원천 공급자 스냅샷 — 운영자 발주(dispatch) 대상 (ADR-0023 §4.3)
       quantity: pricing.quantity,
       selectedOptions: pricing.snapshot as unknown as Prisma.InputJsonValue,
       requestedVia: "ADMIN",
