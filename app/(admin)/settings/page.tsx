@@ -165,6 +165,23 @@ export default async function SettingsPage() {
         </span>
       </Link>
 
+      {/* Card 6c: 원천 공급자 (ADR-0023 S1) — 부가서비스 발주·정산 거래처. 별도 페이지 링크 */}
+      <Link
+        href="/settings/vendors"
+        className="flex items-center justify-between bg-admin-card border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-colors group"
+      >
+        <div className="flex items-center gap-4">
+          <span className="material-symbols-outlined text-admin-primary text-3xl">storefront</span>
+          <div>
+            <h2 className="text-lg font-bold text-white">{t("vendorsCardTitle")}</h2>
+            <p className="text-sm text-slate-500 mt-0.5">{t("vendorsCardDesc")}</p>
+          </div>
+        </div>
+        <span className="text-sm font-bold text-admin-primary group-hover:underline whitespace-nowrap">
+          {t("vendorsCardCta")} →
+        </span>
+      </Link>
+
       {/* Card 7: Zalo 봇 연결 (ADR-0006) — 별도 페이지 링크 */}
       <Link
         href="/settings/zalo"

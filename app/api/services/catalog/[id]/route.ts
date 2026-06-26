@@ -7,7 +7,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { canViewFinance, canSetPrice, type Role } from "@/lib/permissions";
-import { validateCatalogItem, SERVICE_TYPE_VALUES } from "@/lib/service-catalog";
+import { validateCatalogItem, SERVICE_TYPE_VALUES, parseAudiences } from "@/lib/service-catalog";
 import { buildCatalogI18n } from "@/lib/service-i18n";
 import { Prisma } from "@prisma/client";
 
@@ -33,6 +33,9 @@ const patchSchema = z.object({
     })
     .optional()
     .nullable(),
+  // ADR-0023 — 원천 공급자 + 요청 주체 자격
+  vendorId: z.string().min(1).max(40).optional().nullable(),
+  audiences: z.array(z.enum(["ADMIN", "PARTNER", "GUEST"])).max(3).optional(),
   active: z.boolean().optional(),
   sortOrder: z.number().int().min(0).max(9999).optional(),
 });
@@ -68,6 +71,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const existing = await prisma.serviceCatalogItem.findUnique({ where: { id }, select: { id: true } });
   if (!existing) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
 
+  // 원천 공급자 — 지정되면 존재·active 검증(없으면 직접 제공). ADR-0023 §4.1.
+  if (d.vendorId) {
+    const vendor = await prisma.serviceVendor.findUnique({
+      where: { id: d.vendorId },
+      select: { id: true, active: true },
+    });
+    if (!vendor || !vendor.active) {
+      return NextResponse.json({ error: "VENDOR_NOT_FOUND" }, { status: 400 });
+    }
+  }
+  // 요청 주체 자격 정규화(항상 ADMIN 포함).
+  const audiences = parseAudiences(d.audiences);
+
   // costVnd: canViewFinance만 갱신 — STAFF/MANAGER 권한별. 미권한자는 기존값 보존(undefined로 미변경).
   const costUpdate =
     canFinance
@@ -90,6 +106,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       priceVnd: BigInt(d.priceVnd),
       photoUrl: d.photoUrl ?? null,
       options: i18n.options != null ? (i18n.options as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+      vendorId: d.vendorId ?? null,
+      audiences: audiences as unknown as Prisma.InputJsonValue,
       ...(d.active !== undefined ? { active: d.active } : {}),
       ...(d.sortOrder !== undefined ? { sortOrder: d.sortOrder } : {}),
       ...costUpdate,

@@ -12,7 +12,8 @@
 // 시스템 통제 경계선: OWNER (vs MANAGER·STAFF)
 
 /** 시스템 전체 역할 — lib/permissions.ts가 단일 출처(types/next-auth.d.ts가 재사용) */
-export type Role = "OWNER" | "MANAGER" | "STAFF" | "ADMIN" | "SUPPLIER" | "CLEANER";
+//   VENDOR = 부가서비스 원천 공급자 로그인 계정(ADR-0023). 운영자 아님 — 모든 capability false.
+export type Role = "OWNER" | "MANAGER" | "STAFF" | "ADMIN" | "SUPPLIER" | "CLEANER" | "VENDOR";
 
 /** 운영자 역할 집합 — ADMIN은 transition 동안 OWNER 동일취급으로 포함 (S-RBAC-2서 제거) */
 const OPERATORS: Role[] = ["OWNER", "MANAGER", "STAFF", "ADMIN"];

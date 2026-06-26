@@ -12,6 +12,7 @@ import {
 } from "./agreement";
 import { effectivePar } from "./minibar-inventory";
 import { getFxVndPerKrw } from "./pricing";
+import { parseAudiences } from "./service-catalog";
 
 /** 동의서 언어맵(lib/agreement의 LangMap과 동형) — 미export 타입 회피. */
 type LangMap = typeof AGREEMENT_DOC_TITLE;
@@ -134,13 +135,14 @@ export async function loadGuestCheckin(
       select: { minibarItemId: true, qty: true },
     }),
     // ★ costVnd 미포함 — 게스트 비노출(판매가만 VND). KRW는 fxVndPerKrw로 표시 시점 파생.
+    //   audiences 포함 — 게스트(GUEST) 자격 항목만 노출(과일 바구니=PARTNER 전용은 제외, ADR-0023 §9.2).
     prisma.serviceCatalogItem.findMany({
       where: { active: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       select: {
         id: true, type: true, nameKo: true, nameI18n: true,
         descKo: true, descI18n: true, unitLabelKo: true,
-        priceVnd: true, photoUrl: true, options: true,
+        priceVnd: true, photoUrl: true, options: true, audiences: true,
       },
     }),
     prisma.serviceOrder.findMany({
@@ -178,7 +180,10 @@ export async function loadGuestCheckin(
     amenities: amenityRows,
     minibar,
     fxVndPerKrw,
-    catalog: catalogRows.map((c) => ({
+    // 게스트 자격(GUEST) 항목만 — audiences에 GUEST 없는 항목(과일 바구니 등) 비노출(ADR-0023)
+    catalog: catalogRows
+      .filter((c) => parseAudiences(c.audiences).includes("GUEST"))
+      .map((c) => ({
       id: c.id,
       type: c.type,
       nameKo: c.nameKo,

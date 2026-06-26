@@ -7,7 +7,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { guestTokenState } from "@/lib/guest-checkin";
-import { parseCatalogOptions, resolveOrderPricing, ServiceSelectionError } from "@/lib/service-catalog";
+import { parseCatalogOptions, resolveOrderPricing, ServiceSelectionError, parseAudiences } from "@/lib/service-catalog";
 import { priceKrwCeil } from "@/lib/service-display";
 import { getFxVndPerKrw } from "@/lib/pricing";
 import { parseUtcDateOnly } from "@/lib/date-vn";
@@ -56,7 +56,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   }
 
   const item = await prisma.serviceCatalogItem.findUnique({ where: { id: d.catalogItemId } });
-  if (!item || !item.active) {
+  // 게스트 자격(GUEST) 항목만 주문 가능 — 과일 바구니 등 PARTNER 전용은 차단(ADR-0023 §9.2, id 추측 방지).
+  if (!item || !item.active || !parseAudiences(item.audiences).includes("GUEST")) {
     return NextResponse.json({ error: "CATALOG_ITEM_NOT_FOUND" }, { status: 404 });
   }
 

@@ -1196,7 +1196,10 @@
     "zaloCardCta": "관리",
     "servicesCardTitle": "서비스 카탈로그",
     "servicesCardDesc": "BBQ·입장권·차량 등 부가서비스 판매 메뉴와 옵션·가격을 관리합니다.",
-    "servicesCardCta": "관리"
+    "servicesCardCta": "관리",
+    "vendorsCardTitle": "원천 공급자",
+    "vendorsCardDesc": "부가서비스를 발주·정산하는 외부 거래처(과일가게·BBQ업체 등)를 관리합니다.",
+    "vendorsCardCta": "관리"
   },
   "inventory": {
     "title": "미니바 재고",
@@ -1284,6 +1287,55 @@
     "saved": "저장되었습니다",
     "error": "저장에 실패했습니다"
   },
+  "adminVendors": {
+    "title": "원천 공급자",
+    "subtitle": "부가서비스를 발주·정산하는 외부 거래처를 관리합니다. 요청이 오면 이 공급자에게 발주하고, 공급자 응답 후 고객에 확정합니다.",
+    "back": "설정으로",
+    "forbidden": "이 화면을 볼 권한이 없습니다.",
+    "addButton": "공급자 추가",
+    "empty": "등록된 원천 공급자가 없습니다. 위에서 추가하세요.",
+    "active": "거래중",
+    "inactive": "중단",
+    "edit": "수정",
+    "delete": "삭제",
+    "deleteConfirm": "이 공급자를 삭제할까요?",
+    "deleted": "삭제되었습니다",
+    "saved": "저장되었습니다",
+    "error": "저장에 실패했습니다. 다시 시도해주세요.",
+    "inUseWarning": "연결된 카탈로그·발주가 있어 삭제할 수 없습니다. 대신 비활성화하세요.",
+    "noZalo": "Zalo 미설정 (발주 알림 불가)",
+    "catalogBadge": "연결 카탈로그 {n}",
+    "accountBadge": "계정 연결됨",
+    "bankBadge": "정산계좌",
+    "form": {
+      "createTitle": "공급자 추가",
+      "editTitle": "공급자 편집 — {name}",
+      "name": "거래처명",
+      "namePlaceholder": "예: 푸꾸옥 과일가게 A",
+      "nameRequired": "거래처명은 필수입니다.",
+      "nameKo": "한국어명 (선택)",
+      "nameKoPlaceholder": "예: 과일가게A",
+      "phone": "전화번호",
+      "phonePlaceholder": "예: 0901234567",
+      "zaloUserId": "Zalo ID",
+      "zaloPlaceholder": "Zalo 사용자 ID",
+      "zaloHint": "발주 알림 수신용. 미설정 시 자동 발주가 불가합니다.",
+      "bankTitle": "정산 계좌 (운영자 전용)",
+      "bank": "은행",
+      "bankPlaceholder": "예: Vietcombank",
+      "account": "계좌번호",
+      "accountPlaceholder": "계좌번호",
+      "holder": "예금주",
+      "holderPlaceholder": "예금주명",
+      "note": "메모",
+      "notePlaceholder": "선택 입력",
+      "active": "거래 활성",
+      "save": "저장",
+      "saving": "저장 중...",
+      "cancel": "취소",
+      "validationFailed": "입력값을 확인하세요."
+    }
+  },
   "adminServices": {
     "title": "서비스 카탈로그",
     "subtitle": "BBQ·입장권·차량 등 부가서비스 판매 메뉴를 관리합니다. 게스트는 판매가만 보며 매입원가·마진은 비공개입니다.",
@@ -1311,7 +1363,8 @@
       "BREAKFAST": "조식",
       "MOTORBIKE_RENTAL": "오토바이",
       "MASSAGE": "마사지",
-      "BARBER": "이발"
+      "BARBER": "이발",
+      "FRUIT": "과일"
     },
     "form": {
       "createTitle": "메뉴 추가",
@@ -1361,7 +1414,15 @@
       "photoRemove": "사진 제거",
       "uploading": "업로드 중…",
       "uploadError": "사진 업로드에 실패했습니다. 다시 시도하세요.",
-      "krwPreview": "≈ ₩{krw} (환율 자동)"
+      "krwPreview": "≈ ₩{krw} (환율 자동)",
+      "vendor": "원천 공급자",
+      "vendorNone": "없음 (직접 제공)",
+      "vendorHint": "요청이 오면 이 공급자에게 발주합니다. 미지정이면 직접 제공으로 처리됩니다.",
+      "audiences": "요청 가능 채널",
+      "audienceAdmin": "운영자",
+      "audienceAdminLocked": "(항상 가능)",
+      "audiencePartner": "여행사/랜드사",
+      "audienceGuest": "소비자(게스트)"
     },
     "filters": {
       "allTypes": "전체"

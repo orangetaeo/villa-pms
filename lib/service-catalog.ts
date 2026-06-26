@@ -30,10 +30,42 @@ export const SERVICE_TYPE_VALUES: readonly ServiceType[] = [
   "MOTORBIKE_RENTAL",
   "MASSAGE",
   "BARBER",
+  "FRUIT",
 ] as const;
 
 export function isServiceCatalogType(v: string): v is ServiceType {
   return (SERVICE_TYPE_VALUES as readonly string[]).includes(v);
+}
+
+// ── 요청 주체 자격(audience) — 어느 채널에서 이 항목을 요청할 수 있는가 (ADR-0023 §4.2) ─────
+//   ADMIN=운영자 항상 가능(보장), PARTNER=여행사/랜드사, GUEST=게스트 /g/[token].
+//   카탈로그 audiences 배열로 채널별 서버 필터. 항상 ADMIN을 포함한다(운영자는 모든 항목 요청 가능).
+export type ServiceAudience = "ADMIN" | "PARTNER" | "GUEST";
+
+export const SERVICE_AUDIENCE_VALUES: readonly ServiceAudience[] = ["ADMIN", "PARTNER", "GUEST"] as const;
+
+function isServiceAudience(v: unknown): v is ServiceAudience {
+  return typeof v === "string" && (SERVICE_AUDIENCE_VALUES as readonly string[]).includes(v);
+}
+
+/**
+ * audiences 정규화 — 배열에서 유효 값만 추출, 항상 ADMIN 포함 보장, 중복 제거. 순수.
+ *   빈/잘못된 입력 → ["ADMIN"]. 저장 직전·읽기 시 신뢰 가능한 형태로 만든다.
+ */
+export function parseAudiences(raw: unknown): ServiceAudience[] {
+  const set = new Set<ServiceAudience>(["ADMIN"]); // ADMIN은 항상 포함
+  if (Array.isArray(raw)) {
+    for (const v of raw) {
+      if (isServiceAudience(v)) set.add(v);
+    }
+  }
+  // 정의 순서(ADMIN→PARTNER→GUEST)로 안정적 반환
+  return SERVICE_AUDIENCE_VALUES.filter((a) => set.has(a));
+}
+
+/** audiences 입력 검증 — 배열이고 모든 원소가 유효 enum이면 true. 순수. */
+export function validateAudiences(raw: unknown): boolean {
+  return Array.isArray(raw) && raw.every(isServiceAudience);
 }
 
 /** 옵션 1개 정의 — variant/addon은 절대가격, modifier는 가산delta(같은 필드 재사용). 가격은 VND 전용. */

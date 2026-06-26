@@ -32,6 +32,7 @@ enum Role {
   STAFF // 직원 — 운영 실무, 돈(마진·KRW·정산)만 차단 (ADR-0013)
   SUPPLIER // 중계인·부동산·분양자
   CLEANER // 청소 담당
+  VENDOR // 원천 공급자 — 부가서비스(과일·BBQ·렌트 등) 외부 거래처, /vendor 대시보드 (ADR-0023)
 }
 
 model User {
@@ -55,6 +56,7 @@ model User {
   settlements   Settlement[]
   notifications Notification[]
   auditLogs     AuditLog[]
+  vendorAccount ServiceVendor? @relation("VendorAccount") // 원천 공급자 로그인 계정 (Role=VENDOR, ADR-0023)
 
   // Zalo 멀티 관리자 (ADR-0007) — 역관계 1:N화
   zaloAccounts          ZaloAccount[]      @relation("AdminZaloAccounts") // 관리자가 소유한 봇 계정 (개인 + (테오만)시스템)
@@ -749,6 +751,7 @@ enum ServiceType {
   MOTORBIKE_RENTAL // 오토바이 렌트 (ADR-0019)
   MASSAGE // 마사지 — 풋/바디(아로마·핫스톤·건식), 출장 옵션 (ADR-0019)
   BARBER // 이발소(귀) — 시간 + 세부시술 (ADR-0019)
+  FRUIT // 과일 — 바구니·도시락(카탈로그 항목으로 구분) (ADR-0023)
 }
 
 enum ServiceOrderStatus {
@@ -758,10 +761,41 @@ enum ServiceOrderStatus {
   CANCELLED
 }
 
-// 부가서비스 주문 출처 — 게스트 셀프 요청(GUEST) vs 운영자 직접(ADMIN). ADR-0019.
+// 부가서비스 주문 출처 — 운영자 직접(ADMIN)·게스트 셀프(GUEST)·여행사/랜드사(PARTNER). ADR-0019/0023.
 enum ServiceRequestedVia {
   ADMIN
   GUEST
+  PARTNER // 여행사/랜드사 요청 (/p/[token]) (ADR-0023)
+}
+
+// 발주 게이트 — 원천 공급자 가부. 공급자 수락 후에야 운영자가 고객에 확정(2단계). ADR-0023 §4.3.
+enum ServiceVendorStatus {
+  PENDING_VENDOR // 발주 발송, 공급자 응답 대기
+  VENDOR_ACCEPTED // 공급자 수락 → 운영자 고객확정 가능
+  VENDOR_REJECTED // 공급자 거절 → 운영자 대체 지정 또는 취소
+}
+
+// 원천 공급자(부가서비스 외부 거래처) — 빌라 SUPPLIER와 무관한 별도 엔티티. ADR-0023 §4.1.
+//   우리가 중계: 요청 → Zalo 발주 → 공급자 /vendor에서 가부 → 우리 확정·정산.
+//   ★ 공급자는 자기 발주의 costVnd(=우리 지급액)만. 우리 판매가·마진·타 공급자 발주 절대 비노출.
+model ServiceVendor {
+  id         String   @id @default(cuid())
+  userId     String?  @unique // 로그인 계정(Role=VENDOR). 엔티티≠계정 분리, 선택적 1:1
+  user       User?    @relation("VendorAccount", fields: [userId], references: [id], onDelete: SetNull)
+  name       String // 거래처명(예: "푸꾸옥 과일가게 A")
+  nameKo     String? // 운영자 표시용(한국어), 선택
+  phone      String?
+  zaloUserId String? // ★ Zalo 발주 발송 대상(없으면 자동 발주 불가 — 운영자 경보)
+  bankInfo   Json? // 정산 계좌(은행·계좌·예금주) — ★운영자(canViewFinance) 전용
+  note       String?
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  catalogItems ServiceCatalogItem[]
+  orders       ServiceOrder[]
+
+  @@index([active])
 }
 
 // 부가서비스 판매 카탈로그(주문형) — 회사 공통 1세트(미니바와 동형, villaId 없음). ADR-0019 §4.2.
@@ -784,6 +818,10 @@ model ServiceCatalogItem {
   costVnd     BigInt? // 참고 매입원가 VND — ★게스트·공급자 비노출
   photoUrl    String? // 이미지 업로드 결과 URL(/api/uploads)
   options     Json? // {variants:[{key,labelKo,labelI18n,priceVnd},...], addons, modifiers} — 라벨도 자동번역
+  // ADR-0023 — 원천 공급자 + 요청 주체 자격
+  vendorId    String? // 원천 공급자(발주 대상). 활성 항목은 UI 필수, 미지정=직접 제공
+  vendor      ServiceVendor? @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  audiences   Json        @default("[\"ADMIN\"]") // 요청 가능 채널 ["ADMIN"|"PARTNER"|"GUEST"] — 채널별 카탈로그 서버 필터
   active      Boolean     @default(true)
   sortOrder   Int         @default(0)
   createdAt   DateTime    @default(now())
@@ -811,7 +849,19 @@ model ServiceOrder {
   requestedVia    ServiceRequestedVia @default(ADMIN)
   guestNote       String?
   priceVnd        BigInt? // 판매가 VND (스냅샷, 현지·여행사 채널)
+  // ADR-0023 — 원천 공급자 발주 게이트 + 건별 정산 (로직은 S2)
+  vendorId           String? // 이 주문의 원천 공급자(카탈로그 vendorId 스냅샷, 운영자 대체 가능)
+  vendor             ServiceVendor?        @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  vendorStatus       ServiceVendorStatus? // 발주 게이트 상태. 공급자 없는 직접 제공은 null
+  poSentAt           DateTime? // Zalo 발주 발송 시각
+  vendorRespondedAt  DateTime? // 공급자 가부 응답 시각
+  vendorRejectReason String? // 거절 사유(공급자 입력)
+  vendorSettledAt    DateTime? // 발주 정산 완료 시각(null=미정산). 정산액=costVnd×quantity
+  vendorSettleMethod GuestSettlementMethod? // CASH | BANK_TRANSFER | OTHER (재사용)
+  vendorSettleNote   String?
   createdAt   DateTime           @default(now())
+
+  @@index([vendorId, vendorStatus])
 }
 
 // ===================== 감사 로그·운영 설정 =====================

@@ -41,7 +41,7 @@ export interface OrderRow {
   priceKrw: number;
   priceVnd: string | null;
   costVnd?: string | null; // showCost일 때만
-  requestedVia: "ADMIN" | "GUEST";
+  requestedVia: "ADMIN" | "GUEST" | "PARTNER"; // PARTNER = 여행사/랜드사 채널(ADR-0023)
   guestNote: string | null;
   selectedOptions: SelectedOptionSnapshot[];
 }

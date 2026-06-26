@@ -1304,7 +1304,10 @@
     "zaloCardCta": "Quản lý",
     "servicesCardTitle": "Danh mục dịch vụ",
     "servicesCardDesc": "Quản lý menu, tùy chọn và giá của dịch vụ bổ sung như BBQ, vé, xe.",
-    "servicesCardCta": "Quản lý"
+    "servicesCardCta": "Quản lý",
+    "vendorsCardTitle": "Nhà cung cấp nguồn",
+    "vendorsCardDesc": "Quản lý các đối tác bên ngoài (cửa hàng trái cây, BBQ...) để đặt hàng và quyết toán dịch vụ bổ sung.",
+    "vendorsCardCta": "Quản lý"
   },
   "inventory": {
     "title": "Kho minibar",
@@ -1392,6 +1395,55 @@
     "saved": "Đã lưu",
     "error": "Lưu thất bại"
   },
+  "adminVendors": {
+    "title": "Nhà cung cấp nguồn",
+    "subtitle": "Quản lý các đối tác bên ngoài để đặt hàng và quyết toán dịch vụ bổ sung. Khi có yêu cầu, đặt hàng cho nhà cung cấp; sau khi họ phản hồi mới xác nhận với khách.",
+    "back": "Về cài đặt",
+    "forbidden": "Bạn không có quyền xem màn hình này.",
+    "addButton": "Thêm nhà cung cấp",
+    "empty": "Chưa có nhà cung cấp nguồn nào. Hãy thêm bên trên.",
+    "active": "Đang hợp tác",
+    "inactive": "Ngừng",
+    "edit": "Sửa",
+    "delete": "Xóa",
+    "deleteConfirm": "Xóa nhà cung cấp này?",
+    "deleted": "Đã xóa",
+    "saved": "Đã lưu",
+    "error": "Lưu thất bại. Vui lòng thử lại.",
+    "inUseWarning": "Không thể xóa vì đang có danh mục·đơn đặt hàng liên kết. Hãy ngừng hoạt động thay vì xóa.",
+    "noZalo": "Chưa có Zalo (không gửi được đơn đặt)",
+    "catalogBadge": "Danh mục liên kết {n}",
+    "accountBadge": "Đã liên kết tài khoản",
+    "bankBadge": "Tài khoản quyết toán",
+    "form": {
+      "createTitle": "Thêm nhà cung cấp",
+      "editTitle": "Sửa nhà cung cấp — {name}",
+      "name": "Tên đối tác",
+      "namePlaceholder": "VD: Cửa hàng trái cây Phú Quốc A",
+      "nameRequired": "Tên đối tác là bắt buộc.",
+      "nameKo": "Tên tiếng Hàn (tùy chọn)",
+      "nameKoPlaceholder": "VD: 과일가게A",
+      "phone": "Số điện thoại",
+      "phonePlaceholder": "VD: 0901234567",
+      "zaloUserId": "Zalo ID",
+      "zaloPlaceholder": "Zalo user ID",
+      "zaloHint": "Dùng để nhận thông báo đặt hàng. Nếu trống thì không thể tự động gửi đơn.",
+      "bankTitle": "Tài khoản quyết toán (chỉ quản trị viên)",
+      "bank": "Ngân hàng",
+      "bankPlaceholder": "VD: Vietcombank",
+      "account": "Số tài khoản",
+      "accountPlaceholder": "Số tài khoản",
+      "holder": "Chủ tài khoản",
+      "holderPlaceholder": "Tên chủ tài khoản",
+      "note": "Ghi chú",
+      "notePlaceholder": "Tùy chọn",
+      "active": "Đang hợp tác",
+      "save": "Lưu",
+      "saving": "Đang lưu...",
+      "cancel": "Hủy",
+      "validationFailed": "Vui lòng kiểm tra dữ liệu nhập."
+    }
+  },
   "adminServices": {
     "title": "Danh mục dịch vụ",
     "subtitle": "Quản lý menu dịch vụ bổ sung như BBQ, vé, xe. Khách chỉ thấy giá bán; giá nhập và lợi nhuận được giữ kín.",
@@ -1419,7 +1471,8 @@
       "BREAKFAST": "Bữa sáng",
       "MOTORBIKE_RENTAL": "Xe máy",
       "MASSAGE": "Massage",
-      "BARBER": "Cắt tóc"
+      "BARBER": "Cắt tóc",
+      "FRUIT": "Trái cây"
     },
     "form": {
       "createTitle": "Thêm menu",
@@ -1469,7 +1522,15 @@
       "photoRemove": "Xóa ảnh",
       "uploading": "Đang tải…",
       "uploadError": "Tải ảnh thất bại. Vui lòng thử lại.",
-      "krwPreview": "≈ ₩{krw} (theo tỷ giá tự động)"
+      "krwPreview": "≈ ₩{krw} (theo tỷ giá tự động)",
+      "vendor": "Nhà cung cấp nguồn",
+      "vendorNone": "Không có (tự cung cấp)",
+      "vendorHint": "Khi có yêu cầu, đặt hàng cho nhà cung cấp này. Nếu để trống thì coi là tự cung cấp.",
+      "audiences": "Kênh được phép yêu cầu",
+      "audienceAdmin": "Quản trị viên",
+      "audienceAdminLocked": "(luôn được phép)",
+      "audiencePartner": "Đại lý du lịch/Land",
+      "audienceGuest": "Khách hàng"
     },
     "filters": {
       "allTypes": "Tất cả"
