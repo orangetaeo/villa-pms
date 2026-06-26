@@ -6,7 +6,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
-import { canViewFinance } from "@/lib/permissions";
+import { canViewFinance, isSystemAdmin } from "@/lib/permissions";
 import { serializeBigInt } from "@/lib/serialize";
 import { getPartnerDetail } from "@/lib/partner-server";
 
@@ -82,6 +82,15 @@ export async function PATCH(
   const existing = await prisma.partner.findUnique({ where: { id } });
   if (!existing) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
+
+  // 여신 한도·등급은 위험통제 마스터(요율 마스터급) — 값 실변경은 OWNER 전용(isSystemAdmin).
+  // MANAGER는 연락처·메모 등 다른 필드만 수정. 폼 전체 전송 호환 위해 "값이 실제로 바뀔 때"만 차단.
+  const changesCredit =
+    (d.creditTier !== undefined && d.creditTier !== existing.creditTier) ||
+    (d.creditLimitVnd !== undefined && BigInt(d.creditLimitVnd) !== existing.creditLimitVnd);
+  if (changesCredit && !isSystemAdmin(session.user.role)) {
+    return NextResponse.json({ error: "CREDIT_FIELDS_OWNER_ONLY" }, { status: 403 });
   }
 
   // 변경 필드만 매핑 — undefined는 미수정

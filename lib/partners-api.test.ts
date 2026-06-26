@@ -203,4 +203,38 @@ describe("PATCH /api/partners/[id]", () => {
     expect((await patchReq({})).status).toBe(400);
     expect(mockUpdate).not.toHaveBeenCalled();
   });
+
+  // 신용한도·등급 변경 OWNER 전용화 (QA Minor — 위험통제 마스터)
+  it("MANAGER가 신용한도 실변경 시도 → 403, update 미호출", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "m", role: "MANAGER" } });
+    const res = await patchReq({ creditLimitVnd: "20000000" }); // 기존 10M → 변경
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toBe("CREDIT_FIELDS_OWNER_ONLY");
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+  it("MANAGER가 등급 실변경 시도 → 403", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "m", role: "MANAGER" } });
+    const res = await patchReq({ creditTier: "C" }); // 기존 B → 변경
+    expect(res.status).toBe(403);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+  it("MANAGER가 연락처만 수정(신용 미변경) → 200", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "m", role: "MANAGER" } });
+    const res = await patchReq({ contactPhone: "0900000000" });
+    expect(res.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalled();
+  });
+  it("MANAGER가 신용 필드 동일값 재전송(폼 전체 전송) → 200, 차단 안 함", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "m", role: "MANAGER" } });
+    // 기존값과 동일(10M, B) + 다른 필드 변경 → 실변경 아님 → 통과
+    const res = await patchReq({ creditLimitVnd: "10000000", creditTier: "B", memo: "메모" });
+    expect(res.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalled();
+  });
+  it("OWNER는 신용한도 변경 가능 → 200", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "owner1", role: "OWNER" } });
+    const res = await patchReq({ creditLimitVnd: "20000000" });
+    expect(res.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalled();
+  });
 });
