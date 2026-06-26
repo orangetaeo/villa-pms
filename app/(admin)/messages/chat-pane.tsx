@@ -29,6 +29,7 @@ import {
   URL_TRAILING_RE,
   isGoogleMapsUrl,
   extractLinkPreview,
+  getSoleMapsUrl,
   type LinkPreview,
 } from "@/lib/chat-link-preview";
 import {
@@ -1403,6 +1404,9 @@ function InboundBubble({
   const typeCard = renderTypeCard(message, true, t);
   // 링크/구글지도 미리보기 — "link" 타입 또는 사진+URL캡션(장소 공유)이면 리치 카드로.
   const inboundLinkPreview = linkPreviewProps(message);
+  // 글자만 보낸 지도 링크(text, 이미지 없음) → 서버 unfurl 카드(지연 로드).
+  const inboundMapsUrl =
+    !inboundLinkPreview && message.msgType === "text" ? getSoleMapsUrl(message.text) : null;
   return (
     <div
       data-msg-id={message.zaloMsgId ?? undefined}
@@ -1423,6 +1427,8 @@ function InboundBubble({
         )}
         {inboundLinkPreview ? (
           <LinkPreviewCard {...inboundLinkPreview} inbound />
+        ) : inboundMapsUrl ? (
+          <MapsLinkPreview url={inboundMapsUrl} inbound t={t} />
         ) : message.msgType === "photo" && message.attachmentUrls.length > 0 ? (
           <PhotoCard
             urls={message.attachmentUrls}
@@ -1544,9 +1550,14 @@ function OutboundBubble({
   // 특수 타입 카드(sticker/voice/call/contact/video/location) — 발·수신 공통 분기 재사용.
   const typeCard = renderTypeCard(message, false, t);
   const outboundLinkPreview = linkPreviewProps(message);
+  const outboundMapsUrl =
+    !outboundLinkPreview && message.msgType === "text" ? getSoleMapsUrl(message.text) : null;
   if (outboundLinkPreview) {
     maxW = "max-w-[78%]";
     card = <LinkPreviewCard {...outboundLinkPreview} inbound={false} />;
+  } else if (outboundMapsUrl) {
+    maxW = "max-w-[78%]";
+    card = <MapsLinkPreview url={outboundMapsUrl} inbound={false} t={t} />;
   } else if (message.msgType === "photo" && message.attachmentUrls.length > 0) {
     card = <PhotoCard urls={message.attachmentUrls} caption={message.text} />;
   } else if (message.msgType === "file") {
@@ -1880,7 +1891,8 @@ function LinkPreviewCard({
   title,
   description,
   inbound,
-}: LinkPreview & { inbound: boolean }) {
+  onImageError,
+}: LinkPreview & { inbound: boolean; onImageError?: () => void }) {
   const thumb = imageUrl;
   let domain = "";
   try {
@@ -1923,7 +1935,12 @@ function LinkPreviewCard({
       >
         {thumb && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumb} alt="" className="w-full h-36 object-cover bg-slate-800" />
+          <img
+            src={thumb}
+            alt=""
+            onError={onImageError}
+            className="w-full h-36 object-cover bg-slate-800"
+          />
         )}
         <div className="px-3 py-2">
           <p className={`text-sm font-bold leading-snug line-clamp-2 ${titleColor}`}>{displayTitle}</p>
@@ -1940,6 +1957,88 @@ function LinkPreviewCard({
           )}
         </div>
       </a>
+    </div>
+  );
+}
+
+// 지도 링크 미리보기(unfurl) 클라이언트 캐시 — 같은 URL을 폴링 재렌더마다 다시 fetch하지 않게.
+//  null=아직 안 받음. {image,title}=받음(image=null이면 펼치기 실패 → 칩 폴백).
+const mapsPreviewCache = new Map<string, { image: string | null; title: string | null }>();
+
+/**
+ * 글자만 붙여넣은 구글지도 링크(text 타입, 이미지 없음)를 카드로 — 서버 unfurl(정적 지도+장소명) 지연 로드.
+ * GET /api/zalo/link-preview?url= 로 1회 조회(모듈 캐시로 중복 방지). 이미지가 오면 LinkPreviewCard,
+ * 로딩 중·실패·이미지 깨짐이면 칩(RichText 지도 칩)으로 폴백 — 항상 클릭 시 지도 앱은 열린다.
+ * ※ 매장 실사진이 아니라 위치 지도 이미지다(붙여넣은 링크엔 실사진이 없음).
+ */
+function MapsLinkPreview({
+  url,
+  inbound,
+  t,
+}: {
+  url: string;
+  inbound: boolean;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const [preview, setPreview] = useState<{ image: string | null; title: string | null } | null>(
+    () => mapsPreviewCache.get(url) ?? null
+  );
+  const [imgBroken, setImgBroken] = useState(false);
+
+  useEffect(() => {
+    setImgBroken(false);
+    const cached = mapsPreviewCache.get(url);
+    if (cached) {
+      setPreview(cached);
+      return;
+    }
+    let alive = true;
+    fetch(`/api/zalo/link-preview?url=${encodeURIComponent(url)}`)
+      .then((r) => (r.ok ? (r.json() as Promise<{ image?: string | null; title?: string | null }>) : null))
+      .then((d) => {
+        const v = { image: d?.image ?? null, title: d?.title ?? null };
+        mapsPreviewCache.set(url, v);
+        if (alive) setPreview(v);
+      })
+      .catch(() => {
+        const v = { image: null, title: null };
+        mapsPreviewCache.set(url, v);
+        if (alive) setPreview(v);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [url]);
+
+  if (preview?.image && !imgBroken) {
+    return (
+      <LinkPreviewCard
+        url={url}
+        imageUrl={preview.image}
+        title={preview.title ?? ""}
+        description=""
+        inbound={inbound}
+        onImageError={() => setImgBroken(true)}
+      />
+    );
+  }
+  // 폴백 — RichText가 지도 URL을 "지도에서 보기" 칩으로 렌더(로딩 중/실패에도 클릭 가능).
+  return inbound ? (
+    <div className="bg-slate-800 rounded-xl rounded-bl-sm px-4 py-3">
+      <p className="text-sm text-slate-100 break-words">
+        <RichText text={url} t={t} />
+      </p>
+    </div>
+  ) : (
+    <div className="bg-blue-600 rounded-xl rounded-br-sm px-4 py-3 inline-block text-left">
+      <p className="text-sm text-white break-words">
+        <RichText
+          text={url}
+          linkClass="underline decoration-1 underline-offset-2 break-all text-white"
+          mapChipClass="bg-white/20 text-white hover:bg-white/30"
+          t={t}
+        />
+      </p>
     </div>
   );
 }

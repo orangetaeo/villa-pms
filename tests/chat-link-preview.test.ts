@@ -1,7 +1,7 @@
 // 채팅 링크/구글지도 미리보기 추출 — extractLinkPreview(순수).
 // 실데이터 회귀 가드: 구글지도 장소 공유는 chat.photo(사진)+캡션=URL로 와서 msgType "photo"다.
 import { describe, expect, it } from "vitest";
-import { extractLinkPreview, isGoogleMapsUrl } from "@/lib/chat-link-preview";
+import { extractLinkPreview, isGoogleMapsUrl, getSoleMapsUrl } from "@/lib/chat-link-preview";
 
 const IMG = "https://photo-stal-24.zdn.vn/no/abc.jpg";
 const MAP = "https://maps.app.goo.gl/BAgmL37AV9o3v32NA";
@@ -63,7 +63,27 @@ describe("extractLinkPreview — msgType 'link'(recommended 공유)", () => {
 });
 
 describe("extractLinkPreview — 그 외 타입", () => {
-  it("text 타입은 null(인라인 URL은 RichText가 처리)", () => {
+  it("text 타입은 null(인라인 URL은 RichText/MapsLinkPreview가 처리)", () => {
     expect(extractLinkPreview("text", MAP, [])).toBeNull();
+  });
+});
+
+describe("getSoleMapsUrl — 글자만 보낸 지도 링크 판별(unfurl 카드 대상)", () => {
+  it("지도 URL 하나뿐이면 그 URL", () => {
+    expect(getSoleMapsUrl(MAP)).toBe(MAP);
+    expect(getSoleMapsUrl(`  ${MAP}  `)).toBe(MAP);
+  });
+  it("중복으로 두 번 붙어도 URL(나머지 텍스트 없음)", () => {
+    expect(getSoleMapsUrl(`${MAP} ${MAP}`)).toBe(MAP);
+  });
+  it("지도 URL + 다른 텍스트 → null(일반 메시지, RichText가 칩 처리)", () => {
+    expect(getSoleMapsUrl(`여기야 ${MAP}`)).toBeNull();
+  });
+  it("지도 아닌 URL → null", () => {
+    expect(getSoleMapsUrl("https://example.com")).toBeNull();
+  });
+  it("URL 없음 → null", () => {
+    expect(getSoleMapsUrl("그냥 텍스트")).toBeNull();
+    expect(getSoleMapsUrl("")).toBeNull();
   });
 });

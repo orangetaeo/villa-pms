@@ -28,6 +28,23 @@ export interface LinkPreview {
 const stripTrailing = (u: string) => u.replace(URL_TRAILING_RE, "");
 
 /**
+ * 본문이 "구글지도 링크 하나뿐"이면 그 URL을 반환(아니면 null).
+ * 글자만 붙여넣어 보낸 지도 링크(text 타입, 이미지 없음)를 서버 unfurl 카드로 렌더할지 판단용.
+ * 본문에서 URL을 모두 제거한 나머지 텍스트가 비어 있고, 그 URL이 구글지도일 때만.
+ */
+export function getSoleMapsUrl(text: string | null | undefined): string | null {
+  const body = (text ?? "").trim();
+  if (!body) return null;
+  const matches = body.match(URL_RE);
+  if (!matches || matches.length === 0) return null;
+  const url = stripTrailing(matches.find((u) => isGoogleMapsUrl(u)) ?? "");
+  if (!url) return null;
+  // URL(중복 포함)을 모두 지운 나머지에 의미 있는 텍스트가 남으면 일반 메시지로 본다.
+  const rest = body.replace(URL_RE, " ").replace(/\s+/g, " ").trim();
+  return rest.length === 0 ? url : null;
+}
+
+/**
  * 메시지(타입·본문·첨부)에서 링크 미리보기를 추출. 링크 카드로 볼 게 아니면 null.
  *  - "link": attachmentUrls[0]=URL·[1]=썸네일, text="제목\n설명".
  *  - "photo" + 캡션 URL: 이미지=첨부 사진, URL=캡션 링크, 제목=캡션에서 URL 제거분.
