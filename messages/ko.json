@@ -1986,7 +1986,23 @@
       "US": "미국",
       "JP": "일본",
       "TH": "태국"
-    }
+    },
+    "approve": "승인",
+    "reject": "거절",
+    "approveConfirm": "이 파트너를 승인할까요? 승인 후 포털 로그인이 활성화됩니다.",
+    "approved": "파트너를 승인했습니다.",
+    "rejected": "가입을 거절했습니다.",
+    "rejectModalTitle": "가입 거절",
+    "rejectReasonLabel": "거절 사유 (선택)",
+    "rejectReasonPlaceholder": "사유는 파트너에게 표시됩니다",
+    "rejectConfirm": "거절",
+    "rejectCancel": "취소",
+    "approvalError": "처리에 실패했습니다. 다시 시도해주세요.",
+    "approvalStatusPending": "승인 대기",
+    "approvalStatusApproved": "승인됨",
+    "approvalStatusRejected": "거절됨",
+    "selfSignupBadge": "자가 가입",
+    "hasAccountBadge": "로그인 계정"
   },
   "adminSettlements": {
     "title": "정산 관리",
@@ -2088,7 +2104,9 @@
     "tabs": {
       "all": "전체",
       "supplier": "공급자",
-      "cleaner": "청소"
+      "cleaner": "청소",
+      "partner": "파트너",
+      "vendor": "원천 공급자"
     },
     "roles": {
       "ADMIN": "관리자",
@@ -2096,7 +2114,9 @@
       "CLEANER": "청소",
       "OWNER": "오너",
       "MANAGER": "매니저",
-      "STAFF": "직원"
+      "STAFF": "직원",
+      "PARTNER": "파트너",
+      "VENDOR": "원천 공급자"
     },
     "inactiveBadge": "비활성",
     "columns": {

@@ -2094,7 +2094,23 @@
       "US": "Mỹ",
       "JP": "Nhật Bản",
       "TH": "Thái Lan"
-    }
+    },
+    "approve": "Duyệt",
+    "reject": "Từ chối",
+    "approveConfirm": "Duyệt đối tác này? Sau khi duyệt, đăng nhập cổng sẽ được kích hoạt.",
+    "approved": "Đã duyệt đối tác.",
+    "rejected": "Đã từ chối đăng ký.",
+    "rejectModalTitle": "Từ chối đăng ký",
+    "rejectReasonLabel": "Lý do từ chối (tùy chọn)",
+    "rejectReasonPlaceholder": "Lý do sẽ hiển thị cho đối tác",
+    "rejectConfirm": "Từ chối",
+    "rejectCancel": "Hủy",
+    "approvalError": "Thao tác thất bại. Vui lòng thử lại.",
+    "approvalStatusPending": "Chờ duyệt",
+    "approvalStatusApproved": "Đã duyệt",
+    "approvalStatusRejected": "Đã từ chối",
+    "selfSignupBadge": "Tự đăng ký",
+    "hasAccountBadge": "Tài khoản đăng nhập"
   },
   "adminSettlements": {
     "title": "Quản lý quyết toán",
@@ -2196,7 +2212,9 @@
     "tabs": {
       "all": "Tất cả",
       "supplier": "Nhà cung cấp",
-      "cleaner": "Dọn dẹp"
+      "cleaner": "Dọn dẹp",
+      "partner": "Đối tác",
+      "vendor": "Nhà cung cấp dịch vụ"
     },
     "roles": {
       "ADMIN": "Quản trị viên",
@@ -2204,7 +2222,9 @@
       "CLEANER": "Dọn dẹp",
       "OWNER": "Chủ sở hữu",
       "MANAGER": "Quản lý",
-      "STAFF": "Nhân viên"
+      "STAFF": "Nhân viên",
+      "PARTNER": "Đối tác",
+      "VENDOR": "Nhà cung cấp dịch vụ"
     },
     "inactiveBadge": "Ngừng hoạt động",
     "columns": {

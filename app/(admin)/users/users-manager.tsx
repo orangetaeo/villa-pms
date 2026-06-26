@@ -68,11 +68,14 @@ function initials(name: string): string {
   return `${first}${last}`.toUpperCase();
 }
 
-type TabKey = "all" | "SUPPLIER" | "CLEANER";
+type TabKey = "all" | "SUPPLIER" | "CLEANER" | "VENDOR" | "PARTNER";
 const TABS: { key: TabKey; labelKey: string }[] = [
   { key: "all", labelKey: "tabs.all" },
   { key: "SUPPLIER", labelKey: "tabs.supplier" },
   { key: "CLEANER", labelKey: "tabs.cleaner" },
+  // 자가가입/전용 프로비저닝 역할 — 필터로만 노출(생성 폼 ASSIGNABLE_ROLES에는 미포함)
+  { key: "VENDOR", labelKey: "tabs.vendor" },
+  { key: "PARTNER", labelKey: "tabs.partner" },
 ];
 
 export default function UsersManager({
