@@ -49,16 +49,12 @@ export default function PartnerAssignCard({
   useEffect(() => {
     if (current || locked) return;
     let alive = true;
-    fetch("/api/partners")
+    // 경량 옵션 엔드포인트 — 채널 유형만 서버 필터(미수·Aging 과조회 제거)
+    fetch(`/api/partners/options?type=${channel}`)
       .then((r) => (r.ok ? r.json() : { partners: [] }))
-      .then((d: { partners?: Array<{ partner: PartnerOption }> }) => {
+      .then((d: { partners?: PartnerOption[] }) => {
         if (!alive) return;
-        // 채널과 같은 유형의 파트너만 후보로
-        setOptions(
-          (d.partners ?? [])
-            .map((p) => p.partner)
-            .filter((p) => p.type === channel)
-        );
+        setOptions(d.partners ?? []);
       })
       .catch(() => alive && setOptions([]));
     return () => {

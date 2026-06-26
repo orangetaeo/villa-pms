@@ -5,6 +5,7 @@ import {
   summarizeReceivables,
   type PartnerAggregate,
 } from "./partner-server";
+import { overdueOutstanding } from "./partner";
 import { markOverdueReceivables } from "./partner-booking";
 
 function agg(o: {
@@ -14,8 +15,11 @@ function agg(o: {
   outstanding: bigint;
   overdue?: boolean;
   over30?: bigint;
+  /** 실제 연체액 — 미지정 시 overdue면 전체 미수, 아니면 0 */
+  overdueOutstanding?: bigint;
 }): PartnerAggregate {
   const over30 = o.over30 ?? 0n;
+  const overdue = o.overdue ?? false;
   return {
     partner: {
       id: o.id,
@@ -25,6 +29,7 @@ function agg(o: {
       creditLimitVnd: o.limit ?? 0n,
     } as Partner,
     outstandingVnd: o.outstanding,
+    overdueOutstandingVnd: o.overdueOutstanding ?? (overdue ? o.outstanding : 0n),
     aging: {
       "0-7": o.outstanding - over30 > 0n ? o.outstanding - over30 : 0n,
       "8-15": 0n,
@@ -32,7 +37,7 @@ function agg(o: {
       "30+": over30,
       total: o.outstanding,
     },
-    overdue: o.overdue ?? false,
+    overdue,
     bookingCount: 0,
   };
 }
@@ -88,6 +93,44 @@ describe("summarizeReceivables", () => {
     expect(o.overduePartnerCount).toBe(1);
     expect(o.overdueOutstandingVnd).toBe(2_000_000n);
     expect(o.overLimitPartnerCount).toBe(1); // od1만(등급A는 한도 무관)
+  });
+
+  it("연체 미수는 실제 연체액만 합산(미도래분 제외) — KPI 라벨 정합", () => {
+    // 연체 파트너지만 전체 미수 5M 중 실제 연체액은 2M(나머지 3M은 미도래)
+    const o = summarizeReceivables([
+      agg({ id: "od", outstanding: 5_000_000n, overdue: true, overdueOutstanding: 2_000_000n }),
+      agg({ id: "ok", outstanding: 1_000_000n, overdue: false }),
+    ]);
+    expect(o.totalOutstandingVnd).toBe(6_000_000n); // 전체 미수는 그대로
+    expect(o.overdueOutstandingVnd).toBe(2_000_000n); // 연체 미수는 실제 연체액만
+  });
+});
+
+describe("overdueOutstanding — 실제 연체액 헬퍼", () => {
+  const utcDate = (s: string) => new Date(`${s}T00:00:00.000Z`);
+  const asOf = utcDate("2026-07-15");
+  const rcv = (due: string, total: bigint, status: ReceivableStatus = ReceivableStatus.PENDING) => ({
+    totalVnd: total,
+    depositPaidVnd: 0n,
+    balancePaidVnd: 0n,
+    dueDate: utcDate(due),
+    status,
+  });
+
+  it("기한 경과 채권만 합산, 미도래·완납 제외", () => {
+    const sum = overdueOutstanding(
+      [
+        rcv("2026-07-10", 2_000_000n), // 경과 → 포함
+        rcv("2026-07-20", 3_000_000n), // 미도래 → 제외
+        rcv("2026-07-01", 1_000_000n, ReceivableStatus.PAID), // 완납 → 제외
+      ],
+      asOf
+    );
+    expect(sum).toBe(2_000_000n);
+  });
+
+  it("연체 없으면 0", () => {
+    expect(overdueOutstanding([rcv("2026-07-20", 3_000_000n)], asOf)).toBe(0n);
   });
 });
 

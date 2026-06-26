@@ -95,14 +95,28 @@ export function outstandingForPartner(receivables: ReceivableLike[]): bigint {
     .reduce((sum, r) => sum + receivableOutstanding(r), 0n);
 }
 
+/** 연체 채권 1건 판정(기한 경과 + 미입금) — hasOverdue·overdueOutstanding 공용 */
+function isOverdueReceivable(r: ReceivableLike, today: Date): boolean {
+  if (!OPEN_RECEIVABLE_STATUSES.includes(r.status)) return false;
+  if (receivableOutstanding(r) <= 0n) return false;
+  return r.status === ReceivableStatus.OVERDUE || startOfUtcDay(r.dueDate) < today;
+}
+
 /** 연체(기한 경과 + 미입금) 채권이 하나라도 있는지 — 자동 제재 트리거 */
 export function hasOverdue(receivables: ReceivableLike[], asOf: Date): boolean {
   const today = startOfUtcDay(asOf);
-  return receivables.some((r) => {
-    if (!OPEN_RECEIVABLE_STATUSES.includes(r.status)) return false;
-    if (receivableOutstanding(r) <= 0n) return false;
-    return r.status === ReceivableStatus.OVERDUE || startOfUtcDay(r.dueDate) < today;
-  });
+  return receivables.some((r) => isOverdueReceivable(r, today));
+}
+
+/**
+ * 실제 연체액 합계 — 기한 경과(또는 OVERDUE 상태) 미입금 채권의 잔액만.
+ * outstandingForPartner(전체 미수)와 달리 미도래 채권은 제외 → "연체 미수" KPI 정확화.
+ */
+export function overdueOutstanding(receivables: ReceivableLike[], asOf: Date): bigint {
+  const today = startOfUtcDay(asOf);
+  return receivables
+    .filter((r) => isOverdueReceivable(r, today))
+    .reduce((sum, r) => sum + receivableOutstanding(r), 0n);
 }
 
 function startOfUtcDay(date: Date): Date {
