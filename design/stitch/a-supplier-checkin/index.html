@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html class="light" lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Villa PMS — Nhận phòng (Check-in)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+        darkMode: "class",
+        theme: { extend: {
+            colors: { primary:"#0D9488", secondary:"#F59E0B", available:"#16A34A", booked:"#2563EB", not_sellable:"#DC2626" },
+            borderRadius: { "DEFAULT":"0.5rem","lg":"1rem","xl":"1.5rem","full":"9999px" },
+            fontFamily: { headline:["Be Vietnam Pro","sans-serif"], body:["Be Vietnam Pro","sans-serif"], label:["Be Vietnam Pro","sans-serif"], mono:["JetBrains Mono","monospace"] }
+        } }
+    }
+</script>
+<style>
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    body { min-height: max(884px, 100dvh); }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .dashed { background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='14' ry='14' stroke='%23CBD5E1FF' stroke-width='2' stroke-dasharray='6%2c 8'/%3e%3c/svg%3e"); }
+</style>
+</head>
+<body class="bg-neutral-50 font-body text-neutral-900">
+
+<!-- ===== App bar ===== -->
+<header class="bg-white border-b border-neutral-100 shadow-sm w-full top-0 sticky z-30">
+<div class="flex items-center gap-3 px-3 h-16">
+<button class="w-10 h-10 flex items-center justify-center rounded-full text-neutral-500 active:scale-90 transition-transform">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<div class="flex-1">
+<h1 class="font-headline font-bold text-lg leading-tight">Nhận phòng</h1>
+<p class="text-xs text-neutral-400 font-medium">Sonasea V12 · Trần Minh + 5</p>
+</div>
+<span class="px-3 py-1 bg-teal-50 text-teal-700 border border-teal-100 rounded-full text-xs font-bold whitespace-nowrap">14/07</span>
+</div>
+</header>
+
+<main class="px-4 pt-4 pb-40 space-y-4 max-w-md mx-auto">
+
+<!-- ===== Step 1: Passports (one card per guest) ===== -->
+<section class="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
+<div class="px-4 py-3 border-b border-neutral-100 flex items-center gap-2">
+<span class="w-6 h-6 flex items-center justify-center bg-teal-600 text-white rounded-full text-xs font-bold">1</span>
+<h2 class="font-bold text-neutral-800">Ảnh hộ chiếu</h2>
+<span class="ml-auto text-xs font-bold text-teal-600">4 / 6</span>
+</div>
+<div class="p-4">
+<div class="grid grid-cols-3 gap-3">
+<!-- uploaded + OCR -->
+<div class="flex flex-col gap-1.5">
+<div class="relative aspect-[3/4] rounded-xl overflow-hidden border border-neutral-200 bg-neutral-100">
+<div class="w-full h-full flex items-center justify-center text-neutral-300"><span class="material-symbols-outlined text-3xl">badge</span></div>
+<span class="absolute top-1.5 right-1.5 w-5 h-5 bg-available rounded-full flex items-center justify-center text-white"><span class="material-symbols-outlined text-[13px]" style="font-variation-settings:'FILL' 1;">check</span></span>
+</div>
+<div class="text-center leading-tight">
+<p class="text-[11px] font-bold text-neutral-700 truncate">TRẦN MINH</p>
+<p class="text-[10px] text-neutral-400 font-mono">C12••••</p>
+</div>
+</div>
+<div class="flex flex-col gap-1.5">
+<div class="relative aspect-[3/4] rounded-xl overflow-hidden border border-neutral-200 bg-neutral-100">
+<div class="w-full h-full flex items-center justify-center text-neutral-300"><span class="material-symbols-outlined text-3xl">badge</span></div>
+<span class="absolute top-1.5 right-1.5 w-5 h-5 bg-available rounded-full flex items-center justify-center text-white"><span class="material-symbols-outlined text-[13px]" style="font-variation-settings:'FILL' 1;">check</span></span>
+</div>
+<div class="text-center leading-tight">
+<p class="text-[11px] font-bold text-neutral-700 truncate">LÊ HOA</p>
+<p class="text-[10px] text-neutral-400 font-mono">B98••••</p>
+</div>
+</div>
+<div class="flex flex-col gap-1.5">
+<div class="relative aspect-[3/4] rounded-xl overflow-hidden border border-neutral-200 bg-neutral-100">
+<div class="w-full h-full flex items-center justify-center text-neutral-300"><span class="material-symbols-outlined text-3xl">badge</span></div>
+<span class="absolute top-1.5 right-1.5 w-5 h-5 bg-available rounded-full flex items-center justify-center text-white"><span class="material-symbols-outlined text-[13px]" style="font-variation-settings:'FILL' 1;">check</span></span>
+</div>
+<div class="text-center leading-tight">
+<p class="text-[11px] font-bold text-neutral-700 truncate">KIM J.</p>
+<p class="text-[10px] text-neutral-400 font-mono">M44••••</p>
+</div>
+</div>
+<div class="flex flex-col gap-1.5">
+<div class="relative aspect-[3/4] rounded-xl overflow-hidden border border-neutral-200 bg-neutral-100">
+<div class="w-full h-full flex items-center justify-center text-neutral-300"><span class="material-symbols-outlined text-3xl">badge</span></div>
+<span class="absolute top-1.5 right-1.5 w-5 h-5 bg-secondary rounded-full flex items-center justify-center text-white"><span class="material-symbols-outlined text-[13px]" style="font-variation-settings:'FILL' 1;">hourglass_top</span></span>
+</div>
+<p class="text-[10px] text-secondary font-semibold text-center">Đang đọc…</p>
+</div>
+<!-- empty upload slots -->
+<button class="dashed aspect-[3/4] rounded-xl flex flex-col items-center justify-center gap-1 text-neutral-400 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-2xl">add_a_photo</span>
+<span class="text-[10px] font-bold">Khách 5</span>
+</button>
+<button class="dashed aspect-[3/4] rounded-xl flex flex-col items-center justify-center gap-1 text-neutral-400 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-2xl">add_a_photo</span>
+<span class="text-[10px] font-bold">Khách 6</span>
+</button>
+</div>
+<div class="mt-3 flex items-center gap-2 text-xs text-neutral-500 bg-neutral-50 rounded-xl p-3">
+<span class="material-symbols-outlined text-[18px] text-teal-600">document_scanner</span>
+<p>Chụp ảnh hộ chiếu, hệ thống tự đọc tên &amp; số hộ chiếu.</p>
+</div>
+</div>
+</section>
+
+<!-- ===== Step 2: Deposit ===== -->
+<section class="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
+<div class="px-4 py-3 border-b border-neutral-100 flex items-center gap-2">
+<span class="w-6 h-6 flex items-center justify-center bg-teal-600 text-white rounded-full text-xs font-bold">2</span>
+<h2 class="font-bold text-neutral-800">Tiền đặt cọc</h2>
+</div>
+<div class="p-4">
+<div class="flex items-center gap-2 bg-neutral-50 border border-neutral-200 rounded-xl px-4 h-16 focus-within:ring-2 focus-within:ring-teal-500">
+<span class="material-symbols-outlined text-neutral-400">savings</span>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-2xl font-extrabold tabular-nums placeholder-neutral-300 p-0" inputmode="numeric" type="text" value="5.000.000"/>
+<span class="text-neutral-400 font-bold text-lg">₫</span>
+</div>
+<div class="mt-3 flex items-center justify-end">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 bg-green-50 text-available border border-green-100 rounded-full text-xs font-bold">
+<span class="w-1.5 h-1.5 bg-available rounded-full"></span> Đã nhận cọc
+</span>
+</div>
+</div>
+</section>
+
+<!-- ===== Step 3: Agreement + signature ===== -->
+<section class="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
+<div class="px-4 py-3 border-b border-neutral-100 flex items-center gap-2">
+<span class="w-6 h-6 flex items-center justify-center bg-teal-600 text-white rounded-full text-xs font-bold">3</span>
+<h2 class="font-bold text-neutral-800">Bản đồng ý sử dụng</h2>
+</div>
+<div class="p-4 space-y-4">
+<div class="h-40 overflow-y-auto no-scrollbar bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-xs text-neutral-500 leading-relaxed space-y-2">
+<p class="font-bold text-neutral-700">Nội quy &amp; an toàn villa</p>
+<p>1. Tất cả khách lưu trú cung cấp hộ chiếu khi nhận phòng.</p>
+<p>2. Không hút thuốc trong villa; vi phạm có thể bị tính phí vệ sinh.</p>
+<div class="bg-teal-50 border-l-2 border-teal-500 p-2 my-1.5 rounded-r">
+<p class="text-teal-700 font-semibold">3. An toàn hồ bơi: trẻ em phải có người lớn đi kèm; cấm bơi sau khi uống rượu bia; cấm nhảy cắm đầu xuống hồ.</p>
+</div>
+<p>4. Khách chịu trách nhiệm bồi thường nếu làm hư hỏng tài sản.</p>
+<p>5. Giữ yên lặng sau 22:00.</p>
+</div>
+<!-- signature pad -->
+<div>
+<div class="relative bg-white rounded-xl border-2 border-dashed border-teal-300 aspect-[3/1] overflow-hidden">
+<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+<svg class="w-full h-full opacity-90" viewBox="0 0 600 200"><path d="M90 130 Q 150 50, 210 115 T 360 100 T 510 125" fill="none" stroke="#0D9488" stroke-width="4" stroke-linecap="round"></path></svg>
+</div>
+</div>
+<div class="flex items-center justify-between mt-1.5 px-1">
+<span class="text-[11px] text-neutral-400 font-bold uppercase tracking-wide">Chữ ký của khách</span>
+<button class="text-[11px] text-teal-600 font-bold active:opacity-60">Xóa</button>
+</div>
+</div>
+<label class="flex items-center gap-3 p-1">
+<input checked type="checkbox" class="w-6 h-6 rounded-md border-2 border-neutral-300 text-teal-600 focus:ring-teal-500"/>
+<span class="text-sm font-medium text-neutral-700">Khách đồng ý với nội quy &amp; đã ký tên.</span>
+</label>
+</div>
+</section>
+
+</main>
+
+<!-- ===== Sticky action ===== -->
+<div class="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-neutral-100 px-4 pt-3 pb-safe z-40">
+<button class="w-full h-14 bg-teal-600 text-white font-bold text-lg rounded-2xl shadow-lg shadow-teal-900/10 active:scale-[0.98] transition-all flex items-center justify-center gap-2 mb-3">
+<span class="material-symbols-outlined">how_to_reg</span>
+Hoàn tất nhận phòng
+</button>
+<p class="text-center text-[11px] text-neutral-400 font-medium mb-2">Thông tin khách chỉ dùng cho việc lưu trú này.</p>
+</div>
+</body></html>
