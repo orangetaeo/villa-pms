@@ -1419,7 +1419,8 @@
       "BREAKFAST": "Bữa sáng",
       "MOTORBIKE_RENTAL": "Xe máy",
       "MASSAGE": "Massage",
-      "BARBER": "Cắt tóc"
+      "BARBER": "Cắt tóc",
+      "FRUIT": "Trái cây"
     },
     "form": {
       "createTitle": "Thêm menu",
@@ -2651,7 +2652,8 @@
         "BREAKFAST": "Bữa sáng",
         "MOTORBIKE_RENTAL": "Thuê xe máy",
         "MASSAGE": "Massage",
-        "BARBER": "Cắt tóc"
+        "BARBER": "Cắt tóc",
+        "FRUIT": "Trái cây"
       }
     },
     "ancillary": {

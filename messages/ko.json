@@ -1311,7 +1311,8 @@
       "BREAKFAST": "조식",
       "MOTORBIKE_RENTAL": "오토바이",
       "MASSAGE": "마사지",
-      "BARBER": "이발"
+      "BARBER": "이발",
+      "FRUIT": "과일"
     },
     "form": {
       "createTitle": "메뉴 추가",
@@ -2651,7 +2652,8 @@
         "BREAKFAST": "조식",
         "MOTORBIKE_RENTAL": "오토바이",
         "MASSAGE": "마사지",
-        "BARBER": "이발"
+        "BARBER": "이발",
+        "FRUIT": "과일"
       }
     },
     "ancillary": {

@@ -30,6 +30,7 @@ export const SERVICE_TYPE_VALUES: readonly ServiceType[] = [
   "MOTORBIKE_RENTAL",
   "MASSAGE",
   "BARBER",
+  "FRUIT",
 ] as const;
 
 export function isServiceCatalogType(v: string): v is ServiceType {

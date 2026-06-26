@@ -749,6 +749,7 @@ enum ServiceType {
   MOTORBIKE_RENTAL // 오토바이 렌트 (ADR-0019)
   MASSAGE // 마사지 — 풋/바디(아로마·핫스톤·건식), 출장 옵션 (ADR-0019)
   BARBER // 이발소(귀) — 시간 + 세부시술 (ADR-0019)
+  FRUIT // 과일 바구니 (ADR-0023) — 라이브 DB에 이미 존재, 스키마 정렬용(드리프트 복구)
 }
 
 enum ServiceOrderStatus {
