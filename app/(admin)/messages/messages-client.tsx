@@ -151,43 +151,114 @@ export function MessagesClient({
     void refreshInbox();
   }, [fetchThread, refreshInbox]);
 
-  // 폴링 — 5초마다 인박스 갱신 + 열린 대화 스레드 갱신(새 메시지 반영). 탭 숨김 시 정지·복귀 시 즉시 1회.
-  // (auto-refresh.tsx 패턴 계승 — visibilitychange로 start/stop)
+  // 실시간(SSE) 우선 + 폴링 폴백 (realtime-sse 계약).
+  //
+  // 기본: EventSource("/api/zalo/stream") 구독. 서버가 새 수신("inbound")/발신("outbound") 신호를
+  //   푸시하면 즉시 refreshInbox() + (현재 열린 대화면) fetchThread()로 갱신(1초 이내 반영).
+  //   payload는 신호만 — 실데이터는 기존 fetch 재사용(누수 0 경로 보존).
+  // 폴백: EventSource 미지원/연결 실패가 지속되면 기존 5초 폴링으로 전환(기능 회귀 0).
+  // 가시성: 탭 숨김 시 연결 종료(SSE·폴링 모두), 복귀 시 재연결 + 즉시 1회 갱신.
   useEffect(() => {
-    let timer: ReturnType<typeof setInterval> | null = null;
+    let es: EventSource | null = null;
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+    let usingFallback = false;
+    let errorCount = 0; // 연속 onerror 횟수 — 일시 끊김과 지속 실패 구분.
+    let disposed = false;
 
-    const pollOnce = async () => {
-      await refreshInbox();
-      // 열린 대화 스레드 갱신(로딩 표시 없이 — 조용히 새 메시지 반영). chat-pane이 messages id 변화로 자동스크롤.
+    // 인박스 + (열린 대화) 스레드 1회 갱신 — 신호 도착·폴링·복귀 공용.
+    const refreshOnce = (conversationId?: string) => {
+      void refreshInbox();
       const cur = selectedIdRef.current;
-      if (cur) void fetchThread(cur, false);
+      // 신호에 대화 id가 있으면 현재 열린 대화와 일치할 때만 스레드 갱신(불필요한 fetch 절감).
+      // 폴링·복귀(신호 없음)는 열린 대화가 있으면 항상 갱신.
+      if (cur && (!conversationId || conversationId === cur)) {
+        void fetchThread(cur, false);
+      }
     };
 
-    const start = () => {
-      if (timer) return;
-      timer = setInterval(() => {
-        if (document.visibilityState === "visible") void pollOnce();
+    // ── 폴링 폴백 ──
+    const startPolling = () => {
+      if (pollTimer) return;
+      usingFallback = true;
+      pollTimer = setInterval(() => {
+        if (document.visibilityState === "visible") refreshOnce();
       }, POLL_INTERVAL_MS);
     };
-    const stop = () => {
-      if (timer) {
-        clearInterval(timer);
-        timer = null;
-      }
-    };
-    const onVisibility = () => {
-      if (document.visibilityState === "visible") {
-        void pollOnce(); // 복귀 즉시 1회
-        start();
-      } else {
-        stop();
+    const stopPolling = () => {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
       }
     };
 
-    if (document.visibilityState === "visible") start();
+    // ── SSE 연결 ──
+    const closeStream = () => {
+      if (es) {
+        es.close();
+        es = null;
+      }
+    };
+    const connectStream = () => {
+      if (es || disposed) return;
+      if (typeof EventSource === "undefined") {
+        startPolling(); // 미지원 환경 — 폴링으로.
+        return;
+      }
+      try {
+        es = new EventSource("/api/zalo/stream");
+      } catch {
+        startPolling(); // 생성 실패 — 폴링으로.
+        return;
+      }
+      es.onopen = () => {
+        errorCount = 0;
+        // SSE가 살아나면 폴백 폴링 정지(중복 갱신 방지).
+        if (usingFallback) {
+          stopPolling();
+          usingFallback = false;
+        }
+      };
+      es.onmessage = (ev) => {
+        errorCount = 0;
+        // payload는 { type, conversationId } 신호만. 파싱 실패해도 인박스는 갱신.
+        let conversationId: string | undefined;
+        try {
+          const data = JSON.parse(ev.data) as { conversationId?: string };
+          if (typeof data?.conversationId === "string") conversationId = data.conversationId;
+        } catch {
+          /* ready/하트비트 등 — 신호로만 처리 */
+        }
+        refreshOnce(conversationId);
+      };
+      es.onerror = () => {
+        // 브라우저 EventSource는 자동 재연결을 시도하지만, 지속 실패면 폴링으로 폴백.
+        errorCount += 1;
+        if (errorCount >= 3 && !usingFallback) {
+          closeStream();
+          startPolling();
+        }
+      };
+    };
+
+    // ── 가시성 전환 ──
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        refreshOnce(); // 복귀 즉시 1회
+        if (usingFallback) startPolling();
+        else connectStream();
+      } else {
+        // 숨김 — 연결·폴링 모두 정지(불필요한 트래픽·연결 유지 회피).
+        closeStream();
+        stopPolling();
+      }
+    };
+
+    if (document.visibilityState === "visible") connectStream();
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      stop();
+      disposed = true;
+      closeStream();
+      stopPolling();
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [fetchThread, refreshInbox]);

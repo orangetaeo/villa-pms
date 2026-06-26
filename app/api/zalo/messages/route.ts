@@ -25,6 +25,8 @@ import {
 import { isOperator } from "@/lib/permissions";
 import { toChatMessages, chatInitials } from "@/lib/zalo-chat-message";
 import { resolveQuotedAnchors } from "@/lib/zalo-quote-anchor";
+// 실시간(SSE) — 발신 영속 후 본인(ownerAdminId) 채널로 "outbound" 신호 발행(인박스 즉시 갱신).
+import { publish as publishRealtime } from "@/lib/realtime-bus";
 
 const bodySchema = z.object({
   conversationId: z.string().min(1),
@@ -377,6 +379,14 @@ export async function POST(req: Request) {
 
     return created;
   });
+
+  // 실시간(SSE) — 발신 영속 완료 후 본인(ownerAdminId) 채널로 "outbound" 신호 발행.
+  // 비블로킹·예외 격리: 발행 실패가 응답에 영향 없게 try/catch(신호일 뿐 — 데이터는 클라이언트가 fetch).
+  try {
+    publishRealtime(session.user.id, { type: "outbound", conversationId });
+  } catch {
+    /* 실시간 발행 실패는 무해 — 클라이언트 폴백/다음 신호로 갱신 */
+  }
 
   return NextResponse.json({
     id: message.id,

@@ -28,6 +28,8 @@ import { translateText, transcribeVoice, translateImage } from "@/lib/gemini";
 // S5 A6-3 — STT 결과(translatedText) 채운 뒤 동일 메시지를 Nike로 1회 재push(멱등 zaloMsgId).
 // zalo-webhook은 prisma만 의존 → 순환 import 없음.
 import { pushInboundToNike } from "@/lib/zalo-webhook";
+// 실시간(SSE) — 신규 수신 저장 후 ownerAdminId 채널로 "inbound" 신호 발행(인박스 즉시 갱신).
+import { publish as publishRealtime } from "@/lib/realtime-bus";
 
 // ===================== 순수 함수 층 (단위 테스트 대상) =====================
 
@@ -931,6 +933,14 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
         phone
       );
     }
+  }
+
+  // 실시간(SSE) — 신규 수신 저장 완료(중복 아님) 후 본인(ownerAdminId) 채널로 "inbound" 신호 발행.
+  // 비블로킹·예외 격리: 발행 실패가 저장 결과/리스너에 영향 없게 try/catch로 감싼다(신호일 뿐).
+  try {
+    publishRealtime(ownerAdminId, { type: "inbound", conversationId: conversation.id });
+  } catch {
+    /* 실시간 발행 실패는 무해 — 클라이언트 폴백/다음 신호로 갱신 */
   }
 
   return {
