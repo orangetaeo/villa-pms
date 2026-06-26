@@ -6,6 +6,7 @@ import { BookingStatus, PhotoSpace, ServiceOrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatKrw, formatVnd } from "@/lib/format";
 import { minibarItemName } from "@/lib/minibar";
+import { effectivePar } from "@/lib/minibar-inventory";
 import CheckoutForm, { type ConfirmedServiceOrder } from "./checkout-form";
 
 /**
@@ -51,6 +52,7 @@ export default async function CheckoutPage({
         guestName: true,
         depositAmount: true,
         depositCurrency: true,
+        villaId: true,
         villa: {
           select: {
             name: true,
@@ -66,7 +68,7 @@ export default async function CheckoutPage({
     prisma.minibarItem.findMany({
       where: { active: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-      select: { id: true, nameKo: true, nameVi: true, unitPriceVnd: true },
+      select: { id: true, nameKo: true, nameVi: true, unitPriceVnd: true, stockQty: true },
     }),
     prisma.serviceOrder.findMany({
       where: {
@@ -86,6 +88,28 @@ export default async function CheckoutPage({
     }),
   ]);
   if (!booking) notFound();
+
+  // 미니바 par(비치목표)·현재고(onHand) 빌라별 로드 — "남은 수량" 입력 기본값·표시용.
+  //   par = VillaMinibarStock.qty(빌라 오버라이드) ?? MinibarItem.stockQty(회사표준).
+  //   onHand = MinibarStockMovement ΣqtyDelta(원장 단일소스). 빌라 없으면 빈 맵(par=stockQty 폴백).
+  const minibarItemIds = minibarItems.map((m) => m.id);
+  const [parOverrides, onHandSums] = await Promise.all([
+    minibarItemIds.length > 0
+      ? prisma.villaMinibarStock.findMany({
+          where: { villaId: booking.villaId, minibarItemId: { in: minibarItemIds } },
+          select: { minibarItemId: true, qty: true },
+        })
+      : Promise.resolve([] as { minibarItemId: string; qty: number }[]),
+    minibarItemIds.length > 0
+      ? prisma.minibarStockMovement.groupBy({
+          by: ["minibarItemId"],
+          where: { villaId: booking.villaId, minibarItemId: { in: minibarItemIds } },
+          _sum: { qtyDelta: true },
+        })
+      : Promise.resolve([] as { minibarItemId: string; _sum: { qtyDelta: number | null } }[]),
+  ]);
+  const overrideMap = new Map(parOverrides.map((o) => [o.minibarItemId, o.qty]));
+  const onHandMap = new Map(onHandSums.map((s) => [s.minibarItemId, s._sum.qtyDelta ?? 0]));
 
   // 확정 부가옵션 표시명 — 연결된 카탈로그명(없으면 type 라벨). 판매가만 노출.
   const catalogIds = confirmedOrdersRaw
@@ -125,10 +149,13 @@ export default async function CheckoutPage({
   }
 
   // 회사표준 미니바 — 표시명은 로케일별(vi/ko), 단가는 우리 판매가(BigInt → 문자열).
+  //   par(비치목표)·onHand(현재고)를 함께 내려 "남은 수량" 입력 UX의 기본값·표시에 사용.
   const minibar = minibarItems.map((m) => ({
     id: m.id,
     label: minibarItemName(m, locale),
     unitPriceVnd: m.unitPriceVnd.toString(),
+    par: effectivePar(overrideMap.get(m.id) ?? null, m.stockQty),
+    onHand: onHandMap.get(m.id) ?? 0,
   }));
 
   const depositLabel =

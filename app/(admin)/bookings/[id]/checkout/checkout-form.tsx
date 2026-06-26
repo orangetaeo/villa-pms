@@ -22,6 +22,10 @@ interface MinibarItem {
   label: string;
   /** 미니바 고객 청구 단가(= 우리 판매가, VND 동 단위 문자열) */
   unitPriceVnd: string;
+  /** 비치 목표(par) — 빌라 오버라이드 ?? 회사표준 stockQty. "남은 수량" 입력 상한·기본값. */
+  par: number;
+  /** 현재고(onHand) — MinibarStockMovement ΣqtyDelta. 참고 표시용. */
+  onHand: number;
 }
 
 /** 확정 부가옵션(CONFIRMED|DELIVERED) — 게스트 청구서용. 판매가만(원가 비노출, ADR-0019 S4). */
@@ -85,25 +89,25 @@ export default function CheckoutForm({
     if (idx >= 0) setLightbox(idx);
   };
 
-  // ── 미니바 소모 입력 (#2b) ─────────────────────────────────────
-  // 회사표준 모델엔 빌라 비치수량이 없다 → 소모 수량을 직접 입력한다(역산 폐기).
-  // consumed[id] = 소모 수량(스테퍼·직접입력). 초기값 0.
-  const [consumedMap, setConsumedMap] = useState<Record<string, number>>({});
+  // ── 미니바 "남은 수량" 입력 (소모 자동계산) ─────────────────────────
+  // 운영자는 소모량을 직접 세지 않는다. 현재 "남은 수량(remaining)"만 입력하면
+  //   소비량 = 비치목표(par) − 남은수량 으로 시스템이 역산한다(0 ≤ remaining ≤ par 클램프).
+  // remainingMap[id] = 남은 수량. 미입력(undefined) = 기본값 par(소비 0).
+  const [remainingMap, setRemainingMap] = useState<Record<string, number>>({});
 
-  const MAX_CONSUMED = 99; // 상한 (오입력 방지)
-
-  /** 소모 수량 변경 (0 ~ MAX_CONSUMED 클램프) — 스테퍼·직접입력 공통 */
-  const setConsumedClamped = (item: MinibarItem, next: number) => {
-    const clamped = Math.max(0, Math.min(MAX_CONSUMED, Math.trunc(next || 0)));
-    setConsumedMap((c) => ({ ...c, [item.id]: clamped }));
+  /** 남은 수량 변경 (0 ~ par 클램프) — 스테퍼·직접입력 공통. remaining>par 또는 음수 방지. */
+  const setRemainingClamped = (item: MinibarItem, next: number) => {
+    const clamped = Math.max(0, Math.min(item.par, Math.trunc(next || 0)));
+    setRemainingMap((r) => ({ ...r, [item.id]: clamped }));
   };
 
-  /** 행별 결과 — 차감액 = 소모 × 단가(BigInt, float 금지) */
+  /** 행별 결과 — 남은수량 → 소비량(par−remaining) 역산, 차감액 = 소비 × 단가(BigInt, float 금지) */
   const minibarRows = minibar.map((m) => {
-    const consumed = consumedMap[m.id] ?? 0;
+    const remaining = remainingMap[m.id] ?? m.par; // 기본값 = par(소비 0)
+    const consumed = Math.max(0, m.par - remaining); // 음수 소비 방지 clamp
     const unit = BigInt(m.unitPriceVnd);
     const lineDeduction = unit * BigInt(consumed);
-    return { item: m, consumed, unit, lineDeduction };
+    return { item: m, remaining, consumed, unit, lineDeduction };
   });
 
   /** 미니바 차감 합계(BigInt) */
@@ -203,12 +207,12 @@ export default function CheckoutForm({
         .filter(Boolean)
         .join("\n");
       // 미니바 판매 라인 — 소모>0만. 가격은 보내지 않는다(서버가 스냅샷 재계산, 마진 비공개).
+      //   "남은 수량(remaining)"을 보내면 서버가 par를 재조회해 소비량을 역산한다(클라 par/소비 신뢰 금지).
       const minibarLines = minibarRows
         .filter((r) => r.consumed > 0)
         .map((r) => ({
           minibarItemId: r.item.id,
-          consumedQty: r.consumed,
-          stockedQty: 0, // 회사표준 모델엔 비치수량 없음 — 0 스냅샷(소모 직접 입력)
+          remaining: r.remaining,
         }));
       const res = await fetch(`/api/bookings/${bookingId}/checkout`, {
         method: "POST",
@@ -351,54 +355,65 @@ export default function CheckoutForm({
           <p className="text-sm text-slate-500 p-6">{t("minibarEmpty")}</p>
         ) : (
           <>
-            {/* 데스크톱(≥768px): 표 — 소모 수량 직접 입력 */}
+            {/* 데스크톱(≥768px): 표 — "남은 수량" 입력, 소비량·차감액 자동계산 */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-sm border-collapse tabular-nums">
                 <thead>
                   <tr className="text-[11px] font-bold text-slate-500 uppercase tracking-wider bg-slate-900/50">
                     <th className="px-6 py-3 border-b border-slate-800">{t("item")}</th>
                     <th className="px-6 py-3 border-b border-slate-800 text-right">{t("unitPrice")}</th>
+                    <th className="px-6 py-3 border-b border-slate-800 text-center">{t("par")}</th>
+                    <th className="px-6 py-3 border-b border-slate-800 text-center">{t("remainingQty")}</th>
                     <th className="px-6 py-3 border-b border-slate-800 text-center">{t("consumedQty")}</th>
                     <th className="px-6 py-3 border-b border-slate-800 text-right">{t("lineDeduction")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {minibarRows.map(({ item, consumed, lineDeduction }) => (
+                  {minibarRows.map(({ item, remaining, consumed, lineDeduction }) => (
                     <tr key={item.id} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="px-6 py-4 font-medium text-slate-200">{item.label}</td>
+                      <td className="px-6 py-4 font-medium text-slate-200">
+                        {item.label}
+                        <span className="block text-[11px] text-slate-500 font-normal">
+                          {t("onHandLabel")}: {item.onHand}
+                        </span>
+                      </td>
                       <td className="px-6 py-4 text-right text-slate-400">
                         {formatThousands(item.unitPriceVnd)}₫
                       </td>
+                      <td className="px-6 py-4 text-center text-slate-400 font-bold">{item.par}</td>
                       <td className="px-6 py-4 text-center">
                         <div className="inline-flex items-center bg-slate-900 rounded border border-slate-700 p-0.5">
                           <button
                             type="button"
                             aria-label={t("decrement")}
-                            disabled={consumed <= 0}
-                            onClick={() => setConsumedClamped(item, consumed - 1)}
+                            disabled={remaining <= 0}
+                            onClick={() => setRemainingClamped(item, remaining - 1)}
                             className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-white disabled:opacity-30 disabled:hover:text-slate-500"
                           >
                             −
                           </button>
                           <input
                             type="number"
-                            aria-label={`${item.label} ${t("consumedQty")}`}
+                            aria-label={`${item.label} ${t("remainingQty")}`}
                             min={0}
-                            max={99}
-                            value={consumed}
-                            onChange={(e) => setConsumedClamped(item, parseInt(e.target.value, 10))}
+                            max={item.par}
+                            value={remaining}
+                            onChange={(e) => setRemainingClamped(item, parseInt(e.target.value, 10))}
                             className="w-10 bg-transparent border-none text-center text-xs font-bold text-white focus:ring-0 p-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
                           />
                           <button
                             type="button"
                             aria-label={t("increment")}
-                            disabled={consumed >= 99}
-                            onClick={() => setConsumedClamped(item, consumed + 1)}
+                            disabled={remaining >= item.par}
+                            onClick={() => setRemainingClamped(item, remaining + 1)}
                             className="w-6 h-6 flex items-center justify-center text-slate-500 hover:text-white disabled:opacity-30 disabled:hover:text-slate-500"
                           >
                             +
                           </button>
                         </div>
+                      </td>
+                      <td className={`px-6 py-4 text-center font-bold ${consumed > 0 ? "text-amber-400" : "text-slate-600"}`}>
+                        {consumed}
                       </td>
                       <td className={`px-6 py-4 text-right font-bold ${lineDeduction > 0n ? "text-red-400" : "text-slate-600"}`}>
                         {formatThousands(lineDeduction)}₫
@@ -409,9 +424,9 @@ export default function CheckoutForm({
               </table>
             </div>
 
-            {/* 모바일(<768px): 카드 스택 */}
+            {/* 모바일(<768px): 카드 스택 — "남은 수량" 입력, 소비량 자동표시 */}
             <div className="md:hidden flex flex-col divide-y divide-slate-800/60">
-              {minibarRows.map(({ item, consumed, lineDeduction }) => (
+              {minibarRows.map(({ item, remaining, consumed, lineDeduction }) => (
                 <div key={item.id} className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <span className="font-bold text-slate-200">{item.label}</span>
@@ -419,27 +434,33 @@ export default function CheckoutForm({
                       {formatThousands(lineDeduction)}₫
                     </span>
                   </div>
-                  <div className="flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center justify-between gap-3 text-xs mb-2">
                     <span className="text-slate-500">
-                      {formatThousands(item.unitPriceVnd)}₫ · {t("consumedQty")}{" "}
-                      <span className="text-admin-primary font-bold tabular-nums">{consumed}</span>
+                      {formatThousands(item.unitPriceVnd)}₫ · {t("par")}{" "}
+                      <span className="text-slate-300 font-bold tabular-nums">{item.par}</span>
+                      {" · "}
+                      {t("consumedQty")}{" "}
+                      <span className="text-amber-400 font-bold tabular-nums">{consumed}</span>
                     </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-xs">
+                    <span className="text-slate-400 font-bold">{t("remainingQty")}</span>
                     <div className="inline-flex items-center bg-slate-900 rounded border border-slate-700 p-0.5 shrink-0">
                       <button
                         type="button"
                         aria-label={t("decrement")}
-                        disabled={consumed <= 0}
-                        onClick={() => setConsumedClamped(item, consumed - 1)}
+                        disabled={remaining <= 0}
+                        onClick={() => setRemainingClamped(item, remaining - 1)}
                         className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-white disabled:opacity-30"
                       >
                         −
                       </button>
-                      <span className="w-8 text-center text-xs font-bold text-white tabular-nums">{consumed}</span>
+                      <span className="w-8 text-center text-xs font-bold text-white tabular-nums">{remaining}</span>
                       <button
                         type="button"
                         aria-label={t("increment")}
-                        disabled={consumed >= 99}
-                        onClick={() => setConsumedClamped(item, consumed + 1)}
+                        disabled={remaining >= item.par}
+                        onClick={() => setRemainingClamped(item, remaining + 1)}
                         className="w-7 h-7 flex items-center justify-center text-slate-500 hover:text-white disabled:opacity-30"
                       >
                         +

@@ -1103,6 +1103,7 @@ enum NotificationType {
   SUPPLIER_DIRECT_BOOKING // 공급자 직접예약 생성 — 운영자에게 선점 기회 통지 (F10, ADR-0021)
   VENDOR_PO // 원천 공급자에게 부가서비스 발주 — 수신자=공급자 User(vi) (ADR-0023 S2)
   VENDOR_PO_RESPONSE // 공급자 가부 응답 → 운영자 통지(ko) (ADR-0023 S2)
+  BOOKING_MODIFIED // 예약 변경(날짜·빌라·인원 등) → 공급자 통지 (F-booking-modify, 판매가·마진 비포함)
 }
 
 enum NotificationStatus {

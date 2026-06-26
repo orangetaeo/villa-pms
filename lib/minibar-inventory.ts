@@ -45,6 +45,25 @@ export function shortageQty(onHand: number, par: number): number {
 }
 
 /**
+ * 체크아웃 소비량 = 비치목표(par) − 남은수량(remaining). "남은 수량" 입력 UX의 핵심 변환.
+ *   운영자가 소비량을 직접 세는 대신 남은 수량만 입력하면 시스템이 소비량을 역산한다.
+ *   - remaining ≥ par  → 0 (소비 없음 — 가득 차 있거나 par 초과는 음수 소비 방지 clamp).
+ *   - remaining < 0     → throw (입력 검증에서 막아야 하나 함수도 음수를 거부 — 무결성).
+ *   - 정상(0 ≤ remaining < par) → par − remaining.
+ *   ★ 순수·정수 산술(부동소수점 없음). par·remaining은 정수여야 한다(비정수는 거부).
+ */
+export function computeConsumptionFromRemaining(par: number, remaining: number): number {
+  if (!Number.isInteger(par) || !Number.isInteger(remaining)) {
+    throw new RangeError("par·remaining은 정수여야 합니다");
+  }
+  if (remaining < 0) {
+    throw new RangeError("남은 수량은 0 이상이어야 합니다");
+  }
+  if (remaining >= par) return 0; // 가득참·par 초과 → 음수 소비 방지(clamp)
+  return par - remaining;
+}
+
+/**
  * 입고 가능 최대 수량 = max(0, par − 현재고).
  *   미니바는 회사 재고이므로 입고(RESTOCK)는 비치 목표(par)까지만 — 초과 비치 금지(2026-06-26 테오).
  *   부족 수량과 같은 값이지만, "입고 상한"이라는 의미로 별도 함수.
