@@ -193,12 +193,19 @@ describe("PATCH/DELETE /api/admin/minibar/[id]", () => {
   });
 });
 
-// ── 누수 가드 — 공급자·공개 라우트가 MinibarItem(판매가)을 참조하지 않는지 정적 검사 ──
-describe("#2b 누수 0 — 공급자·공개 라우트는 MinibarItem 미참조", () => {
+// ── 누수 가드 — 공급자·공개 라우트의 미니바 참조 경계 정적 검사 ──
+// #2b 원칙: 공급자·공개는 마진(costVnd) 절대 미노출.
+// ADR-0021 D6(T10.5) 예외: 공급자 체크아웃은 게스트 미니바 소비를 우리 매출로 정산하므로
+//   판매가(unitPriceVnd)를 참조한다 — 단 costVnd(원가·마진)는 어디서도 참조 금지.
+describe("#2b/D6 누수 0 — 공급자·공개 라우트는 미니바 costVnd(원가·마진) 미참조", () => {
   const root = join(__dirname, "..");
   const SUPPLIER_PUBLIC_GLOBS = [
     "app/(supplier)",
     "app/p",
+  ];
+  // ADR-0021 D6으로 minibarItem(판매가) 참조가 허용된 공급자 화면 — 이 파일들도 costVnd는 여전히 금지.
+  const MINIBAR_ALLOWED_SUBSTR = [
+    join("my-bookings", "[id]", "checkout"),
   ];
   function walk(dir: string): string[] {
     const fs = require("node:fs") as typeof import("node:fs");
@@ -210,16 +217,45 @@ describe("#2b 누수 0 — 공급자·공개 라우트는 MinibarItem 미참조"
     }
     return out;
   }
-  it("supplier·public 트리에 prisma.minibarItem 호출 없음", () => {
+  // 코드(주석 제외)에서 costVnd 실참조 검출 — "costVnd 비select" 같은 문서 주석은 허용,
+  //   실제 prisma select·prop·연산에 costVnd가 들어오면 잡는다(핵심 마진 누수 경계).
+  function stripComments(src: string): string {
+    return src
+      .split("\n")
+      .map((line) => {
+        const i = line.indexOf("//");
+        return i >= 0 ? line.slice(0, i) : line;
+      })
+      .join("\n")
+      .replace(/\/\*[\s\S]*?\*\//g, ""); // 블록 주석 제거
+  }
+  it("supplier·public 트리 코드에 costVnd(원가·마진) 실참조 0 — D6 허용 화면 포함", () => {
     for (const g of SUPPLIER_PUBLIC_GLOBS) {
       const dir = join(root, g);
       let files: string[] = [];
       try {
         files = walk(dir);
       } catch {
-        continue; // 디렉터리 없으면 스킵
+        continue;
       }
       for (const f of files) {
+        const code = stripComments(readFileSync(f, "utf8"));
+        expect(code.includes("costVnd"), `${f} references costVnd in code (원가 누수)`).toBe(false);
+      }
+    }
+  });
+  it("supplier·public 트리에 prisma.minibarItem 호출 없음 — D6 체크아웃 화면만 예외", () => {
+    for (const g of SUPPLIER_PUBLIC_GLOBS) {
+      const dir = join(root, g);
+      let files: string[] = [];
+      try {
+        files = walk(dir);
+      } catch {
+        continue;
+      }
+      for (const f of files) {
+        const allowed = MINIBAR_ALLOWED_SUBSTR.some((s) => f.includes(s));
+        if (allowed) continue; // 체크아웃 화면은 판매가 참조 허용(D6)
         const src = readFileSync(f, "utf8");
         expect(src.includes("minibarItem"), `${f} references minibarItem`).toBe(false);
       }

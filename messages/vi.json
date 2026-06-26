@@ -1108,7 +1108,8 @@
     "calendar": "Lịch",
     "cleaning": "Dọn dẹp",
     "earnings": "Thu nhập",
-    "guide": "Hướng dẫn"
+    "guide": "Hướng dẫn",
+    "bookings": "Đặt phòng"
   },
   "guide": {
     "headerTitle": "Hướng dẫn nhanh",
@@ -2697,5 +2698,123 @@
     "qrOptions": "QR Đặt dịch vụ",
     "copyLink": "Sao chép link",
     "qrUnavailable": "Không tạo được QR"
+  },
+  "myBookings": {
+    "title": "Đặt phòng trực tiếp",
+    "subtitle": "Nhận phòng & trả phòng cho khách bạn tự bán.",
+    "empty": "Chưa có đặt phòng trực tiếp nào.",
+    "goCalendar": "Mở lịch",
+    "pendingSection": "Cần xử lý",
+    "doneSection": "Đã hoàn tất",
+    "guestsLabel": "{name} + {n}",
+    "doCheckin": "Nhận phòng",
+    "doCheckout": "Trả phòng",
+    "completed": "Đã trả phòng",
+    "status": {
+      "confirmed": "Chờ nhận phòng",
+      "checkedIn": "Đang lưu trú",
+      "checkedOut": "Đã trả phòng"
+    }
+  },
+  "supplierCheckin": {
+    "pageTitle": "Nhận phòng",
+    "back": "Quay lại",
+    "guestsLabel": "{name} + {n}",
+    "submit": "Hoàn tất nhận phòng",
+    "submitting": "Đang xử lý…",
+    "submitError": "Không thể nhận phòng. Vui lòng thử lại.",
+    "submitCaption": "Thông tin khách chỉ dùng cho việc lưu trú này.",
+    "needPassport": "Cần ít nhất 1 ảnh hộ chiếu.",
+    "passport": {
+      "title": "Ảnh hộ chiếu",
+      "guestN": "Khách {n}",
+      "alt": "Hộ chiếu {n}",
+      "remove": "Xóa ảnh",
+      "upload": "Thêm ảnh",
+      "uploading": "Đang tải…",
+      "uploadError": "Tải ảnh thất bại. Vui lòng thử lại.",
+      "ocrHint": "Chụp ảnh hộ chiếu, hệ thống tự đọc tên & số hộ chiếu.",
+      "ocrTitle": "Thông tin khách {n}",
+      "ocrRun": "Đọc lại",
+      "ocrRunning": "Đang đọc…",
+      "ocrNotConfigured": "Tự động đọc chưa sẵn sàng — vui lòng nhập tay.",
+      "ocrFailed": "Đọc thất bại — vui lòng nhập tay.",
+      "fields": {
+        "surname": "Họ",
+        "givenNames": "Tên",
+        "passportNo": "Số hộ chiếu",
+        "nationality": "Quốc tịch",
+        "birthDate": "Ngày sinh",
+        "expiryDate": "Ngày hết hạn",
+        "sex": "Giới tính"
+      }
+    },
+    "deposit": {
+      "title": "Tiền đặt cọc",
+      "skip": "Không nhận cọc",
+      "held": "Đã nhận cọc"
+    },
+    "agreement": {
+      "title": "Bản đồng ý sử dụng",
+      "consent": "Khách đồng ý với nội quy & đã ký tên.",
+      "signedBadge": "Đã ký",
+      "signatureLabel": "Chữ ký của khách",
+      "clear": "Xóa",
+      "signComplete": "Lưu chữ ký",
+      "signUploading": "Đang lưu…",
+      "signError": "Lưu chữ ký thất bại.",
+      "unsignedHint": "Có thể hoàn tất không cần chữ ký — sẽ hiển thị 'chưa ký'."
+    }
+  },
+  "supplierCheckout": {
+    "pageTitle": "Trả phòng",
+    "back": "Quay lại",
+    "guestsLabel": "{name} + {n}",
+    "submit": "Hoàn tất trả phòng",
+    "submitting": "Đang xử lý…",
+    "submitError": "Không thể trả phòng. Vui lòng thử lại.",
+    "submitCaption": "Phòng sẽ chờ dọn dẹp sau khi trả phòng.",
+    "needPhoto": "Cần ít nhất 1 ảnh hiện trạng.",
+    "generalPhotos": "Ảnh phòng",
+    "spaces": {
+      "EXTERIOR": "Bên ngoài",
+      "LIVING": "Phòng khách",
+      "KITCHEN": "Bếp",
+      "BEDROOM": "Phòng ngủ",
+      "BATHROOM": "Phòng tắm",
+      "BALCONY": "Ban công",
+      "POOL": "Hồ bơi",
+      "ETC": "Khác"
+    },
+    "photo": {
+      "title": "So sánh phòng",
+      "baseline": "Ảnh gốc",
+      "current": "Ảnh hiện tại",
+      "done": "Đã chụp",
+      "pending": "Chưa chụp",
+      "take": "Chụp ảnh",
+      "uploading": "Đang tải…",
+      "uploadError": "Tải ảnh thất bại. Vui lòng thử lại."
+    },
+    "damage": {
+      "title": "Hư hỏng",
+      "hint": "Bật khi có hư hỏng để thêm ảnh & số tiền trừ.",
+      "note": "Mô tả hư hỏng",
+      "notePlaceholder": "Ví dụ: vỡ ly, hỏng rèm…",
+      "deduction": "Số tiền trừ"
+    },
+    "deposit": {
+      "received": "Tiền cọc đã nhận",
+      "deduction": "Trừ hư hỏng",
+      "refund": "Hoàn lại khách"
+    },
+    "minibar": {
+      "title": "Minibar đã dùng",
+      "hint": "Nhập số đã dùng",
+      "parPrice": "Bày {par} · {price}₫",
+      "decrease": "Giảm",
+      "increase": "Tăng",
+      "total": "Tổng minibar"
+    }
   }
 }

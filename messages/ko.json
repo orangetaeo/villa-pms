@@ -1000,7 +1000,8 @@
     "calendar": "캘린더",
     "cleaning": "청소",
     "earnings": "수익",
-    "guide": "안내"
+    "guide": "안내",
+    "bookings": "예약"
   },
   "guide": {
     "headerTitle": "빠른 안내",
@@ -2697,5 +2698,123 @@
     "qrOptions": "옵션 요청 QR",
     "copyLink": "링크 복사",
     "qrUnavailable": "QR을 만들 수 없습니다"
+  },
+  "myBookings": {
+    "title": "직접예약 검수",
+    "subtitle": "직접 판매한 고객의 체크인·아웃을 진행합니다.",
+    "empty": "직접예약이 아직 없습니다.",
+    "goCalendar": "캘린더 열기",
+    "pendingSection": "처리 필요",
+    "doneSection": "완료됨",
+    "guestsLabel": "{name} 외 {n}명",
+    "doCheckin": "체크인",
+    "doCheckout": "체크아웃",
+    "completed": "체크아웃 완료",
+    "status": {
+      "confirmed": "체크인 대기",
+      "checkedIn": "투숙 중",
+      "checkedOut": "체크아웃 완료"
+    }
+  },
+  "supplierCheckin": {
+    "pageTitle": "체크인",
+    "back": "뒤로",
+    "guestsLabel": "{name} 외 {n}명",
+    "submit": "체크인 완료",
+    "submitting": "처리 중…",
+    "submitError": "체크인에 실패했습니다. 다시 시도하세요.",
+    "submitCaption": "고객 정보는 이번 숙박에만 사용됩니다.",
+    "needPassport": "여권 사진이 최소 1장 필요합니다.",
+    "passport": {
+      "title": "여권 사진",
+      "guestN": "고객 {n}",
+      "alt": "여권 {n}",
+      "remove": "사진 삭제",
+      "upload": "사진 추가",
+      "uploading": "업로드 중…",
+      "uploadError": "사진 업로드 실패. 다시 시도하세요.",
+      "ocrHint": "여권을 촬영하면 이름·여권번호를 자동으로 읽습니다.",
+      "ocrTitle": "고객 {n} 정보",
+      "ocrRun": "다시 읽기",
+      "ocrRunning": "읽는 중…",
+      "ocrNotConfigured": "자동 인식 미설정 — 직접 입력하세요.",
+      "ocrFailed": "인식 실패 — 직접 입력하세요.",
+      "fields": {
+        "surname": "성",
+        "givenNames": "이름",
+        "passportNo": "여권번호",
+        "nationality": "국적",
+        "birthDate": "생년월일",
+        "expiryDate": "만료일",
+        "sex": "성별"
+      }
+    },
+    "deposit": {
+      "title": "보증금",
+      "skip": "보증금 미수취",
+      "held": "보증금 수취"
+    },
+    "agreement": {
+      "title": "이용 동의서",
+      "consent": "고객이 이용 수칙에 동의하고 서명했습니다.",
+      "signedBadge": "서명 완료",
+      "signatureLabel": "고객 서명",
+      "clear": "지우기",
+      "signComplete": "서명 저장",
+      "signUploading": "저장 중…",
+      "signError": "서명 저장 실패.",
+      "unsignedHint": "서명 없이도 완료 가능 — '미서명'으로 표시됩니다."
+    }
+  },
+  "supplierCheckout": {
+    "pageTitle": "체크아웃",
+    "back": "뒤로",
+    "guestsLabel": "{name} 외 {n}명",
+    "submit": "체크아웃 완료",
+    "submitting": "처리 중…",
+    "submitError": "체크아웃에 실패했습니다. 다시 시도하세요.",
+    "submitCaption": "체크아웃 후 청소 대기 상태가 됩니다.",
+    "needPhoto": "현재 사진이 최소 1장 필요합니다.",
+    "generalPhotos": "객실 사진",
+    "spaces": {
+      "EXTERIOR": "외관",
+      "LIVING": "거실",
+      "KITCHEN": "주방",
+      "BEDROOM": "침실",
+      "BATHROOM": "화장실",
+      "BALCONY": "베란다",
+      "POOL": "수영장",
+      "ETC": "기타"
+    },
+    "photo": {
+      "title": "객실 비교",
+      "baseline": "기준 사진",
+      "current": "현재 사진",
+      "done": "촬영 완료",
+      "pending": "미촬영",
+      "take": "사진 촬영",
+      "uploading": "업로드 중…",
+      "uploadError": "사진 업로드 실패. 다시 시도하세요."
+    },
+    "damage": {
+      "title": "파손",
+      "hint": "파손이 있으면 켜서 사진·차감액을 추가하세요.",
+      "note": "파손 내용",
+      "notePlaceholder": "예: 컵 파손, 커튼 손상…",
+      "deduction": "차감액"
+    },
+    "deposit": {
+      "received": "받은 보증금",
+      "deduction": "파손 차감",
+      "refund": "환불액"
+    },
+    "minibar": {
+      "title": "미니바 사용",
+      "hint": "사용 수량 입력",
+      "parPrice": "비치 {par} · {price}₫",
+      "decrease": "감소",
+      "increase": "증가",
+      "total": "미니바 합계"
+    }
   }
 }
