@@ -9,6 +9,7 @@ import {
   ServiceSelectionError,
   type CatalogOptions,
 } from "@/lib/service-catalog";
+import { catalogImage } from "@/lib/service-image";
 import type { GuestLabels } from "@/lib/guest-i18n";
 import type { PublicLang } from "@/lib/public-i18n";
 import { guestPrice, guestPriceDelta } from "./guest-format";
@@ -125,6 +126,8 @@ export function OptionCard({
 
   const badgeCls = TYPE_BADGE[item.type] ?? "bg-slate-100 text-slate-500";
   const active = selection.quantity > 0;
+  // 업로드 사진 우선, 없으면 타입 기본 이미지(폴백)
+  const photo = catalogImage(item.type, item.photoUrl);
 
   return (
     <div
@@ -132,9 +135,9 @@ export function OptionCard({
         active ? "border-2 border-teal-200" : "border border-slate-100"
       }`}
     >
-      {item.photoUrl && (
+      {photo && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img className="w-full h-36 object-cover" alt={item.name} src={item.photoUrl} />
+        <img className="w-full h-36 object-cover" alt={item.name} src={photo} />
       )}
       <div className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-2">

@@ -12,6 +12,7 @@ import { useTranslations } from "next-intl";
 import { formatThousands } from "@/lib/format";
 import { priceKrwCeil } from "@/lib/service-display";
 import { parseCatalogOptions, SERVICE_TYPE_VALUES } from "@/lib/service-catalog";
+import { catalogImage } from "@/lib/service-image";
 
 export interface CatalogRow {
   id: string;
@@ -377,12 +378,12 @@ export default function ServiceCatalogManager({
                       item.active ? "" : "grayscale"
                     }`}
                   >
-                    {item.photoUrl ? (
+                    {catalogImage(item.type, item.photoUrl) ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         className="w-full h-full object-cover"
                         alt={item.nameKo}
-                        src={item.photoUrl}
+                        src={catalogImage(item.type, item.photoUrl)!}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-slate-600">
