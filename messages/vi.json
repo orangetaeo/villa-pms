@@ -1547,6 +1547,7 @@
     "colWhen": "Thời gian mong muốn",
     "colSale": "Giá bán",
     "colCost": "Giá nhập",
+    "colVendor": "Nhà cung cấp gốc",
     "colStatus": "Trạng thái",
     "colActions": "Xử lý",
     "viaGuest": "KHÁCH",
@@ -1581,7 +1582,33 @@
     "variantRequired": "Vui lòng chọn 1 lựa chọn.",
     "saved": "Đã lưu",
     "error": "Xử lý thất bại. Vui lòng thử lại.",
-    "cancelConfirm": "Hủy đơn này?"
+    "cancelConfirm": "Hủy đơn này?",
+    "vendor": {
+      "direct": "Tự cung cấp",
+      "status": {
+        "NONE": "Chưa đặt hàng",
+        "PENDING_VENDOR": "Đã gửi (chờ)",
+        "VENDOR_ACCEPTED": "Đã nhận",
+        "VENDOR_REJECTED": "Từ chối"
+      },
+      "dispatch": "Gửi đặt hàng",
+      "dispatched": "Đã gửi đơn đặt hàng",
+      "noZaloWarn": "Nhà cung cấp chưa cài Zalo — cần liên hệ thủ công",
+      "noVendor": "Chưa chỉ định nhà cung cấp để đặt hàng",
+      "cannotDispatch": "Không thể đặt hàng ở trạng thái hiện tại",
+      "confirmGate": "Đang chờ nhà cung cấp chấp nhận",
+      "notAcceptedWarn": "Nhà cung cấp chưa chấp nhận",
+      "settleMethod": "Phương thức thanh toán",
+      "markSettled": "Quyết toán",
+      "settled": "Đã quyết toán",
+      "settledAt": "Đã quyết toán {date}",
+      "unsettle": "Hủy",
+      "method": {
+        "CASH": "Tiền mặt",
+        "BANK_TRANSFER": "Chuyển khoản",
+        "OTHER": "Khác"
+      }
+    }
   },
   "adminSettlements": {
     "title": "Quản lý quyết toán",

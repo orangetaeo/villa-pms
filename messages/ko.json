@@ -1439,6 +1439,7 @@
     "colWhen": "희망 일시",
     "colSale": "판매가",
     "colCost": "원가",
+    "colVendor": "원천 공급자",
     "colStatus": "상태",
     "colActions": "처리",
     "viaGuest": "GUEST",
@@ -1473,7 +1474,33 @@
     "variantRequired": "선택지를 1개 고르세요.",
     "saved": "저장되었습니다",
     "error": "처리에 실패했습니다. 다시 시도해주세요.",
-    "cancelConfirm": "이 주문을 취소할까요?"
+    "cancelConfirm": "이 주문을 취소할까요?",
+    "vendor": {
+      "direct": "직접 제공",
+      "status": {
+        "NONE": "미발주",
+        "PENDING_VENDOR": "발주됨(대기)",
+        "VENDOR_ACCEPTED": "수락",
+        "VENDOR_REJECTED": "거절"
+      },
+      "dispatch": "발주 보내기",
+      "dispatched": "발주를 보냈습니다",
+      "noZaloWarn": "공급자 Zalo 미설정 — 수동 연락이 필요합니다",
+      "noVendor": "발주할 공급자가 지정되지 않았습니다",
+      "cannotDispatch": "현재 상태에서는 발주할 수 없습니다",
+      "confirmGate": "공급자 수락 대기",
+      "notAcceptedWarn": "공급자가 아직 수락하지 않았습니다",
+      "settleMethod": "결제수단",
+      "markSettled": "정산 완료",
+      "settled": "정산완료",
+      "settledAt": "정산완료 {date}",
+      "unsettle": "해제",
+      "method": {
+        "CASH": "현금",
+        "BANK_TRANSFER": "이체",
+        "OTHER": "기타"
+      }
+    }
   },
   "adminSettlements": {
     "title": "정산 관리",

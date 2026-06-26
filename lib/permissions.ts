@@ -18,11 +18,19 @@ export type Role = "OWNER" | "MANAGER" | "STAFF" | "ADMIN" | "SUPPLIER" | "CLEAN
 /** 운영자 역할 집합 — ADMIN은 transition 동안 OWNER 동일취급으로 포함 (S-RBAC-2서 제거) */
 const OPERATORS: Role[] = ["OWNER", "MANAGER", "STAFF", "ADMIN"];
 
+/** 알림 수신 등에서 운영자 User 조회용 readonly 튜플 (lib/roster-reminder 외 재사용) */
+export const OPERATOR_ROLES = ["OWNER", "MANAGER", "STAFF", "ADMIN"] as const;
+
 /**
  * 운영자 영역 접근 가능 여부 (기존 role==="ADMIN" 대부분을 이걸로 치환 예정).
  * ADMIN은 transition 동안 OWNER와 동일 취급, S-RBAC-2서 제거.
  */
 export const isOperator = (r?: Role): boolean => !!r && OPERATORS.includes(r);
+
+/** 원천 공급자(부가서비스 거래처 로그인 계정, ADR-0023). 운영자 아님 — 자기 발주만 조회·응답. */
+export function isVendor(r?: Role): r is "VENDOR" {
+  return r === "VENDOR";
+}
 
 /**
  * 돈을 볼 수 있는가 — KRW·마진·이윤·매출·정산 조회. STAFF 차단.
