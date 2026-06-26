@@ -13,7 +13,8 @@
 
 /** 시스템 전체 역할 — lib/permissions.ts가 단일 출처(types/next-auth.d.ts가 재사용) */
 //   VENDOR = 부가서비스 원천 공급자 로그인 계정(ADR-0023). 운영자 아님 — 모든 capability false.
-export type Role = "OWNER" | "MANAGER" | "STAFF" | "ADMIN" | "SUPPLIER" | "CLEANER" | "VENDOR";
+//   PARTNER = 여행사·랜드사 로그인 계정(ADR-0028). 운영자 아님 — 자기 고객 예약·미수만.
+export type Role = "OWNER" | "MANAGER" | "STAFF" | "ADMIN" | "SUPPLIER" | "CLEANER" | "VENDOR" | "PARTNER";
 
 /** 운영자 역할 집합 — ADMIN은 transition 동안 OWNER 동일취급으로 포함 (S-RBAC-2서 제거) */
 const OPERATORS: Role[] = ["OWNER", "MANAGER", "STAFF", "ADMIN"];
@@ -30,6 +31,11 @@ export const isOperator = (r?: Role): boolean => !!r && OPERATORS.includes(r);
 /** 원천 공급자(부가서비스 거래처 로그인 계정, ADR-0023). 운영자 아님 — 자기 발주만 조회·응답. */
 export function isVendor(r?: Role): r is "VENDOR" {
   return r === "VENDOR";
+}
+
+/** 파트너(여행사·랜드사 로그인 계정, ADR-0028). 운영자 아님 — 자기 고객 예약·미수·받은 제안서만. */
+export function isPartner(r?: Role): r is "PARTNER" {
+  return r === "PARTNER";
 }
 
 /**
