@@ -102,6 +102,17 @@ export async function POST(
     );
   }
 
+  // 청구서에 묶인 채권엔 직접 입금 금지 — 이중 인식 방지(QA, 청구서로 수납해야 함, ADR-0022 3b)
+  if (body.purpose === "DEPOSIT" || body.purpose === "BALANCE") {
+    const linked = await prisma.partnerReceivable.findUnique({
+      where: { bookingId: id },
+      select: { invoiceId: true },
+    });
+    if (linked?.invoiceId) {
+      return NextResponse.json({ error: "RECEIVABLE_INVOICED" }, { status: 409 });
+    }
+  }
+
   const payment = await prisma.$transaction(async (tx) => {
     // 파트너 객실료 입금(DEPOSIT/BALANCE)이면 예약의 채권을 찾아 반영 (ADR-0022)
     let receivable: {
