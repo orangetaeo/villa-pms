@@ -670,8 +670,10 @@ enum PaymentMethod {
 
 model Payment {
   id            String        @id @default(cuid())
-  bookingId     String
-  booking       Booking       @relation(fields: [bookingId], references: [id])
+  // 마감 청구서 수납(invoiceId)은 여러 예약에 걸치므로 bookingId 없이 생성 (ADR-0027).
+  // 예약 직접수납은 bookingId 필수 — "bookingId XOR invoiceId"를 앱 레벨에서 보장.
+  bookingId     String?
+  booking       Booking?      @relation(fields: [bookingId], references: [id])
   currency      Currency
   amount        BigInt // 통화 최소단위 (KRW 원, VND 동, USD 센트)
   method        PaymentMethod
@@ -689,6 +691,7 @@ model Payment {
   @@index([bookingId])
   @@index([partnerId])
   @@index([receivableId])
+  @@index([invoiceId])
 }
 
 // ===================== B2B 파트너 매출채권·여신 (ADR-0022) =====================
