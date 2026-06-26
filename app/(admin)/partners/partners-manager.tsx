@@ -56,9 +56,12 @@ const APPROVAL_BADGE: Record<ApprovalStatus, { cls: string; key: string; icon: s
 export default function PartnersManager({
   partners,
   canApprove,
+  accountActiveByUserId = {},
 }: {
   partners: SerializedPartnerAggregate[];
   canApprove: boolean;
+  /** 연결된 로그인 계정(userId)의 활성 여부 — 계정 활성/비활성 표시 */
+  accountActiveByUserId?: Record<string, boolean>;
 }) {
   const t = useTranslations("adminPartners");
   const router = useRouter();
@@ -162,13 +165,26 @@ export default function PartnersManager({
                   {t(ab.key)}
                 </span>
               )}
-              {/* 로그인 계정 연결 여부 (간단 표시) */}
-              {r.partner.userId && (
-                <span className="inline-flex items-center gap-0.5 rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-400">
-                  <span className="material-symbols-outlined text-[12px]">badge</span>
-                  {t("hasAccountBadge")}
-                </span>
-              )}
+              {/* 로그인 계정 연결 — 클릭 시 사용자관리(PARTNER 탭)로 점프, 활성/비활성 색 구분 */}
+              {r.partner.userId &&
+                (() => {
+                  const active = accountActiveByUserId[r.partner.userId] ?? true;
+                  return (
+                    <Link
+                      href="/users?role=PARTNER"
+                      title={t("viewInUsers")}
+                      className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold hover:ring-1 hover:ring-admin-primary/50 ${
+                        active
+                          ? "bg-sky-500/15 text-sky-400"
+                          : "bg-slate-600/30 text-slate-400"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[12px]">badge</span>
+                      {active ? t("accountActive") : t("accountInactive")}
+                      <span className="material-symbols-outlined text-[11px]">arrow_outward</span>
+                    </Link>
+                  );
+                })()}
             </div>
           </div>
         );

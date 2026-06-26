@@ -26,6 +26,10 @@ export interface UserRow {
   /** "YYYY.MM.DD" (RSC에서 직렬화) */
   joinedAt: string;
   villaCount: number;
+  /** 연결된 파트너(B2B) 엔티티 id — PARTNER 계정일 때 /partners/[id]로 점프 */
+  partnerId: string | null;
+  /** 연결된 원천 공급자(발주처) 엔티티 id — VENDOR 계정일 때 /settings/vendors로 점프 */
+  vendorId: string | null;
 }
 
 export interface UnlinkedZaloRow {
@@ -82,14 +86,17 @@ export default function UsersManager({
   users,
   unlinkedZalo,
   selfId,
+  initialTab = "all",
 }: {
   users: UserRow[];
   unlinkedZalo: UnlinkedZaloRow[];
   selfId: string;
+  /** 딥링크 진입 탭 (/partners 등에서 ?role=PARTNER) */
+  initialTab?: TabKey;
 }) {
   const t = useTranslations("adminUsers");
   const router = useRouter();
-  const [tab, setTab] = useState<TabKey>("all");
+  const [tab, setTab] = useState<TabKey>(initialTab);
   const [query, setQuery] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   // Zalo 매칭 패널이 열린 사용자 id + 선택한 zaloUserId
@@ -430,6 +437,33 @@ export default function UsersManager({
     );
   };
 
+  // PARTNER·VENDOR 계정 → 연결된 B2B 엔티티로 점프 (엔티티≠계정 상호연결)
+  const entityLink = (user: UserRow) => {
+    if (user.role === "PARTNER" && user.partnerId) {
+      return (
+        <Link
+          href={`/partners/${user.partnerId}`}
+          className="inline-flex items-center gap-0.5 text-[11px] font-medium text-sky-400 hover:text-sky-300 hover:underline whitespace-nowrap"
+        >
+          <span className="material-symbols-outlined text-[13px]">arrow_outward</span>
+          {t("entityLink.partner")}
+        </Link>
+      );
+    }
+    if (user.role === "VENDOR" && user.vendorId) {
+      return (
+        <Link
+          href="/settings/vendors"
+          className="inline-flex items-center gap-0.5 text-[11px] font-medium text-emerald-400 hover:text-emerald-300 hover:underline whitespace-nowrap"
+        >
+          <span className="material-symbols-outlined text-[13px]">arrow_outward</span>
+          {t("entityLink.vendor")}
+        </Link>
+      );
+    }
+    return null;
+  };
+
   const nameBlock = (user: UserRow) => (
     <div className="flex items-center gap-3">
       <div
@@ -437,11 +471,14 @@ export default function UsersManager({
       >
         {initials(user.name)}
       </div>
-      <span
-        className={`text-sm font-semibold ${user.isActive ? "text-white" : "text-[#9CA3AF]"}`}
-      >
-        {user.name}
-      </span>
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <span
+          className={`text-sm font-semibold ${user.isActive ? "text-white" : "text-[#9CA3AF]"}`}
+        >
+          {user.name}
+        </span>
+        {entityLink(user)}
+      </div>
     </div>
   );
 
