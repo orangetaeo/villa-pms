@@ -67,7 +67,7 @@ function makeTx(opts: {
   const invFindUnique = vi.fn(async () =>
     opts.invoice !== undefined ? opts.invoice : (opts.dup ?? null)
   );
-  // Payment + LEDGER COLLECTION mock (ADR-0024) — 청구서 수납이 분개 적재
+  // Payment + LEDGER COLLECTION mock (ADR-0027) — 청구서 수납이 분개 적재
   let payCounter = 0;
   const payCreate = vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
     id: `pay-${++payCounter}`,
@@ -87,6 +87,7 @@ function makeTx(opts: {
     },
     payment: { create: payCreate },
     ledgerTransaction: { findUnique: ledgerFindUnique, create: ledgerCreate },
+    auditLog: { create: vi.fn(async () => ({})) },
   };
   return { tx: tx as never, create, invUpdate, rcvUpdateMany, rcvUpdate, payCreate, ledgerCreate };
 }
@@ -187,7 +188,7 @@ describe("recordInvoicePayment", () => {
     });
   });
 
-  it("수납 시 LEDGER COLLECTION 적재 — Payment(VND, invoiceId) + 균형 분개 (ADR-0024)", async () => {
+  it("수납 시 LEDGER COLLECTION 적재 — Payment(VND, invoiceId) + 균형 분개 (ADR-0027)", async () => {
     const { tx, payCreate, ledgerCreate } = makeTx({
       invoice: {
         id: "inv1",

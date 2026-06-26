@@ -31,7 +31,7 @@ export async function DELETE(
     });
     if (!payment) return { kind: "NOT_FOUND" as const };
     // 청구서 수납 결제(invoiceId)는 이 경로로 삭제 금지 — paidVnd·채권 상태가 어긋남.
-    // 청구서 수납 정정은 별도 흐름(ADR-0024 D3, 후속). 여기선 예약 직접수납만.
+    // 청구서 수납 정정은 별도 흐름(ADR-0027 D3, 후속). 여기선 예약 직접수납만.
     if (payment.invoiceId) return { kind: "INVOICE_LINKED" as const };
 
     await tx.payment.delete({ where: { id } });

@@ -1,18 +1,18 @@
-# 계약서 — 파트너 청구서 수납 → LEDGER COLLECTION 연결 (ADR-0024)
+# 계약서 — 파트너 청구서 수납 → LEDGER COLLECTION 연결 (ADR-0027)
 
-- 태스크: ADR-0024 — 마감 청구서(PartnerInvoice) 수납을 복식부기 LEDGER COLLECTION에 적재
+- 태스크: ADR-0027 — 마감 청구서(PartnerInvoice) 수납을 복식부기 LEDGER COLLECTION에 적재
 - 담당 세션: **wt/ledger-collection** (격리 worktree — 공유 메인 직접작업 금지)
-- 상태: **착수 선점** (2026-06-26) — 1단계 = ADR-0024 초안 작성·합의. 합의(D1~D4 확정) 전 구현 코드 금지.
-- 정본: docs/decisions/ADR-0024-partner-invoice-payment-ledger.md
+- 상태: **착수 선점** (2026-06-26) — 1단계 = ADR-0027 초안 작성·합의. 합의(D1~D4 확정) 전 구현 코드 금지.
+- 정본: docs/decisions/ADR-0027-partner-invoice-payment-ledger.md
 - 선행: ADR-0018 LEDGER(머지, main — postCollection·reverseCollection·verifyLedger), ADR-0022 파트너 청구서(머지, main — recordInvoicePayment)
 
 ## 배경 (요약)
 
-수납 경로가 둘인데 청구서 경로만 LEDGER 미적재 → B2B 매출이 복식부기에서 누락. `Payment.invoiceId` 필드는 이미 존재하나 `recordInvoicePayment`가 Payment row를 안 만들고 paidVnd만 누적. 상세·설계안·대기결정(D1~D4)은 ADR-0024 참조.
+수납 경로가 둘인데 청구서 경로만 LEDGER 미적재 → B2B 매출이 복식부기에서 누락. `Payment.invoiceId` 필드는 이미 존재하나 `recordInvoicePayment`가 Payment row를 안 만들고 paidVnd만 누적. 상세·설계안·대기결정(D1~D4)은 ADR-0027 참조.
 
 ## 진행
 
-- [x] ADR-0024 초안 작성 (Proposed)
+- [x] ADR-0027 초안 작성 (Proposed)
 - [x] 테오 D1~D4 전부 권장값 확정 → ADR **Accepted**
 - [x] 구현 완료(S0 스키마·S1 recordInvoicePayment·S2 백필, S3 불필요 확인, S4 D3 후속). typecheck0·next build·vitest 1847 그린.
 - [ ] 배포: 라이브 DB raw ALTER → 머지 → 백필 스크립트 실행

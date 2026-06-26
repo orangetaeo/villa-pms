@@ -1,4 +1,4 @@
-// ADR-0024 — 파트너 청구서 수납 LEDGER COLLECTION 백필
+// ADR-0027 — 파트너 청구서 수납 LEDGER COLLECTION 백필
 //
 // 배경: 코드 변경(recordInvoicePayment) 이전에 청구서로 수납된 금액(PartnerInvoice.paidVnd)은
 // Payment row 없이 누적만 됐기 때문에 복식부기 LEDGER에서 누락돼 있다. 이 스크립트는 그
@@ -59,7 +59,7 @@ async function main() {
           purpose: PaymentPurpose.BALANCE,
           partnerId: inv.partnerId,
           invoiceId: inv.id,
-          note: "ADR-0024 백필(청구서 수납 LEDGER 소급)",
+          note: "ADR-0027 백필(청구서 수납 LEDGER 소급)",
         },
       });
       await postCollection(tx, {

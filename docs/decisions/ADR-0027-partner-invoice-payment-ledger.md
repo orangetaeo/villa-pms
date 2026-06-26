@@ -1,4 +1,4 @@
-# ADR-0024 — 파트너 청구서 수납 → LEDGER COLLECTION 연결
+# ADR-0027 — 파트너 청구서 수납 → LEDGER COLLECTION 연결
 
 - 상태: **Accepted** (테오 확정 2026-06-26: D1~D4 전부 권장값 채택 → 구현 완료)
 - 일자: 2026-06-26
