@@ -34,6 +34,8 @@ export interface OrderRow {
   id: string;
   type: string;
   status: "REQUESTED" | "CONFIRMED" | "DELIVERED" | "CANCELLED";
+  serviceDate: string | null; // 희망 날짜 YYYY-MM-DD (투숙기간 내)
+  serviceTime: string | null; // 희망 시각 "HH:MM"
   nameKo: string; // 카탈로그명(없으면 type 라벨)
   quantity: number;
   priceKrw: number;
@@ -56,11 +58,15 @@ export default function ServiceOrdersPanel({
   catalog,
   orders,
   showCost,
+  dateMin,
+  dateMax,
 }: {
   bookingId: string;
   catalog: OrderCatalogItem[];
   orders: OrderRow[];
   showCost: boolean;
+  dateMin: string; // 희망 날짜 입력 범위(YYYY-MM-DD) — 투숙 체크인
+  dateMax: string; // 〃 체크아웃
 }) {
   const t = useTranslations("adminServiceOrders");
   const router = useRouter();
@@ -146,6 +152,7 @@ export default function ServiceOrdersPanel({
                 <th className="text-left px-6 py-3">{t("colMenu")}</th>
                 <th className="text-center px-2 py-3">{t("colQty")}</th>
                 <th className="text-center px-2 py-3">{t("colVia")}</th>
+                <th className="text-left px-3 py-3">{t("colWhen")}</th>
                 <th className="text-right px-3 py-3">{t("colSale")}</th>
                 {showCost && <th className="text-right px-3 py-3">{t("colCost")}</th>}
                 <th className="text-center px-3 py-3">{t("colStatus")}</th>
@@ -192,6 +199,17 @@ export default function ServiceOrdersPanel({
                       >
                         {o.requestedVia === "GUEST" ? t("viaGuest") : t("viaAdmin")}
                       </span>
+                    </td>
+                    <td className="px-3 py-3 text-left whitespace-nowrap">
+                      {o.serviceDate || o.serviceTime ? (
+                        <span className="text-xs text-slate-300 tabular-nums">
+                          {o.serviceDate ?? ""}
+                          {o.serviceDate && o.serviceTime ? " " : ""}
+                          {o.serviceTime ?? ""}
+                        </span>
+                      ) : (
+                        <span className="text-slate-600">—</span>
+                      )}
                     </td>
                     <td className="px-3 py-3 text-right tabular-nums text-white font-semibold whitespace-nowrap">
                       {o.priceKrw > 0 ? `${formatThousands(o.priceKrw)}원` : ""}
@@ -249,6 +267,8 @@ export default function ServiceOrdersPanel({
             catalog={catalog}
             busy={busy}
             setBusy={setBusy}
+            dateMin={dateMin}
+            dateMax={dateMax}
             onDone={() => {
               setAdding(false);
               setMessage({ ok: true, text: t("saved") });
@@ -352,6 +372,8 @@ function AddOrderForm({
   catalog,
   busy,
   setBusy,
+  dateMin,
+  dateMax,
   onDone,
   onFail,
   onClose,
@@ -361,6 +383,8 @@ function AddOrderForm({
   catalog: OrderCatalogItem[];
   busy: boolean;
   setBusy: (b: boolean) => void;
+  dateMin: string;
+  dateMax: string;
   onDone: () => void;
   onFail: () => void;
   onClose: () => void;
@@ -371,6 +395,8 @@ function AddOrderForm({
   const [addonKeys, setAddonKeys] = useState<string[]>([]);
   const [modifierKeys, setModifierKeys] = useState<string[]>([]);
   const [quantity, setQuantity] = useState<string>("1");
+  const [serviceDate, setServiceDate] = useState<string>("");
+  const [serviceTime, setServiceTime] = useState<string>("");
   const [guestNote, setGuestNote] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
@@ -432,6 +458,8 @@ function AddOrderForm({
           addonKeys,
           modifierKeys,
           quantity: qty,
+          serviceDate: serviceDate || null,
+          serviceTime: serviceTime || null,
           guestNote: guestNote.trim() || null,
           status: "REQUESTED",
         }),
@@ -559,6 +587,35 @@ function AddOrderForm({
           </div>
         </div>
       )}
+
+      {/* 희망 날짜·시각 (#3) — 고객이 채팅·전화로 요청한 일시 */}
+      <div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-xs text-slate-500">{t("serviceDate")}</label>
+            <input
+              type="date"
+              min={dateMin}
+              max={dateMax}
+              value={serviceDate}
+              onChange={(e) => setServiceDate(e.target.value)}
+              aria-label={t("serviceDate")}
+              className={`mt-1 ${selCls}`}
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500">{t("serviceTime")}</label>
+            <input
+              type="time"
+              value={serviceTime}
+              onChange={(e) => setServiceTime(e.target.value)}
+              aria-label={t("serviceTime")}
+              className={`mt-1 ${selCls}`}
+            />
+          </div>
+        </div>
+        <p className="text-[11px] text-slate-500 mt-1">{t("serviceWhenHint")}</p>
+      </div>
 
       <div>
         <label className="text-xs text-slate-500">{t("guestNote")}</label>

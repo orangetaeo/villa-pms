@@ -141,6 +141,8 @@ export default async function BookingDetailPage({
         id: true,
         type: true,
         status: true,
+        serviceDate: true,
+        serviceTime: true,
         quantity: true,
         priceKrw: true,
         priceVnd: true,
@@ -199,6 +201,8 @@ export default async function BookingDetailPage({
     id: o.id,
     type: o.type,
     status: o.status,
+    serviceDate: o.serviceDate ? o.serviceDate.toISOString().slice(0, 10) : null,
+    serviceTime: o.serviceTime,
     nameKo:
       (o.catalogItemId && catalogNameById.get(o.catalogItemId)) ||
       tServices(`types.${o.type}`),
@@ -560,6 +564,8 @@ export default async function BookingDetailPage({
               catalog={serviceCatalog}
               orders={serviceOrders}
               showCost={showFinance}
+              dateMin={booking.checkIn.toISOString().slice(0, 10)}
+              dateMax={booking.checkOut.toISOString().slice(0, 10)}
             />
           )}
         </div>
