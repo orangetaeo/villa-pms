@@ -1077,6 +1077,24 @@
       "payoutLabel": "Tiền bạn nhận",
       "payoutHint": "Dự kiến thanh toán",
       "close": "Đóng"
+    },
+    "direct": {
+      "recordOption": "Ghi đặt phòng trực tiếp",
+      "dateLabel": "Ngày",
+      "checkIn": "Nhận phòng",
+      "checkOut": "Trả phòng",
+      "guestName": "Tên khách",
+      "guestNamePlaceholder": "Nguyễn Văn A",
+      "guestCount": "Số khách",
+      "guestsWord": "Khách",
+      "decrease": "Giảm",
+      "increase": "Tăng",
+      "amountLabel": "Số tiền nhận",
+      "contactLabel": "Liên hệ",
+      "contactPlaceholder": "09xx xxx xxx",
+      "optional": "Không bắt buộc",
+      "save": "Lưu đặt phòng",
+      "saving": "Đang lưu..."
     }
   },
   "tabs": {

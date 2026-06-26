@@ -969,6 +969,24 @@
       "payoutLabel": "받을 금액",
       "payoutHint": "정산 예정액",
       "close": "닫기"
+    },
+    "direct": {
+      "recordOption": "직접 예약 기록",
+      "dateLabel": "날짜",
+      "checkIn": "체크인",
+      "checkOut": "체크아웃",
+      "guestName": "고객명",
+      "guestNamePlaceholder": "홍길동",
+      "guestCount": "인원",
+      "guestsWord": "명",
+      "decrease": "감소",
+      "increase": "증가",
+      "amountLabel": "받은 금액",
+      "contactLabel": "연락처",
+      "contactPlaceholder": "09xx xxx xxx",
+      "optional": "선택",
+      "save": "예약 저장",
+      "saving": "저장 중..."
     }
   },
   "tabs": {
