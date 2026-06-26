@@ -72,6 +72,8 @@ const NAV: NavEntry[] = [
     icon: "account_balance_wallet",
     items: [
       { key: "settlements", href: "/settlements", icon: "payments", cap: canViewFinance },
+      // 매출관리(건별 매출 거래 목록) — 객실료·미니바·부가서비스 통합. 마진·판매가 비공개라 재무만 노출
+      { key: "revenue", href: "/revenue", icon: "receipt_long", cap: canViewFinance },
       // 파트너 관리(ADR-0022) — 여행사·랜드사 미수·여신. 재무만 노출
       { key: "partners", href: "/partners", icon: "handshake", cap: canViewFinance },
       // 미수/여신 대시보드(ADR-0022 PARTNER-3) — 전 파트너 미수 Aging·연체. 재무만 노출

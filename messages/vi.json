@@ -119,7 +119,8 @@
       "operations": "Vận hành villa",
       "finance": "Tài chính",
       "system": "Hệ thống"
-    }
+    },
+    "revenue": "Doanh thu"
   },
   "account": {
     "title": "Tài khoản của tôi",
@@ -630,6 +631,39 @@
         "uploading": "Đang tải lên…",
         "remove": "Xóa",
         "error": "Tải lên thất bại. Vui lòng thử lại."
+      },
+      "modify": {
+        "title": "Thay đổi đặt phòng",
+        "openButton": "Thay đổi",
+        "checkedInHint": "Đã nhận phòng. Chỉ có thể đổi ngày trả phòng (kéo dài/rút ngắn lưu trú).",
+        "priceNote": "Số tiền sẽ được tính lại tự động trên máy chủ theo ngày/biệt thự mới.",
+        "success": "Đã thay đổi đặt phòng.",
+        "submit": "Lưu thay đổi",
+        "submitting": "Đang lưu…",
+        "cancel": "Hủy",
+        "fields": {
+          "villa": "Biệt thự",
+          "checkIn": "Nhận phòng",
+          "checkOut": "Trả phòng",
+          "guestName": "Tên khách",
+          "guestCount": "Số khách",
+          "guestPhone": "Số điện thoại",
+          "breakfast": "Gồm bữa sáng",
+          "reason": "Lý do thay đổi",
+          "reasonPlaceholder": "VD: Khách đổi lịch trình"
+        },
+        "errors": {
+          "noChanges": "Không có thay đổi nào.",
+          "generic": "Thay đổi thất bại.",
+          "STATUS_NOT_MODIFIABLE": "Không thể thay đổi ở trạng thái hiện tại.",
+          "CHECKED_IN_FIELD_LOCKED": "Sau khi nhận phòng chỉ có thể đổi ngày trả phòng.",
+          "NO_CHANGES": "Không có thay đổi nào.",
+          "INVALID_RANGE": "Ngày trả phòng phải sau ngày nhận phòng.",
+          "INVALID_GUEST_COUNT": "Số khách phải từ 1 trở lên.",
+          "SOLD_OUT": "Biệt thự/khoảng thời gian này đã được đặt hoặc bị chặn, không thể thay đổi.",
+          "RECEIVABLE_EXISTS": "Đã có công nợ nên việc đổi biệt thự/số tiền cần hủy và đặt lại.",
+          "CONCURRENT_MODIFICATION": "Phát hiện thay đổi đồng thời. Vui lòng tải lại và thử lại."
+        }
       }
     }
   },
@@ -2591,7 +2625,9 @@
     "settlementClear": "Bỏ chọn",
     "settlementOptionalNote": "Nếu không chọn hình thức thanh toán, chỉ ghi nhận số tiền phải thu và để ở trạng thái chưa thu.",
     "settlementNote": "Ghi chú quyết toán (tùy chọn)",
-    "settlementNotePlaceholder": "VD: Nhận tiền mặt USD, hoàn phần còn lại"
+    "settlementNotePlaceholder": "VD: Nhận tiền mặt USD, hoàn phần còn lại",
+    "par": "Định mức",
+    "onHandLabel": "Tồn kho"
   },
   "adminMessages": {
     "headerCollapse": "Thu gọn tiêu đề",
@@ -3526,5 +3562,53 @@
     "soldOut": "Ngày này đã được đặt. Vui lòng chọn ngày khác.",
     "notFound": "Không tìm thấy villa.",
     "createError": "Tạo liên kết thất bại. Vui lòng thử lại."
+  },
+  "revenue": {
+    "title": "Quản lý doanh thu",
+    "subtitle": "Danh sách giao dịch doanh thu",
+    "searchPlaceholder": "Tìm khách·villa·đối tác·tên mặt hàng",
+    "exportCsv": "Xuất CSV",
+    "empty": "Không có giao dịch doanh thu trong kỳ·điều kiện này",
+    "note": "Ghi nhận doanh thu = theo tháng trả phòng (CHECKED_OUT·NO_SHOW). Lợi nhuận chỉ tính bằng VND; tiền phòng kênh KRW không tính vào lợi nhuận VND (ADR-0003).",
+    "types": {
+      "ROOM": "Tiền phòng",
+      "MINIBAR": "Minibar",
+      "SERVICE": "Dịch vụ thêm"
+    },
+    "channels": {
+      "TRAVEL_AGENCY": "Công ty du lịch",
+      "LAND_AGENCY": "Land",
+      "DIRECT": "Trực tiếp"
+    },
+    "filters": {
+      "channel": "Kênh",
+      "allChannels": "Tất cả kênh",
+      "villa": "Villa",
+      "allVillas": "Tất cả villa",
+      "partner": "Đối tác",
+      "allPartners": "Tất cả đối tác",
+      "currency": "Tiền tệ",
+      "allCurrencies": "Tất cả tiền tệ",
+      "allStatuses": "Gồm mọi trạng thái đặt phòng"
+    },
+    "cols": {
+      "date": "Ngày ghi nhận",
+      "type": "Loại",
+      "villa": "Villa",
+      "channelPartner": "Kênh·Đối tác",
+      "label": "Nội dung",
+      "saleKrw": "Giá bán (KRW)",
+      "saleVnd": "Giá bán (VND)",
+      "costVnd": "Giá vốn (VND)",
+      "marginVnd": "Lợi nhuận (VND)"
+    },
+    "csv": {
+      "channel": "Kênh",
+      "partner": "Đối tác"
+    },
+    "totals": {
+      "label": "Tổng ({count} dòng)",
+      "csvLabel": "Tổng cộng"
+    }
   }
 }

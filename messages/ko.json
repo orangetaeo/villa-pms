@@ -119,7 +119,8 @@
       "operations": "빌라 운영",
       "finance": "재무",
       "system": "시스템"
-    }
+    },
+    "revenue": "매출관리"
   },
   "account": {
     "title": "내 계정",
@@ -521,6 +522,39 @@
         "uploading": "업로드 중…",
         "remove": "삭제",
         "error": "업로드에 실패했습니다. 다시 시도해 주세요."
+      },
+      "modify": {
+        "title": "예약 변경",
+        "openButton": "변경하기",
+        "checkedInHint": "체크인 완료 상태입니다. 체크아웃일(체류 연장/단축)만 변경할 수 있어요.",
+        "priceNote": "금액은 변경된 날짜·빌라로 서버에서 자동 재계산됩니다.",
+        "success": "예약이 변경되었습니다.",
+        "submit": "변경 저장",
+        "submitting": "저장 중…",
+        "cancel": "취소",
+        "fields": {
+          "villa": "빌라",
+          "checkIn": "체크인",
+          "checkOut": "체크아웃",
+          "guestName": "투숙객명",
+          "guestCount": "인원",
+          "guestPhone": "연락처",
+          "breakfast": "조식 포함",
+          "reason": "변경 사유",
+          "reasonPlaceholder": "예: 고객 일정 변경"
+        },
+        "errors": {
+          "noChanges": "변경된 내용이 없습니다.",
+          "generic": "변경에 실패했습니다.",
+          "STATUS_NOT_MODIFIABLE": "현재 상태에서는 변경할 수 없습니다.",
+          "CHECKED_IN_FIELD_LOCKED": "체크인 완료 후에는 체크아웃일만 변경할 수 있습니다.",
+          "NO_CHANGES": "변경된 내용이 없습니다.",
+          "INVALID_RANGE": "체크아웃일은 체크인일보다 뒤여야 합니다.",
+          "INVALID_GUEST_COUNT": "인원은 1명 이상이어야 합니다.",
+          "SOLD_OUT": "해당 빌라·기간은 이미 예약/차단되어 변경할 수 없습니다.",
+          "RECEIVABLE_EXISTS": "미수(채권)가 있어 빌라·금액 변경은 취소 후 재예약해야 합니다.",
+          "CONCURRENT_MODIFICATION": "동시 변경이 감지되었습니다. 새로고침 후 다시 시도해 주세요."
+        }
       }
     }
   },
@@ -2482,7 +2516,9 @@
     "settlementClear": "선택 해제",
     "settlementOptionalNote": "결제수단을 선택하지 않으면 청구액만 기록되고 미수납 상태로 남습니다.",
     "settlementNote": "정산 메모 (선택)",
-    "settlementNotePlaceholder": "예: 현금 USD로 수령, 잔액 환불"
+    "settlementNotePlaceholder": "예: 현금 USD로 수령, 잔액 환불",
+    "par": "비치 목표",
+    "onHandLabel": "현재고"
   },
   "adminMessages": {
     "headerCollapse": "헤더 접기",
@@ -3526,5 +3562,53 @@
     "soldOut": "이 날짜는 이미 예약되었습니다. 다른 날짜를 선택하세요.",
     "notFound": "빌라를 찾을 수 없습니다.",
     "createError": "링크 생성에 실패했습니다. 다시 시도하세요."
+  },
+  "revenue": {
+    "title": "매출관리",
+    "subtitle": "건별 매출 거래 목록",
+    "searchPlaceholder": "투숙객·빌라·파트너·품목명 검색",
+    "exportCsv": "CSV 내보내기",
+    "empty": "해당 기간·조건의 매출 거래가 없습니다",
+    "note": "매출 인식 = 체크아웃월 기준(CHECKED_OUT·NO_SHOW). 마진은 VND만 계산하며 KRW 채널 객실료는 VND 마진에서 제외됩니다(ADR-0003).",
+    "types": {
+      "ROOM": "객실료",
+      "MINIBAR": "미니바",
+      "SERVICE": "부가서비스"
+    },
+    "channels": {
+      "TRAVEL_AGENCY": "여행사",
+      "LAND_AGENCY": "랜드사",
+      "DIRECT": "직접"
+    },
+    "filters": {
+      "channel": "채널",
+      "allChannels": "전체 채널",
+      "villa": "빌라",
+      "allVillas": "전체 빌라",
+      "partner": "파트너",
+      "allPartners": "전체 파트너",
+      "currency": "통화",
+      "allCurrencies": "전체 통화",
+      "allStatuses": "전체 예약상태 포함"
+    },
+    "cols": {
+      "date": "귀속일",
+      "type": "유형",
+      "villa": "빌라",
+      "channelPartner": "채널·파트너",
+      "label": "내역",
+      "saleKrw": "판매가(KRW)",
+      "saleVnd": "판매가(VND)",
+      "costVnd": "원가(VND)",
+      "marginVnd": "마진(VND)"
+    },
+    "csv": {
+      "channel": "채널",
+      "partner": "파트너"
+    },
+    "totals": {
+      "label": "합계 ({count}건)",
+      "csvLabel": "합계"
+    }
   }
 }

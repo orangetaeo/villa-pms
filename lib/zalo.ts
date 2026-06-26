@@ -297,6 +297,15 @@ export function buildNotificationText(
         `사유: ${str(p.rejectReason, "(사유 없음)")}`,
       ].join("\n");
     }
+
+    case NotificationType.BOOKING_MODIFIED:
+      // 예약 변경(날짜·빌라·인원 등) → 수신자=공급자(vi). 판매가·마진·원가 미포함(화이트리스트 필드만).
+      return [
+        `✏️ Đặt phòng đã thay đổi: ${villa}`,
+        stay,
+        `Số khách: ${num(p.guestCount)}`,
+        `Thông tin đặt phòng đã được cập nhật. Vui lòng kiểm tra lịch trong ứng dụng.`,
+      ].join("\n");
   }
 }
 

@@ -3,6 +3,7 @@ import {
   planRecover,
   MINIBAR_MOVEMENT_KINDS,
   currentOnHand,
+  computeConsumptionFromRemaining,
 } from "./minibar-inventory";
 
 describe("planRecover — 전환 회수 계획 (ADR-0021 D6)", () => {
@@ -45,6 +46,38 @@ describe("planRecover — 전환 회수 계획 (ADR-0021 D6)", () => {
     const onHand = 7;
     const [line] = planRecover([{ minibarItemId: "x", onHand }]);
     expect(currentOnHand([onHand, line.qtyDelta])).toBe(0);
+  });
+});
+
+describe("computeConsumptionFromRemaining — 남은수량→소비량 역산", () => {
+  it("remaining = par → 0 (소비 없음)", () => {
+    expect(computeConsumptionFromRemaining(5, 5)).toBe(0);
+  });
+
+  it("remaining = 0 → par (전량 소비)", () => {
+    expect(computeConsumptionFromRemaining(5, 0)).toBe(5);
+  });
+
+  it("정상: par − remaining", () => {
+    expect(computeConsumptionFromRemaining(5, 3)).toBe(2);
+    expect(computeConsumptionFromRemaining(10, 1)).toBe(9);
+  });
+
+  it("remaining > par → 0 (clamp, 음수 소비 방지)", () => {
+    expect(computeConsumptionFromRemaining(5, 8)).toBe(0);
+  });
+
+  it("remaining 음수 → 거부(throw)", () => {
+    expect(() => computeConsumptionFromRemaining(5, -1)).toThrow(RangeError);
+  });
+
+  it("par 0 + remaining 0 → 0", () => {
+    expect(computeConsumptionFromRemaining(0, 0)).toBe(0);
+  });
+
+  it("비정수 입력 → 거부(throw)", () => {
+    expect(() => computeConsumptionFromRemaining(5, 2.5)).toThrow(RangeError);
+    expect(() => computeConsumptionFromRemaining(5.5, 2)).toThrow(RangeError);
   });
 });
 

@@ -28,6 +28,8 @@ import { krwToVndSnapshot } from "@/lib/pricing";
 import { guestTokenState } from "@/lib/guest-checkin";
 import GuestTokenCard, { type GuestTokenState } from "./guest-token-card";
 import PartnerAssignCard from "./partner-assign-card";
+import BookingModifyPanel, { type VillaOption } from "./booking-modify-panel";
+import { modifiableKind } from "@/lib/booking-modify";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
@@ -388,6 +390,22 @@ export default async function BookingDetailPage({
       }
     : null;
 
+  // 예약 변경 패널 (F-booking-modify) — 변경 가능 상태에서만. 빌라 셀렉트 후보(현재 빌라 포함).
+  const modKind = modifiableKind(booking.status);
+  let villaOptions: VillaOption[] = [];
+  if (modKind !== "NONE") {
+    const villas = await prisma.villa.findMany({
+      where: { status: { in: ["ACTIVE", "INACTIVE"] } },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+    villaOptions = villas;
+    // 현재 빌라가 후보에 없으면(예: DRAFT 등) 앞에 추가해 셀렉트 표시 유지
+    if (!villaOptions.some((v) => v.id === booking.villa.id)) {
+      villaOptions = [{ id: booking.villa.id, name: booking.villa.name }, ...villaOptions];
+    }
+  }
+
   const logStatusChange = (changes: unknown): string | null => {
     if (changes && typeof changes === "object" && "status" in changes) {
       const s = (changes as { status?: { new?: unknown } }).status?.new;
@@ -651,6 +669,24 @@ export default async function BookingDetailPage({
             hasPassport={(booking.checkInRecord?.passportPhotoUrls.length ?? 0) > 0}
             tamTruSentAt={booking.checkInRecord?.tamTruSentAt?.toISOString() ?? null}
           />
+
+          {/* 예약 변경 (F-booking-modify) — 변경 가능 상태에서만. CHECKED_IN은 체크아웃일만 활성 */}
+          {modKind !== "NONE" && (
+            <BookingModifyPanel
+              bookingId={booking.id}
+              status={booking.status}
+              villaOptions={villaOptions}
+              initial={{
+                villaId: booking.villa.id,
+                checkIn: toDateOnlyString(booking.checkIn),
+                checkOut: toDateOnlyString(booking.checkOut),
+                guestName: booking.guestName,
+                guestCount: booking.guestCount,
+                guestPhone: booking.guestPhone ?? "",
+                breakfastIncluded: booking.breakfastIncluded,
+              }}
+            />
+          )}
 
           {/* 파트너 지정·미수 (ADR-0022 PARTNER-2c) — 재무 + 여행사/랜드사 채널만 */}
           {partnerCard && (
