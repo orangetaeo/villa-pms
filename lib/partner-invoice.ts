@@ -98,9 +98,13 @@ export async function generateInvoiceForPeriod(
         periodEnd: input.periodEnd,
       },
     },
-    select: { id: true },
+    select: { id: true, status: true },
   });
-  if (dup) throw new InvoiceError("PERIOD_EXISTS");
+  // 무효(VOID) 청구서는 같은 기간 재발행을 막지 않는다 — 회수 후 재작성 허용(테오 제보).
+  // unique 키(partnerId+기간)를 점유한 무효 건은 아래에서 삭제. 유효 청구서면 중복 거부.
+  if (dup && dup.status !== PartnerInvoiceStatus.VOID) {
+    throw new InvoiceError("PERIOD_EXISTS");
+  }
 
   const candidates = await tx.partnerReceivable.findMany({
     where: {
@@ -118,6 +122,16 @@ export async function generateInvoiceForPeriod(
   });
   const billable = candidates.filter((r) => receivableBalance(r) > 0n);
   if (billable.length === 0) throw new InvoiceError("NO_RECEIVABLES");
+
+  // 묶을 채권이 확정된 뒤, 같은 기간의 무효 청구서가 점유한 unique 키를 비운다.
+  // (무효화 때 채권은 이미 분리됐지만 방어적으로 한 번 더 분리 후 삭제 → FK 충돌 방지)
+  if (dup) {
+    await tx.partnerReceivable.updateMany({
+      where: { invoiceId: dup.id },
+      data: { invoiceId: null },
+    });
+    await tx.partnerInvoice.delete({ where: { id: dup.id } });
+  }
 
   const invoice = await tx.partnerInvoice.create({
     data: {
