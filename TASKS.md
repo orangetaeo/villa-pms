@@ -114,6 +114,22 @@
 - [~] T4.6 LAUNCH.md 오픈 체크리스트 최종 점검 → 오픈 (PM/QA/OPS) — **1차 전수 점검 완료(2026-06-16)**: 11항목 실측(F1~F4·F6·누수·스모크 PASS), 프로덕션 스모크 증적(health 200·보호 307·미인증 차단). **오픈 차단요인은 전부 테오님 활성화 의존**: ① Zalo 라이브(QR 로그인·OA 발급) ② 파일럿 시드 프로덕션 실행 ③ T4.4 실사용자 테스트 ④ Zalo 라우트 배포 후 재스모크. 상세: docs/LAUNCH.md §6. **2026-06-23 재점검(§6.6)**: 스모크 재실측 통과(신규 공실보드 라우트 포함), ①Zalo QR 로그인 **완료**(테오님 확인, 잔여=실송수신 1회 검증·notifications cron 등록), ②시드 **완료**(테오님 `/villas` 확인), ③T4.4 **키트 준비완료**·진행 대기, ④테스트데이터 **잔존 확인**(공개 직전 삭제). **잔여 차단=③T4.4 실사용 테스트 진행뿐**(나머지는 검증·청소 단계). 계약: docs/contracts/T4.6-launch-readiness.md
 - [x] T4.7 PWA 설치 기반 (OPS) — 2026-06-16 완료. app/manifest.ts(standalone·theme #0D9488·bg #F8FAFC·lang vi·icons SVG any+maskable), app/icon.svg(파비콘 겸용 브랜드 빌라 아이콘), app/apple-icon.tsx(next/og ImageResponse 180 PNG — sharp 불필요), app/layout.tsx viewport(themeColor·viewportFit cover safe-area)+appleWebApp 메타. 베트남 공급자 폰 홈화면 설치 지원(모바일 우선). vitest 8개(manifest 출력·SVG 유효성·apple-icon 소스 가드), typecheck 통과. ~~잔여: 배포 후 스모크~~ → **2026-06-16 프로덕션 스모크 PASS**(/manifest.webmanifest 200 application/manifest+json·본문 계약 정합·/icon.svg 200·/apple-icon 200 PNG 2173B). 잔여: 모바일 설치 프롬프트 실기기 실측만. 계약: docs/contracts/T-pwa-install.md
 
+## Sprint 5 — F10 공급자 직접 판매 채널 (양방향 모델, ADR-0021)
+
+> 원래 사업 모델 복원: 공급자가 자기 고객에 직접 판매 → 공실 실시간 공유 → 우리가 선점 재판매. 확정(테오 2026-06-26): 둘 다(단계적)·선착순·공급자 100%(정산 제외)·검수 미승인도 직접판매 허용·직접예약 게스트도 정식 F4 검수(D5, 공급자 수행). **격리 브랜치 wt/f10-supplier-direct에서 진행**. 스키마는 additive **raw SQL ALTER**(db push 금지 — [[db-schema-drift-villa-source]]). 단어 DIRECT 재사용 금지(seller=SUPPLIER로 표현).
+
+### Phase A — 직접예약 수동 기록 + 현장 검수 (MVP)
+- [ ] T10.0 Stitch 디자인: ① 공급자 캘린더 "직접 예약 기록" 바텀시트·입력 폼 ② 공급자 vi 체크인(여권·동의서 서명·보증금) ③ 공급자 vi 체크아웃(기준사진 대조·파손) — b3·b4 운영자 화면의 vi 모바일 변형 (a3 톤 계승) → design/stitch/ (DESIGN, 테오 확인)
+- [ ] T10.1 스키마: `Booking.seller` enum `BookingSeller{OPERATOR|SUPPLIER}` @default(OPERATOR) + `Booking.supplierSalePriceVnd BigInt?` raw SQL ALTER, 기존 예약 OPERATOR 백필, `NotificationType.SUPPLIER_DIRECT_BOOKING` 추가 (TDA/BE) — 스키마 1세션 전담(PARTNER-1 스키마 세션과 조율)
+- [ ] T10.2 공급자 직접예약 API+UI: `POST/DELETE /api/supplier/bookings`(supplierId 스코프, lockVillaInventory+checkAvailability 게이트 재사용, 선착순 409, writeAuditLog) + /calendar 직접예약 기록 폼 (BE/UX-VN) — 의존 T10.1
+- [ ] T10.3 운영자 가시성: lib/timeline.ts 셀 enum에 SUPPLIER_DIRECT 추가(T1.5 계약 호환) + 타임라인/대시보드 신규 셀 색 + /bookings seller 필터 (FE) — 의존 T10.1
+- [ ] T10.4 정산 제외 + Zalo 알림 + 누수 QA: settlement 집계 `seller=OPERATOR` 필터, 직접예약 생성 시 운영자 알림, 권한 누수 4종(타인빌라 403·운영자 판매가 비노출·정산 혼입 0·선착순 충돌 상세 비노출) (BE/INTEG/QA) — 의존 T10.2
+- [ ] T10.5 공급자 vi 체크인·아웃 검수 화면 (D5 — 정식 F4 적용): 여권 OCR·동의서 서명·보증금·체크아웃 사진 비교·청소. lib/checkin·lib/checkout 재사용, 공급자 vi 신규 라우트(app/(supplier)/), 권한 `seller=SUPPLIER` AND `villa.supplierId===session.user.id` 스코프, 여권·서명 비공개 파이프라인 재사용. "운영자 전달" 단계 제외(공급자 본인 임시거주신고). 서명 비게이트+미서명 배지로 시작. Stitch 디자인 선행 필요 (UX-VN/BE/QA) — 의존 T10.2
+
+### Phase B — 공급자 판매 링크 (별도 스프린트, 합의 후)
+- [ ] T10.6 공급자 판매가: `VillaRatePeriod.supplierSalePriceVnd` ALTER + my-villas/[id]/rate-periods 입력 UI (TDA/UX-VN)
+- [ ] T10.7 공급자 공개 판매 링크: Proposal 재사용(seller=SUPPLIER·supplierId 스코프·`canCreateSupplierLink` 신규 권한 분리) + 공급자 고객 셀프 가예약(HOLD)→입금 확인→CONFIRMED + 누수 QA(타 공급자 빌라·우리 판매가 비노출) (전원)
+
 ## Phase 2 백로그
 - [ ] 정산 페이지 (다중 통화 수납 + VND 지급 + 환차 기록, 환전 LEDGER 패턴)
 - [ ] 월 정산서 PDF (vi) 자동 생성
