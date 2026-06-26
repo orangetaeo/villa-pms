@@ -124,7 +124,7 @@
 - [ ] T10.2 공급자 직접예약 API+UI: `POST/DELETE /api/supplier/bookings`(supplierId 스코프, lockVillaInventory+checkAvailability 게이트 재사용, 선착순 409, writeAuditLog) + /calendar 직접예약 기록 폼 (BE/UX-VN) — 의존 T10.1
 - [ ] T10.3 운영자 가시성: lib/timeline.ts 셀 enum에 SUPPLIER_DIRECT 추가(T1.5 계약 호환) + 타임라인/대시보드 신규 셀 색 + /bookings seller 필터 (FE) — 의존 T10.1
 - [ ] T10.4 정산 제외 + Zalo 알림 + 누수 QA: settlement 집계 `seller=OPERATOR` 필터, 직접예약 생성 시 운영자 알림, 권한 누수 4종(타인빌라 403·운영자 판매가 비노출·정산 혼입 0·선착순 충돌 상세 비노출) (BE/INTEG/QA) — 의존 T10.2
-- [ ] T10.5 공급자 vi 체크인·아웃 검수 화면 (D5 — 정식 F4 적용): 여권 OCR·동의서 서명·보증금·체크아웃 사진 비교·청소. lib/checkin·lib/checkout 재사용, 공급자 vi 신규 라우트(app/(supplier)/), 권한 `seller=SUPPLIER` AND `villa.supplierId===session.user.id` 스코프, 여권·서명 비공개 파이프라인 재사용. "운영자 전달" 단계 제외(공급자 본인 임시거주신고). 서명 비게이트+미서명 배지로 시작. Stitch 디자인 선행 필요 (UX-VN/BE/QA) — 의존 T10.2
+- [ ] T10.5 공급자 vi 체크인·아웃 검수 화면 (D5 — 정식 F4 적용): 여권 OCR·동의서 서명·보증금·체크아웃 사진 비교·청소 + **미니바 소모 정산 블록(D6 — 미니바=운영자 재고, 매출 우리 것)**. lib/checkin·lib/checkout 재사용, 공급자 vi 신규 라우트(app/(supplier)/), 권한 `seller=SUPPLIER` AND `villa.supplierId===session.user.id` 스코프, 여권·서명 비공개 파이프라인 재사용. "운영자 전달" 단계 제외(공급자 본인 임시거주신고). 서명 비게이트+미서명 배지로 시작. **전환별 미니바 자동 보충/회수(다음 seller 인지)는 ADR-0019 미니바 실재고 Phase 2** (T10.5는 정산 UI만). Stitch 디자인 선행 (UX-VN/BE/QA) — 의존 T10.2
 
 ### Phase B — 공급자 판매 링크 (별도 스프린트, 합의 후)
 - [ ] T10.6 공급자 판매가: `VillaRatePeriod.supplierSalePriceVnd` ALTER + my-villas/[id]/rate-periods 입력 UI (TDA/UX-VN)

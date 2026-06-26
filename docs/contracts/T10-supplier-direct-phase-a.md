@@ -44,7 +44,7 @@
 ### T10.5 공급자 vi 체크인·아웃 검수 (UX-VN/BE) — D5
 - 공급자 vi 신규 라우트(`app/(supplier)/` 하위, 예: `/my-bookings/[id]/checkin`·`/checkout`). 권한 `seller=SUPPLIER` AND `villa.supplierId === session.user.id`
 - 체크인: 여권 업로드→Gemini OCR→보증금 기록→`lib/agreement.ts` 동의서(수영장 조항 자동) 서명→`lib/checkin.ts` 재사용으로 CHECKED_IN. **"운영자 전달" 단계 제외**(공급자 본인 임시거주신고)
-- 체크아웃: 기준사진 대조→파손/보증금→`lib/checkout.ts` 재사용으로 CHECKED_OUT + CleaningTask + isSellable=false
+- 체크아웃: 기준사진 대조→파손/보증금→**미니바 소모 정산 블록(D6)**→`lib/checkout.ts` 재사용으로 CHECKED_OUT + CleaningTask + isSellable=false. 미니바=운영자 재고이므로 소모분(소비수량×판매가)은 우리 매출로 게스트 청구(공급자 직접판매여도). **전환별 자동 보충/회수(다음 seller 인지)는 본 태스크 범위 밖 → ADR-0019 미니바 실재고 Phase 2**. Phase A는 체크아웃 정산 UI만(미니바 실재고 미구축 시 화면 노출 가드)
 - 여권·서명은 기존 비공개 증빙 파이프라인 재사용(공급자도 자기 게스트분만 접근). 서명 비게이트+미서명 배지(T3.1 조건 C 연속)
 - 완료 기준: 공급자가 자기 직접예약만 검수 가능(타 예약 403), 여권 비공개 유지, 운영자 예약엔 공급자 검수 진입 불가
 

@@ -54,9 +54,10 @@
     createdAt     DateTime @default(now())
     @@index([villaId, minibarItemId])
   }
-  enum MinibarMovementType { RESTOCK CONSUME ADJUST }
+  enum MinibarMovementType { RESTOCK CONSUME ADJUST RECOVER }
   ```
 - **흐름**: 입고(RESTOCK) → `onHandQty += qtyDelta`, 입력한 `unitCostVnd`로 **`MinibarItem.costVnd` 갱신**(회사표준 1세트이므로 빌라 공통 최신 매입가; 이동평균은 과함 — 간단 버전은 최근 입고가). 체크아웃 소모(CheckoutMinibarLine 확정 시) → `onHandQty -= consumed`, CONSUME movement 기록.
+- **전환별 보충/회수 (업무 프로세스 — ADR-0021 D6 교차):** 미니바는 운영자 재고. 빌라의 다음 예약 `seller`에 따라 전환 시 이동이 갈린다. **다음=OPERATOR**: par까지 모자란 만큼만 보충(`RESTOCK`). **다음=SUPPLIER(공급자 직접판매)**: 우리 재고 **전량 회수**(`RECOVER`, 음수 — 우리가 운영 안 하는 판매에 재고 미잔류 → 공급자 직접판매 투숙 중엔 우리 미니바 없음). 소모 매출은 누가 묵었든 우리 것, 그 게스트 체크아웃에서 정산.
 - **부족 경보**: `onHandQty < qty`(par) 인 (빌라×품목) = "채우러 갈 대상". 대시보드 배너 + 재고 화면 필터.
 - **매입원가 입력 UI = 입고 화면**: 이로써 `MinibarItem.costVnd`가 채워지고 **미니바 마진 통계가 자동 활성**([[admin-statistics-status]] ㉠ 의존 해소).
 - 회사표준 원칙 유지: **가격·품목은 빌라별로 두지 않는다**. 빌라별은 par(`qty`)·현재고(`onHandQty`)·이동이력뿐.
