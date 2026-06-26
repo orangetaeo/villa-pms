@@ -74,8 +74,6 @@ export interface GuestFlowProps {
   amenityGroups: GuestAmenityGroup[];
   minibar: GuestMinibarView[];
   agreement: GuestAgreementView;
-  /** 현재 환율(1 KRW당 VND, 문자열). 미설정이면 null → KRW 표시 생략, VND만. */
-  fxVndPerKrw: string | null;
 }
 
 /** 하단 "오늘 환율 기준" 환산 — 언어 모국통화 1개. vi거나 API 장애 시 null(VND만 표기). */

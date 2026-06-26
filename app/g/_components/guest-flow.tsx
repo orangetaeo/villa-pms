@@ -10,7 +10,7 @@ import type { PublicLang } from "@/lib/public-i18n";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import GuestSignaturePad from "./guest-signature-pad";
 import GuestPassportStep from "./guest-passport-step";
-import { guestPrice, guestDateRange } from "./guest-format";
+import { guestVndPrice, guestDateRange } from "./guest-format";
 import type { GuestFlowProps } from "./types";
 
 type Step = 0 | 1 | 2 | 3 | 4; // 0=G1 예약, 1=G2 비품, 2=G3 동의, 3=G4 여권, 4=G5 완료
@@ -18,7 +18,7 @@ const STEP_KEYS = ["amenities", "agreement", "passport", "done"] as const;
 
 export default function GuestFlow(props: GuestFlowProps) {
   const { token, lang, booking, amenityGroups, minibar, agreement } = props;
-  const fx = props.fxVndPerKrw; // 환율(1 KRW당 VND) — 미니바 KRW 표시 파생
+  // 미니바 가격은 VND 기본 표기로 통일(부가옵션 페이지와 동일) — 환율 파생 KRW 미사용
   const L = GUEST_LABELS[lang];
 
   const [step, setStep] = useState<Step>(0);
@@ -220,7 +220,7 @@ export default function GuestFlow(props: GuestFlowProps) {
                         <p className="text-[11px] text-slate-400">{L.amenities.stocked(m.qty)}</p>
                       </div>
                       <span className="shrink-0 text-sm font-bold text-slate-900 tabular-nums">
-                        {guestPrice(m.priceVnd, fx, lang)}
+                        {guestVndPrice(m.priceVnd)}
                       </span>
                     </div>
                   ))}
