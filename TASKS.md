@@ -130,8 +130,10 @@
 > **Phase A 구현 완료(2026-06-26)** — T10.0~T10.5 브랜치 wt/f10-supplier-direct(커밋 e836469~0e95182). 잔여: T10.2b(다박 UI) + 최종 QA 누수 검사 + main 병합. 라이브 DB 스키마 적용 완료(124건 OPERATOR 백필).
 
 ### Phase B — 공급자 판매 링크 (별도 스프린트, 합의 후)
-- [ ] T10.6 공급자 판매가: `VillaRatePeriod.supplierSalePriceVnd` ALTER + my-villas/[id]/rate-periods 입력 UI (TDA/UX-VN)
-- [ ] T10.7 공급자 공개 판매 링크: Proposal 재사용(seller=SUPPLIER·supplierId 스코프·`canCreateSupplierLink` 신규 권한 분리) + 공급자 고객 셀프 가예약(HOLD)→입금 확인→CONFIRMED + 누수 QA(타 공급자 빌라·우리 판매가 비노출) (전원)
+- [x] T10.6 공급자 판매가: `VillaRatePeriod.supplierSalePriceVnd` ALTER + my-villas/[id]/rate-periods 입력 UI (TDA/UX-VN) — **완료 2026-06-26 (wt/f10-phase-b)**
+- [x] T10.7 공급자 공개 판매 링크: Proposal 재사용(seller=SUPPLIER·supplierId 스코프·`canCreateSupplierLink` 신규 권한 분리) + 공급자 고객 셀프 가예약(HOLD)→입금 확인→CONFIRMED + 누수 QA(타 공급자 빌라·우리 판매가 비노출) (전원) — **완료 2026-06-26 (wt/f10-phase-b)**
+
+> **Phase B 구현 완료(2026-06-26)** — 브랜치 wt/f10-phase-b. 독립 QA PASS(완료기준 1~7·누수0)·typecheck0·1858테스트·next build 성공. 스키마 라이브 DB 적용(VillaRatePeriod.supplierSalePriceVnd·Proposal.seller·Proposal.supplierId). 잔여: main 병합(PR) + 선택적 Stitch 정식 디자인(현재 기존 공급자 디자인 언어 계승) + Zalo 알림(선택).
 ## 신규 에픽 — 여행사·랜드사(B2B) 결제조건·미수(여신) 관리 (2026-06-26 테오 요구, ADR-0022 Proposed)
 
 > 여행사/랜드사가 우리에게 **객실료를 지급**(손님은 숙박료 안 냄). 주/15/30일 마감 요구·랜드사 도망(미수) 사고 빈발 → 누락된 **매출채권(AR)+여신관리** 모듈 신설. 정책 확정(테오 2026-06-26): **신규=등급A(선불) 의무·선금30%·Phase1 ADMIN전담·보증예치금 미도입**. 돈흐름 2분리(B2B 객실료 ↔ B2C 보증금·미니바는 게스트 현장 ADR-0019). 계약: docs/contracts/PARTNER-1.md.

@@ -14,6 +14,8 @@ import { computeSalePriceVnd, suggestSalePriceKrw, getFxVndPerKrw } from "@/lib/
 import { MarginType, NotificationType, ProposalStatus, type SeasonType } from "@prisma/client";
 
 const vndPositiveDigits = z.string().regex(/^[1-9]\d{0,14}$/); // 원가 — 0 불가
+// 공급자 자기 판매가(supplierSalePriceVnd, ADR-0021 §7) — 선택. 양수 문자열 또는 null/미입력(=미설정).
+const vndSalePrice = vndPositiveDigits.nullable().optional();
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const SEASONS = ["LOW", "HIGH", "PEAK"] as const;
 const toUtc = (s: string) => new Date(`${s}T00:00:00.000Z`);
@@ -21,6 +23,7 @@ const toUtc = (s: string) => new Date(`${s}T00:00:00.000Z`);
 const baseSchema = z.object({
   season: z.enum(SEASONS),
   supplierCostVnd: vndPositiveDigits,
+  supplierSalePriceVnd: vndSalePrice, // 공급자 자기 판매가(선택)
   label: z.string().trim().max(60).nullable().optional(),
 });
 const periodSchema = z.object({
@@ -29,6 +32,7 @@ const periodSchema = z.object({
   startDate: isoDate,
   endDate: isoDate,
   supplierCostVnd: vndPositiveDigits,
+  supplierSalePriceVnd: vndSalePrice, // 공급자 자기 판매가(선택)
   label: z.string().trim().max(60).nullable().optional(),
 });
 
@@ -79,6 +83,9 @@ export async function PATCH(
     return NextResponse.json({ error: "VALIDATION_FAILED", issues: parsed.error.flatten() }, { status: 400 });
   }
   const { base, periods } = parsed.data;
+  // 공급자 자기 판매가 — 양수 문자열이면 BigInt, 없거나 null이면 미설정(null로 명시 저장)
+  const toSalePrice = (v: string | null | undefined): bigint | null =>
+    v ? BigInt(v) : null;
   const fx = await getFxVndPerKrw(prisma); // tx 밖 1회. 미설정이면 KRW=0(ADMIN 재산정)
 
   const result = await prisma.$transaction(async (tx) => {
@@ -115,13 +122,20 @@ export async function PATCH(
       }
       await tx.villaRatePeriod.update({
         where: { id: existingBase.id },
-        data: { season: base.season, supplierCostVnd: baseCost, label: base.label ?? null, ...baseP },
+        data: {
+          season: base.season,
+          supplierCostVnd: baseCost,
+          supplierSalePriceVnd: toSalePrice(base.supplierSalePriceVnd),
+          label: base.label ?? null,
+          ...baseP,
+        },
       });
     } else {
       await tx.villaRatePeriod.create({
         data: {
           villaId, season: base.season, isBase: true, startDate: null, endDate: null,
           label: base.label ?? null, supplierCostVnd: baseCost,
+          supplierSalePriceVnd: toSalePrice(base.supplierSalePriceVnd),
           marginType: baseM.marginType, marginValue: baseM.marginValue, ...baseP,
         },
       });
@@ -141,14 +155,18 @@ export async function PATCH(
         }
         await tx.villaRatePeriod.update({
           where: { id: match.id },
-          data: { season: p.season, ...dates, label: p.label ?? null, supplierCostVnd: cost, ...price },
+          data: {
+            season: p.season, ...dates, label: p.label ?? null, supplierCostVnd: cost,
+            supplierSalePriceVnd: toSalePrice(p.supplierSalePriceVnd), ...price,
+          },
         });
         keepIds.add(match.id);
       } else {
         await tx.villaRatePeriod.create({
           data: {
             villaId, season: p.season, isBase: false, ...dates, label: p.label ?? null,
-            supplierCostVnd: cost, marginType: m.marginType, marginValue: m.marginValue, ...price,
+            supplierCostVnd: cost, supplierSalePriceVnd: toSalePrice(p.supplierSalePriceVnd),
+            marginType: m.marginType, marginValue: m.marginValue, ...price,
           },
         });
       }

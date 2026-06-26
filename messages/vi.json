@@ -969,7 +969,10 @@
       "depositTitle": "Tiền đặt cọc tại villa",
       "depositNote": "Khi nhận phòng có thể yêu cầu cọc {amount}₫, hoàn lại sau khi kiểm tra trả phòng.",
       "managedNote": "Thông tin này do quản lý nhập. Cần sửa, vui lòng báo quản lý."
-    }
+    },
+    "sellLinkTitle": "Liên kết bán phòng",
+    "sellLinkDesc": "Tạo liên kết để khách của bạn tự đặt phòng",
+    "manageSellLink": "Liên kết bán phòng"
   },
   "wizard": {
     "header": "Đăng ký villa",
@@ -2721,7 +2724,9 @@
     "baseCostRequired": "Vui lòng nhập giá gốc cơ bản.",
     "periodIncomplete": "Vui lòng nhập đầy đủ ngày và giá gốc cho mỗi giai đoạn.",
     "invalid": "Các giai đoạn bị trùng hoặc ngày không hợp lệ.",
-    "saveError": "Lưu thất bại. Vui lòng thử lại."
+    "saveError": "Lưu thất bại. Vui lòng thử lại.",
+    "salePrice": "Giá bán của bạn / đêm",
+    "salePriceHint": "Giá bạn bán cho khách của mình (không bắt buộc). Cần có để tạo liên kết bán phòng."
   },
   "costSeasons": {
     "title": "Giá gốc & mùa",
@@ -3258,5 +3263,42 @@
       "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự.",
       "serverError": "Đã xảy ra lỗi. Vui lòng thử lại sau."
     }
+  },
+  "supplierSellLink": {
+    "title": "Liên kết bán phòng",
+    "back": "Quay lại",
+    "createTitle": "Tạo liên kết mới",
+    "createHint": "Chọn ngày rồi tạo liên kết để gửi cho khách của bạn tự đặt phòng.",
+    "checkIn": "Nhận phòng",
+    "checkOut": "Trả phòng",
+    "clientName": "Tên khách (không bắt buộc)",
+    "clientNamePlaceholder": "Ví dụ: Anh Minh",
+    "defaultClientName": "Khách",
+    "holdLabel": "Thời hạn giữ chỗ",
+    "holdHours": "{h} giờ",
+    "createButton": "Tạo liên kết",
+    "creating": "Đang tạo...",
+    "listTitle": "Liên kết của tôi",
+    "empty": "Chưa có liên kết nào. Hãy tạo liên kết đầu tiên!",
+    "copy": "Sao chép",
+    "copied": "Đã chép",
+    "share": "Chia sẻ",
+    "confirmDeposit": "Xác nhận đã nhận tiền",
+    "confirming": "Đang xác nhận...",
+    "badge": {
+      "active": "Đang mở",
+      "hold": "Đang giữ chỗ",
+      "confirmed": "Đã xác nhận",
+      "used": "Đã đặt",
+      "expired": "Hết hạn",
+      "revoked": "Đã hủy"
+    },
+    "dateRequired": "Vui lòng chọn ngày nhận và trả phòng.",
+    "dateOrder": "Ngày trả phòng phải sau ngày nhận phòng.",
+    "priceNotSet": "Bạn chưa đặt giá bán cho giai đoạn này. Hãy nhập giá bán trước.",
+    "goSetPrice": "Nhập giá bán",
+    "soldOut": "Ngày này đã được đặt. Vui lòng chọn ngày khác.",
+    "notFound": "Không tìm thấy villa.",
+    "createError": "Tạo liên kết thất bại. Vui lòng thử lại."
   }
 }
