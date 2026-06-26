@@ -9,15 +9,18 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator, canViewFinance, canSetPrice, type Role } from "@/lib/permissions";
-import { validateCatalogItem, SERVICE_TYPE_VALUES, parseAudiences } from "@/lib/service-catalog";
+import { validateCatalogItem, SERVICE_TYPE_VALUES, parseAudiences, stripOptionCosts } from "@/lib/service-catalog";
 import { buildCatalogI18n } from "@/lib/service-i18n";
 import type { Prisma } from "@prisma/client";
 
 // 입력은 한국어만 — nameVi/nameEn·옵션 labelVi·priceKrw 입력 제거(저장 시 자동번역).
+//   descKo는 옵션별 설명(자동번역), costVnd는 옵션별 원가(canViewFinance만 — 비권한자는 서버에서 제거).
 const optionDefSchema = z.object({
   key: z.string().min(1).max(40),
   labelKo: z.string().min(1).max(80),
   priceVnd: z.string().regex(/^\d{1,15}$/).optional().nullable(),
+  descKo: z.string().max(1000).optional().nullable(),
+  costVnd: z.string().regex(/^\d{1,15}$/).optional().nullable(),
 });
 const optionsSchema = z
   .object({
@@ -66,7 +69,8 @@ export async function GET() {
     unitLabelKo: it.unitLabelKo,
     priceVnd: it.priceVnd?.toString() ?? null,
     photoUrl: it.photoUrl,
-    options: it.options, // {variants/addons/modifiers: [{key,labelKo,labelI18n,priceVnd}]}
+    // ★옵션 원가(costVnd)는 canViewFinance만 — 비권한자에겐 옵션 JSON에서 제거(원칙2)
+    options: showCost ? it.options : stripOptionCosts(it.options),
     // ADR-0023 — 운영자 전용 라우트라 공급자 신원·채널 자격 노출 가능
     vendorId: it.vendorId,
     audiences: it.audiences,
@@ -96,13 +100,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "VALIDATION_FAILED", issues: parsed.error.flatten() }, { status: 400 });
   }
   const d = parsed.data;
+  // ★옵션 원가는 canViewFinance만 — 비권한자가 보낸 옵션 costVnd는 서버에서 제거(이중 방어, 원칙2)
+  const gatedOptions = canFinance ? d.options : stripOptionCosts(d.options);
   // 순수 교차검증(타입·이름·priceVnd 필수·옵션 키)
   const errs = validateCatalogItem({
     type: d.type,
     nameKo: d.nameKo,
     priceVnd: d.priceVnd ?? null,
     costVnd: d.costVnd ?? null,
-    options: d.options ?? null,
+    options: gatedOptions ?? null,
   });
   if (errs.length > 0) {
     return NextResponse.json({ error: "VALIDATION_FAILED", codes: errs }, { status: 400 });
@@ -121,9 +127,9 @@ export async function POST(req: Request) {
   // 요청 주체 자격 정규화(항상 ADMIN 포함).
   const audiences = parseAudiences(d.audiences);
 
-  // 자동번역(best-effort): nameKo+descKo+옵션 labelKo → nameI18n/descI18n/옵션 labelI18n.
+  // 자동번역(best-effort): nameKo+descKo+옵션 labelKo·descKo → i18n. 원가는 패스스루(번역 안 함).
   //   GEMINI 미설정/실패 시 i18n 없이(ko 폴백) 저장 — 저장 자체를 실패시키지 않는다.
-  const i18n = await buildCatalogI18n({ nameKo: d.nameKo, descKo: d.descKo, options: d.options });
+  const i18n = await buildCatalogI18n({ nameKo: d.nameKo, descKo: d.descKo, options: gatedOptions });
 
   const created = await prisma.serviceCatalogItem.create({
     data: {

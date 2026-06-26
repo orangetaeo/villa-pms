@@ -8,13 +8,14 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { canSetPrice } from "@/lib/permissions";
-import { MINIBAR_VND_DIGITS } from "@/lib/minibar";
+import { MINIBAR_VND_DIGITS, autoTranslateNameVi } from "@/lib/minibar";
 
 const patchSchema = z
   .object({
     nameKo: z.string().trim().min(1).max(60).optional(),
-    nameVi: z.string().trim().max(60).nullable().optional(),
     unitPriceVnd: z.string().regex(MINIBAR_VND_DIGITS).optional(),
+    // 매입 단가(입고가) — 빈문자열/null이면 원가 제거, 값이면 갱신
+    costVnd: z.string().regex(MINIBAR_VND_DIGITS).nullable().optional(),
     stockQty: z.number().int().min(0).max(999).optional(),
     sortOrder: z.number().int().min(0).max(9999).optional(),
     active: z.boolean().optional(),
@@ -52,18 +53,30 @@ export async function PATCH(
 
   const existing = await prisma.minibarItem.findUnique({
     where: { id },
-    select: { id: true, nameKo: true, unitPriceVnd: true, stockQty: true, active: true },
+    select: { id: true, nameKo: true, unitPriceVnd: true, costVnd: true, stockQty: true, active: true },
   });
   if (!existing) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
 
+  // 한국어명 변경 시 베트남어 자동 재번역(소비자 vi 화면용). 실패 시 기존 nameVi 유지.
+  const nameViUpdate =
+    data.nameKo !== undefined && data.nameKo !== existing.nameKo
+      ? { nameVi: await autoTranslateNameVi(data.nameKo) }
+      : {};
+  // 입고가: 키가 오면 갱신(빈문자열/null → 원가 제거), 없으면 미변경
+  const costUpdate =
+    data.costVnd !== undefined
+      ? { costVnd: data.costVnd && data.costVnd !== "" ? BigInt(data.costVnd) : null }
+      : {};
+
   const updated = await prisma.minibarItem.update({
     where: { id },
     data: {
       ...(data.nameKo !== undefined ? { nameKo: data.nameKo } : {}),
-      ...(data.nameVi !== undefined ? { nameVi: data.nameVi?.trim() ? data.nameVi.trim() : null } : {}),
+      ...nameViUpdate,
       ...(data.unitPriceVnd !== undefined ? { unitPriceVnd: BigInt(data.unitPriceVnd) } : {}),
+      ...costUpdate,
       ...(data.stockQty !== undefined ? { stockQty: data.stockQty } : {}),
       ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
       ...(data.active !== undefined ? { active: data.active } : {}),
@@ -74,19 +87,26 @@ export async function PATCH(
       nameKo: true,
       nameVi: true,
       unitPriceVnd: true,
+      costVnd: true,
       stockQty: true,
       sortOrder: true,
       active: true,
     },
   });
 
-  // 감사 로그 — 변경된 필드 diff(가격·activ·명칭). BigInt → 문자열.
+  // 감사 로그 — 변경된 필드 diff(가격·입고가·active·명칭). BigInt → 문자열.
   const changes: Record<string, { old?: unknown; new?: unknown }> = {};
   if (data.nameKo !== undefined && data.nameKo !== existing.nameKo) {
     changes.nameKo = { old: existing.nameKo, new: updated.nameKo };
   }
   if (data.unitPriceVnd !== undefined && BigInt(data.unitPriceVnd) !== existing.unitPriceVnd) {
     changes.unitPriceVnd = { old: existing.unitPriceVnd.toString(), new: updated.unitPriceVnd.toString() };
+  }
+  if (data.costVnd !== undefined && (updated.costVnd ?? null) !== (existing.costVnd ?? null)) {
+    changes.costVnd = {
+      old: existing.costVnd?.toString() ?? null,
+      new: updated.costVnd?.toString() ?? null,
+    };
   }
   if (data.stockQty !== undefined && data.stockQty !== existing.stockQty) {
     changes.stockQty = { old: existing.stockQty, new: updated.stockQty };
@@ -98,7 +118,13 @@ export async function PATCH(
     await writeAuditLog({ userId, action: "UPDATE", entity: "MinibarItem", entityId: id, changes });
   }
 
-  return NextResponse.json({ item: { ...updated, unitPriceVnd: updated.unitPriceVnd.toString() } });
+  return NextResponse.json({
+    item: {
+      ...updated,
+      unitPriceVnd: updated.unitPriceVnd.toString(),
+      costVnd: updated.costVnd?.toString() ?? null,
+    },
+  });
 }
 
 export async function DELETE(

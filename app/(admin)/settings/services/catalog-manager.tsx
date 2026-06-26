@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { formatThousands } from "@/lib/format";
 import { priceKrwCeil } from "@/lib/service-display";
-import { parseCatalogOptions, SERVICE_TYPE_VALUES } from "@/lib/service-catalog";
+import { parseCatalogOptions, SERVICE_TYPE_VALUES, generateOptionKey } from "@/lib/service-catalog";
 import { catalogImage } from "@/lib/service-image";
 
 // ADR-0023 — 요청 가능 채널. ADMIN은 항상 포함(운영자 늘 요청 가능 — 잠금).
@@ -55,9 +55,11 @@ const TYPE_BADGE: Record<string, string> = {
 };
 
 interface OptionDraft {
-  key: string;
+  key: string; // 자동생성(UI 미노출) — 주문 참조용 안정 식별자
   labelKo: string; // 한국어 라벨만 입력 — 서버가 자동번역
   priceVnd: string; // 숫자 문자열(VND)
+  descKo: string; // 옵션별 설명(한국어) — 서버 자동번역, 소비자 노출
+  costVnd: string; // 옵션별 매입원가(VND) — showCost(canViewFinance)만 입력·노출
 }
 
 interface FormDraft {
@@ -78,7 +80,7 @@ interface FormDraft {
   guest: boolean; // audiences ∋ GUEST (ADMIN은 항상 포함 — 잠금)
 }
 
-const EMPTY_OPTION: OptionDraft = { key: "", labelKo: "", priceVnd: "" };
+const EMPTY_OPTION: OptionDraft = { key: "", labelKo: "", priceVnd: "", descKo: "", costVnd: "" };
 
 const emptyForm = (sortOrder: number): FormDraft => ({
   type: "BBQ",
@@ -166,6 +168,8 @@ export default function ServiceCatalogManager({
         key: o.key,
         labelKo: o.labelKo,
         priceVnd: o.priceVnd ?? "",
+        descKo: o.descKo ?? "",
+        costVnd: o.costVnd ?? "", // showCost 아니면 서버에서 이미 제거되어 빈값
       }));
     setEditingId(item.id);
     setDraft({
@@ -189,14 +193,17 @@ export default function ServiceCatalogManager({
     setModalOpen(true);
   }
 
-  /** 옵션 드래프트 → API 옵션 그룹(빈 행 제외). labelKo + priceVnd만(서버가 자동번역). */
+  /** 옵션 드래프트 → API 옵션 그룹(빈 행 제외). labelKo·descKo는 서버 자동번역, costVnd는 서버가 권한 게이팅.
+   *   key는 코드칸 제거로 비어있을 수 있어 자동생성(주문 참조용 안정 식별자). */
   function buildOptionGroup(rows: OptionDraft[]) {
     return rows
-      .filter((r) => r.key.trim() && r.labelKo.trim())
+      .filter((r) => r.labelKo.trim())
       .map((r) => ({
-        key: r.key.trim(),
+        key: r.key.trim() || generateOptionKey(),
         labelKo: r.labelKo.trim(),
         priceVnd: r.priceVnd || null,
+        descKo: r.descKo.trim() || null,
+        costVnd: r.costVnd || null,
       }));
   }
 
@@ -278,9 +285,10 @@ export default function ServiceCatalogManager({
           options:
             opts.variants?.length || opts.addons?.length || opts.modifiers?.length
               ? {
-                  variants: (opts.variants ?? []).map((o) => ({ key: o.key, labelKo: o.labelKo, priceVnd: o.priceVnd ?? null })),
-                  addons: (opts.addons ?? []).map((o) => ({ key: o.key, labelKo: o.labelKo, priceVnd: o.priceVnd ?? null })),
-                  modifiers: (opts.modifiers ?? []).map((o) => ({ key: o.key, labelKo: o.labelKo, priceVnd: o.priceVnd ?? null })),
+                  // 토글은 값 보존 — descKo·costVnd도 함께 전송(서버 재번역·권한 게이팅). costVnd는 showCost일 때만 존재.
+                  variants: (opts.variants ?? []).map((o) => ({ key: o.key, labelKo: o.labelKo, priceVnd: o.priceVnd ?? null, descKo: o.descKo ?? null, costVnd: o.costVnd ?? null })),
+                  addons: (opts.addons ?? []).map((o) => ({ key: o.key, labelKo: o.labelKo, priceVnd: o.priceVnd ?? null, descKo: o.descKo ?? null, costVnd: o.costVnd ?? null })),
+                  modifiers: (opts.modifiers ?? []).map((o) => ({ key: o.key, labelKo: o.labelKo, priceVnd: o.priceVnd ?? null, descKo: o.descKo ?? null, costVnd: o.costVnd ?? null })),
                 }
               : undefined,
           active: !item.active,
@@ -848,18 +856,21 @@ function CatalogModal({
             title={t("form.variants")}
             rows={draft.variants}
             onChange={(rows) => setDraft((d) => ({ ...d, variants: rows }))}
+            showCost={showCost}
             t={t}
           />
           <OptionGroup
             title={t("form.addons")}
             rows={draft.addons}
             onChange={(rows) => setDraft((d) => ({ ...d, addons: rows }))}
+            showCost={showCost}
             t={t}
           />
           <OptionGroup
             title={t("form.modifiers")}
             rows={draft.modifiers}
             onChange={(rows) => setDraft((d) => ({ ...d, modifiers: rows }))}
+            showCost={showCost}
             t={t}
           />
         </div>
@@ -923,24 +934,30 @@ function CatalogModal({
 }
 
 // ── 옵션 그룹 행 편집기 (variants/addons/modifiers 공통) ────────────────────────
+//   코드 칸 제거 — 관리자는 이름·판매가·(showCost면)원가·설명만 입력. key는 저장 시 자동생성.
+//   옵션별 원가는 마진 비공개(원칙2): showCost(canViewFinance)일 때만 입력칸 노출.
 function OptionGroup({
   title,
   rows,
   onChange,
+  showCost,
   t,
 }: {
   title: string;
   rows: OptionDraft[];
   onChange: (rows: OptionDraft[]) => void;
+  showCost: boolean;
   t: ReturnType<typeof useTranslations>;
 }) {
   const update = (i: number, patch: Partial<OptionDraft>) =>
     onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   const remove = (i: number) => onChange(rows.filter((_, idx) => idx !== i));
-  const add = () => onChange([...rows, { ...EMPTY_OPTION }]);
+  const add = () => onChange([...rows, { ...EMPTY_OPTION, key: generateOptionKey() }]);
 
   const cell =
     "bg-admin-bg border border-slate-700 rounded px-2 py-1 text-xs text-white focus:border-admin-primary focus:outline-none";
+  const costCell =
+    "bg-admin-bg border border-slate-700 rounded px-2 py-1 text-xs text-amber-300 tabular-nums text-right focus:border-admin-primary focus:outline-none";
 
   return (
     <div className="rounded-lg border border-slate-800 bg-admin-bg/40 p-2.5 space-y-2">
@@ -956,37 +973,53 @@ function OptionGroup({
         </button>
       </div>
       {rows.map((r, i) => (
-        <div key={i} className="grid grid-cols-12 gap-1.5 items-center">
+        <div key={r.key || i} className="rounded-md border border-slate-800/80 bg-admin-bg/30 p-2 space-y-1.5">
+          {/* 1행: 이름 / 판매가 / (원가) / 삭제 */}
+          <div className="grid grid-cols-12 gap-1.5 items-center">
+            <input
+              value={r.labelKo}
+              onChange={(e) => update(i, { labelKo: e.target.value })}
+              placeholder={t("form.optLabelKo")}
+              aria-label={t("form.optLabelKo")}
+              maxLength={80}
+              className={`${cell} ${showCost ? "col-span-5" : "col-span-7"}`}
+            />
+            <input
+              inputMode="numeric"
+              value={r.priceVnd ? formatThousands(r.priceVnd) : ""}
+              onChange={(e) => update(i, { priceVnd: e.target.value.replace(/\D/g, "") })}
+              placeholder={t("form.optPriceVnd")}
+              aria-label={t("form.optPriceVnd")}
+              className={`${cell} col-span-4 tabular-nums text-right`}
+            />
+            {showCost && (
+              <input
+                inputMode="numeric"
+                value={r.costVnd ? formatThousands(r.costVnd) : ""}
+                onChange={(e) => update(i, { costVnd: e.target.value.replace(/\D/g, "") })}
+                placeholder={t("form.optCostVnd")}
+                aria-label={t("form.optCostVnd")}
+                className={`${costCell} col-span-2`}
+              />
+            )}
+            <button
+              type="button"
+              onClick={() => remove(i)}
+              aria-label={t("form.removeOption")}
+              className="col-span-1 text-slate-500 hover:text-red-400 flex justify-center"
+            >
+              <span className="material-symbols-outlined text-base">delete</span>
+            </button>
+          </div>
+          {/* 2행: 설명(자동번역) */}
           <input
-            value={r.key}
-            onChange={(e) => update(i, { key: e.target.value })}
-            placeholder={t("form.optKeyPlaceholder")}
-            aria-label={t("form.optKey")}
-            maxLength={40}
-            className={`${cell} col-span-4`}
+            value={r.descKo}
+            onChange={(e) => update(i, { descKo: e.target.value })}
+            placeholder={t("form.optDescKo")}
+            aria-label={t("form.optDescKo")}
+            maxLength={1000}
+            className={`${cell} w-full`}
           />
-          <input
-            value={r.labelKo}
-            onChange={(e) => update(i, { labelKo: e.target.value })}
-            placeholder={t("form.optLabelKo")}
-            maxLength={80}
-            className={`${cell} col-span-4`}
-          />
-          <input
-            inputMode="numeric"
-            value={r.priceVnd ? formatThousands(r.priceVnd) : ""}
-            onChange={(e) => update(i, { priceVnd: e.target.value.replace(/\D/g, "") })}
-            placeholder={t("form.optPriceVnd")}
-            className={`${cell} col-span-3 tabular-nums text-right`}
-          />
-          <button
-            type="button"
-            onClick={() => remove(i)}
-            aria-label={t("form.removeOption")}
-            className="col-span-1 text-slate-500 hover:text-red-400 flex justify-center"
-          >
-            <span className="material-symbols-outlined text-base">delete</span>
-          </button>
         </div>
       ))}
     </div>

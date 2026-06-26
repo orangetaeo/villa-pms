@@ -9,7 +9,12 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator, canViewFinance, type Role } from "@/lib/permissions";
-import { validateRestockLine } from "@/lib/minibar-inventory";
+import {
+  validateRestockLine,
+  effectivePar,
+  restockExceedsPar,
+  maxRestockQty,
+} from "@/lib/minibar-inventory";
 
 const restockSchema = z.object({
   lines: z
@@ -76,12 +81,55 @@ export async function POST(
     const villa = await tx.villa.findUnique({ where: { id }, select: { id: true } });
     if (!villa) return { kind: "NOT_FOUND" as const };
 
-    // active 회사표준 품목만 허용 — 미지/비활성 itemId 주입 차단
+    // active 회사표준 품목만 허용 — 미지/비활성 itemId 주입 차단. par 계산용 stockQty도 함께.
     const items = await tx.minibarItem.findMany({
       where: { active: true },
-      select: { id: true },
+      select: { id: true, stockQty: true },
     });
     const validIds = new Set(items.map((i) => i.id));
+    const stdStockMap = new Map(items.map((i) => [i.id, i.stockQty]));
+
+    // ── 비치 목표 초과 입고 차단(2026-06-26) ───────────────────────────────────
+    //   미니바=회사 재고. 입고(RESTOCK)는 비치 목표(par)까지만 — 초과 비치 금지.
+    //   par = 빌라 오버라이드(VillaMinibarStock.qty) ?? 회사표준(stockQty).
+    //   현재고(ΣqtyDelta) + 입고합 > par 이면 그 품목 전체 입고 거부(ADJUST는 상한 미적용).
+    const restockTotals = new Map<string, number>();
+    for (const line of data.lines) {
+      if (line.type !== "RESTOCK" || !validIds.has(line.minibarItemId)) continue;
+      restockTotals.set(
+        line.minibarItemId,
+        (restockTotals.get(line.minibarItemId) ?? 0) + line.qtyDelta
+      );
+    }
+    if (restockTotals.size > 0) {
+      const restockIds = [...restockTotals.keys()];
+      const [overrides, sums] = await Promise.all([
+        tx.villaMinibarStock.findMany({
+          where: { villaId: id, minibarItemId: { in: restockIds } },
+          select: { minibarItemId: true, qty: true },
+        }),
+        tx.minibarStockMovement.groupBy({
+          by: ["minibarItemId"],
+          where: { villaId: id, minibarItemId: { in: restockIds } },
+          _sum: { qtyDelta: true },
+        }),
+      ]);
+      const ovrMap = new Map(overrides.map((o) => [o.minibarItemId, o.qty]));
+      const onHandMap = new Map(sums.map((s) => [s.minibarItemId, s._sum.qtyDelta ?? 0]));
+      for (const [itemId, total] of restockTotals) {
+        const par = effectivePar(ovrMap.get(itemId) ?? null, stdStockMap.get(itemId) ?? 0);
+        const onHand = onHandMap.get(itemId) ?? 0;
+        if (restockExceedsPar(onHand, total, par)) {
+          return {
+            kind: "PAR_EXCEEDED" as const,
+            minibarItemId: itemId,
+            par,
+            onHand,
+            max: maxRestockQty(onHand, par),
+          };
+        }
+      }
+    }
 
     let recorded = 0;
     let costUpdated = 0;
@@ -135,6 +183,18 @@ export async function POST(
     return { kind: "OK" as const, recorded, costUpdated };
   });
 
+  if (result.kind === "PAR_EXCEEDED") {
+    return NextResponse.json(
+      {
+        error: "PAR_EXCEEDED",
+        minibarItemId: result.minibarItemId,
+        par: result.par,
+        onHand: result.onHand,
+        max: result.max,
+      },
+      { status: 400 }
+    );
+  }
   if (result.kind === "NOT_FOUND") {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }

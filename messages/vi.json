@@ -24,6 +24,8 @@
     "availability": "Lịch trống",
     "inspections": "Kiểm tra dọn dẹp",
     "settlements": "Thanh toán",
+    "partners": "Đối tác",
+    "receivables": "Công nợ",
     "services": "Danh mục dịch vụ",
     "messages": "Tin nhắn",
     "users": "Người dùng",
@@ -1376,6 +1378,12 @@
     "title": "Kho minibar",
     "subtitle": "Tồn kho hiện tại vs định mức theo villa · Quản lý nhập kho",
     "headerSub": "Tồn kho theo villa · Quản lý nhập kho",
+    "tab": {
+      "stock": "Tồn kho",
+      "items": "Món minibar"
+    },
+    "itemsTitle": "Quản lý món minibar",
+    "itemsSubtitle": "Nhập món minibar muốn bán cùng giá bán và giá nhập. Áp dụng chung cho tất cả villa.",
     "filterAll": "Tất cả",
     "filterLow": "Chỉ thiếu",
     "col": {
@@ -1408,6 +1416,9 @@
       "modeRestock": "Nhập kho",
       "modeAdjust": "Điều chỉnh",
       "adjustHint": "Điều chỉnh dùng cho kiểm kê thực tế·thất thoát. Có thể nhập số âm.",
+      "maxRestockHint": "Định mức {par} · Tồn {onHand} · Nhập tối đa {max}",
+      "parReached": "Đã đạt định mức ({par}) — không thể nhập thêm.",
+      "parExceeded": "Không thể vượt định mức (tối đa {max}).",
       "unitCost": "Giá nhập (VND)",
       "unitCostHint": "Nhập giá nhập sẽ kích hoạt thống kê lợi nhuận minibar.",
       "note": "Ghi chú (tùy chọn)",
@@ -1442,8 +1453,14 @@
     "nameKoPlaceholder": "VD: 생수",
     "nameViLabel": "Tên tiếng Việt (tùy chọn)",
     "nameViPlaceholder": "VD: Nước suối",
-    "priceLabel": "Đơn giá (VND)",
-    "pricePlaceholder": "Đơn giá",
+    "priceLabel": "Giá bán (VND)",
+    "pricePlaceholder": "Giá bán",
+    "costLabel": "Giá nhập (VND)",
+    "costPlaceholder": "Giá nhập",
+    "saleTag": "Bán",
+    "costTag": "Nhập",
+    "costNone": "Chưa nhập giá nhập",
+    "autoTranslateHint": "Chỉ cần nhập tiếng Hàn. Màn hình khách (tiếng Việt…) sẽ tự động dịch để hiển thị.",
     "qtyLabel": "Số lượng để sẵn",
     "qtyPlaceholder": "SL",
     "qtyUnit": "cái",
@@ -1586,7 +1603,9 @@
       "optLabelKo": "Nhãn (tiếng Hàn)",
       "optLabelVi": "Nhãn (tiếng Việt)",
       "optPriceKrw": "KRW",
-      "optPriceVnd": "VND",
+      "optPriceVnd": "Giá bán",
+      "optCostVnd": "Giá nhập",
+      "optDescKo": "Mô tả (tiếng Hàn, tùy chọn — tự động dịch)",
       "addOption": "Thêm dòng",
       "removeOption": "Xóa",
       "save": "Lưu",
@@ -1689,6 +1708,93 @@
         "OTHER": "Khác"
       }
     }
+  },
+  "adminReceivables": {
+    "title": "Bảng công nợ",
+    "subtitle": "Tình hình công nợ đại lý du lịch/land và cảnh báo quá hạn·vượt hạn mức",
+    "empty": "Không có công nợ",
+    "agingTitle": "Tổng hợp phân tích tuổi nợ (Aging)",
+    "alerts": "Cảnh báo",
+    "overLimitBadge": "Vượt hạn mức",
+    "kpi": {
+      "totalOutstanding": "Tổng công nợ",
+      "overdueOutstanding": "Nợ quá hạn",
+      "overduePartners": "Đối tác quá hạn",
+      "overLimit": "Đối tác vượt hạn mức"
+    }
+  },
+  "adminPartners": {
+    "title": "Quản lý đối tác",
+    "subtitle": "Quản lý tín dụng & công nợ đại lý du lịch/land",
+    "new": "Đối tác mới",
+    "createTitle": "Đăng ký đối tác mới",
+    "empty": "Chưa có đối tác nào",
+    "viewDetail": "Xem chi tiết",
+    "edit": "Sửa",
+    "create": "Đăng ký",
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "saving": "Đang lưu…",
+    "saveFailed": "Lưu thất bại",
+    "assign": {
+      "title": "Gán đối tác",
+      "none": "Chưa gán đối tác",
+      "select": "Chọn đối tác",
+      "assign": "Gán",
+      "receivable": "Công nợ",
+      "locked": "Đã tạo công nợ, không thể thay đổi (hủy rồi đặt lại)",
+      "vndOnly": "Công nợ đối tác chỉ áp dụng cho đặt phòng tính bằng VND",
+      "failed": "Gán thất bại"
+    },
+    "overdue": "Quá hạn",
+    "outstanding": "Công nợ",
+    "creditInfo": "Điều kiện tín dụng",
+    "contactInfo": "Liên hệ",
+    "creditSectionHint": "Hạng A (trả trước) không có tín dụng nên hạn mức & chu kỳ bị vô hiệu hóa.",
+    "prepaid": "Trả trước",
+    "days": " ngày",
+    "receivablesTitle": "Công nợ phải thu",
+    "noReceivables": "Không có công nợ",
+    "bookingsTitle": "Lịch sử đặt phòng",
+    "noBookings": "Chưa có đặt phòng",
+    "col": {
+      "name": "Đối tác",
+      "type": "Loại",
+      "tier": "Hạng",
+      "outstanding": "Công nợ",
+      "creditLimit": "Hạn mức",
+      "status": "Trạng thái"
+    },
+    "form": {
+      "type": "Loại",
+      "name": "Tên",
+      "nameVi": "Tên tiếng Việt",
+      "contactPhone": "Điện thoại",
+      "contactZalo": "Zalo ID",
+      "contactEmail": "Email",
+      "creditTier": "Hạng tín dụng",
+      "creditLimit": "Hạn mức (₫)",
+      "depositRate": "Tỷ lệ đặt cọc (%)",
+      "paymentTermDays": "Hạn thanh toán (ngày)",
+      "billingCycle": "Chu kỳ chốt",
+      "status": "Trạng thái",
+      "memo": "Ghi chú"
+    },
+    "types": { "TRAVEL_AGENCY": "Đại lý du lịch", "LAND_AGENCY": "Land (đại lý mặt đất)" },
+    "tiers": { "A": "A · Trả trước", "B": "B · Tín dụng ngắn hạn", "C": "C · Hợp đồng riêng" },
+    "tierShort": { "A": "Trả trước", "B": "Tín dụng", "C": "Riêng" },
+    "statuses": { "ACTIVE": "Hoạt động", "SUSPENDED": "Tạm dừng", "BLOCKED": "Chặn" },
+    "cycles": { "NONE": "Không (trả trước)", "WEEKLY": "Hàng tuần", "BIWEEKLY": "15 ngày", "MONTHLY": "Hàng tháng" },
+    "aging": { "0-7": "0-7 ngày", "8-15": "8-15 ngày", "16-30": "16-30 ngày", "30+": "30 ngày+" },
+    "receivableStatus": {
+      "PENDING": "Chưa thu",
+      "PARTIAL": "Thu một phần",
+      "PAID": "Đã thu đủ",
+      "OVERDUE": "Quá hạn",
+      "WRITTEN_OFF": "Nợ xấu"
+    },
+    "rcv": { "dueDate": "Hạn", "total": "Tiền phòng", "paid": "Đã thu", "status": "Trạng thái" },
+    "bk": { "villa": "Villa", "stay": "Lưu trú", "total": "Tiền phòng", "status": "Trạng thái" }
   },
   "adminSettlements": {
     "title": "Quản lý quyết toán",
@@ -2817,7 +2923,8 @@
         "BREAKFAST": "Bữa sáng",
         "MOTORBIKE_RENTAL": "Thuê xe máy",
         "MASSAGE": "Massage",
-        "BARBER": "Cắt tóc"
+        "BARBER": "Cắt tóc",
+        "FRUIT": "Trái cây"
       }
     },
     "ancillary": {

@@ -457,7 +457,9 @@ model Booking {
   guestCount        Int
   guestPhone        String?
   guestRoster       String? // 실제 투숙객 명단(예: "김학태 / 이영희") — 입금 확정~체크인 전날 ADMIN 입력, 여권 OCR 전 준비용 (T-guest-roster)
-  agencyName        String?
+  agencyName        String? // [dual-read 폴백] Partner 승격 전 텍스트. ADR-0022: partnerId 우선, 없으면 이 값
+  partnerId         String? // 여행사/랜드사 파트너 (ADR-0022 — B2B 객실료 채권 귀속). null=직접/미지정
+  partner           Partner?       @relation(fields: [partnerId], references: [id])
   holdExpiresAt     DateTime? // HOLD 상태에서만 사용 (24~48h)
   // 금액 — HOLD 시점 스냅샷. saleCurrency에 해당하는 통화 컬럼만 채운다 (ADR-0003)
   saleCurrency      Currency       @default(KRW)
@@ -483,6 +485,7 @@ model Booking {
   serviceOrders  ServiceOrder[]
   settlementItem SettlementItem?
   cleaningTasks  CleaningTask[]
+  receivable     PartnerReceivable? // B2B 객실료 채권 (ADR-0022)
 
   @@index([villaId, checkIn, checkOut])
   @@index([status, holdExpiresAt])
@@ -649,8 +652,130 @@ model Payment {
   receivedAt    DateTime
   note          String?
   createdAt     DateTime      @default(now())
+  // B2B 파트너 입금 귀속 (ADR-0022) — 기존 고객 입금은 purpose=GUEST(default), 나머지 null
+  purpose       PaymentPurpose @default(GUEST)
+  partnerId     String? // 파트너 입금 시
+  receivableId  String? // 예약 채권 선금/잔금 입금 시
+  invoiceId     String? // 마감 청구서 수납 시
 
   @@index([bookingId])
+  @@index([partnerId])
+  @@index([receivableId])
+}
+
+// ===================== B2B 파트너 매출채권·여신 (ADR-0022) =====================
+// 여행사/랜드사가 우리에게 지급하는 객실료(AR). 게스트 현장청구(보증금·미니바, ADR-0019)와 분리.
+
+enum PartnerType {
+  TRAVEL_AGENCY // 여행사
+  LAND_AGENCY // 랜드사
+}
+
+enum CreditTier {
+  A // 선불 (신규 기본·여신 0)
+  B // 단기여신 (주/15/30일 마감·신용한도 내)
+  C // 특별계약 (개별)
+}
+
+enum PartnerStatus {
+  ACTIVE
+  SUSPENDED // 연체 등으로 신규예약 보류
+  BLOCKED // 신규예약 전면 차단
+}
+
+enum ReceivableStatus {
+  PENDING // 미입금
+  PARTIAL // 일부 입금(선금만 등)
+  PAID // 완납
+  OVERDUE // 기한 경과 미수
+  WRITTEN_OFF // 대손 처리(도망 등)
+}
+
+enum PartnerInvoiceStatus {
+  DRAFT
+  ISSUED // 발행(파트너에 전달)
+  PARTIAL
+  PAID
+  OVERDUE
+  VOID // 취소
+}
+
+enum PaymentPurpose {
+  GUEST // 기존 고객 직접 입금(default — 하위호환)
+  DEPOSIT // 파트너 예약 선금
+  BALANCE // 파트너 예약 잔금
+  INVOICE // 파트너 마감 청구서 수납
+}
+
+// 여행사·랜드사 정식 엔티티 (기존 BookingChannel enum + agencyName 텍스트 승격)
+model Partner {
+  id              String        @id @default(cuid())
+  type            PartnerType
+  name            String // 표시명
+  nameVi          String? // 베트남어 병기 (villa-name-bilingual 정합)
+  contactPhone    String?
+  contactZaloUid  String? // Zalo 알림 발송 대상
+  contactEmail    String?
+  creditTier      CreditTier    @default(A)
+  creditLimitVnd  BigInt        @default(0) // 등급 B 외상 한도(0=여신없음)
+  depositRatePct  Int           @default(30) // 선금율(%) — 정책 기본 30
+  paymentTermDays Int           @default(0) // 마감 후 지급기한(0=선불, 7/15/30)
+  billingCycle    String? // "WEEKLY"|"BIWEEKLY"|"MONTHLY"|null(선불)
+  status          PartnerStatus @default(ACTIVE)
+  contractUrl     String? // 계약서 스캔(비공개 파이프라인)
+  memo            String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  bookings    Booking[]
+  receivables PartnerReceivable[]
+  invoices    PartnerInvoice[]
+
+  @@index([type, status])
+}
+
+// 예약 1건의 객실료 채권 (B2B 숙박료)
+model PartnerReceivable {
+  id             String           @id @default(cuid())
+  partnerId      String
+  partner        Partner          @relation(fields: [partnerId], references: [id])
+  bookingId      String           @unique
+  booking        Booking          @relation(fields: [bookingId], references: [id])
+  totalVnd       BigInt // 객실료 총액(= Booking.totalSaleVnd 스냅샷)
+  depositDueVnd  BigInt // = total * depositRatePct (올림)
+  depositPaidVnd BigInt           @default(0)
+  balancePaidVnd BigInt           @default(0)
+  dueDate        DateTime         @db.Date // 잔금 기한(등급A=체크인일, B=마감+termDays)
+  status         ReceivableStatus @default(PENDING)
+  invoiceId      String? // 등급B 마감청구서에 묶이면 연결
+  invoice        PartnerInvoice?  @relation(fields: [invoiceId], references: [id])
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([partnerId, status])
+  @@index([dueDate, status])
+}
+
+// 등급B 주/15/30일 마감 청구서 (receivable 묶음)
+model PartnerInvoice {
+  id           String               @id @default(cuid())
+  partnerId    String
+  partner      Partner              @relation(fields: [partnerId], references: [id])
+  periodStart  DateTime             @db.Date
+  periodEnd    DateTime             @db.Date
+  dueDate      DateTime             @db.Date // periodEnd + paymentTermDays
+  totalVnd     BigInt
+  paidVnd      BigInt               @default(0)
+  status       PartnerInvoiceStatus @default(DRAFT)
+  statementUrl String? // 청구서 PDF(vi) — react-pdf, Settlement PDF 패턴 재사용
+  issuedAt     DateTime?
+  paidAt       DateTime?
+  createdAt    DateTime             @default(now())
+
+  receivables PartnerReceivable[]
+
+  @@unique([partnerId, periodStart, periodEnd])
+  @@index([partnerId, status])
 }
 
 enum SettlementStatus {

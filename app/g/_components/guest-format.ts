@@ -47,6 +47,20 @@ export function guestVnd(vndStr: string): string {
   return `${formatThousands(vndStr)}₫`;
 }
 
+/** 옵션/카탈로그 판매가 — 항상 VND(₫). 가격 없으면 "—". (부가옵션 페이지는 VND 기본 표기) */
+export function guestVndPrice(priceVndStr: string | null | undefined): string {
+  if (priceVndStr == null || priceVndStr === "") return "—";
+  return `${formatThousands(priceVndStr)}₫`;
+}
+
+/** 가산 옵션 부호 표기 — 항상 VND. "+15,000₫" / "−15,000₫". 가격 없으면 "". */
+export function guestVndDelta(priceVndStr: string | null | undefined): string {
+  if (priceVndStr == null || priceVndStr === "") return "";
+  const neg = priceVndStr.startsWith("-");
+  const abs = neg ? priceVndStr.slice(1) : priceVndStr;
+  return `${neg ? "−" : "+"}${formatThousands(abs)}₫`;
+}
+
 /** 날짜 범위 "YYYY.MM.DD (요일) ~ YYYY.MM.DD (요일)" — @db.Date(UTC 자정) 기준. */
 export function guestDateRange(checkInIso: string, checkOutIso: string, lang: PublicLang): string {
   const ci = new Date(checkInIso);

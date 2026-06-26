@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { formatDateTime, formatThousands } from "@/lib/format";
 import { toDateOnlyString } from "@/lib/date-vn";
 import { formatRemainingHours } from "@/lib/booking-stats";
+import { stripOptionCosts } from "@/lib/service-catalog";
 import ActionPanel from "./action-panel";
 import PaperDocsSection from "./paper-docs-section";
 import MemoBox from "./memo-box";
@@ -26,6 +27,7 @@ import { summarizeCollection } from "@/lib/payment";
 import { krwToVndSnapshot } from "@/lib/pricing";
 import { guestTokenState } from "@/lib/guest-checkin";
 import GuestTokenCard, { type GuestTokenState } from "./guest-token-card";
+import PartnerAssignCard from "./partner-assign-card";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
@@ -84,7 +86,22 @@ export default async function BookingDetailPage({
       saleCurrency: true,
       // 판매가(KRW·VND)·환율 스냅샷은 canViewFinance만 — STAFF면 select 자체에서 제외
       ...(showFinance
-        ? { totalSaleKrw: true, totalSaleVnd: true, fxVndPerKrw: true }
+        ? {
+            totalSaleKrw: true,
+            totalSaleVnd: true,
+            fxVndPerKrw: true,
+            // 파트너 지정·미수(ADR-0022 PARTNER-2c) — 재무 전용
+            partnerId: true,
+            partner: { select: { id: true, name: true } },
+            receivable: {
+              select: {
+                status: true,
+                totalVnd: true,
+                depositPaidVnd: true,
+                balancePaidVnd: true,
+              },
+            },
+          }
         : {}),
       supplierCostVnd: true, // 원가는 STAFF도 OK (SUPPLIER 동일 가시성)
       breakfastIncluded: true,
@@ -241,7 +258,8 @@ export default async function BookingDetailPage({
     nameKo: c.nameKo,
     unitLabelKo: c.unitLabelKo ?? "",
     priceVnd: c.priceVnd?.toString() ?? null,
-    options: c.options ?? null,
+    // 주문 패널은 옵션 원가를 쓰지 않음 — 클라 노출 차단 위해 항상 제거(원칙2)
+    options: stripOptionCosts(c.options ?? null),
   }));
 
   const code = booking.id.slice(-8);
@@ -315,6 +333,38 @@ export default async function BookingDetailPage({
               paymentCount: b.payments.length,
             },
           };
+        })()
+      : null;
+
+  // 파트너 지정 카드 props (ADR-0022 PARTNER-2c) — 재무 + 여행사/랜드사 채널만.
+  const partnerCard =
+    showFinance &&
+    (booking.channel === "TRAVEL_AGENCY" || booking.channel === "LAND_AGENCY") &&
+    "partnerId" in booking
+      ? (() => {
+          const b = booking as typeof booking & {
+            partner: { id: string; name: string } | null;
+            receivable: {
+              status: string;
+              totalVnd: bigint;
+              depositPaidVnd: bigint;
+              balancePaidVnd: bigint;
+            } | null;
+          };
+          const rcv = b.receivable
+            ? {
+                status: b.receivable.status,
+                totalVnd: b.receivable.totalVnd.toString(),
+                outstandingVnd: (() => {
+                  const o =
+                    b.receivable.totalVnd -
+                    b.receivable.depositPaidVnd -
+                    b.receivable.balancePaidVnd;
+                  return (o > 0n ? o : 0n).toString();
+                })(),
+              }
+            : null;
+          return { current: b.partner, receivable: rcv };
         })()
       : null;
 
@@ -601,6 +651,17 @@ export default async function BookingDetailPage({
             hasPassport={(booking.checkInRecord?.passportPhotoUrls.length ?? 0) > 0}
             tamTruSentAt={booking.checkInRecord?.tamTruSentAt?.toISOString() ?? null}
           />
+
+          {/* 파트너 지정·미수 (ADR-0022 PARTNER-2c) — 재무 + 여행사/랜드사 채널만 */}
+          {partnerCard && (
+            <PartnerAssignCard
+              bookingId={booking.id}
+              channel={booking.channel as "TRAVEL_AGENCY" | "LAND_AGENCY"}
+              saleCurrency={booking.saleCurrency as "KRW" | "VND" | "USD"}
+              current={partnerCard.current}
+              receivable={partnerCard.receivable}
+            />
+          )}
 
           {/* #1 체크인 종이서류 사진 — 체크인 기록이 있을 때(post-checkin)만. 비공개 증빙 */}
           {booking.checkInRecord !== null && (

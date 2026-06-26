@@ -21,7 +21,7 @@ import { isOperator } from "@/lib/permissions";
 //   users/users-manager                              → adminUsers
 //   settlements/settlements-view                     → adminSettlements
 //   settings/hold-hours-form·season-manager·fx-rate-form·agreement-form → adminSettings
-//   settings/minibar/minibar-manager                 → adminMinibar
+//   inventory/inventory-tabs·minibar-manager         → inventory, adminMinibar
 //   proposals/proposals-list, new/proposal-create    → adminProposals
 //   inspections/inspections-view                     → adminInspections
 //   settings/zalo/zalo-connect-client                → adminZalo
@@ -38,6 +38,8 @@ const ADMIN_CLIENT_NAMESPACES = [
   "adminVillas",
   "adminUsers",
   "adminSettlements",
+  // 파트너 관리(ADR-0022 PARTNER-2) — partners-manager·partner-form·partner-detail
+  "adminPartners",
   "adminSettings",
   "adminMinibar",
   // ADR-0019 — 미니바 실재고·부가서비스 카탈로그/주문·게스트 토큰 (클라이언트 컴포넌트 네임스페이스)

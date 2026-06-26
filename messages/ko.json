@@ -24,6 +24,8 @@
     "availability": "공실 보드",
     "inspections": "청소 검수",
     "settlements": "정산",
+    "partners": "파트너 관리",
+    "receivables": "미수/여신",
     "services": "서비스 카탈로그",
     "messages": "메시지",
     "users": "사용자",
@@ -1268,6 +1270,12 @@
     "title": "미니바 재고",
     "subtitle": "빌라별 현재고 vs 비치 목표 · 입고 관리",
     "headerSub": "빌라별 현재고 · 입고 관리",
+    "tab": {
+      "stock": "재고 현황",
+      "items": "미니바 품목"
+    },
+    "itemsTitle": "미니바 품목 관리",
+    "itemsSubtitle": "판매할 미니바 품목과 판매가·입고가를 입력하세요. 전 빌라 공통으로 적용됩니다.",
     "filterAll": "전체",
     "filterLow": "부족만",
     "col": {
@@ -1300,6 +1308,9 @@
       "modeRestock": "입고",
       "modeAdjust": "보정",
       "adjustHint": "보정은 실사·분실 반영용입니다. 음수도 입력할 수 있습니다.",
+      "maxRestockHint": "비치 목표 {par} · 현재고 {onHand} · 최대 입고 {max}개",
+      "parReached": "이미 비치 목표({par})를 채웠습니다 — 더 입고할 수 없습니다.",
+      "parExceeded": "비치 목표를 초과할 수 없습니다 (최대 {max}개).",
       "unitCost": "매입 단가 (VND)",
       "unitCostHint": "매입 단가 입력 시 미니바 마진 통계가 활성화됩니다.",
       "note": "메모 (선택)",
@@ -1334,8 +1345,14 @@
     "nameKoPlaceholder": "예: 생수",
     "nameViLabel": "베트남어 품목명(선택)",
     "nameViPlaceholder": "예: Nước suối",
-    "priceLabel": "단가(VND)",
-    "pricePlaceholder": "단가",
+    "priceLabel": "판매가(VND)",
+    "pricePlaceholder": "판매가",
+    "costLabel": "입고가(VND)",
+    "costPlaceholder": "입고가",
+    "saleTag": "판매",
+    "costTag": "입고",
+    "costNone": "입고가 미입력",
+    "autoTranslateHint": "한국어로만 입력하면 됩니다. 손님 화면(베트남어 등)에는 자동 번역되어 표시됩니다.",
     "qtyLabel": "기본 비치 수량",
     "qtyPlaceholder": "수량",
     "qtyUnit": "개",
@@ -1478,7 +1495,9 @@
       "optLabelKo": "라벨 (한국어)",
       "optLabelVi": "라벨 (베트남어)",
       "optPriceKrw": "KRW",
-      "optPriceVnd": "VND",
+      "optPriceVnd": "판매가",
+      "optCostVnd": "원가",
+      "optDescKo": "설명 (한국어, 선택 — 자동번역)",
       "addOption": "행 추가",
       "removeOption": "삭제",
       "save": "저장",
@@ -1581,6 +1600,93 @@
         "OTHER": "기타"
       }
     }
+  },
+  "adminReceivables": {
+    "title": "미수/여신 대시보드",
+    "subtitle": "여행사·랜드사 미수 현황과 연체·한도초과 경보",
+    "empty": "미수 채권이 없습니다",
+    "agingTitle": "연령 분석(Aging) 합산",
+    "alerts": "경보",
+    "overLimitBadge": "한도초과",
+    "kpi": {
+      "totalOutstanding": "총 미수 잔액",
+      "overdueOutstanding": "연체 미수",
+      "overduePartners": "연체 파트너",
+      "overLimit": "한도초과 파트너"
+    }
+  },
+  "adminPartners": {
+    "title": "파트너 관리",
+    "subtitle": "여행사·랜드사 신용·미수 관리",
+    "new": "신규 파트너",
+    "createTitle": "신규 파트너 등록",
+    "empty": "등록된 파트너가 없습니다",
+    "viewDetail": "상세 보기",
+    "edit": "수정",
+    "create": "등록",
+    "save": "저장",
+    "cancel": "취소",
+    "saving": "저장 중…",
+    "saveFailed": "저장에 실패했습니다",
+    "assign": {
+      "title": "파트너 지정",
+      "none": "지정된 파트너가 없습니다",
+      "select": "파트너 선택",
+      "assign": "지정",
+      "receivable": "미수",
+      "locked": "채권이 생성되어 변경할 수 없습니다 (취소 후 재예약)",
+      "vndOnly": "파트너 채권은 VND 객실료 예약에만 적용됩니다",
+      "failed": "지정에 실패했습니다"
+    },
+    "overdue": "연체",
+    "outstanding": "미수 잔액",
+    "creditInfo": "신용 조건",
+    "contactInfo": "연락처",
+    "creditSectionHint": "등급 A(선불)는 여신이 없어 신용한도·결제주기가 비활성됩니다.",
+    "prepaid": "선불",
+    "days": "일",
+    "receivablesTitle": "미수 채권",
+    "noReceivables": "미수 채권이 없습니다",
+    "bookingsTitle": "예약 이력",
+    "noBookings": "예약 이력이 없습니다",
+    "col": {
+      "name": "파트너",
+      "type": "유형",
+      "tier": "등급",
+      "outstanding": "미수 잔액",
+      "creditLimit": "신용한도",
+      "status": "상태"
+    },
+    "form": {
+      "type": "유형",
+      "name": "이름",
+      "nameVi": "베트남어 이름",
+      "contactPhone": "전화번호",
+      "contactZalo": "Zalo ID",
+      "contactEmail": "이메일",
+      "creditTier": "신용 등급",
+      "creditLimit": "신용한도(₫)",
+      "depositRate": "선금율(%)",
+      "paymentTermDays": "지급기한(일)",
+      "billingCycle": "마감 주기",
+      "status": "상태",
+      "memo": "메모"
+    },
+    "types": { "TRAVEL_AGENCY": "여행사", "LAND_AGENCY": "랜드사" },
+    "tiers": { "A": "A · 선불", "B": "B · 단기여신", "C": "C · 특별계약" },
+    "tierShort": { "A": "선불", "B": "여신", "C": "특별" },
+    "statuses": { "ACTIVE": "활성", "SUSPENDED": "보류", "BLOCKED": "차단" },
+    "cycles": { "NONE": "없음(선불)", "WEEKLY": "주간", "BIWEEKLY": "15일", "MONTHLY": "월간" },
+    "aging": { "0-7": "0-7일", "8-15": "8-15일", "16-30": "16-30일", "30+": "30일+" },
+    "receivableStatus": {
+      "PENDING": "미입금",
+      "PARTIAL": "부분입금",
+      "PAID": "완납",
+      "OVERDUE": "연체",
+      "WRITTEN_OFF": "대손"
+    },
+    "rcv": { "dueDate": "기한", "total": "객실료", "paid": "입금", "status": "상태" },
+    "bk": { "villa": "빌라", "stay": "숙박", "total": "객실료", "status": "상태" }
   },
   "adminSettlements": {
     "title": "정산 관리",
@@ -2817,7 +2923,8 @@
         "BREAKFAST": "조식",
         "MOTORBIKE_RENTAL": "오토바이",
         "MASSAGE": "마사지",
-        "BARBER": "이발"
+        "BARBER": "이발",
+        "FRUIT": "과일"
       }
     },
     "ancillary": {

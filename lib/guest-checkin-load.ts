@@ -11,6 +11,7 @@ import {
   buildClauseOrder,
 } from "./agreement";
 import { effectivePar } from "./minibar-inventory";
+import { stripOptionCosts } from "./service-catalog";
 import { getFxVndPerKrw } from "./pricing";
 import { parseAudiences } from "./service-catalog";
 
@@ -193,7 +194,8 @@ export async function loadGuestCheckin(
       unitLabelKo: c.unitLabelKo,
       priceVnd: c.priceVnd?.toString() ?? null,
       photoUrl: c.photoUrl,
-      options: c.options,
+      // ★옵션 원가는 게스트 절대 비노출 — costVnd 제거 후 전달(원칙2). costVnd select도 안 함.
+      options: stripOptionCosts(c.options),
     })),
     agreement: {
       version: AGREEMENT_VERSION,

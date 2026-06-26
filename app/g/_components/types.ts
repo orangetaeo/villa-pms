@@ -1,6 +1,7 @@
 // app/g/_components/types.ts — 게스트 셀프 체크인 클라이언트 props 타입 (ADR-0019 S3)
 //   ★ 서버가 직렬화해 클라로 넘기는 데이터: 판매가만(원가·마진·타예약 0). VND는 문자열.
 import type { PublicLang } from "@/lib/public-i18n";
+import type { DisplayCurrency } from "@/lib/fx-rates";
 
 export interface GuestBookingView {
   villaName: string;
@@ -31,6 +32,7 @@ export interface GuestOption {
   key: string;
   label: string; // 언어별 라벨
   priceVnd: string | null;
+  desc?: string | null; // 옵션별 설명(언어별) — 원가는 포함 안 함(누수 0)
 }
 
 export interface GuestCatalogView {
@@ -72,8 +74,12 @@ export interface GuestFlowProps {
   amenityGroups: GuestAmenityGroup[];
   minibar: GuestMinibarView[];
   agreement: GuestAgreementView;
-  /** 현재 환율(1 KRW당 VND, 문자열). 미설정이면 null → KRW 표시 생략, VND만. */
-  fxVndPerKrw: string | null;
+}
+
+/** 하단 "오늘 환율 기준" 환산 — 언어 모국통화 1개. vi거나 API 장애 시 null(VND만 표기). */
+export interface GuestConvert {
+  currency: DisplayCurrency;
+  vndPerUnit: number; // 1 통화단위 = X VND
 }
 
 /** 옵션 선택 페이지(/g/[token]/options) props — 체크인과 독립 라우트, 투숙 중 접근. */
@@ -83,6 +89,6 @@ export interface GuestOptionsProps {
   booking: GuestBookingView;
   catalog: GuestCatalogView[];
   requestedOrders: GuestRequestedOrder[];
-  /** 현재 환율(1 KRW당 VND, 문자열). 미설정이면 null → "가격 문의". */
-  fxVndPerKrw: string | null;
+  /** 금액은 항상 VND 기본 표기. convert가 있으면 하단에 모국통화 환산액("오늘 환율 기준") 추가. */
+  convert: GuestConvert | null;
 }

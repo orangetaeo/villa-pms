@@ -15,21 +15,31 @@ import {
 } from "@/lib/public-i18n";
 import { parseCatalogOptions } from "@/lib/service-catalog";
 import { pickI18n } from "@/lib/service-display";
+import { getDailyRates, CURRENCY_BY_LANG } from "@/lib/fx-rates";
 import { GuestExpiredView } from "../../_components/guest-expired-view";
 import GuestOptions from "../../_components/guest-options";
+import type { GuestConvert } from "../../_components/types";
 import type { GuestCatalogView, GuestOption, GuestRequestedOrder } from "../../_components/types";
 
 export const metadata: Metadata = { title: "부가 옵션 — Villa Go" };
 
-/** 카탈로그 옵션 1그룹 → 언어 해석된 GuestOption[] (라벨은 labelI18n에서 pickI18n, VND만). */
+/** 카탈로그 옵션 1그룹 → 언어 해석된 GuestOption[] (라벨·설명은 i18n에서 pickI18n, VND만 — 원가 미포함=누수 0). */
 function mapOptions(
-  defs: { key: string; labelKo: string; labelI18n?: unknown; priceVnd?: string | null }[],
+  defs: {
+    key: string;
+    labelKo: string;
+    labelI18n?: unknown;
+    priceVnd?: string | null;
+    descKo?: string | null;
+    descI18n?: unknown;
+  }[],
   lang: PublicLang
 ): GuestOption[] {
   return defs.map((o) => ({
     key: o.key,
     label: pickI18n(o.labelKo, o.labelI18n ?? null, lang),
     priceVnd: o.priceVnd ?? null,
+    desc: o.descKo ? pickI18n(o.descKo, o.descI18n ?? null, lang) : null,
   }));
 }
 
@@ -100,6 +110,15 @@ export default async function GuestOptionsPage({
     breakfastIncluded: data.booking.breakfastIncluded,
   };
 
+  // ── 하단 "오늘 환율 기준" 환산 통화 — 언어 모국통화 1개(vi=없음). 일1회 캐시, 장애 시 null(VND만) ──
+  const currency = CURRENCY_BY_LANG[lang];
+  let convert: GuestConvert | null = null;
+  if (currency) {
+    const rates = await getDailyRates(prisma);
+    const vndPerUnit = rates?.vndPerUnit[currency];
+    if (vndPerUnit && vndPerUnit > 0) convert = { currency, vndPerUnit };
+  }
+
   return (
     <div className="bg-slate-50 text-slate-900 antialiased">
       <GuestOptions
@@ -108,7 +127,7 @@ export default async function GuestOptionsPage({
         booking={booking}
         catalog={catalog}
         requestedOrders={requestedOrders}
-        fxVndPerKrw={data.fxVndPerKrw}
+        convert={convert}
       />
     </div>
   );

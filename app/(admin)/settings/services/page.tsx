@@ -7,6 +7,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { isOperator, canViewFinance, canSetPrice } from "@/lib/permissions";
+import { stripOptionCosts } from "@/lib/service-catalog";
 import { prisma } from "@/lib/prisma";
 import { getFxVndPerKrw } from "@/lib/pricing";
 import ServiceCatalogManager, { type CatalogRow } from "./catalog-manager";
@@ -76,7 +77,8 @@ export default async function ServiceCatalogPage() {
     unitLabelKo: it.unitLabelKo ?? "",
     priceVnd: it.priceVnd?.toString() ?? null,
     photoUrl: it.photoUrl ?? "",
-    options: it.options ?? null,
+    // ★옵션 원가는 canViewFinance만 — STAFF엔 옵션 JSON에서 제거(원칙2)
+    options: showCost ? (it.options ?? null) : stripOptionCosts(it.options ?? null),
     active: it.active,
     sortOrder: it.sortOrder,
     vendorId: it.vendorId ?? null,
