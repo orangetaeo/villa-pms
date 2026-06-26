@@ -205,7 +205,15 @@ const DIRECT_KEYS = [
   "optional",
   "save",
   "saving",
+  // F10 T10.2b 다박(기간) 선택
+  "nightsLabel",
+  "nights",
+  "decreaseNights",
+  "increaseNights",
 ] as const;
+
+// 다박 폼 요일 힌트 — calendar.direct.weekdayShort (중첩 객체, 7개 요일)
+const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
 describe("i18n 키 — calendar.direct (F10 직접예약 폼)", () => {
   it("ko/vi 모두 calendar.direct 네임스페이스 보유", () => {
@@ -213,8 +221,16 @@ describe("i18n 키 — calendar.direct (F10 직접예약 폼)", () => {
     expect((viMsg.calendar as Record<string, unknown>).direct).toBeDefined();
   });
   it.each(DIRECT_KEYS)("키 '%s' 존재 (ko·vi 비어있지 않음)", (key) => {
-    const k = (ko.calendar as { direct: Record<string, string> }).direct;
-    const v = (viMsg.calendar as { direct: Record<string, string> }).direct;
+    const k = (ko.calendar as unknown as { direct: Record<string, string> }).direct;
+    const v = (viMsg.calendar as unknown as { direct: Record<string, string> }).direct;
+    expect(k[key]?.length).toBeGreaterThan(0);
+    expect(v[key]?.length).toBeGreaterThan(0);
+  });
+  it.each(WEEKDAY_KEYS)("weekdayShort.%s 존재 (ko·vi 비어있지 않음)", (key) => {
+    const k = (ko.calendar as unknown as { direct: { weekdayShort: Record<string, string> } })
+      .direct.weekdayShort;
+    const v = (viMsg.calendar as unknown as { direct: { weekdayShort: Record<string, string> } })
+      .direct.weekdayShort;
     expect(k[key]?.length).toBeGreaterThan(0);
     expect(v[key]?.length).toBeGreaterThan(0);
   });

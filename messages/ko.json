@@ -992,7 +992,20 @@
       "contactPlaceholder": "09xx xxx xxx",
       "optional": "선택",
       "save": "예약 저장",
-      "saving": "저장 중..."
+      "saving": "저장 중...",
+      "nightsLabel": "박수",
+      "nights": "{count}박",
+      "decreaseNights": "박수 감소",
+      "increaseNights": "박수 증가",
+      "weekdayShort": {
+        "mon": "월",
+        "tue": "화",
+        "wed": "수",
+        "thu": "목",
+        "fri": "금",
+        "sat": "토",
+        "sun": "일"
+      }
     }
   },
   "tabs": {

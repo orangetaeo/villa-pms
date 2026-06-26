@@ -1100,7 +1100,20 @@
       "contactPlaceholder": "09xx xxx xxx",
       "optional": "Không bắt buộc",
       "save": "Lưu đặt phòng",
-      "saving": "Đang lưu..."
+      "saving": "Đang lưu...",
+      "nightsLabel": "Số đêm",
+      "nights": "{count} đêm",
+      "decreaseNights": "Giảm số đêm",
+      "increaseNights": "Tăng số đêm",
+      "weekdayShort": {
+        "mon": "T2",
+        "tue": "T3",
+        "wed": "T4",
+        "thu": "T5",
+        "fri": "T6",
+        "sat": "T7",
+        "sun": "CN"
+      }
     }
   },
   "tabs": {
