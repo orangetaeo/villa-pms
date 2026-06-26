@@ -16,7 +16,19 @@ import { z } from "zod";
 import { formatThousands, formatVnd } from "@/lib/format";
 
 type Channel = "TRAVEL_AGENCY" | "LAND_AGENCY" | "DIRECT";
-const CHANNELS: Channel[] = ["TRAVEL_AGENCY", "LAND_AGENCY", "DIRECT"];
+// 표시 순서: 랜드사 → 여행사 → 직접 (기본값 랜드사)
+const CHANNELS: Channel[] = ["LAND_AGENCY", "TRAVEL_AGENCY", "DIRECT"];
+
+// 파트너 드롭다운에서 "직접 입력(일반 소비자)"를 고른 sentinel 값
+const DIRECT_CUSTOMER = "__direct__";
+
+interface PartnerOption {
+  id: string;
+  name: string;
+  nameVi: string | null;
+  type: Channel;
+  status: string;
+}
 
 interface Candidate {
   id: string;
@@ -73,6 +85,7 @@ export default function ProposalCreate() {
           checkIn: z.string().regex(DATE_RE, t("selectDatesFirst")),
           checkOut: z.string().regex(DATE_RE, t("selectDatesFirst")),
           channel: z.enum(["TRAVEL_AGENCY", "LAND_AGENCY", "DIRECT"]),
+          partnerId: z.string(), // "" = 일반 소비자(자유 텍스트), 그 외 = 파트너 id
           expiresInHours: z.union([z.literal(24), z.literal(48)]),
         })
         .refine((v) => !DATE_RE.test(v.checkIn) || !DATE_RE.test(v.checkOut) || v.checkIn < v.checkOut, {
@@ -95,7 +108,8 @@ export default function ProposalCreate() {
       clientName: "",
       checkIn: "",
       checkOut: "",
-      channel: "TRAVEL_AGENCY",
+      channel: "LAND_AGENCY", // 기본 랜드사
+      partnerId: "",
       expiresInHours: 48, // 기본 48h (계약)
     },
   });
@@ -103,6 +117,7 @@ export default function ProposalCreate() {
   const checkIn = watch("checkIn");
   const checkOut = watch("checkOut");
   const channel = watch("channel");
+  const partnerId = watch("partnerId");
   const expiresInHours = watch("expiresInHours");
 
   // 채널 → 통화 자동 (ADR-0003): DIRECT→KRW, 여행사·랜드사→VND. 채널이 곧 통화 — 오버라이드 없음
@@ -172,6 +187,62 @@ export default function ProposalCreate() {
     })();
   }, []);
 
+  // ----- 파트너 옵션 (채널=여행사·랜드사일 때 GET /api/partners/options?type=) -----
+  const [partnerOptions, setPartnerOptions] = useState<PartnerOption[]>([]);
+  // 여행사·랜드사 채널에서 "직접 입력(일반 소비자)"를 명시 선택했는지 (DIRECT 채널은 항상 직접 입력)
+  const [directCustomer, setDirectCustomer] = useState(false);
+
+  useEffect(() => {
+    if (channel === "DIRECT") {
+      setPartnerOptions([]);
+      return;
+    }
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const res = await fetch(`/api/partners/options?type=${channel}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          setPartnerOptions([]);
+          return;
+        }
+        const data = (await res.json()) as { partners: PartnerOption[] };
+        // 차단(BLOCKED) 파트너는 신규 제안 대상에서 제외
+        setPartnerOptions(data.partners.filter((p) => p.status !== "BLOCKED"));
+      } catch {
+        setPartnerOptions([]);
+      }
+    })();
+    return () => controller.abort();
+  }, [channel]);
+
+  // 채널이 바뀌면 파트너·고객명 선택을 초기화 (유형별 파트너 목록이 달라짐)
+  useEffect(() => {
+    setValue("partnerId", "");
+    setValue("clientName", "");
+    setDirectCustomer(false);
+  }, [channel, setValue]);
+
+  // 파트너 드롭다운 변경 — 파트너 선택 시 clientName 자동 채움, "직접 입력"이면 텍스트칸 노출
+  const onPartnerSelect = (value: string) => {
+    if (value === DIRECT_CUSTOMER) {
+      setDirectCustomer(true);
+      setValue("partnerId", "");
+      setValue("clientName", "", { shouldValidate: true });
+      return;
+    }
+    const p = partnerOptions.find((o) => o.id === value);
+    setDirectCustomer(false);
+    setValue("partnerId", value);
+    setValue("clientName", p ? p.name : "", { shouldValidate: true });
+  };
+
+  // 자유 텍스트 입력칸 노출 조건: DIRECT 채널이거나, 여행사·랜드사에서 "직접 입력" 선택 시
+  const showClientNameInput = channel === "DIRECT" || directCustomer;
+  // 파트너 드롭다운의 현재 값 (선택된 파트너 id, 직접입력이면 sentinel, 미선택이면 "")
+  const partnerSelectValue = partnerId ? partnerId : directCustomer ? DIRECT_CUSTOMER : "";
+
   const toggleVilla = (id: string) => {
     if (selectedIds.includes(id)) {
       setSelectedIds(selectedIds.filter((v) => v !== id));
@@ -232,6 +303,8 @@ export default function ProposalCreate() {
         body: JSON.stringify({
           clientName: values.clientName,
           channel: values.channel,
+          // 파트너 연결(선택) — DIRECT 채널·일반 소비자면 미전송
+          partnerId: values.channel !== "DIRECT" && values.partnerId ? values.partnerId : undefined,
           expiresInHours: values.expiresInHours,
           items: selectedIds.map((villaId) => ({
             villaId,
@@ -336,38 +409,6 @@ export default function ProposalCreate() {
                 </p>
               )}
             </div>
-          </div>
-
-          <div>
-            <span className={sectionLabel}>{t("channelSection")}</span>
-            <div className="grid grid-cols-1 gap-2">
-              {CHANNELS.map((ch) => {
-                const active = channel === ch;
-                return (
-                  <button
-                    key={ch}
-                    type="button"
-                    onClick={() => setValue("channel", ch, { shouldValidate: true })}
-                    className={
-                      active
-                        ? "w-full text-left px-4 py-3 rounded-xl border border-blue-500 bg-blue-500/10 text-blue-400 font-bold text-sm flex items-center justify-between"
-                        : "w-full text-left px-4 py-3 rounded-xl border border-slate-700 text-slate-400 font-medium text-sm hover:border-slate-600 hover:bg-slate-800/30 flex items-center justify-between transition-colors"
-                    }
-                  >
-                    {t(`channels.${ch}`)}
-                    {active && (
-                      <span className="material-symbols-outlined text-sm icon-fill">
-                        check_circle
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            {/* VND 결제 캡션 (ADR-0003 — 여행사·랜드사 채널일 때) */}
-            {currency === "VND" && (
-              <p className="text-xs text-slate-400 mt-2 px-1">{t("vndNotice")}</p>
-            )}
           </div>
 
           <div className="bg-indigo-500/10 p-4 rounded-xl border border-indigo-500/20 text-xs text-indigo-300 leading-relaxed">
@@ -549,6 +590,76 @@ export default function ProposalCreate() {
             <h2 className="text-lg font-bold text-slate-100">{t("summaryTitle")}</h2>
           </div>
           <div className="p-6 space-y-7">
+            {/* 판매 채널 (랜드사·여행사·직접 — 채널이 곧 통화, ADR-0003) */}
+            <div>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-3">
+                {t("channelSection")}
+              </span>
+              <div className="grid grid-cols-3 gap-2">
+                {CHANNELS.map((ch) => {
+                  const active = channel === ch;
+                  return (
+                    <button
+                      key={ch}
+                      type="button"
+                      onClick={() => setValue("channel", ch, { shouldValidate: true })}
+                      className={
+                        active
+                          ? "px-2 py-2.5 rounded-xl border border-blue-500 bg-blue-500/10 text-blue-400 font-bold text-sm"
+                          : "px-2 py-2.5 rounded-xl border border-slate-700 text-slate-400 font-medium text-sm hover:border-slate-600 hover:bg-slate-800/30 transition-colors"
+                      }
+                    >
+                      {t(`channels.${ch}`)}
+                    </button>
+                  );
+                })}
+              </div>
+              {/* VND 결제 캡션 (ADR-0003 — 여행사·랜드사 채널일 때) */}
+              {currency === "VND" && (
+                <p className="text-xs text-slate-400 mt-2 px-1">{t("vndNotice")}</p>
+              )}
+            </div>
+
+            {/* 고객 / 파트너 — 채널에 맞춘 셀렉터(여행사·랜드사) + 일반 소비자 텍스트 입력 */}
+            <div>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                {t("customerSection")}
+              </span>
+              {channel !== "DIRECT" && (
+                <select
+                  aria-label={t("customerSection")}
+                  value={partnerSelectValue}
+                  onChange={(e) => onPartnerSelect(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl text-sm text-slate-100 px-4 py-3 mb-2 [color-scheme:dark]"
+                >
+                  <option value="" disabled>
+                    {t("partnerSelectPlaceholder")}
+                  </option>
+                  {partnerOptions.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                      {p.nameVi ? ` (${p.nameVi})` : ""}
+                    </option>
+                  ))}
+                  <option value={DIRECT_CUSTOMER}>{t("partnerDirectOption")}</option>
+                </select>
+              )}
+              {showClientNameInput && (
+                <input
+                  id="proposal-client-name"
+                  type="text"
+                  placeholder={t("clientNamePlaceholder")}
+                  {...register("clientName")}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl text-sm text-slate-100 px-4 py-3 placeholder:text-slate-600"
+                />
+              )}
+              {errors.clientName && (
+                <p role="alert" className="text-xs text-red-400 mt-1.5">
+                  {errors.clientName.message}
+                </p>
+              )}
+            </div>
+
             {/* 선택된 빌라 스택 */}
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -608,28 +719,6 @@ export default function ProposalCreate() {
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-
-            {/* 고객명 */}
-            <div>
-              <label
-                htmlFor="proposal-client-name"
-                className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2"
-              >
-                {t("clientName")}
-              </label>
-              <input
-                id="proposal-client-name"
-                type="text"
-                placeholder={t("clientNamePlaceholder")}
-                {...register("clientName")}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl text-sm text-slate-100 px-4 py-3 placeholder:text-slate-600"
-              />
-              {errors.clientName && (
-                <p role="alert" className="text-xs text-red-400 mt-1.5">
-                  {errors.clientName.message}
-                </p>
               )}
             </div>
 

@@ -80,6 +80,8 @@ export interface ProposalItemInput extends StayRange {
 export interface CreateProposalInput {
   clientName: string;
   channel: BookingChannel;
+  /** 여행사·랜드사 파트너 연결(선택). 없으면 일반 소비자(clientName 자유 텍스트) */
+  partnerId?: string;
   /** 미지정 시 채널 기본값 */
   saleCurrency?: Currency;
   /** 링크 유효시간 — 기본 48h */
@@ -120,6 +122,22 @@ export async function createProposal(
   const saleCurrency = input.saleCurrency ?? defaultCurrencyForChannel(input.channel);
 
   return prisma.$transaction(async (tx) => {
+    // 파트너 연결 검증(선택) — 존재·유형 일치만. DIRECT 채널은 파트너 비허용(일반 소비자)
+    if (input.partnerId) {
+      if (input.channel === BookingChannel.DIRECT) {
+        throw new RangeError("직접(일반 소비자) 채널에는 파트너를 연결할 수 없습니다");
+      }
+      const partner = await tx.partner.findUnique({
+        where: { id: input.partnerId },
+        select: { type: true },
+      });
+      if (!partner) throw new RangeError("존재하지 않는 파트너입니다");
+      // PartnerType(TRAVEL_AGENCY|LAND_AGENCY) 값은 BookingChannel과 동일 — 채널과 일치해야 함
+      if ((partner.type as string) !== (input.channel as string)) {
+        throw new RangeError("파트너 유형이 판매 채널과 일치하지 않습니다");
+      }
+    }
+
     // 항목별 판매 가능 재검증 + 견적 — 하나라도 불가면 전체 거부
     const failures: { villaId: string; reason: string }[] = [];
     const itemRows: Prisma.ProposalItemCreateWithoutProposalInput[] = [];
@@ -171,6 +189,7 @@ export async function createProposal(
         fxVndPerKrw: fx,
         expiresAt: new Date(input.now.getTime() + expiresInHours * 3_600_000),
         note: input.note?.trim() || null,
+        ...(input.partnerId ? { partner: { connect: { id: input.partnerId } } } : {}),
         items: { create: itemRows },
       },
       include: { items: { select: { id: true, villaId: true } } },
@@ -187,6 +206,7 @@ export async function createProposal(
         saleCurrency: { new: saleCurrency },
         expiresAt: { new: proposal.expiresAt.toISOString() },
         villaIds: { new: villaIds },
+        ...(input.partnerId ? { partnerId: { new: input.partnerId } } : {}),
       },
     });
 

@@ -428,9 +428,11 @@ model Proposal {
   note         String?
   seller       BookingSeller  @default(OPERATOR) // F10 Phase B: 제안 링크 판매 주체. SUPPLIER=공급자 직접 판매 링크 (ADR-0021)
   supplierId   String? // F10 Phase B: 공급자 직접 판매 링크 소유자. null=운영자 제안 링크 (ADR-0021)
+  partnerId    String? // 여행사·랜드사 파트너 연결(선택). null=일반 소비자(clientName 자유 텍스트). 가예약→예약 전환 시 partner 승계용
   createdAt    DateTime       @default(now())
 
-  items ProposalItem[]
+  partner Partner?       @relation(fields: [partnerId], references: [id])
+  items   ProposalItem[]
 }
 
 model ProposalItem {
@@ -767,6 +769,7 @@ model Partner {
   bookings    Booking[]
   receivables PartnerReceivable[]
   invoices    PartnerInvoice[]
+  proposals   Proposal[]
 
   @@index([type, status])
 }

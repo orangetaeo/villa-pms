@@ -75,11 +75,13 @@
 
   <!-- 구현 현황 요약 -->
   <div class="status">
-    <h3>📌 구현 현황 (실제 코드 대조, 2026-06-26)</h3>
+    <h3>📌 구현 현황 (실제 코드 대조, 2026-06-26 최신)</h3>
     <ul>
       <li><span class="ok">✅ 거의 전부 라이브</span> — 빌라 검수·청소 게이트·가예약/홀드만료·체크인/아웃·게스트 셀프체크인·부가서비스 발주 중계·원천공급자 가입·정산 생애주기·iCal 동기화·취소/노쇼까지 모두 배포됨.</li>
-      <li><span class="ok">✅ 분기 흐름 빈칸 없음</span> — 마지막 빈칸이던 <b>파트너 청구서(invoice) 운영자 화면</b>도 방금 <b>PR #44(wt/partner-3b-ui)로 머지 완료</b>(청구서 탭·PDF(vi)·Zalo 발송). 모든 핵심 분기가 코드에 존재.</li>
-      <li>🟡 Phase 2 보류(빈칸 아님): 메시지 실시간 SSE(현재 폴링) · 정확 마진 리포트(현재 근사 표시).</li>
+      <li><span class="ok">✅ 분기 흐름 빈칸 없음</span> — 파트너 청구서(invoice) 화면(청구서 탭·PDF(vi/ko/zh/ru)·Zalo 발송, PR #44·#57)에 이어 <b>청구서 수납 → 복식부기 LEDGER 적재·정정(취소)</b>까지 연결 완료(ADR-0027, PR #54·#58). 모든 핵심 분기가 코드에 존재.</li>
+      <li><span class="ok">✅ 최근 추가·배포</span> — <b>메시지 실시간 SSE</b>(ADR-0024) · <b>비밀번호 자가 재설정(Zalo 코드)</b>(ADR-0025) · <b>빌라 위치 지도 임베드</b>(ADR-0026) · <b>공급자 직접판매(양방향)·공개 판매링크</b>(ADR-0021, PR #48·#52) · <b>미니바 전환 자동 회수(RECOVER)</b>(PR #59) · <b>Railway cron 4종 등록·검증</b>(알림·연체·로스터리마인더·주기청소).</li>
+      <li>🟡 진행 중(Accepted): <b>파트너 포털 + 통합 회원가입</b>(ADR-0028) — 파트너 로그인해 자기 고객 예약·미수만 열람, /signup 유형선택(공급자/벤더/파트너) 통합.</li>
+      <li>🟡 Phase 2 보류(빈칸 아님): 정확 통화별 마진 리포트(현재 근사 표시) · 미니바 소모 자동 차감(현재 수기).</li>
       <li>👉 <b>추가로 필요한 개발 항목(필수/있으면 좋음)은 맨 아래 ⑧</b>에 정리.</li>
     </ul>
   </div>
@@ -87,14 +89,16 @@
   <!-- ① 큰 그림 -->
   <section>
     <h2>① 전체 업무 파이프라인 <span class="tag flow">존 횡단 흐름</span> <span class="tag live">✅ 라이브</span></h2>
-    <p class="desc">공급자 등록 → 관리자 판매 → 손님 예약 → 체크인·아웃 → 정산. 아래 ②~⑦이 각 구간의 상세 분기입니다.</p>
+    <p class="desc">공급자 등록 → 관리자 판매 → 손님 예약 → 체크인·아웃 → 정산. 공급자가 <b>직접 판매</b>하는 양방향 경로(ADR-0021)도 함께 표기. 아래 ②~⑦이 각 구간의 상세 분기입니다.</p>
     <pre class="mermaid">
 flowchart LR
   SUP1["🟢 빌라 등록<br/>/my-villas/new"]:::sup --> V["🟣 검수·가격<br/>/villas"]:::admin --> PROPN["🟣 제안 생성<br/>/proposals/new"]:::admin
   PROPN -->|"링크 발송"| P["🟠 제안 열람<br/>/p/:token"]:::guest --> BK["🟠 가예약→완료<br/>/p/:token/done"]:::guest
-  BK -->|"입금 확정"| BOOK["🟣 예약<br/>/bookings"]:::admin --> CI["🟣 체크인<br/>/checkin"]:::admin
+  BK -->|"입금 확정"| BOOK["🟣 예약 (seller=OPERATOR)<br/>/bookings"]:::admin --> CI["🟣 체크인<br/>/checkin"]:::admin
   CI -->|"체크인 링크"| GG["🟠 셀프체크인<br/>/g/:token"]:::guest --> CO["🟣 체크아웃<br/>/checkout"]:::admin --> SET["🟣 정산<br/>/settlements"]:::admin
   SET -.->|"정산서"| SUP1
+  SUP1 -.->|"직접판매(양방향)"| SL["🟢 공개 판매링크<br/>/my-villas/:id/sell-link"]:::sup --> SDB["🟢 공급자 직접예약<br/>/my-bookings (seller=SUPPLIER·정산제외)"]:::sup
+  SDB -.->|"공실 실시간 공유 → 선착순 선점"| BOOK
   classDef admin fill:#2a1f55,stroke:#7c5cff,color:#fff,stroke-width:2px;
   classDef sup fill:#0f2e2a,stroke:#27c79a,color:#fff,stroke-width:2px;
   classDef guest fill:#3a2a10,stroke:#e8a23c,color:#fff,stroke-width:2px;
@@ -206,7 +210,7 @@ flowchart TD
   <!-- ⑥ 원천공급자 가입 + ⑦ 정산/미수 -->
   <section>
     <h2>⑥ 원천공급자 가입 승인 &nbsp;·&nbsp; ⑦ 정산·미수 상태 흐름 <span class="tag gate">승인·거절 / 수납·연체</span> <span class="tag live">✅ 라이브</span></h2>
-    <p class="desc">자가가입은 운영자 승인 후 발주 수신이 가능합니다. 정산·미수는 단계별 상태로 진행됩니다. (VendorApprovalStatus·SettlementStatus·ReceivableStatus)</p>
+    <p class="desc">자가가입은 운영자 승인 후 발주 수신이 가능합니다. 정산·미수는 단계별 상태로 진행됩니다. (VendorApprovalStatus·SettlementStatus·ReceivableStatus)<br/>🟡 <b>통합 회원가입(ADR-0028, 진행 중)</b>: <code>/signup</code>에서 유형(빌라공급자·부가서비스공급자·파트너) 선택 → 모두 자가가입→운영자 승인. 파트너는 로그인 후 자기 고객 예약·미수만 열람.</p>
     <pre class="mermaid">
 flowchart LR
   subgraph SU ["⑥ 원천공급자 가입"]
@@ -226,11 +230,12 @@ flowchart LR
     PE -.->|"기한 경과 (cron)"| OV(["OVERDUE 연체"]):::auto
     OV -.->|"도망 등"| WO(["WRITTEN_OFF 대손"]):::auto
   end
-  subgraph IV ["⑦-b 파트너 청구서 (Invoice) — PR #44 완료"]
+  subgraph IV ["⑦-b 파트너 청구서 (Invoice) — PR #44·#54·#58 완료"]
     direction TB
-    API["✅ API·데이터<br/>/api/partner-invoices"]:::okbox2
-    API --> UI["✅ 청구서 탭<br/>/partners/:id"]:::okbox2
-    UI -->|"발송"| PDFZ["✅ 청구서 PDF(vi)·Zalo 발송"]:::okbox2
+    API["✅ 청구서 탭·발행<br/>/partners/:id"]:::okbox2
+    API -->|"발송"| PDFZ["✅ PDF(vi/ko/zh/ru)·Zalo 발송"]:::okbox2
+    PDFZ -->|"수납"| LG["✅ LEDGER COLLECTION 적재<br/>(ADR-0027)"]:::okbox2
+    LG -.->|"수납 정정(취소)"| RV["✅ reverseInvoicePayment"]:::okbox2
   end
   classDef vendor fill:#2b1d3a,stroke:#b07cff,color:#fff;
   classDef state fill:#1b2a3f,stroke:#5b8fd6,color:#dbe9ff;
@@ -251,8 +256,8 @@ flowchart LR
       <div class="col must">
         <h4>🔴 꼭 필요한 기능 (필수)</h4>
         <div class="card" style="background:rgba(58,209,127,.08);border:1px solid rgba(58,209,127,.4)">
-          <div class="t" style="color:#9ff0c4">✅ (방금 완료) 파트너 청구서 발행 화면</div>
-          <div class="d">PR #44로 청구서 탭·PDF(vi)·Zalo 발송 머지 완료. 잔여 확인: 수납 시 LEDGER COLLECTION 연결 여부.</div>
+          <div class="t" style="color:#9ff0c4">✅ (완료) 파트너 청구서 + 수납 LEDGER 연결</div>
+          <div class="d">청구서 탭·PDF(vi/ko/zh/ru)·Zalo 발송(PR #44·#57)에 이어 <b>수납 → 복식부기 LEDGER 적재·정정(취소)</b>까지 연결 완료(ADR-0027, PR #54·#58). 더 이상 잔여 없음.</div>
         </div>
         <div class="card must">
           <div class="t">1. Zalo 세션 끊김 경보 (S6)</div>
@@ -275,17 +280,15 @@ flowchart LR
         <ul class="nicelist">
           <li><b>매출관리 페이지 /sales</b> — 정산과 별개로 기간별 판매 실적 집계 <span class="s">(테오 2026-06-24 제안)</span></li>
           <li><b>통화별 마진 리포트</b> — KRW/VND 매출·마진 분리 대시보드</li>
-          <li><b>미니바 소모 자동 차감</b> — 체크아웃 입력 → 재고 차감·보충 알림 <span class="s">(현재 수기)</span></li>
+          <li><b>미니바 소모 자동 차감</b> — 체크아웃 입력 → 재고 차감·보충 알림 <span class="s">(현재 수기, 전환 자동 회수 RECOVER만 완료 PR #59)</span></li>
           <li><b>환율 자동 갱신 cron</b> — FX_VND_PER_KRW <span class="s">(현재 /settings 수동)</span></li>
-          <li><b>메시지 실시간(SSE)</b> <span class="s">(현재 폴링 — 소규모엔 충분)</span></li>
-          <li><b>비밀번호 자가 재설정</b> <span class="s">(현재 ADMIN 수동)</span></li>
           <li><b>예약 변경 기능</b> <span class="s">(현재 취소 후 재생성)</span></li>
-          <li><b>빌라 위치 지도 뷰</b> — Leaflet(TravelDiary 재사용)</li>
+          <li><b>빌라 위치 지도 — 전체 다중핀 보드</b> <span class="s">(개별 임베드 ADR-0026 완료, 좌표필드 도입 시 후속)</span></li>
           <li><b>품질점수 + 판매 후순위 정렬</b></li>
-          <li><b>파트너 셀프 포털</b> — B2B 로그인/토큰 링크 <span class="s">(PARTNER-4)</span></li>
           <li><b>감사·알림 발송 로그 조회 화면</b> <span class="s">(현재 기록만)</span></li>
           <li><b>SMS 폴백 · 여행사 월간 리포트 자동발송 · 캘린더 기간차단 UI · 관리자 하단탭</b></li>
         </ul>
+        <p class="note" style="margin-top:10px">✅ 최근 완료되어 목록에서 제외: 메시지 실시간 SSE(ADR-0024) · 비밀번호 자가 재설정(ADR-0025) · 빌라 위치 지도 임베드(ADR-0026) · 파트너 셀프 포털/통합 회원가입(ADR-0028, 진행 중).</p>
       </div>
     </div>
   </section>
@@ -296,16 +299,19 @@ flowchart LR
     <p class="desc">분기와 무관하게 메뉴에서 어디로 들어가는지(허브→상세)만 보는 지도입니다.</p>
     <pre class="mermaid">
 flowchart LR
-  NAV(["🟣 관리자 사이드바"]):::hubA --> DASH["대시보드"]:::admin & BOOK["예약→상세→체크인/아웃"]:::admin & PROP["제안→생성"]:::admin & VIL["빌라→상세"]:::admin & AVA["공실보드"]:::admin & INS["청소검수"]:::admin & STL["정산"]:::admin & PAR["파트너→상세"]:::admin & REC["미수·여신"]:::admin & STA["통계"]:::admin & MSG["메시지"]:::admin & CFG["설정→서비스/벤더/Zalo"]:::admin & USR["사용자"]:::admin
-  TAB(["🟢 공급자 탭바"]):::hubS --> MV["내 빌라→사진/편의시설/요금"]:::sup & CAL["캘린더"]:::sup & CLN["청소→상세"]:::sup & EAR["수익"]:::sup & GUI["안내→Zalo연결"]:::sup
+  NAV(["🟣 관리자 사이드바"]):::hubA --> DASH["대시보드"]:::admin & BOOK["예약→상세→체크인/아웃"]:::admin & PROP["제안→생성"]:::admin & VIL["빌라→상세"]:::admin & AVA["공실보드"]:::admin & INS["청소검수"]:::admin & INV["미니바 재고"]:::admin & STL["정산"]:::admin & PAR["파트너→상세→청구서"]:::admin & REC["미수·여신"]:::admin & STA["통계"]:::admin & MSG["메시지(SSE)"]:::admin & ACT["활동로그"]:::admin & CFG["설정→서비스/벤더/미니바/Zalo"]:::admin & USR["사용자"]:::admin
+  TAB(["🟢 공급자 탭바"]):::hubS --> MV["내 빌라→사진/편의시설/요금/판매링크"]:::sup & CAL["캘린더"]:::sup & MYB["직접예약 /my-bookings→체크인/아웃"]:::sup & CLN["청소→상세"]:::sup & EAR["수익"]:::sup & GUI["안내→Zalo연결"]:::sup
+  AUTH(["🔑 공통 인증"]):::hubV --> LGN["로그인"]:::admin & SGN["통합 가입 /signup"]:::admin & FPW["비번 재설정<br/>/forgot-password→/reset-password"]:::admin
+  VEN(["🟪 원천공급자/벤더"]):::hubV --> VD["발주함 /vendor"]:::sup & VST["통계 /vendor/stats"]:::sup
   classDef hubA fill:#4a32b8,stroke:#b9a6ff,color:#fff,stroke-width:2px;
   classDef hubS fill:#16a37b,stroke:#9fe9d2,color:#fff,stroke-width:2px;
+  classDef hubV fill:#6b3fb0,stroke:#cdb4ff,color:#fff,stroke-width:2px;
   classDef admin fill:#241a4d,stroke:#7c5cff,color:#fff;
   classDef sup fill:#0f2e2a,stroke:#27c79a,color:#fff;
     </pre>
   </section>
 
-  <p class="note">출처: <code>prisma/schema.prisma</code> 상태 enum(VillaStatus·BookingStatus·CleaningStatus·DepositStatus·ProposalStatus·ServiceOrderStatus·VendorApprovalStatus·SettlementStatus·ReceivableStatus) + 각 페이지의 분기 리다이렉트·검수 로직.</p>
+  <p class="note">출처: <code>prisma/schema.prisma</code> 상태 enum(VillaStatus·BookingStatus·CleaningStatus·DepositStatus·ProposalStatus·ServiceOrderStatus·VendorApprovalStatus·PartnerApprovalStatus·SettlementStatus·ReceivableStatus·Booking.seller) + 각 페이지의 분기 리다이렉트·검수 로직. (ADR-0021~0028 반영)</p>
 </div>
 
 <script src="mermaid.min.js"></script>
