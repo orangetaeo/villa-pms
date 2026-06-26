@@ -75,7 +75,9 @@ async function main() {
         priceVnd: item.priceVnd,
         vendorId: vendor.id,
         audiences: audiences as unknown as Prisma.InputJsonValue,
-        active: true,
+        // ★ 비활성 시드 — 배포된 prod의 게스트 /g 로더에 audience 필터(이 브랜치)가 배포되기 전엔
+        //   active 항목이 게스트에 노출된다(과일 바구니=PARTNER 전용 누수). 기능 전체(S2~S4) 배포 후 활성화.
+        active: false,
       },
     });
     console.log(`[+] ServiceCatalogItem 생성: ${created.id} (${item.nameKo}, audiences=${JSON.stringify(audiences)})`);
