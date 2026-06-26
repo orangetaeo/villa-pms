@@ -24,10 +24,23 @@ function toDotDate(date: Date): string {
   return `${get("year")}.${get("month")}.${get("day")}`;
 }
 
-export default async function UsersPage() {
+// 딥링크 탭 — /partners 등에서 ?role=PARTNER로 진입 시 해당 탭으로 시작
+const INITIAL_TABS = ["all", "SUPPLIER", "CLEANER", "VENDOR", "PARTNER"] as const;
+type InitialTab = (typeof INITIAL_TABS)[number];
+
+export default async function UsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ role?: string }>;
+}) {
   // ADMIN 보장은 (admin) layout — 여기서는 본인 행 비활성화 차단용 id만 사용
   const session = await auth();
   const selfId = session?.user?.id ?? "";
+
+  const { role: roleParam } = await searchParams;
+  const initialTab: InitialTab = INITIAL_TABS.includes(roleParam as InitialTab)
+    ? (roleParam as InitialTab)
+    : "all";
 
   const [users, unlinked] = await Promise.all([
     prisma.user.findMany({
@@ -43,6 +56,9 @@ export default async function UsersPage() {
         isActive: true,
         createdAt: true,
         _count: { select: { villas: true } },
+        // 연결된 B2B 엔티티 id — 행에서 파트너/발주처 정보로 점프(엔티티≠계정 상호연결)
+        partnerAccount: { select: { id: true } },
+        vendorAccount: { select: { id: true } },
       },
       orderBy: { createdAt: "desc" },
     }),
@@ -64,6 +80,8 @@ export default async function UsersPage() {
     isActive: u.isActive,
     joinedAt: toDotDate(u.createdAt),
     villaCount: u._count.villas,
+    partnerId: u.partnerAccount?.id ?? null,
+    vendorId: u.vendorAccount?.id ?? null,
   }));
 
   const unlinkedZalo: UnlinkedZaloRow[] = unlinked.map((c) => ({
@@ -72,5 +90,12 @@ export default async function UsersPage() {
     displayName: c.displayName,
   }));
 
-  return <UsersManager users={userRows} unlinkedZalo={unlinkedZalo} selfId={selfId} />;
+  return (
+    <UsersManager
+      users={userRows}
+      unlinkedZalo={unlinkedZalo}
+      selfId={selfId}
+      initialTab={initialTab}
+    />
+  );
 }

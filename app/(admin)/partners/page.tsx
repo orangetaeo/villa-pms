@@ -14,6 +14,19 @@ export default async function PartnersPage() {
   }
 
   const partners = await getPartnersWithAggregates(prisma, new Date());
+
+  // 연결된 로그인 계정의 활성 여부 — 목록에서 "계정 활성/비활성" 표시(엔티티≠계정 상호연결)
+  const linkedUserIds = partners
+    .map((p) => p.partner.userId)
+    .filter((v): v is string => v != null);
+  const accountActiveByUserId: Record<string, boolean> = {};
+  if (linkedUserIds.length > 0) {
+    const accounts = await prisma.user.findMany({
+      where: { id: { in: linkedUserIds }, deletedAt: null },
+      select: { id: true, isActive: true },
+    });
+    for (const a of accounts) accountActiveByUserId[a.id] = a.isActive;
+  }
   // 자가가입 승인대기(PENDING_APPROVAL)를 최상단으로 — 운영자가 먼저 처리하도록(vendors page 패턴).
   // 그 외에는 lib 기본 정렬(createdAt desc) 유지.
   const PENDING_RANK = (s: string) => (s === "PENDING_APPROVAL" ? 0 : 1);
@@ -25,5 +38,11 @@ export default async function PartnersPage() {
   // 승인/거절은 canSetPrice(OWNER/MANAGER/ADMIN)만 — API와 동일 게이트(vendors의 canEdit 패턴).
   const canApprove = canSetPrice(session.user.role);
 
-  return <PartnersManager partners={serialized} canApprove={canApprove} />;
+  return (
+    <PartnersManager
+      partners={serialized}
+      canApprove={canApprove}
+      accountActiveByUserId={accountActiveByUserId}
+    />
+  );
 }

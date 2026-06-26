@@ -2002,7 +2002,12 @@
     "approvalStatusApproved": "승인됨",
     "approvalStatusRejected": "거절됨",
     "selfSignupBadge": "자가 가입",
-    "hasAccountBadge": "로그인 계정"
+    "hasAccountBadge": "로그인 계정",
+    "accountActive": "계정 활성",
+    "accountInactive": "계정 비활성",
+    "accountNone": "연결된 로그인 계정 없음 (운영자 관리)",
+    "viewInUsers": "사용자관리에서 보기",
+    "loginAccountTitle": "로그인 계정"
   },
   "adminSettlements": {
     "title": "정산 관리",
@@ -2198,7 +2203,11 @@
       "confirm": "{name} 님을 삭제할까요? 목록과 로그인에서 제외되며, 데이터와 빌라는 보존됩니다.",
       "success": "회원이 삭제되었습니다."
     },
-    "viewVillas": "이 공급자의 빌라 보기"
+    "viewVillas": "이 공급자의 빌라 보기",
+    "entityLink": {
+      "partner": "파트너 정보",
+      "vendor": "발주처 정보"
+    }
   },
   "adminProposals": {
     "list": {

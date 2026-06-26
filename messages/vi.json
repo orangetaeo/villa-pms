@@ -2111,7 +2111,12 @@
     "approvalStatusApproved": "Đã duyệt",
     "approvalStatusRejected": "Đã từ chối",
     "selfSignupBadge": "Tự đăng ký",
-    "hasAccountBadge": "Tài khoản đăng nhập"
+    "hasAccountBadge": "Tài khoản đăng nhập",
+    "accountActive": "Tài khoản hoạt động",
+    "accountInactive": "Tài khoản bị khóa",
+    "accountNone": "Chưa liên kết tài khoản đăng nhập (chỉ quản trị viên quản lý)",
+    "viewInUsers": "Xem ở Quản lý người dùng",
+    "loginAccountTitle": "Tài khoản đăng nhập"
   },
   "adminSettlements": {
     "title": "Quản lý quyết toán",
@@ -2307,7 +2312,11 @@
       "confirm": "Xóa {name}? Tài khoản sẽ bị loại khỏi danh sách và không đăng nhập được, nhưng dữ liệu và villa vẫn được giữ lại.",
       "success": "Đã xóa người dùng."
     },
-    "viewVillas": "Xem villa của nhà cung cấp này"
+    "viewVillas": "Xem villa của nhà cung cấp này",
+    "entityLink": {
+      "partner": "Thông tin đối tác",
+      "vendor": "Thông tin nhà cung cấp"
+    }
   },
   "adminProposals": {
     "list": {

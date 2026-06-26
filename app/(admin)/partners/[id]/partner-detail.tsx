@@ -63,7 +63,21 @@ function fmtDate(iso: string) {
   return iso.slice(0, 10);
 }
 
-export default function PartnerDetailView({ detail }: { detail: SerializedPartnerDetail }) {
+export interface PartnerLoginAccount {
+  id: string;
+  name: string;
+  phone: string | null;
+  isActive: boolean;
+}
+
+export default function PartnerDetailView({
+  detail,
+  account,
+}: {
+  detail: SerializedPartnerDetail;
+  /** 연결된 로그인 계정(Role=PARTNER) — 없으면 null (운영자만 관리하는 파트너) */
+  account: PartnerLoginAccount | null;
+}) {
   const t = useTranslations("adminPartners");
   const router = useRouter();
   const p = detail.partner;
@@ -300,6 +314,44 @@ export default function PartnerDetailView({ detail }: { detail: SerializedPartne
               </dl>
               {p.memo && <p className="mt-3 whitespace-pre-wrap text-xs text-slate-400">{p.memo}</p>}
             </div>
+          </div>
+
+          {/* 로그인 계정 (엔티티≠계정) — 연결 시 활성/비활성 + 사용자관리 링크, 없으면 안내 */}
+          <div className="rounded-xl border border-slate-800 bg-admin-card p-4 text-sm">
+            <h3 className="mb-3 text-xs font-bold uppercase text-slate-500">
+              {t("loginAccountTitle")}
+            </h3>
+            {account ? (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                      account.isActive
+                        ? "bg-sky-500/15 text-sky-400"
+                        : "bg-slate-600/30 text-slate-400"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[14px]">badge</span>
+                    {account.isActive ? t("accountActive") : t("accountInactive")}
+                  </span>
+                  <span className="text-slate-300">
+                    {account.name}
+                    {account.phone && (
+                      <span className="ml-2 font-mono text-xs text-slate-500">{account.phone}</span>
+                    )}
+                  </span>
+                </div>
+                <Link
+                  href="/users?role=PARTNER"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-admin-primary hover:underline"
+                >
+                  {t("viewInUsers")}
+                  <span className="material-symbols-outlined text-[14px]">arrow_outward</span>
+                </Link>
+              </div>
+            ) : (
+              <p className="text-slate-500">{t("accountNone")}</p>
+            )}
           </div>
 
           {/* 미수 채권 목록 */}
