@@ -7,7 +7,9 @@ import {
   canOpenSellableGate,
   computeQualityScore,
   monthKeyVn,
+  recomputeVillaQualityScore,
 } from "./cleaning";
+import type { DbClient } from "./availability";
 
 describe("computeQualityScore — 청소 검수 통과율 (Phase 2)", () => {
   it("결정된 검수 0건 → 100 (신규 빌라 중립 상위)", () => {
@@ -27,6 +29,92 @@ describe("computeQualityScore — 청소 검수 통과율 (Phase 2)", () => {
   });
   it("음수 방어 → 100", () => {
     expect(computeQualityScore(-1, -1)).toBe(100);
+  });
+});
+
+describe("recomputeVillaQualityScore — 누적 반려 이력 가중 (v2, AuditLog 기반)", () => {
+  /**
+   * AuditLog 누적 검수 이벤트로 산정하는 스텁 db.
+   * events: 빌라 CleaningTask들이 받은 승인·반려 이벤트(approve/reject가 남기는 status.new).
+   */
+  const stubDb = (opts: {
+    taskIds: string[];
+    events: { entityId: string; decision: CleaningStatus }[];
+  }) => {
+    let saved: number | null = null;
+    const db = {
+      cleaningTask: {
+        findMany: async () => opts.taskIds.map((id) => ({ id })),
+      },
+      auditLog: {
+        // recompute가 넘기는 where(entity/entityId.in/changes.equals)를 그대로 해석
+        count: async ({ where }: { where: { entityId: { in: string[] }; changes: { equals: CleaningStatus } } }) => {
+          const ids = where.entityId.in;
+          const decision = where.changes.equals;
+          return opts.events.filter((e) => ids.includes(e.entityId) && e.decision === decision).length;
+        },
+      },
+      villa: {
+        update: async ({ data }: { data: { qualityScore: number } }) => {
+          saved = data.qualityScore;
+          return { qualityScore: data.qualityScore };
+        },
+      },
+    } as unknown as DbClient;
+    return { db, saved: () => saved };
+  };
+
+  it("검수 이력 0건(신규 빌라) → 100", async () => {
+    const { db, saved } = stubDb({ taskIds: [], events: [] });
+    expect(await recomputeVillaQualityScore(db, "v1")).toBe(100);
+    expect(saved()).toBe(100);
+  });
+
+  it("첫 검수에 통과(반려 이력 없음) → 100", async () => {
+    const { db } = stubDb({
+      taskIds: ["t1"],
+      events: [{ entityId: "t1", decision: CleaningStatus.APPROVED }],
+    });
+    expect(await recomputeVillaQualityScore(db, "v1")).toBe(100);
+  });
+
+  it("반려 후 고쳐 재승인해도 과거 반려가 분모에 남는다 → 50 (v1이면 100이었을 케이스)", async () => {
+    // t1: 한 번 반려(REJECTED) → 고쳐서 재승인(APPROVED). 현재 status는 APPROVED지만
+    // 누적 이벤트는 승인1·반려1 → round(100*1/2)=50.
+    const { db, saved } = stubDb({
+      taskIds: ["t1"],
+      events: [
+        { entityId: "t1", decision: CleaningStatus.REJECTED },
+        { entityId: "t1", decision: CleaningStatus.APPROVED },
+      ],
+    });
+    expect(await recomputeVillaQualityScore(db, "v1")).toBe(50);
+    expect(saved()).toBe(50);
+  });
+
+  it("여러 검수 누적: 승인3·반려1 → 75", async () => {
+    const { db } = stubDb({
+      taskIds: ["t1", "t2", "t3"],
+      events: [
+        { entityId: "t1", decision: CleaningStatus.APPROVED },
+        { entityId: "t2", decision: CleaningStatus.APPROVED },
+        { entityId: "t3", decision: CleaningStatus.REJECTED },
+        { entityId: "t3", decision: CleaningStatus.APPROVED },
+      ],
+    });
+    expect(await recomputeVillaQualityScore(db, "v1")).toBe(75);
+  });
+
+  it("다른 빌라의 검수 이벤트는 카운트하지 않는다(빌라 스코프 격리)", async () => {
+    // taskIds에 없는 entityId('other')의 반려는 무시되어 100 유지
+    const { db } = stubDb({
+      taskIds: ["t1"],
+      events: [
+        { entityId: "t1", decision: CleaningStatus.APPROVED },
+        { entityId: "other", decision: CleaningStatus.REJECTED },
+      ],
+    });
+    expect(await recomputeVillaQualityScore(db, "v1")).toBe(100);
   });
 });
 

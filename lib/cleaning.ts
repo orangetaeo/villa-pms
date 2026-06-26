@@ -60,9 +60,8 @@ export function canOpenSellableGate(openCheckoutTaskCount: number): boolean {
 
 /**
  * 빌라 품질점수(0~100) — 청소 검수 통과율 (Phase 2, 테오 2026-06-26).
- * 결정된 검수(현재 상태 APPROVED·REJECTED)가 0건이면 100(신규 빌라 중립 상위),
- * 아니면 round(100 * 승인 / (승인+반려)). 판매 후순위 정렬 키.
- * v1=현재 상태 기준(반려를 고쳐 재승인하면 회복). 누적 반려 이력 가중은 후속.
+ * 결정된 검수가 0건이면 100(신규 빌라 중립 상위), 아니면 round(100 * 승인 / (승인+반려)).
+ * 판매 후순위 정렬 키. 순수 함수(통과율 정의) — 데이터 소스는 recompute가 결정한다.
  */
 export function computeQualityScore(approvedCount: number, rejectedCount: number): number {
   const decided = approvedCount + rejectedCount;
@@ -70,14 +69,38 @@ export function computeQualityScore(approvedCount: number, rejectedCount: number
   return Math.round((approvedCount / decided) * 100);
 }
 
-/** 빌라의 현재 검수 이력으로 qualityScore 재계산·저장 (트랜잭션 주입). */
+/**
+ * 빌라 qualityScore 재계산·저장 (트랜잭션 주입).
+ * v2(누적 반려 이력 가중) — **현재 상태**가 아니라 **AuditLog 누적 검수 이벤트**로 산정한다.
+ * 빌라의 CleaningTask가 받은 모든 승인·반려 이벤트(approve/reject가 남긴
+ * `changes.status.new` = APPROVED/REJECTED)를 센다. 반려된 검수를 고쳐 재승인해도
+ * 과거 반려 이벤트가 분모에 영구히 남으므로, "첫 검수 통과"와 "여러 번 반려 후 통과"가 구분된다.
+ * (v1은 현재 status 카운트라 재승인 시 과거 반려가 사라졌음.)
+ *
+ * ⚠️ approve/reject 트랜잭션에서는 이 이벤트의 writeAuditLog **뒤**에 호출해야
+ *    이번 승인·반려가 카운트에 포함된다(같은 tx 내 insert가 후속 count에 보임).
+ */
 export async function recomputeVillaQualityScore(
   db: DbClient,
   villaId: string
 ): Promise<number> {
+  const tasks = await db.cleaningTask.findMany({
+    where: { villaId },
+    select: { id: true },
+  });
+  const taskIds = tasks.map((t) => t.id);
+  if (taskIds.length === 0) {
+    await db.villa.update({ where: { id: villaId }, data: { qualityScore: 100 } });
+    return 100;
+  }
+  const auditWhere = (decision: CleaningStatus) => ({
+    entity: "CleaningTask",
+    entityId: { in: taskIds },
+    changes: { path: ["status", "new"], equals: decision } as const,
+  });
   const [approved, rejected] = await Promise.all([
-    db.cleaningTask.count({ where: { villaId, status: CleaningStatus.APPROVED } }),
-    db.cleaningTask.count({ where: { villaId, status: CleaningStatus.REJECTED } }),
+    db.auditLog.count({ where: auditWhere(CleaningStatus.APPROVED) }),
+    db.auditLog.count({ where: auditWhere(CleaningStatus.REJECTED) }),
   ]);
   const qualityScore = computeQualityScore(approved, rejected);
   await db.villa.update({ where: { id: villaId }, data: { qualityScore } });
@@ -275,9 +298,6 @@ export async function approveCleaningTask(
       }
     }
 
-    // 품질점수 재계산 — 이번 승인 반영(검수 통과율, Phase 2)
-    await recomputeVillaQualityScore(tx, task.villaId);
-
     await tx.notification.create({
       data: {
         userId: notifyTargetUserId(task, task.villa.supplierId),
@@ -300,6 +320,9 @@ export async function approveCleaningTask(
         isSellableGate: { new: gateOpened ? "OPENED" : "UNCHANGED" },
       },
     });
+
+    // 품질점수 재계산 — 위 audit 기록 뒤에 호출해야 이번 승인이 누적 카운트에 포함됨(v2)
+    await recomputeVillaQualityScore(tx, task.villaId);
 
     const updated = await tx.cleaningTask.findUniqueOrThrow({ where: { id: task.id } });
     return { task: updated, gateOpened };
@@ -336,9 +359,6 @@ export async function rejectCleaningTask(
       throw new CleaningTransitionError(task.status, CleaningStatus.REJECTED);
     }
 
-    // 품질점수 재계산 — 이번 반려 반영(검수 통과율, Phase 2)
-    await recomputeVillaQualityScore(tx, task.villaId);
-
     await tx.notification.create({
       data: {
         userId: notifyTargetUserId(task, task.villa.supplierId),
@@ -362,6 +382,9 @@ export async function rejectCleaningTask(
         rejectNote: { new: note },
       },
     });
+
+    // 품질점수 재계산 — 위 audit 기록 뒤에 호출해야 이번 반려가 누적 카운트에 포함됨(v2)
+    await recomputeVillaQualityScore(tx, task.villaId);
 
     return tx.cleaningTask.findUniqueOrThrow({ where: { id: task.id } });
   });
