@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Villa Go — 페이지 관계도 (Site Map)</title>
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:'Malgun Gothic','맑은 고딕',sans-serif;
+         background:radial-gradient(circle at 25% 0%, #241652, #130c2e 60%, #0b0820);
+         color:#ece8fb; }
+  .wrap { max-width:1500px; margin:0 auto; padding:36px 26px 90px; }
+  h1 { font-size:34px; font-weight:800; letter-spacing:-1px; margin:0 0 6px; }
+  .sub { color:#b6abe6; font-size:16px; margin-bottom:22px; }
+  .legend { display:flex; gap:18px; flex-wrap:wrap; font-size:13.5px; margin-bottom:30px; }
+  .legend span { display:flex; align-items:center; gap:7px; color:#d7cffb; }
+  .sw { width:15px; height:15px; border-radius:4px; display:inline-block; }
+
+  section { background:rgba(255,255,255,.035); border:1px solid rgba(150,120,255,.22);
+            border-radius:18px; padding:22px 24px 10px; margin-bottom:30px; }
+  section h2 { font-size:22px; font-weight:800; margin:0 0 4px; display:flex; align-items:center; gap:10px; }
+  section .desc { color:#ada3da; font-size:14.5px; margin:0 0 14px; }
+  .tag { font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; }
+  .tag.flow { background:rgba(255,180,70,.18); color:#f4c97a; border:1px solid #e8a23c; }
+  .tag.admin{ background:rgba(124,92,255,.2); color:#cdbcff; border:1px solid #7c5cff; }
+  .tag.sup  { background:rgba(40,200,150,.16); color:#9fe9d2; border:1px solid #27c79a; }
+  .tag.guest{ background:rgba(255,170,60,.16); color:#f6d9ab; border:1px solid #e8a23c; }
+  .tag.misc { background:rgba(170,140,255,.16); color:#d3c4ff; border:1px solid #9b7cff; }
+
+  .mermaid { background:transparent; text-align:center; overflow-x:auto; }
+  .mermaid svg { max-width:100%; height:auto; }
+  .note { font-size:13px; color:#8f86bd; margin:6px 2px 16px; }
+  code { background:#241a4d; padding:1px 6px; border-radius:5px; color:#cbbcff; font-size:12.5px; }
+  a.top { color:#9d8bff; font-size:13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🗺️ Villa Go 페이지 관계도</h1>
+  <div class="sub">모든 화면(페이지)이 어떻게 이어지는지 — 실제 코드의 링크·라우팅·리다이렉트 기반 지도입니다.</div>
+  <div class="legend">
+    <span><span class="sw" style="background:#7c5cff"></span>🟣 관리자(운영)</span>
+    <span><span class="sw" style="background:#27c79a"></span>🟢 공급자(빌라 주인)</span>
+    <span><span class="sw" style="background:#e8a23c"></span>🟠 손님(공개·비로그인)</span>
+    <span><span class="sw" style="background:#b07cff"></span>🟪 원천공급자(VENDOR)</span>
+    <span><span class="sw" style="background:#8a8a9e"></span>⬜ 인증·진입</span>
+    <span>━━ 실선=화면 이동/링크 &nbsp; ┈┈ 점선=상태 전환/게이트</span>
+  </div>
+
+  <!-- 0. 핵심 업무 파이프라인 -->
+  <section>
+    <h2>① 핵심 업무 파이프라인 <span class="tag flow">존을 가로지르는 데이터 흐름</span></h2>
+    <p class="desc">공급자가 올린 빌라 → 관리자가 판매 → 손님이 예약 → 체크인·아웃 → 정산. 색이 다른 박스는 서로 다른 역할의 화면입니다.</p>
+    <pre class="mermaid">
+flowchart LR
+  SUP1["🟢 빌라 등록<br/>/my-villas/new"]:::sup
+  V["🟣 빌라 검수·가격책정<br/>/villas → /villas/:id"]:::admin
+  PROPN["🟣 제안 링크 생성<br/>/proposals/new"]:::admin
+  P["🟠 제안 열람<br/>/p/:token"]:::guest
+  BOOKF["🟠 가예약 신청<br/>/p/:token/book/:itemId"]:::guest
+  DONE["🟠 가예약 완료<br/>/p/:token/done/:id"]:::guest
+  ROST["🟠 투숙객 명단<br/>/p/:token/roster/:id"]:::guest
+  BK["🟣 예약 관리·입금확정<br/>/bookings → /bookings/:id"]:::admin
+  CI["🟣 체크인 검수<br/>/bookings/:id/checkin"]:::admin
+  GG["🟠 셀프 체크인<br/>/g/:token"]:::guest
+  OPT["🟠 부가서비스 주문<br/>/g/:token/options"]:::guest
+  CO["🟣 체크아웃 정산<br/>/bookings/:id/checkout"]:::admin
+  SET["🟣 정산<br/>/settlements"]:::admin
+  CLE["🟢 청소 사진 제출<br/>/cleaning/:id"]:::sup
+  INSP["🟣 청소 검수 게이트<br/>/inspections"]:::admin
+
+  SUP1 --> V --> PROPN -->|"링크 발송"| P
+  P --> BOOKF --> DONE
+  P --> ROST
+  DONE -->|"입금 확정"| BK --> CI
+  CI -->|"체크인 링크"| GG --> OPT --> CO --> SET
+  SET -.->|"월 정산서 발송"| SUP1
+  CLE --> INSP -.->|"승인해야 판매가능"| V
+  CI -.-> CLE
+
+  classDef admin fill:#2a1f55,stroke:#7c5cff,color:#fff,stroke-width:2px;
+  classDef sup fill:#0f2e2a,stroke:#27c79a,color:#fff,stroke-width:2px;
+  classDef guest fill:#3a2a10,stroke:#e8a23c,color:#fff,stroke-width:2px;
+    </pre>
+    <p class="note">🔒 손님·공급자 화면엔 판매가·마진이 절대 노출되지 않습니다. 전체 공실(/availability)은 관리자 전용.</p>
+  </section>
+
+  <!-- 1. 관리자 -->
+  <section>
+    <h2>② 관리자 네비게이션 맵 <span class="tag admin">왼쪽 사이드바 = 허브</span></h2>
+    <p class="desc">로그인 후 사이드바 메뉴(허브)에서 각 화면으로, 다시 상세 화면으로 들어갑니다. <code>🔒</code>는 권한 게이트(재무·시스템관리자 전용).</p>
+    <pre class="mermaid">
+flowchart LR
+  NAV(["🟣 사이드바 메뉴<br/>(운영자 허브)"]):::hub
+  DASH["대시보드<br/>/dashboard"]:::admin
+  BOOK["예약<br/>/bookings"]:::admin
+  PROP["제안 🔒재무<br/>/proposals"]:::admin
+  VIL["빌라<br/>/villas"]:::admin
+  INV["재고<br/>/inventory"]:::admin
+  AVA["공실 보드<br/>/availability"]:::admin
+  INS["청소 검수<br/>/inspections"]:::admin
+  STL["정산 🔒재무<br/>/settlements"]:::admin
+  PAR["파트너 🔒재무<br/>/partners"]:::admin
+  REC["미수·여신 🔒재무<br/>/receivables"]:::admin
+  STA["통계<br/>/statistics"]:::admin
+  MSG["메시지<br/>/messages"]:::admin
+  USR["사용자 🔒관리자<br/>/users"]:::admin
+  CFG["설정 🔒관리자<br/>/settings"]:::admin
+
+  NAV --> DASH & BOOK & PROP & VIL & INV & AVA & INS & STL & PAR & REC & STA & MSG & USR & CFG
+
+  DASH -.->|"빠른 카드"| BOOK
+  DASH -.-> INS
+  DASH -.-> COST["원가 알림<br/>/cost-alerts"]:::admin
+  DASH -.-> ACT["활동 로그<br/>/activity"]:::admin
+  BOOK --> BID["예약 상세<br/>/bookings/:id"]:::admin
+  BID --> CIN["체크인<br/>/bookings/:id/checkin"]:::admin
+  BID --> COUT["체크아웃<br/>/bookings/:id/checkout"]:::admin
+  BOOK --> SHEET["체크인 시트<br/>/bookings/checkin-sheet"]:::admin
+  PROP --> PNEW["제안 생성<br/>/proposals/new"]:::admin
+  VIL --> VID["빌라 상세<br/>/villas/:id"]:::admin
+  VID -.->|"미니바 재고"| INV
+  VIL -.->|"빌라 추가"| WIZ["빌라 등록 마법사<br/>/my-villas/new"]:::sup
+  PAR --> PID["파트너 상세<br/>/partners/:id"]:::admin
+  CFG --> CSVC["서비스 카탈로그<br/>/settings/services"]:::admin
+  CFG --> CVEN["원천공급자 관리<br/>/settings/vendors"]:::admin
+  CFG --> CZAL["Zalo 연동<br/>/settings/zalo"]:::admin
+
+  classDef hub fill:#4a32b8,stroke:#b9a6ff,color:#fff,stroke-width:2px;
+  classDef admin fill:#241a4d,stroke:#7c5cff,color:#fff;
+  classDef sup fill:#0f2e2a,stroke:#27c79a,color:#fff;
+    </pre>
+  </section>
+
+  <!-- 2. 공급자 -->
+  <section>
+    <h2>③ 공급자 네비게이션 맵 <span class="tag sup">하단 탭바 = 허브 · 모바일</span></h2>
+    <p class="desc">화면 아래 탭바(빌라·캘린더·청소·수익·안내)로 이동합니다. 빌라 상세에서 사진·편의시설·요금으로 갈라집니다.</p>
+    <pre class="mermaid">
+flowchart LR
+  TAB(["🟢 하단 탭바<br/>(공급자 허브)"]):::hub
+  MV["내 빌라<br/>/my-villas"]:::sup
+  CAL["캘린더<br/>/calendar"]:::sup
+  CLN["청소<br/>/cleaning"]:::sup
+  EAR["수익<br/>/earnings"]:::sup
+  GUI["안내·가이드<br/>/guide"]:::sup
+
+  TAB --> MV & CAL & CLN & EAR & GUI
+
+  MV --> NEW["빌라 등록 마법사<br/>/my-villas/new"]:::sup
+  MV --> VID["빌라 상세<br/>/my-villas/:id"]:::sup
+  VID --> PH["사진 관리<br/>/photos"]:::sup
+  VID --> AM["편의시설<br/>/amenities"]:::sup
+  VID --> RP["요금 기간<br/>/rate-periods"]:::sup
+  VID --> ED["수정(반려 시)<br/>/edit"]:::sup
+  CAL -.->|"빌라 없으면"| NEW
+  CLN --> CID["청소 상세·사진제출<br/>/cleaning/:id"]:::sup
+  EAR --> EV["통계 / 정산내역<br/>?view=stats·detail"]:::sup
+  GUI --> ZAL["Zalo 연결<br/>/zalo-connect"]:::sup
+  ACC["프로필<br/>/profile"]:::sup --> MV
+  GUI -.-> ACC
+
+  classDef hub fill:#16a37b,stroke:#9fe9d2,color:#fff,stroke-width:2px;
+  classDef sup fill:#0f2e2a,stroke:#27c79a,color:#fff;
+    </pre>
+  </section>
+
+  <!-- 3. 손님 + 4. vendor/auth -->
+  <section>
+    <h2>④ 손님(공개) · 원천공급자 · 진입 맵 <span class="tag guest">비로그인 링크</span> <span class="tag misc">VENDOR</span></h2>
+    <p class="desc">손님은 받은 링크로만, 원천공급자는 발주함으로, 모든 로그인은 진입 화면에서 역할별로 분기됩니다.</p>
+    <pre class="mermaid">
+flowchart LR
+  subgraph G ["🟠 손님 (비로그인 · 링크)"]
+    direction LR
+    P2["제안 열람<br/>/p/:token"]:::guest --> BK2["가예약<br/>/book/:itemId"]:::guest --> DN2["완료<br/>/done/:id"]:::guest
+    P2 --> RO2["투숙객 명단<br/>/roster/:id"]:::guest
+    GG2["셀프 체크인<br/>/g/:token"]:::guest --> OP2["부가서비스<br/>/g/:token/options"]:::guest
+  end
+  subgraph V ["🟪 원천공급자 VENDOR"]
+    direction LR
+    VD["발주함·대시보드<br/>/vendor"]:::vendor --> VS["통계<br/>/vendor/stats"]:::vendor
+    VD --> VP["프로필<br/>/vendor/profile"]:::vendor
+  end
+  subgraph A ["⬜ 진입 · 인증"]
+    direction LR
+    ROOT["/ (역할 분기)"]:::auth
+    LOGIN["로그인<br/>/login"]:::auth
+    SIGN["공급자 가입<br/>/signup"]:::auth
+    VSIGN["원천공급자 가입<br/>/vendor-signup"]:::auth
+    LOGIN --> SIGN
+    LOGIN --> VSIGN
+  end
+  ROOT -->|"OWNER/MANAGER/STAFF"| DASH2["🟣 /dashboard"]:::admin
+  ROOT -->|"SUPPLIER"| MV2["🟢 /my-villas"]:::sup
+  ROOT -->|"CLEANER"| CL2["🟢 /cleaning"]:::sup
+  ROOT -->|"VENDOR"| VD
+  SIGN -.-> LOGIN
+  VSIGN -.-> LOGIN
+
+  classDef guest fill:#3a2a10,stroke:#e8a23c,color:#fff;
+  classDef vendor fill:#2b1d3a,stroke:#b07cff,color:#fff;
+  classDef auth fill:#22222e,stroke:#9a9ab0,color:#fff;
+  classDef admin fill:#241a4d,stroke:#7c5cff,color:#fff;
+  classDef sup fill:#0f2e2a,stroke:#27c79a,color:#fff;
+    </pre>
+  </section>
+
+  <p class="note">실제 라우트 <code>app/**/page.tsx</code> + 네비게이션 컴포넌트(<code>components/admin/sidebar.tsx</code>, <code>components/supplier/tab-bar.tsx</code>)의 링크·리다이렉트를 추출해 작성. 화살표 라벨은 이동 조건입니다.</p>
+</div>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    securityLevel: 'loose',
+    flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis', nodeSpacing: 45, rankSpacing: 60 },
+    themeVariables: { fontFamily: "'Malgun Gothic', sans-serif", fontSize: '15px' }
+  });
+</script>
+</body>
+</html>
