@@ -2,7 +2,8 @@
 
 // app/g/_components/guest-options.tsx — 부가 옵션 신청 페이지 (ADR-0019 v2 게스트 UI 개편, 별도 라우트)
 //   체크인과 독립(/g/[token]/options) — 투숙 중 언제든 접근. 카탈로그 카드 + 희망 날짜/시간(#3) + 요청 내역.
-//   ★마진 비공개: 게스트 가격은 KRW만(priceKrwCeil). fx 없으면 "가격 문의". 원가·마진·VND환산내역 0.
+//   ★결제통화: 가격은 항상 VND 기본 표기(VND 우선 수납). 하단 합계에만 언어 모국통화로 "오늘 환율 기준" 환산액 보조 표기(vi=없음).
+//   ★마진 비공개: 판매가만(원가·마진 0). 환산값은 표시용 근사치.
 import { useMemo, useState } from "react";
 import {
   resolveOrderPricing,
@@ -11,10 +12,10 @@ import {
 } from "@/lib/service-catalog";
 import { GUEST_LABELS } from "@/lib/guest-i18n";
 import type { PublicLang } from "@/lib/public-i18n";
-import { priceKrwCeil } from "@/lib/service-display";
+import { formatConverted } from "@/lib/fx-rates";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import { OptionCard, type CardSelection } from "./option-card";
-import { guestKrw, guestPrice } from "./guest-format";
+import { guestVnd, guestVndPrice } from "./guest-format";
 import type { GuestOptionsProps, GuestRequestedOrder } from "./types";
 
 const toVndStr = (v: bigint | null): string | null => (v == null ? null : v.toString());
@@ -29,8 +30,7 @@ function emptySelection(variantKey: string | null): CardSelection {
 }
 
 export default function GuestOptions(props: GuestOptionsProps) {
-  const { token, lang, booking, catalog } = props;
-  const fx = props.fxVndPerKrw;
+  const { token, lang, booking, catalog, convert } = props;
   const L = GUEST_LABELS[lang];
 
   const dateMin = isoToDateInput(booking.checkIn);
@@ -79,9 +79,12 @@ export default function GuestOptions(props: GuestOptionsProps) {
   }, [catalog, selections, cardOptions]);
 
   const anySelected = catalog.some((c) => (selections[c.id]?.quantity ?? 0) > 0);
-  const grandTotalStr = fx
-    ? guestKrw(priceKrwCeil(grandTotal.vnd, fx), lang)
-    : L.addons.priceInquiry;
+  // 합계는 항상 VND 기본. convert 있으면 하단에 "오늘 환율 기준" 모국통화 환산 보조 표기.
+  const grandTotalStr = guestVnd(grandTotal.vnd.toString());
+  const convertedStr =
+    convert && grandTotal.vnd > 0n
+      ? formatConverted(grandTotal.vnd, convert.currency, convert.vndPerUnit)
+      : null;
 
   const submitOrders = async () => {
     if (submitting) return;
@@ -107,8 +110,8 @@ export default function GuestOptions(props: GuestOptionsProps) {
           }),
         });
         if (!res.ok) throw new Error(`HTTP_${res.status}`);
-        // 미리보기 가격으로 표시(서버 재계산과 동일해야 함) — VND가 진실원천, KRW는 환율 파생
-        let prKrw: number | null = null;
+        // 미리보기 가격으로 표시(서버 재계산과 동일해야 함) — VND가 진실원천
+        const prKrw: number | null = null; // 표시는 VND 기준 — priceKrw 미사용(타입 호환 위해 null)
         let prVnd: string | null = null;
         try {
           const p = resolveOrderPricing(
@@ -117,7 +120,6 @@ export default function GuestOptions(props: GuestOptionsProps) {
             { variantKey: sel.variantKey, addonKeys: sel.addonKeys, modifierKeys: sel.modifierKeys, quantity: sel.quantity }
           );
           prVnd = toVndStr(p.totalPriceVnd);
-          prKrw = fx ? priceKrwCeil(p.totalPriceVnd, fx) : null;
         } catch { /* 미리보기 실패는 무시 */ }
         const data = await res.json();
         created.push({
@@ -180,8 +182,6 @@ export default function GuestOptions(props: GuestOptionsProps) {
               key={c.id}
               item={c}
               labels={L.addons}
-              lang={lang}
-              fx={fx}
               selection={selections[c.id] ?? emptySelection(c.variants[0]?.key ?? null)}
               onChange={(next) => setSelections((prev) => ({ ...prev, [c.id]: next }))}
               badgeText={typeBadgeLabel(c.type)}
@@ -210,9 +210,7 @@ export default function GuestOptions(props: GuestOptionsProps) {
                       {statusLabel(o.status)}
                     </span>
                     <span className="text-sm font-bold text-slate-900 tabular-nums">
-                      {o.priceKrw != null && o.priceKrw > 0
-                        ? guestKrw(o.priceKrw, lang)
-                        : guestPrice(o.priceVnd, fx, lang)}
+                      {guestVndPrice(o.priceVnd)}
                     </span>
                   </div>
                 </div>
@@ -231,9 +229,18 @@ export default function GuestOptions(props: GuestOptionsProps) {
       {catalog.length > 0 && (
         <div className="sticky bottom-0 bg-white border-t border-slate-100 px-4 py-3.5 space-y-3 shadow-[0_-4px_16px_rgba(0,0,0,0.04)]">
           {anySelected && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500">{L.addons.estTotal}</span>
-              <span className="text-xl font-extrabold text-teal-600 tabular-nums">{grandTotalStr}</span>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm text-slate-500 shrink-0">{L.addons.estTotal}</span>
+              <div className="text-right min-w-0">
+                <span className="text-xl font-extrabold text-teal-600 tabular-nums block">
+                  {grandTotalStr}
+                </span>
+                {convertedStr && (
+                  <span className="text-[11px] text-slate-400 tabular-nums block leading-tight">
+                    {convertedStr} · {L.addons.rateNote}
+                  </span>
+                )}
+              </div>
             </div>
           )}
           <button
