@@ -1,7 +1,10 @@
-# OPS 런북 — Railway Cron 등록 (미등록 4개)
+# OPS 런북 — Railway Cron 등록
 
 > 작성 2026-06-26. Railway CLI(`add`/`service`)는 cron 스케줄 설정을 지원하지 않아 **대시보드에서 수동 등록**한다.
-> 패턴 출처: `.claude/skills/ops/deployment-pattern.md` (§Cron). 현재 가동 중: `cron-ical-sync`(*/30)·`cron-expire-holds`(*/5).
+> 패턴 출처: `.claude/skills/ops/deployment-pattern.md` (§Cron).
+>
+> **✅ 2026-06-26 등록·검증 완료**: 아래 4개 모두 Railway에 서비스 생성·Run now 성공·스케줄 자동 실행 확인(`cron-notifications`는 5분 자동 실행 3회 연속 성공). 현재 가동 cron 6개: `cron-ical-sync`(*/30)·`cron-expire-holds`(*/5)·`cron-notifications`(*/5)·`cron-partner-overdue`(0 0 * * *)·`cron-roster-reminder`(0 1 * * *)·`cron-periodic-cleaning`(0 2 1 * *).
+> 등록 팁: 첫 서비스는 빈 서비스 → Settings §Source의 **Connect Image**로 `curlimages/curl` 연결(Root Directory 칸 아님!) → §Deploy의 Custom Start Command + Cron Schedule → Variables에 CRON_SECRET. 이후 서비스는 **Duplicate(복제)** 후 주소·스케줄·이름만 변경이 가장 빠름.
 
 ## 등록 대상 (4개)
 

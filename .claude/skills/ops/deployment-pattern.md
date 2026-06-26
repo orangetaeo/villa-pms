@@ -19,7 +19,8 @@
 - **등록 방식 (확정 패턴, 2026-06-11)**: 프로젝트에 `curlimages/curl` Docker 이미지 미니 서비스 추가 →
   Custom Start Command `sh -c 'curl -fsS -m 120 -H "Authorization: Bearer $CRON_SECRET" https://villa-pms-production.up.railway.app/api/cron/<이름>'` +
   Cron Schedule 입력 + Variables에 `CRON_SECRET=${{villa-pms.CRON_SECRET}}` 참조. 도메인 생성 금지(외부 접근 불필요).
-  **`sh -c '...'` 래핑 필수** — 아래 교훈 참조. 현재 가동: `cron-ical-sync`(*/30), `cron-expire-holds`(*/5) — 실행 이력은 각 서비스 Cron Runs 탭
+  **`sh -c '...'` 래핑 필수** — 아래 교훈 참조. 현재 가동(2026-06-26 6개): `cron-ical-sync`(*/30)·`cron-expire-holds`(*/5)·`cron-notifications`(*/5)·`cron-partner-overdue`(0 0 * * *)·`cron-roster-reminder`(0 1 * * *)·`cron-periodic-cleaning`(0 2 1 * *) — 실행 이력은 각 서비스 Cron Runs 탭. 상세 등록 런북: docs/ops/cron-registration.md
+  - **빈 서비스로 만들 때 함정(2026-06-26)**: Docker 이미지는 Settings §Source의 **Connect Image** 버튼으로 넣는다(그 아래 **Root Directory** 칸 아님 — 거기 넣으면 시작명령 칸이 안 생긴다). 2번째부터는 기존 cron 서비스 **Duplicate(복제)** 후 URL·스케줄·이름만 변경이 최단(이미지·변수·명령 형식 상속).
 
 ## PWA
 - TravelDiary 패턴 재사용 (reference/ 폴더, [SHARED-MODULE] 주석 표기)
