@@ -1383,6 +1383,37 @@ export interface ServiceTypeStat {
   revenueVndText: string;
 }
 
+/** 카탈로그 품목별 매출 1행 (어떤 티켓·메뉴가 많이 팔렸나) — KRW·VND 분리 */
+export interface ServiceItemStat {
+  itemId: string;
+  /** 카탈로그명(nameKo) — 운영자 표시 */
+  label: string;
+  type: ServiceType;
+  /** 판매 수량 합(예: 티켓 매수) */
+  quantity: number;
+  revenueKrw: number;
+  revenueKrwText: string;
+  revenueVnd: number;
+  revenueVndText: string;
+}
+
+/** 거래처(ServiceVendor)별 이용 1행 (어떤 업체를 많이 이용했나) — 매출(판매가)·지급(원가) 분리 */
+export interface ServiceVendorStat {
+  vendorId: string;
+  name: string;
+  /** 발주(주문) 건수 */
+  orderCount: number;
+  quantity: number;
+  /** 판매가 매출(KRW·VND 분리) */
+  revenueKrw: number;
+  revenueKrwText: string;
+  revenueVnd: number;
+  revenueVndText: string;
+  /** 우리가 이 업체에 지급한 금액(원가 합, VND) */
+  payoutVnd: number;
+  payoutVndText: string;
+}
+
 export interface ServiceOrderStats {
   /** 총 부가서비스 매출 — 통화별 분리(합산 금지) */
   revenueKrw: number;
@@ -1393,6 +1424,10 @@ export interface ServiceOrderStats {
   trend: ServiceTrendPoint[];
   /** 타입별 매출 top(VND→KRW 내림차순) */
   topTypes: ServiceTypeStat[];
+  /** 품목별 매출 top(어떤 티켓·메뉴가 많이 팔렸나, VND→KRW 내림차순) */
+  topItems: ServiceItemStat[];
+  /** 거래처별 이용 top(어떤 업체를 많이 이용했나, VND 매출 내림차순) */
+  topVendors: ServiceVendorStat[];
   /**
    * 부가서비스 마진(VND) = Σ(원가있는 라인 priceVnd) − Σ(원가있는 라인 costVnd). 음수(역마진) 보존.
    * 원가(costVnd>0) & priceVnd 있는 라인이 하나도 없으면 null → "원가 미입력" 표기.
@@ -1411,6 +1446,9 @@ interface ServiceLineRow {
   costVnd: bigint;
   quantity: number;
   checkOut: Date;
+  catalogItemId: string | null;
+  vendorId: string | null;
+  vendorName: string | null;
 }
 
 /**
@@ -1435,9 +1473,19 @@ export async function loadServiceOrderStats(
       priceVnd: true,
       costVnd: true,
       quantity: true,
+      catalogItemId: true,
+      vendorId: true,
+      vendor: { select: { name: true } },
       booking: { select: { checkOut: true } },
     },
   });
+
+  // 카탈로그 품목명 — catalogItemId는 관계 미정의 스칼라이므로 일괄 조회 후 매핑(vendor orders 패턴).
+  const itemIds = Array.from(new Set(orders.map((o) => o.catalogItemId).filter((v): v is string => !!v)));
+  const catItems = itemIds.length
+    ? await db.serviceCatalogItem.findMany({ where: { id: { in: itemIds } }, select: { id: true, nameKo: true } })
+    : [];
+  const itemNameById = new Map(catItems.map((i) => [i.id, i.nameKo]));
 
   const rows: ServiceLineRow[] = orders.map((o) => ({
     type: o.type,
@@ -1446,6 +1494,9 @@ export async function loadServiceOrderStats(
     costVnd: o.costVnd,
     quantity: o.quantity,
     checkOut: o.booking.checkOut,
+    catalogItemId: o.catalogItemId,
+    vendorId: o.vendorId,
+    vendorName: o.vendor?.name ?? null,
   }));
 
   // 총 매출 — 통화별 분리 합산(절대 합치지 않음). KRW=Int 합(number), VND=BigInt 합.
@@ -1505,6 +1556,67 @@ export async function loadServiceOrderStats(
     })
     .sort((a, b) => b.revenueVnd - a.revenueVnd || b.revenueKrw - a.revenueKrw);
 
+  // 품목별 top — 어떤 티켓·메뉴가 많이 팔렸나(catalogItemId 기준). 카탈로그 미연결 라인은 제외.
+  const byItem = new Map<string, { type: ServiceType; quantity: number; krw: number; vnd: bigint }>();
+  for (const r of rows) {
+    if (!r.catalogItemId) continue;
+    const cur = byItem.get(r.catalogItemId) ?? { type: r.type, quantity: 0, krw: 0, vnd: 0n };
+    cur.quantity += r.quantity;
+    cur.krw += r.priceKrw;
+    if (r.priceVnd != null) cur.vnd += r.priceVnd;
+    byItem.set(r.catalogItemId, cur);
+  }
+  const topItems: ServiceItemStat[] = [...byItem.entries()]
+    .map(([itemId, v]) => {
+      const k = toKrwAmount(v.krw);
+      const a = toVndAmount(v.vnd);
+      return {
+        itemId,
+        label: itemNameById.get(itemId) ?? itemId,
+        type: v.type,
+        quantity: v.quantity,
+        revenueKrw: k.krw,
+        revenueKrwText: k.krwText,
+        revenueVnd: a.vnd,
+        revenueVndText: a.vndText,
+      };
+    })
+    .sort((a, b) => b.revenueVnd - a.revenueVnd || b.revenueKrw - a.revenueKrw)
+    .slice(0, 10);
+
+  // 거래처별 top — 어떤 업체를 많이 이용했나(vendorId 기준). 직접제공(업체 없음)은 제외.
+  const byVendor = new Map<string, { name: string; orderCount: number; quantity: number; krw: number; vnd: bigint; payout: bigint }>();
+  for (const r of rows) {
+    if (!r.vendorId) continue;
+    const cur = byVendor.get(r.vendorId) ?? { name: r.vendorName ?? r.vendorId, orderCount: 0, quantity: 0, krw: 0, vnd: 0n, payout: 0n };
+    cur.orderCount += 1;
+    cur.quantity += r.quantity;
+    cur.krw += r.priceKrw;
+    if (r.priceVnd != null) cur.vnd += r.priceVnd;
+    cur.payout += r.costVnd;
+    byVendor.set(r.vendorId, cur);
+  }
+  const topVendors: ServiceVendorStat[] = [...byVendor.entries()]
+    .map(([vendorId, v]) => {
+      const k = toKrwAmount(v.krw);
+      const a = toVndAmount(v.vnd);
+      const p = toVndAmount(v.payout);
+      return {
+        vendorId,
+        name: v.name,
+        orderCount: v.orderCount,
+        quantity: v.quantity,
+        revenueKrw: k.krw,
+        revenueKrwText: k.krwText,
+        revenueVnd: a.vnd,
+        revenueVndText: a.vndText,
+        payoutVnd: p.vnd,
+        payoutVndText: p.vndText,
+      };
+    })
+    .sort((a, b) => b.revenueVnd - a.revenueVnd || b.orderCount - a.orderCount)
+    .slice(0, 10);
+
   // 마진(VND만) — costVnd>0 & priceVnd 있는 라인만. 역마진(음수) 보존.
   //   costVnd=0(placeholder)/priceVnd 없음 라인은 costMissingCount.
   let marginRevenue = 0n; // Σ priceVnd (원가있는 VND 라인)
@@ -1535,6 +1647,8 @@ export async function loadServiceOrderStats(
     revenueVndText: vndAmt.vndText,
     trend,
     topTypes,
+    topItems,
+    topVendors,
     marginVnd,
     marginVndText,
     costMissingCount,
