@@ -23,13 +23,40 @@ type FxFormValues = z.infer<typeof fxFormSchema>;
 export default function FxRateForm({
   initialValue,
   updatedAtText,
+  autoUpdate,
 }: {
   initialValue: string | null;
   updatedAtText: string | null;
+  autoUpdate: boolean;
 }) {
   const t = useTranslations("adminSettings.fx");
   const router = useRouter();
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  // 자동 갱신 토글 — 낙관적 표시(서버 반영은 router.refresh로 확정)
+  const [autoOn, setAutoOn] = useState(autoUpdate);
+  const [togglingAuto, setTogglingAuto] = useState(false);
+
+  const toggleAuto = async () => {
+    const next = !autoOn;
+    setAutoOn(next); // 낙관적
+    setTogglingAuto(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "FX_AUTO_UPDATE", value: next ? "on" : "off" }),
+      });
+      if (!res.ok) throw new Error(`HTTP_${res.status}`);
+      setMessage({ ok: true, text: next ? t("auto.enabled") : t("auto.disabled") });
+      router.refresh();
+    } catch {
+      setAutoOn(!next); // 롤백
+      setMessage({ ok: false, text: t("error") });
+    } finally {
+      setTogglingAuto(false);
+    }
+  };
 
   const {
     register,
@@ -68,6 +95,38 @@ export default function FxRateForm({
         </div>
       </div>
       <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-8">
+        {/* 자동 갱신 토글 (opt-in) — 켜면 매일 외부 환율로 FX_VND_PER_KRW를 덮어쓴다 */}
+        <div className="flex flex-col gap-3 bg-slate-900/50 border border-slate-700 rounded-lg p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-sm font-bold text-slate-200">{t("auto.title")}</p>
+              <p className="text-xs text-slate-400">{t("auto.description")}</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={autoOn}
+              aria-label={t("auto.title")}
+              disabled={togglingAuto}
+              onClick={toggleAuto}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+                autoOn ? "bg-admin-primary" : "bg-slate-600"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  autoOn ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+          {autoOn && (
+            <p className="text-xs text-amber-400/90 flex items-start gap-1.5">
+              <span className="material-symbols-outlined text-[15px] leading-none mt-px">info</span>
+              {t("auto.activeNote")}
+            </p>
+          )}
+        </div>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1">
             <label htmlFor="fx-rate" className="block text-sm font-bold text-slate-200">
