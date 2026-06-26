@@ -1,8 +1,9 @@
 "use client";
 
-// 미니바 회사표준 품목 CRUD 매니저 (#2b) — 인라인 추가·수정·삭제·표시 토글.
+// 미니바 회사표준 품목 CRUD 매니저 — 재고 화면의 "미니바 품목" 탭에 위치(2026-06-26 재배치).
 //   /api/admin/minibar (POST) + /api/admin/minibar/[id] (PATCH·DELETE). 저장 후 router.refresh().
-//   단가 = 우리 판매가(VND). 빌라별 아님 — 전 빌라 공통 1세트.
+//   ★ 한국어만 입력 — 베트남어명은 저장 시 서버가 Gemini로 자동 생성(소비자 vi 화면용). 운영자 입력 최소화.
+//   단가 = 판매가(unitPriceVnd, 우리 청구가) + 입고가(costVnd, 매입원가). 둘 다 전 빌라 공통 1세트.
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -11,8 +12,8 @@ import { formatThousands } from "@/lib/format";
 export interface MinibarRow {
   id: string;
   nameKo: string;
-  nameVi: string;
-  unitPriceVnd: string; // VND 동 단위 문자열
+  unitPriceVnd: string; // VND 동 단위 문자열 (판매가)
+  costVnd: string | null; // VND 동 단위 문자열 (입고가) — 미입력 null
   stockQty: number; // 기본 비치 수량
   sortOrder: number;
   active: boolean;
@@ -20,12 +21,12 @@ export interface MinibarRow {
 
 interface Draft {
   nameKo: string;
-  nameVi: string;
   unitPriceVnd: string;
+  costVnd: string;
   stockQty: string; // 숫자 입력(문자열) — 전송 시 정수 변환, 빈값=1
 }
 
-const EMPTY_DRAFT: Draft = { nameKo: "", nameVi: "", unitPriceVnd: "", stockQty: "1" };
+const EMPTY_DRAFT: Draft = { nameKo: "", unitPriceVnd: "", costVnd: "", stockQty: "1" };
 
 /** 드래프트 수량 → 정수(빈값·0미만 방지, 기본 1) */
 const draftQty = (d: Draft) => {
@@ -43,7 +44,11 @@ export default function MinibarManager({ initialItems }: { initialItems: Minibar
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const draftValid = (d: Draft) => d.nameKo.trim().length > 0 && /^\d{1,15}$/.test(d.unitPriceVnd);
+  // 판매가 필수, 입고가 선택. 한국어명 필수.
+  const draftValid = (d: Draft) =>
+    d.nameKo.trim().length > 0 &&
+    /^\d{1,15}$/.test(d.unitPriceVnd) &&
+    (d.costVnd === "" || /^\d{1,15}$/.test(d.costVnd));
 
   const refresh = () => router.refresh();
   const fail = () => setMessage({ ok: false, text: t("error") });
@@ -58,8 +63,8 @@ export default function MinibarManager({ initialItems }: { initialItems: Minibar
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nameKo: addDraft.nameKo.trim(),
-          nameVi: addDraft.nameVi.trim() || undefined,
           unitPriceVnd: addDraft.unitPriceVnd,
+          costVnd: addDraft.costVnd || null,
           stockQty: draftQty(addDraft),
           sortOrder: initialItems.length,
         }),
@@ -85,8 +90,8 @@ export default function MinibarManager({ initialItems }: { initialItems: Minibar
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nameKo: draft.nameKo.trim(),
-          nameVi: draft.nameVi.trim() || null,
           unitPriceVnd: draft.unitPriceVnd,
+          costVnd: draft.costVnd || null,
           stockQty: draftQty(draft),
         }),
       });
@@ -139,8 +144,8 @@ export default function MinibarManager({ initialItems }: { initialItems: Minibar
     setEditingId(item.id);
     setDraft({
       nameKo: item.nameKo,
-      nameVi: item.nameVi,
       unitPriceVnd: item.unitPriceVnd,
+      costVnd: item.costVnd ?? "",
       stockQty: String(item.stockQty),
     });
     setMessage(null);
@@ -166,6 +171,8 @@ export default function MinibarManager({ initialItems }: { initialItems: Minibar
       </div>
 
       <div className="p-4 md:p-6 space-y-3">
+        <p className="text-xs text-slate-500 leading-relaxed -mt-1">{t("autoTranslateHint")}</p>
+
         {initialItems.length === 0 && (
           <p className="text-sm text-slate-500 py-6 text-center">{t("empty")}</p>
         )}
@@ -191,13 +198,16 @@ export default function MinibarManager({ initialItems }: { initialItems: Minibar
             >
               <span className="material-symbols-outlined text-slate-500 text-lg">liquor</span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-slate-100 truncate">
-                  {item.nameKo}
-                  {item.nameVi && <span className="ml-2 text-xs text-slate-500">{item.nameVi}</span>}
-                </p>
-                <p className="text-xs text-admin-primary font-semibold tabular-nums">
-                  {formatThousands(item.unitPriceVnd)}₫
-                  <span className="ml-2 text-slate-500 font-medium">
+                <p className="text-sm font-medium text-slate-100 truncate">{item.nameKo}</p>
+                <p className="text-xs font-semibold tabular-nums flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                  <span className="text-admin-primary">
+                    {t("saleTag")} {formatThousands(item.unitPriceVnd)}₫
+                  </span>
+                  <span className="text-slate-500">
+                    {t("costTag")}{" "}
+                    {item.costVnd ? `${formatThousands(item.costVnd)}₫` : t("costNone")}
+                  </span>
+                  <span className="text-slate-500 font-medium">
                     {t("stockBadge", { n: item.stockQty })}
                   </span>
                 </p>
@@ -245,54 +255,7 @@ export default function MinibarManager({ initialItems }: { initialItems: Minibar
         {/* 새 품목 추가 */}
         <div className="rounded-lg border-2 border-dashed border-slate-700 p-3.5 space-y-3">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">{t("addTitle")}</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <input
-              type="text"
-              value={addDraft.nameKo}
-              onChange={(e) => setAddDraft((d) => ({ ...d, nameKo: e.target.value }))}
-              placeholder={t("nameKoPlaceholder")}
-              aria-label={t("nameKoLabel")}
-              maxLength={60}
-              className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-admin-primary focus:outline-none"
-            />
-            <input
-              type="text"
-              value={addDraft.nameVi}
-              onChange={(e) => setAddDraft((d) => ({ ...d, nameVi: e.target.value }))}
-              placeholder={t("nameViPlaceholder")}
-              aria-label={t("nameViLabel")}
-              maxLength={60}
-              className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-admin-primary focus:outline-none"
-            />
-            <div className="flex items-center gap-1.5">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={addDraft.unitPriceVnd ? formatThousands(addDraft.unitPriceVnd) : ""}
-                onChange={(e) =>
-                  setAddDraft((d) => ({ ...d, unitPriceVnd: e.target.value.replace(/\D/g, "") }))
-                }
-                placeholder={t("pricePlaceholder")}
-                aria-label={t("priceLabel")}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-admin-primary font-semibold tabular-nums focus:border-admin-primary focus:outline-none"
-              />
-              <span className="text-sm text-admin-primary font-semibold">₫</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={addDraft.stockQty}
-                onChange={(e) =>
-                  setAddDraft((d) => ({ ...d, stockQty: e.target.value.replace(/\D/g, "") }))
-                }
-                placeholder={t("qtyPlaceholder")}
-                aria-label={t("qtyLabel")}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 tabular-nums focus:border-admin-primary focus:outline-none"
-              />
-              <span className="text-sm text-slate-500 whitespace-nowrap">{t("qtyUnit")}</span>
-            </div>
-          </div>
+          <FieldGrid draft={addDraft} setDraft={setAddDraft} t={t} />
           <div className="flex justify-end">
             <button
               type="button"
@@ -310,7 +273,74 @@ export default function MinibarManager({ initialItems }: { initialItems: Minibar
   );
 }
 
-/** 인라인 수정 행 — 이름(ko/vi)·단가 편집 + 저장·취소. */
+/** 입력 그리드 — 한국어명 / 판매가 / 입고가 / 기본수량 (추가·수정 공용). */
+function FieldGrid({
+  draft,
+  setDraft,
+  t,
+}: {
+  draft: Draft;
+  setDraft: (updater: (d: Draft) => Draft) => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      {/* 한국어 품목명 */}
+      <input
+        type="text"
+        value={draft.nameKo}
+        onChange={(e) => setDraft((d) => ({ ...d, nameKo: e.target.value }))}
+        placeholder={t("nameKoPlaceholder")}
+        aria-label={t("nameKoLabel")}
+        maxLength={60}
+        className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-admin-primary focus:outline-none"
+      />
+      {/* 판매가 */}
+      <div className="flex items-center gap-1.5">
+        <input
+          type="text"
+          inputMode="numeric"
+          value={draft.unitPriceVnd ? formatThousands(draft.unitPriceVnd) : ""}
+          onChange={(e) =>
+            setDraft((d) => ({ ...d, unitPriceVnd: e.target.value.replace(/\D/g, "") }))
+          }
+          placeholder={t("pricePlaceholder")}
+          aria-label={t("priceLabel")}
+          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-admin-primary font-semibold tabular-nums focus:border-admin-primary focus:outline-none"
+        />
+        <span className="text-sm text-admin-primary font-semibold">₫</span>
+      </div>
+      {/* 입고가(매입원가) — 선택 */}
+      <div className="flex items-center gap-1.5">
+        <input
+          type="text"
+          inputMode="numeric"
+          value={draft.costVnd ? formatThousands(draft.costVnd) : ""}
+          onChange={(e) => setDraft((d) => ({ ...d, costVnd: e.target.value.replace(/\D/g, "") }))}
+          placeholder={t("costPlaceholder")}
+          aria-label={t("costLabel")}
+          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300 tabular-nums focus:border-admin-primary focus:outline-none"
+        />
+        <span className="text-sm text-slate-500 font-semibold">₫</span>
+      </div>
+      {/* 기본 비치 수량 */}
+      <div className="flex items-center gap-1.5">
+        <input
+          type="text"
+          inputMode="numeric"
+          value={draft.stockQty}
+          onChange={(e) => setDraft((d) => ({ ...d, stockQty: e.target.value.replace(/\D/g, "") }))}
+          placeholder={t("qtyPlaceholder")}
+          aria-label={t("qtyLabel")}
+          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 tabular-nums focus:border-admin-primary focus:outline-none"
+        />
+        <span className="text-sm text-slate-500 whitespace-nowrap">{t("qtyUnit")}</span>
+      </div>
+    </div>
+  );
+}
+
+/** 인라인 수정 행 — 한국어명·판매가·입고가·수량 편집 + 저장·취소. */
 function EditRow({
   draft,
   setDraft,
@@ -330,52 +360,7 @@ function EditRow({
 }) {
   return (
     <div className="rounded-lg border border-admin-primary/40 bg-blue-600/[0.06] p-3.5 space-y-3">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <input
-          type="text"
-          value={draft.nameKo}
-          onChange={(e) => setDraft((d) => ({ ...d, nameKo: e.target.value }))}
-          placeholder={t("nameKoPlaceholder")}
-          aria-label={t("nameKoLabel")}
-          maxLength={60}
-          className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-admin-primary focus:outline-none"
-        />
-        <input
-          type="text"
-          value={draft.nameVi}
-          onChange={(e) => setDraft((d) => ({ ...d, nameVi: e.target.value }))}
-          placeholder={t("nameViPlaceholder")}
-          aria-label={t("nameViLabel")}
-          maxLength={60}
-          className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:border-admin-primary focus:outline-none"
-        />
-        <div className="flex items-center gap-1.5">
-          <input
-            type="text"
-            inputMode="numeric"
-            value={draft.unitPriceVnd ? formatThousands(draft.unitPriceVnd) : ""}
-            onChange={(e) =>
-              setDraft((d) => ({ ...d, unitPriceVnd: e.target.value.replace(/\D/g, "") }))
-            }
-            placeholder={t("pricePlaceholder")}
-            aria-label={t("priceLabel")}
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-admin-primary font-semibold tabular-nums focus:border-admin-primary focus:outline-none"
-          />
-          <span className="text-sm text-admin-primary font-semibold">₫</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <input
-            type="text"
-            inputMode="numeric"
-            value={draft.stockQty}
-            onChange={(e) => setDraft((d) => ({ ...d, stockQty: e.target.value.replace(/\D/g, "") }))}
-            placeholder={t("qtyPlaceholder")}
-            aria-label={t("qtyLabel")}
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 tabular-nums focus:border-admin-primary focus:outline-none"
-          />
-          <span className="text-sm text-slate-500 whitespace-nowrap">{t("qtyUnit")}</span>
-        </div>
-      </div>
+      <FieldGrid draft={draft} setDraft={setDraft} t={t} />
       <div className="flex justify-end gap-2">
         <button
           type="button"

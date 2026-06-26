@@ -7,10 +7,11 @@
 //   입고 폼(우측 sticky): 빌라·품목·수량 stepper·유형(입고/보정)·매입 단가(canViewFinance만)·메모.
 //   ★ 매입 단가 입력칸은 showCost(서버 canViewFinance)일 때만 렌더 — STAFF 페이로드엔 단가 자체가 없음(클라 게이트 아님).
 //   POST /api/villas/[id]/minibar-restock 후 router.refresh()로 원장 합산 재조회.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { InventoryItemRow, InventorySummary } from "@/lib/minibar-inventory-load";
+import { maxRestockQty } from "@/lib/minibar-inventory";
 
 type Mode = "RESTOCK" | "ADJUST";
 
@@ -96,8 +97,28 @@ export default function InventoryClient({
   const costDigits = unitCost.replace(/\D/g, "");
   const costDisplay = costDigits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
-  // 입고: 양수만. 보정: 0 금지(음수 허용).
-  const qtyValid = mode === "RESTOCK" ? qty > 0 : qty !== 0;
+  // 선택 빌라·품목의 현재 행 — par/현재고 기반 입고 상한 계산
+  const selectedRow = useMemo(
+    () => rows.find((r) => r.villaId === villaId && r.minibarItemId === itemId) ?? null,
+    [rows, villaId, itemId]
+  );
+  // 입고 상한 = max(0, par − 현재고). 미니바=회사 재고이므로 비치 목표 초과 입고 금지.
+  const maxRestock = selectedRow ? maxRestockQty(selectedRow.onHand, selectedRow.par) : null;
+  const parReached = mode === "RESTOCK" && maxRestock === 0;
+
+  // 입고 모드로 바꾸거나 품목이 바뀌면 수량을 상한으로 클램프(0이면 1 시도)
+  useEffect(() => {
+    if (mode !== "RESTOCK" || maxRestock == null) return;
+    setQty((q) => {
+      if (maxRestock === 0) return 0;
+      const clamped = Math.min(Math.max(q, 1), maxRestock);
+      return clamped;
+    });
+  }, [mode, maxRestock]);
+
+  // 입고: 양수 + 비치 목표 초과 불가. 보정: 0 금지(음수 허용, 상한 미적용).
+  const qtyValid =
+    mode === "RESTOCK" ? qty > 0 && (maxRestock == null || qty <= maxRestock) : qty !== 0;
   const canSubmit = villaId !== "" && itemId !== "" && qtyValid && !submitting;
 
   // 표의 "입고" 버튼 → 해당 빌라·품목으로 폼 프리필 + 부족수량 만큼 기본 수량
@@ -106,7 +127,8 @@ export default function InventoryClient({
     setVillaId(r.villaId);
     setItemId(r.minibarItemId);
     setMode("RESTOCK");
-    setQty(r.shortage > 0 ? r.shortage : 1);
+    // 입고 기본 수량 = 부족분(=비치 목표까지). 이미 목표 충족(부족 0)이면 0 → 입고 불가 안내됨.
+    setQty(r.shortage);
     setMessage(null);
   };
 
@@ -130,7 +152,17 @@ export default function InventoryClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lines: [line], note: note.trim() || null }),
       });
-      if (!res.ok) throw new Error(`HTTP_${res.status}`);
+      if (!res.ok) {
+        // 비치 목표 초과 입고는 서버가 PAR_EXCEEDED로 거부 — 최대치 안내
+        const body = (await res.json().catch(() => null)) as
+          | { error?: string; max?: number }
+          | null;
+        if (body?.error === "PAR_EXCEEDED") {
+          setMessage({ ok: false, text: t("form.parExceeded", { max: body.max ?? 0 }) });
+          return;
+        }
+        throw new Error(`HTTP_${res.status}`);
+      }
       const data = (await res.json()) as { recorded: number; costUpdated: number };
       setMessage({
         ok: true,
@@ -399,18 +431,43 @@ export default function InventoryClient({
               <input
                 type="number"
                 value={qty}
-                onChange={(e) => setQty(Math.trunc(Number(e.target.value) || 0))}
+                onChange={(e) => {
+                  const n = Math.trunc(Number(e.target.value) || 0);
+                  // 입고 모드는 비치 목표 초과 불가 → 상한으로 클램프
+                  setQty(mode === "RESTOCK" && maxRestock != null ? Math.min(n, maxRestock) : n);
+                }}
                 className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-center text-lg font-bold text-white tabular-nums focus:border-admin-primary focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               <button
                 type="button"
-                onClick={() => setQty((q) => q + 1)}
+                onClick={() =>
+                  setQty((q) =>
+                    mode === "RESTOCK" && maxRestock != null ? Math.min(q + 1, maxRestock) : q + 1
+                  )
+                }
+                disabled={mode === "RESTOCK" && maxRestock != null && qty >= maxRestock}
                 aria-label="+"
-                className="w-10 h-10 rounded-lg bg-admin-primary text-white text-lg hover:bg-blue-500 flex items-center justify-center"
+                className="w-10 h-10 rounded-lg bg-admin-primary text-white text-lg hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
               >
                 <span className="material-symbols-outlined text-base">add</span>
               </button>
             </div>
+            {/* 입고 상한 안내 — 비치 목표/현재고/최대 입고 수량 */}
+            {mode === "RESTOCK" && selectedRow && maxRestock != null && (
+              <p
+                className={`text-[11px] mt-1.5 leading-relaxed ${
+                  parReached ? "text-amber-400 font-semibold" : "text-slate-500"
+                }`}
+              >
+                {parReached
+                  ? t("form.parReached", { par: selectedRow.par })
+                  : t("form.maxRestockHint", {
+                      par: selectedRow.par,
+                      onHand: selectedRow.onHand,
+                      max: maxRestock,
+                    })}
+              </p>
+            )}
             {mode === "ADJUST" && (
               <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">{t("form.adjustHint")}</p>
             )}
