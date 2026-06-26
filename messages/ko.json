@@ -1773,7 +1773,8 @@
       "paymentTermDays": "지급기한(일)",
       "billingCycle": "마감 주기",
       "status": "상태",
-      "memo": "메모"
+      "memo": "메모",
+      "country": "국가"
     },
     "types": {
       "TRAVEL_AGENCY": "여행사",
@@ -1874,6 +1875,16 @@
         "INVALID_STATUS": "현재 상태에서는 할 수 없습니다",
         "generic": "처리에 실패했습니다"
       }
+    },
+    "countries": {
+      "none": "미지정",
+      "VN": "베트남",
+      "KR": "한국",
+      "CN": "중국",
+      "RU": "러시아",
+      "US": "미국",
+      "JP": "일본",
+      "TH": "태국"
     }
   },
   "adminSettlements": {

@@ -750,6 +750,7 @@ model Partner {
   paymentTermDays Int           @default(0) // 마감 후 지급기한(0=선불, 7/15/30)
   billingCycle    String? // "WEEKLY"|"BIWEEKLY"|"MONTHLY"|null(선불)
   status          PartnerStatus @default(ACTIVE)
+  country         String? // ISO 3166-1 alpha-2 (KR/VN/CN…) — 청구서 PDF 언어 결정(lib/partner-country)
   contractUrl     String? // 계약서 스캔(비공개 파이프라인)
   memo            String?
   createdAt       DateTime      @default(now())

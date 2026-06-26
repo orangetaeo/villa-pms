@@ -9,6 +9,7 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { canViewFinance, isSystemAdmin } from "@/lib/permissions";
 import { serializeBigInt } from "@/lib/serialize";
 import { getPartnerDetail } from "@/lib/partner-server";
+import { PARTNER_COUNTRIES } from "@/lib/partner-country";
 
 const vndString = z.string().regex(/^\d+$/);
 
@@ -20,6 +21,7 @@ const partnerUpdateSchema = z
     contactPhone: z.string().max(40).nullish(),
     contactZaloUid: z.string().max(80).nullish(),
     contactEmail: z.string().email().max(120).nullish().or(z.literal("")),
+    country: z.enum(PARTNER_COUNTRIES).nullish().or(z.literal("")),
     creditTier: z.enum(["A", "B", "C"]),
     creditLimitVnd: vndString,
     depositRatePct: z.number().int().min(0).max(100),
@@ -100,6 +102,7 @@ export async function PATCH(
   if (d.contactPhone !== undefined) data.contactPhone = d.contactPhone ?? null;
   if (d.contactZaloUid !== undefined) data.contactZaloUid = d.contactZaloUid ?? null;
   if (d.contactEmail !== undefined) data.contactEmail = d.contactEmail ? d.contactEmail : null;
+  if (d.country !== undefined) data.country = d.country ? d.country : null;
   if (d.creditTier !== undefined) data.creditTier = d.creditTier;
   if (d.creditLimitVnd !== undefined) data.creditLimitVnd = BigInt(d.creditLimitVnd);
   if (d.depositRatePct !== undefined) data.depositRatePct = d.depositRatePct;
