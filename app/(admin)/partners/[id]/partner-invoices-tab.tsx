@@ -286,6 +286,8 @@ export default function PartnerInvoicesTab({ partnerId }: { partnerId: string })
             const canVoid = inv.status !== "PAID" && inv.status !== "VOID";
             const canPay = inv.status === "ISSUED" || inv.status === "PARTIAL";
             const canSend = inv.status !== "DRAFT" && inv.status !== "VOID";
+            // 무효 청구서는 묶인 채권이 없어 PDF 생성이 실패하므로 버튼 자체를 숨긴다.
+            const canPdf = inv.status !== "VOID";
             return (
               <li key={inv.id} className="rounded-xl border border-slate-800 bg-admin-card p-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -327,9 +329,11 @@ export default function PartnerInvoicesTab({ partnerId }: { partnerId: string })
                       {t("action.pay")}
                     </ActionBtn>
                   )}
-                  <ActionBtn onClick={() => openPdf(inv.id)} disabled={!!busy}>
-                    {t("action.pdf")}
-                  </ActionBtn>
+                  {canPdf && (
+                    <ActionBtn onClick={() => openPdf(inv.id)} disabled={!!busy}>
+                      {t("action.pdf")}
+                    </ActionBtn>
+                  )}
                   {canSend && (
                     <ActionBtn onClick={() => sendZalo(inv.id)} disabled={!!busy} primary>
                       {t("action.zalo")}
