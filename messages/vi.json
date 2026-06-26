@@ -24,6 +24,8 @@
     "availability": "Lịch trống",
     "inspections": "Kiểm tra dọn dẹp",
     "settlements": "Thanh toán",
+    "partners": "Đối tác",
+    "receivables": "Công nợ",
     "services": "Danh mục dịch vụ",
     "messages": "Tin nhắn",
     "users": "Người dùng",
@@ -57,6 +59,77 @@
       "same": "Hãy nhập mật khẩu khác với mật khẩu hiện tại.",
       "wrongCurrent": "Mật khẩu hiện tại không đúng.",
       "generic": "Xử lý thất bại. Vui lòng thử lại."
+    }
+  },
+  "vendor": {
+    "title": "Đơn đặt hàng",
+    "subtitle": "Đơn đặt hàng nhận được và lịch giao của bạn.",
+    "loading": "Đang tải...",
+    "loadError": "Tải thất bại. Nhấn để thử lại.",
+    "submitting": "Đang xử lý...",
+    "payLabel": "Số tiền thanh toán",
+    "accept": "Nhận đơn",
+    "reject": "Từ chối",
+    "tab": {
+      "inbox": "Đơn mới",
+      "schedule": "Lịch giao",
+      "settlement": "Thanh toán"
+    },
+    "status": {
+      "accepted": "Đã nhận"
+    },
+    "empty": {
+      "inbox": "Chưa có đơn mới",
+      "inboxHint": "Đơn đặt hàng mới sẽ hiện ở đây.",
+      "schedule": "Chưa có lịch giao",
+      "scheduleHint": "Đơn bạn đã nhận sẽ hiện ở đây.",
+      "settlement": "Chưa có khoản thanh toán",
+      "settlementHint": "Số tiền cho đơn đã nhận sẽ hiện ở đây."
+    },
+    "settle": {
+      "pendingTotal": "Chờ thanh toán",
+      "paidTotal": "Đã thanh toán",
+      "pendingTitle": "Chờ thanh toán",
+      "paidTitle": "Đã thanh toán",
+      "pending": "Chờ thanh toán",
+      "paid": "Đã thanh toán"
+    },
+    "rejectSheet": {
+      "title": "Từ chối đơn này?",
+      "placeholder": "Lý do từ chối (không bắt buộc)",
+      "cancel": "Hủy",
+      "confirm": "Từ chối"
+    },
+    "firstLoginNotice": "Bạn đang dùng mật khẩu tạm thời. Hãy đổi sang mật khẩu riêng để bắt đầu nhận đơn.",
+    "stats": {
+      "title": "Thống kê",
+      "subtitle": "Doanh thu và hiệu suất đơn của bạn",
+      "backToOrders": "Đơn hàng",
+      "empty": "Chưa có thống kê",
+      "emptyHint": "Thống kê doanh thu sẽ hiển thị khi đơn được chấp nhận và hoàn thành.",
+      "period_thisMonth": "Tháng này",
+      "period_lastMonth": "Tháng trước",
+      "period_year": "Năm nay",
+      "vsPrev": "so với kỳ trước",
+      "kpiRevenue": "Doanh thu",
+      "kpiOrders": "Đơn hoàn thành",
+      "kpiAcceptance": "Tỷ lệ nhận",
+      "kpiAvgUnit": "Đơn giá TB",
+      "unitCount": "đơn",
+      "revenueTrendTitle": "Xu hướng doanh thu",
+      "revenueLegend": "Doanh thu",
+      "unsettledLabel": "Chưa thanh toán",
+      "settledLabel": "Đã thanh toán",
+      "topItemsTitle": "Mặt hàng phổ biến",
+      "itemMeta": "{orders} đơn · {qty} cái"
+    },
+    "approvalGate": {
+      "pendingTitle": "Đang chờ duyệt",
+      "pendingBody": "Đăng ký của bạn đang được quản trị viên xem xét. Sau khi được duyệt, bạn sẽ nhận được đơn đặt hàng tại đây.",
+      "rejectedTitle": "Đăng ký bị từ chối",
+      "rejectedBody": "Rất tiếc, đăng ký của bạn chưa được chấp nhận.",
+      "rejectedReasonLabel": "Lý do",
+      "changePassword": "Đổi mật khẩu"
     }
   },
   "pagination": {
@@ -802,7 +875,8 @@
         "invalidCredentials": "Số điện thoại hoặc mật khẩu không đúng.",
         "accountDisabled": "Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.",
         "serverError": "Đã xảy ra lỗi máy chủ. Vui lòng thử lại sau."
-      }
+      },
+      "vendorSignupLink": "Đăng ký nhà cung cấp nguồn"
     },
     "signup": {
       "headerTitle": "Đăng ký tài khoản",
@@ -1342,12 +1416,21 @@
     "zaloCardCta": "Quản lý",
     "servicesCardTitle": "Danh mục dịch vụ",
     "servicesCardDesc": "Quản lý menu, tùy chọn và giá của dịch vụ bổ sung như BBQ, vé, xe.",
-    "servicesCardCta": "Quản lý"
+    "servicesCardCta": "Quản lý",
+    "vendorsCardTitle": "Nhà cung cấp nguồn",
+    "vendorsCardDesc": "Quản lý các đối tác bên ngoài (cửa hàng trái cây, BBQ...) để đặt hàng và quyết toán dịch vụ bổ sung.",
+    "vendorsCardCta": "Quản lý"
   },
   "inventory": {
     "title": "Kho minibar",
     "subtitle": "Tồn kho hiện tại vs định mức theo villa · Quản lý nhập kho",
     "headerSub": "Tồn kho theo villa · Quản lý nhập kho",
+    "tab": {
+      "stock": "Tồn kho",
+      "items": "Món minibar"
+    },
+    "itemsTitle": "Quản lý món minibar",
+    "itemsSubtitle": "Nhập món minibar muốn bán cùng giá bán và giá nhập. Áp dụng chung cho tất cả villa.",
     "filterAll": "Tất cả",
     "filterLow": "Chỉ thiếu",
     "col": {
@@ -1380,6 +1463,9 @@
       "modeRestock": "Nhập kho",
       "modeAdjust": "Điều chỉnh",
       "adjustHint": "Điều chỉnh dùng cho kiểm kê thực tế·thất thoát. Có thể nhập số âm.",
+      "maxRestockHint": "Định mức {par} · Tồn {onHand} · Nhập tối đa {max}",
+      "parReached": "Đã đạt định mức ({par}) — không thể nhập thêm.",
+      "parExceeded": "Không thể vượt định mức (tối đa {max}).",
       "unitCost": "Giá nhập (VND)",
       "unitCostHint": "Nhập giá nhập sẽ kích hoạt thống kê lợi nhuận minibar.",
       "note": "Ghi chú (tùy chọn)",
@@ -1414,8 +1500,14 @@
     "nameKoPlaceholder": "VD: 생수",
     "nameViLabel": "Tên tiếng Việt (tùy chọn)",
     "nameViPlaceholder": "VD: Nước suối",
-    "priceLabel": "Đơn giá (VND)",
-    "pricePlaceholder": "Đơn giá",
+    "priceLabel": "Giá bán (VND)",
+    "pricePlaceholder": "Giá bán",
+    "costLabel": "Giá nhập (VND)",
+    "costPlaceholder": "Giá nhập",
+    "saleTag": "Bán",
+    "costTag": "Nhập",
+    "costNone": "Chưa nhập giá nhập",
+    "autoTranslateHint": "Chỉ cần nhập tiếng Hàn. Màn hình khách (tiếng Việt…) sẽ tự động dịch để hiển thị.",
     "qtyLabel": "Số lượng để sẵn",
     "qtyPlaceholder": "SL",
     "qtyUnit": "cái",
@@ -1429,6 +1521,89 @@
     "cancel": "Hủy",
     "saved": "Đã lưu",
     "error": "Lưu thất bại"
+  },
+  "adminVendors": {
+    "title": "Nhà cung cấp nguồn",
+    "subtitle": "Quản lý các đối tác bên ngoài để đặt hàng và quyết toán dịch vụ bổ sung. Khi có yêu cầu, đặt hàng cho nhà cung cấp; sau khi họ phản hồi mới xác nhận với khách.",
+    "back": "Về cài đặt",
+    "forbidden": "Bạn không có quyền xem màn hình này.",
+    "addButton": "Thêm nhà cung cấp",
+    "empty": "Chưa có nhà cung cấp nguồn nào. Hãy thêm bên trên.",
+    "active": "Đang hợp tác",
+    "inactive": "Ngừng",
+    "edit": "Sửa",
+    "delete": "Xóa",
+    "deleteConfirm": "Xóa nhà cung cấp này?",
+    "deleted": "Đã xóa",
+    "saved": "Đã lưu",
+    "error": "Lưu thất bại. Vui lòng thử lại.",
+    "inUseWarning": "Không thể xóa vì đang có danh mục·đơn đặt hàng liên kết. Hãy ngừng hoạt động thay vì xóa.",
+    "noZalo": "Chưa có Zalo (không gửi được đơn đặt)",
+    "catalogBadge": "Danh mục liên kết {n}",
+    "accountBadge": "Đã liên kết tài khoản",
+    "bankBadge": "Tài khoản quyết toán",
+    "form": {
+      "createTitle": "Thêm nhà cung cấp",
+      "editTitle": "Sửa nhà cung cấp — {name}",
+      "name": "Tên đối tác",
+      "namePlaceholder": "VD: Cửa hàng trái cây Phú Quốc A",
+      "nameRequired": "Tên đối tác là bắt buộc.",
+      "nameKo": "Tên tiếng Hàn (tùy chọn)",
+      "nameKoPlaceholder": "VD: 과일가게A",
+      "phone": "Số điện thoại",
+      "phonePlaceholder": "VD: 0901234567",
+      "zaloUserId": "Zalo ID",
+      "zaloPlaceholder": "Zalo user ID",
+      "zaloHint": "Dùng để nhận thông báo đặt hàng. Nếu trống thì không thể tự động gửi đơn.",
+      "bankTitle": "Tài khoản quyết toán (chỉ quản trị viên)",
+      "bank": "Ngân hàng",
+      "bankPlaceholder": "VD: Vietcombank",
+      "account": "Số tài khoản",
+      "accountPlaceholder": "Số tài khoản",
+      "holder": "Chủ tài khoản",
+      "holderPlaceholder": "Tên chủ tài khoản",
+      "note": "Ghi chú",
+      "notePlaceholder": "Tùy chọn",
+      "active": "Đang hợp tác",
+      "save": "Lưu",
+      "saving": "Đang lưu...",
+      "cancel": "Hủy",
+      "validationFailed": "Vui lòng kiểm tra dữ liệu nhập."
+    },
+    "createAccountButton": "Tạo tài khoản đăng nhập",
+    "accountModalTitle": "Tạo tài khoản đăng nhập cho nhà cung cấp",
+    "accountModalDesc": "Tạo tài khoản để nhà cung cấp đăng nhập vào trang /vendor. Nhập số điện thoại và mật khẩu tạm thời, sau khi tạo hãy chuyển trực tiếp cho nhà cung cấp.",
+    "accountPhone": "Số điện thoại",
+    "accountPhonePlaceholder": "VD: 0901234567",
+    "accountPassword": "Mật khẩu tạm thời (từ 8 ký tự)",
+    "accountPasswordPlaceholder": "Mật khẩu tạm thời",
+    "accountCreate": "Tạo tài khoản",
+    "accountCreating": "Đang tạo...",
+    "accountCancel": "Hủy",
+    "accountCreated": "Đã tạo tài khoản. Hãy chuyển số điện thoại và mật khẩu tạm thời cho nhà cung cấp.",
+    "accountPhoneTaken": "Số điện thoại đã được sử dụng.",
+    "accountExists": "Nhà cung cấp này đã có tài khoản liên kết.",
+    "accountError": "Tạo tài khoản thất bại. Vui lòng thử lại.",
+    "accountUnlink": "Hủy liên kết tài khoản",
+    "accountUnlinkConfirm": "Hủy liên kết tài khoản đăng nhập của nhà cung cấp này? Tài khoản sẽ bị vô hiệu hóa và không thể đăng nhập.",
+    "accountUnlinked": "Đã hủy liên kết tài khoản.",
+    "statusPending": "Chờ duyệt",
+    "statusApproved": "Đã duyệt",
+    "statusRejected": "Đã từ chối",
+    "selfSignupBadge": "Tự đăng ký",
+    "pendingSectionTitle": "Chờ duyệt",
+    "approve": "Duyệt",
+    "reject": "Từ chối",
+    "approveConfirm": "Duyệt nhà cung cấp này? Sau khi duyệt họ có thể nhận đơn đặt hàng.",
+    "approved": "Đã duyệt nhà cung cấp.",
+    "rejected": "Đã từ chối đăng ký.",
+    "rejectModalTitle": "Từ chối đăng ký",
+    "rejectReasonLabel": "Lý do từ chối (tùy chọn)",
+    "rejectReasonPlaceholder": "Lý do sẽ hiển thị cho nhà cung cấp",
+    "rejectConfirm": "Từ chối",
+    "rejectCancel": "Hủy",
+    "approvalError": "Thao tác thất bại. Vui lòng thử lại.",
+    "bankSignupBadge": "Tài khoản quyết toán"
   },
   "adminServices": {
     "title": "Danh mục dịch vụ",
@@ -1457,7 +1632,8 @@
       "BREAKFAST": "Bữa sáng",
       "MOTORBIKE_RENTAL": "Xe máy",
       "MASSAGE": "Massage",
-      "BARBER": "Cắt tóc"
+      "BARBER": "Cắt tóc",
+      "FRUIT": "Trái cây"
     },
     "form": {
       "createTitle": "Thêm menu",
@@ -1491,7 +1667,9 @@
       "optLabelKo": "Nhãn (tiếng Hàn)",
       "optLabelVi": "Nhãn (tiếng Việt)",
       "optPriceKrw": "KRW",
-      "optPriceVnd": "VND",
+      "optPriceVnd": "Giá bán",
+      "optCostVnd": "Giá nhập",
+      "optDescKo": "Mô tả (tiếng Hàn, tùy chọn — tự động dịch)",
       "addOption": "Thêm dòng",
       "removeOption": "Xóa",
       "save": "Lưu",
@@ -1507,7 +1685,15 @@
       "photoRemove": "Xóa ảnh",
       "uploading": "Đang tải…",
       "uploadError": "Tải ảnh thất bại. Vui lòng thử lại.",
-      "krwPreview": "≈ ₩{krw} (theo tỷ giá tự động)"
+      "krwPreview": "≈ ₩{krw} (theo tỷ giá tự động)",
+      "vendor": "Nhà cung cấp nguồn",
+      "vendorNone": "Không có (tự cung cấp)",
+      "vendorHint": "Khi có yêu cầu, đặt hàng cho nhà cung cấp này. Nếu để trống thì coi là tự cung cấp.",
+      "audiences": "Kênh được phép yêu cầu",
+      "audienceAdmin": "Quản trị viên",
+      "audienceAdminLocked": "(luôn được phép)",
+      "audiencePartner": "Đại lý du lịch/Land",
+      "audienceGuest": "Khách hàng"
     },
     "filters": {
       "allTypes": "Tất cả"
@@ -1524,6 +1710,7 @@
     "colWhen": "Thời gian mong muốn",
     "colSale": "Giá bán",
     "colCost": "Giá nhập",
+    "colVendor": "Nhà cung cấp gốc",
     "colStatus": "Trạng thái",
     "colActions": "Xử lý",
     "viaGuest": "KHÁCH",
@@ -1558,7 +1745,155 @@
     "variantRequired": "Vui lòng chọn 1 lựa chọn.",
     "saved": "Đã lưu",
     "error": "Xử lý thất bại. Vui lòng thử lại.",
-    "cancelConfirm": "Hủy đơn này?"
+    "cancelConfirm": "Hủy đơn này?",
+    "vendor": {
+      "direct": "Tự cung cấp",
+      "status": {
+        "NONE": "Chưa đặt hàng",
+        "PENDING_VENDOR": "Đã gửi (chờ)",
+        "VENDOR_ACCEPTED": "Đã nhận",
+        "VENDOR_REJECTED": "Từ chối"
+      },
+      "dispatch": "Gửi đặt hàng",
+      "dispatched": "Đã gửi đơn đặt hàng",
+      "noZaloWarn": "Nhà cung cấp chưa cài Zalo — cần liên hệ thủ công",
+      "noVendor": "Chưa chỉ định nhà cung cấp để đặt hàng",
+      "cannotDispatch": "Không thể đặt hàng ở trạng thái hiện tại",
+      "confirmGate": "Đang chờ nhà cung cấp chấp nhận",
+      "notAcceptedWarn": "Nhà cung cấp chưa chấp nhận",
+      "settleMethod": "Phương thức thanh toán",
+      "markSettled": "Quyết toán",
+      "settled": "Đã quyết toán",
+      "settledAt": "Đã quyết toán {date}",
+      "unsettle": "Hủy",
+      "method": {
+        "CASH": "Tiền mặt",
+        "BANK_TRANSFER": "Chuyển khoản",
+        "OTHER": "Khác"
+      }
+    }
+  },
+  "adminReceivables": {
+    "title": "Bảng công nợ",
+    "subtitle": "Tình hình công nợ đại lý du lịch/land và cảnh báo quá hạn·vượt hạn mức",
+    "empty": "Không có công nợ",
+    "agingTitle": "Tổng hợp phân tích tuổi nợ (Aging)",
+    "alerts": "Cảnh báo",
+    "overLimitBadge": "Vượt hạn mức",
+    "kpi": {
+      "totalOutstanding": "Tổng công nợ",
+      "overdueOutstanding": "Nợ quá hạn",
+      "overduePartners": "Đối tác quá hạn",
+      "overLimit": "Đối tác vượt hạn mức"
+    }
+  },
+  "adminPartners": {
+    "title": "Quản lý đối tác",
+    "subtitle": "Quản lý tín dụng & công nợ đại lý du lịch/land",
+    "new": "Đối tác mới",
+    "createTitle": "Đăng ký đối tác mới",
+    "empty": "Chưa có đối tác nào",
+    "viewDetail": "Xem chi tiết",
+    "edit": "Sửa",
+    "create": "Đăng ký",
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "saving": "Đang lưu…",
+    "saveFailed": "Lưu thất bại",
+    "assign": {
+      "title": "Gán đối tác",
+      "none": "Chưa gán đối tác",
+      "select": "Chọn đối tác",
+      "assign": "Gán",
+      "receivable": "Công nợ",
+      "locked": "Đã tạo công nợ, không thể thay đổi (hủy rồi đặt lại)",
+      "vndOnly": "Công nợ đối tác chỉ áp dụng cho đặt phòng tính bằng VND",
+      "failed": "Gán thất bại"
+    },
+    "overdue": "Quá hạn",
+    "outstanding": "Công nợ",
+    "creditInfo": "Điều kiện tín dụng",
+    "contactInfo": "Liên hệ",
+    "creditSectionHint": "Hạng A (trả trước) không có tín dụng nên hạn mức & chu kỳ bị vô hiệu hóa.",
+    "prepaid": "Trả trước",
+    "days": " ngày",
+    "receivablesTitle": "Công nợ phải thu",
+    "noReceivables": "Không có công nợ",
+    "bookingsTitle": "Lịch sử đặt phòng",
+    "noBookings": "Chưa có đặt phòng",
+    "col": {
+      "name": "Đối tác",
+      "type": "Loại",
+      "tier": "Hạng",
+      "outstanding": "Công nợ",
+      "creditLimit": "Hạn mức",
+      "status": "Trạng thái"
+    },
+    "form": {
+      "type": "Loại",
+      "name": "Tên",
+      "nameVi": "Tên tiếng Việt",
+      "contactPhone": "Điện thoại",
+      "contactZalo": "Zalo ID",
+      "contactEmail": "Email",
+      "creditTier": "Hạng tín dụng",
+      "creditLimit": "Hạn mức (₫)",
+      "depositRate": "Tỷ lệ đặt cọc (%)",
+      "paymentTermDays": "Hạn thanh toán (ngày)",
+      "billingCycle": "Chu kỳ chốt",
+      "status": "Trạng thái",
+      "memo": "Ghi chú"
+    },
+    "types": {
+      "TRAVEL_AGENCY": "Đại lý du lịch",
+      "LAND_AGENCY": "Land (đại lý mặt đất)"
+    },
+    "tiers": {
+      "A": "A · Trả trước",
+      "B": "B · Tín dụng ngắn hạn",
+      "C": "C · Hợp đồng riêng"
+    },
+    "tierShort": {
+      "A": "Trả trước",
+      "B": "Tín dụng",
+      "C": "Riêng"
+    },
+    "statuses": {
+      "ACTIVE": "Hoạt động",
+      "SUSPENDED": "Tạm dừng",
+      "BLOCKED": "Chặn"
+    },
+    "cycles": {
+      "NONE": "Không (trả trước)",
+      "WEEKLY": "Hàng tuần",
+      "BIWEEKLY": "15 ngày",
+      "MONTHLY": "Hàng tháng"
+    },
+    "aging": {
+      "0-7": "0-7 ngày",
+      "8-15": "8-15 ngày",
+      "16-30": "16-30 ngày",
+      "30+": "30 ngày+"
+    },
+    "receivableStatus": {
+      "PENDING": "Chưa thu",
+      "PARTIAL": "Thu một phần",
+      "PAID": "Đã thu đủ",
+      "OVERDUE": "Quá hạn",
+      "WRITTEN_OFF": "Nợ xấu"
+    },
+    "rcv": {
+      "dueDate": "Hạn",
+      "total": "Tiền phòng",
+      "paid": "Đã thu",
+      "status": "Trạng thái"
+    },
+    "bk": {
+      "villa": "Villa",
+      "stay": "Lưu trú",
+      "total": "Tiền phòng",
+      "status": "Trạng thái"
+    }
   },
   "adminSettlements": {
     "title": "Quản lý quyết toán",
@@ -2687,7 +3022,8 @@
         "BREAKFAST": "Bữa sáng",
         "MOTORBIKE_RENTAL": "Thuê xe máy",
         "MASSAGE": "Massage",
-        "BARBER": "Cắt tóc"
+        "BARBER": "Cắt tóc",
+        "FRUIT": "Trái cây"
       }
     },
     "ancillary": {
@@ -2828,6 +3164,42 @@
       "decrease": "Giảm",
       "increase": "Tăng",
       "total": "Tổng minibar"
+    }
+  },
+  "vendorSignup": {
+    "headerTitle": "Đăng ký nhà cung cấp",
+    "title": "Đăng ký nhà cung cấp",
+    "subtitle": "Đăng ký để nhận đơn đặt hàng dịch vụ. Quản trị viên duyệt rồi bạn mới bắt đầu nhận đơn.",
+    "name": "Tên cửa hàng / đối tác",
+    "namePlaceholder": "VD: Cửa hàng trái cây Phú Quốc A",
+    "phone": "Số điện thoại",
+    "phonePlaceholder": "0xxx xxx xxx",
+    "password": "Mật khẩu",
+    "passwordPlaceholder": "Ít nhất 8 ký tự",
+    "zalo": "Zalo ID (tùy chọn)",
+    "zaloPlaceholder": "Zalo user ID",
+    "zaloHint": "Dùng để nhận thông báo đơn đặt hàng.",
+    "bankTitle": "Tài khoản nhận quyết toán (tùy chọn)",
+    "bank": "Ngân hàng",
+    "bankPlaceholder": "VD: Vietcombank",
+    "account": "Số tài khoản",
+    "accountPlaceholder": "Số tài khoản",
+    "holder": "Chủ tài khoản",
+    "holderPlaceholder": "Tên chủ tài khoản",
+    "note": "Ghi chú (tùy chọn)",
+    "notePlaceholder": "Thông tin bạn muốn gửi cho quản trị viên",
+    "submit": "Gửi đăng ký",
+    "submitting": "Đang gửi...",
+    "back": "Quay lại",
+    "hasAccount": "Đã có tài khoản?",
+    "loginLink": "Đăng nhập",
+    "successTitle": "Đã gửi đăng ký!",
+    "successBody": "Đăng ký của bạn đang chờ quản trị viên duyệt. Sau khi được duyệt, bạn có thể đăng nhập để nhận đơn đặt hàng.",
+    "goLogin": "Đến trang đăng nhập",
+    "errors": {
+      "phoneExists": "Số điện thoại này đã được đăng ký.",
+      "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự.",
+      "serverError": "Đã xảy ra lỗi. Vui lòng thử lại sau."
     }
   }
 }

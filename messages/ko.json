@@ -24,6 +24,8 @@
     "availability": "공실 보드",
     "inspections": "청소 검수",
     "settlements": "정산",
+    "partners": "파트너 관리",
+    "receivables": "미수/여신",
     "services": "서비스 카탈로그",
     "messages": "메시지",
     "users": "사용자",
@@ -57,6 +59,77 @@
       "same": "현재 비밀번호와 다른 비밀번호를 입력하세요.",
       "wrongCurrent": "현재 비밀번호가 올바르지 않습니다.",
       "generic": "처리에 실패했습니다. 다시 시도해주세요."
+    }
+  },
+  "vendor": {
+    "title": "발주함",
+    "subtitle": "받은 발주와 배송 일정입니다.",
+    "loading": "불러오는 중...",
+    "loadError": "불러오기 실패. 눌러서 다시 시도하세요.",
+    "submitting": "처리 중...",
+    "payLabel": "지급 예정액",
+    "accept": "수락",
+    "reject": "거절",
+    "tab": {
+      "inbox": "발주함",
+      "schedule": "예약 현황",
+      "settlement": "정산 내역"
+    },
+    "status": {
+      "accepted": "수락함"
+    },
+    "empty": {
+      "inbox": "받은 발주가 없습니다",
+      "inboxHint": "새 발주가 도착하면 여기에 표시됩니다.",
+      "schedule": "예약된 일정이 없습니다",
+      "scheduleHint": "수락한 발주가 여기에 표시됩니다.",
+      "settlement": "정산 내역이 없습니다",
+      "settlementHint": "수락한 발주의 지급액이 여기에 표시됩니다."
+    },
+    "settle": {
+      "pendingTotal": "지급 대기",
+      "paidTotal": "지급 완료",
+      "pendingTitle": "지급 대기",
+      "paidTitle": "지급 완료",
+      "pending": "지급 대기",
+      "paid": "지급 완료"
+    },
+    "rejectSheet": {
+      "title": "이 발주를 거절할까요?",
+      "placeholder": "거절 사유 (선택)",
+      "cancel": "취소",
+      "confirm": "거절"
+    },
+    "firstLoginNotice": "임시 비밀번호로 로그인했습니다. 본인 비밀번호로 변경하면 발주를 받을 수 있습니다.",
+    "stats": {
+      "title": "통계",
+      "subtitle": "내 발주 매출과 실적",
+      "backToOrders": "발주함",
+      "empty": "아직 통계가 없습니다",
+      "emptyHint": "수락한 발주가 이행되면 매출 통계가 표시됩니다.",
+      "period_thisMonth": "이번 달",
+      "period_lastMonth": "지난달",
+      "period_year": "올해",
+      "vsPrev": "직전 대비",
+      "kpiRevenue": "매출",
+      "kpiOrders": "이행 발주",
+      "kpiAcceptance": "수락율",
+      "kpiAvgUnit": "평균 단가",
+      "unitCount": "건",
+      "revenueTrendTitle": "매출 추이",
+      "revenueLegend": "매출",
+      "unsettledLabel": "미정산 금액",
+      "settledLabel": "정산 완료",
+      "topItemsTitle": "인기 품목",
+      "itemMeta": "{orders}건 · {qty}개"
+    },
+    "approvalGate": {
+      "pendingTitle": "가입 승인 대기 중",
+      "pendingBody": "가입 신청이 운영자 검토 중입니다. 승인되면 이곳에서 발주를 받을 수 있습니다.",
+      "rejectedTitle": "가입이 거절되었습니다",
+      "rejectedBody": "죄송합니다. 가입 신청이 승인되지 않았습니다.",
+      "rejectedReasonLabel": "사유",
+      "changePassword": "비밀번호 변경"
     }
   },
   "adminDashboard": {
@@ -694,7 +767,8 @@
         "invalidCredentials": "전화번호 또는 비밀번호가 올바르지 않습니다.",
         "accountDisabled": "비활성화된 계정입니다. 관리자에게 문의하세요.",
         "serverError": "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
-      }
+      },
+      "vendorSignupLink": "원천 공급자로 가입"
     },
     "signup": {
       "headerTitle": "회원가입",
@@ -1234,12 +1308,21 @@
     "zaloCardCta": "관리",
     "servicesCardTitle": "서비스 카탈로그",
     "servicesCardDesc": "BBQ·입장권·차량 등 부가서비스 판매 메뉴와 옵션·가격을 관리합니다.",
-    "servicesCardCta": "관리"
+    "servicesCardCta": "관리",
+    "vendorsCardTitle": "원천 공급자",
+    "vendorsCardDesc": "부가서비스를 발주·정산하는 외부 거래처(과일가게·BBQ업체 등)를 관리합니다.",
+    "vendorsCardCta": "관리"
   },
   "inventory": {
     "title": "미니바 재고",
     "subtitle": "빌라별 현재고 vs 비치 목표 · 입고 관리",
     "headerSub": "빌라별 현재고 · 입고 관리",
+    "tab": {
+      "stock": "재고 현황",
+      "items": "미니바 품목"
+    },
+    "itemsTitle": "미니바 품목 관리",
+    "itemsSubtitle": "판매할 미니바 품목과 판매가·입고가를 입력하세요. 전 빌라 공통으로 적용됩니다.",
     "filterAll": "전체",
     "filterLow": "부족만",
     "col": {
@@ -1272,6 +1355,9 @@
       "modeRestock": "입고",
       "modeAdjust": "보정",
       "adjustHint": "보정은 실사·분실 반영용입니다. 음수도 입력할 수 있습니다.",
+      "maxRestockHint": "비치 목표 {par} · 현재고 {onHand} · 최대 입고 {max}개",
+      "parReached": "이미 비치 목표({par})를 채웠습니다 — 더 입고할 수 없습니다.",
+      "parExceeded": "비치 목표를 초과할 수 없습니다 (최대 {max}개).",
       "unitCost": "매입 단가 (VND)",
       "unitCostHint": "매입 단가 입력 시 미니바 마진 통계가 활성화됩니다.",
       "note": "메모 (선택)",
@@ -1306,8 +1392,14 @@
     "nameKoPlaceholder": "예: 생수",
     "nameViLabel": "베트남어 품목명(선택)",
     "nameViPlaceholder": "예: Nước suối",
-    "priceLabel": "단가(VND)",
-    "pricePlaceholder": "단가",
+    "priceLabel": "판매가(VND)",
+    "pricePlaceholder": "판매가",
+    "costLabel": "입고가(VND)",
+    "costPlaceholder": "입고가",
+    "saleTag": "판매",
+    "costTag": "입고",
+    "costNone": "입고가 미입력",
+    "autoTranslateHint": "한국어로만 입력하면 됩니다. 손님 화면(베트남어 등)에는 자동 번역되어 표시됩니다.",
     "qtyLabel": "기본 비치 수량",
     "qtyPlaceholder": "수량",
     "qtyUnit": "개",
@@ -1321,6 +1413,89 @@
     "cancel": "취소",
     "saved": "저장되었습니다",
     "error": "저장에 실패했습니다"
+  },
+  "adminVendors": {
+    "title": "원천 공급자",
+    "subtitle": "부가서비스를 발주·정산하는 외부 거래처를 관리합니다. 요청이 오면 이 공급자에게 발주하고, 공급자 응답 후 고객에 확정합니다.",
+    "back": "설정으로",
+    "forbidden": "이 화면을 볼 권한이 없습니다.",
+    "addButton": "공급자 추가",
+    "empty": "등록된 원천 공급자가 없습니다. 위에서 추가하세요.",
+    "active": "거래중",
+    "inactive": "중단",
+    "edit": "수정",
+    "delete": "삭제",
+    "deleteConfirm": "이 공급자를 삭제할까요?",
+    "deleted": "삭제되었습니다",
+    "saved": "저장되었습니다",
+    "error": "저장에 실패했습니다. 다시 시도해주세요.",
+    "inUseWarning": "연결된 카탈로그·발주가 있어 삭제할 수 없습니다. 대신 비활성화하세요.",
+    "noZalo": "Zalo 미설정 (발주 알림 불가)",
+    "catalogBadge": "연결 카탈로그 {n}",
+    "accountBadge": "계정 연결됨",
+    "bankBadge": "정산계좌",
+    "form": {
+      "createTitle": "공급자 추가",
+      "editTitle": "공급자 편집 — {name}",
+      "name": "거래처명",
+      "namePlaceholder": "예: 푸꾸옥 과일가게 A",
+      "nameRequired": "거래처명은 필수입니다.",
+      "nameKo": "한국어명 (선택)",
+      "nameKoPlaceholder": "예: 과일가게A",
+      "phone": "전화번호",
+      "phonePlaceholder": "예: 0901234567",
+      "zaloUserId": "Zalo ID",
+      "zaloPlaceholder": "Zalo 사용자 ID",
+      "zaloHint": "발주 알림 수신용. 미설정 시 자동 발주가 불가합니다.",
+      "bankTitle": "정산 계좌 (운영자 전용)",
+      "bank": "은행",
+      "bankPlaceholder": "예: Vietcombank",
+      "account": "계좌번호",
+      "accountPlaceholder": "계좌번호",
+      "holder": "예금주",
+      "holderPlaceholder": "예금주명",
+      "note": "메모",
+      "notePlaceholder": "선택 입력",
+      "active": "거래 활성",
+      "save": "저장",
+      "saving": "저장 중...",
+      "cancel": "취소",
+      "validationFailed": "입력값을 확인하세요."
+    },
+    "createAccountButton": "로그인 계정 생성",
+    "accountModalTitle": "공급자 로그인 계정 생성",
+    "accountModalDesc": "공급자가 /vendor 페이지에 로그인할 계정을 만듭니다. 전화번호와 임시 비밀번호를 입력하고, 생성 후 공급자에게 직접 전달하세요.",
+    "accountPhone": "전화번호",
+    "accountPhonePlaceholder": "예: 0901234567",
+    "accountPassword": "임시 비밀번호 (8자 이상)",
+    "accountPasswordPlaceholder": "임시 비밀번호",
+    "accountCreate": "계정 생성",
+    "accountCreating": "생성 중...",
+    "accountCancel": "취소",
+    "accountCreated": "계정이 생성되었습니다. 공급자에게 전화번호와 임시 비밀번호를 전달하세요.",
+    "accountPhoneTaken": "이미 사용 중인 전화번호입니다.",
+    "accountExists": "이미 계정이 연결된 공급자입니다.",
+    "accountError": "계정 생성에 실패했습니다. 다시 시도해주세요.",
+    "accountUnlink": "계정 해제",
+    "accountUnlinkConfirm": "이 공급자의 로그인 계정을 해제할까요? 계정은 비활성화되고 로그인할 수 없게 됩니다.",
+    "accountUnlinked": "계정이 해제되었습니다.",
+    "statusPending": "승인 대기",
+    "statusApproved": "승인됨",
+    "statusRejected": "거절됨",
+    "selfSignupBadge": "자가 가입",
+    "pendingSectionTitle": "승인 대기",
+    "approve": "승인",
+    "reject": "거절",
+    "approveConfirm": "이 공급자를 승인할까요? 승인 후 발주를 받을 수 있습니다.",
+    "approved": "공급자를 승인했습니다.",
+    "rejected": "가입을 거절했습니다.",
+    "rejectModalTitle": "가입 거절",
+    "rejectReasonLabel": "거절 사유 (선택)",
+    "rejectReasonPlaceholder": "사유는 공급자에게 표시됩니다",
+    "rejectConfirm": "거절",
+    "rejectCancel": "취소",
+    "approvalError": "처리에 실패했습니다. 다시 시도해주세요.",
+    "bankSignupBadge": "정산계좌"
   },
   "adminServices": {
     "title": "서비스 카탈로그",
@@ -1349,7 +1524,8 @@
       "BREAKFAST": "조식",
       "MOTORBIKE_RENTAL": "오토바이",
       "MASSAGE": "마사지",
-      "BARBER": "이발"
+      "BARBER": "이발",
+      "FRUIT": "과일"
     },
     "form": {
       "createTitle": "메뉴 추가",
@@ -1383,7 +1559,9 @@
       "optLabelKo": "라벨 (한국어)",
       "optLabelVi": "라벨 (베트남어)",
       "optPriceKrw": "KRW",
-      "optPriceVnd": "VND",
+      "optPriceVnd": "판매가",
+      "optCostVnd": "원가",
+      "optDescKo": "설명 (한국어, 선택 — 자동번역)",
       "addOption": "행 추가",
       "removeOption": "삭제",
       "save": "저장",
@@ -1399,7 +1577,15 @@
       "photoRemove": "사진 제거",
       "uploading": "업로드 중…",
       "uploadError": "사진 업로드에 실패했습니다. 다시 시도하세요.",
-      "krwPreview": "≈ ₩{krw} (환율 자동)"
+      "krwPreview": "≈ ₩{krw} (환율 자동)",
+      "vendor": "원천 공급자",
+      "vendorNone": "없음 (직접 제공)",
+      "vendorHint": "요청이 오면 이 공급자에게 발주합니다. 미지정이면 직접 제공으로 처리됩니다.",
+      "audiences": "요청 가능 채널",
+      "audienceAdmin": "운영자",
+      "audienceAdminLocked": "(항상 가능)",
+      "audiencePartner": "여행사/랜드사",
+      "audienceGuest": "소비자(게스트)"
     },
     "filters": {
       "allTypes": "전체"
@@ -1416,6 +1602,7 @@
     "colWhen": "희망 일시",
     "colSale": "판매가",
     "colCost": "원가",
+    "colVendor": "원천 공급자",
     "colStatus": "상태",
     "colActions": "처리",
     "viaGuest": "GUEST",
@@ -1450,7 +1637,155 @@
     "variantRequired": "선택지를 1개 고르세요.",
     "saved": "저장되었습니다",
     "error": "처리에 실패했습니다. 다시 시도해주세요.",
-    "cancelConfirm": "이 주문을 취소할까요?"
+    "cancelConfirm": "이 주문을 취소할까요?",
+    "vendor": {
+      "direct": "직접 제공",
+      "status": {
+        "NONE": "미발주",
+        "PENDING_VENDOR": "발주됨(대기)",
+        "VENDOR_ACCEPTED": "수락",
+        "VENDOR_REJECTED": "거절"
+      },
+      "dispatch": "발주 보내기",
+      "dispatched": "발주를 보냈습니다",
+      "noZaloWarn": "공급자 Zalo 미설정 — 수동 연락이 필요합니다",
+      "noVendor": "발주할 공급자가 지정되지 않았습니다",
+      "cannotDispatch": "현재 상태에서는 발주할 수 없습니다",
+      "confirmGate": "공급자 수락 대기",
+      "notAcceptedWarn": "공급자가 아직 수락하지 않았습니다",
+      "settleMethod": "결제수단",
+      "markSettled": "정산 완료",
+      "settled": "정산완료",
+      "settledAt": "정산완료 {date}",
+      "unsettle": "해제",
+      "method": {
+        "CASH": "현금",
+        "BANK_TRANSFER": "이체",
+        "OTHER": "기타"
+      }
+    }
+  },
+  "adminReceivables": {
+    "title": "미수/여신 대시보드",
+    "subtitle": "여행사·랜드사 미수 현황과 연체·한도초과 경보",
+    "empty": "미수 채권이 없습니다",
+    "agingTitle": "연령 분석(Aging) 합산",
+    "alerts": "경보",
+    "overLimitBadge": "한도초과",
+    "kpi": {
+      "totalOutstanding": "총 미수 잔액",
+      "overdueOutstanding": "연체 미수",
+      "overduePartners": "연체 파트너",
+      "overLimit": "한도초과 파트너"
+    }
+  },
+  "adminPartners": {
+    "title": "파트너 관리",
+    "subtitle": "여행사·랜드사 신용·미수 관리",
+    "new": "신규 파트너",
+    "createTitle": "신규 파트너 등록",
+    "empty": "등록된 파트너가 없습니다",
+    "viewDetail": "상세 보기",
+    "edit": "수정",
+    "create": "등록",
+    "save": "저장",
+    "cancel": "취소",
+    "saving": "저장 중…",
+    "saveFailed": "저장에 실패했습니다",
+    "assign": {
+      "title": "파트너 지정",
+      "none": "지정된 파트너가 없습니다",
+      "select": "파트너 선택",
+      "assign": "지정",
+      "receivable": "미수",
+      "locked": "채권이 생성되어 변경할 수 없습니다 (취소 후 재예약)",
+      "vndOnly": "파트너 채권은 VND 객실료 예약에만 적용됩니다",
+      "failed": "지정에 실패했습니다"
+    },
+    "overdue": "연체",
+    "outstanding": "미수 잔액",
+    "creditInfo": "신용 조건",
+    "contactInfo": "연락처",
+    "creditSectionHint": "등급 A(선불)는 여신이 없어 신용한도·결제주기가 비활성됩니다.",
+    "prepaid": "선불",
+    "days": "일",
+    "receivablesTitle": "미수 채권",
+    "noReceivables": "미수 채권이 없습니다",
+    "bookingsTitle": "예약 이력",
+    "noBookings": "예약 이력이 없습니다",
+    "col": {
+      "name": "파트너",
+      "type": "유형",
+      "tier": "등급",
+      "outstanding": "미수 잔액",
+      "creditLimit": "신용한도",
+      "status": "상태"
+    },
+    "form": {
+      "type": "유형",
+      "name": "이름",
+      "nameVi": "베트남어 이름",
+      "contactPhone": "전화번호",
+      "contactZalo": "Zalo ID",
+      "contactEmail": "이메일",
+      "creditTier": "신용 등급",
+      "creditLimit": "신용한도(₫)",
+      "depositRate": "선금율(%)",
+      "paymentTermDays": "지급기한(일)",
+      "billingCycle": "마감 주기",
+      "status": "상태",
+      "memo": "메모"
+    },
+    "types": {
+      "TRAVEL_AGENCY": "여행사",
+      "LAND_AGENCY": "랜드사"
+    },
+    "tiers": {
+      "A": "A · 선불",
+      "B": "B · 단기여신",
+      "C": "C · 특별계약"
+    },
+    "tierShort": {
+      "A": "선불",
+      "B": "여신",
+      "C": "특별"
+    },
+    "statuses": {
+      "ACTIVE": "활성",
+      "SUSPENDED": "보류",
+      "BLOCKED": "차단"
+    },
+    "cycles": {
+      "NONE": "없음(선불)",
+      "WEEKLY": "주간",
+      "BIWEEKLY": "15일",
+      "MONTHLY": "월간"
+    },
+    "aging": {
+      "0-7": "0-7일",
+      "8-15": "8-15일",
+      "16-30": "16-30일",
+      "30+": "30일+"
+    },
+    "receivableStatus": {
+      "PENDING": "미입금",
+      "PARTIAL": "부분입금",
+      "PAID": "완납",
+      "OVERDUE": "연체",
+      "WRITTEN_OFF": "대손"
+    },
+    "rcv": {
+      "dueDate": "기한",
+      "total": "객실료",
+      "paid": "입금",
+      "status": "상태"
+    },
+    "bk": {
+      "villa": "빌라",
+      "stay": "숙박",
+      "total": "객실료",
+      "status": "상태"
+    }
   },
   "adminSettlements": {
     "title": "정산 관리",
@@ -2687,7 +3022,8 @@
         "BREAKFAST": "조식",
         "MOTORBIKE_RENTAL": "오토바이",
         "MASSAGE": "마사지",
-        "BARBER": "이발"
+        "BARBER": "이발",
+        "FRUIT": "과일"
       }
     },
     "ancillary": {
@@ -2828,6 +3164,42 @@
       "decrease": "감소",
       "increase": "증가",
       "total": "미니바 합계"
+    }
+  },
+  "vendorSignup": {
+    "headerTitle": "원천 공급자 가입",
+    "title": "원천 공급자 가입",
+    "subtitle": "부가서비스 발주를 받으려면 가입하세요. 운영자 승인 후 발주 수신이 시작됩니다.",
+    "name": "상호 / 거래처명",
+    "namePlaceholder": "예: 푸꾸옥 과일가게 A",
+    "phone": "전화번호",
+    "phonePlaceholder": "0xxx xxx xxx",
+    "password": "비밀번호",
+    "passwordPlaceholder": "최소 8자 이상",
+    "zalo": "Zalo ID (선택)",
+    "zaloPlaceholder": "Zalo 사용자 ID",
+    "zaloHint": "발주 알림 수신용입니다.",
+    "bankTitle": "정산 받을 계좌 (선택)",
+    "bank": "은행",
+    "bankPlaceholder": "예: Vietcombank",
+    "account": "계좌번호",
+    "accountPlaceholder": "계좌번호",
+    "holder": "예금주",
+    "holderPlaceholder": "예금주명",
+    "note": "메모 (선택)",
+    "notePlaceholder": "운영자에게 전할 내용",
+    "submit": "가입 신청",
+    "submitting": "전송 중...",
+    "back": "뒤로",
+    "hasAccount": "이미 계정이 있으신가요?",
+    "loginLink": "로그인",
+    "successTitle": "가입 신청 완료!",
+    "successBody": "가입 신청이 접수되어 운영자 승인을 기다리고 있습니다. 승인되면 로그인하여 발주를 받을 수 있습니다.",
+    "goLogin": "로그인 페이지로",
+    "errors": {
+      "phoneExists": "이미 등록된 전화번호입니다.",
+      "passwordTooShort": "비밀번호는 최소 8자 이상이어야 합니다.",
+      "serverError": "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
     }
   }
 }

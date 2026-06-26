@@ -32,6 +32,7 @@ enum Role {
   STAFF // 직원 — 운영 실무, 돈(마진·KRW·정산)만 차단 (ADR-0013)
   SUPPLIER // 중계인·부동산·분양자
   CLEANER // 청소 담당
+  VENDOR // 원천 공급자 — 부가서비스(과일·BBQ·렌트 등) 외부 거래처, /vendor 대시보드 (ADR-0023)
 }
 
 model User {
@@ -55,6 +56,7 @@ model User {
   settlements   Settlement[]
   notifications Notification[]
   auditLogs     AuditLog[]
+  vendorAccount ServiceVendor? @relation("VendorAccount") // 원천 공급자 로그인 계정 (Role=VENDOR, ADR-0023)
 
   // Zalo 멀티 관리자 (ADR-0007) — 역관계 1:N화
   zaloAccounts          ZaloAccount[]      @relation("AdminZaloAccounts") // 관리자가 소유한 봇 계정 (개인 + (테오만)시스템)
@@ -465,7 +467,9 @@ model Booking {
   guestCount        Int
   guestPhone        String?
   guestRoster       String? // 실제 투숙객 명단(예: "김학태 / 이영희") — 입금 확정~체크인 전날 ADMIN 입력, 여권 OCR 전 준비용 (T-guest-roster)
-  agencyName        String?
+  agencyName        String? // [dual-read 폴백] Partner 승격 전 텍스트. ADR-0022: partnerId 우선, 없으면 이 값
+  partnerId         String? // 여행사/랜드사 파트너 (ADR-0022 — B2B 객실료 채권 귀속). null=직접/미지정
+  partner           Partner?       @relation(fields: [partnerId], references: [id])
   holdExpiresAt     DateTime? // HOLD 상태에서만 사용 (24~48h)
   // 금액 — HOLD 시점 스냅샷. saleCurrency에 해당하는 통화 컬럼만 채운다 (ADR-0003)
   saleCurrency      Currency       @default(KRW)
@@ -491,6 +495,7 @@ model Booking {
   serviceOrders  ServiceOrder[]
   settlementItem SettlementItem?
   cleaningTasks  CleaningTask[]
+  receivable     PartnerReceivable? // B2B 객실료 채권 (ADR-0022)
 
   @@index([villaId, checkIn, checkOut])
   @@index([status, holdExpiresAt])
@@ -657,8 +662,130 @@ model Payment {
   receivedAt    DateTime
   note          String?
   createdAt     DateTime      @default(now())
+  // B2B 파트너 입금 귀속 (ADR-0022) — 기존 고객 입금은 purpose=GUEST(default), 나머지 null
+  purpose       PaymentPurpose @default(GUEST)
+  partnerId     String? // 파트너 입금 시
+  receivableId  String? // 예약 채권 선금/잔금 입금 시
+  invoiceId     String? // 마감 청구서 수납 시
 
   @@index([bookingId])
+  @@index([partnerId])
+  @@index([receivableId])
+}
+
+// ===================== B2B 파트너 매출채권·여신 (ADR-0022) =====================
+// 여행사/랜드사가 우리에게 지급하는 객실료(AR). 게스트 현장청구(보증금·미니바, ADR-0019)와 분리.
+
+enum PartnerType {
+  TRAVEL_AGENCY // 여행사
+  LAND_AGENCY // 랜드사
+}
+
+enum CreditTier {
+  A // 선불 (신규 기본·여신 0)
+  B // 단기여신 (주/15/30일 마감·신용한도 내)
+  C // 특별계약 (개별)
+}
+
+enum PartnerStatus {
+  ACTIVE
+  SUSPENDED // 연체 등으로 신규예약 보류
+  BLOCKED // 신규예약 전면 차단
+}
+
+enum ReceivableStatus {
+  PENDING // 미입금
+  PARTIAL // 일부 입금(선금만 등)
+  PAID // 완납
+  OVERDUE // 기한 경과 미수
+  WRITTEN_OFF // 대손 처리(도망 등)
+}
+
+enum PartnerInvoiceStatus {
+  DRAFT
+  ISSUED // 발행(파트너에 전달)
+  PARTIAL
+  PAID
+  OVERDUE
+  VOID // 취소
+}
+
+enum PaymentPurpose {
+  GUEST // 기존 고객 직접 입금(default — 하위호환)
+  DEPOSIT // 파트너 예약 선금
+  BALANCE // 파트너 예약 잔금
+  INVOICE // 파트너 마감 청구서 수납
+}
+
+// 여행사·랜드사 정식 엔티티 (기존 BookingChannel enum + agencyName 텍스트 승격)
+model Partner {
+  id              String        @id @default(cuid())
+  type            PartnerType
+  name            String // 표시명
+  nameVi          String? // 베트남어 병기 (villa-name-bilingual 정합)
+  contactPhone    String?
+  contactZaloUid  String? // Zalo 알림 발송 대상
+  contactEmail    String?
+  creditTier      CreditTier    @default(A)
+  creditLimitVnd  BigInt        @default(0) // 등급 B 외상 한도(0=여신없음)
+  depositRatePct  Int           @default(30) // 선금율(%) — 정책 기본 30
+  paymentTermDays Int           @default(0) // 마감 후 지급기한(0=선불, 7/15/30)
+  billingCycle    String? // "WEEKLY"|"BIWEEKLY"|"MONTHLY"|null(선불)
+  status          PartnerStatus @default(ACTIVE)
+  contractUrl     String? // 계약서 스캔(비공개 파이프라인)
+  memo            String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  bookings    Booking[]
+  receivables PartnerReceivable[]
+  invoices    PartnerInvoice[]
+
+  @@index([type, status])
+}
+
+// 예약 1건의 객실료 채권 (B2B 숙박료)
+model PartnerReceivable {
+  id             String           @id @default(cuid())
+  partnerId      String
+  partner        Partner          @relation(fields: [partnerId], references: [id])
+  bookingId      String           @unique
+  booking        Booking          @relation(fields: [bookingId], references: [id])
+  totalVnd       BigInt // 객실료 총액(= Booking.totalSaleVnd 스냅샷)
+  depositDueVnd  BigInt // = total * depositRatePct (올림)
+  depositPaidVnd BigInt           @default(0)
+  balancePaidVnd BigInt           @default(0)
+  dueDate        DateTime         @db.Date // 잔금 기한(등급A=체크인일, B=마감+termDays)
+  status         ReceivableStatus @default(PENDING)
+  invoiceId      String? // 등급B 마감청구서에 묶이면 연결
+  invoice        PartnerInvoice?  @relation(fields: [invoiceId], references: [id])
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([partnerId, status])
+  @@index([dueDate, status])
+}
+
+// 등급B 주/15/30일 마감 청구서 (receivable 묶음)
+model PartnerInvoice {
+  id           String               @id @default(cuid())
+  partnerId    String
+  partner      Partner              @relation(fields: [partnerId], references: [id])
+  periodStart  DateTime             @db.Date
+  periodEnd    DateTime             @db.Date
+  dueDate      DateTime             @db.Date // periodEnd + paymentTermDays
+  totalVnd     BigInt
+  paidVnd      BigInt               @default(0)
+  status       PartnerInvoiceStatus @default(DRAFT)
+  statementUrl String? // 청구서 PDF(vi) — react-pdf, Settlement PDF 패턴 재사용
+  issuedAt     DateTime?
+  paidAt       DateTime?
+  createdAt    DateTime             @default(now())
+
+  receivables PartnerReceivable[]
+
+  @@unique([partnerId, periodStart, periodEnd])
+  @@index([partnerId, status])
 }
 
 enum SettlementStatus {
@@ -759,6 +886,7 @@ enum ServiceType {
   MOTORBIKE_RENTAL // 오토바이 렌트 (ADR-0019)
   MASSAGE // 마사지 — 풋/바디(아로마·핫스톤·건식), 출장 옵션 (ADR-0019)
   BARBER // 이발소(귀) — 시간 + 세부시술 (ADR-0019)
+  FRUIT // 과일 — 바구니·도시락(카탈로그 항목으로 구분) (ADR-0023)
 }
 
 enum ServiceOrderStatus {
@@ -768,10 +896,54 @@ enum ServiceOrderStatus {
   CANCELLED
 }
 
-// 부가서비스 주문 출처 — 게스트 셀프 요청(GUEST) vs 운영자 직접(ADMIN). ADR-0019.
+// 부가서비스 주문 출처 — 운영자 직접(ADMIN)·게스트 셀프(GUEST)·여행사/랜드사(PARTNER). ADR-0019/0023.
 enum ServiceRequestedVia {
   ADMIN
   GUEST
+  PARTNER // 여행사/랜드사 요청 (/p/[token]) (ADR-0023)
+}
+
+// 발주 게이트 — 원천 공급자 가부. 공급자 수락 후에야 운영자가 고객에 확정(2단계). ADR-0023 §4.3.
+enum ServiceVendorStatus {
+  PENDING_VENDOR // 발주 발송, 공급자 응답 대기
+  VENDOR_ACCEPTED // 공급자 수락 → 운영자 고객확정 가능
+  VENDOR_REJECTED // 공급자 거절 → 운영자 대체 지정 또는 취소
+}
+
+// 원천 공급자 가입 승인 상태 (ADR-0023 S5) — 자가 회원가입 + 운영자 승인.
+//   기존 행·운영자 직접생성 = APPROVED(default). 자가가입 = PENDING_APPROVAL → 운영자 승인해야 발주 수신·대시보드 활성.
+enum VendorApprovalStatus {
+  PENDING_APPROVAL // 자가가입 후 운영자 승인 대기
+  APPROVED // 승인됨 — 카탈로그 배정·발주 수신 가능
+  REJECTED // 거절됨
+}
+
+// 원천 공급자(부가서비스 외부 거래처) — 빌라 SUPPLIER와 무관한 별도 엔티티. ADR-0023 §4.1.
+//   우리가 중계: 요청 → Zalo 발주 → 공급자 /vendor에서 가부 → 우리 확정·정산.
+//   ★ 공급자는 자기 발주의 costVnd(=우리 지급액)만. 우리 판매가·마진·타 공급자 발주 절대 비노출.
+model ServiceVendor {
+  id         String   @id @default(cuid())
+  userId     String?  @unique // 로그인 계정(Role=VENDOR). 엔티티≠계정 분리, 선택적 1:1
+  user       User?    @relation("VendorAccount", fields: [userId], references: [id], onDelete: SetNull)
+  name       String // 거래처명(예: "푸꾸옥 과일가게 A")
+  nameKo     String? // 운영자 표시용(한국어), 선택
+  phone      String?
+  zaloUserId String? // ★ Zalo 발주 발송 대상(없으면 자동 발주 불가 — 운영자 경보)
+  bankInfo   Json? // 정산 계좌(은행·계좌·예금주) — ★운영자(canViewFinance) 전용
+  note       String?
+  active     Boolean  @default(true)
+  // ADR-0023 S5 — 자가 회원가입 승인 게이트
+  approvalStatus  VendorApprovalStatus @default(APPROVED) // 자가가입=PENDING_APPROVAL, 기존·운영자생성=APPROVED
+  rejectionReason String? // 거절 사유(운영자 입력)
+  approvedAt      DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  catalogItems ServiceCatalogItem[]
+  orders       ServiceOrder[]
+
+  @@index([active])
+  @@index([approvalStatus])
 }
 
 // 부가서비스 판매 카탈로그(주문형) — 회사 공통 1세트(미니바와 동형, villaId 없음). ADR-0019 §4.2.
@@ -794,6 +966,10 @@ model ServiceCatalogItem {
   costVnd     BigInt? // 참고 매입원가 VND — ★게스트·공급자 비노출
   photoUrl    String? // 이미지 업로드 결과 URL(/api/uploads)
   options     Json? // {variants:[{key,labelKo,labelI18n,priceVnd},...], addons, modifiers} — 라벨도 자동번역
+  // ADR-0023 — 원천 공급자 + 요청 주체 자격
+  vendorId    String? // 원천 공급자(발주 대상). 활성 항목은 UI 필수, 미지정=직접 제공
+  vendor      ServiceVendor? @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  audiences   Json        @default("[\"ADMIN\"]") // 요청 가능 채널 ["ADMIN"|"PARTNER"|"GUEST"] — 채널별 카탈로그 서버 필터
   active      Boolean     @default(true)
   sortOrder   Int         @default(0)
   createdAt   DateTime    @default(now())
@@ -821,7 +997,19 @@ model ServiceOrder {
   requestedVia    ServiceRequestedVia @default(ADMIN)
   guestNote       String?
   priceVnd        BigInt? // 판매가 VND (스냅샷, 현지·여행사 채널)
+  // ADR-0023 — 원천 공급자 발주 게이트 + 건별 정산 (로직은 S2)
+  vendorId           String? // 이 주문의 원천 공급자(카탈로그 vendorId 스냅샷, 운영자 대체 가능)
+  vendor             ServiceVendor?        @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  vendorStatus       ServiceVendorStatus? // 발주 게이트 상태. 공급자 없는 직접 제공은 null
+  poSentAt           DateTime? // Zalo 발주 발송 시각
+  vendorRespondedAt  DateTime? // 공급자 가부 응답 시각
+  vendorRejectReason String? // 거절 사유(공급자 입력)
+  vendorSettledAt    DateTime? // 발주 정산 완료 시각(null=미정산). 정산액=costVnd×quantity
+  vendorSettleMethod GuestSettlementMethod? // CASH | BANK_TRANSFER | OTHER (재사용)
+  vendorSettleNote   String?
   createdAt   DateTime           @default(now())
+
+  @@index([vendorId, vendorStatus])
 }
 
 // ===================== 감사 로그·운영 설정 =====================
@@ -866,6 +1054,8 @@ enum NotificationType {
   RATE_CHANGED_DURING_PROPOSAL // 제안 진행 중 원가/요율 변경 알림 — 운영자 통지 (ADR-0008)
   ROSTER_REMINDER // 체크인 D-3 투숙객 명단 미입력 — 운영자(테오) 리마인드 (T-roster-reminder-cron)
   SUPPLIER_DIRECT_BOOKING // 공급자 직접예약 생성 — 운영자에게 선점 기회 통지 (F10, ADR-0021)
+  VENDOR_PO // 원천 공급자에게 부가서비스 발주 — 수신자=공급자 User(vi) (ADR-0023 S2)
+  VENDOR_PO_RESPONSE // 공급자 가부 응답 → 운영자 통지(ko) (ADR-0023 S2)
 }
 
 enum NotificationStatus {

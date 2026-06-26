@@ -1,0 +1,85 @@
+// PUT /api/bookings/[id]/partner — 예약에 여행사/랜드사 파트너 지정/해제 (ADR-0022 PARTNER-2b)
+// canViewFinance 전용(파트너 귀속=채권 책임자 결정, 재무 행위). 확정 이후 지정 시 채권 생성.
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { BookingStatus } from "@prisma/client";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import { writeAuditLog } from "@/lib/audit-log";
+import { canViewFinance } from "@/lib/permissions";
+import { ensureReceivableForBooking } from "@/lib/partner-booking";
+
+const schema = z.object({ partnerId: z.string().min(1).nullable() });
+
+// 확정 이후(채권 발생 시점) 상태에서 지정하면 즉시 채권 생성
+const POST_HOLD = new Set<BookingStatus>([
+  BookingStatus.CONFIRMED,
+  BookingStatus.CHECKED_IN,
+  BookingStatus.CHECKED_OUT,
+]);
+
+export async function PUT(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
+  if (!canViewFinance(session.user.role)) {
+    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  }
+
+  const { id } = await params;
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "INVALID_BODY" }, { status: 400 });
+  }
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "VALIDATION_FAILED" }, { status: 400 });
+  }
+  const { partnerId } = parsed.data;
+
+  const booking = await prisma.booking.findUnique({
+    where: { id },
+    select: { id: true, status: true, partnerId: true, receivable: { select: { id: true } } },
+  });
+  if (!booking) {
+    return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
+  // 채권이 이미 생성된 예약은 파트너 변경 금지(채권 정합성) — 변경은 취소 후 재예약
+  if (booking.receivable && partnerId !== booking.partnerId) {
+    return NextResponse.json({ error: "RECEIVABLE_EXISTS" }, { status: 409 });
+  }
+  // 지정 파트너 실재 검증
+  if (partnerId) {
+    const exists = await prisma.partner.findUnique({
+      where: { id: partnerId },
+      select: { id: true },
+    });
+    if (!exists) {
+      return NextResponse.json({ error: "PARTNER_NOT_FOUND" }, { status: 400 });
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.booking.update({ where: { id }, data: { partnerId } });
+    // 확정 이후 상태에서 새로 지정하면 채권 즉시 생성(멱등)
+    if (partnerId && POST_HOLD.has(booking.status)) {
+      await ensureReceivableForBooking(tx, id, new Date());
+    }
+    await writeAuditLog({
+      db: tx,
+      userId: session.user.id,
+      action: "UPDATE",
+      entity: "Booking",
+      entityId: id,
+      changes: { partnerId: { old: booking.partnerId, new: partnerId } },
+    });
+  });
+
+  return NextResponse.json({ ok: true, partnerId });
+}

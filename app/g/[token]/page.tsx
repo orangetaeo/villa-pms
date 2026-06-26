@@ -101,7 +101,6 @@ export default async function GuestCheckinPage({
         amenityGroups={amenityGroups}
         minibar={minibar}
         agreement={agreement}
-        fxVndPerKrw={data.fxVndPerKrw}
       />
     </div>
   );

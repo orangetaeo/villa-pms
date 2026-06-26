@@ -30,10 +30,42 @@ export const SERVICE_TYPE_VALUES: readonly ServiceType[] = [
   "MOTORBIKE_RENTAL",
   "MASSAGE",
   "BARBER",
+  "FRUIT",
 ] as const;
 
 export function isServiceCatalogType(v: string): v is ServiceType {
   return (SERVICE_TYPE_VALUES as readonly string[]).includes(v);
+}
+
+// ── 요청 주체 자격(audience) — 어느 채널에서 이 항목을 요청할 수 있는가 (ADR-0023 §4.2) ─────
+//   ADMIN=운영자 항상 가능(보장), PARTNER=여행사/랜드사, GUEST=게스트 /g/[token].
+//   카탈로그 audiences 배열로 채널별 서버 필터. 항상 ADMIN을 포함한다(운영자는 모든 항목 요청 가능).
+export type ServiceAudience = "ADMIN" | "PARTNER" | "GUEST";
+
+export const SERVICE_AUDIENCE_VALUES: readonly ServiceAudience[] = ["ADMIN", "PARTNER", "GUEST"] as const;
+
+function isServiceAudience(v: unknown): v is ServiceAudience {
+  return typeof v === "string" && (SERVICE_AUDIENCE_VALUES as readonly string[]).includes(v);
+}
+
+/**
+ * audiences 정규화 — 배열에서 유효 값만 추출, 항상 ADMIN 포함 보장, 중복 제거. 순수.
+ *   빈/잘못된 입력 → ["ADMIN"]. 저장 직전·읽기 시 신뢰 가능한 형태로 만든다.
+ */
+export function parseAudiences(raw: unknown): ServiceAudience[] {
+  const set = new Set<ServiceAudience>(["ADMIN"]); // ADMIN은 항상 포함
+  if (Array.isArray(raw)) {
+    for (const v of raw) {
+      if (isServiceAudience(v)) set.add(v);
+    }
+  }
+  // 정의 순서(ADMIN→PARTNER→GUEST)로 안정적 반환
+  return SERVICE_AUDIENCE_VALUES.filter((a) => set.has(a));
+}
+
+/** audiences 입력 검증 — 배열이고 모든 원소가 유효 enum이면 true. 순수. */
+export function validateAudiences(raw: unknown): boolean {
+  return Array.isArray(raw) && raw.every(isServiceAudience);
 }
 
 /** 옵션 1개 정의 — variant/addon은 절대가격, modifier는 가산delta(같은 필드 재사용). 가격은 VND 전용. */
@@ -45,6 +77,12 @@ export interface CatalogOptionDef {
   labelI18n?: LabelI18n | null;
   /** VND 금액(동, "숫자문자열") — variant=대체가, addon/modifier=가산액. */
   priceVnd?: string | null;
+  /** 관리자 입력 한국어 설명(옵션별, 선택) — 소비자 노출 OK. */
+  descKo?: string | null;
+  /** 저장 시 Gemini 자동번역된 설명 {en,vi,zh,ru}(패스스루). */
+  descI18n?: LabelI18n | null;
+  /** ★매입원가 VND(동, "숫자문자열") — 운영자(canViewFinance) 전용. 공개 경계에서 반드시 제거(stripOptionCosts). */
+  costVnd?: string | null;
 }
 
 export interface CatalogOptions {
@@ -69,6 +107,36 @@ export function parseCatalogOptions(raw: unknown): CatalogOptions {
     addons: arr(o.addons),
     modifiers: arr(o.modifiers),
   };
+}
+
+/**
+ * ★마진 비공개(원칙2): 옵션별 costVnd를 모든 그룹에서 제거한 새 options를 반환.
+ *   게스트·STAFF 등 비-재무 경계에서 options를 내보내기 직전에 반드시 적용한다.
+ *   입력이 옵션 형태가 아니면 그대로 반환(null/undefined 포함).
+ */
+export function stripOptionCosts<T>(raw: T): T {
+  if (!raw || typeof raw !== "object") return raw;
+  const o = raw as Record<string, unknown>;
+  const strip = (v: unknown): unknown =>
+    Array.isArray(v)
+      ? v.map((x) => {
+          if (!x || typeof x !== "object") return x;
+          const { costVnd: _omit, ...rest } = x as Record<string, unknown>;
+          void _omit;
+          return rest;
+        })
+      : v;
+  return {
+    ...o,
+    variants: strip(o.variants),
+    addons: strip(o.addons),
+    modifiers: strip(o.modifiers),
+  } as T;
+}
+
+/** 옵션 행 자동 key 생성 — 코드 칸 제거(관리자는 이름·가격만 입력). 같은 항목 내 유일하면 충분. */
+export function generateOptionKey(): string {
+  return `opt_${Math.random().toString(36).slice(2, 8)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
 // ── 카탈로그 항목 입력 검증 (CRUD) ──────────────────────────────────────────
@@ -117,6 +185,13 @@ export function validateCatalogItem(input: CatalogItemInput): CatalogItemError[]
         if (seen.has(opt.key)) errors.push("DUP_OPTION_KEY");
         seen.add(opt.key);
         if (!validPriceVnd(opt.priceVnd)) {
+          errors.push("INVALID_OPTION");
+        }
+        // 옵션별 원가도 VND 숫자문자열, 설명은 길이 제한(1000)
+        if (!validPriceVnd(opt.costVnd)) {
+          errors.push("INVALID_OPTION");
+        }
+        if (opt.descKo != null && opt.descKo.length > 1000) {
           errors.push("INVALID_OPTION");
         }
       }

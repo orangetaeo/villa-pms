@@ -50,6 +50,10 @@ const SUPPLIER_CLEANER_ALLOWED: Record<SupplierRole, string[]> = {
 };
 const SUPPLIER_CLEANER_PATHS = ["/my-villas", "/calendar", "/cleaning", "/earnings"];
 
+// VENDOR(원천 공급자) 전용 영역 — vi 기본·모바일. 발주함·예약현황·정산·통계 (ADR-0023 §6).
+// VENDOR는 오직 이 경로만 접근, 그 외(운영·SUPPLIER 영역)는 차단.
+const VENDOR_PATHS = ["/vendor"];
+
 function matchesPath(pathname: string, paths: string[]): boolean {
   return paths.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
@@ -63,7 +67,12 @@ export default auth((req) => {
   // 변경 화면(운영자 /account · 공급자 /profile)·변경 API·언어 API만 허용, 그 외는 차단.
   // (기존 세션엔 플래그 부재(undefined→통과) → 락아웃 없음. 변경 후 재로그인으로 해제)
   if (session?.user?.mustChangePassword) {
-    const changePath = isOperator(role) ? "/account" : "/profile";
+    // 역할별 변경 화면: 운영자=/account, VENDOR=/vendor/profile, 그 외(SUPPLIER/CLEANER)=/profile
+    const changePath = isOperator(role)
+      ? "/account"
+      : role === "VENDOR"
+        ? "/vendor/profile"
+        : "/profile";
     const allowed =
       pathname === changePath ||
       pathname.startsWith("/api/account/password") ||
@@ -76,6 +85,25 @@ export default auth((req) => {
   const isOperatorProtected = matchesPath(pathname, OPERATOR_PROTECTED_PATHS);
   const isSharedOperatorPath = matchesPath(pathname, SHARED_OPERATOR_PATHS);
   const isSupplierCleanerPath = matchesPath(pathname, SUPPLIER_CLEANER_PATHS);
+  const isVendorPath = matchesPath(pathname, VENDOR_PATHS);
+
+  // ── VENDOR(원천 공급자) 경로 게이트 (ADR-0023 §6) ──────────────────────────
+  // /vendor/* 는 VENDOR 전용. 미인증→/login, VENDOR 아닌 인증자(운영자·공급자 포함)→/login.
+  if (isVendorPath) {
+    if (!session) {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+    if (role !== "VENDOR") {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+  }
+
+  // VENDOR는 자기 영역(/vendor/*) 밖의 모든 보호 경로(운영·SUPPLIER 영역) 진입 시 차단 → /vendor
+  if (session && role === "VENDOR" && !isVendorPath) {
+    if (isOperatorProtected || isSharedOperatorPath || isSupplierCleanerPath) {
+      return NextResponse.redirect(new URL("/vendor", req.url));
+    }
+  }
 
   // 보호 경로(운영 전용 영역): 미인증 → /login
   if (isOperatorProtected && !session) {
@@ -144,7 +172,11 @@ export default auth((req) => {
 
   // 인증된 사용자가 /login 또는 /signup 접근 시 → 역할별 홈으로
   if ((pathname === "/login" || pathname === "/signup") && session) {
-    const dest = isOperator(role) ? "/dashboard" : "/my-villas";
+    const dest = isOperator(role)
+      ? "/dashboard"
+      : role === "VENDOR"
+        ? "/vendor"
+        : "/my-villas";
     return NextResponse.redirect(new URL(dest, req.url));
   }
 
@@ -164,10 +196,12 @@ export default auth((req) => {
     res.cookies.set("locale", pref ?? adminDefault, { path: "/" });
   } else if (
     isSupplierCleanerPath ||
+    isVendorPath ||
     pathname.startsWith("/signup") ||
+    pathname.startsWith("/vendor-signup") ||
     pathname.startsWith("/login")
   ) {
-    // 공급자·인증 화면: 사용자 명시 선택(pref-locale) > 계정 기본(session) > vi 기본.
+    // 공급자·VENDOR·인증 화면: 사용자 명시 선택(pref-locale) > 계정 기본(session) > vi 기본.
     const userLocale = session?.user?.locale === "ko" ? "ko" : "vi";
     res.cookies.set("locale", pref ?? userLocale, { path: "/" });
   }
