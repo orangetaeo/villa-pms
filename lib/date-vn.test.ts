@@ -9,6 +9,9 @@ import {
   vnDayStartUtc,
   quickRangeWhere,
   isQuickRangeKey,
+  addDateOnlyDays,
+  checkOutFromNights,
+  nightsBetween,
 } from "./date-vn";
 
 describe("parseUtcDateOnly", () => {
@@ -143,5 +146,70 @@ describe("isQuickRangeKey", () => {
     expect(isQuickRangeKey("all")).toBe(true);
     expect(isQuickRangeKey("bogus")).toBe(false);
     expect(isQuickRangeKey(undefined)).toBe(false);
+  });
+});
+
+// ── F10 T10.2b 직접예약 다박(기간) 선택 ──
+describe("addDateOnlyDays", () => {
+  it("양수 더하기", () => {
+    expect(addDateOnlyDays("2026-07-14", 2)).toBe("2026-07-16");
+  });
+  it("월 경계 넘김", () => {
+    expect(addDateOnlyDays("2026-07-30", 3)).toBe("2026-08-02");
+  });
+  it("연 경계 넘김", () => {
+    expect(addDateOnlyDays("2026-12-31", 1)).toBe("2027-01-01");
+  });
+  it("음수 빼기", () => {
+    expect(addDateOnlyDays("2026-07-14", -1)).toBe("2026-07-13");
+  });
+  it("윤년 2월", () => {
+    expect(addDateOnlyDays("2028-02-28", 1)).toBe("2028-02-29");
+  });
+  it("잘못된 형식 → 입력 그대로", () => {
+    expect(addDateOnlyDays("bogus", 2)).toBe("bogus");
+    expect(addDateOnlyDays("2026-02-31", 1)).toBe("2026-02-31");
+  });
+});
+
+describe("checkOutFromNights", () => {
+  it("1박 = 다음날", () => {
+    expect(checkOutFromNights("2026-07-14", 1)).toBe("2026-07-15");
+  });
+  it("2박", () => {
+    expect(checkOutFromNights("2026-07-14", 2)).toBe("2026-07-16");
+  });
+  it("5박", () => {
+    expect(checkOutFromNights("2026-07-14", 5)).toBe("2026-07-19");
+  });
+  it("월 경계 다박", () => {
+    expect(checkOutFromNights("2026-07-29", 5)).toBe("2026-08-03");
+  });
+  it("0·음수 박수 → 최소 1박으로 클램프", () => {
+    expect(checkOutFromNights("2026-07-14", 0)).toBe("2026-07-15");
+    expect(checkOutFromNights("2026-07-14", -3)).toBe("2026-07-15");
+  });
+  it("소수 박수 → 내림", () => {
+    expect(checkOutFromNights("2026-07-14", 2.9)).toBe("2026-07-16");
+  });
+});
+
+describe("nightsBetween", () => {
+  it("checkOut - checkIn 박수", () => {
+    expect(nightsBetween("2026-07-14", "2026-07-16")).toBe(2);
+    expect(nightsBetween("2026-07-14", "2026-07-15")).toBe(1);
+  });
+  it("월 경계", () => {
+    expect(nightsBetween("2026-07-29", "2026-08-03")).toBe(5);
+  });
+  it("checkOut ≤ checkIn → 0", () => {
+    expect(nightsBetween("2026-07-16", "2026-07-14")).toBe(0);
+    expect(nightsBetween("2026-07-14", "2026-07-14")).toBe(0);
+  });
+  it("checkOutFromNights 역연산 일치", () => {
+    expect(nightsBetween("2026-07-14", checkOutFromNights("2026-07-14", 4))).toBe(4);
+  });
+  it("잘못된 형식 → 0", () => {
+    expect(nightsBetween("bogus", "2026-07-16")).toBe(0);
   });
 });

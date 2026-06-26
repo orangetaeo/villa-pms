@@ -3,10 +3,8 @@
 // 순수 모델(lib/settlement-statement.ts)을 받아 PDF Buffer 생성. server 전용(renderToBuffer).
 // 폰트: 베트남어 글리프 위해 Noto Sans TTF 번들(assets/fonts). 기본 Helvetica는 베트남어 미지원.
 import * as React from "react"; // react-pdf 렌더는 JSX 클래식 런타임 경로(renderToBuffer)에서 React 전역 필요
-import path from "path";
 import {
   Document,
-  Font,
   Page,
   StyleSheet,
   Text,
@@ -18,24 +16,8 @@ import {
   type StatementInput,
   type StatementModel,
 } from "@/lib/settlement-statement";
-
-// ── 폰트 등록 (모듈 1회) ─────────────────────────────────────────────
-// 기본 출력(비 standalone)에서 프로젝트 트리가 런타임에 존재 → cwd 기준 절대경로 읽기.
-const FONT_DIR = path.join(process.cwd(), "assets", "fonts");
-let fontsRegistered = false;
-function ensureFonts(): void {
-  if (fontsRegistered) return;
-  Font.register({
-    family: "NotoSans",
-    fonts: [
-      { src: path.join(FONT_DIR, "NotoSans-Regular.ttf") },
-      { src: path.join(FONT_DIR, "NotoSans-Bold.ttf"), fontWeight: "bold" },
-    ],
-  });
-  // 단어 단위 줄바꿈만(하이픈 분절 비활성) — 베트남어/숫자 깨짐 방지
-  Font.registerHyphenationCallback((word) => [word]);
-  fontsRegistered = true;
-}
+// 폰트 등록·한글 글리프 폴백은 공용 모듈로 일원화(유실 재발 방지) — lib/pdf-fonts
+import { ensurePdfFonts, mixedTextChildren } from "@/lib/pdf-fonts";
 
 // ── 베트남어 라벨 (문서 전용 — UI 아닌 정산 문서라 인라인) ─────────────
 const L = {
@@ -118,7 +100,7 @@ function StatementDocument({ model }: { model: StatementModel }) {
 
         <View style={styles.metaRow}>
           <Text style={styles.metaLabel}>{L.supplier}</Text>
-          <Text style={styles.metaValue}>{model.supplierName}</Text>
+          <Text style={styles.metaValue}>{mixedTextChildren(model.supplierName)}</Text>
         </View>
         <View style={styles.metaRow}>
           <Text style={styles.metaLabel}>{L.period}</Text>
@@ -138,7 +120,7 @@ function StatementDocument({ model }: { model: StatementModel }) {
           </View>
           {model.rows.map((r, i) => (
             <View style={styles.tr} key={i}>
-              <Text style={styles.cVilla}>{r.villaName}</Text>
+              <Text style={styles.cVilla}>{mixedTextChildren(r.villaName)}</Text>
               <Text style={styles.cCheckout}>{r.checkOut}</Text>
               <Text style={styles.cNights}>{r.nights}</Text>
               <Text style={styles.cAmount}>{r.amount}</Text>
@@ -165,7 +147,7 @@ function StatementDocument({ model }: { model: StatementModel }) {
 
 /** 정산서 PDF 생성 — 모델 → PDF Buffer. 폰트 1회 등록. */
 export async function renderStatementPdf(model: StatementModel): Promise<Buffer> {
-  ensureFonts();
+  ensurePdfFonts();
   return renderToBuffer(<StatementDocument model={model} />);
 }
 

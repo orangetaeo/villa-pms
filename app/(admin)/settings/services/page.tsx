@@ -7,7 +7,9 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { isOperator, canViewFinance, canSetPrice } from "@/lib/permissions";
+import { stripOptionCosts } from "@/lib/service-catalog";
 import { prisma } from "@/lib/prisma";
+import { getFxVndPerKrw } from "@/lib/pricing";
 import ServiceCatalogManager, { type CatalogRow } from "./catalog-manager";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -31,45 +33,56 @@ export default async function ServiceCatalogPage() {
 
   const showCost = canViewFinance(role);
   const canEdit = canSetPrice(role);
+  // 환율(1 KRW당 VND) — KRW 미리보기용. 미설정이면 null → 클라에서 미리보기 생략.
+  const fx = await getFxVndPerKrw(prisma);
 
   // 원가는 canViewFinance만 — select에서부터 제외(클라 조건부 렌더 의존 금지, 원칙2)
-  const items = await prisma.serviceCatalogItem.findMany({
-    orderBy: [{ active: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
-    select: {
-      id: true,
-      type: true,
-      nameKo: true,
-      nameVi: true,
-      nameEn: true,
-      descKo: true,
-      descVi: true,
-      unitLabelKo: true,
-      priceKrw: true,
-      priceVnd: true,
-      photoUrl: true,
-      options: true,
-      active: true,
-      sortOrder: true,
-      ...(showCost ? { costVnd: true } : {}),
-    },
-  });
+  // ADR-0023 — 카탈로그 폼의 원천 공급자 셀렉트용 활성 공급자 목록(id·name만)
+  const [items, vendors] = await Promise.all([
+    prisma.serviceCatalogItem.findMany({
+      orderBy: [{ active: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
+      select: {
+        id: true,
+        type: true,
+        nameKo: true,
+        nameI18n: true,
+        descKo: true,
+        descI18n: true,
+        unitLabelKo: true,
+        priceVnd: true,
+        photoUrl: true,
+        options: true,
+        active: true,
+        sortOrder: true,
+        vendorId: true,
+        audiences: true,
+        ...(showCost ? { costVnd: true } : {}),
+      },
+    }),
+    prisma.serviceVendor.findMany({
+      where: { active: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
 
-  // BigInt → 문자열 직렬화(클라 경계). costVnd는 showCost일 때만 포함.
+  // BigInt → 문자열 직렬화(클라 경계). costVnd는 showCost일 때만 포함. 가격은 VND 단일통화.
   const rows: CatalogRow[] = items.map((it) => ({
     id: it.id,
     type: it.type,
     nameKo: it.nameKo,
-    nameVi: it.nameVi ?? "",
-    nameEn: it.nameEn ?? "",
+    nameI18n: it.nameI18n ?? null,
     descKo: it.descKo ?? "",
-    descVi: it.descVi ?? "",
+    descI18n: it.descI18n ?? null,
     unitLabelKo: it.unitLabelKo ?? "",
-    priceKrw: it.priceKrw ?? null,
     priceVnd: it.priceVnd?.toString() ?? null,
     photoUrl: it.photoUrl ?? "",
-    options: it.options ?? null,
+    // ★옵션 원가는 canViewFinance만 — STAFF엔 옵션 JSON에서 제거(원칙2)
+    options: showCost ? (it.options ?? null) : stripOptionCosts(it.options ?? null),
     active: it.active,
     sortOrder: it.sortOrder,
+    vendorId: it.vendorId ?? null,
+    audiences: normalizeAudiences(it.audiences),
     ...(showCost && "costVnd" in it
       ? { costVnd: (it as { costVnd: bigint | null }).costVnd?.toString() ?? null }
       : {}),
@@ -89,7 +102,23 @@ export default async function ServiceCatalogPage() {
         <p className="text-sm text-slate-500 mt-1">{t("subtitle")}</p>
       </div>
 
-      <ServiceCatalogManager initialItems={rows} showCost={showCost} canEdit={canEdit} />
+      <ServiceCatalogManager
+        initialItems={rows}
+        vendors={vendors}
+        showCost={showCost}
+        canEdit={canEdit}
+        fx={fx}
+      />
     </div>
   );
+}
+
+// audiences JSON → ("ADMIN"|"PARTNER"|"GUEST")[] 정규화. ADMIN은 항상 포함(운영자 늘 요청 가능).
+function normalizeAudiences(raw: unknown): ("ADMIN" | "PARTNER" | "GUEST")[] {
+  const allowed = ["ADMIN", "PARTNER", "GUEST"] as const;
+  const set = new Set<string>(["ADMIN"]);
+  if (Array.isArray(raw)) {
+    for (const a of raw) if (typeof a === "string" && (allowed as readonly string[]).includes(a)) set.add(a);
+  }
+  return allowed.filter((a) => set.has(a));
 }

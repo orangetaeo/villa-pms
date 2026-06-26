@@ -131,22 +131,7 @@ export default async function SettingsPage() {
           저장 전엔 코드 기본값 폴백 → 편집·발행 시 체크인·인쇄 동의서에 반영 */}
       <AgreementForm initial={agreement} />
 
-      {/* Card 6: 미니바 회사표준 품목 (#2b) — 별도 페이지 링크 */}
-      <Link
-        href="/settings/minibar"
-        className="flex items-center justify-between bg-admin-card border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-colors group"
-      >
-        <div className="flex items-center gap-4">
-          <span className="material-symbols-outlined text-admin-primary text-3xl">liquor</span>
-          <div>
-            <h2 className="text-lg font-bold text-white">{t("minibarCardTitle")}</h2>
-            <p className="text-sm text-slate-500 mt-0.5">{t("minibarCardDesc")}</p>
-          </div>
-        </div>
-        <span className="text-sm font-bold text-admin-primary group-hover:underline whitespace-nowrap">
-          {t("minibarCardCta")} →
-        </span>
-      </Link>
+      {/* 미니바 회사표준은 재고(/inventory) "미니바 품목" 탭으로 이동(2026-06-26). 여기 카드 제거. */}
 
       {/* Card 6b: 서비스 카탈로그 (ADR-0019 S2) — 부가서비스 판매 메뉴 관리. 별도 페이지 링크 */}
       <Link
@@ -162,6 +147,23 @@ export default async function SettingsPage() {
         </div>
         <span className="text-sm font-bold text-admin-primary group-hover:underline whitespace-nowrap">
           {t("servicesCardCta")} →
+        </span>
+      </Link>
+
+      {/* Card 6c: 원천 공급자 (ADR-0023 S1) — 부가서비스 발주·정산 거래처. 별도 페이지 링크 */}
+      <Link
+        href="/settings/vendors"
+        className="flex items-center justify-between bg-admin-card border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-colors group"
+      >
+        <div className="flex items-center gap-4">
+          <span className="material-symbols-outlined text-admin-primary text-3xl">storefront</span>
+          <div>
+            <h2 className="text-lg font-bold text-white">{t("vendorsCardTitle")}</h2>
+            <p className="text-sm text-slate-500 mt-0.5">{t("vendorsCardDesc")}</p>
+          </div>
+        </div>
+        <span className="text-sm font-bold text-admin-primary group-hover:underline whitespace-nowrap">
+          {t("vendorsCardCta")} →
         </span>
       </Link>
 

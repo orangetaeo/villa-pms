@@ -7,6 +7,7 @@ import {
 } from "@prisma/client";
 import { writeAuditLog } from "@/lib/audit-log";
 import type { PassportOcrData } from "@/lib/gemini";
+import { partnerBalanceBlocksCheckIn } from "@/lib/partner-booking";
 
 /**
  * 체크인 단일 소스 (T3.1 — SPEC F4 체크인 1·3·5, 계약: docs/contracts/T3.1-checkin.md)
@@ -22,7 +23,11 @@ const INT4_MAX = 2_147_483_647; // depositAmount Int 컬럼 오버플로 방어 
 
 export class CheckInRejectedError extends Error {
   constructor(
-    public readonly reason: "NOT_FOUND" | "INVALID_STATUS" | "ALREADY_CHECKED_IN",
+    public readonly reason:
+      | "NOT_FOUND"
+      | "INVALID_STATUS"
+      | "ALREADY_CHECKED_IN"
+      | "PARTNER_BALANCE_UNPAID", // 등급 A(선불) 잔금 미납 — 체크인 차단 (ADR-0022)
     detail?: string
   ) {
     super(detail ?? reason);
@@ -117,11 +122,31 @@ export async function completeCheckIn(prisma: PrismaClient, input: CheckInInput)
   return prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findUnique({
       where: { id: input.bookingId },
-      select: { id: true, status: true, depositStatus: true, checkInRecord: { select: { id: true } } },
+      select: {
+        id: true,
+        status: true,
+        depositStatus: true,
+        checkInRecord: { select: { id: true } },
+        // 파트너 등급 A(선불) 잔금 게이트 (ADR-0022)
+        partner: { select: { creditTier: true } },
+        receivable: {
+          select: { totalVnd: true, depositPaidVnd: true, balancePaidVnd: true },
+        },
+      },
     });
     if (!booking) throw new CheckInRejectedError("NOT_FOUND");
     if (booking.checkInRecord) {
       throw new CheckInRejectedError("ALREADY_CHECKED_IN", "이미 체크인 기록이 있습니다");
+    }
+    // 등급 A(선불): 객실료 잔금 100% 입금 전 체크인 차단 (B/C 여신은 무영향)
+    if (
+      booking.partner &&
+      partnerBalanceBlocksCheckIn(booking.partner.creditTier, booking.receivable)
+    ) {
+      throw new CheckInRejectedError(
+        "PARTNER_BALANCE_UNPAID",
+        "선불(등급 A) 파트너는 잔금 완납 후 체크인할 수 있습니다"
+      );
     }
 
     // status 가드 updateMany — 동시 요청이 와도 CONFIRMED 1건만 전이 성공

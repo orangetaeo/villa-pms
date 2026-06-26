@@ -12,17 +12,35 @@ const paymentCreate = vi.fn();
 const paymentFindMany = vi.fn();
 const paymentFindUniqueTx = vi.fn();
 const paymentDeleteTx = vi.fn();
+const ledgerFindUnique = vi.fn();
+const ledgerCreate = vi.fn();
+const ledgerDeleteMany = vi.fn();
+// 파트너 채권(ADR-0022) — 가드(직접입금 차단)·tx 반영용
+const rcvGuardFindUnique = vi.fn(); // prisma.partnerReceivable.findUnique (가드 사전조회)
+const rcvTxFindUnique = vi.fn(); // tx.partnerReceivable.findUnique (입금 반영)
+const rcvTxUpdate = vi.fn();
 const tx = {
   payment: {
     create: (...a: unknown[]) => paymentCreate(...a),
     findUnique: (...a: unknown[]) => paymentFindUniqueTx(...a),
     delete: (...a: unknown[]) => paymentDeleteTx(...a),
   },
+  partnerReceivable: {
+    findUnique: (...a: unknown[]) => rcvTxFindUnique(...a),
+    update: (...a: unknown[]) => rcvTxUpdate(...a),
+  },
+  // LEDGER 복식부기 적재(ADR-0018) — postCollection/reverseCollection이 tx에서 호출.
+  ledgerTransaction: {
+    findUnique: (...a: unknown[]) => ledgerFindUnique(...a),
+    create: (...a: unknown[]) => ledgerCreate(...a),
+    deleteMany: (...a: unknown[]) => ledgerDeleteMany(...a),
+  },
 };
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     booking: { findUnique: (...a: unknown[]) => bookingFindUnique(...a) },
     payment: { findMany: (...a: unknown[]) => paymentFindMany(...a) },
+    partnerReceivable: { findUnique: (...a: unknown[]) => rcvGuardFindUnique(...a) },
     $transaction: async (fn: (t: unknown) => Promise<unknown>) => fn(tx),
   },
 }));
@@ -72,6 +90,12 @@ beforeEach(() => {
     ...data,
   }));
   paymentFindMany.mockResolvedValue([]);
+  ledgerFindUnique.mockResolvedValue(null); // 멱등 가드: 기존 거래 없음
+  ledgerCreate.mockResolvedValue({ id: "ledger-1" });
+  ledgerDeleteMany.mockResolvedValue({ count: 1 });
+  rcvGuardFindUnique.mockResolvedValue(null); // 기본: 채권 없음(가드 미적용)
+  rcvTxFindUnique.mockResolvedValue(null);
+  rcvTxUpdate.mockResolvedValue({});
 });
 
 describe("POST /api/bookings/[id]/payments — 결제 기록 가드·계산", () => {
@@ -153,6 +177,29 @@ describe("POST /api/bookings/[id]/payments — 결제 기록 가드·계산", ()
   it("잘못된 body → 400", async () => {
     const res = await postReq("bk-1", { currency: "USD", amount: "x" });
     expect(res.status).toBe(400);
+  });
+
+  // ── 이중입금 가드 (ADR-0022 3b-2): 청구서에 묶인 채권엔 직접 DEPOSIT/BALANCE 금지 ──
+  it("청구서에 묶인 채권 + DEPOSIT → 409 RECEIVABLE_INVOICED (payment 미생성)", async () => {
+    rcvGuardFindUnique.mockResolvedValue({ invoiceId: "inv-1" });
+    const res = await postReq("bk-1", { ...VALID_VND, purpose: "DEPOSIT" });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: "RECEIVABLE_INVOICED" });
+    expect(paymentCreate).not.toHaveBeenCalled();
+  });
+
+  it("청구서 묶인 채권이라도 GUEST 입금은 통과(하위호환) → 201", async () => {
+    rcvGuardFindUnique.mockResolvedValue({ invoiceId: "inv-1" });
+    const res = await postReq("bk-1", VALID_VND); // purpose 미지정 = GUEST
+    expect(res.status).toBe(201);
+    expect(paymentCreate).toHaveBeenCalled();
+  });
+
+  it("청구서에 안 묶인 채권 + BALANCE → 통과 201", async () => {
+    rcvGuardFindUnique.mockResolvedValue({ invoiceId: null });
+    const res = await postReq("bk-1", { ...VALID_VND, purpose: "BALANCE" });
+    expect(res.status).toBe(201);
+    expect(paymentCreate).toHaveBeenCalled();
   });
 });
 

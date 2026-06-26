@@ -301,6 +301,45 @@ ${trimmed}`;
 }
 
 /**
+ * 배열 일괄 번역 — 한국어 문자열 배열을 target 언어로 한 번에 번역(언어당 1회 호출, JSON in/out).
+ *   카탈로그 이름·설명·옵션 라벨 다건 번역에 사용(ADR-0019 v2 #6). 실패 시 원문 배열 폴백(번역 누락 무해).
+ *   길이/형태 불일치도 원문 폴백 — 화면은 항상 ko를 가지므로 안전.
+ */
+export async function translateBatch(
+  texts: string[],
+  target: TranslateTarget,
+  fetchFn: typeof fetch = fetch
+): Promise<string[]> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new GeminiNotConfiguredError();
+  const items = texts.map((t) => (t ?? "").trim());
+  if (items.every((t) => t.length === 0)) return items;
+
+  const prompt = `Translate each Korean string in this JSON array into ${TARGET_LABEL[target]}.
+Return ONLY a JSON array of strings, same length and order. No markdown, no code fences, no extra text.
+Preserve numbers and units. Keep empty strings empty. Do not merge or split items.
+
+${JSON.stringify(items)}`;
+
+  let raw: string;
+  try {
+    raw = await callTranslateOnce(apiKey, prompt, 0, fetchFn);
+  } catch {
+    return items; // 호출 실패 → 원문 폴백
+  }
+  const cleaned = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+  try {
+    const arr = JSON.parse(cleaned);
+    if (Array.isArray(arr) && arr.length === items.length) {
+      return arr.map((v, i) => (typeof v === "string" && v.trim() ? v : items[i]));
+    }
+  } catch {
+    /* fall through */
+  }
+  return items;
+}
+
+/**
  * 대화 translateMode → 발신 미리보기 타깃 언어 (ADR-0009 D7.4).
  *  VI → "vi", EN → "en", OFF → null(미리보기 없음 — 호출부가 스킵).
  * 수신 자동번역의 타깃은 항상 "ko"(운영자가 읽음)이므로 별도 매핑 불필요 —

@@ -1,14 +1,17 @@
 "use client";
 
-// 미니바 재고 현황 + 입고 폼 (b18) — 다크 운영자.
-//   현황 표: 빌라 | 품목 | 비치 목표 | 현재고 | 상태 | 입고. 필터(전체/부족만). 부족 행은 현재고 red bold.
+// 미니바 재고 현황 + 입고 폼 (b18, ADR-0019 v2 재설계) — 다크 운영자.
+//   ★ 재설계: 빌라 多 → 평면 리스트 스크롤 폭증. 한 번에 한 빌라 중심으로 전환.
+//     빌라 선택(드롭다운+검색) → 그 빌라 품목만 표시. "부족만" 필터. 전체 부족 요약 배지.
+//     부족 빌라 칩 = 빠른 점프(클릭 시 선택 전환). (빌라관리 리스트 패턴 차용)
 //   입고 폼(우측 sticky): 빌라·품목·수량 stepper·유형(입고/보정)·매입 단가(canViewFinance만)·메모.
 //   ★ 매입 단가 입력칸은 showCost(서버 canViewFinance)일 때만 렌더 — STAFF 페이로드엔 단가 자체가 없음(클라 게이트 아님).
 //   POST /api/villas/[id]/minibar-restock 후 router.refresh()로 원장 합산 재조회.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { InventoryItemRow, InventorySummary } from "@/lib/minibar-inventory-load";
+import { maxRestockQty } from "@/lib/minibar-inventory";
 
 type Mode = "RESTOCK" | "ADJUST";
 
@@ -30,6 +33,51 @@ export default function InventoryClient({
 
   const [lowOnly, setLowOnly] = useState(false);
 
+  // ── 재설계: 빌라별 그룹 + 선택 빌라 중심 ──────────────────────────────────────
+  // 빌라별 그룹(표시순 유지) + 부족 수 집계. rows는 이미 (complex,name)순 정렬.
+  const villaGroups = useMemo(() => {
+    const map = new Map<
+      string,
+      { villaId: string; villaName: string; items: InventoryItemRow[]; lowCount: number }
+    >();
+    for (const r of rows) {
+      let g = map.get(r.villaId);
+      if (!g) {
+        g = { villaId: r.villaId, villaName: r.villaName, items: [], lowCount: 0 };
+        map.set(r.villaId, g);
+      }
+      g.items.push(r);
+      if (r.low) g.lowCount += 1;
+    }
+    return [...map.values()];
+  }, [rows]);
+
+  // 부족 빌라(빠른 점프 칩용) — lowCount>0
+  const lowVillas = useMemo(() => villaGroups.filter((g) => g.lowCount > 0), [villaGroups]);
+
+  // 선택 빌라 — 부족 빌라가 있으면 첫 부족 빌라, 없으면 첫 빌라
+  const [selectedVillaId, setSelectedVillaId] = useState<string>(
+    lowVillas[0]?.villaId ?? villaGroups[0]?.villaId ?? ""
+  );
+  const [villaQuery, setVillaQuery] = useState("");
+
+  const selectedGroup = useMemo(
+    () => villaGroups.find((g) => g.villaId === selectedVillaId) ?? null,
+    [villaGroups, selectedVillaId]
+  );
+
+  // 검색어로 필터된 빌라 목록(드롭다운/검색결과)
+  const matchedVillas = useMemo(() => {
+    const q = villaQuery.trim().toLowerCase();
+    if (!q) return villaGroups;
+    return villaGroups.filter((g) => g.villaName.toLowerCase().includes(q));
+  }, [villaGroups, villaQuery]);
+
+  const jumpTo = (vId: string) => {
+    setSelectedVillaId(vId);
+    setVillaId(vId); // 입고 폼도 같은 빌라로 동기화
+  };
+
   // 입고 폼 상태
   const [villaId, setVillaId] = useState(villaOptions[0]?.id ?? "");
   const [itemId, setItemId] = useState(itemOptions[0]?.id ?? "");
@@ -40,24 +88,47 @@ export default function InventoryClient({
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const visibleRows = useMemo(
-    () => (lowOnly ? rows.filter((r) => r.low) : rows),
-    [rows, lowOnly]
-  );
+  // 표시 행 = 선택 빌라의 품목 (+ 부족만 필터)
+  const visibleRows = useMemo(() => {
+    const items = selectedGroup?.items ?? [];
+    return lowOnly ? items.filter((r) => r.low) : items;
+  }, [selectedGroup, lowOnly]);
 
   const costDigits = unitCost.replace(/\D/g, "");
   const costDisplay = costDigits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
-  // 입고: 양수만. 보정: 0 금지(음수 허용).
-  const qtyValid = mode === "RESTOCK" ? qty > 0 : qty !== 0;
+  // 선택 빌라·품목의 현재 행 — par/현재고 기반 입고 상한 계산
+  const selectedRow = useMemo(
+    () => rows.find((r) => r.villaId === villaId && r.minibarItemId === itemId) ?? null,
+    [rows, villaId, itemId]
+  );
+  // 입고 상한 = max(0, par − 현재고). 미니바=회사 재고이므로 비치 목표 초과 입고 금지.
+  const maxRestock = selectedRow ? maxRestockQty(selectedRow.onHand, selectedRow.par) : null;
+  const parReached = mode === "RESTOCK" && maxRestock === 0;
+
+  // 입고 모드로 바꾸거나 품목이 바뀌면 수량을 상한으로 클램프(0이면 1 시도)
+  useEffect(() => {
+    if (mode !== "RESTOCK" || maxRestock == null) return;
+    setQty((q) => {
+      if (maxRestock === 0) return 0;
+      const clamped = Math.min(Math.max(q, 1), maxRestock);
+      return clamped;
+    });
+  }, [mode, maxRestock]);
+
+  // 입고: 양수 + 비치 목표 초과 불가. 보정: 0 금지(음수 허용, 상한 미적용).
+  const qtyValid =
+    mode === "RESTOCK" ? qty > 0 && (maxRestock == null || qty <= maxRestock) : qty !== 0;
   const canSubmit = villaId !== "" && itemId !== "" && qtyValid && !submitting;
 
   // 표의 "입고" 버튼 → 해당 빌라·품목으로 폼 프리필 + 부족수량 만큼 기본 수량
   const prefillRestock = (r: InventoryItemRow) => {
+    setSelectedVillaId(r.villaId);
     setVillaId(r.villaId);
     setItemId(r.minibarItemId);
     setMode("RESTOCK");
-    setQty(r.shortage > 0 ? r.shortage : 1);
+    // 입고 기본 수량 = 부족분(=비치 목표까지). 이미 목표 충족(부족 0)이면 0 → 입고 불가 안내됨.
+    setQty(r.shortage);
     setMessage(null);
   };
 
@@ -81,7 +152,17 @@ export default function InventoryClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lines: [line], note: note.trim() || null }),
       });
-      if (!res.ok) throw new Error(`HTTP_${res.status}`);
+      if (!res.ok) {
+        // 비치 목표 초과 입고는 서버가 PAR_EXCEEDED로 거부 — 최대치 안내
+        const body = (await res.json().catch(() => null)) as
+          | { error?: string; max?: number }
+          | null;
+        if (body?.error === "PAR_EXCEEDED") {
+          setMessage({ ok: false, text: t("form.parExceeded", { max: body.max ?? 0 }) });
+          return;
+        }
+        throw new Error(`HTTP_${res.status}`);
+      }
       const data = (await res.json()) as { recorded: number; costUpdated: number };
       setMessage({
         ok: true,
@@ -131,82 +212,153 @@ export default function InventoryClient({
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
-        {/* 표 (2 cols) */}
-        <div className="xl:col-span-2 bg-admin-card border border-slate-800 rounded-xl overflow-hidden">
-          <div className="flex items-center gap-2 px-5 py-3 border-b border-slate-800">
-            <FilterTab active={!lowOnly} onClick={() => setLowOnly(false)}>
-              {t("filterAll")}
-            </FilterTab>
-            <FilterTab active={lowOnly} onClick={() => setLowOnly(true)}>
-              {t("filterLow")}
-            </FilterTab>
+        {/* 빌라 중심 재고 패널 (2 cols) */}
+        <div className="xl:col-span-2 space-y-4">
+          {/* 빌라 선택 + 검색 + 부족 빌라 빠른 점프 */}
+          <div className="bg-admin-card border border-slate-800 rounded-xl p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              {/* 빌라 검색 */}
+              <div className="relative flex-1">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-base">
+                  search
+                </span>
+                <input
+                  type="text"
+                  value={villaQuery}
+                  onChange={(e) => setVillaQuery(e.target.value)}
+                  placeholder={t("villaSelect.searchPlaceholder")}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-3 py-2.5 text-sm text-white focus:border-admin-primary focus:ring-0"
+                />
+              </div>
+              {/* 빌라 드롭다운(검색 결과 반영) */}
+              <select
+                aria-label={t("villaSelect.label")}
+                value={selectedVillaId}
+                onChange={(e) => jumpTo(e.target.value)}
+                className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white focus:border-admin-primary focus:ring-0 sm:max-w-[260px]"
+              >
+                {matchedVillas.length === 0 && (
+                  <option value="">{t("villaSelect.noMatch")}</option>
+                )}
+                {matchedVillas.map((g) => (
+                  <option key={g.villaId} value={g.villaId}>
+                    {g.villaName}
+                    {g.lowCount > 0 ? ` · ${t("villaSelect.lowSuffix", { n: g.lowCount })}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 부족 빌라 빠른 점프 칩 */}
+            {lowVillas.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  {t("villaSelect.lowJump")}
+                </span>
+                {lowVillas.map((g) => (
+                  <button
+                    key={g.villaId}
+                    type="button"
+                    onClick={() => jumpTo(g.villaId)}
+                    className={`text-xs font-bold rounded-full px-3 py-1 whitespace-nowrap transition-colors ${
+                      g.villaId === selectedVillaId
+                        ? "bg-red-500/30 text-red-200 border border-red-500/50"
+                        : "bg-red-500/10 text-red-300 border border-red-500/30 hover:bg-red-500/20"
+                    }`}
+                  >
+                    {g.villaName} · {t("villaSelect.lowSuffix", { n: g.lowCount })}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-slate-400 text-xs border-b border-slate-800">
-                <tr>
-                  <th className="text-left font-semibold px-5 py-3">{t("col.villa")}</th>
-                  <th className="text-left font-semibold px-3 py-3">{t("col.item")}</th>
-                  <th className="text-right font-semibold px-3 py-3">{t("col.par")}</th>
-                  <th className="text-right font-semibold px-3 py-3">{t("col.onHand")}</th>
-                  <th className="text-center font-semibold px-3 py-3">{t("col.status")}</th>
-                  <th className="text-right font-semibold px-5 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {visibleRows.length === 0 ? (
+
+          {/* 선택 빌라 품목 표 */}
+          <div className="bg-admin-card border border-slate-800 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between gap-2 px-5 py-3 border-b border-slate-800">
+              <h3 className="text-sm font-bold text-white truncate">
+                {selectedGroup ? selectedGroup.villaName : t("villaSelect.none")}
+              </h3>
+              <div className="flex items-center gap-2 shrink-0">
+                <FilterTab active={!lowOnly} onClick={() => setLowOnly(false)}>
+                  {t("filterAll")}
+                </FilterTab>
+                <FilterTab active={lowOnly} onClick={() => setLowOnly(true)}>
+                  {t("filterLow")}
+                </FilterTab>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-slate-400 text-xs border-b border-slate-800">
                   <tr>
-                    <td colSpan={6} className="px-5 py-12 text-center text-slate-500">
-                      {lowOnly ? t("emptyLow") : t("empty")}
-                    </td>
+                    <th className="text-left font-semibold px-5 py-3">{t("col.item")}</th>
+                    <th className="text-right font-semibold px-3 py-3">{t("col.par")}</th>
+                    <th className="text-right font-semibold px-3 py-3">{t("col.onHand")}</th>
+                    <th className="text-center font-semibold px-3 py-3">{t("col.status")}</th>
+                    <th className="text-right font-semibold px-5 py-3">
+                      <span className="sr-only">{t("restockBtn")}</span>
+                    </th>
                   </tr>
-                ) : (
-                  visibleRows.map((r) => (
-                    <tr
-                      key={`${r.villaId}::${r.minibarItemId}`}
-                      className="hover:bg-slate-800/40"
-                    >
-                      <td className="px-5 py-3 font-medium text-white">{r.villaName}</td>
-                      <td className="px-3 py-3 text-slate-300">{r.itemLabel}</td>
-                      <td className="px-3 py-3 text-right tabular-nums text-slate-300">{r.par}</td>
-                      <td
-                        className={
-                          r.low
-                            ? "px-3 py-3 text-right tabular-nums font-bold text-red-400"
-                            : "px-3 py-3 text-right tabular-nums text-slate-200"
-                        }
-                      >
-                        {r.onHand}
-                      </td>
-                      <td className="px-3 py-3 text-center">
-                        {r.low ? (
-                          <span className="bg-red-500/15 text-red-400 text-[11px] font-bold px-2.5 py-1 rounded-full">
-                            {t("status.low")}
-                          </span>
-                        ) : (
-                          <span className="bg-emerald-500/15 text-emerald-400 text-[11px] font-bold px-2.5 py-1 rounded-full">
-                            {t("status.ok")}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => prefillRestock(r)}
-                          className={
-                            r.low
-                              ? "text-xs font-bold bg-admin-primary hover:bg-blue-500 text-white rounded-lg px-3 py-1.5 whitespace-nowrap"
-                              : "text-xs font-bold border border-slate-700 hover:bg-slate-800 text-slate-300 rounded-lg px-3 py-1.5 whitespace-nowrap"
-                          }
-                        >
-                          {t("restockBtn")}
-                        </button>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {visibleRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-5 py-12 text-center text-slate-500">
+                        {!selectedGroup
+                          ? t("empty")
+                          : lowOnly
+                            ? t("emptyLow")
+                            : t("empty")}
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    visibleRows.map((r) => (
+                      <tr
+                        key={`${r.villaId}::${r.minibarItemId}`}
+                        className="hover:bg-slate-800/40"
+                      >
+                        <td className="px-5 py-3 text-slate-300">{r.itemLabel}</td>
+                        <td className="px-3 py-3 text-right tabular-nums text-slate-300">{r.par}</td>
+                        <td
+                          className={
+                            r.low
+                              ? "px-3 py-3 text-right tabular-nums font-bold text-red-400"
+                              : "px-3 py-3 text-right tabular-nums text-slate-200"
+                          }
+                        >
+                          {r.onHand}
+                        </td>
+                        <td className="px-3 py-3 text-center">
+                          {r.low ? (
+                            <span className="bg-red-500/15 text-red-400 text-[11px] font-bold px-2.5 py-1 rounded-full">
+                              {t("status.low")}
+                            </span>
+                          ) : (
+                            <span className="bg-emerald-500/15 text-emerald-400 text-[11px] font-bold px-2.5 py-1 rounded-full">
+                              {t("status.ok")}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => prefillRestock(r)}
+                            className={
+                              r.low
+                                ? "text-xs font-bold bg-admin-primary hover:bg-blue-500 text-white rounded-lg px-3 py-1.5 whitespace-nowrap"
+                                : "text-xs font-bold border border-slate-700 hover:bg-slate-800 text-slate-300 rounded-lg px-3 py-1.5 whitespace-nowrap"
+                            }
+                          >
+                            {t("restockBtn")}
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -279,18 +431,43 @@ export default function InventoryClient({
               <input
                 type="number"
                 value={qty}
-                onChange={(e) => setQty(Math.trunc(Number(e.target.value) || 0))}
+                onChange={(e) => {
+                  const n = Math.trunc(Number(e.target.value) || 0);
+                  // 입고 모드는 비치 목표 초과 불가 → 상한으로 클램프
+                  setQty(mode === "RESTOCK" && maxRestock != null ? Math.min(n, maxRestock) : n);
+                }}
                 className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-center text-lg font-bold text-white tabular-nums focus:border-admin-primary focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
               <button
                 type="button"
-                onClick={() => setQty((q) => q + 1)}
+                onClick={() =>
+                  setQty((q) =>
+                    mode === "RESTOCK" && maxRestock != null ? Math.min(q + 1, maxRestock) : q + 1
+                  )
+                }
+                disabled={mode === "RESTOCK" && maxRestock != null && qty >= maxRestock}
                 aria-label="+"
-                className="w-10 h-10 rounded-lg bg-admin-primary text-white text-lg hover:bg-blue-500 flex items-center justify-center"
+                className="w-10 h-10 rounded-lg bg-admin-primary text-white text-lg hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
               >
                 <span className="material-symbols-outlined text-base">add</span>
               </button>
             </div>
+            {/* 입고 상한 안내 — 비치 목표/현재고/최대 입고 수량 */}
+            {mode === "RESTOCK" && selectedRow && maxRestock != null && (
+              <p
+                className={`text-[11px] mt-1.5 leading-relaxed ${
+                  parReached ? "text-amber-400 font-semibold" : "text-slate-500"
+                }`}
+              >
+                {parReached
+                  ? t("form.parReached", { par: selectedRow.par })
+                  : t("form.maxRestockHint", {
+                      par: selectedRow.par,
+                      onHand: selectedRow.onHand,
+                      max: maxRestock,
+                    })}
+              </p>
+            )}
             {mode === "ADJUST" && (
               <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">{t("form.adjustHint")}</p>
             )}

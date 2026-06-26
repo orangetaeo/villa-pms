@@ -9,9 +9,9 @@ import {
   ServiceSelectionError,
   type CatalogOptions,
 } from "@/lib/service-catalog";
+import { catalogImage } from "@/lib/service-image";
 import type { GuestLabels } from "@/lib/guest-i18n";
-import type { PublicLang } from "@/lib/public-i18n";
-import { guestPrice, guestPriceDelta } from "./guest-format";
+import { guestVndPrice, guestVndDelta } from "./guest-format";
 import type { GuestCatalogView, GuestOption } from "./types";
 
 export interface CardSelection {
@@ -19,6 +19,10 @@ export interface CardSelection {
   addonKeys: string[];
   modifierKeys: string[];
   quantity: number;
+  /** 희망 날짜(YYYY-MM-DD, 투숙기간 내). 미선택이면 null. (#3) */
+  serviceDate: string | null;
+  /** 희망 시간(HH:MM 자유 입력). 미선택이면 null. (#3) */
+  serviceTime: string | null;
 }
 
 const TYPE_BADGE: Record<string, string> = {
@@ -37,17 +41,20 @@ const toVndStr = (v: bigint | null): string | null => (v == null ? null : v.toSt
 export function OptionCard({
   item,
   labels,
-  lang,
   selection,
   onChange,
   badgeText,
+  dateMin,
+  dateMax,
 }: {
   item: GuestCatalogView;
   labels: GuestLabels["addons"];
-  lang: PublicLang;
   selection: CardSelection;
   onChange: (next: CardSelection) => void;
   badgeText: string;
+  /** 희망 날짜 입력 가능 범위(YYYY-MM-DD) — 투숙 체크인~체크아웃. (#3) */
+  dateMin: string;
+  dateMax: string;
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -65,7 +72,7 @@ export function OptionCard({
     if (selection.quantity < 1) return null;
     try {
       return resolveOrderPricing(
-        { priceKrw: item.priceKrw, priceVnd: item.priceVnd ? BigInt(item.priceVnd) : null },
+        { priceVnd: item.priceVnd ? BigInt(item.priceVnd) : null },
         options,
         {
           variantKey: selection.variantKey,
@@ -82,8 +89,8 @@ export function OptionCard({
 
   const previewStr =
     preview != null
-      ? guestPrice(preview.totalPriceKrw, toVndStr(preview.totalPriceVnd), lang)
-      : guestPrice(item.priceKrw, item.priceVnd, lang);
+      ? guestVndPrice(toVndStr(preview.totalPriceVnd))
+      : guestVndPrice(item.priceVnd);
 
   const selectedAddons = item.addons.filter((a) => selection.addonKeys.includes(a.key));
 
@@ -114,6 +121,8 @@ export function OptionCard({
 
   const badgeCls = TYPE_BADGE[item.type] ?? "bg-slate-100 text-slate-500";
   const active = selection.quantity > 0;
+  // 업로드 사진 우선, 없으면 타입 기본 이미지(폴백)
+  const photo = catalogImage(item.type, item.photoUrl);
 
   return (
     <div
@@ -121,9 +130,9 @@ export function OptionCard({
         active ? "border-2 border-teal-200" : "border border-slate-100"
       }`}
     >
-      {item.photoUrl && (
+      {photo && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img className="w-full h-36 object-cover" alt={item.name} src={item.photoUrl} />
+        <img className="w-full h-36 object-cover" alt={item.name} src={photo} />
       )}
       <div className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-2">
@@ -160,8 +169,11 @@ export function OptionCard({
                         on ? "text-slate-900" : "text-slate-700"
                       }`}
                     >
-                      {guestPrice(v.priceKrw, v.priceVnd, lang)}
+                      {guestVndPrice(v.priceVnd)}
                     </p>
+                    {v.desc && (
+                      <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{v.desc}</p>
+                    )}
                   </button>
                 );
               })}
@@ -178,17 +190,20 @@ export function OptionCard({
                 key={a.key}
                 className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 cursor-pointer"
               >
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-2 min-w-0">
                   <input
                     type="checkbox"
                     checked={selection.addonKeys.includes(a.key)}
                     onChange={() => toggleAddon(a.key)}
-                    className="w-5 h-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                    className="w-5 h-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 shrink-0"
                   />
-                  <span className="text-sm text-slate-800">{a.label}</span>
+                  <span className="min-w-0">
+                    <span className="text-sm text-slate-800 block">{a.label}</span>
+                    {a.desc && <span className="text-[11px] text-slate-400 block leading-snug">{a.desc}</span>}
+                  </span>
                 </span>
-                <span className="text-xs font-semibold text-teal-600 tabular-nums">
-                  {guestPriceDelta(a.priceKrw, a.priceVnd, lang)}
+                <span className="text-xs font-semibold text-teal-600 tabular-nums shrink-0">
+                  {guestVndDelta(a.priceVnd)}
                 </span>
               </label>
             ))}
@@ -225,10 +240,13 @@ export function OptionCard({
             key={m.key}
             className="flex items-center justify-between rounded-xl border border-fuchsia-100 bg-fuchsia-50/40 px-3 py-2.5 cursor-pointer"
           >
-            <span className="text-sm font-semibold text-slate-800">{m.label}</span>
-            <span className="flex items-center gap-2">
+            <span className="min-w-0">
+              <span className="text-sm font-semibold text-slate-800 block">{m.label}</span>
+              {m.desc && <span className="text-[11px] text-slate-400 block leading-snug">{m.desc}</span>}
+            </span>
+            <span className="flex items-center gap-2 shrink-0">
               <span className="text-xs font-bold text-teal-600 tabular-nums">
-                {guestPriceDelta(m.priceKrw, m.priceVnd, lang)}
+                {guestVndDelta(m.priceVnd)}
               </span>
               <input
                 type="checkbox"
@@ -239,6 +257,40 @@ export function OptionCard({
             </span>
           </label>
         ))}
+
+        {/* 희망 날짜·시간 (#3) — 수량 선택 시 노출 */}
+        {active && (
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <div>
+              <label className="text-[11px] font-bold text-slate-500 mb-1 block">
+                {labels.serviceDateLabel}
+              </label>
+              <input
+                type="date"
+                min={dateMin}
+                max={dateMax}
+                aria-label={labels.serviceDateLabel}
+                title={labels.serviceDateLabel}
+                value={selection.serviceDate ?? ""}
+                onChange={(e) => onChange({ ...selection, serviceDate: e.target.value || null })}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:ring-teal-500 focus:border-teal-500"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold text-slate-500 mb-1 block">
+                {labels.serviceTimeLabel}
+              </label>
+              <input
+                type="time"
+                aria-label={labels.serviceTimeLabel}
+                title={labels.serviceTimeLabel}
+                value={selection.serviceTime ?? ""}
+                onChange={(e) => onChange({ ...selection, serviceTime: e.target.value || null })}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:ring-teal-500 focus:border-teal-500"
+              />
+            </div>
+          </div>
+        )}
 
         {/* 가격 + 수량 스테퍼 */}
         <div className="flex items-center justify-between pt-1">
@@ -292,17 +344,20 @@ export function OptionCard({
                   key={a.key}
                   className="flex items-center justify-between px-2 py-3 cursor-pointer"
                 >
-                  <span className="flex items-center gap-3">
+                  <span className="flex items-center gap-3 min-w-0">
                     <input
                       type="checkbox"
                       checked={selection.addonKeys.includes(a.key)}
                       onChange={() => toggleAddon(a.key)}
-                      className="w-5 h-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                      className="w-5 h-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 shrink-0"
                     />
-                    <span className="text-sm text-slate-800">{a.label}</span>
+                    <span className="min-w-0">
+                      <span className="text-sm text-slate-800 block">{a.label}</span>
+                      {a.desc && <span className="text-[11px] text-slate-400 block leading-snug">{a.desc}</span>}
+                    </span>
                   </span>
-                  <span className="text-sm font-semibold text-slate-900 tabular-nums">
-                    {guestPriceDelta(a.priceKrw, a.priceVnd, lang)}
+                  <span className="text-sm font-semibold text-slate-900 tabular-nums shrink-0">
+                    {guestVndDelta(a.priceVnd)}
                   </span>
                 </label>
               ))}
@@ -329,5 +384,5 @@ export function OptionCard({
 }
 
 function optToDef(o: GuestOption) {
-  return { key: o.key, labelKo: o.label, priceKrw: o.priceKrw, priceVnd: o.priceVnd };
+  return { key: o.key, labelKo: o.label, priceVnd: o.priceVnd };
 }

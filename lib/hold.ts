@@ -13,6 +13,7 @@ import {
 } from "./availability";
 import { assertSaleAmountColumns, quoteStayForVilla } from "./pricing";
 import { writeAuditLog } from "./audit-log";
+import { ensureReceivableForBooking, evaluateConfirmCredit } from "./partner-booking";
 
 /**
  * HOLD(가예약) 수명주기 단일 소스 (SPEC F3 흐름 3~5)
@@ -41,7 +42,8 @@ export type HoldRejectReason =
   | "ITEM_ALREADY_BOOKED"
   | "SOLD_OUT" // 가용성 재검증 실패 — "마감되었습니다"
   | "HOLD_EXPIRED" // 확정 시점에 이미 만료
-  | "INVALID_STATUS"; // 상태 전이 불가 (확정/취소)
+  | "INVALID_STATUS" // 상태 전이 불가 (확정/취소)
+  | "PARTNER_CREDIT_BLOCKED"; // 파트너 여신 차단(한도초과·연체·BLOCKED·SUSPENDED, ADR-0022)
 
 export class HoldRejectedError extends Error {
   constructor(
@@ -320,6 +322,13 @@ export async function confirmHold(
       throw new HoldRejectedError("HOLD_EXPIRED");
     }
 
+    // 파트너 여신 게이트 (ADR-0022) — 한도초과·연체·BLOCKED/SUSPENDED면 확정 차단.
+    // 파트너 미연결 예약은 skipped=true로 무영향.
+    const credit = await evaluateConfirmCredit(tx, booking.id, input.now);
+    if (!credit.allowed) {
+      throw new HoldRejectedError("PARTNER_CREDIT_BLOCKED", credit.reason ?? "OVER_LIMIT");
+    }
+
     // status 가드 — ADMIN 동시 조작·cron 만료와의 경합에서 한쪽만 승리 (QA D-2)
     const guarded = await tx.booking.updateMany({
       where: { id: booking.id, status: BookingStatus.HOLD },
@@ -329,6 +338,9 @@ export async function confirmHold(
       throw new HoldRejectedError("INVALID_STATUS", "동시 변경이 감지되었습니다");
     }
     const updated = await tx.booking.findUniqueOrThrow({ where: { id: booking.id } });
+
+    // 파트너 객실료 채권 생성(멱등) — 선금/잔금·기한 산출 (ADR-0022)
+    await ensureReceivableForBooking(tx, booking.id, input.now);
 
     await tx.notification.create({
       data: {

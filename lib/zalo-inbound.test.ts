@@ -328,15 +328,18 @@ describe("classifyInbound — 수신 메시지 타입 분류 (Nike parseMessageC
     expect(noUrl.attachmentUrls).toEqual([]);
   });
 
-  it("chat.link → text, 제목+URL을 본문으로 (메타 필드 노출 금지)", () => {
+  it("chat.link(URL 보유) → link 카드, 제목=text·URL=attachmentUrls[0] (메타 필드 노출 금지)", () => {
     const r = classifyInbound(
       { title: "푸꾸옥 빌라", href: "https://example.com/v", action: "recommendLink" },
       "chat.link"
     );
-    expect(r.msgType).toBe("text");
+    // 리치 링크 카드: 제목은 text(첫 줄), URL은 attachmentUrls[0](카드 클릭 시 열기).
+    expect(r.msgType).toBe("link");
     expect(r.text).toContain("푸꾸옥 빌라");
-    expect(r.text).toContain("https://example.com/v");
+    expect(r.attachmentUrls[0]).toBe("https://example.com/v");
+    // 메타/메서드 필드(action)는 본문·URL 어디에도 새지 않는다(버그 B 원칙 유지).
     expect(r.text).not.toContain("recommendLink");
+    expect(r.attachmentUrls.join(" ")).not.toContain("recommendLink");
   });
 
   it("chat.video.msg(zca-js 실제 타입) → video", () => {

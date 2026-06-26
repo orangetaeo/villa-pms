@@ -24,6 +24,8 @@
     "availability": "공실 보드",
     "inspections": "청소 검수",
     "settlements": "정산",
+    "partners": "파트너 관리",
+    "receivables": "미수/여신",
     "services": "서비스 카탈로그",
     "messages": "메시지",
     "users": "사용자",
@@ -34,7 +36,13 @@
     "closeMenu": "메뉴 닫기",
     "more": "더보기",
     "account": "비밀번호 변경",
-    "logout": "로그아웃"
+    "logout": "로그아웃",
+    "groups": {
+      "sales": "예약·판매",
+      "operations": "빌라 운영",
+      "finance": "재무",
+      "system": "시스템"
+    }
   },
   "account": {
     "title": "내 계정",
@@ -49,12 +57,85 @@
     "submitting": "변경 중...",
     "success": "비밀번호가 변경되었습니다.",
     "back": "뒤로",
+    "showPassword": "비밀번호 표시",
+    "hidePassword": "비밀번호 숨기기",
     "errors": {
       "tooShort": "비밀번호는 8자 이상이어야 합니다.",
       "mismatch": "새 비밀번호가 일치하지 않습니다.",
       "same": "현재 비밀번호와 다른 비밀번호를 입력하세요.",
       "wrongCurrent": "현재 비밀번호가 올바르지 않습니다.",
       "generic": "처리에 실패했습니다. 다시 시도해주세요."
+    }
+  },
+  "vendor": {
+    "title": "발주함",
+    "subtitle": "받은 발주와 배송 일정입니다.",
+    "loading": "불러오는 중...",
+    "loadError": "불러오기 실패. 눌러서 다시 시도하세요.",
+    "submitting": "처리 중...",
+    "payLabel": "지급 예정액",
+    "accept": "수락",
+    "reject": "거절",
+    "tab": {
+      "inbox": "발주함",
+      "schedule": "예약 현황",
+      "settlement": "정산 내역"
+    },
+    "status": {
+      "accepted": "수락함"
+    },
+    "empty": {
+      "inbox": "받은 발주가 없습니다",
+      "inboxHint": "새 발주가 도착하면 여기에 표시됩니다.",
+      "schedule": "예약된 일정이 없습니다",
+      "scheduleHint": "수락한 발주가 여기에 표시됩니다.",
+      "settlement": "정산 내역이 없습니다",
+      "settlementHint": "수락한 발주의 지급액이 여기에 표시됩니다."
+    },
+    "settle": {
+      "pendingTotal": "지급 대기",
+      "paidTotal": "지급 완료",
+      "pendingTitle": "지급 대기",
+      "paidTitle": "지급 완료",
+      "pending": "지급 대기",
+      "paid": "지급 완료"
+    },
+    "rejectSheet": {
+      "title": "이 발주를 거절할까요?",
+      "placeholder": "거절 사유 (선택)",
+      "cancel": "취소",
+      "confirm": "거절"
+    },
+    "firstLoginNotice": "임시 비밀번호로 로그인했습니다. 본인 비밀번호로 변경하면 발주를 받을 수 있습니다.",
+    "stats": {
+      "title": "통계",
+      "subtitle": "내 발주 매출과 실적",
+      "backToOrders": "발주함",
+      "empty": "아직 통계가 없습니다",
+      "emptyHint": "수락한 발주가 이행되면 매출 통계가 표시됩니다.",
+      "period_thisMonth": "이번 달",
+      "period_lastMonth": "지난달",
+      "period_year": "올해",
+      "vsPrev": "직전 대비",
+      "kpiRevenue": "매출",
+      "kpiOrders": "이행 발주",
+      "kpiAcceptance": "수락율",
+      "kpiAvgUnit": "평균 단가",
+      "unitCount": "건",
+      "revenueTrendTitle": "매출 추이",
+      "revenueLegend": "매출",
+      "unsettledLabel": "미정산 금액",
+      "settledLabel": "정산 완료",
+      "topItemsTitle": "인기 품목",
+      "itemMeta": "{orders}건 · {qty}개"
+    },
+    "approvalGate": {
+      "pendingTitle": "가입 승인 대기 중",
+      "pendingBody": "가입 신청이 운영자 검토 중입니다. 승인되면 이곳에서 발주를 받을 수 있습니다.",
+      "rejectedTitle": "가입이 거절되었습니다",
+      "rejectedBody": "죄송합니다. 가입 신청이 승인되지 않았습니다.",
+      "rejectedReasonLabel": "사유",
+      "changePassword": "비밀번호 변경"
     }
   },
   "adminDashboard": {
@@ -64,6 +145,7 @@
     "timeline": {
       "title": "빌라별 예약 현황 (30일)",
       "legendConfirmed": "확정",
+      "legendSupplierDirect": "공급자 직접예약",
       "legendHold": "가예약",
       "legendBlocked": "차단",
       "legendNotSellable": "판매불가",
@@ -163,6 +245,10 @@
         "allVillas": "전체 빌라",
         "channel": "채널",
         "allChannels": "전체 채널",
+        "seller": "판매주체",
+        "allSellers": "전체",
+        "sellerOperator": "운영자",
+        "sellerSupplier": "공급자 직접",
         "reset": "초기화"
       },
       "preset": {
@@ -187,7 +273,8 @@
       "card": {
         "nights": "{n}박",
         "viewDetail": "상세 보기"
-      }
+      },
+      "directBadge": "공급자 직접"
     },
     "status": {
       "HOLD": "가예약",
@@ -655,6 +742,7 @@
       "location": {
         "title": "위치·접근성",
         "mapUrl": "구글맵 링크",
+        "mapPreview": "지도 미리보기",
         "beachDistance": "해변 거리",
         "area": "전용면적",
         "floors": "층수",
@@ -694,12 +782,45 @@
       "passwordPlaceholder": "비밀번호 입력",
       "submit": "로그인",
       "submitting": "로그인 중...",
+      "forgotPassword": "비밀번호를 잊으셨나요?",
       "noAccount": "계정이 없으신가요?",
       "signupLink": "공급자 가입",
       "errors": {
         "invalidCredentials": "전화번호 또는 비밀번호가 올바르지 않습니다.",
         "accountDisabled": "비활성화된 계정입니다. 관리자에게 문의하세요.",
         "serverError": "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+      },
+      "vendorSignupLink": "원천 공급자로 가입"
+    },
+    "reset": {
+      "forgotTitle": "비밀번호 찾기",
+      "forgotSubtitle": "가입한 전화번호로 Zalo 인증 코드를 보내드립니다.",
+      "phone": "전화번호",
+      "phonePlaceholder": "전화번호 입력",
+      "sendCode": "인증 코드 받기",
+      "sending": "전송 중...",
+      "sentTitle": "코드를 보냈습니다",
+      "sentBody": "Zalo가 연결된 계정이라면 인증 코드를 보냈습니다. Zalo 메시지를 확인해 코드를 입력하세요.",
+      "notLinkedHint": "Zalo가 연결되어 있지 않다면 코드를 받을 수 없습니다. 관리자에게 비밀번호 초기화를 요청하세요.",
+      "goReset": "코드 입력하기",
+      "backToLogin": "로그인으로 돌아가기",
+      "resetTitle": "비밀번호 재설정",
+      "resetSubtitle": "Zalo로 받은 6자리 코드와 새 비밀번호를 입력하세요.",
+      "code": "인증 코드",
+      "codePlaceholder": "6자리 코드",
+      "newPassword": "새 비밀번호",
+      "newPasswordPlaceholder": "8자 이상 입력",
+      "resetSubmit": "비밀번호 변경",
+      "resetSubmitting": "변경 중...",
+      "successTitle": "비밀번호가 변경되었습니다",
+      "successBody": "새 비밀번호로 로그인하세요.",
+      "goLogin": "로그인하기",
+      "errors": {
+        "invalidCode": "인증 코드가 올바르지 않습니다.",
+        "codeExpired": "인증 코드가 만료되었습니다. 다시 요청해주세요.",
+        "tooManyAttempts": "코드를 너무 여러 번 잘못 입력했습니다. 다시 요청해주세요.",
+        "passwordTooShort": "비밀번호는 최소 8자 이상이어야 합니다.",
+        "serverError": "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
       }
     },
     "signup": {
@@ -981,6 +1102,37 @@
       "payoutLabel": "받을 금액",
       "payoutHint": "정산 예정액",
       "close": "닫기"
+    },
+    "direct": {
+      "recordOption": "직접 예약 기록",
+      "dateLabel": "날짜",
+      "checkIn": "체크인",
+      "checkOut": "체크아웃",
+      "guestName": "고객명",
+      "guestNamePlaceholder": "홍길동",
+      "guestCount": "인원",
+      "guestsWord": "명",
+      "decrease": "감소",
+      "increase": "증가",
+      "amountLabel": "받은 금액",
+      "contactLabel": "연락처",
+      "contactPlaceholder": "09xx xxx xxx",
+      "optional": "선택",
+      "save": "예약 저장",
+      "saving": "저장 중...",
+      "nightsLabel": "박수",
+      "nights": "{count}박",
+      "decreaseNights": "박수 감소",
+      "increaseNights": "박수 증가",
+      "weekdayShort": {
+        "mon": "월",
+        "tue": "화",
+        "wed": "수",
+        "thu": "목",
+        "fri": "금",
+        "sat": "토",
+        "sun": "일"
+      }
     }
   },
   "tabs": {
@@ -988,7 +1140,8 @@
     "calendar": "캘린더",
     "cleaning": "청소",
     "earnings": "수익",
-    "guide": "안내"
+    "guide": "안내",
+    "bookings": "예약"
   },
   "guide": {
     "headerTitle": "빠른 안내",
@@ -1055,6 +1208,28 @@
     "nights": "{count}박",
     "empty": "수익 내역이 없습니다",
     "emptyHint": "고객 체크아웃 후 수익이 표시됩니다."
+  },
+  "supplierStats": {
+    "segStats": "통계",
+    "segDetail": "정산 내역",
+    "period_thisMonth": "이번 달",
+    "period_lastMonth": "지난 달",
+    "period_year": "올해",
+    "kpiRevenue": "총 수익",
+    "kpiOccupancy": "가동율",
+    "kpiBookings": "예약",
+    "kpiAvgNights": "평균 박수",
+    "unitCount": "건",
+    "unitNights": "박",
+    "vsPrev": "직전 대비",
+    "revenueTrendTitle": "수익 추이",
+    "occupancyTrendTitle": "가동율 추이",
+    "revenueLegend": "수익",
+    "occupancyLegend": "가동율",
+    "villaPerfTitle": "빌라별 성과",
+    "villaNights": "{count}박 점유",
+    "empty": "아직 통계 데이터가 없습니다",
+    "emptyHint": "빌라를 등록하고 예약이 생기면 매출·가동율이 표시됩니다."
   },
   "adminSettings": {
     "agreement": {
@@ -1186,12 +1361,21 @@
     "zaloCardCta": "관리",
     "servicesCardTitle": "서비스 카탈로그",
     "servicesCardDesc": "BBQ·입장권·차량 등 부가서비스 판매 메뉴와 옵션·가격을 관리합니다.",
-    "servicesCardCta": "관리"
+    "servicesCardCta": "관리",
+    "vendorsCardTitle": "원천 공급자",
+    "vendorsCardDesc": "부가서비스를 발주·정산하는 외부 거래처(과일가게·BBQ업체 등)를 관리합니다.",
+    "vendorsCardCta": "관리"
   },
   "inventory": {
     "title": "미니바 재고",
     "subtitle": "빌라별 현재고 vs 비치 목표 · 입고 관리",
     "headerSub": "빌라별 현재고 · 입고 관리",
+    "tab": {
+      "stock": "재고 현황",
+      "items": "미니바 품목"
+    },
+    "itemsTitle": "미니바 품목 관리",
+    "itemsSubtitle": "판매할 미니바 품목과 판매가·입고가를 입력하세요. 전 빌라 공통으로 적용됩니다.",
     "filterAll": "전체",
     "filterLow": "부족만",
     "col": {
@@ -1224,6 +1408,9 @@
       "modeRestock": "입고",
       "modeAdjust": "보정",
       "adjustHint": "보정은 실사·분실 반영용입니다. 음수도 입력할 수 있습니다.",
+      "maxRestockHint": "비치 목표 {par} · 현재고 {onHand} · 최대 입고 {max}개",
+      "parReached": "이미 비치 목표({par})를 채웠습니다 — 더 입고할 수 없습니다.",
+      "parExceeded": "비치 목표를 초과할 수 없습니다 (최대 {max}개).",
       "unitCost": "매입 단가 (VND)",
       "unitCostHint": "매입 단가 입력 시 미니바 마진 통계가 활성화됩니다.",
       "note": "메모 (선택)",
@@ -1235,6 +1422,14 @@
       "savedCost": "입고 {n}건 기록 · 매입 단가 갱신됨",
       "error": "기록에 실패했습니다. 다시 시도하세요.",
       "invalidQty": "수량을 확인하세요."
+    },
+    "villaSelect": {
+      "label": "빌라 선택",
+      "searchPlaceholder": "빌라 검색…",
+      "noMatch": "일치하는 빌라가 없습니다",
+      "none": "빌라를 선택하세요",
+      "lowSuffix": "부족 {n}",
+      "lowJump": "부족 빌라"
     }
   },
   "adminMinibar": {
@@ -1250,8 +1445,14 @@
     "nameKoPlaceholder": "예: 생수",
     "nameViLabel": "베트남어 품목명(선택)",
     "nameViPlaceholder": "예: Nước suối",
-    "priceLabel": "단가(VND)",
-    "pricePlaceholder": "단가",
+    "priceLabel": "판매가(VND)",
+    "pricePlaceholder": "판매가",
+    "costLabel": "입고가(VND)",
+    "costPlaceholder": "입고가",
+    "saleTag": "판매",
+    "costTag": "입고",
+    "costNone": "입고가 미입력",
+    "autoTranslateHint": "한국어로만 입력하면 됩니다. 손님 화면(베트남어 등)에는 자동 번역되어 표시됩니다.",
     "qtyLabel": "기본 비치 수량",
     "qtyPlaceholder": "수량",
     "qtyUnit": "개",
@@ -1265,6 +1466,89 @@
     "cancel": "취소",
     "saved": "저장되었습니다",
     "error": "저장에 실패했습니다"
+  },
+  "adminVendors": {
+    "title": "원천 공급자",
+    "subtitle": "부가서비스를 발주·정산하는 외부 거래처를 관리합니다. 요청이 오면 이 공급자에게 발주하고, 공급자 응답 후 고객에 확정합니다.",
+    "back": "설정으로",
+    "forbidden": "이 화면을 볼 권한이 없습니다.",
+    "addButton": "공급자 추가",
+    "empty": "등록된 원천 공급자가 없습니다. 위에서 추가하세요.",
+    "active": "거래중",
+    "inactive": "중단",
+    "edit": "수정",
+    "delete": "삭제",
+    "deleteConfirm": "이 공급자를 삭제할까요?",
+    "deleted": "삭제되었습니다",
+    "saved": "저장되었습니다",
+    "error": "저장에 실패했습니다. 다시 시도해주세요.",
+    "inUseWarning": "연결된 카탈로그·발주가 있어 삭제할 수 없습니다. 대신 비활성화하세요.",
+    "noZalo": "Zalo 미설정 (발주 알림 불가)",
+    "catalogBadge": "연결 카탈로그 {n}",
+    "accountBadge": "계정 연결됨",
+    "bankBadge": "정산계좌",
+    "form": {
+      "createTitle": "공급자 추가",
+      "editTitle": "공급자 편집 — {name}",
+      "name": "거래처명",
+      "namePlaceholder": "예: 푸꾸옥 과일가게 A",
+      "nameRequired": "거래처명은 필수입니다.",
+      "nameKo": "한국어명 (선택)",
+      "nameKoPlaceholder": "예: 과일가게A",
+      "phone": "전화번호",
+      "phonePlaceholder": "예: 0901234567",
+      "zaloUserId": "Zalo ID",
+      "zaloPlaceholder": "Zalo 사용자 ID",
+      "zaloHint": "발주 알림 수신용. 미설정 시 자동 발주가 불가합니다.",
+      "bankTitle": "정산 계좌 (운영자 전용)",
+      "bank": "은행",
+      "bankPlaceholder": "예: Vietcombank",
+      "account": "계좌번호",
+      "accountPlaceholder": "계좌번호",
+      "holder": "예금주",
+      "holderPlaceholder": "예금주명",
+      "note": "메모",
+      "notePlaceholder": "선택 입력",
+      "active": "거래 활성",
+      "save": "저장",
+      "saving": "저장 중...",
+      "cancel": "취소",
+      "validationFailed": "입력값을 확인하세요."
+    },
+    "createAccountButton": "로그인 계정 생성",
+    "accountModalTitle": "공급자 로그인 계정 생성",
+    "accountModalDesc": "공급자가 /vendor 페이지에 로그인할 계정을 만듭니다. 전화번호와 임시 비밀번호를 입력하고, 생성 후 공급자에게 직접 전달하세요.",
+    "accountPhone": "전화번호",
+    "accountPhonePlaceholder": "예: 0901234567",
+    "accountPassword": "임시 비밀번호 (8자 이상)",
+    "accountPasswordPlaceholder": "임시 비밀번호",
+    "accountCreate": "계정 생성",
+    "accountCreating": "생성 중...",
+    "accountCancel": "취소",
+    "accountCreated": "계정이 생성되었습니다. 공급자에게 전화번호와 임시 비밀번호를 전달하세요.",
+    "accountPhoneTaken": "이미 사용 중인 전화번호입니다.",
+    "accountExists": "이미 계정이 연결된 공급자입니다.",
+    "accountError": "계정 생성에 실패했습니다. 다시 시도해주세요.",
+    "accountUnlink": "계정 해제",
+    "accountUnlinkConfirm": "이 공급자의 로그인 계정을 해제할까요? 계정은 비활성화되고 로그인할 수 없게 됩니다.",
+    "accountUnlinked": "계정이 해제되었습니다.",
+    "statusPending": "승인 대기",
+    "statusApproved": "승인됨",
+    "statusRejected": "거절됨",
+    "selfSignupBadge": "자가 가입",
+    "pendingSectionTitle": "승인 대기",
+    "approve": "승인",
+    "reject": "거절",
+    "approveConfirm": "이 공급자를 승인할까요? 승인 후 발주를 받을 수 있습니다.",
+    "approved": "공급자를 승인했습니다.",
+    "rejected": "가입을 거절했습니다.",
+    "rejectModalTitle": "가입 거절",
+    "rejectReasonLabel": "거절 사유 (선택)",
+    "rejectReasonPlaceholder": "사유는 공급자에게 표시됩니다",
+    "rejectConfirm": "거절",
+    "rejectCancel": "취소",
+    "approvalError": "처리에 실패했습니다. 다시 시도해주세요.",
+    "bankSignupBadge": "정산계좌"
   },
   "adminServices": {
     "title": "서비스 카탈로그",
@@ -1293,7 +1577,8 @@
       "BREAKFAST": "조식",
       "MOTORBIKE_RENTAL": "오토바이",
       "MASSAGE": "마사지",
-      "BARBER": "이발"
+      "BARBER": "이발",
+      "FRUIT": "과일"
     },
     "form": {
       "createTitle": "메뉴 추가",
@@ -1327,15 +1612,38 @@
       "optLabelKo": "라벨 (한국어)",
       "optLabelVi": "라벨 (베트남어)",
       "optPriceKrw": "KRW",
-      "optPriceVnd": "VND",
+      "optPriceVnd": "판매가",
+      "optCostVnd": "원가",
+      "optDescKo": "설명 (한국어, 선택 — 자동번역)",
       "addOption": "행 추가",
       "removeOption": "삭제",
       "save": "저장",
       "saving": "저장 중...",
       "cancel": "취소",
       "noPrice": "판매가는 KRW·VND 중 최소 1개를 입력하세요.",
-      "validationFailed": "입력값을 확인하세요."
-    }
+      "validationFailed": "입력값을 확인하세요.",
+      "autoTranslateHint": "베트남어·영어·중국어·러시아어 번역은 저장 시 자동 생성됩니다. 한국어만 입력하세요.",
+      "priceRequired": "판매가(VND)는 필수입니다.",
+      "photo": "사진",
+      "photoUpload": "사진 업로드",
+      "photoReplace": "사진 교체",
+      "photoRemove": "사진 제거",
+      "uploading": "업로드 중…",
+      "uploadError": "사진 업로드에 실패했습니다. 다시 시도하세요.",
+      "krwPreview": "≈ ₩{krw} (환율 자동)",
+      "vendor": "원천 공급자",
+      "vendorNone": "없음 (직접 제공)",
+      "vendorHint": "요청이 오면 이 공급자에게 발주합니다. 미지정이면 직접 제공으로 처리됩니다.",
+      "audiences": "요청 가능 채널",
+      "audienceAdmin": "운영자",
+      "audienceAdminLocked": "(항상 가능)",
+      "audiencePartner": "여행사/랜드사",
+      "audienceGuest": "소비자(게스트)"
+    },
+    "filters": {
+      "allTypes": "전체"
+    },
+    "emptyFiltered": "이 유형에 등록된 메뉴가 없습니다."
   },
   "adminServiceOrders": {
     "title": "부가옵션 주문",
@@ -1344,8 +1652,10 @@
     "colMenu": "메뉴명",
     "colQty": "수량",
     "colVia": "출처",
+    "colWhen": "희망 일시",
     "colSale": "판매가",
     "colCost": "원가",
+    "colVendor": "원천 공급자",
     "colStatus": "상태",
     "colActions": "처리",
     "viaGuest": "GUEST",
@@ -1368,6 +1678,9 @@
     "addons": "추가",
     "modifiers": "옵션",
     "quantity": "수량",
+    "serviceDate": "희망 날짜",
+    "serviceTime": "희망 시각",
+    "serviceWhenHint": "고객이 채팅·전화로 요청한 날짜·시각을 입력하세요(선택).",
     "guestNote": "게스트 메모",
     "guestNotePlaceholder": "선택 입력",
     "total": "합계",
@@ -1377,7 +1690,216 @@
     "variantRequired": "선택지를 1개 고르세요.",
     "saved": "저장되었습니다",
     "error": "처리에 실패했습니다. 다시 시도해주세요.",
-    "cancelConfirm": "이 주문을 취소할까요?"
+    "cancelConfirm": "이 주문을 취소할까요?",
+    "vendor": {
+      "direct": "직접 제공",
+      "status": {
+        "NONE": "미발주",
+        "PENDING_VENDOR": "발주됨(대기)",
+        "VENDOR_ACCEPTED": "수락",
+        "VENDOR_REJECTED": "거절"
+      },
+      "dispatch": "발주 보내기",
+      "dispatched": "발주를 보냈습니다",
+      "noZaloWarn": "공급자 Zalo 미설정 — 수동 연락이 필요합니다",
+      "noVendor": "발주할 공급자가 지정되지 않았습니다",
+      "cannotDispatch": "현재 상태에서는 발주할 수 없습니다",
+      "confirmGate": "공급자 수락 대기",
+      "notAcceptedWarn": "공급자가 아직 수락하지 않았습니다",
+      "settleMethod": "결제수단",
+      "markSettled": "정산 완료",
+      "settled": "정산완료",
+      "settledAt": "정산완료 {date}",
+      "unsettle": "해제",
+      "method": {
+        "CASH": "현금",
+        "BANK_TRANSFER": "이체",
+        "OTHER": "기타"
+      }
+    }
+  },
+  "adminReceivables": {
+    "title": "미수/여신 대시보드",
+    "subtitle": "여행사·랜드사 미수 현황과 연체·한도초과 경보",
+    "empty": "미수 채권이 없습니다",
+    "agingTitle": "연령 분석(Aging) 합산",
+    "alerts": "경보",
+    "overLimitBadge": "한도초과",
+    "kpi": {
+      "totalOutstanding": "총 미수 잔액",
+      "overdueOutstanding": "연체 미수",
+      "overduePartners": "연체 파트너",
+      "overLimit": "한도초과 파트너"
+    }
+  },
+  "adminPartners": {
+    "title": "파트너 관리",
+    "subtitle": "여행사·랜드사 신용·미수 관리",
+    "new": "신규 파트너",
+    "createTitle": "신규 파트너 등록",
+    "empty": "등록된 파트너가 없습니다",
+    "viewDetail": "상세 보기",
+    "edit": "수정",
+    "create": "등록",
+    "save": "저장",
+    "cancel": "취소",
+    "saving": "저장 중…",
+    "saveFailed": "저장에 실패했습니다",
+    "assign": {
+      "title": "파트너 지정",
+      "none": "지정된 파트너가 없습니다",
+      "select": "파트너 선택",
+      "assign": "지정",
+      "receivable": "미수",
+      "locked": "채권이 생성되어 변경할 수 없습니다 (취소 후 재예약)",
+      "vndOnly": "파트너 채권은 VND 객실료 예약에만 적용됩니다",
+      "failed": "지정에 실패했습니다"
+    },
+    "overdue": "연체",
+    "outstanding": "미수 잔액",
+    "creditInfo": "신용 조건",
+    "contactInfo": "연락처",
+    "creditSectionHint": "등급 A(선불)는 여신이 없어 신용한도·결제주기가 비활성됩니다.",
+    "prepaid": "선불",
+    "days": "일",
+    "receivablesTitle": "미수 채권",
+    "noReceivables": "미수 채권이 없습니다",
+    "bookingsTitle": "예약 이력",
+    "noBookings": "예약 이력이 없습니다",
+    "col": {
+      "name": "파트너",
+      "type": "유형",
+      "tier": "등급",
+      "outstanding": "미수 잔액",
+      "creditLimit": "신용한도",
+      "status": "상태"
+    },
+    "form": {
+      "type": "유형",
+      "name": "이름",
+      "nameVi": "베트남어 이름",
+      "contactPhone": "전화번호",
+      "contactZalo": "Zalo ID",
+      "contactEmail": "이메일",
+      "creditTier": "신용 등급",
+      "creditLimit": "신용한도(₫)",
+      "depositRate": "선금율(%)",
+      "paymentTermDays": "지급기한(일)",
+      "billingCycle": "마감 주기",
+      "status": "상태",
+      "memo": "메모",
+      "country": "국가"
+    },
+    "types": {
+      "TRAVEL_AGENCY": "여행사",
+      "LAND_AGENCY": "랜드사"
+    },
+    "tiers": {
+      "A": "A · 선불",
+      "B": "B · 단기여신",
+      "C": "C · 특별계약"
+    },
+    "tierShort": {
+      "A": "선불",
+      "B": "여신",
+      "C": "특별"
+    },
+    "statuses": {
+      "ACTIVE": "활성",
+      "SUSPENDED": "보류",
+      "BLOCKED": "차단"
+    },
+    "cycles": {
+      "NONE": "없음(선불)",
+      "WEEKLY": "주간",
+      "BIWEEKLY": "15일",
+      "MONTHLY": "월간"
+    },
+    "aging": {
+      "0-7": "0-7일",
+      "8-15": "8-15일",
+      "16-30": "16-30일",
+      "30+": "30일+"
+    },
+    "receivableStatus": {
+      "PENDING": "미입금",
+      "PARTIAL": "부분입금",
+      "PAID": "완납",
+      "OVERDUE": "연체",
+      "WRITTEN_OFF": "대손"
+    },
+    "rcv": {
+      "dueDate": "기한",
+      "total": "객실료",
+      "paid": "입금",
+      "status": "상태"
+    },
+    "bk": {
+      "villa": "빌라",
+      "stay": "숙박",
+      "total": "객실료",
+      "status": "상태"
+    },
+    "tabs": {
+      "overview": "현황",
+      "invoices": "청구서"
+    },
+    "invoices": {
+      "title": "마감 청구서",
+      "hint": "미청구 잔금 채권을 기간으로 묶어 청구서를 발행합니다. 발행 후 PDF·Zalo로 발송하세요.",
+      "empty": "청구서가 없습니다",
+      "createTitle": "청구서 생성",
+      "periodStart": "기간 시작",
+      "periodEnd": "기간 종료",
+      "generate": "청구서 생성",
+      "creating": "생성 중…",
+      "count": "{n}건 채권",
+      "period": "청구 기간",
+      "due": "지급 기한",
+      "total": "청구액",
+      "paid": "수납액",
+      "status": "상태",
+      "invoiceStatus": {
+        "DRAFT": "초안",
+        "ISSUED": "발행",
+        "PARTIAL": "부분수납",
+        "PAID": "완납",
+        "VOID": "무효"
+      },
+      "action": {
+        "issue": "발행",
+        "void": "무효화",
+        "pay": "수납 기록",
+        "pdf": "PDF",
+        "zalo": "Zalo 발송"
+      },
+      "payTitle": "수납 기록",
+      "payAmount": "수납액 (VND)",
+      "paySubmit": "기록",
+      "confirmVoid": "이 청구서를 무효화할까요? 묶인 채권은 다시 청구 가능해집니다.",
+      "generating": "PDF 생성 중…",
+      "sending": "Zalo 발송 중…",
+      "sentWithFile": "Zalo로 청구서(PDF 첨부)를 발송했습니다",
+      "sentTextOnly": "Zalo로 청구서 본문을 발송했습니다 (PDF 첨부 실패)",
+      "err": {
+        "PERIOD_EXISTS": "같은 기간의 청구서가 이미 있습니다",
+        "NO_RECEIVABLES": "청구할 잔금 채권이 없습니다",
+        "NO_ZALO_LINK": "파트너에 Zalo 연락처(UID)가 없습니다",
+        "SEND_FAILED": "Zalo 발송에 실패했습니다 (봇 연결 확인)",
+        "INVALID_STATUS": "현재 상태에서는 할 수 없습니다",
+        "generic": "처리에 실패했습니다"
+      }
+    },
+    "countries": {
+      "none": "미지정",
+      "VN": "베트남",
+      "KR": "한국",
+      "CN": "중국",
+      "RU": "러시아",
+      "US": "미국",
+      "JP": "일본",
+      "TH": "태국"
+    }
   },
   "adminSettlements": {
     "title": "정산 관리",
@@ -1921,7 +2443,8 @@
       "contact": "[연락처]",
       "contactNamed": "[연락처] {name}",
       "video": "[동영상]",
-      "location": "[위치]"
+      "location": "[위치]",
+      "link": "[링크]"
     },
     "card": {
       "villaShare": "빌라 공유",
@@ -1971,11 +2494,11 @@
       "replyingTo": "{name}에게 답글",
       "fileFallback": "[파일]",
       "jumpToOriginal": "원본 메시지로 이동",
-      "notSupported": "과거 메시지에는 답글을 보낼 수 없습니다."
+      "notSupported": "이 메시지는 답글 기능 적용 전에 받은 것이라 인용할 수 없어요. 최근 메시지에는 답글이 됩니다."
     },
     "react": {
       "action": "리액션",
-      "notSupported": "과거 메시지에는 리액션을 추가할 수 없습니다.",
+      "notSupported": "이 메시지는 리액션 기능 적용 전에 받은 것이라 추가할 수 없어요. 최근 메시지에는 리액션이 됩니다.",
       "failed": "리액션 전송에 실패했습니다. 잠시 후 다시 시도하세요."
     },
     "attach": {
@@ -2427,7 +2950,8 @@
       "overview": "개요",
       "occupancy": "가동률",
       "villas": "빌라 성과",
-      "operations": "운영지표"
+      "operations": "운영지표",
+      "ancillary": "부가서비스·미니바"
     },
     "range": {
       "6": "최근 6개월",
@@ -2449,7 +2973,7 @@
       "nightsUnit": "박"
     },
     "overview": {
-      "basisNote": "매출 인식 = 체크아웃 월 기준 · 통화별 분리 집계 (KRW·VND 합산하지 않음)",
+      "basisNote": "매출 인식 = 체크아웃 월 기준 · 빌라+부가서비스+미니바 합산 · 통화별 분리 집계 (KRW·VND 합산하지 않음)",
       "fxMissingNote": "환율 미기록 예약 {count}건은 마진 집계에서 제외",
       "kpi": {
         "krwRevenue": "KRW 매출",
@@ -2463,7 +2987,7 @@
       },
       "revenueChart": {
         "title": "월별 매출 추이",
-        "subtitle": "KRW·VND 분리 표시 (좌·우 축 별도) — 합산 아님",
+        "subtitle": "빌라+부가서비스+미니바 포함 · KRW·VND 분리 표시 (좌·우 축 별도) — 통화 합산 아님",
         "krwLegend": "KRW (좌축, 원)",
         "vndLegend": "VND (우축, ₫)"
       },
@@ -2613,8 +3137,13 @@
         "BREAKFAST": "조식",
         "MOTORBIKE_RENTAL": "오토바이",
         "MASSAGE": "마사지",
-        "BARBER": "이발"
+        "BARBER": "이발",
+        "FRUIT": "과일"
       }
+    },
+    "ancillary": {
+      "title": "부가서비스·미니바 매출",
+      "subtitle": "미니바 판매와 부가서비스 매출·마진을 한곳에 모아 봅니다 (개요 KPI에는 합산 포함)"
     }
   },
   "adminGuestToken": {
@@ -2628,6 +3157,164 @@
     "copy": "복사",
     "copied": "복사됨",
     "signed": "게스트가 동의서에 서명했습니다",
-    "error": "처리 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요."
+    "error": "처리 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.",
+    "qrCheckin": "체크인 QR",
+    "qrOptions": "옵션 요청 QR",
+    "copyLink": "링크 복사",
+    "qrUnavailable": "QR을 만들 수 없습니다"
+  },
+  "myBookings": {
+    "title": "직접예약 검수",
+    "subtitle": "직접 판매한 고객의 체크인·아웃을 진행합니다.",
+    "empty": "직접예약이 아직 없습니다.",
+    "goCalendar": "캘린더 열기",
+    "pendingSection": "처리 필요",
+    "doneSection": "완료됨",
+    "guestsLabel": "{name} 외 {n}명",
+    "doCheckin": "체크인",
+    "doCheckout": "체크아웃",
+    "completed": "체크아웃 완료",
+    "status": {
+      "confirmed": "체크인 대기",
+      "checkedIn": "투숙 중",
+      "checkedOut": "체크아웃 완료"
+    }
+  },
+  "supplierCheckin": {
+    "pageTitle": "체크인",
+    "back": "뒤로",
+    "guestsLabel": "{name} 외 {n}명",
+    "submit": "체크인 완료",
+    "submitting": "처리 중…",
+    "submitError": "체크인에 실패했습니다. 다시 시도하세요.",
+    "submitCaption": "고객 정보는 이번 숙박에만 사용됩니다.",
+    "needPassport": "여권 사진이 최소 1장 필요합니다.",
+    "passport": {
+      "title": "여권 사진",
+      "guestN": "고객 {n}",
+      "alt": "여권 {n}",
+      "remove": "사진 삭제",
+      "upload": "사진 추가",
+      "uploading": "업로드 중…",
+      "uploadError": "사진 업로드 실패. 다시 시도하세요.",
+      "ocrHint": "여권을 촬영하면 이름·여권번호를 자동으로 읽습니다.",
+      "ocrTitle": "고객 {n} 정보",
+      "ocrRun": "다시 읽기",
+      "ocrRunning": "읽는 중…",
+      "ocrNotConfigured": "자동 인식 미설정 — 직접 입력하세요.",
+      "ocrFailed": "인식 실패 — 직접 입력하세요.",
+      "fields": {
+        "surname": "성",
+        "givenNames": "이름",
+        "passportNo": "여권번호",
+        "nationality": "국적",
+        "birthDate": "생년월일",
+        "expiryDate": "만료일",
+        "sex": "성별"
+      }
+    },
+    "deposit": {
+      "title": "보증금",
+      "skip": "보증금 미수취",
+      "held": "보증금 수취"
+    },
+    "agreement": {
+      "title": "이용 동의서",
+      "consent": "고객이 이용 수칙에 동의하고 서명했습니다.",
+      "signedBadge": "서명 완료",
+      "signatureLabel": "고객 서명",
+      "clear": "지우기",
+      "signComplete": "서명 저장",
+      "signUploading": "저장 중…",
+      "signError": "서명 저장 실패.",
+      "unsignedHint": "서명 없이도 완료 가능 — '미서명'으로 표시됩니다."
+    }
+  },
+  "supplierCheckout": {
+    "pageTitle": "체크아웃",
+    "back": "뒤로",
+    "guestsLabel": "{name} 외 {n}명",
+    "submit": "체크아웃 완료",
+    "submitting": "처리 중…",
+    "submitError": "체크아웃에 실패했습니다. 다시 시도하세요.",
+    "submitCaption": "체크아웃 후 청소 대기 상태가 됩니다.",
+    "needPhoto": "현재 사진이 최소 1장 필요합니다.",
+    "generalPhotos": "객실 사진",
+    "spaces": {
+      "EXTERIOR": "외관",
+      "LIVING": "거실",
+      "KITCHEN": "주방",
+      "BEDROOM": "침실",
+      "BATHROOM": "화장실",
+      "BALCONY": "베란다",
+      "POOL": "수영장",
+      "ETC": "기타"
+    },
+    "photo": {
+      "title": "객실 비교",
+      "baseline": "기준 사진",
+      "current": "현재 사진",
+      "done": "촬영 완료",
+      "pending": "미촬영",
+      "take": "사진 촬영",
+      "uploading": "업로드 중…",
+      "uploadError": "사진 업로드 실패. 다시 시도하세요."
+    },
+    "damage": {
+      "title": "파손",
+      "hint": "파손이 있으면 켜서 사진·차감액을 추가하세요.",
+      "note": "파손 내용",
+      "notePlaceholder": "예: 컵 파손, 커튼 손상…",
+      "deduction": "차감액"
+    },
+    "deposit": {
+      "received": "받은 보증금",
+      "deduction": "파손 차감",
+      "refund": "환불액"
+    },
+    "minibar": {
+      "title": "미니바 사용",
+      "hint": "사용 수량 입력",
+      "parPrice": "비치 {par} · {price}₫",
+      "decrease": "감소",
+      "increase": "증가",
+      "total": "미니바 합계"
+    }
+  },
+  "vendorSignup": {
+    "headerTitle": "원천 공급자 가입",
+    "title": "원천 공급자 가입",
+    "subtitle": "부가서비스 발주를 받으려면 가입하세요. 운영자 승인 후 발주 수신이 시작됩니다.",
+    "name": "상호 / 거래처명",
+    "namePlaceholder": "예: 푸꾸옥 과일가게 A",
+    "phone": "전화번호",
+    "phonePlaceholder": "0xxx xxx xxx",
+    "password": "비밀번호",
+    "passwordPlaceholder": "최소 8자 이상",
+    "zalo": "Zalo ID (선택)",
+    "zaloPlaceholder": "Zalo 사용자 ID",
+    "zaloHint": "발주 알림 수신용입니다.",
+    "bankTitle": "정산 받을 계좌 (선택)",
+    "bank": "은행",
+    "bankPlaceholder": "예: Vietcombank",
+    "account": "계좌번호",
+    "accountPlaceholder": "계좌번호",
+    "holder": "예금주",
+    "holderPlaceholder": "예금주명",
+    "note": "메모 (선택)",
+    "notePlaceholder": "운영자에게 전할 내용",
+    "submit": "가입 신청",
+    "submitting": "전송 중...",
+    "back": "뒤로",
+    "hasAccount": "이미 계정이 있으신가요?",
+    "loginLink": "로그인",
+    "successTitle": "가입 신청 완료!",
+    "successBody": "가입 신청이 접수되어 운영자 승인을 기다리고 있습니다. 승인되면 로그인하여 발주를 받을 수 있습니다.",
+    "goLogin": "로그인 페이지로",
+    "errors": {
+      "phoneExists": "이미 등록된 전화번호입니다.",
+      "passwordTooShort": "비밀번호는 최소 8자 이상이어야 합니다.",
+      "serverError": "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+    }
   }
 }

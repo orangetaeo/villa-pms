@@ -114,6 +114,35 @@
 - [~] T4.6 LAUNCH.md 오픈 체크리스트 최종 점검 → 오픈 (PM/QA/OPS) — **1차 전수 점검 완료(2026-06-16)**: 11항목 실측(F1~F4·F6·누수·스모크 PASS), 프로덕션 스모크 증적(health 200·보호 307·미인증 차단). **오픈 차단요인은 전부 테오님 활성화 의존**: ① Zalo 라이브(QR 로그인·OA 발급) ② 파일럿 시드 프로덕션 실행 ③ T4.4 실사용자 테스트 ④ Zalo 라우트 배포 후 재스모크. 상세: docs/LAUNCH.md §6. **2026-06-23 재점검(§6.6)**: 스모크 재실측 통과(신규 공실보드 라우트 포함), ①Zalo QR 로그인 **완료**(테오님 확인, 잔여=실송수신 1회 검증·notifications cron 등록), ②시드 **완료**(테오님 `/villas` 확인), ③T4.4 **키트 준비완료**·진행 대기, ④테스트데이터 **잔존 확인**(공개 직전 삭제). **잔여 차단=③T4.4 실사용 테스트 진행뿐**(나머지는 검증·청소 단계). 계약: docs/contracts/T4.6-launch-readiness.md
 - [x] T4.7 PWA 설치 기반 (OPS) — 2026-06-16 완료. app/manifest.ts(standalone·theme #0D9488·bg #F8FAFC·lang vi·icons SVG any+maskable), app/icon.svg(파비콘 겸용 브랜드 빌라 아이콘), app/apple-icon.tsx(next/og ImageResponse 180 PNG — sharp 불필요), app/layout.tsx viewport(themeColor·viewportFit cover safe-area)+appleWebApp 메타. 베트남 공급자 폰 홈화면 설치 지원(모바일 우선). vitest 8개(manifest 출력·SVG 유효성·apple-icon 소스 가드), typecheck 통과. ~~잔여: 배포 후 스모크~~ → **2026-06-16 프로덕션 스모크 PASS**(/manifest.webmanifest 200 application/manifest+json·본문 계약 정합·/icon.svg 200·/apple-icon 200 PNG 2173B). 잔여: 모바일 설치 프롬프트 실기기 실측만. 계약: docs/contracts/T-pwa-install.md
 
+## Sprint 5 — F10 공급자 직접 판매 채널 (양방향 모델, ADR-0021)
+
+> 원래 사업 모델 복원: 공급자가 자기 고객에 직접 판매 → 공실 실시간 공유 → 우리가 선점 재판매. 확정(테오 2026-06-26): 둘 다(단계적)·선착순·공급자 100%(정산 제외)·검수 미승인도 직접판매 허용·직접예약 게스트도 정식 F4 검수(D5, 공급자 수행). **격리 브랜치 wt/f10-supplier-direct에서 진행**. 스키마는 additive **raw SQL ALTER**(db push 금지 — [[db-schema-drift-villa-source]]). 단어 DIRECT 재사용 금지(seller=SUPPLIER로 표현).
+
+### Phase A — 직접예약 수동 기록 + 현장 검수 (MVP)
+- [x] T10.0 Stitch 디자인: ① 공급자 캘린더 "직접 예약 기록" 바텀시트·입력 폼 ② 공급자 vi 체크인(여권·동의서 서명·보증금) ③ 공급자 vi 체크아웃(기준사진 대조·파손) — b3·b4 운영자 화면의 vi 모바일 변형 (a3 톤 계승) → design/stitch/ (DESIGN, 테오 확인)
+- [x] T10.1 스키마: `Booking.seller` enum `BookingSeller{OPERATOR|SUPPLIER}` @default(OPERATOR) + `Booking.supplierSalePriceVnd BigInt?` raw SQL ALTER, 기존 예약 OPERATOR 백필, `NotificationType.SUPPLIER_DIRECT_BOOKING` 추가 (TDA/BE) — 스키마 1세션 전담(PARTNER-1 스키마 세션과 조율)
+- [x] T10.2 공급자 직접예약 API+UI: `POST/DELETE /api/supplier/bookings`(supplierId 스코프, lockVillaInventory+checkAvailability 게이트 재사용, 선착순 409, writeAuditLog) + /calendar 직접예약 기록 폼 (BE/UX-VN) — 의존 T10.1
+- [x] T10.3 운영자 가시성: lib/timeline.ts 셀 enum에 SUPPLIER_DIRECT 추가(T1.5 계약 호환) + 타임라인/대시보드 신규 셀 색 + /bookings seller 필터 (FE) — 의존 T10.1
+- [x] T10.4 정산 제외 + Zalo 알림 + 누수 QA: settlement 집계 `seller=OPERATOR` 필터, 직접예약 생성 시 운영자 알림, 권한 누수 4종(타인빌라 403·운영자 판매가 비노출·정산 혼입 0·선착순 충돌 상세 비노출) (BE/INTEG/QA) — 의존 T10.2
+- [x] T10.5 공급자 vi 체크인·아웃 검수 화면 (D5 — 정식 F4 적용): 여권 OCR·동의서 서명·보증금·체크아웃 사진 비교·청소 + **미니바 소모 정산 블록(D6 — 미니바=운영자 재고, 매출 우리 것)**. lib/checkin·lib/checkout 재사용, 공급자 vi 신규 라우트(app/(supplier)/), 권한 `seller=SUPPLIER` AND `villa.supplierId===session.user.id` 스코프, 여권·서명 비공개 파이프라인 재사용. "운영자 전달" 단계 제외(공급자 본인 임시거주신고). 서명 비게이트+미서명 배지로 시작. **전환별 미니바 자동 보충/회수(다음 seller 인지)는 ADR-0019 미니바 실재고 Phase 2** (T10.5는 정산 UI만). Stitch 디자인 선행 (UX-VN/BE/QA) — 의존 T10.2
+- [ ] T10.2b 직접예약 다박(기간) 선택: 캘린더 직접예약 폼에 체크인~체크아웃 범위 선택기 추가(현재 단일 날짜=1박). API는 이미 임의 기간 수용 — UI만. (UX-VN) — 테오 확정: 다박 필요(공급자 직접판매는 보통 2~5박)
+
+> **Phase A 구현 완료(2026-06-26)** — T10.0~T10.5 브랜치 wt/f10-supplier-direct(커밋 e836469~0e95182). 잔여: T10.2b(다박 UI) + 최종 QA 누수 검사 + main 병합. 라이브 DB 스키마 적용 완료(124건 OPERATOR 백필).
+
+### Phase B — 공급자 판매 링크 (별도 스프린트, 합의 후)
+- [ ] T10.6 공급자 판매가: `VillaRatePeriod.supplierSalePriceVnd` ALTER + my-villas/[id]/rate-periods 입력 UI (TDA/UX-VN)
+- [ ] T10.7 공급자 공개 판매 링크: Proposal 재사용(seller=SUPPLIER·supplierId 스코프·`canCreateSupplierLink` 신규 권한 분리) + 공급자 고객 셀프 가예약(HOLD)→입금 확인→CONFIRMED + 누수 QA(타 공급자 빌라·우리 판매가 비노출) (전원)
+## 신규 에픽 — 여행사·랜드사(B2B) 결제조건·미수(여신) 관리 (2026-06-26 테오 요구, ADR-0022 Proposed)
+
+> 여행사/랜드사가 우리에게 **객실료를 지급**(손님은 숙박료 안 냄). 주/15/30일 마감 요구·랜드사 도망(미수) 사고 빈발 → 누락된 **매출채권(AR)+여신관리** 모듈 신설. 정책 확정(테오 2026-06-26): **신규=등급A(선불) 의무·선금30%·Phase1 ADMIN전담·보증예치금 미도입**. 돈흐름 2분리(B2B 객실료 ↔ B2C 보증금·미니바는 게스트 현장 ADR-0019). 계약: docs/contracts/PARTNER-1.md.
+> 스키마 additive **raw SQL ALTER**(db push 금지 — [[db-schema-drift-villa-source]]). LEDGER 현금주의 유지(ADR-0018 정합 — AR은 운영 테이블).
+
+- [~] PARTNER-1 토대 (TDA/BE) — **구현 완료·합의/배포 대기(브랜치 worktree-partner-1)**: 스키마 additive(Partner·PartnerReceivable·PartnerInvoice + enum 6종 PartnerType/CreditTier/PartnerStatus/ReceivableStatus/PartnerInvoiceStatus/PaymentPurpose, Booking.partnerId·Payment.purpose+partnerId/receivableId/invoiceId 확장) + prisma generate 통과. raw SQL = prisma/migrations-manual/2026-06-26-partner-receivables-credit.sql(**미실행** — 배포 단계). lib/partner.ts 정책 헬퍼(computeDepositDue 30%올림·computeDueDate·receivableOutstanding·outstandingForPartner·hasOverdue·canCreateBookingFor 신용게이트·agingBuckets) + lib/partner.test.ts. Booking.agencyName dual-read 폴백 유지. **잔여: QA 누수검토 → main 병합 → prod raw SQL 실행 → prisma generate**
+- [~] PARTNER-2 운영화면+여신게이트 (FE/BE) — **파트너 관리(2a, af00e95 QA PASS) + 여신 게이트 엔진(2b) 완료**: 2a=/api/partners CRUD·lib/partner-server·/partners 목록·상세·사이드바·i18n. 2b=lib/partner-booking.ts(evaluateConfirmCredit·ensureReceivableForBooking·applyPaymentToReceivable·partnerBalanceBlocksCheckIn) + confirmHold 신용게이트(PARTNER_CREDIT_BLOCKED 409)+채권 자동생성, payments route Payment.purpose(GUEST/DEPOSIT/BALANCE)+채권 입금반영, checkin 등급A 잔금 미납 차단(PARTNER_BALANCE_UNPAID 409), PUT /api/bookings/[id]/partner 파트너 지정. 테스트 +20. **PARTNER-1/2/2b prod 배포 완료(af9de7e)**. 2c=예약 상세 PartnerAssignCard(여행사/랜드사 채널+canViewFinance만, VND 한정, 채권 생성 후 변경잠금, PUT /bookings/[id]/partner 호출)+assign i18n ko/vi. **잔여(2c 폴리시)**: 입금 폼 purpose 선택(DEPOSIT/BALANCE), 확정 시 PARTNER_CREDIT_BLOCKED 안내 토스트. QA 개선의견: 신용한도 변경 OWNER 전용화 검토
+- [~] PARTNER-3 미수·청구 (FE/BE/INTEG) — **3a 미수 대시보드+연체 cron 완료(브랜치 wt-partner-3)**: /receivables 순수 RSC(canViewFinance, KPI 총미수·연체미수·연체파트너·한도초과 + Aging 합산 + 파트너별 표 연체우선정렬·경보배지), lib/partner-server(summarizeReceivables·isOverLimit·getReceivablesOverview), lib/partner-booking.markOverdueReceivables(PENDING/PARTIAL+기한경과→OVERDUE updateMany 멱등), /api/cron/partner-overdue(CRON_SECRET), 사이드바 미수/여신 메뉴+adminReceivables i18n ko/vi, 테스트 +7. 테스트 +7. **3a 머지·배포·cron 등록 완료**. **3b-1 청구서 서비스 완료(브랜치 wt-partner-3b)**: 테오 결정=잔금만 청구(선금 차감)·마감일까지 미청구 채권 누적. lib/partner-invoice.ts(receivableBalance·computeInvoiceTotal·invoiceStatusAfterPayment·generateInvoiceForPeriod[dup→PERIOD_EXISTS·대상0→NO_RECEIVABLES·잔금>0만 묶음·기한=마감+termDays]·issueInvoice·recordInvoicePayment[완납 시 채권 PAID 정산]·voidInvoice[채권 연결해제 재청구]) + 테스트 16. **3b-2 API 완료**: POST/GET /api/partners/[id]/invoices·PATCH /api/partner-invoices/[id](issue/void)·POST .../payments(수납), canViewFinance·$transaction·AuditLog, bookings/payments에 청구서 묶인 채권 직접입금 차단(RECEIVABLE_INVOICED 409), 테스트 +17. **잔여 3b**: UI(/partners/[id] 청구서 탭 또는 /invoices)·PDF(vi react-pdf, settlement-pdf 한글글리프 패턴)·Zalo 발송
+- [ ] PARTNER-3 미수·청구 (FE/BE/INTEG): /receivables Aging 대시보드(0-7/8-15/16-30/30+ · 연체·한도초과 경보), PartnerInvoice 마감청구서(주/15/30일) 생성·발행·수납기록·PDF(vi, Settlement PDF 패턴 재사용)·Zalo 발송, 연체 자동 제재 cron(신규예약 차단+알림+등급강등 플래그) — 의존 PARTNER-2
+- [ ] PARTNER-4 (선택, Phase 2): 파트너 셀프 포털(토큰 링크 또는 B2B 로그인) — IDEAS 보류
+
 ## Phase 2 백로그
 - [ ] 정산 페이지 (다중 통화 수납 + VND 지급 + 환차 기록, 환전 LEDGER 패턴)
 - [ ] 월 정산서 PDF (vi) 자동 생성

@@ -12,6 +12,7 @@ import type { BedTypeKey } from "@/lib/bedding";
 import type { FeatureCategoryKey } from "@/lib/features";
 import { cancellationTiers, type CancellationPolicy } from "@/lib/cancellation-policy";
 import { PUBLIC_LABELS, BED_LABELS, FEATURE_LABELS, type PublicLang } from "@/lib/public-i18n";
+import MapEmbed from "@/components/villa/map-embed";
 
 // 아이콘만 (텍스트 아님 — 언어 무관). 라벨은 lib/public-i18n BED_LABELS/FEATURE_LABELS.
 const BED_ICON: Record<BedTypeKey, string> = {
@@ -143,21 +144,29 @@ export function VillaSalesSection({
       {hasLocation && (
         <section className="rounded-xl bg-neutral-50 border border-neutral-100 overflow-hidden">
           {villa.googleMapUrl && (
-            <a
-              className="block relative h-20 group bg-teal-600/5"
-              href={villa.googleMapUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <span className="absolute top-2 right-2 bg-white/95 text-teal-700 text-[11px] font-bold px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1">
-                <span className="material-symbols-outlined text-[14px]">map</span>{t.mapView}
-              </span>
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-teal-600">
-                <span className="material-symbols-outlined text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                  location_on
+            <>
+              {/* 지도 임베드 — 좌표 추출 가능 시에만 렌더(불가하면 자동으로 아래 링크 배너만) */}
+              <MapEmbed
+                googleMapUrl={villa.googleMapUrl}
+                title={t.mapView}
+                className="relative w-full overflow-hidden aspect-video bg-teal-600/5"
+              />
+              <a
+                className="block relative h-20 group bg-teal-600/5"
+                href={villa.googleMapUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span className="absolute top-2 right-2 bg-white/95 text-teal-700 text-[11px] font-bold px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[14px]">map</span>{t.mapView}
                 </span>
-              </div>
-            </a>
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-teal-600">
+                  <span className="material-symbols-outlined text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    location_on
+                  </span>
+                </div>
+              </a>
+            </>
           )}
           {(distance || villa.areaSqm != null || villa.floors != null) && (
             <div className="grid grid-cols-3 divide-x divide-neutral-100 border-t border-neutral-100">

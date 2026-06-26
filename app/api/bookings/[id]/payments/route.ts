@@ -14,6 +14,7 @@ import { serializeBigInt } from "@/lib/serialize";
 import { krwToVndSnapshot } from "@/lib/pricing";
 import { computeVndEquivalent, summarizeCollection } from "@/lib/payment";
 import { postCollection } from "@/lib/ledger";
+import { applyPaymentToReceivable } from "@/lib/partner-booking";
 
 const createSchema = z.object({
   currency: z.nativeEnum(Currency),
@@ -28,6 +29,8 @@ const createSchema = z.object({
     .regex(/^\d+(\.\d{1,4})?$/)
     .optional(),
   note: z.string().max(500).optional(),
+  // 입금 용도 (ADR-0022) — 기본 GUEST(기존 고객 수납·하위호환). 파트너 객실료는 DEPOSIT/BALANCE.
+  purpose: z.enum(["GUEST", "DEPOSIT", "BALANCE"]).default("GUEST"),
 });
 
 /** 견적 판매가의 VND 환산 — VND는 그대로, KRW는 예약 시점 스냅샷 환율로. 스냅샷 없으면 null */
@@ -99,7 +102,39 @@ export async function POST(
     );
   }
 
+  // 청구서에 묶인 채권엔 직접 입금 금지 — 이중 인식 방지(QA, 청구서로 수납해야 함, ADR-0022 3b)
+  if (body.purpose === "DEPOSIT" || body.purpose === "BALANCE") {
+    const linked = await prisma.partnerReceivable.findUnique({
+      where: { bookingId: id },
+      select: { invoiceId: true },
+    });
+    if (linked?.invoiceId) {
+      return NextResponse.json({ error: "RECEIVABLE_INVOICED" }, { status: 409 });
+    }
+  }
+
   const payment = await prisma.$transaction(async (tx) => {
+    // 파트너 객실료 입금(DEPOSIT/BALANCE)이면 예약의 채권을 찾아 반영 (ADR-0022)
+    let receivable: {
+      id: string;
+      partnerId: string;
+      totalVnd: bigint;
+      depositPaidVnd: bigint;
+      balancePaidVnd: bigint;
+    } | null = null;
+    if (body.purpose === "DEPOSIT" || body.purpose === "BALANCE") {
+      receivable = await tx.partnerReceivable.findUnique({
+        where: { bookingId: id },
+        select: {
+          id: true,
+          partnerId: true,
+          totalVnd: true,
+          depositPaidVnd: true,
+          balancePaidVnd: true,
+        },
+      });
+    }
+
     const created = await tx.payment.create({
       data: {
         bookingId: id,
@@ -110,8 +145,20 @@ export async function POST(
         vndEquivalent,
         receivedAt: new Date(body.receivedAt),
         note: body.note,
+        purpose: body.purpose,
+        partnerId: receivable?.partnerId ?? null,
+        receivableId: receivable?.id ?? null,
       },
     });
+
+    // 채권 선금/잔금 누적 + 상태 재계산 (VND 환산액 기준)
+    if (receivable && (body.purpose === "DEPOSIT" || body.purpose === "BALANCE")) {
+      const upd = applyPaymentToReceivable(receivable, body.purpose, vndEquivalent);
+      await tx.partnerReceivable.update({
+        where: { id: receivable.id },
+        data: upd,
+      });
+    }
     // 복식부기 LEDGER — COLLECTION 분개 (CASH_{C} +/ REVENUE −, paymentId 멱등, ADR-0018)
     // currency는 KRW·VND만(computeVndEquivalent가 그 외 차단) → cashAccountFor 안전.
     await postCollection(tx, {
@@ -129,6 +176,7 @@ export async function POST(
       changes: {
         bookingId: { old: null, new: id },
         amount: { old: null, new: `${body.currency} ${body.amount}` },
+        purpose: { old: null, new: body.purpose },
       },
       db: tx,
     });

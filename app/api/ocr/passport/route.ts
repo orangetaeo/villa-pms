@@ -4,9 +4,9 @@ import { GeminiNotConfiguredError, ocrPassport } from "@/lib/gemini";
 import { isOperator } from "@/lib/permissions";
 
 /**
- * POST /api/ocr/passport — 여권 OCR (T3.1, ADMIN 전용)
- * 결과는 저장하지 않는다 — 화면에서 ADMIN이 확인·수정 후 체크인 완료에 포함 (오인식 방어).
- * 개인정보: imageBase64·OCR 결과를 로그에 기록하지 않는다 (QA 권고 4).
+ * POST /api/ocr/passport — 여권 OCR (T3.1)
+ * 권한: 운영자(ADMIN) + 공급자(SUPPLIER, F10 D5 — 자기 게스트 체크인). 결과는 저장하지 않는다(체크인 완료에 포함).
+ * 결과 저장 안 함 + 사용자 확인·수정 후 제출 → 오인식 방어. 개인정보(이미지·OCR 결과)는 로그 미기록(QA 권고 4).
  */
 
 const MAX_BASE64_LENGTH = 8 * 1024 * 1024; // base64 8MB ≈ 원본 6MB (업로드 5MB와 정합)
@@ -20,7 +20,7 @@ const ocrSchema = z.object({
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (!isOperator(session.user.role)) {
+  if (!isOperator(session.user.role) && session.user.role !== "SUPPLIER") {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 

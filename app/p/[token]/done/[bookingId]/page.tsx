@@ -8,6 +8,8 @@ import { HoldCountdown } from "../../../_components/hold-countdown";
 import { CopyButton } from "../../../_components/copy-button";
 import { PublicFooter } from "../../../_components/public-footer";
 import { LangSelector } from "../../../_components/lang-selector";
+import { PartnerAddonSection } from "../../../_components/partner-addon-section";
+import { loadPartnerAddon } from "@/lib/partner-addon-load";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import { bookingShortCode, formatPublicAmount } from "../../../_components/public-format";
 import {
@@ -95,6 +97,9 @@ export default async function BookingDonePage({
 
   const total = formatPublicAmount(booking.saleCurrency, booking.totalSaleKrw, booking.totalSaleVnd, lang);
 
+  // 파트너(여행사/랜드사) 부가서비스 요청 — PARTNER 자격 카탈로그만(서버 필터), 판매가만(원가·vendor 비노출)
+  const partnerAddon = await loadPartnerAddon(booking.id, booking.saleCurrency, lang);
+
   return (
     <div className="text-slate-900 antialiased">
       <div className="max-w-md mx-auto min-h-screen bg-neutral-50 flex flex-col shadow-2xl relative" style={MESH_BG}>
@@ -180,6 +185,19 @@ export default async function BookingDonePage({
             <span className="material-symbols-outlined text-xl">group_add</span>
             {t.donePage.rosterCta}
           </Link>
+
+          {/* 부가서비스 요청 (ADR-0023 S4) — 과일 바구니·도시락 등 PARTNER 자격 항목만 */}
+          {partnerAddon.catalog.length > 0 && (
+            <PartnerAddonSection
+              token={token}
+              bookingId={booking.id}
+              lang={lang}
+              saleCurrency={booking.saleCurrency}
+              fxVndPerKrw={partnerAddon.fxVndPerKrw}
+              catalog={partnerAddon.catalog}
+              requestedOrders={partnerAddon.requestedOrders}
+            />
+          )}
 
           <div className="flex gap-3">
             <Link

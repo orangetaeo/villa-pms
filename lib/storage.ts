@@ -145,6 +145,42 @@ export const EXT_MIME: Record<string, string> = Object.fromEntries(
   Object.entries(MIME_EXT).map(([mime, ext]) => [ext, mime])
 );
 
+// ===================== 파트너 청구서 PDF — 비공개 저장 (PARTNER-3b-UI) =====================
+// 정산서(P2-4)와 동일 원칙: 항상 디스크(volume), 공개 URL 미생성. 서빙은 게이트 라우트 전용
+// (ADMIN canViewFinance). 청구서엔 객실료 잔금이 있어 공개 버킷 금지.
+// 파일명은 청구서ID 결정형 → 재생성 시 동일 파일 덮어쓰기(statementUrl 안정).
+
+function getInvoiceDirInternal(): string {
+  const base = process.env.UPLOAD_DIR ?? path.join(process.cwd(), "private");
+  return path.join(base, "partner-invoices");
+}
+
+/** 청구서 서빙 라우트용 디렉터리 */
+export function getInvoiceDir(): string {
+  return getInvoiceDirInternal();
+}
+
+/** 청구서ID 기반 결정형 파일명 — 영숫자만(경로 주입 차단) */
+export function invoiceFileName(invoiceId: string): string {
+  const safe = invoiceId.replace(/[^a-zA-Z0-9_-]/g, "");
+  return `invoice-${safe}.pdf`;
+}
+
+/**
+ * 청구서 PDF 저장 — 항상 디스크, 결정형 파일명(재생성 덮어쓰기). 공개 URL 미생성.
+ * @returns fileName (PartnerInvoice.statementUrl에 보관, 서빙 라우트가 dir+fileName로 읽음)
+ */
+export async function saveInvoiceFile(
+  buffer: Buffer,
+  invoiceId: string
+): Promise<{ fileName: string }> {
+  const fileName = invoiceFileName(invoiceId);
+  const dir = getInvoiceDirInternal();
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(path.join(dir, fileName), buffer);
+  return { fileName };
+}
+
 // ===================== 월 정산서 PDF — 비공개 저장 (P2-4) =====================
 // 여권과 동일 원칙: 항상 디스크(volume), 공개 URL 미생성. 서빙은 게이트 라우트 전용
 // (ADMIN 또는 그 정산의 소유 공급자). 정산서엔 공급자 원가가 있어 공개 버킷 금지.

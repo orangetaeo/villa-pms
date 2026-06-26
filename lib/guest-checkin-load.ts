@@ -11,6 +11,9 @@ import {
   buildClauseOrder,
 } from "./agreement";
 import { effectivePar } from "./minibar-inventory";
+import { stripOptionCosts } from "./service-catalog";
+import { getFxVndPerKrw } from "./pricing";
+import { parseAudiences } from "./service-catalog";
 
 /** 동의서 언어맵(lib/agreement의 LangMap과 동형) — 미export 타입 회피. */
 type LangMap = typeof AGREEMENT_DOC_TITLE;
@@ -27,15 +30,13 @@ export interface GuestCatalogItem {
   id: string;
   type: string;
   nameKo: string;
-  nameVi: string | null;
-  nameEn: string | null;
+  nameI18n: unknown; // {en,vi,zh,ru} — 게스트 언어전환용(pickI18n)
   descKo: string | null;
-  descVi: string | null;
+  descI18n: unknown;
   unitLabelKo: string | null;
-  priceKrw: number | null;
-  priceVnd: string | null;
+  priceVnd: string | null; // 판매가 VND(동) — KRW는 fxVndPerKrw로 표시 시점 파생(priceKrwCeil)
   photoUrl: string | null;
-  options: unknown; // variants/addons/modifiers — 판매가만(원가 없음)
+  options: unknown; // {variants/addons/modifiers:[{key,labelKo,labelI18n,priceVnd}]} — 판매가만(원가 없음)
 }
 
 export interface GuestCheckinData {
@@ -54,6 +55,8 @@ export interface GuestCheckinData {
   amenities: { category: string; itemKey: string; customLabel: string | null }[];
   minibar: GuestMinibarLine[];
   catalog: GuestCatalogItem[];
+  /** 현재 환율(1 KRW당 VND, 문자열). 미설정이면 null — FE가 priceKrwCeil로 게스트 KRW 표시. */
+  fxVndPerKrw: string | null;
   agreement: {
     version: string;
     hasPool: boolean;
@@ -97,6 +100,7 @@ export async function loadGuestCheckin(
       amenities: [],
       minibar: [],
       catalog: [],
+      fxVndPerKrw: null,
       agreement: emptyAgreement,
       requestedOrders: [],
     };
@@ -117,7 +121,7 @@ export async function loadGuestCheckin(
   });
   if (!booking) return null;
 
-  const [amenityRows, minibarItems, villaStocks, catalogRows, orders] = await Promise.all([
+  const [amenityRows, minibarItems, villaStocks, catalogRows, orders, fxVndPerKrw] = await Promise.all([
     prisma.villaAmenity.findMany({
       where: { villaId: booking.villaId, category: { not: "MINIBAR" } },
       select: { category: true, itemKey: true, customLabel: true },
@@ -131,14 +135,15 @@ export async function loadGuestCheckin(
       where: { villaId: booking.villaId },
       select: { minibarItemId: true, qty: true },
     }),
-    // ★ costVnd 미포함 — 게스트 비노출(판매가만)
+    // ★ costVnd 미포함 — 게스트 비노출(판매가만 VND). KRW는 fxVndPerKrw로 표시 시점 파생.
+    //   audiences 포함 — 게스트(GUEST) 자격 항목만 노출(과일 바구니=PARTNER 전용은 제외, ADR-0023 §9.2).
     prisma.serviceCatalogItem.findMany({
       where: { active: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       select: {
-        id: true, type: true, nameKo: true, nameVi: true, nameEn: true,
-        descKo: true, descVi: true, unitLabelKo: true,
-        priceKrw: true, priceVnd: true, photoUrl: true, options: true,
+        id: true, type: true, nameKo: true, nameI18n: true,
+        descKo: true, descI18n: true, unitLabelKo: true,
+        priceVnd: true, photoUrl: true, options: true, audiences: true,
       },
     }),
     prisma.serviceOrder.findMany({
@@ -146,6 +151,7 @@ export async function loadGuestCheckin(
       orderBy: { createdAt: "desc" },
       select: { id: true, type: true, status: true, quantity: true, priceKrw: true, priceVnd: true },
     }),
+    getFxVndPerKrw(prisma),
   ]);
 
   const stockMap = new Map(villaStocks.map((s) => [s.minibarItemId, s.qty]));
@@ -174,19 +180,22 @@ export async function loadGuestCheckin(
     },
     amenities: amenityRows,
     minibar,
-    catalog: catalogRows.map((c) => ({
+    fxVndPerKrw,
+    // 게스트 자격(GUEST) 항목만 — audiences에 GUEST 없는 항목(과일 바구니 등) 비노출(ADR-0023)
+    catalog: catalogRows
+      .filter((c) => parseAudiences(c.audiences).includes("GUEST"))
+      .map((c) => ({
       id: c.id,
       type: c.type,
       nameKo: c.nameKo,
-      nameVi: c.nameVi,
-      nameEn: c.nameEn,
+      nameI18n: c.nameI18n,
       descKo: c.descKo,
-      descVi: c.descVi,
+      descI18n: c.descI18n,
       unitLabelKo: c.unitLabelKo,
-      priceKrw: c.priceKrw,
       priceVnd: c.priceVnd?.toString() ?? null,
       photoUrl: c.photoUrl,
-      options: c.options,
+      // ★옵션 원가는 게스트 절대 비노출 — costVnd 제거 후 전달(원칙2). costVnd select도 안 함.
+      options: stripOptionCosts(c.options),
     })),
     agreement: {
       version: AGREEMENT_VERSION,

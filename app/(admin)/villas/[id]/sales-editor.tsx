@@ -21,6 +21,7 @@ import {
   sumRoomCapacity,
 } from "@/lib/sales-display";
 import CollapsibleCard from "@/components/admin/collapsible-card";
+import MapEmbed from "@/components/villa/map-embed";
 
 // ── 클라이언트 폼 상태 타입 ────────────────────────────
 interface BedRow {
@@ -547,6 +548,12 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
                     className="w-full bg-slate-900 border-slate-700 rounded-lg pl-9 pr-3 h-10 text-xs text-slate-200 focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
+                {/* 라이브 미리보기 — 좌표 추출 가능한 URL일 때만 렌더(short URL·검색링크는 자동 생략) */}
+                <MapEmbed
+                  googleMapUrl={googleMapUrl}
+                  title={t("location.mapPreview")}
+                  className="relative mt-2 w-full overflow-hidden rounded-lg border border-slate-700 aspect-video bg-slate-900"
+                />
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <UnitInput

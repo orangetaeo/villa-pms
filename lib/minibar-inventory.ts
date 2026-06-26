@@ -41,6 +41,24 @@ export function shortageQty(onHand: number, par: number): number {
   return Math.max(0, par - onHand);
 }
 
+/**
+ * 입고 가능 최대 수량 = max(0, par − 현재고).
+ *   미니바는 회사 재고이므로 입고(RESTOCK)는 비치 목표(par)까지만 — 초과 비치 금지(2026-06-26 테오).
+ *   부족 수량과 같은 값이지만, "입고 상한"이라는 의미로 별도 함수.
+ */
+export function maxRestockQty(onHand: number, par: number): number {
+  return Math.max(0, par - onHand);
+}
+
+/**
+ * 입고 후 현재고가 비치 목표를 초과하는가 — 입고(RESTOCK) 검증용.
+ *   true면 그 입고는 거부(현재고 + 입고수량 > par). par<=0이면 모든 양수 입고가 초과.
+ *   ★ ADJUST(실사·분실 보정)에는 적용하지 않는다 — 입고에만 상한.
+ */
+export function restockExceedsPar(onHand: number, qtyDelta: number, par: number): boolean {
+  return onHand + qtyDelta > par;
+}
+
 // ── 입고/보정 입력 검증 (순수) ──────────────────────────────────────────────
 //   RESTOCK(입고): qtyDelta 정수 > 0, unitCostVnd 선택(VND 동 정수 문자열).
 //   ADJUST(보정): qtyDelta 정수 ≠ 0(음수 허용 — 실사·분실), 원가 불가.
