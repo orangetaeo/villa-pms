@@ -17,6 +17,7 @@ import { isOperator } from "@/lib/permissions";
 import { serializeBigInt } from "@/lib/serialize";
 import { isSellSideType, currencyForType } from "@/lib/zalo-counterparty";
 import { pickRepresentativeRate } from "@/lib/pricing";
+import { formatVillaName } from "@/lib/villa-name";
 import type {
   VillaCandidate,
   ProposalCandidate,
@@ -186,7 +187,7 @@ export async function GET(
           select: {
             totalKrw: true,
             totalVnd: true,
-            villa: { select: { name: true } },
+            villa: { select: { name: true, nameVi: true } },
           },
         },
       },
@@ -206,7 +207,9 @@ export async function GET(
         return {
           id: p.id,
           clientName: p.clientName,
-          villaNames: p.items.map((it) => it.villa.name),
+          villaNames: p.items.map((it) =>
+            formatVillaName({ name: it.villa.name, nameVi: it.villa.nameVi })
+          ),
           currency: p.saleCurrency,
           totalKrw: useKrw ? totalKrw : null,
           totalVnd: useKrw ? null : totalVnd,

@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import type { CleaningStatus, Prisma } from "@prisma/client";
 import PaginationBar from "@/components/pagination-bar";
 import { parsePageParams } from "@/lib/pagination";
+import { formatVillaName } from "@/lib/villa-name";
 
 // a8 상태 배지 4종: Chờ dọn(주황) / Đã gửi(파랑) / Đã duyệt(초록) / Bị từ chối(빨강 외곽선)
 const STATUS_BADGE: Record<CleaningStatus, string> = {
@@ -76,6 +77,7 @@ export default async function CleaningListPage({
       villa: {
         select: {
           name: true,
+          nameVi: true,
           // 기준 사진 1장 — 카드 썸네일
           photos: {
             where: { isBaseline: true },
@@ -168,7 +170,7 @@ export default async function CleaningListPage({
                   </div>
                   <div className="ml-4 flex min-w-0 flex-grow flex-col justify-center">
                     <h3 className="truncate text-base font-bold leading-tight text-gray-900">
-                      {task.villa.name}
+                      {formatVillaName({ name: task.villa.name, nameVi: task.villa.nameVi })}
                     </h3>
                     <p className="mt-1 text-sm text-gray-500">
                       {t("checkout", { date: formatDayMonth(refDate, isTimestamp) })}

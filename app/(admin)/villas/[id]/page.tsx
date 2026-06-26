@@ -20,6 +20,7 @@ import DetailTabs from "./detail-tabs";
 import SalesEditor, { type SalesInitial } from "./sales-editor";
 import AdminAmenitiesEditor from "./amenities-editor";
 import MinibarStockEditor, { type MinibarStockItem } from "./minibar-stock-editor";
+import NameViEditor from "./name-vi-editor";
 import PhotoGallery from "./photo-gallery";
 import CollapsibleCard from "@/components/admin/collapsible-card";
 
@@ -381,6 +382,9 @@ export default async function VillaDetailPage({
               </dl>
             )}
           </CollapsibleCard>
+
+          {/* 베트남어 병기명 (ADR-0020) — Gemini 제안 + ADMIN 확정. 비운영자 화면에 병기 */}
+          <NameViEditor villaId={villa.id} name={villa.name} initialNameVi={villa.nameVi} />
         </div>
 
         {/* 우측: 요율 + 비품 + 수정 이력 */}

@@ -11,6 +11,7 @@
 // 카드 JSON을 저장하지 않으므로 원가+판매가가 한 레코드에 공존할 수 없다.
 import { Currency, SeasonType } from "@prisma/client";
 import { formatVnd, formatKrw } from "@/lib/format";
+import { formatVillaName } from "@/lib/villa-name";
 
 const SEASON_LABEL: Record<SeasonType, string> = {
   LOW: "비수기",
@@ -35,6 +36,7 @@ export interface CustomerRateView {
 
 export interface VillaShareBase {
   name: string;
+  nameVi?: string | null;
   complex: string | null;
   bedrooms: number;
   bathrooms: number;
@@ -47,7 +49,8 @@ export interface VillaShareBase {
 
 function shareHeader(v: VillaShareBase): string[] {
   const lines: string[] = [];
-  lines.push(v.complex ? `🏠 ${v.name} (${v.complex})` : `🏠 ${v.name}`);
+  const displayName = formatVillaName(v);
+  lines.push(v.complex ? `🏠 ${displayName} (${v.complex})` : `🏠 ${displayName}`);
   lines.push(`침실 ${v.bedrooms} · 욕실 ${v.bathrooms} · 최대 ${v.maxGuests}인`);
   const features: string[] = [];
   if (v.hasPool) features.push("수영장");

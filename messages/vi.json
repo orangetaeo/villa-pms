@@ -669,6 +669,20 @@
     },
     "detail": {
       "back": "Danh sách villa",
+      "nameVi": {
+        "title": "Tên tiếng Việt (hiển thị kèm)",
+        "desc": "Hiển thị cùng tên tiếng Hàn trên màn hình nhà cung cấp và bên ngoài. Nhấn ‘Gợi ý Gemini’ để lấy phiên âm rồi kiểm tra, chỉnh sửa và lưu.",
+        "placeholder": "Ví dụ: Sonasea V11",
+        "suggest": "Gợi ý Gemini",
+        "suggesting": "Đang gợi ý…",
+        "save": "Lưu",
+        "saving": "Đang lưu…",
+        "saved": "Đã lưu",
+        "preview": "Hiển thị:",
+        "errGemini": "Chưa cấu hình khóa API Gemini.",
+        "errSuggest": "Không lấy được gợi ý.",
+        "errSave": "Lưu thất bại."
+      },
       "zaloConnected": "Đã kết nối Zalo",
       "zaloNotConnected": "Chưa kết nối Zalo",
       "approve": "Duyệt",

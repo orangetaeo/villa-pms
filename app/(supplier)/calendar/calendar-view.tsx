@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { formatVnd } from "@/app/(supplier)/my-villas/new/wizard-types";
+import { formatVillaName } from "@/lib/villa-name";
 import { checkOutFromNights } from "@/lib/date-vn";
 
 export interface DayCell {
@@ -32,7 +33,7 @@ export interface BookingDetail {
 }
 
 interface CalendarViewProps {
-  villas: { id: string; name: string }[];
+  villas: { id: string; name: string; nameVi?: string | null }[];
   selectedVillaId: string;
   month: string; // YYYY-MM
   days: DayCell[];
@@ -253,7 +254,7 @@ export function CalendarView({
                 : "whitespace-nowrap rounded-full border border-gray-200 bg-white px-5 py-2.5 font-medium text-gray-600 transition-transform active:scale-95"
             }
           >
-            {villa.name}
+            {formatVillaName({ name: villa.name, nameVi: villa.nameVi })}
           </button>
         ))}
       </section>

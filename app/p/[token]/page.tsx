@@ -30,6 +30,7 @@ import {
 } from "@/lib/public-i18n";
 import type { BedTypeKey } from "@/lib/bedding";
 import type { FeatureCategoryKey } from "@/lib/features";
+import { formatVillaName } from "@/lib/villa-name";
 
 /**
  * /p/[token] — 공개 제안 페이지 (비로그인, 5개 언어 #5) — Stitch c1/c1-vnd 변환 (SPEC F3 흐름 2)
@@ -104,6 +105,7 @@ export default async function ProposalPage({
             // findUnique({where})로 전체 컬럼 로드 후 직렬화 금지 — 신규 공개 필드만 명시 추가.
             select: {
               name: true,
+              nameVi: true,
               bedrooms: true,
               maxGuests: true,
               hasPool: true,
@@ -233,7 +235,9 @@ export default async function ProposalPage({
                 <PhotoCarousel urls={item.villa.photos.map((p) => p.url)} alt={item.villa.name} lang={lang} />
                 <div className="p-5 space-y-4">
                   <div>
-                    <h3 className="text-xl font-bold mb-2">{item.villa.name}</h3>
+                    <h3 className="text-xl font-bold mb-2">
+                      {formatVillaName({ name: item.villa.name, nameVi: item.villa.nameVi })}
+                    </h3>
                     <div className="flex flex-wrap gap-2">
                       <span className="text-[11px] font-medium bg-neutral-100 px-2.5 py-1 rounded-md text-neutral-600 flex items-center gap-1">
                         <span className="material-symbols-outlined text-[14px]">bed</span>{" "}

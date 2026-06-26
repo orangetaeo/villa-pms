@@ -115,7 +115,8 @@ model Villa {
   id                 String  @id @default(cuid())
   supplierId         String
   supplier           User    @relation("SupplierVillas", fields: [supplierId], references: [id])
-  name               String // 예: 쏘나씨 V12
+  name               String // 예: 쏘나씨 V12 (운영자 기준 한국어명)
+  nameVi             String? // 베트남어/라틴 병기명 (예: Sonasea V12) — Gemini 제안+ADMIN 확정, ADR-0020. 비운영자 화면에 병기
   complex            String? // 단지명: 쏘나씨, 썬셋 사나토
   address            String?
   bedrooms           Int

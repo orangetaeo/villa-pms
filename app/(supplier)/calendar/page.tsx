@@ -35,7 +35,7 @@ export default async function SupplierCalendarPage({
   const villas = await prisma.villa.findMany({
     where: { supplierId: session.user.id },
     orderBy: { createdAt: "asc" },
-    select: { id: true, name: true },
+    select: { id: true, name: true, nameVi: true },
   });
 
   const { villaId: villaIdParam, month: monthParam } = await searchParams;
