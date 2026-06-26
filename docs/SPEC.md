@@ -303,6 +303,52 @@ available(villa, range) =
 
 ---
 
+## F11. 부가서비스 원천 공급자 중계 (ADR-0023)
+
+> 부가서비스(과일 바구니·도시락·BBQ·렌트·마사지 등)는 **우리가 중계만** 한다: 요청 접수 → 원천 공급자에 Zalo 발주 → 공급자가 우리 페이지에서 예약현황 확인·가부 결정 → 우리에게 통보 → 우리가 고객 확정·공급자 정산. 상세·결정은 ADR-0023.
+
+**사용자:** VENDOR(신규 역할 — 원천 공급자), ADMIN(중계·확정·정산), PARTNER(여행사/랜드사 요청), GUEST(소비자 요청)
+
+### 확정 결정 (테오 2026-06-26 — ADR-0023)
+- **공급자 접근**: **로그인 계정(Role=VENDOR) + 전용 대시보드 `/vendor`** (영구 거래처, 통계까지)
+- **엔티티**: **완전 별도 `ServiceVendor`** (빌라 SUPPLIER와 무관한 외부 거래처)
+- **정산**: **발주 건별 즉시 정산 기록** (누적 원장 아님)
+- **발주 게이트**: 2단계 — 공급자 수락 후에야 운영자가 고객에 확정(거절 시 대체/취소)
+
+### 과일 메뉴 + 요청 주체 자격(audience)
+- **과일 바구니** = 여행사/랜드사(PARTNER)만 요청 (소비자 비노출)
+- **과일 도시락** = 여행사/랜드사 + 소비자(GUEST) 모두 요청
+- 일반화: 모든 카탈로그 항목이 `audiences ∈ [ADMIN|PARTNER|GUEST]` 선언 → 채널별 카탈로그 서버 필터
+
+### 채널별 요청 경로
+| 채널 | 라우트 | requestedVia | 노출 |
+|---|---|---|---|
+| 운영자 | 예약 상세 패널(기존) | ADMIN | 전체 |
+| 여행사/랜드사 | `/p/[token]` 부가서비스 요청 섹션(신규) | PARTNER | audiences∋PARTNER |
+| 소비자 | `/g/[token]` 옵션 선택(ADR-0019) | GUEST | audiences∋GUEST (도시락○ 바구니✕) |
+
+### 흐름 (발주→가부→확정→정산)
+1. 요청 → `ServiceOrder(REQUESTED, vendorId=카탈로그 공급자)` → Zalo 발주 to `vendor.zaloUserId`
+2. `vendorStatus=PENDING_VENDOR` → 공급자 `/vendor`에서 예약현황 확인 → 수락/거절
+3. 수락 → `VENDOR_ACCEPTED` → 운영자 고객확정 `CONFIRMED` → `DELIVERED` → 건별 정산 `vendorSettledAt`
+4. 거절 → `VENDOR_REJECTED` → 운영자 대체 공급자 재발주 또는 `CANCELLED`
+
+### `/vendor` 대시보드 (vi, 모바일 — 빌라 공급자 패턴 미러)
+- 발주함(가부 응답) · 예약현황(자기 발주만) · 정산내역(건별 미정산/완료) · 통계 `/vendor/stats`(KPI=매출 ΣcostVnd·발주수·수락율·인기품목, lib/vendor-stats supplierId 스코프 패턴 복제)
+
+### 데이터 모델 (additive raw SQL ALTER — db push 금지)
+- `Role` += `VENDOR` / `ServiceType` += `FRUIT` / `ServiceRequestedVia` += `PARTNER`
+- 신규 `ServiceVendor`(userId 1:1 선택·zaloUserId 발주대상·bankInfo 운영자전용) + `enum ServiceVendorStatus{PENDING_VENDOR|VENDOR_ACCEPTED|VENDOR_REJECTED}`
+- `ServiceCatalogItem` += `vendorId`·`audiences Json`
+- `ServiceOrder` += `vendorId·vendorStatus·poSentAt·vendorRespondedAt·vendorRejectReason·vendorSettledAt·vendorSettleMethod·vendorSettleNote` (정산액=기존 costVnd 재사용)
+
+### 누수 점검 필수 케이스
+- `/vendor/*` 응답에 우리 판매가·마진·타 공급자 발주·전체 재고 → 0건(vendorId 스코프·화이트리스트)
+- `/g` 카탈로그·주문에 과일 바구니(audiences∌GUEST) → 0건 / `/p` costVnd·공급자 신원 → 0건
+- 공급자 발주 카드에 게스트 개인정보 → 0건 (빌라·날짜·수량·인원만) / `bankInfo`·costVnd는 canViewFinance 전용
+
+---
+
 ## 공통 비기능 요구
 
 - 모바일 퍼스트 (공급자 화면 기준 뷰포트 ~390px), PWA 설치 가능

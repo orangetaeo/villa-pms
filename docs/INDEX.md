@@ -35,6 +35,7 @@
 | 번역·i18n 키·문구 | .claude/skills/loc/i18n-pattern.md |
 | ADMIN 강제 판매가능(검수 게이트 오버라이드) **[채택]** | docs/decisions/ADR-0012-admin-force-sellable.md + lib/villa-gate.ts(forceOpenSellableGate, ACTIVE만·멱등·CHECKOUT 보존·전량 감사) — POST /api/villas/[id]/force-sellable, lib/cleaning.ts 불변 |
 | 게스트 셀프 체크인·부가서비스 판매·미니바 실재고 **[제안]** | docs/decisions/ADR-0019-guest-checkin-and-addon-sales.md + docs/contracts/T-guest-checkin-and-inventory.md + SPEC F8/F9 — 미니바=실재고(onHandQty·입고원가→costVnd·부족경보), 서비스=주문형 카탈로그(ServiceCatalogItem·MOTORBIKE_RENTAL·옵션), 게스트 `/g/[token]`(QR·동의서서명·옵션요청), 체크아웃 통합정산(현금/이체). 누수0 화이트리스트 |
+| 부가서비스 원천 공급자 중계(과일 바구니·도시락) **[채택·S1 진행]** | docs/decisions/ADR-0023-addon-source-vendor-brokerage.md + docs/contracts/T-addon-source-vendor.md + SPEC F11 — 신규 `ServiceVendor`(Role=VENDOR·로그인 `/vendor` 대시보드)·카탈로그 `vendorId`+`audiences`(과일바구니=PARTNER만/도시락=PARTNER+GUEST)·발주 2단계 게이트(Zalo 발주→공급자 가부→운영자 확정)·건별 정산·공급자 통계. 누수: 공급자에 우리 판매가·마진·타발주 비노출 |
 | 운영자 권한 3단계(OWNER/MANAGER/STAFF) **[채택·S-RBAC-1 진행]** | docs/decisions/ADR-0013-operator-rbac-tiers.md + docs/contracts/S-RBAC-1.md — ADMIN→OWNER. 돈 경계 {OWNER,MANAGER} vs STAFF(§6.1 입금확인 금액숨김), OWNER↔MANAGER=시스템통제, 카뱅 알림파싱 Phase 2(§6.2). 핵심=lib/permissions.ts capability 헬퍼. additive 전략(ADMIN 유지→S-RBAC-2서 치환·제거) |
 
 ## 3열람실 — 참고 서가 (필요 시만)
