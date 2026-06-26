@@ -18,6 +18,7 @@ export interface SerializedPartnerDetail {
     contactPhone: string | null;
     contactZaloUid: string | null;
     contactEmail: string | null;
+    country: string | null;
     creditTier: "A" | "B" | "C";
     creditLimitVnd: string;
     depositRatePct: number;
@@ -78,6 +79,7 @@ export default function PartnerDetailView({ detail }: { detail: SerializedPartne
     contactPhone: p.contactPhone ?? "",
     contactZaloUid: p.contactZaloUid ?? "",
     contactEmail: p.contactEmail ?? "",
+    country: p.country ?? "",
     creditTier: p.creditTier,
     creditLimitVnd: p.creditLimitVnd,
     depositRatePct: p.depositRatePct,
@@ -288,6 +290,10 @@ export default function PartnerDetailView({ detail }: { detail: SerializedPartne
               <h3 className="mb-3 text-xs font-bold uppercase text-slate-500">{t("contactInfo")}</h3>
               <dl className="flex flex-col gap-2 text-slate-300">
                 {p.nameVi && <Row label={t("form.nameVi")} value={p.nameVi} />}
+                <Row
+                  label={t("form.country")}
+                  value={p.country ? t(`countries.${p.country}`) : "—"}
+                />
                 <Row label={t("form.contactPhone")} value={p.contactPhone ?? "—"} />
                 <Row label={t("form.contactZalo")} value={p.contactZaloUid ?? "—"} />
                 <Row label={t("form.contactEmail")} value={p.contactEmail ?? "—"} />

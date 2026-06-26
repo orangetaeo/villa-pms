@@ -20,6 +20,14 @@ interface InvoiceRow {
   _count: { receivables: number };
 }
 
+interface PaymentRow {
+  id: string;
+  amount: string;
+  currency: string;
+  receivedAt: string;
+  method: string;
+}
+
 const STATUS_BADGE: Record<InvoiceRow["status"], string> = {
   DRAFT: "bg-slate-700 text-slate-200",
   ISSUED: "bg-sky-500/15 text-sky-300",
@@ -41,6 +49,10 @@ export default function PartnerInvoicesTab({ partnerId }: { partnerId: string })
   // 생성 폼
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
+
+  // 수납 내역(정정용) — 펼친 청구서 id + 그 결제 목록
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [payments, setPayments] = useState<PaymentRow[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -130,6 +142,48 @@ export default function PartnerInvoicesTab({ partnerId }: { partnerId: string })
         return;
       }
       await load();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const fetchPayments = useCallback(async (id: string) => {
+    const res = await fetch(`/api/partner-invoices/${id}/payments`);
+    if (res.ok) {
+      const data = await res.json();
+      setPayments(data.payments ?? []);
+    } else {
+      setPayments([]);
+    }
+  }, []);
+
+  const togglePayments = async (id: string) => {
+    if (expanded === id) {
+      setExpanded(null);
+      setPayments([]);
+      return;
+    }
+    setExpanded(id);
+    await fetchPayments(id);
+  };
+
+  // 수납 정정(취소) — Payment 삭제 + 역분개 + paidVnd 차감 (ADR-0027 D3)
+  const reverse = async (invId: string, paymentId: string) => {
+    if (!window.confirm(t("confirmReverse"))) return;
+    setBusy("…");
+    setError(null);
+    setFeedback(null);
+    try {
+      const res = await fetch(`/api/partner-invoices/${invId}/payments/${paymentId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(errMsg(body.error));
+        return;
+      }
+      setFeedback(t("reverseDone"));
+      await Promise.all([load(), fetchPayments(invId)]);
     } finally {
       setBusy(null);
     }
@@ -232,6 +286,8 @@ export default function PartnerInvoicesTab({ partnerId }: { partnerId: string })
             const canVoid = inv.status !== "PAID" && inv.status !== "VOID";
             const canPay = inv.status === "ISSUED" || inv.status === "PARTIAL";
             const canSend = inv.status !== "DRAFT" && inv.status !== "VOID";
+            // 무효 청구서는 묶인 채권이 없어 PDF 생성이 실패하므로 버튼 자체를 숨긴다.
+            const canPdf = inv.status !== "VOID";
             return (
               <li key={inv.id} className="rounded-xl border border-slate-800 bg-admin-card p-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -273,9 +329,11 @@ export default function PartnerInvoicesTab({ partnerId }: { partnerId: string })
                       {t("action.pay")}
                     </ActionBtn>
                   )}
-                  <ActionBtn onClick={() => openPdf(inv.id)} disabled={!!busy}>
-                    {t("action.pdf")}
-                  </ActionBtn>
+                  {canPdf && (
+                    <ActionBtn onClick={() => openPdf(inv.id)} disabled={!!busy}>
+                      {t("action.pdf")}
+                    </ActionBtn>
+                  )}
                   {canSend && (
                     <ActionBtn onClick={() => sendZalo(inv.id)} disabled={!!busy} primary>
                       {t("action.zalo")}
@@ -286,7 +344,47 @@ export default function PartnerInvoicesTab({ partnerId }: { partnerId: string })
                       {t("action.void")}
                     </ActionBtn>
                   )}
+                  {inv.status !== "VOID" && BigInt(inv.paidVnd) > 0n && (
+                    <ActionBtn onClick={() => togglePayments(inv.id)} disabled={!!busy}>
+                      {expanded === inv.id ? t("action.hidePayments") : t("action.payments")}
+                    </ActionBtn>
+                  )}
                 </div>
+
+                {expanded === inv.id && (
+                  <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+                    <h4 className="mb-2 text-[11px] font-bold uppercase text-slate-500">
+                      {t("paymentsTitle")}
+                    </h4>
+                    {payments.length === 0 ? (
+                      <p className="text-xs text-slate-500">{t("noPayments")}</p>
+                    ) : (
+                      <ul className="flex flex-col gap-1.5">
+                        {payments.map((p) => (
+                          <li
+                            key={p.id}
+                            className="flex items-center justify-between gap-2 text-xs"
+                          >
+                            <span className="text-slate-300">
+                              <span className="tabular-nums">{fmtDate(p.receivedAt)}</span> ·{" "}
+                              <span className="font-semibold tabular-nums text-white">
+                                {formatVnd(p.amount)}
+                              </span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => reverse(inv.id, p.id)}
+                              disabled={!!busy}
+                              className="rounded border border-red-900 px-2 py-0.5 text-[11px] font-bold text-red-300 hover:bg-red-950/40 disabled:opacity-50"
+                            >
+                              {t("action.reverse")}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
               </li>
             );
           })}

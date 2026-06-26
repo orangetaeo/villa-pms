@@ -18,6 +18,7 @@ export default async function LoginPage() {
     passwordPlaceholder: t("passwordPlaceholder"),
     submit: t("submit"),
     submitting: t("submitting"),
+    forgotPassword: t("forgotPassword"),
     noAccount: t("noAccount"),
     signupLink: t("signupLink"),
     vendorSignupLink: t("vendorSignupLink"),

@@ -415,6 +415,73 @@ export async function transcribeVoice(
   return out.trim();
 }
 
+// ===================== 빌라명 음역 (ADR-0020 — 베트남어 병기 nameVi 제안) =====================
+
+/**
+ * 빌라명 음역 프롬프트 — 한국어 음역된 푸꾸옥 리조트/빌라명을 국제 통용 라틴 철자로 환원.
+ * 예: "쏘나씨 V11" → "Sonasea V11", "썬셋 사나토 A3" → "Sunset Sanato A3", "그린베이 B2" → "Green Bay B2".
+ * 호수·동·영숫자 코드(V11·A3·B2)는 그대로 보존. 설명·따옴표 없이 이름만.
+ */
+const VILLA_ROMANIZE_PROMPT = `You convert a Korean-transliterated villa or resort name in Phú Quốc, Vietnam into its official/internationally-used Latin (Vietnamese-friendly) spelling.
+
+Rules:
+- Output ONLY the converted name. No explanation, quotes, labels, or markdown.
+- Convert the Korean transliteration of the resort/complex name to its real Latin spelling (e.g. 쏘나씨 → Sonasea, 썬셋 사나토 → Sunset Sanato, 그린베이 → Green Bay, 마리나 → Marina).
+- Keep unit/block codes, numbers and Latin segments EXACTLY as given (V11, A3, B2, …).
+- If the name is already in Latin (no Korean), return it unchanged.
+- If unsure of the official spelling, give the most natural Latin transliteration.
+- Preserve overall word order and spacing.
+
+Name:`;
+
+/**
+ * 한국어 빌라명 → 라틴/베트남 통용 표기 음역 제안 (ADR-0020 nameVi 후보).
+ * transcribeVoice/translateText REST 패턴 복제(키 게이트·타임아웃·x-goog-api-key·thinkingBudget:0).
+ * ★ 제안값일 뿐 — ADMIN이 검수·확정 후 저장한다(무인 저장 금지). 빈 입력은 빈 문자열.
+ *
+ * @throws GeminiNotConfiguredError 키 미설정 / Error API 실패
+ */
+export async function romanizeVillaName(
+  name: string,
+  fetchFn: typeof fetch = fetch
+): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new GeminiNotConfiguredError();
+
+  const trimmed = name.trim();
+  if (trimmed.length === 0) return "";
+
+  const res = await fetchFn(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `${VILLA_ROMANIZE_PROMPT} ${trimmed}` }] }],
+        // thinkingBudget:0 — 짧은 음역은 추론 불필요(translateText와 동일 원칙).
+        generationConfig: { temperature: 0, thinkingConfig: { thinkingBudget: 0 } },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(`Gemini API HTTP ${res.status}`);
+  }
+
+  const data = (await res.json()) as GeminiGenerateResponse;
+  // 모델이 줄바꿈·따옴표를 붙이는 경우 정리 — 첫 줄·양끝 따옴표 제거
+  const out = (data.candidates?.[0]?.content?.parts?.[0]?.text ?? "")
+    .trim()
+    .split("\n")[0]
+    .replace(/^["'`]|["'`]$/g, "")
+    .trim();
+  return out;
+}
+
 // ===================== 이미지 OCR 번역 (수신 photo 자막 — Nike ocrTranslateImage 차용) =====================
 
 /**

@@ -10,12 +10,15 @@
 
 import { MINIBAR_VND_DIGITS } from "./minibar";
 
-export type MinibarMovementKind = "RESTOCK" | "CONSUME" | "ADJUST";
+// RECOVER = 전환 회수(−). 다음 예약 seller=SUPPLIER일 때 빌라 미니바 전량 회수
+//   (우리가 운영 안 하는 판매에 재고 미잔류). 시스템 생성 — 수동 입력 불가 (ADR-0021 D6).
+export type MinibarMovementKind = "RESTOCK" | "CONSUME" | "ADJUST" | "RECOVER";
 
 export const MINIBAR_MOVEMENT_KINDS: readonly MinibarMovementKind[] = [
   "RESTOCK",
   "CONSUME",
   "ADJUST",
+  "RECOVER",
 ] as const;
 
 /** 비치 목표(par) — 빌라 오버라이드 우선, 없으면 회사표준 stockQty. */
@@ -57,6 +60,21 @@ export function maxRestockQty(onHand: number, par: number): number {
  */
 export function restockExceedsPar(onHand: number, qtyDelta: number, par: number): boolean {
   return onHand + qtyDelta > par;
+}
+
+// ── 전환 회수(RECOVER) 계획 (순수) ──────────────────────────────────────────
+//   다음 예약 seller=SUPPLIER 전환 시, 빌라 미니바 재고를 전량 회수한다.
+//   품목별 현재고(onHand)가 양수인 것마다 qtyDelta=−onHand 회수 라인을 만든다.
+//   onHand<=0(이미 0·음수 보정 상태)은 회수 대상 아님 → 제외. 빈 입력/전부 0이면 빈 배열.
+//   ★ 원가 무관 — 단순 수량 회수 원장 기록(RECOVER 이동은 unitCostVnd=null, 마진 비공개 원칙2).
+
+/** 회수 계획: onHand>0 품목마다 {minibarItemId, qtyDelta: −onHand}. 순수. */
+export function planRecover(
+  onHandByItem: { minibarItemId: string; onHand: number }[]
+): { minibarItemId: string; qtyDelta: number }[] {
+  return onHandByItem
+    .filter((row) => row.onHand > 0)
+    .map((row) => ({ minibarItemId: row.minibarItemId, qtyDelta: -row.onHand }));
 }
 
 // ── 입고/보정 입력 검증 (순수) ──────────────────────────────────────────────

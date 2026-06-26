@@ -6,6 +6,7 @@
 // 계약: docs/contracts/PARTNER-3b-UI.md
 
 import { fmtVnd } from "@/lib/settlement-statement";
+import type { InvoiceLocale } from "@/lib/partner-country";
 
 export interface InvoiceLineInput {
   villaName: string;
@@ -28,6 +29,8 @@ export interface InvoiceStatementInput {
   lines: InvoiceLineInput[];
   /** 기수납액 VND (부분수납 청구서 재발행 시 표기). 기본 0 */
   paidVnd?: bigint;
+  /** 출력 언어 — 파트너 국가로 결정(lib/partner-country). 기본 vi */
+  locale?: InvoiceLocale;
 }
 
 /** PDF 렌더 모델 — 전부 표시 문자열. 한도·마진·KRW 필드 없음(누수 차단). */
@@ -43,6 +46,8 @@ export interface InvoiceStatementModel {
   /** 기수납·미수 잔액 (부분수납 시만, 아니면 null) */
   paid: string | null;
   outstanding: string | null;
+  /** 출력 언어 — 렌더(PDF)가 라벨 사전 선택에 사용. 기본 vi */
+  locale: InvoiceLocale;
 }
 
 /**
@@ -75,5 +80,6 @@ export function buildInvoiceStatementModel(
     total: fmtVnd(total),
     paid: showPaid ? fmtVnd(paid) : null,
     outstanding: showPaid ? fmtVnd(outstanding > 0n ? outstanding : 0n) : null,
+    locale: input.locale ?? "vi",
   };
 }

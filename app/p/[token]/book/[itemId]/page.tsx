@@ -19,6 +19,7 @@ import {
   resolvePublicLang,
   formatPublicDateShort,
 } from "@/lib/public-i18n";
+import { formatVillaName } from "@/lib/villa-name";
 
 /** /p/[token]/book/[itemId] — 가예약 입력 (Stitch c3 상태1 변환, 비로그인, 5개 언어 #5) */
 
@@ -64,6 +65,7 @@ export default async function BookingRequestPage({
       villa: {
         select: {
           name: true,
+          nameVi: true,
           photos: { orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
         },
       },
@@ -131,7 +133,9 @@ export default async function BookingRequestPage({
               </div>
             )}
             <div className="p-4 space-y-2">
-              <h3 className="font-bold text-lg">{item.villa.name}</h3>
+              <h3 className="font-bold text-lg">
+                {formatVillaName({ name: item.villa.name, nameVi: item.villa.nameVi })}
+              </h3>
               <div className="flex items-center text-slate-500 text-sm">
                 <span className="material-symbols-outlined text-sm mr-1">calendar_today</span>
                 {formatPublicDateShort(item.checkIn, lang)} ~ {formatPublicDateShort(item.checkOut, lang)} · {t.proposal.nights(nights)}

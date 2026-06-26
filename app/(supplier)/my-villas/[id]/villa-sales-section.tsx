@@ -12,6 +12,7 @@ import {
 } from "@/lib/sales-display";
 import { BED_TYPE_META, type BedTypeKey } from "@/lib/bedding";
 import { FEATURE_ITEMS, type FeatureCategoryKey } from "@/lib/features";
+import MapEmbed from "@/components/villa/map-embed";
 
 // featureKey → 아이콘 (사전 평탄화). 알 수 없는 키는 칩 자체를 숨김(라벨 사전에도 없음).
 const FEATURE_ICON: Record<string, string> = Object.fromEntries(
@@ -171,25 +172,33 @@ export function SupplierVillaSalesSection({
           {hasLocation && (
             <section className="overflow-hidden rounded-xl border border-neutral-100 bg-neutral-50">
               {villa.googleMapUrl && (
-                <a
-                  className="group relative block h-20 bg-teal-600/5"
-                  href={villa.googleMapUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1.5 text-[11px] font-bold text-teal-700 shadow-sm">
-                    <span className="material-symbols-outlined text-[14px]">map</span>
-                    {s("viewMap")}
-                  </span>
-                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-teal-600">
-                    <span
-                      className="material-symbols-outlined text-3xl"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      location_on
+                <>
+                  {/* 지도 임베드 — 좌표 추출 가능 시에만 렌더(불가하면 아래 링크 배너만) */}
+                  <MapEmbed
+                    googleMapUrl={villa.googleMapUrl}
+                    title={s("viewMap")}
+                    className="relative w-full overflow-hidden aspect-video bg-teal-600/5"
+                  />
+                  <a
+                    className="group relative block h-20 bg-teal-600/5"
+                    href={villa.googleMapUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1.5 text-[11px] font-bold text-teal-700 shadow-sm">
+                      <span className="material-symbols-outlined text-[14px]">map</span>
+                      {s("viewMap")}
                     </span>
-                  </div>
-                </a>
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-teal-600">
+                      <span
+                        className="material-symbols-outlined text-3xl"
+                        style={{ fontVariationSettings: "'FILL' 1" }}
+                      >
+                        location_on
+                      </span>
+                    </div>
+                  </a>
+                </>
               )}
               {(distance || villa.areaSqm != null || villa.floors != null) && (
                 <div className="grid grid-cols-3 divide-x divide-neutral-100 border-t border-neutral-100">

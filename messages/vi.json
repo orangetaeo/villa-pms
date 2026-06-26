@@ -669,6 +669,20 @@
     },
     "detail": {
       "back": "Danh sách villa",
+      "nameVi": {
+        "title": "Tên tiếng Việt (hiển thị kèm)",
+        "desc": "Hiển thị cùng tên tiếng Hàn trên màn hình nhà cung cấp và bên ngoài. Nhấn ‘Gợi ý Gemini’ để lấy phiên âm rồi kiểm tra, chỉnh sửa và lưu.",
+        "placeholder": "Ví dụ: Sonasea V11",
+        "suggest": "Gợi ý Gemini",
+        "suggesting": "Đang gợi ý…",
+        "save": "Lưu",
+        "saving": "Đang lưu…",
+        "saved": "Đã lưu",
+        "preview": "Hiển thị:",
+        "errGemini": "Chưa cấu hình khóa API Gemini.",
+        "errSuggest": "Không lấy được gợi ý.",
+        "errSave": "Lưu thất bại."
+      },
       "zaloConnected": "Đã kết nối Zalo",
       "zaloNotConnected": "Chưa kết nối Zalo",
       "approve": "Duyệt",
@@ -836,6 +850,7 @@
       "location": {
         "title": "Vị trí · Tiếp cận",
         "mapUrl": "Liên kết Google Maps",
+        "mapPreview": "Xem trước bản đồ",
         "beachDistance": "Cách biển",
         "area": "Diện tích",
         "floors": "Số tầng",
@@ -875,6 +890,7 @@
       "passwordPlaceholder": "Nhập mật khẩu",
       "submit": "Đăng nhập",
       "submitting": "Đang xử lý...",
+      "forgotPassword": "Quên mật khẩu?",
       "noAccount": "Chưa có tài khoản?",
       "signupLink": "Đăng ký nhà cung cấp",
       "errors": {
@@ -883,6 +899,37 @@
         "serverError": "Đã xảy ra lỗi máy chủ. Vui lòng thử lại sau."
       },
       "vendorSignupLink": "Đăng ký nhà cung cấp nguồn"
+    },
+    "reset": {
+      "forgotTitle": "Quên mật khẩu",
+      "forgotSubtitle": "Chúng tôi sẽ gửi mã xác minh qua Zalo đến số điện thoại đã đăng ký.",
+      "phone": "Số điện thoại",
+      "phonePlaceholder": "Nhập số điện thoại",
+      "sendCode": "Nhận mã xác minh",
+      "sending": "Đang gửi...",
+      "sentTitle": "Đã gửi mã",
+      "sentBody": "Nếu tài khoản đã liên kết Zalo, chúng tôi đã gửi mã xác minh. Vui lòng kiểm tra tin nhắn Zalo và nhập mã.",
+      "notLinkedHint": "Nếu chưa liên kết Zalo, bạn sẽ không nhận được mã. Vui lòng yêu cầu quản trị viên đặt lại mật khẩu.",
+      "goReset": "Nhập mã",
+      "backToLogin": "Quay lại đăng nhập",
+      "resetTitle": "Đặt lại mật khẩu",
+      "resetSubtitle": "Nhập mã 6 số nhận qua Zalo và mật khẩu mới.",
+      "code": "Mã xác minh",
+      "codePlaceholder": "Mã 6 số",
+      "newPassword": "Mật khẩu mới",
+      "newPasswordPlaceholder": "Tối thiểu 8 ký tự",
+      "resetSubmit": "Đổi mật khẩu",
+      "resetSubmitting": "Đang đổi...",
+      "successTitle": "Đã đổi mật khẩu",
+      "successBody": "Vui lòng đăng nhập bằng mật khẩu mới.",
+      "goLogin": "Đăng nhập",
+      "errors": {
+        "invalidCode": "Mã xác minh không đúng.",
+        "codeExpired": "Mã xác minh đã hết hạn. Vui lòng yêu cầu lại.",
+        "tooManyAttempts": "Bạn đã nhập sai mã quá nhiều lần. Vui lòng yêu cầu lại.",
+        "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự.",
+        "serverError": "Đã xảy ra lỗi. Vui lòng thử lại sau."
+      }
     },
     "signup": {
       "headerTitle": "Đăng ký tài khoản",
@@ -1851,7 +1898,8 @@
       "paymentTermDays": "Hạn thanh toán (ngày)",
       "billingCycle": "Chu kỳ chốt",
       "status": "Trạng thái",
-      "memo": "Ghi chú"
+      "memo": "Ghi chú",
+      "country": "Quốc gia"
     },
     "types": {
       "TRAVEL_AGENCY": "Đại lý du lịch",
@@ -1934,11 +1982,18 @@
         "void": "Hủy",
         "pay": "Ghi nhận thu",
         "pdf": "PDF",
-        "zalo": "Gửi Zalo"
+        "zalo": "Gửi Zalo",
+        "payments": "Lịch sử thu",
+        "hidePayments": "Đóng lịch sử",
+        "reverse": "Hủy ghi nhận"
       },
       "payTitle": "Ghi nhận thu",
       "payAmount": "Số tiền thu (VND)",
       "paySubmit": "Ghi nhận",
+      "paymentsTitle": "Lịch sử thu",
+      "noPayments": "Chưa có khoản thu nào",
+      "confirmReverse": "Hủy (điều chỉnh) khoản thu này? Bút toán sổ cái cũng được hoàn lại.",
+      "reverseDone": "Đã hủy khoản thu",
       "confirmVoid": "Hủy hóa đơn này? Các khoản phải thu sẽ có thể lập hóa đơn lại.",
       "generating": "Đang tạo PDF…",
       "sending": "Đang gửi Zalo…",
@@ -1952,6 +2007,16 @@
         "INVALID_STATUS": "Không thể thực hiện ở trạng thái hiện tại",
         "generic": "Xử lý thất bại"
       }
+    },
+    "countries": {
+      "none": "Chưa chọn",
+      "VN": "Việt Nam",
+      "KR": "Hàn Quốc",
+      "CN": "Trung Quốc",
+      "RU": "Nga",
+      "US": "Mỹ",
+      "JP": "Nhật Bản",
+      "TH": "Thái Lan"
     }
   },
   "adminSettlements": {

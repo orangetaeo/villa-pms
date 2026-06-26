@@ -20,6 +20,7 @@ import {
   type SupplierVillaSalesLabels,
 } from "./villa-sales-section";
 import type { BedTypeKey } from "@/lib/bedding";
+import { formatVillaName } from "@/lib/villa-name";
 
 // 시즌 표시 순서 (비수기 → 성수기 → 극성수기). PEAK는 강조색
 const SEASON_ORDER: SeasonType[] = ["LOW", "HIGH", "PEAK"];
@@ -32,6 +33,7 @@ async function getVilla(id: string, supplierId: string) {
       id: true,
       supplierId: true,
       name: true,
+      nameVi: true,
       bedrooms: true,
       bathrooms: true,
       maxGuests: true,
@@ -110,7 +112,9 @@ export async function generateMetadata({
   }
   const { id } = await params;
   const villa = await getVilla(id, session.user.id);
-  return { title: villa?.name ?? "Villa" };
+  return {
+    title: villa ? formatVillaName({ name: villa.name, nameVi: villa.nameVi }) : "Villa",
+  };
 }
 
 export default async function VillaDetailPage({
@@ -199,7 +203,7 @@ export default async function VillaDetailPage({
           <span className="material-symbols-outlined text-teal-600">arrow_back</span>
         </Link>
         <h1 className="flex-1 truncate px-1 text-center text-lg font-semibold text-teal-600">
-          {villa.name}
+          {formatVillaName({ name: villa.name, nameVi: villa.nameVi })}
         </h1>
         <div className="h-10 w-10" />
       </header>

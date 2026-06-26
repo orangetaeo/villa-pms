@@ -12,6 +12,7 @@ import { SettlementStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { SETTLEMENT_BOOKING_STATUSES, monthRangeUtc } from "@/lib/settlement";
 import { todayVnDateString } from "@/lib/date-vn";
+import { formatVillaName } from "@/lib/villa-name";
 import StatsSection from "@/components/supplier/stats/stats-section";
 
 const YEAR_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -144,7 +145,7 @@ async function EarningsDetail({
         checkOut: true,
         nights: true,
         supplierCostVnd: true,
-        villa: { select: { name: true } },
+        villa: { select: { name: true, nameVi: true } },
       },
     }),
     prisma.settlement.findUnique({
@@ -254,7 +255,9 @@ async function EarningsDetail({
               }`}
             >
               <div className="space-y-1">
-                <h4 className="font-bold text-slate-900">{booking.villa.name}</h4>
+                <h4 className="font-bold text-slate-900">
+                  {formatVillaName({ name: booking.villa.name, nameVi: booking.villa.nameVi })}
+                </h4>
                 <p className="text-sm text-slate-500">
                   {formatDayMonth(booking.checkIn)} - {formatDayMonth(booking.checkOut)} (
                   {t("nights", { count: booking.nights })})

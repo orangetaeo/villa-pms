@@ -8,6 +8,7 @@ import {
   issueInvoice,
   receivableBalance,
   recordInvoicePayment,
+  reverseInvoicePayment,
   voidInvoice,
 } from "./partner-invoice";
 
@@ -51,6 +52,7 @@ function makeTx(opts: {
   dup?: { id: string } | null;
   candidates?: Array<{ id: string; totalVnd: bigint; depositPaidVnd: bigint; balancePaidVnd: bigint }>;
   invoice?: unknown;
+  payment?: { id: string; invoiceId: string | null; amount: bigint; currency: string } | null;
 }) {
   const create = vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
     id: "inv-new",
@@ -67,6 +69,21 @@ function makeTx(opts: {
   const invFindUnique = vi.fn(async () =>
     opts.invoice !== undefined ? opts.invoice : (opts.dup ?? null)
   );
+  // Payment + LEDGER COLLECTION mock (ADR-0027) — 청구서 수납이 분개 적재
+  let payCounter = 0;
+  const payCreate = vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+    id: `pay-${++payCounter}`,
+    ...data,
+  }));
+  const ledgerFindUnique = vi.fn(async () => null); // 멱등: 기존 없음
+  const ledgerCreate = vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+    id: "ltx-1",
+    ...data,
+  }));
+  // 정정(reverse)용 mock
+  const payFindUnique = vi.fn(async () => opts.payment ?? null);
+  const payDelete = vi.fn(async () => ({}));
+  const ledgerDeleteMany = vi.fn(async () => ({ count: 1 }));
   const tx = {
     partnerInvoice: { findUnique: invFindUnique, create, update: invUpdate },
     partnerReceivable: {
@@ -74,8 +91,11 @@ function makeTx(opts: {
       updateMany: rcvUpdateMany,
       update: rcvUpdate,
     },
+    payment: { create: payCreate, findUnique: payFindUnique, delete: payDelete },
+    ledgerTransaction: { findUnique: ledgerFindUnique, create: ledgerCreate, deleteMany: ledgerDeleteMany },
+    auditLog: { create: vi.fn(async () => ({})) },
   };
-  return { tx: tx as never, create, invUpdate, rcvUpdateMany, rcvUpdate };
+  return { tx: tx as never, create, invUpdate, rcvUpdateMany, rcvUpdate, payCreate, ledgerCreate, payDelete, ledgerDeleteMany };
 }
 
 describe("generateInvoiceForPeriod", () => {
@@ -136,13 +156,14 @@ describe("recordInvoicePayment", () => {
     const { tx, invUpdate, rcvUpdate } = makeTx({
       invoice: {
         id: "inv1",
+        partnerId: "p1",
         status: PartnerInvoiceStatus.ISSUED,
         totalVnd: 1_000_000n,
         paidVnd: 0n,
         receivables: [{ id: "r1", totalVnd: 1_000_000n, depositPaidVnd: 300_000n }],
       },
     });
-    await recordInvoicePayment(tx, { invoiceId: "inv1", amountVnd: 400_000n, now: utc("2026-08-10") });
+    await recordInvoicePayment(tx, { invoiceId: "inv1", amountVnd: 400_000n, now: utc("2026-08-10"), createdBy: "u1" });
     expect(invUpdate.mock.calls[0]![0].data).toMatchObject({
       paidVnd: 400_000n,
       status: PartnerInvoiceStatus.PARTIAL,
@@ -161,7 +182,7 @@ describe("recordInvoicePayment", () => {
         receivables: [{ id: "r1", totalVnd: 1_000_000n, depositPaidVnd: 300_000n }],
       },
     });
-    await recordInvoicePayment(tx, { invoiceId: "inv1", amountVnd: 700_000n, now: utc("2026-08-10") });
+    await recordInvoicePayment(tx, { invoiceId: "inv1", amountVnd: 700_000n, now: utc("2026-08-10"), createdBy: "u1" });
     expect(invUpdate.mock.calls[0]![0].data).toMatchObject({
       status: PartnerInvoiceStatus.PAID,
       paidAt: utc("2026-08-10"),
@@ -173,12 +194,61 @@ describe("recordInvoicePayment", () => {
     });
   });
 
+  it("수납 시 LEDGER COLLECTION 적재 — Payment(VND, invoiceId) + 균형 분개 (ADR-0027)", async () => {
+    const { tx, payCreate, ledgerCreate } = makeTx({
+      invoice: {
+        id: "inv1",
+        partnerId: "p1",
+        status: PartnerInvoiceStatus.ISSUED,
+        totalVnd: 1_000_000n,
+        paidVnd: 0n,
+        receivables: [{ id: "r1", totalVnd: 1_000_000n, depositPaidVnd: 0n }],
+      },
+    });
+    await recordInvoicePayment(tx, { invoiceId: "inv1", amountVnd: 400_000n, now: utc("2026-08-10"), createdBy: "u1" });
+    // Payment: VND·증분액·invoiceId·partnerId, bookingId 없음
+    expect(payCreate.mock.calls[0]![0].data).toMatchObject({
+      currency: "VND",
+      amount: 400_000n,
+      vndEquivalent: 400_000n,
+      purpose: "BALANCE",
+      partnerId: "p1",
+      invoiceId: "inv1",
+    });
+    expect(payCreate.mock.calls[0]![0].data).not.toHaveProperty("bookingId");
+    // COLLECTION 분개: CASH_VND +400k / REVENUE −400k → 통화 합 0
+    const lines = (ledgerCreate.mock.calls[0]![0].data as { lines: { create: { account: string; currency: string; amount: bigint }[] } }).lines.create;
+    expect(lines).toEqual(
+      expect.arrayContaining([
+        { account: "CASH_VND", currency: "VND", amount: 400_000n },
+        { account: "REVENUE", currency: "VND", amount: -400_000n },
+      ])
+    );
+    expect(lines.reduce((s, l) => s + l.amount, 0n)).toBe(0n);
+  });
+
+  it("0원·과입금(add=0) 수납은 Payment·COLLECTION 미생성", async () => {
+    const { tx, payCreate, ledgerCreate } = makeTx({
+      invoice: {
+        id: "inv1",
+        partnerId: "p1",
+        status: PartnerInvoiceStatus.ISSUED,
+        totalVnd: 1_000_000n,
+        paidVnd: 0n,
+        receivables: [],
+      },
+    });
+    await recordInvoicePayment(tx, { invoiceId: "inv1", amountVnd: 0n, now: utc("2026-08-10"), createdBy: "u1" });
+    expect(payCreate).not.toHaveBeenCalled();
+    expect(ledgerCreate).not.toHaveBeenCalled();
+  });
+
   it("DRAFT 청구서엔 수납 불가 → INVALID_STATUS", async () => {
     const { tx } = makeTx({
       invoice: { id: "inv1", status: PartnerInvoiceStatus.DRAFT, totalVnd: 1n, paidVnd: 0n, receivables: [] },
     });
     await expect(
-      recordInvoicePayment(tx, { invoiceId: "inv1", amountVnd: 1n, now: utc("2026-08-10") })
+      recordInvoicePayment(tx, { invoiceId: "inv1", amountVnd: 1n, now: utc("2026-08-10"), createdBy: "u1" })
     ).rejects.toMatchObject({ reason: "INVALID_STATUS" });
   });
 });
@@ -195,5 +265,81 @@ describe("voidInvoice", () => {
     await voidInvoice(tx, "inv1");
     expect(rcvUpdateMany).toHaveBeenCalledWith({ where: { invoiceId: "inv1" }, data: { invoiceId: null } });
     expect(invUpdate.mock.calls[0]![0].data).toEqual({ status: PartnerInvoiceStatus.VOID });
+  });
+});
+
+describe("reverseInvoicePayment", () => {
+  it("정정 — Payment 삭제·COLLECTION 역분개·paidVnd 차감·상태 PARTIAL (ADR-0027 D3)", async () => {
+    const { tx, payDelete, ledgerDeleteMany, invUpdate, rcvUpdate } = makeTx({
+      payment: { id: "pay-1", invoiceId: "inv1", amount: 300_000n, currency: "VND" },
+      invoice: {
+        id: "inv1",
+        status: PartnerInvoiceStatus.PARTIAL,
+        totalVnd: 1_000_000n,
+        paidVnd: 700_000n,
+        receivables: [{ id: "r1", totalVnd: 1_000_000n, depositPaidVnd: 300_000n, status: ReceivableStatus.PARTIAL }],
+      },
+    });
+    await reverseInvoicePayment(tx, { invoiceId: "inv1", paymentId: "pay-1", createdBy: "u1" });
+    expect(ledgerDeleteMany).toHaveBeenCalledWith({ where: { paymentId: "pay-1" } });
+    expect(payDelete).toHaveBeenCalledWith({ where: { id: "pay-1" } });
+    expect(invUpdate.mock.calls[0]![0].data).toMatchObject({
+      paidVnd: 400_000n,
+      status: PartnerInvoiceStatus.PARTIAL,
+    });
+    // 여전히 미완납 상태였으므로(PARTIAL) 채권 원복 없음
+    expect(rcvUpdate).not.toHaveBeenCalled();
+  });
+
+  it("완납 해제 시 묶인 채권 원복(balancePaid 0·상태 재계산)", async () => {
+    const { tx, invUpdate, rcvUpdate } = makeTx({
+      payment: { id: "pay-2", invoiceId: "inv1", amount: 700_000n, currency: "VND" },
+      invoice: {
+        id: "inv1",
+        status: PartnerInvoiceStatus.PAID,
+        totalVnd: 700_000n,
+        paidVnd: 700_000n,
+        receivables: [{ id: "r1", totalVnd: 1_000_000n, depositPaidVnd: 300_000n, status: ReceivableStatus.PAID }],
+      },
+    });
+    await reverseInvoicePayment(tx, { invoiceId: "inv1", paymentId: "pay-2", createdBy: "u1" });
+    expect(invUpdate.mock.calls[0]![0].data).toMatchObject({
+      paidVnd: 0n,
+      status: PartnerInvoiceStatus.ISSUED,
+      paidAt: null,
+    });
+    // r1: balancePaid 0, deposit 300k 남아 PARTIAL
+    expect(rcvUpdate).toHaveBeenCalledWith({
+      where: { id: "r1" },
+      data: { balancePaidVnd: 0n, status: ReceivableStatus.PARTIAL },
+    });
+  });
+
+  it("타 청구서/없는 결제 → NOT_FOUND", async () => {
+    const { tx } = makeTx({
+      payment: { id: "pay-x", invoiceId: "other", amount: 1n, currency: "VND" },
+      invoice: { id: "inv1", status: PartnerInvoiceStatus.PARTIAL, totalVnd: 1n, paidVnd: 1n, receivables: [] },
+    });
+    await expect(
+      reverseInvoicePayment(tx, { invoiceId: "inv1", paymentId: "pay-x", createdBy: "u1" })
+    ).rejects.toMatchObject({ reason: "NOT_FOUND" });
+  });
+
+  it("VOID 청구서 수납 정정 거부 → INVALID_STATUS (부활 방지)", async () => {
+    const { tx, payDelete } = makeTx({
+      payment: { id: "pay-v", invoiceId: "inv1", amount: 400_000n, currency: "VND" },
+      invoice: {
+        id: "inv1",
+        status: PartnerInvoiceStatus.VOID,
+        totalVnd: 1_000_000n,
+        paidVnd: 400_000n,
+        receivables: [],
+      },
+    });
+    await expect(
+      reverseInvoicePayment(tx, { invoiceId: "inv1", paymentId: "pay-v", createdBy: "u1" })
+    ).rejects.toMatchObject({ reason: "INVALID_STATUS" });
+    // 가드가 변경 전 차단 — Payment 삭제·역분개 일어나지 않음
+    expect(payDelete).not.toHaveBeenCalled();
   });
 });

@@ -54,6 +54,11 @@ const SUPPLIER_CLEANER_PATHS = ["/my-villas", "/calendar", "/cleaning", "/earnin
 // VENDOR는 오직 이 경로만 접근, 그 외(운영·SUPPLIER 영역)는 차단.
 const VENDOR_PATHS = ["/vendor"];
 
+// 비로그인 허용(public) 경로 — 비밀번호 자가재설정 화면·API.
+// (/api/auth/* 는 config.matcher에서 이미 제외되어 미들웨어를 타지 않음 — 페이지만 여기서 명시)
+// 임시 비번 강제변경 게이트·운영자 게이트가 이 경로를 막지 않도록 최상단에서 통과시킨다.
+const PUBLIC_PATHS = ["/forgot-password", "/reset-password"];
+
 function matchesPath(pathname: string, paths: string[]): boolean {
   return paths.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
@@ -62,6 +67,11 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
   const session = req.auth;
   const role = session?.user?.role as Role | undefined;
+
+  // 비밀번호 자가재설정 화면은 비로그인 허용 — 어떤 게이트보다 먼저 통과(로그인 안내 문구 분기는 페이지가 담당).
+  if (matchesPath(pathname, PUBLIC_PATHS)) {
+    return NextResponse.next();
+  }
 
   // 비밀번호 강제 변경 게이트 — 임시 비번(초기화·계정생성) 사용자는 본인이 변경 전까지
   // 변경 화면(운영자 /account · 공급자 /profile)·변경 API·언어 API만 허용, 그 외는 차단.

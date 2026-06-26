@@ -40,7 +40,12 @@ export async function POST(
   const now = parsed.data.receivedAt ? new Date(parsed.data.receivedAt) : new Date();
   try {
     const updated = await prisma.$transaction((tx) =>
-      recordInvoicePayment(tx, { invoiceId: id, amountVnd: parsed.data.amountVnd, now })
+      recordInvoicePayment(tx, {
+        invoiceId: id,
+        amountVnd: parsed.data.amountVnd,
+        now,
+        createdBy: session.user.id,
+      })
     );
     await writeAuditLog({
       userId: session.user.id,
@@ -61,4 +66,23 @@ export async function POST(
     console.error("[partner-invoices/payments] 수납 실패", e);
     return NextResponse.json({ error: "수납 처리에 실패했습니다" }, { status: 500 });
   }
+}
+
+/** GET — 청구서 수납 내역(개별 Payment) 목록 (ADMIN 전용, ADR-0027 D3). */
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user?.id) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  if (!canViewFinance(session.user.role)) {
+    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  }
+  const { id } = await params;
+  const payments = await prisma.payment.findMany({
+    where: { invoiceId: id },
+    select: { id: true, amount: true, currency: true, receivedAt: true, method: true },
+    orderBy: { receivedAt: "asc" },
+  });
+  return NextResponse.json({ payments: serializeBigInt(payments) });
 }
