@@ -17,6 +17,19 @@ export function formatVnd(value: bigint | string): string {
   return `${formatThousands(value)}₫`;
 }
 
+/** 공급자·파트너 화면 VND 표기 — 점 구분 + ₫ (예: 15.000.000₫, DESIGN.md — ADMIN 쉼표와 다름).
+ *  BigInt 또는 직렬화 string 입력, null은 "—". 숫자 아닌 string은 원문 반환.
+ *  BigInt → Number() 캐스팅 금지 — 문자열 정규식 천단위 처리(정밀도 손실 방지). */
+export function formatVndDot(value: bigint | string | null): string {
+  if (value === null) return "—";
+  const raw = typeof value === "string" ? value : value.toString();
+  const negative = raw.startsWith("-");
+  const digits = negative ? raw.slice(1) : raw;
+  if (!/^\d+$/.test(digits)) return raw;
+  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `${negative ? "-" : ""}${grouped}₫`;
+}
+
 /** ADMIN KRW 표기 — ₩ + 쉼표 (예: ₩450,000, b10 요율 테이블 기준) */
 export function formatKrw(value: number): string {
   return `₩${formatThousands(Math.trunc(value))}`;

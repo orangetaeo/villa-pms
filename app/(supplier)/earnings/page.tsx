@@ -13,18 +13,10 @@ import { prisma } from "@/lib/prisma";
 import { SETTLEMENT_BOOKING_STATUSES, monthRangeUtc } from "@/lib/settlement";
 import { todayVnDateString } from "@/lib/date-vn";
 import { formatVillaName } from "@/lib/villa-name";
+import { formatVndDot } from "@/lib/format";
 import StatsSection from "@/components/supplier/stats/stats-section";
 
 const YEAR_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
-
-/** 공급자 VND 점 구분 표기 (15.000.000₫, DESIGN.md — ADMIN 쉼표와 다름). BigInt 문자열 정규식 — Number() 금지 */
-function formatVndDot(value: bigint): string {
-  const raw = value.toString();
-  const negative = raw.startsWith("-");
-  const digits = negative ? raw.slice(1) : raw;
-  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return `${negative ? "-" : ""}${grouped}₫`;
-}
 
 /** @db.Date(UTC 자정) → "dd/MM" (a7 표기: 15/07) */
 function formatDayMonth(date: Date): string {

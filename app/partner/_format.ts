@@ -1,15 +1,6 @@
-// app/partner/_format.ts — 파트너 포털 표기 헬퍼 (VND 점구분·날짜).
-// 금액은 string(BigInt 직렬화값)을 받아 정규식 천단위 점 삽입 — Number() 금지(정밀도 손실).
-
-/** VND 점 구분 표기 (15.000.000₫). string 입력(BigInt 직렬화값). */
-export function formatVndDot(value: string | null): string {
-  if (value === null) return "—";
-  const negative = value.startsWith("-");
-  const digits = negative ? value.slice(1) : value;
-  if (!/^\d+$/.test(digits)) return value;
-  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return `${negative ? "-" : ""}${grouped}₫`;
-}
+// app/partner/_format.ts — 파트너 포털 표기 헬퍼 (날짜).
+// VND 점구분 표기는 lib/format.ts 단일 소스를 재export(공급자·파트너 공통).
+export { formatVndDot } from "@/lib/format";
 
 /** @db.Date(UTC 자정) → "dd/MM/yyyy" */
 export function formatDate(date: Date): string {

@@ -66,7 +66,7 @@ export async function POST(req: Request) {
   const contactEmail = d.contactEmail?.trim() || undefined;
 
   // 계정 생성 + 파트너 엔티티 생성을 한 트랜잭션으로 묶어 원자성 보장
-  const created = await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
         role: "PARTNER",
@@ -108,11 +108,8 @@ export async function POST(req: Request) {
         selfSignup: { new: true },
       },
     });
-
-    return partner;
   });
 
   // 응답 화이트리스트 — 민감정보(passwordHash·id 등) 미반환
-  void created;
   return NextResponse.json({ ok: true }, { status: 201 });
 }

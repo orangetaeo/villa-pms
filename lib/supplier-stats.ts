@@ -7,7 +7,7 @@
 // 집계 의미는 기존 단일 소스를 재사용한다:
 // - 매출 = SETTLEMENT_BOOKING_STATUSES(CHECKED_OUT·NO_SHOW), 체크아웃이 속한 버킷 기준(lib/settlement 규약)
 // - 가동율 = computeOccupancyRate(OCCUPANCY_STAY_STATUSES, half-open 점유박/(ACTIVE 빌라수×일수))
-import { BookingStatus, type PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   computeOccupancyRate,
@@ -16,6 +16,7 @@ import {
 } from "@/lib/booking-stats";
 import { SETTLEMENT_BOOKING_STATUSES } from "@/lib/settlement";
 import type { StatsPeriod } from "@/lib/statistics";
+import { formatVndDot } from "@/lib/format";
 
 const MS_PER_DAY = 86_400_000;
 const OCCUPANCY_STATUS_FILTER = [...OCCUPANCY_STAY_STATUSES];
@@ -25,17 +26,8 @@ const SETTLEMENT_STATUS_FILTER = [...SETTLEMENT_BOOKING_STATUSES];
 // 순수 함수 층 (DB 무관 — 단위 테스트 대상)
 // ===================================================================
 
-/**
- * 공급자 VND 점 구분 표기 (15.000.000₫). DESIGN.md — ADMIN 쉼표와 다름.
- * BigInt 문자열 정규식 — Number() 금지(정밀도 손실 방지).
- */
-export function formatVndDot(value: bigint): string {
-  const raw = value.toString();
-  const negative = raw.startsWith("-");
-  const digits = negative ? raw.slice(1) : raw;
-  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return `${negative ? "-" : ""}${grouped}₫`;
-}
+// VND 점 구분 표기(15.000.000₫)는 lib/format.ts 단일 소스 — 재export로 기존 import 호환.
+export { formatVndDot };
 
 /** half-open [checkIn, checkOut) 의 [winStart, winEnd) 클리핑 점유박 (computeOccupancyRate와 동일 규약) */
 export function clippedNights(b: OccupancyBookingRange, winStart: Date, winEnd: Date): number {
