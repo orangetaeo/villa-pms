@@ -98,7 +98,29 @@
       "cancel": "Hủy",
       "confirm": "Từ chối"
     },
-    "firstLoginNotice": "Bạn đang dùng mật khẩu tạm thời. Hãy đổi sang mật khẩu riêng để bắt đầu nhận đơn."
+    "firstLoginNotice": "Bạn đang dùng mật khẩu tạm thời. Hãy đổi sang mật khẩu riêng để bắt đầu nhận đơn.",
+    "stats": {
+      "title": "Thống kê",
+      "subtitle": "Doanh thu và hiệu suất đơn của bạn",
+      "backToOrders": "Đơn hàng",
+      "empty": "Chưa có thống kê",
+      "emptyHint": "Thống kê doanh thu sẽ hiển thị khi đơn được chấp nhận và hoàn thành.",
+      "period_thisMonth": "Tháng này",
+      "period_lastMonth": "Tháng trước",
+      "period_year": "Năm nay",
+      "vsPrev": "so với kỳ trước",
+      "kpiRevenue": "Doanh thu",
+      "kpiOrders": "Đơn hoàn thành",
+      "kpiAcceptance": "Tỷ lệ nhận",
+      "kpiAvgUnit": "Đơn giá TB",
+      "unitCount": "đơn",
+      "revenueTrendTitle": "Xu hướng doanh thu",
+      "revenueLegend": "Doanh thu",
+      "unsettledLabel": "Chưa thanh toán",
+      "settledLabel": "Đã thanh toán",
+      "topItemsTitle": "Mặt hàng phổ biến",
+      "itemMeta": "{orders} đơn · {qty} cái"
+    }
   },
   "pagination": {
     "summary": "{from}–{to} · Tổng {total}",

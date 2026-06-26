@@ -6,6 +6,7 @@
 //      추가 데이터 호출 금지 — 이 컴포넌트는 /api/vendor/orders shape만 사용.
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 
 type VendorStatus = "PENDING_VENDOR" | "VENDOR_ACCEPTED" | "VENDOR_REJECTED" | null;
 
@@ -126,9 +127,19 @@ export default function VendorBoard() {
 
   return (
     <main className="mx-auto max-w-md space-y-5 px-4 pb-28 pt-16">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold text-neutral-900">{t("title")}</h1>
-        <p className="text-sm text-neutral-500">{t("subtitle")}</p>
+      <header className="flex items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <h1 className="text-2xl font-bold text-neutral-900">{t("title")}</h1>
+          <p className="text-sm text-neutral-500">{t("subtitle")}</p>
+        </div>
+        {/* 통계 진입 — 서버 렌더 /vendor/stats (costVnd 기반 매출·발주 통계) */}
+        <Link
+          href="/vendor/stats"
+          className="flex shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-teal-700 active:scale-95"
+        >
+          <span className="material-symbols-outlined text-base">bar_chart</span>
+          {t("stats.title")}
+        </Link>
       </header>
 
       {/* 탭 — 발주함 | 예약현황 | 정산 (라벨 3개, 한 화면 1작업) */}

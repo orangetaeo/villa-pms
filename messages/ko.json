@@ -98,7 +98,29 @@
       "cancel": "취소",
       "confirm": "거절"
     },
-    "firstLoginNotice": "임시 비밀번호로 로그인했습니다. 본인 비밀번호로 변경하면 발주를 받을 수 있습니다."
+    "firstLoginNotice": "임시 비밀번호로 로그인했습니다. 본인 비밀번호로 변경하면 발주를 받을 수 있습니다.",
+    "stats": {
+      "title": "통계",
+      "subtitle": "내 발주 매출과 실적",
+      "backToOrders": "발주함",
+      "empty": "아직 통계가 없습니다",
+      "emptyHint": "수락한 발주가 이행되면 매출 통계가 표시됩니다.",
+      "period_thisMonth": "이번 달",
+      "period_lastMonth": "지난달",
+      "period_year": "올해",
+      "vsPrev": "직전 대비",
+      "kpiRevenue": "매출",
+      "kpiOrders": "이행 발주",
+      "kpiAcceptance": "수락율",
+      "kpiAvgUnit": "평균 단가",
+      "unitCount": "건",
+      "revenueTrendTitle": "매출 추이",
+      "revenueLegend": "매출",
+      "unsettledLabel": "미정산 금액",
+      "settledLabel": "정산 완료",
+      "topItemsTitle": "인기 품목",
+      "itemMeta": "{orders}건 · {qty}개"
+    }
   },
   "adminDashboard": {
     "title": "대시보드",
