@@ -263,7 +263,73 @@ function OverviewTab({ data }: { data: OverviewStats }) {
           />
         </div>
       </div>
+
+      {/* 통합 합산표 — 빌라+부가서비스+미니바 소스별·합계 (개요 KPI와 별개) */}
+      <IntegratedTable data={data.integrated} t={t} />
     </>
+  );
+}
+
+// ── 통합 합산표 — 빌라(객실) + 부가서비스 + 미니바 소스별 + 합계 ───────────
+function IntegratedTable({
+  data,
+  t,
+}: {
+  data: OverviewStats["integrated"];
+  t: ReturnType<typeof useTranslations<"adminStatistics">>;
+}) {
+  const rows: Array<{ key: string; label: string; line: typeof data.villa }> = [
+    { key: "villa", label: t("overview.integrated.rowVilla"), line: data.villa },
+    { key: "services", label: t("overview.integrated.rowServices"), line: data.services },
+    { key: "minibar", label: t("overview.integrated.rowMinibar"), line: data.minibar },
+  ];
+  return (
+    <div className="bg-admin-card rounded-xl border border-slate-700/50 p-5">
+      <div className="mb-4">
+        <h3 className="font-bold text-white">{t("overview.integrated.title")}</h3>
+        <p className="text-[11px] text-slate-500 mt-0.5">{t("overview.integrated.subtitle")}</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-700/50">
+              <th className="text-left font-medium py-2 pr-3">{t("overview.integrated.colSource")}</th>
+              <th className="text-right font-medium py-2 px-3">{t("overview.integrated.colKrw")}</th>
+              <th className="text-right font-medium py-2 px-3">{t("overview.integrated.colVnd")}</th>
+              <th className="text-right font-medium py-2 pl-3">{t("overview.integrated.colMargin")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.key} className="border-b border-slate-800/50">
+                <td className="py-2.5 pr-3 text-slate-300">{r.label}</td>
+                <td className="py-2.5 px-3 text-right tabular-nums text-admin-krw">{r.line.krwRevenueText}</td>
+                <td className="py-2.5 px-3 text-right tabular-nums text-admin-vnd">{r.line.vndRevenueText}</td>
+                <td className="py-2.5 pl-3 text-right tabular-nums text-amber-300/90">{r.line.marginVndText}</td>
+              </tr>
+            ))}
+            <tr className="border-t-2 border-slate-600 font-bold">
+              <td className="py-3 pr-3 text-white">
+                {t("overview.integrated.rowTotal")}
+                {data.total.marginRatePct != null && (
+                  <span className="ml-2 text-[11px] font-medium text-indigo-300">
+                    {t("overview.integrated.marginRate")} {data.total.marginRatePct}%
+                  </span>
+                )}
+              </td>
+              <td className="py-3 px-3 text-right tabular-nums text-admin-krw">{data.total.krwRevenueText}</td>
+              <td className="py-3 px-3 text-right tabular-nums text-admin-vnd">{data.total.vndRevenueText}</td>
+              <td className="py-3 pl-3 text-right tabular-nums text-amber-300">{data.total.marginVndText}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {data.total.fxMissingCount > 0 && (
+        <p className="mt-3 text-[11px] text-slate-500">
+          {t("overview.fxMissingNote", { count: data.total.fxMissingCount })}
+        </p>
+      )}
+    </div>
   );
 }
 
