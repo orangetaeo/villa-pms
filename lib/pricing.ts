@@ -412,6 +412,115 @@ export async function quoteStayForVilla(
   return quoteStayByPeriod({ ...range, saleCurrency, base, periods });
 }
 
+/**
+ * 공급자 자기 판매가(supplierSalePriceVnd) 미설정으로 견적 불가 (F10 Phase B, ADR-0021 §7).
+ * 운영자 요율(MissingBaseRateError)과 **별개 경로** — 공급자 직접 판매 링크 전용.
+ * season·date 정보를 담아 어느 박/기간에서 막혔는지 안내한다.
+ */
+export class MissingSupplierPriceError extends Error {
+  constructor(
+    public readonly season: SeasonType,
+    public readonly date: Date
+  ) {
+    super(`공급자 판매가 미설정: ${season} (${date.toISOString().slice(0, 10)})`);
+    this.name = "MissingSupplierPriceError";
+  }
+}
+
+/** 공급자 판매가 견적용 행 — supplierSalePriceVnd만 보는 RatePeriodLike의 부분집합 */
+interface SupplierRatePeriodLike {
+  season: SeasonType;
+  isBase: boolean;
+  startDate: Date | null;
+  endDate: Date | null;
+  supplierSalePriceVnd: bigint | null;
+}
+
+/**
+ * 공급자 자기 판매가 견적 (F10 Phase B, ADR-0021 §7).
+ *
+ * quoteStayForVilla와 **동일한 박별 기간 선택 로직**(resolveRatePeriod: 웃돈 기간 우선, 없으면 base)을
+ * 따르되, 각 박에서 **supplierSalePriceVnd만** 읽는다. 운영자 salePrice*·margin*·supplierCostVnd는
+ * select에도 넣지 않는다(마진 비공개 — 컬럼이 메모리에 적재조차 안 됨).
+ *
+ * - 적용 기간의 supplierSalePriceVnd가 null이면 MissingSupplierPriceError(그 시즌·날짜) throw.
+ * - 통화는 항상 VND(공급자 화면은 VND만).
+ * @param db PrismaClient 또는 트랜잭션 클라이언트 (HOLD 스냅샷은 tx 주입)
+ */
+export async function quoteSupplierSaleForVilla(
+  db: DbClient,
+  villaId: string,
+  range: StayRange
+): Promise<{ totalVnd: bigint; nightlyVnd: bigint[] }> {
+  assertValidStayRange(range);
+
+  // ⚠ supplierSalePriceVnd·날짜·season만 select — 운영자 salePrice*/margin*/supplierCostVnd 절대 미포함
+  const SRP_SELECT = {
+    season: true,
+    isBase: true,
+    startDate: true,
+    endDate: true,
+    supplierSalePriceVnd: true,
+  } as const;
+  const [base, periods] = await Promise.all([
+    db.villaRatePeriod.findFirst({ where: { villaId, isBase: true }, select: SRP_SELECT }),
+    db.villaRatePeriod.findMany({
+      where: {
+        villaId,
+        isBase: false,
+        startDate: { lt: range.checkOut },
+        endDate: { gt: range.checkIn },
+      },
+      select: SRP_SELECT,
+    }),
+  ]);
+  if (!base) throw new MissingBaseRateError();
+
+  // resolveRatePeriod는 RatePeriodLike(가격 필드 다수)를 받지만 우리는 기간 선택만 쓰므로,
+  // 가격 필드를 0으로 채운 어댑터로 호출하고 선택 결과의 season/date 키로 원본을 되짚는다.
+  const nights = Math.round((range.checkOut.getTime() - range.checkIn.getTime()) / MS_PER_DAY);
+  const nightlyVnd: bigint[] = [];
+  let totalVnd = 0n;
+
+  // 기간 선택을 위한 어댑터(가격 0) — resolveRatePeriod의 겹침/우선순위 로직 재사용
+  const toLike = (r: SupplierRatePeriodLike): RatePeriodLike => ({
+    season: r.season,
+    isBase: r.isBase,
+    startDate: r.startDate,
+    endDate: r.endDate,
+    supplierCostVnd: 0n,
+    salePriceVnd: 0n,
+    salePriceKrw: 0,
+  });
+  const baseLike = toLike(base);
+  const periodLikes = periods.map(toLike);
+  // season+startDate(또는 isBase)로 원본 SupplierRatePeriodLike를 찾기 위한 인덱스
+  const sourceOf = (chosen: RatePeriodLike): SupplierRatePeriodLike => {
+    if (chosen.isBase) return base;
+    return (
+      periods.find(
+        (p) =>
+          p.season === chosen.season &&
+          p.startDate?.getTime() === chosen.startDate?.getTime() &&
+          p.endDate?.getTime() === chosen.endDate?.getTime()
+      ) ?? base
+    );
+  };
+
+  for (let i = 0; i < nights; i++) {
+    const date = new Date(range.checkIn.getTime() + i * MS_PER_DAY);
+    const chosen = resolveRatePeriod(date, periodLikes, baseLike);
+    const src = sourceOf(chosen);
+    if (src.supplierSalePriceVnd == null) {
+      throw new MissingSupplierPriceError(src.season, date);
+    }
+    nightlyVnd.push(src.supplierSalePriceVnd);
+    totalVnd += src.supplierSalePriceVnd;
+  }
+
+  return { totalVnd, nightlyVnd };
+}
+
 /** 환율 스냅샷용 조회 — 미설정이면 null (제안 생성 UI에서 ADMIN 입력 유도) */
 export async function getFxVndPerKrw(db: DbClient): Promise<string | null> {
   const row = await db.appSetting.findUnique({ where: { key: FX_VND_PER_KRW_KEY } });

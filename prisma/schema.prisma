@@ -376,6 +376,7 @@ model VillaRatePeriod {
   marginValue     BigInt // 관리자 — PERCENT: %, FIXED_VND: 동
   salePriceVnd    BigInt // 관리자 책정 — 판매가/박 (VND 채널)
   salePriceKrw    Int // 관리자 책정 — 판매가/박 (KRW 채널)
+  supplierSalePriceVnd BigInt? // F10 Phase B: 공급자 자기 판매 정가/박 (VND) — 운영자 salePriceVnd·마진과 완전 별개, 공급자 직접 판매 링크용 (ADR-0021)
   updatedAt       DateTime   @updatedAt
 
   @@index([villaId, startDate, endDate])
@@ -425,6 +426,8 @@ model Proposal {
   expiresAt    DateTime
   status       ProposalStatus @default(ACTIVE)
   note         String?
+  seller       BookingSeller  @default(OPERATOR) // F10 Phase B: 제안 링크 판매 주체. SUPPLIER=공급자 직접 판매 링크 (ADR-0021)
+  supplierId   String? // F10 Phase B: 공급자 직접 판매 링크 소유자. null=운영자 제안 링크 (ADR-0021)
   createdAt    DateTime       @default(now())
 
   items ProposalItem[]

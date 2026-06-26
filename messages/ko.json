@@ -908,7 +908,10 @@
       "depositTitle": "현지 보증금",
       "depositNote": "체크인 시 현지에서 보증금 {amount}₫가 요청될 수 있으며, 체크아웃 검수 후 환불됩니다.",
       "managedNote": "이 정보는 운영자가 입력합니다. 수정이 필요하면 운영자에게 알려주세요."
-    }
+    },
+    "sellLinkTitle": "판매 링크",
+    "sellLinkDesc": "내 고객이 직접 예약할 링크 만들기",
+    "manageSellLink": "판매 링크"
   },
   "wizard": {
     "header": "빌라 등록",
@@ -2678,7 +2681,9 @@
     "baseCostRequired": "기본요금 원가를 입력하세요.",
     "periodIncomplete": "각 기간의 날짜와 원가를 모두 입력하세요.",
     "invalid": "기간이 겹치거나 날짜가 올바르지 않습니다.",
-    "saveError": "저장에 실패했습니다. 다시 시도하세요."
+    "saveError": "저장에 실패했습니다. 다시 시도하세요.",
+    "salePrice": "내 판매가 / 박",
+    "salePriceHint": "내 고객에게 받을 가격(선택). 판매 링크를 만들 때 필요합니다."
   },
   "costSeasons": {
     "title": "원가 · 시즌",
@@ -3323,5 +3328,42 @@
       "passwordTooShort": "비밀번호는 최소 8자 이상이어야 합니다.",
       "serverError": "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
     }
+  },
+  "supplierSellLink": {
+    "title": "판매 링크",
+    "back": "뒤로",
+    "createTitle": "새 링크 만들기",
+    "createHint": "날짜를 고르고 링크를 만들어 내 고객에게 보내면 직접 예약합니다.",
+    "checkIn": "체크인",
+    "checkOut": "체크아웃",
+    "clientName": "고객명(선택)",
+    "clientNamePlaceholder": "예: 민 님",
+    "defaultClientName": "고객",
+    "holdLabel": "유효 기간",
+    "holdHours": "{h}시간",
+    "createButton": "링크 만들기",
+    "creating": "만드는 중...",
+    "listTitle": "내 링크",
+    "empty": "아직 링크가 없습니다. 첫 링크를 만들어 보세요!",
+    "copy": "복사",
+    "copied": "복사됨",
+    "share": "공유",
+    "confirmDeposit": "입금 확인",
+    "confirming": "확인 중...",
+    "badge": {
+      "active": "열림",
+      "hold": "가예약",
+      "confirmed": "확정",
+      "used": "예약됨",
+      "expired": "만료",
+      "revoked": "취소됨"
+    },
+    "dateRequired": "체크인·체크아웃 날짜를 선택하세요.",
+    "dateOrder": "체크아웃은 체크인 이후여야 합니다.",
+    "priceNotSet": "이 기간 판매가를 먼저 입력하세요.",
+    "goSetPrice": "판매가 입력",
+    "soldOut": "이 날짜는 이미 예약되었습니다. 다른 날짜를 선택하세요.",
+    "notFound": "빌라를 찾을 수 없습니다.",
+    "createError": "링크 생성에 실패했습니다. 다시 시도하세요."
   }
 }

@@ -22,6 +22,10 @@ const SUPPLIER_CLIENT_NAMESPACES = [
   // T10.5 — 공급자 체크인·아웃 검수 폼(클라이언트). 운영자 adminCheckin/adminCheckout과 분리된 vi 네임스페이스(누수 차단).
   "supplierCheckin",
   "supplierCheckout",
+  // T10.6 — 기간별 원가·판매가 편집기(rate-period-cost-editor, 클라이언트).
+  "supplierRatePeriods",
+  // T10.7 — 공급자 판매 링크 생성·목록(sell-link-client, 클라이언트). 운영자 마진·KRW 미포함 vi 네임스페이스.
+  "supplierSellLink",
 ] as const;
 
 function pickMessages(all: AbstractIntlMessages): AbstractIntlMessages {

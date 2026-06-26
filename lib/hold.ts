@@ -1,4 +1,5 @@
 import {
+  BookingSeller,
   BookingStatus,
   NotificationType,
   PrismaClient,
@@ -164,8 +165,14 @@ export async function createHoldFromProposalItem(
     const saleCurrency = item.proposal.saleCurrency;
     assertSaleAmountColumns(saleCurrency, { krw: item.totalKrw, vnd: item.totalVnd });
 
-    // 원가 = HOLD 시점 박별 합산 스냅샷 (요율 변경 무영향)
-    const quote = await quoteStayForVilla(tx, item.villaId, range, saleCurrency);
+    const isSupplierSale = item.proposal.seller === BookingSeller.SUPPLIER;
+
+    // 원가 = HOLD 시점 박별 합산 스냅샷 (요율 변경 무영향).
+    // 공급자 직접판매(seller=SUPPLIER)는 우리 원가가 무의미(정산 제외, 공급자 100%)하므로
+    // quoteStayForVilla(운영자 원가 견적)를 호출하지 않는다 — 운영자 요율·원가 비참조(F10 Phase B).
+    const supplierCostVnd = isSupplierSale
+      ? 0n
+      : (await quoteStayForVilla(tx, item.villaId, range, saleCurrency)).totalSupplierCostVnd;
 
     const holdHoursSetting = await tx.appSetting.findUnique({
       where: { key: HOLD_HOURS_DEFAULT_KEY },
@@ -178,6 +185,7 @@ export async function createHoldFromProposalItem(
         villaId: item.villaId,
         status: BookingStatus.HOLD,
         channel: item.proposal.channel,
+        seller: item.proposal.seller,
         checkIn: item.checkIn,
         checkOut: item.checkOut,
         nights: countNights(range),
@@ -190,7 +198,9 @@ export async function createHoldFromProposalItem(
         totalSaleKrw: item.totalKrw,
         totalSaleVnd: item.totalVnd,
         fxVndPerKrw: item.proposal.fxVndPerKrw,
-        supplierCostVnd: quote.totalSupplierCostVnd,
+        // 공급자 직접판매: 우리 원가는 null(스키마는 NOT NULL이라 0n) + 공급자가 받은 금액 기록
+        supplierCostVnd,
+        ...(isSupplierSale ? { supplierSalePriceVnd: item.totalVnd } : {}),
       },
     });
 

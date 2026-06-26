@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { Currency, MarginType } from "@prisma/client";
+import { Currency, MarginType, SeasonType } from "@prisma/client";
 import {
   assertSaleAmountColumns,
   computeSalePriceVnd,
   suggestSalePriceKrw,
+  quoteSupplierSaleForVilla,
+  MissingSupplierPriceError,
+  MissingBaseRateError,
 } from "./pricing";
+import type { DbClient } from "./availability";
 
 // ADR-0014 Phase B: 구 시즌 기반 quoteStay/resolveSeason 제거 → 기간별 경로는
 //   pricing-rate-period.test.ts(resolveRatePeriod/quoteStayByPeriod/quoteStayForVilla)가 담당.
@@ -78,5 +82,81 @@ describe("assertSaleAmountColumns — 듀얼 컬럼 검증 (ADR-0003)", () => {
   it("0원·0동은 유효한 값 (null과 구분)", () => {
     expect(() => assertSaleAmountColumns(Currency.KRW, { krw: 0 })).not.toThrow();
     expect(() => assertSaleAmountColumns(Currency.VND, { vnd: 0n })).not.toThrow();
+  });
+});
+
+// ===================== quoteSupplierSaleForVilla (F10 Phase B) =====================
+
+const d = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
+
+/** villaRatePeriod만 가진 최소 DbClient 목 — base(isBase) + 웃돈 기간들 */
+function makePricingDb(
+  base: { season: SeasonType; supplierSalePriceVnd: bigint | null } | null,
+  periods: Array<{
+    season: SeasonType;
+    startDate: Date;
+    endDate: Date;
+    supplierSalePriceVnd: bigint | null;
+  }> = []
+): DbClient {
+  const baseRow = base
+    ? { season: base.season, isBase: true, startDate: null, endDate: null, supplierSalePriceVnd: base.supplierSalePriceVnd }
+    : null;
+  const periodRows = periods.map((p) => ({ ...p, isBase: false }));
+  return {
+    villaRatePeriod: {
+      findFirst: async () => baseRow,
+      // 라우트 where(startDate<lt,endDate>gt)는 목에서 무시 — 전부 반환하고 resolveRatePeriod가 날짜 판정
+      findMany: async () => periodRows,
+    },
+  } as unknown as DbClient;
+}
+
+describe("quoteSupplierSaleForVilla — 공급자 자기 판매가 견적 (supplierSalePriceVnd만)", () => {
+  it("균일가: 3박 모두 base 적용 → 합산", async () => {
+    const db = makePricingDb({ season: SeasonType.LOW, supplierSalePriceVnd: 2_000_000n });
+    const q = await quoteSupplierSaleForVilla(db, "v1", {
+      checkIn: d("2026-07-01"),
+      checkOut: d("2026-07-04"),
+    });
+    expect(q.totalVnd).toBe(6_000_000n);
+    expect(q.nightlyVnd).toEqual([2_000_000n, 2_000_000n, 2_000_000n]);
+  });
+
+  it("기간 경계: 웃돈 기간에 걸친 박만 기간가, 나머지는 base", async () => {
+    // base 2,000,000 / 7/2~7/3(1박)만 PEAK 5,000,000
+    const db = makePricingDb({ season: SeasonType.LOW, supplierSalePriceVnd: 2_000_000n }, [
+      { season: SeasonType.PEAK, startDate: d("2026-07-02"), endDate: d("2026-07-03"), supplierSalePriceVnd: 5_000_000n },
+    ]);
+    const q = await quoteSupplierSaleForVilla(db, "v1", {
+      checkIn: d("2026-07-01"),
+      checkOut: d("2026-07-04"),
+    });
+    // 7/1 base, 7/2 PEAK, 7/3 base
+    expect(q.nightlyVnd).toEqual([2_000_000n, 5_000_000n, 2_000_000n]);
+    expect(q.totalVnd).toBe(9_000_000n);
+  });
+
+  it("적용 기간의 supplierSalePriceVnd 미설정 → MissingSupplierPriceError(season·date)", async () => {
+    const db = makePricingDb({ season: SeasonType.LOW, supplierSalePriceVnd: 2_000_000n }, [
+      { season: SeasonType.HIGH, startDate: d("2026-07-02"), endDate: d("2026-07-03"), supplierSalePriceVnd: null },
+    ]);
+    await expect(
+      quoteSupplierSaleForVilla(db, "v1", { checkIn: d("2026-07-01"), checkOut: d("2026-07-04") })
+    ).rejects.toBeInstanceOf(MissingSupplierPriceError);
+  });
+
+  it("base 미설정(전체 미설정) → MissingSupplierPriceError (base 날짜에서 막힘)", async () => {
+    const db = makePricingDb({ season: SeasonType.LOW, supplierSalePriceVnd: null });
+    await expect(
+      quoteSupplierSaleForVilla(db, "v1", { checkIn: d("2026-07-01"), checkOut: d("2026-07-02") })
+    ).rejects.toBeInstanceOf(MissingSupplierPriceError);
+  });
+
+  it("base 행 자체 없음 → MissingBaseRateError", async () => {
+    const db = makePricingDb(null);
+    await expect(
+      quoteSupplierSaleForVilla(db, "v1", { checkIn: d("2026-07-01"), checkOut: d("2026-07-02") })
+    ).rejects.toBeInstanceOf(MissingBaseRateError);
   });
 });

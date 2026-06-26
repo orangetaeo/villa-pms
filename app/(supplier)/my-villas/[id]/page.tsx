@@ -380,6 +380,26 @@ export default async function VillaDetailPage({
             </Link>
           </div>
 
+          {/* 4-1. 판매 링크 (ADR-0021 §7 T10.7) — 공급자 직접 판매 링크 생성·관리 진입 */}
+          <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-teal-50 text-teal-600">
+                <span className="material-symbols-outlined">share</span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold text-neutral-800">{t("sellLinkTitle")}</h3>
+                <p className="text-xs leading-tight text-neutral-500">{t("sellLinkDesc")}</p>
+              </div>
+            </div>
+            <Link
+              href={`/my-villas/${villa.id}/sell-link`}
+              className="mt-3 flex items-center justify-center gap-1.5 rounded-lg bg-teal-600 py-2.5 text-sm font-semibold text-white transition-transform active:scale-[0.98]"
+            >
+              <span className="material-symbols-outlined text-base">add_link</span>
+              {t("manageSellLink")}
+            </Link>
+          </div>
+
           {/* 5. 판매정보 (읽기 전용, a16) — 기존 섹션 아래. 와이파이·판매가·마진 부재 */}
           <SupplierVillaSalesSection
             villa={{

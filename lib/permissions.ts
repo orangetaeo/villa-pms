@@ -58,3 +58,11 @@ export const canOverrideGate = (r?: Role): boolean =>
  */
 export const canSetPrice = (r?: Role): boolean =>
   r === "OWNER" || r === "MANAGER" || r === "ADMIN";
+
+/**
+ * 공급자 직접 판매 링크 생성 — SUPPLIER 전용 (F10 Phase B, ADR-0021 §7).
+ * 운영자의 canSetPrice(제안 링크·요율 마스터)와 **완전 분리**한다: 이건 공급자가
+ * 자기 빌라를 자기 가격(supplierSalePriceVnd)으로 직접 판매하는 권한이고,
+ * 운영자 마진·판매가와 무관하다. 운영자는 이 권한 없음(자기 빌라가 아님).
+ */
+export const canCreateSupplierLink = (r?: Role): boolean => r === "SUPPLIER";

@@ -1,7 +1,9 @@
 "use client";
 
-// 공급자 기간별 원가 편집기 (ADR-0014 후속) — 모바일 vi, teal. 기본요금 + 웃돈 기간 N의 원가만.
-// 판매가·마진은 보이지 않음(운영자 영역). PATCH /api/villas/[id]/rate-periods/cost.
+// 공급자 기간별 원가·판매가 편집기 (ADR-0014 + ADR-0021 §7 T10.6) — 모바일 vi, teal.
+//   - 원가(supplierCostVnd, 중립색): 우리가 매입하는 가격(필수).
+//   - 판매가(supplierSalePriceVnd, teal 강조): 공급자가 자기 고객에게 받을 정가(선택, 판매 링크 자동 견적용).
+// 운영자 재판매 판매가(salePriceVnd/KRW)·마진은 절대 보이지 않음(사업원칙 2). PATCH /api/villas/[id]/rate-periods/cost.
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -13,6 +15,7 @@ const SEASONS: Season[] = ["LOW", "HIGH", "PEAK"];
 interface BaseFields {
   season: Season;
   supplierCostVnd: string;
+  supplierSalePriceVnd: string; // 공급자 자기 판매가(선택)
   label: string;
 }
 export interface InitialRatePeriod {
@@ -21,6 +24,7 @@ export interface InitialRatePeriod {
   startDate: string;
   endDate: string;
   supplierCostVnd: string;
+  supplierSalePriceVnd: string; // 공급자 자기 판매가(선택)
   label: string;
 }
 interface PeriodRow extends InitialRatePeriod {
@@ -56,7 +60,7 @@ export default function RatePeriodCostEditor({
   function addPeriod() {
     setPeriods((prev) => [
       ...prev,
-      { localKey: localKey(), id: "", season: "PEAK", startDate: "", endDate: "", supplierCostVnd: "", label: "" },
+      { localKey: localKey(), id: "", season: "PEAK", startDate: "", endDate: "", supplierCostVnd: "", supplierSalePriceVnd: "", label: "" },
     ]);
   }
   function removePeriod(key: string) {
@@ -81,13 +85,19 @@ export default function RatePeriodCostEditor({
       }
     }
     const body = {
-      base: { season: base.season, supplierCostVnd: base.supplierCostVnd, label: base.label.trim() || null },
+      base: {
+        season: base.season,
+        supplierCostVnd: base.supplierCostVnd,
+        supplierSalePriceVnd: base.supplierSalePriceVnd || null, // 빈값 = 미설정(null)
+        label: base.label.trim() || null,
+      },
       periods: periods.map((p) => ({
         ...(p.id ? { id: p.id } : {}),
         season: p.season,
         startDate: p.startDate,
         endDate: p.endDate,
         supplierCostVnd: p.supplierCostVnd,
+        supplierSalePriceVnd: p.supplierSalePriceVnd || null, // 빈값 = 미설정(null)
         label: p.label.trim() || null,
       })),
     };
@@ -126,6 +136,15 @@ export default function RatePeriodCostEditor({
           onChange={(d) => setBase((b) => ({ ...b, supplierCostVnd: d }))}
           label={t("cost")}
         />
+        <div className="mt-3">
+          <CostInput
+            value={base.supplierSalePriceVnd}
+            onChange={(d) => setBase((b) => ({ ...b, supplierSalePriceVnd: d }))}
+            label={t("salePrice")}
+            hint={t("salePriceHint")}
+            variant="sale"
+          />
+        </div>
       </div>
 
       {/* 웃돈 기간 */}
@@ -194,6 +213,15 @@ export default function RatePeriodCostEditor({
               onChange={(d) => patchPeriod(p.localKey, { supplierCostVnd: d })}
               label={t("cost")}
             />
+            <div className="mt-3">
+              <CostInput
+                value={p.supplierSalePriceVnd}
+                onChange={(d) => patchPeriod(p.localKey, { supplierSalePriceVnd: d })}
+                label={t("salePrice")}
+                hint={t("salePriceHint")}
+                variant="sale"
+              />
+            </div>
           </div>
         ))}
 
@@ -232,25 +260,49 @@ function CostInput({
   value,
   onChange,
   label,
+  hint,
+  variant = "cost",
 }: {
   value: string;
   onChange: (digits: string) => void;
   label: string;
+  hint?: string;
+  /** cost = 중립 회색(원가), sale = teal 강조(공급자 자기 판매가) */
+  variant?: "cost" | "sale";
 }) {
+  const isSale = variant === "sale";
   return (
     <div>
-      <label className="mb-1 block text-xs font-semibold text-neutral-500">{label}</label>
-      <div className="flex items-center rounded-xl border-2 border-neutral-100 bg-white px-3 focus-within:border-teal-400">
+      <label
+        className={`mb-1 flex items-center gap-1 text-xs font-semibold ${
+          isSale ? "text-teal-700" : "text-neutral-500"
+        }`}
+      >
+        {isSale && <span className="material-symbols-outlined text-[15px]">sell</span>}
+        {label}
+      </label>
+      <div
+        className={`flex items-center rounded-xl border-2 px-3 ${
+          isSale
+            ? "border-teal-200 bg-teal-50/40 focus-within:border-teal-500"
+            : "border-neutral-100 bg-white focus-within:border-teal-400"
+        }`}
+      >
         <input
           type="text"
           inputMode="numeric"
           value={value ? formatVnd(value) : ""}
           onChange={(e) => onChange(digits(e.target.value))}
           aria-label={label}
-          className="h-12 flex-1 bg-transparent text-right text-lg font-bold text-neutral-800 tabular-nums outline-none"
+          className={`h-12 flex-1 bg-transparent text-right text-lg font-bold tabular-nums outline-none ${
+            isSale ? "text-teal-800" : "text-neutral-800"
+          }`}
         />
-        <span className="ml-1 text-base font-bold text-neutral-400">₫</span>
+        <span className={`ml-1 text-base font-bold ${isSale ? "text-teal-500" : "text-neutral-400"}`}>
+          ₫
+        </span>
       </div>
+      {hint && <p className="mt-1 text-[11px] leading-snug text-neutral-400">{hint}</p>}
     </div>
   );
 }

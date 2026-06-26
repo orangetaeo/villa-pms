@@ -1,14 +1,22 @@
 import { randomBytes } from "node:crypto";
 import {
   BookingChannel,
+  BookingSeller,
   Currency,
   ProposalStatus,
   type Prisma,
   type PrismaClient,
   type Proposal,
 } from "@prisma/client";
-import { checkAvailability, type StayRange } from "./availability";
-import { quoteStayForVilla, getFxVndPerKrw, assertSaleAmountColumns, MissingRateError, type NightQuote } from "./pricing";
+import { assertValidStayRange, checkAvailability, type StayRange } from "./availability";
+import {
+  quoteStayForVilla,
+  quoteSupplierSaleForVilla,
+  getFxVndPerKrw,
+  assertSaleAmountColumns,
+  MissingRateError,
+  type NightQuote,
+} from "./pricing";
 import { writeAuditLog } from "./audit-log";
 
 /**
@@ -183,5 +191,183 @@ export async function createProposal(
     });
 
     return proposal;
+  });
+}
+
+// ===================== 공급자 직접 판매 링크 (F10 Phase B, ADR-0021 §7) =====================
+//
+// 공급자가 자기 빌라를 자기 가격(supplierSalePriceVnd)으로 직접 판매하는 링크.
+// 운영자 제안(createProposal)과 분리: 단일 빌라·VND 고정·seller=SUPPLIER·supplierId 스코프.
+// 마진 비공개: 운영자 salePrice*/margin*는 어디서도 읽지 않는다(quoteSupplierSaleForVilla가 보장).
+
+/** 공급자 제안 생성 거부 사유 — 라우트가 NOT_FOUND→404, SOLD_OUT→409로 흡수 */
+export type SupplierProposalRejectReason = "NOT_FOUND" | "SOLD_OUT";
+
+export class SupplierProposalRejectedError extends Error {
+  constructor(public readonly reason: SupplierProposalRejectReason) {
+    super(reason);
+    this.name = "SupplierProposalRejectedError";
+  }
+}
+
+export interface CreateSupplierProposalInput {
+  villaId: string;
+  supplierId: string;
+  clientName: string;
+  checkIn: Date;
+  checkOut: Date;
+  /** 링크 유효시간 — 기본 48h */
+  expiresInHours?: number;
+  now: Date;
+}
+
+/**
+ * 공급자 직접 판매 링크 생성 (F10 Phase B).
+ *
+ * - villa는 본인 소유(supplierId 스코프)만 — 미일치/없음은 NOT_FOUND(라우트 404, 존재 비노출).
+ * - 단일 빌라·기간 1개. 가용성 미통과면 SOLD_OUT.
+ * - 가격 = quoteSupplierSaleForVilla(supplierSalePriceVnd만). 미설정이면 MissingSupplierPriceError 전파(라우트 400).
+ * - Proposal: channel=DIRECT, saleCurrency=VND, seller=SUPPLIER, supplierId 세팅. priceKrw/totalKrw=null.
+ */
+export async function createSupplierProposal(
+  prisma: PrismaClient,
+  input: CreateSupplierProposalInput
+): Promise<Proposal> {
+  if (!input.clientName.trim()) throw new RangeError("고객명은 필수입니다");
+  if (
+    !(input.checkIn instanceof Date) ||
+    !(input.checkOut instanceof Date) ||
+    isNaN(input.checkIn.getTime()) ||
+    isNaN(input.checkOut.getTime())
+  ) {
+    throw new RangeError("체크인·체크아웃 날짜가 올바르지 않습니다");
+  }
+  assertValidStayRange({ checkIn: input.checkIn, checkOut: input.checkOut });
+  const expiresInHours = input.expiresInHours ?? DEFAULT_EXPIRES_HOURS;
+  if (!Number.isInteger(expiresInHours) || expiresInHours < 1 || expiresInHours > 336) {
+    throw new RangeError(`유효시간은 1~336 정수여야 합니다: ${expiresInHours}`);
+  }
+  const range: StayRange = { checkIn: input.checkIn, checkOut: input.checkOut };
+
+  return prisma.$transaction(async (tx) => {
+    // 소유 스코프 — 본인 빌라가 아니면 존재 비노출(404). select 최소화(id만).
+    const villa = await tx.villa.findFirst({
+      where: { id: input.villaId, supplierId: input.supplierId },
+      select: { id: true },
+    });
+    if (!villa) throw new SupplierProposalRejectedError("NOT_FOUND");
+
+    const availability = await checkAvailability(tx, input.villaId, range);
+    if (!availability.sellable) throw new SupplierProposalRejectedError("SOLD_OUT");
+
+    // 공급자 자기 판매가만 — 미설정이면 MissingSupplierPriceError 전파(라우트 400)
+    const quote = await quoteSupplierSaleForVilla(tx, input.villaId, range);
+    const priceVndPerNight = uniformNightlyPrice(quote.nightlyVnd);
+
+    const proposal = await tx.proposal.create({
+      data: {
+        token: generateProposalToken(),
+        clientName: input.clientName.trim(),
+        channel: BookingChannel.DIRECT,
+        saleCurrency: Currency.VND,
+        seller: BookingSeller.SUPPLIER,
+        supplierId: input.supplierId,
+        fxVndPerKrw: null,
+        expiresAt: new Date(input.now.getTime() + expiresInHours * 3_600_000),
+        items: {
+          create: [
+            {
+              villa: { connect: { id: input.villaId } },
+              checkIn: input.checkIn,
+              checkOut: input.checkOut,
+              priceKrwPerNight: null,
+              totalKrw: null,
+              priceVndPerNight,
+              totalVnd: quote.totalVnd,
+            },
+          ],
+        },
+      },
+    });
+
+    await writeAuditLog({
+      db: tx,
+      userId: input.supplierId,
+      action: "CREATE",
+      entity: "Proposal",
+      entityId: proposal.id,
+      changes: {
+        seller: { new: BookingSeller.SUPPLIER },
+        saleCurrency: { new: Currency.VND },
+        villaIds: { new: [input.villaId] },
+        expiresAt: { new: proposal.expiresAt.toISOString() },
+      },
+    });
+
+    return proposal;
+  });
+}
+
+/** 공급자 제안 목록 1행 — 운영자 금액 컬럼 미포함(VND 총액만) */
+export interface SupplierProposalListRow {
+  token: string;
+  proposalId: string;
+  villaId: string;
+  villaName: string;
+  checkIn: Date;
+  checkOut: Date;
+  /** effectiveProposalStatus 적용 (만료 반영) */
+  status: ProposalStatus;
+  /** 공급자 판매 총액 VND — null 가능(데이터 이상 시) */
+  totalVnd: bigint | null;
+  booking: { id: string; status: string } | null;
+}
+
+/**
+ * 공급자 본인이 만든 직접 판매 링크 목록 (F10 Phase B).
+ * supplierId 스코프 + seller=SUPPLIER만. 운영자 금액(salePrice·krw)은 select 자체에 없음.
+ * effectiveProposalStatus로 만료를 시각 기준 반영. item.bookingId 연결 booking 상태 포함.
+ */
+export async function listSupplierProposals(
+  prisma: PrismaClient,
+  supplierId: string,
+  now: Date = new Date()
+): Promise<SupplierProposalListRow[]> {
+  const proposals = await prisma.proposal.findMany({
+    where: { supplierId, seller: BookingSeller.SUPPLIER },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      token: true,
+      status: true,
+      expiresAt: true,
+      items: {
+        orderBy: { id: "asc" },
+        take: 1, // 공급자 링크는 단일 빌라
+        select: {
+          villaId: true,
+          checkIn: true,
+          checkOut: true,
+          totalVnd: true, // 공급자 판매 총액(VND)만 — 운영자 금액 컬럼 미select
+          villa: { select: { name: true } },
+          booking: { select: { id: true, status: true } },
+        },
+      },
+    },
+  });
+
+  return proposals.map((p) => {
+    const item = p.items[0];
+    return {
+      token: p.token,
+      proposalId: p.id,
+      villaId: item?.villaId ?? "",
+      villaName: item?.villa.name ?? "",
+      checkIn: item?.checkIn ?? new Date(0),
+      checkOut: item?.checkOut ?? new Date(0),
+      status: effectiveProposalStatus(p.status, p.expiresAt, now),
+      totalVnd: item?.totalVnd ?? null,
+      booking: item?.booking ? { id: item.booking.id, status: item.booking.status } : null,
+    };
   });
 }

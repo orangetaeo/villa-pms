@@ -89,6 +89,7 @@ export default async function ProposalPage({
       saleCurrency: true,
       status: true,
       expiresAt: true,
+      seller: true, // F10 Phase B: 공급자 직접판매 링크면 회사 계좌 섹션 숨김(ADR-0021 §7)
       items: {
         orderBy: { id: "asc" }, // 카드 순서 결정성 (QA L3)
         select: {
@@ -165,8 +166,11 @@ export default async function ProposalPage({
   const holdHours = resolveHoldHours(holdSetting?.value);
 
   const currency = proposal.saleCurrency;
-  // #6a — 입금 계좌 안내(메인 페이지). 통화별 계좌 자동 선택. 미설정 시 null(섹션 미렌더).
-  const bank = await getPublicBankInfo(currency);
+  // F10 Phase B: 공급자 직접판매 링크(seller=SUPPLIER)는 우리 회사 계좌를 노출하지 않는다 —
+  // 공급자 고객은 공급자에게 직접 지불하므로 회사 입금계좌 안내가 부적절(ADR-0021 §7).
+  const isSupplierLink = proposal.seller === "SUPPLIER";
+  // #6a — 입금 계좌 안내(메인 페이지). 통화별 계좌 자동 선택. 미설정·공급자 링크 시 null(섹션 미렌더).
+  const bank = isSupplierLink ? null : await getPublicBankInfo(currency);
   // #6b — 취소·환불 정책(전 빌라 공용). 각 빌라 카드에 동일 전달.
   const cancellationPolicy = await getCancellationPolicy();
   const nightsOf = (a: Date, b: Date) => Math.round((b.getTime() - a.getTime()) / 86_400_000);

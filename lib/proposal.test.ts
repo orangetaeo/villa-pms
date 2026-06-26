@@ -1,13 +1,32 @@
-import { describe, expect, it } from "vitest";
-import { BookingChannel, Currency, ProposalStatus } from "@prisma/client";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { BookingChannel, BookingSeller, Currency, ProposalStatus } from "@prisma/client";
+
+// DB·부수효과 모듈 차단 (T1.6 패턴)
+vi.mock("@/lib/audit-log", () => ({ writeAuditLog: vi.fn(async () => {}) }));
+const mockCheckAvailability = vi.fn();
+const mockQuoteSupplierSale = vi.fn();
+vi.mock("./availability", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./availability")>();
+  return { ...actual, checkAvailability: (...a: unknown[]) => mockCheckAvailability(...a) };
+});
+vi.mock("./pricing", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./pricing")>();
+  return { ...actual, quoteSupplierSaleForVilla: (...a: unknown[]) => mockQuoteSupplierSale(...a) };
+});
+
 import {
+  createSupplierProposal,
   defaultCurrencyForChannel,
   effectiveProposalStatus,
   generateProposalToken,
+  listSupplierProposals,
+  SupplierProposalRejectedError,
   uniformNightlyPrice,
 } from "./proposal";
+import { MissingSupplierPriceError } from "./pricing";
 
 const NOW = new Date("2026-07-01T10:00:00.000Z");
+const d = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 
 describe("defaultCurrencyForChannel — 채널 → 통화 기본값 (ADR-0003)", () => {
   it("DIRECT(직접 소비자) → KRW", () => {
@@ -68,5 +87,150 @@ describe("generateProposalToken — 공개 링크 토큰", () => {
     const b = generateProposalToken();
     expect(a).toMatch(/^[A-Za-z0-9_-]{32}$/); // 24바이트 → base64url 32자
     expect(a).not.toBe(b);
+  });
+});
+
+// ===================== createSupplierProposal (F10 Phase B) =====================
+
+function makeCreateTx(opts: {
+  villa?: { id: string } | null;
+  createdProposal?: { id: string; token: string };
+}) {
+  const created: Record<string, unknown>[] = [];
+  const tx = {
+    villa: { findFirst: vi.fn(async () => opts.villa ?? null) },
+    proposal: {
+      create: vi.fn(async (args: { data: Record<string, unknown> }) => {
+        created.push(args.data);
+        return {
+          id: opts.createdProposal?.id ?? "prop1",
+          token: opts.createdProposal?.token ?? "tok_abc",
+          ...args.data,
+        };
+      }),
+    },
+    _created: created,
+  };
+  return tx;
+}
+
+function makePrismaWithTx(tx: ReturnType<typeof makeCreateTx>) {
+  return {
+    $transaction: async (fn: (t: unknown) => Promise<unknown>) => fn(tx),
+  } as unknown as Parameters<typeof createSupplierProposal>[0];
+}
+
+const VALID_INPUT = {
+  villaId: "v1",
+  supplierId: "sup1",
+  clientName: "응우옌 고객",
+  checkIn: d("2026-07-01"),
+  checkOut: d("2026-07-04"),
+  now: NOW,
+};
+
+describe("createSupplierProposal — 공급자 직접 판매 링크 생성", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCheckAvailability.mockResolvedValue({ available: true, sellable: true, reasons: [] });
+    mockQuoteSupplierSale.mockResolvedValue({
+      totalVnd: 6_000_000n,
+      nightlyVnd: [2_000_000n, 2_000_000n, 2_000_000n],
+    });
+  });
+
+  it("타 공급자/없는 빌라 → SupplierProposalRejectedError(NOT_FOUND)", async () => {
+    const tx = makeCreateTx({ villa: null });
+    await expect(createSupplierProposal(makePrismaWithTx(tx), VALID_INPUT)).rejects.toMatchObject({
+      reason: "NOT_FOUND",
+    });
+    expect(tx.proposal.create).not.toHaveBeenCalled();
+    // 스코프: findFirst가 supplierId 조건으로 호출되었는지
+    expect(tx.villa.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "v1", supplierId: "sup1" } })
+    );
+  });
+
+  it("가용성 미통과 → SOLD_OUT", async () => {
+    mockCheckAvailability.mockResolvedValue({ available: false, sellable: false, reasons: ["BOOKING_OVERLAP"] });
+    const tx = makeCreateTx({ villa: { id: "v1" } });
+    await expect(createSupplierProposal(makePrismaWithTx(tx), VALID_INPUT)).rejects.toMatchObject({
+      reason: "SOLD_OUT",
+    });
+    expect(tx.proposal.create).not.toHaveBeenCalled();
+  });
+
+  it("공급자 판매가 미설정 → MissingSupplierPriceError 전파(라우트 400)", async () => {
+    mockQuoteSupplierSale.mockRejectedValue(new MissingSupplierPriceError("HIGH" as never, d("2026-07-02")));
+    const tx = makeCreateTx({ villa: { id: "v1" } });
+    await expect(createSupplierProposal(makePrismaWithTx(tx), VALID_INPUT)).rejects.toBeInstanceOf(
+      MissingSupplierPriceError
+    );
+  });
+
+  it("정상 생성: seller=SUPPLIER·supplierId·VND·DIRECT, KRW 컬럼 null, totalVnd 스냅샷", async () => {
+    const tx = makeCreateTx({ villa: { id: "v1" }, createdProposal: { id: "prop9", token: "tok9" } });
+    const res = await createSupplierProposal(makePrismaWithTx(tx), VALID_INPUT);
+    expect(res.id).toBe("prop9");
+    expect(res.token).toMatch(/^[A-Za-z0-9_-]{32}$/); // 생성 시 난수 토큰
+    const data = tx._created[0];
+    expect(data.token).toMatch(/^[A-Za-z0-9_-]{32}$/);
+    expect(data.seller).toBe(BookingSeller.SUPPLIER);
+    expect(data.supplierId).toBe("sup1");
+    expect(data.saleCurrency).toBe(Currency.VND);
+    expect(data.channel).toBe(BookingChannel.DIRECT);
+    expect(data.fxVndPerKrw).toBeNull();
+    // 항목: VND만, KRW 컬럼 null
+    const item = (data.items as { create: Record<string, unknown>[] }).create[0];
+    expect(item.totalVnd).toBe(6_000_000n);
+    expect(item.priceVndPerNight).toBe(2_000_000n); // 균일가
+    expect(item.priceKrwPerNight).toBeNull();
+    expect(item.totalKrw).toBeNull();
+  });
+
+  it("빈 고객명·역전 날짜는 RangeError", async () => {
+    const tx = makeCreateTx({ villa: { id: "v1" } });
+    await expect(
+      createSupplierProposal(makePrismaWithTx(tx), { ...VALID_INPUT, clientName: "  " })
+    ).rejects.toThrow(RangeError);
+    await expect(
+      createSupplierProposal(makePrismaWithTx(tx), { ...VALID_INPUT, checkIn: d("2026-07-05") })
+    ).rejects.toThrow(RangeError);
+  });
+});
+
+describe("listSupplierProposals — supplierId 스코프 + seller=SUPPLIER만", () => {
+  it("스코프 where + effectiveProposalStatus + booking 연결", async () => {
+    const findMany = vi.fn(async () => [
+      {
+        id: "prop1",
+        token: "tokA",
+        status: ProposalStatus.ACTIVE,
+        expiresAt: new Date(NOW.getTime() - 1), // 만료됨 → EXPIRED로 판정되어야
+        items: [
+          {
+            villaId: "v1",
+            checkIn: d("2026-07-01"),
+            checkOut: d("2026-07-03"),
+            totalVnd: 4_000_000n,
+            villa: { name: "쏘나씨 V1" },
+            booking: { id: "bk1", status: "CONFIRMED" },
+          },
+        ],
+      },
+    ]);
+    const prisma = { proposal: { findMany } } as unknown as Parameters<typeof listSupplierProposals>[0];
+    const rows = await listSupplierProposals(prisma, "sup1", NOW);
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { supplierId: "sup1", seller: BookingSeller.SUPPLIER },
+      })
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].status).toBe(ProposalStatus.EXPIRED); // 만료 반영
+    expect(rows[0].totalVnd).toBe(4_000_000n);
+    expect(rows[0].villaName).toBe("쏘나씨 V1");
+    expect(rows[0].booking).toEqual({ id: "bk1", status: "CONFIRMED" });
   });
 });
