@@ -21,7 +21,7 @@ import { isOperator } from "@/lib/permissions";
 //   users/users-manager                              → adminUsers
 //   settlements/settlements-view                     → adminSettlements
 //   settings/hold-hours-form·season-manager·fx-rate-form·agreement-form → adminSettings
-//   settings/minibar/minibar-manager                 → adminMinibar
+//   inventory/inventory-tabs·minibar-manager         → inventory, adminMinibar
 //   proposals/proposals-list, new/proposal-create    → adminProposals
 //   inspections/inspections-view                     → adminInspections
 //   settings/zalo/zalo-connect-client                → adminZalo

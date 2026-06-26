@@ -5,10 +5,11 @@
 import type { Metadata } from "next";
 import { getTranslations, getLocale } from "next-intl/server";
 import { auth } from "@/auth";
-import { isOperator, canViewFinance, type Role } from "@/lib/permissions";
+import { isOperator, canViewFinance, canSetPrice, type Role } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { loadInventoryMatrix } from "@/lib/minibar-inventory-load";
-import InventoryClient from "./inventory-client";
+import InventoryTabs from "./inventory-tabs";
+import type { MinibarRow } from "./minibar-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -37,8 +38,36 @@ export default async function InventoryPage() {
 
   // 매입 단가는 canViewFinance만 — 서버에서 입력칸 노출 여부를 결정(클라 조건부 렌더 아님).
   const showCost = canViewFinance(role);
+  // 미니바 품목 관리(회사표준 CRUD) 탭은 가격 설정 권한(OWNER/MANAGER)만 — 판매가·입고가 노출.
+  const canManageItems = canSetPrice(role);
 
   const { rows, summary } = await loadInventoryMatrix(prisma, locale);
+
+  // 품목 관리 탭용 회사표준 목록 — 권한자만 조회(판매가·입고가 BigInt→문자열).
+  let minibarItems: MinibarRow[] = [];
+  if (canManageItems) {
+    const items = await prisma.minibarItem.findMany({
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: {
+        id: true,
+        nameKo: true,
+        unitPriceVnd: true,
+        costVnd: true,
+        stockQty: true,
+        sortOrder: true,
+        active: true,
+      },
+    });
+    minibarItems = items.map((m) => ({
+      id: m.id,
+      nameKo: m.nameKo,
+      unitPriceVnd: m.unitPriceVnd.toString(),
+      costVnd: m.costVnd?.toString() ?? null,
+      stockQty: m.stockQty,
+      sortOrder: m.sortOrder,
+      active: m.active,
+    }));
+  }
 
   // 입고 폼 셀렉트 옵션 — 빌라(중복 제거, 표시순) / 품목(중복 제거, 표시순)
   const villaOptions: { id: string; name: string }[] = [];
@@ -57,12 +86,14 @@ export default async function InventoryPage() {
   }
 
   return (
-    <InventoryClient
+    <InventoryTabs
       rows={rows}
       summary={summary}
       villaOptions={villaOptions}
       itemOptions={itemOptions}
       showCost={showCost}
+      minibarItems={minibarItems}
+      canManageItems={canManageItems}
     />
   );
 }
