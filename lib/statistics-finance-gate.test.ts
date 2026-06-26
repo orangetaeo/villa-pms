@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "@prisma/client";
-import { loadVillaPerformance, loadOperationsStats } from "@/lib/statistics";
+import { loadVillaPerformance, loadOperationsStats, resolveStatsPeriod } from "@/lib/statistics";
 
 // 통계 finance 누수 게이트 — STAFF(canViewFinance=false → includeFinance=false)에게
 //   매출·마진·보증금차감 금액이 페이로드에서 빠지는지 검증한다.
@@ -8,6 +8,8 @@ import { loadVillaPerformance, loadOperationsStats } from "@/lib/statistics";
 //   db 주입(injectable)으로 모듈 mock 없이 직접 호출한다.
 
 const NOW = new Date("2026-06-15T00:00:00Z");
+// 기간 v2(StatsPeriod) — load* 함수가 문자열 코드 대신 해석된 기간 객체를 받는다(resolveStatsPeriod 단일 해석).
+const PERIOD = resolveStatsPeriod({}, NOW);
 
 // 부분 mock을 PrismaClient로 캐스팅(테스트 전용 — 실제로 쓰이는 메서드만 구현)
 const asDb = (m: unknown): PrismaClient => m as unknown as PrismaClient;
@@ -20,7 +22,7 @@ describe("loadVillaPerformance — includeFinance 누수 게이트", () => {
       villa: { findMany: vi.fn().mockResolvedValue([{ id: "v1", name: "V1", complex: "A" }]) },
     });
 
-    const rows = await loadVillaPerformance("12", false, NOW, db);
+    const rows = await loadVillaPerformance(PERIOD, false, NOW, db);
 
     // 재무 쿼리(두 번째 booking.findMany)가 아예 발생하지 않아야 함 → 점유 1회만
     expect(bookingFindMany).toHaveBeenCalledTimes(1);
@@ -56,7 +58,7 @@ describe("loadVillaPerformance — includeFinance 누수 게이트", () => {
       villa: { findMany: vi.fn().mockResolvedValue([{ id: "v1", name: "V1", complex: "A" }]) },
     });
 
-    const rows = await loadVillaPerformance("12", true, NOW, db);
+    const rows = await loadVillaPerformance(PERIOD, true, NOW, db);
 
     expect(bookingFindMany).toHaveBeenCalledTimes(2); // 점유 + 재무
     const r = rows[0] as unknown as Record<string, unknown>;
@@ -81,7 +83,7 @@ describe("loadOperationsStats — includeFinance 누수 게이트", () => {
       cleaningTask: cleaningStub(),
     });
 
-    const stats = await loadOperationsStats("12", false, NOW, db);
+    const stats = await loadOperationsStats(PERIOD, false, NOW, db);
 
     expect(stats.deposit).toBeUndefined();
     // 비재무 운영 지표(전환율·청소)는 존재
@@ -101,7 +103,7 @@ describe("loadOperationsStats — includeFinance 누수 게이트", () => {
       cleaningTask: cleaningStub(),
     });
 
-    const stats = await loadOperationsStats("12", true, NOW, db);
+    const stats = await loadOperationsStats(PERIOD, true, NOW, db);
 
     expect(stats.deposit?.deductedCount).toBe(1); // REFUNDED 제외
     expect(stats.deposit?.deductVnd).toBe(500_000);
