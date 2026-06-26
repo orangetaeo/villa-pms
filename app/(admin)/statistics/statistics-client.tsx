@@ -289,40 +289,43 @@ function IntegratedTable({
         <h3 className="font-bold text-white">{t("overview.integrated.title")}</h3>
         <p className="text-[11px] text-slate-500 mt-0.5">{t("overview.integrated.subtitle")}</p>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-700/50">
-              <th className="text-left font-medium py-2 pr-3">{t("overview.integrated.colSource")}</th>
-              <th className="text-right font-medium py-2 px-3">{t("overview.integrated.colKrw")}</th>
-              <th className="text-right font-medium py-2 px-3">{t("overview.integrated.colVnd")}</th>
-              <th className="text-right font-medium py-2 pl-3">{t("overview.integrated.colMargin")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.key} className="border-b border-slate-800/50">
-                <td className="py-2.5 pr-3 text-slate-300">{r.label}</td>
-                <td className="py-2.5 px-3 text-right tabular-nums text-admin-krw">{r.line.krwRevenueText}</td>
-                <td className="py-2.5 px-3 text-right tabular-nums text-admin-vnd">{r.line.vndRevenueText}</td>
-                <td className="py-2.5 pl-3 text-right tabular-nums text-amber-300/90">{r.line.marginVndText}</td>
-              </tr>
-            ))}
-            <tr className="border-t-2 border-slate-600 font-bold">
-              <td className="py-3 pr-3 text-white">
-                {t("overview.integrated.rowTotal")}
-                {data.total.marginRatePct != null && (
-                  <span className="ml-2 text-[11px] font-medium text-indigo-300">
-                    {t("overview.integrated.marginRate")} {data.total.marginRatePct}%
-                  </span>
-                )}
-              </td>
-              <td className="py-3 px-3 text-right tabular-nums text-admin-krw">{data.total.krwRevenueText}</td>
-              <td className="py-3 px-3 text-right tabular-nums text-admin-vnd">{data.total.vndRevenueText}</td>
-              <td className="py-3 pl-3 text-right tabular-nums text-amber-300">{data.total.marginVndText}</td>
-            </tr>
-          </tbody>
-        </table>
+      <div className="space-y-2">
+        {rows.map((r) => (
+          <MetricCardRow
+            key={r.key}
+            label={r.label}
+            metrics={[
+              { label: t("overview.integrated.colKrw"), value: r.line.krwRevenueText, className: "text-admin-krw" },
+              { label: t("overview.integrated.colVnd"), value: r.line.vndRevenueText, className: "text-admin-vnd" },
+              { label: t("overview.integrated.colMargin"), value: r.line.marginVndText, className: "text-amber-300/90" },
+            ]}
+          />
+        ))}
+        {/* 합계 — 강조 카드 */}
+        <div className="rounded-lg border border-slate-600 bg-slate-800/70 px-3 py-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm font-bold text-white">{t("overview.integrated.rowTotal")}</span>
+            {data.total.marginRatePct != null && (
+              <span className="shrink-0 text-[11px] font-medium text-indigo-300">
+                {t("overview.integrated.marginRate")} {data.total.marginRatePct}%
+              </span>
+            )}
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2">
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">{t("overview.integrated.colKrw")}</p>
+              <p className="truncate text-sm font-bold tabular-nums text-admin-krw">{data.total.krwRevenueText}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">{t("overview.integrated.colVnd")}</p>
+              <p className="truncate text-sm font-bold tabular-nums text-admin-vnd">{data.total.vndRevenueText}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">{t("overview.integrated.colMargin")}</p>
+              <p className="truncate text-sm font-bold tabular-nums text-amber-300">{data.total.marginVndText}</p>
+            </div>
+          </div>
+        </div>
       </div>
       {data.total.fxMissingCount > 0 && (
         <p className="mt-3 text-[11px] text-slate-500">
@@ -457,35 +460,19 @@ function ServiceSection({ data }: { data: ServiceOrderStats }) {
           {data.topTypes.length === 0 ? (
             <p className="text-sm text-admin-muted text-center py-8">{t("services.topTypes.empty")}</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[11px] text-admin-muted uppercase tracking-wider border-b border-slate-700/50">
-                  <th className="text-left font-medium py-2">{t("services.topTypes.type")}</th>
-                  <th className="text-right font-medium py-2">{t("services.topTypes.qty")}</th>
-                  <th className="text-right font-medium py-2">{t("services.topTypes.revenueKrw")}</th>
-                  <th className="text-right font-medium py-2">{t("services.topTypes.revenueVnd")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.topTypes.map((row, i) => (
-                  <tr
-                    key={`${row.type}-${i}`}
-                    className="border-b border-slate-800/60 last:border-0"
-                  >
-                    <td className="py-2 text-slate-200 truncate max-w-[8rem]">
-                      {t(`services.types.${row.type}`)}
-                    </td>
-                    <td className="py-2 text-right text-slate-400 tabular-nums">{row.quantity}</td>
-                    <td className="py-2 text-right text-admin-krw tabular-nums">
-                      {row.revenueKrwText}
-                    </td>
-                    <td className="py-2 text-right text-admin-vnd tabular-nums font-medium">
-                      {row.revenueVndText}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="space-y-2">
+              {data.topTypes.map((row, i) => (
+                <MetricCardRow
+                  key={`${row.type}-${i}`}
+                  label={t(`services.types.${row.type}`)}
+                  count={`${row.quantity} ${t("services.topTypes.qty")}`}
+                  metrics={[
+                    { label: t("services.topTypes.revenueKrw"), value: row.revenueKrwText, className: "text-admin-krw" },
+                    { label: t("services.topTypes.revenueVnd"), value: row.revenueVndText, className: "text-admin-vnd font-medium" },
+                  ]}
+                />
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -498,29 +485,24 @@ function ServiceSection({ data }: { data: ServiceOrderStats }) {
           {data.topItems.length === 0 ? (
             <p className="text-sm text-admin-muted text-center py-8">{t("services.topItems.empty")}</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[11px] text-admin-muted uppercase tracking-wider border-b border-slate-700/50">
-                  <th className="text-left font-medium py-2">{t("services.topItems.item")}</th>
-                  <th className="text-right font-medium py-2">{t("services.topItems.qty")}</th>
-                  <th className="text-right font-medium py-2">{t("services.topItems.revenueKrw")}</th>
-                  <th className="text-right font-medium py-2">{t("services.topItems.revenueVnd")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.topItems.map((row, i) => (
-                  <tr key={`${row.itemId}-${i}`} className="border-b border-slate-800/60 last:border-0">
-                    <td className="py-2 text-slate-200 truncate max-w-[10rem]">
-                      <span className="text-[10px] text-slate-500 mr-1.5">{t(`services.types.${row.type}`)}</span>
-                      {row.label}
-                    </td>
-                    <td className="py-2 text-right text-slate-400 tabular-nums">{row.quantity}</td>
-                    <td className="py-2 text-right text-admin-krw tabular-nums">{row.revenueKrwText}</td>
-                    <td className="py-2 text-right text-admin-vnd tabular-nums font-medium">{row.revenueVndText}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="space-y-2">
+              {data.topItems.map((row, i) => (
+                <MetricCardRow
+                  key={`${row.itemId}-${i}`}
+                  label={
+                    <span className="flex items-baseline gap-1.5">
+                      <span className="shrink-0 text-[10px] text-slate-500">{t(`services.types.${row.type}`)}</span>
+                      <span className="truncate">{row.label}</span>
+                    </span>
+                  }
+                  count={`${row.quantity} ${t("services.topItems.qty")}`}
+                  metrics={[
+                    { label: t("services.topItems.revenueKrw"), value: row.revenueKrwText, className: "text-admin-krw" },
+                    { label: t("services.topItems.revenueVnd"), value: row.revenueVndText, className: "text-admin-vnd font-medium" },
+                  ]}
+                />
+              ))}
+            </div>
           )}
         </div>
 
@@ -530,28 +512,50 @@ function ServiceSection({ data }: { data: ServiceOrderStats }) {
           {data.topVendors.length === 0 ? (
             <p className="text-sm text-admin-muted text-center py-8">{t("services.topVendors.empty")}</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[11px] text-admin-muted uppercase tracking-wider border-b border-slate-700/50">
-                  <th className="text-left font-medium py-2">{t("services.topVendors.vendor")}</th>
-                  <th className="text-right font-medium py-2">{t("services.topVendors.orders")}</th>
-                  <th className="text-right font-medium py-2">{t("services.topVendors.revenueVnd")}</th>
-                  <th className="text-right font-medium py-2">{t("services.topVendors.payoutVnd")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.topVendors.map((row, i) => (
-                  <tr key={`${row.vendorId}-${i}`} className="border-b border-slate-800/60 last:border-0">
-                    <td className="py-2 text-slate-200 truncate max-w-[10rem]">{row.name}</td>
-                    <td className="py-2 text-right text-slate-400 tabular-nums">{row.orderCount}</td>
-                    <td className="py-2 text-right text-admin-vnd tabular-nums font-medium">{row.revenueVndText}</td>
-                    <td className="py-2 text-right text-amber-300/90 tabular-nums">{row.payoutVndText}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="space-y-2">
+              {data.topVendors.map((row, i) => (
+                <MetricCardRow
+                  key={`${row.vendorId}-${i}`}
+                  label={<span className="truncate">{row.name}</span>}
+                  count={`${row.orderCount} ${t("services.topVendors.orders")}`}
+                  metrics={[
+                    { label: t("services.topVendors.revenueVnd"), value: row.revenueVndText, className: "text-admin-vnd font-medium" },
+                    { label: t("services.topVendors.payoutVnd"), value: row.payoutVndText, className: "text-amber-300/90" },
+                  ]}
+                />
+              ))}
+            </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// 모바일 최적화 통계 카드 1행 — 이름(위) + 지표 2열 그리드(아래). 큰 금액도 가로 넘침 없이 표시.
+//   metrics 2개=한 줄, 3개=2+1 줄로 자연 줄바꿈. 표(table) 가로 스크롤 대체.
+function MetricCardRow({
+  label,
+  count,
+  metrics,
+}: {
+  label: ReactNode;
+  count?: ReactNode;
+  metrics: Array<{ label: string; value: string; className?: string }>;
+}) {
+  return (
+    <div className="rounded-lg bg-slate-800/40 px-3 py-2.5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 text-sm font-medium text-slate-200">{label}</div>
+        {count != null && <div className="shrink-0 text-xs text-slate-400 tabular-nums">{count}</div>}
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2">
+        {metrics.map((m, i) => (
+          <div key={i} className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wider text-slate-500">{m.label}</p>
+            <p className={`truncate text-sm tabular-nums ${m.className ?? "text-slate-200"}`}>{m.value}</p>
+          </div>
+        ))}
       </div>
     </div>
   );
