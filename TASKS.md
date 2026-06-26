@@ -119,12 +119,15 @@
 > 원래 사업 모델 복원: 공급자가 자기 고객에 직접 판매 → 공실 실시간 공유 → 우리가 선점 재판매. 확정(테오 2026-06-26): 둘 다(단계적)·선착순·공급자 100%(정산 제외)·검수 미승인도 직접판매 허용·직접예약 게스트도 정식 F4 검수(D5, 공급자 수행). **격리 브랜치 wt/f10-supplier-direct에서 진행**. 스키마는 additive **raw SQL ALTER**(db push 금지 — [[db-schema-drift-villa-source]]). 단어 DIRECT 재사용 금지(seller=SUPPLIER로 표현).
 
 ### Phase A — 직접예약 수동 기록 + 현장 검수 (MVP)
-- [ ] T10.0 Stitch 디자인: ① 공급자 캘린더 "직접 예약 기록" 바텀시트·입력 폼 ② 공급자 vi 체크인(여권·동의서 서명·보증금) ③ 공급자 vi 체크아웃(기준사진 대조·파손) — b3·b4 운영자 화면의 vi 모바일 변형 (a3 톤 계승) → design/stitch/ (DESIGN, 테오 확인)
-- [ ] T10.1 스키마: `Booking.seller` enum `BookingSeller{OPERATOR|SUPPLIER}` @default(OPERATOR) + `Booking.supplierSalePriceVnd BigInt?` raw SQL ALTER, 기존 예약 OPERATOR 백필, `NotificationType.SUPPLIER_DIRECT_BOOKING` 추가 (TDA/BE) — 스키마 1세션 전담(PARTNER-1 스키마 세션과 조율)
-- [ ] T10.2 공급자 직접예약 API+UI: `POST/DELETE /api/supplier/bookings`(supplierId 스코프, lockVillaInventory+checkAvailability 게이트 재사용, 선착순 409, writeAuditLog) + /calendar 직접예약 기록 폼 (BE/UX-VN) — 의존 T10.1
-- [ ] T10.3 운영자 가시성: lib/timeline.ts 셀 enum에 SUPPLIER_DIRECT 추가(T1.5 계약 호환) + 타임라인/대시보드 신규 셀 색 + /bookings seller 필터 (FE) — 의존 T10.1
-- [ ] T10.4 정산 제외 + Zalo 알림 + 누수 QA: settlement 집계 `seller=OPERATOR` 필터, 직접예약 생성 시 운영자 알림, 권한 누수 4종(타인빌라 403·운영자 판매가 비노출·정산 혼입 0·선착순 충돌 상세 비노출) (BE/INTEG/QA) — 의존 T10.2
-- [ ] T10.5 공급자 vi 체크인·아웃 검수 화면 (D5 — 정식 F4 적용): 여권 OCR·동의서 서명·보증금·체크아웃 사진 비교·청소 + **미니바 소모 정산 블록(D6 — 미니바=운영자 재고, 매출 우리 것)**. lib/checkin·lib/checkout 재사용, 공급자 vi 신규 라우트(app/(supplier)/), 권한 `seller=SUPPLIER` AND `villa.supplierId===session.user.id` 스코프, 여권·서명 비공개 파이프라인 재사용. "운영자 전달" 단계 제외(공급자 본인 임시거주신고). 서명 비게이트+미서명 배지로 시작. **전환별 미니바 자동 보충/회수(다음 seller 인지)는 ADR-0019 미니바 실재고 Phase 2** (T10.5는 정산 UI만). Stitch 디자인 선행 (UX-VN/BE/QA) — 의존 T10.2
+- [x] T10.0 Stitch 디자인: ① 공급자 캘린더 "직접 예약 기록" 바텀시트·입력 폼 ② 공급자 vi 체크인(여권·동의서 서명·보증금) ③ 공급자 vi 체크아웃(기준사진 대조·파손) — b3·b4 운영자 화면의 vi 모바일 변형 (a3 톤 계승) → design/stitch/ (DESIGN, 테오 확인)
+- [x] T10.1 스키마: `Booking.seller` enum `BookingSeller{OPERATOR|SUPPLIER}` @default(OPERATOR) + `Booking.supplierSalePriceVnd BigInt?` raw SQL ALTER, 기존 예약 OPERATOR 백필, `NotificationType.SUPPLIER_DIRECT_BOOKING` 추가 (TDA/BE) — 스키마 1세션 전담(PARTNER-1 스키마 세션과 조율)
+- [x] T10.2 공급자 직접예약 API+UI: `POST/DELETE /api/supplier/bookings`(supplierId 스코프, lockVillaInventory+checkAvailability 게이트 재사용, 선착순 409, writeAuditLog) + /calendar 직접예약 기록 폼 (BE/UX-VN) — 의존 T10.1
+- [x] T10.3 운영자 가시성: lib/timeline.ts 셀 enum에 SUPPLIER_DIRECT 추가(T1.5 계약 호환) + 타임라인/대시보드 신규 셀 색 + /bookings seller 필터 (FE) — 의존 T10.1
+- [x] T10.4 정산 제외 + Zalo 알림 + 누수 QA: settlement 집계 `seller=OPERATOR` 필터, 직접예약 생성 시 운영자 알림, 권한 누수 4종(타인빌라 403·운영자 판매가 비노출·정산 혼입 0·선착순 충돌 상세 비노출) (BE/INTEG/QA) — 의존 T10.2
+- [x] T10.5 공급자 vi 체크인·아웃 검수 화면 (D5 — 정식 F4 적용): 여권 OCR·동의서 서명·보증금·체크아웃 사진 비교·청소 + **미니바 소모 정산 블록(D6 — 미니바=운영자 재고, 매출 우리 것)**. lib/checkin·lib/checkout 재사용, 공급자 vi 신규 라우트(app/(supplier)/), 권한 `seller=SUPPLIER` AND `villa.supplierId===session.user.id` 스코프, 여권·서명 비공개 파이프라인 재사용. "운영자 전달" 단계 제외(공급자 본인 임시거주신고). 서명 비게이트+미서명 배지로 시작. **전환별 미니바 자동 보충/회수(다음 seller 인지)는 ADR-0019 미니바 실재고 Phase 2** (T10.5는 정산 UI만). Stitch 디자인 선행 (UX-VN/BE/QA) — 의존 T10.2
+- [ ] T10.2b 직접예약 다박(기간) 선택: 캘린더 직접예약 폼에 체크인~체크아웃 범위 선택기 추가(현재 단일 날짜=1박). API는 이미 임의 기간 수용 — UI만. (UX-VN) — 테오 확정: 다박 필요(공급자 직접판매는 보통 2~5박)
+
+> **Phase A 구현 완료(2026-06-26)** — T10.0~T10.5 브랜치 wt/f10-supplier-direct(커밋 e836469~0e95182). 잔여: T10.2b(다박 UI) + 최종 QA 누수 검사 + main 병합. 라이브 DB 스키마 적용 완료(124건 OPERATOR 백필).
 
 ### Phase B — 공급자 판매 링크 (별도 스프린트, 합의 후)
 - [ ] T10.6 공급자 판매가: `VillaRatePeriod.supplierSalePriceVnd` ALTER + my-villas/[id]/rate-periods 입력 UI (TDA/UX-VN)
