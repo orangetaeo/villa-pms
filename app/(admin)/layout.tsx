@@ -38,6 +38,8 @@ const ADMIN_CLIENT_NAMESPACES = [
   "adminVillas",
   "adminUsers",
   "adminSettlements",
+  // 파트너 관리(ADR-0022 PARTNER-2) — partners-manager·partner-form·partner-detail
+  "adminPartners",
   "adminSettings",
   "adminMinibar",
   // ADR-0019 — 미니바 실재고·부가서비스 카탈로그/주문·게스트 토큰 (클라이언트 컴포넌트 네임스페이스)
