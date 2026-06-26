@@ -25,6 +25,7 @@
     "inspections": "Kiểm tra dọn dẹp",
     "settlements": "Thanh toán",
     "partners": "Đối tác",
+    "receivables": "Công nợ",
     "services": "Danh mục dịch vụ",
     "messages": "Tin nhắn",
     "users": "Người dùng",
@@ -1540,6 +1541,20 @@
     "saved": "Đã lưu",
     "error": "Xử lý thất bại. Vui lòng thử lại.",
     "cancelConfirm": "Hủy đơn này?"
+  },
+  "adminReceivables": {
+    "title": "Bảng công nợ",
+    "subtitle": "Tình hình công nợ đại lý du lịch/land và cảnh báo quá hạn·vượt hạn mức",
+    "empty": "Không có công nợ",
+    "agingTitle": "Tổng hợp phân tích tuổi nợ (Aging)",
+    "alerts": "Cảnh báo",
+    "overLimitBadge": "Vượt hạn mức",
+    "kpi": {
+      "totalOutstanding": "Tổng công nợ",
+      "overdueOutstanding": "Nợ quá hạn",
+      "overduePartners": "Đối tác quá hạn",
+      "overLimit": "Đối tác vượt hạn mức"
+    }
   },
   "adminPartners": {
     "title": "Quản lý đối tác",

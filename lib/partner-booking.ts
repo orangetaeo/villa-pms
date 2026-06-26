@@ -2,6 +2,7 @@ import {
   CreditTier,
   ReceivableStatus,
   type Prisma,
+  type PrismaClient,
 } from "@prisma/client";
 import {
   canCreateBookingFor,
@@ -181,4 +182,29 @@ export async function ensureReceivableForBooking(tx: Tx, bookingId: string, now:
       status: ReceivableStatus.PENDING,
     },
   });
+}
+
+/** cron — prisma 또는 트랜잭션 클라이언트(partnerReceivable.updateMany 사용) */
+type ReceivableUpdater = Pick<PrismaClient, "partnerReceivable"> | Tx;
+
+/**
+ * 연체 전이(cron) — 기한 경과한 미입금(PENDING/PARTIAL) 채권을 OVERDUE로.
+ * PAID/WRITTEN_OFF는 제외(완납·대손). PENDING/PARTIAL은 항상 미입금 잔액>0이므로
+ * dueDate < 오늘(UTC 자정)이면 연체. 멱등(이미 OVERDUE는 where에서 제외). count 반환.
+ */
+export async function markOverdueReceivables(
+  db: ReceivableUpdater,
+  asOf: Date
+): Promise<number> {
+  const today = new Date(
+    Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth(), asOf.getUTCDate())
+  );
+  const res = await db.partnerReceivable.updateMany({
+    where: {
+      status: { in: [ReceivableStatus.PENDING, ReceivableStatus.PARTIAL] },
+      dueDate: { lt: today },
+    },
+    data: { status: ReceivableStatus.OVERDUE },
+  });
+  return res.count;
 }
