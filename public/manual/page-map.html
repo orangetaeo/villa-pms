@@ -209,15 +209,17 @@ flowchart LR
   <p class="note">실제 라우트 <code>app/**/page.tsx</code> + 네비게이션 컴포넌트(<code>components/admin/sidebar.tsx</code>, <code>components/supplier/tab-bar.tsx</code>)의 링크·리다이렉트를 추출해 작성. 화살표 라벨은 이동 조건입니다.</p>
 </div>
 
-<script type="module">
-  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+<!-- Mermaid 자체 호스팅 (CSP 'self' 준수 · 오프라인 동작) -->
+<script src="mermaid.min.js"></script>
+<script>
   mermaid.initialize({
-    startOnLoad: true,
+    startOnLoad: false,
     theme: 'dark',
     securityLevel: 'loose',
     flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis', nodeSpacing: 45, rankSpacing: 60 },
     themeVariables: { fontFamily: "'Malgun Gothic', sans-serif", fontSize: '15px' }
   });
+  mermaid.run({ querySelector: 'pre.mermaid' });
 </script>
 </body>
 </html>
