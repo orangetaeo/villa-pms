@@ -44,6 +44,7 @@ const ROLE_BADGE_CLASS: Record<Role, string> = {
   SUPPLIER: "bg-teal-500/10 text-teal-400 border border-teal-500/20",
   CLEANER: "bg-purple-500/10 text-purple-400 border border-purple-500/20",
   VENDOR: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+  PARTNER: "bg-sky-500/10 text-sky-400 border border-sky-500/20",
 };
 
 // 아바타 색 (역할 시맨틱 컬러와 동일 계열)
@@ -55,6 +56,7 @@ const AVATAR_CLASS: Record<Role, string> = {
   SUPPLIER: "bg-blue-500/10 text-blue-500",
   CLEANER: "bg-purple-500/10 text-purple-500",
   VENDOR: "bg-emerald-500/10 text-emerald-500",
+  PARTNER: "bg-sky-500/10 text-sky-500",
 };
 
 /** 이름 → 2글자 이니셜 (b13: "Nguyễn Văn An" → "NA") */
@@ -66,11 +68,14 @@ function initials(name: string): string {
   return `${first}${last}`.toUpperCase();
 }
 
-type TabKey = "all" | "SUPPLIER" | "CLEANER";
+type TabKey = "all" | "SUPPLIER" | "CLEANER" | "VENDOR" | "PARTNER";
 const TABS: { key: TabKey; labelKey: string }[] = [
   { key: "all", labelKey: "tabs.all" },
   { key: "SUPPLIER", labelKey: "tabs.supplier" },
   { key: "CLEANER", labelKey: "tabs.cleaner" },
+  // 자가가입/전용 프로비저닝 역할 — 필터로만 노출(생성 폼 ASSIGNABLE_ROLES에는 미포함)
+  { key: "VENDOR", labelKey: "tabs.vendor" },
+  { key: "PARTNER", labelKey: "tabs.partner" },
 ];
 
 export default function UsersManager({

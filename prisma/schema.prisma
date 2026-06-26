@@ -33,6 +33,7 @@ enum Role {
   SUPPLIER // 중계인·부동산·분양자
   CLEANER // 청소 담당
   VENDOR // 원천 공급자 — 부가서비스(과일·BBQ·렌트 등) 외부 거래처, /vendor 대시보드 (ADR-0023)
+  PARTNER // 여행사·랜드사 — 자기 고객 예약현황·미수만 조회, /partner 포털 (ADR-0028)
 }
 
 model User {
@@ -57,6 +58,7 @@ model User {
   notifications Notification[]
   auditLogs     AuditLog[]
   vendorAccount ServiceVendor? @relation("VendorAccount") // 원천 공급자 로그인 계정 (Role=VENDOR, ADR-0023)
+  partnerAccount Partner?      @relation("PartnerAccount") // 파트너(여행사·랜드사) 로그인 계정 (Role=PARTNER, ADR-0028)
   passwordResetTokens PasswordResetToken[] // 비밀번호 자가재설정(Zalo 6자리 코드) — additive
 
   // Zalo 멀티 관리자 (ADR-0007) — 역관계 1:N화
@@ -763,6 +765,13 @@ model Partner {
   country         String? // ISO 3166-1 alpha-2 (KR/VN/CN…) — 청구서 PDF 언어 결정(lib/partner-country)
   contractUrl     String? // 계약서 스캔(비공개 파이프라인)
   memo            String?
+  // ADR-0028 — 파트너 로그인 계정(Role=PARTNER). 엔티티≠계정 분리, 선택적 1:1 (ServiceVendor.userId 동형)
+  userId          String?       @unique // 로그인 계정. null=계정 없음(운영자만 관리)
+  user            User?         @relation("PartnerAccount", fields: [userId], references: [id], onDelete: SetNull)
+  // ADR-0028 — 자가 회원가입 승인 게이트(ServiceVendor 미러). 자가가입=PENDING_APPROVAL, 기존·운영자생성=APPROVED
+  approvalStatus  PartnerApprovalStatus @default(APPROVED)
+  rejectionReason String? // 거절 사유(운영자 입력)
+  approvedAt      DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -772,6 +781,14 @@ model Partner {
   proposals   Proposal[]
 
   @@index([type, status])
+  @@index([approvalStatus])
+}
+
+// 파트너 자가가입 승인 상태 (ADR-0028, VendorApprovalStatus 미러)
+enum PartnerApprovalStatus {
+  PENDING_APPROVAL // 자가가입 후 운영자 승인 대기 — 포털 접근 차단
+  APPROVED // 승인됨 — 포털 접근 가능
+  REJECTED // 거절됨
 }
 
 // 예약 1건의 객실료 채권 (B2B 숙박료)

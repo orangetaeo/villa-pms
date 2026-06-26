@@ -2,6 +2,83 @@
   "app": {
     "name": "Villa Go"
   },
+  "partner": {
+    "tabs": {
+      "bookings": "예약 현황",
+      "receivables": "미수",
+      "proposals": "제안서"
+    },
+    "bookings": {
+      "title": "예약 현황",
+      "subtitle": "우리에게 예약하신 빌라 내역입니다.",
+      "nights": "{count}박",
+      "guests": "{count}명",
+      "roomCharge": "객실료",
+      "empty": "예약 내역이 없습니다",
+      "emptyHint": "예약이 등록되면 여기에 표시됩니다."
+    },
+    "receivables": {
+      "title": "미수 현황",
+      "subtitle": "청구·납부·미수 잔액을 확인하세요.",
+      "outstanding": "미수 잔액",
+      "totalBilled": "총 청구",
+      "totalPaid": "총 납부",
+      "listTitle": "예약별 채권",
+      "invoiceTitle": "청구서",
+      "total": "총액",
+      "paid": "납부",
+      "balance": "잔액",
+      "due": "기한 {date}",
+      "empty": "채권 내역이 없습니다",
+      "invoiceEmpty": "발행된 청구서가 없습니다"
+    },
+    "proposals": {
+      "title": "받은 제안서",
+      "subtitle": "받으신 빌라 제안 링크입니다.",
+      "villaCount": "빌라 {count}개",
+      "expires": "만료 {date}",
+      "empty": "받은 제안서가 없습니다",
+      "emptyHint": "운영자가 제안서를 보내면 여기에 표시됩니다."
+    },
+    "status": {
+      "HOLD": "가예약",
+      "CONFIRMED": "확정",
+      "CHECKED_IN": "투숙 중",
+      "CHECKED_OUT": "체크아웃",
+      "CANCELLED": "취소",
+      "EXPIRED": "만료",
+      "NO_SHOW": "노쇼"
+    },
+    "receivableStatus": {
+      "PENDING": "미입금",
+      "PARTIAL": "일부 입금",
+      "PAID": "완납",
+      "OVERDUE": "연체",
+      "WRITTEN_OFF": "대손"
+    },
+    "invoiceStatus": {
+      "DRAFT": "작성 중",
+      "ISSUED": "발행",
+      "PARTIAL": "일부 입금",
+      "PAID": "완납",
+      "OVERDUE": "연체",
+      "VOID": "취소"
+    },
+    "proposalStatus": {
+      "ACTIVE": "유효",
+      "USED": "예약 발생",
+      "EXPIRED": "만료",
+      "REVOKED": "회수"
+    },
+    "approvalGate": {
+      "pendingTitle": "가입 승인 대기 중",
+      "pendingBody": "가입 신청이 운영자 검토 중입니다. 승인되면 이곳에서 예약·미수를 확인할 수 있습니다.",
+      "rejectedTitle": "가입이 거절되었습니다",
+      "rejectedBody": "죄송합니다. 가입 신청이 승인되지 않았습니다.",
+      "rejectedReasonLabel": "사유",
+      "changePassword": "비밀번호 변경"
+    }
+  },
   "quickDateFilter": {
     "all": "전체",
     "today": "오늘",
@@ -1909,7 +1986,23 @@
       "US": "미국",
       "JP": "일본",
       "TH": "태국"
-    }
+    },
+    "approve": "승인",
+    "reject": "거절",
+    "approveConfirm": "이 파트너를 승인할까요? 승인 후 포털 로그인이 활성화됩니다.",
+    "approved": "파트너를 승인했습니다.",
+    "rejected": "가입을 거절했습니다.",
+    "rejectModalTitle": "가입 거절",
+    "rejectReasonLabel": "거절 사유 (선택)",
+    "rejectReasonPlaceholder": "사유는 파트너에게 표시됩니다",
+    "rejectConfirm": "거절",
+    "rejectCancel": "취소",
+    "approvalError": "처리에 실패했습니다. 다시 시도해주세요.",
+    "approvalStatusPending": "승인 대기",
+    "approvalStatusApproved": "승인됨",
+    "approvalStatusRejected": "거절됨",
+    "selfSignupBadge": "자가 가입",
+    "hasAccountBadge": "로그인 계정"
   },
   "adminSettlements": {
     "title": "정산 관리",
@@ -2011,7 +2104,9 @@
     "tabs": {
       "all": "전체",
       "supplier": "공급자",
-      "cleaner": "청소"
+      "cleaner": "청소",
+      "partner": "파트너",
+      "vendor": "원천 공급자"
     },
     "roles": {
       "ADMIN": "관리자",
@@ -2019,7 +2114,9 @@
       "CLEANER": "청소",
       "OWNER": "오너",
       "MANAGER": "매니저",
-      "STAFF": "직원"
+      "STAFF": "직원",
+      "PARTNER": "파트너",
+      "VENDOR": "원천 공급자"
     },
     "inactiveBadge": "비활성",
     "columns": {
@@ -3327,6 +3424,49 @@
     "loginLink": "로그인",
     "successTitle": "가입 신청 완료!",
     "successBody": "가입 신청이 접수되어 운영자 승인을 기다리고 있습니다. 승인되면 로그인하여 발주를 받을 수 있습니다.",
+    "goLogin": "로그인 페이지로",
+    "errors": {
+      "phoneExists": "이미 등록된 전화번호입니다.",
+      "passwordTooShort": "비밀번호는 최소 8자 이상이어야 합니다.",
+      "serverError": "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+    }
+  },
+  "signupChooser": {
+    "headerTitle": "회원가입",
+    "title": "어떤 회원으로 가입하시나요?",
+    "subtitle": "가입 유형을 선택해 주세요.",
+    "supplierTitle": "빌라 공급자",
+    "supplierDesc": "내 빌라를 등록하고 캘린더·원가를 관리합니다.",
+    "vendorTitle": "부가서비스 공급자",
+    "vendorDesc": "과일·도시락 등 부가서비스 발주를 받습니다.",
+    "partnerTitle": "파트너 (여행사·랜드사)",
+    "partnerDesc": "예약 현황·미수·제안서를 관리하는 거래처입니다.",
+    "hasAccount": "이미 계정이 있으신가요?",
+    "loginLink": "로그인",
+    "back": "뒤로"
+  },
+  "partnerSignup": {
+    "headerTitle": "파트너 가입",
+    "title": "파트너 가입",
+    "subtitle": "여행사·랜드사 거래처로 가입하세요. 운영자 승인 후 파트너 포털을 이용할 수 있습니다.",
+    "name": "회사명",
+    "namePlaceholder": "예: OO여행사",
+    "typeLabel": "거래처 유형",
+    "typeTravel": "여행사",
+    "typeLand": "랜드사",
+    "phone": "전화번호",
+    "phonePlaceholder": "전화번호 입력",
+    "password": "비밀번호",
+    "passwordPlaceholder": "최소 8자 이상",
+    "email": "이메일 (선택)",
+    "emailPlaceholder": "name@company.com",
+    "submit": "가입 신청",
+    "submitting": "전송 중...",
+    "back": "뒤로",
+    "hasAccount": "이미 계정이 있으신가요?",
+    "loginLink": "로그인",
+    "successTitle": "가입 신청 완료!",
+    "successBody": "가입 신청이 접수되어 운영자 승인을 기다리고 있습니다. 승인되면 로그인하여 파트너 포털을 이용할 수 있습니다.",
     "goLogin": "로그인 페이지로",
     "errors": {
       "phoneExists": "이미 등록된 전화번호입니다.",

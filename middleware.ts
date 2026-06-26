@@ -54,6 +54,10 @@ const SUPPLIER_CLEANER_PATHS = ["/my-villas", "/calendar", "/cleaning", "/earnin
 // VENDOR는 오직 이 경로만 접근, 그 외(운영·SUPPLIER 영역)는 차단.
 const VENDOR_PATHS = ["/vendor"];
 
+// PARTNER(여행사·랜드사) 전용 영역 — 예약현황·미수·제안서 (ADR-0028 PP3).
+// PARTNER는 오직 이 경로만 접근, 그 외(운영·SUPPLIER·VENDOR 영역)는 차단.
+const PARTNER_PATHS = ["/partner"];
+
 // 비로그인 허용(public) 경로 — 비밀번호 자가재설정 화면·API.
 // (/api/auth/* 는 config.matcher에서 이미 제외되어 미들웨어를 타지 않음 — 페이지만 여기서 명시)
 // 임시 비번 강제변경 게이트·운영자 게이트가 이 경로를 막지 않도록 최상단에서 통과시킨다.
@@ -78,6 +82,7 @@ export default auth((req) => {
   // (기존 세션엔 플래그 부재(undefined→통과) → 락아웃 없음. 변경 후 재로그인으로 해제)
   if (session?.user?.mustChangePassword) {
     // 역할별 변경 화면: 운영자=/account, VENDOR=/vendor/profile, 그 외(SUPPLIER/CLEANER)=/profile
+    // PARTNER는 SUPPLIER/CLEANER와 동일하게 일반 /profile 사용 (ADR-0028)
     const changePath = isOperator(role)
       ? "/account"
       : role === "VENDOR"
@@ -96,6 +101,7 @@ export default auth((req) => {
   const isSharedOperatorPath = matchesPath(pathname, SHARED_OPERATOR_PATHS);
   const isSupplierCleanerPath = matchesPath(pathname, SUPPLIER_CLEANER_PATHS);
   const isVendorPath = matchesPath(pathname, VENDOR_PATHS);
+  const isPartnerPath = matchesPath(pathname, PARTNER_PATHS);
 
   // ── VENDOR(원천 공급자) 경로 게이트 (ADR-0023 §6) ──────────────────────────
   // /vendor/* 는 VENDOR 전용. 미인증→/login, VENDOR 아닌 인증자(운영자·공급자 포함)→/login.
@@ -112,6 +118,29 @@ export default auth((req) => {
   if (session && role === "VENDOR" && !isVendorPath) {
     if (isOperatorProtected || isSharedOperatorPath || isSupplierCleanerPath) {
       return NextResponse.redirect(new URL("/vendor", req.url));
+    }
+  }
+
+  // ── PARTNER(여행사·랜드사) 경로 게이트 (ADR-0028 PP3) ──────────────────────
+  // /partner/* 는 PARTNER 전용. 미인증→/login, PARTNER 아닌 인증자→/login.
+  if (isPartnerPath) {
+    if (!session) {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+    if (role !== "PARTNER") {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+  }
+
+  // PARTNER는 자기 영역(/partner/*) 밖의 모든 보호 경로(운영·SUPPLIER·VENDOR 영역) 진입 시 차단 → /partner
+  if (session && role === "PARTNER" && !isPartnerPath) {
+    if (
+      isOperatorProtected ||
+      isSharedOperatorPath ||
+      isSupplierCleanerPath ||
+      isVendorPath
+    ) {
+      return NextResponse.redirect(new URL("/partner", req.url));
     }
   }
 
@@ -186,7 +215,9 @@ export default auth((req) => {
       ? "/dashboard"
       : role === "VENDOR"
         ? "/vendor"
-        : "/my-villas";
+        : role === "PARTNER"
+          ? "/partner"
+          : "/my-villas";
     return NextResponse.redirect(new URL(dest, req.url));
   }
 
@@ -204,6 +235,10 @@ export default auth((req) => {
     // 계정 기본 locale이 vi면 vi, 그리고 토글(pref-locale)이 최우선.
     const adminDefault = session?.user?.locale === "vi" ? "vi" : "ko";
     res.cookies.set("locale", pref ?? adminDefault, { path: "/" });
+  } else if (isPartnerPath) {
+    // 파트너 화면: 한국 여행사·랜드사 다수 → 기본 ko. pref-locale > 계정 기본 > ko.
+    const partnerLocale = session?.user?.locale === "vi" ? "vi" : "ko";
+    res.cookies.set("locale", pref ?? partnerLocale, { path: "/" });
   } else if (
     isSupplierCleanerPath ||
     isVendorPath ||

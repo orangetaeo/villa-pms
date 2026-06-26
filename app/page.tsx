@@ -13,5 +13,7 @@ export default async function Home() {
   const role = session.user.role;
   if (isOperator(role)) redirect("/dashboard");
   if (role === "CLEANER") redirect("/cleaning");
+  if (role === "VENDOR") redirect("/vendor");
+  if (role === "PARTNER") redirect("/partner"); // 여행사·랜드사 포털 (ADR-0028)
   redirect("/my-villas"); // SUPPLIER
 }
