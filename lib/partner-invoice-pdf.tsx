@@ -1,13 +1,11 @@
-// lib/partner-invoice-pdf.tsx — PARTNER-3b-UI: 마감 청구서 PDF 렌더 (react-pdf, vi).
+// lib/partner-invoice-pdf.tsx — PARTNER-3b-UI: 마감 청구서 PDF 렌더 (react-pdf, ko/vi/en).
 //
 // 순수 모델(lib/partner-invoice-statement.ts)을 받아 PDF Buffer 생성. server 전용(renderToBuffer).
-// 폰트: 베트남어 글리프 위해 Noto Sans TTF 번들(assets/fonts) — 정산서 PDF와 동일.
-// 파트너명은 호출부에서 nameVi 우선으로 결정(한글 토푸 회피).
+// 출력 언어=파트너 국가로 결정(model.locale, lib/partner-country). 라벨은 LABELS 사전에서 선택.
+// 폰트·한글 글리프 폴백은 공용 lib/pdf-fonts — 빌라명·파트너명 한글이 깨지지 않게 NanumGothic 분리 렌더.
 import * as React from "react"; // react-pdf 렌더는 JSX 클래식 런타임 경로에서 React 전역 필요
-import path from "path";
 import {
   Document,
-  Font,
   Page,
   StyleSheet,
   Text,
@@ -19,40 +17,81 @@ import {
   type InvoiceStatementInput,
   type InvoiceStatementModel,
 } from "@/lib/partner-invoice-statement";
+import type { InvoiceLocale } from "@/lib/partner-country";
+// 폰트 등록·한글 글리프 폴백은 공용 모듈로 일원화(유실 재발 방지) — lib/pdf-fonts
+import { ensurePdfFonts, mixedTextChildren } from "@/lib/pdf-fonts";
 
-// ── 폰트 등록 (모듈 1회) ─────────────────────────────────────────────
-const FONT_DIR = path.join(process.cwd(), "assets", "fonts");
-let fontsRegistered = false;
-function ensureFonts(): void {
-  if (fontsRegistered) return;
-  Font.register({
-    family: "NotoSans",
-    fonts: [
-      { src: path.join(FONT_DIR, "NotoSans-Regular.ttf") },
-      { src: path.join(FONT_DIR, "NotoSans-Bold.ttf"), fontWeight: "bold" },
-    ],
-  });
-  Font.registerHyphenationCallback((word) => [word]);
-  fontsRegistered = true;
+// ── 청구서 라벨 사전 (파트너 국가→언어. ko/vi/en) ─────────────────────
+interface InvoiceLabels {
+  title: string;
+  brand: string;
+  partner: string;
+  invoiceNo: string;
+  period: string;
+  due: string;
+  issued: string;
+  colVilla: string;
+  colStay: string;
+  colNights: string;
+  colAmount: string;
+  total: string;
+  paid: string;
+  outstanding: string;
+  note: string;
 }
 
-// ── 베트남어 라벨 (청구 문서 전용 — 인라인) ─────────────────────────
-const L = {
-  title: "HÓA ĐƠN THANH TOÁN",
-  brand: "Villa Go",
-  partner: "Đối tác",
-  invoiceNo: "Số hóa đơn",
-  period: "Kỳ thanh toán",
-  due: "Hạn thanh toán",
-  issued: "Ngày phát hành",
-  colVilla: "Biệt thự",
-  colStay: "Thời gian lưu trú",
-  colNights: "Số đêm",
-  colAmount: "Số tiền",
-  total: "Tổng cộng",
-  paid: "Đã thanh toán",
-  outstanding: "Còn lại",
-  note: "Số tiền trên là tiền phòng phải thanh toán cho Villa Go. Vui lòng thanh toán trước hạn. Mọi thắc mắc xin liên hệ Villa Go.",
+const LABELS: Record<InvoiceLocale, InvoiceLabels> = {
+  vi: {
+    title: "HÓA ĐƠN THANH TOÁN",
+    brand: "Villa Go",
+    partner: "Đối tác",
+    invoiceNo: "Số hóa đơn",
+    period: "Kỳ thanh toán",
+    due: "Hạn thanh toán",
+    issued: "Ngày phát hành",
+    colVilla: "Biệt thự",
+    colStay: "Thời gian lưu trú",
+    colNights: "Số đêm",
+    colAmount: "Số tiền",
+    total: "Tổng cộng",
+    paid: "Đã thanh toán",
+    outstanding: "Còn lại",
+    note: "Số tiền trên là tiền phòng phải thanh toán cho Villa Go. Vui lòng thanh toán trước hạn. Mọi thắc mắc xin liên hệ Villa Go.",
+  },
+  ko: {
+    title: "객실료 청구서",
+    brand: "Villa Go",
+    partner: "거래처",
+    invoiceNo: "청구서 번호",
+    period: "청구 기간",
+    due: "납부 기한",
+    issued: "발행일",
+    colVilla: "빌라",
+    colStay: "투숙 기간",
+    colNights: "박",
+    colAmount: "금액",
+    total: "합계",
+    paid: "기수납",
+    outstanding: "미수 잔액",
+    note: "상기 금액은 Villa Go에 납부하실 객실료입니다. 기한 내 납부 부탁드립니다. 문의 사항은 Villa Go로 연락 주시기 바랍니다.",
+  },
+  en: {
+    title: "PAYMENT INVOICE",
+    brand: "Villa Go",
+    partner: "Partner",
+    invoiceNo: "Invoice No.",
+    period: "Billing period",
+    due: "Due date",
+    issued: "Issued",
+    colVilla: "Villa",
+    colStay: "Stay",
+    colNights: "Nights",
+    colAmount: "Amount",
+    total: "Total",
+    paid: "Paid",
+    outstanding: "Outstanding",
+    note: "The amount above is the room charge payable to Villa Go. Please complete payment before the due date. For any questions, please contact Villa Go.",
+  },
 };
 
 const styles = StyleSheet.create({
@@ -115,6 +154,7 @@ const styles = StyleSheet.create({
 });
 
 function InvoiceDocument({ model }: { model: InvoiceStatementModel }) {
+  const L = LABELS[model.locale]; // 파트너 국가로 결정된 출력 언어
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -123,7 +163,7 @@ function InvoiceDocument({ model }: { model: InvoiceStatementModel }) {
 
         <View style={styles.metaRow}>
           <Text style={styles.metaLabel}>{L.partner}</Text>
-          <Text style={styles.metaValue}>{model.partnerName}</Text>
+          <Text style={styles.metaValue}>{mixedTextChildren(model.partnerName)}</Text>
         </View>
         <View style={styles.metaRow}>
           <Text style={styles.metaLabel}>{L.invoiceNo}</Text>
@@ -153,7 +193,7 @@ function InvoiceDocument({ model }: { model: InvoiceStatementModel }) {
           </View>
           {model.rows.map((r, i) => (
             <View style={styles.tr} key={i}>
-              <Text style={styles.cVilla}>{r.villaName}</Text>
+              <Text style={styles.cVilla}>{mixedTextChildren(r.villaName)}</Text>
               <Text style={styles.cStay}>{r.stay}</Text>
               <Text style={styles.cNights}>{r.nights}</Text>
               <Text style={styles.cAmount}>{r.amount}</Text>
@@ -188,7 +228,7 @@ function InvoiceDocument({ model }: { model: InvoiceStatementModel }) {
 export async function renderInvoicePdf(
   model: InvoiceStatementModel
 ): Promise<Buffer> {
-  ensureFonts();
+  ensurePdfFonts();
   return renderToBuffer(<InvoiceDocument model={model} />);
 }
 

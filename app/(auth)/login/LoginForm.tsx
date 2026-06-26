@@ -13,6 +13,7 @@ interface Labels {
   passwordPlaceholder: string;
   submit: string;
   submitting: string;
+  forgotPassword: string;
   noAccount: string;
   signupLink: string;
   vendorSignupLink: string;
@@ -112,8 +113,18 @@ export default function LoginForm({ labels }: { labels: Labels }) {
             </div>
           </div>
 
+          {/* 비밀번호 찾기 링크 */}
+          <div className="text-right">
+            <Link
+              className="text-sm font-semibold text-slate-500 hover:text-teal-600 transition-colors"
+              href="/forgot-password"
+            >
+              {labels.forgotPassword}
+            </Link>
+          </div>
+
           {/* 로그인 버튼 */}
-          <div className="pt-4">
+          <div className="pt-2">
             <button
               className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-bold text-lg rounded-xl touch-target shadow-md active:scale-[0.98] transition-all flex items-center justify-center gap-2"
               type="submit"

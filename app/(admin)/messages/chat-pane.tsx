@@ -25,6 +25,14 @@ import { ClassifyBanner, CounterpartyDropdown } from "./counterparty-control";
 import ChatPhotoLightbox from "./photo-lightbox";
 import { allowedShareKinds, isSellSideType } from "@/lib/zalo-counterparty";
 import {
+  URL_RE,
+  URL_TRAILING_RE,
+  isGoogleMapsUrl,
+  extractLinkPreview,
+  getSoleMapsUrl,
+  type LinkPreview,
+} from "@/lib/chat-link-preview";
+import {
   VillaShareModal,
   ProposalShareModal,
   SettlementShareModal,
@@ -239,18 +247,6 @@ function MentionText({
   }
   if (last < text.length) out.push(text.slice(last));
   return <>{out}</>;
-}
-
-// 본문 내 http(s) URL 탐지. 끝의 마침표·괄호 등은 아래에서 따로 다듬는다(URL 뒤 문장부호 흡수 방지).
-const URL_RE = /(https?:\/\/[^\s]+)/g;
-// URL 끝에 붙은 문장부호 — 링크에서 제외하고 일반 텍스트로 되돌린다.
-const URL_TRAILING_RE = /[.,;:!?)\]}"'»]+$/;
-
-/** 구글지도 공유 링크인지(지도 앱으로 바로 열리는 URL). 짧은 링크(goo.gl/maps·maps.app.goo.gl) 포함. */
-function isGoogleMapsUrl(url: string): boolean {
-  return /(?:google\.[a-z.]+\/maps|maps\.google\.[a-z.]+|goo\.gl\/maps|maps\.app\.goo\.gl|g\.co\/maps)/i.test(
-    url
-  );
 }
 
 /**
@@ -1406,6 +1402,11 @@ function InboundBubble({
   };
   // 특수 타입(sticker/voice/call/contact/video/location) 카드 — 발·수신 공통 분기 재사용.
   const typeCard = renderTypeCard(message, true, t);
+  // 링크/구글지도 미리보기 — "link" 타입 또는 사진+URL캡션(장소 공유)이면 리치 카드로.
+  const inboundLinkPreview = linkPreviewProps(message);
+  // 글자만 보낸 지도 링크(text, 이미지 없음) → 서버 unfurl 카드(지연 로드).
+  const inboundMapsUrl =
+    !inboundLinkPreview && message.msgType === "text" ? getSoleMapsUrl(message.text) : null;
   return (
     <div
       data-msg-id={message.zaloMsgId ?? undefined}
@@ -1424,8 +1425,10 @@ function InboundBubble({
             t={t}
           />
         )}
-        {message.msgType === "link" ? (
-          <LinkPreviewCard message={message} inbound t={t} />
+        {inboundLinkPreview ? (
+          <LinkPreviewCard {...inboundLinkPreview} inbound />
+        ) : inboundMapsUrl ? (
+          <MapsLinkPreview url={inboundMapsUrl} inbound t={t} />
         ) : message.msgType === "photo" && message.attachmentUrls.length > 0 ? (
           <PhotoCard
             urls={message.attachmentUrls}
@@ -1546,9 +1549,15 @@ function OutboundBubble({
   let maxW = "max-w-[70%]";
   // 특수 타입 카드(sticker/voice/call/contact/video/location) — 발·수신 공통 분기 재사용.
   const typeCard = renderTypeCard(message, false, t);
-  if (message.msgType === "link") {
+  const outboundLinkPreview = linkPreviewProps(message);
+  const outboundMapsUrl =
+    !outboundLinkPreview && message.msgType === "text" ? getSoleMapsUrl(message.text) : null;
+  if (outboundLinkPreview) {
     maxW = "max-w-[78%]";
-    card = <LinkPreviewCard message={message} inbound={false} t={t} />;
+    card = <LinkPreviewCard {...outboundLinkPreview} inbound={false} />;
+  } else if (outboundMapsUrl) {
+    maxW = "max-w-[78%]";
+    card = <MapsLinkPreview url={outboundMapsUrl} inbound={false} t={t} />;
   } else if (message.msgType === "photo" && message.attachmentUrls.length > 0) {
     card = <PhotoCard urls={message.attachmentUrls} caption={message.text} />;
   } else if (message.msgType === "file") {
@@ -1867,29 +1876,24 @@ function StickerCard({ urls, t }: { urls: string[]; t: ReturnType<typeof useTran
   );
 }
 
+/** 메시지 → 링크 미리보기(이미지+제목+URL). 링크 카드로 볼 게 아니면 null. (lib/chat-link-preview) */
+function linkPreviewProps(message: ChatMessage): LinkPreview | null {
+  return extractLinkPreview(message.msgType, message.text, message.attachmentUrls);
+}
+
 /**
- * 링크/구글지도/장소 공유 미리보기 카드 (msgType "link").
- * 인코딩(zalo-inbound makeLinkCard): attachmentUrls[0]=링크 URL, [1]=썸네일(선택),
- *   text="제목\n설명"(설명 선택). 카드 클릭 시 URL 열기 — 모바일은 OS 유니버설 링크로
- *   구글지도 앱(또는 브라우저)이 바로 뜬다(사용자 요청). 첨부 이미지처럼 썸네일+제목+설명+도메인.
+ * 링크/구글지도/장소 공유 미리보기 카드 — 이미지(있으면) + 제목 + 설명 + 도메인.
+ * 카드 클릭 시 URL 열기 — 모바일은 OS 유니버설 링크로 구글지도 앱(또는 브라우저)이 바로 뜬다(사용자 요청).
  */
 function LinkPreviewCard({
-  message,
+  url,
+  imageUrl,
+  title,
+  description,
   inbound,
-  t,
-}: {
-  message: ChatMessage;
-  inbound: boolean;
-  t: ReturnType<typeof useTranslations>;
-}) {
-  const url = message.attachmentUrls[0] ?? "";
-  const thumb = message.attachmentUrls[1] ?? null;
-  const lines = message.text
-    .split("\n")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const title = lines[0] ?? url;
-  const description = lines.slice(1).join(" ");
+  onImageError,
+}: LinkPreview & { inbound: boolean; onImageError?: () => void }) {
+  const thumb = imageUrl;
   let domain = "";
   try {
     domain = new URL(url).hostname.replace(/^www\./, "");
@@ -1897,6 +1901,8 @@ function LinkPreviewCard({
     /* URL 파싱 실패 — 도메인 생략 */
   }
   const isMap = isGoogleMapsUrl(url);
+  // 제목이 비면 도메인을, 그것도 없으면 URL을 제목 자리에.
+  const displayTitle = title || domain || url;
 
   // 발신(blue 버블)·수신(slate 버블)별 색. 카드 자체는 항상 약간 어두운 패널 + 테두리.
   const shell = inbound ? "bg-slate-900/60 border-slate-700" : "bg-blue-700/40 border-blue-400/40";
@@ -1929,10 +1935,15 @@ function LinkPreviewCard({
       >
         {thumb && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumb} alt="" className="w-full h-36 object-cover bg-slate-800" />
+          <img
+            src={thumb}
+            alt=""
+            onError={onImageError}
+            className="w-full h-36 object-cover bg-slate-800"
+          />
         )}
         <div className="px-3 py-2">
-          <p className={`text-sm font-bold leading-snug line-clamp-2 ${titleColor}`}>{title}</p>
+          <p className={`text-sm font-bold leading-snug line-clamp-2 ${titleColor}`}>{displayTitle}</p>
           {description && (
             <p className={`mt-0.5 text-xs line-clamp-1 ${descColor}`}>{description}</p>
           )}
@@ -1946,6 +1957,88 @@ function LinkPreviewCard({
           )}
         </div>
       </a>
+    </div>
+  );
+}
+
+// 지도 링크 미리보기(unfurl) 클라이언트 캐시 — 같은 URL을 폴링 재렌더마다 다시 fetch하지 않게.
+//  null=아직 안 받음. {image,title}=받음(image=null이면 펼치기 실패 → 칩 폴백).
+const mapsPreviewCache = new Map<string, { image: string | null; title: string | null }>();
+
+/**
+ * 글자만 붙여넣은 구글지도 링크(text 타입, 이미지 없음)를 카드로 — 서버 unfurl(정적 지도+장소명) 지연 로드.
+ * GET /api/zalo/link-preview?url= 로 1회 조회(모듈 캐시로 중복 방지). 이미지가 오면 LinkPreviewCard,
+ * 로딩 중·실패·이미지 깨짐이면 칩(RichText 지도 칩)으로 폴백 — 항상 클릭 시 지도 앱은 열린다.
+ * ※ 매장 실사진이 아니라 위치 지도 이미지다(붙여넣은 링크엔 실사진이 없음).
+ */
+function MapsLinkPreview({
+  url,
+  inbound,
+  t,
+}: {
+  url: string;
+  inbound: boolean;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const [preview, setPreview] = useState<{ image: string | null; title: string | null } | null>(
+    () => mapsPreviewCache.get(url) ?? null
+  );
+  const [imgBroken, setImgBroken] = useState(false);
+
+  useEffect(() => {
+    setImgBroken(false);
+    const cached = mapsPreviewCache.get(url);
+    if (cached) {
+      setPreview(cached);
+      return;
+    }
+    let alive = true;
+    fetch(`/api/zalo/link-preview?url=${encodeURIComponent(url)}`)
+      .then((r) => (r.ok ? (r.json() as Promise<{ image?: string | null; title?: string | null }>) : null))
+      .then((d) => {
+        const v = { image: d?.image ?? null, title: d?.title ?? null };
+        mapsPreviewCache.set(url, v);
+        if (alive) setPreview(v);
+      })
+      .catch(() => {
+        const v = { image: null, title: null };
+        mapsPreviewCache.set(url, v);
+        if (alive) setPreview(v);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [url]);
+
+  if (preview?.image && !imgBroken) {
+    return (
+      <LinkPreviewCard
+        url={url}
+        imageUrl={preview.image}
+        title={preview.title ?? ""}
+        description=""
+        inbound={inbound}
+        onImageError={() => setImgBroken(true)}
+      />
+    );
+  }
+  // 폴백 — RichText가 지도 URL을 "지도에서 보기" 칩으로 렌더(로딩 중/실패에도 클릭 가능).
+  return inbound ? (
+    <div className="bg-slate-800 rounded-xl rounded-bl-sm px-4 py-3">
+      <p className="text-sm text-slate-100 break-words">
+        <RichText text={url} t={t} />
+      </p>
+    </div>
+  ) : (
+    <div className="bg-blue-600 rounded-xl rounded-br-sm px-4 py-3 inline-block text-left">
+      <p className="text-sm text-white break-words">
+        <RichText
+          text={url}
+          linkClass="underline decoration-1 underline-offset-2 break-all text-white"
+          mapChipClass="bg-white/20 text-white hover:bg-white/30"
+          t={t}
+        />
+      </p>
     </div>
   );
 }

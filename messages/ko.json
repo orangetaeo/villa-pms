@@ -728,6 +728,7 @@
       "location": {
         "title": "위치·접근성",
         "mapUrl": "구글맵 링크",
+        "mapPreview": "지도 미리보기",
         "beachDistance": "해변 거리",
         "area": "전용면적",
         "floors": "층수",
@@ -767,6 +768,7 @@
       "passwordPlaceholder": "비밀번호 입력",
       "submit": "로그인",
       "submitting": "로그인 중...",
+      "forgotPassword": "비밀번호를 잊으셨나요?",
       "noAccount": "계정이 없으신가요?",
       "signupLink": "공급자 가입",
       "errors": {
@@ -775,6 +777,37 @@
         "serverError": "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
       },
       "vendorSignupLink": "원천 공급자로 가입"
+    },
+    "reset": {
+      "forgotTitle": "비밀번호 찾기",
+      "forgotSubtitle": "가입한 전화번호로 Zalo 인증 코드를 보내드립니다.",
+      "phone": "전화번호",
+      "phonePlaceholder": "전화번호 입력",
+      "sendCode": "인증 코드 받기",
+      "sending": "전송 중...",
+      "sentTitle": "코드를 보냈습니다",
+      "sentBody": "Zalo가 연결된 계정이라면 인증 코드를 보냈습니다. Zalo 메시지를 확인해 코드를 입력하세요.",
+      "notLinkedHint": "Zalo가 연결되어 있지 않다면 코드를 받을 수 없습니다. 관리자에게 비밀번호 초기화를 요청하세요.",
+      "goReset": "코드 입력하기",
+      "backToLogin": "로그인으로 돌아가기",
+      "resetTitle": "비밀번호 재설정",
+      "resetSubtitle": "Zalo로 받은 6자리 코드와 새 비밀번호를 입력하세요.",
+      "code": "인증 코드",
+      "codePlaceholder": "6자리 코드",
+      "newPassword": "새 비밀번호",
+      "newPasswordPlaceholder": "8자 이상 입력",
+      "resetSubmit": "비밀번호 변경",
+      "resetSubmitting": "변경 중...",
+      "successTitle": "비밀번호가 변경되었습니다",
+      "successBody": "새 비밀번호로 로그인하세요.",
+      "goLogin": "로그인하기",
+      "errors": {
+        "invalidCode": "인증 코드가 올바르지 않습니다.",
+        "codeExpired": "인증 코드가 만료되었습니다. 다시 요청해주세요.",
+        "tooManyAttempts": "코드를 너무 여러 번 잘못 입력했습니다. 다시 요청해주세요.",
+        "passwordTooShort": "비밀번호는 최소 8자 이상이어야 합니다.",
+        "serverError": "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+      }
     },
     "signup": {
       "headerTitle": "회원가입",
@@ -1740,7 +1773,8 @@
       "paymentTermDays": "지급기한(일)",
       "billingCycle": "마감 주기",
       "status": "상태",
-      "memo": "메모"
+      "memo": "메모",
+      "country": "국가"
     },
     "types": {
       "TRAVEL_AGENCY": "여행사",
@@ -1841,6 +1875,16 @@
         "INVALID_STATUS": "현재 상태에서는 할 수 없습니다",
         "generic": "처리에 실패했습니다"
       }
+    },
+    "countries": {
+      "none": "미지정",
+      "VN": "베트남",
+      "KR": "한국",
+      "CN": "중국",
+      "RU": "러시아",
+      "US": "미국",
+      "JP": "일본",
+      "TH": "태국"
     }
   },
   "adminSettlements": {
