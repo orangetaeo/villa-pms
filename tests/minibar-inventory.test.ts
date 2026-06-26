@@ -4,6 +4,8 @@ import {
   currentOnHand,
   isLowStock,
   shortageQty,
+  maxRestockQty,
+  restockExceedsPar,
   validateRestockLine,
   type RestockLineInput,
 } from "@/lib/minibar-inventory";
@@ -42,6 +44,25 @@ describe("isLowStock / shortageQty", () => {
     expect(shortageQty(4, 4)).toBe(0);
     expect(shortageQty(6, 4)).toBe(0);
     expect(shortageQty(-2, 4)).toBe(6);
+  });
+});
+
+describe("maxRestockQty / restockExceedsPar — 비치 목표 초과 입고 차단", () => {
+  it("입고 상한 = max(0, par − 현재고)", () => {
+    expect(maxRestockQty(2, 4)).toBe(2); // 2개 더 넣어 목표 충족
+    expect(maxRestockQty(4, 4)).toBe(0); // 이미 목표 → 입고 불가
+    expect(maxRestockQty(6, 4)).toBe(0); // 초과 상태 → 입고 불가
+    expect(maxRestockQty(-2, 4)).toBe(6);
+  });
+  it("입고 후 현재고가 par 초과면 true(거부)", () => {
+    expect(restockExceedsPar(2, 2, 4)).toBe(false); // 2+2=4 = par, 허용
+    expect(restockExceedsPar(2, 3, 4)).toBe(true); // 2+3=5 > 4, 거부
+    expect(restockExceedsPar(4, 1, 4)).toBe(true); // 이미 목표인데 추가, 거부
+    expect(restockExceedsPar(0, 4, 4)).toBe(false); // 0+4=4, 허용
+  });
+  it("par<=0이면 모든 양수 입고가 초과", () => {
+    expect(restockExceedsPar(0, 1, 0)).toBe(true);
+    expect(maxRestockQty(0, 0)).toBe(0);
   });
 });
 
