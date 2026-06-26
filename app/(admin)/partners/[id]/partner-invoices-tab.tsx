@@ -340,7 +340,7 @@ export default function PartnerInvoicesTab({ partnerId }: { partnerId: string })
                       {t("action.void")}
                     </ActionBtn>
                   )}
-                  {BigInt(inv.paidVnd) > 0n && (
+                  {inv.status !== "VOID" && BigInt(inv.paidVnd) > 0n && (
                     <ActionBtn onClick={() => togglePayments(inv.id)} disabled={!!busy}>
                       {expanded === inv.id ? t("action.hidePayments") : t("action.payments")}
                     </ActionBtn>

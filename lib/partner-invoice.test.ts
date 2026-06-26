@@ -324,4 +324,22 @@ describe("reverseInvoicePayment", () => {
       reverseInvoicePayment(tx, { invoiceId: "inv1", paymentId: "pay-x", createdBy: "u1" })
     ).rejects.toMatchObject({ reason: "NOT_FOUND" });
   });
+
+  it("VOID 청구서 수납 정정 거부 → INVALID_STATUS (부활 방지)", async () => {
+    const { tx, payDelete } = makeTx({
+      payment: { id: "pay-v", invoiceId: "inv1", amount: 400_000n, currency: "VND" },
+      invoice: {
+        id: "inv1",
+        status: PartnerInvoiceStatus.VOID,
+        totalVnd: 1_000_000n,
+        paidVnd: 400_000n,
+        receivables: [],
+      },
+    });
+    await expect(
+      reverseInvoicePayment(tx, { invoiceId: "inv1", paymentId: "pay-v", createdBy: "u1" })
+    ).rejects.toMatchObject({ reason: "INVALID_STATUS" });
+    // 가드가 변경 전 차단 — Payment 삭제·역분개 일어나지 않음
+    expect(payDelete).not.toHaveBeenCalled();
+  });
 });

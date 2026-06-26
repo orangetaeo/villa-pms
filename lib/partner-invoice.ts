@@ -292,6 +292,14 @@ export async function reverseInvoicePayment(
     },
   });
   if (!inv) throw new InvoiceError("NOT_FOUND");
+  // VOID·DRAFT 청구서는 정정 불가 — VOID는 채권이 이미 unlink돼 paidVnd만 잔존하므로
+  // 취소하면 근거 채권 없는 청구서가 부활(상태 손상). DRAFT엔 애초에 수납이 없음.
+  if (
+    inv.status === PartnerInvoiceStatus.VOID ||
+    inv.status === PartnerInvoiceStatus.DRAFT
+  ) {
+    throw new InvoiceError("INVALID_STATUS", `현재 상태: ${inv.status}`);
+  }
 
   // COLLECTION 역분개 + Payment 삭제
   await reverseCollection(tx, payment.id);
