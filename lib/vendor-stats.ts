@@ -16,6 +16,7 @@
 import { ServiceOrderStatus, ServiceVendorStatus, type PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { StatsPeriod } from "@/lib/statistics";
+import { pickI18n, selectedOptionLabels } from "@/lib/service-display";
 
 // 매출 인식 = 수락 + 확정/이행. 거절·취소·대기 제외.
 const REVENUE_VENDOR_STATUS = ServiceVendorStatus.VENDOR_ACCEPTED;
@@ -166,6 +167,8 @@ const REVENUE_SELECT = {
   type: true,
   vendorName: true,
   catalogItemId: true,
+  // 선택 코스(variant) 구분용 — 가격은 selectedOptionLabels가 제거(공급자 누수 방지).
+  selectedOptions: true,
   booking: { select: { checkOut: true } },
 } as const;
 
@@ -282,6 +285,7 @@ export function aggregateVendorStats(rows: OrderRow[], period: StatsPeriod): Ven
 export async function loadVendorStats(
   vendorId: string,
   period: StatsPeriod,
+  locale: string = "vi",
   db: PrismaClient = prisma
 ): Promise<VendorStats> {
   const windowStart = period.previous ? period.previous.from : period.from;
@@ -310,25 +314,30 @@ export async function loadVendorStats(
   const items = itemIds.length
     ? await db.serviceCatalogItem.findMany({
         where: { id: { in: itemIds } },
-        select: { id: true, nameKo: true },
+        select: { id: true, nameKo: true, nameI18n: true },
       })
     : [];
-  const itemNameById = new Map(items.map((i) => [i.id, i.nameKo]));
+  const itemNameById = new Map(
+    items.map((i) => [i.id, pickI18n(i.nameKo, i.nameI18n, locale)])
+  );
 
-  const flat: OrderRow[] = orders.map((o) => ({
-    vendorStatus: o.vendorStatus,
-    status: o.status,
-    costVnd: o.costVnd,
-    quantity: o.quantity,
-    serviceDate: o.serviceDate,
-    checkOut: o.booking?.checkOut ?? null,
-    createdAt: o.createdAt,
-    vendorSettledAt: o.vendorSettledAt,
-    itemLabel:
-      (o.catalogItemId ? itemNameById.get(o.catalogItemId) : null) ??
-      o.vendorName ??
-      o.type,
-  }));
+  const flat: OrderRow[] = orders.map((o) => {
+    const baseName =
+      (o.catalogItemId ? itemNameById.get(o.catalogItemId) : null) ?? o.vendorName ?? o.type;
+    // 인기 품목은 코스(variant)까지 구분 — "마사지 · 오일 마사지 90분". 가격은 제거됨.
+    const course = selectedOptionLabels(o.selectedOptions, locale).join(" · ");
+    return {
+      vendorStatus: o.vendorStatus,
+      status: o.status,
+      costVnd: o.costVnd,
+      quantity: o.quantity,
+      serviceDate: o.serviceDate,
+      checkOut: o.booking?.checkOut ?? null,
+      createdAt: o.createdAt,
+      vendorSettledAt: o.vendorSettledAt,
+      itemLabel: course ? `${baseName} · ${course}` : baseName,
+    };
+  });
 
   return aggregateVendorStats(flat, period);
 }

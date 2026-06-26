@@ -211,6 +211,7 @@ describe("loadVendorStats — vendorId 스코프 강제", () => {
     const stats = await loadVendorStats(
       "ven1",
       period,
+      "vi",
       fakeDb({
         orders: [
           {

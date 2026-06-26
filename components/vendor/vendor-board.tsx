@@ -18,6 +18,7 @@ type VendorOrder = {
   serviceDate: string | null;
   serviceTime: string | null;
   itemName: string | null;
+  optionLabel: string | null; // 선택 코스/옵션(가격 제거) — "오일 마사지 90분" 등
   type: string | null;
   quantity: number;
   vendorStatus: VendorStatus;
@@ -255,6 +256,9 @@ function InboxSection({
                   ×{o.quantity}
                 </span>
               </h3>
+              {o.optionLabel && (
+                <p className="truncate text-sm font-semibold text-teal-700">{o.optionLabel}</p>
+              )}
               {o.villaName && (
                 <p className="flex items-center gap-1 text-sm text-neutral-600">
                   <span className="material-symbols-outlined text-base text-neutral-400">
@@ -320,6 +324,9 @@ function ScheduleSection({ orders, t }: { orders: VendorOrder[]; t: T }) {
               {o.itemName ?? "—"}
               <span className="ml-2 text-sm font-semibold text-neutral-500">×{o.quantity}</span>
             </h3>
+            {o.optionLabel && (
+              <p className="truncate text-sm font-medium text-neutral-600">{o.optionLabel}</p>
+            )}
             {o.villaName && <p className="truncate text-sm text-neutral-500">{o.villaName}</p>}
             <p className="text-sm font-semibold text-teal-700">{scheduleLabel(o)}</p>
           </div>
@@ -410,6 +417,9 @@ function SettleRow({ order, paid, t }: { order: VendorOrder; paid: boolean; t: T
           {order.itemName ?? "—"}
           <span className="ml-2 text-sm font-semibold text-neutral-500">×{order.quantity}</span>
         </h4>
+        {order.optionLabel && (
+          <p className="truncate text-sm font-medium text-neutral-600">{order.optionLabel}</p>
+        )}
         <p className="truncate text-sm text-slate-500">
           {order.villaName ? `${order.villaName} · ` : ""}
           {scheduleLabel(order)}
@@ -464,7 +474,9 @@ function RejectSheet({
         <div className="space-y-1">
           <h3 className="text-lg font-bold text-neutral-900">{t("rejectSheet.title")}</h3>
           <p className="text-sm text-neutral-500">
-            {order.itemName ?? "—"} ×{order.quantity} · {scheduleLabel(order)}
+            {order.itemName ?? "—"}
+            {order.optionLabel ? ` · ${order.optionLabel}` : ""} ×{order.quantity} ·{" "}
+            {scheduleLabel(order)}
           </p>
         </div>
         <textarea
