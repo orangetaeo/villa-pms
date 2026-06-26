@@ -78,12 +78,26 @@ describe("resolveDepositOutcome — 보증금 상태기계 (SPEC F4 체크아웃
 // ===================== DB층 — mocked prisma (QA D1) =====================
 
 function makeTxMock(opts: {
-  booking?: { id: string; status: BookingStatus; depositStatus?: DepositStatus; villaId?: string } | null;
+  booking?: {
+    id: string;
+    status: BookingStatus;
+    depositStatus?: DepositStatus;
+    villaId?: string;
+    checkOut?: Date;
+    seller?: "OPERATOR" | "SUPPLIER";
+  } | null;
   transitionCount?: number;
   /** 미니바 품목 마스터(서버 스냅샷 조회 대상). 미지정 시 빈 세트. */
   minibarItems?: Array<{ id: string; nameKo: string; unitPriceVnd: bigint; costVnd: bigint | null }>;
   /** 확정 부가옵션(게스트 청구 합산 대상). 미지정 시 빈 세트. */
   serviceOrders?: Array<{ priceKrw: number | null; priceVnd: bigint | null }>;
+  /** 다음 예약(전환 회수 판정). null=없음, 미지정 시 없음. */
+  nextBooking?: { seller: "OPERATOR" | "SUPPLIER" } | null;
+  /**
+   * 전환 회수 시 빌라 미니바 현재고 집계(groupBy 응답). 미지정 시 빈 세트.
+   *   방금 CONSUME 반영 후의 onHand를 직접 지정한다(테스트 단순화).
+   */
+  onHandByItem?: Array<{ minibarItemId: string; onHand: number }>;
 }) {
   if (opts.booking && !opts.booking.depositStatus) {
     opts.booking.depositStatus = DepositStatus.HELD;
@@ -93,6 +107,7 @@ function makeTxMock(opts: {
   return {
     booking: {
       findUnique: vi.fn(async () => opts.booking ?? null),
+      findFirst: vi.fn(async () => opts.nextBooking ?? null),
       findUniqueOrThrow: vi.fn(async () => ({
         ...(opts.booking ?? {}),
         status: BookingStatus.CHECKED_OUT,
@@ -127,6 +142,12 @@ function makeTxMock(opts: {
         id: "msm1",
         ...args.data,
       })),
+      groupBy: vi.fn(async () =>
+        (opts.onHandByItem ?? []).map((r) => ({
+          minibarItemId: r.minibarItemId,
+          _sum: { qtyDelta: r.onHand },
+        }))
+      ),
     },
     serviceOrder: {
       findMany: vi.fn(async () => opts.serviceOrders ?? []),
@@ -373,6 +394,130 @@ describe("completeCheckout — 상태 가드·원자성 (계약 완료 기준)",
         minibarLines: [{ minibarItemId: "mb_ghost", consumedQty: 1, stockedQty: 0 }],
       })
     ).rejects.toThrow(RangeError);
+  });
+
+  // ── 미니바 전환 자동 회수 (ADR-0019 Phase 2 / ADR-0021 D6) ────────────────
+  const CHECKOUT_DATE = new Date("2026-07-05T00:00:00.000Z");
+
+  function recoverCalls(tx: ReturnType<typeof makeTxMock>) {
+    return tx.minibarStockMovement.create.mock.calls.filter(
+      (c) => (c[0] as { data: { type: string } }).data.type === "RECOVER"
+    );
+  }
+
+  it("다음 예약 seller=SUPPLIER → 전 품목 RECOVER(−onHand)로 현재고 0", async () => {
+    const tx = makeTxMock({
+      booking: {
+        id: "bk1",
+        status: BookingStatus.CHECKED_IN,
+        villaId: "v1",
+        checkOut: CHECKOUT_DATE,
+        seller: "OPERATOR",
+      },
+      nextBooking: { seller: "SUPPLIER" },
+      onHandByItem: [
+        { minibarItemId: "mb_cola", onHand: 5 },
+        { minibarItemId: "mb_water", onHand: 3 },
+      ],
+    });
+    await completeCheckout(makePrismaMock(tx), BASE_INPUT);
+
+    const recovers = recoverCalls(tx);
+    expect(recovers).toHaveLength(2);
+    // 콜라 5개·물 3개 음수 회수, 출처 예약 보존, 원가 없음(unitCostVnd 미설정)
+    const cola = recovers.find(
+      (c) => (c[0] as { data: { minibarItemId: string } }).data.minibarItemId === "mb_cola"
+    )!;
+    expect((cola[0] as { data: Record<string, unknown> }).data).toMatchObject({
+      villaId: "v1",
+      minibarItemId: "mb_cola",
+      type: "RECOVER",
+      qtyDelta: -5,
+      bookingId: "bk1",
+      note: "전환 회수: 다음 공급자 직접판매",
+    });
+    // ★ 누수 점검: RECOVER 이동에 원가(unitCostVnd) 노출 0
+    expect((cola[0] as { data: Record<string, unknown> }).data).not.toHaveProperty("unitCostVnd");
+    const water = recovers.find(
+      (c) => (c[0] as { data: { minibarItemId: string } }).data.minibarItemId === "mb_water"
+    )!;
+    expect((water[0] as { data: { qtyDelta: number } }).data.qtyDelta).toBe(-3);
+  });
+
+  it("다음 예약 seller=OPERATOR → RECOVER 0건(회귀 0)", async () => {
+    const tx = makeTxMock({
+      booking: { id: "bk1", status: BookingStatus.CHECKED_IN, villaId: "v1", seller: "OPERATOR" },
+      nextBooking: { seller: "OPERATOR" },
+      onHandByItem: [{ minibarItemId: "mb_cola", onHand: 5 }],
+    });
+    await completeCheckout(makePrismaMock(tx), BASE_INPUT);
+    expect(recoverCalls(tx)).toHaveLength(0);
+    // groupBy도 호출 안 됨(다음=OPERATOR면 집계 스킵)
+    expect(tx.minibarStockMovement.groupBy).not.toHaveBeenCalled();
+  });
+
+  it("다음 예약 없음(미정) → RECOVER 0건", async () => {
+    const tx = makeTxMock({
+      booking: { id: "bk1", status: BookingStatus.CHECKED_IN, villaId: "v1" },
+      nextBooking: null,
+      onHandByItem: [{ minibarItemId: "mb_cola", onHand: 5 }],
+    });
+    await completeCheckout(makePrismaMock(tx), BASE_INPUT);
+    expect(recoverCalls(tx)).toHaveLength(0);
+    expect(tx.minibarStockMovement.groupBy).not.toHaveBeenCalled();
+  });
+
+  it("다음=SUPPLIER이나 onHand 0·음수 품목은 RECOVER 미생성", async () => {
+    const tx = makeTxMock({
+      booking: { id: "bk1", status: BookingStatus.CHECKED_IN, villaId: "v1" },
+      nextBooking: { seller: "SUPPLIER" },
+      onHandByItem: [
+        { minibarItemId: "mb_cola", onHand: 0 },
+        { minibarItemId: "mb_water", onHand: -2 }, // 보정으로 음수 — 회수 대상 아님
+        { minibarItemId: "mb_juice", onHand: 4 },
+      ],
+    });
+    await completeCheckout(makePrismaMock(tx), BASE_INPUT);
+    const recovers = recoverCalls(tx);
+    expect(recovers).toHaveLength(1);
+    expect((recovers[0][0] as { data: { minibarItemId: string; qtyDelta: number } }).data).toMatchObject({
+      minibarItemId: "mb_juice",
+      qtyDelta: -4,
+    });
+  });
+
+  it("소비(CONSUME) 0건이어도 다음=SUPPLIER면 기존 재고 회수(회수는 소비와 독립)", async () => {
+    const tx = makeTxMock({
+      booking: { id: "bk1", status: BookingStatus.CHECKED_IN, villaId: "v1" },
+      nextBooking: { seller: "SUPPLIER" },
+      onHandByItem: [{ minibarItemId: "mb_cola", onHand: 6 }],
+    });
+    // minibarLines 미전송 → CONSUME 0건
+    await completeCheckout(makePrismaMock(tx), { ...BASE_INPUT, minibarLines: [] });
+    // CONSUME은 0건, RECOVER는 1건
+    const consumes = tx.minibarStockMovement.create.mock.calls.filter(
+      (c) => (c[0] as { data: { type: string } }).data.type === "CONSUME"
+    );
+    expect(consumes).toHaveLength(0);
+    expect(recoverCalls(tx)).toHaveLength(1);
+    expect((recoverCalls(tx)[0][0] as { data: { qtyDelta: number } }).data.qtyDelta).toBe(-6);
+  });
+
+  it("회수 발생 시 AuditLog에 회수 품목 수 기록(원가·수량 상세는 비노출)", async () => {
+    const tx = makeTxMock({
+      booking: { id: "bk1", status: BookingStatus.CHECKED_IN, villaId: "v1" },
+      nextBooking: { seller: "SUPPLIER" },
+      onHandByItem: [
+        { minibarItemId: "mb_cola", onHand: 5 },
+        { minibarItemId: "mb_water", onHand: 3 },
+      ],
+    });
+    await completeCheckout(makePrismaMock(tx), BASE_INPUT);
+    expect(writeAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: expect.objectContaining({ minibarRecoveredItems: { new: 2 } }),
+      })
+    );
   });
 });
 

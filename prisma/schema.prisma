@@ -314,6 +314,7 @@ enum MinibarMovementType {
   RESTOCK // 입고(매입)
   CONSUME // 소모(체크아웃)
   ADJUST // 수동 보정(분실·실사)
+  RECOVER // 전환 회수(−) — 다음 예약 seller=SUPPLIER일 때 빌라 재고 전량 회수 (ADR-0021 D6)
 }
 
 model MinibarStockMovement {

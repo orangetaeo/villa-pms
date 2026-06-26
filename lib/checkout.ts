@@ -9,6 +9,7 @@ import {
 import { createCheckoutCleaningTask } from "./cleaning";
 import { writeAuditLog } from "./audit-log";
 import { computeGuestBill, type GuestSettlementMethodValue } from "./checkout-settlement";
+import { planRecover } from "./minibar-inventory";
 
 /**
  * 체크아웃 단일 소스 (SPEC F4 체크아웃 1~4)
@@ -112,7 +113,7 @@ export async function completeCheckout(
   return prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findUnique({
       where: { id: input.bookingId },
-      select: { id: true, status: true, depositStatus: true, villaId: true },
+      select: { id: true, status: true, depositStatus: true, villaId: true, checkOut: true, seller: true },
     });
     if (!booking) throw new CheckoutRejectedError("NOT_FOUND");
     if (booking.status === BookingStatus.CHECKED_OUT) {
@@ -216,6 +217,51 @@ export async function completeCheckout(
       });
     }
 
+    // ── 미니바 전환 자동 회수 (ADR-0019 Phase 2 / ADR-0021 D6) ───────────
+    // 미니바 = 운영자 재고. 이번 체크아웃으로 빌라가 비고, 다음 예약이 공급자 직접판매
+    //   (seller=SUPPLIER)면 우리가 운영하지 않는 판매에 재고를 남기지 않도록 전량 회수한다.
+    //   다음 = OPERATOR / 없음(미정)이면 회수하지 않는다(자동 RESTOCK은 범위 밖 — 수동 유지).
+    //   ★ RECOVER 이동은 원가 없음(unitCostVnd 미설정) — 단순 수량 회수 원장(마진 비공개 원칙2).
+    const nextBooking = await tx.booking.findFirst({
+      where: {
+        villaId: booking.villaId,
+        id: { not: booking.id },
+        status: { in: [BookingStatus.HOLD, BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN] },
+        checkIn: { gte: booking.checkOut },
+      },
+      orderBy: { checkIn: "asc" },
+      select: { seller: true },
+    });
+    let recoveredItemCount = 0;
+    if (nextBooking?.seller === "SUPPLIER") {
+      // 방금 CONSUME 포함, 품목별 현재고(ΣqtyDelta) 집계 → 양수만 회수
+      const onHandRows = await tx.minibarStockMovement.groupBy({
+        by: ["minibarItemId"],
+        where: { villaId: booking.villaId },
+        _sum: { qtyDelta: true },
+      });
+      const recoverLines = planRecover(
+        onHandRows.map((r) => ({
+          minibarItemId: r.minibarItemId,
+          onHand: r._sum.qtyDelta ?? 0,
+        }))
+      );
+      for (const line of recoverLines) {
+        await tx.minibarStockMovement.create({
+          data: {
+            villaId: booking.villaId,
+            minibarItemId: line.minibarItemId,
+            type: "RECOVER",
+            qtyDelta: line.qtyDelta,
+            bookingId: booking.id,
+            createdBy: input.actorUserId,
+            note: "전환 회수: 다음 공급자 직접판매",
+          },
+        });
+      }
+      recoveredItemCount = recoverLines.length;
+    }
+
     // ── 게스트 통합 청구 합산·정산 (ADR-0019 S4) ─────────────────────────
     // 미니바 소비 + 확정 부가옵션(CONFIRMED|DELIVERED). 통화별 분리(VND/KRW 합산 금지).
     //   settlement 입력 시 결제수단(현금/계좌이체/기타)·수납시각 기록. 보증금 차감과는 별개.
@@ -263,6 +309,10 @@ export async function completeCheckout(
         checkOutRecordId: { new: record.id },
         // 미니바 판매 합계(라인 캡처) — BigInt는 문자열로 기록
         minibarChargeVnd: { new: minibarChargeVnd?.toString() ?? null },
+        // 전환 회수(RECOVER) 발생 시 회수 품목 수만 기록 — 원가·수량 상세는 원장에 (마진 비공개)
+        ...(recoveredItemCount > 0
+          ? { minibarRecoveredItems: { new: recoveredItemCount } }
+          : {}),
       },
     });
 
