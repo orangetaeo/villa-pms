@@ -91,10 +91,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (d.vendorId) {
     const vendor = await prisma.serviceVendor.findUnique({
       where: { id: d.vendorId },
-      select: { id: true, active: true },
+      select: { id: true, active: true, approvalStatus: true },
     });
     if (!vendor || !vendor.active) {
       return NextResponse.json({ error: "VENDOR_NOT_FOUND" }, { status: 400 });
+    }
+    // 승인 게이트 — 미승인 공급자(자가가입 대기·거절)는 카탈로그 배정 불가 (ADR-0023 S5)
+    if (vendor.approvalStatus !== "APPROVED") {
+      return NextResponse.json({ error: "VENDOR_NOT_APPROVED" }, { status: 400 });
     }
   }
   // 요청 주체 자격 정규화(항상 ADMIN 포함).

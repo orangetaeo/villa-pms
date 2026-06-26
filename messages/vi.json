@@ -122,6 +122,14 @@
       "settledLabel": "Đã thanh toán",
       "topItemsTitle": "Mặt hàng phổ biến",
       "itemMeta": "{orders} đơn · {qty} cái"
+    },
+    "approvalGate": {
+      "pendingTitle": "Đang chờ duyệt",
+      "pendingBody": "Đăng ký của bạn đang được quản trị viên xem xét. Sau khi được duyệt, bạn sẽ nhận được đơn đặt hàng tại đây.",
+      "rejectedTitle": "Đăng ký bị từ chối",
+      "rejectedBody": "Rất tiếc, đăng ký của bạn chưa được chấp nhận.",
+      "rejectedReasonLabel": "Lý do",
+      "changePassword": "Đổi mật khẩu"
     }
   },
   "pagination": {
@@ -861,7 +869,8 @@
         "invalidCredentials": "Số điện thoại hoặc mật khẩu không đúng.",
         "accountDisabled": "Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.",
         "serverError": "Đã xảy ra lỗi máy chủ. Vui lòng thử lại sau."
-      }
+      },
+      "vendorSignupLink": "Đăng ký nhà cung cấp nguồn"
     },
     "signup": {
       "headerTitle": "Đăng ký tài khoản",
@@ -1539,7 +1548,24 @@
     "accountError": "Tạo tài khoản thất bại. Vui lòng thử lại.",
     "accountUnlink": "Hủy liên kết tài khoản",
     "accountUnlinkConfirm": "Hủy liên kết tài khoản đăng nhập của nhà cung cấp này? Tài khoản sẽ bị vô hiệu hóa và không thể đăng nhập.",
-    "accountUnlinked": "Đã hủy liên kết tài khoản."
+    "accountUnlinked": "Đã hủy liên kết tài khoản.",
+    "statusPending": "Chờ duyệt",
+    "statusApproved": "Đã duyệt",
+    "statusRejected": "Đã từ chối",
+    "selfSignupBadge": "Tự đăng ký",
+    "pendingSectionTitle": "Chờ duyệt",
+    "approve": "Duyệt",
+    "reject": "Từ chối",
+    "approveConfirm": "Duyệt nhà cung cấp này? Sau khi duyệt họ có thể nhận đơn đặt hàng.",
+    "approved": "Đã duyệt nhà cung cấp.",
+    "rejected": "Đã từ chối đăng ký.",
+    "rejectModalTitle": "Từ chối đăng ký",
+    "rejectReasonLabel": "Lý do từ chối (tùy chọn)",
+    "rejectReasonPlaceholder": "Lý do sẽ hiển thị cho nhà cung cấp",
+    "rejectConfirm": "Từ chối",
+    "rejectCancel": "Hủy",
+    "approvalError": "Thao tác thất bại. Vui lòng thử lại.",
+    "bankSignupBadge": "Tài khoản quyết toán"
   },
   "adminServices": {
     "title": "Danh mục dịch vụ",
@@ -1780,12 +1806,37 @@
       "status": "Trạng thái",
       "memo": "Ghi chú"
     },
-    "types": { "TRAVEL_AGENCY": "Đại lý du lịch", "LAND_AGENCY": "Land (đại lý mặt đất)" },
-    "tiers": { "A": "A · Trả trước", "B": "B · Tín dụng ngắn hạn", "C": "C · Hợp đồng riêng" },
-    "tierShort": { "A": "Trả trước", "B": "Tín dụng", "C": "Riêng" },
-    "statuses": { "ACTIVE": "Hoạt động", "SUSPENDED": "Tạm dừng", "BLOCKED": "Chặn" },
-    "cycles": { "NONE": "Không (trả trước)", "WEEKLY": "Hàng tuần", "BIWEEKLY": "15 ngày", "MONTHLY": "Hàng tháng" },
-    "aging": { "0-7": "0-7 ngày", "8-15": "8-15 ngày", "16-30": "16-30 ngày", "30+": "30 ngày+" },
+    "types": {
+      "TRAVEL_AGENCY": "Đại lý du lịch",
+      "LAND_AGENCY": "Land (đại lý mặt đất)"
+    },
+    "tiers": {
+      "A": "A · Trả trước",
+      "B": "B · Tín dụng ngắn hạn",
+      "C": "C · Hợp đồng riêng"
+    },
+    "tierShort": {
+      "A": "Trả trước",
+      "B": "Tín dụng",
+      "C": "Riêng"
+    },
+    "statuses": {
+      "ACTIVE": "Hoạt động",
+      "SUSPENDED": "Tạm dừng",
+      "BLOCKED": "Chặn"
+    },
+    "cycles": {
+      "NONE": "Không (trả trước)",
+      "WEEKLY": "Hàng tuần",
+      "BIWEEKLY": "15 ngày",
+      "MONTHLY": "Hàng tháng"
+    },
+    "aging": {
+      "0-7": "0-7 ngày",
+      "8-15": "8-15 ngày",
+      "16-30": "16-30 ngày",
+      "30+": "30 ngày+"
+    },
     "receivableStatus": {
       "PENDING": "Chưa thu",
       "PARTIAL": "Thu một phần",
@@ -1793,8 +1844,18 @@
       "OVERDUE": "Quá hạn",
       "WRITTEN_OFF": "Nợ xấu"
     },
-    "rcv": { "dueDate": "Hạn", "total": "Tiền phòng", "paid": "Đã thu", "status": "Trạng thái" },
-    "bk": { "villa": "Villa", "stay": "Lưu trú", "total": "Tiền phòng", "status": "Trạng thái" }
+    "rcv": {
+      "dueDate": "Hạn",
+      "total": "Tiền phòng",
+      "paid": "Đã thu",
+      "status": "Trạng thái"
+    },
+    "bk": {
+      "villa": "Villa",
+      "stay": "Lưu trú",
+      "total": "Tiền phòng",
+      "status": "Trạng thái"
+    }
   },
   "adminSettlements": {
     "title": "Quản lý quyết toán",
@@ -2948,5 +3009,41 @@
     "qrOptions": "QR Đặt dịch vụ",
     "copyLink": "Sao chép link",
     "qrUnavailable": "Không tạo được QR"
+  },
+  "vendorSignup": {
+    "headerTitle": "Đăng ký nhà cung cấp",
+    "title": "Đăng ký nhà cung cấp",
+    "subtitle": "Đăng ký để nhận đơn đặt hàng dịch vụ. Quản trị viên duyệt rồi bạn mới bắt đầu nhận đơn.",
+    "name": "Tên cửa hàng / đối tác",
+    "namePlaceholder": "VD: Cửa hàng trái cây Phú Quốc A",
+    "phone": "Số điện thoại",
+    "phonePlaceholder": "0xxx xxx xxx",
+    "password": "Mật khẩu",
+    "passwordPlaceholder": "Ít nhất 8 ký tự",
+    "zalo": "Zalo ID (tùy chọn)",
+    "zaloPlaceholder": "Zalo user ID",
+    "zaloHint": "Dùng để nhận thông báo đơn đặt hàng.",
+    "bankTitle": "Tài khoản nhận quyết toán (tùy chọn)",
+    "bank": "Ngân hàng",
+    "bankPlaceholder": "VD: Vietcombank",
+    "account": "Số tài khoản",
+    "accountPlaceholder": "Số tài khoản",
+    "holder": "Chủ tài khoản",
+    "holderPlaceholder": "Tên chủ tài khoản",
+    "note": "Ghi chú (tùy chọn)",
+    "notePlaceholder": "Thông tin bạn muốn gửi cho quản trị viên",
+    "submit": "Gửi đăng ký",
+    "submitting": "Đang gửi...",
+    "back": "Quay lại",
+    "hasAccount": "Đã có tài khoản?",
+    "loginLink": "Đăng nhập",
+    "successTitle": "Đã gửi đăng ký!",
+    "successBody": "Đăng ký của bạn đang chờ quản trị viên duyệt. Sau khi được duyệt, bạn có thể đăng nhập để nhận đơn đặt hàng.",
+    "goLogin": "Đến trang đăng nhập",
+    "errors": {
+      "phoneExists": "Số điện thoại này đã được đăng ký.",
+      "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự.",
+      "serverError": "Đã xảy ra lỗi. Vui lòng thử lại sau."
+    }
   }
 }

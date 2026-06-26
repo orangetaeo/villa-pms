@@ -34,7 +34,8 @@ export default async function VendorsPage() {
 
   // bankInfo(정산계좌)는 canViewFinance만 — select에서부터 제외(클라 조건부 렌더 의존 금지, 원칙2)
   const vendors = await prisma.serviceVendor.findMany({
-    orderBy: [{ active: "desc" }, { name: "asc" }],
+    // 승인대기(PENDING_APPROVAL)를 최상단으로 — 운영자가 먼저 처리하도록.
+    orderBy: [{ approvalStatus: "asc" }, { active: "desc" }, { name: "asc" }],
     select: {
       id: true,
       name: true,
@@ -44,6 +45,8 @@ export default async function VendorsPage() {
       note: true,
       active: true,
       userId: true,
+      approvalStatus: true,
+      rejectionReason: true,
       _count: { select: { catalogItems: true } },
       ...(showBank ? { bankInfo: true } : {}),
     },
@@ -58,6 +61,8 @@ export default async function VendorsPage() {
     note: v.note ?? "",
     active: v.active,
     hasAccount: v.userId != null,
+    approvalStatus: v.approvalStatus,
+    rejectionReason: v.rejectionReason ?? "",
     catalogCount: v._count.catalogItems,
     ...(showBank && "bankInfo" in v
       ? { bankInfo: parseBankInfo((v as { bankInfo: unknown }).bankInfo) }

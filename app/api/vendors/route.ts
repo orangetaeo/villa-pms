@@ -40,6 +40,10 @@ export async function GET() {
     zaloUserId: v.zaloUserId,
     note: v.note,
     active: v.active,
+    // ADR-0023 S5 — 운영자가 승인대기 목록·반려 사유를 보고 승인/거절 (운영자 전용 라우트)
+    approvalStatus: v.approvalStatus,
+    rejectionReason: v.rejectionReason,
+    approvedAt: v.approvedAt,
     hasAccount: !!v.userId,
     catalogCount: v._count.catalogItems,
     ...(showFinance ? { bankInfo: v.bankInfo } : {}),

@@ -198,6 +198,7 @@ export default auth((req) => {
     isSupplierCleanerPath ||
     isVendorPath ||
     pathname.startsWith("/signup") ||
+    pathname.startsWith("/vendor-signup") ||
     pathname.startsWith("/login")
   ) {
     // 공급자·VENDOR·인증 화면: 사용자 명시 선택(pref-locale) > 계정 기본(session) > vi 기본.
