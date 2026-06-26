@@ -9,6 +9,7 @@ import { isVendor, type Role } from "@/lib/permissions";
 import { getVendorIdForUser } from "@/lib/vendor-auth";
 import { resolveStatsPeriod } from "@/lib/statistics";
 import { loadVendorStats } from "@/lib/vendor-stats";
+import { getSupplierLocale } from "@/lib/locale";
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -27,7 +28,8 @@ export async function GET(req: NextRequest) {
     to: searchParams.get("to") ?? undefined,
   });
 
-  const stats = await loadVendorStats(vendorId, period);
+  const locale = await getSupplierLocale(session.user.locale);
+  const stats = await loadVendorStats(vendorId, period, locale);
 
   // 직렬화 객체에는 costVnd 기반 금액(VND)·건수·수락율만. 판매가/마진 키 없음(vendor-stats 보장).
   return NextResponse.json({

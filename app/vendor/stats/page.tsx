@@ -70,7 +70,7 @@ export default async function VendorStatsPage({
   const { range } = await searchParams;
   const now = new Date();
   const period = resolveVendorPeriod(range, now);
-  const stats = await loadVendorStats(vendorId, period);
+  const stats = await loadVendorStats(vendorId, period, locale);
   const chip = activeChip(range);
 
   const hasData = stats.orderCount > 0 || stats.acceptanceRatePct !== null;
