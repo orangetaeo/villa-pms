@@ -263,6 +263,31 @@ export function buildNotificationText(
         `체크인: ${formatDateVi(p.checkIn)} · 예약자: ${str(p.guestName)} (${num(p.guestCount)}명)`,
         `곧 체크인입니다. 실제 투숙객 명단을 확인·입력하거나 여행사에 안내해주세요.`,
       ].join("\n");
+
+    case NotificationType.VENDOR_PO: {
+      // 수신자=원천 공급자 → 베트남어(vi). 발주(주문) 알림.
+      // ★ 금액(판매가·원가) 미노출 — 공급자는 앱(/vendor)에서 자기 발주만 확인·가부.
+      const lines = [`🧺 Đơn đặt hàng mới: ${str(p.itemName)} x${num(p.quantity)}`];
+      lines.push(`Địa điểm: ${villa}`);
+      if (typeof p.serviceDate === "string" && p.serviceDate.length > 0) {
+        lines.push(`Ngày: ${formatDateVi(p.serviceDate)}`);
+      }
+      lines.push(`Vui lòng kiểm tra và xác nhận trong ứng dụng (/vendor).`);
+      return lines.join("\n");
+    }
+
+    case NotificationType.VENDOR_PO_RESPONSE: {
+      // 수신자=운영자(테오) → 한국어(ko). 공급자 가부 응답 통지.
+      const vendorName = str(p.vendorName);
+      const itemName = str(p.itemName);
+      if (p.accepted === true) {
+        return `✅ 공급자 수락: ${vendorName} — ${itemName} (${villa})`;
+      }
+      return [
+        `❌ 공급자 거절: ${vendorName} — ${itemName} (${villa})`,
+        `사유: ${str(p.rejectReason, "(사유 없음)")}`,
+      ].join("\n");
+    }
   }
 }
 

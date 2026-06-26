@@ -10,6 +10,7 @@ import { canViewFinance, canSetPrice, type Role } from "@/lib/permissions";
 import {
   validateCatalogItem,
   SERVICE_TYPE_VALUES,
+  parseAudiences,
   stripOptionCosts,
   parseCatalogOptions,
   type CatalogOptions,
@@ -42,6 +43,9 @@ const patchSchema = z.object({
     })
     .optional()
     .nullable(),
+  // ADR-0023 — 원천 공급자 + 요청 주체 자격
+  vendorId: z.string().min(1).max(40).optional().nullable(),
+  audiences: z.array(z.enum(["ADMIN", "PARTNER", "GUEST"])).max(3).optional(),
   active: z.boolean().optional(),
   sortOrder: z.number().int().min(0).max(9999).optional(),
 });
@@ -82,6 +86,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     select: { id: true, options: true },
   });
   if (!existing) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+
+  // 원천 공급자 — 지정되면 존재·active 검증(없으면 직접 제공). ADR-0023 §4.1.
+  if (d.vendorId) {
+    const vendor = await prisma.serviceVendor.findUnique({
+      where: { id: d.vendorId },
+      select: { id: true, active: true },
+    });
+    if (!vendor || !vendor.active) {
+      return NextResponse.json({ error: "VENDOR_NOT_FOUND" }, { status: 400 });
+    }
+  }
+  // 요청 주체 자격 정규화(항상 ADMIN 포함).
+  const audiences = parseAudiences(d.audiences);
 
   // 비권한자(STAFF) 편집 시, 기존에 저장돼 있던 옵션별 원가는 key 기준으로 다시 이식해 보존
   //   (STAFF 편집이 시간대 원가를 지우지 않게).
@@ -125,6 +142,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       priceVnd: BigInt(d.priceVnd),
       photoUrl: d.photoUrl ?? null,
       options: i18n.options != null ? (i18n.options as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+      vendorId: d.vendorId ?? null,
+      audiences: audiences as unknown as Prisma.InputJsonValue,
       ...(d.active !== undefined ? { active: d.active } : {}),
       ...(d.sortOrder !== undefined ? { sortOrder: d.sortOrder } : {}),
       ...costUpdate,

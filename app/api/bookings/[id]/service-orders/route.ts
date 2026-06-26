@@ -42,6 +42,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const orders = await prisma.serviceOrder.findMany({
     where: { bookingId: id },
     orderBy: { createdAt: "desc" },
+    include: { vendor: { select: { name: true } } },
   });
   const data = orders.map((o) => ({
     id: o.id,
@@ -58,6 +59,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     vendorName: o.vendorName,
     note: o.note,
     createdAt: o.createdAt,
+    // ADR-0023 S2 — 발주 게이트 상태(운영자 패널). vendorName은 자유입력·vendor.name은 거래처 마스터.
+    vendorId: o.vendorId,
+    vendorDisplayName: o.vendor?.name ?? o.vendorName ?? null,
+    vendorStatus: o.vendorStatus,
+    poSentAt: o.poSentAt,
+    vendorRespondedAt: o.vendorRespondedAt,
+    vendorRejectReason: o.vendorRejectReason,
+    vendorSettledAt: o.vendorSettledAt,
+    vendorSettleMethod: o.vendorSettleMethod,
     ...(showCost ? { costVnd: o.costVnd.toString() } : {}),
   }));
   return NextResponse.json({ orders: data });
@@ -135,6 +145,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       priceKrw,
       priceVnd: pricing.totalPriceVnd,
       catalogItemId: item.id,
+      vendorId: item.vendorId, // 원천 공급자 스냅샷 — 운영자 발주(dispatch) 대상 (ADR-0023 §4.3)
       quantity: pricing.quantity,
       selectedOptions: pricing.snapshot as unknown as Prisma.InputJsonValue,
       requestedVia: "ADMIN",

@@ -9,7 +9,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator, canViewFinance, canSetPrice, type Role } from "@/lib/permissions";
-import { validateCatalogItem, SERVICE_TYPE_VALUES, stripOptionCosts } from "@/lib/service-catalog";
+import { validateCatalogItem, SERVICE_TYPE_VALUES, parseAudiences, stripOptionCosts } from "@/lib/service-catalog";
 import { buildCatalogI18n } from "@/lib/service-i18n";
 import type { Prisma } from "@prisma/client";
 
@@ -40,6 +40,9 @@ const createSchema = z.object({
   costVnd: z.string().regex(/^\d{1,15}$/).optional().nullable(),
   photoUrl: z.string().max(500).optional().nullable(),
   options: optionsSchema,
+  // ADR-0023 — 원천 공급자 + 요청 주체 자격
+  vendorId: z.string().min(1).max(40).optional().nullable(),
+  audiences: z.array(z.enum(["ADMIN", "PARTNER", "GUEST"])).max(3).optional(),
   active: z.boolean().optional(),
   sortOrder: z.number().int().min(0).max(9999).optional(),
 });
@@ -68,6 +71,9 @@ export async function GET() {
     photoUrl: it.photoUrl,
     // ★옵션 원가(costVnd)는 canViewFinance만 — 비권한자에겐 옵션 JSON에서 제거(원칙2)
     options: showCost ? it.options : stripOptionCosts(it.options),
+    // ADR-0023 — 운영자 전용 라우트라 공급자 신원·채널 자격 노출 가능
+    vendorId: it.vendorId,
+    audiences: it.audiences,
     active: it.active,
     sortOrder: it.sortOrder,
     ...(showCost ? { costVnd: it.costVnd?.toString() ?? null } : {}),
@@ -108,6 +114,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "VALIDATION_FAILED", codes: errs }, { status: 400 });
   }
 
+  // 원천 공급자 — 지정되면 존재·active 검증(없으면 직접 제공). ADR-0023 §4.1.
+  if (d.vendorId) {
+    const vendor = await prisma.serviceVendor.findUnique({
+      where: { id: d.vendorId },
+      select: { id: true, active: true },
+    });
+    if (!vendor || !vendor.active) {
+      return NextResponse.json({ error: "VENDOR_NOT_FOUND" }, { status: 400 });
+    }
+  }
+  // 요청 주체 자격 정규화(항상 ADMIN 포함).
+  const audiences = parseAudiences(d.audiences);
+
   // 자동번역(best-effort): nameKo+descKo+옵션 labelKo·descKo → i18n. 원가는 패스스루(번역 안 함).
   //   GEMINI 미설정/실패 시 i18n 없이(ko 폴백) 저장 — 저장 자체를 실패시키지 않는다.
   const i18n = await buildCatalogI18n({ nameKo: d.nameKo, descKo: d.descKo, options: gatedOptions });
@@ -126,6 +145,8 @@ export async function POST(req: Request) {
       costVnd: canFinance && d.costVnd != null && d.costVnd !== "" ? BigInt(d.costVnd) : null,
       photoUrl: d.photoUrl ?? null,
       options: (i18n.options ?? undefined) as Prisma.InputJsonValue | undefined,
+      vendorId: d.vendorId ?? null,
+      audiences: audiences as unknown as Prisma.InputJsonValue,
       active: d.active ?? true,
       sortOrder: d.sortOrder ?? 0,
     },

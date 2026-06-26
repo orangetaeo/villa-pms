@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator, canViewFinance, type Role } from "@/lib/permissions";
 import { assertServiceTransition, InvalidServiceTransitionError } from "@/lib/service-order";
+import { canConfirmCustomer } from "@/lib/vendor-order";
 import type { ServiceOrderStatus } from "@prisma/client";
 
 const patchSchema = z.object({
@@ -19,6 +20,10 @@ const patchSchema = z.object({
   priceVnd: z.string().regex(/^\d{1,15}$/).optional().nullable(),
   vendorName: z.string().max(100).optional().nullable(),
   note: z.string().max(500).optional().nullable(),
+  // ADR-0023 S2 — 발주 건별 정산(canViewFinance 전용)
+  markSettled: z.boolean().optional(),
+  vendorSettleMethod: z.enum(["CASH", "BANK_TRANSFER", "OTHER"]).optional(),
+  vendorSettleNote: z.string().max(500).optional().nullable(),
 });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -41,16 +46,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "VALIDATION_FAILED", issues: parsed.error.flatten() }, { status: 400 });
   }
   const d = parsed.data;
-  // 돈 필드는 canViewFinance만 — STAFF가 보내면 거부(가격·원가 변경은 돈 경계)
+  // 돈 필드는 canViewFinance만 — STAFF가 보내면 거부(가격·원가·정산 변경은 돈 경계)
   const touchesMoney =
-    d.costVnd !== undefined || d.priceKrw !== undefined || d.priceVnd !== undefined;
+    d.costVnd !== undefined ||
+    d.priceKrw !== undefined ||
+    d.priceVnd !== undefined ||
+    d.markSettled !== undefined ||
+    d.vendorSettleMethod !== undefined ||
+    d.vendorSettleNote !== undefined;
   if (touchesMoney && !canFinance) {
     return NextResponse.json({ error: "FORBIDDEN_FINANCE" }, { status: 403 });
   }
 
   const existing = await prisma.serviceOrder.findUnique({
     where: { id },
-    select: { id: true, status: true },
+    select: { id: true, status: true, vendorId: true, vendorStatus: true },
   });
   if (!existing) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
 
@@ -67,12 +77,33 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       }
       throw e;
     }
+    // 고객확정 추가 게이트(ADR-0023 §4.3) — 발주 공급자가 수락 전이면 CONFIRMED 차단
+    if (d.status === "CONFIRMED" && !canConfirmCustomer(existing)) {
+      return NextResponse.json(
+        { error: "VENDOR_NOT_ACCEPTED", vendorStatus: existing.vendorStatus },
+        { status: 409 }
+      );
+    }
     data.status = d.status;
   }
   if (canFinance) {
     if (d.costVnd !== undefined) data.costVnd = d.costVnd ? BigInt(d.costVnd) : 0n;
     if (d.priceKrw !== undefined && d.priceKrw !== null) data.priceKrw = d.priceKrw;
     if (d.priceVnd !== undefined) data.priceVnd = d.priceVnd ? BigInt(d.priceVnd) : null;
+    // 발주 건별 정산(ADR-0023 §4.4)
+    if (d.markSettled === true) {
+      data.vendorSettledAt = new Date();
+      if (d.vendorSettleMethod !== undefined) data.vendorSettleMethod = d.vendorSettleMethod;
+      if (d.vendorSettleNote !== undefined) data.vendorSettleNote = d.vendorSettleNote?.trim() || null;
+    } else if (d.markSettled === false) {
+      data.vendorSettledAt = null;
+      data.vendorSettleMethod = null;
+      data.vendorSettleNote = null;
+    } else {
+      // markSettled 미지정이어도 method·note만 갱신 허용(이미 정산된 건 보정)
+      if (d.vendorSettleMethod !== undefined) data.vendorSettleMethod = d.vendorSettleMethod;
+      if (d.vendorSettleNote !== undefined) data.vendorSettleNote = d.vendorSettleNote?.trim() || null;
+    }
   }
   if (d.vendorName !== undefined) data.vendorName = d.vendorName?.trim() || null;
   if (d.note !== undefined) data.note = d.note?.trim() || null;
@@ -91,6 +122,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     changes: {
       ...(data.status ? { status: { old: existing.status, new: data.status } } : {}),
       ...(data.costVnd !== undefined ? { costVnd: { new: (data.costVnd as bigint).toString() } } : {}),
+      ...(d.markSettled !== undefined
+        ? { vendorSettledAt: { new: data.vendorSettledAt instanceof Date ? data.vendorSettledAt.toISOString() : null } }
+        : {}),
+      ...(data.vendorSettleMethod !== undefined
+        ? { vendorSettleMethod: { new: data.vendorSettleMethod } }
+        : {}),
     },
   });
   return NextResponse.json({ id, changed: true });

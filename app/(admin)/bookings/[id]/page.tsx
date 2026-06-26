@@ -167,6 +167,15 @@ export default async function BookingDetailPage({
         guestNote: true,
         selectedOptions: true,
         catalogItemId: true,
+        // ADR-0023 S2 — 원천 공급자 발주 흐름(발주·수락·정산)
+        vendorId: true,
+        vendorStatus: true,
+        poSentAt: true,
+        vendorRespondedAt: true,
+        vendorRejectReason: true,
+        vendorSettledAt: true,
+        vendorSettleMethod: true,
+        vendor: { select: { name: true } },
         ...(showFinance ? { costVnd: true } : {}),
       },
     }),
@@ -229,6 +238,15 @@ export default async function BookingDetailPage({
     requestedVia: o.requestedVia,
     guestNote: o.guestNote,
     selectedOptions: parseSnapshot(o.selectedOptions),
+    // ADR-0023 S2 — 원천 공급자 발주 흐름
+    vendorId: o.vendorId,
+    vendorName: o.vendor?.name ?? null,
+    vendorStatus: o.vendorStatus,
+    poSentAt: o.poSentAt?.toISOString() ?? null,
+    vendorRespondedAt: o.vendorRespondedAt?.toISOString() ?? null,
+    vendorRejectReason: o.vendorRejectReason,
+    vendorSettledAt: o.vendorSettledAt?.toISOString() ?? null,
+    vendorSettleMethod: o.vendorSettleMethod,
     ...(showFinance && "costVnd" in o
       ? { costVnd: (o as { costVnd: bigint }).costVnd.toString() }
       : {}),

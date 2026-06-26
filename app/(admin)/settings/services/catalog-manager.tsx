@@ -14,6 +14,15 @@ import { priceKrwCeil } from "@/lib/service-display";
 import { parseCatalogOptions, SERVICE_TYPE_VALUES, generateOptionKey } from "@/lib/service-catalog";
 import { catalogImage } from "@/lib/service-image";
 
+// ADR-0023 — 요청 가능 채널. ADMIN은 항상 포함(운영자 늘 요청 가능 — 잠금).
+export type Audience = "ADMIN" | "PARTNER" | "GUEST";
+const SELECTABLE_AUDIENCES: Audience[] = ["PARTNER", "GUEST"]; // ADMIN은 잠금(항상 체크)
+
+export interface VendorOption {
+  id: string;
+  name: string;
+}
+
 export interface CatalogRow {
   id: string;
   type: string;
@@ -28,6 +37,8 @@ export interface CatalogRow {
   options: unknown; // {variants,addons,modifiers}
   active: boolean;
   sortOrder: number;
+  vendorId: string | null; // ADR-0023 원천 공급자(없으면 직접 제공)
+  audiences: Audience[]; // ADR-0023 요청 가능 채널(ADMIN 항상 포함)
 }
 
 // 타입별 배지 색 (b19) — 디자인 색상 그대로
@@ -40,6 +51,7 @@ const TYPE_BADGE: Record<string, string> = {
   MOTORBIKE_RENTAL: "bg-rose-500/90",
   MASSAGE: "bg-pink-500/90",
   BARBER: "bg-cyan-600/90",
+  FRUIT: "bg-lime-600/90",
 };
 
 interface OptionDraft {
@@ -63,6 +75,9 @@ interface FormDraft {
   variants: OptionDraft[];
   addons: OptionDraft[];
   modifiers: OptionDraft[];
+  vendorId: string; // "" = 없음(직접 제공)
+  partner: boolean; // audiences ∋ PARTNER
+  guest: boolean; // audiences ∋ GUEST (ADMIN은 항상 포함 — 잠금)
 }
 
 const EMPTY_OPTION: OptionDraft = { key: "", labelKo: "", priceVnd: "", descKo: "", costVnd: "" };
@@ -80,9 +95,20 @@ const emptyForm = (sortOrder: number): FormDraft => ({
   variants: [],
   addons: [],
   modifiers: [],
+  vendorId: "",
+  partner: false,
+  guest: false,
 });
 
 const digits = (v: string) => v.replace(/\D/g, "");
+
+/** 체크된 채널 → audiences 배열. ADMIN은 항상 포함(운영자 늘 요청 가능 — ADR-0023). */
+function buildAudiences(partner: boolean, guest: boolean): Audience[] {
+  const out: Audience[] = ["ADMIN"];
+  if (partner) out.push("PARTNER");
+  if (guest) out.push("GUEST");
+  return out;
+}
 
 /** 마진% = (판매VND − 원가VND) / 판매VND × 100 — 둘 다 있을 때만. 정수 반올림. */
 function marginPct(priceVnd: string | null, costVnd: string | null | undefined): number | null {
@@ -100,11 +126,13 @@ function marginPct(priceVnd: string | null, costVnd: string | null | undefined):
 
 export default function ServiceCatalogManager({
   initialItems,
+  vendors,
   showCost,
   canEdit,
   fx,
 }: {
   initialItems: CatalogRow[];
+  vendors: VendorOption[]; // ADR-0023 활성 원천 공급자 목록(셀렉트용)
   showCost: boolean;
   canEdit: boolean;
   fx: string | null; // 1 KRW당 VND. null이면 KRW 미리보기 생략.
@@ -157,6 +185,9 @@ export default function ServiceCatalogManager({
       variants: toDraft(opts.variants),
       addons: toDraft(opts.addons),
       modifiers: toDraft(opts.modifiers),
+      vendorId: item.vendorId ?? "",
+      partner: item.audiences.includes("PARTNER"),
+      guest: item.audiences.includes("GUEST"),
     });
     setFormError(null);
     setModalOpen(true);
@@ -203,6 +234,9 @@ export default function ServiceCatalogManager({
       options,
       active: draft.active,
       sortOrder: Number.parseInt(draft.sortOrder, 10) || 0,
+      // ADR-0023 — 원천 공급자(빈값=직접 제공) + 요청 가능 채널(ADMIN 항상 포함)
+      vendorId: draft.vendorId || null,
+      audiences: buildAudiences(draft.partner, draft.guest),
     };
     // 원가는 canViewFinance만 전송(STAFF는 입력칸 자체가 없음). 서버도 이중 방어.
     if (showCost) body.costVnd = draft.costVnd ? draft.costVnd : null;
@@ -259,6 +293,9 @@ export default function ServiceCatalogManager({
               : undefined,
           active: !item.active,
           sortOrder: item.sortOrder,
+          // ADR-0023 — 공급자·채널 기존값 보존(토글은 active만 변경)
+          vendorId: item.vendorId,
+          audiences: item.audiences,
           // costVnd는 보내지 않음 — canViewFinance 미권한자는 기존값 보존(서버 정책)
         }),
       });
@@ -517,6 +554,7 @@ export default function ServiceCatalogManager({
         <CatalogModal
           draft={draft}
           setDraft={setDraft}
+          vendors={vendors}
           showCost={showCost}
           editing={editingId != null}
           busy={busy}
@@ -535,6 +573,7 @@ export default function ServiceCatalogManager({
 function CatalogModal({
   draft,
   setDraft,
+  vendors,
   showCost,
   editing,
   busy,
@@ -546,6 +585,7 @@ function CatalogModal({
 }: {
   draft: FormDraft;
   setDraft: (updater: (d: FormDraft) => FormDraft) => void;
+  vendors: VendorOption[];
   showCost: boolean;
   editing: boolean;
   busy: boolean;
@@ -754,6 +794,56 @@ function CatalogModal({
             rows={2}
             className={inputCls}
           />
+        </div>
+
+        {/* ADR-0023 — 원천 공급자 + 요청 가능 채널 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          <div>
+            <label className={labelCls}>{t("form.vendor")}</label>
+            <select
+              value={draft.vendorId}
+              onChange={(e) => setDraft((d) => ({ ...d, vendorId: e.target.value }))}
+              aria-label={t("form.vendor")}
+              className={inputCls}
+            >
+              <option value="">{t("form.vendorNone")}</option>
+              {vendors.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-slate-500 mt-1">{t("form.vendorHint")}</p>
+          </div>
+          <div>
+            <span className={labelCls}>{t("form.audiences")}</span>
+            <div className="mt-1.5 flex flex-col gap-1.5">
+              {/* ADMIN — 항상 체크·잠금(운영자는 늘 요청 가능) */}
+              <label className="flex items-center gap-2 text-xs text-slate-500">
+                <input type="checkbox" checked disabled className="accent-admin-primary opacity-60" />
+                {t("form.audienceAdmin")}
+                <span className="text-[10px] text-slate-600">{t("form.audienceAdminLocked")}</span>
+              </label>
+              <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={draft.partner}
+                  onChange={(e) => setDraft((d) => ({ ...d, partner: e.target.checked }))}
+                  className="accent-admin-primary"
+                />
+                {t("form.audiencePartner")}
+              </label>
+              <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={draft.guest}
+                  onChange={(e) => setDraft((d) => ({ ...d, guest: e.target.checked }))}
+                  className="accent-admin-primary"
+                />
+                {t("form.audienceGuest")}
+              </label>
+            </div>
+          </div>
         </div>
 
         {/* 옵션 빌더 */}

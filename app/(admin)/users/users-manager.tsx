@@ -43,6 +43,7 @@ const ROLE_BADGE_CLASS: Record<Role, string> = {
   ADMIN: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
   SUPPLIER: "bg-teal-500/10 text-teal-400 border border-teal-500/20",
   CLEANER: "bg-purple-500/10 text-purple-400 border border-purple-500/20",
+  VENDOR: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
 };
 
 // 아바타 색 (역할 시맨틱 컬러와 동일 계열)
@@ -53,6 +54,7 @@ const AVATAR_CLASS: Record<Role, string> = {
   ADMIN: "bg-blue-500/10 text-blue-500",
   SUPPLIER: "bg-blue-500/10 text-blue-500",
   CLEANER: "bg-purple-500/10 text-purple-500",
+  VENDOR: "bg-emerald-500/10 text-emerald-500",
 };
 
 /** 이름 → 2글자 이니셜 (b13: "Nguyễn Văn An" → "NA") */
