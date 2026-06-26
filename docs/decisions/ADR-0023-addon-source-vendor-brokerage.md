@@ -1,6 +1,7 @@
 # ADR-0023 — 부가서비스 원천 공급자 중계 + 요청 주체 자격 (과일 바구니·과일 도시락)
 
-- 상태: **Accepted** (테오 3대 결정 확정 2026-06-26, 구현 착수)
+- 상태: **Implemented** (테오 3대 결정 확정 2026-06-26, S1~S4 구현·QA 완료, 브랜치 wt/addon-vendor·PR·배포 대기)
+  - ⚠ 배포 시: S1에서 라이브 DB의 과일 2종을 `active=false`로 비활성화함(배포된 prod /g 로더에 audience 필터 미반영 시 과일 바구니 누수 방지). **이 브랜치 배포 후** 과일 2종 `active=true` 복원 필요(그때 필터가 바구니=게스트 숨김·도시락=게스트 노출 보장).
 - 관련: ADR-0019(게스트 체크인·부가서비스 판매·미니바), ADR-0003(결제 통화), ADR-0018(복식부기 LEDGER), ADR-0013(운영자 RBAC), ADR-0022(여행사·랜드사 B2B 미수, Proposed)
 - 메모리: [[guest-checkin-addon-inventory-plan]], [[supplier-statistics-status]], [[partner-b2b-receivables-plan]], [[zalo-integration-status]], [[minibar-architecture]]
 
