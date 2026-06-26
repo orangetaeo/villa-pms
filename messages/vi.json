@@ -1848,7 +1848,8 @@
       "paymentTermDays": "Hạn thanh toán (ngày)",
       "billingCycle": "Chu kỳ chốt",
       "status": "Trạng thái",
-      "memo": "Ghi chú"
+      "memo": "Ghi chú",
+      "country": "Quốc gia"
     },
     "types": {
       "TRAVEL_AGENCY": "Đại lý du lịch",
@@ -1949,6 +1950,16 @@
         "INVALID_STATUS": "Không thể thực hiện ở trạng thái hiện tại",
         "generic": "Xử lý thất bại"
       }
+    },
+    "countries": {
+      "none": "Chưa chọn",
+      "VN": "Việt Nam",
+      "KR": "Hàn Quốc",
+      "CN": "Trung Quốc",
+      "RU": "Nga",
+      "US": "Mỹ",
+      "JP": "Nhật Bản",
+      "TH": "Thái Lan"
     }
   },
   "adminSettlements": {

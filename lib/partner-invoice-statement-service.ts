@@ -8,6 +8,7 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { saveInvoiceFile } from "@/lib/storage";
 import { generateInvoicePdf } from "@/lib/partner-invoice-pdf";
 import { receivableBalance } from "@/lib/partner-invoice";
+import { partnerInvoiceLocale, type InvoiceLocale } from "@/lib/partner-country";
 import { toDateOnlyString, todayVnDateString } from "@/lib/date-vn";
 
 const dot = (d: Date) => toDateOnlyString(d).replaceAll("-", ".");
@@ -17,9 +18,17 @@ export function invoiceDisplayNo(invoiceId: string): string {
   return `INV-${invoiceId.slice(-6).toUpperCase()}`;
 }
 
-/** 파트너 표시명 — vi 대상 문서라 nameVi 우선·name 폴백 (한글 토푸 회피) */
-export function partnerDisplayName(p: { name: string; nameVi: string | null }): string {
-  return p.nameVi?.trim() || p.name;
+/**
+ * 파트너 표시명 — 언어별 결정.
+ * - vi 문서: nameVi 우선·name 폴백 (베트남 거래처 가독)
+ * - ko/en 문서: name(원문) 우선 — 한글 글리프는 PDF에서 NanumGothic로 정상 렌더되므로 토푸 회피 불필요
+ */
+export function partnerDisplayName(
+  p: { name: string; nameVi: string | null },
+  locale: InvoiceLocale = "vi"
+): string {
+  if (locale === "vi") return p.nameVi?.trim() || p.name;
+  return p.name || p.nameVi?.trim() || "";
 }
 
 /**
@@ -39,7 +48,7 @@ export async function generateInvoiceStatement(
       dueDate: true,
       paidVnd: true,
       statementUrl: true,
-      partner: { select: { name: true, nameVi: true } },
+      partner: { select: { name: true, nameVi: true, country: true } },
       receivables: {
         select: {
           totalVnd: true,
@@ -59,6 +68,9 @@ export async function generateInvoiceStatement(
   });
   if (!inv || inv.receivables.length === 0) return null;
 
+  // 출력 언어 — 파트너 국가로 자동 결정(KR=ko·VN=vi·그 외=en, 미지정=vi)
+  const locale = partnerInvoiceLocale(inv.partner.country);
+
   const lines = inv.receivables
     .map((r) => ({
       villaName: r.booking.villa.name,
@@ -71,7 +83,7 @@ export async function generateInvoiceStatement(
     .map(({ checkInRaw: _omit, ...l }) => l);
 
   const pdf = await generateInvoicePdf({
-    partnerName: partnerDisplayName(inv.partner),
+    partnerName: partnerDisplayName(inv.partner, locale),
     invoiceNo: invoiceDisplayNo(inv.id),
     periodStart: dot(inv.periodStart),
     periodEnd: dot(inv.periodEnd),
@@ -79,6 +91,7 @@ export async function generateInvoiceStatement(
     issuedAt: todayVnDateString().replaceAll("-", "."),
     lines,
     paidVnd: inv.paidVnd,
+    locale,
   });
 
   const { fileName } = await saveInvoiceFile(pdf, inv.id);

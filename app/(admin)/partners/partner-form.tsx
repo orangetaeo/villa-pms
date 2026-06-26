@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { PARTNER_COUNTRIES } from "@/lib/partner-country";
 
 export interface PartnerFormValues {
   type: "TRAVEL_AGENCY" | "LAND_AGENCY";
@@ -10,6 +11,8 @@ export interface PartnerFormValues {
   contactPhone: string;
   contactZaloUid: string;
   contactEmail: string;
+  /** ISO alpha-2 국가 코드 — 청구서 PDF 언어 결정. "" = 미지정 */
+  country: string;
   creditTier: "A" | "B" | "C";
   creditLimitVnd: string; // digits
   depositRatePct: number;
@@ -26,6 +29,7 @@ export const EMPTY_PARTNER: PartnerFormValues = {
   contactPhone: "",
   contactZaloUid: "",
   contactEmail: "",
+  country: "",
   creditTier: "A",
   creditLimitVnd: "0",
   depositRatePct: 30,
@@ -128,7 +132,7 @@ export default function PartnerForm({
             onChange={(e) => set("contactZaloUid", e.target.value)}
           />
         </label>
-        <label className="flex flex-col gap-1 sm:col-span-2">
+        <label className="flex flex-col gap-1">
           <span className={labelCls}>{t("form.contactEmail")}</span>
           <input
             className={inputCls}
@@ -136,6 +140,22 @@ export default function PartnerForm({
             value={v.contactEmail}
             onChange={(e) => set("contactEmail", e.target.value)}
           />
+        </label>
+        {/* 국가 — 청구서 PDF 출력 언어를 결정(KR=한국어·VN=베트남어·그 외=영어) */}
+        <label className="flex flex-col gap-1">
+          <span className={labelCls}>{t("form.country")}</span>
+          <select
+            className={inputCls}
+            value={v.country}
+            onChange={(e) => set("country", e.target.value)}
+          >
+            <option value="">{t("countries.none")}</option>
+            {PARTNER_COUNTRIES.map((code) => (
+              <option key={code} value={code}>
+                {t(`countries.${code}`)}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
 
