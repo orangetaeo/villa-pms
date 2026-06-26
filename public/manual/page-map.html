@@ -78,7 +78,7 @@
     <h3>📌 구현 현황 (실제 코드 대조, 2026-06-26)</h3>
     <ul>
       <li><span class="ok">✅ 거의 전부 라이브</span> — 빌라 검수·청소 게이트·가예약/홀드만료·체크인/아웃·게스트 셀프체크인·부가서비스 발주 중계·원천공급자 가입·정산 생애주기·iCal 동기화·취소/노쇼까지 모두 배포됨.</li>
-      <li><b>⛔ 미개발(딱 하나): 파트너 청구서(invoice) 운영자 화면</b> — 백엔드 API(<code>/api/partner-invoices</code>)·데이터는 완성. 그러나 <code>/partners/:id</code>엔 미수 표만 있고 <b>청구서 발행·조회·PDF·Zalo 발송 화면이 없음</b>. (⑦에 🔴로 표기)</li>
+      <li><span class="ok">✅ 분기 흐름 빈칸 없음</span> — 마지막 빈칸이던 <b>파트너 청구서(invoice) 운영자 화면</b>도 방금 <b>PR #44(wt/partner-3b-ui)로 머지 완료</b>(청구서 탭·PDF(vi)·Zalo 발송). 모든 핵심 분기가 코드에 존재.</li>
       <li>🟡 Phase 2 보류(빈칸 아님): 메시지 실시간 SSE(현재 폴링) · 정확 마진 리포트(현재 근사 표시).</li>
       <li>👉 <b>추가로 필요한 개발 항목(필수/있으면 좋음)은 맨 아래 ⑧</b>에 정리.</li>
     </ul>
@@ -205,7 +205,7 @@ flowchart TD
 
   <!-- ⑥ 원천공급자 가입 + ⑦ 정산/미수 -->
   <section>
-    <h2>⑥ 원천공급자 가입 승인 &nbsp;·&nbsp; ⑦ 정산·미수 상태 흐름 <span class="tag gate">승인·거절 / 수납·연체</span> <span class="tag live">✅ 라이브</span> <span class="tag todo">⛔ 청구서 UI 미개발</span></h2>
+    <h2>⑥ 원천공급자 가입 승인 &nbsp;·&nbsp; ⑦ 정산·미수 상태 흐름 <span class="tag gate">승인·거절 / 수납·연체</span> <span class="tag live">✅ 라이브</span></h2>
     <p class="desc">자가가입은 운영자 승인 후 발주 수신이 가능합니다. 정산·미수는 단계별 상태로 진행됩니다. (VendorApprovalStatus·SettlementStatus·ReceivableStatus)</p>
     <pre class="mermaid">
 flowchart LR
@@ -226,11 +226,11 @@ flowchart LR
     PE -.->|"기한 경과 (cron)"| OV(["OVERDUE 연체"]):::auto
     OV -.->|"도망 등"| WO(["WRITTEN_OFF 대손"]):::auto
   end
-  subgraph IV ["⑦-b 파트너 청구서 (Invoice)"]
+  subgraph IV ["⑦-b 파트너 청구서 (Invoice) — PR #44 완료"]
     direction TB
-    API["✅ API·데이터 완성<br/>/api/partner-invoices"]:::okbox2
-    API --> UI["🔴 미개발: 발행·조회 화면<br/>/partners/:id 청구서 탭"]:::todo
-    UI -.->|"있어야 할 것"| PDFZ["🔴 미개발: 청구서 PDF·Zalo 발송"]:::todo
+    API["✅ API·데이터<br/>/api/partner-invoices"]:::okbox2
+    API --> UI["✅ 청구서 탭<br/>/partners/:id"]:::okbox2
+    UI -->|"발송"| PDFZ["✅ 청구서 PDF(vi)·Zalo 발송"]:::okbox2
   end
   classDef vendor fill:#2b1d3a,stroke:#b07cff,color:#fff;
   classDef state fill:#1b2a3f,stroke:#5b8fd6,color:#dbe9ff;
@@ -250,23 +250,22 @@ flowchart LR
     <div class="cols">
       <div class="col must">
         <h4>🔴 꼭 필요한 기능 (필수)</h4>
-        <div class="card must">
-          <div class="t">1. 파트너 청구서(invoice) 발행 화면</div>
-          <div class="d">/partners/:id에 청구서 탭 — 마감청구서 생성·발행·수납기록·PDF(vi)·Zalo 발송. 수납 시 LEDGER COLLECTION 연결.</div>
-          <div class="why">왜 필수: API·데이터는 완성됐는데 화면이 없어 <b>미수금 청구를 운영자가 못 함</b>. (PARTNER-3 잔여)</div>
+        <div class="card" style="background:rgba(58,209,127,.08);border:1px solid rgba(58,209,127,.4)">
+          <div class="t" style="color:#9ff0c4">✅ (방금 완료) 파트너 청구서 발행 화면</div>
+          <div class="d">PR #44로 청구서 탭·PDF(vi)·Zalo 발송 머지 완료. 잔여 확인: 수납 시 LEDGER COLLECTION 연결 여부.</div>
         </div>
         <div class="card must">
-          <div class="t">2. Zalo 세션 끊김 경보 (S6)</div>
+          <div class="t">1. Zalo 세션 끊김 경보 (S6)</div>
           <div class="d">알림 채널(zca-js QR 세션)이 끊기면 운영자에게 즉시 경보. 자동 재연결 유도.</div>
           <div class="why">왜 필수: 세션이 죽은 걸 모르면 <b>예약·홀드만료·청소 알림이 통째로 누락</b>되어 운영 마비.</div>
         </div>
         <div class="card must">
-          <div class="t">3. Zalo 증빙 이미지 첨부 발송 (S5)</div>
+          <div class="t">2. Zalo 증빙 이미지 첨부 발송 (S5)</div>
           <div class="d">여권·동의서 서명 등 체크인 증빙 이미지를 Zalo로 첨부 전송.</div>
           <div class="why">왜 필수: 현재 텍스트 위주 — <b>증빙 사진 전달 경로</b>가 닫혀 있음.</div>
         </div>
         <div class="card must">
-          <div class="t">4. 러시아어(ru) 원어민 최종 감수</div>
+          <div class="t">3. 러시아어(ru) 원어민 최종 감수</div>
           <div class="d">게스트 다통화/체크인 화면 ru 번역의 원어민 검수(현재 1차 기계감수).</div>
           <div class="why">왜 필수: ru 게스트 응대 중인데 <b>어색한 번역은 신뢰·전환 저하</b>. (자원 미확보 상태)</div>
         </div>
