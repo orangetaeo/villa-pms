@@ -182,6 +182,9 @@ export async function recordInvoicePayment(
   tx: Tx,
   input: { invoiceId: string; amountVnd: bigint; now: Date; createdBy: string }
 ) {
+  // 동시 수납·정정의 lost-update 차단 — 같은 청구서 paidVnd 읽기-누적-쓰기를 직렬화(advisory lock).
+  // 호출부(라우트)가 prisma.$transaction으로 감싸므로 xact 종료 시 자동 해제. reverseInvoicePayment와 동일 키.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`invoice:${input.invoiceId}`}))`;
   const inv = await tx.partnerInvoice.findUnique({
     where: { id: input.invoiceId },
     select: {
@@ -285,6 +288,8 @@ export async function reverseInvoicePayment(
   tx: Tx,
   input: { invoiceId: string; paymentId: string; createdBy: string }
 ) {
+  // 동시 수납·정정의 lost-update 차단 — recordInvoicePayment와 동일 청구서 락으로 직렬화.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`invoice:${input.invoiceId}`}))`;
   const payment = await tx.payment.findUnique({
     where: { id: input.paymentId },
     select: { id: true, invoiceId: true, amount: true, currency: true },

@@ -66,8 +66,11 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   }
 
   const now = new Date();
-  await prisma.serviceOrder.update({
-    where: { id },
+  // 동시성 가드 — 읽은 상태(status·vendorStatus) 위에서만 발주 반영. 동시 이중 발주 시
+  // count===0 → 409로 차단해 이중 PO Zalo 알림을 막는다(canDispatch는 읽기 스냅샷 기준이라
+  // DB 레벨 재확인이 없으면 두 요청이 모두 통과).
+  const dispatched = await prisma.serviceOrder.updateMany({
+    where: { id, status: order.status, vendorStatus: order.vendorStatus },
     data: {
       vendorStatus: "PENDING_VENDOR",
       poSentAt: now,
@@ -75,6 +78,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       vendorRejectReason: null,
     },
   });
+  if (dispatched.count === 0) {
+    return NextResponse.json({ error: "CONCURRENT_MODIFICATION" }, { status: 409 });
+  }
 
   // Zalo 발주 — 공급자 User에 zaloUserId 연결돼 있을 때만 큐 적재(발송은 cron).
   const vendorZalo = order.vendor?.user?.zaloUserId;

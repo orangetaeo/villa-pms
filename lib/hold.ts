@@ -320,6 +320,9 @@ export async function confirmHold(
   input: { bookingId: string; actorUserId: string; now: Date }
 ): Promise<Booking> {
   return prisma.$transaction(async (tx) => {
+    // 파트너 지정(PUT /bookings/[id]/partner)·입금과의 경합 직렬화 — 같은 booking 채권 락.
+    // 락이 없으면 동시 확정·파트너지정이 서로의 미커밋 쓰기를 못 봐 "CONFIRMED인데 채권 없음" 발생 가능.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`receivable:${input.bookingId}`}))`;
     const booking = await tx.booking.findUnique({
       where: { id: input.bookingId },
       include: { villa: { select: { supplierId: true, name: true } } },

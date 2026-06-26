@@ -112,7 +112,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ id, changed: false });
   }
 
-  await prisma.serviceOrder.update({ where: { id }, data });
+  // 동시성 가드 — 읽은 상태(existing.status) 위에서만 전이 반영. 그 사이 다른 요청이
+  // 상태를 바꿨으면 count===0 → 409로 불법 전이(last-writer-wins) 차단.
+  const updated = await prisma.serviceOrder.updateMany({
+    where: { id, status: existing.status },
+    data,
+  });
+  if (updated.count === 0) {
+    return NextResponse.json({ error: "CONCURRENT_MODIFICATION" }, { status: 409 });
+  }
   await writeAuditLog({
     db: prisma,
     userId: actorId,

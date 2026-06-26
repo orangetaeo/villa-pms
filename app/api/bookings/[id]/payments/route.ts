@@ -114,6 +114,10 @@ export async function POST(
   }
 
   const payment = await prisma.$transaction(async (tx) => {
+    // 동시성 가드 — 같은 예약의 채권 입금을 직렬화(advisory lock). 없으면 READ COMMITTED에서
+    // 동시 입금 2건이 같은 depositPaidVnd 스냅샷을 읽어 lost-update(채권 카운터 누락) 발생.
+    // 카운터는 여신게이트·체크인차단을 구동하므로 정확성이 중요. (Payment·LEDGER는 paymentId 멱등이라 안전)
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`receivable:${id}`}))`;
     // 파트너 객실료 입금(DEPOSIT/BALANCE)이면 예약의 채권을 찾아 반영 (ADR-0022)
     let receivable: {
       id: string;

@@ -1,4 +1,5 @@
 import { CreditTier, PartnerStatus, ReceivableStatus } from "@prisma/client";
+import { parseUtcDateOnly, todayVnDateString } from "@/lib/date-vn";
 
 /**
  * 여행사·랜드사(B2B) 결제조건·미수(여신) 정책 단일 소스 (ADR-0022, PARTNER-1)
@@ -104,7 +105,10 @@ function isOverdueReceivable(r: ReceivableLike, today: Date): boolean {
 
 /** 연체(기한 경과 + 미입금) 채권이 하나라도 있는지 — 자동 제재 트리거 */
 export function hasOverdue(receivables: ReceivableLike[], asOf: Date): boolean {
-  const today = startOfUtcDay(asOf);
+  // "오늘"은 VN 캘린더 일을 UTC 자정으로 — dueDate(@db.Date)도 UTC 자정 저장이라 자릿수(일수 차)
+  // 계산이 정수로 맞는다. UTC 일로 잡으면 17:00~23:59 UTC(다음 VN일)에 하루 어긋남. markOverdueReceivables와 동일 규약.
+  // (vnDayStartUtc는 −7h이라 @db.Date 일수차가 틀어지므로 parseUtcDateOnly 사용)
+  const today = parseUtcDateOnly(todayVnDateString(asOf))!;
   return receivables.some((r) => isOverdueReceivable(r, today));
 }
 
@@ -113,7 +117,10 @@ export function hasOverdue(receivables: ReceivableLike[], asOf: Date): boolean {
  * outstandingForPartner(전체 미수)와 달리 미도래 채권은 제외 → "연체 미수" KPI 정확화.
  */
 export function overdueOutstanding(receivables: ReceivableLike[], asOf: Date): bigint {
-  const today = startOfUtcDay(asOf);
+  // "오늘"은 VN 캘린더 일을 UTC 자정으로 — dueDate(@db.Date)도 UTC 자정 저장이라 자릿수(일수 차)
+  // 계산이 정수로 맞는다. UTC 일로 잡으면 17:00~23:59 UTC(다음 VN일)에 하루 어긋남. markOverdueReceivables와 동일 규약.
+  // (vnDayStartUtc는 −7h이라 @db.Date 일수차가 틀어지므로 parseUtcDateOnly 사용)
+  const today = parseUtcDateOnly(todayVnDateString(asOf))!;
   return receivables
     .filter((r) => isOverdueReceivable(r, today))
     .reduce((sum, r) => sum + receivableOutstanding(r), 0n);
@@ -199,7 +206,10 @@ export interface AgingBuckets {
  * 완납·대손은 제외. 대시보드(/receivables)·연체 경보 기준.
  */
 export function agingBuckets(receivables: ReceivableLike[], asOf: Date): AgingBuckets {
-  const today = startOfUtcDay(asOf);
+  // "오늘"은 VN 캘린더 일을 UTC 자정으로 — dueDate(@db.Date)도 UTC 자정 저장이라 자릿수(일수 차)
+  // 계산이 정수로 맞는다. UTC 일로 잡으면 17:00~23:59 UTC(다음 VN일)에 하루 어긋남. markOverdueReceivables와 동일 규약.
+  // (vnDayStartUtc는 −7h이라 @db.Date 일수차가 틀어지므로 parseUtcDateOnly 사용)
+  const today = parseUtcDateOnly(todayVnDateString(asOf))!;
   const out: AgingBuckets = {
     "0-7": 0n,
     "8-15": 0n,

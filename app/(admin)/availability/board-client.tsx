@@ -470,7 +470,12 @@ export default function AvailabilityBoardClient({
 
   function cellOf(villaId: string, idx: number): BoardCell {
     const iso = columns[idx].iso;
-    return optimistic[`${villaId}|${iso}`] ?? rows.find((r) => r.id === villaId)!.days[idx];
+    // 행이 필터로 사라진 사이 드래그가 호출될 수 있으므로 non-null 단정 대신 안전 폴백.
+    return (
+      optimistic[`${villaId}|${iso}`] ??
+      rows.find((r) => r.id === villaId)?.days[idx] ??
+      { status: "AVAILABLE", blockId: null }
+    );
   }
 
   // ── 드래그 시작 (마우스/펜 + 주버튼, ICAL 셀 제외) ──

@@ -77,7 +77,8 @@ export async function POST(req: Request) {
       : undefined;
 
   // 계정 생성 + 공급자 엔티티 생성을 한 트랜잭션으로 묶어 원자성 보장
-  const created = await prisma.$transaction(async (tx) => {
+  try {
+    await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
         role: "VENDOR",
@@ -120,9 +121,16 @@ export async function POST(req: Request) {
     });
 
     return vendor;
-  });
+    });
+  } catch (e) {
+    // phone @unique 레이스 — 사전 findUnique 체크와 create 사이 동시 가입 시 P2002 → 409
+    // (사전 체크로 정상 케이스는 이미 409. 여기선 좁은 레이스 창을 500 대신 409로 정상화)
+    if ((e as { code?: string })?.code === "P2002") {
+      return NextResponse.json({ error: "PHONE_TAKEN" }, { status: 409 });
+    }
+    throw e;
+  }
 
   // 응답 화이트리스트 — 민감정보(passwordHash·bankInfo·id 등) 미반환
-  void created;
   return NextResponse.json({ ok: true }, { status: 201 });
 }
