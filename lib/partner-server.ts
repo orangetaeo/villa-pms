@@ -1,4 +1,4 @@
-import type { Partner, PrismaClient } from "@prisma/client";
+import { CreditTier, type Partner, type PrismaClient } from "@prisma/client";
 import {
   agingBuckets,
   hasOverdue,
@@ -43,6 +43,70 @@ function aggregate(
     overdue: hasOverdue(receivables, asOf),
     bookingCount,
   };
+}
+
+/** 파트너 1명의 한도초과 여부 — 등급 B/C에서 미수가 신용한도 초과 (등급 A는 여신 없음) */
+export function isOverLimit(agg: PartnerAggregate): boolean {
+  if (agg.partner.creditTier === CreditTier.A) return false;
+  return agg.outstandingVnd > agg.partner.creditLimitVnd;
+}
+
+export interface ReceivablesOverview {
+  /** 미수(잔액>0) 파트너만, 연체 우선·미수액 내림차순 */
+  partners: PartnerAggregate[];
+  totalOutstandingVnd: bigint;
+  /** 전 파트너 Aging 합산 */
+  aging: AgingBuckets;
+  overduePartnerCount: number;
+  overdueOutstandingVnd: bigint;
+  overLimitPartnerCount: number;
+}
+
+/** 미수/여신 대시보드 요약(순수) — 집계 목록에서 전체 미수·연체·한도초과 도출 */
+export function summarizeReceivables(aggs: PartnerAggregate[]): ReceivablesOverview {
+  const withDebt = aggs.filter((a) => a.outstandingVnd > 0n);
+  const partners = [...withDebt].sort((a, b) => {
+    if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
+    if (a.outstandingVnd > b.outstandingVnd) return -1;
+    if (a.outstandingVnd < b.outstandingVnd) return 1;
+    return 0;
+  });
+
+  const aging: AgingBuckets = { "0-7": 0n, "8-15": 0n, "16-30": 0n, "30+": 0n, total: 0n };
+  let totalOutstandingVnd = 0n;
+  let overduePartnerCount = 0;
+  let overdueOutstandingVnd = 0n;
+  let overLimitPartnerCount = 0;
+  for (const a of withDebt) {
+    totalOutstandingVnd += a.outstandingVnd;
+    aging["0-7"] += a.aging["0-7"];
+    aging["8-15"] += a.aging["8-15"];
+    aging["16-30"] += a.aging["16-30"];
+    aging["30+"] += a.aging["30+"];
+    aging.total += a.aging.total;
+    if (a.overdue) {
+      overduePartnerCount += 1;
+      overdueOutstandingVnd += a.outstandingVnd;
+    }
+    if (isOverLimit(a)) overLimitPartnerCount += 1;
+  }
+  return {
+    partners,
+    totalOutstandingVnd,
+    aging,
+    overduePartnerCount,
+    overdueOutstandingVnd,
+    overLimitPartnerCount,
+  };
+}
+
+/** 미수/여신 대시보드 데이터 (DB) */
+export async function getReceivablesOverview(
+  prisma: PrismaClient,
+  asOf: Date
+): Promise<ReceivablesOverview> {
+  const aggs = await getPartnersWithAggregates(prisma, asOf);
+  return summarizeReceivables(aggs);
 }
 
 /** 파트너 목록 + 미수/Aging 집계 (목록 화면) */

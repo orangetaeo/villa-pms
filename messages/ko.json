@@ -25,6 +25,7 @@
     "inspections": "청소 검수",
     "settlements": "정산",
     "partners": "파트너 관리",
+    "receivables": "미수/여신",
     "services": "서비스 카탈로그",
     "messages": "메시지",
     "users": "사용자",
@@ -1429,6 +1430,20 @@
     "saved": "저장되었습니다",
     "error": "처리에 실패했습니다. 다시 시도해주세요.",
     "cancelConfirm": "이 주문을 취소할까요?"
+  },
+  "adminReceivables": {
+    "title": "미수/여신 대시보드",
+    "subtitle": "여행사·랜드사 미수 현황과 연체·한도초과 경보",
+    "empty": "미수 채권이 없습니다",
+    "agingTitle": "연령 분석(Aging) 합산",
+    "alerts": "경보",
+    "overLimitBadge": "한도초과",
+    "kpi": {
+      "totalOutstanding": "총 미수 잔액",
+      "overdueOutstanding": "연체 미수",
+      "overduePartners": "연체 파트너",
+      "overLimit": "한도초과 파트너"
+    }
   },
   "adminPartners": {
     "title": "파트너 관리",

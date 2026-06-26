@@ -42,6 +42,8 @@ const NAV_ITEMS: NavItem[] = [
   { key: "settlements", href: "/settlements", icon: "payments", cap: canViewFinance },
   // 파트너 관리(ADR-0022) — 여행사·랜드사 미수·여신. 재무(canViewFinance)만 노출
   { key: "partners", href: "/partners", icon: "handshake", cap: canViewFinance },
+  // 미수/여신 대시보드(ADR-0022 PARTNER-3) — 전 파트너 미수 Aging·연체. 재무만 노출
+  { key: "receivables", href: "/receivables", icon: "request_quote", cap: canViewFinance },
   // 통계(T-admin-statistics) — 정산 카테고리 아래 배치(사용자 요청). 전 운영자 노출(탭별 금액 게이트는 페이지 내부)
   { key: "statistics", href: "/statistics", icon: "analytics" },
   // 서비스 카탈로그(ADR-0019 S2) — 부가서비스 판매 메뉴. 가격 설정 권한(canSetPrice=OWNER/MANAGER)만 노출
