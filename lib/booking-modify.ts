@@ -14,6 +14,7 @@ import {
 import { assertSaleAmountColumns, quoteStayForVilla } from "./pricing";
 import { writeAuditLog } from "./audit-log";
 import { countNights } from "./hold";
+import { computeDueDate } from "./partner";
 
 /**
  * 예약 변경(Booking Modify) 핵심 로직 — 기존 예약의 날짜·빌라·인원·투숙객·조식 변경.
@@ -129,6 +130,7 @@ export async function modifyBooking(
       include: {
         villa: { select: { supplierId: true } },
         receivable: { select: { id: true } },
+        partner: { select: { creditTier: true, paymentTermDays: true } },
       },
     });
     if (!booking) throw new BookingModifyRejectedError("BOOKING_NOT_FOUND");
@@ -242,7 +244,7 @@ export async function modifyBooking(
 
     // ── (d) 파트너 채권 정합성 ──
     // 채권이 이미 있는데 금액(totalSaleVnd) 또는 빌라가 바뀌면 거부(취소 후 재예약 안내).
-    // 날짜만 바뀌고 금액 동일하면 허용 — 채권 dueDate 재산정은 이번 범위 밖(주석).
+    // 날짜만 바뀌고 금액 동일하면 허용 — 단, 체크인일이 바뀌면 dueDate를 재산정한다(아래 (d-2)).
     // 정산 CONFIRMED/PAID 영향은 CHECKED_OUT이 변경 불가라 비해당.
     if (booking.receivable) {
       const receivableAmountChanged =
@@ -253,7 +255,6 @@ export async function modifyBooking(
           villaChanged ? "villa" : "amount"
         );
       }
-      // (날짜만 변경 + 금액 동일) 통과: PartnerReceivable.dueDate는 갱신하지 않는다 — 범위 밖.
     }
 
     // ── (e) 갱신 — updateMany + 기존 status 가드로 동시성 (cron 만료·동시 조작 경합) ──
@@ -281,6 +282,32 @@ export async function modifyBooking(
     }
     const updated = await tx.booking.findUniqueOrThrow({ where: { id: booking.id } });
 
+    // ── (d-2) 채권 dueDate 재산정 — 체크인일이 바뀌면 갱신 ──
+    // computeDueDate는 checkIn 기반(등급A=체크인일, 등급B=체크인일+termDays)이므로
+    // checkOut만 바뀐 경우엔 dueDate 불변. 금액·빌라 변경은 위 (d)에서 이미 거부됨.
+    let receivableDueDateChange: { old: string; new: string } | null = null;
+    if (booking.receivable && booking.partner && checkInChanged) {
+      const newDueDate = computeDueDate({
+        tier: booking.partner.creditTier,
+        checkInDate: nextCheckIn,
+        paymentTermDays: booking.partner.paymentTermDays,
+      });
+      const cur = await tx.partnerReceivable.findUnique({
+        where: { id: booking.receivable.id },
+        select: { dueDate: true },
+      });
+      if (cur && cur.dueDate.getTime() !== newDueDate.getTime()) {
+        await tx.partnerReceivable.update({
+          where: { id: booking.receivable.id },
+          data: { dueDate: newDueDate },
+        });
+        receivableDueDateChange = {
+          old: cur.dueDate.toISOString().slice(0, 10),
+          new: newDueDate.toISOString().slice(0, 10),
+        };
+      }
+    }
+
     // ── (f) AuditLog — old→new 변경 필드 (글로벌 절대규칙) ──
     const changes: Record<string, { old?: unknown; new?: unknown }> = {};
     if (villaChanged) changes.villaId = { old: booking.villaId, new: nextVillaId };
@@ -305,6 +332,7 @@ export async function modifyBooking(
     if (breakfastChanged) {
       changes.breakfastIncluded = { old: booking.breakfastIncluded, new: input.breakfastIncluded };
     }
+    if (receivableDueDateChange) changes.receivableDueDate = receivableDueDateChange;
     if (input.reason?.trim()) changes.reason = { new: input.reason.trim() };
 
     await writeAuditLog({

@@ -392,4 +392,32 @@ describe("loadRevenueTxns — 3소스 통합·필터·정렬", () => {
     );
     expect(txns[0].label).toBe("BBQ 바베큐 ×2");
   });
+
+  it("회귀: 부가서비스 매출은 라인합계 ΣpriceVnd — statistics.ts loadServiceOrderStats와 동일(×수량 이중계산 금지)", async () => {
+    // ServiceOrder.priceVnd/costVnd는 DB에 이미 단가×수량 = 라인합계로 저장됨(service-catalog resolveOrderPricing).
+    // statistics.ts loadServiceOrderStats는 ×수량 없이 r.priceVnd를 직접 합산 → revenue-ledger도 동일해야 함.
+    const svc = [
+      {
+        id: "s-a", type: ServiceType.BBQ, quantity: 2, priceKrw: 0,
+        priceVnd: 1_500_000n, costVnd: 800_000n,
+        booking: { checkOut: D("2026-07-12"), villaId: "v1", villa: { name: "V12" } },
+      },
+      {
+        id: "s-b", type: ServiceType.CAR_RENTAL, quantity: 5, priceKrw: 0,
+        priceVnd: 800_000n, costVnd: 500_000n,
+        booking: { checkOut: D("2026-07-13"), villaId: "v1", villa: { name: "V12" } },
+      },
+    ];
+    const { db } = mockDb({ serviceOrders: svc });
+    const { totals } = await loadRevenueTxns(db, {
+      from: D("2026-07-01"), to: D("2026-08-01"), types: ["SERVICE"],
+    });
+    // statistics 규칙: Σ priceVnd / Σ costVnd (수량 곱하지 않음)
+    const expectedSaleVnd = svc.reduce((s, o) => s + (o.priceVnd ?? 0n), 0n);
+    const expectedCostVnd = svc.reduce((s, o) => s + o.costVnd, 0n);
+    expect(totals.saleVnd).toBe(expectedSaleVnd);
+    expect(totals.costVnd).toBe(expectedCostVnd);
+    // 명시: ×수량(7,000,000)이 아니라 라인합계 2,300,000
+    expect(totals.saleVnd).toBe(2_300_000n);
+  });
 });
