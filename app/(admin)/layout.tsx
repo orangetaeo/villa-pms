@@ -27,6 +27,7 @@ import { isOperator } from "@/lib/permissions";
 //   settings/zalo/zalo-connect-client                → adminZalo
 //   cost-alerts/cost-alerts-view                     → adminCostAlerts
 //   components/admin/quick-date-filter               → quickDateFilter
+//   revenue/revenue-client                           → revenue (매출관리)
 // 새 admin 클라이언트 컴포넌트에서 네임스페이스 추가 시 반드시 여기에도 추가할 것
 // (누락 시 MISSING_MESSAGE로 화면 깨짐).
 const ADMIN_CLIENT_NAMESPACES = [
@@ -49,6 +50,9 @@ const ADMIN_CLIENT_NAMESPACES = [
   "adminGuestToken",
   "adminProposals",
   "adminInspections",
+  // 매출관리 /revenue(revenue-client) — PR #74에서 페이지·메시지는 추가됐으나 이 화이트리스트
+  // 누락으로 클라이언트 라벨이 raw 키로 깨지던 버그 수정(2026-06-27).
+  "revenue",
   "adminMessages",
   "adminZalo",
   "adminCostAlerts",

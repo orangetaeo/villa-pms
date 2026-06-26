@@ -3579,6 +3579,16 @@
   "revenue": {
     "title": "매출관리",
     "subtitle": "건별 매출 거래 목록",
+    "summary": {
+      "saleKrw": "매출 (KRW)",
+      "saleVnd": "매출 (VND)",
+      "marginVnd": "마진 (VND)",
+      "marginNote": "원가 입력분만 · KRW 채널 제외 (ADR-0003)",
+      "count": "거래 건수",
+      "countUnit": "건",
+      "breakdownTitle": "유형별 매출 구성",
+      "breakdownNote": "VND 매출 기준"
+    },
     "searchPlaceholder": "투숙객·빌라·파트너·품목명 검색",
     "exportCsv": "CSV 내보내기",
     "empty": "해당 기간·조건의 매출 거래가 없습니다",

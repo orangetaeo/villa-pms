@@ -11,6 +11,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { formatThousands } from "@/lib/format";
 import DateRangeFilter from "@/components/admin/statistics/date-range-filter";
+import KpiCard from "@/components/admin/statistics/kpi-card";
 
 // 직렬화된 거래 행(VND BigInt → string) — page.tsx serializeBigInt 결과 형태와 정합.
 interface RevenueTxnDto {
@@ -70,6 +71,13 @@ const TYPE_ICON: Record<string, string> = {
   ROOM: "hotel",
   MINIBAR: "local_bar",
   SERVICE: "room_service",
+};
+
+// 유형별 VND 매출 구성 바 색(요약 섹션) — 객실료=admin primary, 미니바=vnd, 부가서비스=emerald.
+const TYPE_BAR_COLOR: Record<string, string> = {
+  ROOM: "bg-admin-primary",
+  MINIBAR: "bg-admin-vnd",
+  SERVICE: "bg-emerald-500",
 };
 
 export default function RevenueClient(props: Props) {
@@ -151,6 +159,17 @@ export default function RevenueClient(props: Props) {
       marginVnd: marginCounted ? marginVnd.toString() : null,
     };
   }, [rows]);
+
+  // 유형별(객실료/미니바/부가서비스) VND 매출 구성 — 상단 요약 분해 바(서버 필터 기준 props.txns).
+  // KRW 채널 객실료(saleVnd=null)는 VND 구성에서 자연 제외(ADR-0003 통화 분리).
+  const typeBreakdown = useMemo(() => {
+    const byType: Record<RevenueTxnDto["type"], bigint> = { ROOM: 0n, MINIBAR: 0n, SERVICE: 0n };
+    for (const x of props.txns) {
+      if (x.saleVnd !== null) byType[x.type] += BigInt(x.saleVnd);
+    }
+    const total = byType.ROOM + byType.MINIBAR + byType.SERVICE;
+    return { byType, total };
+  }, [props.txns]);
 
   const onSort = (key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -333,6 +352,77 @@ export default function RevenueClient(props: Props) {
           </a>
         </div>
       </div>
+
+      {/* 요약 — 선택 기간·필터의 매출 KPI(검색 전 서버 필터 기준) + 유형별 VND 구성 */}
+      <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiCard
+          label={t("summary.saleKrw")}
+          value={props.totals.saleKrw > 0 ? formatThousands(props.totals.saleKrw) : "—"}
+          unit={props.totals.saleKrw > 0 ? "원" : undefined}
+          accent="krw"
+          icon="payments"
+          iconClassName="text-admin-krw"
+        />
+        <KpiCard
+          label={t("summary.saleVnd")}
+          value={formatThousands(props.totals.saleVnd)}
+          unit="₫"
+          accent="vnd"
+          icon="payments"
+          iconClassName="text-admin-vnd"
+        />
+        <KpiCard
+          label={t("summary.marginVnd")}
+          value={formatThousands(props.totals.marginVnd)}
+          unit="₫"
+          icon="savings"
+          iconClassName="text-amber-400"
+          footer={<p className="text-[10px] text-slate-500">{t("summary.marginNote")}</p>}
+        />
+        <KpiCard
+          label={t("summary.count")}
+          value={formatThousands(props.totals.count)}
+          unit={t("summary.countUnit")}
+          icon="receipt_long"
+          iconClassName="text-indigo-400"
+        />
+      </div>
+
+      {/* 유형별 VND 매출 구성 바 */}
+      {typeBreakdown.total > 0n && (
+        <div className="mt-3 bg-admin-card rounded-xl border border-slate-700/50 p-4">
+          <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+            <h3 className="text-sm font-bold text-white">{t("summary.breakdownTitle")}</h3>
+            <span className="text-[10px] text-slate-500">{t("summary.breakdownNote")}</span>
+          </div>
+          <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-800">
+            {TYPE_KEYS.map((k) => {
+              const v = typeBreakdown.byType[k];
+              if (v <= 0n) return null;
+              const pct = Number((v * 10000n) / typeBreakdown.total) / 100;
+              return (
+                <div
+                  key={k}
+                  className={TYPE_BAR_COLOR[k]}
+                  style={{ width: `${pct}%` }}
+                  title={`${typeLabel(k)} ${formatThousands(v)}₫`}
+                />
+              );
+            })}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+            {TYPE_KEYS.map((k) => (
+              <div key={k} className="flex items-center gap-1.5 text-xs">
+                <span className={`w-2.5 h-2.5 rounded-sm ${TYPE_BAR_COLOR[k]}`} />
+                <span className="text-slate-300">{typeLabel(k)}</span>
+                <span className="text-slate-400 tabular-nums">
+                  {formatThousands(typeBreakdown.byType[k])}₫
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 거래 테이블 */}
       <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800">
