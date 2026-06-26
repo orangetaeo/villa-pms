@@ -25,6 +25,13 @@ import { ClassifyBanner, CounterpartyDropdown } from "./counterparty-control";
 import ChatPhotoLightbox from "./photo-lightbox";
 import { allowedShareKinds, isSellSideType } from "@/lib/zalo-counterparty";
 import {
+  URL_RE,
+  URL_TRAILING_RE,
+  isGoogleMapsUrl,
+  extractLinkPreview,
+  type LinkPreview,
+} from "@/lib/chat-link-preview";
+import {
   VillaShareModal,
   ProposalShareModal,
   SettlementShareModal,
@@ -239,18 +246,6 @@ function MentionText({
   }
   if (last < text.length) out.push(text.slice(last));
   return <>{out}</>;
-}
-
-// 본문 내 http(s) URL 탐지. 끝의 마침표·괄호 등은 아래에서 따로 다듬는다(URL 뒤 문장부호 흡수 방지).
-const URL_RE = /(https?:\/\/[^\s]+)/g;
-// URL 끝에 붙은 문장부호 — 링크에서 제외하고 일반 텍스트로 되돌린다.
-const URL_TRAILING_RE = /[.,;:!?)\]}"'»]+$/;
-
-/** 구글지도 공유 링크인지(지도 앱으로 바로 열리는 URL). 짧은 링크(goo.gl/maps·maps.app.goo.gl) 포함. */
-function isGoogleMapsUrl(url: string): boolean {
-  return /(?:google\.[a-z.]+\/maps|maps\.google\.[a-z.]+|goo\.gl\/maps|maps\.app\.goo\.gl|g\.co\/maps)/i.test(
-    url
-  );
 }
 
 /**
@@ -1406,6 +1401,8 @@ function InboundBubble({
   };
   // 특수 타입(sticker/voice/call/contact/video/location) 카드 — 발·수신 공통 분기 재사용.
   const typeCard = renderTypeCard(message, true, t);
+  // 링크/구글지도 미리보기 — "link" 타입 또는 사진+URL캡션(장소 공유)이면 리치 카드로.
+  const inboundLinkPreview = linkPreviewProps(message);
   return (
     <div
       data-msg-id={message.zaloMsgId ?? undefined}
@@ -1424,8 +1421,8 @@ function InboundBubble({
             t={t}
           />
         )}
-        {message.msgType === "link" ? (
-          <LinkPreviewCard message={message} inbound t={t} />
+        {inboundLinkPreview ? (
+          <LinkPreviewCard {...inboundLinkPreview} inbound />
         ) : message.msgType === "photo" && message.attachmentUrls.length > 0 ? (
           <PhotoCard
             urls={message.attachmentUrls}
@@ -1546,9 +1543,10 @@ function OutboundBubble({
   let maxW = "max-w-[70%]";
   // 특수 타입 카드(sticker/voice/call/contact/video/location) — 발·수신 공통 분기 재사용.
   const typeCard = renderTypeCard(message, false, t);
-  if (message.msgType === "link") {
+  const outboundLinkPreview = linkPreviewProps(message);
+  if (outboundLinkPreview) {
     maxW = "max-w-[78%]";
-    card = <LinkPreviewCard message={message} inbound={false} t={t} />;
+    card = <LinkPreviewCard {...outboundLinkPreview} inbound={false} />;
   } else if (message.msgType === "photo" && message.attachmentUrls.length > 0) {
     card = <PhotoCard urls={message.attachmentUrls} caption={message.text} />;
   } else if (message.msgType === "file") {
@@ -1867,29 +1865,23 @@ function StickerCard({ urls, t }: { urls: string[]; t: ReturnType<typeof useTran
   );
 }
 
+/** 메시지 → 링크 미리보기(이미지+제목+URL). 링크 카드로 볼 게 아니면 null. (lib/chat-link-preview) */
+function linkPreviewProps(message: ChatMessage): LinkPreview | null {
+  return extractLinkPreview(message.msgType, message.text, message.attachmentUrls);
+}
+
 /**
- * 링크/구글지도/장소 공유 미리보기 카드 (msgType "link").
- * 인코딩(zalo-inbound makeLinkCard): attachmentUrls[0]=링크 URL, [1]=썸네일(선택),
- *   text="제목\n설명"(설명 선택). 카드 클릭 시 URL 열기 — 모바일은 OS 유니버설 링크로
- *   구글지도 앱(또는 브라우저)이 바로 뜬다(사용자 요청). 첨부 이미지처럼 썸네일+제목+설명+도메인.
+ * 링크/구글지도/장소 공유 미리보기 카드 — 이미지(있으면) + 제목 + 설명 + 도메인.
+ * 카드 클릭 시 URL 열기 — 모바일은 OS 유니버설 링크로 구글지도 앱(또는 브라우저)이 바로 뜬다(사용자 요청).
  */
 function LinkPreviewCard({
-  message,
+  url,
+  imageUrl,
+  title,
+  description,
   inbound,
-  t,
-}: {
-  message: ChatMessage;
-  inbound: boolean;
-  t: ReturnType<typeof useTranslations>;
-}) {
-  const url = message.attachmentUrls[0] ?? "";
-  const thumb = message.attachmentUrls[1] ?? null;
-  const lines = message.text
-    .split("\n")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const title = lines[0] ?? url;
-  const description = lines.slice(1).join(" ");
+}: LinkPreview & { inbound: boolean }) {
+  const thumb = imageUrl;
   let domain = "";
   try {
     domain = new URL(url).hostname.replace(/^www\./, "");
@@ -1897,6 +1889,8 @@ function LinkPreviewCard({
     /* URL 파싱 실패 — 도메인 생략 */
   }
   const isMap = isGoogleMapsUrl(url);
+  // 제목이 비면 도메인을, 그것도 없으면 URL을 제목 자리에.
+  const displayTitle = title || domain || url;
 
   // 발신(blue 버블)·수신(slate 버블)별 색. 카드 자체는 항상 약간 어두운 패널 + 테두리.
   const shell = inbound ? "bg-slate-900/60 border-slate-700" : "bg-blue-700/40 border-blue-400/40";
@@ -1932,7 +1926,7 @@ function LinkPreviewCard({
           <img src={thumb} alt="" className="w-full h-36 object-cover bg-slate-800" />
         )}
         <div className="px-3 py-2">
-          <p className={`text-sm font-bold leading-snug line-clamp-2 ${titleColor}`}>{title}</p>
+          <p className={`text-sm font-bold leading-snug line-clamp-2 ${titleColor}`}>{displayTitle}</p>
           {description && (
             <p className={`mt-0.5 text-xs line-clamp-1 ${descColor}`}>{description}</p>
           )}
