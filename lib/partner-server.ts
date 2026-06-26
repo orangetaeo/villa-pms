@@ -1,8 +1,15 @@
-import { CreditTier, type Partner, type PrismaClient } from "@prisma/client";
+import {
+  CreditTier,
+  type Partner,
+  type PartnerStatus,
+  type PartnerType,
+  type PrismaClient,
+} from "@prisma/client";
 import {
   agingBuckets,
   hasOverdue,
   outstandingForPartner,
+  overdueOutstanding,
   type AgingBuckets,
   type ReceivableLike,
 } from "@/lib/partner";
@@ -25,6 +32,8 @@ const RECEIVABLE_SELECT = {
 export interface PartnerAggregate {
   partner: Partner;
   outstandingVnd: bigint;
+  /** 실제 연체액(기한경과 미입금만) — 전체 미수(outstandingVnd)와 구분 */
+  overdueOutstandingVnd: bigint;
   aging: AgingBuckets;
   overdue: boolean;
   bookingCount: number;
@@ -39,6 +48,7 @@ function aggregate(
   return {
     partner,
     outstandingVnd: outstandingForPartner(receivables),
+    overdueOutstandingVnd: overdueOutstanding(receivables, asOf),
     aging: agingBuckets(receivables, asOf),
     overdue: hasOverdue(receivables, asOf),
     bookingCount,
@@ -86,7 +96,8 @@ export function summarizeReceivables(aggs: PartnerAggregate[]): ReceivablesOverv
     aging.total += a.aging.total;
     if (a.overdue) {
       overduePartnerCount += 1;
-      overdueOutstandingVnd += a.outstandingVnd;
+      // 연체 파트너의 *실제 연체액*만 합산(전체 미수 아님) — "연체 미수" KPI 정확화
+      overdueOutstandingVnd += a.overdueOutstandingVnd;
     }
     if (isOverLimit(a)) overLimitPartnerCount += 1;
   }
@@ -107,6 +118,28 @@ export async function getReceivablesOverview(
 ): Promise<ReceivablesOverview> {
   const aggs = await getPartnersWithAggregates(prisma, asOf);
   return summarizeReceivables(aggs);
+}
+
+/** 경량 파트너 옵션 — 드롭다운(파트너 지정)용. 미수·Aging·채권 미조회(과조회·재무 데이터 차단). */
+export interface PartnerOption {
+  id: string;
+  name: string;
+  nameVi: string | null;
+  type: PartnerType;
+  creditTier: CreditTier;
+  status: PartnerStatus;
+}
+
+/** 경량 파트너 목록 — id·표시명·유형만. type 지정 시 해당 유형만. 이름 오름차순. */
+export async function getPartnerOptions(
+  prisma: PrismaClient,
+  type?: PartnerType
+): Promise<PartnerOption[]> {
+  return prisma.partner.findMany({
+    where: type ? { type } : undefined,
+    select: { id: true, name: true, nameVi: true, type: true, creditTier: true, status: true },
+    orderBy: { name: "asc" },
+  });
 }
 
 /** 파트너 목록 + 미수/Aging 집계 (목록 화면) */
