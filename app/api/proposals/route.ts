@@ -28,13 +28,19 @@ const createSchema = z.object({
   channel: z.enum(["TRAVEL_AGENCY", "LAND_AGENCY", "DIRECT"]),
   partnerId: z.string().min(1).optional(), // 여행사·랜드사 파트너 연결(선택). 없으면 일반 소비자
 
-  saleCurrency: z.enum(["KRW", "VND"]).optional(), // 미지정 시 채널 기본값
+  saleCurrency: z.enum(["KRW", "VND", "USD"]).optional(), // 미지정 시 채널 기본값. USD=Phase 2 수동입력
   expiresInHours: z.number().int().min(1).max(336).optional(),
   note: z.string().trim().max(2000).optional(),
   items: z
     .array(
       z
-        .object({ villaId: z.string().min(1), checkIn: dateOnly, checkOut: dateOnly })
+        .object({
+          villaId: z.string().min(1),
+          checkIn: dateOnly,
+          checkOut: dateOnly,
+          // Phase 2 USD: ADMIN 수동 입력 빌라별 USD 총액(정수 달러). USD 제안인데 누락 시 createProposal에서 에러
+          totalUsd: z.number().int().positive().optional(),
+        })
         .refine((i) => i.checkIn.getTime() < i.checkOut.getTime(), {
           message: "체크인은 체크아웃보다 빨라야 합니다",
         })

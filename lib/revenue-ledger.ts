@@ -15,7 +15,8 @@
 //    ★ 환산값은 표시용 근사치("≈")일 뿐 저장·정산 금액이 아니다(정산은 settlement-finance가 스냅샷으로 별도 계산).
 //  - 매출 인식 = 체크아웃월 기준(귀속일=Booking.checkOut), SETTLEMENT_BOOKING_STATUSES(CHECKED_OUT·NO_SHOW)와 정합.
 //  - 기간은 [from, to) half-open.
-//  - USD는 현재 예약 매출 원천이 없다(Phase 2에서 추가). saleUsd 칸은 구조만 준비(항상 0/null).
+//  - USD(Phase 2): 객실료(Booking.totalSaleUsd) 매출 원천 활성화. saleUsd 칸을 채우고, 환산은
+//    예약 시점 USD→VND 스냅샷(Booking.fxVndPerUsd)으로 한다(없으면 fxMissing). 미니바·서비스는 USD 없음(null).
 
 import {
   BookingChannel,
@@ -26,7 +27,7 @@ import {
   type PrismaClient,
 } from "@prisma/client";
 import { SETTLEMENT_BOOKING_STATUSES } from "@/lib/settlement";
-import { krwToVndSnapshot } from "@/lib/pricing";
+import { krwToVndSnapshot, usdToVndSnapshot } from "@/lib/pricing";
 
 // ===================================================================
 // 타입
@@ -53,7 +54,7 @@ export interface RevenueTxn {
   saleKrw: number | null;
   /** 판매가 VND — VND 채널 객실료·미니바·부가서비스(VND). 그 외 null */
   saleVnd: bigint | null;
-  /** 판매가 USD — USD 매출(Phase 2). Phase 1에선 항상 null(원천 없음) */
+  /** 판매가 USD — USD 채널 객실료(Phase 2). 그 외 null */
   saleUsd: number | null;
   /** 매입 원가 VND — 미입력이면 null(마진 산입 제외) */
   costVnd: bigint | null;
@@ -121,6 +122,16 @@ function krwToVndOrNull(krw: number, fxVndPerKrw: string | null | undefined): bi
   if (fxVndPerKrw == null) return null;
   try {
     return krwToVndSnapshot(krw, fxVndPerKrw);
+  } catch {
+    return null;
+  }
+}
+
+/** USD → VND 환산(Phase 2). 환율 없거나 형식 오류면 null(환산 불가). usdToVndSnapshot 재사용. */
+function usdToVndOrNull(usd: number, fxVndPerUsd: string | null | undefined): bigint | null {
+  if (fxVndPerUsd == null) return null;
+  try {
+    return usdToVndSnapshot(usd, fxVndPerUsd);
   } catch {
     return null;
   }
@@ -216,18 +227,34 @@ export interface RoomRow {
   saleCurrency: Currency;
   totalSaleKrw: number | null;
   totalSaleVnd: bigint | null;
+  /** Phase 2 USD: USD 채널 객실료 총액(정수 달러). 그 외 통화면 null */
+  totalSaleUsd: number | null;
   supplierCostVnd: bigint;
   /** 예약 시점 환율 스냅샷(1 KRW = x VND). KRW 매출의 VND 환산에 사용. 없으면 폴백/환산불가 */
   fxVndPerKrw?: string | null;
+  /** 예약 시점 환율 스냅샷(1 USD = x VND). USD 매출의 VND 환산에 사용(Phase 2). 없으면 환산불가 */
+  fxVndPerUsd?: string | null;
 }
 
 export function buildRoomTxn(b: RoomRow): RevenueTxn {
   // saleCurrency에 해당하는 통화 컬럼만 매출로 인정(HOLD 시점 스냅샷 규칙).
   const saleKrw = b.saleCurrency === Currency.KRW ? b.totalSaleKrw : null;
   const saleVnd = b.saleCurrency === Currency.VND ? b.totalSaleVnd : null;
+  const saleUsd = b.saleCurrency === Currency.USD ? b.totalSaleUsd : null;
   // 원가는 항상 VND(supplierCostVnd, not null).
   const costVnd = b.supplierCostVnd;
-  const { saleVndEquivalent, fxMissing } = resolveVndEquivalent(saleVnd, saleKrw, b.fxVndPerKrw);
+
+  // VND 환산: USD 매출은 USD 스냅샷으로 별도 환산, 그 외(VND/KRW)는 기존 resolveVndEquivalent.
+  let saleVndEquivalent: bigint | null;
+  let fxMissing: boolean;
+  if (saleUsd !== null) {
+    const conv = usdToVndOrNull(saleUsd, b.fxVndPerUsd);
+    saleVndEquivalent = conv;
+    fxMissing = conv === null;
+  } else {
+    ({ saleVndEquivalent, fxMissing } = resolveVndEquivalent(saleVnd, saleKrw, b.fxVndPerKrw));
+  }
+
   return {
     id: `ROOM:${b.id}`,
     date: dateOnly(b.checkOut),
@@ -239,7 +266,7 @@ export function buildRoomTxn(b: RoomRow): RevenueTxn {
     label: b.guestName,
     saleKrw,
     saleVnd,
-    saleUsd: null,
+    saleUsd,
     costVnd,
     saleVndEquivalent,
     marginVnd: computeMarginVnd(saleVndEquivalent, costVnd),
@@ -396,8 +423,10 @@ export async function loadRevenueTxns(
         saleCurrency: true,
         totalSaleKrw: true,
         totalSaleVnd: true,
+        totalSaleUsd: true,
         supplierCostVnd: true,
         fxVndPerKrw: true,
+        fxVndPerUsd: true,
         villa: { select: { name: true } },
         partner: { select: { name: true } },
       },
@@ -416,9 +445,12 @@ export async function loadRevenueTxns(
           saleCurrency: b.saleCurrency,
           totalSaleKrw: b.totalSaleKrw,
           totalSaleVnd: b.totalSaleVnd,
+          totalSaleUsd: b.totalSaleUsd,
           supplierCostVnd: b.supplierCostVnd,
           // 예약 스냅샷 우선(Prisma Decimal → string), 없으면 현재 환율 폴백.
           fxVndPerKrw: b.fxVndPerKrw != null ? b.fxVndPerKrw.toString() : (fallbackFxVndPerKrw ?? null),
+          // USD 매출 환산은 스냅샷 우선(폴백 없음 — 없으면 fxMissing).
+          fxVndPerUsd: b.fxVndPerUsd != null ? b.fxVndPerUsd.toString() : null,
         })
       );
     }

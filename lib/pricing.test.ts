@@ -4,6 +4,7 @@ import {
   assertSaleAmountColumns,
   computeSalePriceVnd,
   suggestSalePriceKrw,
+  usdToVndSnapshot,
   quoteSupplierSaleForVilla,
   MissingSupplierPriceError,
   MissingBaseRateError,
@@ -74,14 +75,48 @@ describe("assertSaleAmountColumns — 듀얼 컬럼 검증 (ADR-0003)", () => {
     expect(() => assertSaleAmountColumns(Currency.VND, { krw: 500_000, vnd: 1n })).toThrow();
   });
 
-  it("USD는 어떤 금액 조합이든 거부 (검증 게이트 구멍 방지)", () => {
-    expect(() => assertSaleAmountColumns(Currency.USD, { krw: 1, vnd: 1n })).toThrow(RangeError);
-    expect(() => assertSaleAmountColumns(Currency.USD, {})).toThrow(RangeError);
+  it("USD(Phase 2): usd만 채우면 통과, krw·vnd 동시 기입은 거부", () => {
+    expect(() => assertSaleAmountColumns(Currency.USD, { usd: 1500 })).not.toThrow();
+    expect(() => assertSaleAmountColumns(Currency.USD, { usd: 1500, krw: 1 })).toThrow();
+    expect(() => assertSaleAmountColumns(Currency.USD, { usd: 1500, vnd: 1n })).toThrow();
+    expect(() => assertSaleAmountColumns(Currency.USD, {})).toThrow(); // usd 누락
+  });
+
+  it("KRW/VND 거래에 usd 섞이면 거부 (검증 게이트 구멍 방지)", () => {
+    expect(() => assertSaleAmountColumns(Currency.KRW, { krw: 1, usd: 1 })).toThrow();
+    expect(() => assertSaleAmountColumns(Currency.VND, { vnd: 1n, usd: 1 })).toThrow();
   });
 
   it("0원·0동은 유효한 값 (null과 구분)", () => {
     expect(() => assertSaleAmountColumns(Currency.KRW, { krw: 0 })).not.toThrow();
     expect(() => assertSaleAmountColumns(Currency.VND, { vnd: 0n })).not.toThrow();
+  });
+});
+
+describe("usdToVndSnapshot — USD→VND 환산 (Phase 2, float 금지)", () => {
+  it("1 USD = 25,400 VND일 때 1,500$ → 38,100,000₫", () => {
+    expect(usdToVndSnapshot(1_500, "25400")).toBe(38_100_000n);
+  });
+
+  it("소수 4자리 환율·half-up 반올림", () => {
+    // 3 × 25400.3333 = 76200.9999 → half-up 76201
+    expect(usdToVndSnapshot(3, "25400.3333")).toBe(76_201n);
+  });
+
+  it("0달러는 0동", () => {
+    expect(usdToVndSnapshot(0, "25400")).toBe(0n);
+  });
+
+  it("음수·비정수 USD 거부", () => {
+    expect(() => usdToVndSnapshot(-1, "25400")).toThrow(RangeError);
+    expect(() => usdToVndSnapshot(1.5, "25400")).toThrow(RangeError);
+  });
+
+  it("잘못된 환율 형식·0 이하 거부", () => {
+    expect(() => usdToVndSnapshot(1, "abc")).toThrow(RangeError);
+    expect(() => usdToVndSnapshot(1, "25400.55555")).toThrow(RangeError); // 소수 5자리
+    expect(() => usdToVndSnapshot(1, "0")).toThrow(RangeError);
+    expect(() => usdToVndSnapshot(1, "-1")).toThrow(RangeError);
   });
 });
 

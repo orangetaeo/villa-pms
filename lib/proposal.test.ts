@@ -5,21 +5,35 @@ import { BookingChannel, BookingSeller, Currency, ProposalStatus } from "@prisma
 vi.mock("@/lib/audit-log", () => ({ writeAuditLog: vi.fn(async () => {}) }));
 const mockCheckAvailability = vi.fn();
 const mockQuoteSupplierSale = vi.fn();
+const mockQuoteStay = vi.fn();
+const mockGetFxVndPerKrw = vi.fn();
+const mockGetDailyRates = vi.fn();
 vi.mock("./availability", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./availability")>();
   return { ...actual, checkAvailability: (...a: unknown[]) => mockCheckAvailability(...a) };
 });
 vi.mock("./pricing", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./pricing")>();
-  return { ...actual, quoteSupplierSaleForVilla: (...a: unknown[]) => mockQuoteSupplierSale(...a) };
+  return {
+    ...actual,
+    quoteSupplierSaleForVilla: (...a: unknown[]) => mockQuoteSupplierSale(...a),
+    quoteStayForVilla: (...a: unknown[]) => mockQuoteStay(...a),
+    getFxVndPerKrw: (...a: unknown[]) => mockGetFxVndPerKrw(...a),
+  };
+});
+vi.mock("./fx-rates", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./fx-rates")>();
+  return { ...actual, getDailyRates: (...a: unknown[]) => mockGetDailyRates(...a) };
 });
 
 import {
+  createProposal,
   createSupplierProposal,
   defaultCurrencyForChannel,
   effectiveProposalStatus,
   generateProposalToken,
   listSupplierProposals,
+  ProposalRejectedError,
   SupplierProposalRejectedError,
   uniformNightlyPrice,
 } from "./proposal";
@@ -196,6 +210,124 @@ describe("createSupplierProposal — 공급자 직접 판매 링크 생성", () 
     await expect(
       createSupplierProposal(makePrismaWithTx(tx), { ...VALID_INPUT, checkIn: d("2026-07-05") })
     ).rejects.toThrow(RangeError);
+  });
+});
+
+// ===================== createProposal USD 분기 (Phase 2) =====================
+
+function makeOperatorTx() {
+  const created: Record<string, unknown>[] = [];
+  const tx = {
+    partner: { findUnique: vi.fn(async () => null) },
+    proposal: {
+      create: vi.fn(async (args: { data: Record<string, unknown> }) => {
+        created.push(args.data);
+        return {
+          id: "propUsd",
+          token: args.data.token,
+          expiresAt: args.data.expiresAt,
+          ...args.data,
+          items: [{ id: "it1", villaId: "v1" }],
+        };
+      }),
+    },
+    // getDailyRates(tx) 호환 — 목으로 대체되지만 형태 유지
+    appSetting: { findUnique: vi.fn(async () => null), upsert: vi.fn(async () => ({})) },
+    _created: created,
+  };
+  return tx;
+}
+
+function makeOperatorPrisma(tx: ReturnType<typeof makeOperatorTx>) {
+  return {
+    $transaction: async (fn: (t: unknown) => Promise<unknown>) => fn(tx),
+  } as unknown as Parameters<typeof createProposal>[0];
+}
+
+describe("createProposal — USD 분기 (Phase 2, 수동 총액)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockCheckAvailability.mockResolvedValue({ available: true, sellable: true, reasons: [] });
+    // USD: quoteStayForVilla는 원가만 반환(sale 칸 없음)
+    mockQuoteStay.mockResolvedValue({
+      nights: 3,
+      saleCurrency: Currency.USD,
+      nightly: [],
+      totalSupplierCostVnd: 18_000_000n,
+    });
+    mockGetFxVndPerKrw.mockResolvedValue(null);
+    mockGetDailyRates.mockResolvedValue({
+      date: "2026-07-01",
+      vndPerUnit: { USD: 25400, KRW: 18, RUB: 280, CNY: 3500 },
+    });
+  });
+
+  const baseUsdInput = {
+    clientName: "John Smith",
+    channel: BookingChannel.DIRECT,
+    saleCurrency: Currency.USD,
+    actorUserId: "admin1",
+    now: NOW,
+  };
+
+  it("정상: totalUsd 저장, krw/vnd 컬럼 null, fxVndPerUsd 스냅샷(소수4자리)", async () => {
+    const tx = makeOperatorTx();
+    await createProposal(makeOperatorPrisma(tx), {
+      ...baseUsdInput,
+      items: [{ villaId: "v1", checkIn: d("2026-07-01"), checkOut: d("2026-07-04"), totalUsd: 1_500 }],
+    });
+    const data = tx._created[0];
+    expect(data.saleCurrency).toBe(Currency.USD);
+    expect(data.fxVndPerUsd).toBe("25400.0000"); // toFixed(4)
+    const item = (data.items as { create: Record<string, unknown>[] }).create[0];
+    expect(item.totalUsd).toBe(1_500);
+    expect(item.totalKrw).toBeNull();
+    expect(item.totalVnd).toBeNull();
+    expect(item.priceKrwPerNight).toBeNull();
+    expect(item.priceVndPerNight).toBeNull();
+  });
+
+  it("totalUsd 누락 → RangeError(명확한 에러)", async () => {
+    const tx = makeOperatorTx();
+    await expect(
+      createProposal(makeOperatorPrisma(tx), {
+        ...baseUsdInput,
+        items: [{ villaId: "v1", checkIn: d("2026-07-01"), checkOut: d("2026-07-04") }],
+      })
+    ).rejects.toThrow(RangeError);
+    expect(tx.proposal.create).not.toHaveBeenCalled();
+  });
+
+  it("totalUsd 0·음수 → RangeError", async () => {
+    const tx = makeOperatorTx();
+    await expect(
+      createProposal(makeOperatorPrisma(tx), {
+        ...baseUsdInput,
+        items: [{ villaId: "v1", checkIn: d("2026-07-01"), checkOut: d("2026-07-04"), totalUsd: 0 }],
+      })
+    ).rejects.toThrow(RangeError);
+  });
+
+  it("getDailyRates null → fxVndPerUsd=null(환산 불가, 그래도 생성)", async () => {
+    mockGetDailyRates.mockResolvedValue(null);
+    const tx = makeOperatorTx();
+    await createProposal(makeOperatorPrisma(tx), {
+      ...baseUsdInput,
+      items: [{ villaId: "v1", checkIn: d("2026-07-01"), checkOut: d("2026-07-04"), totalUsd: 2_000 }],
+    });
+    expect(tx._created[0].fxVndPerUsd).toBeNull();
+  });
+
+  it("가용성 미통과 빌라 → ProposalRejectedError(부분 생성 금지)", async () => {
+    mockCheckAvailability.mockResolvedValue({ available: false, sellable: false, reasons: ["BOOKING_OVERLAP"] });
+    const tx = makeOperatorTx();
+    await expect(
+      createProposal(makeOperatorPrisma(tx), {
+        ...baseUsdInput,
+        items: [{ villaId: "v1", checkIn: d("2026-07-01"), checkOut: d("2026-07-04"), totalUsd: 1_500 }],
+      })
+    ).rejects.toBeInstanceOf(ProposalRejectedError);
+    expect(tx.proposal.create).not.toHaveBeenCalled();
   });
 });
 

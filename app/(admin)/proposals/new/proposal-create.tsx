@@ -44,6 +44,7 @@ interface Candidate {
   nights: number;
   totalSaleKrw: number | null;
   totalSaleVnd: string | null; // BigInt 직렬화 — 문자열
+  totalSaleUsd: number | null; // USD는 수동입력 — 후보 단계에선 항상 null (Phase 2)
   totalSupplierCostVnd: string; // ADMIN 전용 — 마진 계산용
 }
 
@@ -120,8 +121,11 @@ export default function ProposalCreate() {
   const partnerId = watch("partnerId");
   const expiresInHours = watch("expiresInHours");
 
-  // 채널 → 통화 자동 (ADR-0003): DIRECT→KRW, 여행사·랜드사→VND. 채널이 곧 통화 — 오버라이드 없음
-  const currency: "KRW" | "VND" = channel === "DIRECT" ? "KRW" : "VND";
+  // 채널 → 통화 자동 (ADR-0003): DIRECT→KRW, 여행사·랜드사→VND.
+  // Phase 2: ADMIN이 USD 토글을 켜면 통화를 USD로 오버라이드(요율표 자동견적 없음 → 수동 입력).
+  const [usdMode, setUsdMode] = useState(false);
+  const baseCurrency: "KRW" | "VND" = channel === "DIRECT" ? "KRW" : "VND";
+  const currency: "KRW" | "VND" | "USD" = usdMode ? "USD" : baseCurrency;
   const datesValid = DATE_RE.test(checkIn) && DATE_RE.test(checkOut) && checkIn < checkOut;
   const nights = datesValid ? nightsBetween(checkIn, checkOut) : 0;
 
@@ -132,6 +136,8 @@ export default function ProposalCreate() {
   const [candidatesError, setCandidatesError] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [maxHint, setMaxHint] = useState(false);
+  // Phase 2 USD: 빌라별 수동 USD 총액 입력값(문자열, 정수 달러). villaId → "1500"
+  const [usdTotals, setUsdTotals] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!datesValid) {
@@ -262,16 +268,31 @@ export default function ProposalCreate() {
     [candidates, selectedIds]
   );
 
+  // USD 입력 파서 — 숫자만, 양의 정수만 유효(아니면 0). 표시·합계용.
+  const parseUsd = (id: string): number => {
+    const raw = usdTotals[id];
+    if (!raw) return 0;
+    const n = Number(raw.replace(/[^\d]/g, ""));
+    return Number.isInteger(n) && n > 0 ? n : 0;
+  };
+
   // ----- 요약 합계 (VND는 BigInt — 부동소수점 금지) -----
   const totals = useMemo(() => {
     const saleVnd = selected.reduce((sum, c) => sum + BigInt(c.totalSaleVnd ?? "0"), 0n);
     const saleKrw = selected.reduce((sum, c) => sum + (c.totalSaleKrw ?? 0), 0);
+    const saleUsd = selected.reduce((sum, c) => sum + parseUsd(c.id), 0); // USD 정수 합
     const costVnd = selected.reduce((sum, c) => sum + BigInt(c.totalSupplierCostVnd), 0n);
-    return { saleVnd, saleKrw, costVnd };
-  }, [selected]);
+    return { saleVnd, saleKrw, saleUsd, costVnd };
+    // usdTotals 변경 시 재계산 필요
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, usdTotals]);
 
   const totalSaleLabel =
-    currency === "VND" ? formatVnd(totals.saleVnd) : `${formatThousands(totals.saleKrw)}원`;
+    currency === "VND"
+      ? formatVnd(totals.saleVnd)
+      : currency === "USD"
+        ? `$${formatThousands(totals.saleUsd)}`
+        : `${formatThousands(totals.saleKrw)}원`;
   // 마진: VND 채널 = 정확값(BigInt). KRW 채널 = fx 참고 환산 — 표시 전용 (정확 마진은 Phase 2 리포트)
   const marginVnd = totals.saleVnd - totals.costVnd;
   const marginKrwRef =
@@ -284,7 +305,9 @@ export default function ProposalCreate() {
   const stayAmountLabel = (c: Candidate) =>
     currency === "VND"
       ? formatVnd(c.totalSaleVnd ?? "0")
-      : `${formatThousands(c.totalSaleKrw ?? 0)}원`;
+      : currency === "USD"
+        ? `$${formatThousands(parseUsd(c.id))}` // 수동 입력 USD 총액
+        : `${formatThousands(c.totalSaleKrw ?? 0)}원`;
 
   // ----- 생성 -----
   const [failures, setFailures] = useState<{ name: string; reason: string }[] | null>(null);
@@ -296,6 +319,11 @@ export default function ProposalCreate() {
     if (selected.length === 0) return;
     setFailures(null);
     setSubmitError(null);
+    // USD 모드: 선택된 빌라마다 양의 정수 USD 총액이 있어야 함
+    if (currency === "USD" && selectedIds.some((id) => parseUsd(id) <= 0)) {
+      setSubmitError(t("usdTotalRequired"));
+      return;
+    }
     try {
       const res = await fetch("/api/proposals", {
         method: "POST",
@@ -303,6 +331,8 @@ export default function ProposalCreate() {
         body: JSON.stringify({
           clientName: values.clientName,
           channel: values.channel,
+          // Phase 2: USD 토글 시 통화 명시 전달(미전송 시 채널 기본값 KRW/VND)
+          saleCurrency: currency === "USD" ? "USD" : undefined,
           // 파트너 연결(선택) — DIRECT 채널·일반 소비자면 미전송
           partnerId: values.channel !== "DIRECT" && values.partnerId ? values.partnerId : undefined,
           expiresInHours: values.expiresInHours,
@@ -310,6 +340,8 @@ export default function ProposalCreate() {
             villaId,
             checkIn: values.checkIn,
             checkOut: values.checkOut,
+            // USD 모드일 때만 수동 입력 총액 포함
+            ...(currency === "USD" ? { totalUsd: parseUsd(villaId) } : {}),
           })),
         }),
       });
@@ -614,9 +646,22 @@ export default function ProposalCreate() {
                   );
                 })}
               </div>
-              {/* VND 결제 캡션 (ADR-0003 — 여행사·랜드사 채널일 때) */}
+              {/* VND 결제 캡션 (ADR-0003 — 여행사·랜드사 채널일 때, USD 모드 아닐 때) */}
               {currency === "VND" && (
                 <p className="text-xs text-slate-400 mt-2 px-1">{t("vndNotice")}</p>
+              )}
+              {/* Phase 2: USD 판매 토글 (ADMIN 수동) */}
+              <label className="flex items-center gap-2 mt-3 px-1 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={usdMode}
+                  onChange={(e) => setUsdMode(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-600 bg-slate-800 text-blue-500 [color-scheme:dark]"
+                />
+                <span className="text-xs font-medium text-slate-300">{t("usdToggle")}</span>
+              </label>
+              {currency === "USD" && (
+                <p className="text-xs text-amber-300/90 mt-2 px-1">{t("usdNotice")}</p>
               )}
             </div>
 
@@ -685,37 +730,66 @@ export default function ProposalCreate() {
                   {selected.map((c) => (
                     <div
                       key={c.id}
-                      className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-xl border border-slate-700"
+                      className="flex flex-col gap-3 p-3 bg-slate-800/50 rounded-xl border border-slate-700"
                     >
-                      <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-slate-800">
-                        {c.photoUrl ? (
-                          <Image
-                            src={c.photoUrl}
-                            alt={c.name}
-                            fill
-                            sizes="48px"
-                            className="object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-slate-600">
-                            <span className="material-symbols-outlined text-xl">villa</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-bold text-slate-100 truncate">{c.name}</div>
-                        <div className="text-xs text-slate-400 tabular-nums whitespace-nowrap">
-                          {stayAmountLabel(c)} ({t("stayTotal", { nights: c.nights })})
+                      <div className="flex items-center gap-3">
+                        <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-slate-800">
+                          {c.photoUrl ? (
+                            <Image
+                              src={c.photoUrl}
+                              alt={c.name}
+                              fill
+                              sizes="48px"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-600">
+                              <span className="material-symbols-outlined text-xl">villa</span>
+                            </div>
+                          )}
                         </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-bold text-slate-100 truncate">{c.name}</div>
+                          <div className="text-xs text-slate-400 tabular-nums whitespace-nowrap">
+                            {stayAmountLabel(c)} ({t("stayTotal", { nights: c.nights })})
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label={t("removeVilla")}
+                          onClick={() => toggleVilla(c.id)}
+                          className="text-slate-500 hover:text-red-400 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-lg">close</span>
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        aria-label={t("removeVilla")}
-                        onClick={() => toggleVilla(c.id)}
-                        className="text-slate-500 hover:text-red-400 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-lg">close</span>
-                      </button>
+                      {/* Phase 2 USD: 빌라별 USD 총액 수동 입력 */}
+                      {currency === "USD" && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-400 shrink-0">
+                            {t("usdTotalLabel")}
+                          </span>
+                          <div className="relative flex-1">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
+                              $
+                            </span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              aria-label={`${c.name} ${t("usdTotalLabel")}`}
+                              placeholder={t("usdTotalPlaceholder")}
+                              value={usdTotals[c.id] ?? ""}
+                              onChange={(e) =>
+                                setUsdTotals((prev) => ({
+                                  ...prev,
+                                  [c.id]: e.target.value.replace(/[^\d]/g, ""),
+                                }))
+                              }
+                              className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-7 pr-3 py-2 text-sm font-bold text-slate-100 tabular-nums placeholder:text-slate-600"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -761,6 +835,9 @@ export default function ProposalCreate() {
                     {formatVnd(marginVnd)}
                   </span>
                 </div>
+              ) : currency === "USD" ? (
+                // USD: 환산 후 마진은 서버 스냅샷 환율로 계산(/revenue·정산에서 표시). 생성 화면은 USD 총액만.
+                <p className="text-[11px] text-admin-muted leading-relaxed">{t("usdNotice")}</p>
               ) : marginKrwRef !== null ? (
                 <div className="flex justify-between text-sm gap-3">
                   <span className="text-slate-400 whitespace-nowrap">{t("marginReference")}</span>

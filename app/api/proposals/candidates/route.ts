@@ -26,8 +26,8 @@ export async function GET(req: Request) {
   if (!checkIn || !checkOut || checkIn.getTime() >= checkOut.getTime()) {
     return Response.json({ error: "invalid_input", message: "checkIn/checkOut이 잘못되었습니다" }, { status: 400 });
   }
-  if (currencyParam !== "KRW" && currencyParam !== "VND") {
-    return Response.json({ error: "invalid_input", message: "saleCurrency는 KRW·VND만 가능합니다" }, { status: 400 });
+  if (currencyParam !== "KRW" && currencyParam !== "VND" && currencyParam !== "USD") {
+    return Response.json({ error: "invalid_input", message: "saleCurrency는 KRW·VND·USD만 가능합니다" }, { status: 400 });
   }
   const saleCurrency = currencyParam as Currency;
   const range = { checkIn, checkOut };
@@ -53,14 +53,18 @@ export async function GET(req: Request) {
     for (const { photos, ...villa } of villas) {
       try {
         const quote = await quoteStayForVilla(prisma, villa.id, range, saleCurrency);
-        // 미책정 가드 (ADR-0014 디버깅) — 판매가 0(마진·환율 미책정 placeholder)인 빌라는 후보 제외.
-        //   생성 시 margin0·sale=cost·krw0 placeholder가 들어가는데, 그대로 제안되면 KRW 채널 0원·
-        //   VND 채널 마진0이 고객에게 나간다. MissingRate와 동일하게 ADMIN에 사유 안내(책정 유도).
-        const saleTotal =
-          saleCurrency === Currency.KRW ? quote.totalSaleKrw ?? 0 : quote.totalSaleVnd ?? 0n;
-        if (!saleTotal) {
-          warnings.push({ villaId: villa.id, name: villa.name, reason: "판매가 미책정" });
-          continue;
+        // USD(Phase 2)는 요율표 판매단가가 없어 sale 견적이 없는 게 정상(ADMIN 수동 입력).
+        //   "판매가 미책정" warning으로 거르지 않고, sale=null로 후보에 포함(원가·박수만 표시).
+        if (saleCurrency !== Currency.USD) {
+          // 미책정 가드 (ADR-0014 디버깅) — 판매가 0(마진·환율 미책정 placeholder)인 빌라는 후보 제외.
+          //   생성 시 margin0·sale=cost·krw0 placeholder가 들어가는데, 그대로 제안되면 KRW 채널 0원·
+          //   VND 채널 마진0이 고객에게 나간다. MissingRate와 동일하게 ADMIN에 사유 안내(책정 유도).
+          const saleTotal =
+            saleCurrency === Currency.KRW ? quote.totalSaleKrw ?? 0 : quote.totalSaleVnd ?? 0n;
+          if (!saleTotal) {
+            warnings.push({ villaId: villa.id, name: villa.name, reason: "판매가 미책정" });
+            continue;
+          }
         }
         candidates.push({
           ...villa,
@@ -68,6 +72,7 @@ export async function GET(req: Request) {
           nights: quote.nights,
           totalSaleKrw: quote.totalSaleKrw ?? null,
           totalSaleVnd: quote.totalSaleVnd ?? null,
+          totalSaleUsd: null, // USD는 수동입력 — 후보 단계에선 항상 null
           totalSupplierCostVnd: quote.totalSupplierCostVnd, // ADMIN 전용 응답 — 마진 판단용
         });
       } catch (e) {
