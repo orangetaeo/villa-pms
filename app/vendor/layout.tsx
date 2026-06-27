@@ -11,8 +11,9 @@ import { getSupplierLocale } from "@/lib/locale";
 // VENDOR 클라이언트 컴포넌트가 useTranslations로 실제 사용하는 네임스페이스만 직렬화.
 // - vendor: 발주함/예약현황/정산/응답 시트 (vendor 화면 전용)
 // - account: 비밀번호 변경 폼(ChangePasswordForm "account" 네임스페이스 재사용)
+// - pagination: 목록 화면의 공용 PaginationBar(useTranslations("pagination")). 누락 시 라벨이 raw 키로 깨짐.
 // 운영자(adminXxx)·빌라공급자(earnings 등) 네임스페이스는 직렬화하지 않는다(누수 방지).
-const VENDOR_CLIENT_NAMESPACES = ["vendor", "account"] as const;
+const VENDOR_CLIENT_NAMESPACES = ["vendor", "account", "pagination"] as const;
 
 function pickMessages(all: AbstractIntlMessages): AbstractIntlMessages {
   const picked: AbstractIntlMessages = {};

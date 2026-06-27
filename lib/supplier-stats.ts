@@ -9,6 +9,7 @@
 // - 가동율 = computeOccupancyRate(OCCUPANCY_STAY_STATUSES, half-open 점유박/(ACTIVE 빌라수×일수))
 import type { PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { formatVillaName } from "@/lib/villa-name";
 import {
   computeOccupancyRate,
   OCCUPANCY_STAY_STATUSES,
@@ -163,7 +164,7 @@ export async function loadSupplierStats(
     db.villa.count({ where: { status: "ACTIVE", supplierId } }),
     db.villa.findMany({
       where: { status: "ACTIVE", supplierId },
-      select: { id: true, name: true, complex: true },
+      select: { id: true, name: true, nameVi: true, complex: true },
     }),
   ]);
 
@@ -231,7 +232,8 @@ export async function loadSupplierStats(
     const vnd = revenueByVilla.get(v.id) ?? 0n;
     return {
       villaId: v.id,
-      name: v.name,
+      // 공급자(비운영자) 화면 — 빌라명 베트남어 병기(C2/ADR-0020). stats-section은 truncate 처리.
+      name: formatVillaName({ name: v.name, nameVi: v.nameVi }),
       complex: v.complex,
       bookingCount: 0, // 점유 예약수는 기간 합계로만 노출(빌라별 분해는 화면 불필요)
       occupiedNights,

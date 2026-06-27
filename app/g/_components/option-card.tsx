@@ -67,9 +67,11 @@ export function OptionCard({
     [item]
   );
 
-  // 합계 미리보기 — 잘못된 선택(variant 미선택 등)은 base/0으로 폴백 표시
+  // 합계 미리보기 — 수량 0이어도 현재 선택(variant·addon·modifier) 기준 "단가(1개)"를 표시한다.
+  // (M1) 옛 동작: quantity<1이면 null→item.priceVnd(기본가) 폴백 → 선택한 variant 가격과 불일치.
+  //   예) 두리안 200,000 선택인데 하단 50,000 표시. 수량을 1로 가정해 선택을 반영한다.
   const preview = useMemo(() => {
-    if (selection.quantity < 1) return null;
+    const qty = Math.max(1, selection.quantity);
     try {
       return resolveOrderPricing(
         { priceVnd: item.priceVnd ? BigInt(item.priceVnd) : null },
@@ -78,7 +80,7 @@ export function OptionCard({
           variantKey: selection.variantKey,
           addonKeys: selection.addonKeys,
           modifierKeys: selection.modifierKeys,
-          quantity: selection.quantity,
+          quantity: qty,
         }
       );
     } catch (e) {

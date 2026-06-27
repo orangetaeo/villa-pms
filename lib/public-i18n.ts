@@ -195,6 +195,11 @@ export interface PublicLabels {
     contactKakao: string;
     contactPhone: string;
   };
+  // 게스트 셀프 체크인 링크 만료/회수 뷰 — 제안서(expired)와 별개 문구(체크인 링크는 제안서가 아님)
+  guestExpired: {
+    expiredTitle: string;
+    expiredBody: string[]; // 줄바꿈 단위
+  };
   // 홀드 카운트다운
   hold: { expired: string; remainingSuffix: string };
   // 가예약 입력 폼
@@ -351,6 +356,10 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       contactKakao: "카카오톡으로 문의",
       contactPhone: "전화 연결",
     },
+    guestExpired: {
+      expiredTitle: "체크인 링크가 만료되었습니다",
+      expiredBody: ["이 체크인 링크는 더 이상 사용할 수 없습니다.", "체크인은 담당자에게 문의해 주세요."],
+    },
     hold: { expired: "홀드가 만료되었습니다", remainingSuffix: "남음 — 시간 내 입금 시 예약 확정" },
     bookingForm: {
       name: "이름",
@@ -497,6 +506,10 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       closedBody: ["The villa for the selected dates is no longer available.", "You can request another date."],
       contactKakao: "Ask via KakaoTalk",
       contactPhone: "Call",
+    },
+    guestExpired: {
+      expiredTitle: "Your check-in link has expired",
+      expiredBody: ["This check-in link is no longer valid.", "Please contact your host for check-in."],
     },
     hold: { expired: "The hold has expired", remainingSuffix: "left — pay in time to confirm" },
     bookingForm: {
@@ -645,6 +658,10 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       contactKakao: "Написать в KakaoTalk",
       contactPhone: "Позвонить",
     },
+    guestExpired: {
+      expiredTitle: "Срок ссылки для заселения истёк",
+      expiredBody: ["Эта ссылка для заселения больше недействительна.", "Пожалуйста, свяжитесь с вашим менеджером."],
+    },
     hold: { expired: "Бронь истекла", remainingSuffix: "осталось — оплатите вовремя для подтверждения" },
     bookingForm: {
       name: "Имя",
@@ -792,6 +809,10 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       contactKakao: "通过 KakaoTalk 咨询",
       contactPhone: "电话联系",
     },
+    guestExpired: {
+      expiredTitle: "入住链接已过期",
+      expiredBody: ["此入住链接已失效。", "请联系您的负责人办理入住。"],
+    },
     hold: { expired: "预留已过期", remainingSuffix: "剩余 — 按时付款即可确认预订" },
     bookingForm: {
       name: "姓名",
@@ -938,6 +959,10 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       closedBody: ["Biệt thự cho ngày đã chọn không còn trống.", "Bạn có thể yêu cầu ngày khác."],
       contactKakao: "Hỏi qua KakaoTalk",
       contactPhone: "Gọi điện",
+    },
+    guestExpired: {
+      expiredTitle: "Liên kết nhận phòng đã hết hạn",
+      expiredBody: ["Liên kết nhận phòng này không còn hiệu lực.", "Vui lòng liên hệ người phụ trách để nhận phòng."],
     },
     hold: { expired: "Giữ chỗ đã hết hạn", remainingSuffix: "còn lại — thanh toán kịp thời để xác nhận" },
     bookingForm: {
