@@ -4,11 +4,15 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { savePassportFile, isAllowedImageMime } from "@/lib/storage";
 import { guestTokenState } from "@/lib/guest-checkin";
+import { guestRateLimit, GUEST_RL_UPLOAD } from "@/lib/guest-rate-limit";
 
 const MAX_FILE_SIZE = 3 * 1024 * 1024; // 서명 PNG — 3MB 충분
 
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+  // 비인증 게스트 파일 업로드 폭주 방어 (보안 P0-3) — 업로드라 낮은 한도
+  const rl = await guestRateLimit("g-signature", token, req, GUEST_RL_UPLOAD);
+  if (rl) return rl;
   const t = await prisma.guestCheckinToken.findUnique({
     where: { token },
     select: { bookingId: true, expiresAt: true, revokedAt: true },

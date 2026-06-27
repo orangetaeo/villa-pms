@@ -6,6 +6,7 @@ import {
 } from "@prisma/client";
 import { OCCUPYING_BOOKING_STATUSES, overlapsHalfOpen } from "@/lib/availability";
 import { writeAuditLog } from "@/lib/audit-log";
+import { safeFetch } from "@/lib/ssrf-guard";
 
 /**
  * iCal 수신 동기화 단일 소스 (SPEC F2, 계약: docs/contracts/T1.6-ical-sync.md)
@@ -356,16 +357,16 @@ function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-/** http/https만 허용 + 타임아웃 + 본문 상한 — 위반 시 throw (해당 URL 실패 처리) */
+/**
+ * iCal 텍스트 가져오기 — SSRF 가드(safeFetch) 경유 (보안 P0-8).
+ * 프로토콜 http/https 한정 + 내부 IP·DNS 리바인딩 차단 + 리다이렉트 수동 추적(매 홉 재검증)
+ * + 타임아웃 + 본문 상한. 위반 시 throw → 해당 URL 실패 처리(삭제는 스킵, QA 조건).
+ */
 async function fetchIcsText(url: string, fetchFn: FetchLike): Promise<string> {
-  const parsed = new URL(url);
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new Error(`허용되지 않은 URL 스킴: ${parsed.protocol}`);
-  }
-  const res = await fetchFn(url, {
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    redirect: "follow",
-  });
+  // 주입 fetch(테스트)는 실네트워크를 안 타므로 도메인 DNS resolve를 생략한다.
+  // 프로덕션은 전역 fetch라 SSRF 가드(내부IP·리바인딩) 완전 적용. IP리터럴/프로토콜 검사는 항상 유지.
+  const skipDnsCheck = fetchFn !== globalThis.fetch;
+  const res = await safeFetch(url, { fetchFn, timeoutMs: FETCH_TIMEOUT_MS, skipDnsCheck });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const text = await res.text();
   if (text.length > MAX_ICS_BYTES) {

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { guestTokenState } from "@/lib/guest-checkin";
+import { guestRateLimit } from "@/lib/guest-rate-limit";
 import { parseCatalogOptions, resolveOrderPricing, ServiceSelectionError, parseAudiences } from "@/lib/service-catalog";
 import { priceKrwCeil } from "@/lib/service-display";
 import { getFxVndPerKrw } from "@/lib/pricing";
@@ -27,6 +28,9 @@ const schema = z.object({
 
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+  // 비인증 게스트 mutation 폭주 방어 (보안 P0-3)
+  const rl = await guestRateLimit("g-service-orders", token, req);
+  if (rl) return rl;
   const t = await prisma.guestCheckinToken.findUnique({
     where: { token },
     select: { bookingId: true, expiresAt: true, revokedAt: true, firstUsedAt: true },

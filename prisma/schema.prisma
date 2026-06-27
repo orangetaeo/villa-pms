@@ -1090,6 +1090,24 @@ model AuditLog {
   @@index([createdAt])
 }
 
+// 보안 이벤트 감사 채널 (보안 P0-1) — 로그인 실패·권한 거부·토큰 무효·rate-limit·SSRF/CSRF 차단 등.
+// AuditLog(정상 변경·영구보존)와 분리: 고빈도 append + 단기 보존(보존 cron 후속) + type/ip/createdAt 인덱스.
+// meta에는 비민감 컨텍스트만 — 비밀번호·해시·credential·마진·판매가 절대 미기록(lib/security-event.ts에서 레다크션).
+model SecurityEvent {
+  id          String   @id @default(cuid())
+  type        String // LOGIN_FAIL | AUTHZ_DENY | TOKEN_INVALID | RATE_LIMIT | PWRESET_FAIL | CRED_DECRYPT_FAIL | SSRF_BLOCK | CSRF_BLOCK | LOGIN_OK
+  actorUserId String? // 로그인/세션 사용자 id (없을 수 있음)
+  actorPhone  String? // 로그인 시도 전화번호 (식별 최소 — 추적용)
+  ip          String?
+  path        String?
+  meta        Json? // 비민감 컨텍스트만 (사유·역할·요구권한 등)
+  createdAt   DateTime @default(now())
+
+  @@index([type, createdAt])
+  @@index([actorUserId])
+  @@index([createdAt])
+}
+
 // 운영 설정 (예: HOLD_HOURS_DEFAULT=48) — ADR-0002
 model AppSetting {
   key       String   @id

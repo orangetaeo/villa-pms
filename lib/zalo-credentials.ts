@@ -10,37 +10,63 @@ import crypto from "crypto";
 import { prisma } from "./prisma";
 
 const ALGORITHM = "aes-256-gcm";
+// 고정 salt 제거 (보안 P0-2): 신규 저장은 레코드별 무작위 salt를 암호문에 포함(salt:iv:authTag:ct).
+// 기존 저장본(iv:authTag:ct, 3세그먼트)은 아래 고정 salt로 복호화(점진 마이그레이션) → 재저장 시 신형 승급.
+const LEGACY_SALT = "zalo-creds-salt";
+const SALT_LEN = 16;
+
 function getKeySource(): string {
   const key = process.env.ZALO_CREDS_KEY;
   if (!key) throw new Error("ZALO_CREDS_KEY environment variable is required");
   return key;
 }
 
-function getDerivedKey() {
-  return crypto.scryptSync(getKeySource(), "zalo-creds-salt", 32);
+function deriveKey(salt: crypto.BinaryLike): Buffer {
+  return crypto.scryptSync(getKeySource(), salt, 32);
 }
 
 function encrypt(text: string): string {
+  const salt = crypto.randomBytes(SALT_LEN); // 레코드별 무작위 salt (사전계산·레인보우 방어)
   const iv = crypto.randomBytes(16);
-  const key = getDerivedKey();
+  const key = deriveKey(salt);
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
   let encrypted = cipher.update(text, "utf8", "hex");
   encrypted += cipher.final("hex");
   const authTag = cipher.getAuthTag().toString("hex");
-  return `${iv.toString("hex")}:${authTag}:${encrypted}`;
+  return `${salt.toString("hex")}:${iv.toString("hex")}:${authTag}:${encrypted}`;
 }
 
 function decrypt(data: string): string {
-  const [ivHex, authTagHex, encrypted] = data.split(":");
+  const parts = data.split(":");
+  let salt: crypto.BinaryLike;
+  let ivHex: string, authTagHex: string, encrypted: string;
+  if (parts.length === 4) {
+    // 신형: salt:iv:authTag:encrypted
+    salt = Buffer.from(parts[0], "hex");
+    ivHex = parts[1];
+    authTagHex = parts[2];
+    encrypted = parts[3];
+  } else if (parts.length === 3) {
+    // 레거시: iv:authTag:encrypted — 고정 salt로 복호화(폴백)
+    salt = LEGACY_SALT;
+    ivHex = parts[0];
+    authTagHex = parts[1];
+    encrypted = parts[2];
+  } else {
+    throw new Error("Invalid credential format");
+  }
   const iv = Buffer.from(ivHex, "hex");
   const authTag = Buffer.from(authTagHex, "hex");
-  const key = getDerivedKey();
+  const key = deriveKey(salt);
   const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
   decipher.setAuthTag(authTag);
   let decrypted = decipher.update(encrypted, "hex", "utf8");
   decrypted += decipher.final("utf8");
   return decrypted;
 }
+
+// 테스트 전용: 신형 왕복 + 레거시 폴백 검증용 (lib/zalo-credentials.test.ts).
+export const __cryptoTest = { encrypt, decrypt, LEGACY_SALT };
 
 export interface ZaloCredentials {
   imei: string;
