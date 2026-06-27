@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { getSupplierLocale } from "@/lib/locale";
 import { toDateOnlyString } from "@/lib/date-vn";
 import PaginationBar from "@/components/pagination-bar";
+import ListSearch from "@/components/list-search";
 import { parsePageParams } from "@/lib/pagination";
 
 export const metadata: Metadata = { title: "Đặt phòng trực tiếp — Villa Go" };
@@ -18,7 +19,7 @@ export const metadata: Metadata = { title: "Đặt phòng trực tiếp — Vill
 export default async function SupplierMyBookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; pageSize?: string }>;
+  searchParams: Promise<{ page?: string; pageSize?: string; q?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -26,7 +27,10 @@ export default async function SupplierMyBookingsPage({
 
   const locale = await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "myBookings" });
-  const { page, pageSize, skip, take } = parsePageParams(await searchParams);
+  const params = await searchParams;
+  const { page, pageSize, skip, take } = parsePageParams(params);
+  // 검색어(URL q 모드) — 빌라명·투숙객명. 자기 스코프(supplierId) 안에서만 검색(누수 0).
+  const q = params.q?.trim() || undefined;
 
   // 자기 직접예약만 — seller=SUPPLIER AND 자기 빌라. 검수 가능 상태(CONFIRMED·CHECKED_IN) 우선.
   // 누수 0: guestName(식별용 표시)·인원·날짜·상태만. 판매가 KRW·우리 마진·원가 select 안 함.
@@ -35,6 +39,14 @@ export default async function SupplierMyBookingsPage({
       seller: BookingSeller.SUPPLIER,
       villa: { supplierId: session.user.id },
       status: { in: [BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN, BookingStatus.CHECKED_OUT] },
+      ...(q
+        ? {
+            OR: [
+              { villa: { name: { contains: q, mode: "insensitive" } } },
+              { guestName: { contains: q, mode: "insensitive" } },
+            ],
+          }
+        : {}),
     },
     orderBy: [{ checkIn: "asc" }],
     take: 100,
@@ -62,7 +74,14 @@ export default async function SupplierMyBookingsPage({
   return (
     <div className="mx-auto max-w-md px-4 pb-8 pt-6">
       <h1 className="mb-1 text-xl font-bold text-neutral-900">{t("title")}</h1>
-      <p className="mb-6 text-sm text-neutral-400">{t("subtitle")}</p>
+      <p className="mb-4 text-sm text-neutral-400">{t("subtitle")}</p>
+
+      {/* 검색 (URL q 모드, 라이트) — 빌라명·투숙객명. 검색 중이면 결과 0건이어도 입력 유지 */}
+      {(bookings.length > 0 || q) && (
+        <div className="mb-6">
+          <ListSearch light placeholder={t("searchPlaceholder")} />
+        </div>
+      )}
 
       {bookings.length === 0 ? (
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-neutral-100 bg-white p-8 text-center shadow-sm">

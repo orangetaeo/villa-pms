@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import PaginationBar from "@/components/pagination-bar";
+import ListSearch from "@/components/list-search";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { formatThousands } from "@/lib/format";
 
@@ -79,13 +80,27 @@ export default function CostAlertsView({ groups }: { groups: CostAlertGroup[] })
 
   const visible = groups.filter((g) => !dismissed.has(g.proposalId));
 
-  // 클라 페이지네이션 — groups 바뀌면 1페이지로. (조기 반환보다 위에 선언 — hooks 규칙)
+  // 검색 — 고객명·제안 토큰·그룹 내 행 빌라명(어느 행이든 매치 시 그룹 노출).
+  // (조기 반환보다 위에 선언 — hooks 규칙. 페이지네이션 slice 이전에 적용)
+  const [search, setSearch] = useState("");
+  const searched = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return visible;
+    return visible.filter(
+      (g) =>
+        (g.clientName ?? "").toLowerCase().includes(q) ||
+        (g.proposalToken ?? "").toLowerCase().includes(q) ||
+        g.rows.some((r) => (r.villaName ?? "").toLowerCase().includes(q))
+    );
+  }, [visible, search]);
+
+  // 클라 페이지네이션 — groups·검색어 바뀌면 1페이지로. (조기 반환보다 위에 선언 — hooks 규칙)
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-  useEffect(() => setPage(1), [groups]);
+  useEffect(() => setPage(1), [groups, search]);
   const pagedGroups = useMemo(
-    () => visible.slice((page - 1) * pageSize, page * pageSize),
-    [visible, page, pageSize]
+    () => searched.slice((page - 1) * pageSize, page * pageSize),
+    [searched, page, pageSize]
   );
 
   const dismiss = async (g: CostAlertGroup) => {
@@ -166,6 +181,13 @@ export default function CostAlertsView({ groups }: { groups: CostAlertGroup[] })
           {error}
         </p>
       )}
+
+      <ListSearch
+        placeholder={t("searchPlaceholder")}
+        value={search}
+        onChange={setSearch}
+        className="max-w-xs"
+      />
 
       {pagedGroups.map((g) => (
         <section
@@ -293,7 +315,7 @@ export default function CostAlertsView({ groups }: { groups: CostAlertGroup[] })
       ))}
 
       <PaginationBar
-        total={visible.length}
+        total={searched.length}
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}
