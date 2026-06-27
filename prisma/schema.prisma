@@ -530,6 +530,10 @@ model Booking {
 
   @@index([villaId, checkIn, checkOut])
   @@index([status, holdExpiresAt])
+  // perf(2026-06-27): 자주 쓰는 필터/정렬 보강. 라이브 Neon엔 additive CREATE INDEX IF NOT EXISTS로 반영.
+  @@index([partnerId, createdAt]) // 파트너 포털 예약·미수 목록(where partnerId, orderBy createdAt)
+  @@index([status, checkIn]) // 대시보드 오늘 체크인 프리셋, 가용성 날짜범위
+  @@index([status, checkOut]) // 매출/통계 checkOut 범위 + 매출인식 상태 게이트
 }
 
 // ===================== 체크인·아웃 검수 =====================

@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
-import { BookingSeller, BookingStatus } from "@prisma/client";
+import { BookingSeller, BookingStatus, Prisma } from "@prisma/client";
 import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import { getSupplierLocale } from "@/lib/locale";
@@ -34,38 +34,44 @@ export default async function SupplierMyBookingsPage({
 
   // 자기 직접예약만 — seller=SUPPLIER AND 자기 빌라. 검수 가능 상태(CONFIRMED·CHECKED_IN) 우선.
   // 누수 0: guestName(식별용 표시)·인원·날짜·상태만. 판매가 KRW·우리 마진·원가 select 안 함.
-  const bookings = await prisma.booking.findMany({
-    where: {
-      seller: BookingSeller.SUPPLIER,
-      villa: { supplierId: session.user.id },
-      status: { in: [BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN, BookingStatus.CHECKED_OUT] },
-      ...(q
-        ? {
-            OR: [
-              { villa: { name: { contains: q, mode: "insensitive" } } },
-              { guestName: { contains: q, mode: "insensitive" } },
-            ],
-          }
-        : {}),
+  const where: Prisma.BookingWhereInput = {
+    seller: BookingSeller.SUPPLIER,
+    villa: { supplierId: session.user.id },
+    status: {
+      in: [BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN, BookingStatus.CHECKED_OUT],
     },
-    orderBy: [{ checkIn: "asc" }],
-    take: 100,
-    select: {
-      id: true,
-      status: true,
-      checkIn: true,
-      checkOut: true,
-      guestName: true,
-      guestCount: true,
-      villa: { select: { name: true } },
-    },
-  });
+    ...(q
+      ? {
+          OR: [
+            { villa: { name: { contains: q, mode: "insensitive" } } },
+            { guestName: { contains: q, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  };
+
+  // 페이지네이션 — DB 단 skip/take + count(perf). 기존엔 100건을 통째로 불러와 메모리 slice 했고
+  // 100건 초과분은 아예 안 보였다. 이제 현재 페이지 행만 조회(checkIn asc 정렬은 DB가 수행).
+  const [totalBookings, pagedBookings] = await Promise.all([
+    prisma.booking.count({ where }),
+    prisma.booking.findMany({
+      where,
+      orderBy: [{ checkIn: "asc" }],
+      skip,
+      take,
+      select: {
+        id: true,
+        status: true,
+        checkIn: true,
+        checkOut: true,
+        guestName: true,
+        guestCount: true,
+        villa: { select: { name: true } },
+      },
+    }),
+  ]);
 
   const fmt = (d: Date) => toDateOnlyString(d).split("-").reverse().join("/");
-
-  // 페이지네이션 — checkIn asc 정렬된 전체 목록을 메모리 슬라이스(take:100 캡 내). 빈 상태는 전체 기준.
-  const totalBookings = bookings.length;
-  const pagedBookings = bookings.slice(skip, skip + take);
 
   // 검수 대기(CONFIRMED·CHECKED_IN) 먼저, 완료(CHECKED_OUT) 나중 — 현재 페이지 슬라이스 내에서 분류
   const pending = pagedBookings.filter((b) => b.status !== BookingStatus.CHECKED_OUT);
@@ -77,13 +83,13 @@ export default async function SupplierMyBookingsPage({
       <p className="mb-4 text-sm text-neutral-400">{t("subtitle")}</p>
 
       {/* 검색 (URL q 모드, 라이트) — 빌라명·투숙객명. 검색 중이면 결과 0건이어도 입력 유지 */}
-      {(bookings.length > 0 || q) && (
+      {(totalBookings > 0 || q) && (
         <div className="mb-6">
           <ListSearch light placeholder={t("searchPlaceholder")} />
         </div>
       )}
 
-      {bookings.length === 0 ? (
+      {totalBookings === 0 ? (
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-neutral-100 bg-white p-8 text-center shadow-sm">
           <span className="material-symbols-outlined text-5xl text-teal-600">book_online</span>
           <p className="text-sm font-medium text-neutral-600">{t("empty")}</p>

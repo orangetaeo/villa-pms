@@ -39,14 +39,10 @@ export interface InventoryMatrix {
   summary: InventorySummary;
 }
 
-/**
- * 전 ACTIVE 빌라 × 전 active MinibarItem 매트릭스 + 부족 집계.
- * locale은 품목 표시명(ko/vi) 폴백에만 사용.
- */
-export async function loadInventoryMatrix(
-  db: PrismaClient,
-  locale: string
-): Promise<InventoryMatrix> {
+const invKey = (villaId: string, itemId: string) => `${villaId}::${itemId}`;
+
+/** 빌라·품목·현재고·오버라이드 4쿼리 병렬 로드 + 맵 구성 (매트릭스/요약 공유). */
+async function loadInventoryBase(db: PrismaClient) {
   const [villas, items, movementSums, overrides] = await Promise.all([
     db.villa.findMany({
       where: { status: "ACTIVE" },
@@ -69,16 +65,27 @@ export async function loadInventoryMatrix(
     }),
   ]);
 
-  const key = (villaId: string, itemId: string) => `${villaId}::${itemId}`;
-
   const onHandMap = new Map<string, number>();
   for (const g of movementSums) {
-    onHandMap.set(key(g.villaId, g.minibarItemId), g._sum.qtyDelta ?? 0);
+    onHandMap.set(invKey(g.villaId, g.minibarItemId), g._sum.qtyDelta ?? 0);
   }
   const overrideMap = new Map<string, number>();
   for (const o of overrides) {
-    overrideMap.set(key(o.villaId, o.minibarItemId), o.qty);
+    overrideMap.set(invKey(o.villaId, o.minibarItemId), o.qty);
   }
+
+  return { villas, items, onHandMap, overrideMap };
+}
+
+/**
+ * 전 ACTIVE 빌라 × 전 active MinibarItem 매트릭스 + 부족 집계.
+ * locale은 품목 표시명(ko/vi) 폴백에만 사용.
+ */
+export async function loadInventoryMatrix(
+  db: PrismaClient,
+  locale: string
+): Promise<InventoryMatrix> {
+  const { villas, items, onHandMap, overrideMap } = await loadInventoryBase(db);
 
   const rows: InventoryItemRow[] = [];
   const lowVillas = new Set<string>();
@@ -86,7 +93,7 @@ export async function loadInventoryMatrix(
 
   for (const villa of villas) {
     for (const item of items) {
-      const k = key(villa.id, item.id);
+      const k = invKey(villa.id, item.id);
       const par = effectivePar(overrideMap.get(k) ?? null, item.stockQty);
       const onHand = onHandMap.get(k) ?? 0;
       const low = isLowStock(onHand, par);
@@ -113,10 +120,30 @@ export async function loadInventoryMatrix(
   };
 }
 
-/** 대시보드 배너용 경량 집계 — 부족 빌라/품목 수만(행 생성 없이 동일 로직). */
+/**
+ * 대시보드 배너용 경량 집계 — 부족 빌라/품목 수만.
+ * perf: 매 운영자 대시보드 로드마다 호출되는데, 기존엔 loadInventoryMatrix로 빌라×품목 전체 행
+ *   (수만 객체 + minibarItemName 수만 회)을 만들어 버렸다. 여기선 행/표시명 생성 없이 카운트만 한다.
+ */
 export async function loadInventoryShortageSummary(
   db: PrismaClient
 ): Promise<InventorySummary> {
-  const { summary } = await loadInventoryMatrix(db, "ko");
-  return summary;
+  const { villas, items, onHandMap, overrideMap } = await loadInventoryBase(db);
+
+  const lowVillas = new Set<string>();
+  let lowItemCount = 0;
+
+  for (const villa of villas) {
+    for (const item of items) {
+      const k = invKey(villa.id, item.id);
+      const par = effectivePar(overrideMap.get(k) ?? null, item.stockQty);
+      const onHand = onHandMap.get(k) ?? 0;
+      if (isLowStock(onHand, par)) {
+        lowItemCount += 1;
+        lowVillas.add(villa.id);
+      }
+    }
+  }
+
+  return { lowItemCount, lowVillaCount: lowVillas.size };
 }

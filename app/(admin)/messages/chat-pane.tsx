@@ -1909,6 +1909,8 @@ function PhotoCard({
           <img
             src={urls[0]}
             alt=""
+            loading="lazy"
+            decoding="async"
             className="rounded-lg w-56 h-36 object-cover transition-transform group-hover:scale-[1.02]"
           />
           {/* 여러 장 표시 배지 */}
@@ -2079,6 +2081,8 @@ function LinkPreviewCard({
             src={thumb}
             alt=""
             onError={onImageError}
+            loading="lazy"
+            decoding="async"
             className="w-full h-36 object-cover bg-slate-800"
           />
         )}
@@ -2933,6 +2937,8 @@ function Composer({
                   <img
                     src={m.avatarUrl}
                     alt=""
+                    loading="lazy"
+                    decoding="async"
                     className="w-7 h-7 rounded-full object-cover shrink-0 bg-slate-700"
                   />
                 ) : (
