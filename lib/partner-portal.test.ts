@@ -154,7 +154,7 @@ describe("loadPartnerReceivables — 스코프·BigInt 합산", () => {
         depositPaidVnd: 0n,
         balancePaidVnd: 0n,
         dueDate: new Date("2026-07-25"),
-        status: "UNPAID",
+        status: "PENDING", // 미입금(ReceivableStatus 실제 값 — "UNPAID"는 채권 상태가 아님)
         booking: { checkIn: new Date("2026-07-10"), checkOut: new Date("2026-07-12"), villa: { name: "V12", nameVi: null } },
       },
     ]);
@@ -166,6 +166,36 @@ describe("loadPartnerReceivables — 스코프·BigInt 합산", () => {
     expect(res.summary.totalBilledVnd).toBe("17000000"); // 10M + 7M
     expect(res.summary.totalPaidVnd).toBe("5000000"); // (3M+2M) + 0
     expect(res.summary.outstandingVnd).toBe("12000000"); // 5M + 7M
+  });
+
+  it("미수 잔액은 완납·대손(WRITTEN_OFF) 제외 — 운영자 outstandingForPartner와 일치(H2)", async () => {
+    // 파트너 자기화면이 대손 채권을 미수에 포함해 운영자 화면보다 큰 잔액을 보이던 버그(H2) 회귀 가드.
+    mockReceivableFindMany.mockResolvedValue([
+      {
+        id: "open", // 미입금 — 미수 집계 대상
+        totalVnd: 10_000_000n,
+        depositDueVnd: 0n,
+        depositPaidVnd: 0n,
+        balancePaidVnd: 0n,
+        dueDate: new Date("2026-07-20"),
+        status: "PENDING",
+        booking: { checkIn: new Date("2026-07-01"), checkOut: new Date("2026-07-05"), villa: { name: "V11", nameVi: null } },
+      },
+      {
+        id: "writtenoff", // 대손 — 미수 제외(이력으로 총청구·총납부엔 남음)
+        totalVnd: 8_000_000n,
+        depositDueVnd: 0n,
+        depositPaidVnd: 1_000_000n,
+        balancePaidVnd: 0n,
+        dueDate: new Date("2026-05-10"),
+        status: "WRITTEN_OFF",
+        booking: { checkIn: new Date("2026-05-01"), checkOut: new Date("2026-05-03"), villa: { name: "V12", nameVi: null } },
+      },
+    ]);
+    const res = await loadPartnerReceivables("partner-9");
+    expect(res.summary.outstandingVnd).toBe("10000000"); // 대손 7M(8M-1M) 제외, open 10M만
+    expect(res.summary.totalBilledVnd).toBe("18000000"); // 이력: 10M + 8M
+    expect(res.summary.totalPaidVnd).toBe("1000000"); // 이력: 0 + 1M
   });
 
   it("청구서 행은 totalVnd·paidVnd를 string으로 직렬화", async () => {
