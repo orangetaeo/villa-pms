@@ -3,7 +3,7 @@
 // 미니바 매출 추이 — VND 단일 계열 (T-admin-statistics 통계 v2, canViewFinance 전용)
 // ★ 미니바는 VND 고정(통화 합산 이슈 없음 — ADR-0003 무관). 에메랄드 계열(VND 색).
 //   라벨은 로더(StatsPeriod.buckets)가 제공(일='MM-DD', 월='YYYY-MM'). 정확표시는 *Text.
-// 표현: 부드러운 영역(natural 스플라인) + 그라데이션 채움 + 점선 그리드 (막대 → 영역 곡선, 매출 추이와 통일).
+// 표현: 부드러운 영역(monotone 곡선, 오버슈트 방지) + 그라데이션 채움 + 점선 그리드 (막대 → 영역 곡선, 매출 추이와 통일).
 
 import {
   Area,
@@ -76,7 +76,7 @@ export default function MinibarChart({
         />
         <Tooltip cursor={{ stroke: "#334155" }} content={<MinibarTooltip legend={legend} />} />
         <Area
-          type="natural"
+          type="monotone"
           dataKey="revenueVnd"
           name={legend}
           stroke={VND}
