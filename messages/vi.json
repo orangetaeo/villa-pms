@@ -3598,10 +3598,16 @@
     "title": "Quản lý doanh thu",
     "subtitle": "Danh sách giao dịch doanh thu",
     "summary": {
+      "integratedRevenue": "Doanh thu quy đổi (≈VND)",
+      "fxApprox": "≈ Theo tỷ giá hôm nay (gần đúng)",
+      "fxMissing": "Loại trừ {count} dòng thiếu tỷ giá",
+      "byCurrency": "Doanh thu theo nguyên tệ (trước quy đổi)",
       "saleKrw": "Doanh thu (KRW)",
       "saleVnd": "Doanh thu (VND)",
-      "marginVnd": "Lợi nhuận (VND)",
-      "marginNote": "Chỉ phần có giá gốc · không gồm kênh KRW (ADR-0003)",
+      "saleUsd": "Doanh thu (USD)",
+      "usdSoon": "Đang chuẩn bị nhập đặt phòng USD",
+      "marginVnd": "Lợi nhuận (VND, sau quy đổi)",
+      "marginNote": "Lợi nhuận sau khi quy đổi mọi tiền tệ sang VND · trừ dòng thiếu tỷ giá",
       "count": "Số giao dịch",
       "countUnit": "giao dịch",
       "breakdownTitle": "Cơ cấu doanh thu theo loại",
@@ -3610,7 +3616,7 @@
     "searchPlaceholder": "Tìm khách·villa·đối tác·tên mặt hàng",
     "exportCsv": "Xuất CSV",
     "empty": "Không có giao dịch doanh thu trong kỳ·điều kiện này",
-    "note": "Ghi nhận doanh thu = theo tháng trả phòng (CHECKED_OUT·NO_SHOW). Lợi nhuận chỉ tính bằng VND; tiền phòng kênh KRW không tính vào lợi nhuận VND (ADR-0003).",
+    "note": "Ghi nhận doanh thu = theo tháng trả phòng (CHECKED_OUT·NO_SHOW). Doanh thu·lợi nhuận quy đổi được tính bằng cách đổi KRW sang VND (theo tỷ giá tại thời điểm đặt phòng, nếu thiếu thì dùng tỷ giá hiện tại) — chỉ là số gần đúng để hiển thị, không phải số tiền lưu trữ·quyết toán. Doanh thu theo nguyên tệ là số tiền thực nhận trước khi đổi.",
     "types": {
       "ROOM": "Tiền phòng",
       "MINIBAR": "Minibar",
@@ -3640,6 +3646,8 @@
       "label": "Nội dung",
       "saleKrw": "Giá bán (KRW)",
       "saleVnd": "Giá bán (VND)",
+      "saleUsd": "Giá bán (USD)",
+      "saleVndEquivalent": "Doanh thu quy đổi (≈VND)",
       "costVnd": "Giá vốn (VND)",
       "marginVnd": "Lợi nhuận (VND)"
     },
@@ -3649,6 +3657,7 @@
     },
     "totals": {
       "label": "Tổng ({count} dòng)",
+      "integratedLabel": "Doanh thu quy đổi (≈VND)",
       "csvLabel": "Tổng cộng"
     }
   }

@@ -25,16 +25,22 @@ interface RevenueTxnDto {
   label: string;
   saleKrw: number | null;
   saleVnd: string | null;
+  saleUsd: number | null;
   costVnd: string | null;
+  saleVndEquivalent: string | null;
   marginVnd: string | null;
+  fxMissing: boolean;
 }
 
 interface RevenueTotalsDto {
   count: number;
   saleKrw: number;
   saleVnd: string;
+  saleUsd: number;
   costVnd: string;
   marginVnd: string;
+  integratedRevenueVnd: string;
+  fxMissingCount: number;
 }
 
 interface PeriodMeta {
@@ -142,11 +148,17 @@ export default function RevenueClient(props: Props) {
   const visibleTotals = useMemo(() => {
     let saleKrw = 0;
     let saleVnd = 0n;
+    let saleUsd = 0;
     let marginVnd = 0n;
+    let integratedRevenueVnd = 0n;
+    let fxMissingCount = 0;
     let marginCounted = false;
     for (const x of rows) {
       if (x.saleKrw !== null) saleKrw += x.saleKrw;
       if (x.saleVnd !== null) saleVnd += BigInt(x.saleVnd);
+      if (x.saleUsd !== null) saleUsd += x.saleUsd;
+      if (x.saleVndEquivalent !== null) integratedRevenueVnd += BigInt(x.saleVndEquivalent);
+      if (x.fxMissing) fxMissingCount++;
       if (x.marginVnd !== null) {
         marginVnd += BigInt(x.marginVnd);
         marginCounted = true;
@@ -156,6 +168,9 @@ export default function RevenueClient(props: Props) {
       count: rows.length,
       saleKrw,
       saleVnd: saleVnd.toString(),
+      saleUsd,
+      integratedRevenueVnd: integratedRevenueVnd.toString(),
+      fxMissingCount,
       marginVnd: marginCounted ? marginVnd.toString() : null,
     };
   }, [rows]);
@@ -353,23 +368,22 @@ export default function RevenueClient(props: Props) {
         </div>
       </div>
 
-      {/* 요약 — 선택 기간·필터의 매출 KPI(검색 전 서버 필터 기준) + 유형별 VND 구성 */}
-      <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* 요약 — 통합 환산 매출(≈VND) + 환산 후 마진 + 건수 (검색 전 서버 필터 기준) */}
+      <div className="mt-4 grid grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard
-          label={t("summary.saleKrw")}
-          value={props.totals.saleKrw > 0 ? formatThousands(props.totals.saleKrw) : "—"}
-          unit={props.totals.saleKrw > 0 ? "원" : undefined}
-          accent="krw"
-          icon="payments"
-          iconClassName="text-admin-krw"
-        />
-        <KpiCard
-          label={t("summary.saleVnd")}
-          value={formatThousands(props.totals.saleVnd)}
+          label={t("summary.integratedRevenue")}
+          value={formatThousands(props.totals.integratedRevenueVnd)}
           unit="₫"
           accent="vnd"
-          icon="payments"
+          icon="account_balance_wallet"
           iconClassName="text-admin-vnd"
+          footer={
+            <p className="text-[10px] text-slate-500">
+              {t("summary.fxApprox")}
+              {props.totals.fxMissingCount > 0 &&
+                ` · ${t("summary.fxMissing", { count: props.totals.fxMissingCount })}`}
+            </p>
+          }
         />
         <KpiCard
           label={t("summary.marginVnd")}
@@ -386,6 +400,41 @@ export default function RevenueClient(props: Props) {
           icon="receipt_long"
           iconClassName="text-indigo-400"
         />
+      </div>
+
+      {/* 원본 통화별 매출 병기 — 환전 전 실제 수령 통화(KRW·VND·USD) */}
+      <div className="mt-3">
+        <p className="mb-1.5 text-[11px] font-medium text-slate-500">{t("summary.byCurrency")}</p>
+        <div className="grid grid-cols-3 gap-3">
+          <KpiCard
+            label={t("summary.saleKrw")}
+            value={props.totals.saleKrw > 0 ? formatThousands(props.totals.saleKrw) : "—"}
+            unit={props.totals.saleKrw > 0 ? "원" : undefined}
+            accent="krw"
+            icon="payments"
+            iconClassName="text-admin-krw"
+          />
+          <KpiCard
+            label={t("summary.saleVnd")}
+            value={formatThousands(props.totals.saleVnd)}
+            unit="₫"
+            accent="vnd"
+            icon="payments"
+            iconClassName="text-admin-vnd"
+          />
+          <KpiCard
+            label={t("summary.saleUsd")}
+            value={props.totals.saleUsd > 0 ? formatThousands(props.totals.saleUsd) : "—"}
+            unit={props.totals.saleUsd > 0 ? "$" : undefined}
+            icon="payments"
+            iconClassName="text-emerald-400"
+            footer={
+              props.totals.saleUsd > 0 ? undefined : (
+                <p className="text-[10px] text-slate-500">{t("summary.usdSoon")}</p>
+              )
+            }
+          />
+        </div>
       </div>
 
       {/* 유형별 VND 매출 구성 바 */}
@@ -490,7 +539,7 @@ export default function RevenueClient(props: Props) {
               </tr>
             ))}
           </tbody>
-          {/* 합계 푸터 — 검색 적용된 현재 표시 행 기준. 통화 분리(KRW·VND), VND 마진만. */}
+          {/* 합계 푸터 — 검색 적용된 현재 표시 행 기준. 원본 통화 분리(KRW·VND) + 통합 환산(≈₫) 별도 행. */}
           <tfoot>
             <tr className="bg-slate-900/80 font-bold text-white border-t-2 border-slate-700">
               <td className="px-3 py-3" colSpan={5}>
@@ -503,6 +552,20 @@ export default function RevenueClient(props: Props) {
               <td className="px-3 py-3" />
               <td className="px-3 py-3 text-right tabular-nums text-emerald-400">
                 {visibleTotals.marginVnd !== null ? `${formatThousands(visibleTotals.marginVnd)}₫` : "—"}
+              </td>
+            </tr>
+            <tr className="bg-slate-900/60 text-admin-vnd border-t border-slate-800">
+              <td className="px-3 py-2.5 text-xs text-slate-400" colSpan={5}>
+                {t("totals.integratedLabel")}
+                {visibleTotals.fxMissingCount > 0 && (
+                  <span className="text-slate-500">
+                    {" · "}
+                    {t("summary.fxMissing", { count: visibleTotals.fxMissingCount })}
+                  </span>
+                )}
+              </td>
+              <td className="px-3 py-2.5 text-right tabular-nums font-bold" colSpan={4}>
+                {`≈ ${formatThousands(visibleTotals.integratedRevenueVnd)}₫`}
               </td>
             </tr>
           </tfoot>

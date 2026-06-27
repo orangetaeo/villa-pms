@@ -8,11 +8,14 @@
 //   이 모듈은 재무 데이터를 항상 계산한다(누수 차단은 권한 검사가 끝난 뒤 호출하는 것으로 보장).
 //
 // 금액 규칙(money-pattern·CLAUDE.md):
-//  - VND는 BigInt, KRW는 Int. 합산은 BigInt로만(부동소수점 금지). 통화(KRW·VND)는 절대 합산하지 않는다(ADR-0003).
-//  - 마진은 VND만 계산한다. KRW 채널 객실료는 VND 원가만 알 수 있어 KRW 매출-VND 원가 혼합 마진이
-//    의미가 없으므로 VND 마진에서 제외한다(ADR-0003). costVnd가 없으면 marginVnd=null.
+//  - VND는 BigInt, KRW는 Int. 합산은 BigInt로만(부동소수점 금지). 통화별 "원본" 합계는 분리 유지(KRW·VND·USD).
+//  - 단, 사업 현실(KRW·USD도 결국 동으로 환전)을 반영하기 위해 "통합 환산 매출"(integratedRevenueVnd)과
+//    "환산 후 마진"(marginVnd)을 함께 제공한다. 환산은 KRW=예약 시점 스냅샷(fxVndPerKrw) 우선,
+//    없으면 호출부가 넘긴 현재 환율(fallbackFxVndPerKrw) 폴백, 둘 다 없으면 환산 불가(fxMissing)로 표기.
+//    ★ 환산값은 표시용 근사치("≈")일 뿐 저장·정산 금액이 아니다(정산은 settlement-finance가 스냅샷으로 별도 계산).
 //  - 매출 인식 = 체크아웃월 기준(귀속일=Booking.checkOut), SETTLEMENT_BOOKING_STATUSES(CHECKED_OUT·NO_SHOW)와 정합.
 //  - 기간은 [from, to) half-open.
+//  - USD는 현재 예약 매출 원천이 없다(Phase 2에서 추가). saleUsd 칸은 구조만 준비(항상 0/null).
 
 import {
   BookingChannel,
@@ -23,6 +26,7 @@ import {
   type PrismaClient,
 } from "@prisma/client";
 import { SETTLEMENT_BOOKING_STATUSES } from "@/lib/settlement";
+import { krwToVndSnapshot } from "@/lib/pricing";
 
 // ===================================================================
 // 타입
@@ -49,24 +53,36 @@ export interface RevenueTxn {
   saleKrw: number | null;
   /** 판매가 VND — VND 채널 객실료·미니바·부가서비스(VND). 그 외 null */
   saleVnd: bigint | null;
+  /** 판매가 USD — USD 매출(Phase 2). Phase 1에선 항상 null(원천 없음) */
+  saleUsd: number | null;
   /** 매입 원가 VND — 미입력이면 null(마진 산입 제외) */
   costVnd: bigint | null;
-  /** 마진 VND = saleVnd − costVnd. saleVnd·costVnd 중 하나라도 없으면 null */
+  /** VND 환산 매출 — VND 행=saleVnd, KRW 행=환율 환산, 환산 불가(환율 없음)면 null. "≈ 근사치" */
+  saleVndEquivalent: bigint | null;
+  /** 마진 VND = saleVndEquivalent − costVnd. 둘 중 하나라도 없으면 null (환산 후 마진) */
   marginVnd: bigint | null;
+  /** 환율 미상으로 환산 불가(KRW 매출인데 스냅샷·폴백 환율 모두 없음) */
+  fxMissing: boolean;
 }
 
-/** 통화별 합계 — KRW·VND 분리(절대 합산 금지) */
+/** 통화별 합계 — KRW·VND·USD 원본 분리 + 통합 환산(별도) */
 export interface RevenueTotals {
   /** 행 수 */
   count: number;
-  /** KRW 매출 합계(Int) — KRW 채널 객실료 */
+  /** KRW 매출 합계(Int) — KRW 채널 객실료 (원본) */
   saleKrw: number;
-  /** VND 매출 합계(BigInt) — VND 채널 객실료·미니바·부가서비스 */
+  /** VND 매출 합계(BigInt) — VND 채널 객실료·미니바·부가서비스 (원본) */
   saleVnd: bigint;
+  /** USD 매출 합계(Int, 정수 달러) — Phase 1에선 항상 0 (원본) */
+  saleUsd: number;
   /** VND 원가 합계(BigInt) — costVnd 있는 행만 */
   costVnd: bigint;
-  /** VND 마진 합계(BigInt) — marginVnd 있는 행만 */
+  /** VND 마진 합계(BigInt) — marginVnd 있는 행만 (환산 후 마진) */
   marginVnd: bigint;
+  /** 통합 환산 매출(BigInt) — 모든 행 saleVndEquivalent 합. "≈ 근사치" */
+  integratedRevenueVnd: bigint;
+  /** 환산 불가(fxMissing) 건수 — 통합 매출·마진에서 빠진 건 투명성 표기용 */
+  fxMissingCount: number;
 }
 
 export interface LoadRevenueResult {
@@ -100,32 +116,78 @@ function dateOnly(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-/**
- * 마진 산출 — VND만. saleVnd·costVnd 둘 다 있어야 마진(둘 중 하나라도 null이면 null).
- * KRW 채널 객실료(saleVnd=null)는 자동으로 marginVnd=null이 된다(ADR-0003).
- */
-export function computeMarginVnd(saleVnd: bigint | null, costVnd: bigint | null): bigint | null {
-  if (saleVnd === null || costVnd === null) return null;
-  return saleVnd - costVnd;
+/** KRW → VND 환산. 환율 없거나 형식 오류면 null(환산 불가). krwToVndSnapshot 재사용(정산과 동일 규칙). */
+function krwToVndOrNull(krw: number, fxVndPerKrw: string | null | undefined): bigint | null {
+  if (fxVndPerKrw == null) return null;
+  try {
+    return krwToVndSnapshot(krw, fxVndPerKrw);
+  } catch {
+    return null;
+  }
 }
 
 /**
- * 통화별 합계 — BigInt 누적(부동소수점 금지). KRW·VND 분리(절대 합산 금지).
- *  - saleKrw: KRW 매출 있는 행만(Int 누적)
- *  - saleVnd/costVnd/marginVnd: 해당 값 있는 행만(BigInt 누적)
+ * VND 환산 매출 산출 — VND 행은 그대로, KRW 행은 환율 환산, 환산 불가면 null+fxMissing.
+ * (USD는 Phase 1에서 원천이 없어 saleUsd=null → 여기 도달하지 않음)
+ */
+export function resolveVndEquivalent(
+  saleVnd: bigint | null,
+  saleKrw: number | null,
+  fxVndPerKrw: string | null | undefined
+): { saleVndEquivalent: bigint | null; fxMissing: boolean } {
+  if (saleVnd !== null) return { saleVndEquivalent: saleVnd, fxMissing: false };
+  if (saleKrw !== null) {
+    const conv = krwToVndOrNull(saleKrw, fxVndPerKrw);
+    return { saleVndEquivalent: conv, fxMissing: conv === null };
+  }
+  return { saleVndEquivalent: null, fxMissing: false };
+}
+
+/**
+ * 마진 산출 — 환산 후 마진. saleVndEquivalent·costVnd 둘 다 있어야 마진(둘 중 하나라도 null이면 null).
+ * VND 행은 saleVndEquivalent=saleVnd라 종전과 동일, KRW 행도 환산되면 마진에 포함된다(사업 현실 반영).
+ */
+export function computeMarginVnd(
+  saleVndEquivalent: bigint | null,
+  costVnd: bigint | null
+): bigint | null {
+  if (saleVndEquivalent === null || costVnd === null) return null;
+  return saleVndEquivalent - costVnd;
+}
+
+/**
+ * 통화별 합계 — BigInt 누적(부동소수점 금지). KRW·VND·USD 원본 분리 + 통합 환산.
+ *  - saleKrw/saleUsd: 해당 매출 있는 행만(Int 누적)
+ *  - saleVnd/costVnd/marginVnd/integratedRevenueVnd: 해당 값 있는 행만(BigInt 누적)
+ *  - fxMissingCount: 환산 불가 건수
  */
 export function sumRevenueTotals(txns: RevenueTxn[]): RevenueTotals {
   let saleKrw = 0;
   let saleVnd = 0n;
+  let saleUsd = 0;
   let costVnd = 0n;
   let marginVnd = 0n;
+  let integratedRevenueVnd = 0n;
+  let fxMissingCount = 0;
   for (const t of txns) {
     if (t.saleKrw !== null) saleKrw += t.saleKrw;
     if (t.saleVnd !== null) saleVnd += t.saleVnd;
+    if (t.saleUsd !== null) saleUsd += t.saleUsd;
     if (t.costVnd !== null) costVnd += t.costVnd;
     if (t.marginVnd !== null) marginVnd += t.marginVnd;
+    if (t.saleVndEquivalent !== null) integratedRevenueVnd += t.saleVndEquivalent;
+    if (t.fxMissing) fxMissingCount++;
   }
-  return { count: txns.length, saleKrw, saleVnd, costVnd, marginVnd };
+  return {
+    count: txns.length,
+    saleKrw,
+    saleVnd,
+    saleUsd,
+    costVnd,
+    marginVnd,
+    integratedRevenueVnd,
+    fxMissingCount,
+  };
 }
 
 /** 통화 필터 통과 여부 — KRW=saleKrw 보유 행, VND=saleVnd 보유 행. USD는 현재 매출원천 없음 → 전부 제외. */
@@ -133,7 +195,8 @@ function passesCurrency(txn: RevenueTxn, currency?: Currency): boolean {
   if (!currency) return true;
   if (currency === Currency.KRW) return txn.saleKrw !== null;
   if (currency === Currency.VND) return txn.saleVnd !== null;
-  return false; // USD: 매출 원천 없음
+  if (currency === Currency.USD) return txn.saleUsd !== null;
+  return false;
 }
 
 // ===================================================================
@@ -154,14 +217,17 @@ export interface RoomRow {
   totalSaleKrw: number | null;
   totalSaleVnd: bigint | null;
   supplierCostVnd: bigint;
+  /** 예약 시점 환율 스냅샷(1 KRW = x VND). KRW 매출의 VND 환산에 사용. 없으면 폴백/환산불가 */
+  fxVndPerKrw?: string | null;
 }
 
 export function buildRoomTxn(b: RoomRow): RevenueTxn {
   // saleCurrency에 해당하는 통화 컬럼만 매출로 인정(HOLD 시점 스냅샷 규칙).
   const saleKrw = b.saleCurrency === Currency.KRW ? b.totalSaleKrw : null;
   const saleVnd = b.saleCurrency === Currency.VND ? b.totalSaleVnd : null;
-  // 원가는 항상 VND(supplierCostVnd, not null). 단 마진은 VND 매출일 때만 의미.
+  // 원가는 항상 VND(supplierCostVnd, not null).
   const costVnd = b.supplierCostVnd;
+  const { saleVndEquivalent, fxMissing } = resolveVndEquivalent(saleVnd, saleKrw, b.fxVndPerKrw);
   return {
     id: `ROOM:${b.id}`,
     date: dateOnly(b.checkOut),
@@ -173,8 +239,11 @@ export function buildRoomTxn(b: RoomRow): RevenueTxn {
     label: b.guestName,
     saleKrw,
     saleVnd,
+    saleUsd: null,
     costVnd,
-    marginVnd: computeMarginVnd(saleVnd, costVnd),
+    saleVndEquivalent,
+    marginVnd: computeMarginVnd(saleVndEquivalent, costVnd),
+    fxMissing,
   };
 }
 
@@ -193,6 +262,8 @@ export interface MinibarRow {
 export function buildMinibarTxn(l: MinibarRow): RevenueTxn {
   const saleVnd = l.lineVnd;
   const costVnd = l.lineCostVnd;
+  // 미니바는 항상 VND → 환산값 = 원본, fxMissing 없음.
+  const saleVndEquivalent = saleVnd;
   return {
     id: `MINIBAR:${l.id}`,
     date: dateOnly(l.checkOut),
@@ -204,8 +275,11 @@ export function buildMinibarTxn(l: MinibarRow): RevenueTxn {
     label: l.consumedQty > 1 ? `${l.nameKo} ×${l.consumedQty}` : l.nameKo,
     saleKrw: null,
     saleVnd,
+    saleUsd: null,
     costVnd,
-    marginVnd: computeMarginVnd(saleVnd, costVnd),
+    saleVndEquivalent,
+    marginVnd: computeMarginVnd(saleVndEquivalent, costVnd),
+    fxMissing: false,
   };
 }
 
@@ -224,6 +298,8 @@ export interface ServiceRow {
   priceKrw: number; // 라인 합계 KRW (DB 저장값 그대로)
   priceVnd: bigint | null; // 라인 합계 VND (DB 저장값 그대로), KRW 채널이면 null
   costVnd: bigint; // 라인 합계 원가 VND (DB 저장값 그대로)
+  /** 소속 예약의 환율 스냅샷(KRW 서비스 매출 VND 환산용). 없으면 폴백/환산불가 */
+  fxVndPerKrw?: string | null;
 }
 
 export function buildServiceTxn(o: ServiceRow): RevenueTxn {
@@ -231,8 +307,8 @@ export function buildServiceTxn(o: ServiceRow): RevenueTxn {
   const isVnd = o.priceVnd !== null;
   const saleVnd = isVnd ? o.priceVnd : null;
   const saleKrw = isVnd ? null : o.priceKrw;
-  // 원가는 VND. 마진은 VND 매출일 때만(KRW 매출은 marginVnd=null, ADR-0003).
   const costVnd = o.costVnd;
+  const { saleVndEquivalent, fxMissing } = resolveVndEquivalent(saleVnd, saleKrw, o.fxVndPerKrw);
   const label = o.quantity > 1 ? `${o.serviceLabel} ×${o.quantity}` : o.serviceLabel;
   return {
     id: `SERVICE:${o.id}`,
@@ -245,8 +321,11 @@ export function buildServiceTxn(o: ServiceRow): RevenueTxn {
     label,
     saleKrw,
     saleVnd,
+    saleUsd: null,
     costVnd,
-    marginVnd: computeMarginVnd(saleVnd, costVnd),
+    saleVndEquivalent,
+    marginVnd: computeMarginVnd(saleVndEquivalent, costVnd),
+    fxMissing,
   };
 }
 
@@ -265,13 +344,15 @@ export type ServiceLabeler = (type: ServiceType) => string;
  * - types 필터로 ROOM/MINIBAR/SERVICE 부분 로드(불필요 쿼리 회피).
  * - channel 필터가 지정되면 ROOM만 의미가 있으므로 MINIBAR·SERVICE는 자동 제외.
  * - currency 필터·partnerId(미니바·서비스는 파트너 귀속 없음 → ROOM만)는 후처리에서 적용.
+ * - fallbackFxVndPerKrw: KRW 매출인데 예약 스냅샷이 없을 때 쓰는 현재 환율(없으면 환산 불가).
  *
  * ★ 권한 검사는 호출부(page·route)가 끝낸 뒤 호출할 것(이 함수는 재무 데이터를 항상 반환).
  */
 export async function loadRevenueTxns(
   db: PrismaClient,
   filter: RevenueFilter,
-  serviceLabeler?: ServiceLabeler
+  serviceLabeler?: ServiceLabeler,
+  fallbackFxVndPerKrw?: string | null
 ): Promise<LoadRevenueResult> {
   const { from, to } = filter;
 
@@ -316,6 +397,7 @@ export async function loadRevenueTxns(
         totalSaleKrw: true,
         totalSaleVnd: true,
         supplierCostVnd: true,
+        fxVndPerKrw: true,
         villa: { select: { name: true } },
         partner: { select: { name: true } },
       },
@@ -335,6 +417,8 @@ export async function loadRevenueTxns(
           totalSaleKrw: b.totalSaleKrw,
           totalSaleVnd: b.totalSaleVnd,
           supplierCostVnd: b.supplierCostVnd,
+          // 예약 스냅샷 우선(Prisma Decimal → string), 없으면 현재 환율 폴백.
+          fxVndPerKrw: b.fxVndPerKrw != null ? b.fxVndPerKrw.toString() : (fallbackFxVndPerKrw ?? null),
         })
       );
     }
@@ -410,6 +494,7 @@ export async function loadRevenueTxns(
           select: {
             checkOut: true,
             villaId: true,
+            fxVndPerKrw: true,
             villa: { select: { name: true } },
           },
         },
@@ -431,6 +516,8 @@ export async function loadRevenueTxns(
           priceKrw: o.priceKrw,
           priceVnd: o.priceVnd,
           costVnd: o.costVnd,
+          fxVndPerKrw:
+            o.booking.fxVndPerKrw != null ? o.booking.fxVndPerKrw.toString() : (fallbackFxVndPerKrw ?? null),
         })
       );
     }
