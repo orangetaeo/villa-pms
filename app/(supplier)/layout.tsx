@@ -19,6 +19,9 @@ const SUPPLIER_CLIENT_NAMESPACES = [
   "tabs",
   "account",
   "pagination",
+  // 빌라 사진 관리(photo-manager)·라이트박스(photo-lightbox) 클라이언트 — 누락 시 사진 화면 라벨이 raw 키로 깨짐.
+  "photoManage",
+  "photoLightbox",
   // T10.5 — 공급자 체크인·아웃 검수 폼(클라이언트). 운영자 adminCheckin/adminCheckout과 분리된 vi 네임스페이스(누수 차단).
   "supplierCheckin",
   "supplierCheckout",
