@@ -58,6 +58,9 @@ export interface GuestRequestedOrder {
   priceVnd: string | null;
   /** 선택한 옵션 라벨(언어 해석 완료) — 예: ["90분", "발 마사지 추가"]. 없으면 빈 배열. */
   optionLabels: string[];
+  /** 희망 날짜(YYYY-MM-DD)·시간("HH:MM") — 신청 시 입력(필수). */
+  serviceDate: string | null;
+  serviceTime: string | null;
 }
 
 export interface GuestAgreementView {
