@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, resetRateLimit, clientIp } from "@/lib/rate-limit";
 import { recordSecurityEvent } from "@/lib/security-event";
+import { isPasswordSessionStale, shouldRecheckPassword } from "@/lib/session-invalidation";
 
 // 무차별 대입·크리덴셜 스터핑 방어 (T-sec-auth-ratelimit, Phase 1 보안)
 // 전화번호: 한 계정 집중 공격 차단 / IP: 한 출처에서 여러 계정 시도(스터핑) 차단
@@ -61,6 +62,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             isActive: true,
             mustChangePassword: true,
             deletedAt: true,
+            passwordChangedAt: true, // 보안 P0-5② — 세션 무효화 baseline
           },
         });
         // 소프트 삭제된 계정은 비활성과 동일하게 로그인 차단(실패와 구분 불가)
@@ -108,17 +110,50 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           role: user.role,
           locale: user.locale,
           mustChangePassword: user.mustChangePassword,
+          // 보안 P0-5② — 발급 토큰에 박을 baseline(ms). null=한 번도 안 바꿈 → 0.
+          pwdAt: user.passwordChangedAt ? user.passwordChangedAt.getTime() : 0,
         };
       },
     }),
   ],
   callbacks: {
-    jwt({ token, user }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id as string;
         token.role = user.role;
         token.locale = user.locale;
         token.mustChangePassword = user.mustChangePassword;
+        // 보안 P0-5② — 로그인 시 baseline 박기. 이후 비번이 바뀌면 이 토큰은 무효가 된다.
+        token.pwdAt = user.pwdAt ?? 0;
+        token.pwdCk = Date.now();
+        return token;
+      }
+
+      // 후속 요청 — 서버측 세션 무효화 검사 (보안 P0-5②).
+      // ⚠ DB 조회는 Node 런타임에서만. 미들웨어(edge)에서는 prisma 불가이므로 건너뛰고,
+      // 실제 무효화는 페이지/서버컴포넌트/API의 auth()(Node)가 담당한다(미들웨어는 coarse 게이트만).
+      if (token.id && process.env.NEXT_RUNTIME !== "edge") {
+        const now = Date.now();
+        if (token.pwdAt === undefined) {
+          // 그랜드파더 — 기능 도입 전 발급 토큰: 현재 baseline 채택(1회), 무효화 안 함(대량 락아웃 방지).
+          const u = await prisma.user.findUnique({
+            where: { id: token.id },
+            select: { passwordChangedAt: true },
+          });
+          token.pwdAt = u?.passwordChangedAt ? u.passwordChangedAt.getTime() : 0;
+          token.pwdCk = now;
+        } else if (shouldRecheckPassword(token.pwdCk, now)) {
+          const u = await prisma.user.findUnique({
+            where: { id: token.id },
+            select: { passwordChangedAt: true },
+          });
+          const dbMs = u?.passwordChangedAt ? u.passwordChangedAt.getTime() : null;
+          if (isPasswordSessionStale(token.pwdAt, dbMs)) {
+            // 비밀번호가 토큰 발급 이후 변경됨 → 이 세션 무효(타 디바이스 강제 로그아웃).
+            return null;
+          }
+          token.pwdCk = now;
+        }
       }
       return token;
     },

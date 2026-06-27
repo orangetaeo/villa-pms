@@ -82,7 +82,8 @@ export async function POST(req: Request) {
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: user.id },
-      data: { passwordHash, mustChangePassword: false },
+      // 비번 교체 → 세션 무효화 baseline 갱신(보안 P0-5②, 탈취 디바이스 강제 로그아웃)
+      data: { passwordHash, mustChangePassword: false, passwordChangedAt: new Date() },
     });
     // 사용한 토큰 + 그 user의 다른 미사용 토큰 모두 무효화
     await tx.passwordResetToken.updateMany({
