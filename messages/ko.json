@@ -454,7 +454,7 @@
           "amount": "금액",
           "method": "수단",
           "receivedAt": "수납일",
-          "fxRate": "수납 환율 (VND/1KRW)",
+          "fxRate": "수납 환율 (VND/1{cur})",
           "note": "비고 (선택)",
           "save": "저장",
           "saving": "저장 중...",
@@ -463,7 +463,7 @@
         "delete": "삭제",
         "confirmDelete": "이 결제 기록을 삭제할까요?",
         "addError": "결제 저장에 실패했습니다.",
-        "fxRequired": "KRW 수납은 환율 입력이 필요합니다."
+        "fxRequired": "{cur} 수납은 환율 입력이 필요합니다."
       },
       "actions": {
         "confirm": "입금 확정",

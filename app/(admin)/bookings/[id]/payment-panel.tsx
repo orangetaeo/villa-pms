@@ -6,8 +6,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
-type Currency = "KRW" | "VND";
+type Currency = "KRW" | "VND" | "USD";
 const METHODS = ["KR_BANK_TRANSFER", "VN_BANK_TRANSFER", "CASH"] as const;
+/** KRW·USD는 VND 환산 환율이 필수(VND는 환율 무의미) */
+const NEEDS_FX = (c: Currency) => c === "KRW" || c === "USD";
 
 export interface SerPayment {
   id: string;
@@ -32,7 +34,7 @@ function groupDigits(s: string): string {
   return (neg ? "-" : "") + digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 function sym(currency?: string): string {
-  return currency === "KRW" ? "원" : currency === "VND" ? "₫" : "";
+  return currency === "KRW" ? "원" : currency === "VND" ? "₫" : currency === "USD" ? "$" : "";
 }
 
 const STATUS_COLOR: Record<SerSummary["status"], string> = {
@@ -65,7 +67,11 @@ export default function PaymentPanel({
   const [currency, setCurrency] = useState<Currency>(saleCurrency);
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<string>(
-    saleCurrency === "KRW" ? "KR_BANK_TRANSFER" : "VN_BANK_TRANSFER"
+    saleCurrency === "KRW"
+      ? "KR_BANK_TRANSFER"
+      : saleCurrency === "USD"
+        ? "CASH"
+        : "VN_BANK_TRANSFER"
   );
   const [receivedAt, setReceivedAt] = useState(() =>
     new Date().toISOString().slice(0, 10)
@@ -85,8 +91,8 @@ export default function PaymentPanel({
       setError(t("addError"));
       return;
     }
-    if (currency === "KRW" && !fxRate) {
-      setError(t("fxRequired"));
+    if (NEEDS_FX(currency) && !fxRate) {
+      setError(t("fxRequired", { cur: currency }));
       return;
     }
     setBusy(true);
@@ -99,13 +105,13 @@ export default function PaymentPanel({
           amount,
           method,
           receivedAt,
-          ...(currency === "KRW" ? { fxRateToVnd: fxRate } : {}),
+          ...(NEEDS_FX(currency) ? { fxRateToVnd: fxRate } : {}),
           ...(note ? { note } : {}),
         }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        setError(body.error === "FX_REQUIRED_FOR_KRW" ? t("fxRequired") : t("addError"));
+        setError(body.error === "FX_REQUIRED_FOR_KRW" ? t("fxRequired", { cur: currency }) : t("addError"));
         return;
       }
       resetForm();
@@ -238,6 +244,7 @@ export default function PaymentPanel({
                 >
                   <option value="VND">VND ₫</option>
                   <option value="KRW">KRW 원</option>
+                  <option value="USD">USD $</option>
                 </select>
               </label>
               <label className="text-sm">
@@ -272,9 +279,9 @@ export default function PaymentPanel({
                   className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white"
                 />
               </label>
-              {currency === "KRW" && (
+              {NEEDS_FX(currency) && (
                 <label className="text-sm">
-                  <span className="block text-[11px] text-admin-muted mb-1">{t("form.fxRate")}</span>
+                  <span className="block text-[11px] text-admin-muted mb-1">{t("form.fxRate", { cur: currency })}</span>
                   <input
                     inputMode="decimal"
                     value={fxRate}

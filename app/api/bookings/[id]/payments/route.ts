@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { canViewFinance } from "@/lib/permissions";
 import { serializeBigInt } from "@/lib/serialize";
-import { krwToVndSnapshot } from "@/lib/pricing";
+import { krwToVndSnapshot, usdToVndSnapshot } from "@/lib/pricing";
 import { computeVndEquivalent, summarizeCollection } from "@/lib/payment";
 import { postCollection } from "@/lib/ledger";
 import { applyPaymentToReceivable } from "@/lib/partner-booking";
@@ -33,17 +33,23 @@ const createSchema = z.object({
   purpose: z.enum(["GUEST", "DEPOSIT", "BALANCE"]).default("GUEST"),
 });
 
-/** 견적 판매가의 VND 환산 — VND는 그대로, KRW는 예약 시점 스냅샷 환율로. 스냅샷 없으면 null */
+/** 견적 판매가의 VND 환산 — VND는 그대로, KRW·USD는 예약 시점 스냅샷 환율로. 스냅샷 없으면 null */
 function expectedVndEquivalent(b: {
   saleCurrency: Currency;
   totalSaleKrw: number | null;
   totalSaleVnd: bigint | null;
+  totalSaleUsd: number | null;
   fxVndPerKrw: { toString(): string } | null;
+  fxVndPerUsd: { toString(): string } | null;
 }): bigint | null {
   if (b.saleCurrency === Currency.VND) return b.totalSaleVnd ?? 0n;
   if (b.saleCurrency === Currency.KRW) {
     if (!b.fxVndPerKrw) return null; // 환율 미상 — 미수 산출 불가
     return krwToVndSnapshot(b.totalSaleKrw ?? 0, b.fxVndPerKrw.toString());
+  }
+  if (b.saleCurrency === Currency.USD) {
+    if (!b.fxVndPerUsd) return null; // 환율 미상 — 미수 산출 불가
+    return usdToVndSnapshot(b.totalSaleUsd ?? 0, b.fxVndPerUsd.toString());
   }
   return null;
 }
@@ -56,7 +62,9 @@ async function loadBooking(id: string) {
       saleCurrency: true,
       totalSaleKrw: true,
       totalSaleVnd: true,
+      totalSaleUsd: true,
       fxVndPerKrw: true,
+      fxVndPerUsd: true,
     },
   });
 }
@@ -141,7 +149,8 @@ export async function POST(
         currency: body.currency,
         amount: body.amount,
         method: body.method,
-        fxRateToVnd: body.currency === Currency.KRW ? body.fxRateToVnd : null,
+        // VND는 환율 무의미(null), KRW·USD는 수납 시점 환율 보존(vndEquivalent 추적용)
+        fxRateToVnd: body.currency === Currency.VND ? null : body.fxRateToVnd ?? null,
         vndEquivalent,
         receivedAt: new Date(body.receivedAt),
         note: body.note,
@@ -160,14 +169,17 @@ export async function POST(
       });
     }
     // 복식부기 LEDGER — COLLECTION 분개 (CASH_{C} +/ REVENUE −, paymentId 멱등, ADR-0018)
-    // currency는 KRW·VND만(computeVndEquivalent가 그 외 차단) → cashAccountFor 안전.
-    await postCollection(tx, {
-      paymentId: created.id,
-      currency: body.currency,
-      amount: body.amount,
-      occurredAt: created.receivedAt,
-      createdBy: session.user.id,
-    });
+    //  ★ KRW·VND만 적재 — USD는 전용 현금계정(CASH_USD)이 없어 cashAccountFor가 throw한다.
+    //    USD 수납은 LEDGER 미적재(매출·정산은 Booking.totalSaleUsd 스냅샷에서 파생) → 분개 건너뜀.
+    if (body.currency !== Currency.USD) {
+      await postCollection(tx, {
+        paymentId: created.id,
+        currency: body.currency,
+        amount: body.amount,
+        occurredAt: created.receivedAt,
+        createdBy: session.user.id,
+      });
+    }
     await writeAuditLog({
       userId: session.user.id,
       action: "CREATE",
