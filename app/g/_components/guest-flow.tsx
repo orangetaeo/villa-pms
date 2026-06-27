@@ -12,7 +12,7 @@ import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import GuestSignaturePad from "./guest-signature-pad";
 import GuestPassportStep from "./guest-passport-step";
 import { guestVndPrice, guestDateRange } from "./guest-format";
-import type { GuestFlowProps } from "./types";
+import type { GuestFlowProps, GuestBookingView } from "./types";
 
 type Step = 0 | 1 | 2 | 3 | 4; // 0=G1 예약, 1=G2 비품, 2=G3 동의, 3=G4 여권, 4=G5 완료
 const STEP_KEYS = ["amenities", "agreement", "passport", "done"] as const;
@@ -383,6 +383,7 @@ export default function GuestFlow(props: GuestFlowProps) {
           lang={lang}
           signed={signed}
           signedVersion={signedVersion}
+          booking={booking}
         />
       )}
 
@@ -410,6 +411,30 @@ function StickyBar({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** 와이파이 SSID·비번 복사 버튼 — 클립보드 API(미지원 시 조용히 무시). */
+function CopyButton({ value, copyLabel, copiedLabel }: { value: string; copyLabel: string; copiedLabel: string }) {
+  const [copied, setCopied] = useState(false);
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* 클립보드 미지원 — 무시(텍스트는 그대로 보임) */
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={onCopy}
+      className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-teal-600 active:scale-95"
+    >
+      <span className="material-symbols-outlined text-[15px]">{copied ? "check" : "content_copy"}</span>
+      {copied ? copiedLabel : copyLabel}
+    </button>
+  );
+}
+
 function headerTitle(step: Step, L: (typeof GUEST_LABELS)[PublicLang]): string {
   switch (step) {
     case 0: return L.brandTagline;
@@ -433,11 +458,13 @@ function ResultScreen({
   lang,
   signed,
   signedVersion,
+  booking,
 }: {
   token: string;
   lang: PublicLang;
   signed: boolean;
   signedVersion: string | null;
+  booking: GuestBookingView;
 }) {
   const L = GUEST_LABELS[lang];
   // 부가 옵션은 신청 내역 허브(/orders)로 진입 — 거기서 요청 확인 + "부가 옵션 신청" 버튼으로 신청 폼(/options)으로.
@@ -468,6 +495,69 @@ function ResultScreen({
               <p className="text-[11px] text-slate-400">{L.result.agreementDoneAt(signedVersion)}</p>
             )}
           </div>
+        </section>
+      )}
+
+      {/* 출입 정보(A1) — 주소·지도·와이파이. 비번은 서명 완료(signed) 후에만. */}
+      {(booking.address || booking.wifiSsid) && (
+        <section className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+          <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <span className="material-symbols-outlined text-teal-600 text-[20px]">key</span>
+            {L.access.title}
+          </h3>
+
+          {booking.address && (
+            <div className="space-y-1.5">
+              <div className="flex items-start gap-3">
+                <span className="material-symbols-outlined text-slate-400 text-[20px] mt-0.5">location_on</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-semibold text-slate-400">{L.access.addressLabel}</p>
+                  <p className="text-sm text-slate-700 leading-relaxed break-words">{booking.address}</p>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(booking.address)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 mt-1.5 text-sm font-semibold text-teal-600 active:scale-95"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">map</span>
+                    {L.access.mapLink}
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {booking.wifiSsid && (
+            <div className="flex items-start gap-3 border-t border-slate-100 pt-4">
+              <span className="material-symbols-outlined text-slate-400 text-[20px] mt-0.5">wifi</span>
+              <div className="min-w-0 flex-1 space-y-2.5">
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-400">{L.access.wifiSsidLabel}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-slate-800 break-all">{booking.wifiSsid}</p>
+                    <CopyButton value={booking.wifiSsid} copyLabel={L.access.copy} copiedLabel={L.access.copied} />
+                  </div>
+                </div>
+                {/* 비번은 동의서 서명 후에만 노출 */}
+                {signed ? (
+                  booking.wifiPassword && (
+                    <div>
+                      <p className="text-[11px] font-semibold text-slate-400">{L.access.wifiPwLabel}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-slate-900 tabular-nums break-all">{booking.wifiPassword}</p>
+                        <CopyButton value={booking.wifiPassword} copyLabel={L.access.copy} copiedLabel={L.access.copied} />
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
+                    <span className="material-symbols-outlined text-slate-400 text-[16px]">lock</span>
+                    <p className="text-[11px] text-slate-500">{L.access.wifiLocked}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </section>
       )}
 

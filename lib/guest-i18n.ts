@@ -126,6 +126,31 @@ export interface GuestLabels {
     openOptionsCta: string; // "부가 옵션 신청하기" — 옵션 페이지로 이동
     optionsHint: string; // 옵션 버튼 보조 문구
   };
+  // 출입 정보(A1) — G5 완료화면 카드. wifi 비번은 서명 후에만 노출.
+  access: {
+    title: string; // "출입 정보"
+    addressLabel: string; // "주소"
+    mapLink: string; // "지도에서 보기"
+    wifiTitle: string; // "와이파이"
+    wifiSsidLabel: string; // "네트워크"
+    wifiPwLabel: string; // "비밀번호"
+    copy: string; // "복사"
+    copied: string; // "복사됨"
+    wifiLocked: string; // "동의서 작성 후 표시됩니다"
+  };
+  // 체크아웃 정산 미리보기(A2) — /orders 합계 섹션 + 셀프 취소(A3)
+  checkout: {
+    summaryTitle: string; // "신청 합계"
+    pendingLabel: string; // "확정 대기"
+    confirmedLabel: string; // "확정"
+    pendingTotal: string; // "확정 대기 합계"
+    confirmedTotal: string; // "확정 합계"
+    grandTotal: string; // "신청 합계"
+    cancel: string; // "취소"
+    cancelling: string; // "취소 중…"
+    cancelConfirm: string; // "이 신청을 취소하시겠습니까?"
+    cancelError: string; // 취소 실패 안내
+  };
   footerNote: string;
 }
 
@@ -249,6 +274,29 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       openOptionsCta: "부가 옵션 신청하기",
       optionsHint: "BBQ·마사지·차량 등 투숙 중 필요한 서비스를 신청하실 수 있습니다.",
     },
+    access: {
+      title: "출입 정보",
+      addressLabel: "주소",
+      mapLink: "지도에서 보기",
+      wifiTitle: "와이파이",
+      wifiSsidLabel: "네트워크",
+      wifiPwLabel: "비밀번호",
+      copy: "복사",
+      copied: "복사됨",
+      wifiLocked: "동의서 작성 후 표시됩니다.",
+    },
+    checkout: {
+      summaryTitle: "신청 합계",
+      pendingLabel: "확정 대기",
+      confirmedLabel: "확정",
+      pendingTotal: "확정 대기 합계",
+      confirmedTotal: "확정 합계",
+      grandTotal: "신청 합계",
+      cancel: "취소",
+      cancelling: "취소 중…",
+      cancelConfirm: "이 신청을 취소하시겠습니까?",
+      cancelError: "취소 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.",
+    },
     footerNote: "문의사항은 예약하신 여행사로 연락해 주세요.",
   },
 
@@ -362,6 +410,29 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       finishCta: "Done",
       openOptionsCta: "Request add-on options",
       optionsHint: "Request services you may need during your stay, such as BBQ, massage, or a car.",
+    },
+    access: {
+      title: "Access info",
+      addressLabel: "Address",
+      mapLink: "Open in maps",
+      wifiTitle: "Wi-Fi",
+      wifiSsidLabel: "Network",
+      wifiPwLabel: "Password",
+      copy: "Copy",
+      copied: "Copied",
+      wifiLocked: "Shown after you sign the agreement.",
+    },
+    checkout: {
+      summaryTitle: "Request total",
+      pendingLabel: "Pending",
+      confirmedLabel: "Confirmed",
+      pendingTotal: "Pending total",
+      confirmedTotal: "Confirmed total",
+      grandTotal: "Request total",
+      cancel: "Cancel",
+      cancelling: "Cancelling…",
+      cancelConfirm: "Cancel this request?",
+      cancelError: "Could not cancel. Please try again shortly.",
     },
     footerNote: "For inquiries, please contact your travel agency.",
   },
@@ -477,6 +548,29 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       openOptionsCta: "Запросить доп. опции",
       optionsHint: "Запросите услуги, которые могут понадобиться во время проживания: барбекю, массаж, авто.",
     },
+    access: {
+      title: "Информация о доступе",
+      addressLabel: "Адрес",
+      mapLink: "Открыть на карте",
+      wifiTitle: "Wi-Fi",
+      wifiSsidLabel: "Сеть",
+      wifiPwLabel: "Пароль",
+      copy: "Копировать",
+      copied: "Скопировано",
+      wifiLocked: "Отобразится после подписания соглашения.",
+    },
+    checkout: {
+      summaryTitle: "Итог по запросам",
+      pendingLabel: "Ожидает",
+      confirmedLabel: "Подтверждено",
+      pendingTotal: "Итог ожидающих",
+      confirmedTotal: "Итог подтверждённых",
+      grandTotal: "Итог по запросам",
+      cancel: "Отменить",
+      cancelling: "Отмена…",
+      cancelConfirm: "Отменить этот запрос?",
+      cancelError: "Не удалось отменить. Повторите попытку позже.",
+    },
     footerNote: "По вопросам обращайтесь в ваше турагентство.",
   },
 
@@ -591,6 +685,29 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       openOptionsCta: "申请附加选项",
       optionsHint: "可申请入住期间所需服务，如烧烤、按摩、用车等。",
     },
+    access: {
+      title: "出入信息",
+      addressLabel: "地址",
+      mapLink: "在地图中查看",
+      wifiTitle: "Wi-Fi",
+      wifiSsidLabel: "网络名称",
+      wifiPwLabel: "密码",
+      copy: "复制",
+      copied: "已复制",
+      wifiLocked: "签署同意书后显示。",
+    },
+    checkout: {
+      summaryTitle: "申请合计",
+      pendingLabel: "待确认",
+      confirmedLabel: "已确定",
+      pendingTotal: "待确认合计",
+      confirmedTotal: "已确定合计",
+      grandTotal: "申请合计",
+      cancel: "取消",
+      cancelling: "取消中…",
+      cancelConfirm: "确定取消此申请吗？",
+      cancelError: "取消失败，请稍后再试。",
+    },
     footerNote: "如有疑问，请联系您预订的旅行社。",
   },
 
@@ -704,6 +821,29 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       finishCta: "Xác nhận",
       openOptionsCta: "Yêu cầu tùy chọn bổ sung",
       optionsHint: "Yêu cầu dịch vụ cần trong thời gian lưu trú như BBQ, massage, thuê xe.",
+    },
+    access: {
+      title: "Thông tin ra vào",
+      addressLabel: "Địa chỉ",
+      mapLink: "Mở trên bản đồ",
+      wifiTitle: "Wi-Fi",
+      wifiSsidLabel: "Tên mạng",
+      wifiPwLabel: "Mật khẩu",
+      copy: "Sao chép",
+      copied: "Đã sao chép",
+      wifiLocked: "Hiển thị sau khi bạn ký bản đồng ý.",
+    },
+    checkout: {
+      summaryTitle: "Tổng yêu cầu",
+      pendingLabel: "Chờ xác nhận",
+      confirmedLabel: "Đã xác nhận",
+      pendingTotal: "Tổng chờ xác nhận",
+      confirmedTotal: "Tổng đã xác nhận",
+      grandTotal: "Tổng yêu cầu",
+      cancel: "Hủy",
+      cancelling: "Đang hủy…",
+      cancelConfirm: "Hủy yêu cầu này?",
+      cancelError: "Không thể hủy. Vui lòng thử lại sau.",
     },
     footerNote: "Mọi thắc mắc vui lòng liên hệ công ty du lịch của bạn.",
   },

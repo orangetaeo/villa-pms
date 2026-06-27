@@ -53,6 +53,10 @@ export interface GuestCheckinData {
     nights: number;
     guestCount: number;
     breakfastIncluded: boolean;
+    // ── 출입 정보(A1) — 게스트 토큰 로더 전용. /p 공개페이지엔 절대 미노출(원칙2). ──
+    address: string | null; // 주소(있을 때만 지도 링크 생성)
+    wifiSsid: string | null; // 와이파이 이름
+    wifiPassword: string | null; // ⚠ 와이파이 비번 — FE는 동의서 서명(signed) 후에만 표시
   } | null;
   amenities: { category: string; itemKey: string; customLabel: string | null }[];
   minibar: GuestMinibarLine[];
@@ -125,7 +129,8 @@ export async function loadGuestCheckin(
       nights: true,
       guestCount: true,
       breakfastIncluded: true,
-      villa: { select: { name: true, complex: true, hasPool: true } },
+      // ★ wifiSsid·wifiPassword·address는 게스트 체크인 화면 전용(출입정보 A1). /p엔 절대 미포함.
+      villa: { select: { name: true, complex: true, hasPool: true, address: true, wifiSsid: true, wifiPassword: true } },
     },
   });
   if (!booking) return null;
@@ -187,6 +192,9 @@ export async function loadGuestCheckin(
       nights: booking.nights,
       guestCount: booking.guestCount,
       breakfastIncluded: booking.breakfastIncluded,
+      address: booking.villa.address,
+      wifiSsid: booking.villa.wifiSsid,
+      wifiPassword: booking.villa.wifiPassword,
     },
     amenities: amenityRows,
     minibar,

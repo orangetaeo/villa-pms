@@ -604,8 +604,14 @@
         "actions": {
           "CREATE": "Tạo đặt phòng",
           "UPDATE": "Cập nhật",
-          "DELETE": "Xóa"
+          "DELETE": "Xóa",
+          "GUEST_PAYMENT_NOTICE": "Khách báo đã thanh toán"
         }
+      },
+      "paymentNotice": {
+        "title": "Khách đã báo thanh toán",
+        "withName": "Người chuyển “{name}” · báo lúc {at}. Hãy đối chiếu sao kê ngân hàng trước khi xác nhận thanh toán.",
+        "noName": "Báo lúc {at}. Hãy đối chiếu sao kê ngân hàng trước khi xác nhận thanh toán."
       },
       "memo": {
         "title": "Ghi chú nội bộ",
