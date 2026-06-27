@@ -12,6 +12,7 @@ import {
 } from "@/lib/service-catalog";
 import { GUEST_LABELS } from "@/lib/guest-i18n";
 import type { PublicLang } from "@/lib/public-i18n";
+import { PublicLangSelector } from "@/components/public-lang-selector";
 import { formatConverted } from "@/lib/fx-rates";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import { OptionCard, type CardSelection } from "./option-card";
@@ -158,15 +159,15 @@ export default function GuestOptions(props: GuestOptionsProps) {
             <span className="material-symbols-outlined text-slate-600">arrow_back</span>
           </a>
           <h1 className="font-bold text-base text-slate-900">{L.addons.title}</h1>
-          <span className="ml-auto flex items-center gap-1 pr-1">
+          <span className="ml-auto flex items-center gap-2 pr-0.5">
             <VillaGoMark className="h-5 w-auto" />
             <VillaGoWordmark className="text-sm" villa="text-slate-900" go="text-teal-600" />
+            <PublicLangSelector current={lang} />
           </span>
         </div>
       </header>
 
       <main className="flex-grow px-4 py-5 space-y-4 pb-40">
-        <LangChips current={lang} />
         <p className="text-sm text-slate-500 leading-relaxed">{L.addons.pageIntro}</p>
 
         <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex gap-3">
@@ -278,38 +279,3 @@ function typeBadgeLabel(type: string): string {
   return map[type] ?? type;
 }
 
-/** 언어 칩 — 선택 시 ?lang= 갱신해 서버 재렌더(카탈로그 이름·설명·옵션 라벨 pickI18n 전환). */
-function LangChips({ current }: { current: PublicLang }) {
-  const chips: { lang: PublicLang; label: string }[] = [
-    { lang: "ko", label: "한국어" },
-    { lang: "vi", label: "Tiếng Việt" },
-    { lang: "en", label: "English" },
-    { lang: "zh", label: "中文" },
-    { lang: "ru", label: "Русский" },
-  ];
-  const go = (lang: PublicLang) => {
-    if (typeof window === "undefined" || lang === current) return;
-    document.cookie = `p-locale=${lang}; path=/; max-age=31536000; samesite=lax`;
-    const url = new URL(window.location.href);
-    url.searchParams.set("lang", lang);
-    window.location.href = url.toString();
-  };
-  return (
-    <div className="flex flex-wrap gap-2">
-      {chips.map((c) => (
-        <button
-          key={c.lang}
-          type="button"
-          onClick={() => go(c.lang)}
-          className={`text-xs rounded-full px-3 py-1.5 ${
-            c.lang === current
-              ? "font-bold bg-teal-600 text-white"
-              : "font-medium bg-slate-50 border border-slate-200 text-slate-600"
-          }`}
-        >
-          {c.label}
-        </button>
-      ))}
-    </div>
-  );
-}

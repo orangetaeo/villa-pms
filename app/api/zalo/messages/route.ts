@@ -38,6 +38,9 @@ const bodySchema = z.object({
   mentions: z
     .array(z.object({ pos: z.number().int().min(0), uid: z.string().min(1), len: z.number().int().min(1) }))
     .optional(),
+  // W1 최적화 — 입력창 미리보기(/api/zalo/translate)에서 이미 번역된 결과를 그대로 재사용해
+  //   같은 텍스트 Gemini 재번역(발송당 2회→1회) 생략. 클라가 "현재 입력=미리보기 대상"일 때만 전송.
+  clientTranslated: z.string().trim().min(1).max(8000).optional(),
 });
 
 // GET /api/zalo/messages?conversationId&before&limit — ADMIN 이전 메시지 점진 로드(prepend).
@@ -183,7 +186,7 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
-  const { conversationId, text, quotedMessageId, mentions } = parsed.data;
+  const { conversationId, text, quotedMessageId, mentions, clientTranslated } = parsed.data;
 
   // 소유 검증 — 본인(ownerAdminId) 대화에만 발신 (ADR-0007 D3.4, 타 관리자 대화 발신 차단).
   const conversation = await prisma.zaloConversation.findFirst({
@@ -278,18 +281,27 @@ export async function POST(req: Request) {
   let translatedText: string | null = null; // 발송된 번역문(기록·OutboundBubble 표시)
   const target = previewTargetForMode(conversation.translateMode);
   if (target) {
-    try {
-      const translated = (await translateText(text, target)).trim();
-      if (translated) {
-        outboundText = translated;
-        translatedText = translated;
+    // W1: 운영자가 입력창 미리보기에서 확인·승인한 번역문(clientTranslated)이 오면 재번역 생략.
+    //   ADMIN 본인이 미리보기로 본 값이라 신뢰(미발송 위험 없음). 미제공(미리보기 OFF·입력 변경·
+    //   번역 진행 중)이면 기존대로 서버에서 1회 번역.
+    const reuse = clientTranslated?.trim();
+    if (reuse) {
+      outboundText = reuse;
+      translatedText = reuse;
+    } else {
+      try {
+        const translated = (await translateText(text, target)).trim();
+        if (translated) {
+          outboundText = translated;
+          translatedText = translated;
+        }
+      } catch (err) {
+        if (err instanceof GeminiNotConfiguredError) {
+          return NextResponse.json({ error: "TRANSLATE_NOT_CONFIGURED" }, { status: 503 });
+        }
+        // 상태 코드만 — 본문 에코 방지(QA 권고). 한국어 오발송 방지 위해 미발송.
+        return NextResponse.json({ error: "TRANSLATE_FAILED" }, { status: 502 });
       }
-    } catch (err) {
-      if (err instanceof GeminiNotConfiguredError) {
-        return NextResponse.json({ error: "TRANSLATE_NOT_CONFIGURED" }, { status: 503 });
-      }
-      // 상태 코드만 — 본문 에코 방지(QA 권고). 한국어 오발송 방지 위해 미발송.
-      return NextResponse.json({ error: "TRANSLATE_FAILED" }, { status: 502 });
     }
   }
 
