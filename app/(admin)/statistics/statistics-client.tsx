@@ -5,6 +5,7 @@
 //   금액 게이트는 서버(page.tsx)에서 끝났고, 여기선 "받은 것만" 렌더한다(누수 가드 보조).
 
 import { useCallback, useMemo, useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type {
@@ -26,14 +27,40 @@ export interface StatsPeriodMeta {
 }
 import { formatThousands } from "@/lib/format";
 import KpiCard from "@/components/admin/statistics/kpi-card";
-import RevenueChart from "@/components/admin/statistics/revenue-chart";
-import ChannelDonut from "@/components/admin/statistics/channel-donut";
-import OccupancyLine from "@/components/admin/statistics/occupancy-line";
 import VillaRankTable from "@/components/admin/statistics/villa-rank-table";
-import Funnel from "@/components/admin/statistics/funnel";
 import DateRangeFilter from "@/components/admin/statistics/date-range-filter";
-import MinibarChart from "@/components/admin/statistics/minibar-chart";
-import ServiceChart from "@/components/admin/statistics/service-chart";
+
+// 차트 6종은 recharts(~150KB) 의존 — 코드 스플리팅(next/dynamic, ssr:false)으로 해당 탭을 열 때만 로드.
+// 통계 초기 진입/타 탭에서는 recharts 청크를 내려받지 않아 모바일 첫 로딩이 빨라짐(perf).
+const chartLoading = () => (
+  <div className="flex h-64 w-full items-center justify-center rounded-xl bg-slate-800/40 text-sm text-slate-400">
+    …
+  </div>
+);
+const RevenueChart = dynamic(() => import("@/components/admin/statistics/revenue-chart"), {
+  ssr: false,
+  loading: chartLoading,
+});
+const ChannelDonut = dynamic(() => import("@/components/admin/statistics/channel-donut"), {
+  ssr: false,
+  loading: chartLoading,
+});
+const OccupancyLine = dynamic(() => import("@/components/admin/statistics/occupancy-line"), {
+  ssr: false,
+  loading: chartLoading,
+});
+const Funnel = dynamic(() => import("@/components/admin/statistics/funnel"), {
+  ssr: false,
+  loading: chartLoading,
+});
+const MinibarChart = dynamic(() => import("@/components/admin/statistics/minibar-chart"), {
+  ssr: false,
+  loading: chartLoading,
+});
+const ServiceChart = dynamic(() => import("@/components/admin/statistics/service-chart"), {
+  ssr: false,
+  loading: chartLoading,
+});
 
 export type TabKey = "overview" | "occupancy" | "villas" | "operations" | "ancillary";
 

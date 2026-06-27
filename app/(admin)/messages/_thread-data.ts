@@ -120,12 +120,9 @@ export async function getInboxData(
       // 인박스 미리보기 비정규화(perf) — 대화별 messages take1 서브쿼리 제거.
       lastMessageText: true,
       lastMessageType: true,
-      user: {
-        select: {
-          name: true,
-          villas: { select: { name: true }, take: 1, orderBy: { createdAt: "asc" } },
-        },
-      },
+      // 표시명만 필요(displayNameOf=user.name). villas 서브쿼리는 인박스에서 미사용이라
+      // 제거(대화 N개마다 take1 상관 서브쿼리가 돌던 N+1 제거 — perf). villaName은 스레드 헤더 전용.
+      user: { select: { name: true } },
     },
   });
 

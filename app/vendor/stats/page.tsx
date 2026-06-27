@@ -12,7 +12,8 @@ import { todayVnDateString } from "@/lib/date-vn";
 import { resolveStatsPeriod } from "@/lib/statistics";
 import { getVendorIdForUser } from "@/lib/vendor-auth";
 import { loadVendorStats } from "@/lib/vendor-stats";
-import RevenueBar from "@/components/supplier/stats/revenue-bar";
+// 차트는 recharts 의존 → lazy 래퍼로 코드 스플리팅(perf).
+import { RevenueBar } from "@/components/supplier/stats/charts-lazy";
 
 export const metadata: Metadata = {
   title: "Thống kê — Villa Go",
