@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import ResponsiveTable, { type ResponsiveColumn } from "@/components/admin/responsive-table";
+import PaginationBar from "@/components/pagination-bar";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { formatVnd, formatThousands } from "@/lib/format";
 import PartnerForm, { type PartnerFormValues } from "../partner-form";
 import PartnerInvoicesTab from "./partner-invoices-tab";
@@ -85,6 +87,24 @@ export default function PartnerDetailView({
   const [tab, setTab] = useState<"overview" | "invoices">("overview");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 미수 채권 목록 페이지네이션 — 채권이 많아도 한 페이지만 렌더. (controlled, 다크)
+  const [rcvPage, setRcvPage] = useState(1);
+  const [rcvPageSize, setRcvPageSize] = useState(DEFAULT_PAGE_SIZE);
+  useEffect(() => setRcvPage(1), [detail.receivables]);
+  const pagedReceivables = useMemo(
+    () => detail.receivables.slice((rcvPage - 1) * rcvPageSize, rcvPage * rcvPageSize),
+    [detail.receivables, rcvPage, rcvPageSize]
+  );
+
+  // 예약 이력 목록 페이지네이션 — 예약이 많아도 한 페이지만 렌더.
+  const [bkPage, setBkPage] = useState(1);
+  const [bkPageSize, setBkPageSize] = useState(DEFAULT_PAGE_SIZE);
+  useEffect(() => setBkPage(1), [detail.bookings]);
+  const pagedBookings = useMemo(
+    () => detail.bookings.slice((bkPage - 1) * bkPageSize, bkPage * bkPageSize),
+    [detail.bookings, bkPage, bkPageSize]
+  );
 
   const initial: PartnerFormValues = {
     type: p.type,
@@ -359,9 +379,19 @@ export default function PartnerDetailView({
             <h3 className="mb-2 text-sm font-bold text-white">{t("receivablesTitle")}</h3>
             <ResponsiveTable
               columns={receivableCols}
-              rows={detail.receivables}
+              rows={pagedReceivables}
               rowKey={(r) => r.id}
               emptyMessage={t("noReceivables")}
+            />
+            <PaginationBar
+              total={detail.receivables.length}
+              page={rcvPage}
+              pageSize={rcvPageSize}
+              onPageChange={setRcvPage}
+              onPageSizeChange={(s) => {
+                setRcvPageSize(s);
+                setRcvPage(1);
+              }}
             />
           </section>
 
@@ -372,9 +402,19 @@ export default function PartnerDetailView({
             </h3>
             <ResponsiveTable
               columns={bookingCols}
-              rows={detail.bookings}
+              rows={pagedBookings}
               rowKey={(r) => r.id}
               emptyMessage={t("noBookings")}
+            />
+            <PaginationBar
+              total={detail.bookings.length}
+              page={bkPage}
+              pageSize={bkPageSize}
+              onPageChange={setBkPage}
+              onPageSizeChange={(s) => {
+                setBkPageSize(s);
+                setBkPage(1);
+              }}
             />
           </section>
             </>

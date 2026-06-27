@@ -61,9 +61,12 @@ export default function KpiCard({
           </span>
         )}
       </div>
-      <div className="flex items-baseline gap-1">
-        <span className="text-3xl font-bold text-white tabular-nums">{value}</span>
-        {unit && <span className="text-sm text-admin-muted">{unit}</span>}
+      {/* 큰 금액(VND 10자리+)이 좁은 모바일 카드를 넘치지 않도록 폰트 반응형 + 줄바꿈 허용(숫자 잘림 방지) */}
+      <div className="flex items-baseline gap-1 min-w-0">
+        <span className="text-2xl sm:text-3xl font-bold text-white tabular-nums tracking-tight break-words min-w-0">
+          {value}
+        </span>
+        {unit && <span className="text-sm text-admin-muted shrink-0">{unit}</span>}
       </div>
       {hasChange && (
         <div className="mt-2 flex items-center gap-1 text-xs">

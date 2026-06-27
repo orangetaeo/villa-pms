@@ -385,7 +385,8 @@ export default function RevenueClient(props: Props) {
       </div>
 
       {/* 요약 — 통합 환산 매출(≈VND) + 환산 후 마진 + 건수 (검색 전 서버 필터 기준) */}
-      <div className="mt-4 grid grid-cols-2 lg:grid-cols-3 gap-3">
+      {/* 모바일은 1열(큰 금액 잘림 방지), sm부터 2열·lg 3열 */}
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard
           label={t("summary.integratedRevenue")}
           value={formatThousands(props.totals.integratedRevenueVnd)}
@@ -421,7 +422,8 @@ export default function RevenueClient(props: Props) {
       {/* 원본 통화별 매출 병기 — 환전 전 실제 수령 통화(KRW·VND·USD) */}
       <div className="mt-3">
         <p className="mb-1.5 text-[11px] font-medium text-slate-500">{t("summary.byCurrency")}</p>
-        <div className="grid grid-cols-3 gap-3">
+        {/* 모바일은 1열(VND 10자리+ 잘림 방지), sm부터 3열 */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <KpiCard
             label={t("summary.saleKrw")}
             value={props.totals.saleKrw > 0 ? formatThousands(props.totals.saleKrw) : "—"}

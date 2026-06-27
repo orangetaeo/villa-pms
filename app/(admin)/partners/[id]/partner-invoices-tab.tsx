@@ -2,9 +2,11 @@
 
 // 파트너 마감 청구서 탭 (PARTNER-3b-UI) — ADMIN(canViewFinance) 전용 페이지에서만 렌더.
 // 생성·발행·수납·무효·PDF·Zalo 발송. 한도·마진 미표시(누수 가드).
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { formatVnd } from "@/lib/format";
+import PaginationBar from "@/components/pagination-bar";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 interface InvoiceRow {
   id: string;
@@ -53,6 +55,15 @@ export default function PartnerInvoicesTab({ partnerId }: { partnerId: string })
   // 수납 내역(정정용) — 펼친 청구서 id + 그 결제 목록
   const [expanded, setExpanded] = useState<string | null>(null);
   const [payments, setPayments] = useState<PaymentRow[]>([]);
+
+  // 청구서 목록 페이지네이션 — 누적되어 길어지므로 한 페이지만 렌더. 목록 변경 시 1페이지로.
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  useEffect(() => setPage(1), [invoices]);
+  const pagedInvoices = useMemo(
+    () => invoices.slice((page - 1) * pageSize, page * pageSize),
+    [invoices, page, pageSize]
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -280,7 +291,7 @@ export default function PartnerInvoicesTab({ partnerId }: { partnerId: string })
         <p className="py-8 text-center text-sm text-slate-500">{t("empty")}</p>
       ) : (
         <ul className="flex flex-col gap-3">
-          {invoices.map((inv) => {
+          {pagedInvoices.map((inv) => {
             const outstanding = BigInt(inv.totalVnd) - BigInt(inv.paidVnd);
             const canIssue = inv.status === "DRAFT";
             const canVoid = inv.status !== "PAID" && inv.status !== "VOID";
@@ -389,6 +400,20 @@ export default function PartnerInvoicesTab({ partnerId }: { partnerId: string })
             );
           })}
         </ul>
+      )}
+
+      {/* 페이지네이션 (다크) — 전체 청구서 수 기준. 로딩·빈 상태에선 숨김 */}
+      {!loading && invoices.length > 0 && (
+        <PaginationBar
+          total={invoices.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={(s) => {
+            setPageSize(s);
+            setPage(1);
+          }}
+        />
       )}
     </div>
   );

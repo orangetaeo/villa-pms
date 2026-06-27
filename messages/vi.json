@@ -3231,7 +3231,7 @@
       },
       "table": {
         "title": "Bảng xếp hạng villa",
-        "hint": "Nhấn cột để sắp xếp · chuyển thẻ ở <768px",
+        "hint": "Nhấn cột để sắp xếp",
         "name": "Tên villa",
         "complex": "Khu",
         "bookings": "Số đặt phòng",
