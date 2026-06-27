@@ -24,7 +24,7 @@ import ServiceOrdersPanel, {
   type SelectedOptionSnapshot,
 } from "./service-orders-panel";
 import { summarizeCollection } from "@/lib/payment";
-import { krwToVndSnapshot } from "@/lib/pricing";
+import { krwToVndSnapshot, usdToVndSnapshot } from "@/lib/pricing";
 import { guestTokenState } from "@/lib/guest-checkin";
 import GuestTokenCard, { type GuestTokenState } from "./guest-token-card";
 import PartnerAssignCard from "./partner-assign-card";
@@ -91,7 +91,9 @@ export default async function BookingDetailPage({
         ? {
             totalSaleKrw: true,
             totalSaleVnd: true,
+            totalSaleUsd: true,
             fxVndPerKrw: true,
+            fxVndPerUsd: true,
             // 파트너 지정·미수(ADR-0022 PARTNER-2c) — 재무 전용
             partnerId: true,
             partner: { select: { id: true, name: true } },
@@ -278,7 +280,11 @@ export default async function BookingDetailPage({
     showFinance && "totalSaleKrw" in booking
       ? booking.saleCurrency === "KRW"
         ? `${formatThousands(booking.totalSaleKrw ?? 0)}원`
-        : `${formatThousands(booking.totalSaleVnd ?? 0n)}₫`
+        : booking.saleCurrency === "USD"
+          ? `${formatThousands(
+              (booking as { totalSaleUsd?: number | null }).totalSaleUsd ?? 0
+            )}$`
+          : `${formatThousands(booking.totalSaleVnd ?? 0n)}₫`
       : null;
 
   // 수납 요약 (정산 2차 P2-1) — showFinance만. 견적 판매가 VND환산 대비 실수납.
@@ -289,16 +295,23 @@ export default async function BookingDetailPage({
           const b = booking as typeof booking & {
             totalSaleKrw: number | null;
             totalSaleVnd: bigint | null;
+            totalSaleUsd: number | null;
             fxVndPerKrw: { toString(): string } | null;
+            fxVndPerUsd: { toString(): string } | null;
           };
+          // 견적 VND 환산 — VND 그대로, KRW·USD는 예약 시점 스냅샷 환율(없으면 null=미수 산출 불가)
           const expected =
             b.saleCurrency === "VND"
               ? (b.totalSaleVnd ?? 0n)
-              : b.fxVndPerKrw
-                ? krwToVndSnapshot(b.totalSaleKrw ?? 0, b.fxVndPerKrw.toString())
-                : null;
+              : b.saleCurrency === "USD"
+                ? b.fxVndPerUsd
+                  ? usdToVndSnapshot(b.totalSaleUsd ?? 0, b.fxVndPerUsd.toString())
+                  : null
+                : b.fxVndPerKrw
+                  ? krwToVndSnapshot(b.totalSaleKrw ?? 0, b.fxVndPerKrw.toString())
+                  : null;
           const likes = b.payments.map((p) => ({
-            currency: (p as { currency: "KRW" | "VND" }).currency,
+            currency: (p as { currency: "KRW" | "VND" | "USD" }).currency,
             amount: (p as { amount: bigint }).amount,
             vndEquivalent: (p as { vndEquivalent: bigint | null }).vndEquivalent,
           }));
@@ -311,8 +324,11 @@ export default async function BookingDetailPage({
             0n
           );
           return {
-            saleCurrency: b.saleCurrency as "KRW" | "VND",
-            defaultFx: b.fxVndPerKrw ? b.fxVndPerKrw.toString() : null,
+            saleCurrency: b.saleCurrency as "KRW" | "VND" | "USD",
+            defaultFx:
+              b.saleCurrency === "USD"
+                ? (b.fxVndPerUsd ? b.fxVndPerUsd.toString() : null)
+                : (b.fxVndPerKrw ? b.fxVndPerKrw.toString() : null),
             payments: b.payments.map((p) => ({
               id: p.id,
               receivedAt: p.receivedAt.toISOString(),

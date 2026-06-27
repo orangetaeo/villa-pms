@@ -21,6 +21,8 @@ import {
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatThousands, formatVnd } from "@/lib/format";
+import { krwApproxText } from "@/lib/money-display";
+import { getFxVndPerKrw } from "@/lib/pricing";
 import { SETTLEMENT_BOOKING_STATUSES } from "@/lib/settlement";
 import {
   summarizeFinance,
@@ -411,12 +413,15 @@ export interface ChannelStat {
  * ★ channels(채널 도넛)는 **빌라 예약 기준 유지**(부가서비스·미니바 미반영).
  * ★ RevenueTrendPoint/RevenueKpi 인터페이스는 그대로(필드 추가 없음 — 값만 통합).
  */
-/** 통합 합산표의 한 행(소스별/합계) — 통화 분리(KRW·VND), VND 마진. */
+/** 통합 합산표의 한 행(소스별/합계) — 통화 분리(KRW·VND·USD), VND 마진. */
 export interface IntegratedLine {
   krwRevenue: number;
   krwRevenueText: string;
   vndRevenue: number;
   vndRevenueText: string;
+  /** USD 원본 매출(빌라 객실 USD 예약만, 부가·미니바는 0) — Phase 2 */
+  usdRevenue: number;
+  usdRevenueText: string;
   marginVnd: number;
   marginVndText: string;
 }
@@ -431,6 +436,13 @@ export interface IntegratedBreakdown {
     marginRatePct: number | null;
     /** 환율 미기록으로 환산·마진서 제외된 KRW 빌라 예약 수 */
     fxMissingCount: number;
+    /** ★통합 환산 매출(VND) = 빌라 VND환산(KRW·USD 포함) + 부가·미니바 VND. 나이키식 헤드라인 기준 */
+    vndEquivalent: number;
+    vndEquivalentText: string;
+    /** 통합 환산 매출의 원화 근사 "≈ ₩…" (환율 없으면 null) */
+    krwApproxText: string | null;
+    /** 환산 마진의 원화 근사 "≈ ₩…" (환율 없으면 null) */
+    marginKrwApproxText: string | null;
   };
 }
 
@@ -564,6 +576,9 @@ export async function loadOverviewStats(
   _now: Date = new Date(),
   db: PrismaClient = prisma
 ): Promise<OverviewStats> {
+  // 나이키식 통합 환산 매출/마진의 원화 근사 표기용 — 현재 FX_VND_PER_KRW(없으면 ≈₩ 숨김).
+  //   설정 부재·조회 실패는 ≈₩ 생략으로 degrade(통계 본체는 영향 없음).
+  const fxVndPerKrw = await getFxVndPerKrw(db).catch(() => null);
   // 추이·총계 + 직전 동기간 KPI를 위해 previous.from(있으면)까지 한 번에 조회
   const queryStart = period.previous ? period.previous.from : period.from;
 
@@ -614,6 +629,7 @@ export async function loadOverviewStats(
   function villaBlock(start: Date, end: Date): {
     krwRevenue: number;
     vndRevenue: bigint;
+    usdRevenue: number;
     marginVnd: bigint;
     /** marginRatePct 분모(VND): 빌라 환산(collectedVndEquivalent) */
     vndDenominator: bigint;
@@ -624,6 +640,7 @@ export async function loadOverviewStats(
     return {
       krwRevenue: s.collectedKrw,
       vndRevenue: s.collectedVnd,
+      usdRevenue: s.collectedUsd,
       marginVnd: s.marginVnd,
       vndDenominator: s.collectedVndEquivalent,
       fxMissingCount: s.fxMissingCount,
@@ -719,28 +736,37 @@ export async function loadOverviewStats(
   const svc = serviceContribInRange(serviceRows, period.from, period.to);
   const mb = minibarContribInRange(minibarRows, period.from, period.to);
 
-  const line = (krw: number, vnd: bigint, margin: bigint): IntegratedLine => {
+  // USD는 빌라 객실 예약에만 존재(부가·미니바는 KRW·VND뿐) → svc/mb usd=0.
+  const line = (krw: number, vnd: bigint, usd: number, margin: bigint): IntegratedLine => {
     const k = toKrwAmount(krw);
     const v = toVndAmount(vnd);
     const m = toVndAmount(margin);
     return {
       krwRevenue: k.krw, krwRevenueText: k.krwText,
       vndRevenue: v.vnd, vndRevenueText: v.vndText,
+      usdRevenue: usd, usdRevenueText: `$${formatThousands(usd)}`,
       marginVnd: m.vnd, marginVndText: m.vndText,
     };
   };
   const totalKrw = villaSummary.collectedKrw + svc.krw;
   const totalVnd = villaSummary.collectedVnd + svc.vnd + mb.vnd;
+  const totalUsd = villaSummary.collectedUsd; // USD는 빌라 객실만
   const totalMargin = villaSummary.marginVnd + svc.marginVnd + mb.marginVnd;
-  const totalDenom = villaSummary.collectedVndEquivalent + svc.vnd + mb.vnd; // 빌라 VND환산 + 부가·미니바 VND
+  const totalDenom = villaSummary.collectedVndEquivalent + svc.vnd + mb.vnd; // 빌라 VND환산(KRW·USD 포함) + 부가·미니바 VND
+  const totalDenomAmt = toVndAmount(totalDenom);
   const integrated: IntegratedBreakdown = {
-    villa: line(villaSummary.collectedKrw, villaSummary.collectedVnd, villaSummary.marginVnd),
-    services: line(svc.krw, svc.vnd, svc.marginVnd),
-    minibar: line(mb.krw, mb.vnd, mb.marginVnd),
+    villa: line(villaSummary.collectedKrw, villaSummary.collectedVnd, villaSummary.collectedUsd, villaSummary.marginVnd),
+    services: line(svc.krw, svc.vnd, 0, svc.marginVnd),
+    minibar: line(mb.krw, mb.vnd, 0, mb.marginVnd),
     total: {
-      ...line(totalKrw, totalVnd, totalMargin),
+      ...line(totalKrw, totalVnd, totalUsd, totalMargin),
       marginRatePct: totalDenom > 0n ? Math.round((Number(totalMargin) / Number(totalDenom)) * 1000) / 10 : null,
       fxMissingCount: villaSummary.fxMissingCount,
+      // ★나이키식 헤드라인: 통합 환산 매출(VND) + 원화 근사 / 환산 마진 원화 근사
+      vndEquivalent: totalDenomAmt.vnd,
+      vndEquivalentText: totalDenomAmt.vndText,
+      krwApproxText: krwApproxText(totalDenom, fxVndPerKrw),
+      marginKrwApproxText: krwApproxText(totalMargin, fxVndPerKrw),
     },
   };
 

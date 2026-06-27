@@ -22,12 +22,10 @@ function isBalanced(lines: JournalLine[]): boolean {
 }
 
 describe("cashAccountFor — 통화별 현금 계정", () => {
-  it("KRW→CASH_KRW, VND→CASH_VND", () => {
+  it("KRW→CASH_KRW, VND→CASH_VND, USD→CASH_USD", () => {
     expect(cashAccountFor(Currency.KRW)).toBe(LedgerAccount.CASH_KRW);
     expect(cashAccountFor(Currency.VND)).toBe(LedgerAccount.CASH_VND);
-  });
-  it("미지원 통화(USD)는 throw — 허위 분개 금지", () => {
-    expect(() => cashAccountFor(Currency.USD)).toThrow(/미지원 통화/);
+    expect(cashAccountFor(Currency.USD)).toBe(LedgerAccount.CASH_USD);
   });
 });
 
@@ -49,8 +47,13 @@ describe("buildCollectionLines — 수납 분개", () => {
     expect(() => buildCollectionLines(Currency.KRW, 0n)).toThrow(/양수/);
     expect(() => buildCollectionLines(Currency.VND, -1n)).toThrow(/양수/);
   });
-  it("USD 수납은 throw(현금 계정 없음)", () => {
-    expect(() => buildCollectionLines(Currency.USD, 100n)).toThrow(/미지원/);
+  it("USD 수납: CASH_USD +/ REVENUE −, USD 합 0", () => {
+    const lines = buildCollectionLines(Currency.USD, 1_500n);
+    expect(lines).toEqual([
+      { account: LedgerAccount.CASH_USD, currency: Currency.USD, amount: 1_500n },
+      { account: LedgerAccount.REVENUE, currency: Currency.USD, amount: -1_500n },
+    ]);
+    expect(isBalanced(lines)).toBe(true);
   });
 });
 
@@ -168,9 +171,11 @@ describe("summarizeLedgerBalances — 잔액 대시보드 부호 해석", () => 
   const rows: AccountBalanceRow[] = [
     { account: LedgerAccount.CASH_KRW, currency: Currency.KRW, amount: "1000000" },
     { account: LedgerAccount.CASH_VND, currency: Currency.VND, amount: "-17500000" },
+    { account: LedgerAccount.CASH_USD, currency: Currency.USD, amount: "4700" },
     { account: LedgerAccount.SUPPLIER_PAYABLE, currency: Currency.VND, amount: "-5000000" },
     { account: LedgerAccount.REVENUE, currency: Currency.KRW, amount: "-1000000" },
     { account: LedgerAccount.REVENUE, currency: Currency.VND, amount: "-3000000" },
+    { account: LedgerAccount.REVENUE, currency: Currency.USD, amount: "-4700" },
     { account: LedgerAccount.COGS, currency: Currency.VND, amount: "18000000" },
     { account: LedgerAccount.FX_GAIN_LOSS, currency: Currency.VND, amount: "-500000" },
   ];
@@ -179,9 +184,11 @@ describe("summarizeLedgerBalances — 잔액 대시보드 부호 해석", () => 
     const s = summarizeLedgerBalances(rows);
     expect(s.cashKrw).toBe("1000000"); // 보유 KRW
     expect(s.cashVnd).toBe("-17500000"); // 보유 VND(음수=지급 초과 상태 그대로 노출)
+    expect(s.cashUsd).toBe("4700"); // 보유 USD(외국 게스트 수납분)
     expect(s.supplierPayableVnd).toBe("5000000"); // 미지급 채무(−5M 대변 → +5M 갚을 돈)
     expect(s.revenueKrw).toBe("1000000"); // 매출(−1M → +1M)
     expect(s.revenueVnd).toBe("3000000");
+    expect(s.revenueUsd).toBe("4700"); // USD 매출(−4700 대변 → +4700)
     expect(s.cogsVnd).toBe("18000000"); // 원가 그대로
     expect(s.fxGainLossVnd).toBe("500000"); // 환차 순이익(−0.5M 대변 → +0.5M 이익)
   });
@@ -191,9 +198,11 @@ describe("summarizeLedgerBalances — 잔액 대시보드 부호 해석", () => 
     expect(s).toEqual({
       cashKrw: "0",
       cashVnd: "0",
+      cashUsd: "0",
       supplierPayableVnd: "0",
       revenueKrw: "0",
       revenueVnd: "0",
+      revenueUsd: "0",
       cogsVnd: "0",
       fxGainLossVnd: "0",
     });

@@ -154,6 +154,47 @@ export default function StatisticsClient(props: StatisticsProps) {
   );
 }
 
+// ── 헤드라인 카드 — VND 환산을 크게, 그 아래 ≈₩원화 근사(나이키식). 원본 통화는 작게 병기. ──
+function HeadlineCard({
+  label,
+  icon,
+  iconClassName,
+  vndText,
+  krwApproxText,
+  byCurrency,
+  rightBadge,
+  note,
+}: {
+  label: string;
+  icon: string;
+  iconClassName: string;
+  vndText: string;
+  krwApproxText: string | null;
+  byCurrency?: string;
+  rightBadge?: string;
+  note?: string;
+}) {
+  return (
+    <div className="bg-admin-card rounded-xl border border-slate-700/50 p-5">
+      <div className="flex justify-between items-start mb-1">
+        <span className="text-xs font-medium text-admin-muted uppercase tracking-wider">{label}</span>
+        <div className="flex items-center gap-2">
+          {rightBadge && (
+            <span className="text-[11px] font-medium text-indigo-300">{rightBadge}</span>
+          )}
+          <span className={`material-symbols-outlined ${iconClassName}`}>{icon}</span>
+        </div>
+      </div>
+      <p className="text-3xl font-black text-white tabular-nums leading-tight">{vndText}</p>
+      {krwApproxText && (
+        <p className="mt-0.5 text-sm font-medium text-slate-400 tabular-nums">{krwApproxText}</p>
+      )}
+      {byCurrency && <p className="mt-2 text-[11px] text-slate-500 tabular-nums">{byCurrency}</p>}
+      {note && <p className="mt-1 text-[10px] text-slate-600">{note}</p>}
+    </div>
+  );
+}
+
 // ── 탭1. 개요 ────────────────────────────────────────────────
 // KPI·매출추이는 빌라+부가서비스+미니바 합산 총계(BE가 loadOverviewStats에서 통합).
 // 통화 분리(KRW·VND)는 그대로 유지. 미니바·부가서비스 상세는 ancillary 탭으로 분리됨.
@@ -172,6 +213,32 @@ function OverviewTab({ data }: { data: OverviewStats }) {
         {fxMissing > 0 && (
           <span className="pl-6">{t("overview.fxMissingNote", { count: fxMissing })}</span>
         )}
+      </div>
+
+      {/* ★ 헤드라인 — 통합 환산 매출/마진(VND 크게 + ≈₩원화 작게 + 원본 통화 병기). 빌라+부가+미니바 합산. */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <HeadlineCard
+          label={t("overview.headline.revenue")}
+          icon="payments"
+          iconClassName="text-admin-vnd"
+          vndText={data.integrated.total.vndEquivalentText}
+          krwApproxText={data.integrated.total.krwApproxText}
+          byCurrency={`KRW ${data.integrated.total.krwRevenueText} · VND ${data.integrated.total.vndRevenueText} · USD ${data.integrated.total.usdRevenueText}`}
+          note={t("overview.headline.revenueNote")}
+        />
+        <HeadlineCard
+          label={t("overview.headline.margin")}
+          icon="savings"
+          iconClassName="text-amber-400"
+          vndText={data.integrated.total.marginVndText}
+          krwApproxText={data.integrated.total.marginKrwApproxText}
+          rightBadge={
+            data.integrated.total.marginRatePct != null
+              ? `${t("overview.integrated.marginRate")} ${data.integrated.total.marginRatePct}%`
+              : undefined
+          }
+          note={t("common.fxSnapshotNote")}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -297,6 +364,7 @@ function IntegratedTable({
             metrics={[
               { label: t("overview.integrated.colKrw"), value: r.line.krwRevenueText, className: "text-admin-krw" },
               { label: t("overview.integrated.colVnd"), value: r.line.vndRevenueText, className: "text-admin-vnd" },
+              { label: t("overview.integrated.colUsd"), value: r.line.usdRevenue > 0 ? r.line.usdRevenueText : "—", className: "text-emerald-300/90" },
               { label: t("overview.integrated.colMargin"), value: r.line.marginVndText, className: "text-amber-300/90" },
             ]}
           />
@@ -319,6 +387,10 @@ function IntegratedTable({
             <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-wider text-slate-500">{t("overview.integrated.colVnd")}</p>
               <p className="truncate text-sm font-bold tabular-nums text-admin-vnd">{data.total.vndRevenueText}</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">{t("overview.integrated.colUsd")}</p>
+              <p className="truncate text-sm font-bold tabular-nums text-emerald-300">{data.total.usdRevenue > 0 ? data.total.usdRevenueText : "—"}</p>
             </div>
             <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-wider text-slate-500">{t("overview.integrated.colMargin")}</p>

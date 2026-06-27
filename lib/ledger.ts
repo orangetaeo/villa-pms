@@ -7,7 +7,7 @@
 //  - 모든 금액 BigInt(통화 최소단위: KRW 원, VND 동). float 금지, 합산만.
 //  - 부호 규약: 차변 +, 대변 −. 자산·비용↑ = +, 부채·수익↑ = −.
 //  - 한 거래(LedgerTransaction)의 분개선 합은 **통화별로 0** (회계항등식). 통화 혼합 시 통화별 검증.
-//  - 지원 통화 화이트리스트(KRW·VND)만 — 그 외(USD 등)는 throw.
+//  - 지원 통화 화이트리스트(KRW·VND·USD)만 — 그 외는 throw. (USD=외국 게스트 수납 현금, Phase 2)
 import {
   Currency,
   LedgerAccount,
@@ -26,10 +26,11 @@ export interface JournalLine {
   amount: bigint;
 }
 
-/** 통화별 현금 계정 — KRW·VND만. 그 외는 throw(허위 분개 금지). */
+/** 통화별 현금 계정 — KRW·VND·USD. 그 외는 throw(허위 분개 금지). */
 export function cashAccountFor(currency: Currency): LedgerAccount {
   if (currency === Currency.KRW) return LedgerAccount.CASH_KRW;
   if (currency === Currency.VND) return LedgerAccount.CASH_VND;
+  if (currency === Currency.USD) return LedgerAccount.CASH_USD;
   throw new RangeError(`LEDGER 미지원 통화: ${currency}`);
 }
 
@@ -389,9 +390,11 @@ export interface AccountBalanceRow {
 export interface LedgerBalanceSummary {
   cashKrw: string;
   cashVnd: string;
+  cashUsd: string; // 보유 USD 현금(외국 게스트 수납분, Phase 2)
   supplierPayableVnd: string; // 미지급 채무(양수=갚을 돈)
   revenueKrw: string;
   revenueVnd: string;
+  revenueUsd: string; // 인식 USD 매출
   cogsVnd: string;
   fxGainLossVnd: string; // 순환차손익(양수=이익)
 }
@@ -407,10 +410,12 @@ export function summarizeLedgerBalances(
   return {
     cashKrw: bal(LedgerAccount.CASH_KRW, Currency.KRW).toString(),
     cashVnd: bal(LedgerAccount.CASH_VND, Currency.VND).toString(),
+    cashUsd: bal(LedgerAccount.CASH_USD, Currency.USD).toString(),
     // 대변(−) → 양수 표기로 반전
     supplierPayableVnd: (-bal(LedgerAccount.SUPPLIER_PAYABLE, Currency.VND)).toString(),
     revenueKrw: (-bal(LedgerAccount.REVENUE, Currency.KRW)).toString(),
     revenueVnd: (-bal(LedgerAccount.REVENUE, Currency.VND)).toString(),
+    revenueUsd: (-bal(LedgerAccount.REVENUE, Currency.USD)).toString(),
     cogsVnd: bal(LedgerAccount.COGS, Currency.VND).toString(),
     fxGainLossVnd: (-bal(LedgerAccount.FX_GAIN_LOSS, Currency.VND)).toString(),
   };
