@@ -1,10 +1,12 @@
 "use client";
 
-// app/g/_components/guest-options.tsx — 부가 옵션 신청 페이지 (ADR-0019 v2 게스트 UI 개편, 별도 라우트)
-//   체크인과 독립(/g/[token]/options) — 투숙 중 언제든 접근. 카탈로그 카드 + 희망 날짜/시간(#3) + 요청 내역.
+// app/g/_components/guest-options.tsx — 부가 옵션 신청 폼 (ADR-0019 v2 게스트 UI 개편, 별도 라우트)
+//   체크인과 독립(/g/[token]/options) — 투숙 중 언제든 접근. 카탈로그 카드 + 희망 날짜/시간(#3)만.
+//   ★요청 내역은 별도 페이지(/g/[token]/orders)로 분리 — 신청 후 그쪽으로 이동(router.push). 옵션이 많아져도 확인·정산이 쉽게.
 //   ★결제통화: 가격은 항상 VND 기본 표기(VND 우선 수납). 하단 합계에만 언어 모국통화로 "오늘 환율 기준" 환산액 보조 표기(vi=없음).
 //   ★마진 비공개: 판매가만(원가·마진 0). 환산값은 표시용 근사치.
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   resolveOrderPricing,
   ServiceSelectionError,
@@ -16,10 +18,8 @@ import { PublicLangSelector } from "@/components/public-lang-selector";
 import { formatConverted } from "@/lib/fx-rates";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import { OptionCard, type CardSelection } from "./option-card";
-import { guestVnd, guestVndPrice } from "./guest-format";
-import type { GuestOptionsProps, GuestRequestedOrder } from "./types";
-
-const toVndStr = (v: bigint | null): string | null => (v == null ? null : v.toString());
+import { guestVnd } from "./guest-format";
+import type { GuestOptionsProps } from "./types";
 
 /** ISO → YYYY-MM-DD (UTC, @db.Date 자정 기준) — date input min/max용. */
 function isoToDateInput(iso: string): string {
@@ -33,6 +33,9 @@ function emptySelection(variantKey: string | null): CardSelection {
 export default function GuestOptions(props: GuestOptionsProps) {
   const { token, lang, booking, catalog, convert } = props;
   const L = GUEST_LABELS[lang];
+  const router = useRouter();
+  const suffix = lang === "ko" ? "" : `?lang=${lang}`;
+  const ordersHref = `/g/${token}/orders${suffix}`;
 
   const dateMin = isoToDateInput(booking.checkIn);
   const dateMax = isoToDateInput(booking.checkOut);
@@ -42,8 +45,6 @@ export default function GuestOptions(props: GuestOptionsProps) {
   );
   const [submitting, setSubmitting] = useState(false);
   const [ordersError, setOrdersError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  const [requestedOrders, setRequestedOrders] = useState<GuestRequestedOrder[]>(props.requestedOrders);
 
   // ── 합계 미리보기(선택 항목 VND 합산 → KRW 파생) ──
   const cardOptions = useMemo(() => {
@@ -94,7 +95,6 @@ export default function GuestOptions(props: GuestOptionsProps) {
     setSubmitting(true);
     setOrdersError(null);
     try {
-      const created: GuestRequestedOrder[] = [];
       for (const c of chosen) {
         const sel = selections[c.id];
         const res = await fetch(`/api/g/${token}/service-orders`, {
@@ -111,64 +111,20 @@ export default function GuestOptions(props: GuestOptionsProps) {
           }),
         });
         if (!res.ok) throw new Error(`HTTP_${res.status}`);
-        // 미리보기 가격으로 표시(서버 재계산과 동일해야 함) — VND가 진실원천
-        const prKrw: number | null = null; // 표시는 VND 기준 — priceKrw 미사용(타입 호환 위해 null)
-        let prVnd: string | null = null;
-        try {
-          const p = resolveOrderPricing(
-            { priceVnd: c.priceVnd ? BigInt(c.priceVnd) : null },
-            cardOptions[c.id],
-            { variantKey: sel.variantKey, addonKeys: sel.addonKeys, modifierKeys: sel.modifierKeys, quantity: sel.quantity }
-          );
-          prVnd = toVndStr(p.totalPriceVnd);
-        } catch { /* 미리보기 실패는 무시 */ }
-        // 선택 옵션 라벨(서버 스냅샷 순서와 동일: variant → addons → modifiers) — 이미 언어 해석된 label 사용
-        const optionLabels: string[] = [];
-        const v = c.variants.find((x) => x.key === sel.variantKey);
-        if (v) optionLabels.push(v.label);
-        for (const k of sel.addonKeys) {
-          const a = c.addons.find((x) => x.key === k);
-          if (a) optionLabels.push(a.label);
-        }
-        for (const k of sel.modifierKeys) {
-          const m = c.modifiers.find((x) => x.key === k);
-          if (m) optionLabels.push(m.label);
-        }
-        const data = await res.json();
-        created.push({
-          id: data?.id ?? c.id,
-          type: c.type,
-          name: c.name,
-          status: "REQUESTED",
-          quantity: sel.quantity,
-          priceKrw: prKrw,
-          priceVnd: prVnd,
-          optionLabels,
-        });
       }
-      setRequestedOrders((prev) => [...created, ...prev]);
-      // 선택 초기화
-      setSelections(
-        Object.fromEntries(catalog.map((c) => [c.id, emptySelection(c.variants[0]?.key ?? null)]))
-      );
-      setToast(L.addons.requested);
-      setTimeout(() => setToast(null), 3000);
+      // 신청 완료 → 신청 내역 페이지로 이동(서버 렌더로 최신 목록·옵션 상세 표시)
+      router.push(ordersHref);
     } catch {
       setOrdersError(L.addons.error);
-    } finally {
       setSubmitting(false);
     }
   };
-
-  const checkinHref = `/g/${token}${lang === "ko" ? "" : `?lang=${lang}`}`;
-  const statusLabel = (s: string) =>
-    s === "REQUESTED" ? L.result.statusPending : s === "CONFIRMED" ? L.result.statusConfirmed : L.result.statusOther;
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-slate-50 flex flex-col shadow-2xl relative">
       <header className="w-full sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-slate-100">
         <div className="flex items-center h-14 px-3 gap-1.5">
-          <a href={checkinHref} className="p-2 rounded-full hover:bg-slate-50 active:scale-95">
+          <a href={ordersHref} className="p-2 rounded-full hover:bg-slate-50 active:scale-95">
             <span className="material-symbols-outlined text-slate-600">arrow_back</span>
           </a>
           <h1 className="font-bold text-base text-slate-900">{L.addons.title}</h1>
@@ -207,39 +163,6 @@ export default function GuestOptions(props: GuestOptionsProps) {
 
         {ordersError && <p className="text-xs text-red-500 text-center">{ordersError}</p>}
 
-        {/* 요청 내역 */}
-        {requestedOrders.length > 0 && (
-          <section className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-100">
-              <h3 className="text-sm font-bold text-slate-800">{L.result.requestedTitle}</h3>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {requestedOrders.map((o) => (
-                <div key={o.id} className="flex items-center justify-between px-4 py-3.5 gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 truncate">
-                      {o.name} <span className="text-slate-400 font-normal">× {o.quantity}</span>
-                    </p>
-                    {o.optionLabels.length > 0 && (
-                      <p className="text-xs text-slate-500 mt-0.5 truncate">
-                        {o.optionLabels.join(" · ")}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="bg-amber-50 text-amber-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                      {statusLabel(o.status)}
-                    </span>
-                    <span className="text-sm font-bold text-slate-900 tabular-nums">
-                      {guestVndPrice(o.priceVnd)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
         <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex gap-3">
           <span className="material-symbols-outlined text-slate-400 text-[20px]">payments</span>
           <p className="text-xs text-slate-500 leading-relaxed">{L.result.settleNote}</p>
@@ -272,13 +195,6 @@ export default function GuestOptions(props: GuestOptionsProps) {
           >
             {submitting ? L.addons.requesting : L.addons.requestCta}
           </button>
-        </div>
-      )}
-
-      {/* 토스트 */}
-      {toast && (
-        <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-[70] bg-slate-900 text-white text-sm font-semibold px-5 py-3 rounded-full shadow-xl">
-          {toast}
         </div>
       )}
     </div>

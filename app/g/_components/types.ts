@@ -84,13 +84,20 @@ export interface GuestConvert {
   vndPerUnit: number; // 1 통화단위 = X VND
 }
 
-/** 옵션 선택 페이지(/g/[token]/options) props — 체크인과 독립 라우트, 투숙 중 접근. */
+/** 옵션 선택 페이지(/g/[token]/options) props — 체크인과 독립 라우트, 투숙 중 접근.
+ *   ★요청 내역은 별도 페이지(/g/[token]/orders)로 분리 — 옵션이 많아져도 확인·정산이 쉽게. */
 export interface GuestOptionsProps {
   token: string;
   lang: PublicLang;
   booking: GuestBookingView;
   catalog: GuestCatalogView[];
-  requestedOrders: GuestRequestedOrder[];
   /** 금액은 항상 VND 기본 표기. convert가 있으면 하단에 모국통화 환산액("오늘 환율 기준") 추가. */
   convert: GuestConvert | null;
+}
+
+/** 신청 내역 페이지(/g/[token]/orders) props — 요청한 옵션 목록 확인 + 부가 옵션 신청 진입. */
+export interface GuestOrdersProps {
+  token: string;
+  lang: PublicLang;
+  requestedOrders: GuestRequestedOrder[];
 }
