@@ -19,8 +19,9 @@ const schema = z.object({
   addonKeys: z.array(z.string().max(40)).max(60).optional(),
   modifierKeys: z.array(z.string().max(40)).max(40).optional(),
   quantity: z.number().int().min(1).max(99),
-  serviceDate: z.string().optional().nullable(),
-  serviceTime: z.string().regex(/^\d{2}:\d{2}$/).optional().nullable(),
+  // 게스트 신청은 희망 날짜·시간 필수 — 배송/예약 시간대 확정용(미입력 저장 방지)
+  serviceDate: z.string().min(1),
+  serviceTime: z.string().regex(/^\d{2}:\d{2}$/),
   guestNote: z.string().max(500).optional().nullable(),
 });
 
@@ -47,12 +48,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   }
   const d = parsed.data;
 
-  let serviceDate: Date | null = null;
-  if (d.serviceDate != null && d.serviceDate !== "") {
-    serviceDate = parseUtcDateOnly(d.serviceDate);
-    if (serviceDate === null) {
-      return NextResponse.json({ error: "INVALID_SERVICE_DATE" }, { status: 400 });
-    }
+  const serviceDate = parseUtcDateOnly(d.serviceDate);
+  if (serviceDate === null) {
+    return NextResponse.json({ error: "INVALID_SERVICE_DATE" }, { status: 400 });
   }
 
   const item = await prisma.serviceCatalogItem.findUnique({ where: { id: d.catalogItemId } });

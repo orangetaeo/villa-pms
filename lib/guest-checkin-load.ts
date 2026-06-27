@@ -70,6 +70,10 @@ export interface GuestCheckinData {
     quantity: number;
     priceKrw: number | null;
     priceVnd: string | null;
+    /** 희망 날짜(YYYY-MM-DD) — @db.Date. 게스트 신청은 항상 존재(서버 필수 검증). */
+    serviceDate: string | null;
+    /** 희망 시간("HH:MM"). */
+    serviceTime: string | null;
     /** 선택한 variant·addon·modifier 스냅샷(표시용 라벨·번역만 — 원가 없음). */
     selectedOptions: ResolvedSelectedOption[];
   }[];
@@ -151,7 +155,7 @@ export async function loadGuestCheckin(
     prisma.serviceOrder.findMany({
       where: { bookingId: t.bookingId, requestedVia: "GUEST" },
       orderBy: { createdAt: "desc" },
-      select: { id: true, type: true, status: true, quantity: true, priceKrw: true, priceVnd: true, selectedOptions: true },
+      select: { id: true, type: true, status: true, quantity: true, priceKrw: true, priceVnd: true, serviceDate: true, serviceTime: true, selectedOptions: true },
     }),
     getFxVndPerKrw(prisma),
   ]);
@@ -215,6 +219,9 @@ export async function loadGuestCheckin(
       quantity: o.quantity,
       priceKrw: o.priceKrw,
       priceVnd: o.priceVnd?.toString() ?? null,
+      // 희망 날짜는 @db.Date(자정 UTC 저장) → YYYY-MM-DD. 시간은 "HH:MM" 문자열 그대로.
+      serviceDate: o.serviceDate ? o.serviceDate.toISOString().slice(0, 10) : null,
+      serviceTime: o.serviceTime ?? null,
       // 선택 옵션은 라벨 스냅샷만(원가 없음 — ResolvedSelectedOption엔 costVnd 자체가 없음, 누수 0)
       selectedOptions: parseSelectedOptions(o.selectedOptions),
     })),

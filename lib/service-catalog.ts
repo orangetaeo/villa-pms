@@ -37,6 +37,29 @@ export function isServiceCatalogType(v: string): v is ServiceType {
   return (SERVICE_TYPE_VALUES as readonly string[]).includes(v);
 }
 
+// ── 이행 방식(fulfillment) — 게스트에게 "어떻게 받는지" 안내 + 픽업 기획 분기 (ADR-0019 v3) ──
+//   DELIVERY    = 선택 시간대에 빌라로 배송/제공 (BBQ·조식·과일·차량·오토바이)
+//   APPOINTMENT = 예약 시간에 시술/방문 — 픽업 또는 고객 직접 이동 (마사지·이발). 픽업 가부는 별도 기획.
+//   OTHER       = 시간 기준 안내 (입장권·가이드)
+export type FulfillmentMode = "DELIVERY" | "APPOINTMENT" | "OTHER";
+
+export const SERVICE_FULFILLMENT: Record<ServiceType, FulfillmentMode> = {
+  BBQ: "DELIVERY",
+  BREAKFAST: "DELIVERY",
+  FRUIT: "DELIVERY",
+  CAR_RENTAL: "DELIVERY",
+  MOTORBIKE_RENTAL: "DELIVERY",
+  MASSAGE: "APPOINTMENT",
+  BARBER: "APPOINTMENT",
+  TICKET: "OTHER",
+  GUIDE: "OTHER",
+};
+
+/** 서비스 타입 → 이행 방식. 알 수 없는 타입은 OTHER. 순수. */
+export function fulfillmentMode(type: string): FulfillmentMode {
+  return isServiceCatalogType(type) ? SERVICE_FULFILLMENT[type] : "OTHER";
+}
+
 // ── 요청 주체 자격(audience) — 어느 채널에서 이 항목을 요청할 수 있는가 (ADR-0023 §4.2) ─────
 //   ADMIN=운영자 항상 가능(보장), PARTNER=여행사/랜드사, GUEST=게스트 /g/[token].
 //   카탈로그 audiences 배열로 채널별 서버 필터. 항상 ADMIN을 포함한다(운영자는 모든 항목 요청 가능).

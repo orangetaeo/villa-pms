@@ -57,6 +57,8 @@ export default async function GuestOrdersPage({
     priceKrw: o.priceKrw,
     priceVnd: o.priceVnd,
     optionLabels: o.selectedOptions.map((s) => pickI18n(s.labelKo, s.labelI18n ?? null, lang)),
+    serviceDate: o.serviceDate,
+    serviceTime: o.serviceTime,
   }));
 
   return (
