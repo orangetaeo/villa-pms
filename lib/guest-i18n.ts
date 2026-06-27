@@ -150,6 +150,7 @@ export interface GuestLabels {
     cancelling: string; // "취소 중…"
     cancelConfirm: string; // "이 신청을 취소하시겠습니까?"
     cancelError: string; // 취소 실패 안내
+    cancelDispatched: string; // 발주된 주문 — 셀프 취소 불가, 운영자 문의
   };
   footerNote: string;
 }
@@ -296,6 +297,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       cancelling: "취소 중…",
       cancelConfirm: "이 신청을 취소하시겠습니까?",
       cancelError: "취소 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.",
+      cancelDispatched: "이미 준비가 시작되어 직접 취소할 수 없습니다. 운영자에게 문의해주세요.",
     },
     footerNote: "문의사항은 예약하신 여행사로 연락해 주세요.",
   },
@@ -433,6 +435,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       cancelling: "Cancelling…",
       cancelConfirm: "Cancel this request?",
       cancelError: "Could not cancel. Please try again shortly.",
+      cancelDispatched: "Preparation has already started, so you can't cancel this yourself. Please contact the operator.",
     },
     footerNote: "For inquiries, please contact your travel agency.",
   },
@@ -570,6 +573,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       cancelling: "Отмена…",
       cancelConfirm: "Отменить этот запрос?",
       cancelError: "Не удалось отменить. Повторите попытку позже.",
+      cancelDispatched: "Подготовка уже началась, отменить самостоятельно нельзя. Пожалуйста, свяжитесь с оператором.",
     },
     footerNote: "По вопросам обращайтесь в ваше турагентство.",
   },
@@ -707,6 +711,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       cancelling: "取消中…",
       cancelConfirm: "确定取消此申请吗？",
       cancelError: "取消失败，请稍后再试。",
+      cancelDispatched: "已开始准备，无法自行取消。请联系运营方。",
     },
     footerNote: "如有疑问，请联系您预订的旅行社。",
   },
@@ -844,6 +849,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       cancelling: "Đang hủy…",
       cancelConfirm: "Hủy yêu cầu này?",
       cancelError: "Không thể hủy. Vui lòng thử lại sau.",
+      cancelDispatched: "Đã bắt đầu chuẩn bị nên bạn không thể tự hủy. Vui lòng liên hệ người điều hành.",
     },
     footerNote: "Mọi thắc mắc vui lòng liên hệ công ty du lịch của bạn.",
   },

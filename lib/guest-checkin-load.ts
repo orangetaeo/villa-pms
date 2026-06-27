@@ -77,6 +77,8 @@ export interface GuestCheckinData {
     quantity: number;
     priceKrw: number | null;
     priceVnd: string | null;
+    /** 원천공급자에게 PO가 나간(살아있는) 주문 여부 — true면 게스트 셀프 취소 불가(운영자 조율). */
+    dispatched: boolean;
     /** 희망 날짜(YYYY-MM-DD) — @db.Date. 게스트 신청은 항상 존재(서버 필수 검증). */
     serviceDate: string | null;
     /** 희망 시간("HH:MM"). */
@@ -164,7 +166,7 @@ export async function loadGuestCheckin(
     prisma.serviceOrder.findMany({
       where: { bookingId: t.bookingId, requestedVia: "GUEST" },
       orderBy: { createdAt: "desc" },
-      select: { id: true, type: true, catalogItemId: true, status: true, quantity: true, priceKrw: true, priceVnd: true, serviceDate: true, serviceTime: true, selectedOptions: true },
+      select: { id: true, type: true, catalogItemId: true, status: true, quantity: true, priceKrw: true, priceVnd: true, vendorStatus: true, poSentAt: true, serviceDate: true, serviceTime: true, selectedOptions: true },
     }),
     getFxVndPerKrw(prisma),
   ]);
@@ -234,6 +236,8 @@ export async function loadGuestCheckin(
       quantity: o.quantity,
       priceKrw: o.priceKrw,
       priceVnd: o.priceVnd?.toString() ?? null,
+      // 발주된(PENDING_VENDOR·VENDOR_ACCEPTED) 주문은 셀프 취소 불가 — UI가 취소버튼 숨김.
+      dispatched: o.vendorStatus === "PENDING_VENDOR" || o.vendorStatus === "VENDOR_ACCEPTED",
       // 희망 날짜는 @db.Date(자정 UTC 저장) → YYYY-MM-DD. 시간은 "HH:MM" 문자열 그대로.
       serviceDate: o.serviceDate ? o.serviceDate.toISOString().slice(0, 10) : null,
       serviceTime: o.serviceTime ?? null,

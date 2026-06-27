@@ -45,7 +45,14 @@ export default function GuestOrders({ token, lang, requestedOrders }: GuestOrder
     setCancelError(null);
     try {
       const res = await fetch(`/api/g/${token}/service-orders/${id}/cancel`, { method: "POST" });
-      if (!res.ok) throw new Error(`HTTP_${res.status}`);
+      if (!res.ok) {
+        // 발주됨(409 DISPATCHED)·이미 확정/취소 — 최신 상태 반영 후 안내. (취소버튼은 dispatched면 애초 숨김)
+        let code: string | undefined;
+        try { code = (await res.json())?.error; } catch { /* noop */ }
+        router.refresh();
+        setCancelError(code === "DISPATCHED" ? L.checkout.cancelDispatched : L.checkout.cancelError);
+        return;
+      }
       router.refresh();
     } catch {
       setCancelError(L.checkout.cancelError);
@@ -81,7 +88,9 @@ export default function GuestOrders({ token, lang, requestedOrders }: GuestOrder
             <div className="divide-y divide-slate-100">
               {requestedOrders.map((o) => {
                 const when = [o.serviceDate, o.serviceTime].filter(Boolean).join(" ");
-                const canCancel = o.status === "REQUESTED";
+                // 셀프 취소는 미발주 REQUESTED만. 발주된(dispatched) 주문은 운영자 조율 필요 → 버튼 대신 안내.
+                const canCancel = o.status === "REQUESTED" && !o.dispatched;
+                const dispatchedLock = o.status === "REQUESTED" && o.dispatched;
                 return (
                   <div key={o.id} className="px-4 py-3.5 space-y-1.5">
                     <div className="flex items-start justify-between gap-2">
@@ -123,6 +132,13 @@ export default function GuestOrders({ token, lang, requestedOrders }: GuestOrder
                         <span className="material-symbols-outlined text-[16px]">close</span>
                         {cancelling === o.id ? L.checkout.cancelling : L.checkout.cancel}
                       </button>
+                    )}
+                    {/* 발주된 주문 — 셀프 취소 불가, 운영자 문의 안내 */}
+                    {dispatchedLock && (
+                      <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-slate-400">
+                        <span className="material-symbols-outlined text-[15px]">lock</span>
+                        {L.checkout.cancelDispatched}
+                      </p>
                     )}
                   </div>
                 );

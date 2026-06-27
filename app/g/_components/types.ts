@@ -62,6 +62,8 @@ export interface GuestRequestedOrder {
   quantity: number;
   priceKrw: number | null;
   priceVnd: string | null;
+  /** 원천공급자에게 발주된(살아있는) 주문 — true면 셀프 취소 불가(취소버튼 숨김, 운영자 문의 안내). */
+  dispatched: boolean;
   /** 선택한 옵션 라벨(언어 해석 완료) — 예: ["90분", "발 마사지 추가"]. 없으면 빈 배열. */
   optionLabels: string[];
   /** 희망 날짜(YYYY-MM-DD)·시간("HH:MM") — 신청 시 입력(필수). */
