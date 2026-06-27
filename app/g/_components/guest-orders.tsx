@@ -5,7 +5,6 @@
 //   요청 목록(옵션 상세 + 희망 날짜·시간 + 이행 안내) + 정산 안내 + 하단 "부가 옵션 신청" 진입 버튼.
 //   ★마진 비공개: 판매가만(원가·마진 0). 헤더 뒤로가기 없음(허브 페이지 — 체크인 시작으로 가는 혼선 방지, #3).
 import { GUEST_LABELS } from "@/lib/guest-i18n";
-import { fulfillmentMode } from "@/lib/service-catalog";
 import { PublicLangSelector } from "@/components/public-lang-selector";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import { guestVndPrice } from "./guest-format";
@@ -18,15 +17,6 @@ export default function GuestOrders({ token, lang, requestedOrders }: GuestOrder
 
   const statusLabel = (s: string) =>
     s === "REQUESTED" ? L.result.statusPending : s === "CONFIRMED" ? L.result.statusConfirmed : L.result.statusOther;
-
-  const fulfillNote = (type: string) => {
-    const m = fulfillmentMode(type);
-    return m === "DELIVERY"
-      ? L.addons.fulfillDelivery
-      : m === "APPOINTMENT"
-        ? L.addons.fulfillAppointment
-        : L.addons.fulfillOther;
-  };
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-slate-50 flex flex-col shadow-2xl relative">
@@ -84,7 +74,7 @@ export default function GuestOrders({ token, lang, requestedOrders }: GuestOrder
                         <span className="tabular-nums">{when}</span>
                       </p>
                     )}
-                    <p className="text-[11px] text-slate-400 leading-snug">{fulfillNote(o.type)}</p>
+                    <p className="text-[11px] text-slate-400 leading-snug">{o.fulfillNote}</p>
                   </div>
                 );
               })}

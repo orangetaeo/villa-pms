@@ -104,7 +104,9 @@ export interface GuestLabels {
     myOrders: string; // 신청 내역 페이지 제목/링크
     dateTimeRequired: string; // 날짜·시간 미입력 안내(필수)
     fulfillDelivery: string; // 배송형(BBQ·조식·과일·차량·오토바이) 안내
-    fulfillAppointment: string; // 예약형(마사지·이발) 안내 — 픽업/직접방문
+    fulfillAppointment: string; // 예약형 — 픽업 미정(운영자 확인) 폴백
+    fulfillPickup: string; // 예약형 — 픽업 제공(차량 모심)
+    fulfillVisit: string; // 예약형 — 고객 직접 매장 방문
     fulfillOther: string; // 기타(입장권·가이드) 안내
   };
   // G5 완료
@@ -227,6 +229,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       dateTimeRequired: "희망 날짜와 시간을 선택해주세요.",
       fulfillDelivery: "선택하신 날짜·시간에 맞춰 빌라로 제공/배송됩니다.",
       fulfillAppointment: "예약하신 시간에 진행됩니다. 픽업(차량 모심) 가능 여부는 운영자 확인 후 안내드립니다.",
+      fulfillPickup: "예약하신 시간에 차량이 모시러 갑니다(픽업 제공).",
+      fulfillVisit: "고객님이 직접 매장으로 방문하셔야 합니다.",
       fulfillOther: "선택하신 날짜·시간을 기준으로 안내해 드립니다.",
     },
     result: {
@@ -339,6 +343,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       dateTimeRequired: "Please select your preferred date and time.",
       fulfillDelivery: "Delivered/served to your villa at your selected date & time.",
       fulfillAppointment: "Provided at your booked time. Pickup (car service) availability will be confirmed by our staff.",
+      fulfillPickup: "A car will pick you up at your booked time (pickup provided).",
+      fulfillVisit: "You will need to visit the shop in person.",
       fulfillOther: "We will assist you based on your selected date & time.",
     },
     result: {
@@ -451,6 +457,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       dateTimeRequired: "Пожалуйста, выберите желаемую дату и время.",
       fulfillDelivery: "Доставка/подача на вашу виллу в выбранные дату и время.",
       fulfillAppointment: "Услуга в забронированное время. Возможность трансфера (авто) уточнит наш персонал.",
+      fulfillPickup: "В забронированное время за вами приедет машина (трансфер включён).",
+      fulfillVisit: "Вам нужно будет лично посетить салон.",
       fulfillOther: "Мы поможем вам с учётом выбранной даты и времени.",
     },
     result: {
@@ -563,6 +571,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       dateTimeRequired: "请选择您希望的日期和时间。",
       fulfillDelivery: "将按您选择的日期·时间配送/提供至您的别墅。",
       fulfillAppointment: "在您预约的时间进行。是否提供接送（车辆）将由管理员确认后告知。",
+      fulfillPickup: "将在您预约的时间派车接您（提供接送）。",
+      fulfillVisit: "需要您亲自前往店内。",
       fulfillOther: "我们将以您选择的日期·时间为准为您安排。",
     },
     result: {
@@ -675,6 +685,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       dateTimeRequired: "Vui lòng chọn ngày và giờ mong muốn.",
       fulfillDelivery: "Được giao/phục vụ tận villa theo ngày · giờ bạn chọn.",
       fulfillAppointment: "Thực hiện vào giờ đã đặt. Khả năng đón (xe đưa rước) sẽ được nhân viên xác nhận.",
+      fulfillPickup: "Sẽ có xe đến đón bạn vào giờ đã đặt (có đưa rước).",
+      fulfillVisit: "Bạn cần tự đến cửa hàng.",
       fulfillOther: "Chúng tôi sẽ hỗ trợ dựa trên ngày · giờ bạn đã chọn.",
     },
     result: {

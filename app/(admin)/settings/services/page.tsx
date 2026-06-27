@@ -56,6 +56,8 @@ export default async function ServiceCatalogPage() {
         sortOrder: true,
         vendorId: true,
         audiences: true,
+        pickupAvailable: true,
+        pickupNote: true,
         ...(showCost ? { costVnd: true } : {}),
       },
     }),
@@ -83,6 +85,8 @@ export default async function ServiceCatalogPage() {
     sortOrder: it.sortOrder,
     vendorId: it.vendorId ?? null,
     audiences: normalizeAudiences(it.audiences),
+    pickupAvailable: it.pickupAvailable ?? null,
+    pickupNote: it.pickupNote ?? "",
     ...(showCost && "costVnd" in it
       ? { costVnd: (it as { costVnd: bigint | null }).costVnd?.toString() ?? null }
       : {}),

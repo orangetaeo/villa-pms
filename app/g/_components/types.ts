@@ -46,6 +46,8 @@ export interface GuestCatalogView {
   variants: GuestOption[];
   addons: GuestOption[];
   modifiers: GuestOption[];
+  pickupAvailable: boolean | null; // 마사지·이발 픽업: null=미정·true=픽업·false=직접방문
+  pickupNote: string | null; // 픽업/매장 안내(주소·조건)
 }
 
 export interface GuestRequestedOrder {
@@ -61,6 +63,8 @@ export interface GuestRequestedOrder {
   /** 희망 날짜(YYYY-MM-DD)·시간("HH:MM") — 신청 시 입력(필수). */
   serviceDate: string | null;
   serviceTime: string | null;
+  /** 이행 안내 문구(서버에서 type·픽업설정으로 해석 완료) — 배송/픽업/방문. */
+  fulfillNote: string;
 }
 
 export interface GuestAgreementView {

@@ -48,6 +48,9 @@ const patchSchema = z.object({
   audiences: z.array(z.enum(["ADMIN", "PARTNER", "GUEST"])).max(3).optional(),
   active: z.boolean().optional(),
   sortOrder: z.number().int().min(0).max(9999).optional(),
+  // 이행 방식(마사지·이발 픽업/방문) — null=미정, true=픽업, false=직접방문
+  pickupAvailable: z.boolean().optional().nullable(),
+  pickupNote: z.string().max(500).optional().nullable(),
 });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -148,6 +151,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       options: i18n.options != null ? (i18n.options as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
       vendorId: d.vendorId ?? null,
       audiences: audiences as unknown as Prisma.InputJsonValue,
+      pickupAvailable: d.pickupAvailable ?? null,
+      pickupNote: d.pickupNote?.trim() || null,
       ...(d.active !== undefined ? { active: d.active } : {}),
       ...(d.sortOrder !== undefined ? { sortOrder: d.sortOrder } : {}),
       ...costUpdate,

@@ -10,6 +10,8 @@ import { prisma } from "@/lib/prisma";
 import { loadGuestCheckin } from "@/lib/guest-checkin-load";
 import { PUBLIC_LOCALE_COOKIE, resolvePublicLang } from "@/lib/public-i18n";
 import { pickI18n } from "@/lib/service-display";
+import { GUEST_LABELS } from "@/lib/guest-i18n";
+import { fulfillmentNote } from "@/lib/guest-fulfillment";
 import { GuestExpiredView } from "../../_components/guest-expired-view";
 import GuestOrders from "../../_components/guest-orders";
 import type { GuestRequestedOrder } from "../../_components/types";
@@ -48,18 +50,27 @@ export default async function GuestOrdersPage({
   const catalogNameByType = new Map(
     data.catalog.map((c) => [c.type, pickI18n(c.nameKo, c.nameI18n, lang)])
   );
-  const requestedOrders: GuestRequestedOrder[] = data.requestedOrders.map((o) => ({
-    id: o.id,
-    type: o.type,
-    name: catalogNameByType.get(o.type) ?? o.type,
-    status: o.status,
-    quantity: o.quantity,
-    priceKrw: o.priceKrw,
-    priceVnd: o.priceVnd,
-    optionLabels: o.selectedOptions.map((s) => pickI18n(s.labelKo, s.labelI18n ?? null, lang)),
-    serviceDate: o.serviceDate,
-    serviceTime: o.serviceTime,
-  }));
+  // 픽업/이행 안내 해석용 — catalogItemId → {pickupAvailable, pickupNote}
+  const pickupById = new Map(
+    data.catalog.map((c) => [c.id, { pickupAvailable: c.pickupAvailable, pickupNote: c.pickupNote }])
+  );
+  const La = GUEST_LABELS[lang].addons;
+  const requestedOrders: GuestRequestedOrder[] = data.requestedOrders.map((o) => {
+    const pu = o.catalogItemId ? pickupById.get(o.catalogItemId) : null;
+    return {
+      id: o.id,
+      type: o.type,
+      name: catalogNameByType.get(o.type) ?? o.type,
+      status: o.status,
+      quantity: o.quantity,
+      priceKrw: o.priceKrw,
+      priceVnd: o.priceVnd,
+      optionLabels: o.selectedOptions.map((s) => pickI18n(s.labelKo, s.labelI18n ?? null, lang)),
+      serviceDate: o.serviceDate,
+      serviceTime: o.serviceTime,
+      fulfillNote: fulfillmentNote(o.type, pu?.pickupAvailable ?? null, pu?.pickupNote ?? null, La),
+    };
+  });
 
   return (
     <div className="bg-slate-50 text-slate-900 antialiased">

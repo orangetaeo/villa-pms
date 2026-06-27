@@ -37,6 +37,8 @@ export interface GuestCatalogItem {
   priceVnd: string | null; // 판매가 VND(동) — KRW는 fxVndPerKrw로 표시 시점 파생(priceKrwCeil)
   photoUrl: string | null;
   options: unknown; // {variants/addons/modifiers:[{key,labelKo,labelI18n,priceVnd}]} — 판매가만(원가 없음)
+  pickupAvailable: boolean | null; // 마사지·이발 픽업: null=미정·true=픽업·false=직접방문
+  pickupNote: string | null; // 픽업/매장 안내(주소·조건) — 그대로 표기
 }
 
 export interface GuestCheckinData {
@@ -66,6 +68,7 @@ export interface GuestCheckinData {
   requestedOrders: {
     id: string;
     type: string;
+    catalogItemId: string | null; // 픽업/이행 안내 해석용(카탈로그 픽업 설정 조회)
     status: string;
     quantity: number;
     priceKrw: number | null;
@@ -150,12 +153,13 @@ export async function loadGuestCheckin(
         id: true, type: true, nameKo: true, nameI18n: true,
         descKo: true, descI18n: true, unitLabelKo: true,
         priceVnd: true, photoUrl: true, options: true, audiences: true,
+        pickupAvailable: true, pickupNote: true,
       },
     }),
     prisma.serviceOrder.findMany({
       where: { bookingId: t.bookingId, requestedVia: "GUEST" },
       orderBy: { createdAt: "desc" },
-      select: { id: true, type: true, status: true, quantity: true, priceKrw: true, priceVnd: true, serviceDate: true, serviceTime: true, selectedOptions: true },
+      select: { id: true, type: true, catalogItemId: true, status: true, quantity: true, priceKrw: true, priceVnd: true, serviceDate: true, serviceTime: true, selectedOptions: true },
     }),
     getFxVndPerKrw(prisma),
   ]);
@@ -202,6 +206,8 @@ export async function loadGuestCheckin(
       photoUrl: c.photoUrl,
       // ★옵션 원가는 게스트 절대 비노출 — costVnd 제거 후 전달(원칙2). costVnd select도 안 함.
       options: stripOptionCosts(c.options),
+      pickupAvailable: c.pickupAvailable,
+      pickupNote: c.pickupNote,
     })),
     agreement: {
       version: AGREEMENT_VERSION,
@@ -215,6 +221,7 @@ export async function loadGuestCheckin(
     requestedOrders: orders.map((o) => ({
       id: o.id,
       type: o.type,
+      catalogItemId: o.catalogItemId,
       status: o.status,
       quantity: o.quantity,
       priceKrw: o.priceKrw,
