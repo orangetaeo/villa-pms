@@ -2662,6 +2662,7 @@
     "showTranslation": "Hiện bản dịch",
     "systemBadge": "Thông báo hệ thống",
     "statusSent": "Đã gửi",
+    "statusSending": "Đang gửi…",
     "statusFailed": "Gửi thất bại",
     "statusAuto": "Tự động gửi",
     "send": "Gửi",
@@ -2782,6 +2783,7 @@
       "you": "Bạn",
       "replyingTo": "Trả lời {name}",
       "fileFallback": "[Tệp]",
+      "attachmentFallback": "[Tệp đính kèm]",
       "jumpToOriginal": "Đến tin nhắn gốc",
       "notSupported": "Tin nhắn này nhận trước khi có tính năng trả lời nên không trích dẫn được. Tin nhắn gần đây vẫn trả lời được."
     },
