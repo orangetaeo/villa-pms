@@ -135,7 +135,8 @@ export async function PATCH(
       const updated = await tx.user.update({
         where: { id },
         // 임시 비번 발급 → 사용자가 직접 변경 전까지 다른 화면 차단(mustChangePassword)
-        data: { passwordHash: tempPasswordHash!, mustChangePassword: true },
+        // + 세션 무효화 baseline 갱신(보안 P0-5②) — 운영자 초기화 시 그 사용자의 기존 세션 전부 만료
+        data: { passwordHash: tempPasswordHash!, mustChangePassword: true, passwordChangedAt: new Date() },
         select: { id: true, isActive: true, zaloUserId: true },
       });
       // 감사 로그 — 초기화 사실만 기록(평문·해시 절대 미기록, leak-checklist)

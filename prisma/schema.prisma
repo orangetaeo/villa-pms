@@ -48,6 +48,9 @@ model User {
   isActive     Boolean  @default(true)
   // 임시 비밀번호(OWNER 초기화·계정생성) 발급 시 true → 본인이 변경 전까지 다른 화면 차단
   mustChangePassword Boolean @default(false)
+  // 마지막 비밀번호 변경 시각 (보안 P0-5② 서버측 세션 무효화) — 이 시각 이전 발급 JWT는 무효.
+  // null=기능 도입 후 한 번도 안 바꿈(=epoch 0 취급). additive, 라이브는 raw SQL ALTER.
+  passwordChangedAt DateTime?
   createdAt    DateTime @default(now())
   // 소프트 삭제 — null=정상, 값=삭제됨(목록·로그인 제외, 데이터·빌라는 보존). 복구는 DB에서 deletedAt=null
   deletedAt    DateTime?

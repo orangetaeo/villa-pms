@@ -61,8 +61,8 @@ export async function POST(req: Request) {
   const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
   await prisma.user.update({
     where: { id: user.id },
-    // 본인이 직접 변경 완료 → 강제 변경 플래그 해제
-    data: { passwordHash, mustChangePassword: false },
+    // 본인이 직접 변경 완료 → 강제 변경 플래그 해제 + 세션 무효화 baseline 갱신(보안 P0-5②)
+    data: { passwordHash, mustChangePassword: false, passwordChangedAt: new Date() },
   });
 
   // 감사 로그 — 본인 변경 사실(passwordChanged)만 기록, 평문·해시 미기록
