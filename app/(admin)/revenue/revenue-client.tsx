@@ -18,6 +18,7 @@ import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 // 직렬화된 거래 행(VND BigInt → string) — page.tsx serializeBigInt 결과 형태와 정합.
 interface RevenueTxnDto {
   id: string;
+  bookingId: string;
   date: string;
   type: "ROOM" | "MINIBAR" | "SERVICE";
   villaId: string;
@@ -491,8 +492,8 @@ export default function RevenueClient(props: Props) {
         </div>
       )}
 
-      {/* 거래 테이블 */}
-      <div className="mt-4 overflow-x-auto rounded-xl border border-slate-800">
+      {/* 거래 테이블 — 데스크톱(≥md). 행 클릭 시 해당 예약 상세로 이동 */}
+      <div className="mt-4 hidden md:block overflow-x-auto rounded-xl border border-slate-800">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-900/60 text-admin-muted text-xs">
@@ -522,7 +523,11 @@ export default function RevenueClient(props: Props) {
               </tr>
             )}
             {paged.map((x) => (
-              <tr key={x.id} className="hover:bg-slate-900/40 text-slate-200">
+              <tr
+                key={x.id}
+                onClick={() => router.push(`/bookings/${x.bookingId}`)}
+                className="cursor-pointer hover:bg-slate-900/40 text-slate-200"
+              >
                 <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-slate-400">{x.date}</td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
                   <span className="inline-flex items-center gap-1 text-xs text-slate-300">
@@ -588,6 +593,71 @@ export default function RevenueClient(props: Props) {
             </tr>
           </tfoot>
         </table>
+      </div>
+
+      {/* 거래 카드 — 모바일(<md). 가로 스크롤 없이 카드, 탭하면 예약 상세로 이동 */}
+      <div className="mt-4 space-y-2 md:hidden">
+        {rows.length === 0 && (
+          <div className="rounded-xl border border-slate-800 bg-admin-card px-3 py-10 text-center text-admin-muted">
+            {t("empty")}
+          </div>
+        )}
+        {paged.map((x) => (
+          <button
+            key={x.id}
+            type="button"
+            onClick={() => router.push(`/bookings/${x.bookingId}`)}
+            className="block w-full rounded-xl border border-slate-800 bg-admin-card p-3 text-left transition-colors active:bg-slate-900/60"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1 text-xs text-slate-300">
+                <span className="material-symbols-outlined text-sm text-admin-muted">
+                  {TYPE_ICON[x.type]}
+                </span>
+                {typeLabel(x.type)}
+              </span>
+              <span className="shrink-0 text-xs tabular-nums text-slate-500">{x.date}</span>
+            </div>
+            <p className="mt-1 truncate font-bold text-white">{x.villaName}</p>
+            <p className="truncate text-xs text-slate-400">
+              {x.channel ? t(`channels.${x.channel}`) : "—"}
+              {x.partnerName && ` · ${x.partnerName}`}
+              {x.label && ` · ${x.label}`}
+            </p>
+            <div className="mt-2 flex items-center justify-between gap-2 text-sm tabular-nums">
+              <span className="text-slate-200">
+                {x.saleKrw !== null
+                  ? `₩${formatThousands(x.saleKrw)}`
+                  : x.saleVnd !== null
+                    ? `${formatThousands(x.saleVnd)}₫`
+                    : "—"}
+              </span>
+              {x.marginVnd !== null && (
+                <span className={BigInt(x.marginVnd) < 0n ? "text-red-400" : "text-emerald-400"}>
+                  {formatThousands(x.marginVnd)}₫
+                </span>
+              )}
+            </div>
+          </button>
+        ))}
+        {/* 모바일 합계 카드 — 표 tfoot 대체(전체 표시행 기준) */}
+        {rows.length > 0 && (
+          <div className="rounded-xl border-2 border-slate-700 bg-slate-900/80 p-3 text-sm">
+            <p className="font-bold text-white">{t("totals.label", { count: visibleTotals.count })}</p>
+            <div className="mt-1 flex items-center justify-between gap-2 tabular-nums">
+              <span className="text-slate-200">
+                {visibleTotals.saleKrw > 0 ? `₩${formatThousands(visibleTotals.saleKrw)} · ` : ""}
+                {`${formatThousands(visibleTotals.saleVnd)}₫`}
+              </span>
+              <span className="text-emerald-400">
+                {visibleTotals.marginVnd !== null ? `${formatThousands(visibleTotals.marginVnd)}₫` : "—"}
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-admin-vnd">
+              {t("totals.integratedLabel")}: ≈ {formatThousands(visibleTotals.integratedRevenueVnd)}₫
+            </p>
+          </div>
+        )}
       </div>
 
       {/* 페이지네이션 — 전체 검색결과(rows) 기준 페이지 분할 */}
