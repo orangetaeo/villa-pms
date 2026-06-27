@@ -161,7 +161,9 @@ export default function ZaloConnectClient({
             </div>
           </div>
           {status.lastConnected && (
-            <p className="text-xs text-slate-500">
+            // suppressHydrationWarning: toLocaleString이 서버(Node ICU)와 브라우저 ICU 간 미세하게
+            // 다른 문자열을 만들어 하이드레이션 텍스트 불일치(React #418)를 유발 → 같은 인스턴트라 클라 렌더 채택.
+            <p className="text-xs text-slate-500" suppressHydrationWarning>
               {t("lastConnected")}:{" "}
               {new Date(status.lastConnected).toLocaleString("ko-KR", {
                 timeZone: "Asia/Ho_Chi_Minh",

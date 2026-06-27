@@ -52,6 +52,37 @@
 
 ---
 
+## Part C — 3회 루프 재검(다른 각도) 신규 발굴
+
+### 루프1 (정적 i18n 심화)
+- ✅ ko/vi 키 대칭(N2)·네임스페이스 완성도(테스트) 재확인 — 추가 정적 버그 없음.
+- ℹ️ 개별 누락 키 정적 스캔은 **거짓양성**(`const [session, t, ...] = await Promise.all([auth(), getTranslations("adminDashboard")...])` 배열 구조분해를 정규식이 못 다뤄 같은 파일의 다른 getTranslations와 혼동). → 실제 누락 키는 런타임(루프2)에서 확인.
+
+### 루프2 (런타임 콘솔/네트워크 스윕, OWNER 전 운영자 페이지)
+| 화면 | 발견 | 조치 |
+|---|---|---|
+| **/settings/zalo** | 🔴 **React #418 하이드레이션 불일치** — `toLocaleString("ko-KR",{timeZone})`이 서버 Node ICU와 브라우저 ICU 간 다른 문자열 생성 → 텍스트 불일치 | `suppressHydrationWarning` 적용(클라 렌더 채택) |
+| **/bookings/[id]/checkin** (checkin-form) | 🔴 **동일 #418 위험** — `new Date(signedAt).toLocaleString()`(locale·TZ 모두 없음, 서버/클라 완전 상이) | `suppressHydrationWarning` + 포맷 ko-KR·현지TZ 고정 |
+| /messages | 🟡 Zalo 아바타 CDN **403**(시간제한 키 만료) — 깨진 아바타 | 외부 CDN 특성. onError 폴백 권장(후속, 본 PR 범위 밖) |
+| 그 외 운영자 페이지(dashboard·bookings·villas·proposals·availability·activity·settings·services·vendors 등) | ✅ 콘솔 에러 0 | — |
+- **정적 보강**: `use client` 컴포넌트의 `toLocaleString` 전수 검사 → 위 2건만 날짜 하이드레이션 위험(share-modals는 숫자 포맷이라 안전). 포털(공급자·벤더·파트너) 클라 컴포넌트엔 toLocaleString 날짜 렌더 없음(스캔 0건).
+
+### 루프3 (데이터·로직·죽은코드)
+- ✅ **죽은 라우트 없음**: superseded였던 `/sales`·`/my-settlements` 모두 코드에서 제거됨(정리 완료).
+- ✅ **미구현/throw/빈 핸들러 없음**: `throw not-implemented`·`준비중`·placeholder 0건.
+- 🟡 **공개 /p 푸터 `href="#"` 3건**(terms·privacy·depositPolicy) — 법무 콘텐츠 미작성(페이지 부재). **사업 결정 사항**이라 임의 제거 안 함(콘텐츠 생기면 연결). 코드 버그 아님.
+- 🟡 native `alert()` 2곳(/p booking-form 오류·share-button 복사 피드백) — 기능 정상, 토스트로 개선 가능(폴리시).
+- ℹ️ TODO 1건: `lib/public-i18n.ts` ru 원어민 감수(자원 대기, BACKLOG 기록).
+→ **코드 버그 0. 잔여는 전부 pending-content / UX 폴리시(사업·자원 결정).**
+
+### 3회 루프 종합
+- 루프1(정적 i18n) → 신규 0(이전 라운드 N1 photo는 이미 수정).
+- 루프2(런타임) → **하이드레이션 #418 2건 발굴·수정**(실 버그).
+- 루프3(데이터/로직) → 코드 버그 0, 경미 pending만.
+- **수렴(dry) 확인**: 루프가 진행될수록 발견이 줄고(2건→0건), 남은 건 콘텐츠/폴리시뿐. 코드 결함은 더 나오지 않음.
+
+---
+
 ## 검증
-- typecheck·lint·build·전체 **2061 테스트 통과**(강화 테스트 7건 포함).
-- 배포 후 공급자 사진 화면에서 raw 키 사라짐 라이브 확인 예정.
+- typecheck·lint·build·전체 테스트 통과.
+- 배포 후 /settings/zalo 콘솔 #418 사라짐 라이브 확인 예정.
