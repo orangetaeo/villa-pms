@@ -1,12 +1,13 @@
 "use client";
 
-// 미니바 매출 추이 — VND 단일 계열 막대 (T-admin-statistics 통계 v2, canViewFinance 전용)
+// 미니바 매출 추이 — VND 단일 계열 (T-admin-statistics 통계 v2, canViewFinance 전용)
 // ★ 미니바는 VND 고정(통화 합산 이슈 없음 — ADR-0003 무관). 에메랄드 계열(VND 색).
 //   라벨은 로더(StatsPeriod.buckets)가 제공(일='MM-DD', 월='YYYY-MM'). 정확표시는 *Text.
+// 표현: 부드러운 영역(natural 스플라인) + 그라데이션 채움 + 점선 그리드 (막대 → 영역 곡선, 매출 추이와 통일).
 
 import {
-  Bar,
-  BarChart,
+  Area,
+  AreaChart,
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
@@ -51,8 +52,15 @@ export default function MinibarChart({
 }) {
   return (
     <ResponsiveContainer width="100%" height={240}>
-      <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid stroke={GRID} vertical={false} />
+      <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <defs>
+          <linearGradient id="minibarFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={VND} stopOpacity={0.28} />
+            <stop offset="100%" stopColor={VND} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        {/* 점선 그리드(가로·세로) — 매출 추이와 통일 */}
+        <CartesianGrid stroke={GRID} strokeDasharray="4 4" />
         <XAxis
           dataKey="label"
           tick={{ fill: AXIS, fontSize: 11 }}
@@ -66,12 +74,18 @@ export default function MinibarChart({
           width={48}
           tickFormatter={(v: number) => (v >= 1_000_000 ? `${Math.round(v / 1_000_000)}M` : `${v}`)}
         />
-        <Tooltip
-          cursor={{ fill: "#33415533" }}
-          content={<MinibarTooltip legend={legend} />}
+        <Tooltip cursor={{ stroke: "#334155" }} content={<MinibarTooltip legend={legend} />} />
+        <Area
+          type="natural"
+          dataKey="revenueVnd"
+          name={legend}
+          stroke={VND}
+          strokeWidth={2.5}
+          fill="url(#minibarFill)"
+          dot={false}
+          activeDot={{ r: 4 }}
         />
-        <Bar dataKey="revenueVnd" name={legend} fill={VND} radius={[3, 3, 0, 0]} />
-      </BarChart>
+      </AreaChart>
     </ResponsiveContainer>
   );
 }

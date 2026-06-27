@@ -39,6 +39,8 @@ export type RevenueTxnType = "ROOM" | "MINIBAR" | "SERVICE";
 export interface RevenueTxn {
   /** 행 고유 id — "ROOM:<bookingId>" / "MINIBAR:<lineId>" / "SERVICE:<orderId>" */
   id: string;
+  /** 소속 예약 id — 행 클릭 시 예약 상세(/bookings/[id])로 이동용. 전 유형(ROOM·MINIBAR·SERVICE) 공통 */
+  bookingId: string;
   /** 귀속일(체크아웃월 기준 일자) "YYYY-MM-DD" */
   date: string;
   type: RevenueTxnType;
@@ -257,6 +259,7 @@ export function buildRoomTxn(b: RoomRow): RevenueTxn {
 
   return {
     id: `ROOM:${b.id}`,
+    bookingId: b.id,
     date: dateOnly(b.checkOut),
     type: "ROOM",
     villaId: b.villaId,
@@ -277,6 +280,7 @@ export function buildRoomTxn(b: RoomRow): RevenueTxn {
 /** CheckoutMinibarLine 1행 → MINIBAR RevenueTxn (VND 전용). */
 export interface MinibarRow {
   id: string;
+  bookingId: string;
   checkOut: Date;
   villaId: string;
   villaName: string;
@@ -293,6 +297,7 @@ export function buildMinibarTxn(l: MinibarRow): RevenueTxn {
   const saleVndEquivalent = saleVnd;
   return {
     id: `MINIBAR:${l.id}`,
+    bookingId: l.bookingId,
     date: dateOnly(l.checkOut),
     type: "MINIBAR",
     villaId: l.villaId,
@@ -316,6 +321,7 @@ export function buildMinibarTxn(l: MinibarRow): RevenueTxn {
  */
 export interface ServiceRow {
   id: string;
+  bookingId: string;
   checkOut: Date;
   villaId: string;
   villaName: string;
@@ -339,6 +345,7 @@ export function buildServiceTxn(o: ServiceRow): RevenueTxn {
   const label = o.quantity > 1 ? `${o.serviceLabel} ×${o.quantity}` : o.serviceLabel;
   return {
     id: `SERVICE:${o.id}`,
+    bookingId: o.bookingId,
     date: dateOnly(o.checkOut),
     type: "SERVICE",
     villaId: o.villaId,
@@ -482,6 +489,7 @@ export async function loadRevenueTxns(
           select: {
             booking: {
               select: {
+                id: true,
                 checkOut: true,
                 villaId: true,
                 villa: { select: { name: true } },
@@ -496,6 +504,7 @@ export async function loadRevenueTxns(
       out.push(
         buildMinibarTxn({
           id: l.id,
+          bookingId: bk.id,
           checkOut: bk.checkOut,
           villaId: bk.villaId,
           villaName: bk.villa.name,
@@ -531,6 +540,7 @@ export async function loadRevenueTxns(
         costVnd: true,
         booking: {
           select: {
+            id: true,
             checkOut: true,
             villaId: true,
             fxVndPerKrw: true,
@@ -544,6 +554,7 @@ export async function loadRevenueTxns(
       out.push(
         buildServiceTxn({
           id: o.id,
+          bookingId: o.booking.id,
           checkOut: o.booking.checkOut,
           villaId: o.booking.villaId,
           villaName: o.booking.villa.name,
