@@ -48,6 +48,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     where: { id },
     select: {
       id: true,
+      status: true,
       vendorId: true,
       vendorStatus: true,
       catalogItemId: true,
@@ -59,6 +60,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // ★ 본인 발주가 아니면 존재 자체를 숨김(404) — 타 공급자 발주 누수 차단
   if (!order || order.vendorId !== vendorId) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
+  // ★종결 가드 — 운영자가 이미 취소(CANCELLED)한 발주는 가부 불가. vendorStatus가 PENDING_VENDOR로
+  //   남아 있어도 주문이 취소됐으면 공급자는 응답할 수 없음(취소 통보 Zalo가 별도로 발송됨).
+  if (order.status === "CANCELLED") {
+    return NextResponse.json({ error: "ORDER_CANCELLED" }, { status: 409 });
   }
 
   // 카탈로그 항목명(운영자 통지 ko용) — catalogItemId는 관계 미정의 스칼라이므로 별도 조회.
