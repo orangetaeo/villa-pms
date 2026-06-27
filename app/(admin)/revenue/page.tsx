@@ -15,6 +15,7 @@ import { prisma } from "@/lib/prisma";
 import { canViewFinance, isOperator } from "@/lib/permissions";
 import { serializeBigInt } from "@/lib/serialize";
 import { loadRevenueTxns, type RevenueTxnType } from "@/lib/revenue-ledger";
+import { FX_VND_PER_KRW_KEY } from "@/lib/pricing";
 import {
   resolveStatsPeriod,
   loadDataFloor,
@@ -74,6 +75,10 @@ export default async function RevenuePage({
   const tSvc = await getTranslations("adminStatistics");
   const serviceLabeler = (type: ServiceType) => tSvc(`services.types.${type}`);
 
+  // 현재 판매가 환율(1 KRW = x VND) — KRW 매출인데 예약 스냅샷이 없을 때 환산 폴백.
+  const fxRow = await prisma.appSetting.findUnique({ where: { key: FX_VND_PER_KRW_KEY } });
+  const fallbackFxVndPerKrw = fxRow?.value ?? null;
+
   // 데이터 로드 — 권한 통과 후에만. (read-only)
   const { txns, totals } = await loadRevenueTxns(
     prisma,
@@ -87,7 +92,8 @@ export default async function RevenuePage({
       currency,
       includeAllStatuses,
     },
-    serviceLabeler
+    serviceLabeler,
+    fallbackFxVndPerKrw
   );
 
   // 필터 드롭다운용 옵션 — 빌라·파트너 목록(이름만). 운영자 전용이라 누수 없음.

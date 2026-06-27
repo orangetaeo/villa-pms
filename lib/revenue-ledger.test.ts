@@ -188,8 +188,11 @@ describe("sumRevenueTotals — BigInt 누적·KRW/VND 분리(합산 금지)", ()
     label: "L",
     saleKrw: null,
     saleVnd: null,
+    saleUsd: null,
     costVnd: null,
+    saleVndEquivalent: null,
     marginVnd: null,
+    fxMissing: false,
     ...over,
   });
 
@@ -219,7 +222,122 @@ describe("sumRevenueTotals — BigInt 누적·KRW/VND 분리(합산 금지)", ()
 
   it("빈 배열: 0/0n", () => {
     const totals = sumRevenueTotals([]);
-    expect(totals).toEqual({ count: 0, saleKrw: 0, saleVnd: 0n, costVnd: 0n, marginVnd: 0n });
+    expect(totals).toEqual({
+      count: 0,
+      saleKrw: 0,
+      saleVnd: 0n,
+      saleUsd: 0,
+      costVnd: 0n,
+      marginVnd: 0n,
+      integratedRevenueVnd: 0n,
+      fxMissingCount: 0,
+    });
+  });
+
+  it("통합 환산: VND 원본 + KRW 환산(saleVndEquivalent) 합, 환율 미상 건은 fxMissingCount만 증가", () => {
+    const totals = sumRevenueTotals([
+      mk({ saleVnd: 2_000_000n, saleVndEquivalent: 2_000_000n, marginVnd: 500_000n, costVnd: 1_500_000n }),
+      mk({ saleKrw: 450_000, saleVndEquivalent: 8_100_000n, marginVnd: 3_100_000n, costVnd: 5_000_000n }),
+      mk({ saleKrw: 300_000, saleVndEquivalent: null, marginVnd: null, fxMissing: true }),
+    ]);
+    expect(totals.saleVnd).toBe(2_000_000n); // 원본 VND만
+    expect(totals.saleKrw).toBe(750_000); // 원본 KRW 합
+    expect(totals.integratedRevenueVnd).toBe(10_100_000n); // 2,000,000 + 8,100,000 (환율 미상 건 제외)
+    expect(totals.marginVnd).toBe(3_600_000n); // 환산 후 마진 합(KRW 건 포함)
+    expect(totals.fxMissingCount).toBe(1);
+    expect(totals.saleUsd).toBe(0);
+  });
+});
+
+// ───────────────────────────────────────────────────────────
+// 환산·환산 후 마진 (Phase 1) — resolveVndEquivalent / fx 주입
+// ───────────────────────────────────────────────────────────
+describe("환산·환산 후 마진 (KRW를 예약 스냅샷 환율로 VND 환산)", () => {
+  const krwBase = {
+    id: "bk",
+    checkOut: D("2026-07-10"),
+    villaId: "v1",
+    villaName: "V12",
+    channel: BookingChannel.DIRECT,
+    partnerName: null,
+    agencyName: null,
+    guestName: "김학태",
+    saleCurrency: Currency.KRW,
+    totalSaleKrw: 1_000_000,
+    totalSaleVnd: null,
+    supplierCostVnd: 5_000_000n,
+  };
+
+  it("KRW 행 + 환율(18) → saleVndEquivalent=18,000,000, marginVnd=환산−원가", () => {
+    const t = buildRoomTxn({ ...krwBase, fxVndPerKrw: "18" });
+    expect(t.saleKrw).toBe(1_000_000);
+    expect(t.saleVnd).toBeNull(); // 원본은 여전히 KRW
+    expect(t.saleVndEquivalent).toBe(18_000_000n); // 1,000,000 × 18
+    expect(t.marginVnd).toBe(13_000_000n); // 18,000,000 − 5,000,000 (KRW 건도 마진 산입)
+    expect(t.fxMissing).toBe(false);
+  });
+
+  it("KRW 행인데 환율 없음 → saleVndEquivalent=null, fxMissing=true, marginVnd=null", () => {
+    const t = buildRoomTxn({ ...krwBase, fxVndPerKrw: null });
+    expect(t.saleVndEquivalent).toBeNull();
+    expect(t.fxMissing).toBe(true);
+    expect(t.marginVnd).toBeNull();
+  });
+
+  it("VND 행: 환산값=원본, fxMissing=false (환율 무관)", () => {
+    const t = buildRoomTxn({
+      ...krwBase,
+      saleCurrency: Currency.VND,
+      totalSaleKrw: null,
+      totalSaleVnd: 9_000_000n,
+      fxVndPerKrw: "18",
+    });
+    expect(t.saleVndEquivalent).toBe(9_000_000n);
+    expect(t.fxMissing).toBe(false);
+    expect(t.marginVnd).toBe(4_000_000n);
+  });
+
+  it("saleUsd는 Phase 1에서 항상 null (ROOM·MINIBAR·SERVICE)", () => {
+    expect(buildRoomTxn({ ...krwBase, fxVndPerKrw: "18" }).saleUsd).toBeNull();
+    expect(
+      buildMinibarTxn({
+        id: "m", checkOut: D("2026-07-05"), villaId: "v1", villaName: "V12",
+        nameKo: "콜라", consumedQty: 1, lineVnd: 20_000n, lineCostVnd: 10_000n,
+      }).saleUsd
+    ).toBeNull();
+  });
+
+  it("MINIBAR: 환산값=원본 VND, fxMissing=false (항상 VND)", () => {
+    const t = buildMinibarTxn({
+      id: "m", checkOut: D("2026-07-05"), villaId: "v1", villaName: "V12",
+      nameKo: "콜라", consumedQty: 2, lineVnd: 60_000n, lineCostVnd: 30_000n,
+    });
+    expect(t.saleVndEquivalent).toBe(60_000n);
+    expect(t.fxMissing).toBe(false);
+  });
+
+  it("loadRevenueTxns: KRW 예약에 fallbackFxVndPerKrw 적용 → 통합 매출에 환산분 포함", async () => {
+    const { db } = mockDb({
+      bookings: [
+        {
+          id: "b-krw", checkOut: D("2026-07-10"), villaId: "v1",
+          channel: BookingChannel.DIRECT, agencyName: null, guestName: "K",
+          saleCurrency: Currency.KRW, totalSaleKrw: 1_000_000, totalSaleVnd: null,
+          supplierCostVnd: 5_000_000n, fxVndPerKrw: null,
+          villa: { name: "V12" }, partner: null,
+        },
+      ],
+    });
+    const { totals } = await loadRevenueTxns(
+      db,
+      { from: D("2026-07-01"), to: D("2026-08-01"), types: ["ROOM"] },
+      undefined,
+      "18" // 예약 스냅샷이 없으니 현재 환율 폴백
+    );
+    expect(totals.saleKrw).toBe(1_000_000);
+    expect(totals.integratedRevenueVnd).toBe(18_000_000n);
+    expect(totals.marginVnd).toBe(13_000_000n);
+    expect(totals.fxMissingCount).toBe(0);
   });
 });
 

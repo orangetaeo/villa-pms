@@ -13,6 +13,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { canViewFinance, isOperator } from "@/lib/permissions";
 import { loadRevenueTxns, type RevenueTxnType } from "@/lib/revenue-ledger";
+import { FX_VND_PER_KRW_KEY } from "@/lib/pricing";
 import { resolveStatsPeriod, loadDataFloor } from "@/lib/statistics";
 
 export const runtime = "nodejs";
@@ -66,6 +67,10 @@ export async function GET(req: Request) {
   const t = await getTranslations("revenue");
   const serviceLabeler = (type: ServiceType) => tSvc(`services.types.${type}`);
 
+  // 현재 판매가 환율(폴백) — KRW 매출 환산용. 페이지와 동일.
+  const fxRow = await prisma.appSetting.findUnique({ where: { key: FX_VND_PER_KRW_KEY } });
+  const fallbackFxVndPerKrw = fxRow?.value ?? null;
+
   const { txns, totals } = await loadRevenueTxns(
     prisma,
     {
@@ -78,10 +83,11 @@ export async function GET(req: Request) {
       currency,
       includeAllStatuses,
     },
-    serviceLabeler
+    serviceLabeler,
+    fallbackFxVndPerKrw
   );
 
-  // CSV 헤더 — 운영자 화면 라벨 재사용(컬럼명 i18n).
+  // CSV 헤더 — 운영자 화면 라벨 재사용(컬럼명 i18n). 원본 통화(KRW·VND·USD) + 통합 환산(≈VND).
   const header = [
     t("cols.date"),
     t("cols.type"),
@@ -91,6 +97,8 @@ export async function GET(req: Request) {
     t("cols.label"),
     t("cols.saleKrw"),
     t("cols.saleVnd"),
+    t("cols.saleUsd"),
+    t("cols.saleVndEquivalent"),
     t("cols.costVnd"),
     t("cols.marginVnd"),
   ];
@@ -107,12 +115,14 @@ export async function GET(req: Request) {
         csvCell(x.label),
         csvCell(x.saleKrw), // Int — 정수 그대로
         csvCell(x.saleVnd === null ? "" : x.saleVnd.toString()), // BigInt — 동 단위 정수
+        csvCell(x.saleUsd), // Int(정수 달러) — Phase 1엔 비어있음
+        csvCell(x.saleVndEquivalent === null ? "" : x.saleVndEquivalent.toString()), // 환산(≈VND)
         csvCell(x.costVnd === null ? "" : x.costVnd.toString()),
         csvCell(x.marginVnd === null ? "" : x.marginVnd.toString()),
       ].join(",")
     );
   }
-  // 합계 행 — 통화 분리(KRW·VND), VND 마진만.
+  // 합계 행 — 원본 통화 분리(KRW·VND·USD) + 통합 환산(≈VND), 환산 후 마진.
   lines.push(
     [
       csvCell(t("totals.csvLabel")),
@@ -123,6 +133,8 @@ export async function GET(req: Request) {
       "",
       csvCell(totals.saleKrw),
       csvCell(totals.saleVnd.toString()),
+      csvCell(totals.saleUsd),
+      csvCell(totals.integratedRevenueVnd.toString()),
       csvCell(totals.costVnd.toString()),
       csvCell(totals.marginVnd.toString()),
     ].join(",")

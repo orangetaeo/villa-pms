@@ -3598,10 +3598,16 @@
     "title": "매출관리",
     "subtitle": "건별 매출 거래 목록",
     "summary": {
+      "integratedRevenue": "통합 환산 매출 (≈VND)",
+      "fxApprox": "≈ 오늘 환율 기준 근사치",
+      "fxMissing": "환율 미상 {count}건 제외",
+      "byCurrency": "원본 통화별 매출 (환전 전)",
       "saleKrw": "매출 (KRW)",
       "saleVnd": "매출 (VND)",
-      "marginVnd": "마진 (VND)",
-      "marginNote": "원가 입력분만 · KRW 채널 제외 (ADR-0003)",
+      "saleUsd": "매출 (USD)",
+      "usdSoon": "달러 예약 입력 준비 중",
+      "marginVnd": "마진 (VND, 환산 후)",
+      "marginNote": "전 통화 VND 환산 후 마진 · 환율 미상 건 제외",
       "count": "거래 건수",
       "countUnit": "건",
       "breakdownTitle": "유형별 매출 구성",
@@ -3610,7 +3616,7 @@
     "searchPlaceholder": "투숙객·빌라·파트너·품목명 검색",
     "exportCsv": "CSV 내보내기",
     "empty": "해당 기간·조건의 매출 거래가 없습니다",
-    "note": "매출 인식 = 체크아웃월 기준(CHECKED_OUT·NO_SHOW). 마진은 VND만 계산하며 KRW 채널 객실료는 VND 마진에서 제외됩니다(ADR-0003).",
+    "note": "매출 인식 = 체크아웃월 기준(CHECKED_OUT·NO_SHOW). 통합 환산 매출·마진은 KRW(예약 시점 환율 스냅샷, 없으면 현재 환율)를 VND로 환산해 합산한 표시용 근사치이며 저장·정산 금액이 아닙니다. 원본 통화별 매출은 환전 전 실제 수령 통화 기준입니다.",
     "types": {
       "ROOM": "객실료",
       "MINIBAR": "미니바",
@@ -3640,6 +3646,8 @@
       "label": "내역",
       "saleKrw": "판매가(KRW)",
       "saleVnd": "판매가(VND)",
+      "saleUsd": "판매가(USD)",
+      "saleVndEquivalent": "환산 매출(≈VND)",
       "costVnd": "원가(VND)",
       "marginVnd": "마진(VND)"
     },
@@ -3649,6 +3657,7 @@
     },
     "totals": {
       "label": "합계 ({count}건)",
+      "integratedLabel": "통합 환산 매출 (≈VND)",
       "csvLabel": "합계"
     }
   }
