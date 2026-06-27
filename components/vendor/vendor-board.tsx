@@ -4,10 +4,12 @@
 //   GET /api/vendor/orders 로드(클라 fetch — 수락/거절 후 즉시 재조회 필요).
 //   ★ 누수: API가 costVnd(자기 지급액)만 내려줌. 판매가·마진·타 공급자 발주 없음.
 //      추가 데이터 호출 금지 — 이 컴포넌트는 /api/vendor/orders shape만 사용.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import ListSearch from "@/components/list-search";
+import PaginationBar from "@/components/pagination-bar";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 type VendorStatus = "PENDING_VENDOR" | "VENDOR_ACCEPTED" | "VENDOR_REJECTED" | null;
 
@@ -234,6 +236,24 @@ function scheduleSortKey(o: VendorOrder): number {
   return iso ? new Date(iso).getTime() : Number.MAX_SAFE_INTEGER;
 }
 
+// 클라 controlled 페이지네이션(라이트 포털 목록, M5) — 발주함·예약현황·정산 목록이 길어도(예: 발주 79건)
+// 한 화면에 한 페이지만 렌더. 검색으로 매 렌더 새 배열이 와도 safePage 클램프로 안전(불필요 리셋 없음).
+function usePaged<T>(items: T[]) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const paged = useMemo(
+    () => items.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [items, safePage, pageSize]
+  );
+  const onPageSizeChange = (s: number) => {
+    setPageSize(s);
+    setPage(1);
+  };
+  return { paged, page: safePage, pageSize, setPage, setPageSize: onPageSizeChange };
+}
+
 type T = ReturnType<typeof useTranslations<"vendor">>;
 
 // ── 발주함(받은 발주) ───────────────────────────────────────────────
@@ -250,12 +270,13 @@ function InboxSection({
   onAccept: (o: VendorOrder) => void;
   onReject: (o: VendorOrder) => void;
 }) {
+  const { paged, page, pageSize, setPage, setPageSize } = usePaged(orders);
   if (orders.length === 0) {
     return <EmptyState icon="inbox" title={t("empty.inbox")} hint={t("empty.inboxHint")} />;
   }
   return (
     <div className="space-y-3">
-      {orders.map((o) => (
+      {paged.map((o) => (
         <div
           key={o.id}
           className="space-y-3 rounded-2xl border-l-4 border-rose-400 bg-white p-4 shadow-sm"
@@ -315,18 +336,27 @@ function InboxSection({
           </div>
         </div>
       ))}
+      <PaginationBar
+        light
+        total={orders.length}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
     </div>
   );
 }
 
 // ── 예약 현황(수락한 발주 일정) ────────────────────────────────────
 function ScheduleSection({ orders, t }: { orders: VendorOrder[]; t: T }) {
+  const { paged, page, pageSize, setPage, setPageSize } = usePaged(orders);
   if (orders.length === 0) {
     return <EmptyState icon="event_available" title={t("empty.schedule")} hint={t("empty.scheduleHint")} />;
   }
   return (
     <div className="space-y-3">
-      {orders.map((o) => (
+      {paged.map((o) => (
         <div
           key={o.id}
           className="flex items-center justify-between gap-3 rounded-xl border-l-4 border-teal-500 bg-white p-4 shadow-sm"
@@ -350,6 +380,14 @@ function ScheduleSection({ orders, t }: { orders: VendorOrder[]; t: T }) {
           </span>
         </div>
       ))}
+      <PaginationBar
+        light
+        total={orders.length}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
     </div>
   );
 }
@@ -364,6 +402,8 @@ function SettlementSection({
   settled: VendorOrder[];
   t: T;
 }) {
+  const u = usePaged(unsettled);
+  const s = usePaged(settled);
   if (unsettled.length === 0 && settled.length === 0) {
     return <EmptyState icon="payments" title={t("empty.settlement")} hint={t("empty.settlementHint")} />;
   }
@@ -396,10 +436,18 @@ function SettlementSection({
         <div className="space-y-2">
           <h3 className="text-sm font-bold text-slate-700">{t("settle.pendingTitle")}</h3>
           <div className="space-y-2">
-            {unsettled.map((o) => (
+            {u.paged.map((o) => (
               <SettleRow key={o.id} order={o} paid={false} t={t} />
             ))}
           </div>
+          <PaginationBar
+            light
+            total={unsettled.length}
+            page={u.page}
+            pageSize={u.pageSize}
+            onPageChange={u.setPage}
+            onPageSizeChange={u.setPageSize}
+          />
         </div>
       )}
 
@@ -407,10 +455,18 @@ function SettlementSection({
         <div className="space-y-2">
           <h3 className="text-sm font-bold text-slate-700">{t("settle.paidTitle")}</h3>
           <div className="space-y-2">
-            {settled.map((o) => (
+            {s.paged.map((o) => (
               <SettleRow key={o.id} order={o} paid t={t} />
             ))}
           </div>
+          <PaginationBar
+            light
+            total={settled.length}
+            page={s.page}
+            pageSize={s.pageSize}
+            onPageChange={s.setPage}
+            onPageSizeChange={s.setPageSize}
+          />
         </div>
       )}
     </div>
