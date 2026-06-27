@@ -27,6 +27,9 @@ import { isOperator } from "@/lib/permissions";
 //   settings/zalo/zalo-connect-client                → adminZalo
 //   cost-alerts/cost-alerts-view                     → adminCostAlerts
 //   components/admin/quick-date-filter               → quickDateFilter
+//   revenue/revenue-client                           → revenue (매출관리)
+//   settings/vendors/vendors-manager                 → adminVendors (부가서비스 공급자, ADR-0023)
+// (완성도는 tests/admin-i18n-whitelist.test.ts가 자동 검증 — 누락 시 라벨 raw 키로 깨짐)
 // 새 admin 클라이언트 컴포넌트에서 네임스페이스 추가 시 반드시 여기에도 추가할 것
 // (누락 시 MISSING_MESSAGE로 화면 깨짐).
 const ADMIN_CLIENT_NAMESPACES = [
@@ -46,9 +49,15 @@ const ADMIN_CLIENT_NAMESPACES = [
   "inventory",
   "adminServices",
   "adminServiceOrders",
+  // 부가서비스 원천 공급자 관리(ADR-0023) /settings/vendors(vendors-manager) — 화이트리스트
+  // 누락으로 라벨이 raw 키로 깨지던 버그 수정(2026-06-27, revenue와 동일 클래스).
+  "adminVendors",
   "adminGuestToken",
   "adminProposals",
   "adminInspections",
+  // 매출관리 /revenue(revenue-client) — PR #74에서 페이지·메시지는 추가됐으나 이 화이트리스트
+  // 누락으로 클라이언트 라벨이 raw 키로 깨지던 버그 수정(2026-06-27).
+  "revenue",
   "adminMessages",
   "adminZalo",
   "adminCostAlerts",

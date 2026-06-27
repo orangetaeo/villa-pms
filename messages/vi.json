@@ -3597,6 +3597,16 @@
   "revenue": {
     "title": "Quản lý doanh thu",
     "subtitle": "Danh sách giao dịch doanh thu",
+    "summary": {
+      "saleKrw": "Doanh thu (KRW)",
+      "saleVnd": "Doanh thu (VND)",
+      "marginVnd": "Lợi nhuận (VND)",
+      "marginNote": "Chỉ phần có giá gốc · không gồm kênh KRW (ADR-0003)",
+      "count": "Số giao dịch",
+      "countUnit": "giao dịch",
+      "breakdownTitle": "Cơ cấu doanh thu theo loại",
+      "breakdownNote": "Theo doanh thu VND"
+    },
     "searchPlaceholder": "Tìm khách·villa·đối tác·tên mặt hàng",
     "exportCsv": "Xuất CSV",
     "empty": "Không có giao dịch doanh thu trong kỳ·điều kiện này",
