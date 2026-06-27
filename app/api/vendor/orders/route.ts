@@ -9,6 +9,7 @@ import { isVendor, type Role } from "@/lib/permissions";
 import { getVendorIdForUser } from "@/lib/vendor-auth";
 import { getSupplierLocale } from "@/lib/locale";
 import { pickI18n, selectedOptionLabels } from "@/lib/service-display";
+import { formatVillaName } from "@/lib/villa-name";
 
 // PENDING_VENDOR(응답 대기)를 맨 위로, 그 외는 createdAt desc.
 function sortKey(vendorStatus: string | null): number {
@@ -49,7 +50,7 @@ export async function GET() {
           checkIn: true,
           checkOut: true,
           guestCount: true,
-          villa: { select: { name: true } },
+          villa: { select: { name: true, nameVi: true } },
         },
       },
     },
@@ -78,7 +79,9 @@ export async function GET() {
     })
     .map((o) => ({
       id: o.id,
-      villaName: o.booking?.villa?.name ?? null,
+      villaName: o.booking?.villa
+        ? formatVillaName({ name: o.booking.villa.name, nameVi: o.booking.villa.nameVi })
+        : null,
       checkIn: o.booking?.checkIn ?? null,
       checkOut: o.booking?.checkOut ?? null,
       serviceDate: o.serviceDate,

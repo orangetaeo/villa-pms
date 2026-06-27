@@ -14,7 +14,10 @@ export function GuestExpiredView({
   kakaoUrl: string | null;
   phone: string | null;
 }) {
-  const t = PUBLIC_LABELS[lang].expired;
+  // 게스트 체크인 링크 전용 만료 문구(guestExpired) — "제안 만료"(expired)는 제안서용이라 부적합.
+  // 문의 버튼 라벨(카카오/전화)은 공용 expired에서 재사용.
+  const t = PUBLIC_LABELS[lang].guestExpired;
+  const contact = PUBLIC_LABELS[lang].expired;
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <header className="w-full sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-slate-100 flex items-center justify-center h-14 px-4">
@@ -45,7 +48,7 @@ export function GuestExpiredView({
               className="w-full h-12 rounded-xl bg-teal-600 text-white font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
             >
               <span className="material-symbols-outlined text-[20px]">chat</span>
-              {t.contactKakao}
+              {contact.contactKakao}
             </a>
           )}
           {phone && (
@@ -54,7 +57,7 @@ export function GuestExpiredView({
               className="w-full h-12 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
             >
               <span className="material-symbols-outlined text-[20px]">call</span>
-              {t.contactPhone}
+              {contact.contactPhone}
             </a>
           )}
         </div>

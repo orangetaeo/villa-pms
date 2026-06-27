@@ -67,10 +67,12 @@ async function PartnerShell({
   showNav?: boolean;
   children: React.ReactNode;
 }) {
-  // 클라이언트(PartnerTabBar)는 partner 네임스페이스만 사용 — 그것만 직렬화(누수 차단).
+  // 클라이언트(PartnerTabBar·PaginationBar)는 partner·pagination 네임스페이스만 사용 — 그것만 직렬화(누수 차단).
+  // pagination: 목록 화면의 공용 PaginationBar(useTranslations("pagination")). 누락 시 라벨이 raw 키로 깨짐.
   const allMessages = (await import(`../../messages/${locale}.json`)).default;
   const clientMessages: AbstractIntlMessages = {
     partner: (allMessages as Record<string, unknown>).partner as AbstractIntlMessages,
+    pagination: (allMessages as Record<string, unknown>).pagination as AbstractIntlMessages,
   };
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">

@@ -7,6 +7,7 @@
 //   - 파트너가 보는 금액 = 자기 채권(PartnerReceivable)·청구서(PartnerInvoice)의 VND뿐(정당하게 청구되는 금액).
 //   - BigInt는 컴포넌트(클라이언트 직렬화) 전달용으로 string 변환.
 import { prisma } from "@/lib/prisma";
+import { outstandingForPartner, receivableOutstanding } from "@/lib/partner";
 
 // ── 직렬화 타입 ──────────────────────────────────────────────────────────────
 
@@ -159,14 +160,16 @@ export async function loadPartnerReceivables(
 
   let totalBilled = 0n;
   let totalPaid = 0n;
-  let outstanding = 0n;
+  // 미수 잔액은 운영자(outstandingForPartner)와 동일 규칙으로 산출 — 완납·대손 제외 + 음수 클램프(H2).
+  //   옛 동작: 상태 무관 Σ(total−paid)라 대손 채권까지 미수에 포함 → 파트너 화면이 운영자보다 큰 미수 표시.
+  //   총청구·총납부는 이력 합계(전 상태)라 그대로 두며, 차액(=대손액)은 미수가 아님.
+  const outstanding = outstandingForPartner(receivables);
 
   const receivableRows: PartnerReceivableRow[] = receivables.map((r) => {
     const paid = r.depositPaidVnd + r.balancePaidVnd;
-    const out = r.totalVnd - paid;
+    const out = receivableOutstanding(r); // 음수 클램프(0 하한) — 행 표시도 운영자와 일관
     totalBilled += r.totalVnd;
     totalPaid += paid;
-    outstanding += out;
     return {
       id: r.id,
       villaName: r.booking.villa.name,

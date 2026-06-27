@@ -58,9 +58,11 @@ export default async function SupplierLayout({
         <AccountLink />
         {/* 모바일 당겨서 새로고침 — 공급자 전 화면(라이트 테마, 풀스크린 마법사 제외) */}
         <PullToRefresh fullscreenPrefixes={SUPPLIER_FULLSCREEN_PREFIXES} variant="light" />
-        <main>{children}</main>
+        {/* pt-14: 좌상단 AccountLink·우상단 LocaleSwitcher(fixed top-3 h-9)와 본문 콘텐츠 겹침 방지(M4) */}
+        <main className="pt-14">{children}</main>
         {/* 하단 탭바 (T1.4) — 풀스크린 플로우에서는 컴포넌트가 스스로 숨김 + 본문 하단 스페이서 포함 */}
-        <TabBar />
+        {/* CLEANER는 청소·안내만(H3 리다이렉트 루프 방지) — role 전달로 탭 필터링 */}
+        <TabBar role={session.user.role} />
       </NextIntlClientProvider>
     </div>
   );
