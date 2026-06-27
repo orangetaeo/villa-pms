@@ -2435,6 +2435,11 @@
         "DIRECT": "Trực tiếp"
       },
       "vndNotice": "Kênh công ty du lịch · land tour thanh toán bằng VND",
+      "usdToggle": "Bán bằng đô la (USD)",
+      "usdNotice": "Kênh USD không có báo giá tự động từ bảng giá. Vui lòng nhập tổng tiền USD cho từng villa.",
+      "usdTotalLabel": "Nhập tổng USD ($)",
+      "usdTotalPlaceholder": "VD: 1500",
+      "usdTotalRequired": "Vui lòng nhập tổng USD cho mỗi villa đã chọn.",
       "conditionHint": "Danh sách villa có thể bán sẽ hiển thị theo điều kiện đã chọn.",
       "results": "Kết quả tìm kiếm",
       "resultsCount": "{count} villa khả dụng",

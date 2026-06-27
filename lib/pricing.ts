@@ -38,10 +38,18 @@ export class MissingRateError extends Error {
   }
 }
 
-/** 판매 통화 게이트 — SPEC F3: 판매 통화는 KRW(직접 소비자)·VND(여행사·랜드사)뿐 */
+/**
+ * 판매 통화 게이트 — SPEC F3: 판매 통화는 KRW(직접 소비자)·VND(여행사·랜드사).
+ * Phase 2: USD(외국인 직접·달러 결제) 추가 — 요율표 단가가 없어 자동견적은 불가하지만
+ * 통화 자체는 허용(ADMIN이 제안 생성 시 빌라별 USD 총액을 수동 입력).
+ */
 function assertSupportedSaleCurrency(saleCurrency: Currency): void {
-  if (saleCurrency !== Currency.KRW && saleCurrency !== Currency.VND) {
-    throw new RangeError(`지원하지 않는 판매 통화: ${saleCurrency} (KRW·VND만 가능)`);
+  if (
+    saleCurrency !== Currency.KRW &&
+    saleCurrency !== Currency.VND &&
+    saleCurrency !== Currency.USD
+  ) {
+    throw new RangeError(`지원하지 않는 판매 통화: ${saleCurrency} (KRW·VND·USD만 가능)`);
   }
 }
 
@@ -252,10 +260,11 @@ export function quoteStayByPeriod(input: QuoteStayByPeriodInput): StayQuote {
     const rate = resolveRatePeriod(date, input.periods, input.base);
 
     const night: NightQuote = { date, season: rate.season, costVnd: rate.supplierCostVnd };
+    // USD(Phase 2)는 요율표에 판매단가가 없어 sale 칸을 비운다 — 원가만 박별 합산.
     if (input.saleCurrency === Currency.KRW) {
       night.saleKrw = rate.salePriceKrw;
       totalSaleKrw += rate.salePriceKrw;
-    } else {
+    } else if (input.saleCurrency === Currency.VND) {
       night.saleVnd = rate.salePriceVnd;
       totalSaleVnd += rate.salePriceVnd;
     }
@@ -267,7 +276,12 @@ export function quoteStayByPeriod(input: QuoteStayByPeriodInput): StayQuote {
     nights,
     saleCurrency: input.saleCurrency,
     nightly,
-    ...(input.saleCurrency === Currency.KRW ? { totalSaleKrw } : { totalSaleVnd }),
+    // KRW/VND만 sale 총액을 채운다. USD는 둘 다 미포함(수동입력) — totalSupplierCostVnd만 의미.
+    ...(input.saleCurrency === Currency.KRW
+      ? { totalSaleKrw }
+      : input.saleCurrency === Currency.VND
+        ? { totalSaleVnd }
+        : {}),
     totalSupplierCostVnd,
   };
 }
@@ -350,21 +364,50 @@ export function krwToVndSnapshot(krw: number, fxVndPerKrw: string): bigint {
 }
 
 /**
- * 듀얼 컬럼 검증 (SPEC F3): ProposalItem·Booking 금액은 saleCurrency에 해당하는
- * 통화 컬럼만 채워야 한다. KRW ⇒ krw 필수·vnd 금지 / VND ⇒ 반대.
+ * USD→VND 환산 (Phase 2): vnd = usd × fxVndPerUsd (1 USD = x VND).
+ * krwToVndSnapshot과 동형 — 환율은 Decimal(14,4) 문자열 → 1e4 스케일 BigInt, half-up 반올림(float 금지).
+ * 환율 스냅샷(Booking.fxVndPerUsd / Proposal.fxVndPerUsd)을 받아 USD 매출을 VND 환산한다.
+ * usd는 비음 정수(정수 달러)만 허용.
+ */
+export function usdToVndSnapshot(usd: number, fxVndPerUsd: string): bigint {
+  if (!Number.isInteger(usd) || usd < 0) {
+    throw new RangeError(`잘못된 USD 금액: ${usd} (음이 아닌 정수)`);
+  }
+  if (!/^\d+(\.\d{1,4})?$/.test(fxVndPerUsd)) {
+    throw new RangeError(`잘못된 환율 형식: ${fxVndPerUsd} (소수 4자리까지 숫자)`);
+  }
+  const [int, frac = ""] = fxVndPerUsd.split(".");
+  const fxScaled = BigInt(int + frac.padEnd(4, "0")); // 환율 × 1e4
+  if (fxScaled <= 0n) throw new RangeError("환율은 0보다 커야 합니다");
+
+  // vnd = usd × (fxScaled / 1e4) = usd × fxScaled / 1e4 — half-up 반올림
+  const numerator = BigInt(usd) * fxScaled;
+  return (numerator + 5_000n) / 10_000n;
+}
+
+/**
+ * 듀얼/트리 컬럼 검증 (SPEC F3, Phase 2): ProposalItem·Booking 금액은 saleCurrency에 해당하는
+ * 통화 컬럼만 채워야 한다.
+ *  - KRW ⇒ krw 필수, vnd·usd 금지
+ *  - VND ⇒ vnd 필수, krw·usd 금지
+ *  - USD ⇒ usd 필수, krw·vnd 금지 (Phase 2)
  */
 export function assertSaleAmountColumns(
   saleCurrency: Currency,
-  amounts: { krw?: number | null; vnd?: bigint | null }
+  amounts: { krw?: number | null; vnd?: bigint | null; usd?: number | null }
 ): void {
   assertSupportedSaleCurrency(saleCurrency);
   const hasKrw = amounts.krw != null;
   const hasVnd = amounts.vnd != null;
-  if (saleCurrency === Currency.KRW && (!hasKrw || hasVnd)) {
-    throw new Error("KRW 거래는 KRW 금액만 채워야 합니다 (krw 필수, vnd 금지)");
+  const hasUsd = amounts.usd != null;
+  if (saleCurrency === Currency.KRW && (!hasKrw || hasVnd || hasUsd)) {
+    throw new Error("KRW 거래는 KRW 금액만 채워야 합니다 (krw 필수, vnd·usd 금지)");
   }
-  if (saleCurrency === Currency.VND && (!hasVnd || hasKrw)) {
-    throw new Error("VND 거래는 VND 금액만 채워야 합니다 (vnd 필수, krw 금지)");
+  if (saleCurrency === Currency.VND && (!hasVnd || hasKrw || hasUsd)) {
+    throw new Error("VND 거래는 VND 금액만 채워야 합니다 (vnd 필수, krw·usd 금지)");
+  }
+  if (saleCurrency === Currency.USD && (!hasUsd || hasKrw || hasVnd)) {
+    throw new Error("USD 거래는 USD 금액만 채워야 합니다 (usd 필수, krw·vnd 금지)");
   }
 }
 

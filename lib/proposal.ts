@@ -17,6 +17,7 @@ import {
   MissingRateError,
   type NightQuote,
 } from "./pricing";
+import { getDailyRates } from "./fx-rates";
 import { writeAuditLog } from "./audit-log";
 
 /**
@@ -75,6 +76,11 @@ export function generateProposalToken(): string {
 
 export interface ProposalItemInput extends StayRange {
   villaId: string;
+  /**
+   * Phase 2 USD: saleCurrency=USD일 때 ADMIN이 수동 입력한 빌라별 USD 총액(정수 달러).
+   * USD 제안인데 누락이면 createProposal이 RangeError. KRW/VND 제안에서는 무시된다.
+   */
+  totalUsd?: number;
 }
 
 export interface CreateProposalInput {
@@ -121,6 +127,15 @@ export async function createProposal(
 
   const saleCurrency = input.saleCurrency ?? defaultCurrencyForChannel(input.channel);
 
+  // Phase 2 USD: 오늘 USD→VND 환율 스냅샷(표시용 환산·마진 근사치)은 외부 API fetch가 따를 수 있어
+  //   트랜잭션 밖에서 미리 조회한다(트랜잭션 점유 시간 최소화 — QA 지적). null/USD rate 없으면 null.
+  let fxVndPerUsd: string | null = null;
+  if (saleCurrency === Currency.USD) {
+    const rates = await getDailyRates(prisma, input.now);
+    const usdRate = rates?.vndPerUnit?.USD;
+    if (usdRate && usdRate > 0) fxVndPerUsd = usdRate.toFixed(4);
+  }
+
   return prisma.$transaction(async (tx) => {
     // 파트너 연결 검증(선택) — 존재·유형 일치만. DIRECT 채널은 파트너 비허용(일반 소비자)
     if (input.partnerId) {
@@ -149,7 +164,31 @@ export async function createProposal(
         continue;
       }
       try {
+        // 원가는 통화 무관 항상 quoteStayForVilla로 계산(USD 포함 — sale 칸만 비고 원가는 정상).
         const quote = await quoteStayForVilla(tx, item.villaId, item, saleCurrency);
+
+        if (saleCurrency === Currency.USD) {
+          // USD(Phase 2): 요율표 판매단가가 없어 자동견적 불가 → ADMIN 수동 입력 totalUsd 사용.
+          const totalUsd = item.totalUsd;
+          if (totalUsd == null || !Number.isInteger(totalUsd) || totalUsd <= 0) {
+            throw new RangeError(
+              `USD 제안은 빌라별 USD 총액(양의 정수)이 필수입니다: ${item.villaId}`
+            );
+          }
+          assertSaleAmountColumns(saleCurrency, { usd: totalUsd });
+          itemRows.push({
+            villa: { connect: { id: item.villaId } },
+            checkIn: item.checkIn,
+            checkOut: item.checkOut,
+            priceKrwPerNight: null,
+            totalKrw: null,
+            priceVndPerNight: null,
+            totalVnd: null,
+            totalUsd,
+          });
+          continue;
+        }
+
         const isKrw = saleCurrency === Currency.KRW;
         assertSaleAmountColumns(saleCurrency, {
           krw: quote.totalSaleKrw ?? null,
@@ -187,6 +226,7 @@ export async function createProposal(
         channel: input.channel,
         saleCurrency,
         fxVndPerKrw: fx,
+        fxVndPerUsd,
         expiresAt: new Date(input.now.getTime() + expiresInHours * 3_600_000),
         note: input.note?.trim() || null,
         ...(input.partnerId ? { partner: { connect: { id: input.partnerId } } } : {}),

@@ -161,9 +161,13 @@ export async function createHoldFromProposalItem(
       throw new HoldRejectedError("SOLD_OUT", availability.reasons.join(","));
     }
 
-    // 판매가 = 제안 스냅샷(고객이 본 가격) — 듀얼 컬럼 정합 검증
+    // 판매가 = 제안 스냅샷(고객이 본 가격) — 통화 컬럼 정합 검증 (Phase 2: USD 포함)
     const saleCurrency = item.proposal.saleCurrency;
-    assertSaleAmountColumns(saleCurrency, { krw: item.totalKrw, vnd: item.totalVnd });
+    assertSaleAmountColumns(saleCurrency, {
+      krw: item.totalKrw,
+      vnd: item.totalVnd,
+      usd: item.totalUsd,
+    });
 
     const isSupplierSale = item.proposal.seller === BookingSeller.SUPPLIER;
 
@@ -197,7 +201,9 @@ export async function createHoldFromProposalItem(
         saleCurrency,
         totalSaleKrw: item.totalKrw,
         totalSaleVnd: item.totalVnd,
+        totalSaleUsd: item.totalUsd, // Phase 2 USD: 제안 스냅샷 복사
         fxVndPerKrw: item.proposal.fxVndPerKrw,
+        fxVndPerUsd: item.proposal.fxVndPerUsd, // Phase 2 USD: 제안 환율 스냅샷 복사
         // 공급자 직접판매: 우리 원가는 null(스키마는 NOT NULL이라 0n) + 공급자가 받은 금액 기록
         supplierCostVnd,
         ...(isSupplierSale ? { supplierSalePriceVnd: item.totalVnd } : {}),

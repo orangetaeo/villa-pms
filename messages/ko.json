@@ -2326,6 +2326,11 @@
         "DIRECT": "직접"
       },
       "vndNotice": "여행사·랜드사 채널은 VND로 결제됩니다",
+      "usdToggle": "달러(USD)로 판매",
+      "usdNotice": "USD 채널은 요율표 자동견적이 없습니다. 빌라별 USD 총액을 직접 입력하세요.",
+      "usdTotalLabel": "USD 총액 입력 ($)",
+      "usdTotalPlaceholder": "예: 1500",
+      "usdTotalRequired": "선택한 빌라마다 USD 총액을 입력하세요.",
       "conditionHint": "선택된 조건에 따라 판매 가능한 빌라 목록이 표시됩니다.",
       "results": "검색 결과",
       "resultsCount": "{count}개의 빌라 이용 가능",

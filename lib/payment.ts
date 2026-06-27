@@ -5,8 +5,8 @@
 //
 // 규칙(money-pattern):
 //  - 모든 금액 BigInt(통화 최소단위: KRW 원, VND 동). float 금지, 합산만.
-//  - VND 환산은 수납 시점 환율(fxRateToVnd, Decimal(14,4) 문자열)로 half-up. KRW 수납은 환율 필수.
-//  - 지원 통화 화이트리스트(KRW·VND)만 — 그 외(USD 등)는 throw.
+//  - VND 환산은 수납 시점 환율(fxRateToVnd, Decimal(14,4) 문자열)로 half-up. KRW·USD 수납은 환율 필수.
+//  - 지원 통화 화이트리스트(KRW·VND·USD)만 — 그 외는 throw. USD=Phase 2.
 import { Currency } from "@prisma/client";
 
 /** 환율 문자열 "정수[.소수4자리]" → ×1e4 BigInt. 형식 오류·0이하는 throw. */
@@ -23,7 +23,7 @@ function fxScaled(fxRateToVnd: string): bigint {
 /**
  * 한 건 수납액의 VND 환산.
  *  - VND: 그대로(환율 무시).
- *  - KRW: amount × fxRateToVnd, half-up. fxRateToVnd 없으면 throw(허위 0 금지).
+ *  - KRW·USD: amount × fxRateToVnd, half-up. fxRateToVnd 없으면 throw(허위 0 금지).
  *  - 그 외 통화: throw.
  */
 export function computeVndEquivalent(
@@ -33,11 +33,11 @@ export function computeVndEquivalent(
 ): bigint {
   if (amount < 0n) throw new RangeError(`수납액은 음수일 수 없습니다: ${amount}`);
   if (currency === Currency.VND) return amount;
-  if (currency === Currency.KRW) {
+  if (currency === Currency.KRW || currency === Currency.USD) {
     if (!fxRateToVnd) {
-      throw new RangeError("KRW 수납은 수납 시점 환율(fxRateToVnd)이 필수입니다");
+      throw new RangeError(`${currency} 수납은 수납 시점 환율(fxRateToVnd)이 필수입니다`);
     }
-    // vnd = amount × (scaled/1e4), half-up
+    // vnd = amount × (scaled/1e4), half-up — KRW·USD 공통(환율 단위만 다름)
     return (amount * fxScaled(fxRateToVnd) + 5_000n) / 10_000n;
   }
   throw new RangeError(`수납 미지원 통화: ${currency}`);

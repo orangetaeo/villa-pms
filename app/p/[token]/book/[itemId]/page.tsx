@@ -60,6 +60,7 @@ export default async function BookingRequestPage({
       checkOut: true,
       totalKrw: true,
       totalVnd: true,
+      totalUsd: true, // Phase 2 USD: 구매자가 볼 제안가($)
       bookingId: true,
       proposal: { select: { token: true, status: true, expiresAt: true, saleCurrency: true } },
       villa: {
@@ -143,7 +144,7 @@ export default async function BookingRequestPage({
               <div className="pt-2 border-t border-dashed border-gray-200 flex justify-between items-center">
                 <span className="text-sm text-slate-500">{t.bookPage.totalLabel}</span>
                 <span className="text-xl font-extrabold text-teal-600">
-                  {formatPublicAmount(item.proposal.saleCurrency, item.totalKrw, item.totalVnd, lang)}
+                  {formatPublicAmount(item.proposal.saleCurrency, item.totalKrw, item.totalVnd, lang, item.totalUsd)}
                 </span>
               </div>
             </div>

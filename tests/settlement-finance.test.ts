@@ -68,10 +68,23 @@ describe("bookingFinance — 예약별 손익", () => {
     expect(f.marginVnd).toBeNull();
     expect(f.fxMissing).toBe(true);
   });
-  it("미지원 통화는 throw (화이트리스트)", () => {
+  it("미지원 통화는 throw (화이트리스트) — USD는 Phase 2부터 허용되어 화이트리스트 밖 통화로 검증", () => {
+    // USD는 Phase 2에서 지원되므로 throw하지 않는다(별도 USD 분기 테스트는 lib/settlement-finance.test.ts).
     expect(() =>
       bookingFinance({
-        saleCurrency: "USD" as Currency,
+        saleCurrency: Currency.USD,
+        totalSaleKrw: null,
+        totalSaleVnd: null,
+        totalSaleUsd: 100,
+        supplierCostVnd: 0n,
+        fxVndPerKrw: null,
+        fxVndPerUsd: "25400",
+      })
+    ).not.toThrow();
+    // 화이트리스트 밖(예: RUB)은 여전히 throw
+    expect(() =>
+      bookingFinance({
+        saleCurrency: "RUB" as Currency,
         totalSaleKrw: null,
         totalSaleVnd: null,
         supplierCostVnd: 0n,

@@ -77,6 +77,7 @@ export default async function BookingDonePage({
       saleCurrency: true,
       totalSaleKrw: true,
       totalSaleVnd: true,
+      totalSaleUsd: true, // Phase 2 USD: 구매자가 볼 판매가($). fx·원가는 미조회(누수 0)
       proposalItem: { select: { proposal: { select: { token: true } } } },
     },
   });
@@ -86,16 +87,27 @@ export default async function BookingDonePage({
     notFound();
   }
 
-  const bankRows = await prisma.appSetting.findMany({
-    where: { key: { in: ALL_BANK_KEYS } },
-  });
-  // 예약 통화에 맞는 계좌 세트 선택 (VND→베트남, KRW·그 외→한국)
+  // Phase 2 USD: USD 전용 계좌는 운영하지 않는다. USD를 KRW 계좌로 폴백하면 오안내가 되므로
+  // 계좌 조회를 건너뛰고 "운영자 문의" 중립 메시지를 보여준다.
+  const isUsd = booking.saleCurrency === "USD";
+  const bankRows = isUsd
+    ? []
+    : await prisma.appSetting.findMany({
+        where: { key: { in: ALL_BANK_KEYS } },
+      });
+  // 예약 통화에 맞는 계좌 세트 선택 (VND→베트남, KRW→한국). USD는 계좌 미선택.
   const keySet = booking.saleCurrency === "VND" ? BANK_KEY_SETS.VND : BANK_KEY_SETS.KRW;
   const byKey = new Map(bankRows.map((r) => [r.key, r.value]));
   const bank = (k: string) => byKey.get(k) ?? null;
-  const hasBankInfo = bank(keySet.name) && bank(keySet.number);
+  const hasBankInfo = !isUsd && bank(keySet.name) && bank(keySet.number);
 
-  const total = formatPublicAmount(booking.saleCurrency, booking.totalSaleKrw, booking.totalSaleVnd, lang);
+  const total = formatPublicAmount(
+    booking.saleCurrency,
+    booking.totalSaleKrw,
+    booking.totalSaleVnd,
+    lang,
+    booking.totalSaleUsd
+  );
 
   // 파트너(여행사/랜드사) 부가서비스 요청 — PARTNER 자격 카탈로그만(서버 필터), 판매가만(원가·vendor 비노출)
   const partnerAddon = await loadPartnerAddon(booking.id, booking.saleCurrency, lang);
@@ -168,7 +180,8 @@ export default async function BookingDonePage({
           )}
           {!hasBankInfo && (
             <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center text-sm text-slate-500">
-              {t.donePage.noBankInfo}
+              {/* USD는 계좌 미운영 — KRW 계좌 오안내 대신 운영자 문의 중립 메시지 */}
+              {isUsd ? t.usdBankNotice : t.donePage.noBankInfo}
               <div className="mt-3 text-2xl font-extrabold text-slate-900">{total}</div>
             </div>
           )}

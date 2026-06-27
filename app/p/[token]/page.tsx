@@ -100,6 +100,7 @@ export default async function ProposalPage({
           priceVndPerNight: true,
           totalKrw: true,
           totalVnd: true,
+          totalUsd: true, // Phase 2 USD: 구매자가 볼 제안가($). fx·원가는 미조회(누수 0)
           bookingId: true,
           villa: {
             // ⚠ select 화이트리스트 — wifiSsid·wifiPassword 절대 미포함 (ADR-0011 §4.3).
@@ -169,8 +170,13 @@ export default async function ProposalPage({
   // F10 Phase B: 공급자 직접판매 링크(seller=SUPPLIER)는 우리 회사 계좌를 노출하지 않는다 —
   // 공급자 고객은 공급자에게 직접 지불하므로 회사 입금계좌 안내가 부적절(ADR-0021 §7).
   const isSupplierLink = proposal.seller === "SUPPLIER";
-  // #6a — 입금 계좌 안내(메인 페이지). 통화별 계좌 자동 선택. 미설정·공급자 링크 시 null(섹션 미렌더).
-  const bank = isSupplierLink ? null : await getPublicBankInfo(currency);
+  // Phase 2 USD: USD 전용 계좌는 운영하지 않는다. USD를 KRW/VND 계좌로 폴백하면 오안내가 되므로
+  // 계좌 섹션 대신 "운영자 문의" 중립 메시지를 보여준다(아래 usdNotice).
+  const isUsd = currency === Currency.USD;
+  // #6a — 입금 계좌 안내(메인 페이지). 통화별 계좌 자동 선택. 미설정·공급자·USD 링크 시 null(섹션 미렌더).
+  const bank = isSupplierLink || isUsd ? null : await getPublicBankInfo(currency);
+  // USD는 공급자 직접판매 링크가 아닌 경우에만 중립 안내(공급자 링크는 회사 계좌 안내 자체가 부적절)
+  const showUsdNotice = isUsd && !isSupplierLink;
   // #6b — 취소·환불 정책(전 빌라 공용). 각 빌라 카드에 동일 전달.
   const cancellationPolicy = await getCancellationPolicy();
   const nightsOf = (a: Date, b: Date) => Math.round((b.getTime() - a.getTime()) / 86_400_000);
@@ -229,8 +235,13 @@ export default async function ProposalPage({
 
         <div className="space-y-6">
           {proposal.items.map((item) => {
+            // 1박 단가: KRW/VND만 보유(USD는 per-night 컬럼 없음 → 총액만 표시).
             const nightly =
-              currency === Currency.KRW ? item.priceKrwPerNight : item.priceVndPerNight;
+              currency === Currency.KRW
+                ? item.priceKrwPerNight
+                : currency === Currency.USD
+                  ? null
+                  : item.priceVndPerNight;
             return (
               <article
                 key={item.id}
@@ -310,7 +321,7 @@ export default async function ProposalPage({
                         </p>
                       )}
                       <p className="text-lg font-bold text-neutral-900">
-                        {t.proposal.total} {formatPublicAmount(currency, item.totalKrw, item.totalVnd, lang)}
+                        {t.proposal.total} {formatPublicAmount(currency, item.totalKrw, item.totalVnd, lang, item.totalUsd)}
                       </p>
                     </div>
                     <Link
@@ -365,6 +376,13 @@ export default async function ProposalPage({
               )}
             </div>
             <p className="text-xs text-neutral-400 leading-relaxed">{t.proposal.bankNote}</p>
+          </section>
+        )}
+
+        {/* Phase 2 USD: USD 계좌 미운영 — KRW/VND 계좌로 오안내하지 않고 운영자 문의 중립 안내 */}
+        {showUsdNotice && (
+          <section className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-6 text-center text-sm text-neutral-500 leading-relaxed">
+            {t.usdBankNotice}
           </section>
         )}
       </main>

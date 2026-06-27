@@ -425,6 +425,7 @@ model Proposal {
   channel      BookingChannel
   saleCurrency Currency       @default(KRW) // 채널 기본값: DIRECT→KRW, 랜드사·여행사→VND. 생성 시 ADMIN 오버라이드 가능 (ADR-0003)
   fxVndPerKrw  Decimal?       @db.Decimal(14, 4) // 제안 생성 시점 환율 스냅샷 (1 KRW = x VND) — 참고 환산·마진 리포팅용
+  fxVndPerUsd  Decimal?       @db.Decimal(14, 4) // Phase 2 USD: 제안 생성 시점 USD→VND 환율 스냅샷 (1 USD = x VND). additive raw SQL ALTER로 라이브 반영
   expiresAt    DateTime
   status       ProposalStatus @default(ACTIVE)
   note         String?
@@ -450,6 +451,7 @@ model ProposalItem {
   totalKrw         Int?
   priceVndPerNight BigInt?
   totalVnd         BigInt?
+  totalUsd         Int? // Phase 2 USD: 총 판매가(USD, 정수 달러). 요율표 미보유 → ADMIN 수동 입력. additive raw SQL ALTER로 라이브 반영
   bookingId        String?  @unique // 가예약 발생 시 연결
 
   booking Booking? @relation(fields: [bookingId], references: [id])
@@ -502,7 +504,9 @@ model Booking {
   saleCurrency      Currency       @default(KRW)
   totalSaleKrw      Int? // 총 판매가 (KRW 채널)
   totalSaleVnd      BigInt? // 총 판매가 (VND 채널)
+  totalSaleUsd      Int? // Phase 2 USD: 총 판매가 (USD 채널, 정수 달러). additive raw SQL ALTER로 라이브 반영
   fxVndPerKrw       Decimal?       @db.Decimal(14, 4) // Proposal에서 복사한 환율 스냅샷
+  fxVndPerUsd       Decimal?       @db.Decimal(14, 4) // Phase 2 USD: Proposal에서 복사한 USD→VND 환율 스냅샷. additive raw SQL ALTER로 라이브 반영
   supplierCostVnd   BigInt // 총 공급자 원가
   // 보증금
   depositAmount     Int?
