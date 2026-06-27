@@ -255,6 +255,39 @@ describe("마진 환산 — summarizeFinance 위임 정합 (④)", () => {
     expect(block.marginVnd).toBe(-5_000_000);
     expect(block.marginVndText).toBe("-5,000,000₫");
   });
+
+  it("USD 채널(Phase 2): round(usd × fxVndPerUsd) − cost = 환산 마진 (통계 집계 반영)", () => {
+    // 1,500 USD × 25,400 = 38,100,000 VND − cost 30,000,000 = margin 8,100,000
+    const row: FinanceSourceRow = {
+      saleCurrency: Currency.USD,
+      totalSaleKrw: null,
+      totalSaleVnd: null,
+      totalSaleUsd: 1_500,
+      supplierCostVnd: 30_000_000n,
+      fxVndPerKrw: null,
+      fxVndPerUsd: { toString: () => "25400.0000" },
+    };
+    const s = summarizeFinance([toFinanceBooking(row)]);
+    expect(s.collectedUsd).toBe(1_500); // 원본 USD 분리 집계
+    expect(s.collectedVndEquivalent).toBe(38_100_000n);
+    expect(s.marginVnd).toBe(8_100_000n);
+    expect(s.fxMissingCount).toBe(0);
+  });
+
+  it("USD 채널인데 환율 스냅샷 없음 → fxMissing(통계서도 마진 제외)", () => {
+    const row: FinanceSourceRow = {
+      saleCurrency: Currency.USD,
+      totalSaleKrw: null,
+      totalSaleVnd: null,
+      totalSaleUsd: 1_500,
+      supplierCostVnd: 30_000_000n,
+      fxVndPerKrw: null,
+      fxVndPerUsd: null, // 스냅샷 없음
+    };
+    const block = toFinanceBlock(summarizeFinance([toFinanceBooking(row)]));
+    expect(block.fxMissingCount).toBe(1);
+    expect(block.marginVnd).toBe(0);
+  });
 });
 
 describe("toVndAmount / toKrwAmount — 직렬화 쌍", () => {
