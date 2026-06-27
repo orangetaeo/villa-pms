@@ -51,3 +51,41 @@ export function fileBelongsToUploader(fileName: string, uploaderId: string): boo
   if (!extracted) return false;
   return extracted === normalizeUploaderId(uploaderId);
 }
+
+// ── tạm trú 여권 사진면 전달 소스 가드 (ADR-0029 B3) ──────────────
+// passportPhotoUrls(`/api/passports/<name>`)에서 "여권 사진면"만 골라 디스크 직접 읽기에 쓸
+// 안전한 파일명을 추출한다. `sig-`(서명)·`doc-`(지류/동의서)는 절대 혼입 금지(접두 거부).
+// 경로주입(`..`·디렉터리)·형식 불일치도 거부. 서빙 라우트(SAFE_NAME)와 동일 정규식 재사용.
+
+/** 여권 서빙 라우트의 SAFE_NAME과 동일 — 경로 탈출(../) 차단. */
+const PASSPORT_SAFE_NAME = /^[a-zA-Z0-9._-]+$/;
+/** passportPhotoUrls 항목 형식: `/api/passports/<safe-name>` (비공개 서빙 경로). */
+const PASSPORT_URL = /^\/api\/passports\/([a-zA-Z0-9._-]+)$/;
+
+/**
+ * passportPhotoUrls의 한 항목(URL 또는 파일명)에서 **여권 사진면** 파일명을 안전 추출한다.
+ * - `/api/passports/<name>` URL 또는 bare 파일명 모두 허용.
+ * - `..`·경로문자·형식 불일치 → null.
+ * - `sig-`(서명)·`doc-`(지류) 접두 → null (사진면 아님, B3 혼입 차단).
+ * @returns 안전한 파일명(디렉터리 없음) 또는 null
+ */
+export function extractPassportPhotoFileName(urlOrName: string): string | null {
+  if (typeof urlOrName !== "string" || urlOrName.length === 0) return null;
+  // URL 형식이면 파일명 캡처, 아니면 입력 자체를 파일명 후보로.
+  let name: string;
+  const m = PASSPORT_URL.exec(urlOrName);
+  if (m) {
+    name = m[1];
+  } else if (!urlOrName.includes("/")) {
+    name = urlOrName;
+  } else {
+    return null; // 슬래시 포함인데 우리 서빙 경로 형식 아님 → 거부
+  }
+  if (name.includes("..")) return null;
+  if (!PASSPORT_SAFE_NAME.test(name)) return null;
+  // 서명·지류 접두는 사진면이 아님 — 전달 소스에서 제외(B3)
+  for (const p of KNOWN_PREFIXES) {
+    if (name.startsWith(p)) return null;
+  }
+  return name;
+}

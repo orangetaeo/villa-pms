@@ -14,8 +14,10 @@ import { partnerBalanceBlocksCheckIn } from "@/lib/partner-booking";
  *
  * - CONFIRMED → CHECKED_IN 전이는 status 가드 updateMany (T2.3 패턴 — 동시성 안전)
  * - CheckInRecord.bookingId @unique가 중복 체크인 2차 방어
- * - 동의서·서명(T3.2)·여권 Zalo 전달(T3.6)은 별도 — agreementSignedAt·tamTruSentAt은 비워 둠
- *   (서명 없는 CHECKED_IN 허용 — QA 합의 조건 C, 게이트화는 T3.2 계약에서 결정)
+ * - ★ 동의 필수 게이트 (ADR-0029 D4): 동의서 서명(signatureUrl) 없이는 체크인 완료 불가.
+ *   c8(여권 제3자 전달 동의)가 포함된 동의서 서명이 CHECKED_IN 전제조건 — 세 경로(게스트 셀프
+ *   서명 채택·공급자·운영자) 모두 completeCheckIn을 거치므로 여기서 강제하면 단일 게이트가 된다.
+ *   (구 정책: 무서명 CHECKED_IN 허용 — ADR-0029로 폐지. tamTruSentAt은 여전히 별도 단계)
  * - 개인정보: OCR 데이터는 ADMIN이 확인·수정한 확정본만 저장, 로그에 미기록
  */
 
@@ -27,6 +29,7 @@ export class CheckInRejectedError extends Error {
       | "NOT_FOUND"
       | "INVALID_STATUS"
       | "ALREADY_CHECKED_IN"
+      | "AGREEMENT_NOT_SIGNED" // 동의서 미서명 — 체크인 완료 차단 (ADR-0029 D4 필수 게이트)
       | "PARTNER_BALANCE_UNPAID", // 등급 A(선불) 잔금 미납 — 체크인 차단 (ADR-0022)
     detail?: string
   ) {
@@ -118,6 +121,15 @@ export function assertCheckInInput(input: {
  */
 export async function completeCheckIn(prisma: PrismaClient, input: CheckInInput) {
   assertCheckInInput(input);
+
+  // ★ 동의 필수 게이트 (ADR-0029 D4) — 서명(c8 제3자 전달 동의 포함) 없이는 체크인 완료 불가.
+  //   세 경로(게스트 셀프 서명 채택·공급자·운영자)가 모두 이 함수를 거치므로 단일 게이트.
+  if (!input.signatureUrl) {
+    throw new CheckInRejectedError(
+      "AGREEMENT_NOT_SIGNED",
+      "동의서 서명 없이는 체크인을 완료할 수 없습니다 (여권 제3자 전달 동의 포함)"
+    );
+  }
 
   return prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findUnique({

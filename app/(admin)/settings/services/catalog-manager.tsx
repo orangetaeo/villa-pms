@@ -13,6 +13,7 @@ import { formatThousands } from "@/lib/format";
 import { priceKrwCeil } from "@/lib/service-display";
 import { parseCatalogOptions, SERVICE_TYPE_VALUES, generateOptionKey, fulfillmentMode } from "@/lib/service-catalog";
 import { catalogImage } from "@/lib/service-image";
+import { resizeImage } from "@/lib/image-resize";
 import PaginationBar from "@/components/pagination-bar";
 import ListSearch from "@/components/list-search";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
@@ -670,8 +671,11 @@ function CatalogModal({
     setUploadError(null);
     setUploading(true);
     try {
+      // 일반 사진 프리셋(기본 1600/0.82)으로 클라 리사이즈 — 마케팅용, 기존 빌라사진 경로와 동일.
+      // HEIC 디코딩 실패 시 resizeImage는 원본 폴백(업로드 성공, 기존 동작 유지).
+      const blob = await resizeImage(file);
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", blob, file.name);
       const res = await fetch("/api/uploads", { method: "POST", body: fd });
       if (!res.ok) throw new Error(`HTTP_${res.status}`);
       const data = (await res.json()) as { url?: string };

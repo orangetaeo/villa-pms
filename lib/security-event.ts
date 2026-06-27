@@ -18,6 +18,7 @@ export type SecurityEventType =
   | "SSRF_BLOCK" // 아웃바운드 내부망 차단
   | "CSRF_BLOCK" // 교차출처 위조 차단
   | "PII_PURGE" // PII 보존정책 실행(여권·서명 만료 삭제)
+  | "PII_FORWARD" // PII(여권 사진) 외부 전달 — tạm trú 목적 공급자 Zalo 전송 (ADR-0029)
   | "CSP_REPORT"; // CSP 위반 리포트(enforce 전환 관찰용 — 디렉티브·호스트만)
 
 export interface SecurityEventInput {

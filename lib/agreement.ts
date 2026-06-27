@@ -3,7 +3,7 @@
 // 게스트용 en/zh/ru가 필요하나 앱 전체 번역은 불필요(동의서 텍스트만 다국어).
 // 향후 조항 추가·수정 시 VERSION을 올린다 → 인쇄물에 버전이 찍혀 어느 판본에 서명했는지 추적.
 
-export const AGREEMENT_VERSION = "2026-06";
+export const AGREEMENT_VERSION = "2026-07";
 
 export type AgreementLang = "ko" | "vi" | "en" | "zh" | "ru";
 
@@ -21,11 +21,12 @@ export function isAgreementLang(v: string | undefined | null): v is AgreementLan
   return v === "ko" || v === "vi" || v === "en" || v === "zh" || v === "ru";
 }
 
-/** 조항 순서 — 수영장 빌라는 c2 뒤에 pool 조항 자동 삽입(번호 순서대로 재부여, SPEC F4) */
+/** 조항 순서 — 수영장 빌라는 c2 뒤에 pool 조항 자동 삽입(번호 순서대로 재부여, SPEC F4).
+ *  c8(여권 제3자 전달 동의, ADR-0029)은 항상 마지막에 포함 — DEFAULT_BODY_ORDER와 동기화(N4). */
 export function buildClauseOrder(hasPool: boolean): string[] {
   return hasPool
-    ? ["c1", "c2", "pool", "c4", "c5", "c6", "c7"]
-    : ["c1", "c2", "c4", "c5", "c6", "c7"];
+    ? ["c1", "c2", "pool", "c4", "c5", "c6", "c7", "c8"]
+    : ["c1", "c2", "c4", "c5", "c6", "c7", "c8"];
 }
 
 type LangMap = Record<AgreementLang, string>;
@@ -88,6 +89,14 @@ export const AGREEMENT_CLAUSES: Record<string, LangMap> = {
     zh: "因未遵守使用守则而发生的事故由住客本人负责。",
     ru: "Гости несут ответственность за происшествия, вызванные несоблюдением правил.",
   },
+  // ADR-0029 — 여권 제3자(공급자) 전달 동의. 수집(c1)과 별개의 "제공" 동의. 5개 언어 필수.
+  c8: {
+    ko: "베트남 임시거주신고(tạm trú) 법령상 의무 이행을 위해, 투숙객의 여권 정보 및 여권 사진이 해당 빌라의 현장 관리인에게 전달되는 것에 동의합니다.",
+    vi: "Để thực hiện nghĩa vụ khai báo tạm trú theo quy định pháp luật Việt Nam, tôi đồng ý cung cấp thông tin và hình ảnh hộ chiếu của khách lưu trú cho người quản lý tại villa.",
+    en: "To fulfill the legal obligation of temporary residence registration (tạm trú) in Vietnam, I consent to the guest's passport information and passport photo being forwarded to the on-site villa manager.",
+    zh: "为履行越南法律规定的临时居留申报（tạm trú）义务，本人同意将住客的护照信息及护照照片提供给该别墅的现场管理人。",
+    ru: "В целях исполнения предусмотренной законодательством Вьетнама обязанности по регистрации временного пребывания (tạm trú) я соглашаюсь на передачу паспортных данных и фотографии паспорта гостя управляющему виллой на месте.",
+  },
 };
 
 // ===================== 운영자 편집 가능 콘텐츠 (T-admin-agreement-editor) =====================
@@ -104,8 +113,9 @@ export const AGREEMENT_HISTORY_MAX = 20;
 // 운영자는 한국어 docTitle+body만 입력하고, 나머지 언어(vi·en·zh·ru)는 번역 기능으로 채운다.
 // body는 "1.\n2.\n3." 식 줄바꿈 텍스트를 그대로 보존(렌더 시 whitespace-pre-line).
 
-/** 기본 본문 시드용 조항 순서 — 코드 상수(AGREEMENT_CLAUSES)를 번호 본문으로 합쳐 폴백 생성 */
-const DEFAULT_BODY_ORDER = ["c1", "c2", "pool", "c4", "c5", "c6", "c7"] as const;
+/** 기본 본문 시드용 조항 순서 — 코드 상수(AGREEMENT_CLAUSES)를 번호 본문으로 합쳐 폴백 생성.
+ *  c8(여권 제3자 전달 동의, ADR-0029)을 buildClauseOrder와 동일하게 포함(N4 — 한 곳만 넣으면 누락). */
+const DEFAULT_BODY_ORDER = ["c1", "c2", "pool", "c4", "c5", "c6", "c7", "c8"] as const;
 
 export interface AgreementContent {
   /** 저장마다 1씩 증가 — 인쇄·디지털 동의서 표기 및 서명 추적 키 */

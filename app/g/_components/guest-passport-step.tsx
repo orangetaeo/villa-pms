@@ -5,8 +5,17 @@
 //   ★ 비공개 증빙: 안내만 노출, 원가·마진·타예약 0. 건너뛰기 허용(선택).
 import { useRef, useState } from "react";
 import type { GuestLabels } from "@/lib/guest-i18n";
+import {
+  resizeImage,
+  EVIDENCE_MAX_EDGE,
+  EVIDENCE_QUALITY,
+  isUnprocessableEvidenceBlob,
+} from "@/lib/image-resize";
 
-type SlotState = "empty" | "uploading" | "done" | "error";
+// "unprocessable" = HEIC 디코딩 실패(원본 폴백) 또는 5MB 초과 — silent 통과 금지, 재촬영 안내
+type SlotState = "empty" | "uploading" | "done" | "error" | "unprocessable";
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB — /api/uploads, cleaning-submit과 동일
 
 export default function GuestPassportStep({
   token,
@@ -27,8 +36,19 @@ export default function GuestPassportStep({
   const upload = async (i: number, file: File) => {
     setSlot(i, "uploading");
     try {
+      // 증빙 고품질 프리셋(2400/0.90)으로 클라 리사이즈 — 여권번호·MRZ 가독성 확보 + 페이로드 축소
+      const blob = await resizeImage(file, EVIDENCE_MAX_EDGE, EVIDENCE_QUALITY);
+
+      // HEIC 폴백·사이즈 가드: resizeImage는 디코딩 실패 시 원본(HEIC)을 그대로 반환한다.
+      // 못 여는 HEIC가 증빙으로 남거나 5MB 초과분이 silent 실패하는 사고를 차단하고 재촬영 안내.
+      // (판정은 image-resize의 단일 함수 공유 — PNG/WebP는 통과, HEIC/HEIF·과대만 차단)
+      if (isUnprocessableEvidenceBlob(blob, MAX_FILE_SIZE)) {
+        setSlot(i, "unprocessable");
+        return;
+      }
+
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", blob, file.name);
       const res = await fetch(`/api/g/${token}/passport`, { method: "POST", body: form });
       if (!res.ok) throw new Error(`HTTP_${res.status}`);
       setSlot(i, "done");
@@ -48,7 +68,7 @@ export default function GuestPassportStep({
             className={`flex items-center gap-3 rounded-xl border px-4 py-3.5 ${
               s === "done"
                 ? "border-teal-200 bg-teal-50/50"
-                : s === "error"
+                : s === "error" || s === "unprocessable"
                 ? "border-red-200 bg-red-50/50"
                 : "border-slate-200 bg-white"
             }`}
@@ -67,6 +87,9 @@ export default function GuestPassportStep({
               {s === "uploading" && <p className="text-[11px] text-slate-400">{labels.uploading}</p>}
               {s === "done" && <p className="text-[11px] text-teal-600">{labels.uploaded}</p>}
               {s === "error" && <p className="text-[11px] text-red-500">{labels.error}</p>}
+              {s === "unprocessable" && (
+                <p className="text-[11px] text-red-500">{labels.processFailed}</p>
+              )}
             </div>
             <input
               ref={(el) => {

@@ -170,7 +170,9 @@ export default function CheckinForm({
     depositSkipped ||
     (/^\d+$/.test(depositAmount.replaceAll(",", "")) &&
       Number(depositAmount.replaceAll(",", "")) >= 1);
-  const canSubmit = passports.length >= 1 && depositValid && !submitting && !uploading;
+  // ADR-0029 D4 — 동의 필수 게이트: 서명(c8 여권 제3자 전달 동의 포함) 없이는 체크인 완료 불가.
+  const canSubmit =
+    passports.length >= 1 && depositValid && Boolean(signatureUrl) && !submitting && !uploading;
 
   const submit = async () => {
     setSubmitting(true);
@@ -190,7 +192,7 @@ export default function CheckinForm({
                 amount: Number(depositAmount.replaceAll(",", "")),
                 currency: depositCurrency,
               },
-          signatureUrl, // T3.2 — null이면 무서명 체크인 (미서명 배지·사후 서명으로 해소)
+          signatureUrl, // ADR-0029 D4 — 서명 필수(canSubmit 게이트). 무서명이면 서버가 409 AGREEMENT_NOT_SIGNED
           // ADR-0019 후속 — 게스트 서명 채택 시 토큰 판본 동봉(현장 재서명이면 생략 → 서버 null)
           ...(adoptingGuest && guestSignature?.agreementVersion
             ? { agreementVersion: guestSignature.agreementVersion }
