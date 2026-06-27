@@ -2331,6 +2331,10 @@ function Composer({
 }) {
   const [text, setText] = useState("");
   const [preview, setPreview] = useState("");
+  // W1: 현재 preview가 어떤 입력(trim)·어떤 번역모드에 대한 결과인지 추적. 발송 시 입력·모드가 모두
+  //   그대로일 때만 재번역 없이 재사용(모드만 VI→EN 바꾸고 안 친 경우엔 stale 재사용 방지).
+  const previewForRef = useRef("");
+  const previewModeRef = useRef(translateMode);
   const [translating, setTranslating] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2439,6 +2443,7 @@ function Composer({
     const value = (typeof override === "string" ? override : text).trim();
     if (!previewEnabled || !value) {
       setPreview("");
+      previewForRef.current = "";
       return;
     }
     setTranslating(true);
@@ -2453,14 +2458,20 @@ function Composer({
       if (res.ok) {
         const data = (await res.json()) as { translated: string };
         setPreview(data.translated);
+        // 이 번역이 대응하는 입력값·모드 기록 — 발송 시 둘 다 동일하면 재번역 없이 재사용(W1).
+        previewForRef.current = data.translated ? value : "";
+        previewModeRef.current = translateMode;
       } else if (res.status === 503) {
         setPreview("");
+        previewForRef.current = "";
         setError(t("translateUnavailable"));
       } else {
         setPreview("");
+        previewForRef.current = "";
       }
     } catch {
       setPreview("");
+      previewForRef.current = "";
     } finally {
       setTranslating(false);
     }
@@ -2475,6 +2486,17 @@ function Composer({
       // 답글 대상이 있으면 quotedMessageId 포함(R3-2). 일반 발신이면 생략.
       const payload: Record<string, unknown> = { conversationId, text: body };
       if (replyTarget) payload.quotedMessageId = replyTarget.messageId;
+      // W1: 번역 모드 ON이고, 미리보기가 현재 입력(body)에 대한 settled 번역이면 그대로 재사용 →
+      //   서버 재번역 생략(발송당 Gemini 2회→1회). 번역 진행 중·입력 변경 시엔 미첨부(서버가 번역).
+      if (
+        previewEnabled &&
+        !translating &&
+        preview &&
+        previewForRef.current === body &&
+        previewModeRef.current === translateMode
+      ) {
+        payload.clientTranslated = preview;
+      }
       // @멘션(그룹 전용) — 본문에 여전히 토큰이 살아있는 멘션만 전송. body는 trim된 본문이므로
       // 선행 공백이 없는 한 pos는 그대로 유효(textarea 본문엔 선행 공백을 두지 않음).
       if (isGroup && mentionsRef.current.length > 0) {

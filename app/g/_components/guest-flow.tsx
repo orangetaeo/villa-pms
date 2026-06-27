@@ -6,7 +6,8 @@
 //   ★마진 비공개: 판매가만 렌더(미니바=KRW 환율 파생). 원가·마진·환산내역·타예약 0(서버 props에 애초 없음).
 import { useState } from "react";
 import { GUEST_LABELS } from "@/lib/guest-i18n";
-import { PUBLIC_LANGS, PUBLIC_LANG_NATIVE, type PublicLang } from "@/lib/public-i18n";
+import { type PublicLang } from "@/lib/public-i18n";
+import { PublicLangSelector } from "@/components/public-lang-selector";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import GuestSignaturePad from "./guest-signature-pad";
 import GuestPassportStep from "./guest-passport-step";
@@ -82,7 +83,7 @@ export default function GuestFlow(props: GuestFlowProps) {
                 {L.stepCount(Math.min(step, 4), 4)}
               </span>
             )}
-            <HeaderLangSelect current={lang} />
+            <PublicLangSelector current={lang} />
           </div>
         </div>
         {step > 0 && (
@@ -269,7 +270,7 @@ export default function GuestFlow(props: GuestFlowProps) {
                   {L.agreement.versionChip(agreement.version)}
                 </span>
               </div>
-              <LangChips current={lang} />
+              <PublicLangSelector current={lang} />
             </section>
 
             <section className="border border-slate-200 rounded-xl bg-slate-50/50 p-4 h-56 overflow-y-auto space-y-4 text-sm leading-relaxed text-slate-600">
@@ -426,96 +427,6 @@ const CATEGORY_ICON: Record<string, string> = {
   MINIBAR: "local_bar",
 };
 
-/** ?lang= 갱신 + p-locale 쿠키 저장 후 서버 재렌더(전체 화면 번역 반영). */
-function switchPublicLang(lang: PublicLang, current: PublicLang, hash?: string) {
-  if (typeof window === "undefined" || lang === current) return;
-  document.cookie = `p-locale=${lang}; path=/; max-age=31536000; samesite=lax`;
-  const url = new URL(window.location.href);
-  url.searchParams.set("lang", lang);
-  if (hash) url.hash = hash;
-  window.location.href = url.toString();
-}
-
-/** 헤더 언어 선택기 — 모든 단계에서 노출(글로브 + 드롭다운). 선택 시 전체 화면 재렌더. */
-function HeaderLangSelect({ current }: { current: PublicLang }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open ? "true" : "false"}
-        aria-label="Language"
-        className="flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-slate-600 active:scale-95"
-      >
-        <span className="material-symbols-outlined text-[18px]">language</span>
-        <span className="text-xs font-semibold">{PUBLIC_LANG_NATIVE[current]}</span>
-        <span className="material-symbols-outlined text-[16px] text-slate-400">expand_more</span>
-      </button>
-      {open && (
-        <>
-          {/* 바깥 클릭 닫기 */}
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div
-            role="menu"
-            aria-label="Language"
-            className="absolute right-0 top-full z-50 mt-1.5 min-w-[140px] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
-          >
-            {PUBLIC_LANGS.map((l) => (
-              <button
-                key={l}
-                type="button"
-                role="menuitem"
-                onClick={() => switchPublicLang(l, current)}
-                className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm ${
-                  l === current
-                    ? "font-bold text-teal-600 bg-teal-50/60"
-                    : "font-medium text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                {PUBLIC_LANG_NATIVE[l]}
-                {l === current && (
-                  <span className="material-symbols-outlined text-[18px]">check</span>
-                )}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-/** 언어 칩(동의서 본문 언어 전환) — 선택 시 ?lang= 갱신해 서버 재렌더(조항 번역 반영). */
-function LangChips({ current }: { current: PublicLang }) {
-  const chips: { lang: PublicLang; label: string }[] = [
-    { lang: "ko", label: "한국어" },
-    { lang: "vi", label: "Tiếng Việt" },
-    { lang: "en", label: "English" },
-    { lang: "zh", label: "中文" },
-    { lang: "ru", label: "Русский" },
-  ];
-  const go = (lang: PublicLang) => switchPublicLang(lang, current, "agreement");
-  return (
-    <div className="flex flex-wrap gap-2">
-      {chips.map((c) => (
-        <button
-          key={c.lang}
-          type="button"
-          onClick={() => go(c.lang)}
-          className={`text-xs rounded-full px-3 py-1.5 ${
-            c.lang === current
-              ? "font-bold bg-teal-600 text-white"
-              : "font-medium bg-slate-50 border border-slate-200 text-slate-600"
-          }`}
-        >
-          {c.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function ResultScreen({
   token,
