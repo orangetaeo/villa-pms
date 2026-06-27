@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { BookingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { HoldCountdown } from "../../../_components/hold-countdown";
+import { PaymentNoticeButton } from "../../../_components/payment-notice-button";
 import { CopyButton } from "../../../_components/copy-button";
 import { PublicFooter } from "../../../_components/public-footer";
 import { LangSelector } from "../../../_components/lang-selector";
@@ -188,6 +189,11 @@ export default async function BookingDonePage({
 
           {booking.status === BookingStatus.HOLD && booking.holdExpiresAt && (
             <HoldCountdown expiresAtIso={booking.holdExpiresAt.toISOString()} lang={lang} />
+          )}
+
+          {/* 입금통보 (B1) — HOLD에서만. 게스트→운영자 "입금했어요" 신호(상태 미변경, 운영자 수동 확정) */}
+          {booking.status === BookingStatus.HOLD && (
+            <PaymentNoticeButton token={token} bookingId={booking.id} lang={lang} />
           )}
 
           {/* 투숙객 명단 셀프 입력 (안 B) — 실제 투숙객 성함을 미리 입력 */}

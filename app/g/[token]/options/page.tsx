@@ -18,7 +18,7 @@ import { pickI18n } from "@/lib/service-display";
 import { getDailyRates, CURRENCY_BY_LANG } from "@/lib/fx-rates";
 import { GuestExpiredView } from "../../_components/guest-expired-view";
 import GuestOptions from "../../_components/guest-options";
-import type { GuestConvert } from "../../_components/types";
+import type { GuestConvert, GuestBookingView } from "../../_components/types";
 import type { GuestCatalogView, GuestOption } from "../../_components/types";
 
 export const metadata: Metadata = { title: "부가 옵션 — Villa Go" };
@@ -91,7 +91,8 @@ export default async function GuestOptionsPage({
   });
 
   // 요청 내역은 별도 페이지(/g/[token]/orders)에서 표시 — 여기서는 신청 폼만.
-  const booking = {
+  // ★출입 정보(주소·wifi)는 옵션 화면에 불필요 → null로 전달(이 페이지 payload에 wifi 미포함).
+  const booking: GuestBookingView = {
     villaName: data.booking.villaName,
     complex: data.booking.complex,
     checkIn: data.booking.checkIn,
@@ -99,6 +100,9 @@ export default async function GuestOptionsPage({
     nights: data.booking.nights,
     guestCount: data.booking.guestCount,
     breakfastIncluded: data.booking.breakfastIncluded,
+    address: null,
+    wifiSsid: null,
+    wifiPassword: null,
   };
 
   // ── 하단 "오늘 환율 기준" 환산 통화 — 언어 모국통화 1개(vi=없음). 일1회 캐시, 장애 시 null(VND만) ──
