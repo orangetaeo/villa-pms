@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import {
   resolveOrderPricing,
   ServiceSelectionError,
+  fulfillmentMode,
   type CatalogOptions,
 } from "@/lib/service-catalog";
 import { catalogImage } from "@/lib/service-image";
@@ -123,6 +124,14 @@ export function OptionCard({
 
   const badgeCls = TYPE_BADGE[item.type] ?? "bg-slate-100 text-slate-500";
   const active = selection.quantity > 0;
+  // 이행 방식 안내(#5) — 배송형/예약형(픽업)/기타. 날짜·시간 입력과 함께 노출.
+  const mode = fulfillmentMode(item.type);
+  const fulfillNote =
+    mode === "DELIVERY"
+      ? labels.fulfillDelivery
+      : mode === "APPOINTMENT"
+        ? labels.fulfillAppointment
+        : labels.fulfillOther;
   // 업로드 사진 우선, 없으면 타입 기본 이미지(폴백)
   const photo = catalogImage(item.type, item.photoUrl);
 
@@ -260,12 +269,25 @@ export function OptionCard({
           </label>
         ))}
 
-        {/* 희망 날짜·시간 (#3) — 수량 선택 시 노출 */}
+        {/* 희망 날짜·시간 (#3) — 수량 선택 시 노출. 필수(미입력 시 신청 차단). */}
         {active && (
-          <div className="grid grid-cols-2 gap-2 pt-1">
+          <>
+            <div
+              className={`flex items-start gap-2 rounded-lg px-3 py-2 ${
+                mode === "APPOINTMENT"
+                  ? "bg-fuchsia-50 text-fuchsia-700"
+                  : "bg-teal-50 text-teal-700"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px] mt-0.5">
+                {mode === "DELIVERY" ? "local_shipping" : mode === "APPOINTMENT" ? "directions_car" : "info"}
+              </span>
+              <p className="text-[11px] leading-snug">{fulfillNote}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 pt-1">
             <div>
               <label className="text-[11px] font-bold text-slate-500 mb-1 block">
-                {labels.serviceDateLabel}
+                {labels.serviceDateLabel} <span className="text-rose-500">*</span>
               </label>
               <input
                 type="date"
@@ -280,7 +302,7 @@ export function OptionCard({
             </div>
             <div>
               <label className="text-[11px] font-bold text-slate-500 mb-1 block">
-                {labels.serviceTimeLabel}
+                {labels.serviceTimeLabel} <span className="text-rose-500">*</span>
               </label>
               <input
                 type="time"
@@ -291,7 +313,8 @@ export function OptionCard({
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:ring-teal-500 focus:border-teal-500"
               />
             </div>
-          </div>
+            </div>
+          </>
         )}
 
         {/* 가격 + 수량 스테퍼 */}

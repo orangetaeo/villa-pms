@@ -13,7 +13,6 @@ import {
   type CatalogOptions,
 } from "@/lib/service-catalog";
 import { GUEST_LABELS } from "@/lib/guest-i18n";
-import type { PublicLang } from "@/lib/public-i18n";
 import { PublicLangSelector } from "@/components/public-lang-selector";
 import { formatConverted } from "@/lib/fx-rates";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
@@ -81,6 +80,12 @@ export default function GuestOptions(props: GuestOptionsProps) {
   }, [catalog, selections, cardOptions]);
 
   const anySelected = catalog.some((c) => (selections[c.id]?.quantity ?? 0) > 0);
+  // 선택한 항목은 희망 날짜·시간 필수 — 미입력 시 신청 차단(#1). 서버도 동일 검증.
+  const missingDateTime = catalog.some((c) => {
+    const sel = selections[c.id];
+    return !!sel && sel.quantity > 0 && (!sel.serviceDate || !sel.serviceTime);
+  });
+  const canSubmit = anySelected && !missingDateTime;
   // 합계는 항상 VND 기본. convert 있으면 하단에 "오늘 환율 기준" 모국통화 환산 보조 표기.
   const grandTotalStr = guestVnd(grandTotal.vnd.toString());
   const convertedStr =
@@ -187,9 +192,15 @@ export default function GuestOptions(props: GuestOptionsProps) {
               </div>
             </div>
           )}
+          {anySelected && missingDateTime && (
+            <p className="text-xs text-amber-600 text-center flex items-center justify-center gap-1">
+              <span className="material-symbols-outlined text-[16px]">schedule</span>
+              {L.addons.dateTimeRequired}
+            </p>
+          )}
           <button
             type="button"
-            disabled={submitting || !anySelected}
+            disabled={submitting || !canSubmit}
             onClick={submitOrders}
             className="w-full h-14 bg-teal-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-xl shadow-lg shadow-teal-600/20 active:scale-[0.98] transition-transform"
           >

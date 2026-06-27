@@ -102,6 +102,10 @@ export interface GuestLabels {
     backToCheckin: string; // 체크인으로 돌아가기
     empty: string;
     myOrders: string; // 신청 내역 페이지 제목/링크
+    dateTimeRequired: string; // 날짜·시간 미입력 안내(필수)
+    fulfillDelivery: string; // 배송형(BBQ·조식·과일·차량·오토바이) 안내
+    fulfillAppointment: string; // 예약형(마사지·이발) 안내 — 픽업/직접방문
+    fulfillOther: string; // 기타(입장권·가이드) 안내
   };
   // G5 완료
   result: {
@@ -220,6 +224,10 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       backToCheckin: "체크인 화면으로",
       empty: "현재 신청 가능한 옵션이 없습니다.",
       myOrders: "신청 내역",
+      dateTimeRequired: "희망 날짜와 시간을 선택해주세요.",
+      fulfillDelivery: "선택하신 날짜·시간에 맞춰 빌라로 제공/배송됩니다.",
+      fulfillAppointment: "예약하신 시간에 진행됩니다. 픽업(차량 모심) 가능 여부는 운영자 확인 후 안내드립니다.",
+      fulfillOther: "선택하신 날짜·시간을 기준으로 안내해 드립니다.",
     },
     result: {
       title: "체크인 정보가\n접수되었습니다",
@@ -328,6 +336,10 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       backToCheckin: "Back to check-in",
       empty: "No options are available right now.",
       myOrders: "My requests",
+      dateTimeRequired: "Please select your preferred date and time.",
+      fulfillDelivery: "Delivered/served to your villa at your selected date & time.",
+      fulfillAppointment: "Provided at your booked time. Pickup (car service) availability will be confirmed by our staff.",
+      fulfillOther: "We will assist you based on your selected date & time.",
     },
     result: {
       title: "Your check-in info\nhas been received",
@@ -436,6 +448,10 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       backToCheckin: "Назад к заселению",
       empty: "Сейчас нет доступных опций.",
       myOrders: "Мои запросы",
+      dateTimeRequired: "Пожалуйста, выберите желаемую дату и время.",
+      fulfillDelivery: "Доставка/подача на вашу виллу в выбранные дату и время.",
+      fulfillAppointment: "Услуга в забронированное время. Возможность трансфера (авто) уточнит наш персонал.",
+      fulfillOther: "Мы поможем вам с учётом выбранной даты и времени.",
     },
     result: {
       title: "Данные заселения\nприняты",
@@ -544,6 +560,10 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       backToCheckin: "返回入住页面",
       empty: "目前没有可申请的选项。",
       myOrders: "申请记录",
+      dateTimeRequired: "请选择您希望的日期和时间。",
+      fulfillDelivery: "将按您选择的日期·时间配送/提供至您的别墅。",
+      fulfillAppointment: "在您预约的时间进行。是否提供接送（车辆）将由管理员确认后告知。",
+      fulfillOther: "我们将以您选择的日期·时间为准为您安排。",
     },
     result: {
       title: "入住信息\n已受理",
@@ -652,6 +672,10 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       backToCheckin: "Về trang nhận phòng",
       empty: "Hiện chưa có tùy chọn nào.",
       myOrders: "Lịch sử yêu cầu",
+      dateTimeRequired: "Vui lòng chọn ngày và giờ mong muốn.",
+      fulfillDelivery: "Được giao/phục vụ tận villa theo ngày · giờ bạn chọn.",
+      fulfillAppointment: "Thực hiện vào giờ đã đặt. Khả năng đón (xe đưa rước) sẽ được nhân viên xác nhận.",
+      fulfillOther: "Chúng tôi sẽ hỗ trợ dựa trên ngày · giờ bạn đã chọn.",
     },
     result: {
       title: "Thông tin nhận phòng\nđã được ghi nhận",
