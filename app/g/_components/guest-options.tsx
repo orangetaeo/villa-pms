@@ -122,6 +122,18 @@ export default function GuestOptions(props: GuestOptionsProps) {
           );
           prVnd = toVndStr(p.totalPriceVnd);
         } catch { /* 미리보기 실패는 무시 */ }
+        // 선택 옵션 라벨(서버 스냅샷 순서와 동일: variant → addons → modifiers) — 이미 언어 해석된 label 사용
+        const optionLabels: string[] = [];
+        const v = c.variants.find((x) => x.key === sel.variantKey);
+        if (v) optionLabels.push(v.label);
+        for (const k of sel.addonKeys) {
+          const a = c.addons.find((x) => x.key === k);
+          if (a) optionLabels.push(a.label);
+        }
+        for (const k of sel.modifierKeys) {
+          const m = c.modifiers.find((x) => x.key === k);
+          if (m) optionLabels.push(m.label);
+        }
         const data = await res.json();
         created.push({
           id: data?.id ?? c.id,
@@ -131,6 +143,7 @@ export default function GuestOptions(props: GuestOptionsProps) {
           quantity: sel.quantity,
           priceKrw: prKrw,
           priceVnd: prVnd,
+          optionLabels,
         });
       }
       setRequestedOrders((prev) => [...created, ...prev]);
@@ -203,9 +216,16 @@ export default function GuestOptions(props: GuestOptionsProps) {
             <div className="divide-y divide-slate-100">
               {requestedOrders.map((o) => (
                 <div key={o.id} className="flex items-center justify-between px-4 py-3.5 gap-2">
-                  <p className="text-sm font-semibold text-slate-800 min-w-0 truncate">
-                    {o.name} <span className="text-slate-400 font-normal">× {o.quantity}</span>
-                  </p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 truncate">
+                      {o.name} <span className="text-slate-400 font-normal">× {o.quantity}</span>
+                    </p>
+                    {o.optionLabels.length > 0 && (
+                      <p className="text-xs text-slate-500 mt-0.5 truncate">
+                        {o.optionLabels.join(" · ")}
+                      </p>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="bg-amber-50 text-amber-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
                       {statusLabel(o.status)}

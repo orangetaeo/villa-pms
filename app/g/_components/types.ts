@@ -56,6 +56,8 @@ export interface GuestRequestedOrder {
   quantity: number;
   priceKrw: number | null;
   priceVnd: string | null;
+  /** 선택한 옵션 라벨(언어 해석 완료) — 예: ["90분", "발 마사지 추가"]. 없으면 빈 배열. */
+  optionLabels: string[];
 }
 
 export interface GuestAgreementView {

@@ -98,6 +98,8 @@ export default async function GuestOptionsPage({
     quantity: o.quantity,
     priceKrw: o.priceKrw,
     priceVnd: o.priceVnd,
+    // 선택 옵션 라벨을 게스트 언어로 해석(variant/addon/modifier 순) — 같은 서비스의 다른 옵션 구분용
+    optionLabels: o.selectedOptions.map((s) => pickI18n(s.labelKo, s.labelI18n ?? null, lang)),
   }));
 
   const booking = {

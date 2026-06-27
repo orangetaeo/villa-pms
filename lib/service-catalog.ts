@@ -109,6 +109,16 @@ export function parseCatalogOptions(raw: unknown): CatalogOptions {
   };
 }
 
+/** ServiceOrder.selectedOptions(스냅샷 JSON) 안전 파싱 — 표시용 라벨만. 순수.
+ *   저장 형태는 ResolvedSelectedOption[]({group,key,labelKo,labelI18n,priceVnd}). 잘못된 형태는 []. */
+export function parseSelectedOptions(raw: unknown): ResolvedSelectedOption[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (x): x is ResolvedSelectedOption =>
+      !!x && typeof x === "object" && typeof (x as ResolvedSelectedOption).labelKo === "string"
+  );
+}
+
 /**
  * ★마진 비공개(원칙2): 옵션별 costVnd를 모든 그룹에서 제거한 새 options를 반환.
  *   게스트·STAFF 등 비-재무 경계에서 options를 내보내기 직전에 반드시 적용한다.
