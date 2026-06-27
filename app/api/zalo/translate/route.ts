@@ -14,6 +14,7 @@ import {
   type TranslateTarget,
 } from "@/lib/gemini";
 import { isOperator } from "@/lib/permissions";
+import { costThrottle } from "@/lib/cost-throttle";
 
 const bodySchema = z.object({
   text: z.string().min(1).max(4000),
@@ -31,6 +32,9 @@ export async function POST(req: Request) {
   if (!isOperator(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
+  // 비용 폭주 방어(Gemini 호출) — 사용자별 스로틀 (보안 P1-S11)
+  const throttled = await costThrottle("translate", session.user.id);
+  if (throttled) return throttled;
 
   let raw: unknown;
   try {

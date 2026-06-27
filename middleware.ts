@@ -6,6 +6,8 @@ import {
   isSystemAdmin,
   type Role,
 } from "@/lib/permissions";
+import { clientIp } from "@/lib/rate-limit";
+import { evaluateRequest } from "@/lib/ddos-guard";
 
 // ── 경로 게이트 3등급 (S-RBAC-3, ADR-0013) ──────────────────────────────────
 // 운영 영역을 capability별 3등급으로 분리한다. 역할 부족 시 /login 리다이렉트.
@@ -71,6 +73,23 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
   const session = req.auth;
   const role = session?.user?.role as Role | undefined;
+
+  // ── 전역 L7 DDoS/플러드 백스톱 (보안 P1-S11) ──────────────────────────────
+  // 인프라(Cloudflare/Railway)가 볼류메트릭 DDoS의 1차 방어선이고, 여기선 단일 IP 플러드와
+  // 초대형 본문을 넉넉한 한도로 거른다(자기-DoS 방지: env 튜닝·킬스위치). 모든 경로보다 먼저 평가.
+  const clHeader = req.headers.get("content-length");
+  const ddos = evaluateRequest({
+    pathname,
+    ip: clientIp(req.headers),
+    contentLength: clHeader ? Number(clHeader) : null,
+  });
+  if (ddos) {
+    const res = NextResponse.json({ error: ddos.reason }, { status: ddos.status });
+    if (ddos.retryAfterMs) {
+      res.headers.set("Retry-After", String(Math.max(1, Math.ceil(ddos.retryAfterMs / 1000))));
+    }
+    return res;
+  }
 
   // 비밀번호 자가재설정 화면은 비로그인 허용 — 어떤 게이트보다 먼저 통과(로그인 안내 문구 분기는 페이지가 담당).
   if (matchesPath(pathname, PUBLIC_PATHS)) {
