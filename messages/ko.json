@@ -2674,6 +2674,7 @@
       "you": "나",
       "replyingTo": "{name}에게 답글",
       "fileFallback": "[파일]",
+      "attachmentFallback": "[첨부]",
       "jumpToOriginal": "원본 메시지로 이동",
       "notSupported": "이 메시지는 답글 기능 적용 전에 받은 것이라 인용할 수 없어요. 최근 메시지에는 답글이 됩니다."
     },

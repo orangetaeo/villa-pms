@@ -135,6 +135,8 @@ export interface PendingMessage {
   status: "sending" | "failed";
   error?: string;
   baselineCount: number;
+  // 답글로 보낸 경우 인용 스냅샷(전송 중 버블에도 인용 표시 — 진짜 버블과 동일하게).
+  quoted?: { sender: string; text: string } | null;
 }
 
 // 리액션 아이콘 키 → 이모지 (picker·배지 표시). 키는 REACTION_KEYS(zca-js Reactions enum)와 동일.
@@ -199,6 +201,11 @@ const LightboxContext = createContext<((urls: string[], startIndex: number) => v
 // 인용 클릭 → 원본 메시지로 스크롤+하이라이트(Nike). props 드릴링 회피용 컨텍스트.
 // 인자는 인용 대상 원본의 zaloMsgId. 현재 로드 범위에 없으면 무동작(폴백).
 const QuoteJumpContext = createContext<((targetMsgId: string) => void) | null>(null);
+
+// 인용 원본 해석 — quotedMsgId(원본 zaloMsgId)로 로드된 원본 메시지를 찾는다.
+//  인용 스냅샷의 quotedText가 비어 있는 경우(사진·스티커 등 텍스트 없는 원본)에 원본을 찾아
+//  replyPreviewText로 "[사진]" 같은 라벨을 보여주기 위함(서버 스냅샷만으론 종류를 알 수 없음).
+const QuoteResolveContext = createContext<((quotedMsgId: string) => ChatMessage | null) | null>(null);
 
 // 멘션 강조용 이름 목록(그룹 멤버명 + @전체 라벨 변형) — 버블 본문에서 "@이름"을 Zalo처럼 강조.
 // 그룹 대화에서만 채워지고, 1:1은 빈 배열(강조 없음).
@@ -400,6 +407,17 @@ export function ChatPane({
     return [...olderUnique, ...initialMessages];
   }, [olderMessages, initialMessages]);
 
+  // 인용 원본 해석 맵 — zaloMsgId → 메시지(인용 스냅샷 quotedText가 빈 사진 등에서 종류 라벨 표시용).
+  const messageByZaloId = useMemo(() => {
+    const map = new Map<string, ChatMessage>();
+    for (const m of messages) if (m.zaloMsgId) map.set(m.zaloMsgId, m);
+    return map;
+  }, [messages]);
+  const resolveQuoted = useCallback(
+    (quotedMsgId: string) => messageByZaloId.get(quotedMsgId) ?? null,
+    [messageByZaloId],
+  );
+
   // ── 낙관적(전송 중) 메시지 ──
   // 엔터를 치면 번역·발송이 끝나기 전에 "전송 중" 버블을 대화창에 먼저 띄운다(입력창은 즉시 재사용 가능).
   // 진짜 메시지가 폴링/refresh로 도착하면(동일 본문 outbound 개수 증가) prune. 실패하면 빨간 안내로 전환.
@@ -413,12 +431,12 @@ export function ChatPane({
 
   // 전송 중 버블 추가 — 생성 시점의 동일 본문 outbound 개수를 baseline으로 기록(중복 본문 오판 방지).
   const addPending = useCallback(
-    (bodyText: string) => {
+    (bodyText: string, quoted?: { sender: string; text: string } | null) => {
       const id = `pending-${pendingCounterRef.current++}`;
       const baselineCount = initialMessages.filter(
         (m) => m.kind === "outbound" && m.text === bodyText,
       ).length;
-      setPending((p) => [...p, { id, text: bodyText, status: "sending", baselineCount }]);
+      setPending((p) => [...p, { id, text: bodyText, status: "sending", baselineCount, quoted }]);
       return id;
     },
     [initialMessages],
@@ -725,6 +743,7 @@ export function ChatPane({
   return (
     <LightboxContext.Provider value={openLightbox}>
       <QuoteJumpContext.Provider value={scrollToMessage}>
+      <QuoteResolveContext.Provider value={resolveQuoted}>
       <MentionNamesContext.Provider value={mentionNames}>
       <MutationContext.Provider value={onMutated ?? null}>
       <section
@@ -832,6 +851,7 @@ export function ChatPane({
       </section>
       </MutationContext.Provider>
       </MentionNamesContext.Provider>
+      </QuoteResolveContext.Provider>
       </QuoteJumpContext.Provider>
 
       {/* 라이트박스 — 최상위 z-index, 배경/X/ESC 닫기 */}
@@ -1191,6 +1211,14 @@ function QuotedBlock({
   t: ReturnType<typeof useTranslations>;
 }) {
   const jump = useContext(QuoteJumpContext);
+  const resolve = useContext(QuoteResolveContext);
+  // 인용 본문 — 스냅샷 text가 비면(사진·스티커 등 텍스트 없는 원본) 원본을 찾아 종류 라벨로 대체.
+  //  원본이 로드 범위 밖이면 일반 폴백("[첨부]")으로라도 비지 않게 한다(빈 인용 = 표기 누락 방지).
+  let displayText = text;
+  if (!displayText.trim()) {
+    const original = targetMsgId && resolve ? resolve(targetMsgId) : null;
+    displayText = original ? replyPreviewText(original, t) : t("reply.attachmentFallback");
+  }
   // 원본이 현재 화면에 렌더돼 있을 때만 클릭 가능(Nike와 동일 — 없으면 점프 불가).
   const canJump =
     !!jump &&
@@ -1203,7 +1231,7 @@ function QuotedBlock({
   const inner = (
     <>
       <p className="text-[10px] font-bold text-slate-400 truncate">{sender ?? t("reply.you")}</p>
-      <p className="text-[11px] text-slate-400 line-clamp-2 break-words">{text}</p>
+      <p className="text-[11px] text-slate-400 line-clamp-2 break-words">{displayText}</p>
     </>
   );
   if (canJump) {
@@ -1484,7 +1512,7 @@ function InboundBubble({
       <InboundAvatar message={message} />
       <div className="min-w-0">
         {/* 그룹 발신자명은 버블 위가 아니라 하단 시간 옆에만 표시(사용자 요청 — 더 깔끔). */}
-        {(message.quotedText || message.quotedSender) && (
+        {(message.quotedMsgId || message.quotedText || message.quotedSender) && (
           <QuotedBlock
             sender={message.quotedSender}
             text={message.quotedText ?? ""}
@@ -1710,7 +1738,7 @@ function OutboundBubble({
       className="group flex justify-end transition-shadow"
     >
       <div className={`${maxW} text-right min-w-0`}>
-        {(message.quotedText || message.quotedSender) && (
+        {(message.quotedMsgId || message.quotedText || message.quotedSender) && (
           <QuotedBlock
             sender={message.quotedSender}
             text={message.quotedText ?? ""}
@@ -1754,6 +1782,12 @@ function PendingBubble({
   return (
     <div className="flex justify-end">
       <div className="max-w-[70%] text-right min-w-0">
+        {message.quoted && (
+          <div className="mb-1 ml-auto max-w-full rounded-lg border-l-2 border-slate-600 bg-slate-800/60 px-2.5 py-1.5 text-left">
+            <p className="text-[10px] font-bold text-slate-400 truncate">{message.quoted.sender}</p>
+            <p className="text-[11px] text-slate-400 line-clamp-2 break-words">{message.quoted.text}</p>
+          </div>
+        )}
         <div
           className={`rounded-xl rounded-br-sm px-4 py-3 inline-block text-left ${
             failed ? "bg-blue-600/40" : "bg-blue-600/70"
@@ -2435,7 +2469,8 @@ function Composer({
   onClearReply: () => void;
   onSent: () => void;
   // 엔터 즉시 "전송 중" 버블을 대화창에 추가하고 임시 id 반환(번역·발송은 백그라운드).
-  onOptimisticSend: (text: string) => string;
+  //  quoted: 답글이면 인용 스냅샷(전송 중 버블에도 인용 표시).
+  onOptimisticSend: (text: string, quoted?: { sender: string; text: string } | null) => string;
   // 발송 실패 시 해당 버블을 빨간 안내로 전환.
   onOptimisticFail: (id: string, error: string) => void;
   t: ReturnType<typeof useTranslations>;
@@ -2596,6 +2631,10 @@ function Composer({
     // 입력창은 곧바로 비워 다음 메시지를 바로 칠 수 있게 한다(번역·발송은 백그라운드).
     // 따라서 payload에 쓸 값(답글·재사용 번역·멘션)을 비우기 전에 먼저 캡처한다.
     const replyId = replyTarget?.messageId ?? null;
+    // 답글이면 인용 스냅샷(전송 중 버블에 표시) — replyTarget.text는 이미 replyPreviewText 적용본.
+    const quotedSnapshot = replyTarget
+      ? { sender: replyTarget.sender, text: replyTarget.text }
+      : null;
     // W1: 번역 모드 ON이고, 미리보기가 현재 입력(body)에 대한 settled 번역이면 그대로 재사용 →
     //   서버 재번역 생략(발송당 Gemini 2회→1회). 번역 진행 중·입력 변경 시엔 미첨부(서버가 번역).
     const reuseTranslated =
@@ -2623,7 +2662,7 @@ function Composer({
     setError(null);
 
     // 대화창에 "전송 중" 버블을 먼저 띄우고 최하단으로(번역이 느려도 보낸 게 바로 보임).
-    const tempId = onOptimisticSend(body);
+    const tempId = onOptimisticSend(body, quotedSnapshot);
     onSent();
 
     try {

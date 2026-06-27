@@ -2783,6 +2783,7 @@
       "you": "Bạn",
       "replyingTo": "Trả lời {name}",
       "fileFallback": "[Tệp]",
+      "attachmentFallback": "[Tệp đính kèm]",
       "jumpToOriginal": "Đến tin nhắn gốc",
       "notSupported": "Tin nhắn này nhận trước khi có tính năng trả lời nên không trích dẫn được. Tin nhắn gần đây vẫn trả lời được."
     },
