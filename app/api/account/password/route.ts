@@ -4,9 +4,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
+import { requireAuth } from "@/lib/api-guard";
 import { BCRYPT_ROUNDS, PASSWORD_MIN, isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 
 const schema = z.object({
@@ -16,10 +16,9 @@ const schema = z.object({
 
 export async function POST(req: Request) {
   // 권한 검사 — 로그인 사용자 본인만 (자기 계정 비밀번호 변경)
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  const g = await requireAuth(req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   let body: unknown;
   try {

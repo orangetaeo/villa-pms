@@ -4,10 +4,10 @@
 // 게이트 단일 setter(approveCleaningTask)와 독립된 별도 경로 — lib/villa-gate.ts.
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { forceOpenSellableGate, VillaGateError } from "@/lib/villa-gate";
 import { canOverrideGate } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 
 const bodySchema = z.object({
   // 선택이지만 권장 — 없으면 기본 사유. trim 후 최대 500.
@@ -19,13 +19,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   // 권한 검사 — ADMIN 전용 (route handler 첫 줄 role 검사 규칙). 차단 시 DB 미접근.
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!canOverrideGate(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(canOverrideGate, "canOverrideGate", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const { id } = await params;
 

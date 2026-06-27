@@ -9,6 +9,7 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { serializeBigInt } from "@/lib/serialize";
 import { generateMonthlySettlements, monthRangeUtc } from "@/lib/settlement";
 import { canViewFinance, isSystemAdmin } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 
 const YEAR_MONTH_SCHEMA = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "YYYY-MM 형식 필요");
 
@@ -56,13 +57,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   // 권한 검사 — ADMIN 전용
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!isSystemAdmin(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isSystemAdmin, "isSystemAdmin", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   let body: unknown;
   try {

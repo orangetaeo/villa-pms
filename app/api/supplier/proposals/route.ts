@@ -5,6 +5,7 @@
 // 권한·누수: SUPPLIER 전용 + supplierId 스코프. 운영자 마진·판매가 노출 0건(공급자 판매가 VND만).
 import { z } from "zod";
 import { auth } from "@/auth";
+import { requireCapability } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
 import { canCreateSupplierLink } from "@/lib/permissions";
 import {
@@ -31,11 +32,9 @@ const createSchema = z.object({
 
 export async function POST(req: Request) {
   // 첫 줄 권한 검사 — SUPPLIER 전용 (비로그인 401 / 타롤 403)
-  const session = await auth();
-  if (!session?.user?.id) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (!canCreateSupplierLink(session.user.role)) {
-    return Response.json({ error: "forbidden" }, { status: 403 });
-  }
+  const g = await requireCapability(canCreateSupplierLink, "canCreateSupplierLink", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const supplierId = session.user.id;
 
   const body = await req.json().catch(() => null);

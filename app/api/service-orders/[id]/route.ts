@@ -4,10 +4,10 @@
 //   상태 전이표는 lib/service-order.ts 재사용(단일 소스).
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator, canViewFinance, type Role } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import { assertServiceTransition, InvalidServiceTransitionError } from "@/lib/service-order";
 import { canConfirmCustomer, vendorHasLivePo } from "@/lib/vendor-order";
 import { enqueueNotification } from "@/lib/zalo";
@@ -29,10 +29,10 @@ const patchSchema = z.object({
 });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  const g = await requireCapability(isOperator, "isOperator", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const role = session.user.role as Role | undefined;
-  if (!isOperator(role)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   const actorId = session.user.id;
   const canFinance = canViewFinance(role);
   const { id } = await params;

@@ -23,7 +23,6 @@ import {
   ZaloMessageSource,
   ZaloMessageStatus,
 } from "@prisma/client";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { representativeRatesBySeason } from "@/lib/pricing";
@@ -54,6 +53,7 @@ import {
 import koMessages from "@/messages/ko.json";
 import viMessages from "@/messages/vi.json";
 import { isOperator, canViewFinance } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB (uploads 라우트와 동일)
 
@@ -142,13 +142,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   // 권한 검사 — ADMIN 전용 (route handler 첫 줄)
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!isOperator(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const adminUserId = session.user.id;
   const { id: conversationId } = await params;
 

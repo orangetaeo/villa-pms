@@ -9,15 +9,15 @@ import { villaCreateSchema } from "@/lib/villa-schema";
 import { serializeBigInt } from "@/lib/serialize";
 import type { Prisma, VillaStatus } from "@prisma/client";
 import { isOperator, canViewFinance } from "@/lib/permissions";
+import { requireAuth } from "@/lib/api-guard";
 import { buildRatePeriodRowsFromSeasonCosts, representativeRatesBySeason } from "@/lib/pricing";
 
 export async function POST(req: Request) {
-  // 권한 검사 — SUPPLIER(자기 빌라) + ADMIN(테오 직접등록) 허용 (route handler 첫 줄 role 검사 규칙)
-  const session = await auth();
-  if (
-    !session?.user?.id ||
-    (session.user.role !== "SUPPLIER" && !isOperator(session.user.role))
-  ) {
+  // 권한 검사 — SUPPLIER(자기 빌라) + ADMIN(테오 직접등록) 허용 (P1-S8: 중앙 가드 + 복합 역할조건 유지)
+  const g = await requireAuth(req);
+  if (!g.ok) return g.response;
+  const session = g.session;
+  if (session.user.role !== "SUPPLIER" && !isOperator(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
   const actorId = session.user.id; // 실제 등록 수행자(업로더·감사로그 주체)

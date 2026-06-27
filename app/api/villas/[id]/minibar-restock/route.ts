@@ -5,10 +5,10 @@
 //   현재고는 캐시가 아니라 MinibarStockMovement 원장 ΣqtyDelta로 산출(별도 차감 컬럼 없음).
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator, canViewFinance, type Role } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import {
   validateRestockLine,
   effectivePar,
@@ -39,14 +39,10 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const role = session.user.role as Role | undefined;
-  if (!isOperator(role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
   const actorId = session.user.id;
   const canFinance = canViewFinance(role);
   const { id } = await params;

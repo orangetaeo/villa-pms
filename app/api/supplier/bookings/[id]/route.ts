@@ -4,7 +4,7 @@
 // 운영자 예약(seller=OPERATOR)·타 공급자 예약은 존재 여부도 비노출(404).
 import { NextResponse } from "next/server";
 import { BookingSeller, BookingStatus } from "@prisma/client";
-import { auth } from "@/auth";
+import { requireAuth } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 
@@ -12,14 +12,13 @@ import { writeAuditLog } from "@/lib/audit-log";
 const DEFAULT_CANCEL_REASON = "공급자 직접예약 취소";
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   // 첫 줄 권한 검사 — SUPPLIER 전용 (비로그인 401 / 타롤 403 분리)
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  const g = await requireAuth(req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   if (session.user.role !== "SUPPLIER") {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }

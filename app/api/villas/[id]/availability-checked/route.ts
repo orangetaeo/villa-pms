@@ -2,23 +2,19 @@
 // 운영자가 공급자에게 이 빌라 공실을 확인한 시점을 기록. b11 공실 보드의 "마지막 확인일" 뱃지 소스.
 // 재고·마진 무관 필드(타임스탬프 1개)만 갱신 — Booking/VillaRate 일절 조회·수정하지 않는다.
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 
 export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   // 권한 검사 — ADMIN 전용 (route handler 첫 줄 role 검사 규칙). SUPPLIER/CLEANER/비로그인 차단
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!isOperator(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", _req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const actorUserId = session.user.id;
   const { id } = await params;
 

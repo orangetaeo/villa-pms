@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isSystemAdmin } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import {
   SETTING_KEYS,
   CLEARABLE_SET,
@@ -60,9 +61,9 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   // 권한 검사 — ADMIN 전용
-  const admin = await requireAdmin();
-  if (admin.error) return admin.error;
-  const userId = admin.userId;
+  const g = await requireCapability(isSystemAdmin, "isSystemAdmin", req);
+  if (!g.ok) return g.response;
+  const userId = g.userId;
 
   let body: unknown;
   try {

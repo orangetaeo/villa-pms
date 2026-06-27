@@ -3,11 +3,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { BookingStatus } from "@prisma/client";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { canViewFinance } from "@/lib/permissions";
 import { ensureReceivableForBooking, evaluateConfirmCredit } from "@/lib/partner-booking";
+import { requireCapability } from "@/lib/api-guard";
 
 /** 여신 게이트 차단 — 트랜잭션 롤백용 (lib/hold.ts confirm 패턴과 정합) */
 class CreditBlockedError extends Error {
@@ -30,13 +30,9 @@ export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!canViewFinance(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(canViewFinance, "canViewFinance", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const { id } = await params;
   let body: unknown;

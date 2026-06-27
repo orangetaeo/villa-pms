@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { submitCleaningPhotos, CleaningTransitionError } from "@/lib/cleaning";
 import { isOperator } from "@/lib/permissions";
+import { requireAuth } from "@/lib/api-guard";
 
 const submitSchema = z.object({
   // max 50 — a4 슬롯 이론 최대 45장(침실·욕실 동적) 수용 (T3.8 QA D-1)
@@ -17,8 +17,9 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const g = await requireAuth(req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const { role, id: userId } = session.user;
 
   const { id } = await params;

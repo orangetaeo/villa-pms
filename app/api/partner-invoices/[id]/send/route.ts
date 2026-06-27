@@ -7,10 +7,10 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { canViewFinance } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import { fmtVnd } from "@/lib/settlement-statement";
 import { toDateOnlyString } from "@/lib/date-vn";
 import { getInvoiceDir, invoiceFileName } from "@/lib/storage";
@@ -82,13 +82,9 @@ export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!canViewFinance(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(canViewFinance, "canViewFinance", _req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const { id } = await params;
   const inv = await prisma.partnerInvoice.findUnique({

@@ -3,7 +3,7 @@
 //   DELETE: 연결된 카탈로그/주문이 있으면 하드삭제 금지(409) → active=false 권장. 참조 0이면 하드삭제.
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
+import { requireCapability } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { canViewFinance, canSetPrice, type Role } from "@/lib/permissions";
@@ -20,10 +20,10 @@ const patchSchema = z.object({
 });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  const g = await requireCapability(canSetPrice, "canSetPrice", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const role = session.user.role as Role | undefined;
-  if (!canSetPrice(role)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   const canFinance = canViewFinance(role);
   const { id } = await params;
 
@@ -72,11 +72,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   return NextResponse.json({ id });
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  const role = session.user.role as Role | undefined;
-  if (!canSetPrice(role)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const g = await requireCapability(canSetPrice, "canSetPrice", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const { id } = await params;
 
   const existing = await prisma.serviceVendor.findUnique({ where: { id }, select: { id: true } });

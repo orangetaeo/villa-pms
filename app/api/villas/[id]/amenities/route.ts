@@ -4,11 +4,11 @@
 // 누수 0: VillaRate(판매가·마진)를 일절 조회·수정하지 않는다. itemKey는 lib/amenities 사전 값만.
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isValidAmenity } from "@/lib/amenities";
 import { isOperator } from "@/lib/permissions";
+import { requireAuth } from "@/lib/api-guard";
 
 // VND 동 단위 양수 문자열 (미니바 고객 청구 단가 — BigInt는 JSON 직렬화 불가하므로 문자열 수신)
 const vndPositiveDigits = z.string().regex(/^[1-9]\d{0,14}$/);
@@ -57,10 +57,9 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  const g = await requireAuth(req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   // SUPPLIER(자기 빌라만) 또는 운영자(모든 빌라) — 그 외 차단
   const isSupplier = session.user.role === "SUPPLIER";
   if (!isSupplier && !isOperator(session.user.role)) {

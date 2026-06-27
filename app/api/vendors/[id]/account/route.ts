@@ -6,7 +6,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { auth } from "@/auth";
+import { requireCapability } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isSystemAdmin } from "@/lib/permissions";
@@ -20,13 +20,9 @@ const createSchema = z.object({
 // POST — 공급자 로그인 계정 생성 (Role=VENDOR, 초기 비번 → 첫 로그인 후 변경 강제)
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   // 권한 검사 — isSystemAdmin(OWNER) 전용 (users 생성과 동일 기준, 첫 줄 role 검사)
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!isSystemAdmin(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isSystemAdmin, "isSystemAdmin", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const { id } = await params;
 
   let body: unknown;
@@ -127,14 +123,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 // DELETE — 계정 해제: 연결 User 소프트삭제(deletedAt·isActive=false) + ServiceVendor.userId=null.
 //   (회원 소프트삭제 패턴 재사용 — 데이터 보존, 로그인·목록에서만 제외. ServiceVendor.user는
 //    onDelete:SetNull이나 하드삭제는 안 하므로 명시적으로 userId=null 설정해 즉시 해제.)
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!isSystemAdmin(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const g = await requireCapability(isSystemAdmin, "isSystemAdmin", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const { id } = await params;
 
   const result = await prisma.$transaction(async (tx) => {

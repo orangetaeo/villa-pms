@@ -9,6 +9,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator, canViewFinance, canSetPrice, type Role } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import { validateCatalogItem, SERVICE_TYPE_VALUES, parseAudiences, stripOptionCosts } from "@/lib/service-catalog";
 import { buildCatalogI18n } from "@/lib/service-i18n";
 import type { Prisma } from "@prisma/client";
@@ -87,10 +88,10 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  const g = await requireCapability(canSetPrice, "canSetPrice", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const role = session.user.role as Role | undefined;
-  if (!canSetPrice(role)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   const actorId = session.user.id;
   const canFinance = canViewFinance(role);
 

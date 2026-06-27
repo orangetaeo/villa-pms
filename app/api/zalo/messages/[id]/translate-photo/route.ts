@@ -5,23 +5,19 @@
 //
 // 보안: ADMIN 전용 + 본인(ownerAdminId) 대화의 메시지만(누수 0 — 스코프 가드). credential·마진 무관.
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { GeminiNotConfiguredError, translateImage } from "@/lib/gemini";
 import { isOperator } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 
 export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   // 권한 — ADMIN 전용 (route handler 첫 줄 role 검사)
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!isOperator(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", _req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const { id } = await params;
 

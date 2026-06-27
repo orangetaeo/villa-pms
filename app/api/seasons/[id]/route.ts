@@ -2,11 +2,11 @@
 // 기간 규약: [startDate, endDate) half-open, @db.Date = UTC 자정
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { parseUtcDateOnly, toDateOnlyString } from "@/lib/date-vn";
 import { isSystemAdmin } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 
 // ../route.ts와 동일 스키마 — route.ts는 HTTP 메서드 외 export 금지라 중복 유지
 const seasonBodySchema = z.object({
@@ -55,13 +55,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   // 권한 검사 — ADMIN 전용 (route handler 첫 줄 role 검사 규칙)
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!isSystemAdmin(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isSystemAdmin, "isSystemAdmin", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const { id } = await params;
 
@@ -136,17 +132,13 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   // 권한 검사 — ADMIN 전용
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!isSystemAdmin(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isSystemAdmin, "isSystemAdmin", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const { id } = await params;
 

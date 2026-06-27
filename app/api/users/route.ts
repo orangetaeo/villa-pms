@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import type { Role } from "@prisma/client";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isSystemAdmin } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import { BCRYPT_ROUNDS, PASSWORD_MIN, isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 
 // GET ?role= 필터 화이트리스트 — 운영자 역할(OWNER/MANAGER/STAFF) 포함 (S-RBAC-4)
@@ -90,13 +91,9 @@ export async function GET(req: Request) {
 // POST /api/users — 계정 생성 (OWNER 전용, S-RBAC-4 A1)
 export async function POST(req: Request) {
   // 권한 검사 — isSystemAdmin(OWNER) 전용 (route handler 첫 줄 role 검사 규칙)
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!isSystemAdmin(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isSystemAdmin, "isSystemAdmin", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   let body: unknown;
   try {

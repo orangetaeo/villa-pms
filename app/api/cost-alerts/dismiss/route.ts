@@ -3,24 +3,20 @@
 // 권한: ADMIN 전용. 본인(userId) 소유의 RATE_CHANGED_DURING_PROPOSAL 알림만 처리(타인 알림 누수 차단).
 // 동작: PENDING → SENT 로 표시(확인 완료) → 경보 목록에서 제거. 감사 로그 기록.
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { NotificationType } from "@prisma/client";
 import { isSystemAdmin } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 
 const schema = z.object({
   notificationIds: z.array(z.string().min(1)).min(1).max(100),
 });
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return Response.json({ error: "unauthorized" }, { status: 401 });
-  }
-  if (!isSystemAdmin(session.user.role)) {
-    return Response.json({ error: "forbidden" }, { status: 403 });
-  }
+  const g = await requireCapability(isSystemAdmin, "isSystemAdmin", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const adminId = session.user.id;
 
   const body = await req.json().catch(() => null);

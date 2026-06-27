@@ -112,10 +112,12 @@ describe("POST /api/villas — 권한", () => {
     expect(res.status).toBe(403);
   });
 
-  it("미인증은 403", async () => {
+  it("미인증은 401", async () => {
+    // P1-S8: 중앙 가드(requireAuth)가 미인증을 401로 표준화(이전엔 복합조건이 403 반환).
+    // 인증됐으나 권한 없는 경우(CLEANER)는 위 케이스대로 여전히 403.
     mockAuth.mockResolvedValue(null);
     const res = await postReq({ ...VALID_BODY });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
   });
 });
 

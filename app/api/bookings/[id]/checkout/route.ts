@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { completeCheckout, CheckoutRejectedError, type MinibarLineInput } from "@/lib/checkout";
 import { serializeBigInt } from "@/lib/serialize";
 import { isOperator } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import { effectivePar, computeConsumptionFromRemaining } from "@/lib/minibar-inventory";
 
 /** POST /api/bookings/[id]/checkout — 체크아웃 완료 (ADMIN 전용, SPEC F4) */
@@ -118,11 +118,9 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (!isOperator(session.user.role)) {
-    return Response.json({ error: "forbidden" }, { status: 403 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const body = await req.json().catch(() => null);
   const parsed = checkoutSchema.safeParse(body);

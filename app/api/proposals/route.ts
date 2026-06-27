@@ -9,6 +9,7 @@ import {
   ProposalRejectedError,
 } from "@/lib/proposal";
 import { canSetPrice } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 
 /** 제안 생성·목록 — 전부 ADMIN 전용 (재고 비공개 원칙: 후보·제안 관리는 운영자만) */
 
@@ -50,11 +51,9 @@ const createSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (!canSetPrice(session.user.role)) {
-    return Response.json({ error: "forbidden" }, { status: 403 });
-  }
+  const g = await requireCapability(canSetPrice, "canSetPrice", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const body = await req.json().catch(() => null);
   const parsed = createSchema.safeParse(body);

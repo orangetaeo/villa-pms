@@ -3,13 +3,13 @@
 //          / DEACTIVATE ACTIVE→INACTIVE / REACTIVATE INACTIVE→ACTIVE
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { createInitialInspectionTask } from "@/lib/cleaning";
 import { villaCreateSchema } from "@/lib/villa-schema";
 import { NotificationType, type VillaStatus } from "@prisma/client";
 import { isOperator } from "@/lib/permissions";
+import { requireAuth, requireCapability } from "@/lib/api-guard";
 import { buildRatePeriodRowsFromSeasonCosts } from "@/lib/pricing";
 
 const patchSchema = z.object({
@@ -34,13 +34,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   // 권한 검사 — ADMIN 전용 (route handler 첫 줄 role 검사 규칙)
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!isOperator(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const { id } = await params;
 
@@ -154,10 +150,9 @@ export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  const g = await requireAuth(req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   if (session.user.role !== "SUPPLIER") {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }

@@ -1,18 +1,16 @@
 // /api/bookings/[id]/guest-token — 게스트 셀프 체크인 토큰 발급/재발급·회수 (ADR-0019 S3, 운영자)
 //   POST: 발급/재발급(이전 토큰 대체, 만료=체크아웃+1일). DELETE: 회수.
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
-import { isOperator, type Role } from "@/lib/permissions";
+import { isOperator } from "@/lib/permissions";
 import { generateGuestToken, defaultGuestTokenExpiry } from "@/lib/guest-checkin";
+import { requireCapability } from "@/lib/api-guard";
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  if (!isOperator(session.user.role as Role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", _req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const { id } = await params;
 
   const booking = await prisma.booking.findUnique({
@@ -44,11 +42,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  if (!isOperator(session.user.role as Role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", _req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const { id } = await params;
   const existing = await prisma.guestCheckinToken.findUnique({ where: { bookingId: id }, select: { id: true } });
   if (!existing) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
