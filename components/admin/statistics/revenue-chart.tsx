@@ -1,12 +1,13 @@
 "use client";
 
-// 월별 매출 추이 — KRW·VND 분리 2계열 (T-admin-statistics §5 탭1, Stitch b17 dual-axis)
+// 월별 매출 추이 — KRW·VND 분리 2계열 (T-admin-statistics §5 탭1)
 // ★ 통화 합산 금지(ADR-0003): KRW=좌축(블루), VND=우축(에메랄드) 별도 축으로 시각 분리.
 //   같은 축에 두지 않아 "합쳐 보이는" 오인을 막는다. 정확표시는 *Text 사용.
+// 표현: 부드러운 영역(natural 스플라인) + 그라데이션 채움 + 점선 그리드 (막대 → 영역 곡선으로 변경).
 
 import {
-  Bar,
-  BarChart,
+  Area,
+  AreaChart,
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
@@ -66,15 +67,27 @@ export default function RevenueChart({
 
   return (
     <ResponsiveContainer width="100%" height={288}>
-      <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={2}>
-        <CartesianGrid stroke={GRID} vertical={false} />
+      <AreaChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <defs>
+          {/* 곡선 아래 그라데이션(상단 채움 → 하단 투명) — 이미지 양식 */}
+          <linearGradient id="revKrwFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={KRW} stopOpacity={0.28} />
+            <stop offset="100%" stopColor={KRW} stopOpacity={0} />
+          </linearGradient>
+          <linearGradient id="revVndFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={VND} stopOpacity={0.28} />
+            <stop offset="100%" stopColor={VND} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        {/* 점선 그리드(가로·세로) — 이미지 양식 */}
+        <CartesianGrid stroke={GRID} strokeDasharray="4 4" />
         <XAxis
           dataKey="label"
           tick={{ fill: AXIS, fontSize: 11 }}
           tickLine={false}
           axisLine={{ stroke: "#334155" }}
         />
-        {/* 좌축 = KRW(원), 우축 = VND(₫) — 별도 스케일로 통화 분리 */}
+        {/* 좌축 = KRW(원), 우축 = VND(₫) — 별도 스케일로 통화 분리(ADR-0003) */}
         <YAxis
           yAxisId="krw"
           orientation="left"
@@ -94,12 +107,32 @@ export default function RevenueChart({
           tickFormatter={(v: number) => (v >= 1_000_000 ? `${Math.round(v / 1_000_000)}M` : `${v}`)}
         />
         <Tooltip
-          cursor={{ fill: "#33415533" }}
+          cursor={{ stroke: "#334155" }}
           content={<RevenueTooltip krwLegend={krwLegend} vndLegend={vndLegend} />}
         />
-        <Bar yAxisId="krw" dataKey="krwRevenue" name={krwLegend} fill={KRW} radius={[3, 3, 0, 0]} />
-        <Bar yAxisId="vnd" dataKey="vndRevenue" name={vndLegend} fill={VND} radius={[3, 3, 0, 0]} />
-      </BarChart>
+        <Area
+          yAxisId="krw"
+          type="natural"
+          dataKey="krwRevenue"
+          name={krwLegend}
+          stroke={KRW}
+          strokeWidth={2.5}
+          fill="url(#revKrwFill)"
+          dot={false}
+          activeDot={{ r: 4 }}
+        />
+        <Area
+          yAxisId="vnd"
+          type="natural"
+          dataKey="vndRevenue"
+          name={vndLegend}
+          stroke={VND}
+          strokeWidth={2.5}
+          fill="url(#revVndFill)"
+          dot={false}
+          activeDot={{ r: 4 }}
+        />
+      </AreaChart>
     </ResponsiveContainer>
   );
 }
