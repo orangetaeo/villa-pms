@@ -1,19 +1,15 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { canViewFinance } from "@/lib/permissions";
 import { formatVnd } from "@/lib/format";
-import {
-  getReceivablesOverview,
-  isOverLimit,
-  type PartnerAggregate,
-} from "@/lib/partner-server";
-import ResponsiveTable, { type ResponsiveColumn } from "@/components/admin/responsive-table";
+import { getReceivablesOverview, isOverLimit } from "@/lib/partner-server";
+import ReceivablesTable, { type ReceivableRow } from "./receivables-table";
 
 // 미수/여신 대시보드 (ADR-0022 PARTNER-3) — 전 파트너 미수 Aging·연체·한도초과. 재무 전용.
-// 순수 RSC(클라이언트 컴포넌트 없음) — 금액은 서버에서 formatVnd로 문자열화.
+// RSC가 KPI·Aging 합산(전 파트너 기준)을 그리고, 금액은 서버에서 formatVnd로 문자열화.
+// 파트너별 목록만 클라 래퍼(ReceivablesTable)로 분리해 페이지네이션(controlled slice).
 export default async function ReceivablesPage() {
   const session = await auth();
   if (!session?.user?.id || !canViewFinance(session.user.role)) {
@@ -38,61 +34,18 @@ export default async function ReceivablesPage() {
     { key: "30+", label: tp("aging.30+"), danger: true },
   ];
 
-  const columns: ResponsiveColumn<PartnerAggregate>[] = [
-    {
-      key: "name",
-      header: tp("col.name"),
-      cell: (a) => (
-        <Link href={`/partners/${a.partner.id}`} className="font-bold text-white hover:text-admin-primary">
-          {a.partner.name}
-          <span className="block text-[11px] font-normal text-slate-500">
-            {tp(`types.${a.partner.type}`)} · {tp(`tierShort.${a.partner.creditTier}`)}
-          </span>
-        </Link>
-      ),
-    },
-    {
-      key: "outstanding",
-      header: tp("col.outstanding"),
-      className: "text-right tabular-nums",
-      headerClassName: "text-right",
-      cell: (a) => (
-        <span className={a.overdue ? "font-bold text-red-400" : "text-slate-200"}>
-          {formatVnd(a.outstandingVnd)}
-        </span>
-      ),
-    },
-    {
-      key: "30+",
-      header: tp("aging.30+"),
-      className: "text-right tabular-nums",
-      headerClassName: "text-right",
-      cell: (a) =>
-        a.aging["30+"] > 0n ? (
-          <span className="text-red-400">{formatVnd(a.aging["30+"])}</span>
-        ) : (
-          <span className="text-slate-600">—</span>
-        ),
-    },
-    {
-      key: "alerts",
-      header: t("alerts"),
-      cell: (a) => (
-        <div className="flex flex-wrap gap-1">
-          {a.overdue && (
-            <span className="inline-block rounded px-2 py-0.5 text-[10px] font-bold bg-red-500/15 text-red-300">
-              {tp("overdue")}
-            </span>
-          )}
-          {isOverLimit(a) && (
-            <span className="inline-block rounded px-2 py-0.5 text-[10px] font-bold bg-amber-500/15 text-amber-300">
-              {t("overLimitBadge")}
-            </span>
-          )}
-        </div>
-      ),
-    },
-  ];
+  // 클라 페이지네이션 표에 넘길 표시 전용 행 — BigInt·Partner 전체 객체는 넘기지 않는다
+  // (직렬화 차단 + 채권 외 필드 누수 차단, 원칙2). 금액은 여기서 formatVnd로 문자열화.
+  const tableRows: ReceivableRow[] = overview.partners.map((a) => ({
+    partnerId: a.partner.id,
+    partnerName: a.partner.name,
+    typeLabel: tp(`types.${a.partner.type}`),
+    tierLabel: tp(`tierShort.${a.partner.creditTier}`),
+    outstandingLabel: formatVnd(a.outstandingVnd),
+    overdue: a.overdue,
+    over30Label: a.aging["30+"] > 0n ? formatVnd(a.aging["30+"]) : null,
+    overLimit: isOverLimit(a),
+  }));
 
   return (
     <div className="flex flex-col gap-6">
@@ -132,22 +85,8 @@ export default async function ReceivablesPage() {
         </div>
       </div>
 
-      {/* 파트너별 미수 */}
-      <ResponsiveTable
-        columns={columns}
-        rows={overview.partners}
-        rowKey={(a) => a.partner.id}
-        emptyMessage={t("empty")}
-        cardSummary={(a) => (
-          <div className="flex flex-col gap-0.5">
-            <span className="font-bold text-white">{a.partner.name}</span>
-            <span className={`text-xs ${a.overdue ? "text-red-400 font-bold" : "text-slate-400"}`}>
-              {formatVnd(a.outstandingVnd)}
-              {a.overdue ? ` · ${tp("overdue")}` : ""}
-            </span>
-          </div>
-        )}
-      />
+      {/* 파트너별 미수 — 클라 페이지네이션 래퍼(controlled slice + PaginationBar) */}
+      <ReceivablesTable rows={tableRows} />
     </div>
   );
 }

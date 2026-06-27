@@ -10,16 +10,23 @@ import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import { getSupplierLocale } from "@/lib/locale";
 import { toDateOnlyString } from "@/lib/date-vn";
+import PaginationBar from "@/components/pagination-bar";
+import { parsePageParams } from "@/lib/pagination";
 
 export const metadata: Metadata = { title: "Đặt phòng trực tiếp — Villa Go" };
 
-export default async function SupplierMyBookingsPage() {
+export default async function SupplierMyBookingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; pageSize?: string }>;
+}) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   if (session.user.role !== "SUPPLIER") redirect("/");
 
   const locale = await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "myBookings" });
+  const { page, pageSize, skip, take } = parsePageParams(await searchParams);
 
   // 자기 직접예약만 — seller=SUPPLIER AND 자기 빌라. 검수 가능 상태(CONFIRMED·CHECKED_IN) 우선.
   // 누수 0: guestName(식별용 표시)·인원·날짜·상태만. 판매가 KRW·우리 마진·원가 select 안 함.
@@ -44,9 +51,13 @@ export default async function SupplierMyBookingsPage() {
 
   const fmt = (d: Date) => toDateOnlyString(d).split("-").reverse().join("/");
 
-  // 검수 대기(CONFIRMED·CHECKED_IN) 먼저, 완료(CHECKED_OUT) 나중
-  const pending = bookings.filter((b) => b.status !== BookingStatus.CHECKED_OUT);
-  const done = bookings.filter((b) => b.status === BookingStatus.CHECKED_OUT);
+  // 페이지네이션 — checkIn asc 정렬된 전체 목록을 메모리 슬라이스(take:100 캡 내). 빈 상태는 전체 기준.
+  const totalBookings = bookings.length;
+  const pagedBookings = bookings.slice(skip, skip + take);
+
+  // 검수 대기(CONFIRMED·CHECKED_IN) 먼저, 완료(CHECKED_OUT) 나중 — 현재 페이지 슬라이스 내에서 분류
+  const pending = pagedBookings.filter((b) => b.status !== BookingStatus.CHECKED_OUT);
+  const done = pagedBookings.filter((b) => b.status === BookingStatus.CHECKED_OUT);
 
   return (
     <div className="mx-auto max-w-md px-4 pb-8 pt-6">
@@ -87,6 +98,9 @@ export default async function SupplierMyBookingsPage() {
               ))}
             </section>
           )}
+
+          {/* 페이지네이션 — 행 수 요약 + 페이지당 개수(라이트 테마) */}
+          <PaginationBar total={totalBookings} page={page} pageSize={pageSize} light />
         </div>
       )}
     </div>

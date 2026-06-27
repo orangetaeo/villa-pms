@@ -6,13 +6,15 @@
 //   ★ 가격은 VND 단일통화(priceVnd 필수). 게스트 KRW는 표시 시점 환율로 파생 — 저장 안 함.
 //   ★ 관리자 입력은 한국어만(nameKo/descKo/옵션 labelKo). nameVi/nameEn/descVi·옵션 labelVi는 서버가 Gemini로 자동번역.
 //   옵션 빌더: variants(1택·가격대체)/addons(다중·가산)/modifiers(토글·가산).
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { formatThousands } from "@/lib/format";
 import { priceKrwCeil } from "@/lib/service-display";
 import { parseCatalogOptions, SERVICE_TYPE_VALUES, generateOptionKey } from "@/lib/service-catalog";
 import { catalogImage } from "@/lib/service-image";
+import PaginationBar from "@/components/pagination-bar";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 // ADR-0023 — 요청 가능 채널. ADMIN은 항상 포함(운영자 늘 요청 가능 — 잠금).
 export type Audience = "ADMIN" | "PARTNER" | "GUEST";
@@ -141,6 +143,8 @@ export default function ServiceCatalogManager({
   const router = useRouter();
 
   const [typeFilter, setTypeFilter] = useState<string>("ALL"); // 타입 카테고리 탭
+  const [page, setPage] = useState(1); // 페이지네이션 — 현재 페이지(1-base)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<FormDraft>(emptyForm(0));
@@ -340,6 +344,15 @@ export default function ServiceCatalogManager({
     [initialItems, typeFilter]
   );
 
+  // 목록(저장/삭제 후 refresh)·필터 변경 시 1페이지로 리셋
+  useEffect(() => setPage(1), [initialItems, typeFilter]);
+
+  // 현재 페이지 슬라이스 — 렌더는 paged 기준, 빈 상태 체크는 전체(visibleItems) 기준 유지
+  const paged = useMemo(
+    () => visibleItems.slice((page - 1) * pageSize, page * pageSize),
+    [visibleItems, page, pageSize]
+  );
+
   return (
     <section className="space-y-5">
       <div className="flex items-center justify-between gap-3">
@@ -401,7 +414,7 @@ export default function ServiceCatalogManager({
         <p className="text-sm text-slate-500 py-12 text-center">{t("emptyFiltered")}</p>
       ) : (
         <div className="flex flex-col gap-3">
-          {visibleItems.map((item) => {
+          {paged.map((item) => {
             const pct = showCost ? marginPct(item.priceVnd, item.costVnd) : null;
             const opts = parseCatalogOptions(item.options);
             const chips = [
@@ -549,6 +562,18 @@ export default function ServiceCatalogManager({
           })}
         </div>
       )}
+
+      {/* 페이지네이션(controlled) — 필터링된 visibleItems 기준. 다크 admin 테마(light 미지정) */}
+      <PaginationBar
+        total={visibleItems.length}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => {
+          setPageSize(s);
+          setPage(1);
+        }}
+      />
 
       {modalOpen && canEdit && (
         <CatalogModal

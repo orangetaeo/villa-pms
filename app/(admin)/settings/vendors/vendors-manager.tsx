@@ -4,9 +4,11 @@
 //   /api/vendors (GET/POST) + /api/vendors/[id] (PATCH·DELETE). 저장 후 router.refresh().
 //   ★ 정산계좌(bankInfo)는 showBank(canViewFinance)일 때만 입력·표시. 서버 페이로드에서도 이미 제외됨.
 //   DELETE가 409(VENDOR_IN_USE)면 "사용 중 — 비활성화하세요" 안내(연결 카탈로그 보존).
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import PaginationBar from "@/components/pagination-bar";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 export interface BankInfoDraft {
   bank: string;
@@ -294,6 +296,15 @@ export default function VendorsManager({
     void handleApproval(v, "APPROVE");
   }
 
+  // 클라 페이지네이션 — 목록 데이터가 바뀌면 1페이지로 (전체 로드 후 메모리 슬라이스)
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  useEffect(() => setPage(1), [initialVendors]);
+  const pagedVendors = useMemo(
+    () => initialVendors.slice((page - 1) * pageSize, page * pageSize),
+    [initialVendors, page, pageSize]
+  );
+
   return (
     <section className="space-y-5">
       <div className="flex items-center justify-between gap-3">
@@ -322,7 +333,7 @@ export default function VendorsManager({
         <p className="text-sm text-slate-500 py-12 text-center">{t("empty")}</p>
       ) : (
         <div className="flex flex-col gap-3">
-          {initialVendors.map((v) => (
+          {pagedVendors.map((v) => (
             <div
               key={v.id}
               className={`bg-admin-card rounded-xl border border-slate-800 overflow-hidden ${
@@ -503,6 +514,17 @@ export default function VendorsManager({
               )}
             </div>
           ))}
+          {/* 페이지네이션 — total===0이면 PaginationBar가 자체적으로 null 반환 */}
+          <PaginationBar
+            total={initialVendors.length}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={(s) => {
+              setPageSize(s);
+              setPage(1);
+            }}
+          />
         </div>
       )}
 
