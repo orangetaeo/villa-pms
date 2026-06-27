@@ -5,8 +5,10 @@
 // 썸네일은 ADMIN 가드 서빙(/api/passports/doc-*) — 인증된 상세 화면에서만 표시. 공급자·공개 미노출.
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { resizeImage, EVIDENCE_MAX_EDGE, EVIDENCE_QUALITY } from "@/lib/image-resize";
 
 const MAX_DOCS = 30;
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB — /api/uploads/passport와 동일
 
 interface Props {
   bookingId: string;
@@ -36,8 +38,16 @@ export default function PaperDocsSection({ bookingId, initialUrls }: Props) {
     try {
       const added: string[] = [];
       for (const file of Array.from(files)) {
+        // 증빙 고품질 프리셋(2400/0.90)으로 클라 리사이즈 — 서류 가독성 확보 + 페이로드 축소.
+        // HEIC 디코딩 실패 시 resizeImage는 원본 폴백(업로드 자체는 성공, 기존 동작 유지).
+        const blob = await resizeImage(file, EVIDENCE_MAX_EDGE, EVIDENCE_QUALITY);
+        // 사이즈 가드: 리사이즈 후에도 5MB 초과면 전송 차단 + 재선택 안내(silent 실패 금지)
+        if (blob.size > MAX_FILE_SIZE) {
+          setError(t("tooLarge"));
+          continue;
+        }
         const fd = new FormData();
-        fd.append("file", file);
+        fd.append("file", blob, file.name);
         fd.append("kind", "paper-doc");
         const up = await fetch("/api/uploads/passport", { method: "POST", body: fd });
         if (!up.ok) throw new Error("upload failed");

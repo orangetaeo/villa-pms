@@ -68,6 +68,7 @@ export interface GuestLabels {
     uploading: string;
     uploaded: string; // 업로드 완료
     error: string;
+    processFailed: string; // 변환 실패(HEIC 디코딩 실패·5MB 초과) — 재촬영 안내
     skip: string; // 건너뛰기
     finishCta: string; // 완료로
   };
@@ -220,6 +221,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       uploading: "업로드 중…",
       uploaded: "업로드 완료",
       error: "업로드 중 문제가 발생했습니다. 다시 시도해주세요.",
+      processFailed: "이 사진은 처리할 수 없습니다. 다시 촬영해 주세요.",
       skip: "나중에 하기",
       finishCta: "체크인 완료",
     },
@@ -358,6 +360,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       uploading: "Uploading…",
       uploaded: "Uploaded",
       error: "Upload failed. Please try again.",
+      processFailed: "This photo can't be processed. Please retake it.",
       skip: "Do this later",
       finishCta: "Finish check-in",
     },
@@ -496,6 +499,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       uploading: "Загрузка…",
       uploaded: "Загружено",
       error: "Ошибка загрузки. Повторите попытку.",
+      processFailed: "Это фото невозможно обработать. Сделайте новый снимок.",
       skip: "Сделать позже",
       finishCta: "Завершить заселение",
     },
@@ -634,6 +638,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       uploading: "上传中…",
       uploaded: "已上传",
       error: "上传出现问题，请重试。",
+      processFailed: "无法处理这张照片，请重新拍摄。",
       skip: "稍后再做",
       finishCta: "完成入住",
     },
@@ -772,6 +777,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       uploading: "Đang tải lên…",
       uploaded: "Đã tải lên",
       error: "Tải lên gặp sự cố. Vui lòng thử lại.",
+      processFailed: "Không thể xử lý ảnh này. Vui lòng chụp lại.",
       skip: "Để sau",
       finishCta: "Hoàn tất nhận phòng",
     },

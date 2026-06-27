@@ -82,10 +82,13 @@ async function setupPrismaTx(tx: ReturnType<typeof makeTxMock>) {
   ) => fn(tx);
 }
 
+// ADR-0029 D4 — 동의 필수 게이트: 체크인 완료엔 서명(signatureUrl) 필수.
+const VALID_SIG = "/api/passports/sig-1760000000000-admin1-0a1b2c3d-e4f5-6789-abcd-ef0123456789.png";
 const VALID_BODY = {
   passportPhotoUrls: ["/api/passports/123-admin-abc.jpg"],
   passportData: [{ surname: "KIM", givenNames: "MINSU", passportNo: "M1234567" }],
   deposit: { amount: 5_000_000, currency: "VND" },
+  signatureUrl: VALID_SIG,
 };
 
 const callCheckin = (body: unknown) =>
@@ -148,6 +151,21 @@ describe("POST /api/bookings/[id]/checkin", () => {
       })
     );
     expect((await callCheckin(VALID_BODY)).status).toBe(409);
+  });
+
+  it("동의서 미서명(signatureUrl 없음) → 409 AGREEMENT_NOT_SIGNED (ADR-0029 D4 필수 게이트)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "a1", role: "ADMIN" } });
+    const tx = makeTxMock({
+      booking: { id: "bk1", status: "CONFIRMED", depositStatus: "NONE", checkInRecord: null },
+    });
+    await setupPrismaTx(tx);
+    const { signatureUrl: _omit, ...noSig } = VALID_BODY;
+    const res = await callCheckin(noSig);
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe("AGREEMENT_NOT_SIGNED");
+    // 게이트가 트랜잭션 전에 막아 전이·레코드 생성 미발생
+    expect(tx.booking.updateMany).not.toHaveBeenCalled();
+    expect(tx.checkInRecord.create).not.toHaveBeenCalled();
   });
 
   it("성공: CHECKED_IN 전이 + CheckInRecord + 보증금 HELD + AuditLog(개인정보 미포함)", async () => {

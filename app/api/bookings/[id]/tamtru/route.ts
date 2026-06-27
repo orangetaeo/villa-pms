@@ -26,6 +26,7 @@ export async function POST(
     return Response.json({
       tamTruSentAt: result.tamTruSentAt.toISOString(),
       supplierLinked: result.supplierLinked,
+      imageSent: result.imageSent,
     });
   } catch (e) {
     if (e instanceof TamTruRejectedError) {
