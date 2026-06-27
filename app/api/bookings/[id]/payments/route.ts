@@ -169,17 +169,14 @@ export async function POST(
       });
     }
     // 복식부기 LEDGER — COLLECTION 분개 (CASH_{C} +/ REVENUE −, paymentId 멱등, ADR-0018)
-    //  ★ KRW·VND만 적재 — USD는 전용 현금계정(CASH_USD)이 없어 cashAccountFor가 throw한다.
-    //    USD 수납은 LEDGER 미적재(매출·정산은 Booking.totalSaleUsd 스냅샷에서 파생) → 분개 건너뜀.
-    if (body.currency !== Currency.USD) {
-      await postCollection(tx, {
-        paymentId: created.id,
-        currency: body.currency,
-        amount: body.amount,
-        occurredAt: created.receivedAt,
-        createdBy: session.user.id,
-      });
-    }
+    //  KRW·VND·USD 모두 적재(cashAccountFor가 CASH_USD까지 지원) → 보유 현금·매출이 통화별로 잔액에 반영.
+    await postCollection(tx, {
+      paymentId: created.id,
+      currency: body.currency,
+      amount: body.amount,
+      occurredAt: created.receivedAt,
+      createdBy: session.user.id,
+    });
     await writeAuditLog({
       userId: session.user.id,
       action: "CREATE",

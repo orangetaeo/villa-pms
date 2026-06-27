@@ -885,6 +885,7 @@ model SettlementItem {
 enum LedgerAccount {
   CASH_KRW // 자산 — 한국 계좌 KRW 현금
   CASH_VND // 자산 — 베트남 계좌 VND 현금
+  CASH_USD // 자산 — USD 현금(외국 게스트 USD 수납 보유분, Phase 2)
   SUPPLIER_PAYABLE // 부채 — 공급자 지급 채무(VND)
   REVENUE // 수익 — 숙박 판매 매출(수납 통화 그대로)
   COGS // 비용 — 공급자 원가(VND), SUPPLIER_PAYABLE 대차 상대

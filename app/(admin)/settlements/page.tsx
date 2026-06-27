@@ -220,6 +220,7 @@ export default async function SettlementsPage({
           lines: [
             `${formatThousands(Number(ledgerBalances.cashKrw))}원`,
             fmtSignedVnd(BigInt(ledgerBalances.cashVnd)),
+            `${formatThousands(Number(ledgerBalances.cashUsd))}$`,
           ],
         },
         {
@@ -233,6 +234,7 @@ export default async function SettlementsPage({
           lines: [
             `${formatThousands(Number(ledgerBalances.revenueKrw))}원`,
             fmtSignedVnd(BigInt(ledgerBalances.revenueVnd)),
+            `${formatThousands(Number(ledgerBalances.revenueUsd))}$`,
           ],
         },
         {
