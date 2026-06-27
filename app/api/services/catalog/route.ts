@@ -45,6 +45,9 @@ const createSchema = z.object({
   audiences: z.array(z.enum(["ADMIN", "PARTNER", "GUEST"])).max(3).optional(),
   active: z.boolean().optional(),
   sortOrder: z.number().int().min(0).max(9999).optional(),
+  // 이행 방식(마사지·이발 픽업/방문) — null=미정, true=픽업, false=직접방문
+  pickupAvailable: z.boolean().optional().nullable(),
+  pickupNote: z.string().max(500).optional().nullable(),
 });
 
 export async function GET() {
@@ -74,6 +77,8 @@ export async function GET() {
     // ADR-0023 — 운영자 전용 라우트라 공급자 신원·채널 자격 노출 가능
     vendorId: it.vendorId,
     audiences: it.audiences,
+    pickupAvailable: it.pickupAvailable,
+    pickupNote: it.pickupNote,
     active: it.active,
     sortOrder: it.sortOrder,
     ...(showCost ? { costVnd: it.costVnd?.toString() ?? null } : {}),
@@ -151,6 +156,8 @@ export async function POST(req: Request) {
       options: (i18n.options ?? undefined) as Prisma.InputJsonValue | undefined,
       vendorId: d.vendorId ?? null,
       audiences: audiences as unknown as Prisma.InputJsonValue,
+      pickupAvailable: d.pickupAvailable ?? null,
+      pickupNote: d.pickupNote?.trim() || null,
       active: d.active ?? true,
       sortOrder: d.sortOrder ?? 0,
     },

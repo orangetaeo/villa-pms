@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { formatThousands } from "@/lib/format";
 import { priceKrwCeil } from "@/lib/service-display";
-import { parseCatalogOptions, SERVICE_TYPE_VALUES, generateOptionKey } from "@/lib/service-catalog";
+import { parseCatalogOptions, SERVICE_TYPE_VALUES, generateOptionKey, fulfillmentMode } from "@/lib/service-catalog";
 import { catalogImage } from "@/lib/service-image";
 import PaginationBar from "@/components/pagination-bar";
 import ListSearch from "@/components/list-search";
@@ -42,6 +42,8 @@ export interface CatalogRow {
   sortOrder: number;
   vendorId: string | null; // ADR-0023 원천 공급자(없으면 직접 제공)
   audiences: Audience[]; // ADR-0023 요청 가능 채널(ADMIN 항상 포함)
+  pickupAvailable: boolean | null; // 마사지·이발 픽업: null=미정·true=픽업·false=직접방문
+  pickupNote: string; // 픽업/매장 안내(주소·조건)
 }
 
 // 타입별 배지 색 (b19) — 디자인 색상 그대로
@@ -81,6 +83,8 @@ interface FormDraft {
   vendorId: string; // "" = 없음(직접 제공)
   partner: boolean; // audiences ∋ PARTNER
   guest: boolean; // audiences ∋ GUEST (ADMIN은 항상 포함 — 잠금)
+  pickup: "" | "yes" | "no"; // 픽업 방식("" = 미정/운영자 확인)
+  pickupNote: string; // 픽업/매장 안내(주소·조건)
 }
 
 const EMPTY_OPTION: OptionDraft = { key: "", labelKo: "", priceVnd: "", descKo: "", costVnd: "" };
@@ -101,6 +105,8 @@ const emptyForm = (sortOrder: number): FormDraft => ({
   vendorId: "",
   partner: false,
   guest: false,
+  pickup: "",
+  pickupNote: "",
 });
 
 const digits = (v: string) => v.replace(/\D/g, "");
@@ -194,6 +200,8 @@ export default function ServiceCatalogManager({
       vendorId: item.vendorId ?? "",
       partner: item.audiences.includes("PARTNER"),
       guest: item.audiences.includes("GUEST"),
+      pickup: item.pickupAvailable === true ? "yes" : item.pickupAvailable === false ? "no" : "",
+      pickupNote: item.pickupNote ?? "",
     });
     setFormError(null);
     setModalOpen(true);
@@ -243,6 +251,9 @@ export default function ServiceCatalogManager({
       // ADR-0023 — 원천 공급자(빈값=직접 제공) + 요청 가능 채널(ADMIN 항상 포함)
       vendorId: draft.vendorId || null,
       audiences: buildAudiences(draft.partner, draft.guest),
+      // 이행 방식(마사지·이발만 의미) — "" → null(미정), yes → true(픽업), no → false(직접방문)
+      pickupAvailable: draft.pickup === "yes" ? true : draft.pickup === "no" ? false : null,
+      pickupNote: draft.pickupNote.trim() || null,
     };
     // 원가는 canViewFinance만 전송(STAFF는 입력칸 자체가 없음). 서버도 이중 방어.
     if (showCost) body.costVnd = draft.costVnd ? draft.costVnd : null;
@@ -895,6 +906,35 @@ function CatalogModal({
             </div>
           </div>
         </div>
+
+        {/* 이행 방식 — 마사지·이발(APPOINTMENT)만 노출. 픽업/직접방문 + 안내 */}
+        {fulfillmentMode(draft.type) === "APPOINTMENT" && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div>
+              <label className={labelCls}>{t("form.pickup")}</label>
+              <select
+                value={draft.pickup}
+                onChange={(e) => setDraft((d) => ({ ...d, pickup: e.target.value as FormDraft["pickup"] }))}
+                aria-label={t("form.pickup")}
+                className={inputCls}
+              >
+                <option value="">{t("form.pickupUnset")}</option>
+                <option value="yes">{t("form.pickupYes")}</option>
+                <option value="no">{t("form.pickupNo")}</option>
+              </select>
+              <p className="text-[11px] text-slate-500 mt-1">{t("form.pickupHint")}</p>
+            </div>
+            <div>
+              <label className={labelCls}>{t("form.pickupNote")}</label>
+              <input
+                value={draft.pickupNote}
+                onChange={(e) => setDraft((d) => ({ ...d, pickupNote: e.target.value }))}
+                placeholder={t("form.pickupNotePlaceholder")}
+                className={inputCls}
+              />
+            </div>
+          </div>
+        )}
 
         {/* 옵션 빌더 */}
         <div className="space-y-3 pt-1">

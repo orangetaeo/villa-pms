@@ -85,6 +85,8 @@ export default async function GuestOptionsPage({
       variants: mapOptions(opts.variants ?? [], lang),
       addons: mapOptions(opts.addons ?? [], lang),
       modifiers: mapOptions(opts.modifiers ?? [], lang),
+      pickupAvailable: c.pickupAvailable,
+      pickupNote: c.pickupNote,
     };
   });
 

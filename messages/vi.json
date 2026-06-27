@@ -1872,7 +1872,14 @@
       "audienceAdmin": "Quản trị viên",
       "audienceAdminLocked": "(luôn được phép)",
       "audiencePartner": "Đại lý du lịch/Land",
-      "audienceGuest": "Khách hàng"
+      "audienceGuest": "Khách hàng",
+      "pickup": "Hình thức đón",
+      "pickupUnset": "Chưa xác định (sẽ thông báo sau khi xác nhận)",
+      "pickupYes": "Có đưa đón (xe đến đón)",
+      "pickupNo": "Khách tự đến cửa hàng",
+      "pickupHint": "Chỉ áp dụng cho dịch vụ đặt lịch như massage, cắt tóc.",
+      "pickupNote": "Hướng dẫn đón/cửa hàng (địa chỉ·điều kiện)",
+      "pickupNotePlaceholder": "VD: đón miễn phí·30 phút khứ hồi / hoặc địa chỉ cửa hàng"
     },
     "filters": {
       "allTypes": "Tất cả"

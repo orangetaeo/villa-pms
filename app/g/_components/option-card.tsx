@@ -10,6 +10,7 @@ import {
   fulfillmentMode,
   type CatalogOptions,
 } from "@/lib/service-catalog";
+import { fulfillmentNote } from "@/lib/guest-fulfillment";
 import { catalogImage } from "@/lib/service-image";
 import type { GuestLabels } from "@/lib/guest-i18n";
 import { guestVndPrice, guestVndDelta } from "./guest-format";
@@ -124,14 +125,10 @@ export function OptionCard({
 
   const badgeCls = TYPE_BADGE[item.type] ?? "bg-slate-100 text-slate-500";
   const active = selection.quantity > 0;
-  // 이행 방식 안내(#5) — 배송형/예약형(픽업)/기타. 날짜·시간 입력과 함께 노출.
+  // 이행 방식 안내(#5) — 배송형/예약형(픽업·방문)/기타. 날짜·시간 입력과 함께 노출.
+  //   예약형은 카탈로그 pickupAvailable/pickupNote로 픽업 제공/직접 방문/미정 세분.
   const mode = fulfillmentMode(item.type);
-  const fulfillNote =
-    mode === "DELIVERY"
-      ? labels.fulfillDelivery
-      : mode === "APPOINTMENT"
-        ? labels.fulfillAppointment
-        : labels.fulfillOther;
+  const fulfillNote = fulfillmentNote(item.type, item.pickupAvailable, item.pickupNote, labels);
   // 업로드 사진 우선, 없으면 타입 기본 이미지(폴백)
   const photo = catalogImage(item.type, item.photoUrl);
 

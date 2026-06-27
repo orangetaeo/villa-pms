@@ -1025,6 +1025,9 @@ model ServiceCatalogItem {
   // ADR-0023 — 원천 공급자 + 요청 주체 자격
   vendorId    String? // 원천 공급자(발주 대상). 활성 항목은 UI 필수, 미지정=직접 제공
   vendor      ServiceVendor? @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  // 이행 방식(마사지·이발 등 APPOINTMENT) — null=미정(운영자 확인), true=픽업 제공(차량 모심), false=고객 직접 방문
+  pickupAvailable Boolean? // 게스트 안내·픽업 기획 (2026-06-27, additive)
+  pickupNote      String? // 픽업/매장 안내(주소·조건) — 게스트에 그대로 표기(번역 안 함)
   audiences   Json        @default("[\"ADMIN\"]") // 요청 가능 채널 ["ADMIN"|"PARTNER"|"GUEST"] — 채널별 카탈로그 서버 필터
   active      Boolean     @default(true)
   sortOrder   Int         @default(0)

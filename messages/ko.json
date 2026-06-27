@@ -1763,7 +1763,14 @@
       "audienceAdmin": "운영자",
       "audienceAdminLocked": "(항상 가능)",
       "audiencePartner": "여행사/랜드사",
-      "audienceGuest": "소비자(게스트)"
+      "audienceGuest": "소비자(게스트)",
+      "pickup": "픽업 방식",
+      "pickupUnset": "미정 (운영자 확인 후 안내)",
+      "pickupYes": "픽업 제공 (차량이 모심)",
+      "pickupNo": "고객 직접 방문",
+      "pickupHint": "마사지·이발 등 예약형 서비스에만 적용됩니다.",
+      "pickupNote": "픽업/매장 안내 (주소·조건)",
+      "pickupNotePlaceholder": "예: 무료 픽업·왕복 30분 / 또는 매장 주소"
     },
     "filters": {
       "allTypes": "전체"
