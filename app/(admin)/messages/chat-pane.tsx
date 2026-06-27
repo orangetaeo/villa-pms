@@ -24,6 +24,7 @@ import { useTranslations } from "next-intl";
 import { ClassifyBanner, CounterpartyDropdown } from "./counterparty-control";
 import ChatPhotoLightbox from "./photo-lightbox";
 import { allowedShareKinds, isSellSideType } from "@/lib/zalo-counterparty";
+import { resizeImage } from "@/lib/image-resize";
 import {
   URL_RE,
   URL_TRAILING_RE,
@@ -3172,8 +3173,11 @@ function AttachMenu({
     setSubmitting(true);
     setOpen(false);
     try {
+      // 클라 리사이즈 (lib/image-resize): 일반 프리셋 1600px/0.82 JPEG 재인코딩 — EXIF 회전 반영, 전송 용량 절감.
+      // 채팅 사진은 증빙이 아닌 일반 공유이므로 일반 프리셋이 적합. 비이미지·디코딩 실패 시 원본 그대로 반환.
+      const blob = await resizeImage(file);
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", blob, file.name);
       const res = await fetch(`/api/zalo/conversations/${conversationId}/share`, {
         method: "POST",
         body: fd,
