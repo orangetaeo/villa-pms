@@ -92,7 +92,7 @@ export const AGREEMENT_CLAUSES: Record<string, LangMap> = {
   // ADR-0029 — 여권 제3자(공급자) 전달 동의. 수집(c1)과 별개의 "제공" 동의. 5개 언어 필수.
   c8: {
     ko: "베트남 임시거주신고(tạm trú) 법령상 의무 이행을 위해, 투숙객의 여권 정보 및 여권 사진이 해당 빌라의 현장 관리인에게 전달되는 것에 동의합니다.",
-    vi: "Để thực hiện nghĩa vụ khai báo tạm trú theo quy định pháp luật Việt Nam, tôi đồng ý cung cấp thông tin và hình ảnh hộ chiếu của khách lưu trú cho người quản lý tại villa.",
+    vi: "Để thực hiện nghĩa vụ khai báo tạm trú với cơ quan công an theo quy định pháp luật Việt Nam, tôi đồng ý để thông tin và hình ảnh hộ chiếu của khách lưu trú được chuyển cho người quản lý tại chỗ của villa.",
     en: "To fulfill the legal obligation of temporary residence registration (tạm trú) in Vietnam, I consent to the guest's passport information and passport photo being forwarded to the on-site villa manager.",
     zh: "为履行越南法律规定的临时居留申报（tạm trú）义务，本人同意将住客的护照信息及护照照片提供给该别墅的现场管理人。",
     ru: "В целях исполнения предусмотренной законодательством Вьетнама обязанности по регистрации временного пребывания (tạm trú) я соглашаюсь на передачу паспортных данных и фотографии паспорта гостя управляющему виллой на месте.",
