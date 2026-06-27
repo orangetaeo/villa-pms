@@ -39,6 +39,7 @@ interface Candidate {
   maxGuests: number;
   hasPool: boolean;
   breakfastAvailable: boolean;
+  extraBedAvailable: boolean; // 엑스트라베드 가능 여부 — 후보 필터·카드 표시
   qualityScore: number; // 청소 검수 통과율(0~100) — 후순위 정렬·표시 (Phase 2)
   photoUrl: string | null;
   nights: number;
@@ -138,6 +139,35 @@ export default function ProposalCreate() {
   const [maxHint, setMaxHint] = useState(false);
   // Phase 2 USD: 빌라별 수동 USD 총액 입력값(문자열, 정수 달러). villaId → "1500"
   const [usdTotals, setUsdTotals] = useState<Record<string, string>>({});
+
+  // ----- 빌라 스펙 필터 (클라이언트 측 — 이미 받아온 후보에 적용, 가용성·가격 재조회 없음) -----
+  // 토글(true면 해당 조건 필수), 최소 셀렉터(0 = 제한 없음)
+  const [fPool, setFPool] = useState(false);
+  const [fBreakfast, setFBreakfast] = useState(false);
+  const [fExtraBed, setFExtraBed] = useState(false);
+  const [fMinBedrooms, setFMinBedrooms] = useState(0);
+  const [fMinGuests, setFMinGuests] = useState(0);
+  const filtersActive = fPool || fBreakfast || fExtraBed || fMinBedrooms > 0 || fMinGuests > 0;
+  const resetFilters = () => {
+    setFPool(false);
+    setFBreakfast(false);
+    setFExtraBed(false);
+    setFMinBedrooms(0);
+    setFMinGuests(0);
+  };
+  // 필터 통과 후보 — 선택(selectedIds)은 필터와 무관하게 유지(요약 패널은 selected로 별도 렌더)
+  const visibleCandidates = useMemo(
+    () =>
+      (candidates ?? []).filter(
+        (c) =>
+          (!fPool || c.hasPool) &&
+          (!fBreakfast || c.breakfastAvailable) &&
+          (!fExtraBed || c.extraBedAvailable) &&
+          c.bedrooms >= fMinBedrooms &&
+          c.maxGuests >= fMinGuests
+      ),
+    [candidates, fPool, fBreakfast, fExtraBed, fMinBedrooms, fMinGuests]
+  );
 
   useEffect(() => {
     if (!datesValid) {
@@ -382,11 +412,33 @@ export default function ProposalCreate() {
 
   const sectionLabel = "text-xs font-bold text-slate-500 uppercase tracking-wider block mb-3";
 
+  // 필터 토글 칩 (수영장·조식·엑스트라베드) — 모바일 안전(flex-wrap)
+  const filterChip = (active: boolean, onToggle: () => void, icon: string, label: string) => (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={active}
+      className={`flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+        active
+          ? "border-blue-500 bg-blue-500/15 text-blue-400"
+          : "border-slate-700 text-slate-400 hover:border-slate-600 hover:bg-slate-800/40"
+      }`}
+    >
+      <span className="material-symbols-outlined text-sm">{icon}</span>
+      {label}
+    </button>
+  );
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-white mb-6">{t("title")}</h1>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col xl:flex-row gap-6 items-start">
+      {/* 모바일: 입력칸 포커스 시 자동 스크롤이 고정 하단 네비(64px) 아래로 숨던 오버레이 방지 —
+          모든 input·select에 scroll-margin-bottom 부여(데스크톱 lg+는 하단 네비 없어 무해) */}
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="flex flex-col xl:flex-row gap-6 items-start [&_input]:scroll-mb-24 [&_select]:scroll-mb-24"
+      >
         {/* ───────── 패널 1: 일정·채널 (b2 좌측) ───────── */}
         <section className="w-full xl:w-72 shrink-0 flex flex-col gap-8">
           <div>
@@ -455,7 +507,12 @@ export default function ProposalCreate() {
             <h2 className="text-admin-muted text-sm font-medium">{t("results")}</h2>
             {candidates !== null && !candidatesLoading && !candidatesError && (
               <p className="text-slate-100 font-bold">
-                {t("resultsCount", { count: candidates.length })}
+                {filtersActive
+                  ? t("resultsCountFiltered", {
+                      shown: visibleCandidates.length,
+                      total: candidates.length,
+                    })
+                  : t("resultsCount", { count: candidates.length })}
               </p>
             )}
           </div>
@@ -474,6 +531,66 @@ export default function ProposalCreate() {
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* 빌라 스펙 필터 — 후보가 있을 때만 노출(모바일: 칩·셀렉터 전부 flex-wrap) */}
+          {datesValid && !candidatesLoading && !candidatesError && (candidates ?? []).length > 0 && (
+            <div className="bg-slate-800/20 border border-slate-800 rounded-2xl p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm">tune</span>
+                  {t("filterTitle")}
+                </span>
+                {filtersActive && (
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="text-xs text-blue-400 hover:underline shrink-0"
+                  >
+                    {t("filterReset")}
+                  </button>
+                )}
+              </div>
+              {/* 토글: 수영장 · 조식 · 엑스트라베드 */}
+              <div className="flex flex-wrap gap-2">
+                {filterChip(fPool, () => setFPool((v) => !v), "pool", t("pool"))}
+                {filterChip(fBreakfast, () => setFBreakfast((v) => !v), "restaurant", t("breakfast"))}
+                {filterChip(fExtraBed, () => setFExtraBed((v) => !v), "single_bed", t("extraBed"))}
+              </div>
+              {/* 최소 침실 · 최소 정원 */}
+              <div className="flex flex-wrap gap-3">
+                <label className="flex-1 min-w-[140px] flex flex-col gap-1">
+                  <span className="text-[11px] text-slate-500">{t("filterMinBedrooms")}</span>
+                  <select
+                    value={fMinBedrooms}
+                    onChange={(e) => setFMinBedrooms(Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-100 px-3 py-2 [color-scheme:dark]"
+                  >
+                    <option value={0}>{t("filterAny")}</option>
+                    {[1, 2, 3, 4].map((n) => (
+                      <option key={n} value={n}>
+                        {n}+
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex-1 min-w-[140px] flex flex-col gap-1">
+                  <span className="text-[11px] text-slate-500">{t("filterMinGuests")}</span>
+                  <select
+                    value={fMinGuests}
+                    onChange={(e) => setFMinGuests(Number(e.target.value))}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-100 px-3 py-2 [color-scheme:dark]"
+                  >
+                    <option value={0}>{t("filterAny")}</option>
+                    {[2, 4, 6, 8, 10].map((n) => (
+                      <option key={n} value={n}>
+                        {n}+
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
             </div>
           )}
 
@@ -497,6 +614,18 @@ export default function ProposalCreate() {
             <div className="bg-slate-800/20 border border-slate-800 rounded-2xl p-12 text-center text-sm text-admin-muted">
               {t("emptyCandidates")}
             </div>
+          ) : visibleCandidates.length === 0 ? (
+            // 후보는 있으나 필터에 걸려 0개 — 초기화 유도
+            <div className="bg-slate-800/20 border border-slate-800 rounded-2xl p-12 flex flex-col items-center gap-3 text-center text-sm text-admin-muted">
+              {t("filterEmpty")}
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="text-xs text-blue-400 hover:underline"
+              >
+                {t("filterReset")}
+              </button>
+            </div>
           ) : (
             <div className="space-y-4">
               {maxHint && (
@@ -504,7 +633,7 @@ export default function ProposalCreate() {
                   {t("maxSelected")}
                 </p>
               )}
-              {(candidates ?? []).map((c) => {
+              {visibleCandidates.map((c) => {
                 const isSelected = selectedIds.includes(c.id);
                 return (
                   <div
@@ -582,6 +711,10 @@ export default function ProposalCreate() {
                             <span className="material-symbols-outlined text-sm">bed</span>
                             {t("bedrooms", { count: c.bedrooms })}
                           </span>
+                          <span className="flex items-center gap-1 whitespace-nowrap">
+                            <span className="material-symbols-outlined text-sm">group</span>
+                            {t("guests", { count: c.maxGuests })}
+                          </span>
                           {c.hasPool && (
                             <span className="flex items-center gap-1 text-blue-400 whitespace-nowrap">
                               <span className="material-symbols-outlined text-sm">pool</span>
@@ -592,6 +725,12 @@ export default function ProposalCreate() {
                             <span className="flex items-center gap-1 whitespace-nowrap">
                               <span className="material-symbols-outlined text-sm">restaurant</span>
                               {t("breakfast")}
+                            </span>
+                          )}
+                          {c.extraBedAvailable && (
+                            <span className="flex items-center gap-1 whitespace-nowrap">
+                              <span className="material-symbols-outlined text-sm">single_bed</span>
+                              {t("extraBed")}
                             </span>
                           )}
                         </div>
