@@ -4,7 +4,7 @@
 // 비즈니스 로직은 운영자와 동일한 lib/checkin.completeCheckIn 재사용 — "운영자 전달" 단계만 제외(공급자 본인 임시거주신고).
 // 권한·누수: SUPPLIER + seller=SUPPLIER + villa.supplierId === 본인. 미일치=404(존재 비노출, T10.2 패턴).
 import { z } from "zod";
-import { auth } from "@/auth";
+import { requireAuth } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
 import { CheckInRejectedError, completeCheckIn } from "@/lib/checkin";
 import {
@@ -51,8 +51,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   // 첫 줄 권한 검사 — SUPPLIER 전용 (비로그인 401 / 타롤 403)
-  const session = await auth();
-  if (!session?.user?.id) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const g = await requireAuth(req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   if (session.user.role !== "SUPPLIER") {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }

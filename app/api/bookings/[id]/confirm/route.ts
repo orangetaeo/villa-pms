@@ -1,19 +1,17 @@
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { confirmHold, HoldRejectedError } from "@/lib/hold";
 import { serializeBigInt } from "@/lib/serialize";
 import { isOperator } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 
 /** POST /api/bookings/[id]/confirm — 입금 확정 HOLD → CONFIRMED (ADMIN 전용, SPEC F3 흐름 4) */
 export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (!isOperator(session.user.role)) {
-    return Response.json({ error: "forbidden" }, { status: 403 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", _req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const { id } = await params;
   try {

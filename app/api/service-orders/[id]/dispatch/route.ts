@@ -3,20 +3,19 @@
 //   거절 후 재발주 허용(canDispatch). 공급자 Zalo 미연결이면 발주는 기록하되 zaloSent:false 경보.
 //   ★ 누수: Zalo 본문에 판매가·마진 미포함(buildNotificationText VENDOR_PO 화이트리스트).
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
-import { isOperator, type Role } from "@/lib/permissions";
+import { isOperator } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import { canDispatch } from "@/lib/vendor-order";
 import { enqueueNotification } from "@/lib/zalo";
 import { NotificationType } from "@prisma/client";
 import { toDateOnlyString } from "@/lib/date-vn";
 
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  const role = session.user.role as Role | undefined;
-  if (!isOperator(role)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const g = await requireCapability(isOperator, "isOperator", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const actorId = session.user.id;
   const { id } = await params;
 

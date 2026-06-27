@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import {
   modifyBooking,
@@ -9,6 +8,7 @@ import {
 import { serializeBigInt } from "@/lib/serialize";
 import { isOperator, canViewFinance } from "@/lib/permissions";
 import { parseUtcDateOnly } from "@/lib/date-vn";
+import { requireCapability } from "@/lib/api-guard";
 
 /**
  * PATCH /api/bookings/[id]/modify — 예약 변경 (운영자 전용, F-booking-modify).
@@ -66,11 +66,9 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (!isOperator(session.user.role)) {
-    return Response.json({ error: "forbidden" }, { status: 403 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const body = await req.json().catch(() => null);
   const parsed = modifySchema.safeParse(body);

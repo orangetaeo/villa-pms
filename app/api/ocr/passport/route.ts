@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { auth } from "@/auth";
 import { GeminiNotConfiguredError, ocrPassport } from "@/lib/gemini";
 import { isOperator } from "@/lib/permissions";
+import { requireAuth } from "@/lib/api-guard";
 import { costThrottle } from "@/lib/cost-throttle";
 
 /**
@@ -19,8 +19,9 @@ const ocrSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const g = await requireAuth(req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   if (!isOperator(session.user.role) && session.user.role !== "SUPPLIER") {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }

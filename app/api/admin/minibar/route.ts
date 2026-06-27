@@ -9,6 +9,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator, canSetPrice } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import { MINIBAR_VND_DIGITS, generateMinibarItemKey, autoTranslateNameVi } from "@/lib/minibar";
 
 const createSchema = z.object({
@@ -58,13 +59,9 @@ export async function GET() {
 
 /** 생성 — 가격설정 권한. itemKey 자동생성(표시명 무관 안정키). */
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!canSetPrice(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(canSetPrice, "canSetPrice", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const userId = session.user.id;
 
   let body: unknown;

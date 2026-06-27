@@ -8,6 +8,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator, canViewFinance, type Role } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import { parseUtcDateOnly } from "@/lib/date-vn";
 import {
   parseCatalogOptions,
@@ -74,10 +75,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  const role = session.user.role as Role | undefined;
-  if (!isOperator(role)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  const g = await requireCapability(isOperator, "isOperator", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const actorId = session.user.id;
   const { id } = await params;
 

@@ -7,9 +7,9 @@
 // 개인정보: 오디오 base64·STT 결과를 console/AuditLog에 기록하지 않는다(gemini.ts 원칙 계승).
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { GeminiNotConfiguredError, transcribeVoice } from "@/lib/gemini";
 import { isOperator } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import { costThrottle } from "@/lib/cost-throttle";
 
 // base64 길이 상한(약 6MB 오디오) — 과대 업로드 방지. 클라가 60초 자동중단도 함.
@@ -22,13 +22,9 @@ const bodySchema = z.object({
 
 export async function POST(req: Request) {
   // 권한 검사 — ADMIN 전용 (route handler 첫 줄 role 검사 규칙)
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!isOperator(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   // 비용 폭주 방어(Gemini 전사) — 사용자별 스로틀 (보안 P1-S11)
   const throttled = await costThrottle("transcribe", session.user.id);
   if (throttled) return throttled;

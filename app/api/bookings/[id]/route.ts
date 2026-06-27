@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 
 /**
  * PATCH /api/bookings/[id] — 내부 메모(note)·투숙객 명단(guestRoster) 수정
@@ -25,11 +25,9 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (!isOperator(session.user.role)) {
-    return Response.json({ error: "forbidden" }, { status: 403 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const body = await req.json().catch(() => null);
   const parsed = patchSchema.safeParse(body);

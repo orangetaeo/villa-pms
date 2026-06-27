@@ -7,7 +7,7 @@
 //   ★ 가격은 서버가 MinibarItem에서 스냅샷 — 클라가 보낸 가격 신뢰 금지(마진 비공개·무결성). 응답에 costVnd·마진 0.
 // 권한·누수: SUPPLIER + seller=SUPPLIER + villa.supplierId === 본인. 미일치=404(존재 비노출, T10.2 패턴).
 import { z } from "zod";
-import { auth } from "@/auth";
+import { requireAuth } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
 import { completeCheckout, CheckoutRejectedError } from "@/lib/checkout";
 import { serializeBigInt } from "@/lib/serialize";
@@ -52,8 +52,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   // 첫 줄 권한 검사 — SUPPLIER 전용
-  const session = await auth();
-  if (!session?.user?.id) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const g = await requireAuth(req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   if (session.user.role !== "SUPPLIER") {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }

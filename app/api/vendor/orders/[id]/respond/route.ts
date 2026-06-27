@@ -4,7 +4,7 @@
 //   ★ 누수: 타 공급자 발주 접근 차단(vendorId 불일치 시 404). 응답에 판매가·마진 없음.
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
+import { requireAuth } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isVendor, OPERATOR_ROLES, type Role } from "@/lib/permissions";
@@ -19,8 +19,9 @@ const respondSchema = z.object({
 });
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  const g = await requireAuth(req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const role = session.user.role as Role | undefined;
   if (!isVendor(role)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   const actorId = session.user.id;

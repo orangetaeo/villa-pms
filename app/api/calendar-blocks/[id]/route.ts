@@ -1,21 +1,20 @@
 // DELETE /api/calendar-blocks/[id] — SUPPLIER 수동(MANUAL) 차단 해제 (T1.4, SPEC F2)
 // ICAL 블록은 동기화(T1.6) 소유 — 여기서 해제 불가(403)
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { toDateOnlyString, todayVnDateString } from "@/lib/date-vn";
 import { isOperator } from "@/lib/permissions";
+import { requireAuth } from "@/lib/api-guard";
 
 export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   // 권한 검사 — SUPPLIER(자기 빌라 블록) + ADMIN(전체 블록) 허용 (비로그인 401/타롤 403 분리)
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  const g = await requireAuth(_req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const role = session.user.role;
   if (role !== "SUPPLIER" && !isOperator(role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });

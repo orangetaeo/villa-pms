@@ -3,10 +3,10 @@
 //   승인된 공급자만 카탈로그 배정·발주 수신 가능(게이트는 catalog·dispatch 라우트에서 강제).
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
+import { requireCapability } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
-import { canSetPrice, type Role } from "@/lib/permissions";
+import { canSetPrice } from "@/lib/permissions";
 
 const patchSchema = z.object({
   action: z.enum(["APPROVE", "REJECT"]),
@@ -14,10 +14,9 @@ const patchSchema = z.object({
 });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  const role = session.user.role as Role | undefined;
-  if (!canSetPrice(role)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  const g = await requireCapability(canSetPrice, "canSetPrice", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const { id } = await params;
 
   let body: unknown;

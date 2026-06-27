@@ -10,6 +10,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { canViewFinance } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import { serializeBigInt } from "@/lib/serialize";
 import { krwToVndSnapshot, usdToVndSnapshot } from "@/lib/pricing";
 import { computeVndEquivalent, summarizeCollection } from "@/lib/payment";
@@ -74,13 +75,9 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!canViewFinance(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(canViewFinance, "canViewFinance", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const { id } = await params;
   const booking = await loadBooking(id);

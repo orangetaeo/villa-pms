@@ -5,12 +5,12 @@
 //   단 wifiPassword는 AuditLog changes에서 마스킹(평문 비번 잔존 차단, ZaloAccount.credentials 선례 §4.4).
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isValidFeature, type FeatureCategoryKey } from "@/lib/features";
 import { BED_TYPES } from "@/lib/bedding";
 import { canSetPrice } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 
 // VND 동 단위 양수 문자열 (기준 보증금 — BigInt는 JSON 직렬화 불가하므로 문자열 수신)
 const vndDigits = z.string().regex(/^[1-9]\d{0,14}$/);
@@ -122,13 +122,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   // 권한 검사 — ADMIN 전용 (route handler 첫 줄 role 검사 규칙). SUPPLIER/CLEANER/비로그인 차단
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!canSetPrice(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(canSetPrice, "canSetPrice", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const actorUserId = session.user.id;
   const { id } = await params;
 

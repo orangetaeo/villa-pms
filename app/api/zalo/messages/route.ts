@@ -23,6 +23,7 @@ import {
   getOwnIdForAdmin,
 } from "@/lib/zalo-runtime";
 import { isOperator } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import { toChatMessages, chatInitials } from "@/lib/zalo-chat-message";
 import { resolveQuotedAnchors } from "@/lib/zalo-quote-anchor";
 // 실시간(SSE) — 발신 영속 후 본인(ownerAdminId) 채널로 "outbound" 신호 발행(인박스 즉시 갱신).
@@ -164,13 +165,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   // 권한 검사 — ADMIN 전용 (route handler 첫 줄 role 검사 규칙)
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!isOperator(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   let raw: unknown;
   try {

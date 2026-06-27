@@ -1,7 +1,7 @@
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { TamTruRejectedError, sendTamTruPassport } from "@/lib/tamtru";
 import { isOperator } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 
 /**
  * POST /api/bookings/[id]/tamtru — 여권 Zalo 전달 (임시거주신고, T3.6, ADMIN 전용)
@@ -11,11 +11,9 @@ export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (!isOperator(session.user.role)) {
-    return Response.json({ error: "forbidden" }, { status: 403 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", _req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const { id } = await params;
   try {

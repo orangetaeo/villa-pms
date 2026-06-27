@@ -3,23 +3,19 @@
 // 보안: 운영자(ADMIN/OWNER/MANAGER/STAFF) 전용. URL은 doc- 접두 비공개 경로만 허용(공개·여권/서명 혼입 차단).
 //       종이서류는 ADMIN 증빙 — 공급자·공개 미노출. 마진·판매가 무관.
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator } from "@/lib/permissions";
 import { assertPaperDocUrls } from "@/lib/checkin";
+import { requireCapability } from "@/lib/api-guard";
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!isOperator(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const actorId = session.user.id;
   const { id } = await params;
 

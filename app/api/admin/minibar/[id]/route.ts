@@ -4,10 +4,10 @@
 // 부분 수정(PATCH) — 전달된 필드만 갱신. unitPriceVnd는 VND 동 단위 비음수 문자열.
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { canSetPrice } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import { MINIBAR_VND_DIGITS, autoTranslateNameVi } from "@/lib/minibar";
 
 const patchSchema = z
@@ -26,13 +26,9 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!canSetPrice(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(canSetPrice, "canSetPrice", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const userId = session.user.id;
   const { id } = await params;
 
@@ -131,13 +127,9 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!canSetPrice(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(canSetPrice, "canSetPrice", _req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const userId = session.user.id;
   const { id } = await params;
 

@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { effectiveProposalStatus } from "@/lib/proposal";
 import { ProposalStatus } from "@prisma/client";
 import { canSetPrice } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 
 /**
  * PATCH /api/proposals/[id] — 제안 회수 (T2.1 b12 회수 버튼)
@@ -18,11 +18,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   // 권한 검사 — ADMIN 전용 (route handler 첫 줄 role 검사 규칙, 401/403 분리)
-  const session = await auth();
-  if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (!canSetPrice(session.user.role)) {
-    return Response.json({ error: "forbidden" }, { status: 403 });
-  }
+  const g = await requireCapability(canSetPrice, "canSetPrice", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const { id } = await params;
   const body = await req.json().catch(() => null);

@@ -7,9 +7,9 @@
 //  - 견적중 변경 알림: ACTIVE 제안 포함 시 ADMIN에게 RATE_CHANGED_DURING_PROPOSAL 적재.
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
+import { requireAuth } from "@/lib/api-guard";
 import { computeSalePriceVnd, suggestSalePriceKrw, getFxVndPerKrw } from "@/lib/pricing";
 import { MarginType, NotificationType, ProposalStatus, type SeasonType } from "@prisma/client";
 
@@ -62,10 +62,9 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  const g = await requireAuth(req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   if (session.user.role !== "SUPPLIER") {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }

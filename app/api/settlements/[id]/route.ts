@@ -12,6 +12,7 @@ import {
   transitionSettlement,
 } from "@/lib/settlement";
 import { canViewFinance, isSystemAdmin } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import { generateSettlementStatement } from "@/lib/settlement-statement-service";
 
 export async function GET(
@@ -85,13 +86,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   // 권한 검사 — ADMIN 전용
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!isSystemAdmin(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isSystemAdmin, "isSystemAdmin", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const { id } = await params;
 

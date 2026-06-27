@@ -2,12 +2,12 @@
 // 가용성 판정은 lib/availability.ts 단일 소스만 사용 — 중복 구현 금지
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { checkAvailability, lockVillaInventory } from "@/lib/availability";
 import { addUtcDays, parseUtcDateOnly, todayVnDateString } from "@/lib/date-vn";
 import { isOperator } from "@/lib/permissions";
+import { requireAuth } from "@/lib/api-guard";
 
 const createSchema = z.object({
   villaId: z.string().min(1),
@@ -16,10 +16,9 @@ const createSchema = z.object({
 
 export async function POST(req: Request) {
   // 권한 검사 — SUPPLIER(자기 빌라) + ADMIN(전체 빌라) 허용 (비로그인 401/타롤 403 분리)
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  const g = await requireAuth(req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const role = session.user.role;
   if (role !== "SUPPLIER" && !isOperator(role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });

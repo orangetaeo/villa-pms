@@ -5,10 +5,10 @@
 // 권한: isOperator(운영자) 전용 — 빌라명은 마진·재고 아님(누수 무관), 관리 데이터.
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import { romanizeVillaName, GeminiNotConfiguredError } from "@/lib/gemini";
 
 export const runtime = "nodejs"; // Gemini fetch — edge 불필요
@@ -22,13 +22,9 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!isOperator(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const { id } = await params;
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));

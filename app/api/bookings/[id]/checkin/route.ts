@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { CheckInRejectedError, completeCheckIn } from "@/lib/checkin";
 import { isOperator } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 
 /**
  * POST /api/bookings/[id]/checkin — 체크인 완료 CONFIRMED → CHECKED_IN (T3.1, ADMIN 전용)
@@ -48,11 +48,9 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (!isOperator(session.user.role)) {
-    return Response.json({ error: "forbidden" }, { status: 403 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const body = await req.json().catch(() => null);
   const parsed = checkinSchema.safeParse(body);

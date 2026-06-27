@@ -4,10 +4,10 @@
 //   qty === 회사표준 stockQty 이면 오버라이드 행 삭제(= 표준 추종), 다르면 upsert.
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 
 const stockPatchSchema = z.object({
   stocks: z
@@ -24,14 +24,10 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
   // 운영자만 — SUPPLIER·CLEANER 차단(미니바는 회사 운영 영역)
-  if (!isOperator(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const actorId = session.user.id;
   const { id } = await params;
 

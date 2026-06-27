@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isSystemAdmin } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import { getAgreementContent, saveAgreementContent } from "@/lib/agreement-store";
 import { normalizeAgreementContent, validateAgreementContent } from "@/lib/agreement";
 import { translateText, GeminiNotConfiguredError, type TranslateTarget } from "@/lib/gemini";
@@ -36,8 +37,8 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   // 권한 검사 — ADMIN 전용
-  const admin = await requireAdmin();
-  if (admin.error) return admin.error;
+  const g = await requireCapability(isSystemAdmin, "isSystemAdmin", req);
+  if (!g.ok) return g.response;
 
   let body: unknown;
   try {
@@ -90,7 +91,7 @@ export async function PUT(req: Request) {
 
   // 감사 로그 — 데이터 변경 API 동시 기록 (글로벌 절대 규칙)
   await writeAuditLog({
-    userId: admin.userId,
+    userId: g.userId,
     action: "UPDATE",
     entity: "Agreement",
     entityId: `rev-${next.rev}`,

@@ -5,7 +5,7 @@
 // 누수·원칙: 응답은 공급자 자기 정보만. 운영자 salePriceKrw·마진·타 공급자·전체 재고 0.
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
+import { requireAuth } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
 import { parseUtcDateOnly, todayVnDateString } from "@/lib/date-vn";
 import { serializeBigInt } from "@/lib/serialize";
@@ -29,10 +29,9 @@ const createSchema = z.object({
 
 export async function POST(req: Request) {
   // 첫 줄 권한 검사 — SUPPLIER 전용 (비로그인 401 / 타롤 403 분리)
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  const g = await requireAuth(req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   if (session.user.role !== "SUPPLIER") {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }

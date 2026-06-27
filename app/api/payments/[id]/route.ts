@@ -3,10 +3,10 @@
 // ★ ADMIN(canViewFinance) 전용. writeAuditLog(DELETE) 기록.
 // 계약: docs/contracts/T-settlement-payment-recording.md
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { canViewFinance } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import { reverseCollection } from "@/lib/ledger";
 
 /** DELETE — 결제 기록 삭제 (ADMIN 전용) */
@@ -14,13 +14,9 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!canViewFinance(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(canViewFinance, "canViewFinance", _req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const { id } = await params;
 

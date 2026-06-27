@@ -2,10 +2,10 @@
 // canViewFinance 전용. action=issue(DRAFT→ISSUED) | void(→VOID·채권 연결해제).
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { canViewFinance } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import { serializeBigInt } from "@/lib/serialize";
 import { InvoiceError, issueInvoice, voidInvoice } from "@/lib/partner-invoice";
 
@@ -15,11 +15,9 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  if (!canViewFinance(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(canViewFinance, "canViewFinance", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const { id } = await params;
 
   let body: unknown;

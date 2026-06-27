@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { rejectCleaningTask, CleaningTransitionError } from "@/lib/cleaning";
 import { isOperator } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 
 const rejectSchema = z.object({
   rejectNote: z.string().trim().min(1, "반려 사유는 필수입니다").max(1000),
@@ -13,11 +13,9 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) return Response.json({ error: "unauthorized" }, { status: 401 });
-  if (!isOperator(session.user.role)) {
-    return Response.json({ error: "forbidden" }, { status: 403 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const body = await req.json().catch(() => null);
   const parsed = rejectSchema.safeParse(body);

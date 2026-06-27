@@ -5,7 +5,6 @@
 // 미설정(GEMINI_API_KEY 없음) 시 503 — 입력창은 원문 전송으로 폴백.
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import {
   GeminiNotConfiguredError,
@@ -14,6 +13,7 @@ import {
   type TranslateTarget,
 } from "@/lib/gemini";
 import { isOperator } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import { costThrottle } from "@/lib/cost-throttle";
 
 const bodySchema = z.object({
@@ -25,13 +25,9 @@ const bodySchema = z.object({
 
 export async function POST(req: Request) {
   // 권한 검사 — ADMIN 전용 (route handler 첫 줄 role 검사 규칙)
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!isOperator(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isOperator, "isOperator", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   // 비용 폭주 방어(Gemini 호출) — 사용자별 스로틀 (보안 P1-S11)
   const throttled = await costThrottle("translate", session.user.id);
   if (throttled) return throttled;

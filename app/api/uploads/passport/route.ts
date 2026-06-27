@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { savePassportFile, isAllowedImageMime } from "@/lib/storage";
 import { isOperator } from "@/lib/permissions";
+import { requireAuth } from "@/lib/api-guard";
 
 /**
  * POST /api/uploads/passport — 여권·서명 사진 업로드 (T3.1, QA 합의 조건 A)
@@ -14,10 +14,9 @@ import { isOperator } from "@/lib/permissions";
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const g = await requireAuth(req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   // 운영자 또는 공급자만 — 공급자 업로드는 파일명 업로더 id로 본인 스코프 자동 한정
   if (!isOperator(session.user.role) && session.user.role !== "SUPPLIER") {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });

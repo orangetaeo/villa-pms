@@ -6,10 +6,10 @@
 // 검증: base 필수·정확히1, 기간 날짜 half-open(start<end)·겹침 거부, season enum, BigInt는 문자열 수신.
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { canSetPrice } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 
 const digits = z.string().regex(/^\d{1,15}$/); // VND 동·퍼센트 — BigInt 문자열 수신
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/); // YYYY-MM-DD (UTC 자정 변환)
@@ -67,13 +67,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   // 권한 — ADMIN 전용(canSetPrice). 마진·판매가를 다루므로 STAFF 차단.
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!canSetPrice(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(canSetPrice, "canSetPrice", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const actorUserId = session.user.id;
   const { id } = await params;
 

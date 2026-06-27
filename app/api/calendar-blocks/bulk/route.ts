@@ -5,7 +5,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { BlockSource } from "@prisma/client";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { lockVillaInventory, OCCUPYING_BOOKING_STATUSES } from "@/lib/availability";
@@ -16,6 +15,7 @@ import {
   todayVnDateString,
 } from "@/lib/date-vn";
 import { isOperator } from "@/lib/permissions";
+import { requireAuth } from "@/lib/api-guard";
 
 const MAX_RANGE_DAYS = 92; // 범위 일수 상한 (inclusive)
 
@@ -28,10 +28,9 @@ const bulkSchema = z.object({
 
 export async function POST(req: Request) {
   // 권한 검사 — SUPPLIER(자기 빌라) + ADMIN(전체 빌라) 허용 (비로그인 401/타롤 403 분리)
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  const g = await requireAuth(req);
+  if (!g.ok) return g.response;
+  const session = g.session;
   const role = session.user.role;
   if (role !== "SUPPLIER" && !isOperator(role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });

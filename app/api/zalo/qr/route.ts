@@ -3,10 +3,10 @@
 // kind 결정: 시스템봇 소유자(테오)이거나 시스템봇 미연결이면 SYSTEM_BOT(통합 모드 D1), 그 외 ADMIN_PERSONAL.
 // 성공(GotLoginInfo) 시 credential 암호화 저장 + AuditLog는 lib/zalo-runtime onLoginSuccess에서 처리.
 import { ZaloAccountKind } from "@prisma/client";
-import { auth } from "@/auth";
 import { startQRLoginForAdmin, disconnectForAdmin } from "@/lib/zalo-runtime";
 import { getSystemBotOwnerId } from "@/lib/zalo-credentials";
 import { isSystemAdmin } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 
 // zca-js는 네이티브/ws 의존 — Node 런타임 강제, 캐시 금지
 export const runtime = "nodejs";
@@ -24,14 +24,10 @@ async function resolveKind(adminUserId: string): Promise<ZaloAccountKind> {
   return ZaloAccountKind.ADMIN_PERSONAL; // 다른 관리자 개인 채팅
 }
 
-export async function POST() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return Response.json({ error: "unauthorized" }, { status: 401 });
-  }
-  if (!isSystemAdmin(session.user.role)) {
-    return Response.json({ error: "forbidden" }, { status: 403 });
-  }
+export async function POST(req: Request) {
+  const g = await requireCapability(isSystemAdmin, "isSystemAdmin", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   try {
     const kind = await resolveKind(session.user.id);
@@ -45,14 +41,10 @@ export async function POST() {
 }
 
 // DELETE /api/zalo/qr — 내 Zalo 연결 해제 (ADMIN 전용, 본인 계정만)
-export async function DELETE() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return Response.json({ error: "unauthorized" }, { status: 401 });
-  }
-  if (!isSystemAdmin(session.user.role)) {
-    return Response.json({ error: "forbidden" }, { status: 403 });
-  }
+export async function DELETE(req: Request) {
+  const g = await requireCapability(isSystemAdmin, "isSystemAdmin", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   try {
     const kind = await resolveKind(session.user.id);

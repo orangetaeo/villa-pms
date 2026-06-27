@@ -4,10 +4,10 @@ import { randomInt } from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isSystemAdmin } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
 import { BCRYPT_ROUNDS, isStrongPassword } from "@/lib/password-policy";
 
 // 부여 가능 역할 — OWNER·ADMIN 제외(권한상승 표면 차단, 계약 A2)
@@ -43,13 +43,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   // 권한 검사 — ADMIN 전용 (route handler 첫 줄 role 검사 규칙)
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!isSystemAdmin(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isSystemAdmin, "isSystemAdmin", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const { id } = await params;
 
@@ -265,17 +261,13 @@ export async function PATCH(
 // 차단: 본인(락아웃), OWNER(최상위 권한 보호), 진행 중 예약·체크인 보유(거래 사고 방지).
 // 빌라만 보유(진행 거래 없음)는 삭제 허용 — 빌라는 '공급자 삭제됨'으로 보존.
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   // 권한 검사 — ADMIN 전용 (route handler 첫 줄 role 검사 규칙)
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-  if (!isSystemAdmin(session.user.role)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
+  const g = await requireCapability(isSystemAdmin, "isSystemAdmin", req);
+  if (!g.ok) return g.response;
+  const session = g.session;
 
   const { id } = await params;
 
