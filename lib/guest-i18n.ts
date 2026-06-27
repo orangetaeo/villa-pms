@@ -101,6 +101,7 @@ export interface GuestLabels {
     rateNote: string; // 하단 환산액 안내 "오늘 환율 기준"
     backToCheckin: string; // 체크인으로 돌아가기
     empty: string;
+    myOrders: string; // 신청 내역 페이지 제목/링크
   };
   // G5 완료
   result: {
@@ -218,6 +219,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       rateNote: "오늘 환율 기준",
       backToCheckin: "체크인 화면으로",
       empty: "현재 신청 가능한 옵션이 없습니다.",
+      myOrders: "신청 내역",
     },
     result: {
       title: "체크인 정보가\n접수되었습니다",
@@ -325,6 +327,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       rateNote: "Today's exchange rate",
       backToCheckin: "Back to check-in",
       empty: "No options are available right now.",
+      myOrders: "My requests",
     },
     result: {
       title: "Your check-in info\nhas been received",
@@ -432,6 +435,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       rateNote: "По курсу на сегодня",
       backToCheckin: "Назад к заселению",
       empty: "Сейчас нет доступных опций.",
+      myOrders: "Мои запросы",
     },
     result: {
       title: "Данные заселения\nприняты",
@@ -539,6 +543,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       rateNote: "按今日汇率",
       backToCheckin: "返回入住页面",
       empty: "目前没有可申请的选项。",
+      myOrders: "申请记录",
     },
     result: {
       title: "入住信息\n已受理",
@@ -646,6 +651,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       rateNote: "Theo tỷ giá hôm nay",
       backToCheckin: "Về trang nhận phòng",
       empty: "Hiện chưa có tùy chọn nào.",
+      myOrders: "Lịch sử yêu cầu",
     },
     result: {
       title: "Thông tin nhận phòng\nđã được ghi nhận",

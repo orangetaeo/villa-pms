@@ -440,7 +440,8 @@ function ResultScreen({
   signedVersion: string | null;
 }) {
   const L = GUEST_LABELS[lang];
-  const optionsHref = `/g/${token}/options${lang === "ko" ? "" : `?lang=${lang}`}`;
+  // 부가 옵션은 신청 내역 허브(/orders)로 진입 — 거기서 요청 확인 + "부가 옵션 신청" 버튼으로 신청 폼(/options)으로.
+  const ordersHref = `/g/${token}/orders${lang === "ko" ? "" : `?lang=${lang}`}`;
 
   return (
     <main className="flex-grow px-5 py-7 space-y-6 bg-white">
@@ -474,7 +475,7 @@ function ResultScreen({
       <section className="bg-gradient-to-br from-teal-50 to-white border border-teal-100 rounded-2xl p-5 space-y-3">
         <p className="text-sm text-slate-500 leading-relaxed">{L.result.optionsHint}</p>
         <a
-          href={optionsHref}
+          href={ordersHref}
           className="w-full h-14 bg-teal-600 text-white font-bold rounded-xl shadow-lg shadow-teal-600/20 active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
         >
           <span className="material-symbols-outlined">add_shopping_cart</span>

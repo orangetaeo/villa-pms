@@ -19,7 +19,7 @@ import { getDailyRates, CURRENCY_BY_LANG } from "@/lib/fx-rates";
 import { GuestExpiredView } from "../../_components/guest-expired-view";
 import GuestOptions from "../../_components/guest-options";
 import type { GuestConvert } from "../../_components/types";
-import type { GuestCatalogView, GuestOption, GuestRequestedOrder } from "../../_components/types";
+import type { GuestCatalogView, GuestOption } from "../../_components/types";
 
 export const metadata: Metadata = { title: "부가 옵션 — Villa Go" };
 
@@ -88,20 +88,7 @@ export default async function GuestOptionsPage({
     };
   });
 
-  // ── 기존 요청 내역 (카탈로그명 폴백 — 주문엔 type만 매칭) ──
-  const catalogNameByType = new Map(catalog.map((c) => [c.type, c.name]));
-  const requestedOrders: GuestRequestedOrder[] = data.requestedOrders.map((o) => ({
-    id: o.id,
-    type: o.type,
-    name: catalogNameByType.get(o.type) ?? o.type,
-    status: o.status,
-    quantity: o.quantity,
-    priceKrw: o.priceKrw,
-    priceVnd: o.priceVnd,
-    // 선택 옵션 라벨을 게스트 언어로 해석(variant/addon/modifier 순) — 같은 서비스의 다른 옵션 구분용
-    optionLabels: o.selectedOptions.map((s) => pickI18n(s.labelKo, s.labelI18n ?? null, lang)),
-  }));
-
+  // 요청 내역은 별도 페이지(/g/[token]/orders)에서 표시 — 여기서는 신청 폼만.
   const booking = {
     villaName: data.booking.villaName,
     complex: data.booking.complex,
@@ -128,7 +115,6 @@ export default async function GuestOptionsPage({
         lang={lang}
         booking={booking}
         catalog={catalog}
-        requestedOrders={requestedOrders}
         convert={convert}
       />
     </div>
