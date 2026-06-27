@@ -6,8 +6,8 @@ import { getTranslations } from "next-intl/server";
 import { todayVnDateString } from "@/lib/date-vn";
 import { resolveStatsPeriod } from "@/lib/statistics";
 import { loadSupplierStats } from "@/lib/supplier-stats";
-import RevenueBar from "@/components/supplier/stats/revenue-bar";
-import OccupancyArea from "@/components/supplier/stats/occupancy-area";
+// 차트는 recharts 의존 → lazy 래퍼로 코드 스플리팅(perf). [[charts-lazy]]
+import { RevenueBar, OccupancyArea } from "@/components/supplier/stats/charts-lazy";
 
 const PERIOD_CHIPS = ["thisMonth", "lastMonth", "year"] as const;
 type PeriodChip = (typeof PERIOD_CHIPS)[number];

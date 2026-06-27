@@ -199,7 +199,7 @@ export function PartnerAddonSection({
               >
                 {photo && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img className="w-full h-32 object-cover" alt={c.name} src={photo} />
+                  <img className="w-full h-32 object-cover" alt={c.name} src={photo} loading="lazy" decoding="async" />
                 )}
                 <div className="p-4 space-y-3">
                   <div>

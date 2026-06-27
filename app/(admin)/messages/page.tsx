@@ -35,9 +35,12 @@ export default async function MessagesPage({
 
   const { c: selectedId } = await searchParams;
 
-  // 초기 인박스(SSR) + 딥링크면 초기 스레드(SSR) 동시 조회.
-  const { items, totalUnread } = await getInboxData(ownerAdminId, selectedId ?? null);
-  const initialThread = selectedId ? await getThreadData(ownerAdminId, selectedId) : null;
+  // 초기 인박스(SSR) + 딥링크면 초기 스레드(SSR) 동시 조회 — 두 쿼리는 독립이라 병렬화(perf).
+  const [inbox, initialThread] = await Promise.all([
+    getInboxData(ownerAdminId, selectedId ?? null),
+    selectedId ? getThreadData(ownerAdminId, selectedId) : Promise.resolve(null),
+  ]);
+  const { items, totalUnread } = inbox;
 
   // 딥링크 ?c= 가 무효·타 관리자 대화면(스레드 null) 목록으로 되돌림(id 추측 차단, 모바일 백지 방지).
   if (selectedId && !initialThread) {

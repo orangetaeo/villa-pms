@@ -407,10 +407,11 @@ export async function loadRevenueTxns(
     ...(filter.partnerId ? { partnerId: filter.partnerId } : {}),
   };
 
-  const txns: RevenueTxn[] = [];
-
-  // ── ROOM(객실료) ──
-  if (wantType("ROOM")) {
+  // ROOM·MINIBAR·SERVICE는 서로 독립 쿼리 → 순차 await 대신 Promise.all로 병렬 로드(perf).
+  // 각 블록은 자기 txn 배열을 만들어 반환하고, 마지막에 합친다(원래 push 순서와 무관, 어차피 재정렬).
+  const roomTask = async (): Promise<RevenueTxn[]> => {
+    if (!wantType("ROOM")) return [];
+    const out: RevenueTxn[] = [];
     const bookings = await db.booking.findMany({
       where: bookingWhere,
       select: {
@@ -432,7 +433,7 @@ export async function loadRevenueTxns(
       },
     });
     for (const b of bookings) {
-      txns.push(
+      out.push(
         buildRoomTxn({
           id: b.id,
           checkOut: b.checkOut,
@@ -454,10 +455,13 @@ export async function loadRevenueTxns(
         })
       );
     }
-  }
+    return out;
+  };
 
   // ── MINIBAR(미니바) ── 파트너 필터 시 제외(미니바는 파트너 귀속 없음)
-  if (wantType("MINIBAR") && !nonRoomBlockedByPartner) {
+  const minibarTask = async (): Promise<RevenueTxn[]> => {
+    if (!wantType("MINIBAR") || nonRoomBlockedByPartner) return [];
+    const out: RevenueTxn[] = [];
     const lines = await db.checkoutMinibarLine.findMany({
       where: {
         checkOutRecord: {
@@ -489,7 +493,7 @@ export async function loadRevenueTxns(
     });
     for (const l of lines) {
       const bk = l.checkOutRecord.booking;
-      txns.push(
+      out.push(
         buildMinibarTxn({
           id: l.id,
           checkOut: bk.checkOut,
@@ -502,10 +506,13 @@ export async function loadRevenueTxns(
         })
       );
     }
-  }
+    return out;
+  };
 
   // ── SERVICE(부가서비스) ── CONFIRMED·DELIVERED만. 파트너 필터 시 제외.
-  if (wantType("SERVICE") && !nonRoomBlockedByPartner) {
+  const serviceTask = async (): Promise<RevenueTxn[]> => {
+    if (!wantType("SERVICE") || nonRoomBlockedByPartner) return [];
+    const out: RevenueTxn[] = [];
     const orders = await db.serviceOrder.findMany({
       where: {
         status: { in: [ServiceOrderStatus.CONFIRMED, ServiceOrderStatus.DELIVERED] },
@@ -534,7 +541,7 @@ export async function loadRevenueTxns(
     });
     for (const o of orders) {
       const qty = o.quantity > 0 ? o.quantity : 1;
-      txns.push(
+      out.push(
         buildServiceTxn({
           id: o.id,
           checkOut: o.booking.checkOut,
@@ -553,7 +560,16 @@ export async function loadRevenueTxns(
         })
       );
     }
-  }
+    return out;
+  };
+
+  // 3개 블록 병렬 실행 후 합치기(원래 ROOM→MINIBAR→SERVICE 순차 await 제거).
+  const [roomTxns, minibarTxns, serviceTxns] = await Promise.all([
+    roomTask(),
+    minibarTask(),
+    serviceTask(),
+  ]);
+  const txns: RevenueTxn[] = [...roomTxns, ...minibarTxns, ...serviceTxns];
 
   // ── 후처리 필터: currency(통화 보유 여부) ──
   let filtered = txns;
