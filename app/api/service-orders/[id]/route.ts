@@ -9,8 +9,10 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator, canViewFinance, type Role } from "@/lib/permissions";
 import { assertServiceTransition, InvalidServiceTransitionError } from "@/lib/service-order";
-import { canConfirmCustomer } from "@/lib/vendor-order";
-import type { ServiceOrderStatus } from "@prisma/client";
+import { canConfirmCustomer, vendorHasLivePo } from "@/lib/vendor-order";
+import { enqueueNotification } from "@/lib/zalo";
+import { toDateOnlyString } from "@/lib/date-vn";
+import { NotificationType, type ServiceOrderStatus } from "@prisma/client";
 
 const patchSchema = z.object({
   status: z.enum(["REQUESTED", "CONFIRMED", "DELIVERED", "CANCELLED"]).optional(),
@@ -113,6 +115,47 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   await prisma.serviceOrder.update({ where: { id }, data });
+
+  // ★발주된 주문 취소 → 원천 공급자에게 Zalo 취소 통보(vi). 공급자가 살아있는 발주(PENDING_VENDOR·
+  //   VENDOR_ACCEPTED)로 준비 중일 수 있으므로 stale PO 방지. 게스트 취소 경로는 발주건을 차단하므로
+  //   여기가 유일한 통보 지점. zaloUserId 연결된 공급자에만 큐 적재(미연결이면 통보 생략).
+  let vendorNotified = false;
+  if (data.status === "CANCELLED" && vendorHasLivePo(existing)) {
+    const info = await prisma.serviceOrder.findUnique({
+      where: { id },
+      select: {
+        quantity: true,
+        serviceDate: true,
+        catalogItemId: true,
+        vendorName: true,
+        vendor: { select: { userId: true, user: { select: { zaloUserId: true } } } },
+        booking: { select: { villa: { select: { name: true } } } },
+      },
+    });
+    const vendorUserId = info?.vendor?.userId;
+    const vendorZalo = info?.vendor?.user?.zaloUserId;
+    if (vendorUserId && vendorZalo) {
+      // 카탈로그 항목명(공급자 vi 통지용) — catalogItemId는 관계 미정의 스칼라라 별도 조회.
+      const item = info?.catalogItemId
+        ? await prisma.serviceCatalogItem.findUnique({
+            where: { id: info.catalogItemId },
+            select: { nameKo: true },
+          })
+        : null;
+      await enqueueNotification({
+        userId: vendorUserId,
+        type: NotificationType.VENDOR_PO_CANCELLED,
+        payload: {
+          itemName: item?.nameKo ?? info?.vendorName ?? "—",
+          quantity: info?.quantity ?? 0,
+          villaName: info?.booking?.villa?.name ?? "—",
+          serviceDate: info?.serviceDate ? toDateOnlyString(info.serviceDate) : null,
+        },
+      });
+      vendorNotified = true;
+    }
+  }
+
   await writeAuditLog({
     db: prisma,
     userId: actorId,
@@ -128,7 +171,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       ...(data.vendorSettleMethod !== undefined
         ? { vendorSettleMethod: { new: data.vendorSettleMethod } }
         : {}),
+      ...(vendorNotified ? { vendorPoCancelNotified: { new: true } } : {}),
     },
   });
-  return NextResponse.json({ id, changed: true });
+  return NextResponse.json({ id, changed: true, ...(vendorNotified ? { vendorNotified: true } : {}) });
 }

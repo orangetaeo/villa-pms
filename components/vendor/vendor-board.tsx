@@ -126,9 +126,11 @@ export default function VendorBoard() {
       (field) => field?.toLowerCase().includes(q)
     );
   });
-  const inbox = all.filter((o) => o.vendorStatus === "PENDING_VENDOR");
+  // ★운영자가 취소(status=CANCELLED)한 발주는 vendorStatus가 PENDING_VENDOR·VENDOR_ACCEPTED로
+  //   남아 있어도 공급자 작업 대상에서 제외 — 인박스(가부)·예약 현황(준비)에 노출 금지(취소 통보는 Zalo로 별도).
+  const inbox = all.filter((o) => o.vendorStatus === "PENDING_VENDOR" && o.status !== "CANCELLED");
   const accepted = all
-    .filter((o) => o.vendorStatus === "VENDOR_ACCEPTED")
+    .filter((o) => o.vendorStatus === "VENDOR_ACCEPTED" && o.status !== "CANCELLED")
     .sort((a, b) => scheduleSortKey(a) - scheduleSortKey(b));
   // 정산 내역 = 수락/이행된 발주(우리가 지급할 대상). 거절·대기 제외.
   const settleable = all.filter((o) => o.vendorStatus === "VENDOR_ACCEPTED");

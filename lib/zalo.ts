@@ -285,6 +285,18 @@ export function buildNotificationText(
       return lines.join("\n");
     }
 
+    case NotificationType.VENDOR_PO_CANCELLED: {
+      // 수신자=원천 공급자 → 베트남어(vi). 발주된 주문 취소 통보.
+      // ★ 금액 미노출 — 취소 사실·항목·날짜만. 공급자는 준비 중단하면 됨.
+      const lines = [`❌ Đơn hàng đã hủy: ${str(p.itemName)} x${num(p.quantity)}`];
+      lines.push(`Địa điểm: ${villa}`);
+      if (typeof p.serviceDate === "string" && p.serviceDate.length > 0) {
+        lines.push(`Ngày: ${formatDateVi(p.serviceDate)}`);
+      }
+      lines.push(`Đơn đặt hàng này đã được hủy. Vui lòng không chuẩn bị nữa.`);
+      return lines.join("\n");
+    }
+
     case NotificationType.VENDOR_PO_RESPONSE: {
       // 수신자=운영자(테오) → 한국어(ko). 공급자 가부 응답 통지.
       const vendorName = str(p.vendorName);

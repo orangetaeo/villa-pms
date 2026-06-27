@@ -72,6 +72,21 @@ export function canConfirmCustomer(order: {
 }
 
 /**
+ * 발주된(살아있는) PO가 공급자에게 걸려 있는가 — 취소 시 공급자 Zalo 통보 필요 판정.
+ * - vendorId 있고 vendorStatus가 PENDING_VENDOR(응답 대기) 또는 VENDOR_ACCEPTED(수락·준비중)이면 true.
+ * - 미발주(null)·거절(VENDOR_REJECTED)은 공급자에게 살아있는 발주가 없으므로 통보 불필요.
+ */
+export function vendorHasLivePo(order: {
+  vendorId: string | null;
+  vendorStatus: ServiceVendorStatus | null;
+}): boolean {
+  return (
+    order.vendorId != null &&
+    (order.vendorStatus === "PENDING_VENDOR" || order.vendorStatus === "VENDOR_ACCEPTED")
+  );
+}
+
+/**
  * 공급자 가부 응답 가드 — 현재 vendorStatus가 PENDING_VENDOR가 아니면 throw.
  * (이미 응답했거나 발주 전 상태에서의 응답을 차단.)
  */
