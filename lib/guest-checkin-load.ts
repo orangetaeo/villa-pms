@@ -11,7 +11,7 @@ import {
   buildClauseOrder,
 } from "./agreement";
 import { effectivePar } from "./minibar-inventory";
-import { stripOptionCosts } from "./service-catalog";
+import { stripOptionCosts, parseSelectedOptions, type ResolvedSelectedOption } from "./service-catalog";
 import { getFxVndPerKrw } from "./pricing";
 import { parseAudiences } from "./service-catalog";
 
@@ -70,6 +70,8 @@ export interface GuestCheckinData {
     quantity: number;
     priceKrw: number | null;
     priceVnd: string | null;
+    /** 선택한 variant·addon·modifier 스냅샷(표시용 라벨·번역만 — 원가 없음). */
+    selectedOptions: ResolvedSelectedOption[];
   }[];
 }
 
@@ -149,7 +151,7 @@ export async function loadGuestCheckin(
     prisma.serviceOrder.findMany({
       where: { bookingId: t.bookingId, requestedVia: "GUEST" },
       orderBy: { createdAt: "desc" },
-      select: { id: true, type: true, status: true, quantity: true, priceKrw: true, priceVnd: true },
+      select: { id: true, type: true, status: true, quantity: true, priceKrw: true, priceVnd: true, selectedOptions: true },
     }),
     getFxVndPerKrw(prisma),
   ]);
@@ -213,6 +215,8 @@ export async function loadGuestCheckin(
       quantity: o.quantity,
       priceKrw: o.priceKrw,
       priceVnd: o.priceVnd?.toString() ?? null,
+      // 선택 옵션은 라벨 스냅샷만(원가 없음 — ResolvedSelectedOption엔 costVnd 자체가 없음, 누수 0)
+      selectedOptions: parseSelectedOptions(o.selectedOptions),
     })),
   };
 }
