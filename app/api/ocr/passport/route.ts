@@ -2,6 +2,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { GeminiNotConfiguredError, ocrPassport } from "@/lib/gemini";
 import { isOperator } from "@/lib/permissions";
+import { costThrottle } from "@/lib/cost-throttle";
 
 /**
  * POST /api/ocr/passport — 여권 OCR (T3.1)
@@ -23,6 +24,9 @@ export async function POST(req: Request) {
   if (!isOperator(session.user.role) && session.user.role !== "SUPPLIER") {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
+  // 비용 폭주 방어(Gemini OCR) — 사용자별 스로틀 (보안 P1-S11)
+  const throttled = await costThrottle("ocr", session.user.id);
+  if (throttled) return throttled;
 
   const body = await req.json().catch(() => null);
   const parsed = ocrSchema.safeParse(body);
