@@ -4,11 +4,13 @@
 // 월 이동(?yearMonth=) + 집계 실행(POST /api/settlements) + 상태 전이(PATCH /api/settlements/[id])
 // 행 확장 상세는 클라이언트 상태 — 데이터는 RSC에서 전부 주입 (추가 fetch 없음)
 // ≥768px: b7 테이블 / <768px: 카드 스택 (responsive-table 패턴 — 행 확장 때문에 직접 구현)
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import QuickDateFilter from "@/components/admin/quick-date-filter";
 import ListSearch from "@/components/list-search";
+import PaginationBar from "@/components/pagination-bar";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 export type SettlementStatusKey =
   | "DRAFT"
@@ -127,6 +129,17 @@ export default function SettlementsView({
         row.items.some((item) => (item.villaName ?? "").toLowerCase().includes(q))
     );
   }, [rows, search]);
+
+  // 공급자별 정산 행 페이지네이션 — 정산 대상이 많아도 한 페이지만 렌더.
+  // ⚠️ 요약/합계(summary·financeSummary)는 전체 기준(RSC 주입)이라 영향 없음. 페이지네이션은 행 표시에만.
+  // 월/검색/데이터 변경 시 1페이지로 리셋.
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  useEffect(() => setPage(1), [rows, search]);
+  const paged = useMemo(
+    () => filtered.slice((page - 1) * pageSize, page * pageSize),
+    [filtered, page, pageSize]
+  );
 
   const goMonth = (delta: number) => {
     setNotice(null);
@@ -397,7 +410,7 @@ export default function SettlementsView({
               <span>{generating ? t("generating") : t("generate")}</span>
             </button>
           </div>
-          {/* 공급자명·빌라명 검색 (클라 인메모리 필터, 페이지네이션 없음) */}
+          {/* 공급자명·빌라명 검색 (클라 인메모리 필터 → 검색 후 결과를 페이지네이션) */}
           <div className="mt-3">
             <ListSearch
               placeholder={t("searchPlaceholder")}
@@ -570,7 +583,7 @@ export default function SettlementsView({
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((row) => {
+                {paged.map((row) => {
                   const isOpen = expanded.has(row.id);
                   return (
                     <Fragment key={row.id}>
@@ -654,7 +667,7 @@ export default function SettlementsView({
 
           {/* 모바일(<768px): 카드 스택 */}
           <div className="md:hidden flex flex-col gap-3">
-            {filtered.map((row) => {
+            {paged.map((row) => {
               const isOpen = expanded.has(row.id);
               return (
                 <div
@@ -711,6 +724,18 @@ export default function SettlementsView({
               );
             })}
           </div>
+
+          {/* 페이지네이션 (다크) — 검색 적용 후 전체 행 기준. 요약·합계는 영향 없음(전체 기준). */}
+          <PaginationBar
+            total={filtered.length}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={(s) => {
+              setPageSize(s);
+              setPage(1);
+            }}
+          />
         </>
       )}
 

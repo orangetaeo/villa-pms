@@ -5,8 +5,10 @@
 //   page.tsx가 includeFinance=false면 row에 금액 키 자체가 없음(undefined) → 컬럼·정렬옵션·바 토글 모두 생략.
 //   (조건부 렌더가 아니라 데이터 부재로 처리 — STAFF 페이로드에 금액 문자열 없음.)
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { VillaPerformanceRow } from "@/lib/statistics";
+import PaginationBar from "@/components/pagination-bar";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 export interface VillaRankLabels {
   gateNote: string;
@@ -70,6 +72,15 @@ export default function VillaRankTable({
     });
     return copy;
   }, [rows, sortKey, asc]);
+
+  // 랭킹 테이블 페이지네이션 — 빌라 수가 많아도 한 페이지만 렌더. 정렬·기간 변경 시 1페이지로.
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  useEffect(() => setPage(1), [sortKey, asc, rows]);
+  const paged = useMemo(
+    () => sorted.slice((page - 1) * pageSize, page * pageSize),
+    [sorted, page, pageSize]
+  );
 
   const top10 = useMemo(() => {
     const key: SortKey = barSort === "revenue" ? "vndRevenue" : barSort;
@@ -243,7 +254,7 @@ export default function VillaRankTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
-              {sorted.map((r) => (
+              {paged.map((r) => (
                 <tr key={r.villaId} className="hover:bg-slate-800/30">
                   <td className="p-3 font-medium text-slate-200">{r.name}</td>
                   <td className="p-3 text-slate-400">{r.complex ?? labels.noComplex}</td>
@@ -265,7 +276,7 @@ export default function VillaRankTable({
 
         {/* 모바일 카드(<768) */}
         <div className="md:hidden flex flex-col gap-3 p-4">
-          {sorted.map((r) => (
+          {paged.map((r) => (
             <div key={r.villaId} className="bg-slate-900/40 rounded-lg border border-slate-800 p-3">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="font-medium text-slate-200 truncate">{r.name}</span>
@@ -290,6 +301,20 @@ export default function VillaRankTable({
               </div>
             </div>
           ))}
+        </div>
+
+        {/* 페이지네이션 (다크) — 정렬·검색 적용 후 전체 행 기준 */}
+        <div className="border-t border-slate-700/50 px-4 py-3">
+          <PaginationBar
+            total={sorted.length}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={(s) => {
+              setPageSize(s);
+              setPage(1);
+            }}
+          />
         </div>
       </div>
     </div>

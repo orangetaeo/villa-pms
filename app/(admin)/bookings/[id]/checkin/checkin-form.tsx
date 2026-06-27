@@ -393,11 +393,15 @@ export default function CheckinForm({
               <span className="material-symbols-outlined icon-fill text-green-500">draw</span>
               <div className="text-sm">
                 <p className="font-bold text-green-400">{t("agreement.guestSigned.title")}</p>
-                <p className="text-[11px] text-slate-400">
+                {/* suppressHydrationWarning: toLocaleString이 서버/브라우저 ICU 차이로 다른 문자열을 만들어
+                    하이드레이션 불일치(#418) 유발 → 같은 인스턴트라 클라 렌더 채택. 포맷은 ko-KR·현지TZ로 고정. */}
+                <p className="text-[11px] text-slate-400" suppressHydrationWarning>
                   {t("agreement.guestSigned.meta", {
                     version: guestSignature.agreementVersion ?? "-",
                     at: guestSignature.signedAt
-                      ? new Date(guestSignature.signedAt).toLocaleString()
+                      ? new Date(guestSignature.signedAt).toLocaleString("ko-KR", {
+                          timeZone: "Asia/Ho_Chi_Minh",
+                        })
                       : "-",
                   })}
                 </p>
