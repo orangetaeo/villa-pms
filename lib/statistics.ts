@@ -276,8 +276,11 @@ export interface FinanceSourceRow {
   saleCurrency: FinanceBooking["saleCurrency"];
   totalSaleKrw: number | null;
   totalSaleVnd: bigint | null;
+  /** Phase 2 USD — 옵셔널(실제 stats 쿼리는 select하지만 KRW/VND-only 호출/픽스처 호환) */
+  totalSaleUsd?: number | null;
   supplierCostVnd: bigint;
   fxVndPerKrw: { toString(): string } | null;
+  fxVndPerUsd?: { toString(): string } | null;
 }
 
 export function toFinanceBooking(b: FinanceSourceRow): FinanceBooking {
@@ -285,8 +288,11 @@ export function toFinanceBooking(b: FinanceSourceRow): FinanceBooking {
     saleCurrency: b.saleCurrency,
     totalSaleKrw: b.totalSaleKrw,
     totalSaleVnd: b.totalSaleVnd,
+    totalSaleUsd: b.totalSaleUsd,
     supplierCostVnd: b.supplierCostVnd,
     fxVndPerKrw: b.fxVndPerKrw != null ? b.fxVndPerKrw.toString() : null,
+    // Phase 2 USD: 예약 시점 USD→VND 스냅샷(없으면 fxMissing). bookingFinance가 USD 환산 처리.
+    fxVndPerUsd: b.fxVndPerUsd != null ? b.fxVndPerUsd.toString() : null,
   };
 }
 
@@ -451,8 +457,10 @@ const REVENUE_SELECT = {
   saleCurrency: true,
   totalSaleKrw: true,
   totalSaleVnd: true,
+  totalSaleUsd: true,
   supplierCostVnd: true,
   fxVndPerKrw: true,
+  fxVndPerUsd: true,
 } as const;
 
 /** [start, end) 내 행만 필터 (체크아웃 @db.Date UTC 경계) */
@@ -929,8 +937,10 @@ export async function loadVillaPerformance(
           saleCurrency: true,
           totalSaleKrw: true,
           totalSaleVnd: true,
+          totalSaleUsd: true,
           supplierCostVnd: true,
           fxVndPerKrw: true,
+          fxVndPerUsd: true,
         },
       })
     : [];
