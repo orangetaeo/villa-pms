@@ -8,11 +8,12 @@ import { AuthError } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { BCRYPT_ROUNDS, PASSWORD_MIN, isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 
 const signupSchema = z.object({
   name: z.string().min(1),
   phone: z.string().min(8),
-  password: z.string().min(8),
+  password: z.string().min(PASSWORD_MIN).refine(isStrongPassword, PASSWORD_POLICY_MESSAGE),
 });
 
 // 자동 계정 스팸 방어 (T-sec-auth-ratelimit) — IP당 시간당 한도.
@@ -48,7 +49,7 @@ export async function signupAction(
   const existing = await prisma.user.findUnique({ where: { phone } });
   if (existing) return { error: "phoneExists" };
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
   const user = await prisma.user.create({
     data: { name, phone, passwordHash, role: "SUPPLIER", locale: "vi" },
   });

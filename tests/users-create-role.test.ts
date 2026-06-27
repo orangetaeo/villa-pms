@@ -137,7 +137,7 @@ describe("POST /api/users — 생성", () => {
       select: Record<string, boolean>;
     };
     expect(arg.data.phone).toBe("0901234567"); // 0901-234-567 → 숫자만
-    expect(bcrypt.hash).toHaveBeenCalledWith("password123", 10);
+    expect(bcrypt.hash).toHaveBeenCalledWith("password123", 12); // BCRYPT_ROUNDS 일원화(보안 P1-S2)
     expect(arg.data.passwordHash).toBe("hashed:password123");
     expect(arg.data.isActive).toBe(true);
     // 응답 select 화이트리스트에 passwordHash 없음

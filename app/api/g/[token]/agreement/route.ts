@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { guestTokenState } from "@/lib/guest-checkin";
 import { guestRateLimit } from "@/lib/guest-rate-limit";
+import { assertSameOrigin } from "@/lib/csrf";
 import { AGREEMENT_VERSION } from "@/lib/agreement";
 
 const schema = z.object({
@@ -19,6 +20,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   // 비인증 게스트 mutation 폭주 방어 (보안 P0-3)
   const rl = await guestRateLimit("g-agreement", token, req);
   if (rl) return rl;
+  const csrf = await assertSameOrigin(req, "g-agreement");
+  if (csrf) return csrf;
   const t = await prisma.guestCheckinToken.findUnique({
     where: { token },
     select: { id: true, bookingId: true, expiresAt: true, revokedAt: true, firstUsedAt: true },

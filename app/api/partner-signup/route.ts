@@ -10,6 +10,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { BCRYPT_ROUNDS, PASSWORD_MIN, isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 
 // 공개·미인증 가입 스팸 방어 (rate-limit, vendor-signup 패턴 재사용).
 const SIGNUP_IP_LIMIT = { max: 10, windowMs: 60 * 60_000 };
@@ -18,7 +19,7 @@ const signupSchema = z.object({
   name: z.string().min(1).max(120),
   type: z.enum(["TRAVEL_AGENCY", "LAND_AGENCY"]),
   phone: z.string(),
-  password: z.string().min(8),
+  password: z.string().min(PASSWORD_MIN).refine(isStrongPassword, PASSWORD_POLICY_MESSAGE),
   contactEmail: z.string().max(200).optional(),
 });
 
@@ -61,7 +62,7 @@ export async function POST(req: Request) {
   }
 
   // 비밀번호 해시 — auth.ts와 동일 bcryptjs
-  const passwordHash = await bcrypt.hash(d.password, 10);
+  const passwordHash = await bcrypt.hash(d.password, BCRYPT_ROUNDS);
 
   const contactEmail = d.contactEmail?.trim() || undefined;
 

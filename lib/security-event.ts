@@ -16,7 +16,8 @@ export type SecurityEventType =
   | "PWRESET_FAIL" // 비밀번호 재설정 실패
   | "CRED_DECRYPT_FAIL" // Zalo credential 복호화 실패
   | "SSRF_BLOCK" // 아웃바운드 내부망 차단
-  | "CSRF_BLOCK"; // 교차출처 위조 차단
+  | "CSRF_BLOCK" // 교차출처 위조 차단
+  | "PII_PURGE"; // PII 보존정책 실행(여권·서명 만료 삭제)
 
 export interface SecurityEventInput {
   type: SecurityEventType;

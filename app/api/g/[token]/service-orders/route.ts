@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { guestTokenState } from "@/lib/guest-checkin";
 import { guestRateLimit } from "@/lib/guest-rate-limit";
+import { assertSameOrigin } from "@/lib/csrf";
 import { parseCatalogOptions, resolveOrderPricing, ServiceSelectionError, parseAudiences } from "@/lib/service-catalog";
 import { priceKrwCeil } from "@/lib/service-display";
 import { getFxVndPerKrw } from "@/lib/pricing";
@@ -31,6 +32,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   // 비인증 게스트 mutation 폭주 방어 (보안 P0-3)
   const rl = await guestRateLimit("g-service-orders", token, req);
   if (rl) return rl;
+  const csrf = await assertSameOrigin(req, "g-service-orders");
+  if (csrf) return csrf;
   const t = await prisma.guestCheckinToken.findUnique({
     where: { token },
     select: { bookingId: true, expiresAt: true, revokedAt: true, firstUsedAt: true },

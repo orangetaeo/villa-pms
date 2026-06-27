@@ -12,6 +12,7 @@ import { BookingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { assertSameOrigin } from "@/lib/csrf";
 import {
   parseCatalogOptions,
   resolveOrderPricing,
@@ -41,6 +42,10 @@ const schema = z.object({
 
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+
+  // 교차출처 위조 차단 (보안 P1-S9)
+  const csrf = await assertSameOrigin(req, "p-service-orders");
+  if (csrf) return csrf;
 
   const ip = clientIp(req.headers);
   const tokenOk = checkRateLimit(`p-order:token:${token}`, ORDER_TOKEN_LIMIT).allowed;

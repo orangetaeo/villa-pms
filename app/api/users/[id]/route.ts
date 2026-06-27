@@ -8,6 +8,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isSystemAdmin } from "@/lib/permissions";
+import { BCRYPT_ROUNDS, isStrongPassword } from "@/lib/password-policy";
 
 // 부여 가능 역할 — OWNER·ADMIN 제외(권한상승 표면 차단, 계약 A2)
 const ASSIGNABLE_ROLES = ["MANAGER", "STAFF", "SUPPLIER", "CLEANER"] as const;
@@ -16,11 +17,16 @@ const ASSIGNABLE_ROLES = ["MANAGER", "STAFF", "SUPPLIER", "CLEANER"] as const;
 // OWNER가 사용자에게 Zalo 등으로 전달 → 사용자가 직접 변경 가정.
 const TEMP_PW_ALPHABET = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 function generateTempPassword(length = 10): string {
-  let out = "";
-  for (let i = 0; i < length; i += 1) {
-    out += TEMP_PW_ALPHABET[randomInt(TEMP_PW_ALPHABET.length)];
+  // 비번 정책(숫자/특수문자 포함)을 보장 — 알파벳에 숫자가 있으나 우연히 전부 문자일 수 있어 재시도.
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    let out = "";
+    for (let i = 0; i < length; i += 1) {
+      out += TEMP_PW_ALPHABET[randomInt(TEMP_PW_ALPHABET.length)];
+    }
+    if (isStrongPassword(out)) return out;
   }
-  return out;
+  // 극히 드문 폴백 — 숫자 1개 강제 부착(정책 충족 보장)
+  return `${TEMP_PW_ALPHABET.slice(-1)}2`.padEnd(length, "x");
 }
 
 const patchSchema = z.discriminatedUnion("action", [
@@ -83,7 +89,7 @@ export async function PATCH(
   // 평문은 응답으로 1회만 반환하고 감사 로그·DB엔 절대 저장하지 않는다.
   const tempPassword =
     input.action === "RESET_PASSWORD" ? generateTempPassword() : null;
-  const tempPasswordHash = tempPassword ? await bcrypt.hash(tempPassword, 10) : null;
+  const tempPasswordHash = tempPassword ? await bcrypt.hash(tempPassword, BCRYPT_ROUNDS) : null;
 
   // 트랜잭션 — 대상 확인·중복 검사·갱신·Zalo 동기화·감사 로그를 원자적으로 처리
   const result = await prisma.$transaction(async (tx) => {
