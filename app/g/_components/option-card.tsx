@@ -134,7 +134,7 @@ export function OptionCard({
     >
       {photo && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img className="w-full h-36 object-cover" alt={item.name} src={photo} />
+        <img className="w-full h-36 object-cover" alt={item.name} src={photo} loading="lazy" decoding="async" />
       )}
       <div className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-2">

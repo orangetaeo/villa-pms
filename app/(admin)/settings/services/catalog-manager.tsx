@@ -465,6 +465,8 @@ export default function ServiceCatalogManager({
                         className="w-full h-full object-cover"
                         alt={item.nameKo}
                         src={catalogImage(item.type, item.photoUrl)!}
+                        loading="lazy"
+                        decoding="async"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-slate-600">
