@@ -8,6 +8,8 @@ import { getTranslations } from "next-intl/server";
 import { getPartnerForUser } from "@/lib/partner-auth";
 import { loadPartnerBookings, type PartnerBookingRow } from "@/lib/partner-portal";
 import { formatVillaName } from "@/lib/villa-name";
+import PaginationBar from "@/components/pagination-bar";
+import { parsePageParams } from "@/lib/pagination";
 import { formatVndDot, formatDayMonth } from "./_format";
 
 export const metadata: Metadata = {
@@ -25,7 +27,11 @@ const STATUS_STYLE: Record<string, string> = {
   NO_SHOW: "bg-rose-100 text-rose-700",
 };
 
-export default async function PartnerBookingsPage() {
+export default async function PartnerBookingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; pageSize?: string }>;
+}) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   if (session.user.role !== "PARTNER") redirect("/login");
@@ -34,7 +40,13 @@ export default async function PartnerBookingsPage() {
   if (!partner || partner.approvalStatus !== "APPROVED") redirect("/partner");
 
   const t = await getTranslations("partner");
+  // 자기 partnerId 스코프 예약(서버 스코프 유지) — 표시 슬라이스만 추가
   const bookings = await loadPartnerBookings(partner.id);
+
+  // 페이지네이션 — 예약은 누적되어 늘어나는 목록. URL page/pageSize 기준 메모리 슬라이스(라이트 테마).
+  const params = await searchParams;
+  const { page, pageSize, skip, take } = parsePageParams(params);
+  const pagedBookings = bookings.slice(skip, skip + take);
 
   return (
     <div className="space-y-5">
@@ -44,6 +56,7 @@ export default async function PartnerBookingsPage() {
       </header>
 
       {bookings.length === 0 ? (
+        // 빈 상태는 전체 기준 유지
         <EmptyState
           icon="event_busy"
           title={t("bookings.empty")}
@@ -51,11 +64,14 @@ export default async function PartnerBookingsPage() {
         />
       ) : (
         <ul className="space-y-3">
-          {bookings.map((b) => (
+          {pagedBookings.map((b) => (
             <BookingCard key={b.id} booking={b} t={t} />
           ))}
         </ul>
       )}
+
+      {/* 페이지네이션 — 행 수 요약 + 페이지당 개수(라이트 테마) */}
+      <PaginationBar total={bookings.length} page={page} pageSize={pageSize} light />
     </div>
   );
 }

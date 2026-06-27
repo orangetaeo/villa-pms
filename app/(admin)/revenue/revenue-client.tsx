@@ -6,12 +6,14 @@
 //   여기서는 "받은 데이터만" 렌더하며, VND는 직렬화 경계상 string으로 받는다(BigInt 금지).
 // 다크 admin 토큰. statistics-client·date-range-filter 스타일·URL 동기화 패턴 일관 적용.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { formatThousands } from "@/lib/format";
 import DateRangeFilter from "@/components/admin/statistics/date-range-filter";
 import KpiCard from "@/components/admin/statistics/kpi-card";
+import PaginationBar from "@/components/pagination-bar";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 // 직렬화된 거래 행(VND BigInt → string) — page.tsx serializeBigInt 결과 형태와 정합.
 interface RevenueTxnDto {
@@ -95,6 +97,10 @@ export default function RevenueClient(props: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
+  // 클라 페이지네이션 — 검색·정렬·데이터 변경 시 1페이지로 (전체 로드 후 메모리 슬라이스)
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+
   // URL 동기화 — 필터 1개 변경 시 해당 파라미터만 set/delete 후 router.replace(server 재로드).
   const setParam = (key: string, value: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -143,6 +149,15 @@ export default function RevenueClient(props: Props) {
     });
     return sorted;
   }, [props.txns, search, sortKey, sortDir]);
+
+  // 필터·검색·정렬이 바뀌면 1페이지로 되돌림
+  useEffect(() => setPage(1), [search, sortKey, sortDir, props.txns]);
+
+  // 현재 페이지 슬라이스 — 합계 푸터는 rows 전체 기준이므로 여기서만 잘라낸다
+  const paged = useMemo(
+    () => rows.slice((page - 1) * pageSize, page * pageSize),
+    [rows, page, pageSize]
+  );
 
   // 검색 후(클라이언트 필터) 합계는 화면에 보이는 행 기준으로 재계산(통화 분리·BigInt 문자열 누적).
   const visibleTotals = useMemo(() => {
@@ -503,7 +518,7 @@ export default function RevenueClient(props: Props) {
                 </td>
               </tr>
             )}
-            {rows.map((x) => (
+            {paged.map((x) => (
               <tr key={x.id} className="hover:bg-slate-900/40 text-slate-200">
                 <td className="px-3 py-2.5 whitespace-nowrap tabular-nums text-slate-400">{x.date}</td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
@@ -571,6 +586,18 @@ export default function RevenueClient(props: Props) {
           </tfoot>
         </table>
       </div>
+
+      {/* 페이지네이션 — 전체 검색결과(rows) 기준 페이지 분할 */}
+      <PaginationBar
+        total={rows.length}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => {
+          setPageSize(s);
+          setPage(1);
+        }}
+      />
 
       <p className="mt-3 text-xs text-admin-muted">{t("note")}</p>
     </div>

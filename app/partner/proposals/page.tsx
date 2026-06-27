@@ -7,6 +7,8 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getPartnerForUser } from "@/lib/partner-auth";
 import { loadPartnerProposals } from "@/lib/partner-portal";
+import PaginationBar from "@/components/pagination-bar";
+import { parsePageParams } from "@/lib/pagination";
 import { formatDate } from "../_format";
 
 export const metadata: Metadata = {
@@ -20,7 +22,11 @@ const PROPOSAL_STATUS_STYLE: Record<string, string> = {
   REVOKED: "bg-neutral-100 text-neutral-400 line-through",
 };
 
-export default async function PartnerProposalsPage() {
+export default async function PartnerProposalsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; pageSize?: string }>;
+}) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   if (session.user.role !== "PARTNER") redirect("/login");
@@ -29,7 +35,13 @@ export default async function PartnerProposalsPage() {
   if (!partner || partner.approvalStatus !== "APPROVED") redirect("/partner");
 
   const t = await getTranslations("partner");
+  // 자기 partnerId 스코프 제안서(서버 스코프 유지) — 표시 슬라이스만 추가
   const proposals = await loadPartnerProposals(partner.id);
+
+  // 페이지네이션 — 받은 제안서는 누적되어 늘어나는 목록. URL page/pageSize 기준 메모리 슬라이스(라이트 테마).
+  const params = await searchParams;
+  const { page, pageSize, skip, take } = parsePageParams(params);
+  const pagedProposals = proposals.slice(skip, skip + take);
 
   return (
     <div className="space-y-5">
@@ -48,7 +60,7 @@ export default async function PartnerProposalsPage() {
         </div>
       ) : (
         <ul className="space-y-3">
-          {proposals.map((p) => (
+          {pagedProposals.map((p) => (
             <li key={p.token}>
               <a
                 href={`/p/${p.token}`}
@@ -79,6 +91,9 @@ export default async function PartnerProposalsPage() {
           ))}
         </ul>
       )}
+
+      {/* 페이지네이션 — 행 수 요약 + 페이지당 개수(라이트 테마) */}
+      <PaginationBar total={proposals.length} page={page} pageSize={pageSize} light />
     </div>
   );
 }

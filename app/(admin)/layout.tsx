@@ -63,6 +63,8 @@ const ADMIN_CLIENT_NAMESPACES = [
   "adminCostAlerts",
   "amenities",
   "quickDateFilter",
+  // 미수/여신 목록(/receivables) — receivables-table 클라 래퍼(페이지네이션 추출)
+  "adminReceivables",
   // 리스트 공통 페이지네이션 바(components/pagination-bar) — 전 목록 페이지 공용
   "pagination",
   // 판매정보 입력 폼(sales-editor·detail-tabs) — ADR-0011

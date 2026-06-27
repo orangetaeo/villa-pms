@@ -4,9 +4,11 @@
 // - 마진 단일 소스: 서버 loadCostAlerts가 산출한 old/newMarginPct만 표시(클라 재계산 금지)
 // - "판매가 조정" = 제안 수정 화면으로 이동 / "유지" = 알림 확인 처리(목록에서 제거)
 // - 반응형: ≥768px 표 / <768px 카드 스택
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import PaginationBar from "@/components/pagination-bar";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { formatThousands } from "@/lib/format";
 
 type Season = "LOW" | "HIGH" | "PEAK";
@@ -76,6 +78,15 @@ export default function CostAlertsView({ groups }: { groups: CostAlertGroup[] })
   const [error, setError] = useState<string | null>(null);
 
   const visible = groups.filter((g) => !dismissed.has(g.proposalId));
+
+  // 클라 페이지네이션 — groups 바뀌면 1페이지로. (조기 반환보다 위에 선언 — hooks 규칙)
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  useEffect(() => setPage(1), [groups]);
+  const pagedGroups = useMemo(
+    () => visible.slice((page - 1) * pageSize, page * pageSize),
+    [visible, page, pageSize]
+  );
 
   const dismiss = async (g: CostAlertGroup) => {
     setBusy(g.proposalId);
@@ -156,7 +167,7 @@ export default function CostAlertsView({ groups }: { groups: CostAlertGroup[] })
         </p>
       )}
 
-      {visible.map((g) => (
+      {pagedGroups.map((g) => (
         <section
           key={g.proposalId}
           className="bg-admin-card rounded-xl border border-slate-800 overflow-hidden shadow-sm"
@@ -280,6 +291,17 @@ export default function CostAlertsView({ groups }: { groups: CostAlertGroup[] })
           </div>
         </section>
       ))}
+
+      <PaginationBar
+        total={visible.length}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => {
+          setPageSize(s);
+          setPage(1);
+        }}
+      />
     </div>
   );
 }
