@@ -10,6 +10,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { GeminiNotConfiguredError, transcribeVoice } from "@/lib/gemini";
 import { isOperator } from "@/lib/permissions";
+import { costThrottle } from "@/lib/cost-throttle";
 
 // base64 길이 상한(약 6MB 오디오) — 과대 업로드 방지. 클라가 60초 자동중단도 함.
 const MAX_BASE64_LEN = 8_000_000;
@@ -28,6 +29,9 @@ export async function POST(req: Request) {
   if (!isOperator(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
+  // 비용 폭주 방어(Gemini 전사) — 사용자별 스로틀 (보안 P1-S11)
+  const throttled = await costThrottle("transcribe", session.user.id);
+  if (throttled) return throttled;
 
   let raw: unknown;
   try {

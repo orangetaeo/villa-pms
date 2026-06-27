@@ -247,6 +247,15 @@ export interface PublicLabels {
     rosterCta: string;
     backToProposal: string;
     footerNote: string;
+    // 입금통보 (B1) — HOLD 상태에서만. 게스트→운영자 "입금했어요" 신호
+    paymentNoticeTitle: string;
+    paymentNoticeDesc: string;
+    depositorNameLabel: string;
+    depositorNamePlaceholder: string;
+    paymentNoticeCta: string;
+    paymentNoticeSending: string;
+    paymentNoticeDone: string;
+    paymentNoticeError: string;
   };
   // 명단 입력 페이지
   rosterPage: {
@@ -402,6 +411,14 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       rosterCta: "투숙객 명단 입력하기",
       backToProposal: "제안으로 돌아가기",
       footerNote: "입금 확인 후 예약이 확정되며, 미입금 시 가예약은 자동으로 취소될 수 있습니다.",
+      paymentNoticeTitle: "입금하셨나요?",
+      paymentNoticeDesc: "계좌이체를 마치셨다면 알려주세요. 담당자가 입금을 확인한 뒤 예약을 확정합니다.",
+      depositorNameLabel: "입금자명 (선택)",
+      depositorNamePlaceholder: "예금주와 다를 경우 입력해주세요",
+      paymentNoticeCta: "입금했습니다",
+      paymentNoticeSending: "통보 중…",
+      paymentNoticeDone: "입금통보 완료 — 확인 중입니다",
+      paymentNoticeError: "통보에 실패했습니다. 잠시 후 다시 시도해주세요.",
     },
     rosterPage: {
       title: "투숙객 명단 입력",
@@ -553,6 +570,14 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       rosterCta: "Enter guest list",
       backToProposal: "Back to proposal",
       footerNote: "Confirmed once payment is verified; unpaid holds may be cancelled automatically.",
+      paymentNoticeTitle: "Made the payment?",
+      paymentNoticeDesc: "Let us know once you've transferred. Your booking is confirmed after we verify the payment.",
+      depositorNameLabel: "Depositor name (optional)",
+      depositorNamePlaceholder: "Enter if different from the account holder",
+      paymentNoticeCta: "I've paid",
+      paymentNoticeSending: "Sending…",
+      paymentNoticeDone: "Payment reported — verifying",
+      paymentNoticeError: "Failed to send. Please try again shortly.",
     },
     rosterPage: {
       title: "Enter guest list",
@@ -704,6 +729,14 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       rosterCta: "Ввести список гостей",
       backToProposal: "К предложению",
       footerNote: "Подтверждается после проверки оплаты; неоплаченная бронь может быть отменена.",
+      paymentNoticeTitle: "Вы оплатили?",
+      paymentNoticeDesc: "Сообщите нам после перевода. Бронирование подтверждается после проверки оплаты.",
+      depositorNameLabel: "Имя плательщика (необязательно)",
+      depositorNamePlaceholder: "Укажите, если отличается от владельца счёта",
+      paymentNoticeCta: "Я оплатил",
+      paymentNoticeSending: "Отправка…",
+      paymentNoticeDone: "Оплата отмечена — проверяем",
+      paymentNoticeError: "Не удалось отправить. Повторите попытку позже.",
     },
     rosterPage: {
       title: "Ввод списка гостей",
@@ -855,6 +888,14 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       rosterCta: "录入客人名单",
       backToProposal: "返回提案",
       footerNote: "付款确认后预订即确定；未付款的预订可能被自动取消。",
+      paymentNoticeTitle: "已完成付款？",
+      paymentNoticeDesc: "完成转账后请告知我们。负责人确认付款后即确定预订。",
+      depositorNameLabel: "付款人姓名（选填）",
+      depositorNamePlaceholder: "如与户名不同请填写",
+      paymentNoticeCta: "我已付款",
+      paymentNoticeSending: "通知中…",
+      paymentNoticeDone: "已通知付款 — 确认中",
+      paymentNoticeError: "通知失败，请稍后再试。",
     },
     rosterPage: {
       title: "录入客人名单",
@@ -1006,6 +1047,14 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       rosterCta: "Nhập danh sách khách",
       backToProposal: "Về đề xuất",
       footerNote: "Xác nhận sau khi kiểm tra thanh toán; giữ chỗ chưa thanh toán có thể bị hủy.",
+      paymentNoticeTitle: "Bạn đã thanh toán?",
+      paymentNoticeDesc: "Hãy báo cho chúng tôi sau khi chuyển khoản. Đặt phòng được xác nhận sau khi kiểm tra thanh toán.",
+      depositorNameLabel: "Tên người chuyển (tùy chọn)",
+      depositorNamePlaceholder: "Nhập nếu khác với chủ tài khoản",
+      paymentNoticeCta: "Tôi đã thanh toán",
+      paymentNoticeSending: "Đang gửi…",
+      paymentNoticeDone: "Đã báo thanh toán — đang kiểm tra",
+      paymentNoticeError: "Gửi thất bại. Vui lòng thử lại sau.",
     },
     rosterPage: {
       title: "Nhập danh sách khách",

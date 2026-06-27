@@ -53,6 +53,10 @@ export interface GuestCheckinData {
     nights: number;
     guestCount: number;
     breakfastIncluded: boolean;
+    // ── 출입 정보(A1) — 게스트 토큰 로더 전용. /p 공개페이지엔 절대 미노출(원칙2). ──
+    address: string | null; // 주소(있을 때만 지도 링크 생성)
+    wifiSsid: string | null; // 와이파이 이름
+    wifiPassword: string | null; // ⚠ 와이파이 비번 — FE는 동의서 서명(signed) 후에만 표시
   } | null;
   amenities: { category: string; itemKey: string; customLabel: string | null }[];
   minibar: GuestMinibarLine[];
@@ -73,6 +77,8 @@ export interface GuestCheckinData {
     quantity: number;
     priceKrw: number | null;
     priceVnd: string | null;
+    /** 원천공급자에게 PO가 나간(살아있는) 주문 여부 — true면 게스트 셀프 취소 불가(운영자 조율). */
+    dispatched: boolean;
     /** 희망 날짜(YYYY-MM-DD) — @db.Date. 게스트 신청은 항상 존재(서버 필수 검증). */
     serviceDate: string | null;
     /** 희망 시간("HH:MM"). */
@@ -125,7 +131,8 @@ export async function loadGuestCheckin(
       nights: true,
       guestCount: true,
       breakfastIncluded: true,
-      villa: { select: { name: true, complex: true, hasPool: true } },
+      // ★ wifiSsid·wifiPassword·address는 게스트 체크인 화면 전용(출입정보 A1). /p엔 절대 미포함.
+      villa: { select: { name: true, complex: true, hasPool: true, address: true, wifiSsid: true, wifiPassword: true } },
     },
   });
   if (!booking) return null;
@@ -159,7 +166,7 @@ export async function loadGuestCheckin(
     prisma.serviceOrder.findMany({
       where: { bookingId: t.bookingId, requestedVia: "GUEST" },
       orderBy: { createdAt: "desc" },
-      select: { id: true, type: true, catalogItemId: true, status: true, quantity: true, priceKrw: true, priceVnd: true, serviceDate: true, serviceTime: true, selectedOptions: true },
+      select: { id: true, type: true, catalogItemId: true, status: true, quantity: true, priceKrw: true, priceVnd: true, vendorStatus: true, poSentAt: true, serviceDate: true, serviceTime: true, selectedOptions: true },
     }),
     getFxVndPerKrw(prisma),
   ]);
@@ -187,6 +194,9 @@ export async function loadGuestCheckin(
       nights: booking.nights,
       guestCount: booking.guestCount,
       breakfastIncluded: booking.breakfastIncluded,
+      address: booking.villa.address,
+      wifiSsid: booking.villa.wifiSsid,
+      wifiPassword: booking.villa.wifiPassword,
     },
     amenities: amenityRows,
     minibar,
@@ -226,6 +236,8 @@ export async function loadGuestCheckin(
       quantity: o.quantity,
       priceKrw: o.priceKrw,
       priceVnd: o.priceVnd?.toString() ?? null,
+      // 발주된(PENDING_VENDOR·VENDOR_ACCEPTED) 주문은 셀프 취소 불가 — UI가 취소버튼 숨김.
+      dispatched: o.vendorStatus === "PENDING_VENDOR" || o.vendorStatus === "VENDOR_ACCEPTED",
       // 희망 날짜는 @db.Date(자정 UTC 저장) → YYYY-MM-DD. 시간은 "HH:MM" 문자열 그대로.
       serviceDate: o.serviceDate ? o.serviceDate.toISOString().slice(0, 10) : null,
       serviceTime: o.serviceTime ?? null,

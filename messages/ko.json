@@ -495,8 +495,14 @@
         "actions": {
           "CREATE": "예약 생성",
           "UPDATE": "예약 수정",
-          "DELETE": "삭제"
+          "DELETE": "삭제",
+          "GUEST_PAYMENT_NOTICE": "게스트 입금통보"
         }
+      },
+      "paymentNotice": {
+        "title": "게스트 입금통보됨",
+        "withName": "입금자명 “{name}” · {at} 통보됨. 은행 입금 내역을 대조한 뒤 입금을 확정하세요.",
+        "noName": "{at} 통보됨. 은행 입금 내역을 대조한 뒤 입금을 확정하세요."
       },
       "memo": {
         "title": "내부 메모",

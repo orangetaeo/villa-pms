@@ -151,6 +151,24 @@ export default async function BookingDetailPage({
     },
   });
 
+  // 게스트 입금통보 (B1) — 가장 최근 1건. 게스트가 계좌이체 후 보낸 "입금했어요" 신호.
+  // 운영자가 입금 확정 전 은행 대조 시 참고. depositorName·notedAt은 changes JSON에서 추출.
+  const paymentNoticeLog = await prisma.auditLog.findFirst({
+    where: { entity: "Booking", entityId: id, action: "GUEST_PAYMENT_NOTICE" },
+    orderBy: { createdAt: "desc" },
+    select: { changes: true, createdAt: true },
+  });
+  const paymentNotice = paymentNoticeLog
+    ? (() => {
+        const c = paymentNoticeLog.changes as
+          | { depositorName?: { new?: unknown } }
+          | null;
+        const name =
+          c && typeof c.depositorName?.new === "string" ? c.depositorName.new : null;
+        return { depositorName: name, notedAt: paymentNoticeLog.createdAt };
+      })()
+    : null;
+
   // ── 부가서비스 주문 패널 (ADR-0019 S2) ──
   // 원가(costVnd)는 showFinance(canViewFinance)만 select·직렬화. 카탈로그명은 주문에 연결해 표시.
   const tServices = await getTranslations("adminServices");
@@ -605,6 +623,27 @@ export default async function BookingDetailPage({
               <p className="text-[11px] text-[#475569]">{t("detail.price.locked")}</p>
             </div>
           </section>
+
+          {/* 게스트 입금통보 (B1) — 게스트가 done 화면에서 "입금했습니다" 신호를 보낸 경우 알림.
+              운영자가 은행 대조 후 입금 확정하는 데 참고. 상태는 자동 변경되지 않음. */}
+          {paymentNotice && (
+            <div className="bg-teal-500/10 border border-teal-500/30 rounded-xl p-4 flex items-start gap-3">
+              <span className="material-symbols-outlined text-teal-400 mt-0.5">receipt_long</span>
+              <div className="space-y-0.5">
+                <p className="text-sm font-bold text-teal-300">{t("detail.paymentNotice.title")}</p>
+                <p className="text-xs text-admin-muted">
+                  {paymentNotice.depositorName
+                    ? t("detail.paymentNotice.withName", {
+                        name: paymentNotice.depositorName,
+                        at: formatDateTime(paymentNotice.notedAt),
+                      })
+                    : t("detail.paymentNotice.noName", {
+                        at: formatDateTime(paymentNotice.notedAt),
+                      })}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* 결제 기록 — ADMIN(canViewFinance)은 실수납 패널(요약·추가·삭제), STAFF는 읽기전용(금액 비표시) */}
           {paymentPanel ? (

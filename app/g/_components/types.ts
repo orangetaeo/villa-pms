@@ -11,6 +11,10 @@ export interface GuestBookingView {
   nights: number;
   guestCount: number;
   breakfastIncluded: boolean;
+  // ── 출입 정보(A1) — 게스트 전용. /p 공개페이지엔 없음(원칙2). ──
+  address: string | null; // 주소(있을 때만 지도 링크)
+  wifiSsid: string | null; // 와이파이 이름
+  wifiPassword: string | null; // ⚠ 비번 — 서명(signed) 완료 후에만 표시
 }
 
 /** G2 비품 — 카테고리별로 묶은 라벨(서버에서 lang 해석 완료) */
@@ -58,6 +62,8 @@ export interface GuestRequestedOrder {
   quantity: number;
   priceKrw: number | null;
   priceVnd: string | null;
+  /** 원천공급자에게 발주된(살아있는) 주문 — true면 셀프 취소 불가(취소버튼 숨김, 운영자 문의 안내). */
+  dispatched: boolean;
   /** 선택한 옵션 라벨(언어 해석 완료) — 예: ["90분", "발 마사지 추가"]. 없으면 빈 배열. */
   optionLabels: string[];
   /** 희망 날짜(YYYY-MM-DD)·시간("HH:MM") — 신청 시 입력(필수). */
