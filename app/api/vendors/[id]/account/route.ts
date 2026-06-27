@@ -10,10 +10,11 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isSystemAdmin } from "@/lib/permissions";
+import { BCRYPT_ROUNDS, PASSWORD_MIN, isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 
 const createSchema = z.object({
   phone: z.string(),
-  password: z.string().min(8),
+  password: z.string().min(PASSWORD_MIN).refine(isStrongPassword, PASSWORD_POLICY_MESSAGE),
 });
 
 // POST — 공급자 로그인 계정 생성 (Role=VENDOR, 초기 비번 → 첫 로그인 후 변경 강제)
@@ -71,7 +72,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   // 비밀번호 해시 — auth.ts와 동일 bcryptjs
-  const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+  const passwordHash = await bcrypt.hash(parsed.data.password, BCRYPT_ROUNDS);
 
   // 계정 생성 + 공급자 연결을 한 트랜잭션으로 묶어 원자성 보장
   const created = await prisma.$transaction(async (tx) => {

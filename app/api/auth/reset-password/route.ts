@@ -12,6 +12,7 @@ import {
   verifyResetCode,
   RESET_MIN_PASSWORD,
 } from "@/lib/password-reset";
+import { BCRYPT_ROUNDS, isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 
 const RESET_PHONE_LIMIT = { max: 10, windowMs: 10 * 60_000 };
 const RESET_IP_LIMIT = { max: 30, windowMs: 10 * 60_000 };
@@ -19,7 +20,7 @@ const RESET_IP_LIMIT = { max: 30, windowMs: 10 * 60_000 };
 const schema = z.object({
   phone: z.string().min(1),
   code: z.string().regex(/^\d{6}$/),
-  newPassword: z.string().min(RESET_MIN_PASSWORD),
+  newPassword: z.string().min(RESET_MIN_PASSWORD).refine(isStrongPassword, PASSWORD_POLICY_MESSAGE),
 });
 
 export async function POST(req: Request) {
@@ -77,7 +78,7 @@ export async function POST(req: Request) {
   }
 
   // 검증 성공 — 비밀번호 교체 + 토큰 사용 처리(원자적). 임시 비번 게이트도 해제.
-  const passwordHash = await bcrypt.hash(newPassword, 10);
+  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: user.id },

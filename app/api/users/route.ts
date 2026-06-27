@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import type { Role } from "@prisma/client";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isSystemAdmin } from "@/lib/permissions";
+import { BCRYPT_ROUNDS, PASSWORD_MIN, isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 
 // GET ?role= 필터 화이트리스트 — 운영자 역할(OWNER/MANAGER/STAFF) 포함 (S-RBAC-4)
 const ROLES = ["OWNER", "MANAGER", "STAFF", "ADMIN", "SUPPLIER", "CLEANER"] as const;
@@ -27,7 +28,7 @@ const DEFAULT_LOCALE: Record<(typeof ASSIGNABLE_ROLES)[number], "ko" | "vi"> = {
 const createSchema = z.object({
   name: z.string().min(1),
   phone: z.string(),
-  password: z.string().min(8),
+  password: z.string().min(PASSWORD_MIN).refine(isStrongPassword, PASSWORD_POLICY_MESSAGE),
   role: z.enum(ASSIGNABLE_ROLES),
   locale: z.enum(["ko", "vi"]).optional(),
 });
@@ -130,7 +131,7 @@ export async function POST(req: Request) {
   }
 
   // 비밀번호 해시 — auth.ts와 동일 bcryptjs
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
   const locale = parsed.data.locale ?? DEFAULT_LOCALE[role];
 
   const created = await prisma.user.create({

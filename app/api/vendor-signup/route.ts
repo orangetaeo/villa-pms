@@ -9,6 +9,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { BCRYPT_ROUNDS, PASSWORD_MIN, isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
 import type { Prisma } from "@prisma/client";
 
 // 공개·미인증 가입 스팸 방어 (rate-limit, T-sec-public-hardening 패턴 재사용).
@@ -17,7 +18,7 @@ const SIGNUP_IP_LIMIT = { max: 10, windowMs: 60 * 60_000 };
 const signupSchema = z.object({
   name: z.string().min(1).max(120),
   phone: z.string(),
-  password: z.string().min(8),
+  password: z.string().min(PASSWORD_MIN).refine(isStrongPassword, PASSWORD_POLICY_MESSAGE),
   zaloUserId: z.string().max(64).optional(),
   bankBank: z.string().max(120).optional(),
   bankAccount: z.string().max(120).optional(),
@@ -64,7 +65,7 @@ export async function POST(req: Request) {
   }
 
   // 비밀번호 해시 — auth.ts와 동일 bcryptjs
-  const passwordHash = await bcrypt.hash(d.password, 10);
+  const passwordHash = await bcrypt.hash(d.password, BCRYPT_ROUNDS);
 
   // 정산 계좌 정보 — 입력된 필드가 하나라도 있을 때만 JSON 구성
   const bankInfo: Prisma.InputJsonValue | undefined =

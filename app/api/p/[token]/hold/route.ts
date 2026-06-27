@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { createHoldFromProposalItem, HoldRejectedError } from "@/lib/hold";
 import { MissingRateError } from "@/lib/pricing";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { assertSameOrigin } from "@/lib/csrf";
 
 // 공개·미인증 엔드포인트 폭주 방어 (T-sec-public-hardening)
 // 토큰: 경로값이라 스푸핑 불가(1차) / IP: best-effort(XFF). 제안 ACTIVE→USED 가드로
@@ -31,6 +32,10 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
+
+  // 교차출처 위조 차단 (보안 P1-S9)
+  const csrf = await assertSameOrigin(req, "p-hold");
+  if (csrf) return csrf;
 
   // 폭주 방어 — 토큰(스푸핑 불가)·IP(best-effort) 양 윈도우. 초과 시 429.
   const ip = clientIp(req.headers);

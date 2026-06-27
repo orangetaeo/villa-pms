@@ -3,6 +3,7 @@ import { BookingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { assertSameOrigin } from "@/lib/csrf";
 
 /**
  * POST /api/p/[token]/roster — 여행사 셀프 투숙객 명단 입력 (비로그인, 안 B)
@@ -28,6 +29,10 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
+
+  // 교차출처 위조 차단 (보안 P1-S9)
+  const csrf = await assertSameOrigin(req, "p-roster");
+  if (csrf) return csrf;
 
   const ip = clientIp(req.headers);
   const tokenOk = checkRateLimit(`roster:token:${token}`, ROSTER_TOKEN_LIMIT).allowed;
