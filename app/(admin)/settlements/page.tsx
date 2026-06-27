@@ -12,6 +12,8 @@ import { formatThousands, formatVnd, formatDateTime } from "@/lib/format";
 import { toDateOnlyString, todayVnDateString, resolveQuickRange } from "@/lib/date-vn";
 import { monthRangeUtc, SETTLEMENT_BOOKING_STATUSES } from "@/lib/settlement";
 import { summarizeFinance, type FinanceBooking } from "@/lib/settlement-finance";
+import { krwApproxText } from "@/lib/money-display";
+import { getFxVndPerKrw } from "@/lib/pricing";
 import {
   verifyLedger,
   summarizeLedgerBalances,
@@ -82,7 +84,7 @@ export default async function SettlementsPage({
         status: { in: [...SETTLEMENT_BOOKING_STATUSES] },
         checkOut: { gte: start, lt: end },
       },
-      _sum: { totalSaleKrw: true, totalSaleVnd: true },
+      _sum: { totalSaleKrw: true, totalSaleVnd: true, totalSaleUsd: true },
     }),
     // 운영자 손익(수납·환산·환차·마진) 파생용 — 정산 대상 예약의 금액·통화·환율 스냅샷 + 공급자.
     // ★ ADMIN(canViewFinance) 전용 — 마진·VND환산은 server에서만 계산, 공급자 미노출.
@@ -95,8 +97,10 @@ export default async function SettlementsPage({
         saleCurrency: true,
         totalSaleKrw: true,
         totalSaleVnd: true,
+        totalSaleUsd: true,
         supplierCostVnd: true,
         fxVndPerKrw: true,
+        fxVndPerUsd: true,
         villa: { select: { supplierId: true } },
         // 정산 2차 P2-1 — 실수납 합산용 (Payment.vndEquivalent). ADMIN 전용.
         payments: { select: { vndEquivalent: true } },
@@ -113,14 +117,18 @@ export default async function SettlementsPage({
     saleCurrency: (typeof settledBookings)[number]["saleCurrency"];
     totalSaleKrw: number | null;
     totalSaleVnd: bigint | null;
+    totalSaleUsd: number | null;
     supplierCostVnd: bigint;
     fxVndPerKrw: { toString(): string } | null;
+    fxVndPerUsd: { toString(): string } | null;
   }): FinanceBooking => ({
     saleCurrency: b.saleCurrency,
     totalSaleKrw: b.totalSaleKrw,
     totalSaleVnd: b.totalSaleVnd,
+    totalSaleUsd: b.totalSaleUsd,
     supplierCostVnd: b.supplierCostVnd,
     fxVndPerKrw: b.fxVndPerKrw != null ? b.fxVndPerKrw.toString() : null,
+    fxVndPerUsd: b.fxVndPerUsd != null ? b.fxVndPerUsd.toString() : null,
   });
   const financeBookings = settledBookings.map(toFinanceBooking);
   const finance = summarizeFinance(financeBookings);
@@ -171,10 +179,14 @@ export default async function SettlementsPage({
     })),
   }));
 
+  // 나이키식 ≈₩원화 근사 표기용 — 현재 FX_VND_PER_KRW(없으면 ≈₩ 숨김)
+  const fxVndPerKrw = await getFxVndPerKrw(prisma);
+
   const summary = {
     // b7 표기: KRW는 "12,450,000원", VND는 "86,200,000₫" (ADMIN 쉼표 규칙)
     krwRevenueText: `${formatThousands(revenue._sum.totalSaleKrw ?? 0)}원`,
     vndRevenueText: formatVnd((revenue._sum.totalSaleVnd ?? 0n).toString()),
+    usdRevenueText: `$${formatThousands(revenue._sum.totalSaleUsd ?? 0)}`,
     supplierCount: settlements.length,
     totalPayoutText: formatVnd(totalPayoutVnd.toString()),
   };
@@ -183,7 +195,10 @@ export default async function SettlementsPage({
   const financeSummary = {
     collectedKrwText: `${formatThousands(finance.collectedKrw)}원`,
     collectedVndText: formatVnd(finance.collectedVnd.toString()),
+    collectedUsdText: finance.collectedUsd > 0 ? `$${formatThousands(finance.collectedUsd)}` : null,
     collectedVndEquivalentText: formatVnd(finance.collectedVndEquivalent.toString()),
+    collectedVndEqKrwText: krwApproxText(finance.collectedVndEquivalent, fxVndPerKrw),
+    marginKrwText: krwApproxText(finance.marginVnd, fxVndPerKrw),
     // 정산 2차 P2-1 — 실수납 합계·미수(견적 환산 − 실수납). 미수 양수=받을 돈, 음수=초과수납.
     actualCollectedText: formatVnd(actualCollectedVnd.toString()),
     outstandingText: fmtSignedVnd(outstandingVnd),

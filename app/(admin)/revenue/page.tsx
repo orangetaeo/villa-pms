@@ -66,8 +66,8 @@ export default async function RevenuePage({
   const channel = ["TRAVEL_AGENCY", "LAND_AGENCY", "DIRECT"].includes(params.channel ?? "")
     ? (params.channel as "TRAVEL_AGENCY" | "LAND_AGENCY" | "DIRECT")
     : undefined;
-  const currency = ["KRW", "VND"].includes(params.currency ?? "")
-    ? (params.currency as "KRW" | "VND")
+  const currency = ["KRW", "VND", "USD"].includes(params.currency ?? "")
+    ? (params.currency as "KRW" | "VND" | "USD")
     : undefined;
   const includeAllStatuses = params.all === "1";
 

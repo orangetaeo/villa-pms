@@ -60,7 +60,7 @@ export async function GET(req: Request) {
     ? (channelRaw as "TRAVEL_AGENCY" | "LAND_AGENCY" | "DIRECT")
     : undefined;
   const currencyRaw = sp.get("currency") ?? "";
-  const currency = ["KRW", "VND"].includes(currencyRaw) ? (currencyRaw as "KRW" | "VND") : undefined;
+  const currency = ["KRW", "VND", "USD"].includes(currencyRaw) ? (currencyRaw as "KRW" | "VND" | "USD") : undefined;
   const includeAllStatuses = sp.get("all") === "1";
 
   const tSvc = await getTranslations("adminStatistics");

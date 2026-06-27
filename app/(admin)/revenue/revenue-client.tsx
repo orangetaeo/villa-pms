@@ -56,7 +56,7 @@ interface ActiveFilters {
   channel: "TRAVEL_AGENCY" | "LAND_AGENCY" | "DIRECT" | null;
   villaId: string | null;
   partnerId: string | null;
-  currency: "KRW" | "VND" | null;
+  currency: "KRW" | "VND" | "USD" | null;
   includeAllStatuses: boolean;
 }
 
@@ -345,6 +345,7 @@ export default function RevenueClient(props: Props) {
             <option value="">{t("filters.allCurrencies")}</option>
             <option value="KRW">KRW</option>
             <option value="VND">VND</option>
+            <option value="USD">USD</option>
           </select>
 
           {/* 전체 상태 포함 토글 */}

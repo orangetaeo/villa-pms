@@ -40,6 +40,8 @@ export interface SettlementRow {
 interface SummaryProps {
   krwRevenueText: string;
   vndRevenueText: string;
+  /** USD 매출(USD 예약). "$0"이면 카드 숨김 — Phase 2 */
+  usdRevenueText?: string;
   supplierCount: number;
   totalPayoutText: string;
 }
@@ -48,7 +50,13 @@ interface SummaryProps {
 export interface FinanceSummaryProps {
   collectedKrwText: string;
   collectedVndText: string;
+  /** USD 수납 원본(USD 예약, 0이면 null → 줄 숨김) — Phase 2 */
+  collectedUsdText: string | null;
   collectedVndEquivalentText: string;
+  /** 환산 합의 원화 근사 "≈ ₩…" (환율 없으면 null) — 나이키식 */
+  collectedVndEqKrwText: string | null;
+  /** 마진의 원화 근사 "≈ ₩…" (환율 없으면 null) */
+  marginKrwText: string | null;
   /** 정산 2차 P2-1 — 실수납 합계(Payment.vndEquivalent 합) */
   actualCollectedText: string;
   /** 미수(견적 환산 − 실수납). 양수=받을 돈, 음수=초과수납 */
@@ -416,6 +424,15 @@ export default function SettlementsView({
               value={summary.vndRevenueText}
               sub={t("summary.vndChannel")}
             />
+            {summary.usdRevenueText && summary.usdRevenueText !== "$0" && (
+              <SummaryCard
+                icon="payments"
+                chip="USD"
+                label={t("summary.usdRevenue")}
+                value={summary.usdRevenueText}
+                sub={t("summary.usdChannel")}
+              />
+            )}
             <SummaryCard
               icon="group"
               chip="ACTIVE"
@@ -453,10 +470,16 @@ export default function SettlementsView({
           <FinanceCell label={t("finance.collected")} sub={t("summary.currencyNote")}>
             <span className="block text-sm font-bold text-slate-100 tabular-nums">{financeSummary.collectedKrwText}</span>
             <span className="block text-sm font-bold text-slate-100 tabular-nums">{financeSummary.collectedVndText}</span>
+            {financeSummary.collectedUsdText && (
+              <span className="block text-sm font-bold text-emerald-300 tabular-nums">{financeSummary.collectedUsdText}</span>
+            )}
           </FinanceCell>
-          {/* VND 환산 합 (견적 기준) */}
+          {/* VND 환산 합 (견적 기준) — VND 크게 + ≈₩원화 근사(나이키식) */}
           <FinanceCell label={t("finance.collectedVndEq")} sub={t("finance.fxSnapshotNote")}>
             <span className="text-lg font-black text-slate-100 tabular-nums">{financeSummary.collectedVndEquivalentText}</span>
+            {financeSummary.collectedVndEqKrwText && (
+              <span className="block text-xs font-medium text-slate-400 tabular-nums">{financeSummary.collectedVndEqKrwText}</span>
+            )}
           </FinanceCell>
           {/* 실수납 합계 (정산 2차 P2-1 — 실제 입금) */}
           <FinanceCell label={t("finance.actualCollected")} sub={t("finance.actualCollectedSub")}>
@@ -476,7 +499,7 @@ export default function SettlementsView({
           <FinanceCell label={t("finance.payout")} sub={t("finance.payoutSub")}>
             <span className="text-lg font-black text-amber-400 tabular-nums">{financeSummary.payoutText}</span>
           </FinanceCell>
-          {/* 마진 */}
+          {/* 마진 — VND 크게 + ≈₩원화 근사(나이키식) */}
           <FinanceCell label={t("finance.margin")} sub={t("finance.marginSub")}>
             <span
               className={`text-lg font-black tabular-nums ${
@@ -485,6 +508,9 @@ export default function SettlementsView({
             >
               {financeSummary.marginVndText}
             </span>
+            {financeSummary.marginKrwText && (
+              <span className="block text-xs font-medium text-slate-400 tabular-nums">{financeSummary.marginKrwText}</span>
+            )}
           </FinanceCell>
         </div>
         {financeSummary.fxMissingCount > 0 && (

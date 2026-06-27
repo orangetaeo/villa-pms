@@ -2083,7 +2083,9 @@
       "suppliers": "지급 대상 공급자",
       "suppliersValue": "{count}명",
       "totalPayout": "총 지급액 (VND)",
-      "currencyNote": "통화별 별도 집계 — KRW와 VND는 합산하지 않습니다"
+      "currencyNote": "통화별 별도 집계 — KRW와 VND는 합산하지 않습니다",
+      "usdRevenue": "USD 매출",
+      "usdChannel": "USD 예약(외국 게스트)"
     },
     "finance": {
       "title": "운영자 손익 (매출·환차·마진)",
@@ -3190,7 +3192,13 @@
         "rowServices": "부가서비스",
         "rowMinibar": "미니바",
         "rowTotal": "합계",
-        "marginRate": "마진율"
+        "marginRate": "마진율",
+        "colUsd": "USD"
+      },
+      "headline": {
+        "revenue": "총 매출 (환산)",
+        "margin": "환산 마진",
+        "revenueNote": "통합 환산 매출 = KRW·USD를 예약 시점 환율로 VND 환산 + VND 원본 합산 (표시용 근사치)"
       }
     },
     "occupancy": {

@@ -2192,7 +2192,9 @@
       "suppliers": "Nhà cung cấp cần thanh toán",
       "suppliersValue": "{count} người",
       "totalPayout": "Tổng thanh toán (VND)",
-      "currencyNote": "Tổng hợp riêng theo từng loại tiền — không cộng gộp KRW và VND"
+      "currencyNote": "Tổng hợp riêng theo từng loại tiền — không cộng gộp KRW và VND",
+      "usdRevenue": "Doanh thu USD",
+      "usdChannel": "Đặt phòng USD (khách nước ngoài)"
     },
     "finance": {
       "title": "Lợi nhuận vận hành (doanh thu·chênh lệch tỷ giá·lãi)",
@@ -3190,7 +3192,13 @@
         "rowServices": "Dịch vụ",
         "rowMinibar": "Minibar",
         "rowTotal": "Tổng",
-        "marginRate": "Tỷ suất LN"
+        "marginRate": "Tỷ suất LN",
+        "colUsd": "USD"
+      },
+      "headline": {
+        "revenue": "Tổng doanh thu (quy đổi)",
+        "margin": "Lợi nhuận (quy đổi)",
+        "revenueNote": "Doanh thu quy đổi = KRW·USD quy đổi sang VND theo tỷ giá lúc đặt + VND gốc (giá trị gần đúng)"
       }
     },
     "occupancy": {
