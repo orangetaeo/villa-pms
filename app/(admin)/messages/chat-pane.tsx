@@ -126,6 +126,17 @@ export interface ChatMessage {
   canInteract: boolean;
 }
 
+// 낙관적(전송 중) 메시지 — 엔터 즉시 대화창에 "전송 중" 버블로 띄우고, 번역·발송은 백그라운드로 처리.
+//  text=내가 친 원문(서버 outbound 기록의 text와 동일 → 진짜 메시지 도착 시 매칭해 prune).
+//  baselineCount=생성 시점에 이미 있던 동일 본문 outbound 개수(이보다 많아지면 진짜 메시지 도착으로 판단).
+export interface PendingMessage {
+  id: string; // 임시 id ("pending-<n>")
+  text: string;
+  status: "sending" | "failed";
+  error?: string;
+  baselineCount: number;
+}
+
 // 리액션 아이콘 키 → 이모지 (picker·배지 표시). 키는 REACTION_KEYS(zca-js Reactions enum)와 동일.
 // 서버에 없는 키가 와도(미래 확장) 배지엔 키 그대로 폴백 표시.
 const REACTION_EMOJI: Record<string, string> = {
@@ -389,6 +400,50 @@ export function ChatPane({
     return [...olderUnique, ...initialMessages];
   }, [olderMessages, initialMessages]);
 
+  // ── 낙관적(전송 중) 메시지 ──
+  // 엔터를 치면 번역·발송이 끝나기 전에 "전송 중" 버블을 대화창에 먼저 띄운다(입력창은 즉시 재사용 가능).
+  // 진짜 메시지가 폴링/refresh로 도착하면(동일 본문 outbound 개수 증가) prune. 실패하면 빨간 안내로 전환.
+  const [pending, setPending] = useState<PendingMessage[]>([]);
+  const pendingCounterRef = useRef(0);
+
+  // 대화 전환 시 전송 중 버블 초기화(다른 대화에 잔류 방지).
+  useEffect(() => {
+    setPending([]);
+  }, [conversationId]);
+
+  // 전송 중 버블 추가 — 생성 시점의 동일 본문 outbound 개수를 baseline으로 기록(중복 본문 오판 방지).
+  const addPending = useCallback(
+    (bodyText: string) => {
+      const id = `pending-${pendingCounterRef.current++}`;
+      const baselineCount = initialMessages.filter(
+        (m) => m.kind === "outbound" && m.text === bodyText,
+      ).length;
+      setPending((p) => [...p, { id, text: bodyText, status: "sending", baselineCount }]);
+      return id;
+    },
+    [initialMessages],
+  );
+
+  // 발송 실패 — 해당 버블을 빨간 안내(에러)로 전환(입력 본문은 유실되지 않고 버블에 남는다).
+  const failPending = useCallback((id: string, error: string) => {
+    setPending((p) => p.map((m) => (m.id === id ? { ...m, status: "failed", error } : m)));
+  }, []);
+
+  // 진짜 메시지 도착 시 전송 중 버블 prune — 동일 본문 outbound 개수가 baseline 초과면 그 버블 제거.
+  useEffect(() => {
+    setPending((prev) => {
+      if (prev.length === 0) return prev;
+      const counts = new Map<string, number>();
+      for (const m of initialMessages) {
+        if (m.kind === "outbound") counts.set(m.text, (counts.get(m.text) ?? 0) + 1);
+      }
+      const next = prev.filter(
+        (m) => m.status === "failed" || (counts.get(m.text) ?? 0) <= m.baselineCount,
+      );
+      return next.length === prev.length ? prev : next;
+    });
+  }, [initialMessages]);
+
   // ── 답글 대상 (R3-2) — 메시지에서 "답글" 클릭 시 Composer 위에 인용 미리보기 ──
   // 대화 전환 시 자동 해제(아래 effect). 미리보기엔 보낸이·본문 스냅샷만 보관.
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
@@ -560,6 +615,13 @@ export function ChatPane({
     justSentRef.current = true;
   }, []);
 
+  // 전송 중 버블이 새로 추가되면 즉시 최하단으로(내가 방금 보낸 것이 보이게). 진짜 메시지는 위 messages effect가 처리.
+  const prevPendingLenRef = useRef(0);
+  useLayoutEffect(() => {
+    if (pending.length > prevPendingLenRef.current) scrollToBottom("auto");
+    prevPendingLenRef.current = pending.length;
+  }, [pending, scrollToBottom]);
+
   // 메시지 목록 변화 감지 → 자동 스크롤 판단 (폴링 refresh·전송·대화 전환 모두 정합)
   // useLayoutEffect: 대화 전환/전송 시 paint 전에 최하단으로 점프 → 위에서 아래로 스크롤되는 게
   // 보이지 않고 처음부터 최신 메시지가 보인다(useEffect면 top 1프레임 노출 후 점프).
@@ -717,6 +779,10 @@ export function ChatPane({
                 />
               ))
             )}
+            {/* 전송 중(낙관적) 버블 — 엔터 즉시 표시, 진짜 메시지 도착/실패 시 교체 */}
+            {pending.map((m) => (
+              <PendingBubble key={m.id} message={m} t={t} />
+            ))}
             <div ref={bottomRef} />
           </div>
 
@@ -758,6 +824,8 @@ export function ChatPane({
           replyTarget={replyTarget}
           onClearReply={() => setReplyTarget(null)}
           onSent={markJustSent}
+          onOptimisticSend={addPending}
+          onOptimisticFail={failPending}
           t={t}
           router={router}
         />
@@ -1672,6 +1740,44 @@ function OutboundBubble({
   );
 }
 
+/** 전송 중(낙관적) 버블 — 엔터 즉시 표시. 발신 버블과 같은 우측 정렬·파랑 톤이되 살짝 흐리게 + 스피너.
+ *  번역·발송이 끝나 진짜 메시지가 도착하면 ChatPane이 이 버블을 prune하고 정식 OutboundBubble로 교체한다.
+ *  실패 시 status="failed"로 빨간 안내(본문은 그대로 남아 사용자가 다시 입력할 필요 없이 확인 가능). */
+function PendingBubble({
+  message,
+  t,
+}: {
+  message: PendingMessage;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const failed = message.status === "failed";
+  return (
+    <div className="flex justify-end">
+      <div className="max-w-[70%] text-right min-w-0">
+        <div
+          className={`rounded-xl rounded-br-sm px-4 py-3 inline-block text-left ${
+            failed ? "bg-blue-600/40" : "bg-blue-600/70"
+          }`}
+        >
+          <p className="text-sm text-white whitespace-pre-wrap break-words">{message.text}</p>
+        </div>
+        <div className="mt-1 flex items-center justify-end gap-1 text-[10px] tabular-nums">
+          {failed ? (
+            <span className="text-red-400">{message.error ?? t("statusFailed")}</span>
+          ) : (
+            <span className="flex items-center gap-1 text-slate-500">
+              <span className="material-symbols-outlined text-[13px] animate-spin leading-none">
+                progress_activity
+              </span>
+              {t("statusSending")}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SystemBubble({
   message,
   t,
@@ -2312,6 +2418,8 @@ function Composer({
   replyTarget,
   onClearReply,
   onSent,
+  onOptimisticSend,
+  onOptimisticFail,
   t,
   router,
 }: {
@@ -2326,6 +2434,10 @@ function Composer({
   replyTarget: ReplyTarget | null;
   onClearReply: () => void;
   onSent: () => void;
+  // 엔터 즉시 "전송 중" 버블을 대화창에 추가하고 임시 id 반환(번역·발송은 백그라운드).
+  onOptimisticSend: (text: string) => string;
+  // 발송 실패 시 해당 버블을 빨간 안내로 전환.
+  onOptimisticFail: (id: string, error: string) => void;
   t: ReturnType<typeof useTranslations>;
   router: ReturnType<typeof useRouter>;
 }) {
@@ -2336,7 +2448,6 @@ function Composer({
   const previewForRef = useRef("");
   const previewModeRef = useRef(translateMode);
   const [translating, setTranslating] = useState(false);
-  const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const refresh = useMutationRefresh(router); // perf #2: 발신 후 스레드 즉시 재fetch(클라) 또는 router.refresh(레거시)
   // ── @멘션 (그룹 대화 전용, Nike chat-input 패턴 이식) ──────────────────────
@@ -2479,67 +2590,71 @@ function Composer({
 
   async function send() {
     const body = text.trim();
-    if (!body || sending) return;
-    setSending(true);
+    if (!body) return;
+
+    // ── 발송에 필요한 값 스냅샷 ──
+    // 입력창은 곧바로 비워 다음 메시지를 바로 칠 수 있게 한다(번역·발송은 백그라운드).
+    // 따라서 payload에 쓸 값(답글·재사용 번역·멘션)을 비우기 전에 먼저 캡처한다.
+    const replyId = replyTarget?.messageId ?? null;
+    // W1: 번역 모드 ON이고, 미리보기가 현재 입력(body)에 대한 settled 번역이면 그대로 재사용 →
+    //   서버 재번역 생략(발송당 Gemini 2회→1회). 번역 진행 중·입력 변경 시엔 미첨부(서버가 번역).
+    const reuseTranslated =
+      previewEnabled &&
+      !translating &&
+      preview &&
+      previewForRef.current === body &&
+      previewModeRef.current === translateMode
+        ? preview
+        : null;
+    // @멘션(그룹 전용) — 본문에 여전히 토큰이 살아있는 멘션만 전송.
+    let mentions: MentionData[] | null = null;
+    if (isGroup && mentionsRef.current.length > 0) {
+      const valid = mentionsRef.current.filter((m) => body.slice(m.pos, m.pos + m.len).startsWith("@"));
+      if (valid.length > 0) mentions = valid;
+    }
+
+    // 입력창 즉시 초기화 + 답글/멘션 해제 → 채팅창을 바로 다시 쓸 수 있다.
+    setText("");
+    setPreview("");
+    previewForRef.current = "";
+    mentionsRef.current = [];
+    closeMention();
+    onClearReply();
     setError(null);
+
+    // 대화창에 "전송 중" 버블을 먼저 띄우고 최하단으로(번역이 느려도 보낸 게 바로 보임).
+    const tempId = onOptimisticSend(body);
+    onSent();
+
     try {
-      // 답글 대상이 있으면 quotedMessageId 포함(R3-2). 일반 발신이면 생략.
       const payload: Record<string, unknown> = { conversationId, text: body };
-      if (replyTarget) payload.quotedMessageId = replyTarget.messageId;
-      // W1: 번역 모드 ON이고, 미리보기가 현재 입력(body)에 대한 settled 번역이면 그대로 재사용 →
-      //   서버 재번역 생략(발송당 Gemini 2회→1회). 번역 진행 중·입력 변경 시엔 미첨부(서버가 번역).
-      if (
-        previewEnabled &&
-        !translating &&
-        preview &&
-        previewForRef.current === body &&
-        previewModeRef.current === translateMode
-      ) {
-        payload.clientTranslated = preview;
-      }
-      // @멘션(그룹 전용) — 본문에 여전히 토큰이 살아있는 멘션만 전송. body는 trim된 본문이므로
-      // 선행 공백이 없는 한 pos는 그대로 유효(textarea 본문엔 선행 공백을 두지 않음).
-      if (isGroup && mentionsRef.current.length > 0) {
-        const valid = mentionsRef.current.filter((m) => body.slice(m.pos, m.pos + m.len).startsWith("@"));
-        if (valid.length > 0) payload.mentions = valid;
-      }
+      if (replyId) payload.quotedMessageId = replyId;
+      if (reuseTranslated) payload.clientTranslated = reuseTranslated;
+      if (mentions) payload.mentions = mentions;
       const res = await fetch("/api/zalo/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       if (res.ok) {
-        setText("");
-        setPreview("");
-        mentionsRef.current = [];
-        closeMention();
-        onClearReply();
-        // 내가 전송 → 다음 메시지 반영 때 무조건 최하단으로(과거 보던 중이어도).
-        onSent();
+        // 성공 — 진짜 메시지가 폴링/refresh로 도착하면 ChatPane이 전송 중 버블을 prune한다.
         refresh();
       } else if (res.status === 409) {
-        setError(t("windowClosedWarning"));
+        onOptimisticFail(tempId, t("windowClosedWarning"));
       } else if (res.status === 400) {
-        // QUOTE_NOT_SUPPORTED(과거 메시지 인용 불가) → 안내 후 답글 해제(일반 발신으로 재시도 유도).
+        // QUOTE_NOT_SUPPORTED(과거 메시지 인용 불가) → 버블에 안내.
         let code: string | null = null;
         try {
           code = ((await res.json()) as { error?: string }).error ?? null;
         } catch {
           /* generic */
         }
-        if (code === "QUOTE_NOT_SUPPORTED") {
-          setError(t("reply.notSupported"));
-          onClearReply();
-        } else {
-          setError(t("sendFailed"));
-        }
+        onOptimisticFail(tempId, code === "QUOTE_NOT_SUPPORTED" ? t("reply.notSupported") : t("sendFailed"));
       } else {
-        setError(t("sendFailed"));
+        onOptimisticFail(tempId, t("sendFailed"));
       }
     } catch {
-      setError(t("sendFailed"));
-    } finally {
-      setSending(false);
+      onOptimisticFail(tempId, t("sendFailed"));
     }
   }
 
@@ -2865,7 +2980,7 @@ function Composer({
             <button
               type="button"
               onClick={recording ? stopRecording : startRecording}
-              disabled={transcribing || sending}
+              disabled={transcribing}
               title={recording ? t("voiceInput.stop") : t("voiceInput.start")}
               aria-label={recording ? t("voiceInput.stop") : t("voiceInput.start")}
               className={
@@ -2882,7 +2997,7 @@ function Composer({
           <button
             type="button"
             onClick={send}
-            disabled={!text.trim() || sending}
+            disabled={!text.trim()}
             aria-label={t("send")}
             className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold w-9 h-9 lg:w-auto lg:h-auto lg:px-4 lg:py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors active:scale-95 shrink-0"
           >

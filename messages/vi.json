@@ -2662,6 +2662,7 @@
     "showTranslation": "Hiện bản dịch",
     "systemBadge": "Thông báo hệ thống",
     "statusSent": "Đã gửi",
+    "statusSending": "Đang gửi…",
     "statusFailed": "Gửi thất bại",
     "statusAuto": "Tự động gửi",
     "send": "Gửi",
