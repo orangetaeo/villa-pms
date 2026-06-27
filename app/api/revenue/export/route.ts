@@ -15,18 +15,12 @@ import { canViewFinance, isOperator } from "@/lib/permissions";
 import { loadRevenueTxns, type RevenueTxnType } from "@/lib/revenue-ledger";
 import { FX_VND_PER_KRW_KEY } from "@/lib/pricing";
 import { resolveStatsPeriod, loadDataFloor } from "@/lib/statistics";
+// CSV 셀 직렬화는 공용 헬퍼 사용 — 수식 인젝션(=,+,-,@ 시작) 무력화 포함 (보안 P0-7).
+import { csvCell } from "@/lib/csv";
 
 export const runtime = "nodejs";
 
 const TXN_TYPES: RevenueTxnType[] = ["ROOM", "MINIBAR", "SERVICE"];
-
-/** CSV 셀 이스케이프 — 쉼표·따옴표·개행 포함 시 큰따옴표 감싸고 내부 따옴표 이중화. */
-function csvCell(value: string | number | null): string {
-  if (value === null || value === undefined) return "";
-  const s = String(value);
-  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
 
 export async function GET(req: Request) {
   // 운영자 + 재무 게이트 — STAFF는 매출 CSV 차단.
