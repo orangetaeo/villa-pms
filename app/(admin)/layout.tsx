@@ -61,6 +61,10 @@ const ADMIN_CLIENT_NAMESPACES = [
   "features",
   // 본인 비밀번호 변경 폼(/account) — change-password-form
   "account",
+  // 매출관리(/revenue) — revenue-client (건별 매출 거래목록·필터·요약 KPI)
+  "revenue",
+  // 부가서비스 거래처 관리(/settings/vendors) — vendors-manager
+  "adminVendors",
 ] as const;
 
 export default async function AdminLayout({
