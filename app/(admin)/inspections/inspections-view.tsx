@@ -14,6 +14,7 @@ import type { CleaningStatus, CleaningType, PhotoSpace } from "@prisma/client";
 import { formatDateTime } from "@/lib/format";
 import QuickDateFilter from "@/components/admin/quick-date-filter";
 import PaginationBar from "@/components/pagination-bar";
+import ListSearch from "@/components/list-search";
 import ImageLightbox, { type LightboxImage } from "@/components/image-lightbox";
 
 export interface TaskListItem {
@@ -94,6 +95,9 @@ export default function InspectionsView({
   const router = useRouter();
 
   const [busy, setBusy] = useState(false);
+  // 빌라명 검색 (controlled, 인메모리). 좌측 큐가 서버 페이지네이션이라 현재 페이지 안에서
+  // 부분일치 필터 — 검색 활성 시 페이지네이션은 의미가 없어 숨기고, 큐 헤더 개수도 검색 결과로 바꾼다.
+  const [search, setSearch] = useState("");
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [rejectMode, setRejectMode] = useState(false);
   const [rejectNote, setRejectNote] = useState("");
@@ -102,6 +106,14 @@ export default function InspectionsView({
   );
 
   const actionable = selected?.status === "PHOTOS_SUBMITTED";
+
+  // 검색 필터 — 상태/지역/날짜로 서버가 거르고 슬라이스한 현재 페이지(tasks) 위에서 빌라명 부분일치.
+  // (공급자명은 leak-checklist상 목록 select에 미포함이라 대상 아님 — 보고 참조)
+  const searchQ = search.trim().toLowerCase();
+  const filteredTasks = searchQ
+    ? tasks.filter((task) => task.villaName.toLowerCase().includes(searchQ))
+    : tasks;
+  const searching = searchQ.length > 0;
 
   /** 승인 — 성공 시 gateOpened=true면 판매 가능 전환 배너 (사업 핵심 원칙 3 게이트) */
   const approve = async () => {
@@ -297,6 +309,13 @@ export default function InspectionsView({
               </select>
             </div>
           )}
+          {/* 빌라명 검색 — 현재 큐(현재 페이지) 인메모리 부분일치 */}
+          <ListSearch
+            placeholder={t("searchPlaceholder")}
+            value={search}
+            onChange={setSearch}
+            className="max-w-xs"
+          />
         </div>
       </div>
 
@@ -313,14 +332,18 @@ export default function InspectionsView({
               {t("queueHeader")}
             </span>
             <span className="text-[10px] px-2 py-0.5 bg-slate-800 text-slate-300 rounded-full">
-              {t("countBadge", { count: counts[tab as TabKey] ?? pagination.total })}
+              {t("countBadge", {
+                count: searching ? filteredTasks.length : counts[tab as TabKey] ?? pagination.total,
+              })}
             </span>
           </div>
           <div className="flex-1 overflow-y-auto">
-            {tasks.length === 0 ? (
-              <p className="p-8 text-center text-sm text-admin-muted">{t("empty")}</p>
+            {filteredTasks.length === 0 ? (
+              <p className="p-8 text-center text-sm text-admin-muted">
+                {searching ? t("searchEmpty") : t("empty")}
+              </p>
             ) : (
-              tasks.map((task) => {
+              filteredTasks.map((task) => {
                 const active = task.id === selected?.id;
                 return (
                   <Link
@@ -358,8 +381,9 @@ export default function InspectionsView({
               })
             )}
           </div>
-          {/* 큐 페이지네이션 (URL 모드, 다크) — 1페이지뿐이어도 요약·개수선택 노출 */}
-          {pagination.total > 0 && (
+          {/* 큐 페이지네이션 (URL 모드, 다크) — 1페이지뿐이어도 요약·개수선택 노출.
+              검색 중에는 현재 페이지 안 인메모리 필터라 페이지 이동이 무의미해 숨김 */}
+          {!searching && pagination.total > 0 && (
             <div className="shrink-0 px-3 pb-3">
               <PaginationBar
                 total={pagination.total}

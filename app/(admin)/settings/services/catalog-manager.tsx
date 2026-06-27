@@ -14,6 +14,7 @@ import { priceKrwCeil } from "@/lib/service-display";
 import { parseCatalogOptions, SERVICE_TYPE_VALUES, generateOptionKey } from "@/lib/service-catalog";
 import { catalogImage } from "@/lib/service-image";
 import PaginationBar from "@/components/pagination-bar";
+import ListSearch from "@/components/list-search";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 // ADR-0023 — 요청 가능 채널. ADMIN은 항상 포함(운영자 늘 요청 가능 — 잠금).
@@ -143,6 +144,7 @@ export default function ServiceCatalogManager({
   const router = useRouter();
 
   const [typeFilter, setTypeFilter] = useState<string>("ALL"); // 타입 카테고리 탭
+  const [search, setSearch] = useState(""); // 목록 검색어(서비스명·타입 라벨, 인메모리)
   const [page, setPage] = useState(1); // 페이지네이션 — 현재 페이지(1-base)
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [modalOpen, setModalOpen] = useState(false);
@@ -344,13 +346,24 @@ export default function ServiceCatalogManager({
     [initialItems, typeFilter]
   );
 
-  // 목록(저장/삭제 후 refresh)·필터 변경 시 1페이지로 리셋
-  useEffect(() => setPage(1), [initialItems, typeFilter]);
+  // 타입 필터 결과에 검색을 추가 적용 — 서비스명(nameKo)·타입 라벨(t)로 매칭
+  const searched = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return visibleItems;
+    return visibleItems.filter(
+      (it) =>
+        (it.nameKo ?? "").toLowerCase().includes(q) ||
+        t(`types.${it.type}`).toLowerCase().includes(q)
+    );
+  }, [visibleItems, search, t]);
 
-  // 현재 페이지 슬라이스 — 렌더는 paged 기준, 빈 상태 체크는 전체(visibleItems) 기준 유지
+  // 목록(저장/삭제 후 refresh)·필터·검색 변경 시 1페이지로 리셋
+  useEffect(() => setPage(1), [initialItems, typeFilter, search]);
+
+  // 현재 페이지 슬라이스 — 렌더는 paged 기준, 빈 상태 체크는 검색결과(searched) 기준
   const paged = useMemo(
-    () => visibleItems.slice((page - 1) * pageSize, page * pageSize),
-    [visibleItems, page, pageSize]
+    () => searched.slice((page - 1) * pageSize, page * pageSize),
+    [searched, page, pageSize]
   );
 
   return (
@@ -376,6 +389,16 @@ export default function ServiceCatalogManager({
           </button>
         )}
       </div>
+
+      {/* 검색 — 서비스명·타입 라벨(인메모리, controlled) */}
+      {initialItems.length > 0 && (
+        <ListSearch
+          placeholder={t("searchPlaceholder")}
+          value={search}
+          onChange={setSearch}
+          className="max-w-xs"
+        />
+      )}
 
       {/* 타입 카테고리 탭 (빌라관리 상태 탭 스타일) */}
       {initialItems.length > 0 && (
@@ -410,7 +433,7 @@ export default function ServiceCatalogManager({
       {/* 리스트 — 빌라관리형 행(썸네일·이름·타입배지·판매가·원가/마진·active·수정/삭제) */}
       {initialItems.length === 0 ? (
         <p className="text-sm text-slate-500 py-12 text-center">{t("empty")}</p>
-      ) : visibleItems.length === 0 ? (
+      ) : searched.length === 0 ? (
         <p className="text-sm text-slate-500 py-12 text-center">{t("emptyFiltered")}</p>
       ) : (
         <div className="flex flex-col gap-3">
@@ -563,9 +586,9 @@ export default function ServiceCatalogManager({
         </div>
       )}
 
-      {/* 페이지네이션(controlled) — 필터링된 visibleItems 기준. 다크 admin 테마(light 미지정) */}
+      {/* 페이지네이션(controlled) — 검색·필터 결과(searched) 기준. 다크 admin 테마(light 미지정) */}
       <PaginationBar
-        total={visibleItems.length}
+        total={searched.length}
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}

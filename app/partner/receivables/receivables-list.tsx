@@ -5,6 +5,7 @@
 //   클라에서 표시 슬라이스만 한다(데이터 경계 변경 없음).
 import { useState, useEffect, useMemo } from "react";
 import PaginationBar from "@/components/pagination-bar";
+import ListSearch from "@/components/list-search";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { useTranslations } from "next-intl";
 import { formatVillaName } from "@/lib/villa-name";
@@ -26,16 +27,28 @@ export default function ReceivablesList({
 }) {
   const t = useTranslations("partner");
 
-  // controlled 페이지네이션 상태 (목록 변경 시 1페이지로 리셋)
+  // 검색(부분일치) — 빌라명(한국어·베트남어 병기) 식별 텍스트만. 데이터 경계 변경 없음(표시 필터).
+  const [search, setSearch] = useState("");
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return receivables;
+    return receivables.filter((r) =>
+      formatVillaName({ name: r.villaName, nameVi: r.villaNameVi })
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [receivables, search]);
+
+  // controlled 페이지네이션 상태 (목록·검색 변경 시 1페이지로 리셋)
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-  useEffect(() => setPage(1), [receivables]);
+  useEffect(() => setPage(1), [receivables, search]);
   const paged = useMemo(
-    () => receivables.slice((page - 1) * pageSize, page * pageSize),
-    [receivables, page, pageSize]
+    () => filtered.slice((page - 1) * pageSize, page * pageSize),
+    [filtered, page, pageSize]
   );
 
-  // 빈 상태는 전체 기준 유지
+  // 빈 상태는 전체 기준 유지(검색 결과 0건은 아래 목록 영역에서 안내)
   if (receivables.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-neutral-200 bg-white p-6 text-center text-sm text-neutral-400">
@@ -46,8 +59,24 @@ export default function ReceivablesList({
 
   return (
     <>
-      <ul className="space-y-3">
-        {paged.map((r) => (
+      {/* 검색 — 라이트(파트너 포털) */}
+      <div className="mb-3">
+        <ListSearch
+          light
+          placeholder={t("searchPlaceholder")}
+          value={search}
+          onChange={setSearch}
+          className="max-w-xs"
+        />
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-neutral-200 bg-white p-6 text-center text-sm text-neutral-400">
+          {t("receivables.empty")}
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {paged.map((r) => (
           <li
             key={r.id}
             className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm"
@@ -87,21 +116,24 @@ export default function ReceivablesList({
               {t("receivables.due", { date: formatDate(r.dueDate) })}
             </p>
           </li>
-        ))}
-      </ul>
+          ))}
+        </ul>
+      )}
 
-      {/* 라이트 테마 — 파트너 포털 */}
-      <PaginationBar
-        light
-        total={receivables.length}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={(s) => {
-          setPageSize(s);
-          setPage(1);
-        }}
-      />
+      {/* 라이트 테마 — 파트너 포털 (검색 필터 후 건수 기준) */}
+      {filtered.length > 0 && (
+        <PaginationBar
+          light
+          total={filtered.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={(s) => {
+            setPageSize(s);
+            setPage(1);
+          }}
+        />
+      )}
     </>
   );
 }

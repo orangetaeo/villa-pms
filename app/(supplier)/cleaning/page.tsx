@@ -11,6 +11,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import type { CleaningStatus, Prisma } from "@prisma/client";
 import PaginationBar from "@/components/pagination-bar";
+import ListSearch from "@/components/list-search";
 import { parsePageParams } from "@/lib/pagination";
 import { formatVillaName } from "@/lib/villa-name";
 
@@ -46,7 +47,7 @@ export const metadata: Metadata = {
 export default async function CleaningListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ submitted?: string; page?: string; pageSize?: string }>;
+  searchParams: Promise<{ submitted?: string; page?: string; pageSize?: string; q?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -58,12 +59,27 @@ export default async function CleaningListPage({
   const params = await searchParams;
   const { submitted } = params;
   const { page, pageSize, skip, take } = parsePageParams(params);
+  // 검색어(URL q 모드) — 빌라명(표시되는 name·nameVi). 기존 role 스코프 안에서만(누수 0).
+  const q = params.q?.trim() || undefined;
 
+  // role 스코프(supplierId/assigneeId) 유지 + q는 그 안에서만 검색
   const scope: Prisma.CleaningTaskWhereInput =
     role === "SUPPLIER" ? { villa: { supplierId: userId } } : { assigneeId: userId };
+  const where: Prisma.CleaningTaskWhereInput = q
+    ? {
+        ...scope,
+        villa: {
+          ...(role === "SUPPLIER" ? { supplierId: userId } : {}),
+          OR: [
+            { name: { contains: q, mode: "insensitive" } },
+            { nameVi: { contains: q, mode: "insensitive" } },
+          ],
+        },
+      }
+    : scope;
 
   const tasks = await prisma.cleaningTask.findMany({
-    where: scope,
+    where,
     orderBy: { createdAt: "desc" },
     take: 200,
     select: {
@@ -129,6 +145,13 @@ export default async function CleaningListPage({
           </p>
           <h2 className="text-2xl font-bold text-gray-900">{t("listTitle")}</h2>
         </div>
+
+        {/* 검색 (URL q 모드, 라이트) — 빌라명. 검색 중이면 결과 0건이어도 입력 유지 */}
+        {(sorted.length > 0 || q) && (
+          <div className="mb-4">
+            <ListSearch light placeholder={t("searchPlaceholder")} />
+          </div>
+        )}
 
         {sorted.length === 0 ? (
           // 빈 상태 — 체크아웃 후 자동 생성 안내

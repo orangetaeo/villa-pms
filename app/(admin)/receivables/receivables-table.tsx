@@ -4,11 +4,12 @@
 // 데이터는 서버(RSC)가 전량 집계해 표시용 필드만 내려준다(BigInt·Partner 전체 객체 미전달 — 직렬화·누수 차단).
 // KPI·Aging 합산은 전 파트너 기준이라 서버가 그대로 그리고, 이 표만 메모리 슬라이스한다.
 // 다크 admin 화면(light prop 없음). 패턴: proposals-list.tsx.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import ResponsiveTable, { type ResponsiveColumn } from "@/components/admin/responsive-table";
 import PaginationBar from "@/components/pagination-bar";
+import ListSearch from "@/components/list-search";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 // 서버가 내려주는 표시 전용 행 — 금액은 이미 formatVnd로 문자열화, 판정 결과(overdue/overLimit/has30Plus)는 boolean.
@@ -27,12 +28,22 @@ export default function ReceivablesTable({ rows }: { rows: ReceivableRow[] }) {
   const t = useTranslations("adminReceivables");
   const tp = useTranslations("adminPartners");
 
+  // 파트너 이름 검색 — 표시 슬라이스만 좁힌다(데이터 경계·집계는 서버 그대로).
+  const [search, setSearch] = useState("");
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => (r.partnerName ?? "").toLowerCase().includes(q));
+  }, [rows, search]);
+
   // 클라 페이지네이션 — 전체 로드 후 메모리 슬라이스 (controlled 모드).
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  // 행 변경·검색어 변경 시 1페이지로 되돌린다.
+  useEffect(() => setPage(1), [rows, search]);
   const paged = useMemo(
-    () => rows.slice((page - 1) * pageSize, page * pageSize),
-    [rows, page, pageSize]
+    () => filtered.slice((page - 1) * pageSize, page * pageSize),
+    [filtered, page, pageSize]
   );
 
   const columns: ResponsiveColumn<ReceivableRow>[] = [
@@ -93,6 +104,12 @@ export default function ReceivablesTable({ rows }: { rows: ReceivableRow[] }) {
 
   return (
     <>
+      <ListSearch
+        placeholder={t("searchPlaceholder")}
+        value={search}
+        onChange={setSearch}
+        className="max-w-xs mb-3"
+      />
       <ResponsiveTable
         columns={columns}
         rows={paged}
@@ -109,7 +126,7 @@ export default function ReceivablesTable({ rows }: { rows: ReceivableRow[] }) {
         )}
       />
       <PaginationBar
-        total={rows.length}
+        total={filtered.length}
         page={page}
         pageSize={pageSize}
         onPageChange={setPage}

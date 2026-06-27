@@ -8,6 +8,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import PaginationBar from "@/components/pagination-bar";
+import ListSearch from "@/components/list-search";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 export interface BankInfoDraft {
@@ -296,13 +297,23 @@ export default function VendorsManager({
     void handleApproval(v, "APPROVE");
   }
 
-  // 클라 페이지네이션 — 목록 데이터가 바뀌면 1페이지로 (전체 로드 후 메모리 슬라이스)
+  // 검색 — 거래처명·한국어명·전화·zaloUserId 부분일치(대소문자 무시). 페이지네이션 슬라이스 전에 적용.
+  const [search, setSearch] = useState("");
+  const filteredVendors = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return initialVendors;
+    return initialVendors.filter((v) =>
+      [v.name, v.nameKo, v.phone, v.zaloUserId].some((f) => (f ?? "").toLowerCase().includes(q))
+    );
+  }, [initialVendors, search]);
+
+  // 클라 페이지네이션 — 목록 데이터·검색어가 바뀌면 1페이지로 (전체 로드 후 메모리 슬라이스)
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-  useEffect(() => setPage(1), [initialVendors]);
+  useEffect(() => setPage(1), [initialVendors, search]);
   const pagedVendors = useMemo(
-    () => initialVendors.slice((page - 1) * pageSize, page * pageSize),
-    [initialVendors, page, pageSize]
+    () => filteredVendors.slice((page - 1) * pageSize, page * pageSize),
+    [filteredVendors, page, pageSize]
   );
 
   return (
@@ -329,7 +340,15 @@ export default function VendorsManager({
         )}
       </div>
 
-      {initialVendors.length === 0 ? (
+      {/* 검색 — 거래처명·한국어명·전화·Zalo ID */}
+      <ListSearch
+        placeholder={t("searchPlaceholder")}
+        value={search}
+        onChange={setSearch}
+        className="max-w-xs"
+      />
+
+      {filteredVendors.length === 0 ? (
         <p className="text-sm text-slate-500 py-12 text-center">{t("empty")}</p>
       ) : (
         <div className="flex flex-col gap-3">
@@ -516,7 +535,7 @@ export default function VendorsManager({
           ))}
           {/* 페이지네이션 — total===0이면 PaginationBar가 자체적으로 null 반환 */}
           <PaginationBar
-            total={initialVendors.length}
+            total={filteredVendors.length}
             page={page}
             pageSize={pageSize}
             onPageChange={setPage}

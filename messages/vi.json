@@ -77,7 +77,8 @@
       "rejectedBody": "Rất tiếc, đăng ký của quý vị không được chấp thuận.",
       "rejectedReasonLabel": "Lý do",
       "changePassword": "Đổi mật khẩu"
-    }
+    },
+    "searchPlaceholder": "Tìm theo tên biệt thự / kỳ"
   },
   "quickDateFilter": {
     "all": "Tất cả",
@@ -214,7 +215,8 @@
       "rejectedBody": "Rất tiếc, đăng ký của bạn chưa được chấp nhận.",
       "rejectedReasonLabel": "Lý do",
       "changePassword": "Đổi mật khẩu"
-    }
+    },
+    "searchPlaceholder": "Tìm đơn, villa, dịch vụ"
   },
   "pagination": {
     "summary": "{from}–{to} · Tổng {total}",
@@ -1414,7 +1416,8 @@
     "conflict": "Việc này đã được gửi rồi. Đang tải lại...",
     "rejectedHint": "Vui lòng dọn lại và tải ảnh mới.",
     "submittedPhotos": "Ảnh đã gửi",
-    "waitingReview": "Chờ duyệt"
+    "waitingReview": "Chờ duyệt",
+    "searchPlaceholder": "Tìm villa"
   },
   "earnings": {
     "title": "Thu nhập",
@@ -1778,7 +1781,8 @@
     "rejectConfirm": "Từ chối",
     "rejectCancel": "Hủy",
     "approvalError": "Thao tác thất bại. Vui lòng thử lại.",
-    "bankSignupBadge": "Tài khoản quyết toán"
+    "bankSignupBadge": "Tài khoản quyết toán",
+    "searchPlaceholder": "Tìm theo tên, SĐT, Zalo ID"
   },
   "adminServices": {
     "title": "Danh mục dịch vụ",
@@ -1873,7 +1877,8 @@
     "filters": {
       "allTypes": "Tất cả"
     },
-    "emptyFiltered": "Không có mục nào thuộc loại này."
+    "emptyFiltered": "Không có mục nào thuộc loại này.",
+    "searchPlaceholder": "Tìm tên dịch vụ, loại"
   },
   "adminServiceOrders": {
     "title": "Đơn dịch vụ bổ sung",
@@ -1960,7 +1965,8 @@
       "overdueOutstanding": "Nợ quá hạn",
       "overduePartners": "Đối tác quá hạn",
       "overLimit": "Đối tác vượt hạn mức"
-    }
+    },
+    "searchPlaceholder": "Tìm theo tên đối tác"
   },
   "adminPartners": {
     "title": "Quản lý đối tác",
@@ -2249,7 +2255,9 @@
       "conflict": "Quyết toán đã được xử lý. Danh sách đã được làm mới.",
       "error": "Xử lý thất bại. Vui lòng thử lại."
     },
-    "footerNote": "Thanh toán được thực hiện bằng chuyển khoản VND"
+    "footerNote": "Thanh toán được thực hiện bằng chuyển khoản VND",
+    "searchPlaceholder": "Tìm nhà cung cấp hoặc tên villa",
+    "searchEmpty": "Không tìm thấy kết quả."
   },
   "adminUsers": {
     "title": "Quản lý người dùng",
@@ -2512,7 +2520,9 @@
       "selectPrompt": "Chọn một việc từ danh sách bên trái.",
       "backToList": "Quay lại danh sách",
       "area": "Khu vực",
-      "allAreas": "Tất cả khu vực"
+      "allAreas": "Tất cả khu vực",
+      "searchPlaceholder": "Tìm theo tên villa",
+      "searchEmpty": "Không tìm thấy kết quả."
     },
     "detail": {
       "photosSubmitted": "Đã gửi {count} ảnh",
@@ -3014,7 +3024,8 @@
       "LOW": "Mùa thấp điểm",
       "HIGH": "Mùa cao điểm",
       "PEAK": "Cao điểm lễ Tết"
-    }
+    },
+    "searchPlaceholder": "Tìm khách hàng, đề xuất, biệt thự"
   },
   "bedding": {
     "KING": "Giường King",
@@ -3380,7 +3391,8 @@
       "confirmed": "Chờ nhận phòng",
       "checkedIn": "Đang lưu trú",
       "checkedOut": "Đã trả phòng"
-    }
+    },
+    "searchPlaceholder": "Tìm villa, khách"
   },
   "supplierCheckin": {
     "pageTitle": "Nhận phòng",

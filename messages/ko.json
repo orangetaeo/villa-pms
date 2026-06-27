@@ -77,7 +77,8 @@
       "rejectedBody": "죄송합니다. 가입 신청이 승인되지 않았습니다.",
       "rejectedReasonLabel": "사유",
       "changePassword": "비밀번호 변경"
-    }
+    },
+    "searchPlaceholder": "빌라명·기간 검색"
   },
   "quickDateFilter": {
     "all": "전체",
@@ -214,7 +215,8 @@
       "rejectedBody": "죄송합니다. 가입 신청이 승인되지 않았습니다.",
       "rejectedReasonLabel": "사유",
       "changePassword": "비밀번호 변경"
-    }
+    },
+    "searchPlaceholder": "발주·빌라·품목 검색"
   },
   "adminDashboard": {
     "title": "대시보드",
@@ -1305,7 +1307,8 @@
     "conflict": "이미 제출된 작업입니다. 새로고침 중...",
     "rejectedHint": "다시 청소하고 새 사진을 올려주세요.",
     "submittedPhotos": "제출된 사진",
-    "waitingReview": "승인 대기"
+    "waitingReview": "승인 대기",
+    "searchPlaceholder": "빌라명 검색"
   },
   "earnings": {
     "title": "수익",
@@ -1669,7 +1672,8 @@
     "rejectConfirm": "거절",
     "rejectCancel": "취소",
     "approvalError": "처리에 실패했습니다. 다시 시도해주세요.",
-    "bankSignupBadge": "정산계좌"
+    "bankSignupBadge": "정산계좌",
+    "searchPlaceholder": "거래처명·전화·Zalo ID 검색"
   },
   "adminServices": {
     "title": "서비스 카탈로그",
@@ -1764,7 +1768,8 @@
     "filters": {
       "allTypes": "전체"
     },
-    "emptyFiltered": "이 유형에 등록된 메뉴가 없습니다."
+    "emptyFiltered": "이 유형에 등록된 메뉴가 없습니다.",
+    "searchPlaceholder": "서비스명·유형 검색"
   },
   "adminServiceOrders": {
     "title": "부가옵션 주문",
@@ -1851,7 +1856,8 @@
       "overdueOutstanding": "연체 미수",
       "overduePartners": "연체 파트너",
       "overLimit": "한도초과 파트너"
-    }
+    },
+    "searchPlaceholder": "파트너명 검색"
   },
   "adminPartners": {
     "title": "파트너 관리",
@@ -2140,7 +2146,9 @@
       "conflict": "이미 처리된 정산입니다. 목록을 새로고침했습니다.",
       "error": "처리에 실패했습니다. 다시 시도해주세요."
     },
-    "footerNote": "지급은 VND 계좌이체로 진행됩니다"
+    "footerNote": "지급은 VND 계좌이체로 진행됩니다",
+    "searchPlaceholder": "공급자명·빌라명 검색",
+    "searchEmpty": "검색 결과가 없습니다."
   },
   "adminUsers": {
     "title": "사용자 관리",
@@ -2403,7 +2411,9 @@
       "selectPrompt": "왼쪽 목록에서 검수할 태스크를 선택하세요.",
       "backToList": "목록으로",
       "area": "지역",
-      "allAreas": "전체 지역"
+      "allAreas": "전체 지역",
+      "searchPlaceholder": "빌라명 검색",
+      "searchEmpty": "검색 결과가 없습니다."
     },
     "detail": {
       "photosSubmitted": "사진 {count}장 제출됨",
@@ -2905,7 +2915,8 @@
       "LOW": "비수기",
       "HIGH": "성수기",
       "PEAK": "극성수기"
-    }
+    },
+    "searchPlaceholder": "고객명·제안·빌라 검색"
   },
   "bedding": {
     "KING": "킹 베드",
@@ -3380,7 +3391,8 @@
       "confirmed": "체크인 대기",
       "checkedIn": "투숙 중",
       "checkedOut": "체크아웃 완료"
-    }
+    },
+    "searchPlaceholder": "빌라명·투숙객 검색"
   },
   "supplierCheckin": {
     "pageTitle": "체크인",

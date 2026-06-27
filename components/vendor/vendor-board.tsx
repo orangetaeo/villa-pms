@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
+import ListSearch from "@/components/list-search";
 
 type VendorStatus = "PENDING_VENDOR" | "VENDOR_ACCEPTED" | "VENDOR_REJECTED" | null;
 
@@ -68,6 +69,8 @@ export default function VendorBoard() {
   const [orders, setOrders] = useState<VendorOrder[] | null>(null);
   const [error, setError] = useState(false);
   const [tab, setTab] = useState<Tab>("inbox");
+  // 목록 검색어 (빌라명·품목명·옵션 라벨 부분일치) — 클라 인메모리 필터
+  const [search, setSearch] = useState("");
   // 거절 사유 시트 대상 발주 id (null=닫힘)
   const [rejectTarget, setRejectTarget] = useState<VendorOrder | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -113,8 +116,14 @@ export default function VendorBoard() {
     [load]
   );
 
-  // 섹션별 분류
-  const all = orders ?? [];
+  // 섹션별 분류 — 검색(빌라명·품목명·옵션 라벨 부분일치)을 먼저 적용해 모든 탭이 동일하게 필터됨
+  const q = search.trim().toLowerCase();
+  const all = (orders ?? []).filter((o) => {
+    if (!q) return true;
+    return [o.villaName, o.itemName, o.optionLabel].some(
+      (field) => field?.toLowerCase().includes(q)
+    );
+  });
   const inbox = all.filter((o) => o.vendorStatus === "PENDING_VENDOR");
   const accepted = all
     .filter((o) => o.vendorStatus === "VENDOR_ACCEPTED")
@@ -170,6 +179,9 @@ export default function VendorBoard() {
           );
         })}
       </div>
+
+      {/* 목록 검색 — 빌라명·품목명·옵션 라벨 부분일치 (라이트 테마) */}
+      <ListSearch light value={search} onChange={setSearch} placeholder={t("searchPlaceholder")} />
 
       {loading ? (
         <p className="py-12 text-center text-sm text-neutral-400">{t("loading")}</p>

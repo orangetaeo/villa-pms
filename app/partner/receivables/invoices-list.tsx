@@ -5,6 +5,7 @@
 //   클라에서 표시 슬라이스만 한다(데이터 경계 변경 없음).
 import { useState, useEffect, useMemo } from "react";
 import PaginationBar from "@/components/pagination-bar";
+import ListSearch from "@/components/list-search";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { useTranslations } from "next-intl";
 import type { PartnerInvoiceRow } from "@/lib/partner-portal";
@@ -22,16 +23,31 @@ const INVOICE_STATUS_STYLE: Record<string, string> = {
 export default function InvoicesList({ invoices }: { invoices: PartnerInvoiceRow[] }) {
   const t = useTranslations("partner");
 
-  // controlled 페이지네이션 상태 (목록 변경 시 1페이지로 리셋)
+  // 검색(부분일치) — 청구 기간(날짜)·상태 라벨 식별 텍스트. 데이터 경계 변경 없음(표시 필터).
+  //   ※ PartnerInvoiceRow에는 청구서번호·빌라명 필드가 없어(서버 미노출) 노출 텍스트로 검색.
+  const [search, setSearch] = useState("");
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return invoices;
+    return invoices.filter((inv) =>
+      `${formatDate(inv.periodStart)} ${formatDate(inv.periodEnd)} ${t(
+        `invoiceStatus.${inv.status}`
+      )}`
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [invoices, search, t]);
+
+  // controlled 페이지네이션 상태 (목록·검색 변경 시 1페이지로 리셋)
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-  useEffect(() => setPage(1), [invoices]);
+  useEffect(() => setPage(1), [invoices, search]);
   const paged = useMemo(
-    () => invoices.slice((page - 1) * pageSize, page * pageSize),
-    [invoices, page, pageSize]
+    () => filtered.slice((page - 1) * pageSize, page * pageSize),
+    [filtered, page, pageSize]
   );
 
-  // 빈 상태는 전체 기준 유지
+  // 빈 상태는 전체 기준 유지(검색 결과 0건은 아래 목록 영역에서 안내)
   if (invoices.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-neutral-200 bg-white p-6 text-center text-sm text-neutral-400">
@@ -42,8 +58,24 @@ export default function InvoicesList({ invoices }: { invoices: PartnerInvoiceRow
 
   return (
     <>
-      <ul className="space-y-3">
-        {paged.map((inv) => (
+      {/* 검색 — 라이트(파트너 포털) */}
+      <div className="mb-3">
+        <ListSearch
+          light
+          placeholder={t("searchPlaceholder")}
+          value={search}
+          onChange={setSearch}
+          className="max-w-xs"
+        />
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-neutral-200 bg-white p-6 text-center text-sm text-neutral-400">
+          {t("receivables.invoiceEmpty")}
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {paged.map((inv) => (
           <li
             key={inv.id}
             className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm"
@@ -70,21 +102,24 @@ export default function InvoicesList({ invoices }: { invoices: PartnerInvoiceRow
               <Field label={t("receivables.paid")} value={formatVndDot(inv.paidVnd)} />
             </dl>
           </li>
-        ))}
-      </ul>
+          ))}
+        </ul>
+      )}
 
-      {/* 라이트 테마 — 파트너 포털 */}
-      <PaginationBar
-        light
-        total={invoices.length}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={(s) => {
-          setPageSize(s);
-          setPage(1);
-        }}
-      />
+      {/* 라이트 테마 — 파트너 포털 (검색 필터 후 건수 기준) */}
+      {filtered.length > 0 && (
+        <PaginationBar
+          light
+          total={filtered.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={(s) => {
+            setPageSize(s);
+            setPage(1);
+          }}
+        />
+      )}
     </>
   );
 }

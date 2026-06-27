@@ -4,10 +4,11 @@
 // 월 이동(?yearMonth=) + 집계 실행(POST /api/settlements) + 상태 전이(PATCH /api/settlements/[id])
 // 행 확장 상세는 클라이언트 상태 — 데이터는 RSC에서 전부 주입 (추가 fetch 없음)
 // ≥768px: b7 테이블 / <768px: 카드 스택 (responsive-table 패턴 — 행 확장 때문에 직접 구현)
-import { Fragment, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import QuickDateFilter from "@/components/admin/quick-date-filter";
+import ListSearch from "@/components/list-search";
 
 export type SettlementStatusKey =
   | "DRAFT"
@@ -93,6 +94,8 @@ export default function SettlementsView({
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [generating, setGenerating] = useState(false);
+  // 클라 인메모리 검색 — 공급자명 + 빌라명(확장 상세 items.villaName) 대상. 전체 rows는 RSC 주입.
+  const [search, setSearch] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: "success" | "error"; text: string } | null>(
     null
@@ -105,6 +108,17 @@ export default function SettlementsView({
       else next.add(id);
       return next;
     });
+
+  // 검색 필터 — 공급자명 또는 빌라명(items)에 검색어 포함 시 노출. 빈 검색어면 전체.
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(
+      (row) =>
+        (row.supplierName ?? "").toLowerCase().includes(q) ||
+        row.items.some((item) => (item.villaName ?? "").toLowerCase().includes(q))
+    );
+  }, [rows, search]);
 
   const goMonth = (delta: number) => {
     setNotice(null);
@@ -375,6 +389,15 @@ export default function SettlementsView({
               <span>{generating ? t("generating") : t("generate")}</span>
             </button>
           </div>
+          {/* 공급자명·빌라명 검색 (클라 인메모리 필터, 페이지네이션 없음) */}
+          <div className="mt-3">
+            <ListSearch
+              placeholder={t("searchPlaceholder")}
+              value={search}
+              onChange={setSearch}
+              className="max-w-xs"
+            />
+          </div>
         </div>
 
         <div className="flex flex-col gap-4">
@@ -488,9 +511,10 @@ export default function SettlementsView({
         </div>
       )}
 
-      {rows.length === 0 ? (
+      {filtered.length === 0 ? (
         <div className="bg-admin-card border border-slate-800 rounded-2xl p-10 text-center text-sm text-slate-500">
-          {t("table.empty")}
+          {/* 검색어가 있으면 "검색결과 없음", 없으면 기존 빈 목록 안내 */}
+          {search.trim() ? t("searchEmpty") : t("table.empty")}
         </div>
       ) : (
         <>
@@ -520,7 +544,7 @@ export default function SettlementsView({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => {
+                {filtered.map((row) => {
                   const isOpen = expanded.has(row.id);
                   return (
                     <Fragment key={row.id}>
@@ -604,7 +628,7 @@ export default function SettlementsView({
 
           {/* 모바일(<768px): 카드 스택 */}
           <div className="md:hidden flex flex-col gap-3">
-            {rows.map((row) => {
+            {filtered.map((row) => {
               const isOpen = expanded.has(row.id);
               return (
                 <div
