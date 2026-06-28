@@ -121,10 +121,10 @@ export default function AdminSidebar({
     const items = e.items.filter(canSee);
     return items.length ? [{ ...e, items }] : [];
   });
-  // 모바일 하단 네비 중앙 돌출 항목 — 재무 권한자는 정산(추후 매출 페이지와 분리, IDEAS.md),
-  // 권한 없는 STAFF는 공실 보드로 대체(정산은 미들웨어 차단 대상이라 노출 금지)
+  // 모바일 하단 네비 중앙 돌출 항목 — 재무 권한자는 매출관리,
+  // 권한 없는 STAFF는 공실 보드로 대체(매출관리는 미들웨어 차단 대상이라 노출 금지)
   const centerItem = canViewFinance(role)
-    ? { href: "/settlements", icon: "payments", key: "settlements" }
+    ? { href: "/revenue", icon: "receipt_long", key: "revenue" }
     : { href: "/availability", icon: "event_available", key: "availability" };
   const pathname = usePathname();
   const router = useRouter();
