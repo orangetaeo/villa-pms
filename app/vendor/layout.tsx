@@ -32,8 +32,9 @@ export default async function VendorLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-  // 원천 공급자 전용 — 운영자·빌라공급자·게스트 접근 차단
+  // 무효 세션(비번 변경 후 stale 토큰 포함)은 /logout으로 — 쿠키를 지워 /login↔/vendor 루프 차단.
+  if (!session?.user?.id) redirect("/logout");
+  // 원천 공급자 전용 — 운영자·빌라공급자·게스트 접근 차단(유효 세션·역할 불일치는 /login으로 바운스)
   if (session.user.role !== "VENDOR") redirect("/login");
 
   // vi 기본(빌라 공급자와 동일 우선순위: pref-locale > 계정 기본 > vi)

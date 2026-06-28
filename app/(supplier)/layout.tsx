@@ -45,7 +45,8 @@ export default async function SupplierLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
-  if (!session) redirect("/login");
+  // 무효 세션(비번 변경 후 stale 토큰 포함)은 /logout으로 — 쿠키를 지워 /login↔보호경로 루프 차단.
+  if (!session) redirect("/logout");
 
   // 공급자 라우트 유효 locale: 사용자 선택(pref-locale) > 계정 기본 > vi.
   // (i18n/request.ts는 cookie 기반·기본 ko라 여기서 헬퍼로 산출)

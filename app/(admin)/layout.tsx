@@ -82,7 +82,12 @@ export default async function AdminLayout({
   const session = await auth();
 
   // S-RBAC-3: 운영자 전체(OWNER/MANAGER/STAFF/ADMIN) 진입 허용. 재무 마스킹은 각 화면 책임.
-  if (!session?.user?.id || !isOperator(session.user.role)) {
+  // 무효 세션(비번 변경 후 stale 토큰 포함)은 /logout으로 — 쿠키를 지워 /login↔/account 루프 차단.
+  // (유효 세션이지만 비운영자는 /login으로 바운스 — 미들웨어가 역할 홈으로 보냄)
+  if (!session?.user?.id) {
+    redirect("/logout");
+  }
+  if (!isOperator(session.user.role)) {
     redirect("/login");
   }
 

@@ -29,8 +29,9 @@ export default async function PartnerLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-  // 파트너 전용 — 운영자·공급자·VENDOR·게스트 접근 차단
+  // 무효 세션(비번 변경 후 stale 토큰 포함)은 /logout으로 — 쿠키를 지워 /login↔/partner 루프 차단.
+  if (!session?.user?.id) redirect("/logout");
+  // 파트너 전용 — 운영자·공급자·VENDOR·게스트 접근 차단(유효 세션·역할 불일치는 /login으로 바운스)
   if (session.user.role !== "PARTNER") redirect("/login");
 
   const locale = await getPartnerLocale(session.user.locale);

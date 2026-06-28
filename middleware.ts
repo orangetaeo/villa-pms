@@ -63,7 +63,9 @@ const PARTNER_PATHS = ["/partner"];
 // 비로그인 허용(public) 경로 — 비밀번호 자가재설정 화면·API.
 // (/api/auth/* 는 config.matcher에서 이미 제외되어 미들웨어를 타지 않음 — 페이지만 여기서 명시)
 // 임시 비번 강제변경 게이트·운영자 게이트가 이 경로를 막지 않도록 최상단에서 통과시킨다.
-const PUBLIC_PATHS = ["/forgot-password", "/reset-password"];
+// /logout — 세션 무효화로 stale해진 쿠키를 확실히 지우는 출구(app/logout/route.ts).
+//   어떤 게이트보다 먼저 통과시켜야 무한 루프(/login↔보호경로)를 끊을 수 있다.
+const PUBLIC_PATHS = ["/forgot-password", "/reset-password", "/logout"];
 
 function matchesPath(pathname: string, paths: string[]): boolean {
   return paths.some((p) => pathname === p || pathname.startsWith(p + "/"));

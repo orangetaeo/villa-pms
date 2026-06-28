@@ -8,7 +8,8 @@ import { isOperator } from "@/lib/permissions";
 export default async function Home() {
   const session = await auth();
 
-  if (!session) redirect("/login");
+  // 무효 세션(비번 변경 후 stale 토큰 포함)은 /logout으로 — 쿠키를 지워 루프 차단.
+  if (!session) redirect("/logout");
 
   const role = session.user.role;
   if (isOperator(role)) redirect("/dashboard");
