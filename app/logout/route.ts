@@ -26,14 +26,17 @@ const SESSION_COOKIE_NAMES = [
   "__Secure-authjs.session-token.1",
 ];
 
-async function clearAndRedirect(req: Request) {
+async function clearAndRedirect() {
   // 1차: Auth.js 표준 경로(쿠키 store 삭제). 일부 컨텍스트에서 응답 병합이 누락될 수 있어 2차로 보강.
   try {
     await signOut({ redirect: false });
   } catch {
     // signOut이 내부 리다이렉트를 시도하다 throw해도 무시 — 아래에서 직접 만료시킨다.
   }
-  const res = NextResponse.redirect(new URL("/login", req.url));
+  // Location은 **상대 경로**로. 라우트 핸들러(Node)에선 req.url이 Railway 내부 호스트(localhost:8080)로
+  // 잡혀 new URL("/login", req.url)이 외부에서 못 따라갈 절대 URL을 만든다. 상대 "/login"은 브라우저가
+  // 요청한 공개 호스트 기준으로 해석되어 호스트 비의존으로 안전하다. 303=메서드를 GET으로 정규화(POST 대응).
+  const res = new NextResponse(null, { status: 303, headers: { Location: "/login" } });
   // 2차(확실): 응답에 만료 쿠키를 직접 세팅. path=/ 로 발급되었으므로 동일 경로로 삭제.
   for (const name of SESSION_COOKIE_NAMES) {
     res.cookies.set(name, "", { path: "/", maxAge: 0, expires: new Date(0) });
@@ -41,11 +44,11 @@ async function clearAndRedirect(req: Request) {
   return res;
 }
 
-export async function GET(req: Request) {
-  return clearAndRedirect(req);
+export async function GET() {
+  return clearAndRedirect();
 }
 
 // 폼 기반 로그아웃에서도 동작하도록 POST도 동일 처리.
-export async function POST(req: Request) {
-  return clearAndRedirect(req);
+export async function POST() {
+  return clearAndRedirect();
 }
