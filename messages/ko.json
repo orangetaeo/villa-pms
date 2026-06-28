@@ -219,6 +219,11 @@
       "saveError": "저장에 실패했습니다. 다시 시도하세요."
     },
     "firstLoginNotice": "임시 비밀번호로 로그인했습니다. 본인 비밀번호로 변경하면 발주를 받을 수 있습니다.",
+    "accountSection": {
+      "title": "계정",
+      "loggedInAs": "{name}님으로 로그인됨",
+      "logout": "로그아웃"
+    },
     "stats": {
       "title": "통계",
       "subtitle": "내 발주 매출과 실적",

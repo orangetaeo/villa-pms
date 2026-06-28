@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import VendorNotificationBell from "@/components/vendor/vendor-notification-bell";
+import VendorAccountLink from "@/components/vendor/vendor-account-link";
 import { getSupplierLocale } from "@/lib/locale";
 
 // VENDOR 클라이언트 컴포넌트가 useTranslations로 실제 사용하는 네임스페이스만 직렬화.
@@ -46,6 +47,7 @@ export default async function VendorLayout({
         {/* 상단 우측 고정 클러스터 — 알림 벨 + 언어 전환.
             LocaleSwitcher가 자체 `fixed right-3 top-3`이라 벨은 그 왼쪽(right-20)에 고정해 겹침 방지.
             페이지들은 pt-16으로 이 영역 아래에서 시작(레이아웃 흐름 비침범). */}
+        <VendorAccountLink />
         <div className="fixed right-20 top-3 z-[60]">
           <VendorNotificationBell />
         </div>

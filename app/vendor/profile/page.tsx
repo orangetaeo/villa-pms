@@ -4,7 +4,7 @@
 //   변경 성공 시 폼이 signOut→/login (재로그인하면 게이트 풀려 /vendor 진입).
 import type { Metadata } from "next";
 import Link from "next/link";
-import { auth } from "@/auth";
+import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getSupplierLocale } from "@/lib/locale";
@@ -66,6 +66,38 @@ export default async function VendorProfilePage() {
           <VendorPayoutForm />
         </div>
       )}
+
+      {/* 계정 — 로그인 정보 + 로그아웃 (NextAuth signOut 서버 액션, 완료 후 /login).
+          강제 비번변경 사용자에게도 노출(로그아웃 차단 시 빠져나갈 길이 없음). */}
+      <section className="mt-6 rounded-2xl border border-neutral-100 bg-white p-6 shadow-sm">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-400">
+          {tVendor("accountSection.title")}
+        </h2>
+        <div className="flex items-center justify-between gap-3">
+          <span className="flex min-w-0 items-center gap-3 text-sm text-neutral-600">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-neutral-100">
+              <span className="material-symbols-outlined text-neutral-500">person</span>
+            </span>
+            <span className="truncate">
+              {tVendor("accountSection.loggedInAs", { name: session.user.name ?? "" })}
+            </span>
+          </span>
+          <form
+            action={async () => {
+              "use server";
+              await signOut({ redirectTo: "/login" });
+            }}
+          >
+            <button
+              type="submit"
+              className="flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 active:scale-95"
+            >
+              <span className="material-symbols-outlined text-lg">logout</span>
+              {tVendor("accountSection.logout")}
+            </button>
+          </form>
+        </div>
+      </section>
     </div>
   );
 }
