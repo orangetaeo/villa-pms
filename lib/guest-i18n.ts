@@ -98,6 +98,8 @@ export interface GuestLabels {
     serviceDateLabel: string; // "희망 날짜"
     serviceTimeLabel: string; // "희망 시간"
     serviceTimePlaceholder: string; // "예: 14:00"
+    noteLabel: string; // "요청사항 (선택)" — 게스트 특이사항(이행자 전달용)
+    notePlaceholder: string; // 메모 placeholder 예시
     priceInquiry: string; // 환율 미설정 시 "가격 문의"
     rateNote: string; // 하단 환산액 안내 "오늘 환율 기준"
     backToCheckin: string; // 체크인으로 돌아가기
@@ -249,6 +251,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       serviceDateLabel: "희망 날짜",
       serviceTimeLabel: "희망 시간",
       serviceTimePlaceholder: "예: 14:00",
+      noteLabel: "요청사항 (선택)",
+      notePlaceholder: "특이사항이 있으면 적어주세요 (예: 왼쪽 다리 위주로, 조식 알레르기)",
       priceInquiry: "가격 문의",
       rateNote: "오늘 환율 기준",
       backToCheckin: "체크인 화면으로",
@@ -388,6 +392,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       serviceDateLabel: "Preferred date",
       serviceTimeLabel: "Preferred time",
       serviceTimePlaceholder: "e.g. 14:00",
+      noteLabel: "Special request (optional)",
+      notePlaceholder: "Let us know any special requests (e.g. focus on left leg, breakfast allergy)",
       priceInquiry: "Ask for price",
       rateNote: "Today's exchange rate",
       backToCheckin: "Back to check-in",
@@ -527,6 +533,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       serviceDateLabel: "Желаемая дата",
       serviceTimeLabel: "Желаемое время",
       serviceTimePlaceholder: "напр. 14:00",
+      noteLabel: "Особые пожелания (необязательно)",
+      notePlaceholder: "Сообщите особые пожелания (напр.: упор на левую ногу, аллергия на завтрак)",
       priceInquiry: "Уточнить цену",
       rateNote: "По курсу на сегодня",
       backToCheckin: "Назад к заселению",
@@ -666,6 +674,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       serviceDateLabel: "期望日期",
       serviceTimeLabel: "期望时间",
       serviceTimePlaceholder: "例如 14:00",
+      noteLabel: "特殊要求（选填）",
+      notePlaceholder: "如有特殊要求请填写（例如：重点按左腿、早餐过敏）",
       priceInquiry: "价格咨询",
       rateNote: "按今日汇率",
       backToCheckin: "返回入住页面",
@@ -805,6 +815,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       serviceDateLabel: "Ngày mong muốn",
       serviceTimeLabel: "Giờ mong muốn",
       serviceTimePlaceholder: "vd: 14:00",
+      noteLabel: "Yêu cầu thêm (không bắt buộc)",
+      notePlaceholder: "Cho chúng tôi biết yêu cầu đặc biệt (vd: tập trung chân trái, dị ứng bữa sáng)",
       priceInquiry: "Hỏi giá",
       rateNote: "Theo tỷ giá hôm nay",
       backToCheckin: "Về trang nhận phòng",

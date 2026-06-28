@@ -30,6 +30,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       quantity: true,
       catalogItemId: true,
       vendorName: true,
+      guestNote: true, // 게스트 요청사항 — 발주 본문에 전달(판매가·마진과 무관, 노출 OK)
       vendor: {
         select: {
           id: true,
@@ -88,6 +89,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         serviceDate: order.serviceDate ? toDateOnlyString(order.serviceDate) : null,
         itemName,
         quantity: order.quantity,
+        guestNote: order.guestNote ?? null, // 게스트 요청사항(있으면 발주 문구에 한 줄 추가)
       },
     });
     zaloSent = true;

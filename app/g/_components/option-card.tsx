@@ -25,7 +25,11 @@ export interface CardSelection {
   serviceDate: string | null;
   /** 희망 시간(HH:MM 자유 입력). 미선택이면 null. (#3) */
   serviceTime: string | null;
+  /** 요청사항(선택, 최대 500자). 이행자에게 전달되는 게스트 특이사항. 미입력이면 null. */
+  guestNote: string | null;
 }
+
+const NOTE_MAX = 500;
 
 const TYPE_BADGE: Record<string, string> = {
   BBQ: "bg-orange-50 text-orange-600",
@@ -310,6 +314,23 @@ export function OptionCard({
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:ring-teal-500 focus:border-teal-500"
               />
             </div>
+            </div>
+            {/* 요청사항(선택) — 게스트 특이사항을 이행자(원천 공급자)에게 전달. 최대 500자. */}
+            <div className="pt-1">
+              <label className="text-[11px] font-bold text-slate-500 mb-1 block">
+                {labels.noteLabel}
+              </label>
+              <textarea
+                rows={2}
+                maxLength={NOTE_MAX}
+                aria-label={labels.noteLabel}
+                placeholder={labels.notePlaceholder}
+                value={selection.guestNote ?? ""}
+                onChange={(e) =>
+                  onChange({ ...selection, guestNote: e.target.value || null })
+                }
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-300 focus:ring-teal-500 focus:border-teal-500 resize-none"
+              />
             </div>
           </>
         )}
