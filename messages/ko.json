@@ -8,6 +8,7 @@
       "receivables": "미수",
       "proposals": "제안서"
     },
+    "logout": "로그아웃",
     "bookings": {
       "title": "예약 현황",
       "subtitle": "우리에게 예약하신 빌라 내역입니다.",

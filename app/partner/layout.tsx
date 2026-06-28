@@ -3,7 +3,7 @@
 //   가드: 미인증/PARTNER 아님 → /login. 승인 안 됨 → 승인대기/거절 안내(포털 비노출).
 //   ★ 누수: 클라이언트엔 partner 네임스페이스만 직렬화(탭바 라벨). 운영(adminXxx)·
 //      공급자(earnings 등) 네임스페이스는 클라 payload에 노출하지 않는다.
-import { auth } from "@/auth";
+import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
@@ -74,6 +74,7 @@ async function PartnerShell({
     partner: (allMessages as Record<string, unknown>).partner as AbstractIntlMessages,
     pagination: (allMessages as Record<string, unknown>).pagination as AbstractIntlMessages,
   };
+  const t = await getTranslations({ locale, namespace: "partner" });
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
       <NextIntlClientProvider locale={locale} messages={clientMessages}>
@@ -90,6 +91,25 @@ async function PartnerShell({
           </div>
           <LocaleSwitcher current={locale} persist />
         </header>
+
+        {/* 로그아웃 — 우측 상단 고정(LocaleSwitcher right-3 왼쪽 right-20에 배치해 겹침 방지).
+            NextAuth signOut 서버 액션, 완료 후 /login. 승인대기·거절 화면(PartnerShell 공용)에도 노출. */}
+        <form
+          action={async () => {
+            "use server";
+            await signOut({ redirectTo: "/login" });
+          }}
+          className="fixed right-20 top-3 z-[60]"
+        >
+          <button
+            type="submit"
+            aria-label={t("logout")}
+            title={t("logout")}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-rose-600 shadow-sm backdrop-blur transition-colors hover:bg-rose-50 active:scale-95"
+          >
+            <span className="material-symbols-outlined text-[20px]">logout</span>
+          </button>
+        </form>
 
         <main className="mx-auto max-w-md px-4 py-6 pb-24">{children}</main>
 
