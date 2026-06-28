@@ -137,6 +137,9 @@
     "submitting": "Đang đổi...",
     "success": "Đã đổi mật khẩu.",
     "back": "Quay lại",
+    "sectionTitle": "Tài khoản",
+    "loggedInAs": "Đăng nhập với tên {name}",
+    "logout": "Đăng xuất",
     "showPassword": "Hiện mật khẩu",
     "hidePassword": "Ẩn mật khẩu",
     "errors": {
