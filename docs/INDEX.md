@@ -29,6 +29,7 @@
 | Cron 등록 런북(미등록 4개 복붙값) | docs/ops/cron-registration.md |
 | 시크릿 스캔 결과(P0-4, 노출 0건) | docs/ops/secret-scan-2026-06-28.md |
 | 시크릿 교체 런북(런칭 전·유출 시, 순서 제약) | docs/ops/secret-rotation-runbook.md |
+| ★보안 강화 에픽(정본 계획서) | docs/SECURITY-HARDENING-PLAN-2026-06-27.md — 보안 전수점검(5영역 병렬감사 + 인젝션·외부공격 심층) 결과를 에픽화. CRITICAL 0·HIGH 8, P0~P3 ~29건, 구조신설 4종(SecurityEvent·중앙 가드헬퍼·rate-limit 추상화·회귀테스트 CI게이트). T-sec-* 계약서·ADR-0029·시크릿 런북이 이 문서를 참조. OWASP Top10 + LLM Top10 대조 매트릭스 |
 | 이미지 업로드·저장소 | docs/decisions/0004-image-storage.md + lib/storage.ts·lib/image-resize.ts |
 | Zalo 알림 방식(zca-js) | docs/decisions/ADR-0005-zalo-zca-js.md + reference/nike/ zalo 코드 |
 | Nike↔villa Zalo 세션·채팅 공유(테오 계정) **[채택·풀스펙]** | docs/decisions/ADR-0010-nike-villa-zalo-session-chat-share.md — A안 확정(villa 허브·SPOF 수용), Nike 실사 완료, 모델 대조표·WBS·배포순서·ETL. **풀스펙 확정(R10/R12/R13 해소)**: 그룹채팅 포함(스키마 D: threadType·groupMembers·senderUid, S4 마이그레이션)·과거 첨부 R2 재업로드 영구보존·forward/alias/음성STT 동등구현(STT=lib/gemini.ts 재사용). 스프린트 S1~S5. **S1 계약: docs/contracts/zalo-integration-s1.md / S2 계약: docs/contracts/zalo-integration-s2.md(읽기 정본 전환 A2·A3·A4 + webhook→SSE B3·B4, villa→Nike HMAC) / S3 계약: docs/contracts/zalo-integration-s3.md(과거 대화·첨부 ETL C1·C2, 1:1 USER 한정, 멱등 zaloMsgId·quote 2-pass·첨부 R2 키 nike-attach/{zaloMsgId}/{index}) / S5 계약: docs/contracts/zalo-integration-s5.md(forward·alias·음성STT 동등 A6·B5, 스키마 무변경 — forward=zca-js forwardMessage 텍스트전달+ext kind:FORWARD, alias=기존 nickname·SET_NICKNAME 읽기단방향, STT=lib/gemini.ts transcribeVoice→translatedText)** |
