@@ -249,7 +249,17 @@
       "rejectedReasonLabel": "Lý do",
       "changePassword": "Đổi mật khẩu"
     },
-    "searchPlaceholder": "Tìm đơn, villa, dịch vụ"
+    "searchPlaceholder": "Tìm đơn, villa, dịch vụ",
+    "propose": {
+      "button": "Đề xuất giờ",
+      "title": "Đề xuất thời gian khác",
+      "hint": "Bạn nhận đơn nhưng muốn đổi thời gian. Quản lý sẽ duyệt.",
+      "dateLabel": "Ngày đề xuất",
+      "timeLabel": "Giờ (tùy chọn)",
+      "notePlaceholder": "Lý do hoặc ghi chú (tùy chọn)",
+      "cancel": "Hủy",
+      "confirm": "Gửi đề xuất"
+    }
   },
   "pagination": {
     "summary": "{from}–{to} · Tổng {total}",
@@ -1997,6 +2007,12 @@
         "CASH": "Tiền mặt",
         "BANK_TRANSFER": "Chuyển khoản",
         "OTHER": "Khác"
+      },
+      "proposal": {
+        "title": "Lịch đề xuất của NCC",
+        "apply": "Áp dụng",
+        "ignore": "Bỏ qua",
+        "confirmGate": "Cần áp dụng/bỏ qua lịch đề xuất trước khi xác nhận"
       }
     }
   },
@@ -3743,5 +3759,13 @@
       "integratedLabel": "Doanh thu quy đổi (≈VND)",
       "csvLabel": "Tổng cộng"
     }
+  },
+  "vendorNotif": {
+    "title": "Thông báo",
+    "ariaOpen": "Mở thông báo",
+    "close": "Đóng",
+    "loading": "Đang tải…",
+    "loadError": "Không tải được. Thử lại",
+    "empty": "Chưa có thông báo"
   }
 }

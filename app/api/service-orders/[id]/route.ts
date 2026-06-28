@@ -11,6 +11,7 @@ import { requireCapability } from "@/lib/api-guard";
 import { assertServiceTransition, InvalidServiceTransitionError } from "@/lib/service-order";
 import { canConfirmCustomer, vendorHasLivePo } from "@/lib/vendor-order";
 import { enqueueNotification } from "@/lib/zalo";
+import { enqueueInAppNotification, buildVendorNotifText } from "@/lib/inapp-notification";
 import { toDateOnlyString } from "@/lib/date-vn";
 import { NotificationType, type ServiceOrderStatus } from "@prisma/client";
 
@@ -62,7 +63,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const existing = await prisma.serviceOrder.findUnique({
     where: { id },
-    select: { id: true, status: true, vendorId: true, vendorStatus: true },
+    // 제안 2필드 포함 — 미해결 일정제안이면 canConfirmCustomer가 CONFIRMED 차단(서버측 게이트, 일정협의)
+    select: {
+      id: true,
+      status: true,
+      vendorId: true,
+      vendorStatus: true,
+      proposedServiceDate: true,
+      vendorProposalRespondedAt: true,
+    },
   });
   if (!existing) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
 
@@ -120,7 +129,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   //   VENDOR_ACCEPTED)로 준비 중일 수 있으므로 stale PO 방지. 게스트 취소 경로는 발주건을 차단하므로
   //   여기가 유일한 통보 지점. zaloUserId 연결된 공급자에만 큐 적재(미연결이면 통보 생략).
   let vendorNotified = false;
-  if (data.status === "CANCELLED" && vendorHasLivePo(existing)) {
+  const isCancelNotify = data.status === "CANCELLED" && vendorHasLivePo(existing);
+  // ★발주 건별 정산 완료(markSettled=true)도 공급자에게 통보 — 본인 지급액(costVnd) 인앱 알림.
+  const isSettledNotify = d.markSettled === true;
+  if (isCancelNotify || isSettledNotify) {
     const info = await prisma.serviceOrder.findUnique({
       where: { id },
       select: {
@@ -128,31 +140,75 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         serviceDate: true,
         catalogItemId: true,
         vendorName: true,
+        costVnd: true, // 정산 통보용 — 공급자 본인 지급액(우리 판매가·마진 아님)
         vendor: { select: { userId: true, user: { select: { zaloUserId: true } } } },
         booking: { select: { villa: { select: { name: true } } } },
       },
     });
     const vendorUserId = info?.vendor?.userId;
     const vendorZalo = info?.vendor?.user?.zaloUserId;
-    if (vendorUserId && vendorZalo) {
-      // 카탈로그 항목명(공급자 vi 통지용) — catalogItemId는 관계 미정의 스칼라라 별도 조회.
-      const item = info?.catalogItemId
-        ? await prisma.serviceCatalogItem.findUnique({
-            where: { id: info.catalogItemId },
-            select: { nameKo: true },
-          })
-        : null;
+    // 카탈로그 항목명(공급자 vi 통지용) — catalogItemId는 관계 미정의 스칼라라 별도 조회.
+    const item = info?.catalogItemId
+      ? await prisma.serviceCatalogItem.findUnique({
+          where: { id: info.catalogItemId },
+          select: { nameKo: true },
+        })
+      : null;
+    const itemName = item?.nameKo ?? info?.vendorName ?? "—";
+    const villaName = info?.booking?.villa?.name ?? "—";
+    const serviceDate = info?.serviceDate ? toDateOnlyString(info.serviceDate) : null;
+
+    // 발주 취소 — Zalo(연결 시) + 인앱.
+    if (isCancelNotify && vendorUserId && vendorZalo) {
       await enqueueNotification({
         userId: vendorUserId,
         type: NotificationType.VENDOR_PO_CANCELLED,
-        payload: {
-          itemName: item?.nameKo ?? info?.vendorName ?? "—",
-          quantity: info?.quantity ?? 0,
-          villaName: info?.booking?.villa?.name ?? "—",
-          serviceDate: info?.serviceDate ? toDateOnlyString(info.serviceDate) : null,
-        },
+        payload: { itemName, quantity: info?.quantity ?? 0, villaName, serviceDate },
       });
       vendorNotified = true;
+    }
+
+    // 인앱 알림센터 적재(Zalo 미연결 공급자도 앱에서 인지). ★ 누수: 가격·마진 없음(정산은 본인 지급액만).
+    //   try/catch 격리 — 알림 적재 실패가 본 상태 전이/정산 로직을 깨지 않게.
+    if (vendorUserId) {
+      if (isCancelNotify) {
+        try {
+          const { title, body } = buildVendorNotifText(NotificationType.VENDOR_PO_CANCELLED, {
+            itemName,
+            quantity: info?.quantity ?? 0,
+            villaName,
+            serviceDate,
+          });
+          await enqueueInAppNotification({
+            userId: vendorUserId,
+            type: NotificationType.VENDOR_PO_CANCELLED,
+            title,
+            body,
+            href: "/vendor",
+          });
+        } catch {
+          // 무시 — 본 로직 영향 0
+        }
+      }
+      if (isSettledNotify) {
+        try {
+          const { title, body } = buildVendorNotifText("VENDOR_SETTLED", {
+            itemName,
+            quantity: info?.quantity ?? 0,
+            villaName,
+            costVnd: info?.costVnd != null ? info.costVnd.toString() : null,
+          });
+          await enqueueInAppNotification({
+            userId: vendorUserId,
+            type: "VENDOR_SETTLED",
+            title,
+            body,
+            href: "/vendor",
+          });
+        } catch {
+          // 무시 — 본 로직 영향 0
+        }
+      }
     }
   }
 

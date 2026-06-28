@@ -6,6 +6,7 @@ import {
   canTransitionVendorGate,
   canDispatch,
   canConfirmCustomer,
+  hasUnresolvedProposal,
   assertVendorResponse,
   isVendorGateStatus,
   InvalidVendorResponseError,
@@ -67,6 +68,55 @@ describe("canConfirmCustomer", () => {
     expect(canConfirmCustomer({ vendorId: "v1", vendorStatus: "PENDING_VENDOR" })).toBe(false);
     expect(canConfirmCustomer({ vendorId: "v1", vendorStatus: "VENDOR_REJECTED" })).toBe(false);
     expect(canConfirmCustomer({ vendorId: "v1", vendorStatus: null })).toBe(false);
+  });
+  it("미해결 제안(대안 시간)이 걸려 있으면 수락 상태라도 확정 차단", () => {
+    // 공급자가 수락하되 대안 시간 제안 → 운영자 미처리(vendorProposalRespondedAt=null) → 차단
+    expect(
+      canConfirmCustomer({
+        vendorId: "v1",
+        vendorStatus: "VENDOR_ACCEPTED",
+        proposedServiceDate: new Date("2026-07-01T00:00:00.000Z"),
+        vendorProposalRespondedAt: null,
+      })
+    ).toBe(false);
+  });
+  it("제안이 운영자에 의해 해결되면(적용/무시) 다시 확정 가능", () => {
+    expect(
+      canConfirmCustomer({
+        vendorId: "v1",
+        vendorStatus: "VENDOR_ACCEPTED",
+        proposedServiceDate: new Date("2026-07-01T00:00:00.000Z"),
+        vendorProposalRespondedAt: new Date("2026-06-28T09:00:00.000Z"),
+      })
+    ).toBe(true);
+  });
+  it("레거시 호출부(제안 필드 미제공)는 기존 동작 보존", () => {
+    expect(canConfirmCustomer({ vendorId: "v1", vendorStatus: "VENDOR_ACCEPTED" })).toBe(true);
+  });
+});
+
+describe("hasUnresolvedProposal", () => {
+  it("제안 있고 미응답이면 true", () => {
+    expect(
+      hasUnresolvedProposal({
+        proposedServiceDate: new Date("2026-07-01T00:00:00.000Z"),
+        vendorProposalRespondedAt: null,
+      })
+    ).toBe(true);
+  });
+  it("제안 없으면 false", () => {
+    expect(hasUnresolvedProposal({ proposedServiceDate: null, vendorProposalRespondedAt: null })).toBe(
+      false
+    );
+    expect(hasUnresolvedProposal({})).toBe(false);
+  });
+  it("제안 있어도 응답 시각이 채워졌으면 false(해결됨)", () => {
+    expect(
+      hasUnresolvedProposal({
+        proposedServiceDate: new Date("2026-07-01T00:00:00.000Z"),
+        vendorProposalRespondedAt: new Date("2026-06-28T09:00:00.000Z"),
+      })
+    ).toBe(false);
   });
 });
 

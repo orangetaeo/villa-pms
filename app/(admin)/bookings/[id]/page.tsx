@@ -197,6 +197,11 @@ export default async function BookingDetailPage({
         vendorRejectReason: true,
         vendorSettledAt: true,
         vendorSettleMethod: true,
+        // 일정 협의(propose) — 공급자 대안 시간 제안·운영자 처리 시각
+        proposedServiceDate: true,
+        proposedServiceTime: true,
+        vendorProposalNote: true,
+        vendorProposalRespondedAt: true,
         vendor: { select: { name: true } },
         ...(showFinance ? { costVnd: true } : {}),
       },
@@ -269,6 +274,13 @@ export default async function BookingDetailPage({
     vendorRejectReason: o.vendorRejectReason,
     vendorSettledAt: o.vendorSettledAt?.toISOString() ?? null,
     vendorSettleMethod: o.vendorSettleMethod,
+    // 일정 협의(propose) — 제안 날짜는 @db.Date(YYYY-MM-DD), 처리 시각은 ISO 타임스탬프
+    proposedServiceDate: o.proposedServiceDate
+      ? o.proposedServiceDate.toISOString().slice(0, 10)
+      : null,
+    proposedServiceTime: o.proposedServiceTime,
+    vendorProposalNote: o.vendorProposalNote,
+    vendorProposalRespondedAt: o.vendorProposalRespondedAt?.toISOString() ?? null,
     ...(showFinance && "costVnd" in o
       ? { costVnd: (o as { costVnd: bigint }).costVnd.toString() }
       : {}),

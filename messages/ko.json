@@ -249,7 +249,17 @@
       "rejectedReasonLabel": "사유",
       "changePassword": "비밀번호 변경"
     },
-    "searchPlaceholder": "발주·빌라·품목 검색"
+    "searchPlaceholder": "발주·빌라·품목 검색",
+    "propose": {
+      "button": "시간 제안",
+      "title": "대안 시간 제안",
+      "hint": "발주는 수락하되 시간 변경을 제안합니다. 운영자가 검토합니다.",
+      "dateLabel": "제안 날짜",
+      "timeLabel": "시각(선택)",
+      "notePlaceholder": "사유·메모(선택)",
+      "cancel": "취소",
+      "confirm": "제안 보내기"
+    }
   },
   "adminDashboard": {
     "title": "대시보드",
@@ -1888,6 +1898,12 @@
         "CASH": "현금",
         "BANK_TRANSFER": "이체",
         "OTHER": "기타"
+      },
+      "proposal": {
+        "title": "공급자 제안 일정",
+        "apply": "적용",
+        "ignore": "무시",
+        "confirmGate": "공급자가 제안한 일정을 적용/무시해야 확정할 수 있습니다"
       }
     }
   },
@@ -3743,5 +3759,13 @@
       "integratedLabel": "통합 환산 매출 (≈VND)",
       "csvLabel": "합계"
     }
+  },
+  "vendorNotif": {
+    "title": "알림",
+    "ariaOpen": "알림 열기",
+    "close": "닫기",
+    "loading": "불러오는 중…",
+    "loadError": "불러오지 못했습니다. 다시 시도",
+    "empty": "알림이 없습니다"
   }
 }
