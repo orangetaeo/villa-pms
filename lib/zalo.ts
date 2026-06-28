@@ -318,6 +318,25 @@ export function buildNotificationText(
         `Số khách: ${num(p.guestCount)}`,
         `Thông tin đặt phòng đã được cập nhật. Vui lòng kiểm tra lịch trong ứng dụng.`,
       ].join("\n");
+
+    case NotificationType.SECURITY_ALERT: {
+      // 수신자=운영자(테오) → 한국어. 보안 이상탐지 경보. 비번·해시·마진·판매가 절대 미포함(category·count·출처만).
+      const labels: Record<string, string> = {
+        LOGIN_FAIL_SPIKE: "로그인 실패 급증",
+        AUTHZ_DENY_SPIKE: "권한 거부(403) 급증",
+        CRED_DECRYPT_FAIL: "자격증명 복호화 실패",
+        SSRF_BLOCK: "내부망 접근 차단(SSRF)",
+        RATE_LIMIT_FLOOD: "요청 한도 차단 급증",
+      };
+      const cat = str(p.category);
+      const lines = [
+        `🚨 보안 경보: ${labels[cat] ?? cat}`,
+        `최근 ${num(p.windowMin)}분간 ${num(p.count)}건 탐지.`,
+      ];
+      if (typeof p.top === "string" && p.top.length > 0) lines.push(`주요 출처: ${p.top}`);
+      lines.push(`SecurityEvent를 확인하세요. (대응 절차: docs/ops/incident-response.md)`);
+      return lines.join("\n");
+    }
   }
 }
 
