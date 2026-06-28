@@ -18,7 +18,9 @@
 | `cron-periodic-cleaning` | `/api/cron/periodic-cleaning` | `0 2 1 * *` | 매월 1일 09:00 | 정기방역 태스크 생성(메시지 없음) |
 | `cron-fx-update` | `/api/cron/fx-update` | `0 1 * * *` | 매일 08:00 | 판매가 환율 `FX_VND_PER_KRW` 갱신(토글 ON일 때만, 메시지 없음) |
 | `cron-cleanup-passports` | `/api/cron/cleanup-passports` | `0 3 * * *` | 매일 10:00 | 90일 경과 여권·서명 사진 삭제(개인정보 보존정책, 메시지 없음) |
+| `cron-security-alerts` ⏳미등록 | `/api/cron/security-alerts` | `*/10 * * * *` | 10분마다 | 보안 이상탐지 경보(SecurityEvent 임계치 초과 시 운영자에게 **Zalo 발송**, 60분 쿨다운) — 보안 P3-S3 |
 
+> ⚠️ **`cron-security-alerts`는 2026-06-28 신규(P3-S3) — 아직 미등록.** 위 등록 절차로 1개 추가하면 가동(Duplicate 후 URL `/api/cron/security-alerts`·스케줄 `*/10 * * * *`·이름 변경). 미등록 시 보안 경보가 자동 발송되지 않음(SecurityEvent는 계속 쌓임 — 수동 조회는 가능, [[incident-response]]). 임계치는 `lib/security-alerts.ts` `SECURITY_ALERT_THRESHOLDS` 상수.
 > ⚠️ Railway cron 스케줄은 **UTC**. VN(UTC+7) 현지 시각은 참고용.
 > 모든 라우트는 멱등(중복 실행 안전). `*/5`는 분, `0 0 * * *`는 매일 00:00 UTC.
 
