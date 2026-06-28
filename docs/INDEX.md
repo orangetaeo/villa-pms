@@ -29,6 +29,7 @@
 | Cron 등록 런북(미등록 4개 복붙값) | docs/ops/cron-registration.md |
 | 시크릿 스캔 결과(P0-4, 노출 0건) | docs/ops/secret-scan-2026-06-28.md |
 | 시크릿 교체 런북(런칭 전·유출 시, 순서 제약) | docs/ops/secret-rotation-runbook.md |
+| 인시던트 대응 절차서(P3-S4, 탐지·격리·통지·시나리오 플레이북) | docs/ops/incident-response.md |
 | ★보안 강화 에픽(정본 계획서) | docs/SECURITY-HARDENING-PLAN-2026-06-27.md — 보안 전수점검(5영역 병렬감사 + 인젝션·외부공격 심층) 결과를 에픽화. CRITICAL 0·HIGH 8, P0~P3 ~29건, 구조신설 4종(SecurityEvent·중앙 가드헬퍼·rate-limit 추상화·회귀테스트 CI게이트). T-sec-* 계약서·ADR-0029·시크릿 런북이 이 문서를 참조. OWASP Top10 + LLM Top10 대조 매트릭스 |
 | 이미지 업로드·저장소 | docs/decisions/0004-image-storage.md + lib/storage.ts·lib/image-resize.ts |
 | Zalo 알림 방식(zca-js) | docs/decisions/ADR-0005-zalo-zca-js.md + reference/nike/ zalo 코드 |
