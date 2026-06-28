@@ -38,8 +38,18 @@ async function clearAndRedirect() {
   // 요청한 공개 호스트 기준으로 해석되어 호스트 비의존으로 안전하다. 303=메서드를 GET으로 정규화(POST 대응).
   const res = new NextResponse(null, { status: 303, headers: { Location: "/login" } });
   // 2차(확실): 응답에 만료 쿠키를 직접 세팅. path=/ 로 발급되었으므로 동일 경로로 삭제.
+  // ★ __Secure-/__Host- 접두 쿠키는 삭제 Set-Cookie에도 반드시 Secure가 있어야 브라우저가 수용한다.
+  //   (프로덕션 세션 쿠키 이름이 __Secure-authjs.session-token이므로 누락 시 삭제가 거부돼 루프가 지속됨.)
   for (const name of SESSION_COOKIE_NAMES) {
-    res.cookies.set(name, "", { path: "/", maxAge: 0, expires: new Date(0) });
+    const securePrefix = name.startsWith("__Secure-") || name.startsWith("__Host-");
+    res.cookies.set(name, "", {
+      path: "/",
+      maxAge: 0,
+      expires: new Date(0),
+      httpOnly: true,
+      sameSite: "lax",
+      secure: securePrefix,
+    });
   }
   return res;
 }
