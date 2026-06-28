@@ -100,6 +100,8 @@ export default function VendorBoard() {
   const [search, setSearch] = useState("");
   // 거절 사유 시트 대상 발주 id (null=닫힘)
   const [rejectTarget, setRejectTarget] = useState<VendorOrder | null>(null);
+  // 일정 제안 시트 대상 발주 (null=닫힘)
+  const [proposeTarget, setProposeTarget] = useState<VendorOrder | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -119,18 +121,35 @@ export default function VendorBoard() {
     void load();
   }, [load]);
 
+  // 발주 응답 — action 일원화(accept|reject|propose). respond API는 action 스키마.
   const respond = useCallback(
-    async (order: VendorOrder, accept: boolean, rejectReason?: string) => {
+    async (
+      order: VendorOrder,
+      action: "accept" | "reject" | "propose",
+      extra?: {
+        rejectReason?: string;
+        proposedServiceDate?: string;
+        proposedServiceTime?: string;
+        proposalNote?: string;
+      }
+    ) => {
       setBusyId(order.id);
       try {
         const res = await fetch(`/api/vendor/orders/${order.id}/respond`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ accept, rejectReason: rejectReason ?? null }),
+          body: JSON.stringify({
+            action,
+            rejectReason: extra?.rejectReason ?? null,
+            proposedServiceDate: extra?.proposedServiceDate ?? null,
+            proposedServiceTime: extra?.proposedServiceTime ?? null,
+            proposalNote: extra?.proposalNote ?? null,
+          }),
         });
         // 409 NOT_PENDING(이미 응답됨) 포함 — 어느 쪽이든 최신 상태로 재조회
         await load();
         setRejectTarget(null);
+        setProposeTarget(null);
         if (!res.ok && res.status !== 409) {
           setError(true);
         }
@@ -235,8 +254,9 @@ export default function VendorBoard() {
               orders={inbox}
               busyId={busyId}
               t={t}
-              onAccept={(o) => respond(o, true)}
+              onAccept={(o) => respond(o, "accept")}
               onReject={(o) => setRejectTarget(o)}
+              onPropose={(o) => setProposeTarget(o)}
             />
           )}
 
@@ -257,7 +277,24 @@ export default function VendorBoard() {
           busy={busyId === rejectTarget.id}
           t={t}
           onCancel={() => setRejectTarget(null)}
-          onConfirm={(reason) => respond(rejectTarget, false, reason)}
+          onConfirm={(reason) => respond(rejectTarget, "reject", { rejectReason: reason })}
+        />
+      )}
+
+      {/* 일정 제안 시트 — 수락하되 대안 시간 제안 */}
+      {proposeTarget && (
+        <ProposeSheet
+          order={proposeTarget}
+          busy={busyId === proposeTarget.id}
+          t={t}
+          onCancel={() => setProposeTarget(null)}
+          onConfirm={(date, time, note) =>
+            respond(proposeTarget, "propose", {
+              proposedServiceDate: date,
+              proposedServiceTime: time || undefined,
+              proposalNote: note || undefined,
+            })
+          }
         />
       )}
     </main>
@@ -321,12 +358,14 @@ function InboxSection({
   t,
   onAccept,
   onReject,
+  onPropose,
 }: {
   orders: VendorOrder[];
   busyId: string | null;
   t: T;
   onAccept: (o: VendorOrder) => void;
   onReject: (o: VendorOrder) => void;
+  onPropose: (o: VendorOrder) => void;
 }) {
   const { paged, page, pageSize, setPage, setPageSize } = usePaged(orders);
   if (orders.length === 0) {
@@ -379,8 +418,8 @@ function InboxSection({
           {/* 게스트 요청사항 — 이행 정보(있을 때만) */}
           <GuestNote note={o.guestNote} t={t} />
 
-          {/* 수락 / 거절 — 버튼 2개 (한 화면 1작업) */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* 거절 / 제안 / 수락 — 버튼 3개. 제안=수락하되 대안 시간 협의(propose). */}
+          <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
               disabled={busyId === o.id}
@@ -388,6 +427,14 @@ function InboxSection({
               className="rounded-xl border border-neutral-200 bg-white py-3 text-sm font-bold text-neutral-600 transition active:scale-95 disabled:opacity-50"
             >
               {t("reject")}
+            </button>
+            <button
+              type="button"
+              disabled={busyId === o.id}
+              onClick={() => onPropose(o)}
+              className="rounded-xl border border-blue-200 bg-blue-50 py-3 text-sm font-bold text-blue-700 transition active:scale-95 disabled:opacity-50"
+            >
+              {t("propose.button")}
             </button>
             <button
               type="button"
@@ -741,6 +788,96 @@ function RejectSheet({
             className="rounded-xl bg-rose-600 py-3.5 text-base font-bold text-white active:scale-95 disabled:opacity-50"
           >
             {busy ? t("submitting") : t("rejectSheet.confirm")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 일정 제안 입력 시트 (propose) ──────────────────────────────────
+//   수락하되 대안 시간 제안. 날짜 필수·시각 선택·메모 선택. 투숙기간(checkIn~checkOut) 내로 권장.
+function ProposeSheet({
+  order,
+  busy,
+  t,
+  onCancel,
+  onConfirm,
+}: {
+  order: VendorOrder;
+  busy: boolean;
+  t: T;
+  onCancel: () => void;
+  onConfirm: (date: string, time: string, note: string) => void;
+}) {
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [note, setNote] = useState("");
+  // 날짜 입력 범위 — 투숙 체크인~체크아웃(있을 때). @db.Date는 UTC 자정 ISO라 앞 10자리로 절단.
+  const dateMin = order.checkIn ? order.checkIn.slice(0, 10) : undefined;
+  const dateMax = order.checkOut ? order.checkOut.slice(0, 10) : undefined;
+  const canSubmit = /^\d{4}-\d{2}-\d{2}$/.test(date);
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40">
+      <div className="w-full max-w-md space-y-4 rounded-t-3xl bg-white p-5 pb-8 shadow-2xl [&_input]:scroll-mb-24">
+        <div className="mx-auto h-1.5 w-12 rounded-full bg-neutral-200" />
+        <div className="space-y-1">
+          <h3 className="text-lg font-bold text-neutral-900">{t("propose.title")}</h3>
+          <p className="text-sm text-neutral-500">
+            {order.itemName ?? "—"}
+            {order.optionLabel ? ` · ${order.optionLabel}` : ""} ×{order.quantity} ·{" "}
+            {scheduleLabel(order)}
+          </p>
+          <p className="text-xs text-neutral-400">{t("propose.hint")}</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-xs font-medium text-neutral-500">{t("propose.dateLabel")}</label>
+            <input
+              type="date"
+              value={date}
+              min={dateMin}
+              max={dateMax}
+              onChange={(e) => setDate(e.target.value)}
+              aria-label={t("propose.dateLabel")}
+              className="mt-1 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-3 text-base text-neutral-900 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-neutral-500">{t("propose.timeLabel")}</label>
+            <input
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              aria-label={t("propose.timeLabel")}
+              className="mt-1 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-3 text-base text-neutral-900 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+            />
+          </div>
+        </div>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          maxLength={500}
+          rows={3}
+          placeholder={t("propose.notePlaceholder")}
+          className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-base text-neutral-900 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onCancel}
+            className="rounded-xl border border-neutral-200 bg-white py-3.5 text-base font-bold text-neutral-600 active:scale-95 disabled:opacity-50"
+          >
+            {t("propose.cancel")}
+          </button>
+          <button
+            type="button"
+            disabled={busy || !canSubmit}
+            onClick={() => onConfirm(date, time, note.trim())}
+            className="rounded-xl bg-blue-600 py-3.5 text-base font-bold text-white active:scale-95 disabled:opacity-50"
+          >
+            {busy ? t("submitting") : t("propose.confirm")}
           </button>
         </div>
       </div>

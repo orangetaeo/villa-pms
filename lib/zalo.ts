@@ -305,6 +305,21 @@ export function buildNotificationText(
       // 수신자=운영자(테오) → 한국어(ko). 공급자 가부 응답 통지.
       const vendorName = str(p.vendorName);
       const itemName = str(p.itemName);
+      // 일정 협의(propose) — 수락하되 대안 시간 제안. 운영자가 앱에서 적용/무시해야 고객확정 가능.
+      if (p.action === "propose") {
+        const date = formatDateVi(p.proposedServiceDate);
+        const time =
+          typeof p.proposedServiceTime === "string" && p.proposedServiceTime.length > 0
+            ? ` ${p.proposedServiceTime}`
+            : "";
+        return [
+          `⏰ 공급자 일정 제안: ${vendorName} — ${itemName} (${villa})`,
+          `제안: ${date}${time}`,
+          `사유: ${str(p.proposalNote, "(메모 없음)")}`,
+          `앱에서 적용/무시하세요.`,
+        ].join("\n");
+      }
+      // accepted: accept/propose는 true(수락 계열), reject만 false — 기존 동작 보존.
       if (p.accepted === true) {
         return `✅ 공급자 수락: ${vendorName} — ${itemName} (${villa})`;
       }

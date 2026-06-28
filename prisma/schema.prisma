@@ -59,6 +59,7 @@ model User {
   cleaningTasks CleaningTask[] @relation("AssignedCleaner")
   settlements   Settlement[]
   notifications Notification[]
+  inAppNotifications InAppNotification[] // 인앱 알림(벨·읽음상태) — VENDOR 포털, additive
   auditLogs     AuditLog[]
   vendorAccount ServiceVendor? @relation("VendorAccount") // 원천 공급자 로그인 계정 (Role=VENDOR, ADR-0023)
   partnerAccount Partner?      @relation("PartnerAccount") // 파트너(여행사·랜드사) 로그인 계정 (Role=PARTNER, ADR-0028)
@@ -1069,9 +1070,33 @@ model ServiceOrder {
   vendorSettledAt    DateTime? // 발주 정산 완료 시각(null=미정산). 정산액=costVnd×quantity
   vendorSettleMethod GuestSettlementMethod? // CASH | BANK_TRANSFER | OTHER (재사용)
   vendorSettleNote   String?
+  // 일정 협의 — 공급자가 수락하되 대안 시간을 제안(확장 필드 패턴, 새 enum값 회피).
+  //   제안 시 vendorStatus=VENDOR_ACCEPTED 유지 + 아래 필드 기록. 운영자가 적용/무시할 때까지 고객확정 차단(canConfirmCustomer).
+  proposedServiceDate       DateTime? @db.Date // 공급자 제안 일자(null=제안 없음)
+  proposedServiceTime       String? // 공급자 제안 시각 "HH:MM"(null=제안 없음)
+  vendorProposalNote        String? // 제안 사유/비고(공급자 입력)
+  vendorProposalRespondedAt DateTime? // 운영자가 제안에 응답(적용/무시)한 시각 — null이면 미해결
   createdAt   DateTime           @default(now())
 
   @@index([vendorId, vendorStatus])
+}
+
+// 인앱 알림 (벨 + 읽음상태) — VENDOR 포털용(ADR-0023 후속). Notification(Zalo 발송 큐)과 별도:
+//   Zalo는 외부 발송 일방향, 이건 앱 내 목록·미읽음 뱃지·읽음처리가 목적. type은 DB enum 아닌 String(자유 확장).
+//   비즈니스 로직은 enqueueInAppNotification(userId,...)로 적재 — 발주/취소/정산/일정제안 등.
+model InAppNotification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String // "VENDOR_PO" | "VENDOR_PO_CANCELLED" | "VENDOR_SETTLED" | "VENDOR_PROPOSAL_APPLIED" 등(자유)
+  title     String // 표시 제목(수신자 언어로 적재 시점에 확정)
+  body      String? // 본문(품목·수량·빌라 등)
+  href      String? // 클릭 시 이동 경로(예: "/vendor")
+  readAt    DateTime? // null=미읽음
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
 }
 
 // ===================== 감사 로그·운영 설정 =====================

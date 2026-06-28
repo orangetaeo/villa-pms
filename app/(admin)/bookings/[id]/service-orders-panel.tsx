@@ -56,6 +56,11 @@ export interface OrderRow {
   vendorRejectReason: string | null;
   vendorSettledAt: string | null; // 정산 완료 시각(null=미정산)
   vendorSettleMethod: VendorSettleMethod | null;
+  // 일정 협의(propose, ADR-0023 S2 확장) — 공급자가 수락하되 제안한 대안 시간.
+  proposedServiceDate: string | null; // YYYY-MM-DD(@db.Date)
+  proposedServiceTime: string | null; // "HH:MM"
+  vendorProposalNote: string | null; // 제안 사유 메모
+  vendorProposalRespondedAt: string | null; // 운영자 처리(적용/무시) 시각. null=미해결
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -181,6 +186,28 @@ export default function ServiceOrdersPanel({
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error();
+      setMessage({ tone: "ok", text: t("saved") });
+      refresh();
+    } catch {
+      fail();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // ADR-0023 S2 — 공급자 일정 제안 적용/무시 (POST /apply-proposal {apply}).
+  //   적용=true: serviceDate/serviceTime←제안값. 무시=false: 제안 보존·해결 표시만.
+  //   어느 쪽이든 미해결 게이트가 풀려 고객확정 가능. 409(ALREADY_RESOLVED)는 최신화 후 무시.
+  async function applyProposal(orderId: string, apply: boolean) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/service-orders/${orderId}/apply-proposal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apply }),
+      });
+      if (!res.ok && res.status !== 409) throw new Error();
       setMessage({ tone: "ok", text: t("saved") });
       refresh();
     } catch {
@@ -323,7 +350,13 @@ export default function ServiceOrdersPanel({
                       </td>
                     )}
                     <td className="px-3 py-3 text-left align-top">
-                      <VendorCell order={o} showCost={showCost} t={t} />
+                      <VendorCell
+                        order={o}
+                        showCost={showCost}
+                        busy={busy}
+                        onApplyProposal={applyProposal}
+                        t={t}
+                      />
                     </td>
                     <td className="px-3 py-3 text-center">
                       <span
@@ -400,16 +433,25 @@ export default function ServiceOrdersPanel({
 function VendorCell({
   order,
   showCost,
+  busy,
+  onApplyProposal,
   t,
 }: {
   order: OrderRow;
   showCost: boolean;
+  busy: boolean;
+  onApplyProposal: (orderId: string, apply: boolean) => void;
   t: ReturnType<typeof useTranslations>;
 }) {
   if (!order.vendorId) {
     return <span className="text-[11px] text-slate-500">{t("vendor.direct")}</span>;
   }
   const vs = order.vendorStatus ?? "NONE"; // null + vendorId → 미발주(NONE)
+  // 일정 협의 미해결 — 수락(VENDOR_ACCEPTED)했고 대안 시간 제안 있고 운영자 미처리.
+  const hasUnresolvedProposal =
+    vs === "VENDOR_ACCEPTED" &&
+    !!order.proposedServiceDate &&
+    !order.vendorProposalRespondedAt;
   return (
     <div className="space-y-1">
       <p className="text-xs text-slate-300 whitespace-nowrap">{order.vendorName ?? "—"}</p>
@@ -428,6 +470,41 @@ function VendorCell({
           “{order.vendorRejectReason}”
         </p>
       )}
+      {/* 일정 협의 — 공급자가 제안한 대안 시간(미해결). 적용/무시로 일정 확정. */}
+      {hasUnresolvedProposal && (
+        <div className="mt-1 space-y-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 px-2.5 py-2 max-w-[220px]">
+          <p className="text-[10px] font-bold text-blue-300 flex items-center gap-1">
+            <span className="material-symbols-outlined text-[13px]">schedule</span>
+            {t("vendor.proposal.title")}
+          </p>
+          <p className="text-[11px] font-semibold text-blue-100 tabular-nums">
+            {formatProposalWhen(order.proposedServiceDate, order.proposedServiceTime)}
+          </p>
+          {order.vendorProposalNote && (
+            <p className="text-[10px] text-blue-200/80 italic whitespace-pre-line break-words">
+              “{order.vendorProposalNote}”
+            </p>
+          )}
+          <div className="flex gap-1.5 pt-0.5">
+            <button
+              type="button"
+              onClick={() => onApplyProposal(order.id, true)}
+              disabled={busy}
+              className="text-[10px] font-bold bg-blue-600 hover:bg-blue-500 text-white rounded px-2 py-1 whitespace-nowrap disabled:opacity-50"
+            >
+              {t("vendor.proposal.apply")}
+            </button>
+            <button
+              type="button"
+              onClick={() => onApplyProposal(order.id, false)}
+              disabled={busy}
+              className="text-[10px] font-bold border border-slate-600 hover:bg-slate-700 text-slate-300 rounded px-2 py-1 whitespace-nowrap disabled:opacity-50"
+            >
+              {t("vendor.proposal.ignore")}
+            </button>
+          </div>
+        </div>
+      )}
       {/* 정산 상태(재무권한자만) */}
       {showCost && order.vendorSettledAt && (
         <p className="text-[10px] text-emerald-400/80 whitespace-nowrap">
@@ -436,6 +513,14 @@ function VendorCell({
       )}
     </div>
   );
+}
+
+/** 제안 일정 "dd/MM HH:MM" — date는 YYYY-MM-DD(@db.Date), time은 선택 */
+function formatProposalWhen(date: string | null, time: string | null): string {
+  if (!date) return "—";
+  const [, mm, dd] = date.split("-");
+  const day = dd && mm ? `${dd}/${mm}` : date;
+  return time ? `${day} ${time}` : day;
 }
 
 // ── 행별 상태 액션 ─────────────────────────────────────────────────────────────
@@ -479,7 +564,10 @@ function RowActions({
     order.status === "REQUESTED" &&
     hasVendor &&
     (order.vendorStatus === null || order.vendorStatus === "VENDOR_REJECTED");
-  const confirmBlocked = hasVendor && !vendorAccepted;
+  // 일정 협의 미해결 — 수락했어도 제안이 미처리면 고객확정 차단(운영자 적용/무시 후 가능).
+  const unresolvedProposal =
+    vendorAccepted && !!order.proposedServiceDate && !order.vendorProposalRespondedAt;
+  const confirmBlocked = hasVendor && (!vendorAccepted || unresolvedProposal);
 
   if (order.status === "REQUESTED") {
     return (
@@ -510,7 +598,13 @@ function RowActions({
             type="button"
             onClick={onConfirm}
             disabled={busy || confirmBlocked}
-            title={confirmBlocked ? t("vendor.confirmGate") : undefined}
+            title={
+              confirmBlocked
+                ? unresolvedProposal
+                  ? t("vendor.proposal.confirmGate")
+                  : t("vendor.confirmGate")
+                : undefined
+            }
             className="text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-2.5 py-1.5 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {t("actions.confirm")}
@@ -521,7 +615,7 @@ function RowActions({
         </div>
         {confirmBlocked && (
           <p className="text-[10px] text-amber-400/80 whitespace-nowrap">
-            {t("vendor.confirmGate")}
+            {unresolvedProposal ? t("vendor.proposal.confirmGate") : t("vendor.confirmGate")}
           </p>
         )}
       </div>

@@ -59,16 +59,38 @@ export function canDispatch(order: {
 }
 
 /**
+ * 공급자가 수락하되 "대안 시간"을 제안했고 운영자가 아직 처리(적용/무시)하지 않았는가.
+ * (확장 필드 패턴 — 새 vendorStatus enum값을 추가하지 않고 VENDOR_ACCEPTED 위에 협의 상태를 표현.)
+ * - proposedServiceDate가 있으면(제안 존재) + vendorProposalRespondedAt이 null이면(미해결) true.
+ * - 운영자가 적용 또는 무시하면 vendorProposalRespondedAt이 채워져 false(해결됨).
+ * 인자는 모두 선택적 — 제안 필드를 select하지 않은 호출부(레거시)에서는 undefined → 항상 false.
+ */
+export function hasUnresolvedProposal(order: {
+  proposedServiceDate?: Date | null;
+  vendorProposalRespondedAt?: Date | null;
+}): boolean {
+  return order.proposedServiceDate != null && order.vendorProposalRespondedAt == null;
+}
+
+/**
  * 운영자가 고객에게 확정(CONFIRMED)할 수 있는가 — 2단계 게이트.
  * - vendorId 없음(직접 제공) ⇒ 게이트 없음, 항상 확정 가능.
  * - vendorId 있음 ⇒ 공급자가 수락(VENDOR_ACCEPTED)한 경우에만 확정 가능.
+ * - 단, 수락했더라도 공급자가 제안한 대안 시간이 미해결(hasUnresolvedProposal)이면 확정 차단
+ *   — 운영자가 제안을 적용/무시해 일정을 확정한 뒤에야 고객확정 가능(확장 필드 패턴).
+ *   proposedServiceDate·vendorProposalRespondedAt를 select하지 않은 레거시 호출부에서는
+ *   해당 인자가 undefined라 제안 게이트가 비활성(기존 동작 보존).
  */
 export function canConfirmCustomer(order: {
   vendorId: string | null;
   vendorStatus: ServiceVendorStatus | null;
+  proposedServiceDate?: Date | null;
+  vendorProposalRespondedAt?: Date | null;
 }): boolean {
   if (order.vendorId == null) return true;
-  return order.vendorStatus === "VENDOR_ACCEPTED";
+  if (order.vendorStatus !== "VENDOR_ACCEPTED") return false;
+  // 미해결 제안이 걸려 있으면 운영자 처리 전까지 확정 불가.
+  return !hasUnresolvedProposal(order);
 }
 
 /**

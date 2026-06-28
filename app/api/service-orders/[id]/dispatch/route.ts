@@ -9,6 +9,7 @@ import { isOperator } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
 import { canDispatch } from "@/lib/vendor-order";
 import { enqueueNotification } from "@/lib/zalo";
+import { enqueueInAppNotification, buildVendorNotifText } from "@/lib/inapp-notification";
 import { NotificationType } from "@prisma/client";
 import { toDateOnlyString } from "@/lib/date-vn";
 
@@ -95,6 +96,28 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     zaloSent = true;
   } else {
     warning = "NO_VENDOR_ZALO";
+  }
+
+  // 인앱 알림센터 적재(Zalo와 별개 — 미연결 공급자도 앱에서 발주를 인지해야 함).
+  //   ★ 누수: 가격·마진 없음(품목·수량·빌라만). try/catch 격리로 본 발주 로직 영향 0.
+  if (order.vendor?.userId) {
+    try {
+      const { title, body } = buildVendorNotifText(NotificationType.VENDOR_PO, {
+        itemName,
+        quantity: order.quantity,
+        villaName: order.booking?.villa?.name ?? null,
+        serviceDate: order.serviceDate ? toDateOnlyString(order.serviceDate) : null,
+      });
+      await enqueueInAppNotification({
+        userId: order.vendor.userId,
+        type: NotificationType.VENDOR_PO,
+        title,
+        body,
+        href: "/vendor",
+      });
+    } catch {
+      // 인앱 알림 적재 실패는 발주 성공을 막지 않는다(폴링 다음 주기엔 미반영일 뿐).
+    }
   }
 
   await writeAuditLog({

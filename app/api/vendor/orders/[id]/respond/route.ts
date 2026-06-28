@@ -1,6 +1,8 @@
 // /api/vendor/orders/[id]/respond — 원천 공급자 발주 가부 응답 (ADR-0023 S2 §4.3)
 //   POST: Role=VENDOR + 본인 vendorId 스코프(서버 강제). PENDING_VENDOR만 응답 가능.
-//   accept→VENDOR_ACCEPTED, 거절→VENDOR_REJECTED(+사유). 응답 후 운영자(테오)에게 Zalo 통지.
+//   action=accept→VENDOR_ACCEPTED, reject→VENDOR_REJECTED(+사유),
+//   propose→VENDOR_ACCEPTED(수락하되 대안 시간 제안: proposedServiceDate/Time·메모 기록).
+//   응답 후 운영자(테오)에게 Zalo 통지. propose는 운영자가 적용/무시해야 고객확정 가능(미해결 게이트).
 //   ★ 누수: 타 공급자 발주 접근 차단(vendorId 불일치 시 404). 응답에 판매가·마진 없음.
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -10,12 +12,25 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { isVendor, OPERATOR_ROLES, type Role } from "@/lib/permissions";
 import { getVendorIdForUser } from "@/lib/vendor-auth";
 import { assertVendorResponse, InvalidVendorResponseError } from "@/lib/vendor-order";
+import { parseUtcDateOnly } from "@/lib/date-vn";
 import { enqueueNotification } from "@/lib/zalo";
 import { NotificationType } from "@prisma/client";
 
 const respondSchema = z.object({
-  accept: z.boolean(),
+  action: z.enum(["accept", "reject", "propose"]),
   rejectReason: z.string().max(300).optional().nullable(),
+  // propose 전용 — 대안 날짜/시각/메모. 날짜는 실존성까지 parseUtcDateOnly로 재검증.
+  proposedServiceDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .nullable(),
+  proposedServiceTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .optional()
+    .nullable(),
+  proposalNote: z.string().max(500).optional().nullable(),
 });
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -43,7 +58,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       { status: 400 }
     );
   }
-  const { accept, rejectReason } = parsed.data;
+  const { action, rejectReason, proposedServiceDate, proposedServiceTime, proposalNote } =
+    parsed.data;
+
+  // propose면 대안 날짜 필수·실존 검증(@db.Date — UTC 자정으로 정규화). 시각은 선택.
+  let proposedDate: Date | null = null;
+  if (action === "propose") {
+    if (!proposedServiceDate) {
+      return NextResponse.json({ error: "PROPOSAL_DATE_REQUIRED" }, { status: 400 });
+    }
+    proposedDate = parseUtcDateOnly(proposedServiceDate);
+    if (!proposedDate) {
+      return NextResponse.json({ error: "PROPOSAL_DATE_INVALID" }, { status: 400 });
+    }
+  }
 
   const order = await prisma.serviceOrder.findUnique({
     where: { id },
@@ -90,13 +118,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   const now = new Date();
-  const newStatus = accept ? "VENDOR_ACCEPTED" : "VENDOR_REJECTED";
+  // propose는 "수락하되 시간만 협의" — vendorStatus는 VENDOR_ACCEPTED, 제안 필드만 추가 기록.
+  //   vendorProposalRespondedAt=null(미해결)이라 운영자가 적용/무시 전까지 고객확정 차단.
+  const newStatus = action === "reject" ? "VENDOR_REJECTED" : "VENDOR_ACCEPTED";
+  const trimmedNote = proposalNote?.trim() || null;
   await prisma.serviceOrder.update({
     where: { id },
     data: {
       vendorStatus: newStatus,
       vendorRespondedAt: now,
-      vendorRejectReason: accept ? null : rejectReason?.trim() || null,
+      vendorRejectReason: action === "reject" ? rejectReason?.trim() || null : null,
+      ...(action === "propose"
+        ? {
+            proposedServiceDate: proposedDate,
+            proposedServiceTime: proposedServiceTime || null,
+            vendorProposalNote: trimmedNote,
+            vendorProposalRespondedAt: null, // 운영자 미해결 — 적용/무시로 채워짐
+          }
+        : {}),
     },
   });
 
@@ -111,10 +150,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   });
   const payload = {
     vendorName: order.vendor?.nameKo || order.vendor?.name || "—",
-    accepted: accept,
+    // accepted: accept/propose 모두 수락 계열(true), reject만 false — 기존 분기 보존.
+    accepted: action !== "reject",
+    action, // "accept" | "reject" | "propose" — zalo 빌더 분기용
     itemName,
     villaName: order.booking?.villa?.name ?? "—",
-    rejectReason: accept ? undefined : rejectReason?.trim() || undefined,
+    rejectReason: action === "reject" ? rejectReason?.trim() || undefined : undefined,
+    // propose 전용 — 제안 일정·메모(운영자 ko 통지용)
+    proposedServiceDate: action === "propose" ? proposedServiceDate ?? undefined : undefined,
+    proposedServiceTime: action === "propose" ? proposedServiceTime || undefined : undefined,
+    proposalNote: action === "propose" ? trimmedNote || undefined : undefined,
   };
   for (const op of operators) {
     await enqueueNotification({
@@ -133,9 +178,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     changes: {
       vendorStatus: { old: order.vendorStatus, new: newStatus },
       vendorRespondedAt: { new: now.toISOString() },
-      ...(accept ? {} : { vendorRejectReason: { new: rejectReason?.trim() || null } }),
+      ...(action === "reject" ? { vendorRejectReason: { new: rejectReason?.trim() || null } } : {}),
+      ...(action === "propose"
+        ? {
+            proposedServiceDate: { new: proposedServiceDate ?? null },
+            proposedServiceTime: { new: proposedServiceTime || null },
+            vendorProposalNote: { new: trimmedNote },
+          }
+        : {}),
     },
   });
 
-  return NextResponse.json({ id, vendorStatus: newStatus });
+  return NextResponse.json({ id, vendorStatus: newStatus, action });
 }
