@@ -40,9 +40,17 @@ export async function GET() {
       quantity: true,
       costVnd: true,
       vendorSettledAt: true,
+      // 정산 투명성 — 정산 완료 건의 수단·메모를 공급자에게 그대로 표시(자기 지급 내역).
+      vendorSettleMethod: true,
+      vendorSettleNote: true,
+      // 상태 타임라인 — 발주 발송·응답 시각. CANCELLED-발주됨 필터링에도 poSentAt 사용.
+      poSentAt: true,
+      vendorRespondedAt: true,
       createdAt: true,
       catalogItemId: true,
       vendorName: true,
+      // 게스트 요청사항 — 이행에 필요한 정보(누수 아님: 가격·마진 없음).
+      guestNote: true,
       // ★ 어떤 코스(variant)인지 — 가격은 selectedOptionLabels가 제거(공급자 누수 방지).
       selectedOptions: true,
       booking: {
@@ -70,7 +78,14 @@ export async function GET() {
     items.map((i) => [i.id, pickI18n(i.nameKo, i.nameI18n, locale)])
   );
 
-  const data = orders
+  // ★ 출력 대상: 활성 발주 전부 + 취소됐지만 "이미 발주됐던"(poSentAt != null) 건.
+  //   취소 사실을 공급자에게 인앱으로 알려야 하므로 CANCELLED-발주됨은 포함(클라가 '취소됨' 배지로 표시).
+  //   발주된 적 없는 취소 건(poSentAt == null)은 공급자가 본 적 없으니 노출하지 않는다.
+  const visible = orders.filter(
+    (o) => o.status !== "CANCELLED" || o.poSentAt != null
+  );
+
+  const data = visible
     .slice()
     .sort((a, b) => {
       const k = sortKey(a.vendorStatus) - sortKey(b.vendorStatus);
@@ -91,11 +106,21 @@ export async function GET() {
       optionLabel: selectedOptionLabels(o.selectedOptions, locale).join(" · ") || null,
       type: o.type,
       quantity: o.quantity,
+      // 정원(투숙 인원) — booking.select에 있으나 매핑 누락이었음(dead select 복구).
+      guestCount: o.booking?.guestCount ?? null,
+      // 게스트 요청사항(이행 정보). 없으면 null.
+      guestNote: o.guestNote,
       vendorStatus: o.vendorStatus,
       status: o.status,
       // ★ 공급자에게 지급할 금액(=그의 매출). 우리 판매가·마진 아님.
       costVnd: o.costVnd.toString(),
       vendorSettledAt: o.vendorSettledAt,
+      // 정산 투명성 — 정산 완료 건 수단/메모(자기 지급 내역).
+      vendorSettleMethod: o.vendorSettleMethod,
+      vendorSettleNote: o.vendorSettleNote,
+      // 상태 타임라인 — 발송·응답 시각(예약현황 카드 작은 글씨).
+      poSentAt: o.poSentAt,
+      vendorRespondedAt: o.vendorRespondedAt,
     }));
 
   return NextResponse.json({ orders: data });

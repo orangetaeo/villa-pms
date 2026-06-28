@@ -24,11 +24,19 @@ type VendorOrder = {
   optionLabel: string | null; // 선택 코스/옵션(가격 제거) — "오일 마사지 90분" 등
   type: string | null;
   quantity: number;
+  guestCount: number | null; // 투숙 인원 — 카드에 아이콘으로 표시
+  guestNote: string | null; // 게스트 요청사항(이행 정보) — 줄바꿈 허용 표시
   vendorStatus: VendorStatus;
   status: string;
   costVnd: string; // BigInt 문자열 — Number() 금지
   vendorSettledAt: string | null;
+  vendorSettleMethod: SettleMethod; // 정산 수단(정산 완료 건)
+  vendorSettleNote: string | null; // 정산 메모(정산 완료 건)
+  poSentAt: string | null; // 발주 발송 시각(상태 타임라인)
+  vendorRespondedAt: string | null; // 가부 응답 시각(상태 타임라인)
 };
+
+type SettleMethod = "CASH" | "BANK_TRANSFER" | "OTHER" | null;
 
 type Tab = "inbox" | "schedule" | "settlement";
 
@@ -51,6 +59,23 @@ function formatDayMonth(iso: string): string {
   const dd = String(d.getUTCDate()).padStart(2, "0");
   const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
   return `${dd}/${mm}`;
+}
+
+/** ISO(UTC 타임스탬프) → "dd/MM/yyyy" — 정산일·발송일 등 전체 날짜 표시용 */
+function formatFullDate(iso: string): string {
+  const d = new Date(iso);
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const yyyy = d.getUTCFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+/** 정산 수단 라벨 키 (CASH→Tiền mặt 등) — i18n vendor.settle.method.* */
+function settleMethodKey(m: SettleMethod): string | null {
+  if (m === "CASH") return "settle.method.CASH";
+  if (m === "BANK_TRANSFER") return "settle.method.BANK_TRANSFER";
+  if (m === "OTHER") return "settle.method.OTHER";
+  return null;
 }
 
 /** 발주 일정 라벨 — serviceDate 우선, 없으면 checkIn~checkOut */
@@ -126,14 +151,18 @@ export default function VendorBoard() {
       (field) => field?.toLowerCase().includes(q)
     );
   });
-  // ★운영자가 취소(status=CANCELLED)한 발주는 vendorStatus가 PENDING_VENDOR·VENDOR_ACCEPTED로
-  //   남아 있어도 공급자 작업 대상에서 제외 — 인박스(가부)·예약 현황(준비)에 노출 금지(취소 통보는 Zalo로 별도).
+  // ★운영자가 취소(status=CANCELLED)한 발주는 인박스(가부)·정산 대상에서 제외한다.
+  //   단 "이미 발주됐던"(poSentAt 있음) 취소 건은 예약현황 상단에 '취소됨' 배지로 인앱 노출
+  //   — 이행 중단을 공급자가 알아야 함(기존엔 모든 탭에서 사라져 알 수 없던 결함).
   const inbox = all.filter((o) => o.vendorStatus === "PENDING_VENDOR" && o.status !== "CANCELLED");
+  const cancelled = all
+    .filter((o) => o.status === "CANCELLED" && o.poSentAt != null)
+    .sort((a, b) => scheduleSortKey(a) - scheduleSortKey(b));
   const accepted = all
     .filter((o) => o.vendorStatus === "VENDOR_ACCEPTED" && o.status !== "CANCELLED")
     .sort((a, b) => scheduleSortKey(a) - scheduleSortKey(b));
-  // 정산 내역 = 수락/이행된 발주(우리가 지급할 대상). 거절·대기 제외.
-  const settleable = all.filter((o) => o.vendorStatus === "VENDOR_ACCEPTED");
+  // 정산 내역 = 수락/이행된 발주(우리가 지급할 대상). 거절·대기·취소 제외.
+  const settleable = all.filter((o) => o.vendorStatus === "VENDOR_ACCEPTED" && o.status !== "CANCELLED");
   const settled = settleable.filter((o) => o.vendorSettledAt);
   const unsettled = settleable.filter((o) => !o.vendorSettledAt);
 
@@ -211,7 +240,9 @@ export default function VendorBoard() {
             />
           )}
 
-          {tab === "schedule" && <ScheduleSection orders={accepted} t={t} />}
+          {tab === "schedule" && (
+            <ScheduleSection orders={accepted} cancelled={cancelled} t={t} />
+          )}
 
           {tab === "settlement" && (
             <SettlementSection unsettled={unsettled} settled={settled} t={t} />
@@ -258,6 +289,31 @@ function usePaged<T>(items: T[]) {
 
 type T = ReturnType<typeof useTranslations<"vendor">>;
 
+// 게스트 요청사항 — 이행에 필요하므로 truncate 없이 줄바꿈 허용(whitespace-pre-line).
+function GuestNote({ note, t }: { note: string | null; t: T }) {
+  if (!note) return null;
+  return (
+    <div className="flex items-start gap-1 rounded-lg bg-amber-50 px-2 py-1.5 text-sm text-amber-900">
+      <span className="material-symbols-outlined text-base text-amber-500">sticky_note_2</span>
+      <span className="min-w-0">
+        <span className="font-semibold">{t("guestNote")}: </span>
+        <span className="whitespace-pre-line break-words">{note}</span>
+      </span>
+    </div>
+  );
+}
+
+// 정원(투숙 인원) — 아이콘만(라벨 불필요). 0/null이면 표시 안 함.
+function GuestCount({ count }: { count: number | null }) {
+  if (!count) return null;
+  return (
+    <span className="inline-flex items-center gap-0.5 text-sm text-neutral-500">
+      <span className="material-symbols-outlined text-base text-neutral-400">group</span>
+      {count}
+    </span>
+  );
+}
+
 // ── 발주함(받은 발주) ───────────────────────────────────────────────
 function InboxSection({
   orders,
@@ -302,11 +358,14 @@ function InboxSection({
                   {o.villaName}
                 </p>
               )}
-              <p className="flex items-center gap-1 text-sm text-neutral-600">
-                <span className="material-symbols-outlined text-base text-neutral-400">
-                  event
+              <p className="flex items-center gap-2 text-sm text-neutral-600">
+                <span className="flex items-center gap-1">
+                  <span className="material-symbols-outlined text-base text-neutral-400">
+                    event
+                  </span>
+                  {scheduleLabel(o)}
                 </span>
-                {scheduleLabel(o)}
+                <GuestCount count={o.guestCount} />
               </p>
             </div>
             <div className="shrink-0 text-right">
@@ -316,6 +375,9 @@ function InboxSection({
               <p className="text-lg font-extrabold text-teal-700">{formatVndDot(o.costVnd)}</p>
             </div>
           </div>
+
+          {/* 게스트 요청사항 — 이행 정보(있을 때만) */}
+          <GuestNote note={o.guestNote} t={t} />
 
           {/* 수락 / 거절 — 버튼 2개 (한 화면 1작업) */}
           <div className="grid grid-cols-2 gap-2">
@@ -350,36 +412,101 @@ function InboxSection({
   );
 }
 
-// ── 예약 현황(수락한 발주 일정) ────────────────────────────────────
-function ScheduleSection({ orders, t }: { orders: VendorOrder[]; t: T }) {
+// ── 예약 현황(수락한 발주 일정 + 취소된 발주 안내) ──────────────────
+function ScheduleSection({
+  orders,
+  cancelled,
+  t,
+}: {
+  orders: VendorOrder[];
+  cancelled: VendorOrder[];
+  t: T;
+}) {
   const { paged, page, pageSize, setPage, setPageSize } = usePaged(orders);
-  if (orders.length === 0) {
+  if (orders.length === 0 && cancelled.length === 0) {
     return <EmptyState icon="event_available" title={t("empty.schedule")} hint={t("empty.scheduleHint")} />;
   }
   return (
     <div className="space-y-3">
+      {/* 취소됨 — 이미 발주됐다가 운영자가 취소(이행 중단 안내). 상단 별도 표시. */}
+      {cancelled.map((o) => (
+        <div
+          key={o.id}
+          className="space-y-2 rounded-xl border-l-4 border-rose-400 bg-rose-50/60 p-4 shadow-sm"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1">
+              <h3 className="truncate font-bold text-neutral-700 line-through">
+                {o.itemName ?? "—"}
+                <span className="ml-2 text-sm font-semibold text-neutral-400">×{o.quantity}</span>
+              </h3>
+              {o.optionLabel && (
+                <p className="truncate text-sm font-medium text-neutral-500">{o.optionLabel}</p>
+              )}
+              <p className="flex items-center gap-2 text-sm text-neutral-500">
+                <span>
+                  {o.villaName ? `${o.villaName} · ` : ""}
+                  {scheduleLabel(o)}
+                </span>
+                <GuestCount count={o.guestCount} />
+              </p>
+            </div>
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-bold text-rose-700">
+              <span className="material-symbols-outlined text-base [font-variation-settings:'FILL'_1]">
+                cancel
+              </span>
+              {t("status.cancelled")}
+            </span>
+          </div>
+        </div>
+      ))}
+
       {paged.map((o) => (
         <div
           key={o.id}
-          className="flex items-center justify-between gap-3 rounded-xl border-l-4 border-teal-500 bg-white p-4 shadow-sm"
+          className="space-y-2 rounded-xl border-l-4 border-teal-500 bg-white p-4 shadow-sm"
         >
-          <div className="min-w-0 space-y-1">
-            <h3 className="truncate font-bold text-neutral-900">
-              {o.itemName ?? "—"}
-              <span className="ml-2 text-sm font-semibold text-neutral-500">×{o.quantity}</span>
-            </h3>
-            {o.optionLabel && (
-              <p className="truncate text-sm font-medium text-neutral-600">{o.optionLabel}</p>
-            )}
-            {o.villaName && <p className="truncate text-sm text-neutral-500">{o.villaName}</p>}
-            <p className="text-sm font-semibold text-teal-700">{scheduleLabel(o)}</p>
-          </div>
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-700">
-            <span className="material-symbols-outlined text-base [font-variation-settings:'FILL'_1]">
-              check_circle
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1">
+              <h3 className="truncate font-bold text-neutral-900">
+                {o.itemName ?? "—"}
+                <span className="ml-2 text-sm font-semibold text-neutral-500">×{o.quantity}</span>
+              </h3>
+              {o.optionLabel && (
+                <p className="truncate text-sm font-medium text-neutral-600">{o.optionLabel}</p>
+              )}
+              {o.villaName && <p className="truncate text-sm text-neutral-500">{o.villaName}</p>}
+              <p className="flex items-center gap-2 text-sm font-semibold text-teal-700">
+                <span>{scheduleLabel(o)}</span>
+                <GuestCount count={o.guestCount} />
+              </p>
+            </div>
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-700">
+              <span className="material-symbols-outlined text-base [font-variation-settings:'FILL'_1]">
+                check_circle
+              </span>
+              {t("status.accepted")}
             </span>
-            {t("status.accepted")}
-          </span>
+          </div>
+
+          {/* 게스트 요청사항 — 이행 정보(있을 때만) */}
+          <GuestNote note={o.guestNote} t={t} />
+
+          {/* 상태 타임라인 — 발송·응답 시각(작은 글씨) */}
+          {(o.poSentAt || o.vendorRespondedAt) && (
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-neutral-400">
+              {o.poSentAt && (
+                <span>
+                  {t("timeline.sent")}: {formatFullDate(o.poSentAt)}
+                </span>
+              )}
+              {o.vendorRespondedAt && (
+                <span>
+                  {t("timeline.responded")}: {formatFullDate(o.vendorRespondedAt)}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       ))}
       <PaginationBar
@@ -503,6 +630,24 @@ function SettleRow({ order, paid, t }: { order: VendorOrder; paid: boolean; t: T
         >
           {paid ? t("settle.paid") : t("settle.pending")}
         </span>
+        {/* 정산 투명성 — 정산 완료 건의 수단·정산일·메모(자기 지급 내역) */}
+        {paid && (
+          <div className="space-y-0.5 text-[11px] text-slate-500">
+            <p>
+              {settleMethodKey(order.vendorSettleMethod)
+                ? t(settleMethodKey(order.vendorSettleMethod)!)
+                : ""}
+              {order.vendorSettledAt
+                ? `${order.vendorSettleMethod ? " · " : ""}${formatFullDate(order.vendorSettledAt)}`
+                : ""}
+            </p>
+            {order.vendorSettleNote && (
+              <p className="whitespace-pre-line break-words text-slate-400">
+                {order.vendorSettleNote}
+              </p>
+            )}
+          </div>
+        )}
       </div>
       <p className={`shrink-0 text-lg font-bold ${paid ? "text-teal-700" : "text-slate-600"}`}>
         {formatVndDot(order.costVnd)}
@@ -537,6 +682,8 @@ function RejectSheet({
   onConfirm: (reason: string) => void;
 }) {
   const [reason, setReason] = useState("");
+  // 자주 쓰는 거절 사유 — 누르면 textarea 채움(자유입력 유지). vi 기준 라벨은 i18n.
+  const presetKeys = ["outOfStock", "scheduleClash", "outOfArea", "priceMismatch"] as const;
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40">
       <div className="w-full max-w-md space-y-4 rounded-t-3xl bg-white p-5 pb-8 shadow-2xl">
@@ -548,6 +695,27 @@ function RejectSheet({
             {order.optionLabel ? ` · ${order.optionLabel}` : ""} ×{order.quantity} ·{" "}
             {scheduleLabel(order)}
           </p>
+        </div>
+        {/* 프리셋 칩 — 클릭 시 사유 채움 */}
+        <div className="flex flex-wrap gap-2">
+          {presetKeys.map((k) => {
+            const text = t(`rejectPreset.${k}`);
+            const active = reason === text;
+            return (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setReason(text)}
+                className={
+                  active
+                    ? "rounded-full bg-rose-100 px-3 py-1.5 text-sm font-semibold text-rose-700 active:scale-95"
+                    : "rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm font-medium text-neutral-600 active:scale-95"
+                }
+              >
+                {text}
+              </button>
+            );
+          })}
         </div>
         <textarea
           value={reason}

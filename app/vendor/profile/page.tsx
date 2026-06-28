@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getSupplierLocale } from "@/lib/locale";
 import ChangePasswordForm from "@/components/account/change-password-form";
+import VendorPayoutForm from "@/components/vendor/vendor-payout-form";
 
 export const metadata: Metadata = {
   title: "Tài khoản — Villa Go",
@@ -55,6 +56,16 @@ export default async function VendorProfilePage() {
         <p className="mb-5 text-sm text-neutral-500">{tAcc("changeSubtitle")}</p>
         <ChangePasswordForm variant="supplier" />
       </div>
+
+      {/* 지급 정보 자기관리 — 은행명·계좌번호·예금주·연락처(본인 vendorId 스코프, 마진·판매가 무관).
+          강제 비번변경 사용자에게는 숨김(먼저 비번부터 변경). */}
+      {!mustChange && (
+        <div className="mt-6 rounded-2xl border border-neutral-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-1 text-lg font-bold text-neutral-900">{tVendor("payout.title")}</h2>
+          <p className="mb-5 text-sm text-neutral-500">{tVendor("payout.subtitle")}</p>
+          <VendorPayoutForm />
+        </div>
+      )}
     </div>
   );
 }

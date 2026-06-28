@@ -161,7 +161,13 @@
       "settlement": "정산 내역"
     },
     "status": {
-      "accepted": "수락함"
+      "accepted": "수락함",
+      "cancelled": "취소됨"
+    },
+    "guestNote": "고객 요청",
+    "timeline": {
+      "sent": "발주 발송",
+      "responded": "응답"
     },
     "empty": {
       "inbox": "받은 발주가 없습니다",
@@ -177,13 +183,40 @@
       "pendingTitle": "지급 대기",
       "paidTitle": "지급 완료",
       "pending": "지급 대기",
-      "paid": "지급 완료"
+      "paid": "지급 완료",
+      "method": {
+        "CASH": "현금",
+        "BANK_TRANSFER": "계좌이체",
+        "OTHER": "기타"
+      }
     },
     "rejectSheet": {
       "title": "이 발주를 거절할까요?",
       "placeholder": "거절 사유 (선택)",
       "cancel": "취소",
       "confirm": "거절"
+    },
+    "rejectPreset": {
+      "outOfStock": "품절/재고 없음",
+      "scheduleClash": "일정 겹침",
+      "outOfArea": "지역 밖",
+      "priceMismatch": "단가 안 맞음"
+    },
+    "payout": {
+      "title": "지급 정보",
+      "subtitle": "지급받을 연락처와 계좌 정보입니다.",
+      "name": "거래처명",
+      "phone": "연락처",
+      "phonePlaceholder": "연락 가능한 전화번호",
+      "bankName": "은행명",
+      "bankNamePlaceholder": "예: Vietcombank",
+      "accountNumber": "계좌번호",
+      "accountNumberPlaceholder": "입금받을 계좌번호",
+      "accountHolder": "예금주",
+      "accountHolderPlaceholder": "예금주 이름",
+      "save": "저장",
+      "saveOk": "지급 정보를 저장했습니다.",
+      "saveError": "저장에 실패했습니다. 다시 시도하세요."
     },
     "firstLoginNotice": "임시 비밀번호로 로그인했습니다. 본인 비밀번호로 변경하면 발주를 받을 수 있습니다.",
     "stats": {

@@ -26,7 +26,7 @@ function isoToDateInput(iso: string): string {
 }
 
 function emptySelection(variantKey: string | null): CardSelection {
-  return { variantKey, addonKeys: [], modifierKeys: [], quantity: 0, serviceDate: null, serviceTime: null };
+  return { variantKey, addonKeys: [], modifierKeys: [], quantity: 0, serviceDate: null, serviceTime: null, guestNote: null };
 }
 
 export default function GuestOptions(props: GuestOptionsProps) {
@@ -113,6 +113,7 @@ export default function GuestOptions(props: GuestOptionsProps) {
             quantity: sel.quantity,
             serviceDate: sel.serviceDate ?? undefined,
             serviceTime: sel.serviceTime ?? undefined,
+            guestNote: sel.guestNote ?? undefined,
           }),
         });
         if (!res.ok) throw new Error(`HTTP_${res.status}`);

@@ -26,10 +26,14 @@ interface Selection {
   addonKeys: string[];
   modifierKeys: string[];
   quantity: number;
+  /** 요청사항(선택, 최대 500자). 이행자에게 전달되는 특이사항. 미입력이면 null. */
+  guestNote: string | null;
 }
 
+const NOTE_MAX = 500;
+
 function emptySelection(variantKey: string | null): Selection {
-  return { variantKey, addonKeys: [], modifierKeys: [], quantity: 0 };
+  return { variantKey, addonKeys: [], modifierKeys: [], quantity: 0, guestNote: null };
 }
 
 const optToDef = (o: PartnerOption) => ({ key: o.key, labelKo: o.label, priceVnd: o.priceVnd });
@@ -141,6 +145,7 @@ export function PartnerAddonSection({
             addonKeys: sel.addonKeys,
             modifierKeys: sel.modifierKeys,
             quantity: sel.quantity,
+            guestNote: sel.guestNote ?? undefined,
           }),
         });
         if (!res.ok) throw new Error(`HTTP_${res.status}`);
@@ -319,6 +324,24 @@ export function PartnerAddonSection({
                       </button>
                     </div>
                   </div>
+
+                  {/* 요청사항(선택) — 특이사항을 이행자(원천 공급자)에게 전달. 최대 500자. */}
+                  {active && (
+                    <div className="pt-1">
+                      <label className="text-[11px] font-bold text-slate-500 mb-1 block">
+                        {t.noteLabel}
+                      </label>
+                      <textarea
+                        rows={2}
+                        maxLength={NOTE_MAX}
+                        aria-label={t.noteLabel}
+                        placeholder={t.notePlaceholder}
+                        value={sel.guestNote ?? ""}
+                        onChange={(e) => set({ ...sel, guestNote: e.target.value || null })}
+                        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-300 focus:ring-teal-500 focus:border-teal-500 resize-none"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             );

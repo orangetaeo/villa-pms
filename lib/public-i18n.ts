@@ -281,6 +281,8 @@ export interface PublicLabels {
     statusConfirmed: string;
     statusOther: string;
     settleNote: string;
+    noteLabel: string; // "요청사항 (선택)" — 게스트 특이사항(이행자 전달용)
+    notePlaceholder: string; // 메모 placeholder 예시
   };
   // 사진 캐러셀 aria
   carousel: {
@@ -442,6 +444,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       statusConfirmed: "확정",
       statusOther: "처리 중",
       settleNote: "요청하신 부가서비스는 운영자 확인 후 안내되며, 최종 금액은 별도로 안내됩니다.",
+      noteLabel: "요청사항 (선택)",
+      notePlaceholder: "특이사항이 있으면 적어주세요 (예: 알레르기, 도착 시간)",
     },
     carousel: {
       zoom: (alt, n) => `${alt} 사진 ${n} 확대`,
@@ -601,6 +605,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       statusConfirmed: "Confirmed",
       statusOther: "Processing",
       settleNote: "Requested add-ons are confirmed after review; the final amount is shared separately.",
+      noteLabel: "Special request (optional)",
+      notePlaceholder: "Let us know any special requests (e.g. allergy, arrival time)",
     },
     carousel: {
       zoom: (alt, n) => `Zoom ${alt} photo ${n}`,
@@ -760,6 +766,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       statusConfirmed: "Подтверждено",
       statusOther: "В обработке",
       settleNote: "Запрошенные услуги подтверждаются после проверки; итоговая сумма сообщается отдельно.",
+      noteLabel: "Особые пожелания (необязательно)",
+      notePlaceholder: "Сообщите особые пожелания (напр.: аллергия, время прибытия)",
     },
     carousel: {
       zoom: (alt, n) => `Увеличить фото ${alt} ${n}`,
@@ -919,6 +927,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       statusConfirmed: "已确认",
       statusOther: "处理中",
       settleNote: "所申请的附加服务将在运营方确认后告知，最终金额另行通知。",
+      noteLabel: "特殊要求（选填）",
+      notePlaceholder: "如有特殊要求请填写（例如：过敏、到达时间）",
     },
     carousel: {
       zoom: (alt, n) => `放大 ${alt} 照片 ${n}`,
@@ -1078,6 +1088,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       statusConfirmed: "Đã xác nhận",
       statusOther: "Đang xử lý",
       settleNote: "Dịch vụ đã yêu cầu sẽ được xác nhận sau khi xem xét; số tiền cuối cùng sẽ được thông báo riêng.",
+      noteLabel: "Yêu cầu thêm (không bắt buộc)",
+      notePlaceholder: "Cho chúng tôi biết yêu cầu đặc biệt (vd: dị ứng, giờ đến)",
     },
     carousel: {
       zoom: (alt, n) => `Phóng to ảnh ${alt} ${n}`,
