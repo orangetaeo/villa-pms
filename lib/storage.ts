@@ -26,6 +26,68 @@ export function isAllowedImageMime(mimeType: string): boolean {
   return mimeType in MIME_EXT;
 }
 
+export type AllowedImageMime = keyof typeof MIME_EXT;
+
+// HEIC/HEIF(ISO-BMFF) major/compatible brand 집합. heic 계열·heif 계열 모두 허용 이미지.
+const HEIC_BRANDS = new Set(["heic", "heix", "hevc", "hevx", "heim", "heis", "hevm", "hevs"]);
+const HEIF_BRANDS = new Set(["mif1", "mif2", "msf1", "heif"]);
+
+/**
+ * 매직바이트(파일 시그니처)로 **실제** 이미지 포맷을 판별 (보안 P3-S1, 방어심화).
+ * 클라이언트가 선언한 Content-Type을 신뢰하지 않는다 — SVG/HTML/실행파일을 image/*로 위장해도
+ * 실제 바이트가 허용 이미지(jpeg·png·webp·heic·heif)가 아니면 null을 반환한다.
+ * @returns 감지된 허용 MIME, 또는 허용 이미지가 아니면 null.
+ */
+export function sniffImageMime(buffer: Buffer): AllowedImageMime | null {
+  if (buffer.length < 12) return null; // 시그니처 판별 최소 길이 미만
+
+  // JPEG: FF D8 FF
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return "image/jpeg";
+  }
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47 &&
+    buffer[4] === 0x0d && buffer[5] === 0x0a && buffer[6] === 0x1a && buffer[7] === 0x0a
+  ) {
+    return "image/png";
+  }
+  // WebP: "RIFF" .... "WEBP"
+  if (
+    buffer.toString("ascii", 0, 4) === "RIFF" &&
+    buffer.toString("ascii", 8, 12) === "WEBP"
+  ) {
+    return "image/webp";
+  }
+  // HEIC/HEIF (ISO-BMFF): [size4] "ftyp" [major_brand4] [minor4] [compatible_brands4*]
+  // major brand(8-12)뿐 아니라 compatible brands(16~box끝)도 스캔 — 일부 기기는 major가
+  // 시퀀스 brand이고 heic/mif1이 compatible에만 있어 가용성 false-reject 방지.
+  if (buffer.toString("ascii", 4, 8) === "ftyp") {
+    const boxSize = buffer.readUInt32BE(0);
+    const end = Math.min(buffer.length, boxSize > 0 ? boxSize : buffer.length, 64);
+    // 8(major)부터 4바이트씩, minor(12-16)는 brand가 아니나 Set에 없어 자연히 무시됨
+    for (let off = 8; off + 4 <= end; off += 4) {
+      if (off === 12) continue; // minor_version 스킵
+      const brand = buffer.toString("ascii", off, off + 4).toLowerCase();
+      if (HEIC_BRANDS.has(brand)) return "image/heic";
+      if (HEIF_BRANDS.has(brand)) return "image/heif";
+    }
+  }
+  return null;
+}
+
+/**
+ * 업로드 buffer가 허용 이미지의 실제 바이트인지 강제 — 아니면 throw (저장 전 게이트).
+ * declared MIME(클라 선언)은 화이트리스트로 이미 걸렀고, 여기선 실제 바이트로 한 번 더 막는다.
+ * 허용 포맷 간 불일치(예: jpeg 선언·png 바이트)는 무해하므로 통과시키되, 허용 이미지가
+ * 전혀 아니면(SVG/HTML/실행파일/손상) 거부한다.
+ */
+function assertImageBytes(buffer: Buffer): void {
+  if (sniffImageMime(buffer) === null) {
+    throw new Error("INVALID_IMAGE_BYTES");
+  }
+}
+
 interface R2Config {
   accountId: string;
   accessKeyId: string;
@@ -79,6 +141,7 @@ export async function saveFile(
   uploaderId: string
 ): Promise<{ url: string }> {
   const fileName = buildFileName(mimeType, uploaderId);
+  assertImageBytes(buffer); // P3-S1 — 실제 바이트가 허용 이미지인지(위장 차단)
   const r2 = getR2Config();
 
   if (r2) {
@@ -135,6 +198,7 @@ export async function savePassportFile(
 ): Promise<{ fileName: string }> {
   const safePrefix = prefix ? prefix.replace(/[^a-zA-Z0-9-]/g, "") : "";
   const fileName = `${safePrefix}${buildFileName(mimeType, uploaderId)}`;
+  assertImageBytes(buffer); // P3-S1 — 여권·서명도 실제 이미지 바이트만(위장 차단)
   const dir = getPassportDirInternal();
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(path.join(dir, fileName), buffer);
