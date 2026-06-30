@@ -1447,7 +1447,14 @@
       "KEYPAD": "번호키",
       "KEY": "열쇠",
       "OTHER": "기타"
-    }
+    },
+    "dateFilter": {
+      "all": "전체",
+      "today": "오늘",
+      "tomorrow": "내일",
+      "week": "이번주"
+    },
+    "noForDate": "이 날짜에는 청소가 없어요"
   },
   "earnings": {
     "title": "수익",
