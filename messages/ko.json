@@ -1503,6 +1503,8 @@
     "recvUnpaidTitle": "아직 못 받은 달",
     "recvByVillaTitle": "빌라별 미수 · 지급",
     "villaSelectPlaceholder": "빌라 선택 (전체 월별 보기)",
+    "villaFilterAll": "전체",
+    "villaFilterPaid": "지급",
     "villaClear": "전체",
     "villaRecordsTitle": "예약별 내역",
     "recvAllPaid": "미수 없음 — 전액 지급 완료",
