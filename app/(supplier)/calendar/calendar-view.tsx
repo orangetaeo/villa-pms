@@ -3,7 +3,7 @@
 // SUPPLIER 월 달력 클라이언트 뷰 (T1.4) — design/stitch/a3-calendar 변환
 // 셀 4상태는 색+패턴 병행 (색약 대응): 공실=초록 외곽선 / 확정=파랑 실선 /
 // 홀드=연파랑+파선 / 차단=회색+대각 빗금(인라인 repeating gradient — globals.css 비수정)
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { formatVnd } from "@/app/(supplier)/my-villas/new/wizard-types";
@@ -47,6 +47,21 @@ type SheetState =
   | { mode: "unlock"; date: string; blockId: string }
   | { mode: "ical"; date: string }
   | { mode: "booking"; bookingId: string };
+
+/** 가로 드래그 진행 상태 — 마우스/펜=즉시, 터치=길게눌러(0.4초) 후 드래그 (ADMIN 공실보드 동일 UX) */
+interface DragState {
+  anchorIdx: number; // 드래그 시작 days[] 인덱스
+  overIdx: number; // 현재 손가락/포인터가 있는 days[] 인덱스
+  touch?: boolean; // true=터치 길게눌러 → touchend가 종료 담당
+}
+
+/** 드래그로 확정된 범위 일괄 잠금/해제 팝오버 */
+interface RangePop {
+  lo: number; // 시작 days[] 인덱스(포함)
+  hi: number; // 끝 days[] 인덱스(포함)
+  x: number;
+  y: number;
+}
 
 /** YYYY-MM-DD → VN 요일 라벨 키 (T2=월 … CN=일). 디자인 a-direct-booking "(T2)" 힌트 */
 function vnWeekdayKey(date: string): string {
@@ -102,6 +117,230 @@ export function CalendarView({
   const [amountVnd, setAmountVnd] = useState(""); // dot 포맷 문자열
   const [contact, setContact] = useState("");
 
+  // ── 날짜 드래그 범위 선택 (ADMIN 공실보드 동일 패턴) — 여러 날 일괄 잠금/해제 ──
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const [rangePop, setRangePop] = useState<RangePop | null>(null);
+  const [rangePending, setRangePending] = useState(false);
+  const [rangeError, setRangeError] = useState<"conflict" | "error" | null>(null);
+  // 최신 drag 값을 window pointerup/touchend 네이티브 리스너에서 읽기 위한 ref
+  const dragRef = useRef<DragState | null>(null);
+  dragRef.current = drag;
+  // 드래그로 2칸 이상 이동 여부 — 뒤따르는 onClick(onCellTap) 중복 시트 차단
+  const movedRef = useRef(false);
+  // 마지막 포인터 좌표 (범위 팝오버 위치 산출)
+  const lastPointerRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  // 달력 그리드 컨테이너 (터치 네이티브 리스너 부착)
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const rangePopRef = useRef<HTMLDivElement | null>(null);
+
+  // 드래그 가능한 셀인가 — 과거·예약(확정/홀드)은 제외. 공실·MANUAL/iCal 차단만 범위 시작 허용.
+  function isDraggable(cell: DayCell): boolean {
+    if (cell.isPast) return false;
+    return cell.status === "AVAILABLE" || cell.status === "BLOCKED";
+  }
+
+  // days[] 인덱스로 셀 찾기 (터치 elementFromPoint용 data-day-idx 매핑)
+  function cellAt(x: number, y: number): number | null {
+    const el = (document.elementFromPoint(x, y) as HTMLElement | null)?.closest(
+      "[data-day-idx]"
+    ) as HTMLElement | null;
+    if (!el) return null;
+    const idx = Number(el.getAttribute("data-day-idx"));
+    return Number.isNaN(idx) ? null : idx;
+  }
+
+  // 범위 내 잠금가능(공실)·해제가능(MANUAL 단일차단) 개수 — 과거·예약·iCal 제외
+  function rangeCounts(rp: RangePop): { lockable: number; unlockable: number } {
+    let lockable = 0;
+    let unlockable = 0;
+    for (let i = rp.lo; i <= rp.hi; i++) {
+      const c = days[i];
+      if (!c || c.isPast) continue;
+      if (c.status === "AVAILABLE") lockable += 1;
+      else if (c.status === "BLOCKED" && c.blockSource === "MANUAL") unlockable += 1;
+    }
+    return { lockable, unlockable };
+  }
+
+  function openRangePop(lo: number, hi: number, x: number, y: number) {
+    setRangeError(null);
+    // 팝오버는 뷰포트 내로 클램프 (모바일 가장자리 잘림 방지)
+    const vw = typeof window !== "undefined" ? window.innerWidth : 360;
+    const vh = typeof window !== "undefined" ? window.innerHeight : 640;
+    setRangePop({
+      lo,
+      hi,
+      x: Math.min(Math.max(x, 12), vw - 252),
+      y: Math.min(Math.max(y, 12), vh - 220),
+    });
+  }
+
+  function finalizeDrag(d: DragState) {
+    const lo = Math.min(d.anchorIdx, d.overIdx);
+    const hi = Math.max(d.anchorIdx, d.overIdx);
+    setDrag(null);
+    dragRef.current = null;
+    if (lo === hi) {
+      // 한 칸 = 드래그 아님 → onClick(onCellTap)이 단일 시트 처리
+      movedRef.current = false;
+      return;
+    }
+    movedRef.current = true; // 뒤따르는 onClick 차단
+    openRangePop(lo, hi, lastPointerRef.current.x, lastPointerRef.current.y);
+  }
+  const finalizeRef = useRef(finalizeDrag);
+  finalizeRef.current = finalizeDrag;
+
+  // 마우스/펜 — pointerdown 즉시 드래그 시작
+  function onCellPointerDown(e: React.PointerEvent, idx: number, cell: DayCell) {
+    if (e.pointerType !== "mouse" && e.pointerType !== "pen") return; // 터치는 길게눌러 핸들러가 담당
+    if (e.button !== 0) return;
+    if (!isDraggable(cell)) return;
+    lastPointerRef.current = { x: e.clientX, y: e.clientY };
+    movedRef.current = false;
+    setDrag({ anchorIdx: idx, overIdx: idx });
+  }
+
+  // 마우스/펜 — 드래그 중 범위 확장
+  function onCellPointerEnter(e: React.PointerEvent, idx: number) {
+    const d = dragRef.current;
+    if (!d) return;
+    lastPointerRef.current = { x: e.clientX, y: e.clientY };
+    if (d.overIdx !== idx) setDrag({ ...d, overIdx: idx });
+  }
+
+  // 전역 pointerup — 마우스 드래그 종료 시 범위 확정
+  useEffect(() => {
+    function onUp() {
+      const d = dragRef.current;
+      if (!d || d.touch) return; // 터치는 touchend가 확정
+      finalizeRef.current(d);
+    }
+    window.addEventListener("pointerup", onUp);
+    return () => window.removeEventListener("pointerup", onUp);
+  }, []);
+
+  // 터치 길게눌러(0.4초) 드래그 — 그리드 컨테이너 네이티브 리스너 (스크롤과 공존)
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const LONG_PRESS_MS = 400;
+    const MOVE_CANCEL_PX = 8;
+    let timer: number | null = null;
+    let anchorIdx: number | null = null;
+    let startX = 0;
+    let startY = 0;
+    let dragging = false;
+    const clearTimer = () => {
+      if (timer != null) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+    };
+    function onTouchStart(e: TouchEvent) {
+      if (e.touches.length !== 1) return;
+      const tt = e.touches[0];
+      const idx = cellAt(tt.clientX, tt.clientY);
+      if (idx == null || !days[idx] || !isDraggable(days[idx])) return;
+      startX = tt.clientX;
+      startY = tt.clientY;
+      anchorIdx = idx;
+      dragging = false;
+      timer = window.setTimeout(() => {
+        timer = null;
+        dragging = true;
+        navigator.vibrate?.(30);
+        lastPointerRef.current = { x: startX, y: startY };
+        setDrag({ anchorIdx: idx, overIdx: idx, touch: true });
+      }, LONG_PRESS_MS);
+    }
+    function onTouchMove(e: TouchEvent) {
+      const tt = e.touches[0];
+      if (!tt) return;
+      if (!dragging) {
+        if (timer != null) {
+          const dx = Math.abs(tt.clientX - startX);
+          const dy = Math.abs(tt.clientY - startY);
+          if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) {
+            clearTimer();
+            anchorIdx = null;
+          }
+        }
+        return;
+      }
+      e.preventDefault(); // 선택 모드 — 스크롤 잠금
+      lastPointerRef.current = { x: tt.clientX, y: tt.clientY };
+      const idx = cellAt(tt.clientX, tt.clientY);
+      if (idx != null) {
+        const d = dragRef.current;
+        if (d && d.overIdx !== idx) setDrag({ ...d, overIdx: idx });
+      }
+    }
+    function onTouchEnd() {
+      clearTimer();
+      if (dragging) {
+        dragging = false;
+        const d = dragRef.current;
+        if (d) finalizeRef.current(d);
+      }
+      anchorIdx = null;
+    }
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+    el.addEventListener("touchcancel", onTouchEnd);
+    return () => {
+      clearTimer();
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+    };
+    // days 가 바뀌면(월·빌라 전환) 리스너 재바인딩 — 최신 days 클로저 사용
+  }, [days]);
+
+  // 범위 팝오버 바깥 탭/스크롤 시 닫기
+  useEffect(() => {
+    if (!rangePop) return;
+    function onDown(e: PointerEvent) {
+      if (rangePending) return;
+      if (rangePopRef.current?.contains(e.target as Node)) return;
+      setRangePop(null);
+      setRangeError(null);
+    }
+    window.addEventListener("pointerdown", onDown);
+    return () => window.removeEventListener("pointerdown", onDown);
+  }, [rangePop, rangePending]);
+
+  // 범위 일괄 잠금/해제 — ADMIN 과 동일 /api/calendar-blocks/bulk (SUPPLIER 자기 빌라 스코프 허용)
+  async function submitRange(action: "lock" | "unlock") {
+    if (!rangePop || rangePending) return;
+    setRangePending(true);
+    setRangeError(null);
+    try {
+      const res = await fetch("/api/calendar-blocks/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          villaId: selectedVillaId,
+          startDate: days[rangePop.lo].date,
+          endDate: days[rangePop.hi].date,
+          action,
+        }),
+      });
+      if (res.ok) {
+        setRangePop(null);
+        router.refresh();
+      } else {
+        setRangeError(res.status === 409 ? "conflict" : "error");
+      }
+    } catch {
+      setRangeError("error");
+    } finally {
+      setRangePending(false);
+    }
+  }
+
   // 홀드 만료 카운트다운 — 예약 바텀시트가 열려 있을 때만 1초 틱
   const booking =
     sheet?.mode === "booking" ? bookingDetails[sheet.bookingId] : undefined;
@@ -144,6 +383,11 @@ export function CalendarView({
   }
 
   function onCellTap(cell: DayCell) {
+    // 직전이 다중 셀 드래그였으면 onClick 무시 (드래그 종료가 범위 팝오버를 이미 띄움)
+    if (movedRef.current) {
+      movedRef.current = false;
+      return;
+    }
     setErrorKey(null);
     // 예약(확정·홀드) 셀 — 상세 바텀시트 (과거여도 정보 열람 허용)
     if ((cell.status === "BOOKED" || cell.status === "HOLD") && cell.bookingId) {
@@ -240,23 +484,29 @@ export function CalendarView({
 
   return (
     <div className="px-4 pt-2 pb-8">
-      {/* 빌라 선택 칩 행 — 자기 빌라만 */}
-      {/* 스크롤바 숨김 — globals.css 수정 금지라 arbitrary value 사용 */}
-      <section className="-mx-4 flex gap-2 overflow-x-auto px-4 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {villas.map((villa) => (
-          <button
-            key={villa.id}
-            type="button"
-            onClick={() => navigate(villa.id, month)}
-            className={
-              villa.id === selectedVillaId
-                ? "whitespace-nowrap rounded-full bg-teal-600 px-5 py-2.5 font-medium text-white shadow-sm transition-transform active:scale-95"
-                : "whitespace-nowrap rounded-full border border-gray-200 bg-white px-5 py-2.5 font-medium text-gray-600 transition-transform active:scale-95"
-            }
+      {/* 빌라 선택 — 셀렉터 박스 (자기 빌라만). 빌라가 많아도 한눈에·터치 1회로 선택 */}
+      <section className="py-4">
+        <label className="relative block">
+          <span className="sr-only">{t("villaSelectLabel")}</span>
+          <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-teal-600">
+            <span className="material-symbols-outlined">villa</span>
+          </span>
+          <select
+            value={selectedVillaId}
+            onChange={(e) => navigate(e.target.value, month)}
+            aria-label={t("villaSelectLabel")}
+            className="h-14 w-full appearance-none rounded-2xl border border-gray-200 bg-white pl-12 pr-12 text-base font-bold text-gray-800 shadow-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
           >
-            {formatVillaName({ name: villa.name, nameVi: villa.nameVi })}
-          </button>
-        ))}
+            {villas.map((villa) => (
+              <option key={villa.id} value={villa.id}>
+                {formatVillaName({ name: villa.name, nameVi: villa.nameVi })}
+              </option>
+            ))}
+          </select>
+          <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
+            <span className="material-symbols-outlined">expand_more</span>
+          </span>
+        </label>
       </section>
 
       {/* 월 이동 */}
@@ -296,21 +546,31 @@ export function CalendarView({
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-1">
+        <div ref={gridRef} className="grid select-none grid-cols-7 gap-1">
           {Array.from({ length: leadingBlanks }).map((_, i) => (
             <div key={`blank-${i}`} aria-hidden className="aspect-[1/1.1]" />
           ))}
-          {days.map((cell) => (
-            <button
-              key={cell.date}
-              type="button"
-              onClick={() => onCellTap(cell)}
-              className={cellClass(cell)}
-              aria-label={`${formatDateVn(cell.date)} — ${t(`legend.${cell.status.toLowerCase()}`)}`}
-            >
-              {cell.day}
-            </button>
-          ))}
+          {days.map((cell, idx) => {
+            // 드래그 선택 구간 하이라이트 (현재 빌라·날짜 범위)
+            const inDragRange =
+              drag !== null &&
+              idx >= Math.min(drag.anchorIdx, drag.overIdx) &&
+              idx <= Math.max(drag.anchorIdx, drag.overIdx);
+            return (
+              <button
+                key={cell.date}
+                type="button"
+                data-day-idx={idx}
+                onClick={() => onCellTap(cell)}
+                onPointerDown={(e) => onCellPointerDown(e, idx, cell)}
+                onPointerEnter={(e) => onCellPointerEnter(e, idx)}
+                className={`${cellClass(cell)}${inDragRange ? " ring-2 ring-inset ring-teal-500 !bg-teal-100 !text-teal-700" : ""}`}
+                aria-label={`${formatDateVn(cell.date)} — ${t(`legend.${cell.status.toLowerCase()}`)}`}
+              >
+                {cell.day}
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -333,6 +593,74 @@ export function CalendarView({
           <span className="text-sm font-semibold text-[#1F2937]">{t("legend.blocked")}</span>
         </div>
       </section>
+
+      {/* 드래그 범위 선택 안내 — 비기술 vi 사용자에게 길게눌러/끌기 힌트 */}
+      <p className="mt-4 flex items-center gap-2 rounded-xl bg-teal-50 px-3 py-2.5 text-xs font-medium text-teal-700">
+        <span className="material-symbols-outlined text-base">swipe</span>
+        {t("range.hint")}
+      </p>
+
+      {/* 범위 일괄 잠금/해제 팝오버 — 드래그로 2칸 이상 선택 시 (a3 라이트 톤) */}
+      {rangePop &&
+        (() => {
+          const { lockable, unlockable } = rangeCounts(rangePop);
+          const dayCount = rangePop.hi - rangePop.lo + 1;
+          return (
+            <div
+              ref={rangePopRef}
+              className="fixed z-[70] w-60 rounded-2xl border border-gray-100 bg-white p-4 shadow-[0_10px_40px_rgba(0,0,0,0.18)]"
+              style={{ left: rangePop.x, top: rangePop.y }}
+            >
+              <div className="mb-2 flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-extrabold tabular-nums text-gray-800">
+                    {formatDateVn(days[rangePop.lo].date)} – {formatDateVn(days[rangePop.hi].date)}
+                  </p>
+                  <p className="text-xs font-bold text-teal-600">
+                    {t("range.days", { count: dayCount })}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (rangePending) return;
+                    setRangePop(null);
+                    setRangeError(null);
+                  }}
+                  className="text-gray-400 active:scale-90"
+                  aria-label={t("sheet.close")}
+                >
+                  <span className="material-symbols-outlined text-lg">close</span>
+                </button>
+              </div>
+              {rangeError && (
+                <p className="mb-3 rounded-lg bg-red-50 p-2.5 text-xs font-medium text-red-600">
+                  {t(`sheet.${rangeError}`)}
+                </p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={rangePending || lockable === 0}
+                  onClick={() => submitRange("lock")}
+                  className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-teal-600 py-3 text-sm font-bold text-white transition active:scale-[0.98] disabled:opacity-40"
+                >
+                  <span className="material-symbols-outlined text-[16px]">lock</span>
+                  {rangePending ? t("sheet.processing") : t("range.lock", { count: lockable })}
+                </button>
+                <button
+                  type="button"
+                  disabled={rangePending || unlockable === 0}
+                  onClick={() => submitRange("unlock")}
+                  className="flex flex-1 items-center justify-center gap-1 rounded-xl border-2 border-teal-600 bg-white py-3 text-sm font-bold text-teal-600 transition active:scale-[0.98] disabled:opacity-40"
+                >
+                  <span className="material-symbols-outlined text-[16px]">lock_open</span>
+                  {rangePending ? t("sheet.processing") : t("range.unlock", { count: unlockable })}
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
       {/* 바텀시트 + 백드롭 (a3) */}
       {sheet && (
