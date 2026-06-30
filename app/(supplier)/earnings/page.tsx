@@ -174,6 +174,7 @@ async function EarningsDetail({
         checkOut: true,
         nights: true,
         supplierCostVnd: true,
+        seller: true, // 판매 채널 — OPERATOR(우리회사)/SUPPLIER(직접). 배지·미수 분류용
         villa: { select: { name: true, nameVi: true } },
       },
     }),
@@ -197,6 +198,7 @@ async function EarningsDetail({
         checkOut: true,
         nights: true,
         supplierCostVnd: true,
+        seller: true,
         villaId: true,
         villa: { select: { name: true, nameVi: true } },
       },
@@ -215,6 +217,7 @@ async function EarningsDetail({
       supplierCostVnd: b.supplierCostVnd,
       villaId: b.villaId,
       villaName: formatVillaName({ name: b.villa.name, nameVi: b.villa.nameVi }),
+      seller: b.seller,
     })),
     allSettlements
   );
@@ -248,7 +251,8 @@ async function EarningsDetail({
           checkOut: b.checkOut,
           nights: b.nights,
           supplierCostVnd: b.supplierCostVnd,
-          paid: paidMonths.has(b.checkOut.toISOString().slice(0, 7)),
+          direct: b.seller === "SUPPLIER", // 직접 판매(자체 수금)
+          paid: b.seller === "OPERATOR" && paidMonths.has(b.checkOut.toISOString().slice(0, 7)),
         }))
     : [];
   const pagedVillaBookings = villaBookings.slice(
@@ -308,7 +312,19 @@ async function EarningsDetail({
               {formatVndDot(recv.outstandingVnd)}
             </span>
           </div>
+          {/* 직접 판매(자체 수금) — 우리에게 받을 게 아님. 채널 구분 표시(테오 요청). 있을 때만 */}
+          {recv.directVnd > 0n && (
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-indigo-50 px-3.5 py-2.5">
+              <span className="shrink-0 text-xs font-medium text-indigo-600">{t("recvDirect")}</span>
+              <span className="min-w-0 truncate text-right text-base font-extrabold tabular-nums text-indigo-700">
+                {formatVndDot(recv.directVnd)}
+              </span>
+            </div>
+          )}
         </div>
+        {recv.directVnd > 0n && (
+          <p className="text-[11px] leading-snug text-slate-400">{t("recvChannelNote")}</p>
+        )}
 
         {/* 미납 달 목록 — 있으면 그 달 상세로 이동. 없으면 전액 수령 안내 */}
         {recv.unpaidMonths.length > 0 ? (
@@ -424,7 +440,7 @@ async function EarningsDetail({
                 <div
                   key={b.id}
                   className={`flex items-center justify-between gap-3 rounded-xl border-l-4 bg-white p-4 shadow-sm ${
-                    b.paid ? "border-emerald-500" : "border-amber-400"
+                    b.direct ? "border-indigo-400" : b.paid ? "border-emerald-500" : "border-amber-400"
                   }`}
                 >
                   <div className="min-w-0 space-y-1">
@@ -432,19 +448,32 @@ async function EarningsDetail({
                       {formatUtcDmy(b.checkIn)} – {formatUtcDmy(b.checkOut)}
                     </p>
                     <p className="text-xs text-slate-400">{t("nights", { count: b.nights })}</p>
-                    <span
-                      className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
-                        b.paid
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-amber-100 text-amber-700"
-                      }`}
-                    >
-                      {b.paid ? t("paidLabel") : t("pendingLabel")}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1">
+                      {/* 판매 채널 배지 — 직접판매 / 우리회사 */}
+                      <span
+                        className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-bold ${
+                          b.direct ? "bg-indigo-100 text-indigo-700" : "bg-teal-100 text-teal-700"
+                        }`}
+                      >
+                        {b.direct ? t("channelDirect") : t("channelOperator")}
+                      </span>
+                      {/* 결과 — 직접판매는 자체수금이라 지급상태 없음 */}
+                      <span
+                        className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
+                          b.direct
+                            ? "bg-slate-100 text-slate-500"
+                            : b.paid
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-amber-100 text-amber-700"
+                        }`}
+                      >
+                        {b.direct ? t("channelSelfCollected") : b.paid ? t("paidLabel") : t("pendingLabel")}
+                      </span>
+                    </div>
                   </div>
                   <p
                     className={`shrink-0 text-lg font-bold tabular-nums ${
-                      b.paid ? "text-teal-700" : "text-slate-600"
+                      b.direct ? "text-indigo-700" : b.paid ? "text-teal-700" : "text-slate-600"
                     }`}
                   >
                     {formatVndDot(b.supplierCostVnd)}
@@ -554,11 +583,14 @@ async function EarningsDetail({
         </div>
       ) : (
         <div className="space-y-3">
-          {pagedBookings.map((booking) => (
+          {pagedBookings.map((booking) => {
+            const direct = booking.seller === "SUPPLIER";
+            const bookingPaid = !direct && isPaid;
+            return (
             <div
               key={booking.id}
               className={`flex items-center justify-between rounded-xl border-l-4 bg-white p-4 shadow-sm ${
-                isPaid ? "border-emerald-500" : "border-slate-300"
+                direct ? "border-indigo-400" : bookingPaid ? "border-emerald-500" : "border-slate-300"
               }`}
             >
               <div className="space-y-1">
@@ -569,21 +601,35 @@ async function EarningsDetail({
                   {formatDayMonth(booking.checkIn)} - {formatDayMonth(booking.checkOut)} (
                   {t("nights", { count: booking.nights })})
                 </p>
-                <span
-                  className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
-                    isPaid
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "border border-slate-200 bg-slate-100 text-slate-500"
-                  }`}
-                >
-                  {isPaid ? t("paidLabel") : t("pendingLabel")}
-                </span>
+                <div className="flex flex-wrap items-center gap-1">
+                  {/* 판매 채널 */}
+                  <span
+                    className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-bold ${
+                      direct ? "bg-indigo-100 text-indigo-700" : "bg-teal-100 text-teal-700"
+                    }`}
+                  >
+                    {direct ? t("channelDirect") : t("channelOperator")}
+                  </span>
+                  {/* 결과 */}
+                  <span
+                    className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
+                      direct
+                        ? "bg-slate-100 text-slate-500"
+                        : bookingPaid
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "border border-slate-200 bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {direct ? t("channelSelfCollected") : bookingPaid ? t("paidLabel") : t("pendingLabel")}
+                  </span>
+                </div>
               </div>
-              <p className={`text-lg font-bold ${isPaid ? "text-teal-700" : "text-slate-600"}`}>
+              <p className={`text-lg font-bold ${direct ? "text-indigo-700" : bookingPaid ? "text-teal-700" : "text-slate-600"}`}>
                 {formatVndDot(booking.supplierCostVnd)}
               </p>
             </div>
-          ))}
+            );
+          })}
           {/* 수익 상세 페이지네이션 (라이트) — 합계는 전체 기준 */}
           <PaginationBar total={bookings.length} page={page} pageSize={pageSize} light />
         </div>
