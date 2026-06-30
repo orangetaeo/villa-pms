@@ -203,38 +203,39 @@ async function EarningsDetail({
           <span className="material-symbols-outlined text-[18px] text-teal-600">account_balance_wallet</span>
           {t("recvTitle")}
         </h2>
-        <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-xl bg-slate-50 p-3 text-center">
-            <p className="text-[11px] font-medium text-slate-400">{t("recvTotal")}</p>
-            <p className="mt-0.5 text-sm font-extrabold tabular-nums text-slate-800">
+        {/* 십억대 VND가 한 칸에 안 들어가 겹치던 3칸 그리드 → 세로 리스트(라벨 좌·금액 우정렬, full-width) */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3.5 py-2.5">
+            <span className="shrink-0 text-xs font-medium text-slate-500">{t("recvTotal")}</span>
+            <span className="min-w-0 truncate text-right text-base font-extrabold tabular-nums text-slate-800">
               {formatVndDot(recv.totalVnd)}
-            </p>
+            </span>
           </div>
-          <div className="rounded-xl bg-emerald-50 p-3 text-center">
-            <p className="text-[11px] font-medium text-emerald-600">{t("recvPaid")}</p>
-            <p className="mt-0.5 text-sm font-extrabold tabular-nums text-emerald-700">
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-emerald-50 px-3.5 py-2.5">
+            <span className="shrink-0 text-xs font-medium text-emerald-600">{t("recvPaid")}</span>
+            <span className="min-w-0 truncate text-right text-base font-extrabold tabular-nums text-emerald-700">
               {formatVndDot(recv.paidVnd)}
-            </p>
+            </span>
           </div>
           <div
-            className={`rounded-xl p-3 text-center ${
+            className={`flex items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 ${
               recv.outstandingVnd > 0n ? "bg-amber-50" : "bg-slate-50"
             }`}
           >
-            <p
-              className={`text-[11px] font-medium ${
+            <span
+              className={`shrink-0 text-xs font-medium ${
                 recv.outstandingVnd > 0n ? "text-amber-600" : "text-slate-400"
               }`}
             >
               {t("recvOutstanding")}
-            </p>
-            <p
-              className={`mt-0.5 text-sm font-extrabold tabular-nums ${
+            </span>
+            <span
+              className={`min-w-0 truncate text-right text-base font-extrabold tabular-nums ${
                 recv.outstandingVnd > 0n ? "text-amber-700" : "text-slate-500"
               }`}
             >
               {formatVndDot(recv.outstandingVnd)}
-            </p>
+            </span>
           </div>
         </div>
 
