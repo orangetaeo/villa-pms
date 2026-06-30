@@ -16,6 +16,7 @@ import { formatVillaName } from "@/lib/villa-name";
 import { formatVndDot } from "@/lib/format";
 import { parsePageParams } from "@/lib/pagination";
 import { summarizeSupplierReceivables } from "@/lib/supplier-receivables";
+import PaginationBar from "@/components/pagination-bar";
 import StatsSection from "@/components/supplier/stats/stats-section";
 
 const YEAR_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -106,6 +107,8 @@ export default async function EarningsPage({
           locale={locale}
           supplierId={session.user.id}
           yearMonthParam={yearMonthParam}
+          page={page}
+          pageSize={pageSize}
         />
       ) : (
         <StatsSection
@@ -125,10 +128,14 @@ async function EarningsDetail({
   locale,
   supplierId,
   yearMonthParam,
+  page,
+  pageSize,
 }: {
   locale: string;
   supplierId: string;
   yearMonthParam?: string;
+  page: number;
+  pageSize: number;
 }) {
   const t = await getTranslations({ locale, namespace: "earnings" });
 
@@ -165,13 +172,18 @@ async function EarningsDetail({
       // statementUrl 존재 시 정산서 PDF 보기 버튼 노출 (GET /api/settlements/[id]/statement는 소유 공급자 허용)
       select: { id: true, status: true, paidAt: true, statementUrl: true },
     }),
-    // 미수/입금 집계용 — 전 기간 정산 대상 예약(원가·체크아웃월만)
+    // 미수/입금 집계용 — 전 기간 정산 대상 예약(원가·체크아웃월·빌라). 빌라별 분해에 villa 필요
     prisma.booking.findMany({
       where: {
         status: { in: [...SETTLEMENT_BOOKING_STATUSES] },
         villa: { supplierId },
       },
-      select: { checkOut: true, supplierCostVnd: true },
+      select: {
+        checkOut: true,
+        supplierCostVnd: true,
+        villaId: true,
+        villa: { select: { name: true, nameVi: true } },
+      },
     }),
     prisma.settlement.findMany({
       where: { supplierId },
@@ -179,11 +191,22 @@ async function EarningsDetail({
     }),
   ]);
 
-  // 미수/입금 현황(전 기간) — 받음(PAID 월)·미수(미PAID 월)·미납 달 목록
-  const recv = summarizeSupplierReceivables(allBookings, allSettlements);
+  // 미수/입금 현황(전 기간) — 받음(PAID 월)·미수(미PAID 월)·미납 달 목록·빌라별 분해.
+  //   빌라명은 운영자/공급자 공통 병기명으로 표시(formatVillaName)
+  const recv = summarizeSupplierReceivables(
+    allBookings.map((b) => ({
+      checkOut: b.checkOut,
+      supplierCostVnd: b.supplierCostVnd,
+      villaId: b.villaId,
+      villaName: formatVillaName({ name: b.villa.name, nameVi: b.villa.nameVi }),
+    })),
+    allSettlements
+  );
 
   // 월 합계 — BigInt 합산 (Number 변환 금지)
   const totalVnd = bookings.reduce((sum, b) => sum + b.supplierCostVnd, 0n);
+  // 수익 상세(월별 예약 목록) 페이지네이션 — 메모리 슬라이스
+  const pagedBookings = bookings.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
 
   // 정산 상태 파생 — DRAFT·CONFIRMED·미생성 → 지급 대기 / PAID → 지급 완료(+일자)
   const isPaid = settlement?.status === SettlementStatus.PAID;
@@ -273,6 +296,36 @@ async function EarningsDetail({
               {t("recvAllPaid")}
             </p>
           )
+        )}
+
+        {/* 빌라별 미수/지급 — 테오 요청: 빌라별로 받음·미수 확인. 미수 큰 빌라 먼저 */}
+        {recv.byVilla.length > 0 && (
+          <div className="space-y-1.5 border-t border-slate-100 pt-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              {t("recvByVillaTitle")}
+            </p>
+            {recv.byVilla.map((v) => (
+              <div key={v.villaId} className="rounded-lg border border-slate-100 px-3 py-2.5">
+                <p className="truncate text-sm font-bold text-slate-800">{v.villaName}</p>
+                <div className="mt-1 flex items-center justify-between gap-3 text-xs">
+                  <span className="flex items-center gap-1 text-emerald-600">
+                    <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                    {t("recvPaid")}
+                    <b className="tabular-nums">{formatVndDot(v.paidVnd)}</b>
+                  </span>
+                  <span
+                    className={`flex items-center gap-1 ${
+                      v.outstandingVnd > 0n ? "text-amber-600" : "text-slate-400"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[14px]">schedule</span>
+                    {t("recvOutstanding")}
+                    <b className="tabular-nums">{formatVndDot(v.outstandingVnd)}</b>
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </section>
 
@@ -373,7 +426,7 @@ async function EarningsDetail({
         </div>
       ) : (
         <div className="space-y-3">
-          {bookings.map((booking) => (
+          {pagedBookings.map((booking) => (
             <div
               key={booking.id}
               className={`flex items-center justify-between rounded-xl border-l-4 bg-white p-4 shadow-sm ${
@@ -403,6 +456,8 @@ async function EarningsDetail({
               </p>
             </div>
           ))}
+          {/* 수익 상세 페이지네이션 (라이트) — 합계는 전체 기준 */}
+          <PaginationBar total={bookings.length} page={page} pageSize={pageSize} light />
         </div>
       )}
     </div>
