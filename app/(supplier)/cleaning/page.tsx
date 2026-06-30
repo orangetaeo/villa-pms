@@ -13,7 +13,7 @@ import type { CleaningStatus, Prisma } from "@prisma/client";
 import PaginationBar from "@/components/pagination-bar";
 import ListSearch from "@/components/list-search";
 import { parsePageParams } from "@/lib/pagination";
-import { formatVillaName } from "@/lib/villa-name";
+import { formatVillaName, villaNameViOnly } from "@/lib/villa-name";
 
 // a8 상태 배지 4종: Chờ dọn(주황) / Đã gửi(파랑) / Đã duyệt(초록) / Bị từ chối(빨강 외곽선)
 const STATUS_BADGE: Record<CleaningStatus, string> = {
@@ -54,7 +54,9 @@ export default async function CleaningListPage({
   const { role, id: userId } = session.user;
   if (role !== "SUPPLIER" && role !== "CLEANER") redirect("/");
 
-  const locale = await getSupplierLocale(session.user.locale);
+  // 청소직원은 베트남어 고정(한국어 미노출). 공급자는 기존 우선순위.
+  const isCleaner = role === "CLEANER";
+  const locale = isCleaner ? "vi" : await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "cleaning" });
   const params = await searchParams;
   const { submitted } = params;
@@ -193,7 +195,9 @@ export default async function CleaningListPage({
                   </div>
                   <div className="ml-4 flex min-w-0 flex-grow flex-col justify-center">
                     <h3 className="truncate text-base font-bold leading-tight text-gray-900">
-                      {formatVillaName({ name: task.villa.name, nameVi: task.villa.nameVi })}
+                      {isCleaner
+                        ? villaNameViOnly({ name: task.villa.name, nameVi: task.villa.nameVi })
+                        : formatVillaName({ name: task.villa.name, nameVi: task.villa.nameVi })}
                     </h3>
                     <p className="mt-1 text-sm text-gray-500">
                       {t("checkout", { date: formatDayMonth(refDate, isTimestamp) })}

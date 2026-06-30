@@ -20,3 +20,11 @@ export function formatVillaName(villa: VillaNameParts): string {
   if (!vi || vi === name) return name;
   return `${name} (${vi})`;
 }
+
+/**
+ * 베트남어 전용 표시명 — nameVi 우선, 없으면 name 폴백.
+ * 청소직원(CLEANER) 등 한국어를 노출하지 않아야 하는 화면 전용(병기 대신 단일 표기).
+ */
+export function villaNameViOnly(villa: VillaNameParts): string {
+  return villa.nameVi?.trim() || villa.name;
+}

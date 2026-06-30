@@ -11,6 +11,8 @@ import { requireCapability } from "@/lib/api-guard";
 
 const bodySchema = z.object({
   address: z.string().max(300).optional().nullable(),
+  // 출입 방식 — 번호키/열쇠/기타. 빌라마다 다름(번호키 없는 곳도 있음).
+  accessType: z.enum(["KEYPAD", "KEY", "OTHER"]).optional().nullable(),
   accessInfo: z.string().max(1000).optional().nullable(),
   cleaningNotes: z.string().max(2000).optional().nullable(),
 });
@@ -30,20 +32,27 @@ export async function PATCH(
 
   const villa = await prisma.villa.findUnique({
     where: { id },
-    select: { id: true, address: true, accessInfo: true, cleaningNotes: true },
+    select: { id: true, address: true, accessType: true, accessInfo: true, cleaningNotes: true },
   });
   if (!villa) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
 
   const norm = (v: string | null | undefined, current: string | null) =>
     v !== undefined ? (v?.trim() || null) : current;
   const nextAddress = norm(parsed.data.address, villa.address);
+  const nextAccessType =
+    parsed.data.accessType !== undefined ? parsed.data.accessType : villa.accessType;
   const nextAccess = norm(parsed.data.accessInfo, villa.accessInfo);
   const nextNotes = norm(parsed.data.cleaningNotes, villa.cleaningNotes);
 
   await prisma.$transaction(async (tx) => {
     await tx.villa.update({
       where: { id: villa.id },
-      data: { address: nextAddress, accessInfo: nextAccess, cleaningNotes: nextNotes },
+      data: {
+        address: nextAddress,
+        accessType: nextAccessType,
+        accessInfo: nextAccess,
+        cleaningNotes: nextNotes,
+      },
     });
     await writeAuditLog({
       db: tx,
@@ -54,6 +63,9 @@ export async function PATCH(
       changes: {
         ...(nextAddress !== villa.address
           ? { address: { old: villa.address, new: nextAddress } }
+          : {}),
+        ...(nextAccessType !== villa.accessType
+          ? { accessType: { old: villa.accessType, new: nextAccessType } }
           : {}),
         ...(nextAccess !== villa.accessInfo
           ? { accessInfo: { old: villa.accessInfo, new: nextAccess } }
@@ -67,6 +79,7 @@ export async function PATCH(
 
   return NextResponse.json({
     address: nextAddress,
+    accessType: nextAccessType,
     accessInfo: nextAccess,
     cleaningNotes: nextNotes,
   });
