@@ -103,24 +103,27 @@ async function PartnerShell({
           <LocaleSwitcher current={locale} persist />
         </header>
 
-        {/* 로그아웃 — 우측 상단 고정(LocaleSwitcher right-3 왼쪽 right-20에 배치해 겹침 방지).
-            NextAuth signOut 서버 액션, 완료 후 /login. 승인대기·거절 화면(PartnerShell 공용)에도 노출. */}
-        <form
-          action={async () => {
-            "use server";
-            await signOut({ redirectTo: "/login" });
-          }}
-          className="fixed right-20 top-3 z-[60]"
-        >
-          <button
-            type="submit"
-            aria-label={t("logout")}
-            title={t("logout")}
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-rose-600 shadow-sm backdrop-blur transition-colors hover:bg-rose-50 active:scale-95"
+        {/* 로그아웃(우측 상단 고정) — 승인대기·거절 화면에만 노출.
+            승인된 파트너(showNav)는 좌상단 계정 아이콘 → /partner/profile 안에 로그아웃이 있어
+            중복이므로 숨긴다(공급자·벤더 포털과 동일: 로그아웃은 계정 화면 단일 경로). */}
+        {!showNav && (
+          <form
+            action={async () => {
+              "use server";
+              await signOut({ redirectTo: "/login" });
+            }}
+            className="fixed right-20 top-3 z-[60]"
           >
-            <span className="material-symbols-outlined text-[20px]">logout</span>
-          </button>
-        </form>
+            <button
+              type="submit"
+              aria-label={t("logout")}
+              title={t("logout")}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-rose-600 shadow-sm backdrop-blur transition-colors hover:bg-rose-50 active:scale-95"
+            >
+              <span className="material-symbols-outlined text-[20px]">logout</span>
+            </button>
+          </form>
+        )}
 
         <main className="mx-auto max-w-md px-4 py-6 pb-24">{children}</main>
 
