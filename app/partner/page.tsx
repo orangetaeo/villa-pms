@@ -2,6 +2,7 @@
 //   Role=PARTNER 전용(layout 가드). 자기 partnerId 스코프 예약만(loadPartnerBookings).
 //   ★ 누수: totalSaleKrw·원가·마진·미니바·서비스 비조회. 빌라명은 비운영자 병기(formatVillaName).
 import type { Metadata } from "next";
+import Link from "next/link";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -85,38 +86,44 @@ function BookingCard({
 }) {
   const statusStyle = STATUS_STYLE[booking.status] ?? "bg-neutral-100 text-neutral-500";
   return (
-    <li className="rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <h2 className="truncate font-bold text-neutral-900">
-            {formatVillaName({ name: booking.villaName, nameVi: booking.villaNameVi })}
-          </h2>
-          {booking.villaComplex && (
-            <p className="truncate text-xs text-neutral-400">{booking.villaComplex}</p>
-          )}
-          <p className="text-sm text-neutral-500">
-            {formatDayMonth(booking.checkIn)} – {formatDayMonth(booking.checkOut)} ·{" "}
-            {t("bookings.nights", { count: booking.nights })}
-          </p>
-          <p className="text-sm text-neutral-600">
-            {booking.guestName} ·{" "}
-            {t("bookings.guests", { count: booking.guestCount })}
-          </p>
+    <li>
+      {/* 카드 전체가 상세(예약 + 투숙객 명단)로 진입하는 링크 */}
+      <Link
+        href={`/partner/bookings/${booking.id}`}
+        className="block rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm transition-transform active:scale-[0.99]"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <h2 className="truncate font-bold text-neutral-900">
+              {formatVillaName({ name: booking.villaName, nameVi: booking.villaNameVi })}
+            </h2>
+            {booking.villaComplex && (
+              <p className="truncate text-xs text-neutral-400">{booking.villaComplex}</p>
+            )}
+            <p className="text-sm text-neutral-500">
+              {formatDayMonth(booking.checkIn)} – {formatDayMonth(booking.checkOut)} ·{" "}
+              {t("bookings.nights", { count: booking.nights })}
+            </p>
+            <p className="text-sm text-neutral-600">
+              {booking.guestName} ·{" "}
+              {t("bookings.guests", { count: booking.guestCount })}
+            </p>
+          </div>
+          <span
+            className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${statusStyle}`}
+          >
+            {t(`status.${booking.status}`)}
+          </span>
         </div>
-        <span
-          className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${statusStyle}`}
-        >
-          {t(`status.${booking.status}`)}
-        </span>
-      </div>
-      <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-3">
-        <span className="text-xs font-medium text-neutral-400">
-          {t("bookings.roomCharge")}
-        </span>
-        <span className="text-base font-bold text-teal-700">
-          {formatVndDot(booking.roomChargeVnd)}
-        </span>
-      </div>
+        <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-3">
+          <span className="text-xs font-medium text-neutral-400">
+            {t("bookings.roomCharge")}
+          </span>
+          <span className="text-base font-bold text-teal-700">
+            {formatVndDot(booking.roomChargeVnd)}
+          </span>
+        </div>
+      </Link>
     </li>
   );
 }

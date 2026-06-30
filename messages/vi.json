@@ -109,6 +109,24 @@
       "done": "Đã báo",
       "error": "Gửi thất bại. Vui lòng thử lại.",
       "cancel": "Hủy"
+    },
+    "bookingDetail": {
+      "back": "Danh sách đặt phòng",
+      "stay": "Thời gian lưu trú",
+      "guest": "Khách đại diện",
+      "guestCount": "Số khách"
+    },
+    "roster": {
+      "title": "Danh sách khách",
+      "subtitle": "Vui lòng cung cấp trước danh sách khách thực tế trước khi nhận phòng. Sẽ xác nhận cuối khi kiểm tra hộ chiếu.",
+      "placeholder": "VD: Kim Hak-tae (đại diện) / Lee Young-hee / Park Min-su",
+      "hint": "Ghi khách đại diện và người đi cùng, cách nhau bằng xuống dòng hoặc /.",
+      "save": "Lưu danh sách",
+      "saving": "Đang lưu…",
+      "saved": "Đã lưu.",
+      "error": "Lưu thất bại. Vui lòng thử lại.",
+      "locked": "Không thể sửa danh sách cho đặt phòng đã nhận phòng/đã hủy/đã hết hạn.",
+      "emptyLocked": "Chưa có danh sách."
     }
   },
   "quickDateFilter": {
