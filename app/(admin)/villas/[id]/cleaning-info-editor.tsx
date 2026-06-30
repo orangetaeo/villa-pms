@@ -8,20 +8,31 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import CollapsibleCard from "@/components/admin/collapsible-card";
 
+// 출입 방식 옵션 — 번호키/열쇠/기타. 빌라마다 다름(번호키 없는 곳도 있음).
+const ACCESS_TYPES = ["KEYPAD", "KEY", "OTHER"] as const;
+type AccessType = (typeof ACCESS_TYPES)[number];
+
 export default function CleaningInfoEditor({
   villaId,
   initialAddress,
+  initialAccessType,
   initialAccessInfo,
   initialCleaningNotes,
 }: {
   villaId: string;
   initialAddress: string | null;
+  initialAccessType: string | null;
   initialAccessInfo: string | null;
   initialCleaningNotes: string | null;
 }) {
   const t = useTranslations("adminVillas.detail.cleaningInfo");
   const router = useRouter();
   const [address, setAddress] = useState(initialAddress ?? "");
+  const [accessType, setAccessType] = useState<AccessType | "">(
+    (ACCESS_TYPES as readonly string[]).includes(initialAccessType ?? "")
+      ? (initialAccessType as AccessType)
+      : ""
+  );
   const [accessInfo, setAccessInfo] = useState(initialAccessInfo ?? "");
   const [cleaningNotes, setCleaningNotes] = useState(initialCleaningNotes ?? "");
   const [saving, setSaving] = useState(false);
@@ -38,6 +49,7 @@ export default function CleaningInfoEditor({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           address: address.trim() || null,
+          accessType: accessType || null,
           accessInfo: accessInfo.trim() || null,
           cleaningNotes: cleaningNotes.trim() || null,
         }),
@@ -78,6 +90,36 @@ export default function CleaningInfoEditor({
           />
         </label>
 
+        <div className="block">
+          <span className="mb-1 block text-xs font-semibold text-slate-400">{t("accessType")}</span>
+          {/* 출입 방식 — 번호키/열쇠/기타. 선택 시 같은 값 재클릭으로 해제 가능. */}
+          <div className="flex flex-wrap gap-2">
+            {ACCESS_TYPES.map((type) => {
+              const active = accessType === type;
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => {
+                    setAccessType(active ? "" : type);
+                    setSaved(false);
+                  }}
+                  className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors ${
+                    active
+                      ? "border-admin-primary bg-admin-primary/15 text-admin-primary"
+                      : "border-slate-700 bg-slate-900/60 text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-sm">
+                    {type === "KEYPAD" ? "dialpad" : type === "KEY" ? "key" : "lock"}
+                  </span>
+                  {t(`accessTypeOpt.${type}`)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <label className="block">
           <span className="mb-1 block text-xs font-semibold text-slate-400">{t("access")}</span>
           <textarea
@@ -88,7 +130,9 @@ export default function CleaningInfoEditor({
               setAccessInfo(e.target.value);
               setSaved(false);
             }}
-            placeholder={t("accessPlaceholder")}
+            placeholder={
+              accessType === "KEY" ? t("accessPlaceholderKey") : t("accessPlaceholder")
+            }
             className={`${inputClass} resize-none`}
           />
         </label>

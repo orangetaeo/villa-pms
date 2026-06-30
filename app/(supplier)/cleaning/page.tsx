@@ -13,7 +13,7 @@ import type { CleaningStatus, Prisma } from "@prisma/client";
 import PaginationBar from "@/components/pagination-bar";
 import ListSearch from "@/components/list-search";
 import { parsePageParams } from "@/lib/pagination";
-import { formatVillaName } from "@/lib/villa-name";
+import { formatVillaName, villaNameViOnly } from "@/lib/villa-name";
 
 // a8 상태 배지 4종: Chờ dọn(주황) / Đã gửi(파랑) / Đã duyệt(초록) / Bị từ chối(빨강 외곽선)
 const STATUS_BADGE: Record<CleaningStatus, string> = {
@@ -47,14 +47,22 @@ export const metadata: Metadata = {
 export default async function CleaningListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ submitted?: string; page?: string; pageSize?: string; q?: string }>;
+  searchParams: Promise<{
+    submitted?: string;
+    page?: string;
+    pageSize?: string;
+    q?: string;
+    d?: string; // 날짜 필터: today | tomorrow | week | (없음=전체)
+  }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const { role, id: userId } = session.user;
   if (role !== "SUPPLIER" && role !== "CLEANER") redirect("/");
 
-  const locale = await getSupplierLocale(session.user.locale);
+  // 청소직원은 베트남어 고정(한국어 미노출). 공급자는 기존 우선순위.
+  const isCleaner = role === "CLEANER";
+  const locale = isCleaner ? "vi" : await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "cleaning" });
   const params = await searchParams;
   const { submitted } = params;
@@ -108,9 +116,65 @@ export default async function CleaningListPage({
   const sorted = [...tasks].sort(
     (a, b) => STATUS_RANK[a.status] - STATUS_RANK[b.status]
   );
+
+  // ── 날짜 필터 (바쁜 청소직원용 원탭 칩) — d=today|tomorrow|week, 없으면 전체 ──
+  // 각 태스크 표시 기준일을 카드와 동일 규칙으로 산출(@db.Date=UTC일 그대로, 타임스탬프=VN일).
+  const dParam =
+    params.d === "today" || params.d === "tomorrow" || params.d === "week"
+      ? params.d
+      : "all";
+  const vnDateStr = (date: Date, vnTz: boolean) =>
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: vnTz ? "Asia/Ho_Chi_Minh" : "UTC",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(date);
+  const addDaysStr = (ymd: string, n: number) => {
+    const [y, m, d] = ymd.split("-").map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() + n);
+    return dt.toISOString().slice(0, 10);
+  };
+  const todayStr = vnDateStr(new Date(), true);
+  const tomorrowStr = addDaysStr(todayStr, 1);
+  const weekEndStr = addDaysStr(todayStr, 6); // 오늘 포함 7일
+  const withDate = sorted.map((task) => {
+    const refDate = task.booking?.checkOut ?? task.dueDate ?? task.createdAt;
+    const isTimestamp = !task.booking?.checkOut && !task.dueDate;
+    return { task, dateStr: vnDateStr(refDate, isTimestamp) };
+  });
+  // 칩 건수 — 현재 검색(q) 스코프 내. 0건이어도 칩은 노출(청소직원이 "오늘 0건" 확인).
+  const counts = {
+    all: withDate.length,
+    today: withDate.filter((x) => x.dateStr === todayStr).length,
+    tomorrow: withDate.filter((x) => x.dateStr === tomorrowStr).length,
+    week: withDate.filter((x) => x.dateStr >= todayStr && x.dateStr <= weekEndStr).length,
+  } as const;
+  const filtered = withDate
+    .filter((x) =>
+      dParam === "today"
+        ? x.dateStr === todayStr
+        : dParam === "tomorrow"
+          ? x.dateStr === tomorrowStr
+          : dParam === "week"
+            ? x.dateStr >= todayStr && x.dateStr <= weekEndStr
+            : true
+    )
+    .map((x) => x.task);
+
+  // 날짜 필터 칩 링크 — q 보존, 페이지 리셋(d만 갱신). 전체는 d 제거.
+  const chipHref = (bucket: "all" | "today" | "tomorrow" | "week") => {
+    const sp = new URLSearchParams();
+    if (q) sp.set("q", q);
+    if (bucket !== "all") sp.set("d", bucket);
+    const qs = sp.toString();
+    return qs ? `/cleaning?${qs}` : "/cleaning";
+  };
+
   // 페이지네이션 — 미결 우선 정렬을 보존하기 위해 정렬 후 메모리 슬라이스(take:200 캡 내)
-  const totalTasks = sorted.length;
-  const pagedTasks = sorted.slice(skip, skip + take);
+  const totalTasks = filtered.length;
+  const pagedTasks = filtered.slice(skip, skip + take);
 
   const todayLabel = new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "vi-VN", {
     day: "numeric",
@@ -146,6 +210,36 @@ export default async function CleaningListPage({
           <h2 className="text-2xl font-bold text-gray-900">{t("listTitle")}</h2>
         </div>
 
+        {/* 날짜 필터 칩 (원탭) — 전체·오늘·내일·이번주 + 건수. 바쁜 청소직원이 한 번에 조회. */}
+        {(sorted.length > 0 || q || dParam !== "all") && (
+          <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+            {(["all", "today", "tomorrow", "week"] as const).map((bucket) => {
+              const active = dParam === bucket;
+              return (
+                <Link
+                  key={bucket}
+                  href={chipHref(bucket)}
+                  aria-current={active ? "true" : undefined}
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-bold transition-colors active:scale-95 ${
+                    active
+                      ? "bg-teal-600 text-white"
+                      : "border border-neutral-200 bg-white text-neutral-600"
+                  }`}
+                >
+                  {t(`dateFilter.${bucket}`)}
+                  <span
+                    className={`rounded-full px-1.5 text-xs tabular-nums ${
+                      active ? "bg-white/25" : "bg-neutral-100 text-neutral-500"
+                    }`}
+                  >
+                    {counts[bucket]}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+
         {/* 검색 (URL q 모드, 라이트) — 빌라명. 검색 중이면 결과 0건이어도 입력 유지 */}
         {(sorted.length > 0 || q) && (
           <div className="mb-4">
@@ -153,15 +247,25 @@ export default async function CleaningListPage({
           </div>
         )}
 
-        {sorted.length === 0 ? (
-          // 빈 상태 — 체크아웃 후 자동 생성 안내
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-gray-100 bg-white p-10 text-center shadow-sm">
-            <span className="material-symbols-outlined text-5xl text-teal-600">
-              cleaning_services
-            </span>
-            <p className="text-sm font-bold text-neutral-700">{t("empty")}</p>
-            <p className="text-sm text-neutral-500">{t("emptyHint")}</p>
-          </div>
+        {filtered.length === 0 ? (
+          sorted.length === 0 ? (
+            // 빈 상태 — 청소 자체가 없음(체크아웃 후 자동 생성 안내)
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-gray-100 bg-white p-10 text-center shadow-sm">
+              <span className="material-symbols-outlined text-5xl text-teal-600">
+                cleaning_services
+              </span>
+              <p className="text-sm font-bold text-neutral-700">{t("empty")}</p>
+              <p className="text-sm text-neutral-500">{t("emptyHint")}</p>
+            </div>
+          ) : (
+            // 날짜 필터/검색 결과만 0건 — 칩은 위에 남아 다른 날짜로 전환 가능
+            <div className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-white p-8 text-center shadow-sm">
+              <span className="material-symbols-outlined text-4xl text-neutral-300">
+                event_busy
+              </span>
+              <p className="text-sm font-medium text-neutral-500">{t("noForDate")}</p>
+            </div>
+          )
         ) : (
           <div className="flex flex-col gap-4">
             {pagedTasks.map((task) => {
@@ -193,7 +297,9 @@ export default async function CleaningListPage({
                   </div>
                   <div className="ml-4 flex min-w-0 flex-grow flex-col justify-center">
                     <h3 className="truncate text-base font-bold leading-tight text-gray-900">
-                      {formatVillaName({ name: task.villa.name, nameVi: task.villa.nameVi })}
+                      {isCleaner
+                        ? villaNameViOnly({ name: task.villa.name, nameVi: task.villa.nameVi })
+                        : formatVillaName({ name: task.villa.name, nameVi: task.villa.nameVi })}
                     </h3>
                     <p className="mt-1 text-sm text-gray-500">
                       {t("checkout", { date: formatDayMonth(refDate, isTimestamp) })}
@@ -219,8 +325,10 @@ export default async function CleaningListPage({
           </div>
         )}
 
-        {/* 페이지네이션 — 행 수 요약 + 페이지당 개수(라이트) */}
-        <PaginationBar total={totalTasks} page={page} pageSize={pageSize} light />
+        {/* 페이지네이션 — 행 수 요약 + 페이지당 개수(라이트). 필터 결과 기준. */}
+        {filtered.length > 0 && (
+          <PaginationBar total={totalTasks} page={page} pageSize={pageSize} light />
+        )}
       </main>
     </>
   );

@@ -55,9 +55,10 @@ export default async function SupplierLayout({
   // 무효 세션(비번 변경 후 stale 토큰 포함)은 /logout으로 — 쿠키를 지워 /login↔보호경로 루프 차단.
   if (!session) redirect("/logout");
 
-  // 공급자 라우트 유효 locale: 사용자 선택(pref-locale) > 계정 기본 > vi.
-  // (i18n/request.ts는 cookie 기반·기본 ko라 여기서 헬퍼로 산출)
-  const locale = await getSupplierLocale(session.user.locale);
+  // 청소직원(CLEANER)은 베트남 현지 인력 — 항상 베트남어 고정(언어 토글 비노출).
+  // 공급자(SUPPLIER)는 기존대로 pref-locale > 계정 기본 > vi (ko 토글 허용).
+  const isCleaner = session.user.role === "CLEANER";
+  const locale = isCleaner ? "vi" : await getSupplierLocale(session.user.locale);
   const allMessages = (await import(`../../messages/${locale}.json`)).default;
   // [QA D-2] admin·adminXxx 네임스페이스 직렬화 차단 — 화이트리스트만 클라이언트로 전달
   const messages = pickMessages(allMessages);
@@ -65,7 +66,8 @@ export default async function SupplierLayout({
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
       <NextIntlClientProvider locale={locale} messages={messages}>
-        <LocaleSwitcher current={locale} persist />
+        {/* 언어 전환 — 청소직원은 vi 고정이라 숨김(공급자만 노출) */}
+        {!isCleaner && <LocaleSwitcher current={locale} persist />}
         {/* 계정 진입(좌상단) — 풀스크린 + 자체 앱바 페이지(빌라 상세·하위)에서는 숨김(뒤로가기 버튼과 겹침 방지) */}
         <PortalAccountLink href="/profile" fullscreenPrefixes={SUPPLIER_OWN_HEADER_PREFIXES} />
         {/* Villa Go 로고(상단 중앙) — 자체 앱바 페이지에서는 중앙 제목과 겹치므로 숨김. */}

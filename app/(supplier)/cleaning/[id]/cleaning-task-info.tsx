@@ -9,10 +9,21 @@ export interface CleaningTaskInfoProps {
   typeText: string;
   address: string | null;
   addressLabelText: string;
+  /** 출입 방식 KEYPAD|KEY|OTHER (아이콘 결정). */
+  accessType: string | null;
+  /** 출입 방식 표시 라벨(번호키/열쇠/기타) — 라벨 옆 칩. */
+  accessTypeText: string | null;
   accessInfo: string | null;
   accessLabelText: string;
   cleaningNotes: string | null;
   notesLabelText: string;
+}
+
+// 출입 방식별 아이콘 — 번호키(다이얼패드)·열쇠(key)·기타(lock).
+function accessIcon(accessType: string | null): string {
+  if (accessType === "KEYPAD") return "dialpad";
+  if (accessType === "KEY") return "key";
+  return "lock";
 }
 
 export function CleaningTaskInfo({
@@ -21,6 +32,8 @@ export function CleaningTaskInfo({
   typeText,
   address,
   addressLabelText,
+  accessType,
+  accessTypeText,
   accessInfo,
   accessLabelText,
   cleaningNotes,
@@ -49,11 +62,26 @@ export function CleaningTaskInfo({
           {address}
         </InfoRow>
       )}
-      {/* 출입정보 (D) — 도어코드/키 위치 */}
-      {accessInfo && (
-        <InfoRow icon="key" label={accessLabelText} tone="amber">
-          {accessInfo}
-        </InfoRow>
+      {/* 출입정보 (D) — 출입 방식(번호키/열쇠) + 도어코드/키 위치 */}
+      {(accessInfo || accessTypeText) && (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <span className="material-symbols-outlined text-lg text-amber-600">
+            {accessIcon(accessType)}
+          </span>
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+              {accessLabelText}
+              {accessTypeText && (
+                <span className="rounded bg-amber-200/70 px-1.5 py-0.5 text-[10px] font-bold normal-case text-amber-800">
+                  {accessTypeText}
+                </span>
+              )}
+            </p>
+            {accessInfo && (
+              <p className="whitespace-pre-wrap text-sm font-medium text-neutral-800">{accessInfo}</p>
+            )}
+          </div>
+        </div>
       )}
       {/* 청소 특이사항/지시 (C) */}
       {cleaningNotes && (

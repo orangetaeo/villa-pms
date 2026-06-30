@@ -14,7 +14,9 @@ export default async function SupplierAccountPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const locale = await getSupplierLocale(session.user.locale);
+  // 청소직원은 베트남어 고정(한국어 미노출). 공급자는 기존 우선순위.
+  const locale =
+    session.user.role === "CLEANER" ? "vi" : await getSupplierLocale(session.user.locale);
 
   // 뒤로 — 역할별 홈으로 라우팅하는 루트("/")로(공급자=/my-villas·청소자=/cleaning 등).
   // /my-villas 고정 시 CLEANER가 /login 루프에 빠지므로 루트 분기 사용.

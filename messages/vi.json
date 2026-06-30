@@ -1039,7 +1039,14 @@
         "save": "Lưu",
         "saving": "Đang lưu…",
         "saved": "Đã lưu",
-        "errSave": "Lưu thất bại"
+        "errSave": "Lưu thất bại",
+        "accessType": "Phương thức ra vào",
+        "accessTypeOpt": {
+          "KEYPAD": "Khóa mã số",
+          "KEY": "Chìa khóa",
+          "OTHER": "Khác"
+        },
+        "accessPlaceholderKey": "VD: nhận chìa khóa tại quầy lễ tân tầng 1"
       }
     },
     "sales": {
@@ -1547,7 +1554,19 @@
     "baselineLabel": "Mẫu",
     "addressLabel": "Địa chỉ",
     "accessLabel": "Thông tin ra vào",
-    "notesLabel": "Ghi chú dọn dẹp"
+    "notesLabel": "Ghi chú dọn dẹp",
+    "accessTypeOpt": {
+      "KEYPAD": "Khóa mã số",
+      "KEY": "Chìa khóa",
+      "OTHER": "Khác"
+    },
+    "dateFilter": {
+      "all": "Tất cả",
+      "today": "Hôm nay",
+      "tomorrow": "Ngày mai",
+      "week": "Trong tuần"
+    },
+    "noForDate": "Không có lịch dọn cho ngày này"
   },
   "earnings": {
     "title": "Thu nhập",

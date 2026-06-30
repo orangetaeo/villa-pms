@@ -151,6 +151,7 @@ model Villa {
   wifiSsid          String? // 와이파이 이름 — 공개 노출 가능
   wifiPassword      String? // ⚠ 와이파이 비번 — /p 공개페이지 절대 노출 금지(체크인 화면 전용). select 화이트리스트 §4.3
   // ── 청소직원용 운영 정보 (additive, T-cleaner-features C·D) — 배정된 청소직원·운영자만 노출(게스트 비공개) ──
+  accessType        String? // 출입 방식: KEYPAD(번호키)·KEY(열쇠)·OTHER. 빌라마다 다름(번호키 없는 곳도 있음)
   accessInfo        String? // 출입정보(도어코드/키 위치) — 청소직원·운영자 전용. /g·/p 공개경계 절대 노출 금지
   cleaningNotes     String? // 청소 특이사항/지시(에어컨 필터·곰팡이 주의 등) — 빌라 단위 재사용
   // ⑤ 엑스트라베드 — 빌라 단위 토글(침실별 아님)
