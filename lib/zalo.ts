@@ -192,6 +192,14 @@ export function buildNotificationText(
       ].join("\n");
 
     case NotificationType.CLEANING_REQUEST: {
+      // 사전 알림(phase=upcoming) — 체크아웃 예정 안내(아직 청소 시작 아님). 실제 청소요청과 구분.
+      if (p.phase === "upcoming") {
+        const lines = [`📅 Sắp dọn dẹp: ${villa}`];
+        if (typeof p.dueDate === "string")
+          lines.push(`Dự kiến trả phòng: ${formatDateVi(p.dueDate)}`);
+        lines.push(`Khách sắp trả phòng — vui lòng chuẩn bị dọn dẹp.`);
+        return lines.join("\n");
+      }
       const lines = [`🧹 Yêu cầu dọn dẹp: ${villa}`];
       if (p.periodic === true) lines.push(`Dọn dẹp định kỳ hàng tháng.`);
       if (typeof p.dueDate === "string") lines.push(`Hạn: ${formatDateVi(p.dueDate)}`);
