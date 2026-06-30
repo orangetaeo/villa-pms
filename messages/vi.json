@@ -1462,6 +1462,13 @@
     },
     "noVillas": "Chưa có villa nào. Vui lòng đăng ký villa trước.",
     "addVilla": "Thêm villa",
+    "villaSelectLabel": "Chọn villa",
+    "range": {
+      "hint": "Nhấn giữ rồi kéo để chọn nhiều ngày một lúc",
+      "days": "{count} ngày",
+      "lock": "Khóa {count}",
+      "unlock": "Mở {count}"
+    },
     "sheet": {
       "dateLabel": "Ngày đã chọn",
       "lock": "Khóa ngày",

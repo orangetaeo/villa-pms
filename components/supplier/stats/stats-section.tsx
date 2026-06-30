@@ -104,11 +104,12 @@ export default async function StatsSection({
         <>
           {/* KPI 2x2 */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+            <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
               <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
                 {t("kpiRevenue")}
               </p>
-              <p className="mt-1 text-2xl font-extrabold tracking-tight text-teal-700 tabular-nums">
+              {/* 연 누적은 수십억 VND(14자리+) — 반쪽 카드 폭 초과 시 ₫ 잘림 방지: 폰트 축소 + 줄바꿈 허용 */}
+              <p className="mt-1 break-words text-xl font-extrabold leading-tight tracking-tight text-teal-700 tabular-nums">
                 {stats.totalVndText}
               </p>
               <ChangeBadge pct={stats.revenueChangePct} suffix="%" label={t("vsPrev")} />
@@ -117,7 +118,7 @@ export default async function StatsSection({
               <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
                 {t("kpiOccupancy")}
               </p>
-              <p className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900 tabular-nums">
+              <p className="mt-1 break-words text-xl font-extrabold leading-tight tracking-tight text-slate-900 tabular-nums">
                 {stats.currentRatePct}
                 <span className="text-base font-bold text-slate-400">%</span>
               </p>
@@ -127,7 +128,7 @@ export default async function StatsSection({
               <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
                 {t("kpiBookings")}
               </p>
-              <p className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900 tabular-nums">
+              <p className="mt-1 break-words text-xl font-extrabold leading-tight tracking-tight text-slate-900 tabular-nums">
                 {stats.bookingCount}
                 <span className="ml-1 text-base font-bold text-slate-400">{t("unitCount")}</span>
               </p>
@@ -136,7 +137,7 @@ export default async function StatsSection({
               <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
                 {t("kpiAvgNights")}
               </p>
-              <p className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900 tabular-nums">
+              <p className="mt-1 break-words text-xl font-extrabold leading-tight tracking-tight text-slate-900 tabular-nums">
                 {stats.avgNights}
                 <span className="ml-1 text-base font-bold text-slate-400">{t("unitNights")}</span>
               </p>

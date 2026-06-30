@@ -1353,6 +1353,13 @@
     },
     "noVillas": "등록된 빌라가 없습니다. 먼저 빌라를 등록해주세요.",
     "addVilla": "빌라 추가",
+    "villaSelectLabel": "빌라 선택",
+    "range": {
+      "hint": "길게 누른 뒤 끌어 여러 날을 한 번에 선택하세요",
+      "days": "{count}일",
+      "lock": "{count}개 잠금",
+      "unlock": "{count}개 해제"
+    },
     "sheet": {
       "dateLabel": "선택한 날짜",
       "lock": "날짜 차단",
