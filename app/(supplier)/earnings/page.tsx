@@ -232,7 +232,8 @@ async function EarningsDetail({
   // 셀렉터 옵션 (recv.byVilla = 미수 큰 순 → 드롭다운도 미수 빌라가 위). 옵션은 빌라명만.
   const villaOptions = recv.byVilla.map((v) => ({
     id: v.villaId,
-    label: v.villaName, // 미수 금액 등은 선택 후 상세에서 표시
+    label: v.villaName, // 옵션은 빌라명만. 미수 금액 등은 선택 후 상세에서 표시
+    hasOutstanding: v.outstandingVnd > 0n, // 미수/지급 필터용
   }));
   // 선택된 빌라 — 본인 소유(byVilla에 존재)인 경우만 유효
   const selectedVilla = villaParam ? recv.byVilla.find((v) => v.villaId === villaParam) : undefined;
@@ -355,6 +356,9 @@ async function EarningsDetail({
           labels={{
             title: t("recvByVillaTitle"),
             placeholder: t("villaSelectPlaceholder"),
+            all: t("villaFilterAll"),
+            outstanding: t("recvOutstanding"),
+            paid: t("villaFilterPaid"),
           }}
         />
       )}

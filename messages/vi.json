@@ -1612,6 +1612,8 @@
     "recvUnpaidTitle": "Tháng chưa nhận",
     "recvByVillaTitle": "Công nợ · thanh toán theo villa",
     "villaSelectPlaceholder": "Chọn villa (xem theo tháng)",
+    "villaFilterAll": "Tất cả",
+    "villaFilterPaid": "Đã trả",
     "villaClear": "Tất cả",
     "villaRecordsTitle": "Chi tiết theo đặt phòng",
     "recvAllPaid": "Không còn công nợ — đã thanh toán đủ",
