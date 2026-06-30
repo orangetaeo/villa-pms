@@ -391,6 +391,7 @@ export default async function VillaDetailPage({
           <CleaningInfoEditor
             villaId={villa.id}
             initialAddress={villa.address}
+            initialAccessType={villa.accessType}
             initialAccessInfo={villa.accessInfo}
             initialCleaningNotes={villa.cleaningNotes}
           />

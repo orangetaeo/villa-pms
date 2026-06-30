@@ -17,7 +17,7 @@ import {
 import { CleaningSubmit, type SlotProp, type SubmitLabels } from "./cleaning-submit";
 import CleaningPhotosView from "./cleaning-photos-view";
 import { CleaningTaskInfo } from "./cleaning-task-info";
-import { formatVillaName } from "@/lib/villa-name";
+import { formatVillaName, villaNameViOnly } from "@/lib/villa-name";
 
 export const metadata: Metadata = {
   title: "Dọn dẹp xong — Villa Go",
@@ -52,8 +52,9 @@ export default async function CleaningTaskPage({
           bedrooms: true,
           bathrooms: true,
           hasPool: true,
-          // C/D: 청소직원에게 필요한 빌라 정보(주소·출입·청소메모). 고객정보·WiFi비번·가격은 비포함(누수).
+          // C/D: 청소직원에게 필요한 빌라 정보(주소·출입방식·출입정보·청소메모). 고객정보·WiFi비번·가격은 비포함(누수).
           address: true,
+          accessType: true,
           accessInfo: true,
           cleaningNotes: true,
           // B: 공간별 기준 사진(정리된 상태) — 제출 전 참고용. 슬롯 매핑은 space+sortOrder 순서.
@@ -71,12 +72,13 @@ export default async function CleaningTaskPage({
   if (role === "SUPPLIER" && task.villa.supplierId !== userId) notFound();
   if (role === "CLEANER" && task.assigneeId !== userId) notFound();
 
-  const villaDisplayName = formatVillaName({
-    name: task.villa.name,
-    nameVi: task.villa.nameVi,
-  });
+  // 청소직원은 베트남어 고정(한국어 미노출) — UI·빌라명 모두 vi.
+  const isCleaner = role === "CLEANER";
+  const villaDisplayName = isCleaner
+    ? villaNameViOnly({ name: task.villa.name, nameVi: task.villa.nameVi })
+    : formatVillaName({ name: task.villa.name, nameVi: task.villa.nameVi });
 
-  const locale = await getSupplierLocale(session.user.locale);
+  const locale = isCleaner ? "vi" : await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "cleaning" });
   // 공간 라벨은 빌라 등록 사진 단계(wizard.photos)와 동일 키 재사용 — 중복 정의 금지
   const tp = await getTranslations({ locale, namespace: "wizard.photos" });
@@ -138,6 +140,10 @@ export default async function CleaningTaskPage({
       typeText={t(`type.${task.type}`)}
       address={task.villa.address}
       addressLabelText={t("addressLabel")}
+      accessType={task.villa.accessType}
+      accessTypeText={
+        task.villa.accessType ? t(`accessTypeOpt.${task.villa.accessType}`) : null
+      }
       accessInfo={task.villa.accessInfo}
       accessLabelText={t("accessLabel")}
       cleaningNotes={task.villa.cleaningNotes}
