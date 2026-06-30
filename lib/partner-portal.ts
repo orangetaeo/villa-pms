@@ -26,6 +26,13 @@ export interface PartnerBookingRow {
   roomChargeVnd: string | null;
 }
 
+export interface PartnerBookingDetail extends PartnerBookingRow {
+  /** 실제 투숙객 명단(자유 텍스트, 체크인 전 준비용). 없으면 null. */
+  guestRoster: string | null;
+  /** 명단 편집 가능 여부 — HOLD/CONFIRMED만(체크인 이후·취소·만료는 잠금). */
+  canEditRoster: boolean;
+}
+
 export interface PartnerReceivableRow {
   id: string;
   villaName: string;
@@ -114,6 +121,52 @@ export async function loadPartnerBookings(
       roomChargeVnd: charge !== null ? charge.toString() : null,
     };
   });
+}
+
+/**
+ * 파트너 단일 예약 상세 — where: { id, partnerId } 동시 조건(IDOR 차단). 미소유/미존재면 null.
+ * ★ totalSaleKrw·supplierCostVnd·미니바·서비스 일절 select 금지(목록 로더와 동일 누수 규칙).
+ * guestRoster 포함(명단 사전 제출용). canEditRoster = HOLD/CONFIRMED.
+ */
+export async function loadPartnerBookingDetail(
+  partnerId: string,
+  bookingId: string
+): Promise<PartnerBookingDetail | null> {
+  const b = await prisma.booking.findFirst({
+    where: { id: bookingId, partnerId },
+    select: {
+      id: true,
+      checkIn: true,
+      checkOut: true,
+      nights: true,
+      guestName: true,
+      guestCount: true,
+      status: true,
+      guestRoster: true,
+      totalSaleVnd: true,
+      villa: { select: { name: true, nameVi: true, complex: true } },
+      receivable: { select: { totalVnd: true } },
+    },
+  });
+  if (!b) return null;
+
+  const charge = b.receivable?.totalVnd ?? b.totalSaleVnd ?? null;
+  return {
+    id: b.id,
+    villaName: b.villa.name,
+    villaNameVi: b.villa.nameVi,
+    villaComplex: b.villa.complex,
+    checkIn: b.checkIn,
+    checkOut: b.checkOut,
+    nights: b.nights,
+    guestName: b.guestName,
+    guestCount: b.guestCount,
+    status: b.status,
+    roomChargeVnd: charge !== null ? charge.toString() : null,
+    guestRoster: b.guestRoster,
+    // 체크인 이후·취소·만료는 잠금(명단은 체크인 전 준비용) — 공개 roster route와 동일 규칙.
+    canEditRoster: b.status === "HOLD" || b.status === "CONFIRMED",
+  };
 }
 
 /**
