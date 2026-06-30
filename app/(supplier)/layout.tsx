@@ -34,6 +34,8 @@ const SUPPLIER_CLIENT_NAMESPACES = [
   "supplierRatePeriods",
   // T10.7 — 공급자 판매 링크 생성·목록(sell-link-client, 클라이언트). 운영자 마진·KRW 미포함 vi 네임스페이스.
   "supplierSellLink",
+  // 공급자 이용규칙·위치/규모 자가 편집기(info-editor, 클라이언트). 운영자 sales(다크)와 분리된 vi 네임스페이스.
+  "supplierInfo",
 ] as const;
 
 function pickMessages(all: AbstractIntlMessages): AbstractIntlMessages {
