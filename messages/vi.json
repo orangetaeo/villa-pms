@@ -1556,7 +1556,14 @@
       "KEYPAD": "Khóa mã số",
       "KEY": "Chìa khóa",
       "OTHER": "Khác"
-    }
+    },
+    "dateFilter": {
+      "all": "Tất cả",
+      "today": "Hôm nay",
+      "tomorrow": "Ngày mai",
+      "week": "Trong tuần"
+    },
+    "noForDate": "Không có lịch dọn cho ngày này"
   },
   "earnings": {
     "title": "Thu nhập",
