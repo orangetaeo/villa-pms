@@ -16,7 +16,9 @@
       "guests": "{count}명",
       "roomCharge": "객실료",
       "empty": "예약 내역이 없습니다",
-      "emptyHint": "예약이 등록되면 여기에 표시됩니다."
+      "emptyHint": "예약이 등록되면 여기에 표시됩니다.",
+      "searchPlaceholder": "빌라명·단지·게스트 검색",
+      "noMatch": "검색 결과가 없습니다"
     },
     "receivables": {
       "title": "미수 현황",
@@ -25,6 +27,12 @@
       "totalBilled": "총 청구",
       "totalPaid": "총 납부",
       "listTitle": "예약별 채권",
+      "statsTitle": "미수 통계",
+      "statNotDue": "미연체 미수",
+      "statOverdue": "연체 미수 ({count}건)",
+      "agingD1_7": "7일 이내",
+      "agingD8_30": "8~30일",
+      "agingD30plus": "30일 초과",
       "invoiceTitle": "청구서",
       "total": "총액",
       "paid": "납부",
