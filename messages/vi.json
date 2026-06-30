@@ -1611,6 +1611,11 @@
     "recvOutstanding": "Chưa nhận",
     "recvUnpaidTitle": "Tháng chưa nhận",
     "recvByVillaTitle": "Công nợ · thanh toán theo villa",
+    "villaSearchPlaceholder": "Tìm theo tên villa",
+    "villaNoMatch": "Không có villa phù hợp",
+    "villaViewDetail": "Chi tiết",
+    "villaClear": "Tất cả",
+    "villaRecordsTitle": "Chi tiết theo đặt phòng",
     "recvAllPaid": "Không còn công nợ — đã thanh toán đủ",
     "empty": "Chưa có doanh thu",
     "emptyHint": "Doanh thu sẽ hiển thị sau khi khách trả phòng."
