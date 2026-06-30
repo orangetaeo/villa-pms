@@ -973,6 +973,40 @@ export function isProbablyKorean(text: string): boolean {
   return hangul >= latin;
 }
 
+/**
+ * 수신 번역(텍스트 자동번역/음성 STT/사진 OCR) 완료 후 실시간 갱신 신호 1회 발행.
+ *
+ * 배경(버그): 수신은 `translatedText=null`로 먼저 저장되고 그때 SSE "inbound"가 한 번 나간다.
+ *   클라가 그 신호로 재조회하면 아직 번역 전이라 원문만 보이고, 이후 백그라운드로 채워진
+ *   translatedText는 **재발행이 없어** 새로고침/폴링 전까지 화면에 안 뜬다(노출 지연).
+ *   → translatedText UPDATE 성공 직후 이 함수로 "update" 신호를 한 번 더 보내 클라가 즉시
+ *     재조회해 번역을 노출하게 한다(새로고침 불필요).
+ *
+ * 누수 0: 페이로드는 type·conversationId 신호만(본문·마진·판매가 미포함, RealtimeEvent 규약 유지).
+ *         본인(ownerAdminId) 채널로만 emit. messageId로 conversation을 1회 조회(인덱스).
+ * best-effort: 조회·발행 실패는 swallow(리스너·메시지 무영향 — 폴링 폴백이 보장).
+ */
+async function publishInboundTranslated(messageId: string): Promise<void> {
+  try {
+    const msg = await prisma.zaloMessage.findUnique({
+      where: { id: messageId },
+      select: {
+        conversationId: true,
+        conversation: { select: { ownerAdminId: true } },
+      },
+    });
+    const ownerAdminId = msg?.conversation?.ownerAdminId;
+    if (ownerAdminId) {
+      publishRealtime(ownerAdminId, {
+        type: "update",
+        conversationId: msg.conversationId,
+      });
+    }
+  } catch {
+    /* 실시간 발행 실패는 무해 — 다음 폴링/신호로 갱신 */
+  }
+}
+
 export async function maybeTranslateInbound(
   messageId: string,
   text: string,
@@ -991,6 +1025,8 @@ export async function maybeTranslateInbound(
       where: { id: messageId },
       data: { translatedText: translated },
     });
+    // 번역 채움 완료 → 실시간 재발행(클라 즉시 노출, 새로고침 불필요).
+    await publishInboundTranslated(messageId);
   } catch (err) {
     // 본문 에코 방지 — 상태/메시지만 (개인정보·credential 무관)
     console.error(
@@ -1042,6 +1078,8 @@ export async function maybeTranscribeVoice(
       where: { id: messageId },
       data: { translatedText: translated },
     });
+    // STT 자막 채움 완료 → villa 화면 실시간 재발행(텍스트 자동번역과 동일, 새로고침 불필요).
+    await publishInboundTranslated(messageId);
 
     // 5) STT 완료 후 동일 메시지 1회 재push (멱등 zaloMsgId — Nike update). 테오 스코프 확인 겸 조회.
     const conv = await prisma.zaloMessage.findUnique({
@@ -1103,6 +1141,8 @@ export async function maybeTranslatePhoto(
       where: { id: messageId },
       data: { translatedText: translated },
     });
+    // OCR 자막 채움 완료 → villa 화면 실시간 재발행(텍스트·음성과 동일, 새로고침 불필요).
+    await publishInboundTranslated(messageId);
 
     // 4) OCR 번역 완료 후 동일 메시지 1회 재push (멱등 zaloMsgId — Nike update). 테오 스코프 조회 겸.
     const conv = await prisma.zaloMessage.findUnique({
