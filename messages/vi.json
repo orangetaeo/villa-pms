@@ -223,11 +223,6 @@
       "saveError": "Lưu thất bại. Vui lòng thử lại."
     },
     "firstLoginNotice": "Bạn đang dùng mật khẩu tạm thời. Hãy đổi sang mật khẩu riêng để bắt đầu nhận đơn.",
-    "accountSection": {
-      "title": "Tài khoản",
-      "loggedInAs": "Đăng nhập với tên {name}",
-      "logout": "Đăng xuất"
-    },
     "stats": {
       "title": "Thống kê",
       "subtitle": "Doanh thu và hiệu suất đơn của bạn",

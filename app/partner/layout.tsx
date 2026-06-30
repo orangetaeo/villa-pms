@@ -14,6 +14,7 @@ import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import { normalizeLocale, type AppLocale } from "@/lib/locale";
 import { getPartnerForUser } from "@/lib/partner-auth";
 import { PartnerTabBar } from "@/components/partner/partner-tab-bar";
+import { PortalAccountLink } from "@/components/account/portal-account-link";
 
 // 파트너 포털 유효 locale: 사용자 명시 선택(pref-locale) > 계정 기본(session) > ko 기본(한국 여행사·랜드사).
 // (i18n/request.ts가 읽는 `locale` 쿠키는 middleware가 같은 우선순위로 맞춘다.)
@@ -68,12 +69,14 @@ async function PartnerShell({
   showNav?: boolean;
   children: React.ReactNode;
 }) {
-  // 클라이언트(PartnerTabBar·PaginationBar)는 partner·pagination 네임스페이스만 사용 — 그것만 직렬화(누수 차단).
-  // pagination: 목록 화면의 공용 PaginationBar(useTranslations("pagination")). 누락 시 라벨이 raw 키로 깨짐.
+  // 클라이언트가 useTranslations로 쓰는 네임스페이스만 직렬화(누수 차단 — adminXxx 마진·판매가 라벨 미포함).
+  // - partner: 탭바 라벨 · pagination: 공용 PaginationBar · account: 계정 화면 비번변경 폼(ChangePasswordForm)·계정 진입 버튼.
+  //   누락 시 해당 라벨이 raw 키로 깨짐.
   const allMessages = (await import(`../../messages/${locale}.json`)).default;
   const clientMessages: AbstractIntlMessages = {
     partner: (allMessages as Record<string, unknown>).partner as AbstractIntlMessages,
     pagination: (allMessages as Record<string, unknown>).pagination as AbstractIntlMessages,
+    account: (allMessages as Record<string, unknown>).account as AbstractIntlMessages,
   };
   const t = await getTranslations({ locale, namespace: "partner" });
   return (
@@ -82,6 +85,13 @@ async function PartnerShell({
         {/* 헤더 */}
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-neutral-100 bg-white/90 px-4 py-3 backdrop-blur">
           <div className="flex items-center gap-2">
+            {/* 계정 진입(승인된 파트너만) — 헤더 인라인 배치(좌상단 고정은 로고와 겹침). /partner/profile. */}
+            {showNav && (
+              <PortalAccountLink
+                href="/partner/profile"
+                className="mr-0.5 flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition-colors hover:text-teal-600"
+              />
+            )}
             <VillaGoMark className="h-7 w-7" />
             <VillaGoWordmark className="text-lg" />
             {partnerName && (
