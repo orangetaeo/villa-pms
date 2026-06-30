@@ -400,6 +400,27 @@ export default async function VillaDetailPage({
             </Link>
           </div>
 
+          {/* 4-2. 이용 규칙·위치 정보 수정 (공급자 자가 편집) — 테오 요청: 규칙은 공급자 영역.
+              잠자리·셀링포인트는 운영자 관리(아래 읽기전용 섹션 유지). */}
+          <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-teal-50 text-teal-600">
+                <span className="material-symbols-outlined">gavel</span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold text-neutral-800">{t("editInfoTitle")}</h3>
+                <p className="text-xs leading-tight text-neutral-500">{t("editInfoDesc")}</p>
+              </div>
+              <Link
+                href={`/my-villas/${villa.id}/info`}
+                className="flex shrink-0 items-center gap-1 rounded-lg bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-100"
+              >
+                <span className="material-symbols-outlined text-base">edit</span>
+                {t("editInfo")}
+              </Link>
+            </div>
+          </div>
+
           {/* 5. 판매정보 (읽기 전용, a16) — 기존 섹션 아래. 와이파이·판매가·마진 부재 */}
           <SupplierVillaSalesSection
             villa={{

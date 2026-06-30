@@ -14,6 +14,7 @@ import { SETTLEMENT_BOOKING_STATUSES, monthRangeUtc } from "@/lib/settlement";
 import { todayVnDateString } from "@/lib/date-vn";
 import { formatVillaName } from "@/lib/villa-name";
 import { formatVndDot } from "@/lib/format";
+import { parsePageParams } from "@/lib/pagination";
 import StatsSection from "@/components/supplier/stats/stats-section";
 
 const YEAR_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -50,7 +51,13 @@ export const metadata: Metadata = {
 export default async function EarningsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ yearMonth?: string; view?: string; range?: string }>;
+  searchParams: Promise<{
+    yearMonth?: string;
+    view?: string;
+    range?: string;
+    page?: string;
+    pageSize?: string;
+  }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -59,8 +66,11 @@ export default async function EarningsPage({
   const locale = await getSupplierLocale(session.user.locale);
   const tSeg = await getTranslations({ locale, namespace: "supplierStats" });
 
-  const { yearMonth: yearMonthParam, view, range } = await searchParams;
+  const params = await searchParams;
+  const { yearMonth: yearMonthParam, view, range } = params;
   const isDetail = view === "detail";
+  // 빌라별 성과 리스트 페이지네이션 (통계 탭) — 공용 page/pageSize 쿼리
+  const { page, pageSize } = parsePageParams(params);
 
   return (
     <main className="mx-auto max-w-md space-y-6 px-4 py-6">
@@ -97,7 +107,13 @@ export default async function EarningsPage({
           yearMonthParam={yearMonthParam}
         />
       ) : (
-        <StatsSection supplierId={session.user.id} locale={locale} range={range} />
+        <StatsSection
+          supplierId={session.user.id}
+          locale={locale}
+          range={range}
+          page={page}
+          pageSize={pageSize}
+        />
       )}
     </main>
   );
@@ -144,7 +160,8 @@ async function EarningsDetail({
       where: {
         supplierId_yearMonth: { supplierId, yearMonth },
       },
-      select: { status: true, paidAt: true },
+      // statementUrl 존재 시 정산서 PDF 보기 버튼 노출 (GET /api/settlements/[id]/statement는 소유 공급자 허용)
+      select: { id: true, status: true, paidAt: true, statementUrl: true },
     }),
   ]);
 
@@ -221,6 +238,27 @@ async function EarningsDetail({
           )}
         </div>
       </section>
+
+      {/* 정산서 PDF — 운영자가 발행(statementUrl)한 경우에만 노출. 새 탭으로 inline PDF.
+          미발행 시 안내 문구만(공급자는 직접 생성 불가 — 정산 확정 시 운영자 발행). */}
+      {settlement?.statementUrl ? (
+        <a
+          href={`/api/settlements/${settlement.id}/statement`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-teal-200 bg-teal-50 py-3 text-sm font-bold text-teal-700 transition-colors hover:bg-teal-100 active:scale-[0.99]"
+        >
+          <span className="material-symbols-outlined text-lg">description</span>
+          {t("viewStatement")}
+        </a>
+      ) : (
+        bookings.length > 0 && (
+          <p className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-100 bg-slate-50 py-3 text-xs text-slate-400">
+            <span className="material-symbols-outlined text-base">schedule</span>
+            {t("statementPending")}
+          </p>
+        )
+      )}
 
       {/* 내역 헤더 (a7 Earnings List Header) */}
       <div className="flex items-center justify-between">
