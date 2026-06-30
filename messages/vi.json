@@ -16,7 +16,9 @@
       "guests": "{count} khách",
       "roomCharge": "Tiền phòng",
       "empty": "Chưa có đặt phòng nào",
-      "emptyHint": "Đặt phòng sẽ hiển thị ở đây khi được tạo."
+      "emptyHint": "Đặt phòng sẽ hiển thị ở đây khi được tạo.",
+      "searchPlaceholder": "Tìm villa·khu·khách",
+      "noMatch": "Không có kết quả"
     },
     "receivables": {
       "title": "Tình trạng công nợ",
@@ -25,6 +27,12 @@
       "totalBilled": "Tổng hóa đơn",
       "totalPaid": "Đã thanh toán",
       "listTitle": "Công nợ theo đặt phòng",
+      "statsTitle": "Thống kê công nợ",
+      "statNotDue": "Chưa đến hạn",
+      "statOverdue": "Quá hạn ({count} khoản)",
+      "agingD1_7": "Trong 7 ngày",
+      "agingD8_30": "8~30 ngày",
+      "agingD30plus": "Trên 30 ngày",
       "invoiceTitle": "Hóa đơn",
       "total": "Tổng",
       "paid": "Đã trả",

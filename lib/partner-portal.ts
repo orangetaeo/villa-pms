@@ -8,6 +8,7 @@
 //   - BigInt는 컴포넌트(클라이언트 직렬화) 전달용으로 string 변환.
 import { prisma } from "@/lib/prisma";
 import { outstandingForPartner, receivableOutstanding } from "@/lib/partner";
+import { parseUtcDateOnly, todayVnDateString } from "@/lib/date-vn";
 
 // ── 직렬화 타입 ──────────────────────────────────────────────────────────────
 
@@ -61,6 +62,15 @@ export interface PartnerInvoiceRow {
   issuedAt: Date | null;
 }
 
+export interface PartnerReceivableStats {
+  openCount: number; // 잔액>0 채권 건수
+  overdueCount: number; // 연체(dueDate 지남 + 잔액>0) 건수
+  notDueVnd: string; // 미연체 미수 합
+  overdueVnd: string; // 연체 미수 합
+  /** 연체 구간별 미수(연체일 기준): 1~7 / 8~30 / 30+ */
+  aging: { d1_7: string; d8_30: string; d30plus: string };
+}
+
 export interface PartnerReceivablesResult {
   receivables: PartnerReceivableRow[];
   invoices: PartnerInvoiceRow[];
@@ -68,6 +78,53 @@ export interface PartnerReceivablesResult {
     totalBilledVnd: string; // Σ totalVnd
     totalPaidVnd: string; // Σ (depositPaidVnd + balancePaidVnd)
     outstandingVnd: string; // Σ (totalVnd - depositPaidVnd - balancePaidVnd)
+  };
+  stats: PartnerReceivableStats;
+}
+
+/**
+ * 파트너 미수 통계 — 채권 행(잔액·기한)에서 미연체/연체·연체 구간 집계. 순수함수(테스트 대상).
+ * today·dueDate는 UTC 자정(@db.Date) 기준. 잔액 0 건은 제외. Number 변환 금지(BigInt 합산).
+ */
+export function computePartnerReceivableStats(
+  rows: readonly { outstandingVnd: string; dueDate: Date }[],
+  today: Date
+): PartnerReceivableStats {
+  const MS = 86_400_000;
+  const todayMid = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  let openCount = 0;
+  let overdueCount = 0;
+  let notDue = 0n;
+  let overdue = 0n;
+  let d1_7 = 0n;
+  let d8_30 = 0n;
+  let d30plus = 0n;
+  for (const r of rows) {
+    const out = BigInt(r.outstandingVnd);
+    if (out <= 0n) continue;
+    openCount += 1;
+    const dueMid = Date.UTC(
+      r.dueDate.getUTCFullYear(),
+      r.dueDate.getUTCMonth(),
+      r.dueDate.getUTCDate()
+    );
+    const daysPast = Math.floor((todayMid - dueMid) / MS);
+    if (daysPast <= 0) {
+      notDue += out;
+    } else {
+      overdueCount += 1;
+      overdue += out;
+      if (daysPast <= 7) d1_7 += out;
+      else if (daysPast <= 30) d8_30 += out;
+      else d30plus += out;
+    }
+  }
+  return {
+    openCount,
+    overdueCount,
+    notDueVnd: notDue.toString(),
+    overdueVnd: overdue.toString(),
+    aging: { d1_7: d1_7.toString(), d8_30: d8_30.toString(), d30plus: d30plus.toString() },
   };
 }
 
@@ -252,6 +309,10 @@ export async function loadPartnerReceivables(
     issuedAt: i.issuedAt,
   }));
 
+  // 미수 통계 — VN 오늘 기준 미연체/연체 집계
+  const today = parseUtcDateOnly(todayVnDateString()) ?? new Date();
+  const stats = computePartnerReceivableStats(receivableRows, today);
+
   return {
     receivables: receivableRows,
     invoices: invoiceRows,
@@ -260,6 +321,7 @@ export async function loadPartnerReceivables(
       totalPaidVnd: totalPaid.toString(),
       outstandingVnd: outstanding.toString(),
     },
+    stats,
   };
 }
 
