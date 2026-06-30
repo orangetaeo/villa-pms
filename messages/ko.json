@@ -1501,6 +1501,7 @@
     "recvPaid": "받음",
     "recvOutstanding": "미수",
     "recvUnpaidTitle": "아직 못 받은 달",
+    "recvByVillaTitle": "빌라별 미수 · 지급",
     "recvAllPaid": "미수 없음 — 전액 지급 완료",
     "empty": "수익 내역이 없습니다",
     "emptyHint": "고객 체크아웃 후 수익이 표시됩니다."
