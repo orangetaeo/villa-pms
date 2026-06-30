@@ -17,6 +17,7 @@ import { formatVndDot } from "@/lib/format";
 import { parsePageParams } from "@/lib/pagination";
 import { summarizeSupplierReceivables } from "@/lib/supplier-receivables";
 import PaginationBar from "@/components/pagination-bar";
+import VillaReceivablesSearch from "./villa-receivables-search";
 import StatsSection from "@/components/supplier/stats/stats-section";
 
 const YEAR_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -26,6 +27,13 @@ function formatDayMonth(date: Date): string {
   const dd = String(date.getUTCDate()).padStart(2, "0");
   const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
   return `${dd}/${mm}`;
+}
+
+/** @db.Date(UTC 자정) → "dd/MM/yyyy" — 빌라 상세는 전 기간이라 연도까지 표기 */
+function formatUtcDmy(date: Date): string {
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${date.getUTCFullYear()}`;
 }
 
 /** "YYYY-MM" ± delta개월 — Date.UTC 롤오버로 연 경계 처리 */
@@ -59,6 +67,7 @@ export default async function EarningsPage({
     range?: string;
     page?: string;
     pageSize?: string;
+    villa?: string;
   }>;
 }) {
   const session = await auth();
@@ -69,7 +78,7 @@ export default async function EarningsPage({
   const tSeg = await getTranslations({ locale, namespace: "supplierStats" });
 
   const params = await searchParams;
-  const { yearMonth: yearMonthParam, view, range } = params;
+  const { yearMonth: yearMonthParam, view, range, villa: villaParam } = params;
   const isDetail = view === "detail";
   // 빌라별 성과 리스트 페이지네이션 (통계 탭) — 공용 page/pageSize 쿼리
   const { page, pageSize } = parsePageParams(params);
@@ -107,6 +116,7 @@ export default async function EarningsPage({
           locale={locale}
           supplierId={session.user.id}
           yearMonthParam={yearMonthParam}
+          villaParam={villaParam}
           page={page}
           pageSize={pageSize}
         />
@@ -128,12 +138,14 @@ async function EarningsDetail({
   locale,
   supplierId,
   yearMonthParam,
+  villaParam,
   page,
   pageSize,
 }: {
   locale: string;
   supplierId: string;
   yearMonthParam?: string;
+  villaParam?: string;
   page: number;
   pageSize: number;
 }) {
@@ -172,14 +184,18 @@ async function EarningsDetail({
       // statementUrl 존재 시 정산서 PDF 보기 버튼 노출 (GET /api/settlements/[id]/statement는 소유 공급자 허용)
       select: { id: true, status: true, paidAt: true, statementUrl: true },
     }),
-    // 미수/입금 집계용 — 전 기간 정산 대상 예약(원가·체크아웃월·빌라). 빌라별 분해에 villa 필요
+    // 미수/입금 집계 + 빌라 드릴다운 — 전 기간 정산 대상 예약(원가·기간·빌라).
     prisma.booking.findMany({
       where: {
         status: { in: [...SETTLEMENT_BOOKING_STATUSES] },
         villa: { supplierId },
       },
+      orderBy: { checkOut: "desc" }, // 빌라 상세 = 최신순
       select: {
+        id: true,
+        checkIn: true,
         checkOut: true,
+        nights: true,
         supplierCostVnd: true,
         villaId: true,
         villa: { select: { name: true, nameVi: true } },
@@ -207,6 +223,40 @@ async function EarningsDetail({
   const totalVnd = bookings.reduce((sum, b) => sum + b.supplierCostVnd, 0n);
   // 수익 상세(월별 예약 목록) 페이지네이션 — 메모리 슬라이스
   const pagedBookings = bookings.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
+
+  // ── 빌라 드릴다운 (테오 요청: 검색→빌라 선택→그 빌라의 언제·얼마·결과) ──────────
+  // 지급 완료(PAID)된 월 집합 — 예약별 결과(지급완료/대기) 판정용
+  const paidMonths = new Set(
+    allSettlements.filter((s) => s.status === SettlementStatus.PAID).map((s) => s.yearMonth)
+  );
+  // 검색·선택용 빌라 목록 (recv.byVilla = 미수 큰 순). 금액은 서버에서 포맷해 전달(클라 누수 표면 최소)
+  const villaRows = recv.byVilla.map((v) => ({
+    id: v.villaId,
+    name: v.villaName,
+    paidText: formatVndDot(v.paidVnd),
+    outstandingText: formatVndDot(v.outstandingVnd),
+    hasOutstanding: v.outstandingVnd > 0n,
+  }));
+  // 선택된 빌라 — 본인 소유(byVilla에 존재)인 경우만 유효
+  const selectedVilla = villaParam ? recv.byVilla.find((v) => v.villaId === villaParam) : undefined;
+  const selectedVillaId = selectedVilla?.villaId;
+  // 선택 빌라의 예약(전 기간·최신순) → 결과(지급완료/대기) 부여 → 페이지네이션
+  const villaBookings = selectedVillaId
+    ? allBookings
+        .filter((b) => b.villaId === selectedVillaId)
+        .map((b) => ({
+          id: b.id,
+          checkIn: b.checkIn,
+          checkOut: b.checkOut,
+          nights: b.nights,
+          supplierCostVnd: b.supplierCostVnd,
+          paid: paidMonths.has(b.checkOut.toISOString().slice(0, 7)),
+        }))
+    : [];
+  const pagedVillaBookings = villaBookings.slice(
+    (page - 1) * pageSize,
+    (page - 1) * pageSize + pageSize
+  );
 
   // 정산 상태 파생 — DRAFT·CONFIRMED·미생성 → 지급 대기 / PAID → 지급 완료(+일자)
   const isPaid = settlement?.status === SettlementStatus.PAID;
@@ -298,38 +348,119 @@ async function EarningsDetail({
           )
         )}
 
-        {/* 빌라별 미수/지급 — 테오 요청: 빌라별로 받음·미수 확인. 미수 큰 빌라 먼저 */}
-        {recv.byVilla.length > 0 && (
-          <div className="space-y-1.5 border-t border-slate-100 pt-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              {t("recvByVillaTitle")}
-            </p>
-            {recv.byVilla.map((v) => (
-              <div key={v.villaId} className="rounded-lg border border-slate-100 px-3 py-2.5">
-                <p className="truncate text-sm font-bold text-slate-800">{v.villaName}</p>
-                <div className="mt-1 flex items-center justify-between gap-3 text-xs">
-                  <span className="flex items-center gap-1 text-emerald-600">
-                    <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                    {t("recvPaid")}
-                    <b className="tabular-nums">{formatVndDot(v.paidVnd)}</b>
-                  </span>
-                  <span
-                    className={`flex items-center gap-1 ${
-                      v.outstandingVnd > 0n ? "text-amber-600" : "text-slate-400"
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[14px]">schedule</span>
-                    {t("recvOutstanding")}
-                    <b className="tabular-nums">{formatVndDot(v.outstandingVnd)}</b>
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </section>
 
-      {/* 월 선택 (a7 Month Selector) — ?view=detail&yearMonth= Link 네비게이션 */}
+      {/* 빌라별 조회 — 검색으로 빌라 선택 → 클릭하면 그 빌라 상세(언제·얼마·결과). 테오 요청 */}
+      {villaRows.length > 0 && (
+        <VillaReceivablesSearch
+          villas={villaRows}
+          selectedVillaId={selectedVillaId}
+          labels={{
+            title: t("recvByVillaTitle"),
+            searchPlaceholder: t("villaSearchPlaceholder"),
+            paid: t("recvPaid"),
+            outstanding: t("recvOutstanding"),
+            noMatch: t("villaNoMatch"),
+            viewDetail: t("villaViewDetail"),
+          }}
+        />
+      )}
+
+      {/* 빌라 선택 시 → 그 빌라의 상세(언제·얼마·결과) / 미선택 시 → 기존 월별 뷰 */}
+      {selectedVilla ? (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="min-w-0 truncate text-lg font-bold text-slate-800">
+              {selectedVilla.villaName}
+            </h3>
+            <Link
+              href="/earnings?view=detail"
+              className="flex shrink-0 items-center gap-0.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+            >
+              <span className="material-symbols-outlined text-[16px]">close</span>
+              {t("villaClear")}
+            </Link>
+          </div>
+          {/* 선택 빌라 받음/미수 요약 */}
+          <div className="flex gap-2">
+            <div className="flex-1 rounded-xl bg-emerald-50 px-3 py-2 text-center">
+              <p className="text-[11px] font-medium text-emerald-600">{t("recvPaid")}</p>
+              <p className="text-sm font-extrabold tabular-nums text-emerald-700">
+                {formatVndDot(selectedVilla.paidVnd)}
+              </p>
+            </div>
+            <div
+              className={`flex-1 rounded-xl px-3 py-2 text-center ${
+                selectedVilla.outstandingVnd > 0n ? "bg-amber-50" : "bg-slate-50"
+              }`}
+            >
+              <p
+                className={`text-[11px] font-medium ${
+                  selectedVilla.outstandingVnd > 0n ? "text-amber-600" : "text-slate-400"
+                }`}
+              >
+                {t("recvOutstanding")}
+              </p>
+              <p
+                className={`text-sm font-extrabold tabular-nums ${
+                  selectedVilla.outstandingVnd > 0n ? "text-amber-700" : "text-slate-500"
+                }`}
+              >
+                {formatVndDot(selectedVilla.outstandingVnd)}
+              </p>
+            </div>
+          </div>
+          {/* 예약별 상세 — 언제(체크인~아웃)·박수·얼마·결과(지급완료/대기) */}
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-bold text-slate-700">{t("villaRecordsTitle")}</h4>
+            <span className="rounded-md bg-slate-200 px-2 py-1 text-xs font-semibold text-slate-600">
+              {t("transactionCount", { count: villaBookings.length })}
+            </span>
+          </div>
+          {villaBookings.length === 0 ? (
+            <p className="rounded-2xl border border-slate-100 bg-white p-8 text-center text-sm text-slate-400">
+              {t("empty")}
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {pagedVillaBookings.map((b) => (
+                <div
+                  key={b.id}
+                  className={`flex items-center justify-between gap-3 rounded-xl border-l-4 bg-white p-4 shadow-sm ${
+                    b.paid ? "border-emerald-500" : "border-amber-400"
+                  }`}
+                >
+                  <div className="min-w-0 space-y-1">
+                    <p className="text-sm font-semibold text-slate-700 tabular-nums">
+                      {formatUtcDmy(b.checkIn)} – {formatUtcDmy(b.checkOut)}
+                    </p>
+                    <p className="text-xs text-slate-400">{t("nights", { count: b.nights })}</p>
+                    <span
+                      className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
+                        b.paid
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-amber-100 text-amber-700"
+                      }`}
+                    >
+                      {b.paid ? t("paidLabel") : t("pendingLabel")}
+                    </span>
+                  </div>
+                  <p
+                    className={`shrink-0 text-lg font-bold tabular-nums ${
+                      b.paid ? "text-teal-700" : "text-slate-600"
+                    }`}
+                  >
+                    {formatVndDot(b.supplierCostVnd)}
+                  </p>
+                </div>
+              ))}
+              <PaginationBar total={villaBookings.length} page={page} pageSize={pageSize} light />
+            </div>
+          )}
+        </section>
+      ) : (
+        <>
+          {/* 월 선택 (a7 Month Selector) — ?view=detail&yearMonth= Link 네비게이션 */}
       <section className="flex items-center justify-between rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
         <Link
           href={`/earnings?view=detail&yearMonth=${shiftMonth(yearMonth, -1)}`}
@@ -459,6 +590,8 @@ async function EarningsDetail({
           {/* 수익 상세 페이지네이션 (라이트) — 합계는 전체 기준 */}
           <PaginationBar total={bookings.length} page={page} pageSize={pageSize} light />
         </div>
+      )}
+        </>
       )}
     </div>
   );
