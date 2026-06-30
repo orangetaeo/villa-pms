@@ -2672,7 +2672,11 @@
         "BALCONY": "베란다",
         "POOL": "수영장",
         "ETC": "기타"
-      }
+      },
+      "assigneeLabel": "청소 담당자",
+      "assigneeUnassigned": "미지정 (공급자 담당)",
+      "reassigned": "담당자를 변경했습니다",
+      "reassignError": "담당자 변경 실패"
     }
   },
   "adminCheckout": {
@@ -3008,7 +3012,10 @@
     "skip": "나중에",
     "done": "완료",
     "connectedTitle": "Zalo가 연결되었습니다",
-    "connectedDesc": "예약 알림과 업데이트를 Zalo로 받게 됩니다."
+    "connectedDesc": "예약 알림과 업데이트를 Zalo로 받게 됩니다.",
+    "profileCardTitle": "Zalo 알림",
+    "profileConnected": "연결됨 — 알림을 받고 있어요",
+    "profileNotConnected": "연결하고 청소 알림 받기"
   },
   "adminZalo": {
     "title": "Zalo 봇 연결",

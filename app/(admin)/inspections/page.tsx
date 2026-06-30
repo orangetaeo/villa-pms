@@ -109,6 +109,13 @@ export default async function InspectionsPage({
     .map((r) => r.complex)
     .filter((c): c is string => !!c);
 
+  // 개별 재배정 드롭다운용 CLEANER 목록(미삭제) — 운영자 전용 화면
+  const cleaners = await prisma.user.findMany({
+    where: { role: "CLEANER", deletedAt: null },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+
   // 승인 대기(PHOTOS_SUBMITTED) 우선 + 최신순
   rows.sort(
     (a, b) =>
@@ -163,6 +170,8 @@ export default async function InspectionsPage({
         approvedAt: true,
         dueDate: true,
         createdAt: true,
+        // 담당자 — 운영자 검수 화면에서 현재 담당 표시 + 개별 재배정용(운영 전용, 비운영자 미노출 규칙과 무관).
+        assignee: { select: { id: true, name: true } },
         villa: {
           select: {
             name: true,
@@ -192,6 +201,8 @@ export default async function InspectionsPage({
         approvedAt: detail.approvedAt?.toISOString() ?? null,
         dueDate: detail.dueDate?.toISOString() ?? null,
         createdAt: detail.createdAt.toISOString(),
+        assigneeId: detail.assignee?.id ?? null,
+        assigneeName: detail.assignee?.name ?? null,
         villaName: detail.villa.name,
         complex: detail.villa.complex,
         baselinePhotos,
@@ -213,6 +224,7 @@ export default async function InspectionsPage({
       range={params.range}
       area={area}
       areaOptions={areaOptions}
+      cleaners={cleaners}
       pagination={{ total: rows.length, page, pageSize }}
     />
   );
