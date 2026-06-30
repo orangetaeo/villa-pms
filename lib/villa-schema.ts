@@ -71,7 +71,21 @@ export const villaCreateSchema = z.object({
         }
       });
     }),
-  // 원가 (5/5) — 시즌 3종 모두 필수
+  // 이용 규칙 (5/6 — 선택, 기본값 존재) — 공급자가 등록 시 직접 입력. 미전송 시 스키마 default 적용.
+  //   /api/villas/[id]/info(공급자 자가 편집)와 동일 필드 — 단일 진실원천이 Villa 모델.
+  rules: z
+    .object({
+      checkInTime: z.number().int().min(0).max(1439),
+      checkOutTime: z.number().int().min(0).max(1439),
+      smokingAllowed: z.boolean(),
+      petsAllowed: z.boolean(),
+      partyAllowed: z.boolean(),
+      parkingSlots: z.number().int().min(0).max(999),
+      baseDepositVnd: vndDigits.nullable(), // null = 미입력
+      extraBedAvailable: z.boolean(),
+    })
+    .optional(),
+  // 원가 (6/6) — 시즌 3종 모두 필수
   rates: z.object({
     LOW: vndPositiveDigits,
     HIGH: vndPositiveDigits,
@@ -80,3 +94,18 @@ export const villaCreateSchema = z.object({
 });
 
 export type VillaCreateInput = z.infer<typeof villaCreateSchema>;
+
+/** 이용 규칙 입력 → Villa prisma data. POST(create)·PUT(resubmit) 공유. 미전송 시 빈 객체(스키마 default 유지). */
+export function villaRulesData(rules: VillaCreateInput["rules"]) {
+  if (!rules) return {};
+  return {
+    checkInTime: rules.checkInTime,
+    checkOutTime: rules.checkOutTime,
+    smokingAllowed: rules.smokingAllowed,
+    petsAllowed: rules.petsAllowed,
+    partyAllowed: rules.partyAllowed,
+    parkingSlots: rules.parkingSlots,
+    baseDepositVnd: rules.baseDepositVnd ? BigInt(rules.baseDepositVnd) : null,
+    extraBedAvailable: rules.extraBedAvailable,
+  };
+}

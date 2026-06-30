@@ -6,7 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { createInitialInspectionTask } from "@/lib/cleaning";
-import { villaCreateSchema } from "@/lib/villa-schema";
+import { villaCreateSchema, villaRulesData } from "@/lib/villa-schema";
 import { NotificationType, type VillaStatus } from "@prisma/client";
 import { isOperator } from "@/lib/permissions";
 import { requireAuth, requireCapability } from "@/lib/api-guard";
@@ -195,6 +195,8 @@ export async function PUT(
         hasPool: data.hasPool,
         breakfastAvailable: data.breakfastAvailable,
         monthlyRentVnd: data.monthlyRentVnd ? BigInt(data.monthlyRentVnd) : null,
+        // 이용 규칙 — 재제출 시에도 마법사 입력 반영(미전송 시 기존값 보존: 빈 객체)
+        ...villaRulesData(data.rules),
         status: "PENDING_REVIEW",
         rejectionReason: null, // 재제출 — 사유 클리어 (이력은 AuditLog)
       },

@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
-import { villaCreateSchema } from "@/lib/villa-schema";
+import { villaCreateSchema, villaRulesData } from "@/lib/villa-schema";
 import { serializeBigInt } from "@/lib/serialize";
 import type { Prisma, VillaStatus } from "@prisma/client";
 import { isOperator, canViewFinance } from "@/lib/permissions";
@@ -70,6 +70,8 @@ export async function POST(req: Request) {
         hasPool: data.hasPool,
         breakfastAvailable: data.breakfastAvailable,
         monthlyRentVnd: data.monthlyRentVnd ? BigInt(data.monthlyRentVnd) : null,
+        // 이용 규칙 — 공급자가 마법사에서 입력(미전송 시 스키마 default)
+        ...villaRulesData(data.rules),
         status: "PENDING_REVIEW", // 검수 게이트 — 운영자 승인(T1.2) 전 판매 불가
       },
     });

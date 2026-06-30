@@ -1332,6 +1332,19 @@
       "emptyWarning": "Chưa có ảnh nào. Bạn có thể thêm ảnh sau — nhấn Tiếp tục một lần nữa để bỏ qua.",
       "helper": "Bạn nên chụp ảnh theo chiều ngang để villa hiển thị đẹp nhất trên trang đặt phòng của khách hàng."
     },
+    "rules": {
+      "title": "Quy định sử dụng",
+      "subtitle": "Cho chúng tôi biết giờ nhận/trả phòng và quy định. Có thể sửa bất cứ lúc nào.",
+      "checkIn": "Nhận phòng",
+      "checkOut": "Trả phòng",
+      "smoking": "Cho phép hút thuốc",
+      "pets": "Cho phép thú cưng",
+      "party": "Cho phép tiệc",
+      "extraBed": "Có thể thêm giường phụ",
+      "parking": "Số chỗ đỗ xe",
+      "deposit": "Tiền cọc tiêu chuẩn",
+      "depositNote": "Tiền cọc tại địa phương (VND) thông báo cho khách. Để trống nếu không có."
+    },
     "rates": {
       "title": "Giá gốc mỗi đêm",
       "subtitle": "Nhập giá bạn nhận cho mỗi đêm, theo từng mùa.",

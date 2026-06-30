@@ -16,9 +16,10 @@ import StepBasic from "./step-basic";
 import StepLocation from "./step-location";
 import StepPhotos from "./step-photos";
 import StepAmenities from "./step-amenities";
+import StepRules from "./step-rules";
 import StepRates from "./step-rates";
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 
 export default function VillaWizard({
   villaId,
@@ -103,6 +104,17 @@ export default function VillaWizard({
           monthlyRentVnd: state.monthlyRent || undefined,
           photos,
           amenities,
+          // 이용 규칙 — 분 단위 시각·VND 동단위 문자열(빈 값은 null). 서버 villaRulesData가 BigInt 변환
+          rules: {
+            checkInTime: state.rules.checkInTime,
+            checkOutTime: state.rules.checkOutTime,
+            smokingAllowed: state.rules.smokingAllowed,
+            petsAllowed: state.rules.petsAllowed,
+            partyAllowed: state.rules.partyAllowed,
+            parkingSlots: state.rules.parkingSlots,
+            baseDepositVnd: state.rules.baseDepositVnd || null,
+            extraBedAvailable: state.rules.extraBedAvailable,
+          },
           rates: state.rates,
         }),
       });
@@ -163,7 +175,8 @@ export default function VillaWizard({
         <StepPhotos state={state} setPhoto={setPhoto} onNext={goNext} onBack={goBack} />
       )}
       {step === 4 && <StepAmenities state={state} update={update} onNext={goNext} />}
-      {step === 5 && (
+      {step === 5 && <StepRules state={state} update={update} onNext={goNext} />}
+      {step === 6 && (
         <StepRates
           state={state}
           update={update}
