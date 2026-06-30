@@ -31,7 +31,10 @@
       "balance": "잔액",
       "due": "기한 {date}",
       "empty": "채권 내역이 없습니다",
-      "invoiceEmpty": "발행된 청구서가 없습니다"
+      "invoiceEmpty": "발행된 청구서가 없습니다",
+      "downloadPdf": "청구서 PDF",
+      "deposit": "선금",
+      "balanceDue": "잔금"
     },
     "proposals": {
       "title": "받은 제안서",
@@ -79,7 +82,34 @@
       "rejectedReasonLabel": "사유",
       "changePassword": "비밀번호 변경"
     },
-    "searchPlaceholder": "빌라명·기간 검색"
+    "searchPlaceholder": "빌라명·기간 검색",
+    "contact": {
+      "title": "연락처",
+      "subtitle": "지급·연락에 사용할 정보입니다.",
+      "name": "거래처명",
+      "phone": "연락처(전화)",
+      "phonePlaceholder": "예: 010-1234-5678",
+      "email": "이메일",
+      "emailPlaceholder": "예: agency@example.com",
+      "save": "저장",
+      "saving": "저장 중…",
+      "saveOk": "저장되었습니다.",
+      "saveError": "저장에 실패했습니다. 다시 시도하세요.",
+      "loading": "불러오는 중…",
+      "loadError": "정보를 불러오지 못했습니다."
+    },
+    "paymentNotice": {
+      "button": "입금 통보",
+      "title": "입금 통보",
+      "hint": "입금하셨다면 알려주세요. 운영자가 확인 후 처리합니다.",
+      "amountPlaceholder": "입금액(동, 선택)",
+      "depositorPlaceholder": "입금자명(선택)",
+      "submit": "통보하기",
+      "submitting": "전송 중…",
+      "done": "통보됨",
+      "error": "전송에 실패했습니다. 다시 시도하세요.",
+      "cancel": "취소"
+    }
   },
   "quickDateFilter": {
     "all": "전체",

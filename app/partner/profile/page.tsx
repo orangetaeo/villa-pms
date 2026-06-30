@@ -6,8 +6,10 @@ import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
+import { getTranslations } from "next-intl/server";
 import { normalizeLocale, type AppLocale } from "@/lib/locale";
 import AccountScreen from "@/components/account/account-screen";
+import PartnerContactForm from "@/components/partner/partner-contact-form";
 
 export const metadata: Metadata = {
   title: "내 계정 — Villa Go",
@@ -26,6 +28,7 @@ export default async function PartnerAccountPage() {
   if (session.user.role !== "PARTNER") redirect("/login");
 
   const locale = await getPartnerLocale(session.user.locale);
+  const tContact = await getTranslations({ locale, namespace: "partner.contact" });
 
   return (
     <AccountScreen
@@ -34,6 +37,14 @@ export default async function PartnerAccountPage() {
       backHref="/partner"
       // 파트너 layout main이 자체 px-4 py-6 + 탭바 pb 처리 → 외부 패딩 최소화(헤더 sticky라 top 여백 불필요).
       containerClassName="w-full pb-8"
+      // 연락처 자기관리(전화·이메일) — 본인 partnerId 스코프(C). 신용·마진 무관.
+      extra={
+        <div className="mt-6 rounded-2xl border border-neutral-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-1 text-lg font-bold text-neutral-900">{tContact("title")}</h2>
+          <p className="mb-5 text-sm text-neutral-500">{tContact("subtitle")}</p>
+          <PartnerContactForm />
+        </div>
+      }
     />
   );
 }

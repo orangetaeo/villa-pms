@@ -33,6 +33,8 @@ export interface PartnerReceivableRow {
   checkIn: Date;
   checkOut: Date;
   totalVnd: string;
+  /** 선금 청구액(depositDueVnd). 잔금 청구액 = totalVnd - depositDueVnd. (선금율 자체는 비노출) */
+  depositDueVnd: string;
   depositPaidVnd: string;
   balancePaidVnd: string;
   /** 잔액 = totalVnd - depositPaidVnd - balancePaidVnd */
@@ -177,6 +179,7 @@ export async function loadPartnerReceivables(
       checkIn: r.booking.checkIn,
       checkOut: r.booking.checkOut,
       totalVnd: r.totalVnd.toString(),
+      depositDueVnd: r.depositDueVnd.toString(),
       depositPaidVnd: r.depositPaidVnd.toString(),
       balancePaidVnd: r.balancePaidVnd.toString(),
       outstandingVnd: out.toString(),

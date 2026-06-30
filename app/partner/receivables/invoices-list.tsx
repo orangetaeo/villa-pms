@@ -10,6 +10,12 @@ import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { useTranslations } from "next-intl";
 import type { PartnerInvoiceRow } from "@/lib/partner-portal";
 import { formatVndDot, formatDate } from "../_format";
+import PaymentNoticeButton from "@/components/partner/payment-notice-button";
+
+// 발행된 청구서만(DRAFT/VOID 제외) PDF 다운로드 가능.
+const DOWNLOADABLE = new Set(["ISSUED", "PARTIAL", "PAID", "OVERDUE"]);
+// 미완납·발행 청구서만 입금 통보 의미 있음(PAID/DRAFT/VOID 제외).
+const NOTIFIABLE = new Set(["ISSUED", "PARTIAL", "OVERDUE"]);
 
 const INVOICE_STATUS_STYLE: Record<string, string> = {
   DRAFT: "bg-neutral-100 text-neutral-500",
@@ -101,6 +107,25 @@ export default function InvoicesList({ invoices }: { invoices: PartnerInvoiceRow
               <Field label={t("receivables.total")} value={formatVndDot(inv.totalVnd)} />
               <Field label={t("receivables.paid")} value={formatVndDot(inv.paidVnd)} />
             </dl>
+            {/* 액션 — PDF 다운로드(A) + 입금 통보(B). 발행 상태에 따라 노출. */}
+            {(DOWNLOADABLE.has(inv.status) || NOTIFIABLE.has(inv.status)) && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-neutral-100 pt-3">
+                {DOWNLOADABLE.has(inv.status) && (
+                  <a
+                    href={`/api/partner/invoices/${inv.id}/statement`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-50 active:scale-95"
+                  >
+                    <span className="material-symbols-outlined text-base">download</span>
+                    {t("receivables.downloadPdf")}
+                  </a>
+                )}
+                {NOTIFIABLE.has(inv.status) && (
+                  <PaymentNoticeButton invoiceId={inv.id} />
+                )}
+              </div>
+            )}
           </li>
           ))}
         </ul>

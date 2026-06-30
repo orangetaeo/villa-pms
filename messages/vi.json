@@ -31,7 +31,10 @@
       "balance": "Còn lại",
       "due": "Hạn {date}",
       "empty": "Chưa có công nợ nào",
-      "invoiceEmpty": "Chưa có hóa đơn nào được phát hành"
+      "invoiceEmpty": "Chưa có hóa đơn nào được phát hành",
+      "downloadPdf": "PDF hóa đơn",
+      "deposit": "Tiền cọc",
+      "balanceDue": "Tiền còn lại"
     },
     "proposals": {
       "title": "Đề xuất đã nhận",
@@ -79,7 +82,34 @@
       "rejectedReasonLabel": "Lý do",
       "changePassword": "Đổi mật khẩu"
     },
-    "searchPlaceholder": "Tìm theo tên biệt thự / kỳ"
+    "searchPlaceholder": "Tìm theo tên biệt thự / kỳ",
+    "contact": {
+      "title": "Thông tin liên hệ",
+      "subtitle": "Thông tin dùng để thanh toán và liên lạc.",
+      "name": "Tên đối tác",
+      "phone": "Số điện thoại",
+      "phonePlaceholder": "VD: 0901 234 567",
+      "email": "Email",
+      "emailPlaceholder": "VD: agency@example.com",
+      "save": "Lưu",
+      "saving": "Đang lưu…",
+      "saveOk": "Đã lưu.",
+      "saveError": "Lưu thất bại. Vui lòng thử lại.",
+      "loading": "Đang tải…",
+      "loadError": "Không tải được thông tin."
+    },
+    "paymentNotice": {
+      "button": "Báo đã CK",
+      "title": "Báo đã chuyển khoản",
+      "hint": "Nếu bạn đã chuyển khoản, hãy báo cho chúng tôi. Quản trị viên sẽ kiểm tra.",
+      "amountPlaceholder": "Số tiền (VND, tùy chọn)",
+      "depositorPlaceholder": "Tên người chuyển (tùy chọn)",
+      "submit": "Gửi thông báo",
+      "submitting": "Đang gửi…",
+      "done": "Đã báo",
+      "error": "Gửi thất bại. Vui lòng thử lại.",
+      "cancel": "Hủy"
+    }
   },
   "quickDateFilter": {
     "all": "Tất cả",
