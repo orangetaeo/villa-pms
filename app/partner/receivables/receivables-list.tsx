@@ -112,6 +112,19 @@ export default function ReceivablesList({
                 emphasis
               />
             </dl>
+            {/* 선금/잔금 분해(D) — 청구액 대비 납부액. 선금율 자체는 비노출(금액만). */}
+            <div className="mt-3 space-y-1.5 rounded-xl bg-neutral-50 px-3 py-2.5">
+              <SplitRow
+                label={t("receivables.deposit")}
+                paid={r.depositPaidVnd}
+                billed={r.depositDueVnd}
+              />
+              <SplitRow
+                label={t("receivables.balanceDue")}
+                paid={r.balancePaidVnd}
+                billed={(BigInt(r.totalVnd) - BigInt(r.depositDueVnd)).toString()}
+              />
+            </div>
             <p className="mt-2 text-right text-xs text-neutral-400">
               {t("receivables.due", { date: formatDate(r.dueDate) })}
             </p>
@@ -135,6 +148,27 @@ export default function ReceivablesList({
         />
       )}
     </>
+  );
+}
+
+// 선금/잔금 한 줄 — "납부액 / 청구액" (완납 시 청크 색 강조). 금액은 VND string(BigInt 비교).
+function SplitRow({
+  label,
+  paid,
+  billed,
+}: {
+  label: string;
+  paid: string;
+  billed: string;
+}) {
+  const settled = BigInt(paid) >= BigInt(billed) && BigInt(billed) > 0n;
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="font-medium text-neutral-500">{label}</span>
+      <span className={`font-semibold ${settled ? "text-emerald-600" : "text-neutral-700"}`}>
+        {formatVndDot(paid)} <span className="text-neutral-300">/</span> {formatVndDot(billed)}
+      </span>
+    </div>
   );
 }
 
