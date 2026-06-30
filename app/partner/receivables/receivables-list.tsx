@@ -10,7 +10,7 @@ import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { useTranslations } from "next-intl";
 import { formatVillaName } from "@/lib/villa-name";
 import type { PartnerReceivableRow } from "@/lib/partner-portal";
-import { formatVndDot, formatDate, formatDayMonth } from "../_format";
+import { formatVndComma, formatDate, formatDayMonth } from "../_format";
 
 const RECEIVABLE_STATUS_STYLE: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-700",
@@ -99,16 +99,16 @@ export default function ReceivablesList({
               </span>
             </div>
             <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-neutral-100 pt-3 text-center">
-              <Field label={t("receivables.total")} value={formatVndDot(r.totalVnd)} />
+              <Field label={t("receivables.total")} value={formatVndComma(r.totalVnd)} />
               <Field
                 label={t("receivables.paid")}
-                value={formatVndDot(
+                value={formatVndComma(
                   (BigInt(r.depositPaidVnd) + BigInt(r.balancePaidVnd)).toString()
                 )}
               />
               <Field
                 label={t("receivables.balance")}
-                value={formatVndDot(r.outstandingVnd)}
+                value={formatVndComma(r.outstandingVnd)}
                 emphasis
               />
             </dl>
@@ -166,7 +166,7 @@ function SplitRow({
     <div className="flex items-center justify-between text-xs">
       <span className="font-medium text-neutral-500">{label}</span>
       <span className={`font-semibold ${settled ? "text-emerald-600" : "text-neutral-700"}`}>
-        {formatVndDot(paid)} <span className="text-neutral-300">/</span> {formatVndDot(billed)}
+        {formatVndComma(paid)} <span className="text-neutral-300">/</span> {formatVndComma(billed)}
       </span>
     </div>
   );

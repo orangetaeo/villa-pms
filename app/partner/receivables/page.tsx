@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getPartnerForUser } from "@/lib/partner-auth";
 import { loadPartnerReceivables } from "@/lib/partner-portal";
-import { formatVndDot } from "../_format";
+import { formatVndComma } from "../_format";
 import ReceivablesList from "./receivables-list";
 import InvoicesList from "./invoices-list";
 
@@ -43,18 +43,18 @@ export default async function PartnerReceivablesPage() {
               {t("receivables.outstanding")}
             </p>
             <h2 className="mt-1 text-4xl font-extrabold tracking-tight">
-              {formatVndDot(summary.outstandingVnd)}
+              {formatVndComma(summary.outstandingVnd)}
             </h2>
           </div>
           <div className="h-px w-full bg-white/20" />
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs font-medium text-teal-50">
             <div>
               <span className="opacity-80">{t("receivables.totalBilled")}: </span>
-              {formatVndDot(summary.totalBilledVnd)}
+              {formatVndComma(summary.totalBilledVnd)}
             </div>
             <div>
               <span className="opacity-80">{t("receivables.totalPaid")}: </span>
-              {formatVndDot(summary.totalPaidVnd)}
+              {formatVndComma(summary.totalPaidVnd)}
             </div>
           </div>
         </div>
@@ -70,7 +70,7 @@ export default async function PartnerReceivablesPage() {
           <div className="rounded-xl bg-slate-50 p-3 text-center">
             <p className="text-[11px] font-medium text-slate-500">{t("receivables.statNotDue")}</p>
             <p className="mt-0.5 text-sm font-extrabold tabular-nums text-slate-800">
-              {formatVndDot(stats.notDueVnd)}
+              {formatVndComma(stats.notDueVnd)}
             </p>
           </div>
           <div className={`rounded-xl p-3 text-center ${hasOverdue ? "bg-rose-50" : "bg-slate-50"}`}>
@@ -82,16 +82,16 @@ export default async function PartnerReceivablesPage() {
                 hasOverdue ? "text-rose-700" : "text-slate-500"
               }`}
             >
-              {formatVndDot(stats.overdueVnd)}
+              {formatVndComma(stats.overdueVnd)}
             </p>
           </div>
         </div>
         {/* 연체 구간 (연체 있을 때만) */}
         {hasOverdue && (
           <div className="grid grid-cols-3 gap-2">
-            <AgingCell label={t("receivables.agingD1_7")} value={formatVndDot(stats.aging.d1_7)} />
-            <AgingCell label={t("receivables.agingD8_30")} value={formatVndDot(stats.aging.d8_30)} />
-            <AgingCell label={t("receivables.agingD30plus")} value={formatVndDot(stats.aging.d30plus)} strong />
+            <AgingCell label={t("receivables.agingD1_7")} value={formatVndComma(stats.aging.d1_7)} />
+            <AgingCell label={t("receivables.agingD8_30")} value={formatVndComma(stats.aging.d8_30)} />
+            <AgingCell label={t("receivables.agingD30plus")} value={formatVndComma(stats.aging.d30plus)} strong />
           </div>
         )}
       </section>
