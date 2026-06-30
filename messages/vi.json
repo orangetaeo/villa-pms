@@ -1026,7 +1026,21 @@
       "forceCheckoutWarning": "Đã chuyển nhưng còn việc dọn dẹp trả phòng chưa hoàn tất. Cần kiểm tra.",
       "forceInvalidStatus": "Chỉ có thể chuyển villa ở trạng thái ACTIVE sang có thể bán.",
       "forceForbidden": "Không có quyền.",
-      "forceError": "Chuyển đổi thất bại. Vui lòng thử lại."
+      "forceError": "Chuyển đổi thất bại. Vui lòng thử lại.",
+      "cleaningInfo": {
+        "title": "Thông tin dọn dẹp",
+        "desc": "Chuyển cho nhân viên dọn được phân công (địa chỉ·ra vào·lưu ý). Khách không nhìn thấy.",
+        "address": "Địa chỉ",
+        "addressPlaceholder": "VD: Dương Đông, Phú Quốc ...",
+        "access": "Thông tin ra vào",
+        "accessPlaceholder": "VD: mã cửa 1234#, chìa khóa ở văn phòng",
+        "notes": "Lưu ý dọn dẹp",
+        "notesPlaceholder": "VD: vệ sinh lưới điều hòa, cẩn thận sàn đá",
+        "save": "Lưu",
+        "saving": "Đang lưu…",
+        "saved": "Đã lưu",
+        "errSave": "Lưu thất bại"
+      }
     },
     "sales": {
       "tabs": {
@@ -1519,7 +1533,16 @@
     "rejectedHint": "Vui lòng dọn lại và tải ảnh mới.",
     "submittedPhotos": "Ảnh đã gửi",
     "waitingReview": "Chờ duyệt",
-    "searchPlaceholder": "Tìm villa"
+    "searchPlaceholder": "Tìm villa",
+    "dueLabel": "Ngày dọn dự kiến",
+    "type": {
+      "CHECKOUT": "Dọn sau trả phòng",
+      "PERIODIC": "Dọn định kỳ"
+    },
+    "baselineLabel": "Mẫu",
+    "addressLabel": "Địa chỉ",
+    "accessLabel": "Thông tin ra vào",
+    "notesLabel": "Ghi chú dọn dẹp"
   },
   "earnings": {
     "title": "Thu nhập",
