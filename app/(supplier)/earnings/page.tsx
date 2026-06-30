@@ -17,7 +17,7 @@ import { formatVndDot } from "@/lib/format";
 import { parsePageParams } from "@/lib/pagination";
 import { summarizeSupplierReceivables } from "@/lib/supplier-receivables";
 import PaginationBar from "@/components/pagination-bar";
-import VillaReceivablesSearch from "./villa-receivables-search";
+import VillaReceivablesSelect from "./villa-receivables-select";
 import StatsSection from "@/components/supplier/stats/stats-section";
 
 const YEAR_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -229,13 +229,13 @@ async function EarningsDetail({
   const paidMonths = new Set(
     allSettlements.filter((s) => s.status === SettlementStatus.PAID).map((s) => s.yearMonth)
   );
-  // 검색·선택용 빌라 목록 (recv.byVilla = 미수 큰 순). 금액은 서버에서 포맷해 전달(클라 누수 표면 최소)
-  const villaRows = recv.byVilla.map((v) => ({
+  // 셀렉터 옵션 (recv.byVilla = 미수 큰 순 → 드롭다운도 미수 빌라가 위). 미수 있으면 옵션에 금액 병기.
+  const villaOptions = recv.byVilla.map((v) => ({
     id: v.villaId,
-    name: v.villaName,
-    paidText: formatVndDot(v.paidVnd),
-    outstandingText: formatVndDot(v.outstandingVnd),
-    hasOutstanding: v.outstandingVnd > 0n,
+    label:
+      v.outstandingVnd > 0n
+        ? `${v.villaName} · ${t("recvOutstanding")} ${formatVndDot(v.outstandingVnd)}`
+        : v.villaName,
   }));
   // 선택된 빌라 — 본인 소유(byVilla에 존재)인 경우만 유효
   const selectedVilla = villaParam ? recv.byVilla.find((v) => v.villaId === villaParam) : undefined;
@@ -350,18 +350,14 @@ async function EarningsDetail({
 
       </section>
 
-      {/* 빌라별 조회 — 검색으로 빌라 선택 → 클릭하면 그 빌라 상세(언제·얼마·결과). 테오 요청 */}
-      {villaRows.length > 0 && (
-        <VillaReceivablesSearch
-          villas={villaRows}
+      {/* 빌라별 조회 — 셀렉터로 빌라 선택 → 그 빌라 상세(언제·얼마·결과). 테오 요청 */}
+      {villaOptions.length > 0 && (
+        <VillaReceivablesSelect
+          villas={villaOptions}
           selectedVillaId={selectedVillaId}
           labels={{
             title: t("recvByVillaTitle"),
-            searchPlaceholder: t("villaSearchPlaceholder"),
-            paid: t("recvPaid"),
-            outstanding: t("recvOutstanding"),
-            noMatch: t("villaNoMatch"),
-            viewDetail: t("villaViewDetail"),
+            placeholder: t("villaSelectPlaceholder"),
           }}
         />
       )}
