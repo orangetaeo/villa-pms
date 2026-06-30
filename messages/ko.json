@@ -1496,6 +1496,12 @@
     "nights": "{count}박",
     "viewStatement": "정산서 보기",
     "statementPending": "정산서는 정산 확정 후 제공됩니다",
+    "recvTitle": "미수 · 입금 현황",
+    "recvTotal": "총 정산액",
+    "recvPaid": "받음",
+    "recvOutstanding": "미수",
+    "recvUnpaidTitle": "아직 못 받은 달",
+    "recvAllPaid": "미수 없음 — 전액 지급 완료",
     "empty": "수익 내역이 없습니다",
     "emptyHint": "고객 체크아웃 후 수익이 표시됩니다."
   },
