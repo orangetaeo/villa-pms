@@ -33,11 +33,36 @@ export interface WizardState {
   monthlyRent: string; // 숫자만 (동 단위)
   // 3/5 사진 — key: 슬롯 id (exterior, bedroom-1, ...)
   photos: Record<string, PhotoSlotState>;
-  // 4/5 비품 — key: `${category}:${itemKey}` → 수량 (미니바 외 1=있음)
+  // 4/6 비품 — key: `${category}:${itemKey}` → 수량 (미니바 외 1=있음)
   amenities: Record<string, number>;
-  // 5/5 원가 — 숫자 문자열 (동 단위, "" = 미입력)
+  // 5/6 이용 규칙 — 공급자 영역(체크인/아웃·흡연 등). 기본값 존재
+  rules: VillaRules;
+  // 6/6 원가 — 숫자 문자열 (동 단위, "" = 미입력)
   rates: Record<Season, string>;
 }
+
+/** 이용 규칙 — Villa 모델 필드와 1:1 (분 단위 시각, VND 동 단위 문자열) */
+export interface VillaRules {
+  checkInTime: number; // 분 단위 0~1439 (840=14:00)
+  checkOutTime: number; // 660=11:00
+  smokingAllowed: boolean;
+  petsAllowed: boolean;
+  partyAllowed: boolean;
+  parkingSlots: number;
+  baseDepositVnd: string; // 동 단위 숫자 문자열 ("" = 미입력)
+  extraBedAvailable: boolean;
+}
+
+export const INITIAL_RULES: VillaRules = {
+  checkInTime: 840,
+  checkOutTime: 660,
+  smokingAllowed: false,
+  petsAllowed: false,
+  partyAllowed: false,
+  parkingSlots: 0,
+  baseDepositVnd: "",
+  extraBedAvailable: false,
+};
 
 export const INITIAL_STATE: WizardState = {
   supplierId: "",
@@ -52,6 +77,7 @@ export const INITIAL_STATE: WizardState = {
   monthlyRent: "",
   photos: {},
   amenities: {},
+  rules: INITIAL_RULES,
   rates: { LOW: "", HIGH: "", PEAK: "" },
 };
 
@@ -126,6 +152,7 @@ export interface VillaForEdit {
   hasPool: boolean;
   breakfastAvailable: boolean;
   monthlyRentVnd: string | null; // 동 단위 숫자 문자열 (null=미입력)
+  rules: VillaRules; // 이용 규칙 — 재제출 시 기존값 prefill(미반영 방지)
   photos: { space: PhotoSpace; spaceLabel: string | null; url: string }[];
   amenities: { category: string; itemKey: string; quantity: number }[];
   rates: { season: Season; supplierCostVnd: string }[]; // supplierCostVnd 동 단위 문자열
@@ -163,6 +190,7 @@ export function villaToWizardState(villa: VillaForEdit): WizardState {
     breakfastAvailable: villa.breakfastAvailable,
     address: villa.address ?? "",
     monthlyRent: villa.monthlyRentVnd ?? "",
+    rules: villa.rules,
     photos,
     amenities,
     rates,

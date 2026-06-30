@@ -15,6 +15,16 @@ const BASE: VillaForEdit = {
   hasPool: true,
   breakfastAvailable: false,
   monthlyRentVnd: "30000000",
+  rules: {
+    checkInTime: 900,
+    checkOutTime: 660,
+    smokingAllowed: false,
+    petsAllowed: true,
+    partyAllowed: false,
+    parkingSlots: 2,
+    baseDepositVnd: "5000000",
+    extraBedAvailable: true,
+  },
   photos: [],
   amenities: [],
   rates: [
@@ -67,6 +77,17 @@ describe("villaToWizardState — 재제출 prefill", () => {
     expect(state.monthlyRent).toBe("30000000");
     expect(state.rates).toEqual({ LOW: "1500000", HIGH: "2500000", PEAK: "4000000" });
     expect(state.amenities).toEqual({ "KITCHEN:kettle": 1, "MINIBAR:water": 6 });
+    // 이용 규칙 prefill — 재제출 시 기존값 그대로 전달
+    expect(state.rules).toEqual({
+      checkInTime: 900,
+      checkOutTime: 660,
+      smokingAllowed: false,
+      petsAllowed: true,
+      partyAllowed: false,
+      parkingSlots: 2,
+      baseDepositVnd: "5000000",
+      extraBedAvailable: true,
+    });
   });
 
   it("null 필드는 빈 문자열로 (complex·address·monthlyRent)", () => {

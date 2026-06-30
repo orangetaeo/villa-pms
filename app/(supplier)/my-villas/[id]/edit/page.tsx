@@ -36,6 +36,15 @@ export default async function EditVillaPage({
       hasPool: true,
       breakfastAvailable: true,
       monthlyRentVnd: true,
+      // 이용 규칙 — 재제출 마법사 prefill (미반영 방지)
+      checkInTime: true,
+      checkOutTime: true,
+      smokingAllowed: true,
+      petsAllowed: true,
+      partyAllowed: true,
+      parkingSlots: true,
+      baseDepositVnd: true,
+      extraBedAvailable: true,
       photos: {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
         select: { space: true, spaceLabel: true, url: true },
@@ -61,6 +70,16 @@ export default async function EditVillaPage({
     hasPool: villa.hasPool,
     breakfastAvailable: villa.breakfastAvailable,
     monthlyRentVnd: villa.monthlyRentVnd ? villa.monthlyRentVnd.toString() : null,
+    rules: {
+      checkInTime: villa.checkInTime,
+      checkOutTime: villa.checkOutTime,
+      smokingAllowed: villa.smokingAllowed,
+      petsAllowed: villa.petsAllowed,
+      partyAllowed: villa.partyAllowed,
+      parkingSlots: villa.parkingSlots,
+      baseDepositVnd: villa.baseDepositVnd ? villa.baseDepositVnd.toString() : "",
+      extraBedAvailable: villa.extraBedAvailable,
+    },
     photos: villa.photos,
     amenities: villa.amenities,
     // 마법사 rates 입력 prefill — LOW=base, HIGH/PEAK=그 시즌 첫 기간.
