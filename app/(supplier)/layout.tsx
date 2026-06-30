@@ -1,7 +1,11 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
-import { TabBar, SUPPLIER_FULLSCREEN_PREFIXES } from "@/components/supplier/tab-bar";
+import {
+  TabBar,
+  SUPPLIER_FULLSCREEN_PREFIXES,
+  SUPPLIER_OWN_HEADER_PREFIXES,
+} from "@/components/supplier/tab-bar";
 import { PortalAccountLink } from "@/components/account/portal-account-link";
 import { PortalBrand } from "@/components/brand/portal-brand";
 import PullToRefresh from "@/components/pull-to-refresh";
@@ -60,10 +64,10 @@ export default async function SupplierLayout({
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
       <NextIntlClientProvider locale={locale} messages={messages}>
         <LocaleSwitcher current={locale} persist />
-        {/* 계정 진입(좌상단) — 풀스크린 플로우(등록 마법사·체크인/아웃)에서는 숨김 */}
-        <PortalAccountLink href="/profile" fullscreenPrefixes={SUPPLIER_FULLSCREEN_PREFIXES} />
-        {/* Villa Go 로고(상단 중앙) — 포털 브랜드 통일. 풀스크린 플로우에서는 숨김. */}
-        <PortalBrand href="/" fullscreenPrefixes={SUPPLIER_FULLSCREEN_PREFIXES} />
+        {/* 계정 진입(좌상단) — 풀스크린 + 자체 앱바 페이지(빌라 상세·하위)에서는 숨김(뒤로가기 버튼과 겹침 방지) */}
+        <PortalAccountLink href="/profile" fullscreenPrefixes={SUPPLIER_OWN_HEADER_PREFIXES} />
+        {/* Villa Go 로고(상단 중앙) — 자체 앱바 페이지에서는 중앙 제목과 겹치므로 숨김. */}
+        <PortalBrand href="/" fullscreenPrefixes={SUPPLIER_OWN_HEADER_PREFIXES} />
         {/* 모바일 당겨서 새로고침 — 공급자 전 화면(라이트 테마, 풀스크린 마법사 제외) */}
         <PullToRefresh fullscreenPrefixes={SUPPLIER_FULLSCREEN_PREFIXES} variant="light" />
         {/* pt-14: 좌상단 AccountLink·우상단 LocaleSwitcher(fixed top-3 h-9)와 본문 콘텐츠 겹침 방지(M4) */}

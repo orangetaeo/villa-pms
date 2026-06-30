@@ -1559,6 +1559,8 @@
     "listTitle": "Chi tiết doanh thu",
     "transactionCount": "{count} Giao dịch",
     "nights": "{count} đêm",
+    "viewStatement": "Xem bảng quyết toán",
+    "statementPending": "Bảng quyết toán sẽ có sau khi chốt thanh toán",
     "empty": "Chưa có doanh thu",
     "emptyHint": "Doanh thu sẽ hiển thị sau khi khách trả phòng."
   },

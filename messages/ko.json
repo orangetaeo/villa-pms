@@ -1450,6 +1450,8 @@
     "listTitle": "수익 상세",
     "transactionCount": "{count}건",
     "nights": "{count}박",
+    "viewStatement": "정산서 보기",
+    "statementPending": "정산서는 정산 확정 후 제공됩니다",
     "empty": "수익 내역이 없습니다",
     "emptyHint": "고객 체크아웃 후 수익이 표시됩니다."
   },

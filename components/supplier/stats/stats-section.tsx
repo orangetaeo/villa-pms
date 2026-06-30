@@ -6,6 +6,7 @@ import { getTranslations } from "next-intl/server";
 import { todayVnDateString } from "@/lib/date-vn";
 import { resolveStatsPeriod } from "@/lib/statistics";
 import { loadSupplierStats } from "@/lib/supplier-stats";
+import PaginationBar from "@/components/pagination-bar";
 // 차트는 recharts 의존 → lazy 래퍼로 코드 스플리팅(perf). [[charts-lazy]]
 import { RevenueBar, OccupancyArea } from "@/components/supplier/stats/charts-lazy";
 
@@ -48,10 +49,15 @@ export default async function StatsSection({
   supplierId,
   locale,
   range,
+  page = 1,
+  pageSize = 20,
 }: {
   supplierId: string;
   locale: string;
   range?: string;
+  /** 빌라별 성과 리스트 페이지네이션 (공용 page/pageSize 쿼리) */
+  page?: number;
+  pageSize?: number;
 }) {
   const t = await getTranslations({ locale, namespace: "supplierStats" });
   const now = new Date();
@@ -60,6 +66,10 @@ export default async function StatsSection({
   const chip = activeChip(range);
 
   const hasData = stats.villaCount > 0;
+
+  // 빌라별 성과 — 메모리 슬라이스 페이지네이션(공급자 빌라 수는 적어 충분)
+  const villaTotal = stats.villas.length;
+  const pagedVillas = stats.villas.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
 
   return (
     <div className="space-y-6">
@@ -148,7 +158,7 @@ export default async function StatsSection({
           {/* 빌라별 성과 */}
           <section className="space-y-2">
             <h3 className="text-base font-bold text-slate-800">{t("villaPerfTitle")}</h3>
-            {stats.villas.map((v) => (
+            {pagedVillas.map((v) => (
               <div
                 key={v.villaId}
                 className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm"
@@ -181,6 +191,8 @@ export default async function StatsSection({
                 </p>
               </div>
             ))}
+            {/* 페이지네이션 (라이트) — 빌라가 많을 때만 네비 표시, 합계 요약은 항상 */}
+            <PaginationBar total={villaTotal} page={page} pageSize={pageSize} light />
           </section>
         </>
       )}
