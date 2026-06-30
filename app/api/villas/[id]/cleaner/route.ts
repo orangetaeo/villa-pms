@@ -5,6 +5,7 @@
 //   권한: isOperator. 누수: 마진·가격 아님(운영 배정 데이터).
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { NotificationType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator } from "@/lib/permissions";
@@ -34,7 +35,7 @@ export async function PATCH(
 
   const villa = await prisma.villa.findUnique({
     where: { id },
-    select: { id: true, cleanerId: true },
+    select: { id: true, cleanerId: true, name: true },
   });
   if (!villa) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
 
@@ -65,6 +66,21 @@ export async function PATCH(
       data: { assigneeId: nextCleanerId },
     });
     reassigned = res.count;
+    // 새 담당자에게 알림 — 미완료 청소가 실제로 넘어간 경우만(0건이면 즉시 할 일 없음 → 미발송,
+    // 향후 체크아웃·정기 청소는 생성 시점에 자동 알림). 미지정(null)으로 바꾼 경우도 미발송.
+    if (nextCleanerId && reassigned > 0) {
+      await tx.notification.create({
+        data: {
+          userId: nextCleanerId,
+          type: NotificationType.CLEANING_REQUEST,
+          payload: {
+            villaName: villa.name,
+            reassigned: true,
+            // 누수: 고객정보·금액 없음. 빌라명만(청소 담당 배정 안내).
+          },
+        },
+      });
+    }
     await writeAuditLog({
       db: tx,
       userId: g.session.user.id,
