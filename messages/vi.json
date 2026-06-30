@@ -1178,6 +1178,8 @@
     "rooms": "{bedrooms} phòng ngủ · {bathrooms} phòng tắm",
     "viewCleaning": "Xem việc dọn dẹp",
     "editResubmit": "Sửa và gửi lại",
+    "detail": "Xem chi tiết",
+    "cleaningPending": "Chờ kiểm tra dọn dẹp",
     "empty": "Bạn chưa có villa nào",
     "emptyHint": "Nhấn nút Thêm villa để đăng ký villa đầu tiên.",
     "status": {

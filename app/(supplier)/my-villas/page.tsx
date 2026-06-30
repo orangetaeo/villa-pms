@@ -1,6 +1,7 @@
 // 공급자 내 빌라 홈 (T1.10, SPEC F1) — design/stitch/a6-my-villas 변환
 // role 스코프: SUPPLIER=자기 빌라만 (supplierId). 읽기 전용 RSC — 신규 API 없음
-// 누수 방지: rates·salePrice·margin 미조회. 카드에는 사진·이름·침실/욕실·상태 배지만 노출
+// 누수 방지: rates·salePrice·margin 미조회. 행에는 사진·단지·이름·침실/수영장/조식·상태 배지만 노출
+// 레이아웃: 관리자 /villas 컴팩트 행(좌측 썸네일 + details 접기/펴기) 구조 차용, 색은 공급자 라이트 유지
 import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
@@ -29,11 +30,14 @@ function resolveBadge(status: Villa["status"], isSellable: boolean): BadgeKind {
   return "pending"; // DRAFT · PENDING_REVIEW
 }
 
+// 색 토큰 주의: 이 프로젝트 Tailwind에는 success/error 토큰이 없다(primary·secondary만 정의).
+// 과거 큰-카드 시절 bg-success/bg-error는 투명으로 떨어졌으나 사진 위라 안 들켰던 잠복 버그 →
+// 흰 카드 위 컴팩트 행에서는 표준 팔레트(emerald/rose/amber/neutral)로 명시 지정한다.
 const BADGE_CLASS: Record<BadgeKind, string> = {
-  active: "bg-success text-white",
-  notSellable: "border-2 border-error bg-white/90 text-error",
-  rejected: "bg-error text-white",
-  pending: "bg-secondary text-white",
+  active: "bg-emerald-500 text-white",
+  notSellable: "border border-rose-300 bg-rose-50 text-rose-600",
+  rejected: "bg-rose-500 text-white",
+  pending: "bg-amber-500 text-white",
   inactive: "bg-neutral-200 text-neutral-700",
 };
 
@@ -61,8 +65,11 @@ export default async function MyVillasPage({
       id: true,
       name: true,
       nameVi: true,
+      complex: true,
       bedrooms: true,
       bathrooms: true,
+      hasPool: true,
+      breakfastAvailable: true,
       status: true,
       isSellable: true,
       photos: {
@@ -102,86 +109,118 @@ export default async function MyVillasPage({
           <p className="text-sm text-neutral-500">{t("emptyHint")}</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="flex flex-col gap-3">
+          {/* 좌측 썸네일 + 접기/펴기 컴팩트 행 (관리자 /villas 구조 차용, 라이트 테마) */}
           {pagedVillas.map((villa) => {
             const badge = resolveBadge(villa.status, villa.isSellable);
             const thumb = villa.photos[0]?.url;
+            const needsCleaning = badge === "notSellable";
+            const inactive = badge === "inactive";
             return (
-              <div
+              <details
                 key={villa.id}
-                className="overflow-hidden rounded-xl border border-neutral-100 bg-white shadow-sm transition-transform duration-150 active:scale-[0.98]"
+                className={`group overflow-hidden rounded-xl border border-neutral-100 bg-white shadow-sm ${
+                  inactive ? "opacity-80" : ""
+                }`}
               >
-                <Link href={`/my-villas/${villa.id}`} className="block">
-                  <div className="relative h-56 w-full bg-neutral-100">
+                <summary className="flex cursor-pointer select-none list-none items-center gap-3 p-3 [&::-webkit-details-marker]:hidden">
+                  {/* 왼쪽 썸네일 */}
+                  <div
+                    className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-neutral-100 sm:h-20 sm:w-20 ${
+                      inactive ? "grayscale" : ""
+                    }`}
+                  >
                     {thumb ? (
                       <Image
                         src={thumb}
                         alt={villa.name}
                         fill
                         unoptimized
-                        sizes="(max-width: 672px) 100vw, 672px"
+                        sizes="(min-width: 640px) 80px, 64px"
                         className="object-cover"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-neutral-300">
-                        <span className="material-symbols-outlined text-6xl">house</span>
+                        <span className="material-symbols-outlined">house</span>
                       </div>
                     )}
-                    <div className="absolute left-4 top-4">
+                  </div>
+                  {/* 본문 */}
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        {villa.complex && (
+                          <span className="block truncate text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                            {villa.complex}
+                          </span>
+                        )}
+                        <h2 className="truncate text-sm font-bold text-neutral-900 sm:text-base">
+                          {formatVillaName({ name: villa.name, nameVi: villa.nameVi })}
+                        </h2>
+                      </div>
                       <span
-                        className={`rounded-full px-3 py-1 text-xs font-bold shadow-md ${BADGE_CLASS[badge]}`}
+                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${BADGE_CLASS[badge]}`}
                       >
                         {t(`status.${badge}`)}
                       </span>
                     </div>
-                  </div>
-                  <div className="p-4">
-                    <div className="mb-2 flex items-center justify-between">
-                      <h2 className="text-xl font-bold text-neutral-900">
-                        {formatVillaName({ name: villa.name, nameVi: villa.nameVi })}
-                      </h2>
-                      <span className="material-symbols-outlined text-neutral-500">
-                        chevron_right
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-neutral-500">
+                      <span className="inline-flex items-center gap-0.5">
+                        <span className="material-symbols-outlined text-[16px] text-teal-600">bed</span>
+                        {villa.bedrooms}
                       </span>
-                    </div>
-                    <div className="flex items-center gap-4 text-neutral-500">
-                      <span className="flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-lg text-teal-600">bed</span>
-                        <span className="text-sm font-medium">
-                          {t("rooms", {
-                            bedrooms: villa.bedrooms,
-                            bathrooms: villa.bathrooms,
-                          })}
+                      {villa.hasPool && (
+                        <span className="material-symbols-outlined text-[16px] text-teal-600">pool</span>
+                      )}
+                      {villa.breakfastAvailable && (
+                        <span className="material-symbols-outlined text-[16px] text-teal-600">
+                          restaurant
                         </span>
-                      </span>
+                      )}
+                      {needsCleaning && (
+                        <span className="inline-flex items-center gap-1 rounded bg-rose-50 px-1.5 py-0.5 font-medium text-rose-600">
+                          <span className="material-symbols-outlined text-[14px]">cleaning_services</span>
+                          {t("cleaningPending")}
+                        </span>
+                      )}
                     </div>
                   </div>
-                </Link>
-                {/* ACTIVE 미검수 — 청소 보기 링크 (계약: /cleaning 유도) */}
-                {badge === "notSellable" && (
-                  <div className="px-4 pb-4">
+                  {/* chevron */}
+                  <span
+                    className="material-symbols-outlined shrink-0 text-xl text-neutral-400 transition-transform group-open:rotate-180"
+                    aria-hidden
+                  >
+                    expand_more
+                  </span>
+                </summary>
+                {/* 펼침 상세 — 상세 보기 + 상태별 액션(청소 보기·재제출) */}
+                <div className="flex flex-col gap-2 border-t border-neutral-100 px-3 pb-3 pt-2">
+                  <Link
+                    href={`/my-villas/${villa.id}`}
+                    className="block w-full rounded-lg border border-neutral-200 py-2.5 text-center text-sm font-bold text-neutral-800 transition-colors hover:bg-neutral-50"
+                  >
+                    {t("detail")}
+                  </Link>
+                  {badge === "notSellable" && (
                     <Link
                       href="/cleaning"
-                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-50 px-4 py-3 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-100"
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-50 py-2.5 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-100"
                     >
                       <span className="material-symbols-outlined text-lg">cleaning_services</span>
                       {t("viewCleaning")}
                     </Link>
-                  </div>
-                )}
-                {/* 반려됨 — 수정·재제출 진입 (T1.2b 편집 라우트). 반려 사유는 상세에서 표시 */}
-                {badge === "rejected" && (
-                  <div className="px-4 pb-4">
+                  )}
+                  {badge === "rejected" && (
                     <Link
                       href={`/my-villas/${villa.id}/edit`}
-                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100"
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-rose-50 py-2.5 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100"
                     >
                       <span className="material-symbols-outlined text-lg">edit</span>
                       {t("editResubmit")}
                     </Link>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              </details>
             );
           })}
         </div>
