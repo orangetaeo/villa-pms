@@ -16,6 +16,7 @@ import {
 } from "@/app/(supplier)/my-villas/new/wizard-types";
 import { CleaningSubmit, type SlotProp, type SubmitLabels } from "./cleaning-submit";
 import CleaningPhotosView from "./cleaning-photos-view";
+import { CleaningTaskInfo } from "./cleaning-task-info";
 import { formatVillaName } from "@/lib/villa-name";
 
 export const metadata: Metadata = {
@@ -38,6 +39,8 @@ export default async function CleaningTaskPage({
     select: {
       id: true,
       status: true,
+      type: true, // A: 정기/체크아웃 구분
+      dueDate: true, // A: 청소 예정일
       photoUrls: true,
       rejectNote: true,
       assigneeId: true, // 배정 검증용 — 클라이언트로 비전달
@@ -49,6 +52,16 @@ export default async function CleaningTaskPage({
           bedrooms: true,
           bathrooms: true,
           hasPool: true,
+          // C/D: 청소직원에게 필요한 빌라 정보(주소·출입·청소메모). 고객정보·WiFi비번·가격은 비포함(누수).
+          address: true,
+          accessInfo: true,
+          cleaningNotes: true,
+          // B: 공간별 기준 사진(정리된 상태) — 제출 전 참고용. 슬롯 매핑은 space+sortOrder 순서.
+          photos: {
+            where: { isBaseline: true },
+            orderBy: [{ space: "asc" }, { sortOrder: "asc" }],
+            select: { space: true, url: true },
+          },
         },
       },
     },
@@ -93,11 +106,44 @@ export default async function CleaningTaskPage({
         return "";
     }
   }
+  // B: 공간별 기준 사진 그룹(space → URL[], sortOrder 순) → 슬롯 (space, index) 매칭
+  const baselineBySpace = new Map<string, string[]>();
+  for (const p of task.villa.photos) {
+    const arr = baselineBySpace.get(p.space) ?? [];
+    arr.push(p.url);
+    baselineBySpace.set(p.space, arr);
+  }
   const slotProps: SlotProp[] = slots.map((slot) => ({
     id: slot.id,
     icon: slot.icon,
     label: slotLabel(slot),
+    baselineUrl: baselineBySpace.get(slot.space)?.[(slot.index ?? 1) - 1],
   }));
+
+  // A: 예정일(@db.Date는 UTC 자정 — UTC로 포맷해 −7h 시프트 회피) + 청소유형
+  const dueDateLabel = task.dueDate
+    ? new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        timeZone: "UTC",
+      }).format(task.dueDate)
+    : null;
+
+  // A·C·D 정보 카드 — 제출/읽기 양쪽 공용(서버 렌더 후 클라 제출 컴포넌트에 infoSlot으로 주입).
+  const infoSlot = (
+    <CleaningTaskInfo
+      dueDateLabel={dueDateLabel}
+      dueLabelText={t("dueLabel")}
+      typeText={t(`type.${task.type}`)}
+      address={task.villa.address}
+      addressLabelText={t("addressLabel")}
+      accessInfo={task.villa.accessInfo}
+      accessLabelText={t("accessLabel")}
+      cleaningNotes={task.villa.cleaningNotes}
+      notesLabelText={t("notesLabel")}
+    />
+  );
 
   const todayLabel = t("today", {
     date: new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "vi-VN", {
@@ -126,6 +172,7 @@ export default async function CleaningTaskPage({
       conflict: t("conflict"),
       rejectedTitle: t("status.REJECTED"),
       rejectedHint: t("rejectedHint"),
+      baselineLabel: t("baselineLabel"),
     };
     return (
       <CleaningSubmit
@@ -135,6 +182,7 @@ export default async function CleaningTaskPage({
         slots={slotProps}
         rejectNote={task.status === "REJECTED" ? task.rejectNote : null}
         labels={labels}
+        infoSlot={infoSlot}
       />
     );
   }
@@ -187,6 +235,9 @@ export default async function CleaningTaskPage({
           </p>
         </div>
       </header>
+
+      {/* A·C·D 정보 카드 — 예정일·유형·주소·출입·메모 (읽기 전용 화면에도 표시) */}
+      <div className="mx-auto w-full max-w-md px-4 pt-4">{infoSlot}</div>
 
       <CleaningPhotosView
         photos={task.photoUrls.map((url, i) => ({

@@ -917,7 +917,21 @@
       "forceCheckoutWarning": "전환되었으나 미결 체크아웃 청소가 있습니다. 확인이 필요합니다.",
       "forceInvalidStatus": "ACTIVE 상태의 빌라만 강제 판매가능으로 전환할 수 있습니다.",
       "forceForbidden": "권한이 없습니다.",
-      "forceError": "전환에 실패했습니다. 다시 시도해 주세요."
+      "forceError": "전환에 실패했습니다. 다시 시도해 주세요.",
+      "cleaningInfo": {
+        "title": "청소 운영정보",
+        "desc": "배정된 청소직원에게 전달됩니다(주소·출입·특이사항). 게스트에게는 보이지 않습니다.",
+        "address": "주소",
+        "addressPlaceholder": "예: 푸꾸옥 즈엉동 ...",
+        "access": "출입 정보",
+        "accessPlaceholder": "예: 도어코드 1234#, 키는 관리실",
+        "notes": "청소 특이사항",
+        "notesPlaceholder": "예: 에어컨 필터 청소, 대리석 바닥 주의",
+        "save": "저장",
+        "saving": "저장 중…",
+        "saved": "저장됨",
+        "errSave": "저장 실패"
+      }
     },
     "sales": {
       "tabs": {
@@ -1410,7 +1424,16 @@
     "rejectedHint": "다시 청소하고 새 사진을 올려주세요.",
     "submittedPhotos": "제출된 사진",
     "waitingReview": "승인 대기",
-    "searchPlaceholder": "빌라명 검색"
+    "searchPlaceholder": "빌라명 검색",
+    "dueLabel": "청소 예정일",
+    "type": {
+      "CHECKOUT": "체크아웃 청소",
+      "PERIODIC": "정기 청소"
+    },
+    "baselineLabel": "기준",
+    "addressLabel": "주소",
+    "accessLabel": "출입 정보",
+    "notesLabel": "청소 메모"
   },
   "earnings": {
     "title": "수익",

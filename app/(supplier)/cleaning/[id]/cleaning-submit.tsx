@@ -4,7 +4,7 @@
 // 업로드 타일·진행 카운터·리사이즈는 빌라 등록 사진 단계(T1.1 step-photos) 패턴 재사용
 // 카드 탭 → 카메라/갤러리 → 업로드 중 스피너 → 완료 체크 → 실패 시 재시도 (UX-VN)
 // 라벨은 전부 RSC에서 번역해 props로 받는다 — layout 화이트리스트(수정 금지) 우회
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -16,6 +16,8 @@ export interface SlotProp {
   id: string;
   icon: string;
   label: string;
+  /** B: 이 공간의 기준 사진(정리된 상태) URL — 제출 전 참고용. 없으면 미표시. */
+  baselineUrl?: string;
 }
 
 export interface SubmitLabels {
@@ -34,6 +36,7 @@ export interface SubmitLabels {
   conflict: string;
   rejectedTitle: string;
   rejectedHint: string;
+  baselineLabel: string;
 }
 
 interface PhotoState {
@@ -48,6 +51,7 @@ export function CleaningSubmit({
   slots,
   rejectNote,
   labels,
+  infoSlot,
 }: {
   taskId: string;
   villaName: string;
@@ -55,6 +59,8 @@ export function CleaningSubmit({
   slots: SlotProp[];
   rejectNote: string | null;
   labels: SubmitLabels;
+  /** A·C·D 정보 카드(서버 렌더) — 예정일·유형·주소·출입·메모. */
+  infoSlot?: ReactNode;
 }) {
   const router = useRouter();
   const [photos, setPhotos] = useState<Record<string, PhotoState>>({});
@@ -168,6 +174,9 @@ export function CleaningSubmit({
       </header>
 
       <main className="mx-auto w-full max-w-md p-4 pb-44">
+        {/* A·C·D 정보 카드 — 예정일·유형·주소·출입·메모 */}
+        {infoSlot && <div className="mb-4">{infoSlot}</div>}
+
         {/* 반려 사유 — 재제출 안내 (REJECTED) */}
         {rejectNote !== null && (
           <div className="mb-4 flex items-start gap-3 rounded-xl border-2 border-red-200 bg-red-50 p-4">
@@ -189,6 +198,8 @@ export function CleaningSubmit({
               key={slot.id}
               icon={slot.icon}
               label={slot.label}
+              baselineUrl={slot.baselineUrl}
+              baselineLabel={labels.baselineLabel}
               photo={photos[slot.id]}
               uploadTileLabel={labels.uploadTile}
               uploadingLabel={labels.uploading}
@@ -240,6 +251,8 @@ export function CleaningSubmit({
 function PhotoTile({
   icon,
   label,
+  baselineUrl,
+  baselineLabel,
   photo,
   uploadTileLabel,
   uploadingLabel,
@@ -248,6 +261,8 @@ function PhotoTile({
 }: {
   icon: string;
   label: string;
+  baselineUrl?: string;
+  baselineLabel: string;
   photo?: PhotoState;
   uploadTileLabel: string;
   uploadingLabel: string;
@@ -259,6 +274,23 @@ function PhotoTile({
 
   return (
     <div className="relative">
+      {/* B: 기준 사진(정리된 상태) — 업로드 전 같은 각도로 촬영하도록 참고. 없으면 미표시. */}
+      {baselineUrl && (
+        <div className="relative mb-1.5 aspect-square w-full overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100">
+          <Image
+            src={baselineUrl}
+            alt={`${baselineLabel} · ${label}`}
+            fill
+            unoptimized
+            sizes="(max-width: 768px) 50vw, 200px"
+            className="object-cover"
+          />
+          <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-0.5 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-bold text-white">
+            <span className="material-symbols-outlined text-[13px]">photo_library</span>
+            {baselineLabel}
+          </span>
+        </div>
+      )}
       <input
         ref={inputRef}
         type="file"
