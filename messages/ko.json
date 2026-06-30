@@ -1083,6 +1083,8 @@
     "rooms": "침실 {bedrooms}개 · 욕실 {bathrooms}개",
     "viewCleaning": "청소 보기",
     "editResubmit": "수정 후 재제출",
+    "detail": "상세 보기",
+    "cleaningPending": "청소 검수 대기 중",
     "empty": "아직 등록된 빌라가 없습니다",
     "emptyHint": "빌라 추가 버튼을 눌러 첫 빌라를 등록하세요.",
     "status": {
