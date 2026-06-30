@@ -12,6 +12,7 @@ export function ZaloConnectActions({
   qrUrl,
   qrPlaceholder,
   skipLabel,
+  doneHref = "/my-villas",
 }: {
   oaUrl: string | null;
   connected: boolean;
@@ -21,15 +22,17 @@ export function ZaloConnectActions({
   qrUrl?: string | null;
   qrPlaceholder?: string;
   skipLabel: string;
+  /** 완료/스킵 후 이동 경로 — 공급자=/my-villas, 청소직원=/cleaning(역할별). */
+  doneHref?: string;
 }) {
   const router = useRouter();
 
-  // 연결 완료 화면: "완료" 버튼만 → /my-villas
+  // 연결 완료 화면: "완료" 버튼만 → doneHref
   if (connected) {
     return (
       <button
         type="button"
-        onClick={() => router.push("/my-villas")}
+        onClick={() => router.push(doneHref)}
         className="w-full h-14 bg-teal-600 hover:opacity-95 active:scale-95 transition-all text-white rounded-xl font-semibold text-lg"
       >
         {skipLabel}
@@ -93,7 +96,7 @@ export function ZaloConnectActions({
       <div className="mt-10 flex justify-center">
         <button
           type="button"
-          onClick={() => router.push("/my-villas")}
+          onClick={() => router.push(doneHref)}
           className="text-neutral-400 font-medium text-sm hover:text-neutral-600 active:scale-95 transition-all underline underline-offset-4"
         >
           {skipLabel}

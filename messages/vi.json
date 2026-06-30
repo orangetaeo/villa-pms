@@ -2787,7 +2787,11 @@
         "BALCONY": "Ban công",
         "POOL": "Hồ bơi",
         "ETC": "Khác"
-      }
+      },
+      "assigneeLabel": "Phụ trách",
+      "assigneeUnassigned": "Chưa chỉ định (NCC dọn)",
+      "reassigned": "Đã đổi người phụ trách",
+      "reassignError": "Đổi người phụ trách thất bại"
     }
   },
   "adminCheckout": {
@@ -3123,7 +3127,10 @@
     "skip": "Để sau",
     "done": "Hoàn tất",
     "connectedTitle": "Bạn đã kết nối Zalo",
-    "connectedDesc": "Bạn sẽ nhận thông báo đặt phòng và cập nhật qua Zalo."
+    "connectedDesc": "Bạn sẽ nhận thông báo đặt phòng và cập nhật qua Zalo.",
+    "profileCardTitle": "Thông báo Zalo",
+    "profileConnected": "Đã kết nối — đang nhận thông báo",
+    "profileNotConnected": "Kết nối để nhận thông báo dọn dẹp"
   },
   "adminZalo": {
     "title": "Kết nối Bot Zalo",

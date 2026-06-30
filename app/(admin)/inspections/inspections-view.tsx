@@ -42,9 +42,16 @@ export interface SelectedTask {
   approvedAt: string | null; // ISO
   dueDate: string | null; // ISO (@db.Date)
   createdAt: string; // ISO
+  assigneeId: string | null; // 현재 청소 담당자(없으면 공급자 담당)
+  assigneeName: string | null;
   villaName: string;
   complex: string | null;
   baselinePhotos: BaselinePhoto[];
+}
+
+export interface CleanerOption {
+  id: string;
+  name: string;
 }
 
 type TabKey = "all" | "submitted" | "pending" | "approved" | "rejected";
@@ -75,6 +82,8 @@ interface Props {
   range?: string;
   area?: string;
   areaOptions: string[];
+  /** 개별 재배정 드롭다운용 CLEANER 목록 */
+  cleaners: CleanerOption[];
   /** 좌측 큐 페이지네이션 (URL 모드) — total=정렬된 전체(상한 200) */
   pagination: { total: number; page: number; pageSize: number };
 }
@@ -88,6 +97,7 @@ export default function InspectionsView({
   range,
   area,
   areaOptions,
+  cleaners,
   pagination,
 }: Props) {
   const t = useTranslations("adminInspections.list");
@@ -114,6 +124,30 @@ export default function InspectionsView({
     ? tasks.filter((task) => task.villaName.toLowerCase().includes(searchQ))
     : tasks;
   const searching = searchQ.length > 0;
+
+  /** 개별 재배정 — 이 청소 1건만 다른 담당자에게(빌라 기본 담당과 별개). 빈값=미지정(공급자). */
+  const reassign = async (assigneeId: string) => {
+    if (!selected || busy) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/cleaning-tasks/${selected.id}/reassign`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assigneeId: assigneeId || null }),
+      });
+      if (!res.ok) {
+        setMessage({ tone: "error", text: td("reassignError") });
+        return;
+      }
+      setMessage({ tone: "ok", text: td("reassigned") });
+      router.refresh();
+    } catch {
+      setMessage({ tone: "error", text: td("reassignError") });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   /** 승인 — 성공 시 gateOpened=true면 판매 가능 전환 배너 (사업 핵심 원칙 3 게이트) */
   const approve = async () => {
@@ -456,6 +490,30 @@ export default function InspectionsView({
                       })}
                     </span>
                   )}
+                </div>
+
+                {/* 개별 담당자 재배정 — 이 청소 1건만 다른 직원에게(빌라 기본 담당과 별개, 일회성) */}
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-sm text-slate-400" aria-hidden>
+                    assignment_ind
+                  </span>
+                  <span className="text-xs text-slate-400 whitespace-nowrap">
+                    {td("assigneeLabel")}
+                  </span>
+                  <select
+                    value={selected.assigneeId ?? ""}
+                    disabled={busy}
+                    onChange={(e) => void reassign(e.target.value)}
+                    className="min-w-0 flex-1 rounded-lg bg-slate-900/60 border border-slate-700 px-2 py-1.5 text-xs text-white focus:border-admin-primary focus:outline-none disabled:opacity-50"
+                  >
+                    {/* 미지정 = 공급자 담당 */}
+                    <option value="">{td("assigneeUnassigned")}</option>
+                    {cleaners.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

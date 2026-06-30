@@ -16,9 +16,15 @@ export const metadata: Metadata = {
 export default async function ZaloConnectPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
-  if (session.user.role !== "SUPPLIER") redirect("/login");
+  // 공급자·청소직원 모두 Zalo 알림 수신 대상 → 둘 다 허용.
+  const role = session.user.role;
+  if (role !== "SUPPLIER" && role !== "CLEANER") redirect("/login");
 
-  const t = await getTranslations("zaloConnect");
+  // 청소직원은 베트남어 고정(한국어 미노출). 공급자는 요청 locale 사용.
+  const t =
+    role === "CLEANER"
+      ? await getTranslations({ locale: "vi", namespace: "zaloConnect" })
+      : await getTranslations("zaloConnect");
 
   // 연결 여부 — 세션에 zaloUserId가 없으므로 DB 조회 (중복 연결 방지)
   const user = await prisma.user.findUnique({
@@ -29,6 +35,8 @@ export default async function ZaloConnectPage() {
 
   const oaUrl = process.env.NEXT_PUBLIC_ZALO_OA_URL ?? null;
   const qrUrl = process.env.NEXT_PUBLIC_ZALO_QR_URL ?? null;
+  // 완료/스킵 후 역할별 홈 — 청소직원은 /my-villas 접근 불가라 /cleaning으로.
+  const doneHref = role === "CLEANER" ? "/cleaning" : "/my-villas";
 
   return (
     <div className="min-h-screen flex flex-col bg-white text-neutral-900">
@@ -67,7 +75,7 @@ export default async function ZaloConnectPage() {
               {t("connectedTitle")}
             </h2>
             <p className="text-neutral-500 leading-relaxed mb-10">{t("connectedDesc")}</p>
-            <ZaloConnectActions oaUrl={oaUrl} connected skipLabel={t("done")} />
+            <ZaloConnectActions oaUrl={oaUrl} connected skipLabel={t("done")} doneHref={doneHref} />
           </div>
         ) : (
           <>
@@ -99,6 +107,7 @@ export default async function ZaloConnectPage() {
               qrUrl={qrUrl}
               qrPlaceholder={t("qrPlaceholder")}
               skipLabel={t("skip")}
+              doneHref={doneHref}
             />
           </>
         )}
