@@ -22,6 +22,7 @@ import AdminAmenitiesEditor from "./amenities-editor";
 import MinibarStockEditor, { type MinibarStockItem } from "./minibar-stock-editor";
 import NameViEditor from "./name-vi-editor";
 import CleaningInfoEditor from "./cleaning-info-editor";
+import CleanerAssignEditor from "./cleaner-assign-editor";
 import PhotoGallery from "./photo-gallery";
 import CollapsibleCard from "@/components/admin/collapsible-card";
 
@@ -117,6 +118,13 @@ export default async function VillaDetailPage({
   ]);
 
   if (!villa) notFound();
+
+  // 청소 담당자 지정용 CLEANER 목록(미삭제) — 빌라 단위 배정 select 옵션
+  const cleanerOptions = await prisma.user.findMany({
+    where: { role: "CLEANER", deletedAt: null },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, phone: true },
+  });
 
   // 사진을 공간별로 그룹화 (b10 — 공간별 섹션)
   const photoGroups = SPACE_ORDER.map((space) => ({
@@ -386,6 +394,13 @@ export default async function VillaDetailPage({
 
           {/* 베트남어 병기명 (ADR-0020) — Gemini 제안 + ADMIN 확정. 비운영자 화면에 병기 */}
           <NameViEditor villaId={villa.id} name={villa.name} initialNameVi={villa.nameVi} />
+
+          {/* 청소 담당자 지정 (T-villa-cleaner-assign) — 빌라별 담당 CLEANER. 미지정이면 공급자 담당 */}
+          <CleanerAssignEditor
+            villaId={villa.id}
+            initialCleanerId={villa.cleanerId}
+            cleaners={cleanerOptions}
+          />
 
           {/* 청소직원용 운영정보 (T-cleaner-features C·D) — 주소·출입정보·청소 특이사항. 배정 청소직원 전용 */}
           <CleaningInfoEditor

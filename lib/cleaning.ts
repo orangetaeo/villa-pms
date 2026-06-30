@@ -139,7 +139,8 @@ export async function createCheckoutCleaningTask(
       id: true,
       villaId: true,
       checkOut: true,
-      villa: { select: { supplierId: true, name: true } },
+      // cleanerId: 빌라 청소 담당자(있으면 배정·알림 대상). 없으면 공급자 폴백.
+      villa: { select: { supplierId: true, cleanerId: true, name: true } },
     },
   });
   if (!booking) throw new Error(`예약을 찾을 수 없습니다: ${input.bookingId}`);
@@ -151,6 +152,8 @@ export async function createCheckoutCleaningTask(
       type: CleaningType.CHECKOUT,
       status: CleaningStatus.PENDING,
       dueDate: booking.checkOut,
+      // 빌라 청소 담당자에게 자동 배정(없으면 null = 공급자 담당 폴백).
+      assigneeId: booking.villa.cleanerId,
     },
   });
 
@@ -162,7 +165,8 @@ export async function createCheckoutCleaningTask(
 
   await db.notification.create({
     data: {
-      userId: booking.villa.supplierId,
+      // 청소 요청 알림 — 담당자(cleanerId) 있으면 담당자, 없으면 공급자.
+      userId: booking.villa.cleanerId ?? booking.villa.supplierId,
       type: NotificationType.CLEANING_REQUEST,
       payload: {
         cleaningTaskId: task.id,
@@ -408,7 +412,8 @@ export async function createPeriodicCleaningTasks(
   // VN 기준 이번 달 시작을 UTC로 — monthKey와 동일 기준으로 기존 태스크 판정
   const villas = await prisma.villa.findMany({
     where: { status: "ACTIVE" },
-    select: { id: true, supplierId: true, name: true },
+    // cleanerId: 빌라 청소 담당자(있으면 배정·알림 대상). 없으면 공급자 폴백.
+    select: { id: true, supplierId: true, cleanerId: true, name: true },
   });
 
   let createdCount = 0;
@@ -430,11 +435,14 @@ export async function createPeriodicCleaningTasks(
           villaId: villa.id,
           type: CleaningType.PERIODIC,
           status: CleaningStatus.PENDING,
+          // 빌라 청소 담당자에게 자동 배정(없으면 null = 공급자 담당 폴백).
+          assigneeId: villa.cleanerId,
         },
       });
       await tx.notification.create({
         data: {
-          userId: villa.supplierId,
+          // 담당자(cleanerId) 있으면 담당자, 없으면 공급자.
+          userId: villa.cleanerId ?? villa.supplierId,
           type: NotificationType.CLEANING_REQUEST,
           payload: {
             cleaningTaskId: task.id,

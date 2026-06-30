@@ -938,6 +938,15 @@
           "OTHER": "기타"
         },
         "accessPlaceholderKey": "예: 열쇠는 1층 관리실에서 수령"
+      },
+      "cleanerAssign": {
+        "title": "청소 담당자",
+        "desc": "이 빌라의 청소 담당 직원을 지정합니다. 미지정이면 공급자가 담당합니다. 변경 시 미완료 청소가 즉시 재배정됩니다.",
+        "unassigned": "미지정 (공급자 담당)",
+        "noCleaners": "등록된 청소 직원이 없습니다. 사용자 관리에서 추가하세요.",
+        "saving": "저장 중…",
+        "saved": "저장됨 · {count}건 재배정",
+        "errSave": "저장 실패"
       }
     },
     "sales": {
