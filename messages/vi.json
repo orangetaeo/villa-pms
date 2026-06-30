@@ -18,7 +18,10 @@
       "empty": "Chưa có đặt phòng nào",
       "emptyHint": "Đặt phòng sẽ hiển thị ở đây khi được tạo.",
       "searchPlaceholder": "Tìm villa·khu·khách",
-      "noMatch": "Không có kết quả"
+      "noMatch": "Không có kết quả",
+      "dateFrom": "Từ ngày",
+      "dateTo": "Đến ngày",
+      "dateClear": "Xóa ngày"
     },
     "receivables": {
       "title": "Tình trạng công nợ",

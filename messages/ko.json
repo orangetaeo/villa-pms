@@ -18,7 +18,10 @@
       "empty": "예약 내역이 없습니다",
       "emptyHint": "예약이 등록되면 여기에 표시됩니다.",
       "searchPlaceholder": "빌라명·단지·게스트 검색",
-      "noMatch": "검색 결과가 없습니다"
+      "noMatch": "검색 결과가 없습니다",
+      "dateFrom": "시작일",
+      "dateTo": "종료일",
+      "dateClear": "날짜 지우기"
     },
     "receivables": {
       "title": "미수 현황",

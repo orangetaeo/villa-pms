@@ -30,22 +30,31 @@ export default function PartnerBookingsList({
 }) {
   const t = useTranslations("partner");
 
-  // 검색(부분일치) — 빌라명(병기) + 게스트명. 표시 필터(데이터 경계 변경 없음).
+  // 검색(부분일치) — 빌라명(병기)·단지·게스트명 + 날짜(기간) 필터. 표시 필터(데이터 경계 변경 없음).
   const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState(""); // YYYY-MM-DD
+  const [dateTo, setDateTo] = useState("");
+  const ymd = (d: Date) => new Date(d).toISOString().slice(0, 10); // @db.Date(UTC) → YYYY-MM-DD
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return bookings;
     return bookings.filter((b) => {
-      const villa = formatVillaName({ name: b.villaName, nameVi: b.villaNameVi }).toLowerCase();
-      const complex = (b.villaComplex ?? "").toLowerCase();
-      const guest = b.guestName.toLowerCase();
-      return villa.includes(q) || complex.includes(q) || guest.includes(q);
+      // 텍스트
+      if (q) {
+        const villa = formatVillaName({ name: b.villaName, nameVi: b.villaNameVi }).toLowerCase();
+        const complex = (b.villaComplex ?? "").toLowerCase();
+        const guest = b.guestName.toLowerCase();
+        if (!(villa.includes(q) || complex.includes(q) || guest.includes(q))) return false;
+      }
+      // 날짜(기간 겹침) — 투숙기간 [checkIn, checkOut]이 [from, to]와 겹치면 표시
+      if (dateFrom && ymd(b.checkOut) < dateFrom) return false;
+      if (dateTo && ymd(b.checkIn) > dateTo) return false;
+      return true;
     });
-  }, [bookings, search]);
+  }, [bookings, search, dateFrom, dateTo]);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-  useEffect(() => setPage(1), [bookings, search]);
+  useEffect(() => setPage(1), [bookings, search, dateFrom, dateTo]);
   const paged = useMemo(
     () => filtered.slice((page - 1) * pageSize, page * pageSize),
     [filtered, page, pageSize]
@@ -54,7 +63,7 @@ export default function PartnerBookingsList({
   // 빈 상태(전체 0건)는 부모에서 안내 — 여기는 목록이 있을 때만 렌더
   return (
     <>
-      <div className="mb-3">
+      <div className="mb-3 space-y-2">
         <ListSearch
           light
           placeholder={t("bookings.searchPlaceholder")}
@@ -62,6 +71,39 @@ export default function PartnerBookingsList({
           onChange={setSearch}
           className="max-w-xs"
         />
+        {/* 날짜(기간) 검색 — 투숙기간이 범위와 겹치는 예약만 */}
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={dateFrom}
+            max={dateTo || undefined}
+            onChange={(e) => setDateFrom(e.target.value)}
+            aria-label={t("bookings.dateFrom")}
+            className="h-10 min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-2.5 text-sm text-neutral-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+          />
+          <span className="shrink-0 text-sm text-neutral-400">~</span>
+          <input
+            type="date"
+            value={dateTo}
+            min={dateFrom || undefined}
+            onChange={(e) => setDateTo(e.target.value)}
+            aria-label={t("bookings.dateTo")}
+            className="h-10 min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-2.5 text-sm text-neutral-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+          />
+          {(dateFrom || dateTo) && (
+            <button
+              type="button"
+              onClick={() => {
+                setDateFrom("");
+                setDateTo("");
+              }}
+              aria-label={t("bookings.dateClear")}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-400 hover:text-neutral-700"
+            >
+              <span className="material-symbols-outlined text-lg">close</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {filtered.length === 0 ? (
