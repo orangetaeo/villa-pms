@@ -15,6 +15,7 @@ import { todayVnDateString } from "@/lib/date-vn";
 import { formatVillaName } from "@/lib/villa-name";
 import { formatVndDot } from "@/lib/format";
 import { parsePageParams } from "@/lib/pagination";
+import { summarizeSupplierReceivables } from "@/lib/supplier-receivables";
 import StatsSection from "@/components/supplier/stats/stats-section";
 
 const YEAR_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -137,8 +138,9 @@ async function EarningsDetail({
     yearMonthParam && YEAR_MONTH_RE.test(yearMonthParam) ? yearMonthParam : currentMonth;
   const { start, end } = monthRangeUtc(yearMonth); // 체크아웃 월 기준 (lib/settlement 단일 소스)
 
-  // 자기 빌라 예약만 — villa.supplierId = 세션 사용자 강제 (세션 외 입력 사용 금지)
-  const [bookings, settlement] = await Promise.all([
+  // 자기 빌라 예약만 — villa.supplierId = 세션 사용자 강제 (세션 외 입력 사용 금지).
+  //   ① 선택 월 상세 ② 선택 월 정산 레코드 ③ 전 기간 예약(미수 집계) ④ 전 기간 정산(PAID 분류)
+  const [bookings, settlement, allBookings, allSettlements] = await Promise.all([
     prisma.booking.findMany({
       where: {
         status: { in: [...SETTLEMENT_BOOKING_STATUSES] }, // CHECKED_OUT·NO_SHOW
@@ -163,7 +165,22 @@ async function EarningsDetail({
       // statementUrl 존재 시 정산서 PDF 보기 버튼 노출 (GET /api/settlements/[id]/statement는 소유 공급자 허용)
       select: { id: true, status: true, paidAt: true, statementUrl: true },
     }),
+    // 미수/입금 집계용 — 전 기간 정산 대상 예약(원가·체크아웃월만)
+    prisma.booking.findMany({
+      where: {
+        status: { in: [...SETTLEMENT_BOOKING_STATUSES] },
+        villa: { supplierId },
+      },
+      select: { checkOut: true, supplierCostVnd: true },
+    }),
+    prisma.settlement.findMany({
+      where: { supplierId },
+      select: { yearMonth: true, status: true },
+    }),
   ]);
+
+  // 미수/입금 현황(전 기간) — 받음(PAID 월)·미수(미PAID 월)·미납 달 목록
+  const recv = summarizeSupplierReceivables(allBookings, allSettlements);
 
   // 월 합계 — BigInt 합산 (Number 변환 금지)
   const totalVnd = bookings.reduce((sum, b) => sum + b.supplierCostVnd, 0n);
@@ -179,6 +196,84 @@ async function EarningsDetail({
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-bold text-slate-900">{t("title")}</h1>
+
+      {/* 미수/입금 현황 (전 기간 누적) — "받았는지·못 받은 미수 없는지" 한눈에. 마진·판매가 없음 */}
+      <section className="space-y-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+        <h2 className="flex items-center gap-1.5 text-sm font-bold text-slate-700">
+          <span className="material-symbols-outlined text-[18px] text-teal-600">account_balance_wallet</span>
+          {t("recvTitle")}
+        </h2>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-xl bg-slate-50 p-3 text-center">
+            <p className="text-[11px] font-medium text-slate-400">{t("recvTotal")}</p>
+            <p className="mt-0.5 text-sm font-extrabold tabular-nums text-slate-800">
+              {formatVndDot(recv.totalVnd)}
+            </p>
+          </div>
+          <div className="rounded-xl bg-emerald-50 p-3 text-center">
+            <p className="text-[11px] font-medium text-emerald-600">{t("recvPaid")}</p>
+            <p className="mt-0.5 text-sm font-extrabold tabular-nums text-emerald-700">
+              {formatVndDot(recv.paidVnd)}
+            </p>
+          </div>
+          <div
+            className={`rounded-xl p-3 text-center ${
+              recv.outstandingVnd > 0n ? "bg-amber-50" : "bg-slate-50"
+            }`}
+          >
+            <p
+              className={`text-[11px] font-medium ${
+                recv.outstandingVnd > 0n ? "text-amber-600" : "text-slate-400"
+              }`}
+            >
+              {t("recvOutstanding")}
+            </p>
+            <p
+              className={`mt-0.5 text-sm font-extrabold tabular-nums ${
+                recv.outstandingVnd > 0n ? "text-amber-700" : "text-slate-500"
+              }`}
+            >
+              {formatVndDot(recv.outstandingVnd)}
+            </p>
+          </div>
+        </div>
+
+        {/* 미납 달 목록 — 있으면 그 달 상세로 이동. 없으면 전액 수령 안내 */}
+        {recv.unpaidMonths.length > 0 ? (
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              {t("recvUnpaidTitle")}
+            </p>
+            {recv.unpaidMonths.map((m) => (
+              <Link
+                key={m.yearMonth}
+                href={`/earnings?view=detail&yearMonth=${m.yearMonth}`}
+                className="flex items-center justify-between rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2.5 transition-colors hover:bg-amber-50 active:scale-[0.99]"
+              >
+                <span className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+                  <span className="material-symbols-outlined text-[16px] text-amber-500">schedule</span>
+                  {t("monthLabel", {
+                    month: Number(m.yearMonth.slice(5, 7)),
+                    year: Number(m.yearMonth.slice(0, 4)),
+                  })}
+                  <span className="text-xs text-amber-600">· {t("pendingLabel")}</span>
+                </span>
+                <span className="flex items-center gap-1 text-sm font-bold tabular-nums text-amber-700">
+                  {formatVndDot(m.amountVnd)}
+                  <span className="material-symbols-outlined text-[16px] text-slate-300">chevron_right</span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          recv.totalVnd > 0n && (
+            <p className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-50 py-2.5 text-xs font-medium text-emerald-700">
+              <span className="material-symbols-outlined text-base">check_circle</span>
+              {t("recvAllPaid")}
+            </p>
+          )
+        )}
+      </section>
 
       {/* 월 선택 (a7 Month Selector) — ?view=detail&yearMonth= Link 네비게이션 */}
       <section className="flex items-center justify-between rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
