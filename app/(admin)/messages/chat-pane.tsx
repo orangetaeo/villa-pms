@@ -791,6 +791,7 @@ export function ChatPane({
                   conversationId={conversationId}
                   contactName={header.name}
                   isGroup={header.isGroup}
+                  translateMode={header.translateMode}
                   onReply={setReplyTarget}
                   actionsActive={activeActionMessageId === m.id}
                   onBubbleTap={toggleActionMessage}
@@ -1139,6 +1140,7 @@ function MessageBubble({
   conversationId,
   contactName,
   isGroup,
+  translateMode,
   onReply,
   actionsActive,
   onBubbleTap,
@@ -1149,6 +1151,7 @@ function MessageBubble({
   conversationId: string;
   contactName: string;
   isGroup: boolean;
+  translateMode: TranslateMode;
   onReply: (target: ReplyTarget) => void;
   actionsActive: boolean;
   onBubbleTap: (id: string) => void;
@@ -1171,6 +1174,7 @@ function MessageBubble({
           conversationId={conversationId}
           contactName={contactName}
           isGroup={isGroup}
+          translateMode={translateMode}
           onReply={onReply}
           actionsActive={actionsActive}
           onBubbleTap={onBubbleTap}
@@ -1472,6 +1476,7 @@ function InboundBubble({
   conversationId,
   contactName,
   isGroup,
+  translateMode,
   onReply,
   actionsActive,
   onBubbleTap,
@@ -1482,6 +1487,7 @@ function InboundBubble({
   conversationId: string;
   contactName: string;
   isGroup: boolean;
+  translateMode: TranslateMode;
   onReply: (target: ReplyTarget) => void;
   actionsActive: boolean;
   onBubbleTap: (id: string) => void;
@@ -1489,6 +1495,48 @@ function InboundBubble({
   router: ReturnType<typeof useRouter>;
 }) {
   const [showTranslation, setShowTranslation] = useState(true);
+  // on-demand 텍스트 번역(자동번역이 비어 있을 때 운영자가 수동으로 채움 — PhotoCard 패턴 복제).
+  //  localTranslated=클릭으로 받은 ko 번역, translating=로딩, transNote=한국어/실패 안내.
+  const [localTranslated, setLocalTranslated] = useState<string | null>(null);
+  const [translating, setTranslating] = useState(false);
+  const [transNote, setTransNote] = useState<string | null>(null);
+  // 표시할 번역 — 서버 저장본 우선, 없으면 방금 받은 로컬 번역.
+  const effectiveTranslated = message.translatedText ?? localTranslated;
+  // "번역" 버튼 노출 조건: 번역모드 ON + 수신 텍스트(본문 있음) + 아직 번역 없음 + 안내 없음.
+  //  OFF 모드는 운영자가 번역을 기대하지 않으므로 미노출(버블마다 버튼 노이즈 방지).
+  const canTranslateText =
+    translateMode !== "OFF" &&
+    message.msgType === "text" &&
+    !!message.text.trim() &&
+    !effectiveTranslated &&
+    !transNote;
+
+  async function handleTranslateText() {
+    if (translating) return;
+    setTranslating(true);
+    setTransNote(null);
+    try {
+      const res = await fetch(`/api/zalo/messages/${message.id}/translate`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { translated?: string };
+        if (data.translated && data.translated.trim().length > 0) {
+          setLocalTranslated(data.translated);
+          setShowTranslation(true);
+        } else {
+          // 한국어이거나 번역 결과 없음 — 더 누를 필요 없음을 안내(재시도 방지).
+          setTransNote(t("textTranslate.empty"));
+        }
+      } else {
+        setTransNote(t("textTranslate.failed"));
+      }
+    } catch {
+      setTransNote(t("textTranslate.failed"));
+    } finally {
+      setTranslating(false);
+    }
+  }
   // 그룹은 발신자별 이름(senderName, 미해석 시 senderUid 폴백) — 답글 인용·하단 라벨에 사용.
   // 1:1은 기존대로 대화 상대명(contactName).
   const senderLabel = isGroup ? message.senderName ?? contactName : contactName;
@@ -1548,10 +1596,10 @@ function InboundBubble({
         ) : (
           <div className="bg-slate-800 rounded-xl rounded-bl-sm px-4 py-3">
             <p className="text-sm text-slate-100 whitespace-pre-wrap break-words"><RichText text={message.text} t={t} /></p>
-            {message.translatedText && showTranslation && (
+            {effectiveTranslated && showTranslation && (
               <div className="border-t border-slate-700 mt-2 pt-2 flex items-start justify-between gap-3">
                 <p className="text-sm text-slate-300 flex-1 whitespace-pre-wrap break-words">
-                  <RichText text={message.translatedText} t={t} />
+                  <RichText text={effectiveTranslated} t={t} />
                   <span className="text-[9px] text-slate-500 font-bold ml-1.5 align-middle">
                     {t("translationLabel")}
                   </span>
@@ -1566,7 +1614,7 @@ function InboundBubble({
                 </button>
               </div>
             )}
-            {message.translatedText && !showTranslation && (
+            {effectiveTranslated && !showTranslation && (
               <button
                 type="button"
                 onClick={() => setShowTranslation(true)}
@@ -1575,6 +1623,31 @@ function InboundBubble({
                 <span className="material-symbols-outlined text-[14px]">visibility</span>
                 {t("showTranslation")}
               </button>
+            )}
+            {/* on-demand 번역 버튼 — 자동번역이 비어 있을 때만(번역모드 ON·수신 텍스트). 누르면 ko 번역 채움. */}
+            {canTranslateText && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation(); // 버블 탭(액션 토글)과 분리
+                  void handleTranslateText();
+                }}
+                disabled={translating}
+                className="border-t border-slate-700 mt-2 pt-2 text-[11px] text-teal-400 hover:text-teal-300 flex items-center gap-1 disabled:opacity-60"
+              >
+                <span
+                  className={`material-symbols-outlined text-[15px] ${translating ? "animate-spin" : ""}`}
+                >
+                  {translating ? "progress_activity" : "translate"}
+                </span>
+                {translating ? t("textTranslate.loading") : t("textTranslate.button")}
+              </button>
+            )}
+            {/* 한국어/번역 결과 없음·실패 안내 — 버튼 대신 비클릭 텍스트로(재시도 무의미 안내). */}
+            {transNote && (
+              <p className="border-t border-slate-700 mt-2 pt-2 text-[10px] text-slate-500">
+                {transNote}
+              </p>
             )}
           </div>
         )}

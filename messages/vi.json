@@ -2951,6 +2951,12 @@
       "empty": "Không nhận ra chữ",
       "failed": "Dịch thất bại"
     },
+    "textTranslate": {
+      "button": "Dịch",
+      "loading": "Đang dịch…",
+      "empty": "Không có nội dung để dịch",
+      "failed": "Dịch thất bại — thử lại"
+    },
     "mention": {
       "all": "@Tất cả",
       "allHint": "Thông báo cho mọi người",
