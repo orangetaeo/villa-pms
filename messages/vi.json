@@ -1047,6 +1047,15 @@
           "OTHER": "Khác"
         },
         "accessPlaceholderKey": "VD: nhận chìa khóa tại quầy lễ tân tầng 1"
+      },
+      "cleanerAssign": {
+        "title": "Nhân viên dọn phụ trách",
+        "desc": "Chỉ định nhân viên dọn phụ trách villa này. Nếu để trống, nhà cung cấp sẽ dọn. Khi thay đổi, các lịch dọn chưa hoàn tất sẽ được giao lại ngay.",
+        "unassigned": "Chưa chỉ định (nhà cung cấp dọn)",
+        "noCleaners": "Chưa có nhân viên dọn. Thêm ở phần Quản lý người dùng.",
+        "saving": "Đang lưu…",
+        "saved": "Đã lưu · giao lại {count} việc",
+        "errSave": "Lưu thất bại"
       }
     },
     "sales": {

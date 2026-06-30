@@ -56,6 +56,7 @@ model User {
   deletedAt    DateTime?
 
   villas        Villa[]        @relation("SupplierVillas")
+  assignedVillas Villa[]       @relation("VillaCleaner") // 청소 담당으로 지정된 빌라 (CLEANER)
   cleaningTasks CleaningTask[] @relation("AssignedCleaner")
   settlements   Settlement[]
   notifications Notification[]
@@ -121,6 +122,10 @@ model Villa {
   id                 String  @id @default(cuid())
   supplierId         String
   supplier           User    @relation("SupplierVillas", fields: [supplierId], references: [id])
+  // 빌라별 청소 담당자(회사 CLEANER 직원). 미지정이면 공급자(supplier)가 청소 담당 — 폴백.
+  // additive(T-villa-cleaner-assign). 지역이 넓어 한 명이 전 빌라를 못 하므로 빌라 단위 배정.
+  cleanerId          String?
+  cleaner            User?   @relation("VillaCleaner", fields: [cleanerId], references: [id])
   name               String // 예: 쏘나씨 V12 (운영자 기준 한국어명)
   nameVi             String? // 베트남어/라틴 병기명 (예: Sonasea V12) — Gemini 제안+ADMIN 확정, ADR-0020. 비운영자 화면에 병기
   complex            String? // 단지명: 쏘나씨, 썬셋 사나토
