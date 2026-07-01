@@ -134,7 +134,7 @@ export default function VendorSignupForm({ labels }: { labels: Labels }) {
         </div>
       </header>
 
-      <main className="flex-1 px-6 pt-8 pb-32 max-w-md mx-auto w-full">
+      <main className="flex-1 px-6 pt-8 pb-44 max-w-md mx-auto w-full">
         {/* 브랜드 헤더 */}
         <div className="mb-8">
           <span className="flex items-center gap-1.5 mb-2">
@@ -149,7 +149,11 @@ export default function VendorSignupForm({ labels }: { labels: Labels }) {
           <p className="text-neutral-500 mt-2 leading-relaxed">{labels.subtitle}</p>
         </div>
 
-        <form onSubmit={onSubmit} id="vendor-signup-form" className="space-y-5">
+        <form
+          onSubmit={onSubmit}
+          id="vendor-signup-form"
+          className="space-y-5 [&_input]:scroll-mb-44 [&_textarea]:scroll-mb-44"
+        >
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-600 text-sm font-medium px-4 py-3 rounded-xl">
               {labels.errorMessages[error] ?? error}
