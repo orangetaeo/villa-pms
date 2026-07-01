@@ -3,6 +3,7 @@ import { Metadata } from "next";
 import SignupForm from "./SignupForm";
 import SignupTypeChooser from "./SignupTypeChooser";
 import PartnerSignupForm from "./PartnerSignupForm";
+import CleanerSignupForm from "./CleanerSignupForm";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("auth.signup");
@@ -52,6 +53,35 @@ export default async function SignupPage({
     return <SignupForm labels={labels} />;
   }
 
+  // 청소원(CLEANER) — 자가가입 후 자동 로그인(승인 게이트 없음, 배정 전 빈 목록만 노출)
+  if (type === "cleaner") {
+    const t = await getTranslations("cleanerSignup");
+    const labels = {
+      headerTitle: t("headerTitle"),
+      title: t("title"),
+      subtitle: t("subtitle"),
+      name: t("name"),
+      namePlaceholder: t("namePlaceholder"),
+      phone: t("phone"),
+      phonePlaceholder: t("phonePlaceholder"),
+      password: t("password"),
+      passwordPlaceholder: t("passwordPlaceholder"),
+      zaloContact: t("zaloContact"),
+      zaloContactPlaceholder: t("zaloContactPlaceholder"),
+      submit: t("submit"),
+      submitting: t("submitting"),
+      hasAccount: t("hasAccount"),
+      loginLink: t("loginLink"),
+      back: t("back"),
+      errorMessages: {
+        phoneExists: t("errors.phoneExists"),
+        passwordTooShort: t("errors.passwordTooShort"),
+        serverError: t("errors.serverError"),
+      },
+    };
+    return <CleanerSignupForm labels={labels} />;
+  }
+
   // 파트너(여행사·랜드사, Role=PARTNER) — 자가가입 PENDING_APPROVAL (ADR-0028 PP2)
   if (type === "partner") {
     const t = await getTranslations("partnerSignup");
@@ -95,6 +125,8 @@ export default async function SignupPage({
     subtitle: t("subtitle"),
     supplierTitle: t("supplierTitle"),
     supplierDesc: t("supplierDesc"),
+    cleanerTitle: t("cleanerTitle"),
+    cleanerDesc: t("cleanerDesc"),
     vendorTitle: t("vendorTitle"),
     vendorDesc: t("vendorDesc"),
     partnerTitle: t("partnerTitle"),

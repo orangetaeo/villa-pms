@@ -71,6 +71,7 @@ model User {
   vendorAccount ServiceVendor? @relation("VendorAccount") // 원천 공급자 로그인 계정 (Role=VENDOR, ADR-0023)
   partnerAccount Partner?      @relation("PartnerAccount") // 파트너(여행사·랜드사) 로그인 계정 (Role=PARTNER, ADR-0028)
   passwordResetTokens PasswordResetToken[] // 비밀번호 자가재설정(Zalo 6자리 코드) — additive
+  authenticators Authenticator[] // WebAuthn/패스키(지문·얼굴) 로그인 자격증명 — additive
 
   // Zalo 멀티 관리자 (ADR-0007) — 역관계 1:N화
   zaloAccounts          ZaloAccount[]      @relation("AdminZaloAccounts") // 관리자가 소유한 봇 계정 (개인 + (테오만)시스템)
@@ -93,6 +94,25 @@ model PasswordResetToken {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+// WebAuthn/패스키 자격증명 (지문·얼굴·Windows Hello 로그인, ADR-0030).
+// 공개키만 저장(개인키는 사용자 기기 보안영역에만 존재 — 서버는 비밀번호처럼 훔칠 것이 없다).
+// counter=재생공격 방지 카운터. credentialId=base64url. publicKey=COSE 공개키(base64url 문자열로 보관).
+// additive — 라이브 Neon에는 raw SQL CREATE TABLE로 적용(prisma db push 금지, 드리프트 방지).
+model Authenticator {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId String    @unique // base64url — 자격증명 식별자
+  publicKey    String // base64url(COSE 공개키 바이트)
+  counter      BigInt    @default(0) // 서명 카운터(재생공격 방지)
+  transports   String? // csv: "internal,hybrid,usb" 등(선택)
+  deviceName   String? // 사용자 식별용 라벨(예: "iPhone", "내 노트북")
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+
+  @@index([userId])
 }
 
 // ===================== 빌라 =====================

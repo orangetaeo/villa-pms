@@ -5,10 +5,8 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
-import { LocaleSwitcher } from "@/components/locale-switcher";
 import VendorNotificationBell from "@/components/vendor/vendor-notification-bell";
-import { PortalAccountLink } from "@/components/account/portal-account-link";
-import { PortalBrand } from "@/components/brand/portal-brand";
+import { PortalHeader } from "@/components/portal/portal-header";
 import { getSupplierLocale } from "@/lib/locale";
 
 // VENDOR 클라이언트 컴포넌트가 useTranslations로 실제 사용하는 네임스페이스만 직렬화.
@@ -46,17 +44,14 @@ export default async function VendorLayout({
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
       <NextIntlClientProvider locale={locale} messages={messages}>
-        {/* 상단 우측 고정 클러스터 — 알림 벨 + 언어 전환.
-            LocaleSwitcher가 자체 `fixed right-3 top-3`이라 벨은 그 왼쪽(right-20)에 고정해 겹침 방지.
-            페이지들은 pt-16으로 이 영역 아래에서 시작(레이아웃 흐름 비침범). */}
-        {/* 계정 진입(좌상단) — /vendor/profile(비번변경·지급정보·로그아웃) */}
-        <PortalAccountLink href="/vendor/profile" />
-        {/* Villa Go 로고(상단 중앙) — 포털 브랜드 통일 */}
-        <PortalBrand href="/vendor" />
-        <div className="fixed right-20 top-3 z-[60]">
-          <VendorNotificationBell />
-        </div>
-        <LocaleSwitcher current={locale} persist />
+        {/* 공용 포털 헤더 — 4개 라이트 포털 동일 형태. 알림 벨은 언어 전환 왼쪽. */}
+        <PortalHeader
+          locale={locale}
+          brandHref="/vendor"
+          accountHref="/vendor/profile"
+          name={session.user.name ?? null}
+          right={<VendorNotificationBell />}
+        />
         <main>{children}</main>
       </NextIntlClientProvider>
     </div>

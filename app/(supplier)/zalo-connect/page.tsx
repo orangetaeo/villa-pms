@@ -40,16 +40,9 @@ export default async function ZaloConnectPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-white text-neutral-900">
-      {/* TopAppBar */}
-      <header className="w-full sticky top-0 bg-white border-b border-neutral-100 z-40">
-        <div className="flex items-center justify-between px-4 h-14 w-full">
-          <div className="w-10" />
-          <h1 className="font-semibold text-lg text-teal-600">{t("topTitle")}</h1>
-          <div className="w-10" />
-        </div>
-      </header>
-
-      <main className="flex-1 flex flex-col px-6 py-4 max-w-md mx-auto w-full">
+      {/* 화면 제목 — 공용 포털 헤더 아래 본문 헤딩(기존 sticky 앱바 강등, 이중 헤더 방지) */}
+      <main className="flex-1 flex flex-col px-6 py-6 max-w-md mx-auto w-full">
+        <h1 className="mb-6 text-center font-semibold text-lg text-teal-600">{t("topTitle")}</h1>
         {/* Step Indicator — Bước 2/2 */}
         <div className="mb-8">
           <div className="flex justify-between items-center mb-2">

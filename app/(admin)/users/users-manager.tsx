@@ -12,9 +12,15 @@ import ResponsiveTable, { type ResponsiveColumn } from "@/components/admin/respo
 import PaginationBar from "@/components/pagination-bar";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
-// 부여 가능 역할 — OWNER·ADMIN 제외(권한상승 표면 차단, 계약 A1/A2)
-const ASSIGNABLE_ROLES = ["MANAGER", "STAFF", "SUPPLIER", "CLEANER"] as const;
-type AssignableRole = (typeof ASSIGNABLE_ROLES)[number];
+// 계정 "생성" 시 선택 가능 — OWNER·ADMIN 제외(권한상승 표면 차단, 계약 A1/A2).
+//   VENDOR 포함(백엔드가 ServiceVendor 엔티티도 함께 생성).
+const CREATABLE_ROLES = ["MANAGER", "STAFF", "SUPPLIER", "CLEANER", "VENDOR"] as const;
+type CreatableRole = (typeof CREATABLE_ROLES)[number];
+
+// 역할 "변경"(전환) 가능 — 운영자 내부(매니저↔직원)만.
+//   외부 역할(빌라 공급자·청소·부가 공급자·파트너)은 고유 엔티티·자가가입 흐름이라 전환이 아니라 재가입이 맞다.
+const CHANGEABLE_ROLES = ["MANAGER", "STAFF"] as const;
+type ChangeableRole = (typeof CHANGEABLE_ROLES)[number];
 
 export interface UserRow {
   id: string;
@@ -77,7 +83,7 @@ const TABS: { key: TabKey; labelKey: string }[] = [
   { key: "all", labelKey: "tabs.all" },
   { key: "SUPPLIER", labelKey: "tabs.supplier" },
   { key: "CLEANER", labelKey: "tabs.cleaner" },
-  // 자가가입/전용 프로비저닝 역할 — 필터로만 노출(생성 폼 ASSIGNABLE_ROLES에는 미포함)
+  // 자가가입 역할 — 필터로만 노출(PARTNER는 생성 폼 미포함, VENDOR는 생성 시 엔티티 동반)
   { key: "VENDOR", labelKey: "tabs.vendor" },
   { key: "PARTNER", labelKey: "tabs.partner" },
 ];
@@ -109,7 +115,7 @@ export default function UsersManager({
     name: string;
     phone: string;
     password: string;
-    role: AssignableRole;
+    role: CreatableRole;
   }>({ name: "", phone: "", password: "", role: "SUPPLIER" });
   const [addBusy, setAddBusy] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
@@ -244,8 +250,8 @@ export default function UsersManager({
     }
   };
 
-  // 역할 변경 (B3) — PATCH CHANGE_ROLE → refresh
-  const onChangeRole = async (user: UserRow, role: AssignableRole) => {
+  // 역할 변경 (B3) — PATCH CHANGE_ROLE → refresh. 매니저↔직원만.
+  const onChangeRole = async (user: UserRow, role: ChangeableRole) => {
     if (role === user.role) {
       setRoleEditId(null);
       return;
@@ -506,41 +512,47 @@ export default function UsersManager({
       header: t("columns.role"),
       cell: (u) => {
         const isSelf = u.id === selfId;
+        // 역할 변경은 운영자 내부(매니저↔직원)만 — 외부 역할(공급자·청소·부가·파트너)은 재가입 대상이라 배지 비클릭.
+        const canChangeRole = !isSelf && (CHANGEABLE_ROLES as readonly string[]).includes(u.role);
         return (
           <div className="flex items-center gap-2 justify-end md:justify-start">
             {roleEditId === u.id ? (
-              // 역할 변경 select (B3) — 부여 가능 역할만
+              // 역할 변경 select (B3) — 매니저↔직원만
               <select
                 autoFocus
                 aria-label={t("roleChange.label")}
                 disabled={busyId === u.id}
-                defaultValue={ASSIGNABLE_ROLES.includes(u.role as AssignableRole) ? u.role : ""}
+                defaultValue={u.role}
                 onChange={(e) => {
-                  const v = e.target.value as AssignableRole;
+                  const v = e.target.value as ChangeableRole;
                   if (v) void onChangeRole(u, v);
                 }}
                 onBlur={() => setRoleEditId(null)}
                 className="h-8 bg-slate-800 border border-slate-700 rounded-lg px-2 text-xs text-slate-100"
               >
-                <option value="" disabled>
-                  {t("roleChange.placeholder")}
-                </option>
-                {ASSIGNABLE_ROLES.map((r) => (
+                {CHANGEABLE_ROLES.map((r) => (
                   <option key={r} value={r}>
                     {t(`roles.${r}`)}
                   </option>
                 ))}
               </select>
-            ) : (
+            ) : canChangeRole ? (
               <button
                 type="button"
-                disabled={isSelf}
-                title={isSelf ? t("roleChange.selfHint") : t("roleChange.edit")}
-                onClick={() => !isSelf && setRoleEditId(u.id)}
-                className={`px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap ${ROLE_BADGE_CLASS[u.role]} ${u.isActive ? "" : "opacity-70"} ${isSelf ? "cursor-default" : "hover:ring-1 hover:ring-admin-primary/50 cursor-pointer"}`}
+                title={t("roleChange.edit")}
+                onClick={() => setRoleEditId(u.id)}
+                className={`px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap ${ROLE_BADGE_CLASS[u.role]} ${u.isActive ? "" : "opacity-70"} hover:ring-1 hover:ring-admin-primary/50 cursor-pointer`}
               >
                 {t(`roles.${u.role}`)}
               </button>
+            ) : (
+              // 자기 자신 또는 외부 역할 — 정적 배지(변경 불가)
+              <span
+                title={isSelf ? t("roleChange.selfHint") : undefined}
+                className={`px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap cursor-default ${ROLE_BADGE_CLASS[u.role]} ${u.isActive ? "" : "opacity-70"}`}
+              >
+                {t(`roles.${u.role}`)}
+              </span>
             )}
             {!u.isActive && (
               <span className="px-1.5 py-0.5 rounded bg-slate-700 text-[#9CA3AF] text-[9px] font-bold whitespace-nowrap">
@@ -791,11 +803,11 @@ export default function UsersManager({
                 <select
                   value={addForm.role}
                   onChange={(e) =>
-                    setAddForm((f) => ({ ...f, role: e.target.value as AssignableRole }))
+                    setAddForm((f) => ({ ...f, role: e.target.value as CreatableRole }))
                   }
                   className="h-10 bg-slate-800 border border-slate-700 rounded-lg px-3 text-sm text-slate-100 focus:border-admin-primary focus:ring-1 focus:ring-admin-primary outline-none"
                 >
-                  {ASSIGNABLE_ROLES.map((r) => (
+                  {CREATABLE_ROLES.map((r) => (
                     <option key={r} value={r}>
                       {t(`roles.${r}`)}
                     </option>

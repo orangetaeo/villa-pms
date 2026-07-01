@@ -25,10 +25,13 @@ function setCookie(name: string, value: string) {
 export function LocaleSwitcher({
   current,
   persist = false,
+  inline = false,
 }: {
   current: AppLocale;
   /** 로그인 사용자: 계정 기본 locale을 DB에 영속(/api/locale). 비로그인 화면은 false. */
   persist?: boolean;
+  /** 공용 헤더(PortalHeader) 안에 배치 시 true — 우상단 고정 대신 흐름 내 인라인. */
+  inline?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -55,7 +58,11 @@ export function LocaleSwitcher({
 
   return (
     <div
-      className="fixed right-3 top-3 z-[60] flex items-center gap-0.5 rounded-full border border-neutral-200 bg-white/90 p-0.5 shadow-sm backdrop-blur"
+      className={
+        inline
+          ? "flex items-center gap-0.5 rounded-full border border-neutral-200 bg-white/90 p-0.5 shadow-sm"
+          : "fixed right-3 top-3 z-[60] flex items-center gap-0.5 rounded-full border border-neutral-200 bg-white/90 p-0.5 shadow-sm backdrop-blur"
+      }
       role="group"
       aria-label="Language / Ngôn ngữ / 언어"
     >

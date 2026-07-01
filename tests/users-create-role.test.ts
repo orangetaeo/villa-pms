@@ -12,18 +12,24 @@ vi.mock("bcryptjs", () => ({
   default: { hash: vi.fn(async (pw: string) => `hashed:${pw}`) },
 }));
 
-// prisma mock — POST(create/findUnique) + PATCH(트랜잭션 update) 양쪽 지원
+// prisma mock — POST(트랜잭션 user.create + (VENDOR)serviceVendor.create) + PATCH(트랜잭션 update) 지원
 const mockUserFindUnique = vi.fn();
 const mockUserCreate = vi.fn();
+const mockVendorCreate = vi.fn();
 const tx = {
   user: {
     findUnique: vi.fn(),
+    create: (...a: unknown[]) => mockUserCreate(...a),
     update: vi.fn(),
+  },
+  serviceVendor: {
+    create: (...a: unknown[]) => mockVendorCreate(...a),
   },
 };
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     user: {
+      // 중복 phone 사전검사는 트랜잭션 밖 최상위 findUnique 사용
       findUnique: (...a: unknown[]) => mockUserFindUnique(...a),
       create: (...a: unknown[]) => mockUserCreate(...a),
     },
@@ -75,6 +81,7 @@ beforeEach(() => {
     isActive: true,
     createdAt: new Date("2026-06-23T00:00:00Z"),
   });
+  mockVendorCreate.mockResolvedValue({ id: "vendor-new" });
 });
 
 describe("POST /api/users — 권한", () => {
@@ -109,6 +116,32 @@ describe("POST /api/users — 생성", () => {
       const res = await postReq({ ...VALID_CREATE, role });
       expect(res.status).toBe(201);
     }
+  });
+
+  it("VENDOR 생성 시 로그인 계정 + ServiceVendor 엔티티를 함께 만든다 (깨진 벤더 방지)", async () => {
+    mockUserCreate.mockResolvedValue({
+      id: "u-vendor",
+      role: "VENDOR",
+      name: "Nguyễn Văn An",
+      phone: "0901234567",
+      isActive: true,
+      createdAt: new Date(),
+    });
+    const res = await postReq({ ...VALID_CREATE, role: "VENDOR" });
+    expect(res.status).toBe(201);
+    // ServiceVendor 엔티티가 같은 트랜잭션에서 계정과 연결되어 생성됨
+    expect(mockVendorCreate).toHaveBeenCalledTimes(1);
+    const arg = mockVendorCreate.mock.calls[0][0] as {
+      data: { name: string; phone: string; userId: string; active: boolean };
+    };
+    expect(arg.data.userId).toBe("u-vendor");
+    expect(arg.data.name).toBe("Nguyễn Văn An");
+    expect(arg.data.active).toBe(true);
+  });
+
+  it("VENDOR 외 역할 생성 시엔 ServiceVendor를 만들지 않는다", async () => {
+    await postReq({ ...VALID_CREATE, role: "SUPPLIER" });
+    expect(mockVendorCreate).not.toHaveBeenCalled();
   });
 
   it("화이트리스트 외 역할(OWNER)은 400", async () => {
@@ -191,64 +224,68 @@ describe("PATCH /api/users/[id] — CHANGE_ROLE 가드", () => {
     expect(tx.user.update).not.toHaveBeenCalled();
   });
 
-  it("화이트리스트 외 역할(OWNER)로 변경 시 400(zod)", async () => {
+  it("변경 대상 화이트리스트 외 역할(OWNER)은 400(zod) — 매니저/직원만 허용", async () => {
     const res = await patchReq("u-2", { action: "CHANGE_ROLE", role: "OWNER" });
     expect(res.status).toBe(400);
   });
 
-  it("SUPPLIER가 빌라 보유 중 비SUPPLIER로 변경 시 409 HAS_VILLAS", async () => {
-    tx.user.findUnique.mockResolvedValue({
-      id: "sup-1",
-      role: "SUPPLIER",
-      isActive: true,
-      zaloUserId: null,
-      _count: { villas: 3 },
-    });
-    const res = await patchReq("sup-1", { action: "CHANGE_ROLE", role: "STAFF" });
-    expect(res.status).toBe(409);
-    expect(await res.json()).toEqual({ error: "HAS_VILLAS" });
+  it("변경 대상 외부 역할(SUPPLIER)로도 400(zod) — 전환 불가", async () => {
+    const res = await patchReq("u-2", { action: "CHANGE_ROLE", role: "SUPPLIER" });
+    expect(res.status).toBe(400);
     expect(tx.user.update).not.toHaveBeenCalled();
   });
 
-  it("SUPPLIER(빌라 0개) → STAFF 변경 정상 + 감사로그 UPDATE(old→new)", async () => {
+  it("외부 역할(SUPPLIER) 계정은 매니저/직원으로도 변경 불가 400 ROLE_NOT_CHANGEABLE (재가입 대상)", async () => {
     tx.user.findUnique.mockResolvedValue({
       id: "sup-1",
       role: "SUPPLIER",
       isActive: true,
       zaloUserId: null,
-      _count: { villas: 0 },
+    });
+    const res = await patchReq("sup-1", { action: "CHANGE_ROLE", role: "STAFF" });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "ROLE_NOT_CHANGEABLE" });
+    expect(tx.user.update).not.toHaveBeenCalled();
+  });
+
+  it("직원(STAFF) → 매니저(MANAGER) 승격 정상 + 감사로그 UPDATE(old→new)", async () => {
+    tx.user.findUnique.mockResolvedValue({
+      id: "staff-1",
+      role: "STAFF",
+      isActive: true,
+      zaloUserId: null,
     });
     tx.user.update.mockResolvedValue({
-      id: "sup-1",
+      id: "staff-1",
+      isActive: true,
+      zaloUserId: null,
+      role: "MANAGER",
+    });
+    const res = await patchReq("staff-1", { action: "CHANGE_ROLE", role: "MANAGER" });
+    expect(res.status).toBe(200);
+    expect((await res.json()).role).toBe("MANAGER");
+    const audit = (writeAuditLog as unknown as { mock: { calls: unknown[][] } }).mock
+      .calls[0][0] as { action: string; changes: { role: { old: string; new: string } } };
+    expect(audit.action).toBe("UPDATE");
+    expect(audit.changes.role).toEqual({ old: "STAFF", new: "MANAGER" });
+  });
+
+  it("매니저(MANAGER) → 직원(STAFF) 강등 정상", async () => {
+    tx.user.findUnique.mockResolvedValue({
+      id: "mgr-1",
+      role: "MANAGER",
+      isActive: true,
+      zaloUserId: null,
+    });
+    tx.user.update.mockResolvedValue({
+      id: "mgr-1",
       isActive: true,
       zaloUserId: null,
       role: "STAFF",
     });
-    const res = await patchReq("sup-1", { action: "CHANGE_ROLE", role: "STAFF" });
+    const res = await patchReq("mgr-1", { action: "CHANGE_ROLE", role: "STAFF" });
     expect(res.status).toBe(200);
     expect((await res.json()).role).toBe("STAFF");
-    const audit = (writeAuditLog as unknown as { mock: { calls: unknown[][] } }).mock
-      .calls[0][0] as { action: string; changes: { role: { old: string; new: string } } };
-    expect(audit.action).toBe("UPDATE");
-    expect(audit.changes.role).toEqual({ old: "SUPPLIER", new: "STAFF" });
-  });
-
-  it("SUPPLIER가 빌라 보유 중이라도 SUPPLIER 유지(동일 역할)는 허용", async () => {
-    tx.user.findUnique.mockResolvedValue({
-      id: "sup-1",
-      role: "SUPPLIER",
-      isActive: true,
-      zaloUserId: null,
-      _count: { villas: 5 },
-    });
-    tx.user.update.mockResolvedValue({
-      id: "sup-1",
-      isActive: true,
-      zaloUserId: null,
-      role: "SUPPLIER",
-    });
-    const res = await patchReq("sup-1", { action: "CHANGE_ROLE", role: "SUPPLIER" });
-    expect(res.status).toBe(200);
   });
 
   it("비OWNER는 403", async () => {

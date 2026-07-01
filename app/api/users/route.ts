@@ -16,21 +16,24 @@ import { BCRYPT_ROUNDS, PASSWORD_MIN, isStrongPassword, PASSWORD_POLICY_MESSAGE 
 const ROLES = ["OWNER", "MANAGER", "STAFF", "ADMIN", "SUPPLIER", "CLEANER"] as const;
 
 // 부여 가능 역할 — OWNER·ADMIN 제외(권한상승 표면 차단·단일 OWNER 유지, 계약 A1)
-const ASSIGNABLE_ROLES = ["MANAGER", "STAFF", "SUPPLIER", "CLEANER"] as const;
+// 계정 생성(POST)에서만 VENDOR 허용 — role=VENDOR면 발주처(ServiceVendor) 엔티티도 함께 생성.
+// ★ 역할 변경(PATCH CHANGE_ROLE, [id]/route.ts)에는 VENDOR 미포함 — 엔티티 없는 전환은 깨진 벤더가 됨.
+const CREATABLE_ROLES = ["MANAGER", "STAFF", "SUPPLIER", "CLEANER", "VENDOR"] as const;
 
-// 역할별 기본 locale — SUPPLIER/CLEANER=vi(공급자), MANAGER/STAFF=ko(운영자)
-const DEFAULT_LOCALE: Record<(typeof ASSIGNABLE_ROLES)[number], "ko" | "vi"> = {
+// 역할별 기본 locale — SUPPLIER/CLEANER/VENDOR=vi(현지 거래처), MANAGER/STAFF=ko(운영자)
+const DEFAULT_LOCALE: Record<(typeof CREATABLE_ROLES)[number], "ko" | "vi"> = {
   MANAGER: "ko",
   STAFF: "ko",
   SUPPLIER: "vi",
   CLEANER: "vi",
+  VENDOR: "vi",
 };
 
 const createSchema = z.object({
   name: z.string().min(1),
   phone: z.string(),
   password: z.string().min(PASSWORD_MIN).refine(isStrongPassword, PASSWORD_POLICY_MESSAGE),
-  role: z.enum(ASSIGNABLE_ROLES),
+  role: z.enum(CREATABLE_ROLES),
   locale: z.enum(["ko", "vi"]).optional(),
 });
 
@@ -131,39 +134,71 @@ export async function POST(req: Request) {
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
   const locale = parsed.data.locale ?? DEFAULT_LOCALE[role];
 
-  const created = await prisma.user.create({
-    data: {
-      name,
-      phone,
-      passwordHash,
-      role,
-      locale,
-      isActive: true,
-      // OWNER가 정한 초기 비번 → 사용자가 첫 로그인 후 직접 변경하도록 강제
-      mustChangePassword: true,
-    },
-    // 응답 select 화이트리스트 — passwordHash 절대 제외 (계약 A1)
-    select: {
-      id: true,
-      role: true,
-      name: true,
-      phone: true,
-      isActive: true,
-      createdAt: true,
-    },
-  });
+  // role=VENDOR면 로그인 계정 + 발주처(ServiceVendor) 엔티티를 한 트랜잭션으로 생성.
+  //   엔티티가 없으면 /vendor 대시보드가 깨지므로 반드시 함께 만든다(운영자 생성 = approvalStatus 기본 APPROVED → 즉시 사용).
+  //   zaloUserId(자동 발주 발송 대상)는 여기서 미설정 — 운영자가 부가서비스 공급자 관리에서 보완.
+  const created = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        name,
+        phone,
+        passwordHash,
+        role,
+        locale,
+        isActive: true,
+        // OWNER가 정한 초기 비번 → 사용자가 첫 로그인 후 직접 변경하도록 강제
+        mustChangePassword: true,
+      },
+      // 응답 select 화이트리스트 — passwordHash 절대 제외 (계약 A1)
+      select: {
+        id: true,
+        role: true,
+        name: true,
+        phone: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
 
-  // 감사 로그 CREATE — changes에 role·name·phone (비밀번호 제외, 글로벌 절대 규칙)
-  await writeAuditLog({
-    userId: session.user.id,
-    action: "CREATE",
-    entity: "User",
-    entityId: created.id,
-    changes: {
-      role: { new: created.role },
-      name: { new: created.name },
-      phone: { new: created.phone },
-    },
+    // 감사 로그 CREATE — changes에 role·name·phone (비밀번호 제외, 글로벌 절대 규칙)
+    await writeAuditLog({
+      db: tx,
+      userId: session.user.id,
+      action: "CREATE",
+      entity: "User",
+      entityId: user.id,
+      changes: {
+        role: { new: user.role },
+        name: { new: user.name },
+        phone: { new: user.phone },
+      },
+    });
+
+    if (role === "VENDOR") {
+      const vendor = await tx.serviceVendor.create({
+        data: {
+          name,
+          phone,
+          userId: user.id,
+          active: true,
+          // 운영자가 직접 생성 → 승인대기 없이 approvalStatus 기본값(APPROVED) 사용
+        },
+        select: { id: true },
+      });
+      await writeAuditLog({
+        db: tx,
+        userId: session.user.id,
+        action: "CREATE",
+        entity: "ServiceVendor",
+        entityId: vendor.id,
+        changes: {
+          name: { new: name },
+          createdVia: { new: "users-page" },
+        },
+      });
+    }
+
+    return user;
   });
 
   return NextResponse.json(created, { status: 201 });

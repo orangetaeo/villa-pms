@@ -188,6 +188,16 @@
     "subtitle": "Quản lý mật khẩu tài khoản.",
     "changeTitle": "Đổi mật khẩu",
     "changeSubtitle": "Nếu bạn nhận được mật khẩu tạm thời, hãy đổi sang mật khẩu của riêng bạn.",
+    "passkey": {
+      "title": "Đăng nhập vân tay·khuôn mặt (Passkey)",
+      "subtitle": "Dùng vân tay·khuôn mặt của thiết bị này để đăng nhập nhanh lần sau. An toàn hơn mật khẩu.",
+      "register": "Đăng ký passkey trên thiết bị này",
+      "registering": "Đang đăng ký...",
+      "registerError": "Đăng ký passkey thất bại. Vui lòng thử lại.",
+      "remove": "Xóa",
+      "deleteError": "Xóa thất bại.",
+      "unnamedDevice": "Thiết bị đã đăng ký"
+    },
     "currentPassword": "Mật khẩu hiện tại",
     "newPassword": "Mật khẩu mới",
     "confirmPassword": "Xác nhận mật khẩu mới",
@@ -1151,6 +1161,7 @@
       "noAccount": "Chưa có tài khoản?",
       "signupLink": "Đăng ký",
       "rememberMe": "Lưu số điện thoại & mật khẩu",
+      "passkeyButton": "Đăng nhập bằng vân tay·khuôn mặt",
       "errors": {
         "invalidCredentials": "Số điện thoại hoặc mật khẩu không đúng.",
         "accountDisabled": "Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.",
@@ -2524,14 +2535,14 @@
     "searchPlaceholder": "Tìm theo tên, số điện thoại",
     "tabs": {
       "all": "Tất cả",
-      "supplier": "Nhà cung cấp",
+      "supplier": "Nhà cung cấp villa",
       "cleaner": "Dọn dẹp",
       "partner": "Đối tác",
       "vendor": "Nhà cung cấp dịch vụ"
     },
     "roles": {
       "ADMIN": "Quản trị viên",
-      "SUPPLIER": "Nhà cung cấp",
+      "SUPPLIER": "Nhà cung cấp villa",
       "CLEANER": "Dọn dẹp",
       "OWNER": "Chủ sở hữu",
       "MANAGER": "Quản lý",
@@ -3825,6 +3836,8 @@
     "subtitle": "Vui lòng chọn loại tài khoản đăng ký.",
     "supplierTitle": "Nhà cung cấp villa",
     "supplierDesc": "Đăng villa của bạn và quản lý lịch, giá vốn.",
+    "cleanerTitle": "Nhân viên vệ sinh",
+    "cleanerDesc": "Quản lý công việc dọn dẹp và hình ảnh của villa được phân công.",
     "vendorTitle": "Nhà cung cấp dịch vụ",
     "vendorDesc": "Nhận đơn đặt dịch vụ như massage, trái cây, cơm hộp.",
     "partnerTitle": "Đối tác (Công ty du lịch / Land)",
@@ -3832,6 +3845,29 @@
     "hasAccount": "Đã có tài khoản?",
     "loginLink": "Đăng nhập",
     "back": "Quay lại"
+  },
+  "cleanerSignup": {
+    "headerTitle": "Đăng ký nhân viên vệ sinh",
+    "title": "Đăng ký nhân viên vệ sinh",
+    "subtitle": "Hãy nhận dọn dẹp các villa được phân công.",
+    "name": "Họ và tên",
+    "namePlaceholder": "Nhập họ và tên",
+    "phone": "Số điện thoại",
+    "phonePlaceholder": "0xxx xxx xxx",
+    "password": "Mật khẩu",
+    "passwordPlaceholder": "••••••••",
+    "zaloContact": "Zalo ID (tùy chọn)",
+    "zaloContactPlaceholder": "Số điện thoại hoặc ID Zalo",
+    "submit": "Đăng ký",
+    "submitting": "Đang xử lý...",
+    "hasAccount": "Đã có tài khoản?",
+    "loginLink": "Đăng nhập",
+    "back": "Quay lại",
+    "errors": {
+      "phoneExists": "Số điện thoại này đã được đăng ký.",
+      "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự.",
+      "serverError": "Đã xảy ra lỗi. Vui lòng thử lại sau."
+    }
   },
   "partnerSignup": {
     "headerTitle": "Đăng ký đối tác",

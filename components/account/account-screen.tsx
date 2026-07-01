@@ -9,6 +9,7 @@ import { signOut } from "@/auth";
 import { getTranslations } from "next-intl/server";
 import type { AppLocale } from "@/lib/locale";
 import ChangePasswordForm from "@/components/account/change-password-form";
+import PasskeySection from "@/components/account/passkey-section";
 
 export default async function AccountScreen({
   locale,
@@ -55,6 +56,9 @@ export default async function AccountScreen({
         <p className="mb-5 text-sm text-neutral-500">{t("changeSubtitle")}</p>
         <ChangePasswordForm variant="supplier" />
       </div>
+
+      {/* 패스키(지문·얼굴) 등록·관리 — 미지원 브라우저에서는 스스로 숨김 */}
+      <PasskeySection />
 
       {extra}
 

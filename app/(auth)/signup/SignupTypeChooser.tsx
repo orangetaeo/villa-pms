@@ -13,6 +13,8 @@ interface ChooserLabels {
   subtitle: string;
   supplierTitle: string;
   supplierDesc: string;
+  cleanerTitle: string;
+  cleanerDesc: string;
   vendorTitle: string;
   vendorDesc: string;
   partnerTitle: string;
@@ -38,6 +40,12 @@ export default function SignupTypeChooser({ labels }: { labels: ChooserLabels })
       icon: "villa",
       title: labels.supplierTitle,
       desc: labels.supplierDesc,
+    },
+    {
+      href: "/signup?type=cleaner",
+      icon: "cleaning_services",
+      title: labels.cleanerTitle,
+      desc: labels.cleanerDesc,
     },
     {
       href: "/vendor-signup",

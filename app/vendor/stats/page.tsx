@@ -77,7 +77,7 @@ export default async function VendorStatsPage({
   const hasData = stats.orderCount > 0 || stats.acceptanceRatePct !== null;
 
   return (
-    <main className="mx-auto max-w-md space-y-6 px-4 pb-28 pt-16">
+    <main className="mx-auto max-w-md space-y-6 px-4 pb-28 pt-6">
       <header className="flex items-center justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <h1 className="text-2xl font-bold text-neutral-900">{t("stats.title")}</h1>
