@@ -57,7 +57,7 @@ export default function SignupForm({ labels }: { labels: Labels }) {
         </div>
       </header>
 
-      <main className="flex-1 px-6 pt-8 pb-32 max-w-md mx-auto w-full">
+      <main className="flex-1 px-6 pt-8 pb-44 max-w-md mx-auto w-full">
         {/* 브랜드 헤더 */}
         <div className="mb-10">
           <span className="flex items-center gap-1.5 mb-2">
@@ -74,7 +74,11 @@ export default function SignupForm({ labels }: { labels: Labels }) {
           <p className="text-neutral-500 mt-2">{labels.subtitle}</p>
         </div>
 
-        <form action={formAction} id="signup-form" className="space-y-6">
+        <form
+          action={formAction}
+          id="signup-form"
+          className="space-y-6 [&_input]:scroll-mb-44 [&_textarea]:scroll-mb-44"
+        >
           {state?.error && (
             <div className="bg-red-50 border border-red-200 text-red-600 text-sm font-medium px-4 py-3 rounded-xl">
               {labels.errorMessages[state.error] ?? state.error}
@@ -234,15 +238,6 @@ export default function SignupForm({ labels }: { labels: Labels }) {
             </div>
           </fieldset>
         </form>
-
-        {/* 장식 요소 */}
-        <div className="mt-12 opacity-20 pointer-events-none">
-          <div className="w-full h-24 rounded-2xl bg-gradient-to-r from-teal-50 to-teal-100 flex items-center justify-center border border-teal-200 border-dashed">
-            <span className="material-symbols-outlined text-teal-600 text-4xl">
-              villa
-            </span>
-          </div>
-        </div>
       </main>
 
       {/* 하단 고정 액션 */}
