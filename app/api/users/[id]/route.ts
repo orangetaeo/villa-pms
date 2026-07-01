@@ -10,8 +10,10 @@ import { isSystemAdmin } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
 import { BCRYPT_ROUNDS, isStrongPassword } from "@/lib/password-policy";
 
-// 부여 가능 역할 — OWNER·ADMIN 제외(권한상승 표면 차단, 계약 A2)
-const ASSIGNABLE_ROLES = ["MANAGER", "STAFF", "SUPPLIER", "CLEANER"] as const;
+// 역할 "변경"은 운영자 내부(매니저↔직원)만 허용.
+//   외부 역할(빌라 공급자·청소·부가 공급자·파트너)은 고유 엔티티·자가가입 흐름이 있어 전환이 아니라 재가입이 맞다.
+//   OWNER·ADMIN은 권한상승/락아웃 방지로 애초에 제외(단일 OWNER 유지).
+const CHANGEABLE_ROLES = ["MANAGER", "STAFF"] as const;
 
 // 임시 비밀번호 생성 — 혼동 문자(0/O, 1/l/I) 제외, 기본 10자.
 // OWNER가 사용자에게 Zalo 등으로 전달 → 사용자가 직접 변경 가정.
@@ -34,7 +36,7 @@ const patchSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("ACTIVATE") }),
   z.object({ action: z.literal("LINK_ZALO"), zaloUserId: z.string().min(1) }),
   z.object({ action: z.literal("UNLINK_ZALO") }),
-  z.object({ action: z.literal("CHANGE_ROLE"), role: z.enum(ASSIGNABLE_ROLES) }),
+  z.object({ action: z.literal("CHANGE_ROLE"), role: z.enum(CHANGEABLE_ROLES) }),
   z.object({ action: z.literal("RESET_PASSWORD") }),
 ]);
 
@@ -96,20 +98,15 @@ export async function PATCH(
         role: true,
         isActive: true,
         zaloUserId: true,
-        _count: { select: { villas: true } },
       },
     });
     if (!user) return { kind: "NOT_FOUND" as const };
 
     if (input.action === "CHANGE_ROLE") {
-      // 빌라 고아 방지 — SUPPLIER가 빌라 보유 중인데 비SUPPLIER로 변경 시 차단
-      // (villa.supplierId 스코프 깨짐 방지, 계약 A2)
-      if (
-        user.role === "SUPPLIER" &&
-        input.role !== "SUPPLIER" &&
-        user._count.villas > 0
-      ) {
-        return { kind: "HAS_VILLAS" as const };
+      // 운영자 내부(매니저↔직원)만 전환 허용 — 외부 역할(공급자·청소·부가·파트너)은 재가입 대상.
+      // 대상(target) role은 zod가 CHANGEABLE_ROLES로 이미 제한. 여기서는 현재(source) role도 내부여야 함.
+      if (!(CHANGEABLE_ROLES as readonly string[]).includes(user.role)) {
+        return { kind: "ROLE_NOT_CHANGEABLE" as const };
       }
       const updated = await tx.user.update({
         where: { id },
@@ -241,8 +238,9 @@ export async function PATCH(
   if (result.kind === "ZALO_CONFLICT") {
     return NextResponse.json({ error: "ZALO_ALREADY_LINKED" }, { status: 409 });
   }
-  if (result.kind === "HAS_VILLAS") {
-    return NextResponse.json({ error: "HAS_VILLAS" }, { status: 409 });
+  if (result.kind === "ROLE_NOT_CHANGEABLE") {
+    // 외부 역할(공급자·청소·부가·파트너) 계정은 역할 변경 불가 — 재가입 대상
+    return NextResponse.json({ error: "ROLE_NOT_CHANGEABLE" }, { status: 400 });
   }
 
   return NextResponse.json({
