@@ -1160,6 +1160,7 @@
       "forgotPassword": "Quên mật khẩu?",
       "noAccount": "Chưa có tài khoản?",
       "signupLink": "Đăng ký",
+      "rememberMe": "Lưu số điện thoại & mật khẩu",
       "passkeyButton": "Đăng nhập bằng vân tay·khuôn mặt",
       "errors": {
         "invalidCredentials": "Số điện thoại hoặc mật khẩu không đúng.",
