@@ -12,9 +12,14 @@ import ResponsiveTable, { type ResponsiveColumn } from "@/components/admin/respo
 import PaginationBar from "@/components/pagination-bar";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
-// 부여 가능 역할 — OWNER·ADMIN 제외(권한상승 표면 차단, 계약 A1/A2)
+// 역할 변경(전환)에 부여 가능 — OWNER·ADMIN 제외(권한상승 표면 차단, 계약 A1/A2).
+// VENDOR 미포함 — 발주처 엔티티 없는 전환은 깨진 벤더가 됨(전환은 이 목록만).
 const ASSIGNABLE_ROLES = ["MANAGER", "STAFF", "SUPPLIER", "CLEANER"] as const;
 type AssignableRole = (typeof ASSIGNABLE_ROLES)[number];
+
+// 계정 "생성" 시 선택 가능 — VENDOR 포함(백엔드가 ServiceVendor 엔티티도 함께 생성).
+const CREATABLE_ROLES = ["MANAGER", "STAFF", "SUPPLIER", "CLEANER", "VENDOR"] as const;
+type CreatableRole = (typeof CREATABLE_ROLES)[number];
 
 export interface UserRow {
   id: string;
@@ -109,7 +114,7 @@ export default function UsersManager({
     name: string;
     phone: string;
     password: string;
-    role: AssignableRole;
+    role: CreatableRole;
   }>({ name: "", phone: "", password: "", role: "SUPPLIER" });
   const [addBusy, setAddBusy] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
@@ -791,11 +796,11 @@ export default function UsersManager({
                 <select
                   value={addForm.role}
                   onChange={(e) =>
-                    setAddForm((f) => ({ ...f, role: e.target.value as AssignableRole }))
+                    setAddForm((f) => ({ ...f, role: e.target.value as CreatableRole }))
                   }
                   className="h-10 bg-slate-800 border border-slate-700 rounded-lg px-3 text-sm text-slate-100 focus:border-admin-primary focus:ring-1 focus:ring-admin-primary outline-none"
                 >
-                  {ASSIGNABLE_ROLES.map((r) => (
+                  {CREATABLE_ROLES.map((r) => (
                     <option key={r} value={r}>
                       {t(`roles.${r}`)}
                     </option>

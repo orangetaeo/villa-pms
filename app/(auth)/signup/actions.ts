@@ -38,6 +38,13 @@ export async function signupAction(
     return { error: "serverError" };
   }
 
+  // 가입 유형 — 빌라 공급자(기본) | 청소원. 화이트리스트로 role 상승 표면 차단.
+  const kind = formData.get("kind") === "cleaner" ? "cleaner" : "supplier";
+  const role = kind === "cleaner" ? "CLEANER" : "SUPPLIER";
+  // 청소원은 Zalo로 청소 요청 알림을 받는 게 핵심 → 가입 직후 Zalo 연결 온보딩으로.
+  // (연결 화면에 "건너뛰기 → /cleaning"이 있어 강제되지 않음). 공급자는 기존대로 /my-villas.
+  const redirectTo = kind === "cleaner" ? "/zalo-connect" : "/my-villas";
+
   const parsed = signupSchema.safeParse({
     name: formData.get("name"),
     phone: formData.get("phone"),
@@ -76,7 +83,7 @@ export async function signupAction(
       name,
       phone,
       passwordHash,
-      role: "SUPPLIER",
+      role,
       locale: "vi",
       ...(zaloContactTrimmed ? { zaloContact: zaloContactTrimmed } : {}),
       ...(bankInfo !== undefined ? { bankInfo } : {}),
@@ -91,7 +98,7 @@ export async function signupAction(
   });
 
   try {
-    await signIn("credentials", { phone, password, redirectTo: "/my-villas" });
+    await signIn("credentials", { phone, password, redirectTo });
   } catch (error) {
     if (error instanceof AuthError) return { error: "serverError" };
     throw error; // NEXT_REDIRECT re-throw

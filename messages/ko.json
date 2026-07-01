@@ -2414,20 +2414,20 @@
     "searchPlaceholder": "이름, 번호 검색",
     "tabs": {
       "all": "전체",
-      "supplier": "공급자",
+      "supplier": "빌라 공급자",
       "cleaner": "청소",
       "partner": "파트너",
-      "vendor": "원천 공급자"
+      "vendor": "부가 공급자"
     },
     "roles": {
       "ADMIN": "관리자",
-      "SUPPLIER": "공급자",
+      "SUPPLIER": "빌라 공급자",
       "CLEANER": "청소",
       "OWNER": "오너",
       "MANAGER": "매니저",
       "STAFF": "직원",
       "PARTNER": "파트너",
-      "VENDOR": "원천 공급자"
+      "VENDOR": "부가 공급자"
     },
     "inactiveBadge": "비활성",
     "columns": {
@@ -3824,6 +3824,8 @@
     "subtitle": "가입 유형을 선택해 주세요.",
     "supplierTitle": "빌라 공급자",
     "supplierDesc": "내 빌라를 등록하고 캘린더·원가를 관리합니다.",
+    "cleanerTitle": "청소원",
+    "cleanerDesc": "배정된 빌라의 청소 태스크와 사진을 관리합니다.",
     "vendorTitle": "부가서비스 공급자",
     "vendorDesc": "마사지, 과일, 도시락 등 부가서비스 발주를 받습니다.",
     "partnerTitle": "파트너 (여행사·랜드사)",
@@ -3831,6 +3833,29 @@
     "hasAccount": "이미 계정이 있으신가요?",
     "loginLink": "로그인",
     "back": "뒤로"
+  },
+  "cleanerSignup": {
+    "headerTitle": "청소원 가입",
+    "title": "청소원 가입",
+    "subtitle": "배정된 빌라의 청소를 맡아주세요.",
+    "name": "이름",
+    "namePlaceholder": "이름 입력",
+    "phone": "전화번호",
+    "phonePlaceholder": "0xxx xxx xxx",
+    "password": "비밀번호",
+    "passwordPlaceholder": "••••••••",
+    "zaloContact": "Zalo ID (선택)",
+    "zaloContactPlaceholder": "Zalo 전화번호 또는 ID",
+    "submit": "회원가입",
+    "submitting": "처리 중...",
+    "hasAccount": "이미 계정이 있으신가요?",
+    "loginLink": "로그인",
+    "back": "뒤로",
+    "errors": {
+      "phoneExists": "이미 등록된 전화번호입니다.",
+      "passwordTooShort": "비밀번호는 최소 8자 이상이어야 합니다.",
+      "serverError": "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+    }
   },
   "partnerSignup": {
     "headerTitle": "파트너 가입",
