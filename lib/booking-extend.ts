@@ -7,7 +7,6 @@ import {
 import {
   checkAvailability,
   lockVillaInventory,
-  OCCUPYING_BOOKING_STATUSES,
   type StayRange,
 } from "./availability";
 import { assertSaleAmountColumns, quoteStayForVilla } from "./pricing";
@@ -194,32 +193,5 @@ export async function createLinkedExtensionBooking(
     }
 
     return { booking: child };
-  });
-}
-
-/** 부모 예약의 연결 자식(연장) 예약 조회 — 상세 화면·정산 합산용 (마진 게이트는 호출부) */
-export async function listExtensionBookings(
-  prisma: PrismaClient,
-  parentBookingId: string
-) {
-  return prisma.booking.findMany({
-    where: {
-      parentBookingId,
-      status: { in: [...OCCUPYING_BOOKING_STATUSES, BookingStatus.CHECKED_OUT] },
-    },
-    orderBy: { checkIn: "asc" },
-    select: {
-      id: true,
-      villaId: true,
-      villa: { select: { name: true } },
-      status: true,
-      checkIn: true,
-      checkOut: true,
-      nights: true,
-      guestCount: true,
-      saleCurrency: true,
-      totalSaleKrw: true,
-      totalSaleVnd: true,
-    },
   });
 }
