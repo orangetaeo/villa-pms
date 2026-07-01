@@ -1,8 +1,8 @@
 "use client";
 
 // 계정설정 — 패스키(지문·얼굴·Windows Hello) 등록·관리 카드 (ADR-0030).
-//   4개 라이트 포털 계정화면(AccountScreen) 공통 슬롯. account.passkey.* 네임스페이스.
-//   미지원 브라우저에서는 렌더하지 않는다(조건부). 로그인 버튼은 별도(로그인 화면, Phase B).
+//   라이트 포털 계정화면(AccountScreen)과 운영자 다크 /account 공통. account.passkey.* 네임스페이스.
+//   variant로 라이트/다크 테마 전환. 미지원 브라우저에서는 렌더하지 않는다(조건부).
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
@@ -29,8 +29,36 @@ function guessDeviceName(): string {
   return "";
 }
 
-export default function PasskeySection() {
+const THEME = {
+  light: {
+    section: "mt-6 rounded-2xl border border-neutral-100 bg-white p-6 shadow-sm",
+    title: "text-neutral-900",
+    subtitle: "text-neutral-500",
+    item: "border-neutral-100 bg-neutral-50",
+    itemIcon: "text-neutral-400",
+    itemText: "text-neutral-700",
+    error: "bg-rose-50 text-rose-600",
+    registerBtn: "border-2 border-teal-600 text-teal-700",
+  },
+  admin: {
+    section: "mt-6 rounded-xl border border-slate-800 bg-admin-card p-6",
+    title: "text-white",
+    subtitle: "text-slate-400",
+    item: "border-slate-800 bg-slate-800/40",
+    itemIcon: "text-slate-500",
+    itemText: "text-slate-200",
+    error: "bg-rose-500/10 text-rose-400",
+    registerBtn: "border-2 border-teal-500 text-teal-300",
+  },
+} as const;
+
+export default function PasskeySection({
+  variant = "light",
+}: {
+  variant?: "light" | "admin";
+}) {
   const t = useTranslations("account");
+  const s = THEME[variant];
   const [supported, setSupported] = useState(false);
   const [items, setItems] = useState<PasskeyItem[]>([]);
   const [busy, setBusy] = useState(false);
@@ -97,22 +125,22 @@ export default function PasskeySection() {
   if (!supported) return null;
 
   return (
-    <section className="mt-6 rounded-2xl border border-neutral-100 bg-white p-6 shadow-sm">
-      <h2 className="mb-1 flex items-center gap-2 text-lg font-bold text-neutral-900">
-        <span className="material-symbols-outlined text-teal-600">fingerprint</span>
+    <section className={s.section}>
+      <h2 className={`mb-1 flex items-center gap-2 text-lg font-bold ${s.title}`}>
+        <span className="material-symbols-outlined text-teal-500">fingerprint</span>
         {t("passkey.title")}
       </h2>
-      <p className="mb-4 text-sm text-neutral-500">{t("passkey.subtitle")}</p>
+      <p className={`mb-4 text-sm ${s.subtitle}`}>{t("passkey.subtitle")}</p>
 
       {items.length > 0 && (
         <ul className="mb-4 space-y-2">
           {items.map((it) => (
             <li
               key={it.id}
-              className="flex items-center justify-between gap-3 rounded-xl border border-neutral-100 bg-neutral-50 px-3.5 py-2.5"
+              className={`flex items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 ${s.item}`}
             >
-              <span className="flex min-w-0 items-center gap-2 text-sm text-neutral-700">
-                <span className="material-symbols-outlined text-[20px] text-neutral-400">
+              <span className={`flex min-w-0 items-center gap-2 text-sm ${s.itemText}`}>
+                <span className={`material-symbols-outlined text-[20px] ${s.itemIcon}`}>
                   passkey
                 </span>
                 <span className="truncate font-medium">
@@ -122,7 +150,7 @@ export default function PasskeySection() {
               <button
                 type="button"
                 onClick={() => remove(it.id)}
-                className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 active:scale-95"
+                className="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-rose-500 transition-colors hover:text-rose-400 active:scale-95"
               >
                 {t("passkey.remove")}
               </button>
@@ -132,7 +160,7 @@ export default function PasskeySection() {
       )}
 
       {error && (
-        <p className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-rose-600">
+        <p className={`mb-3 rounded-lg px-3 py-2 text-sm font-medium ${s.error}`}>
           {error}
         </p>
       )}
@@ -141,7 +169,7 @@ export default function PasskeySection() {
         type="button"
         onClick={register}
         disabled={busy}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-teal-600 px-4 py-3 text-sm font-bold text-teal-700 transition-all active:scale-[0.98] disabled:opacity-60"
+        className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition-all active:scale-[0.98] disabled:opacity-60 ${s.registerBtn}`}
       >
         <span className="material-symbols-outlined text-[20px]">add</span>
         {busy ? t("passkey.registering") : t("passkey.register")}
