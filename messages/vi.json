@@ -164,6 +164,7 @@
     "settlements": "Thanh toán",
     "partners": "Đối tác",
     "receivables": "Công nợ",
+    "serviceOrders": "Quyết toán dịch vụ",
     "services": "Danh mục dịch vụ",
     "messages": "Tin nhắn",
     "users": "Người dùng",
@@ -247,6 +248,8 @@
       "paidTitle": "Đã thanh toán",
       "pending": "Chờ thanh toán",
       "paid": "Đã thanh toán",
+      "emptyPending": "Không có khoản nào đang chờ thanh toán.",
+      "emptyPaid": "Chưa có khoản nào đã thanh toán.",
       "method": {
         "CASH": "Tiền mặt",
         "BANK_TRANSFER": "Chuyển khoản",
@@ -2130,6 +2133,38 @@
     "searchPlaceholder": "Tìm tên dịch vụ, loại"
   },
   "adminServiceOrders": {
+    "hub": {
+      "title": "Quyết toán dịch vụ bổ sung",
+      "subtitle": "Xem tổng quan trung gian dịch vụ và xử lý thanh toán cho từng nhà cung cấp.",
+      "reload": "Làm mới",
+      "loadError": "Tải thất bại — thử lại",
+      "tab": { "settle": "Quyết toán NCC", "status": "Tình trạng" },
+      "sub": { "pending": "Chờ chi", "paid": "Đã chi" },
+      "summary": { "unsettledTotal": "Tổng chưa thanh toán", "paidTotal": "Tổng đã thanh toán", "vendorCount": "Số nhà cung cấp" },
+      "vendorOrders": "{n} đơn",
+      "settleSelected": "Thanh toán mục chọn ({n})",
+      "noBank": "Chưa có tài khoản",
+      "viewBooking": "Xem đặt phòng",
+      "settled": "Đã thanh toán",
+      "unsettledBadge": "Chưa thanh toán",
+      "searchPlaceholder": "Tìm villa·món·NCC",
+      "emptyPending": "Không có khoản nào chờ thanh toán.",
+      "emptyPaid": "Chưa có khoản nào đã thanh toán.",
+      "emptyStatus": "Chưa có đơn trung gian nào.",
+      "filter": { "all": "Tất cả", "pending": "Chờ NCC", "accepted": "Đã nhận", "rejected": "Từ chối", "cancelled": "Đã hủy" },
+      "vstatus": { "PENDING_VENDOR": "Chờ NCC", "VENDOR_ACCEPTED": "Đã nhận", "VENDOR_REJECTED": "Từ chối", "CANCELLED": "Đã hủy" },
+      "method": { "CASH": "Tiền mặt", "BANK_TRANSFER": "Chuyển khoản", "OTHER": "Khác" },
+      "modal": {
+        "title": "Xử lý thanh toán",
+        "desc": "{vendor} · {n} đơn · Tổng {total}",
+        "method": "Phương thức",
+        "note": "Ghi chú (tùy chọn)",
+        "notePlaceholder": "Tham chiếu chuyển khoản...",
+        "cancel": "Hủy",
+        "confirm": "Thanh toán",
+        "submitting": "Đang xử lý..."
+      }
+    },
     "title": "Đơn dịch vụ bổ sung",
     "guestPending": "{n} yêu cầu của khách đang chờ",
     "empty": "Chưa có đơn dịch vụ bổ sung nào.",
@@ -3366,7 +3401,8 @@
     "users": "Quản lý người dùng",
     "villas": "Quản lý villa",
     "villaDetail": "Chi tiết villa",
-    "statistics": "Thống kê"
+    "statistics": "Thống kê",
+    "serviceOrders": "Quyết toán dịch vụ"
   },
   "adminCheckinSheet": {
     "title": "Phiếu nhận phòng hôm nay",
