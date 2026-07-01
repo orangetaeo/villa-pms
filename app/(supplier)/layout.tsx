@@ -6,10 +6,8 @@ import {
   SUPPLIER_FULLSCREEN_PREFIXES,
   SUPPLIER_OWN_HEADER_PREFIXES,
 } from "@/components/supplier/tab-bar";
-import { PortalAccountLink } from "@/components/account/portal-account-link";
-import { PortalBrand } from "@/components/brand/portal-brand";
+import { PortalHeader } from "@/components/portal/portal-header";
 import PullToRefresh from "@/components/pull-to-refresh";
-import { LocaleSwitcher } from "@/components/locale-switcher";
 import { getSupplierLocale } from "@/lib/locale";
 
 // [QA D-2] 공급자 클라이언트 컴포넌트가 useTranslations로 실제 사용하는 네임스페이스만 직렬화.
@@ -66,16 +64,22 @@ export default async function SupplierLayout({
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
       <NextIntlClientProvider locale={locale} messages={messages}>
-        {/* 언어 전환 — 청소직원은 vi 고정이라 숨김(공급자만 노출) */}
-        {!isCleaner && <LocaleSwitcher current={locale} persist />}
-        {/* 계정 진입(좌상단) — 풀스크린 + 자체 앱바 페이지(빌라 상세·하위)에서는 숨김(뒤로가기 버튼과 겹침 방지) */}
-        <PortalAccountLink href="/profile" fullscreenPrefixes={SUPPLIER_OWN_HEADER_PREFIXES} />
-        {/* Villa Go 로고(상단 중앙) — 자체 앱바 페이지에서는 중앙 제목과 겹치므로 숨김. */}
-        <PortalBrand href="/" fullscreenPrefixes={SUPPLIER_OWN_HEADER_PREFIXES} />
+        {/* 공용 포털 헤더 — 4개 라이트 포털 동일 형태. 청소직원은 vi 고정이라 언어 전환 숨김.
+            자체 앱바 페이지(빌라 상세·검수 하위)에서는 헤더를 숨겨 중앙 제목과 겹침 방지. */}
+        <PortalHeader
+          locale={locale}
+          brandHref="/"
+          accountHref="/profile"
+          name={session.user.name ?? null}
+          showLocale={!isCleaner}
+          // 자체 앱바(뒤로가기+제목)를 그리는 상세 경로에서는 공용 헤더 숨김(이중 헤더 방지).
+          // 청소 상세(/cleaning/[id])도 fixed 뒤로가기 바가 있어 목록(/cleaning)과 달리 숨긴다.
+          fullscreenPrefixes={[...SUPPLIER_OWN_HEADER_PREFIXES, "/cleaning/"]}
+        />
         {/* 모바일 당겨서 새로고침 — 공급자 전 화면(라이트 테마, 풀스크린 마법사 제외) */}
         <PullToRefresh fullscreenPrefixes={SUPPLIER_FULLSCREEN_PREFIXES} variant="light" />
-        {/* pt-14: 좌상단 AccountLink·우상단 LocaleSwitcher(fixed top-3 h-9)와 본문 콘텐츠 겹침 방지(M4) */}
-        <main className="pt-14">{children}</main>
+        {/* sticky 헤더가 흐름 공간을 차지 → 별도 pt 불필요(페이지 자체 패딩 유지) */}
+        <main>{children}</main>
         {/* 하단 탭바 (T1.4) — 풀스크린 플로우에서는 컴포넌트가 스스로 숨김 + 본문 하단 스페이서 포함 */}
         {/* CLEANER는 청소·안내만(H3 리다이렉트 루프 방지) — role 전달로 탭 필터링 */}
         <TabBar role={session.user.role} />

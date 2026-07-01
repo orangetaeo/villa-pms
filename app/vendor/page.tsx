@@ -51,7 +51,7 @@ async function ApprovalGate({
   const rejected = status === "REJECTED";
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-6 text-center">
+    <main className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center px-6 text-center">
       <div
         className={`mb-6 flex h-20 w-20 items-center justify-center rounded-full ${
           rejected ? "bg-rose-50" : "bg-amber-50"
