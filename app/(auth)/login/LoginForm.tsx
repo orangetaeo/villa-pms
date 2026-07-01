@@ -16,7 +16,6 @@ interface Labels {
   forgotPassword: string;
   noAccount: string;
   signupLink: string;
-  vendorSignupLink: string;
   errorMessages: Record<string, string>;
 }
 
@@ -135,21 +134,14 @@ export default function LoginForm({ labels }: { labels: Labels }) {
           </div>
         </form>
 
-        {/* 회원가입 링크 — 빌라 공급자 + 원천 공급자(부가서비스) */}
-        <div className="text-center pt-4 space-y-3">
+        {/* 회원가입 링크 — 통합 가입 진입(/signup에서 유형 선택) */}
+        <div className="text-center pt-4">
           <Link
             className="block text-slate-600 font-medium hover:text-teal-600 transition-colors"
             href="/signup"
           >
             {labels.noAccount}{" "}
             <span className="text-teal-600 font-bold">{labels.signupLink}</span>
-          </Link>
-          <Link
-            className="inline-flex items-center gap-1 text-sm text-slate-500 font-semibold hover:text-teal-600 transition-colors"
-            href="/vendor-signup"
-          >
-            <span className="material-symbols-outlined text-[18px]">storefront</span>
-            {labels.vendorSignupLink}
           </Link>
         </div>
       </section>

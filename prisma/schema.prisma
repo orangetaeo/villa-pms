@@ -43,7 +43,13 @@ model User {
   phone        String?  @unique
   email        String?  @unique
   passwordHash String?
-  zaloUserId   String?  @unique // Zalo OA 알림 수신용
+  zaloUserId   String?  @unique // Zalo OA 알림 수신용(자동 연결 시 캡처되는 내부 id, @unique)
+  // 공급자가 가입 시 직접 입력한 Zalo 연락처(전화·display id) — 운영자 참고용.
+  // zaloUserId(자동 매칭용 내부 id)와 별개이며 @unique 아님(중복 허용). additive.
+  zaloContact  String?
+  // 정산받을 계좌(은행·계좌·예금주) — Json. ★운영자(canViewFinance) 전용, 공급자 화면 미노출.
+  // SUPPLIER 자가가입 시 선택 입력. additive.
+  bankInfo     Json?
   locale       String   @default("vi") // vi | ko
   isActive     Boolean  @default(true)
   // 임시 비밀번호(OWNER 초기화·계정생성) 발급 시 true → 본인이 변경 전까지 다른 화면 차단

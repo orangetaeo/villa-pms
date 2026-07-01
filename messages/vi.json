@@ -1149,13 +1149,12 @@
       "submitting": "Đang xử lý...",
       "forgotPassword": "Quên mật khẩu?",
       "noAccount": "Chưa có tài khoản?",
-      "signupLink": "Đăng ký nhà cung cấp",
+      "signupLink": "Đăng ký",
       "errors": {
         "invalidCredentials": "Số điện thoại hoặc mật khẩu không đúng.",
         "accountDisabled": "Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.",
         "serverError": "Đã xảy ra lỗi máy chủ. Vui lòng thử lại sau."
-      },
-      "vendorSignupLink": "Đăng ký nhà cung cấp nguồn"
+      }
     },
     "reset": {
       "forgotTitle": "Quên mật khẩu",
@@ -1198,6 +1197,15 @@
       "phonePlaceholder": "0xxx xxx xxx",
       "password": "Mật khẩu",
       "passwordPlaceholder": "••••••••",
+      "bankSection": "Tài khoản nhận thanh toán (tùy chọn)",
+      "bankBank": "Tên ngân hàng",
+      "bankBankPlaceholder": "VD: Vietcombank",
+      "bankAccount": "Số tài khoản",
+      "bankAccountPlaceholder": "Nhập số tài khoản",
+      "bankHolder": "Chủ tài khoản",
+      "bankHolderPlaceholder": "Tên chủ tài khoản",
+      "zaloContact": "Zalo ID (tùy chọn)",
+      "zaloContactPlaceholder": "Số điện thoại hoặc ID Zalo",
       "submit": "Đăng ký",
       "submitting": "Đang xử lý...",
       "hasAccount": "Đã có tài khoản?",
@@ -3817,7 +3825,7 @@
     "supplierTitle": "Nhà cung cấp villa",
     "supplierDesc": "Đăng villa của bạn và quản lý lịch, giá vốn.",
     "vendorTitle": "Nhà cung cấp dịch vụ",
-    "vendorDesc": "Nhận đơn đặt dịch vụ như trái cây, cơm hộp.",
+    "vendorDesc": "Nhận đơn đặt dịch vụ như massage, trái cây, cơm hộp.",
     "partnerTitle": "Đối tác (Công ty du lịch / Land)",
     "partnerDesc": "Đối tác quản lý tình trạng đặt phòng, công nợ, đề xuất.",
     "hasAccount": "Đã có tài khoản?",
