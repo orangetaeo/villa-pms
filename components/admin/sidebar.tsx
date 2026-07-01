@@ -78,6 +78,8 @@ const NAV: NavEntry[] = [
       { key: "partners", href: "/partners", icon: "handshake", cap: canViewFinance },
       // 미수/여신 대시보드(ADR-0022 PARTNER-3) — 전 파트너 미수 Aging·연체. 재무만 노출
       { key: "receivables", href: "/receivables", icon: "request_quote", cap: canViewFinance },
+      // 부가서비스 정산 허브(ADR-0023) — 중계현황 + 공급자별 입금 처리. costVnd 지급 경계라 재무만 노출
+      { key: "serviceOrders", href: "/service-orders", icon: "room_service", cap: canViewFinance },
       // 통계(T-admin-statistics) — 전 운영자 노출(탭별 금액 게이트는 페이지 내부)
       { key: "statistics", href: "/statistics", icon: "analytics" },
     ],

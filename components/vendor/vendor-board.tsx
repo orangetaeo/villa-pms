@@ -578,6 +578,12 @@ function SettlementSection({
   settled: VendorOrder[];
   t: T;
 }) {
+  // ★가독성: 지급대기·지급완료를 세로로 쌓지 않고 세그먼트로 한 번에 하나만 노출.
+  //   (완료 목록을 보려고 대기 목록 전체를 스크롤로 지나가던 문제 해결)
+  //   기본 탭 = 지급대기(액션 대상). 대기가 0건이면 완료를 기본으로.
+  const [sub, setSub] = useState<"pending" | "paid">(
+    unsettled.length === 0 && settled.length > 0 ? "paid" : "pending"
+  );
   const u = usePaged(unsettled);
   const s = usePaged(settled);
   if (unsettled.length === 0 && settled.length === 0) {
@@ -585,63 +591,87 @@ function SettlementSection({
   }
   const pendingTotal = sumVnd(unsettled.map((o) => o.costVnd));
   const paidTotal = sumVnd(settled.map((o) => o.costVnd));
+  const active = sub === "pending" ? unsettled : settled;
+  const page = sub === "pending" ? u : s;
 
   return (
-    <div className="space-y-5">
-      {/* 합계 카드 — VND만(우리 판매가·마진 없음) */}
-      <section className="relative overflow-hidden rounded-2xl bg-teal-600 p-6 text-white shadow-xl">
+    <div className="space-y-4">
+      {/* 합계 카드 — VND만(우리 판매가·마진 없음). 대기·완료 나란히 요약 */}
+      <section className="relative overflow-hidden rounded-2xl bg-teal-600 p-5 text-white shadow-xl">
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-teal-500 opacity-20" />
-        <div className="relative z-10 space-y-4">
+        <div className="relative z-10 grid grid-cols-2 gap-3">
           <div>
-            <p className="text-sm font-medium text-teal-50 opacity-90">{t("settle.pendingTotal")}</p>
-            <h2 className="mt-1 text-4xl font-extrabold tracking-tight">
+            <p className="flex items-center gap-1.5 text-xs font-medium text-teal-50 opacity-90">
+              <span className="h-2 w-2 rounded-full bg-amber-300" />
+              {t("settle.pendingTotal")}
+            </p>
+            <h2 className="mt-1 text-2xl font-extrabold tracking-tight">
               {formatVndDot(pendingTotal)}
             </h2>
           </div>
-          <div className="h-px w-full bg-white/20" />
-          <div className="flex items-center gap-1.5 text-xs font-medium text-teal-50">
-            <div className="h-2 w-2 rounded-full bg-emerald-400" />
-            <span>
-              {t("settle.paidTotal")}: {formatVndDot(paidTotal)}
-            </span>
+          <div className="border-l border-white/20 pl-3">
+            <p className="flex items-center gap-1.5 text-xs font-medium text-teal-50 opacity-90">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              {t("settle.paidTotal")}
+            </p>
+            <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-teal-50">
+              {formatVndDot(paidTotal)}
+            </h2>
           </div>
         </div>
       </section>
 
-      {unsettled.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-bold text-slate-700">{t("settle.pendingTitle")}</h3>
-          <div className="space-y-2">
-            {u.paged.map((o) => (
-              <SettleRow key={o.id} order={o} paid={false} t={t} />
-            ))}
-          </div>
-          <PaginationBar
-            light
-            total={unsettled.length}
-            page={u.page}
-            pageSize={u.pageSize}
-            onPageChange={u.setPage}
-            onPageSizeChange={u.setPageSize}
-          />
-        </div>
-      )}
+      {/* 세그먼트 필터 — 지급대기 | 지급완료 (건수 뱃지). 선택한 목록만 렌더. */}
+      <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+        {(["pending", "paid"] as const).map((key) => {
+          const isActive = sub === key;
+          const count = key === "pending" ? unsettled.length : settled.length;
+          const label = key === "pending" ? t("settle.pendingTitle") : t("settle.paidTitle");
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setSub(key)}
+              aria-current={isActive ? "page" : undefined}
+              className={
+                isActive
+                  ? "rounded-lg bg-white py-2 text-center text-sm font-bold text-teal-700 shadow-sm"
+                  : "rounded-lg py-2 text-center text-sm font-medium text-slate-500"
+              }
+            >
+              {label}
+              <span
+                className={`ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold ${
+                  isActive
+                    ? key === "pending"
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-emerald-100 text-emerald-700"
+                    : "bg-slate-200 text-slate-500"
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
-      {settled.length > 0 && (
+      {active.length === 0 ? (
+        <div className="rounded-2xl border border-slate-100 bg-white p-8 text-center text-sm text-slate-400 shadow-sm">
+          {sub === "pending" ? t("settle.emptyPending") : t("settle.emptyPaid")}
+        </div>
+      ) : (
         <div className="space-y-2">
-          <h3 className="text-sm font-bold text-slate-700">{t("settle.paidTitle")}</h3>
-          <div className="space-y-2">
-            {s.paged.map((o) => (
-              <SettleRow key={o.id} order={o} paid t={t} />
-            ))}
-          </div>
+          {page.paged.map((o) => (
+            <SettleRow key={o.id} order={o} paid={sub === "paid"} t={t} />
+          ))}
           <PaginationBar
             light
-            total={settled.length}
-            page={s.page}
-            pageSize={s.pageSize}
-            onPageChange={s.setPage}
-            onPageSizeChange={s.setPageSize}
+            total={active.length}
+            page={page.page}
+            pageSize={page.pageSize}
+            onPageChange={page.setPage}
+            onPageSizeChange={page.setPageSize}
           />
         </div>
       )}

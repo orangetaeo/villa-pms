@@ -164,6 +164,7 @@
     "settlements": "정산",
     "partners": "파트너 관리",
     "receivables": "미수/여신",
+    "serviceOrders": "부가서비스 정산",
     "services": "서비스 카탈로그",
     "messages": "메시지",
     "users": "사용자",
@@ -257,6 +258,8 @@
       "paidTitle": "지급 완료",
       "pending": "지급 대기",
       "paid": "지급 완료",
+      "emptyPending": "지급 대기 중인 건이 없습니다.",
+      "emptyPaid": "지급 완료된 건이 없습니다.",
       "method": {
         "CASH": "현금",
         "BANK_TRANSFER": "계좌이체",
@@ -2033,6 +2036,38 @@
     "searchPlaceholder": "서비스명·유형 검색"
   },
   "adminServiceOrders": {
+    "hub": {
+      "title": "부가서비스 정산",
+      "subtitle": "부가서비스 중계현황을 한눈에 보고, 공급자별로 입금(정산)을 처리합니다.",
+      "reload": "새로고침",
+      "loadError": "불러오기 실패 — 다시 시도",
+      "tab": { "settle": "공급자 정산", "status": "중계 현황" },
+      "sub": { "pending": "입금 대기", "paid": "입금 완료" },
+      "summary": { "unsettledTotal": "미정산 총액", "paidTotal": "정산 완료 총액", "vendorCount": "대상 공급자" },
+      "vendorOrders": "{n}건",
+      "settleSelected": "선택 입금 처리 ({n})",
+      "noBank": "계좌 미등록",
+      "viewBooking": "예약 보기",
+      "settled": "정산완료",
+      "unsettledBadge": "미정산",
+      "searchPlaceholder": "빌라·품목·공급자 검색",
+      "emptyPending": "입금 대기 중인 정산이 없습니다.",
+      "emptyPaid": "입금 완료된 내역이 없습니다.",
+      "emptyStatus": "중계된 발주가 없습니다.",
+      "filter": { "all": "전체", "pending": "발주대기", "accepted": "수락", "rejected": "거절", "cancelled": "취소" },
+      "vstatus": { "PENDING_VENDOR": "발주대기", "VENDOR_ACCEPTED": "수락", "VENDOR_REJECTED": "거절", "CANCELLED": "취소" },
+      "method": { "CASH": "현금", "BANK_TRANSFER": "계좌이체", "OTHER": "기타" },
+      "modal": {
+        "title": "입금(정산) 처리",
+        "desc": "{vendor} · {n}건 · 합계 {total}",
+        "method": "결제수단",
+        "note": "메모(선택)",
+        "notePlaceholder": "이체 참조 등",
+        "cancel": "취소",
+        "confirm": "입금 처리",
+        "submitting": "처리 중..."
+      }
+    },
     "title": "부가옵션 주문",
     "guestPending": "게스트 요청 {n}건 대기",
     "empty": "주문된 부가옵션이 없습니다.",
@@ -3269,7 +3304,8 @@
     "villas": "빌라 관리",
     "villaDetail": "빌라 상세",
     "availability": "공실 보드",
-    "statistics": "통계"
+    "statistics": "통계",
+    "serviceOrders": "부가서비스 정산"
   },
   "pagination": {
     "summary": "{from}–{to} · 총 {total}건",
