@@ -1051,6 +1051,7 @@
       "forgotPassword": "비밀번호를 잊으셨나요?",
       "noAccount": "계정이 없으신가요?",
       "signupLink": "회원가입",
+      "passkeyButton": "지문·얼굴로 로그인",
       "errors": {
         "invalidCredentials": "전화번호 또는 비밀번호가 올바르지 않습니다.",
         "accountDisabled": "비활성화된 계정입니다. 관리자에게 문의하세요.",
