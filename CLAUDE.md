@@ -14,7 +14,7 @@
 ## 기술 스택
 
 - Next.js 15 (App Router) + TypeScript
-- Prisma + PostgreSQL (Neon)
+- Prisma + PostgreSQL (Railway Postgres — 호스트 `*.rlwy.net`. 과거 Neon에서 이전됨)
 - Railway 배포, PWA (모바일 대응)
 - 인증: NextAuth (Credentials) + Zalo 계정 연결(zaloUserId)
 - 알림: Zalo 개인 계정(zca-js, QR 로그인) — Nike 방식 재사용, ADR-0005 (예약·홀드만료·청소요청·정산)
@@ -124,7 +124,7 @@ npm run lint && npm run typecheck
 ## 환경 변수 (.env)
 
 ```
-DATABASE_URL=          # Neon PostgreSQL
+DATABASE_URL=          # Railway PostgreSQL (호스트 *.rlwy.net)
 NEXTAUTH_SECRET=
 ZALO_CREDS_KEY=        # zca-js credential 암호화 키 (DB에 AES-256-GCM 저장, ADR-0005)
 GEMINI_API_KEY=

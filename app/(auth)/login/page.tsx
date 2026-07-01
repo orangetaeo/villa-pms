@@ -21,6 +21,7 @@ export default async function LoginPage() {
     forgotPassword: t("forgotPassword"),
     noAccount: t("noAccount"),
     signupLink: t("signupLink"),
+    passkeyButton: t("passkeyButton"),
     errorMessages: {
       invalidCredentials: t("errors.invalidCredentials"),
       accountDisabled: t("errors.accountDisabled"),

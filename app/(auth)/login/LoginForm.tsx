@@ -1,7 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
+import { signIn } from "next-auth/react";
+import {
+  startAuthentication,
+  browserSupportsWebAuthn,
+} from "@simplewebauthn/browser";
 import { loginAction } from "./actions";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 
@@ -16,12 +21,51 @@ interface Labels {
   forgotPassword: string;
   noAccount: string;
   signupLink: string;
+  passkeyButton: string;
   errorMessages: Record<string, string>;
 }
 
 export default function LoginForm({ labels }: { labels: Labels }) {
   const [state, formAction, isPending] = useActionState(loginAction, null);
   const [showPassword, setShowPassword] = useState(false);
+  // 패스키(지문·얼굴) — 지원 브라우저에서만 버튼 노출.
+  const [passkeySupported, setPasskeySupported] = useState(false);
+  const [passkeyPending, setPasskeyPending] = useState(false);
+  const [passkeyError, setPasskeyError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPasskeySupported(browserSupportsWebAuthn());
+  }, []);
+
+  const loginWithPasskey = async () => {
+    setPasskeyError(null);
+    setPasskeyPending(true);
+    try {
+      // 1) 서버가 challenge 발급(+httpOnly 쿠키). 2) 기기 생체인증. 3) signIn("passkey")로 세션 발급.
+      const optRes = await fetch("/api/auth/passkey/login/options", { method: "POST" });
+      if (!optRes.ok) throw new Error("options");
+      const options = await optRes.json();
+      const assertion = await startAuthentication(options);
+      const result = await signIn("passkey", {
+        response: JSON.stringify(assertion),
+        redirect: false,
+      });
+      if (!result || result.error) {
+        setPasskeyError(labels.errorMessages.invalidCredentials ?? "");
+        return;
+      }
+      // 루트에서 role별 분기(ADMIN→/dashboard, SUPPLIER→/my-villas 등). 전체 새로고침으로 세션 반영.
+      window.location.href = "/";
+    } catch (e) {
+      // 사용자가 생체인증 취소(NotAllowedError/AbortError)한 경우는 조용히 무시.
+      const name = e instanceof Error ? e.name : "";
+      if (name !== "NotAllowedError" && name !== "AbortError") {
+        setPasskeyError(labels.errorMessages.serverError ?? "");
+      }
+    } finally {
+      setPasskeyPending(false);
+    }
+  };
 
   return (
     <main className="flex-grow flex flex-col items-center justify-center px-6 py-12 max-w-md mx-auto w-full">
@@ -133,6 +177,27 @@ export default function LoginForm({ labels }: { labels: Labels }) {
             </button>
           </div>
         </form>
+
+        {/* 패스키(지문·얼굴) 로그인 — 지원 브라우저 + 등록된 기기에서만 사용 */}
+        {passkeySupported && (
+          <div className="space-y-3">
+            <div className="h-px w-full bg-slate-200" />
+            {passkeyError && (
+              <div className="bg-red-50 border border-red-200 text-red-600 text-sm font-medium px-4 py-3 rounded-xl">
+                {passkeyError}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={loginWithPasskey}
+              disabled={passkeyPending}
+              className="w-full flex items-center justify-center gap-2 border-2 border-teal-600 text-teal-700 font-bold text-lg rounded-xl touch-target active:scale-[0.98] transition-all disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined">fingerprint</span>
+              {labels.passkeyButton}
+            </button>
+          </div>
+        )}
 
         {/* 회원가입 링크 — 통합 가입 진입(/signup에서 유형 선택) */}
         <div className="text-center pt-4">
