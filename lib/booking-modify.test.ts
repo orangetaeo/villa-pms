@@ -4,6 +4,7 @@ import {
   BookingModifyRejectedError,
   modifiableKind,
   modifyBooking,
+  resolveModifiedTotals,
   touchesNonCheckoutFields,
   type ModifyBookingInput,
 } from "./booking-modify";
@@ -415,6 +416,83 @@ describe("modifyBooking — 금액 재계산·통화 정합", () => {
     });
     expect(res.booking.totalSaleKrw).toBe(600_000);
     expect(res.booking.totalSaleVnd).toBeNull();
+  });
+});
+
+describe("resolveModifiedTotals — 상태별 하한 (ADR-0030 D2/T-C)", () => {
+  const existing = { totalSaleKrw: null, totalSaleVnd: 3_000_000n, supplierCostVnd: 2_400_000n };
+
+  it("CHECKED_IN + 재견적 < 기존(단축) → 기존액 유지(감액 없음)", () => {
+    const r = resolveModifiedTotals(BookingStatus.CHECKED_IN, existing, {
+      totalSaleKrw: null,
+      totalSaleVnd: 2_000_000n,
+      supplierCostVnd: 1_600_000n,
+    });
+    expect(r.totalSaleVnd).toBe(3_000_000n); // 하한 유지
+    expect(r.supplierCostVnd).toBe(2_400_000n);
+  });
+
+  it("CHECKED_IN + 재견적 > 기존(연장) → 재견적액(추가청구)", () => {
+    const r = resolveModifiedTotals(BookingStatus.CHECKED_IN, existing, {
+      totalSaleKrw: null,
+      totalSaleVnd: 5_000_000n,
+      supplierCostVnd: 4_000_000n,
+    });
+    expect(r.totalSaleVnd).toBe(5_000_000n);
+    expect(r.supplierCostVnd).toBe(4_000_000n);
+  });
+
+  it("CONFIRMED + 재견적 < 기존 → 전체 재견적(감액 허용)", () => {
+    const r = resolveModifiedTotals(BookingStatus.CONFIRMED, existing, {
+      totalSaleKrw: null,
+      totalSaleVnd: 2_000_000n,
+      supplierCostVnd: 1_600_000n,
+    });
+    expect(r.totalSaleVnd).toBe(2_000_000n); // 감액됨
+  });
+
+  it("KRW 예약: null 통화 컬럼은 null 유지, KRW만 하한", () => {
+    const krwExisting = { totalSaleKrw: 900_000, totalSaleVnd: null, supplierCostVnd: 2_400_000n };
+    const r = resolveModifiedTotals(BookingStatus.CHECKED_IN, krwExisting, {
+      totalSaleKrw: 600_000,
+      totalSaleVnd: null,
+      supplierCostVnd: 1_600_000n,
+    });
+    expect(r.totalSaleKrw).toBe(900_000); // 하한
+    expect(r.totalSaleVnd).toBeNull();
+  });
+});
+
+describe("modifyBooking — 체크인 후 금액 하한 (ADR-0030 D2/T-C)", () => {
+  it("CHECKED_IN 체크아웃 연장 → 추가청구(총액 증가)", async () => {
+    const { prisma } = makeTx({
+      booking: defaultBooking({ status: BookingStatus.CHECKED_IN, totalSaleVnd: 3_000_000n }),
+      baseRate: { supplierCostVnd: 800_000n, salePriceVnd: 1_000_000n, salePriceKrw: 0 },
+    });
+    const res = await modifyBooking(prisma, {
+      bookingId: "b1",
+      actorUserId: "u1",
+      now: utc("2026-07-11"),
+      checkOut: utc("2026-07-15"), // 3박 → 5박
+    });
+    expect(res.recalculated).toBe(true);
+    expect(res.booking.totalSaleVnd).toBe(5_000_000n); // 연장분 추가청구
+    expect(res.booking.nights).toBe(5);
+  });
+
+  it("CHECKED_IN 체크아웃 단축 → 감액 없음(총액 유지), nights만 감소", async () => {
+    const { prisma } = makeTx({
+      booking: defaultBooking({ status: BookingStatus.CHECKED_IN, totalSaleVnd: 3_000_000n }),
+      baseRate: { supplierCostVnd: 800_000n, salePriceVnd: 1_000_000n, salePriceKrw: 0 },
+    });
+    const res = await modifyBooking(prisma, {
+      bookingId: "b1",
+      actorUserId: "u1",
+      now: utc("2026-07-11"),
+      checkOut: utc("2026-07-12"), // 3박 → 2박(단축)
+    });
+    expect(res.booking.totalSaleVnd).toBe(3_000_000n); // 하한 유지(무환불)
+    expect(res.booking.nights).toBe(2); // 실제 구간 반영
   });
 });
 

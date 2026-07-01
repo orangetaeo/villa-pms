@@ -117,6 +117,51 @@ function selfExcludedOverlapWhere(villaId: string, range: StayRange, excludeBook
   };
 }
 
+/** null-안전 max — 하한(floor) 적용용 (한쪽 null이면 다른 쪽) */
+function maxNullableNum(a: number | null, b: number | null): number | null {
+  if (a == null) return b;
+  if (b == null) return a;
+  return Math.max(a, b);
+}
+function maxNullableBig(a: bigint | null, b: bigint | null): bigint | null {
+  if (a == null) return b;
+  if (b == null) return a;
+  return a > b ? a : b;
+}
+
+/** 상태별 금액 결정에 쓰는 금액 3종 (판매가 KRW·VND, 원가 VND) */
+export interface StayAmounts {
+  totalSaleKrw: number | null;
+  totalSaleVnd: bigint | null;
+  supplierCostVnd: bigint;
+}
+
+/**
+ * 상태별 금액 결정 (ADR-0030 D2/T-C) — 순수.
+ * - CHECKED_IN: 이미 묵는 중이므로 **최초 확정액을 하한(floor)으로 유지**. 재견적이 크면(연장) 그 값을,
+ *   작으면(단축·다운그레이드) 기존액을 유지 → **감액 없음**. 판매가·원가 모두 하한 적용.
+ *   ⚠ nights는 실제 구간을 반영(별도) — 단축 시 nights는 줄지만 총액은 유지(무환불 정책)라
+ *   nights×요율 ≠ 총액이 될 수 있으며, 이는 "무환불 합의액"의 의도된 표현이다.
+ * - 그 외(CONFIRMED 등 아직 투숙 전): 전체 재견적 그대로(올려도 내려도 됨).
+ */
+export function resolveModifiedTotals(
+  status: BookingStatus,
+  existing: StayAmounts,
+  quoted: StayAmounts
+): StayAmounts {
+  if (status === BookingStatus.CHECKED_IN) {
+    return {
+      totalSaleKrw: maxNullableNum(existing.totalSaleKrw, quoted.totalSaleKrw),
+      totalSaleVnd: maxNullableBig(existing.totalSaleVnd, quoted.totalSaleVnd),
+      supplierCostVnd:
+        existing.supplierCostVnd > quoted.supplierCostVnd
+          ? existing.supplierCostVnd
+          : quoted.supplierCostVnd,
+    };
+  }
+  return quoted;
+}
+
 /**
  * 예약 변경 — 단일 트랜잭션.
  * @throws BookingModifyRejectedError(reason) / RangeError(잘못된 입력)
@@ -250,10 +295,24 @@ export async function modifyBooking(
     const recalculated = villaChanged || dateChanged;
     if (recalculated) {
       const quote = await quoteStayForVilla(tx, nextVillaId, range, saleCurrency);
-      nextNights = countNights(range);
-      nextTotalSaleKrw = quote.totalSaleKrw ?? null;
-      nextTotalSaleVnd = quote.totalSaleVnd ?? null;
-      nextSupplierCostVnd = quote.totalSupplierCostVnd;
+      nextNights = countNights(range); // 실제 구간 반영(단축 시 감소) — 총액은 하한(아래)
+      // ADR-0030 D2/T-C: 체크인 후엔 최초액을 하한으로 유지(감액 없음), 확정은 전체 재견적.
+      const resolved = resolveModifiedTotals(
+        booking.status,
+        {
+          totalSaleKrw: booking.totalSaleKrw,
+          totalSaleVnd: booking.totalSaleVnd,
+          supplierCostVnd: booking.supplierCostVnd,
+        },
+        {
+          totalSaleKrw: quote.totalSaleKrw ?? null,
+          totalSaleVnd: quote.totalSaleVnd ?? null,
+          supplierCostVnd: quote.totalSupplierCostVnd,
+        }
+      );
+      nextTotalSaleKrw = resolved.totalSaleKrw;
+      nextTotalSaleVnd = resolved.totalSaleVnd;
+      nextSupplierCostVnd = resolved.supplierCostVnd;
       // 듀얼 컬럼 정합 — saleCurrency에 맞는 통화만 채워졌는지 검증
       assertSaleAmountColumns(saleCurrency, {
         krw: nextTotalSaleKrw,
