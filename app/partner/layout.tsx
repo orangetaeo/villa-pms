@@ -9,12 +9,10 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
 import { cookies } from "next/headers";
-import { LocaleSwitcher } from "@/components/locale-switcher";
-import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import { normalizeLocale, type AppLocale } from "@/lib/locale";
 import { getPartnerForUser } from "@/lib/partner-auth";
 import { PartnerTabBar } from "@/components/partner/partner-tab-bar";
-import { PortalAccountLink } from "@/components/account/portal-account-link";
+import { PortalHeader } from "@/components/portal/portal-header";
 
 // 파트너 포털 유효 locale: 사용자 명시 선택(pref-locale) > 계정 기본(session) > ko 기본(한국 여행사·랜드사).
 // (i18n/request.ts가 읽는 `locale` 쿠키는 middleware가 같은 우선순위로 맞춘다.)
@@ -82,26 +80,14 @@ async function PartnerShell({
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
       <NextIntlClientProvider locale={locale} messages={clientMessages}>
-        {/* 헤더 */}
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-neutral-100 bg-white/90 px-4 py-3 backdrop-blur">
-          <div className="flex items-center gap-2">
-            {/* 계정 진입(승인된 파트너만) — 헤더 인라인 배치(좌상단 고정은 로고와 겹침). /partner/profile. */}
-            {showNav && (
-              <PortalAccountLink
-                href="/partner/profile"
-                className="mr-0.5 flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition-colors hover:text-teal-600"
-              />
-            )}
-            <VillaGoMark className="h-7 w-7" />
-            <VillaGoWordmark className="text-lg" />
-            {partnerName && (
-              <span className="ml-1 max-w-[40vw] truncate text-sm font-medium text-neutral-500">
-                · {partnerName}
-              </span>
-            )}
-          </div>
-          <LocaleSwitcher current={locale} persist />
-        </header>
+        {/* 공용 포털 헤더 — 4개 라이트 포털 동일 형태. 계정 아이콘은 승인된 파트너만. */}
+        <PortalHeader
+          locale={locale}
+          brandHref="/partner"
+          accountHref="/partner/profile"
+          name={partnerName}
+          showAccount={showNav}
+        />
 
         {/* 로그아웃(우측 상단 고정) — 승인대기·거절 화면에만 노출.
             승인된 파트너(showNav)는 좌상단 계정 아이콘 → /partner/profile 안에 로그아웃이 있어

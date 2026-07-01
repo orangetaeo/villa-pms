@@ -28,7 +28,7 @@ export default async function VendorProfilePage() {
       loggedInName={session.user.name ?? ""}
       // 강제변경 사용자는 뒤로가기 숨김(먼저 변경해야 함)
       backHref={mustChange ? null : "/vendor"}
-      containerClassName="mx-auto w-full max-w-md px-4 pb-16 pt-16"
+      containerClassName="mx-auto w-full max-w-md px-4 pb-16 pt-6"
       // 첫 진입(임시 비번) 안내
       notice={
         mustChange ? (

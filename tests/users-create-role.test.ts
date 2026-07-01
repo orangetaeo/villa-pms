@@ -224,64 +224,68 @@ describe("PATCH /api/users/[id] — CHANGE_ROLE 가드", () => {
     expect(tx.user.update).not.toHaveBeenCalled();
   });
 
-  it("화이트리스트 외 역할(OWNER)로 변경 시 400(zod)", async () => {
+  it("변경 대상 화이트리스트 외 역할(OWNER)은 400(zod) — 매니저/직원만 허용", async () => {
     const res = await patchReq("u-2", { action: "CHANGE_ROLE", role: "OWNER" });
     expect(res.status).toBe(400);
   });
 
-  it("SUPPLIER가 빌라 보유 중 비SUPPLIER로 변경 시 409 HAS_VILLAS", async () => {
-    tx.user.findUnique.mockResolvedValue({
-      id: "sup-1",
-      role: "SUPPLIER",
-      isActive: true,
-      zaloUserId: null,
-      _count: { villas: 3 },
-    });
-    const res = await patchReq("sup-1", { action: "CHANGE_ROLE", role: "STAFF" });
-    expect(res.status).toBe(409);
-    expect(await res.json()).toEqual({ error: "HAS_VILLAS" });
+  it("변경 대상 외부 역할(SUPPLIER)로도 400(zod) — 전환 불가", async () => {
+    const res = await patchReq("u-2", { action: "CHANGE_ROLE", role: "SUPPLIER" });
+    expect(res.status).toBe(400);
     expect(tx.user.update).not.toHaveBeenCalled();
   });
 
-  it("SUPPLIER(빌라 0개) → STAFF 변경 정상 + 감사로그 UPDATE(old→new)", async () => {
+  it("외부 역할(SUPPLIER) 계정은 매니저/직원으로도 변경 불가 400 ROLE_NOT_CHANGEABLE (재가입 대상)", async () => {
     tx.user.findUnique.mockResolvedValue({
       id: "sup-1",
       role: "SUPPLIER",
       isActive: true,
       zaloUserId: null,
-      _count: { villas: 0 },
+    });
+    const res = await patchReq("sup-1", { action: "CHANGE_ROLE", role: "STAFF" });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "ROLE_NOT_CHANGEABLE" });
+    expect(tx.user.update).not.toHaveBeenCalled();
+  });
+
+  it("직원(STAFF) → 매니저(MANAGER) 승격 정상 + 감사로그 UPDATE(old→new)", async () => {
+    tx.user.findUnique.mockResolvedValue({
+      id: "staff-1",
+      role: "STAFF",
+      isActive: true,
+      zaloUserId: null,
     });
     tx.user.update.mockResolvedValue({
-      id: "sup-1",
+      id: "staff-1",
+      isActive: true,
+      zaloUserId: null,
+      role: "MANAGER",
+    });
+    const res = await patchReq("staff-1", { action: "CHANGE_ROLE", role: "MANAGER" });
+    expect(res.status).toBe(200);
+    expect((await res.json()).role).toBe("MANAGER");
+    const audit = (writeAuditLog as unknown as { mock: { calls: unknown[][] } }).mock
+      .calls[0][0] as { action: string; changes: { role: { old: string; new: string } } };
+    expect(audit.action).toBe("UPDATE");
+    expect(audit.changes.role).toEqual({ old: "STAFF", new: "MANAGER" });
+  });
+
+  it("매니저(MANAGER) → 직원(STAFF) 강등 정상", async () => {
+    tx.user.findUnique.mockResolvedValue({
+      id: "mgr-1",
+      role: "MANAGER",
+      isActive: true,
+      zaloUserId: null,
+    });
+    tx.user.update.mockResolvedValue({
+      id: "mgr-1",
       isActive: true,
       zaloUserId: null,
       role: "STAFF",
     });
-    const res = await patchReq("sup-1", { action: "CHANGE_ROLE", role: "STAFF" });
+    const res = await patchReq("mgr-1", { action: "CHANGE_ROLE", role: "STAFF" });
     expect(res.status).toBe(200);
     expect((await res.json()).role).toBe("STAFF");
-    const audit = (writeAuditLog as unknown as { mock: { calls: unknown[][] } }).mock
-      .calls[0][0] as { action: string; changes: { role: { old: string; new: string } } };
-    expect(audit.action).toBe("UPDATE");
-    expect(audit.changes.role).toEqual({ old: "SUPPLIER", new: "STAFF" });
-  });
-
-  it("SUPPLIER가 빌라 보유 중이라도 SUPPLIER 유지(동일 역할)는 허용", async () => {
-    tx.user.findUnique.mockResolvedValue({
-      id: "sup-1",
-      role: "SUPPLIER",
-      isActive: true,
-      zaloUserId: null,
-      _count: { villas: 5 },
-    });
-    tx.user.update.mockResolvedValue({
-      id: "sup-1",
-      isActive: true,
-      zaloUserId: null,
-      role: "SUPPLIER",
-    });
-    const res = await patchReq("sup-1", { action: "CHANGE_ROLE", role: "SUPPLIER" });
-    expect(res.status).toBe(200);
   });
 
   it("비OWNER는 403", async () => {

@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import ChangePasswordForm from "@/components/account/change-password-form";
+import PasskeySection from "@/components/account/passkey-section";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("account");
@@ -21,6 +22,9 @@ export default async function AdminAccountPage() {
         <p className="text-xs text-slate-400 mb-5">{t("changeSubtitle")}</p>
         <ChangePasswordForm variant="admin" />
       </div>
+
+      {/* 패스키(지문·얼굴) 등록·관리 — 다크 테마. 미지원 브라우저에서는 자동 숨김 */}
+      <PasskeySection variant="admin" />
     </div>
   );
 }
