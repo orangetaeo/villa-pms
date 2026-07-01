@@ -32,11 +32,7 @@ export default async function GuidePage() {
 
   return (
     <div className="min-h-screen bg-neutral-50 text-slate-900">
-      {/* 헤더 — 탭 진입 화면이므로 뒤로가기 없이 제목만 (디자인 a-guide 헤더 간소화) */}
-      <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-center border-b border-neutral-100 bg-white px-4">
-        <h1 className="font-semibold text-lg text-teal-600">{t("headerTitle")}</h1>
-      </header>
-
+      {/* 공용 포털 헤더 아래 히어로 제목이 화면 제목 역할 — 별도 앱바 제거(이중 헤더 방지) */}
       <main className="px-5 pt-8 pb-28">
         {/* 히어로 */}
         <div className="mb-10 text-center">

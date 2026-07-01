@@ -184,12 +184,9 @@ export default async function CleaningListPage({
 
   return (
     <>
-      {/* TopAppBar (a8) */}
-      <header className="sticky top-0 z-40 flex h-16 w-full items-center bg-white px-4 shadow-sm">
-        <h1 className="text-xl font-semibold text-teal-600">{t("title")}</h1>
-      </header>
-
-      <main className="mx-auto w-full max-w-md px-4 pt-4">
+      <main className="mx-auto w-full max-w-md px-4 pt-6">
+        {/* 제목 — 공용 포털 헤더 아래 본문 헤딩(기존 a8 앱바를 헤딩으로 강등, 이중 헤더 방지) */}
+        <h1 className="mb-4 text-2xl font-bold text-neutral-900">{t("title")}</h1>
         {/* 제출 성공 배너 — /cleaning/[id] 제출 후 복귀 시 */}
         {submitted === "1" && (
           <div className="mb-4 flex items-start gap-2 rounded-xl border border-green-200 bg-green-50 p-3">

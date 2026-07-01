@@ -188,7 +188,7 @@ export default function VendorBoard() {
   const loading = orders === null;
 
   return (
-    <main className="mx-auto max-w-md space-y-5 px-4 pb-28 pt-16">
+    <main className="mx-auto max-w-md space-y-5 px-4 pb-28 pt-6">
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <h1 className="text-2xl font-bold text-neutral-900">{t("title")}</h1>
