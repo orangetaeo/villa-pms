@@ -1040,13 +1040,12 @@
       "submitting": "로그인 중...",
       "forgotPassword": "비밀번호를 잊으셨나요?",
       "noAccount": "계정이 없으신가요?",
-      "signupLink": "공급자 가입",
+      "signupLink": "회원가입",
       "errors": {
         "invalidCredentials": "전화번호 또는 비밀번호가 올바르지 않습니다.",
         "accountDisabled": "비활성화된 계정입니다. 관리자에게 문의하세요.",
         "serverError": "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
-      },
-      "vendorSignupLink": "원천 공급자로 가입"
+      }
     },
     "reset": {
       "forgotTitle": "비밀번호 찾기",
@@ -1089,6 +1088,15 @@
       "phonePlaceholder": "0xxx xxx xxx",
       "password": "비밀번호",
       "passwordPlaceholder": "••••••••",
+      "bankSection": "정산받을 계좌 (선택)",
+      "bankBank": "은행명",
+      "bankBankPlaceholder": "예: Vietcombank",
+      "bankAccount": "계좌번호",
+      "bankAccountPlaceholder": "계좌번호 입력",
+      "bankHolder": "예금주",
+      "bankHolderPlaceholder": "예금주 이름",
+      "zaloContact": "Zalo ID (선택)",
+      "zaloContactPlaceholder": "Zalo 전화번호 또는 ID",
       "submit": "회원가입",
       "submitting": "처리 중...",
       "hasAccount": "이미 계정이 있으신가요?",
@@ -3817,7 +3825,7 @@
     "supplierTitle": "빌라 공급자",
     "supplierDesc": "내 빌라를 등록하고 캘린더·원가를 관리합니다.",
     "vendorTitle": "부가서비스 공급자",
-    "vendorDesc": "과일·도시락 등 부가서비스 발주를 받습니다.",
+    "vendorDesc": "마사지, 과일, 도시락 등 부가서비스 발주를 받습니다.",
     "partnerTitle": "파트너 (여행사·랜드사)",
     "partnerDesc": "예약 현황·미수·제안서를 관리하는 거래처입니다.",
     "hasAccount": "이미 계정이 있으신가요?",

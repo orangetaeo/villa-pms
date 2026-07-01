@@ -43,7 +43,8 @@ type PartnerType = "TRAVEL_AGENCY" | "LAND_AGENCY";
 export default function PartnerSignupForm({ labels }: { labels: Labels }) {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-  const [type, setType] = useState<PartnerType>("TRAVEL_AGENCY");
+  // 거래처 유형 기본값 = 랜드사(LAND_AGENCY) — 대다수 가입이 랜드사라 기본 선택
+  const [type, setType] = useState<PartnerType>("LAND_AGENCY");
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);

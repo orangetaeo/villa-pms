@@ -16,6 +16,15 @@ interface Labels {
   phonePlaceholder: string;
   password: string;
   passwordPlaceholder: string;
+  bankSection: string;
+  bankBank: string;
+  bankBankPlaceholder: string;
+  bankAccount: string;
+  bankAccountPlaceholder: string;
+  bankHolder: string;
+  bankHolderPlaceholder: string;
+  zaloContact: string;
+  zaloContactPlaceholder: string;
   submit: string;
   submitting: string;
   hasAccount: string;
@@ -155,6 +164,75 @@ export default function SignupForm({ labels }: { labels: Labels }) {
               </button>
             </div>
           </div>
+
+          {/* Zalo 연락처 (선택) — 운영자가 알림·연락에 사용, 자동 Zalo 연결과 별개 */}
+          <div className="group">
+            <label
+              className="block text-sm font-semibold text-neutral-700 mb-2 ml-1"
+              htmlFor="zaloContact"
+            >
+              {labels.zaloContact}
+            </label>
+            <div className="relative">
+              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">
+                forum
+              </span>
+              <input
+                className="w-full h-16 pl-12 pr-4 bg-neutral-50 border border-neutral-200 rounded-xl text-lg transition-all focus:bg-white"
+                id="zaloContact"
+                name="zaloContact"
+                type="text"
+                maxLength={64}
+                placeholder={labels.zaloContactPlaceholder}
+              />
+            </div>
+          </div>
+
+          {/* 정산받을 계좌 (선택) — 운영자 정산용, 공급자 원가·마진과 무관 */}
+          <fieldset className="space-y-4 rounded-2xl border border-neutral-200 bg-neutral-50/60 p-4">
+            <legend className="px-1 text-sm font-semibold text-neutral-700">
+              {labels.bankSection}
+            </legend>
+            <div>
+              <label className="block text-xs font-semibold text-neutral-500 mb-1.5 ml-1" htmlFor="bankBank">
+                {labels.bankBank}
+              </label>
+              <input
+                className="w-full h-14 px-4 bg-white border border-neutral-200 rounded-xl text-base transition-all focus:border-teal-400 outline-none"
+                id="bankBank"
+                name="bankBank"
+                type="text"
+                maxLength={120}
+                placeholder={labels.bankBankPlaceholder}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-neutral-500 mb-1.5 ml-1" htmlFor="bankAccount">
+                {labels.bankAccount}
+              </label>
+              <input
+                className="w-full h-14 px-4 bg-white border border-neutral-200 rounded-xl text-base transition-all focus:border-teal-400 outline-none"
+                id="bankAccount"
+                name="bankAccount"
+                inputMode="numeric"
+                maxLength={120}
+                placeholder={labels.bankAccountPlaceholder}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-neutral-500 mb-1.5 ml-1" htmlFor="bankHolder">
+                {labels.bankHolder}
+              </label>
+              <input
+                className="w-full h-14 px-4 bg-white border border-neutral-200 rounded-xl text-base transition-all focus:border-teal-400 outline-none"
+                id="bankHolder"
+                name="bankHolder"
+                type="text"
+                maxLength={120}
+                placeholder={labels.bankHolderPlaceholder}
+              />
+            </div>
+          </fieldset>
         </form>
 
         {/* 장식 요소 */}

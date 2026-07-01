@@ -9,11 +9,17 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { BCRYPT_ROUNDS, PASSWORD_MIN, isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
+import type { Prisma } from "@prisma/client";
 
 const signupSchema = z.object({
   name: z.string().min(1),
   phone: z.string().min(8),
   password: z.string().min(PASSWORD_MIN).refine(isStrongPassword, PASSWORD_POLICY_MESSAGE),
+  // 정산 계좌·Zalo 연락처는 선택 입력(가입 마찰 최소화 — 나중에 프로필에서 보완 가능)
+  zaloContact: z.string().max(64).optional(),
+  bankBank: z.string().max(120).optional(),
+  bankAccount: z.string().max(120).optional(),
+  bankHolder: z.string().max(120).optional(),
 });
 
 // 자동 계정 스팸 방어 (T-sec-auth-ratelimit) — IP당 시간당 한도.
@@ -36,6 +42,10 @@ export async function signupAction(
     name: formData.get("name"),
     phone: formData.get("phone"),
     password: formData.get("password"),
+    zaloContact: formData.get("zaloContact") ?? undefined,
+    bankBank: formData.get("bankBank") ?? undefined,
+    bankAccount: formData.get("bankAccount") ?? undefined,
+    bankHolder: formData.get("bankHolder") ?? undefined,
   });
 
   if (!parsed.success) {
@@ -44,14 +54,33 @@ export async function signupAction(
     return { error: "serverError" };
   }
 
-  const { name, phone, password } = parsed.data;
+  const { name, phone, password, zaloContact, bankBank, bankAccount, bankHolder } = parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { phone } });
   if (existing) return { error: "phoneExists" };
 
+  // 정산 계좌 — 입력된 필드가 하나라도 있을 때만 JSON 구성(vendor-signup 패턴 재사용)
+  const bankInfo: Prisma.InputJsonValue | undefined =
+    bankBank || bankAccount || bankHolder
+      ? {
+          ...(bankBank ? { bank: bankBank } : {}),
+          ...(bankAccount ? { account: bankAccount } : {}),
+          ...(bankHolder ? { holder: bankHolder } : {}),
+        }
+      : undefined;
+  const zaloContactTrimmed = zaloContact?.trim() || undefined;
+
   const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
   const user = await prisma.user.create({
-    data: { name, phone, passwordHash, role: "SUPPLIER", locale: "vi" },
+    data: {
+      name,
+      phone,
+      passwordHash,
+      role: "SUPPLIER",
+      locale: "vi",
+      ...(zaloContactTrimmed ? { zaloContact: zaloContactTrimmed } : {}),
+      ...(bankInfo !== undefined ? { bankInfo } : {}),
+    },
   });
 
   await writeAuditLog({
