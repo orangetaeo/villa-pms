@@ -1,9 +1,9 @@
-# Skill: 배포·환경 관리 패턴 (Railway + Neon)
+# Skill: 배포·환경 관리 패턴 (Railway + Railway Postgres)
 
 ## 환경변수 관리
 - 키 목록은 CLAUDE.md "환경 변수" 섹션이 원본 — 새 키 추가 시 CLAUDE.md + .env.example + Railway 대시보드 3곳 동기화
 - .env.example에는 키 이름만, 값은 비움. 실제 값은 절대 커밋 금지
-- 환경별 분리: 로컬(.env) / Railway(production variables) — DATABASE_URL은 Neon branch로 분리 (dev/prod)
+- 환경별 분리: 로컬(.env) / Railway(production variables) — DATABASE_URL은 환경별로 분리 (dev/prod)
 
 ## 배포 절차 (체크리스트)
 1. `npm run lint && npm run typecheck` 통과 확인
