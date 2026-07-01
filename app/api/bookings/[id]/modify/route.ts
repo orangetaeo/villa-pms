@@ -110,6 +110,8 @@ export async function PATCH(
       booking: b,
       changedFields: result.changedFields,
       recalculated: result.recalculated,
+      // 과수납 경고(T-D) — 판매가 관련 정보라 canViewFinance 일 때만 노출
+      ...(showFinance ? { overpayment: result.overpayment } : {}),
     });
   } catch (e) {
     if (e instanceof BookingModifyRejectedError) {

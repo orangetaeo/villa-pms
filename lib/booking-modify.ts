@@ -11,7 +11,7 @@ import {
   OCCUPYING_BOOKING_STATUSES,
   type StayRange,
 } from "./availability";
-import { assertSaleAmountColumns, quoteStayForVilla } from "./pricing";
+import { assertSaleAmountColumns, krwToVndSnapshot, quoteStayForVilla } from "./pricing";
 import { writeAuditLog } from "./audit-log";
 import { countNights } from "./hold";
 import { computeDueDate } from "./partner";
@@ -79,6 +79,8 @@ export interface ModifyBookingResult {
   changedFields: string[];
   /** 금액 재계산 여부 (날짜·빌라 변경 시 true) */
   recalculated: boolean;
+  /** 과수납 여부 — 기수납(VND 환산) > 새 총액(VND 환산) (ADR-0030 T-D). 산출 불가 시 false */
+  overpayment: boolean;
 }
 
 /** 상태별 변경 가능성 판정 (순수) — CHECKED_IN은 checkOut만 허용. */
@@ -177,6 +179,7 @@ export async function modifyBooking(
         villa: { select: { supplierId: true } },
         receivable: { select: { id: true } },
         partner: { select: { creditTier: true, paymentTermDays: true } },
+        payments: { select: { vndEquivalent: true } }, // T-D 과수납 판정용
       },
     });
     if (!booking) throw new BookingModifyRejectedError("BOOKING_NOT_FOUND");
@@ -386,6 +389,19 @@ export async function modifyBooking(
       }
     }
 
+    // ── (e-2) 과수납 판정 (ADR-0030 T-D) ──
+    // 기수납(VND 환산 합계) > 새 총액(VND 환산)이면 과수납. 하드 차단은 하지 않고(운영자 판단)
+    // 결과 플래그 + AuditLog로 남긴다 — 저장 전 경고는 미리보기(T-B)가 담당. VND/KRW만(USD 범위 밖).
+    const collectedVnd = booking.payments.reduce<bigint | null>((sum, p) => {
+      if (p.vndEquivalent == null) return sum;
+      return (sum ?? 0n) + p.vndEquivalent;
+    }, null);
+    let newTotalVnd: bigint | null = null;
+    if (saleCurrency === "VND") newTotalVnd = nextTotalSaleVnd ?? 0n;
+    else if (saleCurrency === "KRW" && booking.fxVndPerKrw)
+      newTotalVnd = krwToVndSnapshot(nextTotalSaleKrw ?? 0, booking.fxVndPerKrw.toString());
+    const overpayment = collectedVnd != null && newTotalVnd != null && collectedVnd > newTotalVnd;
+
     // ── (f) AuditLog — old→new 변경 필드 (글로벌 절대규칙) ──
     const changes: Record<string, { old?: unknown; new?: unknown }> = {};
     if (villaChanged) changes.villaId = { old: booking.villaId, new: nextVillaId };
@@ -411,6 +427,12 @@ export async function modifyBooking(
       changes.breakfastIncluded = { old: booking.breakfastIncluded, new: input.breakfastIncluded };
     }
     if (receivableDueDateChange) changes.receivableDueDate = receivableDueDateChange;
+    if (overpayment) {
+      changes.overpayment = {
+        old: collectedVnd?.toString() ?? null, // 기수납(VND 환산)
+        new: newTotalVnd?.toString() ?? null, // 새 총액(VND 환산) — 이보다 많이 받음
+      };
+    }
     if (input.reason?.trim()) changes.reason = { new: input.reason.trim() };
 
     await writeAuditLog({
@@ -446,6 +468,6 @@ export async function modifyBooking(
       });
     }
 
-    return { booking: updated, changedFields, recalculated };
+    return { booking: updated, changedFields, recalculated, overpayment };
   });
 }

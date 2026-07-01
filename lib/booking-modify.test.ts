@@ -67,9 +67,11 @@ interface BookingRow {
   totalSaleKrw: number | null;
   totalSaleVnd: bigint | null;
   supplierCostVnd: bigint;
+  fxVndPerKrw: { toString(): string } | null;
   villa: { supplierId: string };
   receivable: { id: string } | null;
   partner: { creditTier: CreditTier; paymentTermDays: number } | null;
+  payments: { vndEquivalent: bigint | null }[];
 }
 
 function defaultBooking(over: Partial<BookingRow> = {}): BookingRow {
@@ -88,9 +90,11 @@ function defaultBooking(over: Partial<BookingRow> = {}): BookingRow {
     totalSaleKrw: null,
     totalSaleVnd: 3_000_000n,
     supplierCostVnd: 2_400_000n,
+    fxVndPerKrw: null,
     villa: { supplierId: "sup1" },
     receivable: null,
     partner: null,
+    payments: [],
     ...over,
   };
 }
@@ -493,6 +497,45 @@ describe("modifyBooking — 체크인 후 금액 하한 (ADR-0030 D2/T-C)", () =
     });
     expect(res.booking.totalSaleVnd).toBe(3_000_000n); // 하한 유지(무환불)
     expect(res.booking.nights).toBe(2); // 실제 구간 반영
+  });
+});
+
+describe("modifyBooking — 과수납 판정 (ADR-0030 T-D)", () => {
+  it("확정 단축으로 새 총액 < 기수납 → overpayment=true (하드 차단 아님)", async () => {
+    const { prisma } = makeTx({
+      booking: defaultBooking({
+        status: BookingStatus.CONFIRMED,
+        totalSaleVnd: 3_000_000n,
+        payments: [{ vndEquivalent: 3_000_000n }],
+      }),
+      baseRate: { supplierCostVnd: 800_000n, salePriceVnd: 1_000_000n, salePriceKrw: 0 },
+    });
+    const res = await modifyBooking(prisma, {
+      bookingId: "b1",
+      actorUserId: "u1",
+      now: utc("2026-07-01"),
+      checkOut: utc("2026-07-12"), // 3박 → 2박 = 2M < 3M 수납
+    });
+    expect(res.booking.totalSaleVnd).toBe(2_000_000n); // 확정은 감액됨
+    expect(res.overpayment).toBe(true);
+  });
+
+  it("기수납 ≤ 새 총액 → overpayment=false", async () => {
+    const { prisma } = makeTx({
+      booking: defaultBooking({
+        status: BookingStatus.CONFIRMED,
+        totalSaleVnd: 3_000_000n,
+        payments: [{ vndEquivalent: 1_000_000n }],
+      }),
+      baseRate: { supplierCostVnd: 800_000n, salePriceVnd: 1_000_000n, salePriceKrw: 0 },
+    });
+    const res = await modifyBooking(prisma, {
+      bookingId: "b1",
+      actorUserId: "u1",
+      now: utc("2026-07-01"),
+      checkOut: utc("2026-07-14"), // 연장 4박 = 4M > 1M
+    });
+    expect(res.overpayment).toBe(false);
   });
 });
 
