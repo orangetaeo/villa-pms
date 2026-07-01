@@ -776,6 +776,7 @@
           "INVALID_RANGE": "Ngày trả phòng phải sau ngày nhận phòng.",
           "INVALID_GUEST_COUNT": "Số khách phải từ 1 trở lên.",
           "SOLD_OUT": "Biệt thự/khoảng thời gian này đã được đặt hoặc bị chặn, không thể thay đổi.",
+          "OVER_CAPACITY": "Số khách vượt quá sức chứa của biệt thự. Vui lòng chọn biệt thự lớn hơn.",
           "RECEIVABLE_EXISTS": "Đã có công nợ nên việc đổi biệt thự/số tiền cần hủy và đặt lại.",
           "CONCURRENT_MODIFICATION": "Phát hiện thay đổi đồng thời. Vui lòng tải lại và thử lại."
         }

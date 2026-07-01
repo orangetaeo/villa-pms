@@ -41,6 +41,7 @@ export type BookingModifyRejectReason =
   | "INVALID_RANGE" // checkIn >= checkOut
   | "INVALID_GUEST_COUNT" // 인원수 < 1
   | "SOLD_OUT" // 자기 예약 제외 후에도 겹침/판매불가 (대상 빌라·기간)
+  | "OVER_CAPACITY" // 인원 > 대상 빌라 정원(maxGuests) (ADR-0030 T-A)
   | "RECEIVABLE_EXISTS" // 파트너 채권 존재 + 금액/빌라 변경 → 취소 후 재예약 안내
   | "CONCURRENT_MODIFICATION"; // status 가드 실패 (그 사이 상태 전이)
 
@@ -188,6 +189,24 @@ export async function modifyBooking(
 
     if (changedFields.length === 0) {
       throw new BookingModifyRejectedError("NO_CHANGES");
+    }
+
+    // ── (b0) 정원 검증 (ADR-0030 T-A) ──
+    // 인원 또는 빌라가 바뀌면 대상(변경 후) 빌라의 정원(maxGuests)을 확인한다.
+    // D0: 체크인 후 인원 변경은 위 CHECKED_IN_FIELD_LOCKED에서 이미 차단 — 여기 도달하는 인원 변경은
+    //     확정(FULL) 상태뿐. 빌라 변경은 대상 빌라 정원에 현재 인원이 맞는지 확인.
+    const nextGuestCount = input.guestCount ?? booking.guestCount;
+    if (villaChanged || guestCountChanged) {
+      const capVilla = await tx.villa.findUnique({
+        where: { id: nextVillaId },
+        select: { maxGuests: true },
+      });
+      if (capVilla && nextGuestCount > capVilla.maxGuests) {
+        throw new BookingModifyRejectedError(
+          "OVER_CAPACITY",
+          `${nextGuestCount}/${capVilla.maxGuests}`
+        );
+      }
     }
 
     // ── (b) 재고 잠금 + 자기 예약 제외 가용성 ──

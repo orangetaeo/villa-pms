@@ -109,6 +109,8 @@ interface FakeTxOpts {
   notifyVilla?: { supplierId: string; name: string } | null;
   /** 기존 채권 dueDate (partnerReceivable.findUnique 반환) */
   receivableDueDate?: Date;
+  /** 대상 빌라 정원 (checkAvailability·정원검증 findUnique) — 기본 10 (여유) */
+  maxGuests?: number;
 }
 
 function makeTx(opts: FakeTxOpts) {
@@ -134,13 +136,19 @@ function makeTx(opts: FakeTxOpts) {
     return 0; // checkAvailability 내부 점유 count — 자기제외 분기가 진짜 판정
   });
 
+  const maxGuests = opts.maxGuests ?? 10;
   const villaFindUnique = vi.fn(async ({ select }: { select?: Record<string, unknown> }) => {
-    // checkAvailability: select { status, isSellable }
+    // checkAvailability: select { status, isSellable, maxGuests }
     if (select && "status" in select) {
       return {
         status: opts.villaStatus ?? "ACTIVE",
         isSellable: opts.isSellable ?? true,
+        maxGuests,
       };
+    }
+    // 정원 검증(b0): select { maxGuests }
+    if (select && "maxGuests" in select) {
+      return { maxGuests };
     }
     // notifyVilla: select { supplierId, name }
     if (opts.notifyVilla === null) return null;
@@ -329,6 +337,47 @@ describe("modifyBooking — 자기 예약 제외 가용성", () => {
     expect(tx.calendarBlock.count).not.toHaveBeenCalled();
     // 금액 컬럼은 그대로(재계산 안 함)
     expect(res.booking.totalSaleVnd).toBe(3_000_000n);
+  });
+});
+
+describe("modifyBooking — 정원 검증 (ADR-0030 T-A)", () => {
+  it("인원 증가가 현재 빌라 정원 초과 → OVER_CAPACITY", async () => {
+    const { prisma } = makeTx({ booking: defaultBooking({ guestCount: 2 }), maxGuests: 4 });
+    await expect(
+      modifyBooking(prisma, {
+        bookingId: "b1",
+        actorUserId: "u1",
+        now: utc("2026-07-01"),
+        guestCount: 5, // 정원 4 초과
+      })
+    ).rejects.toMatchObject({ reason: "OVER_CAPACITY" });
+  });
+
+  it("빌라 변경 대상 정원이 현재 인원 미달 → OVER_CAPACITY", async () => {
+    const { prisma } = makeTx({
+      booking: defaultBooking({ guestCount: 6 }),
+      otherOverlapCount: 0,
+      maxGuests: 4, // 대상 빌라 정원 4 < 인원 6
+    });
+    await expect(
+      modifyBooking(prisma, {
+        bookingId: "b1",
+        actorUserId: "u1",
+        now: utc("2026-07-01"),
+        villaId: "v2",
+      })
+    ).rejects.toMatchObject({ reason: "OVER_CAPACITY" });
+  });
+
+  it("인원 = 정원(경계) → 통과", async () => {
+    const { prisma } = makeTx({ booking: defaultBooking({ guestCount: 2 }), maxGuests: 4 });
+    const res = await modifyBooking(prisma, {
+      bookingId: "b1",
+      actorUserId: "u1",
+      now: utc("2026-07-01"),
+      guestCount: 4, // 정확히 정원
+    });
+    expect(res.changedFields).toEqual(["guestCount"]);
   });
 });
 

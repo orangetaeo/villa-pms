@@ -107,6 +107,7 @@ export default function BookingModifyPanel({
     "INVALID_RANGE",
     "INVALID_GUEST_COUNT",
     "SOLD_OUT",
+    "OVER_CAPACITY",
     "RECEIVABLE_EXISTS",
     "CONCURRENT_MODIFICATION",
   ]);

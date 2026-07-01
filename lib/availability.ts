@@ -46,7 +46,8 @@ export type UnavailableReason =
   | "VILLA_NOT_ACTIVE" // villa.status != ACTIVE
   | "BOOKING_OVERLAP" // HOLD/CONFIRMED/CHECKED_IN 예약 겹침
   | "BLOCK_OVERLAP" // CalendarBlock(수동·iCal) 겹침
-  | "NOT_SELLABLE"; // 청소 검수 게이트 미통과 (isSellable=false)
+  | "NOT_SELLABLE" // 청소 검수 게이트 미통과 (isSellable=false)
+  | "OVER_CAPACITY"; // 요청 인원 > 빌라 정원(maxGuests) — guestCount 주어졌을 때만 (ADR-0030 T-A)
 
 export interface AvailabilityResult {
   /** 재고가 비어 있는가 (예약·차단 없음 + ACTIVE) */
@@ -82,6 +83,10 @@ export interface AvailabilityInput {
   isSellable: boolean;
   overlappingBookingCount: number;
   overlappingBlockCount: number;
+  /** 빌라 정원 (선택) — guestCount와 함께 주어질 때만 정원 검증 (ADR-0030 T-A) */
+  maxGuests?: number;
+  /** 요청 인원 (선택) — maxGuests와 함께 주어질 때만 검증. 미지정 시 정원 판정 생략(하위호환) */
+  guestCount?: number;
 }
 
 /**
@@ -103,7 +108,13 @@ export function evaluateAvailability(input: AvailabilityInput): AvailabilityResu
   const available = reasons.length === 0;
   if (!input.isSellable) reasons.push("NOT_SELLABLE");
 
-  return { available, sellable: available && input.isSellable, reasons };
+  // 정원 검증 — maxGuests·guestCount 둘 다 주어졌을 때만. 재고(available)엔 영향 없고
+  // 판매가능(sellable)만 막는다: 인원이 정원을 넘으면 이 빌라로는 판매 불가 (ADR-0030 T-A).
+  const overCapacity =
+    input.maxGuests != null && input.guestCount != null && input.guestCount > input.maxGuests;
+  if (overCapacity) reasons.push("OVER_CAPACITY");
+
+  return { available, sellable: available && input.isSellable && !overCapacity, reasons };
 }
 
 // ===================== DB 래퍼 층 =====================
@@ -146,14 +157,16 @@ function blockOverlapWhere(villaId: string, range: StayRange) {
 export async function checkAvailability(
   db: DbClient,
   villaId: string,
-  range: StayRange
+  range: StayRange,
+  /** 요청 인원 (선택) — 주어지면 빌라 정원(maxGuests) 초과 시 OVER_CAPACITY (ADR-0030 T-A) */
+  guestCount?: number
 ): Promise<AvailabilityResult> {
   assertValidStayRange(range);
 
   const [villa, overlappingBookingCount, overlappingBlockCount] = await Promise.all([
     db.villa.findUnique({
       where: { id: villaId },
-      select: { status: true, isSellable: true },
+      select: { status: true, isSellable: true, maxGuests: true },
     }),
     db.booking.count({ where: bookingOverlapWhere(villaId, range) }),
     db.calendarBlock.count({ where: blockOverlapWhere(villaId, range) }),
@@ -166,6 +179,8 @@ export async function checkAvailability(
     isSellable: villa.isSellable,
     overlappingBookingCount,
     overlappingBlockCount,
+    maxGuests: villa.maxGuests,
+    guestCount,
   });
 }
 
@@ -177,7 +192,9 @@ export async function checkAvailability(
 export async function findSellableVillaIds(
   db: DbClient,
   range: StayRange,
-  villaIds?: string[]
+  villaIds?: string[],
+  /** 요청 인원 (선택) — 주어지면 정원(maxGuests) 미달 빌라를 후보에서 제외 (ADR-0030 T-A) */
+  guestCount?: number
 ): Promise<string[]> {
   assertValidStayRange(range);
 
@@ -186,6 +203,7 @@ export async function findSellableVillaIds(
       ...(villaIds ? { id: { in: villaIds } } : {}),
       status: VillaStatus.ACTIVE,
       isSellable: true,
+      ...(guestCount != null ? { maxGuests: { gte: guestCount } } : {}),
     },
     select: { id: true },
   });
