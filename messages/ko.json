@@ -188,6 +188,16 @@
     "subtitle": "계정 비밀번호를 관리합니다.",
     "changeTitle": "비밀번호 변경",
     "changeSubtitle": "임시 비밀번호를 받았다면 본인이 원하는 비밀번호로 변경하세요.",
+    "passkey": {
+      "title": "지문·얼굴 로그인 (패스키)",
+      "subtitle": "이 기기의 지문·얼굴로 다음부터 빠르게 로그인합니다. 비밀번호보다 안전합니다.",
+      "register": "이 기기에 패스키 등록",
+      "registering": "등록 중...",
+      "registerError": "패스키 등록에 실패했습니다. 다시 시도해주세요.",
+      "remove": "삭제",
+      "deleteError": "삭제에 실패했습니다.",
+      "unnamedDevice": "등록된 기기"
+    },
     "currentPassword": "현재 비밀번호",
     "newPassword": "새 비밀번호",
     "confirmPassword": "새 비밀번호 확인",

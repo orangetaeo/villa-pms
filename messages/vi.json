@@ -188,6 +188,16 @@
     "subtitle": "Quản lý mật khẩu tài khoản.",
     "changeTitle": "Đổi mật khẩu",
     "changeSubtitle": "Nếu bạn nhận được mật khẩu tạm thời, hãy đổi sang mật khẩu của riêng bạn.",
+    "passkey": {
+      "title": "Đăng nhập vân tay·khuôn mặt (Passkey)",
+      "subtitle": "Dùng vân tay·khuôn mặt của thiết bị này để đăng nhập nhanh lần sau. An toàn hơn mật khẩu.",
+      "register": "Đăng ký passkey trên thiết bị này",
+      "registering": "Đang đăng ký...",
+      "registerError": "Đăng ký passkey thất bại. Vui lòng thử lại.",
+      "remove": "Xóa",
+      "deleteError": "Xóa thất bại.",
+      "unnamedDevice": "Thiết bị đã đăng ký"
+    },
     "currentPassword": "Mật khẩu hiện tại",
     "newPassword": "Mật khẩu mới",
     "confirmPassword": "Xác nhận mật khẩu mới",

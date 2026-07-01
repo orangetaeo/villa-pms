@@ -19,6 +19,8 @@
     "@hookform/resolvers": "^5.4.0",
     "@prisma/client": "^6.9.0",
     "@react-pdf/renderer": "^4.5.1",
+    "@simplewebauthn/browser": "^9.0.1",
+    "@simplewebauthn/server": "^9.0.3",
     "bcryptjs": "^2.4.3",
     "next": "^15.3.3",
     "next-auth": "^5.0.0-beta.28",

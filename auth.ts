@@ -5,6 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { checkRateLimit, resetRateLimit, clientIp } from "@/lib/rate-limit";
 import { recordSecurityEvent } from "@/lib/security-event";
 import { isPasswordSessionStale, shouldRecheckPassword } from "@/lib/session-invalidation";
+import { verifyPasskeyLogin } from "@/lib/passkey-verify";
+import { readCookie, AUTH_CHALLENGE_COOKIE } from "@/lib/webauthn";
+import type { AuthenticationResponseJSON } from "@simplewebauthn/types";
 
 // 무차별 대입·크리덴셜 스터핑 방어 (T-sec-auth-ratelimit, Phase 1 보안)
 // 전화번호: 한 계정 집중 공격 차단 / IP: 한 출처에서 여러 계정 시도(스터핑) 차단
@@ -111,6 +114,84 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           locale: user.locale,
           mustChangePassword: user.mustChangePassword,
           // 보안 P0-5② — 발급 토큰에 박을 baseline(ms). null=한 번도 안 바꿈 → 0.
+          pwdAt: user.passwordChangedAt ? user.passwordChangedAt.getTime() : 0,
+        };
+      },
+    }),
+    // 패스키(지문·얼굴·Windows Hello) 로그인 provider (ADR-0030).
+    //   클라이언트가 WebAuthn 어설션(JSON)을 signIn("passkey", { response }) 로 전달.
+    //   challenge는 /api/auth/passkey/login/options 가 심은 httpOnly 쿠키에서 읽어 대조.
+    //   무거운 검증은 lib/passkey-verify(동형 @simplewebauthn/server)에 위임 — 성공 시 동일 user 형태 반환.
+    Credentials({
+      id: "passkey",
+      name: "Passkey",
+      credentials: { response: { label: "response", type: "text" } },
+      authorize: async (credentials, request) => {
+        const raw = credentials?.response;
+        if (typeof raw !== "string") return null;
+        const ip = clientIp(request?.headers ?? null);
+
+        let parsed: AuthenticationResponseJSON;
+        try {
+          parsed = JSON.parse(raw) as AuthenticationResponseJSON;
+        } catch {
+          return null;
+        }
+        const challenge = readCookie(
+          request?.headers?.get("cookie") ?? null,
+          AUTH_CHALLENGE_COOKIE
+        );
+        if (!challenge) return null;
+
+        const result = await verifyPasskeyLogin({ response: parsed, expectedChallenge: challenge });
+        if (!result) {
+          await recordSecurityEvent({
+            type: "LOGIN_FAIL",
+            ip,
+            path: "/login",
+            meta: { reason: "passkey_verify", method: "passkey" },
+          });
+          return null;
+        }
+
+        // 검증 통과 — 계정 상태 확인(비활성·소프트삭제는 차단) 후 세션 발급.
+        const user = await prisma.user.findUnique({
+          where: { id: result.userId },
+          select: {
+            id: true,
+            name: true,
+            role: true,
+            locale: true,
+            isActive: true,
+            deletedAt: true,
+            mustChangePassword: true,
+            passwordChangedAt: true,
+          },
+        });
+        if (!user || !user.isActive || user.deletedAt) {
+          await recordSecurityEvent({
+            type: "LOGIN_FAIL",
+            actorUserId: result.userId,
+            ip,
+            path: "/login",
+            meta: { reason: "inactive_or_deleted", method: "passkey" },
+          });
+          return null;
+        }
+
+        await recordSecurityEvent({
+          type: "LOGIN_OK",
+          actorUserId: user.id,
+          ip,
+          path: "/login",
+          meta: { method: "passkey" },
+        });
+        return {
+          id: user.id,
+          name: user.name,
+          role: user.role,
+          locale: user.locale,
+          mustChangePassword: user.mustChangePassword,
           pwdAt: user.passwordChangedAt ? user.passwordChangedAt.getTime() : 0,
         };
       },
