@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { loginAction } from "./actions";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
@@ -16,12 +16,46 @@ interface Labels {
   forgotPassword: string;
   noAccount: string;
   signupLink: string;
+  rememberMe: string;
   errorMessages: Record<string, string>;
 }
+
+// 전화번호·비밀번호 저장 — 본인 기기 편의용. localStorage에 보관(자동 로그인 아님, 폼 자동 채움만).
+const CREDS_KEY = "villaGoLoginCreds";
 
 export default function LoginForm({ labels }: { labels: Labels }) {
   const [state, formAction, isPending] = useActionState(loginAction, null);
   const [showPassword, setShowPassword] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(false);
+
+  // 저장된 로그인 정보 자동 채움 (마운트 시 1회)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CREDS_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { phone?: string; password?: string };
+      if (saved.phone) setPhone(saved.phone);
+      if (saved.password) setPassword(saved.password);
+      setRemember(true);
+    } catch {
+      // 파싱 실패 시 무시(손상된 값)
+    }
+  }, []);
+
+  // 제출 직전 저장/삭제 — 체크 시 보관, 해제 시 즉시 삭제
+  const persistCreds = () => {
+    try {
+      if (remember) {
+        localStorage.setItem(CREDS_KEY, JSON.stringify({ phone, password }));
+      } else {
+        localStorage.removeItem(CREDS_KEY);
+      }
+    } catch {
+      // 저장 불가 환경(프라이빗 모드 등)은 무시
+    }
+  };
 
   return (
     <main className="flex-grow flex flex-col items-center justify-center px-6 py-12 max-w-md mx-auto w-full">
@@ -43,7 +77,7 @@ export default function LoginForm({ labels }: { labels: Labels }) {
           <h2 className="text-3xl font-bold text-slate-900 mb-2">{labels.title}</h2>
         </div>
 
-        <form action={formAction} className="space-y-4">
+        <form action={formAction} onSubmit={persistCreds} className="space-y-4">
           {state?.error && (
             <div className="bg-red-50 border border-red-200 text-red-600 text-sm font-medium px-4 py-3 rounded-xl">
               {labels.errorMessages[state.error] ?? state.error}
@@ -71,9 +105,8 @@ export default function LoginForm({ labels }: { labels: Labels }) {
                 placeholder={labels.phonePlaceholder}
                 type="tel"
                 required
-                onChange={(e) => {
-                  e.target.value = e.target.value.replace(/[^0-9]/g, "");
-                }}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, ""))}
               />
             </div>
           </div>
@@ -98,6 +131,8 @@ export default function LoginForm({ labels }: { labels: Labels }) {
                 placeholder={labels.passwordPlaceholder}
                 type={showPassword ? "text" : "password"}
                 required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
               <button
                 className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 active:text-teal-600 transition-colors"
@@ -112,8 +147,20 @@ export default function LoginForm({ labels }: { labels: Labels }) {
             </div>
           </div>
 
-          {/* 비밀번호 찾기 링크 */}
-          <div className="text-right">
+          {/* 전화번호·비밀번호 저장 + 비밀번호 찾기 */}
+          <div className="flex items-center justify-between gap-3">
+            <label className="flex cursor-pointer items-center gap-2 select-none">
+              <input
+                type="checkbox"
+                name="rememberMe"
+                className="h-5 w-5 rounded border-slate-300 text-teal-600 accent-teal-600 focus:ring-teal-500"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+              />
+              <span className="text-sm font-semibold text-slate-600">
+                {labels.rememberMe}
+              </span>
+            </label>
             <Link
               className="text-sm font-semibold text-slate-500 hover:text-teal-600 transition-colors"
               href="/forgot-password"

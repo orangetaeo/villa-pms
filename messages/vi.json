@@ -1150,6 +1150,7 @@
       "forgotPassword": "Quên mật khẩu?",
       "noAccount": "Chưa có tài khoản?",
       "signupLink": "Đăng ký",
+      "rememberMe": "Lưu số điện thoại & mật khẩu",
       "errors": {
         "invalidCredentials": "Số điện thoại hoặc mật khẩu không đúng.",
         "accountDisabled": "Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.",
