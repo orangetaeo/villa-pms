@@ -113,6 +113,9 @@ export default async function BookingDetailPage({
       note: true,
       cancelReason: true,
       villa: { select: { id: true, name: true } },
+      // 분할 숙박(ADR-0030 T-E/T-G) — 이 예약이 다른 예약의 연장이면 원 예약 역링크(금액 아님)
+      parentBookingId: true,
+      parentBooking: { select: { id: true, villa: { select: { name: true } } } },
       // T3.2 — 미서명 배지·사후 서명 진입점 / T3.6 — 여권 전달 가능 여부·전달 시각
       checkInRecord: {
         select: {
@@ -533,6 +536,17 @@ export default async function BookingDetailPage({
           )}
         </div>
       </div>
+
+      {/* 분할 숙박(ADR-0030 T-G) — 이 예약이 연장 예약이면 원 예약으로 역링크 */}
+      {booking.parentBookingId && (
+        <Link
+          href={`/bookings/${booking.parentBookingId}`}
+          className="flex items-center gap-2 bg-admin-card px-4 py-3 rounded-xl border border-admin-primary/40 text-sm text-admin-primary hover:bg-admin-primary/10 transition-colors"
+        >
+          <span className="material-symbols-outlined text-base">link</span>
+          {t("detail.extendedFrom", { villa: booking.parentBooking?.villa.name ?? "" })}
+        </Link>
+      )}
 
       {/* 상태 타임라인 스트립 (b11) — 종결 상태는 배너로 대체 (계약 편차 선언) */}
       {terminal ? (

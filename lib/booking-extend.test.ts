@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { BookingStatus, Currency } from "@prisma/client";
+import { BookingStatus, CreditTier, Currency } from "@prisma/client";
 import { createLinkedExtensionBooking } from "./booking-extend";
 
 const utc = (s: string) => new Date(`${s}T00:00:00.000Z`);
@@ -38,6 +38,7 @@ function makePrisma(opts: Opts = {}) {
   }));
   const notifCreate = vi.fn(async () => ({}));
   const auditCreate = vi.fn(async () => ({}));
+  const rcvCreate = vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: "rcv1", ...data }));
   const tx = {
     $executeRaw: vi.fn(async () => 0),
     booking: {
@@ -74,11 +75,12 @@ function makePrisma(opts: Opts = {}) {
     },
     notification: { create: notifCreate },
     auditLog: { create: auditCreate },
+    partnerReceivable: { create: rcvCreate },
   };
   const prisma = {
     $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(tx),
   } as never;
-  return { prisma, tx, create, notifCreate, auditCreate };
+  return { prisma, tx, create, notifCreate, auditCreate, rcvCreate };
 }
 
 describe("createLinkedExtensionBooking (ADR-0030 T-E)", () => {
@@ -156,5 +158,25 @@ describe("createLinkedExtensionBooking (ADR-0030 T-E)", () => {
     await expect(createLinkedExtensionBooking(prisma, baseInput)).rejects.toMatchObject({
       reason: "SOLD_OUT",
     });
+  });
+
+  it("파트너 없는 부모 → 자식 채권 미생성", async () => {
+    const { prisma, rcvCreate } = makePrisma();
+    await createLinkedExtensionBooking(prisma, baseInput);
+    expect(rcvCreate).not.toHaveBeenCalled();
+  });
+
+  it("파트너 부모 → 자식 예약도 채권 생성(청구서 추가라인, T-F)", async () => {
+    const partnerParent = defaultParent({
+      partnerId: "pt1",
+      partner: { creditTier: CreditTier.A, depositRatePct: 30, paymentTermDays: 0 },
+      totalSaleVnd: 3_000_000n,
+      checkIn: utc("2026-07-10"),
+      receivable: null,
+    });
+    const { prisma, rcvCreate } = makePrisma({ parent: partnerParent });
+    const res = await createLinkedExtensionBooking(prisma, baseInput);
+    expect(res.booking.parentBookingId).toBe("p1");
+    expect(rcvCreate).toHaveBeenCalledOnce();
   });
 });

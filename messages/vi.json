@@ -611,6 +611,7 @@
     "detail": {
       "breadcrumb": "Quản lý đặt phòng",
       "title": "Đặt phòng #{code}",
+      "extendedFrom": "Đặt phòng này là phần kéo dài của đặt phòng {villa} — Xem đặt phòng gốc",
       "steps": {
         "hold": "Giữ chỗ",
         "confirmed": "Xác nhận",

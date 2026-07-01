@@ -13,6 +13,7 @@ import {
 import { assertSaleAmountColumns, quoteStayForVilla } from "./pricing";
 import { countNights } from "./hold";
 import { writeAuditLog } from "./audit-log";
+import { ensureReceivableForBooking } from "./partner-booking";
 
 /**
  * 분할 숙박 — 연결된 추가(연장) 예약 생성 (ADR-0030 D1/T-E).
@@ -25,7 +26,10 @@ import { writeAuditLog } from "./audit-log";
  * - 대체 빌라는 공실 + 정원 충족 + isSellable(청소 게이트) 만 (checkAvailability + guestCount).
  * - 새 예약은 신선한 밤이므로 **전체 견적**(하한 규칙은 부모의 기존 밤에만 적용 — 여기선 불필요).
  * - 부모에서 상속: 게스트·통화·채널·seller·조식·환율 스냅샷·partnerId.
- * - 파트너 채권: 자식은 **별도 채권을 만들지 않는다**(D3 — 부모 청구서 추가라인은 T-F). 이중 인식 방지.
+ * - 파트너 채권(D3/T-F): 부모에 partnerId가 있으면 자식도 자기 채권(ensureReceivableForBooking)을
+ *   만든다 → 마감 청구서 생성이 파트너·기간별로 채권을 묶으므로 **자동으로 청구서 추가라인**이 된다
+ *   (부모 예약 자체는 변경 없음 → RECEIVABLE_EXISTS 미발생). 취소·재예약 아님. VND 객실료만(모델 제약).
+ *   ⚠ 연장은 신용 게이트로 하드 차단하지 않는다(D3 — 청구로 흡수, 이미 확정·투숙 중인 파트너).
  * - 마진 비공개: 새 빌라 공급자 알림엔 판매가·마진 미포함(BOOKING_CONFIRMED = villaName·날짜·인원만).
  */
 
@@ -138,12 +142,18 @@ export async function createLinkedExtensionBooking(
         totalSaleKrw,
         totalSaleVnd,
         supplierCostVnd: quote.totalSupplierCostVnd,
-        // 환율 스냅샷 상속(정산 정합) — 파트너 채권은 만들지 않음(T-F 청구서 추가라인)
+        // 환율 스냅샷 상속(정산 정합)
         fxVndPerKrw: parent.fxVndPerKrw,
         fxVndPerUsd: parent.fxVndPerUsd,
         partnerId: parent.partnerId,
       },
     });
+
+    // 파트너 채권(D3/T-F) — 자식 예약도 자기 채권 생성 → 마감 청구서에 추가라인으로 묶임.
+    // ensureReceivableForBooking: 멱등·VND 객실료만·partner 없으면 no-op. 신용 하드게이트 없음(D3).
+    if (parent.partnerId) {
+      await ensureReceivableForBooking(tx, child.id, input.now);
+    }
 
     await writeAuditLog({
       db: tx,

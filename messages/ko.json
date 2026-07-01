@@ -502,6 +502,7 @@
     "detail": {
       "breadcrumb": "예약 관리",
       "title": "예약 #{code}",
+      "extendedFrom": "이 예약은 {villa} 예약의 연장입니다 — 원 예약 보기",
       "steps": {
         "hold": "가예약",
         "confirmed": "확정",
