@@ -84,7 +84,7 @@ export async function previewBookingModify(
       totalSaleVnd: true,
       supplierCostVnd: true,
       fxVndPerKrw: true,
-      receivable: { select: { id: true } },
+      receivable: { select: { id: true, invoiceId: true } },
       payments: { select: { vndEquivalent: true } },
     },
   });
@@ -178,6 +178,22 @@ export async function previewBookingModify(
     );
     newSaleKrw = resolved.totalSaleKrw;
     newSaleVnd = resolved.totalSaleVnd;
+  }
+
+  // 파트너 채권 정합(modify와 동일 규칙, ADR-0030 §11): 빌라 변경·감액·발행분은 차단,
+  // 같은 빌라 증액(연장)은 허용(채권 증액). 미리보기가 저장 결과를 정확히 반영.
+  if (booking.receivable) {
+    if (villaChanged) {
+      blockers.push("RECEIVABLE_EXISTS");
+    } else if (
+      recalculated &&
+      newSaleVnd != null &&
+      booking.totalSaleVnd != null &&
+      newSaleVnd !== booking.totalSaleVnd
+    ) {
+      const increased = newSaleVnd > booking.totalSaleVnd;
+      if (!increased || booking.receivable.invoiceId) blockers.push("RECEIVABLE_EXISTS");
+    }
   }
 
   // 추가청구 = new − existing (통화별)

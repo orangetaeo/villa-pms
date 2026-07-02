@@ -112,5 +112,8 @@
 
 ✅ **T-A~T-G 전부 구현·독립 QA PASS·PR #158**(누수0·D0/D2/D3/정원 준수·테스트80·tsc0·build0·AuditLog100%). `parentBookingId` 라이브 Railway DB additive ALTER 적용·검증 완료.
 
-**후속(의도적 미착수 — 정산 영향으로 별도 검토 필요)**:
-- **파트너 여신 + 같은 빌라 연장 델타 경로 부재** — 여신(채권 존재) 예약을 modify로 같은 빌라 체크아웃 연장 시 금액 증가 → 채권 가드가 `RECEIVABLE_EXISTS`로 거부, extend는 다른 빌라만(`SAME_VILLA` 차단). D1이 분할숙박을 "다른 빌라"로만 정의해 계약 위반은 아니나, "여신 손님이 묵던 빌라 그대로 연장" 흐름이 막힘. 닫으려면 modify 채권 가드를 "연장(증액)이면 거부 대신 채권 totalVnd·depositDue 갱신"으로 완화(정산·청구서 라인 영향 검토 후). QA가 PM 판단사항으로 지목.
+✅ **후속 완료 (2026-07-02, wt/partner-samevilla-extend)** — 파트너 여신 + 같은 빌라 연장:
+- modify 채권 가드 완화: 채권이 있어도 **같은 빌라 연장(증액) + 미발행 청구서**면 거부 대신 채권 `totalVnd`·`depositDueVnd`·`status`를 갱신(취소·재예약 없이 "돈 받고 연장"). 빌라 변경(`villa`)·감액(`amount_decrease`)·발행분(`invoiced`)은 계속 `RECEIVABLE_EXISTS` 거부.
+- preview도 동일 규칙 반영(증액 ok·감액/발행 차단 표시). RECEIVABLE_EXISTS 안내 문구 정정(ko/vi).
+- 테스트: modify 증액허용+채권증액·감액거부·발행거부 3종, preview 증액ok·감액차단 2종. tsc0·build0.
+- 현금·직접 예약은 채권이 없어 이전부터 modify 연장이 그대로 동작(이번 변경 무관).
