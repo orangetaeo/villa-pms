@@ -50,7 +50,7 @@ export default async function StatsSection({
   locale,
   range,
   page = 1,
-  pageSize = 20,
+  pageSize = 10,
 }: {
   supplierId: string;
   locale: string;
