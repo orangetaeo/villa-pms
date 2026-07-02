@@ -1,9 +1,9 @@
 "use client";
 
-// 예약 변경 패널 (F-booking-modify) — 날짜·빌라·인원·투숙객·조식 편집 + 변경 사유.
-// 허용 상태에서만 노출(HOLD/CONFIRMED=전체, CHECKED_IN=체크아웃일만). 종결 상태는 부모가 미렌더.
-// 금액은 서버 재계산 — 본 컴포넌트는 입력만 보내고 결과 토스트만 표시(판매가는 서버 게이트).
-import { useState } from "react";
+// 예약 변경 패널 (F-booking-modify, ADR-0030 UX 개편) — 날짜·빌라·인원·투숙객·조식 편집.
+// 기준(ADR-0030): 날짜·인원 먼저 → 가용 빌라만 셀렉터 표시 → 날짜·빌라·인원 변경 시 자동 미리보기
+//   → 저장 시 확인 팝업. CHECKED_IN=체크아웃일만. 금액은 서버 재계산(판매가는 서버 게이트).
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { BookingStatus } from "@prisma/client";
@@ -31,6 +31,18 @@ interface PreviewData {
   overpayment?: boolean;
 }
 
+const ERROR_KEYS = new Set([
+  "STATUS_NOT_MODIFIABLE",
+  "CHECKED_IN_FIELD_LOCKED",
+  "NO_CHANGES",
+  "INVALID_RANGE",
+  "INVALID_GUEST_COUNT",
+  "SOLD_OUT",
+  "OVER_CAPACITY",
+  "RECEIVABLE_EXISTS",
+  "CONCURRENT_MODIFICATION",
+]);
+
 /** 금액 표시 — 부호 포함(추가청구 +, 감액 −). VND는 문자열/BigInt 안전. */
 function fmtSigned(v: number | string, unit: string): string {
   const n = typeof v === "string" ? Number(v) : v;
@@ -50,7 +62,7 @@ export default function BookingModifyPanel({
 }: {
   bookingId: string;
   status: BookingStatus;
-  /** 빌라 셀렉트 후보 (현재 빌라 포함) */
+  /** 빌라 셀렉트 후보 (현재 빌라 포함) — 초기/폴백용. 날짜·인원 지정 시 가용 목록으로 대체 */
   villaOptions: VillaOption[];
   initial: {
     villaId: string;
@@ -82,9 +94,10 @@ export default function BookingModifyPanel({
   const [reason, setReason] = useState("");
   const [preview, setPreview] = useState<PreviewData | null>(null);
   const [previewBusy, setPreviewBusy] = useState(false);
+  const [availableVillas, setAvailableVillas] = useState<VillaOption[] | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // 입력이 바뀌면 이전 미리보기는 무효 — 다시 계산하도록 비운다.
-  const invalidatePreview = () => setPreview(null);
+  const rangeValid = checkIn < checkOut;
 
   // 변경 필드만 모아 본문 구성 (미리보기·저장 공용)
   const buildChangeBody = (): Record<string, unknown> => {
@@ -102,56 +115,113 @@ export default function BookingModifyPanel({
     return body;
   };
 
-  const runPreview = async () => {
-    setPreviewBusy(true);
-    setPreview(null);
-    setError(null);
-    // 미리보기는 금액·정원·가용성에 영향 주는 필드만 보낸다 (이름·전화·조식 제외)
-    const full = buildChangeBody();
-    const body: Record<string, unknown> = {};
-    for (const k of ["checkIn", "checkOut", "villaId", "guestCount"]) {
-      if (k in full) body[k] = full[k];
-    }
-    if (Object.keys(body).length === 0) {
-      setError(t("errors.noChanges"));
-      setPreviewBusy(false);
+  // ── 자동 미리보기 (디바운스) — 날짜·빌라·인원이 초기값과 다르면 자동 계산 ──
+  useEffect(() => {
+    if (!open) return;
+    const changed =
+      checkOut !== initial.checkOut ||
+      (!checkoutOnly &&
+        (villaId !== initial.villaId ||
+          checkIn !== initial.checkIn ||
+          guestCount !== initial.guestCount));
+    if (!changed || !rangeValid) {
+      setPreview(null);
       return;
     }
-    try {
-      const res = await fetch(`/api/bookings/${bookingId}/modify/preview`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        const code = data?.error as string | undefined;
-        setError(code && messageForError(code) ? t(`errors.${code}`) : t("errors.generic"));
-        return;
+    const ctrl = new AbortController();
+    const timer = setTimeout(async () => {
+      const body: Record<string, unknown> = {};
+      if (checkOut !== initial.checkOut) body.checkOut = checkOut;
+      if (!checkoutOnly) {
+        if (villaId !== initial.villaId) body.villaId = villaId;
+        if (checkIn !== initial.checkIn) body.checkIn = checkIn;
+        if (guestCount !== initial.guestCount) body.guestCount = guestCount;
       }
-      setPreview(data.preview as PreviewData);
-    } catch {
-      setError(t("errors.generic"));
-    } finally {
-      setPreviewBusy(false);
+      setPreviewBusy(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/bookings/${bookingId}/modify/preview`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: ctrl.signal,
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          setPreview(null);
+          const code = data?.error as string | undefined;
+          setError(code && ERROR_KEYS.has(code) ? t(`errors.${code}`) : t("errors.generic"));
+          return;
+        }
+        setPreview(data.preview as PreviewData);
+      } catch {
+        if (!ctrl.signal.aborted) setError(t("errors.generic"));
+      } finally {
+        if (!ctrl.signal.aborted) setPreviewBusy(false);
+      }
+    }, 450);
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
+  }, [open, villaId, checkIn, checkOut, guestCount, checkoutOnly, rangeValid, bookingId, initial, t]);
+
+  // ── 가용 빌라 셀렉터 — 날짜·인원 변경 시 그 조건에 판매 가능한 빌라만 (CHECKED_IN은 빌라 잠금) ──
+  useEffect(() => {
+    if (!open || checkoutOnly || !rangeValid) return;
+    const ctrl = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/bookings/${bookingId}/modify/available-villas`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ checkIn, checkOut, guestCount }),
+          signal: ctrl.signal,
+        });
+        if (!res.ok) return;
+        const data = await res.json().catch(() => null);
+        if (Array.isArray(data?.villas)) setAvailableVillas(data.villas as VillaOption[]);
+      } catch {
+        /* 조회 실패 시 기존 목록 유지 */
+      }
+    }, 450);
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
+  }, [open, checkoutOnly, checkIn, checkOut, guestCount, rangeValid, bookingId]);
+
+  // 셀렉터 표시 목록 — 가용 목록 우선(없으면 서버 폴백), 선택 중인 빌라는 항상 유지
+  const villaChoices = useMemo(() => {
+    const base = availableVillas ?? villaOptions;
+    if (base.some((v) => v.id === villaId)) return base;
+    const sel = villaOptions.find((v) => v.id === villaId);
+    return sel ? [sel, ...base] : base;
+  }, [availableVillas, villaOptions, villaId]);
+
+  // "변경 저장" → 변경 유무 확인 후 확인 팝업 열기
+  const openConfirm = () => {
+    setError(null);
+    const body = buildChangeBody();
+    if (Object.keys(body).length === 0) {
+      setError(t("errors.noChanges"));
+      return;
     }
+    setConfirmOpen(true);
   };
 
   const submit = async () => {
     setBusy(true);
     setError(null);
     setOk(null);
-
-    // 변경된 필드만 보낸다. CHECKED_IN은 checkOut만 허용이라 서버 게이트로 한 번 더 방어.
     const body = buildChangeBody();
     if (reason.trim()) body.reason = reason.trim();
-
     if (Object.keys(body).filter((k) => k !== "reason").length === 0) {
       setError(t("errors.noChanges"));
       setBusy(false);
+      setConfirmOpen(false);
       return;
     }
-
     try {
       const res = await fetch(`/api/bookings/${bookingId}/modify`, {
         method: "PATCH",
@@ -161,38 +231,77 @@ export default function BookingModifyPanel({
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         const code = data?.error as string | undefined;
-        setError(code && messageForError(code) ? t(`errors.${code}`) : t("errors.generic"));
+        setError(code && ERROR_KEYS.has(code) ? t(`errors.${code}`) : t("errors.generic"));
+        setConfirmOpen(false);
         return;
       }
       setOk(t("success"));
+      setConfirmOpen(false);
       setOpen(false);
       router.refresh();
     } catch {
       setError(t("errors.generic"));
+      setConfirmOpen(false);
     } finally {
       setBusy(false);
     }
   };
 
-  // 서버 에러코드 중 i18n 키가 있는 것만 — 없으면 generic
-  const ERROR_KEYS = new Set([
-    "STATUS_NOT_MODIFIABLE",
-    "CHECKED_IN_FIELD_LOCKED",
-    "NO_CHANGES",
-    "INVALID_RANGE",
-    "INVALID_GUEST_COUNT",
-    "SOLD_OUT",
-    "OVER_CAPACITY",
-    "RECEIVABLE_EXISTS",
-    "CONCURRENT_MODIFICATION",
-  ]);
-  function messageForError(code: string): boolean {
-    return ERROR_KEYS.has(code);
-  }
-
   const inputCls =
     "w-full bg-slate-900 border border-slate-700 rounded-lg text-sm p-2.5 text-white focus:ring-admin-primary disabled:opacity-40 disabled:cursor-not-allowed placeholder-[#475569]";
   const labelCls = "block text-xs text-admin-muted mb-1";
+
+  // 미리보기 요약 카드(인라인·모달 공용)
+  const previewSummary = (p: PreviewData) => (
+    <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-3 text-xs space-y-1.5">
+      {!p.capacityOk && (
+        <p className="text-red-400 flex items-center gap-1">
+          <span className="material-symbols-outlined text-sm">group_off</span>
+          {t("preview.overCapacity")}
+        </p>
+      )}
+      {!p.availabilityOk && (
+        <p className="text-red-400 flex items-center gap-1">
+          <span className="material-symbols-outlined text-sm">event_busy</span>
+          {t("preview.soldOut")}
+        </p>
+      )}
+      {p.recalculated && (
+        <p className="text-white">
+          {t("preview.nights")}: {p.nightsOld} → {p.nightsNew}
+        </p>
+      )}
+      {p.additionalVnd != null && Number(p.additionalVnd) !== 0 && (
+        <p className={Number(p.additionalVnd) > 0 ? "text-amber-300" : "text-green-400"}>
+          {t("preview.additional")}: {fmtSigned(p.additionalVnd, "₫")}
+        </p>
+      )}
+      {p.additionalKrw != null && p.additionalKrw !== 0 && (
+        <p className={p.additionalKrw > 0 ? "text-amber-300" : "text-green-400"}>
+          {t("preview.additional")}: {fmtSigned(p.additionalKrw, "₩")}
+        </p>
+      )}
+      {p.newSaleVnd != null && (
+        <p className="text-white">
+          {t("preview.newTotal")}: {fmtAmount(p.newSaleVnd, "₫")}
+        </p>
+      )}
+      {p.newSaleKrw != null && (
+        <p className="text-white">
+          {t("preview.newTotal")}: {fmtAmount(p.newSaleKrw, "₩")}
+        </p>
+      )}
+      {p.overpayment && (
+        <p className="text-amber-400 flex items-center gap-1">
+          <span className="material-symbols-outlined text-sm">warning</span>
+          {t("preview.overpayment")}
+        </p>
+      )}
+      <p className={p.ok ? "text-green-400 font-semibold" : "text-red-400 font-semibold"}>
+        {p.ok ? t("preview.ok") : t("preview.blocked")}
+      </p>
+    </div>
+  );
 
   return (
     <section className="bg-admin-card rounded-xl overflow-hidden shadow-sm border border-[#334155]">
@@ -229,24 +338,25 @@ export default function BookingModifyPanel({
           )}
 
           <div className="grid grid-cols-2 gap-4">
-            {/* 빌라 */}
+            {/* 빌라 — 날짜·인원에 가용한 빌라만 (현재 빌라 항상 포함) */}
             <div className="col-span-2">
               <label className={labelCls}>{t("fields.villa")}</label>
               <select
                 value={villaId}
                 disabled={checkoutOnly}
-                onChange={(e) => {
-                  setVillaId(e.target.value);
-                  invalidatePreview();
-                }}
+                aria-label={t("fields.villa")}
+                onChange={(e) => setVillaId(e.target.value)}
                 className={inputCls}
               >
-                {villaOptions.map((v) => (
+                {villaChoices.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.name}
                   </option>
                 ))}
               </select>
+              {!checkoutOnly && availableVillas != null && (
+                <p className="text-[11px] text-[#475569] mt-1">{t("availableHint")}</p>
+              )}
             </div>
 
             {/* 체크인 */}
@@ -256,10 +366,7 @@ export default function BookingModifyPanel({
                 type="date"
                 value={checkIn}
                 disabled={checkoutOnly}
-                onChange={(e) => {
-                  setCheckIn(e.target.value);
-                  invalidatePreview();
-                }}
+                onChange={(e) => setCheckIn(e.target.value)}
                 className={inputCls}
               />
             </div>
@@ -270,10 +377,7 @@ export default function BookingModifyPanel({
                 type="date"
                 value={checkOut}
                 min={checkIn}
-                onChange={(e) => {
-                  setCheckOut(e.target.value);
-                  invalidatePreview();
-                }}
+                onChange={(e) => setCheckOut(e.target.value)}
                 className={inputCls}
               />
             </div>
@@ -297,10 +401,7 @@ export default function BookingModifyPanel({
                 min={1}
                 value={guestCount}
                 disabled={checkoutOnly}
-                onChange={(e) => {
-                  setGuestCount(Math.max(1, Number(e.target.value) || 1));
-                  invalidatePreview();
-                }}
+                onChange={(e) => setGuestCount(Math.max(1, Number(e.target.value) || 1))}
                 className={inputCls}
               />
             </div>
@@ -343,88 +444,30 @@ export default function BookingModifyPanel({
 
           <p className="text-[11px] text-[#475569]">{t("priceNote")}</p>
 
-          {/* 변경 미리보기 (dry-run) — 저장 전 추가청구·정원·공실·과수납 확인 (ADR-0030 T-B) */}
-          <div>
-            <button
-              type="button"
-              disabled={previewBusy || busy}
-              onClick={runPreview}
-              className="w-full border border-admin-primary text-admin-primary hover:bg-admin-primary/10 font-bold py-2 rounded-lg text-sm transition-all disabled:opacity-50"
-            >
-              {previewBusy ? t("preview.loading") : t("preview.button")}
-            </button>
-
-            {preview && (
-              <div className="mt-3 rounded-lg border border-slate-700 bg-slate-900/60 p-3 text-xs space-y-1.5">
-                <p className="text-admin-muted font-semibold">{t("preview.title")}</p>
-
-                {/* 차단 사유 */}
-                {!preview.capacityOk && (
-                  <p className="text-red-400 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-sm">group_off</span>
-                    {t("preview.overCapacity")}
-                  </p>
-                )}
-                {!preview.availabilityOk && (
-                  <p className="text-red-400 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-sm">event_busy</span>
-                    {t("preview.soldOut")}
-                  </p>
-                )}
-
-                {/* 박수 변화 */}
-                {preview.recalculated && (
-                  <p className="text-white">
-                    {t("preview.nights")}: {preview.nightsOld} → {preview.nightsNew}
-                  </p>
-                )}
-
-                {/* 재무 (canViewFinance 일 때만 필드 존재) */}
-                {preview.additionalVnd != null && Number(preview.additionalVnd) !== 0 && (
-                  <p className={Number(preview.additionalVnd) > 0 ? "text-amber-300" : "text-green-400"}>
-                    {t("preview.additional")}: {fmtSigned(preview.additionalVnd, "₫")}
-                  </p>
-                )}
-                {preview.additionalKrw != null && preview.additionalKrw !== 0 && (
-                  <p className={preview.additionalKrw > 0 ? "text-amber-300" : "text-green-400"}>
-                    {t("preview.additional")}: {fmtSigned(preview.additionalKrw, "₩")}
-                  </p>
-                )}
-                {preview.newSaleVnd != null && (
-                  <p className="text-white">
-                    {t("preview.newTotal")}: {fmtAmount(preview.newSaleVnd, "₫")}
-                  </p>
-                )}
-                {preview.newSaleKrw != null && (
-                  <p className="text-white">
-                    {t("preview.newTotal")}: {fmtAmount(preview.newSaleKrw, "₩")}
-                  </p>
-                )}
-                {preview.overpayment && (
-                  <p className="text-amber-400 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-sm">warning</span>
-                    {t("preview.overpayment")}
-                  </p>
-                )}
-
-                {/* 종합 판정 */}
-                <p className={preview.ok ? "text-green-400 font-semibold" : "text-red-400 font-semibold"}>
-                  {preview.ok ? t("preview.ok") : t("preview.blocked")}
-                </p>
-              </div>
-            )}
-          </div>
+          {/* 자동 미리보기 — 날짜·빌라·인원 변경 시 실시간 계산(버튼 불필요) */}
+          {previewBusy && (
+            <p className="text-xs text-admin-muted flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+              {t("preview.loading")}
+            </p>
+          )}
+          {preview && !previewBusy && (
+            <div>
+              <p className="text-admin-muted font-semibold text-xs mb-1.5">{t("preview.title")}</p>
+              {previewSummary(preview)}
+            </div>
+          )}
 
           {error && <p className="text-xs text-red-400">{error}</p>}
 
           <div className="flex gap-2">
             <button
               type="button"
-              disabled={busy}
-              onClick={submit}
+              disabled={busy || (preview != null && !preview.ok)}
+              onClick={openConfirm}
               className="flex-1 bg-admin-primary hover:bg-blue-600 text-white font-bold py-2.5 rounded-lg transition-all active:scale-[0.98] disabled:opacity-50"
             >
-              {busy ? t("submitting") : t("submit")}
+              {t("submit")}
             </button>
             <button
               type="button"
@@ -437,6 +480,67 @@ export default function BookingModifyPanel({
             >
               {t("cancel")}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 저장 확인 팝업 (모달) */}
+      {confirmOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md bg-admin-card border border-[#334155] rounded-xl shadow-xl p-6 space-y-4">
+            <h3 className="font-bold text-white flex items-center gap-2">
+              <span className="material-symbols-outlined text-admin-primary">edit_calendar</span>
+              {t("confirm.title")}
+            </h3>
+            <p className="text-sm text-admin-muted">{t("confirm.body")}</p>
+
+            {/* 변경 요약 */}
+            <div className="text-xs text-white space-y-1">
+              {villaId !== initial.villaId && (
+                <p>
+                  {t("fields.villa")}:{" "}
+                  {villaChoices.find((v) => v.id === villaId)?.name ?? villaId}
+                </p>
+              )}
+              {(checkIn !== initial.checkIn || checkOut !== initial.checkOut) && (
+                <p>
+                  {t("fields.checkIn")} → {t("fields.checkOut")}: {checkIn} → {checkOut}
+                </p>
+              )}
+              {guestCount !== initial.guestCount && (
+                <p>
+                  {t("fields.guestCount")}: {initial.guestCount} → {guestCount}
+                </p>
+              )}
+            </div>
+
+            {preview && previewSummary(preview)}
+            {preview?.overpayment && (
+              <p className="text-xs text-amber-400">{t("confirm.overpaymentWarn")}</p>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={submit}
+                className="flex-1 bg-admin-primary hover:bg-blue-600 text-white font-bold py-2.5 rounded-lg disabled:opacity-50"
+              >
+                {busy ? t("submitting") : t("confirm.ok")}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setConfirmOpen(false)}
+                className="flex-1 bg-[#334155] text-admin-muted font-bold py-2.5 rounded-lg"
+              >
+                {t("cancel")}
+              </button>
+            </div>
           </div>
         </div>
       )}

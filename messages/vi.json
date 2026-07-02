@@ -767,6 +767,13 @@
         "openButton": "Thay đổi",
         "checkedInHint": "Đã nhận phòng. Chỉ có thể đổi ngày trả phòng (kéo dài/rút ngắn lưu trú).",
         "priceNote": "Số tiền sẽ được tính lại tự động trên máy chủ theo ngày/biệt thự mới.",
+        "availableHint": "Chỉ hiển thị biệt thự còn trống cho ngày/số khách đã chọn.",
+        "confirm": {
+          "title": "Xác nhận thay đổi đặt phòng",
+          "body": "Sẽ thay đổi đặt phòng theo nội dung dưới đây. Tiếp tục?",
+          "ok": "Xác nhận thay đổi",
+          "overpaymentWarn": "Số tiền đã nhận lớn hơn tổng mới — cần hoàn tiền sau khi lưu."
+        },
         "preview": {
           "button": "Xem trước thay đổi",
           "loading": "Đang tính…",

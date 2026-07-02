@@ -4,6 +4,7 @@ import {
   OCCUPYING_BOOKING_STATUSES,
   assertValidStayRange,
   evaluateAvailability,
+  findSellableVillaIds,
   getAvailabilityBoard,
   overlapsHalfOpen,
 } from "./availability";
@@ -133,6 +134,30 @@ describe("evaluateAvailability — SPEC F2 판정식", () => {
     const r = evaluateAvailability({ ...base, guestCount: 99 });
     expect(r.reasons).not.toContain("OVER_CAPACITY");
     expect(r.sellable).toBe(true);
+  });
+});
+
+describe("findSellableVillaIds — excludeBookingId (ADR-0030 예약변경 셀렉터)", () => {
+  const range = { checkIn: d("2026-08-01"), checkOut: d("2026-08-03") };
+  // v1은 예약 B1이 점유, v2는 공실. B1 제외 시 v1도 후보가 되어야 한다.
+  const stubDb = (): DbClient =>
+    ({
+      villa: { findMany: async () => [{ id: "v1" }, { id: "v2" }] },
+      booking: {
+        findMany: async ({ where }: { where: { id?: { not?: string } } }) =>
+          where.id?.not === "B1" ? [] : [{ villaId: "v1" }], // B1 제외하면 v1 점유 사라짐
+      },
+      calendarBlock: { findMany: async () => [] },
+    }) as unknown as DbClient;
+
+  it("excludeBookingId 없으면 점유 빌라(v1) 제외 → [v2]", async () => {
+    const ids = await findSellableVillaIds(stubDb(), range);
+    expect(ids).toEqual(["v2"]);
+  });
+
+  it("excludeBookingId=B1이면 자기 점유 제외 → 현재 빌라(v1)도 후보 [v1, v2]", async () => {
+    const ids = await findSellableVillaIds(stubDb(), range, undefined, undefined, "B1");
+    expect(ids.sort()).toEqual(["v1", "v2"]);
   });
 });
 
