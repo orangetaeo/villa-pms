@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { loadActivityFeed, relativeTimeParts, type FeedDot } from "@/lib/dashboard";
 import { quickRangeWhere } from "@/lib/date-vn";
 import QuickDateFilter from "@/components/admin/quick-date-filter";
+import PaginationBar from "@/components/pagination-bar";
+import { parsePageParams } from "@/lib/pagination";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
@@ -37,10 +39,11 @@ const DOT_CLASS: Record<FeedDot, string> = {
 export default async function ActivityPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string }>;
+  searchParams: Promise<{ range?: string; page?: string; pageSize?: string }>;
 }) {
   const now = new Date();
-  const { range } = await searchParams;
+  const params = await searchParams;
+  const { range } = params;
   const [t, feedAll] = await Promise.all([
     getTranslations("adminDashboard"),
     loadActivityFeed(prisma, 50),
@@ -48,9 +51,13 @@ export default async function ActivityPage({
 
   // 빠른 날짜 필터 — createdAt(at) 기준 [gte, lt). undefined=전체
   const window = quickRangeWhere(range, "timestamp", now);
-  const feed = window
+  const filtered = window
     ? feedAll.filter((item) => item.at >= window.gte && item.at < window.lt)
     : feedAll;
+
+  // 페이지네이션 — 날짜 필터 후 메모리 슬라이스(공용 page/pageSize 쿼리, 기본 10).
+  const { page, pageSize, skip, take } = parsePageParams(params);
+  const feed = filtered.slice(skip, skip + take);
 
   const relTime = (at: Date) => {
     const r = relativeTimeParts(now, at);
@@ -110,6 +117,9 @@ export default async function ActivityPage({
           </div>
         )}
       </div>
+
+      {/* 페이지네이션 (URL 모드) — 날짜 필터 결과 기준 */}
+      <PaginationBar total={filtered.length} page={page} pageSize={pageSize} />
     </div>
   );
 }

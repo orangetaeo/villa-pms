@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import ResponsiveTable, { type ResponsiveColumn } from "@/components/admin/responsive-table";
+import PaginationBar from "@/components/pagination-bar";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { formatVnd } from "@/lib/format";
 import PartnerForm, { type PartnerFormValues } from "./partner-form";
 
@@ -73,6 +75,15 @@ export default function PartnersManager({
   const [approvalMsg, setApprovalMsg] = useState<{ ok: boolean; text: string } | null>(null);
   // 거절 사유 입력 모달 대상 파트너(null=닫힘)
   const [rejectTarget, setRejectTarget] = useState<SerializedPartnerAggregate | null>(null);
+
+  // 클라 페이지네이션 — 파트너 수 증가 대비(메모리 슬라이스, 기본 10). 목록 변경 시 1페이지로.
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  useEffect(() => setPage(1), [partners]);
+  const pagedPartners = useMemo(
+    () => partners.slice((page - 1) * pageSize, page * pageSize),
+    [partners, page, pageSize]
+  );
 
   // ── 승인/거절 (ADR-0028 PP4) — PATCH /api/partners/[id]/approval ────────────
   const handleApproval = async (
@@ -309,7 +320,7 @@ export default function PartnersManager({
 
       <ResponsiveTable
         columns={columns}
-        rows={partners}
+        rows={pagedPartners}
         rowKey={(r) => r.partner.id}
         emptyMessage={t("empty")}
         cardSummary={(r) => (
@@ -329,6 +340,16 @@ export default function PartnersManager({
             {t("viewDetail")} →
           </Link>
         )}
+      />
+      <PaginationBar
+        total={partners.length}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => {
+          setPageSize(s);
+          setPage(1);
+        }}
       />
 
       {showCreate && (

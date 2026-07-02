@@ -2,10 +2,10 @@
 // 서버(RSC)는 parsePageParams로 skip/take 산출, UI는 components/pagination-bar.tsx 사용.
 
 export const PAGE_SIZE_OPTIONS = [10, 20, 30, 50, 100] as const;
-export const DEFAULT_PAGE_SIZE = 20;
+export const DEFAULT_PAGE_SIZE = 10;
 
 /** searchParams의 page·pageSize를 검증해 {page, pageSize, skip, take} 반환.
- *  page<1·비정상 → 1, pageSize는 허용값(10/20/30/50/100) 외엔 기본 20. */
+ *  page<1·비정상 → 1, pageSize는 허용값(10/20/30/50/100) 외엔 기본 10. */
 export function parsePageParams(params: { page?: string; pageSize?: string }): {
   page: number;
   pageSize: number;
