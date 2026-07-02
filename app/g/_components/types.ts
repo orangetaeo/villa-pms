@@ -15,6 +15,9 @@ export interface GuestBookingView {
   address: string | null; // 주소(있을 때만 지도 링크)
   wifiSsid: string | null; // 와이파이 이름
   wifiPassword: string | null; // ⚠ 비번 — 서명(signed) 완료 후에만 표시
+  // 숙박 요금 — 직접 게스트(운영자 판매·파트너 없음)만 채워짐. 그 외 null(비노출)
+  stayChargeVnd: string | null;
+  stayChargeKrw: number | null;
 }
 
 /** G2 비품 — 카테고리별로 묶은 라벨(서버에서 lang 해석 완료) */

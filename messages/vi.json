@@ -774,6 +774,13 @@
           "ok": "Xác nhận thay đổi",
           "overpaymentWarn": "Số tiền đã nhận lớn hơn tổng mới — cần hoàn tiền sau khi lưu."
         },
+        "split": {
+          "notice": "Giai đoạn {from}~{to} biệt thự này đã có đặt phòng. Có thể đặt tiếp giai đoạn thêm ở biệt thự khác.",
+          "none": "Không có biệt thự khác còn trống cho giai đoạn đó.",
+          "create": "Đặt tiếp ở biệt thự khác",
+          "creating": "Đang tạo…",
+          "created": "Đã tạo đặt phòng kéo dài (liên kết)."
+        },
         "preview": {
           "button": "Xem trước thay đổi",
           "loading": "Đang tính…",
@@ -818,6 +825,7 @@
       },
       "extend": {
         "title": "Lưu trú tách (kéo dài sang biệt thự khác)",
+        "linkedTitle": "Đặt phòng kéo dài liên kết",
         "openButton": "Kéo dài sang biệt thự khác",
         "hint": "Nếu biệt thự gốc đã kín trong khoảng thời gian đó, tạo một đặt phòng bổ sung ở biệt thự khác để lưu trú tiếp. Số khách và tên khách kế thừa từ đặt phòng gốc.",
         "villa": "Biệt thự kéo dài",

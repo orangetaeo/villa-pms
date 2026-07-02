@@ -29,8 +29,18 @@ import { guestTokenState } from "@/lib/guest-checkin";
 import GuestTokenCard, { type GuestTokenState } from "./guest-token-card";
 import PartnerAssignCard from "./partner-assign-card";
 import BookingModifyPanel, { type VillaOption } from "./booking-modify-panel";
-import BookingExtendPanel, { type ExtensionItem } from "./booking-extend-panel";
 import { modifiableKind } from "@/lib/booking-modify";
+
+/** 연결된 연장(분할 숙박) 예약 요약 — 부모 상세의 읽기전용 목록용. saleLabel은 canViewFinance만 채움 */
+type ExtensionItem = {
+  id: string;
+  villaName: string;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  status: string;
+  saleLabel: string | null;
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
@@ -815,15 +825,31 @@ export default async function BookingDetailPage({
             />
           )}
 
-          {/* 분할 숙박 — 다른 빌라로 연장(연결 예약) (ADR-0030 T-E). CONFIRMED·CHECKED_IN만 */}
-          {extendable && (
-            <BookingExtendPanel
-              parentBookingId={booking.id}
-              currentVillaId={booking.villa.id}
-              defaultCheckIn={toDateOnlyString(booking.checkOut)}
-              villaOptions={villaOptions}
-              extensions={extensions}
-            />
+          {/* 연결된 연장(분할 숙박) 예약 — 읽기전용 목록. 생성은 예약변경 패널의 분할 흐름에서 (ADR-0030) */}
+          {extendable && extensions.length > 0 && (
+            <section className="bg-admin-card rounded-xl border border-[#334155] overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-700">
+                <h2 className="font-bold text-sm text-white">{t("detail.extend.linkedTitle")}</h2>
+              </div>
+              <ul className="px-6 py-3 space-y-2">
+                {extensions.map((e) => (
+                  <li key={e.id} className="text-xs flex items-center justify-between gap-2">
+                    <span className="text-white">
+                      {e.villaName}{" "}
+                      <span className="text-admin-muted">
+                        {e.checkIn} → {e.checkOut} ({t("detail.extend.nights", { n: e.nights })})
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-2">
+                      {e.saleLabel && <span className="text-admin-muted">{e.saleLabel}</span>}
+                      <Link href={`/bookings/${e.id}`} className="text-admin-primary hover:underline">
+                        {t("detail.extend.view")}
+                      </Link>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
 
           {/* 파트너 지정·미수 (ADR-0022 PARTNER-2c) — 재무 + 여행사/랜드사 채널만 */}

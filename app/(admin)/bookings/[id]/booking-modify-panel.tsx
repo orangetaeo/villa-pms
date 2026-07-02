@@ -75,6 +75,7 @@ export default function BookingModifyPanel({
   };
 }) {
   const t = useTranslations("adminBookings.detail.modify");
+  const te = useTranslations("adminBookings.detail.extend");
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -96,8 +97,19 @@ export default function BookingModifyPanel({
   const [previewBusy, setPreviewBusy] = useState(false);
   const [availableVillas, setAvailableVillas] = useState<VillaOption[] | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // 분할 숙박(다른 빌라로 이어서) 서브플로우
+  const [splitVillas, setSplitVillas] = useState<VillaOption[] | null>(null);
+  const [splitVillaId, setSplitVillaId] = useState("");
+  const [splitBusy, setSplitBusy] = useState(false);
+  const [splitError, setSplitError] = useState<string | null>(null);
 
   const rangeValid = checkIn < checkOut;
+
+  // 같은 빌라 체크아웃 연장(원 빌라·체크인 유지, 체크아웃만 뒤로)인데 그 빌라가 그 기간 불가할 때,
+  // 추가 밤을 다른 빌라로 이어서 예약(분할 숙박, ADR-0030 D1)하도록 유도한다.
+  const isCheckoutExtension =
+    checkOut > initial.checkOut && villaId === initial.villaId && checkIn === initial.checkIn;
+  const showSplit = isCheckoutExtension && preview != null && !preview.availabilityOk;
 
   // 변경 필드만 모아 본문 구성 (미리보기·저장 공용)
   const buildChangeBody = (): Record<string, unknown> => {
@@ -190,6 +202,80 @@ export default function BookingModifyPanel({
       ctrl.abort();
     };
   }, [open, checkoutOnly, checkIn, checkOut, guestCount, rangeValid, bookingId]);
+
+  // ── 분할 숙박: 연장 구간(원 체크아웃 ~ 새 체크아웃)에 가용한 "다른" 빌라 조회 ──
+  useEffect(() => {
+    if (!showSplit || !rangeValid) {
+      setSplitVillas(null);
+      return;
+    }
+    const ctrl = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/bookings/${bookingId}/modify/available-villas`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            checkIn: initial.checkOut, // 연장 구간 시작 = 원 체크아웃
+            checkOut,
+            guestCount,
+            purpose: "extend",
+          }),
+          signal: ctrl.signal,
+        });
+        if (!res.ok) return;
+        const data = await res.json().catch(() => null);
+        if (Array.isArray(data?.villas)) {
+          const list = data.villas as VillaOption[];
+          setSplitVillas(list);
+          setSplitVillaId((prev) => prev || list[0]?.id || "");
+        }
+      } catch {
+        /* 무시 — 유지 */
+      }
+    }, 350);
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
+  }, [showSplit, checkOut, guestCount, rangeValid, bookingId, initial.checkOut]);
+
+  const EXT_ERROR_KEYS = new Set([
+    "PARENT_NOT_EXTENDABLE",
+    "INVALID_RANGE",
+    "SAME_VILLA",
+    "SOLD_OUT",
+    "OVER_CAPACITY",
+  ]);
+
+  // 다른 빌라로 이어서 예약(연결 예약) 생성
+  const createExtension = async () => {
+    if (!splitVillaId) return;
+    setSplitBusy(true);
+    setSplitError(null);
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}/extend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ villaId: splitVillaId, checkIn: initial.checkOut, checkOut }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        const code = data?.error as string | undefined;
+        setSplitError(
+          code && EXT_ERROR_KEYS.has(code) ? te(`errors.${code}`) : te("errors.generic")
+        );
+        return;
+      }
+      setOk(t("split.created"));
+      setOpen(false);
+      router.refresh();
+    } catch {
+      setSplitError(te("errors.generic"));
+    } finally {
+      setSplitBusy(false);
+    }
+  };
 
   // 셀렉터 표시 목록 — 가용 목록 우선(없으면 서버 폴백), 선택 중인 빌라는 항상 유지
   const villaChoices = useMemo(() => {
@@ -455,6 +541,40 @@ export default function BookingModifyPanel({
             <div>
               <p className="text-admin-muted font-semibold text-xs mb-1.5">{t("preview.title")}</p>
               {previewSummary(preview)}
+            </div>
+          )}
+
+          {/* 분할 숙박 — 같은 빌라 연장이 불가할 때 "다른 빌라로 이어서 예약" (ADR-0030 D1) */}
+          {showSplit && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 space-y-2">
+              <p className="text-xs text-amber-300 flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm">alt_route</span>
+                {t("split.notice", { from: initial.checkOut, to: checkOut })}
+              </p>
+              <select
+                value={splitVillaId}
+                aria-label={te("villa")}
+                onChange={(e) => setSplitVillaId(e.target.value)}
+                className={inputCls}
+              >
+                {(splitVillas ?? []).map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                  </option>
+                ))}
+              </select>
+              {splitVillas != null && splitVillas.length === 0 && (
+                <p className="text-[11px] text-red-400">{t("split.none")}</p>
+              )}
+              {splitError && <p className="text-xs text-red-400">{splitError}</p>}
+              <button
+                type="button"
+                disabled={splitBusy || !splitVillaId}
+                onClick={createExtension}
+                className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 rounded-lg text-sm disabled:opacity-50"
+              >
+                {splitBusy ? t("split.creating") : t("split.create")}
+              </button>
             </div>
           )}
 
