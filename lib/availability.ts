@@ -194,7 +194,9 @@ export async function findSellableVillaIds(
   range: StayRange,
   villaIds?: string[],
   /** 요청 인원 (선택) — 주어지면 정원(maxGuests) 미달 빌라를 후보에서 제외 (ADR-0030 T-A) */
-  guestCount?: number
+  guestCount?: number,
+  /** 점유 판정에서 제외할 예약 id (선택) — 예약 변경 시 자기 예약을 제외해 현재 빌라도 후보 유지 (ADR-0030) */
+  excludeBookingId?: string
 ): Promise<string[]> {
   assertValidStayRange(range);
 
@@ -214,6 +216,7 @@ export async function findSellableVillaIds(
     db.booking.findMany({
       where: {
         villaId: { in: candidateIds },
+        ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
         status: { in: [...OCCUPYING_BOOKING_STATUSES] },
         checkIn: { lt: range.checkOut },
         checkOut: { gt: range.checkIn },
