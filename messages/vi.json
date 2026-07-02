@@ -2150,6 +2150,7 @@
       "searchPlaceholder": "Tìm villa·món·NCC",
       "emptyPending": "Không có khoản nào chờ thanh toán.",
       "emptyPaid": "Chưa có khoản nào đã thanh toán.",
+      "emptySearch": "Không có kết quả tìm kiếm.",
       "emptyStatus": "Chưa có đơn trung gian nào.",
       "filter": { "all": "Tất cả", "pending": "Chờ NCC", "accepted": "Đã nhận", "rejected": "Từ chối", "cancelled": "Đã hủy" },
       "vstatus": { "PENDING_VENDOR": "Chờ NCC", "VENDOR_ACCEPTED": "Đã nhận", "VENDOR_REJECTED": "Từ chối", "CANCELLED": "Đã hủy" },

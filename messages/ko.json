@@ -2041,6 +2041,7 @@
       "searchPlaceholder": "빌라·품목·공급자 검색",
       "emptyPending": "입금 대기 중인 정산이 없습니다.",
       "emptyPaid": "입금 완료된 내역이 없습니다.",
+      "emptySearch": "검색 결과가 없습니다.",
       "emptyStatus": "중계된 발주가 없습니다.",
       "filter": { "all": "전체", "pending": "발주대기", "accepted": "수락", "rejected": "거절", "cancelled": "취소" },
       "vstatus": { "PENDING_VENDOR": "발주대기", "VENDOR_ACCEPTED": "수락", "VENDOR_REJECTED": "거절", "CANCELLED": "취소" },
