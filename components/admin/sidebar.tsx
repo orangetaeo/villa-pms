@@ -43,6 +43,12 @@ function setLocaleCookie(name: string, value: string) {
 // 최상위 = 대시보드 / 예약·판매 / 빌라 운영 / 재무 / 메시지 / 시스템 (6줄)
 // 단독 항목(대시보드·메시지)은 그룹 없이 그대로 노출, 나머지는 그룹 펼침 시 표시.
 // cap 규칙은 자식 항목에 그대로 유지 — 그룹은 보이는 자식이 0개면 통째로 숨김.
+// 도메인별 정리(2026-07 재구성): 중복 '정산'·분산된 '부가서비스'로 인한 혼란 해소.
+//  - settlements(빌라 공급자 월정산)와 serviceOrders(부가서비스 공급자 정산)를 다른 그룹으로 분리 →
+//    라벨도 각각 "빌라 정산"/"부가서비스 정산"으로 구분(중복 '정산' 제거).
+//  - 부가서비스(카탈로그+정산)를 한 그룹으로, 파트너(관리+미수/여신)를 한 그룹으로 통합.
+//  - 공실 보드는 판매 도구이므로 예약·판매로 이동. 재무는 매출·빌라정산·통계로 슬림화.
+//  - 순서: 매일 쓰는 운영성(판매→빌라운영→부가서비스) 상단, 주기적 재무·시스템 하단.
 const NAV: NavEntry[] = [
   { key: "dashboard", href: "/dashboard", icon: "dashboard" },
   {
@@ -52,6 +58,8 @@ const NAV: NavEntry[] = [
       { key: "bookings", href: "/bookings", icon: "calendar_month" },
       // 제안=재무(canViewFinance) — STAFF 미노출. 클릭 시 게이트로도 차단되지만 메뉴부터 숨김
       { key: "proposals", href: "/proposals", icon: "rate_review", cap: canViewFinance },
+      // 공실 보드 — 비공개 재고 판매 도구라 판매 그룹으로 이동(전 운영자 노출)
+      { key: "availability", href: "/availability", icon: "event_available" },
     ],
   },
   {
@@ -59,27 +67,40 @@ const NAV: NavEntry[] = [
     icon: "villa",
     items: [
       { key: "villas", href: "/villas", icon: "villa" },
-      { key: "availability", href: "/availability", icon: "event_available" },
+      { key: "inspections", href: "/inspections", icon: "cleaning_services" },
       // 미니바 실재고(ADR-0019 S1). cap 미지정=전 운영자 노출
       { key: "inventory", href: "/inventory", icon: "inventory_2" },
-      { key: "inspections", href: "/inspections", icon: "cleaning_services" },
-      // 서비스 카탈로그(ADR-0019 S2) — 가격 설정 권한(canSetPrice=OWNER/MANAGER)만 노출
+    ],
+  },
+  {
+    // 부가서비스 도메인 통합(ADR-0019 S2 카탈로그 + ADR-0023 정산) — 두 곳 분산 혼란 해소
+    group: "addon",
+    icon: "room_service",
+    items: [
+      // 서비스 카탈로그 — 가격 설정 권한(canSetPrice=OWNER/MANAGER)만 노출
       { key: "services", href: "/settings/services", icon: "restaurant", cap: canSetPrice },
+      // 부가서비스 정산 허브(ADR-0023) — 중계현황 + 공급자별 입금 처리. costVnd 지급 경계라 재무만 노출
+      { key: "serviceOrders", href: "/service-orders", icon: "payments", cap: canViewFinance },
+    ],
+  },
+  {
+    // 파트너 도메인 통합(ADR-0022) — 여행사·랜드사 관리 + 채권. 재무만 노출
+    group: "partner",
+    icon: "handshake",
+    items: [
+      { key: "partners", href: "/partners", icon: "handshake", cap: canViewFinance },
+      // 미수/여신 대시보드(ADR-0022 PARTNER-3) — 전 파트너 미수 Aging·연체
+      { key: "receivables", href: "/receivables", icon: "request_quote", cap: canViewFinance },
     ],
   },
   {
     group: "finance",
     icon: "account_balance_wallet",
     items: [
-      { key: "settlements", href: "/settlements", icon: "payments", cap: canViewFinance },
       // 매출관리(건별 매출 거래 목록) — 객실료·미니바·부가서비스 통합. 마진·판매가 비공개라 재무만 노출
       { key: "revenue", href: "/revenue", icon: "receipt_long", cap: canViewFinance },
-      // 파트너 관리(ADR-0022) — 여행사·랜드사 미수·여신. 재무만 노출
-      { key: "partners", href: "/partners", icon: "handshake", cap: canViewFinance },
-      // 미수/여신 대시보드(ADR-0022 PARTNER-3) — 전 파트너 미수 Aging·연체. 재무만 노출
-      { key: "receivables", href: "/receivables", icon: "request_quote", cap: canViewFinance },
-      // 부가서비스 정산 허브(ADR-0023) — 중계현황 + 공급자별 입금 처리. costVnd 지급 경계라 재무만 노출
-      { key: "serviceOrders", href: "/service-orders", icon: "room_service", cap: canViewFinance },
+      // 빌라 공급자 월정산(부가서비스 정산과 구분되는 라벨 "빌라 정산")
+      { key: "settlements", href: "/settlements", icon: "account_balance", cap: canViewFinance },
       // 통계(T-admin-statistics) — 전 운영자 노출(탭별 금액 게이트는 페이지 내부)
       { key: "statistics", href: "/statistics", icon: "analytics" },
     ],

@@ -162,7 +162,7 @@
     "inventory": "Kho",
     "availability": "Lịch trống",
     "inspections": "Kiểm tra dọn dẹp",
-    "settlements": "Thanh toán",
+    "settlements": "Quyết toán villa",
     "partners": "Đối tác",
     "receivables": "Công nợ",
     "serviceOrders": "Quyết toán dịch vụ",
@@ -180,6 +180,8 @@
     "groups": {
       "sales": "Đặt phòng & Bán",
       "operations": "Vận hành villa",
+      "addon": "Dịch vụ bổ sung",
+      "partner": "Đối tác",
       "finance": "Tài chính",
       "system": "Hệ thống"
     },
