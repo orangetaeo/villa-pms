@@ -69,10 +69,22 @@ interface BookingRow {
   supplierCostVnd: bigint;
   fxVndPerKrw: { toString(): string } | null;
   villa: { supplierId: string };
-  receivable: { id: string } | null;
-  partner: { creditTier: CreditTier; paymentTermDays: number } | null;
+  receivable:
+    | { id: string; invoiceId: string | null; depositPaidVnd: bigint; balancePaidVnd: bigint }
+    | null;
+  partner: { creditTier: CreditTier; paymentTermDays: number; depositRatePct: number } | null;
   payments: { vndEquivalent: bigint | null }[];
 }
+
+/** 파트너 채권이 딸린 기본 receivable/partner 세트 (미발행·미입금) */
+const RCV = (over: Partial<{ invoiceId: string | null; depositPaidVnd: bigint; balancePaidVnd: bigint }> = {}) => ({
+  id: "rcv1",
+  invoiceId: null,
+  depositPaidVnd: 0n,
+  balancePaidVnd: 0n,
+  ...over,
+});
+const PARTNER = { creditTier: CreditTier.A, paymentTermDays: 0, depositRatePct: 30 };
 
 function defaultBooking(over: Partial<BookingRow> = {}): BookingRow {
   return {
@@ -126,7 +138,9 @@ function makeTx(opts: FakeTxOpts) {
   );
   const notifCreate = vi.fn(async (_args: { data: Record<string, unknown> }) => ({}));
   const auditCreate = vi.fn(async (_args: { data: Record<string, unknown> }) => ({}));
-  const rcvUpdate = vi.fn(async (_args: { where: { id: string }; data: { dueDate: Date } }) => ({}));
+  const rcvUpdate = vi.fn(
+    async (_args: { where: { id: string }; data: Record<string, unknown> }) => ({})
+  );
   const base = opts.baseRate ?? {
     supplierCostVnd: 800_000n,
     salePriceVnd: 1_000_000n,
@@ -542,7 +556,7 @@ describe("modifyBooking — 과수납 판정 (ADR-0030 T-D)", () => {
 describe("modifyBooking — 파트너 채권 정합", () => {
   it("채권 존재 + 빌라 변경 → RECEIVABLE_EXISTS", async () => {
     const { prisma } = makeTx({
-      booking: defaultBooking({ receivable: { id: "rcv1" } }),
+      booking: defaultBooking({ receivable: RCV() }),
       otherOverlapCount: 0,
     });
     await expect(
@@ -555,9 +569,32 @@ describe("modifyBooking — 파트너 채권 정합", () => {
     ).rejects.toMatchObject({ reason: "RECEIVABLE_EXISTS" });
   });
 
-  it("채권 존재 + 금액 변하는 날짜 변경 → RECEIVABLE_EXISTS", async () => {
+  it("채권 존재 + 같은 빌라 연장(증액) → 허용 + 채권 totalVnd 증액 (ADR-0030 §11)", async () => {
+    const { prisma, rcvUpdate } = makeTx({
+      booking: defaultBooking({
+        receivable: RCV(),
+        partner: PARTNER,
+        totalSaleVnd: 3_000_000n,
+      }),
+      otherOverlapCount: 0,
+      baseRate: { supplierCostVnd: 800_000n, salePriceVnd: 1_000_000n, salePriceKrw: 0 },
+    });
+    const res = await modifyBooking(prisma, {
+      bookingId: "b1",
+      actorUserId: "u1",
+      now: utc("2026-07-01"),
+      checkOut: utc("2026-07-14"), // 3박 → 4박 = 4,000,000 (증액)
+    });
+    expect(res.booking.totalSaleVnd).toBe(4_000_000n);
+    // 채권이 새 총액으로 갱신됨 (dueDate 아님 — totalVnd·depositDue·status)
+    expect(rcvUpdate).toHaveBeenCalled();
+    const rcvData = rcvUpdate.mock.calls.find((c) => "totalVnd" in c[0].data)?.[0].data;
+    expect(rcvData?.totalVnd).toBe(4_000_000n);
+  });
+
+  it("채권 존재 + 감액(단축) → RECEIVABLE_EXISTS(amount_decrease)", async () => {
     const { prisma } = makeTx({
-      booking: defaultBooking({ receivable: { id: "rcv1" }, totalSaleVnd: 3_000_000n }),
+      booking: defaultBooking({ receivable: RCV(), partner: PARTNER, totalSaleVnd: 3_000_000n }),
       otherOverlapCount: 0,
       baseRate: { supplierCostVnd: 800_000n, salePriceVnd: 1_000_000n, salePriceKrw: 0 },
     });
@@ -566,14 +603,34 @@ describe("modifyBooking — 파트너 채권 정합", () => {
         bookingId: "b1",
         actorUserId: "u1",
         now: utc("2026-07-01"),
-        checkOut: utc("2026-07-14"), // 4박 → 4,000,000 (≠ 3,000,000)
+        checkOut: utc("2026-07-12"), // 3박 → 2박 = 2,000,000 (감액) — CONFIRMED
+      })
+    ).rejects.toMatchObject({ reason: "RECEIVABLE_EXISTS" });
+  });
+
+  it("발행 청구서에 묶인 채권(invoiceId) + 증액 → RECEIVABLE_EXISTS(invoiced)", async () => {
+    const { prisma } = makeTx({
+      booking: defaultBooking({
+        receivable: RCV({ invoiceId: "inv1" }),
+        partner: PARTNER,
+        totalSaleVnd: 3_000_000n,
+      }),
+      otherOverlapCount: 0,
+      baseRate: { supplierCostVnd: 800_000n, salePriceVnd: 1_000_000n, salePriceKrw: 0 },
+    });
+    await expect(
+      modifyBooking(prisma, {
+        bookingId: "b1",
+        actorUserId: "u1",
+        now: utc("2026-07-01"),
+        checkOut: utc("2026-07-14"), // 증액이지만 발행분이라 거부
       })
     ).rejects.toMatchObject({ reason: "RECEIVABLE_EXISTS" });
   });
 
   it("채권 존재 + 인원만 변경(금액·빌라 불변) → 허용", async () => {
     const { prisma } = makeTx({
-      booking: defaultBooking({ receivable: { id: "rcv1" } }),
+      booking: defaultBooking({ receivable: RCV() }),
     });
     const res = await modifyBooking(prisma, {
       bookingId: "b1",
@@ -587,8 +644,8 @@ describe("modifyBooking — 파트너 채권 정합", () => {
   it("채권 존재 + 체류 시프트(체크인 변경·박수/금액 동일) → 허용 + dueDate 재산정(등급A=새 체크인일)", async () => {
     const { prisma, rcvUpdate } = makeTx({
       booking: defaultBooking({
-        receivable: { id: "rcv1" },
-        partner: { creditTier: CreditTier.A, paymentTermDays: 0 },
+        receivable: RCV(),
+        partner: PARTNER,
       }),
       receivableDueDate: utc("2026-07-10"),
       otherOverlapCount: 0,
@@ -602,14 +659,14 @@ describe("modifyBooking — 파트너 채권 정합", () => {
     });
     expect(res.changedFields).toContain("checkIn");
     expect(rcvUpdate).toHaveBeenCalledOnce();
-    expect(rcvUpdate.mock.calls[0][0].data.dueDate.toISOString().slice(0, 10)).toBe("2026-07-11");
+    expect((rcvUpdate.mock.calls[0][0].data.dueDate as Date).toISOString().slice(0, 10)).toBe("2026-07-11");
   });
 
   it("채권 존재(등급B termDays=7) + 체류 시프트 → dueDate = 새 체크인일 + 7", async () => {
     const { prisma, rcvUpdate } = makeTx({
       booking: defaultBooking({
-        receivable: { id: "rcv1" },
-        partner: { creditTier: CreditTier.B, paymentTermDays: 7 },
+        receivable: RCV(),
+        partner: { ...PARTNER, creditTier: CreditTier.B, paymentTermDays: 7 },
       }),
       receivableDueDate: utc("2026-07-17"),
       otherOverlapCount: 0,
@@ -622,14 +679,14 @@ describe("modifyBooking — 파트너 채권 정합", () => {
       checkOut: utc("2026-07-14"),
     });
     expect(rcvUpdate).toHaveBeenCalledOnce();
-    expect(rcvUpdate.mock.calls[0][0].data.dueDate.toISOString().slice(0, 10)).toBe("2026-07-18");
+    expect((rcvUpdate.mock.calls[0][0].data.dueDate as Date).toISOString().slice(0, 10)).toBe("2026-07-18");
   });
 
   it("채권 존재 + 인원만 변경(날짜 불변) → dueDate 갱신 안 함", async () => {
     const { prisma, rcvUpdate } = makeTx({
       booking: defaultBooking({
-        receivable: { id: "rcv1" },
-        partner: { creditTier: CreditTier.A, paymentTermDays: 0 },
+        receivable: RCV(),
+        partner: PARTNER,
       }),
     });
     await modifyBooking(prisma, {

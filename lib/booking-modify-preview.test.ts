@@ -12,6 +12,7 @@ interface Opts {
   otherOverlap?: number;
   isSellable?: boolean;
   payments?: { vndEquivalent: bigint | null }[];
+  receivable?: { id: string; invoiceId: string | null } | null;
 }
 
 function makePrisma(opts: Opts = {}) {
@@ -28,7 +29,7 @@ function makePrisma(opts: Opts = {}) {
     totalSaleVnd: opts.totalSaleVnd ?? 3_000_000n,
     supplierCostVnd: 2_400_000n,
     fxVndPerKrw: null,
-    receivable: null,
+    receivable: opts.receivable ?? null,
     payments: opts.payments ?? [],
   };
   return {
@@ -107,6 +108,24 @@ describe("previewBookingModify (ADR-0030 T-B)", () => {
     expect(p.newSaleVnd).toBe(2_000_000n); // 확정은 감액됨
     expect(p.collectedVnd).toBe(3_000_000n);
     expect(p.overpayment).toBe(true);
+  });
+
+  it("파트너 채권 + 같은 빌라 연장(증액) → ok (RECEIVABLE_EXISTS 없음, ADR-0030 §11)", async () => {
+    const p = await previewBookingModify(
+      makePrisma({ receivable: { id: "rcv1", invoiceId: null } }),
+      { bookingId: "b1", checkOut: utc("2026-07-15") } // CHECKED_IN 연장(증액)
+    );
+    expect(p.blockers).not.toContain("RECEIVABLE_EXISTS");
+    expect(p.ok).toBe(true);
+    expect(p.additionalVnd).toBe(2_000_000n);
+  });
+
+  it("파트너 채권 + 확정 단축(감액) → RECEIVABLE_EXISTS 차단", async () => {
+    const p = await previewBookingModify(
+      makePrisma({ status: BookingStatus.CONFIRMED, receivable: { id: "rcv1", invoiceId: null } }),
+      { bookingId: "b1", checkOut: utc("2026-07-12") } // 감액
+    );
+    expect(p.blockers).toContain("RECEIVABLE_EXISTS");
   });
 
   it("CHECKED_IN 인원 변경 시도 → CHECKED_IN_FIELD_LOCKED (D0)", async () => {

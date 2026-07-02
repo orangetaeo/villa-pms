@@ -2,6 +2,7 @@ import {
   BookingStatus,
   NotificationType,
   PrismaClient,
+  ReceivableStatus,
   type Booking,
   type Currency,
 } from "@prisma/client";
@@ -14,7 +15,7 @@ import {
 import { assertSaleAmountColumns, krwToVndSnapshot, quoteStayForVilla } from "./pricing";
 import { writeAuditLog } from "./audit-log";
 import { countNights } from "./hold";
-import { computeDueDate } from "./partner";
+import { computeDepositDue, computeDueDate } from "./partner";
 
 /**
  * 예약 변경(Booking Modify) 핵심 로직 — 기존 예약의 날짜·빌라·인원·투숙객·조식 변경.
@@ -177,8 +178,15 @@ export async function modifyBooking(
       where: { id: input.bookingId },
       include: {
         villa: { select: { supplierId: true } },
-        receivable: { select: { id: true } },
-        partner: { select: { creditTier: true, paymentTermDays: true } },
+        receivable: {
+          select: {
+            id: true,
+            invoiceId: true, // 발행 청구서에 묶인 채권은 금액 변경 불가(ADR-0027)
+            depositPaidVnd: true,
+            balancePaidVnd: true,
+          },
+        },
+        partner: { select: { creditTier: true, paymentTermDays: true, depositRatePct: true } },
         payments: { select: { vndEquivalent: true } }, // T-D 과수납 판정용
       },
     });
@@ -324,17 +332,25 @@ export async function modifyBooking(
     }
 
     // ── (d) 파트너 채권 정합성 ──
-    // 채권이 이미 있는데 금액(totalSaleVnd) 또는 빌라가 바뀌면 거부(취소 후 재예약 안내).
-    // 날짜만 바뀌고 금액 동일하면 허용 — 단, 체크인일이 바뀌면 dueDate를 재산정한다(아래 (d-2)).
-    // 정산 CONFIRMED/PAID 영향은 CHECKED_OUT이 변경 불가라 비해당.
+    // 채권이 있을 때: 빌라 변경은 거부(분할=extend 경로). 금액은 — **같은 빌라 연장 증액**이면
+    // 거부 대신 채권을 늘려준다(ADR-0030 §11: "여신 손님 같은 빌라 하루 더" = 돈 받고 연장).
+    // 단 ① 발행 청구서에 묶인 채권(invoiceId)은 불변 ② 감액은 거부(정산 복잡·D2로 체크인 후엔 발생 안 함).
+    let receivableIncrease = false; // (d-1)에서 채권 totalVnd 갱신
     if (booking.receivable) {
       const receivableAmountChanged =
         recalculated && (nextTotalSaleVnd ?? null) !== (booking.totalSaleVnd ?? null);
-      if (villaChanged || receivableAmountChanged) {
-        throw new BookingModifyRejectedError(
-          "RECEIVABLE_EXISTS",
-          villaChanged ? "villa" : "amount"
-        );
+      if (villaChanged) {
+        throw new BookingModifyRejectedError("RECEIVABLE_EXISTS", "villa");
+      }
+      if (receivableAmountChanged) {
+        const increased = (nextTotalSaleVnd ?? 0n) > (booking.totalSaleVnd ?? 0n);
+        if (!increased) {
+          throw new BookingModifyRejectedError("RECEIVABLE_EXISTS", "amount_decrease");
+        }
+        if (booking.receivable.invoiceId) {
+          throw new BookingModifyRejectedError("RECEIVABLE_EXISTS", "invoiced");
+        }
+        receivableIncrease = true; // 같은 빌라 연장 증액 + 미발행 → 채권 갱신 허용
       }
     }
 
@@ -363,9 +379,35 @@ export async function modifyBooking(
     }
     const updated = await tx.booking.findUniqueOrThrow({ where: { id: booking.id } });
 
+    // ── (d-1) 채권 증액 반영 (ADR-0030 §11) ──
+    // 같은 빌라 연장으로 미수(채권)가 늘면 채권 totalVnd·선금기준·상태를 갱신한다(취소·재예약 없이 증액).
+    // 미발행 채권만(위 d에서 invoiceId 있으면 이미 거부). 정산은 CONFIRMED/PAID(=CHECKED_OUT) 변경불가라 비해당.
+    let receivableTotalChange: { old: string; new: string } | null = null;
+    if (receivableIncrease && booking.receivable && booking.partner && nextTotalSaleVnd != null) {
+      const totalPaid = booking.receivable.depositPaidVnd + booking.receivable.balancePaidVnd;
+      const status =
+        totalPaid >= nextTotalSaleVnd
+          ? ReceivableStatus.PAID
+          : totalPaid > 0n
+            ? ReceivableStatus.PARTIAL
+            : ReceivableStatus.PENDING;
+      await tx.partnerReceivable.update({
+        where: { id: booking.receivable.id },
+        data: {
+          totalVnd: nextTotalSaleVnd,
+          depositDueVnd: computeDepositDue(nextTotalSaleVnd, booking.partner.depositRatePct),
+          status,
+        },
+      });
+      receivableTotalChange = {
+        old: (booking.totalSaleVnd ?? 0n).toString(),
+        new: nextTotalSaleVnd.toString(),
+      };
+    }
+
     // ── (d-2) 채권 dueDate 재산정 — 체크인일이 바뀌면 갱신 ──
     // computeDueDate는 checkIn 기반(등급A=체크인일, 등급B=체크인일+termDays)이므로
-    // checkOut만 바뀐 경우엔 dueDate 불변. 금액·빌라 변경은 위 (d)에서 이미 거부됨.
+    // checkOut만 바뀐 경우엔 dueDate 불변. 빌라 변경·감액·발행분은 위 (d)에서 거부됨.
     let receivableDueDateChange: { old: string; new: string } | null = null;
     if (booking.receivable && booking.partner && checkInChanged) {
       const newDueDate = computeDueDate({
@@ -426,6 +468,7 @@ export async function modifyBooking(
     if (breakfastChanged) {
       changes.breakfastIncluded = { old: booking.breakfastIncluded, new: input.breakfastIncluded };
     }
+    if (receivableTotalChange) changes.receivableTotalVnd = receivableTotalChange;
     if (receivableDueDateChange) changes.receivableDueDate = receivableDueDateChange;
     if (overpayment) {
       changes.overpayment = {
