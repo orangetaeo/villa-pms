@@ -177,6 +177,7 @@ describe("getAvailabilityBoard — minDate 과거 컬럼 클램프", () => {
       calendarBlock: {
         findMany: async () => [],
       },
+      booking: { findMany: async () => [] }, // 보드는 이제 모든 빌라의 예약을 조회(overlay)
     }) as unknown as DbClient;
 
   it("minDate 미지정 시 기간 시작(월 1일)부터 컬럼 생성 (하위호환)", async () => {
@@ -214,6 +215,55 @@ describe("getAvailabilityBoard — minDate 과거 컬럼 클램프", () => {
   });
 });
 
+describe("getAvailabilityBoard — 모든 빌라 예약 표시 + seller 구분 (2026-07-02)", () => {
+  const boardDb = (bookings: Record<string, unknown>[]): DbClient =>
+    ({
+      villa: {
+        findMany: async () => [
+          { id: "v1", name: "A", complex: null, availabilityCheckedAt: null, qualityScore: 0 },
+        ],
+      },
+      calendarBlock: { findMany: async () => [] },
+      booking: { findMany: async () => bookings },
+    }) as unknown as DbClient;
+
+  const bk = (over: Record<string, unknown>) => ({
+    id: "b1",
+    villaId: "v1",
+    seller: "OPERATOR",
+    status: "CONFIRMED",
+    channel: "DIRECT",
+    agencyName: null,
+    checkIn: d("2026-07-02"),
+    checkOut: d("2026-07-04"),
+    nights: 2,
+    guestName: "G",
+    guestCount: 2,
+    supplierCostVnd: 0n,
+    depositStatus: "NONE",
+    holdExpiresAt: null,
+    ...over,
+  });
+
+  it("SUPPLIER 직접판매 예약도 BOOKING 셀로 표시하고 seller=SUPPLIER", async () => {
+    const board = await getAvailabilityBoard(boardDb([bk({ seller: "SUPPLIER" })]), {
+      startMonth: "2026-07",
+      monthCount: 1,
+    });
+    const day = board.villas[0].days[1]; // 2026-07-02
+    expect(day.status).toBe("BOOKING");
+    expect(day.booking?.seller).toBe("SUPPLIER");
+  });
+
+  it("OPERATOR 우리 예약도 BOOKING 셀로 표시하고 seller=OPERATOR", async () => {
+    const board = await getAvailabilityBoard(boardDb([bk({ seller: "OPERATOR" })]), {
+      startMonth: "2026-07",
+      monthCount: 1,
+    });
+    expect(board.villas[0].days[1].booking?.seller).toBe("OPERATOR");
+  });
+});
+
 describe("getAvailabilityBoard — 판매 후순위 정렬 (품질점수 desc, Phase 2)", () => {
   // findMany 에 넘긴 orderBy 를 포착하고, DB 반환 순서를 board.villas 가 보존하는지 본다.
   const captureDb = (villas: { id: string; name: string; qualityScore: number }[]) => {
@@ -231,6 +281,7 @@ describe("getAvailabilityBoard — 판매 후순위 정렬 (품질점수 desc, P
         },
       },
       calendarBlock: { findMany: async () => [] },
+      booking: { findMany: async () => [] },
     } as unknown as DbClient;
     return { db, orderBy: () => orderBy };
   };

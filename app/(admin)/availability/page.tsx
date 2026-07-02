@@ -1,7 +1,8 @@
 // /availability — 운영자 빌라별 공실 보드 (T-admin-availability-board, Stitch b11 변환)
 // RSC: prisma 직접 조회 (가용성 집계는 lib/availability.ts 단일 소스). (admin) 레이아웃 가드 하 ADMIN 전용.
-// ⚠ 재고/마진 비공개: SUPPLIER 빌라는 CalendarBlock(MANUAL/ICAL) 잠금·공실만 다룬다.
-//   DIRECT(직접공급) 빌라만 우리 판매예약을 BOOKING 셀로 표시하고, 판매가는 canViewFinance 게이트로 가린다.
+// ⚠ ADMIN 전용 보드(원칙1 — 전체 재고 조망은 운영자만). 모든 빌라의 예약을 BOOKING 셀로 표시:
+//   공급자 직접판매(seller=SUPPLIER) + 우리 판매(seller=OPERATOR). 외부 채널은 iCal→CalendarBlock(ICAL).
+//   판매가(KRW/VND)는 canViewFinance 게이트로 가린다(마진 비노출 — 원칙2).
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { VillaStatus } from "@prisma/client";
@@ -72,7 +73,7 @@ export default async function AvailabilityPage({
   const search = params.search?.trim() || undefined;
   const needCheckOnly = params.needCheck === "1";
 
-  // S-RBAC-3: DIRECT 빌라 예약 셀의 판매가(KRW/VND)는 canViewFinance(OWNER/MANAGER/ADMIN)만.
+  // S-RBAC-3: 예약 셀의 판매가(KRW/VND)는 canViewFinance(OWNER/MANAGER/ADMIN)만.
   // STAFF 면 false → 집계 단계에서 판매가가 select·전송에서 제외된다 (1차 서버 방어).
   const session = await auth();
   const showFinance = canViewFinance(session?.user?.role);
@@ -209,6 +210,9 @@ export default async function AvailabilityPage({
     bkChannelTravel: t("bookingPopover.channelTravel"),
     bkChannelLand: t("bookingPopover.channelLand"),
     bkChannelDirect: t("bookingPopover.channelDirect"),
+    bkSeller: t("bookingPopover.seller"),
+    bkSellerOperator: t("bookingPopover.sellerOperator"),
+    bkSellerSupplier: t("bookingPopover.sellerSupplier"),
     bkCost: t("bookingPopover.cost"),
     bkSale: t("bookingPopover.sale"),
     bkDeposit: t("bookingPopover.deposit"),
