@@ -5,6 +5,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import {
+  SUPPLIER_FULLSCREEN_PREFIXES,
+  SUPPLIER_OWN_HEADER_PREFIXES,
+} from "./tab-bar-constants";
+// 하위호환 재수출 — 기존 `@/components/supplier/tab-bar`에서 상수를 import하던 클라이언트 코드 유지.
+// (서버 컴포넌트는 반드시 ./tab-bar-constants에서 직접 import — 이 재수출은 client 참조로 바뀜)
+export { SUPPLIER_FULLSCREEN_PREFIXES, SUPPLIER_OWN_HEADER_PREFIXES };
 
 const TABS = [
   { href: "/my-villas", icon: "house", key: "villas" },
@@ -20,18 +27,6 @@ const TABS = [
 // 리다이렉트 체인(프리페치 시 ERR_TOO_MANY_REDIRECTS)을 일으키므로 탭 자체를 숨긴다.
 // (안내/guide도 SUPPLIER 전용이라 제외. 비밀번호·로그아웃은 상단 AccountLink로 접근.)
 const CLEANER_TAB_KEYS = new Set(["cleaning"]);
-
-/** 탭바를 숨기는 풀스크린 플로우 경로 접두사 (당겨서 새로고침도 동일하게 제외).
- *  체크인·아웃 검수 상세는 자체 앱바 + fixed 하단 CTA라 풀스크린(탭바·당겨새로고침 제외).
- *  목록 "/my-bookings"는 일반 탭이므로 "/my-bookings/" (하위 상세)만 매칭. */
-export const SUPPLIER_FULLSCREEN_PREFIXES = ["/my-villas/new", "/my-bookings/"];
-
-/** 자체 상단 앱바(뒤로가기 + 중앙 제목)를 그리는 페이지 접두사.
- *  여기서는 레이아웃의 상단 트리오(브랜드 로고·계정 아이콘)를 숨겨 중앙/좌상단 겹침을 막는다.
- *  (탭바는 유지 — 상세·하위 페이지는 하단 탭으로 이동 가능.)
- *  "/my-villas/" = 등록 마법사·상세·사진·비품·요율·판매링크·수정 모두 포함(목록 "/my-villas"는 제외).
- *  "/my-bookings/" = 체크인·아웃 등 자체 앱바 플로우. */
-export const SUPPLIER_OWN_HEADER_PREFIXES = ["/my-villas/", "/my-bookings/"];
 
 export function TabBar({ role }: { role?: string }) {
   const t = useTranslations("tabs");
