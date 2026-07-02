@@ -31,6 +31,8 @@ describe("불변식 1: 미게이트 mutation 라우트 없음 (보안 P0-6/P1-S9
   const PUBLIC_ALLOWLIST = new Set([
     "app/api/auth/forgot-password/route.ts",
     "app/api/auth/reset-password/route.ts",
+    // 비로그인 상태에서 패스키 로그인 챌린지(옵션) 발급 — 로그인 흐름의 일부(DB 변경 없음, httpOnly 쿠키만).
+    "app/api/auth/passkey/login/options/route.ts",
     "app/api/csp-report/route.ts",
     "app/api/partner-signup/route.ts",
     "app/api/vendor-signup/route.ts",
@@ -68,12 +70,18 @@ describe("불변식 1: 미게이트 mutation 라우트 없음 (보안 P0-6/P1-S9
   });
 });
 
-describe("불변식 2: 권한상승 차단 — 부여 가능 역할에 OWNER/ADMIN 없음 (보안 P1-S1)", () => {
-  for (const rel of ["app/api/users/route.ts", "app/api/users/[id]/route.ts"]) {
-    it(`${rel}의 ASSIGNABLE_ROLES는 OWNER·ADMIN을 제외한다`, () => {
+describe("불변식 2: 권한상승 차단 — 부여/변경 가능 역할에 OWNER/ADMIN 없음 (보안 P1-S1)", () => {
+  // 계정 생성(POST /users)의 CREATABLE_ROLES, 역할 변경(PATCH /users/[id])의 CHANGEABLE_ROLES.
+  // (구 ASSIGNABLE_ROLES가 role-change 리팩터에서 두 상수로 분리됨 — 불변식은 동일: OWNER·ADMIN 제외)
+  const CASES: { rel: string; constant: string }[] = [
+    { rel: "app/api/users/route.ts", constant: "CREATABLE_ROLES" },
+    { rel: "app/api/users/[id]/route.ts", constant: "CHANGEABLE_ROLES" },
+  ];
+  for (const { rel, constant } of CASES) {
+    it(`${rel}의 ${constant}는 OWNER·ADMIN을 제외한다`, () => {
       const src = readFileSync(join(ROOT, rel), "utf8");
-      const m = src.match(/ASSIGNABLE_ROLES\s*=\s*\[([^\]]*)\]/);
-      expect(m, "ASSIGNABLE_ROLES 정의를 찾지 못함").toBeTruthy();
+      const m = src.match(new RegExp(`${constant}\\s*=\\s*\\[([^\\]]*)\\]`));
+      expect(m, `${constant} 정의를 찾지 못함`).toBeTruthy();
       const body = m![1];
       expect(body).not.toMatch(/"OWNER"|'OWNER'/);
       expect(body).not.toMatch(/"ADMIN"|'ADMIN'/);

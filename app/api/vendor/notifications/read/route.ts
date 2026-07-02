@@ -4,9 +4,9 @@
 //   시스템 발생 이벤트의 읽음 상태 변경이라 AuditLog는 과함(생략).
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { isVendor, type Role } from "@/lib/permissions";
+import { requireCapability } from "@/lib/api-guard";
+import { isVendor } from "@/lib/permissions";
 
 const bodySchema = z.object({
   // 특정 알림만 읽음(미지정·빈 배열이면 전체 미읽음 읽음 처리)
@@ -14,12 +14,11 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  const role = session.user.role as Role | undefined;
-  if (!isVendor(role)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  // 중앙 가드(P1-S8) — VENDOR 전용. 권한 부족 시 403 + AUTHZ_DENY 기록.
+  const g = await requireCapability(isVendor, "isVendor", req);
+  if (!g.ok) return g.response;
 
-  const userId = session.user.id; // ★ 본인 스코프
+  const userId = g.session.user.id; // ★ 본인 스코프
 
   // body는 선택 — 없거나 깨져도 "전체 읽음"으로 동작(벨 열 때 호출)
   let ids: string[] | undefined;
