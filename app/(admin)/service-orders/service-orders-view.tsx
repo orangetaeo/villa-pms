@@ -82,6 +82,26 @@ function bankLine(info: unknown): string | null {
   return null;
 }
 
+type VendorGroup = { vendorName: string; phone: string | null; bank: string | null; orders: Order[] };
+
+/** 주문 배열 → 공급자별 그룹(vendorId 기준, 공급자명 오름차순). 순수 함수. */
+function groupOrdersByVendor(list: Order[]): VendorGroup[] {
+  const m = new Map<string, VendorGroup>();
+  for (const o of list) {
+    const key = o.vendorId ?? "—";
+    if (!m.has(key)) {
+      m.set(key, {
+        vendorName: o.vendorName ?? "—",
+        phone: o.vendorPhone,
+        bank: bankLine(o.vendorBankInfo),
+        orders: [],
+      });
+    }
+    m.get(key)!.orders.push(o);
+  }
+  return Array.from(m.values()).sort((a, b) => a.vendorName.localeCompare(b.vendorName));
+}
+
 function usePaged<X>(items: X[]) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -380,26 +400,15 @@ function SettleTab({
   const filterSource = useMemo(() => [...unsettled, ...settled], [unsettled, settled]);
   const filteredUnsettled = useMemo(() => applyFilters(unsettled, filters), [unsettled, filters]);
 
-  // 공급자별 그룹(미정산, 필터 반영) — vendorId 기준.
-  const groups = useMemo(() => {
-    const m = new Map<string, { vendorName: string; phone: string | null; bank: string | null; orders: Order[] }>();
-    for (const o of filteredUnsettled) {
-      const key = o.vendorId ?? "—";
-      if (!m.has(key)) {
-        m.set(key, {
-          vendorName: o.vendorName ?? "—",
-          phone: o.vendorPhone,
-          bank: bankLine(o.vendorBankInfo),
-          orders: [],
-        });
-      }
-      m.get(key)!.orders.push(o);
-    }
-    return Array.from(m.values()).sort((a, b) => a.vendorName.localeCompare(b.vendorName));
-  }, [filteredUnsettled]);
-
-  // 공급자 그룹 페이지네이션(입금 대기) — 공급자가 많아도 한 페이지만 렌더.
-  const groupsPage = usePaged(groups);
+  // 전체 미정산 그룹 — 요약 카드의 공급자 수(vendorCount) 산출용.
+  const groups = useMemo(() => groupOrdersByVendor(filteredUnsettled), [filteredUnsettled]);
+  // ★페이지네이션은 주문 단위(기본 10건/페이지). 현재 페이지의 주문만 공급자별로 묶어 표시한다
+  //   — 공급자 수가 적어도 주문이 많으면 정상적으로 페이지가 나뉜다(그룹 단위 페이징의 착시 해소).
+  const pagedUnsettled = usePaged(filteredUnsettled);
+  const pageGroups = useMemo(
+    () => groupOrdersByVendor(pagedUnsettled.paged),
+    [pagedUnsettled.paged]
+  );
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -499,7 +508,7 @@ function SettleTab({
           <Empty icon="payments" text={hasFilter ? t("hub.emptySearch") : t("hub.emptyPending")} />
         ) : (
           <div className="space-y-4">
-            {groupsPage.paged.map((grp) => {
+            {pageGroups.map((grp) => {
               const selIds = grp.orders.filter((o) => selected.has(o.id)).map((o) => o.id);
               const selTotal = sumVnd(grp.orders.filter((o) => selected.has(o.id)).map((o) => o.costVnd));
               return (
@@ -576,11 +585,11 @@ function SettleTab({
               );
             })}
             <PaginationBar
-              total={groups.length}
-              page={groupsPage.page}
-              pageSize={groupsPage.pageSize}
-              onPageChange={groupsPage.setPage}
-              onPageSizeChange={groupsPage.setPageSize}
+              total={filteredUnsettled.length}
+              page={pagedUnsettled.page}
+              pageSize={pagedUnsettled.pageSize}
+              onPageChange={pagedUnsettled.setPage}
+              onPageSizeChange={pagedUnsettled.setPageSize}
             />
           </div>
         )
