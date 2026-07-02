@@ -2098,7 +2098,7 @@
       "loadError": "불러오기 실패 — 다시 시도",
       "tab": { "settle": "공급자 정산", "status": "중계 현황" },
       "sub": { "pending": "입금 대기", "paid": "입금 완료" },
-      "summary": { "unsettledTotal": "미정산 총액", "paidTotal": "정산 완료 총액", "vendorCount": "대상 공급자" },
+      "summary": { "unsettledTotal": "미정산 총액", "paidTotal": "정산 완료 총액", "vendorCount": "대상 공급자", "allBasis": "전체 기준" },
       "vendorOrders": "{n}건",
       "settleSelected": "선택 입금 처리 ({n})",
       "noBank": "계좌 미등록",
@@ -2122,7 +2122,9 @@
         "notePlaceholder": "이체 참조 등",
         "cancel": "취소",
         "confirm": "입금 처리",
-        "submitting": "처리 중..."
+        "submitting": "처리 중...",
+        "error": "입금 처리에 실패했습니다. 다시 시도해주세요.",
+        "noneSettled": "처리할 대상이 없습니다(이미 정산되었거나 상태가 변경됨)."
       }
     },
     "title": "부가옵션 주문",

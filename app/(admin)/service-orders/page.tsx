@@ -1,14 +1,15 @@
 // /service-orders — 운영자 부가서비스 정산·중계 허브 (ADR-0023)
-//   예약 상세를 하나씩 열지 않고 한 화면에서 ① 부가서비스 중계현황 확인 ② 공급자별 입금(정산) 처리.
+//   한 화면에서 ① 부가서비스 중계현황 확인 ② 공급자별 입금(정산) 처리.
 //   재무 경계(canViewFinance) — costVnd(공급자 지급액)를 다루므로 STAFF 차단. layout과 이중 가드.
-//   ★성능: 초기 목록을 서버(RSC)에서 미리 로드해 클라에 주입 → 마운트 후 fetch 워터폴 제거(첫 화면 즉시).
-//     정산 후 최신화는 클라가 /api/service-orders(동일 loader)로 새로고침.
+//   ★성능: 발주가 수천 건이라 서버 사이드 필터·페이지네이션. SSR은 기본 뷰(입금 대기) 1페이지 +
+//     셀렉터 옵션만 로드 → 첫 화면 즉시. 이후 뷰/필터/페이지 변경은 /api/service-orders로 페이지 단위 조회.
 import type { Metadata } from "next";
 import { getTranslations, getLocale } from "next-intl/server";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { canViewFinance } from "@/lib/permissions";
-import { loadHubOrders } from "@/lib/service-orders-hub";
+import { queryHub, loadHubOptions } from "@/lib/service-orders-hub";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import ServiceOrdersView from "./service-orders-view";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -22,7 +23,17 @@ export default async function ServiceOrdersPage() {
   if (!session || !canViewFinance(session.user?.role)) redirect("/login");
 
   const locale = await getLocale();
-  const initialOrders = await loadHubOrders(locale);
+  // 기본 뷰(입금 대기) 1페이지 + 셀렉터 옵션을 서버에서 미리 로드.
+  const [initial, options] = await Promise.all([
+    queryHub({ view: "pending", page: 1, pageSize: DEFAULT_PAGE_SIZE }, locale),
+    loadHubOptions(locale),
+  ]);
 
-  return <ServiceOrdersView initialOrders={initialOrders} />;
+  return (
+    <ServiceOrdersView
+      initial={initial}
+      options={options}
+      pageSize={DEFAULT_PAGE_SIZE}
+    />
+  );
 }
