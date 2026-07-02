@@ -3385,6 +3385,8 @@
     "search": "빌라명 검색...",
     "area": "지역",
     "allAreas": "전체 지역",
+    "villa": "빌라",
+    "allVillas": "전체 빌라",
     "needCheckOnly": "확인 필요만",
     "today": "오늘",
     "period": "{start} ~ {end}",

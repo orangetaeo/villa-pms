@@ -42,6 +42,8 @@ export interface BoardStrings {
   search: string;
   area: string;
   allAreas: string;
+  villa: string;
+  allVillas: string;
   needCheckOnly: string;
   today: string;
   prevPeriod: string;
@@ -120,12 +122,15 @@ interface Props {
   monthGroups: BoardMonthGroup[];
   rows: BoardRow[];
   areaOptions: string[];
+  /** 빌라 셀렉터 옵션 — 선택된 지역의 빌라(지역 미선택 시 전체) */
+  villaOptions: { id: string; name: string }[];
   startMonth: string;
   prevMonth: string | null; // null = 현재 기간(이전이 전부 과거) → 비활성
   nextMonth: string;
   thisMonth: string;
   periodLabel: string;
   area: string;
+  villaId: string;
   search: string;
   needCheckOnly: boolean;
   strings: BoardStrings;
@@ -229,12 +234,14 @@ export default function AvailabilityBoardClient({
   monthGroups,
   rows,
   areaOptions,
+  villaOptions,
   startMonth,
   prevMonth,
   nextMonth,
   thisMonth,
   periodLabel,
   area,
+  villaId,
   search,
   needCheckOnly,
   strings: s,
@@ -461,6 +468,7 @@ export default function AvailabilityBoardClient({
     const cur: Record<string, string> = {
       startMonth,
       area,
+      villaId,
       search,
       needCheck: needCheckOnly ? "1" : "",
     };
@@ -770,7 +778,7 @@ export default function AvailabilityBoardClient({
             aria-label={s.area}
             className="cursor-pointer border-none bg-transparent p-0 pr-6 text-sm text-slate-300 focus:ring-0"
             value={area}
-            onChange={(e) => navigate({ area: e.target.value })}
+            onChange={(e) => navigate({ area: e.target.value, villaId: null })}
           >
             <option value="" className="bg-slate-900">
               {s.allAreas}
@@ -778,6 +786,27 @@ export default function AvailabilityBoardClient({
             {areaOptions.map((opt) => (
               <option key={opt} value={opt} className="bg-slate-900">
                 {opt}
+              </option>
+            ))}
+          </select>
+        </div>
+        {/* 빌라 — 선택 지역의 빌라 목록(지역 미선택 시 전체). 선택 시 그 빌라만 표시 */}
+        <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 whitespace-nowrap">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+            {s.villa}
+          </span>
+          <select
+            aria-label={s.villa}
+            className="max-w-[12rem] cursor-pointer truncate border-none bg-transparent p-0 pr-6 text-sm text-slate-300 focus:ring-0"
+            value={villaId}
+            onChange={(e) => navigate({ villaId: e.target.value })}
+          >
+            <option value="" className="bg-slate-900">
+              {s.allVillas}
+            </option>
+            {villaOptions.map((v) => (
+              <option key={v.id} value={v.id} className="bg-slate-900">
+                {v.name}
               </option>
             ))}
           </select>

@@ -343,6 +343,8 @@ export interface GetAvailabilityBoardParams {
   monthCount?: number;
   /** 지역 필터 = Villa.complex 정확 일치 (선택) */
   area?: string;
+  /** 특정 빌라 id 필터 (선택) — 셀렉터로 한 빌라만 볼 때. area·search와 AND */
+  villaId?: string;
   /** 빌라명 부분일치 검색 (선택, 대소문자 무시) */
   search?: string;
   /**
@@ -426,9 +428,11 @@ export async function getAvailabilityBoard(
   // ── 빌라 목록 (1쿼리) ──
   const search = params.search?.trim();
   const area = params.area?.trim();
+  const villaId = params.villaId?.trim();
   const villas = await db.villa.findMany({
     where: {
       status: { in: [VillaStatus.ACTIVE, VillaStatus.INACTIVE] },
+      ...(villaId ? { id: villaId } : {}),
       ...(area ? { complex: area } : {}),
       ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
     },
