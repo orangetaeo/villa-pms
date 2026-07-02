@@ -912,8 +912,13 @@
         "colSeason": "시즌",
         "colCost": "공급자 원가 (VND)",
         "colMargin": "마진",
-        "colSaleVnd": "판매가 (VND)",
-        "colSaleKrw": "판매가 (KRW 환산 참고)",
+        "colSaleVnd": "Net 판매가 (VND)",
+        "colSaleKrw": "Net 판매가 (KRW 환산 참고)",
+        "consumerSection": "소비자 직판가 (직접 소비자)",
+        "colConsumerMargin": "소비자 마진 (Net 대비)",
+        "colConsumerVnd": "소비자가 (VND)",
+        "colConsumerKrw": "소비자가 (KRW 환산 참고)",
+        "consumerHint": "비우면 Net 판매가로 판매됩니다. 직접 소비자(DIRECT) 채널 예약에만 적용됩니다.",
         "seasons": {
           "LOW": "비수기",
           "HIGH": "성수기",
@@ -2697,6 +2702,7 @@
         "DIRECT": "직접"
       },
       "vndNotice": "여행사·랜드사 채널은 VND로 결제됩니다",
+      "directCurrencyLabel": "결제 통화 (직접 소비자)",
       "usdToggle": "달러(USD)로 판매",
       "usdNotice": "USD 채널은 요율표 자동견적이 없습니다. 빌라별 USD 총액을 직접 입력하세요.",
       "usdTotalLabel": "USD 총액 입력 ($)",

@@ -1,4 +1,4 @@
-import { Currency, MarginType, SeasonType } from "@prisma/client";
+import { BookingChannel, Currency, MarginType, SeasonType } from "@prisma/client";
 import { assertValidStayRange, type DbClient, type StayRange } from "./availability";
 
 /**
@@ -176,6 +176,18 @@ export function representativeRatesBySeason<
   return out;
 }
 
+/**
+ * 가격 계층 (ADR-0031) — 채널별로 다른 판매가 컬럼을 고른다.
+ * - NET: 여행사·랜드사 도매가 (salePrice*)
+ * - CONSUMER: 직접 소비자가 (consumerSalePrice* ?? salePrice* 폴백)
+ */
+export type PriceTier = "NET" | "CONSUMER";
+
+/** 채널 → 가격 계층 (ADR-0031). DIRECT=소비자, 그 외=Net */
+export function priceTierForChannel(channel: BookingChannel): PriceTier {
+  return channel === BookingChannel.DIRECT ? "CONSUMER" : "NET";
+}
+
 /** 기간별 요금 행 (ADR-0014) — 날짜 범위 + 가격을 한 행에. base는 startDate/endDate null. */
 export interface RatePeriodLike {
   season: SeasonType;
@@ -187,6 +199,23 @@ export interface RatePeriodLike {
   supplierCostVnd: bigint;
   salePriceVnd: bigint;
   salePriceKrw: number;
+  // ADR-0031 소비자 직판가 — null/미포함이면 Net(salePrice*) 폴백. CONSUMER 계층에서만 참조.
+  consumerSalePriceVnd?: bigint | null;
+  consumerSalePriceKrw?: number | null;
+}
+
+/** 한 요금 행에서 계층에 맞는 박당 VND 판매가 (ADR-0031). CONSUMER는 null이면 Net 폴백. */
+function nightSaleVnd(rate: RatePeriodLike, tier: PriceTier): bigint {
+  return tier === "CONSUMER"
+    ? (rate.consumerSalePriceVnd ?? rate.salePriceVnd)
+    : rate.salePriceVnd;
+}
+
+/** 한 요금 행에서 계층에 맞는 박당 KRW 판매가 (ADR-0031). CONSUMER는 null이면 Net 폴백. */
+function nightSaleKrw(rate: RatePeriodLike, tier: PriceTier): number {
+  return tier === "CONSUMER"
+    ? (rate.consumerSalePriceKrw ?? rate.salePriceKrw)
+    : rate.salePriceKrw;
 }
 
 /**
@@ -239,6 +268,8 @@ export interface QuoteStayByPeriodInput extends StayRange {
   base: RatePeriodLike | null;
   /** 웃돈 기간 (isBase=false) — 보통 숙박 구간 교차분만 로드 */
   periods: RatePeriodLike[];
+  /** 가격 계층 (ADR-0031). 미지정=NET(하위호환). CONSUMER=소비자 직판가(폴백 Net) */
+  priceTier?: PriceTier;
 }
 
 /** 기간별 박별 합산 견적 (ADR-0014) — quoteStay의 기간 판정 버전. 순수 함수 */
@@ -261,12 +292,16 @@ export function quoteStayByPeriod(input: QuoteStayByPeriodInput): StayQuote {
 
     const night: NightQuote = { date, season: rate.season, costVnd: rate.supplierCostVnd };
     // USD(Phase 2)는 요율표에 판매단가가 없어 sale 칸을 비운다 — 원가만 박별 합산.
+    // 계층(ADR-0031): CONSUMER면 소비자가(폴백 Net), 아니면 Net. 원가는 계층 무관 동일.
+    const tier: PriceTier = input.priceTier ?? "NET";
     if (input.saleCurrency === Currency.KRW) {
-      night.saleKrw = rate.salePriceKrw;
-      totalSaleKrw += rate.salePriceKrw;
+      const krw = nightSaleKrw(rate, tier);
+      night.saleKrw = krw;
+      totalSaleKrw += krw;
     } else if (input.saleCurrency === Currency.VND) {
-      night.saleVnd = rate.salePriceVnd;
-      totalSaleVnd += rate.salePriceVnd;
+      const vnd = nightSaleVnd(rate, tier);
+      night.saleVnd = vnd;
+      totalSaleVnd += vnd;
     }
     totalSupplierCostVnd += rate.supplierCostVnd;
     nightly.push(night);
@@ -321,6 +356,24 @@ export function computeSalePriceVnd(
   return marginType === MarginType.PERCENT
     ? supplierCostVnd + (supplierCostVnd * marginValue) / 100n
     : supplierCostVnd + marginValue;
+}
+
+/**
+ * 소비자 직판가 자동계산 (ADR-0031): consumerSalePriceVnd = Net(salePriceVnd) + 소비자마진.
+ * computeSalePriceVnd와 동형이나 **기준이 원가가 아니라 Net 판매가**다(마진 위에 마진).
+ * PERCENT는 BigInt 정수 나눗셈(내림). ADMIN 오버라이드 가능한 제안값.
+ */
+export function computeConsumerSalePriceVnd(
+  netSalePriceVnd: bigint,
+  marginType: MarginType,
+  marginValue: bigint
+): bigint {
+  if (netSalePriceVnd < 0n || marginValue < 0n) {
+    throw new RangeError("Net 판매가·소비자마진은 음수일 수 없습니다");
+  }
+  return marginType === MarginType.PERCENT
+    ? netSalePriceVnd + (netSalePriceVnd * marginValue) / 100n
+    : netSalePriceVnd + marginValue;
 }
 
 /**
@@ -426,7 +479,9 @@ export async function quoteStayForVilla(
   db: DbClient,
   villaId: string,
   range: StayRange,
-  saleCurrency: Currency
+  saleCurrency: Currency,
+  /** 채널 (ADR-0031). DIRECT면 소비자가 계층, 그 외/미지정이면 Net. 원가는 계층 무관 동일 */
+  channel?: BookingChannel
 ): Promise<StayQuote> {
   assertValidStayRange(range);
 
@@ -438,6 +493,9 @@ export async function quoteStayForVilla(
     supplierCostVnd: true,
     salePriceVnd: true,
     salePriceKrw: true,
+    // ADR-0031 — 소비자 계층 폴백 판정용. NET 견적에도 select하나 사용 안 함(누수 아님: 운영자 견적 경로).
+    consumerSalePriceVnd: true,
+    consumerSalePriceKrw: true,
   } as const;
   const [base, periods] = await Promise.all([
     db.villaRatePeriod.findFirst({ where: { villaId, isBase: true }, select: RP_SELECT }),
@@ -452,7 +510,8 @@ export async function quoteStayForVilla(
     }),
   ]);
   if (!base) throw new MissingBaseRateError();
-  return quoteStayByPeriod({ ...range, saleCurrency, base, periods });
+  const priceTier = channel ? priceTierForChannel(channel) : "NET";
+  return quoteStayByPeriod({ ...range, saleCurrency, base, periods, priceTier });
 }
 
 /**

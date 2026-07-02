@@ -4,7 +4,7 @@ import { findSellableVillaIds } from "@/lib/availability";
 import { quoteStayForVilla, MissingRateError } from "@/lib/pricing";
 import { parseUtcDateOnly } from "@/lib/date-vn";
 import { serializeBigInt } from "@/lib/serialize";
-import { Currency } from "@prisma/client";
+import { BookingChannel, Currency } from "@prisma/client";
 import { canSetPrice } from "@/lib/permissions";
 
 /**
@@ -30,6 +30,12 @@ export async function GET(req: Request) {
     return Response.json({ error: "invalid_input", message: "saleCurrency는 KRW·VND·USD만 가능합니다" }, { status: 400 });
   }
   const saleCurrency = currencyParam as Currency;
+  // ADR-0031 — 채널(선택). DIRECT면 소비자 직판가로 미리보기(실제 제안가와 일치). 미지정=Net.
+  const channelParam = url.searchParams.get("channel");
+  const channel =
+    channelParam === "DIRECT" || channelParam === "TRAVEL_AGENCY" || channelParam === "LAND_AGENCY"
+      ? (channelParam as BookingChannel)
+      : undefined;
   const range = { checkIn, checkOut };
 
   try {
@@ -53,7 +59,7 @@ export async function GET(req: Request) {
     const candidates = [];
     for (const { photos, ...villa } of villas) {
       try {
-        const quote = await quoteStayForVilla(prisma, villa.id, range, saleCurrency);
+        const quote = await quoteStayForVilla(prisma, villa.id, range, saleCurrency, channel);
         // USD(Phase 2)는 요율표 판매단가가 없어 sale 견적이 없는 게 정상(ADMIN 수동 입력).
         //   "판매가 미책정" warning으로 거르지 않고, sale=null로 후보에 포함(원가·박수만 표시).
         if (saleCurrency !== Currency.USD) {

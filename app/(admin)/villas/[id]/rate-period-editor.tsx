@@ -17,8 +17,13 @@ interface RateFields {
   supplierCostVnd: string; // 동 단위 숫자 문자열
   marginType: MarginType;
   marginValue: string;
-  salePriceVnd: string;
+  salePriceVnd: string; // Net(도매/여행사·랜드사) 판매가
   salePriceKrw: number;
+  // ADR-0031 소비자 직판가 — Net 대비 추가마진. 빈값=Net 폴백(저장 시 null)
+  consumerMarginType: MarginType;
+  consumerMarginValue: string;
+  consumerSalePriceVnd: string;
+  consumerSalePriceKrw: number;
   label: string;
 }
 interface PeriodRow extends RateFields {
@@ -41,11 +46,11 @@ const SEASON_BADGE: Record<Season, string> = {
 
 const toDigits = (v: string) => v.replace(/\D/g, "");
 
-/** 판매가(VND) 자동 제안 = 원가 + 마진 (BigInt 정수 연산) */
-function suggestSaleVnd(costVnd: string, marginType: MarginType, marginValue: string): string {
-  const cost = BigInt(costVnd || "0");
+/** 판매가(VND) 자동 제안 = 원가 + 마진 (BigInt 정수 연산). Net·소비자가 공용(기준값만 다름) */
+function suggestMarkupVnd(baseVnd: string, marginType: MarginType, marginValue: string): string {
+  const base = BigInt(baseVnd || "0");
   const margin = BigInt(marginValue || "0");
-  return (marginType === "PERCENT" ? (cost * (100n + margin)) / 100n : cost + margin).toString();
+  return (marginType === "PERCENT" ? (base * (100n + margin)) / 100n : base + margin).toString();
 }
 /** 판매가(KRW) 환산 제안 — 1,000원 라운딩. 환율 없으면 null */
 function suggestKrw(saleVnd: string, fx: number | null): number | null {
@@ -65,6 +70,10 @@ const emptyFields = (season: Season): RateFields => ({
   marginValue: "20",
   salePriceVnd: "",
   salePriceKrw: 0,
+  consumerMarginType: "PERCENT",
+  consumerMarginValue: "0", // 기본 0 = Net과 동일(소비자 마크업 미설정)
+  consumerSalePriceVnd: "",
+  consumerSalePriceKrw: 0,
   label: "",
 });
 
@@ -88,11 +97,20 @@ export default function RatePeriodEditor({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
-  // 마진/원가 변경 시 판매가 자동제안 (한 행 패치 헬퍼가 적용)
+  // 마진/원가 변경 시 판매가 자동제안 (한 행 패치 헬퍼가 적용).
+  // ADR-0031: Net(원가+마진) 재산출 → 소비자가(Net+소비자마진)도 연쇄 재산출.
   function withSuggestion(f: RateFields): RateFields {
-    const saleVnd = suggestSaleVnd(f.supplierCostVnd, f.marginType, f.marginValue);
+    const saleVnd = suggestMarkupVnd(f.supplierCostVnd, f.marginType, f.marginValue);
     const krw = suggestKrw(saleVnd, fxVndPerKrw);
-    return { ...f, salePriceVnd: saleVnd, salePriceKrw: krw ?? f.salePriceKrw };
+    const consumerVnd = suggestMarkupVnd(saleVnd, f.consumerMarginType, f.consumerMarginValue);
+    const consumerKrw = suggestKrw(consumerVnd, fxVndPerKrw);
+    return {
+      ...f,
+      salePriceVnd: saleVnd,
+      salePriceKrw: krw ?? f.salePriceKrw,
+      consumerSalePriceVnd: consumerVnd,
+      consumerSalePriceKrw: consumerKrw ?? f.consumerSalePriceKrw,
+    };
   }
 
   function patchBase(patch: Partial<RateFields>, resuggest = false) {
@@ -138,6 +156,11 @@ export default function RatePeriodEditor({
       marginValue: f.marginValue || "0",
       salePriceVnd: f.salePriceVnd || "0",
       salePriceKrw: f.salePriceKrw || 0,
+      // ADR-0031 소비자 직판가 — 빈값/0은 null(Net 폴백). 값이 있으면 문자열/정수 전달.
+      consumerMarginType: f.consumerMarginType,
+      consumerMarginValue: f.consumerMarginValue || "0",
+      consumerSalePriceVnd: f.consumerSalePriceVnd || null,
+      consumerSalePriceKrw: f.consumerSalePriceKrw || null,
       label: f.label.trim() || null,
     });
     const body = {
@@ -286,8 +309,9 @@ function RateFieldsRow({
   tr: ReturnType<typeof useTranslations>;
 }) {
   return (
-    // 2줄 배치 — 윗줄(입력): 시즌·원가·마진 / 아랫줄(결과): 판매가 VND·KRW.
-    // 6개를 한 줄에 넣으면 금액이 잘려 3열 그리드로 자연 줄바꿈(3+2).
+    <div className="space-y-3">
+    {/* 2줄 배치 — 윗줄(입력): 시즌·원가·마진 / 아랫줄(결과): Net 판매가 VND·KRW.
+        6개를 한 줄에 넣으면 금액이 잘려 3열 그리드로 자연 줄바꿈(3+2). */}
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
       {/* season */}
       <Field label={tr("colSeason")}>
@@ -335,19 +359,27 @@ function RateFieldsRow({
           </select>
         </div>
       </Field>
-      {/* 판매가 VND */}
+      {/* Net 판매가 VND (도매/여행사·랜드사) */}
       <Field label={tr("colSaleVnd")}>
         <NumInput
           value={fields.salePriceVnd}
           onChange={(d) => {
             const krw = suggestKrw(d, fxVndPerKrw);
-            onPatch({ salePriceVnd: d, ...(krw !== null ? { salePriceKrw: krw } : {}) });
+            // Net 직접 변경 시 소비자가도 연쇄 재산출(Net + 소비자마진)
+            const consumerVnd = suggestMarkupVnd(d, fields.consumerMarginType, fields.consumerMarginValue);
+            const consumerKrw = suggestKrw(consumerVnd, fxVndPerKrw);
+            onPatch({
+              salePriceVnd: d,
+              ...(krw !== null ? { salePriceKrw: krw } : {}),
+              consumerSalePriceVnd: consumerVnd,
+              ...(consumerKrw !== null ? { consumerSalePriceKrw: consumerKrw } : {}),
+            });
           }}
           suffix="₫"
           ariaLabel={tr("colSaleVnd")}
         />
       </Field>
-      {/* 판매가 KRW */}
+      {/* Net 판매가 KRW */}
       <Field label={tr("colSaleKrw")}>
         <input
           type="text"
@@ -361,6 +393,65 @@ function RateFieldsRow({
           className="w-full h-10 bg-slate-900 border border-slate-700 rounded px-3 text-right text-xs font-bold text-slate-100 tabular-nums"
         />
       </Field>
+    </div>
+
+    {/* ADR-0031 — 소비자 직판가(직접 소비자 채널). Net 대비 추가마진, 비우면 Net 폴백. */}
+    <div className="rounded-lg border border-indigo-500/25 bg-indigo-500/[0.04] p-3">
+      <p className="text-[10px] font-bold text-indigo-300 mb-2 uppercase tracking-wider">
+        {tr("consumerSection")}
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {/* 소비자 추가마진 (Net 대비) */}
+        <Field label={tr("colConsumerMargin")}>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={fields.consumerMarginType === "FIXED_VND" ? (fields.consumerMarginValue ? formatThousands(fields.consumerMarginValue) : "") : fields.consumerMarginValue}
+              onChange={(e) => onPatch({ consumerMarginValue: toDigits(e.target.value) }, true)}
+              aria-label={tr("colConsumerMargin")}
+              className="flex-1 min-w-0 h-10 bg-slate-900 border border-slate-700 rounded px-2 text-right text-xs text-slate-100 tabular-nums"
+            />
+            <select
+              value={fields.consumerMarginType}
+              onChange={(e) => onPatch({ consumerMarginType: e.target.value as MarginType }, true)}
+              aria-label={tr("colConsumerMargin")}
+              className="h-10 w-[4.25rem] shrink-0 bg-slate-900 border border-slate-700 rounded px-1.5 text-[11px] text-slate-100"
+            >
+              <option value="PERCENT">{tr("percent")}</option>
+              <option value="FIXED_VND">{tr("fixed")}</option>
+            </select>
+          </div>
+        </Field>
+        {/* 소비자가 VND */}
+        <Field label={tr("colConsumerVnd")}>
+          <NumInput
+            value={fields.consumerSalePriceVnd}
+            onChange={(d) => {
+              const krw = suggestKrw(d, fxVndPerKrw);
+              onPatch({ consumerSalePriceVnd: d, ...(krw !== null ? { consumerSalePriceKrw: krw } : {}) });
+            }}
+            suffix="₫"
+            ariaLabel={tr("colConsumerVnd")}
+          />
+        </Field>
+        {/* 소비자가 KRW */}
+        <Field label={tr("colConsumerKrw")}>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={fields.consumerSalePriceKrw ? `₩${formatThousands(String(fields.consumerSalePriceKrw))}` : "₩0"}
+            onChange={(e) => {
+              const d = toDigits(e.target.value);
+              onPatch({ consumerSalePriceKrw: d ? Number.parseInt(d, 10) : 0 });
+            }}
+            aria-label={tr("colConsumerKrw")}
+            className="w-full h-10 bg-slate-900 border border-slate-700 rounded px-3 text-right text-xs font-bold text-slate-100 tabular-nums"
+          />
+        </Field>
+      </div>
+      <p className="text-[10px] text-slate-500 mt-2">{tr("consumerHint")}</p>
+    </div>
     </div>
   );
 }

@@ -1026,8 +1026,13 @@
         "colSeason": "Mùa",
         "colCost": "Giá gốc (VND)",
         "colMargin": "Biên lợi nhuận",
-        "colSaleVnd": "Giá bán (VND)",
-        "colSaleKrw": "Giá bán (KRW tham khảo)",
+        "colSaleVnd": "Giá Net (VND)",
+        "colSaleKrw": "Giá Net (KRW tham khảo)",
+        "consumerSection": "Giá bán trực tiếp cho khách (khách lẻ)",
+        "colConsumerMargin": "Biên khách lẻ (trên giá Net)",
+        "colConsumerVnd": "Giá khách lẻ (VND)",
+        "colConsumerKrw": "Giá khách lẻ (KRW tham khảo)",
+        "consumerHint": "Để trống sẽ bán theo giá Net. Chỉ áp dụng cho đặt phòng kênh khách trực tiếp (DIRECT).",
         "seasons": {
           "LOW": "Mùa thấp điểm",
           "HIGH": "Mùa cao điểm",
@@ -2811,6 +2816,7 @@
         "DIRECT": "Trực tiếp"
       },
       "vndNotice": "Kênh công ty du lịch · land tour thanh toán bằng VND",
+      "directCurrencyLabel": "Tiền tệ thanh toán (khách trực tiếp)",
       "usdToggle": "Bán bằng đô la (USD)",
       "usdNotice": "Kênh USD không có báo giá tự động từ bảng giá. Vui lòng nhập tổng tiền USD cho từng villa.",
       "usdTotalLabel": "Nhập tổng USD ($)",

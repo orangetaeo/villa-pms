@@ -80,6 +80,7 @@ export async function previewBookingModify(
       nights: true,
       guestCount: true,
       saleCurrency: true,
+      channel: true, // ADR-0031 — 견적 계층(DIRECT=소비자가) 판정용
       totalSaleKrw: true,
       totalSaleVnd: true,
       supplierCostVnd: true,
@@ -161,7 +162,7 @@ export async function previewBookingModify(
   let newSaleVnd = booking.totalSaleVnd;
   let nightsNew = booking.nights;
   if (recalculated) {
-    const quote = await quoteStayForVilla(prisma, nextVillaId, range, booking.saleCurrency);
+    const quote = await quoteStayForVilla(prisma, nextVillaId, range, booking.saleCurrency, booking.channel);
     nightsNew = countNights(range);
     const resolved = resolveModifiedTotals(
       booking.status,

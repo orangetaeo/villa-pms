@@ -165,7 +165,8 @@ export async function createProposal(
       }
       try {
         // 원가는 통화 무관 항상 quoteStayForVilla로 계산(USD 포함 — sale 칸만 비고 원가는 정상).
-        const quote = await quoteStayForVilla(tx, item.villaId, item, saleCurrency);
+        // ADR-0031: 채널 전달 → DIRECT면 소비자 직판가, 여행사·랜드사면 Net으로 견적.
+        const quote = await quoteStayForVilla(tx, item.villaId, item, saleCurrency, input.channel);
 
         if (saleCurrency === Currency.USD) {
           // USD(Phase 2): 요율표 판매단가가 없어 자동견적 불가 → ADMIN 수동 입력 totalUsd 사용.
