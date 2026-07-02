@@ -162,7 +162,7 @@
     "inventory": "재고",
     "availability": "공실 보드",
     "inspections": "청소 검수",
-    "settlements": "정산",
+    "settlements": "빌라 정산",
     "partners": "파트너 관리",
     "receivables": "미수/여신",
     "serviceOrders": "부가서비스 정산",
@@ -180,6 +180,8 @@
     "groups": {
       "sales": "예약·판매",
       "operations": "빌라 운영",
+      "addon": "부가서비스",
+      "partner": "파트너",
       "finance": "재무",
       "system": "시스템"
     },
