@@ -220,14 +220,22 @@ function SettleTab({
     total: string;
   } | null>(null);
   const [busy, setBusy] = useState(false);
+  // 검색어 — 빌라·품목·공급자 부분일치(입금대기·입금완료 공통). 합계 카드는 전체 기준 유지.
+  const [search, setSearch] = useState("");
+  const q = search.trim().toLowerCase();
+  const matchOrder = (o: Order) =>
+    !q || [o.villaName, o.itemName, o.vendorName].some((f) => f?.toLowerCase().includes(q));
 
+  // 합계 카드는 검색과 무관하게 전체 기준(미정산·완료 총액).
   const pendingTotal = sumVnd(unsettled.map((o) => o.costVnd));
   const paidTotal = sumVnd(settled.map((o) => o.costVnd));
 
-  // 공급자별 그룹(미정산) — vendorId 기준.
+  const filteredUnsettled = unsettled.filter(matchOrder);
+
+  // 공급자별 그룹(미정산, 검색 반영) — vendorId 기준.
   const groups = useMemo(() => {
     const m = new Map<string, { vendorName: string; phone: string | null; bank: string | null; orders: Order[] }>();
-    for (const o of unsettled) {
+    for (const o of filteredUnsettled) {
       const key = o.vendorId ?? "—";
       if (!m.has(key)) {
         m.set(key, {
@@ -240,7 +248,11 @@ function SettleTab({
       m.get(key)!.orders.push(o);
     }
     return Array.from(m.values()).sort((a, b) => a.vendorName.localeCompare(b.vendorName));
-  }, [unsettled]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unsettled, q]);
+
+  // 공급자 그룹 페이지네이션(입금 대기) — 공급자가 많아도 한 페이지만 렌더.
+  const groupsPage = usePaged(groups);
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -266,9 +278,11 @@ function SettleTab({
     }
   };
 
-  const paidPage = usePaged(
-    settled.slice().sort((a, b) => (b.vendorSettledAt ?? "").localeCompare(a.vendorSettledAt ?? ""))
-  );
+  // 입금 완료(검색 반영, 최근 정산순).
+  const filteredSettled = settled
+    .filter(matchOrder)
+    .sort((a, b) => (b.vendorSettledAt ?? "").localeCompare(a.vendorSettledAt ?? ""));
+  const paidPage = usePaged(filteredSettled);
 
   return (
     <div className="space-y-5">
@@ -327,12 +341,14 @@ function SettleTab({
         })}
       </div>
 
+      <ListSearch value={search} onChange={setSearch} placeholder={t("hub.searchPlaceholder")} />
+
       {sub === "pending" ? (
         groups.length === 0 ? (
-          <Empty icon="payments" text={t("hub.emptyPending")} />
+          <Empty icon="payments" text={q ? t("hub.emptySearch") : t("hub.emptyPending")} />
         ) : (
           <div className="space-y-4">
-            {groups.map((grp) => {
+            {groupsPage.paged.map((grp) => {
               const selIds = grp.orders.filter((o) => selected.has(o.id)).map((o) => o.id);
               const selTotal = sumVnd(grp.orders.filter((o) => selected.has(o.id)).map((o) => o.costVnd));
               return (
@@ -408,10 +424,17 @@ function SettleTab({
                 </section>
               );
             })}
+            <PaginationBar
+              total={groups.length}
+              page={groupsPage.page}
+              pageSize={groupsPage.pageSize}
+              onPageChange={groupsPage.setPage}
+              onPageSizeChange={groupsPage.setPageSize}
+            />
           </div>
         )
-      ) : settled.length === 0 ? (
-        <Empty icon="task_alt" text={t("hub.emptyPaid")} />
+      ) : filteredSettled.length === 0 ? (
+        <Empty icon="task_alt" text={q ? t("hub.emptySearch") : t("hub.emptyPaid")} />
       ) : (
         <div className="space-y-2">
           {paidPage.paged.map((o) => (
@@ -439,7 +462,7 @@ function SettleTab({
             </div>
           ))}
           <PaginationBar
-            total={settled.length}
+            total={filteredSettled.length}
             page={paidPage.page}
             pageSize={paidPage.pageSize}
             onPageChange={paidPage.setPage}
