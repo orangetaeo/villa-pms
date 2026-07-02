@@ -7,10 +7,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import ListSearch from "@/components/list-search";
 import PaginationBar from "@/components/pagination-bar";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { formatVnd } from "@/lib/format";
+import { resolveQuickRange } from "@/lib/date-vn";
 
 type VendorStatus = "PENDING_VENDOR" | "VENDOR_ACCEPTED" | "VENDOR_REJECTED" | null;
 type SettleMethod = "CASH" | "BANK_TRANSFER" | "OTHER";
@@ -28,6 +28,8 @@ type Order = {
   type: string | null;
   quantity: number;
   guestCount: number | null;
+  guestName: string | null;
+  partnerName: string | null;
   vendorId: string | null;
   vendorName: string | null;
   vendorPhone: string | null;
@@ -99,6 +101,146 @@ function usePaged<X>(items: X[]) {
       setPage(1);
     },
   };
+}
+
+// ── 공통 필터 (정산·중계현황 공용) ───────────────────────────────────
+type RangeKey = "all" | "yesterday" | "today" | "tomorrow" | "thisWeek" | "lastWeek" | "thisMonth" | "lastMonth";
+const RANGE_KEYS: RangeKey[] = ["all", "yesterday", "today", "tomorrow", "thisWeek", "lastWeek", "thisMonth", "lastMonth"];
+
+type Filters = {
+  range: RangeKey;
+  item: string;
+  vendor: string;
+  partner: string;
+  villa: string;
+  guest: string;
+};
+const EMPTY_FILTERS: Filters = { range: "all", item: "", vendor: "", partner: "", villa: "", guest: "" };
+
+/** 발주 기준일 — 서비스 제공일(serviceDate) 우선, 없으면 체크인일. "YYYY-MM-DD" 또는 null. */
+function orderDateKey(o: Order): string | null {
+  const iso = o.serviceDate ?? o.checkIn;
+  return iso ? iso.slice(0, 10) : null;
+}
+
+/** 날짜 프리셋 → [from, to) (YYYY-MM-DD 반개구간). "tomorrow"만 로컬 계산, 나머지는 공용 resolveQuickRange. */
+function rangeBounds(key: RangeKey): { from: string; to: string } | null {
+  if (key === "all") return null;
+  if (key === "tomorrow") {
+    const today = resolveQuickRange("today");
+    if (!today) return null;
+    const start = today.to; // 오늘의 to = 내일 00:00 (VN 달력일)
+    const next = new Date(new Date(`${start}T00:00:00.000Z`).getTime() + 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    return { from: start, to: next };
+  }
+  return resolveQuickRange(key);
+}
+
+function applyFilters(orders: Order[], f: Filters): Order[] {
+  const bounds = rangeBounds(f.range);
+  const g = f.guest.trim().toLowerCase();
+  return orders.filter((o) => {
+    if (bounds) {
+      const dk = orderDateKey(o);
+      if (!dk || dk < bounds.from || dk >= bounds.to) return false;
+    }
+    if (f.item && o.itemName !== f.item) return false;
+    if (f.vendor && o.vendorName !== f.vendor) return false;
+    if (f.partner && o.partnerName !== f.partner) return false;
+    if (f.villa && o.villaName !== f.villa) return false;
+    if (g && !o.guestName?.toLowerCase().includes(g)) return false;
+    return true;
+  });
+}
+
+/** distinct 정렬 옵션(빈값 제외) — 셀렉터 옵션 소스 */
+function distinct(orders: Order[], pick: (o: Order) => string | null): string[] {
+  return Array.from(new Set(orders.map(pick).filter((v): v is string => !!v))).sort((a, b) =>
+    a.localeCompare(b)
+  );
+}
+
+function FilterBar({
+  source,
+  filters,
+  onChange,
+  t,
+}: {
+  source: Order[];
+  filters: Filters;
+  onChange: (f: Filters) => void;
+  t: T;
+}) {
+  const tq = useTranslations("quickDateFilter");
+  const set = (patch: Partial<Filters>) => onChange({ ...filters, ...patch });
+  const items = distinct(source, (o) => o.itemName);
+  const vendors = distinct(source, (o) => o.vendorName);
+  const partners = distinct(source, (o) => o.partnerName);
+  const villas = distinct(source, (o) => o.villaName);
+  const selectCls =
+    "min-w-0 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-2 text-sm text-slate-200 outline-none focus:border-admin-primary";
+
+  return (
+    <div className="space-y-2 rounded-xl border border-slate-700/60 bg-slate-900/40 p-3">
+      {/* 날짜 프리셋 — 전체/어제/오늘/내일/이번주/지난주/이번달/지난달 */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+        {RANGE_KEYS.map((k) => {
+          const active = filters.range === k;
+          return (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={active}
+              onClick={() => set({ range: k })}
+              className={
+                active
+                  ? "whitespace-nowrap rounded-lg bg-admin-primary px-3 py-1.5 text-xs font-bold text-white"
+                  : "whitespace-nowrap rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white"
+              }
+            >
+              {tq(k)}
+            </button>
+          );
+        })}
+      </div>
+      {/* 셀렉터 4종(항목·업체·파트너·빌라) + 고객명 텍스트 */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        <select aria-label={t("hub.filters.item")} value={filters.item} onChange={(e) => set({ item: e.target.value })} className={selectCls}>
+          <option value="">{t("hub.filters.item")}</option>
+          {items.map((v) => (
+            <option key={v} value={v}>{v}</option>
+          ))}
+        </select>
+        <select aria-label={t("hub.filters.vendor")} value={filters.vendor} onChange={(e) => set({ vendor: e.target.value })} className={selectCls}>
+          <option value="">{t("hub.filters.vendor")}</option>
+          {vendors.map((v) => (
+            <option key={v} value={v}>{v}</option>
+          ))}
+        </select>
+        <select aria-label={t("hub.filters.partner")} value={filters.partner} onChange={(e) => set({ partner: e.target.value })} className={selectCls}>
+          <option value="">{t("hub.filters.partner")}</option>
+          {partners.map((v) => (
+            <option key={v} value={v}>{v}</option>
+          ))}
+        </select>
+        <select aria-label={t("hub.filters.villa")} value={filters.villa} onChange={(e) => set({ villa: e.target.value })} className={selectCls}>
+          <option value="">{t("hub.filters.villa")}</option>
+          {villas.map((v) => (
+            <option key={v} value={v}>{v}</option>
+          ))}
+        </select>
+        <input
+          type="search"
+          value={filters.guest}
+          onChange={(e) => set({ guest: e.target.value })}
+          placeholder={t("hub.filters.guestPlaceholder")}
+          className={selectCls}
+        />
+      </div>
+    </div>
+  );
 }
 
 export default function ServiceOrdersView() {
@@ -220,19 +362,25 @@ function SettleTab({
     total: string;
   } | null>(null);
   const [busy, setBusy] = useState(false);
-  // 검색어 — 빌라·품목·공급자 부분일치(입금대기·입금완료 공통). 합계 카드는 전체 기준 유지.
-  const [search, setSearch] = useState("");
-  const q = search.trim().toLowerCase();
-  const matchOrder = (o: Order) =>
-    !q || [o.villaName, o.itemName, o.vendorName].some((f) => f?.toLowerCase().includes(q));
+  // 필터(날짜·항목·업체·파트너·빌라·고객명) — 입금대기·입금완료 공통. 합계 카드는 전체 기준 유지.
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  const hasFilter =
+    filters.range !== "all" ||
+    !!filters.item ||
+    !!filters.vendor ||
+    !!filters.partner ||
+    !!filters.villa ||
+    !!filters.guest.trim();
 
-  // 합계 카드는 검색과 무관하게 전체 기준(미정산·완료 총액).
+  // 합계 카드는 필터와 무관하게 전체 기준(미정산·완료 총액).
   const pendingTotal = sumVnd(unsettled.map((o) => o.costVnd));
   const paidTotal = sumVnd(settled.map((o) => o.costVnd));
 
-  const filteredUnsettled = unsettled.filter(matchOrder);
+  // 셀렉터 옵션 소스 = 정산 대상 전체(대기+완료).
+  const filterSource = useMemo(() => [...unsettled, ...settled], [unsettled, settled]);
+  const filteredUnsettled = useMemo(() => applyFilters(unsettled, filters), [unsettled, filters]);
 
-  // 공급자별 그룹(미정산, 검색 반영) — vendorId 기준.
+  // 공급자별 그룹(미정산, 필터 반영) — vendorId 기준.
   const groups = useMemo(() => {
     const m = new Map<string, { vendorName: string; phone: string | null; bank: string | null; orders: Order[] }>();
     for (const o of filteredUnsettled) {
@@ -248,8 +396,7 @@ function SettleTab({
       m.get(key)!.orders.push(o);
     }
     return Array.from(m.values()).sort((a, b) => a.vendorName.localeCompare(b.vendorName));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unsettled, q]);
+  }, [filteredUnsettled]);
 
   // 공급자 그룹 페이지네이션(입금 대기) — 공급자가 많아도 한 페이지만 렌더.
   const groupsPage = usePaged(groups);
@@ -278,10 +425,14 @@ function SettleTab({
     }
   };
 
-  // 입금 완료(검색 반영, 최근 정산순).
-  const filteredSettled = settled
-    .filter(matchOrder)
-    .sort((a, b) => (b.vendorSettledAt ?? "").localeCompare(a.vendorSettledAt ?? ""));
+  // 입금 완료(필터 반영, 최근 정산순).
+  const filteredSettled = useMemo(
+    () =>
+      applyFilters(settled, filters).sort((a, b) =>
+        (b.vendorSettledAt ?? "").localeCompare(a.vendorSettledAt ?? "")
+      ),
+    [settled, filters]
+  );
   const paidPage = usePaged(filteredSettled);
 
   return (
@@ -341,11 +492,11 @@ function SettleTab({
         })}
       </div>
 
-      <ListSearch value={search} onChange={setSearch} placeholder={t("hub.searchPlaceholder")} />
+      <FilterBar source={filterSource} filters={filters} onChange={setFilters} t={t} />
 
       {sub === "pending" ? (
         groups.length === 0 ? (
-          <Empty icon="payments" text={q ? t("hub.emptySearch") : t("hub.emptyPending")} />
+          <Empty icon="payments" text={hasFilter ? t("hub.emptySearch") : t("hub.emptyPending")} />
         ) : (
           <div className="space-y-4">
             {groupsPage.paged.map((grp) => {
@@ -434,7 +585,7 @@ function SettleTab({
           </div>
         )
       ) : filteredSettled.length === 0 ? (
-        <Empty icon="task_alt" text={q ? t("hub.emptySearch") : t("hub.emptyPaid")} />
+        <Empty icon="task_alt" text={hasFilter ? t("hub.emptySearch") : t("hub.emptyPaid")} />
       ) : (
         <div className="space-y-2">
           {paidPage.paged.map((o) => (
@@ -486,34 +637,11 @@ function SettleTab({
 
 // ── 중계현황 탭 — 전 발주 상태 조회 + 예약 딥링크 ──────────────────────
 function StatusTab({ orders, t }: { orders: Order[]; t: T }) {
-  const [filter, setFilter] = useState<"all" | "pending" | "accepted" | "rejected" | "cancelled">("all");
-  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "accepted" | "rejected" | "cancelled">("all");
+  const [advFilters, setAdvFilters] = useState<Filters>(EMPTY_FILTERS);
 
-  const matchFilter = (o: Order): boolean => {
-    switch (filter) {
-      case "pending":
-        return o.vendorStatus === "PENDING_VENDOR" && o.status !== "CANCELLED";
-      case "accepted":
-        return o.vendorStatus === "VENDOR_ACCEPTED" && o.status !== "CANCELLED";
-      case "rejected":
-        return o.vendorStatus === "VENDOR_REJECTED";
-      case "cancelled":
-        return o.status === "CANCELLED";
-      default:
-        return true;
-    }
-  };
-  const q = search.trim().toLowerCase();
-  const filtered = orders.filter(
-    (o) =>
-      matchFilter(o) &&
-      (!q || [o.villaName, o.itemName, o.vendorName].some((f) => f?.toLowerCase().includes(q)))
-  );
-  const page = usePaged(filtered);
-
-  const filters = ["all", "pending", "accepted", "rejected", "cancelled"] as const;
-  // 필터별 건수 — filter state와 무관한 순수 조건 판정.
-  const inBucket = (o: Order, f: (typeof filters)[number]): boolean => {
+  const statusChips = ["all", "pending", "accepted", "rejected", "cancelled"] as const;
+  const inBucket = (o: Order, f: (typeof statusChips)[number]): boolean => {
     switch (f) {
       case "pending":
         return o.vendorStatus === "PENDING_VENDOR" && o.status !== "CANCELLED";
@@ -527,20 +655,36 @@ function StatusTab({ orders, t }: { orders: Order[]; t: T }) {
         return true;
     }
   };
-  const countOf = (f: (typeof filters)[number]) =>
-    f === "all" ? orders.length : orders.filter((o) => inBucket(o, f)).length;
+
+  // 고급 필터(날짜·항목·업체·파트너·빌라·고객명) 적용 후, 상태 칩으로 다시 좁힘.
+  const advFiltered = useMemo(() => applyFilters(orders, advFilters), [orders, advFilters]);
+  const countOf = (f: (typeof statusChips)[number]) =>
+    f === "all" ? advFiltered.length : advFiltered.filter((o) => inBucket(o, f)).length;
+  const filtered = advFiltered.filter((o) => inBucket(o, statusFilter));
+  const page = usePaged(filtered);
+
+  const hasAny =
+    statusFilter !== "all" ||
+    advFilters.range !== "all" ||
+    !!advFilters.item ||
+    !!advFilters.vendor ||
+    !!advFilters.partner ||
+    !!advFilters.villa ||
+    !!advFilters.guest.trim();
 
   return (
     <div className="space-y-4">
-      {/* 필터 칩 */}
+      <FilterBar source={orders} filters={advFilters} onChange={setAdvFilters} t={t} />
+
+      {/* 상태 칩 (발주대기/수락/거절/취소) — 고급 필터와 별개 축 */}
       <div className="flex flex-wrap gap-2">
-        {filters.map((f) => {
-          const active = filter === f;
+        {statusChips.map((f) => {
+          const active = statusFilter === f;
           return (
             <button
               key={f}
               type="button"
-              onClick={() => setFilter(f)}
+              onClick={() => setStatusFilter(f)}
               className={
                 active
                   ? "rounded-full bg-admin-primary px-3 py-1.5 text-xs font-bold text-white"
@@ -554,10 +698,8 @@ function StatusTab({ orders, t }: { orders: Order[]; t: T }) {
         })}
       </div>
 
-      <ListSearch value={search} onChange={setSearch} placeholder={t("hub.searchPlaceholder")} />
-
       {filtered.length === 0 ? (
-        <Empty icon="inbox" text={t("hub.emptyStatus")} />
+        <Empty icon="inbox" text={hasAny ? t("hub.emptySearch") : t("hub.emptyStatus")} />
       ) : (
         <div className="space-y-2">
           {page.paged.map((o) => (

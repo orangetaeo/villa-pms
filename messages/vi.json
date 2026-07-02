@@ -143,6 +143,7 @@
   "quickDateFilter": {
     "all": "Tất cả",
     "today": "Hôm nay",
+    "tomorrow": "Ngày mai",
     "yesterday": "Hôm qua",
     "thisWeek": "Tuần này",
     "lastWeek": "Tuần trước",
@@ -2201,6 +2202,7 @@
       "emptyPaid": "Chưa có khoản nào đã thanh toán.",
       "emptySearch": "Không có kết quả tìm kiếm.",
       "emptyStatus": "Chưa có đơn trung gian nào.",
+      "filters": { "item": "Dịch vụ", "vendor": "Nhà cung cấp", "partner": "Đối tác", "villa": "Villa", "guestPlaceholder": "Tìm tên khách" },
       "filter": { "all": "Tất cả", "pending": "Chờ NCC", "accepted": "Đã nhận", "rejected": "Từ chối", "cancelled": "Đã hủy" },
       "vstatus": { "PENDING_VENDOR": "Chờ NCC", "VENDOR_ACCEPTED": "Đã nhận", "VENDOR_REJECTED": "Từ chối", "CANCELLED": "Đã hủy" },
       "method": { "CASH": "Tiền mặt", "BANK_TRANSFER": "Chuyển khoản", "OTHER": "Khác" },

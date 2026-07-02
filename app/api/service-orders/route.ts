@@ -46,6 +46,10 @@ export async function GET(req: Request) {
           checkIn: true,
           checkOut: true,
           guestCount: true,
+          // 고객명(텍스트 검색용) + 파트너명(셀렉터). partner 우선, 없으면 agencyName 폴백(ADR-0022).
+          guestName: true,
+          agencyName: true,
+          partner: { select: { name: true } },
           villa: { select: { name: true, nameVi: true } },
         },
       },
@@ -79,6 +83,9 @@ export async function GET(req: Request) {
     type: o.type,
     quantity: o.quantity,
     guestCount: o.booking?.guestCount ?? null,
+    // 고객명·파트너명 — 필터용. 파트너 미지정이면 agencyName(텍스트 폴백).
+    guestName: o.booking?.guestName ?? null,
+    partnerName: o.booking?.partner?.name ?? o.booking?.agencyName ?? null,
     vendorId: o.vendorId,
     vendorName: o.vendor?.nameKo || o.vendor?.name || o.vendorName || null,
     vendorPhone: o.vendor?.phone ?? null,
