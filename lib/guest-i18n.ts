@@ -23,6 +23,7 @@ export interface GuestLabels {
     title: string;
     subtitle: string;
     badgeConfirmed: string;
+    stayChargeLabel: string;
     nights: (n: number) => string;
     guests: (n: number) => string;
     breakfastOn: string;
@@ -181,6 +182,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       title: "체크인을 시작합니다",
       subtitle: "도착 전 미리 비품 확인·동의서 서명·옵션 선택을 마치면 현장 절차가 빨라집니다.",
       badgeConfirmed: "예약 확정",
+      stayChargeLabel: "숙박 요금",
       nights: (n) => `${n}박`,
       guests: (n) => `성인 ${n}명`,
       breakfastOn: "조식 포함",
@@ -322,6 +324,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       title: "Let's start check-in",
       subtitle: "Confirming amenities, signing the agreement, and choosing options before arrival speeds up the on-site process.",
       badgeConfirmed: "Confirmed",
+      stayChargeLabel: "Room charge",
       nights: (n) => `${n} night${n === 1 ? "" : "s"}`,
       guests: (n) => `${n} adult${n === 1 ? "" : "s"}`,
       breakfastOn: "Breakfast included",
@@ -463,6 +466,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       title: "Начнём заселение",
       subtitle: "Проверка удобств, подпись соглашения и выбор опций заранее ускоряют процесс на месте.",
       badgeConfirmed: "Подтверждено",
+      stayChargeLabel: "Стоимость проживания",
       nights: (n) => `${n} ноч.`,
       guests: (n) => `${n} взросл.`,
       breakfastOn: "Завтрак включён",
@@ -604,6 +608,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       title: "开始办理入住",
       subtitle: "抵达前先确认设施、签署同意书并选择选项，可加快现场流程。",
       badgeConfirmed: "预订确认",
+      stayChargeLabel: "住宿费用",
       nights: (n) => `${n}晚`,
       guests: (n) => `成人${n}人`,
       breakfastOn: "含早餐",
@@ -745,6 +750,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       title: "Bắt đầu nhận phòng",
       subtitle: "Kiểm tra tiện nghi, ký bản đồng ý và chọn tùy chọn trước khi đến giúp thủ tục tại chỗ nhanh hơn.",
       badgeConfirmed: "Đã xác nhận",
+      stayChargeLabel: "Phí lưu trú",
       nights: (n) => `${n} đêm`,
       guests: (n) => `${n} người lớn`,
       breakfastOn: "Gồm bữa sáng",

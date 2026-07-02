@@ -57,6 +57,10 @@ export interface GuestCheckinData {
     address: string | null; // 주소(있을 때만 지도 링크 생성)
     wifiSsid: string | null; // 와이파이 이름
     wifiPassword: string | null; // ⚠ 와이파이 비번 — FE는 동의서 서명(signed) 후에만 표시
+    // 숙박 요금 — **직접 게스트(seller=OPERATOR·파트너 없음)만** 노출. 파트너/공급자 예약은 null
+    //   (그쪽이 게스트와 별도로 정산하므로 우리 판매가를 게스트에 보이면 안 됨 — 원칙2).
+    stayChargeVnd: string | null; // VND 채널
+    stayChargeKrw: number | null; // KRW 채널
   } | null;
   amenities: { category: string; itemKey: string; customLabel: string | null }[];
   minibar: GuestMinibarLine[];
@@ -131,11 +135,26 @@ export async function loadGuestCheckin(
       nights: true,
       guestCount: true,
       breakfastIncluded: true,
+      // 숙박 요금 노출 게이트용(직접 게스트만) + 금액
+      seller: true,
+      partnerId: true,
+      saleCurrency: true,
+      totalSaleVnd: true,
+      totalSaleKrw: true,
       // ★ wifiSsid·wifiPassword·address는 게스트 체크인 화면 전용(출입정보 A1). /p엔 절대 미포함.
       villa: { select: { name: true, complex: true, hasPool: true, address: true, wifiSsid: true, wifiPassword: true } },
     },
   });
   if (!booking) return null;
+
+  // 숙박 요금 게이트: 직접 게스트(운영자 판매·파트너 없음)만 노출. 파트너/공급자 예약은 미노출.
+  const directGuest = booking.seller === "OPERATOR" && booking.partnerId == null;
+  const stayChargeVnd =
+    directGuest && booking.saleCurrency === "VND" && booking.totalSaleVnd != null
+      ? booking.totalSaleVnd.toString()
+      : null;
+  const stayChargeKrw =
+    directGuest && booking.saleCurrency === "KRW" ? booking.totalSaleKrw : null;
 
   const [amenityRows, minibarItems, villaStocks, catalogRows, orders, fxVndPerKrw] = await Promise.all([
     prisma.villaAmenity.findMany({
@@ -197,6 +216,8 @@ export async function loadGuestCheckin(
       address: booking.villa.address,
       wifiSsid: booking.villa.wifiSsid,
       wifiPassword: booking.villa.wifiPassword,
+      stayChargeVnd,
+      stayChargeKrw,
     },
     amenities: amenityRows,
     minibar,

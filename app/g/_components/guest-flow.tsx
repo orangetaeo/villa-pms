@@ -11,7 +11,7 @@ import { PublicLangSelector } from "@/components/public-lang-selector";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import GuestSignaturePad from "./guest-signature-pad";
 import GuestPassportStep from "./guest-passport-step";
-import { guestVndPrice, guestDateRange } from "./guest-format";
+import { guestVndPrice, guestDateRange, guestKrw } from "./guest-format";
 import type { GuestFlowProps, GuestBookingView } from "./types";
 
 type Step = 0 | 1 | 2 | 3 | 4; // 0=G1 예약, 1=G2 비품, 2=G3 동의, 3=G4 여권, 4=G5 완료
@@ -137,6 +137,18 @@ export default function GuestFlow(props: GuestFlowProps) {
                     {booking.breakfastIncluded ? L.home.breakfastOn : L.home.breakfastOff}
                   </span>
                 </div>
+                {/* 숙박 요금 — 직접 게스트만 노출(로더에서 게이트, 파트너/공급자 예약은 null) */}
+                {(booking.stayChargeVnd || booking.stayChargeKrw != null) && (
+                  <div className="flex items-center gap-3 text-sm pt-1 border-t border-slate-100">
+                    <span className="material-symbols-outlined text-slate-400 text-[20px]">payments</span>
+                    <span className="text-slate-500">{L.home.stayChargeLabel}</span>
+                    <span className="ml-auto text-slate-900 font-bold whitespace-nowrap">
+                      {booking.stayChargeKrw != null
+                        ? guestKrw(booking.stayChargeKrw, lang)
+                        : guestVndPrice(booking.stayChargeVnd)}
+                    </span>
+                  </div>
+                )}
               </div>
             </section>
 

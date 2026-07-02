@@ -103,6 +103,9 @@ export default async function GuestOptionsPage({
     address: null,
     wifiSsid: null,
     wifiPassword: null,
+    // 옵션 화면엔 숙박 요금 미표기(요금은 홈 요약에서) — null 전달
+    stayChargeVnd: null,
+    stayChargeKrw: null,
   };
 
   // ── 하단 "오늘 환율 기준" 환산 통화 — 언어 모국통화 1개(vi=없음). 일1회 캐시, 장애 시 null(VND만) ──

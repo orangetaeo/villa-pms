@@ -23,6 +23,8 @@ const bodySchema = z
     checkIn: dateOnly,
     checkOut: dateOnly,
     guestCount: z.number().int().min(1),
+    // modify=이 예약 변경(자기 점유 제외·현재 빌라 항상 포함) / extend=다른 빌라로 연장(현재 빌라 제외)
+    purpose: z.enum(["modify", "extend"]).default("modify"),
   })
   .strict();
 
@@ -54,23 +56,31 @@ export async function POST(
   });
   if (!booking) return Response.json({ error: "BOOKING_NOT_FOUND" }, { status: 404 });
 
-  // 자기 예약 제외 가용 빌라 id (공실+정원+검수통과)
+  const forExtend = parsed.data.purpose === "extend";
+
+  // 가용 빌라 id (공실+정원+검수통과). modify는 자기 예약을 점유에서 제외(현재 빌라 후보 유지),
+  // extend는 연장 구간의 신규 예약이라 제외 불필요(자기 예약은 그 구간을 점유하지 않음).
   const availableIds = await findSellableVillaIds(
     prisma,
     range,
     undefined,
     parsed.data.guestCount,
-    id
+    forExtend ? undefined : id
   );
 
-  // 이름 조회 + 현재 빌라 항상 포함(가용 목록에 없어도 선택 유지용, 맨 앞)
   const villas = await prisma.villa.findMany({
     where: { id: { in: availableIds } },
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });
+
+  if (forExtend) {
+    // 연장: 현재(원) 빌라는 SAME_VILLA로 불가하므로 후보에서 제외. 강제 포함 없음.
+    return Response.json({ villas: villas.filter((v) => v.id !== booking.villaId) });
+  }
+
+  // 변경: 현재 빌라 항상 포함(가용 목록에 없어도 선택 유지용, 맨 앞)
   const options = villas.filter((v) => v.id !== booking.villaId);
   options.unshift({ id: booking.villa.id, name: booking.villa.name });
-
   return Response.json({ villas: options });
 }
