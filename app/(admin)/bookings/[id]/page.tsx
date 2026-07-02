@@ -107,7 +107,7 @@ export default async function BookingDetailPage({
             fxVndPerUsd: true,
             // 파트너 지정·미수(ADR-0022 PARTNER-2c) — 재무 전용
             partnerId: true,
-            partner: { select: { id: true, name: true } },
+            partner: { select: { id: true, name: true, contactZaloUid: true } },
             receivable: {
               select: {
                 status: true,
@@ -429,6 +429,18 @@ export default async function BookingDetailPage({
           return { current: b.partner, receivable: rcv };
         })()
       : null;
+
+  // 예약 변경 비용안내 — 여행사(파트너) Zalo 전송 버튼 노출 게이트(재무 권한 + 파트너 Zalo 연결)
+  const partnerZaloLinked =
+    showFinance &&
+    "partnerId" in booking &&
+    Boolean(
+      (
+        booking as typeof booking & {
+          partner: { contactZaloUid: string | null } | null;
+        }
+      ).partner?.contactZaloUid
+    );
 
   // 게스트 셀프 체크인 토큰 카드 props (ADR-0019 S3) — GuestCheckinToken은 Booking 역관계가 없어 별도 조회.
   //   절대 URL용 origin 산출(프록시 헤더).
@@ -813,6 +825,8 @@ export default async function BookingDetailPage({
               bookingId={booking.id}
               status={booking.status}
               villaOptions={villaOptions}
+              villaName={booking.villa.name}
+              partnerZaloLinked={partnerZaloLinked}
               initial={{
                 villaId: booking.villa.id,
                 checkIn: toDateOnlyString(booking.checkIn),

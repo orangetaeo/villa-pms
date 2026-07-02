@@ -58,12 +58,18 @@ export default function BookingModifyPanel({
   bookingId,
   status,
   villaOptions,
+  villaName,
+  partnerZaloLinked = false,
   initial,
 }: {
   bookingId: string;
   status: BookingStatus;
   /** 빌라 셀렉트 후보 (현재 빌라 포함) — 초기/폴백용. 날짜·인원 지정 시 가용 목록으로 대체 */
   villaOptions: VillaOption[];
+  /** 현재 빌라명 — 비용안내 복사 텍스트용 */
+  villaName: string;
+  /** 이 예약에 Zalo 연결된 여행사(파트너)가 있는지 — Zalo 전송 버튼 노출 게이트 */
+  partnerZaloLinked?: boolean;
   initial: {
     villaId: string;
     checkIn: string; // YYYY-MM-DD
@@ -102,6 +108,10 @@ export default function BookingModifyPanel({
   const [splitVillaId, setSplitVillaId] = useState("");
   const [splitBusy, setSplitBusy] = useState(false);
   const [splitError, setSplitError] = useState<string | null>(null);
+  // 비용안내 — 복사(소비자·카톡용)·Zalo 전송(여행사용) 피드백
+  const [copied, setCopied] = useState(false);
+  const [zaloBusy, setZaloBusy] = useState(false);
+  const [zaloMsg, setZaloMsg] = useState<string | null>(null);
 
   const rangeValid = checkIn < checkOut;
 
@@ -389,6 +399,87 @@ export default function BookingModifyPanel({
     </div>
   );
 
+  // 소비자 안내 텍스트(카톡 복사용, 한국어) — 현재 미리보기·날짜 기준. 금액은 KRW 우선, 없으면 VND.
+  const buildConsumerNotice = (p: PreviewData): string => {
+    const lines: string[] = [
+      t("notice.title"),
+      `${t("fields.villa")}: ${villaName}`,
+      `${initial.checkIn} ~ ${initial.checkOut} → ${checkIn} ~ ${checkOut}`,
+      `${t("preview.nights")}: ${p.nightsOld} → ${p.nightsNew}`,
+    ];
+    if (p.additionalKrw != null && p.additionalKrw !== 0)
+      lines.push(`${t("preview.additional")}: ${fmtSigned(p.additionalKrw, "₩")}`);
+    else if (p.additionalVnd != null && Number(p.additionalVnd) !== 0)
+      lines.push(`${t("preview.additional")}: ${fmtSigned(p.additionalVnd, "₫")}`);
+    if (p.newSaleKrw != null)
+      lines.push(`${t("preview.newTotal")}: ${fmtAmount(p.newSaleKrw, "₩")}`);
+    else if (p.newSaleVnd != null)
+      lines.push(`${t("preview.newTotal")}: ${fmtAmount(p.newSaleVnd, "₫")}`);
+    return lines.join("\n");
+  };
+
+  const handleCopy = async (p: PreviewData) => {
+    try {
+      await navigator.clipboard.writeText(buildConsumerNotice(p));
+      setCopied(true);
+      setZaloMsg(null);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setZaloMsg(t("notice.copyFailed"));
+    }
+  };
+
+  // 여행사(파트너) Zalo 전송 — 금액은 서버가 재계산(클라 값 미신뢰). 현재 변경안 기준.
+  const handleSendZalo = async () => {
+    setZaloBusy(true);
+    setZaloMsg(null);
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}/modify/notice-zalo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildChangeBody()),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (res.ok) setZaloMsg(t("notice.zaloSent"));
+      else if (data.error === "NO_ZALO_LINK" || data.error === "NO_PARTNER")
+        setZaloMsg(t("notice.noZaloLink"));
+      else setZaloMsg(t("notice.zaloFailed"));
+    } catch {
+      setZaloMsg(t("notice.zaloFailed"));
+    } finally {
+      setZaloBusy(false);
+    }
+  };
+
+  // 비용안내 버튼 행(복사·Zalo) — 미리보기에 금액 변동이 있을 때만
+  const noticeActions = (p: PreviewData) =>
+    p.recalculated ? (
+      <div className="mt-2 space-y-1.5">
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => handleCopy(p)}
+            className="flex-1 flex items-center justify-center gap-1 bg-[#334155] hover:bg-slate-600 text-white text-xs font-semibold py-2 rounded-lg transition-all active:scale-[0.98]"
+          >
+            <span className="material-symbols-outlined text-sm">content_copy</span>
+            {copied ? t("notice.copied") : t("notice.copy")}
+          </button>
+          {partnerZaloLinked && (
+            <button
+              type="button"
+              disabled={zaloBusy}
+              onClick={handleSendZalo}
+              className="flex-1 flex items-center justify-center gap-1 bg-[#0068FF] hover:bg-blue-600 text-white text-xs font-semibold py-2 rounded-lg transition-all active:scale-[0.98] disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-sm">send</span>
+              {zaloBusy ? t("notice.sending") : t("notice.sendZalo")}
+            </button>
+          )}
+        </div>
+        {zaloMsg && <p className="text-xs text-admin-muted">{zaloMsg}</p>}
+      </div>
+    ) : null;
+
   return (
     <section className="bg-admin-card rounded-xl overflow-hidden shadow-sm border border-[#334155]">
       <div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
@@ -541,6 +632,7 @@ export default function BookingModifyPanel({
             <div>
               <p className="text-admin-muted font-semibold text-xs mb-1.5">{t("preview.title")}</p>
               {previewSummary(preview)}
+              {noticeActions(preview)}
             </div>
           )}
 

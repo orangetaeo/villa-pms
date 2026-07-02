@@ -828,6 +828,17 @@
           "OVER_CAPACITY": "Số khách vượt quá sức chứa của biệt thự. Vui lòng chọn biệt thự lớn hơn.",
           "RECEIVABLE_EXISTS": "Đã có công nợ: đổi biệt thự/giảm tiền/hóa đơn đã phát hành cần hủy và đặt lại. (Kéo dài cùng biệt thự để tăng tiền thì được)",
           "CONCURRENT_MODIFICATION": "Phát hiện thay đổi đồng thời. Vui lòng tải lại và thử lại."
+        },
+        "notice": {
+          "title": "[Thông báo thay đổi lưu trú]",
+          "copy": "Sao chép",
+          "copied": "Đã sao chép!",
+          "copyFailed": "Sao chép thất bại.",
+          "sendZalo": "Gửi Zalo cho đối tác",
+          "sending": "Đang gửi…",
+          "zaloSent": "Đã gửi Zalo cho đối tác.",
+          "zaloFailed": "Gửi Zalo thất bại.",
+          "noZaloLink": "Đặt phòng này chưa liên kết Zalo đối tác."
         }
       },
       "extend": {
