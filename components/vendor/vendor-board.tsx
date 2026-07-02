@@ -4,7 +4,7 @@
 //   GET /api/vendor/orders 로드(클라 fetch — 수락/거절 후 즉시 재조회 필요).
 //   ★ 누수: API가 costVnd(자기 지급액)만 내려줌. 판매가·마진·타 공급자 발주 없음.
 //      추가 데이터 호출 금지 — 이 컴포넌트는 /api/vendor/orders shape만 사용.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import ListSearch from "@/components/list-search";
@@ -48,11 +48,6 @@ function formatVndDot(raw: string): string {
   return `${negative ? "-" : ""}${grouped}₫`;
 }
 
-/** BigInt 문자열 합산 (Number 금지) */
-function sumVnd(values: string[]): string {
-  return values.reduce((acc, v) => acc + BigInt(v || "0"), 0n).toString();
-}
-
 /** ISO 날짜 → "dd/MM" (UTC 자정 @db.Date). serviceDate/checkIn 표시용 */
 function formatDayMonth(iso: string): string {
   const d = new Date(iso);
@@ -91,37 +86,73 @@ function scheduleLabel(o: VendorOrder): string {
   return "—";
 }
 
+type SettleTotals = { pendingVnd: string; unsettledCount: number; paidVnd: string; settledCount: number };
+type VendorData = {
+  orders: VendorOrder[];
+  total: number;
+  inboxCount: number;
+  cancelled?: VendorOrder[];
+  settleTotals?: SettleTotals;
+};
+
 export default function VendorBoard() {
   const t = useTranslations("vendor");
-  const [orders, setOrders] = useState<VendorOrder[] | null>(null);
-  const [error, setError] = useState(false);
   const [tab, setTab] = useState<Tab>("inbox");
-  // 목록 검색어 (빌라명·품목명·옵션 라벨 부분일치) — 클라 인메모리 필터
+  // 정산 서브탭(지급대기|지급완료) — 서버 조회를 유발하므로 부모로 리프트.
+  const [settleSub, setSettleSub] = useState<"pending" | "paid">("pending");
+  // 검색: 입력(즉시) → 디바운스 → search(서버 조회 트리거). 빌라·품목명 부분일치.
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  // 거절 사유 시트 대상 발주 id (null=닫힘)
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [data, setData] = useState<VendorData | null>(null);
+  const [fetching, setFetching] = useState(false);
+  const [error, setError] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<VendorOrder | null>(null);
-  // 일정 제안 시트 대상 발주 (null=닫힘)
   const [proposeTarget, setProposeTarget] = useState<VendorOrder | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const load = useCallback(async () => {
-    setError(false);
-    try {
-      const res = await fetch("/api/vendor/orders", { cache: "no-store" });
-      if (!res.ok) throw new Error("load failed");
-      const data = (await res.json()) as { orders: VendorOrder[] };
-      setOrders(data.orders);
-    } catch {
-      setError(true);
-      setOrders([]);
-    }
-  }, []);
-
+  // 검색 디바운스(300ms) — 값이 바뀔 때만 반영 + 1페이지로.
   useEffect(() => {
-    void load();
-  }, [load]);
+    const tmr = setTimeout(() => {
+      setSearch((prev) => (prev === searchInput ? prev : searchInput));
+      if (searchInput) setPage(1);
+    }, 300);
+    return () => clearTimeout(tmr);
+  }, [searchInput]);
 
-  // 발주 응답 — action 일원화(accept|reject|propose). respond API는 action 스키마.
+  // 탭/서브/검색/페이지 변경 시 서버 조회(그 페이지만). 경쟁 응답은 최신 id만 반영.
+  const reqId = useRef(0);
+  useEffect(() => {
+    const qs = new URLSearchParams();
+    qs.set("tab", tab);
+    if (tab === "settlement") qs.set("sub", settleSub);
+    if (search.trim()) qs.set("search", search.trim());
+    qs.set("page", String(page));
+    qs.set("pageSize", String(pageSize));
+    const id = ++reqId.current;
+    setError(false);
+    setFetching(true);
+    fetch(`/api/vendor/orders?${qs.toString()}`, { cache: "no-store" })
+      .then((r) => {
+        if (!r.ok) throw new Error("load failed");
+        return r.json() as Promise<VendorData>;
+      })
+      .then((json) => {
+        if (id === reqId.current) setData(json);
+      })
+      .catch(() => {
+        if (id === reqId.current) setError(true);
+      })
+      .finally(() => {
+        if (id === reqId.current) setFetching(false);
+      });
+  }, [tab, settleSub, search, page, pageSize, refreshKey]);
+
+  const reload = useCallback(() => setRefreshKey((k) => k + 1), []);
+
+  // 발주 응답 — action 일원화(accept|reject|propose). 완료 후 현재 화면 재조회.
   const respond = useCallback(
     async (
       order: VendorOrder,
@@ -146,46 +177,25 @@ export default function VendorBoard() {
             proposalNote: extra?.proposalNote ?? null,
           }),
         });
-        // 409 NOT_PENDING(이미 응답됨) 포함 — 어느 쪽이든 최신 상태로 재조회
-        await load();
         setRejectTarget(null);
         setProposeTarget(null);
-        if (!res.ok && res.status !== 409) {
-          setError(true);
-        }
+        if (!res.ok && res.status !== 409) setError(true);
+        // 409(이미 응답됨) 포함 — 어느 쪽이든 최신 상태로 재조회
+        setRefreshKey((k) => k + 1);
       } catch {
         setError(true);
       } finally {
         setBusyId(null);
       }
     },
-    [load]
+    []
   );
 
-  // 섹션별 분류 — 검색(빌라명·품목명·옵션 라벨 부분일치)을 먼저 적용해 모든 탭이 동일하게 필터됨
-  const q = search.trim().toLowerCase();
-  const all = (orders ?? []).filter((o) => {
-    if (!q) return true;
-    return [o.villaName, o.itemName, o.optionLabel].some(
-      (field) => field?.toLowerCase().includes(q)
-    );
-  });
-  // ★운영자가 취소(status=CANCELLED)한 발주는 인박스(가부)·정산 대상에서 제외한다.
-  //   단 "이미 발주됐던"(poSentAt 있음) 취소 건은 예약현황 상단에 '취소됨' 배지로 인앱 노출
-  //   — 이행 중단을 공급자가 알아야 함(기존엔 모든 탭에서 사라져 알 수 없던 결함).
-  const inbox = all.filter((o) => o.vendorStatus === "PENDING_VENDOR" && o.status !== "CANCELLED");
-  const cancelled = all
-    .filter((o) => o.status === "CANCELLED" && o.poSentAt != null)
-    .sort((a, b) => scheduleSortKey(a) - scheduleSortKey(b));
-  const accepted = all
-    .filter((o) => o.vendorStatus === "VENDOR_ACCEPTED" && o.status !== "CANCELLED")
-    .sort((a, b) => scheduleSortKey(a) - scheduleSortKey(b));
-  // 정산 내역 = 수락/이행된 발주(우리가 지급할 대상). 거절·대기·취소 제외.
-  const settleable = all.filter((o) => o.vendorStatus === "VENDOR_ACCEPTED" && o.status !== "CANCELLED");
-  const settled = settleable.filter((o) => o.vendorSettledAt);
-  const unsettled = settleable.filter((o) => !o.vendorSettledAt);
-
-  const loading = orders === null;
+  const loading = data === null;
+  const setPageSizeReset = (s: number) => {
+    setPageSize(s);
+    setPage(1);
+  };
 
   return (
     <main className="mx-auto max-w-md space-y-5 px-4 pb-28 pt-16">
@@ -208,12 +218,15 @@ export default function VendorBoard() {
       <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
         {(["inbox", "schedule", "settlement"] as const).map((key) => {
           const active = tab === key;
-          const count = key === "inbox" ? inbox.length : 0;
+          const count = key === "inbox" ? data?.inboxCount ?? 0 : 0;
           return (
             <button
               key={key}
               type="button"
-              onClick={() => setTab(key)}
+              onClick={() => {
+                setTab(key);
+                setPage(1);
+              }}
               aria-current={active ? "page" : undefined}
               className={
                 active
@@ -232,26 +245,31 @@ export default function VendorBoard() {
         })}
       </div>
 
-      {/* 목록 검색 — 빌라명·품목명·옵션 라벨 부분일치 (라이트 테마) */}
-      <ListSearch light value={search} onChange={setSearch} placeholder={t("searchPlaceholder")} />
+      {/* 목록 검색 — 빌라명·품목명 부분일치 (라이트 테마). 서버 조회(디바운스). */}
+      <ListSearch light value={searchInput} onChange={setSearchInput} placeholder={t("searchPlaceholder")} />
+
+      {error && (
+        <button
+          type="button"
+          onClick={reload}
+          className="w-full rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 active:scale-[0.99]"
+        >
+          {t("loadError")}
+        </button>
+      )}
 
       {loading ? (
         <p className="py-12 text-center text-sm text-neutral-400">{t("loading")}</p>
-      ) : (
-        <>
-          {error && (
-            <button
-              type="button"
-              onClick={() => void load()}
-              className="w-full rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 active:scale-[0.99]"
-            >
-              {t("loadError")}
-            </button>
-          )}
-
+      ) : data ? (
+        <div className={fetching ? "space-y-5 opacity-60 transition-opacity" : "space-y-5 transition-opacity"}>
           {tab === "inbox" && (
             <InboxSection
-              orders={inbox}
+              orders={data.orders}
+              total={data.total}
+              page={page}
+              pageSize={pageSize}
+              onPage={setPage}
+              onPageSize={setPageSizeReset}
               busyId={busyId}
               t={t}
               onAccept={(o) => respond(o, "accept")}
@@ -261,14 +279,37 @@ export default function VendorBoard() {
           )}
 
           {tab === "schedule" && (
-            <ScheduleSection orders={accepted} cancelled={cancelled} t={t} />
+            <ScheduleSection
+              orders={data.orders}
+              cancelled={data.cancelled ?? []}
+              total={data.total}
+              page={page}
+              pageSize={pageSize}
+              onPage={setPage}
+              onPageSize={setPageSizeReset}
+              t={t}
+            />
           )}
 
           {tab === "settlement" && (
-            <SettlementSection unsettled={unsettled} settled={settled} t={t} />
+            <SettlementSection
+              rows={data.orders}
+              total={data.total}
+              page={page}
+              pageSize={pageSize}
+              onPage={setPage}
+              onPageSize={setPageSizeReset}
+              sub={settleSub}
+              onSub={(s) => {
+                setSettleSub(s);
+                setPage(1);
+              }}
+              totals={data.settleTotals}
+              t={t}
+            />
           )}
-        </>
-      )}
+        </div>
+      ) : null}
 
       {/* 거절 사유 시트 */}
       {rejectTarget && (
@@ -301,29 +342,6 @@ export default function VendorBoard() {
   );
 }
 
-function scheduleSortKey(o: VendorOrder): number {
-  const iso = o.serviceDate ?? o.checkIn;
-  return iso ? new Date(iso).getTime() : Number.MAX_SAFE_INTEGER;
-}
-
-// 클라 controlled 페이지네이션(라이트 포털 목록, M5) — 발주함·예약현황·정산 목록이 길어도(예: 발주 79건)
-// 한 화면에 한 페이지만 렌더. 검색으로 매 렌더 새 배열이 와도 safePage 클램프로 안전(불필요 리셋 없음).
-function usePaged<T>(items: T[]) {
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const paged = useMemo(
-    () => items.slice((safePage - 1) * pageSize, safePage * pageSize),
-    [items, safePage, pageSize]
-  );
-  const onPageSizeChange = (s: number) => {
-    setPageSize(s);
-    setPage(1);
-  };
-  return { paged, page: safePage, pageSize, setPage, setPageSize: onPageSizeChange };
-}
-
 type T = ReturnType<typeof useTranslations<"vendor">>;
 
 // 게스트 요청사항 — 이행에 필요하므로 truncate 없이 줄바꿈 허용(whitespace-pre-line).
@@ -354,6 +372,11 @@ function GuestCount({ count }: { count: number | null }) {
 // ── 발주함(받은 발주) ───────────────────────────────────────────────
 function InboxSection({
   orders,
+  total,
+  page,
+  pageSize,
+  onPage,
+  onPageSize,
   busyId,
   t,
   onAccept,
@@ -361,19 +384,23 @@ function InboxSection({
   onPropose,
 }: {
   orders: VendorOrder[];
+  total: number;
+  page: number;
+  pageSize: number;
+  onPage: (p: number) => void;
+  onPageSize: (s: number) => void;
   busyId: string | null;
   t: T;
   onAccept: (o: VendorOrder) => void;
   onReject: (o: VendorOrder) => void;
   onPropose: (o: VendorOrder) => void;
 }) {
-  const { paged, page, pageSize, setPage, setPageSize } = usePaged(orders);
   if (orders.length === 0) {
     return <EmptyState icon="inbox" title={t("empty.inbox")} hint={t("empty.inboxHint")} />;
   }
   return (
     <div className="space-y-3">
-      {paged.map((o) => (
+      {orders.map((o) => (
         <div
           key={o.id}
           className="space-y-3 rounded-2xl border-l-4 border-rose-400 bg-white p-4 shadow-sm"
@@ -449,11 +476,11 @@ function InboxSection({
       ))}
       <PaginationBar
         light
-        total={orders.length}
+        total={total}
         page={page}
         pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
+        onPageChange={onPage}
+        onPageSizeChange={onPageSize}
       />
     </div>
   );
@@ -463,13 +490,22 @@ function InboxSection({
 function ScheduleSection({
   orders,
   cancelled,
+  total,
+  page,
+  pageSize,
+  onPage,
+  onPageSize,
   t,
 }: {
   orders: VendorOrder[];
   cancelled: VendorOrder[];
+  total: number;
+  page: number;
+  pageSize: number;
+  onPage: (p: number) => void;
+  onPageSize: (s: number) => void;
   t: T;
 }) {
-  const { paged, page, pageSize, setPage, setPageSize } = usePaged(orders);
   if (orders.length === 0 && cancelled.length === 0) {
     return <EmptyState icon="event_available" title={t("empty.schedule")} hint={t("empty.scheduleHint")} />;
   }
@@ -508,7 +544,7 @@ function ScheduleSection({
         </div>
       ))}
 
-      {paged.map((o) => (
+      {orders.map((o) => (
         <div
           key={o.id}
           className="space-y-2 rounded-xl border-l-4 border-teal-500 bg-white p-4 shadow-sm"
@@ -558,41 +594,48 @@ function ScheduleSection({
       ))}
       <PaginationBar
         light
-        total={orders.length}
+        total={total}
         page={page}
         pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
+        onPageChange={onPage}
+        onPageSizeChange={onPageSize}
       />
     </div>
   );
 }
 
-// ── 정산 내역 ──────────────────────────────────────────────────────
+// ── 정산 내역 (서버 페이지네이션) ────────────────────────────────────
 function SettlementSection({
-  unsettled,
-  settled,
+  rows,
+  total,
+  page,
+  pageSize,
+  onPage,
+  onPageSize,
+  sub,
+  onSub,
+  totals,
   t,
 }: {
-  unsettled: VendorOrder[];
-  settled: VendorOrder[];
+  rows: VendorOrder[];
+  total: number;
+  page: number;
+  pageSize: number;
+  onPage: (p: number) => void;
+  onPageSize: (s: number) => void;
+  sub: "pending" | "paid";
+  onSub: (s: "pending" | "paid") => void;
+  totals?: SettleTotals;
   t: T;
 }) {
-  // ★가독성: 지급대기·지급완료를 세로로 쌓지 않고 세그먼트로 한 번에 하나만 노출.
-  //   (완료 목록을 보려고 대기 목록 전체를 스크롤로 지나가던 문제 해결)
-  //   기본 탭 = 지급대기(액션 대상). 대기가 0건이면 완료를 기본으로.
-  const [sub, setSub] = useState<"pending" | "paid">(
-    unsettled.length === 0 && settled.length > 0 ? "paid" : "pending"
-  );
-  const u = usePaged(unsettled);
-  const s = usePaged(settled);
-  if (unsettled.length === 0 && settled.length === 0) {
+  // 합계·건수는 서버 집계(totals). 목록은 서버 페이지(rows).
+  const pendingTotal = totals?.pendingVnd ?? "0";
+  const paidTotal = totals?.paidVnd ?? "0";
+  const pendingCount = totals?.unsettledCount ?? 0;
+  const paidCount = totals?.settledCount ?? 0;
+  if (pendingCount === 0 && paidCount === 0) {
     return <EmptyState icon="payments" title={t("empty.settlement")} hint={t("empty.settlementHint")} />;
   }
-  const pendingTotal = sumVnd(unsettled.map((o) => o.costVnd));
-  const paidTotal = sumVnd(settled.map((o) => o.costVnd));
-  const active = sub === "pending" ? unsettled : settled;
-  const page = sub === "pending" ? u : s;
 
   return (
     <div className="space-y-4">
@@ -625,13 +668,13 @@ function SettlementSection({
       <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
         {(["pending", "paid"] as const).map((key) => {
           const isActive = sub === key;
-          const count = key === "pending" ? unsettled.length : settled.length;
+          const count = key === "pending" ? pendingCount : paidCount;
           const label = key === "pending" ? t("settle.pendingTitle") : t("settle.paidTitle");
           return (
             <button
               key={key}
               type="button"
-              onClick={() => setSub(key)}
+              onClick={() => onSub(key)}
               aria-current={isActive ? "page" : undefined}
               className={
                 isActive
@@ -656,22 +699,22 @@ function SettlementSection({
         })}
       </div>
 
-      {active.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="rounded-2xl border border-slate-100 bg-white p-8 text-center text-sm text-slate-400 shadow-sm">
           {sub === "pending" ? t("settle.emptyPending") : t("settle.emptyPaid")}
         </div>
       ) : (
         <div className="space-y-2">
-          {page.paged.map((o) => (
+          {rows.map((o) => (
             <SettleRow key={o.id} order={o} paid={sub === "paid"} t={t} />
           ))}
           <PaginationBar
             light
-            total={active.length}
-            page={page.page}
-            pageSize={page.pageSize}
-            onPageChange={page.setPage}
-            onPageSizeChange={page.setPageSize}
+            total={total}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={onPage}
+            onPageSizeChange={onPageSize}
           />
         </div>
       )}
