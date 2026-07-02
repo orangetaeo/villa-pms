@@ -1,8 +1,10 @@
 // /api/vendor/orders — 원천 공급자 본인 발주 목록 (ADR-0023 S2 §4.3)
 //   GET: Role=VENDOR + 본인 vendorId 스코프 강제(서버). 자기 발주만.
-//   ★ 누수: 우리 판매가(priceKrw/priceVnd)·마진 절대 미포함.
-//      공급자는 costVnd(=우리가 그에게 지급할 금액=그의 매출)만 본다.
+//   ★성능: 발주가 수백~수천 건이라 전량 로드 금지. 탭별로 스코프 + 페이지네이션(한 페이지 10건).
+//     params: tab(inbox|schedule|settlement)·sub(pending|paid)·search·page·pageSize.
+//   ★ 누수: 우리 판매가(priceKrw/priceVnd)·마진 절대 미포함. costVnd(=지급액=그의 매출)만.
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isVendor, type Role } from "@/lib/permissions";
@@ -10,13 +12,67 @@ import { getVendorIdForUser } from "@/lib/vendor-auth";
 import { getSupplierLocale } from "@/lib/locale";
 import { pickI18n, selectedOptionLabels } from "@/lib/service-display";
 import { formatVillaName } from "@/lib/villa-name";
+import { parsePageParams } from "@/lib/pagination";
 
-// PENDING_VENDOR(응답 대기)를 맨 위로, 그 외는 createdAt desc.
-function sortKey(vendorStatus: string | null): number {
-  return vendorStatus === "PENDING_VENDOR" ? 0 : 1;
+const ROW_SELECT = {
+  id: true,
+  type: true,
+  status: true,
+  vendorStatus: true,
+  serviceDate: true,
+  serviceTime: true,
+  quantity: true,
+  costVnd: true,
+  vendorSettledAt: true,
+  vendorSettleMethod: true,
+  vendorSettleNote: true,
+  poSentAt: true,
+  vendorRespondedAt: true,
+  createdAt: true,
+  catalogItemId: true,
+  vendorName: true,
+  guestNote: true,
+  selectedOptions: true,
+  booking: {
+    select: { checkIn: true, checkOut: true, guestCount: true, villa: { select: { name: true, nameVi: true } } },
+  },
+} satisfies Prisma.ServiceOrderSelect;
+
+type RawRow = Prisma.ServiceOrderGetPayload<{ select: typeof ROW_SELECT }>;
+
+const iso = (d: Date | null | undefined): string | null => (d ? d.toISOString() : null);
+
+async function mapRows(rows: RawRow[], locale: string) {
+  const itemIds = Array.from(new Set(rows.map((o) => o.catalogItemId).filter((v): v is string => !!v)));
+  const items = itemIds.length
+    ? await prisma.serviceCatalogItem.findMany({ where: { id: { in: itemIds } }, select: { id: true, nameKo: true, nameI18n: true } })
+    : [];
+  const nameById = new Map(items.map((i) => [i.id, pickI18n(i.nameKo, i.nameI18n, locale)]));
+  return rows.map((o) => ({
+    id: o.id,
+    villaName: o.booking?.villa ? formatVillaName({ name: o.booking.villa.name, nameVi: o.booking.villa.nameVi }) : null,
+    checkIn: iso(o.booking?.checkIn),
+    checkOut: iso(o.booking?.checkOut),
+    serviceDate: iso(o.serviceDate),
+    serviceTime: o.serviceTime,
+    itemName: (o.catalogItemId ? nameById.get(o.catalogItemId) : null) ?? o.vendorName ?? null,
+    optionLabel: selectedOptionLabels(o.selectedOptions, locale).join(" · ") || null,
+    type: o.type,
+    quantity: o.quantity,
+    guestCount: o.booking?.guestCount ?? null,
+    guestNote: o.guestNote,
+    vendorStatus: o.vendorStatus,
+    status: o.status,
+    costVnd: o.costVnd.toString(),
+    vendorSettledAt: iso(o.vendorSettledAt),
+    vendorSettleMethod: o.vendorSettleMethod,
+    vendorSettleNote: o.vendorSettleNote,
+    poSentAt: iso(o.poSentAt),
+    vendorRespondedAt: iso(o.vendorRespondedAt),
+  }));
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user?.id) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   const role = session.user.role as Role | undefined;
@@ -25,103 +81,94 @@ export async function GET() {
   const vendorId = await getVendorIdForUser(session.user.id);
   if (!vendorId) return NextResponse.json({ error: "NOT_A_VENDOR" }, { status: 403 });
 
-  // 공급자 표시 로케일(pref-locale 쿠키 > 계정 기본 > vi) — 품목명·옵션 라벨 현지화.
   const locale = await getSupplierLocale(session.user.locale);
-
-  const orders = await prisma.serviceOrder.findMany({
-    where: { vendorId },
-    select: {
-      id: true,
-      type: true,
-      status: true,
-      vendorStatus: true,
-      serviceDate: true,
-      serviceTime: true,
-      quantity: true,
-      costVnd: true,
-      vendorSettledAt: true,
-      // 정산 투명성 — 정산 완료 건의 수단·메모를 공급자에게 그대로 표시(자기 지급 내역).
-      vendorSettleMethod: true,
-      vendorSettleNote: true,
-      // 상태 타임라인 — 발주 발송·응답 시각. CANCELLED-발주됨 필터링에도 poSentAt 사용.
-      poSentAt: true,
-      vendorRespondedAt: true,
-      createdAt: true,
-      catalogItemId: true,
-      vendorName: true,
-      // 게스트 요청사항 — 이행에 필요한 정보(누수 아님: 가격·마진 없음).
-      guestNote: true,
-      // ★ 어떤 코스(variant)인지 — 가격은 selectedOptionLabels가 제거(공급자 누수 방지).
-      selectedOptions: true,
-      booking: {
-        select: {
-          checkIn: true,
-          checkOut: true,
-          guestCount: true,
-          villa: { select: { name: true, nameVi: true } },
-        },
-      },
-    },
+  const sp = new URL(req.url).searchParams;
+  const tab = (["inbox", "schedule", "settlement"] as const).includes(sp.get("tab") as never)
+    ? (sp.get("tab") as "inbox" | "schedule" | "settlement")
+    : "inbox";
+  const sub = sp.get("sub") === "paid" ? "paid" : "pending";
+  const q = (sp.get("search") ?? "").trim();
+  const { page, pageSize, skip, take } = parsePageParams({
+    page: sp.get("page") ?? undefined,
+    pageSize: sp.get("pageSize") ?? undefined,
   });
 
-  // 카탈로그 항목명 — ServiceOrder.catalogItemId는 관계 미정의 스칼라이므로 일괄 조회 후 매핑.
-  const itemIds = Array.from(
-    new Set(orders.map((o) => o.catalogItemId).filter((v): v is string => !!v))
-  );
-  const items = itemIds.length
-    ? await prisma.serviceCatalogItem.findMany({
-        where: { id: { in: itemIds } },
-        select: { id: true, nameKo: true, nameI18n: true },
-      })
-    : [];
-  const itemNameById = new Map(
-    items.map((i) => [i.id, pickI18n(i.nameKo, i.nameI18n, locale)])
-  );
+  // 검색 — 빌라명 또는 카탈로그 품목명(현지화 라벨은 서버에서 못 거르므로 nameKo/nameVi 기준) 부분일치.
+  let searchWhere: Prisma.ServiceOrderWhereInput | undefined;
+  if (q) {
+    const matchItems = await prisma.serviceCatalogItem.findMany({
+      where: { OR: [{ nameKo: { contains: q, mode: "insensitive" } }, { nameVi: { contains: q, mode: "insensitive" } }] },
+      select: { id: true },
+    });
+    const ids = matchItems.map((i) => i.id);
+    searchWhere = {
+      OR: [
+        { booking: { is: { villa: { is: { OR: [{ name: { contains: q, mode: "insensitive" } }, { nameVi: { contains: q, mode: "insensitive" } }] } } } } },
+        { vendorName: { contains: q, mode: "insensitive" } },
+        ...(ids.length ? [{ catalogItemId: { in: ids } }] : []),
+      ],
+    };
+  }
+  const withSearch = (w: Prisma.ServiceOrderWhereInput): Prisma.ServiceOrderWhereInput =>
+    searchWhere ? { AND: [w, searchWhere] } : w;
 
-  // ★ 출력 대상: 활성 발주 전부 + 취소됐지만 "이미 발주됐던"(poSentAt != null) 건.
-  //   취소 사실을 공급자에게 인앱으로 알려야 하므로 CANCELLED-발주됨은 포함(클라가 '취소됨' 배지로 표시).
-  //   발주된 적 없는 취소 건(poSentAt == null)은 공급자가 본 적 없으니 노출하지 않는다.
-  const visible = orders.filter(
-    (o) => o.status !== "CANCELLED" || o.poSentAt != null
-  );
+  const base: Prisma.ServiceOrderWhereInput = { vendorId };
+  // 인박스 뱃지 카운트 — 항상(검색 무관) 응답 대기 총건.
+  const inboxCount = await prisma.serviceOrder.count({
+    where: { ...base, vendorStatus: "PENDING_VENDOR", status: { not: "CANCELLED" } },
+  });
 
-  const data = visible
-    .slice()
-    .sort((a, b) => {
-      const k = sortKey(a.vendorStatus) - sortKey(b.vendorStatus);
-      if (k !== 0) return k;
-      return b.createdAt.getTime() - a.createdAt.getTime();
-    })
-    .map((o) => ({
-      id: o.id,
-      villaName: o.booking?.villa
-        ? formatVillaName({ name: o.booking.villa.name, nameVi: o.booking.villa.nameVi })
-        : null,
-      checkIn: o.booking?.checkIn ?? null,
-      checkOut: o.booking?.checkOut ?? null,
-      serviceDate: o.serviceDate,
-      serviceTime: o.serviceTime,
-      itemName: (o.catalogItemId ? itemNameById.get(o.catalogItemId) : null) ?? o.vendorName ?? null,
-      // 선택 코스/옵션 라벨(가격 제거·현지화) — "오일 마사지 90분" 등. 없으면 null.
-      optionLabel: selectedOptionLabels(o.selectedOptions, locale).join(" · ") || null,
-      type: o.type,
-      quantity: o.quantity,
-      // 정원(투숙 인원) — booking.select에 있으나 매핑 누락이었음(dead select 복구).
-      guestCount: o.booking?.guestCount ?? null,
-      // 게스트 요청사항(이행 정보). 없으면 null.
-      guestNote: o.guestNote,
-      vendorStatus: o.vendorStatus,
-      status: o.status,
-      // ★ 공급자에게 지급할 금액(=그의 매출). 우리 판매가·마진 아님.
-      costVnd: o.costVnd.toString(),
-      vendorSettledAt: o.vendorSettledAt,
-      // 정산 투명성 — 정산 완료 건 수단/메모(자기 지급 내역).
-      vendorSettleMethod: o.vendorSettleMethod,
-      vendorSettleNote: o.vendorSettleNote,
-      // 상태 타임라인 — 발송·응답 시각(예약현황 카드 작은 글씨).
-      poSentAt: o.poSentAt,
-      vendorRespondedAt: o.vendorRespondedAt,
-    }));
+  let where: Prisma.ServiceOrderWhereInput;
+  let orderBy: Prisma.ServiceOrderOrderByWithRelationInput[];
+  if (tab === "inbox") {
+    where = withSearch({ ...base, vendorStatus: "PENDING_VENDOR", status: { not: "CANCELLED" } });
+    orderBy = [{ createdAt: "desc" }];
+  } else if (tab === "schedule") {
+    where = withSearch({ ...base, vendorStatus: "VENDOR_ACCEPTED", status: { not: "CANCELLED" } });
+    orderBy = [{ serviceDate: "asc" }, { createdAt: "desc" }];
+  } else {
+    where = withSearch({
+      ...base,
+      vendorStatus: "VENDOR_ACCEPTED",
+      status: { not: "CANCELLED" },
+      vendorSettledAt: sub === "paid" ? { not: null } : null,
+    });
+    orderBy = sub === "paid" ? [{ vendorSettledAt: "desc" }] : [{ serviceDate: "asc" }, { createdAt: "desc" }];
+  }
 
-  return NextResponse.json({ orders: data });
+  const [total, rawRows] = await Promise.all([
+    prisma.serviceOrder.count({ where }),
+    prisma.serviceOrder.findMany({ where, orderBy, skip, take, select: ROW_SELECT }),
+  ]);
+  const rows = await mapRows(rawRows, locale);
+
+  const res: Record<string, unknown> = { orders: rows, total, inboxCount, page, pageSize };
+
+  // 예약현황 탭 — 취소됐지만 이미 발주됐던 건(이행 중단 안내 배너). 소량이라 상단 50건만.
+  if (tab === "schedule") {
+    const cancelledRaw = await prisma.serviceOrder.findMany({
+      where: withSearch({ ...base, status: "CANCELLED", poSentAt: { not: null } }),
+      orderBy: [{ serviceDate: "asc" }, { createdAt: "desc" }],
+      take: 50,
+      select: ROW_SELECT,
+    });
+    res.cancelled = await mapRows(cancelledRaw, locale);
+  }
+
+  // 정산 탭 — 전역 합계(검색 무관): 대기/완료 sum·count.
+  if (tab === "settlement") {
+    const settleable: Prisma.ServiceOrderWhereInput = { ...base, vendorStatus: "VENDOR_ACCEPTED", status: { not: "CANCELLED" } };
+    const [pend, paid] = await Promise.all([
+      prisma.serviceOrder.aggregate({ where: { ...settleable, vendorSettledAt: null }, _sum: { costVnd: true }, _count: true }),
+      prisma.serviceOrder.aggregate({ where: { ...settleable, vendorSettledAt: { not: null } }, _sum: { costVnd: true }, _count: true }),
+    ]);
+    res.settleTotals = {
+      pendingVnd: (pend._sum.costVnd ?? 0n).toString(),
+      unsettledCount: pend._count,
+      paidVnd: (paid._sum.costVnd ?? 0n).toString(),
+      settledCount: paid._count,
+    };
+  }
+
+  return NextResponse.json(res);
 }
