@@ -263,9 +263,11 @@ function FilterBar({
   );
 }
 
-export default function ServiceOrdersView() {
+export default function ServiceOrdersView({ initialOrders }: { initialOrders: Order[] }) {
   const t = useTranslations("adminServiceOrders");
-  const [orders, setOrders] = useState<Order[] | null>(null);
+  // ★성능: 초기 데이터는 서버(RSC)에서 주입받아 즉시 렌더(마운트 fetch 워터폴 제거).
+  //   정산 처리 후에만 load()로 최신화한다.
+  const [orders, setOrders] = useState<Order[] | null>(initialOrders);
   const [error, setError] = useState(false);
   const [tab, setTab] = useState<"settle" | "status">("settle");
 
@@ -278,13 +280,8 @@ export default function ServiceOrdersView() {
       setOrders(data.orders);
     } catch {
       setError(true);
-      setOrders([]);
     }
   }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
 
   const all = orders ?? [];
   // 정산 대상 = 공급자 수락 + 미취소. 그중 미정산/정산완료로 분리.
