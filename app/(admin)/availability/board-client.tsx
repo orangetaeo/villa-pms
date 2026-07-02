@@ -72,6 +72,9 @@ export interface BoardStrings {
   bkChannelTravel: string;
   bkChannelLand: string;
   bkChannelDirect: string;
+  bkSeller: string;
+  bkSellerOperator: string;
+  bkSellerSupplier: string;
   bkCost: string;
   bkSale: string;
   bkDeposit: string;
@@ -1149,6 +1152,15 @@ export default function AvailabilityBoardClient({
                               sync
                             </span>
                           )}
+                          {/* 공급자 직접판매 예약 마커 — 우리 예약(OPERATOR)과 구분 */}
+                          {cell.status === "BOOKING" && cell.booking?.seller === "SUPPLIER" && (
+                            <span
+                              className="material-symbols-outlined pointer-events-none absolute inset-0 flex items-center justify-center text-orange-100/90"
+                              style={{ fontSize: 12 }}
+                            >
+                              storefront
+                            </span>
+                          )}
                         </td>
                       );
                     })}
@@ -1326,6 +1338,20 @@ export default function AvailabilityBoardClient({
                   <dd className="truncate font-medium text-slate-200">
                     {channelLabel}
                     {b.agencyName ? ` · ${b.agencyName}` : ""}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-slate-500">{s.bkSeller}</dt>
+                  <dd className="font-medium">
+                    <span
+                      className={
+                        b.seller === "SUPPLIER"
+                          ? "text-orange-300"
+                          : "text-slate-200"
+                      }
+                    >
+                      {b.seller === "SUPPLIER" ? s.bkSellerSupplier : s.bkSellerOperator}
+                    </span>
                   </dd>
                 </div>
                 <div className="flex justify-between gap-2">

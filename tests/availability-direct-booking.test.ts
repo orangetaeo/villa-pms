@@ -52,6 +52,7 @@ function makeDb(seed: FakeSeed) {
 const baseBooking = {
   id: "bk1",
   villaId: "v-direct",
+  seller: "OPERATOR",
   status: "CONFIRMED",
   channel: "TRAVEL_AGENCY",
   agencyName: "ABC투어",
@@ -102,16 +103,19 @@ describe("getAvailabilityBoard — DIRECT 빌라 예약맵", () => {
     });
   });
 
-  it("SUPPLIER 빌라는 예약을 조회하지 않고 BOOKING 셀이 없다 (재고 비공개)", async () => {
+  it("SUPPLIER 빌라 예약도 BOOKING 셀로 표시된다 (관리자 전체 조망, 2026-07-02)", async () => {
     const { db, calls } = makeDb({
       villas: [{ id: "v-sup", name: "빌라S", complex: null, availabilityCheckedAt: null, source: "SUPPLIER" }],
-      bookings: [{ ...baseBooking, villaId: "v-sup" }],
+      bookings: [{ ...baseBooking, villaId: "v-sup", seller: "SUPPLIER" }],
     });
     const board = await getAvailabilityBoard(db, { ...params, canViewFinance: true });
 
-    // DIRECT 빌라가 없으므로 booking.findMany 자체가 호출되지 않음
-    expect(calls.bookingArgs).toBeUndefined();
-    expect(board.villas[0].days.every((c) => c.status !== "BOOKING")).toBe(true);
+    // 이제 모든 빌라의 예약을 조회한다(관리자 전용 보드 — 원칙1)
+    expect(calls.bookingArgs).toBeDefined();
+    const cell = cellAt(board, "v-sup", iso(2026, 7, 10));
+    expect(cell.status).toBe("BOOKING");
+    // 공급자 직접판매 예약으로 표시(seller 구분)
+    expect(cell.booking?.seller).toBe("SUPPLIER");
   });
 
   it("예약은 잠금(MANUAL)보다 우선 표시된다", async () => {

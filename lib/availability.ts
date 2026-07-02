@@ -5,7 +5,6 @@ import {
   DepositStatus,
   Prisma,
   PrismaClient,
-  VillaSource,
   VillaStatus,
 } from "@prisma/client";
 import { addUtcDays, parseUtcDateOnly, toDateOnlyString } from "@/lib/date-vn";
@@ -244,18 +243,19 @@ export async function findSellableVillaIds(
 //
 // ADMIN 전용 빌라×날짜 잠금/공실 보드용 집계. 채널매니저 스타일 타임라인의 데이터 계층.
 //
-// ⚠ 재고/마진 비공개 원칙: SUPPLIER(외부 공급자) 빌라는 **CalendarBlock(MANUAL/ICAL) 잠금과 공실만**
-//   다루고 판매예약(Booking)을 절대 포함하지 않는다 — 공급자 재고와 우리 판매분이 섞이면 재고 노출.
-//   예외: DIRECT(테오팀 직접공급) 빌라는 외부 공급자가 없어 노출 대상이 없으므로, 우리 판매예약
-//   (HOLD/CONFIRMED/CHECKED_IN)을 BOOKING 셀로 표시한다. 판매가는 canViewFinance 게이트로 가린다.
+// ⚠ 재고/마진 비공개 원칙: 이 보드는 **ADMIN 전용**(전체 재고 조망은 운영자만 — 원칙1). 따라서 모든 빌라의
+//   예약(공급자 직접판매 seller=SUPPLIER + 우리 판매 seller=OPERATOR)을 BOOKING 셀로 표시한다(관리자 요구,
+//   2026-07-02). 외부 채널 예약은 iCal로 들어와 CalendarBlock(ICAL)로 표시된다.
+//   판매가(KRW/VND)는 canViewFinance 게이트로 가린다(마진 비노출 — 원칙2). 이 데이터는 공급자·공개 화면에
+//   절대 재사용하지 않는다(getAvailabilityBoard 호출처는 (admin)/availability 단독).
 //
 // 날짜 모델: CalendarBlock.startDate(포함)~endDate(제외) half-open. 보드 기간도 [start, end).
 //   모든 날짜는 @db.Date 규칙대로 UTC 자정으로 다룬다 (date-vn.parseUtcDateOnly).
 
 /**
  * 보드 셀 상태 — 한 빌라의 한 날짜.
- * BOOKING 은 **DIRECT(직접공급) 빌라에서만** 나타난다 — 우리 판매예약(HOLD/CONFIRMED/CHECKED_IN).
- * SUPPLIER 빌라는 재고 비공개 원칙대로 BOOKING 셀을 절대 갖지 않는다.
+ * BOOKING 은 **모든 빌라**에서 나타난다 — 우리 판매(seller=OPERATOR)와 공급자 직접판매(seller=SUPPLIER)
+ * 예약(HOLD/CONFIRMED/CHECKED_IN). 관리자 전용 보드라 전체 재고 조망 허용(원칙1). seller로 구분 표시.
  */
 export type BoardCellStatus = "AVAILABLE" | "MANUAL" | "ICAL" | "BOOKING";
 
@@ -268,6 +268,8 @@ export type BoardCellStatus = "AVAILABLE" | "MANUAL" | "ICAL" | "BOOKING";
  */
 export interface BoardBookingSummary {
   id: string;
+  /** 판매 주체 — OPERATOR=우리 판매, SUPPLIER=공급자 직접판매(ADR-0021). 셀 색·배지 구분용 */
+  seller: "OPERATOR" | "SUPPLIER";
   status: "HOLD" | "CONFIRMED" | "CHECKED_IN";
   /** 체크인일 YYYY-MM-DD (포함) */
   checkIn: string;
@@ -430,7 +432,7 @@ export async function getAvailabilityBoard(
       ...(area ? { complex: area } : {}),
       ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
     },
-    select: { id: true, name: true, complex: true, availabilityCheckedAt: true, source: true, qualityScore: true },
+    select: { id: true, name: true, complex: true, availabilityCheckedAt: true, qualityScore: true },
     // 판매 후순위 정렬: 품질점수 내림차순, 동점은 이름순 (Phase 2)
     orderBy: [{ qualityScore: "desc" }, { name: "asc" }],
   });
@@ -485,15 +487,14 @@ export async function getAvailabilityBoard(
     }
   }
 
-  // ── DIRECT(직접공급) 빌라의 우리 판매예약을 셀에 덮어쓴다 ──
-  // 재고 비공개 예외: SUPPLIER 빌라는 절대 조회하지 않는다(외부 공급자에게 노출될 재고가 없는 DIRECT만).
+  // ── 모든 빌라의 예약을 셀에 덮어쓴다 (관리자 전용 — 공급자 직접판매 + 우리 판매 모두, 2026-07-02) ──
   // 예약은 잠금(MANUAL/ICAL)보다 우선 표시한다 — 블록 채움 이후에 덮어쓰므로 BOOKING 이 최종 우선.
+  // seller로 우리 예약(OPERATOR)과 공급자 직접(SUPPLIER)을 구분한다. 판매가는 canViewFinance 게이트.
   const canViewFinance = params.canViewFinance === true;
-  const directVillaIds = villas.filter((v) => v.source === VillaSource.DIRECT).map((v) => v.id);
-  if (directVillaIds.length > 0) {
+  {
     const bookings = await db.booking.findMany({
       where: {
-        villaId: { in: directVillaIds },
+        villaId: { in: villaIds },
         status: { in: [...OCCUPYING_BOOKING_STATUSES] },
         checkIn: { lt: end }, // half-open 겹침: booking.checkIn < range.end
         checkOut: { gt: start }, // AND booking.checkOut > range.start
@@ -501,6 +502,7 @@ export async function getAvailabilityBoard(
       select: {
         id: true,
         villaId: true,
+        seller: true,
         status: true,
         channel: true,
         agencyName: true,
@@ -528,6 +530,7 @@ export async function getAvailabilityBoard(
       };
       const summary: BoardBookingSummary = {
         id: b.id,
+        seller: b.seller as "OPERATOR" | "SUPPLIER",
         status: b.status as "HOLD" | "CONFIRMED" | "CHECKED_IN",
         checkIn: toDateOnlyString(b.checkIn),
         checkOut: toDateOnlyString(b.checkOut),
