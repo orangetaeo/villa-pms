@@ -13,6 +13,35 @@ export interface VillaOption {
   name: string;
 }
 
+/** 미리보기 응답 (serializeBigInt: VND는 문자열). 재무 필드는 STAFF에 없을 수 있어 옵셔널. */
+interface PreviewData {
+  ok: boolean;
+  blockers: string[];
+  capacityOk: boolean;
+  availabilityOk: boolean;
+  recalculated: boolean;
+  nightsOld: number;
+  nightsNew: number;
+  existingSaleKrw?: number | null;
+  existingSaleVnd?: string | null;
+  newSaleKrw?: number | null;
+  newSaleVnd?: string | null;
+  additionalKrw?: number | null;
+  additionalVnd?: string | null;
+  overpayment?: boolean;
+}
+
+/** 금액 표시 — 부호 포함(추가청구 +, 감액 −). VND는 문자열/BigInt 안전. */
+function fmtSigned(v: number | string, unit: string): string {
+  const n = typeof v === "string" ? Number(v) : v;
+  const sign = n > 0 ? "+" : "";
+  return `${sign}${new Intl.NumberFormat("vi-VN").format(n)} ${unit}`;
+}
+function fmtAmount(v: number | string, unit: string): string {
+  const n = typeof v === "string" ? Number(v) : v;
+  return `${new Intl.NumberFormat("vi-VN").format(n)} ${unit}`;
+}
+
 export default function BookingModifyPanel({
   bookingId,
   status,
@@ -51,13 +80,14 @@ export default function BookingModifyPanel({
   const [guestPhone, setGuestPhone] = useState(initial.guestPhone);
   const [breakfast, setBreakfast] = useState(initial.breakfastIncluded);
   const [reason, setReason] = useState("");
+  const [preview, setPreview] = useState<PreviewData | null>(null);
+  const [previewBusy, setPreviewBusy] = useState(false);
 
-  const submit = async () => {
-    setBusy(true);
-    setError(null);
-    setOk(null);
+  // 입력이 바뀌면 이전 미리보기는 무효 — 다시 계산하도록 비운다.
+  const invalidatePreview = () => setPreview(null);
 
-    // 변경된 필드만 보낸다. CHECKED_IN은 checkOut만 허용이라 서버 게이트로 한 번 더 방어.
+  // 변경 필드만 모아 본문 구성 (미리보기·저장 공용)
+  const buildChangeBody = (): Record<string, unknown> => {
     const body: Record<string, unknown> = {};
     if (checkOut !== initial.checkOut) body.checkOut = checkOut;
     if (!checkoutOnly) {
@@ -69,6 +99,51 @@ export default function BookingModifyPanel({
         body.guestPhone = guestPhone.trim() || null;
       if (breakfast !== initial.breakfastIncluded) body.breakfastIncluded = breakfast;
     }
+    return body;
+  };
+
+  const runPreview = async () => {
+    setPreviewBusy(true);
+    setPreview(null);
+    setError(null);
+    // 미리보기는 금액·정원·가용성에 영향 주는 필드만 보낸다 (이름·전화·조식 제외)
+    const full = buildChangeBody();
+    const body: Record<string, unknown> = {};
+    for (const k of ["checkIn", "checkOut", "villaId", "guestCount"]) {
+      if (k in full) body[k] = full[k];
+    }
+    if (Object.keys(body).length === 0) {
+      setError(t("errors.noChanges"));
+      setPreviewBusy(false);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/bookings/${bookingId}/modify/preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        const code = data?.error as string | undefined;
+        setError(code && messageForError(code) ? t(`errors.${code}`) : t("errors.generic"));
+        return;
+      }
+      setPreview(data.preview as PreviewData);
+    } catch {
+      setError(t("errors.generic"));
+    } finally {
+      setPreviewBusy(false);
+    }
+  };
+
+  const submit = async () => {
+    setBusy(true);
+    setError(null);
+    setOk(null);
+
+    // 변경된 필드만 보낸다. CHECKED_IN은 checkOut만 허용이라 서버 게이트로 한 번 더 방어.
+    const body = buildChangeBody();
     if (reason.trim()) body.reason = reason.trim();
 
     if (Object.keys(body).filter((k) => k !== "reason").length === 0) {
@@ -107,6 +182,7 @@ export default function BookingModifyPanel({
     "INVALID_RANGE",
     "INVALID_GUEST_COUNT",
     "SOLD_OUT",
+    "OVER_CAPACITY",
     "RECEIVABLE_EXISTS",
     "CONCURRENT_MODIFICATION",
   ]);
@@ -159,7 +235,10 @@ export default function BookingModifyPanel({
               <select
                 value={villaId}
                 disabled={checkoutOnly}
-                onChange={(e) => setVillaId(e.target.value)}
+                onChange={(e) => {
+                  setVillaId(e.target.value);
+                  invalidatePreview();
+                }}
                 className={inputCls}
               >
                 {villaOptions.map((v) => (
@@ -177,7 +256,10 @@ export default function BookingModifyPanel({
                 type="date"
                 value={checkIn}
                 disabled={checkoutOnly}
-                onChange={(e) => setCheckIn(e.target.value)}
+                onChange={(e) => {
+                  setCheckIn(e.target.value);
+                  invalidatePreview();
+                }}
                 className={inputCls}
               />
             </div>
@@ -188,7 +270,10 @@ export default function BookingModifyPanel({
                 type="date"
                 value={checkOut}
                 min={checkIn}
-                onChange={(e) => setCheckOut(e.target.value)}
+                onChange={(e) => {
+                  setCheckOut(e.target.value);
+                  invalidatePreview();
+                }}
                 className={inputCls}
               />
             </div>
@@ -212,7 +297,10 @@ export default function BookingModifyPanel({
                 min={1}
                 value={guestCount}
                 disabled={checkoutOnly}
-                onChange={(e) => setGuestCount(Math.max(1, Number(e.target.value) || 1))}
+                onChange={(e) => {
+                  setGuestCount(Math.max(1, Number(e.target.value) || 1));
+                  invalidatePreview();
+                }}
                 className={inputCls}
               />
             </div>
@@ -254,6 +342,78 @@ export default function BookingModifyPanel({
           </div>
 
           <p className="text-[11px] text-[#475569]">{t("priceNote")}</p>
+
+          {/* 변경 미리보기 (dry-run) — 저장 전 추가청구·정원·공실·과수납 확인 (ADR-0030 T-B) */}
+          <div>
+            <button
+              type="button"
+              disabled={previewBusy || busy}
+              onClick={runPreview}
+              className="w-full border border-admin-primary text-admin-primary hover:bg-admin-primary/10 font-bold py-2 rounded-lg text-sm transition-all disabled:opacity-50"
+            >
+              {previewBusy ? t("preview.loading") : t("preview.button")}
+            </button>
+
+            {preview && (
+              <div className="mt-3 rounded-lg border border-slate-700 bg-slate-900/60 p-3 text-xs space-y-1.5">
+                <p className="text-admin-muted font-semibold">{t("preview.title")}</p>
+
+                {/* 차단 사유 */}
+                {!preview.capacityOk && (
+                  <p className="text-red-400 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm">group_off</span>
+                    {t("preview.overCapacity")}
+                  </p>
+                )}
+                {!preview.availabilityOk && (
+                  <p className="text-red-400 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm">event_busy</span>
+                    {t("preview.soldOut")}
+                  </p>
+                )}
+
+                {/* 박수 변화 */}
+                {preview.recalculated && (
+                  <p className="text-white">
+                    {t("preview.nights")}: {preview.nightsOld} → {preview.nightsNew}
+                  </p>
+                )}
+
+                {/* 재무 (canViewFinance 일 때만 필드 존재) */}
+                {preview.additionalVnd != null && Number(preview.additionalVnd) !== 0 && (
+                  <p className={Number(preview.additionalVnd) > 0 ? "text-amber-300" : "text-green-400"}>
+                    {t("preview.additional")}: {fmtSigned(preview.additionalVnd, "₫")}
+                  </p>
+                )}
+                {preview.additionalKrw != null && preview.additionalKrw !== 0 && (
+                  <p className={preview.additionalKrw > 0 ? "text-amber-300" : "text-green-400"}>
+                    {t("preview.additional")}: {fmtSigned(preview.additionalKrw, "₩")}
+                  </p>
+                )}
+                {preview.newSaleVnd != null && (
+                  <p className="text-white">
+                    {t("preview.newTotal")}: {fmtAmount(preview.newSaleVnd, "₫")}
+                  </p>
+                )}
+                {preview.newSaleKrw != null && (
+                  <p className="text-white">
+                    {t("preview.newTotal")}: {fmtAmount(preview.newSaleKrw, "₩")}
+                  </p>
+                )}
+                {preview.overpayment && (
+                  <p className="text-amber-400 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm">warning</span>
+                    {t("preview.overpayment")}
+                  </p>
+                )}
+
+                {/* 종합 판정 */}
+                <p className={preview.ok ? "text-green-400 font-semibold" : "text-red-400 font-semibold"}>
+                  {preview.ok ? t("preview.ok") : t("preview.blocked")}
+                </p>
+              </div>
+            )}
+          </div>
 
           {error && <p className="text-xs text-red-400">{error}</p>}
 

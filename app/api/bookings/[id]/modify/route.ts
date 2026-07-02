@@ -58,6 +58,7 @@ const STATUS_BY_REASON: Record<BookingModifyRejectReason, number> = {
   INVALID_RANGE: 400,
   INVALID_GUEST_COUNT: 400,
   SOLD_OUT: 409,
+  OVER_CAPACITY: 409,
   RECEIVABLE_EXISTS: 409,
   CONCURRENT_MODIFICATION: 409,
 };
@@ -109,6 +110,8 @@ export async function PATCH(
       booking: b,
       changedFields: result.changedFields,
       recalculated: result.recalculated,
+      // 과수납 경고(T-D) — 판매가 관련 정보라 canViewFinance 일 때만 노출
+      ...(showFinance ? { overpayment: result.overpayment } : {}),
     });
   } catch (e) {
     if (e instanceof BookingModifyRejectedError) {

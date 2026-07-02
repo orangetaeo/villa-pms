@@ -11,7 +11,7 @@ import {
   OCCUPYING_BOOKING_STATUSES,
   type StayRange,
 } from "./availability";
-import { assertSaleAmountColumns, quoteStayForVilla } from "./pricing";
+import { assertSaleAmountColumns, krwToVndSnapshot, quoteStayForVilla } from "./pricing";
 import { writeAuditLog } from "./audit-log";
 import { countNights } from "./hold";
 import { computeDueDate } from "./partner";
@@ -41,6 +41,7 @@ export type BookingModifyRejectReason =
   | "INVALID_RANGE" // checkIn >= checkOut
   | "INVALID_GUEST_COUNT" // 인원수 < 1
   | "SOLD_OUT" // 자기 예약 제외 후에도 겹침/판매불가 (대상 빌라·기간)
+  | "OVER_CAPACITY" // 인원 > 대상 빌라 정원(maxGuests) (ADR-0030 T-A)
   | "RECEIVABLE_EXISTS" // 파트너 채권 존재 + 금액/빌라 변경 → 취소 후 재예약 안내
   | "CONCURRENT_MODIFICATION"; // status 가드 실패 (그 사이 상태 전이)
 
@@ -78,6 +79,8 @@ export interface ModifyBookingResult {
   changedFields: string[];
   /** 금액 재계산 여부 (날짜·빌라 변경 시 true) */
   recalculated: boolean;
+  /** 과수납 여부 — 기수납(VND 환산) > 새 총액(VND 환산) (ADR-0030 T-D). 산출 불가 시 false */
+  overpayment: boolean;
 }
 
 /** 상태별 변경 가능성 판정 (순수) — CHECKED_IN은 checkOut만 허용. */
@@ -116,6 +119,51 @@ function selfExcludedOverlapWhere(villaId: string, range: StayRange, excludeBook
   };
 }
 
+/** null-안전 max — 하한(floor) 적용용 (한쪽 null이면 다른 쪽) */
+function maxNullableNum(a: number | null, b: number | null): number | null {
+  if (a == null) return b;
+  if (b == null) return a;
+  return Math.max(a, b);
+}
+function maxNullableBig(a: bigint | null, b: bigint | null): bigint | null {
+  if (a == null) return b;
+  if (b == null) return a;
+  return a > b ? a : b;
+}
+
+/** 상태별 금액 결정에 쓰는 금액 3종 (판매가 KRW·VND, 원가 VND) */
+export interface StayAmounts {
+  totalSaleKrw: number | null;
+  totalSaleVnd: bigint | null;
+  supplierCostVnd: bigint;
+}
+
+/**
+ * 상태별 금액 결정 (ADR-0030 D2/T-C) — 순수.
+ * - CHECKED_IN: 이미 묵는 중이므로 **최초 확정액을 하한(floor)으로 유지**. 재견적이 크면(연장) 그 값을,
+ *   작으면(단축·다운그레이드) 기존액을 유지 → **감액 없음**. 판매가·원가 모두 하한 적용.
+ *   ⚠ nights는 실제 구간을 반영(별도) — 단축 시 nights는 줄지만 총액은 유지(무환불 정책)라
+ *   nights×요율 ≠ 총액이 될 수 있으며, 이는 "무환불 합의액"의 의도된 표현이다.
+ * - 그 외(CONFIRMED 등 아직 투숙 전): 전체 재견적 그대로(올려도 내려도 됨).
+ */
+export function resolveModifiedTotals(
+  status: BookingStatus,
+  existing: StayAmounts,
+  quoted: StayAmounts
+): StayAmounts {
+  if (status === BookingStatus.CHECKED_IN) {
+    return {
+      totalSaleKrw: maxNullableNum(existing.totalSaleKrw, quoted.totalSaleKrw),
+      totalSaleVnd: maxNullableBig(existing.totalSaleVnd, quoted.totalSaleVnd),
+      supplierCostVnd:
+        existing.supplierCostVnd > quoted.supplierCostVnd
+          ? existing.supplierCostVnd
+          : quoted.supplierCostVnd,
+    };
+  }
+  return quoted;
+}
+
 /**
  * 예약 변경 — 단일 트랜잭션.
  * @throws BookingModifyRejectedError(reason) / RangeError(잘못된 입력)
@@ -131,6 +179,7 @@ export async function modifyBooking(
         villa: { select: { supplierId: true } },
         receivable: { select: { id: true } },
         partner: { select: { creditTier: true, paymentTermDays: true } },
+        payments: { select: { vndEquivalent: true } }, // T-D 과수납 판정용
       },
     });
     if (!booking) throw new BookingModifyRejectedError("BOOKING_NOT_FOUND");
@@ -190,6 +239,24 @@ export async function modifyBooking(
       throw new BookingModifyRejectedError("NO_CHANGES");
     }
 
+    // ── (b0) 정원 검증 (ADR-0030 T-A) ──
+    // 인원 또는 빌라가 바뀌면 대상(변경 후) 빌라의 정원(maxGuests)을 확인한다.
+    // D0: 체크인 후 인원 변경은 위 CHECKED_IN_FIELD_LOCKED에서 이미 차단 — 여기 도달하는 인원 변경은
+    //     확정(FULL) 상태뿐. 빌라 변경은 대상 빌라 정원에 현재 인원이 맞는지 확인.
+    const nextGuestCount = input.guestCount ?? booking.guestCount;
+    if (villaChanged || guestCountChanged) {
+      const capVilla = await tx.villa.findUnique({
+        where: { id: nextVillaId },
+        select: { maxGuests: true },
+      });
+      if (capVilla && nextGuestCount > capVilla.maxGuests) {
+        throw new BookingModifyRejectedError(
+          "OVER_CAPACITY",
+          `${nextGuestCount}/${capVilla.maxGuests}`
+        );
+      }
+    }
+
     // ── (b) 재고 잠금 + 자기 예약 제외 가용성 ──
     // 빌라·날짜가 바뀔 때만 재검증(인원·이름·조식만 바뀌면 재고 영향 없음).
     const needsAvailabilityCheck = villaChanged || dateChanged;
@@ -231,10 +298,24 @@ export async function modifyBooking(
     const recalculated = villaChanged || dateChanged;
     if (recalculated) {
       const quote = await quoteStayForVilla(tx, nextVillaId, range, saleCurrency);
-      nextNights = countNights(range);
-      nextTotalSaleKrw = quote.totalSaleKrw ?? null;
-      nextTotalSaleVnd = quote.totalSaleVnd ?? null;
-      nextSupplierCostVnd = quote.totalSupplierCostVnd;
+      nextNights = countNights(range); // 실제 구간 반영(단축 시 감소) — 총액은 하한(아래)
+      // ADR-0030 D2/T-C: 체크인 후엔 최초액을 하한으로 유지(감액 없음), 확정은 전체 재견적.
+      const resolved = resolveModifiedTotals(
+        booking.status,
+        {
+          totalSaleKrw: booking.totalSaleKrw,
+          totalSaleVnd: booking.totalSaleVnd,
+          supplierCostVnd: booking.supplierCostVnd,
+        },
+        {
+          totalSaleKrw: quote.totalSaleKrw ?? null,
+          totalSaleVnd: quote.totalSaleVnd ?? null,
+          supplierCostVnd: quote.totalSupplierCostVnd,
+        }
+      );
+      nextTotalSaleKrw = resolved.totalSaleKrw;
+      nextTotalSaleVnd = resolved.totalSaleVnd;
+      nextSupplierCostVnd = resolved.supplierCostVnd;
       // 듀얼 컬럼 정합 — saleCurrency에 맞는 통화만 채워졌는지 검증
       assertSaleAmountColumns(saleCurrency, {
         krw: nextTotalSaleKrw,
@@ -308,6 +389,19 @@ export async function modifyBooking(
       }
     }
 
+    // ── (e-2) 과수납 판정 (ADR-0030 T-D) ──
+    // 기수납(VND 환산 합계) > 새 총액(VND 환산)이면 과수납. 하드 차단은 하지 않고(운영자 판단)
+    // 결과 플래그 + AuditLog로 남긴다 — 저장 전 경고는 미리보기(T-B)가 담당. VND/KRW만(USD 범위 밖).
+    const collectedVnd = booking.payments.reduce<bigint | null>((sum, p) => {
+      if (p.vndEquivalent == null) return sum;
+      return (sum ?? 0n) + p.vndEquivalent;
+    }, null);
+    let newTotalVnd: bigint | null = null;
+    if (saleCurrency === "VND") newTotalVnd = nextTotalSaleVnd ?? 0n;
+    else if (saleCurrency === "KRW" && booking.fxVndPerKrw)
+      newTotalVnd = krwToVndSnapshot(nextTotalSaleKrw ?? 0, booking.fxVndPerKrw.toString());
+    const overpayment = collectedVnd != null && newTotalVnd != null && collectedVnd > newTotalVnd;
+
     // ── (f) AuditLog — old→new 변경 필드 (글로벌 절대규칙) ──
     const changes: Record<string, { old?: unknown; new?: unknown }> = {};
     if (villaChanged) changes.villaId = { old: booking.villaId, new: nextVillaId };
@@ -333,6 +427,12 @@ export async function modifyBooking(
       changes.breakfastIncluded = { old: booking.breakfastIncluded, new: input.breakfastIncluded };
     }
     if (receivableDueDateChange) changes.receivableDueDate = receivableDueDateChange;
+    if (overpayment) {
+      changes.overpayment = {
+        old: collectedVnd?.toString() ?? null, // 기수납(VND 환산)
+        new: newTotalVnd?.toString() ?? null, // 새 총액(VND 환산) — 이보다 많이 받음
+      };
+    }
     if (input.reason?.trim()) changes.reason = { new: input.reason.trim() };
 
     await writeAuditLog({
@@ -368,6 +468,6 @@ export async function modifyBooking(
       });
     }
 
-    return { booking: updated, changedFields, recalculated };
+    return { booking: updated, changedFields, recalculated, overpayment };
   });
 }

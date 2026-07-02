@@ -29,6 +29,7 @@ import { guestTokenState } from "@/lib/guest-checkin";
 import GuestTokenCard, { type GuestTokenState } from "./guest-token-card";
 import PartnerAssignCard from "./partner-assign-card";
 import BookingModifyPanel, { type VillaOption } from "./booking-modify-panel";
+import BookingExtendPanel, { type ExtensionItem } from "./booking-extend-panel";
 import { modifiableKind } from "@/lib/booking-modify";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -112,6 +113,9 @@ export default async function BookingDetailPage({
       note: true,
       cancelReason: true,
       villa: { select: { id: true, name: true } },
+      // 분할 숙박(ADR-0030 T-E/T-G) — 이 예약이 다른 예약의 연장이면 원 예약 역링크(금액 아님)
+      parentBookingId: true,
+      parentBooking: { select: { id: true, villa: { select: { name: true } } } },
       // T3.2 — 미서명 배지·사후 서명 진입점 / T3.6 — 여권 전달 가능 여부·전달 시각
       checkInRecord: {
         select: {
@@ -452,6 +456,51 @@ export default async function BookingDetailPage({
     }
   }
 
+  // 분할 숙박(ADR-0030 T-E) — 연결된 연장 예약. 확장 가능(CONFIRMED·CHECKED_IN)일 때만.
+  const extendable =
+    booking.status === BookingStatus.CONFIRMED || booking.status === BookingStatus.CHECKED_IN;
+  let extensions: ExtensionItem[] = [];
+  if (extendable) {
+    const kids = await prisma.booking.findMany({
+      where: { parentBookingId: booking.id },
+      orderBy: { checkIn: "asc" },
+      select: {
+        id: true,
+        status: true,
+        checkIn: true,
+        checkOut: true,
+        nights: true,
+        villa: { select: { name: true } },
+        // 판매가는 canViewFinance만 select (원칙2)
+        ...(showFinance ? { saleCurrency: true, totalSaleKrw: true, totalSaleVnd: true } : {}),
+      },
+    });
+    extensions = kids.map((k) => {
+      const kf = k as {
+        saleCurrency?: string;
+        totalSaleKrw?: number | null;
+        totalSaleVnd?: bigint | null;
+      };
+      let saleLabel: string | null = null;
+      if (showFinance) {
+        if (kf.saleCurrency === "VND" && kf.totalSaleVnd != null) {
+          saleLabel = `${new Intl.NumberFormat("vi-VN").format(Number(kf.totalSaleVnd))}₫`;
+        } else if (kf.saleCurrency === "KRW" && kf.totalSaleKrw != null) {
+          saleLabel = `${new Intl.NumberFormat("ko-KR").format(kf.totalSaleKrw)}₩`;
+        }
+      }
+      return {
+        id: k.id,
+        villaName: k.villa.name,
+        checkIn: toDateOnlyString(k.checkIn),
+        checkOut: toDateOnlyString(k.checkOut),
+        nights: k.nights,
+        status: k.status,
+        saleLabel,
+      };
+    });
+  }
+
   const logStatusChange = (changes: unknown): string | null => {
     if (changes && typeof changes === "object" && "status" in changes) {
       const s = (changes as { status?: { new?: unknown } }).status?.new;
@@ -487,6 +536,17 @@ export default async function BookingDetailPage({
           )}
         </div>
       </div>
+
+      {/* 분할 숙박(ADR-0030 T-G) — 이 예약이 연장 예약이면 원 예약으로 역링크 */}
+      {booking.parentBookingId && (
+        <Link
+          href={`/bookings/${booking.parentBookingId}`}
+          className="flex items-center gap-2 bg-admin-card px-4 py-3 rounded-xl border border-admin-primary/40 text-sm text-admin-primary hover:bg-admin-primary/10 transition-colors"
+        >
+          <span className="material-symbols-outlined text-base">link</span>
+          {t("detail.extendedFrom", { villa: booking.parentBooking?.villa.name ?? "" })}
+        </Link>
+      )}
 
       {/* 상태 타임라인 스트립 (b11) — 종결 상태는 배너로 대체 (계약 편차 선언) */}
       {terminal ? (
@@ -752,6 +812,17 @@ export default async function BookingDetailPage({
                 guestPhone: booking.guestPhone ?? "",
                 breakfastIncluded: booking.breakfastIncluded,
               }}
+            />
+          )}
+
+          {/* 분할 숙박 — 다른 빌라로 연장(연결 예약) (ADR-0030 T-E). CONFIRMED·CHECKED_IN만 */}
+          {extendable && (
+            <BookingExtendPanel
+              parentBookingId={booking.id}
+              currentVillaId={booking.villa.id}
+              defaultCheckIn={toDateOnlyString(booking.checkOut)}
+              villaOptions={villaOptions}
+              extensions={extensions}
             />
           )}
 

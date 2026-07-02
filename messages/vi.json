@@ -614,6 +614,7 @@
     "detail": {
       "breadcrumb": "Quản lý đặt phòng",
       "title": "Đặt phòng #{code}",
+      "extendedFrom": "Đặt phòng này là phần kéo dài của đặt phòng {villa} — Xem đặt phòng gốc",
       "steps": {
         "hold": "Giữ chỗ",
         "confirmed": "Xác nhận",
@@ -765,6 +766,19 @@
         "openButton": "Thay đổi",
         "checkedInHint": "Đã nhận phòng. Chỉ có thể đổi ngày trả phòng (kéo dài/rút ngắn lưu trú).",
         "priceNote": "Số tiền sẽ được tính lại tự động trên máy chủ theo ngày/biệt thự mới.",
+        "preview": {
+          "button": "Xem trước thay đổi",
+          "loading": "Đang tính…",
+          "title": "Xem trước thay đổi",
+          "nights": "Số đêm",
+          "additional": "Phụ thu thêm",
+          "newTotal": "Tổng mới",
+          "overCapacity": "Số khách vượt quá sức chứa của biệt thự.",
+          "soldOut": "Biệt thự/khoảng thời gian này đã được đặt hoặc bị chặn.",
+          "overpayment": "Số tiền đã nhận lớn hơn tổng mới — cần hoàn tiền.",
+          "ok": "Có thể thay đổi.",
+          "blocked": "Không thể thay đổi như hiện tại."
+        },
         "success": "Đã thay đổi đặt phòng.",
         "submit": "Lưu thay đổi",
         "submitting": "Đang lưu…",
@@ -789,8 +803,31 @@
           "INVALID_RANGE": "Ngày trả phòng phải sau ngày nhận phòng.",
           "INVALID_GUEST_COUNT": "Số khách phải từ 1 trở lên.",
           "SOLD_OUT": "Biệt thự/khoảng thời gian này đã được đặt hoặc bị chặn, không thể thay đổi.",
+          "OVER_CAPACITY": "Số khách vượt quá sức chứa của biệt thự. Vui lòng chọn biệt thự lớn hơn.",
           "RECEIVABLE_EXISTS": "Đã có công nợ nên việc đổi biệt thự/số tiền cần hủy và đặt lại.",
           "CONCURRENT_MODIFICATION": "Phát hiện thay đổi đồng thời. Vui lòng tải lại và thử lại."
+        }
+      },
+      "extend": {
+        "title": "Lưu trú tách (kéo dài sang biệt thự khác)",
+        "openButton": "Kéo dài sang biệt thự khác",
+        "hint": "Nếu biệt thự gốc đã kín trong khoảng thời gian đó, tạo một đặt phòng bổ sung ở biệt thự khác để lưu trú tiếp. Số khách và tên khách kế thừa từ đặt phòng gốc.",
+        "villa": "Biệt thự kéo dài",
+        "checkIn": "Nhận phòng",
+        "checkOut": "Trả phòng",
+        "submit": "Tạo đặt phòng kéo dài",
+        "submitting": "Đang tạo…",
+        "cancel": "Hủy",
+        "view": "Xem",
+        "nights": "{n} đêm",
+        "errors": {
+          "noVilla": "Vui lòng chọn biệt thự để kéo dài.",
+          "generic": "Không thể tạo đặt phòng kéo dài.",
+          "PARENT_NOT_EXTENDABLE": "Chỉ có thể kéo dài khi đã xác nhận hoặc đã nhận phòng.",
+          "INVALID_RANGE": "Ngày trả phòng phải sau ngày nhận phòng.",
+          "SAME_VILLA": "Kéo dài cùng biệt thự hãy dùng thay đổi đặt phòng (ngày trả phòng).",
+          "SOLD_OUT": "Biệt thự/khoảng thời gian đã chọn đã được đặt/chặn hoặc không thể bán.",
+          "OVER_CAPACITY": "Số khách vượt quá sức chứa của biệt thự đã chọn."
         }
       }
     }

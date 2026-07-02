@@ -4,6 +4,7 @@ import {
   BookingModifyRejectedError,
   modifiableKind,
   modifyBooking,
+  resolveModifiedTotals,
   touchesNonCheckoutFields,
   type ModifyBookingInput,
 } from "./booking-modify";
@@ -66,9 +67,11 @@ interface BookingRow {
   totalSaleKrw: number | null;
   totalSaleVnd: bigint | null;
   supplierCostVnd: bigint;
+  fxVndPerKrw: { toString(): string } | null;
   villa: { supplierId: string };
   receivable: { id: string } | null;
   partner: { creditTier: CreditTier; paymentTermDays: number } | null;
+  payments: { vndEquivalent: bigint | null }[];
 }
 
 function defaultBooking(over: Partial<BookingRow> = {}): BookingRow {
@@ -87,9 +90,11 @@ function defaultBooking(over: Partial<BookingRow> = {}): BookingRow {
     totalSaleKrw: null,
     totalSaleVnd: 3_000_000n,
     supplierCostVnd: 2_400_000n,
+    fxVndPerKrw: null,
     villa: { supplierId: "sup1" },
     receivable: null,
     partner: null,
+    payments: [],
     ...over,
   };
 }
@@ -109,6 +114,8 @@ interface FakeTxOpts {
   notifyVilla?: { supplierId: string; name: string } | null;
   /** 기존 채권 dueDate (partnerReceivable.findUnique 반환) */
   receivableDueDate?: Date;
+  /** 대상 빌라 정원 (checkAvailability·정원검증 findUnique) — 기본 10 (여유) */
+  maxGuests?: number;
 }
 
 function makeTx(opts: FakeTxOpts) {
@@ -134,13 +141,19 @@ function makeTx(opts: FakeTxOpts) {
     return 0; // checkAvailability 내부 점유 count — 자기제외 분기가 진짜 판정
   });
 
+  const maxGuests = opts.maxGuests ?? 10;
   const villaFindUnique = vi.fn(async ({ select }: { select?: Record<string, unknown> }) => {
-    // checkAvailability: select { status, isSellable }
+    // checkAvailability: select { status, isSellable, maxGuests }
     if (select && "status" in select) {
       return {
         status: opts.villaStatus ?? "ACTIVE",
         isSellable: opts.isSellable ?? true,
+        maxGuests,
       };
+    }
+    // 정원 검증(b0): select { maxGuests }
+    if (select && "maxGuests" in select) {
+      return { maxGuests };
     }
     // notifyVilla: select { supplierId, name }
     if (opts.notifyVilla === null) return null;
@@ -332,6 +345,47 @@ describe("modifyBooking — 자기 예약 제외 가용성", () => {
   });
 });
 
+describe("modifyBooking — 정원 검증 (ADR-0030 T-A)", () => {
+  it("인원 증가가 현재 빌라 정원 초과 → OVER_CAPACITY", async () => {
+    const { prisma } = makeTx({ booking: defaultBooking({ guestCount: 2 }), maxGuests: 4 });
+    await expect(
+      modifyBooking(prisma, {
+        bookingId: "b1",
+        actorUserId: "u1",
+        now: utc("2026-07-01"),
+        guestCount: 5, // 정원 4 초과
+      })
+    ).rejects.toMatchObject({ reason: "OVER_CAPACITY" });
+  });
+
+  it("빌라 변경 대상 정원이 현재 인원 미달 → OVER_CAPACITY", async () => {
+    const { prisma } = makeTx({
+      booking: defaultBooking({ guestCount: 6 }),
+      otherOverlapCount: 0,
+      maxGuests: 4, // 대상 빌라 정원 4 < 인원 6
+    });
+    await expect(
+      modifyBooking(prisma, {
+        bookingId: "b1",
+        actorUserId: "u1",
+        now: utc("2026-07-01"),
+        villaId: "v2",
+      })
+    ).rejects.toMatchObject({ reason: "OVER_CAPACITY" });
+  });
+
+  it("인원 = 정원(경계) → 통과", async () => {
+    const { prisma } = makeTx({ booking: defaultBooking({ guestCount: 2 }), maxGuests: 4 });
+    const res = await modifyBooking(prisma, {
+      bookingId: "b1",
+      actorUserId: "u1",
+      now: utc("2026-07-01"),
+      guestCount: 4, // 정확히 정원
+    });
+    expect(res.changedFields).toEqual(["guestCount"]);
+  });
+});
+
 describe("modifyBooking — 금액 재계산·통화 정합", () => {
   it("VND 예약: 날짜 연장 시 VND만 채우고 KRW는 null", async () => {
     const { prisma } = makeTx({
@@ -366,6 +420,122 @@ describe("modifyBooking — 금액 재계산·통화 정합", () => {
     });
     expect(res.booking.totalSaleKrw).toBe(600_000);
     expect(res.booking.totalSaleVnd).toBeNull();
+  });
+});
+
+describe("resolveModifiedTotals — 상태별 하한 (ADR-0030 D2/T-C)", () => {
+  const existing = { totalSaleKrw: null, totalSaleVnd: 3_000_000n, supplierCostVnd: 2_400_000n };
+
+  it("CHECKED_IN + 재견적 < 기존(단축) → 기존액 유지(감액 없음)", () => {
+    const r = resolveModifiedTotals(BookingStatus.CHECKED_IN, existing, {
+      totalSaleKrw: null,
+      totalSaleVnd: 2_000_000n,
+      supplierCostVnd: 1_600_000n,
+    });
+    expect(r.totalSaleVnd).toBe(3_000_000n); // 하한 유지
+    expect(r.supplierCostVnd).toBe(2_400_000n);
+  });
+
+  it("CHECKED_IN + 재견적 > 기존(연장) → 재견적액(추가청구)", () => {
+    const r = resolveModifiedTotals(BookingStatus.CHECKED_IN, existing, {
+      totalSaleKrw: null,
+      totalSaleVnd: 5_000_000n,
+      supplierCostVnd: 4_000_000n,
+    });
+    expect(r.totalSaleVnd).toBe(5_000_000n);
+    expect(r.supplierCostVnd).toBe(4_000_000n);
+  });
+
+  it("CONFIRMED + 재견적 < 기존 → 전체 재견적(감액 허용)", () => {
+    const r = resolveModifiedTotals(BookingStatus.CONFIRMED, existing, {
+      totalSaleKrw: null,
+      totalSaleVnd: 2_000_000n,
+      supplierCostVnd: 1_600_000n,
+    });
+    expect(r.totalSaleVnd).toBe(2_000_000n); // 감액됨
+  });
+
+  it("KRW 예약: null 통화 컬럼은 null 유지, KRW만 하한", () => {
+    const krwExisting = { totalSaleKrw: 900_000, totalSaleVnd: null, supplierCostVnd: 2_400_000n };
+    const r = resolveModifiedTotals(BookingStatus.CHECKED_IN, krwExisting, {
+      totalSaleKrw: 600_000,
+      totalSaleVnd: null,
+      supplierCostVnd: 1_600_000n,
+    });
+    expect(r.totalSaleKrw).toBe(900_000); // 하한
+    expect(r.totalSaleVnd).toBeNull();
+  });
+});
+
+describe("modifyBooking — 체크인 후 금액 하한 (ADR-0030 D2/T-C)", () => {
+  it("CHECKED_IN 체크아웃 연장 → 추가청구(총액 증가)", async () => {
+    const { prisma } = makeTx({
+      booking: defaultBooking({ status: BookingStatus.CHECKED_IN, totalSaleVnd: 3_000_000n }),
+      baseRate: { supplierCostVnd: 800_000n, salePriceVnd: 1_000_000n, salePriceKrw: 0 },
+    });
+    const res = await modifyBooking(prisma, {
+      bookingId: "b1",
+      actorUserId: "u1",
+      now: utc("2026-07-11"),
+      checkOut: utc("2026-07-15"), // 3박 → 5박
+    });
+    expect(res.recalculated).toBe(true);
+    expect(res.booking.totalSaleVnd).toBe(5_000_000n); // 연장분 추가청구
+    expect(res.booking.nights).toBe(5);
+  });
+
+  it("CHECKED_IN 체크아웃 단축 → 감액 없음(총액 유지), nights만 감소", async () => {
+    const { prisma } = makeTx({
+      booking: defaultBooking({ status: BookingStatus.CHECKED_IN, totalSaleVnd: 3_000_000n }),
+      baseRate: { supplierCostVnd: 800_000n, salePriceVnd: 1_000_000n, salePriceKrw: 0 },
+    });
+    const res = await modifyBooking(prisma, {
+      bookingId: "b1",
+      actorUserId: "u1",
+      now: utc("2026-07-11"),
+      checkOut: utc("2026-07-12"), // 3박 → 2박(단축)
+    });
+    expect(res.booking.totalSaleVnd).toBe(3_000_000n); // 하한 유지(무환불)
+    expect(res.booking.nights).toBe(2); // 실제 구간 반영
+  });
+});
+
+describe("modifyBooking — 과수납 판정 (ADR-0030 T-D)", () => {
+  it("확정 단축으로 새 총액 < 기수납 → overpayment=true (하드 차단 아님)", async () => {
+    const { prisma } = makeTx({
+      booking: defaultBooking({
+        status: BookingStatus.CONFIRMED,
+        totalSaleVnd: 3_000_000n,
+        payments: [{ vndEquivalent: 3_000_000n }],
+      }),
+      baseRate: { supplierCostVnd: 800_000n, salePriceVnd: 1_000_000n, salePriceKrw: 0 },
+    });
+    const res = await modifyBooking(prisma, {
+      bookingId: "b1",
+      actorUserId: "u1",
+      now: utc("2026-07-01"),
+      checkOut: utc("2026-07-12"), // 3박 → 2박 = 2M < 3M 수납
+    });
+    expect(res.booking.totalSaleVnd).toBe(2_000_000n); // 확정은 감액됨
+    expect(res.overpayment).toBe(true);
+  });
+
+  it("기수납 ≤ 새 총액 → overpayment=false", async () => {
+    const { prisma } = makeTx({
+      booking: defaultBooking({
+        status: BookingStatus.CONFIRMED,
+        totalSaleVnd: 3_000_000n,
+        payments: [{ vndEquivalent: 1_000_000n }],
+      }),
+      baseRate: { supplierCostVnd: 800_000n, salePriceVnd: 1_000_000n, salePriceKrw: 0 },
+    });
+    const res = await modifyBooking(prisma, {
+      bookingId: "b1",
+      actorUserId: "u1",
+      now: utc("2026-07-01"),
+      checkOut: utc("2026-07-14"), // 연장 4박 = 4M > 1M
+    });
+    expect(res.overpayment).toBe(false);
   });
 });
 

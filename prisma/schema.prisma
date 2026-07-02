@@ -538,6 +538,11 @@ model Booking {
   agencyName        String? // [dual-read 폴백] Partner 승격 전 텍스트. ADR-0022: partnerId 우선, 없으면 이 값
   partnerId         String? // 여행사/랜드사 파트너 (ADR-0022 — B2B 객실료 채권 귀속). null=직접/미지정
   partner           Partner?       @relation(fields: [partnerId], references: [id])
+  // ADR-0030 T-E: 분할 숙박 — 연장인데 원 빌라가 불가해 다른 빌라로 이어 묵는 추가 예약이 원(부모)을 가리킴.
+  // null=독립 예약. 각 예약은 여전히 단일 빌라. 라이브 반영은 additive raw SQL ALTER(prisma db execute).
+  parentBookingId   String?
+  parentBooking     Booking?       @relation("BookingExtensions", fields: [parentBookingId], references: [id], onDelete: SetNull)
+  extensions        Booking[]      @relation("BookingExtensions")
   holdExpiresAt     DateTime? // HOLD 상태에서만 사용 (24~48h)
   // 금액 — HOLD 시점 스냅샷. saleCurrency에 해당하는 통화 컬럼만 채운다 (ADR-0003)
   saleCurrency      Currency       @default(KRW)
@@ -573,6 +578,7 @@ model Booking {
   @@index([partnerId, createdAt]) // 파트너 포털 예약·미수 목록(where partnerId, orderBy createdAt)
   @@index([status, checkIn]) // 대시보드 오늘 체크인 프리셋, 가용성 날짜범위
   @@index([status, checkOut]) // 매출/통계 checkOut 범위 + 매출인식 상태 게이트
+  @@index([parentBookingId]) // ADR-0030 T-E: 원 예약의 연장 자식 조회
 }
 
 // ===================== 체크인·아웃 검수 =====================

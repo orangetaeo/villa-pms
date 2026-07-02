@@ -110,6 +110,30 @@ describe("evaluateAvailability — SPEC F2 판정식", () => {
     expect(r.available).toBe(false);
     expect(r.sellable).toBe(false);
   });
+
+  // ── 정원 검증 (ADR-0030 T-A) ──
+  it("maxGuests·guestCount 미지정 시 정원 판정 생략 (하위호환)", () => {
+    expect(evaluateAvailability(base)).toEqual({ available: true, sellable: true, reasons: [] });
+  });
+
+  it("인원 ≤ 정원 → OVER_CAPACITY 없음", () => {
+    const r = evaluateAvailability({ ...base, maxGuests: 6, guestCount: 6 });
+    expect(r.sellable).toBe(true);
+    expect(r.reasons).not.toContain("OVER_CAPACITY");
+  });
+
+  it("인원 > 정원 → OVER_CAPACITY, sellable=false (재고 available은 유지)", () => {
+    const r = evaluateAvailability({ ...base, maxGuests: 4, guestCount: 5 });
+    expect(r.available).toBe(true); // 재고 자체는 비어 있음 (ADMIN 조망용)
+    expect(r.sellable).toBe(false); // 정원 초과라 판매 불가
+    expect(r.reasons).toContain("OVER_CAPACITY");
+  });
+
+  it("guestCount만 있고 maxGuests 없으면 판정 생략", () => {
+    const r = evaluateAvailability({ ...base, guestCount: 99 });
+    expect(r.reasons).not.toContain("OVER_CAPACITY");
+    expect(r.sellable).toBe(true);
+  });
 });
 
 describe("getAvailabilityBoard — minDate 과거 컬럼 클램프", () => {
