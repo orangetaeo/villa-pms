@@ -359,6 +359,8 @@
     "search": "Tìm tên villa...",
     "area": "Khu vực",
     "allAreas": "Tất cả khu vực",
+    "villa": "Biệt thự",
+    "allVillas": "Tất cả biệt thự",
     "needCheckOnly": "Chỉ cần kiểm tra",
     "today": "Hôm nay",
     "period": "{start} ~ {end}",

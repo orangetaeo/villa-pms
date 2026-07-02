@@ -57,6 +57,7 @@ export default async function AvailabilityPage({
   searchParams: Promise<{
     startMonth?: string;
     area?: string;
+    villaId?: string;
     search?: string;
     needCheck?: string;
   }>;
@@ -70,6 +71,7 @@ export default async function AvailabilityPage({
   const rawStartMonth = normalizeMonth(params.startMonth) ?? defaultMonth;
   const startMonth = rawStartMonth < defaultMonth ? defaultMonth : rawStartMonth;
   const area = params.area?.trim() || undefined;
+  const villaId = params.villaId?.trim() || undefined;
   const search = params.search?.trim() || undefined;
   const needCheckOnly = params.needCheck === "1";
 
@@ -79,11 +81,13 @@ export default async function AvailabilityPage({
   const showFinance = canViewFinance(session?.user?.role);
 
   // 지역(area) 옵션 = 운영 대상 빌라의 complex distinct (재고 비공개 — 운영 대상만)
-  const [board, complexRows] = await Promise.all([
+  // 빌라 셀렉터 옵션 = 운영 대상 빌라(선택된 지역이 있으면 그 지역만) — 지역 검색 후 그 지역 빌라들로.
+  const [board, complexRows, villaRows] = await Promise.all([
     getAvailabilityBoard(prisma, {
       startMonth,
       monthCount: MONTH_COUNT,
       area,
+      villaId,
       search,
       minDate: todayStr, // 과거 컬럼 제거 (BE 클램프, columns·days 인덱스 1:1 유지)
       canViewFinance: showFinance,
@@ -97,10 +101,19 @@ export default async function AvailabilityPage({
       orderBy: { complex: "asc" },
       select: { complex: true },
     }),
+    prisma.villa.findMany({
+      where: {
+        status: { in: [VillaStatus.ACTIVE, VillaStatus.INACTIVE] },
+        ...(area ? { complex: area } : {}),
+      },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
   ]);
   const areaOptions = complexRows
     .map((r) => r.complex)
     .filter((c): c is string => !!c);
+  const villaSelectOptions = villaRows;
 
   // ── 컬럼 → 월 그룹 + 일/요일/오늘/주말/월시작 플래그 ──
   const columns: BoardColumn[] = board.columns.map((iso) => {
@@ -180,6 +193,8 @@ export default async function AvailabilityPage({
     search: t("search"),
     area: t("area"),
     allAreas: t("allAreas"),
+    villa: t("villa"),
+    allVillas: t("allVillas"),
     needCheckOnly: t("needCheckOnly"),
     today: t("today"),
     prevPeriod: t("prevPeriod"),
@@ -276,12 +291,14 @@ export default async function AvailabilityPage({
         monthGroups={monthGroups}
         rows={rows}
         areaOptions={areaOptions}
+        villaOptions={villaSelectOptions}
         startMonth={startMonth}
         prevMonth={startMonth > defaultMonth ? shiftMonth(startMonth, -MONTH_COUNT) : null}
         nextMonth={shiftMonth(startMonth, MONTH_COUNT)}
         thisMonth={defaultMonth}
         periodLabel={periodLabel}
         area={area ?? ""}
+        villaId={villaId ?? ""}
         search={search ?? ""}
         needCheckOnly={needCheckOnly}
         strings={strings}
