@@ -2143,7 +2143,7 @@
       "loadError": "Tải thất bại — thử lại",
       "tab": { "settle": "Quyết toán NCC", "status": "Tình trạng" },
       "sub": { "pending": "Chờ chi", "paid": "Đã chi" },
-      "summary": { "unsettledTotal": "Tổng chưa thanh toán", "paidTotal": "Tổng đã thanh toán", "vendorCount": "Số nhà cung cấp" },
+      "summary": { "unsettledTotal": "Tổng chưa thanh toán", "paidTotal": "Tổng đã thanh toán", "vendorCount": "Số nhà cung cấp", "allBasis": "toàn bộ" },
       "vendorOrders": "{n} đơn",
       "settleSelected": "Thanh toán mục chọn ({n})",
       "noBank": "Chưa có tài khoản",
@@ -2167,7 +2167,9 @@
         "notePlaceholder": "Tham chiếu chuyển khoản...",
         "cancel": "Hủy",
         "confirm": "Thanh toán",
-        "submitting": "Đang xử lý..."
+        "submitting": "Đang xử lý...",
+        "error": "Thanh toán thất bại. Vui lòng thử lại.",
+        "noneSettled": "Không có mục nào để xử lý (đã thanh toán hoặc trạng thái đã thay đổi)."
       }
     },
     "title": "Đơn dịch vụ bổ sung",
