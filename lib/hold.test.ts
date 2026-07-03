@@ -20,8 +20,14 @@ vi.mock("./partner-booking", () => ({
   ensureReceivableForBooking: vi.fn(async () => {}),
   evaluateConfirmCredit: vi.fn(async () => ({ allowed: true })),
 }));
+const mockEnqueueInApp = vi.fn(async () => ({}));
+vi.mock("./inapp-notification", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./inapp-notification")>();
+  return { ...actual, enqueueInAppNotification: (...a: unknown[]) => mockEnqueueInApp(...a) };
+});
 
 import {
+  cancelBooking,
   DEFAULT_HOLD_HOURS,
   computeHoldExpiresAt,
   countNights,
@@ -202,5 +208,112 @@ describe("createHoldFromProposalItem — seller 전파", () => {
     expect(data.supplierCostVnd).toBe(4_000_000n); // 운영자 원가 견적값
     expect(data.totalSaleKrw).toBe(1_200_000);
     expect(mockQuoteStay).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ===================== cancelBooking — 부가서비스 연쇄 취소 (A5, admin-ops-gaps) =====================
+
+type OpenOrder = {
+  id: string;
+  quantity: number;
+  serviceDate: Date | null;
+  catalogItemId: string | null;
+  vendorName: string | null;
+  vendorId: string | null;
+  vendorStatus: string | null;
+  vendor: { userId: string | null; user: { zaloUserId: string | null } | null } | null;
+};
+
+function makeCancelTx(openOrders: OpenOrder[]) {
+  const notifications: { userId: string; type: string }[] = [];
+  const tx = {
+    booking: {
+      findUnique: vi.fn(async () => ({
+        id: "bk1",
+        status: "CONFIRMED",
+        villaId: "v1",
+        checkIn: d("2026-08-10"),
+        checkOut: d("2026-08-13"),
+        villa: { supplierId: "sup1", name: "썬셋 사나토 A3" },
+      })),
+      updateMany: vi.fn(async () => ({ count: 1 })),
+      findUniqueOrThrow: vi.fn(async () => ({ id: "bk1", status: "CANCELLED" })),
+    },
+    serviceOrder: {
+      findMany: vi.fn(async () => openOrders),
+      updateMany: vi.fn(async () => ({ count: openOrders.length })),
+    },
+    serviceCatalogItem: { findUnique: vi.fn(async () => ({ nameKo: "마사지" })) },
+    notification: {
+      create: vi.fn(async (args: { data: { userId: string; type: string } }) => {
+        notifications.push(args.data);
+        return {};
+      }),
+    },
+    _notifications: notifications,
+  };
+  return tx;
+}
+
+function cancelPrisma(tx: ReturnType<typeof makeCancelTx>) {
+  return {
+    $transaction: async (fn: (t: unknown) => Promise<unknown>) => fn(tx),
+  } as unknown as Parameters<typeof cancelBooking>[0];
+}
+
+describe("cancelBooking — 미종결 주문 연쇄 취소 + 벤더 통보", () => {
+  beforeEach(() => {
+    mockEnqueueInApp.mockClear();
+  });
+
+  it("REQUESTED·CONFIRMED 주문을 일괄 CANCELLED 처리한다 (DELIVERED 제외 조건으로 조회)", async () => {
+    const tx = makeCancelTx([
+      { id: "o1", quantity: 1, serviceDate: d("2026-08-11"), catalogItemId: "c1", vendorName: null, vendorId: null, vendorStatus: null, vendor: null },
+    ]);
+    await cancelBooking(cancelPrisma(tx), { bookingId: "bk1", cancelReason: "테스트", actorUserId: "admin" });
+    // 조회 조건이 미종결(REQUESTED·CONFIRMED)만 겨냥하는지
+    expect(tx.serviceOrder.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: { in: ["REQUESTED", "CONFIRMED"] } }),
+      })
+    );
+    expect(tx.serviceOrder.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: "CANCELLED" }, where: { id: { in: ["o1"] } } })
+    );
+  });
+
+  it("살아있는 PO(수락됨·Zalo연결)는 벤더에게 VENDOR_PO_CANCELLED Zalo+인앱 통보", async () => {
+    const tx = makeCancelTx([
+      {
+        id: "o2", quantity: 2, serviceDate: d("2026-08-12"), catalogItemId: "c1", vendorName: null,
+        vendorId: "sv1", vendorStatus: "VENDOR_ACCEPTED",
+        vendor: { userId: "vendor-user", user: { zaloUserId: "z1" } },
+      },
+    ]);
+    await cancelBooking(cancelPrisma(tx), { bookingId: "bk1", cancelReason: "테스트", actorUserId: "admin" });
+    const vendorNoti = tx._notifications.filter((n) => n.type === "VENDOR_PO_CANCELLED");
+    expect(vendorNoti).toHaveLength(1);
+    expect(vendorNoti[0].userId).toBe("vendor-user");
+    expect(mockEnqueueInApp).toHaveBeenCalledTimes(1);
+  });
+
+  it("발주 안 나간 주문(vendorStatus null)은 벤더 통보 없이 취소만", async () => {
+    const tx = makeCancelTx([
+      {
+        id: "o3", quantity: 1, serviceDate: null, catalogItemId: null, vendorName: null,
+        vendorId: "sv1", vendorStatus: null,
+        vendor: { userId: "vendor-user", user: { zaloUserId: "z1" } },
+      },
+    ]);
+    await cancelBooking(cancelPrisma(tx), { bookingId: "bk1", cancelReason: "테스트", actorUserId: "admin" });
+    expect(tx._notifications.filter((n) => n.type === "VENDOR_PO_CANCELLED")).toHaveLength(0);
+    expect(mockEnqueueInApp).not.toHaveBeenCalled();
+    expect(tx.serviceOrder.updateMany).toHaveBeenCalled();
+  });
+
+  it("주문이 없으면 updateMany를 호출하지 않는다", async () => {
+    const tx = makeCancelTx([]);
+    await cancelBooking(cancelPrisma(tx), { bookingId: "bk1", cancelReason: "테스트", actorUserId: "admin" });
+    expect(tx.serviceOrder.updateMany).not.toHaveBeenCalled();
   });
 });

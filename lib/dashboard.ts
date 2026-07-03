@@ -145,6 +145,12 @@ export interface DashboardStats {
   activityRecentCount: number;
   /** 승인 대기 빌라(PENDING_REVIEW) — 공급자 신규 등록·재제출 승인 게이트 */
   villaPendingReviewCount: number;
+  /** 입금통보 확인 대기 — HOLD 예약 중 GUEST_PAYMENT_NOTICE 감사로그 보유 (A1) */
+  paymentNoticePendingCount: number;
+  /** 부가서비스 고객 요청 대기 — 활성 예약의 REQUESTED 주문 (A1) */
+  serviceOrderRequestedCount: number;
+  /** 취소됐지만 수납 기록이 남은 예약 — 환불 확인 필요 (A4) */
+  cancelledUnrefundedCount: number;
 }
 
 export async function loadDashboardStats(
@@ -179,6 +185,9 @@ export async function loadDashboardStats(
     settlementPendingCount,
     activityRecentCount,
     villaPendingReviewCount,
+    holdIdsForNotice,
+    serviceOrderRequestedCount,
+    cancelledUnrefundedCount,
   ] = await Promise.all([
       // 정의는 /bookings 프리셋(today-checkin·today-checkout)과 동일 — 카드 건수와
       // 링크 목록이 일치해야 함 (QA D-2). "오늘 처리할 일" 중심: 체크인 예정(CONFIRMED)·
@@ -227,7 +236,42 @@ export async function loadDashboardStats(
       db.auditLog.count({ where: { createdAt: { gte: since24h } } }),
       // 승인 대기 빌라 — 공급자 신규 등록·재제출 (T-admin-supplier-visibility)
       db.villa.count({ where: { status: "PENDING_REVIEW" } }),
+      // 입금통보 확인 대기(A1) — HOLD 예약 id 목록(아래에서 감사로그와 교차)
+      db.booking.findMany({
+        where: { status: BookingStatus.HOLD },
+        select: { id: true },
+      }),
+      // 부가서비스 고객 요청 대기(A1) — 종결(취소·체크아웃)된 예약 제외
+      db.serviceOrder.count({
+        where: {
+          status: "REQUESTED",
+          booking: {
+            status: {
+              in: [BookingStatus.HOLD, BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN],
+            },
+          },
+        },
+      }),
+      // 취소됐지만 수납이 남은 예약(A4) — 환불 확인 필요
+      db.booking.count({
+        where: { status: BookingStatus.CANCELLED, payments: { some: {} } },
+      }),
     ]);
+
+  // 입금통보(GUEST_PAYMENT_NOTICE)는 AuditLog에만 기록된다(Booking 컬럼 없음) — HOLD와 교차 집계
+  const paymentNoticePendingCount =
+    holdIdsForNotice.length === 0
+      ? 0
+      : (
+          await db.auditLog.groupBy({
+            by: ["entityId"],
+            where: {
+              action: "GUEST_PAYMENT_NOTICE",
+              entity: "Booking",
+              entityId: { in: holdIdsForNotice.map((b) => b.id) },
+            },
+          })
+        ).length;
 
   const toItem = (b: (typeof checkins)[number]): TodayBookingItem => ({
     id: b.id,
@@ -257,6 +301,9 @@ export async function loadDashboardStats(
     settlementPendingCount,
     activityRecentCount,
     villaPendingReviewCount,
+    paymentNoticePendingCount,
+    serviceOrderRequestedCount,
+    cancelledUnrefundedCount,
   };
 }
 

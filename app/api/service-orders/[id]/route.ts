@@ -71,9 +71,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       vendorStatus: true,
       proposedServiceDate: true,
       vendorProposalRespondedAt: true,
+      booking: { select: { status: true } },
     },
   });
   if (!existing) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+
+  // 종결(취소·만료·노쇼)된 예약의 주문은 취소만 허용 — 죽은 예약의 서비스가 확정·이행되는 사고 방지 (A5)
+  const bookingClosed = ["CANCELLED", "EXPIRED", "NO_SHOW"].includes(existing.booking.status);
+  if (bookingClosed && d.status && d.status !== "CANCELLED") {
+    return NextResponse.json(
+      { error: "BOOKING_CLOSED", bookingStatus: existing.booking.status },
+      { status: 409 }
+    );
+  }
 
   const data: Record<string, unknown> = {};
   if (d.status && d.status !== existing.status) {

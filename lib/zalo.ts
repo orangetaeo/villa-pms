@@ -397,6 +397,25 @@ export function buildNotificationText(
         `공급자가 수정했습니다. 내용을 확인해주세요.`,
       ].join("\n");
     }
+
+    case NotificationType.GUEST_PAYMENT_NOTICE:
+      // 수신자=운영자 → 한국어. 게스트 "입금했습니다" 통보 — 홀드만료 전 은행 대조·확정 유도 (A1). 금액 미포함.
+      return [
+        `💰 입금통보 도착: ${villa}`,
+        `게스트: ${str(p.guestName)}${p.depositorName ? ` (입금자명: ${str(p.depositorName)})` : ""}`,
+        stay,
+        `홀드 만료: ${formatDateTimeVi(p.holdExpiresAt)}`,
+        `은행 입금을 대조한 뒤 예약 상세에서 확정해주세요.`,
+      ].join("\n");
+
+    case NotificationType.SERVICE_ORDER_REQUESTED:
+      // 수신자=운영자 → 한국어. 게스트/파트너 부가서비스 요청 통지 (A1). 금액 미포함(원칙2).
+      return [
+        `🛎️ 부가서비스 요청: ${villa}`,
+        `항목: ${str(p.serviceName)} × ${num(p.quantity)}`,
+        `희망: ${str(p.serviceDate) || "-"} ${str(p.serviceTime) || ""}`.trim(),
+        `예약 상세에서 확인·확정해주세요.`,
+      ].join("\n");
   }
 }
 

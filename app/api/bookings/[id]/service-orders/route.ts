@@ -101,8 +101,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
   }
 
-  const booking = await prisma.booking.findUnique({ where: { id }, select: { id: true } });
+  const booking = await prisma.booking.findUnique({ where: { id }, select: { id: true, status: true } });
   if (!booking) return NextResponse.json({ error: "BOOKING_NOT_FOUND" }, { status: 404 });
+  // 종결(취소·만료·노쇼)된 예약엔 주문 추가 불가 — 죽은 예약의 서비스 진행 방지 (A5)
+  if (["CANCELLED", "EXPIRED", "NO_SHOW"].includes(booking.status)) {
+    return NextResponse.json({ error: "BOOKING_CLOSED", bookingStatus: booking.status }, { status: 409 });
+  }
 
   const item = await prisma.serviceCatalogItem.findUnique({ where: { id: d.catalogItemId } });
   if (!item || !item.active) {

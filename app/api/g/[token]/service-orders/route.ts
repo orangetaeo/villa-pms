@@ -14,6 +14,7 @@ import { priceKrwCeil } from "@/lib/service-display";
 import { getFxVndPerKrw } from "@/lib/pricing";
 import { parseUtcDateOnly } from "@/lib/date-vn";
 import type { Prisma } from "@prisma/client";
+import { notifyOperatorsServiceOrderRequested } from "@/lib/consumer-signal-notify";
 
 const schema = z.object({
   catalogItemId: z.string().min(1).max(40),
@@ -115,6 +116,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     entity: "ServiceOrder",
     entityId: created.id,
     changes: { requestedVia: { new: "GUEST" }, catalogItemId: { new: item.id } },
+  });
+
+  // 운영자 Zalo 통지 (A1) — 요청이 예약 상세에만 묻히지 않게. best-effort.
+  const bookingInfo = await prisma.booking.findUnique({
+    where: { id: t.bookingId },
+    select: { villa: { select: { name: true } } },
+  });
+  await notifyOperatorsServiceOrderRequested(prisma, {
+    bookingId: t.bookingId,
+    orderId: created.id,
+    villaName: bookingInfo?.villa.name ?? "-",
+    serviceName: item.nameKo,
+    quantity: pricing.quantity,
+    serviceDate: d.serviceDate,
+    serviceTime: d.serviceTime ?? null,
   });
 
   return NextResponse.json({ id: created.id }, { status: 201 });
