@@ -1,15 +1,29 @@
-// app/partner/proposals/page.tsx — 파트너가 받은 제안서 (ADR-0028 PP3)
-//   Role=PARTNER 전용. 자기 partnerId 스코프(loadPartnerProposals). 상세는 /p/[token] 공개 링크로 위임.
-//   ★ 누수: 제안서 빌라 상세·가격은 노출 안 함(개수만). 상세 열람은 공개 링크(별 탭).
+// app/partner/proposals/page.tsx — 파트너가 받은 제안서 (ADR-0028 PP3 + T-partner-info 1)
+//   Role=PARTNER 전용. 자기 partnerId 스코프(loadPartnerProposals).
+//   포털 안에서 아이템(빌라·기간·제안가·예약상태)까지 확인 — 가예약 실행은 기존 공개 /p/[token] 흐름 재사용.
+//   ★ 누수: 가격 = 파트너에게 제시된 ProposalItem 스냅샷만(원가·마진·consumer가 비노출).
 import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getPartnerForUser } from "@/lib/partner-auth";
-import { loadPartnerProposals } from "@/lib/partner-portal";
+import { loadPartnerProposals, type PartnerProposalItemRow } from "@/lib/partner-portal";
+import { formatVillaName } from "@/lib/villa-name";
 import PaginationBar from "@/components/pagination-bar";
 import { parsePageParams } from "@/lib/pagination";
-import { formatDate } from "../_format";
+import { formatDate, formatDayMonth, formatVndDot } from "../_format";
+
+/** 제안 통화별 아이템 총액 표기 — 파트너에게 제시된 스냅샷 금액(정당 가격) */
+function formatItemTotal(saleCurrency: string, it: PartnerProposalItemRow): string {
+  if (saleCurrency === "KRW" && it.totalKrw !== null) {
+    return `₩${Number(it.totalKrw).toLocaleString("ko-KR")}`;
+  }
+  if (saleCurrency === "USD" && it.totalUsd !== null) {
+    return `$${Number(it.totalUsd).toLocaleString("en-US")}`;
+  }
+  if (it.totalVnd !== null) return formatVndDot(it.totalVnd);
+  return "—";
+}
 
 export const metadata: Metadata = {
   title: "받은 제안서 — Villa Go",
@@ -61,13 +75,12 @@ export default async function PartnerProposalsPage({
       ) : (
         <ul className="space-y-3">
           {pagedProposals.map((p) => (
-            <li key={p.token}>
-              <a
-                href={`/p/${p.token}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-between gap-3 rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm transition-transform active:scale-[0.99]"
-              >
+            <li
+              key={p.token}
+              className="rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm"
+            >
+              {/* 헤더 — 개수·만료·상태 + 공개 링크(가예약 실행 경로) */}
+              <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 space-y-1">
                   <p className="font-bold text-neutral-900">
                     {t("proposals.villaCount", { count: p.itemCount })}
@@ -75,17 +88,57 @@ export default async function PartnerProposalsPage({
                   <p className="text-sm text-neutral-500">
                     {t("proposals.expires", { date: formatDate(p.expiresAt) })}
                   </p>
-                  <span
-                    className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${
-                      PROPOSAL_STATUS_STYLE[p.status] ?? "bg-neutral-100 text-neutral-500"
-                    }`}
-                  >
-                    {t(`proposalStatus.${p.status}`)}
-                  </span>
                 </div>
-                <span className="material-symbols-outlined shrink-0 text-neutral-400">
-                  open_in_new
+                <span
+                  className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${
+                    PROPOSAL_STATUS_STYLE[p.status] ?? "bg-neutral-100 text-neutral-500"
+                  }`}
+                >
+                  {t(`proposalStatus.${p.status}`)}
                 </span>
+              </div>
+
+              {/* 아이템 목록 (T-partner-info 1) — 빌라 병기명·기간·제안가·예약상태 */}
+              {p.items.length > 0 && (
+                <ul className="mt-3 space-y-2 border-t border-neutral-100 pt-3">
+                  {p.items.map((it) => (
+                    <li
+                      key={it.id}
+                      className="flex items-center justify-between gap-2 rounded-xl bg-neutral-50 px-3 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-neutral-800">
+                          {formatVillaName({ name: it.villaName, nameVi: it.villaNameVi })}
+                        </p>
+                        <p className="text-xs text-neutral-500">
+                          {formatDayMonth(it.checkIn)} – {formatDayMonth(it.checkOut)} ·{" "}
+                          {t("bookings.nights", { count: it.nights })}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-sm font-bold text-teal-700">
+                          {formatItemTotal(p.saleCurrency, it)}
+                        </p>
+                        {it.booked && (
+                          <span className="inline-flex rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600">
+                            {t("proposals.itemBooked")}
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {/* 가예약·상세 — 기존 공개 제안 페이지 흐름 재사용(새 예약 경로 없음) */}
+              <a
+                href={`/p/${p.token}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 flex items-center justify-center gap-1.5 rounded-xl border border-teal-200 bg-teal-50 px-3 py-2.5 text-sm font-bold text-teal-700 transition-colors hover:bg-teal-100 active:scale-[0.99]"
+              >
+                <span className="material-symbols-outlined text-lg">open_in_new</span>
+                {t("proposals.viewAndBook")}
               </a>
             </li>
           ))}

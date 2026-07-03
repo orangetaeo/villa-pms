@@ -76,9 +76,13 @@
       "downloadPdf": "PDF hóa đơn",
       "deposit": "Tiền cọc",
       "balanceDue": "Tiền còn lại",
-      "overdueDays": "Quá hạn {count} ngày"
+      "overdueDays": "Quá hạn {count} ngày",
+      "paymentHistory": "Lịch sử thanh toán ({count})",
+      "paymentPurpose": { "DEPOSIT": "Tiền cọc", "BALANCE": "Tiền còn lại", "GUEST": "Thanh toán", "INVOICE": "Thu theo hóa đơn" }
     },
     "proposals": {
+      "itemBooked": "Đã đặt",
+      "viewAndBook": "Xem chi tiết · Giữ chỗ",
       "title": "Đề xuất đã nhận",
       "subtitle": "Các liên kết đề xuất villa quý vị đã nhận.",
       "villaCount": "{count} villa",

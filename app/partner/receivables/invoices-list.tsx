@@ -29,14 +29,13 @@ const INVOICE_STATUS_STYLE: Record<string, string> = {
 export default function InvoicesList({ invoices }: { invoices: PartnerInvoiceRow[] }) {
   const t = useTranslations("partner");
 
-  // 검색(부분일치) — 청구 기간(날짜)·상태 라벨 식별 텍스트. 데이터 경계 변경 없음(표시 필터).
-  //   ※ PartnerInvoiceRow에는 청구서번호·빌라명 필드가 없어(서버 미노출) 노출 텍스트로 검색.
+  // 검색(부분일치) — 청구서 번호(INV-XXXXXX)·기간·상태 라벨. 데이터 경계 변경 없음(표시 필터).
   const [search, setSearch] = useState("");
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return invoices;
     return invoices.filter((inv) =>
-      `${formatDate(inv.periodStart)} ${formatDate(inv.periodEnd)} ${t(
+      `${inv.invoiceNo} ${formatDate(inv.periodStart)} ${formatDate(inv.periodEnd)} ${t(
         `invoiceStatus.${inv.status}`
       )}`
         .toLowerCase()
@@ -88,6 +87,9 @@ export default function InvoicesList({ invoices }: { invoices: PartnerInvoiceRow
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
+                <p className="text-[11px] font-bold tracking-wide text-teal-600">
+                  {inv.invoiceNo}
+                </p>
                 <h4 className="font-bold text-neutral-900">
                   {formatDate(inv.periodStart)} – {formatDate(inv.periodEnd)}
                 </h4>

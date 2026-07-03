@@ -76,9 +76,13 @@
       "downloadPdf": "청구서 PDF",
       "deposit": "선금",
       "balanceDue": "잔금",
-      "overdueDays": "연체 {count}일"
+      "overdueDays": "연체 {count}일",
+      "paymentHistory": "입금 내역 {count}건",
+      "paymentPurpose": { "DEPOSIT": "선금", "BALANCE": "잔금", "GUEST": "입금", "INVOICE": "청구서 수납" }
     },
     "proposals": {
+      "itemBooked": "예약됨",
+      "viewAndBook": "상세 보기 · 가예약",
       "title": "받은 제안서",
       "subtitle": "받으신 빌라 제안 링크입니다.",
       "villaCount": "빌라 {count}개",
