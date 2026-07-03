@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { Currency, MarginType, SeasonType } from "@prisma/client";
+import { BookingChannel, Currency, MarginType, SeasonType } from "@prisma/client";
 import {
   assertSaleAmountColumns,
   computeSalePriceVnd,
+  computeConsumerSalePriceVnd,
+  priceTierForChannel,
   suggestSalePriceKrw,
   usdToVndSnapshot,
   quoteSupplierSaleForVilla,
+  quoteStayForVilla,
   MissingSupplierPriceError,
   MissingBaseRateError,
 } from "./pricing";
@@ -193,5 +196,95 @@ describe("quoteSupplierSaleForVilla — 공급자 자기 판매가 견적 (suppl
     await expect(
       quoteSupplierSaleForVilla(db, "v1", { checkIn: d("2026-07-01"), checkOut: d("2026-07-02") })
     ).rejects.toBeInstanceOf(MissingBaseRateError);
+  });
+});
+
+// ===================== ADR-0031 소비자 직판가 2단계 =====================
+
+describe("computeConsumerSalePriceVnd — 소비자가 = Net + 마진", () => {
+  it("PERCENT: Net 2,000,000 + 25% = 2,500,000", () => {
+    expect(computeConsumerSalePriceVnd(2_000_000n, MarginType.PERCENT, 25n)).toBe(2_500_000n);
+  });
+  it("FIXED_VND: Net 2,000,000 + 300,000 = 2,300,000", () => {
+    expect(computeConsumerSalePriceVnd(2_000_000n, MarginType.FIXED_VND, 300_000n)).toBe(2_300_000n);
+  });
+  it("마진 0 → Net 그대로", () => {
+    expect(computeConsumerSalePriceVnd(2_000_000n, MarginType.PERCENT, 0n)).toBe(2_000_000n);
+  });
+  it("음수 거부", () => {
+    expect(() => computeConsumerSalePriceVnd(-1n, MarginType.PERCENT, 10n)).toThrow(RangeError);
+  });
+});
+
+describe("priceTierForChannel — 채널 → 가격 계층", () => {
+  it("DIRECT → CONSUMER", () => {
+    expect(priceTierForChannel(BookingChannel.DIRECT)).toBe("CONSUMER");
+  });
+  it("여행사·랜드사 → NET", () => {
+    expect(priceTierForChannel(BookingChannel.TRAVEL_AGENCY)).toBe("NET");
+    expect(priceTierForChannel(BookingChannel.LAND_AGENCY)).toBe("NET");
+  });
+});
+
+/** Net·소비자 판매가를 모두 가진 base 1행 목 (ADR-0031 계층 견적용) */
+function makeTierDb(row: {
+  salePriceVnd: bigint;
+  salePriceKrw: number;
+  consumerSalePriceVnd: bigint | null;
+  consumerSalePriceKrw: number | null;
+}): DbClient {
+  const baseRow = {
+    season: SeasonType.LOW,
+    isBase: true,
+    startDate: null,
+    endDate: null,
+    supplierCostVnd: 1_000_000n,
+    ...row,
+  };
+  return {
+    villaRatePeriod: {
+      findFirst: async () => baseRow,
+      findMany: async () => [],
+    },
+  } as unknown as DbClient;
+}
+
+describe("quoteStayForVilla — 채널별 가격 계층 (ADR-0031)", () => {
+  const row = {
+    salePriceVnd: 2_000_000n,
+    salePriceKrw: 110_000,
+    consumerSalePriceVnd: 2_500_000n,
+    consumerSalePriceKrw: 140_000,
+  };
+  const range = { checkIn: d("2026-07-01"), checkOut: d("2026-07-03") }; // 2박
+
+  it("DIRECT + VND → 소비자가 합산", async () => {
+    const q = await quoteStayForVilla(makeTierDb(row), "v1", range, Currency.VND, BookingChannel.DIRECT);
+    expect(q.totalSaleVnd).toBe(5_000_000n); // 2,500,000 × 2
+  });
+  it("DIRECT + KRW → 소비자가 합산", async () => {
+    const q = await quoteStayForVilla(makeTierDb(row), "v1", range, Currency.KRW, BookingChannel.DIRECT);
+    expect(q.totalSaleKrw).toBe(280_000); // 140,000 × 2
+  });
+  it("여행사 + VND → Net 합산", async () => {
+    const q = await quoteStayForVilla(makeTierDb(row), "v1", range, Currency.VND, BookingChannel.TRAVEL_AGENCY);
+    expect(q.totalSaleVnd).toBe(4_000_000n); // 2,000,000 × 2
+  });
+  it("채널 미지정 → Net(하위호환)", async () => {
+    const q = await quoteStayForVilla(makeTierDb(row), "v1", range, Currency.VND);
+    expect(q.totalSaleVnd).toBe(4_000_000n);
+  });
+  it("소비자가 null → Net 폴백 (DIRECT라도)", async () => {
+    const nullRow = { ...row, consumerSalePriceVnd: null, consumerSalePriceKrw: null };
+    const qVnd = await quoteStayForVilla(makeTierDb(nullRow), "v1", range, Currency.VND, BookingChannel.DIRECT);
+    expect(qVnd.totalSaleVnd).toBe(4_000_000n); // Net 폴백
+    const qKrw = await quoteStayForVilla(makeTierDb(nullRow), "v1", range, Currency.KRW, BookingChannel.DIRECT);
+    expect(qKrw.totalSaleKrw).toBe(220_000); // Net 폴백
+  });
+  it("원가는 계층 무관 동일", async () => {
+    const qDirect = await quoteStayForVilla(makeTierDb(row), "v1", range, Currency.VND, BookingChannel.DIRECT);
+    const qAgency = await quoteStayForVilla(makeTierDb(row), "v1", range, Currency.VND, BookingChannel.TRAVEL_AGENCY);
+    expect(qDirect.totalSupplierCostVnd).toBe(2_000_000n);
+    expect(qAgency.totalSupplierCostVnd).toBe(2_000_000n);
   });
 });

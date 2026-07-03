@@ -122,10 +122,11 @@ export default function ProposalCreate() {
   const partnerId = watch("partnerId");
   const expiresInHours = watch("expiresInHours");
 
-  // 채널 → 통화 자동 (ADR-0003): DIRECT→KRW, 여행사·랜드사→VND.
-  // Phase 2: ADMIN이 USD 토글을 켜면 통화를 USD로 오버라이드(요율표 자동견적 없음 → 수동 입력).
+  // 채널 → 통화 (ADR-0003 + ADR-0031): 여행사·랜드사=VND. DIRECT=KRW 기본이나 VND 선택 가능
+  //   (직접 소비자도 현지 VND 결제 허용). Phase 2 USD 토글은 통화를 USD로 오버라이드(수동 입력).
   const [usdMode, setUsdMode] = useState(false);
-  const baseCurrency: "KRW" | "VND" = channel === "DIRECT" ? "KRW" : "VND";
+  const [directCurrency, setDirectCurrency] = useState<"KRW" | "VND">("KRW"); // DIRECT 전용 선택
+  const baseCurrency: "KRW" | "VND" = channel === "DIRECT" ? directCurrency : "VND";
   const currency: "KRW" | "VND" | "USD" = usdMode ? "USD" : baseCurrency;
   const datesValid = DATE_RE.test(checkIn) && DATE_RE.test(checkOut) && checkIn < checkOut;
   const nights = datesValid ? nightsBetween(checkIn, checkOut) : 0;
@@ -182,7 +183,7 @@ export default function ProposalCreate() {
     (async () => {
       try {
         const res = await fetch(
-          `/api/proposals/candidates?checkIn=${checkIn}&checkOut=${checkOut}&saleCurrency=${currency}`,
+          `/api/proposals/candidates?checkIn=${checkIn}&checkOut=${checkOut}&saleCurrency=${currency}&channel=${channel}`,
           { signal: controller.signal }
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -204,7 +205,7 @@ export default function ProposalCreate() {
       }
     })();
     return () => controller.abort();
-  }, [datesValid, checkIn, checkOut, currency]);
+  }, [datesValid, checkIn, checkOut, currency, channel]);
 
   // ----- 환율 칩 (GET /api/settings — FX_VND_PER_KRW, 미설정 null) -----
   const [fx, setFx] = useState<number | null>(null);
@@ -361,8 +362,9 @@ export default function ProposalCreate() {
         body: JSON.stringify({
           clientName: values.clientName,
           channel: values.channel,
-          // Phase 2: USD 토글 시 통화 명시 전달(미전송 시 채널 기본값 KRW/VND)
-          saleCurrency: currency === "USD" ? "USD" : undefined,
+          // Phase 2 USD 토글, ADR-0031 DIRECT+VND는 통화 명시 전달. 여행사·랜드사는 미전송(서버 기본 VND)
+          saleCurrency:
+            currency === "USD" ? "USD" : channel === "DIRECT" ? currency : undefined,
           // 파트너 연결(선택) — DIRECT 채널·일반 소비자면 미전송
           partnerId: values.channel !== "DIRECT" && values.partnerId ? values.partnerId : undefined,
           expiresInHours: values.expiresInHours,
@@ -785,6 +787,30 @@ export default function ProposalCreate() {
                   );
                 })}
               </div>
+              {/* DIRECT 통화 선택 (ADR-0031 — 직접 소비자는 KRW·VND 결제 모두 허용) */}
+              {channel === "DIRECT" && !usdMode && (
+                <div className="mt-3">
+                  <span className="text-xs font-medium text-slate-400 block mb-1.5 px-1">
+                    {t("directCurrencyLabel")}
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["KRW", "VND"] as const).map((cur) => (
+                      <button
+                        key={cur}
+                        type="button"
+                        onClick={() => setDirectCurrency(cur)}
+                        className={
+                          directCurrency === cur
+                            ? "px-2 py-2 rounded-xl border border-blue-500 bg-blue-500/10 text-blue-400 font-bold text-sm"
+                            : "px-2 py-2 rounded-xl border border-slate-700 text-slate-400 font-medium text-sm hover:border-slate-600 hover:bg-slate-800/30 transition-colors"
+                        }
+                      >
+                        {cur === "KRW" ? "₩ KRW" : "₫ VND"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {/* VND 결제 캡션 (ADR-0003 — 여행사·랜드사 채널일 때, USD 모드 아닐 때) */}
               {currency === "VND" && (
                 <p className="text-xs text-slate-400 mt-2 px-1">{t("vndNotice")}</p>

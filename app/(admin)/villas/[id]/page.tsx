@@ -163,7 +163,16 @@ export default async function VillaDetailPage({
       select: {
         season: true, isBase: true, startDate: true, endDate: true, label: true,
         supplierCostVnd: true, marginType: true, marginValue: true, salePriceVnd: true, salePriceKrw: true,
+        // ADR-0031 소비자 직판가 (운영자 전용 — showFinance 게이트 안, 누수 아님)
+        consumerMarginType: true, consumerMarginValue: true, consumerSalePriceVnd: true, consumerSalePriceKrw: true,
       },
+    });
+    // ADR-0031 — 소비자가 필드 매핑(null=빈값 → 편집기에서 Net 폴백 표기)
+    const consumerFields = (r: (typeof rpRows)[number]) => ({
+      consumerMarginType: r.consumerMarginType,
+      consumerMarginValue: r.consumerMarginValue.toString(),
+      consumerSalePriceVnd: r.consumerSalePriceVnd != null ? r.consumerSalePriceVnd.toString() : "",
+      consumerSalePriceKrw: r.consumerSalePriceKrw ?? 0,
     });
     const baseRow = rpRows.find((r) => r.isBase);
     ratePeriodInitial = {
@@ -175,6 +184,7 @@ export default async function VillaDetailPage({
             marginValue: baseRow.marginValue.toString(),
             salePriceVnd: baseRow.salePriceVnd.toString(),
             salePriceKrw: baseRow.salePriceKrw,
+            ...consumerFields(baseRow),
             label: baseRow.label ?? "",
           }
         : null,
@@ -189,6 +199,7 @@ export default async function VillaDetailPage({
           marginValue: r.marginValue.toString(),
           salePriceVnd: r.salePriceVnd.toString(),
           salePriceKrw: r.salePriceKrw,
+          ...consumerFields(r),
           label: r.label ?? "",
         })),
     };

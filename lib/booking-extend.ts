@@ -117,8 +117,8 @@ export async function createLinkedExtensionBooking(
       throw new CreateExtensionRejectedError("SOLD_OUT", availability.reasons.join(","));
     }
 
-    // 전체 견적(신선한 밤) — 부모 통화 유지
-    const quote = await quoteStayForVilla(tx, input.villaId, range, parent.saleCurrency);
+    // 전체 견적(신선한 밤) — 부모 통화 유지. ADR-0031: 부모 채널로 계층(DIRECT=소비자가) 유지.
+    const quote = await quoteStayForVilla(tx, input.villaId, range, parent.saleCurrency, parent.channel);
     const totalSaleKrw = quote.totalSaleKrw ?? null;
     const totalSaleVnd = quote.totalSaleVnd ?? null;
     assertSaleAmountColumns(parent.saleCurrency, { krw: totalSaleKrw, vnd: totalSaleVnd });

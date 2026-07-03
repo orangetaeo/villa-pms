@@ -305,7 +305,8 @@ export async function modifyBooking(
     let nextSupplierCostVnd = booking.supplierCostVnd;
     const recalculated = villaChanged || dateChanged;
     if (recalculated) {
-      const quote = await quoteStayForVilla(tx, nextVillaId, range, saleCurrency);
+      // ADR-0031: 예약의 채널로 견적 계층 유지 — DIRECT면 소비자가, 여행사·랜드사면 Net.
+      const quote = await quoteStayForVilla(tx, nextVillaId, range, saleCurrency, booking.channel);
       nextNights = countNights(range); // 실제 구간 반영(단축 시 감소) — 총액은 하한(아래)
       // ADR-0030 D2/T-C: 체크인 후엔 최초액을 하한으로 유지(감액 없음), 확정은 전체 재견적.
       const resolved = resolveModifiedTotals(

@@ -22,6 +22,11 @@ const priceFields = {
   marginValue: digits,
   salePriceVnd: digits,
   salePriceKrw: z.number().int().min(0),
+  // ADR-0031 소비자 직판가 — Net 대비. VND/KRW는 null 허용(Net 폴백). 마진 미전송 시 기본(0=Net과 동일).
+  consumerMarginType: z.enum(["PERCENT", "FIXED_VND"]).default("PERCENT"),
+  consumerMarginValue: digits.default("0"),
+  consumerSalePriceVnd: digits.nullable().optional(),
+  consumerSalePriceKrw: z.number().int().min(0).nullable().optional(),
   label: z.string().trim().max(60).nullable().optional(),
 };
 
@@ -107,6 +112,11 @@ export async function PATCH(
         marginValue: BigInt(base.marginValue),
         salePriceVnd: BigInt(base.salePriceVnd),
         salePriceKrw: base.salePriceKrw,
+        // ADR-0031 — 소비자 직판가(null=Net 폴백)
+        consumerMarginType: base.consumerMarginType,
+        consumerMarginValue: BigInt(base.consumerMarginValue),
+        consumerSalePriceVnd: base.consumerSalePriceVnd != null ? BigInt(base.consumerSalePriceVnd) : null,
+        consumerSalePriceKrw: base.consumerSalePriceKrw ?? null,
       },
     });
     if (periods.length > 0) {
@@ -123,6 +133,11 @@ export async function PATCH(
           marginValue: BigInt(p.marginValue),
           salePriceVnd: BigInt(p.salePriceVnd),
           salePriceKrw: p.salePriceKrw,
+          // ADR-0031 — 소비자 직판가(null=Net 폴백)
+          consumerMarginType: p.consumerMarginType,
+          consumerMarginValue: BigInt(p.consumerMarginValue),
+          consumerSalePriceVnd: p.consumerSalePriceVnd != null ? BigInt(p.consumerSalePriceVnd) : null,
+          consumerSalePriceKrw: p.consumerSalePriceKrw ?? null,
         })),
       });
     }

@@ -82,6 +82,33 @@ describe("검증·영속 (OWNER)", () => {
     expect(res.status).toBe(400);
   });
 
+  it("ADR-0031 — 소비자 직판가 미전송 시 기본(마진0·가격 null=Net 폴백)", async () => {
+    const res = await req(BASE); // 소비자 필드 없는 구 페이로드
+    expect(res.status).toBe(200);
+    const baseArg = tx.villaRatePeriod.create.mock.calls[0][0].data;
+    expect(baseArg.consumerMarginValue).toBe(0n);
+    expect(baseArg.consumerSalePriceVnd).toBeNull();
+    expect(baseArg.consumerSalePriceKrw).toBeNull();
+  });
+
+  it("ADR-0031 — 소비자 직판가 전송 시 영속(BigInt 변환)", async () => {
+    const res = await req({
+      ...BASE,
+      base: {
+        ...BASE.base,
+        consumerMarginType: "PERCENT",
+        consumerMarginValue: "25",
+        consumerSalePriceVnd: "1500000",
+        consumerSalePriceKrw: 75000,
+      },
+    });
+    expect(res.status).toBe(200);
+    const baseArg = tx.villaRatePeriod.create.mock.calls[0][0].data;
+    expect(baseArg.consumerMarginValue).toBe(25n);
+    expect(baseArg.consumerSalePriceVnd).toBe(1500000n);
+    expect(baseArg.consumerSalePriceKrw).toBe(75000);
+  });
+
   it("기간 없이 base만 허용 (periods=[], createMany 미호출)", async () => {
     const res = await req({ ...BASE, periods: [] });
     expect(res.status).toBe(200);
