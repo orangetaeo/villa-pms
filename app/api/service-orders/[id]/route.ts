@@ -11,7 +11,7 @@ import { requireCapability } from "@/lib/api-guard";
 import { assertServiceTransition, InvalidServiceTransitionError } from "@/lib/service-order";
 import { canConfirmCustomer, vendorHasLivePo } from "@/lib/vendor-order";
 import { enqueueNotification } from "@/lib/zalo";
-import { enqueueInAppNotification, buildVendorNotifText } from "@/lib/inapp-notification";
+import { enqueueInAppNotification, buildVendorNotifText, vendorNotifLocale } from "@/lib/inapp-notification";
 import { toDateOnlyString } from "@/lib/date-vn";
 import { NotificationType, type ServiceOrderStatus } from "@prisma/client";
 
@@ -141,12 +141,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         catalogItemId: true,
         vendorName: true,
         costVnd: true, // 정산 통보용 — 공급자 본인 지급액(우리 판매가·마진 아님)
-        vendor: { select: { userId: true, user: { select: { zaloUserId: true } } } },
+        vendor: { select: { userId: true, user: { select: { zaloUserId: true, locale: true } } } },
         booking: { select: { villa: { select: { name: true } } } },
       },
     });
     const vendorUserId = info?.vendor?.userId;
     const vendorZalo = info?.vendor?.user?.zaloUserId;
+    const notifLocale = vendorNotifLocale(info?.vendor?.user?.locale);
     // 카탈로그 항목명(공급자 vi 통지용) — catalogItemId는 관계 미정의 스칼라라 별도 조회.
     const item = info?.catalogItemId
       ? await prisma.serviceCatalogItem.findUnique({
@@ -178,7 +179,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             quantity: info?.quantity ?? 0,
             villaName,
             serviceDate,
-          });
+          }, notifLocale);
           await enqueueInAppNotification({
             userId: vendorUserId,
             type: NotificationType.VENDOR_PO_CANCELLED,
@@ -197,7 +198,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             quantity: info?.quantity ?? 0,
             villaName,
             costVnd: info?.costVnd != null ? info.costVnd.toString() : null,
-          });
+          }, notifLocale);
           await enqueueInAppNotification({
             userId: vendorUserId,
             type: "VENDOR_SETTLED",

@@ -75,6 +75,44 @@ describe("buildPartnerNotifText", () => {
   });
 });
 
+describe("buildPartnerNotifText — 취소·변경 (T-partner-admin-ops)", () => {
+  it("취소 — 사유 미포함(내부 표현 차단), 빌라·기간만", () => {
+    const t = buildPartnerNotifText("ko", {
+      kind: "BOOKING_CANCELLED",
+      bookingId: "b1",
+      villaName: "쏘나씨 V12",
+      checkIn: "2026-08-01",
+      checkOut: "2026-08-05",
+    });
+    expect(t.title).toContain("취소");
+    expect(t.body).toBe("쏘나씨 V12 · 2026-08-01 ~ 2026-08-05");
+  });
+
+  it("변경 — 새 일정 + 변경 후 본인 채권 총액(VND)만, 없으면 금액 생략", () => {
+    const withTotal = buildPartnerNotifText("ko", {
+      kind: "BOOKING_MODIFIED",
+      bookingId: "b1",
+      villaName: "쏘나씨 V12",
+      checkIn: "2026-08-02",
+      checkOut: "2026-08-06",
+      newTotalVnd: "21000000",
+    });
+    expect(withTotal.title).toContain("변경");
+    expect(withTotal.body).toContain("21.000.000₫");
+    expect(withTotal.body).not.toMatch(/KRW|원가|마진/);
+
+    const noTotal = buildPartnerNotifText("vi", {
+      kind: "BOOKING_MODIFIED",
+      bookingId: "b1",
+      villaName: "V",
+      checkIn: "2026-08-02",
+      checkOut: "2026-08-06",
+      newTotalVnd: null,
+    });
+    expect(noTotal.body).not.toContain("₫");
+  });
+});
+
 describe("partnerNotifHref", () => {
   it("예약 이벤트 → 예약 상세, 재무 이벤트 → 미수 화면", () => {
     expect(

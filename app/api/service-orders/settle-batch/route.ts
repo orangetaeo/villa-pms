@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { canViewFinance } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
 import { writeAuditLog } from "@/lib/audit-log";
-import { enqueueInAppNotification, buildVendorNotifText } from "@/lib/inapp-notification";
+import { enqueueInAppNotification, buildVendorNotifText, vendorNotifLocale } from "@/lib/inapp-notification";
 
 const schema = z.object({
   orderIds: z.array(z.string().min(1)).min(1).max(200),
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
       catalogItemId: true,
       vendorName: true,
       costVnd: true, // 정산 통보용 — 공급자 본인 지급액(우리 판매가·마진 아님)
-      vendor: { select: { userId: true } },
+      vendor: { select: { userId: true, user: { select: { locale: true } } } },
       booking: { select: { villa: { select: { name: true } } } },
     },
   });
@@ -102,7 +102,7 @@ export async function POST(req: Request) {
           quantity: c.quantity,
           villaName: c.booking?.villa?.name ?? "—",
           costVnd: c.costVnd.toString(),
-        });
+        }, vendorNotifLocale(c.vendor?.user?.locale));
         await enqueueInAppNotification({
           userId: vendorUserId,
           type: "VENDOR_SETTLED",

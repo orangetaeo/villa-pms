@@ -19,6 +19,7 @@
 | API·로직 패턴 | .claude/skills/backend/ 해당 패턴 |
 | 베트남어 화면 | .claude/skills/ux-vn/vn-ux-principles.md |
 | Zalo·Gemini | .claude/skills/integ/zalo-pattern.md |
+| 알림 문구·수신자·트리거 전체(검토·수정 시) | docs/NOTIFICATIONS.md — 전 알림 내역서(ID 부여, 테오 검토용). 알림 추가·문구 수정 시 이 문서도 동시 갱신 |
 | iCal 동기화 | .claude/skills/integ/ical-pattern.md + lib/ical.ts |
 | 코드 검토 | .claude/skills/qa/leak-checklist.md + evaluation-criteria.md |
 | 태스크 착수 전 | docs/contracts/ 스프린트 계약 작성·합의 |

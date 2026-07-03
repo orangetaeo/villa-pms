@@ -345,6 +345,39 @@ export function buildNotificationText(
       ].join("\n");
     }
 
+    case NotificationType.VENDOR_PROPOSAL_RESULT: {
+      // 수신자=원천 공급자 — 일정 제안 결과(적용/무시). payload.locale로 ko/vi 분기(공급자는 베트남인·한국인 혼합).
+      // ★ 금액 미노출 — 품목·빌라·확정(또는 유지) 일정만.
+      const ko = p.locale === "ko";
+      const itemName = str(p.itemName);
+      const date =
+        typeof p.serviceDate === "string" && p.serviceDate.length > 0
+          ? formatDateVi(p.serviceDate)
+          : "—";
+      const time =
+        typeof p.serviceTime === "string" && p.serviceTime.length > 0 ? ` ${p.serviceTime}` : "";
+      if (p.applied === true) {
+        return ko
+          ? [
+              `✅ 시간 제안이 수락되었습니다: ${itemName} (${villa})`,
+              `확정 일정: ${date}${time}`,
+            ].join("\n")
+          : [
+              `✅ Đề xuất giờ đã được chấp nhận: ${itemName} (${villa})`,
+              `Lịch xác nhận: ${date}${time}`,
+            ].join("\n");
+      }
+      return ko
+        ? [
+            `ℹ️ 시간 제안이 반영되지 않았습니다: ${itemName} (${villa})`,
+            `기존 일정 유지: ${date}${time}`,
+          ].join("\n")
+        : [
+            `ℹ️ Đề xuất giờ không được áp dụng: ${itemName} (${villa})`,
+            `Giữ lịch ban đầu: ${date}${time}`,
+          ].join("\n");
+    }
+
     case NotificationType.BOOKING_MODIFIED:
       // 예약 변경(날짜·빌라·인원 등) → 수신자=공급자(vi). 판매가·마진·원가 미포함(화이트리스트 필드만).
       return [
