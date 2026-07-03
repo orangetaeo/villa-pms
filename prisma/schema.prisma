@@ -1242,6 +1242,8 @@ enum NotificationType {
   BOOKING_MODIFIED // 예약 변경(날짜·빌라·인원 등) → 공급자 통지 (F-booking-modify, 판매가·마진 비포함)
   VENDOR_PO_CANCELLED // 발주된 주문 취소 → 원천 공급자에게 취소 통보(vi). 운영자 취소 경로(PATCH service-orders)에서 발송
   SECURITY_ALERT // 보안 이상탐지 경보 → 운영자(테오) 통지(ko). P3-S3, 비번·PII 평문 미포함. additive: 라이브 ALTER TYPE ADD VALUE
+  VILLA_PENDING_REVIEW // 빌라 신규 등록·반려 후 재제출 → 운영자 통지(ko). payload.resubmitted 텍스트 분기. additive: 라이브 ALTER TYPE ADD VALUE
+  VILLA_CONTENT_UPDATED // 승인(ACTIVE) 후 공급자 사진/비품/규칙 수정 → 운영자 통지(ko). PENDING dedup 스팸 방지. additive: 라이브 ALTER TYPE ADD VALUE
 }
 
 enum NotificationStatus {

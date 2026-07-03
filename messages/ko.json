@@ -478,6 +478,11 @@
       "systemOk": "시스템 정상: 모든 채널 동기화 중",
       "lastSync": "최근 동기화: {at}",
       "fxChip": "1,000,000₫ ≈ {krw}원"
+    },
+    "villaPending": {
+      "bannerTitle": "빌라 승인 대기",
+      "bannerBody": "공급자가 등록·재제출한 빌라 {count}채가 승인을 기다리고 있습니다.",
+      "bannerCta": "검토하러 가기"
     }
   },
   "adminBookings": {

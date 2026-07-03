@@ -123,6 +123,26 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* 승인 대기 빌라 배너 (T-admin-supplier-visibility) — 공급자 신규 등록·재제출, 있을 때만 */}
+      {stats.villaPendingReviewCount > 0 && (
+        <div className="bg-sky-500/10 border border-sky-500/30 rounded-xl px-6 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="material-symbols-outlined text-sky-400 shrink-0">villa</span>
+            <p className="text-sm font-medium text-sky-100 [word-break:keep-all]">
+              <span className="font-bold text-sky-300">{t("villaPending.bannerTitle")}</span>
+              {" — "}
+              {t("villaPending.bannerBody", { count: stats.villaPendingReviewCount })}
+            </p>
+          </div>
+          <Link
+            href="/villas?status=pending"
+            className="shrink-0 text-xs font-bold text-sky-300 hover:text-sky-200 border border-sky-500/40 rounded-lg px-3 py-1.5 transition-colors"
+          >
+            {t("villaPending.bannerCta")}
+          </Link>
+        </div>
+      )}
+
       {/* 견적 중 원가 변경 경보 배너 (b15, F) — 본인 PENDING 알림 있을 때만 */}
       {costAlertCount > 0 && (
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-6 py-3 flex items-center justify-between gap-4">

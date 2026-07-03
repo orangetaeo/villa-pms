@@ -12,6 +12,7 @@ import { isOperator, canViewFinance } from "@/lib/permissions";
 import { requireAuth } from "@/lib/api-guard";
 import { buildRatePeriodRowsFromSeasonCosts, representativeRatesBySeason } from "@/lib/pricing";
 import { romanizeVillaName } from "@/lib/gemini";
+import { notifyOperatorsVillaPendingReview } from "@/lib/villa-notify";
 
 export async function POST(req: Request) {
   // 권한 검사 — SUPPLIER(자기 빌라) + ADMIN(테오 직접등록) 허용 (P1-S8: 중앙 가드 + 복합 역할조건 유지)
@@ -162,6 +163,20 @@ export async function POST(req: Request) {
       },
     },
   });
+
+  // 승인 대기 통지 — 공급자 등록만(운영자 직접등록은 자기 작업이라 제외). best-effort: 실패해도 등록은 성공.
+  if (role === "SUPPLIER") {
+    try {
+      await notifyOperatorsVillaPendingReview(prisma, {
+        villaId: villa.id,
+        villaName: data.name,
+        supplierName: session.user.name ?? "",
+        resubmitted: false,
+      });
+    } catch {
+      // 통지는 정보성 — 실패 무시(감사로그는 이미 기록됨)
+    }
+  }
 
   // 응답에는 id·status만 — 마진/판매가/KRW 미포함
   return NextResponse.json({ id: villa.id, status: villa.status }, { status: 201 });

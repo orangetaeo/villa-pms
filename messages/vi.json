@@ -592,6 +592,11 @@
       "systemOk": "Hệ thống bình thường: các kênh đang đồng bộ",
       "lastSync": "Đồng bộ gần nhất: {at}",
       "fxChip": "1.000.000₫ ≈ {krw} KRW"
+    },
+    "villaPending": {
+      "bannerTitle": "Villa chờ phê duyệt",
+      "bannerBody": "Có {count} villa do chủ nhà đăng ký/gửi lại đang chờ phê duyệt.",
+      "bannerCta": "Xem xét ngay"
     }
   },
   "adminBookings": {
