@@ -253,3 +253,41 @@ describe("resolveChangeRequest", () => {
     ).rejects.toBeInstanceOf(ChangeRequestError);
   });
 });
+
+// T-partner-polish 2 — 취소 시 대기 요청 자동 종결
+import { autoClosePendingRequestsOnCancel } from "./booking-change-request";
+import type { Prisma } from "@prisma/client";
+
+describe("autoClosePendingRequestsOnCancel", () => {
+  function fakeTx(count: number) {
+    const updateMany = vi.fn(
+      async (_args: { where: Record<string, unknown>; data: Record<string, unknown> }) => ({
+        count,
+      })
+    );
+    return {
+      tx: { bookingChangeRequest: { updateMany } } as unknown as Prisma.TransactionClient,
+      updateMany,
+    };
+  }
+
+  it("PENDING만 REJECTED 전이 + 자동 종결 사유 기록", async () => {
+    const { tx, updateMany } = fakeTx(1);
+    const n = await autoClosePendingRequestsOnCancel(tx, "b1");
+    expect(n).toBe(1);
+    const arg = updateMany.mock.calls[0]![0]!;
+    expect(arg.where).toMatchObject({ bookingId: "b1", status: "PENDING" });
+    expect(arg.data).toMatchObject({ status: "REJECTED" });
+    expect(String(arg.data.resolutionNote)).toContain("자동 종결");
+  });
+
+  it("승인 경로 자기 요청 제외 — id not 필터(이어지는 resolve가 APPROVED 처리)", async () => {
+    const { tx, updateMany } = fakeTx(0);
+    await autoClosePendingRequestsOnCancel(tx, "b1", "req-self");
+    expect(updateMany.mock.calls[0]![0]!.where).toMatchObject({
+      bookingId: "b1",
+      status: "PENDING",
+      id: { not: "req-self" },
+    });
+  });
+});

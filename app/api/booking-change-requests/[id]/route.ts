@@ -64,6 +64,8 @@ export async function PATCH(
           bookingId: reqRow.bookingId,
           cancelReason: reason,
           actorUserId: session.user.id,
+          // 자기 요청은 자동 종결에서 제외 — 아래 resolveChangeRequest가 APPROVED로 처리
+          excludePendingRequestId: id,
         });
       }
     }
