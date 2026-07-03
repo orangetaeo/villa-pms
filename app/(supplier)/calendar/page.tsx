@@ -86,6 +86,7 @@ export default async function SupplierCalendarPage({
         checkIn: true,
         checkOut: true,
         status: true,
+        seller: true,
         nights: true,
         guestCount: true,
         supplierCostVnd: true,
@@ -105,9 +106,19 @@ export default async function SupplierCalendarPage({
   // 예약 상세 — bookingId → 바텀시트 표시 데이터(누수 안전 필드만). VND 문자열로 직렬화.
   const bookingDetails: Record<string, BookingDetail> = {};
   for (const b of bookings) {
+    // 검수 진입 — 직접예약(seller=SUPPLIER)만. 체크인/아웃 페이지 가드(CONFIRMED/CHECKED_IN)와 동일 조건
+    const inspectAction =
+      b.seller === "SUPPLIER"
+        ? b.status === "CONFIRMED"
+          ? ("checkin" as const)
+          : b.status === "CHECKED_IN"
+            ? ("checkout" as const)
+            : null
+        : null;
     bookingDetails[b.id] = {
       id: b.id,
       status: b.status === "HOLD" ? "HOLD" : "BOOKED",
+      inspectAction,
       checkIn: toDateOnlyString(b.checkIn),
       checkOut: toDateOnlyString(b.checkOut),
       nights: b.nights,
