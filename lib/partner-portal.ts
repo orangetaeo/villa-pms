@@ -12,6 +12,7 @@ import {
   outstandingForPartner,
   receivableOutstanding,
 } from "@/lib/partner";
+import { invoiceDisplayNo } from "@/lib/partner-invoice";
 import { parseUtcDateOnly, todayVnDateString } from "@/lib/date-vn";
 
 // ── 직렬화 타입 ──────────────────────────────────────────────────────────────
@@ -99,6 +100,8 @@ export interface PartnerReceivableRow {
   isExtension: boolean;
   /** 기한 경과 일수(잔액>0일 때만, 아니면 0) — 서버 계산(하이드레이션 안전) */
   overdueDays: number;
+  /** 본인 입금 내역(최신순) — 선금/잔금 반영 근거 (T-partner-info 3) */
+  payments: PartnerPaymentRow[];
 }
 
 /** 기한 경과 일수 — dueDate·today는 UTC 자정(@db.Date). 잔액 없거나 미경과면 0. 순수함수(테스트 대상). */
@@ -114,8 +117,20 @@ export function overdueDaysFor(
   return Math.max(0, Math.floor((todayMid - dueMid) / MS));
 }
 
+/** 채권별 본인 입금 내역 — 파트너가 낸 돈의 기록(정당 데이터, T-partner-info 3) */
+export interface PartnerPaymentRow {
+  id: string;
+  receivedAt: Date;
+  currency: string;
+  /** 통화 단위 문자열 (KRW 원·VND 동·USD 정수 달러 — PR #89 규약) */
+  amount: string;
+  purpose: string; // DEPOSIT | BALANCE
+}
+
 export interface PartnerInvoiceRow {
   id: string;
+  /** 표시번호(INV-XXXXXX) — PDF·Zalo와 동일 규칙, 검색 대상 */
+  invoiceNo: string;
   periodStart: Date;
   periodEnd: Date;
   dueDate: Date;
@@ -191,11 +206,29 @@ export function computePartnerReceivableStats(
   };
 }
 
+/** 제안 아이템 — 파트너에게 제시된 스냅샷 가격만(원가·마진·consumer가 비노출, T-partner-info 1) */
+export interface PartnerProposalItemRow {
+  id: string;
+  villaName: string;
+  villaNameVi: string | null;
+  checkIn: Date;
+  checkOut: Date;
+  nights: number;
+  /** 제안 통화의 총액(최소단위 문자열) — saleCurrency에 해당하는 컬럼만 값 존재 */
+  totalKrw: string | null;
+  totalVnd: string | null;
+  totalUsd: string | null;
+  /** 이미 가예약/예약된 아이템 */
+  booked: boolean;
+}
+
 export interface PartnerProposalRow {
   token: string;
   expiresAt: Date;
   status: string;
   itemCount: number;
+  saleCurrency: string; // KRW | VND | USD — 아이템 가격 표기용
+  items: PartnerProposalItemRow[];
 }
 
 // ── 로더 ────────────────────────────────────────────────────────────────────
@@ -450,6 +483,39 @@ export async function loadPartnerReceivables(
     }),
   ]);
 
+  // 본인 입금 내역 (T-partner-info 3) — Payment.receivableId는 관계 미정의 컬럼이라 별도 조회.
+  // ★ 이중 스코프: receivableId in(본인 채권) + partnerId(벨트&서스펜더). 금액·일시·용도만(내부 메모 미노출).
+  const paymentsByReceivable = new Map<string, PartnerPaymentRow[]>();
+  if (receivables.length > 0) {
+    const paymentRows = await prisma.payment.findMany({
+      where: {
+        receivableId: { in: receivables.map((r) => r.id) },
+        partnerId,
+      },
+      orderBy: { receivedAt: "desc" },
+      select: {
+        id: true,
+        receivableId: true,
+        receivedAt: true,
+        currency: true,
+        amount: true,
+        purpose: true,
+      },
+    });
+    for (const p of paymentRows) {
+      if (!p.receivableId) continue;
+      const list = paymentsByReceivable.get(p.receivableId) ?? [];
+      list.push({
+        id: p.id,
+        receivedAt: p.receivedAt,
+        currency: p.currency,
+        amount: p.amount.toString(),
+        purpose: p.purpose,
+      });
+      paymentsByReceivable.set(p.receivableId, list);
+    }
+  }
+
   let totalBilled = 0n;
   let totalPaid = 0n;
   // 미수 잔액은 운영자(outstandingForPartner)와 동일 규칙으로 산출 — 완납·대손 제외 + 음수 클램프(H2).
@@ -481,11 +547,13 @@ export async function loadPartnerReceivables(
       bookingId: r.booking.id,
       isExtension: r.booking.parentBookingId !== null,
       overdueDays: overdueDaysFor(r.dueDate, today, out),
+      payments: paymentsByReceivable.get(r.id) ?? [],
     };
   });
 
   const invoiceRows: PartnerInvoiceRow[] = invoices.map((i) => ({
     id: i.id,
+    invoiceNo: invoiceDisplayNo(i.id),
     periodStart: i.periodStart,
     periodEnd: i.periodEnd,
     dueDate: i.dueDate,
@@ -524,14 +592,42 @@ export async function loadPartnerProposals(
       token: true,
       expiresAt: true,
       status: true,
-      _count: { select: { items: true } },
+      saleCurrency: true,
+      // 아이템 = 파트너에게 제시된 스냅샷 — 정당 가격만 select (원가·마진·consumer가 없음)
+      items: {
+        orderBy: { checkIn: "asc" },
+        select: {
+          id: true,
+          checkIn: true,
+          checkOut: true,
+          totalKrw: true,
+          totalVnd: true,
+          totalUsd: true,
+          bookingId: true,
+          villa: { select: { name: true, nameVi: true } },
+        },
+      },
     },
   });
 
+  const MS = 86_400_000;
   return proposals.map((p) => ({
     token: p.token,
     expiresAt: p.expiresAt,
     status: p.status,
-    itemCount: p._count.items,
+    itemCount: p.items.length,
+    saleCurrency: p.saleCurrency,
+    items: p.items.map((it) => ({
+      id: it.id,
+      villaName: it.villa.name,
+      villaNameVi: it.villa.nameVi,
+      checkIn: it.checkIn,
+      checkOut: it.checkOut,
+      nights: Math.round((it.checkOut.getTime() - it.checkIn.getTime()) / MS),
+      totalKrw: it.totalKrw !== null ? it.totalKrw.toString() : null,
+      totalVnd: it.totalVnd !== null ? it.totalVnd.toString() : null,
+      totalUsd: it.totalUsd !== null ? it.totalUsd.toString() : null,
+      booked: it.bookingId !== null,
+    })),
   }));
 }

@@ -146,6 +146,30 @@ export default function ReceivablesList({
                 </span>
               )}
             </p>
+            {/* 입금 내역 (T-partner-info 3) — 본인이 낸 돈의 반영 근거. 접이식(details, 상태 불필요) */}
+            {r.payments.length > 0 && (
+              <details className="mt-2 rounded-xl border border-neutral-100">
+                <summary className="cursor-pointer select-none px-3 py-2 text-xs font-semibold text-neutral-600">
+                  {t("receivables.paymentHistory", { count: r.payments.length })}
+                </summary>
+                <ul className="space-y-1 border-t border-neutral-100 px-3 py-2">
+                  {r.payments.map((p) => (
+                    <li
+                      key={p.id}
+                      className="flex items-center justify-between gap-2 text-xs"
+                    >
+                      <span className="text-neutral-500">
+                        {formatVnDateTime(p.receivedAt)} ·{" "}
+                        {t(`receivables.paymentPurpose.${p.purpose}`)}
+                      </span>
+                      <span className="font-semibold text-neutral-800">
+                        {formatPaymentAmount(p.currency, p.amount)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
             {/* ④ 입금통보 — 잔액이 남은 채권만(상태 미변경, 운영자 대조용). API는 receivableId 지원 기존 */}
             {BigInt(r.outstandingVnd) > 0n && r.status !== "WRITTEN_OFF" && (
               <div className="mt-2 flex justify-end">
@@ -173,6 +197,23 @@ export default function ReceivablesList({
       )}
     </>
   );
+}
+
+/** 입금 시각 — VN 현지(UTC+7) "dd/MM/yyyy HH:mm". 서버 Date가 직렬화로 string이 될 수 있어 재생성. */
+function formatVnDateTime(value: Date | string): string {
+  const d = new Date(new Date(value).getTime() + 7 * 60 * 60 * 1000);
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mi = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${dd}/${mm}/${d.getUTCFullYear()} ${hh}:${mi}`;
+}
+
+/** 입금액 통화별 표기 — VND 콤마(미수 화면 표기 일관), KRW ₩콤마, USD $ (정수 달러 규약) */
+function formatPaymentAmount(currency: string, amount: string): string {
+  if (currency === "KRW") return `₩${Number(amount).toLocaleString("ko-KR")}`;
+  if (currency === "USD") return `$${Number(amount).toLocaleString("en-US")}`;
+  return formatVndComma(amount);
 }
 
 // 선금/잔금 한 줄 — "납부액 / 청구액" (완납 시 청크 색 강조). 금액은 VND string(BigInt 비교).

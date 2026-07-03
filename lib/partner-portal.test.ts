@@ -13,6 +13,7 @@ const mockBookingFindMany = vi.fn();
 const mockReceivableFindMany = vi.fn();
 const mockInvoiceFindMany = vi.fn();
 const mockProposalFindMany = vi.fn();
+const mockPaymentFindMany = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -20,6 +21,7 @@ vi.mock("@/lib/prisma", () => ({
     partnerReceivable: { findMany: (...a: unknown[]) => mockReceivableFindMany(...a) },
     partnerInvoice: { findMany: (...a: unknown[]) => mockInvoiceFindMany(...a) },
     proposal: { findMany: (...a: unknown[]) => mockProposalFindMany(...a) },
+    payment: { findMany: (...a: unknown[]) => mockPaymentFindMany(...a) },
   },
 }));
 
@@ -57,6 +59,7 @@ beforeEach(() => {
   mockReceivableFindMany.mockResolvedValue([]);
   mockInvoiceFindMany.mockResolvedValue([]);
   mockProposalFindMany.mockResolvedValue([]);
+  mockPaymentFindMany.mockResolvedValue([]);
 });
 
 describe("loadPartnerBookings — 스코프·객실료·누수", () => {
@@ -231,19 +234,46 @@ describe("loadPartnerReceivables — 스코프·BigInt 합산", () => {
   });
 });
 
-describe("loadPartnerProposals — 스코프·개수만 노출", () => {
-  it("where: { partnerId } 스코프 + itemCount 매핑(상세·가격 미노출)", async () => {
+describe("loadPartnerProposals — 스코프·아이템 스냅샷 (T-partner-info 1)", () => {
+  it("where: { partnerId } 스코프 + 아이템(빌라·기간·제안가·예약상태) 매핑", async () => {
     mockProposalFindMany.mockResolvedValue([
-      { token: "tok1", expiresAt: new Date("2026-07-30"), status: "ACTIVE", _count: { items: 3 } },
+      {
+        token: "tok1",
+        expiresAt: new Date("2026-07-30"),
+        status: "ACTIVE",
+        saleCurrency: "VND",
+        items: [
+          {
+            id: "it1",
+            checkIn: new Date("2026-08-01T00:00:00Z"),
+            checkOut: new Date("2026-08-04T00:00:00Z"),
+            totalKrw: null,
+            totalVnd: 12_000_000n,
+            totalUsd: null,
+            bookingId: "b1", // 이미 가예약됨
+            villa: { name: "쏘나씨 V11", nameVi: "Sonasea V11" },
+          },
+        ],
+      },
     ]);
     const rows = await loadPartnerProposals("partner-3");
-    const arg = mockProposalFindMany.mock.calls[0][0] as { where: unknown };
+    const arg = mockProposalFindMany.mock.calls[0][0] as {
+      where: unknown;
+      select: unknown;
+    };
     expect(arg.where).toEqual({ partnerId: "partner-3" });
-    expect(rows[0]).toEqual({
-      token: "tok1",
-      expiresAt: new Date("2026-07-30"),
-      status: "ACTIVE",
-      itemCount: 3,
+    // 누수 차단 — 아이템 select에 원가·마진·consumer가 없음
+    const keys = flattenSelectKeys(arg.select);
+    for (const f of FORBIDDEN_FIELDS) expect(keys).not.toContain(f);
+    expect(keys).not.toContain("consumerSalePriceVnd");
+
+    expect(rows[0].itemCount).toBe(1);
+    expect(rows[0].saleCurrency).toBe("VND");
+    expect(rows[0].items[0]).toMatchObject({
+      villaName: "쏘나씨 V11",
+      nights: 3,
+      totalVnd: "12000000",
+      booked: true,
     });
   });
 });
@@ -262,5 +292,69 @@ describe("overdueDaysFor", () => {
   });
   it("잔액 0이면 기한 지나도 0 (완납 채권은 연체 아님)", () => {
     expect(overdueDaysFor(d("2026-06-01"), d("2026-07-03"), 0n)).toBe(0);
+  });
+});
+
+// T-partner-info 3 — 입금 이력 쿼리 스코프·누수 가드
+describe("loadPartnerReceivables — 입금 이력(Payment)", () => {
+  it("receivableId in(본인 채권) + partnerId 이중 스코프, select에 note(내부 메모) 미포함", async () => {
+    mockReceivableFindMany.mockResolvedValue([
+      {
+        id: "rcv1",
+        totalVnd: 10_000_000n,
+        depositDueVnd: 3_000_000n,
+        depositPaidVnd: 3_000_000n,
+        balancePaidVnd: 0n,
+        dueDate: new Date("2026-07-10"),
+        status: "PARTIAL",
+        booking: {
+          id: "b1",
+          checkIn: new Date("2026-07-10"),
+          checkOut: new Date("2026-07-12"),
+          parentBookingId: null,
+          villa: { name: "V11", nameVi: null },
+        },
+      },
+    ]);
+    mockPaymentFindMany.mockResolvedValue([
+      {
+        id: "pay1",
+        receivableId: "rcv1",
+        receivedAt: new Date("2026-07-01T05:00:00Z"),
+        currency: "VND",
+        amount: 3_000_000n,
+        purpose: "DEPOSIT",
+      },
+    ]);
+
+    const result = await loadPartnerReceivables("partner-7");
+    const arg = mockPaymentFindMany.mock.calls[0][0] as {
+      where: { receivableId: { in: string[] }; partnerId: string };
+      select: Record<string, unknown>;
+    };
+    expect(arg.where.partnerId).toBe("partner-7"); // 이중 스코프
+    expect(arg.where.receivableId.in).toEqual(["rcv1"]);
+    // 내부 메모·환율 등 운영 필드 미노출(누수 가드) — select 화이트리스트 고정
+    expect(Object.keys(arg.select)).toEqual(
+      expect.arrayContaining(["id", "receivableId", "receivedAt", "currency", "amount", "purpose"])
+    );
+    expect(arg.select.note).toBeUndefined();
+    expect(arg.select.fxRateToVnd).toBeUndefined();
+
+    expect(result.receivables[0].payments).toEqual([
+      {
+        id: "pay1",
+        receivedAt: new Date("2026-07-01T05:00:00Z"),
+        currency: "VND",
+        amount: "3000000",
+        purpose: "DEPOSIT",
+      },
+    ]);
+  });
+
+  it("채권 0건이면 Payment 쿼리를 아예 하지 않는다", async () => {
+    mockReceivableFindMany.mockResolvedValue([]);
+    await loadPartnerReceivables("partner-7");
+    expect(mockPaymentFindMany).not.toHaveBeenCalled();
   });
 });
