@@ -75,7 +75,8 @@
       "invoiceEmpty": "Chưa có hóa đơn nào được phát hành",
       "downloadPdf": "PDF hóa đơn",
       "deposit": "Tiền cọc",
-      "balanceDue": "Tiền còn lại"
+      "balanceDue": "Tiền còn lại",
+      "overdueDays": "Quá hạn {count} ngày"
     },
     "proposals": {
       "title": "Đề xuất đã nhận",
@@ -170,7 +171,10 @@
       "bankNumber": "Số tài khoản",
       "bankHolder": "Chủ tài khoản",
       "bankAmount": "Số tiền",
-      "bankHint": "Sau khi chuyển khoản, bấm nút 'Đã thanh toán' ở màn hình công nợ để được xác nhận nhanh hơn."
+      "bankHint": "Sau khi chuyển khoản, bấm nút 'Đã thanh toán' ở màn hình công nợ để được xác nhận nhanh hơn.",
+      "bankDeposit": "Tiền cọc (để xác nhận)",
+      "bankTotal": "Tổng tiền phòng",
+      "bankDepositHint": "Đặt phòng sẽ được xác nhận sau khi nhận tiền cọc. Hạn thanh toán phần còn lại sẽ thông báo sau khi xác nhận."
     },
     "roster": {
       "title": "Danh sách khách",
@@ -2547,6 +2551,8 @@
       "WRITTEN_OFF": "Nợ xấu"
     },
     "rcv": {
+      "cancelledLeft": "Đặt đã hủy",
+      "cancelledLeftHint": "Đặt phòng đã hủy nhưng công nợ còn gắn với hóa đơn — cần hủy/điều chỉnh hóa đơn",
       "dueDate": "Hạn",
       "total": "Tiền phòng",
       "paid": "Đã thu",

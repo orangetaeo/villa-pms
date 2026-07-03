@@ -108,6 +108,33 @@ export async function createChangeRequest(
   };
 }
 
+/**
+ * 예약 취소 시 남은 대기(PENDING) 요청 자동 종결 (T-partner-polish 2 — 요청 방치 방지).
+ * cancelBooking 트랜잭션 안에서 호출. excludeId = 취소요청 승인 경로에서 "지금 승인 중인 요청"
+ * (그 요청은 이어지는 resolveChangeRequest가 APPROVED로 처리해야 하므로 자동 종결에서 제외).
+ * 별도 파트너 알림 없음 — BOOKING_CANCELLED 알림이 사건 자체를 전달한다. 종결 사유는 이력에 표기.
+ */
+export async function autoClosePendingRequestsOnCancel(
+  tx: Prisma.TransactionClient,
+  bookingId: string,
+  excludeId?: string | null
+): Promise<number> {
+  const res = await tx.bookingChangeRequest.updateMany({
+    where: {
+      bookingId,
+      status: "PENDING",
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+    },
+    data: {
+      status: "REJECTED",
+      // 파트너 화면에 그대로 노출되는 문구 — ko/vi 병기(요청자 언어 미상 시점)
+      resolutionNote: "예약 취소로 자동 종결 / Tự động đóng do đặt phòng đã hủy",
+      resolvedAt: new Date(),
+    },
+  });
+  return res.count;
+}
+
 export interface ResolvedChangeRequest {
   id: string;
   kind: ChangeRequestKind;

@@ -226,17 +226,37 @@ export default async function PartnerBookingDetailPage({
                 <span className="font-semibold">{bank.holder}</span>
               </Row>
             )}
-            <Row label={t("bookingDetail.bankAmount")}>
-              <span className="font-bold text-teal-700">
-                {formatVndDot(
-                  outstanding !== null && outstanding > 0n
-                    ? booking.outstandingVnd
-                    : booking.roomChargeVnd
-                )}
-              </span>
-            </Row>
+            {booking.status === "HOLD" && booking.holdDepositVnd ? (
+              <>
+                {/* HOLD 확정 = 선금 입금 — 선금(강조)+총액 2행. 선금율 숫자는 비노출(금액만) */}
+                <Row label={t("bookingDetail.bankDeposit")}>
+                  <span className="text-base font-bold text-teal-700">
+                    {formatVndDot(booking.holdDepositVnd)}
+                  </span>
+                </Row>
+                <Row label={t("bookingDetail.bankTotal")}>
+                  <span className="font-semibold text-neutral-600">
+                    {formatVndDot(booking.roomChargeVnd)}
+                  </span>
+                </Row>
+              </>
+            ) : (
+              <Row label={t("bookingDetail.bankAmount")}>
+                <span className="font-bold text-teal-700">
+                  {formatVndDot(
+                    outstanding !== null && outstanding > 0n
+                      ? booking.outstandingVnd
+                      : booking.roomChargeVnd
+                  )}
+                </span>
+              </Row>
+            )}
           </dl>
-          <p className="mt-3 text-xs text-neutral-500">{t("bookingDetail.bankHint")}</p>
+          <p className="mt-3 text-xs text-neutral-500">
+            {booking.status === "HOLD" && booking.holdDepositVnd
+              ? t("bookingDetail.bankDepositHint")
+              : t("bookingDetail.bankHint")}
+          </p>
         </section>
       )}
 

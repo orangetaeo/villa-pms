@@ -42,6 +42,8 @@ export interface SerializedPartnerDetail {
     balancePaidVnd: string;
     dueDate: string;
     status: string;
+    /** 예약 취소됐는데 미종결(청구서 묶임 등) — 청구서 조정 필요 경고 (T-partner-polish 3) */
+    bookingCancelled: boolean;
   }>;
   bookings: Array<{
     id: string;
@@ -177,8 +179,20 @@ export default function PartnerDetailView({
       key: "status",
       header: t("rcv.status"),
       cell: (r) => (
-        <span className={`inline-block rounded px-2 py-0.5 text-[11px] font-bold ${RECEIVABLE_BADGE[r.status] ?? ""}`}>
-          {t(`receivableStatus.${r.status}`)}
+        <span className="inline-flex flex-wrap items-center gap-1">
+          <span className={`inline-block rounded px-2 py-0.5 text-[11px] font-bold ${RECEIVABLE_BADGE[r.status] ?? ""}`}>
+            {t(`receivableStatus.${r.status}`)}
+          </span>
+          {/* 예약 취소됐는데 채권 미종결(청구서 묶임 등) — 청구서 조정 필요 (T-partner-polish 3) */}
+          {r.bookingCancelled && (
+            <span
+              title={t("rcv.cancelledLeftHint")}
+              className="inline-flex items-center gap-0.5 rounded px-2 py-0.5 text-[11px] font-bold bg-rose-500/15 text-rose-300"
+            >
+              <span className="material-symbols-outlined text-[12px]">warning</span>
+              {t("rcv.cancelledLeft")}
+            </span>
+          )}
         </span>
       ),
     },
