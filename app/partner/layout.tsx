@@ -13,6 +13,7 @@ import { normalizeLocale, type AppLocale } from "@/lib/locale";
 import { getPartnerForUser } from "@/lib/partner-auth";
 import { PartnerTabBar } from "@/components/partner/partner-tab-bar";
 import { PortalHeader } from "@/components/portal/portal-header";
+import PartnerNotificationBell from "@/components/partner/partner-notification-bell";
 
 // 파트너 포털 유효 locale: 사용자 명시 선택(pref-locale) > 계정 기본(session) > ko 기본(한국 여행사·랜드사).
 // (i18n/request.ts가 읽는 `locale` 쿠키는 middleware가 같은 우선순위로 맞춘다.)
@@ -87,6 +88,7 @@ async function PartnerShell({
           accountHref="/partner/profile"
           name={partnerName}
           showAccount={showNav}
+          right={showNav ? <PartnerNotificationBell /> : undefined}
         />
 
         {/* 로그아웃(우측 상단 고정) — 승인대기·거절 화면에만 노출.

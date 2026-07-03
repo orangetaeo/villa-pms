@@ -15,6 +15,7 @@ import {
 import { assertSaleAmountColumns, quoteStayForVilla } from "./pricing";
 import { writeAuditLog } from "./audit-log";
 import { ensureReceivableForBooking, evaluateConfirmCredit } from "./partner-booking";
+import { notifyPartner } from "./partner-notify";
 
 /**
  * HOLD(가예약) 수명주기 단일 소스 (SPEC F3 흐름 3~5)
@@ -273,6 +274,7 @@ export async function expireHolds(prisma: PrismaClient, now: Date): Promise<Expi
     select: {
       id: true,
       villaId: true,
+      partnerId: true, // 파트너 예약이면 만료를 파트너에게도 통지 (T-partner-workflow-gaps ①)
       checkIn: true,
       checkOut: true,
       holdExpiresAt: true,
@@ -312,6 +314,17 @@ export async function expireHolds(prisma: PrismaClient, now: Date): Promise<Expi
       });
       expiredIds.push(b.id);
     });
+
+    // 파트너에게도 만료 통지 — 커밋 후(외부 Zalo 포함), 실패해도 cron 진행에 무영향(내부 격리).
+    if (b.partnerId && expiredIds.includes(b.id)) {
+      await notifyPartner(b.partnerId, {
+        kind: "HOLD_EXPIRED",
+        bookingId: b.id,
+        villaName: b.villa.name,
+        checkIn: b.checkIn.toISOString().slice(0, 10),
+        checkOut: b.checkOut.toISOString().slice(0, 10),
+      });
+    }
   }
 
   return { expiredCount: expiredIds.length, bookingIds: expiredIds };
@@ -325,7 +338,7 @@ export async function confirmHold(
   prisma: PrismaClient,
   input: { bookingId: string; actorUserId: string; now: Date }
 ): Promise<Booking> {
-  return prisma.$transaction(async (tx) => {
+  const confirmed = await prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findUnique({
       where: { id: input.bookingId },
       include: { villa: { select: { supplierId: true, name: true } } },
@@ -381,8 +394,21 @@ export async function confirmHold(
       changes: { status: { old: BookingStatus.HOLD, new: BookingStatus.CONFIRMED } },
     });
 
-    return updated;
+    return { updated, villaName: booking.villa.name };
   });
+
+  // 파트너 예약이면 확정을 파트너에게도 통지 — 트랜잭션 커밋 후(외부 Zalo 포함), 실패 무해(내부 격리).
+  if (confirmed.updated.partnerId) {
+    await notifyPartner(confirmed.updated.partnerId, {
+      kind: "BOOKING_CONFIRMED",
+      bookingId: confirmed.updated.id,
+      villaName: confirmed.villaName,
+      checkIn: confirmed.updated.checkIn.toISOString().slice(0, 10),
+      checkOut: confirmed.updated.checkOut.toISOString().slice(0, 10),
+    });
+  }
+
+  return confirmed.updated;
 }
 
 /**

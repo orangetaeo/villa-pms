@@ -29,6 +29,7 @@ import { guestTokenState } from "@/lib/guest-checkin";
 import GuestTokenCard, { type GuestTokenState } from "./guest-token-card";
 import PartnerAssignCard from "./partner-assign-card";
 import BookingModifyPanel, { type VillaOption } from "./booking-modify-panel";
+import ChangeRequestPanel from "./change-request-panel";
 import { modifiableKind } from "@/lib/booking-modify";
 
 /** 연결된 연장(분할 숙박) 예약 요약 — 부모 상세의 읽기전용 목록용. saleLabel은 canViewFinance만 채움 */
@@ -450,6 +451,33 @@ export default async function BookingDetailPage({
       }
     : null;
 
+  // 파트너 취소·변경·홀드연장 요청 (T-partner-workflow-gaps ②) — 대기 요청은 우측 상단에서 처리
+  const changeRequestsRaw = await prisma.bookingChangeRequest.findMany({
+    where: { bookingId: booking.id },
+    orderBy: { createdAt: "desc" },
+    take: 5,
+    select: {
+      id: true,
+      kind: true,
+      status: true,
+      note: true,
+      resolutionNote: true,
+      createdAt: true,
+      resolvedAt: true,
+      partner: { select: { name: true } },
+    },
+  });
+  const changeRequests = changeRequestsRaw.map((r) => ({
+    id: r.id,
+    kind: r.kind,
+    status: r.status,
+    note: r.note,
+    resolutionNote: r.resolutionNote,
+    partnerName: r.partner.name,
+    createdAt: r.createdAt.toISOString(),
+    resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null,
+  }));
+
   // 예약 변경 패널 (F-booking-modify) — 변경 가능 상태에서만. 빌라 셀렉트 후보(현재 빌라 포함).
   const modKind = modifiableKind(booking.status);
   let villaOptions: VillaOption[] = [];
@@ -795,6 +823,9 @@ export default async function BookingDetailPage({
 
         {/* 우측 (33%) */}
         <div className="col-span-12 lg:col-span-4 space-y-6">
+          {/* 파트너 요청 처리 (T-partner-workflow-gaps ②) — 대기 요청이 있으면 최상단 강조 */}
+          <ChangeRequestPanel requests={changeRequests} />
+
           <ActionPanel
             bookingId={booking.id}
             status={booking.status}

@@ -25,6 +25,32 @@ export interface PartnerBookingRow {
   status: string;
   /** 객실료 = 연결된 receivable.totalVnd(있으면) 없으면 booking.totalSaleVnd. VND string. */
   roomChargeVnd: string | null;
+  /** 연장(분할숙박) 자식 예약 여부 — parentBookingId 존재 (ADR-0030) */
+  isExtension: boolean;
+  /** 이 예약에 연결된 연장 자식 예약 수 */
+  extensionCount: number;
+}
+
+/** 연장 묶음 표시용 — 부모/자식 상호 링크 행(누수 규칙 동일: 정당 VND만) */
+export interface PartnerLinkedBookingRow {
+  id: string;
+  villaName: string;
+  villaNameVi: string | null;
+  checkIn: Date;
+  checkOut: Date;
+  status: string;
+  roomChargeVnd: string | null;
+}
+
+/** 파트너 요청(취소·변경·홀드연장) 표시 행 */
+export interface PartnerChangeRequestRow {
+  id: string;
+  kind: string; // CANCEL | MODIFY | HOLD_EXTEND
+  status: string; // PENDING | APPROVED | REJECTED
+  note: string | null;
+  resolutionNote: string | null;
+  createdAt: Date;
+  resolvedAt: Date | null;
 }
 
 export interface PartnerBookingDetail extends PartnerBookingRow {
@@ -32,6 +58,18 @@ export interface PartnerBookingDetail extends PartnerBookingRow {
   guestRoster: string | null;
   /** 명단 편집 가능 여부 — HOLD/CONFIRMED만(체크인 이후·취소·만료는 잠금). */
   canEditRoster: boolean;
+  /** HOLD 만료 시각 — 파트너가 언제까지 확정해야 하는지(HOLD 외 null) */
+  holdExpiresAt: Date | null;
+  /** 미납 잔액(연결 채권 기준, 0 하한). 채권 미생성(HOLD 등)이면 null. */
+  outstandingVnd: string | null;
+  /** 연장 부모(내가 자식일 때) */
+  parentBooking: PartnerLinkedBookingRow | null;
+  /** 연장 자식들(내가 부모일 때) */
+  extensions: PartnerLinkedBookingRow[];
+  /** 연장 묶음 합계(본 예약 + 자식들 객실료 합, 묶음이 있을 때만) */
+  groupTotalVnd: string | null;
+  /** 이 예약의 요청 이력(최신순 5건) */
+  changeRequests: PartnerChangeRequestRow[];
 }
 
 export interface PartnerReceivableRow {
@@ -49,6 +87,10 @@ export interface PartnerReceivableRow {
   outstandingVnd: string;
   dueDate: Date;
   status: string;
+  /** 예약 상세 링크용 */
+  bookingId: string;
+  /** 연장(분할숙박) 자식 예약의 채권 여부 — 묶음 대조 표시용 (ADR-0030) */
+  isExtension: boolean;
 }
 
 export interface PartnerInvoiceRow {
@@ -157,6 +199,8 @@ export async function loadPartnerBookings(
       guestCount: true,
       status: true,
       totalSaleVnd: true,
+      parentBookingId: true,
+      _count: { select: { extensions: true } },
       villa: { select: { name: true, nameVi: true, complex: true } },
       receivable: { select: { totalVnd: true } },
     },
@@ -176,6 +220,8 @@ export async function loadPartnerBookings(
       guestCount: b.guestCount,
       status: b.status,
       roomChargeVnd: charge !== null ? charge.toString() : null,
+      isExtension: b.parentBookingId !== null,
+      extensionCount: b._count.extensions,
     };
   });
 }
@@ -189,6 +235,18 @@ export async function loadPartnerBookingDetail(
   partnerId: string,
   bookingId: string
 ): Promise<PartnerBookingDetail | null> {
+  // 연장 부모/자식 공통 select — 정당 VND(채권 총액/판매 VND)만, KRW·원가 없음.
+  const linkedSelect = {
+    id: true,
+    checkIn: true,
+    checkOut: true,
+    status: true,
+    partnerId: true,
+    totalSaleVnd: true,
+    villa: { select: { name: true, nameVi: true } },
+    receivable: { select: { totalVnd: true } },
+  } as const;
+
   const b = await prisma.booking.findFirst({
     where: { id: bookingId, partnerId },
     select: {
@@ -201,13 +259,88 @@ export async function loadPartnerBookingDetail(
       status: true,
       guestRoster: true,
       totalSaleVnd: true,
+      holdExpiresAt: true,
+      parentBookingId: true,
+      parentBooking: { select: linkedSelect },
+      extensions: { select: linkedSelect, orderBy: { checkIn: "asc" } },
       villa: { select: { name: true, nameVi: true, complex: true } },
-      receivable: { select: { totalVnd: true } },
+      receivable: {
+        select: {
+          totalVnd: true,
+          depositPaidVnd: true,
+          balancePaidVnd: true,
+          status: true,
+          dueDate: true,
+        },
+      },
+      // 요청 이력(최신 5건) — 파트너 본인 것만(예약 자체가 partnerId 스코프)
+      changeRequests: {
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: {
+          id: true,
+          kind: true,
+          status: true,
+          note: true,
+          resolutionNote: true,
+          createdAt: true,
+          resolvedAt: true,
+        },
+      },
     },
   });
   if (!b) return null;
 
+  const toLinked = (
+    row: {
+      id: string;
+      checkIn: Date;
+      checkOut: Date;
+      status: string;
+      partnerId: string | null;
+      totalSaleVnd: bigint | null;
+      villa: { name: string; nameVi: string | null };
+      receivable: { totalVnd: bigint } | null;
+    } | null
+  ): PartnerLinkedBookingRow | null => {
+    // 방어: 연장 예약은 partnerId를 상속하지만, 다른 파트너 소유면 절대 노출하지 않는다.
+    if (!row || row.partnerId !== partnerId) return null;
+    const c = row.receivable?.totalVnd ?? row.totalSaleVnd ?? null;
+    return {
+      id: row.id,
+      villaName: row.villa.name,
+      villaNameVi: row.villa.nameVi,
+      checkIn: row.checkIn,
+      checkOut: row.checkOut,
+      status: row.status,
+      roomChargeVnd: c !== null ? c.toString() : null,
+    };
+  };
+
   const charge = b.receivable?.totalVnd ?? b.totalSaleVnd ?? null;
+  const parentBooking = toLinked(b.parentBooking);
+  const extensions = b.extensions
+    .map((e) => toLinked(e))
+    .filter((e): e is PartnerLinkedBookingRow => e !== null);
+
+  // 묶음 합계 — 부모 관점(본 예약 + 자식들). 취소·만료 자식은 제외.
+  let groupTotalVnd: string | null = null;
+  if (extensions.length > 0) {
+    let sum = charge ?? 0n;
+    for (const e of extensions) {
+      if (e.status === "CANCELLED" || e.status === "EXPIRED") continue;
+      if (e.roomChargeVnd) sum += BigInt(e.roomChargeVnd);
+    }
+    groupTotalVnd = sum.toString();
+  }
+
+  // 미납 잔액(채권 기준, 0 하한) — 대손(WRITTEN_OFF)은 미수 아님.
+  let outstandingVnd: string | null = null;
+  if (b.receivable && b.receivable.status !== "WRITTEN_OFF") {
+    const out = receivableOutstanding(b.receivable);
+    outstandingVnd = out.toString();
+  }
+
   return {
     id: b.id,
     villaName: b.villa.name,
@@ -220,9 +353,25 @@ export async function loadPartnerBookingDetail(
     guestCount: b.guestCount,
     status: b.status,
     roomChargeVnd: charge !== null ? charge.toString() : null,
+    isExtension: b.parentBookingId !== null,
+    extensionCount: extensions.length,
     guestRoster: b.guestRoster,
     // 체크인 이후·취소·만료는 잠금(명단은 체크인 전 준비용) — 공개 roster route와 동일 규칙.
     canEditRoster: b.status === "HOLD" || b.status === "CONFIRMED",
+    holdExpiresAt: b.status === "HOLD" ? b.holdExpiresAt : null,
+    outstandingVnd,
+    parentBooking,
+    extensions,
+    groupTotalVnd,
+    changeRequests: b.changeRequests.map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      status: r.status,
+      note: r.note,
+      resolutionNote: r.resolutionNote,
+      createdAt: r.createdAt,
+      resolvedAt: r.resolvedAt,
+    })),
   };
 }
 
@@ -247,8 +396,10 @@ export async function loadPartnerReceivables(
         status: true,
         booking: {
           select: {
+            id: true,
             checkIn: true,
             checkOut: true,
+            parentBookingId: true,
             villa: { select: { name: true, nameVi: true } },
           },
         },
@@ -295,6 +446,8 @@ export async function loadPartnerReceivables(
       outstandingVnd: out.toString(),
       dueDate: r.dueDate,
       status: r.status,
+      bookingId: r.booking.id,
+      isExtension: r.booking.parentBookingId !== null,
     };
   });
 
