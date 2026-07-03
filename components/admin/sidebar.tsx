@@ -12,6 +12,7 @@ import { useTranslations } from "next-intl";
 import type { AppLocale } from "@/lib/locale";
 import { canViewFinance, canSetPrice, isSystemAdmin, type Role } from "@/lib/permissions";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
+import AdminNotificationBell from "@/components/admin/admin-notification-bell";
 
 interface NavLeaf {
   key: string;
@@ -374,7 +375,8 @@ export default function AdminSidebar({
             ),
           )}
         </nav>
-        <div className="pt-4 mt-auto border-t border-admin-card flex flex-col gap-3 px-2">
+        {/* relative — 알림 벨 드롭업 패널(absolute)의 positioning 컨테이너 (fixed 금지) */}
+        <div className="relative pt-4 mt-auto border-t border-admin-card flex flex-col gap-3 px-2">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-admin-primary flex items-center justify-center text-xs font-bold text-white shrink-0">
               {(userName ?? t("profileName")).slice(0, 1)}
@@ -387,6 +389,8 @@ export default function AdminSidebar({
                 {role ? tRoles(`roles.${role}`) : t("profileRole")}
               </span>
             </div>
+            {/* 인앱 알림 벨 (admin-vendor-ops C) — 벤더 수락/거절/제안/완료·가입대기 */}
+            <AdminNotificationBell />
             {/* 본인 비밀번호 변경 진입 (/account) */}
             <Link
               href="/account"

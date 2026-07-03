@@ -187,7 +187,7 @@ export default async function BookingDetailPage({
   // ── 부가서비스 주문 패널 (ADR-0019 S2) ──
   // 원가(costVnd)는 showFinance(canViewFinance)만 select·직렬화. 카탈로그명은 주문에 연결해 표시.
   const tServices = await getTranslations("adminServices");
-  const [serviceOrdersRaw, activeCatalog] = await Promise.all([
+  const [serviceOrdersRaw, activeCatalog, approvedVendors] = await Promise.all([
     prisma.serviceOrder.findMany({
       where: { bookingId: id },
       orderBy: { createdAt: "desc" },
@@ -212,6 +212,7 @@ export default async function BookingDetailPage({
         vendorRejectReason: true,
         vendorSettledAt: true,
         vendorSettleMethod: true,
+        vendorCompletedAt: true, // 공급자 이행 완료 보고 시각(admin-vendor-ops A)
         // 일정 협의(propose) — 공급자 대안 시간 제안·운영자 처리 시각
         proposedServiceDate: true,
         proposedServiceTime: true,
@@ -233,6 +234,12 @@ export default async function BookingDetailPage({
         priceVnd: true,
         options: true,
       },
+    }),
+    // 대체 벤더 지정용(admin-vendor-ops D) — 승인(APPROVED)된 공급자만. 이름만(계좌·연락처 불필요).
+    prisma.serviceVendor.findMany({
+      where: { approvalStatus: "APPROVED" },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, nameKo: true },
     }),
   ]);
 
@@ -289,6 +296,7 @@ export default async function BookingDetailPage({
     vendorRejectReason: o.vendorRejectReason,
     vendorSettledAt: o.vendorSettledAt?.toISOString() ?? null,
     vendorSettleMethod: o.vendorSettleMethod,
+    vendorCompletedAt: o.vendorCompletedAt?.toISOString() ?? null,
     // 일정 협의(propose) — 제안 날짜는 @db.Date(YYYY-MM-DD), 처리 시각은 ISO 타임스탬프
     proposedServiceDate: o.proposedServiceDate
       ? o.proposedServiceDate.toISOString().slice(0, 10)
@@ -829,6 +837,11 @@ export default async function BookingDetailPage({
               showCost={showFinance}
               dateMin={booking.checkIn.toISOString().slice(0, 10)}
               dateMax={booking.checkOut.toISOString().slice(0, 10)}
+              vendorOptions={approvedVendors.map((v) => ({
+                id: v.id,
+                name: v.name,
+                nameKo: v.nameKo ?? null,
+              }))}
             />
           )}
         </div>

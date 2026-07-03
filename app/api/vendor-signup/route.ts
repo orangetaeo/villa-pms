@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { BCRYPT_ROUNDS, PASSWORD_MIN, isStrongPassword, PASSWORD_POLICY_MESSAGE } from "@/lib/password-policy";
+import { buildAdminNotifText, enqueueInAppForOperators } from "@/lib/inapp-notification";
 import type { Prisma } from "@prisma/client";
 
 // 공개·미인증 가입 스팸 방어 (rate-limit, T-sec-public-hardening 패턴 재사용).
@@ -122,6 +123,20 @@ export async function POST(req: Request) {
 
     return vendor;
   });
+
+  // 운영자 인앱 알림(벨) — 승인 대기 벤더를 놓치지 않도록(admin-vendor-ops C). 적재 실패 무시.
+  //   ★ 공개 라우트지만 알림엔 가입자가 입력한 이름만(연락처·계좌 미포함).
+  try {
+    const { title, body } = buildAdminNotifText("VENDOR_SIGNUP", { vendorName: d.name });
+    await enqueueInAppForOperators({
+      type: "VENDOR_SIGNUP",
+      title,
+      body,
+      href: "/settings/vendors",
+    });
+  } catch {
+    // 무시 — 알림 적재 실패가 가입 자체를 깨지 않게
+  }
 
   // 응답 화이트리스트 — 민감정보(passwordHash·bankInfo·id 등) 미반환
   void created;

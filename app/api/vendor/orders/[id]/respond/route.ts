@@ -14,6 +14,7 @@ import { getVendorIdForUser } from "@/lib/vendor-auth";
 import { assertVendorResponse, InvalidVendorResponseError } from "@/lib/vendor-order";
 import { parseUtcDateOnly } from "@/lib/date-vn";
 import { enqueueNotification } from "@/lib/zalo";
+import { buildAdminNotifText, enqueueInAppForOperators, type AdminNotifKind } from "@/lib/inapp-notification";
 import { NotificationType } from "@prisma/client";
 
 const respondSchema = z.object({
@@ -78,6 +79,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     select: {
       id: true,
       status: true,
+      bookingId: true, // 운영자 인앱 알림 딥링크(/bookings/{id})용
       vendorId: true,
       vendorStatus: true,
       catalogItemId: true,
@@ -167,6 +169,33 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       type: NotificationType.VENDOR_PO_RESPONSE,
       payload,
     });
+  }
+
+  // 운영자 인앱 알림(벨) — Zalo 미연결 운영자도 인지(admin-vendor-ops C). 적재 실패는 본 응답에 영향 0.
+  //   ★ 금액(판매가·costVnd) 미포함 — 품목·빌라·업체·제안 일정·거절 사유만.
+  try {
+    const kindByAction: Record<typeof action, AdminNotifKind> = {
+      accept: "VENDOR_ACCEPTED",
+      reject: "VENDOR_REJECTED",
+      propose: "VENDOR_PROPOSED",
+    };
+    const kind = kindByAction[action];
+    const { title, body: notifBody } = buildAdminNotifText(kind, {
+      vendorName: order.vendor?.nameKo || order.vendor?.name,
+      itemName,
+      villaName: order.booking?.villa?.name,
+      proposedServiceDate: action === "propose" ? proposedServiceDate : null,
+      proposedServiceTime: action === "propose" ? proposedServiceTime : null,
+      rejectReason: action === "reject" ? rejectReason : null,
+    });
+    await enqueueInAppForOperators({
+      type: kind,
+      title,
+      body: notifBody,
+      href: `/bookings/${order.bookingId}`,
+    });
+  } catch {
+    // 무시 — 알림 적재 실패가 가부 응답을 깨지 않게
   }
 
   await writeAuditLog({

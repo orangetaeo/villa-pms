@@ -2149,6 +2149,7 @@
     "inUseWarning": "Không thể xóa vì đang có danh mục·đơn đặt hàng liên kết. Hãy ngừng hoạt động thay vì xóa.",
     "noZalo": "Chưa có Zalo (không gửi được đơn đặt)",
     "catalogBadge": "Danh mục liên kết {n}",
+    "inProgressBadge": "Đơn đang xử lý {n}",
     "accountBadge": "Đã liên kết tài khoản",
     "bankBadge": "Tài khoản quyết toán",
     "form": {
@@ -2333,13 +2334,15 @@
       "viewBooking": "Xem đặt phòng",
       "settled": "Đã thanh toán",
       "unsettledBadge": "Chưa thanh toán",
+      "completedBadge": "Đã hoàn thành {date}",
+      "proposalBadge": "Chờ xử lý đề xuất",
       "searchPlaceholder": "Tìm villa·món·NCC",
       "emptyPending": "Không có khoản nào chờ thanh toán.",
       "emptyPaid": "Chưa có khoản nào đã thanh toán.",
       "emptySearch": "Không có kết quả tìm kiếm.",
       "emptyStatus": "Chưa có đơn trung gian nào.",
       "filters": { "item": "Dịch vụ", "vendor": "Nhà cung cấp", "partner": "Đối tác", "villa": "Villa", "guestPlaceholder": "Tìm tên khách" },
-      "filter": { "all": "Tất cả", "pending": "Chờ NCC", "accepted": "Đã nhận", "rejected": "Từ chối", "cancelled": "Đã hủy" },
+      "filter": { "all": "Tất cả", "pending": "Chờ NCC", "accepted": "Đã nhận", "proposal": "Chờ xử lý đề xuất", "rejected": "Từ chối", "cancelled": "Đã hủy" },
       "vstatus": { "PENDING_VENDOR": "Chờ NCC", "VENDOR_ACCEPTED": "Đã nhận", "VENDOR_REJECTED": "Từ chối", "CANCELLED": "Đã hủy" },
       "method": { "CASH": "Tiền mặt", "BANK_TRANSFER": "Chuyển khoản", "OTHER": "Khác" },
       "modal": {
@@ -2419,6 +2422,10 @@
       "markSettled": "Quyết toán",
       "settled": "Đã quyết toán",
       "settledAt": "Đã quyết toán {date}",
+      "completedAt": "Đã hoàn thành {date}",
+      "change": "Đổi nhà cung cấp",
+      "changeNone": "Tự cung cấp (không đặt hàng)",
+      "changeLocked": "Không thể đổi nhà cung cấp khi đơn đang gửi hoặc đã được nhận",
       "unsettle": "Hủy",
       "method": {
         "CASH": "Tiền mặt",
@@ -2429,7 +2436,8 @@
         "title": "Lịch đề xuất của NCC",
         "apply": "Áp dụng",
         "ignore": "Bỏ qua",
-        "confirmGate": "Cần áp dụng/bỏ qua lịch đề xuất trước khi xác nhận"
+        "confirmGate": "Cần áp dụng/bỏ qua lịch đề xuất trước khi xác nhận",
+        "unresolvedWarn": "Đề xuất giờ của nhà cung cấp chưa được xử lý — hãy áp dụng/bỏ qua trước"
       }
     }
   },
@@ -4227,6 +4235,14 @@
     }
   },
   "vendorNotif": {
+    "title": "Thông báo",
+    "ariaOpen": "Mở thông báo",
+    "close": "Đóng",
+    "loading": "Đang tải…",
+    "loadError": "Không tải được. Thử lại",
+    "empty": "Chưa có thông báo"
+  },
+  "adminNotif": {
     "title": "Thông báo",
     "ariaOpen": "Mở thông báo",
     "close": "Đóng",

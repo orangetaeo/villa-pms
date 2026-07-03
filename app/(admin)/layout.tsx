@@ -72,6 +72,8 @@ const ADMIN_CLIENT_NAMESPACES = [
   "features",
   // 본인 비밀번호 변경 폼(/account) — change-password-form
   "account",
+  // 운영자 인앱 알림 벨(components/admin/admin-notification-bell) — admin-vendor-ops C
+  "adminNotif",
 ] as const;
 
 export default async function AdminLayout({

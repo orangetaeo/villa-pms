@@ -10,7 +10,7 @@ import { parsePageParams } from "@/lib/pagination";
 import { queryHub, type HubView, type HubStatusChip } from "@/lib/service-orders-hub";
 
 const VIEWS: HubView[] = ["pending", "paid", "status"];
-const CHIPS: HubStatusChip[] = ["all", "pending", "accepted", "rejected", "cancelled"];
+const CHIPS: HubStatusChip[] = ["all", "pending", "accepted", "proposal", "rejected", "cancelled"];
 
 export async function GET(req: Request) {
   const g = await requireCapability(canViewFinance, "canViewFinance", req);

@@ -2035,6 +2035,7 @@
     "inUseWarning": "연결된 카탈로그·발주가 있어 삭제할 수 없습니다. 대신 비활성화하세요.",
     "noZalo": "Zalo 미설정 (발주 알림 불가)",
     "catalogBadge": "연결 카탈로그 {n}",
+    "inProgressBadge": "진행 발주 {n}",
     "accountBadge": "계정 연결됨",
     "bankBadge": "정산계좌",
     "form": {
@@ -2219,13 +2220,15 @@
       "viewBooking": "예약 보기",
       "settled": "정산완료",
       "unsettledBadge": "미정산",
+      "completedBadge": "이행 완료 {date}",
+      "proposalBadge": "제안 대기",
       "searchPlaceholder": "빌라·품목·공급자 검색",
       "emptyPending": "입금 대기 중인 정산이 없습니다.",
       "emptyPaid": "입금 완료된 내역이 없습니다.",
       "emptySearch": "검색 결과가 없습니다.",
       "emptyStatus": "중계된 발주가 없습니다.",
       "filters": { "item": "부가서비스 항목", "vendor": "업체명", "partner": "파트너명", "villa": "빌라명", "guestPlaceholder": "고객명 검색" },
-      "filter": { "all": "전체", "pending": "발주대기", "accepted": "수락", "rejected": "거절", "cancelled": "취소" },
+      "filter": { "all": "전체", "pending": "발주대기", "accepted": "수락", "proposal": "제안 대기", "rejected": "거절", "cancelled": "취소" },
       "vstatus": { "PENDING_VENDOR": "발주대기", "VENDOR_ACCEPTED": "수락", "VENDOR_REJECTED": "거절", "CANCELLED": "취소" },
       "method": { "CASH": "현금", "BANK_TRANSFER": "계좌이체", "OTHER": "기타" },
       "modal": {
@@ -2305,6 +2308,10 @@
       "markSettled": "정산 완료",
       "settled": "정산완료",
       "settledAt": "정산완료 {date}",
+      "completedAt": "이행 완료 {date}",
+      "change": "공급자 변경",
+      "changeNone": "직접 제공(발주 없음)",
+      "changeLocked": "발주 진행·수락 상태에서는 공급자를 변경할 수 없습니다",
       "unsettle": "해제",
       "method": {
         "CASH": "현금",
@@ -2315,7 +2322,8 @@
         "title": "공급자 제안 일정",
         "apply": "적용",
         "ignore": "무시",
-        "confirmGate": "공급자가 제안한 일정을 적용/무시해야 확정할 수 있습니다"
+        "confirmGate": "공급자가 제안한 일정을 적용/무시해야 확정할 수 있습니다",
+        "unresolvedWarn": "공급자의 시간 제안이 미처리 상태입니다 — 먼저 적용/무시하세요"
       }
     }
   },
@@ -4227,6 +4235,14 @@
     }
   },
   "vendorNotif": {
+    "title": "알림",
+    "ariaOpen": "알림 열기",
+    "close": "닫기",
+    "loading": "불러오는 중…",
+    "loadError": "불러오지 못했습니다. 다시 시도",
+    "empty": "알림이 없습니다"
+  },
+  "adminNotif": {
     "title": "알림",
     "ariaOpen": "알림 열기",
     "close": "닫기",

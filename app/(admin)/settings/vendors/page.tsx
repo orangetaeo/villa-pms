@@ -33,24 +33,41 @@ export default async function VendorsPage() {
   const canEdit = canSetPrice(role);
 
   // bankInfo(정산계좌)는 canViewFinance만 — select에서부터 제외(클라 조건부 렌더 의존 금지, 원칙2)
-  const vendors = await prisma.serviceVendor.findMany({
-    // 승인대기(PENDING_APPROVAL)를 최상단으로 — 운영자가 먼저 처리하도록.
-    orderBy: [{ approvalStatus: "asc" }, { active: "desc" }, { name: "asc" }],
-    select: {
-      id: true,
-      name: true,
-      nameKo: true,
-      phone: true,
-      zaloUserId: true,
-      note: true,
-      active: true,
-      userId: true,
-      approvalStatus: true,
-      rejectionReason: true,
-      _count: { select: { catalogItems: true } },
-      ...(showBank ? { bankInfo: true } : {}),
-    },
-  });
+  const [vendors, inProgressGroups] = await Promise.all([
+    prisma.serviceVendor.findMany({
+      // 승인대기(PENDING_APPROVAL)를 최상단으로 — 운영자가 먼저 처리하도록.
+      orderBy: [{ approvalStatus: "asc" }, { active: "desc" }, { name: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        nameKo: true,
+        phone: true,
+        zaloUserId: true,
+        note: true,
+        active: true,
+        userId: true,
+        approvalStatus: true,
+        rejectionReason: true,
+        _count: { select: { catalogItems: true } },
+        ...(showBank ? { bankInfo: true } : {}),
+      },
+    }),
+    // 진행 중 발주 건수(admin-vendor-ops E) — 발주대기·수락 + 미취소 + 미정산. 건수만(금액 없음).
+    prisma.serviceOrder.groupBy({
+      by: ["vendorId"],
+      where: {
+        vendorStatus: { in: ["PENDING_VENDOR", "VENDOR_ACCEPTED"] },
+        status: { not: "CANCELLED" },
+        vendorSettledAt: null,
+      },
+      _count: true,
+    }),
+  ]);
+  const inProgressByVendor = new Map(
+    inProgressGroups
+      .filter((g): g is typeof g & { vendorId: string } => g.vendorId != null)
+      .map((g) => [g.vendorId, g._count])
+  );
 
   const rows: VendorRow[] = vendors.map((v) => ({
     id: v.id,
@@ -64,6 +81,7 @@ export default async function VendorsPage() {
     approvalStatus: v.approvalStatus,
     rejectionReason: v.rejectionReason ?? "",
     catalogCount: v._count.catalogItems,
+    inProgressCount: inProgressByVendor.get(v.id) ?? 0,
     ...(showBank && "bankInfo" in v
       ? { bankInfo: parseBankInfo((v as { bankInfo: unknown }).bankInfo) }
       : {}),

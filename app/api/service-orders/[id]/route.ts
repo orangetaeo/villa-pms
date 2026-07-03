@@ -9,7 +9,7 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator, canViewFinance, type Role } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
 import { assertServiceTransition, InvalidServiceTransitionError } from "@/lib/service-order";
-import { canConfirmCustomer, vendorHasLivePo } from "@/lib/vendor-order";
+import { canConfirmCustomer, hasUnresolvedProposal, vendorHasLivePo } from "@/lib/vendor-order";
 import { enqueueNotification } from "@/lib/zalo";
 import { enqueueInAppNotification, buildVendorNotifText, vendorNotifLocale } from "@/lib/inapp-notification";
 import { toDateOnlyString } from "@/lib/date-vn";
@@ -23,6 +23,9 @@ const patchSchema = z.object({
   priceVnd: z.string().regex(/^\d{1,15}$/).optional().nullable(),
   vendorName: z.string().max(100).optional().nullable(),
   note: z.string().max(500).optional().nullable(),
+  // 거절 후 대체 벤더 지정(admin-vendor-ops D) — isOperator. null=직접 제공 전환.
+  //   REQUESTED이고 발주 전(null)·거절(VENDOR_REJECTED)일 때만 허용(발주 진행·수락 후엔 VENDOR_LOCKED).
+  vendorId: z.string().min(1).max(40).optional().nullable(),
   // ADR-0023 S2 — 발주 건별 정산(canViewFinance 전용)
   markSettled: z.boolean().optional(),
   vendorSettleMethod: z.enum(["CASH", "BANK_TRANSFER", "OTHER"]).optional(),
@@ -98,14 +101,59 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       }
       throw e;
     }
-    // 고객확정 추가 게이트(ADR-0023 §4.3) — 발주 공급자가 수락 전이면 CONFIRMED 차단
+    // 고객확정 추가 게이트(ADR-0023 §4.3) — 발주 공급자가 수락 전이면 CONFIRMED 차단.
+    //   수락했어도 미해결 시간 제안이 걸려 있으면 별도 코드(PROPOSAL_UNRESOLVED)로 구분해
+    //   운영자 화면이 "제안을 먼저 적용/무시하라"는 정확한 안내를 하도록(admin-vendor-ops B).
     if (d.status === "CONFIRMED" && !canConfirmCustomer(existing)) {
       return NextResponse.json(
-        { error: "VENDOR_NOT_ACCEPTED", vendorStatus: existing.vendorStatus },
+        {
+          error: hasUnresolvedProposal(existing) ? "PROPOSAL_UNRESOLVED" : "VENDOR_NOT_ACCEPTED",
+          vendorStatus: existing.vendorStatus,
+        },
         { status: 409 }
       );
     }
     data.status = d.status;
+  }
+
+  // ── 대체 벤더 지정(admin-vendor-ops D) — isOperator(재무 아님). 스키마 주석의 "운영자 대체 가능" 구현.
+  if (d.vendorId !== undefined) {
+    // ★상호 배타 — vendorId와 status를 한 PATCH에 섞으면 확정 게이트가 "변경 전" 상태로 판정돼
+    //   미수락 벤더가 배정된 채 CONFIRMED로 뚫리는 조합이 생긴다(QA MEDIUM). 벤더 변경은 단독 요청만.
+    if (d.status !== undefined) {
+      return NextResponse.json({ error: "VENDOR_CHANGE_EXCLUSIVE" }, { status: 400 });
+    }
+    // 발주가 살아있거나(수락·대기) 이미 고객확정 이후면 변경 금지 — 이중 발주·이행 중 교체 사고 방지.
+    if (
+      existing.status !== "REQUESTED" ||
+      existing.vendorStatus === "PENDING_VENDOR" ||
+      existing.vendorStatus === "VENDOR_ACCEPTED"
+    ) {
+      return NextResponse.json(
+        { error: "VENDOR_LOCKED", status: existing.status, vendorStatus: existing.vendorStatus },
+        { status: 409 }
+      );
+    }
+    if (d.vendorId !== null) {
+      // 승인(APPROVED)된 벤더만 발주 대상 — 자가가입 대기·거절 벤더 배정 차단(ADR-0023 S5).
+      const vendor = await prisma.serviceVendor.findUnique({
+        where: { id: d.vendorId },
+        select: { id: true, approvalStatus: true },
+      });
+      if (!vendor || vendor.approvalStatus !== "APPROVED") {
+        return NextResponse.json({ error: "VENDOR_NOT_APPROVED_OR_MISSING" }, { status: 400 });
+      }
+    }
+    // 발주 사이클 리셋 — 새 벤더(또는 직접 제공)로 처음부터. 이전 거절 사유·제안 흔적 제거.
+    data.vendorId = d.vendorId;
+    data.vendorStatus = null;
+    data.poSentAt = null;
+    data.vendorRespondedAt = null;
+    data.vendorRejectReason = null;
+    data.proposedServiceDate = null;
+    data.proposedServiceTime = null;
+    data.vendorProposalNote = null;
+    data.vendorProposalRespondedAt = null;
   }
   if (canFinance) {
     if (d.costVnd !== undefined) data.costVnd = d.costVnd ? BigInt(d.costVnd) : 0n;
@@ -133,7 +181,23 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ id, changed: false });
   }
 
-  await prisma.serviceOrder.update({ where: { id }, data });
+  if (d.vendorId !== undefined) {
+    // ★RMW 가드(QA LOW) — 조회~갱신 사이 다른 운영자의 dispatch/수락 레이스 차단.
+    //   여전히 REQUESTED + 발주 비활성(미발주·거절)인 행만 갱신. 0건이면 상태가 바뀐 것 → 409.
+    const res = await prisma.serviceOrder.updateMany({
+      where: {
+        id,
+        status: "REQUESTED",
+        OR: [{ vendorStatus: null }, { vendorStatus: "VENDOR_REJECTED" }],
+      },
+      data,
+    });
+    if (res.count === 0) {
+      return NextResponse.json({ error: "VENDOR_LOCKED" }, { status: 409 });
+    }
+  } else {
+    await prisma.serviceOrder.update({ where: { id }, data });
+  }
 
   // ★발주된 주문 취소 → 원천 공급자에게 Zalo 취소 통보(vi). 공급자가 살아있는 발주(PENDING_VENDOR·
   //   VENDOR_ACCEPTED)로 준비 중일 수 있으므로 stale PO 방지. 게스트 취소 경로는 발주건을 차단하므로
@@ -237,6 +301,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         : {}),
       ...(data.vendorSettleMethod !== undefined
         ? { vendorSettleMethod: { new: data.vendorSettleMethod } }
+        : {}),
+      ...(d.vendorId !== undefined
+        ? { vendorId: { old: existing.vendorId, new: d.vendorId } }
         : {}),
       ...(vendorNotified ? { vendorPoCancelNotified: { new: true } } : {}),
     },

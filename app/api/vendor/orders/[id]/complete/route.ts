@@ -11,6 +11,7 @@ import { isVendor, OPERATOR_ROLES, type Role } from "@/lib/permissions";
 import { getVendorIdForUser } from "@/lib/vendor-auth";
 import { canReportComplete } from "@/lib/vendor-order";
 import { enqueueNotification } from "@/lib/zalo";
+import { buildAdminNotifText, enqueueInAppForOperators } from "@/lib/inapp-notification";
 import { NotificationType } from "@prisma/client";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -30,6 +31,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     select: {
       id: true,
       status: true,
+      bookingId: true, // 운영자 인앱 알림 딥링크(/bookings/{id})용
       vendorId: true,
       vendorStatus: true,
       vendorCompletedAt: true,
@@ -95,6 +97,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         villaName: order.booking?.villa?.name ?? "—",
       },
     });
+  }
+
+  // 운영자 인앱 알림(벨) — Zalo 미연결 운영자도 인지(admin-vendor-ops C). 금액 미포함.
+  try {
+    const { title, body } = buildAdminNotifText("VENDOR_COMPLETED", {
+      vendorName: order.vendor?.nameKo || order.vendor?.name,
+      itemName,
+      villaName: order.booking?.villa?.name,
+    });
+    await enqueueInAppForOperators({
+      type: "VENDOR_COMPLETED",
+      title,
+      body,
+      href: `/bookings/${order.bookingId}`,
+    });
+  } catch {
+    // 무시 — 알림 적재 실패가 완료 보고를 깨지 않게
   }
 
   await writeAuditLog({

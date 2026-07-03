@@ -56,11 +56,19 @@ export interface OrderRow {
   vendorRejectReason: string | null;
   vendorSettledAt: string | null; // 정산 완료 시각(null=미정산)
   vendorSettleMethod: VendorSettleMethod | null;
+  vendorCompletedAt: string | null; // 공급자 이행 완료 보고 시각(null=미보고, admin-vendor-ops A)
   // 일정 협의(propose, ADR-0023 S2 확장) — 공급자가 수락하되 제안한 대안 시간.
   proposedServiceDate: string | null; // YYYY-MM-DD(@db.Date)
   proposedServiceTime: string | null; // "HH:MM"
   vendorProposalNote: string | null; // 제안 사유 메모
   vendorProposalRespondedAt: string | null; // 운영자 처리(적용/무시) 시각. null=미해결
+}
+
+// 대체 벤더 지정 셀렉터 옵션(admin-vendor-ops D) — 승인(APPROVED)된 공급자만 서버에서 내려옴
+export interface VendorOption {
+  id: string;
+  name: string;
+  nameKo: string | null;
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -85,6 +93,7 @@ export default function ServiceOrdersPanel({
   showCost,
   dateMin,
   dateMax,
+  vendorOptions = [],
 }: {
   bookingId: string;
   catalog: OrderCatalogItem[];
@@ -92,6 +101,7 @@ export default function ServiceOrdersPanel({
   showCost: boolean;
   dateMin: string; // 희망 날짜 입력 범위(YYYY-MM-DD) — 투숙 체크인
   dateMax: string; // 〃 체크아웃
+  vendorOptions?: VendorOption[]; // 대체 벤더 지정용(승인 벤더만, admin-vendor-ops D)
 }) {
   const t = useTranslations("adminServiceOrders");
   const router = useRouter();
@@ -121,10 +131,15 @@ export default function ServiceOrdersPanel({
         body: JSON.stringify({ status, ...extra }),
       });
       if (!res.ok) {
-        // 409 VENDOR_NOT_ACCEPTED — 공급자 미수락 상태로 고객확정 시도
+        // 409 VENDOR_NOT_ACCEPTED — 공급자 미수락 상태로 고객확정 시도.
+        // 409 PROPOSAL_UNRESOLVED — 수락했지만 시간 제안이 미처리(적용/무시 필요) — 문구 분기.
         const code = await res.json().then((d) => d?.error).catch(() => null);
         if (res.status === 409 && code === "VENDOR_NOT_ACCEPTED") {
           setMessage({ tone: "warn", text: t("vendor.notAcceptedWarn") });
+          return;
+        }
+        if (res.status === 409 && code === "PROPOSAL_UNRESOLVED") {
+          setMessage({ tone: "warn", text: t("vendor.proposal.unresolvedWarn") });
           return;
         }
         throw new Error();
@@ -186,6 +201,35 @@ export default function ServiceOrdersPanel({
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error();
+      setMessage({ tone: "ok", text: t("saved") });
+      refresh();
+    } catch {
+      fail();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 대체 벤더 지정(admin-vendor-ops D) — REQUESTED + 발주 전/거절만. PATCH {vendorId}(null=직접 제공).
+  //   서버가 발주 사이클 리셋(vendorStatus 등 null) 후 재발주 가능. 409 VENDOR_LOCKED는 상태 안내.
+  async function changeVendor(orderId: string, vendorId: string | null) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/service-orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vendorId }),
+      });
+      if (!res.ok) {
+        const code = await res.json().then((d) => d?.error).catch(() => null);
+        if (res.status === 409 && code === "VENDOR_LOCKED") {
+          setMessage({ tone: "warn", text: t("vendor.changeLocked") });
+        } else {
+          fail();
+        }
+        return;
+      }
       setMessage({ tone: "ok", text: t("saved") });
       refresh();
     } catch {
@@ -354,7 +398,9 @@ export default function ServiceOrdersPanel({
                         order={o}
                         showCost={showCost}
                         busy={busy}
+                        vendorOptions={vendorOptions}
                         onApplyProposal={applyProposal}
+                        onChangeVendor={changeVendor}
                         t={t}
                       />
                     </td>
@@ -430,21 +476,54 @@ export default function ServiceOrdersPanel({
 // ── 원천 공급자 표시 셀 (ADR-0023 S2) ─────────────────────────────────────────
 //   vendorId 없으면 "직접 제공". 있으면 공급자명 + 발주상태 배지. 거절 사유는 표시.
 //   정산완료(vendorSettledAt) 시각·결제수단은 재무권한자만(showCost).
+//   대체 벤더 지정(admin-vendor-ops D) — REQUESTED + 발주 전(null)/거절만 셀렉터 노출.
 function VendorCell({
   order,
   showCost,
   busy,
+  vendorOptions,
   onApplyProposal,
+  onChangeVendor,
   t,
 }: {
   order: OrderRow;
   showCost: boolean;
   busy: boolean;
+  vendorOptions: VendorOption[];
   onApplyProposal: (orderId: string, apply: boolean) => void;
+  onChangeVendor: (orderId: string, vendorId: string | null) => void;
   t: ReturnType<typeof useTranslations>;
 }) {
+  // 대체 벤더 지정 가능 — 서버 가드(VENDOR_LOCKED)와 동일 조건(REQUESTED + 발주 전/거절)
+  const canChangeVendor =
+    order.status === "REQUESTED" &&
+    (order.vendorStatus === null || order.vendorStatus === "VENDOR_REJECTED");
+  const vendorSelect = canChangeVendor && vendorOptions.length > 0 && (
+    <select
+      value={order.vendorId ?? ""}
+      onChange={(e) => onChangeVendor(order.id, e.target.value || null)}
+      disabled={busy}
+      aria-label={t("vendor.change")}
+      title={t("vendor.change")}
+      className="mt-1 block w-full max-w-[160px] bg-admin-bg border border-slate-700 rounded px-1.5 py-1 text-[11px] text-slate-300 focus:border-admin-primary focus:outline-none disabled:opacity-50"
+    >
+      {/* 없음 = 직접 제공(발주 흐름 없음) */}
+      <option value="">{t("vendor.changeNone")}</option>
+      {vendorOptions.map((v) => (
+        <option key={v.id} value={v.id}>
+          {v.nameKo || v.name}
+        </option>
+      ))}
+    </select>
+  );
+
   if (!order.vendorId) {
-    return <span className="text-[11px] text-slate-500">{t("vendor.direct")}</span>;
+    return (
+      <div className="space-y-1">
+        <span className="text-[11px] text-slate-500">{t("vendor.direct")}</span>
+        {vendorSelect}
+      </div>
+    );
   }
   const vs = order.vendorStatus ?? "NONE"; // null + vendorId → 미발주(NONE)
   // 일정 협의 미해결 — 수락(VENDOR_ACCEPTED)했고 대안 시간 제안 있고 운영자 미처리.
@@ -470,6 +549,8 @@ function VendorCell({
           “{order.vendorRejectReason}”
         </p>
       )}
+      {/* 대체 벤더 지정(admin-vendor-ops D) — 거절/미발주 상태에서 다른 승인 벤더로 교체(또는 직접 제공) */}
+      {vendorSelect}
       {/* 일정 협의 — 공급자가 제안한 대안 시간(미해결). 적용/무시로 일정 확정. */}
       {hasUnresolvedProposal && (
         <div className="mt-1 space-y-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 px-2.5 py-2 max-w-[220px]">
@@ -504,6 +585,12 @@ function VendorCell({
             </button>
           </div>
         </div>
+      )}
+      {/* 이행 완료 보고(vendorCompletedAt) — 공급자가 서비스 이행을 보고한 시각(전 운영자 표시) */}
+      {order.vendorCompletedAt && (
+        <p className="text-[10px] text-emerald-400/80 whitespace-nowrap">
+          {t("vendor.completedAt", { date: formatDateTime(new Date(order.vendorCompletedAt)) })}
+        </p>
       )}
       {/* 정산 상태(재무권한자만) */}
       {showCost && order.vendorSettledAt && (

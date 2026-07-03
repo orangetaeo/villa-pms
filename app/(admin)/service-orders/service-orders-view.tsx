@@ -90,7 +90,9 @@ export default function ServiceOrdersView({
 
   const [tab, setTab] = useState<"settle" | "status">("settle");
   const [settleSub, setSettleSub] = useState<"pending" | "paid">("pending");
-  const [statusChip, setStatusChip] = useState<"all" | "pending" | "accepted" | "rejected" | "cancelled">("all");
+  const [statusChip, setStatusChip] = useState<
+    "all" | "pending" | "accepted" | "proposal" | "rejected" | "cancelled"
+  >("all");
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [guestInput, setGuestInput] = useState("");
   const [page, setPage] = useState(1);
@@ -271,7 +273,7 @@ export default function ServiceOrdersView({
 
       {tab === "status" && (
         <div className="flex flex-wrap gap-2">
-          {(["all", "pending", "accepted", "rejected", "cancelled"] as const).map((f) => {
+          {(["all", "pending", "accepted", "proposal", "rejected", "cancelled"] as const).map((f) => {
             const active = statusChip === f;
             return (
               <button
@@ -446,6 +448,8 @@ function PendingList({
                       {scheduleLabel(o)}
                       {o.optionLabel ? ` · ${o.optionLabel}` : ""}
                     </p>
+                    {/* 이행 완료 보고(vendorCompletedAt) — 입금 전 이행 여부 확인용 배지 */}
+                    {o.vendorCompletedAt && <CompletedBadge at={o.vendorCompletedAt} t={t} />}
                   </div>
                   <Link
                     href={`/bookings/${o.bookingId}`}
@@ -575,6 +579,14 @@ function StatusList({
             </p>
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <VendorStatusBadge order={o} t={t} />
+              {/* 미해결 시간 제안 — 운영자 적용/무시 대기(고객확정이 막혀 있는 건) */}
+              {o.proposalPending && o.status !== "CANCELLED" && (
+                <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
+                  {t("hub.proposalBadge")}
+                </span>
+              )}
+              {/* 이행 완료 보고(vendorCompletedAt) */}
+              {o.vendorCompletedAt && <CompletedBadge at={o.vendorCompletedAt} t={t} />}
               {o.vendorStatus === "VENDOR_ACCEPTED" && o.status !== "CANCELLED" && (
                 <span
                   className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
@@ -591,6 +603,16 @@ function StatusList({
       ))}
       <PaginationBar total={total} page={page} pageSize={pageSize} onPageChange={onPage} onPageSizeChange={onPageSize} />
     </div>
+  );
+}
+
+// 공급자 이행 완료 보고 배지 — "이행 완료 dd/MM" (emerald 계열, 정산·중계 목록 공용)
+function CompletedBadge({ at, t }: { at: string; t: T }) {
+  return (
+    <span className="inline-flex items-center gap-0.5 rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300">
+      <span className="material-symbols-outlined text-[12px]">task_alt</span>
+      {t("hub.completedBadge", { date: dayMonth(at) })}
+    </span>
   );
 }
 

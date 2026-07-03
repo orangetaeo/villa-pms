@@ -36,6 +36,10 @@ export type HubOrder = {
   vendorSettleNote: string | null;
   poSentAt: string | null;
   vendorRespondedAt: string | null;
+  /** 공급자 이행 완료 보고 시각(null=미보고) — 정산·중계 목록 "이행 완료" 배지용 */
+  vendorCompletedAt: string | null;
+  /** 미해결 시간 제안 여부 — 공급자가 대안 시간을 제안했고 운영자가 아직 적용/무시 안 함 */
+  proposalPending: boolean;
   createdAt: string;
 };
 
@@ -53,7 +57,8 @@ export type HubSummary = {
   settledCount: number;
 };
 export type HubView = "pending" | "paid" | "status";
-export type HubStatusChip = "all" | "pending" | "accepted" | "rejected" | "cancelled";
+// proposal = 미해결 시간 제안(수락했지만 운영자 적용/무시 대기) — 고객확정이 막혀 있는 건만 조회
+export type HubStatusChip = "all" | "pending" | "accepted" | "proposal" | "rejected" | "cancelled";
 
 export type HubQuery = {
   view: HubView;
@@ -130,6 +135,16 @@ function viewWhere(q: HubQuery): Prisma.ServiceOrderWhereInput {
       case "accepted":
         extra.push({ vendorStatus: "VENDOR_ACCEPTED", status: { not: "CANCELLED" } });
         break;
+      case "proposal":
+        // 미해결 제안 — 수락(VENDOR_ACCEPTED)했지만 대안 시간 제안이 운영자 미처리 상태.
+        //   고객확정(CONFIRMED)이 PROPOSAL_UNRESOLVED로 막혀 있으므로 운영자가 먼저 봐야 하는 큐.
+        extra.push({
+          vendorStatus: "VENDOR_ACCEPTED",
+          status: { not: "CANCELLED" },
+          proposedServiceDate: { not: null },
+          vendorProposalRespondedAt: null,
+        });
+        break;
       case "rejected":
         extra.push({ vendorStatus: "VENDOR_REJECTED" });
         break;
@@ -163,6 +178,10 @@ const ROW_SELECT = {
   vendorSettleNote: true,
   poSentAt: true,
   vendorRespondedAt: true,
+  vendorCompletedAt: true,
+  // 미해결 제안 판정용(proposalPending) — 제안 날짜·운영자 처리 시각 2필드
+  proposedServiceDate: true,
+  vendorProposalRespondedAt: true,
   createdAt: true,
   catalogItemId: true,
   vendorName: true,
@@ -214,6 +233,8 @@ function mapRow(o: RawRow, itemName: string | null, locale: string): HubOrder {
     vendorSettleNote: o.vendorSettleNote,
     poSentAt: iso(o.poSentAt),
     vendorRespondedAt: iso(o.vendorRespondedAt),
+    vendorCompletedAt: iso(o.vendorCompletedAt),
+    proposalPending: o.proposedServiceDate != null && o.vendorProposalRespondedAt == null,
     createdAt: iso(o.createdAt) as string,
   };
 }

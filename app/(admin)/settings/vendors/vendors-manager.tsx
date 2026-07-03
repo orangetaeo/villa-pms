@@ -31,6 +31,7 @@ export interface VendorRow {
   approvalStatus: ApprovalStatus;
   rejectionReason: string;
   catalogCount: number;
+  inProgressCount: number; // 진행 중 발주(발주대기·수락, 미취소·미정산) 건수 — admin-vendor-ops E
   bankInfo?: BankInfoDraft; // showBank(canViewFinance)일 때만 존재
 }
 
@@ -413,6 +414,13 @@ export default function VendorsManager({
                     {v.catalogCount > 0 && (
                       <span className="bg-slate-700/60 text-slate-300 text-[10px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap">
                         {t("catalogBadge", { n: v.catalogCount })}
+                      </span>
+                    )}
+                    {/* 진행 중 발주(발주대기·수락, 미취소·미정산) — 0이면 생략(admin-vendor-ops E) */}
+                    {v.inProgressCount > 0 && (
+                      <span className="bg-amber-500/15 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[12px]">pending_actions</span>
+                        {t("inProgressBadge", { n: v.inProgressCount })}
                       </span>
                     )}
                     {v.hasAccount ? (

@@ -4,6 +4,7 @@
 //   ★ 누수: title/body엔 판매가(priceKrw/priceVnd)·마진 절대 금지. 품목·수량·빌라·본인 지급액(costVnd)만.
 //      수신자(VENDOR)는 베트남인·한국인 혼합 — title/body는 적재 시점에 수신자 User.locale(ko/vi)로 확정(buildVendorNotifText).
 import { prisma } from "@/lib/prisma";
+import { OPERATOR_ROLES } from "@/lib/permissions";
 import type { DbClient } from "@/lib/availability";
 
 export interface EnqueueInAppNotificationParams {
@@ -137,5 +138,87 @@ export function buildVendorNotifText(
     default:
       // VENDOR_PO·VENDOR_PO_CANCELLED·VENDOR_PROPOSAL_DISMISSED·기타 — 공통 detail.
       return { title, body: detail };
+  }
+}
+
+// ===================== 운영자(ADMIN) 인앱 알림 (admin-vendor-ops C) =====================
+//   수신자=운영자(ko 고정 — 운영 화면 기준 언어). 벤더 이벤트(수락/거절/제안/완료)·자가가입 대기.
+//   ★ 누수: 금액 절대 미포함 — 판매가·마진은 물론 costVnd(지급액)도 넣지 않는다.
+//      품목·빌라·업체명·일정(제안)·거절 사유만.
+
+export type AdminNotifKind =
+  | "VENDOR_ACCEPTED"
+  | "VENDOR_REJECTED"
+  | "VENDOR_PROPOSED"
+  | "VENDOR_COMPLETED"
+  | "VENDOR_SIGNUP";
+
+export type AdminNotifPayload = {
+  vendorName?: string | null;
+  itemName?: string | null;
+  villaName?: string | null;
+  /** 제안 일정 — "yyyy-MM-dd"·"HH:MM" (VENDOR_PROPOSED만) */
+  proposedServiceDate?: string | null;
+  proposedServiceTime?: string | null;
+  /** 거절 사유 한 줄 (VENDOR_REJECTED만) */
+  rejectReason?: string | null;
+};
+
+const ADMIN_NOTIF_TITLES: Record<AdminNotifKind, string> = {
+  VENDOR_ACCEPTED: "공급자 수락",
+  VENDOR_REJECTED: "공급자 거절",
+  VENDOR_PROPOSED: "공급자 시간 제안",
+  VENDOR_COMPLETED: "공급자 서비스 완료",
+  VENDOR_SIGNUP: "공급자 가입 승인 대기",
+};
+
+/**
+ * 벤더 이벤트 → 운영자 인앱 알림 title/body 빌더 (ko 고정).
+ *   body = "업체 — 품목 (빌라)" + 제안이면 제안 일정 줄, 거절이면 사유 줄.
+ *   ★ 금액(판매가·마진·costVnd) 절대 미포함.
+ */
+export function buildAdminNotifText(kind: AdminNotifKind, p: AdminNotifPayload): VendorNotifText {
+  const vendor = p.vendorName?.trim() || "—";
+  const item = p.itemName?.trim() || null;
+  const villa = p.villaName?.trim() ? ` (${p.villaName.trim()})` : "";
+  // 가입 대기는 발주 컨텍스트(품목·빌라)가 없음 — 업체명만.
+  const head = item ? `${vendor} — ${item}${villa}` : `${vendor}${villa}`;
+  const lines: string[] = [head];
+  if (kind === "VENDOR_PROPOSED" && p.proposedServiceDate) {
+    const time = p.proposedServiceTime ? ` ${p.proposedServiceTime}` : "";
+    lines.push(`제안 일정: ${p.proposedServiceDate}${time}`);
+  }
+  if (kind === "VENDOR_REJECTED" && p.rejectReason?.trim()) {
+    lines.push(`사유: ${p.rejectReason.trim()}`);
+  }
+  return { title: ADMIN_NOTIF_TITLES[kind], body: lines.join("\n") };
+}
+
+/**
+ * 활성 운영자 전원에게 인앱 알림 적재 — Zalo 연결(zaloUserId) 유무와 무관(Zalo 미연결 운영자도
+ * 벨에서 인지). 발송이 아니라 적재이므로 순차 create.
+ * ★ 호출부에서 try/catch 격리할 것 — 적재 실패가 본 비즈니스 로직을 깨지 않게.
+ */
+export async function enqueueInAppForOperators(params: {
+  type: string;
+  title: string;
+  body?: string | null;
+  href?: string | null;
+  db?: DbClient;
+}) {
+  const db = params.db ?? prisma;
+  const operators = await db.user.findMany({
+    where: { role: { in: [...OPERATOR_ROLES] }, isActive: true },
+    select: { id: true },
+  });
+  for (const op of operators) {
+    await enqueueInAppNotification({
+      userId: op.id,
+      type: params.type,
+      title: params.title,
+      body: params.body ?? null,
+      href: params.href ?? null,
+      db,
+    });
   }
 }
