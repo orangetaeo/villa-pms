@@ -5,6 +5,7 @@
 //   ★ 누수: API가 가격 없는 InAppNotification만 내려줌(판매가·마진 없음). 이 컴포넌트는 그 shape만 사용.
 //   SSE 아님 — 마운트 시 + 주기 폴링(POLL_MS)으로 미읽음 갱신. 시트 열 때 read 호출해 0으로.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 
 const POLL_MS = 45_000; // 45초 폴링 — 모바일 배터리·부하 고려(SSE 미사용)
@@ -107,7 +108,9 @@ export default function VendorNotificationBell() {
         )}
       </button>
 
-      {open && (
+      {/* 시트는 body로 포털 — 헤더(backdrop-blur)가 fixed의 containing block이 되어 시트가 헤더 64px 안에 갇히는 문제 방지 */}
+      {open &&
+        createPortal(
         <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40">
           <div className="flex max-h-[80vh] w-full max-w-md flex-col rounded-t-3xl bg-white shadow-2xl">
             <div className="shrink-0 space-y-3 px-5 pb-2 pt-4">
@@ -181,8 +184,9 @@ export default function VendorNotificationBell() {
               )}
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </>
   );
 }
