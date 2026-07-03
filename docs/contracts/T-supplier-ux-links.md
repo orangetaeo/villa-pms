@@ -10,6 +10,7 @@
 ## 수정 파일 (이 외 수정 금지)
 - `app/(supplier)/calendar/calendar-view.tsx` (+ 바텀시트 데이터 공급 경로에 seller/status 필드가 없으면 해당 서버 페이지/API 1곳)
 - `app/(supplier)/cleaning/[id]/page.tsx`
+- `app/(supplier)/cleaning/[id]/cleaning-submit.tsx` — 제출 화면(PENDING/REJECTED)에도 빌라명 역링크 필요(villaHref 옵션 prop). 배포 후 검증에서 조회 화면만으론 미완결로 확인되어 추가
 - `messages/ko.json`, `messages/vi.json` — 키 추가만
 
 ## 완료 기준 (테스트 가능)

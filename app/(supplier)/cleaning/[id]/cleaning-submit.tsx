@@ -51,6 +51,7 @@ interface PhotoState {
 export function CleaningSubmit({
   taskId,
   villaName,
+  villaHref,
   todayLabel,
   slots,
   rejectNote,
@@ -59,6 +60,8 @@ export function CleaningSubmit({
 }: {
   taskId: string;
   villaName: string;
+  /** SUPPLIER만 빌라 상세 역링크 — CLEANER는 /my-villas 접근 불가라 미전달(텍스트 유지) */
+  villaHref?: string | null;
   todayLabel: string;
   slots: SlotProp[];
   rejectNote: string | null;
@@ -161,7 +164,17 @@ export function CleaningSubmit({
       <header className="mt-14 border-b border-neutral-100 bg-white px-4 py-6">
         <div className="mb-4 flex flex-col gap-1">
           <h2 className="text-2xl font-bold text-neutral-900">{labels.heading}</h2>
-          <span className="font-semibold text-teal-600">{villaName}</span>
+          {villaHref ? (
+            <Link
+              href={villaHref}
+              className="flex items-center gap-1 font-semibold text-teal-600 underline-offset-2 active:underline"
+            >
+              {villaName}
+              <span className="material-symbols-outlined text-base">chevron_right</span>
+            </Link>
+          ) : (
+            <span className="font-semibold text-teal-600">{villaName}</span>
+          )}
           <p className="text-xs text-neutral-500">{todayLabel}</p>
         </div>
         <div className="space-y-2">
