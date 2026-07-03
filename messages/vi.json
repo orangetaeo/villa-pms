@@ -244,7 +244,15 @@
     "guestNote": "Yêu cầu của khách",
     "timeline": {
       "sent": "Đã gửi đơn",
-      "responded": "Đã phản hồi"
+      "responded": "Đã phản hồi",
+      "completed": "Đã hoàn thành"
+    },
+    "mapLink": "Xem bản đồ",
+    "pickupBadge": "Đón khách",
+    "complete": {
+      "button": "Báo hoàn thành dịch vụ",
+      "done": "Đã hoàn thành",
+      "confirm": "Xác nhận đã hoàn thành dịch vụ này? Không thể hoàn tác."
     },
     "empty": {
       "inbox": "Chưa có đơn mới",

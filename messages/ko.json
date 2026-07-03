@@ -244,7 +244,15 @@
     "guestNote": "고객 요청",
     "timeline": {
       "sent": "발주 발송",
-      "responded": "응답"
+      "responded": "응답",
+      "completed": "이행 완료"
+    },
+    "mapLink": "지도 보기",
+    "pickupBadge": "픽업",
+    "complete": {
+      "button": "서비스 완료 보고",
+      "done": "이행 완료",
+      "confirm": "이 서비스의 이행 완료를 보고할까요? 되돌릴 수 없습니다."
     },
     "empty": {
       "inbox": "받은 발주가 없습니다",

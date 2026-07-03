@@ -286,6 +286,10 @@ export function buildNotificationText(
       // ★ 금액(판매가·원가) 미노출 — 공급자는 앱(/vendor)에서 자기 발주만 확인·가부.
       const lines = [`🧺 Đơn đặt hàng mới: ${str(p.itemName)} x${num(p.quantity)}`];
       lines.push(`Địa điểm: ${villa}`);
+      // 이행 장소 주소 — 발주받은 빌라 1채의 주소만(재고 비공개 원칙과 무관, 판매가·마진 아님).
+      if (typeof p.villaAddress === "string" && p.villaAddress.trim().length > 0) {
+        lines.push(`Địa chỉ: ${p.villaAddress.trim()}`);
+      }
       if (typeof p.serviceDate === "string" && p.serviceDate.length > 0) {
         lines.push(`Ngày: ${formatDateVi(p.serviceDate)}`);
       }
@@ -326,6 +330,10 @@ export function buildNotificationText(
           `사유: ${str(p.proposalNote, "(메모 없음)")}`,
           `앱에서 적용/무시하세요.`,
         ].join("\n");
+      }
+      // 서비스 이행 완료 보고 — 공급자가 /vendor에서 완료 버튼(vendorCompletedAt). 정산 처리 신호.
+      if (p.action === "complete") {
+        return `🏁 공급자 서비스 완료: ${vendorName} — ${itemName} (${villa})`;
       }
       // accepted: accept/propose는 true(수락 계열), reject만 false — 기존 동작 보존.
       if (p.accepted === true) {

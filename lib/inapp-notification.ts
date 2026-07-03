@@ -74,6 +74,8 @@ export type VendorNotifPayload = {
   quantity?: number | null;
   villaName?: string | null;
   serviceDate?: string | null; // "yyyy-MM-dd" (toDateOnlyString)
+  /** 일정 확정 시각 "HH:MM" — 제안 결과 통보용(적용된 실제 시각) */
+  serviceTime?: string | null;
   /** 정산 완료 통보용 — 본인 지급액(BigInt 문자열). 우리 판매가·마진 아님. */
   costVnd?: string | null;
 };
@@ -105,6 +107,20 @@ export function buildVendorNotifText(type: string, p: VendorNotifPayload): Vendo
       const pay = p.costVnd ? ` · ${formatVndDot(p.costVnd)}` : "";
       return { title: "Đã thanh toán", body: `${detail}${pay}` };
     }
+    case "VENDOR_PROPOSAL_APPLIED": {
+      // 공급자의 대안 시간 제안이 운영자에 의해 적용됨 — 확정된 새 일정을 함께 표기.
+      const time = p.serviceTime ? ` ${p.serviceTime}` : "";
+      return {
+        title: "Đề xuất giờ đã được chấp nhận",
+        body: `${item}${qty}${villa}${date}${time}`,
+      };
+    }
+    case "VENDOR_PROPOSAL_DISMISSED":
+      // 제안이 반영되지 않음 — 기존 일정 유지. 일정은 body의 날짜(원래 serviceDate)로 안내.
+      return {
+        title: "Đề xuất giờ không được áp dụng — giữ lịch ban đầu",
+        body: detail,
+      };
     default:
       return { title: "Thông báo", body: detail };
   }

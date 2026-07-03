@@ -41,7 +41,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           user: { select: { zaloUserId: true } },
         },
       },
-      booking: { select: { villa: { select: { name: true } } } },
+      booking: { select: { villa: { select: { name: true, address: true } } } },
     },
   });
   if (!order) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -87,6 +87,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       type: NotificationType.VENDOR_PO,
       payload: {
         villaName: order.booking?.villa?.name ?? "—",
+        villaAddress: order.booking?.villa?.address ?? null, // 이행 장소(발주 빌라 1채만)
         serviceDate: order.serviceDate ? toDateOnlyString(order.serviceDate) : null,
         itemName,
         quantity: order.quantity,

@@ -1115,6 +1115,7 @@ model ServiceOrder {
   poSentAt           DateTime? // Zalo 발주 발송 시각
   vendorRespondedAt  DateTime? // 공급자 가부 응답 시각
   vendorRejectReason String? // 거절 사유(공급자 입력)
+  vendorCompletedAt  DateTime? // 공급자 서비스 이행 완료 보고 시각(null=미보고) — VENDOR_ACCEPTED에서 자가 보고(멱등)
   vendorSettledAt    DateTime? // 발주 정산 완료 시각(null=미정산). 정산액=costVnd×quantity
   vendorSettleMethod GuestSettlementMethod? // CASH | BANK_TRANSFER | OTHER (재사용)
   vendorSettleNote   String?

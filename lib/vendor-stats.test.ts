@@ -149,6 +149,22 @@ describe("aggregateVendorStats — 매출·수락율·품목·정산", () => {
     expect(stats.totalVnd).toBe(10_000_000);
   });
 
+  it("정산 대기 = 발주함 정산탭 기준(수락+미취소) — 고객확정 전(REQUESTED) 수락 건도 포함", () => {
+    const stats = aggregateVendorStats(
+      [
+        // 수락 + 아직 REQUESTED(고객확정 전) — 매출엔 미산입, 정산 대기엔 산입(정산탭과 동일 숫자)
+        row({ serviceDate: d("2026-07-10"), status: ServiceOrderStatus.REQUESTED, costVnd: 3_000_000n }),
+        // 수락 + CONFIRMED — 매출·정산 대기 모두 산입
+        row({ serviceDate: d("2026-07-11"), costVnd: 5_000_000n }),
+        // 수락 + 취소 — 어느 쪽에도 미산입
+        row({ serviceDate: d("2026-07-12"), status: ServiceOrderStatus.CANCELLED, costVnd: 70_000_000n }),
+      ],
+      period
+    );
+    expect(stats.unsettledVnd).toBe(8_000_000); // 3M(REQUESTED) + 5M(CONFIRMED)
+    expect(stats.totalVnd).toBe(5_000_000); // 매출은 CONFIRMED만
+  });
+
   it("빈 데이터 → 0 그레이스풀", () => {
     const stats = aggregateVendorStats([], period);
     expect(stats.totalVnd).toBe(0);
