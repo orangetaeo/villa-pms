@@ -2,6 +2,7 @@ import { z } from "zod";
 import { BookingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
+import { notifyOperatorsGuestPaymentNotice } from "@/lib/consumer-signal-notify";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { assertSameOrigin } from "@/lib/csrf";
 
@@ -55,6 +56,11 @@ export async function POST(
     select: {
       id: true,
       status: true,
+      guestName: true,
+      checkIn: true,
+      checkOut: true,
+      holdExpiresAt: true,
+      villa: { select: { name: true } },
       proposalItem: { select: { proposal: { select: { token: true } } } },
     },
   });
@@ -79,6 +85,17 @@ export async function POST(
       depositorName: { new: depositorName },
       notedAt: { new: new Date().toISOString() },
     },
+  });
+
+  // 운영자 Zalo 통지 (A1) — 홀드만료 전 입금확인 유도. best-effort.
+  await notifyOperatorsGuestPaymentNotice(prisma, {
+    bookingId: booking.id,
+    villaName: booking.villa.name,
+    guestName: booking.guestName,
+    depositorName,
+    checkIn: booking.checkIn,
+    checkOut: booking.checkOut,
+    holdExpiresAt: booking.holdExpiresAt,
   });
 
   return Response.json({ ok: true });

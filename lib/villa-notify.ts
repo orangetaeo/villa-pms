@@ -9,7 +9,7 @@ type DbClient = PrismaClient | Prisma.TransactionClient;
 /** 운영자 통지 대상 — 직접예약 통지(roster-reminder 패턴)와 동일하게 STAFF 포함 */
 const OPERATOR_ROLES = ["OWNER", "MANAGER", "STAFF", "ADMIN"] as const;
 
-async function findNotifiableOperators(db: DbClient): Promise<{ id: string }[]> {
+export async function findNotifiableOperators(db: DbClient): Promise<{ id: string }[]> {
   return db.user.findMany({
     where: {
       role: { in: [...OPERATOR_ROLES] },

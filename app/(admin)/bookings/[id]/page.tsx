@@ -599,7 +599,19 @@ export default async function BookingDetailPage({
             </p>
           )}
         </div>
-      ) : (
+      ) : null}
+      {/* 취소됐지만 수납이 남은 예약 — 환불 확인 필요 배너 (A4).
+          환불 처리 후 결제 행 삭제(Xóa)로 해소한다(삭제는 AuditLog에 남음). */}
+      {booking.status === "CANCELLED" && booking.payments.length > 0 && (
+        <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl px-5 py-3 flex items-center gap-3">
+          <span className="material-symbols-outlined text-rose-400 shrink-0">currency_exchange</span>
+          <p className="text-sm font-bold text-rose-200 [word-break:keep-all]">
+            {t("detail.refundNeeded.body", { count: booking.payments.length })}
+            <span className="font-medium text-rose-300/80"> {t("detail.refundNeeded.hint")}</span>
+          </p>
+        </div>
+      )}
+      {!terminal && (
         <div className="bg-admin-card p-4 rounded-xl flex items-center justify-between relative overflow-hidden border border-[#334155]">
           <div className="absolute top-[50%] left-10 right-10 h-0.5 bg-slate-700 -translate-y-1/2"></div>
           <div

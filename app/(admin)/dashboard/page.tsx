@@ -143,6 +143,46 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      {/* 소비자 확인 필요 배너 (A1·A4) — 입금통보·옵션요청·취소 미환불, 있을 때만 */}
+      {(stats.paymentNoticePendingCount > 0 ||
+        stats.serviceOrderRequestedCount > 0 ||
+        stats.cancelledUnrefundedCount > 0) && (
+        <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl px-6 py-3 space-y-2">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-rose-400 shrink-0">notifications_active</span>
+            <p className="text-sm font-bold text-rose-300 [word-break:keep-all]">
+              {t("consumerSignals.bannerTitle")}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 pl-9">
+            {stats.paymentNoticePendingCount > 0 && (
+              <Link
+                href="/bookings?status=hold"
+                className="text-xs font-bold text-rose-200 hover:text-white border border-rose-500/40 rounded-lg px-3 py-1.5 transition-colors"
+              >
+                {t("consumerSignals.paymentNotice", { count: stats.paymentNoticePendingCount })}
+              </Link>
+            )}
+            {stats.serviceOrderRequestedCount > 0 && (
+              <Link
+                href="/service-orders/requests"
+                className="text-xs font-bold text-rose-200 hover:text-white border border-rose-500/40 rounded-lg px-3 py-1.5 transition-colors"
+              >
+                {t("consumerSignals.serviceRequests", { count: stats.serviceOrderRequestedCount })}
+              </Link>
+            )}
+            {stats.cancelledUnrefundedCount > 0 && (
+              <Link
+                href="/bookings?status=closed"
+                className="text-xs font-bold text-rose-200 hover:text-white border border-rose-500/40 rounded-lg px-3 py-1.5 transition-colors"
+              >
+                {t("consumerSignals.cancelledUnrefunded", { count: stats.cancelledUnrefundedCount })}
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 파트너 요청 대기 배너 (T-partner-admin-ops ②) — 취소·변경·홀드연장, 있을 때만 */}
       {stats.partnerRequestPendingCount > 0 && (
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-6 py-3 flex items-center justify-between gap-4">

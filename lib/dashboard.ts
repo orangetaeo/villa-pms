@@ -159,6 +159,12 @@ export interface DashboardStats {
   activityRecentCount: number;
   /** 승인 대기 빌라(PENDING_REVIEW) — 공급자 신규 등록·재제출 승인 게이트 */
   villaPendingReviewCount: number;
+  /** 입금통보 확인 대기 — HOLD 예약 중 GUEST_PAYMENT_NOTICE 감사로그 보유 (A1) */
+  paymentNoticePendingCount: number;
+  /** 부가서비스 고객 요청 대기 — 활성 예약의 REQUESTED 주문 (A1) */
+  serviceOrderRequestedCount: number;
+  /** 취소됐지만 수납 기록이 남은 예약 — 환불 확인 필요 (A4) */
+  cancelledUnrefundedCount: number;
   /** 파트너 취소·변경·홀드연장 요청 대기(PENDING) 건수 (T-partner-admin-ops ②) */
   partnerRequestPendingCount: number;
   /** 대기 요청 상위(오래된 순) — 배너에서 바로 처리 진입용 */
@@ -199,6 +205,9 @@ export async function loadDashboardStats(
     settlementPendingCount,
     activityRecentCount,
     villaPendingReviewCount,
+    holdIdsForNotice,
+    serviceOrderRequestedCount,
+    cancelledUnrefundedCount,
     partnerRequestPendingCount,
     partnerRequestRows,
     partnerOverdueRows,
@@ -250,6 +259,26 @@ export async function loadDashboardStats(
       db.auditLog.count({ where: { createdAt: { gte: since24h } } }),
       // 승인 대기 빌라 — 공급자 신규 등록·재제출 (T-admin-supplier-visibility)
       db.villa.count({ where: { status: "PENDING_REVIEW" } }),
+      // 입금통보 확인 대기(A1) — HOLD 예약 id 목록(아래에서 감사로그와 교차)
+      db.booking.findMany({
+        where: { status: BookingStatus.HOLD },
+        select: { id: true },
+      }),
+      // 부가서비스 고객 요청 대기(A1) — 종결(취소·체크아웃)된 예약 제외
+      db.serviceOrder.count({
+        where: {
+          status: "REQUESTED",
+          booking: {
+            status: {
+              in: [BookingStatus.HOLD, BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN],
+            },
+          },
+        },
+      }),
+      // 취소됐지만 수납이 남은 예약(A4) — 환불 확인 필요
+      db.booking.count({
+        where: { status: BookingStatus.CANCELLED, payments: { some: {} } },
+      }),
       // 파트너 요청 대기 — 취소·변경·홀드연장 (T-partner-admin-ops ②)
       db.bookingChangeRequest.count({ where: { status: "PENDING" } }),
       db.bookingChangeRequest.findMany({
@@ -265,6 +294,21 @@ export async function loadDashboardStats(
         select: { partnerId: true },
       }),
     ]);
+
+  // 입금통보(GUEST_PAYMENT_NOTICE)는 AuditLog에만 기록된다(Booking 컬럼 없음) — HOLD와 교차 집계
+  const paymentNoticePendingCount =
+    holdIdsForNotice.length === 0
+      ? 0
+      : (
+          await db.auditLog.groupBy({
+            by: ["entityId"],
+            where: {
+              action: "GUEST_PAYMENT_NOTICE",
+              entity: "Booking",
+              entityId: { in: holdIdsForNotice.map((b) => b.id) },
+            },
+          })
+        ).length;
 
   const toItem = (b: (typeof checkins)[number]): TodayBookingItem => ({
     id: b.id,
@@ -294,6 +338,9 @@ export async function loadDashboardStats(
     settlementPendingCount,
     activityRecentCount,
     villaPendingReviewCount,
+    paymentNoticePendingCount,
+    serviceOrderRequestedCount,
+    cancelledUnrefundedCount,
     partnerRequestPendingCount,
     partnerRequestItems: partnerRequestRows.map((r) => ({
       bookingId: r.bookingId,

@@ -19,6 +19,9 @@ import {
   evaluateConfirmCredit,
   writeOffReceivableOnCancel,
 } from "./partner-booking";
+import { vendorHasLivePo } from "./vendor-order";
+import { buildVendorNotifText, enqueueInAppNotification } from "./inapp-notification";
+import { toDateOnlyString } from "./date-vn";
 import { notifyPartner } from "./partner-notify";
 
 /**
@@ -448,6 +451,70 @@ export async function cancelBooking(
       throw new HoldRejectedError("INVALID_STATUS", "동시 변경이 감지되었습니다");
     }
     const updated = await tx.booking.findUniqueOrThrow({ where: { id: booking.id } });
+
+    // ── 미종결 부가서비스 주문 연쇄 취소 (A5, admin-ops-gaps) ──
+    //   예약이 죽었는데 REQUESTED·CONFIRMED 주문이 살아남아 확정·이행되는 사고 방지.
+    //   DELIVERED(이미 이행)는 보존. 살아있는 PO(발주됨·수락됨)는 원천 공급자에게 취소 통보
+    //   (Zalo는 연결 시, 인앱은 항상 — PATCH service-orders 취소 경로와 동일 규칙).
+    const openOrders = await tx.serviceOrder.findMany({
+      where: { bookingId: booking.id, status: { in: ["REQUESTED", "CONFIRMED"] } },
+      select: {
+        id: true,
+        quantity: true,
+        serviceDate: true,
+        catalogItemId: true,
+        vendorName: true,
+        vendorId: true,
+        vendorStatus: true,
+        vendor: { select: { userId: true, user: { select: { zaloUserId: true } } } },
+      },
+    });
+    if (openOrders.length > 0) {
+      await tx.serviceOrder.updateMany({
+        where: { id: { in: openOrders.map((o) => o.id) } },
+        data: { status: "CANCELLED" },
+      });
+      for (const o of openOrders) {
+        if (!vendorHasLivePo(o)) continue;
+        const vendorUserId = o.vendor?.userId;
+        if (!vendorUserId) continue;
+        const item = o.catalogItemId
+          ? await tx.serviceCatalogItem.findUnique({
+              where: { id: o.catalogItemId },
+              select: { nameKo: true },
+            })
+          : null;
+        const itemName = item?.nameKo ?? o.vendorName ?? "—";
+        const serviceDate = o.serviceDate ? toDateOnlyString(o.serviceDate) : null;
+        if (o.vendor?.user?.zaloUserId) {
+          await tx.notification.create({
+            data: {
+              userId: vendorUserId,
+              type: NotificationType.VENDOR_PO_CANCELLED,
+              payload: { itemName, quantity: o.quantity, villaName: booking.villa.name, serviceDate },
+            },
+          });
+        }
+        try {
+          const { title, body } = buildVendorNotifText(NotificationType.VENDOR_PO_CANCELLED, {
+            itemName,
+            quantity: o.quantity,
+            villaName: booking.villa.name,
+            serviceDate,
+          });
+          await enqueueInAppNotification({
+            db: tx,
+            userId: vendorUserId,
+            type: NotificationType.VENDOR_PO_CANCELLED,
+            title,
+            body,
+            href: "/vendor",
+          });
+        } catch {
+          // 인앱 적재 실패는 취소 본 처리에 영향 없음
+        }
+      }
+    }
 
     await tx.notification.create({
       data: {

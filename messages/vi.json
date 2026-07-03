@@ -611,7 +611,21 @@
       "bannerTitle": "Villa chờ phê duyệt",
       "bannerBody": "Có {count} villa do chủ nhà đăng ký/gửi lại đang chờ phê duyệt.",
       "bannerCta": "Xem xét ngay"
+    },
+    "consumerSignals": {
+      "bannerTitle": "Cần xác nhận từ khách",
+      "paymentNotice": "Khách báo đã chuyển khoản: {count} ca",
+      "serviceRequests": "Yêu cầu dịch vụ chờ xử lý: {count} ca",
+      "cancelledUnrefunded": "Đặt phòng đã hủy chưa hoàn tiền: {count} ca"
     }
+  },
+  "adminServiceRequests": {
+    "title": "Yêu cầu dịch vụ chờ xử lý",
+    "subtitle": "Đơn dịch vụ khách/đối tác đã yêu cầu đang chờ xác nhận. Bấm vào mục để xác nhận hoặc hủy trong chi tiết đặt phòng.",
+    "toHub": "Đến quyết toán",
+    "empty": "Không có yêu cầu đang chờ.",
+    "viaGuest": "Khách yêu cầu",
+    "viaPartner": "Đối tác/đề xuất"
   },
   "adminBookings": {
     "changeRequest": {
@@ -722,6 +736,10 @@
         "EXPIRED": "Giữ chỗ đã hết hạn — phòng đã được mở lại.",
         "NO_SHOW": "Khách không đến.",
         "reason": "Lý do: {reason}"
+      },
+      "refundNeeded": {
+        "body": "Đặt phòng đã hủy vẫn còn {count} khoản đã thu — hãy kiểm tra việc hoàn tiền.",
+        "hint": "Sau khi hoàn tiền, xóa dòng thanh toán tương ứng bên dưới để tất toán (lịch sử xóa được lưu trong nhật ký kiểm toán)."
       },
       "info": {
         "title": "Thông tin đặt phòng",
