@@ -11,6 +11,7 @@ import { NotificationType, type VillaStatus } from "@prisma/client";
 import { isOperator } from "@/lib/permissions";
 import { requireAuth, requireCapability } from "@/lib/api-guard";
 import { buildRatePeriodRowsFromSeasonCosts } from "@/lib/pricing";
+import { notifyOperatorsVillaPendingReview } from "@/lib/villa-notify";
 
 const patchSchema = z.object({
   action: z.enum(["APPROVE", "REJECT", "DEACTIVATE", "REACTIVATE"]),
@@ -279,6 +280,18 @@ export async function PUT(
       },
     },
   });
+
+  // 재제출 통지 — 운영자 승인 대기 재진입 알림. best-effort: 실패해도 재제출은 성공.
+  try {
+    await notifyOperatorsVillaPendingReview(prisma, {
+      villaId: id,
+      villaName: data.name,
+      supplierName: session.user.name ?? "",
+      resubmitted: true,
+    });
+  } catch {
+    // 통지는 정보성 — 실패 무시(감사로그는 이미 기록됨)
+  }
 
   // 응답에는 id·status만 — 마진/판매가/KRW 미포함 (POST와 동일)
   return NextResponse.json({ id, status: "PENDING_REVIEW" });

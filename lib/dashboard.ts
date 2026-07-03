@@ -143,6 +143,8 @@ export interface DashboardStats {
   settlementPendingCount: number;
   /** 최근 24시간 활동(AuditLog) 건수 — 활동 박스 표시값 */
   activityRecentCount: number;
+  /** 승인 대기 빌라(PENDING_REVIEW) — 공급자 신규 등록·재제출 승인 게이트 */
+  villaPendingReviewCount: number;
 }
 
 export async function loadDashboardStats(
@@ -176,6 +178,7 @@ export async function loadDashboardStats(
     proposalActiveCount,
     settlementPendingCount,
     activityRecentCount,
+    villaPendingReviewCount,
   ] = await Promise.all([
       // 정의는 /bookings 프리셋(today-checkin·today-checkout)과 동일 — 카드 건수와
       // 링크 목록이 일치해야 함 (QA D-2). "오늘 처리할 일" 중심: 체크인 예정(CONFIRMED)·
@@ -222,6 +225,8 @@ export async function loadDashboardStats(
       }),
       // 최근 24시간 활동 건수 (활동 박스 표시값)
       db.auditLog.count({ where: { createdAt: { gte: since24h } } }),
+      // 승인 대기 빌라 — 공급자 신규 등록·재제출 (T-admin-supplier-visibility)
+      db.villa.count({ where: { status: "PENDING_REVIEW" } }),
     ]);
 
   const toItem = (b: (typeof checkins)[number]): TodayBookingItem => ({
@@ -251,6 +256,7 @@ export async function loadDashboardStats(
     proposalActiveCount,
     settlementPendingCount,
     activityRecentCount,
+    villaPendingReviewCount,
   };
 }
 

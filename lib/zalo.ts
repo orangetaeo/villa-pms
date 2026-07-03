@@ -364,6 +364,31 @@ export function buildNotificationText(
       lines.push(`SecurityEvent를 확인하세요. (대응 절차: docs/ops/incident-response.md)`);
       return lines.join("\n");
     }
+
+    case NotificationType.VILLA_PENDING_REVIEW:
+      // 수신자=운영자 → 한국어. 공급자 신규 등록/반려 후 재제출 → 승인 대기 통지. 금액 정보 없음.
+      return [
+        p.resubmitted === true
+          ? `🏠 반려 빌라 재제출: ${villa}`
+          : `🏠 새 빌라 등록: ${villa}`,
+        `공급자: ${str(p.supplierName)}`,
+        `승인 대기 중입니다. 관리자 화면에서 검토해주세요.`,
+      ].join("\n");
+
+    case NotificationType.VILLA_CONTENT_UPDATED: {
+      // 수신자=운영자 → 한국어. 승인(ACTIVE)된 빌라의 사진/비품/규칙 변경 통지. 금액 정보 없음.
+      const kindLabels: Record<string, string> = {
+        PHOTOS: "사진",
+        AMENITIES: "비품",
+        INFO: "이용규칙·위치 정보",
+      };
+      const kind = str(p.kind);
+      return [
+        `✏️ 판매중 빌라 정보 변경: ${villa}`,
+        `변경 항목: ${kindLabels[kind] ?? kind}`,
+        `공급자가 수정했습니다. 내용을 확인해주세요.`,
+      ].join("\n");
+    }
   }
 }
 

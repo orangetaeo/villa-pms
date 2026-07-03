@@ -10,6 +10,7 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { PHOTO_SPACES } from "@/lib/villa-schema";
 import { isOperator } from "@/lib/permissions";
 import { requireAuth } from "@/lib/api-guard";
+import { maybeNotifyVillaContentUpdated } from "@/lib/villa-notify";
 
 // 진행 중 예약 — 기준사진(baseline) 증빙 무결성 보호 대상 상태
 const ACTIVE_BOOKING_STATUSES = ["HOLD", "CONFIRMED", "CHECKED_IN"] as const;
@@ -138,6 +139,8 @@ export async function POST(
   if (result.kind === "NOT_FOUND") {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
+  // 승인 후 공급자 사진 변경 → 운영자 통지 (ACTIVE만·PENDING dedup·best-effort)
+  await maybeNotifyVillaContentUpdated(prisma, { villaId, kind: "PHOTOS", actorRole: role });
   return NextResponse.json(result.photo, { status: 201 });
 }
 
@@ -226,6 +229,8 @@ export async function DELETE(
     // 진행 중 예약이 점유한 기준사진 — 증빙 무결성 보호
     return NextResponse.json({ error: "BASELINE_PHOTO_LOCKED" }, { status: 409 });
   }
+  // 승인 후 공급자 사진 삭제 → 운영자 통지 (ACTIVE만·PENDING dedup·best-effort)
+  await maybeNotifyVillaContentUpdated(prisma, { villaId, kind: "PHOTOS", actorRole: role });
   return NextResponse.json({ deleted: result.photoId });
 }
 
