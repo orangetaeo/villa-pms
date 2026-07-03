@@ -3349,6 +3349,12 @@
       "empty": "Không nhận ra chữ",
       "failed": "Dịch thất bại"
     },
+    "pasteImage": {
+      "title": "Ảnh đã dán",
+      "send": "Gửi",
+      "cancel": "Hủy",
+      "failed": "Gửi ảnh thất bại. Vui lòng thử lại."
+    },
     "textTranslate": {
       "button": "Dịch",
       "loading": "Đang dịch…",

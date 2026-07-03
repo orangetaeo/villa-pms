@@ -3235,6 +3235,12 @@
       "empty": "인식된 글자 없음",
       "failed": "번역 실패"
     },
+    "pasteImage": {
+      "title": "붙여넣은 이미지",
+      "send": "전송",
+      "cancel": "취소",
+      "failed": "이미지 전송에 실패했습니다. 다시 시도해 주세요."
+    },
     "textTranslate": {
       "button": "번역",
       "loading": "번역 중…",

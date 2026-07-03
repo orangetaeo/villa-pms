@@ -206,6 +206,7 @@ export async function getThreadData(
           senderUid: true,
           text: true,
           translatedText: true,
+          captionTranslated: true,
           attachmentUrls: true,
           status: true,
           createdAt: true,

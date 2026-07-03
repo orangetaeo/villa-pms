@@ -134,6 +134,7 @@ export async function GET(req: Request) {
       senderUid: true,
       text: true,
       translatedText: true,
+      captionTranslated: true,
       attachmentUrls: true,
       status: true,
       createdAt: true,
