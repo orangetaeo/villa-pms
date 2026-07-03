@@ -104,6 +104,8 @@ describe("attributionDate — serviceDate > checkOut > createdAt", () => {
   });
 });
 
+const ZERO_SETTLE = { unsettledVnd: 0n, settledVnd: 0n };
+
 describe("aggregateVendorStats — 매출·수락율·품목·정산", () => {
   const period = resolveStatsPeriod({ range: "thisMonth" }, NOW);
 
@@ -120,7 +122,8 @@ describe("aggregateVendorStats — 매출·수락율·품목·정산", () => {
         // 제외: 수락이나 취소 상태
         row({ serviceDate: d("2026-07-14"), status: ServiceOrderStatus.CANCELLED, costVnd: 77_000_000n }),
       ],
-      period
+      period,
+      ZERO_SETTLE
     );
 
     expect(stats.totalVnd).toBe(16_000_000); // 10M + 6M
@@ -136,37 +139,24 @@ describe("aggregateVendorStats — 매출·수락율·품목·정산", () => {
     expect(stats.revenueTrend.length).toBe(period.buckets.length);
   });
 
-  it("정산 미정산/완료 분리", () => {
+  it("정산 잔액 = settle 인자 패스스루(전역 잔액은 loadVendorStats가 정산탭과 동일 쿼리로 공급)", () => {
     const stats = aggregateVendorStats(
       [
-        row({ serviceDate: d("2026-07-10"), costVnd: 4_000_000n, vendorSettledAt: null }),
-        row({ serviceDate: d("2026-07-11"), costVnd: 6_000_000n, vendorSettledAt: d("2026-07-20") }),
-      ],
-      period
-    );
-    expect(stats.unsettledVnd).toBe(4_000_000);
-    expect(stats.settledVnd).toBe(6_000_000);
-    expect(stats.totalVnd).toBe(10_000_000);
-  });
-
-  it("정산 대기 = 발주함 정산탭 기준(수락+미취소) — 고객확정 전(REQUESTED) 수락 건도 포함", () => {
-    const stats = aggregateVendorStats(
-      [
-        // 수락 + 아직 REQUESTED(고객확정 전) — 매출엔 미산입, 정산 대기엔 산입(정산탭과 동일 숫자)
+        // 수락 + REQUESTED(고객확정 전) — 매출엔 미산입(정산 잔액은 이 함수 밖에서 전역 계산)
         row({ serviceDate: d("2026-07-10"), status: ServiceOrderStatus.REQUESTED, costVnd: 3_000_000n }),
-        // 수락 + CONFIRMED — 매출·정산 대기 모두 산입
         row({ serviceDate: d("2026-07-11"), costVnd: 5_000_000n }),
-        // 수락 + 취소 — 어느 쪽에도 미산입
-        row({ serviceDate: d("2026-07-12"), status: ServiceOrderStatus.CANCELLED, costVnd: 70_000_000n }),
       ],
-      period
+      period,
+      { unsettledVnd: 8_000_000n, settledVnd: 6_000_000n }
     );
-    expect(stats.unsettledVnd).toBe(8_000_000); // 3M(REQUESTED) + 5M(CONFIRMED)
+    expect(stats.unsettledVnd).toBe(8_000_000);
+    expect(stats.unsettledVndText).toBe("8.000.000₫");
+    expect(stats.settledVnd).toBe(6_000_000);
     expect(stats.totalVnd).toBe(5_000_000); // 매출은 CONFIRMED만
   });
 
   it("빈 데이터 → 0 그레이스풀", () => {
-    const stats = aggregateVendorStats([], period);
+    const stats = aggregateVendorStats([], period, ZERO_SETTLE);
     expect(stats.totalVnd).toBe(0);
     expect(stats.orderCount).toBe(0);
     expect(stats.acceptanceRatePct).toBeNull();
@@ -179,7 +169,8 @@ describe("aggregateVendorStats — 매출·수락율·품목·정산", () => {
   it("누수 가드 — 반환 객체에 금지 필드 키 0개", () => {
     const stats = aggregateVendorStats(
       [row({ serviceDate: d("2026-07-10"), costVnd: 5_000_000n })],
-      period
+      period,
+      ZERO_SETTLE
     );
     const json = JSON.stringify(stats);
     expect(json).not.toMatch(/sale|margin|priceKrw|priceVnd|krw/i);
@@ -220,6 +211,30 @@ function fakeDb(opts: {
   } as never;
 }
 
+// fakeDb에 aggregate 추가 — 전역 정산 잔액 쿼리(vendorId 스코프 강제 검증 포함)
+function fakeDbWithAggregate(opts: Parameters<typeof fakeDb>[0]) {
+  const base = fakeDb(opts) as Record<string, unknown>;
+  const so = base.serviceOrder as Record<string, unknown>;
+  so.aggregate = async (args: {
+    where?: { vendorId?: string; vendorSettledAt?: null | { not: null } };
+  }) => {
+    expect(args.where?.vendorId).toBeDefined();
+    const vid = args.where!.vendorId!;
+    const wantSettled = args.where?.vendorSettledAt !== null;
+    const sum = opts.orders
+      .filter(
+        (o) =>
+          o.vendorId === vid &&
+          o.vendorStatus === ServiceVendorStatus.VENDOR_ACCEPTED &&
+          o.status !== ServiceOrderStatus.CANCELLED &&
+          (wantSettled ? o.vendorSettledAt !== null : o.vendorSettledAt === null)
+      )
+      .reduce((acc, o) => acc + o.costVnd, 0n);
+    return { _sum: { costVnd: sum } };
+  };
+  return base as never;
+}
+
 describe("loadVendorStats — vendorId 스코프 강제", () => {
   const period = resolveStatsPeriod({ range: "thisMonth" }, NOW);
 
@@ -228,7 +243,7 @@ describe("loadVendorStats — vendorId 스코프 강제", () => {
       "ven1",
       period,
       "vi",
-      fakeDb({
+      fakeDbWithAggregate({
         orders: [
           {
             vendorId: "ven1",
@@ -264,5 +279,8 @@ describe("loadVendorStats — vendorId 스코프 강제", () => {
     );
     expect(stats.totalVnd).toBe(7_000_000);
     expect(stats.topItems.map((i) => i.itemLabel)).toEqual(["현지 과일"]);
+    // 전역 정산 잔액도 본인(ven1) 것만 — 타 공급자 99M 미포함
+    expect(stats.unsettledVnd).toBe(7_000_000);
+    expect(stats.settledVnd).toBe(0);
   });
 });

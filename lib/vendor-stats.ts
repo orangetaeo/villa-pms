@@ -148,10 +148,10 @@ export interface VendorStats {
   avgUnitVndText: string;
   /** 인기 품목 Top(매출 내림차순) */
   topItems: VendorItemStat[];
-  /** 미정산 금액(VND) — 정산 대상(수락+미취소, 발주함 정산탭과 동일 기준) 중 vendorSettledAt 없음 */
+  /** 미정산 금액(VND) — 전역(기간 무관) 잔액. 발주함 정산탭 settleTotals와 동일 쿼리(수락+미취소+미정산) */
   unsettledVnd: number;
   unsettledVndText: string;
-  /** 정산완료 금액(VND) — 정산 대상(수락+미취소) 중 vendorSettledAt 있음 */
+  /** 정산완료 금액(VND) — 전역(기간 무관). 발주함 정산탭과 동일 쿼리(수락+미취소+정산됨) */
   settledVnd: number;
   settledVndText: string;
 }
@@ -181,19 +181,23 @@ const REVENUE_SELECT = {
  * DB 무관 순수 함수(테스트 가능). 행은 이미 vendorId 스코프로 걸러진 것만 들어와야 한다(호출부 보장).
  *
  * - 매출/추이/품목: isRevenueOrder(수락+확정/이행)만 산입.
- * - 정산(미정산/정산완료): 수락+미취소(발주함 정산탭 settleTotals와 동일 기준) — 기간 내 귀속분.
+ * - 정산(미정산/정산완료): "현재 잔액"이라 기간 개념이 없음 — 이 함수는 계산하지 않고 settle 인자를
+ *   그대로 직렬화한다. 값은 loadVendorStats가 발주함 정산탭(settleTotals)과 동일한 전역 쿼리로 공급
+ *   (기간 스코프로 계산하면 미래 serviceDate 건이 빠져 정산탭과 숫자가 어긋난다 — 2026-07-03 QA).
  * - 수락율: 전체 응답(수락+거절) 기준(매출 인식과 별개로 응답 행 전체 집계).
  * - 추이/총계는 기간 [from,to)·직전 동기간 [previous.from,previous.to)로 귀속일 분기.
  */
-export function aggregateVendorStats(rows: OrderRow[], period: StatsPeriod): VendorStats {
+export function aggregateVendorStats(
+  rows: OrderRow[],
+  period: StatsPeriod,
+  settle: { unsettledVnd: bigint; settledVnd: bigint }
+): VendorStats {
   const bucketSums: bigint[] = period.buckets.map(() => 0n);
   let totalVnd = 0n;
   let prevTotalVnd = 0n;
   let orderCount = 0;
   let accepted = 0;
   let rejected = 0;
-  let unsettledVnd = 0n;
-  let settledVnd = 0n;
 
   const itemMap = new Map<string, { orderCount: number; quantity: number; vnd: bigint }>();
 
@@ -202,26 +206,12 @@ export function aggregateVendorStats(rows: OrderRow[], period: StatsPeriod): Ven
     if (o.vendorStatus === ServiceVendorStatus.VENDOR_ACCEPTED) accepted += 1;
     else if (o.vendorStatus === ServiceVendorStatus.VENDOR_REJECTED) rejected += 1;
 
-    // 정산 대상 = 수락 + 미취소 — 발주함 정산탭(settleTotals)과 동일 기준.
-    //   매출 인식(CONFIRMED·DELIVERED)보다 넓다: 수락 직후(고객확정 전) 건도 "지급대기"로 잡혀야
-    //   화면 간 같은 단어(미지급/지급대기)가 같은 숫자를 가리킨다.
-    const settleEligible =
-      o.vendorStatus === ServiceVendorStatus.VENDOR_ACCEPTED &&
-      o.status !== ServiceOrderStatus.CANCELLED;
-    if (!settleEligible) continue; // 매출 인식(isRevenueOrder)은 정산 대상의 부분집합
+    if (!isRevenueOrder(o)) continue;
 
     const amount = orderAmountVnd(o.costVnd, o.quantity);
     const at = attributionDate(o);
     const inCurrent =
       at.getTime() >= period.from.getTime() && at.getTime() < period.to.getTime();
-
-    // 정산 상태별 — 정산 대상 전체(기간 내)
-    if (inCurrent) {
-      if (o.vendorSettledAt) settledVnd += amount;
-      else unsettledVnd += amount;
-    }
-
-    if (!isRevenueOrder(o)) continue;
 
     if (inCurrent) {
       totalVnd += amount;
@@ -277,10 +267,10 @@ export function aggregateVendorStats(rows: OrderRow[], period: StatsPeriod): Ven
     avgUnitVnd: Number(avgUnit),
     avgUnitVndText: formatVndDot(avgUnit),
     topItems,
-    unsettledVnd: Number(unsettledVnd),
-    unsettledVndText: formatVndDot(unsettledVnd),
-    settledVnd: Number(settledVnd),
-    settledVndText: formatVndDot(settledVnd),
+    unsettledVnd: Number(settle.unsettledVnd),
+    unsettledVndText: formatVndDot(settle.unsettledVnd),
+    settledVnd: Number(settle.settledVnd),
+    settledVndText: formatVndDot(settle.settledVnd),
   };
 }
 
@@ -350,5 +340,26 @@ export async function loadVendorStats(
     };
   });
 
-  return aggregateVendorStats(flat, period);
+  // 정산 잔액 — 전역(기간 무관), 발주함 정산탭 settleTotals(app/api/vendor/orders)와 동일 쿼리.
+  //   기간 스코프로 계산하면 미래 serviceDate의 지급대기 건이 빠져 두 화면 숫자가 어긋난다.
+  const settleable = {
+    vendorId,
+    vendorStatus: ServiceVendorStatus.VENDOR_ACCEPTED,
+    status: { not: ServiceOrderStatus.CANCELLED },
+  } as const;
+  const [pend, paid] = await Promise.all([
+    db.serviceOrder.aggregate({
+      where: { ...settleable, vendorSettledAt: null },
+      _sum: { costVnd: true },
+    }),
+    db.serviceOrder.aggregate({
+      where: { ...settleable, vendorSettledAt: { not: null } },
+      _sum: { costVnd: true },
+    }),
+  ]);
+
+  return aggregateVendorStats(flat, period, {
+    unsettledVnd: pend._sum.costVnd ?? 0n,
+    settledVnd: paid._sum.costVnd ?? 0n,
+  });
 }
