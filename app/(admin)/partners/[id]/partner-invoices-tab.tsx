@@ -355,6 +355,12 @@ export default function PartnerInvoicesTab({ partnerId }: { partnerId: string })
                       {t("action.void")}
                     </ActionBtn>
                   )}
+                  {/* 발행 시 파트너 자동 알림(인앱+Zalo) — 수동 Zalo 발송은 PDF 첨부 재발송용 (중복 발송 주의, T-partner-admin-ops ④) */}
+                  {(canIssue || canSend) && (
+                    <span className="basis-full text-[11px] text-slate-500">
+                      {t("issueAutoNotifyHint")}
+                    </span>
+                  )}
                   {inv.status !== "VOID" && BigInt(inv.paidVnd) > 0n && (
                     <ActionBtn onClick={() => togglePayments(inv.id)} disabled={!!busy}>
                       {expanded === inv.id ? t("action.hidePayments") : t("action.payments")}

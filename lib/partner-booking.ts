@@ -184,6 +184,63 @@ export async function ensureReceivableForBooking(tx: Tx, bookingId: string, now:
   });
 }
 
+/**
+ * 예약 취소 시 파트너 채권 정리 (T-partner-admin-ops ① — 좀비 채권 방지).
+ *   - 미청구(invoiceId=null) + 미종결(PENDING/PARTIAL/OVERDUE) 채권 → WRITTEN_OFF 종결.
+ *     WRITTEN_OFF는 미수 합계(outstandingForPartner)·연체 cron(markOverdueReceivables)·
+ *     청구서 후보 수집 모두에서 이미 제외되는 기존 종결 상태를 재사용(새 enum 금지).
+ *   - 기입금액(depositPaidVnd/balancePaidVnd)은 기록 보존 — 환불/이월은 운영자 수동(돈 이동은 이 함수 밖).
+ *   - 이미 청구서에 묶인(invoiceId≠null) 채권은 자동 미접촉 — 청구서 총액 스냅샷과 어긋나므로
+ *     운영자가 청구서 무효화(void) 흐름으로 처리한다. 결과 플래그로 호출부(AuditLog)에 알린다.
+ * 반환: 처리 결과 요약(감사 기록용). 채권 없음/이미 종결이면 NONE(no-op).
+ */
+export async function writeOffReceivableOnCancel(
+  tx: Tx,
+  bookingId: string
+): Promise<
+  | { kind: "NONE" }
+  | { kind: "WRITTEN_OFF"; receivableId: string; oldStatus: ReceivableStatus; paidVnd: string }
+  | { kind: "INVOICED_LEFT"; receivableId: string; invoiceId: string }
+> {
+  const r = await tx.partnerReceivable.findUnique({
+    where: { bookingId },
+    select: {
+      id: true,
+      status: true,
+      invoiceId: true,
+      depositPaidVnd: true,
+      balancePaidVnd: true,
+    },
+  });
+  if (!r) return { kind: "NONE" };
+  if (r.status === ReceivableStatus.PAID || r.status === ReceivableStatus.WRITTEN_OFF) {
+    return { kind: "NONE" }; // 이미 종결 — 손대지 않음
+  }
+  if (r.invoiceId) {
+    return { kind: "INVOICED_LEFT", receivableId: r.id, invoiceId: r.invoiceId };
+  }
+
+  // 상태 가드 updateMany — 동시 수납/청구서 묶기와 경합해도 한쪽만 승리
+  const updated = await tx.partnerReceivable.updateMany({
+    where: {
+      id: r.id,
+      invoiceId: null,
+      status: {
+        in: [ReceivableStatus.PENDING, ReceivableStatus.PARTIAL, ReceivableStatus.OVERDUE],
+      },
+    },
+    data: { status: ReceivableStatus.WRITTEN_OFF },
+  });
+  if (updated.count !== 1) return { kind: "NONE" }; // 그 사이 수납/청구서 묶임 — 보수적으로 미접촉
+
+  return {
+    kind: "WRITTEN_OFF",
+    receivableId: r.id,
+    oldStatus: r.status,
+    paidVnd: (r.depositPaidVnd + r.balancePaidVnd).toString(),
+  };
+}
+
 /** cron — prisma 또는 트랜잭션 클라이언트(partnerReceivable.updateMany 사용) */
 type ReceivableUpdater = Pick<PrismaClient, "partnerReceivable"> | Tx;
 

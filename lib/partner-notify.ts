@@ -31,6 +31,22 @@ export type PartnerNotifyEvent =
       checkOut: string;
     }
   | {
+      kind: "BOOKING_CANCELLED";
+      bookingId: string;
+      villaName: string;
+      checkIn: string;
+      checkOut: string;
+    }
+  | {
+      kind: "BOOKING_MODIFIED";
+      bookingId: string;
+      villaName: string;
+      checkIn: string; // 변경 후 일정
+      checkOut: string;
+      /** 변경 후 본인 채권 총액(BigInt 문자열) — 정당 금액만. 미변경/채권없음이면 null */
+      newTotalVnd?: string | null;
+    }
+  | {
       kind: "INVOICE_ISSUED";
       invoiceId: string;
       invoiceNo: string;
@@ -82,6 +98,21 @@ export function buildPartnerNotifText(
           ? `${ev.villaName} · ${ev.checkIn} ~ ${ev.checkOut} · 재진행이 필요하면 연락해 주세요.`
           : `${ev.villaName} · ${ev.checkIn} ~ ${ev.checkOut} · Vui lòng liên hệ nếu cần đặt lại.`,
       };
+    case "BOOKING_CANCELLED":
+      // ★ 취소 사유는 미포함 — 운영 내부 표현이 섞일 수 있어 사실(취소·기간)만 전달.
+      return {
+        title: ko ? "예약이 취소되었습니다" : "Đặt phòng đã bị hủy",
+        body: `${ev.villaName} · ${ev.checkIn} ~ ${ev.checkOut}`,
+      };
+    case "BOOKING_MODIFIED": {
+      const total = ev.newTotalVnd
+        ? ` · ${ko ? "변경 후 금액" : "Tổng mới"} ${formatVndDot(ev.newTotalVnd)}`
+        : "";
+      return {
+        title: ko ? "예약이 변경되었습니다" : "Đặt phòng đã được thay đổi",
+        body: `${ev.villaName} · ${ev.checkIn} ~ ${ev.checkOut}${total}`,
+      };
+    }
     case "INVOICE_ISSUED":
       return {
         title: ko ? "청구서가 발행되었습니다" : "Hóa đơn mới đã được phát hành",
@@ -118,6 +149,8 @@ export function partnerNotifHref(ev: PartnerNotifyEvent): string {
   switch (ev.kind) {
     case "BOOKING_CONFIRMED":
     case "HOLD_EXPIRED":
+    case "BOOKING_CANCELLED":
+    case "BOOKING_MODIFIED":
     case "CHANGE_REQUEST_RESOLVED":
       return `/partner/bookings/${ev.bookingId}`;
     case "INVOICE_ISSUED":

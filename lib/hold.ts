@@ -14,7 +14,11 @@ import {
 } from "./availability";
 import { assertSaleAmountColumns, quoteStayForVilla } from "./pricing";
 import { writeAuditLog } from "./audit-log";
-import { ensureReceivableForBooking, evaluateConfirmCredit } from "./partner-booking";
+import {
+  ensureReceivableForBooking,
+  evaluateConfirmCredit,
+  writeOffReceivableOnCancel,
+} from "./partner-booking";
 import { notifyPartner } from "./partner-notify";
 
 /**
@@ -422,7 +426,7 @@ export async function cancelBooking(
   const reason = input.cancelReason.trim();
   if (!reason) throw new RangeError("취소 사유(cancelReason)는 필수입니다");
 
-  return prisma.$transaction(async (tx) => {
+  const cancelled = await prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findUnique({
       where: { id: input.bookingId },
       include: { villa: { select: { supplierId: true, name: true } } },
@@ -458,6 +462,12 @@ export async function cancelBooking(
         },
       },
     });
+    // 파트너 채권 정리 (T-partner-admin-ops ① — 좀비 채권 방지): 미청구 채권 WRITTEN_OFF 종결.
+    // 청구서에 묶인 채권은 미접촉(운영자 청구서 void 흐름) — AuditLog changes에 사실 기록.
+    const receivableResult = booking.partnerId
+      ? await writeOffReceivableOnCancel(tx, booking.id)
+      : ({ kind: "NONE" } as const);
+
     await writeAuditLog({
       db: tx,
       userId: input.actorUserId,
@@ -467,9 +477,35 @@ export async function cancelBooking(
       changes: {
         status: { old: booking.status, new: BookingStatus.CANCELLED },
         cancelReason: { new: reason },
+        ...(receivableResult.kind === "WRITTEN_OFF"
+          ? {
+              receivableStatus: { old: receivableResult.oldStatus, new: "WRITTEN_OFF" },
+              // 기입금액은 보존 — 환불/이월은 운영자 수동 처리 대상임을 감사에 남긴다
+              receivablePaidVndKept: { new: receivableResult.paidVnd },
+            }
+          : {}),
+        ...(receivableResult.kind === "INVOICED_LEFT"
+          ? {
+              // ⚠ 청구서에 이미 묶인 채권 — 자동 미접촉. 운영자가 청구서 무효화/조정 필요.
+              receivableInvoicedLeft: { new: receivableResult.invoiceId },
+            }
+          : {}),
       },
     });
 
-    return updated;
+    return { updated, villaName: booking.villa.name };
   });
+
+  // 파트너 예약이면 취소를 파트너에게도 통지 — 커밋 후(외부 Zalo 포함), 실패 무해(내부 격리).
+  if (cancelled.updated.partnerId) {
+    await notifyPartner(cancelled.updated.partnerId, {
+      kind: "BOOKING_CANCELLED",
+      bookingId: cancelled.updated.id,
+      villaName: cancelled.villaName,
+      checkIn: cancelled.updated.checkIn.toISOString().slice(0, 10),
+      checkOut: cancelled.updated.checkOut.toISOString().slice(0, 10),
+    });
+  }
+
+  return cancelled.updated;
 }
