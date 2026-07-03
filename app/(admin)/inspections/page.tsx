@@ -166,6 +166,7 @@ export default async function InspectionsPage({
         type: true,
         status: true,
         photoUrls: true,
+        photoSlots: true, // 제출 사진과 병렬 슬롯 id — 기준 사진 페어링 정렬용
         rejectNote: true,
         approvedAt: true,
         dueDate: true,
@@ -197,6 +198,7 @@ export default async function InspectionsPage({
         type: detail.type,
         status: detail.status,
         photoUrls: detail.photoUrls,
+        photoSlots: detail.photoSlots,
         rejectNote: detail.rejectNote,
         approvedAt: detail.approvedAt?.toISOString() ?? null,
         dueDate: detail.dueDate?.toISOString() ?? null,

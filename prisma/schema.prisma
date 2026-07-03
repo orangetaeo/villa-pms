@@ -714,6 +714,7 @@ model CleaningTask {
   assigneeId String?
   assignee   User?          @relation("AssignedCleaner", fields: [assigneeId], references: [id])
   photoUrls  String[] // 공간별 청소 완료 사진
+  photoSlots String[] // photoUrls와 병렬인 슬롯 id(exterior·bedroom-1…) — 선택 슬롯 스킵 시 검수 페어링 정렬용. 레거시 제출은 빈 배열
   rejectNote String?
   approvedBy String?
   approvedAt DateTime?
