@@ -119,8 +119,11 @@ export default async function CleaningTaskPage({
     id: slot.id,
     icon: slot.icon,
     label: slotLabel(slot),
+    optional: slot.optional, // 발코니·수영장 등 선택 슬롯 — 제출 필수 아님
     baselineUrl: baselineBySpace.get(slot.space)?.[(slot.index ?? 1) - 1],
   }));
+  // 제출 게이트가 요구하는 필수 슬롯 수(선택 슬롯 제외) — 힌트 문구에 사용
+  const requiredSlotCount = slots.filter((s) => !s.optional).length;
 
   // A: 예정일(@db.Date는 UTC 자정 — UTC로 포맷해 −7h 시프트 회피) + 청소유형
   const dueDateLabel = task.dueDate
@@ -173,12 +176,13 @@ export default async function CleaningTaskPage({
       retry: t("retry"),
       submit: t("submit"),
       submitting: t("submitting"),
-      submitHint: t("submitHint", { total: slots.length }),
+      submitHint: t("submitHint", { total: requiredSlotCount }),
       submitError: t("submitError"),
       conflict: t("conflict"),
       rejectedTitle: t("status.REJECTED"),
       rejectedHint: t("rejectedHint"),
       baselineLabel: t("baselineLabel"),
+      optionalTag: t("optionalTag"),
     };
     return (
       <CleaningSubmit
