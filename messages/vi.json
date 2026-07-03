@@ -3,6 +3,34 @@
     "name": "Villa Go"
   },
   "partner": {
+    "notif": {
+      "ariaOpen": "Mở thông báo",
+      "title": "Thông báo",
+      "close": "Đóng",
+      "loading": "Đang tải…",
+      "empty": "Chưa có thông báo",
+      "loadError": "Không tải được. Thử lại"
+    },
+    "changeRequest": {
+      "title": "Yêu cầu đặt phòng",
+      "subtitle": "Hủy·thay đổi·gia hạn giữ chỗ: gửi yêu cầu, quản trị viên sẽ xác nhận và xử lý.",
+      "kind": { "CANCEL": "Yêu cầu hủy", "MODIFY": "Yêu cầu thay đổi", "HOLD_EXTEND": "Yêu cầu gia hạn giữ chỗ" },
+      "pendingBadge": "Đang chờ xử lý",
+      "pendingHint": "Quản trị viên đang xác nhận. Bạn sẽ nhận thông báo khi xử lý xong.",
+      "hint": {
+        "CANCEL": "Vui lòng ghi lý do hủy để xử lý nhanh hơn.",
+        "MODIFY": "Vui lòng ghi cụ thể nội dung muốn thay đổi (ngày·số khách…).",
+        "HOLD_EXTEND": "Vui lòng ghi thời gian cần gia hạn và lý do."
+      },
+      "notePlaceholder": "Nội dung yêu cầu (tối đa 1000 ký tự)",
+      "noteRequired": "Yêu cầu thay đổi cần ghi nội dung mong muốn.",
+      "duplicate": "Đã có yêu cầu đang chờ xử lý.",
+      "error": "Gửi yêu cầu thất bại. Vui lòng thử lại sau.",
+      "submit": "Gửi yêu cầu",
+      "submitting": "Đang gửi…",
+      "cancel": "Đóng",
+      "requestStatus": { "PENDING": "Chờ", "APPROVED": "Đã xử lý", "REJECTED": "Từ chối" }
+    },
     "tabs": {
       "bookings": "Đặt phòng",
       "receivables": "Công nợ",
@@ -21,7 +49,9 @@
       "noMatch": "Không có kết quả",
       "dateFrom": "Từ ngày",
       "dateTo": "Đến ngày",
-      "dateClear": "Xóa ngày"
+      "dateClear": "Xóa ngày",
+      "extensionChild": "Đặt phòng gia hạn",
+      "extensionParent": "Liên kết {count} đặt gia hạn"
     },
     "receivables": {
       "title": "Tình trạng công nợ",
@@ -125,7 +155,22 @@
       "back": "Danh sách đặt phòng",
       "stay": "Thời gian lưu trú",
       "guest": "Khách đại diện",
-      "guestCount": "Số khách"
+      "guestCount": "Số khách",
+      "holdUntil": "Hạn xác nhận",
+      "holdHint": "Nếu không xác nhận thanh toán trong thời hạn, giữ chỗ sẽ tự động hủy.",
+      "outstanding": "Số còn nợ",
+      "linkedTitle": "Đặt phòng liên kết",
+      "linkedSubtitle": "Các đặt phòng nối tiếp (gia hạn / chia kỳ lưu trú).",
+      "linkedParent": "Đặt gốc",
+      "linkedChild": "Gia hạn",
+      "groupTotal": "Tổng nhóm",
+      "bankLabel": "Hướng dẫn thanh toán",
+      "bankTitle": "Tài khoản nhận tiền",
+      "bankName": "Ngân hàng",
+      "bankNumber": "Số tài khoản",
+      "bankHolder": "Chủ tài khoản",
+      "bankAmount": "Số tiền",
+      "bankHint": "Sau khi chuyển khoản, bấm nút 'Đã thanh toán' ở màn hình công nợ để được xác nhận nhanh hơn."
     },
     "roster": {
       "title": "Danh sách khách",
@@ -542,6 +587,21 @@
     }
   },
   "adminBookings": {
+    "changeRequest": {
+      "title": "Yêu cầu từ đối tác",
+      "kind": { "CANCEL": "Yêu cầu hủy", "MODIFY": "Yêu cầu thay đổi", "HOLD_EXTEND": "Yêu cầu gia hạn giữ chỗ" },
+      "notePlaceholder": "Ghi chú xử lý (gửi cho đối tác, tùy chọn)",
+      "extendHours": "Gia hạn {h} giờ",
+      "processing": "Đang xử lý…",
+      "approve": {
+        "CANCEL": "Duyệt (hủy đặt phòng)",
+        "MODIFY": "Duyệt (thay đổi ở bảng sửa đặt phòng)",
+        "HOLD_EXTEND": "Duyệt (gia hạn giữ chỗ)"
+      },
+      "reject": "Từ chối",
+      "error": "Xử lý thất bại",
+      "status": { "PENDING": "Chờ", "APPROVED": "Đã duyệt", "REJECTED": "Từ chối" }
+    },
     "list": {
       "title": "Quản lý đặt phòng",
       "searchPlaceholder": "Tìm mã đặt phòng, tên khách, đại lý, villa...",

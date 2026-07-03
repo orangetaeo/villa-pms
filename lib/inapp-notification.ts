@@ -62,7 +62,7 @@ export async function listForUser(userId: string, limit = 30) {
 //   ★ 가격·마진 없음: 품목·수량·빌라·serviceDate 또는 본인 지급액(costVnd)만 노출.
 
 /** VND 점 구분 표기 (1.500.000₫). BigInt 문자열 — Number() 금지(정밀도 손실 방지) */
-function formatVndDot(raw: string): string {
+export function formatVndDot(raw: string): string {
   const negative = raw.startsWith("-");
   const digits = negative ? raw.slice(1) : raw;
   const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");

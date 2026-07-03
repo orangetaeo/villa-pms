@@ -4,6 +4,7 @@
 //   서버(page.tsx)가 자기 partnerId 스코프로 조회한 전체 목록을 props로 받아
 //   클라에서 표시 슬라이스만 한다(데이터 경계 변경 없음).
 import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import PaginationBar from "@/components/pagination-bar";
 import ListSearch from "@/components/list-search";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
@@ -11,6 +12,7 @@ import { useTranslations } from "next-intl";
 import { formatVillaName } from "@/lib/villa-name";
 import type { PartnerReceivableRow } from "@/lib/partner-portal";
 import { formatVndComma, formatDate, formatDayMonth } from "../_format";
+import PaymentNoticeButton from "@/components/partner/payment-notice-button";
 
 const RECEIVABLE_STATUS_STYLE: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-700",
@@ -83,11 +85,21 @@ export default function ReceivablesList({
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h4 className="truncate font-bold text-neutral-900">
+                <Link
+                  href={`/partner/bookings/${r.bookingId}`}
+                  className="block truncate font-bold text-neutral-900 hover:text-teal-700"
+                >
                   {formatVillaName({ name: r.villaName, nameVi: r.villaNameVi })}
-                </h4>
+                </Link>
                 <p className="text-sm text-neutral-500">
                   {formatDayMonth(r.checkIn)} – {formatDayMonth(r.checkOut)}
+                  {/* ⑤ 연장(분할숙박) 자식 예약의 채권 표시 — 묶음 대조용 */}
+                  {r.isExtension && (
+                    <span className="ml-1.5 inline-flex items-center gap-0.5 rounded-md bg-indigo-50 px-1.5 py-0.5 align-middle text-[10px] font-bold text-indigo-600">
+                      <span className="material-symbols-outlined text-xs">link</span>
+                      {t("bookings.extensionChild")}
+                    </span>
+                  )}
                 </p>
               </div>
               <span
@@ -128,6 +140,12 @@ export default function ReceivablesList({
             <p className="mt-2 text-right text-xs text-neutral-400">
               {t("receivables.due", { date: formatDate(r.dueDate) })}
             </p>
+            {/* ④ 입금통보 — 잔액이 남은 채권만(상태 미변경, 운영자 대조용). API는 receivableId 지원 기존 */}
+            {BigInt(r.outstandingVnd) > 0n && r.status !== "WRITTEN_OFF" && (
+              <div className="mt-2 flex justify-end">
+                <PaymentNoticeButton receivableId={r.id} />
+              </div>
+            )}
           </li>
           ))}
         </ul>

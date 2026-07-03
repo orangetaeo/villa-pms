@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { markOverdueReceivables } from "@/lib/partner-booking";
+import { notifyPartner } from "@/lib/partner-notify";
+import { receivableOutstanding } from "@/lib/partner";
 
 /**
  * 파트너 미수 연체 전이 cron (ADR-0022 PARTNER-3 — 1일 1회 권장, Railway cron 등록은 OPS)
@@ -21,9 +23,42 @@ async function handle(req: Request) {
   }
 
   try {
-    const overdueCount = await markOverdueReceivables(prisma, new Date());
+    const now = new Date();
+    // 전이 "직전" 대상 스냅샷 — 새로 연체되는 채권만 파트너에게 통지(멱등: 이미 OVERDUE는 제외됨).
+    const today = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+    );
+    const becomingOverdue = await prisma.partnerReceivable.findMany({
+      where: { status: { in: ["PENDING", "PARTIAL"] }, dueDate: { lt: today } },
+      select: {
+        partnerId: true,
+        totalVnd: true,
+        depositPaidVnd: true,
+        balancePaidVnd: true,
+        status: true,
+        dueDate: true,
+      },
+    });
+
+    const overdueCount = await markOverdueReceivables(prisma, now);
     if (overdueCount > 0) {
       console.log(`[cron/partner-overdue] ${overdueCount}건 연체 전이`);
+
+      // 파트너별 1건으로 묶어 통지 (T-partner-workflow-gaps ①) — 실패해도 cron 결과에 무영향.
+      const byPartner = new Map<string, { count: number; outstanding: bigint }>();
+      for (const r of becomingOverdue) {
+        const cur = byPartner.get(r.partnerId) ?? { count: 0, outstanding: 0n };
+        cur.count += 1;
+        cur.outstanding += receivableOutstanding(r);
+        byPartner.set(r.partnerId, cur);
+      }
+      for (const [partnerId, agg] of byPartner) {
+        await notifyPartner(partnerId, {
+          kind: "RECEIVABLE_OVERDUE",
+          count: agg.count,
+          outstandingVnd: agg.outstanding.toString(),
+        });
+      }
     }
     return Response.json({ overdueCount });
   } catch (e) {
