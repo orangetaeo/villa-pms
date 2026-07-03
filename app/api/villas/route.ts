@@ -11,6 +11,7 @@ import type { Prisma, VillaStatus } from "@prisma/client";
 import { isOperator, canViewFinance } from "@/lib/permissions";
 import { requireAuth } from "@/lib/api-guard";
 import { buildRatePeriodRowsFromSeasonCosts, representativeRatesBySeason } from "@/lib/pricing";
+import { romanizeVillaName } from "@/lib/gemini";
 
 export async function POST(req: Request) {
   // 권한 검사 — SUPPLIER(자기 빌라) + ADMIN(테오 직접등록) 허용 (P1-S8: 중앙 가드 + 복합 역할조건 유지)
@@ -126,6 +127,20 @@ export async function POST(req: Request) {
     return created;
   });
 
+  // 베트남어 병기명(nameVi) 자동 생성(best-effort) — 청소부·공급자 등 비운영자가 한국어명을
+  //   못 읽는 문제(청소 화면 한국어 노출)를 등록 시점에 바로 해소한다. 운영자는 상세 화면에서 수정·저장 가능.
+  //   Gemini 음역이 실패/미설정이어도 빌라 생성 자체는 성공(nameVi=null 폴백) — 네트워크 호출은 트랜잭션 밖.
+  let autoNameVi: string | null = null;
+  try {
+    const romanized = (await romanizeVillaName(data.name)).trim();
+    if (romanized && romanized !== data.name) {
+      autoNameVi = romanized;
+      await prisma.villa.update({ where: { id: villa.id }, data: { nameVi: romanized } });
+    }
+  } catch {
+    // 음역 실패/키 미설정 — 무시. nameVi는 상세 화면에서 자동 제안·수정할 수 있다.
+  }
+
   // 감사 로그 — 데이터 변경 API 동시 기록 (글로벌 절대 규칙)
   await writeAuditLog({
     userId: actorId,
@@ -137,6 +152,7 @@ export async function POST(req: Request) {
       // ADMIN 직접등록 시 actor(ADMIN)와 귀속 공급자가 다름 — 귀속 대상 기록
       supplierId: { new: supplierId },
       name: { new: data.name },
+      ...(autoNameVi ? { nameVi: { new: autoNameVi } } : {}),
       bedrooms: { new: data.bedrooms },
       bathrooms: { new: data.bathrooms },
       photos: { new: data.photos.length },

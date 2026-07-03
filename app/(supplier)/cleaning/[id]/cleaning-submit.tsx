@@ -18,6 +18,8 @@ export interface SlotProp {
   label: string;
   /** B: 이 공간의 기준 사진(정리된 상태) URL — 제출 전 참고용. 없으면 미표시. */
   baselineUrl?: string;
+  /** 선택 슬롯(발코니·수영장 등) — 제출 필수 아님. 있으면 올려도 되고 없으면 건너뛴다. */
+  optional?: boolean;
 }
 
 export interface SubmitLabels {
@@ -37,6 +39,8 @@ export interface SubmitLabels {
   rejectedTitle: string;
   rejectedHint: string;
   baselineLabel: string;
+  /** 선택 슬롯 배지 라벨(예: "선택"/"Tùy chọn"). */
+  optionalTag: string;
 }
 
 interface PhotoState {
@@ -68,8 +72,11 @@ export function CleaningSubmit({
     "idle" | "submitting" | "error" | "conflict"
   >("idle");
 
-  const doneCount = slots.filter((s) => photos[s.id]?.status === "done").length;
-  const totalCount = slots.length;
+  // 제출 게이트는 "필수 슬롯"만 요구 — 발코니·수영장 등 선택 슬롯은 없거나 못 들어가도 제출 가능.
+  // (선택 슬롯도 올리면 함께 제출되지만, 진행률·완료 판정에는 필수 슬롯만 센다.)
+  const requiredSlots = slots.filter((s) => !s.optional);
+  const doneCount = requiredSlots.filter((s) => photos[s.id]?.status === "done").length;
+  const totalCount = requiredSlots.length;
   const allDone = doneCount === totalCount;
   const progress = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
@@ -198,6 +205,8 @@ export function CleaningSubmit({
               key={slot.id}
               icon={slot.icon}
               label={slot.label}
+              optional={slot.optional}
+              optionalTag={labels.optionalTag}
               baselineUrl={slot.baselineUrl}
               baselineLabel={labels.baselineLabel}
               photo={photos[slot.id]}
@@ -251,6 +260,8 @@ export function CleaningSubmit({
 function PhotoTile({
   icon,
   label,
+  optional,
+  optionalTag,
   baselineUrl,
   baselineLabel,
   photo,
@@ -261,6 +272,8 @@ function PhotoTile({
 }: {
   icon: string;
   label: string;
+  optional?: boolean;
+  optionalTag: string;
   baselineUrl?: string;
   baselineLabel: string;
   photo?: PhotoState;
@@ -361,11 +374,16 @@ function PhotoTile({
       {/* a4: 타일 아래 공간 라벨 */}
       {photo?.status !== "uploading" && photo?.status !== "error" && (
         <p
-          className={`mt-2 text-center text-sm font-medium ${
+          className={`mt-2 flex items-center justify-center gap-1.5 text-center text-sm font-medium ${
             photo?.status === "done" ? "text-neutral-700" : "text-neutral-500"
           }`}
         >
           {label}
+          {optional && (
+            <span className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-500">
+              {optionalTag}
+            </span>
+          )}
         </p>
       )}
     </div>

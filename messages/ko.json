@@ -1566,6 +1566,7 @@
       "PERIODIC": "정기 청소"
     },
     "baselineLabel": "기준",
+    "optionalTag": "선택",
     "addressLabel": "주소",
     "accessLabel": "출입 정보",
     "notesLabel": "청소 메모",

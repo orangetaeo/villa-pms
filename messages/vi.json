@@ -1680,6 +1680,7 @@
       "PERIODIC": "Dọn định kỳ"
     },
     "baselineLabel": "Mẫu",
+    "optionalTag": "Tùy chọn",
     "addressLabel": "Địa chỉ",
     "accessLabel": "Thông tin ra vào",
     "notesLabel": "Ghi chú dọn dẹp",

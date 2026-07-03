@@ -87,6 +87,11 @@ export interface PhotoSlot {
   /** 침실/욕실 번호 — i18n ICU 변수 및 spaceLabel 저장용 */
   index?: number;
   icon: string;
+  /**
+   * 선택 슬롯 여부(발코니·수영장 등 부가 공간). 청소 제출 게이트는 필수 슬롯만 요구한다 —
+   * 발코니 없는 빌라/못 들어간 공간 때문에 청소부가 제출을 못 하던 문제 방지(빌라 등록은 원래 전부 선택).
+   */
+  optional?: boolean;
 }
 
 /** 침실/욕실 수·수영장 여부에 맞춰 사진 슬롯 동적 생성 (a1 디자인) */
@@ -106,9 +111,10 @@ export function buildPhotoSlots(
   for (let i = 1; i <= bathrooms; i += 1) {
     slots.push({ id: `bathroom-${i}`, space: "BATHROOM", index: i, icon: "photo_camera" });
   }
-  slots.push({ id: "balcony", space: "BALCONY", icon: "photo_camera" });
+  // 발코니·수영장은 부가 공간 — 청소 제출에서 선택(필수 아님). 없는 빌라/미접근 시 제출 차단 방지.
+  slots.push({ id: "balcony", space: "BALCONY", icon: "photo_camera", optional: true });
   if (hasPool) {
-    slots.push({ id: "pool", space: "POOL", icon: "pool" });
+    slots.push({ id: "pool", space: "POOL", icon: "pool", optional: true });
   }
   return slots;
 }

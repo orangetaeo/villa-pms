@@ -1,8 +1,9 @@
 "use client";
 
 // 빌라 베트남어 병기명(nameVi) 편집기 (ADR-0020) — ADMIN 빌라 상세 전용.
-// "Gemini 제안" 버튼으로 한국어명 음역 제안 → ADMIN이 검수·수정·저장. 저장값만 nameVi에 반영.
-import { useState } from "react";
+// nameVi가 비어 있으면 화면 진입 시 Gemini 음역을 "자동으로" 채워 넣는다(수동 버튼 클릭 불필요).
+// ADMIN은 자동 제안값을 그대로 검수·수정·저장하거나 "제안" 버튼으로 다시 생성할 수 있다. 저장값만 nameVi에 반영.
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { formatVillaName } from "@/lib/villa-name";
@@ -24,6 +25,8 @@ export default function NameViEditor({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 자동 제안 1회 가드 — nameVi가 비어 있을 때만, 마운트 시 한 번(엄격모드 이중 호출·재렌더 재요청 방지).
+  const autoSuggestedRef = useRef(false);
 
   async function onSuggest() {
     setSuggesting(true);
@@ -74,6 +77,16 @@ export default function NameViEditor({
       setSaving(false);
     }
   }
+
+  // nameVi가 비어 있으면 진입 시 자동으로 Gemini 음역 제안을 채운다(수동 "제안" 버튼 클릭 불필요).
+  useEffect(() => {
+    if (autoSuggestedRef.current) return;
+    if ((initialNameVi ?? "").trim().length > 0) return; // 이미 확정값 있으면 자동 제안 안 함
+    if (name.trim().length === 0) return;
+    autoSuggestedRef.current = true;
+    void onSuggest();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const previewName = formatVillaName({ name, nameVi: value });
 
