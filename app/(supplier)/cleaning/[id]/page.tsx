@@ -46,6 +46,7 @@ export default async function CleaningTaskPage({
       assigneeId: true, // 배정 검증용 — 클라이언트로 비전달
       villa: {
         select: {
+          id: true, // SUPPLIER 빌라 상세 역링크용
           supplierId: true, // 소유 검증용 — 클라이언트로 비전달
           name: true,
           nameVi: true,
@@ -219,7 +220,18 @@ export default async function CleaningTaskPage({
       <header className="mt-14 border-b border-neutral-100 bg-white px-4 py-6">
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl font-bold text-neutral-900">{t("submittedPhotos")}</h2>
-          <span className="font-semibold text-teal-600">{villaDisplayName}</span>
+          {/* SUPPLIER만 빌라 상세 역링크 — CLEANER는 /my-villas 접근 불가라 일반 텍스트 유지 */}
+          {isCleaner ? (
+            <span className="font-semibold text-teal-600">{villaDisplayName}</span>
+          ) : (
+            <Link
+              href={`/my-villas/${task.villa.id}`}
+              className="flex items-center gap-1 font-semibold text-teal-600 underline-offset-2 active:underline"
+            >
+              {villaDisplayName}
+              <span className="material-symbols-outlined text-base">chevron_right</span>
+            </Link>
+          )}
         </div>
         {/* 상태 안내 — 승인 대기(파랑) / 승인됨(초록) */}
         <div

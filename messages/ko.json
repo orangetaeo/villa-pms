@@ -1468,6 +1468,8 @@
       "guestCount": "{count}명",
       "payoutLabel": "받을 금액",
       "payoutHint": "정산 예정액",
+      "goCheckin": "체크인 검수하기",
+      "goCheckout": "체크아웃 검수하기",
       "close": "닫기"
     },
     "direct": {
