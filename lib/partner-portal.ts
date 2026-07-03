@@ -7,7 +7,11 @@
 //   - 파트너가 보는 금액 = 자기 채권(PartnerReceivable)·청구서(PartnerInvoice)의 VND뿐(정당하게 청구되는 금액).
 //   - BigInt는 컴포넌트(클라이언트 직렬화) 전달용으로 string 변환.
 import { prisma } from "@/lib/prisma";
-import { outstandingForPartner, receivableOutstanding } from "@/lib/partner";
+import {
+  computeDepositDue,
+  outstandingForPartner,
+  receivableOutstanding,
+} from "@/lib/partner";
 import { parseUtcDateOnly, todayVnDateString } from "@/lib/date-vn";
 
 // ── 직렬화 타입 ──────────────────────────────────────────────────────────────
@@ -62,6 +66,8 @@ export interface PartnerBookingDetail extends PartnerBookingRow {
   holdExpiresAt: Date | null;
   /** 미납 잔액(연결 채권 기준, 0 하한). 채권 미생성(HOLD 등)이면 null. */
   outstandingVnd: string | null;
+  /** HOLD 확정용 선금 금액 — computeDepositDue(객실료, 파트너 선금율). 금액만(비율 자체 비노출). HOLD 외 null. */
+  holdDepositVnd: string | null;
   /** 연장 부모(내가 자식일 때) */
   parentBooking: PartnerLinkedBookingRow | null;
   /** 연장 자식들(내가 부모일 때) */
@@ -91,6 +97,21 @@ export interface PartnerReceivableRow {
   bookingId: string;
   /** 연장(분할숙박) 자식 예약의 채권 여부 — 묶음 대조 표시용 (ADR-0030) */
   isExtension: boolean;
+  /** 기한 경과 일수(잔액>0일 때만, 아니면 0) — 서버 계산(하이드레이션 안전) */
+  overdueDays: number;
+}
+
+/** 기한 경과 일수 — dueDate·today는 UTC 자정(@db.Date). 잔액 없거나 미경과면 0. 순수함수(테스트 대상). */
+export function overdueDaysFor(
+  dueDate: Date,
+  today: Date,
+  outstandingVnd: bigint
+): number {
+  if (outstandingVnd <= 0n) return 0;
+  const MS = 86_400_000;
+  const dueMid = Date.UTC(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), dueDate.getUTCDate());
+  const todayMid = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+  return Math.max(0, Math.floor((todayMid - dueMid) / MS));
 }
 
 export interface PartnerInvoiceRow {
@@ -200,7 +221,8 @@ export async function loadPartnerBookings(
       status: true,
       totalSaleVnd: true,
       parentBookingId: true,
-      _count: { select: { extensions: true } },
+      // 본인 파트너 소유 연장만 집계 — 상세(toLinked partnerId 필터)와 일관 (T-partner-polish 5)
+      _count: { select: { extensions: { where: { partnerId } } } },
       villa: { select: { name: true, nameVi: true, complex: true } },
       receivable: { select: { totalVnd: true } },
     },
@@ -264,6 +286,8 @@ export async function loadPartnerBookingDetail(
       parentBooking: { select: linkedSelect },
       extensions: { select: linkedSelect, orderBy: { checkIn: "asc" } },
       villa: { select: { name: true, nameVi: true, complex: true } },
+      // 선금율은 서버 계산에만 사용 — 반환 shape엔 금액(holdDepositVnd)만 (비율 비노출 원칙)
+      partner: { select: { depositRatePct: true } },
       receivable: {
         select: {
           totalVnd: true,
@@ -360,6 +384,11 @@ export async function loadPartnerBookingDetail(
     canEditRoster: b.status === "HOLD" || b.status === "CONFIRMED",
     holdExpiresAt: b.status === "HOLD" ? b.holdExpiresAt : null,
     outstandingVnd,
+    // HOLD 확정용 선금(금액만) — 채권 미생성 시점이라 파트너 선금율로 서버 계산 (T-partner-polish 1)
+    holdDepositVnd:
+      b.status === "HOLD" && charge !== null && b.partner
+        ? computeDepositDue(charge, b.partner.depositRatePct).toString()
+        : null,
     parentBooking,
     extensions,
     groupTotalVnd,
@@ -428,6 +457,9 @@ export async function loadPartnerReceivables(
   //   총청구·총납부는 이력 합계(전 상태)라 그대로 두며, 차액(=대손액)은 미수가 아님.
   const outstanding = outstandingForPartner(receivables);
 
+  // VN 오늘 — 연체 일수(행)·미수 통계 공용 기준
+  const today = parseUtcDateOnly(todayVnDateString()) ?? new Date();
+
   const receivableRows: PartnerReceivableRow[] = receivables.map((r) => {
     const paid = r.depositPaidVnd + r.balancePaidVnd;
     const out = receivableOutstanding(r); // 음수 클램프(0 하한) — 행 표시도 운영자와 일관
@@ -448,6 +480,7 @@ export async function loadPartnerReceivables(
       status: r.status,
       bookingId: r.booking.id,
       isExtension: r.booking.parentBookingId !== null,
+      overdueDays: overdueDaysFor(r.dueDate, today, out),
     };
   });
 
@@ -462,8 +495,7 @@ export async function loadPartnerReceivables(
     issuedAt: i.issuedAt,
   }));
 
-  // 미수 통계 — VN 오늘 기준 미연체/연체 집계
-  const today = parseUtcDateOnly(todayVnDateString()) ?? new Date();
+  // 미수 통계 — VN 오늘 기준 미연체/연체 집계 (today는 위에서 행 연체일수와 공용 산출)
   const stats = computePartnerReceivableStats(receivableRows, today);
 
   return {

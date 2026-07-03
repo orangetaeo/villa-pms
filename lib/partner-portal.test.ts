@@ -247,3 +247,20 @@ describe("loadPartnerProposals — 스코프·개수만 노출", () => {
     });
   });
 });
+
+// T-partner-polish 4 — 연체 일수 순수함수
+import { overdueDaysFor } from "./partner-portal";
+
+describe("overdueDaysFor", () => {
+  const d = (s: string) => new Date(`${s}T00:00:00Z`);
+  it("기한 경과 일수 — UTC 자정 기준", () => {
+    expect(overdueDaysFor(d("2026-07-01"), d("2026-07-03"), 1n)).toBe(2);
+  });
+  it("당일·미래 기한은 0", () => {
+    expect(overdueDaysFor(d("2026-07-03"), d("2026-07-03"), 1n)).toBe(0);
+    expect(overdueDaysFor(d("2026-07-10"), d("2026-07-03"), 1n)).toBe(0);
+  });
+  it("잔액 0이면 기한 지나도 0 (완납 채권은 연체 아님)", () => {
+    expect(overdueDaysFor(d("2026-06-01"), d("2026-07-03"), 0n)).toBe(0);
+  });
+});

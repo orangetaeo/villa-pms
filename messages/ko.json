@@ -75,7 +75,8 @@
       "invoiceEmpty": "발행된 청구서가 없습니다",
       "downloadPdf": "청구서 PDF",
       "deposit": "선금",
-      "balanceDue": "잔금"
+      "balanceDue": "잔금",
+      "overdueDays": "연체 {count}일"
     },
     "proposals": {
       "title": "받은 제안서",
@@ -170,7 +171,10 @@
       "bankNumber": "계좌번호",
       "bankHolder": "예금주",
       "bankAmount": "입금 금액",
-      "bankHint": "입금 후 미수 화면의 '입금했어요' 버튼으로 알려주시면 확인이 빨라집니다."
+      "bankHint": "입금 후 미수 화면의 '입금했어요' 버튼으로 알려주시면 확인이 빨라집니다.",
+      "bankDeposit": "선금 (확정 입금액)",
+      "bankTotal": "총 객실료",
+      "bankDepositHint": "선금 입금이 확인되면 예약이 확정됩니다. 잔금 기한은 확정 후 안내됩니다."
     },
     "roster": {
       "title": "투숙객 명단",
@@ -2415,6 +2419,8 @@
       "WRITTEN_OFF": "대손"
     },
     "rcv": {
+      "cancelledLeft": "취소 예약",
+      "cancelledLeftHint": "예약이 취소됐지만 채권이 청구서에 묶여 자동 종결되지 않았습니다 — 청구서 무효화/조정 필요",
       "dueDate": "기한",
       "total": "객실료",
       "paid": "입금",

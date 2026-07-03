@@ -139,6 +139,12 @@ export default function ReceivablesList({
             </div>
             <p className="mt-2 text-right text-xs text-neutral-400">
               {t("receivables.due", { date: formatDate(r.dueDate) })}
+              {/* 연체 일수 — 서버 계산(overdueDays), 잔액 있는 기한 경과 건만 */}
+              {r.overdueDays > 0 && (
+                <span className="ml-1.5 rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-600">
+                  {t("receivables.overdueDays", { count: r.overdueDays })}
+                </span>
+              )}
             </p>
             {/* ④ 입금통보 — 잔액이 남은 채권만(상태 미변경, 운영자 대조용). API는 receivableId 지원 기존 */}
             {BigInt(r.outstandingVnd) > 0n && r.status !== "WRITTEN_OFF" && (

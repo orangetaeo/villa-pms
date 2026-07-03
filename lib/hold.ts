@@ -19,6 +19,7 @@ import {
   evaluateConfirmCredit,
   writeOffReceivableOnCancel,
 } from "./partner-booking";
+import { autoClosePendingRequestsOnCancel } from "./booking-change-request";
 import { notifyPartner } from "./partner-notify";
 
 /**
@@ -421,7 +422,14 @@ export async function confirmHold(
  */
 export async function cancelBooking(
   prisma: PrismaClient,
-  input: { bookingId: string; cancelReason: string; actorUserId: string }
+  input: {
+    bookingId: string;
+    cancelReason: string;
+    actorUserId: string;
+    /** 취소요청 승인 경로에서 "지금 승인 중인 요청" id — 대기요청 자동 종결에서 제외
+     *  (그 요청은 이어지는 resolveChangeRequest가 APPROVED로 처리) */
+    excludePendingRequestId?: string | null;
+  }
 ): Promise<Booking> {
   const reason = input.cancelReason.trim();
   if (!reason) throw new RangeError("취소 사유(cancelReason)는 필수입니다");
@@ -468,6 +476,16 @@ export async function cancelBooking(
       ? await writeOffReceivableOnCancel(tx, booking.id)
       : ({ kind: "NONE" } as const);
 
+    // 남은 대기 요청 자동 종결 (T-partner-polish 2) — 취소된 예약의 PENDING 요청 방치 방지.
+    // 승인 경로의 자기 요청(excludePendingRequestId)은 제외(이어지는 resolve가 APPROVED 처리).
+    const autoClosedRequests = booking.partnerId
+      ? await autoClosePendingRequestsOnCancel(
+          tx,
+          booking.id,
+          input.excludePendingRequestId
+        )
+      : 0;
+
     await writeAuditLog({
       db: tx,
       userId: input.actorUserId,
@@ -489,6 +507,9 @@ export async function cancelBooking(
               // ⚠ 청구서에 이미 묶인 채권 — 자동 미접촉. 운영자가 청구서 무효화/조정 필요.
               receivableInvoicedLeft: { new: receivableResult.invoiceId },
             }
+          : {}),
+        ...(autoClosedRequests > 0
+          ? { pendingRequestsAutoClosed: { new: autoClosedRequests } }
           : {}),
       },
     });

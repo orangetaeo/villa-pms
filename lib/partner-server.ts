@@ -178,6 +178,8 @@ export interface PartnerDetail extends PartnerAggregate {
     balancePaidVnd: bigint;
     dueDate: Date;
     status: string;
+    /** 예약 취소됐는데 미종결(청구서 묶임 등) — 청구서 조정 필요 경고 (T-partner-polish 3) */
+    bookingCancelled: boolean;
   }>;
   bookings: PartnerBookingRow[];
 }
@@ -201,6 +203,8 @@ export async function getPartnerDetail(
           balancePaidVnd: true,
           dueDate: true,
           status: true,
+          // 취소 예약의 미종결 채권 경고용 — 예약 상태만 (T-partner-polish 3)
+          booking: { select: { status: true } },
         },
         orderBy: { dueDate: "asc" },
       },
@@ -224,7 +228,14 @@ export async function getPartnerDetail(
   const base = aggregate(partner as Partner, receivables, _count.bookings, asOf);
   return {
     ...base,
-    receivables,
+    receivables: receivables.map(({ booking, ...r }) => ({
+      ...r,
+      // 취소됐는데 미종결(청구서 묶임 등으로 자동 write-off 제외) — 운영자 조정 필요 경고
+      bookingCancelled:
+        booking.status === "CANCELLED" &&
+        r.status !== "PAID" &&
+        r.status !== "WRITTEN_OFF",
+    })),
     bookings: bookings.map((b) => ({
       id: b.id,
       villaName: b.villa.name,
