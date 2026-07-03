@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator } from "@/lib/permissions";
 import { requireAuth } from "@/lib/api-guard";
+import { maybeNotifyVillaContentUpdated } from "@/lib/villa-notify";
 
 // VND 동 단위 양수 문자열 (기준 보증금 — BigInt는 JSON 직렬화 불가하므로 문자열 수신)
 const vndDigits = z.string().regex(/^[1-9]\d{0,14}$/);
@@ -121,5 +122,11 @@ export async function PATCH(
   if (result.kind === "NOT_FOUND") {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
+  // 승인 후 공급자 이용규칙·위치 변경 → 운영자 통지 (ACTIVE만·PENDING dedup·best-effort)
+  await maybeNotifyVillaContentUpdated(prisma, {
+    villaId: id,
+    kind: "INFO",
+    actorRole: session.user.role,
+  });
   return NextResponse.json({ id, updated: Object.keys(scalarData).length });
 }

@@ -16,6 +16,7 @@ type VendorStatus = "PENDING_VENDOR" | "VENDOR_ACCEPTED" | "VENDOR_REJECTED" | n
 type VendorOrder = {
   id: string;
   villaName: string | null;
+  villaAddress: string | null; // 이행 장소 주소(발주된 빌라만) — 지도 링크와 함께 표시
   checkIn: string | null;
   checkOut: string | null;
   serviceDate: string | null;
@@ -26,6 +27,7 @@ type VendorOrder = {
   quantity: number;
   guestCount: number | null; // 투숙 인원 — 카드에 아이콘으로 표시
   guestNote: string | null; // 게스트 요청사항(이행 정보) — 줄바꿈 허용 표시
+  pickupAvailable: boolean; // 픽업 제공 품목 여부(카탈로그) — 뱃지 표시
   vendorStatus: VendorStatus;
   status: string;
   costVnd: string; // BigInt 문자열 — Number() 금지
@@ -34,6 +36,7 @@ type VendorOrder = {
   vendorSettleNote: string | null; // 정산 메모(정산 완료 건)
   poSentAt: string | null; // 발주 발송 시각(상태 타임라인)
   vendorRespondedAt: string | null; // 가부 응답 시각(상태 타임라인)
+  vendorCompletedAt: string | null; // 서비스 이행 완료 보고 시각(null=미보고)
 };
 
 type SettleMethod = "CASH" | "BANK_TRANSFER" | "OTHER" | null;
@@ -191,6 +194,24 @@ export default function VendorBoard() {
     []
   );
 
+  // 서비스 이행 완료 보고 — 확인 후 POST. 409(이미 보고됨) 포함 어느 쪽이든 재조회로 최신화.
+  const complete = useCallback(
+    async (order: VendorOrder) => {
+      if (!window.confirm(t("complete.confirm"))) return;
+      setBusyId(order.id);
+      try {
+        const res = await fetch(`/api/vendor/orders/${order.id}/complete`, { method: "POST" });
+        if (!res.ok && res.status !== 409) setError(true);
+        setRefreshKey((k) => k + 1);
+      } catch {
+        setError(true);
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [t]
+  );
+
   const loading = data === null;
   const setPageSizeReset = (s: number) => {
     setPageSize(s);
@@ -287,6 +308,8 @@ export default function VendorBoard() {
               pageSize={pageSize}
               onPage={setPage}
               onPageSize={setPageSizeReset}
+              busyId={busyId}
+              onComplete={complete}
               t={t}
             />
           )}
@@ -358,6 +381,38 @@ function GuestNote({ note, t }: { note: string | null; t: T }) {
   );
 }
 
+// 이행 장소 주소 + 지도 링크 — 발주된 빌라 1채만(계약 A). 주소 없으면 표시 안 함.
+function VillaAddress({ address, t }: { address: string | null; t: T }) {
+  if (!address) return null;
+  return (
+    <p className="flex items-start gap-1 text-sm text-neutral-500">
+      <span className="material-symbols-outlined mt-0.5 text-base text-neutral-400">location_on</span>
+      <span className="min-w-0 break-words">
+        {address}{" "}
+        <a
+          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
+          target="_blank"
+          rel="noreferrer"
+          className="whitespace-nowrap font-semibold text-teal-700 underline underline-offset-2"
+        >
+          {t("mapLink")}
+        </a>
+      </span>
+    </p>
+  );
+}
+
+// 픽업 제공 품목 뱃지 — 카탈로그 pickupAvailable=true일 때만.
+function PickupBadge({ show, t }: { show: boolean; t: T }) {
+  if (!show) return null;
+  return (
+    <span className="inline-flex items-center gap-0.5 rounded-md bg-indigo-50 px-1.5 py-0.5 text-xs font-bold text-indigo-700">
+      <span className="material-symbols-outlined text-sm">local_taxi</span>
+      {t("pickupBadge")}
+    </span>
+  );
+}
+
 // 정원(투숙 인원) — 아이콘만(라벨 불필요). 0/null이면 표시 안 함.
 function GuestCount({ count }: { count: number | null }) {
   if (!count) return null;
@@ -412,6 +467,9 @@ function InboxSection({
                 <span className="ml-2 rounded-md bg-teal-50 px-1.5 py-0.5 text-xs font-bold text-teal-700">
                   ×{o.quantity}
                 </span>
+                <span className="ml-1.5">
+                  <PickupBadge show={o.pickupAvailable} t={t} />
+                </span>
               </h3>
               {o.optionLabel && (
                 <p className="truncate text-sm font-semibold text-teal-700">{o.optionLabel}</p>
@@ -424,6 +482,7 @@ function InboxSection({
                   {o.villaName}
                 </p>
               )}
+              <VillaAddress address={o.villaAddress} t={t} />
               <p className="flex items-center gap-2 text-sm text-neutral-600">
                 <span className="flex items-center gap-1">
                   <span className="material-symbols-outlined text-base text-neutral-400">
@@ -495,6 +554,8 @@ function ScheduleSection({
   pageSize,
   onPage,
   onPageSize,
+  busyId,
+  onComplete,
   t,
 }: {
   orders: VendorOrder[];
@@ -504,6 +565,8 @@ function ScheduleSection({
   pageSize: number;
   onPage: (p: number) => void;
   onPageSize: (s: number) => void;
+  busyId: string | null;
+  onComplete: (o: VendorOrder) => void;
   t: T;
 }) {
   if (orders.length === 0 && cancelled.length === 0) {
@@ -559,24 +622,36 @@ function ScheduleSection({
                 <p className="truncate text-sm font-medium text-neutral-600">{o.optionLabel}</p>
               )}
               {o.villaName && <p className="truncate text-sm text-neutral-500">{o.villaName}</p>}
+              <VillaAddress address={o.villaAddress} t={t} />
               <p className="flex items-center gap-2 text-sm font-semibold text-teal-700">
                 <span>{scheduleLabel(o)}</span>
                 <GuestCount count={o.guestCount} />
+                <PickupBadge show={o.pickupAvailable} t={t} />
               </p>
             </div>
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-700">
-              <span className="material-symbols-outlined text-base [font-variation-settings:'FILL'_1]">
-                check_circle
+            {/* 상태 칩 — 완료 보고 전엔 '수락됨', 보고 후엔 '이행 완료' */}
+            {o.vendorCompletedAt ? (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700">
+                <span className="material-symbols-outlined text-base [font-variation-settings:'FILL'_1]">
+                  flag_circle
+                </span>
+                {t("complete.done")}
               </span>
-              {t("status.accepted")}
-            </span>
+            ) : (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-700">
+                <span className="material-symbols-outlined text-base [font-variation-settings:'FILL'_1]">
+                  check_circle
+                </span>
+                {t("status.accepted")}
+              </span>
+            )}
           </div>
 
           {/* 게스트 요청사항 — 이행 정보(있을 때만) */}
           <GuestNote note={o.guestNote} t={t} />
 
-          {/* 상태 타임라인 — 발송·응답 시각(작은 글씨) */}
-          {(o.poSentAt || o.vendorRespondedAt) && (
+          {/* 상태 타임라인 — 발송·응답·완료 시각(작은 글씨) */}
+          {(o.poSentAt || o.vendorRespondedAt || o.vendorCompletedAt) && (
             <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-neutral-400">
               {o.poSentAt && (
                 <span>
@@ -588,7 +663,24 @@ function ScheduleSection({
                   {t("timeline.responded")}: {formatFullDate(o.vendorRespondedAt)}
                 </span>
               )}
+              {o.vendorCompletedAt && (
+                <span>
+                  {t("timeline.completed")}: {formatFullDate(o.vendorCompletedAt)}
+                </span>
+              )}
             </div>
+          )}
+
+          {/* 완료 보고 — 수락 건 중 미보고만. 보고는 되돌릴 수 없으므로 confirm 후 전송. */}
+          {!o.vendorCompletedAt && (
+            <button
+              type="button"
+              disabled={busyId === o.id}
+              onClick={() => onComplete(o)}
+              className="w-full rounded-xl border border-emerald-200 bg-emerald-50 py-3 text-sm font-bold text-emerald-700 transition active:scale-[0.99] disabled:opacity-50"
+            >
+              {busyId === o.id ? t("submitting") : t("complete.button")}
+            </button>
           )}
         </div>
       ))}

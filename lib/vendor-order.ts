@@ -109,6 +109,24 @@ export function vendorHasLivePo(order: {
 }
 
 /**
+ * 공급자가 "서비스 이행 완료"를 보고할 수 있는가 (vendor-gaps-p1 계약 C).
+ * - 수락한(VENDOR_ACCEPTED) 발주만 — 대기·거절·미발주는 이행 자체가 없음.
+ * - 취소(CANCELLED)된 주문은 불가(이행 중단).
+ * - 이미 보고했으면(vendorCompletedAt 있음) 불가 — 라우트에서는 updateMany null 가드로 멱등 처리.
+ */
+export function canReportComplete(order: {
+  vendorStatus: ServiceVendorStatus | null;
+  status: string;
+  vendorCompletedAt: Date | null;
+}): boolean {
+  return (
+    order.vendorStatus === "VENDOR_ACCEPTED" &&
+    order.status !== "CANCELLED" &&
+    order.vendorCompletedAt == null
+  );
+}
+
+/**
  * 공급자 가부 응답 가드 — 현재 vendorStatus가 PENDING_VENDOR가 아니면 throw.
  * (이미 응답했거나 발주 전 상태에서의 응답을 차단.)
  */

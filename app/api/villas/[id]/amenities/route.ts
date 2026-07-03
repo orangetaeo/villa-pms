@@ -9,6 +9,7 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { isValidAmenity } from "@/lib/amenities";
 import { isOperator } from "@/lib/permissions";
 import { requireAuth } from "@/lib/api-guard";
+import { maybeNotifyVillaContentUpdated } from "@/lib/villa-notify";
 
 // VND 동 단위 양수 문자열 (미니바 고객 청구 단가 — BigInt는 JSON 직렬화 불가하므로 문자열 수신)
 const vndPositiveDigits = z.string().regex(/^[1-9]\d{0,14}$/);
@@ -137,6 +138,12 @@ export async function PATCH(
   if (result.kind === "NOT_FOUND") {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
+  // 승인 후 공급자 비품 변경 → 운영자 통지 (ACTIVE만·PENDING dedup·best-effort)
+  await maybeNotifyVillaContentUpdated(prisma, {
+    villaId: id,
+    kind: "AMENITIES",
+    actorRole: session.user.role,
+  });
   // 응답에는 id·개수만 (판매가/마진 미포함). 공급자는 미니바 drop 후 비-MINIBAR 개수.
   return NextResponse.json({ id, amenityCount: incomingAmenities.length });
 }

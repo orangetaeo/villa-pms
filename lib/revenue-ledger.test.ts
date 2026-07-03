@@ -656,3 +656,44 @@ describe("loadRevenueTxns — 3소스 통합·필터·정렬", () => {
     expect(totals.saleVnd).toBe(2_300_000n);
   });
 });
+
+// ───────────────────────────────────────────────────────────
+// 공급자 직접판매 제외 (T-admin-supplier-visibility)
+// ───────────────────────────────────────────────────────────
+describe("loadRevenueTxns — 공급자 직접판매(seller=SUPPLIER) 객실 제외", () => {
+  it("ROOM 쿼리 where에 seller=OPERATOR 강제 — 직접예약 0원 행이 거래목록에 섞이지 않는다", async () => {
+    let capturedWhere: Record<string, unknown> | null = null;
+    const db = {
+      booking: {
+        findMany: async (args: { where: Record<string, unknown> }) => {
+          capturedWhere = args.where;
+          return [];
+        },
+      },
+      checkoutMinibarLine: { findMany: async () => [] },
+      serviceOrder: { findMany: async () => [] },
+    } as unknown as PrismaClient;
+
+    await loadRevenueTxns(db, { from: D("2026-07-01"), to: D("2026-08-01"), types: ["ROOM"] });
+    expect(capturedWhere).not.toBeNull();
+    expect(capturedWhere!.seller).toBe("OPERATOR");
+  });
+
+  it("미니바 라인 쿼리는 seller 필터 없음(실소비 기록 보존)", async () => {
+    let minibarWhere: Record<string, unknown> | null = null;
+    const db = {
+      booking: { findMany: async () => [] },
+      checkoutMinibarLine: {
+        findMany: async (args: { where: Record<string, unknown> }) => {
+          minibarWhere = args.where;
+          return [];
+        },
+      },
+      serviceOrder: { findMany: async () => [] },
+    } as unknown as PrismaClient;
+
+    await loadRevenueTxns(db, { from: D("2026-07-01"), to: D("2026-08-01") });
+    expect(minibarWhere).not.toBeNull();
+    expect(JSON.stringify(minibarWhere)).not.toContain("seller");
+  });
+});

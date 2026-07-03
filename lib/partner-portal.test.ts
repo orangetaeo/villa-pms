@@ -84,6 +84,8 @@ describe("loadPartnerBookings — 스코프·객실료·누수", () => {
         guestCount: 2,
         status: "CONFIRMED",
         totalSaleVnd: 9_000_000n,
+        parentBookingId: null,
+        _count: { extensions: 0 },
         villa: { name: "쏘나씨 V11", nameVi: "Sonasea V11", complex: "Sonasea" },
         receivable: { totalVnd: 8_000_000n },
       },
@@ -91,6 +93,7 @@ describe("loadPartnerBookings — 스코프·객실료·누수", () => {
     const rows = await loadPartnerBookings("partner-1");
     expect(rows[0].roomChargeVnd).toBe("8000000");
     expect(rows[0].villaName).toBe("쏘나씨 V11");
+    expect(rows[0].isExtension).toBe(false);
   });
 
   it("receivable 없으면 totalSaleVnd 폴백, 둘 다 없으면 null", async () => {
@@ -104,6 +107,8 @@ describe("loadPartnerBookings — 스코프·객실료·누수", () => {
         guestCount: 1,
         status: "HOLD",
         totalSaleVnd: 5_000_000n,
+        parentBookingId: null,
+        _count: { extensions: 0 },
         villa: { name: "V12", nameVi: null, complex: null },
         receivable: null,
       },
@@ -116,6 +121,8 @@ describe("loadPartnerBookings — 스코프·객실료·누수", () => {
         guestCount: 3,
         status: "HOLD",
         totalSaleVnd: null, // KRW 채널 — VND 없음
+        parentBookingId: "b2", // 연장 자식 케이스
+        _count: { extensions: 0 },
         villa: { name: "V25", nameVi: null, complex: null },
         receivable: null,
       },

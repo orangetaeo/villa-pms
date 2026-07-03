@@ -28,13 +28,15 @@ const ROW_SELECT = {
   vendorSettleNote: true,
   poSentAt: true,
   vendorRespondedAt: true,
+  vendorCompletedAt: true,
   createdAt: true,
   catalogItemId: true,
   vendorName: true,
   guestNote: true,
   selectedOptions: true,
   booking: {
-    select: { checkIn: true, checkOut: true, guestCount: true, villa: { select: { name: true, nameVi: true } } },
+    // address: 이행 장소 — 본인에게 발주된 빌라만 이 select를 타므로 재고 비공개 원칙과 무관(계약 A)
+    select: { checkIn: true, checkOut: true, guestCount: true, villa: { select: { name: true, nameVi: true, address: true } } },
   },
 } satisfies Prisma.ServiceOrderSelect;
 
@@ -45,12 +47,17 @@ const iso = (d: Date | null | undefined): string | null => (d ? d.toISOString() 
 async function mapRows(rows: RawRow[], locale: string) {
   const itemIds = Array.from(new Set(rows.map((o) => o.catalogItemId).filter((v): v is string => !!v)));
   const items = itemIds.length
-    ? await prisma.serviceCatalogItem.findMany({ where: { id: { in: itemIds } }, select: { id: true, nameKo: true, nameI18n: true } })
+    ? await prisma.serviceCatalogItem.findMany({
+        where: { id: { in: itemIds } },
+        select: { id: true, nameKo: true, nameI18n: true, pickupAvailable: true },
+      })
     : [];
   const nameById = new Map(items.map((i) => [i.id, pickI18n(i.nameKo, i.nameI18n, locale)]));
+  const pickupById = new Map(items.map((i) => [i.id, i.pickupAvailable === true]));
   return rows.map((o) => ({
     id: o.id,
     villaName: o.booking?.villa ? formatVillaName({ name: o.booking.villa.name, nameVi: o.booking.villa.nameVi }) : null,
+    villaAddress: o.booking?.villa?.address ?? null,
     checkIn: iso(o.booking?.checkIn),
     checkOut: iso(o.booking?.checkOut),
     serviceDate: iso(o.serviceDate),
@@ -61,6 +68,7 @@ async function mapRows(rows: RawRow[], locale: string) {
     quantity: o.quantity,
     guestCount: o.booking?.guestCount ?? null,
     guestNote: o.guestNote,
+    pickupAvailable: o.catalogItemId ? pickupById.get(o.catalogItemId) ?? false : false,
     vendorStatus: o.vendorStatus,
     status: o.status,
     costVnd: o.costVnd.toString(),
@@ -69,6 +77,7 @@ async function mapRows(rows: RawRow[], locale: string) {
     vendorSettleNote: o.vendorSettleNote,
     poSentAt: iso(o.poSentAt),
     vendorRespondedAt: iso(o.vendorRespondedAt),
+    vendorCompletedAt: iso(o.vendorCompletedAt),
   }));
 }
 

@@ -408,6 +408,10 @@ export async function loadRevenueTxns(
 
   const bookingWhere = {
     checkOut: { gte: from, lt: to },
+    // 공급자 직접판매(seller=SUPPLIER)는 공급자 100% 수금(미니바도 회수 방식)이라 우리 매출이 아님 —
+    // totalSale null·원가 0의 0원 행이 거래목록·건수를 오염시키므로 객실(ROOM) 매출에서 제외.
+    // 미니바 라인(CheckoutMinibarLine)은 실소비 기록이라 여기서 필터하지 않는다.
+    seller: "OPERATOR" as const,
     ...(statusWhere ? { status: statusWhere } : {}),
     ...(filter.channel ? { channel: filter.channel } : {}),
     ...(filter.villaId ? { villaId: filter.villaId } : {}),

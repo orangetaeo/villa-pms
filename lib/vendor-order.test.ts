@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import {
   VENDOR_GATE_TRANSITIONS,
   VENDOR_GATE_STATUSES,
+  canReportComplete,
   canTransitionVendorGate,
   canDispatch,
   canConfirmCustomer,
@@ -137,5 +138,26 @@ describe("assertVendorResponse", () => {
       expect(e).toBeInstanceOf(InvalidVendorResponseError);
       expect((e as InvalidVendorResponseError).from).toBe("VENDOR_ACCEPTED");
     }
+  });
+});
+
+describe("canReportComplete — 서비스 이행 완료 보고 가능", () => {
+  const base = { vendorStatus: "VENDOR_ACCEPTED" as const, status: "CONFIRMED", vendorCompletedAt: null };
+  it("수락+미취소+미보고 → true", () => {
+    expect(canReportComplete(base)).toBe(true);
+    expect(canReportComplete({ ...base, status: "REQUESTED" })).toBe(true);
+  });
+  it("취소된 주문 → false", () => {
+    expect(canReportComplete({ ...base, status: "CANCELLED" })).toBe(false);
+  });
+  it("미수락(대기·거절·미발주) → false", () => {
+    expect(canReportComplete({ ...base, vendorStatus: "PENDING_VENDOR" })).toBe(false);
+    expect(canReportComplete({ ...base, vendorStatus: "VENDOR_REJECTED" })).toBe(false);
+    expect(canReportComplete({ ...base, vendorStatus: null })).toBe(false);
+  });
+  it("이미 보고됨 → false(멱등)", () => {
+    expect(
+      canReportComplete({ ...base, vendorCompletedAt: new Date("2026-07-03T05:00:00.000Z") })
+    ).toBe(false);
   });
 });

@@ -286,6 +286,10 @@ export function buildNotificationText(
       // ★ 금액(판매가·원가) 미노출 — 공급자는 앱(/vendor)에서 자기 발주만 확인·가부.
       const lines = [`🧺 Đơn đặt hàng mới: ${str(p.itemName)} x${num(p.quantity)}`];
       lines.push(`Địa điểm: ${villa}`);
+      // 이행 장소 주소 — 발주받은 빌라 1채의 주소만(재고 비공개 원칙과 무관, 판매가·마진 아님).
+      if (typeof p.villaAddress === "string" && p.villaAddress.trim().length > 0) {
+        lines.push(`Địa chỉ: ${p.villaAddress.trim()}`);
+      }
       if (typeof p.serviceDate === "string" && p.serviceDate.length > 0) {
         lines.push(`Ngày: ${formatDateVi(p.serviceDate)}`);
       }
@@ -327,6 +331,10 @@ export function buildNotificationText(
           `앱에서 적용/무시하세요.`,
         ].join("\n");
       }
+      // 서비스 이행 완료 보고 — 공급자가 /vendor에서 완료 버튼(vendorCompletedAt). 정산 처리 신호.
+      if (p.action === "complete") {
+        return `🏁 공급자 서비스 완료: ${vendorName} — ${itemName} (${villa})`;
+      }
       // accepted: accept/propose는 true(수락 계열), reject만 false — 기존 동작 보존.
       if (p.accepted === true) {
         return `✅ 공급자 수락: ${vendorName} — ${itemName} (${villa})`;
@@ -363,6 +371,31 @@ export function buildNotificationText(
       if (typeof p.top === "string" && p.top.length > 0) lines.push(`주요 출처: ${p.top}`);
       lines.push(`SecurityEvent를 확인하세요. (대응 절차: docs/ops/incident-response.md)`);
       return lines.join("\n");
+    }
+
+    case NotificationType.VILLA_PENDING_REVIEW:
+      // 수신자=운영자 → 한국어. 공급자 신규 등록/반려 후 재제출 → 승인 대기 통지. 금액 정보 없음.
+      return [
+        p.resubmitted === true
+          ? `🏠 반려 빌라 재제출: ${villa}`
+          : `🏠 새 빌라 등록: ${villa}`,
+        `공급자: ${str(p.supplierName)}`,
+        `승인 대기 중입니다. 관리자 화면에서 검토해주세요.`,
+      ].join("\n");
+
+    case NotificationType.VILLA_CONTENT_UPDATED: {
+      // 수신자=운영자 → 한국어. 승인(ACTIVE)된 빌라의 사진/비품/규칙 변경 통지. 금액 정보 없음.
+      const kindLabels: Record<string, string> = {
+        PHOTOS: "사진",
+        AMENITIES: "비품",
+        INFO: "이용규칙·위치 정보",
+      };
+      const kind = str(p.kind);
+      return [
+        `✏️ 판매중 빌라 정보 변경: ${villa}`,
+        `변경 항목: ${kindLabels[kind] ?? kind}`,
+        `공급자가 수정했습니다. 내용을 확인해주세요.`,
+      ].join("\n");
     }
   }
 }
