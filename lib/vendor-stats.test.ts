@@ -9,7 +9,6 @@ import {
   formatVndDot,
   isRevenueOrder,
   loadVendorStats,
-  orderAmountVnd,
 } from "@/lib/vendor-stats";
 
 const d = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
@@ -45,16 +44,6 @@ describe("formatVndDot — 공급자 점 구분 표기", () => {
     expect(formatVndDot(45_000_000n)).toBe("45.000.000₫");
     expect(formatVndDot(0n)).toBe("0₫");
     expect(formatVndDot(1_500n)).toBe("1.500₫");
-  });
-});
-
-describe("orderAmountVnd — costVnd × quantity", () => {
-  it("정상 곱", () => {
-    expect(orderAmountVnd(1_500_000n, 3)).toBe(4_500_000n);
-  });
-  it("음수/0 quantity 방어 → 0", () => {
-    expect(orderAmountVnd(1_500_000n, 0)).toBe(0n);
-    expect(orderAmountVnd(1_500_000n, -2)).toBe(0n);
   });
 });
 
@@ -112,7 +101,7 @@ describe("aggregateVendorStats — 매출·수락율·품목·정산", () => {
   it("매출 = 수락+확정/이행만, 거절·대기·취소 제외", () => {
     const stats = aggregateVendorStats(
       [
-        // 매출 산입: 10M (수락+CONFIRMED), 6M (수락+DELIVERED ×2개)
+        // 매출 산입: 10M (수락+CONFIRMED) + 3M (수락+DELIVERED, 수량 2개지만 costVnd는 이미 라인 총액 — 이중곱 금지)
         row({ serviceDate: d("2026-07-10"), costVnd: 10_000_000n, quantity: 1, itemLabel: "BBQ" }),
         row({ serviceDate: d("2026-07-12"), status: ServiceOrderStatus.DELIVERED, costVnd: 3_000_000n, quantity: 2, itemLabel: "과일" }),
         // 제외: 거절
@@ -126,14 +115,14 @@ describe("aggregateVendorStats — 매출·수락율·품목·정산", () => {
       ZERO_SETTLE
     );
 
-    expect(stats.totalVnd).toBe(16_000_000); // 10M + 6M
-    expect(stats.totalVndText).toBe("16.000.000₫");
+    expect(stats.totalVnd).toBe(13_000_000); // 10M + 3M(라인 총액 그대로 — ×quantity 이중곱 없음)
+    expect(stats.totalVndText).toBe("13.000.000₫");
     expect(stats.orderCount).toBe(2);
     // 수락율: ACCEPTED vendorStatus 3건(BBQ·과일·취소상태행) / (수락 3 + 거절 1) = 75
     expect(stats.acceptanceRatePct).toBe(75);
-    // 평균 단가 = 16M / 2 = 8M
-    expect(stats.avgUnitVnd).toBe(8_000_000);
-    // 품목 Top: BBQ 10M > 과일 6M
+    // 평균 단가 = 13M / 2 = 6.5M
+    expect(stats.avgUnitVnd).toBe(6_500_000);
+    // 품목 Top: BBQ 10M > 과일 3M
     expect(stats.topItems.map((i) => i.itemLabel)).toEqual(["BBQ", "과일"]);
     expect(stats.topItems[1].quantity).toBe(2);
     expect(stats.revenueTrend.length).toBe(period.buckets.length);

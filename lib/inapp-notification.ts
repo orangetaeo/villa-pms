@@ -2,7 +2,7 @@
 //   enqueueNotification(lib/zalo.ts, Zalo 큐) 패턴 미러링하되 채널은 Zalo가 아니라 인앱(DB only).
 //   InAppNotification(id,userId,type,title,body?,href?,readAt?,createdAt) — 가격 필드 없음(누수 불가).
 //   ★ 누수: title/body엔 판매가(priceKrw/priceVnd)·마진 절대 금지. 품목·수량·빌라·본인 지급액(costVnd)만.
-//      수신자(VENDOR)는 vi 사용자 — title/body는 vi로 적재(buildVendorNotifText).
+//      수신자(VENDOR)는 베트남인·한국인 혼합 — title/body는 적재 시점에 수신자 User.locale(ko/vi)로 확정(buildVendorNotifText).
 import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
 
@@ -57,8 +57,9 @@ export async function listForUser(userId: string, limit = 30) {
   });
 }
 
-// ===================== vi 문구 빌더 (수신자 VENDOR = 베트남어) =====================
-//   서버 라우트에서 next-intl 로드 없이 짧은 vi 상수로 적재. KR↔VN 통화 표기는 점 구분(₫).
+// ===================== 문구 빌더 (수신자 locale: vi 기본, ko 지원) =====================
+//   서버 라우트에서 next-intl 로드 없이 짧은 상수로 적재. 통화 표기는 점 구분(₫).
+//   원천공급자는 베트남인·한국인 혼합 — 적재 시점에 수신자 User.locale로 언어 확정(과거 적재분은 재번역 안 함).
 //   ★ 가격·마진 없음: 품목·수량·빌라·serviceDate 또는 본인 지급액(costVnd)만 노출.
 
 /** VND 점 구분 표기 (1.500.000₫). BigInt 문자열 — Number() 금지(정밀도 손실 방지) */
@@ -82,46 +83,59 @@ export type VendorNotifPayload = {
 
 export type VendorNotifText = { title: string; body: string };
 
+/** 수신자 locale 정규화 — User.locale이 "ko"면 ko, 그 외(vi·null·기타)는 vi 기본 */
+export function vendorNotifLocale(userLocale: string | null | undefined): "ko" | "vi" {
+  return userLocale === "ko" ? "ko" : "vi";
+}
+
+// 이벤트별 제목 상수 — ko/vi 동등 유지(새 타입 추가 시 두 언어 모두 채울 것)
+const NOTIF_TITLES: Record<string, { vi: string; ko: string }> = {
+  VENDOR_PO: { vi: "Yêu cầu đặt dịch vụ mới", ko: "새 발주 요청" },
+  VENDOR_PO_CANCELLED: { vi: "Đơn đặt đã bị huỷ", ko: "발주가 취소되었습니다" },
+  VENDOR_SETTLED: { vi: "Đã thanh toán", ko: "정산 완료" },
+  VENDOR_PROPOSAL_APPLIED: {
+    vi: "Đề xuất giờ đã được chấp nhận",
+    ko: "시간 제안이 수락되었습니다",
+  },
+  VENDOR_PROPOSAL_DISMISSED: {
+    vi: "Đề xuất giờ không được áp dụng — giữ lịch ban đầu",
+    ko: "시간 제안이 반영되지 않았습니다 — 기존 일정 유지",
+  },
+  DEFAULT: { vi: "Thông báo", ko: "알림" },
+};
+
 /**
- * 도메인 이벤트 → VENDOR 인앱 알림 vi title/body 빌더.
+ * 도메인 이벤트 → VENDOR 인앱 알림 title/body 빌더 (수신자 locale 기준, 기본 vi).
  *   - VENDOR_PO: 새 발주 요청
  *   - VENDOR_PO_CANCELLED: 발주 취소
  *   - VENDOR_SETTLED: 정산 완료(본인 지급액 표기)
+ *   - VENDOR_PROPOSAL_APPLIED/DISMISSED: 시간 제안 결과(적용 시 확정 일정 표기)
  */
-export function buildVendorNotifText(type: string, p: VendorNotifPayload): VendorNotifText {
+export function buildVendorNotifText(
+  type: string,
+  p: VendorNotifPayload,
+  locale: "ko" | "vi" = "vi"
+): VendorNotifText {
   const item = p.itemName?.trim() || "—";
   const qty = p.quantity != null && p.quantity > 0 ? ` ×${p.quantity}` : "";
   const villa = p.villaName?.trim() ? ` · ${p.villaName.trim()}` : "";
   const date = p.serviceDate ? ` · ${p.serviceDate}` : "";
   const detail = `${item}${qty}${villa}${date}`;
+  const title = (NOTIF_TITLES[type] ?? NOTIF_TITLES.DEFAULT)[locale];
 
   switch (type) {
-    case "VENDOR_PO":
-      // "Yêu cầu đặt dịch vụ mới" = 새 발주 요청
-      return { title: "Yêu cầu đặt dịch vụ mới", body: detail };
-    case "VENDOR_PO_CANCELLED":
-      // "Đơn đặt đã bị huỷ" = 발주 취소됨
-      return { title: "Đơn đặt đã bị huỷ", body: detail };
     case "VENDOR_SETTLED": {
-      // "Đã thanh toán" = 정산 완료. 본인 지급액(costVnd) 표기.
+      // 정산 완료 — 본인 지급액(costVnd) 표기.
       const pay = p.costVnd ? ` · ${formatVndDot(p.costVnd)}` : "";
-      return { title: "Đã thanh toán", body: `${detail}${pay}` };
+      return { title, body: `${detail}${pay}` };
     }
     case "VENDOR_PROPOSAL_APPLIED": {
-      // 공급자의 대안 시간 제안이 운영자에 의해 적용됨 — 확정된 새 일정을 함께 표기.
+      // 제안 적용 — 확정된 새 일정(날짜+시각)을 함께 표기.
       const time = p.serviceTime ? ` ${p.serviceTime}` : "";
-      return {
-        title: "Đề xuất giờ đã được chấp nhận",
-        body: `${item}${qty}${villa}${date}${time}`,
-      };
+      return { title, body: `${detail}${time}` };
     }
-    case "VENDOR_PROPOSAL_DISMISSED":
-      // 제안이 반영되지 않음 — 기존 일정 유지. 일정은 body의 날짜(원래 serviceDate)로 안내.
-      return {
-        title: "Đề xuất giờ không được áp dụng — giữ lịch ban đầu",
-        body: detail,
-      };
     default:
-      return { title: "Thông báo", body: detail };
+      // VENDOR_PO·VENDOR_PO_CANCELLED·VENDOR_PROPOSAL_DISMISSED·기타 — 공통 detail.
+      return { title, body: detail };
   }
 }
