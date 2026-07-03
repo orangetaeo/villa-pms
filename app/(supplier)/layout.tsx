@@ -1,11 +1,13 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
+import { TabBar } from "@/components/supplier/tab-bar";
+// ⚠️ 서버 컴포넌트는 상수를 "use client" 모듈이 아닌 순수 모듈에서 직접 import해야 한다
+//    (client 모듈 경유 시 RSC가 배열을 클라이언트 참조 프록시로 바꿔 [...spread]가 "not iterable"이 됨).
 import {
-  TabBar,
   SUPPLIER_FULLSCREEN_PREFIXES,
   SUPPLIER_OWN_HEADER_PREFIXES,
-} from "@/components/supplier/tab-bar";
+} from "@/components/supplier/tab-bar-constants";
 import { PortalHeader } from "@/components/portal/portal-header";
 import PullToRefresh from "@/components/pull-to-refresh";
 import { getSupplierLocale } from "@/lib/locale";
