@@ -196,9 +196,19 @@ export async function createCheckoutCleaningTask(
 /** 청소 사진 제출 — PENDING·REJECTED → PHOTOS_SUBMITTED. 권한 스코프는 route 책임 */
 export async function submitCleaningPhotos(
   prisma: PrismaClient,
-  input: { taskId: string; photoUrls: string[]; actorUserId: string }
+  input: {
+    taskId: string;
+    photoUrls: string[];
+    /** photoUrls와 병렬인 슬롯 id — 검수 페어링 정렬용. 구클라이언트는 미전달(빈 배열 저장) */
+    photoSlots?: string[];
+    actorUserId: string;
+  }
 ): Promise<CleaningTask> {
   if (input.photoUrls.length < 1) throw new RangeError("청소 사진은 1장 이상 필요합니다");
+  const photoSlots =
+    input.photoSlots && input.photoSlots.length === input.photoUrls.length
+      ? input.photoSlots
+      : [];
 
   return prisma.$transaction(async (tx) => {
     const task = await tx.cleaningTask.findUnique({
@@ -211,7 +221,7 @@ export async function submitCleaningPhotos(
     // status 가드 — 동시 제출·승인 경합에서 한쪽만 승리
     const guarded = await tx.cleaningTask.updateMany({
       where: { id: task.id, status: task.status },
-      data: { status: CleaningStatus.PHOTOS_SUBMITTED, photoUrls: input.photoUrls },
+      data: { status: CleaningStatus.PHOTOS_SUBMITTED, photoUrls: input.photoUrls, photoSlots },
     });
     if (guarded.count !== 1) {
       throw new CleaningTransitionError(task.status, CleaningStatus.PHOTOS_SUBMITTED);

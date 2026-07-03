@@ -51,6 +51,7 @@ interface PhotoState {
 export function CleaningSubmit({
   taskId,
   villaName,
+  villaHref,
   todayLabel,
   slots,
   rejectNote,
@@ -59,6 +60,8 @@ export function CleaningSubmit({
 }: {
   taskId: string;
   villaName: string;
+  /** SUPPLIER만 빌라 상세 역링크 — CLEANER는 /my-villas 접근 불가라 미전달(텍스트 유지) */
+  villaHref?: string | null;
   todayLabel: string;
   slots: SlotProp[];
   rejectNote: string | null;
@@ -116,15 +119,18 @@ export function CleaningSubmit({
   async function handleSubmit() {
     if (!allDone || submitState === "submitting") return;
     setSubmitState("submitting");
-    // 슬롯 순서대로 제출 — 읽기 전용 그리드에서 공간 라벨과 1:1 대응
-    const photoUrls = slots
-      .map((s) => photos[s.id]?.url)
-      .filter((u): u is string => Boolean(u));
+    // 슬롯 순서대로 제출 + 병렬 슬롯 id — 선택 슬롯 스킵 시에도 검수 화면이
+    // 인덱스가 아니라 슬롯 id로 기준 사진과 페어링할 수 있게 한다
+    const submitted = slots.filter(
+      (s) => photos[s.id]?.status === "done" && photos[s.id]?.url
+    );
+    const photoUrls = submitted.map((s) => photos[s.id]!.url as string);
+    const photoSlots = submitted.map((s) => s.id);
     try {
       const res = await fetch(`/api/cleaning-tasks/${taskId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ photoUrls }),
+        body: JSON.stringify({ photoUrls, photoSlots }),
       });
       if (res.ok) {
         // 성공 — 목록 복귀 + 성공 배너 (Đã gửi 반영)
@@ -161,7 +167,17 @@ export function CleaningSubmit({
       <header className="mt-14 border-b border-neutral-100 bg-white px-4 py-6">
         <div className="mb-4 flex flex-col gap-1">
           <h2 className="text-2xl font-bold text-neutral-900">{labels.heading}</h2>
-          <span className="font-semibold text-teal-600">{villaName}</span>
+          {villaHref ? (
+            <Link
+              href={villaHref}
+              className="flex items-center gap-1 font-semibold text-teal-600 underline-offset-2 active:underline"
+            >
+              {villaName}
+              <span className="material-symbols-outlined text-base">chevron_right</span>
+            </Link>
+          ) : (
+            <span className="font-semibold text-teal-600">{villaName}</span>
+          )}
           <p className="text-xs text-neutral-500">{todayLabel}</p>
         </div>
         <div className="space-y-2">

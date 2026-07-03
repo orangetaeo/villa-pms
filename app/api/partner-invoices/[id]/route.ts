@@ -7,7 +7,14 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { canViewFinance } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
 import { serializeBigInt } from "@/lib/serialize";
-import { InvoiceError, issueInvoice, voidInvoice } from "@/lib/partner-invoice";
+import {
+  InvoiceError,
+  invoiceDisplayNo,
+  issueInvoice,
+  voidInvoice,
+} from "@/lib/partner-invoice";
+import { notifyPartner } from "@/lib/partner-notify";
+import { toDateOnlyString } from "@/lib/date-vn";
 
 const schema = z.object({ action: z.enum(["issue", "void"]) });
 
@@ -41,6 +48,22 @@ export async function PATCH(
       entityId: id,
       changes: { action: { new: parsed.data.action }, status: { new: updated.status } },
     });
+
+    // 발행 시 파트너에게 인앱+Zalo 통지 (T-partner-workflow-gaps ①) — 커밋 후, 실패해도 발행 응답 무해.
+    if (parsed.data.action === "issue") {
+      try {
+        await notifyPartner(updated.partnerId, {
+          kind: "INVOICE_ISSUED",
+          invoiceId: updated.id,
+          invoiceNo: invoiceDisplayNo(updated.id),
+          dueDate: toDateOnlyString(updated.dueDate),
+          totalVnd: updated.totalVnd.toString(),
+        });
+      } catch (notifyErr) {
+        console.warn("[partner-invoices] 발행 통지 실패(발행은 완료)", notifyErr);
+      }
+    }
+
     return NextResponse.json(serializeBigInt(updated));
   } catch (e) {
     if (e instanceof InvoiceError) {

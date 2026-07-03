@@ -67,6 +67,7 @@ model User {
   settlements   Settlement[]
   notifications Notification[]
   inAppNotifications InAppNotification[] // 인앱 알림(벨·읽음상태) — VENDOR 포털, additive
+  resolvedChangeRequests BookingChangeRequest[] @relation("ChangeRequestResolver") // 파트너 요청 처리자(운영자) — additive
   auditLogs     AuditLog[]
   vendorAccount ServiceVendor? @relation("VendorAccount") // 원천 공급자 로그인 계정 (Role=VENDOR, ADR-0023)
   partnerAccount Partner?      @relation("PartnerAccount") // 파트너(여행사·랜드사) 로그인 계정 (Role=PARTNER, ADR-0028)
@@ -550,6 +551,7 @@ model Booking {
   parentBookingId   String?
   parentBooking     Booking?       @relation("BookingExtensions", fields: [parentBookingId], references: [id], onDelete: SetNull)
   extensions        Booking[]      @relation("BookingExtensions")
+  changeRequests    BookingChangeRequest[] // 파트너 취소·변경·홀드연장 요청 (T-partner-workflow-gaps) — additive
   holdExpiresAt     DateTime? // HOLD 상태에서만 사용 (24~48h)
   // 금액 — HOLD 시점 스냅샷. saleCurrency에 해당하는 통화 컬럼만 채운다 (ADR-0003)
   saleCurrency      Currency       @default(KRW)
@@ -714,6 +716,7 @@ model CleaningTask {
   assigneeId String?
   assignee   User?          @relation("AssignedCleaner", fields: [assigneeId], references: [id])
   photoUrls  String[] // 공간별 청소 완료 사진
+  photoSlots String[] // photoUrls와 병렬인 슬롯 id(exterior·bedroom-1…) — 선택 슬롯 스킵 시 검수 페어링 정렬용. 레거시 제출은 빈 배열
   rejectNote String?
   approvedBy String?
   approvedAt DateTime?
@@ -839,6 +842,7 @@ model Partner {
   receivables PartnerReceivable[]
   invoices    PartnerInvoice[]
   proposals   Proposal[]
+  changeRequests BookingChangeRequest[] // 파트너 취소·변경·홀드연장 요청 — additive
 
   @@index([type, status])
   @@index([approvalStatus])
@@ -1146,6 +1150,31 @@ model InAppNotification {
 
   @@index([userId, readAt])
   @@index([userId, createdAt])
+}
+
+// 파트너(여행사·랜드사) 예약 취소·변경·홀드연장 "요청" — 운영자 승인형 (T-partner-workflow-gaps)
+//   파트너는 예약을 직접 취소·변경할 수 없다(사업원칙 — 운영자 게이트 유지). 이 테이블은 요청 큐.
+//   kind/status는 String(새 enum 금지 — 라이브 additive 원칙): kind=CANCEL|MODIFY|HOLD_EXTEND,
+//   status=PENDING|APPROVED|REJECTED. 라이브 반영은 additive raw SQL(prisma db execute).
+model BookingChangeRequest {
+  id             String    @id @default(cuid())
+  bookingId      String
+  booking        Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  partnerId      String
+  partner        Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  kind           String // "CANCEL" | "MODIFY" | "HOLD_EXTEND"
+  note           String? // 파트너 요청 상세(자유 텍스트 — 희망 날짜·인원·사유 등)
+  status         String    @default("PENDING") // "PENDING" | "APPROVED" | "REJECTED"
+  resolvedById   String? // 처리한 운영자(User). null=미처리
+  resolvedBy     User?     @relation("ChangeRequestResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolutionNote String? // 운영자 처리 메모(거절 사유 등 — 파트너에게 노출)
+  resolvedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([bookingId])
+  @@index([partnerId, createdAt])
 }
 
 // ===================== 감사 로그·운영 설정 =====================
