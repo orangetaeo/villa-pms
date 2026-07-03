@@ -15,8 +15,9 @@ import { isOperator } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
 import { costThrottle } from "@/lib/cost-throttle";
 
-// 번역 대상 텍스트류 — 본문(text)이 사람이 읽는 문장인 타입만. 사진은 translate-photo, 음성은 STT 경로.
-const TRANSLATABLE_TYPES = new Set(["text", "link", "location"]);
+// 번역 대상 텍스트류 — 본문(text)이 사람이 읽는 문장인 타입만. 음성은 STT 경로.
+// photo는 캡션(text)을 번역하되 captionTranslated에 저장 — translatedText는 이미지 OCR(translate-photo) 전용.
+const TRANSLATABLE_TYPES = new Set(["text", "link", "location", "photo"]);
 
 export async function POST(
   req: Request,
@@ -41,6 +42,7 @@ export async function POST(
       msgType: true,
       text: true,
       translatedText: true,
+      captionTranslated: true,
       conversationId: true,
     },
   });
@@ -48,9 +50,14 @@ export async function POST(
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
 
+  // 저장 대상 필드 — photo 캡션은 captionTranslated(OCR 번역과 분리), 그 외 텍스트류는 translatedText.
+  const targetField =
+    message.msgType === "photo" ? ("captionTranslated" as const) : ("translatedText" as const);
+  const existing = message[targetField];
+
   // 이미 번역돼 있으면 그대로 반환(멱등 — 중복 Gemini 호출 0).
-  if (message.translatedText && message.translatedText.trim().length > 0) {
-    return NextResponse.json({ translated: message.translatedText });
+  if (existing && existing.trim().length > 0) {
+    return NextResponse.json({ translated: existing });
   }
 
   const source = (message.text ?? "").trim();
@@ -70,10 +77,10 @@ export async function POST(
       return NextResponse.json({ translated: "" });
     }
 
-    // translatedText 저장(이후 재요청은 멱등 반환).
+    // 대상 필드에 저장(이후 재요청은 멱등 반환).
     await prisma.zaloMessage.update({
       where: { id: message.id },
-      data: { translatedText: translated },
+      data: { [targetField]: translated },
     });
 
     // 다른 탭/뷰 정합 — 번역 채움 후 본인 채널로 실시간 "update" 신호 1회(누수 0: 신호만).

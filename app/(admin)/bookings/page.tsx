@@ -148,10 +148,21 @@ export default async function BookingsPage({
       ? { checkIn: today, status: BookingStatus.CONFIRMED }
       : { checkOut: today, status: BookingStatus.CHECKED_IN }
     : {
-        // range 활성 → checkIn 범위 / 비활성 → 기존 월 겹침
+        // range 활성 → checkIn 범위 / 비활성 → 월 겹침 + 활성 HOLD는 월과 무관하게 항상 포함
+        //   (A2: 다음달 체크인 가예약이 기본 화면·HOLD 탭에서 숨어 입금확인을 놓치는 사고 방지.
+        //    q 검색이 최상위 OR 키를 쓰므로 충돌하지 않게 AND로 감싼다)
         ...(dateWhere
           ? { checkIn: dateWhere }
-          : { checkIn: { lt: monthRange.end }, checkOut: { gt: monthRange.start } }),
+          : {
+              AND: [
+                {
+                  OR: [
+                    { checkIn: { lt: monthRange.end }, checkOut: { gt: monthRange.start } },
+                    { status: BookingStatus.HOLD },
+                  ],
+                },
+              ],
+            }),
         ...(villaId ? { villaId } : {}),
         // 지역(area) = 빌라 단지명(complex) 정확 일치 (재고 비공개 — villa 관계 필터)
         ...(area ? { villa: { is: { complex: area } } } : {}),
@@ -529,7 +540,10 @@ export default async function BookingsPage({
             </span>
           </div>
         </div>
-        <div className="bg-admin-card p-4 rounded-xl border border-slate-800/50 flex flex-col gap-1">
+        <Link
+          href="/bookings?status=hold"
+          className="bg-admin-card p-4 rounded-xl border border-slate-800/50 flex flex-col gap-1 hover:ring-1 hover:ring-amber-500 transition-all"
+        >
           <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest whitespace-nowrap">
             {t("stats.pendingHolds")}
           </p>
@@ -539,7 +553,7 @@ export default async function BookingsPage({
               {t("stats.pendingHoldsHint")}
             </span>
           </div>
-        </div>
+        </Link>
         <div className="bg-admin-card p-4 rounded-xl border border-slate-800/50 flex flex-col gap-1">
           <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest whitespace-nowrap">
             {t("stats.occupancy", { month: monthLabel })}

@@ -18,11 +18,10 @@
 | `cron-periodic-cleaning` | `/api/cron/periodic-cleaning` | `0 2 1 * *` | 매월 1일 09:00 | 정기방역 태스크 생성(메시지 없음) |
 | `cron-fx-update` | `/api/cron/fx-update` | `0 1 * * *` | 매일 08:00 | 판매가 환율 `FX_VND_PER_KRW` 갱신(토글 ON일 때만, 메시지 없음) |
 | `cron-cleanup-passports` | `/api/cron/cleanup-passports` | `0 3 * * *` | 매일 10:00 | 90일 경과 여권·서명 사진 삭제(개인정보 보존정책, 메시지 없음) |
-| `cron-security-alerts` ⏳미등록 | `/api/cron/security-alerts` | `*/10 * * * *` | 10분마다 | 보안 이상탐지 경보(SecurityEvent 임계치 초과 시 운영자에게 **Zalo 발송**, 60분 쿨다운) — 보안 P3-S3 |
-| `cron-checkout-reminder` ⏳미등록 | `/api/cron/checkout-reminder` | `0 1 * * *` | 매일 08:00 | **Zalo 알림 큐 적재**(내일 체크아웃 예약 → 담당 청소원/공급자 D-1 사전 청소알림, checkOut==today+1 멱등) — PR #139 |
+| `cron-security-alerts` | `/api/cron/security-alerts` | `*/10 * * * *` | 10분마다 | 보안 이상탐지 경보(SecurityEvent 임계치 초과 시 운영자에게 **Zalo 발송**, 60분 쿨다운) — 보안 P3-S3 |
+| `cron-checkout-reminder` | `/api/cron/checkout-reminder` | `0 1 * * *` | 매일 08:00 | **Zalo 알림 큐 적재**(내일 체크아웃 예약 → 담당 청소원/공급자 D-1 사전 청소알림, checkOut==today+1 멱등) — PR #139 |
 
-> ⚠️ **`cron-checkout-reminder`는 2026-06-30 신규(PR #139, 청소 운영 보강) — 본 런북 최초 작성(06-26) 이후 추가돼 누락됐었음(2026-07-03 발견). 미등록 시 D-1 사전 청소알림이 전혀 발송되지 않는다.** Duplicate 후 URL `/api/cron/checkout-reminder`·스케줄 `0 1 * * *`·이름 변경으로 등록.
-> ⚠️ **`cron-security-alerts`는 2026-06-28 신규(P3-S3) — 아직 미등록.** 위 등록 절차로 1개 추가하면 가동(Duplicate 후 URL `/api/cron/security-alerts`·스케줄 `*/10 * * * *`·이름 변경). 미등록 시 보안 경보가 자동 발송되지 않음(SecurityEvent는 계속 쌓임 — 수동 조회는 가능, [[incident-response]]). 임계치는 `lib/security-alerts.ts` `SECURITY_ALERT_THRESHOLDS` 상수.
+> **✅ 2026-07-03 등록 완료 — 이로써 전 크론(10개) 등록.** `cron-checkout-reminder`(PR #139 신규, 런북 최초 작성 06-26 이후 추가돼 누락됐던 것 발견·보완)와 `cron-security-alerts`(P3-S3)를 테오가 대시보드에서 등록. Run now 성공(각 1s·2s) + checkout-reminder는 앱 DB에서 무부작용 확인(내일 체크아웃 0건 → 알림 0건 멱등 no-op 200). **security-alerts는 스케줄 자동 실행(09:31Z)까지 정상 요약 반환 확인 — §가장 흔한 실패(sh -c) 통과.** checkout-reminder 자동 실행은 01:00 UTC 1회/일 — 익일 Cron Runs 초록 글랜스 권장. 위 등록 절차로 1개 추가하면 가동(Duplicate 후 URL `/api/cron/security-alerts`·스케줄 `*/10 * * * *`·이름 변경). 미등록 시 보안 경보가 자동 발송되지 않음(SecurityEvent는 계속 쌓임 — 수동 조회는 가능, [[incident-response]]). 임계치는 `lib/security-alerts.ts` `SECURITY_ALERT_THRESHOLDS` 상수.
 > ⚠️ Railway cron 스케줄은 **UTC**. VN(UTC+7) 현지 시각은 참고용.
 > 모든 라우트는 멱등(중복 실행 안전). `*/5`는 분, `0 0 * * *`는 매일 00:00 UTC.
 

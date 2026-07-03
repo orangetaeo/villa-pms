@@ -1245,6 +1245,8 @@ enum NotificationType {
   VILLA_PENDING_REVIEW // 빌라 신규 등록·반려 후 재제출 → 운영자 통지(ko). payload.resubmitted 텍스트 분기. additive: 라이브 ALTER TYPE ADD VALUE
   VILLA_CONTENT_UPDATED // 승인(ACTIVE) 후 공급자 사진/비품/규칙 수정 → 운영자 통지(ko). PENDING dedup 스팸 방지. additive: 라이브 ALTER TYPE ADD VALUE
   VENDOR_PROPOSAL_RESULT // 일정 제안 결과(적용/무시) → 원천 공급자 통지(payload.locale ko/vi). additive: 라이브 ALTER TYPE ADD VALUE
+  GUEST_PAYMENT_NOTICE // 게스트 "입금했습니다" 통보 → 운영자 통지(ko). 48h 홀드만료 전 입금확인 유도 (A1). additive: 라이브 ALTER TYPE ADD VALUE
+  SERVICE_ORDER_REQUESTED // 게스트/파트너 부가서비스 요청 → 운영자 통지(ko). 금액 미포함 (A1). additive: 라이브 ALTER TYPE ADD VALUE
 }
 
 enum NotificationStatus {
@@ -1369,6 +1371,9 @@ model ZaloMessage {
   text           String?
   attachmentUrls String[]
   translatedText String? // Gemini 번역 캐시 — 수신 vi→ko 자동, 발신 ko→vi 미리보기 후 전송
+  // 사진 캡션 번역(ko) — 사진 메시지의 translatedText는 이미지 OCR 번역 전용이라 분리.
+  // 같은 사진에 캡션 번역과 이미지 속 글자 OCR이 둘 다 필요한 사례 대응(additive, 기존 행 null).
+  captionTranslated String?
   zaloMsgId      String?              @unique // Zalo msg_id (webhook 멱등성)
   status         ZaloMessageStatus
   error          String?

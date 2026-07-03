@@ -60,6 +60,8 @@ export interface ChatMessageRow {
   senderUid: string | null;
   text: string | null;
   translatedText: string | null;
+  /** 사진 캡션 번역(ko) — translatedText(사진은 OCR 전용)와 분리. 선택(미조회 경로 호환). */
+  captionTranslated?: string | null;
   attachmentUrls: string[];
   status: string;
   createdAt: Date;
@@ -81,6 +83,8 @@ export interface ChatMessageDTO {
   msgType: string;
   text: string;
   translatedText: string | null;
+  /** 사진 캡션 번역(ko) — PhotoCard 캡션 아래 표시. 사진 외 타입은 항상 null. */
+  captionTranslated: string | null;
   attachmentUrls: string[];
   time: string;
   status: string;
@@ -141,6 +145,7 @@ export function toChatMessages(
       msgType: m.msgType ?? "text",
       text: m.text ?? "",
       translatedText: m.translatedText,
+      captionTranslated: m.captionTranslated ?? null,
       attachmentUrls: m.attachmentUrls,
       time: msgTime(m.createdAt),
       status: m.status,

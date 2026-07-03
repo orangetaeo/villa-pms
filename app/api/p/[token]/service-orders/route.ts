@@ -23,6 +23,7 @@ import { priceKrwCeil } from "@/lib/service-display";
 import { getFxVndPerKrw } from "@/lib/pricing";
 import { parseUtcDateOnly } from "@/lib/date-vn";
 import type { Prisma } from "@prisma/client";
+import { notifyOperatorsServiceOrderRequested } from "@/lib/consumer-signal-notify";
 
 // 공개·미인증 엔드포인트 폭주 방어 (T-sec-public-hardening — hold/roster 라우트와 동일 모델)
 const ORDER_TOKEN_LIMIT = { max: 40, windowMs: 10 * 60_000 };
@@ -148,6 +149,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     entity: "ServiceOrder",
     entityId: created.id,
     changes: { requestedVia: { new: "PARTNER" }, catalogItemId: { new: item.id } },
+  });
+
+  // 운영자 Zalo 통지 (A1) — 요청이 예약 상세에만 묻히지 않게. best-effort.
+  const bookingInfo = await prisma.booking.findUnique({
+    where: { id: booking.id },
+    select: { villa: { select: { name: true } } },
+  });
+  await notifyOperatorsServiceOrderRequested(prisma, {
+    bookingId: booking.id,
+    orderId: created.id,
+    villaName: bookingInfo?.villa.name ?? "-",
+    serviceName: item.nameKo,
+    quantity: pricing.quantity,
+    serviceDate: d.serviceDate ?? null,
+    serviceTime: d.serviceTime ?? null,
   });
 
   // ★ costVnd·vendorId·마진 미포함 — id만 반환.
