@@ -125,6 +125,15 @@ export default function PartnerBookingsList({
                       <h2 className="truncate font-bold text-neutral-900">
                         {formatVillaName({ name: b.villaName, nameVi: b.villaNameVi })}
                       </h2>
+                      {/* 연장(분할숙박) 묶음 표시 — 자식이면 "연장 예약", 부모면 자식 수 (ADR-0030) */}
+                      {(b.isExtension || b.extensionCount > 0) && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold text-indigo-600">
+                          <span className="material-symbols-outlined text-xs">link</span>
+                          {b.isExtension
+                            ? t("bookings.extensionChild")
+                            : t("bookings.extensionParent", { count: b.extensionCount })}
+                        </span>
+                      )}
                       {b.villaComplex && (
                         <p className="truncate text-xs text-neutral-400">{b.villaComplex}</p>
                       )}

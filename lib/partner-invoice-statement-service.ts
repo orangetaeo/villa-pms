@@ -7,16 +7,15 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { saveInvoiceFile } from "@/lib/storage";
 import { generateInvoicePdf } from "@/lib/partner-invoice-pdf";
-import { receivableBalance } from "@/lib/partner-invoice";
+import { invoiceDisplayNo, receivableBalance } from "@/lib/partner-invoice";
 import { partnerInvoiceLocale, type InvoiceLocale } from "@/lib/partner-country";
 import { toDateOnlyString, todayVnDateString } from "@/lib/date-vn";
 
 const dot = (d: Date) => toDateOnlyString(d).replaceAll("-", ".");
 
-/** 청구서 표시번호 — ID 끝 6자리 대문자 (문서/Zalo 공용) */
-export function invoiceDisplayNo(invoiceId: string): string {
-  return `INV-${invoiceId.slice(-6).toUpperCase()}`;
-}
+// 청구서 표시번호는 leaf 모듈(lib/partner-invoice)로 이동 — pdf(.tsx) 의존이 없는 라우트가
+// 표시번호만 쓸 수 있게. 기존 호출부(send 라우트 등) 호환을 위해 재export.
+export { invoiceDisplayNo };
 
 /**
  * 파트너 표시명 — 언어별 결정.

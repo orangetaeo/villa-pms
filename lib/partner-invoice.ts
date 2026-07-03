@@ -23,6 +23,13 @@ import { applyPaymentToReceivable } from "@/lib/partner-booking";
 
 type Tx = Prisma.TransactionClient;
 
+/** 청구서 표시번호 — ID 끝 6자리 대문자 (문서/Zalo/알림 공용).
+ *  ★ 여기(leaf 모듈)에 두는 이유: statement-service는 react-pdf(.tsx)를 import하므로
+ *    라우트가 표시번호만 필요할 때 pdf 의존성이 테스트 모듈 그래프에 끌려오지 않게 한다. */
+export function invoiceDisplayNo(invoiceId: string): string {
+  return `INV-${invoiceId.slice(-6).toUpperCase()}`;
+}
+
 /** 채권 1건의 미입금 잔액(잔금) = 총액 − 선금입금 − 잔금입금 (음수면 0) */
 export function receivableBalance(r: {
   totalVnd: bigint;

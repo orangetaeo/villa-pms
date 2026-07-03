@@ -12,6 +12,7 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
 import { toDateOnlyString } from "@/lib/date-vn";
+import { enqueueInAppNotification, buildVendorNotifText } from "@/lib/inapp-notification";
 
 const bodySchema = z.object({ apply: z.boolean() });
 
@@ -45,6 +46,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       proposedServiceDate: true,
       proposedServiceTime: true,
       vendorProposalRespondedAt: true,
+      quantity: true,
+      catalogItemId: true,
+      vendorName: true,
+      vendor: { select: { userId: true } },
+      booking: { select: { villa: { select: { name: true } } } },
     },
   });
   if (!existing) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -75,6 +81,40 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   const proposedDateStr = toDateOnlyString(existing.proposedServiceDate);
+
+  // 제안 결과를 공급자에게 인앱 회신(vendor-gaps-p1 계약 B) — 적용/무시 어느 쪽이든 공급자가 결과를 알아야 함.
+  //   InAppNotification.type은 String이라 enum 변경 없음. try/catch 격리(회신 실패가 본 처리를 깨지 않음).
+  if (existing.vendor?.userId) {
+    try {
+      const item = existing.catalogItemId
+        ? await prisma.serviceCatalogItem.findUnique({
+            where: { id: existing.catalogItemId },
+            select: { nameKo: true },
+          })
+        : null;
+      const notifType = apply ? "VENDOR_PROPOSAL_APPLIED" : "VENDOR_PROPOSAL_DISMISSED";
+      const { title, body } = buildVendorNotifText(notifType, {
+        itemName: item?.nameKo ?? existing.vendorName ?? null,
+        villaName: existing.booking?.villa?.name ?? null,
+        // 적용 시 확정된 새 일정(=제안값), 무시 시 유지되는 기존 일정.
+        serviceDate: apply
+          ? proposedDateStr
+          : existing.serviceDate
+            ? toDateOnlyString(existing.serviceDate)
+            : null,
+        serviceTime: apply ? existing.proposedServiceTime ?? null : existing.serviceTime ?? null,
+      });
+      await enqueueInAppNotification({
+        userId: existing.vendor.userId,
+        type: notifType,
+        title,
+        body,
+        href: "/vendor",
+      });
+    } catch {
+      // 인앱 회신 실패는 제안 처리 성공을 막지 않는다.
+    }
+  }
   await writeAuditLog({
     db: prisma,
     userId: actorId,

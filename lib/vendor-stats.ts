@@ -148,10 +148,10 @@ export interface VendorStats {
   avgUnitVndText: string;
   /** 인기 품목 Top(매출 내림차순) */
   topItems: VendorItemStat[];
-  /** 미정산 금액(VND) — 매출 인식 발주 중 vendorSettledAt 없음 */
+  /** 미정산 금액(VND) — 정산 대상(수락+미취소, 발주함 정산탭과 동일 기준) 중 vendorSettledAt 없음 */
   unsettledVnd: number;
   unsettledVndText: string;
-  /** 정산완료 금액(VND) — 매출 인식 발주 중 vendorSettledAt 있음 */
+  /** 정산완료 금액(VND) — 정산 대상(수락+미취소) 중 vendorSettledAt 있음 */
   settledVnd: number;
   settledVndText: string;
 }
@@ -180,7 +180,8 @@ const REVENUE_SELECT = {
  * aggregateVendorStats — 평탄화된 발주 행 배열을 받아 기간 KPI·추이·품목·정산을 집계한다.
  * DB 무관 순수 함수(테스트 가능). 행은 이미 vendorId 스코프로 걸러진 것만 들어와야 한다(호출부 보장).
  *
- * - 매출/추이/품목/정산: isRevenueOrder(수락+확정/이행)만 산입.
+ * - 매출/추이/품목: isRevenueOrder(수락+확정/이행)만 산입.
+ * - 정산(미정산/정산완료): 수락+미취소(발주함 정산탭 settleTotals와 동일 기준) — 기간 내 귀속분.
  * - 수락율: 전체 응답(수락+거절) 기준(매출 인식과 별개로 응답 행 전체 집계).
  * - 추이/총계는 기간 [from,to)·직전 동기간 [previous.from,previous.to)로 귀속일 분기.
  */
@@ -201,12 +202,26 @@ export function aggregateVendorStats(rows: OrderRow[], period: StatsPeriod): Ven
     if (o.vendorStatus === ServiceVendorStatus.VENDOR_ACCEPTED) accepted += 1;
     else if (o.vendorStatus === ServiceVendorStatus.VENDOR_REJECTED) rejected += 1;
 
-    if (!isRevenueOrder(o)) continue;
+    // 정산 대상 = 수락 + 미취소 — 발주함 정산탭(settleTotals)과 동일 기준.
+    //   매출 인식(CONFIRMED·DELIVERED)보다 넓다: 수락 직후(고객확정 전) 건도 "지급대기"로 잡혀야
+    //   화면 간 같은 단어(미지급/지급대기)가 같은 숫자를 가리킨다.
+    const settleEligible =
+      o.vendorStatus === ServiceVendorStatus.VENDOR_ACCEPTED &&
+      o.status !== ServiceOrderStatus.CANCELLED;
+    if (!settleEligible) continue; // 매출 인식(isRevenueOrder)은 정산 대상의 부분집합
 
     const amount = orderAmountVnd(o.costVnd, o.quantity);
     const at = attributionDate(o);
     const inCurrent =
       at.getTime() >= period.from.getTime() && at.getTime() < period.to.getTime();
+
+    // 정산 상태별 — 정산 대상 전체(기간 내)
+    if (inCurrent) {
+      if (o.vendorSettledAt) settledVnd += amount;
+      else unsettledVnd += amount;
+    }
+
+    if (!isRevenueOrder(o)) continue;
 
     if (inCurrent) {
       totalVnd += amount;
@@ -220,10 +235,6 @@ export function aggregateVendorStats(rows: OrderRow[], period: StatsPeriod): Ven
       cur.quantity += o.quantity > 0 ? o.quantity : 0;
       cur.vnd += amount;
       itemMap.set(o.itemLabel, cur);
-
-      // 정산 상태별
-      if (o.vendorSettledAt) settledVnd += amount;
-      else unsettledVnd += amount;
     } else if (
       period.previous &&
       at.getTime() >= period.previous.from.getTime() &&
