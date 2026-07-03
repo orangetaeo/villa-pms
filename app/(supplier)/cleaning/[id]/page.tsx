@@ -42,10 +42,12 @@ export default async function CleaningTaskPage({
       type: true, // A: 정기/체크아웃 구분
       dueDate: true, // A: 청소 예정일
       photoUrls: true,
+      photoSlots: true, // photoUrls와 병렬 슬롯 id — 읽기 전용 라벨 매칭(스킵 슬롯 대응)
       rejectNote: true,
       assigneeId: true, // 배정 검증용 — 클라이언트로 비전달
       villa: {
         select: {
+          id: true, // SUPPLIER 빌라 상세 역링크용
           supplierId: true, // 소유 검증용 — 클라이언트로 비전달
           name: true,
           nameVi: true,
@@ -188,6 +190,7 @@ export default async function CleaningTaskPage({
       <CleaningSubmit
         taskId={task.id}
         villaName={villaDisplayName}
+        villaHref={isCleaner ? null : `/my-villas/${task.villa.id}`}
         todayLabel={todayLabel}
         slots={slotProps}
         rejectNote={task.status === "REJECTED" ? task.rejectNote : null}
@@ -199,8 +202,12 @@ export default async function CleaningTaskPage({
 
   // PHOTOS_SUBMITTED·APPROVED — 제출된 사진 읽기 전용 그리드
   const isApproved = task.status === "APPROVED";
-  // 제출 시 슬롯 순서대로 저장되므로 개수가 맞으면 공간 라벨을 함께 표시
-  const labelsMatch = task.photoUrls.length === slotProps.length;
+  // 라벨 매칭 — photoSlots(슬롯 id 병렬 배열)가 있으면 슬롯별 매칭(선택 슬롯 스킵에도 라벨 유지),
+  // 없는 레거시 제출은 종전대로 개수가 슬롯과 일치할 때만 순서 라벨
+  const slotMode =
+    task.photoUrls.length > 0 && task.photoSlots.length === task.photoUrls.length;
+  const slotLabelById = new Map(slotProps.map((s) => [s.id, s.label]));
+  const labelsMatch = slotMode || task.photoUrls.length === slotProps.length;
 
   return (
     <>
@@ -219,7 +226,18 @@ export default async function CleaningTaskPage({
       <header className="mt-14 border-b border-neutral-100 bg-white px-4 py-6">
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl font-bold text-neutral-900">{t("submittedPhotos")}</h2>
-          <span className="font-semibold text-teal-600">{villaDisplayName}</span>
+          {/* SUPPLIER만 빌라 상세 역링크 — CLEANER는 /my-villas 접근 불가라 일반 텍스트 유지 */}
+          {isCleaner ? (
+            <span className="font-semibold text-teal-600">{villaDisplayName}</span>
+          ) : (
+            <Link
+              href={`/my-villas/${task.villa.id}`}
+              className="flex items-center gap-1 font-semibold text-teal-600 underline-offset-2 active:underline"
+            >
+              {villaDisplayName}
+              <span className="material-symbols-outlined text-base">chevron_right</span>
+            </Link>
+          )}
         </div>
         {/* 상태 안내 — 승인 대기(파랑) / 승인됨(초록) */}
         <div
@@ -252,7 +270,11 @@ export default async function CleaningTaskPage({
       <CleaningPhotosView
         photos={task.photoUrls.map((url, i) => ({
           url,
-          label: labelsMatch ? slotProps[i].label : undefined,
+          label: slotMode
+            ? slotLabelById.get(task.photoSlots[i])
+            : labelsMatch
+              ? slotProps[i].label
+              : undefined,
         }))}
         showLabels={labelsMatch}
         lightboxLabels={{

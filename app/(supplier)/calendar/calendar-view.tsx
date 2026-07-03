@@ -4,6 +4,7 @@
 // 셀 4상태는 색+패턴 병행 (색약 대응): 공실=초록 외곽선 / 확정=파랑 실선 /
 // 홀드=연파랑+파선 / 차단=회색+대각 빗금(인라인 repeating gradient — globals.css 비수정)
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { formatVnd } from "@/app/(supplier)/my-villas/new/wizard-types";
@@ -30,6 +31,8 @@ export interface BookingDetail {
   guestCount: number;
   supplierPayoutVnd: string; // 공급자 정산 예정액 (VND 동 단위 문자열)
   holdExpiresAt: string | null; // ISO — HOLD만
+  // 직접예약(seller=SUPPLIER) 검수 진입 — CONFIRMED=checkin / CHECKED_IN=checkout. 운영자 예약은 null(버튼 미노출)
+  inspectAction: "checkin" | "checkout" | null;
 }
 
 interface CalendarViewProps {
@@ -923,6 +926,19 @@ function BookingSheet({
           </span>
         </div>
       </div>
+
+      {/* 검수 진입 — 직접예약만 (운영자 예약은 inspectAction=null → 미노출) */}
+      {booking.inspectAction && (
+        <Link
+          href={`/my-bookings/${booking.id}/${booking.inspectAction}`}
+          className="mb-2 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-teal-600 text-base font-bold text-white shadow-lg shadow-teal-900/10 active:scale-[0.98]"
+        >
+          <span className="material-symbols-outlined">
+            {booking.inspectAction === "checkin" ? "login" : "logout"}
+          </span>
+          {t(booking.inspectAction === "checkin" ? "goCheckin" : "goCheckout")}
+        </Link>
+      )}
 
       <button
         type="button"

@@ -4,10 +4,17 @@ import { submitCleaningPhotos, CleaningTransitionError } from "@/lib/cleaning";
 import { isOperator } from "@/lib/permissions";
 import { requireAuth } from "@/lib/api-guard";
 
-const submitSchema = z.object({
-  // max 50 — a4 슬롯 이론 최대 45장(침실·욕실 동적) 수용 (T3.8 QA D-1)
-  photoUrls: z.array(z.string().min(1)).min(1, "청소 사진은 1장 이상 필요합니다").max(50),
-});
+const submitSchema = z
+  .object({
+    // max 50 — a4 슬롯 이론 최대 45장(침실·욕실 동적) 수용 (T3.8 QA D-1)
+    photoUrls: z.array(z.string().min(1)).min(1, "청소 사진은 1장 이상 필요합니다").max(50),
+    // photoUrls와 병렬인 슬롯 id(exterior·bedroom-1…) — 검수 페어링 정렬용. 구클라이언트 호환 optional
+    photoSlots: z.array(z.string().min(1).max(30)).max(50).optional(),
+  })
+  .refine((v) => !v.photoSlots || v.photoSlots.length === v.photoUrls.length, {
+    message: "photoSlots는 photoUrls와 길이가 같아야 합니다",
+    path: ["photoSlots"],
+  });
 
 /**
  * POST /api/cleaning-tasks/[id]/submit — 청소 사진 제출 (SPEC F4 게이트 1단계)
@@ -48,6 +55,7 @@ export async function POST(
     const updated = await submitCleaningPhotos(prisma, {
       taskId: id,
       photoUrls: parsed.data.photoUrls,
+      photoSlots: parsed.data.photoSlots,
       actorUserId: userId,
     });
     return Response.json({ task: updated });

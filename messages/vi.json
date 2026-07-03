@@ -1642,6 +1642,8 @@
       "guestCount": "{count} khách",
       "payoutLabel": "Tiền bạn nhận",
       "payoutHint": "Dự kiến thanh toán",
+      "goCheckin": "Làm thủ tục nhận phòng",
+      "goCheckout": "Làm thủ tục trả phòng",
       "close": "Đóng"
     },
     "direct": {
