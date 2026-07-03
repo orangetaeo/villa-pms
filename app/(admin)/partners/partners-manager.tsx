@@ -22,6 +22,7 @@ export interface SerializedPartnerAggregate {
     paymentTermDays: number;
     status: "ACTIVE" | "SUSPENDED" | "BLOCKED";
     contactPhone: string | null;
+    contactZaloUid: string | null; // Zalo 알림 라우팅 대상 — 목록 연결 뱃지 (T-partner-admin-ops ④)
     approvalStatus: "PENDING_APPROVAL" | "APPROVED" | "REJECTED";
     rejectionReason: string | null;
     userId: string | null;
@@ -167,6 +168,20 @@ export default function PartnersManager({
               )}
             </Link>
             <div className="flex flex-wrap items-center gap-1">
+              {/* Zalo 알림 연결 상태 — 미연결이면 알림(확정·청구서·연체 등)이 인앱에만 감 (T-partner-admin-ops ④) */}
+              <span
+                title={r.partner.contactZaloUid ? t("zaloLinked") : t("zaloUnlinked")}
+                className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                  r.partner.contactZaloUid
+                    ? "bg-teal-500/15 text-teal-300"
+                    : "bg-slate-700/60 text-slate-500"
+                }`}
+              >
+                <span className="material-symbols-outlined text-[12px]">
+                  {r.partner.contactZaloUid ? "notifications_active" : "notifications_off"}
+                </span>
+                Zalo
+              </span>
               {/* 승인 상태 배지 — APPROVED가 아니면(대기·거절) 표시 */}
               {r.partner.approvalStatus !== "APPROVED" && (
                 <span

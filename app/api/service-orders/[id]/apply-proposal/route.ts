@@ -12,7 +12,13 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
 import { toDateOnlyString } from "@/lib/date-vn";
-import { enqueueInAppNotification, buildVendorNotifText } from "@/lib/inapp-notification";
+import {
+  enqueueInAppNotification,
+  buildVendorNotifText,
+  vendorNotifLocale,
+} from "@/lib/inapp-notification";
+import { enqueueNotification } from "@/lib/zalo";
+import { NotificationType } from "@prisma/client";
 
 const bodySchema = z.object({ apply: z.boolean() });
 
@@ -49,7 +55,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       quantity: true,
       catalogItemId: true,
       vendorName: true,
-      vendor: { select: { userId: true } },
+      vendor: { select: { userId: true, user: { select: { zaloUserId: true, locale: true } } } },
       booking: { select: { villa: { select: { name: true } } } },
     },
   });
@@ -82,9 +88,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const proposedDateStr = toDateOnlyString(existing.proposedServiceDate);
 
-  // 제안 결과를 공급자에게 인앱 회신(vendor-gaps-p1 계약 B) — 적용/무시 어느 쪽이든 공급자가 결과를 알아야 함.
-  //   InAppNotification.type은 String이라 enum 변경 없음. try/catch 격리(회신 실패가 본 처리를 깨지 않음).
+  // 제안 결과를 공급자에게 회신(vendor-gaps-p1 계약 B + followups2 계약 ③) — 적용/무시 어느 쪽이든
+  //   ① 인앱(항상) ② Zalo(zaloUserId 연결 시, VENDOR_PROPOSAL_RESULT). try/catch 격리.
   if (existing.vendor?.userId) {
+    const notifLocale = vendorNotifLocale(existing.vendor.user?.locale);
+    // 적용 시 확정된 새 일정(=제안값), 무시 시 유지되는 기존 일정.
+    const resultDate = apply
+      ? proposedDateStr
+      : existing.serviceDate
+        ? toDateOnlyString(existing.serviceDate)
+        : null;
+    const resultTime = apply ? existing.proposedServiceTime ?? null : existing.serviceTime ?? null;
+    let itemName: string | null = null;
     try {
       const item = existing.catalogItemId
         ? await prisma.serviceCatalogItem.findUnique({
@@ -92,18 +107,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
             select: { nameKo: true },
           })
         : null;
+      itemName = item?.nameKo ?? existing.vendorName ?? null;
       const notifType = apply ? "VENDOR_PROPOSAL_APPLIED" : "VENDOR_PROPOSAL_DISMISSED";
-      const { title, body } = buildVendorNotifText(notifType, {
-        itemName: item?.nameKo ?? existing.vendorName ?? null,
-        villaName: existing.booking?.villa?.name ?? null,
-        // 적용 시 확정된 새 일정(=제안값), 무시 시 유지되는 기존 일정.
-        serviceDate: apply
-          ? proposedDateStr
-          : existing.serviceDate
-            ? toDateOnlyString(existing.serviceDate)
-            : null,
-        serviceTime: apply ? existing.proposedServiceTime ?? null : existing.serviceTime ?? null,
-      });
+      const { title, body } = buildVendorNotifText(
+        notifType,
+        {
+          itemName,
+          villaName: existing.booking?.villa?.name ?? null,
+          serviceDate: resultDate,
+          serviceTime: resultTime,
+        },
+        notifLocale
+      );
       await enqueueInAppNotification({
         userId: existing.vendor.userId,
         type: notifType,
@@ -113,6 +128,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       });
     } catch {
       // 인앱 회신 실패는 제안 처리 성공을 막지 않는다.
+    }
+    // Zalo 회신 — 연결된 공급자만(dispatch와 동일 규칙). 발송은 알림 cron.
+    if (existing.vendor.user?.zaloUserId) {
+      try {
+        await enqueueNotification({
+          userId: existing.vendor.userId,
+          type: NotificationType.VENDOR_PROPOSAL_RESULT,
+          payload: {
+            applied: apply,
+            locale: notifLocale, // 수신자 언어 — zalo 빌더가 ko/vi 분기
+            itemName: itemName ?? existing.vendorName ?? "—",
+            villaName: existing.booking?.villa?.name ?? "—",
+            serviceDate: resultDate,
+            serviceTime: resultTime,
+          },
+        });
+      } catch {
+        // Zalo 큐 적재 실패도 본 처리를 깨지 않는다.
+      }
     }
   }
   await writeAuditLog({

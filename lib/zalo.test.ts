@@ -303,3 +303,46 @@ describe("buildStatementAttachment — 정산서 첨부", () => {
     );
   });
 });
+
+describe("buildNotificationText — VENDOR_PROPOSAL_RESULT (제안 결과, ko/vi)", () => {
+  const base = {
+    itemName: "마사지",
+    villaName: "쏘나씨 V11",
+    serviceDate: "2026-07-10",
+    serviceTime: "14:00",
+  };
+  it("적용(vi 기본) — 확정 일정 표기", () => {
+    const text = buildNotificationText(NotificationType.VENDOR_PROPOSAL_RESULT, {
+      ...base,
+      applied: true,
+      locale: "vi",
+    });
+    expect(text).toContain("Đề xuất giờ đã được chấp nhận");
+    expect(text).toContain("10/07/2026 14:00");
+  });
+  it("적용(ko 수신자)", () => {
+    const text = buildNotificationText(NotificationType.VENDOR_PROPOSAL_RESULT, {
+      ...base,
+      applied: true,
+      locale: "ko",
+    });
+    expect(text).toContain("시간 제안이 수락되었습니다");
+  });
+  it("무시 — 기존 일정 유지 안내", () => {
+    const text = buildNotificationText(NotificationType.VENDOR_PROPOSAL_RESULT, {
+      ...base,
+      applied: false,
+      locale: "vi",
+    });
+    expect(text).toContain("không được áp dụng");
+    expect(text).toContain("Giữ lịch ban đầu");
+  });
+  it("누수 가드 — 판매가·마진 없음", () => {
+    const text = buildNotificationText(NotificationType.VENDOR_PROPOSAL_RESULT, {
+      ...base,
+      applied: true,
+      locale: "ko",
+    });
+    expect(text).not.toMatch(/priceKrw|priceVnd|margin|마진|판매가/i);
+  });
+});

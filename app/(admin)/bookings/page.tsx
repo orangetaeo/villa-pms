@@ -207,6 +207,8 @@ export default async function BookingsPage({
           ...(showFinance ? { totalSaleKrw: true, totalSaleVnd: true } : {}),
           holdExpiresAt: true,
           villa: { select: { name: true } },
+          // 파트너 취소·변경·홀드연장 대기 요청 수 — 행 배지 (T-partner-admin-ops ②)
+          _count: { select: { changeRequests: { where: { status: "PENDING" } } } },
         },
       }),
       prisma.booking.count({ where }),
@@ -318,6 +320,13 @@ export default async function BookingsPage({
             {b.villa.name}
           </Link>
           {b.seller === BookingSeller.SUPPLIER && directBadge}
+          {/* 파트너 요청 대기 배지 — 상세의 요청 패널로 진입 유도 (T-partner-admin-ops ②) */}
+          {b._count.changeRequests > 0 && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-bold whitespace-nowrap">
+              <span className="material-symbols-outlined text-[12px]">campaign</span>
+              {t("list.requestBadge", { count: b._count.changeRequests })}
+            </span>
+          )}
         </span>
       ),
       hideOnCard: true, // 모바일은 cardSummary로 표시

@@ -20,7 +20,7 @@ vi.mock("./partner-booking", () => ({
   ensureReceivableForBooking: vi.fn(async () => {}),
   evaluateConfirmCredit: vi.fn(async () => ({ allowed: true })),
 }));
-const mockEnqueueInApp = vi.fn(async () => ({}));
+const mockEnqueueInApp = vi.fn(async (..._a: unknown[]) => ({}));
 vi.mock("./inapp-notification", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./inapp-notification")>();
   return { ...actual, enqueueInAppNotification: (...a: unknown[]) => mockEnqueueInApp(...a) };

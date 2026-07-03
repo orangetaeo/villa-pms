@@ -1120,7 +1120,7 @@ model ServiceOrder {
   vendorRespondedAt  DateTime? // 공급자 가부 응답 시각
   vendorRejectReason String? // 거절 사유(공급자 입력)
   vendorCompletedAt  DateTime? // 공급자 서비스 이행 완료 보고 시각(null=미보고) — VENDOR_ACCEPTED에서 자가 보고(멱등)
-  vendorSettledAt    DateTime? // 발주 정산 완료 시각(null=미정산). 정산액=costVnd×quantity
+  vendorSettledAt    DateTime? // 발주 정산 완료 시각(null=미정산). 정산액=costVnd(라인 총액 — ×quantity 금지, revenue-ledger 참조)
   vendorSettleMethod GuestSettlementMethod? // CASH | BANK_TRANSFER | OTHER (재사용)
   vendorSettleNote   String?
   // 일정 협의 — 공급자가 수락하되 대안 시간을 제안(확장 필드 패턴, 새 enum값 회피).
@@ -1244,6 +1244,7 @@ enum NotificationType {
   SECURITY_ALERT // 보안 이상탐지 경보 → 운영자(테오) 통지(ko). P3-S3, 비번·PII 평문 미포함. additive: 라이브 ALTER TYPE ADD VALUE
   VILLA_PENDING_REVIEW // 빌라 신규 등록·반려 후 재제출 → 운영자 통지(ko). payload.resubmitted 텍스트 분기. additive: 라이브 ALTER TYPE ADD VALUE
   VILLA_CONTENT_UPDATED // 승인(ACTIVE) 후 공급자 사진/비품/규칙 수정 → 운영자 통지(ko). PENDING dedup 스팸 방지. additive: 라이브 ALTER TYPE ADD VALUE
+  VENDOR_PROPOSAL_RESULT // 일정 제안 결과(적용/무시) → 원천 공급자 통지(payload.locale ko/vi). additive: 라이브 ALTER TYPE ADD VALUE
   GUEST_PAYMENT_NOTICE // 게스트 "입금했습니다" 통보 → 운영자 통지(ko). 48h 홀드만료 전 입금확인 유도 (A1). additive: 라이브 ALTER TYPE ADD VALUE
   SERVICE_ORDER_REQUESTED // 게스트/파트너 부가서비스 요청 → 운영자 통지(ko). 금액 미포함 (A1). additive: 라이브 ALTER TYPE ADD VALUE
 }

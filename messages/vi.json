@@ -562,6 +562,9 @@
       "hoursAgo": "{n} giờ trước",
       "labels": {
         "holdCreated": "Tạo đặt giữ",
+        "partnerPaymentNotice": "Đối tác báo đã chuyển khoản",
+        "guestPaymentNotice": "Khách báo đã chuyển khoản",
+        "partnerChangeRequest": "Yêu cầu từ đối tác",
         "bookingConfirmed": "Xác nhận đặt phòng",
         "checkedIn": "Đã nhận phòng",
         "checkedOut": "Đã trả phòng",
@@ -592,6 +595,17 @@
       "systemOk": "Hệ thống bình thường: các kênh đang đồng bộ",
       "lastSync": "Đồng bộ gần nhất: {at}",
       "fxChip": "1.000.000₫ ≈ {krw} KRW"
+    },
+    "partnerRequest": {
+      "bannerTitle": "Yêu cầu đối tác đang chờ",
+      "bannerBody": "Có {count} yêu cầu hủy·thay đổi·gia hạn giữ chỗ đang chờ xử lý.",
+      "bannerCta": "Xử lý ngay",
+      "kind": { "CANCEL": "Hủy", "MODIFY": "Thay đổi", "HOLD_EXTEND": "Gia hạn giữ chỗ" }
+    },
+    "partnerOverdue": {
+      "bannerTitle": "Đối tác quá hạn",
+      "bannerBody": "Có {count} đối tác còn công nợ quá hạn.",
+      "bannerCta": "Quản lý đối tác"
     },
     "villaPending": {
       "bannerTitle": "Villa chờ phê duyệt",
@@ -677,7 +691,8 @@
         "nights": "{n} đêm",
         "viewDetail": "Xem chi tiết"
       },
-      "directBadge": "NCC trực tiếp"
+      "directBadge": "NCC trực tiếp",
+      "requestBadge": "Yêu cầu {count}"
     },
     "status": {
       "HOLD": "Giữ chỗ",
@@ -2434,6 +2449,8 @@
     "searchPlaceholder": "Tìm theo tên đối tác"
   },
   "adminPartners": {
+    "zaloLinked": "Đã kết nối thông báo Zalo",
+    "zaloUnlinked": "Chưa kết nối Zalo — chỉ thông báo trong app",
     "title": "Quản lý đối tác",
     "subtitle": "Quản lý tín dụng & công nợ đại lý du lịch/land",
     "new": "Đối tác mới",
@@ -2546,6 +2563,7 @@
       "invoices": "Hóa đơn"
     },
     "invoices": {
+      "issueAutoNotifyHint": "Khi phát hành, đối tác nhận thông báo tự động (in-app·Zalo). Nút 'Zalo' chỉ để gửi lại kèm PDF.",
       "title": "Hóa đơn thanh toán",
       "hint": "Gộp các khoản phải thu chưa lập hóa đơn theo kỳ và phát hành hóa đơn. Sau khi phát hành, gửi qua PDF/Zalo.",
       "empty": "Chưa có hóa đơn",

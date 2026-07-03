@@ -448,6 +448,9 @@
       "hoursAgo": "{n}시간 전",
       "labels": {
         "holdCreated": "가예약 생성",
+        "partnerPaymentNotice": "파트너 입금통보",
+        "guestPaymentNotice": "게스트 입금통보",
+        "partnerChangeRequest": "파트너 요청 접수",
         "bookingConfirmed": "예약 확정",
         "checkedIn": "체크인 완료",
         "checkedOut": "체크아웃 완료",
@@ -478,6 +481,17 @@
       "systemOk": "시스템 정상: 모든 채널 동기화 중",
       "lastSync": "최근 동기화: {at}",
       "fxChip": "1,000,000₫ ≈ {krw}원"
+    },
+    "partnerRequest": {
+      "bannerTitle": "파트너 요청 대기",
+      "bannerBody": "취소·변경·홀드연장 요청 {count}건이 처리를 기다리고 있습니다.",
+      "bannerCta": "처리하러 가기",
+      "kind": { "CANCEL": "취소", "MODIFY": "변경", "HOLD_EXTEND": "홀드연장" }
+    },
+    "partnerOverdue": {
+      "bannerTitle": "연체 파트너",
+      "bannerBody": "연체 미수가 있는 파트너가 {count}곳 있습니다.",
+      "bannerCta": "파트너 관리"
     },
     "villaPending": {
       "bannerTitle": "빌라 승인 대기",
@@ -563,7 +577,8 @@
         "nights": "{n}박",
         "viewDetail": "상세 보기"
       },
-      "directBadge": "공급자 직접"
+      "directBadge": "공급자 직접",
+      "requestBadge": "요청 {count}"
     },
     "status": {
       "HOLD": "가예약",
@@ -2320,6 +2335,8 @@
     "searchPlaceholder": "파트너명 검색"
   },
   "adminPartners": {
+    "zaloLinked": "Zalo 알림 연결됨",
+    "zaloUnlinked": "Zalo 미연결 — 알림은 앱 내부만",
     "title": "파트너 관리",
     "subtitle": "여행사·랜드사 신용·미수 관리",
     "new": "신규 파트너",
@@ -2432,6 +2449,7 @@
       "invoices": "청구서"
     },
     "invoices": {
+      "issueAutoNotifyHint": "발행 시 파트너에게 자동 알림(인앱·Zalo)이 발송됩니다. 'Zalo' 버튼은 PDF 첨부 재발송용입니다.",
       "title": "마감 청구서",
       "hint": "미청구 잔금 채권을 기간으로 묶어 청구서를 발행합니다. 발행 후 PDF·Zalo로 발송하세요.",
       "empty": "청구서가 없습니다",

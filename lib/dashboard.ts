@@ -2,6 +2,7 @@ import {
   BookingStatus,
   CleaningStatus,
   ProposalStatus,
+  ReceivableStatus,
   SettlementStatus,
   type PrismaClient,
 } from "@prisma/client";
@@ -68,6 +69,19 @@ function changedStatus(changes: unknown): string | null {
 /** AuditLog → 피드 종류 매핑 (b1 활동 피드 — dot 색은 b1 모크 기준) */
 export function feedEntryFor(log: AuditLogLike): FeedKind {
   const status = changedStatus(log.changes);
+
+  // 입금통보(파트너/게스트) — 상태 전이 없는 "신호"라 entity보다 action으로 먼저 식별.
+  // 운영자가 입금 대조 때 놓치면 안 되는 항목이라 강조(amber). (T-partner-admin-ops ②)
+  if (log.action === "PARTNER_PAYMENT_NOTICE") {
+    return { labelKey: "partnerPaymentNotice", dot: "amber" };
+  }
+  if (log.action === "GUEST_PAYMENT_NOTICE") {
+    return { labelKey: "guestPaymentNotice", dot: "amber" };
+  }
+  // 파트너 취소·변경·홀드연장 요청 생성 — 대기 요청 인지 보조(대시보드 배너와 함께).
+  if (log.action === "PARTNER_CHANGE_REQUEST") {
+    return { labelKey: "partnerChangeRequest", dot: "amber" };
+  }
 
   if (log.entity === "Booking") {
     if (log.action === "CREATE") return { labelKey: "holdCreated", dot: "amber" };
@@ -151,6 +165,12 @@ export interface DashboardStats {
   serviceOrderRequestedCount: number;
   /** 취소됐지만 수납 기록이 남은 예약 — 환불 확인 필요 (A4) */
   cancelledUnrefundedCount: number;
+  /** 파트너 취소·변경·홀드연장 요청 대기(PENDING) 건수 (T-partner-admin-ops ②) */
+  partnerRequestPendingCount: number;
+  /** 대기 요청 상위(오래된 순) — 배너에서 바로 처리 진입용 */
+  partnerRequestItems: { bookingId: string; partnerName: string; kind: string }[];
+  /** 연체(OVERDUE) 채권 보유 파트너 수 — 여신 관리 배너 (T-partner-admin-ops ④) */
+  partnerOverdueCount: number;
 }
 
 export async function loadDashboardStats(
@@ -188,6 +208,9 @@ export async function loadDashboardStats(
     holdIdsForNotice,
     serviceOrderRequestedCount,
     cancelledUnrefundedCount,
+    partnerRequestPendingCount,
+    partnerRequestRows,
+    partnerOverdueRows,
   ] = await Promise.all([
       // 정의는 /bookings 프리셋(today-checkin·today-checkout)과 동일 — 카드 건수와
       // 링크 목록이 일치해야 함 (QA D-2). "오늘 처리할 일" 중심: 체크인 예정(CONFIRMED)·
@@ -256,6 +279,20 @@ export async function loadDashboardStats(
       db.booking.count({
         where: { status: BookingStatus.CANCELLED, payments: { some: {} } },
       }),
+      // 파트너 요청 대기 — 취소·변경·홀드연장 (T-partner-admin-ops ②)
+      db.bookingChangeRequest.count({ where: { status: "PENDING" } }),
+      db.bookingChangeRequest.findMany({
+        where: { status: "PENDING" },
+        orderBy: { createdAt: "asc" }, // 오래 기다린 요청 먼저
+        take: 3,
+        select: { bookingId: true, kind: true, partner: { select: { name: true } } },
+      }),
+      // 연체 채권 보유 파트너(중복 제거) — 여신 관리 배너 (T-partner-admin-ops ④)
+      db.partnerReceivable.findMany({
+        where: { status: ReceivableStatus.OVERDUE },
+        distinct: ["partnerId"],
+        select: { partnerId: true },
+      }),
     ]);
 
   // 입금통보(GUEST_PAYMENT_NOTICE)는 AuditLog에만 기록된다(Booking 컬럼 없음) — HOLD와 교차 집계
@@ -304,6 +341,13 @@ export async function loadDashboardStats(
     paymentNoticePendingCount,
     serviceOrderRequestedCount,
     cancelledUnrefundedCount,
+    partnerRequestPendingCount,
+    partnerRequestItems: partnerRequestRows.map((r) => ({
+      bookingId: r.bookingId,
+      partnerName: r.partner.name,
+      kind: r.kind,
+    })),
+    partnerOverdueCount: partnerOverdueRows.length,
   };
 }
 

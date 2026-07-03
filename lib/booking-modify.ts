@@ -16,6 +16,7 @@ import { assertSaleAmountColumns, krwToVndSnapshot, quoteStayForVilla } from "./
 import { writeAuditLog } from "./audit-log";
 import { countNights } from "./hold";
 import { computeDepositDue, computeDueDate } from "./partner";
+import { notifyPartner } from "./partner-notify";
 
 /**
  * 예약 변경(Booking Modify) 핵심 로직 — 기존 예약의 날짜·빌라·인원·투숙객·조식 변경.
@@ -173,7 +174,7 @@ export async function modifyBooking(
   prisma: PrismaClient,
   input: ModifyBookingInput
 ): Promise<ModifyBookingResult> {
-  return prisma.$transaction(async (tx) => {
+  const committed = await prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findUnique({
       where: { id: input.bookingId },
       include: {
@@ -182,6 +183,7 @@ export async function modifyBooking(
           select: {
             id: true,
             invoiceId: true, // 발행 청구서에 묶인 채권은 금액 변경 불가(ADR-0027)
+            totalVnd: true, // 파트너 변경 알림의 "변경 후 금액" 폴백(미증액 시 기존 총액)
             depositPaidVnd: true,
             balancePaidVnd: true,
           },
@@ -512,6 +514,37 @@ export async function modifyBooking(
       });
     }
 
-    return { booking: updated, changedFields, recalculated, overpayment };
+    return {
+      result: { booking: updated, changedFields, recalculated, overpayment },
+      // 파트너 변경 알림 재료 (T-partner-admin-ops ③) — 커밋 후 발송. 정당 금액(본인 채권 VND)만.
+      partnerNotify: updated.partnerId
+        ? {
+            partnerId: updated.partnerId,
+            bookingId: updated.id,
+            villaName: notifyVilla?.name ?? "",
+            checkIn: nextCheckIn.toISOString().slice(0, 10),
+            checkOut: nextCheckOut.toISOString().slice(0, 10),
+            newTotalVnd:
+              receivableTotalChange?.new ??
+              (booking.receivable ? booking.receivable.totalVnd.toString() : null),
+          }
+        : null,
+    };
   });
+
+  // 파트너 예약 변경 통지 — 트랜잭션 커밋 후(외부 Zalo 포함), 실패 무해(notifyPartner 내부 격리).
+  // 파트너가 옛 금액으로 송금하는 사고 방지: 새 일정 + 변경 후 본인 채권 총액을 알린다.
+  if (committed.partnerNotify) {
+    const p = committed.partnerNotify;
+    await notifyPartner(p.partnerId, {
+      kind: "BOOKING_MODIFIED",
+      bookingId: p.bookingId,
+      villaName: p.villaName,
+      checkIn: p.checkIn,
+      checkOut: p.checkOut,
+      newTotalVnd: p.newTotalVnd,
+    });
+  }
+
+  return committed.result;
 }

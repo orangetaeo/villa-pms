@@ -183,6 +183,61 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      {/* 파트너 요청 대기 배너 (T-partner-admin-ops ②) — 취소·변경·홀드연장, 있을 때만 */}
+      {stats.partnerRequestPendingCount > 0 && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-6 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="material-symbols-outlined text-amber-400 shrink-0">campaign</span>
+            <p className="text-sm font-medium text-amber-100 [word-break:keep-all]">
+              <span className="font-bold text-amber-300">{t("partnerRequest.bannerTitle")}</span>
+              {" — "}
+              {t("partnerRequest.bannerBody", { count: stats.partnerRequestPendingCount })}
+              {stats.partnerRequestItems.length > 0 && (
+                <span className="ml-2 inline-flex flex-wrap gap-1.5 align-middle">
+                  {stats.partnerRequestItems.map((r) => (
+                    <Link
+                      key={r.bookingId + r.kind}
+                      href={`/bookings/${r.bookingId}`}
+                      className="rounded-md border border-amber-500/40 px-1.5 py-0.5 text-[11px] font-semibold text-amber-200 hover:bg-amber-500/20"
+                    >
+                      {r.partnerName} · {t(`partnerRequest.kind.${r.kind}`)}
+                    </Link>
+                  ))}
+                </span>
+              )}
+            </p>
+          </div>
+          {stats.partnerRequestItems[0] && (
+            <Link
+              href={`/bookings/${stats.partnerRequestItems[0].bookingId}`}
+              className="shrink-0 text-xs font-bold text-amber-300 hover:text-amber-200 border border-amber-500/40 rounded-lg px-3 py-1.5 transition-colors"
+            >
+              {t("partnerRequest.bannerCta")}
+            </Link>
+          )}
+        </div>
+      )}
+
+      {/* 연체 파트너 배너 (T-partner-admin-ops ④) — 여신 관리, 있을 때만 */}
+      {stats.partnerOverdueCount > 0 && (
+        <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl px-6 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="material-symbols-outlined text-rose-400 shrink-0">credit_card_off</span>
+            <p className="text-sm font-medium text-rose-100 [word-break:keep-all]">
+              <span className="font-bold text-rose-300">{t("partnerOverdue.bannerTitle")}</span>
+              {" — "}
+              {t("partnerOverdue.bannerBody", { count: stats.partnerOverdueCount })}
+            </p>
+          </div>
+          <Link
+            href="/partners"
+            className="shrink-0 text-xs font-bold text-rose-300 hover:text-rose-200 border border-rose-500/40 rounded-lg px-3 py-1.5 transition-colors"
+          >
+            {t("partnerOverdue.bannerCta")}
+          </Link>
+        </div>
+      )}
+
       {/* 견적 중 원가 변경 경보 배너 (b15, F) — 본인 PENDING 알림 있을 때만 */}
       {costAlertCount > 0 && (
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-6 py-3 flex items-center justify-between gap-4">

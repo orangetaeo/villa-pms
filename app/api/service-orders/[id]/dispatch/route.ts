@@ -9,7 +9,7 @@ import { isOperator } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
 import { canDispatch } from "@/lib/vendor-order";
 import { enqueueNotification } from "@/lib/zalo";
-import { enqueueInAppNotification, buildVendorNotifText } from "@/lib/inapp-notification";
+import { enqueueInAppNotification, buildVendorNotifText, vendorNotifLocale } from "@/lib/inapp-notification";
 import { NotificationType } from "@prisma/client";
 import { toDateOnlyString } from "@/lib/date-vn";
 
@@ -38,7 +38,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           name: true,
           userId: true,
           approvalStatus: true,
-          user: { select: { zaloUserId: true } },
+          user: { select: { zaloUserId: true, locale: true } },
         },
       },
       booking: { select: { villa: { select: { name: true, address: true } } } },
@@ -108,7 +108,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         quantity: order.quantity,
         villaName: order.booking?.villa?.name ?? null,
         serviceDate: order.serviceDate ? toDateOnlyString(order.serviceDate) : null,
-      });
+      }, vendorNotifLocale(order.vendor?.user?.locale));
       await enqueueInAppNotification({
         userId: order.vendor.userId,
         type: NotificationType.VENDOR_PO,

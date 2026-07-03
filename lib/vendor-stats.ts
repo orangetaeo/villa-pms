@@ -7,7 +7,8 @@
 // 집계 의미:
 //   - 매출 = 확정·이행된 발주(vendorStatus=VENDOR_ACCEPTED 그리고 status IN CONFIRMED·DELIVERED).
 //     거절(VENDOR_REJECTED)·취소(CANCELLED)·대기(PENDING_VENDOR)는 매출에서 제외.
-//   - 발주액 = costVnd × quantity (정산액 규약 — schema: 정산액=costVnd×quantity).
+//   - 발주액 = costVnd 그대로 — **costVnd는 라인 총액**(운영자가 총 지급액을 입력, revenue-ledger·admin 통계 동일 전제).
+//     ⚠quantity를 다시 곱하면 이중곱(과거 버그, 2026-07-03 수정). quantity는 품목 수량 표기용으로만.
 //   - 수락율 = 수락 / (수락 + 거절) (응답한 발주 중 수락 비율).
 //   - 정산 = vendorSettledAt 기준 미정산 vs 정산완료 금액.
 //   통화 VND 단일(합산 OK, 원장 아님). BigInt 문자열/안전정수 직렬화.
@@ -52,12 +53,6 @@ export function acceptanceRateOrNull(accepted: number, rejected: number): number
   const responded = accepted + rejected;
   if (responded === 0) return null;
   return Math.round((accepted / responded) * 1000) / 10;
-}
-
-/** 발주 한 건의 정산액 = costVnd × quantity (BigInt, 음수 quantity 방어). */
-export function orderAmountVnd(costVnd: bigint, quantity: number): bigint {
-  const q = quantity > 0 ? quantity : 0;
-  return costVnd * BigInt(q);
 }
 
 // ===================================================================
@@ -114,7 +109,7 @@ function bucketIndexOf(buckets: StatsPeriod["buckets"], at: Date): number {
 export interface VendorRevenuePoint {
   bucketKey: string;
   label: string;
-  /** 차트 축용 number (costVnd×quantity 합, VND는 안전정수 범위) */
+  /** 차트 축용 number (costVnd(라인 총액) 합, VND는 안전정수 범위) */
   vnd: number;
   /** 정확표시용 점 구분 문자열 (45.000.000₫) */
   vndText: string;
@@ -208,7 +203,8 @@ export function aggregateVendorStats(
 
     if (!isRevenueOrder(o)) continue;
 
-    const amount = orderAmountVnd(o.costVnd, o.quantity);
+    // costVnd는 라인 총액 — quantity를 다시 곱하지 않는다(이중곱 금지).
+    const amount = o.costVnd;
     const at = attributionDate(o);
     const inCurrent =
       at.getTime() >= period.from.getTime() && at.getTime() < period.to.getTime();
