@@ -70,7 +70,9 @@ function mapOptions(
 export async function loadPartnerAddon(
   bookingId: string,
   saleCurrency: Currency,
-  lang: PublicLang
+  lang: PublicLang,
+  /** 직판(DIRECT) 예약이면 true — 소비자 본인 신청(GUEST 저장, consumer-bugs #2)도 함께 표시 */
+  includeGuestOrders = false
 ): Promise<PartnerAddonData> {
   const [catalogRows, orders, fxVndPerKrw] = await Promise.all([
     // ★ costVnd·vendorId 미포함 — 파트너 비노출(판매가·표시용 필드만). audiences로 채널 서버 필터.
@@ -84,7 +86,10 @@ export async function loadPartnerAddon(
       },
     }),
     prisma.serviceOrder.findMany({
-      where: { bookingId, requestedVia: "PARTNER" },
+      where: {
+        bookingId,
+        requestedVia: includeGuestOrders ? { in: ["PARTNER", "GUEST"] } : "PARTNER",
+      },
       orderBy: { createdAt: "desc" },
       select: { id: true, type: true, status: true, quantity: true, priceKrw: true, priceVnd: true },
     }),

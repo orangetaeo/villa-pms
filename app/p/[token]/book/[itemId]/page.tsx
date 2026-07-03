@@ -67,6 +67,7 @@ export default async function BookingRequestPage({
         select: {
           name: true,
           nameVi: true,
+          maxGuests: true,
           photos: { orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
         },
       },
@@ -155,7 +156,7 @@ export default async function BookingRequestPage({
             <p className="text-sm text-amber-800 leading-relaxed">{t.bookPage.holdInfo(holdHours)}</p>
           </div>
 
-          <BookingForm token={token} itemId={item.id} lang={lang} />
+          <BookingForm token={token} itemId={item.id} lang={lang} maxGuests={item.villa.maxGuests} />
         </main>
 
         <PublicFooter lang={lang} />

@@ -288,10 +288,10 @@ export default function GuestFlow(props: GuestFlowProps) {
             <section className="border border-slate-200 rounded-xl bg-slate-50/50 p-4 h-56 overflow-y-auto space-y-4 text-sm leading-relaxed text-slate-600">
               {agreement.clauses.map((c, i) => (
                 <div key={c.key}>
-                  <p className="font-bold text-slate-800 mb-1">
-                    {i + 1}. {c.content.split(/[:：]/)[0].slice(0, 24)}
+                  {/* 조항 = 번호 + 전문 1회 — content 앞부분을 절단한 가짜 제목은 중복·혼란(consumer-bugs #6) */}
+                  <p>
+                    <span className="font-bold text-slate-800">{i + 1}.</span> {c.content}
                   </p>
-                  <p>{c.content}</p>
                 </div>
               ))}
             </section>

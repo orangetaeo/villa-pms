@@ -214,6 +214,7 @@ export interface PublicLabels {
     errName: string;
     errPhone: string;
     errCount: string;
+    errOverCapacity: string;
     alertError: string;
   };
   // 명단 입력 폼
@@ -383,6 +384,7 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       errName: "성함을 입력해주세요",
       errPhone: "연락처를 정확히 입력해주세요",
       errCount: "인원을 선택해주세요",
+      errOverCapacity: "빌라 정원을 초과했습니다 — 인원을 줄여주세요",
       alertError: "신청 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.",
     },
     rosterForm: {
@@ -544,6 +546,7 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       errName: "Please enter your name",
       errPhone: "Please enter a valid phone number",
       errCount: "Please select the number of guests",
+      errOverCapacity: "Exceeds the villa's maximum capacity — please reduce the number of guests",
       alertError: "Something went wrong. Please try again shortly.",
     },
     rosterForm: {
@@ -705,6 +708,7 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       errName: "Введите имя",
       errPhone: "Введите корректный номер телефона",
       errCount: "Выберите количество гостей",
+      errOverCapacity: "Превышена вместимость виллы — уменьшите количество гостей",
       alertError: "Произошла ошибка. Повторите попытку позже.",
     },
     rosterForm: {
@@ -866,6 +870,7 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       errName: "请输入姓名",
       errPhone: "请输入正确的联系电话",
       errCount: "请选择人数",
+      errOverCapacity: "超出别墅最大入住人数——请减少人数",
       alertError: "处理时出现问题，请稍后再试。",
     },
     rosterForm: {
@@ -1027,6 +1032,7 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       errName: "Vui lòng nhập họ tên",
       errPhone: "Vui lòng nhập số điện thoại hợp lệ",
       errCount: "Vui lòng chọn số khách",
+      errOverCapacity: "Vượt quá sức chứa của villa — vui lòng giảm số khách",
       alertError: "Đã xảy ra lỗi. Vui lòng thử lại sau.",
     },
     rosterForm: {

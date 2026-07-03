@@ -62,6 +62,7 @@ export default function CheckinForm({
   guestCount,
   agreement,
   guestSignature,
+  guestPassportUrls,
 }: {
   bookingId: string;
   guestCount: number;
@@ -69,11 +70,23 @@ export default function CheckinForm({
   agreement: AgreementContent;
   /** 게스트 셀프 서명(/g) — 있으면 기본 채택, 운영자가 현장 재서명으로 덮어쓸 수 있음 */
   guestSignature?: GuestSignature | null;
+  /** 게스트 셀프 여권 사진(/g 3단계) — 슬롯 프리필(운영자 삭제·추가 가능, consumer-bugs #4) */
+  guestPassportUrls?: string[];
 }) {
   const t = useTranslations("adminCheckin");
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
-  const [passports, setPassports] = useState<PassportEntry[]>([]);
+  const [passports, setPassports] = useState<PassportEntry[]>(() =>
+    // 게스트가 /g에서 올린 여권을 기본 채택 — 재업로드 강제 제거(consumer-bugs #4).
+    //   base64 없음(서버 저장본) → OCR은 필요 시 운영자가 새로 촬영해 대체. 필드는 수기 입력 가능.
+    (guestPassportUrls ?? []).map((url) => ({
+      url,
+      base64: "",
+      mimeType: "image/jpeg",
+      ocrState: "idle" as const,
+      data: { ...EMPTY_FIELDS },
+    }))
+  );
   // T3.2 — 동의서 터치 서명(선택). 무서명 체크인 허용 — 사후 서명 경로 존재 (계약 결정 1·2)
   //   ADR-0019 후속 — 게스트 셀프 서명이 있으면 그 URL을 기본 채택(운영자 재서명 전까지).
   const [signatureUrl, setSignatureUrl] = useState<string | null>(

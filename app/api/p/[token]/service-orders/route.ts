@@ -73,6 +73,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     select: {
       id: true,
       status: true,
+      channel: true,
       proposalItem: {
         select: { proposal: { select: { token: true, expiresAt: true } } },
       },
@@ -134,7 +135,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       catalogItemId: item.id,
       quantity: pricing.quantity,
       selectedOptions: pricing.snapshot as unknown as Prisma.InputJsonValue,
-      requestedVia: "PARTNER",
+      // 직판(DIRECT) 제안의 /p 신청자는 소비자 본인 — GUEST로 저장해야 /g 신청내역·
+      //   체크아웃 정산 미리보기·셀프 취소에 잡힌다(뷰 분단 방지, consumer-bugs #2).
+      //   여행사/랜드사 채널은 기존대로 PARTNER(파트너가 고객 대신 신청).
+      requestedVia: booking.channel === "DIRECT" ? "GUEST" : "PARTNER",
       // 발주 대상 스냅샷(S2 dispatch가 사용) — 응답엔 노출하지 않는다.
       vendorId: item.vendorId,
       guestNote: d.guestNote ?? null,
@@ -148,7 +152,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     action: "CREATE",
     entity: "ServiceOrder",
     entityId: created.id,
-    changes: { requestedVia: { new: "PARTNER" }, catalogItemId: { new: item.id } },
+    changes: {
+      requestedVia: { new: booking.channel === "DIRECT" ? "GUEST" : "PARTNER" },
+      catalogItemId: { new: item.id },
+    },
   });
 
   // 운영자 Zalo 통지 (A1) — 요청이 예약 상세에만 묻히지 않게. best-effort.

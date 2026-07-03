@@ -53,7 +53,8 @@ export type HoldRejectReason =
   | "SOLD_OUT" // 가용성 재검증 실패 — "마감되었습니다"
   | "HOLD_EXPIRED" // 확정 시점에 이미 만료
   | "INVALID_STATUS" // 상태 전이 불가 (확정/취소)
-  | "PARTNER_CREDIT_BLOCKED"; // 파트너 여신 차단(한도초과·연체·BLOCKED·SUSPENDED, ADR-0022)
+  | "PARTNER_CREDIT_BLOCKED" // 파트너 여신 차단(한도초과·연체·BLOCKED·SUSPENDED, ADR-0022)
+  | "OVER_CAPACITY"; // 인원이 빌라 정원(maxGuests) 초과 — 공개 가예약 검증 (consumer-bugs #1)
 
 export class HoldRejectedError extends Error {
   constructor(
@@ -147,7 +148,7 @@ export async function createHoldFromProposalItem(
   return prisma.$transaction(async (tx) => {
     const item = await tx.proposalItem.findUnique({
       where: { id: input.proposalItemId },
-      include: { proposal: true, villa: { select: { supplierId: true, name: true } } },
+      include: { proposal: true, villa: { select: { supplierId: true, name: true, maxGuests: true } } },
     });
     if (!item) throw new HoldRejectedError("PROPOSAL_ITEM_NOT_FOUND");
 
@@ -161,6 +162,15 @@ export async function createHoldFromProposalItem(
       now: input.now,
     });
     if (rejectReason) throw new HoldRejectedError(rejectReason);
+
+    // 정원 검증 (consumer-bugs #1) — 공개 폼은 변조 가능하므로 서버가 최종 방어선.
+    //   관리자 예약변경(ADR-0030 D0)과 동일 기준: 인원 > 정원이면 거부.
+    if (input.guestCount > item.villa.maxGuests) {
+      throw new HoldRejectedError(
+        "OVER_CAPACITY",
+        `정원 ${item.villa.maxGuests}명 초과: ${input.guestCount}명`
+      );
+    }
 
     const range: StayRange = { checkIn: item.checkIn, checkOut: item.checkOut };
 

@@ -45,7 +45,7 @@ export default async function CheckinPage({
   //   토큰에 서명이 있고 아직 CheckInRecord 서명이 없을 때만 폼에 prop으로 전달(아래 CheckinForm).
   const guestToken = await prisma.guestCheckinToken.findUnique({
     where: { bookingId: id },
-    select: { signatureUrl: true, agreementSignedAt: true, agreementVersion: true },
+    select: { signatureUrl: true, agreementSignedAt: true, agreementVersion: true, passportPhotoUrls: true },
   });
   const guestSignature =
     guestToken?.signatureUrl && !booking.checkInRecord?.signatureUrl
@@ -55,6 +55,11 @@ export default async function CheckinPage({
           signedAt: guestToken.agreementSignedAt?.toISOString() ?? null,
         }
       : null;
+  // 게스트 셀프 여권 사진도 채택 — 체크인 기록이 아직 없을 때만(있으면 이미 처리됨, consumer-bugs #4)
+  const guestPassportUrls =
+    !booking.checkInRecord && guestToken?.passportPhotoUrls?.length
+      ? guestToken.passportPhotoUrls
+      : undefined;
 
   // T3.2 사후 서명 모드 — CHECKED_IN + 체크인 기록 존재 + 미서명 (계약 결정 2)
   const postSignMode =
@@ -127,6 +132,7 @@ export default async function CheckinPage({
           guestCount={booking.guestCount}
           agreement={agreement}
           guestSignature={guestSignature}
+          guestPassportUrls={guestPassportUrls}
         />
       )}
     </div>
