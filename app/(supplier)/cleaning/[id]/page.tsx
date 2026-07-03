@@ -189,6 +189,7 @@ export default async function CleaningTaskPage({
       <CleaningSubmit
         taskId={task.id}
         villaName={villaDisplayName}
+        villaHref={isCleaner ? null : `/my-villas/${task.villa.id}`}
         todayLabel={todayLabel}
         slots={slotProps}
         rejectNote={task.status === "REJECTED" ? task.rejectNote : null}
