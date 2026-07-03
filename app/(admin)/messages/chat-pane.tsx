@@ -2727,12 +2727,24 @@ function Composer({
   }
 
   // 대화 전환 시 @멘션 상태 초기화 — 다른 대화에 엉뚱한 멘션 메타가 남지 않도록(누수·오발송 방지).
+  // 붙여넣은 이미지 미리보기도 같은 이유로 리셋(QA D1 — 이전 대화용 이미지가 새 대화로 발송 방지).
   useEffect(() => {
     mentionsRef.current = [];
     setMentionQuery(null);
     setMentionList([]);
     mentionStartRef.current = -1;
+    clearPastedImage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
+
+  // 언마운트 시 붙여넣기 미리보기 objectURL 해제(QA D2) — setState 없이 ref로 직접 revoke.
+  const pastedUrlRef = useRef<string | null>(null);
+  pastedUrlRef.current = pastedImage?.url ?? null;
+  useEffect(() => {
+    return () => {
+      if (pastedUrlRef.current) URL.revokeObjectURL(pastedUrlRef.current);
+    };
+  }, []);
 
   // 음성 입력 지원 감지(getUserMedia + MediaRecorder) + 언마운트 시 마이크 정리.
   useEffect(() => {
