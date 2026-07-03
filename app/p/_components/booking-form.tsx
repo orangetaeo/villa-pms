@@ -16,10 +16,13 @@ export function BookingForm({
   token,
   itemId,
   lang,
+  maxGuests,
 }: {
   token: string;
   itemId: string;
   lang: PublicLang;
+  /** 빌라 정원 — 인원 셀렉트 상한 + 클라 검증 (서버와 동일 기준, consumer-bugs #1) */
+  maxGuests: number;
 }) {
   const t = PUBLIC_LABELS[lang].bookingForm;
   const router = useRouter();
@@ -34,9 +37,9 @@ export function BookingForm({
           .string()
           .trim()
           .regex(/^[0-9+\-\s]{9,20}$/, t.errPhone),
-        guestCount: z.coerce.number().int().min(1, t.errCount).max(16),
+        guestCount: z.coerce.number().int().min(1, t.errCount).max(maxGuests, t.errOverCapacity),
       }),
-    [t]
+    [t, maxGuests]
   );
   type FormValues = z.infer<typeof formSchema>;
 
@@ -44,6 +47,7 @@ export function BookingForm({
     register,
     handleSubmit,
     formState: { errors },
+    setError,
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: { guestCount: 2 },
@@ -63,6 +67,12 @@ export function BookingForm({
         return;
       }
       // 거부 사유는 expired/closed 2종으로만 수신 (검수 게이트 등 내부 사유 미노출)
+      // 정원 초과 — 폼에 머물며 인원 수정 유도 (consumer-bugs #1)
+      if (data?.error === "over_capacity") {
+        setError("guestCount", { message: t.errOverCapacity });
+        setSubmitting(false);
+        return;
+      }
       const notice = data?.error === "expired" ? "expired" : "closed";
       router.replace(`/p/${token}?notice=${notice}&lang=${lang}`);
     } catch {
@@ -109,7 +119,7 @@ export function BookingForm({
             {t.count}
           </label>
           <select id="guestCount" className={inputClass} {...register("guestCount")}>
-            {Array.from({ length: 16 }, (_, i) => i + 1).map((n) => (
+            {Array.from({ length: Math.max(1, maxGuests) }, (_, i) => i + 1).map((n) => (
               <option key={n} value={n}>
                 {t.countOption(n)}
               </option>

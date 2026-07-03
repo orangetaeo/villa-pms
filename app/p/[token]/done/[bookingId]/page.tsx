@@ -76,6 +76,7 @@ export default async function BookingDonePage({
       status: true,
       holdExpiresAt: true,
       saleCurrency: true,
+      channel: true,
       totalSaleKrw: true,
       totalSaleVnd: true,
       totalSaleUsd: true, // Phase 2 USD: 구매자가 볼 판매가($). fx·원가는 미조회(누수 0)
@@ -111,7 +112,7 @@ export default async function BookingDonePage({
   );
 
   // 파트너(여행사/랜드사) 부가서비스 요청 — PARTNER 자격 카탈로그만(서버 필터), 판매가만(원가·vendor 비노출)
-  const partnerAddon = await loadPartnerAddon(booking.id, booking.saleCurrency, lang);
+  const partnerAddon = await loadPartnerAddon(booking.id, booking.saleCurrency, lang, booking.channel === "DIRECT");
 
   return (
     <div className="text-slate-900 antialiased">

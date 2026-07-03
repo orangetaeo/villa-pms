@@ -123,6 +123,7 @@ export interface GuestLabels {
     statusPending: string;
     statusConfirmed: string;
     statusOther: string;
+    statusCancelled: string;
     estTotal: string;
     settleNote: string;
     empty: string;
@@ -276,6 +277,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       statusPending: "확인 대기",
       statusConfirmed: "확정",
       statusOther: "처리됨",
+      statusCancelled: "취소됨",
       estTotal: "예상 합계",
       settleNote: "미니바 및 선택하신 옵션은 체크아웃 시 정산됩니다 (현금/계좌이체). 운영자 확인 후 최종 금액을 안내해 드립니다.",
       empty: "아직 요청한 옵션이 없습니다.",
@@ -418,6 +420,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       statusPending: "Pending",
       statusConfirmed: "Confirmed",
       statusOther: "Processed",
+      statusCancelled: "Cancelled",
       estTotal: "Estimated total",
       settleNote: "Minibar and selected options are settled at check-out (cash/bank transfer). The operator will confirm the final amount.",
       empty: "No options requested yet.",
@@ -560,6 +563,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       statusPending: "Ожидает",
       statusConfirmed: "Подтверждено",
       statusOther: "Обработано",
+      statusCancelled: "Отменено",
       estTotal: "Примерный итог",
       settleNote: "Мини-бар и выбранные опции оплачиваются при выезде (наличные/перевод). Оператор подтвердит итоговую сумму.",
       empty: "Опции ещё не запрошены.",
@@ -702,6 +706,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       statusPending: "待确认",
       statusConfirmed: "已确定",
       statusOther: "已处理",
+      statusCancelled: "已取消",
       estTotal: "预估合计",
       settleNote: "迷你吧及所选选项将在退房时结算（现金/转账）。运营者确认后将告知最终金额。",
       empty: "尚未请求任何选项。",
@@ -844,6 +849,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       statusPending: "Chờ xác nhận",
       statusConfirmed: "Đã xác nhận",
       statusOther: "Đã xử lý",
+      statusCancelled: "Đã hủy",
       estTotal: "Tổng dự kiến",
       settleNote: "Minibar và các tùy chọn đã chọn sẽ được tính khi trả phòng (tiền mặt/chuyển khoản). Người vận hành sẽ xác nhận số tiền cuối cùng.",
       empty: "Chưa yêu cầu tùy chọn nào.",

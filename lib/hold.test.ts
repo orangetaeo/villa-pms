@@ -150,7 +150,7 @@ function makeHoldTx(opts: { seller: BookingSeller; saleCurrency: "KRW" | "VND" }
       supplierId: opts.seller === BookingSeller.SUPPLIER ? "sup1" : null,
       fxVndPerKrw: null,
     },
-    villa: { supplierId: "sup1", name: "쏘나씨 V1" },
+    villa: { supplierId: "sup1", name: "쏘나씨 V1", maxGuests: 8 },
   };
   const tx = {
     proposalItem: {
@@ -208,6 +208,30 @@ describe("createHoldFromProposalItem — seller 전파", () => {
     expect(data.supplierCostVnd).toBe(4_000_000n); // 운영자 원가 견적값
     expect(data.totalSaleKrw).toBe(1_200_000);
     expect(mockQuoteStay).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+// ===================== createHoldFromProposalItem — 정원 검증 (consumer-bugs #1) =====================
+
+describe("createHoldFromProposalItem — 정원(maxGuests) 검증", () => {
+  beforeEach(() => {
+    mockQuoteStay.mockResolvedValue({ totalSupplierCostVnd: 4_000_000n });
+  });
+
+  it("인원이 정원을 초과하면 OVER_CAPACITY로 거부한다", async () => {
+    const tx = makeHoldTx({ seller: BookingSeller.OPERATOR, saleCurrency: "KRW" });
+    await expect(
+      createHoldFromProposalItem(holdPrisma(tx), { ...HOLD_INPUT, guestCount: 9 })
+    ).rejects.toMatchObject({ reason: "OVER_CAPACITY" });
+    expect(tx.booking.create).not.toHaveBeenCalled();
+  });
+
+  it("정원 이하 인원은 통과한다 (경계값 = 정원)", async () => {
+    const tx = makeHoldTx({ seller: BookingSeller.OPERATOR, saleCurrency: "KRW" });
+    await expect(
+      createHoldFromProposalItem(holdPrisma(tx), { ...HOLD_INPUT, guestCount: 8 })
+    ).resolves.toBeTruthy();
   });
 });
 

@@ -22,7 +22,13 @@ export default function GuestOrders({ token, lang, requestedOrders }: GuestOrder
   const [cancelError, setCancelError] = useState<string | null>(null);
 
   const statusLabel = (s: string) =>
-    s === "REQUESTED" ? L.result.statusPending : s === "CONFIRMED" ? L.result.statusConfirmed : L.result.statusOther;
+    s === "REQUESTED"
+      ? L.result.statusPending
+      : s === "CONFIRMED"
+        ? L.result.statusConfirmed
+        : s === "CANCELLED"
+          ? L.result.statusCancelled
+          : L.result.statusOther;
 
   // ── 체크아웃 정산 미리보기(A2) — 판매가(VND)만 합산. CANCELLED 제외, 상태별 분리. ──
   //   REQUESTED=확정 대기 / CONFIRMED·DELIVERED=확정. (원가·마진은 데이터에 없음 — 누수 0)

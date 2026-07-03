@@ -71,6 +71,10 @@ export async function POST(
     return Response.json({ bookingId: booking.id }, { status: 201 });
   } catch (e) {
     if (e instanceof HoldRejectedError) {
+      // 정원 초과 — 입력 문제라 별도 코드로 노출(인원 수정 유도, consumer-bugs #1)
+      if (e.reason === "OVER_CAPACITY") {
+        return Response.json({ error: "over_capacity" }, { status: 409 });
+      }
       // 만료 계열 → expired, 그 외(마감·중복·재고 소실) → closed — 내부 사유 미노출
       const publicReason =
         e.reason === "PROPOSAL_EXPIRED" || e.reason === "HOLD_EXPIRED" ? "expired" : "closed";

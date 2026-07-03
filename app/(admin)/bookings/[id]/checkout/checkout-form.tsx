@@ -175,7 +175,9 @@ export default function CheckoutForm({
     !busy;
   // 미니바만 차감(파손 없음)으로도 "차감 후 환불 승인" 가능 — 보증금 VND일 때만
   const canDeductMinibarOnly =
-    !damageFound && photoUrls.length >= 1 && depositVnd != null && minibarTotal > 0n && !busy;
+    // 보증금 미수취(NONE)여도 허용 — 미니바는 보증금 차감이 아니라 게스트 청구(정산)로 기록되므로
+    // 여기서 막으면 무보증금+미니바 소비 조합의 체크아웃이 불가능해진다(consumer-bugs #5, 서버는 NONE 유지).
+    !damageFound && photoUrls.length >= 1 && minibarTotal > 0n && !busy;
 
   // 환불 예정액 — 보증금 VND일 때만 산출 (BigInt, float 금지)
   const refundEstimate = (() => {
