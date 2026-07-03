@@ -43,6 +43,7 @@ function dto(id: string, quotedMsgId: string | null): ChatMessageDTO {
     msgType: "text",
     text: "",
     translatedText: null,
+    captionTranslated: null,
     attachmentUrls: [],
     time: "",
     status: "SENT",

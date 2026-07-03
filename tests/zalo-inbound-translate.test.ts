@@ -100,4 +100,24 @@ describe("maybeTranslateInbound — 수신 자동번역 (D7.4)", () => {
     expect(mockMsgUpdate).not.toHaveBeenCalled();
     expect(mockPublish).not.toHaveBeenCalled();
   });
+
+  it("사진 캡션 — targetField 'captionTranslated' 지정 시 그 필드에 저장(OCR translatedText와 분리)", async () => {
+    mockTranslateText.mockResolvedValue("이 글자가 맞나요?");
+    await maybeTranslateInbound("m1", "dòng chữ này đúng chưa", "VI", "captionTranslated");
+    expect(mockMsgUpdate).toHaveBeenCalledWith({
+      where: { id: "m1" },
+      data: { captionTranslated: "이 글자가 맞나요?" },
+    });
+    // 캡션 번역도 실시간 재발행(텍스트 자동번역과 동일 경로).
+    expect(mockPublish).toHaveBeenCalledTimes(1);
+  });
+
+  it("targetField 미지정 → 기존 그대로 translatedText 저장(기본값 회귀 0)", async () => {
+    mockTranslateText.mockResolvedValue("안녕하세요");
+    await maybeTranslateInbound("m1", "Xin chào", "VI");
+    expect(mockMsgUpdate).toHaveBeenCalledWith({
+      where: { id: "m1" },
+      data: { translatedText: "안녕하세요" },
+    });
+  });
 });

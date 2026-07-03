@@ -104,6 +104,8 @@ export interface ChatMessage {
   msgType: string; // text | photo | villa_share | proposal_share | settlement_share
   text: string;
   translatedText: string | null;
+  // 사진 캡션 번역(ko) — 사진 메시지의 translatedText는 이미지 OCR 전용이라 분리(사진 외 타입은 null).
+  captionTranslated: string | null;
   attachmentUrls: string[];
   time: string;
   status: string;
@@ -1581,6 +1583,8 @@ function InboundBubble({
             inbound
             translatedText={showTranslation ? message.translatedText : null}
             transcriptLabel={t("typeCard.photoTranscript")}
+            captionTranslated={showTranslation ? message.captionTranslated : null}
+            canTranslateCaption={translateMode !== "OFF"}
             messageId={message.id}
             t={t}
           />
@@ -1917,6 +1921,8 @@ function PhotoCard({
   inbound = false,
   translatedText,
   transcriptLabel,
+  captionTranslated,
+  canTranslateCaption = false,
   messageId,
   t,
 }: {
@@ -1927,6 +1933,10 @@ function PhotoCard({
   translatedText?: string | null;
   /** 자막 라벨(t("typeCard.photoTranscript")) — 번역 결과 있을 때만 사용. */
   transcriptLabel?: string;
+  /** 캡션 번역(ko) — OCR(translatedText)과 별개 필드. 있으면 캡션 바로 아래 표시. */
+  captionTranslated?: string | null;
+  /** 캡션 수동 "번역" 버튼 노출 허용(번역모드 ON) — 캡션 있고 아직 번역 없을 때만 실제 노출. */
+  canTranslateCaption?: boolean;
   /** 수신 메시지 id — 있으면 "번역" 버튼으로 on-demand OCR 번역 호출(사진 자동번역 폐지, 2026-06-23). */
   messageId?: string;
   t?: ReturnType<typeof useTranslations>;
@@ -1937,6 +1947,35 @@ function PhotoCard({
   const [loading, setLoading] = useState(false);
   const [note, setNote] = useState<string | null>(null); // 글자 없음/실패 안내
   const shown = localTranslated ?? translatedText ?? null;
+  // 캡션 번역 on-demand 상태 — OCR과 독립(같은 사진에서 둘 다 가능). 서버 저장본 우선.
+  const [capLocal, setCapLocal] = useState<string | null>(null);
+  const [capLoading, setCapLoading] = useState(false);
+  const [capNote, setCapNote] = useState<string | null>(null);
+  const shownCaptionTr = capLocal ?? captionTranslated ?? null;
+
+  // 캡션 번역 — 텍스트 번역 라우트 재사용(photo는 서버가 captionTranslated에 저장·멱등).
+  async function handleTranslateCaption() {
+    if (!messageId || capLoading) return;
+    setCapLoading(true);
+    setCapNote(null);
+    try {
+      const res = await fetch(`/api/zalo/messages/${messageId}/translate`, { method: "POST" });
+      const data = (await res.json().catch(() => ({}))) as { translated?: string };
+      if (res.ok) {
+        if (data.translated && data.translated.trim().length > 0) {
+          setCapLocal(data.translated);
+        } else {
+          setCapNote(t?.("textTranslate.empty") ?? ""); // 한국어이거나 번역 결과 없음
+        }
+      } else {
+        setCapNote(t?.("textTranslate.failed") ?? "");
+      }
+    } catch {
+      setCapNote(t?.("textTranslate.failed") ?? "");
+    } finally {
+      setCapLoading(false);
+    }
+  }
 
   async function handleTranslate() {
     if (!messageId || loading) return;
@@ -2009,6 +2048,35 @@ function PhotoCard({
         )}
       </div>
       {caption && <p className={`text-xs px-2 py-1.5 ${captionColor}`}>{caption}</p>}
+      {/* 캡션 번역 — 캡션 바로 아래(이미지 OCR 자막과 별개). 자동번역분(서버) 또는 수동 버튼 결과. */}
+      {caption && shownCaptionTr && (
+        <p className={`text-xs px-2 pb-1.5 ${captionColor} whitespace-pre-wrap break-words`}>
+          {shownCaptionTr}
+          <span className="text-[9px] font-bold ml-1.5 align-middle opacity-70">
+            {t?.("translationLabel") ?? ""}
+          </span>
+        </p>
+      )}
+      {/* 캡션 수동 "번역" 버튼 — 번역모드 ON·수신·캡션 있음·아직 번역/안내 없음(과거 수신분 채움). */}
+      {inbound && !!messageId && canTranslateCaption && caption && !shownCaptionTr && !capNote && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation(); // 버블 탭(액션 토글)과 분리
+            void handleTranslateCaption();
+          }}
+          disabled={capLoading}
+          className="px-2 pb-1.5 text-[11px] text-teal-400 hover:text-teal-300 flex items-center gap-1 disabled:opacity-60"
+        >
+          <span
+            className={`material-symbols-outlined text-[15px] ${capLoading ? "animate-spin" : ""}`}
+          >
+            {capLoading ? "progress_activity" : "translate"}
+          </span>
+          {capLoading ? t?.("textTranslate.loading") ?? "..." : t?.("textTranslate.button") ?? "번역"}
+        </button>
+      )}
+      {capNote && <p className="text-[10px] px-2 pb-1.5 text-slate-500">{capNote}</p>}
       {/* 번역 결과(자막) — caption 아래 한 줄(voice STT 자막과 동일 패턴). */}
       {shown && (
         <p className={`text-xs px-2 pb-1.5 ${captionColor} whitespace-pre-wrap break-words`}>
@@ -2611,6 +2679,53 @@ function Composer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text]);
 
+  // ── 이미지 붙여넣기(Ctrl+V) — 클립보드 이미지 → 미리보기 카드 → 전송 확인 후 발송 ──
+  // 오전송 방지를 위해 붙여넣기 즉시 보내지 않고 미리보기→전송 2단계. 업로드는 첨부 메뉴의
+  // 사진과 동일 파이프라인(resizeImage → share 라우트)이라 상대에게는 일반 사진으로 발송된다.
+  const [pastedImage, setPastedImage] = useState<{ file: File; url: string } | null>(null);
+  const [sendingImage, setSendingImage] = useState(false);
+
+  function handlePastedFile(file: File) {
+    setPastedImage((prev) => {
+      if (prev) URL.revokeObjectURL(prev.url); // 이전 미리보기 objectURL 누수 방지(교체)
+      return { file, url: URL.createObjectURL(file) };
+    });
+  }
+
+  function clearPastedImage() {
+    setPastedImage((prev) => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+  }
+
+  async function sendPastedImage() {
+    if (!pastedImage || sendingImage) return;
+    setSendingImage(true);
+    setError(null);
+    try {
+      // 클라 리사이즈(일반 프리셋) — AttachMenu.uploadPhoto와 동일. 실패/비이미지면 원본 그대로.
+      const blob = await resizeImage(pastedImage.file);
+      const fd = new FormData();
+      // 클립보드 파일은 이름이 비어 있을 수 있음 — 폴백 이름 부여(서버 확장자 검사 대비).
+      fd.append("file", blob, pastedImage.file.name || "pasted-image.jpg");
+      const res = await fetch(`/api/zalo/conversations/${conversationId}/share`, {
+        method: "POST",
+        body: fd,
+      });
+      if (res.ok) {
+        clearPastedImage();
+        refresh();
+      } else {
+        setError(t("pasteImage.failed"));
+      }
+    } catch {
+      setError(t("pasteImage.failed"));
+    } finally {
+      setSendingImage(false);
+    }
+  }
+
   // 대화 전환 시 @멘션 상태 초기화 — 다른 대화에 엉뚱한 멘션 메타가 남지 않도록(누수·오발송 방지).
   useEffect(() => {
     mentionsRef.current = [];
@@ -2978,6 +3093,46 @@ function Composer({
           </button>
         </div>
       )}
+      {/* 붙여넣은 이미지 미리보기 — 전송 확인 후 발송(오전송 방지). 취소로 해제. */}
+      {pastedImage && (
+        <div className="flex items-center gap-3 bg-slate-800/60 border border-slate-700 rounded-lg px-3 py-2 mb-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={pastedImage.url}
+            alt=""
+            className="w-14 h-14 rounded-lg object-cover shrink-0 bg-slate-700"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold text-slate-200 truncate">{t("pasteImage.title")}</p>
+            <p className="text-[10px] text-slate-500">
+              {Math.max(1, Math.round(pastedImage.file.size / 1024))} KB
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void sendPastedImage()}
+            disabled={sendingImage}
+            className="shrink-0 flex items-center gap-1 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-xs font-bold px-3 py-1.5 transition-colors active:scale-95"
+          >
+            <span
+              className={`material-symbols-outlined text-[15px] ${sendingImage ? "animate-spin" : ""}`}
+            >
+              {sendingImage ? "progress_activity" : "send"}
+            </span>
+            {t("pasteImage.send")}
+          </button>
+          <button
+            type="button"
+            onClick={clearPastedImage}
+            disabled={sendingImage}
+            title={t("pasteImage.cancel")}
+            aria-label={t("pasteImage.cancel")}
+            className="shrink-0 text-slate-500 hover:text-slate-200 transition-colors disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
+      )}
       {/* @멘션 드롭다운 (그룹 전용) — "@" 입력 시 멤버 후보. ↑↓ 이동·Enter/Tab 선택·Esc 닫기.
           @전체(uid -1) 맨 위. 다크 톤(slate). 입력 박스 위에 흐름상 표시(잘림 없음). */}
       {isGroup && mentionQuery !== null && mentionList.length > 0 && (
@@ -3058,6 +3213,18 @@ function Composer({
             value={text}
             onChange={handleTextChange}
             onBlur={() => translate()}
+            onPaste={(e) => {
+              // 클립보드에 이미지가 있으면(스크린샷 복사·이미지 우클릭 복사·탐색기 파일 복사)
+              // 기본 붙여넣기를 막고 미리보기 카드로. 텍스트만 있으면 기본 동작 유지.
+              const items = Array.from(e.clipboardData?.items ?? []);
+              const file = items
+                .find((it) => it.kind === "file" && it.type.startsWith("image/"))
+                ?.getAsFile();
+              if (file) {
+                e.preventDefault();
+                handlePastedFile(file);
+              }
+            }}
             onKeyDown={(e) => {
               // @멘션 드롭다운 열림 + IME 조합 아님 → 키보드 탐색(↑↓ 이동, Enter/Tab 선택, Esc 닫기).
               if (mentionQuery !== null && mentionList.length > 0 && !e.nativeEvent.isComposing) {

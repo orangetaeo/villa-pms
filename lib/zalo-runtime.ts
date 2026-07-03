@@ -803,6 +803,18 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       void maybeTranslateInbound(inbound.messageId, text, inbound.translateMode);
     }
 
+    // 사진 캡션 자동번역 — 캡션은 사람이 쓴 본문(텍스트와 동일 취급). 이미지 OCR 번역(translatedText,
+    // on-demand 유지)과 별개 필드 captionTranslated에 저장(같은 사진에 둘 다 필요한 사례 — 2026-07-03).
+    if (
+      classified.msgType === "photo" &&
+      text.trim().length > 0 &&
+      inbound.saved &&
+      inbound.messageId &&
+      inbound.translateMode !== "OFF"
+    ) {
+      void maybeTranslateInbound(inbound.messageId, text, inbound.translateMode, "captionTranslated");
+    }
+
     // S5 A6-3 — 수신 음성 STT(받아쓰기→ko 번역→translatedText). 리스너 블로킹 금지: await 없이 void.
     // INBOUND voice만(본인 발신 echo는 위 분기에서 이미 return). OFF 모드는 헬퍼 내부에서 스킵.
     if (

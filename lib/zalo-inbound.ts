@@ -1010,7 +1010,10 @@ async function publishInboundTranslated(messageId: string): Promise<void> {
 export async function maybeTranslateInbound(
   messageId: string,
   text: string,
-  translateMode: ZaloTranslateMode
+  translateMode: ZaloTranslateMode,
+  // 저장 대상 필드 — 기본 translatedText(텍스트 본문). 사진 캡션은 captionTranslated에 저장해
+  // 이미지 OCR 번역(translatedText, on-demand)과 분리(같은 사진에 둘 다 필요한 사례).
+  targetField: "translatedText" | "captionTranslated" = "translatedText"
 ): Promise<void> {
   if (translateMode === "OFF") return; // 번역 끔 — Gemini 호출 0
   const trimmed = text.trim();
@@ -1023,7 +1026,7 @@ export async function maybeTranslateInbound(
     if (!translated) return;
     await prisma.zaloMessage.update({
       where: { id: messageId },
-      data: { translatedText: translated },
+      data: { [targetField]: translated },
     });
     // 번역 채움 완료 → 실시간 재발행(클라 즉시 노출, 새로고침 불필요).
     await publishInboundTranslated(messageId);
