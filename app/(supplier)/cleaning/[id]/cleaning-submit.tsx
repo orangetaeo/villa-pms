@@ -116,15 +116,18 @@ export function CleaningSubmit({
   async function handleSubmit() {
     if (!allDone || submitState === "submitting") return;
     setSubmitState("submitting");
-    // 슬롯 순서대로 제출 — 읽기 전용 그리드에서 공간 라벨과 1:1 대응
-    const photoUrls = slots
-      .map((s) => photos[s.id]?.url)
-      .filter((u): u is string => Boolean(u));
+    // 슬롯 순서대로 제출 + 병렬 슬롯 id — 선택 슬롯 스킵 시에도 검수 화면이
+    // 인덱스가 아니라 슬롯 id로 기준 사진과 페어링할 수 있게 한다
+    const submitted = slots.filter(
+      (s) => photos[s.id]?.status === "done" && photos[s.id]?.url
+    );
+    const photoUrls = submitted.map((s) => photos[s.id]!.url as string);
+    const photoSlots = submitted.map((s) => s.id);
     try {
       const res = await fetch(`/api/cleaning-tasks/${taskId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ photoUrls }),
+        body: JSON.stringify({ photoUrls, photoSlots }),
       });
       if (res.ok) {
         // 성공 — 목록 복귀 + 성공 배너 (Đã gửi 반영)

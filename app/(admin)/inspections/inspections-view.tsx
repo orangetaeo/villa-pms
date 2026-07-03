@@ -11,6 +11,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { CleaningStatus, CleaningType, PhotoSpace } from "@prisma/client";
+import { buildInspectionRows, type SlotRef } from "@/lib/cleaning-photo-pairs";
 import { formatDateTime } from "@/lib/format";
 import QuickDateFilter from "@/components/admin/quick-date-filter";
 import PaginationBar from "@/components/pagination-bar";
@@ -38,6 +39,8 @@ export interface SelectedTask {
   type: CleaningType;
   status: CleaningStatus;
   photoUrls: string[];
+  /** photoUrls와 병렬 슬롯 id — 있으면 기준 사진과 슬롯 매칭 페어링(스킵 슬롯 정렬 유지) */
+  photoSlots: string[];
   rejectNote: string | null;
   approvedAt: string | null; // ISO
   dueDate: string | null; // ISO (@db.Date)
@@ -227,28 +230,33 @@ export default function InspectionsView({
     }
   };
 
-  /** 제출 사진·기준 사진 쌍 — photoUrls 순서 ↔ 기준 사진 space·sortOrder 순 매칭 */
-  const pairCount = selected
-    ? Math.max(selected.photoUrls.length, selected.baselinePhotos.length)
-    : 0;
+  // 제출 사진·기준 사진 쌍 — photoSlots(슬롯 id) 매칭. 선택 슬롯(발코니 등)을 건너뛴
+  // 제출도 정렬이 어긋나지 않는다. photoSlots 없는 레거시 제출은 종전 인덱스 페어링.
+  const { rows: pairRows } = selected
+    ? buildInspectionRows({
+        photoUrls: selected.photoUrls,
+        photoSlots: selected.photoSlots,
+        baselines: selected.baselinePhotos,
+      })
+    : { rows: [] };
 
-  const pairLabel = (i: number): string => {
-    const baseline = selected?.baselinePhotos[i];
-    if (baseline) return baseline.spaceLabel ?? td(`spaces.${baseline.space}`);
-    return td("extraPhoto", { n: i - (selected?.baselinePhotos.length ?? 0) + 1 });
+  /** 행 라벨 — 공간명(+침실/욕실 번호), 슬롯 미상이면 "추가 사진 n" */
+  const rowLabel = (slot: SlotRef | null, unknownSeq: number): string => {
+    if (!slot) return td("extraPhoto", { n: unknownSeq });
+    const base = td(`spaces.${slot.space}`);
+    return slot.index !== undefined ? `${base} ${slot.index}` : base;
   };
+  // 라벨 미상 행 일련번호(추가 사진 1, 2, …) — 행 순서 기준 사전 계산
+  let unknownSeq = 0;
+  const pairLabels = pairRows.map((row) => rowLabel(row.slot, row.slot ? 0 : ++unknownSeq));
 
   // 라이트박스 이미지 목록 — 쌍별 기준→청소후 순서대로 평탄화 (클릭 시 해당 위치에서 확대)
-  const lightboxImages: LightboxImage[] = selected
-    ? Array.from({ length: pairCount }, (_, i) => {
-        const items: LightboxImage[] = [];
-        const baseline = selected.baselinePhotos[i];
-        const submittedUrl = selected.photoUrls[i];
-        if (baseline) items.push({ url: baseline.url, label: `${pairLabel(i)} · ${td("baseline")}` });
-        if (submittedUrl) items.push({ url: submittedUrl, label: `${pairLabel(i)} · ${td("after")}` });
-        return items;
-      }).flat()
-    : [];
+  const lightboxImages: LightboxImage[] = pairRows.flatMap((row, i) => {
+    const items: LightboxImage[] = [];
+    if (row.baselineUrl) items.push({ url: row.baselineUrl, label: `${pairLabels[i]} · ${td("baseline")}` });
+    if (row.submittedUrl) items.push({ url: row.submittedUrl, label: `${pairLabels[i]} · ${td("after")}` });
+    return items;
+  });
   const openLightbox = (url: string) => {
     const idx = lightboxImages.findIndex((im) => im.url === url);
     if (idx >= 0) setLightbox(idx);
@@ -501,6 +509,7 @@ export default function InspectionsView({
                     {td("assigneeLabel")}
                   </span>
                   <select
+                    aria-label={td("assigneeLabel")}
                     value={selected.assigneeId ?? ""}
                     disabled={busy}
                     onChange={(e) => void reassign(e.target.value)}
@@ -534,86 +543,82 @@ export default function InspectionsView({
                   </div>
                 )}
 
-                {pairCount === 0 ? (
+                {pairRows.length === 0 ? (
                   <p className="py-12 text-center text-sm text-admin-muted">{td("noPhotos")}</p>
                 ) : (
-                  Array.from({ length: pairCount }, (_, i) => {
-                    const baseline = selected.baselinePhotos[i];
-                    const submittedUrl = selected.photoUrls[i];
-                    return (
-                      <div key={baseline?.id ?? `extra-${i}`}>
-                        {/* 쌍 라벨 — 공간명, 밝은 라이트 그레이 #E5E7EB (b6 대비 요구) */}
-                        <div className="flex items-center gap-2 mb-4">
-                          <span className="w-1 h-4 bg-admin-primary rounded" aria-hidden />
-                          <h4 className="text-sm font-bold text-[#E5E7EB]">{pairLabel(i)}</h4>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                          {/* 기준 사진 — 개수 불일치(없음) 시 청소 후 단독 표시 */}
-                          {baseline ? (
-                            <div className="space-y-2">
-                              <p className="text-[10px] text-[#E5E7EB] font-bold uppercase tracking-tight">
-                                {td("baseline")}
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() => openLightbox(baseline.url)}
-                                aria-label={`${pairLabel(i)} — ${td("baseline")}`}
-                                className="block w-full aspect-video rounded overflow-hidden border border-admin-card relative bg-slate-800 cursor-zoom-in"
-                              >
-                                <Image
-                                  src={baseline.url}
-                                  alt={`${pairLabel(i)} — ${td("baseline")}`}
-                                  fill
-                                  sizes="(max-width: 768px) 50vw, 33vw"
-                                  className="object-cover"
-                                />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="space-y-2">
-                              <p className="text-[10px] text-[#E5E7EB] font-bold uppercase tracking-tight">
-                                {td("baseline")}
-                              </p>
-                              <div className="aspect-video rounded border border-dashed border-slate-700 flex items-center justify-center text-xs text-slate-600">
-                                {td("noBaseline")}
-                              </div>
-                            </div>
-                          )}
-                          {/* 청소 후 사진 — 없으면 기준 사진 단독 표시 */}
-                          {submittedUrl ? (
-                            <div className="space-y-2">
-                              <p className="text-[10px] text-blue-400 font-bold uppercase tracking-tight">
-                                {td("after")}
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() => openLightbox(submittedUrl)}
-                                aria-label={`${pairLabel(i)} — ${td("after")}`}
-                                className="block w-full aspect-video rounded overflow-hidden border border-admin-primary/30 relative bg-slate-800 cursor-zoom-in"
-                              >
-                                <Image
-                                  src={submittedUrl}
-                                  alt={`${pairLabel(i)} — ${td("after")}`}
-                                  fill
-                                  sizes="(max-width: 768px) 50vw, 33vw"
-                                  className="object-cover"
-                                />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="space-y-2">
-                              <p className="text-[10px] text-blue-400 font-bold uppercase tracking-tight">
-                                {td("after")}
-                              </p>
-                              <div className="aspect-video rounded border border-dashed border-slate-700 flex items-center justify-center text-xs text-slate-600">
-                                {td("noSubmission")}
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                  pairRows.map((row, i) => (
+                    <div key={row.key}>
+                      {/* 쌍 라벨 — 공간명, 밝은 라이트 그레이 #E5E7EB (b6 대비 요구) */}
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="w-1 h-4 bg-admin-primary rounded" aria-hidden />
+                        <h4 className="text-sm font-bold text-[#E5E7EB]">{pairLabels[i]}</h4>
                       </div>
-                    );
-                  })
+                      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                        {/* 기준 사진 — 없으면(기준 미등록) 자리 표시 */}
+                        {row.baselineUrl ? (
+                          <div className="space-y-2">
+                            <p className="text-[10px] text-[#E5E7EB] font-bold uppercase tracking-tight">
+                              {td("baseline")}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => openLightbox(row.baselineUrl as string)}
+                              aria-label={`${pairLabels[i]} — ${td("baseline")}`}
+                              className="block w-full aspect-video rounded overflow-hidden border border-admin-card relative bg-slate-800 cursor-zoom-in"
+                            >
+                              <Image
+                                src={row.baselineUrl}
+                                alt={`${pairLabels[i]} — ${td("baseline")}`}
+                                fill
+                                sizes="(max-width: 768px) 50vw, 33vw"
+                                className="object-cover"
+                              />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <p className="text-[10px] text-[#E5E7EB] font-bold uppercase tracking-tight">
+                              {td("baseline")}
+                            </p>
+                            <div className="aspect-video rounded border border-dashed border-slate-700 flex items-center justify-center text-xs text-slate-600">
+                              {td("noBaseline")}
+                            </div>
+                          </div>
+                        )}
+                        {/* 청소 후 사진 — 없으면(스킵 슬롯 등) 자리 표시 */}
+                        {row.submittedUrl ? (
+                          <div className="space-y-2">
+                            <p className="text-[10px] text-blue-400 font-bold uppercase tracking-tight">
+                              {td("after")}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => openLightbox(row.submittedUrl as string)}
+                              aria-label={`${pairLabels[i]} — ${td("after")}`}
+                              className="block w-full aspect-video rounded overflow-hidden border border-admin-primary/30 relative bg-slate-800 cursor-zoom-in"
+                            >
+                              <Image
+                                src={row.submittedUrl}
+                                alt={`${pairLabels[i]} — ${td("after")}`}
+                                fill
+                                sizes="(max-width: 768px) 50vw, 33vw"
+                                className="object-cover"
+                              />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <p className="text-[10px] text-blue-400 font-bold uppercase tracking-tight">
+                              {td("after")}
+                            </p>
+                            <div className="aspect-video rounded border border-dashed border-slate-700 flex items-center justify-center text-xs text-slate-600">
+                              {td("noSubmission")}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
 
