@@ -10,6 +10,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const mockBookingFindMany = vi.fn();
+const mockBookingCount = vi.fn();
+const mockBookingFindFirst = vi.fn();
 const mockReceivableFindMany = vi.fn();
 const mockInvoiceFindMany = vi.fn();
 const mockProposalFindMany = vi.fn();
@@ -17,7 +19,11 @@ const mockPaymentFindMany = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    booking: { findMany: (...a: unknown[]) => mockBookingFindMany(...a) },
+    booking: {
+      findMany: (...a: unknown[]) => mockBookingFindMany(...a),
+      count: (...a: unknown[]) => mockBookingCount(...a),
+      findFirst: (...a: unknown[]) => mockBookingFindFirst(...a),
+    },
     partnerReceivable: { findMany: (...a: unknown[]) => mockReceivableFindMany(...a) },
     partnerInvoice: { findMany: (...a: unknown[]) => mockInvoiceFindMany(...a) },
     proposal: { findMany: (...a: unknown[]) => mockProposalFindMany(...a) },
@@ -56,6 +62,8 @@ const FORBIDDEN_FIELDS = [
 beforeEach(() => {
   vi.clearAllMocks();
   mockBookingFindMany.mockResolvedValue([]);
+  mockBookingCount.mockResolvedValue(0);
+  mockBookingFindFirst.mockResolvedValue(null);
   mockReceivableFindMany.mockResolvedValue([]);
   mockInvoiceFindMany.mockResolvedValue([]);
   mockProposalFindMany.mockResolvedValue([]);
@@ -64,13 +72,13 @@ beforeEach(() => {
 
 describe("loadPartnerBookings — 스코프·객실료·누수", () => {
   it("where: { partnerId } 로만 조회한다(IDOR 차단)", async () => {
-    await loadPartnerBookings("partner-1");
+    await loadPartnerBookings("partner-1", { skip: 0, take: 10 });
     const arg = mockBookingFindMany.mock.calls[0][0] as { where: unknown };
-    expect(arg.where).toEqual({ partnerId: "partner-1" });
+    expect(arg.where).toMatchObject({ partnerId: "partner-1" });
   });
 
   it("select에 판매가(KRW)·원가·마진 필드를 포함하지 않는다(누수 차단)", async () => {
-    await loadPartnerBookings("partner-1");
+    await loadPartnerBookings("partner-1", { skip: 0, take: 10 });
     const arg = mockBookingFindMany.mock.calls[0][0] as { select: unknown };
     const keys = flattenSelectKeys(arg.select);
     for (const f of FORBIDDEN_FIELDS) expect(keys).not.toContain(f);
@@ -93,7 +101,7 @@ describe("loadPartnerBookings — 스코프·객실료·누수", () => {
         receivable: { totalVnd: 8_000_000n },
       },
     ]);
-    const rows = await loadPartnerBookings("partner-1");
+    const { rows } = await loadPartnerBookings("partner-1", { skip: 0, take: 10 });
     expect(rows[0].roomChargeVnd).toBe("8000000");
     expect(rows[0].villaName).toBe("쏘나씨 V11");
     expect(rows[0].isExtension).toBe(false);
@@ -130,7 +138,7 @@ describe("loadPartnerBookings — 스코프·객실료·누수", () => {
         receivable: null,
       },
     ]);
-    const rows = await loadPartnerBookings("partner-1");
+    const { rows } = await loadPartnerBookings("partner-1", { skip: 0, take: 10 });
     expect(rows[0].roomChargeVnd).toBe("5000000");
     expect(rows[1].roomChargeVnd).toBeNull();
   });
@@ -356,5 +364,67 @@ describe("loadPartnerReceivables — 입금 이력(Payment)", () => {
     mockReceivableFindMany.mockResolvedValue([]);
     await loadPartnerReceivables("partner-7");
     expect(mockPaymentFindMany).not.toHaveBeenCalled();
+  });
+});
+
+// T-partner-scale 1 — 서버 페이지네이션·필터
+describe("loadPartnerBookings — 서버 페이지네이션 (T-partner-scale 1)", () => {
+  it("skip/take 전달 + count 기반 total, 어떤 필터에도 partnerId 유지", async () => {
+    mockBookingCount.mockResolvedValue(37);
+    const { total } = await loadPartnerBookings("partner-1", {
+      q: "쏘나",
+      from: "2026-07-01",
+      to: "2026-07-31",
+      skip: 20,
+      take: 10,
+    });
+    expect(total).toBe(37);
+    const arg = mockBookingFindMany.mock.calls[0][0] as {
+      where: Record<string, unknown>;
+      skip: number;
+      take: number;
+    };
+    expect(arg.skip).toBe(20);
+    expect(arg.take).toBe(10);
+    expect(arg.where.partnerId).toBe("partner-1"); // ★ 필터가 와도 IDOR 스코프 유지
+    expect(arg.where.OR).toBeDefined(); // q → 게스트/빌라 contains
+    expect(arg.where.checkOut).toEqual({ gte: new Date("2026-07-01T00:00:00Z") });
+    expect(arg.where.checkIn).toEqual({ lte: new Date("2026-07-31T00:00:00Z") });
+    // count도 동일 where — 페이지네이션 정합
+    const countArg = mockBookingCount.mock.calls[0][0] as { where: unknown };
+    expect(countArg.where).toEqual(arg.where);
+  });
+});
+
+// T-partner-scale 2 — 상세 select 누수 가드(체크인·서비스요청 확장 후에도 금액·PII 미노출)
+describe("loadPartnerBookingDetail — select 누수 가드", () => {
+  it("select에 서비스 금액(costVnd·priceKrw/Vnd)·옵션·vendor·여권 PII가 없다", async () => {
+    const { loadPartnerBookingDetail } = await import("./partner-portal");
+    const r = await loadPartnerBookingDetail("partner-1", "b1");
+    expect(r).toBeNull(); // mock findFirst → null (미소유 404 경로)
+    const arg = mockBookingFindFirst.mock.calls[0][0] as {
+      where: unknown;
+      select: unknown;
+    };
+    expect(arg.where).toEqual({ id: "b1", partnerId: "partner-1" });
+    const keys = flattenSelectKeys(arg.select);
+    for (const f of FORBIDDEN_FIELDS) expect(keys).not.toContain(f);
+    for (const f of [
+      "costVnd",
+      "priceKrw",
+      "priceVnd",
+      "selectedOptions",
+      "vendorId",
+      "vendorName",
+      "passportPhotoUrls",
+      "passportOcrJson",
+      "signatureUrl",
+      "paperDocUrls",
+      "notes",
+    ])
+      expect(keys).not.toContain(f);
+    // 정당 노출 필드는 존재
+    for (const f of ["guestNote", "serviceDate", "agreementSignedAt"])
+      expect(keys).toContain(f);
   });
 });

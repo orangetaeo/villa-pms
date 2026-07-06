@@ -1,14 +1,14 @@
 "use client";
 
-// 파트너 예약 현황 목록 — 검색(빌라명·게스트명) + controlled 페이지네이션(라이트).
-//   서버(page.tsx)가 자기 partnerId 스코프로 조회한 전체 목록을 props로 받아 클라에서 표시 슬라이스만 한다.
+// 파트너 예약 현황 목록 — 서버 페이지네이션 (T-partner-scale 1).
+//   검색(q)·기간(from/to)·page/pageSize는 URL이 단일 진실 — 서버(page.tsx)가 where/skip/take로 조회.
+//   이 컴포넌트는 현재 페이지 rows만 받아 렌더 + URL 갱신만 한다(전량로드·클라 slice 제거, PR #165 패턴).
 //   ★ 누수: roomCharge(VND 청구액)만 — totalSaleKrw·원가·마진 없음(서버 select에서 이미 차단).
-import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import PaginationBar from "@/components/pagination-bar";
 import ListSearch from "@/components/list-search";
-import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { formatVillaName } from "@/lib/villa-name";
 import type { PartnerBookingRow } from "@/lib/partner-portal";
 import { formatVndDot, formatDayMonth } from "./_format";
@@ -25,59 +25,57 @@ const STATUS_STYLE: Record<string, string> = {
 
 export default function PartnerBookingsList({
   bookings,
+  total,
+  page,
+  pageSize,
+  dateFrom,
+  dateTo,
 }: {
+  /** 현재 페이지 rows (서버 where/skip/take 결과) */
   bookings: PartnerBookingRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  dateFrom: string; // "" = 미설정
+  dateTo: string;
 }) {
   const t = useTranslations("partner");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  // 검색(부분일치) — 빌라명(병기)·단지·게스트명 + 날짜(기간) 필터. 표시 필터(데이터 경계 변경 없음).
-  const [search, setSearch] = useState("");
-  const [dateFrom, setDateFrom] = useState(""); // YYYY-MM-DD
-  const [dateTo, setDateTo] = useState("");
-  const ymd = (d: Date) => new Date(d).toISOString().slice(0, 10); // @db.Date(UTC) → YYYY-MM-DD
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return bookings.filter((b) => {
-      // 텍스트
-      if (q) {
-        const villa = formatVillaName({ name: b.villaName, nameVi: b.villaNameVi }).toLowerCase();
-        const complex = (b.villaComplex ?? "").toLowerCase();
-        const guest = b.guestName.toLowerCase();
-        if (!(villa.includes(q) || complex.includes(q) || guest.includes(q))) return false;
-      }
-      // 날짜(기간 겹침) — 투숙기간 [checkIn, checkOut]이 [from, to]와 겹치면 표시
-      if (dateFrom && ymd(b.checkOut) < dateFrom) return false;
-      if (dateTo && ymd(b.checkIn) > dateTo) return false;
-      return true;
-    });
-  }, [bookings, search, dateFrom, dateTo]);
+  // 기간 필터 URL 갱신 — 변경 시 page 제거(1페이지 리셋). ListSearch(URL 모드)와 동일 규칙.
+  const setDateParam = (key: "from" | "to", value: string) => {
+    const next = new URLSearchParams(searchParams.toString());
+    if (value) next.set(key, value);
+    else next.delete(key);
+    next.delete("page");
+    router.replace(`${pathname}${next.size ? `?${next}` : ""}`);
+  };
+  const clearDates = () => {
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("from");
+    next.delete("to");
+    next.delete("page");
+    router.replace(`${pathname}${next.size ? `?${next}` : ""}`);
+  };
 
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-  useEffect(() => setPage(1), [bookings, search, dateFrom, dateTo]);
-  const paged = useMemo(
-    () => filtered.slice((page - 1) * pageSize, page * pageSize),
-    [filtered, page, pageSize]
-  );
-
-  // 빈 상태(전체 0건)는 부모에서 안내 — 여기는 목록이 있을 때만 렌더
   return (
     <>
       <div className="mb-3 space-y-2">
+        {/* 검색 — URL 모드(q 파라미터·디바운스·page 리셋은 ListSearch가 처리) */}
         <ListSearch
           light
           placeholder={t("bookings.searchPlaceholder")}
-          value={search}
-          onChange={setSearch}
           className="max-w-xs"
         />
-        {/* 날짜(기간) 검색 — 투숙기간이 범위와 겹치는 예약만 */}
+        {/* 날짜(기간) 검색 — 투숙기간이 범위와 겹치는 예약만(서버 where) */}
         <div className="flex items-center gap-2">
           <input
             type="date"
             value={dateFrom}
             max={dateTo || undefined}
-            onChange={(e) => setDateFrom(e.target.value)}
+            onChange={(e) => setDateParam("from", e.target.value)}
             aria-label={t("bookings.dateFrom")}
             className="h-10 min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-2.5 text-sm text-neutral-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
           />
@@ -86,17 +84,14 @@ export default function PartnerBookingsList({
             type="date"
             value={dateTo}
             min={dateFrom || undefined}
-            onChange={(e) => setDateTo(e.target.value)}
+            onChange={(e) => setDateParam("to", e.target.value)}
             aria-label={t("bookings.dateTo")}
             className="h-10 min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-2.5 text-sm text-neutral-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
           />
           {(dateFrom || dateTo) && (
             <button
               type="button"
-              onClick={() => {
-                setDateFrom("");
-                setDateTo("");
-              }}
+              onClick={clearDates}
               aria-label={t("bookings.dateClear")}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-400 hover:text-neutral-700"
             >
@@ -106,13 +101,13 @@ export default function PartnerBookingsList({
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {bookings.length === 0 ? (
         <div className="rounded-xl border border-dashed border-neutral-200 bg-white p-6 text-center text-sm text-neutral-400">
           {t("bookings.noMatch")}
         </div>
       ) : (
         <ul className="space-y-3">
-          {paged.map((b) => {
+          {bookings.map((b) => {
             const statusStyle = STATUS_STYLE[b.status] ?? "bg-neutral-100 text-neutral-500";
             return (
               <li key={b.id}>
@@ -166,19 +161,8 @@ export default function PartnerBookingsList({
         </ul>
       )}
 
-      {filtered.length > 0 && (
-        <PaginationBar
-          light
-          total={filtered.length}
-          page={page}
-          pageSize={pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={(s) => {
-            setPageSize(s);
-            setPage(1);
-          }}
-        />
-      )}
+      {/* URL 모드 페이지네이션 — page/pageSize 파라미터 갱신(서버 skip/take 기준 total) */}
+      {total > 0 && <PaginationBar light total={total} page={page} pageSize={pageSize} />}
     </>
   );
 }
