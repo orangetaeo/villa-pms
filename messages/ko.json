@@ -3,6 +3,9 @@
     "name": "Villa Go"
   },
   "partner": {
+    "serviceOrders": { "title": "부가서비스 요청", "subtitle": "고객이 신청한 부가서비스입니다. 요청 메모를 확인해 주세요." },
+    "serviceType": { "BBQ": "바베큐", "TICKET": "입장권", "GUIDE": "가이드", "CAR_RENTAL": "차량 렌트", "BREAKFAST": "조식", "MOTORBIKE_RENTAL": "오토바이 렌트", "MASSAGE": "마사지", "BARBER": "이발", "FRUIT": "과일" },
+    "serviceOrderStatus": { "REQUESTED": "요청됨", "CONFIRMED": "확정", "DELIVERED": "제공 완료", "CANCELLED": "취소" },
     "notif": {
       "ariaOpen": "알림 열기",
       "title": "알림",
@@ -178,7 +181,9 @@
       "bankHint": "입금 후 미수 화면의 '입금했어요' 버튼으로 알려주시면 확인이 빨라집니다.",
       "bankDeposit": "선금 (확정 입금액)",
       "bankTotal": "총 객실료",
-      "bankDepositHint": "선금 입금이 확인되면 예약이 확정됩니다. 잔금 기한은 확정 후 안내됩니다."
+      "bankDepositHint": "선금 입금이 확인되면 예약이 확정됩니다. 잔금 기한은 확정 후 안내됩니다.",
+      "checkInAt": "체크인 완료",
+      "agreementSigned": "동의서 서명"
     },
     "roster": {
       "title": "투숙객 명단",

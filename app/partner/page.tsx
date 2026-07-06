@@ -1,19 +1,31 @@
-// app/partner/page.tsx — 파트너 예약 현황 (ADR-0028 PP3)
+// app/partner/page.tsx — 파트너 예약 현황 (ADR-0028 PP3 + T-partner-scale 1)
 //   Role=PARTNER 전용(layout 가드). 자기 partnerId 스코프 예약만(loadPartnerBookings).
-//   ★ 누수: totalSaleKrw·원가·마진·미니바·서비스 비조회. 빌라명은 비운영자 병기(formatVillaName).
+//   서버 페이지네이션 — 검색(q)·기간(from/to)·page/pageSize를 URL로 받아 서버 where/skip/take.
+//   ★ 누수: totalSaleKrw·원가·마진·미니바 비조회. 빌라명은 비운영자 병기(formatVillaName).
 import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getPartnerForUser } from "@/lib/partner-auth";
 import { loadPartnerBookings } from "@/lib/partner-portal";
+import { parsePageParams } from "@/lib/pagination";
 import PartnerBookingsList from "./partner-bookings-list";
 
 export const metadata: Metadata = {
   title: "예약 현황 — Villa Go",
 };
 
-export default async function PartnerBookingsPage() {
+export default async function PartnerBookingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    q?: string;
+    from?: string;
+    to?: string;
+    page?: string;
+    pageSize?: string;
+  }>;
+}) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   if (session.user.role !== "PARTNER") redirect("/login");
@@ -22,8 +34,22 @@ export default async function PartnerBookingsPage() {
   if (!partner || partner.approvalStatus !== "APPROVED") redirect("/partner");
 
   const t = await getTranslations("partner");
-  // 자기 partnerId 스코프 예약(서버 스코프 유지) — 검색·페이지네이션은 클라 표시 필터
-  const bookings = await loadPartnerBookings(partner.id);
+
+  // 서버 페이지네이션 (T-partner-scale 1) — URL이 단일 진실(검색·기간·페이지)
+  const params = await searchParams;
+  const { page, pageSize, skip, take } = parsePageParams(params);
+  const q = params.q?.trim() || undefined;
+  const from = params.from || undefined;
+  const to = params.to || undefined;
+  const { rows, total } = await loadPartnerBookings(partner.id, {
+    q,
+    from,
+    to,
+    skip,
+    take,
+  });
+
+  const hasFilter = Boolean(q || from || to);
 
   return (
     <div className="space-y-5">
@@ -32,14 +58,21 @@ export default async function PartnerBookingsPage() {
         <p className="mt-1 text-sm text-neutral-500">{t("bookings.subtitle")}</p>
       </header>
 
-      {bookings.length === 0 ? (
+      {total === 0 && !hasFilter ? (
         <EmptyState
           icon="event_busy"
           title={t("bookings.empty")}
           hint={t("bookings.emptyHint")}
         />
       ) : (
-        <PartnerBookingsList bookings={bookings} />
+        <PartnerBookingsList
+          bookings={rows}
+          total={total}
+          page={page}
+          pageSize={pageSize}
+          dateFrom={from ?? ""}
+          dateTo={to ?? ""}
+        />
       )}
     </div>
   );
