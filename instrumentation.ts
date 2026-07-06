@@ -12,5 +12,8 @@ export async function register() {
         e instanceof Error ? e.message : e
       );
     });
+    // 리스너 헬스 워치독(5분 주기) — 미연결 ≈10분+ 지속 시 운영자 인앱+Zalo 경보 (계약 zalo-health-alert).
+    const { startZaloHealthWatchdog } = await import("./lib/zalo-health");
+    startZaloHealthWatchdog();
   }
 }
