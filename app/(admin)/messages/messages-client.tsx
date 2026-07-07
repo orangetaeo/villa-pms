@@ -268,9 +268,46 @@ export function MessagesClient({
     it.selected === (it.id === selectedId) ? it : { ...it, selected: it.id === selectedId }
   );
 
+  // ── iOS 키보드 대응 (messages-kb-viewport 계약) ──
+  // 컨테이너가 100dvh 기반 고정 높이인데 iOS는 키보드가 떠도 layout viewport를 줄이지 않아,
+  // 첫 포커스에서 사파리 자동 팬이 안 되면 입력창이 키보드 뒤에 가려졌다(두 번째부터만 정상).
+  // → visualViewport 높이를 추적해 모바일(<lg)에서 키보드 열림이 감지되면 컨테이너를
+  //   보이는 높이(vv.height − 고정 헤더 3.5rem)로 줄이고 scrollTo(0,0)으로 팬을 상쇄한다.
+  //   키보드가 닫히면 인라인 height 제거(원래 Tailwind 높이로 복귀). 데스크톱·vv 미지원은 무영향.
+  const [kbHeight, setKbHeight] = useState<number | null>(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const MOBILE_HEADER_PX = 56; // 고정 모바일 헤더 3.5rem — 키보드가 떠도 상단에 유지
+    const KEYBOARD_MIN_PX = 150; // 이보다 큰 축소만 키보드로 판정(URL바 변화 등 오탐 방지)
+    const update = () => {
+      if (window.matchMedia("(min-width: 1024px)").matches) {
+        setKbHeight(null);
+        return;
+      }
+      const keyboardOpen = window.innerHeight - vv.height > KEYBOARD_MIN_PX;
+      if (keyboardOpen) {
+        window.scrollTo(0, 0); // 사파리 팬 상쇄 — 헤더·컨테이너를 뷰포트 상단에 고정
+        setKbHeight(Math.max(240, Math.round(vv.height) - MOBILE_HEADER_PX));
+      } else {
+        setKbHeight(null);
+      }
+    };
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
+  }, []);
+
   return (
     // 모바일: 헤더(3.5rem)+하단 네비(4rem) 제외한 높이 / 데스크톱: 풀높이(하단 네비 없음)
-    <div className="-m-4 md:-m-8 h-[calc(100dvh-7.5rem)] lg:h-screen flex">
+    // 키보드 열림(모바일): 인라인 height로 visual viewport에 맞춤 — 입력창이 항상 키보드 위에 보임
+    <div
+      className="-m-4 md:-m-8 h-[calc(100dvh-7.5rem)] lg:h-screen flex"
+      style={kbHeight != null ? { height: `${kbHeight}px` } : undefined}
+    >
       {/* 다른 상대의 신규 채팅 토스트 — 클릭 시 onSelect로 클라이언트 전환(서버 왕복 없음) */}
       <NewMessageToaster
         items={itemsWithSelection}
