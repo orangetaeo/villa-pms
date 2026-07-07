@@ -680,6 +680,20 @@ export function ChatPane({
     // conversationId·messages 변화에만 반응 (scrollToBottom은 안정 ref)
   }, [conversationId, messages, scrollToBottom]);
 
+  // 모바일 키보드 개폐(visualViewport 축소/복원)로 스레드 높이가 변해도, 바닥을 보던 중이면
+  // 바닥 유지 — 키보드가 올라올 때 최신 메시지가 위로 밀려 사라지지 않게 (messages-kb-viewport 계약).
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => {
+      if (!atBottomRef.current) return;
+      // 컨테이너 인라인 height 반영(messages-client) 후 프레임에 바닥 재고정.
+      requestAnimationFrame(() => scrollToBottom("auto"));
+    };
+    vv.addEventListener("resize", onResize);
+    return () => vv.removeEventListener("resize", onResize);
+  }, [scrollToBottom]);
+
   // 읽음 처리 — 대화 열람 중 미읽음이 생길 때마다 0으로. in-flight 가드만.
   const markingRef = useRef(false);
   useEffect(() => {
