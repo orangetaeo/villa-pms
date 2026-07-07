@@ -24,3 +24,9 @@
 - 빌라 시즌 겹침 DB 레벨 제약: VillaSeasonPeriod 겹침 차단이 현재 앱 레벨 check-then-write(Read Committed) — 이론상 동시성 틈. 운영 부담 증가 시 PostgreSQL `EXCLUDE USING gist` 제약 또는 직렬화 격리 검토 (Phase 1은 단일 공급자 단말 편집이라 실위험 극저 — QA 2026-06-16)
 - **Nike↔villa-pms Zalo 공유 세션 통합** (2026-06-16 테오 검토 — 현상유지 결정, 나중 재검토): 같은 Zalo 계정을 두 앱이 동시 로그인하면 zca-js `code 3000(DuplicateConnection)`으로 세션 충돌(번갈아 끊김). 별명·아바타·대화도 별도 DB라 미공유. **해결책 = 공유 세션 서비스**: Zalo WebSocket 세션을 1곳(공유 worker/서비스)이 유지하고 Nike·villa-pms가 REST/공유 DB로 송수신 → 같은 QR 사용 가능 + 별명·아바타·대화 전부 자동 공유. 규모: 별도 서비스 신설 + 양쪽 앱 연동 + Nike 코드 변경(모노레포/Turborepo 통합 맥락). 대안: ②Zalo 계정 2개 분리(충돌 없으나 공유 안 됨) ③현상유지(같은 계정 동시 사용 시 충돌 감수 — 현 선택). 재검토 트리거: 두 앱 동시 운영 빈도↑ 또는 별명·대화 공유 필요성↑
 - **부가서비스 픽업/방문 이행 모델 (마사지·이발 등 APPOINTMENT 타입)** (2026-06-27 테오 제기) — ✅ **v1 구현 완료**: `ServiceCatalogItem.pickupAvailable`(Boolean? null=미정·true=픽업·false=직접방문) + `pickupNote`(String? 주소·조건) 추가(additive raw SQL ALTER). 관리자 카탈로그 폼(설정>서비스)에 마사지·이발일 때만 "픽업 방식" 셀렉트 + 안내 입력 노출. 게스트 신청 카드·신청 내역에 픽업/방문 문구 표기(`lib/guest-fulfillment.ts`, 5개 언어). **v1 단순화 결정(테오 "추천대로")**: 픽업비 별도 과금 필드 없음 — 운영자가 판매가에 포함하거나 pickupNote에 표기. pickupNote는 번역 안 하고 그대로 표기. **후속(미구현)**: ①픽업비 별도 과금·정산 반영 ②공급자(ServiceVendor) Zalo로 픽업 가부 자동 질의 ③매장 위치 지도 임베드(realtime-reset-map-features 재사용). 관련: [[addon-source-vendor-brokerage]](발주 게이트)
+
+## Zalo 리스너 전용 서비스 분리 (배포 블랙아웃 제거)
+- 등록: 2026-07-06 (테오 "채팅 늦게 도착" 조사 후속)
+- 문제: zca-js 리스너가 웹 프로세스에 있어 **배포마다 리스너가 끊기고**(수 분 블랙아웃, Zalo 재접속 시 일부만 백로그 재전송) 잦은 머지 날엔 수신 지연이 체감됨.
+- 아이디어: 리스너를 Railway 별도 서비스(long-running worker)로 분리 — 웹 배포와 리스너 수명을 분리. SSE 신호는 인프로세스 버스 대신 DB 폴링/Redis pub-sub 필요(구조 변경 큼). Phase 2.
+- 관련: lib/zalo-health.ts 워치독(끊김 경보, 2026-07-06 도입), deploy-restart-zalo-listener-blackout 메모리.

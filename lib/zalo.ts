@@ -449,6 +449,15 @@ export function buildNotificationText(
         `희망: ${str(p.serviceDate) || "-"} ${str(p.serviceTime) || ""}`.trim(),
         `예약 상세에서 확인·확정해주세요.`,
       ].join("\n");
+
+    case NotificationType.ZALO_LISTENER_DOWN:
+      // 수신자=운영자 → 한국어. 리스너 미연결 경보(워치독) — credential·비번 미포함, 계정 표시명·경과만.
+      return [
+        `📵 Zalo 수신 연결 끊김: ${str(p.accountName) || "계정"}`,
+        `${num(p.downMinutes)}분째 미연결 — 이 계정의 수신 메시지가 도착하지 않습니다.`,
+        `사유: ${str(p.lastError, "알 수 없음")}`,
+        `해당 관리자 폰으로 /zalo-connect 에서 QR 재로그인해주세요.`,
+      ].join("\n");
   }
 }
 
