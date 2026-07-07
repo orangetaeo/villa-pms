@@ -3,6 +3,9 @@
     "name": "Villa Go"
   },
   "partner": {
+    "serviceOrders": { "title": "Yêu cầu dịch vụ bổ sung", "subtitle": "Dịch vụ khách đã yêu cầu. Vui lòng kiểm tra ghi chú của khách." },
+    "serviceType": { "BBQ": "BBQ", "TICKET": "Vé tham quan", "GUIDE": "Hướng dẫn viên", "CAR_RENTAL": "Thuê xe", "BREAKFAST": "Bữa sáng", "MOTORBIKE_RENTAL": "Thuê xe máy", "MASSAGE": "Massage", "BARBER": "Cắt tóc", "FRUIT": "Trái cây" },
+    "serviceOrderStatus": { "REQUESTED": "Đã yêu cầu", "CONFIRMED": "Đã xác nhận", "DELIVERED": "Đã cung cấp", "CANCELLED": "Đã hủy" },
     "notif": {
       "ariaOpen": "Mở thông báo",
       "title": "Thông báo",
@@ -178,7 +181,9 @@
       "bankHint": "Sau khi chuyển khoản, bấm nút 'Đã thanh toán' ở màn hình công nợ để được xác nhận nhanh hơn.",
       "bankDeposit": "Tiền cọc (để xác nhận)",
       "bankTotal": "Tổng tiền phòng",
-      "bankDepositHint": "Đặt phòng sẽ được xác nhận sau khi nhận tiền cọc. Hạn thanh toán phần còn lại sẽ thông báo sau khi xác nhận."
+      "bankDepositHint": "Đặt phòng sẽ được xác nhận sau khi nhận tiền cọc. Hạn thanh toán phần còn lại sẽ thông báo sau khi xác nhận.",
+      "checkInAt": "Đã nhận phòng",
+      "agreementSigned": "Đã ký thỏa thuận"
     },
     "roster": {
       "title": "Danh sách khách",

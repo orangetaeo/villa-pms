@@ -2,8 +2,12 @@
 //
 // ★ 절대 누수 규칙 (사업원칙 2):
 //   - 모든 함수는 partnerId 인자를 강제로 받고 where: { partnerId } 로만 조회한다(IDOR 차단).
-//   - 응답에 절대 포함 금지: 미니바·서비스 주문(ServiceOrder)·운영자 매입원가(costVnd)·마진·
-//     KRW 판매가(totalSaleKrw)·타 파트너 데이터·전체 재고·게스트 체크인(/g) 데이터.
+//   - 응답에 절대 포함 금지: 미니바·운영자 매입원가(costVnd)·마진·KRW 판매가(totalSaleKrw)·
+//     타 파트너 데이터·전체 재고.
+//   - ServiceOrder는 "금액(costVnd·priceKrw/priceVnd)·공급자(vendor*)·옵션 스냅샷(selectedOptions,
+//     가격 포함 JSON)" 절대 금지 — 단 비금액 요청 메타(type·status·일정·수량·guestNote)는
+//     중개자(여행사)가 고객 응대에 필요한 정당 정보라 노출한다 (T-partner-scale 2).
+//   - CheckInRecord는 시각(createdAt·agreementSignedAt)만 — 여권·서류 URL·OCR 등 PII 절대 금지.
 //   - 파트너가 보는 금액 = 자기 채권(PartnerReceivable)·청구서(PartnerInvoice)의 VND뿐(정당하게 청구되는 금액).
 //   - BigInt는 컴포넌트(클라이언트 직렬화) 전달용으로 string 변환.
 import { prisma } from "@/lib/prisma";
@@ -77,6 +81,23 @@ export interface PartnerBookingDetail extends PartnerBookingRow {
   groupTotalVnd: string | null;
   /** 이 예약의 요청 이력(최신순 5건) */
   changeRequests: PartnerChangeRequestRow[];
+  /** 체크인 완료 시각(CheckInRecord.createdAt) — 기록 없으면 null. PII(여권 등) 미포함. */
+  checkInAt: Date | null;
+  /** 동의서 서명 시각 — 미서명이면 null */
+  agreementSignedAt: Date | null;
+  /** 게스트 부가서비스 요청(비금액 메타만 — 금액·공급자·옵션 미노출, T-partner-scale 2) */
+  serviceOrders: PartnerServiceOrderRow[];
+}
+
+/** 파트너에게 보이는 부가서비스 요청 행 — 중개자 응대용 비금액 메타만 */
+export interface PartnerServiceOrderRow {
+  id: string;
+  type: string; // ServiceType
+  status: string; // ServiceOrderStatus
+  serviceDate: Date | null;
+  serviceTime: string | null;
+  quantity: number;
+  guestNote: string | null;
 }
 
 export interface PartnerReceivableRow {
@@ -238,30 +259,83 @@ export interface PartnerProposalRow {
  * ★ totalSaleKrw·supplierCostVnd·미니바·서비스 일절 select 금지.
  * 객실료는 receivable.totalVnd 우선, 없으면 totalSaleVnd(VND 채널만 의미 — KRW 채널은 null).
  */
-export async function loadPartnerBookings(
-  partnerId: string
-): Promise<PartnerBookingRow[]> {
-  const bookings = await prisma.booking.findMany({
-    where: { partnerId },
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      checkIn: true,
-      checkOut: true,
-      nights: true,
-      guestName: true,
-      guestCount: true,
-      status: true,
-      totalSaleVnd: true,
-      parentBookingId: true,
-      // 본인 파트너 소유 연장만 집계 — 상세(toLinked partnerId 필터)와 일관 (T-partner-polish 5)
-      _count: { select: { extensions: { where: { partnerId } } } },
-      villa: { select: { name: true, nameVi: true, complex: true } },
-      receivable: { select: { totalVnd: true } },
-    },
-  });
+export interface PartnerBookingsQuery {
+  /** 검색어 — 빌라명(병기)·단지·게스트명 부분일치(대소문자 무시) */
+  q?: string;
+  /** 투숙기간 겹침 필터 — "YYYY-MM-DD" (@db.Date UTC 자정 규약) */
+  from?: string;
+  to?: string;
+  skip: number;
+  take: number;
+}
 
-  return bookings.map((b) => {
+export interface PartnerBookingsResult {
+  rows: PartnerBookingRow[];
+  /** 필터 적용 후 전체 건수 — 페이지네이션 기준 */
+  total: number;
+}
+
+export async function loadPartnerBookings(
+  partnerId: string,
+  query: PartnerBookingsQuery
+): Promise<PartnerBookingsResult> {
+  // 서버 페이지네이션 (T-partner-scale 1) — 전량로드+클라 slice 금지 패턴(PR #165)과 정렬.
+  // 검색·기간 필터도 서버 where로 — 클라 표시필터는 서버 페이지네이션과 양립 불가라 함께 이관.
+  const q = query.q?.trim();
+  const fromDate = query.from ? parseUtcDateOnly(query.from) : null;
+  const toDate = query.to ? parseUtcDateOnly(query.to) : null;
+
+  const where = {
+    partnerId, // ★ IDOR 차단 — 어떤 필터가 와도 본인 스코프 유지
+    ...(q
+      ? {
+          OR: [
+            { guestName: { contains: q, mode: "insensitive" as const } },
+            {
+              villa: {
+                is: {
+                  OR: [
+                    { name: { contains: q, mode: "insensitive" as const } },
+                    { nameVi: { contains: q, mode: "insensitive" as const } },
+                    { complex: { contains: q, mode: "insensitive" as const } },
+                  ],
+                },
+              },
+            },
+          ],
+        }
+      : {}),
+    // 기간 겹침 — 투숙 [checkIn, checkOut]이 [from, to]와 겹치면 포함(기존 클라 필터와 동일 규칙)
+    ...(fromDate ? { checkOut: { gte: fromDate } } : {}),
+    ...(toDate ? { checkIn: { lte: toDate } } : {}),
+  };
+
+  const [bookings, total] = await Promise.all([
+    prisma.booking.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: query.skip,
+      take: query.take,
+      select: {
+        id: true,
+        checkIn: true,
+        checkOut: true,
+        nights: true,
+        guestName: true,
+        guestCount: true,
+        status: true,
+        totalSaleVnd: true,
+        parentBookingId: true,
+        // 본인 파트너 소유 연장만 집계 — 상세(toLinked partnerId 필터)와 일관 (T-partner-polish 5)
+        _count: { select: { extensions: { where: { partnerId } } } },
+        villa: { select: { name: true, nameVi: true, complex: true } },
+        receivable: { select: { totalVnd: true } },
+      },
+    }),
+    prisma.booking.count({ where }),
+  ]);
+
+  const rows = bookings.map((b) => {
     const charge = b.receivable?.totalVnd ?? b.totalSaleVnd ?? null;
     return {
       id: b.id,
@@ -279,6 +353,8 @@ export async function loadPartnerBookings(
       extensionCount: b._count.extensions,
     };
   });
+
+  return { rows, total };
 }
 
 /**
@@ -342,6 +418,21 @@ export async function loadPartnerBookingDetail(
           resolutionNote: true,
           createdAt: true,
           resolvedAt: true,
+        },
+      },
+      // 체크인 기록 — 시각만(여권·서류 URL·OCR 등 PII 절대 미select, T-partner-scale 2)
+      checkInRecord: { select: { createdAt: true, agreementSignedAt: true } },
+      // 부가서비스 요청 — 비금액 메타만(costVnd·priceKrw/Vnd·vendor*·selectedOptions 미select)
+      serviceOrders: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          type: true,
+          status: true,
+          serviceDate: true,
+          serviceTime: true,
+          quantity: true,
+          guestNote: true,
         },
       },
     },
@@ -433,6 +524,17 @@ export async function loadPartnerBookingDetail(
       resolutionNote: r.resolutionNote,
       createdAt: r.createdAt,
       resolvedAt: r.resolvedAt,
+    })),
+    checkInAt: b.checkInRecord?.createdAt ?? null,
+    agreementSignedAt: b.checkInRecord?.agreementSignedAt ?? null,
+    serviceOrders: b.serviceOrders.map((o) => ({
+      id: o.id,
+      type: o.type,
+      status: o.status,
+      serviceDate: o.serviceDate,
+      serviceTime: o.serviceTime,
+      quantity: o.quantity,
+      guestNote: o.guestNote,
     })),
   };
 }

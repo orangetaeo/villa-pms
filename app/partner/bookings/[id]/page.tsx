@@ -140,6 +140,21 @@ export default async function PartnerBookingDetailPage({
               </span>
             </Row>
           )}
+          {/* 체크인 상태 (T-partner-scale 2) — 시각만(PII 미노출). 고객 "체크인 됐나요?" 응대용 */}
+          {booking.checkInAt && (
+            <Row label={t("bookingDetail.checkInAt")}>
+              <span className="font-semibold text-blue-700">
+                {formatVnDateTime(booking.checkInAt)}
+              </span>
+            </Row>
+          )}
+          {booking.agreementSignedAt && (
+            <Row label={t("bookingDetail.agreementSigned")}>
+              <span className="font-semibold text-emerald-700">
+                {formatVnDateTime(booking.agreementSignedAt)}
+              </span>
+            </Row>
+          )}
         </dl>
         {booking.holdExpiresAt && (
           <p
@@ -257,6 +272,54 @@ export default async function PartnerBookingDetailPage({
               ? t("bookingDetail.bankDepositHint")
               : t("bookingDetail.bankHint")}
           </p>
+        </section>
+      )}
+
+      {/* 부가서비스 요청 (T-partner-scale 2) — 비금액 메타만(금액·공급자·옵션 미노출). 게스트 메모 강조 */}
+      {booking.serviceOrders.length > 0 && (
+        <section className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm">
+          <h2 className="mb-1 text-base font-bold text-neutral-900">
+            {t("serviceOrders.title")}
+          </h2>
+          <p className="mb-3 text-sm text-neutral-500">{t("serviceOrders.subtitle")}</p>
+          <ul className="space-y-2">
+            {booking.serviceOrders.map((o) => (
+              <li key={o.id} className="rounded-xl bg-neutral-50 px-3 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-neutral-800">
+                    {t(`serviceType.${o.type}`)}
+                    {o.quantity > 1 && (
+                      <span className="ml-1 text-xs font-medium text-neutral-500">
+                        ×{o.quantity}
+                      </span>
+                    )}
+                  </p>
+                  <span
+                    className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${
+                      o.status === "CANCELLED"
+                        ? "bg-neutral-100 text-neutral-400 line-through"
+                        : o.status === "CONFIRMED" || o.status === "DELIVERED"
+                          ? "bg-teal-100 text-teal-700"
+                          : "bg-amber-100 text-amber-700"
+                    }`}
+                  >
+                    {t(`serviceOrderStatus.${o.status}`)}
+                  </span>
+                </div>
+                {(o.serviceDate || o.serviceTime) && (
+                  <p className="mt-0.5 text-xs text-neutral-500">
+                    {o.serviceDate ? formatDate(o.serviceDate) : ""}
+                    {o.serviceTime ? ` ${o.serviceTime}` : ""}
+                  </p>
+                )}
+                {o.guestNote && (
+                  <p className="mt-1.5 whitespace-pre-wrap rounded-lg bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-800">
+                    {o.guestNote}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
