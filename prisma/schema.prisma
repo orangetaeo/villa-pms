@@ -1247,6 +1247,7 @@ enum NotificationType {
   VENDOR_PROPOSAL_RESULT // 일정 제안 결과(적용/무시) → 원천 공급자 통지(payload.locale ko/vi). additive: 라이브 ALTER TYPE ADD VALUE
   GUEST_PAYMENT_NOTICE // 게스트 "입금했습니다" 통보 → 운영자 통지(ko). 48h 홀드만료 전 입금확인 유도 (A1). additive: 라이브 ALTER TYPE ADD VALUE
   SERVICE_ORDER_REQUESTED // 게스트/파트너 부가서비스 요청 → 운영자 통지(ko). 금액 미포함 (A1). additive: 라이브 ALTER TYPE ADD VALUE
+  ZALO_LISTENER_DOWN // Zalo 리스너 미연결(≈10분+) 감지 → 운영자 통지(ko). 워치독(lib/zalo-health). additive: 라이브 ALTER TYPE ADD VALUE
 }
 
 enum NotificationStatus {
