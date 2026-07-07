@@ -175,6 +175,17 @@ export async function runHealthCheckOnce(states: Map<string, HealthState>): Prom
  * 첫 점검도 인터벌 주기 후 실행 — 부팅 직후 재로그인 시간을 그레이스로 확보.
  */
 export function startZaloHealthWatchdog(): void {
+  // 비프로덕션 가드(QA #1) — 로컬 서버도 라이브 DB를 쓰므로, 로컬 기동(풀이 비어 전 계정 미연결로
+  // 보임)이 라이브 운영자에게 거짓 경보를 적재하지 않게 Railway 런타임에서만 시작.
+  // 로컬 검증이 필요하면 ZALO_HEALTH_WATCHDOG=1 로 명시 opt-in.
+  const enabled =
+    !!process.env.RAILWAY_ENVIRONMENT_NAME ||
+    !!process.env.RAILWAY_ENVIRONMENT ||
+    process.env.ZALO_HEALTH_WATCHDOG === "1";
+  if (!enabled) {
+    console.log("[zalo-health] 비프로덕션 환경 — 워치독 비활성(ZALO_HEALTH_WATCHDOG=1로 opt-in)");
+    return;
+  }
   if (globalForHealth.__villaZaloHealth) return;
   const states = new Map<string, HealthState>();
   const timer = setInterval(() => {

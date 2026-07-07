@@ -455,7 +455,7 @@ export function buildNotificationText(
       return [
         `📵 Zalo 수신 연결 끊김: ${str(p.accountName) || "계정"}`,
         `${num(p.downMinutes)}분째 미연결 — 이 계정의 수신 메시지가 도착하지 않습니다.`,
-        `사유: ${str(p.lastError) || "알 수 없음"}`,
+        `사유: ${str(p.lastError, "알 수 없음")}`,
         `해당 관리자 폰으로 /zalo-connect 에서 QR 재로그인해주세요.`,
       ].join("\n");
   }
