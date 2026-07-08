@@ -58,3 +58,71 @@
 - (2026-06-26 F10 T10.2 QA) **공급자 소유 금액 필드는 "마진 누수"와 구분하라** — `supplierSalePriceVnd`(공급자가 자기 고객에게 받은 VND)는 ADR-0021 §5.1상 공급자 소유 정보로, 응답·UI에 **있어야 정상**. 마진 grep `salePrice`에 키 이름이 걸려도 운영자 회계 필드(`salePriceKrw`·`totalSaleKrw`·`margin*`)와는 별개. 누수 판정은 "운영자 회계 필드인가"로 가르고 supplier-prefix 자기금액은 화이트리스트. 단 **통지 payload는 운영자 수신이라도 공급자 수금액조차 미포함**이 맞다(공급자 사유 — F10 SUPPLIER_DIRECT_BOOKING payload는 {villaName,checkIn,checkOut,guestCount}만).
 - (2026-06-26 F10 T10.2 QA) **"타인 리소스=403" 계약 문구는 404(존재 비노출)가 더 안전** — 소유 스코프 미일치를 403으로 돌리면 "존재하나 네 것 아님"을 확인시켜 ID 열거(enumeration) 허용. `findFirst({where:{id, supplierId}})` 미스 → **404로 통일**하면 존재 자체를 숨김. 계약/ADR에 403으로 적혀 있어도 "존재 비노출" 의도면 404 수용(문구는 404로 정정). F10 supplier/bookings가 이 패턴(route 404, lib VILLA_NOT_FOUND).
 - (2026-06-26 F10 T10.5 QA) **파일명-임베드 업로더 매칭 스코프는 "id에 구분자 모호성이 없는가"가 안전성의 전제** — `/api/passports/[name]`가 `extractUploaderId(파일명)===자기id`로 비공개 파일 접근을 허가할 때, 업로더 id가 cuid(영숫자, 하이픈 없음)라 `timestamp-uploader-uuid` 파싱에 경계 모호성이 없어 타인 파일명 조작으로 우회 불가. **id 체계가 하이픈/구분자 포함(uuid·복합키)으로 바뀌면 이 가정이 깨질 수 있으니** 스코프 도입 시 ① id 문자집합 확인 ② 실 모듈로 "공격자 id≠피해자 파일 임베드 id" 음성 대조 테스트 필수(재구현 금지 — tests/에 실 import). 빈 업로더(`--` 이중 하이픈)는 null 반환으로 자동 차단.
+
+- (2026-07-08 PR #195 T3.5b) **워치독 로컬 환경에서 거짓경보 — Railway env가드 필수** — 배포 블랙아웃 진단용 인프로세스 워치독(5분 무응답 감지)을 로컬에서 dev 서버 끄고 켜는 테스트는 실제 로그인 시간 차이(Railway=~16분 Jini 미응답·로컬=0)로 거짓양성. 배포 조건만으로 활성화(`NODE_ENV=production` 명시적 체크)해야 로컬 누수 안 됨.
+
+- (2026-07-08 PR #193 T7.2) **데이터 모델 필드 변경 시 모든 조회 경로를 일괄 grep** — Booking.includeGuestOrders 추가 후 조회 route들이 select 필드를 각각 미수정하여, /p/[token]/done 페이지에서만 필드가 누락되고 조건부 렌더가 undefined를 만남(조용한 누락). 필드 추가·제거·타입 변경 시 `grep -rn "select:" app/ lib/` → 영향받는 **모든 조회처**에서 명시적으로 필드 포함/제외를 검증하고, 암묵 선택(select 없음)은 금지할 것. 병렬 세션 동시 수정으로 오염되기 쉬우므로 커밋 전 이 grep을 표준 체크리스트로.
+
+- (2026-07-08 PR #189 A1~A5) **enum ALTER/마이그레이션 후 prisma generate 레이스 3회 이상 가능** — enum 추가(NotificationType, ProposalStatus 2개) 후 `npm run dev`·PR test·build의 독립적인 generate가 중간 엔진 파일(PrismaClient.ts·index.d.ts)을 서로 덮어씀. generate 레이스 → 실행 서버가 구 클라이언트 로드 → 런타임 필드 미스매치(Unknown field) 500. 해법: ① 마이그레이션 커밋 직후 `npx prisma generate` 단독 실행 후 시드/테스트 ② dev 프로세스 내렸다 재기동 ③ `node --env-file .env.local node_modules/.bin/prisma generate` 절차 준수. enum 라이브 ALTER는 강제 generate 재배포 사이클 필수.
+
+- (2026-07-08 PR #189 A1~A5) **notification 추가 후 NOTIFICATIONS.md 동시 갱신 필수** — NotificationType enum 추가 시 docs/NOTIFICATIONS.md의 42종 명부를 동시에 업데이트하지 않으면, 향후 운영자가 ID로 문구 변경을 지시할 때(예: "A-07을 '요청 재개'로 변경") 신규 ID가 빠져 구현자가 찾지 못함. 알림 enum 변경은 항상 이 문서 갱신을 병행하고, PR 설명에 "NOTIFICATIONS.md 동시 갱신" 표기.
+
+- (2026-07-08) **데모 시연 전 seed 데이터 상태 재확인** — 이전 PR에서 생성한 대체벤더(VendorProposal.vendorId 지정) 테스트 데이터가 제안 승인으로 발주됨 → 동작함 검증 후 한 번도 안 쓰인 신규 0건 상태로 시연 대기. DB seed 마다 신규 발주함 아이템 5~10개를 fresh한 VendorProposal로 미리 준비.
+
+- (2026-07-03 PR #185) **공유 node_modules 타 세션 generate 충돌 — 메인 schema 선반영 워크어라운드** — Zalo 이미지 captionTranslated 필드 추가 후, 공유 폴더의 타 세션(T7.2)이 `npx prisma generate` 실행하며 옛 schema로 클라이언트 재생성 → 신규 필드 미포함. 회피: prisma/schema.prisma를 먼저 git push한 뒤(스키마만), 타 세션들이 pull 후 generate 재실행 → 마이그레이션은 나중(merge conflict 최소화 가능). 병렬 세션 규칙 추가 필요 — [[parallel-session-coordination]] 참고.
+
+- (2026-07-03 PR #188) **i18n 메시지 삽입 시 앵커 위치 재확인 — 부모 블록 인덱스 기반 계산** — 파트너 알림의 invoiceNumber를 텍스트 중간에 심을 때, 잘못된 앵커로 "요청"→"취소 수수료: 변경"의 2중 삽입 → 패리티 폴백(ko·vi 동일 오류)으로 4번 검증 통과. 템플릿이 "인자의 나열"이 아니라 "부모 객체(InvoiceItem) 순회"로 재구성되면 안전함. 삽입 로직 코드 리뷰 시 ① 앵커 식별자의 유일성 ② `indexOf`나 정규식의 multi-match 시 **부모 블록(=InvoiceItem.id 또는 Line.index) 기반으로 스코프 제한되었는가** 확인.
+
+- (2026-07-03 VENDOR PR) **통계 페이지 집계는 기간 필터를 적용해도 전역 합계를 보여서는 안 됨** — 정산 잔액(settledBalance) 통계가 데이터 기간 필터(지난 3개월)를 받아도 **전체 누적 잔액**을 계산(기간 스코프 무시) → 선택된 달의 신규 정산액 대비 합계가 부자연스러워 보임. 통계 API는 항상 `where` 필터에 dateFrom/dateTo를 포함하고, `_sum` 같은 집계도 동일 필터 범위에서만 계산. 쿼리 리뷰 시 "기간 필터가 있는데 where에 date 조건이 없으면 의심" 체크리스트 추가.
+
+- (2026-07-03 VENDOR PR) **stateful 계산의 단위량 검증 — 라인항목 vs 전체 합계** — 벤더 통계에서 costVnd는 "라인 총액"(quantity × unit 단가)이어야 하는데, 실수로 quantity를 중복 곱함(혹은 currency 변환 타이밍 오류) → 벤더 정산 합계가 10~20% 과대 집계. 취합 쿼리(`_sum`, `sum()`)와 개별 데이터 계산의 **단위량**을 명시적으로 정의하고, PR 검토 시 "lineTotal(qty×unit) vs aggregateTotal(∑lineTotal)"의 출처·계산 순서를 추적.
+
+- (2026-07-03) **Railway CLI 상태 조회는 메인 폴더에서만 실행** — 병렬 worktree 세션에서 `railway status --json`이 commitHash를 부팬(=배포 검증 실패로 오판)하는 현상. 메인 폴더(`C:\Projects\villa-pms`)에서만 `railway status --json`·`railway run` 등 배포 명령 실행하고, worktree는 메인 배포 완료 후 pull 대기(Railway API 권한 분리 필요).
+
+- (2026-07-03) **Playwright 테스트에서 브라우저 프로필 잠금 시 curl 대체** — Playwright 자동화 중 브라우저 프로필 파일(Chrome 데이터 디렉터리) 잠금 → 프로세스 종료 불가·테스트 행 → 다시 실행하면 정상. 해법: Playwright로 브라우저를 못 띄웠으면, curl로 HTTP 요청을 직접 전송해서 API 검증(인증 쿠키 설정은 node 스크립트로). Playwright 모드와 curl 모드를 모두 보유하면 일시적 브라우저 리소스 문제로 평가가 막히지 않음.
+
+- (2026-07-03 PR #183) **Zalo 봇 대화는 2계층 구조: 발신자 ZaloAccount(테오) ≠ 수신자 User.zaloUserId(공급자)** — uid는 세션 상대적 — 로그인 계정(ownId)에서 보는 uid≠봇이 보는 같은 상대의 uid. 발송 후 ZaloConversation uid 저장·수신 링크 생성은 반드시 테오의 봇 세션에서 본 uid만 유효(다른 관리자 계정 로그인 후 /messages를 열어도 uid 미스매치로 "Tham số không hợp lệ" 오류). 테오 계정이 없어도 작동하는 대화 목록은 contactZaloUid 기반(봇세션 불필요)인데, 링크 수신은 봇세션만 인식.
+
+- (2026-07-03) **RSC 서버컴포넌트가 "use client" 모듈의 상수를 import → spread하면 런타임만 500** — lib/constants.ts를 "use client"로 표기 후 서버 layout에서 `import {COLOR} from './constants.ts'; export const meta = {color: COLOR}`로 spread하면 클라이언트·서버 바이너리 이원화로 타입은 통과하나 런타임 500(상수 undefined → 직렬화 오류). 해법: 상수 모듈을 순수 모듈(no "use client")로 분리하거나, layout에서 inline 리터럴로 명시. QA 검증: 200 상태만 아니라 **실제 HTML 렌더링까지 확인**(console 검사, 텍스트 출력 확인).
+
+- (2026-07-03 PR #174 부가서비스 정산) **대량 조회·집계 성능 최적화는 서버에서 필터·페이지네이션** — /service-orders 중계 현황이 전량 로드(ServiceOrder 100+건) 후 클라이언트에서 filter/slice → 느림. DB에서 skip/take + count(total)로 서버 페이지네이션 구현, 클라는 `currentPage·DEFAULT_PAGE_SIZE` 상수만 사용. 이 패턴은 모든 목록 페이지(bookings, villas, proposals 등)에 재사용 — 페이지 로드 시 항상 "서버 필터인지 클라 메모리 slice인지" 확인.
+
+- (2026-07-03 PR #165) **클라이언트 메모리 페이지네이션(slice) 금지 → 서버 skip/take + count 표준** — 상태관리에 전체 배열을 로드 후 `slice(index, index+10)`은 실제 소비 데이터를 못 보여줌(뒤에 추가 아이템이 있어도 불표시) 및 메모리 누적. 모든 목록 라우트는 기본값 `DEFAULT_PAGE_SIZE=10`으로 서버 쿼리(`skip: (page-1)*10, take: 10`)에서 받고, total count도 동시 조회해서 페이지 바버튼 활성 판정.
+
+- (2026-07-03) **고정 오버레이 컴포넌트는 헤더 안에 두지 말 것 — createPortal(document.body) 필수** — 포털 헤더(sticky/fixed) 내부에 모달이나 시트를 조건부 렌더하면, 부모의 포지셔닝 컨텍스트(position:fixed의 z-stack과 overflow:hidden)에 갇혀 64px에 잘림(visible 영역 밖에 배치됨). 헤더 안에 dropdown/sheet를 열어야 할 때는 항상 `createPortal(<Content />, document.body)`로 document 루트에 탑마운트 → CSS `z-index: 50` 이상(헤더보다 높음)으로 오버레이 표시. 이 패턴은 (admin)/layout.tsx의 portal-header 설계 시 필수 사항(f1adf04 참고).
+
+- (2026-07-03 PR #193 T7.2 버그 #2) **데이터 소스필드 변경은 "수정 필드"와 "조회 필드" 동시 점검** — Booking.includeGuestOrders 새 필드를 POST에서는 생성했으나, 기존 조회 페이지들의 select가 갱신되지 않음 → /p/[token]/done 페이지에서만 필드 누락 → undefined 조건부 렌더(조용한 결함). 패턴: "필드 추가" → **모든 조회 경로(list, detail, export, share) grep** → select에 필드 명시(암묵 선택 금지).
+
+- (2026-07-03 PR #189 A2 HOLD 검색) **검색 필터 조합(OR/AND) 로직 주의 — 데이터 모호성 발생** — bookings 검색에서 q(방명·게스트명) + status FILTER가 **OR로 결합**되어 "상태=HOLD 상관없이 q 매칭 레코드 전부 반환" → 완료·취소된 예약도 HOLD 목록에 섞임(기대: 상태=HOLD AND q매칭). 또한 q는 여러 필드 매칭이므로 `{OR:[{guestName:{contains:q}},{villaName:{contains:q}}]}`인데, 상태 필터와 AND로 묶이지 않음. 검색 쿼리는 `{where:{status:"HOLD", AND:[{OR:[{guestName},{villaName}]}]}}`로 우선순위 명시. 복합 필터 사용처마다 **괄호 문법(AND/OR 명시)으로 구조화** 검증 필수.
+
+- (2026-07-03 PR #188) **트랜잭션 내 다중 route는 타임아웃·상호 의존성 점검 필수** — 파트너 알림 일괄 처리 중 `deleteMany({where:{...}})` 후 `create({data:[...]})`를 별개 쿼리로 실행 → 네트워크 지연(Railway ~500ms/왕복) × 파트너 수에 비례해 5s 기본 타임아웃 초과 → P2028. 트랜잭션이 필요하면 ① 왕복 횟수 상수화(`findMany` 일괄 + `deleteMany` 일괄 + `createMany` 일괄) ② timeout 옵션 `{timeout:20000}` 명시. 부하 테스트(Railway 프록시 환경)는 QA 단계에서 필수.
+
+- (2026-07-02 PR #179·#180 공급자 포털 감사) **권한 누수 검증 → 에이전트 오탐 vs 핵심주장 재검증** — 에이전트가 4건 오탐을 제시했으나, 직접 재검증 결과 모두 거짓 양성. 특히 "캘린더 바텀시트의 inspectAction 파생 raw seller 비직렬화"는 실제 코드가 이미 `seller:villaId`로만 직렬화됨. 전수 감사 결과: 누수 0건·IDOR 0건. 교훈: **에이전트 자동 검증은 빠르지만 오탐률 높음 — 의심 발견 시 반드시 "해당 코드"를 직접 열어 문제 존재 확인, 거짓 양성 판정 후 수정 제외**.
+
+- (2026-07-02) **렌더 경로 이원화 버그 — 동일 페이지·다른 컴포넌트 로직** — CleaningTask 상세 → 빌라 역링크 기능에서, 제출(POST) 경로와 조회(GET) 경로의 villaHref 도출 로직이 다름(한쪽은 raw seller 사용, 한쪽은 select 후 id) → 간헐적으로 링크가 404 또는 권한 오류. 동일 리소스에 대한 여러 엔드포인트·여러 컴포넌트가 관여할 때는 **단일 진실 공급원(예: lib/villa-href.ts로 통합)** 필수. 코드 리뷰 시 href·url·path 생성 로직을 grep → 중복 구현 발견 시 lib로 추출 강제.
+
+- (2026-07-02 PR #187 알림 문서화) **운영자 실제 지시·오류 항목도 알림 문서화에 포함** — 현재 42종 알림 ID 명부(docs/NOTIFICATIONS.md)는 코드 기반 enum 나열이나, 테오의 실제 지시(예: "A-06 vi문구 변경", "게스트 입금통보 무알림")는 문서에 없음 → 상기 gap에 대해 "미결" 표기하고 우선순위 지정. 알림 업무 절차: enum 변경 → docs/NOTIFICATIONS.md 동시 갱신(미결 항목 포함) → 테오 검수(문구·적용 여부).
+
+- (2026-07-03 PR #179·#180 공급자 감사) **계약 문서상 404 vs 실제 코드 403 불일치 감지 필수** — 계약: "타인 리소스는 404(존재 비노출)" 명시, 그러나 route handler가 조건부로 403을 반환하면 ID 열거(enumeration) 벡터 노출. 검증 단계에서 타인 id 직접 접근 시 **상태코드 그 자체**를 점검하고, 기대와 다르면 반드시 code review에서 "왜 403인지 확인" 질문 — 비공개 이유가 없으면 404로 통일.
+
+- (2026-07-03 PR #189 A5 취소 연쇄) **종속 행위의 원자성 — updateMany 대신 개별 update는 상태 중간 노출 위험** — 예약 취소 시 (1) Booking 상태→CANCELLED (2) BookingChangeRequest 레코드 정리 (3) 파트너 채권 기록을 각각 UPDATE/DELETE로 순차 실행하면, (1) 직후 타 세션이 조회 → 취소됐으나 request 데이터는 아직 남음(중간 상태) → 일관성 깨짐. 해법: 트랜잭션으로 묶거나, updateMany/deleteMany의 where에 종속 조건을 중첩(예: `deleteMany({where:{bookingId, AND[{status:PENDING}]}})` + count 검사로 성공 여부 판정) — [[status-transition-atomicity-updateMany]] 참고. 상태 변경 검토 시 "부수 행위가 트랜잭션 또는 원자 where에 포함됐는가" 확인.
+
+- (2026-06-26) **vitest 그래프 오염 — 타 모듈의 import 부수효과가 테스트를 오염시킴** — react-pdf tsx를 statement-service에서 import → vitest가 DOM 컨텍스트 없이 모듈 로드 시도 → ReferenceError(document 미정의) → 그 import 지점을 "leaf"로 표기 → 해당 경로의 모든 sibling test가 미수행. 해법: (1) 비테스트 의존성의 import를 한 모듈 깊이 아래로 이동(느슨한 결합) (2) vitest config에서 problematic 모듈을 제외(externals) (3) mock으로 대체. PR 리뷰 시 새 import 추가 → "테스트 환경에서 부수효과 가능성" 점검.
+
+- (2026-07-03 일반 원칙) **비정상 성능(화면 로딩 > 3s)이 보이면 N+1 쿼리 의심 우선** — 느린 화면 최적화의 일반적 근본원인은 ① N+1 쿼리(ORM loop) ② 가짜 페이지네이션(전체 로드 후 slice) ③ recharts 대량 데이터 포인트 ④ DB 인덱스 부재 순서. 화면 느림 보고 시 서버 로그의 쿼리 횟수 먼저 확인(prisma logs·SQL 프로파일링), count > 예상치 2배 이상이면 N+1부터 정면 수정. recharts 그래프는 데이터 분할(예: 월별 집계)을 활성화해서 point count를 < 1000으로 조정 → 렌더링 성능 급상승.
+
+- (2026-07-03 비동기 작업 및 인프라) **실시간 번역·OCR 같은 비동기 UPDATE는 SSE 재발행 누락 주의** — 수신 메시지의 caption을 Gemini로 비동기 번역하고 `ZaloMessage.captionTranslated` UPDATE 후, SSE 재발행을 빠뜨리면 클라이언트가 구 데이터를 화면에 갱신하지 않음 → 번역 결과가 "느리게" 또는 "안" 보임. 비동기 완료 후 데이터 변경이 있으면 반드시 `publishInboundTranslated(conv.id)` 같은 **상태 갱신 신호** 발행. 또한 수동 번역 버튼은 멱등 처리(동일 메시지 중복 요청 시 이전 결과 반환)로 throttle/cooldown 적용 필수.
+
+- (2026-07-03 세션 보안) **stale 토큰 무한루프 리다이렉트 — 단일 로그아웃 출구 구성** — 토큰 만료 후 보호된 페이지 접근 → middleware의 로그아웃 콜 → `signOut(redirectTo:"/")` → 기본값이 쿠키 유지로 "/" 로드 → 다시 stale 토큰으로 진입 → 무한 루프 → 빈 화면. 해법: `/logout/route.ts`를 **단일 출구**로 정하고, `clearSession()` 직후 절대 경로 redirect `NextResponse.redirect(new URL("/login", request.url))` 사용. 상대 Location 리다이렉트(`"/"`는 상대)는 프로토콜·도메인이 없어 요청 URL을 기준으로 처리되므로 위험 — 항상 절대 URL.
+
+- (2026-07-03 Zalo 운영) **상태 필터(q검색) 복합 조건의 AND/OR 우선순위 명시** — query string에서 `q="홍"&status=HOLD`를 받으면, SQL로 `... WHERE (guestName LIKE '%홍%' OR ...) OR status='HOLD'`가 아니라 `WHERE status='HOLD' AND (guestName LIKE '%홍%' OR ...)`가 되어야 함(기대: 홀드 상태이면서 이름 포함). Prisma where 조합 시 반드시 **명시적 AND/OR 괄호화**: `{where:{status:"HOLD",AND:[{OR:[{guestName},{villaName}]}]}}` 으로 스키마 작성 후 검증.
+
+- (2026-07-02) **동의서 페이지 렌더 게이트 — AppSetting 저장본을 code 폴백보다 우선** — 동의서 내용이 AppSetting.AGREEMENT_CONTENT(운영자 발행 저장본)과 code(git 버전)에 이원화됨. 렌더는 저장본 우선, code는 폴백. code만 수정하면 라이브 미반영 → 테오가 AppSetting을 재발행해야 함. 발행 절차는 `node --env-file .env.local scripts/publish-agreement.ts`로 정규화. QA 시 "코드 수정 후 렌더 미변경"이 보이면 반드시 AppSetting 재발행 확인 절차 추가.
+
+- (2026-07-02) **Zalo 이미지 캡션 번역 — 3단계: 원본 캡션 / OCR 텍스트 / 수동 번역** — 붙여넣기한 이미지의 captionTranslated 필드는 "사용자 입력 캡션 번역"과 "OCR 텍스트"를 동시에 지원해야 함. 미리보기는 2단계: (1) OCR 가능하면 인식 텍스트 보이고 (2) 사용자가 텍스트 입력해도 OCR 값이 살아있게(분리). 대화 전환 시 리셋 필요(새로운 이미지 = 새로운 OCR). 검증: OCR 텍스트·사용자 입력·번역 결과가 각각 정확히 저장되었는지 payload grep 필수.
+
+- (2026-07-02) **UI 필드 상한과 서버 API 상한의 단계적 검증 — 오프라인 폼 검증 vs 서버 오류** — 빌라 청소 사진 슬롯이 UI에서 최대 45개(bedrooms 20+bathrooms 20+기타 5)이지만, /submit 서버 zod가 `max(30)`이면, UI는 전부 업로드 허용 후 제출이 400 거부 → 사용자 오류 경험. 배열·이미지·숫자 필드의 상한 검증은 ① 클라 입력 게이트(form validation) ② 서버 zod 스키마 **일치** 확인. schema 리뷰: "input의 이론적 최대(UI 슬롯)가 server zod max 이상인가" 체크리스트 추가.
+
+- (2026-07-02 모바일 반응형) **모바일 포트레이트(390px) 레이아웃 검증 — 테이블·차트 오버플로우** — 모바일 UX 작업 후 390px(iPhone 12 mini) 뷰포트로 재검증 필수. 특히 운영자 대시보드(데이터 테이블 다량)는 오버레이 오버플로우 발생 가능 → overflow-x-auto 컨테이너 확인. 차트(recharts)도 small 뷰포트에서 범례가 폭을 침범 → 수직 layout 또는 숨김 필요. Playwright로 `browser_resize(390, 844)` 후 실제 스크롤 여부 확인.
+
+- (2026-07-03 다중 통화 운영) **통화 변환(KRW ↔ VND)은 환율 시점을 명시** — USD 결제와 VND/KRW 혼재 시 환율 값이 고정된 지점(ledger 기준)과 동적 업데이트(UI 조회)가 섞임 → "USD 100 = VND 2.4M = KRW 130k"가 시간차로 불일치. 정산 금액은 **ledger 저장 시점의 환율(기록 당시 고정)** 기준, UI 조회는 현재 환율로 미리보기(원본 통화도 함께 표시). 환율 자동갱신(FX_AUTO_UPDATE)이 ON이면 일일 1회 cron이 현재가 반영 — 어제 환율과 오늘 환율의 시간차 노출 위험 → "계약서의 환율 고정 규칙" 문서화 필수. QA: 정산 금액의 "원본 통화+환율 시점" 메타데이터가 ledger에 저장됐는지 확인.
