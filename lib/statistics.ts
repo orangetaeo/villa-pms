@@ -568,8 +568,8 @@ function minibarContribInRange(minibar: MinibarContribRow[], start: Date, end: D
  * ★ trend/current/channels = **순수 빌라(객실)** 매출·마진만(부가서비스·미니바 제외).
  *   부가서비스·미니바를 포함한 통합 합산은 별도 필드 `integrated`(소스별·합계)로 제공한다.
  *   통화 분리 유지(KRW·VND 미합산, ADR-0003). 빌라 마진 환산은 summarizeFinance.
- * 매출 인식 = 체크아웃일, 빌라=SETTLEMENT_BOOKING_STATUSES / 부가서비스=CONFIRMED·DELIVERED /
- *   미니바=전체 라인(체크아웃 발생분).
+ * 매출 인식 = 체크아웃일. 빌라·부가서비스 모두 예약 SETTLEMENT_BOOKING_STATUSES 게이트 /
+ *   부가서비스는 추가로 주문상태 CONFIRMED·DELIVERED / 미니바=전체 라인(체크아웃 발생분).
  */
 export async function loadOverviewStats(
   period: StatsPeriod,
@@ -595,7 +595,12 @@ export async function loadOverviewStats(
     db.serviceOrder.findMany({
       where: {
         status: { in: [ServiceOrderStatus.CONFIRMED, ServiceOrderStatus.DELIVERED] },
-        booking: { checkOut: { gte: queryStart, lt: period.to } },
+        // 매출 인식 = 체크아웃일 → 예약이 실제 정산 상태(CHECKED_OUT·NO_SHOW)일 때만.
+        //   ROOM·revenue-ledger와 동일 게이트(체크아웃 안 된 CONFIRMED 예약의 부가매출 조기인식 방지).
+        booking: {
+          status: { in: SETTLEMENT_STATUS_FILTER },
+          checkOut: { gte: queryStart, lt: period.to },
+        },
       },
       select: SERVICE_CONTRIB_SELECT,
     }),
@@ -1489,7 +1494,8 @@ interface ServiceLineRow {
 
 /**
  * loadServiceOrderStats — 부가서비스 매출·타입별 인기·마진 집계 (canViewFinance 전용).
- * 체크아웃일(booking.checkOut) [from, to) 기준, status CONFIRMED·DELIVERED만.
+ * 체크아웃일(booking.checkOut) [from, to) 기준. 예약 SETTLEMENT_BOOKING_STATUSES 게이트 +
+ *   주문상태 CONFIRMED·DELIVERED만(revenue-ledger·ROOM 정합).
  * 통화(KRW·VND) 별도 합산(합치지 않음, ADR-0003). BigInt 합산 후 number/문자열 변환.
  *   priceKrw·quantity는 라인 합(priceKrw는 단가가 아닌 라인 스냅샷 합계로 취급 — 미니바 lineVnd와 동형).
  */
@@ -1501,7 +1507,11 @@ export async function loadServiceOrderStats(
   const orders = await db.serviceOrder.findMany({
     where: {
       status: { in: [ServiceOrderStatus.CONFIRMED, ServiceOrderStatus.DELIVERED] },
-      booking: { checkOut: { gte: period.from, lt: period.to } },
+      // 매출 인식 = 체크아웃일 → 예약이 정산 상태(CHECKED_OUT·NO_SHOW)일 때만(ROOM·revenue-ledger 정합).
+      booking: {
+        status: { in: SETTLEMENT_STATUS_FILTER },
+        checkOut: { gte: period.from, lt: period.to },
+      },
     },
     select: {
       type: true,
