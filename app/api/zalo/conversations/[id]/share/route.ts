@@ -42,6 +42,7 @@ import {
   isSellSideType,
   currencyForType,
 } from "@/lib/zalo-counterparty";
+import { loadVillaShareImage } from "@/lib/zalo-share-image";
 import {
   buildVillaShareTextForSupplier,
   buildVillaShareTextForCustomer,
@@ -444,6 +445,8 @@ async function handleVilla(
       where: { category: { not: "MINIBAR" } },
       select: { itemKey: true, customLabel: true },
     },
+    // 대표 사진 1장(sortOrder 최상단 — 목록 썸네일과 동일 규칙) — 이미지+캡션 발송용. 금액 무관.
+    photos: { orderBy: { sortOrder: "asc" as const }, take: 1, select: { url: true } },
   } as const;
 
   if (isCostSideType(conv.counterpartyType)) {
@@ -474,11 +477,7 @@ async function handleVilla(
     }
     // 전체 기간 나열(기본 먼저·시작일 순) — 받는 쪽이 "언제 원가인지" 알도록 기간 병기.
     const text = buildVillaShareTextForSupplier(toShareBase(villa, "vi"), villa.ratePeriods);
-    const send = await sendChatMessageAsAdmin(adminUserId, conv.zaloUserId, text);
-    return persistShare(conv.id, adminUserId, "villa_share", text, [], send, {
-      type: "villa",
-      id: villa.name,
-    });
+    return sendVillaShare(conv, adminUserId, text, villa.photos[0]?.url ?? null, villa.name);
   }
 
   // 판매가측(고객·여행사·랜드사) 경로 — ratePeriods는 salePriceVnd/salePriceKrw만 SELECT.
@@ -511,11 +510,40 @@ async function handleVilla(
   const saleCurrency = currencyForType(conv.counterpartyType);
   // 전체 기간 나열(기본 먼저·시작일 순) — 받는 쪽이 "언제 가격인지" 알도록 기간 병기.
   const text = buildVillaShareTextForCustomer(toShareBase(villa, "ko"), villa.ratePeriods, saleCurrency);
-  const send = await sendChatMessageAsAdmin(adminUserId, conv.zaloUserId, text);
-  return persistShare(conv.id, adminUserId, "villa_share", text, [], send, {
-    type: "villa",
-    id: villa.name,
-  });
+  return sendVillaShare(conv, adminUserId, text, villa.photos[0]?.url ?? null, villa.name);
+}
+
+/**
+ * 빌라 공유 발송 공통 꼬리 — 대표 사진이 있으면 이미지+캡션(본문) 1건으로,
+ * 사진 미보유·로드 실패·이미지 발송 실패면 기존 텍스트 발송으로 폴백(공유 실패 금지, T-villa-share-photo).
+ * 사진은 공개 빌라 사진(금액 무관)이라 공급자/고객 어느 쪽이든 노출 문제 없음.
+ */
+async function sendVillaShare(
+  conv: ConversationCtx,
+  adminUserId: string,
+  text: string,
+  photoUrl: string | null,
+  villaName: string
+): Promise<NextResponse> {
+  const image = photoUrl ? await loadVillaShareImage(photoUrl) : null;
+  let send = image
+    ? await sendChatImageAsAdmin(adminUserId, conv.zaloUserId, image.buffer, image.fileName, text)
+    : await sendChatMessageAsAdmin(adminUserId, conv.zaloUserId, text);
+  let sentWithPhoto = image != null;
+  if (image && !send.ok) {
+    // 이미지 발송 실패(포맷·용량 등) — 텍스트만으로 1회 재시도. 봇 미연결이면 이것도 실패(기존 FAILED 기록과 동일).
+    send = await sendChatMessageAsAdmin(adminUserId, conv.zaloUserId, text);
+    sentWithPhoto = false;
+  }
+  return persistShare(
+    conv.id,
+    adminUserId,
+    "villa_share",
+    text,
+    sentWithPhoto && photoUrl ? [photoUrl] : [],
+    send,
+    { type: "villa", id: villaName }
+  );
 }
 
 // ===================== S4 정산 (공급자 전용) =====================
