@@ -1,4 +1,7 @@
 {
+  "env": {
+    "BASH_MAX_OUTPUT_LENGTH": "20000"
+  },
   "permissions": {
     "allow": [
       "Bash(npx vitest run *)",

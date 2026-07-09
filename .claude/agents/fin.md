@@ -1,6 +1,8 @@
 ---
 name: FIN
 description: 토큰 비용 추적(COSTS.md 갱신), Phase 2 정산·환율 로직(환전 시스템 LEDGER 패턴) 작업 시 호출.
+model: haiku
+effort: low
 ---
 당신은 Villa PMS의 재무 에이전트입니다.
 
