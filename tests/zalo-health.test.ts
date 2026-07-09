@@ -3,10 +3,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockAccountFindMany = vi.fn();
 const mockUserFindMany = vi.fn();
+// 쿨다운 영속화(T-zalo-health-db-cooldown) — AppSetting 마지막 경보 시각
+const mockSettingFindUnique = vi.fn();
+const mockSettingUpsert = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     zaloAccount: { findMany: (...a: unknown[]) => mockAccountFindMany(...a) },
     user: { findMany: (...a: unknown[]) => mockUserFindMany(...a) },
+    appSetting: {
+      findUnique: (...a: unknown[]) => mockSettingFindUnique(...a),
+      upsert: (...a: unknown[]) => mockSettingUpsert(...a),
+    },
   },
 }));
 
@@ -42,6 +49,9 @@ beforeEach(() => {
   mockEnqueueZalo.mockResolvedValue({});
   // user.findMany 순서: ①인앱 대상(운영자 전원) ②Zalo 대상(zaloUserId 연결 운영자)
   mockUserFindMany.mockResolvedValue([{ id: "op1" }]);
+  // 기본: DB에 마지막 경보 기록 없음(영속 쿨다운 미적용) — 기존 케이스 동작 보존
+  mockSettingFindUnique.mockResolvedValue(null);
+  mockSettingUpsert.mockResolvedValue({});
 });
 
 describe("nextHealthState — 판정 순수 함수", () => {
@@ -132,5 +142,50 @@ describe("runHealthCheckOnce — 점검·경보 배선", () => {
   it("DB 실패는 swallow — throw 없이 종료(리스너·서버 무영향)", async () => {
     mockAccountFindMany.mockRejectedValue(new Error("db down"));
     await expect(runHealthCheckOnce(new Map())).resolves.toBeUndefined();
+  });
+
+  // ── 쿨다운 영속화 (T-zalo-health-db-cooldown) — 배포 재시작 후 재경보 스팸 방지 ──
+
+  it("재시작 시뮬레이션: 새 Map이어도 DB의 최근 경보(6h 이내)가 있으면 재경보 억제 + 메모리 동기화", async () => {
+    mockAccountFindMany.mockResolvedValue([
+      { id: "a2", kind: "ADMIN_PERSONAL", displayName: "Jini", userId: "owner1" },
+    ]);
+    mockAdminStatus.mockResolvedValue(DOWN);
+    // 1시간 전 경보가 DB에 기록돼 있음(직전 배포에서 발송)
+    mockSettingFindUnique.mockResolvedValue({ value: String(Date.now() - 3600_000) });
+    const states = new Map(); // 재시작 = 인메모리 상태 소실
+    for (let i = 0; i < 5; i++) await runHealthCheckOnce(states);
+    expect(mockEnqueueInApp).not.toHaveBeenCalled();
+    expect(mockEnqueueZalo).not.toHaveBeenCalled();
+    expect(mockSettingUpsert).not.toHaveBeenCalled();
+    // DB 조회는 메모리 동기화 후 반복되지 않음(경보 시도 1회분만)
+    expect(mockSettingFindUnique).toHaveBeenCalledTimes(1);
+  });
+
+  it("DB 경보가 쿨다운(6h) 경과면 정상 경보 + AppSetting 갱신", async () => {
+    mockAccountFindMany.mockResolvedValue([
+      { id: "a2", kind: "ADMIN_PERSONAL", displayName: "Jini", userId: "owner1" },
+    ]);
+    mockAdminStatus.mockResolvedValue(DOWN);
+    mockSettingFindUnique.mockResolvedValue({ value: String(Date.now() - 7 * 3600_000) });
+    const states = new Map();
+    await runHealthCheckOnce(states);
+    await runHealthCheckOnce(states); // streak 2 — 경보
+    expect(mockEnqueueInApp).toHaveBeenCalledTimes(2); // 운영자+소유자
+    expect(mockSettingUpsert).toHaveBeenCalledTimes(1);
+    const upsert = mockSettingUpsert.mock.calls[0][0] as { where: { key: string } };
+    expect(upsert.where.key).toBe("zalo-health:last-alert:a2");
+  });
+
+  it("AppSetting 읽기 실패는 fail-open — 경보는 나간다(감시 공백 방지)", async () => {
+    mockAccountFindMany.mockResolvedValue([
+      { id: "a2", kind: "ADMIN_PERSONAL", displayName: "Jini", userId: "owner1" },
+    ]);
+    mockAdminStatus.mockResolvedValue(DOWN);
+    mockSettingFindUnique.mockRejectedValue(new Error("db read fail"));
+    const states = new Map();
+    await runHealthCheckOnce(states);
+    await runHealthCheckOnce(states);
+    expect(mockEnqueueInApp).toHaveBeenCalledTimes(2);
   });
 });
