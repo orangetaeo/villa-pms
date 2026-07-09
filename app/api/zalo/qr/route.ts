@@ -4,6 +4,8 @@
 // 성공(GotLoginInfo) 시 credential 암호화 저장 + AuditLog는 lib/zalo-runtime onLoginSuccess에서 처리.
 import { ZaloAccountKind } from "@prisma/client";
 import { startQRLoginForAdmin, disconnectForAdmin } from "@/lib/zalo-runtime";
+// ADR-0032 BE-5 — 세션 비보유 웹(SESSION_LOCAL=false)이면 QR 로그인·해제를 워커로 위임(세션은 보유자에서 태어난다).
+import { shouldDelegate, delegateQrLogin, delegateDisconnect } from "@/lib/zalo-worker-client";
 import { getSystemBotOwnerId } from "@/lib/zalo-credentials";
 import { isSystemAdmin } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
@@ -31,7 +33,12 @@ export async function POST(req: Request) {
 
   try {
     const kind = await resolveKind(session.user.id);
-    const qrImageBase64 = await startQRLoginForAdmin(session.user.id, kind);
+    const qrImageBase64 = shouldDelegate()
+      ? await delegateQrLogin(session.user.id, kind)
+      : await startQRLoginForAdmin(session.user.id, kind);
+    if (!qrImageBase64) {
+      return Response.json({ error: "QR 생성에 실패했습니다" }, { status: 500 });
+    }
     // base64 QR 이미지만 반환 — credential 미포함
     return Response.json({ qrImageBase64 });
   } catch (e) {
@@ -48,7 +55,11 @@ export async function DELETE(req: Request) {
 
   try {
     const kind = await resolveKind(session.user.id);
-    await disconnectForAdmin(session.user.id, kind);
+    if (shouldDelegate()) {
+      await delegateDisconnect(session.user.id, kind);
+    } else {
+      await disconnectForAdmin(session.user.id, kind);
+    }
     return Response.json({ ok: true });
   } catch (e) {
     console.error("[api/zalo/qr] 연결 해제 실패", e instanceof Error ? e.message : e);

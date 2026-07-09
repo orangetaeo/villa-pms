@@ -81,37 +81,38 @@ async function PartnerShell({
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
       <NextIntlClientProvider locale={locale} messages={clientMessages}>
-        {/* 공용 포털 헤더 — 4개 라이트 포털 동일 형태. 계정 아이콘은 승인된 파트너만. */}
+        {/* 공용 포털 헤더 — 4개 라이트 포털 동일 형태. 계정 아이콘은 승인된 파트너만.
+            로그아웃은 승인대기·거절 화면에서만 헤더 right 슬롯에 노출(언어토글 왼쪽, 겹침 없음).
+            승인된 파트너(showNav)는 계정 화면(/partner/profile) 안에 로그아웃이 있어 숨긴다.
+            ※fixed 오버레이 금지 — 360px에서 헤더 안 언어토글과 터치타겟이 겹쳤던 결함(D-1). */}
         <PortalHeader
           locale={locale}
           brandHref="/partner"
           accountHref="/partner/profile"
           name={partnerName}
           showAccount={showNav}
-          right={showNav ? <PartnerNotificationBell /> : undefined}
+          right={
+            showNav ? (
+              <PartnerNotificationBell />
+            ) : (
+              <form
+                action={async () => {
+                  "use server";
+                  await signOut({ redirectTo: "/login" });
+                }}
+              >
+                <button
+                  type="submit"
+                  aria-label={t("logout")}
+                  title={t("logout")}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white text-rose-600 shadow-sm transition-colors hover:bg-rose-50 active:scale-95"
+                >
+                  <span className="material-symbols-outlined text-[20px]">logout</span>
+                </button>
+              </form>
+            )
+          }
         />
-
-        {/* 로그아웃(우측 상단 고정) — 승인대기·거절 화면에만 노출.
-            승인된 파트너(showNav)는 좌상단 계정 아이콘 → /partner/profile 안에 로그아웃이 있어
-            중복이므로 숨긴다(공급자·벤더 포털과 동일: 로그아웃은 계정 화면 단일 경로). */}
-        {!showNav && (
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/login" });
-            }}
-            className="fixed right-20 top-3 z-[60]"
-          >
-            <button
-              type="submit"
-              aria-label={t("logout")}
-              title={t("logout")}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white/90 text-rose-600 shadow-sm backdrop-blur transition-colors hover:bg-rose-50 active:scale-95"
-            >
-              <span className="material-symbols-outlined text-[20px]">logout</span>
-            </button>
-          </form>
-        )}
 
         <main className="mx-auto max-w-md px-4 py-6 pb-24">{children}</main>
 

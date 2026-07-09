@@ -51,6 +51,14 @@ import {
 } from "./zalo-inbound";
 // S2 / ADR-0010 A4 — 신규 저장 직후 Nike webhook push(fire-and-forget). 리스너 무영향.
 import { pushInboundToNike } from "./zalo-webhook";
+// ADR-0032 — 아웃바운드/상태 위임. 기본(ZALO_SESSION_LOCAL 미설정=true)엔 shouldDelegate()=false로
+// 아래 모든 함수가 현행 in-process 경로 그대로 실행(no-op). false일 때만 워커 /internal로 위임.
+import {
+  shouldDelegate,
+  delegateSend,
+  delegateReaction,
+  delegateStatus,
+} from "./zalo-worker-client";
 
 export type ZaloStatus = "disconnected" | "qr_pending" | "connected" | "error";
 
@@ -198,6 +206,17 @@ export function getSystemBotStatus(): BotStatus {
  * 통합 모드: 테오(시스템봇 소유자)는 "__system__" 인스턴스 상태를 본다.
  */
 export async function getStatusForAdmin(adminUserId: string): Promise<BotStatus> {
+  // ADR-0032 BE-6 — 세션 비보유(웹, SESSION_LOCAL=false)면 워커 /internal/status 조회(불통=disconnected).
+  if (shouldDelegate()) {
+    const s = await delegateStatus(adminUserId);
+    return {
+      connected: s.connected,
+      status: s.status as ZaloStatus,
+      displayName: s.displayName,
+      lastConnected: s.lastConnected,
+      lastError: s.lastError,
+    };
+  }
   const inst = await resolveAdminInstance(adminUserId);
   return instStatus(inst);
 }
@@ -1031,6 +1050,8 @@ export async function sendBotMessage(
   zaloUserId: string,
   text: string
 ): Promise<BotSendResult> {
+  // ADR-0032 BE-3 — 세션 비보유 웹이면 워커 위임(기본 미설정=false → 현행 in-process 발송).
+  if (shouldDelegate()) return delegateSend({ fn: "sendBotMessage", zaloUserId, text });
   return sendVia(getSystemBotApi(), zaloUserId, text);
 }
 
@@ -1043,6 +1064,17 @@ export async function sendBotMessageWithAttachments(
   text: string,
   attachments: BotAttachment[]
 ): Promise<BotSendResult> {
+  if (shouldDelegate())
+    return delegateSend({
+      fn: "sendBotMessageWithAttachments",
+      zaloUserId,
+      text,
+      attachments: attachments.map((a) => ({
+        dataBase64: a.data.toString("base64"),
+        filename: a.filename,
+        totalSize: a.totalSize,
+      })),
+    });
   return sendVia(getSystemBotApi(), zaloUserId, text, ThreadType.User, undefined, attachments);
 }
 
@@ -1058,6 +1090,15 @@ export async function sendChatMessageAsAdmin(
   // 그룹 @멘션(선택) — sendVia가 {msg,mentions}로 전송.
   mentions?: ZaloMention[]
 ): Promise<BotSendResult> {
+  if (shouldDelegate())
+    return delegateSend({
+      fn: "sendChatMessageAsAdmin",
+      adminUserId,
+      zaloUserId,
+      text,
+      threadType,
+      mentions,
+    });
   const api = await getApiForAdmin(adminUserId);
   return sendVia(api, zaloUserId, text, threadType, mentions);
 }
@@ -1083,6 +1124,15 @@ export async function sendChatForwardAsAdmin(
   if (!message || message.trim().length === 0) {
     return { ok: false, error: "FORWARD_EMPTY_MESSAGE" };
   }
+  if (shouldDelegate())
+    return delegateSend({
+      fn: "sendChatForwardAsAdmin",
+      adminUserId,
+      targetThreadId,
+      message,
+      reference,
+      threadType,
+    });
   try {
     const api = await getApiForAdmin(adminUserId);
     if (!api) return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
@@ -1140,6 +1190,16 @@ export async function sendChatReplyAsAdmin(
   // 그룹 @멘션(선택) — 답글 본문에 멘션 포함 시.
   mentions?: ZaloMention[]
 ): Promise<BotSendResult> {
+  if (shouldDelegate())
+    return delegateSend({
+      fn: "sendChatReplyAsAdmin",
+      adminUserId,
+      zaloUserId,
+      text,
+      quoteSource,
+      threadType,
+      mentions,
+    });
   try {
     const api = await getApiForAdmin(adminUserId);
     if (!api) return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
@@ -1198,6 +1258,15 @@ export async function addReactionAsAdmin(
   // ADR-0010 S4 — 그룹 리액션. 기본 USER(기존 호출 무영향).
   threadType: ThreadType = ThreadType.User
 ): Promise<ReactionResult> {
+  if (shouldDelegate())
+    return delegateReaction({
+      fn: "addReactionAsAdmin",
+      adminUserId,
+      zaloUserId,
+      target,
+      iconKey,
+      threadType,
+    });
   try {
     const api = await getApiForAdmin(adminUserId);
     if (!api) return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
@@ -1236,6 +1305,16 @@ export async function sendChatImageAsAdmin(
   // ADR-0010 S4 — 그룹 이미지 발송. 기본 USER(기존 호출 무영향).
   threadType: ThreadType = ThreadType.User
 ): Promise<BotSendResult> {
+  if (shouldDelegate())
+    return delegateSend({
+      fn: "sendChatImageAsAdmin",
+      adminUserId,
+      zaloUserId,
+      imageBase64: buffer.toString("base64"),
+      fileName,
+      caption,
+      threadType,
+    });
   try {
     const api = await getApiForAdmin(adminUserId);
     if (!api) return { ok: false, error: ERROR_BOT_NOT_CONNECTED };
@@ -1293,6 +1372,16 @@ export async function sendChatFileAsAdmin(
   // ADR-0010 S4 — 그룹 파일 발송. 기본 USER(기존 호출 무영향).
   threadType: ThreadType = ThreadType.User
 ): Promise<BotSendResult> {
+  if (shouldDelegate())
+    return delegateSend({
+      fn: "sendChatFileAsAdmin",
+      adminUserId,
+      zaloUserId,
+      fileBase64: buffer.toString("base64"),
+      fileName,
+      caption,
+      threadType,
+    });
   try {
     const api = await getApiForAdmin(adminUserId);
     if (!api) return { ok: false, error: ERROR_BOT_NOT_CONNECTED };

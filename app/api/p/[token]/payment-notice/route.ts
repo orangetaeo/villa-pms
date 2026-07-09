@@ -17,6 +17,11 @@ import { assertSameOrigin } from "@/lib/csrf";
  * - rate-limit(토큰·IP) — 공개 엔드포인트 폭주 방어
  * - HOLD만 허용(이미 확정·만료·취소는 통보 불필요 → 409)
  * - 마진 비공개: select·응답에 판매가·원가 없음(id·status·교차토큰만 조회)
+ *
+ * ★만료 규약(의도): proposal.expiresAt은 검사하지 않는다 — 입금통보는 살아있는
+ *   HOLD의 "예약 완결 액션"이라, 제안 유효기간 막판에 잡은 HOLD(만료를 넘겨 생존)
+ *   에서도 통보할 수 있어야 한다. HOLD 만료는 expire-holds cron이 status로 닫는다.
+ *   (반면 신규 구매인 service-orders는 expiresAt 경과 시 410 — ADR-0022 재발급 원칙.)
  */
 
 const NOTICE_TOKEN_LIMIT = { max: 20, windowMs: 10 * 60_000 };

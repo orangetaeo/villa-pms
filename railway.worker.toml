@@ -1,0 +1,15 @@
+# Railway 설정 — zalo-worker 서비스 전용 (ADR-0032).
+#   웹(villa-pms)은 루트 railway.toml(npm start·/api/health)을 쓰고,
+#   워커 서비스는 대시보드 Settings→Config-as-code에서 이 파일 경로(railway.worker.toml)를 지정한다.
+#   → 같은 레포에서 서비스별로 다른 시작 명령/헬스체크를 갖는다.
+[build]
+builder = "nixpacks"
+installCommand = "npm install"
+
+[deploy]
+startCommand = "npm run worker"     # = tsx worker/index.ts (Zalo 세션은 ZALO_WORKER_CONNECT=true일 때만 접속)
+healthcheckPath = "/healthz"        # 워커 전용 헬스 엔드포인트(웹의 /api/health 아님)
+healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+numReplicas = 1                     # ★세션 단일성 — 절대 2 이상 금지(code 3000 밴)

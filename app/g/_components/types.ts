@@ -14,7 +14,7 @@ export interface GuestBookingView {
   // ── 출입 정보(A1) — 게스트 전용. /p 공개페이지엔 없음(원칙2). ──
   address: string | null; // 주소(있을 때만 지도 링크)
   wifiSsid: string | null; // 와이파이 이름
-  wifiPassword: string | null; // ⚠ 비번 — 서명(signed) 완료 후에만 표시
+  wifiPassword: string | null; // ⚠ 비번 — 서버 로더가 서명 전엔 null(게이트), 서명 후에만 값 제공
   // 숙박 요금 — 직접 게스트(운영자 판매·파트너 없음)만 채워짐. 그 외 null(비노출)
   stayChargeVnd: string | null;
   stayChargeKrw: number | null;

@@ -26,6 +26,9 @@ export default function GuestFlow(props: GuestFlowProps) {
   const [amenitiesChecked, setAmenitiesChecked] = useState(false);
   const [signed, setSigned] = useState(props.alreadySigned);
   const [signedVersion, setSignedVersion] = useState<string | null>(props.signedVersion);
+  // 서버 로더는 서명 전 wifiPassword를 null로 직렬화(액세스 게이트) — 서명 직후에는
+  // agreement POST 응답값으로 채워 리로드 없이 바로 표시한다.
+  const [wifiPassword, setWifiPassword] = useState<string | null>(booking.wifiPassword);
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
   const [agreeChecked, setAgreeChecked] = useState(false);
   const [submittingAgreement, setSubmittingAgreement] = useState(false);
@@ -46,6 +49,9 @@ export default function GuestFlow(props: GuestFlowProps) {
       const data = await res.json();
       setSigned(true);
       setSignedVersion(data?.agreementVersion ?? agreement.version);
+      if (typeof data?.wifiPassword === "string" && data.wifiPassword) {
+        setWifiPassword(data.wifiPassword);
+      }
       setStep(3);
     } catch {
       setAgreementError(L.agreement.error);
@@ -396,6 +402,7 @@ export default function GuestFlow(props: GuestFlowProps) {
           signed={signed}
           signedVersion={signedVersion}
           booking={booking}
+          wifiPassword={wifiPassword}
         />
       )}
 
@@ -471,12 +478,15 @@ function ResultScreen({
   signed,
   signedVersion,
   booking,
+  wifiPassword,
 }: {
   token: string;
   lang: PublicLang;
   signed: boolean;
   signedVersion: string | null;
   booking: GuestBookingView;
+  /** 서명 후에만 값 존재 — 로더(서명 후 로드) 또는 서명 API 응답(방금 서명)에서 옴 */
+  wifiPassword: string | null;
 }) {
   const L = GUEST_LABELS[lang];
   // 부가 옵션은 신청 내역 허브(/orders)로 진입 — 거기서 요청 확인 + "부가 옵션 신청" 버튼으로 신청 폼(/options)으로.
@@ -550,14 +560,14 @@ function ResultScreen({
                     <CopyButton value={booking.wifiSsid} copyLabel={L.access.copy} copiedLabel={L.access.copied} />
                   </div>
                 </div>
-                {/* 비번은 동의서 서명 후에만 노출 */}
+                {/* 비번은 동의서 서명 후에만 노출 — 값 자체가 서버에서 서명 후 제공됨 */}
                 {signed ? (
-                  booking.wifiPassword && (
+                  wifiPassword && (
                     <div>
                       <p className="text-[11px] font-semibold text-slate-400">{L.access.wifiPwLabel}</p>
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-bold text-slate-900 tabular-nums break-all">{booking.wifiPassword}</p>
-                        <CopyButton value={booking.wifiPassword} copyLabel={L.access.copy} copiedLabel={L.access.copied} />
+                        <p className="text-sm font-bold text-slate-900 tabular-nums break-all">{wifiPassword}</p>
+                        <CopyButton value={wifiPassword} copyLabel={L.access.copy} copiedLabel={L.access.copied} />
                       </div>
                     </div>
                   )
