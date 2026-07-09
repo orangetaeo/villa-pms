@@ -78,6 +78,17 @@ export const TOURS = {
       { anchor: "partner-proposal-open", key: "partnerProposals.open" },
     ],
   },
+  // ── 3단계: ADMIN(ko 기본·vi 지원) — T-tutorial-onboarding-3, 에픽 마지막 ──
+  // admin-stats·admin-nav는 반응형 이중 앵커(데스크톱/모바일 각 1벌, 가시 쪽 자동 선택).
+  // admin-bell은 사이드바 푸터 — 모바일에선 드로어 안(비가시)이라 자동 스킵(데스크톱 3스텝/모바일 2스텝).
+  adminDashboard: {
+    route: "/dashboard",
+    steps: [
+      { anchor: "admin-stats", key: "adminDashboard.stats" },
+      { anchor: "admin-nav", key: "adminDashboard.nav" },
+      { anchor: "admin-bell", key: "adminDashboard.bell" },
+    ],
+  },
   // 벤더 발주함 — 앵커는 즉시 렌더되는 탭 버튼 3개만(카드는 클라 fetch 비동기 → 앵커 금지).
   // 완료보고는 일정(schedule) 탭 UI에 있으므로 그 스텝 문구가 담당(FE·UX-VN 회의 확정).
   vendorBoard: {
@@ -105,6 +116,23 @@ export function tourIdForRoute(pathname: string): TourId | null {
     if (tour.route !== null && tour.route === pathname) return id as TourId;
   }
   return null;
+}
+
+/**
+ * rect 수평 가시 판정 (T-tutorial-onboarding-3) — 반응형 이중 렌더 대응.
+ * 관리자처럼 같은 의미의 UI가 뷰포트별 두 벌(데스크톱 사이드바 vs 모바일 하단네비)일 때,
+ * 같은 data-tour 값을 양쪽에 달고 "보이는 쪽"을 고르기 위한 순수 판정.
+ * - width/height 0 = display:none(자신·조상) → 비가시
+ * - right <= 0 = 모바일 드로어 -translate-x-full(경계값 right=0 포함) → 비가시
+ * - left >= viewportW = 오른쪽 화면 밖 → 비가시
+ * 수직은 스크롤로 데려올 수 있으므로 판정하지 않는다.
+ * 한계: 가로 스크롤 컨테이너 안에서 밀려난 요소는 "논리적 가시"여도 비가시 판정(현 앵커엔 해당 없음).
+ */
+export function isRectHorizontallyVisible(
+  rect: Pick<DOMRect, "width" | "height" | "left" | "right">,
+  viewportW: number
+): boolean {
+  return rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.left < viewportW;
 }
 
 /**

@@ -19,6 +19,8 @@ import { loadInventoryShortageSummary } from "@/lib/minibar-inventory-load";
 import { getFxVndPerKrw, suggestSalePriceKrw } from "@/lib/pricing";
 import { formatThousands, formatDateTime } from "@/lib/format";
 import TimelineMatrix from "@/components/admin/timeline-matrix";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
@@ -61,6 +63,8 @@ export default async function DashboardPage() {
   // 견적 중 원가 변경 경보 개수 (b15, F) — 본인 ADMIN PENDING 그룹 수.
   // 원가경보(/cost-alerts)는 재무 영역(미들웨어 차단 대상)이므로 STAFF에는 0 처리(배너 미표시)
   const tCost = await getTranslations("adminCostAlerts");
+  // 코치마크 문구 — RSC 번역 → props (ADMIN_CLIENT_NAMESPACES 무변경)
+  const tTour = await getTranslations("tour");
   const costAlertCount =
     showFinance && session?.user?.id
       ? await countCostAlertGroups(prisma, session.user.id)
@@ -321,7 +325,8 @@ export default async function DashboardPage() {
         {/* 좌측 9: 스탯 + 타임라인/오늘 리스트 */}
         <div className="col-span-12 lg:col-span-9 space-y-6">
           {/* 스탯 카드 4종 (b1) — 데스크톱 전용. 모바일은 아래 박스 그리드(3차 회의) */}
-          <div className="hidden lg:grid grid-cols-2 xl:grid-cols-4 gap-3 xl:gap-4">
+          {/* 코치마크 앵커 — admin-stats 이중앵커의 데스크톱 쪽(모바일에선 display:none → 비가시 스킵) */}
+          <div data-tour="admin-stats" className="hidden lg:grid grid-cols-2 xl:grid-cols-4 gap-3 xl:gap-4">
             <Link
               href="/bookings?filter=today-checkin"
               className="bg-admin-card p-4 rounded-xl border border-slate-700/50 hover:ring-1 hover:ring-blue-500 transition-all group"
@@ -410,7 +415,8 @@ export default async function DashboardPage() {
           {/* 모바일 <lg: 박스 그리드 (b1-mobile — 3차 회의). 인라인 리스트 폐기, 박스 클릭 → 리스트 */}
           <div className="lg:hidden space-y-5">
             {/* 현황 박스: 오늘 체크인·체크아웃·청소 검수 대기·최근 활동 */}
-            <section>
+            {/* 코치마크 앵커 — admin-stats 이중앵커의 모바일 쪽 */}
+            <section data-tour="admin-stats">
               <div className="flex items-center justify-between mb-2.5 px-1">
                 <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                   {t("boxes.statusTitle")}
@@ -555,6 +561,14 @@ export default async function DashboardPage() {
           </div>
         )}
       </footer>
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 "?"(사이드바 푸터·모바일 헤더)로 재생.
+          데스크톱 3스텝(현황·메뉴·알림벨) / 모바일 2스텝(벨은 드로어 안 → 비가시 자동 스킵) */}
+      <CoachMark
+        tourId="adminDashboard"
+        steps={buildTourSteps(tTour, "adminDashboard")}
+        labels={buildTourLabels(tTour)}
+      />
     </div>
   );
 }

@@ -11,6 +11,12 @@
 - `anchorEl`: `querySelectorAll` 순회 → **첫 "가시" 매치** 반환. 가시 판정 = rect.width/height > 0(display:none 제외) AND 수평으로 뷰포트 안(rect.right>0 && rect.left<innerWidth — 모바일 드로어 `-translate-x-full` 제외). 수직은 스크롤 가능하므로 판정 제외.
 - 효과: 같은 `data-tour` 값을 두 반응형 변형에 부여하면 현재 뷰포트에서 보이는 쪽이 자동 선택됨. 기존 1·2단계 투어에는 무해(앵커가 전부 단일·가시).
 
+**FE 회의 확정 보강 3건 (2026-07-09):**
+- 가시 판정은 순수 함수 `isRectHorizontallyVisible(rect, viewportW)`로 분리(tour-definitions) + DOM 래퍼에서 `visibility:hidden` 추가 배제. 판정 확장 의미: "앵커 부재 스킵" → "비가시 스킵"(모바일 bell 자동 스킵이 이걸로 성립).
+- **(결함 수정) 측정 시 앵커 1회 캡처 제거** — 리사이즈/회전으로 반응형 변형이 바뀌면 캡처된 요소가 all-zero rect를 반환해 (0,0) 유령 구멍이 그려짐. `measure()`마다 anchorEl 재해석. 단 active 스텝 목록은 start 시점 고정(모바일 2스텝으로 시작 후 데스크톱 회전해도 bell 스텝은 안 생김 — known limitation).
+- **(결함 수정) 키 큰 앵커 말풍선 오프스크린** — 위·아래 모두 공간 부족(임계 ~190px)이면 말풍선을 중앙 배치(구멍은 유지). 데스크톱 사이드바 nav(높이 ~620px) 스텝이 이것 없이는 성립 불가.
+- 하단네비 중앙 FAB(-top-6 돌출)은 HOLE_PAD 6px가 못 덮어 윗부분이 어둡게 걸침 — 무시 가능 수준으로 수용(QA 참고).
+
 ### 2. ADMIN 투어 1종 — `adminDashboard` (/dashboard, ko 기본·vi 지원)
 테오 본인은 숙련자라 최소 구성(합의: ADMIN 후순위) — 미래 직원 온보딩용 핵심 3스텝:
 1. `admin-stats` — 오늘 현황(체크인·체크아웃·홀드·청소): 데스크톱 KPI 그리드 + 모바일 현황 박스 section 이중 앵커
