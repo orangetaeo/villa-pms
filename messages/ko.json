@@ -2828,6 +2828,7 @@
       "scheduleSection": "일정",
       "checkIn": "체크인",
       "checkOut": "체크아웃",
+      "datePlaceholder": "날짜 선택",
       "nights": "총 {nights}박",
       "dateOrderError": "체크인은 체크아웃보다 빨라야 합니다",
       "channelSection": "판매 채널",

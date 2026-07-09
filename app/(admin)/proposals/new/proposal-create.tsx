@@ -14,6 +14,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { formatThousands, formatVnd } from "@/lib/format";
+import { DateField } from "@/components/date-field";
 
 type Channel = "TRAVEL_AGENCY" | "LAND_AGENCY" | "DIRECT";
 // 표시 순서: 랜드사 → 여행사 → 직접 (기본값 랜드사)
@@ -456,11 +457,11 @@ export default function ProposalCreate() {
                   </span>
                   {t("checkIn")}
                 </label>
-                <input
+                <DateField
                   id="proposal-check-in"
-                  type="date"
                   lang={locale}
                   onClick={openDatePicker}
+                  placeholder={t("datePlaceholder")}
                   {...register("checkIn")}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-100 tabular-nums [color-scheme:dark] cursor-pointer"
                 />
@@ -475,11 +476,11 @@ export default function ProposalCreate() {
                   </span>
                   {t("checkOut")}
                 </label>
-                <input
+                <DateField
                   id="proposal-check-out"
-                  type="date"
                   lang={locale}
                   onClick={openDatePicker}
+                  placeholder={t("datePlaceholder")}
                   {...register("checkOut")}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-100 tabular-nums [color-scheme:dark] cursor-pointer"
                 />

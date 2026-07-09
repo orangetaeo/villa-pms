@@ -2942,6 +2942,7 @@
       "scheduleSection": "Lịch trình",
       "checkIn": "Nhận phòng",
       "checkOut": "Trả phòng",
+      "datePlaceholder": "Chọn ngày",
       "nights": "Tổng {nights} đêm",
       "dateOrderError": "Ngày nhận phòng phải trước ngày trả phòng",
       "channelSection": "Kênh bán",

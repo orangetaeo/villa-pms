@@ -62,6 +62,14 @@ textarea {
   scroll-margin-bottom: 6rem;
 }
 
+/* 빈 날짜 입력(components/date-field.tsx의 DateField) — iOS Safari는 값 없는 type=date를
+   공백으로 렌더해 "고장난 빈 박스"처럼 보인다. DateField가 안내 문구를 오버레이로 얹는데,
+   Chrome은 빈 값에 "연도-월-일" 네이티브 표기를 보여 오버레이와 겹치므로 빈 상태(.date-empty)에선
+   네이티브 표기를 숨긴다. 값이 채워지면 클래스가 빠져 네이티브 날짜가 정상 표시된다. */
+input.date-empty::-webkit-datetime-edit {
+  opacity: 0;
+}
+
 input:focus {
   outline: none;
   border-color: #0D9488 !important;
