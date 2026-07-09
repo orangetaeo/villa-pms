@@ -2036,6 +2036,29 @@
         "url": "Vui lòng nhập URL hợp lệ bắt đầu bằng http(s)://."
       }
     },
+    "zaloConnectCard": {
+      "title": "Hướng dẫn kết nối Zalo",
+      "description": "Hình QR và liên kết kết bạn hiển thị trong màn hình onboarding (kết nối Zalo) của nhà cung cấp·nhân viên dọn phòng. Hãy đăng ký theo tài khoản Zalo chung của công ty. Để trống sẽ dùng giá trị mặc định.",
+      "qrLabel": "Hình QR",
+      "uploadBtn": "Tải hình lên",
+      "uploading": "Đang tải lên...",
+      "uploadError": "Tải hình thất bại. Vui lòng thử lại.",
+      "removeBtn": "Xóa hình",
+      "qrEmptyHint": "Chưa có hình QR. Màn hình onboarding sẽ hiển thị chỗ trống hướng dẫn.",
+      "qrEnvFallback": "Chưa có hình đăng ký nên dùng giá trị mặc định (biến môi trường).",
+      "oaLabel": "Liên kết kết bạn",
+      "oaHint": "Nhập liên kết kết bạn Zalo bắt đầu bằng https:// (ví dụ: https://zalo.me/số điện thoại)",
+      "oaEnvFallback": "Chưa có liên kết nên dùng giá trị mặc định (biến môi trường).",
+      "hint": "Sau khi lưu sẽ phản ánh ngay vào màn hình onboarding của nhà cung cấp·nhân viên dọn phòng.",
+      "save": "Lưu",
+      "saving": "Đang lưu...",
+      "saved": "Đã lưu.",
+      "error": "Lưu thất bại. Vui lòng thử lại.",
+      "err": {
+        "qr": "Địa chỉ hình QR không hợp lệ. (Chỉ chấp nhận hình đã tải lên hoặc địa chỉ https://)",
+        "oa": "Vui lòng nhập liên kết hợp lệ bắt đầu bằng https://."
+      }
+    },
     "minibarCardTitle": "Minibar tiêu chuẩn công ty",
     "minibarCardDesc": "Quản lý danh mục và đơn giá minibar dùng chung cho mọi villa.",
     "minibarCardCta": "Quản lý",

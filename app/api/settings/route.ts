@@ -202,7 +202,7 @@ async function handleBatch(body: object, userId: string) {
       userId,
       action: "UPDATE",
       entity: "AppSetting",
-      entityId: "bank-contact",
+      entityId: "settings-batch",
       changes,
     });
   }
