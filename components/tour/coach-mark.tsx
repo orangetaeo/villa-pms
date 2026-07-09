@@ -13,6 +13,7 @@ import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import {
   TOUR_REPLAY_EVENT,
+  isRectHorizontallyVisible,
   tourIdForRoute,
   tourStorageKey,
   visibleTourSteps,
@@ -44,8 +45,19 @@ function writeSeen(tourId: TourId) {
   }
 }
 
+/**
+ * 앵커 해석 — 같은 data-tour가 반응형 변형 2벌에 달릴 수 있어(관리자 사이드바/하단네비),
+ * 전 매치 중 현재 뷰포트에서 "보이는" 첫 요소를 고른다 (T-tutorial-onboarding-3).
+ * display:none·드로어 오프스크린은 rect 판정, visibility:hidden은 computedStyle로 배제.
+ */
 function anchorEl(anchor: string): HTMLElement | null {
-  return document.querySelector<HTMLElement>(`[data-tour="${anchor}"]`);
+  const els = document.querySelectorAll<HTMLElement>(`[data-tour="${anchor}"]`);
+  for (const el of els) {
+    if (!isRectHorizontallyVisible(el.getBoundingClientRect(), window.innerWidth)) continue;
+    if (getComputedStyle(el).visibility === "hidden") continue;
+    return el;
+  }
+  return null;
 }
 
 export function CoachMark({
@@ -93,13 +105,15 @@ export function CoachMark({
   const step = active?.[idx] ?? null;
   useEffect(() => {
     if (!step) return;
-    const el = anchorEl(step.anchor);
     const measure = () => {
       // 100vh 금지 — 모바일 주소창/툴바를 뺀 실제 가시 높이
       setViewportH(window.visualViewport?.height ?? window.innerHeight);
+      // 매번 재해석 — 리사이즈/회전으로 반응형 변형(사이드바↔하단네비)이 바뀌면
+      // 캡처해둔 옛 요소가 all-zero rect를 반환해 (0,0) 유령 구멍이 생긴다(FE 회의 결함 2)
+      const el = anchorEl(step.anchor);
       setRect(el ? el.getBoundingClientRect() : null); // 진행 중 소멸 → 구멍 없이 말풍선만
     };
-    el?.scrollIntoView({ block: "center" });
+    anchorEl(step.anchor)?.scrollIntoView({ block: "center" });
     measure();
     window.addEventListener("resize", measure);
     window.addEventListener("scroll", measure, true);
@@ -123,8 +137,14 @@ export function CoachMark({
   const vh = viewportH || 640;
   const bubbleW = Math.min(BUBBLE_MAX_W, vw - 24);
 
-  // 말풍선 배치 — 대상 아래 우선, 화면 하단 55% 아래면 위쪽(높이 측정 없이 top/bottom 고정)
+  // 말풍선 배치 — 대상 아래 우선, 화면 하단 55% 아래면 위쪽(높이 측정 없이 top/bottom 고정).
+  // 키 큰 앵커(사이드바 nav 등)는 위·아래 모두 공간 부족 → 중앙 폴백(구멍 유지, FE 회의 결함 1).
+  const BUBBLE_SPACE_MIN = 190; // 말풍선 예상 높이 + 여백 대략치
   const bubbleStyle: CSSProperties = { width: bubbleW };
+  const centerBubble = () => {
+    bubbleStyle.left = (vw - bubbleW) / 2;
+    bubbleStyle.top = vh * 0.35;
+  };
   if (rect) {
     bubbleStyle.left = Math.min(
       Math.max(rect.left + rect.width / 2 - bubbleW / 2, 12),
@@ -132,13 +152,15 @@ export function CoachMark({
     );
     if (rect.bottom < vh * 0.55) {
       bubbleStyle.top = rect.bottom + HOLE_PAD + 12;
-    } else {
+    } else if (rect.top >= BUBBLE_SPACE_MIN) {
       bubbleStyle.bottom = vh - rect.top + HOLE_PAD + 12;
+    } else {
+      delete bubbleStyle.left; // 좌측 클램프 무효화 후 중앙 재배치
+      centerBubble();
     }
   } else {
     // 앵커 소멸 — 중앙 표시
-    bubbleStyle.left = (vw - bubbleW) / 2;
-    bubbleStyle.top = vh * 0.35;
+    centerBubble();
   }
 
   const isLast = idx === active.length - 1;

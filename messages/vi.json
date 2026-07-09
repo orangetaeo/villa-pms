@@ -4351,6 +4351,11 @@
       "inbox": { "title": "Nhận đơn tại đây", "desc": "Bạn sẽ nhận thông báo Zalo khi có đơn mới — bấm Nhận, Từ chối, hoặc đề xuất giờ khác." },
       "schedule": { "title": "Lịch và hoàn thành", "desc": "Đơn đã nhận nằm ở đây; làm xong thì bấm Báo hoàn thành." },
       "settlement": { "title": "Xem tiền được trả", "desc": "Số tiền villa trả cho các đơn đã hoàn thành hiện ở đây." }
+    },
+    "adminDashboard": {
+      "stats": { "title": "Tình hình hôm nay", "desc": "Xem nhanh check-in, check-out hôm nay, giữ chỗ đang chờ và dọn dẹp chờ nghiệm thu. Chạm vào thẻ để mở danh sách." },
+      "nav": { "title": "Menu quản lý", "desc": "Mọi màn hình nghiệp vụ — đặt phòng, villa, đề xuất, quyết toán — đều truy cập từ menu này." },
+      "bell": { "title": "Thông báo vận hành", "desc": "Thông báo vận hành (nhà cung cấp dịch vụ nhận đơn, báo hoàn thành, chờ duyệt tài khoản) tập hợp tại đây. Thông báo mới hiển thị bằng huy hiệu." }
     }
   }
 }

@@ -1,8 +1,9 @@
 import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
-import { getLocale } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { NextIntlClientProvider } from "next-intl";
 import AdminSidebar from "@/components/admin/sidebar";
+import { TourHelpButton } from "@/components/tour/coach-mark";
 import MobileNavSpacer, { ADMIN_FULLSCREEN_PREFIXES } from "@/components/admin/mobile-nav-spacer";
 import PullToRefresh from "@/components/pull-to-refresh";
 import { pickMessages } from "@/lib/intl-messages";
@@ -98,6 +99,16 @@ export default async function AdminLayout({
   const allMessages = (await import(`../../messages/${locale}.json`)).default;
   const messages = pickMessages(allMessages, ADMIN_CLIENT_NAMESPACES);
 
+  // 코치마크 "?" 재생 버튼 — 문구는 페이지 RSC가 번역해 props로 전달(ADMIN_CLIENT_NAMESPACES 무변경).
+  // 같은 노드를 사이드바 푸터·모바일 헤더 두 슬롯에 렌더(독립 인스턴스, 상태 공유 없음).
+  const tTour = await getTranslations({ locale, namespace: "tour" });
+  const tourHelp = (
+    <TourHelpButton
+      label={tTour("help")}
+      className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-slate-800 hover:text-white active:scale-95"
+    />
+  );
+
   // 사이드바 메시지 메뉴 미읽음 합계 뱃지 (T6.6, b14)
   // ADR-0007 개인 스코프: 본인(ownerAdminId) 대화만 합산 — 타 관리자 미읽음 누수 차단.
   const unreadAgg = await prisma.zaloConversation.aggregate({
@@ -121,6 +132,7 @@ export default async function AdminLayout({
         unreadCount={unreadCount}
         logoutAction={logoutAction}
         currentLocale={locale === "vi" ? "vi" : "ko"}
+        tourHelp={tourHelp}
       />
       {/* 모바일 당겨서 새로고침 — 전 admin 페이지 공용(풀스크린 라우트 자동 제외) */}
       <PullToRefresh fullscreenPrefixes={ADMIN_FULLSCREEN_PREFIXES} variant="dark" />

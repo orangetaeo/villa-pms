@@ -124,6 +124,7 @@ export default function AdminSidebar({
   unreadCount = 0,
   logoutAction,
   currentLocale = "ko",
+  tourHelp,
 }: {
   userName?: string | null;
   /** 사용자 역할 — NAV 역할별 필터 + 역할 라벨 표시 (S-RBAC) */
@@ -134,6 +135,8 @@ export default function AdminSidebar({
   logoutAction?: () => Promise<void>;
   /** 현재 표시 언어 — 하단 VI/KO 토글 활성 상태 표시 (베트남 직원 직접 관리 대응) */
   currentLocale?: AppLocale;
+  /** 코치마크 "?" 재생 버튼(layout RSC가 번역해 주입) — 데스크톱 푸터·모바일 헤더 두 곳 렌더. */
+  tourHelp?: React.ReactNode;
 }) {
   const t = useTranslations("nav");
   const tRoles = useTranslations("adminUsers");
@@ -330,8 +333,8 @@ export default function AdminSidebar({
             </span>
           </div>
         </Link>
-        {/* 우측 균형 유지용 (b1-mobile 알림 자리 — 알림은 T6.x) */}
-        <div className="w-10" aria-hidden />
+        {/* 우측: 코치마크 "?" (투어 화면에서만 렌더 — 로고는 absolute 중앙이라 균형 무관) */}
+        <div className="flex w-10 items-center justify-end">{tourHelp}</div>
       </header>
 
       {/* 드로어 오버레이 */}
@@ -368,7 +371,7 @@ export default function AdminSidebar({
             </p>
           </div>
         </Link>
-        <nav className="flex-1 flex flex-col gap-1 overflow-y-auto">
+        <nav data-tour="admin-nav" className="flex-1 flex flex-col gap-1 overflow-y-auto">
           {navEntries.map((entry) =>
             isGroup(entry) ? (
               <NavGroupBlock key={entry.group} group={entry} />
@@ -395,8 +398,13 @@ export default function AdminSidebar({
             </div>
           </div>
           <div className="flex items-center justify-end gap-1">
-            {/* 인앱 알림 벨 (admin-vendor-ops C) — 벤더 수락/거절/제안/완료·가입대기 */}
-            <AdminNotificationBell />
+            {/* 코치마크 "?" 재생 (T-tutorial-onboarding-3) — 투어 정의 화면에서만 렌더 */}
+            {tourHelp}
+            {/* 인앱 알림 벨 (admin-vendor-ops C) — 벤더 수락/거절/제안/완료·가입대기.
+                코치마크 앵커 — 모바일에선 드로어 안(비가시)이라 해당 스텝 자동 스킵 */}
+            <span className="inline-flex" data-tour="admin-bell">
+              <AdminNotificationBell />
+            </span>
             {/* 본인 비밀번호 변경 진입 (/account) */}
             <Link
               href="/account"
@@ -457,7 +465,11 @@ export default function AdminSidebar({
 
       {/* 모바일 하단 네비게이션 (Nike 스타일 — 중앙 돌출 FAB). lg 이상은 좌측 사이드바 사용.
           /messages 등 풀스크린 라우트도 표시(각 화면이 네비 높이만큼 자체 높이 보정) */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 h-16 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 flex items-stretch justify-around px-1">
+      {/* 코치마크 앵커 — admin-nav 이중앵커의 모바일 쪽(데스크톱에선 display:none → 비가시 스킵) */}
+      <nav
+        data-tour="admin-nav"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-30 h-16 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 flex items-stretch justify-around px-1"
+      >
         <BottomItem href="/dashboard" icon="dashboard" label={t("dashboard")} />
         <BottomItem href="/bookings" icon="calendar_month" label={t("bookings")} />
 
