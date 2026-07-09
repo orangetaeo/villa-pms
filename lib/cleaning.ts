@@ -1,4 +1,5 @@
 import {
+  BookingStatus,
   CleaningStatus,
   CleaningType,
   NotificationType,
@@ -163,6 +164,19 @@ export async function createCheckoutCleaningTask(
     data: { isSellable: false },
   });
 
+  // 다음 확정 예약 체크인 — 청소 긴급도 판단용(없으면 줄 생략). 실패해도 태스크 생성엔 무영향.
+  const nextBooking = await db.booking
+    .findFirst({
+      where: {
+        villaId: booking.villaId,
+        status: BookingStatus.CONFIRMED,
+        checkIn: { gte: booking.checkOut },
+      },
+      orderBy: { checkIn: "asc" },
+      select: { checkIn: true },
+    })
+    .catch(() => null);
+
   await db.notification.create({
     data: {
       // 청소 요청 알림 — 담당자(cleanerId) 있으면 담당자, 없으면 공급자.
@@ -173,6 +187,7 @@ export async function createCheckoutCleaningTask(
         villaId: booking.villaId,
         villaName: booking.villa.name,
         dueDate: booking.checkOut.toISOString().slice(0, 10),
+        nextCheckIn: nextBooking ? nextBooking.checkIn.toISOString().slice(0, 10) : null,
       },
     },
   });

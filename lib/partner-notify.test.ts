@@ -25,13 +25,29 @@ describe("buildPartnerNotifText", () => {
     checkOut: "2026-08-05",
   };
 
-  it("예약확정 ko/vi — 빌라·기간 포함", () => {
+  it("예약확정 ko/vi — 빌라·기간·예약번호 포함", () => {
     const ko = buildPartnerNotifText("ko", confirmed);
     expect(ko.title).toContain("확정");
     expect(ko.body).toContain("쏘나씨 V12");
     expect(ko.body).toContain("2026-08-01");
+    expect(ko.body).toContain("예약번호 #B1"); // bookingId 뒤 6자리 대문자(짧으면 전체)
     const vi = buildPartnerNotifText("vi", confirmed);
     expect(vi.title).toContain("xác nhận");
+    expect(vi.body).toContain("Mã đặt phòng #B1");
+  });
+
+  it("예약확정 보강 — 객실료(본인 채권 VND)·잔금기한 표기, 채권 없으면 생략", () => {
+    const enriched = buildPartnerNotifText("ko", {
+      ...confirmed,
+      totalVnd: "29400000",
+      dueDate: "2026-08-01",
+    });
+    expect(enriched.body).toContain("객실료 29.400.000₫");
+    expect(enriched.body).toContain("잔금기한 2026-08-01");
+    expect(enriched.body).not.toMatch(/KRW|원가|마진/);
+    const noReceivable = buildPartnerNotifText("ko", { ...confirmed, totalVnd: null, dueDate: null });
+    expect(noReceivable.body).not.toContain("객실료");
+    expect(noReceivable.body).not.toContain("잔금기한");
   });
 
   it("청구서발행 — VND 점구분 표기·기한 포함, KRW·마진 없음", () => {

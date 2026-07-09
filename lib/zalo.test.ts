@@ -346,3 +346,202 @@ describe("buildNotificationText — VENDOR_PROPOSAL_RESULT (제안 결과, ko/vi
     expect(text).not.toMatch(/priceKrw|priceVnd|margin|마진|판매가/i);
   });
 });
+
+// ===================== 알림 보강 (T-zalo-notify-enrichment) =====================
+
+describe("buildNotificationText — 보강 필드", () => {
+  it("BOOKING_HOLD — 예약번호(#뒤6자리 대문자)·예약자명 표기, 구 payload는 줄 생략", () => {
+    const text = buildNotificationText(NotificationType.BOOKING_HOLD, {
+      ...BASE_PAYLOAD,
+      bookingId: "clx123abc456",
+      guestName: "김학태",
+      holdExpiresAt: "2026-07-01T03:00:00.000Z",
+    });
+    expect(text).toContain("Mã đặt phòng: #ABC456");
+    expect(text).toContain("Tên khách: 김학태");
+    // 구 payload(추가 필드 없음) — 예약번호는 bookingId(bk1<6자)로 생략, 예약자 줄 없음
+    const legacy = buildNotificationText(NotificationType.BOOKING_HOLD, {
+      ...BASE_PAYLOAD,
+      bookingId: "bk1",
+      holdExpiresAt: "2026-07-01T03:00:00.000Z",
+    });
+    expect(legacy).not.toContain("Mã đặt phòng");
+    expect(legacy).not.toContain("Tên khách");
+  });
+
+  it("BOOKING_CONFIRMED — 조식 true일 때만 표기", () => {
+    const withBreakfast = buildNotificationText(NotificationType.BOOKING_CONFIRMED, {
+      ...BASE_PAYLOAD,
+      breakfastIncluded: true,
+    });
+    expect(withBreakfast).toContain("Bao gồm bữa sáng");
+    const without = buildNotificationText(NotificationType.BOOKING_CONFIRMED, {
+      ...BASE_PAYLOAD,
+      breakfastIncluded: false,
+    });
+    expect(without).not.toContain("bữa sáng");
+  });
+
+  it("BOOKING_MODIFIED — 날짜 변경 시 전→후 비교, 인원 변경 시 (trước:) 병기", () => {
+    const text = buildNotificationText(NotificationType.BOOKING_MODIFIED, {
+      ...BASE_PAYLOAD,
+      prevCheckIn: "2026-06-28",
+      prevCheckOut: "2026-07-02",
+      prevGuestCount: 2,
+    });
+    expect(text).toContain("Lịch cũ: 28/06/2026 → 02/07/2026");
+    expect(text).toContain("Lịch mới: 01/07/2026 → 04/07/2026");
+    expect(text).toContain("Số khách: 4 (trước: 2)");
+    // 날짜 동일하면 비교 줄 없이 기존 형식
+    const same = buildNotificationText(NotificationType.BOOKING_MODIFIED, {
+      ...BASE_PAYLOAD,
+      prevCheckIn: BASE_PAYLOAD.checkIn,
+      prevCheckOut: BASE_PAYLOAD.checkOut,
+      prevGuestCount: 4,
+    });
+    expect(same).not.toContain("Lịch cũ");
+    expect(same).toContain("Nhận phòng: 01/07/2026");
+  });
+
+  it("CLEANING_REQUEST — 다음 체크인 있으면 긴급도 안내 줄 추가", () => {
+    const text = buildNotificationText(NotificationType.CLEANING_REQUEST, {
+      villaName: "쏘나씨 V12",
+      dueDate: "2026-07-04",
+      nextCheckIn: "2026-07-05",
+    });
+    expect(text).toContain("Khách tiếp theo nhận phòng: 05/07/2026");
+    const none = buildNotificationText(NotificationType.CLEANING_REQUEST, {
+      villaName: "쏘나씨 V12",
+      dueDate: "2026-07-04",
+      nextCheckIn: null,
+    });
+    expect(none).not.toContain("Khách tiếp theo");
+  });
+
+  it("ROSTER_REMINDER — 판매 채널(파트너명·연락처) 표기, 직접판매는 줄 생략", () => {
+    const text = buildNotificationText(NotificationType.ROSTER_REMINDER, {
+      ...BASE_PAYLOAD,
+      guestName: "하나투어 김대리",
+      partnerName: "하나투어",
+      partnerPhone: "0212345678",
+    });
+    expect(text).toContain("판매 채널: 하나투어 (0212345678)");
+    const direct = buildNotificationText(NotificationType.ROSTER_REMINDER, {
+      ...BASE_PAYLOAD,
+      guestName: "김학태",
+      partnerName: null,
+    });
+    expect(direct).not.toContain("판매 채널");
+  });
+
+  it("SUPPLIER_DIRECT_BOOKING — 공급자명·예약자·예약번호 표기 (금액 없음)", () => {
+    const text = buildNotificationText(NotificationType.SUPPLIER_DIRECT_BOOKING, {
+      ...BASE_PAYLOAD,
+      bookingId: "clxdirect9999xy",
+      supplierName: "Tyy",
+      guestName: "Nguyễn Văn A",
+    });
+    expect(text).toContain("공급자: Tyy");
+    expect(text).toContain("예약자: Nguyễn Văn A · 예약번호 #9999XY");
+    expect(text).not.toMatch(/salePrice|₫|KRW|마진/);
+  });
+
+  it("RATE_CHANGED_DURING_PROPOSAL — 한국어 전환 + 전→후 원가·영향 제안 수", () => {
+    const text = buildNotificationText(NotificationType.RATE_CHANGED_DURING_PROPOSAL, {
+      villaName: "쏘나씨 V12",
+      season: "HIGH",
+      oldCostVnd: "5000000",
+      newCostVnd: "6500000",
+      proposalCount: 2,
+    });
+    expect(text).toContain("견적 진행 중 원가 변경: 쏘나씨 V12");
+    expect(text).toContain("성수기: 5.000.000₫ → 6.500.000₫");
+    expect(text).toContain("유효한 제안 2건에 영향");
+    // 기간 삭제(newCost null)
+    const removed = buildNotificationText(NotificationType.RATE_CHANGED_DURING_PROPOSAL, {
+      villaName: "V",
+      season: "PEAK",
+      oldCostVnd: "7000000",
+      newCostVnd: null,
+    });
+    expect(removed).toContain("극성수기: 7.000.000₫ (기간 삭제됨)");
+  });
+
+  it("VILLA_PENDING_REVIEW — 규모 요약(단지·침실·사진 수), 구 payload는 생략", () => {
+    const text = buildNotificationText(NotificationType.VILLA_PENDING_REVIEW, {
+      villaName: "썬셋 A3",
+      supplierName: "Tyy",
+      resubmitted: false,
+      complex: "썬셋 단지",
+      bedrooms: 3,
+      bathrooms: 2,
+      maxGuests: 6,
+      photoCount: 14,
+    });
+    expect(text).toContain("단지 썬셋 단지 · 침실 3 · 욕실 2 · 최대 6인 · 사진 14장");
+    const legacy = buildNotificationText(NotificationType.VILLA_PENDING_REVIEW, {
+      villaName: "썬셋 A3",
+      supplierName: "Tyy",
+      resubmitted: false,
+    });
+    expect(legacy).not.toContain("침실");
+  });
+
+  it("VENDOR_PO — 옵션 라벨·이행 시각·정산액(자기 원가) 표기, 판매가 없음", () => {
+    const text = buildNotificationText(NotificationType.VENDOR_PO, {
+      villaName: "쏘나씨 V12",
+      itemName: "Body massage 60p",
+      quantity: 2,
+      serviceDate: "2026-07-02",
+      serviceTime: "14:00",
+      optionLabels: ["Dầu dừa", "Tại villa"],
+      costVnd: "500000",
+      guestNote: "2 người",
+    });
+    expect(text).toContain("Tùy chọn: Dầu dừa · Tại villa");
+    expect(text).toContain("Ngày: 02/07/2026 14:00");
+    expect(text).toContain("Thanh toán cho bạn: 500.000₫");
+    expect(text).not.toMatch(/priceKrw|salePrice|margin/i);
+    // costVnd null(미확정 0)이면 금액 줄 생략
+    const noCost = buildNotificationText(NotificationType.VENDOR_PO, {
+      villaName: "V",
+      itemName: "I",
+      quantity: 1,
+      costVnd: null,
+    });
+    expect(noCost).not.toContain("Thanh toán cho bạn");
+  });
+
+  it("VENDOR_PO_RESPONSE — 수락/거절/완료에 발주 요약(일정·수량·발주액) 병기", () => {
+    const base = {
+      vendorName: "에이스마사지",
+      itemName: "Body massage 60p",
+      villaName: "쏘나씨 V12",
+      serviceDate: "2026-07-02",
+      serviceTime: "14:00",
+      quantity: 2,
+      costVnd: "500000",
+    };
+    const accepted = buildNotificationText(NotificationType.VENDOR_PO_RESPONSE, {
+      ...base,
+      accepted: true,
+      action: "accept",
+    });
+    expect(accepted).toContain("일정: 02/07/2026 14:00 · 수량 x2 · 발주액 500.000₫");
+    const complete = buildNotificationText(NotificationType.VENDOR_PO_RESPONSE, {
+      ...base,
+      action: "complete",
+    });
+    expect(complete).toContain("공급자 서비스 완료");
+    expect(complete).toContain("발주액 500.000₫");
+    // 구 payload(요약 필드 없음) — 한 줄 형식 유지
+    const legacy = buildNotificationText(NotificationType.VENDOR_PO_RESPONSE, {
+      vendorName: "V",
+      itemName: "I",
+      villaName: "W",
+      accepted: true,
+      action: "accept",
+    });
+    expect(legacy).toBe("✅ 공급자 수락: V — I (W)");
+  });
+});

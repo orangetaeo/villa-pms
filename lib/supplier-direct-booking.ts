@@ -134,8 +134,16 @@ export async function createSupplierDirectBooking(
     });
 
     // 운영자 통지 — 선점 기회 인지(정보성). 판매가·마진 절대 미포함 (마진 비공개).
+    // 공급자명·예약자명·예약번호 포함 — 운영자가 알림만으로 어느 공급자의 어떤 건인지 특정.
+    const supplier = await tx.user.findUnique({
+      where: { id: input.supplierId },
+      select: { name: true },
+    });
     await enqueueOperatorDirectBookingNotice(tx, {
+      bookingId: booking.id,
       villaName: villa.name,
+      supplierName: supplier?.name ?? null,
+      guestName: input.guestName.trim(),
       checkIn: toDateOnlyString(input.range.checkIn),
       checkOut: toDateOnlyString(input.range.checkOut),
       guestCount: input.guestCount,
@@ -149,7 +157,10 @@ export async function createSupplierDirectBooking(
 const OPERATOR_ROLES = ["OWNER", "MANAGER", "STAFF", "ADMIN"] as const;
 
 interface DirectBookingNoticePayload {
+  bookingId: string;
   villaName: string;
+  supplierName: string | null;
+  guestName: string;
   checkIn: string;
   checkOut: string;
   guestCount: number;
@@ -178,7 +189,10 @@ async function enqueueOperatorDirectBookingNotice(
       userId: op.id,
       type: NotificationType.SUPPLIER_DIRECT_BOOKING,
       payload: {
+        bookingId: payload.bookingId,
         villaName: payload.villaName,
+        supplierName: payload.supplierName,
+        guestName: payload.guestName,
         checkIn: payload.checkIn,
         checkOut: payload.checkOut,
         guestCount: payload.guestCount,

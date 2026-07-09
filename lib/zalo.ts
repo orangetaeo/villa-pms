@@ -123,6 +123,19 @@ function str(value: unknown, fallback = "—"): string {
   return typeof value === "string" && value.trim().length > 0 ? value : fallback;
 }
 
+/** payload.bookingId(cuid) → 짧은 표시용 예약번호 "#ABC123". 없으면 null (구 payload 호환) */
+function bookingRef(value: unknown): string | null {
+  if (typeof value !== "string" || value.trim().length < 6) return null;
+  return `#${value.trim().slice(-6).toUpperCase()}`;
+}
+
+/** 시즌 라벨 ko (운영자 알림용) */
+const SEASON_LABEL_KO: Record<string, string> = {
+  LOW: "비수기",
+  HIGH: "성수기",
+  PEAK: "극성수기",
+};
+
 /**
  * payload에서 첨부 URL 배열을 안전 추출 (전달 증빙용).
  * 현재 TAMTRU_PASSPORT의 passportPhotoUrls만 미러 attachmentUrls에 기록한다.
@@ -160,22 +173,35 @@ export function buildNotificationText(
   const stay = `Nhận phòng: ${formatDateVi(p.checkIn)} → Trả phòng: ${formatDateVi(p.checkOut)}`;
 
   switch (type) {
-    case NotificationType.BOOKING_HOLD:
-      return [
-        `🔔 Giữ chỗ mới: ${villa}`,
-        stay,
-        `Số khách: ${num(p.guestCount)}`,
+    case NotificationType.BOOKING_HOLD: {
+      const ref = bookingRef(p.bookingId);
+      const lines = [`🔔 Giữ chỗ mới: ${villa}`];
+      if (ref) lines.push(`Mã đặt phòng: ${ref}`);
+      lines.push(stay, `Số khách: ${num(p.guestCount)}`);
+      // 예약자명 — 손님맞이 준비용(판매가·마진 아님). 구 payload는 미포함 → 줄 생략.
+      if (typeof p.guestName === "string" && p.guestName.trim().length > 0) {
+        lines.push(`Tên khách: ${p.guestName.trim()}`);
+      }
+      lines.push(
         `Giữ chỗ đến: ${formatDateTimeVi(p.holdExpiresAt)}`,
-        `Vui lòng giữ lịch trống cho khoảng thời gian này.`,
-      ].join("\n");
+        `Vui lòng giữ lịch trống cho khoảng thời gian này.`
+      );
+      return lines.join("\n");
+    }
 
-    case NotificationType.BOOKING_CONFIRMED:
-      return [
-        `✅ Đã đặt: ${villa}`,
-        stay,
-        `Số khách: ${num(p.guestCount)}`,
-        `Đặt chỗ đã được xác nhận. Vui lòng chuẩn bị đón khách.`,
-      ].join("\n");
+    case NotificationType.BOOKING_CONFIRMED: {
+      const ref = bookingRef(p.bookingId);
+      const lines = [`✅ Đã đặt: ${villa}`];
+      if (ref) lines.push(`Mã đặt phòng: ${ref}`);
+      lines.push(stay, `Số khách: ${num(p.guestCount)}`);
+      if (typeof p.guestName === "string" && p.guestName.trim().length > 0) {
+        lines.push(`Tên khách: ${p.guestName.trim()}`);
+      }
+      // 조식 — true일 때만 표기(홀드 시점 기본값 false 노이즈 방지)
+      if (p.breakfastIncluded === true) lines.push(`Bao gồm bữa sáng.`);
+      lines.push(`Đặt chỗ đã được xác nhận. Vui lòng chuẩn bị đón khách.`);
+      return lines.join("\n");
+    }
 
     case NotificationType.HOLD_EXPIRED:
       return [
@@ -203,6 +229,12 @@ export function buildNotificationText(
       const lines = [`🧹 Yêu cầu dọn dẹp: ${villa}`];
       if (p.periodic === true) lines.push(`Dọn dẹp định kỳ hàng tháng.`);
       if (typeof p.dueDate === "string") lines.push(`Hạn: ${formatDateVi(p.dueDate)}`);
+      // 다음 손님 체크인 — 긴급도 판단용(체크아웃 청소 요청에만 caller가 채움)
+      if (typeof p.nextCheckIn === "string" && p.nextCheckIn.length > 0) {
+        lines.push(
+          `Khách tiếp theo nhận phòng: ${formatDateVi(p.nextCheckIn)} — vui lòng dọn xong trước ngày này.`
+        );
+      }
       lines.push(`Vui lòng dọn dẹp và tải ảnh lên ứng dụng.`);
       return lines.join("\n");
     }
@@ -255,44 +287,90 @@ export function buildNotificationText(
         `Vui lòng kiểm tra và cập nhật lại thông tin trong ứng dụng.`,
       ].join("\n");
 
-    case NotificationType.RATE_CHANGED_DURING_PROPOSAL:
-      // 제안 유효기간 중 빌라 요율 변경 알림 (enum만 선등록 — enqueue 사용처는 후속 세션).
-      // 원가 등 금액 미노출(마진 비공개) — 안내만. 후속에서 문구 정교화 가능.
-      return [
-        `📋 Cập nhật giá: ${villa}`,
-        `Giá thuê đã được cập nhật trong thời gian đề xuất còn hiệu lực.`,
-        `Vui lòng kiểm tra chi tiết trong ứng dụng.`,
-      ].join("\n");
+    case NotificationType.RATE_CHANGED_DURING_PROPOSAL: {
+      // 수신자=운영자(테오) → 한국어 (NOTIFICATIONS.md A-06 검토 반영 — 종전 베트남어 오작성 수정).
+      // 원가는 운영자 정당 열람 정보. 변경 전→후 원가·영향 제안 수까지 표기해 즉시 판단 가능하게.
+      const season = str(p.season);
+      const seasonLabel = SEASON_LABEL_KO[season] ?? season;
+      const oldCost = formatVndVi(p.oldCostVnd);
+      const newCost = formatVndVi(p.newCostVnd);
+      const lines = [`📋 견적 진행 중 원가 변경: ${villa}`];
+      if (oldCost !== null) {
+        lines.push(
+          newCost !== null
+            ? `${seasonLabel}: ${oldCost}₫ → ${newCost}₫`
+            : `${seasonLabel}: ${oldCost}₫ (기간 삭제됨)`
+        );
+      }
+      const count =
+        typeof p.proposalCount === "number" && p.proposalCount > 0 ? `${p.proposalCount}건` : null;
+      lines.push(
+        count
+          ? `유효한 제안 ${count}에 영향이 있습니다. 원가 경보에서 확인해주세요.`
+          : `유효한 제안에 영향이 있습니다. 원가 경보에서 확인해주세요.`
+      );
+      return lines.join("\n");
+    }
 
-    case NotificationType.ROSTER_REMINDER:
+    case NotificationType.ROSTER_REMINDER: {
       // 수신자=운영자(테오) → 한국어. 체크인 임박·명단 미입력 안내 (가격·마진 미노출).
-      return [
+      const lines = [
         `📋 투숙객 명단 미입력: ${villa}`,
         `체크인: ${formatDateVi(p.checkIn)} · 예약자: ${str(p.guestName)} (${num(p.guestCount)}명)`,
-        `곧 체크인입니다. 실제 투숙객 명단을 확인·입력하거나 여행사에 안내해주세요.`,
-      ].join("\n");
+      ];
+      // 판매 채널 — 독촉 연락처 즉시 파악용. 직접판매(파트너 없음)면 줄 생략.
+      if (typeof p.partnerName === "string" && p.partnerName.trim().length > 0) {
+        const phone =
+          typeof p.partnerPhone === "string" && p.partnerPhone.trim().length > 0
+            ? ` (${p.partnerPhone.trim()})`
+            : "";
+        lines.push(`판매 채널: ${p.partnerName.trim()}${phone}`);
+      }
+      lines.push(`곧 체크인입니다. 실제 투숙객 명단을 확인·입력하거나 여행사에 안내해주세요.`);
+      return lines.join("\n");
+    }
 
-    case NotificationType.SUPPLIER_DIRECT_BOOKING:
+    case NotificationType.SUPPLIER_DIRECT_BOOKING: {
       // F10 — 수신자=운영자(테오) → 한국어. 공급자가 자기 고객에 직접 판매·기록 → 선착순 점유.
       // 공급자 수금액(supplierSalePriceVnd)은 공급자 정보이므로 알림에 미포함.
-      return [
-        `🏠 공급자 직접예약 등록: ${villa}`,
-        `체크인: ${formatDateVi(p.checkIn)} → 체크아웃: ${formatDateVi(p.checkOut)} · ${num(p.guestCount)}명`,
-        `공급자가 직접 판매한 예약입니다. 해당 날짜는 점유 처리되었습니다.`,
-      ].join("\n");
+      const ref = bookingRef(p.bookingId);
+      const lines = [`🏠 공급자 직접예약 등록: ${villa}`];
+      if (typeof p.supplierName === "string" && p.supplierName.trim().length > 0) {
+        lines.push(`공급자: ${p.supplierName.trim()}`);
+      }
+      lines.push(
+        `체크인: ${formatDateVi(p.checkIn)} → 체크아웃: ${formatDateVi(p.checkOut)} · ${num(p.guestCount)}명`
+      );
+      if (typeof p.guestName === "string" && p.guestName.trim().length > 0) {
+        lines.push(`예약자: ${p.guestName.trim()}${ref ? ` · 예약번호 ${ref}` : ""}`);
+      }
+      lines.push(`공급자가 직접 판매한 예약입니다. 해당 날짜는 점유 처리되었습니다.`);
+      return lines.join("\n");
+    }
 
     case NotificationType.VENDOR_PO: {
       // 수신자=원천 공급자 → 베트남어(vi). 발주(주문) 알림.
-      // ★ 금액(판매가·원가) 미노출 — 공급자는 앱(/vendor)에서 자기 발주만 확인·가부.
+      // ★ 판매가·마진 미노출. costVnd(벤더 자기 정산액=라인 총액)는 벤더 정당 정보라 표기(정산투명성).
       const lines = [`🧺 Đơn đặt hàng mới: ${str(p.itemName)} x${num(p.quantity)}`];
+      // 선택 옵션 — 라벨만(caller가 selectedOptionLabels로 가격 제거 후 전달)
+      if (Array.isArray(p.optionLabels) && p.optionLabels.length > 0) {
+        const labels = p.optionLabels.filter((l): l is string => typeof l === "string" && l.length > 0);
+        if (labels.length > 0) lines.push(`Tùy chọn: ${labels.join(" · ")}`);
+      }
       lines.push(`Địa điểm: ${villa}`);
       // 이행 장소 주소 — 발주받은 빌라 1채의 주소만(재고 비공개 원칙과 무관, 판매가·마진 아님).
       if (typeof p.villaAddress === "string" && p.villaAddress.trim().length > 0) {
         lines.push(`Địa chỉ: ${p.villaAddress.trim()}`);
       }
       if (typeof p.serviceDate === "string" && p.serviceDate.length > 0) {
-        lines.push(`Ngày: ${formatDateVi(p.serviceDate)}`);
+        const time =
+          typeof p.serviceTime === "string" && p.serviceTime.trim().length > 0
+            ? ` ${p.serviceTime.trim()}`
+            : "";
+        lines.push(`Ngày: ${formatDateVi(p.serviceDate)}${time}`);
       }
+      const cost = formatVndVi(p.costVnd);
+      if (cost !== null && cost !== "0") lines.push(`Thanh toán cho bạn: ${cost}₫`);
       // 게스트 요청사항 — 게스트가 직접 쓴 텍스트(판매가·마진 무관, 노출 OK). 이행자에게 전달.
       if (typeof p.guestNote === "string" && p.guestNote.trim().length > 0) {
         lines.push(`Yêu cầu của khách: ${p.guestNote.trim()}`);
@@ -317,6 +395,21 @@ export function buildNotificationText(
       // 수신자=운영자(테오) → 한국어(ko). 공급자 가부 응답 통지.
       const vendorName = str(p.vendorName);
       const itemName = str(p.itemName);
+      // 발주 요약(일정·수량·발주액) — 운영자가 알림만으로 어떤 건인지 특정하도록. 구 payload는 생략.
+      const orderSummary = (() => {
+        const parts: string[] = [];
+        if (typeof p.serviceDate === "string" && p.serviceDate.length > 0) {
+          const time =
+            typeof p.serviceTime === "string" && p.serviceTime.trim().length > 0
+              ? ` ${p.serviceTime.trim()}`
+              : "";
+          parts.push(`일정: ${formatDateVi(p.serviceDate)}${time}`);
+        }
+        if (typeof p.quantity === "number") parts.push(`수량 x${p.quantity}`);
+        const cost = formatVndVi(p.costVnd);
+        if (cost !== null && cost !== "0") parts.push(`발주액 ${cost}₫`);
+        return parts.length > 0 ? parts.join(" · ") : null;
+      })();
       // 일정 협의(propose) — 수락하되 대안 시간 제안. 운영자가 앱에서 적용/무시해야 고객확정 가능.
       if (p.action === "propose") {
         const date = formatDateVi(p.proposedServiceDate);
@@ -324,25 +417,31 @@ export function buildNotificationText(
           typeof p.proposedServiceTime === "string" && p.proposedServiceTime.length > 0
             ? ` ${p.proposedServiceTime}`
             : "";
-        return [
-          `⏰ 공급자 일정 제안: ${vendorName} — ${itemName} (${villa})`,
+        const lines = [`⏰ 공급자 일정 제안: ${vendorName} — ${itemName} (${villa})`];
+        if (orderSummary) lines.push(orderSummary);
+        lines.push(
           `제안: ${date}${time}`,
           `사유: ${str(p.proposalNote, "(메모 없음)")}`,
-          `앱에서 적용/무시하세요.`,
-        ].join("\n");
+          `앱에서 적용/무시하세요.`
+        );
+        return lines.join("\n");
       }
       // 서비스 이행 완료 보고 — 공급자가 /vendor에서 완료 버튼(vendorCompletedAt). 정산 처리 신호.
       if (p.action === "complete") {
-        return `🏁 공급자 서비스 완료: ${vendorName} — ${itemName} (${villa})`;
+        const lines = [`🏁 공급자 서비스 완료: ${vendorName} — ${itemName} (${villa})`];
+        if (orderSummary) lines.push(orderSummary);
+        return lines.join("\n");
       }
       // accepted: accept/propose는 true(수락 계열), reject만 false — 기존 동작 보존.
       if (p.accepted === true) {
-        return `✅ 공급자 수락: ${vendorName} — ${itemName} (${villa})`;
+        const lines = [`✅ 공급자 수락: ${vendorName} — ${itemName} (${villa})`];
+        if (orderSummary) lines.push(orderSummary);
+        return lines.join("\n");
       }
-      return [
-        `❌ 공급자 거절: ${vendorName} — ${itemName} (${villa})`,
-        `사유: ${str(p.rejectReason, "(사유 없음)")}`,
-      ].join("\n");
+      const lines = [`❌ 공급자 거절: ${vendorName} — ${itemName} (${villa})`];
+      if (orderSummary) lines.push(orderSummary);
+      lines.push(`사유: ${str(p.rejectReason, "(사유 없음)")}`);
+      return lines.join("\n");
     }
 
     case NotificationType.VENDOR_PROPOSAL_RESULT: {
@@ -378,14 +477,32 @@ export function buildNotificationText(
           ].join("\n");
     }
 
-    case NotificationType.BOOKING_MODIFIED:
+    case NotificationType.BOOKING_MODIFIED: {
       // 예약 변경(날짜·빌라·인원 등) → 수신자=공급자(vi). 판매가·마진·원가 미포함(화이트리스트 필드만).
-      return [
-        `✏️ Đặt phòng đã thay đổi: ${villa}`,
-        stay,
-        `Số khách: ${num(p.guestCount)}`,
-        `Thông tin đặt phòng đã được cập nhật. Vui lòng kiểm tra lịch trong ứng dụng.`,
-      ].join("\n");
+      const lines = [`✏️ Đặt phòng đã thay đổi: ${villa}`];
+      // 변경 전 일정 — 실제로 날짜가 바뀐 경우에만 비교 표기(구 payload는 prev 미포함 → 생략)
+      const dateChanged =
+        typeof p.prevCheckIn === "string" &&
+        typeof p.prevCheckOut === "string" &&
+        (p.prevCheckIn !== p.checkIn || p.prevCheckOut !== p.checkOut);
+      if (dateChanged) {
+        lines.push(`Lịch cũ: ${formatDateVi(p.prevCheckIn)} → ${formatDateVi(p.prevCheckOut)}`);
+        lines.push(`Lịch mới: ${formatDateVi(p.checkIn)} → ${formatDateVi(p.checkOut)}`);
+      } else {
+        lines.push(stay);
+      }
+      const guestChanged =
+        typeof p.prevGuestCount === "number" &&
+        typeof p.guestCount === "number" &&
+        p.prevGuestCount !== p.guestCount;
+      lines.push(
+        guestChanged
+          ? `Số khách: ${num(p.guestCount)} (trước: ${num(p.prevGuestCount)})`
+          : `Số khách: ${num(p.guestCount)}`
+      );
+      lines.push(`Thông tin đặt phòng đã được cập nhật. Vui lòng kiểm tra lịch trong ứng dụng.`);
+      return lines.join("\n");
+    }
 
     case NotificationType.SECURITY_ALERT: {
       // 수신자=운영자(테오) → 한국어. 보안 이상탐지 경보. 비번·해시·마진·판매가 절대 미포함(category·count·출처만).
@@ -406,15 +523,28 @@ export function buildNotificationText(
       return lines.join("\n");
     }
 
-    case NotificationType.VILLA_PENDING_REVIEW:
+    case NotificationType.VILLA_PENDING_REVIEW: {
       // 수신자=운영자 → 한국어. 공급자 신규 등록/반려 후 재제출 → 승인 대기 통지. 금액 정보 없음.
-      return [
+      const lines = [
         p.resubmitted === true
           ? `🏠 반려 빌라 재제출: ${villa}`
           : `🏠 새 빌라 등록: ${villa}`,
         `공급자: ${str(p.supplierName)}`,
-        `승인 대기 중입니다. 관리자 화면에서 검토해주세요.`,
-      ].join("\n");
+      ];
+      // 규모 요약 — 알림만으로 검토 우선순위 판단(구 payload는 생략)
+      if (typeof p.bedrooms === "number") {
+        const spec = [
+          typeof p.complex === "string" && p.complex.trim().length > 0
+            ? `단지 ${p.complex.trim()}`
+            : null,
+          `침실 ${num(p.bedrooms)} · 욕실 ${num(p.bathrooms)} · 최대 ${num(p.maxGuests)}인`,
+          typeof p.photoCount === "number" ? `사진 ${p.photoCount}장` : null,
+        ].filter(Boolean);
+        lines.push(spec.join(" · "));
+      }
+      lines.push(`승인 대기 중입니다. 관리자 화면에서 검토해주세요.`);
+      return lines.join("\n");
+    }
 
     case NotificationType.VILLA_CONTENT_UPDATED: {
       // 수신자=운영자 → 한국어. 승인(ACTIVE)된 빌라의 사진/비품/규칙 변경 통지. 금액 정보 없음.

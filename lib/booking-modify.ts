@@ -508,6 +508,10 @@ export async function modifyBooking(
             checkIn: nextCheckIn.toISOString().slice(0, 10),
             checkOut: nextCheckOut.toISOString().slice(0, 10),
             guestCount: updated.guestCount,
+            // 변경 전 값 — 문구에서 "전→후" 비교 표기(빌더가 실제 변경 시에만 노출)
+            prevCheckIn: booking.checkIn.toISOString().slice(0, 10),
+            prevCheckOut: booking.checkOut.toISOString().slice(0, 10),
+            prevGuestCount: booking.guestCount,
             changedFields, // 필드명만 — 금액 값 미포함
           },
         },

@@ -76,7 +76,11 @@ function makeFakePrisma(opts: {
       ),
     },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
-    user: { findMany: vi.fn().mockResolvedValue(opts.operators ?? []) },
+    user: {
+      findMany: vi.fn().mockResolvedValue(opts.operators ?? []),
+      // 통지 보강 — 공급자 표시명 조회 (payload.supplierName)
+      findUnique: vi.fn().mockResolvedValue({ name: "Tyy" }),
+    },
     notification: {
       create: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => {
         notifications.push(data);
@@ -155,7 +159,7 @@ describe("createSupplierDirectBooking — 권한·가드 분기", () => {
     expect(created[0].supplierSalePriceVnd).toBeNull();
   });
 
-  it("운영자 통지 payload — 판매가·마진 키 없음(villaName·날짜·인원만)", async () => {
+  it("운영자 통지 payload — 판매가·마진 키 없음(식별 정보 + 날짜·인원만)", async () => {
     const { prisma, notifications } = makeFakePrisma({
       villa: { id: "v1", name: "Sonasea V12", status: "ACTIVE" },
       operators: [{ id: "op1" }],
@@ -164,7 +168,10 @@ describe("createSupplierDirectBooking — 권한·가드 분기", () => {
     expect(notifications).toHaveLength(1);
     const payload = notifications[0].payload as Record<string, unknown>;
     expect(payload).toEqual({
+      bookingId: "bk_1",
       villaName: "Sonasea V12",
+      supplierName: "Tyy",
+      guestName: "Trần Minh",
       checkIn: "2026-07-14",
       checkOut: "2026-07-16",
       guestCount: 6,

@@ -22,6 +22,9 @@ export interface RosterReminderTarget {
   guestName: string;
   guestCount: number;
   token: string | null;
+  /** 판매 채널(파트너명·연락처) — 운영자가 독촉 연락할 곳. 직접판매면 null */
+  partnerName: string | null;
+  partnerPhone: string | null;
 }
 
 /** 체크인 D-3·CONFIRMED·명단 미입력 예약 조회 (VN 타임존 기준) */
@@ -41,7 +44,9 @@ export async function findRosterReminderTargets(
       checkIn: true,
       guestName: true,
       guestCount: true,
+      agencyName: true, // dual-read 폴백 — Partner 승격 전 텍스트 (ADR-0022)
       villa: { select: { name: true } },
+      partner: { select: { name: true, contactPhone: true } },
       proposalItem: { select: { proposal: { select: { token: true } } } },
     },
   });
@@ -52,6 +57,8 @@ export async function findRosterReminderTargets(
     guestName: b.guestName,
     guestCount: b.guestCount,
     token: b.proposalItem?.proposal.token ?? null,
+    partnerName: b.partner?.name ?? b.agencyName ?? null,
+    partnerPhone: b.partner?.contactPhone ?? null,
   }));
 }
 
@@ -97,6 +104,8 @@ export async function runRosterReminders(
           guestName: t.guestName,
           guestCount: t.guestCount,
           token: t.token,
+          partnerName: t.partnerName,
+          partnerPhone: t.partnerPhone,
         },
       });
       notificationCount += 1;

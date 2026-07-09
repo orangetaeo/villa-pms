@@ -203,6 +203,7 @@ export async function PATCH(
                   oldCostVnd: c.oldCostVnd.toString(),
                   newCostVnd: c.newCostVnd === null ? null : c.newCostVnd.toString(),
                   proposalId: pr.id,
+                  proposalCount: activeProposals.length, // 영향받는 유효 제안 수(문구 표기용)
                 },
               }))
             )

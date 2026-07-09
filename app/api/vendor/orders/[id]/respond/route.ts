@@ -84,6 +84,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       vendorStatus: true,
       catalogItemId: true,
       vendorName: true,
+      // 발주 요약(운영자 ko 통지용) — 일정·수량·발주액(costVnd=벤더 정산액, 운영자 정당 열람)
+      serviceDate: true,
+      serviceTime: true,
+      quantity: true,
+      costVnd: true,
       vendor: { select: { name: true, nameKo: true } },
       booking: { select: { villa: { select: { name: true } } } },
     },
@@ -157,6 +162,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     action, // "accept" | "reject" | "propose" — zalo 빌더 분기용
     itemName,
     villaName: order.booking?.villa?.name ?? "—",
+    // 발주 요약 — 운영자가 알림만으로 건 특정(일정·수량·발주액)
+    serviceDate: order.serviceDate ? order.serviceDate.toISOString().slice(0, 10) : null,
+    serviceTime: order.serviceTime ?? null,
+    quantity: order.quantity,
+    costVnd: order.costVnd > 0n ? order.costVnd.toString() : null,
     rejectReason: action === "reject" ? rejectReason?.trim() || undefined : undefined,
     // propose 전용 — 제안 일정·메모(운영자 ko 통지용)
     proposedServiceDate: action === "propose" ? proposedServiceDate ?? undefined : undefined,

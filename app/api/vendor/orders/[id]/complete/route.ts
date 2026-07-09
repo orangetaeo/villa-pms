@@ -37,6 +37,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       vendorCompletedAt: true,
       catalogItemId: true,
       vendorName: true,
+      // 발주 요약(운영자 ko 통지용) — 일정·수량·발주액(정산 처리 신호에 금액 필요)
+      serviceDate: true,
+      serviceTime: true,
+      quantity: true,
+      costVnd: true,
       vendor: { select: { name: true, nameKo: true } },
       booking: { select: { villa: { select: { name: true } } } },
     },
@@ -95,6 +100,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         vendorName: order.vendor?.nameKo || order.vendor?.name || "—",
         itemName,
         villaName: order.booking?.villa?.name ?? "—",
+        // 발주 요약 — 정산 처리 신호(일정·수량·발주액)
+        serviceDate: order.serviceDate ? order.serviceDate.toISOString().slice(0, 10) : null,
+        serviceTime: order.serviceTime ?? null,
+        quantity: order.quantity,
+        costVnd: order.costVnd > 0n ? order.costVnd.toString() : null,
       },
     });
   }

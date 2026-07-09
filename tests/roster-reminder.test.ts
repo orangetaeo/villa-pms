@@ -28,7 +28,9 @@ const aBooking = {
   checkIn: new Date("2026-07-10T00:00:00Z"),
   guestName: "김학태",
   guestCount: 4,
+  agencyName: null,
   villa: { name: "쏘나씨 V11" },
+  partner: { name: "하나투어", contactPhone: "0212345678" },
   proposalItem: { proposal: { token: "tok1" } },
 };
 
@@ -57,7 +59,21 @@ describe("findRosterReminderTargets — 대상 필터", () => {
       guestName: "김학태",
       guestCount: 4,
       token: "tok1",
+      partnerName: "하나투어",
+      partnerPhone: "0212345678",
     });
+  });
+
+  it("파트너 없으면 agencyName 폴백, 둘 다 없으면 null", async () => {
+    mockBooking.findMany.mockResolvedValue([
+      { ...aBooking, partner: null, agencyName: "구여행사텍스트" },
+    ]);
+    const [withAgency] = await findRosterReminderTargets(prisma as never, NOW);
+    expect(withAgency.partnerName).toBe("구여행사텍스트");
+    expect(withAgency.partnerPhone).toBeNull();
+    mockBooking.findMany.mockResolvedValue([{ ...aBooking, partner: null, agencyName: null }]);
+    const [direct] = await findRosterReminderTargets(prisma as never, NOW);
+    expect(direct.partnerName).toBeNull();
   });
 });
 
@@ -95,6 +111,8 @@ describe("runRosterReminders — 운영자 fan-out", () => {
       guestName: "김학태",
       guestCount: 4,
       token: "tok1",
+      partnerName: "하나투어",
+      partnerPhone: "0212345678",
     });
     expect("totalSaleKrw" in arg.payload).toBe(false);
     expect("supplierCostVnd" in arg.payload).toBe(false);

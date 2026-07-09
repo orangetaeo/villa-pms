@@ -10,6 +10,7 @@ import { requireCapability } from "@/lib/api-guard";
 import { canDispatch } from "@/lib/vendor-order";
 import { enqueueNotification } from "@/lib/zalo";
 import { enqueueInAppNotification, buildVendorNotifText, vendorNotifLocale } from "@/lib/inapp-notification";
+import { selectedOptionLabels } from "@/lib/service-display";
 import { NotificationType } from "@prisma/client";
 import { toDateOnlyString } from "@/lib/date-vn";
 
@@ -28,7 +29,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       vendorId: true,
       vendorStatus: true,
       serviceDate: true,
+      serviceTime: true, // 이행 시각 — 발주 문구에 날짜와 병기
       quantity: true,
+      costVnd: true, // 벤더 자기 정산액(라인 총액) — 벤더 정당 정보(판매가·마진 아님)
+      selectedOptions: true, // 옵션 스냅샷 — 라벨만 추출해 전달(가격 제거)
       catalogItemId: true,
       vendorName: true,
       guestNote: true, // 게스트 요청사항 — 발주 본문에 전달(판매가·마진과 무관, 노출 OK)
@@ -89,8 +93,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         villaName: order.booking?.villa?.name ?? "—",
         villaAddress: order.booking?.villa?.address ?? null, // 이행 장소(발주 빌라 1채만)
         serviceDate: order.serviceDate ? toDateOnlyString(order.serviceDate) : null,
+        serviceTime: order.serviceTime ?? null, // 이행 시각
         itemName,
         quantity: order.quantity,
+        // 옵션 라벨만(가격 제거 — selectedOptionLabels가 라벨 필드만 추출) + 벤더 자기 정산액
+        optionLabels: selectedOptionLabels(order.selectedOptions, "vi"),
+        costVnd: order.costVnd > 0n ? order.costVnd.toString() : null,
         guestNote: order.guestNote ?? null, // 게스트 요청사항(있으면 발주 문구에 한 줄 추가)
       },
     });

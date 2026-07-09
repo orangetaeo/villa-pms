@@ -25,6 +25,17 @@ export async function notifyOperatorsVillaPendingReview(
   db: DbClient,
   params: { villaId: string; villaName: string; supplierName: string; resubmitted: boolean }
 ): Promise<void> {
+  // 규모 요약(단지·침실·욕실·정원·사진 수) — 알림만으로 검토 우선순위 판단용. 금액 필드 미조회.
+  const villa = await db.villa.findUnique({
+    where: { id: params.villaId },
+    select: {
+      complex: true,
+      bedrooms: true,
+      bathrooms: true,
+      maxGuests: true,
+      _count: { select: { photos: true } },
+    },
+  });
   const operators = await findNotifiableOperators(db);
   for (const op of operators) {
     await enqueueNotification({
@@ -36,6 +47,15 @@ export async function notifyOperatorsVillaPendingReview(
         villaName: params.villaName,
         supplierName: params.supplierName,
         resubmitted: params.resubmitted,
+        ...(villa
+          ? {
+              complex: villa.complex,
+              bedrooms: villa.bedrooms,
+              bathrooms: villa.bathrooms,
+              maxGuests: villa.maxGuests,
+              photoCount: villa._count.photos,
+            }
+          : {}),
       },
     });
   }

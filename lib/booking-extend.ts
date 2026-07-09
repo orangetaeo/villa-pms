@@ -187,6 +187,7 @@ export async function createLinkedExtensionBooking(
             checkIn: range.checkIn.toISOString().slice(0, 10),
             checkOut: range.checkOut.toISOString().slice(0, 10),
             guestCount: parent.guestCount,
+            guestName: parent.guestName, // 예약자명 — 손님맞이 준비용
           },
         },
       });

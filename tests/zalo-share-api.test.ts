@@ -153,6 +153,18 @@ vi.mock("@/lib/prisma", () => ({
           clientName: "여행사A",
           status: "ACTIVE",
           expiresAt: new Date(Date.now() + 86400000),
+          saleCurrency: "KRW",
+          // 제안 요약 동봉(T-zalo-notify-enrichment) — 빌라·기간·판매가만(원가·마진 없음)
+          items: [
+            {
+              checkIn: new Date("2026-07-15T00:00:00Z"),
+              checkOut: new Date("2026-07-18T00:00:00Z"),
+              totalKrw: 1_450_000,
+              totalVnd: null,
+              totalUsd: null,
+              villa: { name: "쏘나씨 V12", nameVi: null, bedrooms: 3, hasPool: true },
+            },
+          ],
         };
       }),
     },
@@ -336,12 +348,16 @@ describe("S3 빌라 — UNKNOWN 거부", () => {
 });
 
 describe("S2 제안 — 고객 전용", () => {
-  it("고객 대화 허용 200, /p/[token] 링크 발송", async () => {
+  it("고객 대화 허용 200, /p/[token] 링크 발송 + 빌라 요약·판매가 동봉", async () => {
     process.env.NEXTAUTH_URL = "https://app.test";
     const res = await jsonReq("convCust", { type: "PROPOSAL", proposalId: "prop1" });
     expect(res.status).toBe(200);
     const sentText = mockSendText.mock.calls[0][2] as string;
     expect(sentText).toContain("https://app.test/p/tok-abc");
+    expect(sentText).toContain("빌라 1개 · 7.15 ~ 7.18 · 3박");
+    expect(sentText).toContain("침실 3 · 수영장 · 총 ₩1,450,000");
+    // 누수 가드 — 원가·마진 어휘 없음(판매가는 고객 정당 정보)
+    expect(sentText).not.toMatch(/원가|마진|supplierCost/);
   });
   it("공급자 대화 거부 403", async () => {
     const res = await jsonReq("convSup", { type: "PROPOSAL", proposalId: "prop1" });
