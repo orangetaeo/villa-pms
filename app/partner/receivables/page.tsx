@@ -10,6 +10,8 @@ import { loadPartnerReceivables } from "@/lib/partner-portal";
 import { formatVndComma } from "../_format";
 import ReceivablesList from "./receivables-list";
 import InvoicesList from "./invoices-list";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
 export const metadata: Metadata = {
   title: "미수 현황 — Villa Go",
@@ -24,6 +26,8 @@ export default async function PartnerReceivablesPage() {
   if (!partner || partner.approvalStatus !== "APPROVED") redirect("/partner");
 
   const t = await getTranslations("partner");
+  // 코치마크 문구 — RSC 번역 → props (clientMessages 무변경)
+  const tTour = await getTranslations("tour");
   const { receivables, invoices, summary, stats } = await loadPartnerReceivables(partner.id);
   const hasOverdue = BigInt(stats.overdueVnd) > 0n;
 
@@ -35,7 +39,10 @@ export default async function PartnerReceivablesPage() {
       </header>
 
       {/* 요약 카드 — 미수잔액 강조 */}
-      <section className="relative overflow-hidden rounded-2xl bg-teal-600 p-6 text-white shadow-xl">
+      <section
+        data-tour="partner-outstanding"
+        className="relative overflow-hidden rounded-2xl bg-teal-600 p-6 text-white shadow-xl"
+      >
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-teal-500 opacity-20" />
         <div className="relative z-10 space-y-4">
           <div>
@@ -104,13 +111,21 @@ export default async function PartnerReceivablesPage() {
         <ReceivablesList receivables={receivables} />
       </section>
 
-      {/* 청구서 목록 — controlled 페이지네이션(라이트) 클라 래퍼 */}
-      <section className="space-y-3">
+      {/* 청구서 목록 — controlled 페이지네이션(라이트) 클라 래퍼.
+          코치마크 앵커는 항상 렌더되는 이 섹션에(입금통보 버튼은 청구서 행 내부라 0건이면 부재 — FE 회의) */}
+      <section data-tour="partner-invoices" className="space-y-3">
         <h3 className="text-lg font-bold text-neutral-800">
           {t("receivables.invoiceTitle")}
         </h3>
         <InvoicesList invoices={invoices} />
       </section>
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 헤더 "?"로 재생 */}
+      <CoachMark
+        tourId="partnerReceivables"
+        steps={buildTourSteps(tTour, "partnerReceivables")}
+        labels={buildTourLabels(tTour)}
+      />
     </div>
   );
 }

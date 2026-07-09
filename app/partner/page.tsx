@@ -10,6 +10,8 @@ import { getPartnerForUser } from "@/lib/partner-auth";
 import { loadPartnerBookings } from "@/lib/partner-portal";
 import { parsePageParams } from "@/lib/pagination";
 import PartnerBookingsList from "./partner-bookings-list";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
 export const metadata: Metadata = {
   title: "예약 현황 — Villa Go",
@@ -34,6 +36,8 @@ export default async function PartnerBookingsPage({
   if (!partner || partner.approvalStatus !== "APPROVED") redirect("/partner");
 
   const t = await getTranslations("partner");
+  // 코치마크 문구 — RSC 번역 → props (clientMessages 무변경)
+  const tTour = await getTranslations("tour");
 
   // 서버 페이지네이션 (T-partner-scale 1) — URL이 단일 진실(검색·기간·페이지)
   const params = await searchParams;
@@ -74,6 +78,14 @@ export default async function PartnerBookingsPage({
           dateTo={to ?? ""}
         />
       )}
+
+      {/* 코치마크 투어 — 삼항 밖 마운트: 예약 0건 신규 파트너에게도 벨·탭바 스텝은 표시
+          (partner-booking 앵커만 자동 스킵, FE 회의 확정) */}
+      <CoachMark
+        tourId="partnerHome"
+        steps={buildTourSteps(tTour, "partnerHome")}
+        labels={buildTourLabels(tTour)}
+      />
     </div>
   );
 }

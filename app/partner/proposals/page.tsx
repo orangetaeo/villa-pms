@@ -12,6 +12,8 @@ import { formatVillaName } from "@/lib/villa-name";
 import PaginationBar from "@/components/pagination-bar";
 import { parsePageParams } from "@/lib/pagination";
 import { formatDate, formatDayMonth, formatVndDot } from "../_format";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
 /** 제안 통화별 아이템 총액 표기 — 파트너에게 제시된 스냅샷 금액(정당 가격) */
 function formatItemTotal(saleCurrency: string, it: PartnerProposalItemRow): string {
@@ -49,6 +51,8 @@ export default async function PartnerProposalsPage({
   if (!partner || partner.approvalStatus !== "APPROVED") redirect("/partner");
 
   const t = await getTranslations("partner");
+  // 코치마크 문구 — RSC 번역 → props (clientMessages 무변경)
+  const tTour = await getTranslations("tour");
   // 자기 partnerId 스코프 제안서(서버 스코프 유지) — 표시 슬라이스만 추가
   const proposals = await loadPartnerProposals(partner.id);
 
@@ -74,9 +78,11 @@ export default async function PartnerProposalsPage({
         </div>
       ) : (
         <ul className="space-y-3">
-          {pagedProposals.map((p) => (
+          {pagedProposals.map((p, proposalIdx) => (
             <li
               key={p.token}
+              // 코치마크 앵커 — 첫 카드만. 제안 0건이면 투어 자체 미표시(전 앵커 부재)
+              data-tour={proposalIdx === 0 ? "partner-proposal" : undefined}
               className="rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm"
             >
               {/* 헤더 — 개수·만료·상태 + 공개 링크(가예약 실행 경로) */}
@@ -135,6 +141,7 @@ export default async function PartnerProposalsPage({
                 href={`/p/${p.token}`}
                 target="_blank"
                 rel="noopener noreferrer"
+                data-tour={proposalIdx === 0 ? "partner-proposal-open" : undefined}
                 className="mt-3 flex items-center justify-center gap-1.5 rounded-xl border border-teal-200 bg-teal-50 px-3 py-2.5 text-sm font-bold text-teal-700 transition-colors hover:bg-teal-100 active:scale-[0.99]"
               >
                 <span className="material-symbols-outlined text-lg">open_in_new</span>
@@ -147,6 +154,13 @@ export default async function PartnerProposalsPage({
 
       {/* 페이지네이션 — 행 수 요약 + 페이지당 개수(라이트 테마) */}
       <PaginationBar total={proposals.length} page={page} pageSize={pageSize} light />
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 헤더 "?"로 재생 */}
+      <CoachMark
+        tourId="partnerProposals"
+        steps={buildTourSteps(tTour, "partnerProposals")}
+        labels={buildTourLabels(tTour)}
+      />
     </div>
   );
 }

@@ -55,6 +55,39 @@ export const TOURS = {
       { anchor: "cleaning-submit", key: "cleaningDetail.submit" },
     ],
   },
+  // ── 2단계: PARTNER(ko 기본)·VENDOR(vi 기본) — T-tutorial-onboarding-2 ──
+  partnerHome: {
+    route: "/partner",
+    steps: [
+      { anchor: "partner-booking", key: "partnerHome.booking" },
+      { anchor: "partner-bell", key: "partnerHome.bell" },
+      { anchor: "partner-tab-bar", key: "partnerHome.tabs" },
+    ],
+  },
+  partnerReceivables: {
+    route: "/partner/receivables",
+    steps: [
+      { anchor: "partner-outstanding", key: "partnerReceivables.outstanding" },
+      { anchor: "partner-invoices", key: "partnerReceivables.invoices" },
+    ],
+  },
+  partnerProposals: {
+    route: "/partner/proposals",
+    steps: [
+      { anchor: "partner-proposal", key: "partnerProposals.proposal" },
+      { anchor: "partner-proposal-open", key: "partnerProposals.open" },
+    ],
+  },
+  // 벤더 발주함 — 앵커는 즉시 렌더되는 탭 버튼 3개만(카드는 클라 fetch 비동기 → 앵커 금지).
+  // 완료보고는 일정(schedule) 탭 UI에 있으므로 그 스텝 문구가 담당(FE·UX-VN 회의 확정).
+  vendorBoard: {
+    route: "/vendor",
+    steps: [
+      { anchor: "vendor-tab-inbox", key: "vendorBoard.inbox" },
+      { anchor: "vendor-tab-schedule", key: "vendorBoard.schedule" },
+      { anchor: "vendor-tab-settlement", key: "vendorBoard.settlement" },
+    ],
+  },
 } as const satisfies Record<
   string,
   { route: string | null; steps: readonly TourStepDef[] }

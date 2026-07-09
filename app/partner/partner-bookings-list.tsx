@@ -112,12 +112,14 @@ export default function PartnerBookingsList({
         </div>
       ) : (
         <ul className="space-y-3">
-          {bookings.map((b) => {
+          {bookings.map((b, bookingIdx) => {
             const statusStyle = STATUS_STYLE[b.status] ?? "bg-neutral-100 text-neutral-500";
             return (
               <li key={b.id}>
                 <Link
                   href={`/partner/bookings/${b.id}`}
+                  // 코치마크 앵커 — 첫 카드만. 목록이 비면 이 스텝은 자동 스킵
+                  data-tour={bookingIdx === 0 ? "partner-booking" : undefined}
                   className="block rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm transition-transform active:scale-[0.99]"
                 >
                   <div className="flex items-start justify-between gap-3">

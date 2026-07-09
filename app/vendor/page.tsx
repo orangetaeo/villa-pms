@@ -10,6 +10,8 @@ import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import VendorBoard from "@/components/vendor/vendor-board";
 import { getVendorForUser } from "@/lib/vendor-auth";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
 export const metadata: Metadata = {
   title: "Đơn đặt hàng — Villa Go",
@@ -36,7 +38,19 @@ export default async function VendorPage() {
     );
   }
 
-  return <VendorBoard />;
+  // 코치마크 문구 — RSC 번역 → props (화이트리스트 무변경). 승인 게이트 화면엔 미마운트.
+  const tTour = await getTranslations("tour");
+  return (
+    <>
+      <VendorBoard />
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 헤더 "?"로 재생 */}
+      <CoachMark
+        tourId="vendorBoard"
+        steps={buildTourSteps(tTour, "vendorBoard")}
+        labels={buildTourLabels(tTour)}
+      />
+    </>
+  );
 }
 
 // 승인대기·거절 안내 화면 — vi 기본. /vendor/profile(비번변경)은 상태 무관 접근 가능.

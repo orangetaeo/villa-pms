@@ -237,14 +237,22 @@ export default function VendorBoard() {
       </header>
 
       {/* 탭 — 발주함 | 예약현황 | 정산 (라벨 3개, 한 화면 1작업) */}
+      {/* 코치마크 앵커 — 즉시 렌더되는 탭만(카드는 비동기 fetch라 앵커 금지).
+          리터럴 맵: tests/tour-onboarding.test.ts 앵커 실존 검사가 소스 문자열로 찾는다. */}
       <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
         {(["inbox", "schedule", "settlement"] as const).map((key) => {
           const active = tab === key;
           const count = key === "inbox" ? data?.inboxCount ?? 0 : 0;
+          const tourAnchor = {
+            inbox: "vendor-tab-inbox",
+            schedule: "vendor-tab-schedule",
+            settlement: "vendor-tab-settlement",
+          }[key];
           return (
             <button
               key={key}
               type="button"
+              data-tour={tourAnchor}
               onClick={() => {
                 setTab(key);
                 setPage(1);
