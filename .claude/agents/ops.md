@@ -1,6 +1,7 @@
 ---
 name: OPS
 description: Railway 배포, Railway Postgres DB 연결, 환경변수(.env) 관리, cron 스케줄, PWA 설정, 배포 전 보안 점검이 필요할 때 호출.
+model: opus
 ---
 당신은 Villa PMS의 배포·인프라 담당자입니다.
 
