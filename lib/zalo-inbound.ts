@@ -29,7 +29,8 @@ import { translateText, transcribeVoice, translateImage } from "@/lib/gemini";
 // zalo-webhook은 prisma만 의존 → 순환 import 없음.
 import { pushInboundToNike } from "@/lib/zalo-webhook";
 // 실시간(SSE) — 신규 수신 저장 후 ownerAdminId 채널로 "inbound" 신호 발행(인박스 즉시 갱신).
-import { publish as publishRealtime } from "@/lib/realtime-bus";
+// ADR-0032: 세션 보유처(웹=in-process publish / 워커=PG NOTIFY)를 notifyRealtime가 흡수. 기본=현행 publish.
+import { notifyRealtime } from "@/lib/realtime-notify";
 
 // ===================== 순수 함수 층 (단위 테스트 대상) =====================
 
@@ -938,7 +939,7 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
   // 실시간(SSE) — 신규 수신 저장 완료(중복 아님) 후 본인(ownerAdminId) 채널로 "inbound" 신호 발행.
   // 비블로킹·예외 격리: 발행 실패가 저장 결과/리스너에 영향 없게 try/catch로 감싼다(신호일 뿐).
   try {
-    publishRealtime(ownerAdminId, { type: "inbound", conversationId: conversation.id });
+    await notifyRealtime(ownerAdminId, { type: "inbound", conversationId: conversation.id });
   } catch {
     /* 실시간 발행 실패는 무해 — 클라이언트 폴백/다음 신호로 갱신 */
   }
@@ -997,7 +998,7 @@ async function publishInboundTranslated(messageId: string): Promise<void> {
     });
     const ownerAdminId = msg?.conversation?.ownerAdminId;
     if (ownerAdminId) {
-      publishRealtime(ownerAdminId, {
+      await notifyRealtime(ownerAdminId, {
         type: "update",
         conversationId: msg.conversationId,
       });
