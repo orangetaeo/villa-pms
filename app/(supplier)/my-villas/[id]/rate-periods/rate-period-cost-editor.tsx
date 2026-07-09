@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { formatVnd } from "@/app/(supplier)/my-villas/new/wizard-types";
+import { DateField } from "@/components/date-field";
 
 type Season = "LOW" | "HIGH" | "PEAK";
 const SEASONS: Season[] = ["LOW", "HIGH", "PEAK"];
@@ -192,20 +193,24 @@ export default function RatePeriodCostEditor({
             </div>
             {/* 날짜 */}
             <div className="mb-3 flex items-center gap-2">
-              <input
-                type="date"
+              <DateField
                 value={p.startDate}
                 onChange={(e) => patchPeriod(p.localKey, { startDate: e.target.value })}
                 aria-label={t("startDate")}
-                className="flex-1 rounded-lg border border-neutral-200 px-2 py-2 text-sm text-neutral-700 tabular-nums"
+                placeholder={t("datePlaceholder")}
+                placeholderClassName="text-neutral-400"
+                wrapperClassName="flex-1"
+                className="w-full rounded-lg border border-neutral-200 px-2 py-2 text-sm text-neutral-700 tabular-nums"
               />
               <span className="text-neutral-400">~</span>
-              <input
-                type="date"
+              <DateField
                 value={p.endDate}
                 onChange={(e) => patchPeriod(p.localKey, { endDate: e.target.value })}
                 aria-label={t("endDate")}
-                className="flex-1 rounded-lg border border-neutral-200 px-2 py-2 text-sm text-neutral-700 tabular-nums"
+                placeholder={t("datePlaceholder")}
+                placeholderClassName="text-neutral-400"
+                wrapperClassName="flex-1"
+                className="w-full rounded-lg border border-neutral-200 px-2 py-2 text-sm text-neutral-700 tabular-nums"
               />
             </div>
             <CostInput

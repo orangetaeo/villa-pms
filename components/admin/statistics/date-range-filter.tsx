@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { DateField } from "@/components/date-field";
 
 /** 통계 프리셋 키(STATS_PRESET_KEYS와 동일 순서·범위) — nextMonth(미래) 제외 */
 const RANGE_PRESETS = [
@@ -116,24 +117,26 @@ export default function DateRangeFilter({
       >
         <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
           <span>{t("dateFilter.from")}</span>
-          <input
-            type="date"
+          <DateField
             aria-label={t("dateFilter.from")}
             value={from}
             max={to || undefined}
             onChange={(e) => setFrom(e.target.value)}
+            placeholder={t("dateFilter.datePlaceholder")}
+            wrapperClassName=""
             className={inputClass}
           />
         </label>
         <span className="text-slate-600">~</span>
         <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
           <span>{t("dateFilter.to")}</span>
-          <input
-            type="date"
+          <DateField
             aria-label={t("dateFilter.to")}
             value={to}
             min={from || undefined}
             onChange={(e) => setTo(e.target.value)}
+            placeholder={t("dateFilter.datePlaceholder")}
+            wrapperClassName=""
             className={inputClass}
           />
         </label>

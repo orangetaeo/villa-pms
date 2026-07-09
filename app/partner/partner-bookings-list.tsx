@@ -9,6 +9,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import PaginationBar from "@/components/pagination-bar";
 import ListSearch from "@/components/list-search";
+import { DateField } from "@/components/date-field";
 import { formatVillaName } from "@/lib/villa-name";
 import type { PartnerBookingRow } from "@/lib/partner-portal";
 import { formatVndDot, formatDayMonth } from "./_format";
@@ -71,22 +72,26 @@ export default function PartnerBookingsList({
         />
         {/* 날짜(기간) 검색 — 투숙기간이 범위와 겹치는 예약만(서버 where) */}
         <div className="flex items-center gap-2">
-          <input
-            type="date"
+          <DateField
             value={dateFrom}
             max={dateTo || undefined}
             onChange={(e) => setDateParam("from", e.target.value)}
             aria-label={t("bookings.dateFrom")}
-            className="h-10 min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-2.5 text-sm text-neutral-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            placeholder={t("bookings.datePlaceholder")}
+            placeholderClassName="text-neutral-400"
+            wrapperClassName="min-w-0 flex-1"
+            className="h-10 w-full rounded-lg border border-neutral-300 bg-white px-2.5 text-sm text-neutral-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
           />
           <span className="shrink-0 text-sm text-neutral-400">~</span>
-          <input
-            type="date"
+          <DateField
             value={dateTo}
             min={dateFrom || undefined}
             onChange={(e) => setDateParam("to", e.target.value)}
             aria-label={t("bookings.dateTo")}
-            className="h-10 min-w-0 flex-1 rounded-lg border border-neutral-300 bg-white px-2.5 text-sm text-neutral-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+            placeholder={t("bookings.datePlaceholder")}
+            placeholderClassName="text-neutral-400"
+            wrapperClassName="min-w-0 flex-1"
+            className="h-10 w-full rounded-lg border border-neutral-300 bg-white px-2.5 text-sm text-neutral-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
           />
           {(dateFrom || dateTo) && (
             <button

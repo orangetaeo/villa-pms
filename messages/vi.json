@@ -52,6 +52,7 @@
       "noMatch": "Không có kết quả",
       "dateFrom": "Từ ngày",
       "dateTo": "Đến ngày",
+      "datePlaceholder": "Chọn ngày",
       "dateClear": "Xóa ngày",
       "extensionChild": "Đặt phòng gia hạn",
       "extensionParent": "Liên kết {count} đặt gia hạn"
@@ -399,6 +400,7 @@
       "button": "Đề xuất giờ",
       "title": "Đề xuất thời gian khác",
       "hint": "Bạn nhận đơn nhưng muốn đổi thời gian. Quản lý sẽ duyệt.",
+      "datePlaceholder": "Chọn ngày",
       "dateLabel": "Ngày đề xuất",
       "timeLabel": "Giờ (tùy chọn)",
       "notePlaceholder": "Lý do hoặc ghi chú (tùy chọn)",
@@ -817,6 +819,7 @@
           "cancel": "Hủy"
         },
         "delete": "Xóa",
+        "datePlaceholder": "Chọn ngày",
         "confirmDelete": "Xóa bản ghi thanh toán này?",
         "addError": "Lưu thanh toán thất bại.",
         "fxRequired": "Thu {cur} cần nhập tỷ giá."
@@ -891,6 +894,7 @@
       "modify": {
         "title": "Thay đổi đặt phòng",
         "openButton": "Thay đổi",
+        "datePlaceholder": "Chọn ngày",
         "checkedInHint": "Đã nhận phòng. Chỉ có thể đổi ngày trả phòng (kéo dài/rút ngắn lưu trú).",
         "priceNote": "Số tiền sẽ được tính lại tự động trên máy chủ theo ngày/biệt thự mới.",
         "availableHint": "Chỉ hiển thị biệt thự còn trống cho ngày/số khách đã chọn.",
@@ -1177,6 +1181,7 @@
         "removePeriod": "Xóa",
         "startDate": "Ngày bắt đầu",
         "endDate": "Ngày kết thúc",
+        "datePlaceholder": "Chọn ngày",
         "halfOpenHint": "Không gồm ngày kết thúc",
         "addPeriod": "Thêm giai đoạn",
         "invalid": "Các giai đoạn bị trùng hoặc ngày không hợp lệ. Vui lòng kiểm tra."
@@ -1964,6 +1969,7 @@
         "save": "Lưu",
         "saving": "Đang lưu...",
         "cancel": "Hủy",
+        "datePlaceholder": "Chọn ngày",
         "invalidDate": "Vui lòng nhập ngày.",
         "invalidRange": "Ngày bắt đầu phải trước ngày kết thúc."
       },
@@ -2396,6 +2402,7 @@
       "deliver": "Đã giao",
       "cancel": "Hủy"
     },
+    "datePlaceholder": "Chọn ngày",
     "confirmPricePlaceholder": "Giá xác nhận(VND)",
     "addTitle": "Thêm tùy chọn",
     "selectMenu": "Chọn menu",
@@ -2586,6 +2593,7 @@
       "invoices": "Hóa đơn"
     },
     "invoices": {
+      "datePlaceholder": "Chọn ngày",
       "issueAutoNotifyHint": "Khi phát hành, đối tác nhận thông báo tự động (in-app·Zalo). Nút 'Zalo' chỉ để gửi lại kèm PDF.",
       "title": "Hóa đơn thanh toán",
       "hint": "Gộp các khoản phải thu chưa lập hóa đơn theo kỳ và phát hành hóa đơn. Sau khi phát hành, gửi qua PDF/Zalo.",
@@ -2931,6 +2939,7 @@
       "channelFilterAll": "Tất cả kênh",
       "dateBasisLabel": "Loại ngày",
       "stayRangeLabel": "Thời gian lưu trú",
+      "datePlaceholder": "Chọn ngày",
       "createdRangeLabel": "Ngày tạo",
       "dateFrom": "Từ",
       "dateTo": "Đến",
@@ -3496,6 +3505,7 @@
     "save": "Lưu",
     "saving": "Đang lưu...",
     "baseCostRequired": "Vui lòng nhập giá gốc cơ bản.",
+    "datePlaceholder": "Chọn ngày",
     "periodIncomplete": "Vui lòng nhập đầy đủ ngày và giá gốc cho mỗi giai đoạn.",
     "invalid": "Các giai đoạn bị trùng hoặc ngày không hợp lệ.",
     "saveError": "Lưu thất bại. Vui lòng thử lại.",
@@ -3814,6 +3824,7 @@
       }
     },
     "dateFilter": {
+      "datePlaceholder": "Chọn ngày",
       "from": "Từ ngày",
       "to": "Đến ngày",
       "apply": "Áp dụng",
@@ -4176,6 +4187,7 @@
       "revoked": "Đã hủy"
     },
     "dateRequired": "Vui lòng chọn ngày nhận và trả phòng.",
+    "datePlaceholder": "Chọn ngày",
     "dateOrder": "Ngày trả phòng phải sau ngày nhận phòng.",
     "priceNotSet": "Bạn chưa đặt giá bán cho giai đoạn này. Hãy nhập giá bán trước.",
     "goSetPrice": "Nhập giá bán",

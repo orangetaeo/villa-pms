@@ -52,6 +52,7 @@
       "noMatch": "검색 결과가 없습니다",
       "dateFrom": "시작일",
       "dateTo": "종료일",
+      "datePlaceholder": "날짜 선택",
       "dateClear": "날짜 지우기",
       "extensionChild": "연장 예약",
       "extensionParent": "연장 {count}건 연결"
@@ -399,6 +400,7 @@
       "button": "시간 제안",
       "title": "대안 시간 제안",
       "hint": "발주는 수락하되 시간 변경을 제안합니다. 운영자가 검토합니다.",
+      "datePlaceholder": "날짜 선택",
       "dateLabel": "제안 날짜",
       "timeLabel": "시각(선택)",
       "notePlaceholder": "사유·메모(선택)",
@@ -703,6 +705,7 @@
           "cancel": "취소"
         },
         "delete": "삭제",
+        "datePlaceholder": "날짜 선택",
         "confirmDelete": "이 결제 기록을 삭제할까요?",
         "addError": "결제 저장에 실패했습니다.",
         "fxRequired": "{cur} 수납은 환율 입력이 필요합니다."
@@ -777,6 +780,7 @@
       "modify": {
         "title": "예약 변경",
         "openButton": "변경하기",
+        "datePlaceholder": "날짜 선택",
         "checkedInHint": "체크인 완료 상태입니다. 체크아웃일(체류 연장/단축)만 변경할 수 있어요.",
         "priceNote": "금액은 변경된 날짜·빌라로 서버에서 자동 재계산됩니다.",
         "availableHint": "선택한 날짜·인원에 가용한 빌라만 표시됩니다.",
@@ -1063,6 +1067,7 @@
         "removePeriod": "삭제",
         "startDate": "시작일",
         "endDate": "종료일",
+        "datePlaceholder": "날짜 선택",
         "halfOpenHint": "종료일 제외",
         "addPeriod": "기간 추가",
         "invalid": "기간이 겹치거나 날짜가 올바르지 않습니다. 확인해주세요."
@@ -1850,6 +1855,7 @@
         "save": "저장",
         "saving": "저장 중...",
         "cancel": "취소",
+        "datePlaceholder": "날짜 선택",
         "invalidDate": "날짜를 입력해주세요.",
         "invalidRange": "시작일은 종료일보다 앞서야 합니다."
       },
@@ -2282,6 +2288,7 @@
       "deliver": "제공완료",
       "cancel": "취소"
     },
+    "datePlaceholder": "날짜 선택",
     "confirmPricePlaceholder": "확정가(VND)",
     "addTitle": "옵션 추가",
     "selectMenu": "메뉴 선택",
@@ -2472,6 +2479,7 @@
       "invoices": "청구서"
     },
     "invoices": {
+      "datePlaceholder": "날짜 선택",
       "issueAutoNotifyHint": "발행 시 파트너에게 자동 알림(인앱·Zalo)이 발송됩니다. 'Zalo' 버튼은 PDF 첨부 재발송용입니다.",
       "title": "마감 청구서",
       "hint": "미청구 잔금 채권을 기간으로 묶어 청구서를 발행합니다. 발행 후 PDF·Zalo로 발송하세요.",
@@ -2817,6 +2825,7 @@
       "channelFilterAll": "전체 채널",
       "dateBasisLabel": "날짜 기준",
       "stayRangeLabel": "숙박 기간",
+      "datePlaceholder": "날짜 선택",
       "createdRangeLabel": "생성일",
       "dateFrom": "시작",
       "dateTo": "종료",
@@ -3382,6 +3391,7 @@
     "save": "저장",
     "saving": "저장 중...",
     "baseCostRequired": "기본요금 원가를 입력하세요.",
+    "datePlaceholder": "날짜 선택",
     "periodIncomplete": "각 기간의 날짜와 원가를 모두 입력하세요.",
     "invalid": "기간이 겹치거나 날짜가 올바르지 않습니다.",
     "saveError": "저장에 실패했습니다. 다시 시도하세요.",
@@ -3814,6 +3824,7 @@
       }
     },
     "dateFilter": {
+      "datePlaceholder": "날짜 선택",
       "from": "시작일",
       "to": "종료일",
       "apply": "기간 적용",
@@ -4176,6 +4187,7 @@
       "revoked": "취소됨"
     },
     "dateRequired": "체크인·체크아웃 날짜를 선택하세요.",
+    "datePlaceholder": "날짜 선택",
     "dateOrder": "체크아웃은 체크인 이후여야 합니다.",
     "priceNotSet": "이 기간 판매가를 먼저 입력하세요.",
     "goSetPrice": "판매가 입력",

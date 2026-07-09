@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { formatThousands, formatDateTime } from "@/lib/format";
+import { DateField } from "@/components/date-field";
 import {
   parseCatalogOptions,
   resolveOrderPricing,
@@ -1023,13 +1024,13 @@ function AddOrderForm({
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="text-xs text-slate-500">{t("serviceDate")}</label>
-            <input
-              type="date"
+            <DateField
               min={dateMin}
               max={dateMax}
               value={serviceDate}
               onChange={(e) => setServiceDate(e.target.value)}
               aria-label={t("serviceDate")}
+              placeholder={t("datePlaceholder")}
               className={`mt-1 ${selCls}`}
             />
           </div>

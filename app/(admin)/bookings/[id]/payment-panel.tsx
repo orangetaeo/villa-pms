@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { DateField } from "@/components/date-field";
 
 type Currency = "KRW" | "VND" | "USD";
 const METHODS = ["KR_BANK_TRANSFER", "VN_BANK_TRANSFER", "CASH"] as const;
@@ -272,10 +273,10 @@ export default function PaymentPanel({
               </label>
               <label className="text-sm">
                 <span className="block text-[11px] text-admin-muted mb-1">{t("form.receivedAt")}</span>
-                <input
-                  type="date"
+                <DateField
                   value={receivedAt}
                   onChange={(e) => setReceivedAt(e.target.value)}
+                  placeholder={t("datePlaceholder")}
                   className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white"
                 />
               </label>

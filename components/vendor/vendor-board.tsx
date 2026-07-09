@@ -9,6 +9,7 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import ListSearch from "@/components/list-search";
 import PaginationBar from "@/components/pagination-bar";
+import { DateField } from "@/components/date-field";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 
 type VendorStatus = "PENDING_VENDOR" | "VENDOR_ACCEPTED" | "VENDOR_REJECTED" | null;
@@ -998,14 +999,16 @@ function ProposeSheet({
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="text-xs font-medium text-neutral-500">{t("propose.dateLabel")}</label>
-            <input
-              type="date"
+            <DateField
               value={date}
               min={dateMin}
               max={dateMax}
               onChange={(e) => setDate(e.target.value)}
               aria-label={t("propose.dateLabel")}
-              className="mt-1 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-3 text-base text-neutral-900 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+              placeholder={t("propose.datePlaceholder")}
+              placeholderClassName="text-neutral-400"
+              wrapperClassName="mt-1 w-full"
+              className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-3 text-base text-neutral-900 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
             />
           </div>
           <div>

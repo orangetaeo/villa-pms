@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { formatVnd } from "@/app/(supplier)/my-villas/new/wizard-types";
+import { DateField } from "@/components/date-field";
 
 export interface SupplierSellLinkItem {
   token: string;
@@ -187,11 +188,12 @@ export default function SellLinkClient({
             <label className="mb-1 block text-xs font-semibold text-neutral-500">
               {t("checkIn")}
             </label>
-            <input
-              type="date"
+            <DateField
               value={checkIn}
               onChange={(e) => setCheckIn(e.target.value)}
               aria-label={t("checkIn")}
+              placeholder={t("datePlaceholder")}
+              placeholderClassName="text-neutral-400"
               className="w-full rounded-xl border-2 border-neutral-100 bg-white px-3 py-3 text-sm font-semibold text-neutral-700 tabular-nums outline-none focus:border-teal-400"
             />
           </div>
@@ -199,11 +201,12 @@ export default function SellLinkClient({
             <label className="mb-1 block text-xs font-semibold text-neutral-500">
               {t("checkOut")}
             </label>
-            <input
-              type="date"
+            <DateField
               value={checkOut}
               onChange={(e) => setCheckOut(e.target.value)}
               aria-label={t("checkOut")}
+              placeholder={t("datePlaceholder")}
+              placeholderClassName="text-neutral-400"
               className="w-full rounded-xl border-2 border-neutral-100 bg-white px-3 py-3 text-sm font-semibold text-neutral-700 tabular-nums outline-none focus:border-teal-400"
             />
           </div>

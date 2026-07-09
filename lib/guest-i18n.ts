@@ -97,6 +97,7 @@ export interface GuestLabels {
     goNext: string; // 옵션 없이 다음
     // 희망 날짜·시간(신규)
     serviceDateLabel: string; // "희망 날짜"
+    serviceDatePlaceholder: string; // 빈 날짜칸 안내(iOS Safari 공백 렌더 보완) "날짜 선택"
     serviceTimeLabel: string; // "희망 시간"
     serviceTimePlaceholder: string; // "예: 14:00"
     noteLabel: string; // "요청사항 (선택)" — 게스트 특이사항(이행자 전달용)
@@ -252,6 +253,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       variantRequired: "옵션을 선택해주세요",
       goNext: "옵션 없이 완료",
       serviceDateLabel: "희망 날짜",
+      serviceDatePlaceholder: "날짜 선택",
       serviceTimeLabel: "희망 시간",
       serviceTimePlaceholder: "예: 14:00",
       noteLabel: "요청사항 (선택)",
@@ -395,6 +397,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       variantRequired: "Please choose an option",
       goNext: "Finish without options",
       serviceDateLabel: "Preferred date",
+      serviceDatePlaceholder: "Select date",
       serviceTimeLabel: "Preferred time",
       serviceTimePlaceholder: "e.g. 14:00",
       noteLabel: "Special request (optional)",
@@ -538,6 +541,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       variantRequired: "Выберите опцию",
       goNext: "Завершить без опций",
       serviceDateLabel: "Желаемая дата",
+      serviceDatePlaceholder: "Выберите дату",
       serviceTimeLabel: "Желаемое время",
       serviceTimePlaceholder: "напр. 14:00",
       noteLabel: "Особые пожелания (необязательно)",
@@ -681,6 +685,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       variantRequired: "请选择选项",
       goNext: "不选选项直接完成",
       serviceDateLabel: "期望日期",
+      serviceDatePlaceholder: "选择日期",
       serviceTimeLabel: "期望时间",
       serviceTimePlaceholder: "例如 14:00",
       noteLabel: "特殊要求（选填）",
@@ -824,6 +829,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       variantRequired: "Vui lòng chọn tùy chọn",
       goNext: "Hoàn tất không chọn tùy chọn",
       serviceDateLabel: "Ngày mong muốn",
+      serviceDatePlaceholder: "Chọn ngày",
       serviceTimeLabel: "Giờ mong muốn",
       serviceTimePlaceholder: "vd: 14:00",
       noteLabel: "Yêu cầu thêm (không bắt buộc)",

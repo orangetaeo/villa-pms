@@ -9,6 +9,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { DateField } from "@/components/date-field";
 
 export interface SeasonRow {
   id: string;
@@ -260,11 +261,11 @@ export default function SeasonManager({ periods }: { periods: SeasonRow[] }) {
               <span className="block text-xs font-medium text-slate-400 mb-1.5">
                 {t("form.startDate")}
               </span>
-              <input
-                type="date"
+              <DateField
                 lang={locale}
                 onClick={openDatePicker}
                 {...register("startDate")}
+                placeholder={t("form.datePlaceholder")}
                 className={`${inputClass} cursor-pointer`}
               />
             </label>
@@ -272,11 +273,11 @@ export default function SeasonManager({ periods }: { periods: SeasonRow[] }) {
               <span className="block text-xs font-medium text-slate-400 mb-1.5">
                 {t("form.endDate")}
               </span>
-              <input
-                type="date"
+              <DateField
                 lang={locale}
                 onClick={openDatePicker}
                 {...register("endDate")}
+                placeholder={t("form.datePlaceholder")}
                 className={`${inputClass} cursor-pointer`}
               />
             </label>

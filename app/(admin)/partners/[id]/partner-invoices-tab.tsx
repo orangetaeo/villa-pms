@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { formatVnd } from "@/lib/format";
 import PaginationBar from "@/components/pagination-bar";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
+import { DateField } from "@/components/date-field";
 
 interface InvoiceRow {
   id: string;
@@ -243,19 +244,19 @@ export default function PartnerInvoicesTab({ partnerId }: { partnerId: string })
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-xs text-slate-400">
             {t("periodStart")}
-            <input
-              type="date"
+            <DateField
               value={periodStart}
               onChange={(e) => setPeriodStart(e.target.value)}
+              placeholder={t("datePlaceholder")}
               className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-slate-400">
             {t("periodEnd")}
-            <input
-              type="date"
+            <DateField
               value={periodEnd}
               onChange={(e) => setPeriodEnd(e.target.value)}
+              placeholder={t("datePlaceholder")}
               className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
             />
           </label>

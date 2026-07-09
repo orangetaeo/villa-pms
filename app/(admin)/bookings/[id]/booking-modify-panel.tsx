@@ -7,6 +7,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { BookingStatus } from "@prisma/client";
+import { DateField } from "@/components/date-field";
 
 export interface VillaOption {
   id: string;
@@ -448,22 +449,22 @@ export default function BookingModifyPanel({
             {/* 체크인 */}
             <div>
               <label className={labelCls}>{t("fields.checkIn")}</label>
-              <input
-                type="date"
+              <DateField
                 value={checkIn}
                 disabled={checkoutOnly}
                 onChange={(e) => setCheckIn(e.target.value)}
+                placeholder={t("datePlaceholder")}
                 className={inputCls}
               />
             </div>
             {/* 체크아웃 — 항상 활성 */}
             <div>
               <label className={labelCls}>{t("fields.checkOut")}</label>
-              <input
-                type="date"
+              <DateField
                 value={checkOut}
                 min={checkIn}
                 onChange={(e) => setCheckOut(e.target.value)}
+                placeholder={t("datePlaceholder")}
                 className={inputCls}
               />
             </div>

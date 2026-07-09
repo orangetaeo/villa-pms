@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { formatThousands } from "@/lib/format";
 import CollapsibleCard from "@/components/admin/collapsible-card";
+import { DateField } from "@/components/date-field";
 
 type Season = "LOW" | "HIGH" | "PEAK";
 type MarginType = "PERCENT" | "FIXED_VND";
@@ -256,19 +257,21 @@ export default function RatePeriodEditor({
               </div>
               {/* 날짜 범위 */}
               <div className="flex items-center gap-2 mb-3">
-                <input
-                  type="date"
+                <DateField
                   value={p.startDate}
                   onChange={(e) => patchPeriod(p.id, { startDate: e.target.value })}
                   aria-label={t("startDate")}
+                  placeholder={t("datePlaceholder")}
+                  wrapperClassName=""
                   className="bg-slate-900 border border-slate-700 rounded-lg px-2 h-9 text-xs text-slate-200 tabular-nums focus:ring-1 focus:ring-blue-500"
                 />
                 <span className="text-slate-500 text-xs">~</span>
-                <input
-                  type="date"
+                <DateField
                   value={p.endDate}
                   onChange={(e) => patchPeriod(p.id, { endDate: e.target.value })}
                   aria-label={t("endDate")}
+                  placeholder={t("datePlaceholder")}
+                  wrapperClassName=""
                   className="bg-slate-900 border border-slate-700 rounded-lg px-2 h-9 text-xs text-slate-200 tabular-nums focus:ring-1 focus:ring-blue-500"
                 />
                 <span className="text-[10px] text-slate-500">{t("halfOpenHint")}</span>

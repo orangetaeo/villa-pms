@@ -12,6 +12,7 @@ import {
 } from "@/lib/service-catalog";
 import { fulfillmentNote } from "@/lib/guest-fulfillment";
 import { catalogImage } from "@/lib/service-image";
+import { DateField } from "@/components/date-field";
 import type { GuestLabels } from "@/lib/guest-i18n";
 import { guestVndPrice, guestVndDelta } from "./guest-format";
 import type { GuestCatalogView, GuestOption } from "./types";
@@ -290,14 +291,15 @@ export function OptionCard({
               <label className="text-[11px] font-bold text-slate-500 mb-1 block">
                 {labels.serviceDateLabel} <span className="text-rose-500">*</span>
               </label>
-              <input
-                type="date"
+              <DateField
                 min={dateMin}
                 max={dateMax}
                 aria-label={labels.serviceDateLabel}
                 title={labels.serviceDateLabel}
                 value={selection.serviceDate ?? ""}
                 onChange={(e) => onChange({ ...selection, serviceDate: e.target.value || null })}
+                placeholder={labels.serviceDatePlaceholder}
+                placeholderClassName="text-neutral-400"
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:ring-teal-500 focus:border-teal-500"
               />
             </div>

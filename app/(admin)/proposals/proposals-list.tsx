@@ -15,6 +15,7 @@ import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { formatThousands, formatVnd } from "@/lib/format";
 import { quickRangeWhere } from "@/lib/date-vn";
 import QuickDateFilter from "@/components/admin/quick-date-filter";
+import { DateField } from "@/components/date-field";
 
 type ProposalStatus = "ACTIVE" | "USED" | "EXPIRED" | "REVOKED";
 type Channel = "TRAVEL_AGENCY" | "LAND_AGENCY" | "DIRECT";
@@ -476,21 +477,23 @@ export default function ProposalsList() {
               <option value="stay">{t("stayRangeLabel")}</option>
               <option value="created">{t("createdRangeLabel")}</option>
             </select>
-            <input
-              type="date"
+            <DateField
               value={dateFrom}
               max={dateTo || undefined}
               onChange={(e) => setDateFrom(e.target.value)}
               aria-label={`${t(dateMode === "stay" ? "stayRangeLabel" : "createdRangeLabel")} ${t("dateFrom")}`}
+              placeholder={t("datePlaceholder")}
+              wrapperClassName=""
               className="bg-admin-card border border-admin-border text-sm text-slate-300 rounded-lg px-2.5 py-1.5 [color-scheme:dark] focus:ring-1 focus:ring-admin-primary focus:border-admin-primary"
             />
             <span className="text-admin-muted text-xs">~</span>
-            <input
-              type="date"
+            <DateField
               value={dateTo}
               min={dateFrom || undefined}
               onChange={(e) => setDateTo(e.target.value)}
               aria-label={`${t(dateMode === "stay" ? "stayRangeLabel" : "createdRangeLabel")} ${t("dateTo")}`}
+              placeholder={t("datePlaceholder")}
+              wrapperClassName=""
               className="bg-admin-card border border-admin-border text-sm text-slate-300 rounded-lg px-2.5 py-1.5 [color-scheme:dark] focus:ring-1 focus:ring-admin-primary focus:border-admin-primary"
             />
           </div>
