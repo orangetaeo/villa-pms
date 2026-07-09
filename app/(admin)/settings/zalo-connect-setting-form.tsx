@@ -73,6 +73,7 @@ export default function ZaloConnectSettingForm({ initial }: { initial: ZaloConne
     handleSubmit,
     setValue,
     watch,
+    reset,
     formState: { isSubmitting, isDirty, errors },
   } = useForm<ZaloFormValues>({
     resolver: zodResolver(zaloFormSchema),
@@ -116,6 +117,8 @@ export default function ZaloConnectSettingForm({ initial }: { initial: ZaloConne
       });
       if (!res.ok) throw new Error(`HTTP_${res.status}`);
       setMessage({ ok: true, text: t("saved") });
+      // isDirty 기준선 재설정 — 저장 직후 같은 세션에서 비우기→저장이 disabled로 무시되는 것 방지
+      reset(values);
       router.refresh();
     } catch {
       setMessage({ ok: false, text: t("error") });
