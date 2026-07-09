@@ -921,6 +921,7 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
   });
 
   // 5) 전화번호 매칭 (T3.7) — 시스템봇 수신만(전역 온보딩, D4) + 아직 User 미연결인 대화만.
+  //    대상 role: SUPPLIER·CLEANER·VENDOR·PARTNER (모두 Zalo 알림 수신 대상 — 역할별 QR 온보딩 커버리지).
   //    개인 계정 수신은 User.zaloUserId(전역) 오염 방지 위해 매칭 스킵.
   //    ADR-0010 S4: 그룹(GROUP)은 다중 발신자라 한 zaloUserId(=그룹 id)에 여러 사람이 섞인다.
   //    그룹 id를 특정 User.zaloUserId로 매칭하면 전역 오염되므로 그룹은 자동 매칭을 스킵한다.
@@ -928,7 +929,7 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
   if (isSystemBot && !isGroup && !conversation.userId) {
     const phone = senderPhone ?? extractPhone(text);
     if (phone) {
-      matchedUserId = await tryMatchSupplierByPhone(
+      matchedUserId = await tryMatchUserByPhone(
         conversation.id,
         senderZaloUserId,
         phone
@@ -1320,26 +1321,32 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
 }
 
 /**
- * 전화번호로 SUPPLIER User 조회 → 매칭 시 User.zaloUserId + ZaloConversation.userId 연결.
+ * 전화번호로 알림 수신 대상 User 조회 → 매칭 시 User.zaloUserId + ZaloConversation.userId 연결.
+ * 대상 role: SUPPLIER·CLEANER·VENDOR·PARTNER (모두 Zalo 알림 수신 대상 — 역할별 QR 온보딩 커버리지).
+ * PARTNER면 같은 트랜잭션에서 연결된 Partner.contactZaloUid도 비어있을 때만 채운다(수동 세팅 존중).
  * 자동 매칭 실패(미발견·이미 다른 zaloUserId 점유·충돌)는 무시 — ADMIN 수동 매칭(T1.8) fallback.
  * @returns 매칭된 userId 또는 null
  */
-async function tryMatchSupplierByPhone(
+async function tryMatchUserByPhone(
   conversationId: string,
   senderZaloUserId: string,
   phone: string
 ): Promise<string | null> {
-  // 동일 번호의 SUPPLIER 후보 (정확 일치). phone @unique이므로 0~1건.
+  // 동일 번호의 알림 수신 대상 후보 (정확 일치). phone @unique이므로 0~1건.
   const candidate = await prisma.user.findFirst({
-    where: { role: Role.SUPPLIER, phone, isActive: true },
-    select: { id: true, zaloUserId: true },
+    where: {
+      role: { in: [Role.SUPPLIER, Role.CLEANER, Role.VENDOR, Role.PARTNER] },
+      phone,
+      isActive: true,
+    },
+    select: { id: true, zaloUserId: true, role: true },
   });
   if (!candidate) return null;
   // 이미 다른 Zalo 계정에 연결된 사용자면 자동 덮어쓰기 금지(충돌 → 수동 처리)
   if (candidate.zaloUserId && candidate.zaloUserId !== senderZaloUserId) return null;
 
   try {
-    await prisma.$transaction([
+    const ops: Prisma.PrismaPromise<unknown>[] = [
       prisma.user.update({
         where: { id: candidate.id },
         data: { zaloUserId: senderZaloUserId },
@@ -1348,7 +1355,17 @@ async function tryMatchSupplierByPhone(
         where: { id: conversationId },
         data: { userId: candidate.id },
       }),
-    ]);
+    ];
+    // PARTNER: 연결된 Partner의 contactZaloUid가 비어있을 때만 같은 uid로 채움(기존 값·수동 세팅 존중).
+    if (candidate.role === Role.PARTNER) {
+      ops.push(
+        prisma.partner.updateMany({
+          where: { userId: candidate.id, contactZaloUid: null },
+          data: { contactZaloUid: senderZaloUserId },
+        })
+      );
+    }
+    await prisma.$transaction(ops);
     return candidate.id;
   } catch {
     // zaloUserId/userId @unique 경합 등 — 자동 매칭 실패는 조용히 무시(수동 fallback)

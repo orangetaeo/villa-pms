@@ -1,6 +1,7 @@
 "use client";
 
 // /zalo-connect 액션부 (a0 Primary Action + QR + 스킵) — 클라이언트(딥링크/라우팅)
+// 문구는 전부 props로 받으므로 useTranslations 미사용 → 포털별 NextIntlClientProvider 화이트리스트 무관.
 import { useRouter } from "next/navigation";
 
 export function ZaloConnectActions({
@@ -22,7 +23,7 @@ export function ZaloConnectActions({
   qrUrl?: string | null;
   qrPlaceholder?: string;
   skipLabel: string;
-  /** 완료/스킵 후 이동 경로 — 공급자=/my-villas, 청소직원=/cleaning(역할별). */
+  /** 완료/스킵 후 이동 경로 — 공급자=/my-villas, 청소직원=/cleaning, 벤더=/vendor, 파트너=/partner(역할별). */
   doneHref?: string;
 }) {
   const router = useRouter();

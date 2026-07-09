@@ -3469,7 +3469,7 @@
     "connectedDesc": "Bạn sẽ nhận thông báo đặt phòng và cập nhật qua Zalo.",
     "profileCardTitle": "Thông báo Zalo",
     "profileConnected": "Đã kết nối — đang nhận thông báo",
-    "profileNotConnected": "Kết nối để nhận thông báo dọn dẹp"
+    "profileNotConnected": "Kết nối để nhận thông báo"
   },
   "adminZalo": {
     "title": "Kết nối Bot Zalo",
