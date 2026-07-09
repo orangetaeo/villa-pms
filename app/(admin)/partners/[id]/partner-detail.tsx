@@ -166,6 +166,8 @@ export default function PartnerDetailView({
       header: t("rcv.total"),
       className: "text-right tabular-nums",
       headerClassName: "text-right",
+      // 모바일 카드에서는 접힘 요약(cardSummary)에 금액을 크게 노출 — 펼침 본문 중복 방지
+      hideOnCard: true,
       cell: (r) => formatVnd(r.totalVnd),
     },
     {
@@ -178,6 +180,8 @@ export default function PartnerDetailView({
     {
       key: "status",
       header: t("rcv.status"),
+      // 모바일 카드에서는 접힘 요약(cardSummary)에 상태를 최우선 노출 — 펼침 본문 중복 방지
+      hideOnCard: true,
       cell: (r) => (
         <span className="inline-flex flex-wrap items-center gap-1">
           <span className={`inline-block rounded px-2 py-0.5 text-[11px] font-bold ${RECEIVABLE_BADGE[r.status] ?? ""}`}>
@@ -197,6 +201,29 @@ export default function PartnerDetailView({
       ),
     },
   ];
+
+  // 모바일 접힘 카드 요약: 상태(완납 여부)를 최우선, 금액을 그다음 크게. 나머지(기한·입금)는 펼침.
+  const receivableSummary = (r: SerializedPartnerDetail["receivables"][number]) => (
+    <div className="flex items-center justify-between gap-3">
+      <span className="inline-flex flex-wrap items-center gap-1 min-w-0">
+        <span className={`inline-block rounded px-2 py-0.5 text-[11px] font-bold ${RECEIVABLE_BADGE[r.status] ?? ""}`}>
+          {t(`receivableStatus.${r.status}`)}
+        </span>
+        {r.bookingCancelled && (
+          <span
+            title={t("rcv.cancelledLeftHint")}
+            className="inline-flex items-center gap-0.5 rounded px-2 py-0.5 text-[11px] font-bold bg-rose-500/15 text-rose-300"
+          >
+            <span className="material-symbols-outlined text-[12px]">warning</span>
+            {t("rcv.cancelledLeft")}
+          </span>
+        )}
+      </span>
+      <span className="shrink-0 text-right text-sm font-bold text-slate-100 tabular-nums">
+        {formatVnd(r.totalVnd)}
+      </span>
+    </div>
+  );
 
   const bookingCols: ResponsiveColumn<SerializedPartnerDetail["bookings"][number]>[] = [
     {
@@ -395,6 +422,7 @@ export default function PartnerDetailView({
               columns={receivableCols}
               rows={pagedReceivables}
               rowKey={(r) => r.id}
+              cardSummary={receivableSummary}
               emptyMessage={t("noReceivables")}
             />
             <PaginationBar
