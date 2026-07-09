@@ -19,6 +19,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ClassifyBanner, CounterpartyDropdown } from "./counterparty-control";
@@ -2601,6 +2602,11 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
+// 첨부 대기열 항목 — 붙여넣기·드래그앤드롭으로 들어온 파일. 이미지는 썸네일용 objectURL 보유.
+type PendingAttachment = { id: number; file: File; url: string | null; isImage: boolean };
+// 한 번에 대기열에 둘 수 있는 최대 첨부 수 — 순차 업로드라 과다 적재 방지.
+const MAX_PENDING_ATTACH = 10;
+
 function Composer({
   conversationId,
   windowOpen,
@@ -2693,70 +2699,170 @@ function Composer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text]);
 
-  // ── 이미지 붙여넣기(Ctrl+V) — 클립보드 이미지 → 미리보기 카드 → 전송 확인 후 발송 ──
-  // 오전송 방지를 위해 붙여넣기 즉시 보내지 않고 미리보기→전송 2단계. 업로드는 첨부 메뉴의
-  // 사진과 동일 파이프라인(resizeImage → share 라우트)이라 상대에게는 일반 사진으로 발송된다.
-  const [pastedImage, setPastedImage] = useState<{ file: File; url: string } | null>(null);
+  // ── 첨부 대기열 — 붙여넣기(Ctrl+V)·드래그앤드롭 공통 진입점 ──
+  // 오전송 방지를 위해 즉시 보내지 않고 미리보기→전송 2단계. 업로드는 첨부 메뉴와 동일 파이프라인:
+  // 이미지 = resizeImage → share photo 경로 / 비이미지 = type=FILE 경로(에러코드별 안내).
+  const [pendingFiles, setPendingFiles] = useState<PendingAttachment[]>([]);
   const [sendingImage, setSendingImage] = useState(false);
+  const pendingSeqRef = useRef(0);
 
-  function handlePastedFile(file: File) {
-    setPastedImage((prev) => {
-      if (prev) URL.revokeObjectURL(prev.url); // 이전 미리보기 objectURL 누수 방지(교체)
-      return { file, url: URL.createObjectURL(file) };
+  function addPendingFiles(files: File[]) {
+    if (files.length === 0) return;
+    const room = MAX_PENDING_ATTACH - pendingFiles.length;
+    const take = files.slice(0, Math.max(0, room));
+    if (take.length < files.length) {
+      setError(t("dragDrop.tooMany", { max: MAX_PENDING_ATTACH }));
+    }
+    if (take.length === 0) return;
+    const items = take.map((file) => {
+      const isImage = file.type.startsWith("image/");
+      return {
+        id: ++pendingSeqRef.current,
+        file,
+        isImage,
+        // 미리보기 썸네일은 이미지만 — objectURL은 제거/전송/전환 시 revoke(누수 방지).
+        url: isImage ? URL.createObjectURL(file) : null,
+      };
+    });
+    setPendingFiles((prev) => [...prev, ...items]);
+  }
+
+  function removePendingFile(id: number) {
+    setPendingFiles((prev) => {
+      const target = prev.find((p) => p.id === id);
+      if (target?.url) URL.revokeObjectURL(target.url);
+      return prev.filter((p) => p.id !== id);
     });
   }
 
-  function clearPastedImage() {
-    setPastedImage((prev) => {
-      if (prev) URL.revokeObjectURL(prev.url);
-      return null;
+  function clearPendingFiles() {
+    setPendingFiles((prev) => {
+      for (const p of prev) if (p.url) URL.revokeObjectURL(p.url);
+      return [];
     });
   }
 
-  async function sendPastedImage() {
-    if (!pastedImage || sendingImage) return;
+  async function sendPendingFiles() {
+    if (pendingFiles.length === 0 || sendingImage) return;
     setSendingImage(true);
     setError(null);
     try {
-      // 클라 리사이즈(일반 프리셋) — AttachMenu.uploadPhoto와 동일. 실패/비이미지면 원본 그대로.
-      const blob = await resizeImage(pastedImage.file);
-      const fd = new FormData();
-      // 클립보드 파일은 이름이 비어 있을 수 있음 — 폴백 이름 부여(서버 확장자 검사 대비).
-      fd.append("file", blob, pastedImage.file.name || "pasted-image.jpg");
-      const res = await fetch(`/api/zalo/conversations/${conversationId}/share`, {
-        method: "POST",
-        body: fd,
-      });
-      if (res.ok) {
-        clearPastedImage();
+      // 순차 전송(수신자에게 드롭 순서 유지). 실패하면 그 항목부터 대기열에 남겨 재시도/제거 가능.
+      for (const item of [...pendingFiles]) {
+        let ok = false;
+        let code: string | null = null;
+        try {
+          const fd = new FormData();
+          if (item.isImage) {
+            // 클라 리사이즈(일반 프리셋) — AttachMenu.uploadPhoto와 동일. 실패/비이미지면 원본 그대로.
+            // 클립보드 파일은 이름이 비어 있을 수 있음 — 폴백 이름 부여(서버 확장자 검사 대비).
+            const blob = await resizeImage(item.file);
+            fd.append("file", blob, item.file.name || "pasted-image.jpg");
+          } else {
+            fd.append("file", item.file);
+            fd.append("type", "FILE");
+          }
+          const res = await fetch(`/api/zalo/conversations/${conversationId}/share`, {
+            method: "POST",
+            body: fd,
+          });
+          ok = res.ok;
+          if (!ok) {
+            try {
+              code = ((await res.json()) as { error?: string }).error ?? null;
+            } catch {
+              /* 본문 파싱 실패 → generic */
+            }
+          }
+        } catch {
+          ok = false;
+        }
+        if (!ok) {
+          setError(
+            item.isImage
+              ? t("pasteImage.failed")
+              : code && FILE_ERROR_KEYS.has(code)
+                ? t(`fileError.${code}`)
+                : t("fileError.generic"),
+          );
+          break;
+        }
+        if (item.url) URL.revokeObjectURL(item.url);
+        setPendingFiles((prev) => prev.filter((p) => p.id !== item.id));
         refresh();
-      } else {
-        setError(t("pasteImage.failed"));
       }
-    } catch {
-      setError(t("pasteImage.failed"));
     } finally {
       setSendingImage(false);
     }
   }
 
+  // 최신 addPendingFiles를 ref로 노출 — window 드래그 리스너(아래 effect)가 상태 갱신마다
+  // 리스너를 재등록하지 않고도 최신 대기열 길이(cap)를 보게 한다.
+  const addPendingFilesRef = useRef(addPendingFiles);
+  addPendingFilesRef.current = addPendingFiles;
+
+  // ── 드래그앤드롭 첨부 — 창 전역에서 파일 드래그 감지 → 안내 오버레이 → 드롭 시 대기열 추가 ──
+  // dragenter/leave 깊이 카운팅으로 자식 요소 경계 통과 시 오버레이 깜빡임 방지.
+  // 파일이 아닌 드래그(텍스트 선택 등)는 무시. preventDefault로 브라우저 기본(파일 열기) 차단.
+  const [dragActive, setDragActive] = useState(false);
+  const dragDepthRef = useRef(0);
+  useEffect(() => {
+    const hasFiles = (e: DragEvent) =>
+      Array.from(e.dataTransfer?.types ?? []).includes("Files");
+    const onDragEnter = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      dragDepthRef.current += 1;
+      setDragActive(true);
+    };
+    const onDragOver = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    };
+    const onDragLeave = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+      if (dragDepthRef.current === 0) setDragActive(false);
+    };
+    const onDrop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      dragDepthRef.current = 0;
+      setDragActive(false);
+      if (!windowOpen) return; // 48h 경과 대화 — 입력 비활성과 동일하게 드롭도 무시
+      const files = Array.from(e.dataTransfer?.files ?? []);
+      if (files.length > 0) addPendingFilesRef.current(files);
+    };
+    window.addEventListener("dragenter", onDragEnter);
+    window.addEventListener("dragover", onDragOver);
+    window.addEventListener("dragleave", onDragLeave);
+    window.addEventListener("drop", onDrop);
+    return () => {
+      window.removeEventListener("dragenter", onDragEnter);
+      window.removeEventListener("dragover", onDragOver);
+      window.removeEventListener("dragleave", onDragLeave);
+      window.removeEventListener("drop", onDrop);
+    };
+  }, [windowOpen]);
+
   // 대화 전환 시 @멘션 상태 초기화 — 다른 대화에 엉뚱한 멘션 메타가 남지 않도록(누수·오발송 방지).
-  // 붙여넣은 이미지 미리보기도 같은 이유로 리셋(QA D1 — 이전 대화용 이미지가 새 대화로 발송 방지).
+  // 첨부 대기열도 같은 이유로 리셋(QA D1 — 이전 대화용 파일이 새 대화로 발송 방지).
   useEffect(() => {
     mentionsRef.current = [];
     setMentionQuery(null);
     setMentionList([]);
     mentionStartRef.current = -1;
-    clearPastedImage();
+    clearPendingFiles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
 
-  // 언마운트 시 붙여넣기 미리보기 objectURL 해제(QA D2) — setState 없이 ref로 직접 revoke.
-  const pastedUrlRef = useRef<string | null>(null);
-  pastedUrlRef.current = pastedImage?.url ?? null;
+  // 언마운트 시 대기열 objectURL 해제(QA D2) — setState 없이 ref로 직접 revoke.
+  const pendingUrlsRef = useRef<string[]>([]);
+  pendingUrlsRef.current = pendingFiles.flatMap((p) => (p.url ? [p.url] : []));
   useEffect(() => {
     return () => {
-      if (pastedUrlRef.current) URL.revokeObjectURL(pastedUrlRef.current);
+      for (const url of pendingUrlsRef.current) URL.revokeObjectURL(url);
     };
   }, []);
 
@@ -3119,46 +3225,93 @@ function Composer({
           </button>
         </div>
       )}
-      {/* 붙여넣은 이미지 미리보기 — 전송 확인 후 발송(오전송 방지). 취소로 해제. */}
-      {pastedImage && (
-        <div className="flex items-center gap-3 bg-slate-800/60 border border-slate-700 rounded-lg px-3 py-2 mb-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={pastedImage.url}
-            alt=""
-            className="w-14 h-14 rounded-lg object-cover shrink-0 bg-slate-700"
-          />
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold text-slate-200 truncate">{t("pasteImage.title")}</p>
-            <p className="text-[10px] text-slate-500">
-              {Math.max(1, Math.round(pastedImage.file.size / 1024))} KB
+      {/* 첨부 대기열 미리보기(붙여넣기·드롭 공통) — 전송 확인 후 발송(오전송 방지). 취소로 해제. */}
+      {pendingFiles.length > 0 && (
+        <div className="bg-slate-800/60 border border-slate-700 rounded-lg px-3 py-2 mb-2">
+          <div className="flex items-center gap-2 mb-1.5">
+            <p className="min-w-0 flex-1 text-xs font-bold text-slate-200 truncate">
+              {t("dragDrop.queueTitle", { n: pendingFiles.length })}
             </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void sendPastedImage()}
-            disabled={sendingImage}
-            className="shrink-0 flex items-center gap-1 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-xs font-bold px-3 py-1.5 transition-colors active:scale-95"
-          >
-            <span
-              className={`material-symbols-outlined text-[15px] ${sendingImage ? "animate-spin" : ""}`}
+            <button
+              type="button"
+              onClick={() => void sendPendingFiles()}
+              disabled={sendingImage}
+              className="shrink-0 flex items-center gap-1 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-xs font-bold px-3 py-1.5 transition-colors active:scale-95"
             >
-              {sendingImage ? "progress_activity" : "send"}
-            </span>
-            {t("pasteImage.send")}
-          </button>
-          <button
-            type="button"
-            onClick={clearPastedImage}
-            disabled={sendingImage}
-            title={t("pasteImage.cancel")}
-            aria-label={t("pasteImage.cancel")}
-            className="shrink-0 text-slate-500 hover:text-slate-200 transition-colors disabled:opacity-50"
-          >
-            <span className="material-symbols-outlined text-[18px]">close</span>
-          </button>
+              <span
+                className={`material-symbols-outlined text-[15px] ${sendingImage ? "animate-spin" : ""}`}
+              >
+                {sendingImage ? "progress_activity" : "send"}
+              </span>
+              {pendingFiles.length > 1
+                ? t("dragDrop.sendCount", { n: pendingFiles.length })
+                : t("pasteImage.send")}
+            </button>
+            <button
+              type="button"
+              onClick={clearPendingFiles}
+              disabled={sendingImage}
+              title={t("pasteImage.cancel")}
+              aria-label={t("pasteImage.cancel")}
+              className="shrink-0 text-slate-500 hover:text-slate-200 transition-colors disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[18px]">close</span>
+            </button>
+          </div>
+          <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto custom-scrollbar">
+            {pendingFiles.map((item) => (
+              <div key={item.id} className="flex items-center gap-2.5">
+                {item.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.url}
+                    alt=""
+                    className="w-10 h-10 rounded-lg object-cover shrink-0 bg-slate-700"
+                  />
+                ) : (
+                  <span className="w-10 h-10 rounded-lg bg-slate-700 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-[20px] text-slate-300">
+                      draft
+                    </span>
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-slate-200 truncate">
+                    {item.file.name || t("pasteImage.title")}
+                  </p>
+                  <p className="text-[10px] text-slate-500">
+                    {Math.max(1, Math.round(item.file.size / 1024))} KB
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removePendingFile(item.id)}
+                  disabled={sendingImage}
+                  title={t("dragDrop.remove")}
+                  aria-label={t("dragDrop.remove")}
+                  className="shrink-0 text-slate-500 hover:text-slate-200 transition-colors disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-[16px]">close</span>
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
+      {/* 드래그 중 안내 오버레이 — body 포털(헤더/푸터 backdrop-blur의 fixed 가둠 함정 회피).
+          pointer-events-none: 드롭 이벤트는 window 리스너가 받는다. */}
+      {dragActive &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[100] bg-slate-950/70 flex items-center justify-center pointer-events-none">
+            <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-blue-500 bg-slate-900/95 px-10 py-8 text-center">
+              <span className="material-symbols-outlined text-4xl text-blue-400">upload_file</span>
+              <p className="text-sm font-bold text-slate-100">{t("dragDrop.overlay")}</p>
+              <p className="text-xs text-slate-400">{t("dragDrop.overlayHint")}</p>
+            </div>
+          </div>,
+          document.body,
+        )}
       {/* @멘션 드롭다운 (그룹 전용) — "@" 입력 시 멤버 후보. ↑↓ 이동·Enter/Tab 선택·Esc 닫기.
           @전체(uid -1) 맨 위. 다크 톤(slate). 입력 박스 위에 흐름상 표시(잘림 없음). */}
       {isGroup && mentionQuery !== null && mentionList.length > 0 && (
@@ -3240,15 +3393,15 @@ function Composer({
             onChange={handleTextChange}
             onBlur={() => translate()}
             onPaste={(e) => {
-              // 클립보드에 이미지가 있으면(스크린샷 복사·이미지 우클릭 복사·탐색기 파일 복사)
-              // 기본 붙여넣기를 막고 미리보기 카드로. 텍스트만 있으면 기본 동작 유지.
-              const items = Array.from(e.clipboardData?.items ?? []);
-              const file = items
-                .find((it) => it.kind === "file" && it.type.startsWith("image/"))
-                ?.getAsFile();
-              if (file) {
+              // 클립보드에 파일이 있으면(스크린샷 복사·이미지 우클릭 복사·탐색기 파일 복사)
+              // 기본 붙여넣기를 막고 첨부 대기열로. 텍스트만 있으면 기본 동작 유지.
+              const files = Array.from(e.clipboardData?.items ?? [])
+                .filter((it) => it.kind === "file")
+                .map((it) => it.getAsFile())
+                .filter((f): f is File => f !== null);
+              if (files.length > 0) {
                 e.preventDefault();
-                handlePastedFile(file);
+                addPendingFiles(files);
               }
             }}
             onKeyDown={(e) => {
