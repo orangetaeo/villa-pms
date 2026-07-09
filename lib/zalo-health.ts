@@ -9,7 +9,8 @@
 //   (instrumentation → startZaloHealthWatchdog, globalThis 싱글턴 — dev HMR·중복 import 안전).
 // - 판정: ZaloAccount(isActive, credentials 보유) 각각에 대해 풀 인스턴스 status !== "connected".
 // - 오탐 방지: 2회 연속(≈10분) 미연결일 때만 경보(배포 직후 재로그인 시간 허용). 계정별 쿨다운 6시간.
-//   상태는 메모리 보관 — 재배포로 리셋되어도 "여전히 미연결이면 부팅 ~10분 뒤 재경보"가 오히려 바람직.
+//   ★쿨다운은 AppSetting에 영속(T-zalo-health-db-cooldown) — 초기 설계는 "재시작 후 재경보 바람직"이었으나
+//   배포가 하루 수 회라 같은 미연결 계정 경보가 배포마다 반복(테오 스팸 보고 2026-07-09). streak만 메모리.
 // - 경보 이중 채널: ①인앱(계정 소유자+운영자 전원 — Zalo가 죽어도 전달) ②Zalo 큐(ZALO_LISTENER_DOWN,
 //   zaloUserId 연결 운영자 — 시스템봇 자체가 죽었으면 발송 실패 허용, 인앱이 폴백).
 // - 누수 0: 경보 본문에 credential·비번 미포함 — 계정 표시명·경과·lastError(비민감 상태 문구)만.
@@ -61,6 +62,43 @@ export function nextHealthState(
 const globalForHealth = globalThis as unknown as {
   __villaZaloHealth?: { timer: ReturnType<typeof setInterval>; states: Map<string, HealthState> };
 };
+
+/** 경보 시각 영속 키 — 배포 재시작에도 쿨다운 유지 (AppSetting key-value 재사용, 스키마 무변경) */
+function lastAlertSettingKey(accountId: string): string {
+  return `zalo-health:last-alert:${accountId}`;
+}
+
+/** DB의 마지막 경보 시각(epoch ms). 미기록·파싱 불가·조회 실패는 null (fail-open — 경보 우선). */
+async function readPersistedLastAlert(accountId: string): Promise<number | null> {
+  try {
+    const row = await prisma.appSetting.findUnique({
+      where: { key: lastAlertSettingKey(accountId) },
+      select: { value: true },
+    });
+    if (!row) return null;
+    const ts = Number.parseInt(row.value, 10);
+    return Number.isFinite(ts) && ts > 0 ? ts : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 경보 발송 시각 기록 — 실패해도 경보 동작에 영향 없음(다음 재시작 때 한 번 더 올 뿐). */
+async function writePersistedLastAlert(accountId: string, ts: number): Promise<void> {
+  try {
+    const key = lastAlertSettingKey(accountId);
+    await prisma.appSetting.upsert({
+      where: { key },
+      create: { key, value: String(ts) },
+      update: { value: String(ts) },
+    });
+  } catch (err) {
+    console.error(
+      "[zalo-health] 경보 시각 영속화 실패:",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
+}
 
 /** 계정 1건의 현재 풀 상태 조회 — SYSTEM_BOT은 "__system__", 개인계정은 소유자 키(통합 모드 포함). */
 async function statusForAccount(account: {
@@ -150,6 +188,13 @@ export async function runHealthCheckOnce(states: Map<string, HealthState>): Prom
       const { state, alert } = nextHealthState(prev, status.connected, Date.now());
       states.set(account.id, state);
       if (alert) {
+        // 재시작 리셋 대비 — 인메모리 lastAlertAt이 비어 있어도 DB의 마지막 경보 시각이
+        // 쿨다운(6h) 이내면 억제 + 메모리 동기화(이후엔 순수함수 쿨다운이 DB 조회 없이 막음).
+        const persisted = await readPersistedLastAlert(account.id);
+        if (persisted !== null && Date.now() - persisted < ALERT_COOLDOWN_MS) {
+          states.set(account.id, { unhealthyStreak: state.unhealthyStreak, lastAlertAt: persisted });
+          continue;
+        }
         await sendDownAlert({
           accountId: account.id,
           accountName: account.displayName ?? account.kind,
@@ -157,6 +202,7 @@ export async function runHealthCheckOnce(states: Map<string, HealthState>): Prom
           downMinutes: Math.round((state.unhealthyStreak * CHECK_INTERVAL_MS) / 60_000),
           lastError: status.lastError,
         });
+        await writePersistedLastAlert(account.id, state.lastAlertAt ?? Date.now());
         console.warn(
           `[zalo-health] 리스너 미연결 경보 발송: ${account.displayName ?? account.id} (streak ${state.unhealthyStreak})`
         );
