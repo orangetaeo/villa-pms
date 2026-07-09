@@ -158,6 +158,8 @@ export interface TourLabels {
   back: string;
   skip: string;
   done: string;
+  /** 마지막 스텝 하단 "?" 발견성 안내 — 투어는 1회성이라 재생 경로를 알려줘야 함(T-tutorial-onboarding-4). */
+  replayHint: string;
 }
 
 /** RSC에서 getTranslations({namespace:"tour"})의 t로 스텝 문구를 빌드. */
@@ -173,5 +175,11 @@ export function buildTourSteps(
 }
 
 export function buildTourLabels(t: (key: string) => string): TourLabels {
-  return { next: t("next"), back: t("back"), skip: t("skip"), done: t("done") };
+  return {
+    next: t("next"),
+    back: t("back"),
+    skip: t("skip"),
+    done: t("done"),
+    replayHint: t("replayHint"),
+  };
 }

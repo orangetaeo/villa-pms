@@ -13,6 +13,7 @@ import {
   type PhotoSlotState,
   type WizardState,
 } from "./wizard-types";
+import { WizardGuide } from "./wizard-guide";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB — /api/uploads와 동일
 
@@ -113,6 +114,12 @@ export default function StepPhotos({ state, setPhoto, onNext, onBack }: Props) {
           </div>
         </div>
 
+        {/* 인라인 가이드 — 그리드를 처음 보는 순간 "칸 탭=1장 업로드" 조작 모델 + 가로 촬영 팁.
+            기존 하단 helper 배너는 여기로 통합·제거(화면당 배너 1개 — UX-VN 확정) */}
+        <div className="mb-6">
+          <WizardGuide text={t("guide")} />
+        </div>
+
         {/* 공간별 업로드 그리드 */}
         <div className="grid grid-cols-2 gap-4">
           {slots.map((slot) => (
@@ -135,11 +142,6 @@ export default function StepPhotos({ state, setPhoto, onNext, onBack }: Props) {
           </div>
         )}
 
-        {/* 가로 사진 안내 (a1) */}
-        <div className="mt-8 flex gap-3 rounded-xl border border-teal-100 bg-teal-50 p-4">
-          <span className="material-symbols-outlined text-teal-600">info</span>
-          <p className="text-sm leading-snug text-neutral-700">{t("helper")}</p>
-        </div>
       </main>
 
       {/* 하단 액션 (a1): 뒤로 + 계속 */}

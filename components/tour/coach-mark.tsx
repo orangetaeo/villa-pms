@@ -201,6 +201,15 @@ export function CoachMark({
           </span>
         </div>
         <p className="mb-4 text-sm leading-snug text-neutral-600">{step.desc}</p>
+        {/* 마지막 스텝 — "?" 재생 경로 안내(투어는 1회성, 발견성 확보 — T-tutorial-onboarding-4) */}
+        {isLast && (
+          <p className="mb-3 flex items-center gap-1.5 text-xs font-medium text-teal-700">
+            <span className="material-symbols-outlined text-sm" aria-hidden>
+              help
+            </span>
+            {labels.replayHint}
+          </p>
+        )}
         <div className="flex items-center gap-2">
           {/* 건너뛰기 — 크게(반사적으로 눌러도 다시 볼 길은 "?" 버튼) */}
           <button
