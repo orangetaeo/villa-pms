@@ -49,6 +49,19 @@ th,
   min-height: 56px;
 }
 
+/* 고정 하단 네비/푸터(모바일 64px+)가 포커스 스크롤된 입력칸을 덮는 오버레이 방지 —
+   전 포털(admin/supplier/partner/vendor) 폼 공용 전역 규칙. 입력칸에 포커스하면 브라우저가
+   요소를 뷰포트 맨 아래로 스크롤하는데, 그 자리에 고정 네비가 있어 가려지던 버그 클래스.
+   scroll-margin-bottom은 focus 시 scrollIntoView 앵커만 조정하므로 시각 레이아웃엔 영향 없음
+   (네비 없는 화면도 무해). 96px = 64px 네비 + 여유. 개별 폼 scroll-mb-24 부여를 대체.
+   (원래 제안 만들기 폼에만 있던 fix를 전역화 — 2026-07-09 라이브 측정으로 44개 admin 폼 중
+   43개 미적용 확인) */
+input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  scroll-margin-bottom: 6rem;
+}
+
 input:focus {
   outline: none;
   border-color: #0D9488 !important;
