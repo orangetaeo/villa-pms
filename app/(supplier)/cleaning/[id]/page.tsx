@@ -15,6 +15,8 @@ import {
   type PhotoSlot,
 } from "@/app/(supplier)/my-villas/new/wizard-types";
 import { CleaningSubmit, type SlotProp, type SubmitLabels } from "./cleaning-submit";
+import { CoachMark, TourHelpButton } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 import CleaningPhotosView from "./cleaning-photos-view";
 import { CleaningTaskInfo } from "./cleaning-task-info";
 import { formatVillaName, villaNameViOnly } from "@/lib/villa-name";
@@ -186,17 +188,28 @@ export default async function CleaningTaskPage({
       baselineLabel: t("baselineLabel"),
       optionalTag: t("optionalTag"),
     };
+    // 코치마크 문구 — RSC 번역 → props. 이 화면은 공용 헤더가 숨으므로 "?"를 자체 앱바에 주입
+    const tTour = await getTranslations({ locale, namespace: "tour" });
     return (
-      <CleaningSubmit
-        taskId={task.id}
-        villaName={villaDisplayName}
-        villaHref={isCleaner ? null : `/my-villas/${task.villa.id}`}
-        todayLabel={todayLabel}
-        slots={slotProps}
-        rejectNote={task.status === "REJECTED" ? task.rejectNote : null}
-        labels={labels}
-        infoSlot={infoSlot}
-      />
+      <>
+        <CleaningSubmit
+          taskId={task.id}
+          villaName={villaDisplayName}
+          villaHref={isCleaner ? null : `/my-villas/${task.villa.id}`}
+          todayLabel={todayLabel}
+          slots={slotProps}
+          rejectNote={task.status === "REJECTED" ? task.rejectNote : null}
+          labels={labels}
+          infoSlot={infoSlot}
+          helpSlot={<TourHelpButton tourId="cleaningDetail" label={tTour("help")} />}
+        />
+        {/* 코치마크 투어 — 제출 가능 상태에서만(읽기 전용 화면엔 업로드·제출 앵커가 없음) */}
+        <CoachMark
+          tourId="cleaningDetail"
+          steps={buildTourSteps(tTour, "cleaningDetail")}
+          labels={buildTourLabels(tTour)}
+        />
+      </>
     );
   }
 

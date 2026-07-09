@@ -10,7 +10,9 @@ import {
 } from "@/components/supplier/tab-bar-constants";
 import { PortalHeader } from "@/components/portal/portal-header";
 import PullToRefresh from "@/components/pull-to-refresh";
+import { TourHelpButton } from "@/components/tour/coach-mark";
 import { getSupplierLocale } from "@/lib/locale";
+import { getTranslations } from "next-intl/server";
 
 // [QA D-2] 공급자 클라이언트 컴포넌트가 useTranslations로 실제 사용하는 네임스페이스만 직렬화.
 // 전체 messages를 넘기면 adminXxx 라벨(마진·판매가 운영 구조)이 RSC payload에 노출됨.
@@ -62,6 +64,8 @@ export default async function SupplierLayout({
   const allMessages = (await import(`../../messages/${locale}.json`)).default;
   // [QA D-2] admin·adminXxx 네임스페이스 직렬화 차단 — 화이트리스트만 클라이언트로 전달
   const messages = pickMessages(allMessages);
+  // 코치마크 "?" 재생 버튼 라벨 — 투어 문구는 각 페이지 RSC가 번역해 props로 전달(화이트리스트 비의존)
+  const tTour = await getTranslations({ locale, namespace: "tour" });
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
@@ -77,6 +81,8 @@ export default async function SupplierLayout({
           // 자체 앱바(뒤로가기+제목)를 그리는 상세 경로에서는 공용 헤더 숨김(이중 헤더 방지).
           // 청소 상세(/cleaning/[id])도 fixed 뒤로가기 바가 있어 목록(/cleaning)과 달리 숨긴다.
           fullscreenPrefixes={[...SUPPLIER_OWN_HEADER_PREFIXES, "/cleaning/"]}
+          // "?" 투어 재생 — 투어가 정의된 화면(pathname 정확일치)에서만 렌더됨
+          right={<TourHelpButton label={tTour("help")} />}
         />
         {/* 모바일 당겨서 새로고침 — 공급자 전 화면(라이트 테마, 풀스크린 마법사 제외) */}
         <PullToRefresh fullscreenPrefixes={SUPPLIER_FULLSCREEN_PREFIXES} variant="light" />

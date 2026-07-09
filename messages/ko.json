@@ -4285,5 +4285,31 @@
     "loading": "불러오는 중…",
     "loadError": "불러오지 못했습니다. 다시 시도",
     "empty": "알림이 없습니다"
+  },
+  "tour": {
+    "help": "화면 안내 보기",
+    "next": "다음",
+    "back": "이전",
+    "skip": "건너뛰기",
+    "done": "완료",
+    "myVillas": {
+      "add": { "title": "빌라 등록", "desc": "여기를 눌러 새 빌라를 등록하세요." },
+      "status": { "title": "빌라 상태", "desc": "빌라가 판매 승인됐는지 확인하세요." },
+      "tabs": { "title": "하단 메뉴", "desc": "빌라·캘린더·청소 화면을 오가세요." }
+    },
+    "calendar": {
+      "villa": { "title": "빌라 선택", "desc": "달력을 볼 빌라를 선택하세요." },
+      "grid": { "title": "날짜 선택", "desc": "날짜를 눌러 공실을 열거나 차단하세요." },
+      "legend": { "title": "색 안내", "desc": "각 날짜 색의 의미를 확인하세요." }
+    },
+    "cleaningList": {
+      "task": { "title": "청소 작업", "desc": "카드를 눌러 상세를 확인하세요." },
+      "filter": { "title": "날짜 필터", "desc": "오늘·이번 주 작업만 골라 보세요." }
+    },
+    "cleaningDetail": {
+      "baseline": { "title": "기준 사진", "desc": "청소할 때 기준 사진과 비교하세요." },
+      "slots": { "title": "구역별 촬영", "desc": "칸을 눌러 청소 후 사진을 찍으세요." },
+      "submit": { "title": "사진 제출", "desc": "사진을 모두 찍고 제출을 누르세요." }
+    }
   }
 }

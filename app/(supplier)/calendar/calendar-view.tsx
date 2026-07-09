@@ -488,7 +488,7 @@ export function CalendarView({
   return (
     <div className="px-4 pt-2 pb-8">
       {/* 빌라 선택 — 셀렉터 박스 (자기 빌라만). 빌라가 많아도 한눈에·터치 1회로 선택 */}
-      <section className="py-4">
+      <section className="py-4" data-tour="calendar-villa">
         <label className="relative block">
           <span className="sr-only">{t("villaSelectLabel")}</span>
           <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-teal-600">
@@ -538,7 +538,10 @@ export function CalendarView({
       </section>
 
       {/* 달력 */}
-      <section className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+      <section
+        data-tour="calendar-grid"
+        className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm"
+      >
         <div className="mb-4 grid grid-cols-7">
           {weekdays.map((label) => (
             <div
@@ -578,7 +581,7 @@ export function CalendarView({
       </section>
 
       {/* 범례 — 스와치 ≥16px, 텍스트 ≥14px(#1F2937), 셀과 동일 패턴 */}
-      <section className="mt-6 grid grid-cols-2 gap-y-3 px-1">
+      <section data-tour="calendar-legend" className="mt-6 grid grid-cols-2 gap-y-3 px-1">
         <div className="flex items-center gap-2">
           <div className="h-4 w-4 rounded border-2 border-[#16A34A] bg-white" />
           <span className="text-sm font-semibold text-[#1F2937]">{t("legend.available")}</span>

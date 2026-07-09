@@ -4285,5 +4285,31 @@
     "loading": "Đang tải…",
     "loadError": "Không tải được. Thử lại",
     "empty": "Chưa có thông báo"
+  },
+  "tour": {
+    "help": "Xem hướng dẫn",
+    "next": "Tiếp",
+    "back": "Quay lại",
+    "skip": "Bỏ qua",
+    "done": "Xong",
+    "myVillas": {
+      "add": { "title": "Thêm villa", "desc": "Nhấn vào đây để thêm villa mới." },
+      "status": { "title": "Trạng thái villa", "desc": "Xem villa đã được duyệt bán chưa." },
+      "tabs": { "title": "Thanh menu", "desc": "Chuyển giữa villa, lịch và dọn dẹp." }
+    },
+    "calendar": {
+      "villa": { "title": "Chọn villa", "desc": "Chọn villa muốn xem lịch." },
+      "grid": { "title": "Chọn ngày", "desc": "Chạm ngày để mở hoặc khóa phòng." },
+      "legend": { "title": "Chú thích màu", "desc": "Xem ý nghĩa màu của từng ngày." }
+    },
+    "cleaningList": {
+      "task": { "title": "Việc dọn dẹp", "desc": "Nhấn vào thẻ để xem chi tiết." },
+      "filter": { "title": "Lọc theo ngày", "desc": "Chạm để xem việc hôm nay hoặc tuần này." }
+    },
+    "cleaningDetail": {
+      "baseline": { "title": "Ảnh mẫu", "desc": "So sánh với ảnh mẫu khi dọn phòng." },
+      "slots": { "title": "Chụp từng khu vực", "desc": "Nhấn ô để chụp ảnh sau khi dọn." },
+      "submit": { "title": "Gửi ảnh", "desc": "Chụp đủ ảnh rồi nhấn gửi." }
+    }
   }
 }
