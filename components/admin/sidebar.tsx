@@ -343,9 +343,11 @@ export default function AdminSidebar({
         />
       )}
 
-      {/* 사이드바 (b9 마크업 기준) — 데스크톱 고정, 모바일 드로어 */}
+      {/* 사이드바 (b9 마크업 기준) — 데스크톱 고정, 모바일 드로어
+          ★ h-[100dvh]: 모바일 크롬 하단 툴바가 100vh에 포함돼 하단 푸터(프로필·아이콘·언어)가
+            툴바 뒤로 짤리던 버그 수정(dvh=실제 보이는 뷰포트). pb 세이프에어리어로 iOS 홈바도 회피. */}
       <aside
-        className={`h-screen w-64 fixed left-0 top-0 bg-admin-bg border-r border-admin-card flex flex-col p-4 gap-2 z-50 transition-transform duration-200 lg:translate-x-0 ${
+        className={`h-[100dvh] w-64 fixed left-0 top-0 bg-admin-bg border-r border-admin-card flex flex-col px-4 pt-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] gap-2 z-50 transition-transform duration-200 lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
