@@ -3292,6 +3292,14 @@
       "cancel": "취소",
       "failed": "이미지 전송에 실패했습니다. 다시 시도해 주세요."
     },
+    "dragDrop": {
+      "overlay": "여기에 놓아 첨부",
+      "overlayHint": "사진은 사진으로, 문서는 파일로 전송 대기에 추가됩니다",
+      "queueTitle": "전송 대기 {n}개",
+      "sendCount": "{n}개 전송",
+      "remove": "제거",
+      "tooMany": "한 번에 최대 {max}개까지 첨부할 수 있습니다"
+    },
     "textTranslate": {
       "button": "번역",
       "loading": "번역 중…",

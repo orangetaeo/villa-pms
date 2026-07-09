@@ -3406,6 +3406,14 @@
       "cancel": "Hủy",
       "failed": "Gửi ảnh thất bại. Vui lòng thử lại."
     },
+    "dragDrop": {
+      "overlay": "Thả vào đây để đính kèm",
+      "overlayHint": "Ảnh sẽ gửi dưới dạng ảnh, tài liệu gửi dưới dạng tệp",
+      "queueTitle": "{n} mục chờ gửi",
+      "sendCount": "Gửi {n} mục",
+      "remove": "Xóa",
+      "tooMany": "Chỉ có thể đính kèm tối đa {max} tệp mỗi lần"
+    },
     "textTranslate": {
       "button": "Dịch",
       "loading": "Đang dịch…",
