@@ -38,6 +38,8 @@ import {
   BANK_VN_ACCOUNT_HOLDER_KEY,
   CONTACT_KAKAO_URL_KEY,
   CONTACT_PHONE_KEY,
+  ZALO_CONNECT_QR_URL_KEY,
+  ZALO_CONNECT_OA_URL_KEY,
   SETTING_KEYS,
 } from "../app/api/settings/validators";
 
@@ -191,6 +193,9 @@ export function buildAppSettings(): { key: string; value: string }[] {
     // ⚠️ placeholder — 테오 실제 문의 채널로 교체
     { key: CONTACT_KAKAO_URL_KEY, value: "https://open.kakao.com/o/example" },
     { key: CONTACT_PHONE_KEY, value: "+82-10-0000-0000" },
+    // Zalo 연결 온보딩 QR·친구추가 링크 — env 폴백(NEXT_PUBLIC_ZALO_QR_URL/OA_URL)과 동일 기본값
+    { key: ZALO_CONNECT_QR_URL_KEY, value: "/zalo-qr.png" },
+    { key: ZALO_CONNECT_OA_URL_KEY, value: "https://zalo.me/0799493138" },
   ];
 }
 
