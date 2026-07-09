@@ -85,10 +85,11 @@
 ## 4. Railway 워커 서비스 런북 (테오 대시보드 작업 — cron 등록 패턴과 동일)
 
 - **서비스 생성**: 같은 레포·같은 배포에서 새 서비스 `zalo-worker` 추가.
-- **Start command**: 경량 standalone Node 엔트리(신규 `worker/index.ts` — Next.js 미기동). `lib/zalo-runtime`·`lib/zalo-health`·`lib/zalo-webhook`를 그대로 import + `node:http`로 내부 라우터(`/internal/send`·`/internal/qr`·`/internal/status`·`/healthz`) 구동 + 부팅 시 `connectAllActive()`. 실행 예: `node worker/dist/index.js`(빌드본) 또는 `tsx worker/index.ts`.
+- **Start command**: `npm run worker` (= `tsx worker/index.ts`). `worker/index.ts`는 Next.js 미기동 경량 엔트리 — `node:http` 내부 라우터(`/internal/{send,qr,disconnect,status}`·`/healthz`) + `ZALO_WORKER_CONNECT==="true"`일 때만 `connectAllActive()`+워치독. **tsx는 정식 dependency로 추가됨**(2026-07-09). `PORT`는 Railway 자동 주입(미설정 시 8080). **로컬 스모크 검증 완료**: `/healthz` 200·`/internal/*` 무인증 401·플래그 미설정 시 세션 미접속.
 - **replica=1 고정**(세션 단일성 불변식 — 절대).
+- **Config override(중요)**: 레포 루트 `railway.toml`은 웹 서비스용(`startCommand=npm start`·`healthcheckPath=/api/health`). 워커 서비스는 대시보드 Settings에서 **Custom Start Command=`npm run worker`·Healthcheck Path=`/healthz`로 override** 필수.
 - **env(웹과 공유)**: `DATABASE_URL`, `ZALO_CREDS_KEY`, `NIKE_WEBHOOK_URL`, `ZALO_WEBHOOK_HMAC_SECRET`, `ZALO_EXT_SHARED_SECRET`(내부 발송 시크릿 겸용 또는 별도 `ZALO_WORKER_SECRET`), `ZALO_SYSTEM_OWNER_ID`(폴백), `RAILWAY_ENVIRONMENT_NAME`(워치독 활성 가드). **웹은 워커 내부 URL** `ZALO_WORKER_URL=http://zalo-worker.railway.internal:PORT` 필요.
-- **헬스체크**: `/healthz`(200 + 세션 status 요약). Railway health check 경로 설정.
+- **헬스체크**: `/healthz`(200 + 세션 status 요약). Railway health check 경로를 `/healthz`로 설정(웹의 `/api/health` 아님).
 - **로그**: credential·시크릿·전화·본문 절대 미출력 규칙 승계(D6.2).
 
 ---
