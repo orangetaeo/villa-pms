@@ -4310,6 +4310,24 @@
       "baseline": { "title": "Ảnh mẫu", "desc": "So sánh với ảnh mẫu khi dọn phòng." },
       "slots": { "title": "Chụp từng khu vực", "desc": "Nhấn ô để chụp ảnh sau khi dọn." },
       "submit": { "title": "Gửi ảnh", "desc": "Chụp đủ ảnh rồi nhấn gửi." }
+    },
+    "partnerHome": {
+      "booking": { "title": "Đặt phòng", "desc": "Xem đặt phòng theo trạng thái, chạm vào thẻ để xem chi tiết." },
+      "bell": { "title": "Thông báo", "desc": "Đặt phòng, thanh toán và hóa đơn mới sẽ hiện ở đây." },
+      "tabs": { "title": "Điều hướng", "desc": "Chuyển giữa Đặt phòng, Công nợ và Báo giá tại đây." }
+    },
+    "partnerReceivables": {
+      "outstanding": { "title": "Số dư công nợ", "desc": "Xem nhanh số tiền chưa thanh toán và các mốc quá hạn." },
+      "invoices": { "title": "Hóa đơn & báo có", "desc": "Xem hóa đơn đã phát hành và gửi báo có sau khi chuyển khoản." }
+    },
+    "partnerProposals": {
+      "proposal": { "title": "Báo giá đã nhận", "desc": "Xem villa, thời gian và giá đề xuất trong từng thẻ." },
+      "open": { "title": "Xem & đặt", "desc": "Nhấn để mở trang báo giá và tiến hành giữ chỗ." }
+    },
+    "vendorBoard": {
+      "inbox": { "title": "Nhận đơn tại đây", "desc": "Bạn sẽ nhận thông báo Zalo khi có đơn mới — bấm Nhận, Từ chối, hoặc đề xuất giờ khác." },
+      "schedule": { "title": "Lịch và hoàn thành", "desc": "Đơn đã nhận nằm ở đây; làm xong thì bấm Báo hoàn thành." },
+      "settlement": { "title": "Xem tiền được trả", "desc": "Số tiền villa trả cho các đơn đã hoàn thành hiện ở đây." }
     }
   }
 }

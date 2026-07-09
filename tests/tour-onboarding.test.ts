@@ -133,6 +133,14 @@ describe("data-tour 앵커 실존 — 정의된 앵커가 대상 화면 소스�
     calendar: ["app/(supplier)/calendar/calendar-view.tsx"],
     cleaningList: ["app/(supplier)/cleaning/page.tsx"],
     cleaningDetail: ["app/(supplier)/cleaning/[id]/cleaning-submit.tsx"],
+    partnerHome: [
+      "app/partner/partner-bookings-list.tsx",
+      "app/partner/layout.tsx",
+      "components/partner/partner-tab-bar.tsx",
+    ],
+    partnerReceivables: ["app/partner/receivables/page.tsx"],
+    partnerProposals: ["app/partner/proposals/page.tsx"],
+    vendorBoard: ["components/vendor/vendor-board.tsx"],
   };
 
   it.each(Object.keys(TOURS) as TourId[])("[%s] 전 앵커가 소스에 존재", (tourId) => {

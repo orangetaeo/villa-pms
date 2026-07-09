@@ -14,6 +14,7 @@ import { getPartnerForUser } from "@/lib/partner-auth";
 import { PartnerTabBar } from "@/components/partner/partner-tab-bar";
 import { PortalHeader } from "@/components/portal/portal-header";
 import PartnerNotificationBell from "@/components/partner/partner-notification-bell";
+import { TourHelpButton } from "@/components/tour/coach-mark";
 
 // 파트너 포털 유효 locale: 사용자 명시 선택(pref-locale) > 계정 기본(session) > ko 기본(한국 여행사·랜드사).
 // (i18n/request.ts가 읽는 `locale` 쿠키는 middleware가 같은 우선순위로 맞춘다.)
@@ -78,6 +79,8 @@ async function PartnerShell({
     account: (allMessages as Record<string, unknown>).account as AbstractIntlMessages,
   };
   const t = await getTranslations({ locale, namespace: "partner" });
+  // 코치마크 "?" 라벨 — 투어 문구는 각 페이지 RSC가 번역해 props로 전달(clientMessages 무변경)
+  const tTour = await getTranslations({ locale, namespace: "tour" });
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
       <NextIntlClientProvider locale={locale} messages={clientMessages}>
@@ -93,7 +96,14 @@ async function PartnerShell({
           showAccount={showNav}
           right={
             showNav ? (
-              <PartnerNotificationBell />
+              <>
+                {/* "?" 투어 재생 — 투어 정의 화면(pathname 정확일치)에서만 렌더 */}
+                <TourHelpButton label={tTour("help")} />
+                {/* 코치마크 앵커 — 벨 컴포넌트 무수정(루트가 프래그먼트라 layout에서 래핑) */}
+                <span className="inline-flex" data-tour="partner-bell">
+                  <PartnerNotificationBell />
+                </span>
+              </>
             ) : (
               <form
                 action={async () => {

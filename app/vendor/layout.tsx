@@ -7,7 +7,10 @@ import { redirect } from "next/navigation";
 import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
 import VendorNotificationBell from "@/components/vendor/vendor-notification-bell";
 import { PortalHeader } from "@/components/portal/portal-header";
+import { TourHelpButton } from "@/components/tour/coach-mark";
 import { getSupplierLocale } from "@/lib/locale";
+import { getVendorForUser } from "@/lib/vendor-auth";
+import { getTranslations } from "next-intl/server";
 
 // VENDOR 클라이언트 컴포넌트가 useTranslations로 실제 사용하는 네임스페이스만 직렬화.
 // - vendor: 발주함/예약현황/정산/응답 시트 (vendor 화면 전용)
@@ -40,6 +43,12 @@ export default async function VendorLayout({
   const locale = await getSupplierLocale(session.user.locale);
   const allMessages = (await import(`../../messages/${locale}.json`)).default;
   const messages = pickMessages(allMessages);
+  // 코치마크 "?" 라벨 — 투어 문구는 페이지 RSC가 번역해 props로 전달(화이트리스트 무변경)
+  const tTour = await getTranslations({ locale, namespace: "tour" });
+  // 미승인(승인대기·거절) 게이트 화면엔 CoachMark가 안 뜨므로 "?"도 숨김 — 죽은 버튼 방지
+  // (파트너 showNav 게이트와 대칭, QA T-tutorial-onboarding-2 결함 1)
+  const vendor = await getVendorForUser(session.user.id);
+  const approved = vendor?.approvalStatus === "APPROVED";
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
@@ -50,7 +59,13 @@ export default async function VendorLayout({
           brandHref="/vendor"
           accountHref="/vendor/profile"
           name={session.user.name ?? null}
-          right={<VendorNotificationBell />}
+          right={
+            <>
+              {/* "?" 투어 재생 — 승인된 벤더 + 투어 정의 화면(/vendor 정확일치)에서만 렌더 */}
+              {approved && <TourHelpButton label={tTour("help")} />}
+              <VendorNotificationBell />
+            </>
+          }
         />
         <main>{children}</main>
       </NextIntlClientProvider>

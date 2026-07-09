@@ -23,7 +23,10 @@ export function PartnerTabBar() {
       : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <nav className="fixed bottom-0 left-0 z-50 flex h-16 w-full items-center justify-around border-t border-neutral-100 bg-white px-1 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+    <nav
+      data-tour="partner-tab-bar"
+      className="fixed bottom-0 left-0 z-50 flex h-16 w-full items-center justify-around border-t border-neutral-100 bg-white px-1 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]"
+    >
       {TABS.map((tab) => {
         const active = isActive(tab.href);
         return (
