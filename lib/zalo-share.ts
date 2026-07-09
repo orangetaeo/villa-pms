@@ -10,7 +10,7 @@
 // 발송 본문(여기서 만든 문자열)을 그대로 ZaloMessage.text에 저장한다("보낸 그대로" — D3.5).
 // 카드 JSON을 저장하지 않으므로 원가+판매가가 한 레코드에 공존할 수 없다.
 import { Currency, SeasonType } from "@prisma/client";
-import { formatVnd, formatKrw } from "@/lib/format";
+import { formatVnd, formatKrw, formatThousands } from "@/lib/format";
 import { formatVillaName } from "@/lib/villa-name";
 
 const SEASON_LABEL: Record<SeasonType, string> = {
@@ -21,15 +21,26 @@ const SEASON_LABEL: Record<SeasonType, string> = {
 
 // ── 빌라 공유 (S3) — 상대 타입별 입력 타입 분리 ─────────────────────
 
-/** 공급자에게 노출 가능한 요율(원가만) — 판매가/마진 필드는 타입에 아예 없음. */
-export interface SupplierRateView {
+/** 요율 기간 메타 — 받는 쪽이 "언제 가격인지" 알 수 있게 기간·라벨 병기(금액 무관). */
+export interface RatePeriodMeta {
   season: SeasonType;
+  /** true=기본요금(날짜 없음 — 특수 기간 외 전 기간 적용) */
+  isBase: boolean;
+  /** isBase=false일 때 존재. 포함 */
+  startDate: Date | null;
+  /** isBase=false일 때 존재. 제외(half-open) — 표시할 땐 -1일해 포함일로 변환 */
+  endDate: Date | null;
+  /** "2026 설", "여름 성수기 1차" 등 */
+  label?: string | null;
+}
+
+/** 공급자에게 노출 가능한 요율(원가만) — 판매가/마진 필드는 타입에 아예 없음. */
+export interface SupplierRateView extends RatePeriodMeta {
   supplierCostVnd: bigint;
 }
 
 /** 고객에게 노출 가능한 요율(판매가만) — 원가/마진 필드는 타입에 아예 없음. */
-export interface CustomerRateView {
-  season: SeasonType;
+export interface CustomerRateView extends RatePeriodMeta {
   salePriceVnd: bigint;
   salePriceKrw: number;
 }
@@ -71,8 +82,8 @@ export function buildVillaShareTextForSupplier(
   const lines = shareHeader(villa);
   if (rates.length) {
     lines.push("— 원가(1박)");
-    for (const r of sortRates(rates)) {
-      lines.push(`  ${SEASON_LABEL[r.season]}: ${formatVnd(r.supplierCostVnd)}`);
+    for (const r of sortRatePeriods(rates)) {
+      lines.push(`  ${ratePeriodLabel(r)}: ${formatVnd(r.supplierCostVnd)}`);
     }
   }
   return lines.join("\n");
@@ -91,42 +102,136 @@ export function buildVillaShareTextForCustomer(
   const lines = shareHeader(villa);
   if (rates.length) {
     lines.push("— 가격(1박)");
-    for (const r of sortRates(rates)) {
+    for (const r of sortRatePeriods(rates)) {
       const price =
         saleCurrency === Currency.KRW
           ? formatKrw(r.salePriceKrw)
           : formatVnd(r.salePriceVnd);
-      lines.push(`  ${SEASON_LABEL[r.season]}: ${price}`);
+      lines.push(`  ${ratePeriodLabel(r)}: ${price}`);
     }
   }
   return lines.join("\n");
 }
 
-const SEASON_ORDER: Record<SeasonType, number> = { LOW: 0, HIGH: 1, PEAK: 2 };
-function sortRates<T extends { season: SeasonType }>(rates: T[]): T[] {
-  return [...rates].sort((a, b) => SEASON_ORDER[a.season] - SEASON_ORDER[b.season]);
+/** 기본요금 먼저, 특수 기간은 시작일 순 — 받는 쪽이 달력 순서로 읽게. */
+function sortRatePeriods<T extends RatePeriodMeta>(rates: T[]): T[] {
+  return [...rates].sort((a, b) => {
+    if (a.isBase !== b.isBase) return a.isBase ? -1 : 1;
+    const at = a.startDate?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    const bt = b.startDate?.getTime() ?? Number.MAX_SAFE_INTEGER;
+    return at - bt;
+  });
 }
 
-// ── 제안 공유 (S2) — 고객 전용. 공개 URL만(판매가 페이지). ─────────
+/** @db.Date(UTC 자정) → "M.D" */
+function formatMonthDayUtc(d: Date): string {
+  return `${d.getUTCMonth() + 1}.${d.getUTCDate()}`;
+}
+
+/**
+ * 요율 행 이름 — 기본요금은 "기본", 특수 기간은 "성수기 · 라벨 (7.15 ~ 8.31)".
+ * endDate는 half-open(제외)이라 -1일해 마지막 적용일로 표시한다.
+ */
+function ratePeriodLabel(r: RatePeriodMeta): string {
+  if (r.isBase || !r.startDate || !r.endDate) return "기본";
+  const lastDay = new Date(r.endDate.getTime() - 86_400_000);
+  const range = `${formatMonthDayUtc(r.startDate)} ~ ${formatMonthDayUtc(lastDay)}`;
+  const name = r.label?.trim()
+    ? `${SEASON_LABEL[r.season]} · ${r.label.trim()}`
+    : SEASON_LABEL[r.season];
+  return `${name} (${range})`;
+}
+
+// ── 제안 공유 (S2) — 고객 전용. 판매가만(원가·마진 타입에 없음). ─────────
+
+/** 제안 포함 빌라 1건 — 판매가 필드만(원가/마진은 타입에 아예 없음, D2 불변식 유지). */
+export interface ProposalShareItemView {
+  villaName: string;
+  villaNameVi?: string | null;
+  bedrooms: number;
+  hasPool: boolean;
+  checkIn: Date;
+  checkOut: Date;
+  /** proposal.saleCurrency에 해당하는 쪽만 채워짐 (ADR-0003, USD는 Phase 2 정수 달러) */
+  totalKrw: number | null;
+  totalVnd: bigint | null;
+  totalUsd?: number | null;
+}
 
 export interface ProposalShareView {
   token: string;
   clientName: string;
   expiresAt: Date;
+  saleCurrency: Currency;
+  items: ProposalShareItemView[];
+}
+
+/** @db.Date 쌍 → 박수 (UTC ms 차 — day-diff 함정 회피, 날짜 전용 컬럼 전제) */
+function nightsBetween(checkIn: Date, checkOut: Date): number {
+  return Math.round((checkOut.getTime() - checkIn.getTime()) / 86_400_000);
 }
 
 /**
- * 제안 공유 본문 — /p/[token] 공개 링크 + 유효기간 안내.
- * 링크 대상 페이지가 이미 판매가 전용·공개이므로 본문에 금액을 직접 넣지 않는다(URL만).
+ * 제안 공유 본문 — 받는 여행사가 링크를 열기 전에 내용(빌라·기간·금액)을 파악하도록 요약 동봉.
+ * 금액은 판매가(고객 정당 정보)만 — 링크 페이지(/p)와 동일 경계. 원가·마진은 타입 차단.
  */
 export function buildProposalShareText(proposal: ProposalShareView, baseUrl: string): string {
   const url = `${baseUrl.replace(/\/$/, "")}/p/${proposal.token}`;
   const expires = formatDateVn(proposal.expiresAt);
-  return [
-    `📋 제안서: ${proposal.clientName}`,
-    url,
-    `유효기간: ${expires}까지`,
-  ].join("\n");
+  const items = proposal.items;
+
+  const lines = [`📋 Villa Go 제안서 — ${proposal.clientName}님`];
+
+  // 기간 요약 — 전 빌라 동일 일정이면 헤더 한 줄, 다르면 빌라별 표기
+  const sameRange =
+    items.length > 0 &&
+    items.every(
+      (it) =>
+        it.checkIn.getTime() === items[0].checkIn.getTime() &&
+        it.checkOut.getTime() === items[0].checkOut.getTime()
+    );
+  if (items.length > 0) {
+    const head = [`빌라 ${items.length}개`];
+    if (sameRange) {
+      const first = items[0];
+      head.push(
+        `${formatMonthDayUtc(first.checkIn)} ~ ${formatMonthDayUtc(first.checkOut)}`,
+        `${nightsBetween(first.checkIn, first.checkOut)}박`
+      );
+    }
+    lines.push(head.join(" · "));
+    lines.push("");
+    items.forEach((it, i) => {
+      const displayName = formatVillaName({ name: it.villaName, nameVi: it.villaNameVi });
+      const specs: string[] = [];
+      if (!sameRange) {
+        specs.push(
+          `${formatMonthDayUtc(it.checkIn)}~${formatMonthDayUtc(it.checkOut)} · ${nightsBetween(it.checkIn, it.checkOut)}박`
+        );
+      }
+      specs.push(`침실 ${it.bedrooms}`);
+      if (it.hasPool) specs.push("수영장");
+      const total =
+        proposal.saleCurrency === Currency.KRW
+          ? it.totalKrw !== null
+            ? formatKrw(it.totalKrw)
+            : null
+          : proposal.saleCurrency === Currency.USD
+            ? it.totalUsd != null
+              ? `$${formatThousands(it.totalUsd)}`
+              : null
+            : it.totalVnd !== null
+              ? formatVnd(it.totalVnd)
+              : null;
+      if (total) specs.push(`총 ${total}`);
+      lines.push(`  ${i + 1}. ${displayName} — ${specs.join(" · ")}`);
+    });
+    lines.push("");
+  }
+
+  lines.push(`👉 사진·상세 보기: ${url}`);
+  lines.push(`⏰ 유효기간: ${expires}까지 (이후 링크가 만료됩니다)`);
+  return lines.join("\n");
 }
 
 // ── 정산 공유 (S4) — 공급자 전용. 본인 정산만. VND 원가 기반. ──────

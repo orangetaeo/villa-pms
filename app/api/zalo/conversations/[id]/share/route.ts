@@ -25,7 +25,6 @@ import {
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
-import { representativeRatesBySeason } from "@/lib/pricing";
 import {
   saveFile,
   isAllowedImageMime,
@@ -356,10 +355,28 @@ async function handleProposal(
     return NextResponse.json({ error: "COUNTERPARTY_NOT_ALLOWED" }, { status: 403 });
   }
 
-  // 제안 조회 — 금액 필드 미조회(링크만). ACTIVE + 미만료 검증(D4.2, 리스크 ⑥).
+  // 제안 조회 — 빌라 요약+판매가(totalKrw/totalVnd)만. 원가·마진 미조회(고객 경로, D4.1).
+  // ACTIVE + 미만료 검증(D4.2, 리스크 ⑥).
   const proposal = await prisma.proposal.findUnique({
     where: { id: proposalId },
-    select: { id: true, token: true, clientName: true, status: true, expiresAt: true },
+    select: {
+      id: true,
+      token: true,
+      clientName: true,
+      status: true,
+      expiresAt: true,
+      saleCurrency: true,
+      items: {
+        select: {
+          checkIn: true,
+          checkOut: true,
+          totalKrw: true,
+          totalVnd: true,
+          totalUsd: true,
+          villa: { select: { name: true, nameVi: true, bedrooms: true, hasPool: true } },
+        },
+      },
+    },
   });
   if (!proposal) {
     return NextResponse.json({ error: "PROPOSAL_NOT_FOUND" }, { status: 404 });
@@ -370,7 +387,23 @@ async function handleProposal(
 
   const baseUrl = resolveBaseUrl(req);
   const text = buildProposalShareText(
-    { token: proposal.token, clientName: proposal.clientName, expiresAt: proposal.expiresAt },
+    {
+      token: proposal.token,
+      clientName: proposal.clientName,
+      expiresAt: proposal.expiresAt,
+      saleCurrency: proposal.saleCurrency,
+      items: proposal.items.map((it) => ({
+        villaName: it.villa.name,
+        villaNameVi: it.villa.nameVi,
+        bedrooms: it.villa.bedrooms,
+        hasPool: it.villa.hasPool,
+        checkIn: it.checkIn,
+        checkOut: it.checkOut,
+        totalKrw: it.totalKrw,
+        totalVnd: it.totalVnd,
+        totalUsd: it.totalUsd,
+      })),
+    },
     baseUrl
   );
   const send = await sendChatMessageAsAdmin(adminUserId, conv.zaloUserId, text);
@@ -419,7 +452,16 @@ async function handleVilla(
       where: { id: villaId },
       select: {
         ...base,
-        ratePeriods: { select: { season: true, isBase: true, supplierCostVnd: true } },
+        ratePeriods: {
+          select: {
+            season: true,
+            isBase: true,
+            startDate: true,
+            endDate: true,
+            label: true,
+            supplierCostVnd: true,
+          },
+        },
       },
     });
     if (!villa) {
@@ -430,15 +472,8 @@ async function handleVilla(
     if (!conv.userId || villa.supplierId !== conv.userId) {
       return NextResponse.json({ error: "VILLA_NOT_OWNED" }, { status: 403 });
     }
-    // 시즌 대표 원가행(LOW=base, HIGH/PEAK=그 시즌 첫 기간 없으면 base) → 시즌별 한 줄.
-    const rep = representativeRatesBySeason(villa.ratePeriods);
-    const text = buildVillaShareTextForSupplier(
-      toShareBase(villa, "vi"),
-      (["LOW", "HIGH", "PEAK"] as const).flatMap((season) => {
-        const r = rep[season];
-        return r ? [{ season, supplierCostVnd: r.supplierCostVnd }] : [];
-      })
-    );
+    // 전체 기간 나열(기본 먼저·시작일 순) — 받는 쪽이 "언제 원가인지" 알도록 기간 병기.
+    const text = buildVillaShareTextForSupplier(toShareBase(villa, "vi"), villa.ratePeriods);
     const send = await sendChatMessageAsAdmin(adminUserId, conv.zaloUserId, text);
     return persistShare(conv.id, adminUserId, "villa_share", text, [], send, {
       type: "villa",
@@ -452,7 +487,17 @@ async function handleVilla(
     where: { id: villaId },
     select: {
       ...base,
-      ratePeriods: { select: { season: true, isBase: true, salePriceVnd: true, salePriceKrw: true } },
+      ratePeriods: {
+        select: {
+          season: true,
+          isBase: true,
+          startDate: true,
+          endDate: true,
+          label: true,
+          salePriceVnd: true,
+          salePriceKrw: true,
+        },
+      },
     },
   });
   if (!villa) {
@@ -464,16 +509,8 @@ async function handleVilla(
   }
   // 통화 — 분류값으로 결정(R2-3): CUSTOMER=KRW, TRAVEL_AGENCY/LAND_AGENCY=VND.
   const saleCurrency = currencyForType(conv.counterpartyType);
-  // 시즌 대표 판매가행 → 시즌별 한 줄.
-  const repSale = representativeRatesBySeason(villa.ratePeriods);
-  const text = buildVillaShareTextForCustomer(
-    toShareBase(villa, "ko"),
-    (["LOW", "HIGH", "PEAK"] as const).flatMap((season) => {
-      const r = repSale[season];
-      return r ? [{ season, salePriceVnd: r.salePriceVnd, salePriceKrw: r.salePriceKrw }] : [];
-    }),
-    saleCurrency
-  );
+  // 전체 기간 나열(기본 먼저·시작일 순) — 받는 쪽이 "언제 가격인지" 알도록 기간 병기.
+  const text = buildVillaShareTextForCustomer(toShareBase(villa, "ko"), villa.ratePeriods, saleCurrency);
   const send = await sendChatMessageAsAdmin(adminUserId, conv.zaloUserId, text);
   return persistShare(conv.id, adminUserId, "villa_share", text, [], send, {
     type: "villa",

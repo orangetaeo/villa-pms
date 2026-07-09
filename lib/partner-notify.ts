@@ -22,6 +22,10 @@ export type PartnerNotifyEvent =
       villaName: string;
       checkIn: string; // "yyyy-MM-dd"
       checkOut: string;
+      /** 파트너 본인 객실료 채권 총액(BigInt 문자열, 정당 금액만) — 채권 없으면 null */
+      totalVnd?: string | null;
+      /** 잔금 기한 "yyyy-MM-dd" — 채권 없으면 null */
+      dueDate?: string | null;
     }
   | {
       kind: "HOLD_EXPIRED";
@@ -86,11 +90,22 @@ export function buildPartnerNotifText(
 ): PartnerNotifText {
   const ko = locale === "ko";
   switch (ev.kind) {
-    case "BOOKING_CONFIRMED":
+    case "BOOKING_CONFIRMED": {
+      // 여행사 경리가 알림만으로 장부 처리 가능하게 — 예약번호·객실료(본인 채권)·잔금기한.
+      const ref = `#${ev.bookingId.slice(-6).toUpperCase()}`;
+      const parts = [`${ev.villaName} · ${ev.checkIn} ~ ${ev.checkOut}`];
+      if (ev.totalVnd) {
+        parts.push(ko ? `객실료 ${formatVndDot(ev.totalVnd)}` : `Tiền phòng ${formatVndDot(ev.totalVnd)}`);
+      }
+      if (ev.dueDate) {
+        parts.push(ko ? `잔금기한 ${ev.dueDate}` : `Hạn thanh toán ${ev.dueDate}`);
+      }
+      parts.push(ko ? `예약번호 ${ref}` : `Mã đặt phòng ${ref}`);
       return {
         title: ko ? "예약이 확정되었습니다" : "Đặt phòng đã được xác nhận",
-        body: `${ev.villaName} · ${ev.checkIn} ~ ${ev.checkOut}`,
+        body: parts.join(" · "),
       };
+    }
     case "HOLD_EXPIRED":
       return {
         title: ko ? "가예약이 만료되었습니다" : "Giữ chỗ đã hết hạn",

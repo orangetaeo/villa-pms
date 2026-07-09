@@ -255,6 +255,7 @@ export async function createHoldFromProposalItem(
           checkIn: item.checkIn.toISOString().slice(0, 10),
           checkOut: item.checkOut.toISOString().slice(0, 10),
           guestCount: input.guestCount,
+          guestName: input.guestName.trim(), // 예약자명 — 손님맞이 준비용(판매가·마진 아님)
           holdExpiresAt: holdExpiresAt.toISOString(),
         },
       },
@@ -400,6 +401,8 @@ export async function confirmHold(
           checkIn: booking.checkIn.toISOString().slice(0, 10),
           checkOut: booking.checkOut.toISOString().slice(0, 10),
           guestCount: booking.guestCount,
+          guestName: booking.guestName, // 예약자명 — 손님맞이 준비용
+          breakfastIncluded: booking.breakfastIncluded, // true일 때만 문구 표기
         },
       },
     });
@@ -416,13 +419,22 @@ export async function confirmHold(
   });
 
   // 파트너 예약이면 확정을 파트너에게도 통지 — 트랜잭션 커밋 후(외부 Zalo 포함), 실패 무해(내부 격리).
+  // 객실료 총액·잔금 기한 — 파트너 본인 채권(정당 금액)만. 마진·원가·KRW 미포함.
   if (confirmed.updated.partnerId) {
+    const receivable = await prisma.partnerReceivable
+      .findUnique({
+        where: { bookingId: confirmed.updated.id },
+        select: { totalVnd: true, dueDate: true },
+      })
+      .catch(() => null);
     await notifyPartner(confirmed.updated.partnerId, {
       kind: "BOOKING_CONFIRMED",
       bookingId: confirmed.updated.id,
       villaName: confirmed.villaName,
       checkIn: confirmed.updated.checkIn.toISOString().slice(0, 10),
       checkOut: confirmed.updated.checkOut.toISOString().slice(0, 10),
+      totalVnd: receivable ? receivable.totalVnd.toString() : null,
+      dueDate: receivable ? receivable.dueDate.toISOString().slice(0, 10) : null,
     });
   }
 
