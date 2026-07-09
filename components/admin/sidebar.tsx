@@ -377,18 +377,22 @@ export default function AdminSidebar({
         </nav>
         {/* relative — 알림 벨 드롭업 패널(absolute)의 positioning 컨테이너 (fixed 금지) */}
         <div className="relative pt-4 mt-auto border-t border-admin-card flex flex-col gap-3 px-2">
+          {/* 프로필(아바타+이름/역할)은 한 줄, 액션 아이콘(알림·계정·로그아웃)은 아래 줄로 분리.
+              256px 사이드바에서 한 줄에 다 넣으면 이름이 짓눌려 짤림 — 2줄 배치로 이름 폭 확보. */}
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-admin-primary flex items-center justify-center text-xs font-bold text-white shrink-0">
               {(userName ?? t("profileName")).slice(0, 1)}
             </div>
-            <div className="flex flex-col overflow-hidden flex-1">
-              <span className="text-sm font-bold text-white leading-none truncate">
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="text-sm font-bold text-white leading-tight truncate">
                 {userName ?? t("profileName")}
               </span>
-              <span className="text-[10px] text-admin-muted">
+              <span className="text-[10px] text-admin-muted truncate">
                 {role ? tRoles(`roles.${role}`) : t("profileRole")}
               </span>
             </div>
+          </div>
+          <div className="flex items-center justify-end gap-1">
             {/* 인앱 알림 벨 (admin-vendor-ops C) — 벤더 수락/거절/제안/완료·가입대기 */}
             <AdminNotificationBell />
             {/* 본인 비밀번호 변경 진입 (/account) */}
