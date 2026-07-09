@@ -30,6 +30,17 @@
 ### 5. 유지보수 규칙 명문화 (테오 요구사항)
 - `.claude/skills/frontend/` 관련 스킬 + QA 체크리스트에 추가: "투어가 걸린 화면(data-tour 앵커 보유)의 UI 변경 시 `tour-definitions.ts` 스텝·ko/vi 문구 동시 갱신". docs/INDEX.md 등록.
 
+## 회의 확정 사항 (UX-VN·QA 합의, 2026-07-09)
+- **화면당 3스텝 상한** (베트남 사용자 텍스트 최소화). 캘린더 드래그 범위선택·청소 메모 스텝 제외. `/cleaning` 목록은 태스크 카드→날짜 필터 칩 2스텝.
+- **첫 진입 자동 표시** ("볼까요?" 질문 금지 — 반사적 닫기로 온보딩 무력화됨). 통제권은 "?" 재생 버튼으로.
+- "?" 버튼: 공용 portal-header 우측(로케일 스위처 옆). `/cleaning/[id]`는 자체 TopAppBar 우측.
+- vi 문구는 동사 시작 5단어 이내 명령형. 숫자·금액 금지.
+- 투어 오버레이 하드 요구(실사고 이력): **createPortal(document.body) 필수**(backdrop-blur fixed 감금), **z-[60] 이상**(탭바 z-50 위), **100dvh**(100vh 금지), 말풍선은 탭바 h-16+세이프에어리어 회피.
+- `tour-definitions.ts`는 순수 모듈 — `"use client"` 금지를 단위 테스트로 강제(RSC spread 함정).
+- CLEANER 미노출 통제는 messages 경계가 아니라 **tourId→라우트 매핑**으로만 이루어짐 (supplier·cleaner 문구는 같은 번들에 직렬화됨 — 정적 UI 카피뿐이라 누수 아님).
+- `tests/light-portal-i18n.test.ts` 스캔 dirs에 `components/tour` 추가 (화이트리스트 가드 사각 제거).
+- 투어는 tourId 4종: `my-villas` `calendar` `cleaning-list` `cleaning-detail` (역할 구분은 라우트 가드가 담당).
+
 ## 완료 기준 (테스트 가능)
 1. 신규(localStorage 없는) 공급자 데모 계정으로 `/my-villas` 첫 진입 시 코치마크 자동 표시, 완주/건너뛰기 후 재진입 시 미표시, "?" 버튼으로 재생 가능.
 2. CLEANER 데모 계정 `/cleaning` 및 상세에서 동일 동작. CLEANER에게 공급자 투어 미노출.
@@ -37,6 +48,9 @@
 4. ko/vi 문구 패리티 (기존 i18n 패리티 테스트 통과), raw 키 노출 없음.
 5. 마진·판매가·재고 데이터 무참조 (투어는 정적 문구만 — leak-checklist 자명 통과).
 6. `next build` + 기존 vitest 전체 통과.
+7. "?" 버튼은 완주 기록(localStorage)을 무시하고 강제 재생.
+8. 완주 도중 라우트 이탈 시 완료 미기록 → 재진입 시 재노출.
+9. 신규 단위 테스트 5종: ① `tour` NS ko/vi 패리티(guide-i18n-keys 패턴) ② light-portal-i18n 스캔 dirs에 components/tour 포함+`tour` 화이트리스트 등록 검증 ③ 부분 앵커 스킵 순수 함수(전 부재→`[]`, 일부 부재→존재분만) ④ tour-definitions "use client" 미포함 assert ⑤ 정의된 전 titleKey/descKey가 ko·vi에 실존.
 
 ## 수정 금지 구역
 - `prisma/schema.prisma`(스키마 변경 없음), `worker/`, `lib/zalo-*`(타 작업 영역), `package.json`(의존성 추가 없음).
