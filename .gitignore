@@ -54,3 +54,4 @@ qa-tmp-*.txt
 
 # Zalo zca-js QR 임시 파일 (loginQR qrPath) — credential 노출 금지 (ADR-0006 D6.2)
 qr.png
+backups/
