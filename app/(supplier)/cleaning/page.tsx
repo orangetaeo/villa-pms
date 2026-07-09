@@ -14,6 +14,8 @@ import PaginationBar from "@/components/pagination-bar";
 import ListSearch from "@/components/list-search";
 import { parsePageParams } from "@/lib/pagination";
 import { formatVillaName, villaNameViOnly } from "@/lib/villa-name";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
 // a8 상태 배지 4종: Chờ dọn(주황) / Đã gửi(파랑) / Đã duyệt(초록) / Bị từ chối(빨강 외곽선)
 const STATUS_BADGE: Record<CleaningStatus, string> = {
@@ -64,6 +66,8 @@ export default async function CleaningListPage({
   const isCleaner = role === "CLEANER";
   const locale = isCleaner ? "vi" : await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "cleaning" });
+  // 코치마크 문구 — RSC 번역 → props. SUPPLIER·CLEANER 공용 투어(같은 화면·같은 동작)
+  const tTour = await getTranslations({ locale, namespace: "tour" });
   const params = await searchParams;
   const { submitted } = params;
   const { page, pageSize, skip, take } = parsePageParams(params);
@@ -209,7 +213,7 @@ export default async function CleaningListPage({
 
         {/* 날짜 필터 칩 (원탭) — 전체·오늘·내일·이번주 + 건수. 바쁜 청소직원이 한 번에 조회. */}
         {(sorted.length > 0 || q || dParam !== "all") && (
-          <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+          <div data-tour="cleaning-filter" className="mb-3 flex gap-2 overflow-x-auto pb-1">
             {(["all", "today", "tomorrow", "week"] as const).map((bucket) => {
               const active = dParam === bucket;
               return (
@@ -265,7 +269,7 @@ export default async function CleaningListPage({
           )
         ) : (
           <div className="flex flex-col gap-4">
-            {pagedTasks.map((task) => {
+            {pagedTasks.map((task, taskIdx) => {
               const refDate = task.booking?.checkOut ?? task.dueDate ?? task.createdAt;
               const isTimestamp = !task.booking?.checkOut && !task.dueDate;
               const thumb = task.villa.photos[0]?.url;
@@ -273,6 +277,8 @@ export default async function CleaningListPage({
                 <Link
                   key={task.id}
                   href={`/cleaning/${task.id}`}
+                  // 코치마크 앵커 — 첫 카드만. 목록이 비면 이 스텝은 자동 스킵
+                  data-tour={taskIdx === 0 ? "cleaning-task" : undefined}
                   className="flex min-h-[112px] items-center rounded-xl border border-gray-100 bg-white p-3 shadow-sm transition-transform active:scale-[0.98]"
                 >
                   {/* 빌라 썸네일 (기준 사진) */}
@@ -327,6 +333,13 @@ export default async function CleaningListPage({
           <PaginationBar total={totalTasks} page={page} pageSize={pageSize} light />
         )}
       </main>
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 헤더 "?"로 재생 (SUPPLIER·CLEANER 공용) */}
+      <CoachMark
+        tourId="cleaningList"
+        steps={buildTourSteps(tTour, "cleaningList")}
+        labels={buildTourLabels(tTour)}
+      />
     </>
   );
 }

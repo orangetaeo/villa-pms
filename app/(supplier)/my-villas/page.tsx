@@ -14,6 +14,8 @@ import type { Villa } from "@prisma/client";
 import PaginationBar from "@/components/pagination-bar";
 import { parsePageParams } from "@/lib/pagination";
 import { formatVillaName } from "@/lib/villa-name";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
 export const metadata: Metadata = {
   title: "Villa của tôi",
@@ -52,6 +54,8 @@ export default async function MyVillasPage({
 
   const locale = await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "myVillas" });
+  // 코치마크 문구 — RSC 번역 → props (화이트리스트 비의존, cleaning-submit 패턴)
+  const tTour = await getTranslations({ locale, namespace: "tour" });
   const params = await searchParams;
   const { created } = params;
   const { page, pageSize, skip, take } = parsePageParams(params);
@@ -111,7 +115,7 @@ export default async function MyVillasPage({
       ) : (
         <div className="flex flex-col gap-3">
           {/* 좌측 썸네일 + 접기/펴기 컴팩트 행 (관리자 /villas 구조 차용, 라이트 테마) */}
-          {pagedVillas.map((villa) => {
+          {pagedVillas.map((villa, villaIdx) => {
             const badge = resolveBadge(villa.status, villa.isSellable);
             const thumb = villa.photos[0]?.url;
             const needsCleaning = badge === "notSellable";
@@ -159,6 +163,8 @@ export default async function MyVillasPage({
                         </h2>
                       </div>
                       <span
+                        // 코치마크 앵커 — 첫 행 상태 배지만. 빈 목록이면 이 스텝은 자동 스킵(신규자는 등록만 강조)
+                        data-tour={villaIdx === 0 ? "villa-status" : undefined}
                         className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${BADGE_CLASS[badge]}`}
                       >
                         {t(`status.${badge}`)}
@@ -232,11 +238,19 @@ export default async function MyVillasPage({
       {/* 마법사 진입 FAB — a6 디자인 톤 (teal 플로팅). 탭바 위로 띄움 */}
       <Link
         href="/my-villas/new"
+        data-tour="villa-add"
         className="fixed bottom-24 right-4 z-40 flex items-center gap-2 rounded-full bg-teal-600 px-6 py-4 text-white shadow-xl transition-all hover:bg-teal-700 active:scale-95"
       >
         <span className="material-symbols-outlined">add</span>
         <span className="font-bold">{t("add")}</span>
       </Link>
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 헤더 "?"로 재생 */}
+      <CoachMark
+        tourId="myVillas"
+        steps={buildTourSteps(tTour, "myVillas")}
+        labels={buildTourLabels(tTour)}
+      />
     </div>
   );
 }

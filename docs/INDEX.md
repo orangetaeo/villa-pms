@@ -22,6 +22,7 @@
 | 알림 문구·수신자·트리거 전체(검토·수정 시) | docs/NOTIFICATIONS.md — 전 알림 내역서(ID 부여, 테오 검토용). 알림 추가·문구 수정 시 이 문서도 동시 갱신 |
 | iCal 동기화 | .claude/skills/integ/ical-pattern.md + lib/ical.ts |
 | 코드 검토 | .claude/skills/qa/leak-checklist.md + evaluation-criteria.md |
+| 코치마크 튜토리얼(온보딩 투어) — 추가·화면변경 시 동기화 | components/tour/tour-definitions.ts(단일 소스) + docs/contracts/T-tutorial-onboarding.md — data-tour 앵커 화면 UI 변경 시 스텝·messages tour NS(ko/vi) 동시 갱신, tests/tour-onboarding.test.ts가 앵커 실존·패리티 강제 |
 | 태스크 착수 전 | docs/contracts/ 스프린트 계약 작성·합의 |
 | 병렬 세션(여러 Claude 동시) | docs/parallel-worktree.md — scripts/wt-new·wt-finish.ps1 격리 워크플로(폴더·인덱스·포트 분리) |
 | 정산·환율 | .claude/skills/fin/settlement-pattern.md |

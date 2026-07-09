@@ -55,7 +55,10 @@ function serializedNamespaces(layout: string, arrayName: string | null): Set<str
 const PORTALS = [
   {
     name: "supplier",
-    dirs: ["app/(supplier)", "components/supplier"],
+    // components/tour — 코치마크는 supplier 레이아웃 아래에서 렌더되므로 스캔 범위에 포함.
+    // (현재 tour 클라 컴포넌트는 문구를 RSC props로 받아 useTranslations를 안 쓰지만,
+    //  미래에 누가 useTranslations를 넣으면 이 가드가 화이트리스트 누락을 잡는다)
+    dirs: ["app/(supplier)", "components/supplier", "components/tour"],
     layout: "app/(supplier)/layout.tsx",
     arrayName: "SUPPLIER_CLIENT_NAMESPACES",
   },

@@ -57,6 +57,7 @@ export function CleaningSubmit({
   rejectNote,
   labels,
   infoSlot,
+  helpSlot,
 }: {
   taskId: string;
   villaName: string;
@@ -68,6 +69,8 @@ export function CleaningSubmit({
   labels: SubmitLabels;
   /** A·C·D 정보 카드(서버 렌더) — 예정일·유형·주소·출입·메모. */
   infoSlot?: ReactNode;
+  /** 코치마크 "?" 재생 버튼(서버 렌더) — 자체 TopAppBar 우측에 배치(공용 헤더가 숨는 경로). */
+  helpSlot?: ReactNode;
 }) {
   const router = useRouter();
   const [photos, setPhotos] = useState<Record<string, PhotoState>>({});
@@ -160,7 +163,11 @@ export function CleaningSubmit({
         >
           <span className="material-symbols-outlined">arrow_back</span>
         </Link>
-        <h1 className="text-lg font-semibold text-neutral-900">{labels.title}</h1>
+        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold text-neutral-900">
+          {labels.title}
+        </h1>
+        {/* 코치마크 "?" — 이 화면은 공용 헤더가 숨으므로 자체 앱바 우측에 배치 */}
+        {helpSlot}
       </nav>
 
       {/* 헤더 — 제목·빌라명·진행 카운터 (a4) */}
@@ -215,7 +222,7 @@ export function CleaningSubmit({
         )}
 
         {/* 공간별 사진 그리드 (a4) — 빌라 등록과 동일 슬롯 */}
-        <div className="grid grid-cols-2 gap-4">
+        <div data-tour="cleaning-slots" className="grid grid-cols-2 gap-4">
           {slots.map((slot) => (
             <PhotoTile
               key={slot.id}
@@ -225,6 +232,12 @@ export function CleaningSubmit({
               optionalTag={labels.optionalTag}
               baselineUrl={slot.baselineUrl}
               baselineLabel={labels.baselineLabel}
+              // 코치마크 앵커 — 기준 사진이 있는 첫 슬롯만. 기준 사진이 하나도 없으면 스텝 자동 스킵
+              baselineDataTour={
+                slot.id === slots.find((s) => s.baselineUrl)?.id
+                  ? "cleaning-baseline"
+                  : undefined
+              }
               photo={photos[slot.id]}
               uploadTileLabel={labels.uploadTile}
               uploadingLabel={labels.uploading}
@@ -240,6 +253,7 @@ export function CleaningSubmit({
         <div className="mx-auto w-full max-w-md">
           <button
             type="button"
+            data-tour="cleaning-submit"
             onClick={handleSubmit}
             disabled={!allDone || submitState === "submitting"}
             className={`flex min-h-14 w-full items-center justify-center gap-2 rounded-xl py-4 text-lg font-bold text-white transition-all ${
@@ -280,6 +294,7 @@ function PhotoTile({
   optionalTag,
   baselineUrl,
   baselineLabel,
+  baselineDataTour,
   photo,
   uploadTileLabel,
   uploadingLabel,
@@ -292,6 +307,8 @@ function PhotoTile({
   optionalTag: string;
   baselineUrl?: string;
   baselineLabel: string;
+  /** 코치마크 앵커 id — 기준 사진 투어 스텝 대상 타일에만 전달. */
+  baselineDataTour?: string;
   photo?: PhotoState;
   uploadTileLabel: string;
   uploadingLabel: string;
@@ -305,7 +322,10 @@ function PhotoTile({
     <div className="relative">
       {/* B: 기준 사진(정리된 상태) — 업로드 전 같은 각도로 촬영하도록 참고. 없으면 미표시. */}
       {baselineUrl && (
-        <div className="relative mb-1.5 aspect-square w-full overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100">
+        <div
+          data-tour={baselineDataTour}
+          className="relative mb-1.5 aspect-square w-full overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100"
+        >
           <Image
             src={baselineUrl}
             alt={`${baselineLabel} · ${label}`}

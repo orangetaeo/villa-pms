@@ -12,6 +12,8 @@ import { OCCUPYING_BOOKING_STATUSES, overlapsHalfOpen } from "@/lib/availability
 import { addUtcDays, todayVnDateString } from "@/lib/date-vn";
 import { toDateOnlyString } from "@/lib/date-vn";
 import { CalendarView, type DayCell, type BookingDetail } from "./calendar-view";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -171,14 +173,25 @@ export default async function SupplierCalendarPage({
   // 월~일 그리드 선행 공백 (월요일 시작 — a3 헤더 T2..CN)
   const leadingBlanks = (monthStart.getUTCDay() + 6) % 7;
 
+  // 코치마크 문구 — RSC 번역 → props (화이트리스트 비의존). 빌라 0개 화면(위 조기 반환)엔 미탑재.
+  const tTour = await getTranslations({ locale, namespace: "tour" });
+
   return (
-    <CalendarView
-      villas={villas}
-      selectedVillaId={selectedVilla.id}
-      month={month}
-      days={days}
-      leadingBlanks={leadingBlanks}
-      bookingDetails={bookingDetails}
-    />
+    <>
+      <CalendarView
+        villas={villas}
+        selectedVillaId={selectedVilla.id}
+        month={month}
+        days={days}
+        leadingBlanks={leadingBlanks}
+        bookingDetails={bookingDetails}
+      />
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 헤더 "?"로 재생 */}
+      <CoachMark
+        tourId="calendar"
+        steps={buildTourSteps(tTour, "calendar")}
+        labels={buildTourLabels(tTour)}
+      />
+    </>
   );
 }

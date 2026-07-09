@@ -23,5 +23,11 @@
 | 제품 깊이 | 빈 상태·에러·로딩 처리 존재 | 필수 화면 전부 |
 | 디자인 품질 | DESIGN.md 4기준 (UI 작업 시) | 각 기준 "양호" 이상 |
 
+## 코치마크 투어 동기화 점검 (data-tour 앵커 화면 변경 시 — T-tutorial-onboarding)
+UI 변경 diff에 `data-tour` 앵커 보유 화면(my-villas·calendar·cleaning 목록/상세, tour-definitions.ts의 TOURS 참조)이 포함되면:
+- [ ] 앵커 요소가 삭제·이동됐다면 `components/tour/tour-definitions.ts` 스텝 동시 갱신 여부
+- [ ] 투어 문구(`messages/*.json` tour NS)가 바뀐 UI와 여전히 맞는지 (버튼 이름·위치 언급)
+- [ ] `npx vitest run tests/tour-onboarding.test.ts` 통과 (앵커 실존·ko/vi 패리티 자동 검증)
+
 ## 실패 시
 - 구체적 결함 목록(재현 절차 포함)을 담당 에이전트에 전달 — "다시 해" 금지, 행동 가능한 피드백만
