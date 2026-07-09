@@ -378,15 +378,17 @@ export default function VendorsManager({
                         )}
                       </h3>
                     </div>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <ApprovalBadge status={v.approvalStatus} t={t} />
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                          v.active ? "bg-emerald-500/90 text-white" : "bg-slate-600/90 text-white"
-                        }`}
-                      >
-                        {v.active ? t("active") : t("inactive")}
-                      </span>
+                    {/* 정상(승인됨+거래중)이면 배지 없음 — 우측 토글이 활성상태를 나타냄.
+                        승인 대기·거절(주의 필요) 또는 중단 상태일 때만 배지 노출(복잡도 감소). */}
+                    <div className="flex shrink-0 items-center gap-1.5 empty:hidden">
+                      {v.approvalStatus !== "APPROVED" && (
+                        <ApprovalBadge status={v.approvalStatus} t={t} />
+                      )}
+                      {!v.active && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase bg-slate-600/90 text-white">
+                          {t("inactive")}
+                        </span>
+                      )}
                     </div>
                   </div>
                   {/* 연락 행 */}
@@ -403,7 +405,10 @@ export default function VendorsManager({
                         Zalo
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 text-amber-400">
+                      <span
+                        className="flex items-center gap-1 text-amber-400"
+                        title={t("form.zaloHint")}
+                      >
                         <span className="material-symbols-outlined text-[13px]">warning</span>
                         {t("noZalo")}
                       </span>

@@ -2160,7 +2160,7 @@
     "saved": "Đã lưu",
     "error": "Lưu thất bại. Vui lòng thử lại.",
     "inUseWarning": "Không thể xóa vì đang có danh mục·đơn đặt hàng liên kết. Hãy ngừng hoạt động thay vì xóa.",
-    "noZalo": "Chưa có Zalo (không gửi được đơn đặt)",
+    "noZalo": "Chưa có Zalo",
     "catalogBadge": "Danh mục liên kết {n}",
     "inProgressBadge": "Đơn đang xử lý {n}",
     "accountBadge": "Đã liên kết tài khoản",
