@@ -74,54 +74,73 @@ export function startRealtimeListenRelay(): void {
     return;
   }
 
-  const connect = async (): Promise<void> => {
-    // pg는 split 모드 전용 의존성 — 문자열 변수 지정으로 정적 번들/타입 해석 회피(미설치여도 기본 경로 무영향).
-    const pgSpecifier = "pg";
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pg: any = await import(/* webpackIgnore: true */ pgSpecifier);
-    const Client = pg.Client ?? pg.default?.Client;
-    const client = new Client({ connectionString: databaseUrl });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let client: any = null;
+  let reconnecting = false;
 
-    client.on("error", (err: unknown) => {
-      console.error(
-        "[realtime-notify] LISTEN 커넥션 오류:",
-        err instanceof Error ? err.message : String(err)
-      );
-    });
-
-    client.on("notification", (msg: { channel: string; payload?: string }) => {
-      if (msg.channel !== REALTIME_CHANNEL || !msg.payload) return;
-      try {
-        const sig = JSON.parse(msg.payload) as Partial<RealtimeSignal>;
-        if (!sig.ownerAdminId || !sig.type || !sig.conversationId) return;
-        // in-process 버스로 재-emit → /api/zalo/stream 구독 로직 무변경.
-        publish(sig.ownerAdminId, { type: sig.type, conversationId: sig.conversationId });
-      } catch {
-        /* 손상 payload 무시(신호일 뿐) */
-      }
-    });
-
-    client.on("end", () => {
-      globalForRelay.__villaRealtimeRelayStarted = true;
-      setTimeout(() => void reconnect(), 5000);
-    });
-
-    await client.connect();
-    await client.query(`LISTEN ${REALTIME_CHANNEL}`);
-    console.log("[realtime-notify] PG LISTEN relay 시작 (zalo_realtime)");
+  /**
+   * 재연결 예약(디바운스) — error·end·keepalive 실패가 겹쳐도 한 번만 재연결.
+   * ★핵심 보강(ADR-0032 R3): 예전 코드는 'error' 이벤트에 재연결을 걸지 않아,
+   * 커넥션이 error로 죽으면(방화벽 idle 컷·DB 재시작 등) 이후 NOTIFY를 영구 유실 →
+   * 관리자가 새로고침해야만 새 메시지가 뜸. error·end·keepalive 전부 재연결로 회복한다.
+   */
+  const scheduleReconnect = (why: string): void => {
+    if (reconnecting) return;
+    reconnecting = true;
+    console.error(`[realtime-notify] LISTEN 재연결 예약 (${why}) — 3초 후`);
+    try {
+      client?.removeAllListeners?.();
+      client?.end?.().catch(() => {});
+    } catch {
+      /* 정리 실패 무시 */
+    }
+    client = null;
+    setTimeout(() => {
+      reconnecting = false;
+      void connect();
+    }, 3000);
   };
 
-  const reconnect = async (): Promise<void> => {
+  const connect = async (): Promise<void> => {
     try {
-      await connect();
-    } catch (err) {
-      console.error(
-        "[realtime-notify] LISTEN relay 재연결 실패 — 5초 후 재시도:",
-        err instanceof Error ? err.message : String(err)
+      // pg는 split 모드 전용 의존성 — 문자열 변수 지정으로 정적 번들/타입 해석 회피.
+      const pgSpecifier = "pg";
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pg: any = await import(/* webpackIgnore: true */ pgSpecifier);
+      const Client = pg.Client ?? pg.default?.Client;
+      const c = new Client({ connectionString: databaseUrl });
+
+      c.on("error", (err: unknown) =>
+        scheduleReconnect(`error: ${err instanceof Error ? err.message : String(err)}`)
       );
-      setTimeout(() => void reconnect(), 5000);
+      c.on("end", () => scheduleReconnect("end"));
+      c.on("notification", (msg: { channel: string; payload?: string }) => {
+        if (msg.channel !== REALTIME_CHANNEL || !msg.payload) return;
+        try {
+          const sig = JSON.parse(msg.payload) as Partial<RealtimeSignal>;
+          if (!sig.ownerAdminId || !sig.type || !sig.conversationId) return;
+          // in-process 버스로 재-emit → /api/zalo/stream 구독 로직 무변경.
+          publish(sig.ownerAdminId, { type: sig.type, conversationId: sig.conversationId });
+        } catch {
+          /* 손상 payload 무시(신호일 뿐) */
+        }
+      });
+
+      await c.connect();
+      await c.query(`LISTEN ${REALTIME_CHANNEL}`);
+      client = c;
+      console.log("[realtime-notify] PG LISTEN relay 시작 (zalo_realtime)");
+    } catch (err) {
+      scheduleReconnect(`connect 실패: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
 
-  void reconnect();
+  // keepalive(30초) — 죽은 커넥션을 조용히 방치하지 않도록 능동 확인.
+  // pg가 TCP 끊김을 'error'로 못 잡는 경우(방화벽 idle 컷 등)를 잡아 재연결.
+  setInterval(() => {
+    if (!client || reconnecting) return;
+    client.query("SELECT 1").catch(() => scheduleReconnect("keepalive 실패"));
+  }, 30_000);
+
+  void connect();
 }
