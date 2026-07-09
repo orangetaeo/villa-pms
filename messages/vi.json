@@ -1507,6 +1507,7 @@
     "submitError": "Gửi không thành công. Vui lòng thử lại.",
     "basic": {
       "title": "Thông tin cơ bản",
+      "guide": "Nhập đúng số phòng ngủ và phòng tắm — bước sau sẽ tạo ô ảnh riêng cho từng phòng.",
       "supplier": "Nhà cung cấp",
       "supplierPlaceholder": "Chọn nhà cung cấp",
       "supplierRequired": "Vui lòng chọn nhà cung cấp.",
@@ -1541,6 +1542,7 @@
     },
     "photos": {
       "title": "Tải ảnh lên",
+      "guide": "Nhấn từng ô để tải lên 1 ảnh cho mỗi không gian. Chụp theo chiều ngang sẽ hiển thị đẹp nhất cho khách.",
       "counter": "{done}/{total}",
       "counterLabel": "ảnh đã tải",
       "exterior": "Bên ngoài",
@@ -1552,8 +1554,7 @@
       "pool": "Hồ bơi",
       "uploading": "Đang tải...",
       "retry": "Thử lại",
-      "emptyWarning": "Chưa có ảnh nào. Bạn có thể thêm ảnh sau — nhấn Tiếp tục một lần nữa để bỏ qua.",
-      "helper": "Bạn nên chụp ảnh theo chiều ngang để villa hiển thị đẹp nhất trên trang đặt phòng của khách hàng."
+      "emptyWarning": "Chưa có ảnh nào. Bạn có thể thêm ảnh sau — nhấn Tiếp tục một lần nữa để bỏ qua."
     },
     "rules": {
       "title": "Quy định sử dụng",
@@ -1582,6 +1583,8 @@
   },
   "amenities": {
     "title": "Tiện nghi & đồ dùng",
+    "guide": "Chỉ chạm vào những món villa có — danh sách này sẽ hiển thị cho khách.",
+    "guideMinibar": "Minibar: nhập số lượng sẽ để sẵn trong villa bằng nút +/−.",
     "optional": "Không bắt buộc",
     "editTitle": "Chỉnh sửa tiện nghi",
     "save": "Lưu",
@@ -4311,6 +4314,7 @@
   },
   "tour": {
     "help": "Xem hướng dẫn",
+    "replayHint": "Muốn xem lại, nhấn nút ?.",
     "next": "Tiếp",
     "back": "Quay lại",
     "skip": "Bỏ qua",

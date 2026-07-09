@@ -23,6 +23,7 @@
 | iCal 동기화 | .claude/skills/integ/ical-pattern.md + lib/ical.ts |
 | 코드 검토 | .claude/skills/qa/leak-checklist.md + evaluation-criteria.md |
 | 코치마크 튜토리얼(온보딩 투어) — 추가·화면변경 시 동기화 | components/tour/tour-definitions.ts(단일 소스) + docs/contracts/T-tutorial-onboarding.md — data-tour 앵커 화면 UI 변경 시 스텝·messages tour NS(ko/vi) 동시 갱신, tests/tour-onboarding.test.ts가 앵커 실존·패리티 강제 |
+| 실사용 테스트(전산 초보 관찰) — 테오가 사용자 만날 때 | docs/usability-test-checklist.md — 역할별 과제 시나리오·개입 금지 규칙·기록 표·판정 기준. 결과를 세션에 붙여넣으면 개선 태스크化 |
 | 태스크 착수 전 | docs/contracts/ 스프린트 계약 작성·합의 |
 | 병렬 세션(여러 Claude 동시) | docs/parallel-worktree.md — scripts/wt-new·wt-finish.ps1 격리 워크플로(폴더·인덱스·포트 분리) |
 | 정산·환율 | .claude/skills/fin/settlement-pattern.md |
