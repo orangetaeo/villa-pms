@@ -1922,6 +1922,29 @@
         "url": "http(s):// 로 시작하는 올바른 URL을 입력하세요."
       }
     },
+    "zaloConnectCard": {
+      "title": "Zalo 연결 안내",
+      "description": "공급자·청소 담당자 온보딩(Zalo 연결 화면)에 표시되는 QR 이미지와 친구추가 링크입니다. 회사 공용 Zalo 계정에 맞춰 등록하세요. 비워두면 기본 설정값이 사용됩니다.",
+      "qrLabel": "QR 이미지",
+      "uploadBtn": "이미지 업로드",
+      "uploading": "업로드 중...",
+      "uploadError": "이미지 업로드에 실패했습니다. 다시 시도해주세요.",
+      "removeBtn": "이미지 삭제",
+      "qrEmptyHint": "QR 이미지가 등록되지 않았습니다. 온보딩 화면에는 안내용 자리표시가 표시됩니다.",
+      "qrEnvFallback": "등록된 이미지가 없어 기본 설정값(환경변수)이 사용됩니다.",
+      "oaLabel": "친구추가 링크",
+      "oaHint": "https:// 로 시작하는 Zalo 친구추가 링크를 입력하세요. (예: https://zalo.me/전화번호)",
+      "oaEnvFallback": "링크가 없어 기본 설정값(환경변수)이 사용됩니다.",
+      "hint": "저장하면 공급자·청소 담당자 온보딩 화면에 즉시 반영됩니다.",
+      "save": "저장",
+      "saving": "저장 중...",
+      "saved": "저장되었습니다.",
+      "error": "저장에 실패했습니다. 다시 시도해주세요.",
+      "err": {
+        "qr": "QR 이미지 주소가 올바르지 않습니다. (업로드된 이미지 또는 https:// 주소만 허용)",
+        "oa": "https:// 로 시작하는 올바른 링크를 입력하세요."
+      }
+    },
     "minibarCardTitle": "미니바 회사표준",
     "minibarCardDesc": "전 빌라 공통 미니바 품목과 단가를 관리합니다.",
     "minibarCardCta": "관리",

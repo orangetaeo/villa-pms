@@ -1,7 +1,8 @@
 // /zalo-connect — 공급자 Zalo 연결 온보딩 (T3.7 UI, Stitch a0-zalo-connect 변환)
 // RSC, vi 라이트, 모바일. 탭바 숨김(풀스크린 플로우).
 // 연결 상태(zaloUserId)는 세션에 없으므로 DB에서 조회 — 이미 연결 시 "연결됨" 상태 렌더.
-// OA 딥링크·QR은 env(NEXT_PUBLIC_ZALO_OA_URL / NEXT_PUBLIC_ZALO_QR_URL) 있으면 활성, 없으면 비활성/플레이스홀더.
+// OA 딥링크·QR은 관리자 설정(AppSetting ZALO_CONNECT_OA_URL / ZALO_CONNECT_QR_URL) 우선,
+// 미설정 시 env(NEXT_PUBLIC_ZALO_OA_URL / NEXT_PUBLIC_ZALO_QR_URL) 폴백. 둘 다 없으면 비활성/플레이스홀더.
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -33,8 +34,17 @@ export default async function ZaloConnectPage() {
   });
   const connected = Boolean(user?.zaloUserId);
 
-  const oaUrl = process.env.NEXT_PUBLIC_ZALO_OA_URL ?? null;
-  const qrUrl = process.env.NEXT_PUBLIC_ZALO_QR_URL ?? null;
+  // OA 딥링크·QR — 관리자 설정(AppSetting) 우선, 미설정 시 env 폴백 (T-zalo-connect-qr-admin-setting).
+  const zaloSettings = await prisma.appSetting.findMany({
+    where: { key: { in: ["ZALO_CONNECT_OA_URL", "ZALO_CONNECT_QR_URL"] } },
+    select: { key: true, value: true },
+  });
+  const settingOf = (key: string) => {
+    const v = zaloSettings.find((s) => s.key === key)?.value?.trim();
+    return v ? v : null;
+  };
+  const oaUrl = settingOf("ZALO_CONNECT_OA_URL") ?? process.env.NEXT_PUBLIC_ZALO_OA_URL ?? null;
+  const qrUrl = settingOf("ZALO_CONNECT_QR_URL") ?? process.env.NEXT_PUBLIC_ZALO_QR_URL ?? null;
   // 완료/스킵 후 역할별 홈 — 청소직원은 /my-villas 접근 불가라 /cleaning으로.
   const doneHref = role === "CLEANER" ? "/cleaning" : "/my-villas";
 

@@ -21,6 +21,11 @@ export const BANK_VN_ACCOUNT_HOLDER_KEY = "BANK_VN_ACCOUNT_HOLDER";
 export const CONTACT_KAKAO_URL_KEY = "CONTACT_KAKAO_URL";
 export const CONTACT_PHONE_KEY = "CONTACT_PHONE";
 
+// Zalo 연결 온보딩(/zalo-connect) — QR 이미지·친구추가 딥링크 (T-zalo-connect-qr-admin-setting)
+// 미설정(빈 값 삭제) 시 env(NEXT_PUBLIC_ZALO_QR_URL / NEXT_PUBLIC_ZALO_OA_URL)로 폴백.
+export const ZALO_CONNECT_QR_URL_KEY = "ZALO_CONNECT_QR_URL";
+export const ZALO_CONNECT_OA_URL_KEY = "ZALO_CONNECT_OA_URL";
+
 // 빈 문자열 = "미설정"으로 삭제 가능한 키 (선택 입력 필드)
 export const CLEARABLE_KEYS = [
   BANK_NAME_KEY,
@@ -31,6 +36,8 @@ export const CLEARABLE_KEYS = [
   BANK_VN_ACCOUNT_HOLDER_KEY,
   CONTACT_KAKAO_URL_KEY,
   CONTACT_PHONE_KEY,
+  ZALO_CONNECT_QR_URL_KEY,
+  ZALO_CONNECT_OA_URL_KEY,
 ] as const;
 
 export const SETTING_KEYS = [
@@ -84,6 +91,26 @@ export const VALIDATORS: Record<SettingKey, (value: string) => boolean> = {
     }
   },
   [CONTACT_PHONE_KEY]: (value) => /^[0-9+(][0-9+\-() ]{0,29}$/.test(value),
+  // Zalo QR 이미지 — 업로드 결과(/uploads/… 상대경로) 또는 https:// 절대 URL만.
+  //   javascript:·data:·protocol-relative(//host) 등 주입 차단.
+  [ZALO_CONNECT_QR_URL_KEY]: (value) => {
+    if (value.length > 500) return false;
+    if (value.startsWith("/uploads/")) return true;
+    try {
+      return new URL(value).protocol === "https:";
+    } catch {
+      return false;
+    }
+  },
+  // Zalo 친구추가 딥링크 — https:// 스킴만 허용(예: https://zalo.me/…). javascript: 등 거부.
+  [ZALO_CONNECT_OA_URL_KEY]: (value) => {
+    if (value.length > 500) return false;
+    try {
+      return new URL(value).protocol === "https:";
+    } catch {
+      return false;
+    }
+  },
   // 취소·환불 정책 — JSON 파싱 후 정합성 검증(fullDays>partialDays≥0, 0≤pct≤100)
   [CANCELLATION_POLICY_KEY]: (value) => {
     try {

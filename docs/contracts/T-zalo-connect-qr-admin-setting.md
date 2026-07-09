@@ -1,6 +1,6 @@
 # T-zalo-connect-qr-admin-setting — Zalo 연결 QR·친구추가 링크 관리자 설정화
 
-- 상태: 진행 중 (2026-07-09, 메인 폴더 세션)
+- 상태: 완료 (2026-07-09 — 구현·QA PASS·배포)
 - 배경: /zalo-connect(공급자·청소 온보딩)의 QR 이미지·친구추가 딥링크가 env(NEXT_PUBLIC_ZALO_QR_URL / NEXT_PUBLIC_ZALO_OA_URL) 고정. 테오 요청: 회사 공용 Zalo 계정으로 바뀔 수 있으니 **관리자 설정 화면에서 QR 이미지 업로드·링크 등록** 가능해야 함.
 
 ## 범위 (신규 API 없음 — 기존 인프라 재사용)

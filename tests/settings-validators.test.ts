@@ -15,6 +15,8 @@ import {
   BANK_VN_ACCOUNT_HOLDER_KEY,
   CONTACT_KAKAO_URL_KEY,
   CONTACT_PHONE_KEY,
+  ZALO_CONNECT_QR_URL_KEY,
+  ZALO_CONNECT_OA_URL_KEY,
 } from "@/app/api/settings/validators";
 
 describe("isSettingKey 화이트리스트", () => {
@@ -100,6 +102,58 @@ describe("CONTACT_PHONE (전화 형식)", () => {
   });
   it.each(["", "phone-number", "전화번호"])("거부: %s", (v) => {
     expect(VALIDATORS[CONTACT_PHONE_KEY](v)).toBe(false);
+  });
+});
+
+describe("Zalo 연결 온보딩 키 — 화이트리스트·clearable 등록", () => {
+  it("2키 모두 등록·clearable (비우면 env 폴백)", () => {
+    for (const k of [ZALO_CONNECT_QR_URL_KEY, ZALO_CONNECT_OA_URL_KEY]) {
+      expect(isSettingKey(k)).toBe(true);
+      expect(CLEARABLE_SET.has(k)).toBe(true);
+    }
+  });
+});
+
+describe("ZALO_CONNECT_OA_URL (https:// 스킴만)", () => {
+  it.each(["https://zalo.me/0799493138", "https://zalo.me/g/abcdef"])("정상: %s", (v) => {
+    expect(VALIDATORS[ZALO_CONNECT_OA_URL_KEY](v)).toBe(true);
+  });
+  it.each([
+    "javascript:alert(1)",
+    "data:text/html,x",
+    "http://zalo.me/0799493138",
+    "//evil.com/zalo",
+    "zalo.me/0799493138",
+    "not a url",
+  ])("거부: %s", (v) => {
+    expect(VALIDATORS[ZALO_CONNECT_OA_URL_KEY](v)).toBe(false);
+  });
+  it("501자 초과 거부", () => {
+    expect(VALIDATORS[ZALO_CONNECT_OA_URL_KEY]("https://zalo.me/" + "a".repeat(486))).toBe(false);
+  });
+});
+
+describe("ZALO_CONNECT_QR_URL (/uploads/… 상대경로 또는 https://)", () => {
+  it.each([
+    "/uploads/abc123.png",
+    "/uploads/2026/07/zalo-qr.jpg",
+    "https://cdn.example.com/qr.png",
+  ])("정상: %s", (v) => {
+    expect(VALIDATORS[ZALO_CONNECT_QR_URL_KEY](v)).toBe(true);
+  });
+  it.each([
+    "http://cdn.example.com/qr.png",
+    "javascript:alert(1)",
+    "data:image/png;base64,AAAA",
+    "uploads/abc.png",
+    "//evil.com/qr.png",
+    "/etc/passwd",
+    "not a url",
+  ])("거부: %s", (v) => {
+    expect(VALIDATORS[ZALO_CONNECT_QR_URL_KEY](v)).toBe(false);
+  });
+  it("501자 초과 거부", () => {
+    expect(VALIDATORS[ZALO_CONNECT_QR_URL_KEY]("https://x.com/" + "a".repeat(490))).toBe(false);
   });
 });
 

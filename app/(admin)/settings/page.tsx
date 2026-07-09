@@ -18,6 +18,9 @@ import SeasonManager, { type SeasonRow } from "./season-manager";
 import HoldHoursForm from "./hold-hours-form";
 import FxRateForm from "./fx-rate-form";
 import BankContactForm, { type BankContactInitial } from "./bank-contact-form";
+import ZaloConnectSettingForm, {
+  type ZaloConnectInitial,
+} from "./zalo-connect-setting-form";
 import CancellationPolicyForm from "./cancellation-policy-form";
 import { getAgreementContent } from "@/lib/agreement-store";
 import AgreementForm from "./agreement-form";
@@ -34,6 +37,10 @@ const BANK_CONTACT_KEYS = [
   "CONTACT_KAKAO_URL",
   "CONTACT_PHONE",
 ] as const;
+
+// Zalo 연결 온보딩(/zalo-connect) QR·딥링크 키 — 미설정 시 env 폴백 (T-zalo-connect-qr-admin-setting)
+const ZALO_CONNECT_QR_URL_KEY = "ZALO_CONNECT_QR_URL";
+const ZALO_CONNECT_OA_URL_KEY = "ZALO_CONNECT_OA_URL";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
@@ -53,6 +60,8 @@ export default async function SettingsPage() {
             FX_AUTO_UPDATE_KEY,
             CANCELLATION_POLICY_KEY,
             ...BANK_CONTACT_KEYS,
+            ZALO_CONNECT_QR_URL_KEY,
+            ZALO_CONNECT_OA_URL_KEY,
           ],
         },
       },
@@ -87,6 +96,18 @@ export default async function SettingsPage() {
     vnAccountHolder: settingValue("BANK_VN_ACCOUNT_HOLDER"),
     kakaoUrl: settingValue("CONTACT_KAKAO_URL"),
     phone: settingValue("CONTACT_PHONE"),
+  };
+
+  // Zalo 연결 온보딩 QR·딥링크 — 저장값 우선, 비어 있으면 env 폴백 여부만 안내(값은 노출 안 함)
+  const zaloConnectInitial: ZaloConnectInitial = {
+    qrUrl: settingValue(ZALO_CONNECT_QR_URL_KEY),
+    oaUrl: settingValue(ZALO_CONNECT_OA_URL_KEY),
+    qrFromEnv:
+      settingValue(ZALO_CONNECT_QR_URL_KEY) === "" &&
+      Boolean(process.env.NEXT_PUBLIC_ZALO_QR_URL),
+    oaFromEnv:
+      settingValue(ZALO_CONNECT_OA_URL_KEY) === "" &&
+      Boolean(process.env.NEXT_PUBLIC_ZALO_OA_URL),
   };
 
   // 홀드 시간 — 미설정/파싱 불가 시 기본 48 표시 (lib/hold DEFAULT_HOLD_HOURS)
@@ -128,6 +149,10 @@ export default async function SettingsPage() {
 
       {/* Card 4: 입금 계좌·연락처 (b8 Card 3 변환, T1.7-bank-contact) */}
       <BankContactForm initial={bankInitial} />
+
+      {/* Card 4b: Zalo 연결 온보딩 QR·친구추가 링크 (T-zalo-connect-qr-admin-setting).
+          공급자·청소 온보딩(/zalo-connect)에 노출. 비우면 env 폴백 */}
+      <ZaloConnectSettingForm initial={zaloConnectInitial} />
 
       {/* Card 5: 취소·환불 정책 — 공개 제안 페이지 표시 (#6b) */}
       <CancellationPolicyForm initial={cancellationPolicy} />
