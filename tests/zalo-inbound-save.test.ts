@@ -8,6 +8,7 @@ const msgFindUnique = vi.fn();
 const msgCreate = vi.fn();
 const userFindFirst = vi.fn();
 const userUpdate = vi.fn();
+const partnerUpdateMany = vi.fn();
 const txArr = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
@@ -23,6 +24,9 @@ vi.mock("@/lib/prisma", () => ({
     user: {
       findFirst: (...a: unknown[]) => userFindFirst(...a),
       update: (...a: unknown[]) => userUpdate(...a),
+    },
+    partner: {
+      updateMany: (...a: unknown[]) => partnerUpdateMany(...a),
     },
     // $transaction([...]) — 배열 형태만 사용
     $transaction: (ops: unknown) => txArr(ops),
@@ -48,6 +52,7 @@ beforeEach(() => {
   msgCreate.mockResolvedValue({ id: "m1" });
   convUpdate.mockResolvedValue({});
   userFindFirst.mockResolvedValue(null);
+  partnerUpdateMany.mockReturnValue({ __op: "partner.updateMany" });
   txArr.mockResolvedValue([{}, {}]);
 });
 
@@ -90,12 +95,15 @@ describe("saveInboundMessage — 저장 + 메타 갱신 (ADR-0007 귀속)", () =
 });
 
 describe("saveInboundMessage — 전화번호 매칭 (T3.7)", () => {
-  it("본문이 전화번호 + SUPPLIER 일치 → User.zaloUserId + conversation.userId 연결", async () => {
-    userFindFirst.mockResolvedValue({ id: "user-9", zaloUserId: null });
+  it("본문이 전화번호 + 알림 대상 role 일치 → User.zaloUserId + conversation.userId 연결", async () => {
+    userFindFirst.mockResolvedValue({ id: "user-9", zaloUserId: null, role: "SUPPLIER" });
     const r = await saveInboundMessage({ ...base, text: "0901234567" });
     expect(userFindFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ role: "SUPPLIER", phone: "0901234567" }),
+        where: expect.objectContaining({
+          role: { in: ["SUPPLIER", "CLEANER", "VENDOR", "PARTNER"] },
+          phone: "0901234567",
+        }),
       })
     );
     expect(txArr).toHaveBeenCalledTimes(1);
@@ -135,6 +143,49 @@ describe("saveInboundMessage — 전화번호 매칭 (T3.7)", () => {
     expect(r.saved).toBe(true);
     const where = convUpsert.mock.calls[0]![0].where;
     expect(where.ownerAdminId_zaloUserId.ownerAdminId).toBe("admin-b");
+  });
+});
+
+describe("saveInboundMessage — 역할별 자동 매칭 커버리지 (T-zalo-connect-role-coverage)", () => {
+  it("CLEANER 전화번호 일치 → 자동 연결(청소직원도 알림 대상)", async () => {
+    userFindFirst.mockResolvedValue({ id: "cleaner-1", zaloUserId: null, role: "CLEANER" });
+    const r = await saveInboundMessage({ ...base, text: "0901234567" });
+    expect(txArr).toHaveBeenCalledTimes(1);
+    expect(r.matchedUserId).toBe("cleaner-1");
+    // PARTNER 아님 → Partner 동기화 없음
+    expect(partnerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("VENDOR 전화번호 일치 → 자동 연결", async () => {
+    userFindFirst.mockResolvedValue({ id: "vendor-1", zaloUserId: null, role: "VENDOR" });
+    const r = await saveInboundMessage({ ...base, text: "0901234567" });
+    expect(txArr).toHaveBeenCalledTimes(1);
+    expect(r.matchedUserId).toBe("vendor-1");
+    expect(partnerUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("PARTNER 매칭 → contactZaloUid 비어있을 때만 같은 uid로 채움(같은 트랜잭션)", async () => {
+    userFindFirst.mockResolvedValue({ id: "partner-user-1", zaloUserId: null, role: "PARTNER" });
+    const r = await saveInboundMessage({ ...base, text: "0901234567" });
+    expect(r.matchedUserId).toBe("partner-user-1");
+    // Partner.updateMany는 userId 스코프 + contactZaloUid:null 게이트(기존 값 덮어쓰기 금지)
+    expect(partnerUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: "partner-user-1", contactZaloUid: null },
+        data: { contactZaloUid: "sup-zalo-1" },
+      })
+    );
+    // user.update + conversation.update + partner.updateMany = 3개 op 한 트랜잭션
+    expect(txArr).toHaveBeenCalledTimes(1);
+    const ops = txArr.mock.calls[0]![0] as unknown[];
+    expect(ops).toHaveLength(3);
+  });
+
+  it("PARTNER 아닌 role은 Partner 동기화 op를 트랜잭션에 넣지 않음(op 2개)", async () => {
+    userFindFirst.mockResolvedValue({ id: "sup-1", zaloUserId: null, role: "SUPPLIER" });
+    await saveInboundMessage({ ...base, text: "0901234567" });
+    const ops = txArr.mock.calls[0]![0] as unknown[];
+    expect(ops).toHaveLength(2);
   });
 });
 

@@ -5,9 +5,11 @@ import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { prisma } from "@/lib/prisma";
 import { getSupplierLocale } from "@/lib/locale";
 import AccountScreen from "@/components/account/account-screen";
 import VendorPayoutForm from "@/components/vendor/vendor-payout-form";
+import { ZaloConnectEntryCard } from "@/components/zalo-connect/zalo-connect-entry-card";
 
 export const metadata: Metadata = {
   title: "Tài khoản — Villa Go",
@@ -21,6 +23,13 @@ export default async function VendorProfilePage() {
   const locale = await getSupplierLocale(session.user.locale);
   const tVendor = await getTranslations({ locale, namespace: "vendor" });
   const mustChange = session.user.mustChangePassword === true;
+
+  // Zalo 알림 연결 여부 — 진입 카드 상태 표시(연결됨/미연결)
+  const me = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { zaloUserId: true },
+  });
+  const zaloConnected = Boolean(me?.zaloUserId);
 
   return (
     <AccountScreen
@@ -42,11 +51,19 @@ export default async function VendorProfilePage() {
       // 강제 비번변경 사용자에게는 숨김(먼저 비번부터 변경).
       extra={
         mustChange ? null : (
-          <div className="mt-6 rounded-2xl border border-neutral-100 bg-white p-6 shadow-sm">
-            <h2 className="mb-1 text-lg font-bold text-neutral-900">{tVendor("payout.title")}</h2>
-            <p className="mb-5 text-sm text-neutral-500">{tVendor("payout.subtitle")}</p>
-            <VendorPayoutForm />
-          </div>
+          <>
+            <div className="mt-6 rounded-2xl border border-neutral-100 bg-white p-6 shadow-sm">
+              <h2 className="mb-1 text-lg font-bold text-neutral-900">{tVendor("payout.title")}</h2>
+              <p className="mb-5 text-sm text-neutral-500">{tVendor("payout.subtitle")}</p>
+              <VendorPayoutForm />
+            </div>
+            {/* Zalo 알림 연결 진입점 — 발주·제안 알림 수신용(본인 계정 스코프) */}
+            <ZaloConnectEntryCard
+              locale={locale}
+              connected={zaloConnected}
+              href="/vendor/zalo-connect"
+            />
+          </>
         )
       }
     />

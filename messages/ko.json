@@ -3352,7 +3352,7 @@
     "connectedDesc": "예약 알림과 업데이트를 Zalo로 받게 됩니다.",
     "profileCardTitle": "Zalo 알림",
     "profileConnected": "연결됨 — 알림을 받고 있어요",
-    "profileNotConnected": "연결하고 청소 알림 받기"
+    "profileNotConnected": "연결하고 알림 받기"
   },
   "adminZalo": {
     "title": "Zalo 봇 연결",
