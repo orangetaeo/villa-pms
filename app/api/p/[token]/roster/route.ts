@@ -14,6 +14,11 @@ import { assertSameOrigin } from "@/lib/csrf";
  * - 상태 HOLD·CONFIRMED만 허용(체크인 이후·취소·만료는 closed)
  * - guestRoster 단일 컬럼만 수정 — 상태·금액 등은 zod strip. 전이 무결성 불변.
  * - 마진 비공개: 응답·select에 판매가·원가 없음.
+ *
+ * ★만료 규약(의도): proposal.expiresAt은 검사하지 않는다 — 명단은 예약 수명주기
+ *   (HOLD/CONFIRMED) 기준의 "예약 완결 액션"이라 제안 링크 유효기간과 무관하다.
+ *   D-3 roster-reminder cron이 만료 한참 뒤의 CONFIRMED 예약에 이 링크를 보낸다.
+ *   (반면 신규 구매인 service-orders는 expiresAt 경과 시 410 — ADR-0022 재발급 원칙.)
  */
 
 const ROSTER_TOKEN_LIMIT = { max: 30, windowMs: 10 * 60_000 };

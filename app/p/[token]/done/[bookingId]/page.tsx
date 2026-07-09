@@ -80,7 +80,7 @@ export default async function BookingDonePage({
       totalSaleKrw: true,
       totalSaleVnd: true,
       totalSaleUsd: true, // Phase 2 USD: 구매자가 볼 판매가($). fx·원가는 미조회(누수 0)
-      proposalItem: { select: { proposal: { select: { token: true } } } },
+      proposalItem: { select: { proposal: { select: { token: true, expiresAt: true } } } },
     },
   });
   // 교차 토큰 차단 + HOLD/CONFIRMED 외 상태(만료·취소)는 메인의 서버 판정으로
@@ -113,6 +113,10 @@ export default async function BookingDonePage({
 
   // 파트너(여행사/랜드사) 부가서비스 요청 — PARTNER 자격 카탈로그만(서버 필터), 판매가만(원가·vendor 비노출)
   const partnerAddon = await loadPartnerAddon(booking.id, booking.saleCurrency, lang, booking.channel === "DIRECT");
+  // 신규 부가서비스 요청은 제안 유효기간까지만(ADR-0022 — 만료 후엔 재발급·운영자 경유).
+  // API(service-orders POST 410)와 동일 판정 — 폼만 보이고 제출은 실패하는 불일치 방지.
+  // 입금통보·명단은 예약 수명주기(HOLD/CONFIRMED) 기준이라 만료와 무관 — 아래 섹션들은 그대로.
+  const orderingClosed = booking.proposalItem.proposal.expiresAt.getTime() <= Date.now();
 
   return (
     <div className="text-slate-900 antialiased">
@@ -206,7 +210,8 @@ export default async function BookingDonePage({
             {t.donePage.rosterCta}
           </Link>
 
-          {/* 부가서비스 요청 (ADR-0023 S4) — 과일 바구니·도시락 등 PARTNER 자격 항목만 */}
+          {/* 부가서비스 요청 (ADR-0023 S4) — 과일 바구니·도시락 등 PARTNER 자격 항목만.
+              제안 만료 후엔 신규 요청 폼 대신 마감 안내 + 기존 요청 내역만 (API 410과 정합) */}
           {partnerAddon.catalog.length > 0 && (
             <PartnerAddonSection
               token={token}
@@ -216,6 +221,7 @@ export default async function BookingDonePage({
               fxVndPerKrw={partnerAddon.fxVndPerKrw}
               catalog={partnerAddon.catalog}
               requestedOrders={partnerAddon.requestedOrders}
+              orderingClosed={orderingClosed}
             />
           )}
 
