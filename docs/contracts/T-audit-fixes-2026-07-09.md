@@ -19,7 +19,7 @@
 
 ## 완료 기준 (테스트 가능)
 1. D-1: 360px에서 승인대기 헤더의 로그아웃 버튼과 언어토글 bounding box가 겹치지 않음 (수평 간격 ≥ 8px)
-2. P2-1: roster·payment-notice POST가 제안 expiresAt 경과 시 service-orders와 동일하게 410 반환 + 기존 정상 경로 회귀 없음
+2. P2-1 (방향 정정 — 구현 중 분석 결과): roster·payment-notice에 410을 **추가하지 않는다**. 두 route는 예약 수명주기(HOLD/CONFIRMED) 기준의 "예약 완결 액션"이라 제안 만료와 무관 — D-3 roster-reminder cron이 만료 한참 뒤 CONFIRMED 예약에 roster 링크를 보내고, 막판 HOLD는 만료를 넘겨 생존하므로 410 추가 시 정상 업무가 깨진다. 실결함은 반대쪽: done 페이지가 만료 후에도 부가서비스 주문 폼을 렌더해 "폼은 보이는데 제출은 410". 수정 = ① done 페이지 만료 판정(orderingClosed) → 폼 숨김+5언어 마감 안내+기존 요청 내역 유지 ② roster·payment-notice에 만료 규약 의도 주석 명문화
 3. P2-2: agreementSignedAt이 null이면 /g 로더 반환값의 wifiSsid·wifiPassword가 null (서명 후에는 기존대로 노출)
 4. W-2: loadOverviewStats 예약 집계가 seller=OPERATOR로 게이트되어 /revenue와 동일 모수 (의도 주석 포함)
 5. M-1: 청소원 화면 날짜가 UI 로케일과 동일 로케일로 포맷

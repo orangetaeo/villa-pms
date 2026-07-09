@@ -589,6 +589,11 @@ export async function loadOverviewStats(
       where: {
         status: { in: SETTLEMENT_STATUS_FILTER },
         checkOut: { gte: queryStart, lt: period.to },
+        // 공급자 직접판매(seller=SUPPLIER)는 회사 매출이 아님(공급자 100% 수금) —
+        // 금액은 어차피 null·0이지만 채널 건수 KPI가 /revenue(정본 revenue-ledger,
+        // seller=OPERATOR)와 어긋나므로 동일 게이트. 가동률(loadOccupancyStats)은
+        // 물리 점유라 seller 무관 — 이 필터를 복사하지 말 것.
+        seller: "OPERATOR",
       },
       select: REVENUE_SELECT,
     }) as Promise<RevenueSourceRow[]>,
@@ -962,6 +967,8 @@ export async function loadVillaPerformance(
         where: {
           status: { in: SETTLEMENT_STATUS_FILTER },
           checkOut: { gte: period.from, lt: period.to },
+          // 회사 매출 정의는 revenue-ledger와 동일: 공급자 직접판매 제외 (위 loadOverviewStats 참조)
+          seller: "OPERATOR",
         },
         select: {
           villaId: true,

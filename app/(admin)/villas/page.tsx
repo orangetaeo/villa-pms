@@ -184,7 +184,7 @@ export default async function VillasPage({
             </Link>
           </div>
         </div>
-        <div className="flex items-center gap-2 border-b border-admin-card overflow-x-auto">
+        <div className="flex items-center gap-2 border-b border-admin-card overflow-x-auto scrollbar-none">
           {tabs.map(({ key, label }) => {
             const active = tab === key;
             return (

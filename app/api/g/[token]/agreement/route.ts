@@ -62,5 +62,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     changes: { guestAgreementSigned: { new: true }, agreementVersion: { new: AGREEMENT_VERSION } },
   });
 
-  return NextResponse.json({ ok: true, agreementVersion: AGREEMENT_VERSION });
+  // 서명 완료 시점부터 와이파이 비번 열람 자격 발생 — 로더는 서명 전 null이라(액세스 게이트)
+  // 방금 서명한 게스트가 리로드 없이 바로 볼 수 있게 응답에 실어준다. 다음 로드부턴 로더가 포함.
+  // (GuestCheckinToken은 booking 관계 필드가 없어 별도 조회 — 서명 확정 후라 노출 안전.)
+  const bk = await prisma.booking.findUnique({
+    where: { id: t.bookingId },
+    select: { villa: { select: { wifiPassword: true } } },
+  });
+
+  return NextResponse.json({
+    ok: true,
+    agreementVersion: AGREEMENT_VERSION,
+    wifiPassword: bk?.villa.wifiPassword ?? null,
+  });
 }

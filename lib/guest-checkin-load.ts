@@ -215,7 +215,9 @@ export async function loadGuestCheckin(
       breakfastIncluded: booking.breakfastIncluded,
       address: booking.villa.address,
       wifiSsid: booking.villa.wifiSsid,
-      wifiPassword: booking.villa.wifiPassword,
+      // ★와이파이 비번은 동의서 서명 후에만 서버가 직렬화 — 출입정보와 동일 정책.
+      //   서명 직후 즉시 표시는 agreement POST 응답의 wifiPassword가 담당(리로드 불필요).
+      wifiPassword: t.agreementSignedAt != null ? booking.villa.wifiPassword : null,
       stayChargeVnd,
       stayChargeKrw,
     },

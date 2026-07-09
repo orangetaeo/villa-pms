@@ -46,6 +46,7 @@ export function PartnerAddonSection({
   fxVndPerKrw,
   catalog,
   requestedOrders: initialOrders,
+  orderingClosed = false,
 }: {
   token: string;
   bookingId: string;
@@ -54,6 +55,8 @@ export function PartnerAddonSection({
   fxVndPerKrw: string | null;
   catalog: PartnerCatalogView[];
   requestedOrders: PartnerRequestedOrder[];
+  /** 제안 만료(expiresAt 경과) — 신규 요청 폼 숨김, 기존 요청 내역만. API 410(EXPIRED)과 짝 */
+  orderingClosed?: boolean;
 }) {
   const t = PUBLIC_LABELS[lang].partnerAddon;
   const krwSuffix = PUBLIC_LABELS[lang].krwSuffix;
@@ -184,7 +187,12 @@ export function PartnerAddonSection({
         <p className="text-sm text-slate-500 leading-relaxed">{t.subtitle}</p>
       </div>
 
-      {catalog.length === 0 ? (
+      {orderingClosed ? (
+        <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex gap-3">
+          <span className="material-symbols-outlined text-slate-400 text-[20px]">lock_clock</span>
+          <p className="text-sm text-slate-500 leading-relaxed">{t.orderingClosed}</p>
+        </div>
+      ) : catalog.length === 0 ? (
         <p className="text-sm text-slate-400 text-center py-6">{t.empty}</p>
       ) : (
         <div className="space-y-3">
@@ -351,7 +359,7 @@ export function PartnerAddonSection({
 
       {error && <p className="text-sm text-red-500 text-center">{error}</p>}
 
-      {catalog.length > 0 && (
+      {!orderingClosed && catalog.length > 0 && (
         <button
           type="button"
           disabled={submitting || !anySelected}
