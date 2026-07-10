@@ -8,11 +8,7 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
 import { canDispatch } from "@/lib/vendor-order";
-import { enqueueNotification } from "@/lib/zalo";
-import { enqueueInAppNotification, buildVendorNotifText, vendorNotifLocale } from "@/lib/inapp-notification";
-import { selectedOptionLabels } from "@/lib/service-display";
-import { NotificationType } from "@prisma/client";
-import { toDateOnlyString } from "@/lib/date-vn";
+import { sendVendorPoNotifications } from "@/lib/vendor-dispatch";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const g = await requireCapability(isOperator, "isOperator", req);
@@ -87,53 +83,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "CONCURRENT_MODIFICATION" }, { status: 409 });
   }
 
-  // Zalo 발주 — 공급자 User에 zaloUserId 연결돼 있을 때만 큐 적재(발송은 cron).
-  const vendorZalo = order.vendor?.user?.zaloUserId;
-  let zaloSent = false;
-  let warning: string | undefined;
-  if (order.vendor?.userId && vendorZalo) {
-    await enqueueNotification({
-      userId: order.vendor.userId,
-      type: NotificationType.VENDOR_PO,
-      payload: {
-        villaName: order.booking?.villa?.name ?? "—",
-        villaAddress: order.booking?.villa?.address ?? null, // 이행 장소(발주 빌라 1채만)
-        serviceDate: order.serviceDate ? toDateOnlyString(order.serviceDate) : null,
-        serviceTime: order.serviceTime ?? null, // 이행 시각
-        itemName,
-        quantity: order.quantity,
-        // 옵션 라벨만(가격 제거 — selectedOptionLabels가 라벨 필드만 추출) + 벤더 자기 정산액
-        optionLabels: selectedOptionLabels(order.selectedOptions, "vi"),
-        costVnd: order.costVnd > 0n ? order.costVnd.toString() : null,
-        guestNote: order.guestNote ?? null, // 게스트 요청사항(있으면 발주 문구에 한 줄 추가)
-      },
-    });
-    zaloSent = true;
-  } else {
-    warning = "NO_VENDOR_ZALO";
-  }
-
-  // 인앱 알림센터 적재(Zalo와 별개 — 미연결 공급자도 앱에서 발주를 인지해야 함).
-  //   ★ 누수: 가격·마진 없음(품목·수량·빌라만). try/catch 격리로 본 발주 로직 영향 0.
-  if (order.vendor?.userId) {
-    try {
-      const { title, body } = buildVendorNotifText(NotificationType.VENDOR_PO, {
-        itemName,
-        quantity: order.quantity,
-        villaName: order.booking?.villa?.name ?? null,
-        serviceDate: order.serviceDate ? toDateOnlyString(order.serviceDate) : null,
-      }, vendorNotifLocale(order.vendor?.user?.locale));
-      await enqueueInAppNotification({
-        userId: order.vendor.userId,
-        type: NotificationType.VENDOR_PO,
-        title,
-        body,
-        href: "/vendor",
-      });
-    } catch {
-      // 인앱 알림 적재 실패는 발주 성공을 막지 않는다(폴링 다음 주기엔 미반영일 뿐).
-    }
-  }
+  // Zalo 발주(연결 시) + 인앱 적재 — 공용 헬퍼로 위임(게스트 자동 발주 경로와 동일 로직).
+  const { zaloSent } = await sendVendorPoNotifications({
+    vendor: order.vendor ?? null,
+    villaName: order.booking?.villa?.name ?? null,
+    villaAddress: order.booking?.villa?.address ?? null, // 이행 장소(발주 빌라 1채만)
+    serviceDate: order.serviceDate,
+    serviceTime: order.serviceTime,
+    itemName,
+    quantity: order.quantity,
+    selectedOptions: order.selectedOptions,
+    costVnd: order.costVnd,
+    guestNote: order.guestNote,
+  });
+  // zaloUserId 미연결이면 경보 — 발주는 기록하되 Zalo는 못 감(운영자에게 표시).
+  const warning: string | undefined = zaloSent ? undefined : "NO_VENDOR_ZALO";
 
   await writeAuditLog({
     db: prisma,

@@ -121,8 +121,8 @@ export interface GuestLabels {
     agreementDone: string;
     agreementDoneAt: (v: string) => string;
     requestedTitle: string;
-    statusPending: string;
-    statusConfirmed: string;
+    statusPending: string; // REQUESTED — "담당자 확인 중"(자동 발주 후 벤더 수락 대기)
+    statusConfirmed: string; // CONFIRMED — "확정"(벤더 수락 완료)
     statusOther: string;
     statusCancelled: string;
     estTotal: string;
@@ -131,6 +131,10 @@ export interface GuestLabels {
     finishCta: string;
     openOptionsCta: string; // "부가 옵션 신청하기" — 옵션 페이지로 이동
     optionsHint: string; // 옵션 버튼 보조 문구
+    // ADR-0033 직접 발주 — 신청 직후 성공 배너 + 확정 후 담당자 연락처
+    orderedBanner: string; // "신청 완료 — 담당자에게 바로 전달됨" 배너
+    vendorContactLabel: string; // "담당자" 라벨
+    vendorContactHint: string; // "궁금한 점은 담당자에게 직접 연락하세요"
   };
   // 출입 정보(A1) — G5 완료화면 카드. wifi 비번은 서명 후에만 노출.
   access: {
@@ -276,7 +280,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       agreementDone: "이용 동의서 서명 완료",
       agreementDoneAt: (v) => `버전 ${v}`,
       requestedTitle: "요청한 옵션",
-      statusPending: "확인 대기",
+      statusPending: "담당자 확인 중",
       statusConfirmed: "확정",
       statusOther: "처리됨",
       statusCancelled: "취소됨",
@@ -286,6 +290,9 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       finishCta: "확인",
       openOptionsCta: "부가 옵션 신청하기",
       optionsHint: "BBQ·마사지·차량 등 투숙 중 필요한 서비스를 신청하실 수 있습니다.",
+      orderedBanner: "신청 완료 — 서비스 담당자에게 바로 전달되었습니다. 담당자가 확인하면 이 페이지에서 확정 상태를 확인하실 수 있어요.",
+      vendorContactLabel: "담당자",
+      vendorContactHint: "궁금한 점은 담당자에게 직접 연락하세요.",
     },
     access: {
       title: "출입 정보",
@@ -420,7 +427,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       agreementDone: "House rules agreement signed",
       agreementDoneAt: (v) => `Version ${v}`,
       requestedTitle: "Requested options",
-      statusPending: "Pending",
+      statusPending: "Awaiting provider",
       statusConfirmed: "Confirmed",
       statusOther: "Processed",
       statusCancelled: "Cancelled",
@@ -430,6 +437,9 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       finishCta: "Done",
       openOptionsCta: "Request add-on options",
       optionsHint: "Request services you may need during your stay, such as BBQ, massage, or a car.",
+      orderedBanner: "Request sent — it went straight to your service provider. Once they confirm, you'll see the confirmed status on this page.",
+      vendorContactLabel: "Provider",
+      vendorContactHint: "For any questions, contact the provider directly.",
     },
     access: {
       title: "Access info",
@@ -564,7 +574,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       agreementDone: "Соглашение о правилах подписано",
       agreementDoneAt: (v) => `Версия ${v}`,
       requestedTitle: "Запрошенные опции",
-      statusPending: "Ожидает",
+      statusPending: "Ожидает исполнителя",
       statusConfirmed: "Подтверждено",
       statusOther: "Обработано",
       statusCancelled: "Отменено",
@@ -574,6 +584,9 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       finishCta: "Готово",
       openOptionsCta: "Запросить доп. опции",
       optionsHint: "Запросите услуги, которые могут понадобиться во время проживания: барбекю, массаж, авто.",
+      orderedBanner: "Запрос отправлен — он сразу передан вашему исполнителю. После подтверждения статус появится на этой странице.",
+      vendorContactLabel: "Исполнитель",
+      vendorContactHint: "По любым вопросам обращайтесь напрямую к исполнителю.",
     },
     access: {
       title: "Информация о доступе",
@@ -708,7 +721,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       agreementDone: "使用同意书签名完成",
       agreementDoneAt: (v) => `版本 ${v}`,
       requestedTitle: "已请求的选项",
-      statusPending: "待确认",
+      statusPending: "服务方确认中",
       statusConfirmed: "已确定",
       statusOther: "已处理",
       statusCancelled: "已取消",
@@ -718,6 +731,9 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       finishCta: "确认",
       openOptionsCta: "申请附加选项",
       optionsHint: "可申请入住期间所需服务，如烧烤、按摩、用车等。",
+      orderedBanner: "申请完成 — 已直接发送给服务方。对方确认后，您可在本页面查看确定状态。",
+      vendorContactLabel: "服务方",
+      vendorContactHint: "如有疑问，请直接联系服务方。",
     },
     access: {
       title: "出入信息",
@@ -852,7 +868,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       agreementDone: "Đã ký bản đồng ý sử dụng",
       agreementDoneAt: (v) => `Phiên bản ${v}`,
       requestedTitle: "Tùy chọn đã yêu cầu",
-      statusPending: "Chờ xác nhận",
+      statusPending: "Đang chờ nhân viên xác nhận",
       statusConfirmed: "Đã xác nhận",
       statusOther: "Đã xử lý",
       statusCancelled: "Đã hủy",
@@ -862,6 +878,9 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       finishCta: "Xác nhận",
       openOptionsCta: "Yêu cầu tùy chọn bổ sung",
       optionsHint: "Yêu cầu dịch vụ cần trong thời gian lưu trú như BBQ, massage, thuê xe.",
+      orderedBanner: "Đã gửi yêu cầu — chuyển thẳng đến nhân viên phụ trách. Khi họ xác nhận, bạn sẽ thấy trạng thái đã xác nhận trên trang này.",
+      vendorContactLabel: "Nhân viên phụ trách",
+      vendorContactHint: "Mọi thắc mắc, vui lòng liên hệ trực tiếp nhân viên phụ trách.",
     },
     access: {
       title: "Thông tin ra vào",

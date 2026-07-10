@@ -65,8 +65,14 @@ export interface GuestRequestedOrder {
   quantity: number;
   priceKrw: number | null;
   priceVnd: string | null;
-  /** 원천공급자에게 발주된(살아있는) 주문 — true면 셀프 취소 불가(취소버튼 숨김, 운영자 문의 안내). */
+  /** 원천공급자에게 발주된(살아있는) 주문 — 레거시 필드(취소 로직은 vendorAccepted로 판정). */
   dispatched: boolean;
+  /** 담당 벤더가 수락함(VENDOR_ACCEPTED) — true면 셀프 취소 불가·담당자 연락처 노출. */
+  vendorAccepted: boolean;
+  /** 담당 벤더 이름 — 수락(확정) 후에만 게스트에 노출. ★이름·전화만(원가·bankInfo 금지). */
+  vendorName: string | null;
+  /** 담당 벤더 전화 — tel: 링크용. 없으면 미표시. */
+  vendorPhone: string | null;
   /** 선택한 옵션 라벨(언어 해석 완료) — 예: ["90분", "발 마사지 추가"]. 없으면 빈 배열. */
   optionLabels: string[];
   /** 희망 날짜(YYYY-MM-DD)·시간("HH:MM") — 신청 시 입력(필수). */
@@ -116,4 +122,6 @@ export interface GuestOrdersProps {
   token: string;
   lang: PublicLang;
   requestedOrders: GuestRequestedOrder[];
+  /** 방금 신청 완료(?ordered=1)면 상단 성공 배너 표시 */
+  justOrdered?: boolean;
 }

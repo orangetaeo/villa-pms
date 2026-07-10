@@ -1,7 +1,10 @@
-// /api/vendor/orders/[id]/respond — 원천 공급자 발주 가부 응답 (ADR-0023 S2 §4.3)
+// /api/vendor/orders/[id]/respond — 원천 공급자 발주 가부 응답 (ADR-0023 S2 §4.3 · ADR-0033 자동 확정)
 //   POST: Role=VENDOR + 본인 vendorId 스코프(서버 강제). PENDING_VENDOR만 응답 가능.
 //   action=accept→VENDOR_ACCEPTED, reject→VENDOR_REJECTED(+사유),
 //   propose→VENDOR_ACCEPTED(수락하되 대안 시간 제안: proposedServiceDate/Time·메모 기록).
+//   ★게스트 직접 발주 자동 확정(테오 지시): accept + requestedVia=GUEST + status=REQUESTED이면 같은
+//     updateMany에서 status=CONFIRMED로 원자 전이(운영자 개입 0, 소비자↔벤더 직접). where에도 status=REQUESTED를
+//     넣어 운영자 동시 취소 레이스 차단. 파트너/운영자 발주(requestedVia≠GUEST)는 현행 유지(REQUESTED 잔류).
 //   응답 후 운영자(테오)에게 Zalo 통지. propose는 운영자가 적용/무시해야 고객확정 가능(미해결 게이트).
 //   ★ 누수: 타 공급자 발주 접근 차단(vendorId 불일치 시 404). 응답에 판매가·마진 없음.
 import { NextResponse } from "next/server";
@@ -79,6 +82,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     select: {
       id: true,
       status: true,
+      requestedVia: true, // GUEST 직접 발주면 수락 시 자동 확정(CONFIRMED)
       bookingId: true, // 운영자 인앱 알림 딥링크(/bookings/{id})용
       vendorId: true,
       vendorStatus: true,
@@ -129,14 +133,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   //   vendorProposalRespondedAt=null(미해결)이라 운영자가 적용/무시 전까지 고객확정 차단.
   const newStatus = action === "reject" ? "VENDOR_REJECTED" : "VENDOR_ACCEPTED";
   const trimmedNote = proposalNote?.trim() || null;
+  // ★게스트 직접 발주 자동 확정 — accept(단순 수락)이고 GUEST 발주의 REQUESTED면 status=CONFIRMED로.
+  //   propose(시간 협의)는 제외 — 일정 미확정이라 운영자 조율 후 확정. 파트너/운영자 발주도 제외(현행 유지).
+  const autoConfirm =
+    action === "accept" && order.requestedVia === "GUEST" && order.status === "REQUESTED";
   // ★동시성 가드 — PENDING_VENDOR였던 스냅샷(order.vendorStatus) 위에서만 응답 반영. 동시 수락+거절 시
   //   count===0 → 409로 차단해 last-writer-wins와 이중 운영자 통지를 막는다.
+  //   자동 확정 시 where에 status=REQUESTED도 넣어 운영자 동시 취소(CANCELLED)와의 레이스를 DB가 판정.
   const responded = await prisma.serviceOrder.updateMany({
-    where: { id, vendorId, vendorStatus: order.vendorStatus },
+    where: {
+      id,
+      vendorId,
+      vendorStatus: order.vendorStatus,
+      ...(autoConfirm ? { status: "REQUESTED" as const } : {}),
+    },
     data: {
       vendorStatus: newStatus,
       vendorRespondedAt: now,
       vendorRejectReason: action === "reject" ? rejectReason?.trim() || null : null,
+      ...(autoConfirm ? { status: "CONFIRMED" as const } : {}),
       ...(action === "propose"
         ? {
             proposedServiceDate: proposedDate,
@@ -222,6 +237,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     changes: {
       vendorStatus: { old: order.vendorStatus, new: newStatus },
       vendorRespondedAt: { new: now.toISOString() },
+      // 게스트 직접 발주 자동 확정 — status 전이 기록(운영자 개입 없이 CONFIRMED)
+      ...(autoConfirm ? { status: { old: "REQUESTED", new: "CONFIRMED" } } : {}),
       ...(action === "reject" ? { vendorRejectReason: { new: rejectReason?.trim() || null } } : {}),
       ...(action === "propose"
         ? {
