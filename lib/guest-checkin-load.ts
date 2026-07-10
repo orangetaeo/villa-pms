@@ -82,8 +82,13 @@ export interface GuestCheckinData {
     quantity: number;
     priceKrw: number | null;
     priceVnd: string | null;
-    /** 원천공급자에게 PO가 나간(살아있는) 주문 여부 — true면 게스트 셀프 취소 불가(운영자 조율). */
+    /** 원천공급자에게 PO가 나간(살아있는) 주문 여부 — 레거시(취소 로직은 vendorAccepted 판정). */
     dispatched: boolean;
+    /** 담당 벤더가 수락함(VENDOR_ACCEPTED) — true면 셀프 취소 불가·담당자 연락처 노출. */
+    vendorAccepted: boolean;
+    /** 담당 벤더 이름·전화 — 수락(확정) 후 게스트에 노출. ★이름·전화만(원가·bankInfo 절대 미포함). */
+    vendorName: string | null;
+    vendorPhone: string | null;
     /** 희망 날짜(YYYY-MM-DD) — @db.Date. 게스트 신청은 항상 존재(서버 필수 검증). */
     serviceDate: string | null;
     /** 희망 시간("HH:MM"). */
@@ -186,7 +191,13 @@ export async function loadGuestCheckin(
     prisma.serviceOrder.findMany({
       where: { bookingId: t.bookingId, requestedVia: "GUEST" },
       orderBy: { createdAt: "desc" },
-      select: { id: true, type: true, catalogItemId: true, status: true, quantity: true, priceKrw: true, priceVnd: true, vendorStatus: true, poSentAt: true, serviceDate: true, serviceTime: true, selectedOptions: true },
+      // ★ 벤더는 name·phone만 select — bankInfo·costVnd·마진 절대 미포함(게스트 노출 화이트리스트).
+      select: {
+        id: true, type: true, catalogItemId: true, status: true, quantity: true,
+        priceKrw: true, priceVnd: true, vendorStatus: true, poSentAt: true,
+        serviceDate: true, serviceTime: true, selectedOptions: true,
+        vendor: { select: { name: true, phone: true } },
+      },
     }),
     getFxVndPerKrw(prisma),
   ]);
@@ -260,8 +271,16 @@ export async function loadGuestCheckin(
       quantity: o.quantity,
       priceKrw: o.priceKrw,
       priceVnd: o.priceVnd?.toString() ?? null,
-      // 발주된(PENDING_VENDOR·VENDOR_ACCEPTED) 주문은 셀프 취소 불가 — UI가 취소버튼 숨김.
+      // 레거시 — PENDING_VENDOR·VENDOR_ACCEPTED. 취소 로직은 vendorAccepted로 판정(PENDING_VENDOR도 취소 가능).
       dispatched: o.vendorStatus === "PENDING_VENDOR" || o.vendorStatus === "VENDOR_ACCEPTED",
+      // ★벤더 수락 여부 — true면 셀프 취소 불가·담당자 연락처 노출. 수락 후에만 이름·전화 게스트 노출.
+      vendorAccepted: o.vendorStatus === "VENDOR_ACCEPTED",
+      // ★연락처 게이트는 로더 계층에서 — 미수락 벤더 신원은 반환값 자체에 싣지 않는다(방어심층,
+      //   새 소비자가 붙어도 누수 불가). 렌더 계층(orders/page)의 accepted 게이트와 동일 조건.
+      vendorName:
+        o.status === "CONFIRMED" || o.vendorStatus === "VENDOR_ACCEPTED" ? o.vendor?.name ?? null : null,
+      vendorPhone:
+        o.status === "CONFIRMED" || o.vendorStatus === "VENDOR_ACCEPTED" ? o.vendor?.phone ?? null : null,
       // 희망 날짜는 @db.Date(자정 UTC 저장) → YYYY-MM-DD. 시간은 "HH:MM" 문자열 그대로.
       serviceDate: o.serviceDate ? o.serviceDate.toISOString().slice(0, 10) : null,
       serviceTime: o.serviceTime ?? null,

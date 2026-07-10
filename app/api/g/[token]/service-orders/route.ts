@@ -1,7 +1,10 @@
-// POST /api/g/[token]/service-orders — 게스트 셀프 부가옵션 요청 (ADR-0019 v2)
+// POST /api/g/[token]/service-orders — 게스트 셀프 부가옵션 요청 (ADR-0019 v2 · ADR-0033 직접 발주)
 //   비로그인(토큰). 서버가 카탈로그 기준으로 가격 재계산(클라 금액 신뢰 금지, §9.5) — VND 단일통화.
 //   priceVnd 스냅샷 + priceKrw=priceKrwCeil(totalVnd, fx) 스냅샷 저장(현재 환율, 미설정이면 0).
 //   상태=REQUESTED, requestedVia=GUEST, costVnd=0(운영자 확정 시 입력). 결제 없음 — 체크아웃 정산.
+//   ★자동 발주(테오 지시): 카탈로그 벤더가 승인(APPROVED)·활성(active)이면 생성 시점에 즉시
+//     vendorStatus=PENDING_VENDOR·poSentAt 세팅 + 벤더 Zalo/인앱 발주 통보(운영자 수동 dispatch 불필요).
+//     벤더 미배정·미승인·비활성이면 현행대로 REQUESTED만 생성(운영자 수동 폴백). 운영자 A1 알림은 유지(정보성).
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -15,6 +18,7 @@ import { getFxVndPerKrw } from "@/lib/pricing";
 import { parseUtcDateOnly } from "@/lib/date-vn";
 import type { Prisma } from "@prisma/client";
 import { notifyOperatorsServiceOrderRequested } from "@/lib/consumer-signal-notify";
+import { sendVendorPoNotifications } from "@/lib/vendor-dispatch";
 
 const schema = z.object({
   catalogItemId: z.string().min(1).max(40),
@@ -61,7 +65,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     return NextResponse.json({ error: "INVALID_SERVICE_DATE" }, { status: 400 });
   }
 
-  const item = await prisma.serviceCatalogItem.findUnique({ where: { id: d.catalogItemId } });
+  const item = await prisma.serviceCatalogItem.findUnique({
+    where: { id: d.catalogItemId },
+    // 자동 발주 판정용 벤더 관계 — 승인·활성·Zalo 연결 여부. ★ bankInfo·마진 미select(누수 0).
+    include: {
+      vendor: {
+        select: {
+          id: true,
+          userId: true,
+          approvalStatus: true,
+          active: true,
+          user: { select: { zaloUserId: true, locale: true } },
+        },
+      },
+    },
+  });
   // 게스트 자격(GUEST) 항목만 주문 가능 — 과일 바구니 등 PARTNER 전용은 차단(ADR-0023 §9.2, id 추측 방지).
   if (!item || !item.active || !parseAudiences(item.audiences).includes("GUEST")) {
     return NextResponse.json({ error: "CATALOG_ITEM_NOT_FOUND" }, { status: 404 });
@@ -85,6 +103,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   const fx = await getFxVndPerKrw(prisma);
   const priceKrw = fx ? priceKrwCeil(pricing.totalPriceVnd, fx) : 0;
 
+  // ★자동 발주 조건 — 벤더 배정 + 승인(APPROVED) + 활성(active). 하나라도 아니면 REQUESTED만(수동 폴백).
+  const vendor = item.vendor;
+  const autoDispatch =
+    !!item.vendorId && vendor?.approvalStatus === "APPROVED" && vendor?.active === true;
+  const now = new Date();
+
   const created = await prisma.serviceOrder.create({
     data: {
       bookingId: t.bookingId,
@@ -96,11 +120,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       priceKrw,
       priceVnd: pricing.totalPriceVnd,
       catalogItemId: item.id,
-      vendorId: item.vendorId, // 원천 공급자 스냅샷 — 운영자 발주(dispatch) 대상 (ADR-0023 §4.3)
+      vendorId: item.vendorId, // 원천 공급자 스냅샷 (ADR-0023 §4.3)
       quantity: pricing.quantity,
       selectedOptions: pricing.snapshot as unknown as Prisma.InputJsonValue,
       requestedVia: "GUEST",
       guestNote: d.guestNote ?? null,
+      // ★자동 발주 — 생성 시점이라 동시성 가드 불필요(신규 행). 벤더가 /vendor에서 수락하면 자동 확정.
+      ...(autoDispatch ? { vendorStatus: "PENDING_VENDOR" as const, poSentAt: now } : {}),
     },
     select: { id: true },
   });
@@ -115,14 +141,39 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     action: "CREATE",
     entity: "ServiceOrder",
     entityId: created.id,
-    changes: { requestedVia: { new: "GUEST" }, catalogItemId: { new: item.id } },
+    changes: {
+      requestedVia: { new: "GUEST" },
+      catalogItemId: { new: item.id },
+      // 자동 발주된 경우만 발주 필드 기록(운영자 수동 발주와 감사 이력 구분)
+      ...(autoDispatch
+        ? { vendorStatus: { new: "PENDING_VENDOR" }, poSentAt: { new: now.toISOString() } }
+        : {}),
+    },
   });
 
-  // 운영자 Zalo 통지 (A1) — 요청이 예약 상세에만 묻히지 않게. best-effort.
+  // 빌라 정보(운영자 A1 통지 + 벤더 발주 통보 공용) — name·address. best-effort.
   const bookingInfo = await prisma.booking.findUnique({
     where: { id: t.bookingId },
-    select: { villa: { select: { name: true } } },
+    select: { villa: { select: { name: true, address: true } } },
   });
+
+  // ★자동 발주 통보 — 벤더 Zalo(연결 시) + 인앱. costVnd=0이므로 payload costVnd=null(미확정).
+  if (autoDispatch) {
+    await sendVendorPoNotifications({
+      vendor,
+      villaName: bookingInfo?.villa.name ?? null,
+      villaAddress: bookingInfo?.villa.address ?? null,
+      serviceDate,
+      serviceTime: d.serviceTime ?? null,
+      itemName: item.nameKo,
+      quantity: pricing.quantity,
+      selectedOptions: pricing.snapshot,
+      costVnd: 0n,
+      guestNote: d.guestNote ?? null,
+    });
+  }
+
+  // 운영자 Zalo 통지 (A1) — 요청이 예약 상세에만 묻히지 않게(자동 발주 여부와 무관하게 유지). best-effort.
   await notifyOperatorsServiceOrderRequested(prisma, {
     bookingId: t.bookingId,
     orderId: created.id,

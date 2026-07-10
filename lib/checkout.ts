@@ -83,16 +83,26 @@ export interface MinibarLineInput {
 
 export interface CompleteCheckoutInput {
   bookingId: string;
-  /** 공간별 상태 사진 (기준 사진과 비교용) — 1장 이상 */
-  photoUrls: string[];
+  /** 공간별 상태 사진 — 정책 변경(2026-07-10)으로 선택. 신규 체크아웃은 보내지 않고 빈 배열로 저장. */
+  photoUrls?: string[];
   damageFound: boolean;
   damageNote?: string;
   damagePhotoUrls?: string[];
   deductionVnd?: bigint | null;
   /** 미니바 소모 라인(consumed>0만 전송 권장 — 0/음수는 서버에서 무시) */
   minibarLines?: MinibarLineInput[];
-  /** 게스트 통합정산(미니바+확정옵션) 수납 — 입력 시 결제수단·수납시각 기록 (ADR-0019 S4) */
-  settlement?: { method: GuestSettlementMethodValue; note?: string | null } | null;
+  /**
+   * 게스트 통합정산(미니바+확정옵션) 수납 — 입력 시 결제수단·수납시각 기록 (ADR-0019 S4).
+   * amounts: 통화별 실수납액(분할 수납, 테오 요청 2026-07-10). 원본 통화 그대로 저장(환산 저장 금지).
+   *   VND=BigInt(동), KRW/USD=정수. 미입력·0은 null. 음수·비정수는 RangeError.
+   */
+  settlement?: {
+    method: GuestSettlementMethodValue;
+    note?: string | null;
+    amounts?: { vnd?: bigint | null; krw?: number | null; usd?: number | null } | null;
+  } | null;
+  /** 수납 환율 스냅샷 — 라우트가 getDailyRates로 조회해 전달(클라 신뢰 금지). 없으면 null */
+  settlementFx?: { date: string; vndPerKrw: number; vndPerUsd: number } | null;
   actorUserId: string;
   now: Date;
 }
@@ -103,11 +113,28 @@ export async function completeCheckout(
   prisma: PrismaClient,
   input: CompleteCheckoutInput
 ): Promise<{ booking: Booking; record: CheckOutRecord }> {
-  if (input.photoUrls.length < 1) {
-    throw new RangeError("체크아웃 상태 사진은 1장 이상 필요합니다");
-  }
+  // 체크아웃 상태 사진은 정책 변경(2026-07-10)으로 더 이상 필수가 아니다 — 파손 시에만 증빙 입력.
   if (input.damageFound && !input.damageNote?.trim() && !(input.damagePhotoUrls?.length)) {
     throw new RangeError("파손 발견 시 상세 내용 또는 증빙 사진이 필요합니다");
+  }
+  // 게스트 수납 분할 금액 검증 — 음수·비정수 차단(원본 통화 그대로 저장, 환산 저장 금지)
+  const settlementAmounts = input.settlement?.amounts ?? null;
+  if (settlementAmounts) {
+    if (settlementAmounts.vnd != null && settlementAmounts.vnd < 0n) {
+      throw new RangeError("수납액(VND)은 0 이상이어야 합니다");
+    }
+    if (
+      settlementAmounts.krw != null &&
+      (!Number.isInteger(settlementAmounts.krw) || settlementAmounts.krw < 0)
+    ) {
+      throw new RangeError("수납액(KRW)은 0 이상 정수여야 합니다");
+    }
+    if (
+      settlementAmounts.usd != null &&
+      (!Number.isInteger(settlementAmounts.usd) || settlementAmounts.usd < 0)
+    ) {
+      throw new RangeError("수납액(USD)은 0 이상 정수여야 합니다");
+    }
   }
 
   return prisma.$transaction(async (tx) => {
@@ -144,7 +171,7 @@ export async function completeCheckout(
     const record = await tx.checkOutRecord.create({
       data: {
         bookingId: booking.id,
-        photoUrls: input.photoUrls,
+        photoUrls: input.photoUrls ?? [],
         damageFound: input.damageFound,
         // 파손 아님이면 파손 필드 정규화 — REFUNDED 기록에 메모·사진 잔존 차단 (QA D4)
         damageNote: input.damageFound ? input.damageNote?.trim() || null : null,
@@ -273,6 +300,14 @@ export async function completeCheckout(
       select: { priceKrw: true, priceVnd: true },
     });
     const bill = computeGuestBill(minibarChargeVnd, svcOrders);
+    // 통화별 실수납액 — 0/미입력은 null. 양수 값이 하나라도 있으면 환율 스냅샷 동봉(표시·검증 근거).
+    const settledVnd =
+      settlementAmounts?.vnd != null && settlementAmounts.vnd > 0n ? settlementAmounts.vnd : null;
+    const settledKrw =
+      settlementAmounts?.krw != null && settlementAmounts.krw > 0 ? settlementAmounts.krw : null;
+    const settledUsd =
+      settlementAmounts?.usd != null && settlementAmounts.usd > 0 ? settlementAmounts.usd : null;
+    const hasSettledAmount = settledVnd != null || settledKrw != null || settledUsd != null;
     await tx.checkOutRecord.update({
       where: { id: record.id },
       data: {
@@ -283,6 +318,11 @@ export async function completeCheckout(
               settlementMethod: input.settlement.method,
               settledAt: input.now,
               settlementNote: input.settlement.note?.trim() || null,
+              settledVnd,
+              settledKrw,
+              settledUsd,
+              settlementFx:
+                hasSettledAmount && input.settlementFx ? input.settlementFx : undefined,
             }
           : {}),
       },
@@ -309,6 +349,14 @@ export async function completeCheckout(
         checkOutRecordId: { new: record.id },
         // 미니바 판매 합계(라인 캡처) — BigInt는 문자열로 기록
         minibarChargeVnd: { new: minibarChargeVnd?.toString() ?? null },
+        // 게스트 통화별 실수납액 — BigInt(VND)는 문자열, KRW/USD는 정수
+        ...(input.settlement
+          ? {
+              settledVnd: { new: settledVnd?.toString() ?? null },
+              settledKrw: { new: settledKrw ?? null },
+              settledUsd: { new: settledUsd ?? null },
+            }
+          : {}),
         // 전환 회수(RECOVER) 발생 시 회수 품목 수만 기록 — 원가·수량 상세는 원장에 (마진 비공개)
         ...(recoveredItemCount > 0
           ? { minibarRecoveredItems: { new: recoveredItemCount } }

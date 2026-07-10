@@ -863,6 +863,16 @@
         "withName": "Người chuyển “{name}” · báo lúc {at}. Hãy đối chiếu sao kê ngân hàng trước khi xác nhận thanh toán.",
         "noName": "Báo lúc {at}. Hãy đối chiếu sao kê ngân hàng trước khi xác nhận thanh toán."
       },
+      "checkoutSettlement": {
+        "title": "Thu tiền khách khi trả phòng",
+        "method": "Hình thức thanh toán",
+        "methods": {
+          "CASH": "Tiền mặt",
+          "BANK_TRANSFER": "Chuyển khoản",
+          "OTHER": "Khác"
+        },
+        "amounts": "Số tiền đã thu theo loại tiền"
+      },
       "memo": {
         "title": "Ghi chú nội bộ",
         "placeholder": "Nhập yêu cầu của khách hoặc lưu ý nội bộ...",
@@ -3205,7 +3215,6 @@
   },
   "adminCheckout": {
     "guide": {
-      "photos": "Chụp tình trạng hiện tại theo cùng góc với ảnh gốc lúc nhận phòng rồi tải lên. Cần ít nhất 1 ảnh để tiến hành trả phòng.",
       "minibar": "Chỉ cần nhập 'số lượng còn lại' cho từng món, hệ thống tự tính lượng tiêu thụ và tiền trừ. Món không đụng tới cứ để nguyên — tính là tiêu thụ 0.",
       "submit": "Bấm nút hoàn tiền sẽ chốt trả phòng và tự động tạo công việc dọn dẹp. Nếu có khoản trừ (minibar/hư hỏng), chỉ nút 'Duyệt hoàn sau khấu trừ' được bật."
     },
@@ -3215,14 +3224,7 @@
     "backToBooking": "Về chi tiết đặt phòng",
     "alreadyCheckedOut": "Đặt phòng này đã trả phòng",
     "notCheckedIn": "Chưa ở trạng thái nhận phòng (hiện tại: {status})",
-    "comparison": "So sánh tình trạng phòng",
-    "baseline": "Ảnh gốc",
-    "checkoutPhoto": "Ảnh khi trả phòng",
-    "uploadPhoto": "Tải ảnh lên",
-    "uploading": "Đang tải lên…",
     "uploadError": "Tải ảnh thất bại. Vui lòng thử lại.",
-    "sectionDone": "Đã kiểm tra",
-    "sectionMissing": "Thiếu ảnh",
     "minibar": "Kiểm tra minibar",
     "readonly": "Chỉ xem",
     "minibarEmpty": "Chưa đăng ký món minibar nào",
@@ -3243,18 +3245,6 @@
     "refundFull": "Hoàn toàn bộ tiền cọc",
     "refundDeduct": "Duyệt hoàn sau khấu trừ",
     "submitError": "Xử lý trả phòng thất bại. Vui lòng thử lại.",
-    "spaces": {
-      "EXTERIOR": "Bên ngoài",
-      "LIVING": "Phòng khách",
-      "KITCHEN": "Bếp",
-      "BEDROOM": "Phòng ngủ",
-      "BATHROOM": "Phòng tắm",
-      "BALCONY": "Ban công",
-      "POOL": "Hồ bơi",
-      "ETC": "Khác"
-    },
-    "generalPhotos": "Ảnh tổng thể",
-    "baselineMissing": "Không có ảnh gốc",
     "autoCalc": "Tự động tính",
     "stockedQty": "Số lượng đặt",
     "remainingQty": "Số lượng còn",
@@ -3289,7 +3279,17 @@
     "settlementNote": "Ghi chú quyết toán (tùy chọn)",
     "settlementNotePlaceholder": "VD: Nhận tiền mặt USD, hoàn phần còn lại",
     "par": "Định mức",
-    "onHandLabel": "Tồn kho"
+    "onHandLabel": "Tồn kho",
+    "guestBillTotalEquiv": "Tổng quy đổi",
+    "fxAsOf": "Hiển thị gần đúng theo tỷ giá hôm nay ({date})",
+    "settledAmountsTitle": "Số tiền đã thu (theo loại tiền)",
+    "settledVnd": "Đã thu (₫)",
+    "settledKrw": "Đã thu (₩)",
+    "settledUsd": "Đã thu ($)",
+    "settledEquiv": "Tổng quy đổi đã thu",
+    "settledRemaining": "Còn lại",
+    "settledExcess": "Vượt",
+    "settledNeedMethod": "Nếu đã nhập số tiền thu, phải chọn hình thức thanh toán mới hoàn tất được."
   },
   "adminMessages": {
     "headerCollapse": "Thu gọn tiêu đề",
@@ -4131,7 +4131,6 @@
   },
   "supplierCheckout": {
     "guide": {
-      "photo": "Chụp ảnh hiện trạng đúng góc giống ảnh gốc. Ảnh này dùng để đối chiếu khi có hư hỏng.",
       "minibar": "Chỉ nhập số khách đã dùng. Tiền minibar thu riêng với khách, không trừ vào tiền cọc."
     },
     "pageTitle": "Trả phòng",
@@ -4141,28 +4140,6 @@
     "submitting": "Đang xử lý…",
     "submitError": "Không thể trả phòng. Vui lòng thử lại.",
     "submitCaption": "Trả phòng xong sẽ tự tạo việc dọn dẹp — villa nhận khách tiếp sau khi kiểm tra dọn dẹp đạt.",
-    "needPhoto": "Cần ít nhất 1 ảnh hiện trạng.",
-    "generalPhotos": "Ảnh phòng",
-    "spaces": {
-      "EXTERIOR": "Bên ngoài",
-      "LIVING": "Phòng khách",
-      "KITCHEN": "Bếp",
-      "BEDROOM": "Phòng ngủ",
-      "BATHROOM": "Phòng tắm",
-      "BALCONY": "Ban công",
-      "POOL": "Hồ bơi",
-      "ETC": "Khác"
-    },
-    "photo": {
-      "title": "So sánh phòng",
-      "baseline": "Ảnh gốc",
-      "current": "Ảnh hiện tại",
-      "done": "Đã chụp",
-      "pending": "Chưa chụp",
-      "take": "Chụp ảnh",
-      "uploading": "Đang tải…",
-      "uploadError": "Tải ảnh thất bại. Vui lòng thử lại."
-    },
     "damage": {
       "title": "Hư hỏng",
       "hint": "Bật khi có hư hỏng để thêm ảnh & số tiền trừ.",

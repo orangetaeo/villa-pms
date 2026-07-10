@@ -12,7 +12,7 @@ import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import { guestVndPrice, guestVnd } from "./guest-format";
 import type { GuestOrdersProps, GuestRequestedOrder } from "./types";
 
-export default function GuestOrders({ token, lang, requestedOrders }: GuestOrdersProps) {
+export default function GuestOrders({ token, lang, requestedOrders, justOrdered }: GuestOrdersProps) {
   const L = GUEST_LABELS[lang];
   const router = useRouter();
   const suffix = lang === "ko" ? "" : `?lang=${lang}`;
@@ -81,6 +81,13 @@ export default function GuestOrders({ token, lang, requestedOrders }: GuestOrder
       </header>
 
       <main className="flex-grow px-4 py-5 space-y-4 pb-32">
+        {/* 신청 직후 성공 배너(ordered=1) — 자동 발주로 담당자에게 바로 전달됨 안내 */}
+        {justOrdered && (
+          <div className="bg-teal-50 border border-teal-100 rounded-xl p-4 flex gap-3">
+            <span className="material-symbols-outlined text-teal-600 text-[20px]">check_circle</span>
+            <p className="text-xs text-teal-800 leading-relaxed">{L.result.orderedBanner}</p>
+          </div>
+        )}
         {requestedOrders.length === 0 ? (
           <div className="text-center py-16 space-y-3">
             <span className="material-symbols-outlined text-slate-300 text-[44px]">receipt_long</span>
@@ -94,9 +101,11 @@ export default function GuestOrders({ token, lang, requestedOrders }: GuestOrder
             <div className="divide-y divide-slate-100">
               {requestedOrders.map((o) => {
                 const when = [o.serviceDate, o.serviceTime].filter(Boolean).join(" ");
-                // 셀프 취소는 미발주 REQUESTED만. 발주된(dispatched) 주문은 운영자 조율 필요 → 버튼 대신 안내.
-                const canCancel = o.status === "REQUESTED" && !o.dispatched;
-                const dispatchedLock = o.status === "REQUESTED" && o.dispatched;
+                // 셀프 취소는 벤더 수락 전 REQUESTED만(PENDING_VENDOR 포함). 수락(vendorAccepted)되면 잠금.
+                const canCancel = o.status === "REQUESTED" && !o.vendorAccepted;
+                const dispatchedLock = o.status === "REQUESTED" && o.vendorAccepted;
+                // 담당자 연락처 — 확정(CONFIRMED)·벤더 수락 후 이름·전화 노출(★원가·마진 없음).
+                const showContact = (o.status === "CONFIRMED" || o.vendorAccepted) && !!o.vendorName;
                 return (
                   <div key={o.id} className="px-4 py-3.5 space-y-1.5">
                     <div className="flex items-start justify-between gap-2">
@@ -127,7 +136,27 @@ export default function GuestOrders({ token, lang, requestedOrders }: GuestOrder
                       </p>
                     )}
                     <p className="text-[11px] text-slate-400 leading-snug">{o.fulfillNote}</p>
-                    {/* 셀프 취소(A3) — REQUESTED만. CONFIRMED/DELIVERED엔 버튼 없음. */}
+                    {/* 담당자 연락처(확정 후) — 이름 + 전화(tel:) + 직접 연락 안내. ★이름·전화만 노출. */}
+                    {showContact && (
+                      <div className="mt-1.5 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-teal-600 text-[16px]">support_agent</span>
+                          <span className="text-[11px] text-slate-500">{L.result.vendorContactLabel}</span>
+                          <span className="text-xs font-semibold text-slate-800 truncate">{o.vendorName}</span>
+                          {o.vendorPhone && (
+                            <a
+                              href={`tel:${o.vendorPhone}`}
+                              className="ml-auto inline-flex items-center gap-1 text-xs font-bold text-teal-700 active:scale-95"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">call</span>
+                              <span className="tabular-nums">{o.vendorPhone}</span>
+                            </a>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-teal-700/80 leading-snug">{L.result.vendorContactHint}</p>
+                      </div>
+                    )}
+                    {/* 셀프 취소(A3) — 벤더 수락 전 REQUESTED만. 확정·수락 후엔 버튼 없음. */}
                     {canCancel && (
                       <button
                         type="button"

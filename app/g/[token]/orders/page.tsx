@@ -31,10 +31,11 @@ export default async function GuestOrdersPage({
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ lang?: string }>;
+  searchParams: Promise<{ lang?: string; ordered?: string }>;
 }) {
   const { token } = await params;
-  const { lang: langParam } = await searchParams;
+  const { lang: langParam, ordered } = await searchParams;
+  const justOrdered = ordered === "1";
   const cookieLang = (await cookies()).get(PUBLIC_LOCALE_COOKIE)?.value;
   const lang = resolvePublicLang(langParam, cookieLang);
 
@@ -57,6 +58,8 @@ export default async function GuestOrdersPage({
   const La = GUEST_LABELS[lang].addons;
   const requestedOrders: GuestRequestedOrder[] = data.requestedOrders.map((o) => {
     const pu = o.catalogItemId ? pickupById.get(o.catalogItemId) : null;
+    // ★담당자 연락처는 확정(CONFIRMED)·벤더 수락 후에만 게스트 노출 — 그 전엔 payload에도 미포함.
+    const accepted = o.status === "CONFIRMED" || o.vendorAccepted;
     return {
       id: o.id,
       type: o.type,
@@ -66,6 +69,9 @@ export default async function GuestOrdersPage({
       priceKrw: o.priceKrw,
       priceVnd: o.priceVnd,
       dispatched: o.dispatched,
+      vendorAccepted: o.vendorAccepted,
+      vendorName: accepted ? o.vendorName : null,
+      vendorPhone: accepted ? o.vendorPhone : null,
       optionLabels: o.selectedOptions.map((s) => pickI18n(s.labelKo, s.labelI18n ?? null, lang)),
       serviceDate: o.serviceDate,
       serviceTime: o.serviceTime,
@@ -75,7 +81,7 @@ export default async function GuestOrdersPage({
 
   return (
     <div className="bg-slate-50 text-slate-900 antialiased">
-      <GuestOrders token={token} lang={lang} requestedOrders={requestedOrders} />
+      <GuestOrders token={token} lang={lang} requestedOrders={requestedOrders} justOrdered={justOrdered} />
     </div>
   );
 }

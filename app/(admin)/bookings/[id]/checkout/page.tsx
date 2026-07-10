@@ -2,34 +2,24 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import { BookingStatus, PhotoSpace, ServiceOrderStatus } from "@prisma/client";
+import { BookingStatus, ServiceOrderStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatKrw, formatVnd } from "@/lib/format";
 import { minibarItemName } from "@/lib/minibar";
 import { effectivePar } from "@/lib/minibar-inventory";
+import { getDailyRates } from "@/lib/fx-rates";
 import CheckoutForm, { type ConfirmedServiceOrder } from "./checkout-form";
 
 /**
  * /bookings/[id]/checkout — 체크아웃 검수 (Stitch b4 변환, T3.3)
- * 기준 사진 비교 + 미니바 회사표준 소모 입력(#2b, MinibarItem) + 파손 리포트 + 보증금 처리
+ * 미니바 회사표준 소모 입력(#2b, MinibarItem) + 게스트 청구·다통화 수납 + 파손 리포트 + 보증금 처리.
+ * 사진 비교 섹션은 정책 변경(2026-07-10)으로 제거 — 파손 시에만 증빙 사진 입력.
  */
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
   return { title: `${t("checkout")} — Villa Go` };
 }
-
-/** 기준 사진 공간 정렬 순서 (b4: 거실→주방→침실→…) */
-const SPACE_ORDER: PhotoSpace[] = [
-  PhotoSpace.LIVING,
-  PhotoSpace.KITCHEN,
-  PhotoSpace.BEDROOM,
-  PhotoSpace.BATHROOM,
-  PhotoSpace.BALCONY,
-  PhotoSpace.POOL,
-  PhotoSpace.EXTERIOR,
-  PhotoSpace.ETC,
-];
 
 export default async function CheckoutPage({
   params,
@@ -53,16 +43,7 @@ export default async function CheckoutPage({
         depositAmount: true,
         depositCurrency: true,
         villaId: true,
-        villa: {
-          select: {
-            name: true,
-            photos: {
-              where: { isBaseline: true },
-              orderBy: { sortOrder: "asc" },
-              select: { id: true, space: true, spaceLabel: true, url: true },
-            },
-          },
-        },
+        villa: { select: { name: true } },
       },
     }),
     prisma.minibarItem.findMany({
@@ -133,21 +114,6 @@ export default async function CheckoutPage({
     priceVnd: o.priceVnd != null ? o.priceVnd.toString() : null,
   }));
 
-  // 공간 순서대로 비교 섹션 구성 — 라벨은 spaceLabel 우선, 없으면 공간명
-  const sections: { id: string; label: string; baselineUrl: string | null }[] = [
-    ...booking.villa.photos,
-  ]
-    .sort((a, b) => SPACE_ORDER.indexOf(a.space) - SPACE_ORDER.indexOf(b.space))
-    .map((p) => ({
-      id: p.id,
-      label: p.spaceLabel || t(`spaces.${p.space}`),
-      baselineUrl: p.url as string | null,
-    }));
-  // 기준 사진 0장 빌라 — 일반 촬영 슬롯 폴백 (사진 1장 이상 요건 충족 경로 보장, QA D5)
-  if (sections.length === 0) {
-    sections.push({ id: "general", label: t("generalPhotos"), baselineUrl: null });
-  }
-
   // 회사표준 미니바 — 표시명은 로케일별(vi/ko), 단가는 우리 판매가(BigInt → 문자열).
   //   par(비치목표)·onHand(현재고)를 함께 내려 "남은 수량" 입력 UX의 기본값·표시에 사용.
   const minibar = minibarItems.map((m) => ({
@@ -168,6 +134,12 @@ export default async function CheckoutPage({
     booking.depositAmount != null && booking.depositCurrency === "VND"
       ? String(booking.depositAmount)
       : null;
+
+  // 오늘 환율(HCM 기준) — 미니바·청구서·수납 환산 "≈" 표시용. 장애 시 null(환산줄 생략).
+  const rates = await getDailyRates(prisma);
+  const fx = rates
+    ? { date: rates.date, vndPerKrw: rates.vndPerUnit.KRW, vndPerUsd: rates.vndPerUnit.USD }
+    : null;
 
   return (
     <div className="max-w-7xl mx-auto pb-32">
@@ -205,11 +177,11 @@ export default async function CheckoutPage({
       ) : (
         <CheckoutForm
           bookingId={booking.id}
-          sections={sections}
           minibar={minibar}
           depositLabel={depositLabel}
           depositVnd={depositVnd}
           confirmedOrders={confirmedOrders}
+          fx={fx}
         />
       )}
     </div>
