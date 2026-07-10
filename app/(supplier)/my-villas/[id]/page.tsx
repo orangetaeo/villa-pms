@@ -21,6 +21,8 @@ import {
 } from "./villa-sales-section";
 import type { BedTypeKey } from "@/lib/bedding";
 import { formatVillaName } from "@/lib/villa-name";
+import { CoachMark, TourHelpButton } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
 // 시즌 표시 순서 (비수기 → 성수기 → 극성수기). PEAK는 강조색
 const SEASON_ORDER: SeasonType[] = ["LOW", "HIGH", "PEAK"];
@@ -140,6 +142,8 @@ export default async function VillaDetailPage({
   const tRule = await getTranslations({ locale, namespace: "villaRules" });
   const tBed = await getTranslations({ locale, namespace: "bedding" });
   const tFeature = await getTranslations({ locale, namespace: "features.items" });
+  // 코치마크 문구 — RSC 번역 → props (화이트리스트 비의존, my-villas 목록과 동일 패턴)
+  const tTour = await getTranslations({ locale, namespace: "tour" });
   const salesLabels: SupplierVillaSalesLabels = {
     s: (key, values) => tSales(key, values),
     rule: (key, values) => tRule(key, values),
@@ -205,7 +209,8 @@ export default async function VillaDetailPage({
         <h1 className="flex-1 truncate px-1 text-center text-lg font-semibold text-teal-600">
           {formatVillaName({ name: villa.name, nameVi: villa.nameVi })}
         </h1>
-        <div className="h-10 w-10" />
+        {/* 코치마크 재생 "?" — 자체 앱바 우측(cleaningDetail 패턴, 스페이서 자리) */}
+        <TourHelpButton tourId="supplierVillaDetail" label={tTour("help")} />
       </header>
 
       <main className="px-4 pb-28 pt-4">
@@ -277,7 +282,8 @@ export default async function VillaDetailPage({
           </div>
 
           {/* 2. 사진 그리드 — 탭 시 라이트박스(a11), "관리" 진입(a12) */}
-          <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm">
+          {/* 코치마크 앵커: 사진 카드 */}
+          <div data-tour="svdetail-photos" className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-teal-600">image</span>
@@ -302,7 +308,8 @@ export default async function VillaDetailPage({
           </div>
 
           {/* 3. 비품 요약 — "수정" 진입(T6.4) */}
-          <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm">
+          {/* 코치마크 앵커: 비품 카드 */}
+          <div data-tour="svdetail-amenities" className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-teal-50 text-teal-600">
                 <span className="material-symbols-outlined">countertops</span>
@@ -333,7 +340,8 @@ export default async function VillaDetailPage({
           </div>
 
           {/* 4. 원가 (Giá gốc) — supplierCostVnd만. 판매가·마진 부재. 편집은 기간별 원가(rate-periods, ADR-0014) */}
-          <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm">
+          {/* 코치마크 앵커: 원가 카드 */}
+          <div data-tour="svdetail-rates" className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-teal-600">payments</span>
@@ -381,7 +389,8 @@ export default async function VillaDetailPage({
           </div>
 
           {/* 4-1. 판매 링크 (ADR-0021 §7 T10.7) — 공급자 직접 판매 링크 생성·관리 진입 */}
-          <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm">
+          {/* 코치마크 앵커: 판매링크 카드 */}
+          <div data-tour="svdetail-sell-link" className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-teal-50 text-teal-600">
                 <span className="material-symbols-outlined">share</span>
@@ -402,7 +411,8 @@ export default async function VillaDetailPage({
 
           {/* 4-2. 이용 규칙·위치 정보 수정 (공급자 자가 편집) — 테오 요청: 규칙은 공급자 영역.
               잠자리·셀링포인트는 운영자 관리(아래 읽기전용 섹션 유지). */}
-          <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm">
+          {/* 코치마크 앵커: 규칙·위치 카드 */}
+          <div data-tour="svdetail-info" className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-teal-50 text-teal-600">
                 <span className="material-symbols-outlined">gavel</span>
@@ -451,6 +461,13 @@ export default async function VillaDetailPage({
           />
         </div>
       </main>
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 앱바 "?"로 재생 */}
+      <CoachMark
+        tourId="supplierVillaDetail"
+        steps={buildTourSteps(tTour, "supplierVillaDetail")}
+        labels={buildTourLabels(tTour)}
+      />
     </div>
   );
 }

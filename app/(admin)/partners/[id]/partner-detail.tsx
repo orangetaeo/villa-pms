@@ -10,6 +10,7 @@ import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { formatVnd, formatThousands } from "@/lib/format";
 import PartnerForm, { type PartnerFormValues } from "../partner-form";
 import PartnerInvoicesTab from "./partner-invoices-tab";
+import { TourHelpButton } from "@/components/tour/coach-mark";
 
 export interface SerializedPartnerDetail {
   partner: {
@@ -77,10 +78,14 @@ export interface PartnerLoginAccount {
 export default function PartnerDetailView({
   detail,
   account,
+  tourHelpLabel,
 }: {
   detail: SerializedPartnerDetail;
   /** 연결된 로그인 계정(Role=PARTNER) — 없으면 null (운영자만 관리하는 파트너) */
   account: PartnerLoginAccount | null;
+  /** 코치마크 "?" 라벨 — RSC에서 번역해 전달. 클라에서 tour NS 훅 호출 금지(화이트리스트 무변경 원칙 —
+   *  주석에도 훅 호출 형태 문자열을 쓰면 admin-i18n-whitelist 스캔이 오탐하므로 풀어 씀). */
+  tourHelpLabel: string;
 }) {
   const t = useTranslations("adminPartners");
   const router = useRouter();
@@ -261,7 +266,8 @@ export default function PartnerDetailView({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-3">
-        <div>
+        {/* 코치마크 앵커 — 이름+유형·등급·상태(항상 렌더) */}
+        <div data-tour="pdetail-header">
           <Link href="/partners" className="text-xs text-admin-muted hover:text-white">
             ← {t("title")}
           </Link>
@@ -270,18 +276,26 @@ export default function PartnerDetailView({
             {t(`types.${p.type}`)} · {t(`tierShort.${p.creditTier}`)} · {t(`statuses.${p.status}`)}
           </p>
         </div>
-        {!editing && (
-          <button
-            type="button"
-            onClick={() => {
-              setError(null);
-              setEditing(true);
-            }}
-            className="shrink-0 rounded-lg border border-slate-700 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-800"
-          >
-            {t("edit")}
-          </button>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {/* 코치마크 "?" — 동적 route라 사이드바 공용 매핑이 못 잡음 → tourId 명시(T-8) */}
+          <TourHelpButton
+            tourId="partnerDetail"
+            label={tourHelpLabel}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-slate-800 hover:text-white active:scale-95"
+          />
+          {!editing && (
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setEditing(true);
+              }}
+              className="shrink-0 rounded-lg border border-slate-700 px-4 py-2 text-sm font-bold text-slate-200 hover:bg-slate-800"
+            >
+              {t("edit")}
+            </button>
+          )}
+        </div>
       </div>
 
       {editing ? (
@@ -298,7 +312,8 @@ export default function PartnerDetailView({
       ) : (
         <>
           {/* 탭 전환 */}
-          <div className="flex gap-1 border-b border-slate-800">
+          {/* 코치마크 앵커 — 편집 모드에선 미렌더 → 스텝 자동 스킵 */}
+          <div data-tour="pdetail-tabs" className="flex gap-1 border-b border-slate-800">
             {(["overview", "invoices"] as const).map((key) => (
               <button
                 key={key}
@@ -320,7 +335,8 @@ export default function PartnerDetailView({
           ) : (
             <>
           {/* 미수 요약 + Aging */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          {/* 코치마크 앵커 — 편집 모드·청구서 탭에선 미렌더 → 스텝 자동 스킵 */}
+          <div data-tour="pdetail-aging" className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <div className="rounded-xl border border-slate-800 bg-admin-card p-4">
               <p className="text-[11px] font-bold uppercase text-slate-500">{t("outstanding")}</p>
               <p className={`mt-1 text-lg font-black ${detail.overdue ? "text-red-400" : "text-white"}`}>
@@ -343,7 +359,8 @@ export default function PartnerDetailView({
 
           {/* 신용 조건 + 연락처 */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="rounded-xl border border-slate-800 bg-admin-card p-4 text-sm">
+            {/* 코치마크 앵커 — 편집 모드·청구서 탭에선 미렌더 → 스텝 자동 스킵 */}
+            <div data-tour="pdetail-credit" className="rounded-xl border border-slate-800 bg-admin-card p-4 text-sm">
               <h3 className="mb-3 text-xs font-bold uppercase text-slate-500">{t("creditInfo")}</h3>
               <dl className="flex flex-col gap-2 text-slate-300">
                 <Row label={t("form.creditTier")} value={t(`tiers.${p.creditTier}`)} />
@@ -416,7 +433,8 @@ export default function PartnerDetailView({
           </div>
 
           {/* 미수 채권 목록 */}
-          <section>
+          {/* 코치마크 앵커 — 편집 모드·청구서 탭에선 미렌더 → 스텝 자동 스킵 */}
+          <section data-tour="pdetail-receivables">
             <h3 className="mb-2 text-sm font-bold text-white">{t("receivablesTitle")}</h3>
             <ResponsiveTable
               columns={receivableCols}

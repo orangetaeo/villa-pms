@@ -102,7 +102,11 @@ export default function PartnerChangeRequestPanel({
   if (availableKinds.length === 0 && requests.length === 0) return null;
 
   return (
-    <section className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm">
+    // 코치마크 앵커: 변경요청 패널 — 조건 미충족 시 null 반환(위) → 투어 자동 스킵
+    <section
+      data-tour="pbdetail-change-request"
+      className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm"
+    >
       <h2 className="mb-1 text-base font-bold text-neutral-900">{t("title")}</h2>
       <p className="mb-4 text-sm text-neutral-500">{t("subtitle")}</p>
 

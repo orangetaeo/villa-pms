@@ -31,6 +31,8 @@ import PartnerAssignCard from "./partner-assign-card";
 import BookingModifyPanel, { type VillaOption } from "./booking-modify-panel";
 import ChangeRequestPanel from "./change-request-panel";
 import { modifiableKind } from "@/lib/booking-modify";
+import { CoachMark, TourHelpButton } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
 /** 연결된 연장(분할 숙박) 예약 요약 — 부모 상세의 읽기전용 목록용. saleLabel은 canViewFinance만 채움 */
 type ExtensionItem = {
@@ -75,6 +77,8 @@ export default async function BookingDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const t = await getTranslations("adminBookings");
+  // tTour — 코치마크 문구(RSC 번역 → props, ADMIN_CLIENT_NAMESPACES 무변경)
+  const tTour = await getTranslations("tour");
   const { id } = await params;
   const now = new Date();
 
@@ -561,7 +565,8 @@ export default async function BookingDetailPage({
     <div className="max-w-7xl mx-auto space-y-8">
       {/* 헤더 (b11) */}
       <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-4">
+        {/* 코치마크 앵커 — 제목+상태 배지+HOLD 카운트다운(항상 렌더) */}
+        <div data-tour="bdetail-header" className="flex items-center gap-4">
           <nav className="text-sm font-medium text-admin-muted flex items-center gap-2 whitespace-nowrap">
             <Link href="/bookings" className="hover:text-white transition-colors">
               {t("detail.breadcrumb")}
@@ -581,6 +586,12 @@ export default async function BookingDetailPage({
             </span>
           )}
         </div>
+        {/* 코치마크 "?" — 동적 route라 사이드바 공용 매핑이 못 잡음 → tourId 명시(T-8) */}
+        <TourHelpButton
+          tourId="bookingDetail"
+          label={tTour("help")}
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-slate-800 hover:text-white active:scale-95"
+        />
       </div>
 
       {/* 분할 숙박(ADR-0030 T-G) — 이 예약이 연장 예약이면 원 예약으로 역링크 */}
@@ -776,6 +787,8 @@ export default async function BookingDetailPage({
           )}
 
           {/* 결제 기록 — ADMIN(canViewFinance)은 실수납 패널(요약·추가·삭제), STAFF는 읽기전용(금액 비표시) */}
+          {/* 코치마크 앵커 — 순수 래퍼(스타일 무영향): 패널/읽기전용 표 어느 쪽이든 항상 렌더 */}
+          <div data-tour="bdetail-payments">
           {paymentPanel ? (
             <PaymentPanel
               bookingId={booking.id}
@@ -827,9 +840,12 @@ export default async function BookingDetailPage({
             )}
           </section>
           )}
+          </div>
 
           {/* 부가서비스 주문 패널 (ADR-0019 S2, b20) — 종결(취소·만료·노쇼) 예약엔 비표시 */}
+          {/* 코치마크 앵커 — 조건부 블록 안쪽 래퍼: 종결 예약이면 미렌더 → 스텝 자동 스킵 */}
           {!terminal && (
+            <div data-tour="bdetail-services">
             <ServiceOrdersPanel
               bookingId={booking.id}
               catalog={serviceCatalog}
@@ -843,6 +859,7 @@ export default async function BookingDetailPage({
                 nameKo: v.nameKo ?? null,
               }))}
             />
+            </div>
           )}
         </div>
 
@@ -928,17 +945,23 @@ export default async function BookingDetailPage({
           )}
 
           {/* 실제 투숙객 명단 (T-guest-roster) — 확정~체크인 전날 입력. 종결 상태는 비표시 */}
+          {/* 코치마크 앵커 — 조건부 블록 안쪽 래퍼: 종결 예약이면 미렌더 → 스텝 자동 스킵 */}
           {!terminal && (
-            <RosterBox
-              bookingId={booking.id}
-              initialRoster={booking.guestRoster}
-              showReminder={booking.status === BookingStatus.CONFIRMED && !booking.guestRoster}
-            />
+            <div data-tour="bdetail-roster">
+              <RosterBox
+                bookingId={booking.id}
+                initialRoster={booking.guestRoster}
+                showReminder={booking.status === BookingStatus.CONFIRMED && !booking.guestRoster}
+              />
+            </div>
           )}
 
           {/* 게스트 셀프 체크인 링크 (ADR-0019 S3) — 종결 상태는 비표시 */}
+          {/* 코치마크 앵커 — 조건부 블록 안쪽 래퍼: 종결 예약이면 미렌더 → 스텝 자동 스킵 */}
           {!terminal && (
-            <GuestTokenCard bookingId={booking.id} initial={guestToken} origin={origin} />
+            <div data-tour="bdetail-guest-token">
+              <GuestTokenCard bookingId={booking.id} initial={guestToken} origin={origin} />
+            </div>
           )}
 
           {/* 활동 로그 — AuditLog 기반 */}
@@ -981,6 +1004,12 @@ export default async function BookingDetailPage({
           <MemoBox bookingId={booking.id} initialNote={booking.note} />
         </div>
       </div>
+      {/* 코치마크 투어 — 운영 사이클(수납→확정→체크인/아웃) 안내. 종결 예약은 조건부 스텝 자동 스킵(T-8) */}
+      <CoachMark
+        tourId="bookingDetail"
+        steps={buildTourSteps(tTour, "bookingDetail")}
+        labels={buildTourLabels(tTour)}
+      />
     </div>
   );
 }

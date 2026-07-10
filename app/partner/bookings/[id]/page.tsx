@@ -15,6 +15,8 @@ import { getPublicBankInfo } from "@/app/p/_components/public-bank";
 import { formatVndDot, formatDate, formatDayMonth } from "../../_format";
 import PartnerRosterForm from "@/components/partner/partner-roster-form";
 import PartnerChangeRequestPanel from "@/components/partner/partner-change-request-panel";
+import { CoachMark, TourHelpButton } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
 /** UTC 타임스탬프 → "dd/MM/yyyy HH:mm" — VN 현지시각(UTC+7, DST 없음) */
 function formatVnDateTime(d: Date): string {
@@ -57,6 +59,8 @@ export default async function PartnerBookingDetailPage({
   if (!booking) notFound(); // 미소유/미존재(IDOR 차단)
 
   const t = await getTranslations("partner");
+  // 코치마크 문구 — 파트너 로케일 패턴(요청 로케일) 그대로 RSC 번역 → props
+  const tTour = await getTranslations("tour");
   const statusStyle = STATUS_STYLE[booking.status] ?? "bg-neutral-100 text-neutral-500";
 
   // ③ 입금계좌 — HOLD(확정 대기 입금) 또는 미납 잔액이 있을 때만. 파트너 채권은 VND 고정.
@@ -81,16 +85,21 @@ export default async function PartnerBookingDetailPage({
 
   return (
     <div className="space-y-5">
-      <Link
-        href="/partner"
-        className="inline-flex items-center gap-1 text-sm font-medium text-neutral-500 hover:text-neutral-800"
-      >
-        <span className="material-symbols-outlined text-lg">arrow_back</span>
-        {t("bookingDetail.back")}
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link
+          href="/partner"
+          className="inline-flex items-center gap-1 text-sm font-medium text-neutral-500 hover:text-neutral-800"
+        >
+          <span className="material-symbols-outlined text-lg">arrow_back</span>
+          {t("bookingDetail.back")}
+        </Link>
+        {/* 코치마크 재생 "?" — back 링크 행 우측 */}
+        <TourHelpButton tourId="partnerBookingDetail" label={tTour("help")} />
+      </div>
 
       {/* 예약 요약 카드 */}
-      <section className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm">
+      {/* 코치마크 앵커: 예약 요약 */}
+      <section data-tour="pbdetail-summary" className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
             <h1 className="truncate text-lg font-bold text-neutral-900">
@@ -277,7 +286,8 @@ export default async function PartnerBookingDetailPage({
 
       {/* 부가서비스 요청 (T-partner-scale 2) — 비금액 메타만(금액·공급자·옵션 미노출). 게스트 메모 강조 */}
       {booking.serviceOrders.length > 0 && (
-        <section className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm">
+        // 코치마크 앵커: 부가서비스 — 조건부 블록(요청 없으면 미렌더 → 투어 자동 스킵)
+        <section data-tour="pbdetail-services" className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm">
           <h2 className="mb-1 text-base font-bold text-neutral-900">
             {t("serviceOrders.title")}
           </h2>
@@ -339,7 +349,8 @@ export default async function PartnerBookingDetailPage({
       />
 
       {/* 투숙객 명단 사전 제출 */}
-      <section className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm">
+      {/* 코치마크 앵커: 명단 섹션 */}
+      <section data-tour="pbdetail-roster" className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm">
         <h2 className="mb-1 text-base font-bold text-neutral-900">{t("roster.title")}</h2>
         <p className="mb-4 text-sm text-neutral-500">{t("roster.subtitle")}</p>
         <PartnerRosterForm
@@ -348,6 +359,13 @@ export default async function PartnerBookingDetailPage({
           canEdit={booking.canEditRoster}
         />
       </section>
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 상단 "?"로 재생 */}
+      <CoachMark
+        tourId="partnerBookingDetail"
+        steps={buildTourSteps(tTour, "partnerBookingDetail")}
+        labels={buildTourLabels(tTour)}
+      />
     </div>
   );
 }

@@ -220,6 +220,53 @@ export const TOURS = {
       { anchor: "vdetail-tab-sales", key: "villaDetail.sales" },
     ],
   },
+  // 예약 상세(/bookings/[id]) — route 동적: 페이지 명시 tourId(villaDetail 선례). 운영 사이클
+  // (수납→확정→체크인/아웃) 중심. actions~services는 살아있는 예약에서만 렌더 → 종결 예약은 자동 스킵.
+  bookingDetail: {
+    route: null,
+    steps: [
+      { anchor: "bdetail-header", key: "bookingDetail.header" },
+      { anchor: "bdetail-payments", key: "bookingDetail.payments" },
+      { anchor: "bdetail-actions", key: "bookingDetail.actions" },
+      { anchor: "bdetail-guest-token", key: "bookingDetail.guestToken" },
+      { anchor: "bdetail-roster", key: "bookingDetail.roster" },
+      { anchor: "bdetail-services", key: "bookingDetail.services" },
+    ],
+  },
+  // 파트너 상세(/partners/[id]) — route 동적. B2B 여신·미수 업무 규칙 중심.
+  // 편집 모드에서는 헤더 외 자동 스킵(첫 진입은 항상 overview·비편집이라 5스텝 전부 재생).
+  partnerDetail: {
+    route: null,
+    steps: [
+      { anchor: "pdetail-header", key: "partnerDetail.header" },
+      { anchor: "pdetail-tabs", key: "partnerDetail.tabs" },
+      { anchor: "pdetail-aging", key: "partnerDetail.aging" },
+      { anchor: "pdetail-credit", key: "partnerDetail.credit" },
+      { anchor: "pdetail-receivables", key: "partnerDetail.receivables" },
+    ],
+  },
+  // 공급자 빌라 상세(/my-villas/[id]) — 5개 편집 진입 카드가 전부 무조건 렌더 → 앵커=카드 컨테이너.
+  supplierVillaDetail: {
+    route: null,
+    steps: [
+      { anchor: "svdetail-photos", key: "supplierVillaDetail.photos" },
+      { anchor: "svdetail-amenities", key: "supplierVillaDetail.amenities" },
+      { anchor: "svdetail-rates", key: "supplierVillaDetail.rates" },
+      { anchor: "svdetail-sell-link", key: "supplierVillaDetail.sellLink" },
+      { anchor: "svdetail-info", key: "supplierVillaDetail.info" },
+    ],
+  },
+  // 파트너 예약 상세(/partner/bookings/[id]) — summary·roster 항상, services·change-request는
+  // 서버 조건부("그 상태에서만 의미 있는 스텝" → 자동 스킵 규약, T-8 카브아웃).
+  partnerBookingDetail: {
+    route: null,
+    steps: [
+      { anchor: "pbdetail-summary", key: "partnerBookingDetail.summary" },
+      { anchor: "pbdetail-services", key: "partnerBookingDetail.services" },
+      { anchor: "pbdetail-change-request", key: "partnerBookingDetail.changeRequest" },
+      { anchor: "pbdetail-roster", key: "partnerBookingDetail.roster" },
+    ],
+  },
   earnings: {
     route: "/earnings",
     steps: [

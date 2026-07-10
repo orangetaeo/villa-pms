@@ -96,7 +96,8 @@ export default function ActionPanel({
   if (terminal) return null;
 
   return (
-    <section className="bg-admin-card p-6 rounded-xl space-y-4 border border-[#334155]">
+    // 코치마크 앵커 — 컴포넌트가 terminal이면 null 반환하므로 루트에 직접 부착(래퍼 금지, 자동 스킵)
+    <section data-tour="bdetail-actions" className="bg-admin-card p-6 rounded-xl space-y-4 border border-[#334155]">
       {status === "HOLD" && (
         <button
           type="button"
