@@ -73,8 +73,9 @@ export default async function StatsSection({
 
   return (
     <div className="space-y-6">
-      {/* 기간 칩 */}
-      <div className="flex gap-2">
+      {/* 기간 칩 — 코치마크 앵커(earnings-period). 이 컴포넌트는 현재 earnings 전용
+          (벤더 통계는 자체 인라인 UI·vstats- 앵커) — 다른 화면에서 재사용하게 되면 앵커를 prop 주입으로 전환 */}
+      <div data-tour="earnings-period" className="flex gap-2">
         {PERIOD_CHIPS.map((key) => {
           const active = key === chip;
           return (
@@ -102,8 +103,8 @@ export default async function StatsSection({
         </div>
       ) : (
         <>
-          {/* KPI 2x2 */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* KPI 2x2 — 코치마크 앵커(earnings-kpi). hasData 조건부 — 빈 데이터면 스텝 자동 스킵 */}
+          <div data-tour="earnings-kpi" className="grid grid-cols-2 gap-3">
             <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
               <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
                 {t("kpiRevenue")}

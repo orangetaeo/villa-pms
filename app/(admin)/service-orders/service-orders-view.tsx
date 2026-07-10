@@ -177,7 +177,8 @@ export default function ServiceOrdersView({
       </header>
 
       {/* 합계 카드 — 전역 대기·완료(필터 무관) */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* 코치마크 앵커 */}
+      <div data-tour="sorders-summary" className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
           <p className="flex items-center gap-1.5 text-xs font-medium text-amber-300">
             <span className="h-2 w-2 rounded-full bg-amber-400" />
@@ -201,7 +202,8 @@ export default function ServiceOrdersView({
       </div>
 
       {/* 탭 — 정산 | 중계현황 */}
-      <div className="flex gap-1 rounded-xl bg-slate-800/60 p-1">
+      {/* 코치마크 앵커 */}
+      <div data-tour="sorders-tabs" className="flex gap-1 rounded-xl bg-slate-800/60 p-1">
         {(["settle", "status"] as const).map((key) => {
           const active = tab === key;
           return (
@@ -650,7 +652,8 @@ function FilterBar({
   const selectCls =
     "min-w-0 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-2 text-sm text-slate-200 outline-none focus:border-admin-primary";
   return (
-    <div className="space-y-2 rounded-xl border border-slate-700/60 bg-slate-900/40 p-3">
+    // 코치마크 앵커
+    <div data-tour="sorders-filters" className="space-y-2 rounded-xl border border-slate-700/60 bg-slate-900/40 p-3">
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
         {RANGE_KEYS.map((k) => {
           const active = filters.range === k;

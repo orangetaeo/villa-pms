@@ -753,7 +753,8 @@ export default function AvailabilityBoardClient({
       <style dangerouslySetInnerHTML={{ __html: BOARD_CSS }} />
 
       {/* ===== 필터 / 기간 바 ===== */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-800/50 bg-admin-card p-3 shadow-sm">
+      {/* 코치마크 앵커 */}
+      <div data-tour="avail-filters" className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-800/50 bg-admin-card p-3 shadow-sm">
         {/* 검색 */}
         <div className="relative">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">
@@ -855,7 +856,8 @@ export default function AvailabilityBoardClient({
       </div>
 
       {/* ===== 범례 ===== */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-1">
+      {/* 코치마크 앵커 */}
+      <div data-tour="avail-legend" className="flex flex-wrap items-center gap-x-6 gap-y-2 px-1">
         <div className="flex items-center gap-2 whitespace-nowrap">
           <span className="ab-cell-available inline-block h-5 w-5 rounded border border-slate-600" />
           <span className="text-sm font-medium text-slate-300">{s.legendAvailable}</span>
@@ -912,7 +914,8 @@ export default function AvailabilityBoardClient({
       </div>
 
       {/* ===== 타임라인 격자 ===== */}
-      <div ref={scrollRef} className={"ab-scroll relative overflow-auto rounded-xl border border-slate-800/50 bg-admin-card shadow-lg" + (drag ? " ab-dragging" : "")}>
+      {/* 코치마크 앵커 */}
+      <div ref={scrollRef} data-tour="avail-grid" className={"ab-scroll relative overflow-auto rounded-xl border border-slate-800/50 bg-admin-card shadow-lg" + (drag ? " ab-dragging" : "")}>
         {rows.length === 0 ? (
           <div className="flex items-center justify-center py-16 text-sm text-slate-500">
             {s.empty}

@@ -13,6 +13,8 @@ import { toDateOnlyString } from "@/lib/date-vn";
 import PaginationBar from "@/components/pagination-bar";
 import ListSearch from "@/components/list-search";
 import { parsePageParams } from "@/lib/pagination";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
 export const metadata: Metadata = { title: "Đặt phòng trực tiếp — Villa Go" };
 
@@ -27,6 +29,8 @@ export default async function SupplierMyBookingsPage({
 
   const locale = await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "myBookings" });
+  // 코치마크 문구 — RSC 번역 → props (화이트리스트 비의존, cleaning-submit 패턴)
+  const tTour = await getTranslations({ locale, namespace: "tour" });
   const params = await searchParams;
   const { page, pageSize, skip, take } = parsePageParams(params);
   // 검색어(URL q 모드) — 빌라명·투숙객명. 자기 스코프(supplierId) 안에서만 검색(누수 0).
@@ -108,8 +112,9 @@ export default async function SupplierMyBookingsPage({
               <h2 className="px-1 text-xs font-bold uppercase tracking-wider text-neutral-400">
                 {t("pendingSection")}
               </h2>
-              {pending.map((b) => (
-                <BookingCard key={b.id} booking={b} t={t} fmt={fmt} />
+              {pending.map((b, i) => (
+                // 코치마크 앵커 — 화면 첫 카드에만(대기 섹션이 위). 빈 목록이면 자동 스킵
+                <BookingCard key={b.id} booking={b} t={t} fmt={fmt} tourAnchor={i === 0} />
               ))}
             </section>
           )}
@@ -118,8 +123,15 @@ export default async function SupplierMyBookingsPage({
               <h2 className="px-1 text-xs font-bold uppercase tracking-wider text-neutral-400">
                 {t("doneSection")}
               </h2>
-              {done.map((b) => (
-                <BookingCard key={b.id} booking={b} t={t} fmt={fmt} />
+              {done.map((b, i) => (
+                // 대기 카드가 없을 때만 완료 첫 카드가 화면 첫 카드 → 앵커 승계
+                <BookingCard
+                  key={b.id}
+                  booking={b}
+                  t={t}
+                  fmt={fmt}
+                  tourAnchor={pending.length === 0 && i === 0}
+                />
               ))}
             </section>
           )}
@@ -128,6 +140,14 @@ export default async function SupplierMyBookingsPage({
           <PaginationBar total={totalBookings} page={page} pageSize={pageSize} light />
         </div>
       )}
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 헤더 "?"로 재생. 카드/버튼 앵커는 첫 카드
+          조건부라 빈 목록·완료-only(액션 버튼 없음)에서는 해당 스텝 자동 스킵 */}
+      <CoachMark
+        tourId="myBookings"
+        steps={buildTourSteps(tTour, "myBookings")}
+        labels={buildTourLabels(tTour)}
+      />
     </div>
   );
 }
@@ -136,6 +156,7 @@ function BookingCard({
   booking,
   t,
   fmt,
+  tourAnchor = false,
 }: {
   booking: {
     id: string;
@@ -148,13 +169,19 @@ function BookingCard({
   };
   t: (key: string, values?: Record<string, string | number>) => string;
   fmt: (d: Date) => string;
+  /** 코치마크 앵커(mybook-card·mybook-action) — 화면 첫 카드에만 true */
+  tourAnchor?: boolean;
 }) {
   const isCheckin = booking.status === BookingStatus.CONFIRMED;
   const isCheckout = booking.status === BookingStatus.CHECKED_IN;
   const isDone = booking.status === BookingStatus.CHECKED_OUT;
 
   return (
-    <div className="rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm">
+    // 코치마크 앵커(mybook-card) — 첫 카드에만 부착
+    <div
+      data-tour={tourAnchor ? "mybook-card" : undefined}
+      className="rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm"
+    >
       <div className="mb-3 flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate font-bold text-neutral-800">{booking.villa.name}</p>
@@ -173,6 +200,8 @@ function BookingCard({
       {isCheckin && (
         <Link
           href={`/my-bookings/${booking.id}/checkin`}
+          // 코치마크 앵커(mybook-action) — 첫 카드에만. 완료 카드는 버튼 없음 → 자동 스킵
+          data-tour={tourAnchor ? "mybook-action" : undefined}
           className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-teal-600 font-bold text-white transition-transform active:scale-[0.98]"
         >
           <span className="material-symbols-outlined">how_to_reg</span>
@@ -182,6 +211,8 @@ function BookingCard({
       {isCheckout && (
         <Link
           href={`/my-bookings/${booking.id}/checkout`}
+          // 코치마크 앵커(mybook-action) — 체크아웃 branch에도 동일 부착(첫 카드 상태에 따라 한쪽만 렌더)
+          data-tour={tourAnchor ? "mybook-action" : undefined}
           className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border-2 border-teal-600 bg-white font-bold text-teal-600 transition-transform active:scale-[0.98]"
         >
           <span className="material-symbols-outlined">logout</span>

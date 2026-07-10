@@ -19,6 +19,8 @@ import {
   loadMinibarStats,
   loadServiceOrderStats,
 } from "@/lib/statistics";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 import StatisticsClient, { type TabKey } from "./statistics-client";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -82,18 +84,29 @@ export default async function StatisticsPage({
     presetKey: period.presetKey,
   };
 
+  const tTour = await getTranslations("tour");
+
   return (
-    <StatisticsClient
-      fin={fin}
-      activeTab={activeTab}
-      period={periodMeta}
-      overview={overview}
-      minibar={minibar}
-      services={services}
-      occupancy={occupancy}
-      villas={villas}
-      funnel={funnel}
-      operations={operations}
-    />
+    <>
+      <StatisticsClient
+        fin={fin}
+        activeTab={activeTab}
+        period={periodMeta}
+        overview={overview}
+        minibar={minibar}
+        services={services}
+        occupancy={occupancy}
+        villas={villas}
+        funnel={funnel}
+        operations={operations}
+      />
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 "?"로 재생 (T-tutorial-onboarding-6) */}
+      <CoachMark
+        tourId="adminStatistics"
+        steps={buildTourSteps(tTour, "adminStatistics")}
+        labels={buildTourLabels(tTour)}
+      />
+    </>
   );
 }

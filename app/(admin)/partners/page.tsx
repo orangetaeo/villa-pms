@@ -1,9 +1,12 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { canViewFinance, canSetPrice } from "@/lib/permissions";
 import { serializeBigInt } from "@/lib/serialize";
 import { getPartnersWithAggregates } from "@/lib/partner-server";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 import PartnersManager, { type SerializedPartnerAggregate } from "./partners-manager";
 
 // 파트너 관리 (ADR-0022 PARTNER-2) — 미수·신용한도는 재무(canViewFinance) 전용
@@ -38,11 +41,22 @@ export default async function PartnersPage() {
   // 승인/거절은 canSetPrice(OWNER/MANAGER/ADMIN)만 — API와 동일 게이트(vendors의 canEdit 패턴).
   const canApprove = canSetPrice(session.user.role);
 
+  const tTour = await getTranslations("tour");
+
   return (
-    <PartnersManager
-      partners={serialized}
-      canApprove={canApprove}
-      accountActiveByUserId={accountActiveByUserId}
-    />
+    <>
+      <PartnersManager
+        partners={serialized}
+        canApprove={canApprove}
+        accountActiveByUserId={accountActiveByUserId}
+      />
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 "?"로 재생 (T-tutorial-onboarding-6) */}
+      <CoachMark
+        tourId="adminPartners"
+        steps={buildTourSteps(tTour, "adminPartners")}
+        labels={buildTourLabels(tTour)}
+      />
+    </>
   );
 }

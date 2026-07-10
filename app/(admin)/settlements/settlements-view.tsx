@@ -373,7 +373,8 @@ export default function SettlementsView({
           <div className="mb-3">
             <QuickDateFilter presets={["thisMonth", "lastMonth", "nextMonth"]} />
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          {/* 코치마크 앵커 */}
+          <div data-tour="settle-month" className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-4 bg-slate-800/50 p-1.5 rounded-xl border border-slate-700/50 w-fit">
               <button
                 type="button"
@@ -422,7 +423,8 @@ export default function SettlementsView({
         </div>
 
         <div className="flex flex-col gap-4">
-          <div className="flex flex-wrap gap-4">
+          {/* 코치마크 앵커 */}
+          <div data-tour="settle-summary" className="flex flex-wrap gap-4">
             <SummaryCard
               icon="payments"
               chip="KRW"
@@ -468,7 +470,8 @@ export default function SettlementsView({
       </div>
 
       {/* 운영자 손익 요약 (정산 고도화 1차) — 수납→VND환산→지급→마진. ADMIN(canViewFinance) 전용 */}
-      <section className="mb-8 bg-admin-card border border-slate-800 rounded-2xl overflow-hidden">
+      {/* 코치마크 앵커 */}
+      <section data-tour="settle-finance" className="mb-8 bg-admin-card border border-slate-800 rounded-2xl overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-800 bg-slate-800/30 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-admin-primary text-[20px]">trending_up</span>

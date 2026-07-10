@@ -259,7 +259,8 @@ export default function RevenueClient(props: Props) {
       </div>
 
       {/* 필터 바 */}
-      <div className="mt-4 flex flex-col gap-3">
+      {/* 코치마크 앵커 */}
+      <div data-tour="revenue-filters" className="mt-4 flex flex-col gap-3">
         {/* 기간 필터 (통계와 동일 컴포넌트) */}
         <DateRangeFilter
           presetKey={props.period.presetKey}
@@ -362,7 +363,8 @@ export default function RevenueClient(props: Props) {
         </div>
 
         {/* 검색 + CSV */}
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* 코치마크 앵커 */}
+        <div data-tour="revenue-export" className="flex items-center gap-2 flex-wrap">
           <div className="relative flex-1 min-w-[200px] max-w-sm">
             <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg pointer-events-none">
               search
@@ -387,7 +389,8 @@ export default function RevenueClient(props: Props) {
 
       {/* 요약 — 통합 환산 매출(≈VND) + 환산 후 마진 + 건수 (검색 전 서버 필터 기준) */}
       {/* 모바일은 1열(큰 금액 잘림 방지), sm부터 2열·lg 3열 */}
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      {/* 코치마크 앵커 */}
+      <div data-tour="revenue-summary" className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <KpiCard
           label={t("summary.integratedRevenue")}
           value={formatThousands(props.totals.integratedRevenueVnd)}

@@ -10,6 +10,8 @@ import { redirect } from "next/navigation";
 import { canViewFinance } from "@/lib/permissions";
 import { queryHub, loadHubOptions } from "@/lib/service-orders-hub";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 import ServiceOrdersView from "./service-orders-view";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -23,6 +25,7 @@ export default async function ServiceOrdersPage() {
   if (!session || !canViewFinance(session.user?.role)) redirect("/login");
 
   const locale = await getLocale();
+  const tTour = await getTranslations("tour");
   // 기본 뷰(입금 대기) 1페이지 + 셀렉터 옵션을 서버에서 미리 로드.
   const [initial, options] = await Promise.all([
     queryHub({ view: "pending", page: 1, pageSize: DEFAULT_PAGE_SIZE }, locale),
@@ -30,10 +33,19 @@ export default async function ServiceOrdersPage() {
   ]);
 
   return (
-    <ServiceOrdersView
-      initial={initial}
-      options={options}
-      pageSize={DEFAULT_PAGE_SIZE}
-    />
+    <>
+      <ServiceOrdersView
+        initial={initial}
+        options={options}
+        pageSize={DEFAULT_PAGE_SIZE}
+      />
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 "?"로 재생 (T-tutorial-onboarding-6) */}
+      <CoachMark
+        tourId="adminServiceOrders"
+        steps={buildTourSteps(tTour, "adminServiceOrders")}
+        labels={buildTourLabels(tTour)}
+      />
+    </>
   );
 }

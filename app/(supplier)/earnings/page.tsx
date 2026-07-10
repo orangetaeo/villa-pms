@@ -19,6 +19,8 @@ import { summarizeSupplierReceivables } from "@/lib/supplier-receivables";
 import PaginationBar from "@/components/pagination-bar";
 import VillaReceivablesSelect from "./villa-receivables-select";
 import StatsSection from "@/components/supplier/stats/stats-section";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
 const YEAR_MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -76,6 +78,8 @@ export default async function EarningsPage({
 
   const locale = await getSupplierLocale(session.user.locale);
   const tSeg = await getTranslations({ locale, namespace: "supplierStats" });
+  // 코치마크 문구 — RSC 번역 → props (화이트리스트 비의존, cleaning-submit 패턴)
+  const tTour = await getTranslations({ locale, namespace: "tour" });
 
   const params = await searchParams;
   const { yearMonth: yearMonthParam, view, range, villa: villaParam } = params;
@@ -85,8 +89,8 @@ export default async function EarningsPage({
 
   return (
     <main className="mx-auto max-w-md space-y-6 px-4 py-6">
-      {/* 세그먼트 컨트롤 — 통계 | 정산 내역 */}
-      <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+      {/* 세그먼트 컨트롤 — 통계 | 정산 내역. 코치마크 앵커(earnings-tabs) — 항상 렌더 */}
+      <div data-tour="earnings-tabs" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
         <Link
           href="/earnings?view=stats"
           aria-current={!isDetail ? "page" : undefined}
@@ -129,6 +133,14 @@ export default async function EarningsPage({
           pageSize={pageSize}
         />
       )}
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 헤더 "?"로 재생. period/kpi 앵커는 통계 탭
+          (StatsSection) 안에만 있어 정산내역 탭·빈 데이터에서는 해당 스텝 자동 스킵 */}
+      <CoachMark
+        tourId="earnings"
+        steps={buildTourSteps(tTour, "earnings")}
+        labels={buildTourLabels(tTour)}
+      />
     </main>
   );
 }

@@ -5,6 +5,8 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 import UsersManager, { type UserRow, type UnlinkedZaloRow } from "./users-manager";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -90,12 +92,23 @@ export default async function UsersPage({
     displayName: c.displayName,
   }));
 
+  const tTour = await getTranslations("tour");
+
   return (
-    <UsersManager
-      users={userRows}
-      unlinkedZalo={unlinkedZalo}
-      selfId={selfId}
-      initialTab={initialTab}
-    />
+    <>
+      <UsersManager
+        users={userRows}
+        unlinkedZalo={unlinkedZalo}
+        selfId={selfId}
+        initialTab={initialTab}
+      />
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 "?"로 재생 (T-tutorial-onboarding-6) */}
+      <CoachMark
+        tourId="adminUsers"
+        steps={buildTourSteps(tTour, "adminUsers")}
+        labels={buildTourLabels(tTour)}
+      />
+    </>
   );
 }
