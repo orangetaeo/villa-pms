@@ -58,6 +58,14 @@ export default function LoginForm({ labels }: { labels: Labels }) {
     setPasskeySupported(browserSupportsWebAuthn());
   }, []);
 
+  // 로그인 성공 → 전체 리로드로 이동(세션 쿠키를 가진 실제 GET에서 미들웨어가 role·임시비번 분기).
+  // 서버 액션 내부 redirect는 임시비번 게이트와 겹치면 쿠키 없는 내부 재요청으로 무한 루프(actions.ts 참고).
+  useEffect(() => {
+    if (state?.success) {
+      window.location.href = "/";
+    }
+  }, [state]);
+
   // 제출 직전 저장/삭제 — 체크 시 보관, 해제 시 즉시 삭제
   const persistCreds = () => {
     try {
@@ -218,9 +226,9 @@ export default function LoginForm({ labels }: { labels: Labels }) {
             <button
               className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-bold text-lg rounded-xl touch-target shadow-md active:scale-[0.98] transition-all flex items-center justify-center gap-2"
               type="submit"
-              disabled={isPending}
+              disabled={isPending || !!state?.success}
             >
-              {isPending ? labels.submitting : labels.submit}
+              {isPending || state?.success ? labels.submitting : labels.submit}
             </button>
           </div>
         </form>
