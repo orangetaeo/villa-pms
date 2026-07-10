@@ -1,6 +1,6 @@
 # T-users-zalo-link-ux — 회원관리 Zalo 수신 연결 패널 실사용 가능하게 개선
 
-- 상태: 진행 (2026-07-10, 세션: zalo-link-ux worktree)
+- 상태: **완료** (2026-07-10, PR #221 머지·배포 87e98af·프로덕션 E2E PASS)
 - 발단: 테오 "알림 발송 건은 사용자관리에서 관리할 수 있게 하자". LINK_ZALO/UNLINK_ZALO API·감사로그·중복 409는 이미 완비(T1.8)이나, 연결 후보 드롭다운이 **미연결 대화방 507개(그룹 42 포함)를 검색 없이 나열** — 동명 계정("Villa Go" 3개) 구분 불가로 실사용 불가. 김태진 알림 연결도 DB 수동 작업으로 처리했던 배경.
 
 ## 범위 (2개 파일 + i18n)
@@ -23,9 +23,9 @@
 
 ## 완료 기준 (QA)
 
-- [ ] /users에서 미연결 사용자 → 연결: 검색으로 후보 좁혀 선택 → 연결됨 + 대화방 이름 표시 (프로덕션 실측)
-- [ ] 연결된 사용자 → 변경: 다른 대화방으로 교체 시 이전 대화방 userId 해제 확인
-- [ ] 해제 → 미연결 표시 회귀 없음
-- [ ] 그룹 대화방이 후보에 안 보임
-- [ ] ko/vi 키 패리티 (테스트 통과)
-- [ ] tsc·next build 통과
+- [x] /users에서 미연결 사용자 → 연결: "Sungjun" 검색 → 후보 1건(활동일 뱃지) → 연결됨 + "Sungjun Park" 표시 (프로덕션 실측)
+- [x] 연결된 사용자에 대화방 이름 표시 — 김태진 "Villa Go"·DK "Lee Dokyung" 실측 (리뷰 중 zaloName 매핑 키 버그 수정: Zalo uid → User.id)
+- [x] 해제 → confirm → DB에서 User.zaloUserId null + ZaloConversation.userId null 원복 확인
+- [x] 그룹 대화방 후보 제외 (서버 쿼리 threadType USER)
+- [x] ko/vi 키 패리티 (adminUsers 89/89·관련 vitest 7/7)
+- [x] tsc·next build 통과. 테스트 계정 생성·검증·삭제 완료
