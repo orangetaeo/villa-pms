@@ -1,10 +1,20 @@
 "use client";
 
-// 5/6 이용 규칙 (등록 마법사) — 공급자가 직접 입력. 전부 기본값 존재 → 그냥 "다음" 가능(저입력 부담).
+// 6 이용 규칙 (등록 마법사) — 공급자가 직접 입력. 전부 기본값 존재 → 그냥 "다음" 가능(저입력 부담).
 // /api/villas/[id]/info(자가 편집)와 동일 필드. 공급자 라이트 테마. 금액=VND 점 구분만(KRW·마진 없음).
+// + 와이파이·출입정보(도어락/스마트키) — ⚠ 비공개 등급(고객 미노출) (T-bedroom-composition-sync)
 import { useTranslations } from "next-intl";
 import { minutesToHHMM, hhmmToMinutes, buildTimeOptions } from "@/lib/sales-display";
+import { ACCESS_TYPES, type AccessType } from "@/lib/villa-schema";
 import { formatVnd, type WizardState, type VillaRules } from "./wizard-types";
+
+// 출입 방식 아이콘 (Material Symbols) — 화이트리스트와 1:1
+const ACCESS_ICON: Record<AccessType, string> = {
+  KEYPAD: "dialpad",
+  KEY: "key",
+  SMARTKEY: "smartphone",
+  OTHER: "more_horiz",
+};
 
 const TIME_OPTIONS = buildTimeOptions();
 const MAX_DEPOSIT_DIGITS = 12;
@@ -93,6 +103,99 @@ export default function StepRules({ state, update, onNext }: Props) {
           </div>
           <span className="mt-1 block text-[11px] text-neutral-400">{t("depositNote")}</span>
         </label>
+
+        {/* 와이파이 — ⚠ 비공개(고객 화면 미노출) */}
+        <section className="mt-6 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-base text-amber-600">wifi</span>
+              <span className="text-sm font-bold text-neutral-800">{t("wifiTitle")}</span>
+            </span>
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+              {t("privateBadge")}
+            </span>
+          </div>
+          <div className="space-y-3">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-neutral-600">{t("wifiSsid")}</span>
+              <input
+                type="text"
+                value={state.wifiSsid}
+                onChange={(e) => update({ wifiSsid: e.target.value })}
+                maxLength={100}
+                aria-label={t("wifiSsid")}
+                className="h-12 w-full rounded-xl border border-neutral-200 bg-white px-3 text-base focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-neutral-600">{t("wifiPassword")}</span>
+              <input
+                type="text"
+                value={state.wifiPassword}
+                onChange={(e) => update({ wifiPassword: e.target.value })}
+                maxLength={100}
+                aria-label={t("wifiPassword")}
+                className="h-12 w-full rounded-xl border border-neutral-200 bg-white px-3 text-base focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+              />
+            </label>
+          </div>
+          <p className="mt-2 flex items-start gap-1 text-[11px] leading-relaxed text-amber-700">
+            <span className="material-symbols-outlined mt-0.5 text-xs">visibility_off</span>
+            {t("wifiHint")}
+          </p>
+        </section>
+
+        {/* 출입 정보 — ⚠ 비공개(청소 담당·운영자만) */}
+        <section className="mt-4 rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-base text-amber-600">lock</span>
+              <span className="text-sm font-bold text-neutral-800">{t("accessTitle")}</span>
+            </span>
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+              {t("privateBadge")}
+            </span>
+          </div>
+
+          {/* 출입 방식 아이콘 칩 4종 */}
+          <p className="mb-2 text-xs font-medium text-neutral-600">{t("accessType")}</p>
+          <div className="mb-3 grid grid-cols-2 gap-2">
+            {ACCESS_TYPES.map((at) => {
+              const on = state.accessType === at;
+              return (
+                <button
+                  key={at}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => update({ accessType: on ? "" : at })}
+                  className={`flex items-center gap-2 rounded-xl border-2 px-3 py-3 text-sm font-semibold transition-all active:scale-95 ${
+                    on ? "border-teal-500 bg-teal-50 text-teal-700" : "border-neutral-200 bg-white text-neutral-500"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-base">{ACCESS_ICON[at]}</span>
+                  <span className="whitespace-nowrap">{t(`accessTypeOpt.${at}`)}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-neutral-600">{t("accessInfo")}</span>
+            <input
+              type="text"
+              value={state.accessInfo}
+              onChange={(e) => update({ accessInfo: e.target.value })}
+              maxLength={1000}
+              placeholder={t("accessInfoPlaceholder")}
+              aria-label={t("accessInfo")}
+              className="h-12 w-full rounded-xl border border-neutral-200 bg-white px-3 text-base focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+            />
+          </label>
+          <p className="mt-2 flex items-start gap-1 text-[11px] leading-relaxed text-amber-700">
+            <span className="material-symbols-outlined mt-0.5 text-xs">visibility_off</span>
+            {t("accessHint")}
+          </p>
+        </section>
       </main>
 
       {/* 하단 고정: 다음 버튼 */}

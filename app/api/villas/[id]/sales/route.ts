@@ -7,8 +7,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
-import { isValidFeature, type FeatureCategoryKey } from "@/lib/features";
-import { BED_TYPES } from "@/lib/bedding";
+import { featureRowSchema, refineFeatures, hasPoolFeatureTag } from "@/lib/features";
+import { bedroomRowSchema, refineBedroomRooms, deriveBedroomScalars } from "@/lib/bedding";
 import { canSetPrice } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
 
@@ -18,20 +18,6 @@ const vndDigits = z.string().regex(/^[1-9]\d{0,14}$/);
 const minuteOfDay = z.number().int().min(0).max(1439);
 // 0 이상 정수 (거리·면적·층수·주차)
 const nonNegInt = z.number().int().min(0);
-
-const bedroomSchema = z.object({
-  roomIndex: z.number().int().min(1).max(50),
-  roomLabel: z.string().trim().min(1).max(60).nullable().optional(), // 라벨 미입력 시 클라이언트가 null 전송
-  bedType: z.enum(BED_TYPES), // enum 화이트리스트 — 임의 bedType 차단
-  bedCount: z.number().int().min(1).max(20),
-  capacity: z.number().int().min(1).max(50).nullable().optional(), // 수용인원 0(미입력) 시 null 전송
-  bathroomCount: z.number().int().min(0).max(20).optional(), // 이 침실 전용욕실 개수 (0=없음)
-});
-
-const featureSchema = z.object({
-  category: z.enum(["VIEW", "FACILITY", "LOCATION"]),
-  featureKey: z.string().min(1).max(50),
-});
 
 const salesPatchSchema = z
   .object({
@@ -52,69 +38,21 @@ const salesPatchSchema = z
     baseDepositVnd: vndDigits.nullable().optional(),
     wifiSsid: z.string().trim().max(100).nullable().optional(),
     wifiPassword: z.string().trim().max(100).nullable().optional(),
+    // 출입정보(accessType·accessInfo)는 별도 라우트 cleaning-info에서 관리 — 여기서 다루지 않음(진실 이중화 방지)
     // ⑤ 엑스트라베드 — 빌라 단위 토글
     extraBedAvailable: z.boolean().optional(),
     // 수영장 유무 — 셀링포인트 풀 태그가 켜지면 서버가 true로 강제 보정(아래)
     hasPool: z.boolean().optional(),
+    // 공용 욕실(방 밖) — bathrooms 파생 합산에 포함 (0~10)
+    commonBathrooms: nonNegInt.max(10).optional(),
     // ② 침실 구성 (전체 교체) / ⑤ 셀링포인트 태그 (전체 교체)
-    bedrooms: z.array(bedroomSchema).max(50),
-    features: z.array(featureSchema).max(40),
+    bedrooms: z.array(bedroomRowSchema).max(50),
+    features: z.array(featureRowSchema).max(40),
   })
   .superRefine((data, ctx) => {
-    // featureKey 사전 검증 — category 정합 + 임의값 주입 차단 (custom 미허용)
-    const seenFeatures = new Set<string>();
-    data.features.forEach((f, index) => {
-      if (!isValidFeature(f.category as FeatureCategoryKey, f.featureKey)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["features", index, "featureKey"],
-          message: `Unknown feature: ${f.category}/${f.featureKey}`,
-        });
-      }
-      // @@unique([villaId, featureKey]) — 중복 키 사전 차단 (createMany 충돌 방지)
-      if (seenFeatures.has(f.featureKey)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["features", index, "featureKey"],
-          message: `Duplicate feature: ${f.featureKey}`,
-        });
-      }
-      seenFeatures.add(f.featureKey);
-    });
-    // 같은 roomIndex 행들의 capacity는 동일값이어야 함 (침실 단위 1값 — 설계 §1.2)
-    // null(미입력)·undefined는 동일 취급 → ?? null로 정규화 후 비교
-    const capByRoom = new Map<number, number | null>();
-    data.bedrooms.forEach((b, index) => {
-      const cap = b.capacity ?? null;
-      if (capByRoom.has(b.roomIndex)) {
-        const prev = capByRoom.get(b.roomIndex);
-        if (prev !== cap) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ["bedrooms", index, "capacity"],
-            message: `roomIndex ${b.roomIndex} capacity mismatch`,
-          });
-        }
-      } else {
-        capByRoom.set(b.roomIndex, cap);
-      }
-    });
-    // 같은 roomIndex 행들의 bathroomCount도 동일값이어야 함 (침실 단위 1값 — 자동 합산 정합)
-    const bathByRoom = new Map<number, number>();
-    data.bedrooms.forEach((b, index) => {
-      const bath = b.bathroomCount ?? 0;
-      if (bathByRoom.has(b.roomIndex)) {
-        if (bathByRoom.get(b.roomIndex) !== bath) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ["bedrooms", index, "bathroomCount"],
-            message: `roomIndex ${b.roomIndex} bathroomCount mismatch`,
-          });
-        }
-      } else {
-        bathByRoom.set(b.roomIndex, bath);
-      }
-    });
+    // featureKey 사전 검증 + 방 단위 동일값 검증 — 3경로 공유 (lib/features·lib/bedding)
+    refineFeatures(data.features, ctx, "features");
+    refineBedroomRooms(data.bedrooms, ctx, "bedrooms");
   });
 
 export async function PATCH(
@@ -163,26 +101,23 @@ export async function PATCH(
   set("wifiPassword", data.wifiPassword);
   set("extraBedAvailable", data.extraBedAvailable);
   set("hasPool", data.hasPool);
+  set("commonBathrooms", data.commonBathrooms);
   if (data.baseDepositVnd !== undefined) {
     scalarData.baseDepositVnd = data.baseDepositVnd === null ? null : BigInt(data.baseDepositVnd);
   }
   // 수영장 자동 보정 — 셀링포인트에 풀 태그(프라이빗풀·키즈풀)가 있으면 hasPool=true 강제.
   // (해제는 자동으로 하지 않음 — 태그를 끄면 위 set()의 클라이언트 값이 그대로 반영된다)
-  const hasPoolFeature = data.features.some(
-    (f) => f.featureKey === "privatePool" || f.featureKey === "kidsPool"
-  );
-  if (hasPoolFeature) scalarData.hasPool = true;
+  if (hasPoolFeatureTag(data.features)) scalarData.hasPool = true;
 
-  // 침실별 전용욕실 합계 → Villa.bathrooms 자동 갱신 (같은 roomIndex 행은 동일값이므로 roomIndex별 1회만 합산).
-  // 침실 데이터가 있을 때만 반영 — 빈 배열(침실 전체 해제)일 땐 기존 bathrooms 보존(0으로 덮지 않음).
+  // 방별 구성 → 파생 스칼라(bedrooms/bathrooms/maxGuests) 자동 갱신 — 3경로 공유 deriveBedroomScalars.
+  // 침실 데이터가 있을 때만 반영 — 빈 배열(침실 전체 해제)일 땐 기존 스칼라 보존(0으로 덮지 않음, min 1 불변식).
+  let normalizedBedroomRows: ReturnType<typeof deriveBedroomScalars>["rows"] = [];
   if (data.bedrooms.length > 0) {
-    const bathByRoom = new Map<number, number>();
-    for (const b of data.bedrooms) {
-      if (!bathByRoom.has(b.roomIndex)) bathByRoom.set(b.roomIndex, b.bathroomCount ?? 0);
-    }
-    let bathroomSum = 0;
-    for (const v of bathByRoom.values()) bathroomSum += v;
-    scalarData.bathrooms = bathroomSum;
+    const derived = deriveBedroomScalars(data.bedrooms, data.commonBathrooms ?? 0);
+    normalizedBedroomRows = derived.rows;
+    scalarData.bedrooms = derived.bedrooms; // distinct roomIndex 개수 (V21 재발 불가)
+    if (derived.bathrooms > 0) scalarData.bathrooms = derived.bathrooms; // 전용합+공용 (0이면 기존 보존)
+    if (derived.maxGuests !== undefined) scalarData.maxGuests = derived.maxGuests; // 전원 capacity 존재 시만
   }
 
   const result = await prisma.$transaction(async (tx) => {
@@ -195,18 +130,18 @@ export async function PATCH(
     // ⓐ Villa 스칼라 update
     await tx.villa.update({ where: { id }, data: scalarData });
 
-    // ⓑ VillaBedroom 전체 교체 (deleteMany → createMany)
+    // ⓑ VillaBedroom 전체 교체 (deleteMany → createMany). roomIndex는 1..N 재정규화된 행 저장.
     await tx.villaBedroom.deleteMany({ where: { villaId: id } });
-    if (data.bedrooms.length > 0) {
+    if (normalizedBedroomRows.length > 0) {
       await tx.villaBedroom.createMany({
-        data: data.bedrooms.map((b) => ({
+        data: normalizedBedroomRows.map((b) => ({
           villaId: id,
           roomIndex: b.roomIndex,
-          roomLabel: b.roomLabel ?? null,
+          roomLabel: b.roomLabel,
           bedType: b.bedType,
           bedCount: b.bedCount,
-          capacity: b.capacity ?? null,
-          bathroomCount: b.bathroomCount ?? 0,
+          capacity: b.capacity,
+          bathroomCount: b.bathroomCount,
         })),
       });
     }
@@ -228,6 +163,7 @@ export async function PATCH(
     const scalarChanges: Record<string, { old?: unknown; new?: unknown }> = {};
     for (const [key, value] of Object.entries(scalarData)) {
       if (key === "wifiPassword") {
+        // ⚠ 와이파이 비번은 평문 금지 — 마스킹 기록(ZaloAccount.credentials 선례 §4.4)
         scalarChanges.wifiPassword = { old: "***", new: "***" };
       } else if (key === "baseDepositVnd") {
         // BigInt는 Json 컬럼에 못 넣으므로 문자열화 (null이면 그대로)

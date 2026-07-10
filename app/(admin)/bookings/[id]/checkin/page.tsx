@@ -8,6 +8,7 @@ import { BookingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { toDateOnlyString } from "@/lib/date-vn";
 import { getAgreementContent } from "@/lib/agreement-store";
+import { ACCESS_TYPES } from "@/lib/villa-schema";
 import CheckinForm from "./checkin-form";
 import PostSignForm from "./post-sign-form";
 
@@ -33,9 +34,18 @@ export default async function CheckinPage({
       guestCount: true,
       checkIn: true,
       checkOut: true,
-      // wifiSsid·wifiPassword는 ADMIN 권한 게이트((admin) 레이아웃) 뒤에서만 로드 — 체크인 화면 전용
-      // (/p 공개페이지에는 절대 select 금지, ADR-0011 §4.3). 표시는 FE 단계.
-      villa: { select: { name: true, hasPool: true, wifiSsid: true, wifiPassword: true } },
+      // wifiSsid·wifiPassword·accessType·accessInfo는 ADMIN 권한 게이트((admin) 레이아웃) 뒤에서만 로드 — 체크인 화면 전용
+      // (/p·/g 공개경계에는 절대 select 금지, ADR-0011 §4.3 · 출입정보 비공개 등급). 표시는 아래 FE.
+      villa: {
+        select: {
+          name: true,
+          hasPool: true,
+          wifiSsid: true,
+          wifiPassword: true,
+          accessType: true,
+          accessInfo: true,
+        },
+      },
       checkInRecord: { select: { signatureUrl: true } },
     },
   });
@@ -118,6 +128,35 @@ export default async function CheckinPage({
               <span className="text-slate-300">
                 <span className="text-slate-500">{t("wifi.password")}</span>{" "}
                 <span className="font-bold text-white tabular-nums">{booking.villa.wifiPassword}</span>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 출입정보 (ADR-0011 · 비공개 등급) — ADMIN 전용 화면이라 노출 OK. /p·/g 공개경계엔 절대 미노출 */}
+      {(booking.villa.accessType || booking.villa.accessInfo) && (
+        <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-800 flex items-center gap-3">
+          <span className="material-symbols-outlined text-admin-primary">lock_open</span>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+              {t("access.title")}
+            </span>
+            {booking.villa.accessType && (
+              <span className="text-slate-300">
+                <span className="text-slate-500">{t("access.type")}</span>{" "}
+                <span className="font-bold text-white">
+                  {/* 화이트리스트 값만 라벨 매핑(레거시·미상값은 원문 표기) — 미상 키 렌더 시 RSC 크래시 방지 */}
+                  {(ACCESS_TYPES as readonly string[]).includes(booking.villa.accessType)
+                    ? t(`access.typeOpt.${booking.villa.accessType}`)
+                    : booking.villa.accessType}
+                </span>
+              </span>
+            )}
+            {booking.villa.accessInfo && (
+              <span className="text-slate-300">
+                <span className="text-slate-500">{t("access.info")}</span>{" "}
+                <span className="font-bold text-white">{booking.villa.accessInfo}</span>
               </span>
             )}
           </div>

@@ -12,7 +12,7 @@ import {
   FEATURE_ITEMS,
   type FeatureCategoryKey,
 } from "@/lib/features";
-import { BED_TYPES, type BedTypeKey } from "@/lib/bedding";
+import { BED_TYPES, MAX_ROOM_INDEX, type BedTypeKey } from "@/lib/bedding";
 import { formatThousands } from "@/lib/format";
 import {
   minutesToHHMM,
@@ -54,6 +54,7 @@ export interface SalesInitial {
   wifiPassword: string;
   extraBedAvailable: boolean;
   hasPool: boolean; // 수영장 유무 — 셀링포인트 풀 태그 체크 시 자동 ON (저장 시 보정)
+  commonBathrooms: number; // 방에 속하지 않는 공용 욕실 (0~10) — 파생 bathrooms 합산에 포함
   bedrooms: { roomIndex: number; roomLabel: string | null; bedType: BedTypeKey; bedCount: number; capacity: number | null; bathroomCount: number }[];
   features: { category: FeatureCategoryKey; featureKey: string }[];
 }
@@ -66,6 +67,10 @@ interface Props {
 
 // 체크인/아웃 30분 단위 드롭다운 옵션 (종일)
 const TIME_OPTIONS = buildTimeOptions();
+// 방 수 상한 — 3스키마 통일(roomIndex ≤ 20, lib/bedding MAX_ROOM_INDEX)
+const MAX_ROOMS = MAX_ROOM_INDEX;
+// 공용 욕실 상한 (0~10) — sales zod nonNegInt.max(10)와 일치
+const MAX_COMMON_BATHROOMS = 10;
 
 let localCounter = 0;
 const localId = () => `r${Date.now()}_${localCounter++}`;
@@ -99,6 +104,7 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
   const [rooms, setRooms] = useState<BedroomCard[]>(() => groupBedrooms(initial.bedrooms));
   const [extraBed, setExtraBed] = useState(initial.extraBedAvailable);
   const [hasPool, setHasPool] = useState(initial.hasPool);
+  const [commonBathrooms, setCommonBathrooms] = useState(initial.commonBathrooms);
   const [selectedFeatures, setSelectedFeatures] = useState<Set<string>>(
     () => new Set(initial.features.map((f) => f.featureKey))
   );
@@ -131,11 +137,16 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   // ── 침실 조작 ──────────────────────────────
+  // 방 수 상한 20 — 3스키마(POST/PUT/PATCH sales)의 roomIndex 상한과 통일(lib/bedding MAX_ROOM_INDEX)
   function addRoom() {
-    setRooms((prev) => [
-      ...prev,
-      { id: localId(), roomLabel: "", capacity: 2, bathroomCount: 1, beds: [{ id: localId(), bedType: "KING", bedCount: 1 }] },
-    ]);
+    setRooms((prev) =>
+      prev.length >= MAX_ROOMS
+        ? prev
+        : [
+            ...prev,
+            { id: localId(), roomLabel: "", capacity: 2, bathroomCount: 1, beds: [{ id: localId(), bedType: "KING", bedCount: 1 }] },
+          ]
+    );
   }
   function removeRoom(roomId: string) {
     setRooms((prev) => prev.filter((r) => r.id !== roomId));
@@ -179,8 +190,9 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
     rooms.flatMap((r, i) => [{ roomIndex: i + 1, capacity: r.capacity }])
   );
 
-  // 전용욕실 합계 — 저장 시 Villa.bathrooms로 자동 반영 (서버도 동일 합산)
-  const bathroomTotal = rooms.reduce((sum, r) => sum + r.bathroomCount, 0);
+  // 욕실 합계 — 저장 시 Villa.bathrooms로 자동 반영 (서버도 동일 합산: 전용합 + 공용)
+  const ensuiteTotal = rooms.reduce((sum, r) => sum + r.bathroomCount, 0);
+  const bathroomTotal = ensuiteTotal + commonBathrooms;
 
   // 숫자 문자열 정규화 (음수·비숫자 제거)
   const digits = (v: string) => v.replace(/\D/g, "");
@@ -238,6 +250,8 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
       wifiPassword: wifiPassword.trim() || null,
       extraBedAvailable: extraBed,
       hasPool: effectiveHasPool, // 풀 태그 켜져 있으면 자동 true (서버에서도 동일 보정)
+      // ⚠ 매 저장마다 반드시 전송 — 미전송 시 서버가 ?? 0으로 계산해 기존 공용욕실을 과소집계함(bathrooms 파생 오류)
+      commonBathrooms,
       bedrooms,
       features,
     };
@@ -296,6 +310,11 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
             }
           >
             <div className="space-y-4">
+              {/* 자동 파생 안내 — 침실 수·욕실 수·기준인원은 잠자리 구성에서 자동 계산(별도 입력 불필요) */}
+              <div className="p-3 bg-slate-800/40 rounded-lg border border-slate-700 flex items-start gap-2">
+                <span className="material-symbols-outlined text-slate-400 text-sm mt-0.5">auto_awesome</span>
+                <p className="text-[11px] text-slate-400 leading-relaxed">{t("bedding.autoDeriveNote")}</p>
+              </div>
               {rooms.map((room, i) => (
                 <div key={room.id} className="rounded-lg bg-slate-900/40 border border-slate-800 p-4">
                   <div className="flex items-center justify-between mb-4">
@@ -404,6 +423,24 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
                 {t("bedding.addRoom")}
               </button>
 
+              {/* 공용 욕실 (방 밖) — 방에 속하지 않는 공용·게스트 욕실. bathrooms 파생 합산에 포함 */}
+              <div className="flex items-center justify-between py-2.5 px-3 rounded-lg bg-slate-900/40 border border-slate-800">
+                <span className="flex flex-col">
+                  <span className="text-sm text-slate-200 flex items-center gap-1.5 whitespace-nowrap">
+                    <span className="material-symbols-outlined text-base text-slate-400">wc</span>
+                    {t("bedding.commonBathroom")}
+                  </span>
+                  <span className="mt-0.5 text-[11px] text-slate-500">{t("bedding.commonBathroomHint")}</span>
+                </span>
+                <Stepper
+                  value={commonBathrooms}
+                  min={0}
+                  max={MAX_COMMON_BATHROOMS}
+                  onChange={setCommonBathrooms}
+                  ariaLabel={t("bedding.commonBathroom")}
+                />
+              </div>
+
               {/* maxGuests 대조 (경고만) */}
               <div className="p-3 bg-amber-500/5 rounded-lg border border-amber-500/20 flex items-start gap-2">
                 <span className="material-symbols-outlined text-amber-500 text-sm mt-0.5">info</span>
@@ -421,6 +458,8 @@ export default function SalesEditor({ villaId, maxGuests, initial }: Props) {
                 <span className="material-symbols-outlined text-admin-primary text-sm mt-0.5">bathroom</span>
                 <p className="text-[11px] text-slate-400 leading-relaxed">
                   {t.rich("bedding.bathroomNote", {
+                    ensuite: ensuiteTotal,
+                    common: commonBathrooms,
                     total: bathroomTotal,
                     b: (chunks) => <span className="font-bold text-slate-200 tabular-nums">{chunks}</span>,
                   })}

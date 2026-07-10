@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   villaToWizardState,
   photoSlotId,
+  deriveWizardScalars,
+  buildBedroomDetails,
+  autoRoomCapacity,
+  defaultRoom,
+  type BedroomCardState,
   type VillaForEdit,
 } from "@/app/(supplier)/my-villas/new/wizard-types";
 
@@ -144,6 +149,147 @@ describe("villaToWizardState — 재제출 prefill", () => {
   it("비품 없으면 customAmenities는 빈 배열", () => {
     const state = villaToWizardState({ ...BASE, amenities: [] });
     expect(state.customAmenities).toEqual([]);
+  });
+});
+
+describe("잠자리 파생 — deriveWizardScalars (서버 lib/bedding 규칙과 동일)", () => {
+  const room = (
+    beds: BedroomCardState["beds"],
+    capacity: number,
+    bathroomCount: number
+  ): BedroomCardState => ({ id: "x", beds, capacity, capacityManual: false, bathroomCount });
+
+  it("방 3개(전용욕실 각 1·킹1) + 공용욕실 1 → 침실3·욕실4·인원6", () => {
+    const rooms = [
+      room([{ bedType: "KING", bedCount: 1 }], 2, 1),
+      room([{ bedType: "KING", bedCount: 1 }], 2, 1),
+      room([{ bedType: "KING", bedCount: 1 }], 2, 1),
+    ];
+    expect(deriveWizardScalars(rooms, 1)).toEqual({ bedrooms: 3, bathrooms: 4, maxGuests: 6 });
+  });
+
+  it("capacity 합 50 초과는 50 클램프", () => {
+    const rooms = Array.from({ length: 10 }, () =>
+      room([{ bedType: "KING", bedCount: 3 }], 6, 1)
+    );
+    expect(deriveWizardScalars(rooms, 0).maxGuests).toBe(50);
+  });
+
+  it("전용욕실 0·공용 0이어도 bathrooms min 1 불변식", () => {
+    expect(deriveWizardScalars([room([{ bedType: "SINGLE", bedCount: 1 }], 1, 0)], 0).bathrooms).toBe(1);
+  });
+
+  it("autoRoomCapacity — KING/QUEEN/DOUBLE/BUNK=2·SINGLE/TWIN=1", () => {
+    expect(autoRoomCapacity([{ bedType: "KING", bedCount: 1 }, { bedType: "SINGLE", bedCount: 2 }])).toBe(4);
+    expect(autoRoomCapacity([{ bedType: "BUNK", bedCount: 1 }])).toBe(2);
+  });
+});
+
+describe("잠자리 전송 payload — buildBedroomDetails", () => {
+  it("roomIndex=배열순서·roomLabel=null·capacity/bathroomCount는 방 단위 동일", () => {
+    const rooms: BedroomCardState[] = [
+      {
+        id: "a",
+        beds: [
+          { bedType: "KING", bedCount: 1 },
+          { bedType: "SINGLE", bedCount: 2 },
+        ],
+        capacity: 4,
+        capacityManual: false,
+        bathroomCount: 2,
+      },
+      { ...defaultRoom(), capacity: 2, bathroomCount: 1 },
+    ];
+    const details = buildBedroomDetails(rooms);
+    // 방1은 침대 2행(같은 roomIndex), 방2는 1행
+    expect(details).toEqual([
+      { roomIndex: 1, roomLabel: null, bedType: "KING", bedCount: 1, capacity: 4, bathroomCount: 2 },
+      { roomIndex: 1, roomLabel: null, bedType: "SINGLE", bedCount: 2, capacity: 4, bathroomCount: 2 },
+      { roomIndex: 2, roomLabel: null, bedType: "KING", bedCount: 1, capacity: 2, bathroomCount: 1 },
+    ]);
+  });
+});
+
+describe("villaToWizardState — 잠자리 구성·셀링포인트·판매정보 prefill", () => {
+  it("bedroomDetails → 방 카드(그룹화)·features·신규 필드 복원", () => {
+    const state = villaToWizardState({
+      ...BASE,
+      bedrooms: 2,
+      bathrooms: 3,
+      commonBathrooms: 1,
+      bedroomDetails: [
+        { roomIndex: 1, roomLabel: null, bedType: "KING", bedCount: 1, capacity: 2, bathroomCount: 1 },
+        { roomIndex: 1, roomLabel: null, bedType: "SINGLE", bedCount: 1, capacity: 2, bathroomCount: 1 },
+        { roomIndex: 2, roomLabel: null, bedType: "QUEEN", bedCount: 1, capacity: 2, bathroomCount: 1 },
+      ],
+      features: [
+        { category: "VIEW", featureKey: "viewSea" },
+        { category: "FACILITY", featureKey: "privatePool" },
+      ],
+      googleMapUrl: "https://maps.app.goo.gl/abc",
+      beachDistanceM: 300,
+      wifiSsid: "VILLA_5G",
+      wifiPassword: "secret123",
+      accessType: "SMARTKEY",
+      accessInfo: "도어코드 1234#",
+    });
+    // 방 2개로 그룹화, 방1은 침대 2행
+    expect(state.rooms.length).toBe(2);
+    expect(state.rooms[0].beds).toEqual([
+      { bedType: "KING", bedCount: 1 },
+      { bedType: "SINGLE", bedCount: 1 },
+    ]);
+    expect(state.commonBathrooms).toBe(1);
+    // 파생 스칼라 재계산: 전용 1+1 + 공용 1 = 3, capacity 2+2 = 4
+    expect(state.bedrooms).toBe(2);
+    expect(state.bathrooms).toBe(3);
+    expect(state.maxGuests).toBe(4);
+    expect(state.features).toEqual(["viewSea", "privatePool"]);
+    expect(state.googleMapUrl).toBe("https://maps.app.goo.gl/abc");
+    expect(state.beachDistanceM).toBe(300);
+    expect(state.wifiSsid).toBe("VILLA_5G");
+    expect(state.wifiPassword).toBe("secret123");
+    expect(state.accessType).toBe("SMARTKEY");
+    expect(state.accessInfo).toBe("도어코드 1234#");
+  });
+
+  it("bedroomDetails 없는 레거시 빌라 → 스칼라로 방 합성(전용욕실 분배)", () => {
+    const state = villaToWizardState({ ...BASE, bedrooms: 3, bathrooms: 2, maxGuests: 6, hasPool: false });
+    expect(state.rooms.length).toBe(3);
+    // 욕실 2 → 앞 2방 전용 1씩, 3번째 0 (공용 0)
+    expect(state.rooms.map((r) => r.bathroomCount)).toEqual([1, 1, 0]);
+    expect(state.commonBathrooms).toBe(0);
+    expect(state.bedrooms).toBe(3);
+    // ★ 파생 스칼라 == 원본 스칼라 (반감 없음)
+    expect(state.bathrooms).toBe(2);
+    expect(state.maxGuests).toBe(6);
+  });
+
+  it("QA P2 재현 — 레거시 2방·욕실4·인원8 재제출: bathrooms·maxGuests 반감 없이 보존", () => {
+    // 증상(수정 전): 방2(각 전용1·킹1 cap2) 합성 → bathrooms=2·maxGuests=4로 조용히 반감.
+    // 수정 후: 잔여 욕실 공용 승격 + capacity 분배로 파생값이 원본과 정확히 일치.
+    const state = villaToWizardState({ ...BASE, bedrooms: 2, bathrooms: 4, maxGuests: 8 });
+    expect(state.rooms.length).toBe(2);
+    // 전용 1/방(합 2) + 잔여 2는 공용 승격 → 파생 bathrooms = 2 + 2 = 4
+    expect(state.rooms.map((r) => r.bathroomCount)).toEqual([1, 1]);
+    expect(state.commonBathrooms).toBe(2);
+    expect(state.bathrooms).toBe(4);
+    // capacity 8을 2방에 분배(4·4) → 파생 maxGuests = 8. 전 방 capacity 채워짐(수동 고정).
+    expect(state.rooms.map((r) => r.capacity)).toEqual([4, 4]);
+    expect(state.rooms.every((r) => r.capacityManual)).toBe(true);
+    expect(state.maxGuests).toBe(8);
+  });
+
+  it("레거시 합성 capacity 분배 — 나머지는 앞방부터 +1", () => {
+    // maxGuests 7, 방 3개 → floor 2 + 나머지 1 → [3, 2, 2] 합 7
+    const state = villaToWizardState({ ...BASE, bedrooms: 3, bathrooms: 3, maxGuests: 7 });
+    expect(state.rooms.map((r) => r.capacity)).toEqual([3, 2, 2]);
+    expect(state.maxGuests).toBe(7);
+  });
+
+  it("잘못된 accessType는 미선택('')으로 방어", () => {
+    const state = villaToWizardState({ ...BASE, accessType: "BADVALUE" });
+    expect(state.accessType).toBe("");
   });
 });
 

@@ -976,6 +976,17 @@
       "title": "와이파이 안내",
       "ssid": "네트워크",
       "password": "비밀번호"
+    },
+    "access": {
+      "title": "출입 정보",
+      "type": "출입 방식",
+      "info": "상세",
+      "typeOpt": {
+        "KEYPAD": "번호키",
+        "KEY": "열쇠",
+        "SMARTKEY": "스마트키",
+        "OTHER": "기타"
+      }
     }
   },
   "adminVillas": {
@@ -1183,6 +1194,7 @@
         "accessTypeOpt": {
           "KEYPAD": "번호키",
           "KEY": "열쇠",
+          "SMARTKEY": "스마트키",
           "OTHER": "기타"
         },
         "accessPlaceholderKey": "예: 열쇠는 1층 관리실에서 수령"
@@ -1228,9 +1240,12 @@
         "addBed": "침대 추가",
         "removeBed": "침대 제거",
         "capacity": "이 침실 수용 인원",
-        "capacityNote": "침실 수용 인원 합계 <b>{sum}명</b> · 기본 정보 최대 인원 <b>{max}명</b>. 합계가 최대 인원과 달라도 저장됩니다(엑스트라베드 포함 가능).",
+        "capacityNote": "침실 인원 합계 <b>{sum}명</b> · 현재 기준 인원 <b>{max}명</b>. 모든 침실 인원을 채우면 저장 시 기준 인원이 합계로 갱신되고, 일부만 입력하면 기존 기준 인원이 유지됩니다.",
         "bathroom": "이 침실 전용욕실",
-        "bathroomNote": "전용욕실 합계 <b>{total}개</b> — 저장 시 빌라 총 욕실 수에 자동 반영됩니다."
+        "commonBathroom": "공용 욕실 (방 밖)",
+        "commonBathroomHint": "특정 침실에 속하지 않는 공용·게스트 욕실 수입니다.",
+        "bathroomNote": "전용욕실 <b>{ensuite}</b> + 공용욕실 <b>{common}</b> = 총 <b>{total}개</b> — 저장 시 빌라 총 욕실 수에 자동 반영됩니다.",
+        "autoDeriveNote": "침실 수·욕실 수·기준 인원은 잠자리 구성에서 자동 계산됩니다. 별도로 입력할 필요가 없습니다."
       },
       "location": {
         "title": "위치·접근성",
@@ -1433,7 +1448,6 @@
     "submitError": "전송에 실패했습니다. 다시 시도해주세요.",
     "basic": {
       "title": "기본 정보",
-      "guide": "침실·욕실 수를 실제와 같게 입력하세요 — 다음 사진 단계에서 방마다 사진 칸이 생깁니다.",
       "supplier": "공급자",
       "supplierPlaceholder": "공급자 선택",
       "supplierRequired": "공급자를 선택해주세요.",
@@ -1452,6 +1466,23 @@
       "pool": "수영장",
       "breakfast": "조식"
     },
+    "bedding": {
+      "title": "잠자리 구성",
+      "guide": "침실·침대·욕실을 실제와 같게 맞추면 다음 사진 단계에서 방마다 사진 칸이 자동으로 생깁니다.",
+      "roomCount": "침실 몇 개?",
+      "roomCountHint": "독립된 침실 수",
+      "roomTitle": "침실 {n}",
+      "bedTypeTitle": "침대",
+      "ensuite": "전용 욕실 있음",
+      "ensuiteCount": "전용 욕실 수",
+      "commonBathrooms": "공용 욕실",
+      "commonBathroomsHint": "방에 속하지 않는 공용 욕실",
+      "capacity": "기준 인원",
+      "capacityAuto": "침대 기준 자동",
+      "capacityAdjust": "인원 조정",
+      "capacityReset": "자동으로",
+      "summary": "침실 {b} · 욕실 {ba} · 기준인원 {g}"
+    },
     "location": {
       "title": "위치·참고 정보",
       "selectedComplex": "선택한 단지",
@@ -1464,7 +1495,15 @@
       "addressHint": "고객이 지도에서 빌라를 쉽게 찾을 수 있습니다.",
       "monthlyRent": "월 임대 시세 (참고)",
       "optional": "선택사항",
-      "rentInfo": "참고용 정보입니다. 언제든지 변경할 수 있습니다."
+      "rentInfo": "참고용 정보입니다. 언제든지 변경할 수 있습니다.",
+      "featuresTitle": "셀링포인트",
+      "featuresHint": "이 빌라의 장점을 눌러 선택하세요.",
+      "mapUrl": "구글 지도 링크",
+      "mapUrlPlaceholder": "https://maps.app.goo.gl/...",
+      "mapUrlHint": "구글 지도 앱에서 '공유'를 눌러 링크를 복사해 붙여넣으세요.",
+      "beachDistance": "해변까지 거리",
+      "beachDistanceHint": "가장 가까운 해변까지 대략의 거리입니다.",
+      "beachPreset": "{m}m"
     },
     "photos": {
       "title": "사진 업로드",
@@ -1493,7 +1532,23 @@
       "extraBed": "엑스트라베드 추가 가능",
       "parking": "주차 가능 대수",
       "deposit": "기준 보증금",
-      "depositNote": "고객에게 안내되는 현지 보증금(VND)입니다. 없으면 비워두세요."
+      "depositNote": "고객에게 안내되는 현지 보증금(VND)입니다. 없으면 비워두세요.",
+      "privateBadge": "비공개",
+      "wifiTitle": "와이파이",
+      "wifiSsid": "와이파이 이름 (SSID)",
+      "wifiPassword": "와이파이 비밀번호",
+      "wifiHint": "고객 화면에는 보이지 않습니다. 체크인 안내에만 사용됩니다.",
+      "accessTitle": "출입 정보",
+      "accessType": "출입 방식",
+      "accessTypeOpt": {
+        "KEYPAD": "번호키",
+        "KEY": "열쇠",
+        "SMARTKEY": "스마트키",
+        "OTHER": "기타"
+      },
+      "accessInfo": "출입 정보 (도어코드/키 위치)",
+      "accessInfoPlaceholder": "예: 도어코드 1234#, 키는 관리실",
+      "accessHint": "청소 담당·운영자만 봅니다. 고객에게는 공개되지 않습니다."
     },
     "rates": {
       "title": "1박 원가",

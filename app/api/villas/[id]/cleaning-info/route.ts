@@ -8,11 +8,12 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
+import { ACCESS_TYPES } from "@/lib/villa-schema";
 
 const bodySchema = z.object({
   address: z.string().max(300).optional().nullable(),
-  // 출입 방식 — 번호키/열쇠/기타. 빌라마다 다름(번호키 없는 곳도 있음).
-  accessType: z.enum(["KEYPAD", "KEY", "OTHER"]).optional().nullable(),
+  // 출입 방식 — 번호키/열쇠/스마트키/기타. 빌라마다 다름. 등록 마법사와 공유 화이트리스트(lib/villa-schema ACCESS_TYPES).
+  accessType: z.enum(ACCESS_TYPES).optional().nullable(),
   accessInfo: z.string().max(1000).optional().nullable(),
   cleaningNotes: z.string().max(2000).optional().nullable(),
 });
