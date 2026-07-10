@@ -427,7 +427,7 @@ export default function ProposalsList() {
       </div>
 
       {/* 필터 — 1행: 검색 + 채널 + 생성일 빠른 프리셋 / 2행: 숙박 기간·생성일 커스텀 범위 */}
-      <div data-tour="proposal-filters" className="flex flex-col gap-3 mb-4">
+      <div className="flex flex-col gap-3 mb-4">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           {/* 텍스트 검색 — 고객/여행사명·빌라명 */}
           <div className="relative">

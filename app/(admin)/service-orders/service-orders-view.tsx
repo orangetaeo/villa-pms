@@ -652,8 +652,7 @@ function FilterBar({
   const selectCls =
     "min-w-0 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-2 text-sm text-slate-200 outline-none focus:border-admin-primary";
   return (
-    // 코치마크 앵커
-    <div data-tour="sorders-filters" className="space-y-2 rounded-xl border border-slate-700/60 bg-slate-900/40 p-3">
+    <div className="space-y-2 rounded-xl border border-slate-700/60 bg-slate-900/40 p-3">
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
         {RANGE_KEYS.map((k) => {
           const active = filters.range === k;

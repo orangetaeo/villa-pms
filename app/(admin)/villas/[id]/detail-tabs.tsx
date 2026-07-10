@@ -38,15 +38,25 @@ export default function DetailTabs({
     <>
       <div className="flex items-center justify-between gap-3 border-b border-slate-800 mb-8">
         <div className="flex items-center gap-1" role="tablist">
-          <TabButton active={tab === "overview"} onClick={() => switchTab("overview")}>
+          {/* 코치마크 앵커 — 탭 콘텐츠는 전환 시 언마운트라 항상 보이는 탭 버튼만 앵커(T-7) */}
+          <TabButton
+            active={tab === "overview"}
+            onClick={() => switchTab("overview")}
+            dataTour="vdetail-tab-overview"
+          >
             {t("tabs.overview")}
           </TabButton>
-          <TabButton active={tab === "sales"} onClick={() => switchTab("sales")}>
+          <TabButton
+            active={tab === "sales"}
+            onClick={() => switchTab("sales")}
+            dataTour="vdetail-tab-sales"
+          >
             {t("tabs.sales")}
           </TabButton>
         </div>
         <button
           type="button"
+          data-tour="vdetail-expand"
           onClick={toggleAll}
           className="flex items-center gap-1.5 px-3 py-2 mb-1 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800/60 transition-colors whitespace-nowrap"
         >
@@ -67,16 +77,20 @@ function TabButton({
   active,
   onClick,
   children,
+  dataTour,
 }: {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
+  /** 코치마크 앵커 id — 투어 스텝 대상 탭에만 전달. */
+  dataTour?: string;
 }) {
   return (
     <button
       type="button"
       role="tab"
       aria-selected={active}
+      data-tour={dataTour}
       onClick={onClick}
       className={`px-4 py-3 text-sm whitespace-nowrap border-b-2 transition-colors ${
         active

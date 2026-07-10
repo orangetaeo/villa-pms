@@ -17,6 +17,8 @@ import RatePeriodEditor, { type RatePeriodInitial } from "./rate-period-editor";
 import VillaActions from "./villa-actions";
 import ForceSellableAction from "./force-sellable-action";
 import DetailTabs from "./detail-tabs";
+import { CoachMark, TourHelpButton } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 import SalesEditor, { type SalesInitial } from "./sales-editor";
 import AdminAmenitiesEditor from "./amenities-editor";
 import MinibarStockEditor, { type MinibarStockItem } from "./minibar-stock-editor";
@@ -69,9 +71,11 @@ export default async function VillaDetailPage({
   // S-RBAC-3: STAFF는 요율의 판매가·마진 비공개(원가만) — select·렌더 모두에서 제외 (1차 서버 방어)
   const session = await auth();
   const showFinance = canViewFinance(session?.user?.role);
-  const [t, tList, locale, villa, fxSetting, auditLogs, minibarStandard] = await Promise.all([
+  // tTour — 코치마크 문구(RSC 번역 → props, ADMIN_CLIENT_NAMESPACES 무변경)
+  const [t, tList, tTour, locale, villa, fxSetting, auditLogs, minibarStandard] = await Promise.all([
     getTranslations("adminVillas.detail"),
     getTranslations("adminVillas.list"),
+    getTranslations("tour"),
     getLocale(),
     prisma.villa.findUnique({
       where: { id },
@@ -289,7 +293,8 @@ export default async function VillaDetailPage({
             <span className="material-symbols-outlined text-sm">arrow_back</span>
             {t("back")}
           </Link>
-          <div className="flex items-center gap-3 mb-2">
+          {/* 코치마크 앵커 — 제목+상태 배지 행(항상 렌더) */}
+          <div data-tour="vdetail-title" className="flex items-center gap-3 mb-2">
             <h1 className="text-3xl font-black text-white tracking-tight">{villa.name}</h1>
             <span
               className={`px-2.5 py-0.5 rounded text-[11px] font-bold shrink-0 ${STATUS_BADGE_CLASS[villa.status]}`}
@@ -328,6 +333,12 @@ export default async function VillaDetailPage({
         </div>
         <div className="flex flex-col items-start md:items-end gap-2">
           <div className="flex items-center gap-2">
+            {/* 코치마크 "?" — 동적 route라 사이드바 공용 매핑이 못 잡음 → tourId 명시(T-7) */}
+            <TourHelpButton
+              tourId="villaDetail"
+              label={tTour("help")}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-300 transition-colors hover:bg-slate-800 hover:text-white active:scale-95"
+            />
             {/* 강제 판매가능 (ADR-0012) — ACTIVE이며 아직 판매불가일 때만 노출 */}
             {villa.status === "ACTIVE" && !villa.isSellable && (
               <ForceSellableAction villaId={villa.id} />
@@ -539,6 +550,12 @@ export default async function VillaDetailPage({
     <div>
       {header}
       <DetailTabs overview={overview} sales={sales} />
+      {/* 코치마크 투어 — 테오 7기능(요금·비품·미니바·청소담당·운영정보·wifi·잠자리) 안내(T-7) */}
+      <CoachMark
+        tourId="villaDetail"
+        steps={buildTourSteps(tTour, "villaDetail")}
+        labels={buildTourLabels(tTour)}
+      />
     </div>
   );
 }

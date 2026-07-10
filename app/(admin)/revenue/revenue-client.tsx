@@ -363,8 +363,7 @@ export default function RevenueClient(props: Props) {
         </div>
 
         {/* 검색 + CSV */}
-        {/* 코치마크 앵커 */}
-        <div data-tour="revenue-export" className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="relative flex-1 min-w-[200px] max-w-sm">
             <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-lg pointer-events-none">
               search
@@ -379,6 +378,8 @@ export default function RevenueClient(props: Props) {
           </div>
           <a
             href={exportHref}
+            // 코치마크 앵커 — 검색창을 하이라이트에 포함하지 않도록 CSV 버튼에만(T-7)
+            data-tour="revenue-export"
             className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-lg bg-admin-card text-white hover:bg-slate-700 transition-colors"
           >
             <span className="material-symbols-outlined text-base">download</span>
