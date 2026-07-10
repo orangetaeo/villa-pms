@@ -4,6 +4,7 @@ import {
   OCCUPYING_BOOKING_STATUSES,
   assertValidStayRange,
   evaluateAvailability,
+  findFreeVillaIds,
   findSellableVillaIds,
   getAvailabilityBoard,
   overlapsHalfOpen,
@@ -302,6 +303,205 @@ describe("getAvailabilityBoard — 판매 후순위 정렬 (품질점수 desc, P
     const board = await getAvailabilityBoard(db, { startMonth: "2026-07", monthCount: 1 });
     expect(board.villas.map((v) => v.id)).toEqual(["high", "mid", "low"]);
     expect(board.villas.map((v) => v.qualityScore)).toEqual([100, 67, 0]);
+  });
+});
+
+describe("findFreeVillaIds — 날짜별 공실 (ADMIN 전용, T-villa-search-expansion §A)", () => {
+  // where 조건을 실제로 적용하는 픽스처 스텁 — 겹침 경계를 정확히 검증하기 위함.
+  type VillaFx = {
+    id: string;
+    status?: VillaStatus;
+    isSellable?: boolean;
+    maxGuests?: number;
+    bedrooms?: number;
+    hasPool?: boolean;
+  };
+  type BookingFx = { villaId: string; status: BookingStatus; checkIn: Date; checkOut: Date };
+  type BlockFx = { villaId: string; startDate: Date; endDate: Date };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const matchVillaWhere = (v: VillaFx, where: any): boolean => {
+    if (!where) return true;
+    for (const [k, cond] of Object.entries(where)) {
+      if (k === "status" && v.status !== cond) return false;
+      if (k === "isSellable" && v.isSellable !== cond) return false;
+      if (k === "hasPool" && v.hasPool !== cond) return false;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (k === "maxGuests" && !((v.maxGuests ?? 0) >= (cond as any).gte)) return false;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (k === "bedrooms" && !((v.bedrooms ?? 0) >= (cond as any).gte)) return false;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if (k === "id" && !(cond as any).in?.includes(v.id)) return false;
+    }
+    return true;
+  };
+
+  const freeStubDb = (opts: {
+    villas: VillaFx[];
+    bookings?: BookingFx[];
+    blocks?: BlockFx[];
+  }): DbClient =>
+    ({
+      villa: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        findMany: async ({ where }: any) =>
+          opts.villas.filter((v) => matchVillaWhere(v, where)).map((v) => ({ id: v.id })),
+      },
+      booking: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        findMany: async ({ where }: any) => {
+          const ids: string[] = where.villaId?.in ?? [];
+          return (opts.bookings ?? [])
+            .filter(
+              (b) =>
+                ids.includes(b.villaId) &&
+                where.status.in.includes(b.status) &&
+                b.checkIn.getTime() < where.checkIn.lt.getTime() && // checkIn < range.checkOut
+                b.checkOut.getTime() > where.checkOut.gt.getTime() // checkOut > range.checkIn
+            )
+            .map((b) => ({ villaId: b.villaId }));
+        },
+      },
+      calendarBlock: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        findMany: async ({ where }: any) => {
+          const ids: string[] = where.villaId?.in ?? [];
+          return (opts.blocks ?? [])
+            .filter(
+              (bl) =>
+                ids.includes(bl.villaId) &&
+                bl.startDate.getTime() < where.startDate.lt.getTime() &&
+                bl.endDate.getTime() > where.endDate.gt.getTime()
+            )
+            .map((bl) => ({ villaId: bl.villaId }));
+        },
+      },
+    }) as unknown as DbClient;
+
+  const search = { checkIn: d("2026-07-03"), checkOut: d("2026-07-05") };
+
+  it("예약[7/1,7/3) + 검색[7/3,7/5) → back-to-back, 공실로 표시", async () => {
+    const db = freeStubDb({
+      villas: [{ id: "v1" }],
+      bookings: [
+        { villaId: "v1", status: BookingStatus.CONFIRMED, checkIn: d("2026-07-01"), checkOut: d("2026-07-03") },
+      ],
+    });
+    expect(await findFreeVillaIds(db, search)).toEqual(["v1"]);
+  });
+
+  it("예약[7/2,7/4) + 검색[7/3,7/5) → 겹침, 제외", async () => {
+    const db = freeStubDb({
+      villas: [{ id: "v1" }],
+      bookings: [
+        { villaId: "v1", status: BookingStatus.CONFIRMED, checkIn: d("2026-07-02"), checkOut: d("2026-07-04") },
+      ],
+    });
+    expect(await findFreeVillaIds(db, search)).toEqual([]);
+  });
+
+  it("차단[7/2,7/4) 도 예약과 동일하게 점유로 제외", async () => {
+    const db = freeStubDb({
+      villas: [{ id: "v1" }],
+      blocks: [{ villaId: "v1", startDate: d("2026-07-02"), endDate: d("2026-07-04") }],
+    });
+    expect(await findFreeVillaIds(db, search)).toEqual([]);
+  });
+
+  it("차단[7/1,7/3) back-to-back → 공실", async () => {
+    const db = freeStubDb({
+      villas: [{ id: "v1" }],
+      blocks: [{ villaId: "v1", startDate: d("2026-07-01"), endDate: d("2026-07-03") }],
+    });
+    expect(await findFreeVillaIds(db, search)).toEqual(["v1"]);
+  });
+
+  it("살아있는 HOLD 는 점유(제외), 만료·취소·퇴실 상태는 무시(공실)", async () => {
+    const holdDb = freeStubDb({
+      villas: [{ id: "v1" }],
+      bookings: [
+        { villaId: "v1", status: BookingStatus.HOLD, checkIn: d("2026-07-03"), checkOut: d("2026-07-05") },
+      ],
+    });
+    expect(await findFreeVillaIds(holdDb, search)).toEqual([]); // HOLD=점유 (만료 미수거도 status=HOLD면 점유)
+
+    for (const st of [
+      BookingStatus.CANCELLED,
+      BookingStatus.EXPIRED,
+      BookingStatus.CHECKED_OUT,
+      BookingStatus.NO_SHOW,
+    ]) {
+      const db = freeStubDb({
+        villas: [{ id: "v1" }],
+        bookings: [{ villaId: "v1", status: st, checkIn: d("2026-07-03"), checkOut: d("2026-07-05") }],
+      });
+      expect(await findFreeVillaIds(db, search)).toEqual(["v1"]);
+    }
+  });
+
+  it("기본은 상태 무관(검수대기·비ACTIVE 포함)으로 조망", async () => {
+    const db = freeStubDb({
+      villas: [
+        { id: "active-sellable", status: VillaStatus.ACTIVE, isSellable: true, maxGuests: 8 },
+        { id: "not-sellable", status: VillaStatus.ACTIVE, isSellable: false, maxGuests: 8 },
+        { id: "pending", status: VillaStatus.PENDING_REVIEW, isSellable: false, maxGuests: 8 },
+      ],
+    });
+    expect((await findFreeVillaIds(db, search)).sort()).toEqual(
+      ["active-sellable", "not-sellable", "pending"].sort()
+    );
+  });
+
+  it("requireSellable=true + guestCount 로 ACTIVE+isSellable+정원 후보로 좁힌다", async () => {
+    const db = freeStubDb({
+      villas: [
+        { id: "active-sellable", status: VillaStatus.ACTIVE, isSellable: true, maxGuests: 8 },
+        { id: "not-sellable", status: VillaStatus.ACTIVE, isSellable: false, maxGuests: 8 },
+        { id: "pending", status: VillaStatus.PENDING_REVIEW, isSellable: false, maxGuests: 8 },
+        { id: "too-small", status: VillaStatus.ACTIVE, isSellable: true, maxGuests: 2 },
+      ],
+    });
+    expect(await findFreeVillaIds(db, search, { requireSellable: true, guestCount: 6 })).toEqual([
+      "active-sellable",
+    ]);
+  });
+
+  it("villaWhere 로 후보를 선반영해 freeIds 를 축소한다", async () => {
+    const db = freeStubDb({
+      villas: [
+        { id: "v-pool", hasPool: true },
+        { id: "v-nopool", hasPool: false },
+      ],
+    });
+    expect(await findFreeVillaIds(db, search, { villaWhere: { hasPool: true } })).toEqual(["v-pool"]);
+  });
+
+  it("역전·0박 구간은 RangeError 로 거부(호출부는 이 케이스를 미적용 처리해 500 방지)", async () => {
+    const db = freeStubDb({ villas: [{ id: "v1" }] });
+    await expect(
+      findFreeVillaIds(db, { checkIn: d("2026-07-05"), checkOut: d("2026-07-03") })
+    ).rejects.toThrow(RangeError);
+    await expect(
+      findFreeVillaIds(db, { checkIn: d("2026-07-05"), checkOut: d("2026-07-05") })
+    ).rejects.toThrow(RangeError);
+  });
+});
+
+describe("findSellableVillaIds — 리팩터 후 시그니처·동작 무변경 회귀", () => {
+  const range = { checkIn: d("2026-08-01"), checkOut: d("2026-08-03") };
+  it("ACTIVE+isSellable 후보 중 점유 빌라를 제외한다 (내부 헬퍼 공유 후에도 동일)", async () => {
+    const db = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      villa: { findMany: async ({ where }: any) => {
+        // findSellableVillaIds 는 status=ACTIVE·isSellable=true 를 후보 where 로 넣는다
+        expect(where.status).toBe(VillaStatus.ACTIVE);
+        expect(where.isSellable).toBe(true);
+        return [{ id: "v1" }, { id: "v2" }];
+      } },
+      booking: { findMany: async () => [{ villaId: "v1" }] },
+      calendarBlock: { findMany: async () => [] },
+    } as unknown as DbClient;
+    expect(await findSellableVillaIds(db, range)).toEqual(["v2"]);
   });
 });
 

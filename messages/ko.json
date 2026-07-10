@@ -581,7 +581,19 @@
         "allSellers": "전체",
         "sellerOperator": "운영자",
         "sellerSupplier": "공급자 직접",
+        "from": "시작일",
+        "to": "종료일",
+        "dateBasis": "날짜 기준",
         "reset": "초기화"
+      },
+      "dateBasis": {
+        "staying": "투숙중",
+        "checkin": "체크인일",
+        "checkout": "체크아웃일"
+      },
+      "dateScope": {
+        "label": "기간: {from}–{to} · {basis}",
+        "clear": "해제"
       },
       "preset": {
         "todayCheckin": "오늘 체크인",
@@ -999,9 +1011,28 @@
         "allAreas": "전체 지역",
         "supplier": "공급자",
         "allSuppliers": "전체 공급자",
-        "reset": "초기화"
+        "reset": "초기화",
+        "vacancy": "공실",
+        "checkIn": "체크인",
+        "checkOut": "체크아웃",
+        "detailToggle": "상세 필터",
+        "any": "제한 없음",
+        "minBedrooms": "침실",
+        "bedroomsOption": "{n}개 이상",
+        "minGuests": "인원",
+        "guestsOption": "{n}인 이상",
+        "bedType": "침대 종류",
+        "beach": "해변 거리",
+        "beachOption": "{m}m 이내",
+        "pool": "수영장",
+        "breakfast": "조식",
+        "sellableOnly": "판매가능만",
+        "tags": "셀링포인트",
+        "tagsPlaceholder": "태그 검색...",
+        "resetDetail": "상세 필터 초기화"
       },
       "supplierDeleted": "삭제됨",
+      "beachDistanceNote": "거리 미입력 빌라는 제외됩니다.",
       "emptyFiltered": "검색 조건에 맞는 빌라가 없습니다.",
       "tabs": {
         "all": "전체",

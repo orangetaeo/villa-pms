@@ -695,7 +695,19 @@
         "allSellers": "Tất cả",
         "sellerOperator": "Vận hành",
         "sellerSupplier": "NCC trực tiếp",
+        "from": "Từ ngày",
+        "to": "Đến ngày",
+        "dateBasis": "Theo ngày",
         "reset": "Đặt lại"
+      },
+      "dateBasis": {
+        "staying": "Đang lưu trú",
+        "checkin": "Ngày nhận phòng",
+        "checkout": "Ngày trả phòng"
+      },
+      "dateScope": {
+        "label": "Kỳ: {from}–{to} · {basis}",
+        "clear": "Bỏ lọc"
       },
       "preset": {
         "todayCheckin": "Nhận phòng hôm nay",
@@ -1113,9 +1125,28 @@
         "allAreas": "Tất cả khu vực",
         "supplier": "Nhà cung cấp",
         "allSuppliers": "Tất cả nhà cung cấp",
-        "reset": "Đặt lại"
+        "reset": "Đặt lại",
+        "vacancy": "Còn trống",
+        "checkIn": "Nhận phòng",
+        "checkOut": "Trả phòng",
+        "detailToggle": "Bộ lọc chi tiết",
+        "any": "Không giới hạn",
+        "minBedrooms": "Phòng ngủ",
+        "bedroomsOption": "Từ {n} phòng",
+        "minGuests": "Số khách",
+        "guestsOption": "Từ {n} khách",
+        "bedType": "Loại giường",
+        "beach": "Khoảng cách biển",
+        "beachOption": "Trong {m}m",
+        "pool": "Hồ bơi",
+        "breakfast": "Bữa sáng",
+        "sellableOnly": "Chỉ villa bán được",
+        "tags": "Điểm nổi bật",
+        "tagsPlaceholder": "Tìm thẻ...",
+        "resetDetail": "Đặt lại bộ lọc chi tiết"
       },
       "supplierDeleted": "Đã xóa",
+      "beachDistanceNote": "Villa chưa nhập khoảng cách sẽ bị loại trừ.",
       "emptyFiltered": "Không có villa nào khớp với điều kiện tìm kiếm.",
       "tabs": {
         "all": "Tất cả",

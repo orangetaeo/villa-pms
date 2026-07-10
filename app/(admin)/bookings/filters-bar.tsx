@@ -3,11 +3,16 @@
 // /bookings 필터 컨트롤 (b5 Filters Controls 변환) — 변경 즉시 searchParams 반영
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { DateField } from "@/components/date-field";
 
 interface VillaOption {
   id: string;
   name: string;
 }
+
+// 날짜별 검색 입력 박스 — 기존 필터 박스와 동일 톤(다크)
+const DATE_BOX =
+  "bg-transparent text-sm text-slate-300 [color-scheme:dark] min-w-[6.5rem] focus:ring-0";
 
 export default function FiltersBar({
   villas,
@@ -20,18 +25,22 @@ export default function FiltersBar({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const apply = (patch: Record<string, string>) => {
+  const apply = (patch: Record<string, string>, clear: string[] = []) => {
     const next = new URLSearchParams(searchParams.toString());
     for (const [key, value] of Object.entries(patch)) {
       if (value) next.set(key, value);
       else next.delete(key);
     }
+    for (const k of clear) next.delete(k); // 상충 키 제거(우선순위 상호배타)
     next.delete("page"); // 필터 변경 시 1페이지로
     next.delete("filter"); // 프리셋 해제
     router.replace(`/bookings?${next.toString()}`);
   };
 
   const month = searchParams.get("month") ?? "";
+  const from = searchParams.get("from") ?? "";
+  const to = searchParams.get("to") ?? "";
+  const dateBasis = searchParams.get("dateBasis") || "staying";
   const area = searchParams.get("area") ?? "";
   const villa = searchParams.get("villa") ?? "";
   const channel = searchParams.get("channel") ?? "";
@@ -49,8 +58,47 @@ export default function FiltersBar({
           className="bg-transparent border-none text-sm text-slate-300 p-0 focus:ring-0 cursor-pointer [color-scheme:dark]"
           type="month"
           value={month}
-          onChange={(e) => apply({ month: e.target.value })}
+          // 월 선택은 최하위 우선순위 — 상위 from/to/dateBasis 를 함께 해제해 월이 적용되게 한다
+          onChange={(e) => apply({ month: e.target.value }, ["from", "to", "dateBasis"])}
         />
+      </div>
+
+      {/* 날짜별 체크인/아웃/투숙 검색 — from/to + dateBasis (기간 클러스터, T-villa-search-expansion §B) */}
+      <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 whitespace-nowrap">
+        <span className="material-symbols-outlined text-slate-500 text-sm">date_range</span>
+        <DateField
+          value={from}
+          max={to || undefined}
+          onChange={(e) => apply({ from: e.target.value }, ["month", "range"])}
+          aria-label={t("list.filters.from")}
+          placeholder={t("list.filters.from")}
+          className={DATE_BOX}
+        />
+        <span className="text-slate-500 text-xs">~</span>
+        <DateField
+          value={to}
+          min={from || undefined}
+          onChange={(e) => apply({ to: e.target.value }, ["month", "range"])}
+          aria-label={t("list.filters.to")}
+          placeholder={t("list.filters.to")}
+          className={DATE_BOX}
+        />
+        <select
+          aria-label={t("list.filters.dateBasis")}
+          className="bg-transparent border-none text-sm text-slate-300 p-0 pl-1 focus:ring-0 cursor-pointer"
+          value={dateBasis}
+          onChange={(e) => apply({ dateBasis: e.target.value })}
+        >
+          <option value="staying" className="bg-slate-900">
+            {t("list.dateBasis.staying")}
+          </option>
+          <option value="checkin" className="bg-slate-900">
+            {t("list.dateBasis.checkin")}
+          </option>
+          <option value="checkout" className="bg-slate-900">
+            {t("list.dateBasis.checkout")}
+          </option>
+        </select>
       </div>
       {areas.length > 0 && (
         <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 whitespace-nowrap">
