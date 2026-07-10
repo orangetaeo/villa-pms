@@ -171,8 +171,28 @@ export default function CheckoutForm({
       BigInt(Math.round(settledKrwNum * fx.vndPerKrw)) +
       BigInt(Math.round(settledUsdNum * fx.vndPerUsd))
     : settledVndBig;
+  // 청구액이 존재하는가(잔여 자동 가감산 표시 여부). fx 있으면 통합 환산 총액, 없으면 통화별 총액 기준.
+  const billHasBill = fx ? totalVndEquiv > 0n : guestBill.totalVnd > 0n || guestBill.totalKrw > 0;
   // 잔여(음수면 초과) — 소프트 안내만(하드 블록 없음).
   const remainingVnd = totalVndEquiv - settledEquivVnd;
+  const absRemainingVnd = remainingVnd < 0n ? -remainingVnd : remainingVnd;
+  // 잔여 0 = 수납 완료. 단 fx 없으면 KRW 청구가 통합 잔여에 반영되지 않으므로(VND만 집계),
+  //   미수납 KRW가 남은 상태에서 "수납 완료"를 거짓 표기하지 않도록 가드(fx 없을 땐 KRW=0일 때만 완료 인정).
+  const isSettled = billHasBill && remainingVnd === 0n && (fx != null || guestBill.totalKrw === 0);
+  const isExcess = remainingVnd < 0n; // 초과 수납
+
+  // 잔여를 "그 통화 하나로 받을 때" 금액(표시용, fx 있을 때만). KRW는 100단위, USD는 정수 반올림.
+  const remainingKrw = fx ? Math.round(Number(absRemainingVnd) / fx.vndPerKrw / 100) * 100 : 0;
+  const remainingUsd = fx ? Math.round(Number(absRemainingVnd) / fx.vndPerUsd) : 0;
+
+  // ── 원터치 채우기 값 — 각 통화 칸을 "그 통화로 잔여 전액 수납"에 맞춰 채운다(다른 칸 값은 유지).
+  //   remaining_excl_C = 총액 − (해당 칸 제외한 다른 칸 환산합). 해당 칸을 이 값으로 채우면 잔여 ≈0.
+  const otherExclVnd = settledEquivVnd - settledVndBig; // ₩·$ 환산합(fx 없으면 0)
+  const otherExclKrw = fx ? settledVndBig + BigInt(Math.round(settledUsdNum * fx.vndPerUsd)) : settledVndBig;
+  const otherExclUsd = fx ? settledVndBig + BigInt(Math.round(settledKrwNum * fx.vndPerKrw)) : settledVndBig;
+  const fillVndBig = totalVndEquiv - otherExclVnd; // ₫ 칸 채움값(정수 VND, 잔여 양수일 때만 표시)
+  const fillKrw = fx ? Math.round(Number(totalVndEquiv - otherExclKrw) / fx.vndPerKrw / 100) * 100 : 0;
+  const fillUsd = fx ? Math.round(Number(totalVndEquiv - otherExclUsd) / fx.vndPerUsd) : 0;
 
   const canRefundFull = !damageFound && settlementReady && !busy;
   const canDeduct =
@@ -489,42 +509,56 @@ export default function CheckoutForm({
               )}
             </div>
 
-            {/* 총 청구액 — 통화별 표기(합산 금지, ADR-0003). 환산(≈)은 표시용 근사(저장 금액 아님). */}
+            {/* 총 청구액 — 대표 총액 = 통합 환산(손님에게 받을 최종액). 통화별은 소계로 격하.
+                환산(≈)은 표시용 근사(저장 금액 아님, ADR-0003 — 실제 수납·저장은 원본 통화). */}
             <div className="border-t border-slate-800 pt-3 space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="font-bold text-white">{t("guestBillTotalVnd")}</span>
-                <span className="text-right">
-                  <span className="block text-lg font-black text-emerald-400 tabular-nums">
-                    {formatThousands(guestBill.totalVnd)}₫
-                  </span>
-                  {fx && guestBill.totalVnd > 0n && (
-                    <span className="block text-[11px] text-slate-500 tabular-nums">
-                      {formatConverted(guestBill.totalVnd, "KRW", fx.vndPerKrw)} ·{" "}
-                      {formatConverted(guestBill.totalVnd, "USD", fx.vndPerUsd)}
+              {fx ? (
+                <>
+                  {/* 통화별 청구 소계 — 작은 글씨(slate). ₩ 소계는 0원이어도 표시 유지. */}
+                  <div className="flex justify-between items-center text-[13px]">
+                    <span className="text-slate-400">{t("guestBillSubtotalVnd")}</span>
+                    <span className="font-semibold text-slate-300 tabular-nums">
+                      {formatThousands(guestBill.totalVnd)}₫
                     </span>
-                  )}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-bold text-white">{t("guestBillTotalKrw")}</span>
-                <span className="text-lg font-black text-emerald-400 tabular-nums">
-                  {formatThousands(guestBill.totalKrw)}원
-                </span>
-              </div>
-              {/* 통합 환산 총액 — VND 청구 + KRW 청구를 오늘 환율로 VND 환산(전부 근사, fx 있을 때만) */}
-              {fx && totalVndEquiv > 0n && (guestBill.totalVnd > 0n || guestBill.totalKrw > 0) && (
-                <div className="flex justify-between items-center border-t border-slate-800/60 pt-2">
-                  <span className="text-xs font-bold text-slate-400">{t("guestBillTotalEquiv")}</span>
-                  <span className="text-right">
-                    <span className="block text-sm font-bold text-slate-200 tabular-nums">
-                      ≈ {formatThousands(totalVndEquiv)}₫
+                  </div>
+                  <div className="flex justify-between items-center text-[13px]">
+                    <span className="text-slate-400">{t("guestBillSubtotalKrw")}</span>
+                    <span className="font-semibold text-slate-300 tabular-nums">
+                      {formatThousands(guestBill.totalKrw)}원
                     </span>
-                    <span className="block text-[11px] text-slate-500 tabular-nums">
-                      {formatConverted(totalVndEquiv, "KRW", fx.vndPerKrw)} ·{" "}
-                      {formatConverted(totalVndEquiv, "USD", fx.vndPerUsd)}
+                  </div>
+                  {/* 대표 총액(강조) — 통합 환산 총액. 미니바 수량 변경 시 실시간 반영. */}
+                  <div className="flex justify-between items-center border-t border-slate-800/60 pt-3">
+                    <span className="font-bold text-white">{t("guestBillGrandTotal")}</span>
+                    <span className="text-right">
+                      <span className="block text-xl font-black text-emerald-400 tabular-nums">
+                        ≈ {formatThousands(totalVndEquiv)}₫
+                      </span>
+                      {(guestBill.totalVnd > 0n || guestBill.totalKrw > 0) && (
+                        <span className="block text-[11px] text-slate-500 tabular-nums">
+                          {formatConverted(totalVndEquiv, "KRW", fx.vndPerKrw)} ·{" "}
+                          {formatConverted(totalVndEquiv, "USD", fx.vndPerUsd)}
+                        </span>
+                      )}
                     </span>
-                  </span>
-                </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* 폴백 — 환율 캐시 없음: 통합 환산 불가 → 통화별 총액 두 줄을 대표로(합산 금지). */}
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-white">{t("guestBillTotalVnd")}</span>
+                    <span className="text-lg font-black text-emerald-400 tabular-nums">
+                      {formatThousands(guestBill.totalVnd)}₫
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-white">{t("guestBillTotalKrw")}</span>
+                    <span className="text-lg font-black text-emerald-400 tabular-nums">
+                      {formatThousands(guestBill.totalKrw)}원
+                    </span>
+                  </div>
+                </>
               )}
               <p className="text-[11px] text-slate-500 leading-relaxed pt-1">
                 {t("guestBillCurrencyNote")}
@@ -621,21 +655,72 @@ export default function CheckoutForm({
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
                 </div>
               </div>
-              {/* 수납 환산 합계·잔여(≈) — 소프트 안내만(초과·미달이어도 제출 차단 안 함) */}
-              {hasSettledAmount && (
-                <div className="rounded-lg bg-slate-900/60 border border-slate-800 px-3 py-2 space-y-1">
-                  <div className="flex justify-between text-[11px] text-slate-400 tabular-nums">
-                    <span>{t("settledEquiv")}</span>
-                    <span>≈ {formatThousands(settledEquivVnd)}₫</span>
-                  </div>
-                  <div className="flex justify-between text-[11px] tabular-nums">
-                    <span className="text-slate-400">
-                      {remainingVnd < 0n ? t("settledExcess") : t("settledRemaining")}
-                    </span>
-                    <span className={remainingVnd < 0n ? "text-amber-400" : "text-slate-300"}>
-                      ≈ {formatThousands(remainingVnd < 0n ? -remainingVnd : remainingVnd)}₫
-                    </span>
-                  </div>
+              {/* 수납 잔여 자동 가감산 — 통화별 실시간 환산(≈) + 원터치 채우기. 소프트 안내(제출 차단 없음). */}
+              {billHasBill && (
+                <div className="rounded-lg bg-slate-900/60 border border-slate-800 px-3 py-2.5 space-y-2">
+                  {hasSettledAmount && fx && (
+                    <div className="flex justify-between text-[11px] text-slate-400 tabular-nums">
+                      <span>{t("settledEquiv")}</span>
+                      <span>≈ {formatThousands(settledEquivVnd)}₫</span>
+                    </div>
+                  )}
+                  {isSettled ? (
+                    <p className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[15px]">check_circle</span>
+                      {t("settledComplete")}
+                    </p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {/* 잔여 행 — 각 통화 하나로 받을 때 금액(잔여 양수) / 초과액(잔여 음수) */}
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                        <span className={`text-xs font-bold ${isExcess ? "text-amber-400" : "text-slate-300"}`}>
+                          {isExcess ? t("settledExcess") : t("settledRemaining")}
+                        </span>
+                        <span
+                          className={`text-sm font-black tabular-nums ${isExcess ? "text-amber-400" : "text-emerald-400"}`}
+                        >
+                          {fx ? (
+                            <>
+                              ≈ {formatThousands(absRemainingVnd)}₫ · ≈ ₩{formatThousands(remainingKrw)} · ≈ $
+                              {formatThousands(remainingUsd)}
+                            </>
+                          ) : (
+                            <>≈ {formatThousands(absRemainingVnd)}₫</>
+                          )}
+                        </span>
+                      </div>
+                      {/* 원터치 채우기 칩 — 잔여가 양수(부족)일 때만. 탭 시 해당 칸 채움(다른 칸 유지). */}
+                      {!isExcess && (
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setSettledVndInput(fillVndBig.toString())}
+                            className="text-[11px] px-2 py-1 rounded-md border border-emerald-500/40 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors tabular-nums"
+                          >
+                            {t("fillRemaining", { amount: `${formatThousands(fillVndBig)}₫` })}
+                          </button>
+                          {fx && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setSettledKrwInput(String(fillKrw))}
+                                className="text-[11px] px-2 py-1 rounded-md border border-emerald-500/40 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors tabular-nums"
+                              >
+                                {t("fillRemaining", { amount: `₩${formatThousands(fillKrw)}` })}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSettledUsdInput(String(fillUsd))}
+                                className="text-[11px] px-2 py-1 rounded-md border border-emerald-500/40 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors tabular-nums"
+                              >
+                                {t("fillRemaining", { amount: `$${formatThousands(fillUsd)}` })}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
               {!settlementReady && (
