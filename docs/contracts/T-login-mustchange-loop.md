@@ -1,6 +1,6 @@
 # T-login-mustchange-loop — 임시비밀번호 계정 로그인 무한 루프 수정
 
-- 상태: 진행 (2026-07-10, 세션: login-loop-fix worktree)
+- 상태: **완료** (2026-07-10, PR #217 머지·배포 869ee9e·프로덕션 E2E PASS)
 - 심각도: **P0** — mustChangePassword=true인 모든 계정(임시비번 발급·관리자 생성 계정)이 프로덕션에서 로그인 불가
 - 발단: 김태진(01081934171, OWNER 승격 직후) 로그인 시 "로그인 창만 계속 나온다" 신고
 
@@ -18,10 +18,11 @@
 
 ## 완료 기준 (QA)
 
-- [ ] mustChangePassword=true 테스트 계정(01000000099)으로 프로덕션 로그인 → **/account 비밀번호 변경 화면 도달**
-- [ ] mustChangePassword=false 일반 로그인 → /dashboard 정상 (회귀 없음)
-- [ ] 잘못된 비밀번호 → 오류 문구 표시 (회귀 없음)
-- [ ] 검증 후 테스트 계정 삭제
+- [x] mustChangePassword=true 테스트 계정(01000000099)으로 프로덕션 로그인 → **/account 비밀번호 변경 화면 도달** (배포 869ee9e에서 실측)
+- [x] 강제 변경 E2E: /account에서 비밀번호 변경 → /login 복귀 → 새 비밀번호 재로그인 → /dashboard
+- [x] mustChangePassword=false 일반 로그인 → /dashboard 정상 (회귀 없음)
+- [x] 잘못된 비밀번호 → "전화번호 또는 비밀번호가 올바르지 않습니다." 표시 (회귀 없음)
+- [x] 검증 후 테스트 계정 삭제 (SecurityEvent·AuditLog 포함)
 
 ## 수정 금지 구역
 
