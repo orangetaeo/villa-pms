@@ -1469,7 +1469,7 @@
   },
   "amenities": {
     "title": "비품·시설",
-    "guide": "빌라에 있는 것만 탭해 선택하세요 — 이 목록이 고객에게 보입니다.",
+    "guide": "빌라에 있는 것만 탭해 선택하고 개수를 정확히 적어주세요 — 이 목록이 고객에게 보입니다.",
     "guideMinibar": "미니바: 빌라에 비치할 개수를 +/− 버튼으로 입력하세요.",
     "optional": "선택사항",
     "editTitle": "비품 수정",
@@ -1542,7 +1542,15 @@
     "customNamePlaceholder": "품목명",
     "customNameLabel": "품목명",
     "addCustom": "미니바 품목 추가",
-    "removeCustom": "삭제"
+    "removeCustom": "삭제",
+    "customSectionTitle": "직접 추가",
+    "customCaption": "목록에 없는 것은 직접 입력하고 개수를 정확히 적어주세요.",
+    "customPlaceholder": "품목명 입력 (예: 유아용 침대)",
+    "addItem": "추가",
+    "customMax": "카테고리당 최대 {max}개까지 추가할 수 있어요.",
+    "pendingTranslation": "번역 대기",
+    "decrease": "개수 줄이기",
+    "increase": "개수 늘리기"
   },
   "calendar": {
     "title": "캘린더",

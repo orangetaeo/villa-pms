@@ -50,24 +50,50 @@ export const villaCreateSchema = z.object({
       })
     )
     .max(60),
-  // 비품 (4/5 — 선택) — itemKey는 lib/amenities.ts 사전에 있는 값만
+  // 비품 (4/5 — 선택) — itemKey는 lib/amenities.ts 사전에 있는 값만.
+  //   직접입력은 itemKey="custom" + customLabel(vi, 1~60자) 필수. custom은 카테고리당 최대 10개.
   amenities: z
     .array(
       z.object({
         category: z.enum(["KITCHEN", "BATHROOM", "APPLIANCE", "MINIBAR"]),
         itemKey: z.string().min(1).max(50),
         quantity: z.number().int().min(1).max(99),
+        // itemKey="custom"일 때 공급자 입력 라벨 (vi). custom이면 필수(superRefine).
+        customLabel: z.string().trim().min(1).max(60).optional(),
       })
     )
     .max(80)
     .superRefine((items, ctx) => {
+      // 카테고리별 custom 항목 개수 — 카테고리당 10개 상한
+      const customCountByCategory: Record<string, number> = {};
       items.forEach((item, index) => {
+        // 사전 검증 — 임의 itemKey 주입 차단 (custom은 허용 카테고리만)
         if (!isValidAmenity(item.category, item.itemKey)) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: [index, "itemKey"],
             message: `Unknown amenity item: ${item.category}/${item.itemKey}`,
           });
+        }
+        if (item.itemKey === "custom") {
+          // (a) custom이면 customLabel 필수 — 텍스트 식별 불가 항목 차단
+          if (!item.customLabel) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: [index, "customLabel"],
+              message: "customLabel is required when itemKey is 'custom'",
+            });
+          }
+          // (b) 카테고리당 custom 최대 10개
+          const next = (customCountByCategory[item.category] ?? 0) + 1;
+          customCountByCategory[item.category] = next;
+          if (next > 10) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: [index, "customLabel"],
+              message: `Too many custom amenities in ${item.category} (max 10)`,
+            });
+          }
         }
       });
     }),

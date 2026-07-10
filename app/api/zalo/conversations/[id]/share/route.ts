@@ -443,7 +443,8 @@ async function handleVilla(
     // #2b: 미니바는 회사표준(MinibarItem) — 공급자·고객 공유 명칭에서 제외(공급자 미관여 원칙, 전환기 명칭 누수 차단).
     amenities: {
       where: { category: { not: "MINIBAR" } },
-      select: { itemKey: true, customLabel: true },
+      // customLabelKo = custom 라벨의 ko 저장형 번역. 판매측(ko) 공유는 customLabelKo ?? customLabel.
+      select: { itemKey: true, customLabel: true, customLabelKo: true },
     },
     // 대표 사진 1장(sortOrder 최상단 — 목록 썸네일과 동일 규칙) — 이미지+캡션 발송용. 금액 무관.
     photos: { orderBy: { sortOrder: "asc" as const }, take: 1, select: { url: true } },
@@ -619,7 +620,7 @@ function toShareBase(
     maxGuests: number;
     hasPool: boolean;
     breakfastAvailable: boolean;
-    amenities: { itemKey: string; customLabel: string | null }[];
+    amenities: { itemKey: string; customLabel: string | null; customLabelKo: string | null }[];
   },
   lang: "ko" | "vi"
 ): VillaShareBase {
@@ -632,17 +633,23 @@ function toShareBase(
     maxGuests: villa.maxGuests,
     hasPool: villa.hasPool,
     breakfastAvailable: villa.breakfastAvailable,
-    amenityLabels: villa.amenities.map((a) => amenityLabel(a.itemKey, a.customLabel, lang)),
+    amenityLabels: villa.amenities.map((a) => amenityLabel(a, lang)),
   };
 }
 
-/** amenity itemKey → 표시 라벨. custom은 공급자 입력 라벨, 그 외 i18n 사전(없으면 itemKey). */
-function amenityLabel(itemKey: string, customLabel: string | null, lang: "ko" | "vi"): string {
-  if (itemKey === "custom") return customLabel ?? "";
+/** amenity itemKey → 표시 라벨. custom은 공급자 입력 라벨(ko는 저장형 번역 우선), 그 외 i18n 사전(없으면 itemKey). */
+function amenityLabel(
+  a: { itemKey: string; customLabel: string | null; customLabelKo: string | null },
+  lang: "ko" | "vi"
+): string {
+  if (a.itemKey === "custom") {
+    // 판매측(ko)엔 저장형 번역 우선, 미번역이면 vi 원문 폴백. vi 공유엔 원문 그대로.
+    return (lang === "ko" ? a.customLabelKo ?? a.customLabel : a.customLabel) ?? "";
+  }
   const dict = (lang === "vi" ? viMessages : koMessages) as {
     amenities?: { items?: Record<string, string> };
   };
-  return dict.amenities?.items?.[itemKey] ?? itemKey;
+  return dict.amenities?.items?.[a.itemKey] ?? a.itemKey;
 }
 
 /** 공개 링크 base URL — NEXTAUTH_URL 우선, 없으면 요청 origin. */

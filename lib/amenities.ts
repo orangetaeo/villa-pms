@@ -80,9 +80,16 @@ export const AMENITY_ITEMS: Record<AmenityCategoryKey, AmenityItem[]> = {
   ],
 };
 
-/** 직접입력(custom) 허용 카테고리 — 미니바 한정 (텍스트 입력 최소화 원칙).
- *  custom은 customLabel(공급자 vi 입력)을 필수로 동반한다 (검증은 라우트 zod에서). */
-export const CUSTOM_ALLOWED_CATEGORIES: AmenityCategoryKey[] = ["MINIBAR"];
+/** 직접입력(custom) 허용 카테고리 — 주방·화장실·가전 (관리인이 사전에 없는 비품을 직접 추가).
+ *  MINIBAR는 회사표준 분리(#2b)로 저장 시 서버가 silent drop하지만, 레거시 payload 검증 호환을 위해 유지한다.
+ *  custom은 customLabel(공급자 vi 입력)을 필수로 동반한다 (검증은 villa-schema / 라우트 zod에서).
+ *  카테고리당 custom 항목 개수 상한(10개)도 스키마 superRefine에서 강제한다. */
+export const CUSTOM_ALLOWED_CATEGORIES: AmenityCategoryKey[] = [
+  "KITCHEN",
+  "BATHROOM",
+  "APPLIANCE",
+  "MINIBAR",
+];
 
 /** 품목 사전 검증 — API에서 임의 itemKey 주입 차단.
  *  단 CUSTOM_ALLOWED_CATEGORIES(미니바)에서는 itemKey="custom"을 사전과 별개로 허용. */

@@ -182,7 +182,19 @@ export const AMENITY_LABEL: Record<string, Record<SheetLang, string>> = {
   snack: { ko: "과자", vi: "Bánh kẹo", en: "Snacks", zh: "零食", ru: "Закуски" },
 };
 
-/** 비품 itemKey의 표시 라벨 — 사전에 없으면(custom 등) customLabel 폴백 */
-export function amenityLabel(itemKey: string, lang: SheetLang, customLabel?: string | null): string {
-  return AMENITY_LABEL[itemKey]?.[lang] ?? customLabel ?? itemKey;
+/**
+ * 비품 itemKey의 표시 라벨 — 사전에 없으면(custom 등) customLabel 폴백.
+ * custom 라벨은 공급자 vi 원문(customLabel)으로 저장되고, ko 저장형 번역은 customLabelKo에 담긴다(null=미번역).
+ * ko 표면은 `customLabelKo ?? customLabel`, 그 외 언어는 customLabel(원문)을 그대로 쓴다.
+ */
+export function amenityLabel(
+  itemKey: string,
+  lang: SheetLang,
+  customLabel?: string | null,
+  customLabelKo?: string | null
+): string {
+  const dictLabel = AMENITY_LABEL[itemKey]?.[lang];
+  if (dictLabel) return dictLabel;
+  if (lang === "ko") return customLabelKo ?? customLabel ?? itemKey;
+  return customLabel ?? itemKey;
 }

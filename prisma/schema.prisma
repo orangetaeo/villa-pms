@@ -299,6 +299,8 @@ model VillaAmenity {
   category    AmenityCategory
   itemKey     String // 품목 사전 키 (코드 상수 → i18n: amenity.kettle 등). 직접 입력은 "custom"
   customLabel String? // itemKey="custom"일 때 공급자 입력 라벨 (vi)
+  // custom 라벨 vi→ko 저장형 번역 (best-effort — null=미번역). ko 표면은 customLabelKo ?? customLabel.
+  customLabelKo String?
   quantity    Int             @default(1) // MINIBAR: 비치 수량, 그 외: 1=있음
   unitPrice   BigInt? // 미니바 고객 청구 단가 — VND 고정(통화 컬럼 없음, 동 단위). 부동소수점 금지 (ADR-0008)
   note        String?

@@ -12,6 +12,7 @@ import { isOperator } from "@/lib/permissions";
 import { requireAuth, requireCapability } from "@/lib/api-guard";
 import { buildRatePeriodRowsFromSeasonCosts } from "@/lib/pricing";
 import { notifyOperatorsVillaPendingReview } from "@/lib/villa-notify";
+import { translateVillaCustomAmenities } from "@/lib/amenity-translate";
 
 const patchSchema = z.object({
   action: z.enum(["APPROVE", "REJECT", "DEACTIVATE", "REACTIVATE"]),
@@ -227,6 +228,9 @@ export async function PUT(
           category: amenity.category,
           itemKey: amenity.itemKey,
           quantity: amenity.quantity,
+          // custom일 때만 라벨 저장 (사전 항목은 i18n 키). MINIBAR drop 정책은 기존 불변.
+          // ko 번역은 커밋 후 best-effort.
+          customLabel: amenity.itemKey === "custom" ? amenity.customLabel ?? null : null,
         })),
       });
     }
@@ -263,6 +267,13 @@ export async function PUT(
       { error: "INVALID_STATUS", current: result.current },
       { status: 409 }
     );
+  }
+
+  // custom 비품 라벨 vi→ko 저장형 번역 (best-effort) — 커밋 후. 실패해도 재제출은 성공.
+  try {
+    await translateVillaCustomAmenities(id);
+  } catch {
+    // 번역 파이프라인 실패는 응답에 전파하지 않는다(함수 내부도 자체 격리).
   }
 
   await writeAuditLog({

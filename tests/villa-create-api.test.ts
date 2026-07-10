@@ -4,6 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockAuth = vi.fn();
 vi.mock("@/auth", () => ({ auth: (...a: unknown[]) => mockAuth(...a) }));
 vi.mock("@/lib/audit-log", () => ({ writeAuditLog: vi.fn(async () => {}) }));
+// custom 라벨 번역은 커밋 후 best-effort — 저장 경로 테스트에선 no-op 목으로 격리(개별 실패 케이스만 reject).
+const mockTranslateAmenities = vi.fn();
+vi.mock("@/lib/amenity-translate", () => ({
+  translateVillaCustomAmenities: (...a: unknown[]) => mockTranslateAmenities(...a),
+}));
 
 const tx = {
   villa: { create: vi.fn(async () => ({ id: "villa-new", status: "PENDING_REVIEW" })) },
@@ -48,6 +53,7 @@ const postReq = (body: unknown) =>
 beforeEach(() => {
   vi.clearAllMocks();
   tx.villa.create.mockResolvedValue({ id: "villa-new", status: "PENDING_REVIEW" });
+  mockTranslateAmenities.mockResolvedValue(undefined);
 });
 
 describe("POST /api/villas — SUPPLIER 자기등록", () => {
@@ -138,5 +144,89 @@ describe("#2b 생성 시 MINIBAR 비품 drop (회사표준 분리)", () => {
     const cats = arg.data.map((a) => a.category);
     expect(cats).toContain("KITCHEN");
     expect(cats).not.toContain("MINIBAR");
+  });
+});
+
+describe("POST /api/villas — 직접입력(custom) 비품", () => {
+  it("허용 카테고리(KITCHEN) custom 항목을 customLabel과 함께 저장한다", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "sup-1", role: "SUPPLIER" } });
+    const res = await postReq({
+      ...VALID_BODY,
+      amenities: [
+        { category: "KITCHEN", itemKey: "custom", quantity: 2, customLabel: "Máy xay sinh tố" },
+      ],
+    });
+    expect(res.status).toBe(201);
+    const arg = (tx.villaAmenity.createMany.mock.calls[0] as unknown[])[0] as {
+      data: { itemKey: string; customLabel: string | null; quantity: number }[];
+    };
+    expect(arg.data[0]).toMatchObject({
+      itemKey: "custom",
+      customLabel: "Máy xay sinh tố",
+      quantity: 2,
+    });
+  });
+
+  it("custom인데 customLabel 누락이면 400 VALIDATION_FAILED", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "sup-1", role: "SUPPLIER" } });
+    const res = await postReq({
+      ...VALID_BODY,
+      amenities: [{ category: "BATHROOM", itemKey: "custom", quantity: 1 }],
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("VALIDATION_FAILED");
+    expect(tx.villaAmenity.createMany).not.toHaveBeenCalled();
+  });
+
+  it("카테고리당 custom 10개 초과면 400", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "sup-1", role: "SUPPLIER" } });
+    const eleven = Array.from({ length: 11 }, (_, i) => ({
+      category: "APPLIANCE" as const,
+      itemKey: "custom",
+      quantity: 1,
+      customLabel: `item ${i}`,
+    }));
+    const res = await postReq({ ...VALID_BODY, amenities: eleven });
+    expect(res.status).toBe(400);
+    expect(tx.villaAmenity.createMany).not.toHaveBeenCalled();
+  });
+
+  it("MINIBAR custom도 회사표준 분리로 drop 유지(비-MINIBAR custom만 저장)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "sup-1", role: "SUPPLIER" } });
+    const res = await postReq({
+      ...VALID_BODY,
+      amenities: [
+        { category: "KITCHEN", itemKey: "custom", quantity: 1, customLabel: "Nồi áp suất" },
+        { category: "MINIBAR", itemKey: "custom", quantity: 3, customLabel: "Rượu vang" },
+      ],
+    });
+    expect(res.status).toBe(201);
+    const arg = (tx.villaAmenity.createMany.mock.calls[0] as unknown[])[0] as {
+      data: { category: string }[];
+    };
+    expect(arg.data.map((a) => a.category)).toEqual(["KITCHEN"]);
+  });
+
+  it("임의 itemKey 주입은 여전히 400(사전 검증)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "sup-1", role: "SUPPLIER" } });
+    const res = await postReq({
+      ...VALID_BODY,
+      amenities: [{ category: "KITCHEN", itemKey: "__hacked__", quantity: 1 }],
+    });
+    expect(res.status).toBe(400);
+    expect(tx.villaAmenity.createMany).not.toHaveBeenCalled();
+  });
+
+  it("번역 파이프라인이 실패해도 저장 응답은 201(격리)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "sup-1", role: "SUPPLIER" } });
+    mockTranslateAmenities.mockRejectedValue(new Error("gemini down"));
+    const res = await postReq({
+      ...VALID_BODY,
+      amenities: [
+        { category: "KITCHEN", itemKey: "custom", quantity: 1, customLabel: "Bình đun nước" },
+      ],
+    });
+    expect(res.status).toBe(201);
+    expect(mockTranslateAmenities).toHaveBeenCalledWith("villa-new");
   });
 });
