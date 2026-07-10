@@ -168,6 +168,19 @@ function pickStringField(o: Record<string, unknown>, keys: readonly string[]): s
   return "";
 }
 
+/** params(문자열 JSON 또는 객체)를 안전 파싱해 Record로. 비JSON·null·비객체면 빈 객체(throw 없음). */
+function parseParamsObject(params: unknown): Record<string, unknown> {
+  let p: unknown = params;
+  if (typeof params === "string") {
+    try {
+      p = JSON.parse(params);
+    } catch {
+      return {};
+    }
+  }
+  return p && typeof p === "object" ? (p as Record<string, unknown>) : {};
+}
+
 /** params(문자열 JSON 또는 객체)에서 caption/msg 추출. 없으면 "". */
 function pickParamsCaption(params: unknown): string {
   let p: unknown = params;
@@ -402,7 +415,12 @@ export function classifyInbound(content: unknown, zaloMsgType?: string): Classif
 
   // ── 음성 ──
   if (type === "chat.voice") {
-    const url = pickStringField(o, ["voiceUrl", "m4aUrl", "href", "url"]);
+    let url = pickStringField(o, ["voiceUrl", "m4aUrl", "href", "url"]);
+    // top-level에 URL이 없으면(앱에서 전달·에코된 음성) params(JSON 문자열/객체) 안의
+    //   같은 필드에서 폴백 추출. params가 비JSON이면 parseParamsObject가 빈 객체 반환(throw 없음).
+    if (!url && o.params) {
+      url = pickStringField(parseParamsObject(o.params), ["voiceUrl", "m4aUrl", "href", "url"]);
+    }
     return { msgType: "voice", text: "", attachmentUrls: url ? [url] : [] };
   }
 
@@ -1220,6 +1238,10 @@ export interface ParsedOutbound {
 export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
   saved: boolean;
   duplicated: boolean;
+  /** 신규 저장된 OUTBOUND 메시지 id (발신 에코 음성 STT 대상). 중복/미저장 시 null. */
+  messageId: string | null;
+  /** 대화 번역모드 (발신 에코 음성 STT 분기 — OFF면 STT 안 함). */
+  translateMode: ZaloTranslateMode;
 }> {
   const {
     ownerAdminId,
@@ -1256,7 +1278,7 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
         ? { groupMembers: groupMembers as Prisma.InputJsonValue }
         : {}),
     },
-    select: { id: true, displayName: true },
+    select: { id: true, displayName: true, translateMode: true },
   });
 
   // 2) 멱등 — 프로그램이 이미 같은 zaloMsgId로 저장했으면 스킵 (중복 0)
@@ -1278,13 +1300,19 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
       if (Object.keys(patch).length > 0) {
         await prisma.zaloMessage.update({ where: { id: existing.id }, data: patch });
       }
-      return { saved: false, duplicated: true };
+      // 중복(이미 저장됨) — 기존 행 STT 재실행 방지 위해 messageId=null 반환.
+      return {
+        saved: false,
+        duplicated: true,
+        messageId: null,
+        translateMode: conversation.translateMode,
+      };
     }
   }
 
   // 3) OUTBOUND·CHAT 메시지 생성. sentBy 미상(앱 발신은 발송자 식별 불가) → null.
   //    cliMsgId·인용 스냅샷 함께 저장 — 내가 앱에서 보낸 메시지도 리액션·답글 대상이 되게 (ADR-0009 R3-1).
-  await prisma.zaloMessage.create({
+  const created = await prisma.zaloMessage.create({
     data: {
       conversationId: conversation.id,
       direction: ZaloMessageDirection.OUTBOUND,
@@ -1303,6 +1331,7 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
       status: ZaloMessageStatus.SENT,
       createdAt,
     },
+    select: { id: true },
   });
 
   // 4) 대화 메타 — lastMessageAt만 갱신(unread·lastInboundAt 미변경). displayName 보강.
@@ -1317,7 +1346,12 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
     },
   });
 
-  return { saved: true, duplicated: false };
+  return {
+    saved: true,
+    duplicated: false,
+    messageId: created.id,
+    translateMode: conversation.translateMode,
+  };
 }
 
 /**

@@ -697,6 +697,26 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
       }
     }
 
+    // [voice-nourl 진단 — 임시, 개인정보 0] 음성인데 첨부 URL 0건이면 content/params **키 이름만** 기록.
+    //   전달·에코 음성이 top-level URL 없이 오는 실 payload 구조 파악용(값·URL·전화·본문 절대 금지).
+    //   self·inbound 양쪽 경로 공통 지점(분류 직후)에 둬서 어느 방향이든 voice+URL0이면 찍힌다.
+    if (classified.msgType === "voice" && classified.attachmentUrls.length === 0) {
+      const c = userMsg.data.content;
+      let keys: string[] = [];
+      let paramKeys: string[] = [];
+      if (c && typeof c === "object") {
+        keys = Object.keys(c as Record<string, unknown>);
+        const pv = (c as Record<string, unknown>).params;
+        try {
+          const pp = typeof pv === "string" ? JSON.parse(pv) : pv;
+          if (pp && typeof pp === "object") paramKeys = Object.keys(pp as Record<string, unknown>);
+        } catch {
+          /* params 비JSON */
+        }
+      }
+      console.log("[voice-nourl]", "content:", keys.join(","), "params:", paramKeys.join(","));
+    }
+
     // 본문 추출(버그 B): action/메서드명 등 메타 필드는 절대 본문으로 새지 않는다.
     //  - text: 사람이 작성한 본문(분류 결과 text) — 자동번역은 type "text"이고 본문 있을 때만.
     //  - displayText: 표시·저장용. 본문 없는 첨부/리치/미상이면 중립 폴백("[알 수 없는 메시지]").
@@ -720,10 +740,19 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
 
     // ── 본인 발신(앱 or 프로그램) → OUTBOUND 동기화 ──────────────
     if (isSelfMessage({ isSelf: userMsg.isSelf, senderId }, inst.ownId)) {
-      // 본문도 첨부도 없는 순수 비텍스트 에코(통화·미상)는 미러 불필요 — 스킵.
-      // (프로그램 S4/b14 발송이 이미 OUTBOUND를 정확히 기록하므로 중복·잡음 방지)
-      // 단, 앱에서 직접 보낸 사진/파일/스티커/음성(첨부 있음)은 채팅에 보이도록 미러한다.
-      if (!text && classified.attachmentUrls.length === 0) {
+      // 순수 비텍스트 에코 스킵 판정. 단, 미디어 타입(음성/사진/파일/스티커/영상/위치)은
+      //   URL 추출 실패(첨부 0)여도 미러한다 — FE가 msgType 타입 카드로 라벨을 렌더하므로
+      //   흔적은 남기고(재생/열기 링크만 URL 없을 때 미표시), 전달된 음성 에코가 top-level URL
+      //   부재로 조용히 드롭되던 버그를 차단한다. call·unknown·빈 text만 미러 불필요 → 스킵
+      //   (프로그램 S4/b14 발송이 이미 OUTBOUND를 정확히 기록하므로 중복·잡음 방지).
+      const isMediaEcho =
+        classified.msgType === "voice" ||
+        classified.msgType === "photo" ||
+        classified.msgType === "file" ||
+        classified.msgType === "sticker" ||
+        classified.msgType === "video" ||
+        classified.msgType === "location";
+      if (!text && classified.attachmentUrls.length === 0 && !isMediaEcho) {
         void maybeRefreshAvatar(inst, senderZaloUserId);
         return;
       }
@@ -753,6 +782,23 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
           threadId: senderZaloUserId,
           ownerAdminId: inst.ownerAdminId,
         });
+      }
+      // S5 A6-3 확장 — 앱에서 보낸(또는 전달한) 발신 에코 음성도 STT(받아쓰기→ko)로 자막·번역.
+      //   수신 voice와 동일 패턴(아래 INBOUND 분기 참고). 리스너 블로킹 금지: await 없이 void.
+      //   신규 저장(saved)·messageId 있고·voice·URL 있고·모드 OFF 아님일 때만. URL 없으면 스킵
+      //   (maybeTranscribeVoice 내부도 !voiceUrl 리턴이나 명시 가드로 불필요 호출 자체를 막는다).
+      if (
+        outbound.saved &&
+        outbound.messageId &&
+        classified.msgType === "voice" &&
+        classified.attachmentUrls[0] &&
+        outbound.translateMode !== "OFF"
+      ) {
+        void maybeTranscribeVoice(
+          outbound.messageId,
+          classified.attachmentUrls[0],
+          outbound.translateMode
+        );
       }
       // ADR-0009 S6 — 내가 먼저 연 대화(발신만 있는 대화)도 아바타가 채워지도록 발신 echo 후에도 lazy 갱신.
       // best-effort·비블로킹. 친구 아니면 null 폴백(avatarFetchedAt만 갱신해 재시도 억제).

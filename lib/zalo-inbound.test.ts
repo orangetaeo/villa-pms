@@ -215,6 +215,31 @@ describe("classifyInbound — 수신 메시지 타입 분류 (Nike parseMessageC
     expect(r.attachmentUrls).toEqual(["https://cdn/v.m4a"]);
   });
 
+  it("chat.voice params 폴백(m4aUrl): top-level URL 없어도 params JSON에서 추출", () => {
+    // 앱에서 전달·에코된 음성 — top-level URL 필드 부재, params 안에만 존재.
+    const r = classifyInbound({ params: '{"m4aUrl":"https://cdn/v.m4a"}' }, "chat.voice");
+    expect(r.msgType).toBe("voice");
+    expect(r.attachmentUrls).toEqual(["https://cdn/v.m4a"]);
+  });
+
+  it("chat.voice params 폴백(href): params 내 href도 음성 URL로 추출", () => {
+    const r = classifyInbound({ params: '{"href":"https://cdn/v.aac"}' }, "chat.voice");
+    expect(r.msgType).toBe("voice");
+    expect(r.attachmentUrls).toEqual(["https://cdn/v.aac"]);
+  });
+
+  it("chat.voice URL 전무: voice + 빈 첨부(기존 동작 회귀 없음)", () => {
+    const r = classifyInbound({}, "chat.voice");
+    expect(r.msgType).toBe("voice");
+    expect(r.attachmentUrls).toEqual([]);
+  });
+
+  it("chat.voice params 비JSON 문자열: throw 없이 voice + 빈 첨부", () => {
+    const r = classifyInbound({ params: "not-json" }, "chat.voice");
+    expect(r.msgType).toBe("voice");
+    expect(r.attachmentUrls).toEqual([]);
+  });
+
   it("chat.recommend(네임카드) → contact, 이름=text(전화번호는 본문에 안 넣음)", () => {
     const r = classifyInbound(
       { name: "Nguyen Van A", phone: "0901234567", qrCodeUrl: "https://cdn/qr.png" },
