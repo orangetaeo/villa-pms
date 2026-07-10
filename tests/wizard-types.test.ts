@@ -140,4 +140,70 @@ describe("villaToWizardState — 재제출 prefill", () => {
     });
     expect(state.rates).toEqual({ LOW: "1000000", HIGH: "", PEAK: "" });
   });
+
+  it("비품 없으면 customAmenities는 빈 배열", () => {
+    const state = villaToWizardState({ ...BASE, amenities: [] });
+    expect(state.customAmenities).toEqual([]);
+  });
+});
+
+describe("villaToWizardState — 직접입력(custom) prefill", () => {
+  it("custom 행은 customAmenities 배열로, 사전 항목은 amenities 맵으로 분리", () => {
+    const state = villaToWizardState({
+      ...BASE,
+      amenities: [
+        { category: "KITCHEN", itemKey: "kettle", quantity: 2 },
+        { category: "KITCHEN", itemKey: "custom", quantity: 3, customLabel: "Máy pha cà phê" },
+        { category: "BATHROOM", itemKey: "custom", quantity: 1, customLabel: "Cân điện tử" },
+        { category: "APPLIANCE", itemKey: "custom", quantity: 4, customLabel: "Máy chiếu" },
+      ],
+    });
+    // 사전 항목만 맵에 — custom은 맵에 절대 들어가지 않음(키 충돌 방지)
+    expect(state.amenities).toEqual({ "KITCHEN:kettle": 2 });
+    expect(state.amenities["KITCHEN:custom"]).toBeUndefined();
+    // custom은 순서 유지, category·label·quantity 정확 복원
+    expect(state.customAmenities).toEqual([
+      { category: "KITCHEN", label: "Máy pha cà phê", quantity: 3 },
+      { category: "BATHROOM", label: "Cân điện tử", quantity: 1 },
+      { category: "APPLIANCE", label: "Máy chiếu", quantity: 4 },
+    ]);
+  });
+
+  it("customLabel 없거나 공백뿐인 custom 행은 건너뜀", () => {
+    const state = villaToWizardState({
+      ...BASE,
+      amenities: [
+        { category: "KITCHEN", itemKey: "custom", quantity: 1, customLabel: null },
+        { category: "KITCHEN", itemKey: "custom", quantity: 1, customLabel: "   " },
+        { category: "KITCHEN", itemKey: "custom", quantity: 2, customLabel: "  Nồi chiên không dầu  " },
+      ],
+    });
+    // 유효한 한 건만, 라벨 trim
+    expect(state.customAmenities).toEqual([
+      { category: "KITCHEN", label: "Nồi chiên không dầu", quantity: 2 },
+    ]);
+  });
+
+  it("허용 카테고리(KITCHEN·BATHROOM·APPLIANCE)가 아닌 custom은 제외(MINIBAR 등)", () => {
+    const state = villaToWizardState({
+      ...BASE,
+      amenities: [
+        { category: "MINIBAR", itemKey: "custom", quantity: 5, customLabel: "Rượu vang" },
+        { category: "APPLIANCE", itemKey: "custom", quantity: 1, customLabel: "Robot hút bụi" },
+      ],
+    });
+    expect(state.customAmenities).toEqual([
+      { category: "APPLIANCE", label: "Robot hút bụi", quantity: 1 },
+    ]);
+  });
+
+  it("custom quantity 0 이하는 최소 1로 보정", () => {
+    const state = villaToWizardState({
+      ...BASE,
+      amenities: [{ category: "KITCHEN", itemKey: "custom", quantity: 0, customLabel: "Lò nướng" }],
+    });
+    expect(state.customAmenities).toEqual([
+      { category: "KITCHEN", label: "Lò nướng", quantity: 1 },
+    ]);
+  });
 });

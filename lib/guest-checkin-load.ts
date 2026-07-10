@@ -62,7 +62,8 @@ export interface GuestCheckinData {
     stayChargeVnd: string | null; // VND 채널
     stayChargeKrw: number | null; // KRW 채널
   } | null;
-  amenities: { category: string; itemKey: string; customLabel: string | null }[];
+  // customLabelKo = custom 라벨의 ko 저장형 번역(null=미번역). ko 표면은 customLabelKo ?? customLabel로 표기.
+  amenities: { category: string; itemKey: string; customLabel: string | null; customLabelKo: string | null }[];
   minibar: GuestMinibarLine[];
   catalog: GuestCatalogItem[];
   /** 현재 환율(1 KRW당 VND, 문자열). 미설정이면 null — FE가 priceKrwCeil로 게스트 KRW 표시. */
@@ -159,7 +160,7 @@ export async function loadGuestCheckin(
   const [amenityRows, minibarItems, villaStocks, catalogRows, orders, fxVndPerKrw] = await Promise.all([
     prisma.villaAmenity.findMany({
       where: { villaId: booking.villaId, category: { not: "MINIBAR" } },
-      select: { category: true, itemKey: true, customLabel: true },
+      select: { category: true, itemKey: true, customLabel: true, customLabelKo: true },
     }),
     prisma.minibarItem.findMany({
       where: { active: true },

@@ -74,7 +74,14 @@ export default function VillaWizard({
         sortOrder,
       }));
 
-    const amenities = Object.entries(state.amenities)
+    // 사전 항목 (미니바 외 1=있음) + 직접입력(custom) 항목을 하나의 amenities 배열로 병합.
+    // custom은 itemKey="custom" + customLabel(vi 원문). 수량은 항상 1 이상(빈 라벨/0 수량 제외).
+    const amenities: {
+      category: "KITCHEN" | "BATHROOM" | "APPLIANCE" | "MINIBAR";
+      itemKey: string;
+      quantity: number;
+      customLabel?: string;
+    }[] = Object.entries(state.amenities)
       .filter(([, quantity]) => quantity > 0)
       .map(([key, quantity]) => {
         const [category, itemKey] = key.split(":");
@@ -84,6 +91,16 @@ export default function VillaWizard({
           quantity,
         };
       });
+    for (const c of state.customAmenities) {
+      const label = c.label.trim();
+      if (!label || c.quantity < 1) continue;
+      amenities.push({
+        category: c.category,
+        itemKey: "custom",
+        customLabel: label,
+        quantity: Math.min(99, c.quantity),
+      });
+    }
 
     try {
       // T1.2b — villaId 있으면 PUT(재제출), 없으면 POST(신규 등록)

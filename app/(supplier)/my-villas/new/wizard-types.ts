@@ -10,6 +10,16 @@ export interface PhotoSlotState {
   url?: string;
 }
 
+/** 직접입력(custom) 비품 — 사전에 없는 항목을 공급자가 vi로 직접 입력.
+ *  미니바는 회사표준 분리(서버 drop)라 custom 대상에서 제외 → KITCHEN·BATHROOM·APPLIANCE만. */
+export type CustomAmenityCategory = "KITCHEN" | "BATHROOM" | "APPLIANCE";
+
+export interface CustomAmenity {
+  category: CustomAmenityCategory;
+  label: string; // vi 원문 (최대 60자), 저장 시 itemKey="custom" + customLabel
+  quantity: number; // 항상 1 이상
+}
+
 /** ADMIN 직접등록 시 귀속 공급자 선택 옵션 */
 export interface SupplierOption {
   id: string;
@@ -33,8 +43,10 @@ export interface WizardState {
   monthlyRent: string; // 숫자만 (동 단위)
   // 3/5 사진 — key: 슬롯 id (exterior, bedroom-1, ...)
   photos: Record<string, PhotoSlotState>;
-  // 4/6 비품 — key: `${category}:${itemKey}` → 수량 (미니바 외 1=있음)
+  // 4/6 비품 — key: `${category}:${itemKey}` → 수량 (미니바 외 1=있음). custom은 여기 아닌 customAmenities에
   amenities: Record<string, number>;
+  // 4/6 직접입력 비품 — 사전에 없는 항목 (KITCHEN·BATHROOM·APPLIANCE)
+  customAmenities: CustomAmenity[];
   // 5/6 이용 규칙 — 공급자 영역(체크인/아웃·흡연 등). 기본값 존재
   rules: VillaRules;
   // 6/6 원가 — 숫자 문자열 (동 단위, "" = 미입력)
@@ -77,6 +89,7 @@ export const INITIAL_STATE: WizardState = {
   monthlyRent: "",
   photos: {},
   amenities: {},
+  customAmenities: [],
   rules: INITIAL_RULES,
   rates: { LOW: "", HIGH: "", PEAK: "" },
 };
@@ -160,7 +173,12 @@ export interface VillaForEdit {
   monthlyRentVnd: string | null; // 동 단위 숫자 문자열 (null=미입력)
   rules: VillaRules; // 이용 규칙 — 재제출 시 기존값 prefill(미반영 방지)
   photos: { space: PhotoSpace; spaceLabel: string | null; url: string }[];
-  amenities: { category: string; itemKey: string; quantity: number }[];
+  amenities: {
+    category: string;
+    itemKey: string;
+    quantity: number;
+    customLabel?: string | null; // itemKey="custom" 행의 vi 원문
+  }[];
   rates: { season: Season; supplierCostVnd: string }[]; // supplierCostVnd 동 단위 문자열
 }
 
@@ -175,8 +193,23 @@ export function villaToWizardState(villa: VillaForEdit): WizardState {
     if (id) photos[id] = { status: "done", url: p.url };
   }
 
+  // 사전 항목은 맵으로, 직접입력(custom) 항목은 배열로 분리 prefill.
+  // custom을 맵에 넣으면 `${category}:custom` 키가 충돌해 여러 개가 하나로 뭉개진다.
   const amenities: Record<string, number> = {};
+  const customAmenities: CustomAmenity[] = [];
+  const CUSTOM_CATEGORIES = new Set<string>(["KITCHEN", "BATHROOM", "APPLIANCE"]);
   for (const a of villa.amenities) {
+    if (a.itemKey === "custom") {
+      const label = a.customLabel?.trim();
+      if (label && CUSTOM_CATEGORIES.has(a.category)) {
+        customAmenities.push({
+          category: a.category as CustomAmenityCategory,
+          label,
+          quantity: Math.max(1, a.quantity),
+        });
+      }
+      continue;
+    }
     amenities[`${a.category}:${a.itemKey}`] = a.quantity;
   }
 
@@ -199,6 +232,7 @@ export function villaToWizardState(villa: VillaForEdit): WizardState {
     rules: villa.rules,
     photos,
     amenities,
+    customAmenities,
     rates,
   };
 }

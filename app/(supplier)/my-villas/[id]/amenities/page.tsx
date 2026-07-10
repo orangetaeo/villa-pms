@@ -37,6 +37,8 @@ export default async function EditAmenitiesPage({
           category: true,
           itemKey: true,
           quantity: true,
+          // 직접입력(custom) 행의 vi 원문 — 없으면 전체교체 PATCH가 custom을 삭제/뭉갬
+          customLabel: true,
         },
       },
     },
@@ -47,9 +49,18 @@ export default async function EditAmenitiesPage({
   const locale = await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "amenities" });
 
-  // 현재 비품(미니바 제외) → 사전 항목 수량 맵. key: `category:itemKey` → 수량.
+  // 현재 비품(미니바 제외) → 사전 항목 수량 맵 + 직접입력(custom) 배열 분리.
+  // custom을 맵에 넣으면 `${category}:custom` 키가 충돌해 여러 개가 하나로 뭉개진다.
   const initialQuantities: Record<string, number> = {};
+  const initialCustoms: { category: string; label: string; quantity: number }[] = [];
   for (const a of villa.amenities) {
+    if (a.itemKey === "custom") {
+      const label = a.customLabel?.trim();
+      if (label) {
+        initialCustoms.push({ category: a.category, label, quantity: Math.max(1, a.quantity) });
+      }
+      continue;
+    }
     initialQuantities[`${a.category}:${a.itemKey}`] = a.quantity;
   }
 
@@ -70,7 +81,11 @@ export default async function EditAmenitiesPage({
         <div className="h-10 w-10" />
       </header>
 
-      <AmenitiesEditor villaId={villa.id} initialQuantities={initialQuantities} />
+      <AmenitiesEditor
+        villaId={villa.id}
+        initialQuantities={initialQuantities}
+        initialCustoms={initialCustoms}
+      />
     </div>
   );
 }

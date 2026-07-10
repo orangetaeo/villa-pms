@@ -84,7 +84,8 @@ export default async function VillaDetailPage({
         amenities: {
           orderBy: { category: "asc" },
           // unitPrice(미니바 고객청구가)·note는 관리자 편집용으로 포함 (원가·마진 아님 — 누수 무관)
-          select: { id: true, category: true, itemKey: true, customLabel: true, quantity: true, unitPrice: true, note: true },
+          // customLabelKo = custom 라벨 ko 저장형 번역(null=미번역). 편집기에서 "번역 (vi원문)" 병기용.
+          select: { id: true, category: true, itemKey: true, customLabel: true, customLabelKo: true, quantity: true, unitPrice: true, note: true },
         },
         // 판매정보 (ADR-0011) — ADMIN 상세는 wifi 포함 OK (운영 화면, /p 공개페이지만 제외)
         bedroomDetails: {
@@ -205,11 +206,31 @@ export default async function VillaDetailPage({
     };
   }
 
-  // 비품 편집기 초기값 (Batch A — 관리자 CRUD). 사전 항목 수량 맵만.
-  //   #2b: 미니바는 회사표준(MinibarItem)으로 분리 — 빌라별 미니바·custom 행은 편집 대상 아님(스킵).
+  // 비품 편집기 초기값 (Batch A — 관리자 CRUD). 사전 항목 수량 맵 + custom 행 배열.
+  //   #2b: 미니바는 회사표준(MinibarItem)으로 분리 — 빌라별 미니바 행은 편집 대상 아님(스킵).
+  //   ★ custom(공급자 직접입력) 행은 별도 배열로 넘겨 편집기가 전체교체 PATCH에 반드시 되돌려 보내게 한다
+  //     (빠뜨리면 관리자 저장 시 공급자가 입력한 custom이 삭제됨 — 계약 완료기준 3).
   const amenityQuantities: Record<string, number> = {};
+  const initialCustoms: {
+    label: string;
+    labelKo: string | null;
+    quantity: number;
+    category: string;
+  }[] = [];
   for (const a of villa.amenities) {
-    if (a.category === "MINIBAR" || a.itemKey === "custom") continue;
+    if (a.category === "MINIBAR") continue;
+    if (a.itemKey === "custom") {
+      // customLabel 없는 레거시/오염 행은 식별 불가 → 스킵(서버는 custom에 customLabel 필수)
+      if (a.customLabel) {
+        initialCustoms.push({
+          label: a.customLabel,
+          labelKo: a.customLabelKo,
+          quantity: a.quantity,
+          category: a.category,
+        });
+      }
+      continue;
+    }
     amenityQuantities[`${a.category}:${a.itemKey}`] = a.quantity;
   }
 
@@ -477,7 +498,11 @@ export default async function VillaDetailPage({
           )}
 
           {/* 비품 현황 — 관리자 편집 가능 (Batch A). 미니바는 회사표준(#2b)으로 분리 */}
-          <AdminAmenitiesEditor villaId={villa.id} initialQuantities={amenityQuantities} />
+          <AdminAmenitiesEditor
+            villaId={villa.id}
+            initialQuantities={amenityQuantities}
+            initialCustoms={initialCustoms}
+          />
 
           {/* 회사표준 미니바 + 빌라별 수량 (#2b/#2c) — 품목·단가는 회사표준 1세트(설정→미니바),
               비치 수량만 이 빌라에 맞게 조정(냉장고 크기·재고 차이). 단가는 finance 권한자만 표시(원칙2). */}

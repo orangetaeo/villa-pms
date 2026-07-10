@@ -105,6 +105,8 @@ export default async function CheckinSheetPage({
               category: true,
               itemKey: true,
               customLabel: true,
+              // custom 라벨 ko 저장형 번역(null=미번역). ko 인쇄 시 customLabelKo ?? customLabel.
+              customLabelKo: true,
               quantity: true,
               unitPrice: true,
             },
@@ -348,7 +350,7 @@ export default async function CheckinSheetPage({
                               {g.items.map((a, i) => (
                                 <tr key={`${g.cat}-${a.itemKey}-${i}`}>
                                   <td className="border border-slate-300 px-2 py-2">
-                                    {amenityLabel(a.itemKey, lang, a.customLabel)}
+                                    {amenityLabel(a.itemKey, lang, a.customLabel, a.customLabelKo)}
                                   </td>
                                   <td className="border border-slate-300 px-2 py-2 text-right tabular-nums">
                                     {a.unitPrice != null ? `${formatThousands(a.unitPrice)}₫` : ""}
