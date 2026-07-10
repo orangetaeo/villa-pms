@@ -203,3 +203,77 @@ describe("vendor respond 동시성 가드 (이중 응답 차단)", () => {
     expect(enqueueNotification).toHaveBeenCalledOnce();
   });
 });
+
+describe("vendor respond 게스트 직접 발주 자동 확정 (ADR-0033)", () => {
+  const guestOrder = {
+    id: "so-g",
+    status: "REQUESTED",
+    requestedVia: "GUEST",
+    bookingId: "bk-1",
+    vendorId: "v-1",
+    vendorStatus: "PENDING_VENDOR",
+    catalogItemId: "ci-1",
+    vendorName: null,
+    serviceDate: null,
+    serviceTime: null,
+    quantity: 1,
+    costVnd: 0n,
+    vendor: { name: "V", nameKo: "공급자" },
+    booking: { villa: { name: "V11" } },
+  };
+
+  it("GUEST accept면 같은 updateMany에서 status=CONFIRMED로 원자 전이(where에 status=REQUESTED)", async () => {
+    auth.mockResolvedValue(VENDOR);
+    getVendorIdForUser.mockResolvedValue("v-1");
+    soFindUnique.mockResolvedValue(guestOrder);
+    soUpdateMany.mockResolvedValue({ count: 1 });
+
+    const res = await RESPOND(jsonReq({ action: "accept" }), {
+      params: Promise.resolve({ id: "so-g" }),
+    });
+    expect(res.status).toBe(200);
+    expect(soUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "so-g", vendorId: "v-1", vendorStatus: "PENDING_VENDOR", status: "REQUESTED" },
+        data: expect.objectContaining({ vendorStatus: "VENDOR_ACCEPTED", status: "CONFIRMED" }),
+      })
+    );
+    // 감사로그에 status 전이 포함
+    expect(writeAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: expect.objectContaining({ status: { old: "REQUESTED", new: "CONFIRMED" } }),
+      })
+    );
+  });
+
+  it("운영자/파트너 발주(requestedVia≠GUEST)는 accept해도 status 미변경(현행 유지)", async () => {
+    auth.mockResolvedValue(VENDOR);
+    getVendorIdForUser.mockResolvedValue("v-1");
+    soFindUnique.mockResolvedValue({ ...guestOrder, id: "so-p", requestedVia: "ADMIN" });
+    soUpdateMany.mockResolvedValue({ count: 1 });
+
+    const res = await RESPOND(jsonReq({ action: "accept" }), {
+      params: Promise.resolve({ id: "so-p" }),
+    });
+    expect(res.status).toBe(200);
+    const call = soUpdateMany.mock.calls[0][0] as { where: Record<string, unknown>; data: Record<string, unknown> };
+    expect(call.where).not.toHaveProperty("status");
+    expect(call.data).not.toHaveProperty("status");
+  });
+
+  it("GUEST라도 propose(시간 협의)는 자동 확정 제외 — status 미변경", async () => {
+    auth.mockResolvedValue(VENDOR);
+    getVendorIdForUser.mockResolvedValue("v-1");
+    soFindUnique.mockResolvedValue({ ...guestOrder, id: "so-pr" });
+    soUpdateMany.mockResolvedValue({ count: 1 });
+
+    const res = await RESPOND(
+      jsonReq({ action: "propose", proposedServiceDate: "2026-08-01" }),
+      { params: Promise.resolve({ id: "so-pr" }) }
+    );
+    expect(res.status).toBe(200);
+    const call = soUpdateMany.mock.calls[0][0] as { where: Record<string, unknown>; data: Record<string, unknown> };
+    expect(call.where).not.toHaveProperty("status");
+    expect(call.data).not.toHaveProperty("status");
+  });
+});
