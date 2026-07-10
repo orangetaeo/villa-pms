@@ -990,6 +990,11 @@
     }
   },
   "adminCheckin": {
+    "guide": {
+      "passport": "Chụp và tải lên hộ chiếu của tất cả khách, bấm 'Nhận dạng tự động' rồi chỉ sửa chỗ sai. Chỉ dữ liệu đã xác nhận ở đây mới được lưu khi hoàn tất.",
+      "deposit": "Ghi lại số tiền và loại tiền đặt cọc vừa nhận. Khi trả phòng, phần còn lại sau khi trừ minibar/hư hỏng sẽ được hoàn.",
+      "agreement": "Cần chữ ký thỏa thuận (gồm đồng ý chuyển thông tin hộ chiếu) để hoàn tất nhận phòng; Wi-Fi và thông tin ra vào trên màn hình của khách cũng chỉ mở sau khi ký. Nếu khách đã tự ký thì dùng chữ ký đó, nếu chưa hãy lấy chữ ký cảm ứng tại chỗ."
+    },
     "banner": {
       "title": "Đặt phòng #{code} — {villa}",
       "guests": "{name} và {n} người",
@@ -1027,7 +1032,7 @@
     },
     "submit": "Hoàn tất nhận phòng",
     "submitting": "Đang xử lý...",
-    "submitCaption": "Hoàn tất nhận phòng với các mục đã xác nhận — chữ ký tùy chọn (có thể ký bổ sung sau)",
+    "submitCaption": "Hoàn tất nhận phòng với các mục đã xác nhận — cần có chữ ký thỏa thuận mới hoàn tất được.",
     "needPassport": "Vui lòng tải lên ít nhất 1 ảnh hộ chiếu",
     "submitError": "Nhận phòng thất bại. Vui lòng thử lại.",
     "agreement": {
@@ -1047,7 +1052,7 @@
       "signUploading": "Đang lưu…",
       "signedBadge": "Đã ký",
       "signError": "Lưu chữ ký thất bại. Vui lòng thử lại.",
-      "unsignedHint": "Có thể hoàn tất nhận phòng không cần chữ ký — ký bổ sung sau tại màn hình nhận phòng.",
+      "unsignedHint": "Chưa có chữ ký — cần ký thỏa thuận mới hoàn tất được nhận phòng.",
       "postSignBadge": "Ký bổ sung",
       "postSignDesc": "Đặt phòng này đã nhận phòng chưa có chữ ký. Vui lòng lấy chữ ký khách theo bản cam kết dưới đây.",
       "guestSigned": {
@@ -3144,6 +3149,11 @@
     }
   },
   "adminCheckout": {
+    "guide": {
+      "photos": "Chụp tình trạng hiện tại theo cùng góc với ảnh gốc lúc nhận phòng rồi tải lên. Cần ít nhất 1 ảnh để tiến hành trả phòng.",
+      "minibar": "Chỉ cần nhập 'số lượng còn lại' cho từng món, hệ thống tự tính lượng tiêu thụ và tiền trừ. Món không đụng tới cứ để nguyên — tính là tiêu thụ 0.",
+      "submit": "Bấm nút hoàn tiền sẽ chốt trả phòng và tự động tạo công việc dọn dẹp. Nếu có khoản trừ (minibar/hư hỏng), chỉ nút 'Duyệt hoàn sau khấu trừ' được bật."
+    },
     "title": "Kiểm tra trả phòng",
     "bookingNo": "Đặt phòng #B-{code}",
     "back": "Quay lại",
@@ -4011,6 +4021,10 @@
     "searchPlaceholder": "Tìm villa, khách"
   },
   "supplierCheckin": {
+    "guide": {
+      "deposit": "Nhập đúng số tiền cọc nhận từ khách. Khi trả phòng, hệ thống tự tính tiền hoàn lại từ số này.",
+      "agreement": "Cho khách đọc nội quy rồi ký ngay trên màn hình. Phải có chữ ký mới hoàn tất được nhận phòng."
+    },
     "pageTitle": "Nhận phòng",
     "back": "Quay lại",
     "guestsLabel": "{name} + {n}",
@@ -4027,9 +4041,9 @@
       "upload": "Thêm ảnh",
       "uploading": "Đang tải…",
       "uploadError": "Tải ảnh thất bại. Vui lòng thử lại.",
-      "ocrHint": "Chụp ảnh hộ chiếu, hệ thống tự đọc tên & số hộ chiếu.",
+      "ocrHint": "Chụp hộ chiếu xong, bấm [Đọc thông tin] để tự điền tên & số hộ chiếu. Chỗ nào sai thì sửa tay.",
       "ocrTitle": "Thông tin khách {n}",
-      "ocrRun": "Đọc lại",
+      "ocrRun": "Đọc thông tin",
       "ocrRunning": "Đang đọc…",
       "ocrNotConfigured": "Tự động đọc chưa sẵn sàng — vui lòng nhập tay.",
       "ocrFailed": "Đọc thất bại — vui lòng nhập tay.",
@@ -4057,17 +4071,21 @@
       "signComplete": "Lưu chữ ký",
       "signUploading": "Đang lưu…",
       "signError": "Lưu chữ ký thất bại.",
-      "unsignedHint": "Có thể hoàn tất không cần chữ ký — sẽ hiển thị 'chưa ký'."
+      "unsignedHint": "Chưa có chữ ký — cần ký để hoàn tất."
     }
   },
   "supplierCheckout": {
+    "guide": {
+      "photo": "Chụp ảnh hiện trạng đúng góc giống ảnh gốc. Ảnh này dùng để đối chiếu khi có hư hỏng.",
+      "minibar": "Chỉ nhập số khách đã dùng. Tiền minibar thu riêng với khách, không trừ vào tiền cọc."
+    },
     "pageTitle": "Trả phòng",
     "back": "Quay lại",
     "guestsLabel": "{name} + {n}",
     "submit": "Hoàn tất trả phòng",
     "submitting": "Đang xử lý…",
     "submitError": "Không thể trả phòng. Vui lòng thử lại.",
-    "submitCaption": "Phòng sẽ chờ dọn dẹp sau khi trả phòng.",
+    "submitCaption": "Trả phòng xong sẽ tự tạo việc dọn dẹp — villa nhận khách tiếp sau khi kiểm tra dọn dẹp đạt.",
     "needPhoto": "Cần ít nhất 1 ảnh hiện trạng.",
     "generalPhotos": "Ảnh phòng",
     "spaces": {

@@ -9,7 +9,8 @@ import {
   type AmenityCategoryKey,
 } from "@/lib/amenities";
 import type { CustomAmenityCategory, WizardState } from "./wizard-types";
-import { WizardGuide } from "./wizard-guide";
+// 공용 인라인 가이드 (T-9에서 wizard-guide.tsx 승격 — light 톤 동일)
+import { InlineGuide } from "@/components/inline-guide";
 
 interface Props {
   state: WizardState;
@@ -167,7 +168,7 @@ export default function StepAmenities({ state, update, onNext }: Props) {
 
           {/* 인라인 가이드 — 탭별 전환: 일반 탭="있는 것만 선택+개수 입력+고객 노출", 미니바 탭="수량=비치 개수(가격 아님)"
               오해를 해당 컨텍스트에서만 차단, 화면엔 항상 1문장 (UX-VN 확정, T-tutorial-onboarding-4) */}
-          <WizardGuide text={activeTab === "MINIBAR" ? t("guideMinibar") : t("guide")} />
+          <InlineGuide text={activeTab === "MINIBAR" ? t("guideMinibar") : t("guide")} />
 
           {activeTab !== "MINIBAR" ? (
             <>

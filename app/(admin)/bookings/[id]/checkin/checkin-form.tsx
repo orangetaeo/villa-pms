@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { resizeImage } from "@/lib/image-resize";
+import { InlineGuide } from "@/components/inline-guide";
 import AgreementSection from "./agreement-section";
 import type { AgreementContent } from "@/lib/agreement";
 
@@ -240,6 +241,8 @@ export default function CheckinForm({
           </span>
         </div>
         <div className="p-6 space-y-6">
+          {/* 인라인 가이드 — T-9 */}
+          <InlineGuide variant="dark" text={t("guide.passport")} />
           <input
             ref={fileInput}
             type="file"
@@ -350,6 +353,10 @@ export default function CheckinForm({
             {t("deposit.skip")}
           </label>
         </div>
+        {/* 인라인 가이드 — T-9 (스킵 상태여도 항상 노출; 스킵 시 본문이 없어 하단 여백 보강) */}
+        <div className={depositSkipped ? "px-6 py-4" : "px-6 pt-4"}>
+          <InlineGuide variant="dark" text={t("guide.deposit")} />
+        </div>
         {!depositSkipped && (
           <div className="p-6">
             <div className="flex items-center gap-4 flex-wrap">
@@ -392,6 +399,9 @@ export default function CheckinForm({
           </div>
         )}
       </section>
+
+      {/* 인라인 가이드 — T-9 (Section 3 양 분기 공통) */}
+      <InlineGuide variant="dark" text={t("guide.agreement")} />
 
       {/* Section 3: 동의서 + 터치 서명 (T3.2, b3 §3) */}
       {adoptingGuest && guestSignature ? (

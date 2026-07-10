@@ -4,7 +4,8 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import type { SupplierOption, WizardState } from "./wizard-types";
-import { WizardGuide } from "./wizard-guide";
+// 공용 인라인 가이드 (T-9에서 wizard-guide.tsx 승격 — light 톤 동일)
+import { InlineGuide } from "@/components/inline-guide";
 
 // 단지명은 고유명사 — 번역하지 않는다 (i18n 용어 사전 규칙)
 const COMPLEXES = ["Sonasea", "Sunset Sanato", "Vinpearl"];
@@ -46,7 +47,7 @@ export default function StepBasic({ state, update, onNext, onHome, isAdmin, supp
 
           {/* 인라인 가이드 — 침실·욕실 수가 다음 사진 슬롯 수를 결정하는 보이지 않는 의존성 예고
               (기본값으로 대충 넘기면 사진 단계에서 재작업 — UX-VN 확정, T-tutorial-onboarding-4) */}
-          <WizardGuide text={t("guide")} />
+          <InlineGuide text={t("guide")} />
 
           {/* 귀속 공급자 — ADMIN 직접등록 전용 (공급자 화면에는 노출 안 됨) */}
           {isAdmin && (
