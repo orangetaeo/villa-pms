@@ -36,12 +36,16 @@ export interface UserRow {
   partnerId: string | null;
   /** 연결된 원천 공급자(발주처) 엔티티 id — VENDOR 계정일 때 /settings/vendors로 점프 */
   vendorId: string | null;
+  /** 연결된 Zalo 대화방 표시명 (연결됨일 때만; 없으면 null) */
+  zaloName: string | null;
 }
 
 export interface UnlinkedZaloRow {
   id: string;
   zaloUserId: string;
   displayName: string | null;
+  /** 최근 활동일 "YYYY.MM.DD" (RSC 직렬화, 대화 없으면 null) — 동명 계정 구분용 */
+  lastMessageAt: string | null;
 }
 
 // 역할 뱃지 (DESIGN.md 역할 시맨틱: OWNER=amber, MANAGER=indigo, STAFF=slate,
@@ -105,9 +109,10 @@ export default function UsersManager({
   const [tab, setTab] = useState<TabKey>(initialTab);
   const [query, setQuery] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
-  // Zalo 매칭 패널이 열린 사용자 id + 선택한 zaloUserId
+  // Zalo 매칭 패널이 열린 사용자 id + 선택한 zaloUserId + 후보 검색어
   const [pickerId, setPickerId] = useState<string | null>(null);
   const [pickerValue, setPickerValue] = useState("");
+  const [pickerQuery, setPickerQuery] = useState("");
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   // 계정 생성 모달 (B2)
   const [addOpen, setAddOpen] = useState(false);
@@ -144,6 +149,16 @@ export default function UsersManager({
     () => filtered.slice((page - 1) * pageSize, page * pageSize),
     [filtered, page, pageSize]
   );
+
+  // Zalo 매칭 후보 — displayName 부분일치(대소문자 무시) 클라 필터. 상위 30개만 렌더(507개 대비).
+  const PICKER_MAX = 30;
+  const pickerCandidates = useMemo(() => {
+    const q = pickerQuery.trim().toLowerCase();
+    if (!q) return unlinkedZalo;
+    return unlinkedZalo.filter((c) => (c.displayName ?? "").toLowerCase().includes(q));
+  }, [unlinkedZalo, pickerQuery]);
+  const pickerVisible = pickerCandidates.slice(0, PICKER_MAX);
+  const pickerOverflow = pickerCandidates.length - pickerVisible.length;
 
   /** PATCH 공통 — 409=Zalo 중복, 400(DEACTIVATE)=본인 비활성화 */
   const patchUser = async (
@@ -202,10 +217,7 @@ export default function UsersManager({
       { action: "LINK_ZALO", zaloUserId: pickerValue },
       t("zalo.linked")
     );
-    if (ok) {
-      setPickerId(null);
-      setPickerValue("");
-    }
+    if (ok) closePicker();
   };
 
   const onUnlink = (user: UserRow) => {
@@ -213,9 +225,17 @@ export default function UsersManager({
     void patchUser(user.id, { action: "UNLINK_ZALO" }, t("zalo.unlinked"));
   };
 
+  // 매칭 패널 열기 — 클릭 선택 리스트라 사전 선택 없이 시작(검색어·선택 초기화)
   const openPicker = (userId: string) => {
     setPickerId(userId);
-    setPickerValue(unlinkedZalo[0]?.zaloUserId ?? "");
+    setPickerValue("");
+    setPickerQuery("");
+  };
+
+  const closePicker = () => {
+    setPickerId(null);
+    setPickerValue("");
+    setPickerQuery("");
   };
 
   // 계정 생성 (B2) — POST /api/users → refresh
@@ -329,7 +349,98 @@ export default function UsersManager({
     }
   };
 
-  // Zalo 연결 셀 (b13: 점 + 연결됨/미연결 + 수동 연결 링크)
+  // Zalo 매칭 패널 (검색 + 클릭 선택 리스트) — 미연결 "수동 연결"·연결됨 "변경" 공용
+  const pickerPanel = (user: UserRow) => (
+    <div className="mt-1 w-72 max-w-[calc(100vw-3rem)] bg-slate-900 border border-slate-700 rounded-lg p-3 flex flex-col gap-2 text-left">
+      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+        {t("zalo.pickerTitle")}
+      </span>
+      {unlinkedZalo.length === 0 ? (
+        // 미가입 팔로워 없음 — 웹훅(T3.7) 연동 전 빈 상태
+        <p className="text-[11px] text-slate-400 leading-relaxed">{t("zalo.pickerEmpty")}</p>
+      ) : (
+        <>
+          {/* 후보 검색 — displayName 부분일치. 507개 대비 실사용 진입점 */}
+          <div className="relative">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-500 text-sm pointer-events-none">
+              search
+            </span>
+            <input
+              type="text"
+              autoFocus
+              value={pickerQuery}
+              onChange={(e) => setPickerQuery(e.target.value)}
+              placeholder={t("zalo.searchPlaceholder")}
+              className="h-9 w-full bg-slate-800 border border-slate-700 rounded-lg pl-8 pr-2 text-xs text-slate-100 focus:border-admin-primary focus:ring-1 focus:ring-admin-primary outline-none placeholder:text-slate-500"
+            />
+          </div>
+          {pickerCandidates.length === 0 ? (
+            <p className="text-[11px] text-slate-500 leading-relaxed py-1">
+              {t("zalo.noSearchResult")}
+            </p>
+          ) : (
+            <ul className="max-h-48 overflow-y-auto flex flex-col gap-0.5 -mx-1 px-1">
+              {pickerVisible.map((c) => {
+                const selected = pickerValue === c.zaloUserId;
+                return (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => setPickerValue(c.zaloUserId)}
+                      className={`w-full flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${
+                        selected
+                          ? "bg-admin-primary/15 ring-1 ring-admin-primary/40"
+                          : "hover:bg-slate-800"
+                      }`}
+                    >
+                      <span className="text-xs text-slate-100 truncate">
+                        {c.displayName ?? t("zalo.noName")}
+                      </span>
+                      {c.lastMessageAt ? (
+                        <span className="text-[10px] tabular-nums text-slate-500 whitespace-nowrap shrink-0">
+                          {c.lastMessageAt}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-500 bg-slate-800 rounded px-1.5 py-0.5 whitespace-nowrap shrink-0">
+                          {t("zalo.noActivity")}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {pickerOverflow > 0 && (
+            <p className="text-[10px] text-slate-500 leading-relaxed">
+              {t("zalo.overflowHint", { count: pickerOverflow })}
+            </p>
+          )}
+        </>
+      )}
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={closePicker}
+          className="px-2.5 py-1.5 rounded text-[11px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+        >
+          {t("zalo.cancel")}
+        </button>
+        {unlinkedZalo.length > 0 && (
+          <button
+            type="button"
+            disabled={busyId === user.id || !pickerValue}
+            onClick={() => void onLink(user)}
+            className="px-2.5 py-1.5 rounded text-[11px] font-bold bg-admin-primary hover:bg-admin-primary-dark text-white disabled:opacity-50 transition-colors"
+          >
+            {t("zalo.connect")}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  // Zalo 연결 셀 (b13: 점 + 연결됨/미연결 + 수동 연결/변경)
   const zaloCell = (user: UserRow) => {
     if (user.zaloUserId) {
       return (
@@ -344,14 +455,31 @@ export default function UsersManager({
               {t("zalo.connected")}
             </span>
           </div>
-          <button
-            type="button"
-            disabled={busyId === user.id}
-            onClick={() => onUnlink(user)}
-            className="text-[10px] text-slate-500 hover:text-red-400 hover:underline disabled:opacity-50 whitespace-nowrap"
-          >
-            {t("zalo.unlink")}
-          </button>
+          {/* 연결된 대화방 이름 — 수동 매칭 검증용(없으면 생략) */}
+          {user.zaloName && (
+            <span className="text-[10px] text-slate-500 truncate max-w-[10rem]">
+              {user.zaloName}
+            </span>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={busyId === user.id}
+              onClick={() => onUnlink(user)}
+              className="text-[10px] text-slate-500 hover:text-red-400 hover:underline disabled:opacity-50 whitespace-nowrap"
+            >
+              {t("zalo.unlink")}
+            </button>
+            <button
+              type="button"
+              disabled={busyId === user.id}
+              onClick={() => openPicker(user.id)}
+              className="text-[10px] text-admin-primary hover:underline disabled:opacity-50 whitespace-nowrap"
+            >
+              {t("zalo.change")}
+            </button>
+          </div>
+          {pickerId === user.id && pickerPanel(user)}
         </div>
       );
     }
@@ -362,49 +490,7 @@ export default function UsersManager({
           <span className="text-xs font-medium text-slate-500">{t("zalo.notConnected")}</span>
         </div>
         {pickerId === user.id ? (
-          <div className="mt-1 w-56 bg-slate-900 border border-slate-700 rounded-lg p-3 flex flex-col gap-2 text-left">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
-              {t("zalo.pickerTitle")}
-            </span>
-            {unlinkedZalo.length === 0 ? (
-              // 미가입 팔로워 없음 — 웹훅(T3.7) 연동 전 빈 상태
-              <p className="text-[11px] text-slate-400 leading-relaxed">{t("zalo.pickerEmpty")}</p>
-            ) : (
-              <select
-                value={pickerValue}
-                onChange={(e) => setPickerValue(e.target.value)}
-                className="h-9 w-full bg-slate-800 border border-slate-700 rounded-lg px-2 text-xs text-slate-100"
-              >
-                {unlinkedZalo.map((c) => (
-                  <option key={c.id} value={c.zaloUserId}>
-                    {c.displayName ?? t("zalo.noName")}
-                  </option>
-                ))}
-              </select>
-            )}
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setPickerId(null);
-                  setPickerValue("");
-                }}
-                className="px-2.5 py-1.5 rounded text-[11px] font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-              >
-                {t("zalo.cancel")}
-              </button>
-              {unlinkedZalo.length > 0 && (
-                <button
-                  type="button"
-                  disabled={busyId === user.id || !pickerValue}
-                  onClick={() => void onLink(user)}
-                  className="px-2.5 py-1.5 rounded text-[11px] font-bold bg-admin-primary hover:bg-admin-primary-dark text-white disabled:opacity-50 transition-colors"
-                >
-                  {t("zalo.connect")}
-                </button>
-              )}
-            </div>
-          </div>
+          pickerPanel(user)
         ) : (
           <button
             type="button"
