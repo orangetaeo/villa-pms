@@ -129,8 +129,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   //   vendorProposalRespondedAt=null(미해결)이라 운영자가 적용/무시 전까지 고객확정 차단.
   const newStatus = action === "reject" ? "VENDOR_REJECTED" : "VENDOR_ACCEPTED";
   const trimmedNote = proposalNote?.trim() || null;
-  await prisma.serviceOrder.update({
-    where: { id },
+  // ★동시성 가드 — PENDING_VENDOR였던 스냅샷(order.vendorStatus) 위에서만 응답 반영. 동시 수락+거절 시
+  //   count===0 → 409로 차단해 last-writer-wins와 이중 운영자 통지를 막는다.
+  const responded = await prisma.serviceOrder.updateMany({
+    where: { id, vendorId, vendorStatus: order.vendorStatus },
     data: {
       vendorStatus: newStatus,
       vendorRespondedAt: now,
@@ -145,6 +147,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         : {}),
     },
   });
+  if (responded.count === 0) {
+    return NextResponse.json({ error: "CONCURRENT_MODIFICATION" }, { status: 409 });
+  }
 
   // 운영자(테오)들에게 가부 통지(ko) — zaloUserId 연결된 활성 운영자 전원.
   const operators = await prisma.user.findMany({

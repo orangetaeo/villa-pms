@@ -104,6 +104,12 @@ describe("hasOverdue", () => {
     const list = [rec({ dueDate: utc("2026-07-10"), status: ReceivableStatus.PENDING })];
     expect(hasOverdue(list, utc("2026-07-05"))).toBe(false);
   });
+  it("'오늘'은 VN 캘린더 기준 — 17:00~23:59 UTC(다음 VN일 새벽)에도 어제 만기는 연체", () => {
+    // dueDate 07-01(VN). asOf=2026-07-01T18:00Z = VN 07-02 01:00 → VN 오늘=07-02 > 만기 07-01.
+    // 과거 UTC-일 계산은 오늘=07-01로 봐 연체 누락(여신 게이트 오작동). VN-일 전환으로 교정.
+    const list = [rec({ dueDate: utc("2026-07-01"), status: ReceivableStatus.PENDING })];
+    expect(hasOverdue(list, new Date("2026-07-01T18:00:00.000Z"))).toBe(true);
+  });
   it("OVERDUE 상태는 즉시 연체로 취급", () => {
     const list = [rec({ dueDate: utc("2026-08-01"), status: ReceivableStatus.OVERDUE })];
     expect(hasOverdue(list, utc("2026-07-05"))).toBe(true);
@@ -233,5 +239,29 @@ describe("agingBuckets", () => {
     const b = agingBuckets(list, asOf);
     expect(b["0-7"]).toBe(500_000n);
     expect(b.total).toBe(500_000n);
+  });
+
+  it("버킷 경계 일수차는 정수로 정확 (7/8·30/31) — −7h 시프트 없음", () => {
+    const asOf = utc("2026-08-01"); // VN 오늘 = 2026-08-01 (UTC 자정)
+    const list = [
+      rec({ totalVnd: 7n, dueDate: utc("2026-07-25") }), // 정확히 7일 → 0-7
+      rec({ totalVnd: 8n, dueDate: utc("2026-07-24") }), // 정확히 8일 → 8-15 (버그면 7로 새어 0-7)
+      rec({ totalVnd: 30n, dueDate: utc("2026-07-02") }), // 30일 → 16-30
+      rec({ totalVnd: 31n, dueDate: utc("2026-07-01") }), // 31일 → 30+ (버그면 30으로 새어 16-30)
+    ];
+    const b = agingBuckets(list, asOf);
+    expect(b["0-7"]).toBe(7n);
+    expect(b["8-15"]).toBe(8n);
+    expect(b["16-30"]).toBe(30n);
+    expect(b["30+"]).toBe(31n);
+  });
+
+  it("VN 자정 직후(17:00~23:59 UTC)에도 일수차 정수 유지", () => {
+    // asOf=2026-08-01T18:00Z = VN 2026-08-02 01:00 → VN 오늘 2026-08-02
+    const asOf = new Date("2026-08-01T18:00:00.000Z");
+    const list = [rec({ totalVnd: 8n, dueDate: utc("2026-07-25") })]; // VN오늘 08-02 − 07-25 = 8일
+    const b = agingBuckets(list, asOf);
+    expect(b["8-15"]).toBe(8n);
+    expect(b["0-7"]).toBe(0n);
   });
 });

@@ -71,9 +71,19 @@ export async function PUT(
 
   try {
     await prisma.$transaction(async (tx) => {
+      // ★확정(confirmHold)·입금과의 경합 직렬화 — 같은 booking 채권 락(payments·hold 라우트와 동일 키).
+      //   없으면 동시 확정과 파트너 지정이 서로의 미커밋 쓰기를 못 봐 "CONFIRMED인데 채권 없음"
+      //   (미수 누락)이 발생 가능. ADR-0022 채권 정합성.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`receivable:${id}`}))`;
       await tx.booking.update({ where: { id }, data: { partnerId } });
+      // 상태는 트랜잭션 안에서 다시 읽는다 — 바깥 stale 스냅샷(예: 그 사이 HOLD→CONFIRMED)으로
+      // 채권 생성을 건너뛰는 경합을 차단(락으로 직렬화된 뒤의 확정 상태를 본다).
+      const fresh = await tx.booking.findUniqueOrThrow({
+        where: { id },
+        select: { status: true },
+      });
       // 확정 이후 상태에서 새로 지정하면 채권 즉시 생성(멱등)
-      if (partnerId && POST_HOLD.has(booking.status)) {
+      if (partnerId && POST_HOLD.has(fresh.status)) {
         // 여신 게이트 재실행(ADR-0022) — confirm과 동일. 차단 파트너(한도초과·연체·
         // BLOCKED/SUSPENDED)에 채권 생성 우회 차단. update 후 평가해 새 partnerId 기준.
         const credit = await evaluateConfirmCredit(tx, id, new Date());

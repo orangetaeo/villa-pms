@@ -85,6 +85,8 @@ function makeTx(opts: {
   const payDelete = vi.fn(async () => ({}));
   const ledgerDeleteMany = vi.fn(async () => ({ count: 1 }));
   const tx = {
+    // 청구서 락(pg_advisory_xact_lock) — 테스트에선 no-op.
+    $executeRaw: vi.fn(async () => 0),
     partnerInvoice: { findUnique: invFindUnique, create, update: invUpdate },
     partnerReceivable: {
       findMany: vi.fn(async () => opts.candidates ?? []),

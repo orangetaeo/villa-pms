@@ -20,6 +20,8 @@ const rcvGuardFindUnique = vi.fn(); // prisma.partnerReceivable.findUnique (가�
 const rcvTxFindUnique = vi.fn(); // tx.partnerReceivable.findUnique (입금 반영)
 const rcvTxUpdate = vi.fn();
 const tx = {
+  // 채권 입금 직렬화용 advisory lock(pg_advisory_xact_lock) — 테스트에선 no-op.
+  $executeRaw: async () => 0,
   payment: {
     create: (...a: unknown[]) => paymentCreate(...a),
     findUnique: (...a: unknown[]) => paymentFindUniqueTx(...a),
@@ -260,5 +262,50 @@ describe("DELETE /api/payments/[id] — 결제 삭제 가드", () => {
     expect(writeAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({ action: "DELETE", entity: "Payment", entityId: "pay-1" })
     );
+  });
+
+  it("파트너 선금(DEPOSIT) 결제 삭제 → 채권 카운터도 되돌림", async () => {
+    paymentFindUniqueTx.mockResolvedValue({
+      id: "pay-d",
+      bookingId: "bk-1",
+      currency: "VND",
+      amount: 3_000_000n,
+      invoiceId: null,
+      purpose: "DEPOSIT",
+      vndEquivalent: 3_000_000n,
+      receivableId: "rcv-1",
+    });
+    // 삭제 전 채권: 선금 3,000,000 반영된 상태
+    rcvTxFindUnique.mockResolvedValue({
+      totalVnd: 10_000_000n,
+      depositPaidVnd: 3_000_000n,
+      balancePaidVnd: 0n,
+    });
+    const res = await delReq("pay-d");
+    expect(res.status).toBe(200);
+    // 채권 선금 카운터가 0으로 되돌려지고 상태 PENDING 재계산
+    expect(rcvTxUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "rcv-1" },
+        data: expect.objectContaining({ depositPaidVnd: 0n, status: "PENDING" }),
+      })
+    );
+    expect(paymentDeleteTx).toHaveBeenCalledWith({ where: { id: "pay-d" } });
+  });
+
+  it("일반 고객 입금(GUEST·receivable 없음) 삭제 → 채권 미수정", async () => {
+    paymentFindUniqueTx.mockResolvedValue({
+      id: "pay-g",
+      bookingId: "bk-1",
+      currency: "VND",
+      amount: 1_000_000n,
+      invoiceId: null,
+      purpose: "GUEST",
+      vndEquivalent: 1_000_000n,
+      receivableId: null,
+    });
+    const res = await delReq("pay-g");
+    expect(res.status).toBe(200);
+    expect(rcvTxUpdate).not.toHaveBeenCalled();
   });
 });
