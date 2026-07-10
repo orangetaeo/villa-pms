@@ -39,6 +39,16 @@ function previewText(item: InboxItem, t: ReturnType<typeof useTranslations>): st
   switch (item.lastMsgType) {
     case "photo":
       return t("preview.photo");
+    case "voice":
+      return t("preview.voice");
+    case "sticker":
+      return t("preview.sticker");
+    case "video":
+      return t("preview.video");
+    case "location":
+      return t("preview.location");
+    case "contact":
+      return t("preview.contact");
     case "villa_share":
       return t("preview.villaShare");
     case "proposal_share":
