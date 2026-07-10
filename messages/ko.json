@@ -293,8 +293,17 @@
     "reject": "거절",
     "tab": {
       "inbox": "발주함",
+      "proposal": "시간 제안",
       "schedule": "예약 현황",
       "settlement": "정산 내역"
+    },
+    "proposalTab": {
+      "pending": "고객 응답 대기",
+      "applied": "수락됨",
+      "declined": "고객 거절",
+      "declinedResolved": "거절 후 해소",
+      "dismissed": "미적용",
+      "declinedInbox": "제안 거절됨 — 원래 시간 재검토"
     },
     "status": {
       "accepted": "수락함",
@@ -316,6 +325,8 @@
     "empty": {
       "inbox": "받은 발주가 없습니다",
       "inboxHint": "새 발주가 도착하면 여기에 표시됩니다.",
+      "proposal": "제안한 시간이 없습니다",
+      "proposalHint": "시간 변경을 제안하면 여기에서 고객 응답을 추적할 수 있습니다.",
       "schedule": "예약된 일정이 없습니다",
       "scheduleHint": "수락한 발주가 여기에 표시됩니다.",
       "settlement": "정산 내역이 없습니다",
@@ -385,7 +396,11 @@
       "unsettledLabel": "미정산 금액",
       "settledLabel": "정산 완료",
       "topItemsTitle": "인기 품목",
-      "itemMeta": "{orders}건 · {qty}개"
+      "itemMeta": "{orders}건 · {qty}개",
+      "proposalTitle": "시간 제안",
+      "proposalTotal": "제안 수",
+      "proposalApplied": "수락",
+      "proposalDeclined": "고객 거절"
     },
     "approvalGate": {
       "pendingTitle": "가입 승인 대기 중",
@@ -2370,6 +2385,9 @@
       "unsettledBadge": "미정산",
       "completedBadge": "이행 완료 {date}",
       "proposalBadge": "제안 대기",
+      "declinedBadge": "고객 거절",
+      "proposalActive": "제안 진행 중 {n}",
+      "declinedChip": "고객 거절 {n}",
       "searchPlaceholder": "빌라·품목·공급자 검색",
       "emptyPending": "입금 대기 중인 정산이 없습니다.",
       "emptyPaid": "입금 완료된 내역이 없습니다.",

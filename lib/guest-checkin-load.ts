@@ -93,6 +93,15 @@ export interface GuestCheckinData {
     serviceDate: string | null;
     /** 희망 시간("HH:MM"). */
     serviceTime: string | null;
+    // ── 벤더 시간 제안(propose) — 게스트 승인/거절 대상(ADR-0035). 판매가 무관 일정 필드만. ──
+    /** 벤더가 제안한 대안 날짜(YYYY-MM-DD) — 없으면 null(제안 없음). */
+    proposedServiceDate: string | null;
+    /** 벤더가 제안한 대안 시간("HH:MM"). */
+    proposedServiceTime: string | null;
+    /** 제안 메모(벤더 사유). */
+    vendorProposalNote: string | null;
+    /** 미해결 제안 여부 — 제안 있고(proposedServiceDate) 아직 응답 전(respondedAt null)이면 true(게스트 응답 대기). */
+    proposalPending: boolean;
     /** 선택한 variant·addon·modifier 스냅샷(표시용 라벨·번역만 — 원가 없음). */
     selectedOptions: ResolvedSelectedOption[];
     /** 티켓형(TICKET) 발행 이미지 URL — 게스트가 열람할 QR 티켓(발행된 것 자체가 산출물). */
@@ -198,6 +207,9 @@ export async function loadGuestCheckin(
         id: true, type: true, catalogItemId: true, status: true, quantity: true,
         priceKrw: true, priceVnd: true, vendorStatus: true, poSentAt: true,
         serviceDate: true, serviceTime: true, selectedOptions: true,
+        // 벤더 시간 제안(propose) — 게스트 승인/거절 UI용(ADR-0035). 판매가·원가 미포함.
+        proposedServiceDate: true, proposedServiceTime: true,
+        vendorProposalNote: true, vendorProposalRespondedAt: true,
         ticketUrls: true, // 티켓형(TICKET) 발행 이미지 — 게스트 열람 산출물(원가·마진 무관)
         vendor: { select: { name: true, phone: true } },
       },
@@ -287,6 +299,11 @@ export async function loadGuestCheckin(
       // 희망 날짜는 @db.Date(자정 UTC 저장) → YYYY-MM-DD. 시간은 "HH:MM" 문자열 그대로.
       serviceDate: o.serviceDate ? o.serviceDate.toISOString().slice(0, 10) : null,
       serviceTime: o.serviceTime ?? null,
+      // 벤더 시간 제안(ADR-0035) — 제안값·메모·미해결 여부. @db.Date는 앞 10자리로 절단.
+      proposedServiceDate: o.proposedServiceDate ? o.proposedServiceDate.toISOString().slice(0, 10) : null,
+      proposedServiceTime: o.proposedServiceTime ?? null,
+      vendorProposalNote: o.vendorProposalNote ?? null,
+      proposalPending: o.proposedServiceDate != null && o.vendorProposalRespondedAt == null,
       // 선택 옵션은 라벨 스냅샷만(원가 없음 — ResolvedSelectedOption엔 costVnd 자체가 없음, 누수 0)
       selectedOptions: parseSelectedOptions(o.selectedOptions),
       // 발행된 티켓 이미지 — 상태 무관 노출(발행된 것 자체가 게스트 대상 산출물, ADR-0034)

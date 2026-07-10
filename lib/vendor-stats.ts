@@ -149,6 +149,13 @@ export interface VendorStats {
   /** 정산완료 금액(VND) — 전역(기간 무관). 발주함 정산탭과 동일 쿼리(수락+미취소+정산됨) */
   settledVnd: number;
   settledVndText: string;
+  // ── 시간 제안 통계(ADR-0035) — 전역 스냅샷(주문당 최신 제안 결과). vendorId 스코프. ──
+  /** 제안 수 — proposedServiceDate 존재(내가 propose한 발주 총건) */
+  proposalCount: number;
+  /** 수락 — outcome=APPLIED(게스트 승인 또는 운영자 적용) */
+  proposalAppliedCount: number;
+  /** 고객 거절 — outcome=DECLINED */
+  proposalDeclinedCount: number;
 }
 
 const REVENUE_SELECT = {
@@ -185,7 +192,9 @@ const REVENUE_SELECT = {
 export function aggregateVendorStats(
   rows: OrderRow[],
   period: StatsPeriod,
-  settle: { unsettledVnd: bigint; settledVnd: bigint }
+  settle: { unsettledVnd: bigint; settledVnd: bigint },
+  // 시간 제안 스냅샷(ADR-0035) — 전역 count(기간 무관). 미지정이면 0(구 호출부·테스트 하위호환).
+  proposal: { count: number; applied: number; declined: number } = { count: 0, applied: 0, declined: 0 }
 ): VendorStats {
   const bucketSums: bigint[] = period.buckets.map(() => 0n);
   let totalVnd = 0n;
@@ -267,6 +276,9 @@ export function aggregateVendorStats(
     unsettledVndText: formatVndDot(settle.unsettledVnd),
     settledVnd: Number(settle.settledVnd),
     settledVndText: formatVndDot(settle.settledVnd),
+    proposalCount: proposal.count,
+    proposalAppliedCount: proposal.applied,
+    proposalDeclinedCount: proposal.declined,
   };
 }
 
@@ -343,7 +355,10 @@ export async function loadVendorStats(
     vendorStatus: ServiceVendorStatus.VENDOR_ACCEPTED,
     status: { not: ServiceOrderStatus.CANCELLED },
   } as const;
-  const [pend, paid] = await Promise.all([
+  // 시간 제안 스냅샷(ADR-0035) — 전역 count. vendorId 스코프. 주문당 최신 결과(outcome) 기준.
+  //   ★취소 제외(status not CANCELLED) — admin service-orders-hub 제안 집계와 정의 통일(QA 비대칭 지적).
+  const notCancelled = { status: { not: ServiceOrderStatus.CANCELLED } } as const;
+  const [pend, paid, proposalCount, proposalApplied, proposalDeclined] = await Promise.all([
     db.serviceOrder.aggregate({
       where: { ...settleable, vendorSettledAt: null },
       _sum: { costVnd: true },
@@ -352,10 +367,18 @@ export async function loadVendorStats(
       where: { ...settleable, vendorSettledAt: { not: null } },
       _sum: { costVnd: true },
     }),
+    db.serviceOrder.count({ where: { vendorId, proposedServiceDate: { not: null }, ...notCancelled } }),
+    db.serviceOrder.count({ where: { vendorId, vendorProposalOutcome: "APPLIED", ...notCancelled } }),
+    db.serviceOrder.count({ where: { vendorId, vendorProposalOutcome: "DECLINED", ...notCancelled } }),
   ]);
 
-  return aggregateVendorStats(flat, period, {
-    unsettledVnd: pend._sum.costVnd ?? 0n,
-    settledVnd: paid._sum.costVnd ?? 0n,
-  });
+  return aggregateVendorStats(
+    flat,
+    period,
+    {
+      unsettledVnd: pend._sum.costVnd ?? 0n,
+      settledVnd: paid._sum.costVnd ?? 0n,
+    },
+    { count: proposalCount, applied: proposalApplied, declined: proposalDeclined }
+  );
 }

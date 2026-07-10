@@ -155,7 +155,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
             proposedServiceDate: proposedDate,
             proposedServiceTime: proposedServiceTime || null,
             vendorProposalNote: trimmedNote,
-            vendorProposalRespondedAt: null, // 운영자 미해결 — 적용/무시로 채워짐
+            vendorProposalRespondedAt: null, // 미해결 — 게스트 승인/거절·운영자 적용/무시로 채워짐
+            vendorProposalOutcome: null, // ADR-0035 — 재제안이면 이전 결과(DECLINED 등) 스냅샷 리셋
           }
         : {}),
     },

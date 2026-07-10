@@ -52,6 +52,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       proposedServiceDate: true,
       proposedServiceTime: true,
       vendorProposalRespondedAt: true,
+      // ADR-0035: GUEST 발주 apply 시 자동확정(CONFIRMED) 게이트 판정용
+      requestedVia: true,
+      status: true,
+      vendorStatus: true,
       quantity: true,
       catalogItemId: true,
       vendorName: true,
@@ -70,16 +74,29 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   const now = new Date();
-  const data: Record<string, unknown> = { vendorProposalRespondedAt: now };
+  // outcome 스냅샷(ADR-0035) — 적용=APPLIED, 무시=DISMISSED. 재제안 시 respond가 null 리셋.
+  const data: Record<string, unknown> = {
+    vendorProposalRespondedAt: now,
+    vendorProposalOutcome: apply ? "APPLIED" : "DISMISSED",
+  };
   if (apply) {
     // 적용 — 제안 일정으로 실 일정 교체(@db.Date·HH:MM 그대로).
     data.serviceDate = existing.proposedServiceDate;
     data.serviceTime = existing.proposedServiceTime;
   }
+  // ★ADR-0035 자동확정 — GUEST 발주를 apply하면 status REQUESTED→CONFIRMED 동반(propose 경로만 수동확정으로
+  //   남던 구멍 봉합). 벤더는 propose 시 이미 VENDOR_ACCEPTED이므로 확정 게이트 정합. 파트너/운영자 발주는 현행 유지.
+  const autoConfirm =
+    apply &&
+    existing.requestedVia === "GUEST" &&
+    existing.status === "REQUESTED" &&
+    existing.vendorStatus === "VENDOR_ACCEPTED";
+  if (autoConfirm) data.status = "CONFIRMED";
 
   // ★동시성 가드 — vendorProposalRespondedAt이 여전히 null인 행만 갱신. 다른 요청이 먼저 해결했으면 0건→409.
+  //   자동확정 시 where에 status=REQUESTED도 넣어 운영자 동시 취소(CANCELLED) 레이스를 DB가 판정.
   const res = await prisma.serviceOrder.updateMany({
-    where: { id, vendorProposalRespondedAt: null },
+    where: { id, vendorProposalRespondedAt: null, ...(autoConfirm ? { status: "REQUESTED" as const } : {}) },
     data,
   });
   if (res.count === 0) {
@@ -158,6 +175,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     changes: {
       vendorProposalRespondedAt: { new: now.toISOString() },
       proposalApplied: { new: apply },
+      vendorProposalOutcome: { new: apply ? "APPLIED" : "DISMISSED" },
+      ...(autoConfirm ? { status: { old: "REQUESTED", new: "CONFIRMED" } } : {}),
       ...(apply
         ? {
             serviceDate: {

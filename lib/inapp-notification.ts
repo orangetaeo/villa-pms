@@ -102,6 +102,10 @@ const NOTIF_TITLES: Record<string, { vi: string; ko: string }> = {
     vi: "Đề xuất giờ không được áp dụng — giữ lịch ban đầu",
     ko: "시간 제안이 반영되지 않았습니다 — 기존 일정 유지",
   },
+  VENDOR_PROPOSAL_DECLINED: {
+    vi: "Khách đã từ chối giờ đề xuất",
+    ko: "고객이 제안 시간을 거절했습니다",
+  },
   DEFAULT: { vi: "Thông báo", ko: "알림" },
 };
 
@@ -135,6 +139,15 @@ export function buildVendorNotifText(
       const time = p.serviceTime ? ` ${p.serviceTime}` : "";
       return { title, body: `${detail}${time}` };
     }
+    case "VENDOR_PROPOSAL_DECLINED": {
+      // 고객 거절 — 발주함 복귀(원래 시간 재검토) 안내. detail=원래 일정(품목·빌라·날짜).
+      const time = p.serviceTime ? ` ${p.serviceTime}` : "";
+      const guide =
+        locale === "ko"
+          ? "원래 시간 기준으로 발주함에서 다시 응답해주세요"
+          : "Vui lòng phản hồi lại trong hộp đơn theo giờ ban đầu";
+      return { title, body: `${detail}${time} · ${guide}` };
+    }
     default:
       // VENDOR_PO·VENDOR_PO_CANCELLED·VENDOR_PROPOSAL_DISMISSED·기타 — 공통 detail.
       return { title, body: detail };
@@ -151,7 +164,10 @@ export type AdminNotifKind =
   | "VENDOR_REJECTED"
   | "VENDOR_PROPOSED"
   | "VENDOR_COMPLETED"
-  | "VENDOR_SIGNUP";
+  | "VENDOR_SIGNUP"
+  // 게스트가 벤더 시간 제안에 응답(승인/거절) — 운영자 현황 인지용(ADR-0035)
+  | "GUEST_PROPOSAL_ACCEPTED"
+  | "GUEST_PROPOSAL_DECLINED";
 
 export type AdminNotifPayload = {
   vendorName?: string | null;
@@ -170,6 +186,8 @@ const ADMIN_NOTIF_TITLES: Record<AdminNotifKind, string> = {
   VENDOR_PROPOSED: "공급자 시간 제안",
   VENDOR_COMPLETED: "공급자 서비스 완료",
   VENDOR_SIGNUP: "공급자 가입 승인 대기",
+  GUEST_PROPOSAL_ACCEPTED: "고객이 시간 제안 수락",
+  GUEST_PROPOSAL_DECLINED: "고객이 시간 제안 거절",
 };
 
 /**
@@ -184,9 +202,16 @@ export function buildAdminNotifText(kind: AdminNotifKind, p: AdminNotifPayload):
   // 가입 대기는 발주 컨텍스트(품목·빌라)가 없음 — 업체명만.
   const head = item ? `${vendor} — ${item}${villa}` : `${vendor}${villa}`;
   const lines: string[] = [head];
+  const schedTime = p.proposedServiceTime ? ` ${p.proposedServiceTime}` : "";
   if (kind === "VENDOR_PROPOSED" && p.proposedServiceDate) {
-    const time = p.proposedServiceTime ? ` ${p.proposedServiceTime}` : "";
-    lines.push(`제안 일정: ${p.proposedServiceDate}${time}`);
+    lines.push(`제안 일정: ${p.proposedServiceDate}${schedTime}`);
+  }
+  // 게스트 승인 — 확정된 일정(제안값), 거절 — 원래 시간으로 발주함 복귀 안내(ADR-0035).
+  if (kind === "GUEST_PROPOSAL_ACCEPTED" && p.proposedServiceDate) {
+    lines.push(`확정 일정: ${p.proposedServiceDate}${schedTime}`);
+  }
+  if (kind === "GUEST_PROPOSAL_DECLINED") {
+    lines.push("원래 시간으로 발주함에 재노출 — 공급자 재응답 대기");
   }
   if (kind === "VENDOR_REJECTED" && p.rejectReason?.trim()) {
     lines.push(`사유: ${p.rejectReason.trim()}`);

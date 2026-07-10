@@ -168,6 +168,19 @@ export interface GuestLabels {
     hint: string; // "입장 시 QR을 제시하세요"
     close: string; // 확대 오버레이 닫기
   };
+  // 벤더 시간 제안 응답(ADR-0035) — 미해결 제안 배너 + 제안 카드 블록(원래→제안 시간, 승인/거절)
+  proposal: {
+    banner: string; // 상단 배너("담당자가 시간 변경을 제안했습니다")
+    title: string; // 제안 블록 제목
+    originalLabel: string; // "기존 시간"
+    proposedLabel: string; // "제안 시간"
+    noteLabel: string; // "담당자 메모"
+    accept: string; // "승인"
+    decline: string; // "거절"
+    processing: string; // "처리 중…"
+    declinedNote: string; // 거절 후 안내("담당자가 다시 확인합니다")
+    error: string; // 처리 실패 안내
+  };
   footerNote: string;
 }
 
@@ -329,6 +342,18 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       hint: "입장 시 QR 코드를 제시하세요.",
       close: "닫기",
     },
+    proposal: {
+      banner: "담당자가 시간 변경을 제안했습니다 — 아래에서 확인해 주세요.",
+      title: "시간 변경 제안",
+      originalLabel: "기존 시간",
+      proposedLabel: "제안 시간",
+      noteLabel: "담당자 메모",
+      accept: "승인",
+      decline: "거절",
+      processing: "처리 중…",
+      declinedNote: "제안을 거절했습니다. 담당자가 다시 확인해 시간을 안내해 드립니다.",
+      error: "처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+    },
     footerNote: "문의사항은 예약하신 여행사로 연락해 주세요.",
   },
 
@@ -480,6 +505,18 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       title: (n) => `My tickets (${n})`,
       hint: "Show the QR code at the entrance.",
       close: "Close",
+    },
+    proposal: {
+      banner: "The provider suggested a new time — please review below.",
+      title: "Suggested time change",
+      originalLabel: "Original time",
+      proposedLabel: "Suggested time",
+      noteLabel: "Provider note",
+      accept: "Accept",
+      decline: "Decline",
+      processing: "Processing…",
+      declinedNote: "You declined the suggestion. The provider will review again and confirm a time.",
+      error: "Something went wrong. Please try again shortly.",
     },
     footerNote: "For inquiries, please contact your travel agency.",
   },
@@ -633,6 +670,18 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       hint: "Покажите QR-код при входе.",
       close: "Закрыть",
     },
+    proposal: {
+      banner: "Исполнитель предложил новое время — проверьте ниже.",
+      title: "Предложение нового времени",
+      originalLabel: "Исходное время",
+      proposedLabel: "Предложенное время",
+      noteLabel: "Примечание исполнителя",
+      accept: "Принять",
+      decline: "Отклонить",
+      processing: "Обработка…",
+      declinedNote: "Вы отклонили предложение. Исполнитель проверит снова и подтвердит время.",
+      error: "Произошла ошибка. Повторите попытку позже.",
+    },
     footerNote: "По вопросам обращайтесь в ваше турагентство.",
   },
 
@@ -785,6 +834,18 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       hint: "入场时请出示二维码。",
       close: "关闭",
     },
+    proposal: {
+      banner: "服务方建议更改时间 — 请在下方确认。",
+      title: "时间变更建议",
+      originalLabel: "原时间",
+      proposedLabel: "建议时间",
+      noteLabel: "服务方备注",
+      accept: "同意",
+      decline: "拒绝",
+      processing: "处理中…",
+      declinedNote: "您已拒绝该建议。服务方将重新确认并告知时间。",
+      error: "处理时出现问题，请稍后再试。",
+    },
     footerNote: "如有疑问，请联系您预订的旅行社。",
   },
 
@@ -936,6 +997,18 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       title: (n) => `Vé của tôi (${n})`,
       hint: "Xuất trình mã QR khi vào cổng.",
       close: "Đóng",
+    },
+    proposal: {
+      banner: "Nhân viên phụ trách đề xuất đổi giờ — vui lòng xác nhận bên dưới.",
+      title: "Đề xuất đổi giờ",
+      originalLabel: "Giờ ban đầu",
+      proposedLabel: "Giờ đề xuất",
+      noteLabel: "Ghi chú của nhân viên",
+      accept: "Đồng ý",
+      decline: "Từ chối",
+      processing: "Đang xử lý…",
+      declinedNote: "Bạn đã từ chối đề xuất. Nhân viên sẽ kiểm tra lại và thông báo giờ.",
+      error: "Đã xảy ra lỗi. Vui lòng thử lại sau.",
     },
     footerNote: "Mọi thắc mắc vui lòng liên hệ công ty du lịch của bạn.",
   },

@@ -221,6 +221,11 @@ function fakeDbWithAggregate(opts: Parameters<typeof fakeDb>[0]) {
       .reduce((acc, o) => acc + o.costVnd, 0n);
     return { _sum: { costVnd: sum } };
   };
+  // 시간 제안 스냅샷 count(ADR-0035) — vendorId 스코프 강제. 여기선 0 기본(제안 없는 케이스).
+  so.count = async (args: { where?: { vendorId?: string } }) => {
+    expect(args.where?.vendorId).toBeDefined();
+    return 0;
+  };
   return base as never;
 }
 

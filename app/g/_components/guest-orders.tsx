@@ -21,8 +21,15 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered 
 
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  // 벤더 시간 제안 응답(ADR-0035) — 처리 중 id·에러·직전 거절 id(거절 후 안내 문구용).
+  const [proposalBusy, setProposalBusy] = useState<string | null>(null);
+  const [proposalError, setProposalError] = useState<string | null>(null);
+  const [declinedId, setDeclinedId] = useState<string | null>(null);
   // 티켓 확대 라이트박스(ADR-0034) — 선택한 티켓 URL. body 포털로 렌더(헤더 fixed 함정 회피).
   const [lightbox, setLightbox] = useState<string | null>(null);
+
+  // 미해결 제안이 하나라도 있으면 상단 배너(게스트 알림 채널 없음 → 페이지 내 배너가 "알림").
+  const hasProposal = requestedOrders.some((o) => o.proposalPending);
 
   const statusLabel = (s: string) =>
     s === "REQUESTED"
@@ -70,6 +77,32 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered 
     }
   };
 
+  // ── 벤더 시간 제안 응답(ADR-0035) — 승인=확정, 거절=담당자 재확인. 중복 클릭 가드. ──
+  const onProposal = async (id: string, action: "accept" | "decline") => {
+    if (proposalBusy) return;
+    setProposalBusy(id);
+    setProposalError(null);
+    try {
+      const res = await fetch(`/api/g/${token}/service-orders/${id}/proposal`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) {
+        // 이미 해결/취소(409) 등 — 최신 상태 반영 후 안내.
+        setProposalError(L.proposal.error);
+        router.refresh();
+        return;
+      }
+      if (action === "decline") setDeclinedId(id);
+      router.refresh();
+    } catch {
+      setProposalError(L.proposal.error);
+    } finally {
+      setProposalBusy(null);
+    }
+  };
+
   return (
     <div className="max-w-md mx-auto min-h-screen bg-slate-50 flex flex-col shadow-2xl relative">
       <header className="w-full sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-slate-100">
@@ -91,6 +124,14 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered 
             <p className="text-xs text-teal-800 leading-relaxed">{L.result.orderedBanner}</p>
           </div>
         )}
+        {/* 미해결 시간 제안 배너(ADR-0035) — 담당자가 시간 변경 제안, 아래 카드에서 승인/거절 */}
+        {hasProposal && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3">
+            <span className="material-symbols-outlined text-amber-600 text-[20px]">schedule</span>
+            <p className="text-xs font-semibold text-amber-800 leading-relaxed">{L.proposal.banner}</p>
+          </div>
+        )}
+        {proposalError && <p className="text-xs text-red-500 px-1">{proposalError}</p>}
         {requestedOrders.length === 0 ? (
           <div className="text-center py-16 space-y-3">
             <span className="material-symbols-outlined text-slate-300 text-[44px]">receipt_long</span>
@@ -139,6 +180,55 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered 
                       </p>
                     )}
                     <p className="text-[11px] text-slate-400 leading-snug">{o.fulfillNote}</p>
+                    {/* 벤더 시간 제안(ADR-0035) — 미해결이면 원래→제안 비교 + 승인/거절 버튼. */}
+                    {o.proposalPending && o.proposedServiceDate && (
+                      <div className="mt-1.5 space-y-2 rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+                        <p className="flex items-center gap-1 text-xs font-bold text-amber-700">
+                          <span className="material-symbols-outlined text-[16px]">update</span>
+                          {L.proposal.title}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-slate-500 line-through tabular-nums">
+                            {[o.serviceDate, o.serviceTime].filter(Boolean).join(" ") || "—"}
+                          </span>
+                          <span className="material-symbols-outlined text-[15px] text-amber-500">arrow_forward</span>
+                          <span className="font-bold text-amber-800 tabular-nums">
+                            {[o.proposedServiceDate, o.proposedServiceTime].filter(Boolean).join(" ")}
+                          </span>
+                        </div>
+                        {o.vendorProposalNote && (
+                          <p className="text-[11px] text-slate-500 leading-snug">
+                            <span className="font-semibold text-slate-600">{L.proposal.noteLabel}: </span>
+                            {o.vendorProposalNote}
+                          </p>
+                        )}
+                        <div className="grid grid-cols-2 gap-2 pt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => onProposal(o.id, "decline")}
+                            disabled={proposalBusy === o.id}
+                            className="rounded-lg border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-600 disabled:opacity-50 active:scale-95"
+                          >
+                            {proposalBusy === o.id ? L.proposal.processing : L.proposal.decline}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onProposal(o.id, "accept")}
+                            disabled={proposalBusy === o.id}
+                            className="rounded-lg bg-amber-500 py-2.5 text-xs font-bold text-white disabled:opacity-50 active:scale-95"
+                          >
+                            {proposalBusy === o.id ? L.proposal.processing : L.proposal.accept}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {/* 거절 직후 안내 — 담당자 재확인(제안은 해소되어 카드에서 사라짐). */}
+                    {declinedId === o.id && !o.proposalPending && (
+                      <p className="mt-1 flex items-start gap-1 text-[11px] text-slate-500 leading-snug">
+                        <span className="material-symbols-outlined text-[15px] text-slate-400">info</span>
+                        {L.proposal.declinedNote}
+                      </p>
+                    )}
                     {/* 발행된 QR 티켓(ADR-0034) — 상태 무관 표시. 탭하면 body 포털 라이트박스로 확대. */}
                     {o.ticketUrls.length > 0 && (
                       <div className="mt-1.5 space-y-1.5 rounded-lg bg-teal-50/70 p-2.5">
