@@ -8,7 +8,12 @@ import { auth } from "@/auth";
 import { canViewFinance } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { formatThousands } from "@/lib/format";
-import { toDateOnlyString, quickRangeWhere } from "@/lib/date-vn";
+import { toDateOnlyString, quickRangeWhere, parseUtcDateOnly } from "@/lib/date-vn";
+import {
+  resolveBookingDateBasis,
+  buildBookingDateBasisWhere,
+  type BookingDateBasis,
+} from "@/lib/booking-date-filter";
 import { todayInVillaTimezone } from "@/lib/timeline";
 import {
   computeOccupancyRate,
@@ -99,6 +104,9 @@ export default async function BookingsPage({
     status?: string;
     month?: string;
     range?: string;
+    from?: string;
+    to?: string;
+    dateBasis?: string;
     area?: string;
     villa?: string;
     channel?: string;
@@ -134,7 +142,6 @@ export default async function BookingsPage({
     params.seller === BookingSeller.OPERATOR || params.seller === BookingSeller.SUPPLIER
       ? (params.seller as BookingSeller)
       : undefined;
-  const q = params.q?.trim() || undefined;
   const preset =
     params.filter === "today-checkin" || params.filter === "today-checkout"
       ? params.filter
@@ -145,6 +152,37 @@ export default async function BookingsPage({
   // undefined → 비활성('전체' 또는 월 로직 유지). preset이 있으면 무시(아래 분기에서 미사용).
   const dateWhere = quickRangeWhere(params.range, "date");
 
+  // ── 날짜별 체크인/아웃/투숙 검색 (T-villa-search-expansion §B) ──
+  // from/to 둘 다 유효하고 from ≤ to 일 때만 적용(단일일 허용, 한쪽만·역전이면 미적용 — 500 방지).
+  // 우선순위: filter(프리셋) > from/to+basis > range > month. dateRangeActive 는 range·month 를 대체.
+  const dateBasis: BookingDateBasis = resolveBookingDateBasis(params.dateBasis);
+  const fromDate = params.from ? parseUtcDateOnly(params.from) : null;
+  const toDate = params.to ? parseUtcDateOnly(params.to) : null;
+  const dateRangeActive = !!(fromDate && toDate && fromDate.getTime() <= toDate.getTime());
+  const basisWhere = dateRangeActive
+    ? buildBookingDateBasisWhere(fromDate!, toDate!, dateBasis)
+    : null;
+
+  // q 확장 — guestPhone 검색(where 전용, rows select 미포함: PII).
+  // ⚠ 저장 형식 실측: guestPhone 은 혼재 형식(하이픈·+·공백, 예 "+82-10-1234-5678"·"010-2345-6789")으로
+  //   저장된다(입력 경로가 trim 만 — hold/supplier/modify). 로그인용 User.phone(숫자만)과 다르다.
+  //   따라서 순수 숫자 입력("01023456789")을 하이픈 저장값에 매칭하려면 문자 제거 후 비교가 필요한데
+  //   Prisma where 로는 컬럼 문자 제거가 불가하므로, q 숫자가 4자리 이상일 때만 정규화 LIKE 원시쿼리로
+  //   매칭 booking id 를 구해 아래 q OR 에 접는다(ADMIN 게이트 RSC · where 전용). 프래그먼트("1234")는
+  //   원시쿼리 없이도 { guestPhone: { contains: q } } 로 잡힌다.
+  let phoneMatchIds: string[] = [];
+  const q = params.q?.trim() || undefined;
+  if (q) {
+    const digits = q.replace(/\D/g, "");
+    if (digits.length >= 4) {
+      const rows = await prisma.$queryRaw<{ id: string }[]>`
+        SELECT "id" FROM "Booking"
+        WHERE regexp_replace(COALESCE("guestPhone", ''), '[^0-9]', '', 'g') LIKE ${"%" + digits + "%"}
+      `;
+      phoneMatchIds = rows.map((r) => r.id);
+    }
+  }
+
   // 기본 where(상태 제외) — 탭 건수도 이 기준으로 집계.
   // 프리셋(T2.6 링크 계약)은 월·탭을 대체한다 (오늘 = Asia/Ho_Chi_Minh 기준)
   const baseWhere: Prisma.BookingWhereInput = preset
@@ -152,21 +190,25 @@ export default async function BookingsPage({
       ? { checkIn: today, status: BookingStatus.CONFIRMED }
       : { checkOut: today, status: BookingStatus.CHECKED_IN }
     : {
-        // range 활성 → checkIn 범위 / 비활성 → 월 겹침 + 활성 HOLD는 월과 무관하게 항상 포함
+        // 날짜 절: 우선순위 from/to(basisWhere) > range > month.
+        //   basisWhere 활성 → 명시 날짜가 authoritative(HOLD 항상표시 OR 제거 — 계약 §B4).
+        //   range 활성 → checkIn 범위 / 둘 다 비활성 → 월 겹침 + 활성 HOLD 항상 포함
         //   (A2: 다음달 체크인 가예약이 기본 화면·HOLD 탭에서 숨어 입금확인을 놓치는 사고 방지.
         //    q 검색이 최상위 OR 키를 쓰므로 충돌하지 않게 AND로 감싼다)
-        ...(dateWhere
-          ? { checkIn: dateWhere }
-          : {
-              AND: [
-                {
-                  OR: [
-                    { checkIn: { lt: monthRange.end }, checkOut: { gt: monthRange.start } },
-                    { status: BookingStatus.HOLD },
-                  ],
-                },
-              ],
-            }),
+        ...(basisWhere
+          ? basisWhere
+          : dateWhere
+            ? { checkIn: dateWhere }
+            : {
+                AND: [
+                  {
+                    OR: [
+                      { checkIn: { lt: monthRange.end }, checkOut: { gt: monthRange.start } },
+                      { status: BookingStatus.HOLD },
+                    ],
+                  },
+                ],
+              }),
         ...(villaId ? { villaId } : {}),
         // 지역(area) = 빌라 단지명(complex) 정확 일치 (재고 비공개 — villa 관계 필터)
         ...(area ? { villa: { is: { complex: area } } } : {}),
@@ -179,6 +221,10 @@ export default async function BookingsPage({
                 { id: { contains: q } },
                 { agencyName: { contains: q, mode: "insensitive" as const } },
                 { villa: { is: { name: { contains: q, mode: "insensitive" as const } } } },
+                // guestPhone — 저장 형식대로의 부분일치(프래그먼트). where 전용(select 미포함).
+                { guestPhone: { contains: q, mode: "insensitive" as const } },
+                // 숫자 정규화(문자 제거) 후 매칭된 예약 id (순수 숫자 입력 대응). 없으면 미포함.
+                ...(phoneMatchIds.length ? [{ id: { in: phoneMatchIds } }] : []),
               ],
             }
           : {}),
@@ -257,20 +303,32 @@ export default async function BookingsPage({
     new Set(villas.map((v) => v.complex).filter((c): c is string => !!c))
   );
 
+  // 상태 탭 링크 — 기존 searchParams 를 전부 복제한 뒤 status 만 조정한다(신규 from/to/dateBasis 유실 방지).
+  //   status(아래서 설정)·page(1 리셋)·filter(프리셋과 상태 탭은 상호배타 — 탭 클릭 시 프리셋 해제)는 제외.
   const tabHref = (key: string) => {
     const next = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (v == null || v === "") continue;
+      if (k === "status" || k === "page" || k === "filter") continue;
+      next.set(k, v);
+    }
     if (key !== "all") next.set("status", key);
-    if (params.month) next.set("month", params.month);
-    if (params.range) next.set("range", params.range);
-    if (params.area) next.set("area", params.area);
-    if (params.villa) next.set("villa", params.villa);
-    if (params.channel) next.set("channel", params.channel);
-    if (params.seller) next.set("seller", params.seller);
-    if (params.q) next.set("q", params.q);
-    if (params.pageSize) next.set("pageSize", params.pageSize);
     const qs = next.toString();
     return qs ? `/bookings?${qs}` : "/bookings";
   };
+
+  // 날짜 스코프 배너 — "해제" 링크는 from/to/dateBasis 만 제거하고 나머지 필터·검색은 보존
+  const scopeClearHref = (() => {
+    const next = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (v == null || v === "") continue;
+      if (k === "from" || k === "to" || k === "dateBasis" || k === "page") continue;
+      next.set(k, v);
+    }
+    const qs = next.toString();
+    return qs ? `/bookings?${qs}` : "/bookings";
+  })();
+  const fmtMD = (dt: Date) => `${dt.getUTCMonth() + 1}.${String(dt.getUTCDate()).padStart(2, "0")}`;
 
   type Row = (typeof rows)[number];
   const amountCell = (b: Row) => {
@@ -481,8 +539,29 @@ export default async function BookingsPage({
                   "lastMonth",
                   "nextMonth",
                 ]}
+                // 빠른 범위(range) 선택 시 상위 우선순위 from/to/dateBasis 를 해제해 "나중 선택이 이기게" 한다
+                clearKeys={["from", "to", "dateBasis"]}
               />
             </div>
+            {/* 날짜별 검색 스코프 배너 — from/to 활성 시 한 줄로 노출 (계약 §B1) */}
+            {dateRangeActive && fromDate && toDate && (
+              <div className="px-4 py-2.5 border-b border-slate-800 flex items-center gap-2 bg-admin-primary/5">
+                <span className="material-symbols-outlined text-admin-primary text-base">event</span>
+                <span className="text-sm text-slate-300 font-medium">
+                  {t("list.dateScope.label", {
+                    from: fmtMD(fromDate),
+                    to: fmtMD(toDate),
+                    basis: t(`list.dateBasis.${dateBasis}`),
+                  })}
+                </span>
+                <Link
+                  href={scopeClearHref}
+                  className="ml-1 text-sm text-slate-400 hover:text-white underline whitespace-nowrap"
+                >
+                  {t("list.dateScope.clear")}
+                </Link>
+              </div>
+            )}
             <FiltersBar villas={villas} areas={areaOptions} />
           </>
         )}

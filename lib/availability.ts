@@ -184,28 +184,21 @@ export async function checkAvailability(
 }
 
 /**
- * 제안 생성(T2.1)용 일괄 필터 — 해당 구간에 판매 가능한 빌라 id만 반환.
- * villaIds를 생략하면 ACTIVE+isSellable 전체 빌라를 대상으로 한다.
- * (전체 재고 조망은 ADMIN 전용 화면에서만 사용할 것 — 재고 비공개 원칙)
+ * 내부 공유 엔진 — 후보 where로 빌라를 뽑고, 점유(예약·차단 겹침) 빌라를 제외한 free id 목록 반환.
+ * findSellableVillaIds·findFreeVillaIds가 candidateWhere만 달리해 공유한다(점유 판정 로직 단일화).
+ * 점유 기준: OCCUPYING_BOOKING_STATUSES(HOLD/CONFIRMED/CHECKED_IN) 예약 겹침 + CalendarBlock 겹침.
+ *   HOLD 만료 미수거(status=HOLD·holdExpiresAt<now)도 status=HOLD면 점유로 본다(재판정 안 함 — 공실보드·제안과 동일).
  */
-export async function findSellableVillaIds(
+async function selectFreeVillaIds(
   db: DbClient,
   range: StayRange,
-  villaIds?: string[],
-  /** 요청 인원 (선택) — 주어지면 정원(maxGuests) 미달 빌라를 후보에서 제외 (ADR-0030 T-A) */
-  guestCount?: number,
-  /** 점유 판정에서 제외할 예약 id (선택) — 예약 변경 시 자기 예약을 제외해 현재 빌라도 후보 유지 (ADR-0030) */
+  candidateWhere: Prisma.VillaWhereInput,
   excludeBookingId?: string
 ): Promise<string[]> {
   assertValidStayRange(range);
 
   const candidates = await db.villa.findMany({
-    where: {
-      ...(villaIds ? { id: { in: villaIds } } : {}),
-      status: VillaStatus.ACTIVE,
-      isSellable: true,
-      ...(guestCount != null ? { maxGuests: { gte: guestCount } } : {}),
-    },
+    where: candidateWhere,
     select: { id: true },
   });
   if (candidates.length === 0) return [];
@@ -237,6 +230,70 @@ export async function findSellableVillaIds(
     ...busyBlocks.map((b) => b.villaId),
   ]);
   return candidateIds.filter((id) => !busy.has(id));
+}
+
+/**
+ * 제안 생성(T2.1)용 일괄 필터 — 해당 구간에 판매 가능한 빌라 id만 반환.
+ * villaIds를 생략하면 ACTIVE+isSellable 전체 빌라를 대상으로 한다.
+ * (전체 재고 조망은 ADMIN 전용 화면에서만 사용할 것 — 재고 비공개 원칙)
+ */
+export async function findSellableVillaIds(
+  db: DbClient,
+  range: StayRange,
+  villaIds?: string[],
+  /** 요청 인원 (선택) — 주어지면 정원(maxGuests) 미달 빌라를 후보에서 제외 (ADR-0030 T-A) */
+  guestCount?: number,
+  /** 점유 판정에서 제외할 예약 id (선택) — 예약 변경 시 자기 예약을 제외해 현재 빌라도 후보 유지 (ADR-0030) */
+  excludeBookingId?: string
+): Promise<string[]> {
+  return selectFreeVillaIds(
+    db,
+    range,
+    {
+      ...(villaIds ? { id: { in: villaIds } } : {}),
+      status: VillaStatus.ACTIVE,
+      isSellable: true,
+      ...(guestCount != null ? { maxGuests: { gte: guestCount } } : {}),
+    },
+    excludeBookingId
+  );
+}
+
+export interface FindFreeVillaOpts {
+  /** true면 판매가능 조건(ACTIVE+isSellable+정원) 추가 — /villas "판매가능만" 토글. 기본 false(상태 무관 공실). */
+  requireSellable?: boolean;
+  /** 요청 인원 (선택) — requireSellable와 함께 주어질 때만 정원(maxGuests) 미달 빌라를 후보에서 제외. */
+  guestCount?: number;
+  /** 후보 선정 where(q·속성 필터 등) — freeIds를 미리 축소해 목록·total·groupBy가 동일 결과 공유. */
+  villaWhere?: Prisma.VillaWhereInput;
+}
+
+/**
+ * ⚠ ADMIN 전용 — 운영자 빌라 목록(/villas)의 날짜별 공실 검색 전용.
+ *   /p·/g·제안 생성 경로에서 호출 금지(그쪽은 findSellableVillaIds 유지 — 재고 비공개·판매가능만).
+ *
+ * 해당 구간에 점유(HOLD/CONFIRMED/CHECKED_IN 예약·CalendarBlock 겹침)가 없는 "빈 재고" 빌라 id 반환.
+ * 기본은 **상태 무관**(DRAFT/PENDING_REVIEW/검수대기·요율미설정 포함) — 운영자가 전체 재고를 조망(원칙1 예외: ADMIN 전용).
+ * requireSellable=true면 ACTIVE+isSellable(+guestCount 정원)까지 좁혀 "판매가능만" 결과가 된다.
+ * villaWhere로 q·속성 필터를 후보 선정에 선반영해 freeIds를 축소한다.
+ */
+export async function findFreeVillaIds(
+  db: DbClient,
+  range: StayRange,
+  opts?: FindFreeVillaOpts
+): Promise<string[]> {
+  const requireSellable = opts?.requireSellable === true;
+  const candidateWhere: Prisma.VillaWhereInput = {
+    ...(opts?.villaWhere ?? {}),
+    ...(requireSellable
+      ? {
+          status: VillaStatus.ACTIVE,
+          isSellable: true,
+          ...(opts?.guestCount != null ? { maxGuests: { gte: opts.guestCount } } : {}),
+        }
+      : {}),
+  };
+  return selectFreeVillaIds(db, range, candidateWhere);
 }
 
 // ===================== 운영자 공실 보드 (T-admin-availability-board) =====================

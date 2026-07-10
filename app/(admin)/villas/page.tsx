@@ -5,10 +5,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
-import type { Prisma, VillaStatus } from "@prisma/client";
+import type { BedType, Prisma, VillaStatus } from "@prisma/client";
 import VillasFilters from "./villas-filters";
 import PaginationBar from "@/components/pagination-bar";
 import { parsePageParams } from "@/lib/pagination";
+import { findFreeVillaIds } from "@/lib/availability";
+import { parseUtcDateOnly } from "@/lib/date-vn";
+import { BED_TYPES } from "@/lib/bedding";
+import { FEATURE_ITEMS } from "@/lib/features";
 import { CoachMark } from "@/components/tour/coach-mark";
 import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
@@ -33,10 +37,21 @@ const STATUS_BADGE_CLASS: Record<string, string> = {
   INACTIVE: "bg-admin-inactive text-white",
 };
 
+/** 사전 화이트리스트 — URL로 들어온 임의 태그 키 주입 차단 */
+const VALID_FEATURE_KEYS = new Set(
+  Object.values(FEATURE_ITEMS).flat().map((f) => f.featureKey)
+);
+
+/** 양수 정수만 통과(그 외 undefined) — minBedrooms·minGuests·beach 파싱 */
+function toPosInt(v?: string): number | undefined {
+  const n = Number.parseInt(v ?? "", 10);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
 export default async function VillasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; page?: string; pageSize?: string; area?: string; q?: string; supplier?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const t = await getTranslations("adminVillas.list");
   // 코치마크 문구 — RSC 번역 → props (ADMIN_CLIENT_NAMESPACES 무변경)
@@ -49,15 +64,44 @@ export default async function VillasPage({
   const supplierId = params.supplier?.trim() || undefined;
   const { page, pageSize, skip, take } = parsePageParams(params);
 
-  // 검색 조건 — 공급자(정확 id) + 지역(단지명 complex 정확 일치) + 텍스트(빌라명·단지·주소·공급자명).
+  // ── 상세·판매정보 필터 (T-villa-search-expansion §A) ──
+  const minBedrooms = toPosInt(params.minBedrooms);
+  const minGuests = toPosInt(params.minGuests);
+  const pool = params.pool === "1";
+  const breakfast = params.breakfast === "1";
+  const sellable = params.sellable === "1";
+  const bedType =
+    params.bedType && (BED_TYPES as readonly string[]).includes(params.bedType)
+      ? (params.bedType as BedType)
+      : undefined;
+  const beach = toPosInt(params.beach); // 해변거리 상한(m). null(미입력) 빌라는 lte가 자동 제외
+  const tags = (params.tags?.split(",").map((s) => s.trim()).filter((k) => VALID_FEATURE_KEYS.has(k))) ?? [];
+
+  // 날짜별 공실 — ci/co 둘 다 유효하고 ci<co 일 때만 적용(한쪽만·역전이면 무시, 500 금지)
+  const ci = params.ci ? parseUtcDateOnly(params.ci) : null;
+  const co = params.co ? parseUtcDateOnly(params.co) : null;
+  const dateRangeValid = !!(ci && co && ci.getTime() < co.getTime());
+
+  // 검색 조건 — 공급자(정확 id) + 지역(단지명 complex) + 텍스트(빌라명·베트남명·단지·주소·공급자명) + 상세 필터.
   // 상태와 분리해 두어 탭 카운트도 검색 범위 안에서 집계한다.
   const searchWhere: Prisma.VillaWhereInput = {
     ...(supplierId ? { supplierId } : {}),
     ...(area ? { complex: area } : {}),
+    ...(minBedrooms ? { bedrooms: { gte: minBedrooms } } : {}),
+    ...(minGuests ? { maxGuests: { gte: minGuests } } : {}),
+    ...(pool ? { hasPool: true } : {}),
+    ...(breakfast ? { breakfastAvailable: true } : {}),
+    // "판매가능만" — 날짜 무관하게도 판매가능(검수 게이트 통과) 빌라만. isSellable=true는 ACTIVE에서만 참.
+    ...(sellable ? { isSellable: true } : {}),
+    ...(bedType ? { bedroomDetails: { some: { bedType } } } : {}),
+    ...(beach ? { beachDistanceM: { lte: beach } } : {}),
+    // 셀링포인트 태그 — 각각 features some (다중 AND, 모두 보유한 빌라만)
+    ...(tags.length ? { AND: tags.map((k) => ({ features: { some: { featureKey: k } } })) } : {}),
     ...(q
       ? {
           OR: [
             { name: { contains: q, mode: "insensitive" as const } },
+            { nameVi: { contains: q, mode: "insensitive" as const } },
             { complex: { contains: q, mode: "insensitive" as const } },
             { address: { contains: q, mode: "insensitive" as const } },
             { supplier: { is: { name: { contains: q, mode: "insensitive" as const } } } },
@@ -65,8 +109,22 @@ export default async function VillasPage({
         }
       : {}),
   };
+
+  // 날짜별 공실 freeIds 를 searchWhere 에 접어 넣어 목록·total·groupBy 3자가 동일 결과를 공유한다.
+  // freeIds 후보 선정에 searchWhere(q·속성)를 선반영해 결과를 축소(성능·정합). requireSellable=sellable 토글.
+  let freeIds: string[] | null = null;
+  if (dateRangeValid) {
+    freeIds = await findFreeVillaIds(
+      prisma,
+      { checkIn: ci!, checkOut: co! },
+      { requireSellable: sellable, villaWhere: searchWhere }
+    );
+  }
+  const scopedWhere: Prisma.VillaWhereInput =
+    freeIds !== null ? { ...searchWhere, id: { in: freeIds } } : searchWhere;
+
   const where: Prisma.VillaWhereInput = {
-    ...searchWhere,
+    ...scopedWhere,
     ...(statusFilter ? { status: statusFilter } : { status: { in: LISTED_STATUSES } }),
   };
 
@@ -98,7 +156,7 @@ export default async function VillasPage({
     prisma.villa.count({ where }),
     prisma.villa.groupBy({
       by: ["status"],
-      where: { status: { in: LISTED_STATUSES }, ...searchWhere },
+      where: { status: { in: LISTED_STATUSES }, ...scopedWhere },
       _count: { _all: true },
     }),
     // 지역(area) 옵션 = 운영 목록 대상 빌라의 단지명(complex) distinct
@@ -142,17 +200,25 @@ export default async function VillasPage({
     inactive: countOf("INACTIVE"),
   };
 
-  // 탭 링크는 검색(supplier·area·q) + 페이지당 개수(pageSize)를 보존한다 (페이지 번호는 1로 리셋)
+  // 탭 링크 — 기존 searchParams 를 전부 복제한 뒤 status·page 만 조정한다.
+  // (신규 필터 파라미터 ci/co·minBedrooms·tags 등 유실 방지 — 완료기준 9)
   const tabHref = (key: string) => {
     const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (v == null || v === "") continue;
+      if (k === "status" || k === "page") continue; // status 는 아래서 설정, page 는 1 리셋
+      sp.set(k, v);
+    }
     if (key !== "all") sp.set("status", key);
-    if (supplierId) sp.set("supplier", supplierId);
-    if (area) sp.set("area", area);
-    if (q) sp.set("q", q);
-    if (params.pageSize) sp.set("pageSize", params.pageSize);
     const qs = sp.toString();
     return qs ? `/villas?${qs}` : "/villas";
   };
+
+  // 필터가 하나라도 걸려 있으면 빈 결과 문구를 "검색 조건" 버전으로
+  const hasAnyFilter = Boolean(
+    area || q || supplierId || minBedrooms || minGuests || pool || breakfast ||
+      sellable || bedType || beach || tags.length || dateRangeValid
+  );
 
   const tabs = [
     { key: "all", label: t("tabs.all") },
@@ -228,7 +294,10 @@ export default async function VillasPage({
       {/* 빌라 카드 그리드 (b9 — 모바일 1열 카드 전환) */}
       {villas.length === 0 ? (
         <div className="bg-admin-card rounded-xl border border-slate-800 p-12 text-center text-sm text-admin-muted">
-          {area || q ? t("emptyFiltered") : t("empty")}
+          {hasAnyFilter ? t("emptyFiltered") : t("empty")}
+          {beach ? (
+            <p className="mt-2 text-xs text-admin-muted">{t("beachDistanceNote")}</p>
+          ) : null}
         </div>
       ) : (
         <div className="flex flex-col gap-3">

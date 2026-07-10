@@ -30,3 +30,9 @@
 - 문제: zca-js 리스너가 웹 프로세스에 있어 **배포마다 리스너가 끊기고**(수 분 블랙아웃, Zalo 재접속 시 일부만 백로그 재전송) 잦은 머지 날엔 수신 지연이 체감됨.
 - 아이디어: 리스너를 Railway 별도 서비스(long-running worker)로 분리 — 웹 배포와 리스너 수명을 분리. SSE 신호는 인프로세스 버스 대신 DB 폴링/Redis pub-sub 필요(구조 변경 큼). Phase 2.
 - 관련: lib/zalo-health.ts 워치독(끊김 경보, 2026-07-06 도입), deploy-restart-zalo-listener-blackout 메모리.
+
+## 검색 확장 후속 (T-villa-search-expansion 범위 외)
+- 등록: 2026-07-10 (검색 확장 회의에서 제외 결정분)
+- **공급자 /my-villas 텍스트 검색**: 현재 200건 메모리 슬라이스 — 서버 where 전환 + supplierId 스코프 재검증 동반이라 별도 태스크로.
+- **가격(요율) 범위 필터**: VillaRatePeriod 기간·isBase·시즌 + Net/소비자직판(ADR-0031) 통화 이원화로 "어느 기준 가격"이 모호 — Phase 2 가격 UI 나올 때 재검토.
+- **guestPhoneDigits 생성 컬럼+인덱스**: /bookings 전화 검색이 regexp_replace 순차 스캔(현재 2.8k행 무해, ADMIN 저빈도) — 예약 수만 건 도달 시 정규화 컬럼 additive 추가.
