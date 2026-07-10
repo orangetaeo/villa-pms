@@ -1,11 +1,10 @@
 "use client";
 
-// 1/5 기본 정보 (a2-basic-info) — 빌라명·단지·스테퍼 3종·수영장/조식 토글
+// 1 기본 정보 (a2-basic-info) — 빌라명·단지·수영장/조식 토글.
+// 침실·욕실·인원은 다음 "잠자리 구성" 스텝에서 방별 구성으로 파생(T-bedroom-composition-sync).
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import type { SupplierOption, WizardState } from "./wizard-types";
-// 공용 인라인 가이드 (T-9에서 wizard-guide.tsx 승격 — light 톤 동일)
-import { InlineGuide } from "@/components/inline-guide";
 
 // 단지명은 고유명사 — 번역하지 않는다 (i18n 용어 사전 규칙)
 const COMPLEXES = ["Sonasea", "Sunset Sanato", "Vinpearl"];
@@ -44,10 +43,6 @@ export default function StepBasic({ state, update, onNext, onHome, isAdmin, supp
       <main className="flex-1 overflow-y-auto px-4 pb-32 pt-6">
         <div className="mx-auto max-w-md space-y-8">
           <h2 className="px-1 text-2xl font-bold text-neutral-900">{t("title")}</h2>
-
-          {/* 인라인 가이드 — 침실·욕실 수가 다음 사진 슬롯 수를 결정하는 보이지 않는 의존성 예고
-              (기본값으로 대충 넘기면 사진 단계에서 재작업 — UX-VN 확정, T-tutorial-onboarding-4) */}
-          <InlineGuide text={t("guide")} />
 
           {/* 귀속 공급자 — ADMIN 직접등록 전용 (공급자 화면에는 노출 안 됨) */}
           {isAdmin && (
@@ -133,34 +128,6 @@ export default function StepBasic({ state, update, onNext, onHome, isAdmin, supp
             </div>
           </section>
 
-          {/* 스테퍼 3종 */}
-          <div className="grid grid-cols-1 gap-6">
-            <StepperRow
-              title={t("bedrooms")}
-              hint={t("bedroomsHint")}
-              value={state.bedrooms}
-              min={1}
-              max={20}
-              onChange={(bedrooms) => update({ bedrooms })}
-            />
-            <StepperRow
-              title={t("bathrooms")}
-              hint={t("bathroomsHint")}
-              value={state.bathrooms}
-              min={1}
-              max={20}
-              onChange={(bathrooms) => update({ bathrooms })}
-            />
-            <StepperRow
-              title={t("maxGuests")}
-              hint={t("maxGuestsHint")}
-              value={state.maxGuests}
-              min={1}
-              max={50}
-              onChange={(maxGuests) => update({ maxGuests })}
-            />
-          </div>
-
           {/* 수영장·조식 토글 */}
           <div className="space-y-4">
             <h3 className="px-1 text-sm font-semibold text-neutral-700">{t("basicAmenities")}</h3>
@@ -204,48 +171,6 @@ export default function StepBasic({ state, update, onNext, onHome, isAdmin, supp
         </div>
       </footer>
     </>
-  );
-}
-
-function StepperRow({
-  title,
-  hint,
-  value,
-  min,
-  max,
-  onChange,
-}: {
-  title: string;
-  hint: string;
-  value: number;
-  min: number;
-  max: number;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <section className="flex items-center justify-between rounded-xl border-2 border-neutral-100 bg-white p-5">
-      <div>
-        <h3 className="font-semibold text-neutral-800">{title}</h3>
-        <p className="text-xs text-neutral-400">{hint}</p>
-      </div>
-      <div className="flex items-center gap-4">
-        <button
-          type="button"
-          onClick={() => onChange(Math.max(min, value - 1))}
-          className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-teal-600 text-teal-600 transition-transform active:scale-90"
-        >
-          <span className="material-symbols-outlined">remove</span>
-        </button>
-        <span className="w-8 text-center text-2xl font-bold tabular-nums">{value}</span>
-        <button
-          type="button"
-          onClick={() => onChange(Math.min(max, value + 1))}
-          className="flex h-12 w-12 items-center justify-center rounded-full bg-teal-600 text-white transition-transform active:scale-90"
-        >
-          <span className="material-symbols-outlined">add</span>
-        </button>
-      </div>
-    </section>
   );
 }
 

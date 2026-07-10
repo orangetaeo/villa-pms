@@ -2,6 +2,21 @@
 // 금액 규칙: VND BigInt는 JSON 직렬화 불가 → 문자열(동 단위 숫자)로 수신 후 서버에서 BigInt 변환
 import { z } from "zod";
 import { isValidAmenity } from "./amenities";
+import {
+  bedroomRowSchema,
+  refineBedroomRooms,
+  deriveBedroomScalars,
+  type NormalizedBedroomRow,
+} from "./bedding";
+import { featureRowSchema, refineFeatures } from "./features";
+
+/**
+ * 빌라 출입 방식 화이트리스트 — 청소직원 운영정보(cleaning-info)와 등록 마법사가 공유하는 단일 원천.
+ * 기존 저장값 KEYPAD·KEY·OTHER 유지 + SMARTKEY 추가(TDA: 진실 이중화 방지 — 신규 doorAccessType 컬럼 대신 재사용).
+ * Prisma enum 대신 String + zod(드리프트 회피). app/api/villas/[id]/cleaning-info/route.ts도 이 상수를 import.
+ */
+export const ACCESS_TYPES = ["KEYPAD", "KEY", "SMARTKEY", "OTHER"] as const;
+export type AccessType = (typeof ACCESS_TYPES)[number];
 
 export const PHOTO_SPACES = [
   "EXTERIOR",
@@ -117,9 +132,78 @@ export const villaCreateSchema = z.object({
     HIGH: vndPositiveDigits,
     PEAK: vndPositiveDigits,
   }),
-});
+  // ── 잠자리 구성·셀링포인트·판매정보 (v1.5 T-bedroom-composition-sync) — 전부 선택(하위호환) ──
+  //   전송 시 서버가 bedroomDetails로 bedrooms/bathrooms/maxGuests를 파생하고 body 스칼라는 무시.
+  //   미전송/빈 배열이면 body 스칼라(bedrooms/bathrooms/maxGuests) 폴백.
+  bedroomDetails: z.array(bedroomRowSchema).max(50).optional(),
+  features: z.array(featureRowSchema).max(40).optional(),
+  commonBathrooms: z.number().int().min(0).max(10).optional(), // 방 밖 공용 욕실 (0~10)
+  // 위치·접근성 (마법사 위치 스텝)
+  googleMapUrl: z.string().url().startsWith("https://").max(2000).nullable().optional(),
+  beachDistanceM: z.number().int().min(0).max(100000).nullable().optional(),
+  // 이용규칙 스텝 확장 — 와이파이·출입정보(기존 Villa.accessType/accessInfo 재사용)
+  wifiSsid: z.string().trim().max(100).nullable().optional(),
+  wifiPassword: z.string().trim().max(100).nullable().optional(), // ⚠ 비공개 등급
+  accessType: z.enum(ACCESS_TYPES).nullable().optional(), // 출입 방식 화이트리스트 (cleaning-info와 공유)
+  accessInfo: z.string().trim().max(1000).nullable().optional(), // ⚠ 출입정보(도어코드/키 위치) — 비공개 등급
+})
+  .superRefine((data, ctx) => {
+    // 방 단위 동일값(capacity·bathroomCount) + featureKey 사전 화이트리스트 — 3경로 공유
+    if (data.bedroomDetails && data.bedroomDetails.length > 0) {
+      refineBedroomRooms(data.bedroomDetails, ctx, "bedroomDetails");
+    }
+    if (data.features && data.features.length > 0) {
+      refineFeatures(data.features, ctx, "features");
+    }
+  });
 
 export type VillaCreateInput = z.infer<typeof villaCreateSchema>;
+
+/**
+ * v1.5 판매정보 신규 스칼라 → Villa prisma data (부분 업데이트 시맨틱).
+ * undefined = 미전송(미변경/create시 컬럼 default), null = 명시 클리어, 값 = 설정.
+ * POST(create)·PUT(resubmit) 공유. 비공개 필드(wifiPassword·accessInfo)도 여기서 저장(감사로그 마스킹은 호출부).
+ */
+export function villaSalesInfoData(data: VillaCreateInput): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const set = (k: string, v: unknown) => {
+    if (v !== undefined) out[k] = v;
+  };
+  set("googleMapUrl", data.googleMapUrl);
+  set("beachDistanceM", data.beachDistanceM);
+  set("wifiSsid", data.wifiSsid);
+  set("wifiPassword", data.wifiPassword);
+  set("accessType", data.accessType);
+  set("accessInfo", data.accessInfo);
+  set("commonBathrooms", data.commonBathrooms);
+  return out;
+}
+
+/**
+ * 파생 스칼라 결정 — bedroomDetails 전송 시 파생값으로 body 스칼라 오버라이드, 미전송/빈 배열이면 body 스칼라 폴백.
+ * 경계 규칙(계약): 전송 시 body bedrooms/bathrooms/maxGuests 무시. bathrooms 0·maxGuests 부분입력이면 body 스칼라 보존(min 1 불변식).
+ * rows = 저장용 정규화 행(roomIndex 1..N). POST·PUT 공유.
+ */
+export function resolveBedroomScalars(data: VillaCreateInput): {
+  bedrooms: number;
+  bathrooms: number;
+  maxGuests: number;
+  rows: NormalizedBedroomRow[];
+} {
+  const details = data.bedroomDetails ?? [];
+  let bedrooms = data.bedrooms;
+  let bathrooms = data.bathrooms;
+  let maxGuests = data.maxGuests;
+  let rows: NormalizedBedroomRow[] = [];
+  if (details.length > 0) {
+    const derived = deriveBedroomScalars(details, data.commonBathrooms ?? 0);
+    bedrooms = derived.bedrooms; // distinct roomIndex 개수
+    if (derived.bathrooms > 0) bathrooms = derived.bathrooms; // 전용합+공용 (0이면 body 보존)
+    if (derived.maxGuests !== undefined) maxGuests = derived.maxGuests; // 전원 capacity 존재 시만
+    rows = derived.rows;
+  }
+  return { bedrooms, bathrooms, maxGuests, rows };
+}
 
 /** 이용 규칙 입력 → Villa prisma data. POST(create)·PUT(resubmit) 공유. 미전송 시 빈 객체(스키마 default 유지). */
 export function villaRulesData(rules: VillaCreateInput["rules"]) {

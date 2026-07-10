@@ -10,6 +10,8 @@ const tx = {
   villa: { findUnique: vi.fn(), updateMany: vi.fn() },
   villaPhoto: { deleteMany: vi.fn(async () => ({})), createMany: vi.fn(async () => ({})) },
   villaAmenity: { deleteMany: vi.fn(async () => ({})), createMany: vi.fn(async () => ({})) },
+  villaBedroom: { deleteMany: vi.fn(async () => ({})), createMany: vi.fn(async () => ({})) },
+  villaFeature: { deleteMany: vi.fn(async () => ({})), createMany: vi.fn(async () => ({})) },
   // ADR-0014: 요율은 VillaRatePeriod (base 1행 + 전역 비-LOW 시즌 N행). 전역 시즌 없으면 base만.
   villaRatePeriod: {
     deleteMany: vi.fn(async () => ({})),
@@ -180,5 +182,47 @@ describe("PUT /api/villas/[id] — 재제출 (T1.2b)", () => {
     expect(tx.villaRatePeriod.deleteMany).toHaveBeenCalled();
     expect(tx.villaRatePeriod.create).toHaveBeenCalled();
     expect(vi.mocked(writeAuditLog)).toHaveBeenCalled();
+  });
+
+  it("재제출 bedroomDetails 전송 → 파생 스칼라 저장 + VillaBedroom/Feature 전체 교체 (T-bedroom-composition-sync)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "sup1", role: "SUPPLIER" } });
+    const res = await putReq({
+      ...VALID_PUT_BODY,
+      bedrooms: 1, // body 스칼라(범위 내) — 무시되고 파생 3
+      bathrooms: 1,
+      maxGuests: 2,
+      commonBathrooms: 1,
+      bedroomDetails: [
+        { roomIndex: 1, bedType: "KING", bedCount: 1, capacity: 2, bathroomCount: 1 },
+        { roomIndex: 2, bedType: "QUEEN", bedCount: 1, capacity: 2, bathroomCount: 1 },
+        { roomIndex: 3, bedType: "TWIN", bedCount: 2, capacity: 2, bathroomCount: 1 },
+      ],
+      features: [{ category: "VIEW", featureKey: "viewSea" }],
+    });
+    expect(res.status).toBe(200);
+    const updData = tx.villa.updateMany.mock.calls[0][0].data as {
+      bedrooms: number;
+      bathrooms: number;
+      maxGuests: number;
+      commonBathrooms: number;
+    };
+    expect(updData.bedrooms).toBe(3); // distinct roomIndex (body 1 무시)
+    expect(updData.bathrooms).toBe(4); // 전용 3 + 공용 1
+    expect(updData.maxGuests).toBe(6);
+    expect(updData.commonBathrooms).toBe(1);
+    expect(tx.villaBedroom.deleteMany).toHaveBeenCalled();
+    expect(tx.villaBedroom.createMany).toHaveBeenCalled();
+    expect(tx.villaFeature.deleteMany).toHaveBeenCalled();
+    expect(tx.villaFeature.createMany).toHaveBeenCalled();
+  });
+
+  it("재제출 bedroomDetails 미전송 → 자식 deleteMany(전체교체)는 호출되나 createMany 미호출, body 스칼라 폴백", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "sup1", role: "SUPPLIER" } });
+    const res = await putReq({ ...VALID_PUT_BODY, bedrooms: 2, bathrooms: 1, maxGuests: 4 });
+    expect(res.status).toBe(200);
+    const updData = tx.villa.updateMany.mock.calls[0][0].data as { bedrooms: number };
+    expect(updData.bedrooms).toBe(2); // body 폴백
+    expect(tx.villaBedroom.deleteMany).toHaveBeenCalled();
+    expect(tx.villaBedroom.createMany).not.toHaveBeenCalled();
   });
 });

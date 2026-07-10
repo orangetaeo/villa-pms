@@ -1076,6 +1076,17 @@
       "title": "Thông tin Wifi",
       "ssid": "Mạng",
       "password": "Mật khẩu"
+    },
+    "access": {
+      "title": "Thông tin ra vào",
+      "type": "Phương thức ra vào",
+      "info": "Chi tiết",
+      "typeOpt": {
+        "KEYPAD": "Khóa mã số",
+        "KEY": "Chìa khóa",
+        "SMARTKEY": "Khóa thông minh",
+        "OTHER": "Khác"
+      }
     }
   },
   "adminVillas": {
@@ -1283,6 +1294,7 @@
         "accessTypeOpt": {
           "KEYPAD": "Khóa mã số",
           "KEY": "Chìa khóa",
+          "SMARTKEY": "Khóa thông minh",
           "OTHER": "Khác"
         },
         "accessPlaceholderKey": "VD: nhận chìa khóa tại quầy lễ tân tầng 1"
@@ -1328,9 +1340,12 @@
         "addBed": "Thêm giường",
         "removeBed": "Bỏ giường",
         "capacity": "Sức chứa phòng này",
-        "capacityNote": "Tổng sức chứa phòng ngủ <b>{sum} người</b> · Số khách tối đa <b>{max} người</b>. Vẫn lưu được dù tổng khác số tối đa (có thể dùng giường phụ).",
+        "capacityNote": "Tổng sức chứa phòng ngủ <b>{sum} người</b> · Số khách tiêu chuẩn hiện tại <b>{max} người</b>. Nếu nhập sức chứa cho tất cả phòng, khi lưu số khách tiêu chuẩn sẽ được cập nhật thành tổng; nếu chỉ nhập một phần thì giữ nguyên giá trị cũ.",
         "bathroom": "Phòng tắm riêng của phòng này",
-        "bathroomNote": "Tổng phòng tắm riêng <b>{total}</b> — khi lưu sẽ tự động cập nhật vào tổng số phòng tắm của villa."
+        "commonBathroom": "Phòng tắm chung (ngoài phòng ngủ)",
+        "commonBathroomHint": "Số phòng tắm chung·khách không thuộc phòng ngủ nào.",
+        "bathroomNote": "Phòng tắm riêng <b>{ensuite}</b> + phòng tắm chung <b>{common}</b> = tổng <b>{total}</b> — khi lưu sẽ tự động cập nhật vào tổng số phòng tắm của villa.",
+        "autoDeriveNote": "Số phòng ngủ·số phòng tắm·số khách tiêu chuẩn được tự động tính từ cấu hình giường ngủ. Không cần nhập riêng."
       },
       "location": {
         "title": "Vị trí · Tiếp cận",
@@ -1533,7 +1548,6 @@
     "submitError": "Gửi không thành công. Vui lòng thử lại.",
     "basic": {
       "title": "Thông tin cơ bản",
-      "guide": "Nhập đúng số phòng ngủ và phòng tắm — bước sau sẽ tạo ô ảnh riêng cho từng phòng.",
       "supplier": "Nhà cung cấp",
       "supplierPlaceholder": "Chọn nhà cung cấp",
       "supplierRequired": "Vui lòng chọn nhà cung cấp.",
@@ -1552,6 +1566,23 @@
       "pool": "Hồ bơi",
       "breakfast": "Bữa sáng"
     },
+    "bedding": {
+      "title": "Bố trí phòng ngủ",
+      "guide": "Nhập đúng số phòng ngủ, giường và phòng tắm — bước ảnh sau sẽ tự tạo ô ảnh cho từng phòng.",
+      "roomCount": "Mấy phòng ngủ?",
+      "roomCountHint": "Tổng số phòng ngủ riêng",
+      "roomTitle": "Phòng ngủ {n}",
+      "bedTypeTitle": "Giường",
+      "ensuite": "Có phòng tắm riêng",
+      "ensuiteCount": "Số phòng tắm riêng",
+      "commonBathrooms": "Phòng tắm chung",
+      "commonBathroomsHint": "Phòng tắm không thuộc phòng ngủ nào",
+      "capacity": "Số khách tiêu chuẩn",
+      "capacityAuto": "Tự tính theo giường",
+      "capacityAdjust": "Chỉnh số khách",
+      "capacityReset": "Tự động",
+      "summary": "Phòng ngủ {b} · Phòng tắm {ba} · Số khách {g}"
+    },
     "location": {
       "title": "Vị trí & tham khảo",
       "selectedComplex": "Khu vực đã chọn",
@@ -1564,7 +1595,15 @@
       "addressHint": "Giúp khách hàng dễ dàng tìm thấy villa của bạn trên bản đồ.",
       "monthlyRent": "Giá thuê tháng (tham khảo)",
       "optional": "Không bắt buộc",
-      "rentInfo": "Thông tin này chỉ dùng để tham khảo. Bạn có thể thay đổi bất cứ lúc nào."
+      "rentInfo": "Thông tin này chỉ dùng để tham khảo. Bạn có thể thay đổi bất cứ lúc nào.",
+      "featuresTitle": "Điểm nổi bật",
+      "featuresHint": "Chạm để chọn ưu điểm của villa.",
+      "mapUrl": "Liên kết Google Maps",
+      "mapUrlPlaceholder": "https://maps.app.goo.gl/...",
+      "mapUrlHint": "Mở Google Maps, nhấn 'Chia sẻ' để sao chép liên kết rồi dán vào đây.",
+      "beachDistance": "Khoảng cách tới biển",
+      "beachDistanceHint": "Khoảng cách ước lượng tới bãi biển gần nhất.",
+      "beachPreset": "{m}m"
     },
     "photos": {
       "title": "Tải ảnh lên",
@@ -1593,7 +1632,23 @@
       "extraBed": "Có thể thêm giường phụ",
       "parking": "Số chỗ đỗ xe",
       "deposit": "Tiền cọc tiêu chuẩn",
-      "depositNote": "Tiền cọc tại địa phương (VND) thông báo cho khách. Để trống nếu không có."
+      "depositNote": "Tiền cọc tại địa phương (VND) thông báo cho khách. Để trống nếu không có.",
+      "privateBadge": "Riêng tư",
+      "wifiTitle": "Wi-Fi",
+      "wifiSsid": "Tên Wi-Fi (SSID)",
+      "wifiPassword": "Mật khẩu Wi-Fi",
+      "wifiHint": "Không hiển thị cho khách. Chỉ dùng khi hướng dẫn nhận phòng.",
+      "accessTitle": "Thông tin ra vào",
+      "accessType": "Cách vào",
+      "accessTypeOpt": {
+        "KEYPAD": "Khóa mã",
+        "KEY": "Chìa khóa",
+        "SMARTKEY": "Khóa thông minh",
+        "OTHER": "Khác"
+      },
+      "accessInfo": "Thông tin ra vào (mã cửa/vị trí chìa)",
+      "accessInfoPlaceholder": "VD: mã cửa 1234#, chìa ở văn phòng",
+      "accessHint": "Chỉ nhân viên dọn dẹp và quản lý xem được. Không công khai cho khách."
     },
     "rates": {
       "title": "Giá gốc mỗi đêm",

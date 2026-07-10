@@ -267,6 +267,7 @@ export default async function VillaDetailPage({
     wifiPassword: villa.wifiPassword ?? "",
     extraBedAvailable: villa.extraBedAvailable,
     hasPool: villa.hasPool,
+    commonBathrooms: villa.commonBathrooms,
     bedrooms: villa.bedroomDetails.map((b) => ({
       roomIndex: b.roomIndex,
       roomLabel: b.roomLabel,

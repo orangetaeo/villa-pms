@@ -1,25 +1,29 @@
 "use client";
 
-// 빌라 등록 마법사 5단계 (T1.1) — a2 → a2b → a1 → a9 → a5
+// 빌라 등록 마법사 7단계 (T1.1 → T-bedroom-composition-sync)
+//   1 기본정보 → 2 잠자리구성 → 3 위치·셀링포인트 → 4 사진 → 5 비품 → 6 이용규칙 → 7 원가
 // 상태는 이 컴포넌트에 보관 — 뒤로가기 시 입력값 유지
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { FEATURE_CATEGORIES, FEATURE_ITEMS, hasPoolFeatureTag } from "@/lib/features";
 import {
   INITIAL_STATE,
   buildPhotoSlots,
+  buildBedroomDetails,
   type PhotoSlotState,
   type SupplierOption,
   type WizardState,
 } from "./wizard-types";
 import StepBasic from "./step-basic";
+import StepBedding from "./step-bedding";
 import StepLocation from "./step-location";
 import StepPhotos from "./step-photos";
 import StepAmenities from "./step-amenities";
 import StepRules from "./step-rules";
 import StepRates from "./step-rates";
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 
 export default function VillaWizard({
   villaId,
@@ -102,6 +106,24 @@ export default function VillaWizard({
       });
     }
 
+    // 잠자리 구성 → bedroomDetails[] (전송 시 서버가 bedrooms/bathrooms/maxGuests 파생, body 스칼라 무시)
+    const bedroomDetails = buildBedroomDetails(state.rooms);
+
+    // 셀링포인트 — featureKey[] → {category, featureKey}[] (사전 역참조로 category 정합)
+    const features: { category: "VIEW" | "FACILITY" | "LOCATION"; featureKey: string }[] = [];
+    const featureSet = new Set(state.features);
+    for (const category of FEATURE_CATEGORIES) {
+      for (const item of FEATURE_ITEMS[category]) {
+        if (featureSet.has(item.featureKey)) features.push({ category, featureKey: item.featureKey });
+      }
+    }
+    // 풀 태그(프라이빗풀·키즈풀) 선택 시 수영장 있음 자동 반영 (서버도 동일 보정)
+    const effectiveHasPool = state.hasPool || hasPoolFeatureTag(features);
+
+    // 구글맵 링크는 https만 유효 — 잘못된 값으로 제출 전체가 400 나지 않도록 방어적으로 null 처리
+    const gmap = state.googleMapUrl.trim();
+    const googleMapUrl = /^https:\/\//i.test(gmap) ? gmap : null;
+
     try {
       // T1.2b — villaId 있으면 PUT(재제출), 없으면 POST(신규 등록)
       const res = await fetch(villaId ? `/api/villas/${villaId}` : "/api/villas", {
@@ -112,13 +134,24 @@ export default function VillaWizard({
           supplierId: state.supplierId || undefined,
           name: state.name.trim(),
           complex: state.complex || undefined,
+          // body 스칼라 — 하위호환용 파생값(서버는 bedroomDetails 전송 시 이 값들을 무시하고 재파생)
           bedrooms: state.bedrooms,
           bathrooms: state.bathrooms,
           maxGuests: state.maxGuests,
-          hasPool: state.hasPool,
+          hasPool: effectiveHasPool,
           breakfastAvailable: state.breakfastAvailable,
           address: state.address.trim() || undefined,
           monthlyRentVnd: state.monthlyRent || undefined,
+          // 잠자리 구성·셀링포인트·위치·비공개 정보 (T-bedroom-composition-sync)
+          bedroomDetails,
+          features,
+          commonBathrooms: state.commonBathrooms,
+          googleMapUrl,
+          beachDistanceM: state.beachDistanceM,
+          wifiSsid: state.wifiSsid.trim() || null,
+          wifiPassword: state.wifiPassword.trim() || null,
+          accessType: state.accessType || null,
+          accessInfo: state.accessInfo.trim() || null,
           photos,
           amenities,
           // 이용 규칙 — 분 단위 시각·VND 동단위 문자열(빈 값은 null). 서버 villaRulesData가 BigInt 변환
@@ -180,7 +213,8 @@ export default function VillaWizard({
           suppliers={suppliers}
         />
       )}
-      {step === 2 && (
+      {step === 2 && <StepBedding state={state} update={update} onNext={goNext} />}
+      {step === 3 && (
         <StepLocation
           state={state}
           update={update}
@@ -188,12 +222,12 @@ export default function VillaWizard({
           onChangeComplex={() => setStep(1)}
         />
       )}
-      {step === 3 && (
+      {step === 4 && (
         <StepPhotos state={state} setPhoto={setPhoto} onNext={goNext} onBack={goBack} />
       )}
-      {step === 4 && <StepAmenities state={state} update={update} onNext={goNext} />}
-      {step === 5 && <StepRules state={state} update={update} onNext={goNext} />}
-      {step === 6 && (
+      {step === 5 && <StepAmenities state={state} update={update} onNext={goNext} />}
+      {step === 6 && <StepRules state={state} update={update} onNext={goNext} />}
+      {step === 7 && (
         <StepRates
           state={state}
           update={update}
