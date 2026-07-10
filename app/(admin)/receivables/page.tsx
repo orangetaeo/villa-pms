@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { canViewFinance } from "@/lib/permissions";
 import { formatVnd } from "@/lib/format";
 import { getReceivablesOverview, isOverLimit } from "@/lib/partner-server";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 import ReceivablesTable, { type ReceivableRow } from "./receivables-table";
 
 // 미수/여신 대시보드 (ADR-0022 PARTNER-3) — 전 파트너 미수 Aging·연체·한도초과. 재무 전용.
@@ -18,6 +20,7 @@ export default async function ReceivablesPage() {
 
   const t = await getTranslations("adminReceivables");
   const tp = await getTranslations("adminPartners");
+  const tTour = await getTranslations("tour");
   const overview = await getReceivablesOverview(prisma, new Date());
 
   const kpis = [
@@ -55,7 +58,8 @@ export default async function ReceivablesPage() {
       </div>
 
       {/* KPI */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {/* 코치마크 앵커 */}
+      <div data-tour="recv-kpi" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {kpis.map((k) => (
           <div key={k.label} className="rounded-xl border border-slate-800 bg-admin-card p-4">
             <p className="text-[11px] font-bold uppercase text-slate-500">{k.label}</p>
@@ -67,7 +71,8 @@ export default async function ReceivablesPage() {
       </div>
 
       {/* Aging 합산 */}
-      <div className="rounded-xl border border-slate-800 bg-admin-card p-4">
+      {/* 코치마크 앵커 */}
+      <div data-tour="recv-aging" className="rounded-xl border border-slate-800 bg-admin-card p-4">
         <h2 className="mb-3 text-xs font-bold uppercase text-slate-500">{t("agingTitle")}</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {agingCells.map((c) => (
@@ -86,7 +91,17 @@ export default async function ReceivablesPage() {
       </div>
 
       {/* 파트너별 미수 — 클라 페이지네이션 래퍼(controlled slice + PaginationBar) */}
-      <ReceivablesTable rows={tableRows} />
+      {/* 코치마크 앵커 — ReceivablesTable 무수정 순수 래퍼 */}
+      <div data-tour="recv-partners">
+        <ReceivablesTable rows={tableRows} />
+      </div>
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 "?"로 재생 (T-tutorial-onboarding-6) */}
+      <CoachMark
+        tourId="adminReceivables"
+        steps={buildTourSteps(tTour, "adminReceivables")}
+        labels={buildTourLabels(tTour)}
+      />
     </div>
   );
 }

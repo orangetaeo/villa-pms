@@ -312,8 +312,10 @@ export default function PartnersManager({
           <h1 className="text-2xl font-black text-white">{t("title")}</h1>
           <p className="text-sm text-admin-muted mt-1">{t("subtitle")}</p>
         </div>
+        {/* 코치마크 앵커 */}
         <button
           type="button"
+          data-tour="partners-new"
           onClick={() => {
             setError(null);
             setShowCreate(true);
@@ -333,6 +335,8 @@ export default function PartnersManager({
         </p>
       )}
 
+      {/* 코치마크 앵커 — 공용 ResponsiveTable 무수정 순수 래퍼 */}
+      <div data-tour="partners-list">
       <ResponsiveTable
         columns={columns}
         rows={pagedPartners}
@@ -356,6 +360,7 @@ export default function PartnersManager({
           </Link>
         )}
       />
+      </div>
       <PaginationBar
         total={partners.length}
         page={page}

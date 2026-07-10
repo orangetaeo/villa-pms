@@ -24,6 +24,8 @@ import ZaloConnectSettingForm, {
 import CancellationPolicyForm from "./cancellation-policy-form";
 import { getAgreementContent } from "@/lib/agreement-store";
 import AgreementForm from "./agreement-form";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
 // 입금 계좌·연락처 키 (공개 제안 페이지가 소비) — /api/settings 화이트리스트와 일치
 // 한국(KRW) 계좌 + 베트남(VND) 계좌 + 공용 연락처
@@ -68,6 +70,7 @@ export default async function SettingsPage() {
     }),
     getAgreementContent(),
   ]);
+  const tTour = await getTranslations("tour");
 
   // @db.Date → "YYYY-MM-DD" 직렬화 (클라이언트 경계, 시간대 오해 방지)
   const seasonRows: SeasonRow[] = periods.map((p) => ({
@@ -133,10 +136,16 @@ export default async function SettingsPage() {
       </div>
 
       {/* Card 1: 시즌 달력 (b8) — 목록은 RSC 조회, 폼·액션은 클라이언트 */}
-      <SeasonManager periods={seasonRows} />
+      {/* 코치마크 앵커 — SeasonManager 무수정 순수 래퍼 */}
+      <div data-tour="settings-season">
+        <SeasonManager periods={seasonRows} />
+      </div>
 
       {/* Card 2: 예약 설정 — 가예약 기본 유지 시간 (b8 스테퍼) */}
-      <HoldHoursForm initialHours={initialHoldHours} />
+      {/* 코치마크 앵커 — HoldHoursForm 무수정 순수 래퍼 */}
+      <div data-tour="settings-hold">
+        <HoldHoursForm initialHours={initialHoldHours} />
+      </div>
 
       {/* Card 3: 환율 — 계약(T1.7) 범위. b8에는 없어 동일 카드 스타일로 추가 */}
       <FxRateForm
@@ -167,7 +176,9 @@ export default async function SettingsPage() {
           부가서비스 공급자는 사이드바에 없어 여기 단독 진입점으로 유지. */}
 
       {/* Card 6c: 부가서비스 공급자 (ADR-0023 S1) — 부가서비스 발주·정산 거래처. 별도 페이지 링크 */}
+      {/* 코치마크 앵커 */}
       <Link
+        data-tour="settings-sub"
         href="/settings/vendors"
         className="flex items-center justify-between bg-admin-card border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-colors group"
       >
@@ -199,6 +210,13 @@ export default async function SettingsPage() {
           {t("zaloCardCta")} →
         </span>
       </Link>
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 "?"로 재생 (T-tutorial-onboarding-6) */}
+      <CoachMark
+        tourId="adminSettings"
+        steps={buildTourSteps(tTour, "adminSettings")}
+        labels={buildTourLabels(tTour)}
+      />
     </div>
   );
 }

@@ -19,6 +19,8 @@ import {
   summarizeLedgerBalances,
   type LedgerBalanceSummary,
 } from "@/lib/ledger";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 import SettlementsView, { type SettlementRow } from "./settlements-view";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -225,6 +227,7 @@ export default async function SettlementsPage({
     ledgerBalances = null;
   }
   const tLedger = await getTranslations("adminSettlements");
+  const tTour = await getTranslations("tour");
 
   // 잔액 패널 표시값(server 포맷) — KRW는 원, VND는 부호 포함 ₫. (마진 비공개와 무관: ADMIN 장부)
   const balanceCards = ledgerBalances
@@ -318,6 +321,13 @@ export default async function SettlementsPage({
         summary={summary}
         financeSummary={financeSummary}
         rows={rows}
+      />
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 "?"로 재생 (T-tutorial-onboarding-6) */}
+      <CoachMark
+        tourId="adminSettlements"
+        steps={buildTourSteps(tTour, "adminSettlements")}
+        labels={buildTourLabels(tTour)}
       />
     </>
   );

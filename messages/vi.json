@@ -4380,6 +4380,67 @@
       "tabs": { "title": "Thẻ trạng thái duyệt", "desc": "Các mục chờ duyệt (đã nộp ảnh) xếp trên cùng. Hãy kiểm tra số lượng ở thẻ này trước." },
       "queue": { "title": "Hàng chờ duyệt", "desc": "Chọn một công việc để so sánh ảnh đã nộp với ảnh chuẩn ở bên phải." },
       "actions": { "title": "Duyệt / Từ chối", "desc": "Phải duyệt dọn dẹp check-out thì villa mới chuyển sang trạng thái có thể bán. Khi từ chối, bắt buộc nhập lý do." }
+    },
+    "adminAvailability": {
+      "filters": { "title": "Bộ lọc tìm kiếm & kỳ", "desc": "Thu hẹp theo tên biệt thự, khu vực và chuyển kỳ 3 tháng bằng nút mũi tên." },
+      "legend": { "title": "Chú giải màu ô", "desc": "Còn trống, khóa thủ công, kênh ngoài và đặt phòng được phân biệt bằng màu và biểu tượng." },
+      "grid": { "title": "Dòng thời gian phòng trống", "desc": "Lưới biệt thự × ngày. Chạm ô trống để khóa/mở, chạm ô đặt phòng để xem chi tiết." }
+    },
+    "adminSettlements": {
+      "month": { "title": "Chọn tháng & tổng hợp", "desc": "Chuyển tháng rồi bấm chạy tổng hợp để tạo bản nháp quyết toán theo nhà cung cấp." },
+      "summary": { "title": "Tóm tắt doanh thu & chi trả", "desc": "Xem nhanh doanh thu theo từng loại tiền và tổng chi trả nhà cung cấp trong tháng." },
+      "finance": { "title": "Dòng thu & chi", "desc": "Tóm tắt thu và chi. Xử lý danh sách bên dưới theo thứ tự xác nhận → thu tiền → chi trả." }
+    },
+    "adminReceivables": {
+      "kpi": { "title": "Chỉ số công nợ chính", "desc": "Kiểm tra trước tổng công nợ, quá hạn và số đối tác vượt hạn mức." },
+      "aging": { "title": "Phân kỳ tuổi nợ", "desc": "Cho biết công nợ đã tồn tại bao lâu theo từng khoảng; càng lâu càng rủi ro." },
+      "partners": { "title": "Công nợ theo đối tác", "desc": "Chạm vào đối tác để xem hóa đơn và chi tiết thu tiền." }
+    },
+    "adminServiceOrders": {
+      "summary": { "title": "Tổng chờ & đã thanh toán", "desc": "Tóm tắt các khoản chờ chuyển và đã hoàn tất cho nhà cung cấp dịch vụ." },
+      "tabs": { "title": "Tab quyết toán & điều phối", "desc": "Tab quyết toán để chi trả gộp theo nhà cung cấp, tab điều phối để tra cứu trạng thái đơn." },
+      "filters": { "title": "Bộ lọc đơn hàng", "desc": "Lọc đơn theo kỳ, dịch vụ, nhà cung cấp, biệt thự hoặc tên khách." }
+    },
+    "adminRevenue": {
+      "filters": { "title": "Bộ lọc kỳ & loại", "desc": "Thu hẹp giao dịch theo kỳ, loại phòng/minibar/dịch vụ, kênh và loại tiền." },
+      "summary": { "title": "Tóm tắt doanh thu", "desc": "Tóm tắt doanh thu của kỳ đã chọn, kèm số liệu gốc theo từng loại tiền." },
+      "export": { "title": "Tìm kiếm & xuất CSV", "desc": "Tìm theo tên khách hoặc biệt thự và tải file CSV theo đúng bộ lọc hiện tại." }
+    },
+    "adminStatistics": {
+      "tabs": { "title": "Tab thống kê", "desc": "Xem chỉ số theo từng tab: công suất, hiệu quả biệt thự, vận hành… Tab hiển thị tùy quyền hạn." },
+      "period": { "title": "Chọn kỳ", "desc": "Đổi kỳ bằng chip có sẵn hoặc lịch; áp dụng chung cho mọi tab." }
+    },
+    "adminInventory": {
+      "stock": { "title": "Tồn kho theo biệt thự", "desc": "Xem tồn kho minibar và mục tiêu bày trí của từng biệt thự, có thể lọc riêng mục thiếu." },
+      "inbound": { "title": "Biểu mẫu nhập & điều chỉnh", "desc": "Chọn biệt thự, mặt hàng và số lượng để nhập kho hoặc điều chỉnh tồn." }
+    },
+    "adminUsers": {
+      "add": { "title": "Thêm người dùng", "desc": "Tạo tài khoản nhà cung cấp, nhân viên dọn phòng, đối tác… tại đây." },
+      "filters": { "title": "Tìm kiếm & tab vai trò", "desc": "Tìm theo tên hoặc số điện thoại và thu hẹp danh sách bằng tab vai trò." },
+      "list": { "title": "Danh sách người dùng", "desc": "Quản lý bật/tắt tài khoản và liên kết Zalo ngay trên từng dòng." }
+    },
+    "adminPartners": {
+      "new": { "title": "Thêm đối tác mới", "desc": "Đăng ký đối tác công ty du lịch, land tour tại đây." },
+      "list": { "title": "Danh sách đối tác", "desc": "Đối tác chờ duyệt hiển thị trên cùng; chạm để xem hạn mức và công nợ chi tiết." }
+    },
+    "adminSettings": {
+      "season": { "title": "Lịch mùa", "desc": "Đăng ký kỳ cao điểm/thấp điểm để hệ thống tự áp vào cách tính giá." },
+      "hold": { "title": "Thời gian giữ chỗ", "desc": "Cài thời gian mặc định trước khi đặt giữ chỗ tự động hết hạn." },
+      "sub": { "title": "Trang cài đặt chi tiết", "desc": "Nhà cung cấp dịch vụ, kết nối bot Zalo… được quản lý ở các trang con." }
+    },
+    "earnings": {
+      "tabs": { "title": "Thống kê & thanh toán", "desc": "Chạm «Lịch sử thanh toán» để xem tiền đã nhận và tiền chưa nhận." },
+      "period": { "title": "Chọn thời gian", "desc": "Chạm để xem tháng này, tháng trước hoặc cả năm." },
+      "kpi": { "title": "Kết quả của bạn", "desc": "Doanh thu của bạn, tỷ lệ lấp đầy và số đặt phòng." }
+    },
+    "myBookings": {
+      "card": { "title": "Khách bạn tự bán", "desc": "Đặt phòng bạn tự bán hiển thị ở đây: ngày ở và trạng thái." },
+      "action": { "title": "Check-in / Check-out", "desc": "Chạm nút này để làm thủ tục: hộ chiếu, chữ ký, tiền cọc." }
+    },
+    "vendorStats": {
+      "period": { "title": "Chọn thời gian", "desc": "Chạm để xem tháng này, tháng trước hoặc cả năm." },
+      "kpi": { "title": "Kết quả của bạn", "desc": "Doanh thu, số đơn và tỷ lệ nhận đơn của bạn." },
+      "settle": { "title": "Tiền thanh toán", "desc": "Số tiền bạn sắp nhận và số tiền đã nhận." }
     }
   }
 }

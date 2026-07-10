@@ -11,6 +11,8 @@ import { canViewFinance } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { getAvailabilityBoard } from "@/lib/availability";
 import { todayVnDateString } from "@/lib/date-vn";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 import AvailabilityBoardClient, {
   type BoardColumn,
   type BoardMonthGroup,
@@ -63,6 +65,7 @@ export default async function AvailabilityPage({
   }>;
 }) {
   const t = await getTranslations("availabilityBoard");
+  const tTour = await getTranslations("tour");
   const params = await searchParams;
 
   const todayStr = todayVnDateString();
@@ -302,6 +305,13 @@ export default async function AvailabilityPage({
         search={search ?? ""}
         needCheckOnly={needCheckOnly}
         strings={strings}
+      />
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 "?"로 재생 (T-tutorial-onboarding-6) */}
+      <CoachMark
+        tourId="adminAvailability"
+        steps={buildTourSteps(tTour, "adminAvailability")}
+        labels={buildTourLabels(tTour)}
       />
     </div>
   );

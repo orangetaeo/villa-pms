@@ -14,6 +14,8 @@ import { getVendorIdForUser } from "@/lib/vendor-auth";
 import { loadVendorStats } from "@/lib/vendor-stats";
 // 차트는 recharts 의존 → lazy 래퍼로 코드 스플리팅(perf).
 import { RevenueBar } from "@/components/supplier/stats/charts-lazy";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
 export const metadata: Metadata = {
   title: "Thống kê — Villa Go",
@@ -67,6 +69,8 @@ export default async function VendorStatsPage({
 
   const locale = await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "vendor" });
+  // 코치마크 문구 — RSC 번역 → props (화이트리스트 비의존, cleaning-submit 패턴)
+  const tTour = await getTranslations({ locale, namespace: "tour" });
 
   const { range } = await searchParams;
   const now = new Date();
@@ -91,8 +95,8 @@ export default async function VendorStatsPage({
         </Link>
       </header>
 
-      {/* 기간 칩 */}
-      <div className="flex gap-2">
+      {/* 기간 칩 — 코치마크 앵커(vstats-period), 항상 렌더 */}
+      <div data-tour="vstats-period" className="flex gap-2">
         {PERIOD_CHIPS.map((key) => {
           const active = key === chip;
           return (
@@ -120,8 +124,9 @@ export default async function VendorStatsPage({
         </div>
       ) : (
         <>
-          {/* KPI 2x2 — costVnd 기반(매출·발주수·수락율·평균단가). 판매가·마진 없음. */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* KPI 2x2 — costVnd 기반(매출·발주수·수락율·평균단가). 판매가·마진 없음.
+              코치마크 앵커(vstats-kpi) — hasData 조건부: 빈 데이터면 스텝 자동 스킵 */}
+          <div data-tour="vstats-kpi" className="grid grid-cols-2 gap-3">
             <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
               <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
                 {t("stats.kpiRevenue")}
@@ -167,8 +172,12 @@ export default async function VendorStatsPage({
             <RevenueBar data={stats.revenueTrend} legend={t("stats.revenueLegend")} />
           </section>
 
-          {/* 정산 상태 — 미정산 vs 정산완료(VND만) */}
-          <section className="relative overflow-hidden rounded-2xl bg-teal-600 p-6 text-white shadow-xl">
+          {/* 정산 상태 — 미정산 vs 정산완료(VND만).
+              코치마크 앵커(vstats-settle) — hasData 조건부: 빈 데이터면 스텝 자동 스킵 */}
+          <section
+            data-tour="vstats-settle"
+            className="relative overflow-hidden rounded-2xl bg-teal-600 p-6 text-white shadow-xl"
+          >
             <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-teal-500 opacity-20" />
             <div className="relative z-10 space-y-4">
               <div>
@@ -207,6 +216,13 @@ export default async function VendorStatsPage({
           )}
         </>
       )}
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 헤더 "?"로 재생 */}
+      <CoachMark
+        tourId="vendorStats"
+        steps={buildTourSteps(tTour, "vendorStats")}
+        labels={buildTourLabels(tTour)}
+      />
     </main>
   );
 }

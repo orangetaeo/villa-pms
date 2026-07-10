@@ -132,7 +132,8 @@ export default function StatisticsClient(props: StatisticsProps) {
       {/* 탭 바 + 기간 필터 */}
       <div className="flex items-end justify-between border-b border-slate-800 mt-4 gap-3 flex-wrap">
         {/* 데스크톱 탭 / 모바일 가로 스크롤 칩 */}
-        <div className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mb-px">
+        {/* 코치마크 앵커 */}
+        <div data-tour="stats-tabs" className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mb-px">
           {tabs.map((k) => {
             const active = k === tab;
             return (
@@ -154,7 +155,8 @@ export default function StatisticsClient(props: StatisticsProps) {
         </div>
 
         {/* 기간 필터 — 프리셋 칩 + 커스텀 달력(from/to). URL(?range= 또는 ?from=&to=) 동기화. */}
-        <div className="mb-2">
+        {/* 코치마크 앵커 */}
+        <div data-tour="stats-period" className="mb-2">
           <DateRangeFilter
             presetKey={props.period.presetKey}
             fromText={props.period.fromText}

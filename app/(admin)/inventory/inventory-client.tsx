@@ -213,7 +213,8 @@ export default function InventoryClient({
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
         {/* 빌라 중심 재고 패널 (2 cols) */}
-        <div className="xl:col-span-2 space-y-4">
+        {/* 코치마크 앵커 */}
+        <div data-tour="inv-stock" className="xl:col-span-2 space-y-4">
           {/* 빌라 선택 + 검색 + 부족 빌라 빠른 점프 */}
           <div className="bg-admin-card border border-slate-800 rounded-xl p-4 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -363,7 +364,8 @@ export default function InventoryClient({
         </div>
 
         {/* 입고 폼 (우측) */}
-        <div className="bg-admin-card border border-slate-800 rounded-xl p-5 space-y-4 xl:sticky xl:top-24">
+        {/* 코치마크 앵커 */}
+        <div data-tour="inv-inbound" className="bg-admin-card border border-slate-800 rounded-xl p-5 space-y-4 xl:sticky xl:top-24">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-admin-primary">add_box</span>
             <h3 className="font-bold text-white">{t("form.title")}</h3>

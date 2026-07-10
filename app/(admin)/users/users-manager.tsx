@@ -661,8 +661,10 @@ export default function UsersManager({
             </span>
           </p>
         </div>
+        {/* 코치마크 앵커 */}
         <button
           type="button"
+          data-tour="users-add"
           onClick={() => {
             setAddError(null);
             setAddOpen(true);
@@ -675,7 +677,8 @@ export default function UsersManager({
       </section>
 
       {/* 필터 바 (b13 — 검색 + 역할 탭) */}
-      <section className="bg-slate-800/50 border border-slate-800 p-4 rounded-xl mb-6 flex flex-wrap items-center gap-4">
+      {/* 코치마크 앵커 */}
+      <section data-tour="users-filters" className="bg-slate-800/50 border border-slate-800 p-4 rounded-xl mb-6 flex flex-wrap items-center gap-4">
         <div className="relative w-full sm:w-64">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-slate-500 text-sm">
             search
@@ -719,6 +722,8 @@ export default function UsersManager({
       )}
 
       {/* 사용자 테이블 (b13) — <768px 카드 전환 (T6.7) */}
+      {/* 코치마크 앵커 — 공용 ResponsiveTable 무수정 순수 래퍼 */}
+      <div data-tour="users-list">
       <ResponsiveTable
         columns={columns}
         rows={paged}
@@ -746,6 +751,7 @@ export default function UsersManager({
           </div>
         )}
       />
+      </div>
 
       {/* 페이지네이션 — 행 수 요약 + 페이지당 개수(10/20/30/50/100) */}
       <PaginationBar
