@@ -179,6 +179,14 @@ describe("벤더 티켓 발행 POST", () => {
     expect(saveTicketFiles).not.toHaveBeenCalled();
   });
 
+  it("VENDOR_REJECTED(거절한 발주)면 409 ORDER_REJECTED — 저장 안 함 (QA P3)", async () => {
+    soFindUnique.mockResolvedValue({ ...baseTicketOrder, vendorStatus: "VENDOR_REJECTED" });
+    const res = await VENDOR_POST(formReq(), P("so-1"));
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: "ORDER_REJECTED" });
+    expect(saveTicketFiles).not.toHaveBeenCalled();
+  });
+
   it("동시성 충돌(updateMany count=0)이면 409 CONCURRENT_MODIFICATION", async () => {
     soFindUnique.mockResolvedValue({ ...baseTicketOrder });
     soUpdateMany.mockResolvedValue({ count: 0 });

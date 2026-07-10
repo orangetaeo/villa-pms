@@ -14,6 +14,8 @@
 - BigInt 직렬화 오류 (JSON.stringify throw)
 
 ## 교훈 축적 (발견 버그 → 패턴화하여 추가)
+- (2026-07-10 ADR-0034 티켓 발행 QA) **첨부/발행류 API의 자격 가드는 status·vendorStatus 두 축 짝검토** — CANCELLED/DELIVERED(status 축)만 막고 VENDOR_REJECTED(vendorStatus 축)를 열어두면 "거절한 주문에 산출물 첨부" 의미 불일치가 생김. "이 주문이 아직 그 행위를 받을 자격이 있나"를 두 축 모두로 판정.
+- (2026-07-10 ADR-0034 티켓 발행 QA) **stale Prisma client + 공유 node_modules EPERM은 재생성 봉쇄 상황이 있다** — 타 세션 next start/dev가 `query_engine-windows.dll.node`를 점유하면 worktree에서 generate가 EPERM 반복(활성 세션 프로세스는 kill 금지). typecheck green 재현법: ①스키마를 프로젝트 내부 스크래치 output으로 generate해 additive 필드 생성 검증 ②typecheck 에러가 전부 신규 필드+select 거부 파생인지 라인별 확인 ③full vitest(prisma mock이라 client 무관)로 로직 회귀 분리 — 세 근거가 모이면 "코드 결함 아님, 메인 세션 generate 필요"로 판정(단 게이트는 미확정으로 보고). real client index.d.ts overlay 교체는 tsc stack overflow — 비추천. 엔진 버전이 동일하면 EPERM으로 실패해도 d.ts·client JS는 갱신되므로 grep으로 필드 반영 확인 후 진행 가능.
 - (2026-07-10 ADR-0033 게스트 직접발주 QA) **자동 상태전이는 where·data 쌍 + "count 검사 후 통보" 순서를 함께 검증** — 게스트 취소와 벤더 accept가 둘 다 `updateMany{where:{status:"REQUESTED"}}`로 경쟁할 때 진 쪽은 count=0이어야 하고, Zalo/인앱 통보는 반드시 `if(count===0) return 409` **뒤에** 와야 유령 통보가 안 나간다. 자동확정형 전이는 where에 기대상태·data에 새상태가 쌍으로 있는지 확인. 또한 "확정 후에만 노출" 필드(벤더 연락처 등)를 렌더 계층에서만 게이트하면 로더 반환 타입에 값이 이미 담겨 새 소비자 추가 시 누수 재발 위험 → **게이트를 로더/select 계층으로 내려 반환값 자체에 싣지 않는 방어심층** 적용.
 - (2026-06-11 T5.2 디자인 재검수) Stitch export HTML에 마크다운 펜스(```html / ```)가 본문에 섞여 들어오고 <head>가 비면서 <meta charset>이 body로 밀리는 경우 발생(c2) → 브라우저 캡처에서 한글 전체가 깨짐. export 저장 직후 ① 첫/끝 줄 펜스 grep ② 빈 <head></head> grep을 전 폴더 정적 검사에 포함할 것.
 - (2026-06-11 T5.2 디자인 재검수) screenshot.png가 실제로는 JPEG이거나 폭 106~152px 저해상도인 경우(c3, c2) 글자 크기·대비 평가 불가 → 스크린샷 수령 기준: PNG + 폭 226px 이상. 미달 시 채점 보류 + 재캡처 요구 (코드 리뷰만으로 통과 금지 원칙의 디자인판).

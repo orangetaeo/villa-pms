@@ -73,6 +73,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (order.status === "CANCELLED" || order.status === "DELIVERED") {
     return NextResponse.json({ error: "ORDER_CLOSED", status: order.status }, { status: 409 });
   }
+  // ★거절한 발주에도 발행 불가(QA P3) — 거절 후 마음이 바뀌면 운영자 재발주(발주 사이클 리셋)가 정로.
+  //   status 축만 보면 REJECTED가 열려 "거절한 주문에 산출물 첨부" 의미 불일치가 생긴다(두 축 짝검토).
+  if (order.vendorStatus === "VENDOR_REJECTED") {
+    return NextResponse.json({ error: "ORDER_REJECTED" }, { status: 409 });
+  }
 
   // 이미지 검증·저장(합계 30장 상한). 실패면 400(코드별). 저장은 검증 전량 통과 후에만.
   const saved = await saveTicketFiles(formData, order.ticketUrls.length, actorId);
