@@ -95,9 +95,11 @@ export default async function CheckinSheetPage({
           maxGuests: true,
           checkInTime: true,
           checkOutTime: true,
-          // WiFi — ADMIN 전용 체크인 화면이라 노출 OK (/p 공개페이지엔 절대 금지)
+          // WiFi·출입정보 — ADMIN 전용 체크인 화면이라 노출 OK (/p·/g 공개경계엔 절대 금지, 출입정보 비공개 등급)
           wifiSsid: true,
           wifiPassword: true,
+          accessType: true,
+          accessInfo: true,
           // 비품 — 입실 확인 + 미니바 정산표용. unitPrice = 미니바 고객 청구 단가(VND, 게스트 노출 OK).
           // ※ 빌라 판매가(totalSale*)·원가(supplierCostVnd)와 무관 — 마진 비공개 규칙 대상 아님.
           amenities: {
@@ -314,6 +316,35 @@ export default async function CheckinSheetPage({
                               {L.wifiPw}
                             </span>
                             <p className="text-lg font-black tabular-nums">{v.wifiPassword}</p>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* ③-2 출입정보 (비공개 등급) — ADMIN 체크인 문서 전용. /p·/g 공개경계엔 절대 미노출 */}
+                  {(v.accessType || v.accessInfo) && (
+                    <section>
+                      <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">
+                        {L.access}
+                      </h3>
+                      <div className="flex flex-wrap gap-x-10 gap-y-1 rounded-lg border border-slate-300 bg-slate-50 px-4 py-3">
+                        {v.accessType && (
+                          <div>
+                            <span className="text-[11px] uppercase tracking-widest text-slate-400">
+                              {L.accessMethod}
+                            </span>
+                            <p className="text-lg font-black">
+                              {L.accessOpt[v.accessType as keyof typeof L.accessOpt] ?? v.accessType}
+                            </p>
+                          </div>
+                        )}
+                        {v.accessInfo && (
+                          <div>
+                            <span className="text-[11px] uppercase tracking-widest text-slate-400">
+                              {L.accessDetail}
+                            </span>
+                            <p className="text-lg font-black">{v.accessInfo}</p>
                           </div>
                         )}
                       </div>

@@ -21,10 +21,10 @@
 - bedroomDetails 전송 시 **body 스칼라(bedrooms/bathrooms/maxGuests) 무시**하고 파생값 저장
 - roomIndex·방 수 상한 **20으로 3스키마 통일** (기존 sales zod max 50 → 20)
 
-신규 스키마(전부 additive — 라이브는 raw SQL ALTER, db push 금지 [[db-is-railway-postgres]]):
+신규 스키마(additive — 라이브는 raw SQL ALTER, db push 금지 [[db-is-railway-postgres]]):
 - `Villa.commonBathrooms Int @default(0)` — 방에 속하지 않는 공용 욕실
-- `Villa.doorAccessType String?` — zod 화이트리스트: `DOORLOCK_PIN | SMART_KEY | PHYSICAL_KEY | OTHER` (Prisma enum 대신 String+zod — enum 드리프트 함정 회피 [[servicetype-fruit-enum-drift]])
-- `Villa.doorAccessCode String?` — ⚠ 도어락 비번/키 전달 메모. **wifiPassword와 동일 비공개 등급**: /p 공개페이지 절대 노출 금지, select 화이트리스트, 체크인 화면 전용
+
+출입정보(2026-07-10 구현 중 TDA 정정): 신규 컬럼을 만들지 않는다 — **기존 `Villa.accessType`/`accessInfo`(청소직원용 출입 방식·출입정보, T-cleaner-features) 재사용**. 신규 컬럼 추가는 출입정보 진실을 두 벌로 만들어 이 태스크가 고치는 V21 문제를 재생산한다. 화이트리스트는 cleaning-info 라우트 기존 집합 + SMARTKEY 추가, 공유 상수로 추출해 양쪽 공용. 비공개 등급은 accessInfo 기존 규약(청소직원·운영자 전용, /g·/p 절대 노출 금지) + 공급자 자기 빌라 edit 프리필만 허용.
 
 ## 범위
 
@@ -37,22 +37,22 @@
 6. maxGuests: 공급자 화면에서 **자동 고정** — 스테퍼 제거, 읽기전용 요약("침실 N · 욕실 N · 기준인원 N")만. 오버라이드는 관리자 sales-editor 전용
 7. **셀링포인트 태그**: 잠자리 스텝 또는 위치 스텝에 기존 사전(lib/features.ts) 칩 다중선택 (sales-editor와 동일 featureKey, 카테고리 VIEW/FACILITY/LOCATION)
 8. **위치 스텝 확장**: googleMapUrl(공유링크 붙여넣기 1칸) + beachDistanceM(프리셋 칩 <100/300/500/1000m + 직접 조정)
-9. **이용규칙 스텝 확장**: 와이파이(wifiSsid·wifiPassword) + 출입정보(doorAccessType 아이콘 칩 4종 + doorAccessCode)
+9. **이용규칙 스텝 확장**: 와이파이(wifiSsid·wifiPassword) + 출입정보(accessType 아이콘 칩 + accessInfo — 기존 청소직원용 필드 재사용)
 10. 재제출(edit) 프리필: villaToWizardState가 bedroomDetails·features·신규 필드 전부 복원. 방 수 축소 재제출 시 초과 사진 slot drop 기존 로직 유지
 11. buildPhotoSlots는 파생 bedrooms/bathrooms(전용합+공용)로 기존 동작 유지 — **슬롯 id 문법 `bedroom-N`/`bathroom-N` 변경 금지**
 12. i18n: 신규 키 ko+vi 동시 추가
 
 ### B. API·스키마 (BE)
 1. bedroom zod 스키마·방단위 동일값 검증(capacity·bathroomCount)을 sales route에서 `lib/villa-schema.ts`로 추출 — 3경로 공유. hasPool 보정 규칙(풀 태그→true)도 공유
-2. **POST /api/villas**: bedroomDetails[]·features[]·commonBathrooms·googleMapUrl·beachDistanceM·wifiSsid·wifiPassword·doorAccessType·doorAccessCode 수용 → 같은 트랜잭션에서 VillaBedroom·VillaFeature 생성 + 파생 스칼라 서버 계산. 미전송 시 기존 스칼라 폴백(하위호환). AuditLog에 신규 항목 기록(단, doorAccessCode·wifiPassword **값은 로그 금지** — 존재 여부만)
+2. **POST /api/villas**: bedroomDetails[]·features[]·commonBathrooms·googleMapUrl·beachDistanceM·wifiSsid·wifiPassword·accessType·accessInfo 수용 → 같은 트랜잭션에서 VillaBedroom·VillaFeature 생성 + 파생 스칼라 서버 계산. 미전송 시 기존 스칼라 폴백(하위호환). AuditLog에 신규 항목 기록(단, accessInfo·wifiPassword **값은 로그 금지** — 존재 여부만)
 3. **PUT /api/villas/[id]**(재제출): 동일 — VillaBedroom·VillaFeature 전체 교체 + 파생 재계산
 4. **PATCH /api/villas/[id]/sales**: bedrooms 자동 갱신 추가, bathrooms=전용합+commonBathrooms, maxGuests 조건부 갱신, commonBathrooms 수용
-5. 마이그레이션: 신규 3컬럼 additive — prisma schema + 라이브 raw SQL
+5. 마이그레이션: 신규 1컬럼(commonBathrooms) additive — prisma schema + 라이브 raw SQL
 6. **백필 스크립트**: bedroomDetails 있는 빌라 → **bedrooms만** 보정. bathrooms는 bathroomCount 데이터가 실제 있는 빌라 한정, maxGuests는 **리포트-only**(자동 덮어쓰기 금지). dry-run 리포트 → 별도 승인 후 실행
-7. 공급자 GET·/p 응답에 신규 필드 추가 시 **명시 select만**(include 금지) — wifiPassword·doorAccessCode는 /p·공급자 목록 절대 미포함
+7. 공급자 GET·/p 응답에 신규 필드 추가 시 **명시 select만**(include 금지) — wifiPassword·accessInfo는 /p·공급자 목록 절대 미포함
 
 ### C. 관리자 편집기·체크인 (FE)
-1. sales-editor: 공용 욕실 입력 + 출입정보(doorAccessType·doorAccessCode) 편집 추가, maxGuests 수동 오버라이드 유지
+1. sales-editor: 공용 욕실 입력 + 출입정보(accessType·accessInfo) 편집은 기존 cleaning-info-editor 존재 — 중복 편집기 금지, 진입 링크만 확인, maxGuests 수동 오버라이드 유지
 2. 체크인 상세 화면: wifiPassword 표시되는 위치에 출입정보 병기 (수집만 하고 안 보이는 죽은 데이터 방지)
 
 ### D. 범위 외 (기록만)
@@ -66,7 +66,7 @@
 4. capacity 부분입력→maxGuests 보존 / 전원입력→합 갱신 / 합>50→50 클램프. roomIndex 비연속 입력→1..N 재정규화
 5. 관리자 판매정보에서 방 4개로 저장 → bedrooms 자동 4 (V21 재발 불가)
 6. commonBathrooms>0 빌라의 청소 제출 게이트·기준 페어링 회귀 없음
-7. 누수 0: /p·공급자 목록 응답에 wifiPassword·doorAccessCode·마진·판매가 부재 (기존 /p 정적 테스트 확장). AuditLog에 비밀값 평문 없음
+7. 누수 0: /p·공급자 목록 응답에 wifiPassword·accessInfo·마진·판매가 부재 (기존 /p 정적 테스트 확장). AuditLog에 비밀값 평문 없음
 8. 백필 dry-run: V21 bedrooms 2→4 잡힘, bathrooms는 데이터 있는 빌라만, maxGuests 리포트-only
 9. 기존 테스트 전건 + 신규 파생 규칙 단위 테스트. `npm run lint && npm run typecheck && next build` 통과
 10. 세 스키마 roomIndex·방 수 상한 20 통일

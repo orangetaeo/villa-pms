@@ -238,6 +238,88 @@ describe("성공 — 스칼라 update + 자식 전체 교체 영속", () => {
     expect(tx.villaBedroom.createMany).not.toHaveBeenCalled();
     expect(tx.villaFeature.createMany).not.toHaveBeenCalled();
   });
+
+  it("bedrooms 자동 갱신 — Villa.bedrooms = distinct roomIndex (V21 재발 불가)", async () => {
+    // 방 4개로 저장 → bedrooms 자동 4 (완료기준 5)
+    const res = await req({
+      ...BASE,
+      bedrooms: [
+        { roomIndex: 1, bedType: "KING", bedCount: 1, capacity: 2, bathroomCount: 1 },
+        { roomIndex: 2, bedType: "QUEEN", bedCount: 1, capacity: 2, bathroomCount: 1 },
+        { roomIndex: 3, bedType: "TWIN", bedCount: 2, capacity: 2, bathroomCount: 1 },
+        { roomIndex: 4, bedType: "SINGLE", bedCount: 1, capacity: 1, bathroomCount: 1 },
+      ],
+    });
+    expect(res.status).toBe(200);
+    expect(tx.villa.update.mock.calls[0][0].data.bedrooms).toBe(4);
+  });
+
+  it("공용 욕실 수용 — bathrooms = 전용합 + commonBathrooms", async () => {
+    // 방 3개 각 전용 1 + 공용 1 → bathrooms=4 (완료기준 1)
+    const res = await req({
+      ...BASE,
+      commonBathrooms: 1,
+      bedrooms: [
+        { roomIndex: 1, bedType: "KING", bedCount: 1, capacity: 2, bathroomCount: 1 },
+        { roomIndex: 2, bedType: "QUEEN", bedCount: 1, capacity: 2, bathroomCount: 1 },
+        { roomIndex: 3, bedType: "DOUBLE", bedCount: 1, capacity: 2, bathroomCount: 1 },
+      ],
+    });
+    expect(res.status).toBe(200);
+    const upd = tx.villa.update.mock.calls[0][0].data;
+    expect(upd.bathrooms).toBe(4); // 전용 3 + 공용 1
+    expect(upd.commonBathrooms).toBe(1);
+    expect(upd.maxGuests).toBe(6); // capacity 전원(2+2+2)
+  });
+
+  it("capacity 부분입력이면 maxGuests 갱신 안 함(보존)", async () => {
+    const res = await req({
+      ...BASE,
+      bedrooms: [
+        { roomIndex: 1, bedType: "KING", bedCount: 1, capacity: 2 },
+        { roomIndex: 2, bedType: "TWIN", bedCount: 2, capacity: null },
+      ],
+    });
+    expect(res.status).toBe(200);
+    expect(tx.villa.update.mock.calls[0][0].data.maxGuests).toBeUndefined();
+  });
+
+  it("capacity 합 > 50 → 50 클램프", async () => {
+    const bedrooms = Array.from({ length: 20 }, (_, i) => ({
+      roomIndex: i + 1,
+      bedType: "KING" as const,
+      bedCount: 1,
+      capacity: 5,
+    }));
+    const res = await req({ ...BASE, bedrooms });
+    expect(res.status).toBe(200);
+    expect(tx.villa.update.mock.calls[0][0].data.maxGuests).toBe(50);
+  });
+
+  it("roomIndex 비연속(3,7) → 1..N 재정규화하여 저장", async () => {
+    const res = await req({
+      ...BASE,
+      bedrooms: [
+        { roomIndex: 3, bedType: "KING", bedCount: 1, capacity: 2 },
+        { roomIndex: 7, bedType: "QUEEN", bedCount: 1, capacity: 2 },
+      ],
+    });
+    expect(res.status).toBe(200);
+    expect(tx.villa.update.mock.calls[0][0].data.bedrooms).toBe(2);
+    const rows = tx.villaBedroom.createMany.mock.calls[0][0].data as unknown as Array<{
+      roomIndex: number;
+    }>;
+    expect(rows.map((r) => r.roomIndex).sort()).toEqual([1, 2]);
+  });
+
+  it("roomIndex 상한 20 초과 거부 (3스키마 통일)", async () => {
+    const res = await req({
+      ...BASE,
+      bedrooms: [{ roomIndex: 21, bedType: "KING", bedCount: 1, capacity: 2 }],
+    });
+    expect(res.status).toBe(400);
+  });
+  // 출입정보(accessType·accessInfo)는 이 sales 라우트가 아닌 cleaning-info 라우트에서 관리(TDA 결정 — 진실 이중화 방지).
 });
 
 describe("AuditLog — entity 3종 + wifiPassword 마스킹", () => {
@@ -271,10 +353,12 @@ describe("/p 누수 가드 — wifi 미포함 (정적 검증)", async () => {
   const fileURL = new URL("../app/p/[token]/page.tsx", import.meta.url);
   const src = await fs.readFile(fileURL, "utf8");
 
-  it("/p villa select에 wifiPassword·wifiSsid 부재 (주석 제외, select 키 미존재)", () => {
+  it("/p villa select에 wifiPassword·wifiSsid·accessInfo 부재 (주석 제외, select 키 미존재)", () => {
     // 주석 텍스트의 단어 언급은 무해 — 실제 select 키(`wifiX: true/false`)가 없어야 한다
     expect(src).not.toMatch(/wifiPassword\s*:/);
     expect(src).not.toMatch(/wifiSsid\s*:/);
+    // accessInfo(출입정보)는 청소직원·운영자 전용 비공개 — /p 절대 미포함
+    expect(src).not.toMatch(/accessInfo\s*:/);
   });
   it("/p villa select에 신규 공개 필드 포함 (FE 렌더 가능)", () => {
     for (const f of [

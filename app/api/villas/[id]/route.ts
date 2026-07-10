@@ -6,7 +6,13 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { createInitialInspectionTask } from "@/lib/cleaning";
-import { villaCreateSchema, villaRulesData } from "@/lib/villa-schema";
+import {
+  villaCreateSchema,
+  villaRulesData,
+  villaSalesInfoData,
+  resolveBedroomScalars,
+} from "@/lib/villa-schema";
+import { hasPoolFeatureTag } from "@/lib/features";
 import { NotificationType, type VillaStatus } from "@prisma/client";
 import { isOperator } from "@/lib/permissions";
 import { requireAuth, requireCapability } from "@/lib/api-guard";
@@ -176,6 +182,11 @@ export async function PUT(
   }
   const data = parsed.data;
 
+  // 잠자리 파생 스칼라(bedroomDetails 전송 시 body 스칼라 무시) + 풀 태그 → hasPool 보정 (POST와 동일 규칙)
+  const features = data.features ?? [];
+  const { bedrooms, bathrooms, maxGuests, rows: bedroomRows } = resolveBedroomScalars(data);
+  const hasPool = hasPoolFeatureTag(features) ? true : data.hasPool;
+
   const result = await prisma.$transaction(async (tx) => {
     const villa = await tx.villa.findUnique({
       where: { id },
@@ -191,14 +202,16 @@ export async function PUT(
         name: data.name,
         complex: data.complex || null,
         address: data.address || null,
-        bedrooms: data.bedrooms,
-        bathrooms: data.bathrooms,
-        maxGuests: data.maxGuests,
-        hasPool: data.hasPool,
+        bedrooms,
+        bathrooms,
+        maxGuests,
+        hasPool,
         breakfastAvailable: data.breakfastAvailable,
         monthlyRentVnd: data.monthlyRentVnd ? BigInt(data.monthlyRentVnd) : null,
         // 이용 규칙 — 재제출 시에도 마법사 입력 반영(미전송 시 기존값 보존: 빈 객체)
         ...villaRulesData(data.rules),
+        // v1.5 판매정보 신규 스칼라 — 부분 시맨틱(미전송 시 기존값 보존)
+        ...villaSalesInfoData(data),
         status: "PENDING_REVIEW",
         rejectionReason: null, // 재제출 — 사유 클리어 (이력은 AuditLog)
       },
@@ -231,6 +244,33 @@ export async function PUT(
           // custom일 때만 라벨 저장 (사전 항목은 i18n 키). MINIBAR drop 정책은 기존 불변.
           // ko 번역은 커밋 후 best-effort.
           customLabel: amenity.itemKey === "custom" ? amenity.customLabel ?? null : null,
+        })),
+      });
+    }
+
+    // ② 잠자리 구성(VillaBedroom) 전체 교체 — roomIndex 1..N 재정규화 행 저장 (전송 시에만)
+    await tx.villaBedroom.deleteMany({ where: { villaId: id } });
+    if (bedroomRows.length > 0) {
+      await tx.villaBedroom.createMany({
+        data: bedroomRows.map((b) => ({
+          villaId: id,
+          roomIndex: b.roomIndex,
+          roomLabel: b.roomLabel,
+          bedType: b.bedType,
+          bedCount: b.bedCount,
+          capacity: b.capacity,
+          bathroomCount: b.bathroomCount,
+        })),
+      });
+    }
+    // ⑤ 셀링포인트 태그(VillaFeature) 전체 교체
+    await tx.villaFeature.deleteMany({ where: { villaId: id } });
+    if (features.length > 0) {
+      await tx.villaFeature.createMany({
+        data: features.map((f) => ({
+          villaId: id,
+          category: f.category,
+          featureKey: f.featureKey,
         })),
       });
     }
@@ -284,8 +324,19 @@ export async function PUT(
     changes: {
       status: { old: "REJECTED", new: "PENDING_REVIEW" },
       rejectionReason: { old: "(반려됨)", new: null },
+      // 파생 스칼라(bedroomDetails 반영값)
+      bedrooms: { new: bedrooms },
+      bathrooms: { new: bathrooms },
+      maxGuests: { new: maxGuests },
+      commonBathrooms: { new: data.commonBathrooms ?? 0 },
+      bedroomDetails: { new: bedroomRows.length },
+      features: { new: features.length },
       photos: { new: data.photos.length },
       amenities: { new: data.amenities.length },
+      // ⚠ 비밀값(wifiPassword·accessInfo)은 존재 여부만, 평문 금지
+      ...(data.accessType ? { accessType: { new: data.accessType } } : {}),
+      accessInfo: { new: data.accessInfo != null && data.accessInfo !== "" },
+      wifiPassword: { new: data.wifiPassword != null && data.wifiPassword !== "" },
       supplierCostVnd: {
         new: `LOW=${data.rates.LOW},HIGH=${data.rates.HIGH},PEAK=${data.rates.PEAK}`,
       },

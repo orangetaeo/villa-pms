@@ -45,6 +45,28 @@ export default async function EditVillaPage({
       parkingSlots: true,
       baseDepositVnd: true,
       extraBedAvailable: true,
+      // v1.5 잠자리 구성·판매정보 prefill (명시 select — include 금지).
+      //   wifiPassword·accessInfo는 비공개 필드지만 자기 빌라(아래 supplierId 스코프 확인)라 허용.
+      //   출입정보는 기존 accessType/accessInfo 재사용(신규 doorAccess 컬럼 없음 — TDA 결정).
+      commonBathrooms: true,
+      googleMapUrl: true,
+      beachDistanceM: true,
+      wifiSsid: true,
+      wifiPassword: true,
+      accessType: true,
+      accessInfo: true,
+      bedroomDetails: {
+        orderBy: { roomIndex: "asc" },
+        select: {
+          roomIndex: true,
+          roomLabel: true,
+          bedType: true,
+          bedCount: true,
+          capacity: true,
+          bathroomCount: true,
+        },
+      },
+      features: { select: { category: true, featureKey: true } },
       photos: {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
         select: { space: true, spaceLabel: true, url: true },
@@ -83,6 +105,16 @@ export default async function EditVillaPage({
     },
     photos: villa.photos,
     amenities: villa.amenities,
+    // v1.5 잠자리 구성·판매정보 — UX-VN이 villaToWizardState에서 WizardState로 매핑
+    commonBathrooms: villa.commonBathrooms,
+    accessType: villa.accessType,
+    accessInfo: villa.accessInfo,
+    wifiSsid: villa.wifiSsid,
+    wifiPassword: villa.wifiPassword,
+    googleMapUrl: villa.googleMapUrl,
+    beachDistanceM: villa.beachDistanceM,
+    bedroomDetails: villa.bedroomDetails,
+    features: villa.features,
     // 마법사 rates 입력 prefill — LOW=base, HIGH/PEAK=그 시즌 첫 기간.
     //   ⚠️ prefill은 base(LOW) 폴백이 필요하다(표시·경보와 상반): 마법사는 3시즌 원가를 모두
     //   필수로 받아 비면 제출 잠김(step-rates allEntered). HIGH/PEAK 기간이 아직 없는 빌라

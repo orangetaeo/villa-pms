@@ -5,7 +5,13 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
-import { villaCreateSchema, villaRulesData } from "@/lib/villa-schema";
+import {
+  villaCreateSchema,
+  villaRulesData,
+  villaSalesInfoData,
+  resolveBedroomScalars,
+} from "@/lib/villa-schema";
+import { hasPoolFeatureTag } from "@/lib/features";
 import { serializeBigInt } from "@/lib/serialize";
 import type { Prisma, VillaStatus } from "@prisma/client";
 import { isOperator, canViewFinance } from "@/lib/permissions";
@@ -60,6 +66,11 @@ export async function POST(req: Request) {
     supplierId = supplier.id;
   }
 
+  // 잠자리 구성 → 파생 스칼라(bedroomDetails 전송 시 body 스칼라 무시). features 풀 태그 → hasPool 보정.
+  const features = data.features ?? [];
+  const { bedrooms, bathrooms, maxGuests, rows: bedroomRows } = resolveBedroomScalars(data);
+  const hasPool = hasPoolFeatureTag(features) ? true : data.hasPool;
+
   const villa = await prisma.$transaction(async (tx) => {
     const created = await tx.villa.create({
       data: {
@@ -67,17 +78,44 @@ export async function POST(req: Request) {
         name: data.name,
         complex: data.complex || null,
         address: data.address || null,
-        bedrooms: data.bedrooms,
-        bathrooms: data.bathrooms,
-        maxGuests: data.maxGuests,
-        hasPool: data.hasPool,
+        bedrooms,
+        bathrooms,
+        maxGuests,
+        hasPool,
         breakfastAvailable: data.breakfastAvailable,
         monthlyRentVnd: data.monthlyRentVnd ? BigInt(data.monthlyRentVnd) : null,
         // 이용 규칙 — 공급자가 마법사에서 입력(미전송 시 스키마 default)
         ...villaRulesData(data.rules),
+        // v1.5 판매정보 신규 스칼라(공용욕실·위치·와이파이·출입정보) — 미전송 시 컬럼 default
+        ...villaSalesInfoData(data),
         status: "PENDING_REVIEW", // 검수 게이트 — 운영자 승인(T1.2) 전 판매 불가
       },
     });
+
+    // ② 잠자리 구성(VillaBedroom) — roomIndex 1..N 재정규화된 행 저장 (전송 시에만)
+    if (bedroomRows.length > 0) {
+      await tx.villaBedroom.createMany({
+        data: bedroomRows.map((b) => ({
+          villaId: created.id,
+          roomIndex: b.roomIndex,
+          roomLabel: b.roomLabel,
+          bedType: b.bedType,
+          bedCount: b.bedCount,
+          capacity: b.capacity,
+          bathroomCount: b.bathroomCount,
+        })),
+      });
+    }
+    // ⑤ 셀링포인트 태그(VillaFeature)
+    if (features.length > 0) {
+      await tx.villaFeature.createMany({
+        data: features.map((f) => ({
+          villaId: created.id,
+          category: f.category,
+          featureKey: f.featureKey,
+        })),
+      });
+    }
 
     if (data.photos.length > 0) {
       await tx.villaPhoto.createMany({
@@ -164,10 +202,19 @@ export async function POST(req: Request) {
       supplierId: { new: supplierId },
       name: { new: data.name },
       ...(autoNameVi ? { nameVi: { new: autoNameVi } } : {}),
-      bedrooms: { new: data.bedrooms },
-      bathrooms: { new: data.bathrooms },
+      // 파생 스칼라(bedroomDetails 반영값) 기록
+      bedrooms: { new: bedrooms },
+      bathrooms: { new: bathrooms },
+      maxGuests: { new: maxGuests },
+      commonBathrooms: { new: data.commonBathrooms ?? 0 },
+      bedroomDetails: { new: bedroomRows.length },
+      features: { new: features.length },
       photos: { new: data.photos.length },
       amenities: { new: data.amenities.length },
+      // v1.5 위치·출입정보(기존 accessType/accessInfo 재사용) — ⚠ 비밀값(wifiPassword·accessInfo)은 존재 여부(boolean)만, 평문 금지
+      ...(data.accessType ? { accessType: { new: data.accessType } } : {}),
+      accessInfo: { new: data.accessInfo != null && data.accessInfo !== "" },
+      wifiPassword: { new: data.wifiPassword != null && data.wifiPassword !== "" },
       supplierCostVnd: {
         new: `LOW=${data.rates.LOW},HIGH=${data.rates.HIGH},PEAK=${data.rates.PEAK}`,
       },

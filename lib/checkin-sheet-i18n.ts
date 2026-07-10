@@ -26,6 +26,11 @@ export interface SheetLabels {
   wifi: string;
   wifiId: string;
   wifiPw: string;
+  /** 출입정보(도어락/스마트키) — 비공개 등급, ADMIN 체크인 문서 전용 */
+  access: string;
+  accessMethod: string;
+  accessDetail: string;
+  accessOpt: { KEYPAD: string; KEY: string; SMARTKEY: string; OTHER: string };
   amenities: string;
   agreement: string;
   guestSign: string;
@@ -48,7 +53,10 @@ export const SHEET_LABELS: Record<SheetLang, SheetLabels> = {
     breakfast: "조식", yes: "포함", no: "불포함",
     deposit: "보증금", depositNone: "보증금 없음", depositHeld: "보증금 수취 완료",
     depositRequired: "현장 수취 필요",
-    wifi: "와이파이", wifiId: "네트워크", wifiPw: "비밀번호", amenities: "비품",
+    wifi: "와이파이", wifiId: "네트워크", wifiPw: "비밀번호",
+    access: "출입 정보", accessMethod: "출입 방식", accessDetail: "상세",
+    accessOpt: { KEYPAD: "번호키", KEY: "열쇠", SMARTKEY: "스마트키", OTHER: "기타" },
+    amenities: "비품",
     agreement: "이용 동의서", guestSign: "게스트 서명", staffConfirm: "담당자 확인",
     signDate: "서명일", alreadySigned: "앱에서 서명 완료된 예약입니다.",
     nights: (n) => `${n}박`,
@@ -64,7 +72,10 @@ export const SHEET_LABELS: Record<SheetLang, SheetLabels> = {
     breakfast: "Bữa sáng", yes: "Có", no: "Không",
     deposit: "Tiền đặt cọc", depositNone: "Không có tiền cọc", depositHeld: "Đã nhận tiền cọc",
     depositRequired: "Cần thu tại chỗ",
-    wifi: "WiFi", wifiId: "Mạng", wifiPw: "Mật khẩu", amenities: "Tiện nghi",
+    wifi: "WiFi", wifiId: "Mạng", wifiPw: "Mật khẩu",
+    access: "Thông tin ra vào", accessMethod: "Cách vào", accessDetail: "Chi tiết",
+    accessOpt: { KEYPAD: "Khóa số", KEY: "Chìa khóa", SMARTKEY: "Khóa thông minh", OTHER: "Khác" },
+    amenities: "Tiện nghi",
     agreement: "Bản đồng ý sử dụng", guestSign: "Chữ ký khách", staffConfirm: "Xác nhận nhân viên",
     signDate: "Ngày ký", alreadySigned: "Đặt phòng đã được ký trên ứng dụng.",
     nights: (n) => `${n} đêm`,
@@ -80,7 +91,10 @@ export const SHEET_LABELS: Record<SheetLang, SheetLabels> = {
     breakfast: "Breakfast", yes: "Included", no: "Not included",
     deposit: "Deposit", depositNone: "No deposit", depositHeld: "Deposit received",
     depositRequired: "Collect on site",
-    wifi: "WiFi", wifiId: "Network", wifiPw: "Password", amenities: "Amenities",
+    wifi: "WiFi", wifiId: "Network", wifiPw: "Password",
+    access: "Access info", accessMethod: "Entry method", accessDetail: "Detail",
+    accessOpt: { KEYPAD: "Keypad", KEY: "Key", SMARTKEY: "Smart lock", OTHER: "Other" },
+    amenities: "Amenities",
     agreement: "House Rules Agreement", guestSign: "Guest signature", staffConfirm: "Staff confirmation",
     signDate: "Date", alreadySigned: "This booking was already signed in the app.",
     nights: (n) => `${n} night(s)`,
@@ -96,7 +110,10 @@ export const SHEET_LABELS: Record<SheetLang, SheetLabels> = {
     breakfast: "早餐", yes: "含", no: "不含",
     deposit: "押金", depositNone: "无押金", depositHeld: "已收押金",
     depositRequired: "现场收取",
-    wifi: "无线网络", wifiId: "网络名称", wifiPw: "密码", amenities: "设施用品",
+    wifi: "无线网络", wifiId: "网络名称", wifiPw: "密码",
+    access: "门禁信息", accessMethod: "进入方式", accessDetail: "详情",
+    accessOpt: { KEYPAD: "密码锁", KEY: "钥匙", SMARTKEY: "智能锁", OTHER: "其他" },
+    amenities: "设施用品",
     agreement: "使用守则同意书", guestSign: "客人签名", staffConfirm: "工作人员确认",
     signDate: "签署日期", alreadySigned: "此预订已在应用中签署。",
     nights: (n) => `${n}晚`,
@@ -112,7 +129,10 @@ export const SHEET_LABELS: Record<SheetLang, SheetLabels> = {
     breakfast: "Завтрак", yes: "Включён", no: "Не включён",
     deposit: "Депозит", depositNone: "Без депозита", depositHeld: "Депозит получен",
     depositRequired: "Взять на месте",
-    wifi: "WiFi", wifiId: "Сеть", wifiPw: "Пароль", amenities: "Удобства",
+    wifi: "WiFi", wifiId: "Сеть", wifiPw: "Пароль",
+    access: "Доступ", accessMethod: "Способ входа", accessDetail: "Детали",
+    accessOpt: { KEYPAD: "Кодовый замок", KEY: "Ключ", SMARTKEY: "Смарт-замок", OTHER: "Другое" },
+    amenities: "Удобства",
     agreement: "Соглашение о правилах", guestSign: "Подпись гостя", staffConfirm: "Подпись сотрудника",
     signDate: "Дата", alreadySigned: "Это бронирование уже подписано в приложении.",
     nights: (n) => `${n} ноч.`,

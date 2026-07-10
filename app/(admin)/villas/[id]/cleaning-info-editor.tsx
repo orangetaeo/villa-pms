@@ -7,10 +7,15 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import CollapsibleCard from "@/components/admin/collapsible-card";
+import { ACCESS_TYPES, type AccessType } from "@/lib/villa-schema";
 
-// 출입 방식 옵션 — 번호키/열쇠/기타. 빌라마다 다름(번호키 없는 곳도 있음).
-const ACCESS_TYPES = ["KEYPAD", "KEY", "OTHER"] as const;
-type AccessType = (typeof ACCESS_TYPES)[number];
+// 출입 방식 아이콘 (Material Symbols) — 화이트리스트(KEYPAD·KEY·SMARTKEY·OTHER)와 1:1
+const ACCESS_ICON: Record<AccessType, string> = {
+  KEYPAD: "dialpad",
+  KEY: "key",
+  SMARTKEY: "smartphone",
+  OTHER: "lock",
+};
 
 export default function CleaningInfoEditor({
   villaId,
@@ -110,9 +115,7 @@ export default function CleaningInfoEditor({
                       : "border-slate-700 bg-slate-900/60 text-slate-400 hover:text-slate-200"
                   }`}
                 >
-                  <span className="material-symbols-outlined text-sm">
-                    {type === "KEYPAD" ? "dialpad" : type === "KEY" ? "key" : "lock"}
-                  </span>
+                  <span className="material-symbols-outlined text-sm">{ACCESS_ICON[type]}</span>
                   {t(`accessTypeOpt.${type}`)}
                 </button>
               );

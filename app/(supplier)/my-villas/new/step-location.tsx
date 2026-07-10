@@ -1,8 +1,12 @@
 "use client";
 
-// 2/5 위치·참고 (a2b-location-info) — 전부 선택 입력, 건너뛰기 가능
+// 3 위치·참고 (a2b-location-info) — 전부 선택 입력, 건너뛰기 가능.
+// + 셀링포인트 태그(lib/features 사전 칩)·구글맵 링크·해변거리 프리셋 (T-bedroom-composition-sync)
 import { useTranslations } from "next-intl";
+import { FEATURE_CATEGORIES, FEATURE_ITEMS } from "@/lib/features";
 import { formatVnd, type WizardState } from "./wizard-types";
+
+const BEACH_PRESETS = [100, 300, 500, 1000] as const;
 
 interface Props {
   state: WizardState;
@@ -14,6 +18,15 @@ interface Props {
 export default function StepLocation({ state, update, onNext, onChangeComplex }: Props) {
   const t = useTranslations("wizard.location");
   const tw = useTranslations("wizard");
+  const tFeat = useTranslations("features");
+
+  const featureSet = new Set(state.features);
+  function toggleFeature(featureKey: string) {
+    const next = new Set(featureSet);
+    if (next.has(featureKey)) next.delete(featureKey);
+    else next.add(featureKey);
+    update({ features: [...next] });
+  }
 
   return (
     <>
@@ -106,6 +119,124 @@ export default function StepLocation({ state, update, onNext, onChangeComplex }:
               <span className="material-symbols-outlined mt-0.5 text-sm text-amber-600">info</span>
               <p className="text-xs leading-relaxed text-amber-800">{t("rentInfo")}</p>
             </div>
+          </section>
+
+          {/* 셀링포인트 태그 — 사전 칩 다중선택 (카테고리별 섹션) */}
+          <section>
+            <div className="mb-1 flex items-center gap-2">
+              <span className="material-symbols-outlined text-teal-600">sell</span>
+              <h3 className="text-sm font-semibold text-neutral-700">{t("featuresTitle")}</h3>
+            </div>
+            <p className="mb-3 text-sm text-neutral-400">{t("featuresHint")}</p>
+            <div className="space-y-4">
+              {FEATURE_CATEGORIES.map((category) => (
+                <div key={category}>
+                  <p className="mb-2 px-0.5 text-xs font-bold uppercase tracking-wider text-neutral-400">
+                    {tFeat(`categories.${category}`)}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {FEATURE_ITEMS[category].map((item) => {
+                      const on = featureSet.has(item.featureKey);
+                      return (
+                        <button
+                          key={item.featureKey}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => toggleFeature(item.featureKey)}
+                          className={`flex items-center gap-1.5 rounded-full border-2 px-3 py-2 text-sm font-medium transition-all active:scale-95 ${
+                            on
+                              ? "border-teal-500 bg-teal-50 text-teal-700"
+                              : "border-neutral-200 bg-white text-neutral-500"
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-base">{item.icon}</span>
+                          <span className="whitespace-nowrap">{tFeat(`items.${item.featureKey}`)}</span>
+                          {on && <span className="material-symbols-outlined text-base">check</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* 구글 지도 링크 (선택) */}
+          <section>
+            <div className="mb-2 flex items-end justify-between">
+              <label className="block text-sm font-medium text-neutral-700" htmlFor="gmap-url">
+                {t("mapUrl")}
+              </label>
+              <span className="rounded bg-neutral-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                {t("optional")}
+              </span>
+            </div>
+            <div className="relative">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                <span className="material-symbols-outlined text-neutral-400">map</span>
+              </div>
+              <input
+                id="gmap-url"
+                type="url"
+                inputMode="url"
+                value={state.googleMapUrl}
+                onChange={(e) => update({ googleMapUrl: e.target.value })}
+                placeholder={t("mapUrlPlaceholder")}
+                maxLength={2000}
+                className="block w-full rounded-xl border border-neutral-200 bg-white py-4 pl-11 pr-4 text-base transition-all focus:border-teal-500 focus:ring-2 focus:ring-teal-500"
+              />
+            </div>
+            <p className="mt-2 text-sm text-neutral-400">{t("mapUrlHint")}</p>
+          </section>
+
+          {/* 해변까지 거리 (선택) — 프리셋 칩 + 직접 조정 */}
+          <section>
+            <div className="mb-2 flex items-end justify-between">
+              <label className="flex items-center gap-1.5 text-sm font-medium text-neutral-700">
+                <span className="material-symbols-outlined text-teal-600">beach_access</span>
+                {t("beachDistance")}
+              </label>
+              <span className="rounded bg-neutral-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                {t("optional")}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {BEACH_PRESETS.map((m) => {
+                const on = state.beachDistanceM === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => update({ beachDistanceM: on ? null : m })}
+                    className={`rounded-full border-2 px-4 py-2 text-sm font-semibold tabular-nums transition-all active:scale-95 ${
+                      on ? "border-teal-500 bg-teal-50 text-teal-700" : "border-neutral-200 bg-white text-neutral-500"
+                    }`}
+                  >
+                    {t("beachPreset", { m })}
+                  </button>
+                );
+              })}
+            </div>
+            {/* 직접 조정 — 프리셋에 없는 값 */}
+            <div className="relative mt-3">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={state.beachDistanceM != null ? String(state.beachDistanceM) : ""}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, "").slice(0, 6);
+                  update({ beachDistanceM: digits ? Math.min(100000, Number(digits)) : null });
+                }}
+                placeholder="0"
+                aria-label={t("beachDistance")}
+                className="block w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 pr-12 text-base tabular-nums transition-all focus:border-teal-500 focus:ring-2 focus:ring-teal-500"
+              />
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4">
+                <span className="text-sm font-semibold text-neutral-400">m</span>
+              </div>
+            </div>
+            <p className="mt-2 text-sm text-neutral-400">{t("beachDistanceHint")}</p>
           </section>
         </div>
       </main>

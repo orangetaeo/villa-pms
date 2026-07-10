@@ -23,6 +23,10 @@ const SUPPLIER_CLIENT_NAMESPACES = [
   "calendar",
   "wizard",
   "amenities",
+  // 등록 마법사 잠자리 스텝(step-bedding)·셀링포인트 칩(step-location) — 침대종류·셀링포인트 라벨.
+  //   누락 시 bedding.KING·features.items.* 가 raw 키로 깨짐 (T-bedroom-composition-sync).
+  "bedding",
+  "features",
   "tabs",
   "account",
   "pagination",

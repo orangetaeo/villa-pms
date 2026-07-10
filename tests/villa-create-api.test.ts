@@ -3,7 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // T-admin-villa-register — POST /api/villas: SUPPLIER 자기등록 + ADMIN 직접등록(공급자 선택 귀속) 검증
 const mockAuth = vi.fn();
 vi.mock("@/auth", () => ({ auth: (...a: unknown[]) => mockAuth(...a) }));
-vi.mock("@/lib/audit-log", () => ({ writeAuditLog: vi.fn(async () => {}) }));
+const auditCalls: Array<{ entity: string; action: string; changes?: unknown }> = [];
+vi.mock("@/lib/audit-log", () => ({
+  writeAuditLog: vi.fn(async (p: { entity: string; action: string; changes?: unknown }) => {
+    auditCalls.push({ entity: p.entity, action: p.action, changes: p.changes });
+  }),
+}));
 // custom 라벨 번역은 커밋 후 best-effort — 저장 경로 테스트에선 no-op 목으로 격리(개별 실패 케이스만 reject).
 const mockTranslateAmenities = vi.fn();
 vi.mock("@/lib/amenity-translate", () => ({
@@ -14,6 +19,8 @@ const tx = {
   villa: { create: vi.fn(async () => ({ id: "villa-new", status: "PENDING_REVIEW" })) },
   villaPhoto: { createMany: vi.fn(async () => ({})) },
   villaAmenity: { createMany: vi.fn(async () => ({})) },
+  villaBedroom: { createMany: vi.fn(async () => ({})) },
+  villaFeature: { createMany: vi.fn(async () => ({})) },
   // ADR-0014: 요율은 VillaRatePeriod (base 1행 + 전역 비-LOW 시즌 N행).
   villaRatePeriod: { create: vi.fn(async () => ({})), createMany: vi.fn(async () => ({})) },
   seasonPeriod: { findMany: vi.fn(async () => []) },
@@ -52,6 +59,7 @@ const postReq = (body: unknown) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  auditCalls.length = 0;
   tx.villa.create.mockResolvedValue({ id: "villa-new", status: "PENDING_REVIEW" });
   mockTranslateAmenities.mockResolvedValue(undefined);
 });
@@ -228,5 +236,120 @@ describe("POST /api/villas — 직접입력(custom) 비품", () => {
     });
     expect(res.status).toBe(201);
     expect(mockTranslateAmenities).toHaveBeenCalledWith("villa-new");
+  });
+});
+
+describe("POST /api/villas — 잠자리 구성 파생 (T-bedroom-composition-sync)", () => {
+  beforeEach(() => mockAuth.mockResolvedValue({ user: { id: "sup-1", role: "SUPPLIER" } }));
+
+  it("bedroomDetails 전송 시 body 스칼라 무시하고 파생값 저장 + VillaBedroom/Feature 생성", async () => {
+    const res = await postReq({
+      ...VALID_BODY,
+      bedrooms: 1, // ← 불일치 주입(스키마 범위 내): 무시되고 파생 3이 저장돼야 함
+      bathrooms: 1,
+      maxGuests: 2,
+      commonBathrooms: 1,
+      bedroomDetails: [
+        { roomIndex: 1, bedType: "KING", bedCount: 1, capacity: 2, bathroomCount: 1 },
+        { roomIndex: 2, bedType: "QUEEN", bedCount: 1, capacity: 2, bathroomCount: 1 },
+        { roomIndex: 3, bedType: "TWIN", bedCount: 2, capacity: 2, bathroomCount: 1 },
+      ],
+      features: [{ category: "VIEW", featureKey: "viewSea" }],
+    });
+    expect(res.status).toBe(201);
+    const created = (tx.villa.create.mock.calls[0] as unknown[])[0] as {
+      data: { bedrooms: number; bathrooms: number; maxGuests: number; commonBathrooms: number };
+    };
+    expect(created.data.bedrooms).toBe(3); // distinct roomIndex (99 무시)
+    expect(created.data.bathrooms).toBe(4); // 전용 3 + 공용 1
+    expect(created.data.maxGuests).toBe(6); // 2+2+2
+    expect(created.data.commonBathrooms).toBe(1);
+    expect(tx.villaBedroom.createMany).toHaveBeenCalled();
+    expect(tx.villaFeature.createMany).toHaveBeenCalled();
+  });
+
+  it("bedroomDetails 미전송 → body 스칼라 폴백(하위호환), 자식 생성 안 함", async () => {
+    const res = await postReq({ ...VALID_BODY, bedrooms: 3, bathrooms: 2, maxGuests: 6 });
+    expect(res.status).toBe(201);
+    const created = (tx.villa.create.mock.calls[0] as unknown[])[0] as {
+      data: { bedrooms: number; bathrooms: number; maxGuests: number };
+    };
+    expect(created.data.bedrooms).toBe(3);
+    expect(created.data.bathrooms).toBe(2);
+    expect(created.data.maxGuests).toBe(6);
+    expect(tx.villaBedroom.createMany).not.toHaveBeenCalled();
+  });
+
+  it("빈 bedroomDetails 배열 → body 스칼라 폴백(0 저장 없음)", async () => {
+    const res = await postReq({ ...VALID_BODY, bedroomDetails: [], features: [] });
+    expect(res.status).toBe(201);
+    const created = (tx.villa.create.mock.calls[0] as unknown[])[0] as {
+      data: { bedrooms: number };
+    };
+    expect(created.data.bedrooms).toBe(3); // VALID_BODY.bedrooms
+    expect(tx.villaBedroom.createMany).not.toHaveBeenCalled();
+  });
+
+  it("풀 태그(privatePool) 전송 시 hasPool=true 강제 보정", async () => {
+    const res = await postReq({
+      ...VALID_BODY,
+      hasPool: false,
+      features: [{ category: "FACILITY", featureKey: "privatePool" }],
+    });
+    expect(res.status).toBe(201);
+    const created = (tx.villa.create.mock.calls[0] as unknown[])[0] as {
+      data: { hasPool: boolean };
+    };
+    expect(created.data.hasPool).toBe(true);
+  });
+
+  it("비밀값(wifiPassword·accessInfo)은 AuditLog에 존재여부(boolean)만, 평문 금지", async () => {
+    // 출입정보는 기존 accessType/accessInfo 재사용(신규 doorAccess 컬럼 없음 — TDA 결정)
+    const res = await postReq({
+      ...VALID_BODY,
+      wifiPassword: "wifi-secret-777",
+      accessType: "SMARTKEY",
+      accessInfo: "door-secret-333",
+    });
+    expect(res.status).toBe(201);
+    // accessType/accessInfo가 Villa create data에 저장되는지 확인
+    const created = (tx.villa.create.mock.calls[0] as unknown[])[0] as {
+      data: { accessType: string; accessInfo: string };
+    };
+    expect(created.data.accessType).toBe("SMARTKEY");
+    expect(created.data.accessInfo).toBe("door-secret-333");
+    const villaLog = auditCalls.find((c) => c.entity === "Villa");
+    const changes = villaLog?.changes as Record<string, { new?: unknown }>;
+    expect(changes.wifiPassword).toEqual({ new: true });
+    expect(changes.accessInfo).toEqual({ new: true }); // 값 아닌 존재여부만
+    expect(changes.accessType).toEqual({ new: "SMARTKEY" });
+    // 평문 비밀값이 어떤 AuditLog에도 직렬화되지 않아야 함
+    expect(JSON.stringify(auditCalls)).not.toContain("wifi-secret-777");
+    expect(JSON.stringify(auditCalls)).not.toContain("door-secret-333");
+  });
+
+  it("accessType 화이트리스트 밖 값 거부(SMARTKEY 추가·기존 KEYPAD/KEY/OTHER 유지)", async () => {
+    expect((await postReq({ ...VALID_BODY, accessType: "FINGERPRINT" })).status).toBe(400);
+    expect((await postReq({ ...VALID_BODY, accessType: "KEYPAD" })).status).toBe(201);
+  });
+
+  it("roomIndex 상한 20 초과 거부", async () => {
+    const res = await postReq({
+      ...VALID_BODY,
+      bedroomDetails: [{ roomIndex: 21, bedType: "KING", bedCount: 1, capacity: 2 }],
+    });
+    expect(res.status).toBe(400);
+    expect(tx.villa.create).not.toHaveBeenCalled();
+  });
+
+  it("같은 roomIndex capacity 불일치 거부", async () => {
+    const res = await postReq({
+      ...VALID_BODY,
+      bedroomDetails: [
+        { roomIndex: 1, bedType: "KING", bedCount: 1, capacity: 2 },
+        { roomIndex: 1, bedType: "SINGLE", bedCount: 1, capacity: 4 },
+      ],
+    });
+    expect(res.status).toBe(400);
   });
 });
