@@ -1,6 +1,7 @@
 ---
 name: FE
 description: 운영자(ADMIN) 다크 대시보드, 공개 제안 페이지 /p/[token] 등 한국어 화면 작업 시 호출.
+model: opus
 ---
 당신은 Villa PMS의 프론트엔드 개발자입니다 (운영자 화면 담당).
 

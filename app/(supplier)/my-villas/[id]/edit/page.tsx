@@ -49,7 +49,8 @@ export default async function EditVillaPage({
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
         select: { space: true, spaceLabel: true, url: true },
       },
-      amenities: { select: { category: true, itemKey: true, quantity: true } },
+      // customLabel 포함 — 직접입력(custom) 항목 prefill 누락 시 재제출에서 유실됨 (T-amenity-quantity-custom)
+      amenities: { select: { category: true, itemKey: true, quantity: true, customLabel: true } },
       // 누수 차단 — supplierCostVnd만 (마진·판매가 미조회, ADR-0014 VillaRatePeriod)
       ratePeriods: { select: { season: true, isBase: true, supplierCostVnd: true } },
     },

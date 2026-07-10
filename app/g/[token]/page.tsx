@@ -59,7 +59,7 @@ export default async function GuestCheckinPage({
   const byCategory = new Map<string, string[]>();
   for (const a of data.amenities) {
     if (!AMENITY_ORDER.includes(a.category)) continue;
-    const label = amenityLabel(a.itemKey, sheetLang, a.customLabel);
+    const label = amenityLabel(a.itemKey, sheetLang, a.customLabel, a.customLabelKo);
     const arr = byCategory.get(a.category) ?? [];
     arr.push(label);
     byCategory.set(a.category, arr);

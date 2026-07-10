@@ -1583,7 +1583,7 @@
   },
   "amenities": {
     "title": "Tiện nghi & đồ dùng",
-    "guide": "Chỉ chạm vào những món villa có — danh sách này sẽ hiển thị cho khách.",
+    "guide": "Chỉ chạm vào những món villa có và ghi đúng số lượng — danh sách này sẽ hiển thị cho khách.",
     "guideMinibar": "Minibar: nhập số lượng sẽ để sẵn trong villa bằng nút +/−.",
     "optional": "Không bắt buộc",
     "editTitle": "Chỉnh sửa tiện nghi",
@@ -1656,7 +1656,15 @@
     "customNamePlaceholder": "Tên món",
     "customNameLabel": "Tên món",
     "addCustom": "Thêm món minibar",
-    "removeCustom": "Xóa"
+    "removeCustom": "Xóa",
+    "customSectionTitle": "Tự thêm món",
+    "customCaption": "Món không có trong danh sách? Tự nhập tên và ghi đúng số lượng.",
+    "customPlaceholder": "Nhập tên món (VD: giường cho bé)",
+    "addItem": "Thêm",
+    "customMax": "Mỗi mục thêm tối đa {max} món.",
+    "pendingTranslation": "Chờ dịch",
+    "decrease": "Giảm số lượng",
+    "increase": "Tăng số lượng"
   },
   "calendar": {
     "title": "Lịch",

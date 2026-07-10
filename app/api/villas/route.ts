@@ -13,6 +13,7 @@ import { requireAuth } from "@/lib/api-guard";
 import { buildRatePeriodRowsFromSeasonCosts, representativeRatesBySeason } from "@/lib/pricing";
 import { romanizeVillaName } from "@/lib/gemini";
 import { notifyOperatorsVillaPendingReview } from "@/lib/villa-notify";
+import { translateVillaCustomAmenities } from "@/lib/amenity-translate";
 
 export async function POST(req: Request) {
   // 권한 검사 — SUPPLIER(자기 빌라) + ADMIN(테오 직접등록) 허용 (P1-S8: 중앙 가드 + 복합 역할조건 유지)
@@ -101,6 +102,8 @@ export async function POST(req: Request) {
           category: amenity.category,
           itemKey: amenity.itemKey,
           quantity: amenity.quantity,
+          // custom일 때만 라벨 저장 (사전 항목은 i18n 키로 표기). ko 번역은 커밋 후 best-effort.
+          customLabel: amenity.itemKey === "custom" ? amenity.customLabel ?? null : null,
         })),
       });
     }
@@ -140,6 +143,13 @@ export async function POST(req: Request) {
     }
   } catch {
     // 음역 실패/키 미설정 — 무시. nameVi는 상세 화면에서 자동 제안·수정할 수 있다.
+  }
+
+  // custom 비품 라벨 vi→ko 저장형 번역 (best-effort) — 트랜잭션 밖·커밋 후. 실패해도 등록은 성공.
+  try {
+    await translateVillaCustomAmenities(villa.id);
+  } catch {
+    // 번역 파이프라인 실패는 응답에 전파하지 않는다(함수 내부도 자체 격리).
   }
 
   // 감사 로그 — 데이터 변경 API 동시 기록 (글로벌 절대 규칙)

@@ -10,6 +10,7 @@ import { isValidAmenity } from "@/lib/amenities";
 import { isOperator } from "@/lib/permissions";
 import { requireAuth } from "@/lib/api-guard";
 import { maybeNotifyVillaContentUpdated } from "@/lib/villa-notify";
+import { translateVillaCustomAmenities } from "@/lib/amenity-translate";
 
 // VND 동 단위 양수 문자열 (미니바 고객 청구 단가 — BigInt는 JSON 직렬화 불가하므로 문자열 수신)
 const vndPositiveDigits = z.string().regex(/^[1-9]\d{0,14}$/);
@@ -33,8 +34,10 @@ const amenitiesPatchSchema = z.object({
     )
     .max(80)
     .superRefine((items, ctx) => {
+      // 카테고리별 custom 개수 — 카테고리당 10개 상한 (villa-schema와 동일 규칙)
+      const customCountByCategory: Record<string, number> = {};
       items.forEach((item, index) => {
-        // 사전 검증 — 임의 itemKey 주입 차단 (custom은 MINIBAR만 통과, lib/amenities)
+        // 사전 검증 — 임의 itemKey 주입 차단 (custom은 허용 카테고리만, lib/amenities)
         if (!isValidAmenity(item.category, item.itemKey)) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
@@ -42,13 +45,24 @@ const amenitiesPatchSchema = z.object({
             message: `Unknown amenity item: ${item.category}/${item.itemKey}`,
           });
         }
-        // custom이면 customLabel 필수 (텍스트 식별 불가 항목 차단)
-        if (item.itemKey === "custom" && !item.customLabel) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [index, "customLabel"],
-            message: "customLabel is required when itemKey is 'custom'",
-          });
+        if (item.itemKey === "custom") {
+          // custom이면 customLabel 필수 (텍스트 식별 불가 항목 차단)
+          if (!item.customLabel) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: [index, "customLabel"],
+              message: "customLabel is required when itemKey is 'custom'",
+            });
+          }
+          const next = (customCountByCategory[item.category] ?? 0) + 1;
+          customCountByCategory[item.category] = next;
+          if (next > 10) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: [index, "customLabel"],
+              message: `Too many custom amenities in ${item.category} (max 10)`,
+            });
+          }
         }
       });
     }),
@@ -137,6 +151,12 @@ export async function PATCH(
 
   if (result.kind === "NOT_FOUND") {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
+  // custom 비품 라벨 vi→ko 저장형 번역 (best-effort) — 트랜잭션 밖·커밋 후. 실패해도 저장은 성공.
+  try {
+    await translateVillaCustomAmenities(id);
+  } catch {
+    // 번역 파이프라인 실패는 응답에 전파하지 않는다(함수 내부도 자체 격리).
   }
   // 승인 후 공급자 비품 변경 → 운영자 통지 (ACTIVE만·PENDING dedup·best-effort)
   await maybeNotifyVillaContentUpdated(prisma, {
