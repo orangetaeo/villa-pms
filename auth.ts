@@ -219,16 +219,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           // 그랜드파더 — 기능 도입 전 발급 토큰: 현재 baseline 채택(1회), 무효화 안 함(대량 락아웃 방지).
           const u = await prisma.user.findUnique({
             where: { id: token.id },
-            select: { passwordChangedAt: true },
+            select: { passwordChangedAt: true, isActive: true, deletedAt: true },
           });
-          token.pwdAt = u?.passwordChangedAt ? u.passwordChangedAt.getTime() : 0;
+          // 계정이 삭제(하드/소프트)·비활성이면 세션 즉시 무효 — 유령 세션 차단.
+          // (하드 삭제된 계정의 JWT가 살아남아 화면은 열리는데 감사로그 FK로 모든 변경이
+          //  500 나던 실사고: 빌라 승인 불가, 2026-07-10. 로그인 차단은 authorize가 하지만
+          //  기존 토큰은 여기서 걸러야 한다.)
+          if (!u || !u.isActive || u.deletedAt) return null;
+          token.pwdAt = u.passwordChangedAt ? u.passwordChangedAt.getTime() : 0;
           token.pwdCk = now;
         } else if (shouldRecheckPassword(token.pwdCk, now)) {
           const u = await prisma.user.findUnique({
             where: { id: token.id },
-            select: { passwordChangedAt: true },
+            select: { passwordChangedAt: true, isActive: true, deletedAt: true },
           });
-          const dbMs = u?.passwordChangedAt ? u.passwordChangedAt.getTime() : null;
+          // 계정 삭제·비활성 → 세션 무효 (위와 동일 — 재확인 주기마다 검사, 최대 60초 내 차단)
+          if (!u || !u.isActive || u.deletedAt) return null;
+          const dbMs = u.passwordChangedAt ? u.passwordChangedAt.getTime() : null;
           if (isPasswordSessionStale(token.pwdAt, dbMs)) {
             // 비밀번호가 토큰 발급 이후 변경됨 → 이 세션 무효(타 디바이스 강제 로그아웃).
             return null;
