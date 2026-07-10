@@ -44,7 +44,7 @@ export default async function UsersPage({
     ? (roleParam as InitialTab)
     : "all";
 
-  const [users, unlinked] = await Promise.all([
+  const [users, unlinked, linkedConvos] = await Promise.all([
     prisma.user.findMany({
       // 소프트 삭제된 계정 제외 (deletedAt=null만 노출)
       where: { deletedAt: null },
@@ -64,13 +64,27 @@ export default async function UsersPage({
       },
       orderBy: { createdAt: "desc" },
     }),
-    // 미가입 Zalo 팔로워 (userId 미연결) — 수동 매칭 후보
+    // 미가입 Zalo 팔로워 (userId 미연결) — 수동 매칭 후보.
+    // threadType USER만(그룹 제외), 최근 활동순(대화 없는 행은 뒤로) — 동명 계정 구분·상위 노출용.
     prisma.zaloConversation.findMany({
-      where: { userId: null },
-      select: { id: true, zaloUserId: true, displayName: true },
-      orderBy: { createdAt: "desc" },
+      where: { userId: null, threadType: "USER" },
+      select: { id: true, zaloUserId: true, displayName: true, lastMessageAt: true },
+      orderBy: { lastMessageAt: { sort: "desc", nulls: "last" } },
+    }),
+    // 연결된 대화방 이름 매핑 — "연결됨" 아래에 어느 대화방인지 표시(수동 매칭 검증용)
+    prisma.zaloConversation.findMany({
+      where: { userId: { not: null } },
+      select: { userId: true, displayName: true },
     }),
   ]);
+
+  // userId → 연결 대화방 이름(첫 행 우선; 관리자별 중복 행이 있어도 표시용은 하나면 충분)
+  const zaloNameByUserId = new Map<string, string | null>();
+  for (const c of linkedConvos) {
+    if (c.userId && !zaloNameByUserId.has(c.userId)) {
+      zaloNameByUserId.set(c.userId, c.displayName);
+    }
+  }
 
   const userRows: UserRow[] = users.map((u) => ({
     id: u.id,
@@ -84,12 +98,16 @@ export default async function UsersPage({
     villaCount: u._count.villas,
     partnerId: u.partnerAccount?.id ?? null,
     vendorId: u.vendorAccount?.id ?? null,
+    // 연결된 대화방 표시명 (미연결이면 매핑에 없음 → null) — 매핑 키는 시스템 User.id
+    zaloName: u.zaloUserId ? (zaloNameByUserId.get(u.id) ?? null) : null,
   }));
 
   const unlinkedZalo: UnlinkedZaloRow[] = unlinked.map((c) => ({
     id: c.id,
     zaloUserId: c.zaloUserId,
     displayName: c.displayName,
+    // 최근 활동일 표시용 YYYY.MM.DD (없으면 null → 클라에서 "대화 없음")
+    lastMessageAt: c.lastMessageAt ? toDotDate(c.lastMessageAt) : null,
   }));
 
   const tTour = await getTranslations("tour");

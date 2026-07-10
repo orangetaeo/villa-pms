@@ -2739,6 +2739,11 @@
       "noName": "이름 없음",
       "connect": "연결",
       "cancel": "취소",
+      "change": "변경",
+      "searchPlaceholder": "대화방 이름 검색",
+      "noActivity": "대화 없음",
+      "noSearchResult": "검색 결과가 없습니다.",
+      "overflowHint": "외 {count}건 — 검색으로 좁히세요.",
       "linked": "Zalo가 연결되었습니다.",
       "unlinked": "Zalo 연결이 해제되었습니다."
     },

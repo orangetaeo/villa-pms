@@ -2853,6 +2853,11 @@
       "noName": "Không có tên",
       "connect": "Liên kết",
       "cancel": "Hủy",
+      "change": "Thay đổi",
+      "searchPlaceholder": "Tìm theo tên cuộc trò chuyện",
+      "noActivity": "Chưa có tin nhắn",
+      "noSearchResult": "Không tìm thấy kết quả.",
+      "overflowHint": "Còn {count} mục nữa — hãy thu hẹp bằng tìm kiếm.",
       "linked": "Đã liên kết Zalo.",
       "unlinked": "Đã hủy liên kết Zalo."
     },
