@@ -127,6 +127,108 @@ export const TOURS = {
       { anchor: "inspections-actions", key: "adminInspections.actions" },
     ],
   },
+  // ── 전수 확장(T-tutorial-onboarding-6) — 관리자 10종 + 포털 3종 (FE·UX-VN 회의 확정).
+  //    /cost-alerts·/activity·/zalo-connect·프로필류는 제외(열람 전용·화면 자체가 안내·단일 폼).
+  adminAvailability: {
+    route: "/availability",
+    steps: [
+      { anchor: "avail-filters", key: "adminAvailability.filters" },
+      { anchor: "avail-legend", key: "adminAvailability.legend" },
+      { anchor: "avail-grid", key: "adminAvailability.grid" },
+    ],
+  },
+  adminSettlements: {
+    route: "/settlements",
+    steps: [
+      { anchor: "settle-month", key: "adminSettlements.month" },
+      { anchor: "settle-summary", key: "adminSettlements.summary" },
+      { anchor: "settle-finance", key: "adminSettlements.finance" },
+    ],
+  },
+  adminReceivables: {
+    route: "/receivables",
+    steps: [
+      { anchor: "recv-kpi", key: "adminReceivables.kpi" },
+      { anchor: "recv-aging", key: "adminReceivables.aging" },
+      { anchor: "recv-partners", key: "adminReceivables.partners" },
+    ],
+  },
+  adminServiceOrders: {
+    route: "/service-orders",
+    steps: [
+      { anchor: "sorders-summary", key: "adminServiceOrders.summary" },
+      { anchor: "sorders-tabs", key: "adminServiceOrders.tabs" },
+      { anchor: "sorders-filters", key: "adminServiceOrders.filters" },
+    ],
+  },
+  adminRevenue: {
+    route: "/revenue",
+    steps: [
+      { anchor: "revenue-filters", key: "adminRevenue.filters" },
+      { anchor: "revenue-summary", key: "adminRevenue.summary" },
+      { anchor: "revenue-export", key: "adminRevenue.export" },
+    ],
+  },
+  adminStatistics: {
+    route: "/statistics",
+    steps: [
+      { anchor: "stats-tabs", key: "adminStatistics.tabs" },
+      { anchor: "stats-period", key: "adminStatistics.period" },
+    ],
+  },
+  adminInventory: {
+    route: "/inventory",
+    steps: [
+      { anchor: "inv-stock", key: "adminInventory.stock" },
+      { anchor: "inv-inbound", key: "adminInventory.inbound" },
+    ],
+  },
+  adminUsers: {
+    route: "/users",
+    steps: [
+      { anchor: "users-add", key: "adminUsers.add" },
+      { anchor: "users-filters", key: "adminUsers.filters" },
+      { anchor: "users-list", key: "adminUsers.list" },
+    ],
+  },
+  adminPartners: {
+    route: "/partners",
+    steps: [
+      { anchor: "partners-new", key: "adminPartners.new" },
+      { anchor: "partners-list", key: "adminPartners.list" },
+    ],
+  },
+  adminSettings: {
+    route: "/settings",
+    steps: [
+      { anchor: "settings-season", key: "adminSettings.season" },
+      { anchor: "settings-hold", key: "adminSettings.hold" },
+      { anchor: "settings-sub", key: "adminSettings.sub" },
+    ],
+  },
+  earnings: {
+    route: "/earnings",
+    steps: [
+      { anchor: "earnings-tabs", key: "earnings.tabs" },
+      { anchor: "earnings-period", key: "earnings.period" },
+      { anchor: "earnings-kpi", key: "earnings.kpi" },
+    ],
+  },
+  myBookings: {
+    route: "/my-bookings",
+    steps: [
+      { anchor: "mybook-card", key: "myBookings.card" },
+      { anchor: "mybook-action", key: "myBookings.action" },
+    ],
+  },
+  vendorStats: {
+    route: "/vendor/stats",
+    steps: [
+      { anchor: "vstats-period", key: "vendorStats.period" },
+      { anchor: "vstats-kpi", key: "vendorStats.kpi" },
+      { anchor: "vstats-settle", key: "vendorStats.settle" },
+    ],
+  },
   // 벤더 발주함 — 앵커는 즉시 렌더되는 탭 버튼 3개만(카드는 클라 fetch 비동기 → 앵커 금지).
   // 완료보고는 일정(schedule) 탭 UI에 있으므로 그 스텝 문구가 담당(FE·UX-VN 회의 확정).
   vendorBoard: {

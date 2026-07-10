@@ -20,6 +20,8 @@ import {
   resolveStatsPeriod,
   loadDataFloor,
 } from "@/lib/statistics";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 import RevenueClient from "./revenue-client";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -109,7 +111,10 @@ export default async function RevenuePage({
     presetKey: period.presetKey,
   };
 
+  const tTour = await getTranslations("tour");
+
   return (
+    <>
     <RevenueClient
       txns={serializeBigInt(txns) as never}
       totals={serializeBigInt(totals) as never}
@@ -125,5 +130,13 @@ export default async function RevenuePage({
         includeAllStatuses,
       }}
     />
+
+    {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 "?"로 재생 (T-tutorial-onboarding-6) */}
+    <CoachMark
+      tourId="adminRevenue"
+      steps={buildTourSteps(tTour, "adminRevenue")}
+      labels={buildTourLabels(tTour)}
+    />
+    </>
   );
 }

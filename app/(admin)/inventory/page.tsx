@@ -8,6 +8,8 @@ import { auth } from "@/auth";
 import { isOperator, canViewFinance, canSetPrice, type Role } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { loadInventoryMatrix } from "@/lib/minibar-inventory-load";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 import InventoryTabs from "./inventory-tabs";
 import type { MinibarRow } from "./minibar-manager";
 
@@ -85,15 +87,26 @@ export default async function InventoryPage() {
     }
   }
 
+  const tTour = await getTranslations("tour");
+
   return (
-    <InventoryTabs
-      rows={rows}
-      summary={summary}
-      villaOptions={villaOptions}
-      itemOptions={itemOptions}
-      showCost={showCost}
-      minibarItems={minibarItems}
-      canManageItems={canManageItems}
-    />
+    <>
+      <InventoryTabs
+        rows={rows}
+        summary={summary}
+        villaOptions={villaOptions}
+        itemOptions={itemOptions}
+        showCost={showCost}
+        minibarItems={minibarItems}
+        canManageItems={canManageItems}
+      />
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 "?"로 재생 (T-tutorial-onboarding-6) */}
+      <CoachMark
+        tourId="adminInventory"
+        steps={buildTourSteps(tTour, "adminInventory")}
+        labels={buildTourLabels(tTour)}
+      />
+    </>
   );
 }
