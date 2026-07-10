@@ -176,6 +176,10 @@ describe("data-tour 앵커 실존 — 정의된 앵커가 대상 화면 소스�
     partnerProposals: ["app/partner/proposals/page.tsx"],
     vendorBoard: ["components/vendor/vendor-board.tsx"],
     adminDashboard: ["app/(admin)/dashboard/page.tsx", "components/admin/sidebar.tsx"],
+    adminBookings: ["app/(admin)/bookings/page.tsx"],
+    adminVillas: ["app/(admin)/villas/page.tsx"],
+    adminProposals: ["app/(admin)/proposals/proposals-list.tsx"],
+    adminInspections: ["app/(admin)/inspections/inspections-view.tsx"],
   };
 
   it.each(Object.keys(TOURS) as TourId[])("[%s] 전 앵커가 소스에 존재", (tourId) => {

@@ -291,7 +291,10 @@ export default function InspectionsView({
       {/* 페이지 헤더 + 상태 필터 탭 (b6 + 기존 admin 탭 패턴) */}
       <div className="flex flex-col gap-6 mb-6">
         <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
-        <div className="flex items-center gap-2 border-b border-admin-card overflow-x-auto">
+        <div
+          data-tour="inspections-tabs"
+          className="flex items-center gap-2 border-b border-admin-card overflow-x-auto"
+        >
           {TABS.map((key) => {
             const active = tab === key;
             return (
@@ -364,7 +367,9 @@ export default function InspectionsView({
       {/* 2패널 (b6) — 데스크톱: 좌 1/3 목록 + 우 상세 독립 스크롤 / <768px: 목록→상세 스택 */}
       <div className="bg-admin-bg border border-admin-card rounded-xl overflow-hidden flex flex-col md:flex-row md:h-[calc(100vh-16rem)] md:min-h-[480px]">
         {/* 좌측: 태스크 목록 — 모바일은 마스터-디테일(선택 시 목록 숨기고 상세 전체화면) */}
+        {/* 코치마크 앵커 — 모바일 ?task= 딥링크 시 hidden → 비가시 자동 스킵 */}
         <section
+          data-tour="inspections-queue"
           className={`md:w-1/3 md:border-r border-b md:border-b-0 border-admin-card flex-col shrink-0 md:max-h-none md:flex ${
             taskSelected ? "hidden md:flex" : "flex"
           }`}
@@ -623,7 +628,11 @@ export default function InspectionsView({
               </div>
 
               {/* 하단 액션 바 (b6) — PHOTOS_SUBMITTED만 활성 */}
-              <footer className="p-6 border-t border-admin-card flex flex-col gap-4 shrink-0">
+              {/* 코치마크 앵커 — 태스크 미선택·모바일 첫 진입엔 부재/비가시 → 자동 스킵 */}
+              <footer
+                data-tour="inspections-actions"
+                className="p-6 border-t border-admin-card flex flex-col gap-4 shrink-0"
+              >
                 {/* 결과 메시지 — 게이트 열림은 강조 배너 */}
                 {message && (
                   <div

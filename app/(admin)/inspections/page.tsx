@@ -15,6 +15,8 @@ import InspectionsView, {
   type SelectedTask,
   type TaskListItem,
 } from "./inspections-view";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
@@ -212,22 +214,33 @@ export default async function InspectionsPage({
     }
   }
 
+  // 코치마크 문구 — RSC 번역 → props (ADMIN_CLIENT_NAMESPACES 무변경)
+  const tTour = await getTranslations("tour");
+
   return (
-    // key=선택 태스크 id — 태스크 전환 시 클라 상태(반려 사유·메시지) 리마운트 초기화 (QA D-1:
-    // 미초기화 시 직전 태스크의 반려 사유가 다른 태스크에 제출될 수 있음)
-    <InspectionsView
-      key={selected?.id ?? "none"}
-      tasks={tasks}
-      selected={selected}
-      // 모바일 마스터-디테일: 첫 태스크 자동선택(데스크톱용)과 구분해, ?task= 명시 시에만 상세 표시
-      taskSelected={!!params.task}
-      tab={tab}
-      counts={counts}
-      range={params.range}
-      area={area}
-      areaOptions={areaOptions}
-      cleaners={cleaners}
-      pagination={{ total: rows.length, page, pageSize }}
-    />
+    <>
+      {/* key=선택 태스크 id — 태스크 전환 시 클라 상태(반려 사유·메시지) 리마운트 초기화 (QA D-1:
+          미초기화 시 직전 태스크의 반려 사유가 다른 태스크에 제출될 수 있음) */}
+      <InspectionsView
+        key={selected?.id ?? "none"}
+        tasks={tasks}
+        selected={selected}
+        // 모바일 마스터-디테일: 첫 태스크 자동선택(데스크톱용)과 구분해, ?task= 명시 시에만 상세 표시
+        taskSelected={!!params.task}
+        tab={tab}
+        counts={counts}
+        range={params.range}
+        area={area}
+        areaOptions={areaOptions}
+        cleaners={cleaners}
+        pagination={{ total: rows.length, page, pageSize }}
+      />
+      {/* 코치마크 투어 — InspectionsView 밖(형제)이라 key 리마운트와 무관. 첫 진입 자동 1회 */}
+      <CoachMark
+        tourId="adminInspections"
+        steps={buildTourSteps(tTour, "adminInspections")}
+        labels={buildTourLabels(tTour)}
+      />
+    </>
   );
 }

@@ -9,6 +9,8 @@ import type { Prisma, VillaStatus } from "@prisma/client";
 import VillasFilters from "./villas-filters";
 import PaginationBar from "@/components/pagination-bar";
 import { parsePageParams } from "@/lib/pagination";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
@@ -37,6 +39,8 @@ export default async function VillasPage({
   searchParams: Promise<{ status?: string; page?: string; pageSize?: string; area?: string; q?: string; supplier?: string }>;
 }) {
   const t = await getTranslations("adminVillas.list");
+  // 코치마크 문구 — RSC 번역 → props (ADMIN_CLIENT_NAMESPACES 무변경)
+  const tTour = await getTranslations("tour");
   const params = await searchParams;
   const tab = params.status && params.status in TAB_STATUS ? params.status : "all";
   const statusFilter = TAB_STATUS[tab];
@@ -167,6 +171,8 @@ export default async function VillasPage({
             {/* 대행 등록 — 운영자가 공급자 명의로 신규 빌라 등록(마법사 isAdmin 모드 → PENDING_REVIEW) */}
             <Link
               href="/my-villas/new"
+              // 코치마크 이중앵커(모바일 쪽) — 데스크톱에선 display:none → 비가시 스킵, 가시 쪽 자동 선택
+              data-tour="villas-new"
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-admin-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-admin-primary-dark lg:hidden"
             >
               <span className="material-symbols-outlined text-[18px]">add</span>
@@ -177,6 +183,7 @@ export default async function VillasPage({
             <VillasFilters areas={areaOptions} suppliers={supplierOptions} />
             <Link
               href="/my-villas/new"
+              data-tour="villas-new"
               className="hidden shrink-0 items-center gap-1.5 rounded-lg bg-admin-primary px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-admin-primary-dark lg:inline-flex"
             >
               <span className="material-symbols-outlined text-[18px]">add</span>
@@ -184,7 +191,10 @@ export default async function VillasPage({
             </Link>
           </div>
         </div>
-        <div className="flex items-center gap-2 border-b border-admin-card overflow-x-auto scrollbar-none">
+        <div
+          data-tour="villas-tabs"
+          className="flex items-center gap-2 border-b border-admin-card overflow-x-auto scrollbar-none"
+        >
           {tabs.map(({ key, label }) => {
             const active = tab === key;
             return (
@@ -223,7 +233,7 @@ export default async function VillasPage({
       ) : (
         <div className="flex flex-col gap-3">
           {/* 왼쪽 썸네일 + 접기/펴기 리스트 (PC·모바일 공통, Nike 패턴) */}
-          {villas.map((villa) => {
+          {villas.map((villa, villaIdx) => {
             const inactive = villa.status === "INACTIVE";
             const pending = villa.status === "PENDING_REVIEW";
             const photoUrl = villa.photos[0]?.url;
@@ -232,6 +242,8 @@ export default async function VillasPage({
             return (
               <details
                 key={villa.id}
+                // 코치마크 앵커 — 첫 카드만. 빈 목록이면 자동 스킵
+                data-tour={villaIdx === 0 ? "villas-row" : undefined}
                 className={`group bg-admin-card rounded-xl border border-slate-800 overflow-hidden ${
                   inactive ? "opacity-80" : ""
                 }`}
@@ -337,6 +349,13 @@ export default async function VillasPage({
 
       {/* 페이지네이션 — 행 수 요약 + 페이지당 개수(10/20/30/50/100) + 숫자 페이지 */}
       <PaginationBar total={total} page={page} pageSize={pageSize} />
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 "?"로 재생 (T-tutorial-onboarding-5) */}
+      <CoachMark
+        tourId="adminVillas"
+        steps={buildTourSteps(tTour, "adminVillas")}
+        labels={buildTourLabels(tTour)}
+      />
     </div>
   );
 }

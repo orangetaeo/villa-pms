@@ -16,6 +16,8 @@ import {
   OCCUPANCY_STAY_STATUSES,
 } from "@/lib/booking-stats";
 import ResponsiveTable, { type ResponsiveColumn } from "@/components/admin/responsive-table";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 import QuickDateFilter from "@/components/admin/quick-date-filter";
 import FiltersBar from "./filters-bar";
 import PaginationBar from "@/components/pagination-bar";
@@ -109,6 +111,8 @@ export default async function BookingsPage({
 }) {
   const t = await getTranslations("adminBookings");
   const ts = await getTranslations("adminCheckinSheet");
+  // 코치마크 문구 — RSC 번역 → props (ADMIN_CLIENT_NAMESPACES 무변경)
+  const tTour = await getTranslations("tour");
   // [S-RBAC-3 보강] STAFF 재무 마스킹 — 판매가(KRW/VND)는 canViewFinance만.
   // 목록 select에서 제외해야 RSC→클라(ResponsiveTable) 페이로드 누수도 차단(QA H-1).
   const session = await auth();
@@ -413,7 +417,7 @@ export default async function BookingsPage({
       </div>
 
       {/* 상태 필터 카드 그리드 (대시보드 스타일) — 검색 상단에 개수 배지 카드로 표시 */}
-      <div className="grid grid-cols-3 lg:grid-cols-6 gap-2.5 lg:gap-3">
+      <div data-tour="bookings-status" className="grid grid-cols-3 lg:grid-cols-6 gap-2.5 lg:gap-3">
         {TAB_ORDER.map((key) => {
           const active = !preset && tab === key;
           return (
@@ -450,7 +454,10 @@ export default async function BookingsPage({
       </div>
 
       {/* 필터 카드 (b5) */}
-      <div className="bg-admin-card rounded-xl border border-slate-800/50 shadow-sm overflow-hidden">
+      <div
+        data-tour="bookings-filters"
+        className="bg-admin-card rounded-xl border border-slate-800/50 shadow-sm overflow-hidden"
+      >
         {preset ? (
           <div className="p-4 flex items-center gap-3">
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-admin-primary/10 border border-admin-primary/30 text-admin-primary text-sm font-bold">
@@ -483,6 +490,8 @@ export default async function BookingsPage({
       </div>
 
       {/* 테이블 (≥768px) / 카드 (<768px) — T6.7 */}
+      {/* 코치마크 앵커 — 공용 ResponsiveTable 무수정: 래퍼가 데스크톱 표/모바일 카드 이중 렌더를 단일 앵커로 흡수 */}
+      <div data-tour="bookings-list">
       <ResponsiveTable
         columns={columns}
         rows={rows}
@@ -517,6 +526,7 @@ export default async function BookingsPage({
           </Link>
         )}
       />
+      </div>
 
       {/* 페이지네이션 — 행 수 요약 + 페이지당 개수(10/20/30/50/100) + 숫자 페이지 */}
       <PaginationBar total={total} page={page} pageSize={pageSize} />
@@ -566,6 +576,13 @@ export default async function BookingsPage({
           </div>
         </div>
       </div>
+
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 "?"로 재생 (T-tutorial-onboarding-5) */}
+      <CoachMark
+        tourId="adminBookings"
+        steps={buildTourSteps(tTour, "adminBookings")}
+        labels={buildTourLabels(tTour)}
+      />
     </div>
   );
 }
