@@ -40,6 +40,8 @@ export type HubOrder = {
   vendorCompletedAt: string | null;
   /** 미해결 시간 제안 여부 — 공급자가 대안 시간을 제안했고 운영자가 아직 적용/무시 안 함 */
   proposalPending: boolean;
+  /** 제안 결과 스냅샷(ADR-0035) — "APPLIED"|"DECLINED"(고객 거절)|"DISMISSED"|null */
+  vendorProposalOutcome: string | null;
   createdAt: string;
 };
 
@@ -55,6 +57,10 @@ export type HubSummary = {
   unsettledCount: number;
   paidVnd: string;
   settledCount: number;
+  /** 미해결 시간 제안 건수(전역 스냅샷, ADR-0035) — 운영자 적용/무시 또는 고객 응답 대기 */
+  proposalPendingCount: number;
+  /** 고객 거절(DECLINED) 건수(전역 스냅샷) */
+  declinedCount: number;
 };
 export type HubView = "pending" | "paid" | "status";
 // proposal = 미해결 시간 제안(수락했지만 운영자 적용/무시 대기) — 고객확정이 막혀 있는 건만 조회
@@ -179,9 +185,10 @@ const ROW_SELECT = {
   poSentAt: true,
   vendorRespondedAt: true,
   vendorCompletedAt: true,
-  // 미해결 제안 판정용(proposalPending) — 제안 날짜·운영자 처리 시각 2필드
+  // 미해결 제안 판정용(proposalPending) — 제안 날짜·운영자 처리 시각 2필드 + 결과 스냅샷
   proposedServiceDate: true,
   vendorProposalRespondedAt: true,
+  vendorProposalOutcome: true,
   createdAt: true,
   catalogItemId: true,
   vendorName: true,
@@ -235,6 +242,7 @@ function mapRow(o: RawRow, itemName: string | null, locale: string): HubOrder {
     vendorRespondedAt: iso(o.vendorRespondedAt),
     vendorCompletedAt: iso(o.vendorCompletedAt),
     proposalPending: o.proposedServiceDate != null && o.vendorProposalRespondedAt == null,
+    vendorProposalOutcome: o.vendorProposalOutcome,
     createdAt: iso(o.createdAt) as string,
   };
 }
@@ -251,7 +259,13 @@ export async function queryHub(q: HubQuery, locale: string): Promise<HubResult> 
     status: { not: "CANCELLED" },
   };
 
-  const [total, rows, pend, paid] = await Promise.all([
+  // 제안 현황 집계(전역 스냅샷, ADR-0035) — 미해결 제안·고객 거절(DECLINED). 브로커 발주만·취소 제외.
+  const proposalBase: Prisma.ServiceOrderWhereInput = {
+    vendorId: { not: null },
+    status: { not: "CANCELLED" },
+  };
+
+  const [total, rows, pend, paid, proposalPending, declined] = await Promise.all([
     prisma.serviceOrder.count({ where }),
     prisma.serviceOrder.findMany({
       where,
@@ -270,6 +284,10 @@ export async function queryHub(q: HubQuery, locale: string): Promise<HubResult> 
       _sum: { costVnd: true },
       _count: true,
     }),
+    prisma.serviceOrder.count({
+      where: { ...proposalBase, proposedServiceDate: { not: null }, vendorProposalRespondedAt: null },
+    }),
+    prisma.serviceOrder.count({ where: { ...proposalBase, vendorProposalOutcome: "DECLINED" } }),
   ]);
 
   // 카탈로그 항목명 — 이 페이지 rows의 catalogItemId만 조회(소량).
@@ -292,6 +310,8 @@ export async function queryHub(q: HubQuery, locale: string): Promise<HubResult> 
       unsettledCount: pend._count,
       paidVnd: (paid._sum.costVnd ?? 0n).toString(),
       settledCount: paid._count,
+      proposalPendingCount: proposalPending,
+      declinedCount: declined,
     },
   };
 }

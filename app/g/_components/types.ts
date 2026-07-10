@@ -78,6 +78,14 @@ export interface GuestRequestedOrder {
   /** 희망 날짜(YYYY-MM-DD)·시간("HH:MM") — 신청 시 입력(필수). */
   serviceDate: string | null;
   serviceTime: string | null;
+  // ── 벤더 시간 제안(propose) — 게스트 승인/거절 대상(ADR-0035). 판매가 무관. ──
+  /** 벤더 제안 날짜(YYYY-MM-DD)·시간("HH:MM") — 없으면 null(제안 없음). */
+  proposedServiceDate: string | null;
+  proposedServiceTime: string | null;
+  /** 제안 메모(벤더 사유). */
+  vendorProposalNote: string | null;
+  /** 미해결 제안 — true면 승인/거절 버튼 노출(게스트 응답 대기). */
+  proposalPending: boolean;
   /** 이행 안내 문구(서버에서 type·픽업설정으로 해석 완료) — 배송/픽업/방문. */
   fulfillNote: string;
   /** 티켓형(TICKET) 발행 이미지 URL — 게스트가 열람할 QR 티켓. 없으면 빈 배열(ADR-0034). */

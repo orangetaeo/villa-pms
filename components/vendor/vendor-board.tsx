@@ -39,11 +39,17 @@ type VendorOrder = {
   poSentAt: string | null; // 발주 발송 시각(상태 타임라인)
   vendorRespondedAt: string | null; // 가부 응답 시각(상태 타임라인)
   vendorCompletedAt: string | null; // 서비스 이행 완료 보고 시각(null=미보고)
+  // 시간 제안(propose) 현황(ADR-0035) — 본인 스코프(판매가 무관)
+  proposedServiceDate: string | null; // 제안 날짜(ISO @db.Date)
+  proposedServiceTime: string | null; // 제안 시각("HH:MM")
+  vendorProposalNote: string | null; // 제안 메모(내 사유)
+  vendorProposalRespondedAt: string | null; // 해결 시각(null=고객 응답 대기)
+  vendorProposalOutcome: string | null; // "APPLIED"|"DECLINED"|"DISMISSED"|null
 };
 
 type SettleMethod = "CASH" | "BANK_TRANSFER" | "OTHER" | null;
 
-type Tab = "inbox" | "schedule" | "settlement";
+type Tab = "inbox" | "proposal" | "schedule" | "settlement";
 
 /** VND 점 구분 표기 (15.000.000₫). BigInt 문자열 정규식 — Number() 금지(정밀도 손실 방지) */
 function formatVndDot(raw: string): string {
@@ -96,6 +102,7 @@ type VendorData = {
   orders: VendorOrder[];
   total: number;
   inboxCount: number;
+  proposalPendingCount: number; // 시간제안 탭 미해결(고객 응답 대기) 뱃지용
   cancelled?: VendorOrder[];
   settleTotals?: SettleTotals;
 };
@@ -240,12 +247,18 @@ export default function VendorBoard() {
       {/* 탭 — 발주함 | 예약현황 | 정산 (라벨 3개, 한 화면 1작업) */}
       {/* 코치마크 앵커 — 즉시 렌더되는 탭만(카드는 비동기 fetch라 앵커 금지).
           리터럴 맵: tests/tour-onboarding.test.ts 앵커 실존 검사가 소스 문자열로 찾는다. */}
-      <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
-        {(["inbox", "schedule", "settlement"] as const).map((key) => {
+      <div className="grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1">
+        {(["inbox", "proposal", "schedule", "settlement"] as const).map((key) => {
           const active = tab === key;
-          const count = key === "inbox" ? data?.inboxCount ?? 0 : 0;
+          const count =
+            key === "inbox"
+              ? data?.inboxCount ?? 0
+              : key === "proposal"
+                ? data?.proposalPendingCount ?? 0
+                : 0;
           const tourAnchor = {
             inbox: "vendor-tab-inbox",
+            proposal: "vendor-tab-proposal",
             schedule: "vendor-tab-schedule",
             settlement: "vendor-tab-settlement",
           }[key];
@@ -261,12 +274,12 @@ export default function VendorBoard() {
               aria-current={active ? "page" : undefined}
               className={
                 active
-                  ? "relative rounded-lg bg-white py-2 text-center text-sm font-bold text-teal-700 shadow-sm"
-                  : "relative rounded-lg py-2 text-center text-sm font-medium text-slate-500"
+                  ? "relative rounded-lg bg-white py-2 text-center text-xs font-bold text-teal-700 shadow-sm"
+                  : "relative rounded-lg py-2 text-center text-xs font-medium text-slate-500"
               }
             >
               {t(`tab.${key}`)}
-              {key === "inbox" && count > 0 && (
+              {(key === "inbox" || key === "proposal") && count > 0 && (
                 <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-bold text-white">
                   {count}
                 </span>
@@ -307,6 +320,18 @@ export default function VendorBoard() {
               onReject={(o) => setRejectTarget(o)}
               onPropose={(o) => setProposeTarget(o)}
               onChanged={reload}
+            />
+          )}
+
+          {tab === "proposal" && (
+            <ProposalSection
+              orders={data.orders}
+              total={data.total}
+              page={page}
+              pageSize={pageSize}
+              onPage={setPage}
+              onPageSize={setPageSizeReset}
+              t={t}
             />
           )}
 
@@ -689,6 +714,15 @@ function InboxSection({
             </div>
           </div>
 
+          {/* 게스트가 시간 제안을 거절 → 발주함 복귀(ADR-0035). 아직 재응답 전(PENDING_VENDOR)일 때만 안내.
+              재수락되면 이 카드는 발주함에서 사라지므로 사실상 미해소 상태에서만 노출되지만, 방어적으로 조건 명시. */}
+          {o.vendorProposalOutcome === "DECLINED" && o.vendorStatus === "PENDING_VENDOR" && (
+            <p className="flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-1.5 text-xs font-bold text-rose-700">
+              <span className="material-symbols-outlined text-base text-rose-500">history</span>
+              {t("proposalTab.declinedInbox")}
+            </p>
+          )}
+
           {/* 게스트 요청사항 — 이행 정보(있을 때만) */}
           <GuestNote note={o.guestNote} t={t} />
 
@@ -726,6 +760,120 @@ function InboxSection({
           </div>
         </div>
       ))}
+      <PaginationBar
+        light
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={onPage}
+        onPageSizeChange={onPageSize}
+      />
+    </div>
+  );
+}
+
+// ── 시간 제안 현황(내가 propose한 발주) ─────────────────────────────
+//   미해결="고객 응답 대기"(amber) / APPLIED="수락됨"(emerald) / DECLINED="고객 거절"(red) / DISMISSED="미적용"(slate).
+//   ★ 판매가·마진 없음 — 일정 협의 현황만(costVnd도 미표기: 이 탭은 정산이 아니라 추적용).
+function ProposalStatusBadge({ order, t }: { order: VendorOrder; t: T }) {
+  const resolved = order.vendorProposalRespondedAt != null;
+  if (!resolved) {
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">
+        <span className="material-symbols-outlined text-base">hourglass_top</span>
+        {t("proposalTab.pending")}
+      </span>
+    );
+  }
+  // ★거절(DECLINED)은 아직 재응답 전(PENDING_VENDOR)일 때만 red "고객 거절". 벤더가 원래 시간으로
+  //   재수락하면 vendorStatus가 바뀌므로(PENDING_VENDOR 아님) slate "거절 후 해소"로 톤 다운(경고 아님).
+  const declinedResolved =
+    order.vendorProposalOutcome === "DECLINED" && order.vendorStatus !== "PENDING_VENDOR";
+  const map: Record<string, { cls: string; icon: string; key: string }> = {
+    APPLIED: { cls: "bg-emerald-100 text-emerald-700", icon: "check_circle", key: "proposalTab.applied" },
+    DECLINED: declinedResolved
+      ? { cls: "bg-slate-100 text-slate-500", icon: "history", key: "proposalTab.declinedResolved" }
+      : { cls: "bg-rose-100 text-rose-700", icon: "cancel", key: "proposalTab.declined" },
+    DISMISSED: { cls: "bg-slate-100 text-slate-500", icon: "block", key: "proposalTab.dismissed" },
+  };
+  const m = map[order.vendorProposalOutcome ?? ""] ?? map.DISMISSED;
+  return (
+    <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${m.cls}`}>
+      <span className="material-symbols-outlined text-base">{m.icon}</span>
+      {t(m.key)}
+    </span>
+  );
+}
+
+/** 제안 시각(ISO @db.Date + HH:MM) → "dd/MM HH:MM". 제안 날짜 없으면 "—". */
+function proposedLabel(o: VendorOrder): string {
+  if (!o.proposedServiceDate) return "—";
+  const day = formatDayMonth(o.proposedServiceDate);
+  return o.proposedServiceTime ? `${day} ${o.proposedServiceTime}` : day;
+}
+
+function ProposalSection({
+  orders,
+  total,
+  page,
+  pageSize,
+  onPage,
+  onPageSize,
+  t,
+}: {
+  orders: VendorOrder[];
+  total: number;
+  page: number;
+  pageSize: number;
+  onPage: (p: number) => void;
+  onPageSize: (s: number) => void;
+  t: T;
+}) {
+  if (orders.length === 0) {
+    return <EmptyState icon="update" title={t("empty.proposal")} hint={t("empty.proposalHint")} />;
+  }
+  return (
+    <div className="space-y-3">
+      {orders.map((o) => {
+        const resolved = o.vendorProposalRespondedAt != null;
+        return (
+          <div
+            key={o.id}
+            className={`space-y-2 rounded-2xl border-l-4 bg-white p-4 shadow-sm ${
+              resolved ? "border-slate-300" : "border-amber-400"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 space-y-1">
+                <h3 className="truncate font-bold text-neutral-900">
+                  {o.itemName ?? "—"}
+                  <span className="ml-2 text-sm font-semibold text-neutral-500">×{o.quantity}</span>
+                </h3>
+                {o.optionLabel && (
+                  <p className="truncate text-sm font-medium text-neutral-600">{o.optionLabel}</p>
+                )}
+                {o.villaName && <p className="truncate text-sm text-neutral-500">{o.villaName}</p>}
+              </div>
+              <ProposalStatusBadge order={o} t={t} />
+            </div>
+
+            {/* 원래 시간 → 제안 시간 비교 */}
+            <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+              <span className="text-neutral-400 line-through tabular-nums">{scheduleLabel(o)}</span>
+              <span className="material-symbols-outlined text-base text-amber-500">arrow_forward</span>
+              <span className="font-bold text-amber-700 tabular-nums">{proposedLabel(o)}</span>
+            </div>
+
+            {/* 제안 메모(내 사유) */}
+            {o.vendorProposalNote && (
+              <p className="flex items-start gap-1 text-xs text-neutral-500">
+                <span className="material-symbols-outlined text-sm text-neutral-400">sticky_note_2</span>
+                <span className="min-w-0 whitespace-pre-line break-words">{o.vendorProposalNote}</span>
+              </p>
+            )}
+          </div>
+        );
+      })}
       <PaginationBar
         light
         total={total}

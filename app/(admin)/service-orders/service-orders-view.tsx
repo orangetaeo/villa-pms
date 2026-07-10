@@ -201,6 +201,25 @@ export default function ServiceOrdersView({
         </div>
       </div>
 
+      {/* 제안 현황 칩(ADR-0035) — 전역 스냅샷(필터 무관): 미해결 제안·고객 거절. 있을 때만. */}
+      {(data.summary.proposalPendingCount > 0 || data.summary.declinedCount > 0) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {data.summary.proposalPendingCount > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-300">
+              <span className="material-symbols-outlined text-sm">hourglass_top</span>
+              {t("hub.proposalActive", { n: data.summary.proposalPendingCount })}
+            </span>
+          )}
+          {data.summary.declinedCount > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-3 py-1 text-xs font-bold text-rose-300">
+              <span className="material-symbols-outlined text-sm">cancel</span>
+              {t("hub.declinedChip", { n: data.summary.declinedCount })}
+            </span>
+          )}
+          <span className="text-[10px] font-normal text-slate-500">({t("hub.summary.allBasis")})</span>
+        </div>
+      )}
+
       {/* 탭 — 정산 | 중계현황 */}
       {/* 코치마크 앵커 */}
       <div data-tour="sorders-tabs" className="flex gap-1 rounded-xl bg-slate-800/60 p-1">
@@ -581,12 +600,21 @@ function StatusList({
             </p>
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <VendorStatusBadge order={o} t={t} />
-              {/* 미해결 시간 제안 — 운영자 적용/무시 대기(고객확정이 막혀 있는 건) */}
+              {/* 미해결 시간 제안 — 운영자 적용/무시 또는 고객 응답 대기(고객확정이 막혀 있는 건) */}
               {o.proposalPending && o.status !== "CANCELLED" && (
                 <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
                   {t("hub.proposalBadge")}
                 </span>
               )}
+              {/* 고객 거절(DECLINED) — 아직 재응답 전(PENDING_VENDOR)일 때만 경고 뱃지(ADR-0035).
+                  공급자가 원래 시간으로 재수락해 CONFIRMED가 되면 미표시(outcome은 통계에 계상되나 UI 경고는 미해소만). */}
+              {o.vendorProposalOutcome === "DECLINED" &&
+                o.vendorStatus === "PENDING_VENDOR" &&
+                o.status !== "CANCELLED" && (
+                  <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">
+                    {t("hub.declinedBadge")}
+                  </span>
+                )}
               {/* 이행 완료 보고(vendorCompletedAt) */}
               {o.vendorCompletedAt && <CompletedBadge at={o.vendorCompletedAt} t={t} />}
               {o.vendorStatus === "VENDOR_ACCEPTED" && o.status !== "CANCELLED" && (
