@@ -4441,6 +4441,34 @@
       "supplies": { "title": "Tiện nghi & minibar", "desc": "Sửa số lượng tiện nghi trong thẻ «Chỉnh sửa tiện nghi», điều chỉnh số lượng bày trí minibar của villa trong thẻ «Minibar tiêu chuẩn công ty». Danh mục và giá bán tiêu chuẩn của công ty được sửa ở tab «Món minibar» trong menu Kho. Nút này mở tất cả thẻ đang gập." },
       "sales": { "title": "Tab thông tin bán — Wifi & giường", "desc": "Trong tab 'Thông tin bán', nhập loại và số giường từng phòng ở thẻ «Cấu hình giường ngủ», đăng ký tên và mật khẩu Wifi ở thẻ «Quy định sử dụng». Giờ nhận – trả phòng và quy định sử dụng cũng quản lý tại đây." }
     },
+    "bookingDetail": {
+      "header": { "title": "Tổng quan trạng thái đặt phòng", "desc": "Đặt phòng tiến hành theo thứ tự giữ chỗ → xác nhận → nhận phòng → trả phòng. Ở trạng thái giữ chỗ, thời gian còn lại đến khi hết hạn được hiển thị; nếu không kịp xác nhận thanh toán, giữ chỗ sẽ tự động hủy." },
+      "payments": { "title": "Ghi nhận thu tiền", "desc": "Sau khi kiểm tra khoản chuyển của khách hoặc đối tác tại ngân hàng, hãy ghi nhận khoản thu tại đây. Nếu khách đã gửi thông báo chuyển tiền, banner phía trên sẽ hiển thị để quý vị đối chiếu." },
+      "actions": { "title": "Thao tác chuyển trạng thái", "desc": "Sau khi xác nhận thu tiền, quý vị xác nhận đặt phòng tại đây. Sau khi xác nhận, đây là lối vào kiểm tra nhận phòng; trong thời gian lưu trú, đây là lối vào tất toán trả phòng." },
+      "guestToken": { "title": "Liên kết tự nhận phòng của khách", "desc": "Cấp và gửi liên kết để khách tự đăng ký hộ chiếu và ký thỏa thuận. Quý vị cũng kiểm tra trạng thái ký tại thẻ này." },
+      "roster": { "title": "Danh sách khách lưu trú thực tế", "desc": "Nhập danh sách khách lưu trú thực tế từ khi xác nhận đến trước ngày nhận phòng. Đây là dữ liệu gốc cho khai báo tạm trú và kiểm tra tại chỗ." },
+      "services": { "title": "Đơn dịch vụ bổ sung", "desc": "Kiểm tra các đơn dịch vụ bổ sung của đặt phòng này và gửi đơn đặt cho nhà cung cấp dịch vụ. Theo dõi tiến trình từ gửi đơn → chấp nhận → hoàn tất tại đây." }
+    },
+    "partnerDetail": {
+      "header": { "title": "Chi tiết đối tác", "desc": "Xem loại hình, hạng tín dụng và trạng thái giao dịch của đối tác (công ty du lịch, land tour). Chỉnh sửa thông tin bằng nút Sửa bên phải." },
+      "tabs": { "title": "Tổng quan và hóa đơn", "desc": "Tab Tổng quan quản lý điều kiện tín dụng và công nợ; tab Hóa đơn quản lý việc phát hành hóa đơn và thu tiền." },
+      "aging": { "title": "Tình hình công nợ", "desc": "Khoản phải thu từ đối tác được chia theo thời gian quá hạn. Nếu còn số dư ở nhóm từ 8 ngày trở lên, có nguy cơ quá hạn nên cần đôn đốc thu hồi." },
+      "credit": { "title": "Điều kiện tín dụng", "desc": "Tỷ lệ đặt cọc và thời hạn thanh toán thay đổi theo hạng tín dụng. Khi quyết định nhận đặt phòng mới, hãy xem điều kiện này cùng số dư công nợ." },
+      "receivables": { "title": "Danh sách khoản phải thu", "desc": "Kiểm tra trạng thái thu tiền của từng khoản theo đặt phòng. Khoản có đặt phòng đã hủy nhưng chưa tất toán sẽ có huy hiệu cảnh báo — hãy điều chỉnh hóa đơn." }
+    },
+    "supplierVillaDetail": {
+      "photos": { "title": "Quản lý ảnh", "desc": "Nhấn 'Quản lý ảnh' để thêm, đổi và sắp xếp ảnh theo từng khu vực." },
+      "amenities": { "title": "Đồ dùng trong villa", "desc": "Nhấn 'Sửa' để cập nhật đồ bếp, phòng tắm và minibar." },
+      "rates": { "title": "Giá gốc theo mùa", "desc": "Nhập giá gốc của bạn theo từng giai đoạn — nhớ đặt riêng cho cao điểm và lễ Tết." },
+      "sellLink": { "title": "Link bán trực tiếp", "desc": "Tạo link gửi khách của bạn để nhận đặt phòng trực tiếp." },
+      "info": { "title": "Quy định & vị trí", "desc": "Tự sửa giờ nhận/trả phòng, quy định và bản đồ tại đây." }
+    },
+    "partnerBookingDetail": {
+      "summary": { "title": "Tóm tắt đặt phòng", "desc": "Kiểm tra trạng thái, hạn giữ chỗ, giờ nhận phòng/ký và số dư chưa thanh toán tại đây. Nếu còn số dư, tài khoản chuyển khoản hiện bên dưới." },
+      "services": { "title": "Dịch vụ đã yêu cầu", "desc": "Xem tiến độ và ghi chú các dịch vụ khách đã yêu cầu." },
+      "changeRequest": { "title": "Yêu cầu hủy / thay đổi", "desc": "Gửi yêu cầu hủy, đổi lịch hoặc gia hạn giữ chỗ tại đây. Chỉ có hiệu lực sau khi quản trị duyệt; mỗi lần một yêu cầu." },
+      "roster": { "title": "Danh sách khách", "desc": "Gửi danh sách khách trước để nhận phòng nhanh hơn." }
+    },
     "earnings": {
       "tabs": { "title": "Thống kê & thanh toán", "desc": "Chạm «Lịch sử thanh toán» để xem tiền đã nhận và tiền chưa nhận." },
       "period": { "title": "Chọn thời gian", "desc": "Chạm để xem tháng này, tháng trước hoặc cả năm." },
