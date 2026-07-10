@@ -656,6 +656,11 @@ model CheckOutRecord {
   settlementMethod GuestSettlementMethod?
   settledAt        DateTime?
   settlementNote   String?
+  // 게스트 수납 다통화 분할 (테오 요청 2026-07-10) — 실수납액을 통화별 원본 그대로 저장(환산 저장 금지)
+  settledVnd       BigInt? // 수납액 VND(동)
+  settledKrw       Int? // 수납액 KRW(원)
+  settledUsd       Int? // 수납액 USD(정수 달러)
+  settlementFx     Json? // 수납 시점 환율 스냅샷 { date, vndPerKrw, vndPerUsd } — 표시·검증 근거
   refundedAt      DateTime?
   createdBy       String
   createdAt       DateTime  @default(now())
