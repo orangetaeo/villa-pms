@@ -95,7 +95,8 @@ export const TOURS = {
     route: "/bookings",
     steps: [
       { anchor: "bookings-status", key: "adminBookings.status" },
-      { anchor: "bookings-filters", key: "adminBookings.filters" },
+      // T-7: 검색·필터 스텝 제거(테오 — "누가 검색을 몰라") → 체크인 시트 출력(화면 고유 기능)으로 교체
+      { anchor: "bookings-sheet", key: "adminBookings.sheet" },
       { anchor: "bookings-list", key: "adminBookings.list" },
     ],
   },
@@ -110,11 +111,11 @@ export const TOURS = {
     ],
   },
   // 제안 목록 행은 클라 fetch 비동기 → 앵커 금지(vendorBoard 교훈). 즉시 렌더 정적 요소만.
+  // T-7: filters 스텝 제거(범용 검색 안내 금지)
   adminProposals: {
     route: "/proposals",
     steps: [
       { anchor: "proposal-create", key: "adminProposals.create" },
-      { anchor: "proposal-filters", key: "adminProposals.filters" },
       { anchor: "proposal-tabs", key: "adminProposals.tabs" },
     ],
   },
@@ -153,12 +154,12 @@ export const TOURS = {
       { anchor: "recv-partners", key: "adminReceivables.partners" },
     ],
   },
+  // T-7: filters 스텝 제거(범용 검색 안내 금지) — 고유 업무(묶음 입금·중계현황)는 summary/tabs가 커버
   adminServiceOrders: {
     route: "/service-orders",
     steps: [
       { anchor: "sorders-summary", key: "adminServiceOrders.summary" },
       { anchor: "sorders-tabs", key: "adminServiceOrders.tabs" },
-      { anchor: "sorders-filters", key: "adminServiceOrders.filters" },
     ],
   },
   adminRevenue: {
@@ -204,6 +205,19 @@ export const TOURS = {
       { anchor: "settings-season", key: "adminSettings.season" },
       { anchor: "settings-hold", key: "adminSettings.hold" },
       { anchor: "settings-sub", key: "adminSettings.sub" },
+    ],
+  },
+  // 빌라 상세(/villas/[id]) — route 동적: 페이지 명시 tourId(cleaningDetail 선례). 테오 7기능 커버(T-7).
+  // 탭 콘텐츠는 탭 전환 시 언마운트 → 앵커는 항상 렌더되는 헤더·탭 바·펼치기 버튼만.
+  // vdetail-tab-overview 2회는 의도(같은 탭의 두 주제: 요금/청소 — 인접 스텝이라 하이라이트 고정 채 문구만 진행).
+  villaDetail: {
+    route: null,
+    steps: [
+      { anchor: "vdetail-title", key: "villaDetail.header" },
+      { anchor: "vdetail-tab-overview", key: "villaDetail.rates" },
+      { anchor: "vdetail-tab-overview", key: "villaDetail.cleaning" },
+      { anchor: "vdetail-expand", key: "villaDetail.supplies" },
+      { anchor: "vdetail-tab-sales", key: "villaDetail.sales" },
     ],
   },
   earnings: {

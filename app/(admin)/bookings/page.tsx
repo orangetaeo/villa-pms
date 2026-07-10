@@ -409,6 +409,8 @@ export default async function BookingsPage({
         <h1 className="text-2xl font-bold text-white">{t("list.title")}</h1>
         <Link
           href="/bookings/checkin-sheet"
+          // 코치마크 앵커 — 필터 스텝을 화면 고유 기능(체크인 시트 출력)으로 교체(T-7)
+          data-tour="bookings-sheet"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-admin-primary text-white text-sm font-bold hover:opacity-90 active:scale-[0.98] transition-all"
         >
           <span className="material-symbols-outlined text-base">print</span>
@@ -454,10 +456,7 @@ export default async function BookingsPage({
       </div>
 
       {/* 필터 카드 (b5) */}
-      <div
-        data-tour="bookings-filters"
-        className="bg-admin-card rounded-xl border border-slate-800/50 shadow-sm overflow-hidden"
-      >
+      <div className="bg-admin-card rounded-xl border border-slate-800/50 shadow-sm overflow-hidden">
         {preset ? (
           <div className="p-4 flex items-center gap-3">
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-admin-primary/10 border border-admin-primary/30 text-admin-primary text-sm font-bold">
