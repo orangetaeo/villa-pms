@@ -95,6 +95,8 @@ export interface GuestCheckinData {
     serviceTime: string | null;
     /** 선택한 variant·addon·modifier 스냅샷(표시용 라벨·번역만 — 원가 없음). */
     selectedOptions: ResolvedSelectedOption[];
+    /** 티켓형(TICKET) 발행 이미지 URL — 게스트가 열람할 QR 티켓(발행된 것 자체가 산출물). */
+    ticketUrls: string[];
   }[];
 }
 
@@ -196,6 +198,7 @@ export async function loadGuestCheckin(
         id: true, type: true, catalogItemId: true, status: true, quantity: true,
         priceKrw: true, priceVnd: true, vendorStatus: true, poSentAt: true,
         serviceDate: true, serviceTime: true, selectedOptions: true,
+        ticketUrls: true, // 티켓형(TICKET) 발행 이미지 — 게스트 열람 산출물(원가·마진 무관)
         vendor: { select: { name: true, phone: true } },
       },
     }),
@@ -286,6 +289,8 @@ export async function loadGuestCheckin(
       serviceTime: o.serviceTime ?? null,
       // 선택 옵션은 라벨 스냅샷만(원가 없음 — ResolvedSelectedOption엔 costVnd 자체가 없음, 누수 0)
       selectedOptions: parseSelectedOptions(o.selectedOptions),
+      // 발행된 티켓 이미지 — 상태 무관 노출(발행된 것 자체가 게스트 대상 산출물, ADR-0034)
+      ticketUrls: o.ticketUrls,
     })),
   };
 }

@@ -3,10 +3,19 @@
 //   호출부: 운영자 수동 발주(dispatch route)·게스트 자동 발주(g/service-orders POST)·취소(service-orders PATCH·게스트 취소).
 //   ★ 누수: Zalo/인앱 본문에 판매가·마진 절대 없음(품목·수량·빌라·옵션 라벨·본인 정산액 costVnd만).
 //   ★ 인앱 적재 실패는 try/catch로 격리 — 알림 실패가 발주/취소 본 로직을 깨지 않게(호출부와 동일 정책).
+import { prisma } from "@/lib/prisma";
 import { enqueueNotification } from "@/lib/zalo";
-import { enqueueInAppNotification, buildVendorNotifText, vendorNotifLocale } from "@/lib/inapp-notification";
+import {
+  enqueueInAppNotification,
+  buildVendorNotifText,
+  vendorNotifLocale,
+  buildAdminNotifText,
+  enqueueInAppForOperators,
+  type AdminNotifKind,
+} from "@/lib/inapp-notification";
 import { selectedOptionLabels } from "@/lib/service-display";
 import { toDateOnlyString } from "@/lib/date-vn";
+import { OPERATOR_ROLES } from "@/lib/permissions";
 import { NotificationType } from "@prisma/client";
 
 /** 벤더 관계(발주 통보 대상) — userId 없으면 통보 불가, zaloUserId 없으면 Zalo만 생략(인앱은 적재). */
@@ -87,6 +96,98 @@ export async function sendVendorPoNotifications(
   }
 
   return { zaloSent };
+}
+
+/**
+ * 벤더 가부 응답(accept|reject|propose) → 운영자(테오) 통보 입력.
+ *   respond route(가부 응답)와 티켓 발행=수락 겸행(ADR-0034)이 공유 — 한 소스로 일원화.
+ *   ★ 누수: 판매가·마진 없음. costVnd(벤더 정산액)는 운영자만 정당 열람(>0일 때만 표기).
+ */
+export interface VendorResponseNotifyInput {
+  action: "accept" | "reject" | "propose";
+  vendorNameKo: string | null; // 운영자 통지 ko 우선
+  vendorName: string | null; // 폴백(원어명)
+  itemName: string;
+  villaName: string | null;
+  bookingId: string | null; // 인앱 알림 딥링크(/bookings/{id})
+  serviceDate: Date | null; // @db.Date — YYYY-MM-DD로 직렬화
+  serviceTime: string | null;
+  quantity: number;
+  costVnd: bigint; // 벤더 정산액(라인 총액). >0일 때만 표기, 0이면 null.
+  rejectReason?: string | null; // reject 전용
+  proposedServiceDate?: string | null; // propose 전용(YYYY-MM-DD)
+  proposedServiceTime?: string | null; // propose 전용(HH:MM)
+  proposalNote?: string | null; // propose 전용 메모
+}
+
+/**
+ * 벤더 가부 응답 → 운영자 전원에게 Zalo(VENDOR_PO_RESPONSE) + 인앱(벨) 통보.
+ *   - Zalo: zaloUserId 연결된 활성 운영자에게 큐 적재(발송은 cron/worker).
+ *   - 인앱: 활성 운영자 전원(미연결 운영자도 벨에서 인지). try/catch 격리 — 적재 실패가 본 로직 무영향.
+ *   ★ 금액(판매가·마진) 미포함 — 품목·빌라·업체·제안 일정·거절 사유·정산액(costVnd)만.
+ */
+export async function sendVendorResponseOperatorNotifications(
+  input: VendorResponseNotifyInput
+): Promise<void> {
+  const operators = await prisma.user.findMany({
+    where: {
+      role: { in: [...OPERATOR_ROLES] },
+      isActive: true,
+      zaloUserId: { not: null },
+    },
+    select: { id: true },
+  });
+  const payload = {
+    vendorName: input.vendorNameKo || input.vendorName || "—",
+    // accepted: accept/propose 모두 수락 계열(true), reject만 false.
+    accepted: input.action !== "reject",
+    action: input.action, // zalo 빌더 분기용
+    itemName: input.itemName,
+    villaName: input.villaName ?? "—",
+    serviceDate: input.serviceDate ? input.serviceDate.toISOString().slice(0, 10) : null,
+    serviceTime: input.serviceTime ?? null,
+    quantity: input.quantity,
+    costVnd: input.costVnd > 0n ? input.costVnd.toString() : null,
+    rejectReason: input.action === "reject" ? input.rejectReason?.trim() || undefined : undefined,
+    proposedServiceDate:
+      input.action === "propose" ? input.proposedServiceDate ?? undefined : undefined,
+    proposedServiceTime:
+      input.action === "propose" ? input.proposedServiceTime || undefined : undefined,
+    proposalNote: input.action === "propose" ? input.proposalNote?.trim() || undefined : undefined,
+  };
+  for (const op of operators) {
+    await enqueueNotification({
+      userId: op.id,
+      type: NotificationType.VENDOR_PO_RESPONSE,
+      payload,
+    });
+  }
+
+  // 운영자 인앱 알림(벨) — Zalo 미연결 운영자도 인지. 적재 실패는 본 로직에 영향 0.
+  try {
+    const kindByAction: Record<VendorResponseNotifyInput["action"], AdminNotifKind> = {
+      accept: "VENDOR_ACCEPTED",
+      reject: "VENDOR_REJECTED",
+      propose: "VENDOR_PROPOSED",
+    };
+    const kind = kindByAction[input.action];
+    const { title, body } = buildAdminNotifText(kind, {
+      vendorName: input.vendorNameKo || input.vendorName,
+      itemName: input.itemName,
+      villaName: input.villaName,
+      proposedServiceDate: input.action === "propose" ? input.proposedServiceDate : null,
+      proposedServiceTime: input.action === "propose" ? input.proposedServiceTime : null,
+      rejectReason: input.action === "reject" ? input.rejectReason : null,
+    });
+    await enqueueInAppForOperators({
+      type: kind,
+      title,
+      body,
+      href: `/bookings/${input.bookingId}`,
+    });
+  } catch {
+    // 무시 — 알림 적재 실패가 본 응답을 깨지 않게
+  }
 }
 
 export interface VendorPoCancelNotifyInput {

@@ -25,6 +25,7 @@ type VendorOrder = {
   itemName: string | null;
   optionLabel: string | null; // 선택 코스/옵션(가격 제거) — "오일 마사지 90분" 등
   type: string | null;
+  ticketUrls: string[]; // 티켓형(TICKET) 발행 이미지 URL — 발행 현황·삭제용(판매가 무관)
   quantity: number;
   guestCount: number | null; // 투숙 인원 — 카드에 아이콘으로 표시
   guestNote: string | null; // 게스트 요청사항(이행 정보) — 줄바꿈 허용 표시
@@ -305,6 +306,7 @@ export default function VendorBoard() {
               onAccept={(o) => respond(o, "accept")}
               onReject={(o) => setRejectTarget(o)}
               onPropose={(o) => setProposeTarget(o)}
+              onChanged={reload}
             />
           )}
 
@@ -319,6 +321,7 @@ export default function VendorBoard() {
               onPageSize={setPageSizeReset}
               busyId={busyId}
               onComplete={complete}
+              onChanged={reload}
               t={t}
             />
           )}
@@ -433,6 +436,180 @@ function GuestCount({ count }: { count: number | null }) {
   );
 }
 
+// 티켓 업로드/삭제 오류 코드 → i18n 라벨
+function ticketErrLabel(code: string | undefined, t: T): string {
+  switch (code) {
+    case "TOO_MANY_TICKETS":
+      return t("tickets.errTooMany");
+    case "INVALID_TYPE":
+      return t("tickets.errType");
+    case "FILE_TOO_LARGE":
+      return t("tickets.errSize");
+    case "NO_FILES":
+      return t("tickets.errNoFiles");
+    default:
+      return t("tickets.uploadError");
+  }
+}
+
+// ── 티켓형(TICKET) QR 티켓 발행 패널 (ADR-0034) ─────────────────────────
+//   발행된 티켓 썸네일(탭=원본 새 탭) + "N/quantity장" 카운터(미달 amber 경고) + 발행 버튼 + 삭제(x).
+//   PENDING_VENDOR면 "발행 시 수락 처리" 안내. 업로드/삭제 후 onChanged로 목록 재조회.
+//   ★ 판매가·마진 없음 — ticketUrls는 발행 이미지 URL일 뿐.
+function TicketPanel({
+  order,
+  pending,
+  t,
+  onChanged,
+}: {
+  order: VendorOrder;
+  pending: boolean; // vendorStatus === PENDING_VENDOR
+  t: T;
+  onChanged: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const issued = order.ticketUrls.length;
+  const needed = order.quantity;
+  const short = issued < needed;
+  // 이행완료·취소 발주는 발행/삭제 불가(서버 가드와 동일).
+  const closed = order.status === "CANCELLED" || order.status === "DELIVERED";
+
+  const upload = async (files: FileList | null) => {
+    if (!files || files.length === 0 || busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const fd = new FormData();
+      Array.from(files).forEach((f) => fd.append("files", f));
+      const res = await fetch(`/api/vendor/orders/${order.id}/tickets`, { method: "POST", body: fd });
+      if (!res.ok) {
+        let code: string | undefined;
+        try {
+          code = (await res.json())?.error;
+        } catch {
+          /* noop */
+        }
+        setErr(ticketErrLabel(code, t));
+      } else {
+        onChanged();
+      }
+    } catch {
+      setErr(t("tickets.uploadError"));
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  const remove = async (url: string) => {
+    if (busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/vendor/orders/${order.id}/tickets`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      if (!res.ok) {
+        let code: string | undefined;
+        try {
+          code = (await res.json())?.error;
+        } catch {
+          /* noop */
+        }
+        setErr(ticketErrLabel(code, t));
+      } else {
+        onChanged();
+      }
+    } catch {
+      setErr(t("tickets.uploadError"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2 rounded-xl border border-indigo-100 bg-indigo-50/50 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="flex items-center gap-1 text-sm font-bold text-indigo-700">
+          <span className="material-symbols-outlined text-base">confirmation_number</span>
+          {t("tickets.title")}
+        </p>
+        <span
+          className={`rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${
+            short ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
+          }`}
+        >
+          {t("tickets.counter", { issued, needed })}
+        </span>
+      </div>
+
+      {short && (
+        <p className="text-xs font-medium text-amber-600">{t("tickets.shortWarn")}</p>
+      )}
+      {pending && !closed && (
+        <p className="text-xs text-indigo-600">{t("tickets.acceptHint")}</p>
+      )}
+
+      {issued > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {order.ticketUrls.map((url) => (
+            <div key={url} className="relative">
+              <a href={url} target="_blank" rel="noreferrer" className="block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt={t("tickets.title")}
+                  className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
+                />
+              </a>
+              {!closed && (
+                <button
+                  type="button"
+                  onClick={() => remove(url)}
+                  disabled={busy}
+                  aria-label={t("tickets.remove")}
+                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-white shadow disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-[14px]">close</span>
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {err && <p className="text-xs font-medium text-rose-600">{err}</p>}
+
+      {!closed && (
+        <>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            aria-label={t("tickets.upload")}
+            className="hidden"
+            onChange={(e) => upload(e.target.files)}
+          />
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => inputRef.current?.click()}
+            className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-bold text-white active:scale-95 disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-[18px]">upload</span>
+            {busy ? t("tickets.uploading") : t("tickets.upload")}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── 발주함(받은 발주) ───────────────────────────────────────────────
 function InboxSection({
   orders,
@@ -446,6 +623,7 @@ function InboxSection({
   onAccept,
   onReject,
   onPropose,
+  onChanged,
 }: {
   orders: VendorOrder[];
   total: number;
@@ -458,6 +636,7 @@ function InboxSection({
   onAccept: (o: VendorOrder) => void;
   onReject: (o: VendorOrder) => void;
   onPropose: (o: VendorOrder) => void;
+  onChanged: () => void;
 }) {
   if (orders.length === 0) {
     return <EmptyState icon="inbox" title={t("empty.inbox")} hint={t("empty.inboxHint")} />;
@@ -513,6 +692,11 @@ function InboxSection({
           {/* 게스트 요청사항 — 이행 정보(있을 때만) */}
           <GuestNote note={o.guestNote} t={t} />
 
+          {/* 티켓형(TICKET) 발행 패널 — 발행하면 수락 겸행(ADR-0034) */}
+          {o.type === "TICKET" && (
+            <TicketPanel order={o} pending={o.vendorStatus === "PENDING_VENDOR"} t={t} onChanged={onChanged} />
+          )}
+
           {/* 거절 / 제안 / 수락 — 버튼 3개. 제안=수락하되 대안 시간 협의(propose). */}
           <div className="grid grid-cols-3 gap-2">
             <button
@@ -565,6 +749,7 @@ function ScheduleSection({
   onPageSize,
   busyId,
   onComplete,
+  onChanged,
   t,
 }: {
   orders: VendorOrder[];
@@ -576,6 +761,7 @@ function ScheduleSection({
   onPageSize: (s: number) => void;
   busyId: string | null;
   onComplete: (o: VendorOrder) => void;
+  onChanged: () => void;
   t: T;
 }) {
   if (orders.length === 0 && cancelled.length === 0) {
@@ -658,6 +844,11 @@ function ScheduleSection({
 
           {/* 게스트 요청사항 — 이행 정보(있을 때만) */}
           <GuestNote note={o.guestNote} t={t} />
+
+          {/* 티켓형(TICKET) 발행 패널 — 수락 후 발행분 확인·추가·삭제(ADR-0034) */}
+          {o.type === "TICKET" && (
+            <TicketPanel order={o} pending={false} t={t} onChanged={onChanged} />
+          )}
 
           {/* 상태 타임라인 — 발송·응답·완료 시각(작은 글씨) */}
           {(o.poSentAt || o.vendorRespondedAt || o.vendorCompletedAt) && (

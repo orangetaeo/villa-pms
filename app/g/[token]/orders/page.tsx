@@ -76,6 +76,8 @@ export default async function GuestOrdersPage({
       serviceDate: o.serviceDate,
       serviceTime: o.serviceTime,
       fulfillNote: fulfillmentNote(o.type, pu?.pickupAvailable ?? null, pu?.pickupNote ?? null, La),
+      // 발행된 QR 티켓 이미지 — 상태 무관 노출(원가·마진 무관 산출물)
+      ticketUrls: o.ticketUrls,
     };
   });
 

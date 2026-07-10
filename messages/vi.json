@@ -396,6 +396,20 @@
       "changePassword": "Đổi mật khẩu"
     },
     "searchPlaceholder": "Tìm đơn, villa, dịch vụ",
+    "tickets": {
+      "title": "Vé QR",
+      "counter": "{issued}/{needed} vé",
+      "shortWarn": "Số vé đã phát ít hơn số lượng đặt.",
+      "acceptHint": "Khi phát vé, đơn này sẽ tự động được chấp nhận.",
+      "upload": "Phát vé",
+      "uploading": "Đang tải lên…",
+      "remove": "Xóa",
+      "uploadError": "Tải lên thất bại.",
+      "errTooMany": "Chỉ có thể phát tối đa 30 vé.",
+      "errType": "Chỉ chấp nhận tệp hình ảnh.",
+      "errSize": "Kích thước tệp tối đa 5MB.",
+      "errNoFiles": "Vui lòng chọn tệp."
+    },
     "propose": {
       "button": "Đề xuất giờ",
       "title": "Đề xuất thời gian khác",
@@ -2473,6 +2487,20 @@
     "saved": "Đã lưu",
     "error": "Xử lý thất bại. Vui lòng thử lại.",
     "cancelConfirm": "Hủy đơn này?",
+    "tickets": {
+      "title": "Vé QR",
+      "counter": "{issued}/{needed} vé",
+      "none": "Chưa có vé",
+      "view": "Xem bản gốc",
+      "upload": "Đính kèm vé",
+      "uploading": "Đang tải lên…",
+      "remove": "Xóa",
+      "uploadError": "Tải lên thất bại.",
+      "errTooMany": "Chỉ đính kèm tối đa 30 vé.",
+      "errType": "Chỉ chấp nhận tệp hình ảnh.",
+      "errSize": "Kích thước tệp tối đa 5MB.",
+      "errNoFiles": "Vui lòng chọn tệp."
+    },
     "vendor": {
       "direct": "Tự cung cấp",
       "status": {

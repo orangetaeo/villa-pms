@@ -207,6 +207,7 @@ export default async function BookingDetailPage({
         requestedVia: true,
         guestNote: true,
         selectedOptions: true,
+        ticketUrls: true, // 티켓형(TICKET) 발행 이미지 — 발행 현황·대리 첨부(ADR-0034)
         catalogItemId: true,
         // ADR-0023 S2 — 원천 공급자 발주 흐름(발주·수락·정산)
         vendorId: true,
@@ -291,6 +292,7 @@ export default async function BookingDetailPage({
     requestedVia: o.requestedVia,
     guestNote: o.guestNote,
     selectedOptions: parseSnapshot(o.selectedOptions),
+    ticketUrls: o.ticketUrls, // 티켓형(TICKET) 발행 이미지(ADR-0034)
     // ADR-0023 S2 — 원천 공급자 발주 흐름
     vendorId: o.vendorId,
     vendorName: o.vendor?.name ?? null,
