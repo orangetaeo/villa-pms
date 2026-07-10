@@ -5,11 +5,13 @@ import { serializeBigInt } from "@/lib/serialize";
 import { isOperator } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
 import { effectivePar, computeConsumptionFromRemaining } from "@/lib/minibar-inventory";
+import { getDailyRates } from "@/lib/fx-rates";
 
 /** POST /api/bookings/[id]/checkout — 체크아웃 완료 (ADMIN 전용, SPEC F4) */
 
 const checkoutSchema = z.object({
-  photoUrls: z.array(z.string().min(1)).min(1, "상태 사진은 1장 이상 필요합니다").max(50),
+  // 상태 사진은 정책 변경(2026-07-10)으로 선택 — 파손 시에만 증빙 입력. 신규 폼은 미전송.
+  photoUrls: z.array(z.string().min(1)).max(50).optional(),
   damageFound: z.boolean(),
   damageNote: z.string().trim().max(2000).optional(),
   damagePhotoUrls: z.array(z.string().min(1)).max(20).optional(),
@@ -35,10 +37,19 @@ const checkoutSchema = z.object({
     .max(100)
     .optional(),
   // 게스트 통합정산 수납 (ADR-0019 S4) — 현금/계좌이체/기타. 미지정이면 청구액만 기록(미수납).
+  //   amounts: 통화별 실수납액(분할 수납, 2026-07-10). VND는 동 단위 숫자 문자열(BigInt 정밀도), KRW/USD는 정수.
   settlement: z
     .object({
       method: z.enum(["CASH", "BANK_TRANSFER", "OTHER"]),
       note: z.string().trim().max(500).optional().nullable(),
+      amounts: z
+        .object({
+          vnd: z.string().regex(/^\d+$/).optional(),
+          krw: z.number().int().min(0).max(100_000_000).optional(),
+          usd: z.number().int().min(0).max(100_000).optional(),
+        })
+        .optional()
+        .nullable(),
     })
     .optional()
     .nullable(),
@@ -139,6 +150,24 @@ export async function POST(
     //   remaining 필드가 없으면 기존 consumedQty를 그대로 사용(하위 호환). 가격·차감은 lib/checkout이 재계산.
     const minibarLines = await normalizeMinibarLines(id, parsed.data.minibarLines);
 
+    // 게스트 통화별 실수납 분할 — amounts를 lib 타입(BigInt VND)으로 정규화.
+    const rawSettlement = parsed.data.settlement ?? null;
+    const rawAmounts = rawSettlement?.amounts ?? null;
+    const amounts = rawAmounts
+      ? {
+          vnd: rawAmounts.vnd != null ? BigInt(rawAmounts.vnd) : null,
+          krw: rawAmounts.krw ?? null,
+          usd: rawAmounts.usd ?? null,
+        }
+      : null;
+    const hasSettledAmount =
+      !!amounts && ((amounts.vnd ?? 0n) > 0n || (amounts.krw ?? 0) > 0 || (amounts.usd ?? 0) > 0);
+    // 환율 스냅샷은 서버가 조회(클라 환율 신뢰 금지). 실수납 금액이 있을 때만.
+    const rates = hasSettledAmount ? await getDailyRates(prisma) : null;
+    const settlementFx = rates
+      ? { date: rates.date, vndPerKrw: rates.vndPerUnit.KRW, vndPerUsd: rates.vndPerUnit.USD }
+      : null;
+
     const result = await completeCheckout(prisma, {
       bookingId: id,
       photoUrls: parsed.data.photoUrls,
@@ -147,7 +176,10 @@ export async function POST(
       damagePhotoUrls: parsed.data.damagePhotoUrls,
       deductionVnd: parsed.data.deductionVnd ? BigInt(parsed.data.deductionVnd) : null,
       minibarLines,
-      settlement: parsed.data.settlement ?? null,
+      settlement: rawSettlement
+        ? { method: rawSettlement.method, note: rawSettlement.note, amounts }
+        : null,
+      settlementFx,
       actorUserId: session.user.id,
       now: new Date(),
     });
