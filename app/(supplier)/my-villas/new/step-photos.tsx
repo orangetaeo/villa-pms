@@ -13,7 +13,8 @@ import {
   type PhotoSlotState,
   type WizardState,
 } from "./wizard-types";
-import { WizardGuide } from "./wizard-guide";
+// 공용 인라인 가이드 (T-9에서 wizard-guide.tsx 승격 — light 톤 동일)
+import { InlineGuide } from "@/components/inline-guide";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB — /api/uploads와 동일
 
@@ -117,7 +118,7 @@ export default function StepPhotos({ state, setPhoto, onNext, onBack }: Props) {
         {/* 인라인 가이드 — 그리드를 처음 보는 순간 "칸 탭=1장 업로드" 조작 모델 + 가로 촬영 팁.
             기존 하단 helper 배너는 여기로 통합·제거(화면당 배너 1개 — UX-VN 확정) */}
         <div className="mb-6">
-          <WizardGuide text={t("guide")} />
+          <InlineGuide text={t("guide")} />
         </div>
 
         {/* 공간별 업로드 그리드 */}

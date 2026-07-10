@@ -8,6 +8,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { resizeImage } from "@/lib/image-resize";
+import { InlineGuide } from "@/components/inline-guide";
 
 export interface PhotoSection {
   id: string;
@@ -181,6 +182,11 @@ export default function SupplierCheckoutForm({
             </span>
           </div>
 
+          {/* 인라인 가이드 — 기준사진과 같은 각도로 촬영해야 파손 대조 가능 (T-tutorial-onboarding-9) */}
+          <div className="mb-3">
+            <InlineGuide text={t("guide.photo")} />
+          </div>
+
           {sections.map((sec) => {
             const currentUrl = photos[sec.id];
             const isUploading = uploadingSection === sec.id;
@@ -341,6 +347,10 @@ export default function SupplierCheckoutForm({
               <span className="ml-auto whitespace-nowrap rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-bold text-neutral-400">
                 {t("minibar.hint")}
               </span>
+            </div>
+            {/* 인라인 가이드 — 소비 수량만 입력, 미니바 대금은 보증금과 별도 수취 (T-tutorial-onboarding-9) */}
+            <div className="px-4 pt-3">
+              <InlineGuide text={t("guide.minibar")} />
             </div>
             <div className="divide-y divide-neutral-100">
               {minibar.map((m) => {

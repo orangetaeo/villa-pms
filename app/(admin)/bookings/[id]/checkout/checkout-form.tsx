@@ -9,6 +9,7 @@ import { useTranslations } from "next-intl";
 import { resizeImage } from "@/lib/image-resize";
 import { formatThousands } from "@/lib/format";
 import { computeGuestBill, type GuestSettlementMethodValue } from "@/lib/checkout-settlement";
+import { InlineGuide } from "@/components/inline-guide";
 import ImageLightbox, { type LightboxImage } from "@/components/image-lightbox";
 
 interface Section {
@@ -266,6 +267,10 @@ export default function CheckoutForm({
             </span>
           </div>
         </div>
+        {/* 인라인 가이드 — T-9 */}
+        <div className="mb-6">
+          <InlineGuide variant="dark" text={t("guide.photos")} />
+        </div>
         <div className="space-y-8">
           {sections.map((section) => {
             const uploaded = photos[section.id];
@@ -351,6 +356,11 @@ export default function CheckoutForm({
             <span className="material-symbols-outlined text-[14px]">calculate</span>
             {t("autoCalc")}
           </span>
+        </div>
+
+        {/* 인라인 가이드 — T-9 */}
+        <div className="px-6 pt-4">
+          <InlineGuide variant="dark" text={t("guide.minibar")} />
         </div>
 
         {minibar.length === 0 ? (
@@ -768,6 +778,9 @@ export default function CheckoutForm({
           </div>
         </section>
       )}
+
+      {/* 인라인 가이드 — T-9 (제출·환불 버튼 안내) */}
+      <InlineGuide variant="dark" text={t("guide.submit")} />
 
       {error && (
         <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-3">{error}</p>

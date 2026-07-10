@@ -11,6 +11,7 @@ import { resizeImage } from "@/lib/image-resize";
 import type { AgreementContent, AgreementLang } from "@/lib/agreement";
 import { agreementVersionLabel } from "@/lib/agreement";
 import SupplierSignaturePad from "./signature-pad";
+import { InlineGuide } from "@/components/inline-guide";
 
 interface PassportEntry {
   url: string; // /api/passports/<name>
@@ -336,6 +337,10 @@ export default function SupplierCheckinForm({
           </div>
           {!depositSkipped && (
             <div className="p-4">
+              {/* 인라인 가이드 — 이 금액이 체크아웃 환불 계산의 기준값 (T-tutorial-onboarding-9) */}
+              <div className="mb-3">
+                <InlineGuide text={t("guide.deposit")} />
+              </div>
               <div className="flex h-16 items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-4 focus-within:ring-2 focus-within:ring-teal-500">
                 <span className="material-symbols-outlined text-neutral-400">savings</span>
                 <input
@@ -368,6 +373,8 @@ export default function SupplierCheckinForm({
             <h2 className="font-bold text-neutral-800">{t("agreement.title")}</h2>
           </div>
           <div className="space-y-4 p-4">
+            {/* 인라인 가이드 — 게스트에게 읽히고 화면 서명 받는 절차 안내 (T-tutorial-onboarding-9) */}
+            <InlineGuide text={t("guide.agreement")} />
             <div className="no-scrollbar h-40 space-y-2 overflow-y-auto rounded-xl border border-neutral-100 bg-neutral-50 p-4 text-xs leading-relaxed text-neutral-500">
               <p className="font-bold text-neutral-700">{agreement.docTitle[agreementLang]}</p>
               <p className="whitespace-pre-line">{agreement.body[agreementLang]}</p>
