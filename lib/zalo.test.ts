@@ -337,6 +337,35 @@ describe("buildNotificationText — VENDOR_PROPOSAL_RESULT (제안 결과, ko/vi
     expect(text).toContain("không được áp dụng");
     expect(text).toContain("Giữ lịch ban đầu");
   });
+  it("고객 거절(declinedByGuest, vi) — 발주함 복귀 문구로 분기", () => {
+    const text = buildNotificationText(NotificationType.VENDOR_PROPOSAL_RESULT, {
+      ...base,
+      applied: false,
+      declinedByGuest: true,
+      locale: "vi",
+    });
+    expect(text).toContain("Khách đã từ chối giờ đề xuất");
+    expect(text).toContain("hộp đơn"); // 발주함 재응답 안내
+    expect(text).not.toContain("không được áp dụng"); // 운영자 무시 문구가 아님
+  });
+  it("고객 거절(declinedByGuest, ko) — 원래 시간 재검토 안내", () => {
+    const text = buildNotificationText(NotificationType.VENDOR_PROPOSAL_RESULT, {
+      ...base,
+      applied: false,
+      declinedByGuest: true,
+      locale: "ko",
+    });
+    expect(text).toContain("고객이 제안 시간을 거절했습니다");
+    expect(text).toContain("발주함");
+  });
+  it("구 payload 하위호환 — declinedByGuest 없으면 기존 무시 문구", () => {
+    const text = buildNotificationText(NotificationType.VENDOR_PROPOSAL_RESULT, {
+      ...base,
+      applied: false,
+      locale: "ko",
+    });
+    expect(text).toContain("반영되지 않았습니다");
+  });
   it("누수 가드 — 판매가·마진 없음", () => {
     const text = buildNotificationText(NotificationType.VENDOR_PROPOSAL_RESULT, {
       ...base,

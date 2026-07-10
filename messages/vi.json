@@ -293,8 +293,17 @@
     "reject": "Từ chối",
     "tab": {
       "inbox": "Đơn mới",
+      "proposal": "Đề xuất giờ",
       "schedule": "Lịch giao",
       "settlement": "Thanh toán"
+    },
+    "proposalTab": {
+      "pending": "Chờ khách phản hồi",
+      "applied": "Đã chấp nhận",
+      "declined": "Khách từ chối",
+      "declinedResolved": "Đã xử lý sau từ chối",
+      "dismissed": "Không áp dụng",
+      "declinedInbox": "Đề xuất bị từ chối — xem lại giờ ban đầu"
     },
     "status": {
       "accepted": "Đã nhận",
@@ -316,6 +325,8 @@
     "empty": {
       "inbox": "Chưa có đơn mới",
       "inboxHint": "Đơn đặt hàng mới sẽ hiện ở đây.",
+      "proposal": "Chưa có giờ đề xuất",
+      "proposalHint": "Khi bạn đề xuất đổi giờ, bạn có thể theo dõi phản hồi của khách tại đây.",
       "schedule": "Chưa có lịch giao",
       "scheduleHint": "Đơn bạn đã nhận sẽ hiện ở đây.",
       "settlement": "Chưa có khoản thanh toán",
@@ -385,7 +396,11 @@
       "unsettledLabel": "Chưa thanh toán",
       "settledLabel": "Đã thanh toán",
       "topItemsTitle": "Mặt hàng phổ biến",
-      "itemMeta": "{orders} đơn · {qty} cái"
+      "itemMeta": "{orders} đơn · {qty} cái",
+      "proposalTitle": "Đề xuất giờ",
+      "proposalTotal": "Số đề xuất",
+      "proposalApplied": "Chấp nhận",
+      "proposalDeclined": "Khách từ chối"
     },
     "approvalGate": {
       "pendingTitle": "Đang chờ duyệt",
@@ -2484,6 +2499,9 @@
       "unsettledBadge": "Chưa thanh toán",
       "completedBadge": "Đã hoàn thành {date}",
       "proposalBadge": "Chờ xử lý đề xuất",
+      "declinedBadge": "Khách từ chối",
+      "proposalActive": "Đang đề xuất {n}",
+      "declinedChip": "Khách từ chối {n}",
       "searchPlaceholder": "Tìm villa·món·NCC",
       "emptyPending": "Không có khoản nào chờ thanh toán.",
       "emptyPaid": "Chưa có khoản nào đã thanh toán.",

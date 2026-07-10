@@ -78,7 +78,8 @@ export default async function VendorStatsPage({
   const stats = await loadVendorStats(vendorId, period, locale);
   const chip = activeChip(range);
 
-  const hasData = stats.orderCount > 0 || stats.acceptanceRatePct !== null;
+  const hasData =
+    stats.orderCount > 0 || stats.acceptanceRatePct !== null || stats.proposalCount > 0;
 
   return (
     <main className="mx-auto max-w-md space-y-6 px-4 pb-28 pt-6">
@@ -193,6 +194,39 @@ export default async function VendorStatsPage({
               </div>
             </div>
           </section>
+
+          {/* 시간 제안 통계(ADR-0035) — 제안 수·수락·고객 거절(전역 스냅샷). 제안이 있을 때만 표시. */}
+          {stats.proposalCount > 0 && (
+            <section className="space-y-2">
+              <h3 className="text-base font-bold text-slate-800">{t("stats.proposalTitle")}</h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                  <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
+                    {t("stats.proposalTotal")}
+                  </p>
+                  <p className="mt-1 text-2xl font-extrabold tracking-tight text-slate-900 tabular-nums">
+                    {stats.proposalCount}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                  <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
+                    {t("stats.proposalApplied")}
+                  </p>
+                  <p className="mt-1 text-2xl font-extrabold tracking-tight text-emerald-600 tabular-nums">
+                    {stats.proposalAppliedCount}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                  <p className="text-xs font-medium uppercase tracking-wider text-slate-400">
+                    {t("stats.proposalDeclined")}
+                  </p>
+                  <p className="mt-1 text-2xl font-extrabold tracking-tight text-rose-500 tabular-nums">
+                    {stats.proposalDeclinedCount}
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
 
           {/* 인기 품목 Top — 발주 건수·수량·매출 */}
           {stats.topItems.length > 0 && (

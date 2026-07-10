@@ -75,6 +75,10 @@ export default async function GuestOrdersPage({
       optionLabels: o.selectedOptions.map((s) => pickI18n(s.labelKo, s.labelI18n ?? null, lang)),
       serviceDate: o.serviceDate,
       serviceTime: o.serviceTime,
+      proposedServiceDate: o.proposedServiceDate,
+      proposedServiceTime: o.proposedServiceTime,
+      vendorProposalNote: o.vendorProposalNote,
+      proposalPending: o.proposalPending,
       fulfillNote: fulfillmentNote(o.type, pu?.pickupAvailable ?? null, pu?.pickupNote ?? null, La),
       // 발행된 QR 티켓 이미지 — 상태 무관 노출(원가·마진 무관 산출물)
       ticketUrls: o.ticketUrls,

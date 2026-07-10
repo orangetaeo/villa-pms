@@ -466,6 +466,19 @@ export function buildNotificationText(
               `Lịch xác nhận: ${date}${time}`,
             ].join("\n");
       }
+      // ★ 고객(게스트) 거절 분기 — declinedByGuest=true면 발주함 복귀 안내(원래 시간 재검토).
+      //   구 payload(플래그 없음)는 아래 운영자 무시(dismiss) 문구로 하위호환.
+      if (p.declinedByGuest === true) {
+        return ko
+          ? [
+              `↩️ 고객이 제안 시간을 거절했습니다: ${itemName} (${villa})`,
+              `원래 시간(${date}${time}) 기준으로 발주함에서 다시 응답해주세요.`,
+            ].join("\n")
+          : [
+              `↩️ Khách đã từ chối giờ đề xuất: ${itemName} (${villa})`,
+              `Vui lòng phản hồi lại trong hộp đơn theo giờ ban đầu (${date}${time}).`,
+            ].join("\n");
+      }
       return ko
         ? [
             `ℹ️ 시간 제안이 반영되지 않았습니다: ${itemName} (${villa})`,

@@ -29,6 +29,12 @@ const ROW_SELECT = {
   poSentAt: true,
   vendorRespondedAt: true,
   vendorCompletedAt: true,
+  // 시간 제안(propose) 현황 — 본인 스코프(판매가 무관). 미해결/결과 뱃지·시간제안 탭용(ADR-0035)
+  proposedServiceDate: true,
+  proposedServiceTime: true,
+  vendorProposalNote: true,
+  vendorProposalRespondedAt: true,
+  vendorProposalOutcome: true,
   createdAt: true,
   catalogItemId: true,
   vendorName: true,
@@ -80,6 +86,12 @@ async function mapRows(rows: RawRow[], locale: string) {
     poSentAt: iso(o.poSentAt),
     vendorRespondedAt: iso(o.vendorRespondedAt),
     vendorCompletedAt: iso(o.vendorCompletedAt),
+    // 시간 제안 현황 — 제안값·메모·해결 시각·결과 스냅샷(ADR-0035). 판매가 미포함.
+    proposedServiceDate: iso(o.proposedServiceDate),
+    proposedServiceTime: o.proposedServiceTime,
+    vendorProposalNote: o.vendorProposalNote,
+    vendorProposalRespondedAt: iso(o.vendorProposalRespondedAt),
+    vendorProposalOutcome: o.vendorProposalOutcome,
   }));
 }
 
@@ -94,8 +106,8 @@ export async function GET(req: Request) {
 
   const locale = await getSupplierLocale(session.user.locale);
   const sp = new URL(req.url).searchParams;
-  const tab = (["inbox", "schedule", "settlement"] as const).includes(sp.get("tab") as never)
-    ? (sp.get("tab") as "inbox" | "schedule" | "settlement")
+  const tab = (["inbox", "proposal", "schedule", "settlement"] as const).includes(sp.get("tab") as never)
+    ? (sp.get("tab") as "inbox" | "proposal" | "schedule" | "settlement")
     : "inbox";
   const sub = sp.get("sub") === "paid" ? "paid" : "pending";
   const q = (sp.get("search") ?? "").trim();
@@ -124,16 +136,31 @@ export async function GET(req: Request) {
     searchWhere ? { AND: [w, searchWhere] } : w;
 
   const base: Prisma.ServiceOrderWhereInput = { vendorId };
-  // 인박스 뱃지 카운트 — 항상(검색 무관) 응답 대기 총건.
-  const inboxCount = await prisma.serviceOrder.count({
-    where: { ...base, vendorStatus: "PENDING_VENDOR", status: { not: "CANCELLED" } },
-  });
+  // 탭 뱃지 카운트 — 항상(검색 무관). 발주함=응답 대기, 시간제안=미해결 제안(고객 응답 대기).
+  const [inboxCount, proposalPendingCount] = await Promise.all([
+    prisma.serviceOrder.count({
+      where: { ...base, vendorStatus: "PENDING_VENDOR", status: { not: "CANCELLED" } },
+    }),
+    prisma.serviceOrder.count({
+      where: {
+        ...base,
+        proposedServiceDate: { not: null },
+        vendorProposalRespondedAt: null,
+        status: { not: "CANCELLED" },
+      },
+    }),
+  ]);
 
   let where: Prisma.ServiceOrderWhereInput;
   let orderBy: Prisma.ServiceOrderOrderByWithRelationInput[];
   if (tab === "inbox") {
     where = withSearch({ ...base, vendorStatus: "PENDING_VENDOR", status: { not: "CANCELLED" } });
     orderBy = [{ createdAt: "desc" }];
+  } else if (tab === "proposal") {
+    // 시간 제안 탭 — 내가 propose한 발주(제안값 존재). 미해결(respondedAt null) 우선 정렬 후 최신순.
+    //   취소 건은 제외(추적 의미 없음). 판매가·마진 미포함(ROW_SELECT 화이트리스트).
+    where = withSearch({ ...base, proposedServiceDate: { not: null }, status: { not: "CANCELLED" } });
+    orderBy = [{ vendorProposalRespondedAt: { sort: "asc", nulls: "first" } }, { createdAt: "desc" }];
   } else if (tab === "schedule") {
     where = withSearch({ ...base, vendorStatus: "VENDOR_ACCEPTED", status: { not: "CANCELLED" } });
     orderBy = [{ serviceDate: "asc" }, { createdAt: "desc" }];
@@ -153,7 +180,7 @@ export async function GET(req: Request) {
   ]);
   const rows = await mapRows(rawRows, locale);
 
-  const res: Record<string, unknown> = { orders: rows, total, inboxCount, page, pageSize };
+  const res: Record<string, unknown> = { orders: rows, total, inboxCount, proposalPendingCount, page, pageSize };
 
   // 예약현황 탭 — 취소됐지만 이미 발주됐던 건(이행 중단 안내 배너). 소량이라 상단 50건만.
   if (tab === "schedule") {
