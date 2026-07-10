@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 const mockAuth = vi.fn();
 const mockBookingFindUnique = vi.fn();
+const mockBookingFreshStatus = vi.fn(); // 트랜잭션 내 상태 재읽기(findUniqueOrThrow)
 const mockPartnerFindUnique = vi.fn();
 const mockBookingUpdate = vi.fn();
 const mockEvaluateCredit = vi.fn();
@@ -22,7 +23,15 @@ vi.mock("@/lib/prisma", () => ({
     booking: { findUnique: (...a: unknown[]) => mockBookingFindUnique(...a) },
     partner: { findUnique: (...a: unknown[]) => mockPartnerFindUnique(...a) },
     $transaction: async (fn: (tx: unknown) => unknown) =>
-      fn({ booking: { update: (...a: unknown[]) => mockBookingUpdate(...a) } }),
+      fn({
+        // 채권 락(pg_advisory_xact_lock) — 테스트에선 no-op.
+        $executeRaw: async () => 0,
+        booking: {
+          update: (...a: unknown[]) => mockBookingUpdate(...a),
+          // 트랜잭션 내 상태 재읽기 — 바깥 stale 스냅샷과 분리해 경합 시나리오를 검증 가능.
+          findUniqueOrThrow: (...a: unknown[]) => mockBookingFreshStatus(...a),
+        },
+      }),
   },
 }));
 
@@ -48,6 +57,8 @@ beforeEach(() => {
     partnerId: null,
     receivable: null,
   });
+  // 트랜잭션 내 재읽기 기본값 = 바깥과 동일(CONFIRMED). 경합 테스트에서만 다르게 설정.
+  mockBookingFreshStatus.mockResolvedValue({ status: "CONFIRMED" });
   mockPartnerFindUnique.mockResolvedValue({ id: "p1" });
   mockBookingUpdate.mockResolvedValue({ id: "b1" });
   mockEnsureReceivable.mockResolvedValue({ id: "r1" });
@@ -76,10 +87,27 @@ describe("PUT /api/bookings/[id]/partner — 재지정 여신 게이트", () => 
       partnerId: null,
       receivable: null,
     });
+    mockBookingFreshStatus.mockResolvedValue({ status: "HOLD" });
     const res = await putReq({ partnerId: "p1" });
     expect(res.status).toBe(200);
     expect(mockEvaluateCredit).not.toHaveBeenCalled();
     expect(mockEnsureReceivable).not.toHaveBeenCalled();
+  });
+
+  it("경합: 바깥 스냅샷 HOLD(stale)지만 트랜잭션 내 상태가 CONFIRMED면 채권 생성", async () => {
+    // 동시 confirmHold가 이 PUT의 트랜잭션 직전 커밋 → 바깥 findUnique는 HOLD를 봤으나
+    // 락으로 직렬화된 트랜잭션 내 재읽기는 CONFIRMED. stale 스냅샷으로 채권을 건너뛰면 미수 누락 발생.
+    mockBookingFindUnique.mockResolvedValue({
+      id: "b1",
+      status: "HOLD", // stale
+      partnerId: null,
+      receivable: null,
+    });
+    mockBookingFreshStatus.mockResolvedValue({ status: "CONFIRMED" }); // 직렬화 후 실제 상태
+    mockEvaluateCredit.mockResolvedValue({ allowed: true, skipped: false });
+    const res = await putReq({ partnerId: "p1" });
+    expect(res.status).toBe(200);
+    expect(mockEnsureReceivable).toHaveBeenCalledOnce(); // 채권 생성됨 — 누락 없음
   });
 
   it("STAFF → 403", async () => {

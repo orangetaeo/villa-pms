@@ -12,6 +12,7 @@ import {
   outstandingForPartner,
   type CreditGateReason,
 } from "@/lib/partner";
+import { todayInVillaTimezone } from "@/lib/timeline";
 
 /**
  * 예약 ↔ 파트너 채권 연결 로직 (ADR-0022 PARTNER-2b).
@@ -59,6 +60,32 @@ export function applyPaymentToReceivable(
   const add = vndAmount > 0n ? vndAmount : 0n;
   const depositPaidVnd = purpose === "DEPOSIT" ? rcv.depositPaidVnd + add : rcv.depositPaidVnd;
   const balancePaidVnd = purpose === "BALANCE" ? rcv.balancePaidVnd + add : rcv.balancePaidVnd;
+  const totalPaid = depositPaidVnd + balancePaidVnd;
+  const status =
+    totalPaid >= rcv.totalVnd
+      ? ReceivableStatus.PAID
+      : totalPaid > 0n
+        ? ReceivableStatus.PARTIAL
+        : ReceivableStatus.PENDING;
+  return { depositPaidVnd, balancePaidVnd, status };
+}
+
+/**
+ * 입금 1건 삭제(정정)를 채권에서 되돌림(순수) — applyPaymentToReceivable의 역연산.
+ * 선금/잔금 누적분을 차감(0 하한) 후 상태 재계산. (OVERDUE는 cron이 기한 기준 별도 처리)
+ * 결제 삭제 경로(app/api/payments/[id])에서 채권 카운터 정합성 유지에 사용.
+ */
+export function reversePaymentFromReceivable(
+  rcv: { totalVnd: bigint; depositPaidVnd: bigint; balancePaidVnd: bigint },
+  purpose: "DEPOSIT" | "BALANCE",
+  vndAmount: bigint
+): ReceivablePaidUpdate {
+  const sub = vndAmount > 0n ? vndAmount : 0n;
+  const max0 = (v: bigint) => (v > 0n ? v : 0n);
+  const depositPaidVnd =
+    purpose === "DEPOSIT" ? max0(rcv.depositPaidVnd - sub) : rcv.depositPaidVnd;
+  const balancePaidVnd =
+    purpose === "BALANCE" ? max0(rcv.balancePaidVnd - sub) : rcv.balancePaidVnd;
   const totalPaid = depositPaidVnd + balancePaidVnd;
   const status =
     totalPaid >= rcv.totalVnd
@@ -247,15 +274,16 @@ type ReceivableUpdater = Pick<PrismaClient, "partnerReceivable"> | Tx;
 /**
  * 연체 전이(cron) — 기한 경과한 미입금(PENDING/PARTIAL) 채권을 OVERDUE로.
  * PAID/WRITTEN_OFF는 제외(완납·대손). PENDING/PARTIAL은 항상 미입금 잔액>0이므로
- * dueDate < 오늘(UTC 자정)이면 연체. 멱등(이미 OVERDUE는 where에서 제외). count 반환.
+ * dueDate < 오늘(VN 자정)이면 연체. 멱등(이미 OVERDUE는 where에서 제외). count 반환.
+ * ★ "오늘"은 VN 캘린더 일(todayInVillaTimezone) — dueDate가 VN 날짜를 UTC 자정에 저장하므로
+ *   UTC 일로 계산하면 cron이 17:00~23:59 UTC(다음 VN일 새벽)에 돌 때 하루 늦게 연체 전이됨.
+ *   roster-reminder·hasOverdue와 동일 규약.
  */
 export async function markOverdueReceivables(
   db: ReceivableUpdater,
   asOf: Date
 ): Promise<number> {
-  const today = new Date(
-    Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth(), asOf.getUTCDate())
-  );
+  const today = todayInVillaTimezone(asOf);
   const res = await db.partnerReceivable.updateMany({
     where: {
       status: { in: [ReceivableStatus.PENDING, ReceivableStatus.PARTIAL] },

@@ -7,6 +7,7 @@ import {
 import { OCCUPYING_BOOKING_STATUSES, overlapsHalfOpen } from "@/lib/availability";
 import { writeAuditLog } from "@/lib/audit-log";
 import { safeFetch } from "@/lib/ssrf-guard";
+import { parseUtcDateOnly, todayVnDateString } from "@/lib/date-vn";
 
 /**
  * iCal 수신 동기화 단일 소스 (SPEC F2, 계약: docs/contracts/T1.6-ical-sync.md)
@@ -627,9 +628,9 @@ export async function findUnresolvedIcalConflicts(
   from?: Date
 ): Promise<UnresolvedIcalConflict[]> {
   const now = new Date();
-  const since =
-    from ??
-    new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  // 기본 하한은 VN 캘린더 오늘을 UTC 자정으로(@db.Date 비교 규약 일치) — UTC 일로 잡으면
+  // 17:00~23:59 UTC에 충돌 알림 창이 하루 어긋난다(알림 배너 전용이라 영향은 경미).
+  const since = from ?? parseUtcDateOnly(todayVnDateString(now))!;
 
   const blocks = await db.calendarBlock.findMany({
     where: { source: BlockSource.ICAL, endDate: { gt: since } },

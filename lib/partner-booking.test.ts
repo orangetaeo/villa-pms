@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { CreditTier, PartnerStatus, ReceivableStatus } from "@prisma/client";
 import {
   applyPaymentToReceivable,
+  reversePaymentFromReceivable,
   creditPortionVnd,
   ensureReceivableForBooking,
   evaluateConfirmCredit,
@@ -41,6 +42,46 @@ describe("applyPaymentToReceivable", () => {
   it("0 입금 → PENDING 유지", () => {
     const r = applyPaymentToReceivable(base, "DEPOSIT", 0n);
     expect(r.status).toBe(ReceivableStatus.PENDING);
+  });
+});
+
+describe("reversePaymentFromReceivable (결제 삭제 정정)", () => {
+  it("선금 입금 삭제 → depositPaid 차감, PENDING 복귀", () => {
+    const r = reversePaymentFromReceivable(
+      { totalVnd: 1_000_000n, depositPaidVnd: 300_000n, balancePaidVnd: 0n },
+      "DEPOSIT",
+      300_000n
+    );
+    expect(r.depositPaidVnd).toBe(0n);
+    expect(r.status).toBe(ReceivableStatus.PENDING);
+  });
+  it("완납 후 잔금 입금 삭제 → PAID 해제(PARTIAL)", () => {
+    const r = reversePaymentFromReceivable(
+      { totalVnd: 1_000_000n, depositPaidVnd: 300_000n, balancePaidVnd: 700_000n },
+      "BALANCE",
+      700_000n
+    );
+    expect(r.balancePaidVnd).toBe(0n);
+    expect(r.status).toBe(ReceivableStatus.PARTIAL);
+  });
+  it("차감 결과 음수면 0 하한", () => {
+    const r = reversePaymentFromReceivable(
+      { totalVnd: 1_000_000n, depositPaidVnd: 200_000n, balancePaidVnd: 0n },
+      "DEPOSIT",
+      500_000n
+    );
+    expect(r.depositPaidVnd).toBe(0n);
+  });
+  it("apply→reverse 라운드트립이 원상복구", () => {
+    const base = { totalVnd: 1_000_000n, depositPaidVnd: 100_000n, balancePaidVnd: 0n };
+    const applied = applyPaymentToReceivable(base, "DEPOSIT", 400_000n);
+    const reversed = reversePaymentFromReceivable(
+      { totalVnd: base.totalVnd, depositPaidVnd: applied.depositPaidVnd, balancePaidVnd: applied.balancePaidVnd },
+      "DEPOSIT",
+      400_000n
+    );
+    expect(reversed.depositPaidVnd).toBe(base.depositPaidVnd);
+    expect(reversed.balancePaidVnd).toBe(base.balancePaidVnd);
   });
 });
 
