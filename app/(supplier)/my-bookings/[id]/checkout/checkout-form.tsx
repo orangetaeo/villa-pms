@@ -1,20 +1,14 @@
 "use client";
 
 // 공급자 vi 체크아웃 폼 (T10.5, a-supplier-checkout) — 라이트 모바일 390px.
-// 공간별 기준사진 ↔ 현재사진 대조 → 파손 토글(차감액) → 보증금 정산 요약 → 미니바 소모 정산(D6) → 완료.
+// 파손 토글(차감액) → 보증금 정산 요약 → 미니바 소모 정산(D6) → 완료.
+// 사진 비교 섹션은 정책 변경(2026-07-10)으로 제거 — 파손 시에만 메모·차감액 입력.
 // 미니바: 판매가(VND)만 표시·합산. 원가(costVnd)·마진 절대 비노출. 가격은 서버가 스냅샷 재계산(클라 전송 가격 무시).
 // 완료 → lib/checkout.completeCheckout: CHECKED_OUT + CleaningTask + isSellable=false(검수 게이트).
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { resizeImage } from "@/lib/image-resize";
 import { InlineGuide } from "@/components/inline-guide";
-
-export interface PhotoSection {
-  id: string;
-  label: string;
-  baselineUrl: string | null;
-}
 
 /** 미니바 품목 — 판매가(VND, 동 단위 문자열)와 비치 par 수량만. 원가·마진 없음. */
 export interface MinibarItemView {
@@ -38,24 +32,16 @@ function formatVndBig(v: bigint): string {
 
 export default function SupplierCheckoutForm({
   bookingId,
-  sections,
   minibar,
   depositVnd,
 }: {
   bookingId: string;
-  sections: PhotoSection[];
   minibar: MinibarItemView[];
   /** 수취 보증금(VND 동 단위 문자열) — 없으면 null(보증금 미수취) */
   depositVnd: string | null;
 }) {
   const t = useTranslations("supplierCheckout");
   const router = useRouter();
-
-  // 공간별 현재 사진 (업로드된 비공개 URL)
-  const [photos, setPhotos] = useState<Record<string, string>>({});
-  const [uploadingSection, setUploadingSection] = useState<string | null>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
-  const pendingSection = useRef<string | null>(null);
 
   // 파손
   const [damageFound, setDamageFound] = useState(false);
@@ -67,28 +53,6 @@ export default function SupplierCheckoutForm({
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const handleSectionFile = async (sectionId: string, file: File) => {
-    setUploadingSection(sectionId);
-    setError(null);
-    try {
-      const resized = await resizeImage(file);
-      const form = new FormData();
-      form.append("file", resized, file.name);
-      // 체크아웃 상태 사진은 공개 업로드 파이프라인(/api/uploads) — 여권 비공개와 별개(운영자 폼과 동일 정책)
-      const res = await fetch("/api/uploads", { method: "POST", body: form });
-      if (!res.ok) {
-        setError(t("photo.uploadError"));
-        return;
-      }
-      const { url } = (await res.json()) as { url: string };
-      setPhotos((prev) => ({ ...prev, [sectionId]: url }));
-    } catch {
-      setError(t("photo.uploadError"));
-    } finally {
-      setUploadingSection(null);
-    }
-  };
 
   const stepConsumed = (itemId: string, delta: number, par: number) => {
     setConsumed((prev) => {
@@ -107,17 +71,15 @@ export default function SupplierCheckoutForm({
   const deductionBig = damageFound ? BigInt(deductionVnd.replace(/\D/g, "") || "0") : 0n;
   const refundBig = depositBig - deductionBig;
 
-  const photoCount = Object.keys(photos).length;
   // 파손 ON이면 lib/checkout 요건 충족: 상세 내용(note) 필수 + 차감액 > 0 (보증금 수취 시 차감 반영).
   //   note는 lib의 "상세 내용 또는 증빙 사진" 요건을, 차감액은 보증금 차감 정합을 만족시킨다.
   const damageValid = !damageFound || (damageNote.trim().length > 0 && deductionBig > 0n);
-  const canSubmit = photoCount >= 1 && damageValid && !submitting && !uploadingSection;
+  const canSubmit = damageValid && !submitting;
 
   const submit = async () => {
     setSubmitting(true);
     setError(null);
     try {
-      const photoUrls = Object.values(photos);
       const minibarLines = minibar
         .filter((m) => (consumed[m.id] ?? 0) > 0)
         .map((m) => ({
@@ -129,7 +91,7 @@ export default function SupplierCheckoutForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          photoUrls,
+          // 상태 사진은 정책 변경(2026-07-10)으로 미전송 — 파손 시에만 메모·차감액.
           damageFound,
           ...(damageFound && damageNote.trim() ? { damageNote: damageNote.trim() } : {}),
           ...(damageFound && deductionBig > 0n
@@ -154,110 +116,7 @@ export default function SupplierCheckoutForm({
 
   return (
     <>
-      <input
-        ref={fileInput}
-        type="file"
-        aria-label={t("photo.take")}
-        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          const sec = pendingSection.current;
-          if (file && sec) void handleSectionFile(sec, file);
-          e.target.value = "";
-          pendingSection.current = null;
-        }}
-      />
-
       <main className="mx-auto max-w-md space-y-4 px-4 pb-44 pt-4">
-        {/* 공간별 사진 비교 */}
-        <section>
-          <div className="mb-3 flex items-center justify-between px-1">
-            <h2 className="flex items-center gap-2 font-bold text-neutral-800">
-              <span className="material-symbols-outlined text-teal-600">photo_library</span>
-              {t("photo.title")}
-            </h2>
-            <span className="text-xs font-bold text-teal-600">
-              {photoCount} / {sections.length}
-            </span>
-          </div>
-
-          {/* 인라인 가이드 — 기준사진과 같은 각도로 촬영해야 파손 대조 가능 (T-tutorial-onboarding-9) */}
-          <div className="mb-3">
-            <InlineGuide text={t("guide.photo")} />
-          </div>
-
-          {sections.map((sec) => {
-            const currentUrl = photos[sec.id];
-            const isUploading = uploadingSection === sec.id;
-            return (
-              <div
-                key={sec.id}
-                className="mb-3 rounded-2xl border border-neutral-100 bg-white p-3 shadow-sm"
-              >
-                <div className="mb-2 flex items-center justify-between px-1">
-                  <h3 className="text-sm font-bold text-neutral-700">{sec.label}</h3>
-                  <span
-                    className={
-                      currentUrl
-                        ? "rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-bold text-[#16A34A]"
-                        : "rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-[#F59E0B]"
-                    }
-                  >
-                    {currentUrl ? t("photo.done") : t("photo.pending")}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <p className="px-0.5 text-[10px] font-bold uppercase text-neutral-400">
-                      {t("photo.baseline")}
-                    </p>
-                    <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-xl border border-neutral-200 bg-neutral-100 text-neutral-300">
-                      {sec.baselineUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- 빌라 기준사진(공개 업로드 URL)
-                        <img src={sec.baselineUrl} alt={sec.label} className="h-full w-full object-cover" />
-                      ) : (
-                        <span className="material-symbols-outlined text-3xl">image</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="px-0.5 text-[10px] font-bold uppercase text-neutral-400">
-                      {t("photo.current")}
-                    </p>
-                    {currentUrl ? (
-                      <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-neutral-200">
-                        {/* eslint-disable-next-line @next/next/no-img-element -- 방금 업로드한 상태사진 */}
-                        <img src={currentUrl} alt={sec.label} className="h-full w-full object-cover" />
-                        <span className="absolute bottom-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#16A34A] text-white">
-                          <span className="material-symbols-outlined text-[12px]">check</span>
-                        </span>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={isUploading}
-                        onClick={() => {
-                          pendingSection.current = sec.id;
-                          fileInput.current?.click();
-                        }}
-                        className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-teal-300 text-teal-600 transition-transform active:scale-95 disabled:opacity-50"
-                      >
-                        <span className="material-symbols-outlined text-3xl">
-                          {isUploading ? "hourglass_top" : "photo_camera"}
-                        </span>
-                        <span className="text-[11px] font-bold">
-                          {isUploading ? t("photo.uploading") : t("photo.take")}
-                        </span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </section>
-
         {/* 파손 리포트 */}
         <section className="overflow-hidden rounded-2xl border border-neutral-100 bg-white shadow-sm">
           <div className="flex items-center justify-between px-4 py-3">
@@ -434,7 +293,7 @@ export default function SupplierCheckoutForm({
           <p className="mb-2 text-center text-xs font-medium text-red-500">{error}</p>
         ) : (
           <p className="mb-2 text-center text-[11px] font-medium text-neutral-400">
-            {photoCount === 0 ? t("needPhoto") : t("submitCaption")}
+            {t("submitCaption")}
           </p>
         )}
       </div>

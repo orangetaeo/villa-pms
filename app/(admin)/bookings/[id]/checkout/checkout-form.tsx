@@ -1,7 +1,8 @@
 "use client";
 
-// 체크아웃 검수 폼 (b4 변환, T3.3) — 공간별 비교 업로드 + 미니바 소모 입력(#2b) +
-// 파손 리포트 + 하단 고정 액션 바 (전액 환불 / 차감 후 환불 승인)
+// 체크아웃 검수 폼 (b4 변환, T3.3) — 미니바 소모 입력(#2b) + 게스트 청구·다통화 수납 +
+// 파손 리포트 + 하단 고정 액션 바 (전액 환불 / 차감 후 환불 승인).
+// 사진 비교 섹션은 정책 변경(2026-07-10)으로 제거 — 파손 시에만 증빙 사진 입력.
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -9,14 +10,16 @@ import { useTranslations } from "next-intl";
 import { resizeImage } from "@/lib/image-resize";
 import { formatThousands } from "@/lib/format";
 import { computeGuestBill, type GuestSettlementMethodValue } from "@/lib/checkout-settlement";
+import { formatConverted } from "@/lib/fx-rates";
 import { InlineGuide } from "@/components/inline-guide";
-import ImageLightbox, { type LightboxImage } from "@/components/image-lightbox";
 
-interface Section {
-  id: string;
-  label: string;
-  baselineUrl: string | null;
+/** 오늘 환율 스냅샷(HCM 기준) — 미니바·청구서·수납 환산 "≈" 표시용. null이면 환산줄 생략. */
+export interface FxSnapshot {
+  date: string;
+  vndPerKrw: number;
+  vndPerUsd: number;
 }
+
 interface MinibarItem {
   id: string;
   /** 회사표준 품목 표시명(로케일별 서버 해석) */
@@ -45,25 +48,25 @@ const SETTLEMENT_METHODS: GuestSettlementMethodValue[] = ["CASH", "BANK_TRANSFER
 
 export default function CheckoutForm({
   bookingId,
-  sections,
   minibar,
   depositLabel,
   depositVnd,
   confirmedOrders,
+  fx,
 }: {
   bookingId: string;
-  sections: Section[];
   minibar: MinibarItem[];
   depositLabel: string | null;
   /** 보증금이 VND일 때만 — 환불 예정액 계산용 (동 단위 숫자 문자열) */
   depositVnd: string | null;
   /** 확정 부가옵션(CONFIRMED|DELIVERED) — 게스트 청구서 합산용. 판매가만. */
   confirmedOrders: ConfirmedServiceOrder[];
+  /** 오늘 환율 스냅샷 — 환산 "≈" 표시용. null이면 환산줄 생략(VND만). */
+  fx: FxSnapshot | null;
 }) {
   const t = useTranslations("adminCheckout");
   const router = useRouter();
 
-  const [photos, setPhotos] = useState<Record<string, string>>({}); // sectionId → url
   const [uploading, setUploading] = useState<string | null>(null);
   const [damageFound, setDamageFound] = useState(false);
   const [damageNote, setDamageNote] = useState("");
@@ -71,24 +74,14 @@ export default function CheckoutForm({
   const [deduction, setDeduction] = useState(""); // 파손 등 기타 차감 (동 단위 숫자 문자열)
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lightbox, setLightbox] = useState<number | null>(null);
 
   // 게스트 통합정산 수납 (ADR-0019 S4) — 결제수단(선택)·메모. 미선택도 허용(청구액만 기록·미수납).
   const [settlementMethod, setSettlementMethod] = useState<GuestSettlementMethodValue | null>(null);
   const [settlementNote, setSettlementNote] = useState("");
-
-  // 라이트박스 이미지 — 섹션별 기준→체크아웃 사진 (클릭 확대)
-  const lightboxImages: LightboxImage[] = sections.flatMap((s) => {
-    const items: LightboxImage[] = [];
-    if (s.baselineUrl) items.push({ url: s.baselineUrl, label: `${s.label} · ${t("baseline")}` });
-    const up = photos[s.id];
-    if (up) items.push({ url: up, label: `${s.label} · ${t("checkoutPhoto")}` });
-    return items;
-  });
-  const openLightbox = (url: string) => {
-    const idx = lightboxImages.findIndex((im) => im.url === url);
-    if (idx >= 0) setLightbox(idx);
-  };
+  // 통화별 실수납액(분할 수납, 2026-07-10) — ₫(동 단위 문자열)·₩(정수)·$(정수). 각각 선택 입력.
+  const [settledVndInput, setSettledVndInput] = useState("");
+  const [settledKrwInput, setSettledKrwInput] = useState("");
+  const [settledUsdInput, setSettledUsdInput] = useState("");
 
   // ── 미니바 "남은 수량" 입력 (소모 자동계산) ─────────────────────────
   // 운영자는 소모량을 직접 세지 않는다. 현재 "남은 수량(remaining)"만 입력하면
@@ -139,16 +132,6 @@ export default function CheckoutForm({
     }
   };
 
-  const onSectionPhoto = async (sectionId: string, file: File | null) => {
-    if (!file) return;
-    setUploading(sectionId);
-    setError(null);
-    const url = await upload(file);
-    if (url) setPhotos((p) => ({ ...p, [sectionId]: url }));
-    else setError(t("uploadError"));
-    setUploading(null);
-  };
-
   const onDamagePhoto = async (file: File | null) => {
     if (!file) return;
     setUploading("damage");
@@ -158,7 +141,6 @@ export default function CheckoutForm({
     setUploading(null);
   };
 
-  const photoUrls = Object.values(photos);
   const deductionDigits = deduction.replace(/[^\d]/g, "");
   const damageDeductionVnd =
     damageFound && /^\d+$/.test(deductionDigits) ? BigInt(deductionDigits) : 0n;
@@ -167,18 +149,43 @@ export default function CheckoutForm({
   // 총 차감액 = 미니바 자동 차감 + 파손 등 기타 차감 (BigInt, float 금지)
   const totalDeductionVnd = minibarTotal + damageDeductionVnd;
 
-  const canRefundFull = !damageFound && photoUrls.length >= 1 && !busy;
+  // ── 통화별 실수납액 파싱 (분할 수납) ────────────────────────────────
+  const settledVndDigits = settledVndInput.replace(/[^\d]/g, "");
+  const settledKrwDigits = settledKrwInput.replace(/[^\d]/g, "");
+  const settledUsdDigits = settledUsdInput.replace(/[^\d]/g, "");
+  const settledVndBig = settledVndDigits ? BigInt(settledVndDigits) : 0n;
+  const settledKrwNum = settledKrwDigits ? parseInt(settledKrwDigits, 10) : 0;
+  const settledUsdNum = settledUsdDigits ? parseInt(settledUsdDigits, 10) : 0;
+  const hasSettledAmount = settledVndBig > 0n || settledKrwNum > 0 || settledUsdNum > 0;
+  // 수납액을 입력했는데 결제수단 미선택이면 제출 차단(무엇으로 받았는지 미상 방지)
+  const settlementReady = !hasSettledAmount || settlementMethod !== null;
+
+  // ── 근사 환산(≈) — 표시 전용. 저장 금액 아님(저장은 원본 통화 그대로, ADR-0003). fx null이면 생략.
+  //   통합 환산 총액 = VND 청구 + KRW 청구를 오늘 환율로 VND 환산(합산은 표시용 근사).
+  const totalVndEquiv = fx
+    ? guestBill.totalVnd + BigInt(Math.round(guestBill.totalKrw * fx.vndPerKrw))
+    : guestBill.totalVnd;
+  // 수납 환산 합계 = 통화별 실수납액을 VND로 환산해 합산(근사).
+  const settledEquivVnd = fx
+    ? settledVndBig +
+      BigInt(Math.round(settledKrwNum * fx.vndPerKrw)) +
+      BigInt(Math.round(settledUsdNum * fx.vndPerUsd))
+    : settledVndBig;
+  // 잔여(음수면 초과) — 소프트 안내만(하드 블록 없음).
+  const remainingVnd = totalVndEquiv - settledEquivVnd;
+
+  const canRefundFull = !damageFound && settlementReady && !busy;
   const canDeduct =
     damageFound &&
-    photoUrls.length >= 1 &&
     deductionValid &&
     (damageNote.trim().length > 0 || damagePhotos.length > 0) &&
+    settlementReady &&
     !busy;
-  // 미니바만 차감(파손 없음)으로도 "차감 후 환불 승인" 가능 — 보증금 VND일 때만
+  // 미니바만 차감(파손 없음)으로도 "차감 후 환불 승인" 가능
   const canDeductMinibarOnly =
     // 보증금 미수취(NONE)여도 허용 — 미니바는 보증금 차감이 아니라 게스트 청구(정산)로 기록되므로
     // 여기서 막으면 무보증금+미니바 소비 조합의 체크아웃이 불가능해진다(consumer-bugs #5, 서버는 NONE 유지).
-    !damageFound && photoUrls.length >= 1 && minibarTotal > 0n && !busy;
+    !damageFound && minibarTotal > 0n && settlementReady && !busy;
 
   // 환불 예정액 — 보증금 VND일 때만 산출 (BigInt, float 금지)
   const refundEstimate = (() => {
@@ -221,7 +228,7 @@ export default function CheckoutForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          photoUrls,
+          // 상태 사진은 정책 변경(2026-07-10)으로 미전송 — 파손 시에만 damagePhotoUrls로 증빙.
           // 보증금에서 차감하는 모든 경로(미니바 소모·파손)는 BE 차감 경로로 통일
           damageFound: hasDeduction,
           damageNote: hasDeduction && combinedNote ? combinedNote : undefined,
@@ -230,8 +237,19 @@ export default function CheckoutForm({
           // 미니바 품목별 판매 캡처(매출·마진 통계 소스). 0건이면 빈 배열(라인 미생성).
           minibarLines: minibarLines.length ? minibarLines : undefined,
           // 게스트 통합정산 수납(ADR-0019 S4) — 결제수단 선택 시에만. 미선택이면 청구액만 기록(미수납).
+          //   amounts: 통화별 실수납액(양수만). 환율 스냅샷은 서버가 조회(클라 환율 신뢰 금지).
           settlement: settlementMethod
-            ? { method: settlementMethod, note: settlementNote.trim() || undefined }
+            ? {
+                method: settlementMethod,
+                note: settlementNote.trim() || undefined,
+                amounts: hasSettledAmount
+                  ? {
+                      ...(settledVndBig > 0n ? { vnd: settledVndDigits } : {}),
+                      ...(settledKrwNum > 0 ? { krw: settledKrwNum } : {}),
+                      ...(settledUsdNum > 0 ? { usd: settledUsdNum } : {}),
+                    }
+                  : undefined,
+              }
             : undefined,
         }),
       });
@@ -251,100 +269,6 @@ export default function CheckoutForm({
 
   return (
     <div className="space-y-10">
-      {/* 객실 상태 비교 (b4 Comparison Grid) */}
-      <section>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-bold flex items-center gap-2 whitespace-nowrap text-white">
-            <span className="material-symbols-outlined text-admin-primary">visibility</span>
-            {t("comparison")}
-          </h3>
-          <div className="text-xs text-slate-500 flex gap-4 whitespace-nowrap">
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-blue-500" /> {t("baseline")}
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" /> {t("checkoutPhoto")}
-            </span>
-          </div>
-        </div>
-        {/* 인라인 가이드 — T-9 */}
-        <div className="mb-6">
-          <InlineGuide variant="dark" text={t("guide.photos")} />
-        </div>
-        <div className="space-y-8">
-          {sections.map((section) => {
-            const uploaded = photos[section.id];
-            return (
-              <div key={section.id} className="bg-admin-card rounded-xl p-6 border border-slate-800 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-bold text-slate-200 whitespace-nowrap">{section.label}</h4>
-                  {uploaded ? (
-                    <span className="text-xs text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded whitespace-nowrap">
-                      {t("sectionDone")}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-amber-400 bg-amber-400/10 px-2 py-1 rounded whitespace-nowrap">
-                      {t("sectionMissing")}
-                    </span>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <p className="text-xs text-slate-500 font-medium whitespace-nowrap">{t("baseline")}</p>
-                    {section.baselineUrl ? (
-                      <button
-                        type="button"
-                        onClick={() => openLightbox(section.baselineUrl!)}
-                        aria-label={`${section.label} — ${t("baseline")}`}
-                        className="block w-full aspect-video rounded-lg overflow-hidden relative cursor-zoom-in"
-                      >
-                        <Image src={section.baselineUrl} alt={section.label} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
-                      </button>
-                    ) : (
-                      <div className="aspect-video rounded-lg border border-slate-700 flex flex-col items-center justify-center text-slate-600">
-                        <span className="material-symbols-outlined text-3xl mb-1">hide_image</span>
-                        <span className="text-xs">{t("baselineMissing")}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs text-slate-500 font-medium whitespace-nowrap">{t("checkoutPhoto")}</p>
-                    {uploaded ? (
-                      <button
-                        type="button"
-                        onClick={() => openLightbox(uploaded)}
-                        aria-label={`${section.label} — ${t("checkoutPhoto")}`}
-                        className="block w-full aspect-video rounded-lg overflow-hidden relative cursor-zoom-in"
-                      >
-                        <Image src={uploaded} alt={`${section.label} — ${t("checkoutPhoto")}`} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
-                      </button>
-                    ) : (
-                      <label className="aspect-video rounded-lg border-2 border-dashed border-slate-600 flex flex-col items-center justify-center text-slate-500 hover:text-white hover:border-slate-400 transition-all cursor-pointer">
-                        <span className="material-symbols-outlined text-4xl mb-2">
-                          {uploading === section.id ? "hourglass_top" : "photo_camera"}
-                        </span>
-                        <span className="text-xs font-bold whitespace-nowrap">
-                          {uploading === section.id ? t("uploading") : t("uploadPhoto")}
-                        </span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          disabled={uploading !== null}
-                          onChange={(e) => onSectionPhoto(section.id, e.target.files?.[0] ?? null)}
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      <ImageLightbox images={lightboxImages} index={lightbox} onIndexChange={setLightbox} />
-
       {/* 미니바 차감 자동계산 (b16) — 소모=비치−남은, 차감액=소모×단가 실시간 */}
       <section className="bg-admin-card rounded-xl border border-slate-800 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between gap-2 px-6 py-4 border-b border-slate-800 bg-slate-800/30">
@@ -483,11 +407,19 @@ export default function CheckoutForm({
               ))}
             </div>
 
-            {/* 합계 스트라이프 */}
+            {/* 합계 스트라이프 — VND 합계 + 오늘 환율 근사 환산(≈₩·≈$, fx 있을 때만) */}
             <div className="bg-amber-500/5 border-t border-slate-800 px-6 py-4 flex justify-between items-center">
               <span className="text-xs font-bold text-amber-500 uppercase tracking-widest">{t("minibarTotal")}</span>
-              <span className="text-xl font-black text-amber-500 tabular-nums tracking-tight">
-                {formatThousands(minibarTotal)}₫
+              <span className="text-right">
+                <span className="block text-xl font-black text-amber-500 tabular-nums tracking-tight">
+                  {formatThousands(minibarTotal)}₫
+                </span>
+                {fx && minibarTotal > 0n && (
+                  <span className="block text-[11px] text-slate-500 tabular-nums">
+                    {formatConverted(minibarTotal, "KRW", fx.vndPerKrw)} ·{" "}
+                    {formatConverted(minibarTotal, "USD", fx.vndPerUsd)}
+                  </span>
+                )}
               </span>
             </div>
           </>
@@ -557,12 +489,20 @@ export default function CheckoutForm({
               )}
             </div>
 
-            {/* 총 청구액 — 통화별 표기(합산 금지, ADR-0003) */}
+            {/* 총 청구액 — 통화별 표기(합산 금지, ADR-0003). 환산(≈)은 표시용 근사(저장 금액 아님). */}
             <div className="border-t border-slate-800 pt-3 space-y-2">
               <div className="flex justify-between items-center">
                 <span className="font-bold text-white">{t("guestBillTotalVnd")}</span>
-                <span className="text-lg font-black text-emerald-400 tabular-nums">
-                  {formatThousands(guestBill.totalVnd)}₫
+                <span className="text-right">
+                  <span className="block text-lg font-black text-emerald-400 tabular-nums">
+                    {formatThousands(guestBill.totalVnd)}₫
+                  </span>
+                  {fx && guestBill.totalVnd > 0n && (
+                    <span className="block text-[11px] text-slate-500 tabular-nums">
+                      {formatConverted(guestBill.totalVnd, "KRW", fx.vndPerKrw)} ·{" "}
+                      {formatConverted(guestBill.totalVnd, "USD", fx.vndPerUsd)}
+                    </span>
+                  )}
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -571,9 +511,29 @@ export default function CheckoutForm({
                   {formatThousands(guestBill.totalKrw)}원
                 </span>
               </div>
+              {/* 통합 환산 총액 — VND 청구 + KRW 청구를 오늘 환율로 VND 환산(전부 근사, fx 있을 때만) */}
+              {fx && totalVndEquiv > 0n && (guestBill.totalVnd > 0n || guestBill.totalKrw > 0) && (
+                <div className="flex justify-between items-center border-t border-slate-800/60 pt-2">
+                  <span className="text-xs font-bold text-slate-400">{t("guestBillTotalEquiv")}</span>
+                  <span className="text-right">
+                    <span className="block text-sm font-bold text-slate-200 tabular-nums">
+                      ≈ {formatThousands(totalVndEquiv)}₫
+                    </span>
+                    <span className="block text-[11px] text-slate-500 tabular-nums">
+                      {formatConverted(totalVndEquiv, "KRW", fx.vndPerKrw)} ·{" "}
+                      {formatConverted(totalVndEquiv, "USD", fx.vndPerUsd)}
+                    </span>
+                  </span>
+                </div>
+              )}
               <p className="text-[11px] text-slate-500 leading-relaxed pt-1">
                 {t("guestBillCurrencyNote")}
               </p>
+              {fx && (
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  {t("fxAsOf", { date: fx.date })}
+                </p>
+              )}
             </div>
           </div>
 
@@ -618,6 +578,69 @@ export default function CheckoutForm({
               <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
                 {t("settlementOptionalNote")}
               </p>
+            </div>
+
+            {/* 통화별 실수납액(분할 수납) — ₫/₩/$ 각각 선택 입력. 저장은 원본 통화 그대로. */}
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-slate-400 tracking-wider">{t("settledAmountsTitle")}</p>
+              <div className="grid grid-cols-1 gap-2">
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    aria-label={t("settledVnd")}
+                    value={settledVndDigits ? formatThousands(settledVndDigits) : ""}
+                    onChange={(e) => setSettledVndInput(e.target.value.replace(/[^\d]/g, ""))}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 pl-4 pr-10 text-sm text-white tabular-nums focus:ring-admin-primary focus:border-admin-primary outline-none"
+                    placeholder="0"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">₫</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    aria-label={t("settledKrw")}
+                    value={settledKrwDigits ? formatThousands(settledKrwDigits) : ""}
+                    onChange={(e) => setSettledKrwInput(e.target.value.replace(/[^\d]/g, ""))}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 pl-4 pr-10 text-sm text-white tabular-nums focus:ring-admin-primary focus:border-admin-primary outline-none"
+                    placeholder="0"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">₩</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    aria-label={t("settledUsd")}
+                    value={settledUsdDigits ? formatThousands(settledUsdDigits) : ""}
+                    onChange={(e) => setSettledUsdInput(e.target.value.replace(/[^\d]/g, ""))}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 pl-4 pr-10 text-sm text-white tabular-nums focus:ring-admin-primary focus:border-admin-primary outline-none"
+                    placeholder="0"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                </div>
+              </div>
+              {/* 수납 환산 합계·잔여(≈) — 소프트 안내만(초과·미달이어도 제출 차단 안 함) */}
+              {hasSettledAmount && (
+                <div className="rounded-lg bg-slate-900/60 border border-slate-800 px-3 py-2 space-y-1">
+                  <div className="flex justify-between text-[11px] text-slate-400 tabular-nums">
+                    <span>{t("settledEquiv")}</span>
+                    <span>≈ {formatThousands(settledEquivVnd)}₫</span>
+                  </div>
+                  <div className="flex justify-between text-[11px] tabular-nums">
+                    <span className="text-slate-400">
+                      {remainingVnd < 0n ? t("settledExcess") : t("settledRemaining")}
+                    </span>
+                    <span className={remainingVnd < 0n ? "text-amber-400" : "text-slate-300"}>
+                      ≈ {formatThousands(remainingVnd < 0n ? -remainingVnd : remainingVnd)}₫
+                    </span>
+                  </div>
+                </div>
+              )}
+              {!settlementReady && (
+                <p className="text-[11px] text-amber-400 leading-relaxed">{t("settledNeedMethod")}</p>
+              )}
             </div>
 
             <div className="space-y-2">

@@ -763,6 +763,16 @@
         "withName": "입금자명 “{name}” · {at} 통보됨. 은행 입금 내역을 대조한 뒤 입금을 확정하세요.",
         "noName": "{at} 통보됨. 은행 입금 내역을 대조한 뒤 입금을 확정하세요."
       },
+      "checkoutSettlement": {
+        "title": "체크아웃 게스트 수납",
+        "method": "결제수단",
+        "methods": {
+          "CASH": "현금",
+          "BANK_TRANSFER": "계좌이체",
+          "OTHER": "기타"
+        },
+        "amounts": "통화별 실수납액"
+      },
       "memo": {
         "title": "내부 메모",
         "placeholder": "고객 요청사항 또는 내부 특이사항을 입력하세요...",
@@ -3064,7 +3074,6 @@
   },
   "adminCheckout": {
     "guide": {
-      "photos": "체크인 기준 사진과 같은 구도로 현재 상태를 촬영해 올리세요. 사진이 최소 1장 있어야 체크아웃을 진행할 수 있습니다.",
       "minibar": "품목별로 '남은 수량'만 입력하면 소비량과 차감액이 자동 계산됩니다. 손대지 않은 품목은 그대로 두면 소비 0으로 처리됩니다.",
       "submit": "환불 버튼을 누르면 체크아웃이 확정되고 청소 대기 태스크가 자동 생성됩니다. 차감(미니바·파손)이 있으면 '차감 후 환불 승인' 버튼만 활성화됩니다."
     },
@@ -3074,14 +3083,7 @@
     "backToBooking": "예약 상세로 돌아가기",
     "alreadyCheckedOut": "이미 체크아웃이 완료된 예약입니다",
     "notCheckedIn": "체크인 상태가 아닙니다 (현재: {status})",
-    "comparison": "객실 상태 비교",
-    "baseline": "기준 사진",
-    "checkoutPhoto": "체크아웃 사진",
-    "uploadPhoto": "사진 업로드",
-    "uploading": "업로드 중…",
     "uploadError": "사진 업로드에 실패했습니다. 다시 시도해주세요.",
-    "sectionDone": "검수 완료",
-    "sectionMissing": "사진 누락",
     "minibar": "미니바 확인",
     "readonly": "읽기 전용",
     "minibarEmpty": "등록된 미니바 품목이 없습니다",
@@ -3102,18 +3104,6 @@
     "refundFull": "보증금 전액 환불",
     "refundDeduct": "차감 후 환불 승인",
     "submitError": "체크아웃 처리에 실패했습니다. 다시 시도해주세요.",
-    "spaces": {
-      "EXTERIOR": "외관",
-      "LIVING": "거실",
-      "KITCHEN": "주방",
-      "BEDROOM": "침실",
-      "BATHROOM": "화장실",
-      "BALCONY": "베란다",
-      "POOL": "수영장",
-      "ETC": "기타"
-    },
-    "generalPhotos": "전체 상태 사진",
-    "baselineMissing": "기준 사진 없음",
     "autoCalc": "자동 계산",
     "stockedQty": "비치 수량",
     "remainingQty": "남은 수량",
@@ -3148,7 +3138,17 @@
     "settlementNote": "정산 메모 (선택)",
     "settlementNotePlaceholder": "예: 현금 USD로 수령, 잔액 환불",
     "par": "비치 목표",
-    "onHandLabel": "현재고"
+    "onHandLabel": "현재고",
+    "guestBillTotalEquiv": "통합 환산 총액",
+    "fxAsOf": "오늘 환율({date}) 기준 근사 표시",
+    "settledAmountsTitle": "수납액 (통화별)",
+    "settledVnd": "수납액 (₫)",
+    "settledKrw": "수납액 (₩)",
+    "settledUsd": "수납액 ($)",
+    "settledEquiv": "수납 환산 합계",
+    "settledRemaining": "잔여",
+    "settledExcess": "초과",
+    "settledNeedMethod": "수납액을 입력하면 결제수단을 선택해야 완료할 수 있습니다."
   },
   "adminMessages": {
     "headerCollapse": "헤더 접기",
@@ -4104,7 +4104,6 @@
   },
   "supplierCheckout": {
     "guide": {
-      "photo": "기준 사진과 같은 위치·각도로 현재 상태를 찍으세요. 파손 여부를 대조하는 근거가 됩니다.",
       "minibar": "고객이 실제로 사용한 수량만 입력하세요. 미니바 요금은 보증금에서 빼지 않고 고객에게 따로 받습니다."
     },
     "pageTitle": "체크아웃",
@@ -4114,28 +4113,6 @@
     "submitting": "처리 중…",
     "submitError": "체크아웃에 실패했습니다. 다시 시도하세요.",
     "submitCaption": "체크아웃하면 청소 요청이 자동 생성되며, 청소 검수 통과 후 다시 판매할 수 있습니다.",
-    "needPhoto": "현재 사진이 최소 1장 필요합니다.",
-    "generalPhotos": "객실 사진",
-    "spaces": {
-      "EXTERIOR": "외관",
-      "LIVING": "거실",
-      "KITCHEN": "주방",
-      "BEDROOM": "침실",
-      "BATHROOM": "화장실",
-      "BALCONY": "베란다",
-      "POOL": "수영장",
-      "ETC": "기타"
-    },
-    "photo": {
-      "title": "객실 비교",
-      "baseline": "기준 사진",
-      "current": "현재 사진",
-      "done": "촬영 완료",
-      "pending": "미촬영",
-      "take": "사진 촬영",
-      "uploading": "업로드 중…",
-      "uploadError": "사진 업로드 실패. 다시 시도하세요."
-    },
     "damage": {
       "title": "파손",
       "hint": "파손이 있으면 켜서 사진·차감액을 추가하세요.",

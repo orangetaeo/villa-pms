@@ -5,27 +5,15 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
-import { BookingSeller, BookingStatus, PhotoSpace } from "@prisma/client";
+import { BookingSeller, BookingStatus } from "@prisma/client";
 import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import { getSupplierLocale } from "@/lib/locale";
 import { minibarItemName } from "@/lib/minibar";
 import { toDateOnlyString } from "@/lib/date-vn";
-import type { PhotoSection, MinibarItemView } from "./checkout-form";
+import type { MinibarItemView } from "./checkout-form";
 
 export const metadata: Metadata = { title: "Trả phòng — Villa Go" };
-
-/** 기준 사진 공간 정렬 순서 (거실→주방→침실→…) */
-const SPACE_ORDER: PhotoSpace[] = [
-  PhotoSpace.LIVING,
-  PhotoSpace.KITCHEN,
-  PhotoSpace.BEDROOM,
-  PhotoSpace.BATHROOM,
-  PhotoSpace.BALCONY,
-  PhotoSpace.POOL,
-  PhotoSpace.EXTERIOR,
-  PhotoSpace.ETC,
-];
 
 export default async function SupplierCheckoutPage({
   params,
@@ -53,17 +41,7 @@ export default async function SupplierCheckoutPage({
       depositAmount: true,
       depositCurrency: true,
       villaId: true,
-      villa: {
-        select: {
-          name: true,
-          supplierId: true,
-          photos: {
-            where: { isBaseline: true },
-            orderBy: { sortOrder: "asc" },
-            select: { id: true, space: true, spaceLabel: true, url: true },
-          },
-        },
-      },
+      villa: { select: { name: true, supplierId: true } },
     },
   });
   if (
@@ -98,18 +76,6 @@ export default async function SupplierCheckoutPage({
     unitPriceVnd: m.unitPriceVnd.toString(),
     par: parByItem.get(m.id) ?? m.stockQty,
   }));
-
-  // 공간별 비교 섹션 — 기준사진 0장이면 일반 촬영 슬롯 폴백(사진 1장 요건 보장)
-  const sections: PhotoSection[] = [...booking.villa.photos]
-    .sort((a, b) => SPACE_ORDER.indexOf(a.space) - SPACE_ORDER.indexOf(b.space))
-    .map((p) => ({
-      id: p.id,
-      label: p.spaceLabel || t(`spaces.${p.space}`),
-      baselineUrl: (p.url as string | null) ?? null,
-    }));
-  if (sections.length === 0) {
-    sections.push({ id: "general", label: t("generalPhotos"), baselineUrl: null });
-  }
 
   // 보증금(VND 수취분만) — 현장 보증금은 VND. KRW/USD면 정산 요약 비표시(공급자 현장은 동 단위).
   const depositVnd =
@@ -149,7 +115,6 @@ export default async function SupplierCheckoutPage({
 
       <SupplierCheckoutForm
         bookingId={booking.id}
-        sections={sections}
         minibar={minibar}
         depositVnd={depositVnd}
       />

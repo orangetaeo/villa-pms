@@ -17,7 +17,8 @@ import {
 } from "@/lib/supplier-booking-access";
 
 const checkoutSchema = z.object({
-  photoUrls: z.array(z.string().min(1)).min(1, "상태 사진은 1장 이상 필요합니다").max(50),
+  // 상태 사진은 정책 변경(2026-07-10)으로 선택 — 파손 시에만 증빙 입력. 신규 폼은 미전송.
+  photoUrls: z.array(z.string().min(1)).max(50).optional(),
   damageFound: z.boolean(),
   damageNote: z.string().trim().max(2000).optional(),
   damagePhotoUrls: z.array(z.string().min(1)).max(20).optional(),

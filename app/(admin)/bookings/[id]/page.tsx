@@ -140,6 +140,15 @@ export default async function BookingDetailPage({
           paperDocUrls: true, // #1 체크인 종이서류(비공개 증빙)
         },
       },
+      // 체크아웃 게스트 수납 (2026-07-10) — 결제수단·통화별 실수납액. 통화별 금액(재무)은 STAFF면 select에서 제외.
+      checkOutRecord: {
+        select: {
+          settlementMethod: true,
+          settledAt: true,
+          settlementNote: true,
+          ...(showFinance ? { settledVnd: true, settledKrw: true, settledUsd: true } : {}),
+        },
+      },
       payments: {
         orderBy: { receivedAt: "asc" },
         // STAFF: 결제 금액(currency·amount)도 재무 → 상태(날짜·수단·메모)만. canViewFinance만 금액 select.
@@ -855,6 +864,57 @@ export default async function BookingDetailPage({
           </section>
           )}
           </div>
+
+          {/* 체크아웃 게스트 수납 (2026-07-10) — 결제수단 + 통화별 실수납액. 통화별 금액은 재무권한자만. */}
+          {booking.checkOutRecord?.settlementMethod && (
+            <section className="bg-admin-card rounded-xl overflow-hidden shadow-sm border border-[#334155]">
+              <div className="px-6 py-4 border-b border-slate-700 flex items-center gap-2">
+                <h2 className="font-bold text-sm text-white">{t("detail.checkoutSettlement.title")}</h2>
+                {booking.checkOutRecord.settledAt && (
+                  <span className="text-[11px] text-admin-muted">
+                    {formatDateTime(booking.checkOutRecord.settledAt)}
+                  </span>
+                )}
+              </div>
+              <div className="p-6 space-y-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-admin-muted">{t("detail.checkoutSettlement.method")}</span>
+                  <span className="font-semibold text-white">
+                    {t(`detail.checkoutSettlement.methods.${booking.checkOutRecord.settlementMethod}`)}
+                  </span>
+                </div>
+                {showFinance &&
+                  (() => {
+                    // 통화별 실수납액은 showFinance일 때만 select됨 — 타입 좁히기용 캐스트.
+                    const co = booking.checkOutRecord as {
+                      settledVnd?: bigint | null;
+                      settledKrw?: number | null;
+                      settledUsd?: number | null;
+                    };
+                    if (co.settledVnd == null && co.settledKrw == null && co.settledUsd == null) {
+                      return null;
+                    }
+                    return (
+                      <div className="space-y-1.5 border-t border-slate-800 pt-3">
+                        <p className="text-xs text-admin-muted">
+                          {t("detail.checkoutSettlement.amounts")}
+                        </p>
+                        <div className="flex flex-wrap gap-x-6 gap-y-1 tabular-nums text-white font-semibold">
+                          {co.settledVnd != null && <span>{formatThousands(co.settledVnd)}₫</span>}
+                          {co.settledKrw != null && <span>{formatThousands(co.settledKrw)}₩</span>}
+                          {co.settledUsd != null && <span>${formatThousands(co.settledUsd)}</span>}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                {booking.checkOutRecord.settlementNote && (
+                  <p className="text-xs text-admin-muted border-t border-slate-800 pt-3 whitespace-pre-line">
+                    {booking.checkOutRecord.settlementNote}
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
 
           {/* 부가서비스 주문 패널 (ADR-0019 S2, b20) — 종결(취소·만료·노쇼) 예약엔 비표시 */}
           {/* 코치마크 앵커 — 조건부 블록 안쪽 래퍼: 종결 예약이면 미렌더 → 스텝 자동 스킵 */}

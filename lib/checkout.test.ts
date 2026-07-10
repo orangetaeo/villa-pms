@@ -173,10 +173,15 @@ const BASE_INPUT = {
 describe("completeCheckout — 상태 가드·원자성 (계약 완료 기준)", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("사진 0장 → 거부 (트랜잭션 진입 전)", async () => {
-    await expect(
-      completeCheckout(makePrismaMock(makeTxMock({})), { ...BASE_INPUT, photoUrls: [] })
-    ).rejects.toThrow(RangeError);
+  it("사진 미전송(정책 변경 2026-07-10)도 성공 — record.photoUrls는 빈 배열", async () => {
+    const tx = makeTxMock({ booking: { id: "bk1", status: BookingStatus.CHECKED_IN } });
+    const input = { ...BASE_INPUT };
+    delete (input as { photoUrls?: string[] }).photoUrls;
+    const result = await completeCheckout(makePrismaMock(tx), input);
+    expect(tx.checkOutRecord.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ photoUrls: [] }) })
+    );
+    expect(result.booking.status).toBe(BookingStatus.CHECKED_OUT);
   });
 
   it("파손=true인데 상세·증빙 모두 없음 → 거부", async () => {
@@ -519,6 +524,63 @@ describe("completeCheckout — 상태 가드·원자성 (계약 완료 기준)",
       })
     );
   });
+
+  // ── 게스트 다통화 분할 수납 (테오 요청 2026-07-10) ────────────────────────
+  it("통화별 실수납액 + 환율 스냅샷 저장, AuditLog에 수납액(BigInt 문자열) 기록", async () => {
+    const tx = makeTxMock({ booking: { id: "bk1", status: BookingStatus.CHECKED_IN } });
+    const result = await completeCheckout(makePrismaMock(tx), {
+      ...BASE_INPUT,
+      settlement: { method: "CASH", amounts: { vnd: 500_000n, krw: 20_000, usd: 5 } },
+      settlementFx: { date: "2026-07-05", vndPerKrw: 19, vndPerUsd: 25_000 },
+    });
+    const settleUpdate = tx.checkOutRecord.update.mock.calls
+      .map((c) => (c[0] as { data: Record<string, unknown> }).data)
+      .find((d) => "settledVnd" in d)!;
+    expect(settleUpdate).toMatchObject({
+      settlementMethod: "CASH",
+      settledVnd: 500_000n,
+      settledKrw: 20_000,
+      settledUsd: 5,
+      settlementFx: { date: "2026-07-05", vndPerKrw: 19, vndPerUsd: 25_000 },
+    });
+    expect(writeAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: expect.objectContaining({
+          settledVnd: { new: "500000" },
+          settledKrw: { new: 20_000 },
+          settledUsd: { new: 5 },
+        }),
+      })
+    );
+    expect(result.record.id).toBe("cor1");
+  });
+
+  it("수납액 0/미입력은 null, 환율 스냅샷도 미저장", async () => {
+    const tx = makeTxMock({ booking: { id: "bk1", status: BookingStatus.CHECKED_IN } });
+    await completeCheckout(makePrismaMock(tx), {
+      ...BASE_INPUT,
+      settlement: { method: "BANK_TRANSFER", amounts: null },
+      settlementFx: { date: "2026-07-05", vndPerKrw: 19, vndPerUsd: 25_000 },
+    });
+    const settleUpdate = tx.checkOutRecord.update.mock.calls
+      .map((c) => (c[0] as { data: Record<string, unknown> }).data)
+      .find((d) => "settlementMethod" in d)!;
+    expect(settleUpdate.settledVnd).toBeNull();
+    expect(settleUpdate.settledKrw).toBeNull();
+    expect(settleUpdate.settledUsd).toBeNull();
+    // 양수 수납액이 없으면 환율 스냅샷은 저장하지 않는다(undefined → 미설정)
+    expect(settleUpdate.settlementFx).toBeUndefined();
+  });
+
+  it("수납 음수 금액 → RangeError", async () => {
+    const tx = makeTxMock({ booking: { id: "bk1", status: BookingStatus.CHECKED_IN } });
+    await expect(
+      completeCheckout(makePrismaMock(tx), {
+        ...BASE_INPUT,
+        settlement: { method: "CASH", amounts: { vnd: -1n } },
+      })
+    ).rejects.toThrow(RangeError);
+  });
 });
 
 // ===================== route — 401/403/404/409/400 (QA D1) =====================
@@ -552,9 +614,8 @@ describe("POST /api/bookings/[id]/checkout", () => {
     expect((await callCheckout(VALID_BODY)).status).toBe(403);
   });
 
-  it("zod 검증: 사진 0장·차감액 비숫자 → 400", async () => {
+  it("zod 검증: 차감액 비숫자 → 400 (사진은 이제 선택)", async () => {
     mockAuth.mockResolvedValue({ user: { id: "a1", role: "ADMIN" } });
-    expect((await callCheckout({ ...VALID_BODY, photoUrls: [] })).status).toBe(400);
     expect(
       (await callCheckout({ ...VALID_BODY, damageFound: true, deductionVnd: "1.5e6" })).status
     ).toBe(400);
