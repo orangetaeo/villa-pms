@@ -4360,6 +4360,26 @@
       "stats": { "title": "Tình hình hôm nay", "desc": "Xem nhanh check-in, check-out hôm nay, giữ chỗ đang chờ và dọn dẹp chờ nghiệm thu. Chạm vào thẻ để mở danh sách." },
       "nav": { "title": "Menu quản lý", "desc": "Mọi màn hình nghiệp vụ — đặt phòng, villa, đề xuất, quyết toán — đều truy cập từ menu này." },
       "bell": { "title": "Thông báo vận hành", "desc": "Thông báo vận hành (nhà cung cấp dịch vụ nhận đơn, báo hoàn thành, chờ duyệt tài khoản) tập hợp tại đây. Thông báo mới hiển thị bằng huy hiệu." }
+    },
+    "adminBookings": {
+      "status": { "title": "Trạng thái đặt phòng", "desc": "Số lượng theo từng trạng thái. Nhấn thẻ để lọc. HOLD là đặt giữ chờ xác nhận thanh toán — hãy kiểm tra thường xuyên." },
+      "filters": { "title": "Tìm kiếm & bộ lọc", "desc": "Lọc theo tháng, khu vực, villa, kênh và tìm theo tên khách hoặc tên villa." },
+      "list": { "title": "Danh sách đặt phòng", "desc": "Nhấn vào hàng để xem chi tiết. Chú ý thời gian còn lại của HOLD và huy hiệu yêu cầu từ đối tác." }
+    },
+    "adminVillas": {
+      "tabs": { "title": "Thẻ trạng thái", "desc": "Xem villa theo trạng thái: chờ duyệt, đang hoạt động, ngưng. Villa chờ duyệt có chấm cam." },
+      "new": { "title": "Đăng ký villa mới", "desc": "Có thể đăng ký villa mới thay cho nhà cung cấp. Sau khi đăng ký sẽ ở trạng thái chờ duyệt." },
+      "row": { "title": "Thẻ villa", "desc": "Mở thẻ để vào chi tiết hoặc duyệt. Chú ý huy hiệu chờ dọn dẹp và chưa cài giá." }
+    },
+    "adminProposals": {
+      "create": { "title": "Tạo đề xuất", "desc": "Chọn 2–3 villa để tạo link đề xuất gửi khách. Link có thời hạn hiệu lực." },
+      "filters": { "title": "Tìm kiếm & bộ lọc", "desc": "Tìm theo tên khách hoặc villa, lọc theo kênh, kỳ lưu trú và ngày tạo." },
+      "tabs": { "title": "Thẻ trạng thái", "desc": "Xem theo trạng thái: hiệu lực, đã dùng, hết hạn, thu hồi. Đề xuất hiệu lực hiển thị thời gian còn lại." }
+    },
+    "adminInspections": {
+      "tabs": { "title": "Thẻ trạng thái duyệt", "desc": "Các mục chờ duyệt (đã nộp ảnh) xếp trên cùng. Hãy kiểm tra số lượng ở thẻ này trước." },
+      "queue": { "title": "Hàng chờ duyệt", "desc": "Chọn một công việc để so sánh ảnh đã nộp với ảnh chuẩn ở bên phải." },
+      "actions": { "title": "Duyệt / Từ chối", "desc": "Phải duyệt dọn dẹp check-out thì villa mới chuyển sang trạng thái có thể bán. Khi từ chối, bắt buộc nhập lý do." }
     }
   }
 }

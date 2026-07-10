@@ -89,6 +89,44 @@ export const TOURS = {
       { anchor: "admin-bell", key: "adminDashboard.bell" },
     ],
   },
+  // ── 관리자 운영 화면 확장(T-tutorial-onboarding-5) — 미래 직원 온보딩용 핵심 사이클 4종.
+  //    /messages는 제외(FE 회의: 실시간 재정렬·대화 선택 후에만 렌더되는 UI라 앵커 불안정).
+  adminBookings: {
+    route: "/bookings",
+    steps: [
+      { anchor: "bookings-status", key: "adminBookings.status" },
+      { anchor: "bookings-filters", key: "adminBookings.filters" },
+      { anchor: "bookings-list", key: "adminBookings.list" },
+    ],
+  },
+  adminVillas: {
+    route: "/villas",
+    steps: [
+      { anchor: "villas-tabs", key: "adminVillas.tabs" },
+      // 이중앵커 — 모바일/데스크톱 등록 버튼 2벌, 가시 쪽 자동 선택
+      { anchor: "villas-new", key: "adminVillas.new" },
+      // 첫 카드 index 0 조건부 — 빈 목록이면 자동 스킵
+      { anchor: "villas-row", key: "adminVillas.row" },
+    ],
+  },
+  // 제안 목록 행은 클라 fetch 비동기 → 앵커 금지(vendorBoard 교훈). 즉시 렌더 정적 요소만.
+  adminProposals: {
+    route: "/proposals",
+    steps: [
+      { anchor: "proposal-create", key: "adminProposals.create" },
+      { anchor: "proposal-filters", key: "adminProposals.filters" },
+      { anchor: "proposal-tabs", key: "adminProposals.tabs" },
+    ],
+  },
+  // 모바일은 마스터-디테일이라 queue/actions가 상황 따라 비가시 → 자동 스킵(2스텝)
+  adminInspections: {
+    route: "/inspections",
+    steps: [
+      { anchor: "inspections-tabs", key: "adminInspections.tabs" },
+      { anchor: "inspections-queue", key: "adminInspections.queue" },
+      { anchor: "inspections-actions", key: "adminInspections.actions" },
+    ],
+  },
   // 벤더 발주함 — 앵커는 즉시 렌더되는 탭 버튼 3개만(카드는 클라 fetch 비동기 → 앵커 금지).
   // 완료보고는 일정(schedule) 탭 UI에 있으므로 그 스텝 문구가 담당(FE·UX-VN 회의 확정).
   vendorBoard: {

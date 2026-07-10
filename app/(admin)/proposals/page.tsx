@@ -7,6 +7,8 @@ import { auth } from "@/auth";
 import { canViewFinance } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import ProposalsList from "./proposals-list";
+import { CoachMark } from "@/components/tour/coach-mark";
+import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
@@ -18,5 +20,17 @@ export default async function ProposalsPage() {
   const session = await auth();
   if (!session || !canViewFinance(session.user?.role)) redirect("/login");
 
-  return <ProposalsList />;
+  // 코치마크 문구 — RSC 번역 → props (ADMIN_CLIENT_NAMESPACES 무변경)
+  const tTour = await getTranslations("tour");
+  return (
+    <>
+      <ProposalsList />
+      {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 "?"로 재생 (T-tutorial-onboarding-5) */}
+      <CoachMark
+        tourId="adminProposals"
+        steps={buildTourSteps(tTour, "adminProposals")}
+        labels={buildTourLabels(tTour)}
+      />
+    </>
+  );
 }

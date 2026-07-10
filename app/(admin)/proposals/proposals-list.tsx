@@ -417,6 +417,8 @@ export default function ProposalsList() {
         <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
         <Link
           href="/proposals/new"
+          // 코치마크 앵커 — 즉시 렌더(목록 행은 클라 fetch 비동기라 앵커 금지, vendorBoard 교훈)
+          data-tour="proposal-create"
           className="flex items-center gap-2 px-4 py-2 bg-admin-primary text-white text-sm font-bold rounded-lg shadow-lg shadow-blue-900/20 hover:bg-admin-primary-dark transition-all whitespace-nowrap"
         >
           <span className="material-symbols-outlined text-sm">add</span>
@@ -425,7 +427,7 @@ export default function ProposalsList() {
       </div>
 
       {/* 필터 — 1행: 검색 + 채널 + 생성일 빠른 프리셋 / 2행: 숙박 기간·생성일 커스텀 범위 */}
-      <div className="flex flex-col gap-3 mb-4">
+      <div data-tour="proposal-filters" className="flex flex-col gap-3 mb-4">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           {/* 텍스트 검색 — 고객/여행사명·빌라명 */}
           <div className="relative">
@@ -529,7 +531,10 @@ export default function ProposalsList() {
       </div>
 
       {/* 상태 탭 — effectiveStatus 기준 카운트 (b12) */}
-      <div className="flex items-center gap-6 border-b border-admin-card mb-6 overflow-x-auto">
+      <div
+        data-tour="proposal-tabs"
+        className="flex items-center gap-6 border-b border-admin-card mb-6 overflow-x-auto"
+      >
         {TABS.map((key) => {
           const active = tab === key;
           return (
