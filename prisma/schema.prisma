@@ -1139,6 +1139,10 @@ model ServiceOrder {
   proposedServiceTime       String? // 공급자 제안 시각 "HH:MM"(null=제안 없음)
   vendorProposalNote        String? // 제안 사유/비고(공급자 입력)
   vendorProposalRespondedAt DateTime? // 운영자가 제안에 응답(적용/무시)한 시각 — null이면 미해결
+  // 티켓 발행 (ADR-0034) — type=TICKET 주문에 벤더/운영자가 QR 티켓 이미지를 첨부.
+  //   CleaningTask.photoUrls 동형 패턴. 수량 하드 강제 없음(확인시트·FOC 등 추가 첨부 현실).
+  ticketUrls      String[] @default([]) // 발행된 QR 티켓 이미지 URL 목록(공개 저장소, 추측불가 파일명)
+  ticketsIssuedAt DateTime? // 최초 발행 시각(null=미발행)
   createdAt   DateTime           @default(now())
 
   @@index([vendorId, vendorStatus])

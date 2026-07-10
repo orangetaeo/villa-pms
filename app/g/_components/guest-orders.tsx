@@ -5,6 +5,7 @@
 //   요청 목록(옵션 상세 + 희망 날짜·시간 + 이행 안내) + 체크아웃 정산 미리보기(A2) + 셀프 취소(A3) + 옵션 신청 진입.
 //   ★마진 비공개: 판매가만(원가·마진 0). 헤더 뒤로가기 없음(허브 페이지 — 체크인 시작으로 가는 혼선 방지, #3).
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { GUEST_LABELS } from "@/lib/guest-i18n";
 import { PublicLangSelector } from "@/components/public-lang-selector";
@@ -20,6 +21,8 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered 
 
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  // 티켓 확대 라이트박스(ADR-0034) — 선택한 티켓 URL. body 포털로 렌더(헤더 fixed 함정 회피).
+  const [lightbox, setLightbox] = useState<string | null>(null);
 
   const statusLabel = (s: string) =>
     s === "REQUESTED"
@@ -136,6 +139,33 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered 
                       </p>
                     )}
                     <p className="text-[11px] text-slate-400 leading-snug">{o.fulfillNote}</p>
+                    {/* 발행된 QR 티켓(ADR-0034) — 상태 무관 표시. 탭하면 body 포털 라이트박스로 확대. */}
+                    {o.ticketUrls.length > 0 && (
+                      <div className="mt-1.5 space-y-1.5 rounded-lg bg-teal-50/70 p-2.5">
+                        <p className="flex items-center gap-1 text-xs font-bold text-teal-700">
+                          <span className="material-symbols-outlined text-[16px]">confirmation_number</span>
+                          {L.tickets.title(o.ticketUrls.length)}
+                        </p>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {o.ticketUrls.map((url) => (
+                            <button
+                              key={url}
+                              type="button"
+                              onClick={() => setLightbox(url)}
+                              className="active:scale-95"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={url}
+                                alt=""
+                                className="aspect-square w-full rounded-lg border border-teal-100 object-cover"
+                              />
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-[11px] text-teal-700/80 leading-snug">{L.tickets.hint}</p>
+                      </div>
+                    )}
                     {/* 담당자 연락처(확정 후) — 이름 + 전화(tel:) + 직접 연락 안내. ★이름·전화만 노출. */}
                     {showContact && (
                       <div className="mt-1.5 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2 space-y-1">
@@ -230,6 +260,30 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered 
           {L.result.openOptionsCta}
         </a>
       </div>
+
+      {/* 티켓 확대 라이트박스 — body 포털(포털헤더 fixed 함정 회피). 배경/버튼 탭 시 닫힘. */}
+      {lightbox &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setLightbox(null)}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={lightbox} alt="" className="max-h-full max-w-full rounded-lg object-contain" />
+            <button
+              type="button"
+              onClick={() => setLightbox(null)}
+              aria-label={L.tickets.close}
+              className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur active:scale-95"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

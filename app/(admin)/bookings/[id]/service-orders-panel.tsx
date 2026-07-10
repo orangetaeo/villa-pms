@@ -4,7 +4,7 @@
 //   /api/bookings/[id]/service-orders (POST) + /api/service-orders/[id] (PATCH). 저장 후 router.refresh().
 //   ★ 마진 비공개: 원가(costVnd)·확정가 조정칸은 showCost(canViewFinance)일 때만. 서버 페이로드에서도 제외됨.
 //   게스트 요청(requestedVia=GUEST·REQUESTED) 행은 amber 강조("요청 대기"). 합계는 resolveOrderPricing 재사용.
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { formatThousands, formatDateTime } from "@/lib/format";
@@ -48,6 +48,7 @@ export interface OrderRow {
   requestedVia: "ADMIN" | "GUEST" | "PARTNER"; // PARTNER = 여행사/랜드사 채널(ADR-0023)
   guestNote: string | null;
   selectedOptions: SelectedOptionSnapshot[];
+  ticketUrls: string[]; // 티켓형(TICKET) 발행 이미지 URL — 발행 현황·대리 첨부(ADR-0034)
   // ADR-0023 S2 — 원천 공급자 발주 흐름. vendorId=null이면 직접 제공(발주 흐름 없음).
   vendorId: string | null;
   vendorName: string | null;
@@ -354,6 +355,10 @@ export default function ServiceOrdersPanel({
                       {o.guestNote && (
                         <p className="text-[11px] text-amber-400/80 mt-0.5 italic">“{o.guestNote}”</p>
                       )}
+                      {/* 티켓형(TICKET) 발행 현황 + 대리 첨부/삭제(ADR-0034) — 발주 상태 불변 */}
+                      {o.type === "TICKET" && (
+                        <AdminTicketCell order={o} t={t} onChanged={refresh} />
+                      )}
                     </td>
                     <td className="px-2 py-3 text-center tabular-nums text-slate-300">{o.quantity}</td>
                     <td className="px-2 py-3 text-center">
@@ -471,6 +476,164 @@ export default function ServiceOrdersPanel({
         )}
       </div>
     </section>
+  );
+}
+
+// 티켓 업로드/삭제 오류 코드 → i18n 라벨(adminServiceOrders.tickets.*)
+function adminTicketErr(code: string | undefined, t: ReturnType<typeof useTranslations>): string {
+  switch (code) {
+    case "TOO_MANY_TICKETS":
+      return t("tickets.errTooMany");
+    case "INVALID_TYPE":
+      return t("tickets.errType");
+    case "FILE_TOO_LARGE":
+      return t("tickets.errSize");
+    case "NO_FILES":
+      return t("tickets.errNoFiles");
+    default:
+      return t("tickets.uploadError");
+  }
+}
+
+// ── 티켓형(TICKET) 발행 현황 + 대리 첨부/삭제 (ADR-0034) ─────────────────────────
+//   운영자가 벤더 Zalo로 받은 QR 티켓을 대신 첨부하는 관행. /api/service-orders/[id]/tickets 사용.
+//   ★발주 상태 전이 없음 — 단순 첨부. 썸네일(원본 새 탭)+카운터(미달 amber)+첨부+삭제.
+function AdminTicketCell({
+  order,
+  t,
+  onChanged,
+}: {
+  order: OrderRow;
+  t: ReturnType<typeof useTranslations>;
+  onChanged: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const issued = order.ticketUrls.length;
+  const short = issued < order.quantity;
+  const closed = order.status === "CANCELLED" || order.status === "DELIVERED";
+
+  const upload = async (files: FileList | null) => {
+    if (!files || files.length === 0 || busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const fd = new FormData();
+      Array.from(files).forEach((f) => fd.append("files", f));
+      const res = await fetch(`/api/service-orders/${order.id}/tickets`, { method: "POST", body: fd });
+      if (!res.ok) {
+        let code: string | undefined;
+        try {
+          code = (await res.json())?.error;
+        } catch {
+          /* noop */
+        }
+        setErr(adminTicketErr(code, t));
+      } else {
+        onChanged();
+      }
+    } catch {
+      setErr(t("tickets.uploadError"));
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  };
+
+  const remove = async (url: string) => {
+    if (busy) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/service-orders/${order.id}/tickets`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      if (!res.ok) {
+        let code: string | undefined;
+        try {
+          code = (await res.json())?.error;
+        } catch {
+          /* noop */
+        }
+        setErr(adminTicketErr(code, t));
+      } else {
+        onChanged();
+      }
+    } catch {
+      setErr(t("tickets.uploadError"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-1.5 space-y-1.5 rounded-lg border border-slate-700 bg-slate-900/40 p-2">
+      <div className="flex items-center gap-2">
+        <span className="material-symbols-outlined text-[15px] text-indigo-300">confirmation_number</span>
+        <span className="text-[11px] font-bold text-slate-300">{t("tickets.title")}</span>
+        <span
+          className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+            short ? "bg-amber-500/15 text-amber-300" : "bg-emerald-500/15 text-emerald-300"
+          }`}
+        >
+          {t("tickets.counter", { issued, needed: order.quantity })}
+        </span>
+      </div>
+
+      {issued === 0 ? (
+        <p className="text-[11px] text-slate-500">{t("tickets.none")}</p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {order.ticketUrls.map((url) => (
+            <div key={url} className="relative">
+              <a href={url} target="_blank" rel="noreferrer" title={t("tickets.view")}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="" className="h-12 w-12 rounded border border-slate-600 object-cover" />
+              </a>
+              {!closed && (
+                <button
+                  type="button"
+                  onClick={() => remove(url)}
+                  disabled={busy}
+                  aria-label={t("tickets.remove")}
+                  className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-white disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-[12px]">close</span>
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {err && <p className="text-[11px] font-medium text-red-400">{err}</p>}
+
+      {!closed && (
+        <>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            aria-label={t("tickets.upload")}
+            className="hidden"
+            onChange={(e) => upload(e.target.files)}
+          />
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => inputRef.current?.click()}
+            className="inline-flex items-center gap-1 rounded-md border border-indigo-500/40 bg-indigo-500/10 px-2 py-1 text-[11px] font-bold text-indigo-300 hover:bg-indigo-500/20 disabled:opacity-50"
+          >
+            <span className="material-symbols-outlined text-[14px]">upload</span>
+            {busy ? t("tickets.uploading") : t("tickets.upload")}
+          </button>
+        </>
+      )}
+    </div>
   );
 }
 

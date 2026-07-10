@@ -80,6 +80,8 @@ export interface GuestRequestedOrder {
   serviceTime: string | null;
   /** 이행 안내 문구(서버에서 type·픽업설정으로 해석 완료) — 배송/픽업/방문. */
   fulfillNote: string;
+  /** 티켓형(TICKET) 발행 이미지 URL — 게스트가 열람할 QR 티켓. 없으면 빈 배열(ADR-0034). */
+  ticketUrls: string[];
 }
 
 export interface GuestAgreementView {

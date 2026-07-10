@@ -396,6 +396,20 @@
       "changePassword": "비밀번호 변경"
     },
     "searchPlaceholder": "발주·빌라·품목 검색",
+    "tickets": {
+      "title": "QR 티켓",
+      "counter": "{issued}/{needed}장",
+      "shortWarn": "발행 수량이 주문 수량보다 적습니다.",
+      "acceptHint": "발행하면 이 발주가 자동으로 수락 처리됩니다.",
+      "upload": "티켓 발행",
+      "uploading": "업로드 중…",
+      "remove": "삭제",
+      "uploadError": "업로드에 실패했습니다.",
+      "errTooMany": "티켓은 최대 30장까지 발행할 수 있습니다.",
+      "errType": "이미지 파일만 올릴 수 있습니다.",
+      "errSize": "파일 크기는 5MB 이하만 가능합니다.",
+      "errNoFiles": "파일을 선택해 주세요."
+    },
     "propose": {
       "button": "시간 제안",
       "title": "대안 시간 제안",
@@ -2424,6 +2438,20 @@
     "saved": "저장되었습니다",
     "error": "처리에 실패했습니다. 다시 시도해주세요.",
     "cancelConfirm": "이 주문을 취소할까요?",
+    "tickets": {
+      "title": "QR 티켓",
+      "counter": "{issued}/{needed}장",
+      "none": "발행된 티켓 없음",
+      "view": "원본 보기",
+      "upload": "티켓 첨부",
+      "uploading": "업로드 중…",
+      "remove": "삭제",
+      "uploadError": "업로드에 실패했습니다.",
+      "errTooMany": "티켓은 최대 30장까지 첨부할 수 있습니다.",
+      "errType": "이미지 파일만 올릴 수 있습니다.",
+      "errSize": "파일 크기는 5MB 이하만 가능합니다.",
+      "errNoFiles": "파일을 선택해 주세요."
+    },
     "vendor": {
       "direct": "직접 제공",
       "status": {

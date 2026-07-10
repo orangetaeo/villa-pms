@@ -162,6 +162,12 @@ export interface GuestLabels {
     cancelError: string; // 취소 실패 안내
     cancelDispatched: string; // 발주된 주문 — 셀프 취소 불가, 운영자 문의
   };
+  // 티켓형(TICKET) QR 티켓 열람(ADR-0034) — 발행된 티켓 썸네일 섹션 + 확대 오버레이
+  tickets: {
+    title: (n: number) => string; // "내 티켓 (N장)"
+    hint: string; // "입장 시 QR을 제시하세요"
+    close: string; // 확대 오버레이 닫기
+  };
   footerNote: string;
 }
 
@@ -318,6 +324,11 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       cancelError: "취소 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.",
       cancelDispatched: "이미 준비가 시작되어 직접 취소할 수 없습니다. 운영자에게 문의해주세요.",
     },
+    tickets: {
+      title: (n) => `내 티켓 (${n}장)`,
+      hint: "입장 시 QR 코드를 제시하세요.",
+      close: "닫기",
+    },
     footerNote: "문의사항은 예약하신 여행사로 연락해 주세요.",
   },
 
@@ -464,6 +475,11 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       cancelConfirm: "Cancel this request?",
       cancelError: "Could not cancel. Please try again shortly.",
       cancelDispatched: "Preparation has already started, so you can't cancel this yourself. Please contact the operator.",
+    },
+    tickets: {
+      title: (n) => `My tickets (${n})`,
+      hint: "Show the QR code at the entrance.",
+      close: "Close",
     },
     footerNote: "For inquiries, please contact your travel agency.",
   },
@@ -612,6 +628,11 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       cancelError: "Не удалось отменить. Повторите попытку позже.",
       cancelDispatched: "Подготовка уже началась, отменить самостоятельно нельзя. Пожалуйста, свяжитесь с оператором.",
     },
+    tickets: {
+      title: (n) => `Мои билеты (${n})`,
+      hint: "Покажите QR-код при входе.",
+      close: "Закрыть",
+    },
     footerNote: "По вопросам обращайтесь в ваше турагентство.",
   },
 
@@ -759,6 +780,11 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       cancelError: "取消失败，请稍后再试。",
       cancelDispatched: "已开始准备，无法自行取消。请联系运营方。",
     },
+    tickets: {
+      title: (n) => `我的门票（${n}张）`,
+      hint: "入场时请出示二维码。",
+      close: "关闭",
+    },
     footerNote: "如有疑问，请联系您预订的旅行社。",
   },
 
@@ -905,6 +931,11 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       cancelConfirm: "Hủy yêu cầu này?",
       cancelError: "Không thể hủy. Vui lòng thử lại sau.",
       cancelDispatched: "Đã bắt đầu chuẩn bị nên bạn không thể tự hủy. Vui lòng liên hệ người điều hành.",
+    },
+    tickets: {
+      title: (n) => `Vé của tôi (${n})`,
+      hint: "Xuất trình mã QR khi vào cổng.",
+      close: "Đóng",
     },
     footerNote: "Mọi thắc mắc vui lòng liên hệ công ty du lịch của bạn.",
   },

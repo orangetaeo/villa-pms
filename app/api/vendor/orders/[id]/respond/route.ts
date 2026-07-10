@@ -12,13 +12,11 @@ import { z } from "zod";
 import { requireAuth } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
-import { isVendor, OPERATOR_ROLES, type Role } from "@/lib/permissions";
+import { isVendor, type Role } from "@/lib/permissions";
 import { getVendorIdForUser } from "@/lib/vendor-auth";
 import { assertVendorResponse, InvalidVendorResponseError } from "@/lib/vendor-order";
+import { sendVendorResponseOperatorNotifications } from "@/lib/vendor-dispatch";
 import { parseUtcDateOnly } from "@/lib/date-vn";
-import { enqueueNotification } from "@/lib/zalo";
-import { buildAdminNotifText, enqueueInAppForOperators, type AdminNotifKind } from "@/lib/inapp-notification";
-import { NotificationType } from "@prisma/client";
 
 const respondSchema = z.object({
   action: z.enum(["accept", "reject", "propose"]),
@@ -166,67 +164,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "CONCURRENT_MODIFICATION" }, { status: 409 });
   }
 
-  // 운영자(테오)들에게 가부 통지(ko) — zaloUserId 연결된 활성 운영자 전원.
-  const operators = await prisma.user.findMany({
-    where: {
-      role: { in: [...OPERATOR_ROLES] },
-      isActive: true,
-      zaloUserId: { not: null },
-    },
-    select: { id: true },
-  });
-  const payload = {
-    vendorName: order.vendor?.nameKo || order.vendor?.name || "—",
-    // accepted: accept/propose 모두 수락 계열(true), reject만 false — 기존 분기 보존.
-    accepted: action !== "reject",
-    action, // "accept" | "reject" | "propose" — zalo 빌더 분기용
+  // 운영자(테오)들에게 가부 통지 — Zalo(연결 운영자) + 인앱(전원). 티켓 발행=수락 겸행과 공용 헬퍼.
+  //   ★ 누수: 판매가·마진 없음(품목·빌라·업체·제안 일정·거절 사유·정산액만).
+  await sendVendorResponseOperatorNotifications({
+    action,
+    vendorNameKo: order.vendor?.nameKo ?? null,
+    vendorName: order.vendor?.name ?? null,
     itemName,
-    villaName: order.booking?.villa?.name ?? "—",
-    // 발주 요약 — 운영자가 알림만으로 건 특정(일정·수량·발주액)
-    serviceDate: order.serviceDate ? order.serviceDate.toISOString().slice(0, 10) : null,
-    serviceTime: order.serviceTime ?? null,
+    villaName: order.booking?.villa?.name ?? null,
+    bookingId: order.bookingId,
+    serviceDate: order.serviceDate,
+    serviceTime: order.serviceTime,
     quantity: order.quantity,
-    costVnd: order.costVnd > 0n ? order.costVnd.toString() : null,
-    rejectReason: action === "reject" ? rejectReason?.trim() || undefined : undefined,
-    // propose 전용 — 제안 일정·메모(운영자 ko 통지용)
-    proposedServiceDate: action === "propose" ? proposedServiceDate ?? undefined : undefined,
-    proposedServiceTime: action === "propose" ? proposedServiceTime || undefined : undefined,
-    proposalNote: action === "propose" ? trimmedNote || undefined : undefined,
-  };
-  for (const op of operators) {
-    await enqueueNotification({
-      userId: op.id,
-      type: NotificationType.VENDOR_PO_RESPONSE,
-      payload,
-    });
-  }
-
-  // 운영자 인앱 알림(벨) — Zalo 미연결 운영자도 인지(admin-vendor-ops C). 적재 실패는 본 응답에 영향 0.
-  //   ★ 금액(판매가·costVnd) 미포함 — 품목·빌라·업체·제안 일정·거절 사유만.
-  try {
-    const kindByAction: Record<typeof action, AdminNotifKind> = {
-      accept: "VENDOR_ACCEPTED",
-      reject: "VENDOR_REJECTED",
-      propose: "VENDOR_PROPOSED",
-    };
-    const kind = kindByAction[action];
-    const { title, body: notifBody } = buildAdminNotifText(kind, {
-      vendorName: order.vendor?.nameKo || order.vendor?.name,
-      itemName,
-      villaName: order.booking?.villa?.name,
-      proposedServiceDate: action === "propose" ? proposedServiceDate : null,
-      proposedServiceTime: action === "propose" ? proposedServiceTime : null,
-      rejectReason: action === "reject" ? rejectReason : null,
-    });
-    await enqueueInAppForOperators({
-      type: kind,
-      title,
-      body: notifBody,
-      href: `/bookings/${order.bookingId}`,
-    });
-  } catch {
-    // 무시 — 알림 적재 실패가 가부 응답을 깨지 않게
-  }
+    costVnd: order.costVnd,
+    rejectReason: action === "reject" ? rejectReason : null,
+    proposedServiceDate: action === "propose" ? proposedServiceDate ?? null : null,
+    proposedServiceTime: action === "propose" ? proposedServiceTime ?? null : null,
+    proposalNote: action === "propose" ? trimmedNote : null,
+  });
 
   await writeAuditLog({
     db: prisma,

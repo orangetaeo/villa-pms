@@ -34,6 +34,7 @@ const ROW_SELECT = {
   vendorName: true,
   guestNote: true,
   selectedOptions: true,
+  ticketUrls: true, // 티켓형(TICKET) 발행 이미지 URL — 벤더 자기 발주만(판매가 미포함)
   booking: {
     // address: 이행 장소 — 본인에게 발주된 빌라만 이 select를 타므로 재고 비공개 원칙과 무관(계약 A)
     select: { checkIn: true, checkOut: true, guestCount: true, villa: { select: { name: true, nameVi: true, address: true } } },
@@ -65,6 +66,7 @@ async function mapRows(rows: RawRow[], locale: string) {
     itemName: (o.catalogItemId ? nameById.get(o.catalogItemId) : null) ?? o.vendorName ?? null,
     optionLabel: selectedOptionLabels(o.selectedOptions, locale).join(" · ") || null,
     type: o.type,
+    ticketUrls: o.ticketUrls, // TICKET 발행 이미지(발행 현황·삭제용)
     quantity: o.quantity,
     guestCount: o.booking?.guestCount ?? null,
     guestNote: o.guestNote,
