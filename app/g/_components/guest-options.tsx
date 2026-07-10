@@ -118,8 +118,8 @@ export default function GuestOptions(props: GuestOptionsProps) {
         });
         if (!res.ok) throw new Error(`HTTP_${res.status}`);
       }
-      // 신청 완료 → 신청 내역 페이지로 이동(서버 렌더로 최신 목록·옵션 상세 표시)
-      router.push(ordersHref);
+      // 신청 완료 → 신청 내역 페이지로 이동(서버 렌더로 최신 목록·옵션 상세 표시) + 성공 배너(ordered=1)
+      router.push(ordersHref + (suffix ? "&" : "?") + "ordered=1");
     } catch {
       setOrdersError(L.addons.error);
       setSubmitting(false);

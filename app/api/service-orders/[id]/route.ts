@@ -10,10 +10,10 @@ import { isOperator, canViewFinance, type Role } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
 import { assertServiceTransition, InvalidServiceTransitionError } from "@/lib/service-order";
 import { canConfirmCustomer, hasUnresolvedProposal, vendorHasLivePo } from "@/lib/vendor-order";
-import { enqueueNotification } from "@/lib/zalo";
 import { enqueueInAppNotification, buildVendorNotifText, vendorNotifLocale } from "@/lib/inapp-notification";
+import { sendVendorPoCancelledNotifications } from "@/lib/vendor-dispatch";
 import { toDateOnlyString } from "@/lib/date-vn";
-import { NotificationType, type ServiceOrderStatus } from "@prisma/client";
+import { type ServiceOrderStatus } from "@prisma/client";
 
 const patchSchema = z.object({
   status: z.enum(["REQUESTED", "CONFIRMED", "DELIVERED", "CANCELLED"]).optional(),
@@ -228,7 +228,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       },
     });
     const vendorUserId = info?.vendor?.userId;
-    const vendorZalo = info?.vendor?.user?.zaloUserId;
     const notifLocale = vendorNotifLocale(info?.vendor?.user?.locale);
     // 카탈로그 항목명(공급자 vi 통지용) — catalogItemId는 관계 미정의 스칼라라 별도 조회.
     const item = info?.catalogItemId
@@ -239,40 +238,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       : null;
     const itemName = item?.nameKo ?? info?.vendorName ?? "—";
     const villaName = info?.booking?.villa?.name ?? "—";
-    const serviceDate = info?.serviceDate ? toDateOnlyString(info.serviceDate) : null;
 
-    // 발주 취소 — Zalo(연결 시) + 인앱.
-    if (isCancelNotify && vendorUserId && vendorZalo) {
-      await enqueueNotification({
-        userId: vendorUserId,
-        type: NotificationType.VENDOR_PO_CANCELLED,
-        payload: { itemName, quantity: info?.quantity ?? 0, villaName, serviceDate },
+    // 발주 취소 — 공용 헬퍼(Zalo 연결 시 + 인앱). 게스트 셀프 취소 경로와 동일 로직.
+    if (isCancelNotify) {
+      const { zaloSent } = await sendVendorPoCancelledNotifications({
+        vendor: info?.vendor ?? null,
+        itemName,
+        quantity: info?.quantity ?? 0,
+        villaName,
+        serviceDate: info?.serviceDate ?? null,
       });
-      vendorNotified = true;
+      vendorNotified = zaloSent;
     }
 
-    // 인앱 알림센터 적재(Zalo 미연결 공급자도 앱에서 인지). ★ 누수: 가격·마진 없음(정산은 본인 지급액만).
-    //   try/catch 격리 — 알림 적재 실패가 본 상태 전이/정산 로직을 깨지 않게.
+    // 인앱 알림센터 적재(정산 통보) — ★ 누수: 가격·마진 없음(본인 지급액 costVnd만). try/catch 격리.
     if (vendorUserId) {
-      if (isCancelNotify) {
-        try {
-          const { title, body } = buildVendorNotifText(NotificationType.VENDOR_PO_CANCELLED, {
-            itemName,
-            quantity: info?.quantity ?? 0,
-            villaName,
-            serviceDate,
-          }, notifLocale);
-          await enqueueInAppNotification({
-            userId: vendorUserId,
-            type: NotificationType.VENDOR_PO_CANCELLED,
-            title,
-            body,
-            href: "/vendor",
-          });
-        } catch {
-          // 무시 — 본 로직 영향 0
-        }
-      }
       if (isSettledNotify) {
         try {
           const { title, body } = buildVendorNotifText("VENDOR_SETTLED", {
