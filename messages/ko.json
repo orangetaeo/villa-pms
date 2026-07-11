@@ -2541,6 +2541,9 @@
       "change": "공급자 변경",
       "changeNone": "직접 제공(발주 없음)",
       "changeLocked": "발주 진행·수락 상태에서는 공급자를 변경할 수 없습니다",
+      "changeDispatched": "업체 변경 및 발주 발송 완료",
+      "changeDispatchedNoZalo": "업체를 변경하고 발주했으나 공급자 Zalo 미연결 — 수동 연락이 필요합니다",
+      "changeDispatchFailed": "업체는 변경됐으나 발주 발송 실패 — 발주 보내기를 눌러 재시도하세요",
       "unsettle": "해제",
       "method": {
         "CASH": "현금",

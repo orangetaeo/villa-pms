@@ -117,7 +117,7 @@ type VendorData = {
   settleTotals?: SettleTotals;
 };
 
-export default function VendorBoard() {
+export default function VendorBoard({ ticketOnly = false }: { ticketOnly?: boolean }) {
   const t = useTranslations("vendor");
   const [tab, setTab] = useState<Tab>("inbox");
   // 정산 서브탭(지급대기|지급완료) — 서버 조회를 유발하므로 부모로 리프트.
@@ -300,11 +300,22 @@ export default function VendorBoard() {
         </Link>
       </header>
 
-      {/* 탭 — 발주함 | 예약현황 | 정산 (라벨 3개, 한 화면 1작업) */}
+      {/* 탭 — 일반: 발주함 | 시간제안 | 예약현황 | 정산(4탭).
+          티켓 전용 벤더(ticketOnly): 시간 협의가 무의미하므로 시간제안 탭 숨김 → 발주함 | 예약현황 | 정산(3탭).
+          Tailwind는 정적 문자열로 분기(동적 조립 금지 — JIT 프리즈). */}
       {/* 코치마크 앵커 — 즉시 렌더되는 탭만(카드는 비동기 fetch라 앵커 금지).
-          리터럴 맵: tests/tour-onboarding.test.ts 앵커 실존 검사가 소스 문자열로 찾는다. */}
-      <div className="grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1">
-        {(["inbox", "proposal", "schedule", "settlement"] as const).map((key) => {
+          리터럴 맵: tests/tour-onboarding.test.ts 앵커 실존 검사가 소스 문자열로 찾는다(4개 그대로 유지). */}
+      <div
+        className={
+          ticketOnly
+            ? "grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1"
+            : "grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1"
+        }
+      >
+        {(ticketOnly
+          ? (["inbox", "schedule", "settlement"] as const)
+          : (["inbox", "proposal", "schedule", "settlement"] as const)
+        ).map((key) => {
           const active = tab === key;
           const count =
             key === "inbox"
@@ -848,12 +859,24 @@ function InboxSection({
           )}
 
           {/* 거절 / 제안 / 수락 버튼. 제안=수락하되 대안 시간 협의(propose).
-              ★TICKET 미수락 발주(ADR-0034: 발행=수락 겸행)는 하단 "수락" 버튼을 숨긴다 —
-              위 TicketPanel "발행" 버튼이 곧 수락이라 수락 버튼이 중복·혼동을 준다. 거절·제안만 남긴다. */}
+              ★TICKET 주문은 시간 협의가 무의미 → "제안" 버튼 숨김(주문 type 기준, 벤더 종류 무관 —
+                혼합 판매 업체의 티켓 주문에도 적용). 서버 respond도 TICKET propose를 400으로 거부(대칭).
+              ★TICKET 미수락 발주(ADR-0034: 발행=수락 겸행)는 "수락" 버튼도 숨긴다 —
+                위 TicketPanel "발행" 버튼이 곧 수락이라 수락 버튼이 중복·혼동을 준다.
+              → TICKET+PENDING_VENDOR면 남는 버튼은 거절 1개. 표시 버튼 수에 맞춰 grid-cols 정적 매핑. */}
           {(() => {
+            const hidePropose = o.type === "TICKET";
             const hideAccept = o.type === "TICKET" && o.vendorStatus === "PENDING_VENDOR";
+            // 거절(항상) + 제안(비티켓) + 수락(비TICKET-대기) → 표시 수. 동적 조립 금지(정적 매핑).
+            const visibleCount = 1 + (hidePropose ? 0 : 1) + (hideAccept ? 0 : 1);
+            const gridCls =
+              visibleCount === 1
+                ? "grid grid-cols-1 gap-2"
+                : visibleCount === 2
+                  ? "grid grid-cols-2 gap-2"
+                  : "grid grid-cols-3 gap-2";
             return (
-              <div className={`grid gap-2 ${hideAccept ? "grid-cols-2" : "grid-cols-3"}`}>
+              <div className={gridCls}>
                 <button
                   type="button"
                   disabled={busyId === o.id}
@@ -862,14 +885,16 @@ function InboxSection({
                 >
                   {t("reject")}
                 </button>
-                <button
-                  type="button"
-                  disabled={busyId === o.id}
-                  onClick={() => onPropose(o)}
-                  className="rounded-xl border border-blue-200 bg-blue-50 py-3 text-sm font-bold text-blue-700 transition active:scale-95 disabled:opacity-50"
-                >
-                  {t("propose.button")}
-                </button>
+                {!hidePropose && (
+                  <button
+                    type="button"
+                    disabled={busyId === o.id}
+                    onClick={() => onPropose(o)}
+                    className="rounded-xl border border-blue-200 bg-blue-50 py-3 text-sm font-bold text-blue-700 transition active:scale-95 disabled:opacity-50"
+                  >
+                    {t("propose.button")}
+                  </button>
+                )}
                 {!hideAccept && (
                   <button
                     type="button"
