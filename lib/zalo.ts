@@ -357,6 +357,10 @@ export function buildNotificationText(
         const labels = p.optionLabels.filter((l): l is string => typeof l === "string" && l.length > 0);
         if (labels.length > 0) lines.push(`Tùy chọn: ${labels.join(" · ")}`);
       }
+      // 이용자 이름 — 응대 대상 식별용(이름만, 전화 금지). payload에 없으면 줄 생략(구 payload 하위호환).
+      if (typeof p.customerName === "string" && p.customerName.trim().length > 0) {
+        lines.push(`Khách: ${p.customerName.trim()}`);
+      }
       lines.push(`Địa điểm: ${villa}`);
       // 이행 장소 주소 — 발주받은 빌라 1채의 주소만(재고 비공개 원칙과 무관, 판매가·마진 아님).
       if (typeof p.villaAddress === "string" && p.villaAddress.trim().length > 0) {

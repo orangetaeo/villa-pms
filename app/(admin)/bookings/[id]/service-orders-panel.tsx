@@ -46,6 +46,7 @@ export interface OrderRow {
   priceVnd: string | null;
   costVnd?: string | null; // showCost일 때만
   requestedVia: "ADMIN" | "GUEST" | "PARTNER"; // PARTNER = 여행사/랜드사 채널(ADR-0023)
+  customerName: string | null; // 이용자 이름 스냅샷 — 예약 대표자와 다를 때만 식별용 표시
   guestNote: string | null;
   selectedOptions: SelectedOptionSnapshot[];
   ticketUrls: string[]; // 티켓형(TICKET) 발행 이미지 URL — 발행 현황·대리 첨부(ADR-0034)
@@ -96,6 +97,7 @@ export default function ServiceOrdersPanel({
   dateMin,
   dateMax,
   vendorOptions = [],
+  representativeName = null,
 }: {
   bookingId: string;
   catalog: OrderCatalogItem[];
@@ -104,6 +106,7 @@ export default function ServiceOrdersPanel({
   dateMin: string; // 희망 날짜 입력 범위(YYYY-MM-DD) — 투숙 체크인
   dateMax: string; // 〃 체크아웃
   vendorOptions?: VendorOption[]; // 대체 벤더 지정용(승인 벤더만, admin-vendor-ops D)
+  representativeName?: string | null; // 예약 대표자 이름 — 주문 이용자 이름이 다를 때만 강조 표시용
 }) {
   const t = useTranslations("adminServiceOrders");
   const router = useRouter();
@@ -354,6 +357,13 @@ export default function ServiceOrdersPanel({
                       )}
                       {o.guestNote && (
                         <p className="text-[11px] text-amber-400/80 mt-0.5 italic">“{o.guestNote}”</p>
+                      )}
+                      {/* 이용자 이름 — 예약 대표자와 다를 때만 식별용 표시(이름만) */}
+                      {o.customerName && o.customerName !== representativeName && (
+                        <p className="text-[11px] text-teal-300/90 mt-0.5 flex items-center gap-0.5">
+                          <span className="material-symbols-outlined text-[13px]">person</span>
+                          {t("customerName")}: {o.customerName}
+                        </p>
                       )}
                       {/* 티켓형(TICKET) 발행 현황 + 대리 첨부/삭제(ADR-0034) — 발주 상태 불변 */}
                       {o.type === "TICKET" && (

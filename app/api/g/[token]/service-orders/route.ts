@@ -30,6 +30,8 @@ const schema = z.object({
   serviceDate: z.string().min(1),
   serviceTime: z.string().regex(/^\d{2}:\d{2}$/),
   guestNote: z.string().max(500).optional().nullable(),
+  // ★이용자 이름 — 서비스 받으실 분(예약 대표자와 다를 수 있음). 빈값이면 서버가 대표자(guestName) 폴백.
+  customerName: z.string().max(80).optional().nullable(),
 });
 
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
@@ -109,6 +111,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     !!item.vendorId && vendor?.approvalStatus === "APPROVED" && vendor?.active === true;
   const now = new Date();
 
+  // 빌라 정보(운영자 A1 통지 + 벤더 발주 통보 공용) + 예약 대표자 이름(이용자 이름 폴백).
+  //   ★create 이전에 조회 — 이용자 이름 폴백(guestName)이 create data에 들어가야 하므로. best-effort.
+  const bookingInfo = await prisma.booking.findUnique({
+    where: { id: t.bookingId },
+    select: { guestName: true, villa: { select: { name: true, address: true } } },
+  });
+  // ★이용자 이름 — 게스트 입력값(trim) 우선, 없으면 예약 대표자(guestName) 폴백. 항상 값이 차도록.
+  const customerName = (d.customerName?.trim() || null) ?? bookingInfo?.guestName ?? null;
+
   const created = await prisma.serviceOrder.create({
     data: {
       bookingId: t.bookingId,
@@ -125,6 +136,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       selectedOptions: pricing.snapshot as unknown as Prisma.InputJsonValue,
       requestedVia: "GUEST",
       guestNote: d.guestNote ?? null,
+      customerName, // ★이용자 이름 스냅샷(입력 또는 대표자 폴백) — 벤더 발주 문구·보드 노출용
+
       // ★자동 발주 — 생성 시점이라 동시성 가드 불필요(신규 행). 벤더가 /vendor에서 수락하면 자동 확정.
       ...(autoDispatch ? { vendorStatus: "PENDING_VENDOR" as const, poSentAt: now } : {}),
     },
@@ -151,12 +164,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     },
   });
 
-  // 빌라 정보(운영자 A1 통지 + 벤더 발주 통보 공용) — name·address. best-effort.
-  const bookingInfo = await prisma.booking.findUnique({
-    where: { id: t.bookingId },
-    select: { villa: { select: { name: true, address: true } } },
-  });
-
   // ★자동 발주 통보 — 벤더 Zalo(연결 시) + 인앱. costVnd=0이므로 payload costVnd=null(미확정).
   if (autoDispatch) {
     await sendVendorPoNotifications({
@@ -170,6 +177,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       selectedOptions: pricing.snapshot,
       costVnd: 0n,
       guestNote: d.guestNote ?? null,
+      customerName, // ★이용자 이름 — 벤더가 응대 대상 식별용(이름만)
     });
   }
 

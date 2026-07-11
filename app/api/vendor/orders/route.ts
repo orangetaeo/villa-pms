@@ -40,11 +40,13 @@ const ROW_SELECT = {
   catalogItemId: true,
   vendorName: true,
   guestNote: true,
+  customerName: true, // ★이용자 이름 스냅샷 — 없으면 예약 대표자(guestName) 폴백. 이름만(전화 등 다른 PII 금지)
   selectedOptions: true,
   ticketUrls: true, // 티켓형(TICKET) 발행 이미지 URL — 벤더 자기 발주만(판매가 미포함)
   booking: {
     // address: 이행 장소 — 본인에게 발주된 빌라만 이 select를 타므로 재고 비공개 원칙과 무관(계약 A)
-    select: { checkIn: true, checkOut: true, guestCount: true, villa: { select: { name: true, nameVi: true, address: true } } },
+    // guestName: 이용자 이름 폴백용(customerName 미기록 구주문). ★이름만 — 전화(guestPhone) 절대 미포함.
+    select: { checkIn: true, checkOut: true, guestCount: true, guestName: true, villa: { select: { name: true, nameVi: true, address: true } } },
   },
 } satisfies Prisma.ServiceOrderSelect;
 
@@ -76,6 +78,8 @@ async function mapRows(rows: RawRow[], locale: string) {
     ticketUrls: o.ticketUrls, // TICKET 발행 이미지(발행 현황·삭제용)
     quantity: o.quantity,
     guestCount: o.booking?.guestCount ?? null,
+    // ★이용자 이름 — 주문 스냅샷 우선, 없으면 예약 대표자(guestName) 폴백. 단일 필드(이름만).
+    customerName: o.customerName ?? o.booking?.guestName ?? null,
     guestNote: o.guestNote,
     pickupAvailable: o.catalogItemId ? pickupById.get(o.catalogItemId) ?? false : false,
     vendorStatus: o.vendorStatus,

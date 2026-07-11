@@ -1120,6 +1120,7 @@ model ServiceOrder {
   quantity        Int                 @default(1)
   selectedOptions Json? // 선택 variant·addon·modifier 스냅샷(가격 포함)
   requestedVia    ServiceRequestedVia @default(ADMIN)
+  customerName    String? // 이용자 이름 스냅샷 — 게스트 입력 또는 예약 대표자(guestName) 폴백. 벤더 발주 문구·보드 노출용(이름만, 전화 금지)
   guestNote       String?
   priceVnd        BigInt? // 판매가 VND (스냅샷, 현지·여행사 채널)
   // ADR-0023 — 원천 공급자 발주 게이트 + 건별 정산 (로직은 S2)

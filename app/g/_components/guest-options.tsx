@@ -44,6 +44,8 @@ export default function GuestOptions(props: GuestOptionsProps) {
   );
   const [submitting, setSubmitting] = useState(false);
   const [ordersError, setOrdersError] = useState<string | null>(null);
+  // ★이용자 이름 — 서비스 받으실 분(묶음 공통 1값). 예약 대표자 이름 prefill, 수정 가능. 빈값이면 서버가 대표자 폴백.
+  const [customerName, setCustomerName] = useState<string>(booking.guestName ?? "");
 
   // ── 합계 미리보기(선택 항목 VND 합산 → KRW 파생) ──
   const cardOptions = useMemo(() => {
@@ -114,6 +116,8 @@ export default function GuestOptions(props: GuestOptionsProps) {
             serviceDate: sel.serviceDate ?? undefined,
             serviceTime: sel.serviceTime ?? undefined,
             guestNote: sel.guestNote ?? undefined,
+            // ★이용자 이름 — 묶음 공통 1값(빈값이면 서버가 예약 대표자 폴백)
+            customerName: customerName.trim() || undefined,
           }),
         });
         if (!res.ok) throw new Error(`HTTP_${res.status}`);
@@ -165,6 +169,29 @@ export default function GuestOptions(props: GuestOptionsProps) {
               dateMax={dateMax}
             />
           ))
+        )}
+
+        {/* 이용자 이름 — 서비스 받으실 분(묶음 공통). 대표자 이름 prefill, 수정 가능. 빈값 허용(서버 폴백). */}
+        {catalog.length > 0 && (
+          <div className="bg-white border border-slate-100 rounded-xl p-4 space-y-2 shadow-sm">
+            <label
+              htmlFor="guest-customer-name"
+              className="flex items-center gap-1.5 text-sm font-bold text-slate-700"
+            >
+              <span className="material-symbols-outlined text-teal-600 text-[18px]">person</span>
+              {L.addons.customerNameLabel}
+            </label>
+            <input
+              id="guest-customer-name"
+              type="text"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              maxLength={80}
+              placeholder={L.addons.customerNamePlaceholder}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-300 focus:ring-teal-500 focus:border-teal-500"
+            />
+            <p className="text-[11px] text-slate-400 leading-snug">{L.addons.customerNameHint}</p>
+          </div>
         )}
 
         {ordersError && <p className="text-xs text-red-500 text-center">{ordersError}</p>}

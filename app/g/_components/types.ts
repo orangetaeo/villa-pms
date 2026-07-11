@@ -5,6 +5,8 @@ import type { DisplayCurrency } from "@/lib/fx-rates";
 
 export interface GuestBookingView {
   villaName: string;
+  /** 예약 대표자 이름 — 부가서비스 이용자 이름 입력칸 기본값(prefill). 자기 예약이므로 누수 아님. 옵션 화면만 채움. */
+  guestName?: string | null;
   complex: string | null;
   checkIn: string; // ISO
   checkOut: string; // ISO

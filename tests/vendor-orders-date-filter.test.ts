@@ -123,3 +123,50 @@ describe("vendor orders — 날짜 필터(serviceDate from/to)", () => {
     expect(listWheres().some(hasServiceDate)).toBe(false);
   });
 });
+
+describe("vendor orders — 이용자 이름 폴백 매핑(customerName)", () => {
+  // mapRows가 접근하는 최소 필드셋(null 기본). costVnd는 bigint(.toString()).
+  const rowBase = {
+    id: "so-1",
+    type: "MASSAGE",
+    status: "REQUESTED",
+    vendorStatus: "PENDING_VENDOR",
+    serviceDate: null,
+    serviceTime: null,
+    quantity: 1,
+    costVnd: 0n,
+    vendorSettledAt: null,
+    vendorSettleMethod: null,
+    vendorSettleNote: null,
+    poSentAt: null,
+    vendorRespondedAt: null,
+    vendorCompletedAt: null,
+    proposedServiceDate: null,
+    proposedServiceTime: null,
+    vendorProposalNote: null,
+    vendorProposalRespondedAt: null,
+    vendorProposalOutcome: null,
+    createdAt: null,
+    catalogItemId: null,
+    vendorName: null,
+    guestNote: null,
+    customerName: null as string | null,
+    selectedOptions: null,
+    ticketUrls: [],
+    booking: { checkIn: null, checkOut: null, guestCount: 2, guestName: "대표자", villa: null },
+  };
+
+  it("주문 스냅샷 우선, 없으면 예약 대표자(guestName) 폴백. 이름만 단일 필드 노출", async () => {
+    soFindMany.mockResolvedValueOnce([
+      { ...rowBase, id: "so-1", customerName: "김철수" }, // 스냅샷 우선
+      { ...rowBase, id: "so-2", customerName: null }, // 폴백 → guestName
+    ]);
+    const res = await call("tab=inbox");
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { orders: Array<Record<string, unknown>> };
+    expect(json.orders[0].customerName).toBe("김철수");
+    expect(json.orders[1].customerName).toBe("대표자");
+    // ★이름만 — 전화 등 다른 게스트 PII는 응답에 없어야 함
+    expect(json.orders[0]).not.toHaveProperty("guestPhone");
+  });
+});

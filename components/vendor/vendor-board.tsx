@@ -37,6 +37,7 @@ type VendorOrder = {
   ticketUrls: string[]; // 티켓형(TICKET) 발행 이미지 URL — 발행 현황·삭제용(판매가 무관)
   quantity: number;
   guestCount: number | null; // 투숙 인원 — 카드에 아이콘으로 표시
+  customerName: string | null; // 이용자 이름(주문 스냅샷 또는 예약 대표자 폴백) — 응대 대상 식별용(이름만)
   guestNote: string | null; // 게스트 요청사항(이행 정보) — 줄바꿈 허용 표시
   pickupAvailable: boolean; // 픽업 제공 품목 여부(카탈로그) — 뱃지 표시
   vendorStatus: VendorStatus;
@@ -552,6 +553,18 @@ function PickupBadge({ show, t }: { show: boolean; t: T }) {
   );
 }
 
+// 이용자 이름 — 응대 대상 식별용(이름만). 있을 때만 person 아이콘과 함께 표시. ★전화 등 다른 PII 없음.
+function CustomerName({ name, t }: { name: string | null; t: T }) {
+  if (!name) return null;
+  return (
+    <p className="flex items-center gap-1 text-sm text-neutral-600">
+      <span className="material-symbols-outlined text-base text-neutral-400">person</span>
+      <span className="font-semibold">{t("customerName")}:</span>
+      <span className="min-w-0 truncate">{name}</span>
+    </p>
+  );
+}
+
 // 정원(투숙 인원) — 아이콘만(라벨 불필요). 0/null이면 표시 안 함.
 function GuestCount({ count }: { count: number | null }) {
   if (!count) return null;
@@ -798,6 +811,7 @@ function InboxSection({
                 </p>
               )}
               <VillaAddress address={o.villaAddress} t={t} />
+              <CustomerName name={o.customerName} t={t} />
               <p className="flex items-center gap-2 text-sm text-neutral-600">
                 <span className="flex items-center gap-1">
                   <span className="material-symbols-outlined text-base text-neutral-400">
@@ -1100,6 +1114,7 @@ function ScheduleSection({
               )}
               {o.villaName && <p className="truncate text-sm text-neutral-500">{o.villaName}</p>}
               <VillaAddress address={o.villaAddress} t={t} />
+              <CustomerName name={o.customerName} t={t} />
               <p className="flex items-center gap-2 text-sm font-semibold text-teal-700">
                 <span>{scheduleLabel(o)}</span>
                 <GuestCount count={o.guestCount} />

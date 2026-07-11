@@ -180,6 +180,68 @@ describe("게스트 주문 생성 자동 발주", () => {
   });
 });
 
+describe("게스트 주문 이용자 이름(customerName)", () => {
+  const approvedVendorItem = {
+    id: "ci-1",
+    active: true,
+    audiences: null,
+    type: "MASSAGE",
+    nameKo: "마사지",
+    priceVnd: 500000n,
+    options: null,
+    vendorId: "v-1",
+    vendor: {
+      id: "v-1",
+      userId: "vu-1",
+      approvalStatus: "APPROVED",
+      active: true,
+      user: { zaloUserId: "z-1", locale: "vi" },
+    },
+  };
+
+  it("입력한 이용자 이름을 저장하고 벤더 통보에 전달", async () => {
+    catalogFindUnique.mockResolvedValue(approvedVendorItem);
+    bookingFindUnique.mockResolvedValue({ guestName: "대표자", villa: { name: "Villa A", address: "123 St" } });
+
+    const res = await CREATE(jsonReq({ ...createBody, customerName: "김철수" }), {
+      params: Promise.resolve({ token: "tok" }),
+    });
+    expect(res.status).toBe(201);
+    const createArg = soCreate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(createArg.data.customerName).toBe("김철수");
+    // 벤더 발주 통보에도 이용자 이름 전달
+    expect(sendVendorPoNotifications).toHaveBeenCalledWith(
+      expect.objectContaining({ customerName: "김철수" })
+    );
+  });
+
+  it("이용자 이름 빈값이면 예약 대표자(guestName) 폴백", async () => {
+    catalogFindUnique.mockResolvedValue(approvedVendorItem);
+    bookingFindUnique.mockResolvedValue({ guestName: "대표자", villa: { name: "Villa A", address: "123 St" } });
+
+    // 공백만 입력 → trim 후 빈값 → 대표자 폴백
+    const res = await CREATE(jsonReq({ ...createBody, customerName: "  " }), {
+      params: Promise.resolve({ token: "tok" }),
+    });
+    expect(res.status).toBe(201);
+    const createArg = soCreate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(createArg.data.customerName).toBe("대표자");
+    expect(sendVendorPoNotifications).toHaveBeenCalledWith(
+      expect.objectContaining({ customerName: "대표자" })
+    );
+  });
+
+  it("이용자 이름 80자 초과면 400(VALIDATION_FAILED)", async () => {
+    catalogFindUnique.mockResolvedValue(approvedVendorItem);
+    const res = await CREATE(jsonReq({ ...createBody, customerName: "가".repeat(81) }), {
+      params: Promise.resolve({ token: "tok" }),
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: "VALIDATION_FAILED" });
+    expect(soCreate).not.toHaveBeenCalled();
+  });
+});
+
 describe("게스트 셀프 취소 확장", () => {
   const vendorRel = { userId: "vu-1", user: { zaloUserId: "z-1", locale: "vi" } };
 

@@ -90,10 +90,17 @@ export default async function GuestOptionsPage({
     };
   });
 
+  // 예약 대표자 이름 — 이용자 이름 입력칸 기본값(prefill)용. 자기 예약이므로 누수 아님(원칙2 무관).
+  const rep = await prisma.booking.findUnique({
+    where: { id: data.bookingId },
+    select: { guestName: true },
+  });
+
   // 요청 내역은 별도 페이지(/g/[token]/orders)에서 표시 — 여기서는 신청 폼만.
   // ★출입 정보(주소·wifi)는 옵션 화면에 불필요 → null로 전달(이 페이지 payload에 wifi 미포함).
   const booking: GuestBookingView = {
     villaName: data.booking.villaName,
+    guestName: rep?.guestName ?? null,
     complex: data.booking.complex,
     checkIn: data.booking.checkIn,
     checkOut: data.booking.checkOut,
