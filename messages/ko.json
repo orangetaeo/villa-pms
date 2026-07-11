@@ -321,6 +321,7 @@
       "cancelled": "취소됨"
     },
     "guestNote": "고객 요청",
+    "customerName": "이용자",
     "timeline": {
       "sent": "발주 발송",
       "responded": "응답",
@@ -2494,6 +2495,7 @@
     "serviceWhenHint": "고객이 채팅·전화로 요청한 날짜·시각을 입력하세요(선택).",
     "guestNote": "게스트 메모",
     "guestNotePlaceholder": "선택 입력",
+    "customerName": "이용자",
     "total": "합계",
     "add": "주문 추가",
     "adding": "추가 중...",

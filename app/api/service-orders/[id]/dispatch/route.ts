@@ -32,6 +32,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       catalogItemId: true,
       vendorName: true,
       guestNote: true, // 게스트 요청사항 — 발주 본문에 전달(판매가·마진과 무관, 노출 OK)
+      customerName: true, // ★이용자 이름 스냅샷 — 없으면 예약 대표자(guestName) 폴백
       vendor: {
         select: {
           id: true,
@@ -41,7 +42,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           user: { select: { zaloUserId: true, locale: true } },
         },
       },
-      booking: { select: { villa: { select: { name: true, address: true } } } },
+      booking: { select: { guestName: true, villa: { select: { name: true, address: true } } } },
     },
   });
   if (!order) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -95,6 +96,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     selectedOptions: order.selectedOptions,
     costVnd: order.costVnd,
     guestNote: order.guestNote,
+    customerName: order.customerName ?? order.booking?.guestName ?? null, // ★이용자 이름(폴백)
   });
   // zaloUserId 미연결이면 경보 — 발주는 기록하되 Zalo는 못 감(운영자에게 표시).
   const warning: string | undefined = zaloSent ? undefined : "NO_VENDOR_ZALO";

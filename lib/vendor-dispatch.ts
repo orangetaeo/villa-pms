@@ -35,6 +35,7 @@ export interface VendorPoNotifyInput {
   selectedOptions: unknown; // 옵션 스냅샷 — selectedOptionLabels가 라벨만 추출(가격 제거)
   costVnd: bigint; // 벤더 자기 정산액(라인 총액). >0일 때만 표기, 0이면 null(게스트 발주는 미확정→null)
   guestNote: string | null; // 게스트 요청사항(판매가·마진과 무관, 노출 OK)
+  customerName?: string | null; // ★이용자 이름(입력 또는 예약 대표자 폴백) — 벤더 응대 대상 식별용. 이름만(전화 금지)
 }
 
 /**
@@ -65,6 +66,8 @@ export async function sendVendorPoNotifications(
         optionLabels: selectedOptionLabels(input.selectedOptions, "vi"),
         costVnd: input.costVnd > 0n ? input.costVnd.toString() : null,
         guestNote: input.guestNote ?? null,
+        // ★이용자 이름 — 없으면 null(빌더가 줄 생략, 구 payload 하위호환). 이름만(전화 금지).
+        customerName: input.customerName?.trim() || null,
       },
     });
     zaloSent = true;

@@ -217,6 +217,7 @@ export default async function BookingDetailPage({
         priceVnd: true,
         requestedVia: true,
         guestNote: true,
+        customerName: true, // 이용자 이름 스냅샷 — 대표자와 다를 때 패널 표시용
         selectedOptions: true,
         ticketUrls: true, // 티켓형(TICKET) 발행 이미지 — 발행 현황·대리 첨부(ADR-0034)
         catalogItemId: true,
@@ -302,6 +303,7 @@ export default async function BookingDetailPage({
     priceVnd: o.priceVnd?.toString() ?? null,
     requestedVia: o.requestedVia,
     guestNote: o.guestNote,
+    customerName: o.customerName ?? null,
     selectedOptions: parseSnapshot(o.selectedOptions),
     ticketUrls: o.ticketUrls, // 티켓형(TICKET) 발행 이미지(ADR-0034)
     // ADR-0023 S2 — 원천 공급자 발주 흐름
@@ -936,6 +938,7 @@ export default async function BookingDetailPage({
                 name: v.name,
                 nameKo: v.nameKo ?? null,
               }))}
+              representativeName={booking.guestName}
             />
             </div>
           )}
