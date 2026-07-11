@@ -232,8 +232,9 @@ export default async function VillasPage({
       {/* 페이지 헤더 + 필터 탭 (b9) */}
       <div className="flex flex-col gap-6 mb-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
+          <div className="flex shrink-0 items-center justify-between gap-3">
+            {/* 필터 행이 넓어져도 제목이 두 줄로 꺾이지 않게 — 축소·줄바꿈 금지 */}
+            <h1 className="whitespace-nowrap text-2xl font-bold text-white">{t("title")}</h1>
             {/* 대행 등록 — 운영자가 공급자 명의로 신규 빌라 등록(마법사 isAdmin 모드 → PENDING_REVIEW) */}
             <Link
               href="/my-villas/new"
