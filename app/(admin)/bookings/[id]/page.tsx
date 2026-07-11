@@ -77,6 +77,8 @@ export default async function BookingDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const t = await getTranslations("adminBookings");
+  // 통화 단위 공용 키(ko "원" / vi "₩") — 한글 리터럴 노출 방지
+  const tKrw = await getTranslations("currency");
   // tTour — 코치마크 문구(RSC 번역 → props, ADMIN_CLIENT_NAMESPACES 무변경)
   const tTour = await getTranslations("tour");
   const { id } = await params;
@@ -347,7 +349,7 @@ export default async function BookingDetailPage({
   const totalSale =
     showFinance && "totalSaleKrw" in booking
       ? booking.saleCurrency === "KRW"
-        ? `${formatThousands(booking.totalSaleKrw ?? 0)}원`
+        ? `${formatThousands(booking.totalSaleKrw ?? 0)}${tKrw("krwUnit")}`
         : booking.saleCurrency === "USD"
           ? `${formatThousands(
               (booking as { totalSaleUsd?: number | null }).totalSaleUsd ?? 0
@@ -588,8 +590,9 @@ export default async function BookingDetailPage({
     <div className="max-w-7xl mx-auto space-y-8">
       {/* 헤더 (b11) */}
       <div className="flex items-center justify-between flex-wrap gap-4">
-        {/* 코치마크 앵커 — 제목+상태 배지+HOLD 카운트다운(항상 렌더) */}
-        <div data-tour="bdetail-header" className="flex items-center gap-4">
+        {/* 코치마크 앵커 — 제목+상태 배지+HOLD 카운트다운(항상 렌더).
+            모바일: flex-wrap+min-w-0로 좁은 뷰포트에서 줄바꿈 허용(가로 스크롤 방지, DESIGN 실측 M) */}
+        <div data-tour="bdetail-header" className="flex flex-wrap items-center gap-4 min-w-0">
           <nav className="text-sm font-medium text-admin-muted flex items-center gap-2 whitespace-nowrap">
             <Link href="/bookings" className="hover:text-white transition-colors">
               {t("detail.breadcrumb")}
@@ -686,8 +689,9 @@ export default async function BookingDetailPage({
       )}
 
       <div className="grid grid-cols-12 gap-6">
-        {/* 좌측 (66%) */}
-        <div className="col-span-12 lg:col-span-8 space-y-6">
+        {/* 좌측 (66%) — min-w-0: 부가옵션 주문 테이블(넓은 콘텐츠)이 그리드 칼럼을 밀지 않고
+            자체 overflow-x-auto 컨테이너 안에 갇히도록(그리드 아이템 기본 min-width:auto 해제) */}
+        <div className="col-span-12 lg:col-span-8 space-y-6 min-w-0">
           {/* 예약 정보 */}
           <section className="bg-admin-card rounded-xl overflow-hidden shadow-sm border border-[#334155]">
             <div className="px-6 py-4 border-b border-slate-700">
@@ -851,7 +855,7 @@ export default async function BookingDetailPage({
                         {showFinance && "amount" in p && (
                           <td className="px-6 py-4 font-semibold text-white text-right tabular-nums whitespace-nowrap">
                             {formatThousands(p.amount)}
-                            {p.currency === "KRW" ? "원" : p.currency === "VND" ? "₫" : " USD"}
+                            {p.currency === "KRW" ? tKrw("krwUnit") : p.currency === "VND" ? "₫" : " USD"}
                           </td>
                         )}
                         <td className="px-6 py-4 text-admin-muted">{p.note ?? "—"}</td>

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { expireHolds } from "@/lib/hold";
+import { verifyCronAuth } from "@/lib/cron-auth";
 
 /**
  * 홀드 만료 cron 진입점 (SPEC F3 — 5분 주기, Railway cron 등록은 OPS)
@@ -9,15 +10,8 @@ import { expireHolds } from "@/lib/hold";
 export const dynamic = "force-dynamic";
 
 async function handle(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    // 미설정 환경에서 무인증 개방 금지 — 명시적 실패
-    console.error("[cron/expire-holds] CRON_SECRET 미설정");
-    return Response.json({ error: "CRON_SECRET이 설정되지 않았습니다" }, { status: 500 });
-  }
-  if (req.headers.get("authorization") !== `Bearer ${secret}`) {
-    return Response.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const auth = verifyCronAuth(req, "expire-holds");
+  if (!auth.ok) return Response.json(auth.body, { status: auth.status });
 
   try {
     const summary = await expireHolds(prisma, new Date());

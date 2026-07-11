@@ -1,5 +1,6 @@
 // [SHARED-MODULE] Zalo OA 발송 패턴 (Nike 프로젝트 계보)
 import { dispatchPendingNotifications } from "@/lib/zalo";
+import { verifyCronAuth } from "@/lib/cron-auth";
 
 /**
  * Zalo 알림 발송 cron 진입점 (SPEC F5, 계약: docs/contracts/T3.5-zalo-send.md)
@@ -10,15 +11,8 @@ import { dispatchPendingNotifications } from "@/lib/zalo";
 export const dynamic = "force-dynamic";
 
 async function handle(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    // 미설정 환경에서 무인증 개방 금지 — 명시적 실패
-    console.error("[cron/notifications] CRON_SECRET 미설정");
-    return Response.json({ error: "CRON_SECRET이 설정되지 않았습니다" }, { status: 500 });
-  }
-  if (req.headers.get("authorization") !== `Bearer ${secret}`) {
-    return Response.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const auth = verifyCronAuth(req, "notifications");
+  if (!auth.ok) return Response.json(auth.body, { status: auth.status });
 
   try {
     const summary = await dispatchPendingNotifications();

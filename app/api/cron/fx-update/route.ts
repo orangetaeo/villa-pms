@@ -3,19 +3,13 @@
 // FX_AUTO_UPDATE 토글 OFF면 무동작(skipped_off). Railway 일 1회(예: 매일 09:00 ICT) 주기 권장.
 import { prisma } from "@/lib/prisma";
 import { runFxAutoUpdate } from "@/lib/fx-auto-update";
+import { verifyCronAuth } from "@/lib/cron-auth";
 
 export const dynamic = "force-dynamic";
 
 async function handle(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    // 미설정 환경에서 무인증 개방 금지 — 명시적 실패 (cron-ical-sync 패턴)
-    console.error("[cron/fx-update] CRON_SECRET 미설정");
-    return Response.json({ error: "CRON_SECRET이 설정되지 않았습니다" }, { status: 500 });
-  }
-  if (req.headers.get("authorization") !== `Bearer ${secret}`) {
-    return Response.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const auth = verifyCronAuth(req, "fx-update");
+  if (!auth.ok) return Response.json(auth.body, { status: auth.status });
 
   try {
     const result = await runFxAutoUpdate(prisma);

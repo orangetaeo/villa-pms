@@ -42,7 +42,7 @@ export default function QuickDateFilter({
     <div
       role="group"
       aria-label={t("label")}
-      className="flex items-center gap-2 overflow-x-auto pb-1"
+      className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1"
     >
       {presets.map((key) => {
         const active = current === key;

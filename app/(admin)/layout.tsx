@@ -35,6 +35,8 @@ import { isOperator } from "@/lib/permissions";
 // (누락 시 MISSING_MESSAGE로 화면 깨짐).
 const ADMIN_CLIENT_NAMESPACES = [
   "nav",
+  // 통화 단위 공용 키(currency.krwUnit — ko "원" / vi "₩") — 금액 접미사 리터럴 키화(LOC)
+  "currency",
   "adminStatistics",
   "adminBookings",
   "adminCheckin",

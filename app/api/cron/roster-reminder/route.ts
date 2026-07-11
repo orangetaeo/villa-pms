@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { runRosterReminders } from "@/lib/roster-reminder";
+import { verifyCronAuth } from "@/lib/cron-auth";
 
 /**
  * D-3 투숙객 명단 미입력 리마인더 cron (T-roster-reminder-cron)
@@ -10,14 +11,8 @@ import { runRosterReminders } from "@/lib/roster-reminder";
 export const dynamic = "force-dynamic";
 
 async function handle(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    console.error("[cron/roster-reminder] CRON_SECRET 미설정");
-    return Response.json({ error: "CRON_SECRET이 설정되지 않았습니다" }, { status: 500 });
-  }
-  if (req.headers.get("authorization") !== `Bearer ${secret}`) {
-    return Response.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const auth = verifyCronAuth(req, "roster-reminder");
+  if (!auth.ok) return Response.json(auth.body, { status: auth.status });
 
   try {
     const summary = await runRosterReminders(prisma, new Date());

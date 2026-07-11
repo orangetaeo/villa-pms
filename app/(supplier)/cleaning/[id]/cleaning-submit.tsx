@@ -214,7 +214,9 @@ export function CleaningSubmit({
             <div className="min-w-0">
               <p className="text-sm font-bold text-red-700">{labels.rejectedTitle}</p>
               {rejectNote && (
-                <p className="mt-1 text-sm leading-snug text-red-700">{rejectNote}</p>
+                <p className="mt-1 whitespace-normal break-words text-sm leading-snug text-red-700">
+                  {rejectNote}
+                </p>
               )}
               <p className="mt-1 text-sm text-neutral-600">{labels.rejectedHint}</p>
             </div>

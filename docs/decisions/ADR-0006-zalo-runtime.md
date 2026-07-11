@@ -1,5 +1,7 @@
 # ADR-0006: Zalo zca-js 실행 모델 — Railway 장기 세션·credential 영속·전송 계층 교체
 
+> ⚠ 번호 중복: ADR-0006이 두 건 존재한다(본 문서 + `ADR-0006-initial-inspection-gate.md`). 링크 파손 방지를 위해 리네임하지 않고 유지한다. 인용 시 파일명 전체로 구분할 것. 차기 ADR은 0036부터.
+
 날짜: 2026-06-16
 상태: 제안 (TDA 설계 — 테오/QA 검토 후 승인 시 INTEG/BE 구현 착수)
 관련: ADR-0005(OA→zca-js 채택), 계약 T3.5-zalo-zca-js.md(1단계 설계 산출물), T3.6(tamtru), T3.7(온보딩), T6.6(채팅), reference/nike/src/lib/zalo*.ts, lib/zalo.ts·lib/zalo-chat.ts, prisma/schema.prisma, railway.toml/nixpacks.toml

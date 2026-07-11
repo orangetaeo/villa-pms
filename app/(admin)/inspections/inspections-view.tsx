@@ -8,7 +8,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { CleaningStatus, CleaningType, PhotoSpace } from "@prisma/client";
 import { buildInspectionRows, type SlotRef } from "@/lib/cleaning-photo-pairs";
@@ -82,13 +82,14 @@ interface Props {
   taskSelected: boolean;
   tab: string;
   counts: Record<TabKey, number>;
-  range?: string;
   area?: string;
   areaOptions: string[];
   /** 개별 재배정 드롭다운용 CLEANER 목록 */
   cleaners: CleanerOption[];
   /** 좌측 큐 페이지네이션 (URL 모드) — total=정렬된 전체(상한 200) */
   pagination: { total: number; page: number; pageSize: number };
+  /** 사진 확대 라이트박스 라벨 — RSC(page.tsx)가 로케일에 맞게 주입(한글 폴백 방지) */
+  lightboxLabels: { close: string; prev: string; next: string };
 }
 
 export default function InspectionsView({
@@ -97,15 +98,16 @@ export default function InspectionsView({
   taskSelected,
   tab,
   counts,
-  range,
   area,
   areaOptions,
   cleaners,
   pagination,
+  lightboxLabels,
 }: Props) {
   const t = useTranslations("adminInspections.list");
   const td = useTranslations("adminInspections.detail");
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [busy, setBusy] = useState(false);
   // 빌라명 검색 (controlled, 인메모리). 좌측 큐가 서버 페이지네이션이라 현재 페이지 안에서
@@ -262,20 +264,26 @@ export default function InspectionsView({
     if (idx >= 0) setLightbox(idx);
   };
 
-  // range·area는 모든 내부 링크에 보존 — 탭/행 전환 시 활성 날짜·지역 필터 유지
-  const rangeQs = range ? `&range=${range}` : "";
-  const areaQs = area ? `&area=${encodeURIComponent(area)}` : "";
-  const taskHref = (taskId: string) =>
-    `/inspections?status=${tab}&task=${taskId}${rangeQs}${areaQs}`;
-  const tabHref = (key: TabKey) => `/inspections?status=${key}${rangeQs}${areaQs}`;
+  // 내부 링크·필터 전환은 현재 searchParams 를 통째로 복제한 뒤 바뀌는 값만 덮어쓴다.
+  // (알려진 파라미터만 열거해 재조립하면 신규 필터 파라미터가 조용히 유실됨
+  //  — /villas·/bookings 와 동일한 클론 패턴. range·area 등 활성 필터는 자동 보존)
+  const buildHref = (patch: Record<string, string | null>) => {
+    const next = new URLSearchParams(searchParams.toString());
+    for (const [k, v] of Object.entries(patch)) {
+      if (v == null || v === "") next.delete(k);
+      else next.set(k, v);
+    }
+    const qs = next.toString();
+    return qs ? `/inspections?${qs}` : "/inspections";
+  };
+  // 행 선택 — status·task 는 명시, 목록 페이지(page)는 1로 리셋(파라미터 제거)
+  const taskHref = (taskId: string) => buildHref({ status: tab, task: taskId, page: null });
+  // 탭 전환 — status 만 바꾸고 선택(task)·page 는 리셋, 날짜·지역 필터는 보존
+  const tabHref = (key: TabKey) => buildHref({ status: key, task: null, page: null });
 
-  // 지역 변경 — 목록이 바뀌므로 선택(task)은 해제, 탭·날짜는 유지
+  // 지역 변경 — 목록이 바뀌므로 선택(task)·page 는 해제, 탭·날짜는 유지
   const changeArea = (value: string) => {
-    const sp = new URLSearchParams();
-    sp.set("status", tab);
-    if (range) sp.set("range", range);
-    if (value) sp.set("area", value);
-    router.replace(`/inspections?${sp.toString()}`);
+    router.replace(buildHref({ area: value || null, task: null, page: null }));
   };
 
   const statusBadge = (status: CleaningStatus) => (
@@ -293,7 +301,7 @@ export default function InspectionsView({
         <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
         <div
           data-tour="inspections-tabs"
-          className="flex items-center gap-2 border-b border-admin-card overflow-x-auto"
+          className="flex items-center gap-2 border-b border-admin-card overflow-x-auto scrollbar-none"
         >
           {TABS.map((key) => {
             const active = tab === key;
@@ -728,7 +736,12 @@ export default function InspectionsView({
         </section>
       </div>
 
-      <ImageLightbox images={lightboxImages} index={lightbox} onIndexChange={setLightbox} />
+      <ImageLightbox
+        images={lightboxImages}
+        index={lightbox}
+        onIndexChange={setLightbox}
+        labels={lightboxLabels}
+      />
     </div>
   );
 }

@@ -6,7 +6,7 @@
 // 잠금/해제: 기존 /api/calendar-blocks (ADMIN 허용으로 보강됨). 낙관적 업데이트 + router.refresh().
 // i18n: (admin)/layout.tsx 화이트리스트 수정 금지 → 모든 문구를 서버에서 props(strings)로 받음.
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { BoardBookingSummary, BoardCell } from "@/lib/availability";
 
@@ -247,6 +247,7 @@ export default function AvailabilityBoardClient({
   strings: s,
 }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // 빌라명 열(sticky) 접기/펴기 — 모바일에서 달력 가시 영역 확보용. 접으면 48px(상태 아이콘만)
   const [villaColCollapsed, setVillaColCollapsed] = useState(false);
@@ -462,18 +463,14 @@ export default function AvailabilityBoardClient({
     setErrorKey(null);
   }
 
-  // 필터/기간 → searchParams 갱신
+  // 필터/기간 → searchParams 갱신. 현재 URL 파라미터를 통째로 복제한 뒤 바뀌는 값만 덮어쓴다.
+  // (알려진 필터만 열거해 재조립하면 신규 필터 파라미터가 조용히 유실됨 — /villas·/bookings 클론 패턴.
+  //  빈 문자열·null 패치는 해당 파라미터 제거 = 기본값이면 URL 에서 빠지는 기존 동작 유지)
   function navigate(patch: Record<string, string | null>) {
-    const next = new URLSearchParams();
-    const cur: Record<string, string> = {
-      startMonth,
-      area,
-      villaId,
-      search,
-      needCheck: needCheckOnly ? "1" : "",
-    };
-    for (const [k, v] of Object.entries({ ...cur, ...patch })) {
-      if (v) next.set(k, v);
+    const next = new URLSearchParams(searchParams.toString());
+    for (const [k, v] of Object.entries(patch)) {
+      if (v == null || v === "") next.delete(k);
+      else next.set(k, v);
     }
     const qs = next.toString();
     router.replace(qs ? `/availability?${qs}` : "/availability");

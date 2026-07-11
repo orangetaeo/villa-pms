@@ -149,28 +149,27 @@ export default async function MyVillasPage({
                       </div>
                     )}
                   </div>
-                  {/* 본문 */}
-                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        {villa.complex && (
-                          <span className="block truncate text-[10px] font-bold uppercase tracking-wider text-neutral-400">
-                            {villa.complex}
-                          </span>
-                        )}
-                        <h2 className="truncate text-sm font-bold text-neutral-900 sm:text-base">
-                          {formatVillaName({ name: villa.name, nameVi: villa.nameVi })}
-                        </h2>
-                      </div>
+                  {/* 본문 — 이름이 배지에 눌려 잘리던 vi 결함(DESIGN 실측) 수정:
+                      배지를 이름 행에서 빼 아래 메타 줄로 내려 이름에 폭을 우선 배분(최대 2줄 허용) */}
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <div className="min-w-0">
+                      {villa.complex && (
+                        <span className="block truncate text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                          {villa.complex}
+                        </span>
+                      )}
+                      <h2 className="line-clamp-2 text-sm font-bold leading-tight text-neutral-900 sm:text-base">
+                        {formatVillaName({ name: villa.name, nameVi: villa.nameVi })}
+                      </h2>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-neutral-500">
+                      {/* 상태 배지 — 이름 아래 메타 줄로 이동. 코치마크 앵커(villa-status)는 첫 행만 유지 */}
                       <span
-                        // 코치마크 앵커 — 첫 행 상태 배지만. 빈 목록이면 이 스텝은 자동 스킵(신규자는 등록만 강조)
                         data-tour={villaIdx === 0 ? "villa-status" : undefined}
                         className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${BADGE_CLASS[badge]}`}
                       >
                         {t(`status.${badge}`)}
                       </span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-neutral-500">
                       <span className="inline-flex items-center gap-0.5">
                         <span className="material-symbols-outlined text-[16px] text-teal-600">bed</span>
                         {villa.bedrooms}

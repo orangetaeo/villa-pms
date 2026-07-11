@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { markOverdueReceivables } from "@/lib/partner-booking";
 import { notifyPartner } from "@/lib/partner-notify";
 import { receivableOutstanding } from "@/lib/partner";
+import { verifyCronAuth } from "@/lib/cron-auth";
 
 /**
  * 파트너 미수 연체 전이 cron (ADR-0022 PARTNER-3 — 1일 1회 권장, Railway cron 등록은 OPS)
@@ -13,14 +14,8 @@ import { receivableOutstanding } from "@/lib/partner";
 export const dynamic = "force-dynamic";
 
 async function handle(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    console.error("[cron/partner-overdue] CRON_SECRET 미설정");
-    return Response.json({ error: "CRON_SECRET이 설정되지 않았습니다" }, { status: 500 });
-  }
-  if (req.headers.get("authorization") !== `Bearer ${secret}`) {
-    return Response.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const auth = verifyCronAuth(req, "partner-overdue");
+  if (!auth.ok) return Response.json(auth.body, { status: auth.status });
 
   try {
     const now = new Date();

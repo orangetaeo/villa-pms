@@ -68,6 +68,7 @@ function nightsBetween(checkIn: string, checkOut: string): number {
 
 export default function ProposalCreate() {
   const t = useTranslations("adminProposals.create");
+  const tKrw = useTranslations("currency");
   const locale = useLocale();
   const router = useRouter();
 
@@ -324,7 +325,7 @@ export default function ProposalCreate() {
       ? formatVnd(totals.saleVnd)
       : currency === "USD"
         ? `$${formatThousands(totals.saleUsd)}`
-        : `${formatThousands(totals.saleKrw)}원`;
+        : `${formatThousands(totals.saleKrw)}${tKrw("krwUnit")}`;
   // 마진: VND 채널 = 정확값(BigInt). KRW 채널 = fx 참고 환산 — 표시 전용 (정확 마진은 Phase 2 리포트)
   const marginVnd = totals.saleVnd - totals.costVnd;
   const marginKrwRef =
@@ -339,7 +340,7 @@ export default function ProposalCreate() {
       ? formatVnd(c.totalSaleVnd ?? "0")
       : currency === "USD"
         ? `$${formatThousands(parseUsd(c.id))}` // 수동 입력 USD 총액
-        : `${formatThousands(c.totalSaleKrw ?? 0)}원`;
+        : `${formatThousands(c.totalSaleKrw ?? 0)}${tKrw("krwUnit")}`;
 
   // ----- 생성 -----
   const [failures, setFailures] = useState<{ name: string; reason: string }[] | null>(null);
@@ -1008,7 +1009,7 @@ export default function ProposalCreate() {
                 <div className="flex justify-between text-sm gap-3">
                   <span className="text-slate-400 whitespace-nowrap">{t("marginReference")}</span>
                   <span className="text-blue-400 font-medium tabular-nums whitespace-nowrap">
-                    ≈ {formatThousands(marginKrwRef)}원
+                    ≈ {formatThousands(marginKrwRef)}{tKrw("krwUnit")}
                   </span>
                 </div>
               ) : (

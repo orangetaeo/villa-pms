@@ -41,7 +41,7 @@ describe("불변식 1: 미게이트 mutation 라우트 없음 (보안 P0-6/P1-S9
   const MUTATION =
     /export\s+(async\s+)?function\s+(POST|PUT|PATCH|DELETE)|export\s+const\s+(POST|PUT|PATCH|DELETE)\s*=/;
   // P1-S8: 중앙 가드 헬퍼(requireAuth/requireCapability)도 게이트로 인정(전면 치환으로 raw auth() 제거됨).
-  const GATE = /auth\(\)|requireAuth\(|requireCapability\(|getServerSession|CRON_SECRET|isExtSecretValid|x-zalo-ext-secret|verifyZaloWebhook|HMAC/i;
+  const GATE = /auth\(\)|requireAuth\(|requireCapability\(|getServerSession|CRON_SECRET|verifyCronAuth\(|isExtSecretValid|x-zalo-ext-secret|verifyZaloWebhook|HMAC/i;
 
   it("모든 mutation 라우트는 게이트되거나 공개 허용목록에 있다", () => {
     const files = walk(join(ROOT, "app", "api"), (f) => f.endsWith("route.ts"));
