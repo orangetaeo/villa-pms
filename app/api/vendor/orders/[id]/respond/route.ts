@@ -80,6 +80,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     select: {
       id: true,
       status: true,
+      type: true, // 티켓 발주(TICKET)면 시간 협의(propose) 거부 — UI·서버 대칭 가드
       requestedVia: true, // GUEST 직접 발주면 수락 시 자동 확정(CONFIRMED)
       bookingId: true, // 운영자 인앱 알림 딥링크(/bookings/{id})용
       vendorId: true,
@@ -103,6 +104,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   //   남아 있어도 주문이 취소됐으면 공급자는 응답할 수 없음(취소 통보 Zalo가 별도로 발송됨).
   if (order.status === "CANCELLED") {
     return NextResponse.json({ error: "ORDER_CANCELLED" }, { status: 409 });
+  }
+  // ★티켓 발주엔 시간 협의(propose)가 무의미 — 발행(=수락)만 존재. UI에서 제안 버튼을 숨기므로 서버·UI 대칭.
+  //   벤더 종류 무관, 주문 type 기준(혼합 판매 업체의 티켓 주문에도 적용).
+  if (action === "propose" && order.type === "TICKET") {
+    return NextResponse.json({ error: "TICKET_NO_PROPOSAL" }, { status: 400 });
   }
 
   // 카탈로그 항목명(운영자 통지 ko용) — catalogItemId는 관계 미정의 스칼라이므로 별도 조회.

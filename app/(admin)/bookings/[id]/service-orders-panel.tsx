@@ -158,25 +158,38 @@ export default function ServiceOrdersPanel({
     }
   }
 
+  // 발주 발송 요청 (POST /dispatch) — 결과만 반환(메시지 처리는 호출부).
+  //   단독 발주 버튼(dispatchOrder)과 업체 변경 시 자동 재발주(changeVendor)가 공유한다.
+  //   busy/메시지 상태는 호출부가 관리하므로 여기서 건드리지 않는다.
+  async function requestDispatch(
+    orderId: string
+  ): Promise<{ ok: true; warning?: string } | { ok: false; status: number; code: string | null }> {
+    const res = await fetch(`/api/service-orders/${orderId}/dispatch`, { method: "POST" });
+    if (!res.ok) {
+      const code = await res.json().then((d) => d?.error).catch(() => null);
+      return { ok: false, status: res.status, code };
+    }
+    const data = await res.json().catch(() => ({}));
+    return { ok: true, warning: data?.warning };
+  }
+
   // ADR-0023 S2 — 발주 발송 (POST /dispatch). 성공 후 새로고침. Zalo 미설정 시 경고.
   async function dispatchOrder(orderId: string) {
     setBusy(true);
     setMessage(null);
     try {
-      const res = await fetch(`/api/service-orders/${orderId}/dispatch`, { method: "POST" });
-      if (!res.ok) {
-        const code = await res.json().then((d) => d?.error).catch(() => null);
-        if (res.status === 400 && code === "NO_VENDOR") {
+      const r = await requestDispatch(orderId);
+      if (!r.ok) {
+        if (r.status === 400 && r.code === "NO_VENDOR") {
           setMessage({ tone: "error", text: t("vendor.noVendor") });
-        } else if (res.status === 409 && code === "CANNOT_DISPATCH") {
+        } else if (r.status === 409 && r.code === "CANNOT_DISPATCH") {
           setMessage({ tone: "error", text: t("vendor.cannotDispatch") });
         } else {
           fail();
         }
         return;
       }
-      const data = await res.json().catch(() => ({}));
-      if (data?.warning === "NO_VENDOR_ZALO") {
+      if (r.warning === "NO_VENDOR_ZALO") {
         setMessage({ tone: "warn", text: t("vendor.noZaloWarn") });
       } else {
         setMessage({ tone: "ok", text: t("vendor.dispatched") });
@@ -217,6 +230,9 @@ export default function ServiceOrdersPanel({
 
   // 대체 벤더 지정(admin-vendor-ops D) — REQUESTED + 발주 전/거절만. PATCH {vendorId}(null=직접 제공).
   //   서버가 발주 사이클 리셋(vendorStatus 등 null) 후 재발주 가능. 409 VENDOR_LOCKED는 상태 안내.
+  //   ★업체 변경(vendorId!=null) 성공 시 곧바로 재발주를 체이닝한다 — 벤더 발주함은 PENDING_VENDOR만
+  //     조회하므로, 발주를 자동 발송하지 않으면 새 업체 페이지에 아무것도 안 뜬다(테오 요청).
+  //     직접 제공 전환(vendorId=null)은 발주 흐름이 없으므로 dispatch 호출하지 않는다.
   async function changeVendor(orderId: string, vendorId: string | null) {
     setBusy(true);
     setMessage(null);
@@ -235,11 +251,27 @@ export default function ServiceOrdersPanel({
         }
         return;
       }
-      setMessage({ tone: "ok", text: t("saved") });
-      refresh();
+      // 직접 제공 전환 — 발주 없음. 기존대로 저장 메시지만.
+      if (vendorId === null) {
+        setMessage({ tone: "ok", text: t("saved") });
+        return;
+      }
+      // 업체 변경 성공 → 자동 재발주. 통합 메시지로 결과 안내.
+      const r = await requestDispatch(orderId);
+      if (!r.ok) {
+        // 변경은 됐으나 발주 실패(409 CANNOT_DISPATCH 등) — 수동 재시도 유도.
+        setMessage({ tone: "warn", text: t("vendor.changeDispatchFailed") });
+      } else if (r.warning === "NO_VENDOR_ZALO") {
+        // 변경·발주는 됐으나 새 업체 Zalo 미연결 — 수동 연락 필요.
+        setMessage({ tone: "warn", text: t("vendor.changeDispatchedNoZalo") });
+      } else {
+        setMessage({ tone: "ok", text: t("vendor.changeDispatched") });
+      }
     } catch {
       fail();
     } finally {
+      // 성공·실패 어느 경로든 최신 상태 반영.
+      refresh();
       setBusy(false);
     }
   }

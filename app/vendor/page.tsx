@@ -9,7 +9,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import VendorBoard from "@/components/vendor/vendor-board";
-import { getVendorForUser } from "@/lib/vendor-auth";
+import { getVendorForUser, isTicketOnlyVendor } from "@/lib/vendor-auth";
 import { CoachMark } from "@/components/tour/coach-mark";
 import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
@@ -38,11 +38,17 @@ export default async function VendorPage() {
     );
   }
 
+  // 티켓 전용 벤더 판정(파생) — 활성 카탈로그가 전부 TICKET이면 시간제안 탭·버튼 숨김(전용 보드).
+  //   status APPROVED면 vendor 비null 보장(null이면 위 게이트에서 반환됨) — 방어적으로 null이면 일반 보드.
+  const ticketOnly = vendor ? await isTicketOnlyVendor(vendor.id) : false;
+
   // 코치마크 문구 — RSC 번역 → props (화이트리스트 무변경). 승인 게이트 화면엔 미마운트.
+  //   ★vendorBoard 투어 스텝은 inbox·schedule·settlement 3개뿐(proposal 미포함) — ticketOnly에서도
+  //     3탭 모두 렌더되므로 앵커 부재·필터링 불필요(tour-definitions.ts 참조).
   const tTour = await getTranslations("tour");
   return (
     <>
-      <VendorBoard />
+      <VendorBoard ticketOnly={ticketOnly} />
       {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 헤더 "?"로 재생 */}
       <CoachMark
         tourId="vendorBoard"

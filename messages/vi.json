@@ -2655,6 +2655,9 @@
       "change": "Đổi nhà cung cấp",
       "changeNone": "Tự cung cấp (không đặt hàng)",
       "changeLocked": "Không thể đổi nhà cung cấp khi đơn đang gửi hoặc đã được nhận",
+      "changeDispatched": "Đã đổi nhà cung cấp và gửi đặt hàng",
+      "changeDispatchedNoZalo": "Đã đổi nhà cung cấp và gửi đặt hàng nhưng NCC chưa liên kết Zalo — cần liên hệ thủ công",
+      "changeDispatchFailed": "Đã đổi nhà cung cấp nhưng gửi đặt hàng thất bại — nhấn Gửi đặt hàng để thử lại",
       "unsettle": "Hủy",
       "method": {
         "CASH": "Tiền mặt",

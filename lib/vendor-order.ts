@@ -135,3 +135,15 @@ export function assertVendorResponse(from: ServiceVendorStatus | null): void {
     throw new InvalidVendorResponseError(from);
   }
 }
+
+/**
+ * 티켓 전용 벤더 판정(순수) — 활성 카탈로그 품목 개수만으로 결정.
+ * "보유 활성(active) 품목이 1개 이상이고 전부 TICKET"이면 true → 시간 협의가 무의미하므로 전용 보드.
+ * - 활성 0개 → false: 판단 근거 없음(일반 보드 유지, 신규 미등록 업체 등).
+ * - 혼합(TICKET + 비TICKET) → false: 일반 보드 유지.
+ * 파생 판정이라 스키마 변경 없음 — 티켓 업체가 여러 곳으로 늘어도 자동 적용(특정 업체 하드코딩 금지).
+ * DB 개수 집계는 vendor-auth.ts의 async 래퍼(isTicketOnlyVendor)가 담당 — 이 모듈은 순수 유지.
+ */
+export function isTicketOnlyFromCounts(activeTotal: number, activeTicket: number): boolean {
+  return activeTotal > 0 && activeTicket === activeTotal;
+}
