@@ -216,6 +216,8 @@ export default async function InspectionsPage({
 
   // 코치마크 문구 — RSC 번역 → props (ADMIN_CLIENT_NAMESPACES 무변경)
   const tTour = await getTranslations("tour");
+  // 사진 확대 라이트박스 라벨 — 공용 photoLightbox 네임스페이스에서 로케일에 맞게 주입(한글 폴백 방지)
+  const tLightbox = await getTranslations("photoLightbox");
 
   return (
     <>
@@ -229,11 +231,15 @@ export default async function InspectionsPage({
         taskSelected={!!params.task}
         tab={tab}
         counts={counts}
-        range={params.range}
         area={area}
         areaOptions={areaOptions}
         cleaners={cleaners}
         pagination={{ total: rows.length, page, pageSize }}
+        lightboxLabels={{
+          close: tLightbox("close"),
+          prev: tLightbox("prev"),
+          next: tLightbox("next"),
+        }}
       />
       {/* 코치마크 투어 — InspectionsView 밖(형제)이라 key 리마운트와 무관. 첫 진입 자동 1회 */}
       <CoachMark

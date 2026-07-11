@@ -2,6 +2,9 @@
   "app": {
     "name": "Villa Go"
   },
+  "currency": {
+    "krwUnit": "원"
+  },
   "partner": {
     "serviceOrders": { "title": "부가서비스 요청", "subtitle": "고객이 신청한 부가서비스입니다. 요청 메모를 확인해 주세요." },
     "serviceType": { "BBQ": "바베큐", "TICKET": "입장권", "GUIDE": "가이드", "CAR_RENTAL": "차량 렌트", "BREAKFAST": "조식", "MOTORBIKE_RENTAL": "오토바이 렌트", "MASSAGE": "마사지", "BARBER": "이발", "FRUIT": "과일" },

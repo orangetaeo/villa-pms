@@ -34,8 +34,8 @@ function groupDigits(s: string): string {
   const digits = neg ? s.slice(1) : s;
   return (neg ? "-" : "") + digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
-function sym(currency?: string): string {
-  return currency === "KRW" ? "원" : currency === "VND" ? "₫" : currency === "USD" ? "$" : "";
+function sym(currency: string | undefined, krwUnit: string): string {
+  return currency === "KRW" ? krwUnit : currency === "VND" ? "₫" : currency === "USD" ? "$" : "";
 }
 
 const STATUS_COLOR: Record<SerSummary["status"], string> = {
@@ -60,6 +60,7 @@ export default function PaymentPanel({
   summary: SerSummary;
 }) {
   const t = useTranslations("adminBookings.detail.payments");
+  const tKrw = useTranslations("currency");
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -206,7 +207,7 @@ export default function PaymentPanel({
                     {t(`methods.${p.method}`)}
                   </td>
                   <td className="px-6 py-4 font-semibold text-white text-right tabular-nums whitespace-nowrap">
-                    {p.amount != null ? `${groupDigits(p.amount)}${sym(p.currency)}` : "—"}
+                    {p.amount != null ? `${groupDigits(p.amount)}${sym(p.currency, tKrw("krwUnit"))}` : "—"}
                   </td>
                   <td className="px-6 py-4 text-admin-muted">{p.note ?? "—"}</td>
                   <td className="px-6 py-4 text-right">
@@ -244,7 +245,7 @@ export default function PaymentPanel({
                   className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-white"
                 >
                   <option value="VND">VND ₫</option>
-                  <option value="KRW">KRW 원</option>
+                  <option value="KRW">KRW {tKrw("krwUnit")}</option>
                   <option value="USD">USD $</option>
                 </select>
               </label>

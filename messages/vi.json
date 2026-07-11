@@ -2,6 +2,9 @@
   "app": {
     "name": "Villa Go"
   },
+  "currency": {
+    "krwUnit": "₩"
+  },
   "partner": {
     "serviceOrders": { "title": "Yêu cầu dịch vụ bổ sung", "subtitle": "Dịch vụ khách đã yêu cầu. Vui lòng kiểm tra ghi chú của khách." },
     "serviceType": { "BBQ": "BBQ", "TICKET": "Vé tham quan", "GUIDE": "Hướng dẫn viên", "CAR_RENTAL": "Thuê xe", "BREAKFAST": "Bữa sáng", "MOTORBIKE_RENTAL": "Thuê xe máy", "MASSAGE": "Massage", "BARBER": "Cắt tóc", "FRUIT": "Trái cây" },

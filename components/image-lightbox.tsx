@@ -61,10 +61,12 @@ export default function ImageLightbox({ images, index, onIndexChange, labels }: 
   const current = images[index];
   if (!current) return null;
 
+  // 라벨은 호출부(RSC)가 로케일에 맞게 주입한다. 폴백은 공개/공급자 화면에 한글이 새지
+  // 않도록 중립적인 영문 기본값(호출부가 항상 주입하므로 실제로는 렌더되지 않음).
   const l = {
-    close: labels?.close ?? "닫기",
-    prev: labels?.prev ?? "이전 사진",
-    next: labels?.next ?? "다음 사진",
+    close: labels?.close ?? "Close",
+    prev: labels?.prev ?? "Previous",
+    next: labels?.next ?? "Next",
   };
 
   return (

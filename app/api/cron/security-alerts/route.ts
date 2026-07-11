@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { runSecurityAlerts } from "@/lib/security-alerts";
+import { verifyCronAuth } from "@/lib/cron-auth";
 
 /**
  * 보안 이상탐지 경보 cron 진입점 (보안 P3-S3 — 10분 주기 권장, Railway cron 등록은 OPS)
@@ -10,14 +11,8 @@ import { runSecurityAlerts } from "@/lib/security-alerts";
 export const dynamic = "force-dynamic";
 
 async function handle(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    console.error("[cron/security-alerts] CRON_SECRET 미설정");
-    return Response.json({ error: "CRON_SECRET이 설정되지 않았습니다" }, { status: 500 });
-  }
-  if (req.headers.get("authorization") !== `Bearer ${secret}`) {
-    return Response.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const auth = verifyCronAuth(req, "security-alerts");
+  if (!auth.ok) return Response.json(auth.body, { status: auth.status });
 
   try {
     const summary = await runSecurityAlerts(prisma, new Date());

@@ -229,6 +229,7 @@ function HeadlineCard({
 // 통화 분리(KRW·VND)는 그대로 유지. 미니바·부가서비스 상세는 ancillary 탭으로 분리됨.
 function OverviewTab({ data }: { data: OverviewStats }) {
   const t = useTranslations("adminStatistics");
+  const tKrw = useTranslations("currency");
   const k = data.current;
   const fxMissing = data.trend.reduce((s, m) => s + m.fxMissingCount, 0);
 
@@ -274,7 +275,7 @@ function OverviewTab({ data }: { data: OverviewStats }) {
         <KpiCard
           label={t("overview.kpi.krwRevenue")}
           value={formatThousands(k.krwRevenue)}
-          unit="원"
+          unit={tKrw("krwUnit")}
           changePct={k.krwChangePct}
           changeFromLabel={t("common.changeFromPrev")}
           accent="krw"

@@ -731,33 +731,42 @@ function InboxSection({
             <TicketPanel order={o} pending={o.vendorStatus === "PENDING_VENDOR"} t={t} onChanged={onChanged} />
           )}
 
-          {/* 거절 / 제안 / 수락 — 버튼 3개. 제안=수락하되 대안 시간 협의(propose). */}
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              disabled={busyId === o.id}
-              onClick={() => onReject(o)}
-              className="rounded-xl border border-neutral-200 bg-white py-3 text-sm font-bold text-neutral-600 transition active:scale-95 disabled:opacity-50"
-            >
-              {t("reject")}
-            </button>
-            <button
-              type="button"
-              disabled={busyId === o.id}
-              onClick={() => onPropose(o)}
-              className="rounded-xl border border-blue-200 bg-blue-50 py-3 text-sm font-bold text-blue-700 transition active:scale-95 disabled:opacity-50"
-            >
-              {t("propose.button")}
-            </button>
-            <button
-              type="button"
-              disabled={busyId === o.id}
-              onClick={() => onAccept(o)}
-              className="rounded-xl bg-teal-600 py-3 text-sm font-bold text-white transition active:scale-95 disabled:opacity-50"
-            >
-              {busyId === o.id ? t("submitting") : t("accept")}
-            </button>
-          </div>
+          {/* 거절 / 제안 / 수락 버튼. 제안=수락하되 대안 시간 협의(propose).
+              ★TICKET 미수락 발주(ADR-0034: 발행=수락 겸행)는 하단 "수락" 버튼을 숨긴다 —
+              위 TicketPanel "발행" 버튼이 곧 수락이라 수락 버튼이 중복·혼동을 준다. 거절·제안만 남긴다. */}
+          {(() => {
+            const hideAccept = o.type === "TICKET" && o.vendorStatus === "PENDING_VENDOR";
+            return (
+              <div className={`grid gap-2 ${hideAccept ? "grid-cols-2" : "grid-cols-3"}`}>
+                <button
+                  type="button"
+                  disabled={busyId === o.id}
+                  onClick={() => onReject(o)}
+                  className="rounded-xl border border-neutral-200 bg-white py-3 text-sm font-bold text-neutral-600 transition active:scale-95 disabled:opacity-50"
+                >
+                  {t("reject")}
+                </button>
+                <button
+                  type="button"
+                  disabled={busyId === o.id}
+                  onClick={() => onPropose(o)}
+                  className="rounded-xl border border-blue-200 bg-blue-50 py-3 text-sm font-bold text-blue-700 transition active:scale-95 disabled:opacity-50"
+                >
+                  {t("propose.button")}
+                </button>
+                {!hideAccept && (
+                  <button
+                    type="button"
+                    disabled={busyId === o.id}
+                    onClick={() => onAccept(o)}
+                    className="rounded-xl bg-teal-600 py-3 text-sm font-bold text-white transition active:scale-95 disabled:opacity-50"
+                  >
+                    {busyId === o.id ? t("submitting") : t("accept")}
+                  </button>
+                )}
+              </div>
+            );
+          })()}
         </div>
       ))}
       <PaginationBar

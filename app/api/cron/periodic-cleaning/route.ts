@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { createPeriodicCleaningTasks } from "@/lib/cleaning";
+import { verifyCronAuth } from "@/lib/cron-auth";
 
 /**
  * 정기 방역 태스크 생성 cron 진입점 (SPEC F4 — 월 1회, ADR-0002 주기 고정)
@@ -9,14 +10,8 @@ import { createPeriodicCleaningTasks } from "@/lib/cleaning";
 export const dynamic = "force-dynamic";
 
 async function handle(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    console.error("[cron/periodic-cleaning] CRON_SECRET 미설정");
-    return Response.json({ error: "CRON_SECRET이 설정되지 않았습니다" }, { status: 500 });
-  }
-  if (req.headers.get("authorization") !== `Bearer ${secret}`) {
-    return Response.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const auth = verifyCronAuth(req, "periodic-cleaning");
+  if (!auth.ok) return Response.json(auth.body, { status: auth.status });
 
   try {
     const summary = await createPeriodicCleaningTasks(prisma, new Date());

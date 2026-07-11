@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { runIcalSync } from "@/lib/ical";
+import { verifyCronAuth } from "@/lib/cron-auth";
 
 /**
  * iCal 수신 동기화 cron 진입점 (SPEC F2 — Railway 30분 주기)
@@ -9,15 +10,8 @@ import { runIcalSync } from "@/lib/ical";
 export const dynamic = "force-dynamic";
 
 async function handle(req: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    // 미설정 환경에서 무인증 개방 금지 — 명시적 실패
-    console.error("[cron/ical-sync] CRON_SECRET 미설정");
-    return Response.json({ error: "CRON_SECRET이 설정되지 않았습니다" }, { status: 500 });
-  }
-  if (req.headers.get("authorization") !== `Bearer ${secret}`) {
-    return Response.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const auth = verifyCronAuth(req, "ical-sync");
+  if (!auth.ok) return Response.json(auth.body, { status: auth.status });
 
   try {
     const summary = await runIcalSync(prisma);

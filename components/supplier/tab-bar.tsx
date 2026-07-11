@@ -45,7 +45,7 @@ export function TabBar({ role }: { role?: string }) {
       <div aria-hidden className="h-20" />
       <nav
         data-tour="tab-bar"
-        className="fixed bottom-0 left-0 z-50 flex h-16 w-full items-center justify-around rounded-t-xl border-t border-neutral-100 bg-white px-1 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]"
+        className="fixed bottom-0 left-0 z-50 flex h-16 w-full items-center justify-around rounded-t-xl border-t border-neutral-100 bg-white px-0.5 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]"
       >
         {tabs.map((tab) => {
           const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
@@ -56,8 +56,8 @@ export function TabBar({ role }: { role?: string }) {
               aria-current={active ? "page" : undefined}
               className={
                 active
-                  ? "flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl bg-teal-50 px-1 py-1 font-bold text-teal-600 transition-transform duration-150 active:scale-95"
-                  : "flex min-w-0 flex-1 flex-col items-center justify-center px-1 py-1 text-neutral-500 transition-transform duration-150 active:scale-95"
+                  ? "flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl bg-teal-50 px-0.5 py-1 font-bold text-teal-600 transition-transform duration-150 active:scale-95"
+                  : "flex min-w-0 flex-1 flex-col items-center justify-center px-0.5 py-1 text-neutral-500 transition-transform duration-150 active:scale-95"
               }
             >
               <span
@@ -69,7 +69,11 @@ export function TabBar({ role }: { role?: string }) {
               >
                 {tab.icon}
               </span>
-              <span className="max-w-full truncate text-[11px] font-medium">{t(tab.key)}</span>
+              {/* 360px·6탭에서 vi 라벨("Đặt phòng"·"Hướng dẫn")이 말줄임되던 결함 수정:
+                  폰트 축소(10px)+타이트 leading+2줄 허용(단어 중간 안 끊김). 문구는 변경하지 않음 */}
+              <span className="mt-0.5 line-clamp-2 w-full whitespace-normal text-center text-[10px] font-medium leading-[1.15] [word-break:keep-all]">
+                {t(tab.key)}
+              </span>
             </Link>
           );
         })}

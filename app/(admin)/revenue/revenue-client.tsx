@@ -91,6 +91,7 @@ const TYPE_BAR_COLOR: Record<string, string> = {
 
 export default function RevenueClient(props: Props) {
   const t = useTranslations("revenue");
+  const tKrw = useTranslations("currency");
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -432,7 +433,7 @@ export default function RevenueClient(props: Props) {
           <KpiCard
             label={t("summary.saleKrw")}
             value={props.totals.saleKrw > 0 ? formatThousands(props.totals.saleKrw) : "—"}
-            unit={props.totals.saleKrw > 0 ? "원" : undefined}
+            unit={props.totals.saleKrw > 0 ? tKrw("krwUnit") : undefined}
             accent="krw"
             icon="payments"
             iconClassName="text-admin-krw"

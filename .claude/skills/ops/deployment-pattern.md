@@ -22,6 +22,18 @@
   **`sh -c '...'` 래핑 필수** — 아래 교훈 참조. 현재 가동(2026-06-26 7개): `cron-ical-sync`(*/30)·`cron-expire-holds`(*/5)·`cron-notifications`(*/5)·`cron-partner-overdue`(0 0 * * *)·`cron-roster-reminder`(0 1 * * *)·`cron-periodic-cleaning`(0 2 1 * *)·`cron-fx-update`(0 1 * * *, 판매가 환율 자동갱신·토글 OFF 기본) — 실행 이력은 각 서비스 Cron Runs 탭. 상세 등록 런북: docs/ops/cron-registration.md
   - **빈 서비스로 만들 때 함정(2026-06-26)**: Docker 이미지는 Settings §Source의 **Connect Image** 버튼으로 넣는다(그 아래 **Root Directory** 칸 아님 — 거기 넣으면 시작명령 칸이 안 생긴다). 2번째부터는 기존 cron 서비스 **Duplicate(복제)** 후 URL·스케줄·이름만 변경이 최단(이미지·변수·명령 형식 상속).
 
+## ★ web 서비스 replica = 1 고정 (스케일아웃 금지 — TDA 선행 검토 없이 변경 불가)
+
+**web 서비스는 반드시 단일 인스턴스(replica=1)로 운영한다.** 다음 3개 서브시스템이 모두 "단일 컨테이너 = 단일 프로세스 메모리"를 전제로 설계되어 있어, replica를 2 이상으로 늘리면 조용히 오작동한다(에러 없이 절반만 동작).
+
+- **SSE 실시간 버스** — in-process EventEmitter 버스(ADR-0024/25/26). 인스턴스 A에서 발행한 이벤트가 인스턴스 B에 붙은 클라이언트에 도달하지 않는다(수신/번역/알림 실시간 누락).
+- **인메모리 rate-limit / 로그인 락아웃** — 카운터가 프로세스 메모리에 있어, 인스턴스별로 분산되면 실효 한도가 replica 배수로 뻥튀기(DDoS·브루트포스 방어 약화). docs/ops/rate-limit-lockout.md·ddos-protection.md.
+- **Zalo 리스너 워치독 쿨다운** — 경보 쿨다운이 인스턴스 로컬(PR #206에서 일부 영속화했으나 워치독 자체는 단일 전제). 중복 경보·중복 재로그인 시도 위험.
+
+> ADR-0032(zalo 리스너 워커 분리) 이후에도 **동일하게 web=1 전제**. 워커 분리는 zca-js 세션을 web에서 떼어낸 것일 뿐, 위 3종(SSE·rate-limit·워치독)은 여전히 web 단일 인스턴스 위에서 동작한다.
+
+**스케일아웃이 필요해지면(트래픽 증가 등) 반드시 TDA 선행 검토** — 최소 SSE 버스를 Redis pub/sub(또는 Postgres LISTEN/NOTIFY 확장)로, rate-limit/락아웃을 Redis 공유 카운터로 전환한 뒤에야 replica≥2가 가능하다. 검토 없이 Railway에서 replica만 올리지 말 것.
+
 ## PWA
 - TravelDiary 패턴 재사용 (reference/ 폴더, [SHARED-MODULE] 주석 표기)
 - manifest: 공급자용 이름은 vi, 운영자는 별도 진입점 불필요 (PC 위주)

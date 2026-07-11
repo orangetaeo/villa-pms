@@ -93,17 +93,18 @@ function stayRangeLabel(items: ProposalItemRow[]): string {
 }
 
 /** 행 금액 — 채널 통화로 합산 표기 (VND=BigInt 문자열 합, KRW=정수 합) */
-function amountLabel(p: ProposalRow): string {
+function amountLabel(p: ProposalRow, krwUnit: string): string {
   if (p.saleCurrency === "VND") {
     const total = p.items.reduce((sum, i) => sum + BigInt(i.totalVnd ?? "0"), 0n);
     return formatVnd(total);
   }
   const total = p.items.reduce((sum, i) => sum + (i.totalKrw ?? 0), 0);
-  return `${formatThousands(total)}원`;
+  return `${formatThousands(total)}${krwUnit}`;
 }
 
 export default function ProposalsList() {
   const t = useTranslations("adminProposals.list");
+  const tKrw = useTranslations("currency");
   const searchParams = useSearchParams();
   const range = searchParams.get("range") ?? undefined;
   const [proposals, setProposals] = useState<ProposalRow[] | null>(null);
@@ -391,7 +392,7 @@ export default function ProposalsList() {
             p.effectiveStatus === "EXPIRED" ? "text-slate-500" : "text-slate-300"
           }`}
         >
-          {amountLabel(p)}
+          {amountLabel(p, tKrw("krwUnit"))}
         </span>
       ),
       hideOnCard: true, // 모바일은 cardSummary로 표시
@@ -468,7 +469,9 @@ export default function ProposalsList() {
         </div>
         {/* 날짜 범위 — 숙박 기간(체크인~체크아웃 겹침) + 생성일 커스텀 */}
         <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-x-5 gap-y-2">
-          <div className="flex items-center gap-2">
+          {/* flex-wrap: 좁은 뷰포트(360)에서 기준 셀렉트+두 DateField가 한 줄에 못 들어가면
+              줄바꿈 → 두 번째 날짜 입력이 화면 밖으로 잘리던 결함 해소(DESIGN 실측 M) */}
+          <div className="flex flex-wrap items-center gap-2">
             {/* 날짜 기준 — 숙박 기간 / 생성일 단일 선택 */}
             <select
               value={dateMode}
@@ -533,7 +536,7 @@ export default function ProposalsList() {
       {/* 상태 탭 — effectiveStatus 기준 카운트 (b12) */}
       <div
         data-tour="proposal-tabs"
-        className="flex items-center gap-6 border-b border-admin-card mb-6 overflow-x-auto"
+        className="flex items-center gap-6 border-b border-admin-card mb-6 overflow-x-auto scrollbar-none"
       >
         {TABS.map((key) => {
           const active = tab === key;
@@ -632,7 +635,7 @@ export default function ProposalsList() {
                 }`}
               >
                 {stayRangeLabel(p.items)}
-                {amountLabel(p) ? ` · ${amountLabel(p)}` : ""}
+                {amountLabel(p, tKrw("krwUnit")) ? ` · ${amountLabel(p, tKrw("krwUnit"))}` : ""}
               </span>
             </div>
           )}

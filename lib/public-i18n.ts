@@ -295,6 +295,12 @@ export interface PublicLabels {
     prev: string;
     next: string;
   };
+  // 소비자 포털(/g·/p) 에러 바운더리 — 청크 로드 실패·순간 502 시 백지 대신 복구 UI
+  errorBoundary: {
+    title: string;
+    desc: string;
+    retry: string;
+  };
 }
 
 export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
@@ -459,6 +465,11 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       prev: "이전 사진",
       next: "다음 사진",
     },
+    errorBoundary: {
+      title: "일시적인 문제가 발생했어요",
+      desc: "잠시 후 다시 시도해 주세요. 문제가 계속되면 예약하신 여행사로 문의해 주세요.",
+      retry: "다시 시도",
+    },
   },
 
   // ─────────────────────────────── English ───────────────────────────────
@@ -621,6 +632,11 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       close: "Close",
       prev: "Previous photo",
       next: "Next photo",
+    },
+    errorBoundary: {
+      title: "Something went wrong",
+      desc: "Please try again in a moment. If it keeps happening, contact your travel agency.",
+      retry: "Try again",
     },
   },
 
@@ -785,6 +801,11 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       prev: "Предыдущее фото",
       next: "Следующее фото",
     },
+    errorBoundary: {
+      title: "Произошла временная ошибка",
+      desc: "Пожалуйста, попробуйте ещё раз через минуту. Если ошибка повторяется, свяжитесь с турагентством.",
+      retry: "Повторить",
+    },
   },
 
   // ─────────────────────────────── 中文(简体) ───────────────────────────────
@@ -948,6 +969,11 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       prev: "上一张",
       next: "下一张",
     },
+    errorBoundary: {
+      title: "出现了暂时的问题",
+      desc: "请稍后重试。如果问题持续，请联系您的旅行社。",
+      retry: "重试",
+    },
   },
 
   // ─────────────────────────────── Tiếng Việt ───────────────────────────────
@@ -1110,6 +1136,11 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       close: "Đóng",
       prev: "Ảnh trước",
       next: "Ảnh sau",
+    },
+    errorBoundary: {
+      title: "Đã xảy ra sự cố tạm thời",
+      desc: "Vui lòng thử lại sau giây lát. Nếu vẫn lỗi, hãy liên hệ công ty du lịch của bạn.",
+      retry: "Thử lại",
     },
   },
 };

@@ -39,14 +39,20 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!partner) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
 
   const now = new Date();
-  const updated = await prisma.partner.update({
-    where: { id },
+  const nextStatus = d.action === "APPROVE" ? "APPROVED" : "REJECTED";
+  // ★동시성 가드 — 읽은 approvalStatus 위에서만 전이 반영(다른 상태전이 라우트와 동일 패턴).
+  //   승인/반려 방향은 현행대로 읽은 상태에서 무조건 허용하되, 읽기~쓰기 사이 다른 요청이
+  //   상태를 바꿨으면 count!==1 → 409로 막아 이중 처리(중복 감사로그)를 차단한다.
+  const updated = await prisma.partner.updateMany({
+    where: { id, approvalStatus: partner.approvalStatus },
     data:
       d.action === "APPROVE"
         ? { approvalStatus: "APPROVED", approvedAt: now, rejectionReason: null }
         : { approvalStatus: "REJECTED", rejectionReason: d.rejectionReason ?? null },
-    select: { id: true, approvalStatus: true },
   });
+  if (updated.count !== 1) {
+    return NextResponse.json({ error: "CONCURRENT_MODIFICATION" }, { status: 409 });
+  }
 
   await writeAuditLog({
     db: prisma,
@@ -55,10 +61,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     entity: "Partner",
     entityId: id,
     changes: {
-      approvalStatus: { old: partner.approvalStatus, new: updated.approvalStatus },
+      approvalStatus: { old: partner.approvalStatus, new: nextStatus },
       ...(d.action === "REJECT" ? { rejectionReason: { new: d.rejectionReason ?? null } } : {}),
     },
   });
 
-  return NextResponse.json({ id: updated.id, approvalStatus: updated.approvalStatus });
+  return NextResponse.json({ id, approvalStatus: nextStatus });
 }

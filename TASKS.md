@@ -155,3 +155,16 @@
 - [x] 부가서비스(ServiceOrder) 판매 — **✅완료**. T7.2 UI는 **ADR-0019/0023 카탈로그+원천공급자 발주 에픽이 흡수·대체**(예약 상세 `ServiceOrdersPanel`(Stitch b20)·`/api/bookings/[id]/service-orders`·`/api/service-orders/[id]`·`service-catalog`, 카탈로그 관리 `/settings/services`·`/api/services/catalog`, 마진 비공개 showCost 게이트 — PR #40·#43 배포, 메모리 [[addon-source-vendor-brokerage]]). 초기 T7.1 단독 BE(`lib/service-order.ts` 검증·마진 + `/api/bookings/[id]/services`·`/api/services/[id]`)는 어떤 UI에도 연결 안 된 고아 코드여서 **제거**(2026-06-26, wt/service-order-ui). `lib/service-order.ts`는 양 시스템 공유 **전이 상태머신만 잔존**(라이브 service-orders/[id] 재사용). 계약: docs/contracts/T7.1-service-order-be.md(BE 이력)·T7.2-cleanup.md(정리)
 - [ ] 시즌 요율 환율 자동 갱신
 - [ ] TravelDiary 연계 직판
+
+## 프로덕션 오픈 감사 백로그 (2026-07-11 전 부서 회의)
+
+> 2026-07-11 11개 부서 프로덕션 오픈 전수 감사에서 도출. **전부 P2 — 오픈 비차단**. P0 0건. 실데이터 누적·회계 마감 본격화 시점에 맞춰 착수.
+
+- [ ] 벤더 TICKET 발주 카드 액션 정리 — 발행=수락 겸행인데 수락 버튼 별도 노출로 혼동 (테오 정책 결정 후 UX-VN)
+- [ ] 청소·증빙 사진 EXIF DateTimeOriginal 보존/추출 정책 결정 (TDA/BE — 현재 클라 리사이즈가 EXIF 제거, 서버 업로드 시각만 기록)
+- [ ] /revenue 서버 페이지네이션 전환 — 현재 기간 내 전 거래 클라 전달 (BE/FE, 실데이터 누적 시 최우선)
+- [ ] 게스트 체크아웃 현장수납 현금 LEDGER COLLECTION 브릿지 (BE/FIN — 회계 마감 본격화 전)
+- [ ] 공급자 체크아웃 다통화 분할 수납 지원 여부 (테오 제품 결정)
+- [ ] cron Bearer 비교 timingSafeEqual 전환 (BE, 저위험)
+- [ ] /inspections·/availability tabHref 클론 패턴 전환 (FE, 신규 필터 추가 시 유실 예방)
+- [ ] ADMIN 금액 "원" 리터럴 잔여분·CLAUDE.md 마이그레이션 규칙 정정·ADR-0006 번호 중복 정리 (문서 위생)

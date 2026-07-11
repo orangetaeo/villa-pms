@@ -213,7 +213,7 @@ export default async function CleaningListPage({
 
         {/* 날짜 필터 칩 (원탭) — 전체·오늘·내일·이번주 + 건수. 바쁜 청소직원이 한 번에 조회. */}
         {(sorted.length > 0 || q || dParam !== "all") && (
-          <div data-tour="cleaning-filter" className="mb-3 flex gap-2 overflow-x-auto pb-1">
+          <div data-tour="cleaning-filter" className="scrollbar-none mb-3 flex gap-2 overflow-x-auto pb-1">
             {(["all", "today", "tomorrow", "week"] as const).map((bucket) => {
               const active = dParam === bucket;
               return (
@@ -307,9 +307,11 @@ export default async function CleaningListPage({
                     <p className="mt-1 text-sm text-gray-500">
                       {t("checkout", { date: formatDayMonth(refDate, isTimestamp) })}
                     </p>
-                    {/* 반려 사유 한 줄 미리보기 */}
+                    {/* 반려 사유 — 전문 표시(재작업에 필요하므로 말줄임 금지, 줄바꿈 전체 노출) */}
                     {task.status === "REJECTED" && task.rejectNote && (
-                      <p className="mt-1 truncate text-xs text-red-600">{task.rejectNote}</p>
+                      <p className="mt-1 whitespace-normal break-words text-xs text-red-600">
+                        {task.rejectNote}
+                      </p>
                     )}
                     <div className="mt-2">
                       <span
