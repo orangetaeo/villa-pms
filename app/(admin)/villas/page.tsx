@@ -70,6 +70,11 @@ export default async function VillasPage({
   const pool = params.pool === "1";
   const breakfast = params.breakfast === "1";
   const sellable = params.sellable === "1";
+  // 이용규칙 토글 (테오 추가 요청) — Villa 기존 boolean 스칼라
+  const smoking = params.smoking === "1";
+  const pets = params.pets === "1";
+  const party = params.party === "1";
+  const extraBed = params.extraBed === "1";
   const bedType =
     params.bedType && (BED_TYPES as readonly string[]).includes(params.bedType)
       ? (params.bedType as BedType)
@@ -93,6 +98,11 @@ export default async function VillasPage({
     ...(breakfast ? { breakfastAvailable: true } : {}),
     // "판매가능만" — 날짜 무관하게도 판매가능(검수 게이트 통과) 빌라만. isSellable=true는 ACTIVE에서만 참.
     ...(sellable ? { isSellable: true } : {}),
+    // 이용규칙 4종 — 수영장/조식과 동일 패턴(true만 필터)
+    ...(smoking ? { smokingAllowed: true } : {}),
+    ...(pets ? { petsAllowed: true } : {}),
+    ...(party ? { partyAllowed: true } : {}),
+    ...(extraBed ? { extraBedAvailable: true } : {}),
     ...(bedType ? { bedroomDetails: { some: { bedType } } } : {}),
     ...(beach ? { beachDistanceM: { lte: beach } } : {}),
     // 셀링포인트 태그 — 각각 features some (다중 AND, 모두 보유한 빌라만)
@@ -217,7 +227,8 @@ export default async function VillasPage({
   // 필터가 하나라도 걸려 있으면 빈 결과 문구를 "검색 조건" 버전으로
   const hasAnyFilter = Boolean(
     area || q || supplierId || minBedrooms || minGuests || pool || breakfast ||
-      sellable || bedType || beach || tags.length || dateRangeValid
+      sellable || smoking || pets || party || extraBed || bedType || beach ||
+      tags.length || dateRangeValid
   );
 
   const tabs = [
