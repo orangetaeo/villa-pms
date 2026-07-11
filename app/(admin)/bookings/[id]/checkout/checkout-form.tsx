@@ -176,23 +176,30 @@ export default function CheckoutForm({
   // 잔여(음수면 초과) — 소프트 안내만(하드 블록 없음).
   const remainingVnd = totalVndEquiv - settledEquivVnd;
   const absRemainingVnd = remainingVnd < 0n ? -remainingVnd : remainingVnd;
-  // 잔여 0 = 수납 완료. 단 fx 없으면 KRW 청구가 통합 잔여에 반영되지 않으므로(VND만 집계),
+  // 잔여·채움 절삭 규칙(테오 지시): ₫=1만 단위 내림, ₩=1,000원 단위 내림, $=정수 내림.
+  //   절삭으로 남는 1만₫ 미만 끝전은 의도적 면제 → |잔여| < 1만₫이면 수납 완료로 간주(초과 동일).
+  const SETTLE_TOLERANCE_VND = 10_000n;
+  const truncVnd = (v: bigint) => (v / 10_000n) * 10_000n;
+  // 단 fx 없으면 KRW 청구가 통합 잔여에 반영되지 않으므로(VND만 집계),
   //   미수납 KRW가 남은 상태에서 "수납 완료"를 거짓 표기하지 않도록 가드(fx 없을 땐 KRW=0일 때만 완료 인정).
-  const isSettled = billHasBill && remainingVnd === 0n && (fx != null || guestBill.totalKrw === 0);
-  const isExcess = remainingVnd < 0n; // 초과 수납
+  const isSettled =
+    billHasBill && absRemainingVnd < SETTLE_TOLERANCE_VND && (fx != null || guestBill.totalKrw === 0);
+  const isExcess = !isSettled && remainingVnd < 0n; // 초과 수납(끝전 허용치 초과분만)
 
-  // 잔여를 "그 통화 하나로 받을 때" 금액(표시용, fx 있을 때만). KRW는 100단위, USD는 정수 반올림.
-  const remainingKrw = fx ? Math.round(Number(absRemainingVnd) / fx.vndPerKrw / 100) * 100 : 0;
-  const remainingUsd = fx ? Math.round(Number(absRemainingVnd) / fx.vndPerUsd) : 0;
+  // 잔여를 "그 통화 하나로 받을 때" 금액(표시용, fx 있을 때만) — 절삭 규칙 적용.
+  const remainingVndDisplay = truncVnd(absRemainingVnd);
+  const remainingKrw = fx ? Math.floor(Number(absRemainingVnd) / fx.vndPerKrw / 1000) * 1000 : 0;
+  const remainingUsd = fx ? Math.floor(Number(absRemainingVnd) / fx.vndPerUsd) : 0;
 
   // ── 원터치 채우기 값 — 각 통화 칸을 "그 통화로 잔여 전액 수납"에 맞춰 채운다(다른 칸 값은 유지).
-  //   remaining_excl_C = 총액 − (해당 칸 제외한 다른 칸 환산합). 해당 칸을 이 값으로 채우면 잔여 ≈0.
+  //   remaining_excl_C = 총액 − (해당 칸 제외한 다른 칸 환산합). 절삭 내림이라 채워도 끝전이 남을 수
+  //   있으나 허용치(1만₫) 안이므로 수납 완료로 수렴.
   const otherExclVnd = settledEquivVnd - settledVndBig; // ₩·$ 환산합(fx 없으면 0)
   const otherExclKrw = fx ? settledVndBig + BigInt(Math.round(settledUsdNum * fx.vndPerUsd)) : settledVndBig;
   const otherExclUsd = fx ? settledVndBig + BigInt(Math.round(settledKrwNum * fx.vndPerKrw)) : settledVndBig;
-  const fillVndBig = totalVndEquiv - otherExclVnd; // ₫ 칸 채움값(정수 VND, 잔여 양수일 때만 표시)
-  const fillKrw = fx ? Math.round(Number(totalVndEquiv - otherExclKrw) / fx.vndPerKrw / 100) * 100 : 0;
-  const fillUsd = fx ? Math.round(Number(totalVndEquiv - otherExclUsd) / fx.vndPerUsd) : 0;
+  const fillVndBig = truncVnd(totalVndEquiv - otherExclVnd); // ₫ 칸 채움값(1만 단위 절삭)
+  const fillKrw = fx ? Math.floor(Number(totalVndEquiv - otherExclKrw) / fx.vndPerKrw / 1000) * 1000 : 0;
+  const fillUsd = fx ? Math.floor(Number(totalVndEquiv - otherExclUsd) / fx.vndPerUsd) : 0;
 
   const canRefundFull = !damageFound && settlementReady && !busy;
   const canDeduct =
@@ -681,41 +688,43 @@ export default function CheckoutForm({
                         >
                           {fx ? (
                             <>
-                              ≈ {formatThousands(absRemainingVnd)}₫ · ≈ ₩{formatThousands(remainingKrw)} · ≈ $
+                              ≈ {formatThousands(remainingVndDisplay)}₫ · ≈ ₩{formatThousands(remainingKrw)} · ≈ $
                               {formatThousands(remainingUsd)}
                             </>
                           ) : (
-                            <>≈ {formatThousands(absRemainingVnd)}₫</>
+                            <>≈ {formatThousands(remainingVndDisplay)}₫</>
                           )}
                         </span>
                       </div>
                       {/* 원터치 채우기 칩 — 잔여가 양수(부족)일 때만. 탭 시 해당 칸 채움(다른 칸 유지). */}
                       {!isExcess && (
                         <div className="flex flex-wrap gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setSettledVndInput(fillVndBig.toString())}
-                            className="text-[11px] px-2 py-1 rounded-md border border-emerald-500/40 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors tabular-nums"
-                          >
-                            {t("fillRemaining", { amount: `${formatThousands(fillVndBig)}₫` })}
-                          </button>
-                          {fx && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => setSettledKrwInput(String(fillKrw))}
-                                className="text-[11px] px-2 py-1 rounded-md border border-emerald-500/40 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors tabular-nums"
-                              >
-                                {t("fillRemaining", { amount: `₩${formatThousands(fillKrw)}` })}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setSettledUsdInput(String(fillUsd))}
-                                className="text-[11px] px-2 py-1 rounded-md border border-emerald-500/40 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors tabular-nums"
-                              >
-                                {t("fillRemaining", { amount: `$${formatThousands(fillUsd)}` })}
-                              </button>
-                            </>
+                          {fillVndBig > 0n && (
+                            <button
+                              type="button"
+                              onClick={() => setSettledVndInput(fillVndBig.toString())}
+                              className="text-[11px] px-2 py-1 rounded-md border border-emerald-500/40 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors tabular-nums"
+                            >
+                              {t("fillRemaining", { amount: `${formatThousands(fillVndBig)}₫` })}
+                            </button>
+                          )}
+                          {fx && fillKrw > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setSettledKrwInput(String(fillKrw))}
+                              className="text-[11px] px-2 py-1 rounded-md border border-emerald-500/40 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors tabular-nums"
+                            >
+                              {t("fillRemaining", { amount: `₩${formatThousands(fillKrw)}` })}
+                            </button>
+                          )}
+                          {fx && fillUsd > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setSettledUsdInput(String(fillUsd))}
+                              className="text-[11px] px-2 py-1 rounded-md border border-emerald-500/40 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors tabular-nums"
+                            >
+                              {t("fillRemaining", { amount: `$${formatThousands(fillUsd)}` })}
+                            </button>
                           )}
                         </div>
                       )}
