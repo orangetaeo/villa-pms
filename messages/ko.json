@@ -1045,6 +1045,10 @@
         "pool": "수영장",
         "breakfast": "조식",
         "sellableOnly": "판매가능만",
+        "smoking": "흡연 가능",
+        "pets": "반려동물 가능",
+        "party": "파티 가능",
+        "extraBed": "엑스트라베드 가능",
         "tags": "셀링포인트",
         "tagsPlaceholder": "태그 검색...",
         "resetDetail": "상세 필터 초기화"

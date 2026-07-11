@@ -1159,6 +1159,10 @@
         "pool": "Hồ bơi",
         "breakfast": "Bữa sáng",
         "sellableOnly": "Chỉ villa bán được",
+        "smoking": "Cho phép hút thuốc",
+        "pets": "Cho phép thú cưng",
+        "party": "Cho phép tiệc",
+        "extraBed": "Có thể thêm giường phụ",
         "tags": "Điểm nổi bật",
         "tagsPlaceholder": "Tìm thẻ...",
         "resetDetail": "Đặt lại bộ lọc chi tiết"

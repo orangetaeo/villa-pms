@@ -25,6 +25,10 @@ const DETAIL_KEYS = [
   "pool",
   "breakfast",
   "sellable",
+  "smoking",
+  "pets",
+  "party",
+  "extraBed",
   "bedType",
   "beach",
   "tags",
@@ -72,6 +76,10 @@ export default function VillasFilters({
   const pool = searchParams.get("pool") === "1";
   const breakfast = searchParams.get("breakfast") === "1";
   const sellable = searchParams.get("sellable") === "1";
+  const smoking = searchParams.get("smoking") === "1";
+  const pets = searchParams.get("pets") === "1";
+  const party = searchParams.get("party") === "1";
+  const extraBed = searchParams.get("extraBed") === "1";
   const bedType = searchParams.get("bedType") ?? "";
   const beach = searchParams.get("beach") ?? "";
   const selectedTags = useMemo(
@@ -86,6 +94,10 @@ export default function VillasFilters({
     (pool ? 1 : 0) +
     (breakfast ? 1 : 0) +
     (sellable ? 1 : 0) +
+    (smoking ? 1 : 0) +
+    (pets ? 1 : 0) +
+    (party ? 1 : 0) +
+    (extraBed ? 1 : 0) +
     (bedType ? 1 : 0) +
     (beach ? 1 : 0) +
     selectedTags.length;
@@ -331,7 +343,7 @@ export default function VillasFilters({
             </label>
           </div>
 
-          {/* 불리언 토글 (수영장·조식·판매가능만) */}
+          {/* 불리언 토글 (수영장·조식·판매가능만 + 이용규칙 4종) */}
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -371,6 +383,59 @@ export default function VillasFilters({
             >
               <span className="material-symbols-outlined text-[16px]">verified</span>
               {t("filters.sellableOnly")}
+            </button>
+            {/* 이용규칙 토글 (흡연·반려동물·파티·엑스트라베드) — 수영장/조식과 동일 패턴 */}
+            <button
+              type="button"
+              aria-pressed={smoking}
+              onClick={() => apply({ smoking: smoking ? "" : "1" })}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                smoking
+                  ? "border-admin-primary bg-admin-primary/10 text-admin-primary"
+                  : "border-admin-border text-slate-400 hover:text-white"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]">smoking_rooms</span>
+              {t("filters.smoking")}
+            </button>
+            <button
+              type="button"
+              aria-pressed={pets}
+              onClick={() => apply({ pets: pets ? "" : "1" })}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                pets
+                  ? "border-admin-primary bg-admin-primary/10 text-admin-primary"
+                  : "border-admin-border text-slate-400 hover:text-white"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]">pets</span>
+              {t("filters.pets")}
+            </button>
+            <button
+              type="button"
+              aria-pressed={party}
+              onClick={() => apply({ party: party ? "" : "1" })}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                party
+                  ? "border-admin-primary bg-admin-primary/10 text-admin-primary"
+                  : "border-admin-border text-slate-400 hover:text-white"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]">celebration</span>
+              {t("filters.party")}
+            </button>
+            <button
+              type="button"
+              aria-pressed={extraBed}
+              onClick={() => apply({ extraBed: extraBed ? "" : "1" })}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                extraBed
+                  ? "border-admin-primary bg-admin-primary/10 text-admin-primary"
+                  : "border-admin-border text-slate-400 hover:text-white"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]">bed</span>
+              {t("filters.extraBed")}
             </button>
           </div>
 

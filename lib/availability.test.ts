@@ -315,17 +315,33 @@ describe("findFreeVillaIds — 날짜별 공실 (ADMIN 전용, T-villa-search-ex
     maxGuests?: number;
     bedrooms?: number;
     hasPool?: boolean;
+    breakfastAvailable?: boolean;
+    smokingAllowed?: boolean;
+    petsAllowed?: boolean;
+    partyAllowed?: boolean;
+    extraBedAvailable?: boolean;
   };
   type BookingFx = { villaId: string; status: BookingStatus; checkIn: Date; checkOut: Date };
   type BlockFx = { villaId: string; startDate: Date; endDate: Date };
+
+  // boolean 스칼라 필터(수영장·조식·이용규칙 4종) — 전부 `{ field: true }` 동일 패턴
+  const BOOL_KEYS = [
+    "hasPool",
+    "breakfastAvailable",
+    "isSellable",
+    "smokingAllowed",
+    "petsAllowed",
+    "partyAllowed",
+    "extraBedAvailable",
+  ] as const;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const matchVillaWhere = (v: VillaFx, where: any): boolean => {
     if (!where) return true;
     for (const [k, cond] of Object.entries(where)) {
       if (k === "status" && v.status !== cond) return false;
-      if (k === "isSellable" && v.isSellable !== cond) return false;
-      if (k === "hasPool" && v.hasPool !== cond) return false;
+      if ((BOOL_KEYS as readonly string[]).includes(k) && (v as Record<string, unknown>)[k] !== cond)
+        return false;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (k === "maxGuests" && !((v.maxGuests ?? 0) >= (cond as any).gte)) return false;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -474,6 +490,34 @@ describe("findFreeVillaIds — 날짜별 공실 (ADMIN 전용, T-villa-search-ex
       ],
     });
     expect(await findFreeVillaIds(db, search, { villaWhere: { hasPool: true } })).toEqual(["v-pool"]);
+  });
+
+  it("이용규칙 boolean 필터(흡연·반려동물·파티·엑스트라베드) villaWhere 선반영 — 각각 true 만 통과", async () => {
+    const db = freeStubDb({
+      villas: [
+        { id: "all", smokingAllowed: true, petsAllowed: true, partyAllowed: true, extraBedAvailable: true },
+        { id: "smoke", smokingAllowed: true, petsAllowed: false, partyAllowed: false, extraBedAvailable: false },
+        { id: "none", smokingAllowed: false, petsAllowed: false, partyAllowed: false, extraBedAvailable: false },
+      ],
+    });
+    // 단독 필터
+    expect((await findFreeVillaIds(db, search, { villaWhere: { smokingAllowed: true } })).sort()).toEqual(
+      ["all", "smoke"].sort()
+    );
+    expect(await findFreeVillaIds(db, search, { villaWhere: { petsAllowed: true } })).toEqual(["all"]);
+    expect(await findFreeVillaIds(db, search, { villaWhere: { partyAllowed: true } })).toEqual(["all"]);
+    expect(await findFreeVillaIds(db, search, { villaWhere: { extraBedAvailable: true } })).toEqual(["all"]);
+    // 조합(AND) — 4종 모두 참인 빌라만
+    expect(
+      await findFreeVillaIds(db, search, {
+        villaWhere: {
+          smokingAllowed: true,
+          petsAllowed: true,
+          partyAllowed: true,
+          extraBedAvailable: true,
+        },
+      })
+    ).toEqual(["all"]);
   });
 
   it("역전·0박 구간은 RangeError 로 거부(호출부는 이 케이스를 미적용 처리해 500 방지)", async () => {
