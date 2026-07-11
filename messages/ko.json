@@ -300,13 +300,21 @@
       "schedule": "예약 현황",
       "settlement": "정산 내역"
     },
+    "dateFilter": {
+      "start": "시작일",
+      "end": "종료일",
+      "today": "오늘",
+      "thisWeek": "이번 주",
+      "all": "전체"
+    },
     "proposalTab": {
       "pending": "고객 응답 대기",
       "applied": "수락됨",
       "declined": "고객 거절",
       "declinedResolved": "거절 후 해소",
       "dismissed": "미적용",
-      "declinedInbox": "제안 거절됨 — 원래 시간 재검토"
+      "declinedInbox": "제안 거절됨 — 원래 시간 재검토",
+      "goComplete": "완료보고 하러 가기"
     },
     "status": {
       "accepted": "수락함",

@@ -300,13 +300,21 @@
       "schedule": "Lịch giao",
       "settlement": "Thanh toán"
     },
+    "dateFilter": {
+      "start": "Từ ngày",
+      "end": "Đến ngày",
+      "today": "Hôm nay",
+      "thisWeek": "Tuần này",
+      "all": "Tất cả"
+    },
     "proposalTab": {
       "pending": "Chờ khách phản hồi",
       "applied": "Đã chấp nhận",
       "declined": "Khách từ chối",
       "declinedResolved": "Đã xử lý sau từ chối",
       "dismissed": "Không áp dụng",
-      "declinedInbox": "Đề xuất bị từ chối — xem lại giờ ban đầu"
+      "declinedInbox": "Đề xuất bị từ chối — xem lại giờ ban đầu",
+      "goComplete": "Đi báo hoàn thành"
     },
     "status": {
       "accepted": "Đã nhận",

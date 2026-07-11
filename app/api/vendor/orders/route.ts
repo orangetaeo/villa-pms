@@ -13,6 +13,7 @@ import { getSupplierLocale } from "@/lib/locale";
 import { pickI18n, selectedOptionLabels } from "@/lib/service-display";
 import { formatVillaName } from "@/lib/villa-name";
 import { parsePageParams } from "@/lib/pagination";
+import { parseUtcDateOnly } from "@/lib/date-vn";
 
 const ROW_SELECT = {
   id: true,
@@ -132,8 +133,29 @@ export async function GET(req: Request) {
       ],
     };
   }
-  const withSearch = (w: Prisma.ServiceOrderWhereInput): Prisma.ServiceOrderWhereInput =>
-    searchWhere ? { AND: [w, searchWhere] } : w;
+  // ★ 날짜 필터 — serviceDate(@db.Date, UTC 자정) 기준 from ≤ serviceDate ≤ to(양끝 포함).
+  //   parseUtcDateOnly로 검증하고 불량/미지정 값은 무시(관용) — 잘못된 입력에 400 대신 조건 미적용.
+  //   serviceDate null인 주문은 gte/lte 어느 쪽이든 자연 제외된다.
+  const fromDate = parseUtcDateOnly(sp.get("from") ?? "");
+  const toDate = parseUtcDateOnly(sp.get("to") ?? "");
+  let dateWhere: Prisma.ServiceOrderWhereInput | undefined;
+  if (fromDate || toDate) {
+    dateWhere = {
+      serviceDate: {
+        ...(fromDate ? { gte: fromDate } : {}),
+        ...(toDate ? { lte: toDate } : {}),
+      },
+    };
+  }
+
+  // 목록 where에 검색·날짜 필터를 AND로 합친다. 뱃지 카운트·settleTotals는 이 헬퍼를 쓰지 않으므로
+  //   항상 날짜 무관(전역) 유지 — "할 일 총량" 뱃지 의미 보존.
+  const withFilters = (w: Prisma.ServiceOrderWhereInput): Prisma.ServiceOrderWhereInput => {
+    const extra: Prisma.ServiceOrderWhereInput[] = [];
+    if (searchWhere) extra.push(searchWhere);
+    if (dateWhere) extra.push(dateWhere);
+    return extra.length ? { AND: [w, ...extra] } : w;
+  };
 
   const base: Prisma.ServiceOrderWhereInput = { vendorId };
   // 탭 뱃지 카운트 — 항상(검색 무관). 발주함=응답 대기, 시간제안=미해결 제안(고객 응답 대기).
@@ -154,18 +176,18 @@ export async function GET(req: Request) {
   let where: Prisma.ServiceOrderWhereInput;
   let orderBy: Prisma.ServiceOrderOrderByWithRelationInput[];
   if (tab === "inbox") {
-    where = withSearch({ ...base, vendorStatus: "PENDING_VENDOR", status: { not: "CANCELLED" } });
+    where = withFilters({ ...base, vendorStatus: "PENDING_VENDOR", status: { not: "CANCELLED" } });
     orderBy = [{ createdAt: "desc" }];
   } else if (tab === "proposal") {
     // 시간 제안 탭 — 내가 propose한 발주(제안값 존재). 미해결(respondedAt null) 우선 정렬 후 최신순.
     //   취소 건은 제외(추적 의미 없음). 판매가·마진 미포함(ROW_SELECT 화이트리스트).
-    where = withSearch({ ...base, proposedServiceDate: { not: null }, status: { not: "CANCELLED" } });
+    where = withFilters({ ...base, proposedServiceDate: { not: null }, status: { not: "CANCELLED" } });
     orderBy = [{ vendorProposalRespondedAt: { sort: "asc", nulls: "first" } }, { createdAt: "desc" }];
   } else if (tab === "schedule") {
-    where = withSearch({ ...base, vendorStatus: "VENDOR_ACCEPTED", status: { not: "CANCELLED" } });
+    where = withFilters({ ...base, vendorStatus: "VENDOR_ACCEPTED", status: { not: "CANCELLED" } });
     orderBy = [{ serviceDate: "asc" }, { createdAt: "desc" }];
   } else {
-    where = withSearch({
+    where = withFilters({
       ...base,
       vendorStatus: "VENDOR_ACCEPTED",
       status: { not: "CANCELLED" },
@@ -185,7 +207,7 @@ export async function GET(req: Request) {
   // 예약현황 탭 — 취소됐지만 이미 발주됐던 건(이행 중단 안내 배너). 소량이라 상단 50건만.
   if (tab === "schedule") {
     const cancelledRaw = await prisma.serviceOrder.findMany({
-      where: withSearch({ ...base, status: "CANCELLED", poSentAt: { not: null } }),
+      where: withFilters({ ...base, status: "CANCELLED", poSentAt: { not: null } }),
       orderBy: [{ serviceDate: "asc" }, { createdAt: "desc" }],
       take: 50,
       select: ROW_SELECT,
