@@ -11,6 +11,15 @@ import ListSearch from "@/components/list-search";
 import PaginationBar from "@/components/pagination-bar";
 import { DateField } from "@/components/date-field";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
+import { resolveQuickRange, addDateOnlyDays } from "@/lib/date-vn";
+
+// 원탭 칩용 날짜 범위 — resolveQuickRange는 반개구간 [from, to)를 주므로,
+//   API가 양끝 포함(from ≤ serviceDate ≤ to)이라 끝을 하루 당겨 inclusive로 맞춘다.
+//   VN(Asia/Ho_Chi_Minh) 기준 — 기기 타임존과 무관하게 벤더 현지 날짜로 계산.
+function chipRange(key: "today" | "thisWeek"): { from: string; to: string } {
+  const r = resolveQuickRange(key)!; // 반개구간
+  return { from: r.from, to: addDateOnlyDays(r.to, -1) };
+}
 
 type VendorStatus = "PENDING_VENDOR" | "VENDOR_ACCEPTED" | "VENDOR_REJECTED" | null;
 
@@ -115,6 +124,9 @@ export default function VendorBoard() {
   // 검색: 입력(즉시) → 디바운스 → search(서버 조회 트리거). 빌라·품목명 부분일치.
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  // 날짜 필터(serviceDate 기준, 양끝 포함) — 4탭 공통 상태(탭 전환해도 유지). "" = 미적용.
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [data, setData] = useState<VendorData | null>(null);
@@ -141,6 +153,8 @@ export default function VendorBoard() {
     qs.set("tab", tab);
     if (tab === "settlement") qs.set("sub", settleSub);
     if (search.trim()) qs.set("search", search.trim());
+    if (from) qs.set("from", from);
+    if (to) qs.set("to", to);
     qs.set("page", String(page));
     qs.set("pageSize", String(pageSize));
     const id = ++reqId.current;
@@ -160,9 +174,50 @@ export default function VendorBoard() {
       .finally(() => {
         if (id === reqId.current) setFetching(false);
       });
-  }, [tab, settleSub, search, page, pageSize, refreshKey]);
+  }, [tab, settleSub, search, from, to, page, pageSize, refreshKey]);
 
   const reload = useCallback(() => setRefreshKey((k) => k + 1), []);
+
+  // 현재 from/to가 어느 칩과 일치하는지 판정(값 비교) — 수동 날짜 변경 시 칩 자동 해제.
+  const activeChip: "today" | "thisWeek" | "all" | null =
+    !from && !to
+      ? "all"
+      : from === chipRange("today").from && to === chipRange("today").to
+        ? "today"
+        : from === chipRange("thisWeek").from && to === chipRange("thisWeek").to
+          ? "thisWeek"
+          : null; // 커스텀 범위 — 활성 칩 없음
+
+  // 필터 변경은 항상 1페이지로 리셋. 칩=범위 세팅, 전체=해제.
+  const applyChip = useCallback((key: "today" | "thisWeek" | "all") => {
+    if (key === "all") {
+      setFrom("");
+      setTo("");
+    } else {
+      const r = chipRange(key);
+      setFrom(r.from);
+      setTo(r.to);
+    }
+    setPage(1);
+  }, []);
+  const onFromChange = useCallback((v: string) => {
+    setFrom(v);
+    setPage(1);
+  }, []);
+  const onToChange = useCallback((v: string) => {
+    setTo(v);
+    setPage(1);
+  }, []);
+
+  // 시간제안 APPLIED 카드 → 완료보고 동선: 예약현황 탭 + 해당 주문 serviceDate로 단일일 필터.
+  //   47페이지 뒤에 묻히지 않고 1페이지에 바로 보이게 한다(계약 배경).
+  const goComplete = useCallback((o: VendorOrder) => {
+    const d = o.serviceDate ? o.serviceDate.slice(0, 10) : "";
+    setTab("schedule");
+    setFrom(d);
+    setTo(d);
+    setPage(1);
+  }, []);
 
   // 발주 응답 — action 일원화(accept|reject|propose). 완료 후 현재 화면 재조회.
   const respond = useCallback(
@@ -289,6 +344,52 @@ export default function VendorBoard() {
         })}
       </div>
 
+      {/* 날짜 필터 행 — serviceDate 기준(양끝 포함). 4탭 공통·탭 전환 유지.
+          ⚠raw input type=date 금지 → DateField(iOS 빈값 공백박스 함정). 원탭 칩 우선(텍스트 입력 최소화). */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <DateField
+            value={from}
+            max={to || undefined}
+            onChange={(e) => onFromChange(e.target.value)}
+            aria-label={t("dateFilter.start")}
+            placeholder={t("dateFilter.start")}
+            wrapperClassName="min-w-0 flex-1"
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-neutral-900 focus-within:border-teal-400"
+          />
+          <span className="shrink-0 text-neutral-400">–</span>
+          <DateField
+            value={to}
+            min={from || undefined}
+            onChange={(e) => onToChange(e.target.value)}
+            aria-label={t("dateFilter.end")}
+            placeholder={t("dateFilter.end")}
+            wrapperClassName="min-w-0 flex-1"
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-neutral-900 focus-within:border-teal-400"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {(["today", "thisWeek", "all"] as const).map((key) => {
+            const active = activeChip === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={active}
+                onClick={() => applyChip(key)}
+                className={
+                  active
+                    ? "rounded-full bg-teal-600 px-3.5 py-1.5 text-sm font-bold text-white active:scale-95"
+                    : "rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-sm font-medium text-slate-500 active:scale-95"
+                }
+              >
+                {t(`dateFilter.${key}`)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* 목록 검색 — 빌라명·품목명 부분일치 (라이트 테마). 서버 조회(디바운스). */}
       <ListSearch light value={searchInput} onChange={setSearchInput} placeholder={t("searchPlaceholder")} />
 
@@ -331,6 +432,7 @@ export default function VendorBoard() {
               pageSize={pageSize}
               onPage={setPage}
               onPageSize={setPageSizeReset}
+              onGoComplete={goComplete}
               t={t}
             />
           )}
@@ -828,6 +930,7 @@ function ProposalSection({
   pageSize,
   onPage,
   onPageSize,
+  onGoComplete,
   t,
 }: {
   orders: VendorOrder[];
@@ -836,6 +939,7 @@ function ProposalSection({
   pageSize: number;
   onPage: (p: number) => void;
   onPageSize: (s: number) => void;
+  onGoComplete: (o: VendorOrder) => void;
   t: T;
 }) {
   if (orders.length === 0) {
@@ -880,6 +984,27 @@ function ProposalSection({
                 <span className="min-w-0 whitespace-pre-line break-words">{o.vendorProposalNote}</span>
               </p>
             )}
+
+            {/* 수락됨(APPLIED) → 완료보고 동선. 이미 완료보고했으면 표시만, 아니면 예약현황으로 점프 버튼.
+                DECLINED/미해결 카드에는 버튼 없음(수락된 건만 이행·완료보고 대상). */}
+            {o.vendorProposalOutcome === "APPLIED" &&
+              (o.vendorCompletedAt ? (
+                <p className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">
+                  <span className="material-symbols-outlined text-base [font-variation-settings:'FILL'_1]">
+                    flag_circle
+                  </span>
+                  {t("complete.done")}
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onGoComplete(o)}
+                  className="flex w-full items-center justify-center gap-1 rounded-xl border border-teal-200 bg-teal-50 py-3 text-sm font-bold text-teal-700 transition active:scale-[0.99]"
+                >
+                  <span className="material-symbols-outlined text-base">arrow_forward</span>
+                  {t("proposalTab.goComplete")}
+                </button>
+              ))}
           </div>
         );
       })}
