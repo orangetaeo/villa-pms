@@ -577,7 +577,10 @@ function CustomerName({ name, t }: { name: string | null; t: T }) {
 }
 
 // 정원(투숙 인원) — 아이콘만(라벨 불필요). 0/null이면 표시 안 함.
-function GuestCount({ count }: { count: number | null }) {
+//   ★TICKET 주문은 숨김 — 티켓은 발행 수량(quantity)이 기준이라 투숙 인원이 옆에 있으면
+//     "그 수만큼 발행해야 하나"로 오독된다(테오 리포트 2026-07-11).
+function GuestCount({ count, orderType }: { count: number | null; orderType: string | null }) {
+  if (orderType === "TICKET") return null;
   if (!count) return null;
   return (
     <span className="inline-flex items-center gap-0.5 text-sm text-neutral-500">
@@ -830,7 +833,7 @@ function InboxSection({
                   </span>
                   {scheduleLabel(o)}
                 </span>
-                <GuestCount count={o.guestCount} />
+                <GuestCount count={o.guestCount} orderType={o.type} />
               </p>
             </div>
             <div className="shrink-0 text-right">
@@ -1110,7 +1113,7 @@ function ScheduleSection({
                   {o.villaName ? `${o.villaName} · ` : ""}
                   {scheduleLabel(o)}
                 </span>
-                <GuestCount count={o.guestCount} />
+                <GuestCount count={o.guestCount} orderType={o.type} />
               </p>
             </div>
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-bold text-rose-700">
@@ -1142,7 +1145,7 @@ function ScheduleSection({
               <CustomerName name={o.customerName} t={t} />
               <p className="flex items-center gap-2 text-sm font-semibold text-teal-700">
                 <span>{scheduleLabel(o)}</span>
-                <GuestCount count={o.guestCount} />
+                <GuestCount count={o.guestCount} orderType={o.type} />
                 <PickupBadge show={o.pickupAvailable} t={t} />
               </p>
             </div>
