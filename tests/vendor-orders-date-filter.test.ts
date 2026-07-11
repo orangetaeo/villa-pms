@@ -170,3 +170,16 @@ describe("vendor orders — 이용자 이름 폴백 매핑(customerName)", () =>
     expect(json.orders[0]).not.toHaveProperty("guestPhone");
   });
 });
+
+describe("vendor orders — 이용자 이름 검색(search)", () => {
+  it("search가 customerName + (customerName null → guestName 폴백) 조건을 OR에 포함", async () => {
+    const res = await call("tab=inbox&search=김민준");
+    expect(res.status).toBe(200);
+    const flat = JSON.stringify(listWheres());
+    // 스냅샷 직접 매칭
+    expect(flat).toContain('"customerName":{"contains":"김민준"');
+    // 폴백 매칭 — customerName null인 주문만 대표자명으로(표시 규칙과 동일)
+    expect(flat).toContain('"customerName":null');
+    expect(flat).toContain('"guestName":{"contains":"김민준"');
+  });
+});

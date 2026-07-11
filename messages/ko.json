@@ -422,7 +422,7 @@
       "rejectedReasonLabel": "사유",
       "changePassword": "비밀번호 변경"
     },
-    "searchPlaceholder": "발주·빌라·품목 검색",
+    "searchPlaceholder": "발주·빌라·품목·이용자 검색",
     "tickets": {
       "title": "QR 티켓",
       "counter": "{issued}/{needed}장",
