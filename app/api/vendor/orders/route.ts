@@ -121,7 +121,7 @@ export async function GET(req: Request) {
     pageSize: sp.get("pageSize") ?? undefined,
   });
 
-  // 검색 — 빌라명 또는 카탈로그 품목명(현지화 라벨은 서버에서 못 거르므로 nameKo/nameVi 기준) 부분일치.
+  // 검색 — 빌라명·카탈로그 품목명(현지화 라벨은 서버에서 못 거르므로 nameKo/nameVi 기준)·이용자 이름 부분일치.
   let searchWhere: Prisma.ServiceOrderWhereInput | undefined;
   if (q) {
     const matchItems = await prisma.serviceCatalogItem.findMany({
@@ -133,6 +133,10 @@ export async function GET(req: Request) {
       OR: [
         { booking: { is: { villa: { is: { OR: [{ name: { contains: q, mode: "insensitive" } }, { nameVi: { contains: q, mode: "insensitive" } }] } } } } },
         { vendorName: { contains: q, mode: "insensitive" } },
+        // ★이용자 이름 — 화면 표시값(customerName ?? booking.guestName)과 동일 규칙으로 매칭:
+        //   customerName이 있으면 그것만, 없으면(구주문·관리자 발주) 대표자명 폴백으로 검색.
+        { customerName: { contains: q, mode: "insensitive" } },
+        { AND: [{ customerName: null }, { booking: { is: { guestName: { contains: q, mode: "insensitive" } } } }] },
         ...(ids.length ? [{ catalogItemId: { in: ids } }] : []),
       ],
     };

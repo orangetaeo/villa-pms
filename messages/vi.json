@@ -422,7 +422,7 @@
       "rejectedReasonLabel": "Lý do",
       "changePassword": "Đổi mật khẩu"
     },
-    "searchPlaceholder": "Tìm đơn, villa, dịch vụ",
+    "searchPlaceholder": "Tìm đơn, villa, dịch vụ, khách",
     "tickets": {
       "title": "Vé QR",
       "counter": "{issued}/{needed} vé",
