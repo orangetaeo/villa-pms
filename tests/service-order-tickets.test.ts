@@ -1,5 +1,6 @@
-// 티켓형(TICKET) QR 티켓 발행/삭제 API 테스트 (ADR-0034)
-//   - 벤더 업로드: 성공 + 발행=수락 겸행 전이(GUEST→CONFIRMED)·타벤더 404·비TICKET 400·상한 400·CANCELLED 409·동시성 409
+// 티켓형(TICKET) QR 티켓 발행/삭제 API 테스트 (ADR-0034, 완료 게이트 개정 2026-07-12)
+//   - 벤더 업로드: 성공 + 발행=수락 겸행 전이(수량 충족 시만·GUEST→CONFIRMED)·미달 업로드=PENDING 유지·통보 미발송
+//     ·나눠 업로드 충족 시 전이·초과 업로드 전이·타벤더 404·비TICKET 400·상한 400·CANCELLED 409·동시성 409
 //   - 벤더 삭제: 성공·미존재 404
 //   - 운영자 대리 업로드: 상태 불변(전이 없음)
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -124,6 +125,65 @@ describe("벤더 티켓 발행 POST", () => {
     expect(call.data.ticketsIssuedAt).toBeInstanceOf(Date);
     expect(sendVendorResponseOperatorNotifications).toHaveBeenCalledOnce();
     expect(writeAuditLog).toHaveBeenCalled();
+  });
+
+  it("완료 게이트: 2장 주문에 1장만 발행 → PENDING 유지·전이 미발생·통보 미발송(발주함 잔류)", async () => {
+    soFindUnique.mockResolvedValue({ ...baseTicketOrder }); // quantity 2, ticketUrls []
+    saveTicketFiles.mockResolvedValue({ ok: true, urls: ["/u/a.jpg"] }); // 1장만
+    const res = await VENDOR_POST(formReq(), P("so-1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ticketUrls).toEqual(["/u/a.jpg"]);
+    // 미달 → 전이 없음: 상태 그대로
+    expect(body.vendorStatus).toBe("PENDING_VENDOR");
+    expect(body.status).toBe("REQUESTED");
+    const call = soUpdateMany.mock.calls[0][0] as { where: Record<string, unknown>; data: Record<string, unknown> };
+    // 전이 가드·필드 없음 — ticketUrls만 append. 최초 발행 시각은 기록.
+    //   where.status는 base 가드({notIn:...})만 — autoConfirm REQUESTED 가드는 없음.
+    expect(call.where.vendorStatus).toBeUndefined();
+    expect(call.where.status).not.toBe("REQUESTED");
+    expect(call.data.vendorStatus).toBeUndefined();
+    expect(call.data.status).toBeUndefined();
+    expect(call.data.ticketUrls).toEqual(["/u/a.jpg"]);
+    expect(call.data.ticketsIssuedAt).toBeInstanceOf(Date);
+    expect(sendVendorResponseOperatorNotifications).not.toHaveBeenCalled();
+    expect(writeAuditLog).toHaveBeenCalled(); // 발행 자체는 감사 기록
+  });
+
+  it("완료 게이트: 1장 발행 후 1장 더 발행해 수량 충족 → VENDOR_ACCEPTED + CONFIRMED 전이 + 통보 1회", async () => {
+    // 이미 1장 발행돼 있고(PENDING 유지·최초 발행 시각 있음) 두 번째 업로드로 2/2 충족.
+    soFindUnique.mockResolvedValue({
+      ...baseTicketOrder,
+      ticketUrls: ["/u/a.jpg"],
+      ticketsIssuedAt: new Date(),
+    });
+    saveTicketFiles.mockResolvedValue({ ok: true, urls: ["/u/b.jpg"] });
+    const res = await VENDOR_POST(formReq(), P("so-1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ticketUrls).toEqual(["/u/a.jpg", "/u/b.jpg"]);
+    expect(body.vendorStatus).toBe("VENDOR_ACCEPTED");
+    expect(body.status).toBe("CONFIRMED");
+    const call = soUpdateMany.mock.calls[0][0] as { where: Record<string, unknown>; data: Record<string, unknown> };
+    expect(call.where.vendorStatus).toBe("PENDING_VENDOR");
+    expect(call.where.status).toBe("REQUESTED");
+    expect(call.data.vendorStatus).toBe("VENDOR_ACCEPTED");
+    expect(call.data.status).toBe("CONFIRMED");
+    expect(call.data.ticketsIssuedAt).toBeUndefined(); // 최초 발행 시각 유지(두 번째라 갱신 안 함)
+    expect(sendVendorResponseOperatorNotifications).toHaveBeenCalledOnce();
+  });
+
+  it("초과 발행(2장 주문에 3장) → ≥ 조건 충족이라 전이 정상", async () => {
+    soFindUnique.mockResolvedValue({ ...baseTicketOrder });
+    saveTicketFiles.mockResolvedValue({ ok: true, urls: ["/u/a.jpg", "/u/b.jpg", "/u/c.jpg"] });
+    const res = await VENDOR_POST(formReq(), P("so-1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.vendorStatus).toBe("VENDOR_ACCEPTED");
+    expect(body.status).toBe("CONFIRMED");
+    const call = soUpdateMany.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(call.data.vendorStatus).toBe("VENDOR_ACCEPTED");
+    expect(sendVendorResponseOperatorNotifications).toHaveBeenCalledOnce();
   });
 
   it("이미 VENDOR_ACCEPTED면 추가 발행만 — 전이·통보 없음", async () => {

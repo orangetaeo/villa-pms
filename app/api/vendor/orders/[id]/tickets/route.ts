@@ -1,8 +1,10 @@
 // /api/vendor/orders/[id]/tickets — 티켓형 부가서비스(TICKET) QR 티켓 발행 (ADR-0034)
 //   POST: Role=VENDOR + 본인 vendorId 스코프(404 은닉). type=TICKET 주문만.
 //     multipart(files 다중 이미지) → 검증·저장 → ticketUrls append + ticketsIssuedAt(최초).
-//     ★발행=수락 겸행: PENDING_VENDOR였으면 VENDOR_ACCEPTED로 원자 전이(updateMany 가드) +
+//     ★발행=수락 겸행(완료 게이트, ADR-0034 개정): PENDING_VENDOR이고 업로드 반영 후 발행 수량이
+//       주문 수량 이상일 때만 VENDOR_ACCEPTED로 원자 전이(updateMany 가드) +
 //       (requestedVia=GUEST·REQUESTED면 ADR-0033 규칙대로 status=CONFIRMED) + 운영자 통보.
+//       미달 업로드는 ticketUrls만 추가(PENDING_VENDOR 유지·통보 없음). 부족 발행 수동 수락=respond accept.
 //   DELETE: body {url} 단건 제거(본인·TICKET·DELIVERED/CANCELLED 전만). 저장 파일 자체는 미삭제.
 //   ★ 누수: 타 공급자 발주 404. 응답에 판매가·마진·costVnd 없음.
 import { NextResponse } from "next/server";
@@ -87,24 +89,30 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const now = new Date();
   const newUrls = [...order.ticketUrls, ...saved.urls];
-  // 발행=수락 겸행: PENDING_VENDOR였을 때만 VENDOR_ACCEPTED 전이. 게스트 직접 발주(REQUESTED)면 CONFIRMED도.
+  // ★발행 완료 게이트(ADR-0034 개정): 발행=수락 겸행은 "업로드 반영 후 발행 수량 ≥ 주문 수량"일 때만.
+  //   미달이면 ticketUrls만 추가하고 PENDING_VENDOR 유지(발주함 잔류)·통보 미발송 — 나눠 업로드로
+  //   충족되는 시점(마지막 업로드)에 1회 전이+통보. 부족 발행 상태의 수동 수락은 respond accept가 담당.
   const wasPending = order.vendorStatus === "PENDING_VENDOR";
+  const meetsQuantity = newUrls.length >= order.quantity;
+  const accept = wasPending && meetsQuantity;
+  // 게스트 직접 발주(REQUESTED)면 CONFIRMED도 겸행 — 수락 전이가 실제로 일어날 때만.
   const autoConfirm =
-    wasPending && order.requestedVia === "GUEST" && order.status === "REQUESTED";
+    accept && order.requestedVia === "GUEST" && order.status === "REQUESTED";
 
   // ★동시성 가드 — 읽은 스냅샷(vendorStatus·status) 위에서만 반영. count===0 → 409(저장 파일 orphan 허용:
   //   DB 미기록이라 노출 URL 없음). autoConfirm은 where에 status=REQUESTED도 넣어 운영자 동시 취소 레이스 차단.
+  //   미달 업로드(accept=false)는 vendorStatus 가드 없이 ticketUrls만 append.
   const where: Prisma.ServiceOrderWhereInput = {
     id,
     vendorId,
     status: { notIn: ["CANCELLED", "DELIVERED"] },
-    ...(wasPending ? { vendorStatus: "PENDING_VENDOR" } : {}),
+    ...(accept ? { vendorStatus: "PENDING_VENDOR" } : {}),
     ...(autoConfirm ? { status: "REQUESTED" } : {}),
   };
   const data: Prisma.ServiceOrderUpdateManyMutationInput = {
     ticketUrls: newUrls,
     ...(order.ticketsIssuedAt ? {} : { ticketsIssuedAt: now }),
-    ...(wasPending ? { vendorStatus: "VENDOR_ACCEPTED", vendorRespondedAt: now } : {}),
+    ...(accept ? { vendorStatus: "VENDOR_ACCEPTED", vendorRespondedAt: now } : {}),
     ...(autoConfirm ? { status: "CONFIRMED" } : {}),
   };
   const updated = await prisma.serviceOrder.updateMany({ where, data });
@@ -112,11 +120,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "CONCURRENT_MODIFICATION" }, { status: 409 });
   }
 
-  const newVendorStatus = wasPending ? "VENDOR_ACCEPTED" : order.vendorStatus;
+  const newVendorStatus = accept ? "VENDOR_ACCEPTED" : order.vendorStatus;
   const newStatus = autoConfirm ? "CONFIRMED" : order.status;
 
-  // 수락 겸행 시 운영자 통보(respond accept와 동일 — 공용 헬퍼). 단순 추가발행이면 통보 없음.
-  if (wasPending) {
+  // 수락 겸행 시 운영자 통보(respond accept와 동일 — 공용 헬퍼). 단순 추가발행·미달 업로드면 통보 없음.
+  if (accept) {
     const item = order.catalogItemId
       ? await prisma.serviceCatalogItem.findUnique({
           where: { id: order.catalogItemId },
@@ -148,7 +156,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       ticketsAdded: { new: saved.urls.length },
       ticketUrls: { old: order.ticketUrls.length, new: newUrls.length },
       ...(order.ticketsIssuedAt ? {} : { ticketsIssuedAt: { new: now.toISOString() } }),
-      ...(wasPending
+      ...(accept
         ? { vendorStatus: { old: order.vendorStatus, new: "VENDOR_ACCEPTED" }, vendorRespondedAt: { new: now.toISOString() } }
         : {}),
       ...(autoConfirm ? { status: { old: "REQUESTED", new: "CONFIRMED" } } : {}),

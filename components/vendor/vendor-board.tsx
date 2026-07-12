@@ -953,12 +953,14 @@ function InboxSection({
           {/* 거절 / 제안 / 수락 버튼. 제안=수락하되 대안 시간 협의(propose).
               ★TICKET 주문은 시간 협의가 무의미 → "제안" 버튼 숨김(주문 type 기준, 벤더 종류 무관 —
                 혼합 판매 업체의 티켓 주문에도 적용). 서버 respond도 TICKET propose를 400으로 거부(대칭).
-              ★TICKET 미수락 발주(ADR-0034: 발행=수락 겸행)는 "수락" 버튼도 숨긴다 —
-                위 TicketPanel "발행" 버튼이 곧 수락이라 수락 버튼이 중복·혼동을 준다.
-              → TICKET+PENDING_VENDOR면 남는 버튼은 거절 1개. 표시 버튼 수에 맞춰 grid-cols 정적 매핑. */}
+              ★TICKET 미수락 발주(ADR-0034 개정: 발행 수량 충족 시 자동 수락)는 발행 0장일 때만 "수락" 버튼을
+                숨긴다 — 위 TicketPanel "발행"으로 유도. 발행 ≥1장(주문 수량 미달 포함)이면 수락 버튼 노출:
+                확인시트 1장으로 전원 커버하는 현실(ADR-0034 수량 비강제)을 위한 수동 수락 경로.
+              → TICKET+PENDING_VENDOR+0장이면 남는 버튼은 거절 1개. 표시 버튼 수에 맞춰 grid-cols 정적 매핑. */}
           {(() => {
             const hidePropose = o.type === "TICKET";
-            const hideAccept = o.type === "TICKET" && o.vendorStatus === "PENDING_VENDOR";
+            const hideAccept =
+              o.type === "TICKET" && o.vendorStatus === "PENDING_VENDOR" && o.ticketUrls.length === 0;
             // 거절(항상) + 제안(비티켓) + 수락(비TICKET-대기) → 표시 수. 동적 조립 금지(정적 매핑).
             const visibleCount = 1 + (hidePropose ? 0 : 1) + (hideAccept ? 0 : 1);
             const gridCls =
