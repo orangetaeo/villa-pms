@@ -13,8 +13,16 @@ import {
 import { fulfillmentNote } from "@/lib/guest-fulfillment";
 import { catalogImage } from "@/lib/service-image";
 import { DateField } from "@/components/date-field";
+import { todayVnDateString } from "@/lib/date-vn";
+import {
+  readVariantRule,
+  anyVariantHasRule,
+  anyVariantHasHeightRule,
+  type VariantRule,
+} from "@/lib/ticket-variant-rules";
 import type { GuestLabels } from "@/lib/guest-i18n";
 import { guestVndPrice, guestVndDelta } from "./guest-format";
+import { resolveSelectedPeople, groupPeopleByVariant, ticketGroupsTotalVnd } from "./ticket-variant-logic";
 import type { GuestCatalogView, GuestOption } from "./types";
 
 export interface CardSelection {
@@ -29,8 +37,13 @@ export interface CardSelection {
   /** 요청사항(선택, 최대 500자). 이행자에게 전달되는 게스트 특이사항. 미입력이면 null. */
   guestNote: string | null;
   /** TICKET 이용자 선택 — checkedInGuests 인덱스 목록(ADR-0036). 선택 수 = quantity 동기화.
-   *   빈 명단(체크인 전)이면 사용 안 함(기존 수량 스테퍼). 제출 시 인덱스→{name,birthDate} 해석. */
+   *   빈 명단(체크인 전)이면 사용 안 함(기존 수량 스테퍼). 제출 시 인덱스→{name,birthDate,heightCm} 해석. */
   ticketGuestIdxs: number[];
+  /** TICKET 인원별 연령/신장 구분 수동 배정(idx→variantKey) — 자동 판정 실패 폴백·순수 수동 모드에서만 유효.
+   *   자동 판정되는 사람은 이 값과 무관(파생). variants 있는 TICKET에서만 사용. */
+  ticketGuestVariants: Record<number, string>;
+  /** TICKET 이용자별 소비자 자가신고 신장(idx→cm) — 무료/어린이 구분 판정·현장 검표용. 신장 규칙 있는 품목만. */
+  ticketGuestHeights: Record<number, number>;
 }
 
 const NOTE_MAX = 500;
@@ -109,11 +122,6 @@ export function OptionCard({
     }
   }, [item, options, selection]);
 
-  const previewStr =
-    preview != null
-      ? guestVndPrice(toVndStr(preview.totalPriceVnd))
-      : guestVndPrice(item.priceVnd);
-
   const selectedAddons = item.addons.filter((a) => selection.addonKeys.includes(a.key));
 
   const setQty = (delta: number) =>
@@ -144,9 +152,68 @@ export function OptionCard({
   // TICKET 이용자 선택(ADR-0036) — 체크인 명단이 있으면 수량 스테퍼 대신 인원 체크박스.
   //   선택 수 = quantity 동기화(같이 갱신). 명단 비면 기존 스테퍼 유지.
   const isTicketWithGuests = item.type === "TICKET" && checkedInGuests.length > 0;
+  const hasVariants = item.variants.length > 0;
+  // 인원별 연령/신장 구분 지정 모드 — TICKET + 체크인 명단 + variant 존재. variant 없으면 기존 단일가 체크박스.
+  const isTicketVariantPerson = isTicketWithGuests && hasVariants;
   // TICKET은 이용일(날짜)만 받고 시간은 불요(테오 2026-07-12) — 오전/오후/야간 구분은 카탈로그 variant로.
   //   그 외 서비스는 날짜+시간 둘 다 필수(현행).
   const hideTime = item.type === "TICKET";
+  const firstVariantKey = item.variants[0]?.key ?? null;
+
+  // variant 자동판정 규칙(정규화) — bornBeforeYear·나이·heightMaxCm. 규칙 있으면 자동 모드, 전무면 순수 수동.
+  const ageRules: VariantRule[] = useMemo(
+    () =>
+      item.variants.map((v) =>
+        readVariantRule({
+          key: v.key,
+          bornBeforeYear: v.bornBeforeYear,
+          ageMin: v.ageMin,
+          ageMax: v.ageMax,
+          heightMaxCm: v.heightMaxCm,
+        })
+      ),
+    [item.variants]
+  );
+  const autoMode = isTicketVariantPerson && anyVariantHasRule(ageRules);
+  const showHeightInput = isTicketVariantPerson && anyVariantHasHeightRule(ageRules);
+  // 자동 판정 기준 이용일 — 미선택이면 VN 오늘(신청 즉시 판정). serviceDate 바뀌면 재판정.
+  const effServiceDate = selection.serviceDate ?? todayVnDateString();
+
+  // 선택 인원별 최종 variant(자동/수동) 해석 — 표시·합계·제출에 공통 사용.
+  const resolvedPeople = useMemo(
+    () =>
+      isTicketVariantPerson
+        ? resolveSelectedPeople(
+            selection.ticketGuestIdxs,
+            checkedInGuests,
+            ageRules,
+            selection.ticketGuestVariants,
+            selection.ticketGuestHeights,
+            effServiceDate,
+            firstVariantKey
+          )
+        : [],
+    [isTicketVariantPerson, selection.ticketGuestIdxs, selection.ticketGuestVariants, selection.ticketGuestHeights, checkedInGuests, ageRules, effServiceDate, firstVariantKey]
+  );
+  const resolvedByIdx = useMemo(() => new Map(resolvedPeople.map((p) => [p.idx, p])), [resolvedPeople]);
+
+  const variantByKey = (key: string | null): GuestOption | null =>
+    key ? item.variants.find((v) => v.key === key) ?? null : null;
+
+  // 인원별 variant 단가 합(서버 동형 재계산, 표시용). 미배정은 0 기여.
+  const ticketVariantTotalVnd = useMemo(() => {
+    if (!isTicketVariantPerson) return null;
+    const groups = groupPeopleByVariant(resolvedPeople);
+    return ticketGroupsTotalVnd(
+      groups,
+      { priceVnd: item.priceVnd ? BigInt(item.priceVnd) : null },
+      options,
+      selection.addonKeys,
+      selection.modifierKeys
+    );
+  }, [isTicketVariantPerson, resolvedPeople, item.priceVnd, options, selection.addonKeys, selection.modifierKeys]);
+
+  // 비-variant TICKET(단일가) 이용자 체크 토글 — 기존 흐름.
   const toggleTicketGuest = (idx: number) => {
     const has = selection.ticketGuestIdxs.includes(idx);
     const next = has
@@ -154,6 +221,48 @@ export function OptionCard({
       : [...selection.ticketGuestIdxs, idx];
     onChange({ ...selection, ticketGuestIdxs: next, quantity: next.length });
   };
+
+  // variant-person 모드 이용자 체크 토글 — 체크 해제 시 그 사람의 수동 배정·신장도 제거.
+  const toggleTicketPerson = (idx: number) => {
+    const has = selection.ticketGuestIdxs.includes(idx);
+    if (has) {
+      const nextIdxs = selection.ticketGuestIdxs.filter((i) => i !== idx);
+      const nextVars = { ...selection.ticketGuestVariants };
+      delete nextVars[idx];
+      const nextHeights = { ...selection.ticketGuestHeights };
+      delete nextHeights[idx];
+      onChange({ ...selection, ticketGuestIdxs: nextIdxs, ticketGuestVariants: nextVars, ticketGuestHeights: nextHeights, quantity: nextIdxs.length });
+    } else {
+      const nextIdxs = [...selection.ticketGuestIdxs, idx];
+      // 순수 수동 모드면 기본 variant 미리 배정(첫 variant). 자동 모드는 파생이라 미설정.
+      const nextVars = autoMode || !firstVariantKey
+        ? selection.ticketGuestVariants
+        : { ...selection.ticketGuestVariants, [idx]: firstVariantKey };
+      onChange({ ...selection, ticketGuestIdxs: nextIdxs, ticketGuestVariants: nextVars, quantity: nextIdxs.length });
+    }
+  };
+
+  // 수동 배정(순수 수동 모드·자동 실패 폴백에서 사람이 직접 구분 선택).
+  const setTicketPersonVariant = (idx: number, key: string) =>
+    onChange({ ...selection, ticketGuestVariants: { ...selection.ticketGuestVariants, [idx]: key } });
+
+  // 소비자 신장 자가신고 입력(cm) — 무료/어린이 구분 판정 트리거. 빈값이면 제거.
+  const setTicketPersonHeight = (idx: number, raw: string) => {
+    const digits = raw.replace(/\D/g, "").slice(0, 3);
+    const next = { ...selection.ticketGuestHeights };
+    if (digits === "") delete next[idx];
+    else next[idx] = parseInt(digits, 10);
+    onChange({ ...selection, ticketGuestHeights: next });
+  };
+
+  // 하단 큰 가격 — variant-person이면 인원별 구분 단가 합(미선택이면 첫 variant 단가 힌트), 그 외는 기존 미리보기.
+  const previewStr = isTicketVariantPerson
+    ? ticketVariantTotalVnd != null && ticketVariantTotalVnd > 0n
+      ? guestVndPrice(toVndStr(ticketVariantTotalVnd))
+      : guestVndPrice(item.variants[0]?.priceVnd ?? item.priceVnd)
+    : preview != null
+      ? guestVndPrice(toVndStr(preview.totalPriceVnd))
+      : guestVndPrice(item.priceVnd);
 
   const badgeCls = TYPE_BADGE[item.type] ?? "bg-slate-100 text-slate-500";
   const active = selection.quantity > 0;
@@ -185,8 +294,8 @@ export function OptionCard({
           </span>
         </div>
 
-        {/* variants — 1택, 가격 대체 */}
-        {item.variants.length > 0 && (
+        {/* variants — 1택, 가격 대체. ★variant-person(TICKET+명단) 모드에선 인원별 지정으로 대체 → 숨김. */}
+        {item.variants.length > 0 && !isTicketVariantPerson && (
           <div>
             <p className="text-[11px] font-bold text-slate-500 mb-1.5">{labels.timeLabel}</p>
             <div className="grid grid-cols-2 gap-2">
@@ -298,8 +407,9 @@ export function OptionCard({
           </label>
         ))}
 
-        {/* TICKET 이용자 선택(ADR-0036) — 체크인 명단에서 선택. 선택 수 = 수량. 명단 비면 이 블록 없음(기존 스테퍼). */}
-        {isTicketWithGuests && (
+        {/* TICKET 이용자 선택(ADR-0036) — 체크인 명단에서 선택. 선택 수 = 수량. 명단 비면 이 블록 없음(기존 스테퍼).
+            variant 있으면 인원별 연령/신장 구분 지정(자동 판정 우선), 없으면 단일가 체크박스. */}
+        {isTicketWithGuests && !isTicketVariantPerson && (
           <div className="space-y-1.5 rounded-xl border border-sky-100 bg-sky-50/50 p-3">
             <p className="flex items-center gap-1 text-[11px] font-bold text-sky-700">
               <span className="material-symbols-outlined text-[15px]">confirmation_number</span>
@@ -329,6 +439,114 @@ export function OptionCard({
                       </span>
                     </span>
                   </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* TICKET 인원별 연령/신장 구분 지정(ADR-0036 개정) — 자동 판정(생년월일·신장) 우선, 폴백은 수동 선택. */}
+        {isTicketVariantPerson && (
+          <div className="space-y-2 rounded-xl border border-sky-100 bg-sky-50/50 p-3">
+            <p className="flex items-center gap-1 text-[11px] font-bold text-sky-700">
+              <span className="material-symbols-outlined text-[15px]">confirmation_number</span>
+              {labels.ticketGuestTitle}
+            </p>
+            <p className="text-[11px] text-slate-500 leading-snug">
+              {autoMode ? labels.ticketGuestAutoHint : labels.ticketGuestVariantHint}
+            </p>
+            {/* 신장 규칙 품목 — 자가신고 고지(현장 재측정·초과 시 차액). 허위신고 방지. */}
+            {showHeightInput && (
+              <p className="flex items-start gap-1 rounded-lg bg-amber-50 px-2.5 py-2 text-[11px] leading-snug text-amber-700">
+                <span className="material-symbols-outlined text-[14px] mt-px">straighten</span>
+                {labels.ticketHeightNotice}
+              </p>
+            )}
+            <div className="space-y-1.5 pt-0.5">
+              {checkedInGuests.map((g, idx) => {
+                const on = selection.ticketGuestIdxs.includes(idx);
+                const rp = resolvedByIdx.get(idx);
+                const autoV = rp?.auto ? variantByKey(rp.key) : null;
+                return (
+                  <div
+                    key={idx}
+                    className={`rounded-lg border px-3 py-2 ${on ? "border-sky-400 bg-white" : "border-slate-200 bg-white"}`}
+                  >
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={() => toggleTicketPerson(idx)}
+                        className="w-5 h-5 rounded border-slate-300 text-sky-600 focus:ring-sky-500 shrink-0"
+                      />
+                      <span className="min-w-0 flex items-center gap-2">
+                        <span className="text-sm font-semibold text-slate-800 truncate">{g.name ?? "—"}</span>
+                        <span className="text-[11px] tabular-nums text-slate-400 shrink-0">
+                          {formatBirthDate(g.birthDate)}
+                        </span>
+                      </span>
+                      {/* 자동 판정 결과 배지 — variant 라벨+단가(소비자 변경 불가) */}
+                      {on && autoV && (
+                        <span className="ml-auto flex items-center gap-1 shrink-0">
+                          <span className="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-bold text-sky-700">
+                            {labels.ticketGuestAutoBadge}
+                          </span>
+                          <span className="text-xs font-bold text-slate-800 tabular-nums">{autoV.label}</span>
+                          <span className="text-[11px] text-slate-500 tabular-nums">{guestVndPrice(autoV.priceVnd)}</span>
+                        </span>
+                      )}
+                    </label>
+
+                    {on && (
+                      <div className="pl-7 pt-1.5 space-y-1.5">
+                        {/* 소비자 신장 자가신고(신장 규칙 품목만) — 입력 시 무료/어린이 재판정 */}
+                        {showHeightInput && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] text-slate-500 shrink-0">{labels.ticketHeightLabel}</span>
+                            <input
+                              inputMode="numeric"
+                              value={selection.ticketGuestHeights[idx]?.toString() ?? ""}
+                              onChange={(e) => setTicketPersonHeight(idx, e.target.value)}
+                              placeholder={labels.ticketHeightPlaceholder}
+                              aria-label={labels.ticketHeightLabel}
+                              className="w-16 rounded border border-slate-200 px-2 py-1 text-xs text-slate-800 tabular-nums text-right focus:ring-sky-500 focus:border-sky-500"
+                            />
+                            <span className="text-[11px] text-slate-400">cm</span>
+                          </div>
+                        )}
+                        {/* 수동 선택 — 순수 수동 모드 또는 자동 판정 실패 폴백. 자동 배정된 사람은 칩 미노출. */}
+                        {!autoV && (
+                          <div className="space-y-1">
+                            {autoMode && (
+                              <p className="text-[11px] text-amber-600 leading-snug">{labels.ticketGuestManualHint}</p>
+                            )}
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {item.variants.map((v) => {
+                                const sel = rp?.key === v.key;
+                                return (
+                                  <button
+                                    key={v.key}
+                                    type="button"
+                                    onClick={() => setTicketPersonVariant(idx, v.key)}
+                                    className={`rounded-lg px-2.5 py-1.5 text-left ${
+                                      sel ? "border-2 border-sky-500 bg-sky-50" : "border border-slate-200 bg-white"
+                                    }`}
+                                  >
+                                    <span className={`block text-[11px] font-bold ${sel ? "text-sky-700" : "text-slate-500"}`}>
+                                      {v.label}
+                                    </span>
+                                    <span className="block text-xs font-extrabold tabular-nums text-slate-800">
+                                      {guestVndPrice(v.priceVnd)}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>

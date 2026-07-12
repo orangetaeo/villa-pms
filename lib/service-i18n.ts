@@ -39,6 +39,11 @@ export interface TranslatableOption {
   priceVnd?: string | null;
   descKo?: string | null;
   costVnd?: string | null;
+  // TICKET 구분 자동판정 규칙(ADR-0036) — 번역 대상 아님, 패스스루 보존.
+  bornBeforeYear?: number | null;
+  ageMin?: number | null;
+  ageMax?: number | null;
+  heightMaxCm?: number | null;
 }
 export interface TranslatedOption extends TranslatableOption {
   labelI18n: I18nMap;
@@ -122,6 +127,11 @@ export interface PersistableOption {
   descKo?: string | null;
   descI18n?: I18nMap | null;
   costVnd?: string | null;
+  // TICKET 구분 자동판정 규칙(ADR-0036) — 저장 시 보존(번역 안 함).
+  bornBeforeYear?: number | null;
+  ageMin?: number | null;
+  ageMax?: number | null;
+  heightMaxCm?: number | null;
 }
 export interface PersistableOptions {
   variants: PersistableOption[];
@@ -145,7 +155,14 @@ export async function buildCatalogI18n(input: {
   options?: TranslatableOptions | null;
 }): Promise<CatalogI18nResult> {
   const hasOptions = input.options != null;
-  // 번역 결과를 PersistableOption으로 정규화(라벨·설명 i18n + 원가 패스스루)
+  // TICKET 구분 규칙(선택 필드) 패스스루 — 값 없으면 키 미포함(옵션 shape 최소 유지).
+  const ruleFields = (o: TranslatableOption): Partial<PersistableOption> => ({
+    ...(o.bornBeforeYear != null ? { bornBeforeYear: o.bornBeforeYear } : {}),
+    ...(o.ageMin != null ? { ageMin: o.ageMin } : {}),
+    ...(o.ageMax != null ? { ageMax: o.ageMax } : {}),
+    ...(o.heightMaxCm != null ? { heightMaxCm: o.heightMaxCm } : {}),
+  });
+  // 번역 결과를 PersistableOption으로 정규화(라벨·설명 i18n + 원가·구분규칙 패스스루)
   const persist = (o: TranslatedOption): PersistableOption => ({
     key: o.key,
     labelKo: o.labelKo,
@@ -154,14 +171,16 @@ export async function buildCatalogI18n(input: {
     descKo: o.descKo ?? null,
     descI18n: o.descI18n ?? null,
     costVnd: o.costVnd ?? null,
+    ...ruleFields(o),
   });
-  // 번역 실패 시 i18n 없이 ko 폴백 — descKo/costVnd는 그대로 보존
+  // 번역 실패 시 i18n 없이 ko 폴백 — descKo/costVnd/구분규칙은 그대로 보존
   const passthroughOpt = (o: TranslatableOption): PersistableOption => ({
     key: o.key,
     labelKo: o.labelKo,
     priceVnd: o.priceVnd ?? null,
     descKo: o.descKo ?? null,
     costVnd: o.costVnd ?? null,
+    ...ruleFields(o),
   });
   const passthrough = (): PersistableOptions | null =>
     hasOptions

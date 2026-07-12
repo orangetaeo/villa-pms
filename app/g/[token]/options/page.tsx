@@ -33,6 +33,11 @@ function mapOptions(
     priceVnd?: string | null;
     descKo?: string | null;
     descI18n?: unknown;
+    // TICKET 구분 자동판정 규칙(ADR-0036) — variant에만 존재. 공개정보(원가 아님).
+    bornBeforeYear?: number | null;
+    ageMin?: number | null;
+    ageMax?: number | null;
+    heightMaxCm?: number | null;
   }[],
   lang: PublicLang
 ): GuestOption[] {
@@ -41,6 +46,11 @@ function mapOptions(
     label: pickI18n(o.labelKo, o.labelI18n ?? null, lang),
     priceVnd: o.priceVnd ?? null,
     desc: o.descKo ? pickI18n(o.descKo, o.descI18n ?? null, lang) : null,
+    // 구분 규칙 패스스루(있을 때만 의미) — 게스트 폼이 이용자별 자동 판정에 사용
+    bornBeforeYear: o.bornBeforeYear ?? null,
+    ageMin: o.ageMin ?? null,
+    ageMax: o.ageMax ?? null,
+    heightMaxCm: o.heightMaxCm ?? null,
   }));
 }
 

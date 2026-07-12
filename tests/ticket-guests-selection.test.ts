@@ -38,6 +38,8 @@ const sendVendorPoNotifications = vi.fn(async (..._a: unknown[]) => ({ zaloSent:
 vi.mock("@/lib/vendor-dispatch", () => ({
   sendVendorPoNotifications: (...a: unknown[]) => sendVendorPoNotifications(...a),
 }));
+// parseCatalogOptions는 테스트별로 variants 규칙을 주입할 수 있게 오버라이드 가능한 vi.fn(기본 빈 옵션).
+const catalogParse = vi.fn(() => ({ variants: [] as unknown[], addons: [], modifiers: [] }));
 vi.mock("@/lib/service-catalog", () => {
   class ServiceSelectionError extends Error {
     constructor(public code: string) {
@@ -45,7 +47,7 @@ vi.mock("@/lib/service-catalog", () => {
     }
   }
   return {
-    parseCatalogOptions: () => ({ variants: [], addons: [], modifiers: [] }),
+    parseCatalogOptions: (...a: unknown[]) => catalogParse(...(a as [])),
     // 수량은 요청 selection.quantity를 그대로 반영(수량 일치 검증 테스트용).
     resolveOrderPricing: (_i: unknown, _o: unknown, sel: { quantity: number }) => ({
       totalPriceVnd: 500000n,
@@ -58,7 +60,11 @@ vi.mock("@/lib/service-catalog", () => {
 });
 vi.mock("@/lib/service-display", () => ({ priceKrwCeil: () => 0 }));
 vi.mock("@/lib/pricing", () => ({ getFxVndPerKrw: async () => null }));
-vi.mock("@/lib/date-vn", () => ({ parseUtcDateOnly: () => new Date("2026-08-01T00:00:00Z") }));
+// 이용일 기준: parseUtcDateOnly는 UTC 자정 Date, toDateOnlyString은 그 날짜 문자열(구분 규칙 나이 판정 기준일).
+vi.mock("@/lib/date-vn", () => ({
+  parseUtcDateOnly: () => new Date("2026-08-01T00:00:00Z"),
+  toDateOnlyString: () => "2026-08-01",
+}));
 
 import { POST as CREATE } from "@/app/api/g/[token]/service-orders/route";
 
@@ -99,6 +105,7 @@ beforeEach(() => {
   bookingFindUnique.mockResolvedValue({ guestName: "대표자", villa: { name: "Villa A", address: "123 St" } });
   checkInFindUnique.mockResolvedValue({ passportOcrJson: passportOcr });
   catalogFindUnique.mockResolvedValue(ticketItem);
+  catalogParse.mockReturnValue({ variants: [], addons: [], modifiers: [] });
 });
 
 const params = { params: Promise.resolve({ token: "tok" }) };
@@ -167,6 +174,118 @@ describe("TICKET 이용자 선택 스냅샷(ADR-0036)", () => {
     expect(res.status).toBe(201);
     const data = (soCreate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
     expect(data.ticketGuests).toEqual([{ name: "LEE", birthDate: "1992-01-09" }]);
+  });
+});
+
+describe("TICKET 주문 내 중복 인원·신장 스냅샷(ADR-0036 개정)", () => {
+  it("같은 name+birthDate 쌍이 2회면 400 TICKET_GUEST_DUPLICATE", async () => {
+    const res = await CREATE(
+      jsonReq({
+        ...base,
+        quantity: 2,
+        ticketGuests: [
+          { name: "KIM CHUL SOO", birthDate: "1980-05-03" },
+          { name: "KIM CHUL SOO", birthDate: "1980-05-03" },
+        ],
+      }),
+      params
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: "TICKET_GUEST_DUPLICATE" });
+    expect(soCreate).not.toHaveBeenCalled();
+  });
+
+  it("자가신고 신장(heightCm)은 스냅샷에 보존", async () => {
+    const res = await CREATE(
+      jsonReq({ ...base, quantity: 1, ticketGuests: [{ name: "KIM CHUL SOO", birthDate: "1980-05-03", heightCm: 128 }] }),
+      params
+    );
+    expect(res.status).toBe(201);
+    const data = (soCreate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    expect(data.ticketGuests).toEqual([{ name: "KIM CHUL SOO", birthDate: "1980-05-03", heightCm: 128 }]);
+  });
+});
+
+describe("TICKET 구분(variant) 규칙 서버 재검증(ADR-0036 개정)", () => {
+  // 노인(bornBeforeYear=1985) variant를 카탈로그에 심는다. serviceDate=2026-08-01 기준.
+  const seniorVariants = [
+    { key: "senior", labelKo: "노인", priceVnd: "300000", bornBeforeYear: 1985 },
+    { key: "adult", labelKo: "성인", priceVnd: "500000" },
+  ];
+
+  it("출생년도 규칙 충족(1980<1985) → 저장 성공", async () => {
+    catalogParse.mockReturnValue({ variants: seniorVariants, addons: [], modifiers: [] });
+    const res = await CREATE(
+      jsonReq({ ...base, quantity: 1, variantKey: "senior", ticketGuests: [{ name: "KIM CHUL SOO", birthDate: "1980-05-03" }] }),
+      params
+    );
+    expect(res.status).toBe(201);
+  });
+
+  it("출생년도 규칙 위반(1992≥1985에 senior 제출) → 400 TICKET_GUEST_RULE_MISMATCH", async () => {
+    catalogParse.mockReturnValue({ variants: seniorVariants, addons: [], modifiers: [] });
+    const res = await CREATE(
+      jsonReq({ ...base, quantity: 1, variantKey: "senior", ticketGuests: [{ name: "LEE", birthDate: "1992-01-09" }] }),
+      params
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: "TICKET_GUEST_RULE_MISMATCH" });
+    expect(soCreate).not.toHaveBeenCalled();
+  });
+
+  it("규칙 없는 기본(성인) variant는 검증 없이 저장", async () => {
+    catalogParse.mockReturnValue({ variants: seniorVariants, addons: [], modifiers: [] });
+    const res = await CREATE(
+      jsonReq({ ...base, quantity: 1, variantKey: "adult", ticketGuests: [{ name: "LEE", birthDate: "1992-01-09" }] }),
+      params
+    );
+    expect(res.status).toBe(201);
+  });
+
+  it("★가격 조작 우회 차단 — 규칙 variant를 명단 없이 POST하면 400 TICKET_GUESTS_REQUIRED", async () => {
+    catalogParse.mockReturnValue({ variants: seniorVariants, addons: [], modifiers: [] });
+    // ticketGuests 생략 + 규칙 있는 senior 단가로 3장 — 검증 우회 시 201이 되면 안 됨.
+    const res = await CREATE(jsonReq({ ...base, quantity: 3, variantKey: "senior" }), params);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: "TICKET_GUESTS_REQUIRED" });
+    expect(soCreate).not.toHaveBeenCalled();
+  });
+
+  it("규칙 없는 기본 variant는 명단 생략 허용(체크인 전 주문 흐름 보존)", async () => {
+    catalogParse.mockReturnValue({ variants: seniorVariants, addons: [], modifiers: [] });
+    const res = await CREATE(jsonReq({ ...base, quantity: 2, variantKey: "adult" }), params);
+    expect(res.status).toBe(201);
+    const data = (soCreate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    expect(data).not.toHaveProperty("ticketGuests");
+  });
+
+  it("신장 규칙(heightMaxCm=140) — 신장 미신고면 400", async () => {
+    catalogParse.mockReturnValue({
+      variants: [{ key: "child", labelKo: "어린이", priceVnd: "200000", heightMaxCm: 140 }],
+      addons: [],
+      modifiers: [],
+    });
+    const res = await CREATE(
+      jsonReq({ ...base, quantity: 1, variantKey: "child", ticketGuests: [{ name: "KIM CHUL SOO", birthDate: "1980-05-03" }] }),
+      params
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: "TICKET_GUEST_RULE_MISMATCH" });
+  });
+
+  it("신장 규칙 충족(128<140) → 저장 성공, 신장 스냅샷 보존", async () => {
+    catalogParse.mockReturnValue({
+      variants: [{ key: "child", labelKo: "어린이", priceVnd: "200000", heightMaxCm: 140 }],
+      addons: [],
+      modifiers: [],
+    });
+    const res = await CREATE(
+      jsonReq({ ...base, quantity: 1, variantKey: "child", ticketGuests: [{ name: "KIM CHUL SOO", birthDate: "1980-05-03", heightCm: 128 }] }),
+      params
+    );
+    expect(res.status).toBe(201);
+    const data = (soCreate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    expect(data.ticketGuests).toEqual([{ name: "KIM CHUL SOO", birthDate: "1980-05-03", heightCm: 128 }]);
   });
 });
 

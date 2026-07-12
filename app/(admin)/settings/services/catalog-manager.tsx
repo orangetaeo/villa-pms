@@ -66,6 +66,9 @@ interface OptionDraft {
   priceVnd: string; // 숫자 문자열(VND)
   descKo: string; // 옵션별 설명(한국어) — 서버 자동번역, 소비자 노출
   costVnd: string; // 옵션별 매입원가(VND) — showCost(canViewFinance)만 입력·노출
+  // ── TICKET 구분 자동판정 규칙(ADR-0036) — variant + TICKET에서만 입력칸 노출. 값 없으면 성인 기본 ──
+  bornBeforeYear: string; // 출생년도 미만(여권 자동, 노인 등)
+  heightMaxCm: string; // 신장(cm) 미만(소비자 자가신고, 무료/어린이)
 }
 
 interface FormDraft {
@@ -88,7 +91,7 @@ interface FormDraft {
   pickupNote: string; // 픽업/매장 안내(주소·조건)
 }
 
-const EMPTY_OPTION: OptionDraft = { key: "", labelKo: "", priceVnd: "", descKo: "", costVnd: "" };
+const EMPTY_OPTION: OptionDraft = { key: "", labelKo: "", priceVnd: "", descKo: "", costVnd: "", bornBeforeYear: "", heightMaxCm: "" };
 
 const emptyForm = (sortOrder: number): FormDraft => ({
   type: "BBQ",
@@ -183,6 +186,8 @@ export default function ServiceCatalogManager({
         priceVnd: o.priceVnd ?? "",
         descKo: o.descKo ?? "",
         costVnd: o.costVnd ?? "", // showCost 아니면 서버에서 이미 제거되어 빈값
+        bornBeforeYear: o.bornBeforeYear != null ? String(o.bornBeforeYear) : "",
+        heightMaxCm: o.heightMaxCm != null ? String(o.heightMaxCm) : "",
       }));
     setEditingId(item.id);
     setDraft({
@@ -219,6 +224,9 @@ export default function ServiceCatalogManager({
         priceVnd: r.priceVnd || null,
         descKo: r.descKo.trim() || null,
         costVnd: r.costVnd || null,
+        // TICKET 구분 규칙 — 값 있을 때만 정수로. 규칙 없는 선택지는 성인 기본(키 미포함).
+        ...(r.bornBeforeYear.trim() !== "" ? { bornBeforeYear: parseInt(r.bornBeforeYear, 10) } : {}),
+        ...(r.heightMaxCm.trim() !== "" ? { heightMaxCm: parseInt(r.heightMaxCm, 10) } : {}),
       }));
   }
 
@@ -303,8 +311,16 @@ export default function ServiceCatalogManager({
           options:
             opts.variants?.length || opts.addons?.length || opts.modifiers?.length
               ? {
-                  // 토글은 값 보존 — descKo·costVnd도 함께 전송(서버 재번역·권한 게이팅). costVnd는 showCost일 때만 존재.
-                  variants: (opts.variants ?? []).map((o) => ({ key: o.key, labelKo: o.labelKo, priceVnd: o.priceVnd ?? null, descKo: o.descKo ?? null, costVnd: o.costVnd ?? null })),
+                  // 토글은 값 보존 — descKo·costVnd·구분규칙(bornBeforeYear/heightMaxCm)도 함께 전송(값 유지). costVnd는 showCost일 때만 존재.
+                  variants: (opts.variants ?? []).map((o) => ({
+                    key: o.key,
+                    labelKo: o.labelKo,
+                    priceVnd: o.priceVnd ?? null,
+                    descKo: o.descKo ?? null,
+                    costVnd: o.costVnd ?? null,
+                    ...(o.bornBeforeYear != null ? { bornBeforeYear: o.bornBeforeYear } : {}),
+                    ...(o.heightMaxCm != null ? { heightMaxCm: o.heightMaxCm } : {}),
+                  })),
                   addons: (opts.addons ?? []).map((o) => ({ key: o.key, labelKo: o.labelKo, priceVnd: o.priceVnd ?? null, descKo: o.descKo ?? null, costVnd: o.costVnd ?? null })),
                   modifiers: (opts.modifiers ?? []).map((o) => ({ key: o.key, labelKo: o.labelKo, priceVnd: o.priceVnd ?? null, descKo: o.descKo ?? null, costVnd: o.costVnd ?? null })),
                 }
@@ -951,6 +967,7 @@ function CatalogModal({
             rows={draft.variants}
             onChange={(rows) => setDraft((d) => ({ ...d, variants: rows }))}
             showCost={showCost}
+            showRules={draft.type === "TICKET"}
             t={t}
           />
           <OptionGroup
@@ -1035,12 +1052,14 @@ function OptionGroup({
   rows,
   onChange,
   showCost,
+  showRules = false,
   t,
 }: {
   title: string;
   rows: OptionDraft[];
   onChange: (rows: OptionDraft[]) => void;
   showCost: boolean;
+  showRules?: boolean; // TICKET variants — 구분 자동판정 규칙 입력칸 노출(ADR-0036)
   t: ReturnType<typeof useTranslations>;
 }) {
   const update = (i: number, patch: Partial<OptionDraft>) =>
@@ -1066,6 +1085,11 @@ function OptionGroup({
           {t("form.addOption")}
         </button>
       </div>
+      {showRules && rows.length > 0 && (
+        <p className="text-[10px] text-slate-500 leading-snug">
+          <span className="font-bold text-slate-400">{t("form.ruleTitle")}</span> — {t("form.ruleHint")}
+        </p>
+      )}
       {rows.map((r, i) => (
         <div key={r.key || i} className="rounded-md border border-slate-800/80 bg-admin-bg/30 p-2 space-y-1.5">
           {/* 1행: 이름 / 판매가 / (원가) / 삭제 */}
@@ -1114,6 +1138,27 @@ function OptionGroup({
             maxLength={1000}
             className={`${cell} w-full`}
           />
+          {/* 3행(TICKET variants만): 구분 자동판정 규칙 — 값 있는 것만 판정에 쓰임(ADR-0036) */}
+          {showRules && (
+            <div className="flex items-center gap-1.5">
+              <input
+                inputMode="numeric"
+                value={r.bornBeforeYear}
+                onChange={(e) => update(i, { bornBeforeYear: e.target.value.replace(/\D/g, "").slice(0, 4) })}
+                placeholder={t("form.ruleBornBeforeYear")}
+                aria-label={t("form.ruleBornBeforeYear")}
+                className={`${cell} flex-1 tabular-nums`}
+              />
+              <input
+                inputMode="numeric"
+                value={r.heightMaxCm}
+                onChange={(e) => update(i, { heightMaxCm: e.target.value.replace(/\D/g, "").slice(0, 3) })}
+                placeholder={t("form.ruleHeightMaxCm")}
+                aria-label={t("form.ruleHeightMaxCm")}
+                className={`${cell} flex-1 tabular-nums`}
+              />
+            </div>
+          )}
         </div>
       ))}
     </div>

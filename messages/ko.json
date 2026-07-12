@@ -437,7 +437,8 @@
       "errSize": "파일 크기는 5MB 이하만 가능합니다.",
       "errNoFiles": "파일을 선택해 주세요.",
       "passportTitle": "이용자 여권 정보",
-      "passportEmpty": "체크인 시 여권 등록 후 표시됩니다"
+      "passportEmpty": "이용자 미지정 — 주문 시 선택되지 않았습니다",
+      "heightDeclared": "신고 {cm}cm"
     },
     "propose": {
       "button": "시간 제안",
@@ -2447,6 +2448,10 @@
       "optPriceVnd": "판매가",
       "optCostVnd": "원가",
       "optDescKo": "설명 (한국어, 선택 — 자동번역)",
+      "ruleTitle": "구분 자동판정 (티켓 전용, 선택)",
+      "ruleHint": "값을 넣은 항목만 판정에 쓰입니다. 규칙 없는 선택지가 '성인' 기본이 됩니다.",
+      "ruleBornBeforeYear": "출생년도 미만",
+      "ruleHeightMaxCm": "신장(cm) 미만",
       "addOption": "행 추가",
       "removeOption": "삭제",
       "save": "저장",

@@ -66,3 +66,44 @@
   대조 검증 후 `ticketGuests` 스냅샷 저장. 운영자 예약 상세(service-orders-panel)의 TICKET 셀에도 선택 이용자 표시.
 - 화이트리스트 통로 단일화: `lib/ticket-guests.ts`(`guestsFromPassportOcr`·`whitelistTicketGuests`·`ticketGuestKey`).
 - 스키마: `ServiceOrder.ticketGuests Json?` additive(migrations-manual `2026-07-11-service-order-ticket-guests.sql`).
+
+## 개정 (2026-07-12) — 연령/신장 구분(variant)별 인원 배정 + 전체명단 폴백 제거
+
+배경(테오 실측, demo-rbk-277): 차일드/어덜트/시니어 티켓은 가격이 다른데 단일가 묶음 구매라 연령별 구매·티켓별
+인원 배정이 안 됐다. 또 §4의 "체크인 전체명단 폴백"이 미선택 주문에 전체 명단을 노출해 "1장 티켓에 소비자 3명"
+오해를 유발했다.
+
+### R1. 벤더 전체명단 폴백 제거 (표시 정합)
+- 벤더 GET `guests` = **주문 스냅샷(`ticketGuests`)만**. 체크인 명단 배치조회(`checkInRecord.findMany`) 삭제.
+- 스냅샷 없는 TICKET 주문(구주문·미선택)은 빈 배열 → 화면 "이용자 미지정 — 주문 시 선택되지 않음"(문구 갱신).
+- §4의 "비어있으면 체크인 전체로 폴백" 규칙은 **철회**한다(수량≠명단 오해 제거). admin 표시는 원래 스냅샷만이라 불변.
+
+### R2. 구분(variant)별 분리 구매 + 인원 배정
+- 티켓 품목의 연령/신장 구분 = 카탈로그 `options.variants`(가격 포함, 운영자 설정).
+- 게스트 폼(TICKET + 체크인 명단 + variants): 인원마다 구분을 지정하고, **variant별 그룹으로 주문을 분리 생성**
+  (그룹당 1 주문, `quantity`=그룹 인원수, `ticketGuests`=그 그룹만, `variantKey`=그 구분). 가격은 서버 재계산(§9.5 불변).
+- 서버 생성 API: 주문 내 **중복 인원** 400 `TICKET_GUEST_DUPLICATE`(name+birthDate 중복). 기존 명단대조·수량검증 유지.
+
+### R3. 데이터 주도 자동 판정 (카테고리 하드코딩 금지)
+- variant마다 규칙 필드를 저장하고, 존재하는 필드만 **순서대로** 평가한다 — "차일드/시니어/무료"를 코드에 박지 않는다.
+  1. `bornBeforeYear`: 여권 출생년도 < 값 → 매칭(자동, 고정 컷오프. "만 나이"가 아니라 출생년도라 이용일 무관).
+  2. `ageMin`/`ageMax`(선택): 이용일 기준 만 나이 범위.
+  3. `heightMaxCm`: 소비자 자가신고 신장 < 값(낮은 임계 먼저 = 무료→어린이). 여권에 없어 게스트가 입력.
+  4. 규칙 없는 variant = **기본(성인)**.
+- 자동 판정 결과는 소비자가 변경 불가. 매칭 실패(기본 없음)면 수동 선택 폴백. 순수 로직 = `lib/ticket-variant-rules.ts`.
+- 서버는 제출 `variantKey` 규칙을 재검증(가격 조작 방지) — 위반 시 400 `TICKET_GUEST_RULE_MISMATCH`.
+  출생년도·나이 규칙은 `birthDate` null이면 통과(자가신고 폴백), 신장 규칙은 `heightCm` 필수+상한 미만.
+- ★규칙 있는 variant는 **이용자 명단(`ticketGuests`) 필수** — 명단을 생략하고 규칙 variant 단가로 POST하면 재검증을
+  우회할 수 있으므로 명단 없으면 400 `TICKET_GUESTS_REQUIRED`(QA). 규칙 없는 기본 variant·비TICKET은 현행(명단 없이 가능).
+- **신장 허위신고 방지**: 게스트 폼에 "현장 재측정·초과 시 차액" 고지. 신장은 자가신고이므로 벤더 보드에 "신고 Ncm"으로 표기(현장 검표가 정본).
+
+### 기준표(테오 실측 — 운영자가 카탈로그에 규칙으로 입력, 예시)
+| 시설 | 무료 | 어린이 | 성인 | 노인 |
+|---|---|---|---|---|
+| 빈사파리/빈원더스 | 신장<100cm | 신장<140cm | 기본 | (출생년도 컷오프 선택) |
+| 혼똔 케이블카 | — | 신장 기준 또는 수동 | 기본 | — |
+- 시설마다 기준(신장 vs 나이)·구간이 달라 자동 카테고리 매핑을 하드코딩하지 않는다(위 데이터 주도 원칙).
+
+### 스냅샷 필드 확장
+- `ServiceOrder.ticketGuests` 원소에 `heightCm?`(자가신고 신장) 추가 — 허용 필드는 name·birthDate·heightCm 3개뿐.
+  additive JSON이라 스키마 마이그레이션 없음(값 있을 때만 부착). 화이트리스트(`whitelistTicketGuests`)가 유일 통로.

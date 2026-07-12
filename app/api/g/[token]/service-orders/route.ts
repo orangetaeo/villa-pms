@@ -15,12 +15,13 @@ import { assertSameOrigin } from "@/lib/csrf";
 import { parseCatalogOptions, resolveOrderPricing, ServiceSelectionError, parseAudiences } from "@/lib/service-catalog";
 import { priceKrwCeil } from "@/lib/service-display";
 import { getFxVndPerKrw } from "@/lib/pricing";
-import { parseUtcDateOnly } from "@/lib/date-vn";
+import { parseUtcDateOnly, toDateOnlyString } from "@/lib/date-vn";
 import type { Prisma } from "@prisma/client";
 import { notifyOperatorsServiceOrderRequested } from "@/lib/consumer-signal-notify";
 import { sendVendorPoNotifications } from "@/lib/vendor-dispatch";
 import { resolveOrderVendorId } from "@/lib/regional-vendor";
 import { guestsFromPassportOcr, ticketGuestKey } from "@/lib/ticket-guests";
+import { readVariantRule, ruleHasAny, validateGuestForVariant } from "@/lib/ticket-variant-rules";
 
 const schema = z.object({
   catalogItemId: z.string().min(1).max(40),
@@ -34,10 +35,17 @@ const schema = z.object({
   guestNote: z.string().max(500).optional().nullable(),
   // ★이용자 이름 — 서비스 받으실 분(예약 대표자와 다를 수 있음). 빈값이면 서버가 대표자(guestName) 폴백.
   customerName: z.string().max(80).optional().nullable(),
-  // TICKET 이용자 선택 스냅샷(ADR-0036) — 소비자가 체크인 명단에서 고른 이용자(이름·생년월일만).
-  //   name은 OCR 미인식 시 null 가능. 서버가 체크인 확정본과 대조 검증(주입 방지). 최대 99인.
+  // TICKET 이용자 선택 스냅샷(ADR-0036) — 소비자가 체크인 명단에서 고른 이용자(이름·생년월일·신장만).
+  //   name은 OCR 미인식 시 null 가능. heightCm은 소비자 자가신고(무료/어린이 구분·현장 검표용, 선택).
+  //   서버가 체크인 확정본과 대조 검증(주입 방지). ★허용 필드는 name·birthDate·heightCm 3개뿐. 최대 99인.
   ticketGuests: z
-    .array(z.object({ name: z.string().max(120).nullable(), birthDate: z.string().max(20).nullable() }))
+    .array(
+      z.object({
+        name: z.string().max(120).nullable(),
+        birthDate: z.string().max(20).nullable(),
+        heightCm: z.number().int().min(30).max(220).optional().nullable(),
+      })
+    )
     .max(99)
     .optional(),
 });
@@ -114,13 +122,39 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     throw e;
   }
 
+  // 선택 variant의 구분 규칙(있으면) — 명단 필수 판정 + 재검증에 공용(한 번만 파싱).
+  const selectedVariantRule =
+    item.type === "TICKET" && d.variantKey
+      ? (() => {
+          const vdef = (parseCatalogOptions(item.options).variants ?? []).find((x) => x.key === d.variantKey);
+          return vdef ? readVariantRule(vdef) : null;
+        })()
+      : null;
+  // ★가격 조작 우회 차단(QA) — 규칙 있는 variant(child/free/senior 등)는 이용자 명단이 필수다.
+  //   명단을 아예 생략하고 규칙 variant 단가로 POST하면 아래 스냅샷 블록을 안 타 RULE_MISMATCH가 우회되므로,
+  //   variant에 규칙이 하나라도 있으면 여기서 명단 존재를 강제한다. 규칙 없는 기본 variant·비TICKET은 현행(명단 없이 가능).
+  if (selectedVariantRule && ruleHasAny(selectedVariantRule) && (!d.ticketGuests || d.ticketGuests.length === 0)) {
+    return NextResponse.json({ error: "TICKET_GUESTS_REQUIRED" }, { status: 400 });
+  }
+
   // ── TICKET 이용자 선택 스냅샷(ADR-0036) — TICKET 품목 + 제공 + 비어있지 않을 때만 검증·저장.
   //   비TICKET 품목에 온 ticketGuests는 무시(저장 안 함) — 잘못된 클라 입력에 관용.
   let ticketGuestsSnapshot: Prisma.InputJsonValue | undefined;
   if (item.type === "TICKET" && d.ticketGuests && d.ticketGuests.length > 0) {
-    // 수량 일치 강제 — 선택 인원 수 = 발권 수량(quantity).
+    // 수량 일치 강제 — 선택 인원 수 = 발권 수량(quantity). variant별로 분리 주문되므로 그룹 인원수와 정합.
     if (d.ticketGuests.length !== pricing.quantity) {
       return NextResponse.json({ error: "TICKET_GUEST_COUNT_MISMATCH" }, { status: 400 });
+    }
+    // 스냅샷 정규화 — 허용 필드 name·birthDate·heightCm만(자가신고 신장은 있을 때만 부착).
+    const clean = d.ticketGuests.map((g) => ({
+      name: g.name ?? null,
+      birthDate: g.birthDate ?? null,
+      ...(typeof g.heightCm === "number" ? { heightCm: g.heightCm } : {}),
+    }));
+    // 주문 내 중복 인원 방지(QA 관찰 엣지) — 같은 name+birthDate 쌍이 2회 이상이면 400.
+    const dupKeys = clean.map(ticketGuestKey);
+    if (new Set(dupKeys).size !== dupKeys.length) {
+      return NextResponse.json({ error: "TICKET_GUEST_DUPLICATE" }, { status: 400 });
     }
     // PII 주입 방지 — 각 원소가 체크인 확정본(passportOcrJson) 명단에 정확히 존재해야 함(name+birthDate 쌍).
     const ci = await prisma.checkInRecord.findUnique({
@@ -128,9 +162,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       select: { passportOcrJson: true },
     });
     const confirmedKeys = new Set(guestsFromPassportOcr(ci?.passportOcrJson).map(ticketGuestKey));
-    const clean = d.ticketGuests.map((g) => ({ name: g.name ?? null, birthDate: g.birthDate ?? null }));
     if (!clean.every((g) => confirmedKeys.has(ticketGuestKey(g)))) {
       return NextResponse.json({ error: "TICKET_GUEST_MISMATCH" }, { status: 400 });
+    }
+    // 구분(variant) 규칙 재검증(가격 조작 방지, ADR-0036 개정) — 제출 variantKey에 규칙이 있으면
+    //   각 이용자가 이용일 기준으로 그 구분에 맞아야. 출생년도·만나이는 birthDate null이면 통과(자가신고 폴백),
+    //   신장 규칙이면 heightCm 필수+상한 미만. 규칙 없는 기본(성인) variant는 검증 없음(위에서 명단 필수도 안 검).
+    if (selectedVariantRule && ruleHasAny(selectedVariantRule)) {
+      const onDate = toDateOnlyString(serviceDate);
+      const bad = clean.some(
+        (g) =>
+          !validateGuestForVariant(selectedVariantRule, {
+            birthDate: g.birthDate,
+            heightCm: typeof g.heightCm === "number" ? g.heightCm : null,
+            serviceDate: onDate,
+          })
+      );
+      if (bad) return NextResponse.json({ error: "TICKET_GUEST_RULE_MISMATCH" }, { status: 400 });
     }
     ticketGuestsSnapshot = clean as unknown as Prisma.InputJsonValue;
   }
