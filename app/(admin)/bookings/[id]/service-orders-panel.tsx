@@ -31,7 +31,9 @@ import {
   orderAttention,
   orderBucket,
   orderFilterCounts,
+  groupAdminOrders,
   type OrderFilter,
+  type OrderGroup,
 } from "@/lib/service-order";
 
 // 서버에서 직렬화되어 내려오는 카탈로그 항목(주문 추가용) — 판매가만(원가 없음)
@@ -56,6 +58,7 @@ export type VendorSettleMethod = "CASH" | "BANK_TRANSFER" | "OTHER";
 export interface OrderRow {
   id: string;
   type: string;
+  catalogItemId: string | null; // 카탈로그 품목 식별자 — 품목 그룹핑 키(없으면 type 폴백). 레거시·운영자 입력은 null.
   status: "REQUESTED" | "CONFIRMED" | "DELIVERED" | "CANCELLED";
   serviceDate: string | null; // 희망 날짜 YYYY-MM-DD (투숙기간 내)
   serviceTime: string | null; // 희망 시각 "HH:MM"
@@ -144,6 +147,8 @@ export default function ServiceOrdersPanel({
   // 아코디언: 상태 필터 칩(클라, 데이터 전량 보유) + 펼친 주문 Set(orderId 기준 — refresh 후에도 유지)
   const [filter, setFilter] = useState<OrderFilter>("all");
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  // 그룹 펼침 — 기본값은 hasAttention(처리필요 있으면 펼침, 없으면 접힘). override Set은 기본값을 뒤집은 그룹 키.
+  const [groupOverride, setGroupOverride] = useState<Set<string>>(() => new Set());
 
   const pendingGuest = orders.filter(
     (o) => o.requestedVia === "GUEST" && o.status === "REQUESTED"
@@ -154,12 +159,26 @@ export default function ServiceOrdersPanel({
     () => (filter === "all" ? orders : orders.filter((o) => orderBucket(o.status) === filter)),
     [orders, filter]
   );
+  // 품목+이용일 그룹 — 필터 적용된 라인 기준(헤더 집계=보이는 라인 요약). 2건 이상만 헤더로 묶는다.
+  const groups = useMemo(() => groupAdminOrders(visibleOrders), [visibleOrders]);
 
   function toggleExpanded(id: string) {
     setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      return next;
+    });
+  }
+
+  // 그룹 펼침 판정 — 기본(hasAttention)에서 override면 뒤집힘.
+  const isGroupOpen = (g: OrderGroup<OrderRow>) =>
+    groupOverride.has(g.key) ? !g.hasAttention : g.hasAttention;
+  function toggleGroup(key: string) {
+    setGroupOverride((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   }
@@ -331,6 +350,21 @@ export default function ServiceOrdersPanel({
     patchStatus(order.id, "CANCELLED");
   }
 
+  // 렌더 순서 — 1건 그룹은 단일 라인, 2건 이상 그룹은 헤더 + (펼침 시) 소속 라인들.
+  //   기존 라인 <li>는 그대로 재사용(nested=true면 들여쓰기/좌보더). 그룹 접힘 시 라인 생략.
+  type RenderItem =
+    | { kind: "header"; g: OrderGroup<OrderRow> }
+    | { kind: "line"; o: OrderRow; nested: boolean };
+  const renderList: RenderItem[] = [];
+  for (const g of groups) {
+    if (g.orders.length === 1) {
+      renderList.push({ kind: "line", o: g.orders[0], nested: false });
+    } else {
+      renderList.push({ kind: "header", g });
+      if (isGroupOpen(g)) for (const o of g.orders) renderList.push({ kind: "line", o, nested: true });
+    }
+  }
+
   return (
     <section className="bg-admin-card border border-[#334155] rounded-xl overflow-hidden shadow-sm">
       <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700 gap-3">
@@ -394,20 +428,106 @@ export default function ServiceOrdersPanel({
             <p className="p-6 text-sm text-admin-muted">{t("emptyFilter")}</p>
           ) : (
             <ul className="divide-y divide-slate-700">
-              {visibleOrders.map((o) => {
-                const isPendingGuest = o.requestedVia === "GUEST" && o.status === "REQUESTED";
-                const terminal = o.status === "CANCELLED";
-                const optSummary = o.selectedOptions.map((s) => s.labelKo).join(", ");
-                const isOpen = expanded.has(o.id);
-                const att = orderAttention(o);
-                const vs = o.vendorId ? o.vendorStatus ?? "NONE" : null;
-                const issued = o.ticketUrls.length;
-                return (
+              {renderList.map((item) =>
+                item.kind === "header" ? (
+                  (() => {
+                    // 그룹 헤더 행(2건 이상) — 품목·총수량·이용일 / 합계·대표배지·처리필요·티켓 카운터 합.
+                    const g = item.g;
+                    const open = isGroupOpen(g);
+                    return (
+                      <li key={g.key} className="px-4 sm:px-6 bg-slate-800/30">
+                        <button
+                          type="button"
+                          onClick={() => toggleGroup(g.key)}
+                          aria-expanded={open}
+                          aria-label={open ? t("group.collapse") : t("group.expand")}
+                          className="w-full flex flex-wrap items-center gap-x-3 gap-y-1.5 py-4 text-left hover:opacity-90 transition"
+                        >
+                          <span
+                            className="material-symbols-outlined text-[20px] shrink-0 text-slate-300"
+                            aria-hidden="true"
+                          >
+                            {open ? "expand_less" : "expand_more"}
+                          </span>
+                          <div className="min-w-0 flex-1 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                            <span className="font-bold text-white break-words">{g.name}</span>
+                            <span className="text-xs text-slate-400 tabular-nums whitespace-nowrap">
+                              ×{g.totalQuantity}
+                            </span>
+                            {g.serviceDate && (
+                              <span className="text-xs text-slate-400 tabular-nums whitespace-nowrap">
+                                {g.serviceDate}
+                              </span>
+                            )}
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-700/50 text-slate-300 whitespace-nowrap tabular-nums">
+                              {t("group.lines", { n: g.orders.length })}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
+                            {(g.totalPriceKrw > 0 || g.totalPriceVnd !== "0") && (
+                              <span className="text-xs tabular-nums text-white font-semibold whitespace-nowrap">
+                                {g.totalPriceKrw > 0 ? `${formatThousands(g.totalPriceKrw)}원` : ""}
+                                {g.totalPriceKrw > 0 && g.totalPriceVnd !== "0" ? " · " : ""}
+                                {g.totalPriceVnd !== "0" ? (
+                                  <span className="text-slate-300 font-normal">
+                                    {formatThousands(g.totalPriceVnd)}₫
+                                  </span>
+                                ) : null}
+                              </span>
+                            )}
+                            <span
+                              className={`text-[11px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap ${STATUS_BADGE[g.representativeStatus]}`}
+                            >
+                              {t(`status.${g.representativeStatus}`)}
+                            </span>
+                            {g.attention.unresolvedProposal && (
+                              <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap bg-blue-500/15 text-blue-300">
+                                <span className="material-symbols-outlined text-[12px]">schedule</span>
+                                {t("proposalDue")}
+                              </span>
+                            )}
+                            {g.hasTicket && (
+                              <span
+                                className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap tabular-nums ${
+                                  g.attention.ticketShort
+                                    ? "bg-amber-500/15 text-amber-300"
+                                    : "bg-emerald-500/15 text-emerald-300"
+                                }`}
+                              >
+                                <span className="material-symbols-outlined text-[12px]">confirmation_number</span>
+                                {t("tickets.counter", { issued: g.ticketIssued, needed: g.ticketNeeded })}
+                              </span>
+                            )}
+                            {g.attention.requested && (
+                              <span
+                                className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"
+                                aria-hidden="true"
+                                title={t("status.REQUESTED")}
+                              />
+                            )}
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })()
+                ) : (
+                  (() => {
+                    const o = item.o;
+                    const isPendingGuest = o.requestedVia === "GUEST" && o.status === "REQUESTED";
+                    const terminal = o.status === "CANCELLED";
+                    const optSummary = o.selectedOptions.map((s) => s.labelKo).join(", ");
+                    const isOpen = expanded.has(o.id);
+                    const att = orderAttention(o);
+                    const vs = o.vendorId ? o.vendorStatus ?? "NONE" : null;
+                    const issued = o.ticketUrls.length;
+                    return (
                   <li
                     key={o.id}
-                    className={`px-4 sm:px-6 ${
-                      isPendingGuest ? "bg-amber-500/5" : terminal ? "opacity-60" : ""
-                    }`}
+                    className={`${
+                      item.nested
+                        ? "pl-8 sm:pl-12 pr-4 sm:pr-6 border-l-2 border-slate-700/60 bg-slate-900/20"
+                        : "px-4 sm:px-6"
+                    } ${isPendingGuest ? "bg-amber-500/5" : terminal ? "opacity-60" : ""}`}
                   >
                     {/* 접힘 요약 행(토글) — 품목·구분·수량·이용일 / 판매가·출처·상태·발주·처리필요·티켓 */}
                     <button
@@ -598,8 +718,10 @@ export default function ServiceOrdersPanel({
                       </div>
                     )}
                   </li>
-                );
-              })}
+                    );
+                  })()
+                )
+              )}
             </ul>
           )}
         </>

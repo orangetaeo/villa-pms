@@ -295,6 +295,7 @@ export default async function BookingDetailPage({
   const serviceOrders: OrderRow[] = serviceOrdersRaw.map((o) => ({
     id: o.id,
     type: o.type,
+    catalogItemId: o.catalogItemId, // 품목 그룹핑 키(service-orders-panel groupAdminOrders)
     status: o.status,
     serviceDate: o.serviceDate ? o.serviceDate.toISOString().slice(0, 10) : null,
     serviceTime: o.serviceTime,
