@@ -1,8 +1,8 @@
 # 계약서: 관리자 수동 예약 생성 (admin-manual-booking)
 
-- 상태: 착수 (2026-07-12)
+- 상태: 완료 (2026-07-12) — QA PASS(9/9), 완료 기준 1~8 충족
 - 담당: BE + FE, QA 검증
-- 브랜치: wt/admin-manual-booking
+- 브랜치: worktree-admin-manual-booking
 
 ## 배경
 

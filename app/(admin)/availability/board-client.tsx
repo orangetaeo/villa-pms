@@ -98,6 +98,7 @@ export interface BoardStrings {
   popConflict: string;
   popError: string;
   popClose: string;
+  popCreateBooking: string; // 공실 셀 → 수동 예약 생성 링크
   icalTitle: string;
   icalDesc: string;
   icalInfo: string;
@@ -1257,6 +1258,16 @@ export default function AvailabilityBoardClient({
             </button>
           </div>
           <p className="mt-2.5 text-[10px] leading-relaxed text-slate-500">{s.popHint}</p>
+          {/* 공실(AVAILABLE) 셀 → 수동 예약 생성 프리필. 잠금(MANUAL)·예약·iCal 셀엔 미노출 */}
+          {pop.status === "AVAILABLE" && (
+            <Link
+              href={`/bookings/new?villaId=${pop.villaId}&checkIn=${pop.col.iso}`}
+              className="mt-2.5 flex items-center justify-center gap-1.5 rounded-lg border border-admin-primary/40 bg-admin-primary/10 py-2 text-sm font-bold text-admin-primary transition hover:bg-admin-primary/20"
+            >
+              <span className="material-symbols-outlined text-[16px]">event_available</span>
+              {s.popCreateBooking}
+            </Link>
+          )}
         </div>
       )}
 
