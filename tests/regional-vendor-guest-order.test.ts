@@ -10,6 +10,10 @@ const soCreate = vi.fn();
 const bookingFindUnique = vi.fn();
 const vsvFindUnique = vi.fn(); // villaServiceVendor — resolveOrderVendorId 조회
 const vendorFindUnique = vi.fn(); // serviceVendor — 오버라이드 시 재조회
+// ADR-0038 지역 커버리지 단계 ② — 수동 지정 없을 때 villa.complex 조회·지역 매칭. 이 스위트는
+//   수동 지정 경로가 대상이라 complex=null(지역 매칭 스킵)로 기본 세팅해 폴백 의미 보존.
+const villaFindUnique = vi.fn(async (..._a: unknown[]) => ({ complex: null }));
+const svrFindMany = vi.fn(async (..._a: unknown[]) => []);
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     guestCheckinToken: {
@@ -20,6 +24,8 @@ vi.mock("@/lib/prisma", () => ({
     serviceOrder: { create: (...a: unknown[]) => soCreate(...a) },
     booking: { findUnique: (...a: unknown[]) => bookingFindUnique(...a) },
     villaServiceVendor: { findUnique: (...a: unknown[]) => vsvFindUnique(...a) },
+    villa: { findUnique: (...a: unknown[]) => villaFindUnique(...a) },
+    serviceVendorRegion: { findMany: (...a: unknown[]) => svrFindMany(...a) },
     serviceVendor: { findUnique: (...a: unknown[]) => vendorFindUnique(...a) },
   },
 }));
