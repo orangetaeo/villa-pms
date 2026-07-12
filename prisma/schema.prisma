@@ -215,6 +215,7 @@ model Villa {
   bedroomDetails VillaBedroom[] // ② 침실별 잠자리 구성 (ADR-0011) — 기존 Int 컬럼 bedrooms와 별개
   features       VillaFeature[] // ⑤ 셀링포인트 태그 (ADR-0011, 사전 패턴)
   minibarStocks  VillaMinibarStock[] // #2c: 빌라별 미니바 비치수량 오버라이드 (가격은 회사표준 유지)
+  serviceVendors VillaServiceVendor[] // 빌라별 지역 지정 업체(마사지·이발 등 지역 분포 서비스) — ADR-0037
 
   @@index([supplierId])
   @@index([status, isSellable])
@@ -1063,9 +1064,26 @@ model ServiceVendor {
 
   catalogItems ServiceCatalogItem[]
   orders       ServiceOrder[]
+  villaAssignments VillaServiceVendor[] // 이 업체가 지역 담당으로 지정된 빌라들 (ADR-0037)
 
   @@index([active])
   @@index([approvalStatus])
+}
+
+// 빌라별 지역 지정 업체 (ADR-0037) — 마사지·이발처럼 지역 분포 업체는 빌라에서 가까운 샵으로 발주.
+//   주문 생성 시 REGIONAL_VENDOR_TYPES(lib/regional-vendor.ts)에 한해 이 매핑이 카탈로그 기본 벤더를 오버라이드.
+//   미지정 빌라·비지역 타입은 카탈로그 기본(item.vendorId) 폴백. 빌라·타입당 1업체.
+model VillaServiceVendor {
+  id          String        @id @default(cuid())
+  villaId     String
+  villa       Villa         @relation(fields: [villaId], references: [id], onDelete: Cascade)
+  serviceType ServiceType
+  vendorId    String
+  vendor      ServiceVendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+
+  @@unique([villaId, serviceType])
+  @@index([vendorId])
 }
 
 // 부가서비스 판매 카탈로그(주문형) — 회사 공통 1세트(미니바와 동형, villaId 없음). ADR-0019 §4.2.

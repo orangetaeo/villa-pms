@@ -17,6 +17,7 @@ import {
 } from "@/lib/service-catalog";
 import { priceKrwCeil } from "@/lib/service-display";
 import { getFxVndPerKrw } from "@/lib/pricing";
+import { resolveOrderVendorId } from "@/lib/regional-vendor";
 import type { Prisma } from "@prisma/client";
 
 const createSchema = z.object({
@@ -101,7 +102,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
   }
 
-  const booking = await prisma.booking.findUnique({ where: { id }, select: { id: true, status: true } });
+  const booking = await prisma.booking.findUnique({ where: { id }, select: { id: true, status: true, villaId: true } });
   if (!booking) return NextResponse.json({ error: "BOOKING_NOT_FOUND" }, { status: 404 });
   // 종결(취소·만료·노쇼)된 예약엔 주문 추가 불가 — 죽은 예약의 서비스 진행 방지 (A5)
   if (["CANCELLED", "EXPIRED", "NO_SHOW"].includes(booking.status)) {
@@ -137,6 +138,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const fx = await getFxVndPerKrw(prisma);
   const priceKrw = fx ? priceKrwCeil(pricing.totalPriceVnd, fx) : 0;
 
+  // ★지역 벤더 해석(ADR-0037) — MASSAGE·BARBER는 이 빌라의 지정 업체로 오버라이드, 그 외/미지정은 카탈로그 기본.
+  const resolvedVendorId = await resolveOrderVendorId({
+    itemType: item.type,
+    itemVendorId: item.vendorId,
+    villaId: booking.villaId,
+  });
+
   const created = await prisma.serviceOrder.create({
     data: {
       bookingId: id,
@@ -149,7 +157,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       priceKrw,
       priceVnd: pricing.totalPriceVnd,
       catalogItemId: item.id,
-      vendorId: item.vendorId, // 원천 공급자 스냅샷 — 운영자 발주(dispatch) 대상 (ADR-0023 §4.3)
+      vendorId: resolvedVendorId, // 원천 공급자 스냅샷 — 지역 지정 업체 해석 결과 (ADR-0037·ADR-0023 §4.3)
       quantity: pricing.quantity,
       selectedOptions: pricing.snapshot as unknown as Prisma.InputJsonValue,
       requestedVia: "ADMIN",

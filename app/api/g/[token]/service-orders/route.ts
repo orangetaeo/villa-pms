@@ -19,6 +19,7 @@ import { parseUtcDateOnly } from "@/lib/date-vn";
 import type { Prisma } from "@prisma/client";
 import { notifyOperatorsServiceOrderRequested } from "@/lib/consumer-signal-notify";
 import { sendVendorPoNotifications } from "@/lib/vendor-dispatch";
+import { resolveOrderVendorId } from "@/lib/regional-vendor";
 import { guestsFromPassportOcr, ticketGuestKey } from "@/lib/ticket-guests";
 
 const schema = z.object({
@@ -138,20 +139,43 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   const fx = await getFxVndPerKrw(prisma);
   const priceKrw = fx ? priceKrwCeil(pricing.totalPriceVnd, fx) : 0;
 
-  // ★자동 발주 조건 — 벤더 배정 + 승인(APPROVED) + 활성(active). 하나라도 아니면 REQUESTED만(수동 폴백).
-  const vendor = item.vendor;
-  const autoDispatch =
-    !!item.vendorId && vendor?.approvalStatus === "APPROVED" && vendor?.active === true;
-  const now = new Date();
-
-  // 빌라 정보(운영자 A1 통지 + 벤더 발주 통보 공용) + 예약 대표자 이름(이용자 이름 폴백).
-  //   ★create 이전에 조회 — 이용자 이름 폴백(guestName)이 create data에 들어가야 하므로. best-effort.
+  // 빌라 정보(운영자 A1 통지 + 벤더 발주 통보 공용) + 예약 대표자 이름(이용자 이름 폴백) + villaId(지역 벤더 해석).
+  //   ★create 이전에 조회 — 이용자 이름 폴백(guestName)·지역 벤더 해석이 create data에 들어가야 하므로. best-effort.
   const bookingInfo = await prisma.booking.findUnique({
     where: { id: t.bookingId },
-    select: { guestName: true, villa: { select: { name: true, address: true } } },
+    select: { guestName: true, villa: { select: { id: true, name: true, address: true } } },
   });
   // ★이용자 이름 — 게스트 입력값(trim) 우선, 없으면 예약 대표자(guestName) 폴백. 항상 값이 차도록.
   const customerName = (d.customerName?.trim() || null) ?? bookingInfo?.guestName ?? null;
+
+  // ★지역 벤더 해석(ADR-0037) — MASSAGE·BARBER는 이 빌라의 지정 업체로 오버라이드, 그 외/미지정은 카탈로그 기본(item.vendorId).
+  const resolvedVendorId = await resolveOrderVendorId({
+    itemType: item.type,
+    itemVendorId: item.vendorId,
+    villaId: bookingInfo?.villa.id ?? null,
+  });
+
+  // ★자동 발주 판정 대상 벤더 — 카탈로그 기본과 다른 업체로 오버라이드됐으면, 그 업체 엔티티를 같은 select로
+  //   재조회해 승인·활성·Zalo 판정과 발송 대상을 함께 교체한다(item.vendor는 카탈로그 기본이라 잘못된 대상).
+  let dispatchVendor = item.vendor;
+  if (resolvedVendorId && resolvedVendorId !== item.vendorId) {
+    dispatchVendor = await prisma.serviceVendor.findUnique({
+      where: { id: resolvedVendorId },
+      // ★ bankInfo·마진 미select(누수 0) — 자동 발주 판정·통보에 필요한 최소 필드만.
+      select: {
+        id: true,
+        userId: true,
+        approvalStatus: true,
+        active: true,
+        user: { select: { zaloUserId: true, locale: true } },
+      },
+    });
+  }
+
+  // ★자동 발주 조건 — 해석된 벤더 배정 + 승인(APPROVED) + 활성(active). 하나라도 아니면 REQUESTED만(수동 폴백).
+  const autoDispatch =
+    !!resolvedVendorId && dispatchVendor?.approvalStatus === "APPROVED" && dispatchVendor?.active === true;
+  const now = new Date();
 
   const created = await prisma.serviceOrder.create({
     data: {
@@ -164,7 +188,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       priceKrw,
       priceVnd: pricing.totalPriceVnd,
       catalogItemId: item.id,
-      vendorId: item.vendorId, // 원천 공급자 스냅샷 (ADR-0023 §4.3)
+      vendorId: resolvedVendorId, // 원천 공급자 스냅샷 — 지역 지정 업체 해석 결과 (ADR-0037·ADR-0023 §4.3)
       quantity: pricing.quantity,
       selectedOptions: pricing.snapshot as unknown as Prisma.InputJsonValue,
       requestedVia: "GUEST",
@@ -202,7 +226,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   // ★자동 발주 통보 — 벤더 Zalo(연결 시) + 인앱. costVnd=0이므로 payload costVnd=null(미확정).
   if (autoDispatch) {
     await sendVendorPoNotifications({
-      vendor,
+      vendor: dispatchVendor,
       villaName: bookingInfo?.villa.name ?? null,
       villaAddress: bookingInfo?.villa.address ?? null,
       serviceDate,
