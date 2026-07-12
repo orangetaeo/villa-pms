@@ -254,6 +254,7 @@ export default async function AvailabilityPage({
     popConflict: t("popover.conflict"),
     popError: t("popover.error"),
     popClose: t("popover.close"),
+    popCreateBooking: t("popover.createBooking"),
     icalTitle: t("icalPopover.title"),
     icalDesc: t("icalPopover.desc"),
     icalInfo: t("icalPopover.info"),
