@@ -132,6 +132,38 @@ describe("벤더 티켓 발행 POST", () => {
     expect(writeAuditLog).toHaveBeenCalled();
   });
 
+  it("requestedVia=ADMIN 티켓 발행 완료 → 수락+CONFIRMED+완료 동시(requestedVia 무관, ADR-0034 §3-4)", async () => {
+    soFindUnique.mockResolvedValue({ ...baseTicketOrder, requestedVia: "ADMIN" });
+    const res = await VENDOR_POST(formReq(), P("so-1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.vendorStatus).toBe("VENDOR_ACCEPTED");
+    expect(body.status).toBe("CONFIRMED");
+    const call = soUpdateMany.mock.calls[0][0] as { where: Record<string, unknown>; data: Record<string, unknown> };
+    // 운영자 발주라도 status=REQUESTED 가드 + CONFIRMED 전이(원자)
+    expect(call.where.vendorStatus).toBe("PENDING_VENDOR");
+    expect(call.where.status).toBe("REQUESTED");
+    expect(call.data.vendorStatus).toBe("VENDOR_ACCEPTED");
+    expect(call.data.status).toBe("CONFIRMED");
+    expect(call.data.vendorCompletedAt).toBeInstanceOf(Date);
+    expect(body.vendorCompletedAt).toBeTruthy();
+    expect(sendVendorResponseOperatorNotifications).toHaveBeenCalledOnce();
+  });
+
+  it("requestedVia=PARTNER 티켓 발행 완료 → 수락+CONFIRMED+완료 동시", async () => {
+    soFindUnique.mockResolvedValue({ ...baseTicketOrder, requestedVia: "PARTNER" });
+    const res = await VENDOR_POST(formReq(), P("so-1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.vendorStatus).toBe("VENDOR_ACCEPTED");
+    expect(body.status).toBe("CONFIRMED");
+    const call = soUpdateMany.mock.calls[0][0] as { where: Record<string, unknown>; data: Record<string, unknown> };
+    expect(call.where.status).toBe("REQUESTED");
+    expect(call.data.status).toBe("CONFIRMED");
+    expect(call.data.vendorCompletedAt).toBeInstanceOf(Date);
+    expect(sendVendorResponseOperatorNotifications).toHaveBeenCalledOnce();
+  });
+
   it("완료 게이트: 2장 주문에 1장만 발행 → PENDING 유지·전이 미발생·통보 미발송(발주함 잔류)", async () => {
     soFindUnique.mockResolvedValue({ ...baseTicketOrder }); // quantity 2, ticketUrls []
     saveTicketFiles.mockResolvedValue({ ok: true, urls: ["/u/a.jpg"] }); // 1장만

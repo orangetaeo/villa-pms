@@ -54,6 +54,10 @@
 
 **삭제 시 대칭 해제**: 첨부 실수 정정(삭제 후 재등록)을 위해, DELETE로 `newUrls.length < quantity`가 되고 `vendorCompletedAt`이 있으면 같은 갱신에서 `vendorCompletedAt=null`로 해제한다(정정 구간 동안 "완료" 오표시 방지). 재등록으로 다시 충족되면 POST 경로에서 재완료된다. 수락 상태(`VENDOR_ACCEPTED`)는 해제하지 않는다(un-accept 없음 — 현행). 초과분 삭제로도 여전히 수량이 충족되면 완료는 유지된다. DELETE의 closed 가드(CANCELLED/DELIVERED 409)는 현행이며, `vendorCompletedAt`이 세팅돼 있어도 `status`는 CONFIRMED이므로 정정 삭제는 열려 있다. 운영자 대리 첨부(`/api/service-orders/[id]/tickets`)는 완료 자동화도 미적용(상태·완료 불변 — 현행). 벤더 보드의 완료 칩·완료보고 버튼은 기존 `vendorCompletedAt` 조건 그대로라 자동으로 반영된다(로직 무변경).
 
+### 3-4. (개정 2026-07-12) 수락 = 확정 (전 발주 주체)
+
+TICKET 주문은 **수락 시 `requestedVia`와 무관하게 자동 `CONFIRMED`**로 전이한다(테오). 배경: 운영자 생성 티켓 주문이 발행 완료(예: 2/2)돼도 `status=REQUESTED`로 잔류해 "발행됐으면 이미 확정 아니냐"는 업무 인식 불일치가 발생. 근거는 티켓 variant 가격이 사전 확정(카탈로그 스냅샷)이라 기존 자동 확정(ADR-0033)이 GUEST에만 국한한 **운영자 가격 검토 단계가 TICKET에는 무의미**하다는 것. 적용 지점 두 곳: (1) 발행=수락 겸행 라우트(`/api/vendor/orders/[id]/tickets`, TICKET 전용) — autoConfirm 조건에서 `requestedVia=GUEST` 제거, `accept && status=REQUESTED`로 판정(수량 충족 발행 시). (2) 수동 수락 라우트(`/api/vendor/orders/[id]/respond`) — `action=accept && status=REQUESTED && (requestedVia=GUEST || type=TICKET)`. 두 경로 모두 원자 `updateMany` where에 `status=REQUESTED`를 넣어 운영자 동시 취소 레이스를 차단하는 기존 패턴을 유지하고, 확정 통보는 별도 추가 없이 기존 수락 통보와 동일 취급한다. 비TICKET 파트너/운영자 발주는 현행(REQUESTED 잔류)이며, 기존 잔류 데이터(REQUESTED+발행 완료)는 소급하지 않는다(코드만 — 운영자 수동 확정 가능).
+
 ## 누수 경계
 
 - 벤더 응답(`/api/vendor/orders`·업로드 응답)·게스트 응답에 판매가·마진·costVnd·bankInfo **신규 노출 없음**.

@@ -3,7 +3,7 @@
 //     multipart(files 다중 이미지) → 검증·저장 → ticketUrls append + ticketsIssuedAt(최초).
 //     ★발행=수락 겸행(완료 게이트, ADR-0034 개정): PENDING_VENDOR이고 업로드 반영 후 발행 수량이
 //       주문 수량 이상일 때만 VENDOR_ACCEPTED로 원자 전이(updateMany 가드) +
-//       (requestedVia=GUEST·REQUESTED면 ADR-0033 규칙대로 status=CONFIRMED) + 운영자 통보.
+//       (status=REQUESTED면 ADR-0034 §3-4대로 requestedVia 무관 status=CONFIRMED) + 운영자 통보.
 //       미달 업로드는 ticketUrls만 추가(PENDING_VENDOR 유지·통보 없음). 부족 발행 수동 수락=respond accept.
 //     ★발행=완료(ADR-0034 §3-3): 업로드 반영 후 수량 충족이고 vendorCompletedAt 미기록이면 자동 세팅
 //       (수락 전이와 동시든, 이미 수락된 주문의 추가 발행이든 동일). 별도 완료 통보는 없음(수락 통보로 충분).
@@ -51,7 +51,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       id: true,
       type: true,
       status: true,
-      requestedVia: true,
       bookingId: true,
       vendorId: true,
       vendorStatus: true,
@@ -99,9 +98,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const wasPending = order.vendorStatus === "PENDING_VENDOR";
   const meetsQuantity = newUrls.length >= order.quantity;
   const accept = wasPending && meetsQuantity;
-  // 게스트 직접 발주(REQUESTED)면 CONFIRMED도 겸행 — 수락 전이가 실제로 일어날 때만.
-  const autoConfirm =
-    accept && order.requestedVia === "GUEST" && order.status === "REQUESTED";
+  // ★TICKET은 수락 시 requestedVia 무관 자동 확정(ADR-0034 §3-4) — variant 가격이 사전 확정이라
+  //   운영자 가격 검토 단계가 무의미. 이 라우트는 TICKET 전용(위 가드)이므로 주체와 무관하게,
+  //   수락 전이가 실제로 일어나고(accept) status=REQUESTED일 때만 CONFIRMED 겸행.
+  const autoConfirm = accept && order.status === "REQUESTED";
   // ★발행=완료(ADR-0034 §3-3): 업로드 반영 후 수량 충족이고 아직 완료 미기록이면 vendorCompletedAt 자동 세팅.
   //   수락 전이(accept)와 동시 발동(신규 수락)이든, 이미 VENDOR_ACCEPTED인 주문의 추가 발행으로
   //   충족되는 케이스든 동일 — 전이 여부와 무관하게 완료 필드만 조건부로 추가한다(상태 불변 경로에도 적용).
