@@ -465,15 +465,25 @@ export default async function BookingsPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-white">{t("list.title")}</h1>
-        <Link
-          href="/bookings/checkin-sheet"
-          // 코치마크 앵커 — 필터 스텝을 화면 고유 기능(체크인 시트 출력)으로 교체(T-7)
-          data-tour="bookings-sheet"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-admin-primary text-white text-sm font-bold hover:opacity-90 active:scale-[0.98] transition-all"
-        >
-          <span className="material-symbols-outlined text-base">print</span>
-          {ts("entryButton")}
-        </Link>
+        <div className="flex items-center gap-2">
+          {/* 새 예약 — 운영자 수동 예약 생성(전화·Zalo 직접 접수) */}
+          <Link
+            href="/bookings/new"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-admin-primary text-white text-sm font-bold hover:opacity-90 active:scale-[0.98] transition-all"
+          >
+            <span className="material-symbols-outlined text-base">add</span>
+            {t("list.newBooking")}
+          </Link>
+          <Link
+            href="/bookings/checkin-sheet"
+            // 코치마크 앵커 — 필터 스텝을 화면 고유 기능(체크인 시트 출력)으로 교체(T-7)
+            data-tour="bookings-sheet"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-700 text-slate-200 text-sm font-bold hover:bg-slate-800 active:scale-[0.98] transition-all"
+          >
+            <span className="material-symbols-outlined text-base">print</span>
+            {ts("entryButton")}
+          </Link>
+        </div>
       </div>
 
       {/* 상태 필터 카드 그리드 (대시보드 스타일) — 검색 상단에 개수 배지 카드로 표시 */}
