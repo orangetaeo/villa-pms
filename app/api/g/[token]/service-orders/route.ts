@@ -19,6 +19,7 @@ import { parseUtcDateOnly } from "@/lib/date-vn";
 import type { Prisma } from "@prisma/client";
 import { notifyOperatorsServiceOrderRequested } from "@/lib/consumer-signal-notify";
 import { sendVendorPoNotifications } from "@/lib/vendor-dispatch";
+import { guestsFromPassportOcr, ticketGuestKey } from "@/lib/ticket-guests";
 
 const schema = z.object({
   catalogItemId: z.string().min(1).max(40),
@@ -26,12 +27,18 @@ const schema = z.object({
   addonKeys: z.array(z.string().max(40)).max(60).optional(),
   modifierKeys: z.array(z.string().max(40)).max(40).optional(),
   quantity: z.number().int().min(1).max(99),
-  // 게스트 신청은 희망 날짜·시간 필수 — 배송/예약 시간대 확정용(미입력 저장 방지)
+  // 게스트 신청은 희망 날짜 필수. 시간은 optional(품목 type 기준 서버 재검증) — TICKET은 이용일만(테오 2026-07-12).
   serviceDate: z.string().min(1),
-  serviceTime: z.string().regex(/^\d{2}:\d{2}$/),
+  serviceTime: z.string().regex(/^\d{2}:\d{2}$/).optional().nullable(),
   guestNote: z.string().max(500).optional().nullable(),
   // ★이용자 이름 — 서비스 받으실 분(예약 대표자와 다를 수 있음). 빈값이면 서버가 대표자(guestName) 폴백.
   customerName: z.string().max(80).optional().nullable(),
+  // TICKET 이용자 선택 스냅샷(ADR-0036) — 소비자가 체크인 명단에서 고른 이용자(이름·생년월일만).
+  //   name은 OCR 미인식 시 null 가능. 서버가 체크인 확정본과 대조 검증(주입 방지). 최대 99인.
+  ticketGuests: z
+    .array(z.object({ name: z.string().max(120).nullable(), birthDate: z.string().max(20).nullable() }))
+    .max(99)
+    .optional(),
 });
 
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
@@ -87,6 +94,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     return NextResponse.json({ error: "CATALOG_ITEM_NOT_FOUND" }, { status: 404 });
   }
 
+  // 시간 정책(테오 2026-07-12) — 비TICKET은 희망 시간 필수(기존 계약 유지). TICKET은 이용일만(시간 null 허용·저장).
+  if (item.type !== "TICKET" && !d.serviceTime) {
+    return NextResponse.json({ error: "SERVICE_TIME_REQUIRED" }, { status: 400 });
+  }
+
   let pricing;
   try {
     pricing = resolveOrderPricing(
@@ -99,6 +111,27 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       return NextResponse.json({ error: "INVALID_SELECTION", code: e.code }, { status: 400 });
     }
     throw e;
+  }
+
+  // ── TICKET 이용자 선택 스냅샷(ADR-0036) — TICKET 품목 + 제공 + 비어있지 않을 때만 검증·저장.
+  //   비TICKET 품목에 온 ticketGuests는 무시(저장 안 함) — 잘못된 클라 입력에 관용.
+  let ticketGuestsSnapshot: Prisma.InputJsonValue | undefined;
+  if (item.type === "TICKET" && d.ticketGuests && d.ticketGuests.length > 0) {
+    // 수량 일치 강제 — 선택 인원 수 = 발권 수량(quantity).
+    if (d.ticketGuests.length !== pricing.quantity) {
+      return NextResponse.json({ error: "TICKET_GUEST_COUNT_MISMATCH" }, { status: 400 });
+    }
+    // PII 주입 방지 — 각 원소가 체크인 확정본(passportOcrJson) 명단에 정확히 존재해야 함(name+birthDate 쌍).
+    const ci = await prisma.checkInRecord.findUnique({
+      where: { bookingId: t.bookingId },
+      select: { passportOcrJson: true },
+    });
+    const confirmedKeys = new Set(guestsFromPassportOcr(ci?.passportOcrJson).map(ticketGuestKey));
+    const clean = d.ticketGuests.map((g) => ({ name: g.name ?? null, birthDate: g.birthDate ?? null }));
+    if (!clean.every((g) => confirmedKeys.has(ticketGuestKey(g)))) {
+      return NextResponse.json({ error: "TICKET_GUEST_MISMATCH" }, { status: 400 });
+    }
+    ticketGuestsSnapshot = clean as unknown as Prisma.InputJsonValue;
   }
 
   // KRW 스냅샷 — 현재 환율로 VND→KRW 올림(미설정이면 0). VND가 진실원천.
@@ -137,6 +170,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       requestedVia: "GUEST",
       guestNote: d.guestNote ?? null,
       customerName, // ★이용자 이름 스냅샷(입력 또는 대표자 폴백) — 벤더 발주 문구·보드 노출용
+      // TICKET 이용자 선택 스냅샷(이름·생년월일만) — 벤더 보드 표시용(ADR-0036). 미선택·비TICKET이면 미저장(null).
+      ...(ticketGuestsSnapshot ? { ticketGuests: ticketGuestsSnapshot } : {}),
 
       // ★자동 발주 — 생성 시점이라 동시성 가드 불필요(신규 행). 벤더가 /vendor에서 수락하면 자동 확정.
       ...(autoDispatch ? { vendorStatus: "PENDING_VENDOR" as const, poSentAt: now } : {}),

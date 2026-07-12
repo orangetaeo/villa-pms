@@ -435,7 +435,9 @@
       "errTooMany": "Chỉ có thể phát tối đa 30 vé.",
       "errType": "Chỉ chấp nhận tệp hình ảnh.",
       "errSize": "Kích thước tệp tối đa 5MB.",
-      "errNoFiles": "Vui lòng chọn tệp."
+      "errNoFiles": "Vui lòng chọn tệp.",
+      "passportTitle": "Thông tin hộ chiếu khách",
+      "passportEmpty": "Sẽ hiển thị sau khi khách check-in và đăng ký hộ chiếu"
     },
     "propose": {
       "button": "Đề xuất giờ",
@@ -2678,6 +2680,7 @@
       "title": "Vé QR",
       "counter": "{issued}/{needed} vé",
       "none": "Chưa có vé",
+      "guestsTitle": "Người dùng đã chọn",
       "view": "Xem bản gốc",
       "upload": "Đính kèm vé",
       "uploading": "Đang tải lên…",

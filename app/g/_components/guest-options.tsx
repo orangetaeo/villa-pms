@@ -26,11 +26,11 @@ function isoToDateInput(iso: string): string {
 }
 
 function emptySelection(variantKey: string | null): CardSelection {
-  return { variantKey, addonKeys: [], modifierKeys: [], quantity: 0, serviceDate: null, serviceTime: null, guestNote: null };
+  return { variantKey, addonKeys: [], modifierKeys: [], quantity: 0, serviceDate: null, serviceTime: null, guestNote: null, ticketGuestIdxs: [] };
 }
 
 export default function GuestOptions(props: GuestOptionsProps) {
-  const { token, lang, booking, catalog, convert } = props;
+  const { token, lang, booking, catalog, convert, checkedInGuests } = props;
   const L = GUEST_LABELS[lang];
   const router = useRouter();
   const suffix = lang === "ko" ? "" : `?lang=${lang}`;
@@ -82,10 +82,12 @@ export default function GuestOptions(props: GuestOptionsProps) {
   }, [catalog, selections, cardOptions]);
 
   const anySelected = catalog.some((c) => (selections[c.id]?.quantity ?? 0) > 0);
-  // 선택한 항목은 희망 날짜·시간 필수 — 미입력 시 신청 차단(#1). 서버도 동일 검증.
+  // 선택한 항목은 희망 날짜 필수. 시간은 TICKET 제외 필수(TICKET은 이용일만, 테오 2026-07-12). 서버도 동일 검증.
   const missingDateTime = catalog.some((c) => {
     const sel = selections[c.id];
-    return !!sel && sel.quantity > 0 && (!sel.serviceDate || !sel.serviceTime);
+    if (!sel || sel.quantity <= 0) return false;
+    if (!sel.serviceDate) return true;
+    return c.type !== "TICKET" && !sel.serviceTime;
   });
   const canSubmit = anySelected && !missingDateTime;
   // 합계는 항상 VND 기본. convert 있으면 하단에 "오늘 환율 기준" 모국통화 환산 보조 표기.
@@ -104,6 +106,12 @@ export default function GuestOptions(props: GuestOptionsProps) {
     try {
       for (const c of chosen) {
         const sel = selections[c.id];
+        // TICKET 이용자 선택(ADR-0036) — 선택 인덱스를 {name,birthDate} 스냅샷으로 해석해 전송.
+        //   체크인 명단이 있고 선택이 있을 때만. 서버가 확정본과 대조 검증(불일치 400).
+        const ticketGuests =
+          c.type === "TICKET" && checkedInGuests.length > 0 && sel.ticketGuestIdxs.length > 0
+            ? sel.ticketGuestIdxs.map((i) => checkedInGuests[i]).filter(Boolean)
+            : undefined;
         const res = await fetch(`/api/g/${token}/service-orders`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -114,10 +122,13 @@ export default function GuestOptions(props: GuestOptionsProps) {
             modifierKeys: sel.modifierKeys,
             quantity: sel.quantity,
             serviceDate: sel.serviceDate ?? undefined,
-            serviceTime: sel.serviceTime ?? undefined,
+            // TICKET은 시간 미포함(이용일만). 그 외는 희망 시간 전송.
+            serviceTime: c.type === "TICKET" ? undefined : sel.serviceTime ?? undefined,
             guestNote: sel.guestNote ?? undefined,
             // ★이용자 이름 — 묶음 공통 1값(빈값이면 서버가 예약 대표자 폴백)
             customerName: customerName.trim() || undefined,
+            // TICKET 이용자 선택 스냅샷(이름·생년월일만) — 있을 때만
+            ...(ticketGuests ? { ticketGuests } : {}),
           }),
         });
         if (!res.ok) throw new Error(`HTTP_${res.status}`);
@@ -167,6 +178,7 @@ export default function GuestOptions(props: GuestOptionsProps) {
               badgeText={typeBadgeLabel(c.type)}
               dateMin={dateMin}
               dateMax={dateMax}
+              checkedInGuests={checkedInGuests}
             />
           ))
         )}

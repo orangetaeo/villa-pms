@@ -28,6 +28,9 @@ export interface CardSelection {
   serviceTime: string | null;
   /** 요청사항(선택, 최대 500자). 이행자에게 전달되는 게스트 특이사항. 미입력이면 null. */
   guestNote: string | null;
+  /** TICKET 이용자 선택 — checkedInGuests 인덱스 목록(ADR-0036). 선택 수 = quantity 동기화.
+   *   빈 명단(체크인 전)이면 사용 안 함(기존 수량 스테퍼). 제출 시 인덱스→{name,birthDate} 해석. */
+  ticketGuestIdxs: number[];
 }
 
 const NOTE_MAX = 500;
@@ -45,6 +48,13 @@ const TYPE_BADGE: Record<string, string> = {
 
 const toVndStr = (v: bigint | null): string | null => (v == null ? null : v.toString());
 
+/** 여권 생년월일 "YYYY-MM-DD" → "dd/MM/yyyy" 단순 재배치(타임존 변환 금지). null·불량이면 "—"·원문. */
+function formatBirthDate(raw: string | null): string {
+  if (!raw) return "—";
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : raw;
+}
+
 export function OptionCard({
   item,
   labels,
@@ -53,6 +63,7 @@ export function OptionCard({
   badgeText,
   dateMin,
   dateMax,
+  checkedInGuests,
 }: {
   item: GuestCatalogView;
   labels: GuestLabels["addons"];
@@ -62,6 +73,8 @@ export function OptionCard({
   /** 희망 날짜 입력 가능 범위(YYYY-MM-DD) — 투숙 체크인~체크아웃. (#3) */
   dateMin: string;
   dateMax: string;
+  /** 체크인된 투숙객 명단(TICKET 이용자 선택용, ADR-0036). 빈 배열이면 기존 수량 스테퍼. */
+  checkedInGuests: { name: string | null; birthDate: string | null }[];
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -126,6 +139,20 @@ export function OptionCard({
         ? selection.modifierKeys.filter((k) => k !== key)
         : [...selection.modifierKeys, key],
     });
+  };
+
+  // TICKET 이용자 선택(ADR-0036) — 체크인 명단이 있으면 수량 스테퍼 대신 인원 체크박스.
+  //   선택 수 = quantity 동기화(같이 갱신). 명단 비면 기존 스테퍼 유지.
+  const isTicketWithGuests = item.type === "TICKET" && checkedInGuests.length > 0;
+  // TICKET은 이용일(날짜)만 받고 시간은 불요(테오 2026-07-12) — 오전/오후/야간 구분은 카탈로그 variant로.
+  //   그 외 서비스는 날짜+시간 둘 다 필수(현행).
+  const hideTime = item.type === "TICKET";
+  const toggleTicketGuest = (idx: number) => {
+    const has = selection.ticketGuestIdxs.includes(idx);
+    const next = has
+      ? selection.ticketGuestIdxs.filter((i) => i !== idx)
+      : [...selection.ticketGuestIdxs, idx];
+    onChange({ ...selection, ticketGuestIdxs: next, quantity: next.length });
   };
 
   const badgeCls = TYPE_BADGE[item.type] ?? "bg-slate-100 text-slate-500";
@@ -271,6 +298,43 @@ export function OptionCard({
           </label>
         ))}
 
+        {/* TICKET 이용자 선택(ADR-0036) — 체크인 명단에서 선택. 선택 수 = 수량. 명단 비면 이 블록 없음(기존 스테퍼). */}
+        {isTicketWithGuests && (
+          <div className="space-y-1.5 rounded-xl border border-sky-100 bg-sky-50/50 p-3">
+            <p className="flex items-center gap-1 text-[11px] font-bold text-sky-700">
+              <span className="material-symbols-outlined text-[15px]">confirmation_number</span>
+              {labels.ticketGuestTitle}
+            </p>
+            <p className="text-[11px] text-slate-500 leading-snug">{labels.ticketGuestHint}</p>
+            <div className="space-y-1 pt-0.5">
+              {checkedInGuests.map((g, idx) => {
+                const on = selection.ticketGuestIdxs.includes(idx);
+                return (
+                  <label
+                    key={idx}
+                    className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer ${
+                      on ? "border-sky-400 bg-white" : "border-slate-200 bg-white"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() => toggleTicketGuest(idx)}
+                      className="w-5 h-5 rounded border-slate-300 text-sky-600 focus:ring-sky-500 shrink-0"
+                    />
+                    <span className="min-w-0 flex items-center gap-2">
+                      <span className="text-sm font-semibold text-slate-800 truncate">{g.name ?? "—"}</span>
+                      <span className="text-[11px] tabular-nums text-slate-400 shrink-0">
+                        {formatBirthDate(g.birthDate)}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* 희망 날짜·시간 (#3) — 수량 선택 시 노출. 필수(미입력 시 신청 차단). */}
         {active && (
           <>
@@ -286,7 +350,7 @@ export function OptionCard({
               </span>
               <p className="text-[11px] leading-snug">{fulfillNote}</p>
             </div>
-            <div className="grid grid-cols-2 gap-2 pt-1">
+            <div className={hideTime ? "pt-1" : "grid grid-cols-2 gap-2 pt-1"}>
             <div>
               <label className="text-[11px] font-bold text-slate-500 mb-1 block">
                 {labels.serviceDateLabel} <span className="text-rose-500">*</span>
@@ -303,19 +367,22 @@ export function OptionCard({
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:ring-teal-500 focus:border-teal-500"
               />
             </div>
-            <div>
-              <label className="text-[11px] font-bold text-slate-500 mb-1 block">
-                {labels.serviceTimeLabel} <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="time"
-                aria-label={labels.serviceTimeLabel}
-                title={labels.serviceTimeLabel}
-                value={selection.serviceTime ?? ""}
-                onChange={(e) => onChange({ ...selection, serviceTime: e.target.value || null })}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:ring-teal-500 focus:border-teal-500"
-              />
-            </div>
+            {/* TICKET은 시간 입력 없음(날짜만) — 오전/오후/야간은 카탈로그 variant로 구분(테오 2026-07-12) */}
+            {!hideTime && (
+              <div>
+                <label className="text-[11px] font-bold text-slate-500 mb-1 block">
+                  {labels.serviceTimeLabel} <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="time"
+                  aria-label={labels.serviceTimeLabel}
+                  title={labels.serviceTimeLabel}
+                  value={selection.serviceTime ?? ""}
+                  onChange={(e) => onChange({ ...selection, serviceTime: e.target.value || null })}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 focus:ring-teal-500 focus:border-teal-500"
+                />
+              </div>
+            )}
             </div>
             {/* 요청사항(선택) — 게스트 특이사항을 이행자(원천 공급자)에게 전달. 최대 500자. */}
             <div className="pt-1">
@@ -337,7 +404,7 @@ export function OptionCard({
           </>
         )}
 
-        {/* 가격 + 수량 스테퍼 */}
+        {/* 가격 + 수량 스테퍼. TICKET 이용자 선택 모드에선 수량이 선택 인원으로 결정되므로 스테퍼 대신 선택 수 표기. */}
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-baseline gap-1">
             <span className="text-lg font-extrabold text-slate-900 tabular-nums">{previewStr}</span>
@@ -345,23 +412,29 @@ export function OptionCard({
               <span className="text-xs text-slate-400">{labels.perUnit(item.unitLabel)}</span>
             )}
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setQty(-1)}
-              className="w-9 h-9 rounded-full border border-slate-200 text-slate-400 flex items-center justify-center text-lg active:scale-95"
-            >
-              −
-            </button>
-            <span className="w-5 text-center font-bold tabular-nums">{selection.quantity}</span>
-            <button
-              type="button"
-              onClick={() => setQty(1)}
-              className="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center text-lg active:scale-95"
-            >
-              +
-            </button>
-          </div>
+          {isTicketWithGuests ? (
+            <span className="text-sm font-bold text-sky-700 tabular-nums">
+              {labels.selectedCount(selection.quantity)}
+            </span>
+          ) : (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setQty(-1)}
+                className="w-9 h-9 rounded-full border border-slate-200 text-slate-400 flex items-center justify-center text-lg active:scale-95"
+              >
+                −
+              </button>
+              <span className="w-5 text-center font-bold tabular-nums">{selection.quantity}</span>
+              <button
+                type="button"
+                onClick={() => setQty(1)}
+                className="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center text-lg active:scale-95"
+              >
+                +
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

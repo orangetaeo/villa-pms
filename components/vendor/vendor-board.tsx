@@ -35,6 +35,9 @@ type VendorOrder = {
   optionLabel: string | null; // 선택 코스/옵션(가격 제거) — "오일 마사지 90분" 등
   type: string | null;
   ticketUrls: string[]; // 티켓형(TICKET) 발행 이미지 URL — 발행 현황·삭제용(판매가 무관)
+  // TICKET 전용 — 투숙객 여권(이름·생년월일)만. 연령 구분 티켓 발행용(ADR-0036). ★그 외 여권 필드 없음(서버 화이트리스트).
+  //   비TICKET 응답엔 키 자체가 없음(optional). 체크인 전이면 빈 배열.
+  guests?: { name: string | null; birthDate: string | null }[];
   quantity: number;
   guestCount: number | null; // 투숙 인원 — 카드에 아이콘으로 표시
   customerName: string | null; // 이용자 이름(주문 스냅샷 또는 예약 대표자 폴백) — 응대 대상 식별용(이름만)
@@ -84,6 +87,14 @@ function formatFullDate(iso: string): string {
   const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
   const yyyy = d.getUTCFullYear();
   return `${dd}/${mm}/${yyyy}`;
+}
+
+/** 여권 생년월일 "YYYY-MM-DD" → "dd/MM/yyyy" 단순 재배치(타임존 변환 금지 — 날짜 문자열 그대로 조립).
+ *  null·불량 형식이면 "—"·원문 그대로 표시(모델 OCR 원천이라 방어적). */
+function formatBirthDate(raw: string | null): string {
+  if (!raw) return "—";
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : raw;
 }
 
 /** 정산 수단 라벨 키 (CASH→Tiền mặt 등) — i18n vendor.settle.method.* */
@@ -606,6 +617,33 @@ function ticketErrLabel(code: string | undefined, t: T): string {
   }
 }
 
+// 투숙객 여권 정보(이름·생년월일) — 연령 구분(차일드/어덜트/시니어) 티켓 발행용(ADR-0036).
+//   원천=체크인 확정본. ★이름·생년월일만 — 여권번호·국적·성별 등은 서버가 내려주지 않음(화이트리스트).
+//   체크인 전(guests 빈 배열/undefined)엔 안내 문구. 연령 판단은 업체 몫 — 우리는 표기만.
+function GuestPassports({ guests, t }: { guests: VendorOrder["guests"]; t: T }) {
+  return (
+    <div className="space-y-1.5 rounded-lg border border-slate-200 bg-white/70 p-2.5">
+      <p className="flex items-center gap-1 text-xs font-bold text-slate-600">
+        <span className="material-symbols-outlined text-sm text-slate-400">badge</span>
+        {t("tickets.passportTitle")}
+      </p>
+      {guests && guests.length > 0 ? (
+        <ul className="space-y-0.5">
+          {guests.map((g, i) => (
+            <li key={i} className="flex items-center gap-2 text-sm text-neutral-700">
+              <span className="min-w-0 truncate font-medium">{g.name ?? "—"}</span>
+              <span className="shrink-0 text-neutral-300">·</span>
+              <span className="shrink-0 tabular-nums text-neutral-500">{formatBirthDate(g.birthDate)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-xs text-slate-400">{t("tickets.passportEmpty")}</p>
+      )}
+    </div>
+  );
+}
+
 // ── 티켓형(TICKET) QR 티켓 발행 패널 (ADR-0034) ─────────────────────────
 //   발행된 티켓 썸네일(탭=원본 새 탭) + "N/quantity장" 카운터(미달 amber 경고) + 발행 버튼 + 삭제(x).
 //   PENDING_VENDOR면 "발행 시 수락 처리" 안내. 업로드/삭제 후 onChanged로 목록 재조회.
@@ -707,6 +745,9 @@ function TicketPanel({
       {pending && !closed && (
         <p className="text-xs text-indigo-600">{t("tickets.acceptHint")}</p>
       )}
+
+      {/* 투숙객 여권(이름·생년월일) — 연령 구분 티켓 발행 참고용(ADR-0036) */}
+      <GuestPassports guests={order.guests} t={t} />
 
       {issued > 0 && (
         <div className="flex flex-wrap gap-2">
