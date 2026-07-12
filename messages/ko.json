@@ -299,8 +299,14 @@
       "inbox": "발주함",
       "proposal": "시간 제안",
       "schedule": "예약 현황",
+      "issuance": "발권 현황",
       "settlement": "정산 내역"
     },
+    "accordion": {
+      "expand": "상세 펼치기",
+      "collapse": "접기"
+    },
+    "guestMore": "외 {count}명",
     "dateFilter": {
       "start": "시작일",
       "end": "종료일",

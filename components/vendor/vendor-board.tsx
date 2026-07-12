@@ -12,6 +12,7 @@ import PaginationBar from "@/components/pagination-bar";
 import { DateField } from "@/components/date-field";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { resolveQuickRange, addDateOnlyDays } from "@/lib/date-vn";
+import { summarizeGuests } from "@/lib/vendor-order";
 
 // 원탭 칩용 날짜 범위 — resolveQuickRange는 반개구간 [from, to)를 주므로,
 //   API가 양끝 포함(from ≤ serviceDate ≤ to)이라 끝을 하루 당겨 inclusive로 맞춘다.
@@ -381,7 +382,9 @@ export default function VendorBoard({ ticketOnly = false }: { ticketOnly?: boole
                   : "relative rounded-lg py-2 text-center text-xs font-medium text-slate-500"
               }
             >
-              {t(`tab.${key}`)}
+              {/* 티켓 전용 벤더는 schedule 탭을 "발권 현황"으로(신규 키). 그 외/일반 벤더는 현행 tab.<key>.
+                  ★tourAnchor 리터럴 맵·data-tour 문자열은 불변(tests/tour-onboarding.test.ts 소스 검사). */}
+              {key === "schedule" && ticketOnly ? t("tab.issuance") : t(`tab.${key}`)}
               {(key === "inbox" || key === "proposal") && count > 0 && (
                 <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[11px] font-bold text-white">
                   {count}
@@ -1212,6 +1215,17 @@ function ScheduleSection({
   onChanged: () => void;
   t: T;
 }) {
+  // 아코디언 펼침 상태 — 기본 전부 접힘(대량 대응, 상하 스크롤 압박 완화). 펼친 주문 id만 보관.
+  //   ★훅은 조기 반환보다 위. onChanged/onComplete로 목록 재조회돼도 이 로컬 Set은 유지된다.
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const toggle = useCallback((id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
   if (orders.length === 0 && cancelled.length === 0) {
     return <EmptyState icon="event_available" title={t("empty.schedule")} hint={t("empty.scheduleHint")} />;
   }
@@ -1251,45 +1265,147 @@ function ScheduleSection({
       ))}
 
       {orders.map((o) => (
-        <div
+        <ScheduleCard
           key={o.id}
-          className="space-y-2 rounded-xl border-l-4 border-teal-500 bg-white p-4 shadow-sm"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 space-y-1">
-              <h3 className="truncate font-bold text-neutral-900">
-                {o.itemName ?? "—"}
-                <span className="ml-2 text-sm font-semibold text-neutral-500">×{o.quantity}</span>
-              </h3>
-              {o.optionLabel && (
-                <p className="truncate text-sm font-medium text-neutral-600">{o.optionLabel}</p>
+          order={o}
+          open={expanded.has(o.id)}
+          onToggle={() => toggle(o.id)}
+          busyId={busyId}
+          onComplete={onComplete}
+          onChanged={onChanged}
+          t={t}
+        />
+      ))}
+      <PaginationBar
+        light
+        total={total}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={onPage}
+        onPageSizeChange={onPageSize}
+      />
+    </div>
+  );
+}
+
+// ── 발권/예약 현황 카드 (아코디언) ──────────────────────────────────
+//   기본 접힘 요약 행(품목·구분·이용자·일정·상태칩·티켓 카운터·미완료 amber 점) → 탭하면 상세 펼침.
+//   상세=기존 카드 본문 전부(빌라·주소·지도·여권·요청·TicketPanel·타임라인·완료보고) — 기능 유실 0, 배치만 이동.
+//   ★대량 대응: 접힘이 기본, 여권 정보·QR 썸네일은 펼쳐야 노출 → 상하 스크롤 압박 완화.
+//   ★TicketPanel 내부 로직(잠금·발행 규칙) 불변 — 여기선 렌더 위치만 옮긴다. 판매가·마진 없음(costVnd 미표기).
+function ScheduleCard({
+  order: o,
+  open,
+  onToggle,
+  busyId,
+  onComplete,
+  onChanged,
+  t,
+}: {
+  order: VendorOrder;
+  open: boolean;
+  onToggle: () => void;
+  busyId: string | null;
+  onComplete: (o: VendorOrder) => void;
+  onChanged: () => void;
+  t: T;
+}) {
+  // 발행 카운터·미완료 신호 — TICKET(유료)만 발행 대상. freeEntry는 발행 UI 없음(카운터도 없음).
+  const isTicket = o.type === "TICKET" && !o.freeEntry;
+  const issued = o.ticketUrls.length;
+  const needed = o.quantity;
+  const ticketShort = isTicket && issued < needed;
+  const completed = o.vendorCompletedAt != null;
+  // 미완료 신호(접힘 행 amber 점) — 발행 미달 또는 완료보고 전. 접힘 유지가 기본(대량 대응).
+  const incomplete = ticketShort || !completed;
+  // 접힘 요약의 이용자 표시 — 여권 명단 첫 명 + 외 N, 없으면 customerName 폴백(순수 함수, 이름만).
+  const guest = summarizeGuests(o.guests, o.customerName);
+
+  return (
+    <div className="overflow-hidden rounded-xl border-l-4 border-teal-500 bg-white shadow-sm">
+      {/* 접힘 요약 행 — 큰 터치 타깃(py-3.5). 내부는 전부 span(button 안 블록 요소 회피). */}
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-start justify-between gap-3 px-4 py-3.5 text-left active:bg-slate-50"
+      >
+        <span className="sr-only">{open ? t("accordion.collapse") : t("accordion.expand")}</span>
+        <span className="min-w-0 flex-1 space-y-1">
+          <span className="flex items-center gap-1.5">
+            {incomplete && (
+              <span className="h-2 w-2 shrink-0 rounded-full bg-amber-400" aria-hidden />
+            )}
+            <span className="min-w-0 truncate font-bold text-neutral-900">
+              {o.itemName ?? "—"}
+              <span className="ml-1.5 text-sm font-semibold text-neutral-500">×{o.quantity}</span>
+            </span>
+          </span>
+          {o.optionLabel && (
+            <span className="block truncate text-sm font-semibold text-teal-700">{o.optionLabel}</span>
+          )}
+          {guest && (
+            <span className="flex items-center gap-1 text-sm text-neutral-600">
+              <span className="material-symbols-outlined text-base text-neutral-400">person</span>
+              <span className="min-w-0 truncate">{guest.name}</span>
+              {guest.moreCount > 0 && (
+                <span className="shrink-0 text-neutral-400">{t("guestMore", { count: guest.moreCount })}</span>
               )}
-              {o.villaName && <p className="truncate text-sm text-neutral-500">{o.villaName}</p>}
-              <VillaAddress address={o.villaAddress} t={t} />
-              <CustomerName name={o.customerName} t={t} />
-              <p className="flex items-center gap-2 text-sm font-semibold text-teal-700">
-                <span>{scheduleLabel(o)}</span>
-                <GuestCount count={o.guestCount} orderType={o.type} />
-                <PickupBadge show={o.pickupAvailable} t={t} />
-              </p>
-            </div>
-            {/* 상태 칩 — 완료 보고 전엔 '수락됨', 보고 후엔 '이행 완료' */}
-            {o.vendorCompletedAt ? (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700">
-                <span className="material-symbols-outlined text-base [font-variation-settings:'FILL'_1]">
-                  flag_circle
-                </span>
-                {t("complete.done")}
-              </span>
-            ) : (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-700">
-                <span className="material-symbols-outlined text-base [font-variation-settings:'FILL'_1]">
-                  check_circle
-                </span>
-                {t("status.accepted")}
+            </span>
+          )}
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-500">
+            <span className="flex items-center gap-1">
+              <span className="material-symbols-outlined text-base text-neutral-400">event</span>
+              {scheduleLabel(o)}
+            </span>
+            {isTicket && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${
+                  ticketShort ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
+                }`}
+              >
+                {t("tickets.counter", { issued, needed })}
               </span>
             )}
-          </div>
+          </span>
+        </span>
+        <span className="flex shrink-0 flex-col items-end gap-1.5">
+          {/* 상태 칩 — 완료 보고 전엔 '수락됨', 보고 후엔 '이행 완료' */}
+          {completed ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700">
+              <span className="material-symbols-outlined text-base [font-variation-settings:'FILL'_1]">
+                flag_circle
+              </span>
+              {t("complete.done")}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-700">
+              <span className="material-symbols-outlined text-base [font-variation-settings:'FILL'_1]">
+                check_circle
+              </span>
+              {t("status.accepted")}
+            </span>
+          )}
+          <span
+            className={`material-symbols-outlined text-xl text-neutral-400 transition-transform ${open ? "rotate-180" : ""}`}
+            aria-hidden
+          >
+            expand_more
+          </span>
+        </span>
+      </button>
+
+      {/* 펼침 상세 — 기존 카드 본문 전부(기능 유실 0, 배치만 이동) */}
+      {open && (
+        <div className="space-y-2 border-t border-slate-100 px-4 pb-4 pt-3">
+          {o.villaName && <p className="truncate text-sm text-neutral-500">{o.villaName}</p>}
+          <VillaAddress address={o.villaAddress} t={t} />
+          <CustomerName name={o.customerName} t={t} />
+          <p className="flex items-center gap-2 text-sm font-semibold text-teal-700">
+            <span>{scheduleLabel(o)}</span>
+            <GuestCount count={o.guestCount} orderType={o.type} />
+            <PickupBadge show={o.pickupAvailable} t={t} />
+          </p>
 
           {/* 게스트 요청사항 — 이행 정보(있을 때만) */}
           <GuestNote note={o.guestNote} t={t} />
@@ -1335,15 +1451,7 @@ function ScheduleSection({
             </button>
           )}
         </div>
-      ))}
-      <PaginationBar
-        light
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        onPageChange={onPage}
-        onPageSizeChange={onPageSize}
-      />
+      )}
     </div>
   );
 }

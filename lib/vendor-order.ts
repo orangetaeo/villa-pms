@@ -147,3 +147,24 @@ export function assertVendorResponse(from: ServiceVendorStatus | null): void {
 export function isTicketOnlyFromCounts(activeTotal: number, activeTicket: number): boolean {
   return activeTotal > 0 && activeTicket === activeTotal;
 }
+
+/**
+ * 접힘 요약(발권/예약 현황)의 이용자 표시 조립(순수) — 이름 있는 guest 첫 명 + 나머지 인원수(외 N).
+ * 이름 있는 guest가 없으면 customerName 폴백, 그것도 없으면 null(이용자 미지정 → UI에서 표시 안 함).
+ * moreCount는 전체 명단 크기 기준(첫 명 제외) — 일행 규모를 벤더가 한눈에 파악.
+ * ★이름만 사용(생년월일·신장 등 다른 필드 조립 금지 — 접힘 요약 누수 경계). UI가 person 아이콘·"외 N명" 라벨을 붙인다.
+ */
+export function summarizeGuests(
+  guests: { name: string | null }[] | undefined,
+  customerName: string | null
+): { name: string; moreCount: number } | null {
+  const list = guests ?? [];
+  const firstNamed = list.find((g) => g.name != null && g.name.trim() !== "");
+  if (firstNamed) {
+    return { name: firstNamed.name!.trim(), moreCount: Math.max(0, list.length - 1) };
+  }
+  if (customerName != null && customerName.trim() !== "") {
+    return { name: customerName.trim(), moreCount: 0 };
+  }
+  return null;
+}
