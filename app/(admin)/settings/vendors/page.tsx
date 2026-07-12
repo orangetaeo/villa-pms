@@ -3,7 +3,6 @@
 //   ★ 정산계좌(bankInfo)는 canViewFinance만 — select·직렬화 모두에서 제외(showBank).
 //   CRUD는 canSetPrice(OWNER/MANAGER) → canEdit. STAFF는 읽기 전용.
 import type { Metadata } from "next";
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { VillaStatus } from "@prisma/client";
 import { auth } from "@/auth";
@@ -111,13 +110,6 @@ export default async function VendorsPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       <div>
-        <Link
-          href="/settings"
-          className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-white transition-colors mb-3"
-        >
-          <span className="material-symbols-outlined text-sm">arrow_back</span>
-          {t("back")}
-        </Link>
         <h1 className="text-2xl font-bold text-white tracking-tight">{t("title")}</h1>
         <p className="text-sm text-slate-500 mt-1">{t("subtitle")}</p>
       </div>

@@ -228,6 +228,7 @@
     "partners": "Đối tác",
     "receivables": "Công nợ",
     "serviceOrders": "Quyết toán dịch vụ",
+    "vendors": "Nhà cung cấp dịch vụ",
     "services": "Danh mục dịch vụ",
     "messages": "Tin nhắn",
     "users": "Người dùng",
@@ -2372,10 +2373,7 @@
     "zaloCardCta": "Quản lý",
     "servicesCardTitle": "Danh mục dịch vụ",
     "servicesCardDesc": "Quản lý menu, tùy chọn và giá của dịch vụ bổ sung như BBQ, vé, xe.",
-    "servicesCardCta": "Quản lý",
-    "vendorsCardTitle": "Nhà cung cấp nguồn",
-    "vendorsCardDesc": "Quản lý các đối tác bên ngoài (cửa hàng trái cây, BBQ...) để đặt hàng và quyết toán dịch vụ bổ sung.",
-    "vendorsCardCta": "Quản lý"
+    "servicesCardCta": "Quản lý"
   },
   "inventory": {
     "title": "Kho minibar",
@@ -4751,8 +4749,7 @@
     },
     "adminSettings": {
       "season": { "title": "Lịch mùa", "desc": "Đăng ký kỳ cao điểm/thấp điểm để hệ thống tự áp vào cách tính giá." },
-      "hold": { "title": "Thời gian giữ chỗ", "desc": "Cài thời gian mặc định trước khi đặt giữ chỗ tự động hết hạn." },
-      "sub": { "title": "Trang cài đặt chi tiết", "desc": "Nhà cung cấp dịch vụ, kết nối bot Zalo… được quản lý ở các trang con." }
+      "hold": { "title": "Thời gian giữ chỗ", "desc": "Cài thời gian mặc định trước khi đặt giữ chỗ tự động hết hạn." }
     },
     "villaDetail": {
       "header": { "title": "Chi tiết villa", "desc": "Kiểm tra trạng thái duyệt và khả năng bán qua huy hiệu cạnh tên villa. Giá, tiện nghi, minibar, dọn dẹp và thông tin bán đều được quản lý ngay tại màn hình này." },

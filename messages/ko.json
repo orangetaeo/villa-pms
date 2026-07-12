@@ -228,6 +228,7 @@
     "partners": "파트너 관리",
     "receivables": "미수/여신",
     "serviceOrders": "부가서비스 정산",
+    "vendors": "부가서비스 공급자",
     "services": "서비스 카탈로그",
     "messages": "메시지",
     "users": "사용자",
@@ -2257,10 +2258,7 @@
     "zaloCardCta": "관리",
     "servicesCardTitle": "서비스 카탈로그",
     "servicesCardDesc": "BBQ·입장권·차량 등 부가서비스 판매 메뉴와 옵션·가격을 관리합니다.",
-    "servicesCardCta": "관리",
-    "vendorsCardTitle": "부가서비스 공급자",
-    "vendorsCardDesc": "부가서비스를 발주·정산하는 외부 거래처(과일가게·BBQ업체 등)를 관리합니다.",
-    "vendorsCardCta": "관리"
+    "servicesCardCta": "관리"
   },
   "inventory": {
     "title": "미니바 재고",
@@ -4751,8 +4749,7 @@
     },
     "adminSettings": {
       "season": { "title": "시즌 달력", "desc": "성수기·비수기 기간을 등록하면 요금 계산에 자동 반영됩니다." },
-      "hold": { "title": "가예약 유지 시간", "desc": "가예약(홀드)이 자동 만료되기까지의 기본 시간을 설정합니다." },
-      "sub": { "title": "세부 설정 페이지", "desc": "부가서비스 공급자·Zalo 봇 연결 같은 세부 설정은 하위 페이지에서 관리합니다." }
+      "hold": { "title": "가예약 유지 시간", "desc": "가예약(홀드)이 자동 만료되기까지의 기본 시간을 설정합니다." }
     },
     "villaDetail": {
       "header": { "title": "빌라 상세", "desc": "이름 옆 배지로 승인 상태와 판매 가능 여부를 확인합니다. 요금·비품·미니바·청소·판매정보를 이 화면 한 곳에서 관리합니다." },
