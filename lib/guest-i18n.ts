@@ -183,6 +183,10 @@ export interface GuestLabels {
     title: (n: number) => string; // "내 티켓 (N장)"
     hint: string; // "입장 시 QR을 제시하세요"
     close: string; // 확대 오버레이 닫기
+    save: string; // 티켓 1장 저장 버튼
+    saveAll: string; // 그룹(주문) 단위 모두 저장 버튼
+    offlineHint: string; // 오프라인 대비 안내("현장 인터넷이 안 될 수 있어 미리 저장하세요")
+    iosHint: string; // iOS 보조 안내("이미지를 길게 눌러 사진에 저장할 수도 있어요")
   };
   // 벤더 시간 제안 응답(ADR-0035) — 미해결 제안 배너 + 제안 카드 블록(원래→제안 시간, 승인/거절)
   proposal: {
@@ -387,6 +391,10 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       title: (n) => `내 티켓 (${n}장)`,
       hint: "입장 시 QR 코드를 제시하세요.",
       close: "닫기",
+      save: "저장",
+      saveAll: "티켓 모두 저장",
+      offlineHint: "현장에서 인터넷이 안 될 수 있어요. 티켓을 미리 저장해 두세요.",
+      iosHint: "이미지를 길게 눌러 사진에 저장할 수도 있어요.",
     },
     proposal: {
       banner: "담당자가 시간 변경을 제안했습니다 — 아래에서 확인해 주세요.",
@@ -579,6 +587,10 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       title: (n) => `My tickets (${n})`,
       hint: "Show the QR code at the entrance.",
       close: "Close",
+      save: "Save",
+      saveAll: "Save all tickets",
+      offlineHint: "The internet may not work on site. Save your tickets in advance.",
+      iosHint: "You can also press and hold the image to save it to Photos.",
     },
     proposal: {
       banner: "The provider suggested a new time — please review below.",
@@ -771,6 +783,10 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       title: (n) => `Мои билеты (${n})`,
       hint: "Покажите QR-код при входе.",
       close: "Закрыть",
+      save: "Сохранить",
+      saveAll: "Сохранить все билеты",
+      offlineHint: "На месте интернет может не работать. Сохраните билеты заранее.",
+      iosHint: "Также можно нажать и удерживать изображение, чтобы сохранить его в «Фото».",
     },
     proposal: {
       banner: "Исполнитель предложил новое время — проверьте ниже.",
@@ -963,6 +979,10 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       title: (n) => `我的门票（${n}张）`,
       hint: "入场时请出示二维码。",
       close: "关闭",
+      save: "保存",
+      saveAll: "保存全部门票",
+      offlineHint: "现场可能无法上网，请提前保存门票。",
+      iosHint: "也可长按图片保存到相册。",
     },
     proposal: {
       banner: "服务方建议更改时间 — 请在下方确认。",
@@ -1155,6 +1175,10 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       title: (n) => `Vé của tôi (${n})`,
       hint: "Xuất trình mã QR khi vào cổng.",
       close: "Đóng",
+      save: "Lưu",
+      saveAll: "Lưu tất cả vé",
+      offlineHint: "Tại chỗ có thể không có internet. Hãy lưu vé trước.",
+      iosHint: "Bạn cũng có thể nhấn giữ ảnh để lưu vào Ảnh.",
     },
     proposal: {
       banner: "Nhân viên phụ trách đề xuất đổi giờ — vui lòng xác nhận bên dưới.",

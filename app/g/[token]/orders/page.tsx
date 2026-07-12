@@ -47,7 +47,11 @@ export default async function GuestOrdersPage({
     return <GuestExpiredView lang={lang} kakaoUrl={contact.kakaoUrl} phone={contact.phone} />;
   }
 
-  // 카탈로그명은 type 폴백용(주문엔 type만 매칭). 옵션 상세는 selectedOptions 스냅샷에서 해석.
+  // 품목명은 catalogItemId 기준(같은 type이라도 품목이 다르면 구분). 없으면 type 명칭 폴백.
+  //   ★그룹핑이 품목 단위이므로 표시명도 반드시 품목명이어야 함(type명이면 다른 품목이 한 줄로 섞임).
+  const catalogNameById = new Map(
+    data.catalog.map((c) => [c.id, pickI18n(c.nameKo, c.nameI18n, lang)])
+  );
   const catalogNameByType = new Map(
     data.catalog.map((c) => [c.type, pickI18n(c.nameKo, c.nameI18n, lang)])
   );
@@ -60,10 +64,16 @@ export default async function GuestOrdersPage({
     const pu = o.catalogItemId ? pickupById.get(o.catalogItemId) : null;
     // ★담당자 연락처는 확정(CONFIRMED)·벤더 수락 후에만 게스트 노출 — 그 전엔 payload에도 미포함.
     const accepted = o.status === "CONFIRMED" || o.vendorAccepted;
+    // 품목명 우선순위: catalogItemId 매칭 → type 명칭 폴백 → type 코드. (구분이 다른 같은 티켓도 품목명은 동일)
+    const itemName =
+      (o.catalogItemId ? catalogNameById.get(o.catalogItemId) : undefined) ??
+      catalogNameByType.get(o.type) ??
+      o.type;
     return {
       id: o.id,
       type: o.type,
-      name: catalogNameByType.get(o.type) ?? o.type,
+      catalogItemId: o.catalogItemId,
+      name: itemName,
       status: o.status,
       quantity: o.quantity,
       priceKrw: o.priceKrw,

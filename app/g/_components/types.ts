@@ -68,6 +68,8 @@ export interface GuestCatalogView {
 export interface GuestRequestedOrder {
   id: string;
   type: string;
+  /** 카탈로그 품목 식별자 — 품목별 그룹핑 키(없으면 type 폴백). 레거시·운영자 입력 주문은 null 가능. */
+  catalogItemId: string | null;
   name: string;
   status: string;
   quantity: number;

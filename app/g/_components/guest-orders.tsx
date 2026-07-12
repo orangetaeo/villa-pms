@@ -11,6 +11,7 @@ import { GUEST_LABELS } from "@/lib/guest-i18n";
 import { PublicLangSelector } from "@/components/public-lang-selector";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import { guestVndPrice, guestVnd } from "./guest-format";
+import { groupGuestOrders } from "./group-orders";
 import type { GuestOrdersProps, GuestRequestedOrder } from "./types";
 
 export default function GuestOrders({ token, lang, requestedOrders, justOrdered }: GuestOrdersProps) {
@@ -30,6 +31,26 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered 
 
   // 미해결 제안이 하나라도 있으면 상단 배너(게스트 알림 채널 없음 → 페이지 내 배너가 "알림").
   const hasProposal = requestedOrders.some((o) => o.proposalPending);
+
+  // ── 품목별 그룹핑(테오) — 구분별로 분리 저장된 주문을 품목 카드 하나로 모은다. ──
+  const groups = groupGuestOrders(requestedOrders);
+
+  // ── QR 티켓 사전 다운로드(오프라인 대비) — 동일 출처 프록시(<a download>). ──
+  //   개별 저장은 <a download>로 직접, "모두 저장"은 300ms 간격 순차 클릭(브라우저 다중 다운로드 억제 회피).
+  const downloadTicket = (orderId: string, index: number) => {
+    const a = document.createElement("a");
+    a.href = `/api/g/${token}/service-orders/${orderId}/ticket-download?u=${index}`;
+    a.download = ""; // 파일명은 서버 Content-Disposition이 부여
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+  const downloadAllTickets = (orderId: string, count: number) => {
+    for (let i = 0; i < count; i++) {
+      window.setTimeout(() => downloadTicket(orderId, i), i * 300);
+    }
+  };
 
   const statusLabel = (s: string) =>
     s === "REQUESTED"
@@ -138,167 +159,217 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered 
             <p className="text-sm text-slate-400">{L.result.empty}</p>
           </div>
         ) : (
-          <section className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-100">
-              <h3 className="text-sm font-bold text-slate-800">{L.result.requestedTitle}</h3>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {requestedOrders.map((o) => {
-                const when = [o.serviceDate, o.serviceTime].filter(Boolean).join(" ");
-                // 셀프 취소는 벤더 수락 전 REQUESTED만(PENDING_VENDOR 포함). 수락(vendorAccepted)되면 잠금.
-                const canCancel = o.status === "REQUESTED" && !o.vendorAccepted;
-                const dispatchedLock = o.status === "REQUESTED" && o.vendorAccepted;
-                // 담당자 연락처 — 확정(CONFIRMED)·벤더 수락 후 이름·전화 노출(★원가·마진 없음).
-                const showContact = (o.status === "CONFIRMED" || o.vendorAccepted) && !!o.vendorName;
-                return (
-                  <div key={o.id} className="px-4 py-3.5 space-y-1.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-800 truncate">
-                          {o.name} <span className="text-slate-400 font-normal">× {o.quantity}</span>
-                        </p>
-                        {o.optionLabels.length > 0 && (
-                          <p className="text-xs text-slate-500 mt-0.5 truncate">
-                            {o.optionLabels.join(" · ")}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="bg-amber-50 text-amber-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                          {statusLabel(o.status)}
-                        </span>
-                        <span className="text-sm font-bold text-slate-900 tabular-nums">
-                          {guestVndPrice(o.priceVnd)}
-                        </span>
-                      </div>
-                    </div>
-                    {/* 희망 날짜·시간(#2) + 이행 안내(#5) */}
-                    {when && (
-                      <p className="text-xs font-medium text-slate-600 flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[15px] text-slate-400">schedule</span>
-                        <span className="tabular-nums">{when}</span>
-                      </p>
-                    )}
-                    <p className="text-[11px] text-slate-400 leading-snug">{o.fulfillNote}</p>
-                    {/* 벤더 시간 제안(ADR-0035) — 미해결이면 원래→제안 비교 + 승인/거절 버튼. */}
-                    {o.proposalPending && o.proposedServiceDate && (
-                      <div className="mt-1.5 space-y-2 rounded-lg border border-amber-200 bg-amber-50/70 p-3">
-                        <p className="flex items-center gap-1 text-xs font-bold text-amber-700">
-                          <span className="material-symbols-outlined text-[16px]">update</span>
-                          {L.proposal.title}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="text-slate-500 line-through tabular-nums">
-                            {[o.serviceDate, o.serviceTime].filter(Boolean).join(" ") || "—"}
-                          </span>
-                          <span className="material-symbols-outlined text-[15px] text-amber-500">arrow_forward</span>
-                          <span className="font-bold text-amber-800 tabular-nums">
-                            {[o.proposedServiceDate, o.proposedServiceTime].filter(Boolean).join(" ")}
-                          </span>
-                        </div>
-                        {o.vendorProposalNote && (
-                          <p className="text-[11px] text-slate-500 leading-snug">
-                            <span className="font-semibold text-slate-600">{L.proposal.noteLabel}: </span>
-                            {o.vendorProposalNote}
-                          </p>
-                        )}
-                        <div className="grid grid-cols-2 gap-2 pt-0.5">
-                          <button
-                            type="button"
-                            onClick={() => onProposal(o.id, "decline")}
-                            disabled={proposalBusy === o.id}
-                            className="rounded-lg border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-600 disabled:opacity-50 active:scale-95"
-                          >
-                            {proposalBusy === o.id ? L.proposal.processing : L.proposal.decline}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onProposal(o.id, "accept")}
-                            disabled={proposalBusy === o.id}
-                            className="rounded-lg bg-amber-500 py-2.5 text-xs font-bold text-white disabled:opacity-50 active:scale-95"
-                          >
-                            {proposalBusy === o.id ? L.proposal.processing : L.proposal.accept}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    {/* 거절 직후 안내 — 담당자 재확인(제안은 해소되어 카드에서 사라짐). */}
-                    {declinedId === o.id && !o.proposalPending && (
-                      <p className="mt-1 flex items-start gap-1 text-[11px] text-slate-500 leading-snug">
-                        <span className="material-symbols-outlined text-[15px] text-slate-400">info</span>
-                        {L.proposal.declinedNote}
-                      </p>
-                    )}
-                    {/* 발행된 QR 티켓(ADR-0034) — 상태 무관 표시. 탭하면 body 포털 라이트박스로 확대. */}
-                    {o.ticketUrls.length > 0 && (
-                      <div className="mt-1.5 space-y-1.5 rounded-lg bg-teal-50/70 p-2.5">
-                        <p className="flex items-center gap-1 text-xs font-bold text-teal-700">
-                          <span className="material-symbols-outlined text-[16px]">confirmation_number</span>
-                          {L.tickets.title(o.ticketUrls.length)}
-                        </p>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {o.ticketUrls.map((url) => (
-                            <button
-                              key={url}
-                              type="button"
-                              onClick={() => setLightbox(url)}
-                              className="active:scale-95"
-                            >
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={url}
-                                alt=""
-                                className="aspect-square w-full rounded-lg border border-teal-100 object-cover"
-                              />
-                            </button>
-                          ))}
-                        </div>
-                        <p className="text-[11px] text-teal-700/80 leading-snug">{L.tickets.hint}</p>
-                      </div>
-                    )}
-                    {/* 담당자 연락처(확정 후) — 이름 + 전화(tel:) + 직접 연락 안내. ★이름·전화만 노출. */}
-                    {showContact && (
-                      <div className="mt-1.5 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-teal-600 text-[16px]">support_agent</span>
-                          <span className="text-[11px] text-slate-500">{L.result.vendorContactLabel}</span>
-                          <span className="text-xs font-semibold text-slate-800 truncate">{o.vendorName}</span>
-                          {o.vendorPhone && (
-                            <a
-                              href={`tel:${o.vendorPhone}`}
-                              className="ml-auto inline-flex items-center gap-1 text-xs font-bold text-teal-700 active:scale-95"
-                            >
-                              <span className="material-symbols-outlined text-[16px]">call</span>
-                              <span className="tabular-nums">{o.vendorPhone}</span>
-                            </a>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-teal-700/80 leading-snug">{L.result.vendorContactHint}</p>
-                      </div>
-                    )}
-                    {/* 셀프 취소(A3) — 벤더 수락 전 REQUESTED만. 확정·수락 후엔 버튼 없음. */}
-                    {canCancel && (
-                      <button
-                        type="button"
-                        onClick={() => onCancel(o.id)}
-                        disabled={cancelling === o.id}
-                        className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-red-500 disabled:text-slate-300 active:scale-95"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">close</span>
-                        {cancelling === o.id ? L.checkout.cancelling : L.checkout.cancel}
-                      </button>
-                    )}
-                    {/* 발주된 주문 — 셀프 취소 불가, 운영자 문의 안내 */}
-                    {dispatchedLock && (
-                      <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-slate-400">
-                        <span className="material-symbols-outlined text-[15px]">lock</span>
-                        {L.checkout.cancelDispatched}
+          <section className="space-y-3">
+            <h3 className="px-1 text-sm font-bold text-slate-800">{L.result.requestedTitle}</h3>
+            {/* 품목별 그룹 카드 — 헤더(품목명·총 수량·이용일) + 내부 주문 라인(구분별). */}
+            {groups.map((g) => (
+              <div
+                key={g.key}
+                className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden"
+              >
+                {/* 그룹 헤더 */}
+                <div className="px-4 py-3 border-b border-slate-100 flex items-start gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-800 truncate">{g.name}</p>
+                    {g.serviceDate && (
+                      <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-slate-500">
+                        <span className="material-symbols-outlined text-[14px] text-slate-400">event</span>
+                        <span className="tabular-nums">{g.serviceDate}</span>
                       </p>
                     )}
                   </div>
-                );
-              })}
-            </div>
+                  <span className="ml-auto shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600 tabular-nums">
+                    × {g.totalQuantity}
+                  </span>
+                </div>
+
+                {/* 주문 라인 — 구분(옵션 라벨)별. 기존 정보 전부 유지. */}
+                <div className="divide-y divide-slate-100">
+                  {g.orders.map((o) => {
+                    // 헤더가 이용일을 요약하면(g.serviceDate) 라인은 시간만, 아니면 라인마다 날짜+시간.
+                    const lineWhen = g.serviceDate
+                      ? o.serviceTime ?? ""
+                      : [o.serviceDate, o.serviceTime].filter(Boolean).join(" ");
+                    // 라인 라벨 = 구분(옵션 라벨). 없으면 단일 품목이라 헤더가 명칭을 담당 → 라벨 생략.
+                    const lineLabel = o.optionLabels.length > 0 ? o.optionLabels.join(" · ") : null;
+                    // 셀프 취소는 벤더 수락 전 REQUESTED만(PENDING_VENDOR 포함). 수락(vendorAccepted)되면 잠금.
+                    const canCancel = o.status === "REQUESTED" && !o.vendorAccepted;
+                    const dispatchedLock = o.status === "REQUESTED" && o.vendorAccepted;
+                    // 담당자 연락처 — 확정(CONFIRMED)·벤더 수락 후 이름·전화 노출(★원가·마진 없음).
+                    const showContact = (o.status === "CONFIRMED" || o.vendorAccepted) && !!o.vendorName;
+                    return (
+                      <div key={o.id} className="px-4 py-3.5 space-y-1.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-slate-800 truncate">
+                              {lineLabel ?? (
+                                <span className="text-slate-500 font-medium">{g.name}</span>
+                              )}
+                              <span className="text-slate-400 font-normal"> × {o.quantity}</span>
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="bg-amber-50 text-amber-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                              {statusLabel(o.status)}
+                            </span>
+                            <span className="text-sm font-bold text-slate-900 tabular-nums">
+                              {guestVndPrice(o.priceVnd)}
+                            </span>
+                          </div>
+                        </div>
+                        {/* 희망 날짜·시간(#2) + 이행 안내(#5) */}
+                        {lineWhen && (
+                          <p className="text-xs font-medium text-slate-600 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[15px] text-slate-400">schedule</span>
+                            <span className="tabular-nums">{lineWhen}</span>
+                          </p>
+                        )}
+                        <p className="text-[11px] text-slate-400 leading-snug">{o.fulfillNote}</p>
+                        {/* 벤더 시간 제안(ADR-0035) — 미해결이면 원래→제안 비교 + 승인/거절 버튼. */}
+                        {o.proposalPending && o.proposedServiceDate && (
+                          <div className="mt-1.5 space-y-2 rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+                            <p className="flex items-center gap-1 text-xs font-bold text-amber-700">
+                              <span className="material-symbols-outlined text-[16px]">update</span>
+                              {L.proposal.title}
+                            </p>
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="text-slate-500 line-through tabular-nums">
+                                {[o.serviceDate, o.serviceTime].filter(Boolean).join(" ") || "—"}
+                              </span>
+                              <span className="material-symbols-outlined text-[15px] text-amber-500">arrow_forward</span>
+                              <span className="font-bold text-amber-800 tabular-nums">
+                                {[o.proposedServiceDate, o.proposedServiceTime].filter(Boolean).join(" ")}
+                              </span>
+                            </div>
+                            {o.vendorProposalNote && (
+                              <p className="text-[11px] text-slate-500 leading-snug">
+                                <span className="font-semibold text-slate-600">{L.proposal.noteLabel}: </span>
+                                {o.vendorProposalNote}
+                              </p>
+                            )}
+                            <div className="grid grid-cols-2 gap-2 pt-0.5">
+                              <button
+                                type="button"
+                                onClick={() => onProposal(o.id, "decline")}
+                                disabled={proposalBusy === o.id}
+                                className="rounded-lg border border-slate-200 bg-white py-2.5 text-xs font-bold text-slate-600 disabled:opacity-50 active:scale-95"
+                              >
+                                {proposalBusy === o.id ? L.proposal.processing : L.proposal.decline}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onProposal(o.id, "accept")}
+                                disabled={proposalBusy === o.id}
+                                className="rounded-lg bg-amber-500 py-2.5 text-xs font-bold text-white disabled:opacity-50 active:scale-95"
+                              >
+                                {proposalBusy === o.id ? L.proposal.processing : L.proposal.accept}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {/* 거절 직후 안내 — 담당자 재확인(제안은 해소되어 카드에서 사라짐). */}
+                        {declinedId === o.id && !o.proposalPending && (
+                          <p className="mt-1 flex items-start gap-1 text-[11px] text-slate-500 leading-snug">
+                            <span className="material-symbols-outlined text-[15px] text-slate-400">info</span>
+                            {L.proposal.declinedNote}
+                          </p>
+                        )}
+                        {/* 발행된 QR 티켓(ADR-0034) — 상태 무관 표시. 탭하면 라이트박스 확대 + 사전 다운로드. */}
+                        {o.ticketUrls.length > 0 && (
+                          <div className="mt-1.5 space-y-1.5 rounded-lg bg-teal-50/70 p-2.5">
+                            <p className="flex items-center gap-1 text-xs font-bold text-teal-700">
+                              <span className="material-symbols-outlined text-[16px]">confirmation_number</span>
+                              {L.tickets.title(o.ticketUrls.length)}
+                            </p>
+                            {/* 오프라인 대비 안내 — 현장 인터넷 불가 시 미리 저장 */}
+                            <p className="text-[11px] text-teal-700/80 leading-snug">{L.tickets.offlineHint}</p>
+                            <div className="grid grid-cols-3 gap-1.5">
+                              {o.ticketUrls.map((url, idx) => (
+                                <div key={url} className="relative">
+                                  <button
+                                    type="button"
+                                    onClick={() => setLightbox(url)}
+                                    className="block w-full active:scale-95"
+                                  >
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={url}
+                                      alt=""
+                                      className="aspect-square w-full rounded-lg border border-teal-100 object-cover"
+                                    />
+                                  </button>
+                                  {/* 개별 저장 — 동일 출처 프록시(<a download>). 라이트박스와 분리(버블 없음). */}
+                                  <a
+                                    href={`/api/g/${token}/service-orders/${o.id}/ticket-download?u=${idx}`}
+                                    download
+                                    className="absolute bottom-1 right-1 inline-flex items-center gap-0.5 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white active:scale-95"
+                                  >
+                                    <span className="material-symbols-outlined text-[13px]">download</span>
+                                    {L.tickets.save}
+                                  </a>
+                                </div>
+                              ))}
+                            </div>
+                            {/* 주문 단위 모두 저장 — 순차 트리거(300ms) */}
+                            {o.ticketUrls.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => downloadAllTickets(o.id, o.ticketUrls.length)}
+                                className="w-full inline-flex items-center justify-center gap-1 rounded-lg border border-teal-200 bg-white py-2 text-xs font-bold text-teal-700 active:scale-95"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">download</span>
+                                {L.tickets.saveAll}
+                              </button>
+                            )}
+                            <p className="text-[11px] text-teal-700/80 leading-snug">{L.tickets.iosHint}</p>
+                            <p className="text-[11px] text-teal-700/80 leading-snug">{L.tickets.hint}</p>
+                          </div>
+                        )}
+                        {/* 담당자 연락처(확정 후) — 이름 + 전화(tel:) + 직접 연락 안내. ★이름·전화만 노출. */}
+                        {showContact && (
+                          <div className="mt-1.5 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="material-symbols-outlined text-teal-600 text-[16px]">support_agent</span>
+                              <span className="text-[11px] text-slate-500">{L.result.vendorContactLabel}</span>
+                              <span className="text-xs font-semibold text-slate-800 truncate">{o.vendorName}</span>
+                              {o.vendorPhone && (
+                                <a
+                                  href={`tel:${o.vendorPhone}`}
+                                  className="ml-auto inline-flex items-center gap-1 text-xs font-bold text-teal-700 active:scale-95"
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">call</span>
+                                  <span className="tabular-nums">{o.vendorPhone}</span>
+                                </a>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-teal-700/80 leading-snug">{L.result.vendorContactHint}</p>
+                          </div>
+                        )}
+                        {/* 셀프 취소(A3) — 벤더 수락 전 REQUESTED만. 확정·수락 후엔 버튼 없음. */}
+                        {canCancel && (
+                          <button
+                            type="button"
+                            onClick={() => onCancel(o.id)}
+                            disabled={cancelling === o.id}
+                            className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-red-500 disabled:text-slate-300 active:scale-95"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">close</span>
+                            {cancelling === o.id ? L.checkout.cancelling : L.checkout.cancel}
+                          </button>
+                        )}
+                        {/* 발주된 주문 — 셀프 취소 불가, 운영자 문의 안내 */}
+                        {dispatchedLock && (
+                          <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-slate-400">
+                            <span className="material-symbols-outlined text-[15px]">lock</span>
+                            {L.checkout.cancelDispatched}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </section>
         )}
 
