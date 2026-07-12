@@ -107,11 +107,12 @@ export interface GuestLabels {
     customerNameLabel: string; // "이용자 이름" — 서비스 받을 사람(대표자 prefill)
     customerNameHint: string; // 짧은 힌트: 서비스 받으실 분 이름 — 담당 업체에 전달됨
     customerNamePlaceholder: string; // 입력 placeholder(이름)
+    ticketPeopleTitle: string; // 통합 "티켓 이용자 정보" 카드 제목 — 이름·생년월일·신장 1회 입력(테오 2026-07-12)
+    ticketPeopleHint: string; // 통합 카드 안내 — 신장 1회 입력이 모든 티켓 품목에 공유됨
     ticketGuestTitle: string; // TICKET 이용자 선택 섹션 제목 "티켓 이용자 선택"(ADR-0036)
     ticketGuestHint: string; // 단일가 안내: "체크인 명단에서 티켓 이용자를 선택하세요"
     ticketGuestVariantHint: string; // 수동 모드: 각 이용자 구분 선택 안내(ADR-0036 개정)
     ticketGuestAutoHint: string; // 자동 모드: 생년월일·신장 자동 판정 안내
-    ticketGuestAutoBadge: string; // 자동 판정 배지 "자동"
     ticketGuestManualHint: string; // 자동 판정 실패 폴백: 직접 선택 안내
     ticketHeightLabel: string; // 신장 입력 라벨 "신장"
     ticketHeightPlaceholder: string; // 신장 입력 placeholder "예: 120"
@@ -315,11 +316,12 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       customerNameLabel: "이용자 이름",
       customerNameHint: "서비스 받으실 분 이름 — 담당 업체에 전달됩니다.",
       customerNamePlaceholder: "이름을 입력하세요",
+      ticketPeopleTitle: "티켓 이용자 정보",
+      ticketPeopleHint: "티켓을 사용할 분들의 정보예요. 신장은 여기서 한 번만 입력하면 모든 티켓에 적용됩니다.",
       ticketGuestTitle: "티켓 이용자 선택",
       ticketGuestHint: "체크인 명단에서 이 티켓을 사용할 분을 선택하세요. 선택한 인원 수만큼 발권됩니다.",
       ticketGuestVariantHint: "각 이용자의 구분을 선택하세요. 구분마다 따로 발권됩니다.",
       ticketGuestAutoHint: "생년월일·신장 기준으로 구분이 자동 지정됩니다. 구분마다 따로 발권됩니다.",
-      ticketGuestAutoBadge: "자동",
       ticketGuestManualHint: "자동 판정이 안 돼요 — 직접 선택하세요.",
       ticketHeightLabel: "신장",
       ticketHeightPlaceholder: "예: 120",
@@ -506,11 +508,12 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       customerNameLabel: "Guest name",
       customerNameHint: "Name of the person receiving the service — shared with the provider.",
       customerNamePlaceholder: "Enter a name",
+      ticketPeopleTitle: "Ticket guests",
+      ticketPeopleHint: "Details of guests using tickets. Enter height once here and it applies to every ticket.",
       ticketGuestTitle: "Select ticket holders",
       ticketGuestHint: "Choose who will use this ticket from your checked-in guests. One ticket is issued per person selected.",
       ticketGuestVariantHint: "Choose a category for each guest. Each category is ticketed separately.",
       ticketGuestAutoHint: "Categories are set automatically from birth date and height. Each category is ticketed separately.",
-      ticketGuestAutoBadge: "Auto",
       ticketGuestManualHint: "Couldn't determine automatically — please select.",
       ticketHeightLabel: "Height",
       ticketHeightPlaceholder: "e.g. 120",
@@ -697,11 +700,12 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       customerNameLabel: "Имя гостя",
       customerNameHint: "Имя того, кто получит услугу — передаётся исполнителю.",
       customerNamePlaceholder: "Введите имя",
+      ticketPeopleTitle: "Гости с билетами",
+      ticketPeopleHint: "Данные гостей, которые воспользуются билетами. Укажите рост один раз — он применится ко всем билетам.",
       ticketGuestTitle: "Выбор владельцев билетов",
       ticketGuestHint: "Выберите из зарегистрированных гостей тех, кто воспользуется билетом. Билет выдаётся на каждого выбранного.",
       ticketGuestVariantHint: "Выберите категорию для каждого гостя. Каждая категория оформляется отдельно.",
       ticketGuestAutoHint: "Категория определяется автоматически по дате рождения и росту. Каждая категория оформляется отдельно.",
-      ticketGuestAutoBadge: "Авто",
       ticketGuestManualHint: "Не удалось определить автоматически — выберите вручную.",
       ticketHeightLabel: "Рост",
       ticketHeightPlaceholder: "напр. 120",
@@ -888,11 +892,12 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       customerNameLabel: "使用者姓名",
       customerNameHint: "接受服务者的姓名 — 将转达给服务方。",
       customerNamePlaceholder: "请输入姓名",
+      ticketPeopleTitle: "门票使用者信息",
+      ticketPeopleHint: "使用门票的客人信息。身高在此填写一次即适用于所有门票。",
       ticketGuestTitle: "选择门票使用者",
       ticketGuestHint: "请从已入住的住客名单中选择使用此门票的人。按所选人数出票。",
       ticketGuestVariantHint: "请为每位使用者选择类别。不同类别分别出票。",
       ticketGuestAutoHint: "系统会根据出生日期和身高自动判定类别。不同类别分别出票。",
-      ticketGuestAutoBadge: "自动",
       ticketGuestManualHint: "无法自动判定——请手动选择。",
       ticketHeightLabel: "身高",
       ticketHeightPlaceholder: "例如 120",
@@ -1079,11 +1084,12 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       customerNameLabel: "Tên người dùng dịch vụ",
       customerNameHint: "Tên người nhận dịch vụ — sẽ được gửi cho nhà cung cấp.",
       customerNamePlaceholder: "Nhập tên",
+      ticketPeopleTitle: "Thông tin người dùng vé",
+      ticketPeopleHint: "Thông tin những người dùng vé. Chỉ cần nhập chiều cao một lần ở đây, áp dụng cho tất cả vé.",
       ticketGuestTitle: "Chọn người dùng vé",
       ticketGuestHint: "Chọn người sẽ dùng vé này từ danh sách khách đã nhận phòng. Xuất vé theo số người được chọn.",
       ticketGuestVariantHint: "Chọn loại vé cho từng khách. Mỗi loại được xuất vé riêng.",
       ticketGuestAutoHint: "Loại vé được xác định tự động theo ngày sinh và chiều cao. Mỗi loại được xuất vé riêng.",
-      ticketGuestAutoBadge: "Tự động",
       ticketGuestManualHint: "Không xác định tự động được — vui lòng chọn.",
       ticketHeightLabel: "Chiều cao",
       ticketHeightPlaceholder: "vd: 120",
