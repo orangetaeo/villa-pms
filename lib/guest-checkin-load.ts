@@ -106,6 +106,9 @@ export interface GuestCheckinData {
     selectedOptions: ResolvedSelectedOption[];
     /** 티켓형(TICKET) 발행 이미지 URL — 게스트가 열람할 QR 티켓(발행된 것 자체가 산출물). */
     ticketUrls: string[];
+    /** 티켓 이용자 스냅샷 원본 JSON — **RSC 전용**. page 매핑에서 ticketGuestDisplayNames로 이름만 추출해
+     *  클라로 넘긴다. ★birthDate·heightCm는 여기까지만(클라 payload엔 이름만 — 소비자 표기 불필요). */
+    ticketGuests: unknown;
   }[];
 }
 
@@ -211,6 +214,7 @@ export async function loadGuestCheckin(
         proposedServiceDate: true, proposedServiceTime: true,
         vendorProposalNote: true, vendorProposalRespondedAt: true,
         ticketUrls: true, // 티켓형(TICKET) 발행 이미지 — 게스트 열람 산출물(원가·마진 무관)
+        ticketGuests: true, // 이용자 스냅샷({name,birthDate,heightCm}) — RSC 매핑에서 이름만 추출(라인 표기)
         vendor: { select: { name: true, phone: true } },
       },
     }),
@@ -308,6 +312,8 @@ export async function loadGuestCheckin(
       selectedOptions: parseSelectedOptions(o.selectedOptions),
       // 발행된 티켓 이미지 — 상태 무관 노출(발행된 것 자체가 게스트 대상 산출물, ADR-0034)
       ticketUrls: o.ticketUrls,
+      // 이용자 스냅샷 원본 — RSC 전용(page 매핑에서 이름만 추출). 클라 payload엔 이름만.
+      ticketGuests: o.ticketGuests,
     })),
   };
 }

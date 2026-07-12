@@ -13,6 +13,7 @@ import { pickI18n } from "@/lib/service-display";
 import { GUEST_LABELS } from "@/lib/guest-i18n";
 import { fulfillmentNote } from "@/lib/guest-fulfillment";
 import { guestVendorContactVisible } from "@/lib/guest-vendor-contact";
+import { ticketGuestDisplayNames } from "@/lib/ticket-guests";
 import { GuestExpiredView } from "../../_components/guest-expired-view";
 import GuestOrders from "../../_components/guest-orders";
 import type { GuestRequestedOrder } from "../../_components/types";
@@ -94,6 +95,8 @@ export default async function GuestOrdersPage({
       fulfillNote: fulfillmentNote(o.type, pu?.pickupAvailable ?? null, pu?.pickupNote ?? null, La),
       // 발행된 QR 티켓 이미지 — 상태 무관 노출(원가·마진 무관 산출물)
       ticketUrls: o.ticketUrls,
+      // 이용자 이름만 추출(라인별 누가 무료·일반 식별) — birthDate·신장은 클라 미노출. 비TICKET은 빈 배열.
+      guestNames: ticketGuestDisplayNames(o.type, o.ticketGuests),
     };
   });
 

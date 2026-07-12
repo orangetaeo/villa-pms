@@ -222,6 +222,13 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered 
                             </span>
                           </div>
                         </div>
+                        {/* 이용자 이름(테오) — 라인별 누가 무료·일반인지 식별. 아이콘+이름만(라벨 불필요). */}
+                        {o.guestNames.length > 0 && (
+                          <p className="text-xs font-medium text-slate-600 flex items-start gap-1">
+                            <span className="material-symbols-outlined text-[15px] text-slate-400 shrink-0">person</span>
+                            <span className="min-w-0">{o.guestNames.join(" · ")}</span>
+                          </p>
+                        )}
                         {/* 희망 날짜·시간(#2) + 이행 안내(#5) */}
                         {lineWhen && (
                           <p className="text-xs font-medium text-slate-600 flex items-center gap-1">

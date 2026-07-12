@@ -100,6 +100,9 @@ export interface GuestRequestedOrder {
   fulfillNote: string;
   /** 티켓형(TICKET) 발행 이미지 URL — 게스트가 열람할 QR 티켓. 없으면 빈 배열(ADR-0034). */
   ticketUrls: string[];
+  /** 이 라인의 티켓 이용자 이름 목록 — 누가 무료·누가 일반인지 라인별 식별용. ★이름만(생년월일·신장 미포함).
+   *  TICKET 아니거나 스냅샷 없으면 빈 배열(표기 없음). */
+  guestNames: string[];
 }
 
 export interface GuestAgreementView {

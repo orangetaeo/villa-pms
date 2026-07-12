@@ -29,6 +29,7 @@ function order(p: Partial<GuestRequestedOrder> & { id: string }): GuestRequested
     proposalPending: p.proposalPending ?? false,
     fulfillNote: p.fulfillNote ?? "",
     ticketUrls: p.ticketUrls ?? [],
+    guestNames: p.guestNames ?? [],
   };
 }
 
