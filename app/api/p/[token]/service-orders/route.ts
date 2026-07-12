@@ -21,6 +21,7 @@ import {
 } from "@/lib/service-catalog";
 import { priceKrwCeil } from "@/lib/service-display";
 import { getFxVndPerKrw } from "@/lib/pricing";
+import { resolveOrderVendorId } from "@/lib/regional-vendor";
 import { parseUtcDateOnly } from "@/lib/date-vn";
 import type { Prisma } from "@prisma/client";
 import { notifyOperatorsServiceOrderRequested } from "@/lib/consumer-signal-notify";
@@ -74,6 +75,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       id: true,
       status: true,
       channel: true,
+      villaId: true,
       proposalItem: {
         select: { proposal: { select: { token: true, expiresAt: true } } },
       },
@@ -122,6 +124,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
   const fx = await getFxVndPerKrw(prisma);
   const priceKrw = fx ? priceKrwCeil(pricing.totalPriceVnd, fx) : 0;
 
+  // ★지역 벤더 해석(ADR-0037) — MASSAGE·BARBER는 이 빌라의 지정 업체로 오버라이드, 그 외/미지정은 카탈로그 기본.
+  const resolvedVendorId = await resolveOrderVendorId({
+    itemType: item.type,
+    itemVendorId: item.vendorId,
+    villaId: booking.villaId,
+  });
+
   const created = await prisma.serviceOrder.create({
     data: {
       bookingId: booking.id,
@@ -139,8 +148,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       //   체크아웃 정산 미리보기·셀프 취소에 잡힌다(뷰 분단 방지, consumer-bugs #2).
       //   여행사/랜드사 채널은 기존대로 PARTNER(파트너가 고객 대신 신청).
       requestedVia: booking.channel === "DIRECT" ? "GUEST" : "PARTNER",
-      // 발주 대상 스냅샷(S2 dispatch가 사용) — 응답엔 노출하지 않는다.
-      vendorId: item.vendorId,
+      // 발주 대상 스냅샷(S2 dispatch가 사용) — 지역 지정 업체 해석 결과(ADR-0037). 응답엔 노출하지 않는다.
+      vendorId: resolvedVendorId,
       guestNote: d.guestNote ?? null,
     },
     select: { id: true },

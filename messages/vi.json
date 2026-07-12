@@ -1385,6 +1385,19 @@
         "saving": "Đang lưu…",
         "saved": "Đã lưu · giao lại {count} việc",
         "errSave": "Lưu thất bại"
+      },
+      "regionalVendor": {
+        "title": "Nhà cung cấp theo khu vực",
+        "desc": "Massage và cắt tóc là dịch vụ theo khu vực, hãy chọn cửa hàng gần villa này. Khi chỉ định, các đơn massage·cắt tóc của villa này sẽ được đặt cho nhà cung cấp đó. Nếu để trống sẽ dùng nhà cung cấp mặc định trong danh mục.",
+        "unassigned": "Không chỉ định (mặc định danh mục)",
+        "noVendors": "Chưa có nhà cung cấp được duyệt. Thêm ở phần Cài đặt → Quản lý nhà cung cấp.",
+        "saving": "Đang lưu…",
+        "saved": "Đã lưu",
+        "errSave": "Lưu thất bại",
+        "types": {
+          "MASSAGE": "Massage",
+          "BARBER": "Cắt tóc"
+        }
       }
     },
     "sales": {
