@@ -40,6 +40,10 @@
 - PDF는 범위 외(이미지 전용). 공용 헬퍼 `lib/ticket-upload.saveTicketFiles`가 검증·저장·상한 담당.
 - 동시성 409로 DB 미기록 시 저장 파일이 orphan으로 남을 수 있으나 **노출 URL이 없어 무해**(허용).
 
+### 3-1. (개정 2026-07-12) 발행 완료 게이트 + 부족 발행 수동 수락 보존
+
+발행=수락 겸행의 **발동 시점을 "업로드 반영 후 발행 수량 ≥ 주문 수량"으로 한정**한다(계약 `ticket-issuance-complete-gate.md`). 배경(테오 실측): 2장짜리 TICKET 주문에 1장만 발행해도 즉시 수락되어 예약현황으로 이동하는 업무 순서 오류. 이제 미달 업로드는 `ticketUrls`만 추가하고 `PENDING_VENDOR`를 유지(발주함 잔류·운영자 통보 미발송)하며, 나눠 업로드로 수량이 충족되는 마지막 업로드에서 1회 전이(+GUEST·REQUESTED면 CONFIRMED)+통보한다(원자 updateMany 가드·`accept = wasPending && newUrls.length ≥ quantity`). 단 §4 수량 비강제 취지(확인시트 1장으로 전원 커버·FOC)를 위해 **부족 발행 상태의 수동 수락 경로는 열어둔다** — 벤더 보드에서 발행 1장 이상이면 기존 `respond accept` 수락 버튼을 노출(0장이면 발행 유도 위해 숨김). 이미 `VENDOR_ACCEPTED`인 주문의 추가 발행·삭제는 상태 불변(삭제로 수량 미달이 돼도 un-accept 없음), 운영자 대리 첨부(§3)도 상태 불변으로 유지된다.
+
 ## 누수 경계
 
 - 벤더 응답(`/api/vendor/orders`·업로드 응답)·게스트 응답에 판매가·마진·costVnd·bankInfo **신규 노출 없음**.
