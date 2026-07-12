@@ -927,7 +927,9 @@ function RowActions({
   if (order.status === "CONFIRMED" || order.status === "DELIVERED") {
     return (
       <div className="flex flex-wrap items-center justify-end gap-2">
-        {order.status === "CONFIRMED" && (
+        {/* ★TICKET은 제공완료 버튼 없음(테오) — 발행 완료=업무 종료. 정산·매출은 CONFIRMED와 동일 취급이라
+            실익이 없고, DELIVERED로 종결하면 티켓 첨부·삭제(실수 정정)가 잠긴다. 취소는 유지. */}
+        {order.status === "CONFIRMED" && order.type !== "TICKET" && (
           <button
             type="button"
             onClick={onDeliver}
