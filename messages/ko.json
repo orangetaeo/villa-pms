@@ -307,6 +307,10 @@
       "thisWeek": "이번 주",
       "all": "전체"
     },
+    "itemFilter": {
+      "label": "품목 분류",
+      "all": "전체 품목"
+    },
     "proposalTab": {
       "pending": "고객 응답 대기",
       "applied": "수락됨",

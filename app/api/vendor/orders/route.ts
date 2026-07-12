@@ -170,12 +170,19 @@ export async function GET(req: Request) {
     };
   }
 
-  // 목록 where에 검색·날짜 필터를 AND로 합친다. 뱃지 카운트·settleTotals는 이 헬퍼를 쓰지 않으므로
-  //   항상 날짜 무관(전역) 유지 — "할 일 총량" 뱃지 의미 보존.
+  // ★ 품목(티켓 분류) 필터 — catalogItemId 정확일치. 본인 vendorId 스코프가 base라 타 벤더 itemId를
+  //   넣어도 빈 결과일 뿐(누수 없음). 불량 값(비문자열·40자 초과)은 무시(관용) — 날짜 필터와 동일 원칙.
+  const rawItemId = sp.get("itemId");
+  const itemWhere: Prisma.ServiceOrderWhereInput | undefined =
+    rawItemId && rawItemId.length <= 40 ? { catalogItemId: rawItemId } : undefined;
+
+  // 목록 where에 검색·날짜·품목 필터를 AND로 합친다. 뱃지 카운트·settleTotals는 이 헬퍼를 쓰지 않으므로
+  //   항상 필터 무관(전역) 유지 — "할 일 총량" 뱃지·정산 합계 의미 보존.
   const withFilters = (w: Prisma.ServiceOrderWhereInput): Prisma.ServiceOrderWhereInput => {
     const extra: Prisma.ServiceOrderWhereInput[] = [];
     if (searchWhere) extra.push(searchWhere);
     if (dateWhere) extra.push(dateWhere);
+    if (itemWhere) extra.push(itemWhere);
     return extra.length ? { AND: [w, ...extra] } : w;
   };
 

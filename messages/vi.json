@@ -307,6 +307,10 @@
       "thisWeek": "Tuần này",
       "all": "Tất cả"
     },
+    "itemFilter": {
+      "label": "Phân loại dịch vụ",
+      "all": "Tất cả dịch vụ"
+    },
     "proposalTab": {
       "pending": "Chờ khách phản hồi",
       "applied": "Đã chấp nhận",

@@ -140,6 +140,9 @@ export default function VendorBoard({ ticketOnly = false }: { ticketOnly?: boole
   // 날짜 필터(serviceDate 기준, 양끝 포함) — 4탭 공통 상태(탭 전환해도 유지). "" = 미적용.
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  // 품목(티켓 분류) 필터 — 4탭 공통 상태. "" = 전체 품목. 마운트 시 1회 로드하는 셀렉트 옵션 소스.
+  const [itemId, setItemId] = useState("");
+  const [catalogItems, setCatalogItems] = useState<{ id: string; name: string }[]>([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [data, setData] = useState<VendorData | null>(null);
@@ -168,6 +171,7 @@ export default function VendorBoard({ ticketOnly = false }: { ticketOnly?: boole
     if (search.trim()) qs.set("search", search.trim());
     if (from) qs.set("from", from);
     if (to) qs.set("to", to);
+    if (itemId) qs.set("itemId", itemId);
     qs.set("page", String(page));
     qs.set("pageSize", String(pageSize));
     const id = ++reqId.current;
@@ -187,7 +191,25 @@ export default function VendorBoard({ ticketOnly = false }: { ticketOnly?: boole
       .finally(() => {
         if (id === reqId.current) setFetching(false);
       });
-  }, [tab, settleSub, search, from, to, page, pageSize, refreshKey]);
+  }, [tab, settleSub, search, from, to, itemId, page, pageSize, refreshKey]);
+
+  // 품목 필터 옵션 — 마운트 시 1회 로드(본인 품목 id·이름만). 실패 시 빈 배열 → 셀렉트 미노출.
+  useEffect(() => {
+    fetch("/api/vendor/catalog-items", { cache: "no-store" })
+      .then((r) => (r.ok ? (r.json() as Promise<{ items: { id: string; name: string }[] }>) : null))
+      .then((json) => {
+        if (json?.items) setCatalogItems(json.items);
+      })
+      .catch(() => {
+        /* 옵션 로드 실패는 조용히 무시 — 필터만 안 뜰 뿐 목록은 정상 */
+      });
+  }, []);
+
+  // 품목 필터 변경 — 항상 1페이지로. "" = 전체 품목.
+  const onItemChange = useCallback((v: string) => {
+    setItemId(v);
+    setPage(1);
+  }, []);
 
   const reload = useCallback(() => setRefreshKey((k) => k + 1), []);
 
@@ -413,6 +435,24 @@ export default function VendorBoard({ ticketOnly = false }: { ticketOnly?: boole
           })}
         </div>
       </div>
+
+      {/* 품목(티켓 분류) 필터 — "빈사파리만" 처럼 분류별 조회. 품목 2종 미만이면 미노출(선택 의미 없음).
+          4탭 공통·탭 전환 유지. 변경 시 1페이지로. */}
+      {catalogItems.length >= 2 && (
+        <select
+          value={itemId}
+          onChange={(e) => onItemChange(e.target.value)}
+          aria-label={t("itemFilter.label")}
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-neutral-900 focus-within:border-teal-400"
+        >
+          <option value="">{t("itemFilter.all")}</option>
+          {catalogItems.map((it) => (
+            <option key={it.id} value={it.id}>
+              {it.name}
+            </option>
+          ))}
+        </select>
+      )}
 
       {/* 목록 검색 — 빌라명·품목명 부분일치 (라이트 테마). 서버 조회(디바운스). */}
       <ListSearch light value={searchInput} onChange={setSearchInput} placeholder={t("searchPlaceholder")} />
