@@ -299,8 +299,14 @@
       "inbox": "Đơn mới",
       "proposal": "Đề xuất giờ",
       "schedule": "Lịch giao",
+      "issuance": "Tình trạng phát hành",
       "settlement": "Thanh toán"
     },
+    "accordion": {
+      "expand": "Xem chi tiết",
+      "collapse": "Thu gọn"
+    },
+    "guestMore": "và {count} khách khác",
     "dateFilter": {
       "start": "Từ ngày",
       "end": "Đến ngày",
