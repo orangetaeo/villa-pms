@@ -1,8 +1,9 @@
-// 티켓형(TICKET) QR 티켓 발행/삭제 API 테스트 (ADR-0034, 완료 게이트 개정 2026-07-12 + 발행=완료 §3-3)
+// 티켓형(TICKET) QR 티켓 발행/삭제 API 테스트 (ADR-0034, 완료 게이트 §3-3 + 완료 후 잠금 §3-5)
 //   - 벤더 업로드: 성공 + 발행=수락 겸행 전이(수량 충족 시만·GUEST→CONFIRMED)·미달 업로드=PENDING 유지·통보 미발송
 //     ·나눠 업로드 충족 시 전이·초과 업로드 전이·타벤더 404·비TICKET 400·상한 400·CANCELLED 409·동시성 409
-//   - 발행=완료(§3-3): 수량 충족 시 vendorCompletedAt 자동 세팅(수락과 동시/수락 후 추가발행 둘 다)·미달=미기록·이미 완료면 재기록 없음
-//   - 벤더 삭제: 성공·미존재 404·미달 시 vendorCompletedAt 해제(수락 유지)·초과분 삭제로도 충족이면 완료 유지
+//   - 발행=완료(§3-3): 수량 충족 시 vendorCompletedAt 자동 세팅(수락과 동시/수락 후 추가발행 둘 다)·미달=미기록
+//   - 발행 완료 잠금(§3-5): vendorCompletedAt!=null이면 벤더 POST/DELETE 모두 409 TICKETS_LOCKED(저장 안 함)
+//   - 벤더 삭제: 완료 전(미달) 자가 정정만·미존재 404·미완료 삭제는 완료 필드 불변(clearComplete 제거)
 //   - 운영자 대리 업로드: 상태 불변(전이·완료 없음)
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -132,6 +133,38 @@ describe("벤더 티켓 발행 POST", () => {
     expect(writeAuditLog).toHaveBeenCalled();
   });
 
+  it("requestedVia=ADMIN 티켓 발행 완료 → 수락+CONFIRMED+완료 동시(requestedVia 무관, ADR-0034 §3-4)", async () => {
+    soFindUnique.mockResolvedValue({ ...baseTicketOrder, requestedVia: "ADMIN" });
+    const res = await VENDOR_POST(formReq(), P("so-1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.vendorStatus).toBe("VENDOR_ACCEPTED");
+    expect(body.status).toBe("CONFIRMED");
+    const call = soUpdateMany.mock.calls[0][0] as { where: Record<string, unknown>; data: Record<string, unknown> };
+    // 운영자 발주라도 status=REQUESTED 가드 + CONFIRMED 전이(원자)
+    expect(call.where.vendorStatus).toBe("PENDING_VENDOR");
+    expect(call.where.status).toBe("REQUESTED");
+    expect(call.data.vendorStatus).toBe("VENDOR_ACCEPTED");
+    expect(call.data.status).toBe("CONFIRMED");
+    expect(call.data.vendorCompletedAt).toBeInstanceOf(Date);
+    expect(body.vendorCompletedAt).toBeTruthy();
+    expect(sendVendorResponseOperatorNotifications).toHaveBeenCalledOnce();
+  });
+
+  it("requestedVia=PARTNER 티켓 발행 완료 → 수락+CONFIRMED+완료 동시", async () => {
+    soFindUnique.mockResolvedValue({ ...baseTicketOrder, requestedVia: "PARTNER" });
+    const res = await VENDOR_POST(formReq(), P("so-1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.vendorStatus).toBe("VENDOR_ACCEPTED");
+    expect(body.status).toBe("CONFIRMED");
+    const call = soUpdateMany.mock.calls[0][0] as { where: Record<string, unknown>; data: Record<string, unknown> };
+    expect(call.where.status).toBe("REQUESTED");
+    expect(call.data.status).toBe("CONFIRMED");
+    expect(call.data.vendorCompletedAt).toBeInstanceOf(Date);
+    expect(sendVendorResponseOperatorNotifications).toHaveBeenCalledOnce();
+  });
+
   it("완료 게이트: 2장 주문에 1장만 발행 → PENDING 유지·전이 미발생·통보 미발송(발주함 잔류)", async () => {
     soFindUnique.mockResolvedValue({ ...baseTicketOrder }); // quantity 2, ticketUrls []
     saveTicketFiles.mockResolvedValue({ ok: true, urls: ["/u/a.jpg"] }); // 1장만
@@ -195,26 +228,20 @@ describe("벤더 티켓 발행 POST", () => {
     expect(sendVendorResponseOperatorNotifications).toHaveBeenCalledOnce();
   });
 
-  it("이미 VENDOR_ACCEPTED·완료된 주문의 추가 발행 → 전이·완료·통보 없음(순수 첨부)", async () => {
+  it("★완료(vendorCompletedAt!=null)된 주문 추가 발행 → 409 TICKETS_LOCKED·저장 안 함 (§3-5)", async () => {
     soFindUnique.mockResolvedValue({
       ...baseTicketOrder,
       status: "CONFIRMED",
       vendorStatus: "VENDOR_ACCEPTED",
       ticketUrls: ["/u/existing.jpg", "/u/existing2.jpg"], // 이미 2/2 충족
       ticketsIssuedAt: new Date(),
-      vendorCompletedAt: new Date(), // 이미 완료됨
+      vendorCompletedAt: new Date(), // 이미 완료됨 → 잠금
     });
     const res = await VENDOR_POST(formReq(), P("so-1"));
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.vendorStatus).toBe("VENDOR_ACCEPTED");
-    expect(body.status).toBe("CONFIRMED");
-    expect(body.ticketUrls).toHaveLength(4); // 기존 2 + 신규 2
-    const call = soUpdateMany.mock.calls[0][0] as { where: Record<string, unknown>; data: Record<string, unknown> };
-    expect(call.where.vendorStatus).toBeUndefined();
-    expect(call.data.vendorStatus).toBeUndefined();
-    expect(call.data.ticketsIssuedAt).toBeUndefined(); // 최초 발행 시각 유지
-    expect(call.data.vendorCompletedAt).toBeUndefined(); // 이미 완료 → 재기록 없음(멱등)
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: "TICKETS_LOCKED" });
+    expect(saveTicketFiles).not.toHaveBeenCalled();
+    expect(soUpdateMany).not.toHaveBeenCalled();
     expect(sendVendorResponseOperatorNotifications).not.toHaveBeenCalled();
   });
 
@@ -295,51 +322,32 @@ describe("벤더 티켓 발행 POST", () => {
 });
 
 describe("벤더 티켓 삭제 DELETE", () => {
-  it("본인 주문의 티켓 제거 성공(여전히 충족 — 완료 유지)", async () => {
-    // 초과분(3장) 중 1장 삭제 → 2/2 여전히 충족이라 완료 유지.
-    soFindUnique.mockResolvedValue({
-      id: "so-1",
-      type: "TICKET",
-      status: "CONFIRMED",
-      vendorId: "v-1",
-      ticketUrls: ["/u/a.jpg", "/u/b.jpg", "/u/c.jpg"],
-      quantity: 2,
-      vendorCompletedAt: new Date(),
-    });
-    const res = await VENDOR_DELETE(jsonReq({ url: "/u/a.jpg" }), P("so-1"));
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.ticketUrls).toEqual(["/u/b.jpg", "/u/c.jpg"]);
-    expect(body.vendorCompletedAt).toBeTruthy(); // 여전히 2/2 → 완료 유지
-    const call = soUpdateMany.mock.calls[0][0] as { data: Record<string, unknown> };
-    expect(call.data.vendorCompletedAt).toBeUndefined(); // 해제 필드 없음
-    expect(writeAuditLog).toHaveBeenCalled();
-  });
-
-  it("삭제로 수량 미달 → vendorCompletedAt null 해제(수락 상태·status 불변) (§3-3 대칭)", async () => {
+  it("완료 전(미달) 티켓 자가 삭제 성공 — 완료 필드 미포함(현행)", async () => {
+    // 아직 완료되지 않은 부분 발행(2/3) 중 1장 삭제 → 1/3. vendorCompletedAt은 애초에 null이라 불변.
     soFindUnique.mockResolvedValue({
       id: "so-1",
       type: "TICKET",
       status: "CONFIRMED",
       vendorId: "v-1",
       ticketUrls: ["/u/a.jpg", "/u/b.jpg"],
-      quantity: 2,
-      vendorCompletedAt: new Date(),
+      quantity: 3,
+      vendorCompletedAt: null, // 미완료 — 잠금 아님
     });
     const res = await VENDOR_DELETE(jsonReq({ url: "/u/a.jpg" }), P("so-1"));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.ticketUrls).toEqual(["/u/b.jpg"]); // 1/2 미달
-    expect(body.vendorCompletedAt).toBeNull(); // 완료 해제
+    expect(body.ticketUrls).toEqual(["/u/b.jpg"]);
+    expect(body.vendorCompletedAt).toBeNull();
     const call = soUpdateMany.mock.calls[0][0] as { data: Record<string, unknown> };
-    expect(call.data.vendorCompletedAt).toBeNull();
-    // 수락·상태 축은 건드리지 않음(un-accept 없음)
+    // clearComplete 제거 — 완료 필드는 data에 없음. 수락·상태 축도 불변.
+    expect(call.data.ticketUrls).toEqual(["/u/b.jpg"]);
+    expect(call.data.vendorCompletedAt).toBeUndefined();
     expect(call.data.vendorStatus).toBeUndefined();
     expect(call.data.status).toBeUndefined();
     expect(writeAuditLog).toHaveBeenCalled();
   });
 
-  it("미완료(vendorCompletedAt null) 주문 삭제 → 해제 필드 없음(불변)", async () => {
+  it("★완료(vendorCompletedAt!=null)된 주문 삭제 → 409 TICKETS_LOCKED·미삭제 (§3-5)", async () => {
     soFindUnique.mockResolvedValue({
       id: "so-1",
       type: "TICKET",
@@ -347,12 +355,12 @@ describe("벤더 티켓 삭제 DELETE", () => {
       vendorId: "v-1",
       ticketUrls: ["/u/a.jpg", "/u/b.jpg"],
       quantity: 2,
-      vendorCompletedAt: null,
+      vendorCompletedAt: new Date(), // 완료됨 → 잠금
     });
     const res = await VENDOR_DELETE(jsonReq({ url: "/u/a.jpg" }), P("so-1"));
-    expect(res.status).toBe(200);
-    const call = soUpdateMany.mock.calls[0][0] as { data: Record<string, unknown> };
-    expect(call.data.vendorCompletedAt).toBeUndefined();
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: "TICKETS_LOCKED" });
+    expect(soUpdateMany).not.toHaveBeenCalled(); // 삭제 반영 안 함
   });
 
   it("없는 url이면 404 TICKET_NOT_FOUND", async () => {

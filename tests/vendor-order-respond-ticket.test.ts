@@ -1,6 +1,7 @@
-// 벤더 발주 응답 — TICKET propose 서버 가드 테스트 (ticket-vendor-board)
+// 벤더 발주 응답 — TICKET propose 서버 가드 + 수락=확정(ADR-0034 §3-4) 테스트 (ticket-vendor-board)
 //   - TICKET 주문에 action=propose → 400 TICKET_NO_PROPOSAL(시간 협의 무의미, UI·서버 대칭).
-//   - accept/reject는 TICKET에서도 통과(기존 흐름 불변), 비TICKET propose도 통과(대조군).
+//   - TICKET accept(ADMIN·PARTNER) → 자동 CONFIRMED(requestedVia 무관), reject는 현행.
+//   - 비TICKET accept: ADMIN=REQUESTED 유지(회귀), GUEST=CONFIRMED(ADR-0033 현행), propose 대조군.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── prisma mock ──
@@ -88,12 +89,43 @@ describe("respond — TICKET propose 가드", () => {
     expect(notifyOperators).not.toHaveBeenCalled();
   });
 
-  it("TICKET 주문 accept → 200(기존 흐름 불변)", async () => {
-    soFindUnique.mockResolvedValue({ ...orderBase, type: "TICKET" });
+  it("TICKET(requestedVia=ADMIN) accept → 200 + 자동 CONFIRMED(ADR-0034 §3-4)", async () => {
+    soFindUnique.mockResolvedValue({ ...orderBase, type: "TICKET", requestedVia: "ADMIN" });
     const res = await call({ action: "accept" });
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ vendorStatus: "VENDOR_ACCEPTED", action: "accept" });
-    expect(soUpdateMany).toHaveBeenCalledOnce();
+    // requestedVia 무관 자동 확정 — where에 status=REQUESTED 가드, data에 status=CONFIRMED
+    const call0 = soUpdateMany.mock.calls[0][0] as { where: Record<string, unknown>; data: Record<string, unknown> };
+    expect(call0.where.status).toBe("REQUESTED");
+    expect(call0.data.status).toBe("CONFIRMED");
+  });
+
+  it("TICKET(requestedVia=PARTNER) accept → 자동 CONFIRMED", async () => {
+    soFindUnique.mockResolvedValue({ ...orderBase, type: "TICKET", requestedVia: "PARTNER" });
+    const res = await call({ action: "accept" });
+    expect(res.status).toBe(200);
+    const call0 = soUpdateMany.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(call0.data.status).toBe("CONFIRMED");
+  });
+
+  it("비TICKET(requestedVia=ADMIN) accept → REQUESTED 유지(현행 회귀 — 자동 확정 없음)", async () => {
+    soFindUnique.mockResolvedValue({ ...orderBase, type: "MASSAGE", requestedVia: "ADMIN" });
+    const res = await call({ action: "accept" });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ vendorStatus: "VENDOR_ACCEPTED", action: "accept" });
+    const call0 = soUpdateMany.mock.calls[0][0] as { where: Record<string, unknown>; data: Record<string, unknown> };
+    // 자동 확정 없음 — status 가드·전이 필드 모두 없음
+    expect(call0.where.status).toBeUndefined();
+    expect(call0.data.status).toBeUndefined();
+  });
+
+  it("비TICKET(requestedVia=GUEST) accept → 자동 CONFIRMED(ADR-0033 현행 회귀)", async () => {
+    soFindUnique.mockResolvedValue({ ...orderBase, type: "MASSAGE", requestedVia: "GUEST" });
+    const res = await call({ action: "accept" });
+    expect(res.status).toBe(200);
+    const call0 = soUpdateMany.mock.calls[0][0] as { where: Record<string, unknown>; data: Record<string, unknown> };
+    expect(call0.where.status).toBe("REQUESTED");
+    expect(call0.data.status).toBe("CONFIRMED");
   });
 
   it("TICKET 주문 reject → 200(기존 흐름 불변)", async () => {
