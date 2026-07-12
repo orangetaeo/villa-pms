@@ -792,6 +792,7 @@
       "selectedVilla": "Villa đã chọn",
       "changeVilla": "Đổi",
       "prefillMissing": "Villa được chỉ định không thể đặt với điều kiện hiện tại nên đã bỏ chọn. Hãy chọn lại từ danh sách.",
+      "selectionStale": "Villa đã chọn không nằm trong kết quả hiện tại. Hãy kiểm tra ngày·bộ lọc rồi chọn lại.",
       "bedroomsBadge": "{n} phòng ngủ",
       "bathroomsBadge": "{n} phòng tắm",
       "beachBadge": "Biển {m}m",

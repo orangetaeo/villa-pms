@@ -292,6 +292,16 @@ export default function ManualBookingForm({
   const overCapacity =
     !!selectedVilla && Number(guestCount) > 0 && Number(guestCount) > selectedVilla.maxGuests;
 
+  // 유령 선택 방지: 선택한 빌라가 (날짜 변경 등으로) 현재 검색 결과에서 빠지면 경고.
+  //   서버 checkAvailability 가 최종 방어(409)지만, 제출 전 UX로 알린다. truncated(100+ 잘림) 시엔
+  //   결과 부재가 곧 점유를 뜻하지 않으므로 오탐 방지로 경고하지 않는다.
+  const selectionStale =
+    !!selectedVilla &&
+    searched &&
+    !loadingResults &&
+    !truncated &&
+    !results.some((v) => v.id === selectedVilla.id);
+
   // ── 나머지 폼 상태 (버튼형 토글) ──
   const [channel, setChannel] = useState<Channel>("DIRECT");
   const [currency, setCurrency] = useState<Currency>("KRW");
@@ -570,6 +580,12 @@ export default function ManualBookingForm({
               <p role="alert" className="mb-3 text-xs text-amber-400 flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-sm">warning</span>
                 {t("create.prefillMissing")}
+              </p>
+            )}
+            {selectionStale && (
+              <p role="alert" className="mb-3 text-xs text-amber-400 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-sm">warning</span>
+                {t("create.selectionStale")}
               </p>
             )}
 
