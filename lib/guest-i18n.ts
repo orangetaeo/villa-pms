@@ -188,6 +188,7 @@ export interface GuestLabels {
     saveAll: string; // 그룹(주문) 단위 모두 저장 버튼
     offlineHint: string; // 오프라인 대비 안내("현장 인터넷이 안 될 수 있어 미리 저장하세요")
     iosHint: string; // iOS 보조 안내("이미지를 길게 눌러 사진에 저장할 수도 있어요")
+    freeEntry: string; // 무료 티켓(판매가 0) 안내 — "티켓 없이 입장 가능(무료)"
   };
   // 벤더 시간 제안 응답(ADR-0035) — 미해결 제안 배너 + 제안 카드 블록(원래→제안 시간, 승인/거절)
   proposal: {
@@ -397,6 +398,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       saveAll: "티켓 모두 저장",
       offlineHint: "현장에서 인터넷이 안 될 수 있어요. 티켓을 미리 저장해 두세요.",
       iosHint: "이미지를 길게 눌러 사진에 저장할 수도 있어요.",
+      freeEntry: "티켓 없이 입장 가능(무료)",
     },
     proposal: {
       banner: "담당자가 시간 변경을 제안했습니다 — 아래에서 확인해 주세요.",
@@ -594,6 +596,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       saveAll: "Save all tickets",
       offlineHint: "The internet may not work on site. Save your tickets in advance.",
       iosHint: "You can also press and hold the image to save it to Photos.",
+      freeEntry: "Free entry — no ticket needed",
     },
     proposal: {
       banner: "The provider suggested a new time — please review below.",
@@ -791,6 +794,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       saveAll: "Сохранить все билеты",
       offlineHint: "На месте интернет может не работать. Сохраните билеты заранее.",
       iosHint: "Также можно нажать и удерживать изображение, чтобы сохранить его в «Фото».",
+      freeEntry: "Бесплатный вход — билет не нужен",
     },
     proposal: {
       banner: "Исполнитель предложил новое время — проверьте ниже.",
@@ -988,6 +992,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       saveAll: "保存全部门票",
       offlineHint: "现场可能无法上网，请提前保存门票。",
       iosHint: "也可长按图片保存到相册。",
+      freeEntry: "免费入场，无需门票",
     },
     proposal: {
       banner: "服务方建议更改时间 — 请在下方确认。",
@@ -1185,6 +1190,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       saveAll: "Lưu tất cả vé",
       offlineHint: "Tại chỗ có thể không có internet. Hãy lưu vé trước.",
       iosHint: "Bạn cũng có thể nhấn giữ ảnh để lưu vào Ảnh.",
+      freeEntry: "Vào cửa miễn phí — không cần vé",
     },
     proposal: {
       banner: "Nhân viên phụ trách đề xuất đổi giờ — vui lòng xác nhận bên dưới.",

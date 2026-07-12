@@ -442,7 +442,8 @@
       "errNoFiles": "Vui lòng chọn tệp.",
       "passportTitle": "Thông tin hộ chiếu khách",
       "passportEmpty": "Chưa chỉ định người dùng — không được chọn khi đặt",
-      "heightDeclared": "khai {cm}cm"
+      "heightDeclared": "khai {cm}cm",
+      "freeEntry": "Vào cửa miễn phí — không cần phát vé"
     },
     "propose": {
       "button": "Đề xuất giờ",
