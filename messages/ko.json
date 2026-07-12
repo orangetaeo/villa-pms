@@ -431,7 +431,7 @@
       "title": "QR 티켓",
       "counter": "{issued}/{needed}장",
       "shortWarn": "발행 수량이 주문 수량보다 적습니다.",
-      "acceptHint": "주문 수량만큼 발행하면 이 발주가 자동으로 수락 처리됩니다.",
+      "acceptHint": "주문 수량만큼 발행하면 자동으로 수락·완료 처리됩니다.",
       "upload": "티켓 발행",
       "uploading": "업로드 중…",
       "remove": "삭제",

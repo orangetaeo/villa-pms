@@ -48,6 +48,12 @@
 
 무료 입장 티켓(판매가 0 — 무료/유아 variant 등)은 업체가 QR을 **발행할 필요도, 소비자가 제시할 필요도 없다**(그냥 입장, 테오). 따라서 발행 완료 게이트(§3-1) 대상에서 제외한다. 무료 판정=`type=TICKET && 주문 판매가(priceVnd 스냅샷)=0`. 게스트 생성 경로(`/api/g/[token]/service-orders`)는 무료 그룹을 자동 발주(PENDING_VENDOR) 대신 **생성 시점에 `status=CONFIRMED`+`vendorStatus=VENDOR_ACCEPTED`+`poSentAt`·`vendorRespondedAt` 원자 세팅**하고, **벤더 발주 통보(`sendVendorPoNotifications`)를 생략**한다(할 일 아님 — 벤더 예약현황 정보 노출로 충분). 운영자 신청 접수 알림(A1)은 유지. `vendorId`는 정상 스냅샷(해석 결과 그대로 — 벤더 예약현황 노출용). 같은 제출의 유료 그룹은 §3-1 자동 발주 흐름 그대로. 벤더 응답(`/api/vendor/orders`)은 행에 서버 파생 `freeEntry` boolean만 노출(판매가 값 자체는 절대 미포함) — 벤더 보드는 무료 행에 발행 패널 대신 "무료 입장 — 티켓 발행 불필요" 안내를 렌더한다. 소비자 신청 내역은 무료 라인에 "티켓 없이 입장 가능(무료)" 안내(5언어)를 표시하고 부분 발행 경고(§표시)는 제외한다.
 
+### 3-3. (개정 2026-07-12) 발행 = 이행 완료(자동), 삭제 시 대칭 해제
+
+티켓은 **발행(사진 첨부)이 곧 서비스 완료** — 완료보고 별도 클릭이 불필요하다(테오). 따라서 §3-1 완료 게이트가 충족되는 순간 같은 원자 갱신에서 `vendorCompletedAt=now`를 자동 세팅한다(계약 `ticket-issuance-auto-complete.md`). 발동 조건은 `meetsQuantity && order.vendorCompletedAt === null`(스냅샷 기준 멱등)으로, 두 경로 모두에 적용된다: (a) `PENDING_VENDOR` 주문이 발행으로 수량 충족 — 수락 전이(+GUEST·REQUESTED면 CONFIRMED)와 **동시**에 `vendorCompletedAt` 세팅. (b) 이미 `VENDOR_ACCEPTED`인 주문(수동 수락 등)의 추가 발행으로 충족 — 상태 전이 없이 `vendorCompletedAt`만 세팅(기존 "상태 불변" 경로에 조건부 필드만 추가, 동시성 가드 패턴 유지). **별도 완료 통보는 없다** — 수락 통보(§3)로 충분하며 이중 알림을 피한다.
+
+**삭제 시 대칭 해제**: 첨부 실수 정정(삭제 후 재등록)을 위해, DELETE로 `newUrls.length < quantity`가 되고 `vendorCompletedAt`이 있으면 같은 갱신에서 `vendorCompletedAt=null`로 해제한다(정정 구간 동안 "완료" 오표시 방지). 재등록으로 다시 충족되면 POST 경로에서 재완료된다. 수락 상태(`VENDOR_ACCEPTED`)는 해제하지 않는다(un-accept 없음 — 현행). 초과분 삭제로도 여전히 수량이 충족되면 완료는 유지된다. DELETE의 closed 가드(CANCELLED/DELIVERED 409)는 현행이며, `vendorCompletedAt`이 세팅돼 있어도 `status`는 CONFIRMED이므로 정정 삭제는 열려 있다. 운영자 대리 첨부(`/api/service-orders/[id]/tickets`)는 완료 자동화도 미적용(상태·완료 불변 — 현행). 벤더 보드의 완료 칩·완료보고 버튼은 기존 `vendorCompletedAt` 조건 그대로라 자동으로 반영된다(로직 무변경).
+
 ## 누수 경계
 
 - 벤더 응답(`/api/vendor/orders`·업로드 응답)·게스트 응답에 판매가·마진·costVnd·bankInfo **신규 노출 없음**.

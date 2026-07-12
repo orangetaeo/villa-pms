@@ -5,7 +5,10 @@
 //       주문 수량 이상일 때만 VENDOR_ACCEPTED로 원자 전이(updateMany 가드) +
 //       (requestedVia=GUEST·REQUESTED면 ADR-0033 규칙대로 status=CONFIRMED) + 운영자 통보.
 //       미달 업로드는 ticketUrls만 추가(PENDING_VENDOR 유지·통보 없음). 부족 발행 수동 수락=respond accept.
+//     ★발행=완료(ADR-0034 §3-3): 업로드 반영 후 수량 충족이고 vendorCompletedAt 미기록이면 자동 세팅
+//       (수락 전이와 동시든, 이미 수락된 주문의 추가 발행이든 동일). 별도 완료 통보는 없음(수락 통보로 충분).
 //   DELETE: body {url} 단건 제거(본인·TICKET·DELIVERED/CANCELLED 전만). 저장 파일 자체는 미삭제.
+//     ★삭제 시 수량 미달이 되면 vendorCompletedAt=null로 완료 해제(대칭·정정 구간 오표시 방지). 수락 상태는 유지.
 //   ★ 누수: 타 공급자 발주 404. 응답에 판매가·마진·costVnd 없음.
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
@@ -54,6 +57,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       vendorStatus: true,
       ticketUrls: true,
       ticketsIssuedAt: true,
+      vendorCompletedAt: true,
       catalogItemId: true,
       vendorName: true,
       serviceDate: true,
@@ -98,6 +102,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // 게스트 직접 발주(REQUESTED)면 CONFIRMED도 겸행 — 수락 전이가 실제로 일어날 때만.
   const autoConfirm =
     accept && order.requestedVia === "GUEST" && order.status === "REQUESTED";
+  // ★발행=완료(ADR-0034 §3-3): 업로드 반영 후 수량 충족이고 아직 완료 미기록이면 vendorCompletedAt 자동 세팅.
+  //   수락 전이(accept)와 동시 발동(신규 수락)이든, 이미 VENDOR_ACCEPTED인 주문의 추가 발행으로
+  //   충족되는 케이스든 동일 — 전이 여부와 무관하게 완료 필드만 조건부로 추가한다(상태 불변 경로에도 적용).
+  //   별도 완료 통보는 없음(accept 통보로 충분·이중 알림 방지). 스냅샷이 이미 완료면 재기록 안 함(멱등).
+  const autoComplete = meetsQuantity && order.vendorCompletedAt === null;
 
   // ★동시성 가드 — 읽은 스냅샷(vendorStatus·status) 위에서만 반영. count===0 → 409(저장 파일 orphan 허용:
   //   DB 미기록이라 노출 URL 없음). autoConfirm은 where에 status=REQUESTED도 넣어 운영자 동시 취소 레이스 차단.
@@ -114,6 +123,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     ...(order.ticketsIssuedAt ? {} : { ticketsIssuedAt: now }),
     ...(accept ? { vendorStatus: "VENDOR_ACCEPTED", vendorRespondedAt: now } : {}),
     ...(autoConfirm ? { status: "CONFIRMED" } : {}),
+    ...(autoComplete ? { vendorCompletedAt: now } : {}),
   };
   const updated = await prisma.serviceOrder.updateMany({ where, data });
   if (updated.count === 0) {
@@ -122,6 +132,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const newVendorStatus = accept ? "VENDOR_ACCEPTED" : order.vendorStatus;
   const newStatus = autoConfirm ? "CONFIRMED" : order.status;
+  const newVendorCompletedAt = autoComplete ? now : order.vendorCompletedAt;
 
   // 수락 겸행 시 운영자 통보(respond accept와 동일 — 공용 헬퍼). 단순 추가발행·미달 업로드면 통보 없음.
   if (accept) {
@@ -160,10 +171,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         ? { vendorStatus: { old: order.vendorStatus, new: "VENDOR_ACCEPTED" }, vendorRespondedAt: { new: now.toISOString() } }
         : {}),
       ...(autoConfirm ? { status: { old: "REQUESTED", new: "CONFIRMED" } } : {}),
+      ...(autoComplete ? { vendorCompletedAt: { old: null, new: now.toISOString() } } : {}),
     },
   });
 
-  return NextResponse.json({ id, ticketUrls: newUrls, vendorStatus: newVendorStatus, status: newStatus });
+  return NextResponse.json({
+    id,
+    ticketUrls: newUrls,
+    vendorStatus: newVendorStatus,
+    status: newStatus,
+    vendorCompletedAt: newVendorCompletedAt,
+  });
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -188,7 +206,15 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
   const order = await prisma.serviceOrder.findUnique({
     where: { id },
-    select: { id: true, type: true, status: true, vendorId: true, ticketUrls: true },
+    select: {
+      id: true,
+      type: true,
+      status: true,
+      vendorId: true,
+      ticketUrls: true,
+      quantity: true,
+      vendorCompletedAt: true,
+    },
   });
   if (!order || order.vendorId !== vendorId) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -205,10 +231,14 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   }
 
   const newUrls = order.ticketUrls.filter((u) => u !== url);
+  // ★삭제=완료 해제(ADR-0034 §3-3 대칭): 삭제로 발행 수량이 주문 수량 미만이 되고 이미 완료 기록이
+  //   있으면 vendorCompletedAt=null로 해제(정정 구간 동안 "완료" 오표시 방지). 수락 상태는 유지(un-accept 없음).
+  //   여전히 충족(초과분 삭제)이거나 애초에 미완료면 완료 필드는 건드리지 않는다.
+  const clearComplete = newUrls.length < order.quantity && order.vendorCompletedAt !== null;
   // 동시성 가드 — 삭제 대상 url이 아직 목록에 있을 때만(has). 저장 파일 자체는 미삭제.
   const updated = await prisma.serviceOrder.updateMany({
     where: { id, vendorId, ticketUrls: { has: url }, status: { notIn: ["CANCELLED", "DELIVERED"] } },
-    data: { ticketUrls: newUrls },
+    data: { ticketUrls: newUrls, ...(clearComplete ? { vendorCompletedAt: null } : {}) },
   });
   if (updated.count === 0) {
     return NextResponse.json({ error: "CONCURRENT_MODIFICATION" }, { status: 409 });
@@ -220,8 +250,18 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     action: "UPDATE",
     entity: "ServiceOrder",
     entityId: id,
-    changes: { ticketRemoved: { old: url }, ticketUrls: { old: order.ticketUrls.length, new: newUrls.length } },
+    changes: {
+      ticketRemoved: { old: url },
+      ticketUrls: { old: order.ticketUrls.length, new: newUrls.length },
+      ...(clearComplete
+        ? { vendorCompletedAt: { old: order.vendorCompletedAt?.toISOString() ?? null, new: null } }
+        : {}),
+    },
   });
 
-  return NextResponse.json({ id, ticketUrls: newUrls });
+  return NextResponse.json({
+    id,
+    ticketUrls: newUrls,
+    vendorCompletedAt: clearComplete ? null : order.vendorCompletedAt,
+  });
 }
