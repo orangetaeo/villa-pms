@@ -742,6 +742,8 @@
         "manualUsdNote": "USD 판매가는 직접 입력하세요. 아래는 참조 환산액입니다.",
         "referenceTotal": "참조 환산",
         "openVillaSalesInfo": "빌라 판매정보 열기",
+        "usdRateHint": "환율 설정에서 USD 환율을 입력하면 자동 계산됩니다.",
+        "openFxSettings": "환율 설정 열기",
         "loadError": "견적을 불러오지 못했습니다."
       }
     },
@@ -2161,9 +2163,13 @@
       "title": "환율 설정",
       "label": "수동 환율 (1 KRW = x VND)",
       "description": "요율의 판매가(KRW) 자동 제안 환산에 사용됩니다",
+      "labelUsd": "수동 환율 (1 USD = x VND)",
+      "descriptionUsd": "USD 판매가 견적·환산에 사용됩니다",
       "prefix": "1 KRW =",
+      "prefixUsd": "1 USD =",
       "suffix": "VND",
       "placeholder": "예: 18.5",
+      "placeholderUsd": "예: 26000",
       "invalid": "양수 소수만 입력 가능합니다. (소수점 4자리까지)",
       "lastUpdated": "마지막 수정: {time}",
       "notSet": "환율이 아직 설정되지 않았습니다.",
@@ -2171,6 +2177,25 @@
       "saving": "저장 중...",
       "saved": "환율이 저장되었습니다.",
       "error": "저장에 실패했습니다. 다시 시도해주세요.",
+      "mode": {
+        "title": "환율 모드",
+        "manual": "수동",
+        "auto": "자동",
+        "manualDesc": "아래에 입력한 수동 환율을 사용합니다.",
+        "autoDesc": "무료 환율 API의 일일 시세를 자동 사용하고, 조회 실패 시 아래 수동값으로 폴백합니다.",
+        "fallbackHint": "자동 모드에서는 아래 수동 환율이 시세 조회 실패 시 폴백으로 사용됩니다.",
+        "inputFallbackHint": "자동 모드에서 아래 값은 시세 조회 실패 시 폴백값으로 사용됩니다."
+      },
+      "fetch": {
+        "title": "현재 시세",
+        "description": "무료 환율 API의 오늘 일일 시세를 조회합니다.",
+        "button": "현재 시세 불러오기",
+        "loading": "불러오는 중...",
+        "apply": "입력칸에 적용",
+        "fetchedAt": "조회 기준: {time}",
+        "error": "시세를 불러오지 못했습니다. 다시 시도해주세요.",
+        "unavailable": "시세 없음"
+      },
       "auto": {
         "title": "환율 자동 갱신",
         "description": "매일 외부 환율(open.er-api)로 판매가 기준 환율을 자동 갱신합니다. 끄면 수동 입력값을 유지합니다.",

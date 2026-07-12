@@ -6,8 +6,9 @@ vi.mock("@/lib/audit-log", () => ({ writeAuditLog: vi.fn(async () => {}) }));
 const mockCheckAvailability = vi.fn();
 const mockQuoteSupplierSale = vi.fn();
 const mockQuoteStay = vi.fn();
-const mockGetFxVndPerKrw = vi.fn();
-const mockGetDailyRates = vi.fn();
+// 유효 환율(후속확장 3) — proposal은 스냅샷을 getEffectiveFx*로 조회한다.
+const mockGetEffectiveFxVndPerKrw = vi.fn();
+const mockGetEffectiveFxVndPerUsd = vi.fn();
 vi.mock("./availability", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./availability")>();
   return { ...actual, checkAvailability: (...a: unknown[]) => mockCheckAvailability(...a) };
@@ -18,13 +19,12 @@ vi.mock("./pricing", async (importOriginal) => {
     ...actual,
     quoteSupplierSaleForVilla: (...a: unknown[]) => mockQuoteSupplierSale(...a),
     quoteStayForVilla: (...a: unknown[]) => mockQuoteStay(...a),
-    getFxVndPerKrw: (...a: unknown[]) => mockGetFxVndPerKrw(...a),
   };
 });
-vi.mock("./fx-rates", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./fx-rates")>();
-  return { ...actual, getDailyRates: (...a: unknown[]) => mockGetDailyRates(...a) };
-});
+vi.mock("./fx-effective", () => ({
+  getEffectiveFxVndPerKrw: (...a: unknown[]) => mockGetEffectiveFxVndPerKrw(...a),
+  getEffectiveFxVndPerUsd: (...a: unknown[]) => mockGetEffectiveFxVndPerUsd(...a),
+}));
 
 import {
   createProposal,
@@ -255,11 +255,9 @@ describe("createProposal — USD 분기 (Phase 2, 수동 총액)", () => {
       nightly: [],
       totalSupplierCostVnd: 18_000_000n,
     });
-    mockGetFxVndPerKrw.mockResolvedValue(null);
-    mockGetDailyRates.mockResolvedValue({
-      date: "2026-07-01",
-      vndPerUnit: { USD: 25400, KRW: 18, RUB: 280, CNY: 3500 },
-    });
+    mockGetEffectiveFxVndPerKrw.mockResolvedValue(null);
+    // 유효 USD 환율 — 스냅샷은 이 문자열을 그대로 저장(getEffectiveFxVndPerUsd 반환값).
+    mockGetEffectiveFxVndPerUsd.mockResolvedValue("25400");
   });
 
   const baseUsdInput = {
@@ -278,7 +276,7 @@ describe("createProposal — USD 분기 (Phase 2, 수동 총액)", () => {
     });
     const data = tx._created[0];
     expect(data.saleCurrency).toBe(Currency.USD);
-    expect(data.fxVndPerUsd).toBe("25400.0000"); // toFixed(4)
+    expect(data.fxVndPerUsd).toBe("25400"); // getEffectiveFxVndPerUsd 반환 문자열 그대로 스냅샷
     const item = (data.items as { create: Record<string, unknown>[] }).create[0];
     expect(item.totalUsd).toBe(1_500);
     expect(item.totalKrw).toBeNull();
@@ -308,8 +306,8 @@ describe("createProposal — USD 분기 (Phase 2, 수동 총액)", () => {
     ).rejects.toThrow(RangeError);
   });
 
-  it("getDailyRates null → fxVndPerUsd=null(환산 불가, 그래도 생성)", async () => {
-    mockGetDailyRates.mockResolvedValue(null);
+  it("유효 USD 환율 null → fxVndPerUsd=null(환산 불가, 그래도 생성)", async () => {
+    mockGetEffectiveFxVndPerUsd.mockResolvedValue(null);
     const tx = makeOperatorTx();
     await createProposal(makeOperatorPrisma(tx), {
       ...baseUsdInput,

@@ -1,12 +1,8 @@
-// lib/fx-auto-update 순수 로직 테스트 (Phase 2 — 판매가 환율 opt-in 자동 갱신)
+// lib/fx-auto-update 순수 로직 테스트 — 유효 환율 AUTO 모드일 때 KRW·USD 수동 키 갱신
 import { describe, it, expect } from "vitest";
-import {
-  isFxAutoUpdateOn,
-  formatFxVndPerKrw,
-  runFxAutoUpdate,
-  FX_AUTO_UPDATE_KEY,
-} from "./fx-auto-update";
-import { FX_VND_PER_KRW_KEY } from "./pricing";
+import { isFxAutoUpdateOn, formatFxVndPerKrw, runFxAutoUpdate } from "./fx-auto-update";
+import { FX_VND_PER_KRW_KEY, FX_VND_PER_USD_KEY } from "./pricing";
+import { FX_MODE_KEY } from "./fx-effective";
 import type { DailyRates } from "./fx-rates";
 
 // ── 가짜 DB (AppSetting Map + AuditLog 수집) — getRates 주입으로 네트워크 분리 ──
@@ -49,7 +45,7 @@ const rates = (krw: number): DailyRates => ({
   vndPerUnit: { KRW: krw, USD: 26000, RUB: 280, CNY: 3600 },
 });
 
-describe("isFxAutoUpdateOn", () => {
+describe("isFxAutoUpdateOn (deprecated — FX_MODE로 대체, 헬퍼만 잔존)", () => {
   it("정확히 'on'일 때만 true (보수적)", () => {
     expect(isFxAutoUpdateOn("on")).toBe(true);
     expect(isFxAutoUpdateOn("off")).toBe(false);
@@ -83,80 +79,109 @@ describe("formatFxVndPerKrw — FX_VND_PER_KRW 파서 호환", () => {
   });
 });
 
-describe("runFxAutoUpdate", () => {
-  it("토글 OFF(미설정) → skipped_off, 쓰기·로그 없음", async () => {
+const keyOf = (res: Awaited<ReturnType<typeof runFxAutoUpdate>>, key: string) =>
+  res.keys.find((k) => k.key === key)!;
+
+describe("runFxAutoUpdate — FX_MODE=AUTO일 때만 KRW·USD 수동 키 갱신", () => {
+  it("FX_MODE 미설정(=MANUAL) → skipped_manual, 쓰기·로그 없음", async () => {
     const { db, store, upserts, audits } = makeDb({ [FX_VND_PER_KRW_KEY]: "18" });
     const res = await runFxAutoUpdate(db, { getRates: async () => rates(19) });
-    expect(res.status).toBe("skipped_off");
+    expect(res.status).toBe("skipped_manual");
+    expect(res.keys).toHaveLength(0);
     expect(store.get(FX_VND_PER_KRW_KEY)).toBe("18"); // 불변
     expect(upserts).toHaveLength(0);
     expect(audits).toHaveLength(0);
   });
 
-  it("토글 'off' 명시 → skipped_off", async () => {
-    const { db } = makeDb({ [FX_AUTO_UPDATE_KEY]: "off" });
+  it("FX_MODE=MANUAL 명시 → skipped_manual (구 FX_AUTO_UPDATE=on 값 무시)", async () => {
+    const { db, upserts } = makeDb({ [FX_MODE_KEY]: "MANUAL", FX_AUTO_UPDATE: "on" });
     const res = await runFxAutoUpdate(db, { getRates: async () => rates(19) });
-    expect(res.status).toBe("skipped_off");
+    expect(res.status).toBe("skipped_manual");
+    expect(upserts).toHaveLength(0);
   });
 
-  it("ON + 새 환율 → updated + FX_VND_PER_KRW 갱신 + AuditLog(userId null, source 표기)", async () => {
+  it("AUTO + 새 시세 → updated + KRW·USD 동시 갱신 + AuditLog(userId null, source)", async () => {
     const { db, store, upserts, audits } = makeDb({
-      [FX_AUTO_UPDATE_KEY]: "on",
+      [FX_MODE_KEY]: "AUTO",
       [FX_VND_PER_KRW_KEY]: "18",
+      [FX_VND_PER_USD_KEY]: "25000",
     });
-    const res = await runFxAutoUpdate(db, { getRates: async () => rates(18.5432) });
+    const res = await runFxAutoUpdate(db, { getRates: async () => rates(18.5432) }); // USD 26000
     expect(res.status).toBe("updated");
-    expect(res.oldValue).toBe("18");
-    expect(res.newValue).toBe("18.5432");
-    expect(store.get(FX_VND_PER_KRW_KEY)).toBe("18.5432");
-    expect(upserts).toEqual([{ key: FX_VND_PER_KRW_KEY, value: "18.5432" }]);
-    expect(audits).toHaveLength(1);
-    expect(audits[0]).toMatchObject({
-      userId: null,
-      action: "UPDATE",
-      entity: "AppSetting",
-      entityId: FX_VND_PER_KRW_KEY,
+    expect(keyOf(res, FX_VND_PER_KRW_KEY)).toMatchObject({
+      status: "updated",
+      oldValue: "18",
+      newValue: "18.5432",
     });
+    expect(keyOf(res, FX_VND_PER_USD_KEY)).toMatchObject({
+      status: "updated",
+      oldValue: "25000",
+      newValue: "26000",
+    });
+    expect(store.get(FX_VND_PER_KRW_KEY)).toBe("18.5432");
+    expect(store.get(FX_VND_PER_USD_KEY)).toBe("26000");
+    expect(upserts).toEqual([
+      { key: FX_VND_PER_KRW_KEY, value: "18.5432" },
+      { key: FX_VND_PER_USD_KEY, value: "26000" },
+    ]);
+    expect(audits).toHaveLength(2);
+    expect(audits.map((a) => a.entityId).sort()).toEqual(
+      [FX_VND_PER_KRW_KEY, FX_VND_PER_USD_KEY].sort()
+    );
+    expect(audits.every((a) => a.userId === null && a.entity === "AppSetting")).toBe(true);
   });
 
-  it("ON + 기존값 미설정 → updated (oldValue null)", async () => {
-    const { db, store } = makeDb({ [FX_AUTO_UPDATE_KEY]: "on" });
+  it("AUTO + 기존값 미설정 → updated (oldValue null, KRW·USD 둘 다 생성)", async () => {
+    const { db, store } = makeDb({ [FX_MODE_KEY]: "AUTO" });
     const res = await runFxAutoUpdate(db, { getRates: async () => rates(19) });
     expect(res.status).toBe("updated");
-    expect(res.oldValue).toBeNull();
+    expect(keyOf(res, FX_VND_PER_KRW_KEY).oldValue).toBeNull();
+    expect(keyOf(res, FX_VND_PER_USD_KEY).oldValue).toBeNull();
     expect(store.get(FX_VND_PER_KRW_KEY)).toBe("19");
+    expect(store.get(FX_VND_PER_USD_KEY)).toBe("26000");
   });
 
-  it("ON + 동일값 → unchanged, 쓰기·로그 생략", async () => {
+  it("AUTO + 두 키 모두 동일 → unchanged, 쓰기·로그 생략", async () => {
     const { db, upserts, audits } = makeDb({
-      [FX_AUTO_UPDATE_KEY]: "on",
+      [FX_MODE_KEY]: "AUTO",
       [FX_VND_PER_KRW_KEY]: "18.5",
+      [FX_VND_PER_USD_KEY]: "26000",
     });
-    const res = await runFxAutoUpdate(db, { getRates: async () => rates(18.5) });
+    const res = await runFxAutoUpdate(db, { getRates: async () => rates(18.5) }); // USD 26000
     expect(res.status).toBe("unchanged");
+    expect(keyOf(res, FX_VND_PER_KRW_KEY).status).toBe("unchanged");
+    expect(keyOf(res, FX_VND_PER_USD_KEY).status).toBe("unchanged");
     expect(upserts).toHaveLength(0);
     expect(audits).toHaveLength(0);
   });
 
-  it("ON + 환율 조회 실패(null) → no_rate, 기존값 유지", async () => {
+  it("AUTO + 환율 조회 실패(null) → no_rate, 기존값 유지", async () => {
     const { db, store, upserts } = makeDb({
-      [FX_AUTO_UPDATE_KEY]: "on",
+      [FX_MODE_KEY]: "AUTO",
       [FX_VND_PER_KRW_KEY]: "18",
+      [FX_VND_PER_USD_KEY]: "25000",
     });
     const res = await runFxAutoUpdate(db, { getRates: async () => null });
     expect(res.status).toBe("no_rate");
+    expect(res.keys).toHaveLength(0);
     expect(store.get(FX_VND_PER_KRW_KEY)).toBe("18");
+    expect(store.get(FX_VND_PER_USD_KEY)).toBe("25000");
     expect(upserts).toHaveLength(0);
   });
 
-  it("ON + 변환 불가(0/음수 환율) → invalid, 기존값 유지", async () => {
-    const { db, store, upserts } = makeDb({
-      [FX_AUTO_UPDATE_KEY]: "on",
+  it("AUTO + KRW 변환 불가(0) → 그 키만 invalid(기존값 유지), USD는 정상 갱신", async () => {
+    const { db, store, audits } = makeDb({
+      [FX_MODE_KEY]: "AUTO",
       [FX_VND_PER_KRW_KEY]: "18",
+      [FX_VND_PER_USD_KEY]: "25000",
     });
-    const res = await runFxAutoUpdate(db, { getRates: async () => rates(0) });
-    expect(res.status).toBe("invalid");
-    expect(store.get(FX_VND_PER_KRW_KEY)).toBe("18");
-    expect(upserts).toHaveLength(0);
+    const res = await runFxAutoUpdate(db, { getRates: async () => rates(0) }); // KRW 0(무효), USD 26000
+    expect(res.status).toBe("updated"); // USD가 갱신되어 전체는 updated
+    expect(keyOf(res, FX_VND_PER_KRW_KEY).status).toBe("invalid");
+    expect(store.get(FX_VND_PER_KRW_KEY)).toBe("18"); // 불변
+    expect(keyOf(res, FX_VND_PER_USD_KEY).status).toBe("updated");
+    expect(store.get(FX_VND_PER_USD_KEY)).toBe("26000");
+    expect(audits).toHaveLength(1); // USD 1건만
+    expect(audits[0].entityId).toBe(FX_VND_PER_USD_KEY);
   });
 });

@@ -2,11 +2,12 @@ import { BookingChannel, Currency } from "@prisma/client";
 import type { DbClient, StayRange } from "./availability";
 import {
   quoteStayForVilla,
-  getFxVndPerKrw,
   krwToVndSnapshot,
   suggestSalePriceKrw,
+  suggestSalePriceUsd,
   type NightQuote,
 } from "./pricing";
+import { getEffectiveFxVndPerKrw, getEffectiveFxVndPerUsd } from "./fx-effective";
 
 /**
  * 관리자 예약 견적 (admin-manual-booking 후속 확장 2) — 단일 소스
@@ -23,8 +24,9 @@ import {
  * ⚠️ 원가·마진 노출: 이 모듈은 supplierCostVnd·marginVnd를 포함한다(사업원칙 2). 라우트는
  *    반드시 canViewFinance 게이트 뒤에서만 호출할 것 — SUPPLIER·공개 경로에 직렬화 금지.
  *
- * USD(Phase 2): 요율표에 판매단가가 없어 자동 판매가가 없다(제안 경로와 동일 관례). VND로 참조
- *    견적을 만들고 manual:true 를 세워 "참조값 + 수동 입력"임을 알린다. 환율이 있으면 KRW 참조 환산도.
+ * USD(후속확장 3): 요율표엔 USD 판매단가가 없지만, 유효 USD 환율(FX_MODE MANUAL/AUTO 해석)이 있으면
+ *    VND 참조 총액을 나눠 totalSaleUsd 를 자동 제안한다(KRW/VND와 동일하게 폼 자동 채움).
+ *    유효 USD 환율이 없을 때만 manual:true(참조값 + 수동 입력)로 폴백한다. 환율이 있으면 KRW 참조 환산도.
  */
 
 /** 견적 거부 사유 — 라우트가 상태코드로 매핑(VILLA_NOT_FOUND→404). RATE_NOT_SET은 MissingRateError로 전파. */
@@ -53,17 +55,21 @@ export interface BookingQuoteRow {
 export interface BookingQuoteResult {
   nights: number;
   saleCurrency: Currency;
-  /** USD — 자동 판매가 없음(수동 입력). rows·total*은 VND 참조값 */
+  /** USD인데 유효 USD 환율이 없을 때만 — 자동 판매가 없음(수동 입력). rows·total*은 VND 참조값 */
   manual?: true;
   rows: BookingQuoteRow[];
-  /** 통화별 총 판매가(native). USD는 VND 참조 총액(+가능하면 KRW 환산) */
+  /** 통화별 총 판매가(native). USD는 VND 참조 총액(+유효 환율 있으면 KRW 환산) */
   totalSaleKrw?: number;
   totalSaleVnd?: bigint;
+  /** USD 자동 제안 총액 — 유효 USD 환율이 있을 때만(round(totalSaleVnd ÷ fxVndPerUsd)) */
+  totalSaleUsd?: number;
   totalCostVnd: bigint;
   /** 총판매가 VND 환산 - 총원가. KRW 채널은 fx로 환산(fx null이면 null). USD는 VND 참조 마진 */
   marginVnd: bigint | null;
-  /** 생성 시점 환율 스냅샷(1 KRW = x VND). 미설정이면 null */
+  /** 생성 시점 유효 KRW 환율 스냅샷(1 KRW = x VND). 미설정이면 null */
   fxVndPerKrw: string | null;
+  /** USD 견적일 때 유효 USD 환율(1 USD = x VND). 미설정/USD 아님이면 미포함 */
+  fxVndPerUsd?: string;
 }
 
 /**
@@ -123,10 +129,12 @@ export async function buildBookingQuote(
   if (!villa) throw new BookingQuoteRejectedError("VILLA_NOT_FOUND");
 
   const isUsd = saleCurrency === Currency.USD;
-  // USD는 자동 판매가가 없어 VND로 참조 견적을 낸다(제안 경로와 동일). 그 외는 판매 통화 그대로.
+  // USD는 요율표 판매단가가 없어 VND로 참조 견적을 낸다(제안 경로와 동일). 그 외는 판매 통화 그대로.
   const quoteCurrency = isUsd ? Currency.VND : saleCurrency;
   const quote = await quoteStayForVilla(db, villaId, range, quoteCurrency, channel);
-  const fxVndPerKrw = await getFxVndPerKrw(db);
+  // 유효 KRW 환율(FX_MODE 해석 — MANUAL 기본이라 현행 getFxVndPerKrw와 동일). USD 견적이면 유효 USD 환율도.
+  const fxVndPerKrw = await getEffectiveFxVndPerKrw(db);
+  const fxVndPerUsd = isUsd ? await getEffectiveFxVndPerUsd(db) : null;
 
   const displayCurrency: "KRW" | "VND" = saleCurrency === Currency.KRW ? "KRW" : "VND";
   const rows = groupQuoteRows(quote.nightly, displayCurrency);
@@ -134,6 +142,7 @@ export async function buildBookingQuote(
 
   let totalSaleKrw: number | undefined;
   let totalSaleVnd: bigint | undefined;
+  let totalSaleUsd: number | undefined;
   // 마진 계산용 판매가 VND 환산 — KRW 채널은 fx 필요(없으면 null), VND/USD 참조는 그대로 VND.
   let saleVndForMargin: bigint | null;
 
@@ -141,12 +150,14 @@ export async function buildBookingQuote(
     totalSaleKrw = quote.totalSaleKrw!;
     saleVndForMargin = fxVndPerKrw ? krwToVndSnapshot(totalSaleKrw, fxVndPerKrw) : null;
   } else {
-    // VND 채널(실판매가) 또는 USD 참조 견적 — 판매가는 VND.
+    // VND 채널(실판매가) 또는 USD 참조 견적 — 판매가 기준은 VND.
     totalSaleVnd = quote.totalSaleVnd!;
     saleVndForMargin = totalSaleVnd;
-    // USD 참조: 환율이 있으면 KRW 환산 총액도 제공(참고용).
-    if (isUsd && fxVndPerKrw) {
-      totalSaleKrw = suggestSalePriceKrw(totalSaleVnd, fxVndPerKrw);
+    if (isUsd) {
+      // 유효 USD 환율이 있으면 USD 총액을 자동 제안(총액 기준 반올림 — rows는 VND 참조 유지, 박별합≠총액 혼동 방지).
+      if (fxVndPerUsd) totalSaleUsd = suggestSalePriceUsd(totalSaleVnd, fxVndPerUsd);
+      // KRW 참조 환산 총액도 제공(참고용) — 유효 KRW 환율이 있을 때.
+      if (fxVndPerKrw) totalSaleKrw = suggestSalePriceKrw(totalSaleVnd, fxVndPerKrw);
     }
   }
 
@@ -155,12 +166,15 @@ export async function buildBookingQuote(
   return {
     nights: quote.nights,
     saleCurrency,
-    ...(isUsd ? { manual: true as const } : {}),
+    // USD인데 유효 USD 환율이 없을 때만 manual(수동 입력 안내). 있으면 totalSaleUsd 자동 제안.
+    ...(isUsd && !fxVndPerUsd ? { manual: true as const } : {}),
     rows,
     ...(totalSaleKrw !== undefined ? { totalSaleKrw } : {}),
     ...(totalSaleVnd !== undefined ? { totalSaleVnd } : {}),
+    ...(totalSaleUsd !== undefined ? { totalSaleUsd } : {}),
     totalCostVnd,
     marginVnd,
     fxVndPerKrw,
+    ...(isUsd && fxVndPerUsd ? { fxVndPerUsd } : {}),
   };
 }

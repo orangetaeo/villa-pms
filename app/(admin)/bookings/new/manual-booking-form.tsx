@@ -71,13 +71,15 @@ interface QuoteRow {
 interface Quote {
   nights: number;
   saleCurrency: Currency;
-  manual?: boolean; // USD — 자동 판매가 없음(참조값만)
+  manual?: boolean; // USD — 유효 USD 환율 없음(참조값만, 판매가 수동 입력)
   rows: QuoteRow[];
   totalSaleKrw?: number;
   totalSaleVnd?: string;
+  totalSaleUsd?: number; // USD 자동가 (유효 USD 환율 있을 때만)
   totalCostVnd: string;
   marginVnd: string | null;
   fxVndPerKrw: string | null;
+  fxVndPerUsd?: string | null; // USD 적용 환율 (1$ = x₫)
 }
 
 function nightsBetween(checkIn: string, checkOut: string): number {
@@ -425,7 +427,7 @@ export default function ManualBookingForm({
   }, [quoteEnabled, villaId, checkIn, checkOut, currency, channel]);
 
   // 자동 채움: 추적 상태(manualPrice=false)에서 견적이 도착하면 통화 일치 총액을 입력.
-  //   USD(manual)는 자동가가 없으므로 값 비움(참조 환산만 표시, 사용자가 직접 입력).
+  //   USD도 유효 환율 있으면 KRW/VND와 동일 규칙으로 채움. 환율 없으면(manual) 값 비움(참조만).
   useEffect(() => {
     if (!quote || manualPrice) return;
     if (quote.manual) {
@@ -437,7 +439,7 @@ export default function ManualBookingForm({
         ? quote.totalSaleKrw
         : quote.saleCurrency === "VND"
           ? quote.totalSaleVnd
-          : undefined;
+          : quote.totalSaleUsd;
     if (total != null) setValue("totalSale", String(total), { shouldValidate: true });
   }, [quote, manualPrice, setValue]);
 
@@ -450,7 +452,9 @@ export default function ManualBookingForm({
           : null
         : currency === "VND"
           ? quote.totalSaleVnd ?? null
-          : null
+          : quote.totalSaleUsd != null
+            ? String(quote.totalSaleUsd)
+            : null
       : null;
 
   const applyQuotePrice = () => {
@@ -1213,6 +1217,23 @@ export default function ManualBookingForm({
                               </span>
                             </div>
                           </div>
+                          {/* USD 환율 미설정 안내 — 설정하면 자동 계산 */}
+                          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-slate-800 pt-3">
+                            <span className="text-[11px] text-slate-500">
+                              {t("create.quote.usdRateHint")}
+                            </span>
+                            <Link
+                              href="/settings"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-admin-primary hover:underline"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">
+                                open_in_new
+                              </span>
+                              {t("create.quote.openFxSettings")}
+                            </Link>
+                          </div>
                         </div>
                       ) : (
                         <div className="mb-4 flex items-baseline justify-between gap-3">
@@ -1225,10 +1246,20 @@ export default function ManualBookingForm({
                                 ? quote.totalSaleKrw != null
                                   ? formatKrw(quote.totalSaleKrw)
                                   : "—"
-                                : quote.totalSaleVnd != null
-                                  ? formatVnd(quote.totalSaleVnd)
-                                  : "—"}
+                                : currency === "VND"
+                                  ? quote.totalSaleVnd != null
+                                    ? formatVnd(quote.totalSaleVnd)
+                                    : "—"
+                                  : quote.totalSaleUsd != null
+                                    ? `$${formatThousands(quote.totalSaleUsd)}`
+                                    : "—"}
                             </p>
+                            {/* USD: VND 참조 총액 축소 표기 (rows도 VND 기준) */}
+                            {currency === "USD" && quote.totalSaleVnd != null && (
+                              <span className="mt-0.5 block text-[11px] text-slate-500 tabular-nums">
+                                {t("create.quote.referenceTotal")} · {formatVnd(quote.totalSaleVnd)}
+                              </span>
+                            )}
                           </div>
                           <span className="shrink-0 text-sm font-medium text-admin-primary tabular-nums">
                             {t("create.nights", { n: quote.nights })}
@@ -1296,14 +1327,21 @@ export default function ManualBookingForm({
                             </span>
                           )}
                         </div>
-                        {quote.fxVndPerKrw && (
+                        {currency === "USD" && quote.fxVndPerUsd ? (
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500">{t("create.quote.fxLabel")}</span>
+                            <span className="text-xs tabular-nums text-slate-400">
+                              {formatThousands(quote.fxVndPerUsd)}₫ / $1
+                            </span>
+                          </div>
+                        ) : quote.fxVndPerKrw ? (
                           <div className="flex items-center justify-between">
                             <span className="text-slate-500">{t("create.quote.fxLabel")}</span>
                             <span className="text-xs tabular-nums text-slate-400">
                               {formatThousands(quote.fxVndPerKrw)}₫ / ₩1
                             </span>
                           </div>
-                        )}
+                        ) : null}
                       </div>
 
                       {/* 견적가 적용 (수동 수정 상태에서만) */}
@@ -1320,7 +1358,9 @@ export default function ManualBookingForm({
                             price:
                               currency === "KRW"
                                 ? formatKrw(Number(autoTotal))
-                                : formatVnd(autoTotal),
+                                : currency === "USD"
+                                  ? `$${formatThousands(autoTotal)}`
+                                  : formatVnd(autoTotal),
                           })}
                         </button>
                       )}

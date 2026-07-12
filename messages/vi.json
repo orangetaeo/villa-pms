@@ -857,6 +857,8 @@
         "manualUsdNote": "Vui lòng tự nhập giá bán USD. Bên dưới là số tiền quy đổi tham khảo.",
         "referenceTotal": "Quy đổi tham khảo",
         "openVillaSalesInfo": "Mở thông tin bán villa",
+        "usdRateHint": "Nhập tỷ giá USD trong Cài đặt tỷ giá để tự động tính.",
+        "openFxSettings": "Mở cài đặt tỷ giá",
         "loadError": "Không tải được báo giá."
       }
     },
@@ -2276,9 +2278,13 @@
       "title": "Cài đặt tỷ giá",
       "label": "Tỷ giá thủ công (1 KRW = x VND)",
       "description": "Dùng để quy đổi giá bán (KRW) gợi ý tự động",
+      "labelUsd": "Tỷ giá thủ công (1 USD = x VND)",
+      "descriptionUsd": "Dùng để báo giá·quy đổi giá bán USD",
       "prefix": "1 KRW =",
+      "prefixUsd": "1 USD =",
       "suffix": "VND",
       "placeholder": "VD: 18.5",
+      "placeholderUsd": "VD: 26000",
       "invalid": "Chỉ nhập số dương. (tối đa 4 chữ số thập phân)",
       "lastUpdated": "Sửa lần cuối: {time}",
       "notSet": "Chưa cài đặt tỷ giá.",
@@ -2286,6 +2292,25 @@
       "saving": "Đang lưu...",
       "saved": "Đã lưu tỷ giá.",
       "error": "Lưu thất bại. Vui lòng thử lại.",
+      "mode": {
+        "title": "Chế độ tỷ giá",
+        "manual": "Thủ công",
+        "auto": "Tự động",
+        "manualDesc": "Sử dụng tỷ giá thủ công nhập bên dưới.",
+        "autoDesc": "Tự động dùng tỷ giá hằng ngày từ API miễn phí; nếu lỗi thì dùng giá trị thủ công bên dưới.",
+        "fallbackHint": "Ở chế độ tự động, tỷ giá thủ công bên dưới được dùng dự phòng khi không lấy được tỷ giá.",
+        "inputFallbackHint": "Ở chế độ tự động, giá trị bên dưới được dùng làm dự phòng khi không lấy được tỷ giá."
+      },
+      "fetch": {
+        "title": "Tỷ giá hiện tại",
+        "description": "Lấy tỷ giá hằng ngày hôm nay từ API tỷ giá miễn phí.",
+        "button": "Lấy tỷ giá hiện tại",
+        "loading": "Đang lấy...",
+        "apply": "Điền vào ô nhập",
+        "fetchedAt": "Cập nhật: {time}",
+        "error": "Không lấy được tỷ giá. Vui lòng thử lại.",
+        "unavailable": "Không có tỷ giá"
+      },
       "auto": {
         "title": "Tự động cập nhật tỷ giá",
         "description": "Tự động cập nhật tỷ giá bán (KRW→VND) hằng ngày theo tỷ giá ngoại tệ (open.er-api). Tắt để giữ giá trị nhập thủ công.",

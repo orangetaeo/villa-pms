@@ -23,8 +23,13 @@ import {
 } from "@prisma/client";
 import { hash } from "bcryptjs";
 import { HOLD_HOURS_DEFAULT_KEY } from "../lib/hold";
-import { FX_VND_PER_KRW_KEY, buildRatePeriodRowsFromSeasonCosts } from "../lib/pricing";
+import {
+  FX_VND_PER_KRW_KEY,
+  FX_VND_PER_USD_KEY,
+  buildRatePeriodRowsFromSeasonCosts,
+} from "../lib/pricing";
 import { FX_AUTO_UPDATE_KEY } from "../lib/fx-auto-update";
+import { FX_MODE_KEY } from "../lib/fx-effective";
 import {
   CANCELLATION_POLICY_KEY,
   DEFAULT_CANCELLATION_POLICY,
@@ -47,6 +52,9 @@ import {
 
 /** 1 KRW = x VND. 파일럿 기준 환율 (ADMIN이 /settings에서 갱신). */
 export const SEED_FX_VND_PER_KRW = 18.87;
+
+/** 1 USD = x VND. 파일럿 기준 환율 (ADMIN이 /settings에서 갱신, 후속확장 3). */
+export const SEED_FX_VND_PER_USD = 26000;
 
 /** 마진율(%) — 파일럿 기본. salePriceVnd = 원가 × (100+마진)/100. */
 export const SEED_MARGIN_PERCENT = 20n;
@@ -178,6 +186,9 @@ export function buildAppSettings(): { key: string; value: string }[] {
   return [
     { key: HOLD_HOURS_DEFAULT_KEY, value: "48" },
     { key: FX_VND_PER_KRW_KEY, value: String(SEED_FX_VND_PER_KRW) },
+    { key: FX_VND_PER_USD_KEY, value: String(SEED_FX_VND_PER_USD) },
+    // 유효 환율 모드 — 기본 MANUAL(수동 입력값 사용, AUTO는 운영자가 명시적으로 켜야 시세 반영)
+    { key: FX_MODE_KEY, value: "MANUAL" },
     // 판매가 환율 자동 갱신 — 기본 OFF(운영자가 /settings에서 명시적으로 켜야 동작)
     { key: FX_AUTO_UPDATE_KEY, value: "off" },
     // 취소·환불 정책 기본값 (#6b) — 30일 100% / 14일 50% / 이후 불가

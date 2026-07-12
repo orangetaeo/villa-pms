@@ -8,8 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/format";
 import { toDateOnlyString } from "@/lib/date-vn";
 import { HOLD_HOURS_DEFAULT_KEY, DEFAULT_HOLD_HOURS } from "@/lib/hold";
-import { FX_VND_PER_KRW_KEY } from "@/lib/pricing";
-import { FX_AUTO_UPDATE_KEY, isFxAutoUpdateOn } from "@/lib/fx-auto-update";
+import { FX_VND_PER_KRW_KEY, FX_VND_PER_USD_KEY } from "@/lib/pricing";
+import { FX_MODE_KEY } from "@/lib/fx-effective";
 import {
   CANCELLATION_POLICY_KEY,
   parseCancellationPolicy,
@@ -59,7 +59,8 @@ export default async function SettingsPage() {
           in: [
             HOLD_HOURS_DEFAULT_KEY,
             FX_VND_PER_KRW_KEY,
-            FX_AUTO_UPDATE_KEY,
+            FX_VND_PER_USD_KEY,
+            FX_MODE_KEY,
             CANCELLATION_POLICY_KEY,
             ...BANK_CONTACT_KEYS,
             ZALO_CONNECT_QR_URL_KEY,
@@ -83,6 +84,9 @@ export default async function SettingsPage() {
 
   const holdSetting = settings.find((s) => s.key === HOLD_HOURS_DEFAULT_KEY);
   const fxSetting = settings.find((s) => s.key === FX_VND_PER_KRW_KEY);
+  const fxUsdSetting = settings.find((s) => s.key === FX_VND_PER_USD_KEY);
+  // 유효 환율 모드 — 미설정·기타값은 MANUAL(안전 기본)
+  const fxMode = settings.find((s) => s.key === FX_MODE_KEY)?.value === "AUTO" ? "AUTO" : "MANUAL";
   // 취소·환불 정책 — 미설정·손상 시 기본값 폴백
   const cancellationPolicy = parseCancellationPolicy(
     settings.find((s) => s.key === CANCELLATION_POLICY_KEY)?.value
@@ -147,13 +151,13 @@ export default async function SettingsPage() {
         <HoldHoursForm initialHours={initialHoldHours} />
       </div>
 
-      {/* Card 3: 환율 — 계약(T1.7) 범위. b8에는 없어 동일 카드 스타일로 추가 */}
+      {/* Card 3: 환율 — KRW(기존)+USD(신규) 수동환율 + 모드(수동/자동) 토글 (후속확장3) */}
       <FxRateForm
-        initialValue={fxSetting?.value ?? null}
-        updatedAtText={fxSetting ? formatDateTime(fxSetting.updatedAt) : null}
-        autoUpdate={isFxAutoUpdateOn(
-          settings.find((s) => s.key === FX_AUTO_UPDATE_KEY)?.value
-        )}
+        initialKrw={fxSetting?.value ?? null}
+        initialUsd={fxUsdSetting?.value ?? null}
+        mode={fxMode}
+        krwUpdatedAtText={fxSetting ? formatDateTime(fxSetting.updatedAt) : null}
+        usdUpdatedAtText={fxUsdSetting ? formatDateTime(fxUsdSetting.updatedAt) : null}
       />
 
       {/* Card 4: 입금 계좌·연락처 (b8 Card 3 변환, T1.7-bank-contact) */}
