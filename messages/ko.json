@@ -1373,7 +1373,7 @@
       "regionalVendor": {
         "title": "지역 지정 업체",
         "desc": "마사지·이발은 지역별 업체라, 이 빌라에서 가까운 샵을 지정하세요. 지정하면 이 빌라의 마사지·이발 주문이 해당 업체로 발주됩니다. 미지정이면 카탈로그 기본 업체로 발주됩니다.",
-        "unassigned": "지정 안 함 (카탈로그 기본)",
+        "unassigned": "지정 안 함 (지역 자동 / 카탈로그 기본)",
         "noVendors": "승인된 업체가 없습니다. 설정 → 업체 관리에서 추가하세요.",
         "saving": "저장 중…",
         "saved": "저장됨",
@@ -2446,7 +2446,23 @@
     "rejectCancel": "취소",
     "approvalError": "처리에 실패했습니다. 다시 시도해주세요.",
     "bankSignupBadge": "정산계좌",
-    "searchPlaceholder": "거래처명·전화·Zalo ID 검색"
+    "searchPlaceholder": "거래처명·전화·Zalo ID 검색",
+    "region": {
+      "button": "담당 지역",
+      "badge": "담당 지역 {n}",
+      "modalTitle": "담당 지역 설정",
+      "desc": "담당 지역의 빌라에서 들어오는 마사지·이발 주문이 이 업체로 자동 발주됩니다. 빌라별 수동 지정이 우선하며, 같은 지역에 담당 업체가 둘 이상이면 자동 지정되지 않습니다.",
+      "empty": "운영 중인 빌라의 단지(지역)가 없습니다. 빌라를 먼저 등록하세요.",
+      "count": "{n}곳 선택",
+      "save": "저장",
+      "saving": "저장 중…",
+      "cancel": "취소",
+      "saved": "담당 지역이 저장되었습니다.",
+      "types": {
+        "MASSAGE": "마사지",
+        "BARBER": "이발"
+      }
+    }
   },
   "adminServices": {
     "title": "서비스 카탈로그",

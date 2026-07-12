@@ -1488,7 +1488,7 @@
       "regionalVendor": {
         "title": "Nhà cung cấp theo khu vực",
         "desc": "Massage và cắt tóc là dịch vụ theo khu vực, hãy chọn cửa hàng gần villa này. Khi chỉ định, các đơn massage·cắt tóc của villa này sẽ được đặt cho nhà cung cấp đó. Nếu để trống sẽ dùng nhà cung cấp mặc định trong danh mục.",
-        "unassigned": "Không chỉ định (mặc định danh mục)",
+        "unassigned": "Không chỉ định (tự động theo khu vực / mặc định danh mục)",
         "noVendors": "Chưa có nhà cung cấp được duyệt. Thêm ở phần Cài đặt → Quản lý nhà cung cấp.",
         "saving": "Đang lưu…",
         "saved": "Đã lưu",
@@ -2561,7 +2561,23 @@
     "rejectCancel": "Hủy",
     "approvalError": "Thao tác thất bại. Vui lòng thử lại.",
     "bankSignupBadge": "Tài khoản quyết toán",
-    "searchPlaceholder": "Tìm theo tên, SĐT, Zalo ID"
+    "searchPlaceholder": "Tìm theo tên, SĐT, Zalo ID",
+    "region": {
+      "button": "Khu vực phụ trách",
+      "badge": "Khu vực phụ trách {n}",
+      "modalTitle": "Cài đặt khu vực phụ trách",
+      "desc": "Các đơn massage·cắt tóc từ villa trong khu vực phụ trách sẽ tự động được đặt cho nhà cung cấp này. Chỉ định thủ công theo villa được ưu tiên; nếu một khu vực có từ hai nhà cung cấp trở lên thì sẽ không tự động chỉ định.",
+      "empty": "Chưa có khu (khu vực) của villa đang vận hành. Hãy đăng ký villa trước.",
+      "count": "Đã chọn {n}",
+      "save": "Lưu",
+      "saving": "Đang lưu…",
+      "cancel": "Hủy",
+      "saved": "Đã lưu khu vực phụ trách.",
+      "types": {
+        "MASSAGE": "Massage",
+        "BARBER": "Cắt tóc"
+      }
+    }
   },
   "adminServices": {
     "title": "Danh mục dịch vụ",
