@@ -105,6 +105,8 @@ export interface GuestLabels {
     customerNameLabel: string; // "이용자 이름" — 서비스 받을 사람(대표자 prefill)
     customerNameHint: string; // 짧은 힌트: 서비스 받으실 분 이름 — 담당 업체에 전달됨
     customerNamePlaceholder: string; // 입력 placeholder(이름)
+    ticketGuestTitle: string; // TICKET 이용자 선택 섹션 제목 "티켓 이용자 선택"(ADR-0036)
+    ticketGuestHint: string; // "체크인 명단에서 티켓 이용자를 선택하세요"
     priceInquiry: string; // 환율 미설정 시 "가격 문의"
     rateNote: string; // 하단 환산액 안내 "오늘 환율 기준"
     backToCheckin: string; // 체크인으로 돌아가기
@@ -287,6 +289,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       customerNameLabel: "이용자 이름",
       customerNameHint: "서비스 받으실 분 이름 — 담당 업체에 전달됩니다.",
       customerNamePlaceholder: "이름을 입력하세요",
+      ticketGuestTitle: "티켓 이용자 선택",
+      ticketGuestHint: "체크인 명단에서 이 티켓을 사용할 분을 선택하세요. 선택한 인원 수만큼 발권됩니다.",
       priceInquiry: "가격 문의",
       rateNote: "오늘 환율 기준",
       backToCheckin: "체크인 화면으로",
@@ -454,6 +458,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       customerNameLabel: "Guest name",
       customerNameHint: "Name of the person receiving the service — shared with the provider.",
       customerNamePlaceholder: "Enter a name",
+      ticketGuestTitle: "Select ticket holders",
+      ticketGuestHint: "Choose who will use this ticket from your checked-in guests. One ticket is issued per person selected.",
       priceInquiry: "Ask for price",
       rateNote: "Today's exchange rate",
       backToCheckin: "Back to check-in",
@@ -621,6 +627,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       customerNameLabel: "Имя гостя",
       customerNameHint: "Имя того, кто получит услугу — передаётся исполнителю.",
       customerNamePlaceholder: "Введите имя",
+      ticketGuestTitle: "Выбор владельцев билетов",
+      ticketGuestHint: "Выберите из зарегистрированных гостей тех, кто воспользуется билетом. Билет выдаётся на каждого выбранного.",
       priceInquiry: "Уточнить цену",
       rateNote: "По курсу на сегодня",
       backToCheckin: "Назад к заселению",
@@ -788,6 +796,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       customerNameLabel: "使用者姓名",
       customerNameHint: "接受服务者的姓名 — 将转达给服务方。",
       customerNamePlaceholder: "请输入姓名",
+      ticketGuestTitle: "选择门票使用者",
+      ticketGuestHint: "请从已入住的住客名单中选择使用此门票的人。按所选人数出票。",
       priceInquiry: "价格咨询",
       rateNote: "按今日汇率",
       backToCheckin: "返回入住页面",
@@ -955,6 +965,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       customerNameLabel: "Tên người dùng dịch vụ",
       customerNameHint: "Tên người nhận dịch vụ — sẽ được gửi cho nhà cung cấp.",
       customerNamePlaceholder: "Nhập tên",
+      ticketGuestTitle: "Chọn người dùng vé",
+      ticketGuestHint: "Chọn người sẽ dùng vé này từ danh sách khách đã nhận phòng. Xuất vé theo số người được chọn.",
       priceInquiry: "Hỏi giá",
       rateNote: "Theo tỷ giá hôm nay",
       backToCheckin: "Về trang nhận phòng",

@@ -435,7 +435,9 @@
       "errTooMany": "티켓은 최대 30장까지 발행할 수 있습니다.",
       "errType": "이미지 파일만 올릴 수 있습니다.",
       "errSize": "파일 크기는 5MB 이하만 가능합니다.",
-      "errNoFiles": "파일을 선택해 주세요."
+      "errNoFiles": "파일을 선택해 주세요.",
+      "passportTitle": "이용자 여권 정보",
+      "passportEmpty": "체크인 시 여권 등록 후 표시됩니다"
     },
     "propose": {
       "button": "시간 제안",
@@ -2508,6 +2510,7 @@
       "title": "QR 티켓",
       "counter": "{issued}/{needed}장",
       "none": "발행된 티켓 없음",
+      "guestsTitle": "선택 이용자",
       "view": "원본 보기",
       "upload": "티켓 첨부",
       "uploading": "업로드 중…",

@@ -13,6 +13,7 @@ import { formatDateTime, formatThousands } from "@/lib/format";
 import { toDateOnlyString } from "@/lib/date-vn";
 import { formatRemainingHours } from "@/lib/booking-stats";
 import { stripOptionCosts } from "@/lib/service-catalog";
+import { whitelistTicketGuests } from "@/lib/ticket-guests";
 import ActionPanel from "./action-panel";
 import PaperDocsSection from "./paper-docs-section";
 import MemoBox from "./memo-box";
@@ -220,6 +221,7 @@ export default async function BookingDetailPage({
         customerName: true, // 이용자 이름 스냅샷 — 대표자와 다를 때 패널 표시용
         selectedOptions: true,
         ticketUrls: true, // 티켓형(TICKET) 발행 이미지 — 발행 현황·대리 첨부(ADR-0034)
+        ticketGuests: true, // TICKET 선택 이용자(이름·생년월일) — 소비자 선택 스냅샷(ADR-0036)
         catalogItemId: true,
         // ADR-0023 S2 — 원천 공급자 발주 흐름(발주·수락·정산)
         vendorId: true,
@@ -306,6 +308,7 @@ export default async function BookingDetailPage({
     customerName: o.customerName ?? null,
     selectedOptions: parseSnapshot(o.selectedOptions),
     ticketUrls: o.ticketUrls, // 티켓형(TICKET) 발행 이미지(ADR-0034)
+    ticketGuests: whitelistTicketGuests(o.ticketGuests), // TICKET 선택 이용자(이름·생년월일, ADR-0036)
     // ADR-0023 S2 — 원천 공급자 발주 흐름
     vendorId: o.vendorId,
     vendorName: o.vendor?.name ?? null,

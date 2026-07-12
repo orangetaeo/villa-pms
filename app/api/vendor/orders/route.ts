@@ -14,6 +14,7 @@ import { pickI18n, selectedOptionLabels } from "@/lib/service-display";
 import { formatVillaName } from "@/lib/villa-name";
 import { parsePageParams } from "@/lib/pagination";
 import { parseUtcDateOnly } from "@/lib/date-vn";
+import { guestsFromPassportOcr, whitelistTicketGuests } from "@/lib/ticket-guests";
 
 const ROW_SELECT = {
   id: true,
@@ -43,6 +44,10 @@ const ROW_SELECT = {
   customerName: true, // ★이용자 이름 스냅샷 — 없으면 예약 대표자(guestName) 폴백. 이름만(전화 등 다른 PII 금지)
   selectedOptions: true,
   ticketUrls: true, // 티켓형(TICKET) 발행 이미지 URL — 벤더 자기 발주만(판매가 미포함)
+  // ★ 누수: bookingId는 체크인 여권(TICKET 투숙객 정보) 배치 조인용 내부 키 — 응답에는 절대 넣지 않는다(아래 mapRows).
+  bookingId: true,
+  // TICKET 주문별 투숙객 선택 스냅샷(ADR-0036) — 소비자가 신청 시 고른 이용자(이름·생년월일). 비면 체크인 전체 폴백.
+  ticketGuests: true,
   booking: {
     // address: 이행 장소 — 본인에게 발주된 빌라만 이 select를 타므로 재고 비공개 원칙과 무관(계약 A)
     // guestName: 이용자 이름 폴백용(customerName 미기록 구주문). ★이름만 — 전화(guestPhone) 절대 미포함.
@@ -64,7 +69,23 @@ async function mapRows(rows: RawRow[], locale: string) {
     : [];
   const nameById = new Map(items.map((i) => [i.id, pickI18n(i.nameKo, i.nameI18n, locale)]));
   const pickupById = new Map(items.map((i) => [i.id, i.pickupAvailable === true]));
-  return rows.map((o) => ({
+
+  // TICKET 발주만 — 투숙객 여권(이름·생년월일)을 체크인 확정본에서 배치 1쿼리로 조회(ADR-0036).
+  //   티켓은 차일드/어덜트/시니어 구분이 있어 업체가 연령 판단용으로 필요. 원천=CheckInRecord.passportOcrJson.
+  //   체크인 레코드 없으면(발주가 체크인보다 앞선 경우) 빈 배열 → 화면은 안내 문구.
+  const ticketBookingIds = Array.from(
+    new Set(rows.filter((o) => o.type === "TICKET" && o.bookingId).map((o) => o.bookingId as string))
+  );
+  const checkIns = ticketBookingIds.length
+    ? await prisma.checkInRecord.findMany({
+        where: { bookingId: { in: ticketBookingIds } },
+        select: { bookingId: true, passportOcrJson: true },
+      })
+    : [];
+  const guestsByBooking = new Map(checkIns.map((c) => [c.bookingId, guestsFromPassportOcr(c.passportOcrJson)]));
+
+  return rows.map((o) => {
+    const row = {
     id: o.id,
     villaName: o.booking?.villa ? formatVillaName({ name: o.booking.villa.name, nameVi: o.booking.villa.nameVi }) : null,
     villaAddress: o.booking?.villa?.address ?? null,
@@ -97,7 +118,16 @@ async function mapRows(rows: RawRow[], locale: string) {
     vendorProposalNote: o.vendorProposalNote,
     vendorProposalRespondedAt: iso(o.vendorProposalRespondedAt),
     vendorProposalOutcome: o.vendorProposalOutcome,
-  }));
+    };
+    // guests는 TICKET 행에만 부착 — 비TICKET 응답 shape 불변(키 자체 없음).
+    //   ★주문 스냅샷(ticketGuests) 우선 — 소비자가 신청 시 고른 이용자. 비면 체크인 전체 명단 폴백(구주문·미선택).
+    if (o.type === "TICKET") {
+      const snapshot = whitelistTicketGuests(o.ticketGuests);
+      const guests = snapshot.length > 0 ? snapshot : o.bookingId ? guestsByBooking.get(o.bookingId) ?? [] : [];
+      return { ...row, guests };
+    }
+    return row;
+  });
 }
 
 export async function GET(req: Request) {

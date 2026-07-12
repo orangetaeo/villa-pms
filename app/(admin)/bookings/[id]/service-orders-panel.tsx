@@ -50,6 +50,7 @@ export interface OrderRow {
   guestNote: string | null;
   selectedOptions: SelectedOptionSnapshot[];
   ticketUrls: string[]; // 티켓형(TICKET) 발행 이미지 URL — 발행 현황·대리 첨부(ADR-0034)
+  ticketGuests: { name: string | null; birthDate: string | null }[]; // TICKET 선택 이용자(이름·생년월일, ADR-0036). 미선택이면 빈 배열.
   // ADR-0023 S2 — 원천 공급자 발주 흐름. vendorId=null이면 직접 제공(발주 흐름 없음).
   vendorId: string | null;
   vendorName: string | null;
@@ -521,6 +522,13 @@ export default function ServiceOrdersPanel({
   );
 }
 
+/** 여권 생년월일 "YYYY-MM-DD" → "dd/MM/yyyy" 단순 재배치(타임존 변환 금지). null·불량이면 "—"·원문. */
+function formatTicketBirthDate(raw: string | null): string {
+  if (!raw) return "—";
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : raw;
+}
+
 // 티켓 업로드/삭제 오류 코드 → i18n 라벨(adminServiceOrders.tickets.*)
 function adminTicketErr(code: string | undefined, t: ReturnType<typeof useTranslations>): string {
   switch (code) {
@@ -624,6 +632,22 @@ function AdminTicketCell({
           {t("tickets.counter", { issued, needed: order.quantity })}
         </span>
       </div>
+
+      {/* 선택된 이용자(이름·생년월일) — 소비자가 티켓 신청 시 고른 투숙객(ADR-0036). 미선택이면 미표시. */}
+      {order.ticketGuests.length > 0 && (
+        <div className="rounded-md border border-slate-700 bg-slate-900/40 px-2 py-1.5">
+          <p className="text-[10px] font-bold text-slate-400 mb-0.5">{t("tickets.guestsTitle")}</p>
+          <ul className="space-y-0.5">
+            {order.ticketGuests.map((g, i) => (
+              <li key={i} className="text-[11px] text-slate-300 flex items-center gap-1.5">
+                <span className="truncate">{g.name ?? "—"}</span>
+                <span className="text-slate-600">·</span>
+                <span className="tabular-nums text-slate-400 shrink-0">{formatTicketBirthDate(g.birthDate)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {issued === 0 ? (
         <p className="text-[11px] text-slate-500">{t("tickets.none")}</p>
