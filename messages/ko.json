@@ -2623,6 +2623,11 @@
     "expandRow": "상세 펼치기",
     "collapseRow": "상세 접기",
     "proposalDue": "제안 처리 필요",
+    "group": {
+      "expand": "품목 펼치기",
+      "collapse": "품목 접기",
+      "lines": "구분 {n}건"
+    },
     "filter": {
       "all": "전체",
       "requested": "요청",

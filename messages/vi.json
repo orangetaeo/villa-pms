@@ -2738,6 +2738,11 @@
     "expandRow": "Mở chi tiết",
     "collapseRow": "Thu gọn chi tiết",
     "proposalDue": "Cần xử lý đề xuất",
+    "group": {
+      "expand": "Mở nhóm mục",
+      "collapse": "Thu gọn nhóm mục",
+      "lines": "{n} phân loại"
+    },
     "filter": {
       "all": "Tất cả",
       "requested": "Yêu cầu",

@@ -12,7 +12,9 @@ import {
   orderHasAttention,
   orderBucket,
   orderFilterCounts,
+  groupAdminOrders,
   type OrderAttentionInput,
+  type OrderGroupInput,
 } from "./service-order";
 
 // 접힘 행 신호 테스트용 기본 주문(신호 없음) — 필드별로 오버라이드해 판정 검증.
@@ -128,5 +130,132 @@ describe("상태 필터 버킷·건수", () => {
       { status: "CANCELLED" },
     ]);
     expect(counts).toEqual({ all: 5, requested: 2, confirmed: 2, cancelled: 1 });
+  });
+});
+
+// 그룹핑 최소 주문 팩토리 — 그룹핑에 쓰는 필드만 의미 있고 나머지는 무해한 기본값.
+function ord(p: Partial<OrderGroupInput> & { catalogItemId: string | null }): OrderGroupInput {
+  return {
+    status: p.status ?? "CONFIRMED",
+    type: p.type ?? "TICKET",
+    quantity: p.quantity ?? 1,
+    ticketUrls: p.ticketUrls ?? [],
+    vendorStatus: p.vendorStatus ?? null,
+    proposedServiceDate: p.proposedServiceDate ?? null,
+    vendorProposalRespondedAt: p.vendorProposalRespondedAt ?? null,
+    catalogItemId: p.catalogItemId,
+    serviceDate: p.serviceDate ?? null,
+    nameKo: p.nameKo ?? "품목",
+    priceKrw: p.priceKrw ?? 0,
+    priceVnd: p.priceVnd ?? null,
+  };
+}
+
+describe("groupAdminOrders — 품목+이용일 그룹핑", () => {
+  it("같은 품목·이용일의 구분 분리 주문을 한 그룹으로 묶고 수량·판매가 합산", () => {
+    // 키스브릿지 1건 = 무료 1 + 일반 2 (구분별 분리 저장)
+    const groups = groupAdminOrders([
+      ord({ catalogItemId: "ci-1", nameKo: "키스브릿지", quantity: 1, priceVnd: "0", priceKrw: 0, serviceDate: "2026-08-01" }),
+      ord({ catalogItemId: "ci-1", nameKo: "키스브릿지", quantity: 2, priceVnd: "300000", priceKrw: 30000, serviceDate: "2026-08-01" }),
+    ]);
+    expect(groups).toHaveLength(1);
+    const g = groups[0];
+    expect(g.name).toBe("키스브릿지");
+    expect(g.serviceDate).toBe("2026-08-01");
+    expect(g.orders).toHaveLength(2);
+    expect(g.totalQuantity).toBe(3);
+    expect(g.totalPriceVnd).toBe("300000");
+    expect(g.totalPriceKrw).toBe(30000);
+    expect(g.hasTicket).toBe(true);
+    expect(g.ticketIssued).toBe(0); // 아직 발행 없음
+    expect(g.ticketNeeded).toBe(3);
+    expect(g.attention.ticketShort).toBe(true); // 발행 미달
+  });
+
+  it("catalogItemId null이면 type으로 폴백해 그룹핑", () => {
+    const groups = groupAdminOrders([
+      ord({ catalogItemId: null, type: "BBQ", serviceDate: "2026-08-02" }),
+      ord({ catalogItemId: null, type: "BBQ", serviceDate: "2026-08-02" }),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].totalQuantity).toBe(2);
+  });
+
+  it("같은 품목이라도 이용일이 다르면 별도 그룹(키에 이용일 포함)", () => {
+    const groups = groupAdminOrders([
+      ord({ catalogItemId: "ci-1", serviceDate: "2026-08-01" }),
+      ord({ catalogItemId: "ci-1", serviceDate: "2026-08-03" }),
+    ]);
+    expect(groups).toHaveLength(2);
+  });
+
+  it("입력 순서(첫 등장) 보존", () => {
+    const groups = groupAdminOrders([
+      ord({ catalogItemId: "ci-b", serviceDate: "2026-08-05" }),
+      ord({ catalogItemId: "ci-a", serviceDate: "2026-08-01" }),
+      ord({ catalogItemId: "ci-b", serviceDate: "2026-08-05" }),
+    ]);
+    expect(groups.map((g) => g.orders[0].catalogItemId)).toEqual(["ci-b", "ci-a"]);
+    expect(groups[0].orders).toHaveLength(2);
+  });
+
+  it("대표 상태 우선순위 요청>확정>제공완료>취소", () => {
+    const g1 = groupAdminOrders([
+      ord({ catalogItemId: "ci-1", status: "CANCELLED", serviceDate: "d" }),
+      ord({ catalogItemId: "ci-1", status: "CONFIRMED", serviceDate: "d" }),
+      ord({ catalogItemId: "ci-1", status: "REQUESTED", serviceDate: "d" }),
+    ])[0];
+    expect(g1.representativeStatus).toBe("REQUESTED");
+    const g2 = groupAdminOrders([
+      ord({ catalogItemId: "ci-2", status: "CANCELLED", serviceDate: "d" }),
+      ord({ catalogItemId: "ci-2", status: "DELIVERED", serviceDate: "d" }),
+    ])[0];
+    // 확정(CONFIRMED) 없으면 DELIVERED가 취소보다 우선
+    expect(g2.representativeStatus).toBe("DELIVERED");
+    const g3 = groupAdminOrders([
+      ord({ catalogItemId: "ci-3", status: "DELIVERED", serviceDate: "d" }),
+      ord({ catalogItemId: "ci-3", status: "CONFIRMED", serviceDate: "d" }),
+    ])[0];
+    expect(g3.representativeStatus).toBe("CONFIRMED");
+  });
+
+  it("그룹 attention = 라인 orderAttention OR 승격", () => {
+    const g = groupAdminOrders([
+      ord({ catalogItemId: "ci-1", status: "CONFIRMED", serviceDate: "d" }), // 신호 없음
+      ord({
+        catalogItemId: "ci-1",
+        status: "REQUESTED", // requested 신호
+        vendorStatus: "VENDOR_ACCEPTED",
+        proposedServiceDate: "2026-08-10", // 미해결 제안 신호
+        serviceDate: "d",
+      }),
+    ])[0];
+    expect(g.attention.requested).toBe(true);
+    expect(g.attention.unresolvedProposal).toBe(true);
+    expect(g.hasAttention).toBe(true);
+  });
+
+  it("티켓 카운터 합 — TICKET 라인만 집계(비티켓 제외)", () => {
+    const g = groupAdminOrders([
+      ord({ catalogItemId: "ci-1", type: "TICKET", quantity: 2, ticketUrls: ["a", "b"], serviceDate: "d" }),
+      ord({ catalogItemId: "ci-1", type: "TICKET", quantity: 3, ticketUrls: ["c"], serviceDate: "d" }),
+    ])[0];
+    expect(g.ticketIssued).toBe(3);
+    expect(g.ticketNeeded).toBe(5);
+    expect(g.attention.ticketShort).toBe(true);
+  });
+
+  it("1주문 그룹 — 단일 라인, 집계는 그 주문 그대로", () => {
+    const groups = groupAdminOrders([
+      ord({ catalogItemId: "ci-solo", quantity: 4, priceVnd: "120000", serviceDate: "2026-08-01" }),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].orders).toHaveLength(1);
+    expect(groups[0].totalQuantity).toBe(4);
+    expect(groups[0].totalPriceVnd).toBe("120000");
+  });
+
+  it("빈 입력 → 빈 배열", () => {
+    expect(groupAdminOrders([])).toEqual([]);
   });
 });
