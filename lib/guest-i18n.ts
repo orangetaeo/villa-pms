@@ -181,6 +181,7 @@ export interface GuestLabels {
   // 티켓형(TICKET) QR 티켓 열람(ADR-0034) — 발행된 티켓 썸네일 섹션 + 확대 오버레이
   tickets: {
     title: (n: number) => string; // "내 티켓 (N장)"
+    partial: (issued: number, needed: number) => string; // 주문 수량보다 발행이 적을 때 경고 — "전부 지급됨" 오인 방지
     hint: string; // "입장 시 QR을 제시하세요"
     close: string; // 확대 오버레이 닫기
     save: string; // 티켓 1장 저장 버튼
@@ -389,6 +390,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
     },
     tickets: {
       title: (n) => `내 티켓 (${n}장)`,
+      partial: (issued, needed) => `주문 ${needed}장 중 ${issued}장만 발행되었습니다 — 나머지는 준비 중이에요.`,
       hint: "입장 시 QR 코드를 제시하세요.",
       close: "닫기",
       save: "저장",
@@ -585,6 +587,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
     },
     tickets: {
       title: (n) => `My tickets (${n})`,
+      partial: (issued, needed) => `Only ${issued} of ${needed} tickets issued so far — the rest are on the way.`,
       hint: "Show the QR code at the entrance.",
       close: "Close",
       save: "Save",
@@ -781,6 +784,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
     },
     tickets: {
       title: (n) => `Мои билеты (${n})`,
+      partial: (issued, needed) => `Выпущено ${issued} из ${needed} билетов — остальные готовятся.`,
       hint: "Покажите QR-код при входе.",
       close: "Закрыть",
       save: "Сохранить",
@@ -977,6 +981,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
     },
     tickets: {
       title: (n) => `我的门票（${n}张）`,
+      partial: (issued, needed) => `已出票 ${issued}/${needed} 张，其余正在准备中。`,
       hint: "入场时请出示二维码。",
       close: "关闭",
       save: "保存",
@@ -1173,6 +1178,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
     },
     tickets: {
       title: (n) => `Vé của tôi (${n})`,
+      partial: (issued, needed) => `Mới phát hành ${issued}/${needed} vé — số còn lại đang được chuẩn bị.`,
       hint: "Xuất trình mã QR khi vào cổng.",
       close: "Đóng",
       save: "Lưu",
