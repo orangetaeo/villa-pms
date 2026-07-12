@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   parseCatalogOptions,
   validateCatalogItem,
+  variantsHaveRequiredPrices,
   resolveOrderPricing,
   stripOptionCosts,
   generateOptionKey,
@@ -64,6 +65,55 @@ describe("validateCatalogItem — VND 전용", () => {
       ],
     };
     expect(validateCatalogItem({ ...base, options })).toEqual([]);
+  });
+});
+
+describe("variantsHaveRequiredPrices — variant 가격 필수 write 가드(재발 방지)", () => {
+  it("options 없음·variants 없음은 통과", () => {
+    expect(variantsHaveRequiredPrices(null)).toBe(true);
+    expect(variantsHaveRequiredPrices(undefined)).toBe(true);
+    expect(variantsHaveRequiredPrices({})).toBe(true);
+    expect(variantsHaveRequiredPrices({ addons: [{ key: "a", labelKo: "추가", priceVnd: null }] })).toBe(true);
+  });
+  it("모든 variant 가격 있으면 통과", () => {
+    const opts: CatalogOptions = {
+      variants: [
+        { key: "adult", labelKo: "성인", priceVnd: "1500000" },
+        { key: "child", labelKo: "어린이", priceVnd: "1100000" },
+      ],
+    };
+    expect(variantsHaveRequiredPrices(opts)).toBe(true);
+  });
+  it('"0"은 허용(무료 구분)', () => {
+    const opts: CatalogOptions = {
+      variants: [{ key: "free", labelKo: "무료", priceVnd: "0" }],
+    };
+    expect(variantsHaveRequiredPrices(opts)).toBe(true);
+  });
+  it("variant 가격이 null·빈문자면 차단(케이블카 null 사고)", () => {
+    expect(
+      variantsHaveRequiredPrices({ variants: [{ key: "a", labelKo: "성인", priceVnd: null }] })
+    ).toBe(false);
+    expect(
+      variantsHaveRequiredPrices({ variants: [{ key: "a", labelKo: "성인", priceVnd: "" }] })
+    ).toBe(false);
+    expect(
+      variantsHaveRequiredPrices({ variants: [{ key: "a", labelKo: "성인" }] })
+    ).toBe(false);
+  });
+  it("variant 가격이 숫자문자열 아니면 차단", () => {
+    expect(
+      variantsHaveRequiredPrices({ variants: [{ key: "a", labelKo: "성인", priceVnd: "12,000" }] })
+    ).toBe(false);
+  });
+  it("여러 variant 중 하나라도 비면 차단", () => {
+    const opts: CatalogOptions = {
+      variants: [
+        { key: "adult", labelKo: "성인", priceVnd: "1500000" },
+        { key: "child", labelKo: "어린이", priceVnd: null }, // ← 비어있음
+      ],
+    };
+    expect(variantsHaveRequiredPrices(opts)).toBe(false);
   });
 });
 

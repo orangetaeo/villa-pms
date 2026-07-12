@@ -76,6 +76,39 @@ export function groupPeopleByVariant(people: ResolvedPerson[]): TicketVariantGro
   return order.map((k) => ({ variantKey: k, guests: byKey.get(k)! }));
 }
 
+export interface TicketVariantSubtotal {
+  variantKey: string;
+  /** 이 구분에 배정된 인원 수. */
+  count: number;
+  /** 서버 동형 재계산 소계(단가×인원). 규칙 위반·미배정은 0. */
+  subtotalVnd: bigint;
+}
+
+/** variant-person 그룹별 소계 목록(카드 "구분별 소계 줄" 표시용). 라벨은 호출측이 variant에서 해석.
+ *  ticketGroupsTotalVnd와 동일 재계산이되 그룹 단위로 분해해 반환. 순수. */
+export function ticketGroupSubtotals(
+  groups: TicketVariantGroup[],
+  base: { priceVnd: bigint | null },
+  options: CatalogOptions,
+  addonKeys: string[],
+  modifierKeys: string[]
+): TicketVariantSubtotal[] {
+  return groups.map((grp) => {
+    let subtotalVnd = 0n;
+    try {
+      subtotalVnd = resolveOrderPricing(base, options, {
+        variantKey: grp.variantKey,
+        addonKeys,
+        modifierKeys,
+        quantity: grp.guests.length,
+      }).totalPriceVnd;
+    } catch (e) {
+      if (!(e instanceof ServiceSelectionError)) throw e;
+    }
+    return { variantKey: grp.variantKey, count: grp.guests.length, subtotalVnd };
+  });
+}
+
 /** variant-person 그룹들의 총 VND(서버 동형 재계산 합, 표시용). 규칙 위반·미배정은 0 기여. 순수. */
 export function ticketGroupsTotalVnd(
   groups: TicketVariantGroup[],

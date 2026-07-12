@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator, canViewFinance, canSetPrice, type Role } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
-import { validateCatalogItem, SERVICE_TYPE_VALUES, parseAudiences, stripOptionCosts } from "@/lib/service-catalog";
+import { validateCatalogItem, variantsHaveRequiredPrices, SERVICE_TYPE_VALUES, parseAudiences, stripOptionCosts, type CatalogOptions } from "@/lib/service-catalog";
 import { buildCatalogI18n } from "@/lib/service-i18n";
 import type { Prisma } from "@prisma/client";
 
@@ -123,6 +123,11 @@ export async function POST(req: Request) {
   });
   if (errs.length > 0) {
     return NextResponse.json({ error: "VALIDATION_FAILED", codes: errs }, { status: 400 });
+  }
+  // ★variant 가격 필수(재발 방지) — variant는 base가를 대체하므로 빈 가격 저장 시 게스트 주문이 NO_PRICE로 실패.
+  //   저장 시점에 차단("0" 허용). addons/modifiers는 가산이라 null=0 허용(검사 안 함).
+  if (!variantsHaveRequiredPrices(gatedOptions as CatalogOptions | null | undefined)) {
+    return NextResponse.json({ error: "VARIANT_PRICE_REQUIRED" }, { status: 400 });
   }
 
   // 원천 공급자 — 지정되면 존재·active 검증(없으면 직접 제공). ADR-0023 §4.1.
