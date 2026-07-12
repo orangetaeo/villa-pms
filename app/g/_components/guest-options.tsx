@@ -18,6 +18,7 @@ import { formatConverted } from "@/lib/fx-rates";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import { OptionCard, type CardSelection } from "./option-card";
 import { guestVnd } from "./guest-format";
+import { ALL_TYPES, buildGuestTypeTabs, filterGuestCatalogByType } from "./guest-options-filter";
 import type { GuestOptionsProps } from "./types";
 
 /** ISO → YYYY-MM-DD (UTC, @db.Date 자정 기준) — date input min/max용. */
@@ -44,6 +45,13 @@ export default function GuestOptions(props: GuestOptionsProps) {
   );
   const [submitting, setSubmitting] = useState(false);
   const [ordersError, setOrdersError] = useState<string | null>(null);
+  // 카테고리 탭 — 표시 필터만(선택 상태 selections는 전체 catalog 기준으로 유지). 실존 타입만 노출.
+  const [activeType, setActiveType] = useState<string>(ALL_TYPES);
+  const typeTabs = useMemo(() => buildGuestTypeTabs(catalog), [catalog]);
+  const visibleCatalog = useMemo(
+    () => filterGuestCatalogByType(catalog, activeType),
+    [catalog, activeType]
+  );
   // ★이용자 이름 — 서비스 받으실 분(묶음 공통 1값). 예약 대표자 이름 prefill, 수정 가능. 빈값이면 서버가 대표자 폴백.
   const [customerName, setCustomerName] = useState<string>(booking.guestName ?? "");
 
@@ -168,19 +176,51 @@ export default function GuestOptions(props: GuestOptionsProps) {
         {catalog.length === 0 ? (
           <p className="text-sm text-slate-400 text-center py-10">{L.addons.empty}</p>
         ) : (
-          catalog.map((c) => (
-            <OptionCard
-              key={c.id}
-              item={c}
-              labels={L.addons}
-              selection={selections[c.id] ?? emptySelection(c.variants[0]?.key ?? null)}
-              onChange={(next) => setSelections((prev) => ({ ...prev, [c.id]: next }))}
-              badgeText={typeBadgeLabel(c.type)}
-              dateMin={dateMin}
-              dateMax={dateMax}
-              checkedInGuests={checkedInGuests}
-            />
-          ))
+          <>
+            {/* 카테고리 탭 — 실존 타입만(+전체), 건수 뱃지. 타입이 2종 이상일 때만 노출(1종이면 필터 불필요). 가로 스크롤. */}
+            {typeTabs.length > 2 && (
+              <div className="flex items-center gap-2 overflow-x-auto -mx-1 px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {typeTabs.map(({ key, count }) => {
+                  const active = activeType === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setActiveType(key)}
+                      className={
+                        active
+                          ? "shrink-0 flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-bold bg-teal-600 text-white shadow-sm active:scale-95"
+                          : "shrink-0 flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium bg-white text-slate-600 border border-slate-200 active:scale-95"
+                      }
+                    >
+                      {L.serviceTypes[key as keyof typeof L.serviceTypes] ?? key}
+                      <span
+                        className={`rounded-full px-1.5 text-[11px] tabular-nums ${
+                          active ? "bg-white/25 text-white" : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {visibleCatalog.map((c) => (
+              <OptionCard
+                key={c.id}
+                item={c}
+                labels={L.addons}
+                selection={selections[c.id] ?? emptySelection(c.variants[0]?.key ?? null)}
+                onChange={(next) => setSelections((prev) => ({ ...prev, [c.id]: next }))}
+                badgeText={typeBadgeLabel(c.type)}
+                dateMin={dateMin}
+                dateMax={dateMax}
+                checkedInGuests={checkedInGuests}
+              />
+            ))}
+          </>
         )}
 
         {/* 이용자 이름 — 서비스 받으실 분(묶음 공통). 대표자 이름 prefill, 수정 가능. 빈값 허용(서버 폴백). */}

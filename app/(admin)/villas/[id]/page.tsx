@@ -25,6 +25,8 @@ import MinibarStockEditor, { type MinibarStockItem } from "./minibar-stock-edito
 import NameViEditor from "./name-vi-editor";
 import CleaningInfoEditor from "./cleaning-info-editor";
 import CleanerAssignEditor from "./cleaner-assign-editor";
+import RegionalVendorEditor from "./regional-vendor-editor";
+import { REGIONAL_VENDOR_TYPES, type RegionalVendorType } from "@/lib/regional-vendor";
 import PhotoGallery from "./photo-gallery";
 import CollapsibleCard from "@/components/admin/collapsible-card";
 
@@ -130,6 +132,23 @@ export default async function VillaDetailPage({
     orderBy: { name: "asc" },
     select: { id: true, name: true, phone: true },
   });
+
+  // 지역 지정 업체(ADR-0037) — 현재 빌라×타입 매핑 + 후보 업체(APPROVED·active). ★후보는 id·name만(누수 0).
+  const [regionalMappings, regionalVendorOptions] = await Promise.all([
+    prisma.villaServiceVendor.findMany({
+      where: { villaId: id, serviceType: { in: [...REGIONAL_VENDOR_TYPES] } },
+      select: { serviceType: true, vendorId: true },
+    }),
+    prisma.serviceVendor.findMany({
+      where: { approvalStatus: "APPROVED", active: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
+  const regionalInitial: Record<RegionalVendorType, string | null> = { MASSAGE: null, BARBER: null };
+  for (const m of regionalMappings) {
+    regionalInitial[m.serviceType as RegionalVendorType] = m.vendorId;
+  }
 
   // 사진을 공간별로 그룹화 (b10 — 공간별 섹션)
   const photoGroups = SPACE_ORDER.map((space) => ({
@@ -444,6 +463,13 @@ export default async function VillaDetailPage({
             villaId={villa.id}
             initialCleanerId={villa.cleanerId}
             cleaners={cleanerOptions}
+          />
+
+          {/* 지역 지정 업체 (ADR-0037) — 마사지·이발은 이 빌라에서 가까운 샵으로 발주. 미지정이면 카탈로그 기본 */}
+          <RegionalVendorEditor
+            villaId={villa.id}
+            vendors={regionalVendorOptions}
+            initial={regionalInitial}
           />
 
           {/* 청소직원용 운영정보 (T-cleaner-features C·D) — 주소·출입정보·청소 특이사항. 배정 청소직원 전용 */}

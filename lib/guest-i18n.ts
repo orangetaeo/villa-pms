@@ -186,6 +186,20 @@ export interface GuestLabels {
     declinedNote: string; // 거절 후 안내("담당자가 다시 확인합니다")
     error: string; // 처리 실패 안내
   };
+  // 서비스 카테고리 탭(옵션 페이지 /g/[token]/options) — 전체 + ServiceType 9종.
+  //   카탈로그에 실존하는 타입만 노출·클라 필터. 라벨은 탭에 맞춰 짧게.
+  serviceTypes: {
+    ALL: string; // "전체"
+    BBQ: string;
+    TICKET: string;
+    GUIDE: string;
+    CAR_RENTAL: string;
+    BREAKFAST: string;
+    MOTORBIKE_RENTAL: string;
+    MASSAGE: string;
+    BARBER: string;
+    FRUIT: string;
+  };
   footerNote: string;
 }
 
@@ -364,6 +378,18 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       declinedNote: "제안을 거절했습니다. 담당자가 다시 확인해 시간을 안내해 드립니다.",
       error: "처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.",
     },
+    serviceTypes: {
+      ALL: "전체",
+      BBQ: "바베큐",
+      TICKET: "티켓",
+      GUIDE: "가이드",
+      CAR_RENTAL: "차량",
+      BREAKFAST: "조식",
+      MOTORBIKE_RENTAL: "오토바이",
+      MASSAGE: "마사지",
+      BARBER: "이발",
+      FRUIT: "과일",
+    },
     footerNote: "문의사항은 예약하신 여행사로 연락해 주세요.",
   },
 
@@ -532,6 +558,18 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       processing: "Processing…",
       declinedNote: "You declined the suggestion. The provider will review again and confirm a time.",
       error: "Something went wrong. Please try again shortly.",
+    },
+    serviceTypes: {
+      ALL: "All",
+      BBQ: "BBQ",
+      TICKET: "Tickets",
+      GUIDE: "Guide",
+      CAR_RENTAL: "Car",
+      BREAKFAST: "Breakfast",
+      MOTORBIKE_RENTAL: "Motorbike",
+      MASSAGE: "Massage",
+      BARBER: "Barber",
+      FRUIT: "Fruit",
     },
     footerNote: "For inquiries, please contact your travel agency.",
   },
@@ -702,6 +740,18 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       declinedNote: "Вы отклонили предложение. Исполнитель проверит снова и подтвердит время.",
       error: "Произошла ошибка. Повторите попытку позже.",
     },
+    serviceTypes: {
+      ALL: "Все",
+      BBQ: "Барбекю",
+      TICKET: "Билеты",
+      GUIDE: "Гид",
+      CAR_RENTAL: "Авто",
+      BREAKFAST: "Завтрак",
+      MOTORBIKE_RENTAL: "Мотобайк",
+      MASSAGE: "Массаж",
+      BARBER: "Барбер",
+      FRUIT: "Фрукты",
+    },
     footerNote: "По вопросам обращайтесь в ваше турагентство.",
   },
 
@@ -871,6 +921,18 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       declinedNote: "您已拒绝该建议。服务方将重新确认并告知时间。",
       error: "处理时出现问题，请稍后再试。",
     },
+    serviceTypes: {
+      ALL: "全部",
+      BBQ: "烧烤",
+      TICKET: "门票",
+      GUIDE: "向导",
+      CAR_RENTAL: "租车",
+      BREAKFAST: "早餐",
+      MOTORBIKE_RENTAL: "摩托车",
+      MASSAGE: "按摩",
+      BARBER: "理发",
+      FRUIT: "水果",
+    },
     footerNote: "如有疑问，请联系您预订的旅行社。",
   },
 
@@ -1039,6 +1101,18 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       processing: "Đang xử lý…",
       declinedNote: "Bạn đã từ chối đề xuất. Nhân viên sẽ kiểm tra lại và thông báo giờ.",
       error: "Đã xảy ra lỗi. Vui lòng thử lại sau.",
+    },
+    serviceTypes: {
+      ALL: "Tất cả",
+      BBQ: "BBQ",
+      TICKET: "Vé",
+      GUIDE: "Hướng dẫn",
+      CAR_RENTAL: "Thuê xe",
+      BREAKFAST: "Bữa sáng",
+      MOTORBIKE_RENTAL: "Xe máy",
+      MASSAGE: "Massage",
+      BARBER: "Cắt tóc",
+      FRUIT: "Trái cây",
     },
     footerNote: "Mọi thắc mắc vui lòng liên hệ công ty du lịch của bạn.",
   },
