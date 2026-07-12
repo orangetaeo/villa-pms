@@ -50,6 +50,14 @@
 7. CONFIRMED+파트너 시 채권 생성, 여신 초과 시 거부
 8. next build 통과
 
+## 후속 확장 (2026-07-12, 테오): 빌라 검색 필터
+
+"빌라관리에 있는 검색 필터들이 거의 다 있어야 검색 후 예약 가능한 빌라를 예약" — 단순 셀렉터 → 검색 흐름 전환.
+
+- BE: /villas page.tsx 인라인 필터→where 로직을 `lib/villa-search.ts`로 추출(동작 불변, /villas가 이를 사용하도록 리팩터) + `GET /api/villas/bookable`(isOperator) — 동일 필터 파라미터 + ci/co 시 `findFreeVillaIds(requireSellable)` 공실 교차. 응답은 표시 필드만(원가·판매가 미포함)
+- FE: 폼 빌라 섹션을 검색 패널로 개편 — 폼의 체크인/아웃 날짜가 검색 조건으로 연동, 필터(q·지역·침실≥·인원≥·수영장·조식·침대종류·해변거리≤·셀링포인트), 디바운스 fetch, 결과 카드에서 선택. 인원 필터는 폼 guestCount와 연동
+- 완료 기준 추가: ⑨ 날짜 입력 시 점유 빌라가 결과에서 제외 ⑩ /villas 필터 동작 회귀 없음(리팩터 검증)
+
 ## 수정 금지 구역
 - prisma/schema.prisma (타 세션 WIP 존재 — 본 태스크는 스키마 불필요)
 - design-audit/ (타 세션)

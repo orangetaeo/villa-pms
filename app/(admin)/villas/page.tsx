@@ -5,14 +5,16 @@ import Link from "next/link";
 import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
-import type { BedType, Prisma, VillaStatus } from "@prisma/client";
+import type { Prisma, VillaStatus } from "@prisma/client";
 import VillasFilters from "./villas-filters";
 import PaginationBar from "@/components/pagination-bar";
 import { parsePageParams } from "@/lib/pagination";
 import { findFreeVillaIds } from "@/lib/availability";
-import { parseUtcDateOnly } from "@/lib/date-vn";
-import { BED_TYPES } from "@/lib/bedding";
-import { FEATURE_ITEMS } from "@/lib/features";
+import {
+  parseVillaSearchFilters,
+  buildVillaSearchWhere,
+  hasAnyVillaSearchFilter,
+} from "@/lib/villa-search";
 import { CoachMark } from "@/components/tour/coach-mark";
 import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
@@ -37,17 +39,6 @@ const STATUS_BADGE_CLASS: Record<string, string> = {
   INACTIVE: "bg-admin-inactive text-white",
 };
 
-/** 사전 화이트리스트 — URL로 들어온 임의 태그 키 주입 차단 */
-const VALID_FEATURE_KEYS = new Set(
-  Object.values(FEATURE_ITEMS).flat().map((f) => f.featureKey)
-);
-
-/** 양수 정수만 통과(그 외 undefined) — minBedrooms·minGuests·beach 파싱 */
-function toPosInt(v?: string): number | undefined {
-  const n = Number.parseInt(v ?? "", 10);
-  return Number.isFinite(n) && n > 0 ? n : undefined;
-}
-
 export default async function VillasPage({
   searchParams,
 }: {
@@ -59,75 +50,24 @@ export default async function VillasPage({
   const params = await searchParams;
   const tab = params.status && params.status in TAB_STATUS ? params.status : "all";
   const statusFilter = TAB_STATUS[tab];
-  const area = params.area?.trim() || undefined;
-  const q = params.q?.trim() || undefined;
-  const supplierId = params.supplier?.trim() || undefined;
   const { page, pageSize, skip, take } = parsePageParams(params);
 
-  // ── 상세·판매정보 필터 (T-villa-search-expansion §A) ──
-  const minBedrooms = toPosInt(params.minBedrooms);
-  const minGuests = toPosInt(params.minGuests);
-  const pool = params.pool === "1";
-  const breakfast = params.breakfast === "1";
-  const sellable = params.sellable === "1";
-  // 이용규칙 토글 (테오 추가 요청) — Villa 기존 boolean 스칼라
-  const smoking = params.smoking === "1";
-  const pets = params.pets === "1";
-  const party = params.party === "1";
-  const extraBed = params.extraBed === "1";
-  const bedType =
-    params.bedType && (BED_TYPES as readonly string[]).includes(params.bedType)
-      ? (params.bedType as BedType)
-      : undefined;
-  const beach = toPosInt(params.beach); // 해변거리 상한(m). null(미입력) 빌라는 lte가 자동 제외
-  const tags = (params.tags?.split(",").map((s) => s.trim()).filter((k) => VALID_FEATURE_KEYS.has(k))) ?? [];
-
-  // 날짜별 공실 — ci/co 둘 다 유효하고 ci<co 일 때만 적용(한쪽만·역전이면 무시, 500 금지)
-  const ci = params.ci ? parseUtcDateOnly(params.ci) : null;
-  const co = params.co ? parseUtcDateOnly(params.co) : null;
-  const dateRangeValid = !!(ci && co && ci.getTime() < co.getTime());
+  // 검색 필터 파싱·where 구성은 공용 lib 단일 소스 (예약 검색 GET /api/villas/bookable 과 동일 규칙).
+  // ── 상세·판매정보 필터 (T-villa-search-expansion §A) / 날짜(ci·co)는 아래 freeIds 로 별도 결합 ──
+  const filters = parseVillaSearchFilters(params);
 
   // 검색 조건 — 공급자(정확 id) + 지역(단지명 complex) + 텍스트(빌라명·베트남명·단지·주소·공급자명) + 상세 필터.
   // 상태와 분리해 두어 탭 카운트도 검색 범위 안에서 집계한다.
-  const searchWhere: Prisma.VillaWhereInput = {
-    ...(supplierId ? { supplierId } : {}),
-    ...(area ? { complex: area } : {}),
-    ...(minBedrooms ? { bedrooms: { gte: minBedrooms } } : {}),
-    ...(minGuests ? { maxGuests: { gte: minGuests } } : {}),
-    ...(pool ? { hasPool: true } : {}),
-    ...(breakfast ? { breakfastAvailable: true } : {}),
-    // "판매가능만" — 날짜 무관하게도 판매가능(검수 게이트 통과) 빌라만. isSellable=true는 ACTIVE에서만 참.
-    ...(sellable ? { isSellable: true } : {}),
-    // 이용규칙 4종 — 수영장/조식과 동일 패턴(true만 필터)
-    ...(smoking ? { smokingAllowed: true } : {}),
-    ...(pets ? { petsAllowed: true } : {}),
-    ...(party ? { partyAllowed: true } : {}),
-    ...(extraBed ? { extraBedAvailable: true } : {}),
-    ...(bedType ? { bedroomDetails: { some: { bedType } } } : {}),
-    ...(beach ? { beachDistanceM: { lte: beach } } : {}),
-    // 셀링포인트 태그 — 각각 features some (다중 AND, 모두 보유한 빌라만)
-    ...(tags.length ? { AND: tags.map((k) => ({ features: { some: { featureKey: k } } })) } : {}),
-    ...(q
-      ? {
-          OR: [
-            { name: { contains: q, mode: "insensitive" as const } },
-            { nameVi: { contains: q, mode: "insensitive" as const } },
-            { complex: { contains: q, mode: "insensitive" as const } },
-            { address: { contains: q, mode: "insensitive" as const } },
-            { supplier: { is: { name: { contains: q, mode: "insensitive" as const } } } },
-          ],
-        }
-      : {}),
-  };
+  const searchWhere: Prisma.VillaWhereInput = buildVillaSearchWhere(filters);
 
   // 날짜별 공실 freeIds 를 searchWhere 에 접어 넣어 목록·total·groupBy 3자가 동일 결과를 공유한다.
   // freeIds 후보 선정에 searchWhere(q·속성)를 선반영해 결과를 축소(성능·정합). requireSellable=sellable 토글.
   let freeIds: string[] | null = null;
-  if (dateRangeValid) {
+  if (filters.dateRangeValid) {
     freeIds = await findFreeVillaIds(
       prisma,
-      { checkIn: ci!, checkOut: co! },
-      { requireSellable: sellable, villaWhere: searchWhere }
+      { checkIn: filters.checkIn!, checkOut: filters.checkOut! },
+      { requireSellable: filters.sellable, villaWhere: searchWhere }
     );
   }
   const scopedWhere: Prisma.VillaWhereInput =
@@ -225,11 +165,7 @@ export default async function VillasPage({
   };
 
   // 필터가 하나라도 걸려 있으면 빈 결과 문구를 "검색 조건" 버전으로
-  const hasAnyFilter = Boolean(
-    area || q || supplierId || minBedrooms || minGuests || pool || breakfast ||
-      sellable || smoking || pets || party || extraBed || bedType || beach ||
-      tags.length || dateRangeValid
-  );
+  const hasAnyFilter = hasAnyVillaSearchFilter(filters);
 
   const tabs = [
     { key: "all", label: t("tabs.all") },
@@ -307,7 +243,7 @@ export default async function VillasPage({
       {villas.length === 0 ? (
         <div className="bg-admin-card rounded-xl border border-slate-800 p-12 text-center text-sm text-admin-muted">
           {hasAnyFilter ? t("emptyFiltered") : t("empty")}
-          {beach ? (
+          {filters.beach ? (
             <p className="mt-2 text-xs text-admin-muted">{t("beachDistanceNote")}</p>
           ) : null}
         </div>
