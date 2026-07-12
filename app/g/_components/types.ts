@@ -127,6 +127,9 @@ export interface GuestOptionsProps {
   catalog: GuestCatalogView[];
   /** 금액은 항상 VND 기본 표기. convert가 있으면 하단에 모국통화 환산액("오늘 환율 기준") 추가. */
   convert: GuestConvert | null;
+  /** 체크인된 투숙객 명단(이름·생년월일만) — TICKET 품목에서 이용자 선택용(ADR-0036).
+   *   자기 예약 명단이라 누수 아님(여권번호 등 미포함). 체크인 전이면 빈 배열 → 기존 수량 입력 유지. */
+  checkedInGuests: { name: string | null; birthDate: string | null }[];
 }
 
 /** 신청 내역 페이지(/g/[token]/orders) props — 요청한 옵션 목록 확인 + 부가 옵션 신청 진입. */

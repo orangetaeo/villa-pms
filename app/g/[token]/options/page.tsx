@@ -15,6 +15,7 @@ import {
 } from "@/lib/public-i18n";
 import { parseCatalogOptions } from "@/lib/service-catalog";
 import { pickI18n } from "@/lib/service-display";
+import { guestsFromPassportOcr } from "@/lib/ticket-guests";
 import { getDailyRates, CURRENCY_BY_LANG } from "@/lib/fx-rates";
 import { GuestExpiredView } from "../../_components/guest-expired-view";
 import GuestOptions from "../../_components/guest-options";
@@ -96,6 +97,14 @@ export default async function GuestOptionsPage({
     select: { guestName: true },
   });
 
+  // 티켓 이용자 선택용 — 체크인된 투숙객 명단(이름·생년월일만). 자기 예약을 본인 토큰에 보여주는 것이라 누수 아님
+  //   (여권번호 등은 guestsFromPassportOcr가 걸러 미전달). 체크인 전이면 빈 배열 → 폼은 기존 수량 입력 유지.
+  const checkIn = await prisma.checkInRecord.findUnique({
+    where: { bookingId: data.bookingId },
+    select: { passportOcrJson: true },
+  });
+  const checkedInGuests = guestsFromPassportOcr(checkIn?.passportOcrJson);
+
   // 요청 내역은 별도 페이지(/g/[token]/orders)에서 표시 — 여기서는 신청 폼만.
   // ★출입 정보(주소·wifi)는 옵션 화면에 불필요 → null로 전달(이 페이지 payload에 wifi 미포함).
   const booking: GuestBookingView = {
@@ -132,6 +141,7 @@ export default async function GuestOptionsPage({
         booking={booking}
         catalog={catalog}
         convert={convert}
+        checkedInGuests={checkedInGuests}
       />
     </div>
   );
