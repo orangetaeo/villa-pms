@@ -729,6 +729,9 @@ function TicketPanel({
   const short = issued < needed;
   // 이행완료·취소 발주는 발행/삭제 불가(서버 가드와 동일).
   const closed = order.status === "CANCELLED" || order.status === "DELIVERED";
+  // ★발행 완료 잠금(ADR-0034 §3-5): 완료된 주문은 벤더 추가 발행·삭제 불가 — 변경은 Villa Go 경유.
+  //   버튼만 숨기고 썸네일 열람(새 탭)은 유지. closed와 결합하되 안내 문구는 locked에만.
+  const locked = order.vendorCompletedAt != null;
 
   const upload = async (files: FileList | null) => {
     if (!files || files.length === 0 || busy) return;
@@ -823,7 +826,7 @@ function TicketPanel({
                   className="h-16 w-16 rounded-lg border border-slate-200 object-cover"
                 />
               </a>
-              {!closed && (
+              {!closed && !locked && (
                 <button
                   type="button"
                   onClick={() => remove(url)}
@@ -841,7 +844,15 @@ function TicketPanel({
 
       {err && <p className="text-xs font-medium text-rose-600">{err}</p>}
 
-      {!closed && (
+      {/* ★발행 완료 잠금(§3-5): 완료 후엔 발행·삭제 버튼 대신 연락 안내만(열람은 유지) */}
+      {locked && (
+        <p className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+          <span className="material-symbols-outlined text-sm">lock</span>
+          {t("tickets.lockedNote")}
+        </p>
+      )}
+
+      {!closed && !locked && (
         <>
           <input
             ref={inputRef}
