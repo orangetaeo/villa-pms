@@ -2700,6 +2700,7 @@
       "counter": "{issued}/{needed}장",
       "none": "발행된 티켓 없음",
       "guestsTitle": "선택 이용자",
+      "freeEntry": "무료 입장 — 티켓 발행 불필요",
       "view": "원본 보기",
       "upload": "티켓 첨부",
       "uploading": "업로드 중…",

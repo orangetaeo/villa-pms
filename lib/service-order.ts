@@ -56,6 +56,14 @@ export function assertServiceTransition(
 // ── ADMIN 주문 목록 아코디언: 접힘 행 신호·상태 필터 (순수 판정) ─────────────────────
 // 예약 상세 부가옵션 목록(ServiceOrdersPanel)이 대량일 때 훑기·필터용. UI 무의존·테스트 가능.
 
+// 무료 입장 티켓 판정 — TICKET이고 판매가 스냅샷(priceVnd)이 "0"일 때.
+//   벤더 측 freeEntry(type=TICKET && priceVnd=0n, PR #256/#258)와 동일 기준.
+//   무료는 QR 발행 불필요(그냥 입장) — 발행 카운터·미달 신호·첨부 UI 대상에서 제외한다.
+//   ★priceVnd가 null(가격 미설정·레거시)이면 무료로 보지 않는다(벤더 측과 동일 — 명시 0만 무료).
+export function isFreeTicket(o: { type: string; priceVnd: string | null }): boolean {
+  return o.type === "TICKET" && o.priceVnd === "0";
+}
+
 // 접힘 행 "처리 필요" 신호 판정에 필요한 최소 필드(구조적 부분집합 — OrderRow가 만족).
 export interface OrderAttentionInput {
   status: ServiceOrderStatus;
@@ -65,6 +73,7 @@ export interface OrderAttentionInput {
   vendorStatus: "PENDING_VENDOR" | "VENDOR_ACCEPTED" | "VENDOR_REJECTED" | null;
   proposedServiceDate: string | null;
   vendorProposalRespondedAt: string | null;
+  priceVnd: string | null; // 판매가 스냅샷(무료 티켓 판정용) — 무료(TICKET·"0")는 ticketShort 제외
 }
 
 export interface OrderAttention {
@@ -74,6 +83,7 @@ export interface OrderAttention {
 }
 
 // 접힘 행에서 놓치면 안 되는 처리 필요 신호. 종결(CANCELLED)은 신호 없음.
+//   무료 티켓(발행 불필요)은 ticketShort 신호에서 제외한다.
 export function orderAttention(o: OrderAttentionInput): OrderAttention {
   const terminal = o.status === "CANCELLED";
   return {
@@ -82,7 +92,11 @@ export function orderAttention(o: OrderAttentionInput): OrderAttention {
       o.vendorStatus === "VENDOR_ACCEPTED" &&
       !!o.proposedServiceDate &&
       !o.vendorProposalRespondedAt,
-    ticketShort: o.type === "TICKET" && !terminal && o.ticketUrls.length < o.quantity,
+    ticketShort:
+      o.type === "TICKET" &&
+      !isFreeTicket(o) &&
+      !terminal &&
+      o.ticketUrls.length < o.quantity,
   };
 }
 
@@ -223,7 +237,8 @@ export function groupAdminOrders<T extends OrderGroupInput>(
     if (a.requested) g.attention.requested = true;
     if (a.unresolvedProposal) g.attention.unresolvedProposal = true;
     if (a.ticketShort) g.attention.ticketShort = true;
-    if (o.type === "TICKET") {
+    // 무료 티켓(발행 불필요)은 카운터 합에서 제외 — 그룹 헤더 발행 카운터가 유료 라인만 반영.
+    if (o.type === "TICKET" && !isFreeTicket(o)) {
       g.hasTicket = true;
       g.ticketIssued += o.ticketUrls.length;
       g.ticketNeeded += o.quantity;
