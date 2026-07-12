@@ -26,6 +26,11 @@ const optionDefSchema = z.object({
   priceVnd: z.string().regex(/^\d{1,15}$/).optional().nullable(),
   descKo: z.string().max(1000).optional().nullable(),
   costVnd: z.string().regex(/^\d{1,15}$/).optional().nullable(),
+  // TICKET 구분 자동판정 규칙(ADR-0036) — variant에만 의미. 값 없으면 성인 기본. 공개정보(원가 아님).
+  bornBeforeYear: z.number().int().min(1900).max(2100).optional().nullable(),
+  ageMin: z.number().int().min(0).max(120).optional().nullable(),
+  ageMax: z.number().int().min(0).max(120).optional().nullable(),
+  heightMaxCm: z.number().int().min(30).max(220).optional().nullable(),
 });
 const patchSchema = z.object({
   type: z.enum(SERVICE_TYPE_VALUES as unknown as [string, ...string[]]),

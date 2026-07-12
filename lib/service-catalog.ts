@@ -106,6 +106,16 @@ export interface CatalogOptionDef {
   descI18n?: LabelI18n | null;
   /** ★매입원가 VND(동, "숫자문자열") — 운영자(canViewFinance) 전용. 공개 경계에서 반드시 제거(stripOptionCosts). */
   costVnd?: string | null;
+  // ── TICKET 연령/신장 구분 자동판정 규칙(ADR-0036 개정) — variant에만 의미. 공개정보(판매가 동급, 원가 아님) ──
+  //   ★ 카테고리 하드코딩 없음: 존재하는 필드만 lib/ticket-variant-rules가 순서대로 평가.
+  /** 출생년도 < 값이면 매칭(여권 자동, 고정 컷오프). 예: 1966 = 노인. */
+  bornBeforeYear?: number | null;
+  /** 이용일 만 나이 ≥ (선택 규칙). */
+  ageMin?: number | null;
+  /** 이용일 만 나이 ≤ (선택 규칙). */
+  ageMax?: number | null;
+  /** 소비자 입력 신장(cm) < 값이면 매칭. 예: 100=무료, 140=어린이. */
+  heightMaxCm?: number | null;
 }
 
 export interface CatalogOptions {
@@ -225,6 +235,24 @@ export function validateCatalogItem(input: CatalogItemInput): CatalogItemError[]
           errors.push("INVALID_OPTION");
         }
         if (opt.descKo != null && opt.descKo.length > 1000) {
+          errors.push("INVALID_OPTION");
+        }
+        // TICKET 구분 규칙(선택) — 정수 범위·나이 min≤max 검증. 값 없으면 무시(성인 기본 variant).
+        const intInRange = (v: unknown, lo: number, hi: number): boolean =>
+          v == null || (typeof v === "number" && Number.isInteger(v) && v >= lo && v <= hi);
+        if (
+          !intInRange(opt.bornBeforeYear, 1900, 2100) ||
+          !intInRange(opt.ageMin, 0, 120) ||
+          !intInRange(opt.ageMax, 0, 120) ||
+          !intInRange(opt.heightMaxCm, 30, 220)
+        ) {
+          errors.push("INVALID_OPTION");
+        }
+        if (
+          typeof opt.ageMin === "number" &&
+          typeof opt.ageMax === "number" &&
+          opt.ageMin > opt.ageMax
+        ) {
           errors.push("INVALID_OPTION");
         }
       }

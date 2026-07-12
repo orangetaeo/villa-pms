@@ -42,6 +42,12 @@ export interface GuestOption {
   label: string; // 언어별 라벨
   priceVnd: string | null;
   desc?: string | null; // 옵션별 설명(언어별) — 원가는 포함 안 함(누수 0)
+  // ── TICKET 구분 자동판정 규칙(ADR-0036 개정) — variant에만 의미. 공개정보(판매가 동급, 원가 아님) ──
+  //   ★카테고리 하드코딩 없음: 값이 있는 필드만 판정에 쓰인다(무료/어린이/노인 유무는 품목마다 다름).
+  bornBeforeYear?: number | null; // 출생년도 < 값 매칭(여권 자동)
+  ageMin?: number | null; // 이용일 만나이 ≥ (선택)
+  ageMax?: number | null; // 이용일 만나이 ≤ (선택)
+  heightMaxCm?: number | null; // 소비자 신장(cm) < 값 매칭(자가신고)
 }
 
 export interface GuestCatalogView {

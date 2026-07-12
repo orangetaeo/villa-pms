@@ -1,9 +1,9 @@
-// 벤더 발주 목록 GET — TICKET 투숙객 여권(이름·생년월일) 부착 테스트 (ADR-0036)
+// 벤더 발주 목록 GET — TICKET 이용자 스냅샷 부착 테스트 (ADR-0036 개정)
+//   ★전체명단 폴백 제거: 벤더 guests = 주문 스냅샷(ticketGuests)만. 체크인 명단 배치조회 없음.
 //   - TICKET 행에만 guests 부착(비TICKET 응답 shape 불변)
-//   - 화이트리스트: 이름·생년월일만 — passportNo·nationality·sex·expiryDate·bookingId 미노출
-//   - 체크인 레코드 없음 → guests: []
-//   - OCR 원소 null 필드 관용(name null·birthDate null)
-//   - passportOcrJson이 배열 아님(불량) → 빈 배열
+//   - 화이트리스트: 이름·생년월일·신장만 — passportNo·nationality·sex·expiryDate·bookingId 미노출
+//   - 스냅샷 비면(구주문·미선택) guests: [] → 화면은 "이용자 미지정"
+//   - 체크인 명단 조회(checkInRecord.findMany)는 절대 호출되지 않음
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── prisma mock (checkInRecord.findMany 포함) ──
@@ -85,22 +85,15 @@ beforeEach(() => {
   checkInFindMany.mockResolvedValue([]);
 });
 
-describe("vendor orders — TICKET 투숙객 여권(ADR-0036)", () => {
-  it("TICKET 행에 guests 부착 — 이름·생년월일만, 그 외 여권 필드·bookingId 미노출", async () => {
-    soFindMany.mockResolvedValueOnce([{ ...rowBase, id: "so-1", bookingId: "bk-1" }]);
-    checkInFindMany.mockResolvedValueOnce([
+describe("vendor orders — TICKET 이용자 스냅샷(ADR-0036 개정)", () => {
+  it("TICKET 행에 guests 부착 — 주문 스냅샷만(이름·생년월일·신장), 그 외 필드·bookingId 미노출", async () => {
+    soFindMany.mockResolvedValueOnce([
       {
-        bookingId: "bk-1",
-        passportOcrJson: [
-          {
-            surname: "KIM",
-            givenNames: "CHUL SOO",
-            passportNo: "M12345678",
-            nationality: "KOR",
-            birthDate: "1980-05-03",
-            expiryDate: "2030-05-03",
-            sex: "M",
-          },
+        ...rowBase,
+        id: "so-1",
+        ticketGuests: [
+          // 저장 스냅샷에 오염 필드가 섞여 들어와도 화이트리스트가 걸러야 함
+          { name: "KIM CHUL SOO", birthDate: "1980-05-03", heightCm: 132, passportNo: "M12345678", sex: "M" },
         ],
       },
     ]);
@@ -111,41 +104,46 @@ describe("vendor orders — TICKET 투숙객 여권(ADR-0036)", () => {
     expect(guests).toHaveLength(1);
     expect(guests[0].name).toBe("KIM CHUL SOO");
     expect(guests[0].birthDate).toBe("1980-05-03");
-    // ★ 누수: 여권번호·국적·성별·만료일 등 화이트리스트 외 필드는 절대 미노출
+    expect(guests[0].heightCm).toBe(132); // 자가신고 신장은 통과
+    // ★ 누수: 화이트리스트 외 필드는 절대 미노출
     expect(guests[0]).not.toHaveProperty("passportNo");
-    expect(guests[0]).not.toHaveProperty("nationality");
     expect(guests[0]).not.toHaveProperty("sex");
-    expect(guests[0]).not.toHaveProperty("expiryDate");
-    expect(guests[0]).not.toHaveProperty("passportPhotoUrls");
-    // bookingId는 내부 조인용 — 응답 행에 노출 금지
     expect(json.orders[0]).not.toHaveProperty("bookingId");
-  });
-
-  it("비TICKET 행에는 guests 키 자체가 없음(응답 shape 불변)", async () => {
-    soFindMany.mockResolvedValueOnce([{ ...rowBase, id: "so-2", type: "MASSAGE", bookingId: "bk-1" }]);
-    const res = await call("tab=inbox");
-    const json = (await res.json()) as { orders: Array<Record<string, unknown>> };
-    expect(json.orders[0]).not.toHaveProperty("guests");
-    // 비TICKET는 체크인 조회조차 하지 않음(배치 대상 없음)
+    // ★전체명단 폴백 제거: 체크인 명단 배치 조회는 절대 호출되지 않는다
     expect(checkInFindMany).not.toHaveBeenCalled();
   });
 
-  it("체크인 레코드 없음 → guests: []", async () => {
-    soFindMany.mockResolvedValueOnce([{ ...rowBase, id: "so-3", bookingId: "bk-9" }]);
-    checkInFindMany.mockResolvedValueOnce([]); // 아직 체크인 전
+  it("비TICKET 행에는 guests 키 자체가 없음(응답 shape 불변)", async () => {
+    soFindMany.mockResolvedValueOnce([{ ...rowBase, id: "so-2", type: "MASSAGE" }]);
+    const res = await call("tab=inbox");
+    const json = (await res.json()) as { orders: Array<Record<string, unknown>> };
+    expect(json.orders[0]).not.toHaveProperty("guests");
+    expect(checkInFindMany).not.toHaveBeenCalled();
+  });
+
+  it("스냅샷 없음(null) → guests: [] (폴백 없음 — 화면은 '이용자 미지정')", async () => {
+    soFindMany.mockResolvedValueOnce([{ ...rowBase, id: "so-3", ticketGuests: null }]);
     const res = await call("tab=inbox");
     const json = (await res.json()) as { orders: Array<Record<string, unknown>> };
     expect(json.orders[0].guests).toEqual([]);
+    expect(checkInFindMany).not.toHaveBeenCalled();
   });
 
-  it("OCR 원소 null 필드 관용 — name null·birthDate null 처리", async () => {
-    soFindMany.mockResolvedValueOnce([{ ...rowBase, id: "so-4", bookingId: "bk-1" }]);
-    checkInFindMany.mockResolvedValueOnce([
+  it("스냅샷 빈 배열(구주문·미선택) → guests: [] (전체명단으로 채우지 않음)", async () => {
+    soFindMany.mockResolvedValueOnce([{ ...rowBase, id: "so-4", ticketGuests: [] }]);
+    const res = await call("tab=inbox");
+    const json = (await res.json()) as { orders: Array<{ guests: unknown }> };
+    expect(json.orders[0].guests).toEqual([]);
+  });
+
+  it("스냅샷 null 필드 관용 — name null·birthDate null, 신장 없으면 heightCm 키 없음", async () => {
+    soFindMany.mockResolvedValueOnce([
       {
-        bookingId: "bk-1",
-        passportOcrJson: [
-          { surname: null, givenNames: null, birthDate: null }, // 전부 null
-          { surname: "LEE", givenNames: null, birthDate: "1992-01-09" }, // 성만
+        ...rowBase,
+        id: "so-5",
+        ticketGuests: [
+          { name: null, birthDate: null },
+          { name: "LEE", birthDate: "1992-01-09" },
         ],
       },
     ]);
@@ -154,50 +152,13 @@ describe("vendor orders — TICKET 투숙객 여권(ADR-0036)", () => {
     const guests = json.orders[0].guests;
     expect(guests[0]).toEqual({ name: null, birthDate: null });
     expect(guests[1]).toEqual({ name: "LEE", birthDate: "1992-01-09" });
+    expect(guests[1]).not.toHaveProperty("heightCm");
   });
 
-  it("passportOcrJson이 배열이 아닌 불량 값 → 빈 배열", async () => {
-    soFindMany.mockResolvedValueOnce([{ ...rowBase, id: "so-5", bookingId: "bk-1" }]);
-    checkInFindMany.mockResolvedValueOnce([{ bookingId: "bk-1", passportOcrJson: { not: "an array" } }]);
+  it("ticketGuests가 배열이 아닌 불량 값 → 빈 배열", async () => {
+    soFindMany.mockResolvedValueOnce([{ ...rowBase, id: "so-6", ticketGuests: { not: "an array" } }]);
     const res = await call("tab=inbox");
     const json = (await res.json()) as { orders: Array<Record<string, unknown>> };
     expect(json.orders[0].guests).toEqual([]);
-  });
-
-  it("주문 스냅샷(ticketGuests) 우선 — 체크인 전체 명단보다 선택분이 우선", async () => {
-    soFindMany.mockResolvedValueOnce([
-      {
-        ...rowBase,
-        id: "so-6",
-        bookingId: "bk-1",
-        // 소비자가 고른 1명 스냅샷(이미 {name, birthDate})
-        ticketGuests: [{ name: "SNAP ONE", birthDate: "1990-01-01" }],
-      },
-    ]);
-    // 체크인엔 2명이 있으나 스냅샷이 있으므로 폴백되지 않아야 함
-    checkInFindMany.mockResolvedValueOnce([
-      {
-        bookingId: "bk-1",
-        passportOcrJson: [
-          { surname: "A", givenNames: "AA", birthDate: "1980-01-01" },
-          { surname: "B", givenNames: "BB", birthDate: "1981-02-02" },
-        ],
-      },
-    ]);
-    const res = await call("tab=inbox");
-    const json = (await res.json()) as { orders: Array<{ guests: unknown }> };
-    expect(json.orders[0].guests).toEqual([{ name: "SNAP ONE", birthDate: "1990-01-01" }]);
-  });
-
-  it("스냅샷 비면 체크인 전체 명단 폴백(구주문·미선택)", async () => {
-    soFindMany.mockResolvedValueOnce([
-      { ...rowBase, id: "so-7", bookingId: "bk-1", ticketGuests: [] },
-    ]);
-    checkInFindMany.mockResolvedValueOnce([
-      { bookingId: "bk-1", passportOcrJson: [{ surname: "A", givenNames: "AA", birthDate: "1980-01-01" }] },
-    ]);
-    const res = await call("tab=inbox");
-    const json = (await res.json()) as { orders: Array<{ guests: unknown }> };
-    expect(json.orders[0].guests).toEqual([{ name: "A AA", birthDate: "1980-01-01" }]);
   });
 });

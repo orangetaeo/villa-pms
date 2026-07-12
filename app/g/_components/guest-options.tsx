@@ -16,9 +16,13 @@ import { GUEST_LABELS } from "@/lib/guest-i18n";
 import { PublicLangSelector } from "@/components/public-lang-selector";
 import { formatConverted } from "@/lib/fx-rates";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
+import { todayVnDateString } from "@/lib/date-vn";
+import { readVariantRule, type VariantRule } from "@/lib/ticket-variant-rules";
 import { OptionCard, type CardSelection } from "./option-card";
 import { guestVnd } from "./guest-format";
+import { resolveSelectedPeople, groupPeopleByVariant, ticketGroupsTotalVnd } from "./ticket-variant-logic";
 import { ALL_TYPES, buildGuestTypeTabs, filterGuestCatalogByType } from "./guest-options-filter";
+import type { GuestCatalogView } from "./types";
 import type { GuestOptionsProps } from "./types";
 
 /** ISO → YYYY-MM-DD (UTC, @db.Date 자정 기준) — date input min/max용. */
@@ -27,7 +31,38 @@ function isoToDateInput(iso: string): string {
 }
 
 function emptySelection(variantKey: string | null): CardSelection {
-  return { variantKey, addonKeys: [], modifierKeys: [], quantity: 0, serviceDate: null, serviceTime: null, guestNote: null, ticketGuestIdxs: [] };
+  return {
+    variantKey,
+    addonKeys: [],
+    modifierKeys: [],
+    quantity: 0,
+    serviceDate: null,
+    serviceTime: null,
+    guestNote: null,
+    ticketGuestIdxs: [],
+    ticketGuestVariants: {},
+    ticketGuestHeights: {},
+  };
+}
+
+/** variant-person(TICKET + 체크인 명단 + variant) 여부 + 정규화 규칙. 자동/수동 판정·그룹 분리 제출에 공통 사용. */
+function ticketVariantContext(
+  c: GuestCatalogView,
+  checkedInGuests: { name: string | null; birthDate: string | null }[]
+): { isTVP: boolean; rules: VariantRule[] } {
+  const isTVP = c.type === "TICKET" && checkedInGuests.length > 0 && c.variants.length > 0;
+  const rules: VariantRule[] = isTVP
+    ? c.variants.map((v) =>
+        readVariantRule({
+          key: v.key,
+          bornBeforeYear: v.bornBeforeYear,
+          ageMin: v.ageMin,
+          ageMax: v.ageMax,
+          heightMaxCm: v.heightMaxCm,
+        })
+      )
+    : [];
+  return { isTVP, rules };
 }
 
 export default function GuestOptions(props: GuestOptionsProps) {
@@ -74,6 +109,18 @@ export default function GuestOptions(props: GuestOptionsProps) {
     for (const c of catalog) {
       const sel = selections[c.id];
       if (!sel || sel.quantity < 1) continue;
+      const ctx = ticketVariantContext(c, checkedInGuests);
+      if (ctx.isTVP && sel.ticketGuestIdxs.length > 0) {
+        // 인원별 구분 지정 → variant 그룹별 합(서버 동형 재계산). 이용일 미선택이면 VN 오늘 기준 판정.
+        const eff = sel.serviceDate ?? todayVnDateString();
+        const people = resolveSelectedPeople(
+          sel.ticketGuestIdxs, checkedInGuests, ctx.rules, sel.ticketGuestVariants, sel.ticketGuestHeights, eff, c.variants[0]?.key ?? null
+        );
+        const groups = groupPeopleByVariant(people);
+        vnd += ticketGroupsTotalVnd(groups, { priceVnd: c.priceVnd ? BigInt(c.priceVnd) : null }, cardOptions[c.id], sel.addonKeys, sel.modifierKeys);
+        if (groups.length > 0) has = true;
+        continue;
+      }
       try {
         const p = resolveOrderPricing(
           { priceVnd: c.priceVnd ? BigInt(c.priceVnd) : null },
@@ -87,7 +134,7 @@ export default function GuestOptions(props: GuestOptionsProps) {
       }
     }
     return { vnd, has };
-  }, [catalog, selections, cardOptions]);
+  }, [catalog, selections, cardOptions, checkedInGuests]);
 
   const anySelected = catalog.some((c) => (selections[c.id]?.quantity ?? 0) > 0);
   // 선택한 항목은 희망 날짜 필수. 시간은 TICKET 제외 필수(TICKET은 이용일만, 테오 2026-07-12). 서버도 동일 검증.
@@ -97,7 +144,19 @@ export default function GuestOptions(props: GuestOptionsProps) {
     if (!sel.serviceDate) return true;
     return c.type !== "TICKET" && !sel.serviceTime;
   });
-  const canSubmit = anySelected && !missingDateTime;
+  // 인원별 구분 미배정(자동 판정 실패 + 수동 미선택) 차단 — variant-person TICKET만.
+  const missingTicketVariant = catalog.some((c) => {
+    const sel = selections[c.id];
+    if (!sel || sel.quantity <= 0) return false;
+    const ctx = ticketVariantContext(c, checkedInGuests);
+    if (!ctx.isTVP) return false;
+    const eff = sel.serviceDate ?? todayVnDateString();
+    const people = resolveSelectedPeople(
+      sel.ticketGuestIdxs, checkedInGuests, ctx.rules, sel.ticketGuestVariants, sel.ticketGuestHeights, eff, c.variants[0]?.key ?? null
+    );
+    return people.some((p) => p.key == null);
+  });
+  const canSubmit = anySelected && !missingDateTime && !missingTicketVariant;
   // 합계는 항상 VND 기본. convert 있으면 하단에 "오늘 환율 기준" 모국통화 환산 보조 표기.
   const grandTotalStr = guestVnd(grandTotal.vnd.toString());
   const convertedStr =
@@ -111,35 +170,62 @@ export default function GuestOptions(props: GuestOptionsProps) {
     if (chosen.length === 0) return;
     setSubmitting(true);
     setOrdersError(null);
+    // 단일 주문 POST(부분 실패 시 throw로 중단 — 기존 루프 방식). true면 성공.
+    const postOrder = async (body: Record<string, unknown>) => {
+      const res = await fetch(`/api/g/${token}/service-orders`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(`HTTP_${res.status}`);
+    };
     try {
       for (const c of chosen) {
         const sel = selections[c.id];
-        // TICKET 이용자 선택(ADR-0036) — 선택 인덱스를 {name,birthDate} 스냅샷으로 해석해 전송.
-        //   체크인 명단이 있고 선택이 있을 때만. 서버가 확정본과 대조 검증(불일치 400).
+        const ctx = ticketVariantContext(c, checkedInGuests);
+        // ── variant-person TICKET(ADR-0036 개정) — 인원별 구분을 variant 그룹으로 나눠 그룹당 1 주문.
+        //   가격이 다른 연령/신장 구분을 분리 구매(quantity=그룹 인원수, ticketGuests=그 그룹만, variantKey=그 구분).
+        if (ctx.isTVP && sel.ticketGuestIdxs.length > 0) {
+          const eff = sel.serviceDate ?? todayVnDateString();
+          const people = resolveSelectedPeople(
+            sel.ticketGuestIdxs, checkedInGuests, ctx.rules, sel.ticketGuestVariants, sel.ticketGuestHeights, eff, c.variants[0]?.key ?? null
+          );
+          const groups = groupPeopleByVariant(people);
+          for (const grp of groups) {
+            await postOrder({
+              catalogItemId: c.id,
+              variantKey: grp.variantKey,
+              addonKeys: sel.addonKeys,
+              modifierKeys: sel.modifierKeys,
+              quantity: grp.guests.length,
+              serviceDate: sel.serviceDate ?? undefined, // TICKET은 이용일만(시간 미포함)
+              guestNote: sel.guestNote ?? undefined,
+              customerName: customerName.trim() || undefined,
+              ticketGuests: grp.guests, // 이름·생년월일·(신장) — 그 그룹만
+            });
+          }
+          continue;
+        }
+        // ── 그 외(비-variant TICKET·일반 서비스) — 기존 단일 주문. TICKET+명단이면 선택 인원 스냅샷 첨부.
         const ticketGuests =
           c.type === "TICKET" && checkedInGuests.length > 0 && sel.ticketGuestIdxs.length > 0
             ? sel.ticketGuestIdxs.map((i) => checkedInGuests[i]).filter(Boolean)
             : undefined;
-        const res = await fetch(`/api/g/${token}/service-orders`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            catalogItemId: c.id,
-            variantKey: sel.variantKey ?? undefined,
-            addonKeys: sel.addonKeys,
-            modifierKeys: sel.modifierKeys,
-            quantity: sel.quantity,
-            serviceDate: sel.serviceDate ?? undefined,
-            // TICKET은 시간 미포함(이용일만). 그 외는 희망 시간 전송.
-            serviceTime: c.type === "TICKET" ? undefined : sel.serviceTime ?? undefined,
-            guestNote: sel.guestNote ?? undefined,
-            // ★이용자 이름 — 묶음 공통 1값(빈값이면 서버가 예약 대표자 폴백)
-            customerName: customerName.trim() || undefined,
-            // TICKET 이용자 선택 스냅샷(이름·생년월일만) — 있을 때만
-            ...(ticketGuests ? { ticketGuests } : {}),
-          }),
+        await postOrder({
+          catalogItemId: c.id,
+          variantKey: sel.variantKey ?? undefined,
+          addonKeys: sel.addonKeys,
+          modifierKeys: sel.modifierKeys,
+          quantity: sel.quantity,
+          serviceDate: sel.serviceDate ?? undefined,
+          // TICKET은 시간 미포함(이용일만). 그 외는 희망 시간 전송.
+          serviceTime: c.type === "TICKET" ? undefined : sel.serviceTime ?? undefined,
+          guestNote: sel.guestNote ?? undefined,
+          // ★이용자 이름 — 묶음 공통 1값(빈값이면 서버가 예약 대표자 폴백)
+          customerName: customerName.trim() || undefined,
+          // TICKET 이용자 선택 스냅샷(이름·생년월일만) — 있을 때만
+          ...(ticketGuests ? { ticketGuests } : {}),
         });
-        if (!res.ok) throw new Error(`HTTP_${res.status}`);
       }
       // 신청 완료 → 신청 내역 페이지로 이동(서버 렌더로 최신 목록·옵션 상세 표시) + 성공 배너(ordered=1)
       router.push(ordersHref + (suffix ? "&" : "?") + "ordered=1");
@@ -276,6 +362,12 @@ export default function GuestOptions(props: GuestOptionsProps) {
             <p className="text-xs text-amber-600 text-center flex items-center justify-center gap-1">
               <span className="material-symbols-outlined text-[16px]">schedule</span>
               {L.addons.dateTimeRequired}
+            </p>
+          )}
+          {anySelected && !missingDateTime && missingTicketVariant && (
+            <p className="text-xs text-amber-600 text-center flex items-center justify-center gap-1">
+              <span className="material-symbols-outlined text-[16px]">confirmation_number</span>
+              {L.addons.ticketVariantRequired}
             </p>
           )}
           <button

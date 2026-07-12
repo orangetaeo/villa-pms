@@ -437,7 +437,8 @@
       "errSize": "Kích thước tệp tối đa 5MB.",
       "errNoFiles": "Vui lòng chọn tệp.",
       "passportTitle": "Thông tin hộ chiếu khách",
-      "passportEmpty": "Sẽ hiển thị sau khi khách check-in và đăng ký hộ chiếu"
+      "passportEmpty": "Chưa chỉ định người dùng — không được chọn khi đặt",
+      "heightDeclared": "khai {cm}cm"
     },
     "propose": {
       "button": "Đề xuất giờ",
@@ -2577,6 +2578,10 @@
       "optPriceVnd": "Giá bán",
       "optCostVnd": "Giá nhập",
       "optDescKo": "Mô tả (tiếng Hàn, tùy chọn — tự động dịch)",
+      "ruleTitle": "Tự động phân loại (chỉ vé, tùy chọn)",
+      "ruleHint": "Chỉ mục có giá trị mới dùng để phân loại. Lựa chọn không có quy tắc là mặc định 'người lớn'.",
+      "ruleBornBeforeYear": "Sinh trước năm",
+      "ruleHeightMaxCm": "Chiều cao (cm) dưới",
       "addOption": "Thêm dòng",
       "removeOption": "Xóa",
       "save": "Lưu",

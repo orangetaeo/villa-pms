@@ -35,9 +35,10 @@ type VendorOrder = {
   optionLabel: string | null; // 선택 코스/옵션(가격 제거) — "오일 마사지 90분" 등
   type: string | null;
   ticketUrls: string[]; // 티켓형(TICKET) 발행 이미지 URL — 발행 현황·삭제용(판매가 무관)
-  // TICKET 전용 — 투숙객 여권(이름·생년월일)만. 연령 구분 티켓 발행용(ADR-0036). ★그 외 여권 필드 없음(서버 화이트리스트).
-  //   비TICKET 응답엔 키 자체가 없음(optional). 체크인 전이면 빈 배열.
-  guests?: { name: string | null; birthDate: string | null }[];
+  // TICKET 전용 — 이용자(이름·생년월일·신장)만. 연령/신장 구분 티켓 발행·현장 검표용(ADR-0036).
+  //   ★그 외 여권 필드 없음(서버 화이트리스트). 비TICKET 응답엔 키 자체가 없음(optional).
+  //   ★주문 스냅샷만(전체명단 폴백 제거) — 비면 빈 배열 → "이용자 미지정" 안내.
+  guests?: { name: string | null; birthDate: string | null; heightCm?: number | null }[];
   quantity: number;
   guestCount: number | null; // 투숙 인원 — 카드에 아이콘으로 표시
   customerName: string | null; // 이용자 이름(주문 스냅샷 또는 예약 대표자 폴백) — 응대 대상 식별용(이름만)
@@ -634,6 +635,13 @@ function GuestPassports({ guests, t }: { guests: VendorOrder["guests"]; t: T }) 
               <span className="min-w-0 truncate font-medium">{g.name ?? "—"}</span>
               <span className="shrink-0 text-neutral-300">·</span>
               <span className="shrink-0 tabular-nums text-neutral-500">{formatBirthDate(g.birthDate)}</span>
+              {/* 신장은 소비자 자가신고(시스템 검증 불가) — "신고" 뉘앙스로 표기, 현장 검표 근거(ADR-0036 개정) */}
+              {typeof g.heightCm === "number" && (
+                <>
+                  <span className="shrink-0 text-neutral-300">·</span>
+                  <span className="shrink-0 tabular-nums text-amber-600">{t("tickets.heightDeclared", { cm: g.heightCm })}</span>
+                </>
+              )}
             </li>
           ))}
         </ul>
