@@ -27,6 +27,12 @@ import {
   ticketGroupsTotalVnd,
   ticketGroupSubtotals,
 } from "@/app/g/_components/ticket-variant-logic";
+import {
+  orderAttention,
+  orderBucket,
+  orderFilterCounts,
+  type OrderFilter,
+} from "@/lib/service-order";
 
 // 서버에서 직렬화되어 내려오는 카탈로그 항목(주문 추가용) — 판매가만(원가 없음)
 export interface OrderCatalogItem {
@@ -135,10 +141,28 @@ export default function ServiceOrdersPanel({
   const [adding, setAdding] = useState(false);
   // 확정가 입력(행별, VND) — showCost만
   const [confirmPrice, setConfirmPrice] = useState<Record<string, string>>({});
+  // 아코디언: 상태 필터 칩(클라, 데이터 전량 보유) + 펼친 주문 Set(orderId 기준 — refresh 후에도 유지)
+  const [filter, setFilter] = useState<OrderFilter>("all");
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
 
   const pendingGuest = orders.filter(
     (o) => o.requestedVia === "GUEST" && o.status === "REQUESTED"
   ).length;
+
+  const filterCounts = useMemo(() => orderFilterCounts(orders), [orders]);
+  const visibleOrders = useMemo(
+    () => (filter === "all" ? orders : orders.filter((o) => orderBucket(o.status) === filter)),
+    [orders, filter]
+  );
+
+  function toggleExpanded(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const refresh = () => router.refresh();
   const fail = () => setMessage({ tone: "error", text: t("error") });
@@ -341,140 +365,244 @@ export default function ServiceOrdersPanel({
       {orders.length === 0 ? (
         <p className="p-6 text-sm text-admin-muted">{t("empty")}</p>
       ) : (
-        /* 반응형 카드 목록 — 가로 스크롤 없음(360px 모바일 포함). 정산 조작은 허브로 일원화됨. */
-        <ul className="divide-y divide-slate-700">
-          {orders.map((o) => {
-            const isPendingGuest = o.requestedVia === "GUEST" && o.status === "REQUESTED";
-            const terminal = o.status === "CANCELLED";
-            const optSummary = o.selectedOptions.map((s) => s.labelKo).join(", ");
-            return (
-              <li
-                key={o.id}
-                className={`px-4 py-4 sm:px-6 space-y-3 ${
-                  isPendingGuest
-                    ? "bg-amber-500/5"
-                    : terminal
-                      ? "opacity-60"
-                      : "hover:bg-slate-700/20 transition"
-                }`}
-              >
-                {/* 상단: 메뉴명 + 상태/출처 배지 */}
-                <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className={`font-medium break-words ${terminal ? "text-slate-300 line-through" : "text-white"}`}
-                    >
-                      {o.nameKo}
-                    </p>
-                    {optSummary && (
-                      <p className="text-[11px] text-slate-500 mt-0.5 break-words">{optSummary}</p>
-                    )}
-                    {o.guestNote && (
-                      <p className="text-[11px] text-amber-400/80 mt-0.5 italic break-words">“{o.guestNote}”</p>
-                    )}
-                    {/* 이용자 이름 — 예약 대표자와 다를 때만 식별용 표시(이름만) */}
-                    {o.customerName && o.customerName !== representativeName && (
-                      <p className="text-[11px] text-teal-300/90 mt-0.5 flex items-center gap-0.5">
-                        <span className="material-symbols-outlined text-[13px]">person</span>
-                        {t("customerName")}: {o.customerName}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
-                        o.requestedVia === "GUEST"
-                          ? "bg-teal-500/15 text-teal-300"
-                          : "bg-slate-600/40 text-slate-300"
+        <>
+          {/* 상태 필터 칩 — 클라 필터(데이터 전량 로드). 숨겨진 처리 필요 건은 칩 건수로 인지. */}
+          <div className="flex flex-wrap items-center gap-2 px-4 py-3 sm:px-6 border-b border-slate-700">
+            {(["all", "requested", "confirmed", "cancelled"] as const).map((f) => {
+              const active = filter === f;
+              return (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setFilter(f)}
+                  aria-pressed={active}
+                  className={`text-xs font-bold rounded-full px-3 py-1 whitespace-nowrap transition-colors ${
+                    active
+                      ? "bg-admin-primary text-white"
+                      : "bg-slate-700/40 text-slate-300 hover:bg-slate-700/70"
+                  }`}
+                >
+                  {t(`filter.${f}`)}
+                  <span className="ml-1.5 tabular-nums opacity-80">{filterCounts[f]}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 반응형 아코디언 — 접힘=한 줄 요약(가로 스크롤 0), 펼침=기존 카드 전체(기능 유실 0). */}
+          {visibleOrders.length === 0 ? (
+            <p className="p-6 text-sm text-admin-muted">{t("emptyFilter")}</p>
+          ) : (
+            <ul className="divide-y divide-slate-700">
+              {visibleOrders.map((o) => {
+                const isPendingGuest = o.requestedVia === "GUEST" && o.status === "REQUESTED";
+                const terminal = o.status === "CANCELLED";
+                const optSummary = o.selectedOptions.map((s) => s.labelKo).join(", ");
+                const isOpen = expanded.has(o.id);
+                const att = orderAttention(o);
+                const vs = o.vendorId ? o.vendorStatus ?? "NONE" : null;
+                const issued = o.ticketUrls.length;
+                return (
+                  <li
+                    key={o.id}
+                    className={`px-4 sm:px-6 ${
+                      isPendingGuest ? "bg-amber-500/5" : terminal ? "opacity-60" : ""
+                    }`}
+                  >
+                    {/* 접힘 요약 행(토글) — 품목·구분·수량·이용일 / 판매가·출처·상태·발주·처리필요·티켓 */}
+                    <button
+                      type="button"
+                      onClick={() => toggleExpanded(o.id)}
+                      aria-expanded={isOpen}
+                      aria-controls={`svc-order-${o.id}`}
+                      aria-label={isOpen ? t("collapseRow") : t("expandRow")}
+                      className={`w-full flex flex-wrap items-center gap-x-3 gap-y-1.5 py-4 text-left ${
+                        terminal ? "" : "hover:opacity-90 transition"
                       }`}
                     >
-                      {o.requestedVia === "GUEST" ? t("viaGuest") : t("viaAdmin")}
-                    </span>
-                    <span
-                      className={`text-[11px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap ${
-                        STATUS_BADGE[o.status]
-                      }`}
-                    >
-                      {t(`status.${o.status}`)}
-                    </span>
-                  </div>
-                </div>
+                      <span
+                        className={`material-symbols-outlined text-[20px] shrink-0 ${
+                          isOpen ? "text-slate-300" : "text-slate-500"
+                        }`}
+                        aria-hidden="true"
+                      >
+                        {isOpen ? "expand_less" : "expand_more"}
+                      </span>
+                      <div className="min-w-0 flex-1 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                        <span
+                          className={`font-medium break-words ${
+                            terminal ? "text-slate-300 line-through" : "text-white"
+                          }`}
+                        >
+                          {o.nameKo}
+                        </span>
+                        {optSummary && (
+                          <span className="text-[11px] text-slate-500 break-words">{optSummary}</span>
+                        )}
+                        <span className="text-xs text-slate-400 tabular-nums whitespace-nowrap">
+                          ×{o.quantity}
+                        </span>
+                        {(o.serviceDate || o.serviceTime) && (
+                          <span className="text-xs text-slate-400 tabular-nums whitespace-nowrap">
+                            {o.serviceDate ?? ""}
+                            {o.serviceDate && o.serviceTime ? " " : ""}
+                            {o.serviceTime ?? ""}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
+                        {/* 판매가(운영자 공통 — 원가만 게이트) */}
+                        {(o.priceKrw > 0 || o.priceVnd) && (
+                          <span className="text-xs tabular-nums text-white font-semibold whitespace-nowrap">
+                            {o.priceKrw > 0 ? `${formatThousands(o.priceKrw)}원` : ""}
+                            {o.priceKrw > 0 && o.priceVnd ? " · " : ""}
+                            {o.priceVnd ? (
+                              <span className="text-slate-300 font-normal">
+                                {formatThousands(o.priceVnd)}₫
+                              </span>
+                            ) : null}
+                          </span>
+                        )}
+                        {/* 출처 */}
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
+                            o.requestedVia === "GUEST"
+                              ? "bg-teal-500/15 text-teal-300"
+                              : "bg-slate-600/40 text-slate-300"
+                          }`}
+                        >
+                          {o.requestedVia === "GUEST" ? t("viaGuest") : t("viaAdmin")}
+                        </span>
+                        {/* 상태 */}
+                        <span
+                          className={`text-[11px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap ${STATUS_BADGE[o.status]}`}
+                        >
+                          {t(`status.${o.status}`)}
+                        </span>
+                        {/* 발주 상태 — vendorId 있을 때만 */}
+                        {vs && (
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${VENDOR_BADGE[vs] ?? VENDOR_BADGE.NONE}`}
+                          >
+                            {t(`vendor.status.${vs}`)}
+                          </span>
+                        )}
+                        {/* 처리 필요: 미해결 시간제안 */}
+                        {att.unresolvedProposal && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap bg-blue-500/15 text-blue-300">
+                            <span className="material-symbols-outlined text-[12px]">schedule</span>
+                            {t("proposalDue")}
+                          </span>
+                        )}
+                        {/* 티켓 카운터(발행 미달=amber) */}
+                        {o.type === "TICKET" && (
+                          <span
+                            className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap tabular-nums ${
+                              att.ticketShort
+                                ? "bg-amber-500/15 text-amber-300"
+                                : "bg-emerald-500/15 text-emerald-300"
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-[12px]">confirmation_number</span>
+                            {t("tickets.counter", { issued, needed: o.quantity })}
+                          </span>
+                        )}
+                      </div>
+                    </button>
 
-                {/* 티켓형(TICKET) 발행 현황 + 대리 첨부/삭제(ADR-0034) — 발주 상태 불변 */}
-                {o.type === "TICKET" && <AdminTicketCell order={o} t={t} onChanged={refresh} />}
+                    {/* 펼침 — 기존 카드의 나머지 전부(기능 유실 0 · 이동만) */}
+                    {isOpen && (
+                      <div id={`svc-order-${o.id}`} className="pb-4 space-y-3">
+                        {/* 게스트 메모 · 이용자 이름(대표자와 다를 때만) */}
+                        {o.guestNote && (
+                          <p className="text-[11px] text-amber-400/80 italic break-words">“{o.guestNote}”</p>
+                        )}
+                        {o.customerName && o.customerName !== representativeName && (
+                          <p className="text-[11px] text-teal-300/90 flex items-center gap-0.5">
+                            <span className="material-symbols-outlined text-[13px]">person</span>
+                            {t("customerName")}: {o.customerName}
+                          </p>
+                        )}
 
-                {/* 메타: 수량·희망일시·판매가·원가(권한 게이트) — flex-wrap로 좁은 화면에서도 줄바꿈 */}
-                <dl className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
-                  <div className="flex items-baseline gap-1.5">
-                    <dt className="text-slate-500">{t("colQty")}</dt>
-                    <dd className="tabular-nums text-slate-200 font-medium">{o.quantity}</dd>
-                  </div>
-                  <div className="flex items-baseline gap-1.5">
-                    <dt className="text-slate-500">{t("colWhen")}</dt>
-                    <dd className="tabular-nums text-slate-200">
-                      {o.serviceDate || o.serviceTime ? (
-                        <>
-                          {o.serviceDate ?? ""}
-                          {o.serviceDate && o.serviceTime ? " " : ""}
-                          {o.serviceTime ?? ""}
-                        </>
-                      ) : (
-                        <span className="text-slate-600">—</span>
-                      )}
-                    </dd>
-                  </div>
-                  <div className="flex items-baseline gap-1.5">
-                    <dt className="text-slate-500">{t("colSale")}</dt>
-                    <dd className="tabular-nums text-white font-semibold">
-                      {o.priceKrw > 0 ? `${formatThousands(o.priceKrw)}원` : ""}
-                      {o.priceKrw > 0 && o.priceVnd ? " · " : ""}
-                      {o.priceVnd ? (
-                        <span className="text-slate-300 font-normal">{formatThousands(o.priceVnd)}₫</span>
-                      ) : o.priceKrw > 0 ? null : (
-                        <span className="text-slate-600">—</span>
-                      )}
-                    </dd>
-                  </div>
-                  {showCost && (
-                    <div className="flex items-baseline gap-1.5">
-                      <dt className="text-slate-500">{t("colCost")}</dt>
-                      <dd className="tabular-nums text-slate-400">
-                        {o.costVnd && o.costVnd !== "0" ? `${formatThousands(o.costVnd)}₫` : "—"}
-                      </dd>
-                    </div>
-                  )}
-                </dl>
+                        {/* 티켓형(TICKET) 발행 현황 + 대리 첨부/삭제(ADR-0034) — 발주 상태 불변 */}
+                        {o.type === "TICKET" && <AdminTicketCell order={o} t={t} onChanged={refresh} />}
 
-                {/* 부가서비스 공급자 — 발주 상태·대체 지정·일정 제안·정산완료(조회성 뱃지) */}
-                <VendorCell
-                  order={o}
-                  showCost={showCost}
-                  busy={busy}
-                  vendorOptions={vendorOptions}
-                  onApplyProposal={applyProposal}
-                  onChangeVendor={changeVendor}
-                  t={t}
-                />
+                        {/* 메타: 수량·희망일시·판매가·원가(권한 게이트) — flex-wrap로 좁은 화면에서도 줄바꿈 */}
+                        <dl className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
+                          <div className="flex items-baseline gap-1.5">
+                            <dt className="text-slate-500">{t("colQty")}</dt>
+                            <dd className="tabular-nums text-slate-200 font-medium">{o.quantity}</dd>
+                          </div>
+                          <div className="flex items-baseline gap-1.5">
+                            <dt className="text-slate-500">{t("colWhen")}</dt>
+                            <dd className="tabular-nums text-slate-200">
+                              {o.serviceDate || o.serviceTime ? (
+                                <>
+                                  {o.serviceDate ?? ""}
+                                  {o.serviceDate && o.serviceTime ? " " : ""}
+                                  {o.serviceTime ?? ""}
+                                </>
+                              ) : (
+                                <span className="text-slate-600">—</span>
+                              )}
+                            </dd>
+                          </div>
+                          <div className="flex items-baseline gap-1.5">
+                            <dt className="text-slate-500">{t("colSale")}</dt>
+                            <dd className="tabular-nums text-white font-semibold">
+                              {o.priceKrw > 0 ? `${formatThousands(o.priceKrw)}원` : ""}
+                              {o.priceKrw > 0 && o.priceVnd ? " · " : ""}
+                              {o.priceVnd ? (
+                                <span className="text-slate-300 font-normal">{formatThousands(o.priceVnd)}₫</span>
+                              ) : o.priceKrw > 0 ? null : (
+                                <span className="text-slate-600">—</span>
+                              )}
+                            </dd>
+                          </div>
+                          {showCost && (
+                            <div className="flex items-baseline gap-1.5">
+                              <dt className="text-slate-500">{t("colCost")}</dt>
+                              <dd className="tabular-nums text-slate-400">
+                                {o.costVnd && o.costVnd !== "0" ? `${formatThousands(o.costVnd)}₫` : "—"}
+                              </dd>
+                            </div>
+                          )}
+                        </dl>
 
-                {/* 처리 액션 — 발주·확정·제공완료·취소·확정가(정산 없음) */}
-                <RowActions
-                  order={o}
-                  showCost={showCost}
-                  busy={busy}
-                  confirmPrice={confirmPrice[o.id] ?? ""}
-                  setConfirmPrice={(v) =>
-                    setConfirmPrice((s) => ({ ...s, [o.id]: v.replace(/\D/g, "") }))
-                  }
-                  onConfirm={() => handleConfirm(o)}
-                  onDeliver={() => patchStatus(o.id, "DELIVERED")}
-                  onCancel={() => handleCancel(o)}
-                  onDispatch={() => dispatchOrder(o.id)}
-                  t={t}
-                />
-              </li>
-            );
-          })}
-        </ul>
+                        {/* 부가서비스 공급자 — 발주 상태·대체 지정·일정 제안·정산완료(조회성 뱃지) */}
+                        <VendorCell
+                          order={o}
+                          showCost={showCost}
+                          busy={busy}
+                          vendorOptions={vendorOptions}
+                          onApplyProposal={applyProposal}
+                          onChangeVendor={changeVendor}
+                          t={t}
+                        />
+
+                        {/* 처리 액션 — 발주·확정·제공완료·취소·확정가(정산 없음) */}
+                        <RowActions
+                          order={o}
+                          showCost={showCost}
+                          busy={busy}
+                          confirmPrice={confirmPrice[o.id] ?? ""}
+                          setConfirmPrice={(v) =>
+                            setConfirmPrice((s) => ({ ...s, [o.id]: v.replace(/\D/g, "") }))
+                          }
+                          onConfirm={() => handleConfirm(o)}
+                          onDeliver={() => patchStatus(o.id, "DELIVERED")}
+                          onCancel={() => handleCancel(o)}
+                          onDispatch={() => dispatchOrder(o.id)}
+                          t={t}
+                        />
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
       )}
 
       {/* 옵션 추가 */}
