@@ -55,6 +55,8 @@ function hasServiceDate(w: unknown): boolean {
 
 // findMany 호출 중 목록(select=ROW_SELECT) 조회들의 where만 수집.
 const listWheres = () => soFindMany.mock.calls.map((c) => (c[0] as { where: unknown }).where);
+// base where에 무료 제외 조건(priceVnd/costVnd = 0n, BigInt)이 포함되므로 직렬화 시 BigInt→string 치환.
+const biReplacer = (_k: string, v: unknown) => (typeof v === "bigint" ? v.toString() : v);
 const countWheres = () => soCount.mock.calls.map((c) => (c[0] as { where: unknown }).where);
 const aggregateWheres = () => soAggregate.mock.calls.map((c) => (c[0] as { where: unknown }).where);
 
@@ -175,7 +177,7 @@ describe("vendor orders — 이용자 이름 검색(search)", () => {
   it("search가 customerName + (customerName null → guestName 폴백) 조건을 OR에 포함", async () => {
     const res = await call("tab=inbox&search=김민준");
     expect(res.status).toBe(200);
-    const flat = JSON.stringify(listWheres());
+    const flat = JSON.stringify(listWheres(), biReplacer);
     // 스냅샷 직접 매칭
     expect(flat).toContain('"customerName":{"contains":"김민준"');
     // 폴백 매칭 — customerName null인 주문만 대표자명으로(표시 규칙과 동일)

@@ -12,6 +12,7 @@ import { PUBLIC_LOCALE_COOKIE, resolvePublicLang } from "@/lib/public-i18n";
 import { pickI18n } from "@/lib/service-display";
 import { GUEST_LABELS } from "@/lib/guest-i18n";
 import { fulfillmentNote } from "@/lib/guest-fulfillment";
+import { guestVendorContactVisible } from "@/lib/guest-vendor-contact";
 import { GuestExpiredView } from "../../_components/guest-expired-view";
 import GuestOrders from "../../_components/guest-orders";
 import type { GuestRequestedOrder } from "../../_components/types";
@@ -63,7 +64,8 @@ export default async function GuestOrdersPage({
   const requestedOrders: GuestRequestedOrder[] = data.requestedOrders.map((o) => {
     const pu = o.catalogItemId ? pickupById.get(o.catalogItemId) : null;
     // ★담당자 연락처는 확정(CONFIRMED)·벤더 수락 후에만 게스트 노출 — 그 전엔 payload에도 미포함.
-    const accepted = o.status === "CONFIRMED" || o.vendorAccepted;
+    //   단 TICKET은 확정 후에도 미노출(본사 Villa Go 문의 일원화, guest-vendor-contact.ts). 비TICKET은 현행.
+    const showVendorContact = guestVendorContactVisible(o.status, o.vendorAccepted, o.type);
     // 품목명 우선순위: catalogItemId 매칭 → type 명칭 폴백 → type 코드. (구분이 다른 같은 티켓도 품목명은 동일)
     const itemName =
       (o.catalogItemId ? catalogNameById.get(o.catalogItemId) : undefined) ??
@@ -80,8 +82,8 @@ export default async function GuestOrdersPage({
       priceVnd: o.priceVnd,
       dispatched: o.dispatched,
       vendorAccepted: o.vendorAccepted,
-      vendorName: accepted ? o.vendorName : null,
-      vendorPhone: accepted ? o.vendorPhone : null,
+      vendorName: showVendorContact ? o.vendorName : null,
+      vendorPhone: showVendorContact ? o.vendorPhone : null,
       optionLabels: o.selectedOptions.map((s) => pickI18n(s.labelKo, s.labelI18n ?? null, lang)),
       serviceDate: o.serviceDate,
       serviceTime: o.serviceTime,

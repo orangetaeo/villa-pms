@@ -107,3 +107,50 @@ describe("vendor orders — freeEntry 파생 + 판매가 누수 방어", () => {
     expect(typeof json.orders[0].freeEntry).toBe("boolean");
   });
 });
+
+// 무료(판매0·지급0) 항목 벤더 비노출 — base where NOT 전파(테오)
+//   제외 조건: NOT(type=TICKET && priceVnd=0 && costVnd=0). base에 넣어 목록·뱃지·정산·cancelled 전부 전파.
+const EXCLUDE_FREE = { AND: [{ type: "TICKET" }, { priceVnd: 0n }, { costVnd: 0n }] };
+
+describe("vendor orders — 무료(판매0·지급0) 항목 제외", () => {
+  it("모든 count where에 무료 제외(NOT) 포함 — 뱃지 카운트·total 반영", async () => {
+    await call("tab=inbox");
+    expect(soCount).toHaveBeenCalled();
+    for (const c of soCount.mock.calls) {
+      const where = (c[0] as { where: Record<string, unknown> }).where;
+      expect(where.NOT).toEqual(EXCLUDE_FREE);
+    }
+  });
+
+  it("목록 findMany·cancelled 배너 findMany where에 무료 제외 포함(schedule)", async () => {
+    await call("tab=schedule");
+    // schedule 탭: findMany 2회(목록 + cancelled). 둘 다 NOT 포함.
+    expect(soFindMany.mock.calls.length).toBeGreaterThanOrEqual(2);
+    for (const c of soFindMany.mock.calls) {
+      const where = (c[0] as { where: Record<string, unknown> }).where;
+      expect(where.NOT).toEqual(EXCLUDE_FREE);
+    }
+  });
+
+  it("정산 aggregate(대기·완료 합계) where에도 무료 제외 포함", async () => {
+    await call("tab=settlement");
+    expect(soAggregate).toHaveBeenCalled();
+    for (const c of soAggregate.mock.calls) {
+      const where = (c[0] as { where: Record<string, unknown> }).where;
+      expect(where.NOT).toEqual(EXCLUDE_FREE);
+    }
+  });
+
+  it("제외는 AND(세 조건 모두) — costVnd>0(지급 있음) 건은 숨기지 않음(where shape 검증)", async () => {
+    // ★이 테스트는 where 객체 shape만 검증한다(prisma mock — 런타임 SQL 의미론 아님).
+    //   실SQL 3치 논리: costVnd>0은 AND 불충족으로 표시 유지 / priceVnd null+costVnd 0 TICKET은
+    //   NOT(NULL)=NULL로 함께 숨겨짐(QA 캡처 확인 — 무해: NO_PRICE 가드로 정상 경로 null 불가).
+    await call("tab=inbox");
+    const where = (soFindMany.mock.calls[0][0] as { where: Record<string, unknown> }).where;
+    const not = where.NOT as { AND: Array<Record<string, unknown>> };
+    expect(not.AND).toContainEqual({ priceVnd: 0n });
+    expect(not.AND).toContainEqual({ costVnd: 0n });
+    expect(not.AND).toContainEqual({ type: "TICKET" });
+    expect(not.AND).toHaveLength(3);
+  });
+});

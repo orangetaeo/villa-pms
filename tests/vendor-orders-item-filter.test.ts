@@ -48,6 +48,8 @@ function hasCatalogItemId(w: unknown, id: string): boolean {
 }
 
 const listWheres = () => soFindMany.mock.calls.map((c) => (c[0] as { where: unknown }).where);
+// base where에 무료 제외 조건(priceVnd/costVnd = 0n, BigInt)이 포함되므로 직렬화 시 BigInt→string 치환.
+const biReplacer = (_k: string, v: unknown) => (typeof v === "bigint" ? v.toString() : v);
 const countWheres = () => soCount.mock.calls.map((c) => (c[0] as { where: unknown }).where);
 const aggregateWheres = () => soAggregate.mock.calls.map((c) => (c[0] as { where: unknown }).where);
 
@@ -92,7 +94,7 @@ describe("vendor orders — 품목 필터(catalogItemId)", () => {
 
   it("검색·날짜와 함께 AND 결합", async () => {
     await call("tab=inbox&itemId=ci-safari&from=2026-07-01&search=abc");
-    const flat = JSON.stringify(listWheres());
+    const flat = JSON.stringify(listWheres(), biReplacer);
     expect(flat).toContain('"catalogItemId":"ci-safari"');
     expect(flat).toContain('"serviceDate"');
   });
@@ -106,7 +108,7 @@ describe("vendor orders — 품목 필터(catalogItemId)", () => {
 
   it("itemId 파라미터 없으면 필터 미적용", async () => {
     await call("tab=inbox");
-    const flat = JSON.stringify(listWheres());
+    const flat = JSON.stringify(listWheres(), biReplacer);
     expect(flat).not.toContain("catalogItemId");
   });
 });

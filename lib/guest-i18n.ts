@@ -151,6 +151,7 @@ export interface GuestLabels {
     orderedBanner: string; // "신청 완료 — 담당자에게 바로 전달됨" 배너
     vendorContactLabel: string; // "담당자" 라벨
     vendorContactHint: string; // "궁금한 점은 담당자에게 직접 연락하세요"
+    ticketContactNotice: string; // 티켓 문의 본사 일원화 — "티켓 관련 문의는 Villa Go로 연락해 주세요"
   };
   // 출입 정보(A1) — G5 완료화면 카드. wifi 비번은 서명 후에만 노출.
   access: {
@@ -364,6 +365,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       orderedBanner: "신청 완료 — 서비스 담당자에게 바로 전달되었습니다. 담당자가 확인하면 이 페이지에서 확정 상태를 확인하실 수 있어요.",
       vendorContactLabel: "담당자",
       vendorContactHint: "궁금한 점은 담당자에게 직접 연락하세요.",
+      ticketContactNotice: "티켓 관련 문의는 Villa Go로 연락해 주세요.",
     },
     access: {
       title: "출입 정보",
@@ -562,6 +564,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       orderedBanner: "Request sent — it went straight to your service provider. Once they confirm, you'll see the confirmed status on this page.",
       vendorContactLabel: "Provider",
       vendorContactHint: "For any questions, contact the provider directly.",
+      ticketContactNotice: "For ticket inquiries, please contact Villa Go.",
     },
     access: {
       title: "Access info",
@@ -760,6 +763,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       orderedBanner: "Запрос отправлен — он сразу передан вашему исполнителю. После подтверждения статус появится на этой странице.",
       vendorContactLabel: "Исполнитель",
       vendorContactHint: "По любым вопросам обращайтесь напрямую к исполнителю.",
+      ticketContactNotice: "По вопросам о билетах обращайтесь в Villa Go.",
     },
     access: {
       title: "Информация о доступе",
@@ -958,6 +962,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       orderedBanner: "申请完成 — 已直接发送给服务方。对方确认后，您可在本页面查看确定状态。",
       vendorContactLabel: "服务方",
       vendorContactHint: "如有疑问，请直接联系服务方。",
+      ticketContactNotice: "门票相关问题，请联系 Villa Go。",
     },
     access: {
       title: "出入信息",
@@ -1156,6 +1161,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       orderedBanner: "Đã gửi yêu cầu — chuyển thẳng đến nhân viên phụ trách. Khi họ xác nhận, bạn sẽ thấy trạng thái đã xác nhận trên trang này.",
       vendorContactLabel: "Nhân viên phụ trách",
       vendorContactHint: "Mọi thắc mắc, vui lòng liên hệ trực tiếp nhân viên phụ trách.",
+      ticketContactNotice: "Mọi thắc mắc về vé, vui lòng liên hệ Villa Go.",
     },
     access: {
       title: "Thông tin ra vào",
