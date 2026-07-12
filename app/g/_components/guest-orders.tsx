@@ -281,6 +281,14 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered 
                               <span className="material-symbols-outlined text-[16px]">confirmation_number</span>
                               {L.tickets.title(o.ticketUrls.length)}
                             </p>
+                            {/* ★부분 발행 경고 — 주문 수량보다 발행된 티켓이 적으면 "전부 지급됨" 오인 방지(테오 실측).
+                                수량 하드 강제가 없는 구조(ADR-0034)라 표시 레벨에서 알려준다. */}
+                            {o.type === "TICKET" && o.ticketUrls.length < o.quantity && (
+                              <p className="flex items-start gap-1 rounded-md bg-amber-50 px-2 py-1.5 text-[11px] font-semibold text-amber-700 leading-snug">
+                                <span className="material-symbols-outlined text-[15px] text-amber-500">hourglass_top</span>
+                                {L.tickets.partial(o.ticketUrls.length, o.quantity)}
+                              </p>
+                            )}
                             {/* 오프라인 대비 안내 — 현장 인터넷 불가 시 미리 저장 */}
                             <p className="text-[11px] text-teal-700/80 leading-snug">{L.tickets.offlineHint}</p>
                             <div className="grid grid-cols-3 gap-1.5">
