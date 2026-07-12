@@ -13,7 +13,7 @@ import { formatDateTime, formatThousands } from "@/lib/format";
 import { toDateOnlyString } from "@/lib/date-vn";
 import { formatRemainingHours } from "@/lib/booking-stats";
 import { stripOptionCosts } from "@/lib/service-catalog";
-import { whitelistTicketGuests } from "@/lib/ticket-guests";
+import { whitelistTicketGuests, guestsFromPassportOcr } from "@/lib/ticket-guests";
 import ActionPanel from "./action-panel";
 import PaperDocsSection from "./paper-docs-section";
 import MemoBox from "./memo-box";
@@ -141,6 +141,7 @@ export default async function BookingDetailPage({
           tamTruSentAt: true,
           passportPhotoUrls: true,
           paperDocUrls: true, // #1 체크인 종이서류(비공개 증빙)
+          passportOcrJson: true, // TICKET 이용자 선택 명단(이름·생년월일) — 주문 추가 폼(ADR-0036)
         },
       },
       // 체크아웃 게스트 수납 (2026-07-10) — 결제수단·통화별 실수납액. 통화별 금액(재무)은 STAFF면 select에서 제외.
@@ -942,6 +943,7 @@ export default async function BookingDetailPage({
                 nameKo: v.nameKo ?? null,
               }))}
               representativeName={booking.guestName}
+              checkedInGuests={guestsFromPassportOcr(booking.checkInRecord?.passportOcrJson)}
             />
             </div>
           )}

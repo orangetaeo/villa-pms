@@ -14,6 +14,19 @@ import {
   resolveOrderPricing,
   type CatalogOptions,
 } from "@/lib/service-catalog";
+import {
+  readVariantRule,
+  anyVariantHasRule,
+  anyVariantHasHeightRule,
+  type VariantRule,
+} from "@/lib/ticket-variant-rules";
+import { todayVnDateString } from "@/lib/date-vn";
+import {
+  resolveSelectedPeople,
+  groupPeopleByVariant,
+  ticketGroupsTotalVnd,
+  ticketGroupSubtotals,
+} from "@/app/g/_components/ticket-variant-logic";
 
 // 서버에서 직렬화되어 내려오는 카탈로그 항목(주문 추가용) — 판매가만(원가 없음)
 export interface OrderCatalogItem {
@@ -99,6 +112,7 @@ export default function ServiceOrdersPanel({
   dateMax,
   vendorOptions = [],
   representativeName = null,
+  checkedInGuests = [],
 }: {
   bookingId: string;
   catalog: OrderCatalogItem[];
@@ -108,6 +122,8 @@ export default function ServiceOrdersPanel({
   dateMax: string; // 〃 체크아웃
   vendorOptions?: VendorOption[]; // 대체 벤더 지정용(승인 벤더만, admin-vendor-ops D)
   representativeName?: string | null; // 예약 대표자 이름 — 주문 이용자 이름이 다를 때만 강조 표시용
+  // 체크인 확정본 명단(이름·생년월일만) — TICKET 주문 추가 시 이용자 선택·자동 판정용(ADR-0036). 체크인 전이면 빈 배열.
+  checkedInGuests?: { name: string | null; birthDate: string | null }[];
 }) {
   const t = useTranslations("adminServiceOrders");
   const router = useRouter();
@@ -471,6 +487,7 @@ export default function ServiceOrdersPanel({
             setBusy={setBusy}
             dateMin={dateMin}
             dateMax={dateMax}
+            checkedInGuests={checkedInGuests}
             onDone={() => {
               setAdding(false);
               setMessage({ tone: "ok", text: t("saved") });
@@ -933,6 +950,8 @@ function RowActions({
 }
 
 // ── 옵션 추가 폼 (카탈로그 선택 → variant/addon/modifier → 수량 → 합계 미리보기) ──────
+const ALL_CATEGORY = "ALL";
+
 function AddOrderForm({
   bookingId,
   catalog,
@@ -940,6 +959,7 @@ function AddOrderForm({
   setBusy,
   dateMin,
   dateMax,
+  checkedInGuests,
   onDone,
   onFail,
   onClose,
@@ -951,13 +971,31 @@ function AddOrderForm({
   setBusy: (b: boolean) => void;
   dateMin: string;
   dateMax: string;
+  checkedInGuests: { name: string | null; birthDate: string | null }[];
   onDone: () => void;
   onFail: () => void;
   onClose: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
+  const tTypes = useTranslations("adminServices");
+
+  // 카테고리(ServiceType) 필터 — 실존 타입만(+전체). 메뉴 목록을 타입으로 좁힌다.
+  const presentTypes = useMemo(() => {
+    const seen: string[] = [];
+    for (const c of catalog) if (!seen.includes(c.type)) seen.push(c.type);
+    return seen;
+  }, [catalog]);
+  const [category, setCategory] = useState<string>(ALL_CATEGORY);
+  const visibleCatalog = useMemo(
+    () => (category === ALL_CATEGORY ? catalog : catalog.filter((c) => c.type === category)),
+    [catalog, category]
+  );
+
   const [itemId, setItemId] = useState<string>(catalog[0]?.id ?? "");
-  const [variantKey, setVariantKey] = useState<string>("");
+  const [variantKey, setVariantKey] = useState<string>(() => {
+    const opts = catalog[0] ? parseCatalogOptions(catalog[0].options) : {};
+    return opts.variants && opts.variants.length > 0 ? opts.variants[0].key : "";
+  });
   const [addonKeys, setAddonKeys] = useState<string[]>([]);
   const [modifierKeys, setModifierKeys] = useState<string[]>([]);
   const [quantity, setQuantity] = useState<string>("1");
@@ -965,6 +1003,10 @@ function AddOrderForm({
   const [serviceTime, setServiceTime] = useState<string>("");
   const [guestNote, setGuestNote] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  // TICKET 이용자 선택(ADR-0036) — checkedInGuests 인덱스·수동 구분 배정·자가신고 신장(cm).
+  const [ticketGuestIdxs, setTicketGuestIdxs] = useState<number[]>([]);
+  const [ticketGuestVariants, setTicketGuestVariants] = useState<Record<number, string>>({});
+  const [heightByIdx, setHeightByIdx] = useState<Record<number, number>>({});
 
   const item = catalog.find((c) => c.id === itemId);
   const options: CatalogOptions = useMemo(
@@ -972,7 +1014,45 @@ function AddOrderForm({
     [item]
   );
 
-  // 항목 전환 시 옵션 선택 초기화 (첫 variant 자동선택)
+  // 티켓 이용자 선택 모드 — TICKET + 체크인 명단. variant 있으면 인원별 구분 자동 판정, 없으면 이름 선택만.
+  const isTicketWithGuests = item?.type === "TICKET" && checkedInGuests.length > 0;
+  const hasVariants = (options.variants?.length ?? 0) > 0;
+  const isTicketVariantPerson = isTicketWithGuests && hasVariants;
+  const hideTime = item?.type === "TICKET"; // TICKET은 이용일만(시간 미입력, 테오 2026-07-12)
+  const firstVariantKey = options.variants?.[0]?.key ?? null;
+
+  // variant 자동판정 규칙(정규화) — bornBeforeYear·나이·heightMaxCm. 규칙 있으면 자동 모드, 전무면 순수 수동.
+  const ageRules: VariantRule[] = useMemo(
+    () => (options.variants ?? []).map((v) => readVariantRule(v)),
+    [options.variants]
+  );
+  const autoMode = isTicketVariantPerson && anyVariantHasRule(ageRules);
+  const showHeight = isTicketVariantPerson && anyVariantHasHeightRule(ageRules);
+  // 자동 판정 기준 이용일 — 미선택이면 VN 오늘. serviceDate 바뀌면 재판정.
+  const effServiceDate = serviceDate || todayVnDateString();
+
+  // 선택 인원별 최종 variant(자동/수동) 해석 — 표시·합계·제출 공통(게스트와 동일 순수 로직).
+  const resolvedPeople = useMemo(
+    () =>
+      isTicketVariantPerson
+        ? resolveSelectedPeople(
+            ticketGuestIdxs,
+            checkedInGuests,
+            ageRules,
+            ticketGuestVariants,
+            heightByIdx,
+            effServiceDate,
+            firstVariantKey
+          )
+        : [],
+    [isTicketVariantPerson, ticketGuestIdxs, checkedInGuests, ageRules, ticketGuestVariants, heightByIdx, effServiceDate, firstVariantKey]
+  );
+  const resolvedByIdx = useMemo(() => new Map(resolvedPeople.map((p) => [p.idx, p])), [resolvedPeople]);
+  const manualPeople = useMemo(() => resolvedPeople.filter((p) => !p.auto), [resolvedPeople]);
+  const variantByKey = (key: string | null) =>
+    key ? (options.variants ?? []).find((v) => v.key === key) ?? null : null;
+
+  // 항목 전환 시 옵션·이용자 선택 초기화 (첫 variant 자동선택)
   function selectItem(id: string) {
     setItemId(id);
     const next = catalog.find((c) => c.id === id);
@@ -980,14 +1060,86 @@ function AddOrderForm({
     setVariantKey(opts.variants && opts.variants.length > 0 ? opts.variants[0].key : "");
     setAddonKeys([]);
     setModifierKeys([]);
+    setTicketGuestIdxs([]);
+    setTicketGuestVariants({});
     setError(null);
+  }
+
+  // 카테고리 전환 — 현재 메뉴가 새 필터에 없으면 첫 항목으로 이동.
+  function selectCategory(next: string) {
+    setCategory(next);
+    const list = next === ALL_CATEGORY ? catalog : catalog.filter((c) => c.type === next);
+    if (!list.some((c) => c.id === itemId) && list[0]) selectItem(list[0].id);
   }
 
   const qty = Math.max(1, Number.parseInt(quantity, 10) || 1);
 
-  // 합계 미리보기 — 서버와 동일 로직(resolveOrderPricing). 선택 오류는 미리보기 미표시.
+  // 이용자 선택 토글 — 인원별 구분 모드는 수동 배정도 관리, 단일가 모드는 이름만.
+  function toggleGuest(idx: number) {
+    const has = ticketGuestIdxs.includes(idx);
+    if (has) {
+      setTicketGuestIdxs((s) => s.filter((i) => i !== idx));
+      setTicketGuestVariants((s) => {
+        const n = { ...s };
+        delete n[idx];
+        return n;
+      });
+    } else {
+      setTicketGuestIdxs((s) => [...s, idx]);
+      // 순수 수동 모드면 기본 variant 미리 배정(첫 variant). 자동 모드는 파생이라 미설정.
+      if (isTicketVariantPerson && !autoMode && firstVariantKey) {
+        setTicketGuestVariants((s) => ({ ...s, [idx]: firstVariantKey }));
+      }
+    }
+  }
+  function setGuestHeight(idx: number, raw: string) {
+    const digits = raw.replace(/\D/g, "").slice(0, 3);
+    setHeightByIdx((prev) => {
+      const n = { ...prev };
+      if (digits === "") delete n[idx];
+      else n[idx] = parseInt(digits, 10);
+      return n;
+    });
+  }
+  function setPersonVariant(idx: number, key: string) {
+    setTicketGuestVariants((s) => ({ ...s, [idx]: key }));
+  }
+
+  // 티켓 인원별 그룹·소계·합계(서버 동형 재계산, 표시용).
+  const ticketGroups = useMemo(
+    () => (isTicketVariantPerson ? groupPeopleByVariant(resolvedPeople) : []),
+    [isTicketVariantPerson, resolvedPeople]
+  );
+  const ticketSubtotals = useMemo(
+    () =>
+      isTicketVariantPerson
+        ? ticketGroupSubtotals(
+            ticketGroups,
+            { priceVnd: item?.priceVnd ? BigInt(item.priceVnd) : null },
+            options,
+            addonKeys,
+            modifierKeys
+          )
+        : [],
+    [isTicketVariantPerson, ticketGroups, item?.priceVnd, options, addonKeys, modifierKeys]
+  );
+  const ticketTotalVnd = useMemo(
+    () =>
+      isTicketVariantPerson
+        ? ticketGroupsTotalVnd(
+            ticketGroups,
+            { priceVnd: item?.priceVnd ? BigInt(item.priceVnd) : null },
+            options,
+            addonKeys,
+            modifierKeys
+          )
+        : 0n,
+    [isTicketVariantPerson, ticketGroups, item?.priceVnd, options, addonKeys, modifierKeys]
+  );
+
+  // 합계 미리보기(수량 기반) — 티켓 이용자 모드는 위 그룹 합을 쓰므로 여기선 제외.
   const preview = useMemo(() => {
-    if (!item) return null;
+    if (!item || isTicketWithGuests) return null;
     try {
       return resolveOrderPricing(
         { priceVnd: item.priceVnd ? BigInt(item.priceVnd) : null },
@@ -997,7 +1149,7 @@ function AddOrderForm({
     } catch {
       return null;
     }
-  }, [item, options, variantKey, addonKeys, modifierKeys, qty]);
+  }, [item, isTicketWithGuests, options, variantKey, addonKeys, modifierKeys, qty]);
 
   function toggleAddon(key: string) {
     setAddonKeys((s) => (s.includes(key) ? s.filter((k) => k !== key) : [...s, key]));
@@ -1006,31 +1158,85 @@ function AddOrderForm({
     setModifierKeys((s) => (s.includes(key) ? s.filter((k) => k !== key) : [...s, key]));
   }
 
+  async function postOne(body: Record<string, unknown>) {
+    const res = await fetch(`/api/bookings/${bookingId}/service-orders`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error();
+  }
+
   async function handleAdd() {
     if (!item) return;
-    if ((options.variants?.length ?? 0) > 0 && !variantKey) {
+    // TICKET은 이용일 필수(시간 불요). 그 외는 날짜 선택.
+    if (item.type === "TICKET" && !serviceDate) {
+      setError(t("ticketPicker.dateRequired"));
+      return;
+    }
+    if (isTicketVariantPerson) {
+      if (ticketGuestIdxs.length === 0) {
+        setError(t("ticketPicker.selectRequired"));
+        return;
+      }
+      if (resolvedPeople.some((p) => p.key == null)) {
+        setError(t("ticketPicker.variantRequired"));
+        return;
+      }
+    } else if (isTicketWithGuests) {
+      if (ticketGuestIdxs.length === 0) {
+        setError(t("ticketPicker.selectRequired"));
+        return;
+      }
+    } else if ((options.variants?.length ?? 0) > 0 && !variantKey) {
       setError(t("variantRequired"));
       return;
     }
     setError(null);
     setBusy(true);
     try {
-      const res = await fetch(`/api/bookings/${bookingId}/service-orders`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      if (isTicketVariantPerson) {
+        // 인원별 구분 → variant 그룹별 분리 POST(그룹당 1주문, ticketGuests 스냅샷). 시간 미포함.
+        for (const grp of ticketGroups) {
+          await postOne({
+            catalogItemId: item.id,
+            variantKey: grp.variantKey,
+            addonKeys,
+            modifierKeys,
+            quantity: grp.guests.length,
+            serviceDate: serviceDate || null,
+            guestNote: guestNote.trim() || null,
+            status: "REQUESTED",
+            ticketGuests: grp.guests,
+          });
+        }
+      } else if (isTicketWithGuests) {
+        // 단일가 TICKET — 선택 이용자 스냅샷 첨부, 수량=선택 인원. 시간 미포함.
+        const guests = ticketGuestIdxs.map((i) => checkedInGuests[i]).filter(Boolean);
+        await postOne({
+          catalogItemId: item.id,
+          variantKey: variantKey || null,
+          addonKeys,
+          modifierKeys,
+          quantity: guests.length,
+          serviceDate: serviceDate || null,
+          guestNote: guestNote.trim() || null,
+          status: "REQUESTED",
+          ticketGuests: guests,
+        });
+      } else {
+        await postOne({
           catalogItemId: item.id,
           variantKey: variantKey || null,
           addonKeys,
           modifierKeys,
           quantity: qty,
           serviceDate: serviceDate || null,
-          serviceTime: serviceTime || null,
+          serviceTime: hideTime ? null : serviceTime || null,
           guestNote: guestNote.trim() || null,
           status: "REQUESTED",
-        }),
-      });
-      if (!res.ok) throw new Error();
+        });
+      }
       onDone();
     } catch {
       onFail();
@@ -1056,8 +1262,42 @@ function AddOrderForm({
         </button>
       </div>
 
+      {/* 카테고리(ServiceType) 필터 — 타입이 2종 이상일 때만. 메뉴 목록을 좁힌다. */}
+      {presentTypes.length > 1 && (
+        <div>
+          <label className="text-xs text-slate-500">{t("category")}</label>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => selectCategory(ALL_CATEGORY)}
+              className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap ${
+                category === ALL_CATEGORY
+                  ? "bg-admin-primary text-white border-admin-primary"
+                  : "bg-admin-bg text-slate-300 border-slate-700 hover:border-slate-500"
+              }`}
+            >
+              {t("categoryAll")}
+            </button>
+            {presentTypes.map((ty) => (
+              <button
+                key={ty}
+                type="button"
+                onClick={() => selectCategory(ty)}
+                className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap ${
+                  category === ty
+                    ? "bg-admin-primary text-white border-admin-primary"
+                    : "bg-admin-bg text-slate-300 border-slate-700 hover:border-slate-500"
+                }`}
+              >
+                {tTypes(`types.${ty}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <div className="sm:col-span-2">
+        <div className={isTicketWithGuests ? "sm:col-span-3" : "sm:col-span-2"}>
           <label className="text-xs text-slate-500">{t("selectMenu")}</label>
           <select
             value={itemId}
@@ -1065,7 +1305,7 @@ function AddOrderForm({
             aria-label={t("selectMenu")}
             className={`mt-1 ${selCls}`}
           >
-            {catalog.map((c) => (
+            {visibleCatalog.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nameKo}
                 {c.unitLabelKo ? ` / ${c.unitLabelKo}` : ""}
@@ -1073,20 +1313,23 @@ function AddOrderForm({
             ))}
           </select>
         </div>
-        <div>
-          <label className="text-xs text-slate-500">{t("quantity")}</label>
-          <input
-            inputMode="numeric"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value.replace(/\D/g, ""))}
-            aria-label={t("quantity")}
-            className="mt-1 w-full bg-admin-bg border border-slate-700 rounded-lg px-3 py-2 text-sm text-white tabular-nums focus:border-admin-primary focus:outline-none"
-          />
-        </div>
+        {/* 수량 — 티켓 이용자 선택 모드는 선택 인원 수로 결정되므로 숨김. */}
+        {!isTicketWithGuests && (
+          <div>
+            <label className="text-xs text-slate-500">{t("quantity")}</label>
+            <input
+              inputMode="numeric"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value.replace(/\D/g, ""))}
+              aria-label={t("quantity")}
+              className="mt-1 w-full bg-admin-bg border border-slate-700 rounded-lg px-3 py-2 text-sm text-white tabular-nums focus:border-admin-primary focus:outline-none"
+            />
+          </div>
+        )}
       </div>
 
-      {/* variants — 1택 */}
-      {(options.variants?.length ?? 0) > 0 && (
+      {/* variants — 1택. ★티켓 인원별 구분(TICKET+명단) 모드에선 인원별 지정으로 대체 → 숨김. */}
+      {hasVariants && !isTicketVariantPerson && (
         <div>
           <label className="text-xs text-slate-500">{t("variant")}</label>
           <div className="flex flex-wrap gap-1.5 mt-1">
@@ -1154,9 +1397,135 @@ function AddOrderForm({
         </div>
       )}
 
-      {/* 희망 날짜·시각 (#3) — 고객이 채팅·전화로 요청한 일시 */}
+      {/* 티켓 이용자 선택(ADR-0036) — 체크인 명단에서 이용자 체크. variant 있으면 자동 판정(구분·단가) + 신장/수동 폴백. */}
+      {isTicketWithGuests && (
+        <div className="space-y-2 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3">
+          <p className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-300">
+            <span className="material-symbols-outlined text-[15px]">confirmation_number</span>
+            {t("ticketPicker.title")}
+          </p>
+          <p className="text-[11px] text-slate-500 leading-snug">
+            {isTicketVariantPerson
+              ? autoMode
+                ? t("ticketPicker.autoHint")
+                : t("ticketPicker.manualModeHint")
+              : t("ticketPicker.singleHint")}
+          </p>
+          {/* 이름 칩 — 선택 시 자동 판정 구분(라벨+단가) 배지 */}
+          <div className="flex flex-wrap gap-1.5">
+            {checkedInGuests.map((g, idx) => {
+              const on = ticketGuestIdxs.includes(idx);
+              const rp = resolvedByIdx.get(idx);
+              const autoV = rp?.auto ? variantByKey(rp.key) : null;
+              const manualV = on && rp && !rp.auto && rp.key ? variantByKey(rp.key) : null;
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => toggleGuest(idx)}
+                  aria-pressed={on}
+                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                    on
+                      ? "border-indigo-400 bg-indigo-500/15 font-semibold text-white"
+                      : "border-slate-700 bg-admin-bg text-slate-300 hover:border-slate-500"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[15px]">
+                    {on ? "check_circle" : "add_circle"}
+                  </span>
+                  <span className="truncate max-w-[8rem]">{g.name ?? "—"}</span>
+                  <span className="tabular-nums text-slate-400">{formatTicketBirthDate(g.birthDate)}</span>
+                  {on && autoV && (
+                    <span className="flex items-center gap-1">
+                      <span className="rounded-full bg-indigo-500/20 px-1.5 py-px text-[10px] font-bold text-indigo-200">
+                        {autoV.labelKo}
+                      </span>
+                      {autoV.priceVnd && (
+                        <span className="text-[10px] tabular-nums text-slate-400">
+                          {formatThousands(autoV.priceVnd)}₫
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  {manualV && (
+                    <span className="rounded-full bg-slate-600/40 px-1.5 py-px text-[10px] font-bold text-slate-200">
+                      {manualV.labelKo}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 신장 입력 — 신장 규칙 variant가 있을 때만. 선택된 이용자별 1회. */}
+          {showHeight && ticketGuestIdxs.length > 0 && (
+            <div className="space-y-1.5 pt-0.5">
+              <p className="text-[11px] text-amber-400/90 leading-snug">{t("ticketPicker.heightNotice")}</p>
+              {ticketGuestIdxs.map((idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate text-xs text-slate-300">
+                    {checkedInGuests[idx]?.name ?? "—"}
+                  </span>
+                  <span className="text-[11px] text-slate-500">{t("ticketPicker.heightLabel")}</span>
+                  <input
+                    inputMode="numeric"
+                    value={heightByIdx[idx]?.toString() ?? ""}
+                    onChange={(e) => setGuestHeight(idx, e.target.value)}
+                    placeholder={t("ticketPicker.heightPlaceholder")}
+                    aria-label={`${checkedInGuests[idx]?.name ?? ""} ${t("ticketPicker.heightLabel")}`.trim()}
+                    className="w-16 rounded border border-slate-700 bg-admin-bg px-2 py-1 text-xs text-white tabular-nums text-right focus:border-admin-primary focus:outline-none"
+                  />
+                  <span className="text-[11px] text-slate-500">cm</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 수동 구분 선택 — 순수 수동 모드 또는 자동 판정 실패 폴백. 선택된 사람만. */}
+          {isTicketVariantPerson && manualPeople.length > 0 && (
+            <div className="space-y-1.5 pt-1">
+              {autoMode && (
+                <p className="text-[11px] text-amber-400/90 leading-snug">{t("ticketPicker.manualFallbackHint")}</p>
+              )}
+              {manualPeople.map((p) => (
+                <div key={p.idx} className="rounded-lg border border-slate-700 bg-admin-bg px-3 py-2">
+                  <p className="mb-1.5 truncate text-xs font-semibold text-slate-200">
+                    {checkedInGuests[p.idx]?.name ?? "—"}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(options.variants ?? []).map((v) => {
+                      const sel = p.key === v.key;
+                      return (
+                        <button
+                          key={v.key}
+                          type="button"
+                          onClick={() => setPersonVariant(p.idx, v.key)}
+                          className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors whitespace-nowrap ${
+                            sel
+                              ? "border-indigo-400 bg-indigo-500/15 text-white"
+                              : "border-slate-700 bg-admin-bg text-slate-300 hover:border-slate-500"
+                          }`}
+                        >
+                          {v.labelKo}
+                          {v.priceVnd ? ` · ${formatThousands(v.priceVnd)}₫` : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="text-right text-[11px] font-bold text-indigo-300 tabular-nums">
+            {t("ticketPicker.selectedCount", { n: ticketGuestIdxs.length })}
+          </p>
+        </div>
+      )}
+
+      {/* 희망 날짜·시각 (#3) — 고객이 채팅·전화로 요청한 일시. TICKET은 이용일만(시간 숨김). */}
       <div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className={hideTime ? "" : "grid grid-cols-2 gap-2"}>
           <div>
             <label className="text-xs text-slate-500">{t("serviceDate")}</label>
             <DateField
@@ -1169,18 +1538,22 @@ function AddOrderForm({
               className={`mt-1 ${selCls}`}
             />
           </div>
-          <div>
-            <label className="text-xs text-slate-500">{t("serviceTime")}</label>
-            <input
-              type="time"
-              value={serviceTime}
-              onChange={(e) => setServiceTime(e.target.value)}
-              aria-label={t("serviceTime")}
-              className={`mt-1 ${selCls}`}
-            />
-          </div>
+          {!hideTime && (
+            <div>
+              <label className="text-xs text-slate-500">{t("serviceTime")}</label>
+              <input
+                type="time"
+                value={serviceTime}
+                onChange={(e) => setServiceTime(e.target.value)}
+                aria-label={t("serviceTime")}
+                className={`mt-1 ${selCls}`}
+              />
+            </div>
+          )}
         </div>
-        <p className="text-[11px] text-slate-500 mt-1">{t("serviceWhenHint")}</p>
+        <p className="text-[11px] text-slate-500 mt-1">
+          {hideTime ? t("ticketPicker.dateOnlyHint") : t("serviceWhenHint")}
+        </p>
       </div>
 
       <div>
@@ -1194,16 +1567,40 @@ function AddOrderForm({
         />
       </div>
 
-      {/* 합계 미리보기 (resolveOrderPricing 재사용) */}
-      {preview && (
-        <div className="flex items-center justify-between bg-admin-bg border border-slate-700 rounded-lg px-4 py-2.5">
-          <span className="text-sm text-slate-400">{t("total")}</span>
-          <div className="text-right tabular-nums">
-            <p className="text-white font-bold">
-              {formatThousands(preview.totalPriceVnd.toString())}₫
-            </p>
+      {/* 합계 미리보기 — 티켓 인원별 모드는 구분별 소계 + 합계, 그 외는 수량 기반 합계(resolveOrderPricing 재사용). */}
+      {isTicketVariantPerson ? (
+        ticketSubtotals.length > 0 && (
+          <div className="space-y-1 bg-admin-bg border border-slate-700 rounded-lg px-4 py-2.5">
+            {ticketSubtotals.map((s) => (
+              <div key={s.variantKey} className="flex items-center justify-between text-[11px] text-slate-400">
+                <span className="min-w-0 truncate">
+                  {variantByKey(s.variantKey)?.labelKo ?? "—"}{" "}
+                  <span className="tabular-nums text-slate-500">×{s.count}</span>
+                </span>
+                <span className="shrink-0 tabular-nums font-medium text-slate-200">
+                  {formatThousands(s.subtotalVnd.toString())}₫
+                </span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between border-t border-slate-700 pt-1">
+              <span className="text-sm text-slate-400">{t("total")}</span>
+              <span className="text-white font-bold tabular-nums">
+                {formatThousands(ticketTotalVnd.toString())}₫
+              </span>
+            </div>
           </div>
-        </div>
+        )
+      ) : (
+        preview && (
+          <div className="flex items-center justify-between bg-admin-bg border border-slate-700 rounded-lg px-4 py-2.5">
+            <span className="text-sm text-slate-400">{t("total")}</span>
+            <div className="text-right tabular-nums">
+              <p className="text-white font-bold">
+                {formatThousands(preview.totalPriceVnd.toString())}₫
+              </p>
+            </div>
+          </div>
+        )
       )}
 
       {error && <p className="text-xs text-red-400 font-medium">{error}</p>}

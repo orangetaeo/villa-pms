@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator, canViewFinance, type Role } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
-import { parseUtcDateOnly } from "@/lib/date-vn";
+import { parseUtcDateOnly, toDateOnlyString } from "@/lib/date-vn";
 import {
   parseCatalogOptions,
   resolveOrderPricing,
@@ -18,6 +18,9 @@ import {
 import { priceKrwCeil } from "@/lib/service-display";
 import { getFxVndPerKrw } from "@/lib/pricing";
 import { resolveOrderVendorId } from "@/lib/regional-vendor";
+import { readVariantRule } from "@/lib/ticket-variant-rules";
+import { guestsFromPassportOcr } from "@/lib/ticket-guests";
+import { validateTicketGuests } from "@/lib/ticket-order-validation";
 import type { Prisma } from "@prisma/client";
 
 const createSchema = z.object({
@@ -31,6 +34,18 @@ const createSchema = z.object({
   guestNote: z.string().max(500).optional().nullable(),
   note: z.string().max(500).optional().nullable(),
   status: z.enum(["REQUESTED", "CONFIRMED"]).optional(),
+  // TICKET 이용자 선택 스냅샷(ADR-0036) — 게스트 라우트와 동일 shape. 이 예약의 체크인 확정본과 대조 검증(공유 lib).
+  //   name은 OCR 미인식 시 null 가능. heightCm은 자가신고(무료/어린이 구분·현장 검표용, 선택). 최대 99인.
+  ticketGuests: z
+    .array(
+      z.object({
+        name: z.string().max(120).nullable(),
+        birthDate: z.string().max(20).nullable(),
+        heightCm: z.number().int().min(30).max(220).optional().nullable(),
+      })
+    )
+    .max(99)
+    .optional(),
 });
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -134,6 +149,39 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     throw e;
   }
 
+  // TICKET 이용자 선택 스냅샷(ADR-0036) — 게스트 라우트와 동일 검증(공유 lib). 운영자는 이 예약의 체크인 확정본과 대조.
+  //   선택 variant의 구분 규칙(있으면) — 명단 필수 판정 + 재검증에 공용(한 번만 파싱).
+  const selectedVariantRule =
+    item.type === "TICKET" && d.variantKey
+      ? (() => {
+          const vdef = (parseCatalogOptions(item.options).variants ?? []).find((x) => x.key === d.variantKey);
+          return vdef ? readVariantRule(vdef) : null;
+        })()
+      : null;
+  // 운영자 폼은 serviceDate가 선택 — 만나이 규칙 판정 기준일이 없으면 빈 문자열(관용 통과). 신장·출생년도 규칙은 그대로 강제.
+  const ticketValidation = await validateTicketGuests({
+    itemType: item.type,
+    variantRule: selectedVariantRule,
+    ticketGuests: d.ticketGuests,
+    quantity: pricing.quantity,
+    // 만나이 판정 기준일 — 명단 제공 + serviceDate 있을 때만 계산(운영자 폼은 날짜 선택).
+    serviceDateOnly:
+      d.ticketGuests && d.ticketGuests.length > 0 && serviceDate ? toDateOnlyString(serviceDate) : "",
+    loadConfirmedGuests: async () => {
+      const ci = await prisma.checkInRecord.findUnique({
+        where: { bookingId: id },
+        select: { passportOcrJson: true },
+      });
+      return guestsFromPassportOcr(ci?.passportOcrJson);
+    },
+  });
+  if (!ticketValidation.ok) {
+    return NextResponse.json({ error: ticketValidation.error }, { status: 400 });
+  }
+  const ticketGuestsSnapshot: Prisma.InputJsonValue | undefined = ticketValidation.snapshot
+    ? (ticketValidation.snapshot as unknown as Prisma.InputJsonValue)
+    : undefined;
+
   // KRW 스냅샷 — 현재 환율로 VND→KRW 올림(미설정이면 0). VND가 진실원천.
   const fx = await getFxVndPerKrw(prisma);
   const priceKrw = fx ? priceKrwCeil(pricing.totalPriceVnd, fx) : 0;
@@ -145,13 +193,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     villaId: booking.villaId,
   });
 
+  // ★무료 티켓(판매가 0 — 무료/유아 variant) — 업체 QR 발행·발주함 불필요(테오, 게스트 경로 준용).
+  //   생성 시점 즉시 확정(CONFIRMED)+수락(VENDOR_ACCEPTED)으로 세팅해 발주함을 미경유한다(할 일 없음).
+  const isFreeTicket = item.type === "TICKET" && pricing.totalPriceVnd === 0n;
+  // TICKET은 이용일만(시간 미저장, 테오 2026-07-12) — 오전/오후/야간 구분은 카탈로그 variant로. 그 외는 현행(선택 시간 저장).
+  const serviceTimeToSave = item.type === "TICKET" ? null : (d.serviceTime ?? null);
+  const now = new Date();
+
   const created = await prisma.serviceOrder.create({
     data: {
       bookingId: id,
       type: item.type,
-      status: d.status ?? "REQUESTED",
+      // 무료 티켓은 생성 시점 즉시 확정(발주함 미경유), 그 외는 요청 status(기본 REQUESTED).
+      status: isFreeTicket ? ("CONFIRMED" as const) : (d.status ?? "REQUESTED"),
       serviceDate,
-      serviceTime: d.serviceTime ?? null,
+      serviceTime: serviceTimeToSave,
       // 원가는 운영자 확정 단계에서 입력(PATCH) — 생성 시 0 placeholder
       costVnd: 0n,
       priceKrw,
@@ -163,6 +219,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       requestedVia: "ADMIN",
       guestNote: d.guestNote ?? null,
       note: d.note ?? null,
+      // TICKET 이용자 선택 스냅샷(이름·생년월일·신장) — 미선택·비TICKET이면 미저장(null).
+      ...(ticketGuestsSnapshot ? { ticketGuests: ticketGuestsSnapshot } : {}),
+      // 무료 티켓 — 즉시 확정+수락 원자 세팅. 발주함 미경유·발행 불필요(벤더 예약현황 정보 노출로 충분).
+      ...(isFreeTicket
+        ? { vendorStatus: "VENDOR_ACCEPTED" as const, poSentAt: now, vendorRespondedAt: now }
+        : {}),
     },
     select: { id: true },
   });
@@ -178,6 +240,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       catalogItemId: { new: item.id },
       priceKrw: { new: priceKrw },
       priceVnd: { new: pricing.totalPriceVnd.toString() },
+      // 무료 티켓 즉시 확정 경로만 상태 기록(운영자 일반 생성과 감사 이력 구분)
+      ...(isFreeTicket
+        ? {
+            status: { new: "CONFIRMED" },
+            vendorStatus: { new: "VENDOR_ACCEPTED" },
+            poSentAt: { new: now.toISOString() },
+            vendorRespondedAt: { new: now.toISOString() },
+          }
+        : {}),
     },
   });
 
