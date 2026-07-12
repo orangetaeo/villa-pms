@@ -2684,6 +2684,9 @@
       "settleSelected": "Thanh toán mục chọn ({n})",
       "noBank": "Chưa có tài khoản",
       "viewBooking": "Xem đặt phòng",
+      "unsettle": "Hủy quyết toán",
+      "unsettling": "Đang hủy…",
+      "unsettleConfirm": "Hủy quyết toán đơn này? Đơn sẽ quay lại danh sách chờ thanh toán.",
       "settled": "Đã thanh toán",
       "unsettledBadge": "Chưa thanh toán",
       "completedBadge": "Đã hoàn thành {date}",
@@ -2790,9 +2793,6 @@
       "cannotDispatch": "Không thể đặt hàng ở trạng thái hiện tại",
       "confirmGate": "Đang chờ nhà cung cấp chấp nhận",
       "notAcceptedWarn": "Nhà cung cấp chưa chấp nhận",
-      "settleMethod": "Phương thức thanh toán",
-      "markSettled": "Quyết toán",
-      "settled": "Đã quyết toán",
       "settledAt": "Đã quyết toán {date}",
       "completedAt": "Đã hoàn thành {date}",
       "change": "Đổi nhà cung cấp",
@@ -2801,12 +2801,6 @@
       "changeDispatched": "Đã đổi nhà cung cấp và gửi đặt hàng",
       "changeDispatchedNoZalo": "Đã đổi nhà cung cấp và gửi đặt hàng nhưng NCC chưa liên kết Zalo — cần liên hệ thủ công",
       "changeDispatchFailed": "Đã đổi nhà cung cấp nhưng gửi đặt hàng thất bại — nhấn Gửi đặt hàng để thử lại",
-      "unsettle": "Hủy",
-      "method": {
-        "CASH": "Tiền mặt",
-        "BANK_TRANSFER": "Chuyển khoản",
-        "OTHER": "Khác"
-      },
       "proposal": {
         "title": "Lịch đề xuất của NCC",
         "apply": "Áp dụng",
