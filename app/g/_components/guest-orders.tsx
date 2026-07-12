@@ -197,6 +197,9 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered 
                     const dispatchedLock = o.status === "REQUESTED" && o.vendorAccepted;
                     // 담당자 연락처 — 확정(CONFIRMED)·벤더 수락 후 이름·전화 노출(★원가·마진 없음).
                     const showContact = (o.status === "CONFIRMED" || o.vendorAccepted) && !!o.vendorName;
+                    // ★무료 티켓(판매가 0) — QR 없이 그냥 입장. 티켓 이미지가 없으니 티켓 섹션은 어차피 미렌더 →
+                    //   별도 "티켓 없이 입장 가능(무료)" 안내를 라인에 표시하고, 부분 발행 경고(PR #254)는 제외.
+                    const isFree = o.type === "TICKET" && o.priceVnd === "0";
                     return (
                       <div key={o.id} className="px-4 py-3.5 space-y-1.5">
                         <div className="flex items-start justify-between gap-2">
@@ -225,6 +228,13 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered 
                           </p>
                         )}
                         <p className="text-[11px] text-slate-400 leading-snug">{o.fulfillNote}</p>
+                        {/* 무료 티켓 안내 — 발행 없이 입장 가능(테오). 발주함·발행 대상 아님. */}
+                        {isFree && (
+                          <p className="mt-1 flex items-start gap-1 rounded-md bg-emerald-50 px-2 py-1.5 text-[11px] font-semibold text-emerald-700 leading-snug">
+                            <span className="material-symbols-outlined text-[15px] text-emerald-500">confirmation_number</span>
+                            {L.tickets.freeEntry}
+                          </p>
+                        )}
                         {/* 벤더 시간 제안(ADR-0035) — 미해결이면 원래→제안 비교 + 승인/거절 버튼. */}
                         {o.proposalPending && o.proposedServiceDate && (
                           <div className="mt-1.5 space-y-2 rounded-lg border border-amber-200 bg-amber-50/70 p-3">
@@ -283,7 +293,7 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered 
                             </p>
                             {/* ★부분 발행 경고 — 주문 수량보다 발행된 티켓이 적으면 "전부 지급됨" 오인 방지(테오 실측).
                                 수량 하드 강제가 없는 구조(ADR-0034)라 표시 레벨에서 알려준다. */}
-                            {o.type === "TICKET" && o.ticketUrls.length < o.quantity && (
+                            {o.type === "TICKET" && !isFree && o.ticketUrls.length < o.quantity && (
                               <p className="flex items-start gap-1 rounded-md bg-amber-50 px-2 py-1.5 text-[11px] font-semibold text-amber-700 leading-snug">
                                 <span className="material-symbols-outlined text-[15px] text-amber-500">hourglass_top</span>
                                 {L.tickets.partial(o.ticketUrls.length, o.quantity)}

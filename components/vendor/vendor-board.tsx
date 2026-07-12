@@ -34,6 +34,8 @@ type VendorOrder = {
   itemName: string | null;
   optionLabel: string | null; // 선택 코스/옵션(가격 제거) — "오일 마사지 90분" 등
   type: string | null;
+  // ★무료 티켓(판매가 0) — 서버 파생 boolean. true면 발행 UI 대신 "무료 입장" 안내(판매가 값은 미노출).
+  freeEntry: boolean;
   ticketUrls: string[]; // 티켓형(TICKET) 발행 이미지 URL — 발행 현황·삭제용(판매가 무관)
   // TICKET 전용 — 이용자(이름·생년월일·신장)만. 연령/신장 구분 티켓 발행·현장 검표용(ADR-0036).
   //   ★그 외 여권 필드 없음(서버 화이트리스트). 비TICKET 응답엔 키 자체가 없음(optional).
@@ -692,6 +694,18 @@ function GuestPassports({ guests, t }: { guests: VendorOrder["guests"]; t: T }) 
   );
 }
 
+// ── 무료 티켓 안내 (ADR-0034 §3-1) ───────────────────────────────────
+//   무료 입장 티켓(판매가 0)은 QR 발행·제시가 불필요하므로 발행 패널(TicketPanel)을 렌더하지 않고,
+//   대신 정보성 안내만 보여준다. 발행 버튼·수량 카운터·투숙객 명단 없음.
+function FreeEntryNotice({ t }: { t: T }) {
+  return (
+    <p className="flex items-center gap-1.5 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5 text-sm font-bold text-emerald-700">
+      <span className="material-symbols-outlined text-base">confirmation_number</span>
+      {t("tickets.freeEntry")}
+    </p>
+  );
+}
+
 // ── 티켓형(TICKET) QR 티켓 발행 패널 (ADR-0034) ─────────────────────────
 //   발행된 티켓 썸네일(탭=원본 새 탭) + "N/quantity장" 카운터(미달 amber 경고) + 발행 버튼 + 삭제(x).
 //   PENDING_VENDOR면 "발행 시 수락 처리" 안내. 업로드/삭제 후 onChanged로 목록 재조회.
@@ -945,10 +959,13 @@ function InboxSection({
           {/* 게스트 요청사항 — 이행 정보(있을 때만) */}
           <GuestNote note={o.guestNote} t={t} />
 
-          {/* 티켓형(TICKET) 발행 패널 — 발행하면 수락 겸행(ADR-0034) */}
-          {o.type === "TICKET" && (
-            <TicketPanel order={o} pending={o.vendorStatus === "PENDING_VENDOR"} t={t} onChanged={onChanged} />
-          )}
+          {/* 티켓형(TICKET) — 무료 입장은 발행 불필요 안내, 유료는 발행 패널(발행하면 수락 겸행, ADR-0034) */}
+          {o.type === "TICKET" &&
+            (o.freeEntry ? (
+              <FreeEntryNotice t={t} />
+            ) : (
+              <TicketPanel order={o} pending={o.vendorStatus === "PENDING_VENDOR"} t={t} onChanged={onChanged} />
+            ))}
 
           {/* 거절 / 제안 / 수락 버튼. 제안=수락하되 대안 시간 협의(propose).
               ★TICKET 주문은 시간 협의가 무의미 → "제안" 버튼 숨김(주문 type 기준, 벤더 종류 무관 —
@@ -959,8 +976,13 @@ function InboxSection({
               → TICKET+PENDING_VENDOR+0장이면 남는 버튼은 거절 1개. 표시 버튼 수에 맞춰 grid-cols 정적 매핑. */}
           {(() => {
             const hidePropose = o.type === "TICKET";
+            // ★무료 티켓(freeEntry)은 발행이 없으므로 발행 유도용 숨김을 적용하지 않고 수락 버튼을 일반 노출한다
+            //   (게스트 무료 주문은 자동 확정이라 발주함에 안 오지만, 운영자 수동 발주 엣지 대비).
             const hideAccept =
-              o.type === "TICKET" && o.vendorStatus === "PENDING_VENDOR" && o.ticketUrls.length === 0;
+              o.type === "TICKET" &&
+              !o.freeEntry &&
+              o.vendorStatus === "PENDING_VENDOR" &&
+              o.ticketUrls.length === 0;
             // 거절(항상) + 제안(비티켓) + 수락(비TICKET-대기) → 표시 수. 동적 조립 금지(정적 매핑).
             const visibleCount = 1 + (hidePropose ? 0 : 1) + (hideAccept ? 0 : 1);
             const gridCls =
@@ -1261,10 +1283,13 @@ function ScheduleSection({
           {/* 게스트 요청사항 — 이행 정보(있을 때만) */}
           <GuestNote note={o.guestNote} t={t} />
 
-          {/* 티켓형(TICKET) 발행 패널 — 수락 후 발행분 확인·추가·삭제(ADR-0034) */}
-          {o.type === "TICKET" && (
-            <TicketPanel order={o} pending={false} t={t} onChanged={onChanged} />
-          )}
+          {/* 티켓형(TICKET) — 무료 입장은 발행 불필요 안내, 유료는 발행 패널(수락 후 발행분 확인·추가·삭제, ADR-0034) */}
+          {o.type === "TICKET" &&
+            (o.freeEntry ? (
+              <FreeEntryNotice t={t} />
+            ) : (
+              <TicketPanel order={o} pending={false} t={t} onChanged={onChanged} />
+            ))}
 
           {/* 상태 타임라인 — 발송·응답·완료 시각(작은 글씨) */}
           {(o.poSentAt || o.vendorRespondedAt || o.vendorCompletedAt) && (

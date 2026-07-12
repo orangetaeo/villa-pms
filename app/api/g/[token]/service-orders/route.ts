@@ -220,16 +220,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     });
   }
 
+  // ★무료 티켓(판매가 0 — 무료/유아 variant) — 업체 QR 발행·소비자 제시 불필요(테오). 그냥 입장.
+  //   발주함(발행 완료 게이트) 대상이 되면 불필요한 업무가 생기므로, 생성 시점에 즉시 확정·수락으로 세팅하고
+  //   발주함을 미경유한다(벤더 발주 통보 생략 — 벤더 예약현황 정보 노출로 충분). 운영자 A1 알림은 유지.
+  const isFreeTicket = item.type === "TICKET" && pricing.totalPriceVnd === 0n;
+
   // ★자동 발주 조건 — 해석된 벤더 배정 + 승인(APPROVED) + 활성(active). 하나라도 아니면 REQUESTED만(수동 폴백).
+  //   무료 티켓은 자동 발주 대상에서 제외(아래 무료 확정 경로가 우선) — PENDING_VENDOR·발주 통보를 타지 않게.
   const autoDispatch =
-    !!resolvedVendorId && dispatchVendor?.approvalStatus === "APPROVED" && dispatchVendor?.active === true;
+    !isFreeTicket &&
+    !!resolvedVendorId &&
+    dispatchVendor?.approvalStatus === "APPROVED" &&
+    dispatchVendor?.active === true;
   const now = new Date();
 
   const created = await prisma.serviceOrder.create({
     data: {
       bookingId: t.bookingId,
       type: item.type,
-      status: "REQUESTED",
+      // 무료 티켓은 생성 시점 즉시 확정(발주함 미경유), 그 외는 REQUESTED(운영자 확정 대기).
+      status: isFreeTicket ? ("CONFIRMED" as const) : ("REQUESTED" as const),
       serviceDate,
       serviceTime: d.serviceTime ?? null,
       costVnd: 0n, // 운영자 확정 시 실원가 입력
@@ -245,8 +255,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       // TICKET 이용자 선택 스냅샷(이름·생년월일만) — 벤더 보드 표시용(ADR-0036). 미선택·비TICKET이면 미저장(null).
       ...(ticketGuestsSnapshot ? { ticketGuests: ticketGuestsSnapshot } : {}),
 
-      // ★자동 발주 — 생성 시점이라 동시성 가드 불필요(신규 행). 벤더가 /vendor에서 수락하면 자동 확정.
-      ...(autoDispatch ? { vendorStatus: "PENDING_VENDOR" as const, poSentAt: now } : {}),
+      // ★무료 티켓 — 생성 시점 즉시 확정(CONFIRMED)+수락(VENDOR_ACCEPTED) 원자 세팅. 발주함 미경유·발행 불필요.
+      //   vendorId는 위에서 정상 스냅샷(resolvedVendorId) — 벤더 예약현황 정보 노출용.
+      //   그 외: 자동 발주면 PENDING_VENDOR(생성 신규 행이라 동시성 가드 불필요), 벤더가 /vendor에서 수락하면 확정.
+      ...(isFreeTicket
+        ? {
+            vendorStatus: "VENDOR_ACCEPTED" as const,
+            poSentAt: now,
+            vendorRespondedAt: now,
+          }
+        : autoDispatch
+          ? { vendorStatus: "PENDING_VENDOR" as const, poSentAt: now }
+          : {}),
     },
     select: { id: true },
   });
@@ -264,14 +284,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     changes: {
       requestedVia: { new: "GUEST" },
       catalogItemId: { new: item.id },
-      // 자동 발주된 경우만 발주 필드 기록(운영자 수동 발주와 감사 이력 구분)
-      ...(autoDispatch
-        ? { vendorStatus: { new: "PENDING_VENDOR" }, poSentAt: { new: now.toISOString() } }
-        : {}),
+      // 무료 확정·자동 발주된 경우만 관련 필드 기록(운영자 수동 발주와 감사 이력 구분)
+      ...(isFreeTicket
+        ? {
+            status: { new: "CONFIRMED" },
+            vendorStatus: { new: "VENDOR_ACCEPTED" },
+            poSentAt: { new: now.toISOString() },
+            vendorRespondedAt: { new: now.toISOString() },
+          }
+        : autoDispatch
+          ? { vendorStatus: { new: "PENDING_VENDOR" }, poSentAt: { new: now.toISOString() } }
+          : {}),
     },
   });
 
   // ★자동 발주 통보 — 벤더 Zalo(연결 시) + 인앱. costVnd=0이므로 payload costVnd=null(미확정).
+  //   ★무료 티켓은 autoDispatch=false라 이 통보를 타지 않는다(할 일 아님 — 벤더 예약현황 정보 노출로 충분).
   if (autoDispatch) {
     await sendVendorPoNotifications({
       vendor: dispatchVendor,
