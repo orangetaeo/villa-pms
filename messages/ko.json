@@ -723,6 +723,26 @@
         "VALIDATION": "입력값을 확인해 주세요.",
         "CREDIT": "파트너 여신 한도로 예약을 확정할 수 없습니다. (코드: {code})",
         "GENERIC": "예약 생성에 실패했습니다. 잠시 후 다시 시도하세요."
+      },
+      "quote": {
+        "title": "견적",
+        "totalSaleLabel": "총 판매가",
+        "baseRate": "기본요금",
+        "seasons": {
+          "LOW": "비수기",
+          "HIGH": "성수기",
+          "PEAK": "극성수기"
+        },
+        "totalCostLabel": "총 원가",
+        "marginLabel": "예상 마진",
+        "marginUnknown": "환율 미설정 — 마진 계산 불가",
+        "fxLabel": "적용 환율",
+        "autoFilledBadge": "견적가",
+        "applyToPrice": "견적가 {price} 적용",
+        "manualUsdNote": "USD 판매가는 직접 입력하세요. 아래는 참조 환산액입니다.",
+        "referenceTotal": "참조 환산",
+        "openVillaSalesInfo": "빌라 판매정보 열기",
+        "loadError": "견적을 불러오지 못했습니다."
       }
     },
     "status": {
