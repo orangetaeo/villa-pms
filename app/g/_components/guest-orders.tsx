@@ -196,7 +196,10 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered 
                     const canCancel = o.status === "REQUESTED" && !o.vendorAccepted;
                     const dispatchedLock = o.status === "REQUESTED" && o.vendorAccepted;
                     // 담당자 연락처 — 확정(CONFIRMED)·벤더 수락 후 이름·전화 노출(★원가·마진 없음).
+                    //   TICKET은 로더에서 vendorName을 null로 막으므로 여기서 자연히 false → 비TICKET만 노출.
                     const showContact = (o.status === "CONFIRMED" || o.vendorAccepted) && !!o.vendorName;
+                    // ★티켓 문의 본사 일원화(테오) — 확정 후 담당자 연락처 대신 "Villa Go로 연락" 안내.
+                    const showTicketContact = o.type === "TICKET" && (o.status === "CONFIRMED" || o.vendorAccepted);
                     // ★무료 티켓(판매가 0) — QR 없이 그냥 입장. 티켓 이미지가 없으니 티켓 섹션은 어차피 미렌더 →
                     //   별도 "티켓 없이 입장 가능(무료)" 안내를 라인에 표시하고, 부분 발행 경고(PR #254)는 제외.
                     const isFree = o.type === "TICKET" && o.priceVnd === "0";
@@ -361,6 +364,13 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered 
                               )}
                             </div>
                             <p className="text-[11px] text-teal-700/80 leading-snug">{L.result.vendorContactHint}</p>
+                          </div>
+                        )}
+                        {/* 티켓 문의 본사 안내(테오) — 담당자 연락처 대신 Villa Go 문의. 확정 후 노출. */}
+                        {showTicketContact && (
+                          <div className="mt-1.5 flex items-start gap-2 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2">
+                            <span className="material-symbols-outlined text-teal-600 text-[16px]">support_agent</span>
+                            <p className="text-[11px] text-teal-700/90 leading-snug">{L.result.ticketContactNotice}</p>
                           </div>
                         )}
                         {/* 셀프 취소(A3) — 벤더 수락 전 REQUESTED만. 확정·수락 후엔 버튼 없음. */}
