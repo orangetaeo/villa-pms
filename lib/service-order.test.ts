@@ -13,6 +13,7 @@ import {
   orderBucket,
   orderFilterCounts,
   groupAdminOrders,
+  isFreeTicket,
   type OrderAttentionInput,
   type OrderGroupInput,
 } from "./service-order";
@@ -27,6 +28,7 @@ function att(over: Partial<OrderAttentionInput> = {}): OrderAttentionInput {
     vendorStatus: null,
     proposedServiceDate: null,
     vendorProposalRespondedAt: null,
+    priceVnd: null,
     ...over,
   };
 }
@@ -106,11 +108,32 @@ describe("접힘 행 처리 필요 신호(orderAttention)", () => {
     expect(orderAttention(att({ type: "FOOD", quantity: 5, ticketUrls: [] })).ticketShort).toBe(
       false
     );
+    // ★무료 티켓(판매가 0)은 발행 불필요 — ticketShort 제외
+    expect(
+      orderAttention(att({ type: "TICKET", quantity: 2, ticketUrls: [], priceVnd: "0" })).ticketShort
+    ).toBe(false);
+    // 유료 티켓(판매가>0)은 여전히 미달 신호
+    expect(
+      orderAttention(att({ type: "TICKET", quantity: 2, ticketUrls: [], priceVnd: "300000" }))
+        .ticketShort
+    ).toBe(true);
   });
   it("orderHasAttention = 세 신호 OR", () => {
     expect(orderHasAttention(att())).toBe(false);
     expect(orderHasAttention(att({ status: "REQUESTED" }))).toBe(true);
     expect(orderHasAttention(att({ type: "TICKET", quantity: 1, ticketUrls: [] }))).toBe(true);
+  });
+});
+
+describe("무료 입장 티켓 판정(isFreeTicket)", () => {
+  it("TICKET·판매가 '0'만 무료", () => {
+    expect(isFreeTicket({ type: "TICKET", priceVnd: "0" })).toBe(true);
+    expect(isFreeTicket({ type: "TICKET", priceVnd: "300000" })).toBe(false);
+    // priceVnd null(가격 미설정·레거시)은 무료 아님(명시 0만)
+    expect(isFreeTicket({ type: "TICKET", priceVnd: null })).toBe(false);
+    // 비TICKET은 판매가 0이어도 무료 티켓 아님
+    expect(isFreeTicket({ type: "FOOD", priceVnd: "0" })).toBe(false);
+    expect(isFreeTicket({ type: "MASSAGE", priceVnd: null })).toBe(false);
   });
 });
 
@@ -152,7 +175,7 @@ function ord(p: Partial<OrderGroupInput> & { catalogItemId: string | null }): Or
 }
 
 describe("groupAdminOrders — 품목+이용일 그룹핑", () => {
-  it("같은 품목·이용일의 구분 분리 주문을 한 그룹으로 묶고 수량·판매가 합산", () => {
+  it("같은 품목·이용일의 구분 분리 주문을 한 그룹으로 묶고 수량·판매가 합산(무료 라인은 티켓 카운터 제외)", () => {
     // 키스브릿지 1건 = 무료 1 + 일반 2 (구분별 분리 저장)
     const groups = groupAdminOrders([
       ord({ catalogItemId: "ci-1", nameKo: "키스브릿지", quantity: 1, priceVnd: "0", priceKrw: 0, serviceDate: "2026-08-01" }),
@@ -163,13 +186,24 @@ describe("groupAdminOrders — 품목+이용일 그룹핑", () => {
     expect(g.name).toBe("키스브릿지");
     expect(g.serviceDate).toBe("2026-08-01");
     expect(g.orders).toHaveLength(2);
-    expect(g.totalQuantity).toBe(3);
+    expect(g.totalQuantity).toBe(3); // 총수량은 무료 포함(구매 전체)
     expect(g.totalPriceVnd).toBe("300000");
     expect(g.totalPriceKrw).toBe(30000);
-    expect(g.hasTicket).toBe(true);
+    expect(g.hasTicket).toBe(true); // 유료 티켓 라인 존재
     expect(g.ticketIssued).toBe(0); // 아직 발행 없음
-    expect(g.ticketNeeded).toBe(3);
-    expect(g.attention.ticketShort).toBe(true); // 발행 미달
+    expect(g.ticketNeeded).toBe(2); // ★무료 1 제외 → 유료 2만 발행 대상(테오: 2/3장→2/2장)
+    expect(g.attention.ticketShort).toBe(true); // 유료 2장 미발행
+  });
+
+  it("무료 티켓만 있는 그룹 — 티켓 카운터·발행 신호 전부 없음(hasTicket=false)", () => {
+    const g = groupAdminOrders([
+      ord({ catalogItemId: "ci-free", type: "TICKET", quantity: 2, priceVnd: "0", ticketUrls: [], serviceDate: "d" }),
+    ])[0];
+    expect(g.hasTicket).toBe(false);
+    expect(g.ticketIssued).toBe(0);
+    expect(g.ticketNeeded).toBe(0);
+    expect(g.attention.ticketShort).toBe(false);
+    expect(g.hasAttention).toBe(false);
   });
 
   it("catalogItemId null이면 type으로 폴백해 그룹핑", () => {

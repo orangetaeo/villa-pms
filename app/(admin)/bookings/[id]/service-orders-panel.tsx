@@ -32,6 +32,7 @@ import {
   orderBucket,
   orderFilterCounts,
   groupAdminOrders,
+  isFreeTicket,
   type OrderFilter,
   type OrderGroup,
 } from "@/lib/service-order";
@@ -520,6 +521,7 @@ export default function ServiceOrdersPanel({
                     const att = orderAttention(o);
                     const vs = o.vendorId ? o.vendorStatus ?? "NONE" : null;
                     const issued = o.ticketUrls.length;
+                    const freeTicket = isFreeTicket(o); // 무료 입장 — 발행 카운터·첨부 UI 미표시
                     return (
                   <li
                     key={o.id}
@@ -614,8 +616,8 @@ export default function ServiceOrdersPanel({
                             {t("proposalDue")}
                           </span>
                         )}
-                        {/* 티켓 카운터(발행 미달=amber) */}
-                        {o.type === "TICKET" && (
+                        {/* 티켓 카운터(발행 미달=amber) — 무료 입장 라인은 발행 불필요라 미표시 */}
+                        {o.type === "TICKET" && !freeTicket && (
                           <span
                             className={`inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap tabular-nums ${
                               att.ticketShort
@@ -786,9 +788,36 @@ function adminTicketErr(code: string | undefined, t: ReturnType<typeof useTransl
   }
 }
 
+// 선택된 이용자(이름·생년월일) — 소비자가 티켓 신청 시 고른 투숙객(ADR-0036). 미선택이면 미표시.
+//   유료·무료 티켓 셀 양쪽에서 공유(누가 무료인지 정보는 무료 라인에서도 유지).
+function TicketGuestsList({
+  guests,
+  t,
+}: {
+  guests: OrderRow["ticketGuests"];
+  t: ReturnType<typeof useTranslations>;
+}) {
+  if (guests.length === 0) return null;
+  return (
+    <div className="rounded-md border border-slate-700 bg-slate-900/40 px-2 py-1.5">
+      <p className="text-[10px] font-bold text-slate-400 mb-0.5">{t("tickets.guestsTitle")}</p>
+      <ul className="space-y-0.5">
+        {guests.map((g, i) => (
+          <li key={i} className="text-[11px] text-slate-300 flex items-center gap-1.5">
+            <span className="truncate">{g.name ?? "—"}</span>
+            <span className="text-slate-600">·</span>
+            <span className="tabular-nums text-slate-400 shrink-0">{formatTicketBirthDate(g.birthDate)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 // ── 티켓형(TICKET) 발행 현황 + 대리 첨부/삭제 (ADR-0034) ─────────────────────────
 //   운영자가 벤더 Zalo로 받은 QR 티켓을 대신 첨부하는 관행. /api/service-orders/[id]/tickets 사용.
 //   ★발주 상태 전이 없음 — 단순 첨부. 썸네일(원본 새 탭)+카운터(미달 amber)+첨부+삭제.
+//   ★무료 입장(TICKET·판매가 0)은 발행 불필요 — 안내 1줄 + 선택 이용자만(벤더 측 PR #256/#258과 동일 규칙).
 function AdminTicketCell({
   order,
   t,
@@ -804,6 +833,19 @@ function AdminTicketCell({
   const issued = order.ticketUrls.length;
   const short = issued < order.quantity;
   const closed = order.status === "CANCELLED" || order.status === "DELIVERED";
+
+  // 무료 입장 라인 — 카운터·"발행된 티켓 없음"·첨부(대리 포함)·썸네일 전부 대신 안내 1줄. 선택 이용자는 유지.
+  if (isFreeTicket(order)) {
+    return (
+      <div className="mt-1.5 space-y-1.5 rounded-lg border border-emerald-600/30 bg-emerald-900/20 p-2">
+        <p className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-300">
+          <span className="material-symbols-outlined text-[15px]">confirmation_number</span>
+          {t("tickets.freeEntry")}
+        </p>
+        <TicketGuestsList guests={order.ticketGuests} t={t} />
+      </div>
+    );
+  }
 
   const upload = async (files: FileList | null) => {
     if (!files || files.length === 0 || busy) return;
@@ -875,20 +917,7 @@ function AdminTicketCell({
       </div>
 
       {/* 선택된 이용자(이름·생년월일) — 소비자가 티켓 신청 시 고른 투숙객(ADR-0036). 미선택이면 미표시. */}
-      {order.ticketGuests.length > 0 && (
-        <div className="rounded-md border border-slate-700 bg-slate-900/40 px-2 py-1.5">
-          <p className="text-[10px] font-bold text-slate-400 mb-0.5">{t("tickets.guestsTitle")}</p>
-          <ul className="space-y-0.5">
-            {order.ticketGuests.map((g, i) => (
-              <li key={i} className="text-[11px] text-slate-300 flex items-center gap-1.5">
-                <span className="truncate">{g.name ?? "—"}</span>
-                <span className="text-slate-600">·</span>
-                <span className="tabular-nums text-slate-400 shrink-0">{formatTicketBirthDate(g.birthDate)}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <TicketGuestsList guests={order.ticketGuests} t={t} />
 
       {issued === 0 ? (
         <p className="text-[11px] text-slate-500">{t("tickets.none")}</p>
