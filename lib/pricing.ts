@@ -377,22 +377,38 @@ export function computeConsumerSalePriceVnd(
 }
 
 /**
+ * VND를 "1 외화 = x VND" 환율로 나눠 외화 정수로 반올림 (float 금지) — suggestSalePrice* 공통 코어.
+ * 환율은 Decimal(14,4) 문자열 → 1e4 스케일 BigInt, half-up 반올림.
+ */
+function roundVndToForeign(amountVnd: bigint, fxVndPerUnit: string): number {
+  if (!/^\d+(\.\d{1,4})?$/.test(fxVndPerUnit)) {
+    throw new RangeError(`잘못된 환율 형식: ${fxVndPerUnit} (소수 4자리까지 숫자)`);
+  }
+  const [int, frac = ""] = fxVndPerUnit.split(".");
+  const fxScaled = BigInt(int + frac.padEnd(4, "0")); // 환율 × 1e4
+  if (fxScaled <= 0n) throw new RangeError("환율은 0보다 커야 합니다");
+
+  // foreign = vnd / (fxScaled / 1e4) = vnd * 1e4 / fxScaled — half-up 반올림
+  const numerator = amountVnd * 10_000n;
+  return Number((numerator + fxScaled / 2n) / fxScaled); // Int 범위(수억)에서 안전
+}
+
+/**
  * VND→KRW 환산 제안: salePriceKrw ≈ salePriceVnd ÷ fxVndPerKrw (1 KRW = x VND)
  * 환율은 Decimal(14,4) 문자열로 받아 1e4 스케일 BigInt로 계산 (float 금지), 반올림.
  * ADMIN이 라운딩 오버라이드하는 제안값이다.
  */
 export function suggestSalePriceKrw(salePriceVnd: bigint, fxVndPerKrw: string): number {
-  if (!/^\d+(\.\d{1,4})?$/.test(fxVndPerKrw)) {
-    throw new RangeError(`잘못된 환율 형식: ${fxVndPerKrw} (소수 4자리까지 숫자)`);
-  }
-  const [int, frac = ""] = fxVndPerKrw.split(".");
-  const fxScaled = BigInt(int + frac.padEnd(4, "0")); // 환율 × 1e4
-  if (fxScaled <= 0n) throw new RangeError("환율은 0보다 커야 합니다");
+  return roundVndToForeign(salePriceVnd, fxVndPerKrw);
+}
 
-  // krw = vnd / (fxScaled / 1e4) = vnd * 1e4 / fxScaled — 반올림
-  const numerator = salePriceVnd * 10_000n;
-  const krw = (numerator + fxScaled / 2n) / fxScaled;
-  return Number(krw); // KRW Int 범위(수억 원)에서 안전
+/**
+ * VND→USD 환산 제안 (Phase 2, admin-manual-booking 후속확장 3): salePriceUsd ≈ salePriceVnd ÷ fxVndPerUsd.
+ * suggestSalePriceKrw와 **동일 코어**(roundVndToForeign) — 1e4 스케일 BigInt half-up 반올림(float 금지).
+ * usdToVndSnapshot의 역방향. ADMIN이 라운딩 오버라이드하는 제안값이다(정수 달러).
+ */
+export function suggestSalePriceUsd(salePriceVnd: bigint, fxVndPerUsd: string): number {
+  return roundVndToForeign(salePriceVnd, fxVndPerUsd);
 }
 
 /**
@@ -468,6 +484,9 @@ export function assertSaleAmountColumns(
 
 /** AppSetting 키 — 환율 (1 KRW = x VND), ADMIN이 /settings에서 수동 갱신 */
 export const FX_VND_PER_KRW_KEY = "FX_VND_PER_KRW";
+
+/** AppSetting 키 — USD 환율 (1 USD = x VND), ADMIN이 /settings에서 수동 갱신 (후속확장 3) */
+export const FX_VND_PER_USD_KEY = "FX_VND_PER_USD";
 
 /**
  * 단일 빌라 견적 (ADR-0014 Phase B — VillaRatePeriod 단일 경로).
@@ -626,5 +645,11 @@ export async function quoteSupplierSaleForVilla(
 /** 환율 스냅샷용 조회 — 미설정이면 null (제안 생성 UI에서 ADMIN 입력 유도) */
 export async function getFxVndPerKrw(db: DbClient): Promise<string | null> {
   const row = await db.appSetting.findUnique({ where: { key: FX_VND_PER_KRW_KEY } });
+  return row?.value ?? null;
+}
+
+/** USD 수동 환율 스냅샷용 조회 (후속확장 3) — 미설정이면 null. getFxVndPerKrw와 동형. */
+export async function getFxVndPerUsd(db: DbClient): Promise<string | null> {
+  const row = await db.appSetting.findUnique({ where: { key: FX_VND_PER_USD_KEY } });
   return row?.value ?? null;
 }

@@ -170,3 +170,30 @@ describe("기존 키 회귀 (홀드·환율)", () => {
     expect(VALIDATORS["FX_VND_PER_KRW"]("1.23456")).toBe(false);
   });
 });
+
+describe("FX_VND_PER_USD — USD 수동 환율 (후속확장 3)", () => {
+  it("화이트리스트 등록·비-clearable", () => {
+    expect(isSettingKey("FX_VND_PER_USD")).toBe(true);
+    expect(CLEARABLE_SET.has("FX_VND_PER_USD")).toBe(false); // 필수 운영값
+  });
+  it.each(["26000", "25400.5", "26000.1234", "1"])("정상: %s", (v) => {
+    expect(VALIDATORS["FX_VND_PER_USD"](v)).toBe(true);
+  });
+  it.each(["0", "0.0000", "-1", "1.23456", "abc", "1000000000"])("거부: %s", (v) => {
+    expect(VALIDATORS["FX_VND_PER_USD"](v)).toBe(false); // 1e9 상한 포함
+  });
+});
+
+describe("FX_MODE — 유효 환율 모드 (후속확장 3)", () => {
+  it("화이트리스트 등록·비-clearable", () => {
+    expect(isSettingKey("FX_MODE")).toBe(true);
+    expect(CLEARABLE_SET.has("FX_MODE")).toBe(false);
+  });
+  it("MANUAL·AUTO만 허용", () => {
+    expect(VALIDATORS["FX_MODE"]("MANUAL")).toBe(true);
+    expect(VALIDATORS["FX_MODE"]("AUTO")).toBe(true);
+  });
+  it.each(["manual", "auto", "", "ON", "true", "1"])("거부: %s", (v) => {
+    expect(VALIDATORS["FX_MODE"](v)).toBe(false);
+  });
+});

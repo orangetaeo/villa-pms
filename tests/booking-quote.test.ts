@@ -33,15 +33,32 @@ const peakSummer: RatePeriodLike = {
   salePriceKrw: 275_000,
 };
 
-/** villa 존재 + villaRatePeriod(base/기간) + appSetting(환율) mock DB */
+/**
+ * villa 존재 + villaRatePeriod(base/기간) + appSetting(환율) mock DB.
+ * appSetting은 키별로 응답 — FX_VND_PER_KRW=fx, FX_VND_PER_USD=fxUsd, FX_MODE=fxMode.
+ * (유효 환율 해석(getEffectiveFx*)이 여러 키를 조회하므로 키 인지 필요 — 후속확장 3)
+ */
 function makeDb(opts: {
   villaExists?: boolean;
   ratePeriods?: RatePeriodLike[];
   fx?: string | null;
+  fxUsd?: string | null;
+  fxMode?: "MANUAL" | "AUTO" | null;
 }) {
-  const { villaExists = true, ratePeriods = [base, peakSummer], fx = null } = opts;
+  const {
+    villaExists = true,
+    ratePeriods = [base, peakSummer],
+    fx = null,
+    fxUsd = null,
+    fxMode = null,
+  } = opts;
   const nonBase = ratePeriods.filter((p) => !p.isBase);
   const baseRow = ratePeriods.find((p) => p.isBase) ?? null;
+  const settings: Record<string, string | null> = {
+    FX_VND_PER_KRW: fx,
+    FX_VND_PER_USD: fxUsd,
+    FX_MODE: fxMode,
+  };
   const db = {
     villa: {
       findUnique: vi.fn(async () => (villaExists ? { id: "v1" } : null)),
@@ -58,7 +75,10 @@ function makeDb(opts: {
       ),
     },
     appSetting: {
-      findUnique: vi.fn(async () => (fx == null ? null : { value: fx })),
+      findUnique: vi.fn(async ({ where }: { where: { key: string } }) => {
+        const v = settings[where.key];
+        return v == null ? null : { value: v };
+      }),
     },
   } as unknown as DbClient;
   return db;
@@ -204,6 +224,42 @@ describe("buildBookingQuote — USD manual (참조 VND 견적)", () => {
     expect(q.manual).toBe(true);
     expect(q.totalSaleKrw).toBeUndefined();
     expect(q.marginVnd).toBe(2_400_000n - 2_000_000n);
+  });
+});
+
+describe("buildBookingQuote — USD 자동 제안 (유효 USD 환율)", () => {
+  it("USD 환율 있으면 totalSaleUsd 자동(총액 반올림) + fxVndPerUsd, manual 제거", async () => {
+    // 2박 base salePriceVnd 1.2M → 참조 총액 2.4M VND. 1$=26,000₫ → 2.4M/26,000 = 92.3 → $92
+    const db = makeDb({ ratePeriods: [base], fxUsd: "26000", fx: "18.0000" });
+    const q = await buildBookingQuote(
+      db,
+      "v1",
+      { checkIn: utc("2026-05-01"), checkOut: utc("2026-05-03") },
+      Currency.USD,
+      BookingChannel.DIRECT
+    );
+    expect(q.manual).toBeUndefined(); // 자동 제안 성공 → manual 아님
+    expect(q.totalSaleVnd).toBe(2_400_000n); // VND 참조 총액(마진 기준)
+    expect(q.totalSaleUsd).toBe(Math.round(2_400_000 / 26000)); // 92
+    expect(q.fxVndPerUsd).toBe("26000");
+    expect(q.marginVnd).toBe(2_400_000n - 2_000_000n);
+    // rows는 VND 참조 유지(박별합≠총액 혼동 방지) — saleUsdPerNight 없음
+    expect(q.rows[0].saleVndPerNight).toBe(1_200_000n);
+    // KRW 참조 환산 총액도 함께(유효 KRW 환율 있으면)
+    expect(q.totalSaleKrw).toBe(Math.round(2_400_000 / 18));
+  });
+
+  it("USD 환율 없으면 기존 manual 폴백(totalSaleUsd·fxVndPerUsd 미포함)", async () => {
+    const db = makeDb({ ratePeriods: [base], fxUsd: null });
+    const q = await buildBookingQuote(
+      db,
+      "v1",
+      { checkIn: utc("2026-05-01"), checkOut: utc("2026-05-03") },
+      Currency.USD
+    );
+    expect(q.manual).toBe(true);
+    expect(q.totalSaleUsd).toBeUndefined();
+    expect(q.fxVndPerUsd).toBeUndefined();
   });
 });
 
