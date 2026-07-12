@@ -7,8 +7,11 @@
 //       미달 업로드는 ticketUrls만 추가(PENDING_VENDOR 유지·통보 없음). 부족 발행 수동 수락=respond accept.
 //     ★발행=완료(ADR-0034 §3-3): 업로드 반영 후 수량 충족이고 vendorCompletedAt 미기록이면 자동 세팅
 //       (수락 전이와 동시든, 이미 수락된 주문의 추가 발행이든 동일). 별도 완료 통보는 없음(수락 통보로 충분).
-//   DELETE: body {url} 단건 제거(본인·TICKET·DELIVERED/CANCELLED 전만). 저장 파일 자체는 미삭제.
-//     ★삭제 시 수량 미달이 되면 vendorCompletedAt=null로 완료 해제(대칭·정정 구간 오표시 방지). 수락 상태는 유지.
+//     ★발행 완료 잠금(ADR-0034 §3-5): vendorCompletedAt!=null이면 벤더 추가 발행 불가(409 TICKETS_LOCKED).
+//       완료 후 변경은 Villa Go 관리자 경유(운영자 대리 라우트 /api/service-orders/[id]/tickets가 정정 경로).
+//   DELETE: body {url} 단건 제거(본인·TICKET·DELIVERED/CANCELLED 전·미완료만). 저장 파일 자체는 미삭제.
+//     ★발행 완료 잠금(ADR-0034 §3-5): vendorCompletedAt!=null이면 벤더 삭제 불가(409 TICKETS_LOCKED).
+//       완료 전(미달·부분 발행) 자가 정정만 허용 — 이에 따라 PR #261의 "미달 시 완료 해제" 경로는 도달 불가로 제거.
 //   ★ 누수: 타 공급자 발주 404. 응답에 판매가·마진·costVnd 없음.
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
@@ -82,6 +85,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   //   status 축만 보면 REJECTED가 열려 "거절한 주문에 산출물 첨부" 의미 불일치가 생긴다(두 축 짝검토).
   if (order.vendorStatus === "VENDOR_REJECTED") {
     return NextResponse.json({ error: "ORDER_REJECTED" }, { status: 409 });
+  }
+  // ★발행 완료 잠금(ADR-0034 §3-5): 완료(vendorCompletedAt!=null)된 주문엔 벤더 추가 발행 불가 — 변경은
+  //   Villa Go 관리자 경유(운영자 대리 라우트가 정정 경로). closed/rejected 409들과 나란히·저장 전에 차단.
+  if (order.vendorCompletedAt !== null) {
+    return NextResponse.json({ error: "TICKETS_LOCKED" }, { status: 409 });
   }
 
   // 이미지 검증·저장(합계 30장 상한). 실패면 400(코드별). 저장은 검증 전량 통과 후에만.
@@ -212,7 +220,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       status: true,
       vendorId: true,
       ticketUrls: true,
-      quantity: true,
       vendorCompletedAt: true,
     },
   });
@@ -226,19 +233,23 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   if (order.status === "CANCELLED" || order.status === "DELIVERED") {
     return NextResponse.json({ error: "ORDER_CLOSED", status: order.status }, { status: 409 });
   }
+  // ★발행 완료 잠금(ADR-0034 §3-5): 완료(vendorCompletedAt!=null)된 주문의 티켓은 벤더 삭제 불가 —
+  //   변경은 Villa Go 관리자 경유. 완료 전(미달) 자가 정정만 허용.
+  if (order.vendorCompletedAt !== null) {
+    return NextResponse.json({ error: "TICKETS_LOCKED" }, { status: 409 });
+  }
   if (!order.ticketUrls.includes(url)) {
     return NextResponse.json({ error: "TICKET_NOT_FOUND" }, { status: 404 });
   }
 
   const newUrls = order.ticketUrls.filter((u) => u !== url);
-  // ★삭제=완료 해제(ADR-0034 §3-3 대칭): 삭제로 발행 수량이 주문 수량 미만이 되고 이미 완료 기록이
-  //   있으면 vendorCompletedAt=null로 해제(정정 구간 동안 "완료" 오표시 방지). 수락 상태는 유지(un-accept 없음).
-  //   여전히 충족(초과분 삭제)이거나 애초에 미완료면 완료 필드는 건드리지 않는다.
-  const clearComplete = newUrls.length < order.quantity && order.vendorCompletedAt !== null;
-  // 동시성 가드 — 삭제 대상 url이 아직 목록에 있을 때만(has). 저장 파일 자체는 미삭제.
+  // ★PR #261의 "삭제로 미달 시 완료 해제(clearComplete)"는 §3-5 완료 잠금(위 409)으로 이 지점에서
+  //   vendorCompletedAt이 항상 null이라 도달 불가가 되어 제거. 완료 전(미달) 삭제만 여기 도달한다.
+  //   동시성 가드 — 삭제 대상 url이 아직 목록에 있을 때만(has) + vendorCompletedAt null(스냅샷~갱신 사이
+  //   동시 POST가 완료시키는 TOCTOU 창 봉인 — QA 권고). 저장 파일 자체는 미삭제.
   const updated = await prisma.serviceOrder.updateMany({
-    where: { id, vendorId, ticketUrls: { has: url }, status: { notIn: ["CANCELLED", "DELIVERED"] } },
-    data: { ticketUrls: newUrls, ...(clearComplete ? { vendorCompletedAt: null } : {}) },
+    where: { id, vendorId, ticketUrls: { has: url }, vendorCompletedAt: null, status: { notIn: ["CANCELLED", "DELIVERED"] } },
+    data: { ticketUrls: newUrls },
   });
   if (updated.count === 0) {
     return NextResponse.json({ error: "CONCURRENT_MODIFICATION" }, { status: 409 });
@@ -253,15 +264,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     changes: {
       ticketRemoved: { old: url },
       ticketUrls: { old: order.ticketUrls.length, new: newUrls.length },
-      ...(clearComplete
-        ? { vendorCompletedAt: { old: order.vendorCompletedAt?.toISOString() ?? null, new: null } }
-        : {}),
     },
   });
 
-  return NextResponse.json({
-    id,
-    ticketUrls: newUrls,
-    vendorCompletedAt: clearComplete ? null : order.vendorCompletedAt,
-  });
+  return NextResponse.json({ id, ticketUrls: newUrls, vendorCompletedAt: order.vendorCompletedAt });
 }

@@ -58,6 +58,14 @@
 
 TICKET 주문은 **수락 시 `requestedVia`와 무관하게 자동 `CONFIRMED`**로 전이한다(테오). 배경: 운영자 생성 티켓 주문이 발행 완료(예: 2/2)돼도 `status=REQUESTED`로 잔류해 "발행됐으면 이미 확정 아니냐"는 업무 인식 불일치가 발생. 근거는 티켓 variant 가격이 사전 확정(카탈로그 스냅샷)이라 기존 자동 확정(ADR-0033)이 GUEST에만 국한한 **운영자 가격 검토 단계가 TICKET에는 무의미**하다는 것. 적용 지점 두 곳: (1) 발행=수락 겸행 라우트(`/api/vendor/orders/[id]/tickets`, TICKET 전용) — autoConfirm 조건에서 `requestedVia=GUEST` 제거, `accept && status=REQUESTED`로 판정(수량 충족 발행 시). (2) 수동 수락 라우트(`/api/vendor/orders/[id]/respond`) — `action=accept && status=REQUESTED && (requestedVia=GUEST || type=TICKET)`. 두 경로 모두 원자 `updateMany` where에 `status=REQUESTED`를 넣어 운영자 동시 취소 레이스를 차단하는 기존 패턴을 유지하고, 확정 통보는 별도 추가 없이 기존 수락 통보와 동일 취급한다. 비TICKET 파트너/운영자 발주는 현행(REQUESTED 잔류)이며, 기존 잔류 데이터(REQUESTED+발행 완료)는 소급하지 않는다(코드만 — 운영자 수동 확정 가능).
 
+### 3-5. (개정 2026-07-12) 발행 완료 후 벤더 변경 잠금 — 정정 창을 완료 전으로 축소
+
+발행이 완료(`vendorCompletedAt != null`)된 티켓은 **벤더가 임의로 추가 발행·삭제할 수 없다**(테오). 배경: 완료된 주문의 티켓을 업체가 마음대로 지우거나 더 발행하면 증빙·정산이 흔들린다 — 완료 후 변경은 반드시 Villa Go 관리자와 연락 후 진행해야 한다. 이에 §3-1의 자가 정정 창(첨부·삭제)을 **완료 전(미달·부분 발행)으로 축소**하고, 완료 후 정정은 운영자 대리 라우트(`/api/service-orders/[id]/tickets` — 상태·완료 불변)를 관리자 경유 경로로 삼는다(기존재).
+
+- **서버(UI·서버 대칭)**: 벤더 POST(발행)·DELETE(삭제) 모두 조회 직후 `vendorCompletedAt != null`이면 `409 { error: "TICKETS_LOCKED" }` 조기 반환(기존 CANCELLED/DELIVERED·REJECTED 409들과 나란히, 저장 전 차단). 이 잠금으로 DELETE 도달 시점의 `vendorCompletedAt`은 항상 null이 되어 **§3-3의 "삭제로 미달 시 완료 해제(clearComplete)" 벤더 경로는 도달 불가**가 된다 — 해당 로직 제거(POST의 발행=완료 자동 세팅과 완료 전 미달 삭제·자가 정정은 현행 유지).
+- **벤더 보드(`TicketPanel`)**: 완료된 TICKET 카드는 첨부 버튼·썸네일 삭제(X) 버튼을 숨기고 안내 1줄("티켓 변경이 필요하면 Villa Go로 연락해 주세요", ko/vi) 노출. 썸네일 열람(새 탭)은 유지. 기존 closed(취소·DELIVERED) 처리와 결합(`locked || closed` 시 버튼 숨김 — 안내 문구는 `locked`에만).
+- 운영자 대리 라우트·respond 라우트·자동 확정(§3-4)·완료 게이트(§3-1/§3-3) 조건은 불변.
+
 ## 누수 경계
 
 - 벤더 응답(`/api/vendor/orders`·업로드 응답)·게스트 응답에 판매가·마진·costVnd·bankInfo **신규 노출 없음**.

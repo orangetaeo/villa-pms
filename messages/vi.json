@@ -444,7 +444,8 @@
       "passportTitle": "Thông tin hộ chiếu khách",
       "passportEmpty": "Chưa chỉ định người dùng — không được chọn khi đặt",
       "heightDeclared": "khai {cm}cm",
-      "freeEntry": "Vào cửa miễn phí — không cần phát vé"
+      "freeEntry": "Vào cửa miễn phí — không cần phát vé",
+      "lockedNote": "Nếu cần thay đổi vé, vui lòng liên hệ Villa Go."
     },
     "propose": {
       "button": "Đề xuất giờ",
