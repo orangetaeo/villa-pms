@@ -1464,7 +1464,11 @@ function AddOrderForm({
               {ticketGuestIdxs.map((idx) => (
                 <div key={idx} className="flex items-center gap-2">
                   <span className="min-w-0 flex-1 truncate text-xs text-slate-300">
-                    {checkedInGuests[idx]?.name ?? "—"}
+                    {checkedInGuests[idx]?.name ?? "—"}{" "}
+                    {/* 생년월일 병기(테오) — 키 작은 사람(아이)이 누군지 생일로 예측해 입력 대상 식별 */}
+                    <span className="tabular-nums text-slate-500">
+                      {formatTicketBirthDate(checkedInGuests[idx]?.birthDate ?? null)}
+                    </span>
                   </span>
                   <span className="text-[11px] text-slate-500">{t("ticketPicker.heightLabel")}</span>
                   <input
