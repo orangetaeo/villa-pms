@@ -17,11 +17,10 @@ import {
 import { countNights } from "./hold";
 import {
   assertSaleAmountColumns,
-  getFxVndPerKrw,
   MissingRateError,
   quoteStayForVilla,
 } from "./pricing";
-import { getDailyRates } from "./fx-rates";
+import { getEffectiveFxVndPerKrw, getEffectiveFxVndPerUsd } from "./fx-effective";
 import { evaluateConfirmCredit, ensureReceivableForBooking } from "./partner-booking";
 import { writeAuditLog } from "./audit-log";
 import { toDateOnlyString } from "./date-vn";
@@ -140,14 +139,13 @@ export async function createAdminBooking(
   const agencyName =
     input.channel === BookingChannel.DIRECT ? null : (input.agencyName?.trim() || null);
 
-  // USD 환율 스냅샷은 외부 API fetch(getDailyRates)가 따를 수 있어 트랜잭션 밖에서 미리 조회
-  //   (트랜잭션 점유 시간 최소화 — 제안 생성 경로와 동일). null/USD rate 없으면 null.
-  let fxVndPerUsd: string | null = null;
-  if (input.saleCurrency === Currency.USD) {
-    const rates = await getDailyRates(prisma, input.now);
-    const usdRate = rates?.vndPerUnit?.USD;
-    if (usdRate && usdRate > 0) fxVndPerUsd = usdRate.toFixed(4);
-  }
+  // 유효 환율 스냅샷 — AUTO 모드는 외부 API fetch(getDailyRates)가 따를 수 있어 트랜잭션 밖에서 미리 조회
+  //   (트랜잭션 점유 시간 최소화 — 제안 생성 경로와 동일). FX_MODE MANUAL 기본이면 수동 키 그대로(현행 보존).
+  const fxVndPerKrw = await getEffectiveFxVndPerKrw(prisma, input.now);
+  const fxVndPerUsd =
+    input.saleCurrency === Currency.USD
+      ? await getEffectiveFxVndPerUsd(prisma, input.now)
+      : null;
 
   const result = await prisma.$transaction(async (tx) => {
     // 재고 경합 공통 잠금 — 제안 가예약·공급자 직접·CalendarBlock·iCal과 동일 락 키 (선착순 보장)
@@ -219,9 +217,7 @@ export async function createAdminBooking(
       throw e;
     }
 
-    // 생성 시점 KRW 환율 스냅샷 (제안 생성 경로와 동일 — getFxVndPerKrw, 미설정이면 null)
-    const fxVndPerKrw = await getFxVndPerKrw(tx);
-
+    // KRW·USD 환율 스냅샷은 트랜잭션 밖에서 유효 환율(getEffectiveFx*)로 미리 조회한 값을 그대로 저장.
     const booking = await tx.booking.create({
       data: {
         villaId: villa.id,

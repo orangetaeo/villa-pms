@@ -6,6 +6,7 @@ import {
   computeConsumerSalePriceVnd,
   priceTierForChannel,
   suggestSalePriceKrw,
+  suggestSalePriceUsd,
   usdToVndSnapshot,
   quoteSupplierSaleForVilla,
   quoteStayForVilla,
@@ -54,6 +55,24 @@ describe("suggestSalePriceKrw — VND→KRW 환산 제안 (float 금지)", () =>
     expect(() => suggestSalePriceKrw(1n, "-1")).toThrow(RangeError);
     expect(() => suggestSalePriceKrw(1n, "0")).toThrow(RangeError);
     expect(() => suggestSalePriceKrw(1n, "0.0000")).toThrow(RangeError);
+  });
+});
+
+describe("suggestSalePriceUsd — VND→USD 환산 제안 (후속확장 3, float 금지)", () => {
+  it("1 USD = 26,000 VND일 때 2,400,000₫ → $92(반올림)", () => {
+    // 2,400,000 / 26,000 = 92.307… → 92
+    expect(suggestSalePriceUsd(2_400_000n, "26000")).toBe(92);
+  });
+  it("suggestSalePriceKrw와 동일 코어(같은 환율·금액이면 같은 결과)", () => {
+    expect(suggestSalePriceUsd(1_000_000n, "25400.3333")).toBe(
+      suggestSalePriceKrw(1_000_000n, "25400.3333")
+    );
+    expect(suggestSalePriceUsd(38_100_000n, "25400")).toBe(1_500); // usdToVndSnapshot 역방향
+  });
+  it("잘못된 환율 형식·0 이하 거부", () => {
+    expect(() => suggestSalePriceUsd(1n, "abc")).toThrow(RangeError);
+    expect(() => suggestSalePriceUsd(1n, "25400.55555")).toThrow(RangeError);
+    expect(() => suggestSalePriceUsd(1n, "0")).toThrow(RangeError);
   });
 });
 

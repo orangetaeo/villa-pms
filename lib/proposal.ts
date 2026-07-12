@@ -12,12 +12,11 @@ import { assertValidStayRange, checkAvailability, type StayRange } from "./avail
 import {
   quoteStayForVilla,
   quoteSupplierSaleForVilla,
-  getFxVndPerKrw,
   assertSaleAmountColumns,
   MissingRateError,
   type NightQuote,
 } from "./pricing";
-import { getDailyRates } from "./fx-rates";
+import { getEffectiveFxVndPerKrw, getEffectiveFxVndPerUsd } from "./fx-effective";
 import { writeAuditLog } from "./audit-log";
 
 /**
@@ -127,14 +126,11 @@ export async function createProposal(
 
   const saleCurrency = input.saleCurrency ?? defaultCurrencyForChannel(input.channel);
 
-  // Phase 2 USD: 오늘 USD→VND 환율 스냅샷(표시용 환산·마진 근사치)은 외부 API fetch가 따를 수 있어
-  //   트랜잭션 밖에서 미리 조회한다(트랜잭션 점유 시간 최소화 — QA 지적). null/USD rate 없으면 null.
-  let fxVndPerUsd: string | null = null;
-  if (saleCurrency === Currency.USD) {
-    const rates = await getDailyRates(prisma, input.now);
-    const usdRate = rates?.vndPerUnit?.USD;
-    if (usdRate && usdRate > 0) fxVndPerUsd = usdRate.toFixed(4);
-  }
+  // 유효 환율 스냅샷 — AUTO 모드는 외부 API fetch가 따를 수 있어 트랜잭션 밖에서 미리 조회한다
+  //   (트랜잭션 점유 시간 최소화 — QA 지적). FX_MODE MANUAL 기본이면 수동 키 그대로(현행 보존).
+  const fxVndPerUsd =
+    saleCurrency === Currency.USD ? await getEffectiveFxVndPerUsd(prisma, input.now) : null;
+  const fx = await getEffectiveFxVndPerKrw(prisma, input.now); // 생성 시점 KRW 환율 스냅샷 (미설정 null)
 
   return prisma.$transaction(async (tx) => {
     // 파트너 연결 검증(선택) — 존재·유형 일치만. DIRECT 채널은 파트너 비허용(일반 소비자)
@@ -217,8 +213,6 @@ export async function createProposal(
       }
     }
     if (failures.length > 0) throw new ProposalRejectedError(failures);
-
-    const fx = await getFxVndPerKrw(tx); // 생성 시점 환율 스냅샷 (미설정 null)
 
     const proposal = await tx.proposal.create({
       data: {

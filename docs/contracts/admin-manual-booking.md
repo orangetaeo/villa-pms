@@ -66,6 +66,16 @@
 - FE: 폼에 견적 카드 — 빌라+유효 날짜(+통화·채널) 변경 시 자동 조회, 총 판매가·박별 구성·원가/마진 표시, **판매가 입력칸 자동 채움**(사용자가 손대기 전) + "견적가 적용" 버튼(수정 후 재적용), 요율 미설정 시 판매정보 진입 안내, USD는 참조 환산+수동 입력 안내
 - 완료 기준: ⑪ 빌라+날짜 선택 시 통화별 총액·박별 구성 표시 ⑫ 견적이 totalSale에 자동 반영 ⑬ 견적 API가 계산하는 값 = POST /api/bookings가 저장하는 스냅샷과 동일 엔진(드리프트 0)
 
+## 후속 확장 3 (2026-07-12, 테오): USD 환율 설정 + 자동 환율(무료 API) 모드
+
+"달러 환율이 없어서 참조 표기 — 환율 설정에서 달러 환율 설정 가능해야(지금은 1$=26,000₫), 자동환율 무료 API 연결 + 설정에서 수정 가능"
+
+- **유효 환율 단일 해석**: `FX_MODE` AppSetting(MANUAL 기본|AUTO). MANUAL→`FX_VND_PER_KRW`/`FX_VND_PER_USD`(신규 키). AUTO→getDailyRates(open.er-api.com 일일 캐시, 기존 인프라) → 실패 시 마지막 캐시 → 수동값 폴백(fail-safe). getEffectiveFx* 함수로 quote·proposal·admin-booking 스냅샷 조회부 치환(MANUAL 기본이라 현행 보존)
+- **설정 화면 환율 카드**: KRW(기존)+USD(신규) 입력, 모드 토글, "현재 시세 불러오기"(일일 시세 표시+입력칸 채움 — 수정 후 저장 가능). AppSetting 검증 화이트리스트에 신규 키 등록
+- **견적 USD 자동화**: 유효 USD 환율 있으면 quote가 totalSaleUsd 제안 → FE 자동 채움(KRW/VND와 동일 규칙). 환율 없을 때만 기존 manual 안내
+- 배포 후 라이브 AppSetting FX_VND_PER_USD=26000 초기 설정 (테오 지시)
+- 범위 외: 제안서(Proposal) USD 자동 계산(기존 수동 입력 관례 유지 — 추후 판단)
+
 ## 수정 금지 구역
 - prisma/schema.prisma (타 세션 WIP 존재 — 본 태스크는 스키마 불필요)
 - design-audit/ (타 세션)

@@ -1,8 +1,9 @@
 // AppSetting 키 화이트리스트·검증자 (T1.7, T1.7-bank-contact)
 // route.ts와 단위 테스트(tests/settings-validators.test.ts)가 공유하는 순수 모듈.
 // auth/prisma 의존이 없어 테스트 가능 — 라우트는 이 규칙을 호출만 한다.
-import { FX_VND_PER_KRW_KEY } from "@/lib/pricing";
+import { FX_VND_PER_KRW_KEY, FX_VND_PER_USD_KEY } from "@/lib/pricing";
 import { FX_AUTO_UPDATE_KEY } from "@/lib/fx-auto-update";
+import { FX_MODE_KEY } from "@/lib/fx-effective";
 import { HOLD_HOURS_DEFAULT_KEY } from "@/lib/hold";
 import {
   CANCELLATION_POLICY_KEY,
@@ -43,6 +44,8 @@ export const CLEARABLE_KEYS = [
 export const SETTING_KEYS = [
   HOLD_HOURS_DEFAULT_KEY,
   FX_VND_PER_KRW_KEY,
+  FX_VND_PER_USD_KEY, // USD 수동 환율 (1 USD = x VND) — 비-clearable(필수 운영값, 후속확장 3)
+  FX_MODE_KEY, // 유효 환율 모드 "MANUAL"|"AUTO" — 비-clearable(미설정=MANUAL, 후속확장 3)
   FX_AUTO_UPDATE_KEY, // 판매가 환율 자동 갱신 토글 "on"/"off" — 비-clearable(off로 저장)
   CANCELLATION_POLICY_KEY, // 취소·환불 정책 JSON (#6b) — 비-clearable(항상 값 존재)
   ...CLEARABLE_KEYS,
@@ -73,6 +76,15 @@ export const VALIDATORS: Record<SettingKey, (value: string) => boolean> = {
     if (!/^\d+(\.\d{1,4})?$/.test(value)) return false;
     return Number(value) > 0; // "0", "0.0000" 거부
   },
+  // USD 환율 — FX_VND_PER_KRW와 동일 파서(양수 소수 4자리) + sanity 상한(비정상 큰 값 차단).
+  //   USD는 1$≈26,000₫ 규모라 1e9 상한은 실무상 여유 충분.
+  [FX_VND_PER_USD_KEY]: (value) => {
+    if (!/^\d+(\.\d{1,4})?$/.test(value)) return false;
+    const n = Number(value);
+    return n > 0 && n < 1_000_000_000;
+  },
+  // 유효 환율 모드 — "MANUAL"|"AUTO"만 허용 (그 외 값 주입 차단)
+  [FX_MODE_KEY]: (value) => value === "MANUAL" || value === "AUTO",
   // 자동 갱신 토글 — "on"|"off"만 허용 (그 외 값 주입 차단)
   [FX_AUTO_UPDATE_KEY]: (value) => value === "on" || value === "off",
   [BANK_NAME_KEY]: (value) => value.length >= 1 && value.length <= 100,
