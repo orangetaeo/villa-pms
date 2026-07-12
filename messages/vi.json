@@ -838,6 +838,26 @@
         "VALIDATION": "Vui lòng kiểm tra lại thông tin nhập.",
         "CREDIT": "Không thể xác nhận do hạn mức tín dụng của đối tác. (mã: {code})",
         "GENERIC": "Tạo đặt phòng thất bại. Vui lòng thử lại sau."
+      },
+      "quote": {
+        "title": "Báo giá",
+        "totalSaleLabel": "Tổng tiền bán",
+        "baseRate": "Giá cơ bản",
+        "seasons": {
+          "LOW": "Mùa thấp điểm",
+          "HIGH": "Mùa cao điểm",
+          "PEAK": "Cao điểm lễ Tết"
+        },
+        "totalCostLabel": "Tổng giá gốc",
+        "marginLabel": "Lợi nhuận dự kiến",
+        "marginUnknown": "Chưa thiết lập tỷ giá — không thể tính lợi nhuận",
+        "fxLabel": "Tỷ giá áp dụng",
+        "autoFilledBadge": "Giá báo",
+        "applyToPrice": "Áp dụng giá báo {price}",
+        "manualUsdNote": "Vui lòng tự nhập giá bán USD. Bên dưới là số tiền quy đổi tham khảo.",
+        "referenceTotal": "Quy đổi tham khảo",
+        "openVillaSalesInfo": "Mở thông tin bán villa",
+        "loadError": "Không tải được báo giá."
       }
     },
     "status": {

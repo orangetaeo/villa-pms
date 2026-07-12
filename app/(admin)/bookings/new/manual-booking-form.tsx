@@ -17,7 +17,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { formatThousands } from "@/lib/format";
+import { formatThousands, formatVnd, formatKrw } from "@/lib/format";
 import { DateField } from "@/components/date-field";
 import { BED_TYPES } from "@/lib/bedding";
 import { FEATURE_CATEGORIES, FEATURE_ITEMS } from "@/lib/features";
@@ -58,6 +58,26 @@ interface PartnerOption {
   nameVi: string | null;
   type: Channel;
   status: string;
+}
+
+// GET /api/bookings/quote 결과 (BE 계약 고정). BigInt(VND)는 string 직렬화.
+interface QuoteRow {
+  label: string | null;
+  nights: number;
+  saleKrwPerNight?: number;
+  saleVndPerNight?: string;
+  costVndPerNight: string;
+}
+interface Quote {
+  nights: number;
+  saleCurrency: Currency;
+  manual?: boolean; // USD — 자동 판매가 없음(참조값만)
+  rows: QuoteRow[];
+  totalSaleKrw?: number;
+  totalSaleVnd?: string;
+  totalCostVnd: string;
+  marginVnd: string | null;
+  fxVndPerKrw: string | null;
 }
 
 function nightsBetween(checkIn: string, checkOut: string): number {
@@ -350,6 +370,93 @@ export default function ManualBookingForm({
     setPartnerId(value);
     const p = partnerOptions.find((o) => o.id === value);
     if (p) setValue("agencyName", p.name);
+  };
+
+  // ── 견적 (선택 빌라 + 유효 날짜 → GET /api/bookings/quote) ──
+  //   canViewFinance 게이트 페이지이므로 원가·마진 노출 허용. 통화·채널도 조회 조건.
+  const [quote, setQuote] = useState<Quote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  // 판매가 자동 채움 추적: false면 견적 총액을 자동 반영, 사용자가 손대면 true(자동 덮어쓰기 중단).
+  const [manualPrice, setManualPrice] = useState(false);
+
+  const quoteEnabled = !!villaId && datesValid;
+
+  useEffect(() => {
+    if (!quoteEnabled) {
+      setQuote(null);
+      setQuoteError(null);
+      setQuoteLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setQuoteLoading(true);
+    const timer = setTimeout(() => {
+      const p = new URLSearchParams({
+        villaId,
+        checkIn,
+        checkOut,
+        saleCurrency: currency,
+        channel,
+      });
+      fetch(`/api/bookings/quote?${p.toString()}`, { signal: controller.signal })
+        .then(async (res) => {
+          if (res.ok) {
+            const data = (await res.json()) as { quote: Quote };
+            setQuote(data.quote);
+            setQuoteError(null);
+            return;
+          }
+          const data = (await res.json().catch(() => ({}))) as { error?: string };
+          setQuote(null);
+          setQuoteError(data.error ?? (res.status === 409 ? "RATE_NOT_SET" : "GENERIC"));
+        })
+        .catch(() => {
+          /* abort·네트워크 오류 — 직전 견적 유지 */
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setQuoteLoading(false);
+        });
+    }, 300);
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [quoteEnabled, villaId, checkIn, checkOut, currency, channel]);
+
+  // 자동 채움: 추적 상태(manualPrice=false)에서 견적이 도착하면 통화 일치 총액을 입력.
+  //   USD(manual)는 자동가가 없으므로 값 비움(참조 환산만 표시, 사용자가 직접 입력).
+  useEffect(() => {
+    if (!quote || manualPrice) return;
+    if (quote.manual) {
+      setValue("totalSale", "", { shouldValidate: true });
+      return;
+    }
+    const total =
+      quote.saleCurrency === "KRW"
+        ? quote.totalSaleKrw
+        : quote.saleCurrency === "VND"
+          ? quote.totalSaleVnd
+          : undefined;
+    if (total != null) setValue("totalSale", String(total), { shouldValidate: true });
+  }, [quote, manualPrice, setValue]);
+
+  // 현재 통화의 견적 총액(자동가) — 자동 채움 뱃지·"견적가 적용" 버튼 판정용.
+  const autoTotal =
+    quote && !quote.manual
+      ? currency === "KRW"
+        ? quote.totalSaleKrw != null
+          ? String(quote.totalSaleKrw)
+          : null
+        : currency === "VND"
+          ? quote.totalSaleVnd ?? null
+          : null
+      : null;
+
+  const applyQuotePrice = () => {
+    if (autoTotal == null) return;
+    setValue("totalSale", autoTotal, { shouldValidate: true });
+    setManualPrice(false);
   };
 
   const [errorCode, setErrorCode] = useState<string | null>(null);
@@ -1037,6 +1144,199 @@ export default function ManualBookingForm({
                 )}
               </section>
 
+              {/* 견적 (선택 빌라 + 유효 날짜 시) */}
+              {quoteEnabled && (
+                <section className={cardCls}>
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className={`${sectionLabel} mb-0`}>{t("create.quote.title")}</span>
+                    {quoteLoading && quote && (
+                      <span className="material-symbols-outlined text-sm text-slate-500 animate-spin">
+                        progress_activity
+                      </span>
+                    )}
+                  </div>
+
+                  {quoteError ? (
+                    quoteError === "RATE_NOT_SET" ? (
+                      <div className="flex flex-col gap-3">
+                        <p className="flex items-start gap-2 text-sm text-amber-300">
+                          <span className="material-symbols-outlined text-base">warning</span>
+                          {t("create.errors.RATE_NOT_SET")}
+                        </p>
+                        <Link
+                          href={`/villas/${villaId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="self-start inline-flex items-center gap-1.5 rounded-lg border border-admin-primary px-3 py-1.5 text-xs font-bold text-admin-primary hover:bg-admin-primary/10"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">open_in_new</span>
+                          {t("create.quote.openVillaSalesInfo")}
+                        </Link>
+                      </div>
+                    ) : (
+                      <p className="flex items-center gap-2 text-sm text-slate-400">
+                        <span className="material-symbols-outlined text-base">error</span>
+                        {quoteError === "VILLA_NOT_FOUND"
+                          ? t("create.errors.VILLA_NOT_FOUND")
+                          : t("create.quote.loadError")}
+                      </p>
+                    )
+                  ) : quote ? (
+                    <>
+                      {/* 헤더 — 총 판매가(또는 USD 참조 환산) */}
+                      {quote.manual ? (
+                        <div className="mb-4">
+                          <p className="flex items-center gap-1.5 text-sm text-amber-300">
+                            <span className="material-symbols-outlined text-base">info</span>
+                            {t("create.quote.manualUsdNote")}
+                          </p>
+                          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+                            <div>
+                              <span className="block text-[11px] text-slate-500">
+                                {t("create.quote.referenceTotal")} · VND
+                              </span>
+                              <p className="text-lg font-bold text-white tabular-nums">
+                                {quote.totalSaleVnd != null ? formatVnd(quote.totalSaleVnd) : "—"}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="block text-[11px] text-slate-500">
+                                {t("create.quote.referenceTotal")} · KRW
+                              </span>
+                              <p className="text-lg font-bold text-white tabular-nums">
+                                {quote.totalSaleKrw != null ? formatKrw(quote.totalSaleKrw) : "—"}
+                              </p>
+                            </div>
+                            <div className="ml-auto self-end">
+                              <span className="text-sm font-medium text-admin-primary tabular-nums">
+                                {t("create.nights", { n: quote.nights })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mb-4 flex items-baseline justify-between gap-3">
+                          <div>
+                            <span className="block text-[11px] text-slate-500">
+                              {t("create.quote.totalSaleLabel")}
+                            </span>
+                            <p className="text-2xl font-bold text-white tabular-nums">
+                              {currency === "KRW"
+                                ? quote.totalSaleKrw != null
+                                  ? formatKrw(quote.totalSaleKrw)
+                                  : "—"
+                                : quote.totalSaleVnd != null
+                                  ? formatVnd(quote.totalSaleVnd)
+                                  : "—"}
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-sm font-medium text-admin-primary tabular-nums">
+                            {t("create.nights", { n: quote.nights })}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* 박별 요율 구성 */}
+                      <ul className="flex flex-col gap-1.5 border-t border-slate-800 pt-3">
+                        {quote.rows.map((row, i) => {
+                          const per =
+                            currency === "KRW"
+                              ? row.saleKrwPerNight != null
+                                ? formatKrw(row.saleKrwPerNight)
+                                : null
+                              : row.saleVndPerNight != null
+                                ? formatVnd(row.saleVndPerNight)
+                                : null;
+                          return (
+                            <li
+                              key={i}
+                              className="flex items-center justify-between gap-2 text-sm"
+                            >
+                              <span className="truncate text-slate-400">
+                                {row.label
+                                  ? t(`create.quote.seasons.${row.label}` as "create.quote.seasons.LOW")
+                                  : t("create.quote.baseRate")}
+                              </span>
+                              <span className="shrink-0 tabular-nums text-slate-300">
+                                {per ?? "—"}{" "}
+                                <span className="text-slate-500">
+                                  × {t("create.nights", { n: row.nights })}
+                                </span>
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+
+                      {/* 원가 · 예상 마진 */}
+                      <div className="mt-3 flex flex-col gap-1.5 border-t border-slate-800 pt-3 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">
+                            {t("create.quote.totalCostLabel")}
+                          </span>
+                          <span className="tabular-nums text-slate-300">
+                            {formatVnd(quote.totalCostVnd)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">{t("create.quote.marginLabel")}</span>
+                          {quote.marginVnd != null ? (
+                            <span
+                              className={`font-bold tabular-nums ${
+                                quote.marginVnd.startsWith("-")
+                                  ? "text-red-400"
+                                  : "text-emerald-400"
+                              }`}
+                            >
+                              {formatVnd(quote.marginVnd)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-500">
+                              {t("create.quote.marginUnknown")}
+                            </span>
+                          )}
+                        </div>
+                        {quote.fxVndPerKrw && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500">{t("create.quote.fxLabel")}</span>
+                            <span className="text-xs tabular-nums text-slate-400">
+                              {formatThousands(quote.fxVndPerKrw)}₫ / ₩1
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 견적가 적용 (수동 수정 상태에서만) */}
+                      {manualPrice && autoTotal != null && totalSale !== autoTotal && (
+                        <button
+                          type="button"
+                          onClick={applyQuotePrice}
+                          className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-admin-primary px-3 py-1.5 text-xs font-bold text-admin-primary hover:bg-admin-primary/10"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">
+                            auto_fix_high
+                          </span>
+                          {t("create.quote.applyToPrice", {
+                            price:
+                              currency === "KRW"
+                                ? formatKrw(Number(autoTotal))
+                                : formatVnd(autoTotal),
+                          })}
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    /* 로딩 스켈레톤 (최초 조회) */
+                    <div className="flex animate-pulse flex-col gap-3">
+                      <div className="h-7 w-40 rounded bg-slate-800" />
+                      <div className="h-4 w-full rounded bg-slate-800/70" />
+                      <div className="h-4 w-3/4 rounded bg-slate-800/70" />
+                      <div className="h-4 w-1/2 rounded bg-slate-800/70" />
+                    </div>
+                  )}
+                </section>
+              )}
+
               {/* 판매가 */}
               <section className={cardCls}>
                 <span className={sectionLabel}>{t("create.priceSection")}</span>
@@ -1065,13 +1365,21 @@ export default function ManualBookingForm({
                     inputMode="numeric"
                     placeholder={t("create.pricePlaceholder")}
                     value={totalSale ? formatThousands(totalSale) : ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      setManualPrice(true);
                       setValue("totalSale", e.target.value.replace(/[^\d]/g, ""), {
                         shouldValidate: true,
-                      })
-                    }
+                      });
+                    }}
                     className={`${inputCls} pl-8 font-bold tabular-nums`}
                   />
+                  {/* 자동 채움 상태 뱃지 (견적가 그대로 적용됨) */}
+                  {!manualPrice && autoTotal != null && totalSale === autoTotal && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 rounded-full bg-admin-primary/15 px-2 py-0.5 text-[10px] font-bold text-admin-primary">
+                      <span className="material-symbols-outlined text-[13px]">bolt</span>
+                      {t("create.quote.autoFilledBadge")}
+                    </span>
+                  )}
                 </div>
                 {errors.totalSale && (
                   <p role="alert" className="text-xs text-red-400 mt-1.5">
