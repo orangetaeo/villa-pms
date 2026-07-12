@@ -22,7 +22,7 @@ import {
 } from "@/lib/ticket-variant-rules";
 import type { GuestLabels } from "@/lib/guest-i18n";
 import { guestVndPrice, guestVndDelta } from "./guest-format";
-import { resolveSelectedPeople, groupPeopleByVariant, ticketGroupsTotalVnd } from "./ticket-variant-logic";
+import { resolveSelectedPeople, groupPeopleByVariant, ticketGroupsTotalVnd, ticketGroupSubtotals } from "./ticket-variant-logic";
 import type { GuestCatalogView, GuestOption } from "./types";
 
 export interface CardSelection {
@@ -212,6 +212,41 @@ export function OptionCard({
       selection.modifierKeys
     );
   }, [isTicketVariantPerson, resolvedPeople, item.priceVnd, options, selection.addonKeys, selection.modifierKeys]);
+
+  // 카드 하단 "요금 영역"(참고용, 서버 재계산이 정본) — 품목별 합계 표시.
+  //   variant-person 모드: 구분별 소계 줄("라벨 ×N = 금액") + 카드 합계. 그 외: 단가 × 수량 = 합계.
+  const ticketSubtotals = useMemo(() => {
+    if (!isTicketVariantPerson) return [];
+    const groups = groupPeopleByVariant(resolvedPeople);
+    return ticketGroupSubtotals(
+      groups,
+      { priceVnd: item.priceVnd ? BigInt(item.priceVnd) : null },
+      options,
+      selection.addonKeys,
+      selection.modifierKeys
+    );
+  }, [isTicketVariantPerson, resolvedPeople, item.priceVnd, options, selection.addonKeys, selection.modifierKeys]);
+
+  // 일반(수량 스테퍼) 카드 요금 — 단가(1개, variant+addons 반영) + 합계(단가×수량). 선택 무효면 null.
+  const generalFee = useMemo(() => {
+    if (isTicketVariantPerson || selection.quantity < 1) return null;
+    try {
+      const unit = resolveOrderPricing(
+        { priceVnd: item.priceVnd ? BigInt(item.priceVnd) : null },
+        options,
+        {
+          variantKey: selection.variantKey,
+          addonKeys: selection.addonKeys,
+          modifierKeys: selection.modifierKeys,
+          quantity: 1,
+        }
+      ).totalPriceVnd;
+      return { unitVnd: unit, totalVnd: unit * BigInt(selection.quantity) };
+    } catch (e) {
+      if (e instanceof ServiceSelectionError) return null;
+      throw e;
+    }
+  }, [isTicketVariantPerson, item.priceVnd, options, selection.variantKey, selection.addonKeys, selection.modifierKeys, selection.quantity]);
 
   // 비-variant TICKET(단일가) 이용자 체크 토글 — 기존 흐름.
   const toggleTicketGuest = (idx: number) => {
@@ -620,6 +655,52 @@ export function OptionCard({
               />
             </div>
           </>
+        )}
+
+        {/* 요금 영역(참고용) — 수량>0일 때 품목별 합계. 서버가 최종 재계산(변조 방지). */}
+        {active && (isTicketVariantPerson ? ticketSubtotals.length > 0 : generalFee != null) && (
+          <div className="rounded-lg border border-teal-100 bg-teal-50/50 px-3 py-2 space-y-1">
+            {isTicketVariantPerson ? (
+              <>
+                {/* 구분별 소계 줄 — "라벨 ×N = 금액" */}
+                {ticketSubtotals.map((s) => (
+                  <div
+                    key={s.variantKey}
+                    className="flex items-center justify-between text-[11px] text-slate-600"
+                  >
+                    <span className="min-w-0 truncate">
+                      {variantByKey(s.variantKey)?.label ?? "—"}{" "}
+                      <span className="tabular-nums text-slate-400">×{s.count}</span>
+                    </span>
+                    <span className="shrink-0 font-semibold tabular-nums">
+                      {guestVndPrice(toVndStr(s.subtotalVnd))}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between border-t border-teal-100 pt-1">
+                  <span className="text-xs font-bold text-slate-700">{labels.itemTotal}</span>
+                  <span className="text-sm font-extrabold text-teal-700 tabular-nums">
+                    {guestVndPrice(toVndStr(ticketVariantTotalVnd ?? 0n))}
+                  </span>
+                </div>
+              </>
+            ) : (
+              generalFee != null && (
+                <div className="flex items-center justify-between">
+                  {/* 단가 × 수량 명세 */}
+                  <span className="text-[11px] tabular-nums text-slate-500">
+                    {guestVndPrice(toVndStr(generalFee.unitVnd))} × {selection.quantity}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-slate-700">{labels.itemTotal}</span>
+                    <span className="text-sm font-extrabold text-teal-700 tabular-nums">
+                      {guestVndPrice(toVndStr(generalFee.totalVnd))}
+                    </span>
+                  </span>
+                </div>
+              )
+            )}
+          </div>
         )}
 
         {/* 가격 + 수량 스테퍼. TICKET 이용자 선택 모드에선 수량이 선택 인원으로 결정되므로 스테퍼 대신 선택 수 표기. */}

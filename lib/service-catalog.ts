@@ -205,6 +205,20 @@ function validPriceVnd(v: string | null | undefined): boolean {
   return v == null || v === "" || SERVICE_VND_DIGITS.test(v);
 }
 
+/**
+ * variant 각 원소 priceVnd가 필수(숫자문자열, "0" 허용)인지 검사 — write 가드(재발 방지).
+ *   운영자가 variant 가격을 비워 저장하면(케이블카 null 사고) 게스트 주문 시 NO_PRICE 400이 나므로,
+ *   저장 시점에 막는다. variants는 base가를 "대체"하므로 반드시 값이 있어야 한다.
+ *   addons/modifiers는 가산(delta)이라 null=가산 0으로 취급 — 현행 유지(검사 안 함).
+ *   variants가 없으면(또는 options 없음) 통과. 순수.
+ */
+export function variantsHaveRequiredPrices(options: CatalogOptions | null | undefined): boolean {
+  if (!options?.variants) return true;
+  return options.variants.every(
+    (v) => v.priceVnd != null && v.priceVnd !== "" && SERVICE_VND_DIGITS.test(v.priceVnd)
+  );
+}
+
 /** 카탈로그 항목 검증 — 위반 코드 배열(빈 배열이면 통과). 순수. 판매가는 priceVnd 필수. */
 export function validateCatalogItem(input: CatalogItemInput): CatalogItemError[] {
   const errors: CatalogItemError[] = [];

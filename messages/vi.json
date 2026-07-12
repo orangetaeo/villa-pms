@@ -2595,6 +2595,7 @@
       "validationFailed": "Vui lòng kiểm tra dữ liệu nhập.",
       "autoTranslateHint": "Bản dịch tiếng Việt·Anh·Trung·Nga được tạo tự động khi lưu. Chỉ cần nhập tiếng Hàn.",
       "priceRequired": "Giá bán (VND) là bắt buộc.",
+      "variantPriceRequired": "Vui lòng nhập giá cho tất cả tùy chọn (phân loại). Không thể lưu nếu còn ô trống.",
       "photo": "Ảnh",
       "photoUpload": "Tải ảnh lên",
       "photoReplace": "Đổi ảnh",

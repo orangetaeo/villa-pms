@@ -163,6 +163,8 @@ export default function ServiceCatalogManager({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  // variant 가격 빈칸 저장 차단 — 오류 행 인덱스(해당 행 가격칸 강조). variant는 base가 대체라 값 필수.
+  const [variantPriceErr, setVariantPriceErr] = useState<Set<number>>(new Set());
 
   const refresh = () => router.refresh();
   const fail = () => setMessage({ ok: false, text: t("error") });
@@ -171,6 +173,7 @@ export default function ServiceCatalogManager({
     setEditingId(null);
     setDraft(emptyForm(initialItems.length));
     setFormError(null);
+    setVariantPriceErr(new Set());
     setModalOpen(true);
   }
 
@@ -210,6 +213,7 @@ export default function ServiceCatalogManager({
       pickupNote: item.pickupNote ?? "",
     });
     setFormError(null);
+    setVariantPriceErr(new Set());
     setModalOpen(true);
   }
 
@@ -238,6 +242,18 @@ export default function ServiceCatalogManager({
       setFormError(t("form.priceRequired"));
       return;
     }
+    // ★variant 가격 필수 — 이름 있는 variant 행에 가격 빈칸이면 저장 차단(서버도 VARIANT_PRICE_REQUIRED로 방어).
+    //   variant는 base가를 대체하므로 값이 없으면 게스트 주문이 실패한다(케이블카 null 사고 재발 방지).
+    const badVariants = new Set<number>();
+    draft.variants.forEach((r, i) => {
+      if (r.labelKo.trim() && r.priceVnd.trim() === "") badVariants.add(i);
+    });
+    if (badVariants.size > 0) {
+      setVariantPriceErr(badVariants);
+      setFormError(t("form.variantPriceRequired"));
+      return;
+    }
+    setVariantPriceErr(new Set());
     const variants = buildOptionGroup(draft.variants);
     const addons = buildOptionGroup(draft.addons);
     const modifiers = buildOptionGroup(draft.modifiers);
@@ -638,6 +654,8 @@ export default function ServiceCatalogManager({
           busy={busy}
           error={formError}
           fx={fx}
+          variantPriceErr={variantPriceErr}
+          onVariantsEdit={() => setVariantPriceErr(new Set())}
           onSave={handleSave}
           onClose={() => setModalOpen(false)}
           t={t}
@@ -657,6 +675,8 @@ function CatalogModal({
   busy,
   error,
   fx,
+  variantPriceErr,
+  onVariantsEdit,
   onSave,
   onClose,
   t,
@@ -669,6 +689,8 @@ function CatalogModal({
   busy: boolean;
   error: string | null;
   fx: string | null;
+  variantPriceErr: Set<number>; // variant 가격 빈칸 오류 행(가격칸 강조)
+  onVariantsEdit: () => void; // variant 행 편집 시 오류 강조 해제
   onSave: () => void;
   onClose: () => void;
   t: ReturnType<typeof useTranslations>;
@@ -965,9 +987,13 @@ function CatalogModal({
           <OptionGroup
             title={t("form.variants")}
             rows={draft.variants}
-            onChange={(rows) => setDraft((d) => ({ ...d, variants: rows }))}
+            onChange={(rows) => {
+              onVariantsEdit(); // 편집 시 이전 가격 오류 강조 해제
+              setDraft((d) => ({ ...d, variants: rows }));
+            }}
             showCost={showCost}
             showRules={draft.type === "TICKET"}
+            invalidPriceRows={variantPriceErr}
             t={t}
           />
           <OptionGroup
@@ -1053,6 +1079,7 @@ function OptionGroup({
   onChange,
   showCost,
   showRules = false,
+  invalidPriceRows,
   t,
 }: {
   title: string;
@@ -1060,6 +1087,7 @@ function OptionGroup({
   onChange: (rows: OptionDraft[]) => void;
   showCost: boolean;
   showRules?: boolean; // TICKET variants — 구분 자동판정 규칙 입력칸 노출(ADR-0036)
+  invalidPriceRows?: Set<number>; // 가격 빈칸 오류 행(variant 전용) — 가격칸 강조
   t: ReturnType<typeof useTranslations>;
 }) {
   const update = (i: number, patch: Partial<OptionDraft>) =>
@@ -1108,7 +1136,9 @@ function OptionGroup({
               onChange={(e) => update(i, { priceVnd: e.target.value.replace(/\D/g, "") })}
               placeholder={t("form.optPriceVnd")}
               aria-label={t("form.optPriceVnd")}
-              className={`${cell} col-span-4 tabular-nums text-right`}
+              className={`${cell} col-span-4 tabular-nums text-right ${
+                invalidPriceRows?.has(i) ? "border-red-500 bg-red-500/10" : ""
+              }`}
             />
             {showCost && (
               <input

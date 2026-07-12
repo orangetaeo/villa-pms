@@ -9,6 +9,7 @@ import { canViewFinance, canSetPrice, type Role } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
 import {
   validateCatalogItem,
+  variantsHaveRequiredPrices,
   SERVICE_TYPE_VALUES,
   parseAudiences,
   stripOptionCosts,
@@ -87,6 +88,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     options: gatedOptions ?? null,
   });
   if (errs.length > 0) return NextResponse.json({ error: "VALIDATION_FAILED", codes: errs }, { status: 400 });
+  // ★variant 가격 필수(재발 방지) — POST와 동일. variant는 base가 대체이므로 빈 가격 저장 차단("0" 허용).
+  if (!variantsHaveRequiredPrices(gatedOptions as CatalogOptions | null | undefined)) {
+    return NextResponse.json({ error: "VARIANT_PRICE_REQUIRED" }, { status: 400 });
+  }
 
   // 기존 항목(옵션 포함) — 404 체크 + 비-재무 편집 시 옵션 원가 병합 보존용
   const existing = await prisma.serviceCatalogItem.findUnique({

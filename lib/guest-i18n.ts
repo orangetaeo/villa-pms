@@ -88,10 +88,12 @@ export interface GuestLabels {
     sheetTitle: string;
     sheetHint: string;
     estTotal: string;
+    itemTotal: string; // 카드 하단 품목 합계 라벨(단가×수량·티켓 구분별 소계 합)
     requestCta: string;
     requesting: string;
     requested: string; // 요청 완료 토스트
     error: string;
+    configError: string; // 품목 설정 오류(VARIANT_REQUIRED/NO_PRICE 등) — 운영자 문의 안내
     perUnit: (label: string) => string;
     variantRequired: string;
     goNext: string; // 옵션 없이 다음
@@ -295,10 +297,12 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       sheetTitle: "세부 시술 선택",
       sheetHint: "여러 개 선택할 수 있어요",
       estTotal: "합계 (예상)",
+      itemTotal: "합계",
       requestCta: "이 옵션 요청하기",
       requesting: "요청 처리 중…",
       requested: "요청이 접수되었습니다.",
       error: "요청 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.",
+      configError: "이 품목의 설정에 문제가 있어요. 운영자에게 문의해 주세요.",
       perUnit: (l) => `/ ${l}`,
       variantRequired: "옵션을 선택해주세요",
       goNext: "옵션 없이 완료",
@@ -484,10 +488,12 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       sheetTitle: "Choose add-ons",
       sheetHint: "You can pick several",
       estTotal: "Estimated total",
+      itemTotal: "Subtotal",
       requestCta: "Request these options",
       requesting: "Submitting…",
       requested: "Your request has been received.",
       error: "Something went wrong. Please try again shortly.",
+      configError: "There's a problem with this item's setup. Please contact the operator.",
       perUnit: (l) => `/ ${l}`,
       variantRequired: "Please choose an option",
       goNext: "Finish without options",
@@ -673,10 +679,12 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       sheetTitle: "Выберите доп. услуги",
       sheetHint: "Можно выбрать несколько",
       estTotal: "Примерный итог",
+      itemTotal: "Итог",
       requestCta: "Запросить эти опции",
       requesting: "Отправка…",
       requested: "Ваш запрос принят.",
       error: "Произошла ошибка. Повторите попытку позже.",
+      configError: "Проблема с настройкой этой позиции. Пожалуйста, свяжитесь с оператором.",
       perUnit: (l) => `/ ${l}`,
       variantRequired: "Выберите опцию",
       goNext: "Завершить без опций",
@@ -862,10 +870,12 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       sheetTitle: "选择细项",
       sheetHint: "可选择多项",
       estTotal: "合计（预估）",
+      itemTotal: "小计",
       requestCta: "请求这些选项",
       requesting: "提交中…",
       requested: "您的请求已受理。",
       error: "处理时出现问题，请稍后再试。",
+      configError: "此项目的设置有问题，请联系运营方。",
       perUnit: (l) => `/ ${l}`,
       variantRequired: "请选择选项",
       goNext: "不选选项直接完成",
@@ -1051,10 +1061,12 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       sheetTitle: "Chọn dịch vụ thêm",
       sheetHint: "Bạn có thể chọn nhiều",
       estTotal: "Tổng (dự kiến)",
+      itemTotal: "Tổng",
       requestCta: "Yêu cầu các tùy chọn này",
       requesting: "Đang gửi…",
       requested: "Đã nhận yêu cầu của bạn.",
       error: "Đã xảy ra lỗi. Vui lòng thử lại sau.",
+      configError: "Mục này có vấn đề về thiết lập. Vui lòng liên hệ người điều hành.",
       perUnit: (l) => `/ ${l}`,
       variantRequired: "Vui lòng chọn tùy chọn",
       goNext: "Hoàn tất không chọn tùy chọn",

@@ -30,6 +30,16 @@ function isoToDateInput(iso: string): string {
   return new Date(iso).toISOString().slice(0, 10);
 }
 
+// 품목 설정 오류 코드 — 서버 응답(error 또는 selection code)이 이 집합이면 "운영자 문의" 구체 문구.
+//   VARIANT_REQUIRED·UNKNOWN_VARIANT·NO_PRICE = 게스트 재시도로 해결 불가(운영자 카탈로그 문제).
+//   VARIANT_PRICE_REQUIRED = 카탈로그 write 가드(주문 경로엔 안 오지만 방어적으로 포함).
+const CONFIG_ERROR_CODES = new Set([
+  "VARIANT_REQUIRED",
+  "NO_PRICE",
+  "UNKNOWN_VARIANT",
+  "VARIANT_PRICE_REQUIRED",
+]);
+
 function emptySelection(variantKey: string | null): CardSelection {
   return {
     variantKey,
@@ -171,13 +181,28 @@ export default function GuestOptions(props: GuestOptionsProps) {
     setSubmitting(true);
     setOrdersError(null);
     // 단일 주문 POST(부분 실패 시 throw로 중단 — 기존 루프 방식). true면 성공.
+    //   실패 시 서버 응답의 오류 코드(error 또는 selection code)를 Error.code에 실어 던진다 —
+    //   품목 설정 오류(가격 누락 등)는 게스트에게 구체 문구로 안내하기 위함. json 파싱 실패는 관용(코드 null).
     const postOrder = async (body: Record<string, unknown>) => {
       const res = await fetch(`/api/g/${token}/service-orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(`HTTP_${res.status}`);
+      if (!res.ok) {
+        let code: string | null = null;
+        try {
+          const j = (await res.json()) as { error?: unknown; code?: unknown };
+          code =
+            (typeof j?.code === "string" ? j.code : null) ??
+            (typeof j?.error === "string" ? j.error : null);
+        } catch {
+          /* json 파싱 실패는 관용 — 일반 오류로 처리 */
+        }
+        const err = new Error(`HTTP_${res.status}`) as Error & { code?: string | null };
+        err.code = code;
+        throw err;
+      }
     };
     try {
       for (const c of chosen) {
@@ -229,8 +254,10 @@ export default function GuestOptions(props: GuestOptionsProps) {
       }
       // 신청 완료 → 신청 내역 페이지로 이동(서버 렌더로 최신 목록·옵션 상세 표시) + 성공 배너(ordered=1)
       router.push(ordersHref + (suffix ? "&" : "?") + "ordered=1");
-    } catch {
-      setOrdersError(L.addons.error);
+    } catch (e) {
+      // 품목 설정 오류(variant 필수·가격 부재·미지 variant)는 구체 문구 — 게스트가 재시도해도 안 되므로 운영자 문의 안내.
+      const code = (e as { code?: string | null } | null)?.code ?? null;
+      setOrdersError(code && CONFIG_ERROR_CODES.has(code) ? L.addons.configError : L.addons.error);
       setSubmitting(false);
     }
   };
