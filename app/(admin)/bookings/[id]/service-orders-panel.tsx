@@ -203,31 +203,8 @@ export default function ServiceOrdersPanel({
     }
   }
 
-  // ADR-0023 S2 — 건별 발주 정산(완료/해제). 재무권한자만. PATCH {markSettled, vendorSettleMethod?}.
-  async function settleVendor(
-    orderId: string,
-    markSettled: boolean,
-    vendorSettleMethod?: VendorSettleMethod
-  ) {
-    setBusy(true);
-    setMessage(null);
-    try {
-      const body: Record<string, unknown> = { markSettled };
-      if (markSettled && vendorSettleMethod) body.vendorSettleMethod = vendorSettleMethod;
-      const res = await fetch(`/api/service-orders/${orderId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error();
-      setMessage({ tone: "ok", text: t("saved") });
-      refresh();
-    } catch {
-      fail();
-    } finally {
-      setBusy(false);
-    }
-  }
+  // ★정산 조작은 정산 허브(/service-orders)로 일원화 — 이 패널에는 조작 UI 없음.
+  //   정산완료 시각은 VendorCell에서 조회성 뱃지로만 표시(재무권한자 게이트). 서버 PATCH markSettled는 허브 전용.
 
   // 대체 벤더 지정(admin-vendor-ops D) — REQUESTED + 발주 전/거절만. PATCH {vendorId}(null=직접 제공).
   //   서버가 발주 사이클 리셋(vendorStatus 등 null) 후 재발주 가능. 409 VENDOR_LOCKED는 상태 안내.
@@ -348,143 +325,140 @@ export default function ServiceOrdersPanel({
       {orders.length === 0 ? (
         <p className="p-6 text-sm text-admin-muted">{t("empty")}</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-admin-muted text-[11px] font-bold uppercase tracking-wider border-b border-slate-700 bg-slate-900/40">
-              <tr>
-                <th className="text-left px-6 py-3">{t("colMenu")}</th>
-                <th className="text-center px-2 py-3">{t("colQty")}</th>
-                <th className="text-center px-2 py-3">{t("colVia")}</th>
-                <th className="text-left px-3 py-3">{t("colWhen")}</th>
-                <th className="text-right px-3 py-3">{t("colSale")}</th>
-                {showCost && <th className="text-right px-3 py-3">{t("colCost")}</th>}
-                <th className="text-left px-3 py-3">{t("colVendor")}</th>
-                <th className="text-center px-3 py-3">{t("colStatus")}</th>
-                <th className="text-right px-6 py-3">{t("colActions")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700">
-              {orders.map((o) => {
-                const isPendingGuest = o.requestedVia === "GUEST" && o.status === "REQUESTED";
-                const terminal = o.status === "CANCELLED";
-                const optSummary = o.selectedOptions.map((s) => s.labelKo).join(", ");
-                return (
-                  <tr
-                    key={o.id}
-                    className={
-                      isPendingGuest
-                        ? "bg-amber-500/5"
-                        : terminal
-                          ? "opacity-60"
-                          : "hover:bg-slate-700/30 transition"
-                    }
-                  >
-                    <td className="px-6 py-3">
-                      <p
-                        className={`font-medium ${terminal ? "text-slate-300 line-through" : "text-white"}`}
-                      >
-                        {o.nameKo}
+        /* 반응형 카드 목록 — 가로 스크롤 없음(360px 모바일 포함). 정산 조작은 허브로 일원화됨. */
+        <ul className="divide-y divide-slate-700">
+          {orders.map((o) => {
+            const isPendingGuest = o.requestedVia === "GUEST" && o.status === "REQUESTED";
+            const terminal = o.status === "CANCELLED";
+            const optSummary = o.selectedOptions.map((s) => s.labelKo).join(", ");
+            return (
+              <li
+                key={o.id}
+                className={`px-4 py-4 sm:px-6 space-y-3 ${
+                  isPendingGuest
+                    ? "bg-amber-500/5"
+                    : terminal
+                      ? "opacity-60"
+                      : "hover:bg-slate-700/20 transition"
+                }`}
+              >
+                {/* 상단: 메뉴명 + 상태/출처 배지 */}
+                <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className={`font-medium break-words ${terminal ? "text-slate-300 line-through" : "text-white"}`}
+                    >
+                      {o.nameKo}
+                    </p>
+                    {optSummary && (
+                      <p className="text-[11px] text-slate-500 mt-0.5 break-words">{optSummary}</p>
+                    )}
+                    {o.guestNote && (
+                      <p className="text-[11px] text-amber-400/80 mt-0.5 italic break-words">“{o.guestNote}”</p>
+                    )}
+                    {/* 이용자 이름 — 예약 대표자와 다를 때만 식별용 표시(이름만) */}
+                    {o.customerName && o.customerName !== representativeName && (
+                      <p className="text-[11px] text-teal-300/90 mt-0.5 flex items-center gap-0.5">
+                        <span className="material-symbols-outlined text-[13px]">person</span>
+                        {t("customerName")}: {o.customerName}
                       </p>
-                      {optSummary && (
-                        <p className="text-[11px] text-slate-500 mt-0.5">{optSummary}</p>
-                      )}
-                      {o.guestNote && (
-                        <p className="text-[11px] text-amber-400/80 mt-0.5 italic">“{o.guestNote}”</p>
-                      )}
-                      {/* 이용자 이름 — 예약 대표자와 다를 때만 식별용 표시(이름만) */}
-                      {o.customerName && o.customerName !== representativeName && (
-                        <p className="text-[11px] text-teal-300/90 mt-0.5 flex items-center gap-0.5">
-                          <span className="material-symbols-outlined text-[13px]">person</span>
-                          {t("customerName")}: {o.customerName}
-                        </p>
-                      )}
-                      {/* 티켓형(TICKET) 발행 현황 + 대리 첨부/삭제(ADR-0034) — 발주 상태 불변 */}
-                      {o.type === "TICKET" && (
-                        <AdminTicketCell order={o} t={t} onChanged={refresh} />
-                      )}
-                    </td>
-                    <td className="px-2 py-3 text-center tabular-nums text-slate-300">{o.quantity}</td>
-                    <td className="px-2 py-3 text-center">
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
-                          o.requestedVia === "GUEST"
-                            ? "bg-teal-500/15 text-teal-300"
-                            : "bg-slate-600/40 text-slate-300"
-                        }`}
-                      >
-                        {o.requestedVia === "GUEST" ? t("viaGuest") : t("viaAdmin")}
-                      </span>
-                    </td>
-                    <td className="px-3 py-3 text-left whitespace-nowrap">
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
+                        o.requestedVia === "GUEST"
+                          ? "bg-teal-500/15 text-teal-300"
+                          : "bg-slate-600/40 text-slate-300"
+                      }`}
+                    >
+                      {o.requestedVia === "GUEST" ? t("viaGuest") : t("viaAdmin")}
+                    </span>
+                    <span
+                      className={`text-[11px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap ${
+                        STATUS_BADGE[o.status]
+                      }`}
+                    >
+                      {t(`status.${o.status}`)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 티켓형(TICKET) 발행 현황 + 대리 첨부/삭제(ADR-0034) — 발주 상태 불변 */}
+                {o.type === "TICKET" && <AdminTicketCell order={o} t={t} onChanged={refresh} />}
+
+                {/* 메타: 수량·희망일시·판매가·원가(권한 게이트) — flex-wrap로 좁은 화면에서도 줄바꿈 */}
+                <dl className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
+                  <div className="flex items-baseline gap-1.5">
+                    <dt className="text-slate-500">{t("colQty")}</dt>
+                    <dd className="tabular-nums text-slate-200 font-medium">{o.quantity}</dd>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <dt className="text-slate-500">{t("colWhen")}</dt>
+                    <dd className="tabular-nums text-slate-200">
                       {o.serviceDate || o.serviceTime ? (
-                        <span className="text-xs text-slate-300 tabular-nums">
+                        <>
                           {o.serviceDate ?? ""}
                           {o.serviceDate && o.serviceTime ? " " : ""}
                           {o.serviceTime ?? ""}
-                        </span>
+                        </>
                       ) : (
                         <span className="text-slate-600">—</span>
                       )}
-                    </td>
-                    <td className="px-3 py-3 text-right tabular-nums text-white font-semibold whitespace-nowrap">
+                    </dd>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <dt className="text-slate-500">{t("colSale")}</dt>
+                    <dd className="tabular-nums text-white font-semibold">
                       {o.priceKrw > 0 ? `${formatThousands(o.priceKrw)}원` : ""}
-                      {o.priceKrw > 0 && o.priceVnd ? <br /> : null}
+                      {o.priceKrw > 0 && o.priceVnd ? " · " : ""}
                       {o.priceVnd ? (
-                        <span className="text-slate-300 font-normal">
-                          {formatThousands(o.priceVnd)}₫
-                        </span>
+                        <span className="text-slate-300 font-normal">{formatThousands(o.priceVnd)}₫</span>
                       ) : o.priceKrw > 0 ? null : (
-                        "—"
+                        <span className="text-slate-600">—</span>
                       )}
-                    </td>
-                    {showCost && (
-                      <td className="px-3 py-3 text-right tabular-nums text-slate-400 whitespace-nowrap">
+                    </dd>
+                  </div>
+                  {showCost && (
+                    <div className="flex items-baseline gap-1.5">
+                      <dt className="text-slate-500">{t("colCost")}</dt>
+                      <dd className="tabular-nums text-slate-400">
                         {o.costVnd && o.costVnd !== "0" ? `${formatThousands(o.costVnd)}₫` : "—"}
-                      </td>
-                    )}
-                    <td className="px-3 py-3 text-left align-top">
-                      <VendorCell
-                        order={o}
-                        showCost={showCost}
-                        busy={busy}
-                        vendorOptions={vendorOptions}
-                        onApplyProposal={applyProposal}
-                        onChangeVendor={changeVendor}
-                        t={t}
-                      />
-                    </td>
-                    <td className="px-3 py-3 text-center">
-                      <span
-                        className={`text-[11px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap ${
-                          STATUS_BADGE[o.status]
-                        }`}
-                      >
-                        {t(`status.${o.status}`)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3">
-                      <RowActions
-                        order={o}
-                        showCost={showCost}
-                        busy={busy}
-                        confirmPrice={confirmPrice[o.id] ?? ""}
-                        setConfirmPrice={(v) =>
-                          setConfirmPrice((s) => ({ ...s, [o.id]: v.replace(/\D/g, "") }))
-                        }
-                        onConfirm={() => handleConfirm(o)}
-                        onDeliver={() => patchStatus(o.id, "DELIVERED")}
-                        onCancel={() => handleCancel(o)}
-                        onDispatch={() => dispatchOrder(o.id)}
-                        onSettle={settleVendor}
-                        t={t}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+
+                {/* 부가서비스 공급자 — 발주 상태·대체 지정·일정 제안·정산완료(조회성 뱃지) */}
+                <VendorCell
+                  order={o}
+                  showCost={showCost}
+                  busy={busy}
+                  vendorOptions={vendorOptions}
+                  onApplyProposal={applyProposal}
+                  onChangeVendor={changeVendor}
+                  t={t}
+                />
+
+                {/* 처리 액션 — 발주·확정·제공완료·취소·확정가(정산 없음) */}
+                <RowActions
+                  order={o}
+                  showCost={showCost}
+                  busy={busy}
+                  confirmPrice={confirmPrice[o.id] ?? ""}
+                  setConfirmPrice={(v) =>
+                    setConfirmPrice((s) => ({ ...s, [o.id]: v.replace(/\D/g, "") }))
+                  }
+                  onConfirm={() => handleConfirm(o)}
+                  onDeliver={() => patchStatus(o.id, "DELIVERED")}
+                  onCancel={() => handleCancel(o)}
+                  onDispatch={() => dispatchOrder(o.id)}
+                  t={t}
+                />
+              </li>
+            );
+          })}
+        </ul>
       )}
 
       {/* 옵션 추가 */}
@@ -841,6 +815,7 @@ function formatProposalWhen(date: string | null, time: string | null): string {
 }
 
 // ── 행별 상태 액션 ─────────────────────────────────────────────────────────────
+//   정산 조작은 정산 허브(/service-orders)로 일원화 — 여기에는 발주·확정·제공완료·취소·확정가만.
 function RowActions({
   order,
   showCost,
@@ -851,7 +826,6 @@ function RowActions({
   onDeliver,
   onCancel,
   onDispatch,
-  onSettle,
   t,
 }: {
   order: OrderRow;
@@ -863,11 +837,6 @@ function RowActions({
   onDeliver: () => void;
   onCancel: () => void;
   onDispatch: () => void;
-  onSettle: (
-    orderId: string,
-    markSettled: boolean,
-    method?: VendorSettleMethod
-  ) => void;
   t: ReturnType<typeof useTranslations>;
 }) {
   const btnGhost =
@@ -889,7 +858,7 @@ function RowActions({
   if (order.status === "REQUESTED") {
     return (
       <div className="flex flex-col items-end gap-1.5">
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {canDispatch && (
             <button
               type="button"
@@ -940,90 +909,27 @@ function RowActions({
   }
   if (order.status === "CONFIRMED" || order.status === "DELIVERED") {
     return (
-      <div className="flex flex-col items-end gap-1.5">
-        <div className="flex items-center justify-end gap-2">
-          {order.status === "CONFIRMED" && (
-            <button
-              type="button"
-              onClick={onDeliver}
-              disabled={busy}
-              className="text-xs font-bold bg-admin-primary hover:bg-blue-600 text-white rounded-lg px-2.5 py-1.5 whitespace-nowrap disabled:opacity-50"
-            >
-              {t("actions.deliver")}
-            </button>
-          )}
-          {order.status === "CONFIRMED" && (
-            <button type="button" onClick={onCancel} disabled={busy} className={btnGhost}>
-              {t("actions.cancel")}
-            </button>
-          )}
-        </div>
-        {/* 건별 발주 정산 (재무권한자만, 공급자 수락·배송된 주문) */}
-        {showCost && hasVendor && vendorAccepted && (
-          <VendorSettle order={order} busy={busy} onSettle={onSettle} t={t} />
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {order.status === "CONFIRMED" && (
+          <button
+            type="button"
+            onClick={onDeliver}
+            disabled={busy}
+            className="text-xs font-bold bg-admin-primary hover:bg-blue-600 text-white rounded-lg px-2.5 py-1.5 whitespace-nowrap disabled:opacity-50"
+          >
+            {t("actions.deliver")}
+          </button>
         )}
+        {order.status === "CONFIRMED" && (
+          <button type="button" onClick={onCancel} disabled={busy} className={btnGhost}>
+            {t("actions.cancel")}
+          </button>
+        )}
+        {order.status === "DELIVERED" && <span className="text-slate-600 text-xs">—</span>}
       </div>
     );
   }
   return <div className="text-right text-slate-600 text-xs">—</div>;
-}
-
-// ── 건별 발주 정산 컨트롤 (재무권한자) ───────────────────────────────────────────
-function VendorSettle({
-  order,
-  busy,
-  onSettle,
-  t,
-}: {
-  order: OrderRow;
-  busy: boolean;
-  onSettle: (orderId: string, markSettled: boolean, method?: VendorSettleMethod) => void;
-  t: ReturnType<typeof useTranslations>;
-}) {
-  const [method, setMethod] = useState<VendorSettleMethod>("CASH");
-
-  if (order.vendorSettledAt) {
-    return (
-      <div className="flex items-center gap-2 whitespace-nowrap">
-        <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
-          <span className="material-symbols-outlined text-[14px]">paid</span>
-          {t("vendor.settled")}
-          {order.vendorSettleMethod && ` · ${t(`vendor.method.${order.vendorSettleMethod}`)}`}
-        </span>
-        <button
-          type="button"
-          onClick={() => onSettle(order.id, false)}
-          disabled={busy}
-          className="text-[10px] font-bold text-slate-500 hover:text-slate-300 underline disabled:opacity-50"
-        >
-          {t("vendor.unsettle")}
-        </button>
-      </div>
-    );
-  }
-  return (
-    <div className="flex items-center gap-1.5 whitespace-nowrap">
-      <select
-        value={method}
-        onChange={(e) => setMethod(e.target.value as VendorSettleMethod)}
-        aria-label={t("vendor.settleMethod")}
-        className="bg-admin-bg border border-slate-700 rounded px-1.5 py-1 text-[11px] text-white focus:border-admin-primary focus:outline-none"
-      >
-        <option value="CASH">{t("vendor.method.CASH")}</option>
-        <option value="BANK_TRANSFER">{t("vendor.method.BANK_TRANSFER")}</option>
-        <option value="OTHER">{t("vendor.method.OTHER")}</option>
-      </select>
-      <button
-        type="button"
-        onClick={() => onSettle(order.id, true, method)}
-        disabled={busy}
-        className="text-[11px] font-bold bg-teal-700 hover:bg-teal-600 text-white rounded-lg px-2 py-1 whitespace-nowrap disabled:opacity-50 flex items-center gap-1"
-      >
-        <span className="material-symbols-outlined text-[14px]">paid</span>
-        {t("vendor.markSettled")}
-      </button>
-    </div>
-  );
 }
 
 // ── 옵션 추가 폼 (카탈로그 선택 → variant/addon/modifier → 수량 → 합계 미리보기) ──────

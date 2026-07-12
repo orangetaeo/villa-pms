@@ -2585,6 +2585,9 @@
       "settleSelected": "선택 입금 처리 ({n})",
       "noBank": "계좌 미등록",
       "viewBooking": "예약 보기",
+      "unsettle": "정산 해제",
+      "unsettling": "해제 중…",
+      "unsettleConfirm": "이 건의 정산완료를 해제할까요? 다시 입금 대기로 돌아갑니다.",
       "settled": "정산완료",
       "unsettledBadge": "미정산",
       "completedBadge": "이행 완료 {date}",
@@ -2691,9 +2694,6 @@
       "cannotDispatch": "현재 상태에서는 발주할 수 없습니다",
       "confirmGate": "공급자 수락 대기",
       "notAcceptedWarn": "공급자가 아직 수락하지 않았습니다",
-      "settleMethod": "결제수단",
-      "markSettled": "정산 완료",
-      "settled": "정산완료",
       "settledAt": "정산완료 {date}",
       "completedAt": "이행 완료 {date}",
       "change": "공급자 변경",
@@ -2702,12 +2702,6 @@
       "changeDispatched": "업체 변경 및 발주 발송 완료",
       "changeDispatchedNoZalo": "업체를 변경하고 발주했으나 공급자 Zalo 미연결 — 수동 연락이 필요합니다",
       "changeDispatchFailed": "업체는 변경됐으나 발주 발송 실패 — 발주 보내기를 눌러 재시도하세요",
-      "unsettle": "해제",
-      "method": {
-        "CASH": "현금",
-        "BANK_TRANSFER": "이체",
-        "OTHER": "기타"
-      },
       "proposal": {
         "title": "공급자 제안 일정",
         "apply": "적용",
