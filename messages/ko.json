@@ -442,7 +442,8 @@
       "errNoFiles": "파일을 선택해 주세요.",
       "passportTitle": "이용자 여권 정보",
       "passportEmpty": "이용자 미지정 — 주문 시 선택되지 않았습니다",
-      "heightDeclared": "신고 {cm}cm"
+      "heightDeclared": "신고 {cm}cm",
+      "freeEntry": "무료 입장 — 티켓 발행 불필요"
     },
     "propose": {
       "button": "시간 제안",

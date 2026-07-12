@@ -44,6 +44,10 @@
 
 발행=수락 겸행의 **발동 시점을 "업로드 반영 후 발행 수량 ≥ 주문 수량"으로 한정**한다(계약 `ticket-issuance-complete-gate.md`). 배경(테오 실측): 2장짜리 TICKET 주문에 1장만 발행해도 즉시 수락되어 예약현황으로 이동하는 업무 순서 오류. 이제 미달 업로드는 `ticketUrls`만 추가하고 `PENDING_VENDOR`를 유지(발주함 잔류·운영자 통보 미발송)하며, 나눠 업로드로 수량이 충족되는 마지막 업로드에서 1회 전이(+GUEST·REQUESTED면 CONFIRMED)+통보한다(원자 updateMany 가드·`accept = wasPending && newUrls.length ≥ quantity`). 단 §4 수량 비강제 취지(확인시트 1장으로 전원 커버·FOC)를 위해 **부족 발행 상태의 수동 수락 경로는 열어둔다** — 벤더 보드에서 발행 1장 이상이면 기존 `respond accept` 수락 버튼을 노출(0장이면 발행 유도 위해 숨김). 이미 `VENDOR_ACCEPTED`인 주문의 추가 발행·삭제는 상태 불변(삭제로 수량 미달이 돼도 un-accept 없음), 운영자 대리 첨부(§3)도 상태 불변으로 유지된다.
 
+### 3-2. (개정 2026-07-12) 무료 티켓 예외 — 발행·제시 불필요
+
+무료 입장 티켓(판매가 0 — 무료/유아 variant 등)은 업체가 QR을 **발행할 필요도, 소비자가 제시할 필요도 없다**(그냥 입장, 테오). 따라서 발행 완료 게이트(§3-1) 대상에서 제외한다. 무료 판정=`type=TICKET && 주문 판매가(priceVnd 스냅샷)=0`. 게스트 생성 경로(`/api/g/[token]/service-orders`)는 무료 그룹을 자동 발주(PENDING_VENDOR) 대신 **생성 시점에 `status=CONFIRMED`+`vendorStatus=VENDOR_ACCEPTED`+`poSentAt`·`vendorRespondedAt` 원자 세팅**하고, **벤더 발주 통보(`sendVendorPoNotifications`)를 생략**한다(할 일 아님 — 벤더 예약현황 정보 노출로 충분). 운영자 신청 접수 알림(A1)은 유지. `vendorId`는 정상 스냅샷(해석 결과 그대로 — 벤더 예약현황 노출용). 같은 제출의 유료 그룹은 §3-1 자동 발주 흐름 그대로. 벤더 응답(`/api/vendor/orders`)은 행에 서버 파생 `freeEntry` boolean만 노출(판매가 값 자체는 절대 미포함) — 벤더 보드는 무료 행에 발행 패널 대신 "무료 입장 — 티켓 발행 불필요" 안내를 렌더한다. 소비자 신청 내역은 무료 라인에 "티켓 없이 입장 가능(무료)" 안내(5언어)를 표시하고 부분 발행 경고(§표시)는 제외한다.
+
 ## 누수 경계
 
 - 벤더 응답(`/api/vendor/orders`·업로드 응답)·게스트 응답에 판매가·마진·costVnd·bankInfo **신규 노출 없음**.

@@ -25,6 +25,8 @@ const ROW_SELECT = {
   serviceTime: true,
   quantity: true,
   costVnd: true,
+  // ★무료 티켓 판정(freeEntry) 전용 — 판매가 스냅샷. 응답에는 boolean만 파생하고 이 값 자체는 절대 미노출(누수 0).
+  priceVnd: true,
   vendorSettledAt: true,
   vendorSettleMethod: true,
   vendorSettleNote: true,
@@ -81,6 +83,9 @@ async function mapRows(rows: RawRow[], locale: string) {
     itemName: (o.catalogItemId ? nameById.get(o.catalogItemId) : null) ?? o.vendorName ?? null,
     optionLabel: selectedOptionLabels(o.selectedOptions, locale).join(" · ") || null,
     type: o.type,
+    // ★무료 티켓(판매가 0) — QR 발행·제시 불필요. 서버 파생 boolean만(판매가 값 자체는 절대 미노출).
+    //   화면은 이 플래그로 발행 패널 대신 "무료 입장" 안내를 렌더한다(ADR-0034 §3-1 무료 예외).
+    freeEntry: o.type === "TICKET" && o.priceVnd === 0n,
     ticketUrls: o.ticketUrls, // TICKET 발행 이미지(발행 현황·삭제용)
     quantity: o.quantity,
     guestCount: o.booking?.guestCount ?? null,
