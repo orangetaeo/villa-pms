@@ -331,7 +331,7 @@ export default function ServiceOrdersView({
         {tab === "settle" && settleSub === "pending" ? (
           <PendingList rows={data.rows} total={data.total} page={page} pageSize={pageSize} loading={loading} t={t} onSettled={refresh} onPage={setPage} onPageSize={(s) => { setPageSize(s); setPage(1); }} />
         ) : tab === "settle" ? (
-          <PaidList rows={data.rows} total={data.total} page={page} pageSize={pageSize} loading={loading} t={t} onPage={setPage} onPageSize={(s) => { setPageSize(s); setPage(1); }} />
+          <PaidList rows={data.rows} total={data.total} page={page} pageSize={pageSize} loading={loading} t={t} onUnsettled={refresh} onPage={setPage} onPageSize={(s) => { setPageSize(s); setPage(1); }} />
         ) : (
           <StatusList rows={data.rows} total={data.total} page={page} pageSize={pageSize} loading={loading} t={t} onPage={setPage} onPageSize={(s) => { setPageSize(s); setPage(1); }} />
         )}
@@ -507,6 +507,8 @@ function PendingList({
 }
 
 // ── 입금 완료 ──────────────────────────────────────────────────────
+//   건별 정산 해제(unsettle) — 잘못 처리한 정산을 되돌림. PATCH markSettled=false 재사용(canViewFinance는 페이지 게이트).
+//   정산완료(건별)는 입금 대기 탭에서 해당 주문만 선택 후 "선택 입금 처리"로 가능.
 function PaidList({
   rows,
   total,
@@ -514,6 +516,7 @@ function PaidList({
   pageSize,
   loading,
   t,
+  onUnsettled,
   onPage,
   onPageSize,
 }: {
@@ -523,9 +526,30 @@ function PaidList({
   pageSize: number;
   loading: boolean;
   t: T;
+  onUnsettled: () => void;
   onPage: (p: number) => void;
   onPageSize: (s: number) => void;
 }) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const unsettle = async (orderId: string) => {
+    if (busyId) return;
+    if (!confirm(t("hub.unsettleConfirm"))) return;
+    setBusyId(orderId);
+    try {
+      const res = await fetch(`/api/service-orders/${orderId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markSettled: false }),
+      });
+      if (res.ok) onUnsettled();
+    } catch {
+      /* 실패 시 무변경 — 사용자가 재시도 */
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   if (!loading && rows.length === 0) {
     return <Empty icon="task_alt" text={t("hub.emptyPaid")} />;
   }
@@ -549,7 +573,17 @@ function PaidList({
               {o.vendorSettleNote ? ` · ${o.vendorSettleNote}` : ""}
             </p>
           </div>
-          <p className="shrink-0 text-sm font-bold tabular-nums text-emerald-300">{formatVnd(o.costVnd)}</p>
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <p className="text-sm font-bold tabular-nums text-emerald-300">{formatVnd(o.costVnd)}</p>
+            <button
+              type="button"
+              onClick={() => unsettle(o.id)}
+              disabled={busyId === o.id}
+              className="rounded-lg border border-slate-700 bg-slate-800/60 px-2 py-1 text-[11px] font-bold text-slate-400 transition hover:text-white disabled:opacity-50"
+            >
+              {busyId === o.id ? t("hub.unsettling") : t("hub.unsettle")}
+            </button>
+          </div>
         </div>
       ))}
       <PaginationBar total={total} page={page} pageSize={pageSize} onPageChange={onPage} onPageSizeChange={onPageSize} />
