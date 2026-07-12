@@ -2733,6 +2733,16 @@
     "title": "Đơn dịch vụ bổ sung",
     "guestPending": "{n} yêu cầu của khách đang chờ",
     "empty": "Chưa có đơn dịch vụ bổ sung nào.",
+    "emptyFilter": "Không có đơn ở trạng thái này.",
+    "expandRow": "Mở chi tiết",
+    "collapseRow": "Thu gọn chi tiết",
+    "proposalDue": "Cần xử lý đề xuất",
+    "filter": {
+      "all": "Tất cả",
+      "requested": "Yêu cầu",
+      "confirmed": "Đã xác nhận",
+      "cancelled": "Đã hủy"
+    },
     "colMenu": "Tên menu",
     "colQty": "SL",
     "colVia": "Nguồn",

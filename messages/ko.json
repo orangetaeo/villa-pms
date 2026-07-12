@@ -2618,6 +2618,16 @@
     "title": "부가옵션 주문",
     "guestPending": "게스트 요청 {n}건 대기",
     "empty": "주문된 부가옵션이 없습니다.",
+    "emptyFilter": "해당 상태의 주문이 없습니다.",
+    "expandRow": "상세 펼치기",
+    "collapseRow": "상세 접기",
+    "proposalDue": "제안 처리 필요",
+    "filter": {
+      "all": "전체",
+      "requested": "요청",
+      "confirmed": "확정",
+      "cancelled": "취소"
+    },
     "colMenu": "메뉴명",
     "colQty": "수량",
     "colVia": "출처",
