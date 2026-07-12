@@ -228,6 +228,7 @@
     "partners": "Đối tác",
     "receivables": "Công nợ",
     "serviceOrders": "Quyết toán dịch vụ",
+    "vendors": "Nhà cung cấp dịch vụ",
     "services": "Danh mục dịch vụ",
     "messages": "Tin nhắn",
     "users": "Người dùng",
@@ -1488,7 +1489,7 @@
       "regionalVendor": {
         "title": "Nhà cung cấp theo khu vực",
         "desc": "Massage và cắt tóc là dịch vụ theo khu vực, hãy chọn cửa hàng gần villa này. Khi chỉ định, các đơn massage·cắt tóc của villa này sẽ được đặt cho nhà cung cấp đó. Nếu để trống sẽ dùng nhà cung cấp mặc định trong danh mục.",
-        "unassigned": "Không chỉ định (mặc định danh mục)",
+        "unassigned": "Không chỉ định (tự động theo khu vực / mặc định danh mục)",
         "noVendors": "Chưa có nhà cung cấp được duyệt. Thêm ở phần Cài đặt → Quản lý nhà cung cấp.",
         "saving": "Đang lưu…",
         "saved": "Đã lưu",
@@ -2372,10 +2373,7 @@
     "zaloCardCta": "Quản lý",
     "servicesCardTitle": "Danh mục dịch vụ",
     "servicesCardDesc": "Quản lý menu, tùy chọn và giá của dịch vụ bổ sung như BBQ, vé, xe.",
-    "servicesCardCta": "Quản lý",
-    "vendorsCardTitle": "Nhà cung cấp nguồn",
-    "vendorsCardDesc": "Quản lý các đối tác bên ngoài (cửa hàng trái cây, BBQ...) để đặt hàng và quyết toán dịch vụ bổ sung.",
-    "vendorsCardCta": "Quản lý"
+    "servicesCardCta": "Quản lý"
   },
   "inventory": {
     "title": "Kho minibar",
@@ -2561,7 +2559,23 @@
     "rejectCancel": "Hủy",
     "approvalError": "Thao tác thất bại. Vui lòng thử lại.",
     "bankSignupBadge": "Tài khoản quyết toán",
-    "searchPlaceholder": "Tìm theo tên, SĐT, Zalo ID"
+    "searchPlaceholder": "Tìm theo tên, SĐT, Zalo ID",
+    "region": {
+      "button": "Khu vực phụ trách",
+      "badge": "Khu vực phụ trách {n}",
+      "modalTitle": "Cài đặt khu vực phụ trách",
+      "desc": "Các đơn massage·cắt tóc từ villa trong khu vực phụ trách sẽ tự động được đặt cho nhà cung cấp này. Chỉ định thủ công theo villa được ưu tiên; nếu một khu vực có từ hai nhà cung cấp trở lên thì sẽ không tự động chỉ định.",
+      "empty": "Chưa có khu (khu vực) của villa đang vận hành. Hãy đăng ký villa trước.",
+      "count": "Đã chọn {n}",
+      "save": "Lưu",
+      "saving": "Đang lưu…",
+      "cancel": "Hủy",
+      "saved": "Đã lưu khu vực phụ trách.",
+      "types": {
+        "MASSAGE": "Massage",
+        "BARBER": "Cắt tóc"
+      }
+    }
   },
   "adminServices": {
     "title": "Danh mục dịch vụ",
@@ -4752,8 +4766,7 @@
     },
     "adminSettings": {
       "season": { "title": "Lịch mùa", "desc": "Đăng ký kỳ cao điểm/thấp điểm để hệ thống tự áp vào cách tính giá." },
-      "hold": { "title": "Thời gian giữ chỗ", "desc": "Cài thời gian mặc định trước khi đặt giữ chỗ tự động hết hạn." },
-      "sub": { "title": "Trang cài đặt chi tiết", "desc": "Nhà cung cấp dịch vụ, kết nối bot Zalo… được quản lý ở các trang con." }
+      "hold": { "title": "Thời gian giữ chỗ", "desc": "Cài thời gian mặc định trước khi đặt giữ chỗ tự động hết hạn." }
     },
     "villaDetail": {
       "header": { "title": "Chi tiết villa", "desc": "Kiểm tra trạng thái duyệt và khả năng bán qua huy hiệu cạnh tên villa. Giá, tiện nghi, minibar, dọn dẹp và thông tin bán đều được quản lý ngay tại màn hình này." },

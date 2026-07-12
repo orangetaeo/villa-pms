@@ -204,7 +204,6 @@ export const TOURS = {
     steps: [
       { anchor: "settings-season", key: "adminSettings.season" },
       { anchor: "settings-hold", key: "adminSettings.hold" },
-      { anchor: "settings-sub", key: "adminSettings.sub" },
     ],
   },
   // 빌라 상세(/villas/[id]) — route 동적: 페이지 명시 tourId(cleaningDetail 선례). 테오 7기능 커버(T-7).

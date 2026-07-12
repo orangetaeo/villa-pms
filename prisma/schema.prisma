@@ -1065,9 +1065,26 @@ model ServiceVendor {
   catalogItems ServiceCatalogItem[]
   orders       ServiceOrder[]
   villaAssignments VillaServiceVendor[] // 이 업체가 지역 담당으로 지정된 빌라들 (ADR-0037)
+  regionCoverage   ServiceVendorRegion[] // 이 업체가 담당하는 지역(단지) 커버리지 (ADR-0038)
 
   @@index([active])
   @@index([approvalStatus])
+}
+
+// 업체 담당 지역(다중) 커버리지 (ADR-0038) — 업체×타입×지역(=Villa.complex 단지명).
+//   업체 등록 시 담당 지역을 다중 선택해 두면, 그 지역 빌라의 주문이 자동으로 그 업체로 발주된다.
+//   해석 우선순위: ① 빌라별 수동 지정(VillaServiceVendor) → ② 지역 매칭 업체가 정확히 1곳 → ③ 카탈로그 기본 폴백.
+//   region은 자유 문자열이 아니라 운영 빌라의 distinct complex 목록에서 선택(UI 강제). API는 REGIONAL_VENDOR_TYPES만 허용.
+model ServiceVendorRegion {
+  id          String        @id @default(cuid())
+  vendorId    String
+  vendor      ServiceVendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  serviceType ServiceType // REGIONAL_VENDOR_TYPES(MASSAGE·BARBER)만 API에서 허용
+  region      String // Villa.complex 값 (지역=단지명 정본)
+  createdAt   DateTime      @default(now())
+
+  @@unique([vendorId, serviceType, region])
+  @@index([serviceType, region])
 }
 
 // 빌라별 지역 지정 업체 (ADR-0037) — 마사지·이발처럼 지역 분포 업체는 빌라에서 가까운 샵으로 발주.

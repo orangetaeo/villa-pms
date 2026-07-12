@@ -3,8 +3,8 @@
 //   ★ 정산계좌(bankInfo)는 canViewFinance만 — select·직렬화 모두에서 제외(showBank).
 //   CRUD는 canSetPrice(OWNER/MANAGER) → canEdit. STAFF는 읽기 전용.
 import type { Metadata } from "next";
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { VillaStatus } from "@prisma/client";
 import { auth } from "@/auth";
 import { isOperator, canViewFinance, canSetPrice } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -33,7 +33,7 @@ export default async function VendorsPage() {
   const canEdit = canSetPrice(role);
 
   // bankInfo(정산계좌)는 canViewFinance만 — select에서부터 제외(클라 조건부 렌더 의존 금지, 원칙2)
-  const [vendors, inProgressGroups] = await Promise.all([
+  const [vendors, inProgressGroups, complexRows] = await Promise.all([
     prisma.serviceVendor.findMany({
       // 승인대기(PENDING_APPROVAL)를 최상단으로 — 운영자가 먼저 처리하도록.
       orderBy: [{ approvalStatus: "asc" }, { active: "desc" }, { name: "asc" }],
@@ -49,6 +49,8 @@ export default async function VendorsPage() {
         approvalStatus: true,
         rejectionReason: true,
         _count: { select: { catalogItems: true } },
+        // 담당 지역(ADR-0038) — serviceType·region만(누수 0). 지역 편집 UI 현재값 표시용.
+        regionCoverage: { select: { serviceType: true, region: true } },
         ...(showBank ? { bankInfo: true } : {}),
       },
     }),
@@ -62,7 +64,20 @@ export default async function VendorsPage() {
       },
       _count: true,
     }),
+    // 담당 지역 옵션 = 운영 대상 빌라(ACTIVE·INACTIVE)의 단지명(complex) distinct — 공실보드 area 필터와 동일 기준.
+    prisma.villa.findMany({
+      where: {
+        status: { in: [VillaStatus.ACTIVE, VillaStatus.INACTIVE] },
+        complex: { not: null },
+      },
+      distinct: ["complex"],
+      orderBy: { complex: "asc" },
+      select: { complex: true },
+    }),
   ]);
+  const regionOptions = complexRows
+    .map((r) => r.complex)
+    .filter((c): c is string => c != null);
   const inProgressByVendor = new Map(
     inProgressGroups
       .filter((g): g is typeof g & { vendorId: string } => g.vendorId != null)
@@ -82,6 +97,11 @@ export default async function VendorsPage() {
     rejectionReason: v.rejectionReason ?? "",
     catalogCount: v._count.catalogItems,
     inProgressCount: inProgressByVendor.get(v.id) ?? 0,
+    // 담당 지역(ADR-0038) — 타입별 지역 배열. 지역 편집 모달 초기값.
+    regionCoverage: {
+      MASSAGE: v.regionCoverage.filter((r) => r.serviceType === "MASSAGE").map((r) => r.region),
+      BARBER: v.regionCoverage.filter((r) => r.serviceType === "BARBER").map((r) => r.region),
+    },
     ...(showBank && "bankInfo" in v
       ? { bankInfo: parseBankInfo((v as { bankInfo: unknown }).bankInfo) }
       : {}),
@@ -90,18 +110,16 @@ export default async function VendorsPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       <div>
-        <Link
-          href="/settings"
-          className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-white transition-colors mb-3"
-        >
-          <span className="material-symbols-outlined text-sm">arrow_back</span>
-          {t("back")}
-        </Link>
         <h1 className="text-2xl font-bold text-white tracking-tight">{t("title")}</h1>
         <p className="text-sm text-slate-500 mt-1">{t("subtitle")}</p>
       </div>
 
-      <VendorsManager initialVendors={rows} showBank={showBank} canEdit={canEdit} />
+      <VendorsManager
+        initialVendors={rows}
+        showBank={showBank}
+        canEdit={canEdit}
+        regionOptions={regionOptions}
+      />
     </div>
   );
 }

@@ -19,6 +19,10 @@ export interface BankInfoDraft {
 
 export type ApprovalStatus = "PENDING_APPROVAL" | "APPROVED" | "REJECTED";
 
+// 지역 분포 타입 — lib/regional-vendor.REGIONAL_VENDOR_TYPES와 동기(마사지·이발만 담당 지역 편집 대상).
+const REGIONAL_TYPES = ["MASSAGE", "BARBER"] as const;
+type RegionalType = (typeof REGIONAL_TYPES)[number];
+
 export interface VendorRow {
   id: string;
   name: string;
@@ -32,6 +36,7 @@ export interface VendorRow {
   rejectionReason: string;
   catalogCount: number;
   inProgressCount: number; // 진행 중 발주(발주대기·수락, 미취소·미정산) 건수 — admin-vendor-ops E
+  regionCoverage: Record<RegionalType, string[]>; // 담당 지역(ADR-0038) — 타입별 단지명 배열
   bankInfo?: BankInfoDraft; // showBank(canViewFinance)일 때만 존재
 }
 
@@ -63,10 +68,12 @@ export default function VendorsManager({
   initialVendors,
   showBank,
   canEdit,
+  regionOptions,
 }: {
   initialVendors: VendorRow[];
   showBank: boolean;
   canEdit: boolean;
+  regionOptions: string[];
 }) {
   const t = useTranslations("adminVendors");
   const router = useRouter();
@@ -77,6 +84,8 @@ export default function VendorsManager({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  // 담당 지역 편집 모달 — 대상 공급자(null=닫힘)
+  const [regionVendor, setRegionVendor] = useState<VendorRow | null>(null);
   // 로그인 계정 생성 모달 — 대상 공급자 + 입력값
   const [accountVendor, setAccountVendor] = useState<VendorRow | null>(null);
   const [accountPhone, setAccountPhone] = useState("");
@@ -298,6 +307,35 @@ export default function VendorsManager({
     void handleApproval(v, "APPROVE");
   }
 
+  // ── 담당 지역 저장 (ADR-0038) — PUT /api/vendors/[id]/regions ──────────────────
+  //   두 타입(MASSAGE·BARBER)을 항상 함께 전송한다 — 서버는 body에 있는 serviceType만 replace하므로,
+  //   전 지역 해제를 반영하려면 빈 배열이라도 그 타입을 보내야 한다(누락 시 기존 값 보존됨).
+  async function handleSaveRegions(
+    vendorId: string,
+    coverage: { serviceType: RegionalType; regions: string[] }[]
+  ) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/vendors/${vendorId}/regions`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coverage }),
+      });
+      if (!res.ok) {
+        setMessage({ ok: false, text: t("error") });
+        return;
+      }
+      setRegionVendor(null);
+      setMessage({ ok: true, text: t("region.saved") });
+      refresh();
+    } catch {
+      fail();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // 검색 — 거래처명·한국어명·전화·zaloUserId 부분일치(대소문자 무시). 페이지네이션 슬라이스 전에 적용.
   const [search, setSearch] = useState("");
   const filteredVendors = useMemo(() => {
@@ -457,6 +495,28 @@ export default function VendorsManager({
                         </button>
                       )
                     )}
+                    {/* 담당 지역(ADR-0038) — 마사지·이발 자동 발주 지역. 클릭 시 편집 모달.
+                        설정된 지역 수가 있으면 카운트 표시(칩=버튼 단일화로 클러터 최소화). */}
+                    {canEdit &&
+                      (() => {
+                        const regionCount =
+                          v.regionCoverage.MASSAGE.length + v.regionCoverage.BARBER.length;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => setRegionVendor(v)}
+                            disabled={busy}
+                            className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap disabled:opacity-50 transition-colors ${
+                              regionCount > 0
+                                ? "bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25"
+                                : "bg-slate-700/60 text-slate-200 hover:bg-slate-600/60"
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-[12px]">pin_drop</span>
+                            {regionCount > 0 ? t("region.badge", { n: regionCount }) : t("region.button")}
+                          </button>
+                        );
+                      })()}
                     {showBank && v.bankInfo && (v.bankInfo.bank || v.bankInfo.account) && (
                       <span className="bg-emerald-500/15 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap flex items-center gap-1">
                         <span className="material-symbols-outlined text-[12px]">account_balance</span>
@@ -598,7 +658,147 @@ export default function VendorsManager({
           t={t}
         />
       )}
+
+      {regionVendor && canEdit && (
+        <RegionCoverageModal
+          vendor={regionVendor}
+          regionOptions={regionOptions}
+          busy={busy}
+          onSave={(coverage) => handleSaveRegions(regionVendor.id, coverage)}
+          onClose={() => setRegionVendor(null)}
+          t={t}
+        />
+      )}
     </section>
+  );
+}
+
+// ── 담당 지역 편집 모달 (ADR-0038) ─────────────────────────────────────────────
+// 마사지·이발 타입별로 운영 빌라의 단지(complex)를 칩 토글로 다중 선택 → PUT /api/vendors/[id]/regions.
+//   두 타입을 항상 함께 전송(해제 반영). 초기값은 vendor.regionCoverage 스냅샷(모달 오픈 시 마운트).
+function RegionCoverageModal({
+  vendor,
+  regionOptions,
+  busy,
+  onSave,
+  onClose,
+  t,
+}: {
+  vendor: VendorRow;
+  regionOptions: string[];
+  busy: boolean;
+  onSave: (coverage: { serviceType: RegionalType; regions: string[] }[]) => void;
+  onClose: () => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const [sel, setSel] = useState<Record<RegionalType, Set<string>>>(() => ({
+    MASSAGE: new Set(vendor.regionCoverage.MASSAGE),
+    BARBER: new Set(vendor.regionCoverage.BARBER),
+  }));
+
+  function toggle(type: RegionalType, region: string) {
+    setSel((s) => {
+      const next = new Set(s[type]);
+      if (next.has(region)) next.delete(region);
+      else next.add(region);
+      return { ...s, [type]: next };
+    });
+  }
+
+  function handleSave() {
+    onSave(REGIONAL_TYPES.map((type) => ({ serviceType: type, regions: [...sel[type]] })));
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] bg-black/60 flex items-start justify-center overflow-y-auto p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-admin-card border-2 border-indigo-500/40 rounded-xl w-full max-w-lg my-8 p-5 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-800">
+          <h3 className="font-bold text-white text-sm flex items-center gap-2">
+            <span className="material-symbols-outlined text-indigo-300">pin_drop</span>
+            {t("region.modalTitle")}
+            <span className="text-slate-500 font-medium">— {vendor.name}</span>
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t("region.cancel")}
+            className="text-slate-500 hover:text-white"
+          >
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        {/* 안내 문구 — 자동 발주·우선순위·다중 매칭 규칙 */}
+        <p className="text-xs text-slate-400 leading-relaxed bg-admin-bg/50 border border-slate-800 rounded-lg p-2.5">
+          {t("region.desc")}
+        </p>
+
+        {regionOptions.length === 0 ? (
+          <p className="text-xs text-amber-400 py-4 text-center">{t("region.empty")}</p>
+        ) : (
+          <div className="space-y-4">
+            {REGIONAL_TYPES.map((type) => (
+              <div key={type}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-slate-300">
+                    {t(`region.types.${type}`)}
+                  </label>
+                  <span className="text-[11px] text-slate-500">
+                    {t("region.count", { n: sel[type].size })}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {regionOptions.map((region) => {
+                    const on = sel[type].has(region);
+                    return (
+                      <button
+                        key={region}
+                        type="button"
+                        onClick={() => toggle(type, region)}
+                        aria-pressed={on}
+                        className={`text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                          on
+                            ? "bg-indigo-500/20 border-indigo-400/60 text-indigo-200"
+                            : "bg-admin-bg border-slate-700 text-slate-400 hover:border-slate-500"
+                        }`}
+                      >
+                        {region}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className="px-4 py-2 rounded-lg text-sm font-bold text-slate-400 hover:text-white disabled:opacity-50 whitespace-nowrap"
+          >
+            {t("region.cancel")}
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={busy || regionOptions.length === 0}
+            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-6 py-2 rounded-lg font-bold text-sm flex items-center gap-1.5 whitespace-nowrap transition-all"
+          >
+            <span className="material-symbols-outlined text-base">save</span>
+            {busy ? t("region.saving") : t("region.save")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

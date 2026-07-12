@@ -82,6 +82,8 @@ const NAV: NavEntry[] = [
       { key: "services", href: "/settings/services", icon: "restaurant", cap: canSetPrice },
       // 부가서비스 정산 허브(ADR-0023) — 중계현황 + 공급자별 입금 처리. costVnd 지급 경계라 재무만 노출
       { key: "serviceOrders", href: "/service-orders", icon: "payments", cap: canViewFinance },
+      // 부가서비스 원천 공급자 관리(ADR-0023) — 설정 박스에서 이동 2026-07-12. cap 없음=전 운영자(구 설정 박스와 동일 접근성)
+      { key: "vendors", href: "/settings/vendors", icon: "storefront" },
     ],
   },
   {
