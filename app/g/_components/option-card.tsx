@@ -17,11 +17,19 @@ import { todayVnDateString } from "@/lib/date-vn";
 import {
   readVariantRule,
   anyVariantHasRule,
+  ruleHasAny,
   type VariantRule,
 } from "@/lib/ticket-variant-rules";
 import type { GuestLabels } from "@/lib/guest-i18n";
 import { guestVndPrice, guestVndDelta } from "./guest-format";
-import { resolveSelectedPeople, groupPeopleByVariant, ticketGroupsTotalVnd, ticketGroupSubtotals } from "./ticket-variant-logic";
+import {
+  resolveSelectedPeople,
+  groupPeopleByVariant,
+  ticketGroupsTotalVnd,
+  ticketGroupSubtotals,
+  ticketQtySubtotals,
+  ticketQtyTotalVnd,
+} from "./ticket-variant-logic";
 import type { GuestCatalogView, GuestOption } from "./types";
 
 export interface CardSelection {
@@ -41,6 +49,9 @@ export interface CardSelection {
   /** TICKET 인원별 연령/신장 구분 수동 배정(idx→variantKey) — 자동 판정 실패 폴백·순수 수동 모드에서만 유효.
    *   자동 판정되는 사람은 이 값과 무관(파생). variants 있는 TICKET에서만 사용. */
   ticketGuestVariants: Record<number, string>;
+  /** 미체크인 TICKET+variants(variant-qty 모드) 구분별 수량(variantKey→qty). 규칙 구분은 항상 미포함(스테퍼 비활성).
+   *   이 모드에서 quantity는 이 값들의 합으로 동기 갱신(active·canSubmit·날짜필수 로직이 quantity 기반). 그 외 모드는 미사용({}). */
+  variantQtys: Record<string, number>;
 }
 
 const NOTE_MAX = 500;
@@ -68,6 +79,7 @@ export function OptionCard({
   dateMax,
   checkedInGuests,
   sharedHeights,
+  checkinHref,
 }: {
   item: GuestCatalogView;
   labels: GuestLabels["addons"];
@@ -81,6 +93,8 @@ export function OptionCard({
   checkedInGuests: { name: string | null; birthDate: string | null }[];
   /** 티켓 이용자별 공유 신장(idx→cm) — 폼 전역 "티켓 이용자 정보" 카드에서 1회 입력. 판정 원천(읽기전용). */
   sharedHeights: Record<number, number>;
+  /** 셀프 체크인(홈) 링크 — 미체크인 TICKET 규칙 구분 안내에서 체크인 유도용. lang suffix 포함. */
+  checkinHref: string;
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -148,6 +162,9 @@ export function OptionCard({
   const hasVariants = item.variants.length > 0;
   // 인원별 연령/신장 구분 지정 모드 — TICKET + 체크인 명단 + variant 존재. variant 없으면 기존 단일가 체크박스.
   const isTicketVariantPerson = isTicketWithGuests && hasVariants;
+  // 미체크인 TICKET+variants(variant-qty 모드) — 명단이 없어 인원 배정 불가. 구분별 수량 스테퍼로 혼합 선택.
+  //   규칙 구분(어린이·시니어·무료 등)은 서버 TICKET_GUESTS_REQUIRED로 거부되므로 스테퍼 비활성 + 체크인 유도.
+  const isTicketVariantQty = item.type === "TICKET" && checkedInGuests.length === 0 && hasVariants;
   // TICKET은 이용일(날짜)만 받고 시간은 불요(테오 2026-07-12) — 오전/오후/야간 구분은 카탈로그 variant로.
   //   그 외 서비스는 날짜+시간 둘 다 필수(현행).
   const hideTime = item.type === "TICKET";
@@ -243,6 +260,46 @@ export function OptionCard({
     }
   }, [isTicketVariantPerson, item.priceVnd, options, selection.variantKey, selection.addonKeys, selection.modifierKeys, selection.quantity]);
 
+  // variant-qty 모드 — 구분별 수량 조작(규칙 구분은 UI에서 비활성이라 호출되지 않음). quantity=구분별 합 동기 갱신.
+  const setVariantQty = (key: string, delta: number) => {
+    const cur = selection.variantQtys[key] ?? 0;
+    const nextVal = Math.max(0, cur + delta);
+    const nextQtys = { ...selection.variantQtys, [key]: nextVal };
+    const total = Object.values(nextQtys).reduce((a, b) => a + b, 0);
+    onChange({ ...selection, variantQtys: nextQtys, quantity: total });
+  };
+  // variant-qty 구분별 소계·합계(서버 동형 재계산, 표시용). 규칙 구분은 수량 0이라 자동 제외.
+  const qtyEntries = useMemo(
+    () => item.variants.map((v) => ({ variantKey: v.key, quantity: selection.variantQtys[v.key] ?? 0 })),
+    [item.variants, selection.variantQtys]
+  );
+  const ticketQtySubtotalRows = useMemo(
+    () =>
+      isTicketVariantQty
+        ? ticketQtySubtotals(
+            qtyEntries,
+            { priceVnd: item.priceVnd ? BigInt(item.priceVnd) : null },
+            options,
+            selection.addonKeys,
+            selection.modifierKeys
+          )
+        : [],
+    [isTicketVariantQty, qtyEntries, item.priceVnd, options, selection.addonKeys, selection.modifierKeys]
+  );
+  const ticketQtyTotal = useMemo(
+    () =>
+      isTicketVariantQty
+        ? ticketQtyTotalVnd(
+            qtyEntries,
+            { priceVnd: item.priceVnd ? BigInt(item.priceVnd) : null },
+            options,
+            selection.addonKeys,
+            selection.modifierKeys
+          )
+        : 0n,
+    [isTicketVariantQty, qtyEntries, item.priceVnd, options, selection.addonKeys, selection.modifierKeys]
+  );
+
   // 비-variant TICKET(단일가) 이용자 체크 토글 — 기존 흐름.
   const toggleTicketGuest = (idx: number) => {
     const has = selection.ticketGuestIdxs.includes(idx);
@@ -274,17 +331,33 @@ export function OptionCard({
   const setTicketPersonVariant = (idx: number, key: string) =>
     onChange({ ...selection, ticketGuestVariants: { ...selection.ticketGuestVariants, [idx]: key } });
 
-  // 하단 큰 가격 — variant-person이면 인원별 구분 단가 합(미선택이면 첫 variant 단가 힌트), 그 외는 기존 미리보기.
+  // 하단 큰 가격 — variant-person/variant-qty면 구분별 단가 합(미선택이면 첫 variant 단가 힌트), 그 외는 기존 미리보기.
   const previewStr = isTicketVariantPerson
     ? ticketVariantTotalVnd != null && ticketVariantTotalVnd > 0n
       ? guestVndPrice(toVndStr(ticketVariantTotalVnd))
       : guestVndPrice(item.variants[0]?.priceVnd ?? item.priceVnd)
-    : preview != null
-      ? guestVndPrice(toVndStr(preview.totalPriceVnd))
-      : guestVndPrice(item.priceVnd);
+    : isTicketVariantQty
+      ? ticketQtyTotal > 0n
+        ? guestVndPrice(toVndStr(ticketQtyTotal))
+        : guestVndPrice(item.variants[0]?.priceVnd ?? item.priceVnd)
+      : preview != null
+        ? guestVndPrice(toVndStr(preview.totalPriceVnd))
+        : guestVndPrice(item.priceVnd);
 
   const badgeCls = TYPE_BADGE[item.type] ?? "bg-slate-100 text-slate-500";
   const active = selection.quantity > 0;
+  // TICKET 구분 모드(인원별 or 수량별) 공통 — 카드 하단 소계·합계·공용 스테퍼 숨김을 한 조건으로.
+  const isTicketVariantMode = isTicketVariantPerson || isTicketVariantQty;
+  const ticketDisplaySubtotals = isTicketVariantPerson
+    ? ticketSubtotals
+    : isTicketVariantQty
+      ? ticketQtySubtotalRows
+      : [];
+  const ticketDisplayTotalVnd = isTicketVariantPerson
+    ? ticketVariantTotalVnd ?? 0n
+    : isTicketVariantQty
+      ? ticketQtyTotal
+      : 0n;
   // 이행 방식 안내(#5) — 배송형/예약형(픽업·방문)/기타. 날짜·시간 입력과 함께 노출.
   //   예약형은 카탈로그 pickupAvailable/pickupNote로 픽업 제공/직접 방문/미정 세분.
   const mode = fulfillmentMode(item.type);
@@ -313,10 +386,12 @@ export function OptionCard({
           </span>
         </div>
 
-        {/* variants — 1택, 가격 대체. ★variant-person(TICKET+명단) 모드에선 인원별 지정으로 대체 → 숨김. */}
-        {item.variants.length > 0 && !isTicketVariantPerson && (
+        {/* variants — 1택, 가격 대체. ★variant-person(TICKET+명단)·variant-qty(미체크인 TICKET) 모드에선 각각 인원별·수량별로 대체 → 숨김. */}
+        {item.variants.length > 0 && !isTicketVariantPerson && !isTicketVariantQty && (
           <div>
-            <p className="text-[11px] font-bold text-slate-500 mb-1.5">{labels.timeLabel}</p>
+            <p className="text-[11px] font-bold text-slate-500 mb-1.5">
+              {item.type === "TICKET" ? labels.ticketVariantSectionLabel : labels.timeLabel}
+            </p>
             <div className="grid grid-cols-2 gap-2">
               {item.variants.map((v) => {
                 const on = selection.variantKey === v.key;
@@ -346,6 +421,75 @@ export function OptionCard({
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* variant-qty(미체크인 TICKET+variants) — 구분별 수량 스테퍼로 혼합 선택.
+            규칙 구분(어린이·시니어·무료 등)은 서버가 TICKET_GUESTS_REQUIRED로 거부 → 스테퍼 비활성 + 셀프 체크인 유도(제출 후 400 대신 사전 안내). */}
+        {isTicketVariantQty && (
+          <div>
+            <p className="text-[11px] font-bold text-slate-500 mb-1.5">{labels.ticketVariantSectionLabel}</p>
+            <div className="space-y-1.5">
+              {item.variants.map((v, i) => {
+                const isRule = ruleHasAny(ageRules[i]);
+                const q = selection.variantQtys[v.key] ?? 0;
+                return (
+                  <div
+                    key={v.key}
+                    className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 ${
+                      isRule ? "border-slate-100 bg-slate-50/60 opacity-60" : "border-slate-200 bg-white"
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-600 truncate">{v.label}</p>
+                      <p className="text-sm font-extrabold tabular-nums text-slate-800">{guestVndPrice(v.priceVnd)}</p>
+                      {v.desc && <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{v.desc}</p>}
+                    </div>
+                    {isRule ? (
+                      <span className="material-symbols-outlined text-slate-300 text-[20px] shrink-0" aria-hidden="true">
+                        lock
+                      </span>
+                    ) : (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setVariantQty(v.key, -1)}
+                          aria-label={`${v.label} −`}
+                          className="w-8 h-8 rounded-full border border-slate-200 text-slate-400 flex items-center justify-center text-lg active:scale-95"
+                        >
+                          −
+                        </button>
+                        <span className="w-5 text-center font-bold tabular-nums">{q}</span>
+                        <button
+                          type="button"
+                          onClick={() => setVariantQty(v.key, 1)}
+                          aria-label={`${v.label} +`}
+                          className="w-8 h-8 rounded-full bg-teal-600 text-white flex items-center justify-center text-lg active:scale-95"
+                        >
+                          +
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {/* 규칙 구분(어린이·시니어·무료 등)이 하나라도 있으면 셀프 체크인 유도 1회 */}
+            {ageRules.some(ruleHasAny) && (
+              <div className="mt-2 rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 space-y-1.5">
+                <p className="flex items-start gap-1 text-[11px] text-sky-700 leading-snug">
+                  <span className="material-symbols-outlined text-[14px] mt-px">info</span>
+                  {labels.ticketVariantCheckinHint}
+                </p>
+                <a
+                  href={checkinHref}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-700 underline active:scale-95"
+                >
+                  <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                  {labels.backToCheckin}
+                </a>
+              </div>
+            )}
           </div>
         )}
 
@@ -613,12 +757,12 @@ export function OptionCard({
         )}
 
         {/* 요금 영역(참고용) — 수량>0일 때 품목별 합계. 서버가 최종 재계산(변조 방지). */}
-        {active && (isTicketVariantPerson ? ticketSubtotals.length > 0 : generalFee != null) && (
+        {active && (isTicketVariantMode ? ticketDisplaySubtotals.length > 0 : generalFee != null) && (
           <div className="rounded-lg border border-teal-100 bg-teal-50/50 px-3 py-2 space-y-1">
-            {isTicketVariantPerson ? (
+            {isTicketVariantMode ? (
               <>
-                {/* 구분별 소계 줄 — "라벨 ×N = 금액" */}
-                {ticketSubtotals.map((s) => (
+                {/* 구분별 소계 줄 — "라벨 ×N = 금액" (인원별·수량별 공통) */}
+                {ticketDisplaySubtotals.map((s) => (
                   <div
                     key={s.variantKey}
                     className="flex items-center justify-between text-[11px] text-slate-600"
@@ -635,7 +779,7 @@ export function OptionCard({
                 <div className="flex items-center justify-between border-t border-teal-100 pt-1">
                   <span className="text-xs font-bold text-slate-700">{labels.itemTotal}</span>
                   <span className="text-sm font-extrabold text-teal-700 tabular-nums">
-                    {guestVndPrice(toVndStr(ticketVariantTotalVnd ?? 0n))}
+                    {guestVndPrice(toVndStr(ticketDisplayTotalVnd))}
                   </span>
                 </div>
               </>
@@ -666,7 +810,7 @@ export function OptionCard({
               <span className="text-xs text-slate-400">{labels.perUnit(item.unitLabel)}</span>
             )}
           </div>
-          {isTicketWithGuests ? (
+          {isTicketWithGuests || isTicketVariantQty ? (
             <span className="text-sm font-bold text-sky-700 tabular-nums">
               {labels.selectedCount(selection.quantity)}
             </span>

@@ -109,6 +109,59 @@ export function ticketGroupSubtotals(
   });
 }
 
+/** 미체크인 구분별 수량(variantKey→quantity) 소계 목록 — 서버 동형 재계산. quantity<1은 제외. 순수.
+ *  체크인 명단이 없어 인원 배정 없이 구분별 수량만 고르는 모드(variant-qty)에서 카드 소계 줄 표시용. */
+export function ticketQtySubtotals(
+  entries: { variantKey: string; quantity: number }[],
+  base: { priceVnd: bigint | null },
+  options: CatalogOptions,
+  addonKeys: string[],
+  modifierKeys: string[]
+): TicketVariantSubtotal[] {
+  const out: TicketVariantSubtotal[] = [];
+  for (const e of entries) {
+    if (e.quantity < 1) continue;
+    let subtotalVnd = 0n;
+    try {
+      subtotalVnd = resolveOrderPricing(base, options, {
+        variantKey: e.variantKey,
+        addonKeys,
+        modifierKeys,
+        quantity: e.quantity,
+      }).totalPriceVnd;
+    } catch (err) {
+      if (!(err instanceof ServiceSelectionError)) throw err;
+    }
+    out.push({ variantKey: e.variantKey, count: e.quantity, subtotalVnd });
+  }
+  return out;
+}
+
+/** 미체크인 구분별 수량 합계 VND(서버 동형 재계산 합, 표시용). quantity<1은 0 기여. 순수. */
+export function ticketQtyTotalVnd(
+  entries: { variantKey: string; quantity: number }[],
+  base: { priceVnd: bigint | null },
+  options: CatalogOptions,
+  addonKeys: string[],
+  modifierKeys: string[]
+): bigint {
+  let vnd = 0n;
+  for (const e of entries) {
+    if (e.quantity < 1) continue;
+    try {
+      vnd += resolveOrderPricing(base, options, {
+        variantKey: e.variantKey,
+        addonKeys,
+        modifierKeys,
+        quantity: e.quantity,
+      }).totalPriceVnd;
+    } catch (err) {
+      if (!(err instanceof ServiceSelectionError)) throw err;
+    }
+  }
+  return vnd;
+}
+
 /** variant-person 그룹들의 총 VND(서버 동형 재계산 합, 표시용). 규칙 위반·미배정은 0 기여. 순수. */
 export function ticketGroupsTotalVnd(
   groups: TicketVariantGroup[],

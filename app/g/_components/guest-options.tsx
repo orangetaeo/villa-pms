@@ -20,7 +20,7 @@ import { readVariantRule, anyVariantHasHeightRule, type VariantRule } from "@/li
 import type { GuestLabels } from "@/lib/guest-i18n";
 import { OptionCard, type CardSelection } from "./option-card";
 import { guestVnd } from "./guest-format";
-import { resolveSelectedPeople, groupPeopleByVariant, ticketGroupsTotalVnd } from "./ticket-variant-logic";
+import { resolveSelectedPeople, groupPeopleByVariant, ticketGroupsTotalVnd, ticketQtyTotalVnd } from "./ticket-variant-logic";
 import { ALL_TYPES, buildGuestTypeTabs, filterGuestCatalogByType } from "./guest-options-filter";
 import type { GuestCatalogView } from "./types";
 import type { GuestOptionsProps } from "./types";
@@ -51,6 +51,7 @@ function emptySelection(variantKey: string | null): CardSelection {
     guestNote: null,
     ticketGuestIdxs: [],
     ticketGuestVariants: {},
+    variantQtys: {},
   };
 }
 
@@ -87,6 +88,8 @@ export default function GuestOptions(props: GuestOptionsProps) {
   const router = useRouter();
   const suffix = lang === "ko" ? "" : `?lang=${lang}`;
   const ordersHref = `/g/${token}/orders${suffix}`;
+  // 셀프 체크인(홈) 링크 — 미체크인 TICKET 규칙 구분 안내에서 체크인 유도용(/g/[token] = 체크인 동선).
+  const checkinHref = `/g/${token}${suffix}`;
 
   const dateMin = isoToDateInput(booking.checkIn);
   const dateMax = isoToDateInput(booking.checkOut);
@@ -164,6 +167,13 @@ export default function GuestOptions(props: GuestOptionsProps) {
         const groups = groupPeopleByVariant(people);
         vnd += ticketGroupsTotalVnd(groups, { priceVnd: c.priceVnd ? BigInt(c.priceVnd) : null }, cardOptions[c.id], sel.addonKeys, sel.modifierKeys);
         if (groups.length > 0) has = true;
+        continue;
+      }
+      // 미체크인 TICKET+variants(variant-qty) → 구분별 수량 합(서버 동형 재계산).
+      if (c.type === "TICKET" && checkedInGuests.length === 0 && c.variants.length > 0) {
+        const entries = c.variants.map((v) => ({ variantKey: v.key, quantity: sel.variantQtys[v.key] ?? 0 }));
+        vnd += ticketQtyTotalVnd(entries, { priceVnd: c.priceVnd ? BigInt(c.priceVnd) : null }, cardOptions[c.id], sel.addonKeys, sel.modifierKeys);
+        if (entries.some((e) => e.quantity > 0)) has = true;
         continue;
       }
       try {
@@ -258,6 +268,25 @@ export default function GuestOptions(props: GuestOptionsProps) {
               guestNote: sel.guestNote ?? undefined,
               customerName: customerName.trim() || undefined,
               ticketGuests: grp.guests, // 이름·생년월일·(신장) — 그 그룹만
+            });
+          }
+          continue;
+        }
+        // ── 미체크인 TICKET+variants(variant-qty) — 수량>0 구분마다 1주문(서버 구분별 분리 스펙 정합).
+        //   규칙 구분은 UI에서 수량 0이라 여기 안 걸림 → 무규칙 구분만 POST(TICKET_GUESTS_REQUIRED 회피). ticketGuests 미첨부.
+        if (c.type === "TICKET" && checkedInGuests.length === 0 && c.variants.length > 0) {
+          for (const v of c.variants) {
+            const q = sel.variantQtys[v.key] ?? 0;
+            if (q < 1) continue;
+            await postOrder({
+              catalogItemId: c.id,
+              variantKey: v.key,
+              addonKeys: sel.addonKeys,
+              modifierKeys: sel.modifierKeys,
+              quantity: q,
+              serviceDate: sel.serviceDate ?? undefined, // TICKET은 이용일만(시간 미포함)
+              guestNote: sel.guestNote ?? undefined,
+              customerName: customerName.trim() || undefined,
             });
           }
           continue;
@@ -380,6 +409,7 @@ export default function GuestOptions(props: GuestOptionsProps) {
                   dateMax={dateMax}
                   checkedInGuests={checkedInGuests}
                   sharedHeights={heightByIdx}
+                  checkinHref={checkinHref}
                 />
               </Fragment>
             ))}
