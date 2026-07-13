@@ -32,8 +32,13 @@ async function main() {
   console.log(`=== 게스트 청구 캐시 백필 ${APPLY ? "(APPLY)" : "(DRY-RUN)"} ===`);
 
   // CHECKED_OUT 예약의 체크아웃 레코드 — 미니바 라인(lineVnd)만 판매액. 수납·보증금은 조회만(불변).
+  //   ★스코프: 캐시가 실제 기록된(non-null) 레코드만 — 이중 계상 버그로 "잘못 저장된" 값의 정정이 목적.
+  //   캐시 null(청구 기능 도입 전·청구 0 레코드)에 새 값을 채우는 건 역사 기록 생성이라 범위 밖(정정 아님).
   const records = await prisma.checkOutRecord.findMany({
-    where: { booking: { status: "CHECKED_OUT" } },
+    where: {
+      booking: { status: "CHECKED_OUT" },
+      OR: [{ guestChargeVnd: { not: null } }, { guestChargeKrw: { not: null } }],
+    },
     select: {
       id: true,
       bookingId: true,
