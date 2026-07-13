@@ -1031,9 +1031,11 @@
         "methods": {
           "CASH": "Tiền mặt",
           "BANK_TRANSFER": "Chuyển khoản",
-          "OTHER": "Khác"
+          "OTHER": "Khác",
+          "MIXED": "Kết hợp"
         },
-        "amounts": "Số tiền đã thu theo loại tiền"
+        "amounts": "Số tiền đã thu theo loại tiền",
+        "lines": "Thu theo hình thức"
       },
       "memo": {
         "title": "Ghi chú nội bộ",
@@ -3581,7 +3583,11 @@
     "settledExcess": "Vượt",
     "settledComplete": "Đã thu đủ",
     "fillRemaining": "Điền còn lại {amount}",
-    "settledNeedMethod": "Nếu đã nhập số tiền thu, phải chọn hình thức thanh toán mới hoàn tất được."
+    "settledNeedMethod": "Nếu đã nhập số tiền thu, phải chọn hình thức thanh toán mới hoàn tất được.",
+    "settlementCurrency": "Loại tiền",
+    "settlementAmount": "Số tiền",
+    "settlementLineAdd": "Thêm dòng thu",
+    "settlementLineRemove": "Xóa dòng"
   },
   "adminMessages": {
     "headerCollapse": "Thu gọn tiêu đề",
