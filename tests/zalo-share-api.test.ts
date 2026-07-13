@@ -13,6 +13,7 @@
 //   villa.findUnique mock이 호출 시 select 키를 캡처 → supplier 경로 select엔 salePriceVnd/
 //   marginValue 키가 아예 없고, customer 경로엔 supplierCostVnd/marginValue가 없음을 단언.
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ThreadType } from "zca-js";
 
 const mockAuth = vi.fn();
 vi.mock("@/auth", () => ({ auth: (...a: unknown[]) => mockAuth(...a) }));
@@ -84,6 +85,8 @@ type Conv = {
     | "TRAVEL_AGENCY"
     | "LAND_AGENCY"
     | "UNKNOWN";
+  // ADR-0010 S4 — 그룹 채팅. 미지정은 USER(1:1) 기본.
+  threadType?: "USER" | "GROUP";
 };
 const CONVS: Record<string, Conv> = {
   convSup: { ownerAdminId: "adminA", zaloUserId: "zu-sup", userId: "supA", counterpartyType: "SUPPLIER" },
@@ -93,6 +96,8 @@ const CONVS: Record<string, Conv> = {
   convLand: { ownerAdminId: "adminA", zaloUserId: "zu-lan", userId: null, counterpartyType: "LAND_AGENCY" },
   convUnknown: { ownerAdminId: "adminA", zaloUserId: "zu-unk", userId: null, counterpartyType: "UNKNOWN" },
   convOther: { ownerAdminId: "adminB", zaloUserId: "zu-b", userId: "supB", counterpartyType: "SUPPLIER" },
+  // 그룹 대화 — zaloUserId 슬롯에 그룹 id. 공급자측(원가 경로) 그룹으로 두어 빌라 공유도 검증 가능.
+  convGroupSup: { ownerAdminId: "adminA", zaloUserId: "grp-1", userId: "supA", counterpartyType: "SUPPLIER", threadType: "GROUP" },
 };
 
 let lastVillaSelect: Record<string, unknown> | null = null;
@@ -120,6 +125,7 @@ vi.mock("@/lib/prisma", () => ({
           zaloUserId: c.zaloUserId,
           userId: c.userId,
           counterpartyType: c.counterpartyType,
+          threadType: c.threadType ?? "USER",
         };
       }),
     },
@@ -586,5 +592,67 @@ describe("S3 빌라 — 대표 사진 첨부", () => {
     const persisted = txMsgCreate.mock.calls[0][0].data;
     expect(persisted.status).toBe("SENT");
     expect(persisted.attachmentUrls).toEqual([]); // 사진 미발송이므로 기록 안 함
+  });
+});
+
+// ===================== P0 — 그룹 대화 ThreadType 전달(오발송 방지) =====================
+// 회귀: share 라우트가 threadType 미전달 → 그룹 id가 ThreadType.User로 발송되어 낯선 1:1 채팅에 오배달.
+// 모든 발송 함수(image/file/message)가 그룹 대화면 ThreadType.Group을, 1:1이면 User를 받아야 한다.
+
+describe("그룹 대화 ThreadType 전달", () => {
+  function photoReq(id: string) {
+    const fd = new FormData();
+    fd.append("file", new File([new Uint8Array([1, 2, 3])], "p.jpg", { type: "image/jpeg" }));
+    fd.append("caption", "안녕하세요");
+    return POST(
+      new Request(`http://local/api/zalo/conversations/${id}/share`, { method: "POST", body: fd }),
+      { params: Promise.resolve({ id }) }
+    );
+  }
+  function fileReq(id: string) {
+    const fd = new FormData();
+    fd.append("file", new File([new Uint8Array(3)], "계약서.pdf", { type: "application/pdf" }));
+    return POST(
+      new Request(`http://local/api/zalo/conversations/${id}/share`, { method: "POST", body: fd }),
+      { params: Promise.resolve({ id }) }
+    );
+  }
+
+  it("그룹 photo 공유 → sendChatImageAsAdmin이 ThreadType.Group 수신", async () => {
+    const res = await photoReq("convGroupSup");
+    expect(res.status).toBe(200);
+    // sendChatImageAsAdmin(adminUserId, zaloUserId, buffer, fileName, caption, threadType)
+    expect(mockSendImage.mock.calls[0][5]).toBe(ThreadType.Group);
+  });
+
+  it("1:1 photo 공유 → ThreadType.User (회귀)", async () => {
+    const res = await photoReq("convSup");
+    expect(res.status).toBe(200);
+    expect(mockSendImage.mock.calls[0][5]).toBe(ThreadType.User);
+  });
+
+  it("그룹 file 공유 → sendChatFileAsAdmin이 ThreadType.Group 수신", async () => {
+    const res = await fileReq("convGroupSup");
+    expect(res.status).toBe(200);
+    // sendChatFileAsAdmin(adminUserId, zaloUserId, buffer, displayName, caption, threadType)
+    expect(mockSendFile.mock.calls[0][5]).toBe(ThreadType.Group);
+  });
+
+  it("그룹 빌라 공유(텍스트 폴백) → sendChatMessageAsAdmin이 ThreadType.Group 수신", async () => {
+    // loadVillaShareImage 기본 null → 텍스트 발송 경로. 공급자(원가) 경로.
+    const res = await jsonReq("convGroupSup", { type: "VILLA", villaId: "villa1" });
+    expect(res.status).toBe(200);
+    // sendChatMessageAsAdmin(adminUserId, zaloUserId, text, threadType)
+    expect(mockSendText.mock.calls[0][3]).toBe(ThreadType.Group);
+  });
+
+  it("그룹 빌라 공유(이미지) → sendChatImageAsAdmin이 ThreadType.Group 수신", async () => {
+    mockLoadShareImage.mockResolvedValueOnce({
+      buffer: Buffer.from([0xff, 0xd8, 0xff, 0x00]),
+      fileName: "villa-rep.jpg",
+    });
+    const res = await jsonReq("convGroupSup", { type: "VILLA", villaId: "villa1" });
+    expect(res.status).toBe(200);
+    expect(mockSendImage.mock.calls[0][5]).toBe(ThreadType.Group);
   });
 });

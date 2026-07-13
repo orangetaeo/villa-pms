@@ -1032,7 +1032,8 @@
           "CASH": "Tiền mặt",
           "BANK_TRANSFER": "Chuyển khoản",
           "OTHER": "Khác",
-          "MIXED": "Kết hợp"
+          "MIXED": "Kết hợp",
+          "DEPOSIT": "Trừ tiền cọc"
         },
         "amounts": "Số tiền đã thu theo loại tiền",
         "lines": "Thu theo hình thức"
@@ -3564,7 +3565,17 @@
     "settlementDeposit": "Tiền cọc gốc",
     "settlementMinibar": "Khấu trừ minibar",
     "settlementDamage": "Khấu trừ hư hỏng",
+    "settlementOffset": "Cấn trừ tiền cọc",
     "settlementRefund": "Số tiền hoàn dự kiến",
+    "offsetSummaryTitle": "Tổng kết cấn trừ cuối",
+    "offsetDeposit": "Tiền cọc (gốc)",
+    "offsetDamage": "Khấu trừ hư hỏng",
+    "offsetCharge": "Tổng phải thu (quy đổi)",
+    "offsetRefundLabel": "Số tiền hoàn dự kiến",
+    "offsetCollectLabel": "Số tiền cần thu thêm",
+    "offsetSettledLabel": "Đã cân đối (không chênh lệch)",
+    "offsetChargeOnlyLabel": "Số tiền cần thu (tổng phải thu)",
+    "depositOffsetHint": "Đã tự động cấn trừ số phải thu vào tiền cọc. Sửa hoặc xóa số tiền sẽ dừng tính tự động.",
     "guestBillTitle": "Hóa đơn khách khi trả phòng",
     "guestBillMinibar": "Tổng tiêu thụ minibar",
     "guestBillServices": "Dịch vụ thêm đã xác nhận",
@@ -3579,7 +3590,8 @@
     "settlementMethods": {
       "CASH": "Tiền mặt",
       "BANK_TRANSFER": "Chuyển khoản",
-      "OTHER": "Khác"
+      "OTHER": "Khác",
+      "DEPOSIT": "Trừ tiền cọc"
     },
     "settlementClear": "Bỏ chọn",
     "settlementOptionalNote": "Nếu không chọn hình thức thanh toán, chỉ ghi nhận số tiền phải thu và để ở trạng thái chưa thu.",

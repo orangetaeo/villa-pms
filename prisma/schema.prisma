@@ -680,6 +680,7 @@ enum GuestSettlementMethod {
   BANK_TRANSFER // 계좌이체
   OTHER // 기타
   MIXED // 혼합 수납(라인 수단 2종 이상) — 서버 파생 전용, 클라 직접 지정 금지
+  DEPOSIT // 보증금 차감(상계) — 수납 라인 전용, currency=VND만 (ADR-0041)
 }
 
 // 체크아웃 수납 라인(수단×통화×금액) — 혼합 수납(현금+계좌이체 등) 원장 (계약서 T-checkout-mixed-method-settlement).

@@ -53,21 +53,34 @@ export function isGuestSettlementMethod(v: string): v is GuestSettlementMethodVa
 
 export type SettlementCurrency = "VND" | "KRW" | "USD";
 
+/**
+ * 수납 라인에 허용되는 수단 — 현금·계좌이체·기타 + 보증금 차감(DEPOSIT, ADR-0041).
+ *   DEPOSIT은 "보증금에서 상계"를 표현하는 라인 전용 수단이며 currency=VND만 허용된다.
+ *   (구 shape의 method 필드는 여전히 GuestSettlementMethodValue만 — DEPOSIT은 라인으로만 지정.)
+ *   MIXED는 서버 파생 전용(입력 금지).
+ */
+export const SETTLEMENT_LINE_METHODS = ["CASH", "BANK_TRANSFER", "OTHER", "DEPOSIT"] as const;
+export type SettlementLineMethod = (typeof SETTLEMENT_LINE_METHODS)[number];
+
 export interface SettlementLineInput {
-  method: GuestSettlementMethodValue; // CASH | BANK_TRANSFER | OTHER (MIXED는 서버 파생 전용 — 입력 금지)
+  method: SettlementLineMethod; // CASH | BANK_TRANSFER | OTHER | DEPOSIT (MIXED는 서버 파생 전용 — 입력 금지)
   currency: SettlementCurrency;
   amount: bigint; // 원본 통화 최소단위 정수 (> 0)
 }
 
-/** 파생 대표 수단 — 라인 수단 1종이면 그 수단, 2종 이상이면 "MIXED". 라인 없으면 null. */
-export type DerivedSettlementMethod = GuestSettlementMethodValue | "MIXED";
+/** 파생 대표 수단 — 라인 수단 1종이면 그 수단(DEPOSIT 가능), 2종 이상이면 "MIXED". 라인 없으면 null. */
+export type DerivedSettlementMethod = SettlementLineMethod | "MIXED";
 
 export interface NormalizedSettlement {
   /** (수단,통화) 중복 병합된 라인 — 이 배열이 CheckoutSettlementLine 저장·표시의 원천 */
   lines: SettlementLineInput[];
-  settledVnd: bigint | null; // Σ VND 라인 (0이면 null)
+  // ⚠ settledVnd/Krw/Usd는 DEPOSIT(보증금 상계) 라인도 포함한다 — "실수납액"이 아니라
+  //   "청구 커버리지 캐시"의 의미(현금+상계로 청구가 얼마나 덮였는지, ADR-0041 계약 5항).
+  settledVnd: bigint | null; // Σ VND 라인 (DEPOSIT 포함, 0이면 null)
   settledKrw: number | null; // Σ KRW 라인 (0이면 null, Number 안전범위 검증 후 변환)
   settledUsd: number | null; // Σ USD 라인 (0이면 null)
+  /** ΣDEPOSIT 라인(보증금 상계액, 항상 VND). 라인 없으면 0n. */
+  depositOffsetVnd: bigint;
   derivedMethod: DerivedSettlementMethod | null;
 }
 
@@ -75,12 +88,14 @@ export interface NormalizedSettlement {
 export const MAX_SETTLEMENT_LINES = 12;
 
 /**
- * 수납 라인 검증·병합·집계 — 순수. (SPEC: 혼합 수납)
- *   - 검증: amount ≤ 0 → RangeError, 라인 수 > 12 → RangeError
+ * 수납 라인 검증·병합·집계 — 순수. (SPEC: 혼합 수납 + 보증금 상계 ADR-0041)
+ *   - 검증: amount ≤ 0 → RangeError, 라인 수 > 12 → RangeError,
+ *           DEPOSIT 라인인데 currency ≠ VND → RangeError(보증금은 VND 전용)
  *   - (method, currency) 중복 라인은 금액 합산 병합
- *   - 통화별 합계 산출(KRW/USD는 Number 안전범위 검증 후 number 변환, 0이면 null)
- *   - 수단 종류 1개 → 그 수단, 2개 이상 → "MIXED"를 derivedMethod로 반환
- *   - 빈 배열 → lines=[]·전부 null·derivedMethod=null
+ *   - 통화별 합계 산출(DEPOSIT 라인 포함 — 청구 커버리지 캐시. KRW/USD는 Number 안전범위 검증 후 변환, 0이면 null)
+ *   - depositOffsetVnd = ΣDEPOSIT 라인(보증금 상계액, 항상 VND)
+ *   - 수단 종류 1개 → 그 수단(DEPOSIT 가능), 2개 이상 → "MIXED"를 derivedMethod로 반환
+ *   - 빈 배열 → lines=[]·전부 null·depositOffsetVnd=0n·derivedMethod=null
  */
 export function normalizeSettlementLines(lines: SettlementLineInput[]): NormalizedSettlement {
   if (lines.length > MAX_SETTLEMENT_LINES) {
@@ -92,6 +107,10 @@ export function normalizeSettlementLines(lines: SettlementLineInput[]): Normaliz
   for (const l of lines) {
     if (l.amount <= 0n) {
       throw new RangeError("수납액은 0보다 커야 합니다");
+    }
+    // 보증금 상계(DEPOSIT)는 VND 전용 — 보증금이 VND로 수취되므로 (ADR-0041)
+    if (l.method === "DEPOSIT" && l.currency !== "VND") {
+      throw new RangeError("보증금 차감(DEPOSIT) 라인은 VND만 허용됩니다");
     }
     const key = `${l.method}|${l.currency}`;
     const prev = merged.get(key);
@@ -106,9 +125,11 @@ export function normalizeSettlementLines(lines: SettlementLineInput[]): Normaliz
   let vnd = 0n;
   let krw = 0n;
   let usd = 0n;
-  const methods = new Set<GuestSettlementMethodValue>();
+  let depositOffsetVnd = 0n;
+  const methods = new Set<SettlementLineMethod>();
   for (const l of mergedLines) {
     methods.add(l.method);
+    if (l.method === "DEPOSIT") depositOffsetVnd += l.amount; // 항상 VND(위 검증)
     if (l.currency === "VND") vnd += l.amount;
     else if (l.currency === "KRW") krw += l.amount;
     else usd += l.amount;
@@ -126,6 +147,7 @@ export function normalizeSettlementLines(lines: SettlementLineInput[]): Normaliz
     settledVnd: vnd > 0n ? vnd : null,
     settledKrw: krw > 0n ? Number(krw) : null,
     settledUsd: usd > 0n ? Number(usd) : null,
+    depositOffsetVnd,
     derivedMethod,
   };
 }
