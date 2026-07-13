@@ -245,6 +245,7 @@ export interface GuestLabels {
     paymentTitle: string; // 결제 내역 섹션
     paidLabel: string; // 수납(구 데이터 폴백 라벨)
     outstandingLabel: string; // 미수납 잔액(청구가 결제로 다 안 채워진 구 데이터)
+    paymentTotalLabel: string; // 결제 합계(₫ 환산 — 통화 혼합 수납 한눈에)
     excessLabel: string; // 초과 수납(환불 예정) — 결제가 청구를 초과한 경우
     methodCash: string; // 현금
     methodBank: string; // 계좌이체
@@ -487,6 +488,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       paymentTitle: "결제 내역",
       paidLabel: "수납",
       outstandingLabel: "미수납 잔액",
+      paymentTotalLabel: "결제 합계",
       excessLabel: "초과 수납 (환불 예정)",
       methodCash: "현금",
       methodBank: "계좌이체",
@@ -720,6 +722,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       paymentTitle: "Payment",
       paidLabel: "Paid",
       outstandingLabel: "Outstanding balance",
+      paymentTotalLabel: "Total paid",
       excessLabel: "Overpaid (to be refunded)",
       methodCash: "Cash",
       methodBank: "Bank transfer",
@@ -953,6 +956,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       paymentTitle: "Оплата",
       paidLabel: "Оплачено",
       outstandingLabel: "Остаток к оплате",
+      paymentTotalLabel: "Итого оплачено",
       excessLabel: "Переплата (к возврату)",
       methodCash: "Наличные",
       methodBank: "Банковский перевод",
@@ -1186,6 +1190,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       paymentTitle: "支付明细",
       paidLabel: "收款",
       outstandingLabel: "未收余额",
+      paymentTotalLabel: "已付合计",
       excessLabel: "超额收款 (待退还)",
       methodCash: "现金",
       methodBank: "银行转账",
@@ -1419,6 +1424,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       paymentTitle: "Thanh toán",
       paidLabel: "Đã thu",
       outstandingLabel: "Số tiền còn thiếu",
+      paymentTotalLabel: "Tổng đã thanh toán",
       excessLabel: "Thu vượt (sẽ hoàn lại)",
       methodCash: "Tiền mặt",
       methodBank: "Chuyển khoản",
