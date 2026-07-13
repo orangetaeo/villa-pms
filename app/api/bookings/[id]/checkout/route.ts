@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { completeCheckout, CheckoutRejectedError, type MinibarLineInput } from "@/lib/checkout";
+import {
+  completeCheckout,
+  CheckoutRejectedError,
+  DepositOffsetError,
+  type MinibarLineInput,
+} from "@/lib/checkout";
 import { serializeBigInt } from "@/lib/serialize";
 import { isOperator } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
@@ -46,10 +51,11 @@ const checkoutSchema = z.object({
       method: z.enum(["CASH", "BANK_TRANSFER", "OTHER"]).optional(),
       note: z.string().trim().max(500).optional().nullable(),
       // 혼합 수납 라인 — amount는 원본 통화 최소단위 숫자 문자열(양수 검증은 lib normalize가 담당, 0은 400).
+      //   DEPOSIT(보증금 상계, ADR-0041)은 라인 전용 수단(currency=VND만 — lib normalize가 검증). MIXED은 계속 제외.
       lines: z
         .array(
           z.object({
-            method: z.enum(["CASH", "BANK_TRANSFER", "OTHER"]),
+            method: z.enum(["CASH", "BANK_TRANSFER", "OTHER", "DEPOSIT"]),
             currency: z.enum(["VND", "KRW", "USD"]),
             amount: z.string().regex(/^\d+$/),
           })
@@ -223,6 +229,10 @@ export async function POST(
     if (e instanceof CheckoutRejectedError) {
       const status = e.reason === "NOT_FOUND" ? 404 : 409;
       return Response.json({ error: e.reason, message: e.message }, { status });
+    }
+    // 보증금 상계 검증 실패 — code로 구분(DEPOSIT_NOT_HELD·DEPOSIT_NOT_VND·DEPOSIT_OFFSET_EXCEEDS) → 400
+    if (e instanceof DepositOffsetError) {
+      return Response.json({ error: e.code, message: e.message }, { status: 400 });
     }
     if (e instanceof RangeError) {
       return Response.json({ error: "invalid_input", message: e.message }, { status: 400 });

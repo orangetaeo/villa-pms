@@ -917,7 +917,8 @@
           "CASH": "현금",
           "BANK_TRANSFER": "계좌이체",
           "OTHER": "기타",
-          "MIXED": "혼합"
+          "MIXED": "혼합",
+          "DEPOSIT": "보증금 차감"
         },
         "amounts": "통화별 실수납액",
         "lines": "수단별 수납"
@@ -3449,7 +3450,17 @@
     "settlementDeposit": "원천 보증금",
     "settlementMinibar": "미니바 차감액",
     "settlementDamage": "파손 차감액",
+    "settlementOffset": "보증금 상계",
     "settlementRefund": "최종 환불 예정액",
+    "offsetSummaryTitle": "최종 가감산 요약",
+    "offsetDeposit": "보증금 (원천)",
+    "offsetDamage": "파손 차감",
+    "offsetCharge": "총 청구 (환산)",
+    "offsetRefundLabel": "환불 예정액",
+    "offsetCollectLabel": "추가로 받을 금액",
+    "offsetSettledLabel": "정산 완료 (차액 없음)",
+    "offsetChargeOnlyLabel": "받을 금액 (총 청구)",
+    "depositOffsetHint": "청구액을 보증금에서 자동 상계했습니다. 금액을 수정·삭제하면 자동 계산이 멈춥니다.",
     "guestBillTitle": "체크아웃 게스트 청구서",
     "guestBillMinibar": "미니바 소비 합계",
     "guestBillServices": "확정 부가옵션",
@@ -3464,7 +3475,8 @@
     "settlementMethods": {
       "CASH": "현금",
       "BANK_TRANSFER": "계좌이체",
-      "OTHER": "기타"
+      "OTHER": "기타",
+      "DEPOSIT": "보증금 차감"
     },
     "settlementClear": "선택 해제",
     "settlementOptionalNote": "결제수단을 선택하지 않으면 청구액만 기록되고 미수납 상태로 남습니다.",
