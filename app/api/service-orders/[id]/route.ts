@@ -72,6 +72,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       status: true,
       vendorId: true,
       vendorStatus: true,
+      // 무료 티켓 취소 통보 제외 판정용(P3-①) — 판매가·지급 스냅샷. 응답엔 미노출(내부 게이트 전용).
+      type: true,
+      priceVnd: true,
+      costVnd: true,
       proposedServiceDate: true,
       vendorProposalRespondedAt: true,
       booking: { select: { status: true } },
@@ -211,7 +215,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   //   VENDOR_ACCEPTED)로 준비 중일 수 있으므로 stale PO 방지. 게스트 취소 경로는 발주건을 차단하므로
   //   여기가 유일한 통보 지점. zaloUserId 연결된 공급자에만 큐 적재(미연결이면 통보 생략).
   let vendorNotified = false;
-  const isCancelNotify = data.status === "CANCELLED" && vendorHasLivePo(existing);
+  // ★무료 티켓(판매가 0 + 지급 0, P3-①)은 실제 PO 발송 이력이 없다(생성 시 자동 확정·발주 없음) →
+  //   취소 통보에서 제외해 "받은 적 없는 발주의 취소" Zalo 오발송을 막는다. 유료 티켓·일반 주문은 불변.
+  const isFreeTicketOrder =
+    existing.type === "TICKET" && existing.priceVnd === 0n && existing.costVnd === 0n;
+  const isCancelNotify =
+    data.status === "CANCELLED" && vendorHasLivePo(existing) && !isFreeTicketOrder;
   // ★발주 건별 정산 완료(markSettled=true)도 공급자에게 통보 — 본인 지급액(costVnd) 인앱 알림.
   const isSettledNotify = d.markSettled === true;
   if (isCancelNotify || isSettledNotify) {

@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { pickI18n, selectedOptionLabels } from "@/lib/service-display";
 import { formatVillaName } from "@/lib/villa-name";
 import { resolveQuickRange, parseUtcDateOnly } from "@/lib/date-vn";
+import { EXCLUDE_FREE_TICKET_WHERE } from "@/lib/service-order";
 
 /**
  * 벤더 정산 수단 좁히기 — GuestSettlementMethod enum이 게스트 수납용으로 넓어졌으나(MIXED·DEPOSIT …),
@@ -141,8 +142,11 @@ function viewWhere(q: HubQuery): Prisma.ServiceOrderWhereInput {
   const base = commonWhere(q);
   const extra: Prisma.ServiceOrderWhereInput[] = [];
   if (q.view === "pending") {
+    // 무료 티켓(지급 0) 제외 — 정산 대기 유령 잔류 차단(settleable 합계와 정의 동기화, P2-A).
+    extra.push(EXCLUDE_FREE_TICKET_WHERE);
     extra.push({ vendorStatus: "VENDOR_ACCEPTED", status: { not: "CANCELLED" }, vendorSettledAt: null });
   } else if (q.view === "paid") {
+    extra.push(EXCLUDE_FREE_TICKET_WHERE);
     extra.push({ vendorStatus: "VENDOR_ACCEPTED", status: { not: "CANCELLED" }, vendorSettledAt: { not: null } });
   } else {
     // status 뷰 — 상태 칩
@@ -265,10 +269,12 @@ export async function queryHub(q: HubQuery, locale: string): Promise<HubResult> 
   const skip = (Math.max(1, q.page) - 1) * q.pageSize;
 
   // 전역 합계(필터 무관) — 대기/완료 sum·count. 카드 표기용.
+  //   무료 티켓(지급 0) 제외 — pending/paid 목록 where와 정의 동기화(P2-A·P3-④).
   const settleable: Prisma.ServiceOrderWhereInput = {
     vendorId: { not: null },
     vendorStatus: "VENDOR_ACCEPTED",
     status: { not: "CANCELLED" },
+    ...EXCLUDE_FREE_TICKET_WHERE,
   };
 
   // 제안 현황 집계(전역 스냅샷, ADR-0035) — 미해결 제안·고객 거절(DECLINED). 브로커 발주만·취소 제외.

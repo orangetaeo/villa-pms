@@ -287,8 +287,15 @@ export default function GuestOptions(props: GuestOptionsProps) {
       router.push(ordersHref + (suffix ? "&" : "?") + "ordered=1");
     } catch (e) {
       // 품목 설정 오류(variant 필수·가격 부재·미지 variant)는 구체 문구 — 게스트가 재시도해도 안 되므로 운영자 문의 안내.
+      //   ★미체크인+규칙 variant(TICKET_GUESTS_REQUIRED, P2-B)는 재시도가 아니라 셀프 체크인 선행이 해법 — 별도 유도 문구.
       const code = (e as { code?: string | null } | null)?.code ?? null;
-      setOrdersError(code && CONFIG_ERROR_CODES.has(code) ? L.addons.configError : L.addons.error);
+      setOrdersError(
+        code === "TICKET_GUESTS_REQUIRED"
+          ? L.addons.ticketCheckinRequired
+          : code && CONFIG_ERROR_CODES.has(code)
+            ? L.addons.configError
+            : L.addons.error
+      );
       setSubmitting(false);
     }
   };

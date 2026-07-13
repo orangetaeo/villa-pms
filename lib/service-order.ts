@@ -5,7 +5,7 @@
 // 주의: 초기 T7.1의 단독 판매 BE(입력검증 validateServiceOrderInput·마진 computeServiceMarginKrw·
 // /api/bookings/[id]/services·/api/services/[id])는 ADR-0019/0023 카탈로그 시스템(service-catalog·
 // ServiceOrdersPanel)이 흡수·대체하여 제거되었다. 이 모듈에는 양 시스템이 공유하는 전이 로직만 남는다.
-import type { ServiceOrderStatus } from "@prisma/client";
+import type { Prisma, ServiceOrderStatus } from "@prisma/client";
 
 export const SERVICE_ORDER_STATUSES: readonly ServiceOrderStatus[] = [
   "REQUESTED",
@@ -63,6 +63,16 @@ export function assertServiceTransition(
 export function isFreeTicket(o: { type: string; priceVnd: string | null }): boolean {
   return o.type === "TICKET" && o.priceVnd === "0";
 }
+
+// 무료 티켓(소비자 판매가 0 + 벤더 지급 0) 제외 where — 발주함·정산 허브·벤더 통계 공유 상수(단일 원천).
+//   TICKET이면서 priceVnd=0·costVnd=0인 라인은 벤더가 할 일도 받을 돈도 없어 목록·정산·집계에서 숨긴다.
+//   ★경계: costVnd>0(지급 있음)은 AND 불충족으로 계속 표시(정산 누락 방지).
+//   ★SQL 3치 논리 경계: priceVnd null(스냅샷 없음)+costVnd 0 TICKET도 NOT(NULL)=NULL로 함께 숨겨진다
+//     (QA 실SQL 캡처 확인). 무해: 정상 생성 경로는 NO_PRICE 가드로 priceVnd null 불가, 유일 경로(운영자
+//     PATCH priceVnd=null)도 지급 0이라 벤더 액션·정산 없음.
+export const EXCLUDE_FREE_TICKET_WHERE: Prisma.ServiceOrderWhereInput = {
+  NOT: { AND: [{ type: "TICKET" }, { priceVnd: 0n }, { costVnd: 0n }] },
+};
 
 // 접힘 행 "처리 필요" 신호 판정에 필요한 최소 필드(구조적 부분집합 — OrderRow가 만족).
 export interface OrderAttentionInput {
