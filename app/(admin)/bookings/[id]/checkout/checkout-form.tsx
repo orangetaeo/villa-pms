@@ -363,8 +363,8 @@ export default function CheckoutForm({
   return (
     <div className="space-y-10">
       {/* ① 파손 및 손실 리포트 (최상단, b4 Damage Section) */}
-      <section className="bg-[#7F1D1D]/10 border border-[#7F1D1D]/30 rounded-xl p-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+      <section className="bg-[#7F1D1D]/10 border border-[#7F1D1D]/30 rounded-xl p-5 sm:p-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 sm:mb-8">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-admin-alert rounded-lg">
               <span className="material-symbols-outlined text-white">report_problem</span>
@@ -840,54 +840,59 @@ export default function CheckoutForm({
                   const methodOptions: CheckoutSettleMethod[] =
                     depositHeldVnd || isDeposit ? [...BASE_METHODS, "DEPOSIT"] : BASE_METHODS;
                   return (
-                    <div key={l.id} className="flex items-center gap-2">
-                      <select
-                        aria-label={t("settlementMethod")}
-                        value={l.method}
-                        onChange={(e) => {
-                          const m = e.target.value as CheckoutSettleMethod;
-                          // DEPOSIT 선택 시 통화 VND 고정.
-                          updateSettleLine(l.id, m === "DEPOSIT" ? { method: m, currency: "VND" } : { method: m });
-                        }}
-                        className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-2.5 text-sm text-white focus:ring-admin-primary focus:border-admin-primary outline-none"
-                      >
-                        {methodOptions.map((m) => (
-                          <option key={m} value={m}>
-                            {t(`settlementMethods.${m}`)}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        aria-label={t("settlementCurrency")}
-                        value={isDeposit ? "VND" : l.currency}
-                        disabled={isDeposit}
-                        onChange={(e) => updateSettleLine(l.id, { currency: e.target.value as SettleCurrency })}
-                        className="w-[76px] shrink-0 bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-2 text-sm text-white focus:ring-admin-primary focus:border-admin-primary outline-none disabled:opacity-60 disabled:cursor-not-allowed"
-                      >
-                        {SETTLE_CURRENCIES.map((c) => (
-                          <option key={c} value={c}>
-                            {c === "VND" ? "₫ VND" : c === "KRW" ? "₩ KRW" : "$ USD"}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        aria-label={t("settlementAmount")}
-                        value={l.digits ? formatThousands(l.digits) : ""}
-                        onChange={(e) => updateSettleLine(l.id, { amount: e.target.value.replace(/[^\d]/g, "") })}
-                        className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-3 text-sm text-white text-right tabular-nums focus:ring-admin-primary focus:border-admin-primary outline-none"
-                        placeholder="0"
-                      />
-                      <button
-                        type="button"
-                        aria-label={t("settlementLineRemove")}
-                        onClick={() => removeSettleLine(l.id)}
-                        disabled={settleLines.length <= 1}
-                        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:hover:text-slate-500 disabled:hover:bg-transparent transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">close</span>
-                      </button>
+                    // 모바일(<sm): 2줄 — 1줄[수단][통화] / 2줄[금액][✕]. sm↑: 한 줄. 금액 자릿수 항상 노출(min-w-0).
+                    <div key={l.id} className="flex flex-col sm:flex-row sm:items-center gap-2">
+                      <div className="flex items-center gap-2 sm:flex-1 sm:min-w-0">
+                        <select
+                          aria-label={t("settlementMethod")}
+                          value={l.method}
+                          onChange={(e) => {
+                            const m = e.target.value as CheckoutSettleMethod;
+                            // DEPOSIT 선택 시 통화 VND 고정.
+                            updateSettleLine(l.id, m === "DEPOSIT" ? { method: m, currency: "VND" } : { method: m });
+                          }}
+                          className="flex-1 min-w-0 h-11 bg-slate-900 border border-slate-700 rounded-lg px-2.5 text-sm text-white focus:ring-admin-primary focus:border-admin-primary outline-none"
+                        >
+                          {methodOptions.map((m) => (
+                            <option key={m} value={m}>
+                              {t(`settlementMethods.${m}`)}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          aria-label={t("settlementCurrency")}
+                          value={isDeposit ? "VND" : l.currency}
+                          disabled={isDeposit}
+                          onChange={(e) => updateSettleLine(l.id, { currency: e.target.value as SettleCurrency })}
+                          className="w-[84px] shrink-0 h-11 bg-slate-900 border border-slate-700 rounded-lg px-2 text-sm text-white focus:ring-admin-primary focus:border-admin-primary outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {SETTLE_CURRENCIES.map((c) => (
+                            <option key={c} value={c}>
+                              {c === "VND" ? "₫ VND" : c === "KRW" ? "₩ KRW" : "$ USD"}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-2 sm:flex-1 sm:min-w-0">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          aria-label={t("settlementAmount")}
+                          value={l.digits ? formatThousands(l.digits) : ""}
+                          onChange={(e) => updateSettleLine(l.id, { amount: e.target.value.replace(/[^\d]/g, "") })}
+                          className="flex-1 min-w-0 h-11 bg-slate-900 border border-slate-700 rounded-lg px-3 text-sm text-white text-right tabular-nums focus:ring-admin-primary focus:border-admin-primary outline-none"
+                          placeholder="0"
+                        />
+                        <button
+                          type="button"
+                          aria-label={t("settlementLineRemove")}
+                          onClick={() => removeSettleLine(l.id)}
+                          disabled={settleLines.length <= 1}
+                          className="shrink-0 w-11 h-11 flex items-center justify-center rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:hover:text-slate-500 disabled:hover:bg-transparent transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">close</span>
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -1003,9 +1008,9 @@ export default function CheckoutForm({
       )}
 
       {/* ⑥ 하단 고정 액션 바 (b4 Sticky Bottom Bar) */}
-      <div className="fixed bottom-0 left-0 lg:left-64 right-0 bg-admin-card border-t border-slate-800 px-4 md:px-8 py-4 z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+      <div className="fixed bottom-0 left-0 lg:left-64 right-0 bg-admin-card border-t border-slate-800 px-4 md:px-8 pt-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div className="flex flex-col whitespace-nowrap">
+          <div className="flex flex-col">
             {depositLabel && (
               <span className="text-xs text-slate-400 whitespace-nowrap">
                 {t("deposit")}: {depositLabel}
@@ -1018,13 +1023,14 @@ export default function CheckoutForm({
               </div>
             )}
           </div>
-          <div className="flex gap-4">
+          {/* 모바일(<sm): 버튼 세로 스택(w-full) — 가로 넘침·잘림 0. sm↑: 가로 배치. */}
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full md:w-auto">
             <button
               type="button"
               // 보증금에서 차감(파손·상계)이 있으면 전액 환불 불가 — 차감 후 환불 경로로 유도
               disabled={!canRefundFull}
               onClick={submit}
-              className="flex items-center gap-2 px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold border border-emerald-500 shadow-lg shadow-emerald-900/20 transition-all active:scale-95 whitespace-nowrap"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 sm:px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold border border-emerald-500 shadow-lg shadow-emerald-900/20 transition-all active:scale-95 whitespace-nowrap"
             >
               <span className="material-symbols-outlined">payments</span>
               {t("refundFull")}
@@ -1033,7 +1039,7 @@ export default function CheckoutForm({
               type="button"
               disabled={!canDeduct}
               onClick={submit}
-              className="flex items-center gap-2 px-10 py-4 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-lg transition-all active:scale-95 shadow-lg shadow-orange-900/20 whitespace-nowrap"
+              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 sm:px-10 py-4 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-lg transition-all active:scale-95 shadow-lg shadow-orange-900/20 whitespace-nowrap"
             >
               <span className="material-symbols-outlined">check_circle</span>
               {t("refundDeduct")}
