@@ -100,9 +100,7 @@ export default async function GuestReceiptPage({
   //   rest>0=미수납(손님이 더 낼 돈), rest<0=초과 수납(손님에게 돌려줄 돈). 상호 배타.
   const balance = (() => {
     const fxUsd = data.usage.fxVndPerUsd;
-    const kr = chargeKrw ?? 0;
-    if (kr > 0 && !fx) return { outstanding: null, excess: null };
-    const charge = BigInt(chargeVnd ?? "0") + (kr > 0 && fx ? BigInt(Math.round(kr * fx)) : 0n);
+    // 결제 합계(₫ 환산, 테오 요청 2026-07-13) — 수납 라인 우선, 구 데이터는 settled* 폴백.
     let paidVnd = 0n;
     let paidKrw = 0;
     let paidUsd = 0;
@@ -117,15 +115,29 @@ export default async function GuestReceiptPage({
       paidKrw = st.settledKrw ?? 0;
       paidUsd = st.settledUsd ?? 0;
     }
-    if ((paidKrw > 0 && !fx) || (paidUsd > 0 && !fxUsd)) return { outstanding: null, excess: null };
-    const paid =
-      paidVnd +
-      (paidKrw > 0 && fx ? BigInt(Math.round(paidKrw * fx)) : 0n) +
-      (paidUsd > 0 && fxUsd ? BigInt(Math.round(paidUsd * fxUsd)) : 0n);
+    // 환산 불가 통화(환율 스냅샷 없음)가 끼면 합계·잔액 전부 생략(오표기 방지).
+    const paidConvertible = !(paidKrw > 0 && !fx) && !(paidUsd > 0 && !fxUsd);
+    const paid = paidConvertible
+      ? paidVnd +
+        (paidKrw > 0 && fx ? BigInt(Math.round(paidKrw * fx)) : 0n) +
+        (paidUsd > 0 && fxUsd ? BigInt(Math.round(paidUsd * fxUsd)) : 0n)
+      : null;
+    const hasAnyPaid = paidVnd > 0n || paidKrw > 0 || paidUsd > 0;
+    // 합계는 결제가 1건이라도 있으면 표시. 외화가 섞였을 때만 "≈"(₫ 단일이면 정확값).
+    const paidTotal = paid != null && hasAnyPaid ? paid.toString() : null;
+    const paidTotalApprox = paidKrw > 0 || paidUsd > 0;
+
+    const kr = chargeKrw ?? 0;
+    if (paid == null || (kr > 0 && !fx)) {
+      return { outstanding: null, excess: null, paidTotal, paidTotalApprox };
+    }
+    const charge = BigInt(chargeVnd ?? "0") + (kr > 0 && fx ? BigInt(Math.round(kr * fx)) : 0n);
     const rest = charge - paid;
     return {
       outstanding: rest > 10_000n ? rest.toString() : null,
       excess: rest < -10_000n ? (-rest).toString() : null,
+      paidTotal,
+      paidTotalApprox,
     };
   })();
   const outstandingVnd = balance.outstanding;
@@ -382,6 +394,16 @@ export default async function GuestReceiptPage({
                       <div className="px-4 py-3 text-slate-400">—</div>
                     )}
                 </>
+              )}
+              {/* 결제 합계(₫ 환산, 테오 요청 2026-07-13) — 통화 혼합 수납도 한눈에. 외화 섞이면 ≈, ₫ 단일이면 정확값. */}
+              {balance.paidTotal && (
+                <div className="flex items-center justify-between px-4 py-3 bg-slate-50">
+                  <span className="font-bold text-slate-800">{R.paymentTotalLabel}</span>
+                  <span className="font-extrabold text-slate-900 tabular-nums">
+                    {balance.paidTotalApprox ? "≈ " : ""}
+                    {money(balance.paidTotal, "VND", lang)}
+                  </span>
+                </div>
               )}
               {/* 미수납 잔액 — 청구가 결제(보증금 차감 포함)로 다 채워지지 않은 경우(손님이 더 낼 돈). */}
               {outstandingVnd && (
