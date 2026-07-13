@@ -8,9 +8,10 @@ describe("deriveDepositSettlement — 보증금 가감산 파생", () => {
     const r = deriveDepositSettlement({
       depositAmount: 1_000_000,
       deductionVnd: 800_000n,
-      depositOffsetVnd: 300_000n,
+      depositCurrency: "VND" as const,
+      depositOffset: 300_000n,
     });
-    expect(r.offsetVnd).toBe(300_000n);
+    expect(r.offsetAmount).toBe(300_000n);
     expect(r.damageDeductVnd).toBe(500_000n);
     expect(r.totalDeductVnd).toBe(800_000n);
     expect(r.refundAmount).toBe(200_000);
@@ -20,9 +21,10 @@ describe("deriveDepositSettlement — 보증금 가감산 파생", () => {
     const r = deriveDepositSettlement({
       depositAmount: 1_000_000,
       deductionVnd: 500_000n,
-      depositOffsetVnd: 0n,
+      depositCurrency: "VND" as const,
+      depositOffset: 0n,
     });
-    expect(r.offsetVnd).toBe(0n);
+    expect(r.offsetAmount).toBe(0n);
     expect(r.damageDeductVnd).toBe(500_000n);
     expect(r.totalDeductVnd).toBe(500_000n);
     expect(r.refundAmount).toBe(500_000);
@@ -32,7 +34,8 @@ describe("deriveDepositSettlement — 보증금 가감산 파생", () => {
     const r = deriveDepositSettlement({
       depositAmount: 1_000_000,
       deductionVnd: 300_000n,
-      depositOffsetVnd: 300_000n,
+      depositCurrency: "VND" as const,
+      depositOffset: 300_000n,
     });
     expect(r.damageDeductVnd).toBe(0n);
     expect(r.refundAmount).toBe(700_000);
@@ -42,7 +45,8 @@ describe("deriveDepositSettlement — 보증금 가감산 파생", () => {
     const r = deriveDepositSettlement({
       depositAmount: 1_000_000,
       deductionVnd: null,
-      depositOffsetVnd: 0n,
+      depositCurrency: "VND" as const,
+      depositOffset: 0n,
     });
     expect(r.totalDeductVnd).toBe(0n);
     expect(r.damageDeductVnd).toBe(0n);
@@ -53,7 +57,8 @@ describe("deriveDepositSettlement — 보증금 가감산 파생", () => {
     const r = deriveDepositSettlement({
       depositAmount: 300_000,
       deductionVnd: 500_000n,
-      depositOffsetVnd: 0n,
+      depositCurrency: "VND" as const,
+      depositOffset: 0n,
     });
     expect(r.refundAmount).toBe(0);
   });
@@ -62,7 +67,8 @@ describe("deriveDepositSettlement — 보증금 가감산 파생", () => {
     const r = deriveDepositSettlement({
       depositAmount: 1_000_000,
       deductionVnd: 300_000n,
-      depositOffsetVnd: 400_000n,
+      depositCurrency: "VND" as const,
+      depositOffset: 400_000n,
     });
     expect(r.damageDeductVnd).toBe(0n);
   });
@@ -71,9 +77,10 @@ describe("deriveDepositSettlement — 보증금 가감산 파생", () => {
     const r = deriveDepositSettlement({
       depositAmount: 1_000_000,
       deductionVnd: 200_000n,
-      depositOffsetVnd: -100_000n,
+      depositCurrency: "VND" as const,
+      depositOffset: -100_000n,
     });
-    expect(r.offsetVnd).toBe(0n);
+    expect(r.offsetAmount).toBe(0n);
     expect(r.damageDeductVnd).toBe(200_000n);
   });
 
@@ -81,7 +88,8 @@ describe("deriveDepositSettlement — 보증금 가감산 파생", () => {
     const r = deriveDepositSettlement({
       depositAmount: 500_000,
       deductionVnd: -10n,
-      depositOffsetVnd: 0n,
+      depositCurrency: "VND" as const,
+      depositOffset: 0n,
     });
     expect(r.totalDeductVnd).toBe(0n);
     expect(r.refundAmount).toBe(500_000);
@@ -91,9 +99,44 @@ describe("deriveDepositSettlement — 보증금 가감산 파생", () => {
     const r = deriveDepositSettlement({
       depositAmount: null,
       deductionVnd: 100_000n,
-      depositOffsetVnd: 0n,
+      depositCurrency: "VND" as const,
+      depositOffset: 0n,
     });
     expect(r.refundAmount).toBeNull();
     expect(r.totalDeductVnd).toBe(100_000n);
+  });
+
+  // ── 비VND 보증금 상계 (T-checkout-single-approve-deposit-currency, 2026-07-13) ──
+  it("KRW 보증금 전액 상계 — 상계=₩ 단위·환불 0", () => {
+    const r = deriveDepositSettlement({
+      depositAmount: 200_000,
+      depositCurrency: "KRW" as const,
+      deductionVnd: null, // 비VND 상계는 deductionVnd에 미합산(checkout.ts)
+      depositOffset: 200_000n,
+    });
+    expect(r.offsetAmount).toBe(200_000n);
+    expect(r.damageDeductVnd).toBe(0n);
+    expect(r.refundAmount).toBe(0);
+  });
+
+  it("KRW 보증금 일부 상계 — 환불 = amount − 상계(₩)", () => {
+    const r = deriveDepositSettlement({
+      depositAmount: 200_000,
+      depositCurrency: "KRW" as const,
+      deductionVnd: null,
+      depositOffset: 150_000n,
+    });
+    expect(r.refundAmount).toBe(50_000);
+  });
+
+  it("KRW 보증금 + 파손(₫) — 파손은 전액 표시·보증금 환불에는 미반영(계약 한계)", () => {
+    const r = deriveDepositSettlement({
+      depositAmount: 200_000,
+      depositCurrency: "KRW" as const,
+      deductionVnd: 500_000n, // 파손 ₫500,000 (VND 기록)
+      depositOffset: 100_000n,
+    });
+    expect(r.damageDeductVnd).toBe(500_000n); // 상계 차감 없이 전부 파손
+    expect(r.refundAmount).toBe(100_000); // amount − 상계(₩)만
   });
 });

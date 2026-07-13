@@ -34,13 +34,13 @@ describe("computeGuestBill — 통화별 게스트 청구 합산 (ADR-0003)", ()
 // ===================== normalizeSettlementLines (혼합 수납) =====================
 
 describe("normalizeSettlementLines — 수납 라인 검증·병합·집계 (T-checkout-mixed)", () => {
-  it("빈 배열 → lines=[]·전부 null·depositOffsetVnd=0n·derivedMethod=null", () => {
+  it("빈 배열 → lines=[]·전부 null·depositOffset 전부 0·derivedMethod=null", () => {
     expect(normalizeSettlementLines([])).toEqual({
       lines: [],
       settledVnd: null,
       settledKrw: null,
       settledUsd: null,
-      depositOffsetVnd: 0n,
+      depositOffset: { vnd: 0n, krw: 0, usd: 0 },
       derivedMethod: null,
     });
   });
@@ -137,49 +137,56 @@ describe("normalizeSettlementLines — 수납 라인 검증·병합·집계 (T-c
     expect(input[1].amount).toBe(2_000_000n);
   });
 
-  // ── 보증금 상계(DEPOSIT 라인, ADR-0041) ──────────────────────────────────
-  it("DEPOSIT 단독(VND) → derivedMethod=DEPOSIT + depositOffsetVnd=amount + settledVnd 포함", () => {
+  // ── 보증금 상계(DEPOSIT 라인, ADR-0041 · 보증금 통화 일반화) ────────────────────
+  it("DEPOSIT 단독(VND) → derivedMethod=DEPOSIT + depositOffset.vnd=amount + settledVnd 포함", () => {
     const r = normalizeSettlementLines([
       { method: "DEPOSIT", currency: "VND", amount: 2_000_000n },
     ]);
     expect(r.derivedMethod).toBe("DEPOSIT");
-    expect(r.depositOffsetVnd).toBe(2_000_000n);
+    expect(r.depositOffset).toEqual({ vnd: 2_000_000n, krw: 0, usd: 0 });
     // settledVnd는 청구 커버리지 캐시 — DEPOSIT 라인도 포함
     expect(r.settledVnd).toBe(2_000_000n);
     expect(r.lines).toHaveLength(1);
   });
 
-  it("DEPOSIT + 현금 혼합 → MIXED + depositOffsetVnd는 DEPOSIT만 합산", () => {
+  it("DEPOSIT 라인 KRW(비VND) → 통화 검증 안 함(normalize), depositOffset.krw 집계 + settledKrw 포함", () => {
+    const r = normalizeSettlementLines([
+      { method: "DEPOSIT", currency: "KRW", amount: 300_000n },
+    ]);
+    expect(r.derivedMethod).toBe("DEPOSIT");
+    expect(r.depositOffset).toEqual({ vnd: 0n, krw: 300_000, usd: 0 });
+    expect(r.settledKrw).toBe(300_000);
+    expect(r.settledVnd).toBeNull();
+  });
+
+  it("DEPOSIT 라인 USD(비VND) → depositOffset.usd 집계 + settledUsd 포함", () => {
+    const r = normalizeSettlementLines([{ method: "DEPOSIT", currency: "USD", amount: 50n }]);
+    expect(r.depositOffset).toEqual({ vnd: 0n, krw: 0, usd: 50 });
+    expect(r.settledUsd).toBe(50);
+  });
+
+  it("DEPOSIT + 현금 혼합 → MIXED + depositOffset은 DEPOSIT만 합산", () => {
     const r = normalizeSettlementLines([
       { method: "DEPOSIT", currency: "VND", amount: 2_000_000n },
       { method: "CASH", currency: "VND", amount: 500_000n },
     ]);
     expect(r.derivedMethod).toBe("MIXED");
-    expect(r.depositOffsetVnd).toBe(2_000_000n); // 현금은 제외
+    expect(r.depositOffset).toEqual({ vnd: 2_000_000n, krw: 0, usd: 0 }); // 현금은 제외
     expect(r.settledVnd).toBe(2_500_000n); // 청구 커버리지 = 상계 + 현금
   });
 
-  it("DEPOSIT 라인 중복 → 합산 병합, depositOffsetVnd 누적", () => {
+  it("DEPOSIT 라인 중복 → 합산 병합, depositOffset.vnd 누적", () => {
     const r = normalizeSettlementLines([
       { method: "DEPOSIT", currency: "VND", amount: 1_000_000n },
       { method: "DEPOSIT", currency: "VND", amount: 700_000n },
     ]);
     expect(r.lines).toHaveLength(1);
-    expect(r.depositOffsetVnd).toBe(1_700_000n);
+    expect(r.depositOffset.vnd).toBe(1_700_000n);
     expect(r.derivedMethod).toBe("DEPOSIT");
   });
 
-  it("DEPOSIT 라인 currency≠VND(KRW/USD) → RangeError", () => {
-    expect(() =>
-      normalizeSettlementLines([{ method: "DEPOSIT", currency: "KRW", amount: 100_000n }])
-    ).toThrow(RangeError);
-    expect(() =>
-      normalizeSettlementLines([{ method: "DEPOSIT", currency: "USD", amount: 50n }])
-    ).toThrow(RangeError);
-  });
-
-  it("DEPOSIT 없으면 depositOffsetVnd=0n", () => {
+  it("DEPOSIT 없으면 depositOffset 전부 0", () => {
     const r = normalizeSettlementLines([{ method: "CASH", currency: "VND", amount: 500_000n }]);
-    expect(r.depositOffsetVnd).toBe(0n);
+    expect(r.depositOffset).toEqual({ vnd: 0n, krw: 0, usd: 0 });
   });
 });

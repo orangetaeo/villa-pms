@@ -59,6 +59,17 @@ const SETTLE_CURRENCIES: SettleCurrency[] = ["VND", "KRW", "USD"];
 /** 자동 제안 보증금 상계 라인의 고정 id — dirty 판정·재계산 대상 식별용. */
 const DEPOSIT_AUTO_ID = "depositAuto";
 
+/** 통화별 절삭 단위(테오 지시): ₫=1만 내림·₩=1,000원 내림·$=정수 내림. 끝전 면제·서버 초과 400 예방. */
+const TRUNC_UNIT: Record<SettleCurrency, bigint> = { VND: 10_000n, KRW: 1_000n, USD: 1n };
+const truncForCurrency = (v: bigint, c: SettleCurrency) => (v / TRUNC_UNIT[c]) * TRUNC_UNIT[c];
+
+/** 보증금 통화 금액 표기 — ₫는 뒤(500,000₫), ₩·$는 기호를 숫자 앞(₩500,000·$100). float 없이 정수만. */
+function formatDepositAmount(v: bigint, c: SettleCurrency): string {
+  if (c === "VND") return `${formatThousands(v)}₫`;
+  if (c === "KRW") return `₩${formatThousands(v)}`;
+  return `$${formatThousands(v)}`;
+}
+
 /** 수납 라인 입력값 — 수단×통화×금액(원본 통화 정수 디지털 문자열). id는 React key·행 조작용. */
 interface SettlementLineInput {
   id: string;
@@ -72,7 +83,8 @@ export default function CheckoutForm({
   bookingId,
   minibar,
   depositLabel,
-  depositVnd,
+  depositAmount,
+  depositCurrency,
   depositStatus,
   confirmedOrders,
   fx,
@@ -80,8 +92,10 @@ export default function CheckoutForm({
   bookingId: string;
   minibar: MinibarItem[];
   depositLabel: string | null;
-  /** 보증금이 VND일 때만 — 환불·상계 계산용 (동 단위 숫자 문자열) */
-  depositVnd: string | null;
+  /** 보증금 원금(정수 디지털 문자열, 보증금 통화 단위). 통화 무관 환불·상계 계산의 소스. null이면 보증금 없음. */
+  depositAmount: string | null;
+  /** 보증금 통화(₫/₩/$). 상계(DEPOSIT) 라인·환불 예정액은 이 통화 기준으로 계산·표시. null이면 보증금 없음. */
+  depositCurrency: SettleCurrency | null;
   /** 보증금 상태 — HELD(수취)일 때만 보증금 상계(DEPOSIT) 제안·허용. */
   depositStatus: "NONE" | "HELD" | "REFUNDED" | "PARTIAL_DEDUCTED";
   /** 확정 부가옵션(CONFIRMED|DELIVERED) — 게스트 청구서 합산용. 판매가만. */
@@ -210,11 +224,13 @@ export default function CheckoutForm({
     .reduce((s, l) => s + Number(l.amount), 0);
   const hasSettledAmount = settledVndBig > 0n || settledKrwNum > 0 || settledUsdNum > 0;
 
-  // 보증금 상계액(ΣDEPOSIT 라인, VND) — 보증금에서 청구를 차감한 총액. 환불 예정액 계산 소스.
-  const depositOffsetVnd = validSettleLines
-    .filter((l) => l.method === "DEPOSIT" && l.currency === "VND")
+  // 보증금 통화(₫/₩/$) — 상계·환불 계산 기준. null이면 보증금 없음.
+  const depositCur = depositCurrency;
+  // 보증금 상계액(ΣDEPOSIT 라인, 보증금 통화) — 보증금에서 청구를 차감한 총액. 환불 예정액 계산 소스.
+  const depositOffset = validSettleLines
+    .filter((l) => l.method === "DEPOSIT" && depositCur != null && l.currency === depositCur)
     .reduce((s, l) => s + l.amount, 0n);
-  const hasDepositLine = depositOffsetVnd > 0n;
+  const hasDepositLine = depositOffset > 0n;
 
   // ── 근사 환산(≈) — 표시 전용. 저장 금액 아님(저장은 원본 통화 그대로, ADR-0003). fx null이면 생략.
   //   통합 환산 총액 = VND 청구 + KRW 청구를 오늘 환율로 VND 환산(합산은 표시용 근사).
@@ -247,21 +263,32 @@ export default function CheckoutForm({
   const remainingKrw = fx ? Math.floor(Number(absRemainingVnd) / fx.vndPerKrw / 1000) * 1000 : 0;
   const remainingUsd = fx ? Math.floor(Number(absRemainingVnd) / fx.vndPerUsd) : 0;
 
-  // ── 보증금 상계 자동 제안 ─────────────────────────────────────────
-  //   보증금이 HELD·VND일 때만: 청구를 보증금에서 상계하는 DEPOSIT 라인을 프리필.
-  //   제안액 = min(보증금 − 파손차감, 총청구 환산 VND) 을 1만₫ 단위로 내림(끝전 면제, 서버 초과 400 예방).
-  const depositBig = depositVnd ? BigInt(depositVnd) : 0n;
-  const depositHeldVnd = depositStatus === "HELD" && depositVnd != null && depositBig > 0n;
-  const depositAvailForOffset = depositBig > damageDeductionVnd ? depositBig - damageDeductionVnd : 0n;
+  // ── 보증금 상계 자동 제안(통화 무관) ─────────────────────────────────
+  //   보증금이 HELD면 통화(₫/₩/$)에 관계없이: 청구를 보증금에서 상계하는 DEPOSIT 라인을 프리필.
+  //   제안액 = min(보증금 잔여, 총청구를 보증금 통화로 환산) 을 통화별 절삭(끝전 면제, 서버 초과 400 예방).
+  //   파손차감은 ₫로 기록되므로 ₫ 보증금일 때만 보증금 잔여에서 차감(비₫ 보증금은 계약상 파손 자동반영 안 함).
+  const depositBig = depositAmount ? BigInt(depositAmount) : 0n;
+  const depositHeld = depositStatus === "HELD" && depositCur != null && depositBig > 0n;
+  const damageInDeposit = depositCur === "VND" ? damageDeductionVnd : 0n; // ₫ 보증금일 때만 파손 반영
+  const depositAvailForOffset = depositBig > damageInDeposit ? depositBig - damageInDeposit : 0n;
+  // 총청구(VND 환산)를 보증금 통화로 환산 — ₫는 그대로, 비₫는 fx 필요(없으면 제안 생략·수동 입력 허용).
+  const chargeInDepositCur: bigint | null = (() => {
+    if (depositCur == null) return null;
+    if (depositCur === "VND") return totalVndEquiv;
+    if (!fx) return null;
+    const rate = depositCur === "KRW" ? fx.vndPerKrw : fx.vndPerUsd;
+    return BigInt(Math.floor(Number(totalVndEquiv) / rate));
+  })();
   const suggestedDepositOffset = (() => {
-    if (!depositHeldVnd) return 0n;
-    const cap = totalVndEquiv < depositAvailForOffset ? totalVndEquiv : depositAvailForOffset;
-    return truncVnd(cap);
+    if (!depositHeld || chargeInDepositCur == null) return 0n;
+    const cap = chargeInDepositCur < depositAvailForOffset ? chargeInDepositCur : depositAvailForOffset;
+    return truncForCurrency(cap, depositCur!);
   })();
 
   // 자동 상계 라인 동기화 — dirty(수동 개입) 전까지 파손·미니바·부가옵션 변경에 맞춰 재계산.
+  //   라인 통화 = 보증금 통화(depositCur).
   useEffect(() => {
-    if (!depositHeldVnd || depositDirtyRef.current) return;
+    if (!depositHeld || depositCur == null || depositDirtyRef.current) return;
     setSettleLines((ls) => {
       const existing = ls.find((l) => l.id === DEPOSIT_AUTO_ID);
       if (suggestedDepositOffset <= 0n) {
@@ -269,35 +296,49 @@ export default function CheckoutForm({
       }
       const amountStr = suggestedDepositOffset.toString();
       if (existing) {
-        if (existing.amount === amountStr && existing.method === "DEPOSIT" && existing.currency === "VND") {
+        if (existing.amount === amountStr && existing.method === "DEPOSIT" && existing.currency === depositCur) {
           return ls; // 변화 없음 — 재렌더 방지
         }
         return ls.map((l) =>
           l.id === DEPOSIT_AUTO_ID
-            ? { ...l, method: "DEPOSIT", currency: "VND", amount: amountStr }
+            ? { ...l, method: "DEPOSIT", currency: depositCur, amount: amountStr }
             : l
         );
       }
       // 상단에 삽입(가장 먼저 보이도록)
       return [
-        { id: DEPOSIT_AUTO_ID, method: "DEPOSIT", currency: "VND", amount: amountStr },
+        { id: DEPOSIT_AUTO_ID, method: "DEPOSIT", currency: depositCur, amount: amountStr },
         ...ls,
       ];
     });
-  }, [depositHeldVnd, suggestedDepositOffset]);
+  }, [depositHeld, depositCur, suggestedDepositOffset]);
 
-  // ── 환불 예정액 — 보증금 VND일 때만. 보증금 − 파손차감 − 보증금상계(0 미만 방지). ─────
-  const refundEstimateVnd = (() => {
-    if (!depositVnd) return null;
-    const deducted = damageDeductionVnd + depositOffsetVnd;
+  // ── 환불 예정액(보증금 통화 기준) — 보증금 − (₫보증금이면 파손차감) − 보증금상계(0 미만 방지). ─────
+  const refundEstimateAmt: bigint | null = (() => {
+    if (depositAmount == null || depositCur == null) return null;
+    const deducted = damageInDeposit + depositOffset;
     return depositBig > deducted ? depositBig - deducted : 0n;
   })();
-  const refundEstimate = refundEstimateVnd != null ? `${formatThousands(refundEstimateVnd)}₫` : null;
+  const refundEstimate =
+    refundEstimateAmt != null && depositCur != null
+      ? formatDepositAmount(refundEstimateAmt, depositCur)
+      : null;
 
-  // ── 가감산 요약(최종 결제 판단) — 보증금 − 파손 − 총청구(환산) = 순액. ─────
+  // ── 가감산 요약(최종 결제 판단, VND 환산 근사) — 보증금(≈VND) − 파손 − 총청구 = 순액. ─────
   //   양수 → 환불 예정액, 음수 → 추가로 받을 금액. 보증금 없으면 총청구 = 받을 금액.
-  const netSettlementVnd = depositVnd ? depositBig - damageDeductionVnd - totalVndEquiv : -totalVndEquiv;
+  //   비₫ 보증금은 fx로 ₫ 환산(≈). fx 없으면 환산 불가 → depositVndEquiv=null(요약 카드가 원금 표기로 폴백).
+  const depositVndEquiv: bigint | null = (() => {
+    if (depositAmount == null || depositCur == null) return null;
+    if (depositCur === "VND") return depositBig;
+    if (!fx) return null;
+    const rate = depositCur === "KRW" ? fx.vndPerKrw : fx.vndPerUsd;
+    return BigInt(Math.round(Number(depositBig) * rate));
+  })();
+  const netSettlementVnd =
+    depositVndEquiv != null ? depositVndEquiv - damageDeductionVnd - totalVndEquiv : -totalVndEquiv;
   const netAbsVnd = netSettlementVnd < 0n ? -netSettlementVnd : netSettlementVnd;
+  // 비₫ 보증금 + 파손 ON: 파손차감이 보증금 잔액에 자동 반영되지 않는 계약 한계 안내 표시 여부.
+  const showNonVndDamageNote = depositCur != null && depositCur !== "VND" && hasRealDamage;
 
   // ── 승인 하드 게이트(테오 지시 2026-07-13): 받을 돈(잔여 수납액)이 남아 있으면 승인 불가. ─────
   //   잔여 > 끝전 허용치(1만₫) && 초과 수납 아님 → 미수납 상태. 수납 라인(보증금 상계 포함)으로
@@ -312,13 +353,12 @@ export default function CheckoutForm({
       : guestBill.totalVnd - settledVndBig > SETTLE_TOLERANCE_VND ||
         guestBill.totalKrw > settledKrwNum);
 
-  const canRefundFull = !damageFound && !hasDepositLine && !settlementOutstanding && !busy;
-  const canDeduct =
-    // 파손 토글 ON이면 상세(금액+메모/사진) 완비 필수, 그 후 파손 차감 또는 보증금 상계가 있으면 활성.
-    (!damageFound || (deductionValid && (damageNote.trim().length > 0 || damagePhotos.length > 0))) &&
-    (hasRealDamage || hasDepositLine) &&
-    !settlementOutstanding &&
-    !busy;
+  // ── 단일 승인 게이트(테오 지시 2026-07-13): 환불·차감 이원 버튼 폐기, 승인 하나로 통일. ─────
+  //   활성 = (파손 토글 ON이면 금액+메모/사진 완비) && !잔여수납(하드 게이트) && !busy.
+  //   환불/차감 구분은 서버가 payload(damageFound·라인)로 파생 — 버튼은 하나, submit payload 불변.
+  const damageDetailsComplete =
+    !damageFound || (deductionValid && (damageNote.trim().length > 0 || damagePhotos.length > 0));
+  const canApprove = damageDetailsComplete && !settlementOutstanding && !busy;
 
   const submit = async () => {
     setBusy(true);
@@ -767,11 +807,22 @@ export default function CheckoutForm({
           {t("offsetSummaryTitle")}
         </h3>
         <div className="space-y-3 tabular-nums">
-          {depositVnd ? (
+          {depositAmount != null && depositVndEquiv != null ? (
+            // 보증금 있음 + ₫ 환산 가능(₫ 보증금 또는 비₫+fx) — 순액(환불/추가청구) 계산.
             <>
-              <div className="flex justify-between items-center text-sm">
+              <div className="flex justify-between items-start text-sm">
                 <span className="text-slate-400">{t("offsetDeposit")}</span>
-                <span className="font-bold text-slate-200">{formatThousands(depositVnd)}₫</span>
+                <span className="text-right">
+                  <span className="block font-bold text-slate-200">
+                    {depositCur !== "VND" ? "≈ " : ""}
+                    {formatThousands(depositVndEquiv)}₫
+                  </span>
+                  {depositCur != null && depositCur !== "VND" && (
+                    <span className="block text-[11px] text-slate-500">
+                      {formatDepositAmount(depositBig, depositCur)}
+                    </span>
+                  )}
+                </span>
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-slate-400">{t("offsetDamage")} (−)</span>
@@ -812,6 +863,29 @@ export default function CheckoutForm({
                   </>
                 )}
               </div>
+              {showNonVndDamageNote && (
+                <p className="text-[11px] text-amber-400 leading-relaxed pt-1">
+                  {t("nonVndDamageNote")}
+                </p>
+              )}
+            </>
+          ) : depositAmount != null && depositCur != null ? (
+            // 보증금 있음(비₫) + fx 없음 — ₫ 환산 불가. 보증금 원금·총청구를 각각 표기(순액 생략).
+            <>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-400">{t("offsetDeposit")}</span>
+                <span className="font-bold text-slate-200">{formatDepositAmount(depositBig, depositCur)}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-400">{t("offsetCharge")}</span>
+                <span className={`font-bold ${totalVndEquiv > 0n ? "text-red-400" : "text-slate-600"}`}>
+                  {formatThousands(totalVndEquiv)}₫
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed pt-1">{t("offsetNoFxNote")}</p>
+              {showNonVndDamageNote && (
+                <p className="text-[11px] text-amber-400 leading-relaxed">{t("nonVndDamageNote")}</p>
+              )}
             </>
           ) : (
             // 보증금 없음 — 총 청구 = 받을 금액으로 단순 표시.
@@ -852,7 +926,9 @@ export default function CheckoutForm({
                 {parsedSettleLines.map((l) => {
                   const isDeposit = l.method === "DEPOSIT";
                   const methodOptions: CheckoutSettleMethod[] =
-                    depositHeldVnd || isDeposit ? [...BASE_METHODS, "DEPOSIT"] : BASE_METHODS;
+                    depositHeld || isDeposit ? [...BASE_METHODS, "DEPOSIT"] : BASE_METHODS;
+                  // 보증금 상계(DEPOSIT) 라인은 통화를 보증금 통화로 고정.
+                  const depositLineCur: SettleCurrency = depositCur ?? "VND";
                   return (
                     // 모바일(<sm): 2줄 — 1줄[수단][통화] / 2줄[금액][✕]. sm↑: 한 줄. 금액 자릿수 항상 노출(min-w-0).
                     <div key={l.id} className="flex flex-col sm:flex-row sm:items-center gap-2">
@@ -862,8 +938,11 @@ export default function CheckoutForm({
                           value={l.method}
                           onChange={(e) => {
                             const m = e.target.value as CheckoutSettleMethod;
-                            // DEPOSIT 선택 시 통화 VND 고정.
-                            updateSettleLine(l.id, m === "DEPOSIT" ? { method: m, currency: "VND" } : { method: m });
+                            // DEPOSIT 선택 시 통화를 보증금 통화로 고정.
+                            updateSettleLine(
+                              l.id,
+                              m === "DEPOSIT" ? { method: m, currency: depositLineCur } : { method: m }
+                            );
                           }}
                           className="flex-1 min-w-0 h-11 bg-slate-900 border border-slate-700 rounded-lg px-2.5 text-sm text-white focus:ring-admin-primary focus:border-admin-primary outline-none"
                         >
@@ -875,7 +954,7 @@ export default function CheckoutForm({
                         </select>
                         <select
                           aria-label={t("settlementCurrency")}
-                          value={isDeposit ? "VND" : l.currency}
+                          value={isDeposit ? depositLineCur : l.currency}
                           disabled={isDeposit}
                           onChange={(e) => updateSettleLine(l.id, { currency: e.target.value as SettleCurrency })}
                           className="w-[84px] shrink-0 h-11 bg-slate-900 border border-slate-700 rounded-lg px-2 text-sm text-white focus:ring-admin-primary focus:border-admin-primary outline-none disabled:opacity-60 disabled:cursor-not-allowed"
@@ -923,7 +1002,7 @@ export default function CheckoutForm({
               </button>
 
               <p className="text-[11px] text-slate-500 leading-relaxed">{t("settlementOptionalNote")}</p>
-              {depositHeldVnd && (
+              {depositHeld && (
                 <p className="text-[11px] text-admin-primary leading-relaxed">{t("depositOffsetHint")}</p>
               )}
 
@@ -980,8 +1059,8 @@ export default function CheckoutForm({
             </div>
           </div>
 
-          {/* 우: 보증금 정산 상세 — 원천 보증금 − 파손 차감 − 보증금 상계 = 환불 예정액 */}
-          {depositVnd && (
+          {/* 우: 보증금 정산 상세(보증금 통화 기준) — 원천 보증금 − 파손(₫보증금만) − 보증금 상계 = 환불 예정액 */}
+          {depositAmount != null && depositCur != null && (
             <div className="bg-admin-bg border border-slate-800 rounded-lg p-5 self-start">
               <h5 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">
                 {t("settlementTitle")}
@@ -989,18 +1068,20 @@ export default function CheckoutForm({
               <div className="space-y-3 tabular-nums">
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-slate-400">{t("settlementDeposit")}</span>
-                  <span className="font-bold text-slate-200">{formatThousands(depositVnd)}₫</span>
+                  <span className="font-bold text-slate-200">{formatDepositAmount(depositBig, depositCur)}</span>
                 </div>
-                {damageDeductionVnd > 0n && (
+                {depositCur === "VND" && damageDeductionVnd > 0n && (
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-slate-400">{t("settlementDamage")} (−)</span>
                     <span className="font-bold text-red-400">{formatThousands(damageDeductionVnd)}₫</span>
                   </div>
                 )}
-                {depositOffsetVnd > 0n && (
+                {depositOffset > 0n && (
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-slate-400">{t("settlementOffset")} (−)</span>
-                    <span className="font-bold text-red-400">{formatThousands(depositOffsetVnd)}₫</span>
+                    <span className="font-bold text-red-400">
+                      {formatDepositAmount(depositOffset, depositCur)}
+                    </span>
                   </div>
                 )}
                 <div className="h-px bg-slate-800 my-2" />
@@ -1008,6 +1089,9 @@ export default function CheckoutForm({
                   <span className="font-bold text-white">{t("settlementRefund")}</span>
                   <span className="text-lg font-black text-emerald-400">{refundEstimate}</span>
                 </div>
+                {showNonVndDamageNote && (
+                  <p className="text-[11px] text-amber-400 leading-relaxed">{t("nonVndDamageNote")}</p>
+                )}
               </div>
             </div>
           )}
@@ -1042,26 +1126,16 @@ export default function CheckoutForm({
             {settlementOutstanding && (
               <p className="text-xs text-amber-400 md:text-right">{t("settleOutstandingBlock")}</p>
             )}
-            {/* 모바일(<sm): 2열 그리드(컴팩트, 세로 공간 최소) — 가로 넘침·잘림 0. sm↑: 가로 배치. */}
-            <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-4 w-full md:w-auto">
+            {/* 단일 승인 버튼(테오 지시 2026-07-13) — 환불/차감 구분은 서버가 파생. 모바일 w-full 컴팩트, sm↑ 우측 정렬. */}
+            <div className="w-full sm:w-auto">
               <button
                 type="button"
-                // 보증금에서 차감(파손·상계)이 있거나 잔여 수납액이 남으면 전액 환불 불가
-                disabled={!canRefundFull}
+                disabled={!canApprove}
                 onClick={submit}
-                className="flex items-center justify-center gap-1.5 sm:gap-2 w-full sm:w-auto px-2 sm:px-8 py-3 sm:py-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-[13px] sm:text-base border border-emerald-500 shadow-lg shadow-emerald-900/20 transition-all active:scale-95 whitespace-nowrap"
-              >
-                <span className="material-symbols-outlined text-[18px] sm:text-[24px]">payments</span>
-                {t("refundFull")}
-              </button>
-              <button
-                type="button"
-                disabled={!canDeduct}
-                onClick={submit}
-                className="flex items-center justify-center gap-1.5 sm:gap-2 w-full sm:w-auto px-2 sm:px-10 py-3 sm:py-4 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-[13px] sm:text-lg transition-all active:scale-95 shadow-lg shadow-orange-900/20 whitespace-nowrap"
+                className="flex items-center justify-center gap-1.5 sm:gap-2 w-full sm:w-auto px-4 sm:px-10 py-3 sm:py-4 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-[13px] sm:text-lg transition-all active:scale-95 shadow-lg shadow-orange-900/20 whitespace-nowrap"
               >
                 <span className="material-symbols-outlined text-[18px] sm:text-[24px]">check_circle</span>
-                {t("refundDeduct")}
+                {t("approveCheckout")}
               </button>
             </div>
           </div>

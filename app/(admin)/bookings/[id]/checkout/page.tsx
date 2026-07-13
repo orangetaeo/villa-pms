@@ -131,10 +131,10 @@ export default async function CheckoutPage({
         ? formatKrw(booking.depositAmount) // ADMIN KRW 표기 규칙 (QA D3)
         : formatVnd(BigInt(booking.depositAmount))
       : null;
-  const depositVnd =
-    booking.depositAmount != null && booking.depositCurrency === "VND"
-      ? String(booking.depositAmount)
-      : null;
+  // 보증금 원금·통화 — 통화 무관 상계·환불 계산용(₫/₩/$). depositAmount는 Int(정수) 저장, 문자열로 전달.
+  const depositAmount = booking.depositAmount != null ? String(booking.depositAmount) : null;
+  const depositCurrency =
+    booking.depositAmount != null && booking.depositCurrency != null ? booking.depositCurrency : null;
 
   // 오늘 환율(HCM 기준) — 미니바·청구서·수납 환산 "≈" 표시용. 장애 시 null(환산줄 생략).
   const rates = await getDailyRates(prisma);
@@ -180,7 +180,8 @@ export default async function CheckoutPage({
           bookingId={booking.id}
           minibar={minibar}
           depositLabel={depositLabel}
-          depositVnd={depositVnd}
+          depositAmount={depositAmount}
+          depositCurrency={depositCurrency}
           depositStatus={booking.depositStatus}
           confirmedOrders={confirmedOrders}
           fx={fx}

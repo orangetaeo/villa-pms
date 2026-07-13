@@ -11,6 +11,7 @@ import { writeAuditLog } from "./audit-log";
 import {
   computeGuestBill,
   normalizeSettlementLines,
+  type DepositOffset,
   type GuestSettlementMethodValue,
   type SettlementLineInput,
 } from "./checkout-settlement";
@@ -40,13 +41,16 @@ export class CheckoutRejectedError extends Error {
 
 /**
  * 보증금 상계(DEPOSIT 수납 라인) 검증 실패 — 라우트가 code로 400 구분 응답한다 (ADR-0041).
- *   - DEPOSIT_NOT_HELD: 보증금 미수취(depositStatus=NONE)인데 DEPOSIT 라인 존재
- *   - DEPOSIT_NOT_VND: 보증금이 VND HELD 상태가 아님(상계 불가)
+ *   - DEPOSIT_NOT_HELD: 보증금이 HELD(수취·미반환) 상태가 아닌데 DEPOSIT 라인 존재(NONE·이미 반환 등)
+ *   - DEPOSIT_CURRENCY_MISMATCH: DEPOSIT 라인 통화 ≠ booking.depositCurrency(2개 통화 이상 라인 포함)
  *   - DEPOSIT_OFFSET_EXCEEDS: 상계액이 (보증금 − 파손차감) 잔액을 초과 / 보증금 금액 미기록
  */
 export class DepositOffsetError extends Error {
   constructor(
-    public readonly code: "DEPOSIT_NOT_HELD" | "DEPOSIT_NOT_VND" | "DEPOSIT_OFFSET_EXCEEDS",
+    public readonly code:
+      | "DEPOSIT_NOT_HELD"
+      | "DEPOSIT_CURRENCY_MISMATCH"
+      | "DEPOSIT_OFFSET_EXCEEDS",
     detail?: string
   ) {
     super(detail ? `${code}: ${detail}` : code);
@@ -63,23 +67,28 @@ export interface DepositOutcome {
 
 /**
  * 보증금 처리 판정 — 파손 차감·보증금 상계·현재 보증금 상태의 정합 검증 (SPEC F4 체크아웃 3, ADR-0041)
- * - HELD(수취): (파손차감 + 상계) > 0 ⇒ PARTIAL_DEDUCTED / == 0 ⇒ REFUNDED.
+ * - HELD(수취): (파손 || 상계 존재) ⇒ PARTIAL_DEDUCTED / 둘 다 없음 ⇒ REFUNDED.
  *     파손 시 파손차감(>0) 필수·무파손 시 파손차감 금지(기존 규칙 유지).
- *     반환 deductionVnd = 파손차감 + 상계 합(depositDeductVnd 저장용 — 보증금에서 빠진 총액, 표시 하위호환).
+ *     ★ 상계 존재 판정은 통화 무관(VND/KRW/USD 어느 통화든 상계가 있으면 부분 차감).
+ *     반환 deductionVnd = **파손차감(VND) + VND 상계만** 합산(depositDeductVnd 저장값 — VND 의미 컬럼).
+ *       비VND 상계는 이 값에 절대 합산하지 않는다(통화 혼합 금지) — 정본은 CheckoutSettlementLine.
+ *       VND 합이 0이면(예: ₩보증금+₩상계, 파손 없음) null 저장(PARTIAL이어도 VND 차감 없음).
  * - NONE(미수취): 상태 NONE 유지 — REFUNDED 둔갑 차단 (T3.1 인계 메모 1, T3.2 계약 결정 4).
- *     DEPOSIT 라인(상계 > 0) 존재 시 → DepositOffsetError("DEPOSIT_NOT_HELD") (차감할 보증금이 없음).
+ *     DEPOSIT 라인(상계 > 0, 통화 무관) 존재 시 → DepositOffsetError("DEPOSIT_NOT_HELD").
  *     파손 시 deductionVnd는 보증금 차감이 아닌 청구 근거로 기록 허용(선택).
- * @param depositOffsetVnd ΣDEPOSIT 라인(보증금 상계액, VND). 기본 0n.
+ * @param depositOffset 통화별 ΣDEPOSIT 라인(보증금 상계액). 기본 0.
  */
 export function resolveDepositOutcome(
   damageFound: boolean,
   deductionVnd: bigint | null | undefined,
   currentDepositStatus: DepositStatus = DepositStatus.HELD,
-  depositOffsetVnd: bigint = 0n
+  depositOffset: DepositOffset = { vnd: 0n, krw: 0, usd: 0 }
 ): DepositOutcome {
+  // 상계 존재 여부 — 통화 무관(보증금에서 빠지는 총량 판정용)
+  const hasOffset = depositOffset.vnd > 0n || depositOffset.krw > 0 || depositOffset.usd > 0;
   if (currentDepositStatus === DepositStatus.NONE) {
     // 미수취 보증금은 상계 대상이 없음 — DEPOSIT 라인은 라우트 400
-    if (depositOffsetVnd > 0n) {
+    if (hasOffset) {
       throw new DepositOffsetError("DEPOSIT_NOT_HELD", "보증금을 수취하지 않아 상계할 수 없습니다");
     }
     if (!damageFound && deductionVnd != null && deductionVnd !== 0n) {
@@ -102,10 +111,14 @@ export function resolveDepositOutcome(
   } else if (deductionVnd != null && deductionVnd !== 0n) {
     throw new RangeError("파손이 없으면 차감액을 기록할 수 없습니다 (전액 환불)");
   }
-  // 보증금에서 빠진 총액 = 파손차감 + 상계. > 0이면 부분 차감, 0이면 전액 환불.
-  const totalDeduct = damageDeduct + depositOffsetVnd;
-  if (totalDeduct > 0n) {
-    return { depositStatus: DepositStatus.PARTIAL_DEDUCTED, deductionVnd: totalDeduct };
+  // 파손 || 상계(통화 무관) 존재 → 부분 차감, 아니면 전액 환불.
+  //   depositDeductVnd 저장값 = 파손차감(VND) + VND 상계만(비VND 상계는 라인이 정본).
+  if (damageDeduct > 0n || hasOffset) {
+    const vndDeduct = damageDeduct + depositOffset.vnd;
+    return {
+      depositStatus: DepositStatus.PARTIAL_DEDUCTED,
+      deductionVnd: vndDeduct > 0n ? vndDeduct : null,
+    };
   }
   return { depositStatus: DepositStatus.REFUNDED, deductionVnd: null };
 }
@@ -232,20 +245,30 @@ export async function completeCheckout(
       throw new CheckoutRejectedError("NOT_CHECKED_IN", `현재 상태: ${booking.status}`);
     }
 
-    // ── 보증금 상계(DEPOSIT 수납 라인) 서버 검증 (ADR-0041) ─────────────────
-    //   보증금 원천은 서버가 Booking에서 조회한다(클라 신뢰 금지). 상계액이 있으면:
-    //     · NONE(미수취) → DEPOSIT_NOT_HELD
-    //     · HELD 아님 또는 depositCurrency≠VND → DEPOSIT_NOT_VND
-    //     · depositAmount 미기록(null) 또는 ΣDEPOSIT > (depositAmount − 파손차감) → DEPOSIT_OFFSET_EXCEEDS
-    const depositOffsetVnd = normalizedSettlement.depositOffsetVnd; // ≥ 0n (VND)
-    if (depositOffsetVnd > 0n) {
-      if (booking.depositStatus === DepositStatus.NONE) {
-        throw new DepositOffsetError("DEPOSIT_NOT_HELD", "보증금을 수취하지 않아 상계할 수 없습니다");
-      }
-      if (booking.depositStatus !== DepositStatus.HELD || booking.depositCurrency !== "VND") {
+    // ── 보증금 상계(DEPOSIT 수납 라인) 서버 검증 (ADR-0041 · 보증금 통화 일반화) ────────
+    //   보증금 원천은 서버가 Booking에서 조회한다(클라 신뢰 금지). 상계액(통화 무관)이 있으면:
+    //     · HELD(수취·미반환) 아님(NONE 포함) → DEPOSIT_NOT_HELD
+    //     · DEPOSIT 라인 통화 ≠ depositCurrency(2개 통화 이상 라인 포함) → DEPOSIT_CURRENCY_MISMATCH
+    //     · depositAmount 미기록(null) 또는 Σ상계(보증금 통화) > (depositAmount − 파손차감[VND 보증금만])
+    //       → DEPOSIT_OFFSET_EXCEEDS
+    const depositOffset = normalizedSettlement.depositOffset; // 통화별 ≥ 0
+    // 상계가 존재하는 통화 목록(양수만)
+    const offsetCurrencies: Array<"VND" | "KRW" | "USD"> = [];
+    if (depositOffset.vnd > 0n) offsetCurrencies.push("VND");
+    if (depositOffset.krw > 0) offsetCurrencies.push("KRW");
+    if (depositOffset.usd > 0) offsetCurrencies.push("USD");
+    if (offsetCurrencies.length > 0) {
+      if (booking.depositStatus !== DepositStatus.HELD) {
         throw new DepositOffsetError(
-          "DEPOSIT_NOT_VND",
-          "보증금이 VND HELD 상태가 아니어서 상계할 수 없습니다"
+          "DEPOSIT_NOT_HELD",
+          "보증금이 상계 가능한(HELD) 상태가 아닙니다"
+        );
+      }
+      // 상계 통화는 보증금 통화와 일치해야 한다 — 2개 통화 이상이면 곧바로 불일치
+      if (offsetCurrencies.length > 1 || offsetCurrencies[0] !== booking.depositCurrency) {
+        throw new DepositOffsetError(
+          "DEPOSIT_CURRENCY_MISMATCH",
+          "보증금 상계 라인의 통화가 보증금 통화와 일치하지 않습니다"
         );
       }
       if (booking.depositAmount == null) {
@@ -254,21 +277,29 @@ export async function completeCheckout(
           "보증금 금액이 기록되지 않아 상계할 수 없습니다"
         );
       }
-      // depositAmount는 Int?(동 단위) — 상계·잔액 계산은 BigInt로 (부동소수점·정밀도 금지)
-      const damageDeduct = input.deductionVnd ?? 0n;
+      // 보증금 통화의 상계액(BigInt) — 위 검증으로 해당 통화 1종만 양수
+      const offsetInDepositCurrency =
+        booking.depositCurrency === "VND"
+          ? depositOffset.vnd
+          : booking.depositCurrency === "KRW"
+            ? BigInt(depositOffset.krw)
+            : BigInt(depositOffset.usd);
+      // 파손차감은 VND 컬럼 의미 — VND 보증금일 때만 잔액에서 차감(통화 혼합 금지, 계약 ③)
+      const damageDeduct = booking.depositCurrency === "VND" ? input.deductionVnd ?? 0n : 0n;
       const available = BigInt(booking.depositAmount) - damageDeduct;
-      if (depositOffsetVnd > available) {
+      if (offsetInDepositCurrency > available) {
         throw new DepositOffsetError("DEPOSIT_OFFSET_EXCEEDS", "상계액이 보증금 잔액을 초과합니다");
       }
     }
 
     // 보증금 판정은 현재 상태 기준 — NONE(미수취)은 NONE 유지 (T3.3 핫픽스).
-    //   상계액을 넘겨 (파손차감 + 상계) 합으로 REFUNDED/PARTIAL_DEDUCTED 판정 (ADR-0041).
+    //   통화별 상계를 넘겨 (파손 || 상계 존재)로 REFUNDED/PARTIAL_DEDUCTED 판정 (ADR-0041).
+    //   저장값 depositDeductVnd는 파손(VND)+VND 상계만(비VND 상계는 라인이 정본).
     const outcome = resolveDepositOutcome(
       input.damageFound,
       input.deductionVnd,
       booking.depositStatus,
-      depositOffsetVnd
+      depositOffset
     );
 
     // status 가드 — 동시 체크아웃 경합에서 한쪽만 승리
@@ -476,10 +507,16 @@ export async function completeCheckout(
         status: { old: BookingStatus.CHECKED_IN, new: BookingStatus.CHECKED_OUT },
         depositStatus: { new: outcome.depositStatus },
         // BigInt는 Json 컬럼에 직접 못 들어감 — 문자열 기록
-        // depositDeductVnd = 파손차감 + 보증금 상계 합(보증금에서 빠진 총액, ADR-0041)
+        // depositDeductVnd = 파손차감(VND) + VND 상계만(보증금에서 빠진 VND 총액, ADR-0041)
         depositDeductVnd: { new: outcome.deductionVnd?.toString() ?? null },
-        // 보증금 상계액(ΣDEPOSIT 라인) — 파손차감과 분리 기록(문자열)
-        depositOffsetVnd: { new: depositOffsetVnd.toString() },
+        // 보증금 상계액(ΣDEPOSIT 라인) — 통화별 분리 기록(VND는 BigInt 문자열, KRW/USD는 정수)
+        depositOffset: {
+          new: {
+            vnd: depositOffset.vnd.toString(),
+            krw: depositOffset.krw,
+            usd: depositOffset.usd,
+          },
+        },
         checkOutRecordId: { new: record.id },
         // 미니바 판매 합계(라인 캡처) — BigInt는 문자열로 기록
         minibarChargeVnd: { new: minibarChargeVnd?.toString() ?? null },
