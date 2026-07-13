@@ -42,6 +42,9 @@ const infoPatchSchema = z
     beachDistanceM: nonNegInt.max(100000).nullable().optional(),
     areaSqm: nonNegInt.max(100000).nullable().optional(),
     floors: z.number().int().min(1).max(100).nullable().optional(),
+    // ADR-0042 프리미엄 요일 — getUTCDay 값(0=일…6=토). 가격 아님(비밀 아님) — 공급자·운영자 모두 설정 가능.
+    //   중복 제거·정렬은 서버. 빈 배열 허용(공휴일만 프리미엄). 프리미엄 가격은 요율 라우트에서 별도 입력.
+    premiumDays: z.array(z.number().int().min(0).max(6)).max(7).optional(),
     // ⑤ 셀링포인트 태그 — 전달 시에만 전체 교체(deleteMany→createMany). 미전달=기존 보존
     features: z.array(featureRowSchema).max(40).optional(),
   })
@@ -102,6 +105,10 @@ export async function PATCH(
   set("floors", data.floors);
   if (data.baseDepositVnd !== undefined) {
     scalarData.baseDepositVnd = data.baseDepositVnd === null ? null : BigInt(data.baseDepositVnd);
+  }
+  // ADR-0042 프리미엄 요일 — 중복 제거 후 오름차순 정렬(결정적 저장). 빈 배열 허용.
+  if (data.premiumDays !== undefined) {
+    scalarData.premiumDays = [...new Set(data.premiumDays)].sort((a, b) => a - b);
   }
   // 수영장 자동 보정 — 셀링포인트에 풀 태그(프라이빗풀·키즈풀)가 있으면 hasPool=true 강제.
   // (해제는 자동으로 하지 않음 — sales 라우트 §108~110 동일 규칙)

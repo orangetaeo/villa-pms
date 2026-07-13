@@ -29,12 +29,19 @@ export default async function SupplierRatePeriodsPage({
     select: {
       id: true,
       supplierId: true,
+      premiumDays: true, // ADR-0042 프리미엄 요일 — 가격 아님(비밀 아님). 공급자 요일 칩에 노출.
       // 누수 차단 — 원가·날짜만. sale/margin 필드는 select에 부재
       ratePeriods: {
         orderBy: [{ isBase: "desc" }, { startDate: "asc" }],
-        // 누수 차단 — 공급자 소유 금액만(supplierCostVnd 원가 + supplierSalePriceVnd 공급자 자기 판매가).
-        // salePriceVnd/salePriceKrw/marginType/marginValue(운영자 재판매 마진)는 절대 select 금지.
-        select: { id: true, isBase: true, season: true, startDate: true, endDate: true, supplierCostVnd: true, supplierSalePriceVnd: true, label: true },
+        // 누수 차단 — 공급자 소유 금액만(supplierCostVnd 원가 + supplierSalePriceVnd 공급자 자기 판매가
+        //   + ADR-0042 premiumSupplierCostVnd·premiumSupplierSalePriceVnd 자기 프리미엄만).
+        // salePriceVnd/salePriceKrw/premiumSalePrice*/premiumConsumer*/marginType/marginValue(운영자 재판매·마진)는 절대 select 금지.
+        select: {
+          id: true, isBase: true, season: true, startDate: true, endDate: true,
+          supplierCostVnd: true, supplierSalePriceVnd: true,
+          premiumSupplierCostVnd: true, premiumSupplierSalePriceVnd: true,
+          label: true,
+        },
       },
     },
   });
@@ -49,9 +56,14 @@ export default async function SupplierRatePeriodsPage({
         season: baseRow.season,
         supplierCostVnd: baseRow.supplierCostVnd.toString(),
         supplierSalePriceVnd: baseRow.supplierSalePriceVnd?.toString() ?? "",
+        premiumSupplierCostVnd: baseRow.premiumSupplierCostVnd?.toString() ?? "",
+        premiumSupplierSalePriceVnd: baseRow.premiumSupplierSalePriceVnd?.toString() ?? "",
         label: baseRow.label ?? "",
       }
-    : { season: "LOW" as const, supplierCostVnd: "", supplierSalePriceVnd: "", label: "" };
+    : {
+        season: "LOW" as const, supplierCostVnd: "", supplierSalePriceVnd: "",
+        premiumSupplierCostVnd: "", premiumSupplierSalePriceVnd: "", label: "",
+      };
 
   const periods: InitialRatePeriod[] = villa.ratePeriods
     .filter((r) => !r.isBase)
@@ -62,6 +74,8 @@ export default async function SupplierRatePeriodsPage({
       endDate: r.endDate ? toDateOnlyString(r.endDate) : "",
       supplierCostVnd: r.supplierCostVnd.toString(),
       supplierSalePriceVnd: r.supplierSalePriceVnd?.toString() ?? "",
+      premiumSupplierCostVnd: r.premiumSupplierCostVnd?.toString() ?? "",
+      premiumSupplierSalePriceVnd: r.premiumSupplierSalePriceVnd?.toString() ?? "",
       label: r.label ?? "",
     }));
 
@@ -81,7 +95,12 @@ export default async function SupplierRatePeriodsPage({
         <div className="h-10 w-10" />
       </header>
 
-      <RatePeriodCostEditor villaId={villa.id} initialBase={base} initialPeriods={periods} />
+      <RatePeriodCostEditor
+        villaId={villa.id}
+        initialBase={base}
+        initialPeriods={periods}
+        initialPremiumDays={villa.premiumDays}
+      />
     </div>
   );
 }

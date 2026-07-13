@@ -6,9 +6,27 @@
     "krwUnit": "₩"
   },
   "partner": {
-    "serviceOrders": { "title": "Yêu cầu dịch vụ bổ sung", "subtitle": "Dịch vụ khách đã yêu cầu. Vui lòng kiểm tra ghi chú của khách." },
-    "serviceType": { "BBQ": "BBQ", "TICKET": "Vé tham quan", "GUIDE": "Hướng dẫn viên", "CAR_RENTAL": "Thuê xe", "BREAKFAST": "Bữa sáng", "MOTORBIKE_RENTAL": "Thuê xe máy", "MASSAGE": "Massage", "BARBER": "Cắt tóc", "FRUIT": "Trái cây" },
-    "serviceOrderStatus": { "REQUESTED": "Đã yêu cầu", "CONFIRMED": "Đã xác nhận", "DELIVERED": "Đã cung cấp", "CANCELLED": "Đã hủy" },
+    "serviceOrders": {
+      "title": "Yêu cầu dịch vụ bổ sung",
+      "subtitle": "Dịch vụ khách đã yêu cầu. Vui lòng kiểm tra ghi chú của khách."
+    },
+    "serviceType": {
+      "BBQ": "BBQ",
+      "TICKET": "Vé tham quan",
+      "GUIDE": "Hướng dẫn viên",
+      "CAR_RENTAL": "Thuê xe",
+      "BREAKFAST": "Bữa sáng",
+      "MOTORBIKE_RENTAL": "Thuê xe máy",
+      "MASSAGE": "Massage",
+      "BARBER": "Cắt tóc",
+      "FRUIT": "Trái cây"
+    },
+    "serviceOrderStatus": {
+      "REQUESTED": "Đã yêu cầu",
+      "CONFIRMED": "Đã xác nhận",
+      "DELIVERED": "Đã cung cấp",
+      "CANCELLED": "Đã hủy"
+    },
     "notif": {
       "ariaOpen": "Mở thông báo",
       "title": "Thông báo",
@@ -20,7 +38,11 @@
     "changeRequest": {
       "title": "Yêu cầu đặt phòng",
       "subtitle": "Hủy·thay đổi·gia hạn giữ chỗ: gửi yêu cầu, quản trị viên sẽ xác nhận và xử lý.",
-      "kind": { "CANCEL": "Yêu cầu hủy", "MODIFY": "Yêu cầu thay đổi", "HOLD_EXTEND": "Yêu cầu gia hạn giữ chỗ" },
+      "kind": {
+        "CANCEL": "Yêu cầu hủy",
+        "MODIFY": "Yêu cầu thay đổi",
+        "HOLD_EXTEND": "Yêu cầu gia hạn giữ chỗ"
+      },
       "pendingBadge": "Đang chờ xử lý",
       "pendingHint": "Quản trị viên đang xác nhận. Bạn sẽ nhận thông báo khi xử lý xong.",
       "hint": {
@@ -35,7 +57,11 @@
       "submit": "Gửi yêu cầu",
       "submitting": "Đang gửi…",
       "cancel": "Đóng",
-      "requestStatus": { "PENDING": "Chờ", "APPROVED": "Đã xử lý", "REJECTED": "Từ chối" }
+      "requestStatus": {
+        "PENDING": "Chờ",
+        "APPROVED": "Đã xử lý",
+        "REJECTED": "Từ chối"
+      }
     },
     "tabs": {
       "bookings": "Đặt phòng",
@@ -85,7 +111,12 @@
       "balanceDue": "Tiền còn lại",
       "overdueDays": "Quá hạn {count} ngày",
       "paymentHistory": "Lịch sử thanh toán ({count})",
-      "paymentPurpose": { "DEPOSIT": "Tiền cọc", "BALANCE": "Tiền còn lại", "GUEST": "Thanh toán", "INVOICE": "Thu theo hóa đơn" }
+      "paymentPurpose": {
+        "DEPOSIT": "Tiền cọc",
+        "BALANCE": "Tiền còn lại",
+        "GUEST": "Thanh toán",
+        "INVOICE": "Thu theo hóa đơn"
+      }
     },
     "proposals": {
       "itemBooked": "Đã đặt",
@@ -248,7 +279,8 @@
       "finance": "Tài chính",
       "system": "Hệ thống"
     },
-    "revenue": "Doanh thu"
+    "revenue": "Doanh thu",
+    "holidays": "Ngày lễ"
   },
   "account": {
     "title": "Tài khoản của tôi",
@@ -673,7 +705,11 @@
       "bannerTitle": "Yêu cầu đối tác đang chờ",
       "bannerBody": "Có {count} yêu cầu hủy·thay đổi·gia hạn giữ chỗ đang chờ xử lý.",
       "bannerCta": "Xử lý ngay",
-      "kind": { "CANCEL": "Hủy", "MODIFY": "Thay đổi", "HOLD_EXTEND": "Gia hạn giữ chỗ" }
+      "kind": {
+        "CANCEL": "Hủy",
+        "MODIFY": "Thay đổi",
+        "HOLD_EXTEND": "Gia hạn giữ chỗ"
+      }
     },
     "partnerOverdue": {
       "bannerTitle": "Đối tác quá hạn",
@@ -703,7 +739,11 @@
   "adminBookings": {
     "changeRequest": {
       "title": "Yêu cầu từ đối tác",
-      "kind": { "CANCEL": "Yêu cầu hủy", "MODIFY": "Yêu cầu thay đổi", "HOLD_EXTEND": "Yêu cầu gia hạn giữ chỗ" },
+      "kind": {
+        "CANCEL": "Yêu cầu hủy",
+        "MODIFY": "Yêu cầu thay đổi",
+        "HOLD_EXTEND": "Yêu cầu gia hạn giữ chỗ"
+      },
       "notePlaceholder": "Ghi chú xử lý (gửi cho đối tác, tùy chọn)",
       "extendHours": "Gia hạn {h} giờ",
       "processing": "Đang xử lý…",
@@ -714,7 +754,11 @@
       },
       "reject": "Từ chối",
       "error": "Xử lý thất bại",
-      "status": { "PENDING": "Chờ", "APPROVED": "Đã duyệt", "REJECTED": "Từ chối" }
+      "status": {
+        "PENDING": "Chờ",
+        "APPROVED": "Đã duyệt",
+        "REJECTED": "Từ chối"
+      }
     },
     "list": {
       "title": "Quản lý đặt phòng",
@@ -869,7 +913,11 @@
         "openVillaSalesInfo": "Mở thông tin bán villa",
         "usdRateHint": "Nhập tỷ giá USD trong Cài đặt tỷ giá để tự động tính.",
         "openFxSettings": "Mở cài đặt tỷ giá",
-        "loadError": "Không tải được báo giá."
+        "loadError": "Không tải được báo giá.",
+        "premium": {
+          "WEEKDAY_RULE": "Cuối tuần",
+          "HOLIDAY": "Ngày lễ"
+        }
       }
     },
     "status": {
@@ -1396,7 +1444,14 @@
         "saved": "Đã lưu giá.",
         "saveError": "Lưu thất bại. Vui lòng thử lại.",
         "invalidNumber": "Chỉ nhập số.",
-        "empty": "Nhà cung cấp chưa nhập giá gốc theo mùa."
+        "empty": "Nhà cung cấp chưa nhập giá gốc theo mùa.",
+        "premiumSection": "Giá cao điểm (cuối tuần·ngày lễ)",
+        "colPremiumCost": "Giá gốc cao điểm",
+        "colPremiumSaleVnd": "Net cao điểm (VND)",
+        "colPremiumSaleKrw": "Net cao điểm (KRW)",
+        "colPremiumConsumerVnd": "Giá khách cao điểm (VND)",
+        "colPremiumConsumerKrw": "Giá khách cao điểm (KRW)",
+        "premiumHint": "Ô để trống sẽ tự áp dụng giá ngày thường. Đêm nào là cao điểm do phần 'Ngày cao điểm' bên dưới và lịch ngày lễ quyết định."
       },
       "ratePeriods": {
         "title": "Giá theo giai đoạn",
@@ -1509,6 +1564,23 @@
         "types": {
           "MASSAGE": "Massage",
           "BARBER": "Cắt tóc"
+        }
+      },
+      "premiumDays": {
+        "title": "Ngày cao điểm",
+        "hint": "Đêm của các ngày được chọn sẽ áp dụng giá cao điểm ở bảng giá phía trên. Mặc định là Thứ Sáu·Thứ Bảy.",
+        "save": "Lưu",
+        "saving": "Đang lưu…",
+        "saved": "Đã lưu",
+        "saveError": "Lưu thất bại",
+        "weekdays": {
+          "0": "CN",
+          "1": "T2",
+          "2": "T3",
+          "3": "T4",
+          "4": "T5",
+          "5": "T6",
+          "6": "T7"
         }
       }
     },
@@ -2404,7 +2476,35 @@
     "zaloCardCta": "Quản lý",
     "servicesCardTitle": "Danh mục dịch vụ",
     "servicesCardDesc": "Quản lý menu, tùy chọn và giá của dịch vụ bổ sung như BBQ, vé, xe.",
-    "servicesCardCta": "Quản lý"
+    "servicesCardCta": "Quản lý",
+    "holidays": {
+      "title": "Quản lý ngày lễ",
+      "subtitle": "Đăng ký các ngày lễ áp dụng giá cao điểm (dùng chung Hàn·Việt).",
+      "cardTitle": "Lịch ngày lễ",
+      "yearLabel": "Năm",
+      "yearValue": "Năm {year}",
+      "form": {
+        "date": "Ngày",
+        "datePlaceholder": "Năm-Tháng-Ngày",
+        "label": "Tên",
+        "labelPlaceholder": "VD: Tết, Quốc khánh",
+        "saving": "Đang lưu…",
+        "invalid": "Vui lòng nhập đúng ngày và tên."
+      },
+      "add": "Thêm",
+      "colDate": "Ngày",
+      "colLabel": "Tên",
+      "colActions": "Thao tác",
+      "loading": "Đang tải…",
+      "empty": "Chưa có ngày lễ nào.",
+      "delete": "Xóa",
+      "deleteConfirm": "Xóa ngày lễ {date} {label}?",
+      "saved": "Đã lưu",
+      "deleted": "Đã xóa",
+      "duplicate": "Ngày này đã được đăng ký.",
+      "loadError": "Không tải được danh sách.",
+      "error": "Xử lý thất bại."
+    }
   },
   "inventory": {
     "title": "Kho minibar",
@@ -2722,9 +2822,20 @@
       "subtitle": "Xem tổng quan trung gian dịch vụ và xử lý thanh toán cho từng nhà cung cấp.",
       "reload": "Làm mới",
       "loadError": "Tải thất bại — thử lại",
-      "tab": { "settle": "Quyết toán NCC", "status": "Tình trạng" },
-      "sub": { "pending": "Chờ chi", "paid": "Đã chi" },
-      "summary": { "unsettledTotal": "Tổng chưa thanh toán", "paidTotal": "Tổng đã thanh toán", "vendorCount": "Số nhà cung cấp", "allBasis": "toàn bộ" },
+      "tab": {
+        "settle": "Quyết toán NCC",
+        "status": "Tình trạng"
+      },
+      "sub": {
+        "pending": "Chờ chi",
+        "paid": "Đã chi"
+      },
+      "summary": {
+        "unsettledTotal": "Tổng chưa thanh toán",
+        "paidTotal": "Tổng đã thanh toán",
+        "vendorCount": "Số nhà cung cấp",
+        "allBasis": "toàn bộ"
+      },
       "vendorOrders": "{n} đơn",
       "settleSelected": "Thanh toán mục chọn ({n})",
       "noBank": "Chưa có tài khoản",
@@ -2744,10 +2855,32 @@
       "emptyPaid": "Chưa có khoản nào đã thanh toán.",
       "emptySearch": "Không có kết quả tìm kiếm.",
       "emptyStatus": "Chưa có đơn trung gian nào.",
-      "filters": { "item": "Dịch vụ", "vendor": "Nhà cung cấp", "partner": "Đối tác", "villa": "Villa", "guestPlaceholder": "Tìm tên khách" },
-      "filter": { "all": "Tất cả", "pending": "Chờ NCC", "accepted": "Đã nhận", "proposal": "Chờ xử lý đề xuất", "rejected": "Từ chối", "cancelled": "Đã hủy" },
-      "vstatus": { "PENDING_VENDOR": "Chờ NCC", "VENDOR_ACCEPTED": "Đã nhận", "VENDOR_REJECTED": "Từ chối", "CANCELLED": "Đã hủy" },
-      "method": { "CASH": "Tiền mặt", "BANK_TRANSFER": "Chuyển khoản", "OTHER": "Khác" },
+      "filters": {
+        "item": "Dịch vụ",
+        "vendor": "Nhà cung cấp",
+        "partner": "Đối tác",
+        "villa": "Villa",
+        "guestPlaceholder": "Tìm tên khách"
+      },
+      "filter": {
+        "all": "Tất cả",
+        "pending": "Chờ NCC",
+        "accepted": "Đã nhận",
+        "proposal": "Chờ xử lý đề xuất",
+        "rejected": "Từ chối",
+        "cancelled": "Đã hủy"
+      },
+      "vstatus": {
+        "PENDING_VENDOR": "Chờ NCC",
+        "VENDOR_ACCEPTED": "Đã nhận",
+        "VENDOR_REJECTED": "Từ chối",
+        "CANCELLED": "Đã hủy"
+      },
+      "method": {
+        "CASH": "Tiền mặt",
+        "BANK_TRANSFER": "Chuyển khoản",
+        "OTHER": "Khác"
+      },
       "modal": {
         "title": "Xử lý thanh toán",
         "desc": "{vendor} · {n} đơn · Tổng {total}",
@@ -3967,7 +4100,23 @@
     "invalid": "Các giai đoạn bị trùng hoặc ngày không hợp lệ.",
     "saveError": "Lưu thất bại. Vui lòng thử lại.",
     "salePrice": "Giá bán của bạn / đêm",
-    "salePriceHint": "Giá bạn bán cho khách của mình (không bắt buộc). Cần có để tạo liên kết bán phòng."
+    "salePriceHint": "Giá bạn bán cho khách của mình (không bắt buộc). Cần có để tạo liên kết bán phòng.",
+    "premiumDaysTitle": "Ngày cuối tuần / ngày lễ",
+    "premiumDaysHint": "Chọn các thứ trong tuần được tính giá cao hơn (giá cuối tuần / ngày lễ). Mặc định Thứ Sáu·Thứ Bảy.",
+    "holidayNote": "Ngày lễ do công ty tự áp dụng.",
+    "weekdays": {
+      "0": "CN",
+      "1": "T2",
+      "2": "T3",
+      "3": "T4",
+      "4": "T5",
+      "5": "T6",
+      "6": "T7"
+    },
+    "premiumToggle": "Giá cuối tuần / ngày lễ",
+    "premiumCost": "Giá gốc cuối tuần / ngày lễ / đêm",
+    "premiumSalePrice": "Giá bán cuối tuần / ngày lễ / đêm",
+    "premiumEmptyHint": "Để trống thì áp dụng giá ngày thường."
   },
   "costSeasons": {
     "title": "Giá gốc & mùa",
@@ -4729,159 +4878,438 @@
     "skip": "Bỏ qua",
     "done": "Xong",
     "myVillas": {
-      "add": { "title": "Thêm villa", "desc": "Nhấn vào đây để thêm villa mới." },
-      "status": { "title": "Trạng thái villa", "desc": "Xem villa đã được duyệt bán chưa." },
-      "tabs": { "title": "Thanh menu", "desc": "Chuyển giữa villa, lịch và dọn dẹp." }
+      "add": {
+        "title": "Thêm villa",
+        "desc": "Nhấn vào đây để thêm villa mới."
+      },
+      "status": {
+        "title": "Trạng thái villa",
+        "desc": "Xem villa đã được duyệt bán chưa."
+      },
+      "tabs": {
+        "title": "Thanh menu",
+        "desc": "Chuyển giữa villa, lịch và dọn dẹp."
+      }
     },
     "calendar": {
-      "villa": { "title": "Chọn villa", "desc": "Chọn villa muốn xem lịch." },
-      "grid": { "title": "Chọn ngày", "desc": "Chạm ngày để mở hoặc khóa phòng." },
-      "legend": { "title": "Chú thích màu", "desc": "Xem ý nghĩa màu của từng ngày." }
+      "villa": {
+        "title": "Chọn villa",
+        "desc": "Chọn villa muốn xem lịch."
+      },
+      "grid": {
+        "title": "Chọn ngày",
+        "desc": "Chạm ngày để mở hoặc khóa phòng."
+      },
+      "legend": {
+        "title": "Chú thích màu",
+        "desc": "Xem ý nghĩa màu của từng ngày."
+      }
     },
     "cleaningList": {
-      "task": { "title": "Việc dọn dẹp", "desc": "Nhấn vào thẻ để xem chi tiết." },
-      "filter": { "title": "Lọc theo ngày", "desc": "Chạm để xem việc hôm nay hoặc tuần này." }
+      "task": {
+        "title": "Việc dọn dẹp",
+        "desc": "Nhấn vào thẻ để xem chi tiết."
+      },
+      "filter": {
+        "title": "Lọc theo ngày",
+        "desc": "Chạm để xem việc hôm nay hoặc tuần này."
+      }
     },
     "cleaningDetail": {
-      "baseline": { "title": "Ảnh mẫu", "desc": "So sánh với ảnh mẫu khi dọn phòng." },
-      "slots": { "title": "Chụp từng khu vực", "desc": "Nhấn ô để chụp ảnh sau khi dọn." },
-      "submit": { "title": "Gửi ảnh", "desc": "Chụp đủ ảnh rồi nhấn gửi." }
+      "baseline": {
+        "title": "Ảnh mẫu",
+        "desc": "So sánh với ảnh mẫu khi dọn phòng."
+      },
+      "slots": {
+        "title": "Chụp từng khu vực",
+        "desc": "Nhấn ô để chụp ảnh sau khi dọn."
+      },
+      "submit": {
+        "title": "Gửi ảnh",
+        "desc": "Chụp đủ ảnh rồi nhấn gửi."
+      }
     },
     "partnerHome": {
-      "booking": { "title": "Đặt phòng", "desc": "Xem đặt phòng theo trạng thái, chạm vào thẻ để xem chi tiết." },
-      "bell": { "title": "Thông báo", "desc": "Đặt phòng, thanh toán và hóa đơn mới sẽ hiện ở đây." },
-      "tabs": { "title": "Điều hướng", "desc": "Chuyển giữa Đặt phòng, Công nợ và Báo giá tại đây." }
+      "booking": {
+        "title": "Đặt phòng",
+        "desc": "Xem đặt phòng theo trạng thái, chạm vào thẻ để xem chi tiết."
+      },
+      "bell": {
+        "title": "Thông báo",
+        "desc": "Đặt phòng, thanh toán và hóa đơn mới sẽ hiện ở đây."
+      },
+      "tabs": {
+        "title": "Điều hướng",
+        "desc": "Chuyển giữa Đặt phòng, Công nợ và Báo giá tại đây."
+      }
     },
     "partnerReceivables": {
-      "outstanding": { "title": "Số dư công nợ", "desc": "Xem nhanh số tiền chưa thanh toán và các mốc quá hạn." },
-      "invoices": { "title": "Hóa đơn & báo có", "desc": "Xem hóa đơn đã phát hành và gửi báo có sau khi chuyển khoản." }
+      "outstanding": {
+        "title": "Số dư công nợ",
+        "desc": "Xem nhanh số tiền chưa thanh toán và các mốc quá hạn."
+      },
+      "invoices": {
+        "title": "Hóa đơn & báo có",
+        "desc": "Xem hóa đơn đã phát hành và gửi báo có sau khi chuyển khoản."
+      }
     },
     "partnerProposals": {
-      "proposal": { "title": "Báo giá đã nhận", "desc": "Xem villa, thời gian và giá đề xuất trong từng thẻ." },
-      "open": { "title": "Xem & đặt", "desc": "Nhấn để mở trang báo giá và tiến hành giữ chỗ." }
+      "proposal": {
+        "title": "Báo giá đã nhận",
+        "desc": "Xem villa, thời gian và giá đề xuất trong từng thẻ."
+      },
+      "open": {
+        "title": "Xem & đặt",
+        "desc": "Nhấn để mở trang báo giá và tiến hành giữ chỗ."
+      }
     },
     "vendorBoard": {
-      "inbox": { "title": "Nhận đơn tại đây", "desc": "Bạn sẽ nhận thông báo Zalo khi có đơn mới — bấm Nhận, Từ chối, hoặc đề xuất giờ khác." },
-      "schedule": { "title": "Lịch và hoàn thành", "desc": "Đơn đã nhận nằm ở đây; làm xong thì bấm Báo hoàn thành." },
-      "settlement": { "title": "Xem tiền được trả", "desc": "Số tiền villa trả cho các đơn đã hoàn thành hiện ở đây." }
+      "inbox": {
+        "title": "Nhận đơn tại đây",
+        "desc": "Bạn sẽ nhận thông báo Zalo khi có đơn mới — bấm Nhận, Từ chối, hoặc đề xuất giờ khác."
+      },
+      "schedule": {
+        "title": "Lịch và hoàn thành",
+        "desc": "Đơn đã nhận nằm ở đây; làm xong thì bấm Báo hoàn thành."
+      },
+      "settlement": {
+        "title": "Xem tiền được trả",
+        "desc": "Số tiền villa trả cho các đơn đã hoàn thành hiện ở đây."
+      }
     },
     "adminDashboard": {
-      "stats": { "title": "Tình hình hôm nay", "desc": "Xem nhanh check-in, check-out hôm nay, giữ chỗ đang chờ và dọn dẹp chờ nghiệm thu. Chạm vào thẻ để mở danh sách." },
-      "nav": { "title": "Menu quản lý", "desc": "Mọi màn hình nghiệp vụ — đặt phòng, villa, đề xuất, quyết toán — đều truy cập từ menu này." },
-      "bell": { "title": "Thông báo vận hành", "desc": "Thông báo vận hành (nhà cung cấp dịch vụ nhận đơn, báo hoàn thành, chờ duyệt tài khoản) tập hợp tại đây. Thông báo mới hiển thị bằng huy hiệu." }
+      "stats": {
+        "title": "Tình hình hôm nay",
+        "desc": "Xem nhanh check-in, check-out hôm nay, giữ chỗ đang chờ và dọn dẹp chờ nghiệm thu. Chạm vào thẻ để mở danh sách."
+      },
+      "nav": {
+        "title": "Menu quản lý",
+        "desc": "Mọi màn hình nghiệp vụ — đặt phòng, villa, đề xuất, quyết toán — đều truy cập từ menu này."
+      },
+      "bell": {
+        "title": "Thông báo vận hành",
+        "desc": "Thông báo vận hành (nhà cung cấp dịch vụ nhận đơn, báo hoàn thành, chờ duyệt tài khoản) tập hợp tại đây. Thông báo mới hiển thị bằng huy hiệu."
+      }
     },
     "adminBookings": {
-      "status": { "title": "Trạng thái đặt phòng", "desc": "Số lượng theo từng trạng thái. Nhấn thẻ để lọc. HOLD là đặt giữ chờ xác nhận thanh toán — hãy kiểm tra thường xuyên." },
-      "sheet": { "title": "In phiếu nhận phòng", "desc": "In danh sách đặt phòng nhận hôm nay thành một phiếu — dùng để chuẩn bị check-in và chia sẻ cho người phụ trách." },
-      "list": { "title": "Danh sách đặt phòng", "desc": "Nhấn vào hàng để xem chi tiết. Chú ý thời gian còn lại của HOLD và huy hiệu yêu cầu từ đối tác." }
+      "status": {
+        "title": "Trạng thái đặt phòng",
+        "desc": "Số lượng theo từng trạng thái. Nhấn thẻ để lọc. HOLD là đặt giữ chờ xác nhận thanh toán — hãy kiểm tra thường xuyên."
+      },
+      "sheet": {
+        "title": "In phiếu nhận phòng",
+        "desc": "In danh sách đặt phòng nhận hôm nay thành một phiếu — dùng để chuẩn bị check-in và chia sẻ cho người phụ trách."
+      },
+      "list": {
+        "title": "Danh sách đặt phòng",
+        "desc": "Nhấn vào hàng để xem chi tiết. Chú ý thời gian còn lại của HOLD và huy hiệu yêu cầu từ đối tác."
+      }
     },
     "adminVillas": {
-      "tabs": { "title": "Thẻ trạng thái", "desc": "Xem villa theo trạng thái: chờ duyệt, đang hoạt động, ngưng. Villa chờ duyệt có chấm cam." },
-      "new": { "title": "Đăng ký villa mới", "desc": "Có thể đăng ký villa mới thay cho nhà cung cấp. Sau khi đăng ký sẽ ở trạng thái chờ duyệt." },
-      "row": { "title": "Thẻ villa", "desc": "Mở thẻ để vào chi tiết hoặc duyệt. Chú ý huy hiệu chờ dọn dẹp và chưa cài giá." }
+      "tabs": {
+        "title": "Thẻ trạng thái",
+        "desc": "Xem villa theo trạng thái: chờ duyệt, đang hoạt động, ngưng. Villa chờ duyệt có chấm cam."
+      },
+      "new": {
+        "title": "Đăng ký villa mới",
+        "desc": "Có thể đăng ký villa mới thay cho nhà cung cấp. Sau khi đăng ký sẽ ở trạng thái chờ duyệt."
+      },
+      "row": {
+        "title": "Thẻ villa",
+        "desc": "Mở thẻ để vào chi tiết hoặc duyệt. Chú ý huy hiệu chờ dọn dẹp và chưa cài giá."
+      }
     },
     "adminProposals": {
-      "create": { "title": "Tạo đề xuất", "desc": "Chọn 2–3 villa để tạo link đề xuất gửi khách. Link có thời hạn hiệu lực." },
-      "tabs": { "title": "Thẻ trạng thái", "desc": "Xem theo trạng thái: hiệu lực, đã dùng, hết hạn, thu hồi. Đề xuất hiệu lực hiển thị thời gian còn lại." }
+      "create": {
+        "title": "Tạo đề xuất",
+        "desc": "Chọn 2–3 villa để tạo link đề xuất gửi khách. Link có thời hạn hiệu lực."
+      },
+      "tabs": {
+        "title": "Thẻ trạng thái",
+        "desc": "Xem theo trạng thái: hiệu lực, đã dùng, hết hạn, thu hồi. Đề xuất hiệu lực hiển thị thời gian còn lại."
+      }
     },
     "adminInspections": {
-      "tabs": { "title": "Thẻ trạng thái duyệt", "desc": "Các mục chờ duyệt (đã nộp ảnh) xếp trên cùng. Hãy kiểm tra số lượng ở thẻ này trước." },
-      "queue": { "title": "Hàng chờ duyệt", "desc": "Chọn một công việc để so sánh ảnh đã nộp với ảnh chuẩn ở bên phải." },
-      "actions": { "title": "Duyệt / Từ chối", "desc": "Phải duyệt dọn dẹp check-out thì villa mới chuyển sang trạng thái có thể bán. Khi từ chối, bắt buộc nhập lý do." }
+      "tabs": {
+        "title": "Thẻ trạng thái duyệt",
+        "desc": "Các mục chờ duyệt (đã nộp ảnh) xếp trên cùng. Hãy kiểm tra số lượng ở thẻ này trước."
+      },
+      "queue": {
+        "title": "Hàng chờ duyệt",
+        "desc": "Chọn một công việc để so sánh ảnh đã nộp với ảnh chuẩn ở bên phải."
+      },
+      "actions": {
+        "title": "Duyệt / Từ chối",
+        "desc": "Phải duyệt dọn dẹp check-out thì villa mới chuyển sang trạng thái có thể bán. Khi từ chối, bắt buộc nhập lý do."
+      }
     },
     "adminAvailability": {
-      "filters": { "title": "Chuyển kỳ xem", "desc": "Dùng mũi tên để chuyển kỳ 3 tháng và xem trước tình trạng trống sắp tới. Bật 'Chỉ cần xác nhận' để lọc các mục cần kiểm tra." },
-      "legend": { "title": "Chú giải màu ô", "desc": "Còn trống, khóa thủ công, kênh ngoài và đặt phòng được phân biệt bằng màu và biểu tượng." },
-      "grid": { "title": "Dòng thời gian phòng trống", "desc": "Lưới biệt thự × ngày. Chạm ô trống để khóa/mở, chạm ô đặt phòng để xem chi tiết." }
+      "filters": {
+        "title": "Chuyển kỳ xem",
+        "desc": "Dùng mũi tên để chuyển kỳ 3 tháng và xem trước tình trạng trống sắp tới. Bật 'Chỉ cần xác nhận' để lọc các mục cần kiểm tra."
+      },
+      "legend": {
+        "title": "Chú giải màu ô",
+        "desc": "Còn trống, khóa thủ công, kênh ngoài và đặt phòng được phân biệt bằng màu và biểu tượng."
+      },
+      "grid": {
+        "title": "Dòng thời gian phòng trống",
+        "desc": "Lưới biệt thự × ngày. Chạm ô trống để khóa/mở, chạm ô đặt phòng để xem chi tiết."
+      }
     },
     "adminSettlements": {
-      "month": { "title": "Chọn tháng & tổng hợp", "desc": "Chuyển tháng rồi bấm chạy tổng hợp để tạo bản nháp quyết toán theo nhà cung cấp." },
-      "summary": { "title": "Tóm tắt doanh thu & chi trả", "desc": "Xem nhanh doanh thu theo từng loại tiền và tổng chi trả nhà cung cấp trong tháng." },
-      "finance": { "title": "Dòng thu & chi", "desc": "Tóm tắt thu và chi. Xử lý danh sách bên dưới theo thứ tự xác nhận → thu tiền → chi trả." }
+      "month": {
+        "title": "Chọn tháng & tổng hợp",
+        "desc": "Chuyển tháng rồi bấm chạy tổng hợp để tạo bản nháp quyết toán theo nhà cung cấp."
+      },
+      "summary": {
+        "title": "Tóm tắt doanh thu & chi trả",
+        "desc": "Xem nhanh doanh thu theo từng loại tiền và tổng chi trả nhà cung cấp trong tháng."
+      },
+      "finance": {
+        "title": "Dòng thu & chi",
+        "desc": "Tóm tắt thu và chi. Xử lý danh sách bên dưới theo thứ tự xác nhận → thu tiền → chi trả."
+      }
     },
     "adminReceivables": {
-      "kpi": { "title": "Chỉ số công nợ chính", "desc": "Kiểm tra trước tổng công nợ, quá hạn và số đối tác vượt hạn mức." },
-      "aging": { "title": "Phân kỳ tuổi nợ", "desc": "Cho biết công nợ đã tồn tại bao lâu theo từng khoảng; càng lâu càng rủi ro." },
-      "partners": { "title": "Công nợ theo đối tác", "desc": "Chạm vào đối tác để xem hóa đơn và chi tiết thu tiền." }
+      "kpi": {
+        "title": "Chỉ số công nợ chính",
+        "desc": "Kiểm tra trước tổng công nợ, quá hạn và số đối tác vượt hạn mức."
+      },
+      "aging": {
+        "title": "Phân kỳ tuổi nợ",
+        "desc": "Cho biết công nợ đã tồn tại bao lâu theo từng khoảng; càng lâu càng rủi ro."
+      },
+      "partners": {
+        "title": "Công nợ theo đối tác",
+        "desc": "Chạm vào đối tác để xem hóa đơn và chi tiết thu tiền."
+      }
     },
     "adminServiceOrders": {
-      "summary": { "title": "Tổng chờ & đã thanh toán", "desc": "Tóm tắt các khoản chờ chuyển và đã hoàn tất cho nhà cung cấp dịch vụ." },
-      "tabs": { "title": "Tab quyết toán & điều phối", "desc": "Tab quyết toán để chi trả gộp theo nhà cung cấp, tab điều phối để tra cứu trạng thái đơn." }
+      "summary": {
+        "title": "Tổng chờ & đã thanh toán",
+        "desc": "Tóm tắt các khoản chờ chuyển và đã hoàn tất cho nhà cung cấp dịch vụ."
+      },
+      "tabs": {
+        "title": "Tab quyết toán & điều phối",
+        "desc": "Tab quyết toán để chi trả gộp theo nhà cung cấp, tab điều phối để tra cứu trạng thái đơn."
+      }
     },
     "adminRevenue": {
-      "filters": { "title": "Bộ lọc kỳ & loại", "desc": "Thu hẹp giao dịch theo kỳ, loại phòng/minibar/dịch vụ, kênh và loại tiền." },
-      "summary": { "title": "Tóm tắt doanh thu", "desc": "Tóm tắt doanh thu của kỳ đã chọn, kèm số liệu gốc theo từng loại tiền." },
-      "export": { "title": "Xuất CSV", "desc": "Tải file CSV theo đúng bộ lọc kỳ, loại và kênh đang áp dụng — dùng cho đối soát và báo cáo." }
+      "filters": {
+        "title": "Bộ lọc kỳ & loại",
+        "desc": "Thu hẹp giao dịch theo kỳ, loại phòng/minibar/dịch vụ, kênh và loại tiền."
+      },
+      "summary": {
+        "title": "Tóm tắt doanh thu",
+        "desc": "Tóm tắt doanh thu của kỳ đã chọn, kèm số liệu gốc theo từng loại tiền."
+      },
+      "export": {
+        "title": "Xuất CSV",
+        "desc": "Tải file CSV theo đúng bộ lọc kỳ, loại và kênh đang áp dụng — dùng cho đối soát và báo cáo."
+      }
     },
     "adminStatistics": {
-      "tabs": { "title": "Tab thống kê", "desc": "Xem chỉ số theo từng tab: công suất, hiệu quả biệt thự, vận hành… Tab hiển thị tùy quyền hạn." },
-      "period": { "title": "Chọn kỳ", "desc": "Đổi kỳ bằng chip có sẵn hoặc lịch; áp dụng chung cho mọi tab." }
+      "tabs": {
+        "title": "Tab thống kê",
+        "desc": "Xem chỉ số theo từng tab: công suất, hiệu quả biệt thự, vận hành… Tab hiển thị tùy quyền hạn."
+      },
+      "period": {
+        "title": "Chọn kỳ",
+        "desc": "Đổi kỳ bằng chip có sẵn hoặc lịch; áp dụng chung cho mọi tab."
+      }
     },
     "adminInventory": {
-      "stock": { "title": "Tồn kho theo biệt thự", "desc": "Xem tồn kho minibar và mục tiêu bày trí của từng biệt thự, có thể lọc riêng mục thiếu. Danh mục và giá bán tiêu chuẩn công ty quản lý ở tab «Món minibar» (chỉ hiển thị với người có quyền đặt giá)." },
-      "inbound": { "title": "Biểu mẫu nhập & điều chỉnh", "desc": "Chọn biệt thự, mặt hàng và số lượng để nhập kho hoặc điều chỉnh tồn." }
+      "stock": {
+        "title": "Tồn kho theo biệt thự",
+        "desc": "Xem tồn kho minibar và mục tiêu bày trí của từng biệt thự, có thể lọc riêng mục thiếu. Danh mục và giá bán tiêu chuẩn công ty quản lý ở tab «Món minibar» (chỉ hiển thị với người có quyền đặt giá)."
+      },
+      "inbound": {
+        "title": "Biểu mẫu nhập & điều chỉnh",
+        "desc": "Chọn biệt thự, mặt hàng và số lượng để nhập kho hoặc điều chỉnh tồn."
+      }
     },
     "adminUsers": {
-      "add": { "title": "Thêm người dùng", "desc": "Tạo tài khoản nhà cung cấp, nhân viên dọn phòng, đối tác… tại đây." },
-      "filters": { "title": "Tab vai trò", "desc": "Chia danh sách tài khoản theo tab vai trò: nhà cung cấp, dọn dẹp, đối tác, nhà cung cấp dịch vụ…" },
-      "list": { "title": "Danh sách người dùng", "desc": "Quản lý bật/tắt tài khoản và liên kết Zalo ngay trên từng dòng." }
+      "add": {
+        "title": "Thêm người dùng",
+        "desc": "Tạo tài khoản nhà cung cấp, nhân viên dọn phòng, đối tác… tại đây."
+      },
+      "filters": {
+        "title": "Tab vai trò",
+        "desc": "Chia danh sách tài khoản theo tab vai trò: nhà cung cấp, dọn dẹp, đối tác, nhà cung cấp dịch vụ…"
+      },
+      "list": {
+        "title": "Danh sách người dùng",
+        "desc": "Quản lý bật/tắt tài khoản và liên kết Zalo ngay trên từng dòng."
+      }
     },
     "adminPartners": {
-      "new": { "title": "Thêm đối tác mới", "desc": "Đăng ký đối tác công ty du lịch, land tour tại đây." },
-      "list": { "title": "Danh sách đối tác", "desc": "Đối tác chờ duyệt hiển thị trên cùng; chạm để xem hạn mức và công nợ chi tiết." }
+      "new": {
+        "title": "Thêm đối tác mới",
+        "desc": "Đăng ký đối tác công ty du lịch, land tour tại đây."
+      },
+      "list": {
+        "title": "Danh sách đối tác",
+        "desc": "Đối tác chờ duyệt hiển thị trên cùng; chạm để xem hạn mức và công nợ chi tiết."
+      }
     },
     "adminSettings": {
-      "season": { "title": "Lịch mùa", "desc": "Đăng ký kỳ cao điểm/thấp điểm để hệ thống tự áp vào cách tính giá." },
-      "hold": { "title": "Thời gian giữ chỗ", "desc": "Cài thời gian mặc định trước khi đặt giữ chỗ tự động hết hạn." }
+      "season": {
+        "title": "Lịch mùa",
+        "desc": "Đăng ký kỳ cao điểm/thấp điểm để hệ thống tự áp vào cách tính giá."
+      },
+      "hold": {
+        "title": "Thời gian giữ chỗ",
+        "desc": "Cài thời gian mặc định trước khi đặt giữ chỗ tự động hết hạn."
+      }
     },
     "villaDetail": {
-      "header": { "title": "Chi tiết villa", "desc": "Kiểm tra trạng thái duyệt và khả năng bán qua huy hiệu cạnh tên villa. Giá, tiện nghi, minibar, dọn dẹp và thông tin bán đều được quản lý ngay tại màn hình này." },
-      "rates": { "title": "Giá theo giai đoạn", "desc": "Trong tab 'Chi tiết', thẻ «Giá theo giai đoạn» đặt giá cơ bản và thêm giai đoạn cao điểm, ngày lễ theo ngày bắt đầu – kết thúc. Đặt phòng rơi vào các ngày đó sẽ áp dụng giá của giai đoạn." },
-      "cleaning": { "title": "Nhân viên dọn & thông tin dọn dẹp", "desc": "Thẻ «Nhân viên dọn phụ trách» trong tab 'Chi tiết' chỉ định nhân viên dọn riêng cho villa; nếu chưa chỉ định thì nhà cung cấp phụ trách. Cách ra vào và lưu ý dọn dẹp trong thẻ «Thông tin dọn dẹp» sẽ được chuyển cho nhân viên dọn được phân công." },
-      "supplies": { "title": "Tiện nghi & minibar", "desc": "Sửa số lượng tiện nghi trong thẻ «Chỉnh sửa tiện nghi», điều chỉnh số lượng bày trí minibar của villa trong thẻ «Minibar tiêu chuẩn công ty». Danh mục và giá bán tiêu chuẩn của công ty được sửa ở tab «Món minibar» trong menu Kho. Nút này mở tất cả thẻ đang gập." },
-      "sales": { "title": "Tab thông tin bán — Wifi & giường", "desc": "Trong tab 'Thông tin bán', nhập loại và số giường từng phòng ở thẻ «Cấu hình giường ngủ», đăng ký tên và mật khẩu Wifi ở thẻ «Quy định sử dụng». Giờ nhận – trả phòng và quy định sử dụng cũng quản lý tại đây." }
+      "header": {
+        "title": "Chi tiết villa",
+        "desc": "Kiểm tra trạng thái duyệt và khả năng bán qua huy hiệu cạnh tên villa. Giá, tiện nghi, minibar, dọn dẹp và thông tin bán đều được quản lý ngay tại màn hình này."
+      },
+      "rates": {
+        "title": "Giá theo giai đoạn",
+        "desc": "Trong tab 'Chi tiết', thẻ «Giá theo giai đoạn» đặt giá cơ bản và thêm giai đoạn cao điểm, ngày lễ theo ngày bắt đầu – kết thúc. Đặt phòng rơi vào các ngày đó sẽ áp dụng giá của giai đoạn."
+      },
+      "cleaning": {
+        "title": "Nhân viên dọn & thông tin dọn dẹp",
+        "desc": "Thẻ «Nhân viên dọn phụ trách» trong tab 'Chi tiết' chỉ định nhân viên dọn riêng cho villa; nếu chưa chỉ định thì nhà cung cấp phụ trách. Cách ra vào và lưu ý dọn dẹp trong thẻ «Thông tin dọn dẹp» sẽ được chuyển cho nhân viên dọn được phân công."
+      },
+      "supplies": {
+        "title": "Tiện nghi & minibar",
+        "desc": "Sửa số lượng tiện nghi trong thẻ «Chỉnh sửa tiện nghi», điều chỉnh số lượng bày trí minibar của villa trong thẻ «Minibar tiêu chuẩn công ty». Danh mục và giá bán tiêu chuẩn của công ty được sửa ở tab «Món minibar» trong menu Kho. Nút này mở tất cả thẻ đang gập."
+      },
+      "sales": {
+        "title": "Tab thông tin bán — Wifi & giường",
+        "desc": "Trong tab 'Thông tin bán', nhập loại và số giường từng phòng ở thẻ «Cấu hình giường ngủ», đăng ký tên và mật khẩu Wifi ở thẻ «Quy định sử dụng». Giờ nhận – trả phòng và quy định sử dụng cũng quản lý tại đây."
+      }
     },
     "bookingDetail": {
-      "header": { "title": "Tổng quan trạng thái đặt phòng", "desc": "Đặt phòng tiến hành theo thứ tự giữ chỗ → xác nhận → nhận phòng → trả phòng. Ở trạng thái giữ chỗ, thời gian còn lại đến khi hết hạn được hiển thị; nếu không kịp xác nhận thanh toán, giữ chỗ sẽ tự động hủy." },
-      "payments": { "title": "Ghi nhận thu tiền", "desc": "Sau khi kiểm tra khoản chuyển của khách hoặc đối tác tại ngân hàng, hãy ghi nhận khoản thu tại đây. Nếu khách đã gửi thông báo chuyển tiền, banner phía trên sẽ hiển thị để quý vị đối chiếu." },
-      "actions": { "title": "Thao tác chuyển trạng thái", "desc": "Sau khi xác nhận thu tiền, quý vị xác nhận đặt phòng tại đây. Sau khi xác nhận, đây là lối vào kiểm tra nhận phòng; trong thời gian lưu trú, đây là lối vào tất toán trả phòng." },
-      "guestToken": { "title": "Liên kết tự nhận phòng của khách", "desc": "Cấp và gửi liên kết để khách tự đăng ký hộ chiếu và ký thỏa thuận. Quý vị cũng kiểm tra trạng thái ký tại thẻ này." },
-      "roster": { "title": "Danh sách khách lưu trú thực tế", "desc": "Nhập danh sách khách lưu trú thực tế từ khi xác nhận đến trước ngày nhận phòng. Đây là dữ liệu gốc cho khai báo tạm trú và kiểm tra tại chỗ." },
-      "services": { "title": "Đơn dịch vụ bổ sung", "desc": "Kiểm tra các đơn dịch vụ bổ sung của đặt phòng này và gửi đơn đặt cho nhà cung cấp dịch vụ. Theo dõi tiến trình từ gửi đơn → chấp nhận → hoàn tất tại đây." }
+      "header": {
+        "title": "Tổng quan trạng thái đặt phòng",
+        "desc": "Đặt phòng tiến hành theo thứ tự giữ chỗ → xác nhận → nhận phòng → trả phòng. Ở trạng thái giữ chỗ, thời gian còn lại đến khi hết hạn được hiển thị; nếu không kịp xác nhận thanh toán, giữ chỗ sẽ tự động hủy."
+      },
+      "payments": {
+        "title": "Ghi nhận thu tiền",
+        "desc": "Sau khi kiểm tra khoản chuyển của khách hoặc đối tác tại ngân hàng, hãy ghi nhận khoản thu tại đây. Nếu khách đã gửi thông báo chuyển tiền, banner phía trên sẽ hiển thị để quý vị đối chiếu."
+      },
+      "actions": {
+        "title": "Thao tác chuyển trạng thái",
+        "desc": "Sau khi xác nhận thu tiền, quý vị xác nhận đặt phòng tại đây. Sau khi xác nhận, đây là lối vào kiểm tra nhận phòng; trong thời gian lưu trú, đây là lối vào tất toán trả phòng."
+      },
+      "guestToken": {
+        "title": "Liên kết tự nhận phòng của khách",
+        "desc": "Cấp và gửi liên kết để khách tự đăng ký hộ chiếu và ký thỏa thuận. Quý vị cũng kiểm tra trạng thái ký tại thẻ này."
+      },
+      "roster": {
+        "title": "Danh sách khách lưu trú thực tế",
+        "desc": "Nhập danh sách khách lưu trú thực tế từ khi xác nhận đến trước ngày nhận phòng. Đây là dữ liệu gốc cho khai báo tạm trú và kiểm tra tại chỗ."
+      },
+      "services": {
+        "title": "Đơn dịch vụ bổ sung",
+        "desc": "Kiểm tra các đơn dịch vụ bổ sung của đặt phòng này và gửi đơn đặt cho nhà cung cấp dịch vụ. Theo dõi tiến trình từ gửi đơn → chấp nhận → hoàn tất tại đây."
+      }
     },
     "partnerDetail": {
-      "header": { "title": "Chi tiết đối tác", "desc": "Xem loại hình, hạng tín dụng và trạng thái giao dịch của đối tác (công ty du lịch, land tour). Chỉnh sửa thông tin bằng nút Sửa bên phải." },
-      "tabs": { "title": "Tổng quan và hóa đơn", "desc": "Tab Tổng quan quản lý điều kiện tín dụng và công nợ; tab Hóa đơn quản lý việc phát hành hóa đơn và thu tiền." },
-      "aging": { "title": "Tình hình công nợ", "desc": "Khoản phải thu từ đối tác được chia theo thời gian quá hạn. Nếu còn số dư ở nhóm từ 8 ngày trở lên, có nguy cơ quá hạn nên cần đôn đốc thu hồi." },
-      "credit": { "title": "Điều kiện tín dụng", "desc": "Tỷ lệ đặt cọc và thời hạn thanh toán thay đổi theo hạng tín dụng. Khi quyết định nhận đặt phòng mới, hãy xem điều kiện này cùng số dư công nợ." },
-      "receivables": { "title": "Danh sách khoản phải thu", "desc": "Kiểm tra trạng thái thu tiền của từng khoản theo đặt phòng. Khoản có đặt phòng đã hủy nhưng chưa tất toán sẽ có huy hiệu cảnh báo — hãy điều chỉnh hóa đơn." }
+      "header": {
+        "title": "Chi tiết đối tác",
+        "desc": "Xem loại hình, hạng tín dụng và trạng thái giao dịch của đối tác (công ty du lịch, land tour). Chỉnh sửa thông tin bằng nút Sửa bên phải."
+      },
+      "tabs": {
+        "title": "Tổng quan và hóa đơn",
+        "desc": "Tab Tổng quan quản lý điều kiện tín dụng và công nợ; tab Hóa đơn quản lý việc phát hành hóa đơn và thu tiền."
+      },
+      "aging": {
+        "title": "Tình hình công nợ",
+        "desc": "Khoản phải thu từ đối tác được chia theo thời gian quá hạn. Nếu còn số dư ở nhóm từ 8 ngày trở lên, có nguy cơ quá hạn nên cần đôn đốc thu hồi."
+      },
+      "credit": {
+        "title": "Điều kiện tín dụng",
+        "desc": "Tỷ lệ đặt cọc và thời hạn thanh toán thay đổi theo hạng tín dụng. Khi quyết định nhận đặt phòng mới, hãy xem điều kiện này cùng số dư công nợ."
+      },
+      "receivables": {
+        "title": "Danh sách khoản phải thu",
+        "desc": "Kiểm tra trạng thái thu tiền của từng khoản theo đặt phòng. Khoản có đặt phòng đã hủy nhưng chưa tất toán sẽ có huy hiệu cảnh báo — hãy điều chỉnh hóa đơn."
+      }
     },
     "supplierVillaDetail": {
-      "photos": { "title": "Quản lý ảnh", "desc": "Nhấn 'Quản lý ảnh' để thêm, đổi và sắp xếp ảnh theo từng khu vực." },
-      "amenities": { "title": "Đồ dùng trong villa", "desc": "Nhấn 'Sửa' để cập nhật đồ bếp, phòng tắm và minibar." },
-      "rates": { "title": "Giá gốc theo mùa", "desc": "Nhập giá gốc của bạn theo từng giai đoạn — nhớ đặt riêng cho cao điểm và lễ Tết." },
-      "sellLink": { "title": "Link bán trực tiếp", "desc": "Tạo link gửi khách của bạn để nhận đặt phòng trực tiếp." },
-      "info": { "title": "Quy định & vị trí", "desc": "Tự sửa giờ nhận/trả phòng, quy định và bản đồ tại đây." }
+      "photos": {
+        "title": "Quản lý ảnh",
+        "desc": "Nhấn 'Quản lý ảnh' để thêm, đổi và sắp xếp ảnh theo từng khu vực."
+      },
+      "amenities": {
+        "title": "Đồ dùng trong villa",
+        "desc": "Nhấn 'Sửa' để cập nhật đồ bếp, phòng tắm và minibar."
+      },
+      "rates": {
+        "title": "Giá gốc theo mùa",
+        "desc": "Nhập giá gốc của bạn theo từng giai đoạn — nhớ đặt riêng cho cao điểm và lễ Tết."
+      },
+      "sellLink": {
+        "title": "Link bán trực tiếp",
+        "desc": "Tạo link gửi khách của bạn để nhận đặt phòng trực tiếp."
+      },
+      "info": {
+        "title": "Quy định & vị trí",
+        "desc": "Tự sửa giờ nhận/trả phòng, quy định và bản đồ tại đây."
+      }
     },
     "partnerBookingDetail": {
-      "summary": { "title": "Tóm tắt đặt phòng", "desc": "Kiểm tra trạng thái, hạn giữ chỗ, giờ nhận phòng/ký và số dư chưa thanh toán tại đây. Nếu còn số dư, tài khoản chuyển khoản hiện bên dưới." },
-      "services": { "title": "Dịch vụ đã yêu cầu", "desc": "Xem tiến độ và ghi chú các dịch vụ khách đã yêu cầu." },
-      "changeRequest": { "title": "Yêu cầu hủy / thay đổi", "desc": "Gửi yêu cầu hủy, đổi lịch hoặc gia hạn giữ chỗ tại đây. Chỉ có hiệu lực sau khi quản trị duyệt; mỗi lần một yêu cầu." },
-      "roster": { "title": "Danh sách khách", "desc": "Gửi danh sách khách trước để nhận phòng nhanh hơn." }
+      "summary": {
+        "title": "Tóm tắt đặt phòng",
+        "desc": "Kiểm tra trạng thái, hạn giữ chỗ, giờ nhận phòng/ký và số dư chưa thanh toán tại đây. Nếu còn số dư, tài khoản chuyển khoản hiện bên dưới."
+      },
+      "services": {
+        "title": "Dịch vụ đã yêu cầu",
+        "desc": "Xem tiến độ và ghi chú các dịch vụ khách đã yêu cầu."
+      },
+      "changeRequest": {
+        "title": "Yêu cầu hủy / thay đổi",
+        "desc": "Gửi yêu cầu hủy, đổi lịch hoặc gia hạn giữ chỗ tại đây. Chỉ có hiệu lực sau khi quản trị duyệt; mỗi lần một yêu cầu."
+      },
+      "roster": {
+        "title": "Danh sách khách",
+        "desc": "Gửi danh sách khách trước để nhận phòng nhanh hơn."
+      }
     },
     "earnings": {
-      "tabs": { "title": "Thống kê & thanh toán", "desc": "Chạm «Lịch sử thanh toán» để xem tiền đã nhận và tiền chưa nhận." },
-      "period": { "title": "Chọn thời gian", "desc": "Chạm để xem tháng này, tháng trước hoặc cả năm." },
-      "kpi": { "title": "Kết quả của bạn", "desc": "Doanh thu của bạn, tỷ lệ lấp đầy và số đặt phòng." }
+      "tabs": {
+        "title": "Thống kê & thanh toán",
+        "desc": "Chạm «Lịch sử thanh toán» để xem tiền đã nhận và tiền chưa nhận."
+      },
+      "period": {
+        "title": "Chọn thời gian",
+        "desc": "Chạm để xem tháng này, tháng trước hoặc cả năm."
+      },
+      "kpi": {
+        "title": "Kết quả của bạn",
+        "desc": "Doanh thu của bạn, tỷ lệ lấp đầy và số đặt phòng."
+      }
     },
     "myBookings": {
-      "card": { "title": "Khách bạn tự bán", "desc": "Đặt phòng bạn tự bán hiển thị ở đây: ngày ở và trạng thái." },
-      "action": { "title": "Check-in / Check-out", "desc": "Chạm nút này để làm thủ tục: hộ chiếu, chữ ký, tiền cọc." }
+      "card": {
+        "title": "Khách bạn tự bán",
+        "desc": "Đặt phòng bạn tự bán hiển thị ở đây: ngày ở và trạng thái."
+      },
+      "action": {
+        "title": "Check-in / Check-out",
+        "desc": "Chạm nút này để làm thủ tục: hộ chiếu, chữ ký, tiền cọc."
+      }
     },
     "vendorStats": {
-      "period": { "title": "Chọn thời gian", "desc": "Chạm để xem tháng này, tháng trước hoặc cả năm." },
-      "kpi": { "title": "Kết quả của bạn", "desc": "Doanh thu, số đơn và tỷ lệ nhận đơn của bạn." },
-      "settle": { "title": "Tiền thanh toán", "desc": "Số tiền bạn sắp nhận và số tiền đã nhận." }
+      "period": {
+        "title": "Chọn thời gian",
+        "desc": "Chạm để xem tháng này, tháng trước hoặc cả năm."
+      },
+      "kpi": {
+        "title": "Kết quả của bạn",
+        "desc": "Doanh thu, số đơn và tỷ lệ nhận đơn của bạn."
+      },
+      "settle": {
+        "title": "Tiền thanh toán",
+        "desc": "Số tiền bạn sắp nhận và số tiền đã nhận."
+      }
     }
   }
 }

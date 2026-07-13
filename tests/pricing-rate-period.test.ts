@@ -161,7 +161,11 @@ describe("quoteStayByPeriod — 박별 합산", () => {
 });
 
 // ── quoteStayForVilla: VillaRatePeriod 단일 경로 (ADR-0014 Phase B — 구 VillaRate 경로 제거) ──
-function makeDb(ratePeriods: RatePeriodLike[]) {
+// ADR-0042: 엔진이 villa.premiumDays·holidayDate를 로드하므로 mock에 함께 제공(기본 프리미엄 없음).
+function makeDb(
+  ratePeriods: RatePeriodLike[],
+  opts: { premiumDays?: number[]; holidays?: string[] } = {}
+) {
   const nonBase = ratePeriods.filter((p) => !p.isBase);
   const baseRow = ratePeriods.find((p) => p.isBase) ?? null;
   const rpFindMany = vi.fn(async ({ where }: { where: { startDate: { lt: Date }; endDate: { gt: Date } } }) =>
@@ -170,8 +174,17 @@ function makeDb(ratePeriods: RatePeriodLike[]) {
     )
   );
   const rpFindFirst = vi.fn(async () => baseRow);
+  const holidayRows = (opts.holidays ?? []).map((s) => ({ date: utc(s) }));
+  const holidayFindMany = vi.fn(
+    async ({ where }: { where: { date: { gte: Date; lt: Date } } }) =>
+      holidayRows.filter(
+        (h) => h.date.getTime() >= where.date.gte.getTime() && h.date.getTime() < where.date.lt.getTime()
+      )
+  );
   const db = {
+    villa: { findUnique: vi.fn(async () => ({ premiumDays: opts.premiumDays ?? [] })) },
     villaRatePeriod: { findFirst: rpFindFirst, findMany: rpFindMany },
+    holidayDate: { findMany: holidayFindMany },
   } as unknown as DbClient;
   return { db, rpFindFirst, rpFindMany };
 }
@@ -244,5 +257,179 @@ describe("quoteStayForVilla — ADR-0014 단일 경로", () => {
     await expect(
       quoteStayForVilla(db, "v1", { checkIn: utc("2026-07-09"), checkOut: utc("2026-07-12") }, Currency.VND)
     ).rejects.toThrow(MissingBaseRateError);
+  });
+});
+
+// ── ADR-0042 프리미엄일(요일·공휴일) 2단 요금 ──
+// UTC 요일(getUTCDay): 2026-07-09=목(4) 07-10=금(5) 07-11=토(6) 07-12=일(0) 07-13=월(1) 07-08=수(3)
+const premiumBase: RatePeriodLike = {
+  season: SeasonType.LOW,
+  isBase: true,
+  startDate: null,
+  endDate: null,
+  supplierCostVnd: 1_000_000n,
+  salePriceVnd: 1_200_000n,
+  salePriceKrw: 60_000,
+  premiumSupplierCostVnd: 1_500_000n,
+  premiumSalePriceVnd: 1_800_000n,
+  premiumSalePriceKrw: 90_000,
+  premiumConsumerSalePriceVnd: 2_000_000n,
+  premiumConsumerSalePriceKrw: 100_000,
+};
+
+describe("quoteStayByPeriod — ADR-0042 프리미엄 (요일·공휴일)", () => {
+  it("① 금·토 박에 프리미엄가 적용, 평일 박은 평일가 (VND)", () => {
+    // 07-09(목·평일) 07-10(금·프) 07-11(토·프)
+    const q = quoteStayByPeriod({
+      checkIn: utc("2026-07-09"),
+      checkOut: utc("2026-07-12"),
+      saleCurrency: Currency.VND,
+      base: premiumBase,
+      periods: [],
+      premiumDays: [5, 6],
+    });
+    expect(q.totalSaleVnd).toBe(1_200_000n + 1_800_000n + 1_800_000n);
+    expect(q.totalSupplierCostVnd).toBe(1_000_000n + 1_500_000n + 1_500_000n);
+    expect(q.nightly.map((n) => n.premium)).toEqual([undefined, "WEEKDAY_RULE", "WEEKDAY_RULE"]);
+  });
+
+  it("② 공휴일 박(평일이지만 목록에 있음)에 프리미엄가 적용, 사유=HOLIDAY", () => {
+    // 07-08(수·평일이지만 공휴일 지정)
+    const q = quoteStayByPeriod({
+      checkIn: utc("2026-07-08"),
+      checkOut: utc("2026-07-09"),
+      saleCurrency: Currency.VND,
+      base: premiumBase,
+      periods: [],
+      premiumDays: [5, 6],
+      holidayDates: [utc("2026-07-08")],
+    });
+    expect(q.totalSaleVnd).toBe(1_800_000n);
+    expect(q.nightly[0].premium).toBe("HOLIDAY");
+  });
+
+  it("③ premium* 전부 null이면 결과 완전 불변(회귀) — premiumDays/공휴일 지정해도 평일가", () => {
+    const range = { checkIn: utc("2026-07-09"), checkOut: utc("2026-07-12") };
+    const noPremium = quoteStayByPeriod({ ...range, saleCurrency: Currency.VND, base, periods: [] });
+    const withFlags = quoteStayByPeriod({
+      ...range,
+      saleCurrency: Currency.VND,
+      base, // premium* 컬럼 없음
+      periods: [],
+      premiumDays: [5, 6],
+      holidayDates: [utc("2026-07-10")],
+    });
+    // 금액 완전 동일(컬럼 폴백) + QA P2: premium* 전부 null이면 뱃지 플래그도 미표기(전 박 undefined).
+    expect(withFlags.totalSaleVnd).toBe(noPremium.totalSaleVnd);
+    expect(withFlags.totalSupplierCostVnd).toBe(noPremium.totalSupplierCostVnd);
+    expect(withFlags.nightly.every((n) => n.premium === undefined)).toBe(true);
+  });
+
+  it("③b (QA P2) 미설정 빌라 — 금·토 박이라도 premium* 전무면 premium undefined (주말 뱃지 소급 노출 차단)", () => {
+    // default premiumDays '{5,6}'로 백필됐지만 프리미엄 가격 0건인 기존 빌라 시나리오.
+    // 07-10(금)·07-11(토)도 프리미엄 값이 없으므로 평일과 완전 동일 — 행 분리·뱃지 없음.
+    const q = quoteStayByPeriod({
+      checkIn: utc("2026-07-10"),
+      checkOut: utc("2026-07-12"),
+      saleCurrency: Currency.VND,
+      base, // premium* 컬럼 전무
+      periods: [],
+      premiumDays: [5, 6],
+    });
+    expect(q.nightly.map((n) => n.premium)).toEqual([undefined, undefined]);
+    expect(q.totalSaleVnd).toBe(1_200_000n + 1_200_000n); // 전부 평일가
+  });
+
+  it("③c (QA P2) 부분 설정 — premiumSupplierCostVnd만 있어도(판매가 null) 원가 웃돈 적용 박은 프리미엄 표기", () => {
+    // 원가 컬럼도 프리미엄 판정에 포함 — premium 뱃지 = "웃돈 또는 프리미엄 원가 적용됨".
+    const costOnly: RatePeriodLike = { ...base, premiumSupplierCostVnd: 1_400_000n };
+    const q = quoteStayByPeriod({
+      checkIn: utc("2026-07-11"), // 토 1박
+      checkOut: utc("2026-07-12"),
+      saleCurrency: Currency.VND,
+      base: costOnly,
+      periods: [],
+      premiumDays: [6],
+    });
+    expect(q.nightly[0].premium).toBe("WEEKDAY_RULE");
+    expect(q.nightly[0].costVnd).toBe(1_400_000n); // 프리미엄 원가 적용
+    expect(q.totalSaleVnd).toBe(1_200_000n); // 판매가는 평일 폴백(설정 안 함)
+  });
+
+  it("④ 컬럼 단위 폴백 — premiumSalePriceVnd만 설정 시 KRW는 평일가", () => {
+    const partial: RatePeriodLike = {
+      ...base,
+      premiumSalePriceVnd: 1_800_000n, // VND 프리미엄만
+      // premiumSalePriceKrw 미설정 → KRW는 평일가 폴백
+    };
+    const range = { checkIn: utc("2026-07-11"), checkOut: utc("2026-07-12") }; // 토(프리미엄) 1박
+    const vnd = quoteStayByPeriod({ ...range, saleCurrency: Currency.VND, base: partial, periods: [], premiumDays: [6] });
+    const krw = quoteStayByPeriod({ ...range, saleCurrency: Currency.KRW, base: partial, periods: [], premiumDays: [6] });
+    expect(vnd.totalSaleVnd).toBe(1_800_000n); // 프리미엄 VND
+    expect(krw.totalSaleKrw).toBe(60_000); // 평일 KRW 폴백(premiumSalePriceKrw null)
+  });
+
+  it("⑤ CONSUMER 계층 × 프리미엄 — premiumConsumer 설정 시 소비자 프리미엄가", () => {
+    const range = { checkIn: utc("2026-07-11"), checkOut: utc("2026-07-12") }; // 토 1박
+    const q = quoteStayByPeriod({
+      ...range,
+      saleCurrency: Currency.VND,
+      base: premiumBase,
+      periods: [],
+      priceTier: "CONSUMER",
+      premiumDays: [6],
+    });
+    expect(q.totalSaleVnd).toBe(2_000_000n); // premiumConsumerSalePriceVnd
+  });
+
+  it("⑤b CONSUMER × 프리미엄 폴백 — premiumConsumer=null·consumer=Net보다 큼 → 평일 소비자가(역전 방지)", () => {
+    // ADR §2 예시: premiumConsumer=null, consumer=130k(평일), premiumNet=110k → CONSUMER는 130k
+    const row: RatePeriodLike = {
+      ...base,
+      consumerSalePriceVnd: 130_000n,
+      premiumSalePriceVnd: 110_000n, // 프리미엄 Net(평일 소비자가보다 낮음)
+      premiumConsumerSalePriceVnd: null,
+    };
+    const range = { checkIn: utc("2026-07-11"), checkOut: utc("2026-07-12") };
+    const q = quoteStayByPeriod({
+      ...range,
+      saleCurrency: Currency.VND,
+      base: row,
+      periods: [],
+      priceTier: "CONSUMER",
+      premiumDays: [6],
+    });
+    // 유효행 consumer = premiumConsumer(null) ?? consumer(130k)=130k, Net=premiumNet 110k → CONSUMER=130k
+    expect(q.totalSaleVnd).toBe(130_000n);
+  });
+
+  it("⑥ premiumDays 빈 배열 + 공휴일만 — 요일 프리미엄 없음, 공휴일 박만 프리미엄", () => {
+    // 07-10(금)·07-11(토) 모두 요일 프리미엄 대상이지만 premiumDays=[] → 공휴일(07-10)만 프리미엄
+    const q = quoteStayByPeriod({
+      checkIn: utc("2026-07-10"),
+      checkOut: utc("2026-07-12"),
+      saleCurrency: Currency.VND,
+      base: premiumBase,
+      periods: [],
+      premiumDays: [],
+      holidayDates: [utc("2026-07-10")],
+    });
+    expect(q.nightly.map((n) => n.premium)).toEqual(["HOLIDAY", undefined]);
+    expect(q.totalSaleVnd).toBe(1_800_000n + 1_200_000n); // 공휴일 프리미엄 + 평일
+  });
+});
+
+describe("quoteStayForVilla — ADR-0042 프리미엄 로드(villa.premiumDays·holidayDate)", () => {
+  it("빌라 premiumDays로 프리미엄 박 판정 (금·토)", async () => {
+    const { db } = makeDb([premiumBase], { premiumDays: [5, 6] });
+    // 07-09(목) 07-10(금·프) 07-11(토·프)
+    const q = await quoteStayForVilla(db, "v1", { checkIn: utc("2026-07-09"), checkOut: utc("2026-07-12") }, Currency.VND);
+    expect(q.totalSaleVnd).toBe(1_200_000n + 1_800_000n + 1_800_000n);
+  });
+  it("공휴일 로드 — 평일 공휴일 박도 프리미엄", async () => {
+    const { db } = makeDb([premiumBase], { premiumDays: [], holidays: ["2026-07-09"] });
+    const q = await quoteStayForVilla(db, "v1", { checkIn: utc("2026-07-09"), checkOut: utc("2026-07-10") }, Currency.VND);
+    expect(q.totalSaleVnd).toBe(1_800_000n);
+    expect(q.nightly[0].premium).toBe("HOLIDAY");
   });
 });

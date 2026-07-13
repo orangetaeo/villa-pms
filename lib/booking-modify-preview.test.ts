@@ -63,6 +63,8 @@ function makePrisma(opts: Opts = {}) {
       }),
       findMany: async () => [],
     },
+    // ADR-0042: 엔진이 교차 공휴일을 로드(프리미엄 없는 기본 목)
+    holidayDate: { findMany: async () => [] },
   } as never;
 }
 

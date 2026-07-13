@@ -6,6 +6,7 @@ import {
   suggestSalePriceKrw,
   suggestSalePriceUsd,
   type NightQuote,
+  type PremiumReason,
 } from "./pricing";
 import { getEffectiveFxVndPerKrw, getEffectiveFxVndPerUsd } from "./fx-effective";
 
@@ -50,6 +51,8 @@ export interface BookingQuoteRow {
   saleVndPerNight?: bigint;
   /** 통화 무관 항상 VND(공급자 원가) */
   costVndPerNight: bigint;
+  /** ADR-0042 — 이 구간 박이 프리미엄이면 사유(주말·공휴일). 평일 박이면 미포함(undefined). 뱃지용 */
+  premium?: PremiumReason;
 }
 
 export interface BookingQuoteResult {
@@ -92,7 +95,10 @@ export function groupQuoteRows(
       last.label === label &&
       last.saleKrwPerNight === saleKrw &&
       last.saleVndPerNight === saleVnd &&
-      last.costVndPerNight === n.costVnd
+      last.costVndPerNight === n.costVnd &&
+      // ADR-0042 — 프리미엄 사유가 다르면(평일↔주말↔공휴일) 별도 행으로 분리해 뱃지가 정확히 붙게 한다.
+      //   프리미엄 컬럼이 null이어서 가격이 평일과 같아도 사유가 다르면 묶지 않음.
+      last.premium === n.premium
     ) {
       last.nights += 1;
       continue;
@@ -103,6 +109,7 @@ export function groupQuoteRows(
       ...(saleKrw !== undefined ? { saleKrwPerNight: saleKrw } : {}),
       ...(saleVnd !== undefined ? { saleVndPerNight: saleVnd } : {}),
       costVndPerNight: n.costVnd,
+      ...(n.premium ? { premium: n.premium } : {}),
     });
   }
   return rows;

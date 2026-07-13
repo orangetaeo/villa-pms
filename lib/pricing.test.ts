@@ -161,11 +161,14 @@ function makePricingDb(
     : null;
   const periodRows = periods.map((p) => ({ ...p, isBase: false }));
   return {
+    // ADR-0042: 엔진이 villa.premiumDays·holidayDate를 로드(프리미엄 없는 기본 목)
+    villa: { findUnique: async () => ({ premiumDays: [] }) },
     villaRatePeriod: {
       findFirst: async () => baseRow,
       // 라우트 where(startDate<lt,endDate>gt)는 목에서 무시 — 전부 반환하고 resolveRatePeriod가 날짜 판정
       findMany: async () => periodRows,
     },
+    holidayDate: { findMany: async () => [] },
   } as unknown as DbClient;
 }
 
@@ -261,10 +264,12 @@ function makeTierDb(row: {
     ...row,
   };
   return {
+    villa: { findUnique: async () => ({ premiumDays: [] }) },
     villaRatePeriod: {
       findFirst: async () => baseRow,
       findMany: async () => [],
     },
+    holidayDate: { findMany: async () => [] },
   } as unknown as DbClient;
 }
 

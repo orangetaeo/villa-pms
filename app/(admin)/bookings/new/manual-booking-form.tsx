@@ -67,6 +67,7 @@ interface QuoteRow {
   saleKrwPerNight?: number;
   saleVndPerNight?: string;
   costVndPerNight: string;
+  premium?: "WEEKDAY_RULE" | "HOLIDAY"; // ADR-0042 — 프리미엄 박 사유(주말·공휴일). 뱃지
 }
 interface Quote {
   nights: number;
@@ -1283,10 +1284,26 @@ export default function ManualBookingForm({
                               key={i}
                               className="flex items-center justify-between gap-2 text-sm"
                             >
-                              <span className="truncate text-slate-400">
-                                {row.label
-                                  ? t(`create.quote.seasons.${row.label}` as "create.quote.seasons.LOW")
-                                  : t("create.quote.baseRate")}
+                              <span className="flex min-w-0 items-center gap-1.5">
+                                <span className="truncate text-slate-400">
+                                  {row.label
+                                    ? t(`create.quote.seasons.${row.label}` as "create.quote.seasons.LOW")
+                                    : t("create.quote.baseRate")}
+                                </span>
+                                {row.premium && (
+                                  <span
+                                    className={`inline-flex shrink-0 items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                                      row.premium === "HOLIDAY"
+                                        ? "bg-red-500/10 text-red-400"
+                                        : "bg-amber-500/10 text-amber-400"
+                                    }`}
+                                  >
+                                    <span className="material-symbols-outlined text-[12px]">
+                                      {row.premium === "HOLIDAY" ? "flag" : "weekend"}
+                                    </span>
+                                    {t(`create.quote.premium.${row.premium}` as "create.quote.premium.HOLIDAY")}
+                                  </span>
+                                )}
                               </span>
                               <span className="shrink-0 tabular-nums text-slate-300">
                                 {per ?? "—"}{" "}

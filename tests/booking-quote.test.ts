@@ -80,6 +80,8 @@ function makeDb(opts: {
         return v == null ? null : { value: v };
       }),
     },
+    // ADR-0042: 엔진이 교차 공휴일을 로드(프리미엄 없는 기본 목)
+    holidayDate: { findMany: vi.fn(async () => []) },
   } as unknown as DbClient;
   return db;
 }

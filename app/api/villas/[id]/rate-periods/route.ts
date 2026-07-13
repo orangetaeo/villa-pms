@@ -27,6 +27,13 @@ const priceFields = {
   consumerMarginValue: digits.default("0"),
   consumerSalePriceVnd: digits.nullable().optional(),
   consumerSalePriceKrw: z.number().int().min(0).nullable().optional(),
+  // ADR-0042 프리미엄일(요일·공휴일) 2단 요금 — 전부 nullable(null=평일 컬럼 폴백). ADMIN이 명시 책정.
+  //   전체 교체 라우트라 미전송=null(=프리미엄 미설정=평일가). 구 FE payload 하위호환.
+  premiumSupplierCostVnd: digits.nullable().optional(),
+  premiumSalePriceVnd: digits.nullable().optional(),
+  premiumSalePriceKrw: z.number().int().min(0).nullable().optional(),
+  premiumConsumerSalePriceVnd: digits.nullable().optional(),
+  premiumConsumerSalePriceKrw: z.number().int().min(0).nullable().optional(),
   label: z.string().trim().max(60).nullable().optional(),
 };
 
@@ -34,6 +41,23 @@ const baseSchema = z.object(priceFields); // isBase=true — 날짜 없음
 const periodSchema = z.object({ ...priceFields, startDate: isoDate, endDate: isoDate });
 
 const toUtc = (s: string) => new Date(`${s}T00:00:00.000Z`);
+
+/** ADR-0042 프리미엄 컬럼 → prisma data (null=평일 폴백). VND는 BigInt, KRW는 Int. */
+type PremiumInput = {
+  premiumSupplierCostVnd?: string | null;
+  premiumSalePriceVnd?: string | null;
+  premiumSalePriceKrw?: number | null;
+  premiumConsumerSalePriceVnd?: string | null;
+  premiumConsumerSalePriceKrw?: number | null;
+};
+const premiumData = (p: PremiumInput) => ({
+  premiumSupplierCostVnd: p.premiumSupplierCostVnd != null ? BigInt(p.premiumSupplierCostVnd) : null,
+  premiumSalePriceVnd: p.premiumSalePriceVnd != null ? BigInt(p.premiumSalePriceVnd) : null,
+  premiumSalePriceKrw: p.premiumSalePriceKrw ?? null,
+  premiumConsumerSalePriceVnd:
+    p.premiumConsumerSalePriceVnd != null ? BigInt(p.premiumConsumerSalePriceVnd) : null,
+  premiumConsumerSalePriceKrw: p.premiumConsumerSalePriceKrw ?? null,
+});
 
 const patchSchema = z
   .object({
@@ -117,6 +141,8 @@ export async function PATCH(
         consumerMarginValue: BigInt(base.consumerMarginValue),
         consumerSalePriceVnd: base.consumerSalePriceVnd != null ? BigInt(base.consumerSalePriceVnd) : null,
         consumerSalePriceKrw: base.consumerSalePriceKrw ?? null,
+        // ADR-0042 프리미엄일 컬럼(null=평일 폴백)
+        ...premiumData(base),
       },
     });
     if (periods.length > 0) {
@@ -138,6 +164,8 @@ export async function PATCH(
           consumerMarginValue: BigInt(p.consumerMarginValue),
           consumerSalePriceVnd: p.consumerSalePriceVnd != null ? BigInt(p.consumerSalePriceVnd) : null,
           consumerSalePriceKrw: p.consumerSalePriceKrw ?? null,
+          // ADR-0042 프리미엄일 컬럼(null=평일 폴백)
+          ...premiumData(p),
         })),
       });
     }
