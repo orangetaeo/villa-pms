@@ -3413,7 +3413,7 @@
   "adminCheckout": {
     "guide": {
       "minibar": "품목별로 '남은 수량'만 입력하면 소비량과 차감액이 자동 계산됩니다. 손대지 않은 품목은 그대로 두면 소비 0으로 처리됩니다.",
-      "submit": "환불 버튼을 누르면 체크아웃이 확정되고 청소 대기 태스크가 자동 생성됩니다. 차감(미니바·파손)이 있으면 '차감 후 환불 승인' 버튼만 활성화됩니다."
+      "submit": "승인 버튼을 누르면 체크아웃이 확정되고 청소 대기 태스크가 자동 생성됩니다. 환불 예정액은 보증금에서 파손·청구를 자동으로 차감해 계산됩니다."
     },
     "title": "체크아웃 검수",
     "bookingNo": "예약 #B-{code}",
@@ -3439,8 +3439,6 @@
     "deduction": "차감 확정액",
     "deposit": "보증금",
     "refundEstimate": "최종 환불 예정액",
-    "refundFull": "보증금 전액 환불",
-    "refundDeduct": "차감 후 환불 승인",
     "submitError": "체크아웃 처리에 실패했습니다. 다시 시도해주세요.",
     "autoCalc": "자동 계산",
     "stockedQty": "비치 수량",
@@ -3506,7 +3504,10 @@
     "settlementCurrency": "통화",
     "settlementAmount": "금액",
     "settlementLineAdd": "수납 추가",
-    "settlementLineRemove": "행 삭제"
+    "settlementLineRemove": "행 삭제",
+    "approveCheckout": "정산 확정·체크아웃 승인",
+    "nonVndDamageNote": "파손 차감은 ₫로 기록되어 외화(₩·$) 보증금 잔액에는 자동 반영되지 않습니다. 실제 파손 차감은 별도로 처리하세요.",
+    "offsetNoFxNote": "환율 정보가 없어 외화 보증금을 ₫로 환산할 수 없습니다. 보증금과 청구액을 각각 확인하세요."
   },
   "adminMessages": {
     "headerCollapse": "헤더 접기",

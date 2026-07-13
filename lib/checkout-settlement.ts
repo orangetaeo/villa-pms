@@ -55,7 +55,8 @@ export type SettlementCurrency = "VND" | "KRW" | "USD";
 
 /**
  * 수납 라인에 허용되는 수단 — 현금·계좌이체·기타 + 보증금 차감(DEPOSIT, ADR-0041).
- *   DEPOSIT은 "보증금에서 상계"를 표현하는 라인 전용 수단이며 currency=VND만 허용된다.
+ *   DEPOSIT은 "보증금에서 상계"를 표현하는 라인 전용 수단이며 통화는 보증금 통화를 따른다
+ *   (VND·KRW·USD — 통화 정합 검증은 completeCheckout에서 booking.depositCurrency와 대조).
  *   (구 shape의 method 필드는 여전히 GuestSettlementMethodValue만 — DEPOSIT은 라인으로만 지정.)
  *   MIXED는 서버 파생 전용(입력 금지).
  */
@@ -71,6 +72,17 @@ export interface SettlementLineInput {
 /** 파생 대표 수단 — 라인 수단 1종이면 그 수단(DEPOSIT 가능), 2종 이상이면 "MIXED". 라인 없으면 null. */
 export type DerivedSettlementMethod = SettlementLineMethod | "MIXED";
 
+/**
+ * 통화별 보증금 상계 합계(ΣDEPOSIT 라인) — 보증금 통화 일반화(ADR-0041 후속).
+ *   보증금이 ₩/$일 수 있으므로 통화별로 나눠 집계한다. 라인 없으면 전부 0.
+ *   ★ 통화 정합(보증금 통화와 일치) 검증은 completeCheckout이 담당(여기선 집계만).
+ */
+export interface DepositOffset {
+  vnd: bigint;
+  krw: number;
+  usd: number;
+}
+
 export interface NormalizedSettlement {
   /** (수단,통화) 중복 병합된 라인 — 이 배열이 CheckoutSettlementLine 저장·표시의 원천 */
   lines: SettlementLineInput[];
@@ -79,8 +91,8 @@ export interface NormalizedSettlement {
   settledVnd: bigint | null; // Σ VND 라인 (DEPOSIT 포함, 0이면 null)
   settledKrw: number | null; // Σ KRW 라인 (0이면 null, Number 안전범위 검증 후 변환)
   settledUsd: number | null; // Σ USD 라인 (0이면 null)
-  /** ΣDEPOSIT 라인(보증금 상계액, 항상 VND). 라인 없으면 0n. */
-  depositOffsetVnd: bigint;
+  /** 통화별 ΣDEPOSIT 라인(보증금 상계액). 라인 없으면 전부 0. */
+  depositOffset: DepositOffset;
   derivedMethod: DerivedSettlementMethod | null;
 }
 
@@ -89,13 +101,14 @@ export const MAX_SETTLEMENT_LINES = 12;
 
 /**
  * 수납 라인 검증·병합·집계 — 순수. (SPEC: 혼합 수납 + 보증금 상계 ADR-0041)
- *   - 검증: amount ≤ 0 → RangeError, 라인 수 > 12 → RangeError,
- *           DEPOSIT 라인인데 currency ≠ VND → RangeError(보증금은 VND 전용)
+ *   - 검증: amount ≤ 0 → RangeError, 라인 수 > 12 → RangeError
+ *           ★ DEPOSIT 라인의 통화 검증은 여기서 하지 않는다 — 보증금 통화(VND/KRW/USD)와의
+ *             정합은 completeCheckout이 booking.depositCurrency와 대조(보증금 통화 일반화).
  *   - (method, currency) 중복 라인은 금액 합산 병합
  *   - 통화별 합계 산출(DEPOSIT 라인 포함 — 청구 커버리지 캐시. KRW/USD는 Number 안전범위 검증 후 변환, 0이면 null)
- *   - depositOffsetVnd = ΣDEPOSIT 라인(보증금 상계액, 항상 VND)
+ *   - depositOffset = 통화별 ΣDEPOSIT 라인(보증금 상계액). KRW/USD는 Number 안전범위 검증 후 변환.
  *   - 수단 종류 1개 → 그 수단(DEPOSIT 가능), 2개 이상 → "MIXED"를 derivedMethod로 반환
- *   - 빈 배열 → lines=[]·전부 null·depositOffsetVnd=0n·derivedMethod=null
+ *   - 빈 배열 → lines=[]·전부 null·depositOffset={vnd:0n,krw:0,usd:0}·derivedMethod=null
  */
 export function normalizeSettlementLines(lines: SettlementLineInput[]): NormalizedSettlement {
   if (lines.length > MAX_SETTLEMENT_LINES) {
@@ -107,10 +120,6 @@ export function normalizeSettlementLines(lines: SettlementLineInput[]): Normaliz
   for (const l of lines) {
     if (l.amount <= 0n) {
       throw new RangeError("수납액은 0보다 커야 합니다");
-    }
-    // 보증금 상계(DEPOSIT)는 VND 전용 — 보증금이 VND로 수취되므로 (ADR-0041)
-    if (l.method === "DEPOSIT" && l.currency !== "VND") {
-      throw new RangeError("보증금 차감(DEPOSIT) 라인은 VND만 허용됩니다");
     }
     const key = `${l.method}|${l.currency}`;
     const prev = merged.get(key);
@@ -125,14 +134,23 @@ export function normalizeSettlementLines(lines: SettlementLineInput[]): Normaliz
   let vnd = 0n;
   let krw = 0n;
   let usd = 0n;
-  let depositOffsetVnd = 0n;
+  // 통화별 보증금 상계(ΣDEPOSIT 라인) — 보증금 통화 일반화(ADR-0041 후속)
+  let depositVnd = 0n;
+  let depositKrw = 0n;
+  let depositUsd = 0n;
   const methods = new Set<SettlementLineMethod>();
   for (const l of mergedLines) {
     methods.add(l.method);
-    if (l.method === "DEPOSIT") depositOffsetVnd += l.amount; // 항상 VND(위 검증)
-    if (l.currency === "VND") vnd += l.amount;
-    else if (l.currency === "KRW") krw += l.amount;
-    else usd += l.amount;
+    if (l.currency === "VND") {
+      vnd += l.amount;
+      if (l.method === "DEPOSIT") depositVnd += l.amount;
+    } else if (l.currency === "KRW") {
+      krw += l.amount;
+      if (l.method === "DEPOSIT") depositKrw += l.amount;
+    } else {
+      usd += l.amount;
+      if (l.method === "DEPOSIT") depositUsd += l.amount;
+    }
   }
 
   const MAX_SAFE = BigInt(Number.MAX_SAFE_INTEGER);
@@ -142,12 +160,13 @@ export function normalizeSettlementLines(lines: SettlementLineInput[]): Normaliz
   const derivedMethod: DerivedSettlementMethod | null =
     methods.size === 0 ? null : methods.size === 1 ? [...methods][0] : "MIXED";
 
+  // depositKrw/Usd ≤ krw/usd(부분집합)이므로 위 안전범위 검증으로 충분 — Number 변환 안전.
   return {
     lines: mergedLines,
     settledVnd: vnd > 0n ? vnd : null,
     settledKrw: krw > 0n ? Number(krw) : null,
     settledUsd: usd > 0n ? Number(usd) : null,
-    depositOffsetVnd,
+    depositOffset: { vnd: depositVnd, krw: Number(depositKrw), usd: Number(depositUsd) },
     derivedMethod,
   };
 }

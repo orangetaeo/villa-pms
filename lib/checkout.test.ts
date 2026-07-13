@@ -86,34 +86,58 @@ describe("resolveDepositOutcome — 보증금 상태기계 (SPEC F4 체크아웃
     expect(() => resolveDepositOutcome(true, 0n, DepositStatus.NONE)).toThrow(RangeError);
   });
 
-  // ── 보증금 상계(depositOffsetVnd, ADR-0041) ──────────────────────────────
-  it("HELD 무파손 + 상계>0 → PARTIAL_DEDUCTED, deductionVnd=상계액", () => {
-    expect(resolveDepositOutcome(false, null, DepositStatus.HELD, 2_000_000n)).toEqual({
+  // ── 보증금 상계(depositOffset 통화별, ADR-0041 · 통화 일반화) ──────────────────
+  it("HELD 무파손 + VND 상계>0 → PARTIAL_DEDUCTED, deductionVnd=VND 상계액", () => {
+    expect(
+      resolveDepositOutcome(false, null, DepositStatus.HELD, { vnd: 2_000_000n, krw: 0, usd: 0 })
+    ).toEqual({
       depositStatus: DepositStatus.PARTIAL_DEDUCTED,
       deductionVnd: 2_000_000n,
     });
   });
 
-  it("HELD 파손 + 상계 → deductionVnd=파손+상계 합", () => {
-    expect(resolveDepositOutcome(true, 1_500_000n, DepositStatus.HELD, 2_000_000n)).toEqual({
+  it("HELD 파손 + VND 상계 → deductionVnd=파손+VND 상계 합", () => {
+    expect(
+      resolveDepositOutcome(true, 1_500_000n, DepositStatus.HELD, { vnd: 2_000_000n, krw: 0, usd: 0 })
+    ).toEqual({
       depositStatus: DepositStatus.PARTIAL_DEDUCTED,
       deductionVnd: 3_500_000n,
     });
   });
 
-  it("HELD 무파손 + 상계 0 → REFUNDED", () => {
-    expect(resolveDepositOutcome(false, null, DepositStatus.HELD, 0n)).toEqual({
+  it("HELD 무파손 + KRW 상계 → PARTIAL_DEDUCTED, deductionVnd=null(비VND는 VND 컬럼 미오염)", () => {
+    expect(
+      resolveDepositOutcome(false, null, DepositStatus.HELD, { vnd: 0n, krw: 300_000, usd: 0 })
+    ).toEqual({
+      depositStatus: DepositStatus.PARTIAL_DEDUCTED,
+      deductionVnd: null,
+    });
+  });
+
+  it("HELD 파손 + KRW 상계 → deductionVnd=파손(VND)만(KRW 상계 미합산)", () => {
+    expect(
+      resolveDepositOutcome(true, 1_000_000n, DepositStatus.HELD, { vnd: 0n, krw: 300_000, usd: 0 })
+    ).toEqual({
+      depositStatus: DepositStatus.PARTIAL_DEDUCTED,
+      deductionVnd: 1_000_000n,
+    });
+  });
+
+  it("HELD 무파손 + 상계 전부 0 → REFUNDED", () => {
+    expect(
+      resolveDepositOutcome(false, null, DepositStatus.HELD, { vnd: 0n, krw: 0, usd: 0 })
+    ).toEqual({
       depositStatus: DepositStatus.REFUNDED,
       deductionVnd: null,
     });
   });
 
-  it("NONE + 상계>0 → DepositOffsetError(DEPOSIT_NOT_HELD)", () => {
+  it("NONE + 상계>0(통화 무관) → DepositOffsetError(DEPOSIT_NOT_HELD)", () => {
     expect(() =>
-      resolveDepositOutcome(false, null, DepositStatus.NONE, 1_000_000n)
+      resolveDepositOutcome(false, null, DepositStatus.NONE, { vnd: 1_000_000n, krw: 0, usd: 0 })
     ).toThrow(DepositOffsetError);
     try {
-      resolveDepositOutcome(false, null, DepositStatus.NONE, 1_000_000n);
+      resolveDepositOutcome(false, null, DepositStatus.NONE, { vnd: 0n, krw: 300_000, usd: 0 });
     } catch (e) {
       expect((e as DepositOffsetError).code).toBe("DEPOSIT_NOT_HELD");
     }
@@ -827,11 +851,11 @@ describe("completeCheckout — 상태 가드·원자성 (계약 완료 기준)",
       .map((c) => (c[0] as { data: Record<string, unknown> }).data)
       .find((d) => "settlementMethod" in d)!;
     expect(settleUpdate.settlementMethod).toBe("DEPOSIT");
-    // AuditLog에 상계액 문자열 기록
+    // AuditLog에 통화별 상계액 기록(VND는 문자열)
     expect(writeAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({
         changes: expect.objectContaining({
-          depositOffsetVnd: { new: "2000000" },
+          depositOffset: { new: { vnd: "2000000", krw: 0, usd: 0 } },
           depositDeductVnd: { new: "2000000" },
         }),
       })
@@ -906,7 +930,7 @@ describe("completeCheckout — 상태 가드·원자성 (계약 완료 기준)",
     ).rejects.toMatchObject({ code: "DEPOSIT_NOT_HELD" });
   });
 
-  it("보증금 통화 KRW(비VND) + DEPOSIT 라인 → DepositOffsetError(DEPOSIT_NOT_VND)", async () => {
+  it("보증금 통화 KRW인데 DEPOSIT 라인이 VND → DepositOffsetError(DEPOSIT_CURRENCY_MISMATCH)", async () => {
     const tx = makeTxMock({
       booking: {
         id: "bk1",
@@ -921,7 +945,84 @@ describe("completeCheckout — 상태 가드·원자성 (계약 완료 기준)",
         ...BASE_INPUT,
         settlement: { lines: [{ method: "DEPOSIT", currency: "VND", amount: 1_000_000n }] },
       })
-    ).rejects.toMatchObject({ code: "DEPOSIT_NOT_VND" });
+    ).rejects.toMatchObject({ code: "DEPOSIT_CURRENCY_MISMATCH" });
+  });
+
+  // ── ₩ 보증금 + ₩ DEPOSIT 상계(보증금 통화 일반화) ──────────────────────────────
+  const HELD_KRW_BOOKING = {
+    id: "bk1",
+    status: BookingStatus.CHECKED_IN,
+    depositStatus: DepositStatus.HELD,
+    depositAmount: 3_000_000, // ₩3,000,000
+    depositCurrency: "KRW" as const,
+  };
+
+  it("₩ 보증금 + DEPOSIT ₩ 라인: 저장 성공·depositDeductVnd 미오염(null)·PARTIAL_DEDUCTED·settledKrw 포함", async () => {
+    const tx = makeTxMock({ booking: { ...HELD_KRW_BOOKING } });
+    await completeCheckout(makePrismaMock(tx), {
+      ...BASE_INPUT,
+      settlement: { lines: [{ method: "DEPOSIT", currency: "KRW", amount: 1_000_000n }] },
+    });
+    // 파손 없이 ₩ 상계만 → PARTIAL_DEDUCTED, depositDeductVnd는 VND 상계 아님 → null(미오염)
+    expect(tx.booking.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          depositStatus: DepositStatus.PARTIAL_DEDUCTED,
+          depositDeductVnd: null,
+        }),
+      })
+    );
+    // 라인 저장 + settledKrw(청구 커버리지)에 DEPOSIT ₩ 포함
+    expect(tx.checkoutSettlementLine.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ method: "DEPOSIT", currency: "KRW", amount: 1_000_000n })],
+    });
+    const settleUpdate = tx.checkOutRecord.update.mock.calls
+      .map((c) => (c[0] as { data: Record<string, unknown> }).data)
+      .find((d) => "settlementMethod" in d)!;
+    expect(settleUpdate.settlementMethod).toBe("DEPOSIT");
+    expect(settleUpdate.settledKrw).toBe(1_000_000);
+    expect(settleUpdate.settledVnd).toBeNull();
+    // AuditLog: 통화별 상계(₩), depositDeductVnd null
+    expect(writeAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: expect.objectContaining({
+          depositOffset: { new: { vnd: "0", krw: 1_000_000, usd: 0 } },
+          depositDeductVnd: { new: null },
+        }),
+      })
+    );
+  });
+
+  it("₩ 보증금 + DEPOSIT ₩ 상계 Σ초과 → DEPOSIT_OFFSET_EXCEEDS", async () => {
+    const tx = makeTxMock({ booking: { ...HELD_KRW_BOOKING } }); // 보증금 ₩3,000,000
+    await expect(
+      completeCheckout(makePrismaMock(tx), {
+        ...BASE_INPUT,
+        settlement: { lines: [{ method: "DEPOSIT", currency: "KRW", amount: 3_500_000n }] },
+      })
+    ).rejects.toMatchObject({ code: "DEPOSIT_OFFSET_EXCEEDS" });
+    expect(tx.checkOutRecord.create).not.toHaveBeenCalled();
+  });
+
+  it("₩ 보증금 + 파손(VND 차감) + ₩ 상계: 파손차감은 depositDeductVnd에, ₩ 상계는 상한에 미반영", async () => {
+    // 보증금 ₩3,000,000, ₩ 상계 3,000,000(=전액) — VND 파손차감은 상계 상한에 영향 없어야 통과
+    const tx = makeTxMock({ booking: { ...HELD_KRW_BOOKING } });
+    await completeCheckout(makePrismaMock(tx), {
+      ...BASE_INPUT,
+      damageFound: true,
+      damageNote: "유리 파손",
+      deductionVnd: 1_500_000n, // VND 파손차감(₩ 보증금과 무관 통화)
+      settlement: { lines: [{ method: "DEPOSIT", currency: "KRW", amount: 3_000_000n }] },
+    });
+    // depositDeductVnd = 파손차감(VND)만 — ₩ 상계는 합산 안 함
+    expect(tx.booking.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          depositStatus: DepositStatus.PARTIAL_DEDUCTED,
+          depositDeductVnd: 1_500_000n,
+        }),
+      })
+    );
   });
 
   it("보증금 금액 미기록(depositAmount=null) + DEPOSIT 라인 → DEPOSIT_OFFSET_EXCEEDS", async () => {
@@ -942,14 +1043,30 @@ describe("completeCheckout — 상태 가드·원자성 (계약 완료 기준)",
     ).rejects.toMatchObject({ code: "DEPOSIT_OFFSET_EXCEEDS" });
   });
 
-  it("DEPOSIT 라인 currency=KRW → RangeError (트랜잭션 진입 전, normalize 검증)", async () => {
+  it("VND 보증금인데 DEPOSIT 라인이 KRW → DEPOSIT_CURRENCY_MISMATCH (통화 대조)", async () => {
     const tx = makeTxMock({ booking: { ...HELD_VND_BOOKING } });
     await expect(
       completeCheckout(makePrismaMock(tx), {
         ...BASE_INPUT,
         settlement: { lines: [{ method: "DEPOSIT", currency: "KRW", amount: 100_000n }] },
       })
-    ).rejects.toThrow(RangeError);
+    ).rejects.toMatchObject({ code: "DEPOSIT_CURRENCY_MISMATCH" });
+    expect(tx.checkOutRecord.create).not.toHaveBeenCalled();
+  });
+
+  it("DEPOSIT 라인이 2개 통화(VND+KRW) → DEPOSIT_CURRENCY_MISMATCH", async () => {
+    const tx = makeTxMock({ booking: { ...HELD_VND_BOOKING } });
+    await expect(
+      completeCheckout(makePrismaMock(tx), {
+        ...BASE_INPUT,
+        settlement: {
+          lines: [
+            { method: "DEPOSIT", currency: "VND", amount: 1_000_000n },
+            { method: "DEPOSIT", currency: "KRW", amount: 100_000n },
+          ],
+        },
+      })
+    ).rejects.toMatchObject({ code: "DEPOSIT_CURRENCY_MISMATCH" });
     expect(tx.checkOutRecord.create).not.toHaveBeenCalled();
   });
 });
@@ -1161,7 +1278,7 @@ describe("POST /api/bookings/[id]/checkout", () => {
     expect((await res.json()).error).toBe("DEPOSIT_NOT_HELD");
   });
 
-  it("DEPOSIT 라인 currency=KRW → 400 (RangeError→invalid_input)", async () => {
+  it("VND 보증금 + DEPOSIT 라인 KRW → 400 {error: DEPOSIT_CURRENCY_MISMATCH}", async () => {
     mockAuth.mockResolvedValue({ user: { id: "a1", role: "ADMIN" } });
     await setupRoutePrisma(
       makeTxMock({
@@ -1179,6 +1296,26 @@ describe("POST /api/bookings/[id]/checkout", () => {
       settlement: { lines: [{ method: "DEPOSIT", currency: "KRW", amount: "100000" }] },
     });
     expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe("invalid_input");
+    expect((await res.json()).error).toBe("DEPOSIT_CURRENCY_MISMATCH");
+  });
+
+  it("₩ 보증금 + DEPOSIT ₩ 라인 성공 → 200", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "a1", role: "ADMIN" } });
+    await setupRoutePrisma(
+      makeTxMock({
+        booking: {
+          id: "bk1",
+          status: BookingStatus.CHECKED_IN,
+          depositStatus: DepositStatus.HELD,
+          depositAmount: 3_000_000,
+          depositCurrency: "KRW",
+        },
+      })
+    );
+    const res = await callCheckout({
+      damageFound: false,
+      settlement: { lines: [{ method: "DEPOSIT", currency: "KRW", amount: "1000000" }] },
+    });
+    expect(res.status).toBe(200);
   });
 });

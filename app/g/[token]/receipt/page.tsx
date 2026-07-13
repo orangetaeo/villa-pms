@@ -294,11 +294,12 @@ export default async function GuestReceiptPage({
                   </span>
                 </div>
                 {/* 신 데이터: 상계·파손 분리 표기 / 구 데이터: 차감 총액만 */}
-                {dep.hasSettlementLines && BigInt(dep.offsetVnd) > 0n && (
+                {dep.hasSettlementLines && BigInt(dep.offsetAmount) > 0n && (
                   <div className="flex items-center justify-between px-4 py-3">
                     <span className="text-slate-500">{R.depositOffset}</span>
                     <span className="font-semibold text-slate-600 tabular-nums">
-                      − {money(dep.offsetVnd, "VND", lang)}
+                      {/* 상계는 보증금 통화 단위(₩/$/₫) — 라인 통화=보증금 통화(서버 강제) */}
+                      − {money(dep.offsetAmount, dep.currency ?? "VND", lang)}
                     </span>
                   </div>
                 )}

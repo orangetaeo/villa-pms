@@ -43,10 +43,10 @@ export interface GuestReceiptDeposit {
   currency: "KRW" | "VND" | "USD" | null;
   status: string; // DepositStatus(NONE/HELD/REFUNDED/PARTIAL_DEDUCTED)
   damageFound: boolean;
-  offsetVnd: string; // 보증금 상계 = ΣDEPOSIT 수납 라인(VND)
-  damageDeductVnd: string; // 파손 차감 = max(0, 차감총액 − 상계)(VND)
-  totalDeductVnd: string; // 보증금에서 빠진 총액 = record.deductionVnd(VND). 구 데이터 표기용
-  refundAmount: string | null; // 환불액 = max(0, amount − 차감총액). 보증금 없으면 null
+  offsetAmount: string; // 보증금 상계 = ΣDEPOSIT 수납 라인(★보증금 통화 단위 — 서버가 라인 통화=보증금 통화 강제)
+  damageDeductVnd: string; // 파손 차감(VND) — VND 보증금: max(0, 차감총액 − 상계) / 비VND: deductionVnd 전부
+  totalDeductVnd: string; // record.deductionVnd = 파손 + VND상계(VND). 구 데이터 표기용
+  refundAmount: string | null; // 환불액(보증금 통화) — VND: max(0, amount − 차감총액) / 비VND: max(0, amount − 상계). 보증금 없으면 null
   hasSettlementLines: boolean; // 신 데이터(수납 라인 존재)=상계/파손 분리 표기, 구 데이터=차감 총액만
 }
 
@@ -92,34 +92,37 @@ export interface GuestReceiptData {
 // ── 보증금 파생 계산(순수 — 단위 테스트 대상) ─────────────────────────
 export interface DepositDerivationInput {
   depositAmount: number | null; // 수취 보증금(depositCurrency 단위)
-  deductionVnd: bigint | null; // record.deductionVnd = 보증금에서 빠진 총액(파손차감 + 상계)
-  depositOffsetVnd: bigint; // ΣDEPOSIT 수납 라인(보증금 상계, VND)
+  depositCurrency: "KRW" | "VND" | "USD" | null; // 보증금 통화 — 상계 라인 통화와 동일(서버 강제)
+  deductionVnd: bigint | null; // record.deductionVnd = 파손차감(VND) + VND 상계(비VND 상계는 미포함 — checkout.ts)
+  depositOffset: bigint; // ΣDEPOSIT 수납 라인(보증금 상계, ★보증금 통화 단위)
 }
 
 export interface DepositDerivationResult {
-  offsetVnd: bigint; // 보증금 상계(음수 방지)
-  damageDeductVnd: bigint; // 파손 차감 = max(0, 총액 − 상계)
-  totalDeductVnd: bigint; // 보증금에서 빠진 총액(= deductionVnd)
-  refundAmount: number | null; // 환불액 = max(0, amount − 총액). 보증금 없으면 null
+  offsetAmount: bigint; // 보증금 상계(보증금 통화 단위, 음수 방지)
+  damageDeductVnd: bigint; // 파손 차감(VND) — VND 보증금: max(0, 총액 − 상계) / 비VND: deductionVnd 전부
+  totalDeductVnd: bigint; // record.deductionVnd(구 데이터 표기용)
+  refundAmount: number | null; // 환불액(보증금 통화). 보증금 없으면 null
 }
 
 /**
- * 보증금 정산 파생 — 순수. (SPEC: T-guest-settlement-receipt 파생 규칙)
- *   - 보증금 상계 = ΣDEPOSIT 라인(offsetVnd, 음수 방지)
- *   - 파손 차감 = max(0, 차감총액 − 상계)  ← 차감총액(record.deductionVnd) = 파손 + 상계 합(checkout.ts outcome)
- *   - 환불액 = max(0, 수취보증금 − 차감총액). 보증금 없으면 null
- *   ⚠ 보증금 상계는 보증금이 VND일 때만 발생(checkout.ts가 depositCurrency=VND 강제) → 차감·환불 산술은 VND 단위 정합.
+ * 보증금 정산 파생 — 순수. (SPEC: T-guest-settlement-receipt + T-checkout-single-approve-deposit-currency)
+ *   상계 라인 통화 = 보증금 통화(서버 강제, ₫/₩/$ 전부 가능 — 2026-07-13 일반화).
+ *   - VND 보증금: deductionVnd = 파손 + 상계 합 → 파손 = max(0, 총액 − 상계), 환불 = max(0, amount − 총액). (기존 동작 불변)
+ *   - 비VND 보증금: deductionVnd = 파손(VND)만 — 보증금 잔액과 통화가 달라 상한·환불에 미반영(계약 한계).
+ *     파손 표시 = deductionVnd 전부, 환불 = max(0, amount − 상계(보증금 통화)).
  */
 export function deriveDepositSettlement(input: DepositDerivationInput): DepositDerivationResult {
   const total = input.deductionVnd != null && input.deductionVnd > 0n ? input.deductionVnd : 0n;
-  const offset = input.depositOffsetVnd > 0n ? input.depositOffsetVnd : 0n;
-  const damage = total - offset > 0n ? total - offset : 0n;
+  const offset = input.depositOffset > 0n ? input.depositOffset : 0n;
+  const isVnd = input.depositCurrency === "VND" || input.depositCurrency == null;
+  const damage = isVnd ? (total - offset > 0n ? total - offset : 0n) : total;
   let refund: number | null = null;
   if (input.depositAmount != null) {
-    const r = input.depositAmount - Number(total);
+    const deducted = isVnd ? Number(total) : Number(offset);
+    const r = input.depositAmount - deducted;
     refund = r > 0 ? r : 0;
   }
-  return { offsetVnd: offset, damageDeductVnd: damage, totalDeductVnd: total, refundAmount: refund };
+  return { offsetAmount: offset, damageDeductVnd: damage, totalDeductVnd: total, refundAmount: refund };
 }
 
 /** 토큰 없음 → null(404). 만료·회수 → state만 채워 반환(page는 만료 안내). 체크아웃 전 → ready=false(page redirect). */
@@ -254,14 +257,15 @@ export async function loadGuestReceipt(
     lineVnd: m.lineVnd.toString(),
   }));
 
-  // 보증금 상계 = ΣDEPOSIT 라인(항상 VND — checkout.ts 검증). 파생 계산은 순수 함수로.
-  const depositOffsetVnd = record.settlementLines
-    .filter((l) => l.method === "DEPOSIT")
+  // 보증금 상계 = ΣDEPOSIT 라인(통화=보증금 통화 — checkout.ts 검증). 방어적으로 보증금 통화 라인만 합산.
+  const depositOffset = record.settlementLines
+    .filter((l) => l.method === "DEPOSIT" && (booking.depositCurrency == null || l.currency === booking.depositCurrency))
     .reduce((acc, l) => acc + l.amount, 0n);
   const dep = deriveDepositSettlement({
     depositAmount: booking.depositAmount,
+    depositCurrency: booking.depositCurrency,
     deductionVnd: record.deductionVnd,
-    depositOffsetVnd,
+    depositOffset,
   });
   const hasSettlementLines = record.settlementLines.length > 0;
   const hasDeposit = booking.depositStatus !== "NONE" || booking.depositAmount != null;
@@ -271,7 +275,7 @@ export async function loadGuestReceipt(
         currency: booking.depositCurrency,
         status: booking.depositStatus,
         damageFound: record.damageFound,
-        offsetVnd: dep.offsetVnd.toString(),
+        offsetAmount: dep.offsetAmount.toString(),
         damageDeductVnd: dep.damageDeductVnd.toString(),
         totalDeductVnd: dep.totalDeductVnd.toString(),
         refundAmount: dep.refundAmount != null ? dep.refundAmount.toString() : null,

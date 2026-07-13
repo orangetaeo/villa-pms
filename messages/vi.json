@@ -3528,7 +3528,7 @@
   "adminCheckout": {
     "guide": {
       "minibar": "Chỉ cần nhập 'số lượng còn lại' cho từng món, hệ thống tự tính lượng tiêu thụ và tiền trừ. Món không đụng tới cứ để nguyên — tính là tiêu thụ 0.",
-      "submit": "Bấm nút hoàn tiền sẽ chốt trả phòng và tự động tạo công việc dọn dẹp. Nếu có khoản trừ (minibar/hư hỏng), chỉ nút 'Duyệt hoàn sau khấu trừ' được bật."
+      "submit": "Bấm nút duyệt sẽ chốt trả phòng và tự động tạo công việc dọn dẹp. Số tiền hoàn dự kiến được tính tự động bằng cách trừ hư hỏng và khoản thu từ tiền cọc."
     },
     "title": "Kiểm tra trả phòng",
     "bookingNo": "Đặt phòng #B-{code}",
@@ -3554,8 +3554,6 @@
     "deduction": "Số tiền khấu trừ",
     "deposit": "Tiền cọc",
     "refundEstimate": "Số tiền hoàn dự kiến",
-    "refundFull": "Hoàn toàn bộ tiền cọc",
-    "refundDeduct": "Duyệt hoàn sau khấu trừ",
     "submitError": "Xử lý trả phòng thất bại. Vui lòng thử lại.",
     "autoCalc": "Tự động tính",
     "stockedQty": "Số lượng đặt",
@@ -3621,7 +3619,10 @@
     "settlementCurrency": "Loại tiền",
     "settlementAmount": "Số tiền",
     "settlementLineAdd": "Thêm dòng thu",
-    "settlementLineRemove": "Xóa dòng"
+    "settlementLineRemove": "Xóa dòng",
+    "approveCheckout": "Chốt quyết toán · Duyệt trả phòng",
+    "nonVndDamageNote": "Khoản trừ hư hỏng được ghi bằng ₫ và không tự động phản ánh vào số dư tiền cọc ngoại tệ (₩·$). Vui lòng xử lý khoản trừ hư hỏng riêng.",
+    "offsetNoFxNote": "Không có tỷ giá nên không thể quy đổi tiền cọc ngoại tệ sang ₫. Vui lòng kiểm tra tiền cọc và số tiền phải thu riêng."
   },
   "adminMessages": {
     "headerCollapse": "Thu gọn tiêu đề",
