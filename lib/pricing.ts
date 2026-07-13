@@ -56,6 +56,13 @@ function assertSupportedSaleCurrency(saleCurrency: Currency): void {
 
 // ===================== 순수 함수 층 (단위 테스트 대상) =====================
 
+/**
+ * 프리미엄 박 사유 (ADR-0042) — 왜 이 박이 프리미엄인지. 박별 뱃지·검증용.
+ * WEEKDAY_RULE = getUTCDay(박) ∈ Villa.premiumDays / HOLIDAY = 박 ∈ HolidayDate.
+ * 둘 다 해당하면 HOLIDAY로 결정(공휴일 우선 — 결정적).
+ */
+export type PremiumReason = "WEEKDAY_RULE" | "HOLIDAY";
+
 export interface NightQuote {
   /** 숙박일 (그 날 밤) — UTC 자정 */
   date: Date;
@@ -65,6 +72,8 @@ export interface NightQuote {
   /** saleCurrency=VND일 때만 채움 */
   saleVnd?: bigint;
   costVnd: bigint;
+  /** ADR-0042 — 프리미엄 박이면 사유. 평일 박이면 미포함(undefined) */
+  premium?: PremiumReason;
 }
 
 export interface StayQuote {
@@ -210,6 +219,43 @@ export interface RatePeriodLike {
   // ADR-0031 소비자 직판가 — null/미포함이면 Net(salePrice*) 폴백. CONSUMER 계층에서만 참조.
   consumerSalePriceVnd?: bigint | null;
   consumerSalePriceKrw?: number | null;
+  // ADR-0042 프리미엄일 컬럼 — 프리미엄 박에서만 참조. 각 컬럼 null/미포함이면 같은 행의 평일 컬럼으로
+  //   컬럼 단위 폴백(resolvePremiumRow). 그 유효 행 위에서 기존 계층 로직(ADR-0031)을 그대로 적용한다.
+  premiumSupplierCostVnd?: bigint | null;
+  premiumSalePriceVnd?: bigint | null;
+  premiumSalePriceKrw?: number | null;
+  premiumConsumerSalePriceVnd?: bigint | null;
+  premiumConsumerSalePriceKrw?: number | null;
+}
+
+/**
+ * 프리미엄 박 판정 (ADR-0042) — 요일(premiumDays) ∨ 공휴일(holidaySet). 둘 다면 HOLIDAY 우선(결정적).
+ * 평일이면 null. 요일은 반드시 getUTCDay(숙박일 @db.Date UTC 자정 — 로컬 타임존 오염 금지).
+ */
+function premiumReasonFor(
+  date: Date,
+  premiumDaySet: ReadonlySet<number> | null,
+  holidaySet: ReadonlySet<number> | null
+): PremiumReason | null {
+  if (holidaySet && holidaySet.has(date.getTime())) return "HOLIDAY";
+  if (premiumDaySet && premiumDaySet.has(date.getUTCDay())) return "WEEKDAY_RULE";
+  return null;
+}
+
+/**
+ * 프리미엄 박의 "유효 행" (ADR-0042) — 각 가격 컬럼을 `premiumX ?? X`로 컬럼 단위 해소한 RatePeriodLike.
+ * 이 유효 행 위에서 기존 계층 로직(nightSaleVnd/Krw: CONSUMER=consumer??Net)을 그대로 적용하므로
+ * 프리미엄(컬럼 오버라이드)과 계층(기존 규칙)의 축 우선순위를 새로 발명하지 않는다.
+ */
+function resolvePremiumRow(rate: RatePeriodLike): RatePeriodLike {
+  return {
+    ...rate,
+    supplierCostVnd: rate.premiumSupplierCostVnd ?? rate.supplierCostVnd,
+    salePriceVnd: rate.premiumSalePriceVnd ?? rate.salePriceVnd,
+    salePriceKrw: rate.premiumSalePriceKrw ?? rate.salePriceKrw,
+    consumerSalePriceVnd: rate.premiumConsumerSalePriceVnd ?? rate.consumerSalePriceVnd,
+    consumerSalePriceKrw: rate.premiumConsumerSalePriceKrw ?? rate.consumerSalePriceKrw,
+  };
 }
 
 /** 한 요금 행에서 계층에 맞는 박당 VND 판매가 (ADR-0031). CONSUMER는 null이면 Net 폴백. */
@@ -278,6 +324,16 @@ export interface QuoteStayByPeriodInput extends StayRange {
   periods: RatePeriodLike[];
   /** 가격 계층 (ADR-0031). 미지정=NET(하위호환). CONSUMER=소비자 직판가(폴백 Net) */
   priceTier?: PriceTier;
+  /**
+   * ADR-0042 프리미엄 요일 — getUTCDay 값(0=일…6=토). 미지정/빈 배열=요일 프리미엄 없음(하위호환).
+   * 그 요일의 박은 프리미엄 컬럼(premiumX ?? X)으로 해소한다.
+   */
+  premiumDays?: number[];
+  /**
+   * ADR-0042 공휴일 — 숙박 구간 교차 HolidayDate(@db.Date UTC 자정) 목록. 미지정/빈 배열=공휴일 프리미엄 없음.
+   * 그 날짜의 박은 프리미엄(요일과 OR). 공휴일·요일 둘 다면 HOLIDAY 사유.
+   */
+  holidayDates?: Date[];
 }
 
 /** 기간별 박별 합산 견적 (ADR-0014) — quoteStay의 기간 판정 버전. 순수 함수 */
@@ -294,11 +350,23 @@ export function quoteStayByPeriod(input: QuoteStayByPeriodInput): StayQuote {
     (input.checkOut.getTime() - input.checkIn.getTime()) / MS_PER_DAY
   );
 
+  // ADR-0042 프리미엄 판정 입력 — 미지정/빈 배열이면 null(판정 스킵) → 기존 빌라 완전 무중단.
+  const premiumDaySet =
+    input.premiumDays && input.premiumDays.length > 0 ? new Set(input.premiumDays) : null;
+  const holidaySet =
+    input.holidayDates && input.holidayDates.length > 0
+      ? new Set(input.holidayDates.map((d) => d.getTime()))
+      : null;
+
   for (let i = 0; i < nights; i++) {
     const date = new Date(input.checkIn.getTime() + i * MS_PER_DAY);
-    const rate = resolveRatePeriod(date, input.periods, input.base);
+    const rawRate = resolveRatePeriod(date, input.periods, input.base);
+    // ADR-0042: 프리미엄 박이면 각 가격 컬럼을 premiumX ?? X로 해소한 유효 행 사용(컬럼 단위 폴백).
+    const reason = premiumReasonFor(date, premiumDaySet, holidaySet);
+    const rate = reason ? resolvePremiumRow(rawRate) : rawRate;
 
     const night: NightQuote = { date, season: rate.season, costVnd: rate.supplierCostVnd };
+    if (reason) night.premium = reason;
     // USD(Phase 2)는 요율표에 판매단가가 없어 sale 칸을 비운다 — 원가만 박별 합산.
     // 계층(ADR-0031): CONSUMER면 소비자가(폴백 Net), 아니면 Net. 원가는 계층 무관 동일.
     const tier: PriceTier = input.priceTier ?? "NET";
@@ -523,8 +591,16 @@ export async function quoteStayForVilla(
     // ADR-0031 — 소비자 계층 폴백 판정용. NET 견적에도 select하나 사용 안 함(누수 아님: 운영자 견적 경로).
     consumerSalePriceVnd: true,
     consumerSalePriceKrw: true,
+    // ADR-0042 프리미엄일 컬럼 — 운영자 견적 경로(누수 아님). ⚠ 공급자/공개 경로엔 절대 select 금지.
+    premiumSupplierCostVnd: true,
+    premiumSalePriceVnd: true,
+    premiumSalePriceKrw: true,
+    premiumConsumerSalePriceVnd: true,
+    premiumConsumerSalePriceKrw: true,
   } as const;
-  const [base, periods] = await Promise.all([
+  const [villa, base, periods, holidays] = await Promise.all([
+    // ADR-0042: 빌라 프리미엄 요일. 미존재 빌라는 base 부재로 어차피 MissingBaseRateError.
+    db.villa.findUnique({ where: { id: villaId }, select: { premiumDays: true } }),
     db.villaRatePeriod.findFirst({ where: { villaId, isBase: true }, select: RP_SELECT }),
     db.villaRatePeriod.findMany({
       where: {
@@ -535,10 +611,23 @@ export async function quoteStayForVilla(
       },
       select: RP_SELECT,
     }),
+    // ADR-0042: 숙박 박 집합과 동일 범위(half-open) 교차 공휴일만 로드
+    db.holidayDate.findMany({
+      where: { date: { gte: range.checkIn, lt: range.checkOut } },
+      select: { date: true },
+    }),
   ]);
   if (!base) throw new MissingBaseRateError();
   const priceTier = channel ? priceTierForChannel(channel) : "NET";
-  return quoteStayByPeriod({ ...range, saleCurrency, base, periods, priceTier });
+  return quoteStayByPeriod({
+    ...range,
+    saleCurrency,
+    base,
+    periods,
+    priceTier,
+    premiumDays: villa?.premiumDays ?? [],
+    holidayDates: holidays.map((h) => h.date),
+  });
 }
 
 /**
@@ -556,13 +645,15 @@ export class MissingSupplierPriceError extends Error {
   }
 }
 
-/** 공급자 판매가 견적용 행 — supplierSalePriceVnd만 보는 RatePeriodLike의 부분집합 */
+/** 공급자 판매가 견적용 행 — supplierSalePriceVnd(+프리미엄)만 보는 RatePeriodLike의 부분집합 */
 interface SupplierRatePeriodLike {
   season: SeasonType;
   isBase: boolean;
   startDate: Date | null;
   endDate: Date | null;
   supplierSalePriceVnd: bigint | null;
+  // ADR-0042 — 프리미엄 박 공급자 판매 정가. null이면 supplierSalePriceVnd로 컬럼 단위 폴백.
+  premiumSupplierSalePriceVnd?: bigint | null;
 }
 
 /**
@@ -583,15 +674,18 @@ export async function quoteSupplierSaleForVilla(
 ): Promise<{ totalVnd: bigint; nightlyVnd: bigint[] }> {
   assertValidStayRange(range);
 
-  // ⚠ supplierSalePriceVnd·날짜·season만 select — 운영자 salePrice*/margin*/supplierCostVnd 절대 미포함
+  // ⚠ supplierSalePriceVnd·프리미엄 공급자가·날짜·season만 select — 운영자 salePrice*/margin*/supplierCostVnd·
+  //    premiumSalePrice*/premiumConsumer* 절대 미포함(마진 비공개). 공급자 자기 필드 2개만.
   const SRP_SELECT = {
     season: true,
     isBase: true,
     startDate: true,
     endDate: true,
     supplierSalePriceVnd: true,
+    premiumSupplierSalePriceVnd: true, // ADR-0042 — 공급자 자기 프리미엄 판매 정가(허용 필드)
   } as const;
-  const [base, periods] = await Promise.all([
+  const [villa, base, periods, holidays] = await Promise.all([
+    db.villa.findUnique({ where: { id: villaId }, select: { premiumDays: true } }),
     db.villaRatePeriod.findFirst({ where: { villaId, isBase: true }, select: SRP_SELECT }),
     db.villaRatePeriod.findMany({
       where: {
@@ -601,6 +695,10 @@ export async function quoteSupplierSaleForVilla(
         endDate: { gt: range.checkIn },
       },
       select: SRP_SELECT,
+    }),
+    db.holidayDate.findMany({
+      where: { date: { gte: range.checkIn, lt: range.checkOut } },
+      select: { date: true },
     }),
   ]);
   if (!base) throw new MissingBaseRateError();
@@ -636,15 +734,25 @@ export async function quoteSupplierSaleForVilla(
     );
   };
 
+  // ADR-0042 프리미엄 판정 입력 — 미지정/빈 배열이면 null(스킵) → 기존 공급자 견적 완전 무중단.
+  const premiumDaySet =
+    villa?.premiumDays && villa.premiumDays.length > 0 ? new Set(villa.premiumDays) : null;
+  const holidaySet = holidays.length > 0 ? new Set(holidays.map((h) => h.date.getTime())) : null;
+
   for (let i = 0; i < nights; i++) {
     const date = new Date(range.checkIn.getTime() + i * MS_PER_DAY);
     const chosen = resolveRatePeriod(date, periodLikes, baseLike);
     const src = sourceOf(chosen);
-    if (src.supplierSalePriceVnd == null) {
+    // ADR-0042: 프리미엄 박이면 premiumSupplierSalePriceVnd ?? supplierSalePriceVnd(컬럼 단위 폴백).
+    const reason = premiumReasonFor(date, premiumDaySet, holidaySet);
+    const priceVnd = reason
+      ? src.premiumSupplierSalePriceVnd ?? src.supplierSalePriceVnd
+      : src.supplierSalePriceVnd;
+    if (priceVnd == null) {
       throw new MissingSupplierPriceError(src.season, date);
     }
-    nightlyVnd.push(src.supplierSalePriceVnd);
-    totalVnd += src.supplierSalePriceVnd;
+    nightlyVnd.push(priceVnd);
+    totalVnd += priceVnd;
   }
 
   return { totalVnd, nightlyVnd };

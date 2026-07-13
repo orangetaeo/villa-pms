@@ -21,10 +21,14 @@ const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const SEASONS = ["LOW", "SHOULDER", "HIGH", "PEAK"] as const;
 const toUtc = (s: string) => new Date(`${s}T00:00:00.000Z`);
 
+// ADR-0042 프리미엄일 — 공급자에게 허용되는 프리미엄 필드는 원가·자기 판매가 2개뿐(운영자 Net/소비자가 절대 미수신).
+const premiumCost = vndPositiveDigits.nullable().optional(); // null=평일 원가 폴백
 const baseSchema = z.object({
   season: z.enum(SEASONS),
   supplierCostVnd: vndPositiveDigits,
   supplierSalePriceVnd: vndSalePrice, // 공급자 자기 판매가(선택)
+  premiumSupplierCostVnd: premiumCost, // ADR-0042 프리미엄 박 원가(선택)
+  premiumSupplierSalePriceVnd: vndSalePrice, // ADR-0042 프리미엄 박 공급자 판매가(선택)
   label: z.string().trim().max(60).nullable().optional(),
 });
 const periodSchema = z.object({
@@ -34,6 +38,8 @@ const periodSchema = z.object({
   endDate: isoDate,
   supplierCostVnd: vndPositiveDigits,
   supplierSalePriceVnd: vndSalePrice, // 공급자 자기 판매가(선택)
+  premiumSupplierCostVnd: premiumCost, // ADR-0042 프리미엄 박 원가(선택)
+  premiumSupplierSalePriceVnd: vndSalePrice, // ADR-0042 프리미엄 박 공급자 판매가(선택)
   label: z.string().trim().max(60).nullable().optional(),
 });
 
@@ -109,6 +115,32 @@ export async function PATCH(
       const vnd = computeSalePriceVnd(cost, m.marginType, m.marginValue);
       return { salePriceVnd: vnd, salePriceKrw: fx ? suggestSalePriceKrw(vnd, fx) : 0 };
     };
+    // ADR-0042: 공급자가 premiumSupplierCostVnd를 넣으면 운영자 Net(premiumSalePriceVnd/Krw)을 같은 행 마진으로
+    //   서버 파생(평일 salePriceVnd 파생과 동일 시맨틱 — 마진 정책 유지, ADMIN 오버라이드 가능). §3.2.
+    //   premiumSupplierSalePriceVnd(공급자 자기 판매가)는 공급자 입력값 그대로 저장. 미입력 원가면 전부 null(평일 폴백).
+    const premiumFrom = (
+      premiumCostStr: string | null | undefined,
+      premiumSalePriceStr: string | null | undefined,
+      m: { marginType: MarginType; marginValue: bigint }
+    ) => {
+      const premiumSupplierSalePriceVnd = toSalePrice(premiumSalePriceStr);
+      if (premiumCostStr == null) {
+        return {
+          premiumSupplierCostVnd: null,
+          premiumSalePriceVnd: null,
+          premiumSalePriceKrw: null,
+          premiumSupplierSalePriceVnd,
+        };
+      }
+      const premiumSupplierCostVnd = BigInt(premiumCostStr);
+      const premiumNetVnd = computeSalePriceVnd(premiumSupplierCostVnd, m.marginType, m.marginValue);
+      return {
+        premiumSupplierCostVnd,
+        premiumSalePriceVnd: premiumNetVnd,
+        premiumSalePriceKrw: fx ? suggestSalePriceKrw(premiumNetVnd, fx) : 0,
+        premiumSupplierSalePriceVnd,
+      };
+    };
 
     // ── 기본요금 upsert (마진 보존) ──
     const baseCost = BigInt(base.supplierCostVnd);
@@ -116,6 +148,7 @@ export async function PATCH(
       ? { marginType: existingBase.marginType, marginValue: existingBase.marginValue }
       : inheritMargin;
     const baseP = priceFrom(baseCost, baseM);
+    const basePremium = premiumFrom(base.premiumSupplierCostVnd, base.premiumSupplierSalePriceVnd, baseM);
     if (existingBase) {
       if (existingBase.supplierCostVnd !== baseCost) {
         costChanges.push({ season: base.season, oldCostVnd: existingBase.supplierCostVnd, newCostVnd: baseCost });
@@ -128,6 +161,7 @@ export async function PATCH(
           supplierSalePriceVnd: toSalePrice(base.supplierSalePriceVnd),
           label: base.label ?? null,
           ...baseP,
+          ...basePremium,
         },
       });
     } else {
@@ -136,7 +170,7 @@ export async function PATCH(
           villaId, season: base.season, isBase: true, startDate: null, endDate: null,
           label: base.label ?? null, supplierCostVnd: baseCost,
           supplierSalePriceVnd: toSalePrice(base.supplierSalePriceVnd),
-          marginType: baseM.marginType, marginValue: baseM.marginValue, ...baseP,
+          marginType: baseM.marginType, marginValue: baseM.marginValue, ...baseP, ...basePremium,
         },
       });
     }
@@ -148,6 +182,7 @@ export async function PATCH(
       const match = p.id ? existingById.get(p.id) : undefined;
       const m = match ? { marginType: match.marginType, marginValue: match.marginValue } : inheritMargin;
       const price = priceFrom(cost, m);
+      const premium = premiumFrom(p.premiumSupplierCostVnd, p.premiumSupplierSalePriceVnd, m);
       const dates = { startDate: toUtc(p.startDate), endDate: toUtc(p.endDate) };
       if (match) {
         if (match.supplierCostVnd !== cost) {
@@ -157,7 +192,7 @@ export async function PATCH(
           where: { id: match.id },
           data: {
             season: p.season, ...dates, label: p.label ?? null, supplierCostVnd: cost,
-            supplierSalePriceVnd: toSalePrice(p.supplierSalePriceVnd), ...price,
+            supplierSalePriceVnd: toSalePrice(p.supplierSalePriceVnd), ...price, ...premium,
           },
         });
         keepIds.add(match.id);
@@ -166,7 +201,7 @@ export async function PATCH(
           data: {
             villaId, season: p.season, isBase: false, ...dates, label: p.label ?? null,
             supplierCostVnd: cost, supplierSalePriceVnd: toSalePrice(p.supplierSalePriceVnd),
-            marginType: m.marginType, marginValue: m.marginValue, ...price,
+            marginType: m.marginType, marginValue: m.marginValue, ...price, ...premium,
           },
         });
       }

@@ -202,6 +202,11 @@ model Villa {
   icalImportUrls  String[] // 외부 채널 iCal 수신 URL (Airbnb 등)
   // 운영자가 이 빌라의 공실을 공급자에게 마지막으로 확인한 시각. null = 아직 확인 안 함("확인필요"로 표시)
   availabilityCheckedAt DateTime?
+  // 프리미엄 요일 (ADR-0042) — getUTCDay() 기준 0=일…6=토. 기본 금(5)·토(6).
+  //   프리미엄 박 = (getUTCDay(박) ∈ premiumDays) ∨ (박 ∈ HolidayDate). 프리미엄이어도
+  //   해당 기간행 premium* 컬럼이 null이면 평일가 폴백 → 기존 빌라 완전 무중단.
+  //   BE 검증: 0~6 정수·중복 제거(zod). 빈 배열 허용(공휴일만 프리미엄).
+  premiumDays     Int[]       @default([5, 6])
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -400,6 +405,16 @@ model SeasonPeriod {
   @@index([startDate, endDate])
 }
 
+// 공휴일 캘린더 (ADR-0042) — 전역 날짜 목록(한국·베트남 공용, 빌라 무관). ADMIN CUD 전용(AuditLog 필수).
+// 프리미엄 박 판정의 요일(Villa.premiumDays) OR 축. 전야 자동계산 없음 — 전야도 프리미엄이면 운영자가 그 날짜를 명시 입력.
+// date = 숙박일(@db.Date, UTC 자정) — "그 날 밤"이 프리미엄. 가격이 아니라 판정 입력만 담당(가격은 VillaRatePeriod.premium*).
+model HolidayDate {
+  id        String   @id @default(cuid())
+  date      DateTime @unique @db.Date
+  label     String // "설날", "Tết", "광복절" — 표시용
+  createdAt DateTime @default(now())
+}
+
 enum MarginType {
   PERCENT
   FIXED_VND // v1.2: FIXED_KRW → FIXED_VND. 마진 기준통화를 원가와 동일한 VND로 통일 (ADR-0003)
@@ -433,6 +448,18 @@ model VillaRatePeriod {
   consumerSalePriceVnd BigInt? // 소비자 직판가/박 (VND). null=salePriceVnd 폴백
   consumerSalePriceKrw Int? // 소비자 직판가/박 (KRW). null=salePriceKrw 폴백
   supplierSalePriceVnd BigInt? // F10 Phase B: 공급자 자기 판매 정가/박 (VND) — 운영자 salePriceVnd·마진과 완전 별개, 공급자 직접 판매 링크용 (ADR-0021)
+  // ADR-0042 — 프리미엄일(요일·공휴일) 2단 요금. 전 컬럼 nullable, **null = 같은 행의 평일 컬럼으로
+  //   컬럼 단위 폴백**(행 단위 아님) → 기존 빌라·미설정 기간 완전 무중단.
+  //   프리미엄 마진 컬럼은 두지 않는다 — 판정 원천은 판매가 컬럼뿐이며, 마진 제안(UI)은 같은 행의
+  //   marginType/marginValue를 premiumSupplierCostVnd에 적용해 파생(행당 마진 정책 1개 유지).
+  //   ⚠ 마진 비공개(원칙2): premiumSalePrice*·premiumConsumer*는 공급자·공개(/p·/g) 라우트 절대 비노출.
+  //     공급자에겐 premiumSupplierCostVnd·premiumSupplierSalePriceVnd만.
+  premiumSupplierCostVnd      BigInt? // 프리미엄 박 원가/박 (VND). null=supplierCostVnd
+  premiumSalePriceVnd         BigInt? // 프리미엄 Net 판매가/박 (VND). null=salePriceVnd
+  premiumSalePriceKrw         Int? // 프리미엄 Net 판매가/박 (KRW). null=salePriceKrw
+  premiumConsumerSalePriceVnd BigInt? // 프리미엄 소비자 직판가/박 (VND). null=consumerSalePriceVnd(→salePrice 폴백은 기존 계층 로직)
+  premiumConsumerSalePriceKrw Int? // 프리미엄 소비자 직판가/박 (KRW). null=consumerSalePriceKrw
+  premiumSupplierSalePriceVnd BigInt? // 프리미엄 공급자 자기 판매 정가/박 (VND). null=supplierSalePriceVnd
   updatedAt       DateTime   @updatedAt
 
   @@index([villaId, startDate, endDate])

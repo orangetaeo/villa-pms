@@ -199,6 +199,8 @@ function makeTx(opts: FakeTxOpts) {
       })),
       findMany: vi.fn(async () => []),
     },
+    // ADR-0042: 엔진이 교차 공휴일을 로드(프리미엄 없는 기본 목)
+    holidayDate: { findMany: vi.fn(async () => []) },
     notification: { create: notifCreate },
     auditLog: { create: auditCreate },
     partnerReceivable: {
