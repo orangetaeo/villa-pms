@@ -1252,8 +1252,12 @@
     "detail": {
       "back": "빌라 목록",
       "nameVi": {
-        "title": "베트남어 병기명",
-        "desc": "공급자·외부 화면에 한국어명과 함께 표시됩니다. ‘Gemini 제안’으로 음역을 받은 뒤 확인·수정해 저장하세요.",
+        "title": "빌라명 편집",
+        "desc": "공급자·외부 화면에 한국어명과 함께 표시됩니다. ‘Gemini 제안’으로 음역을 받은 뒤 확인·수정해 저장하세요. 한국어 원명은 운영자 판매 식별자로, ADMIN만 변경할 수 있습니다.",
+        "nameLabel": "한국어명 (판매 식별자)",
+        "namePlaceholder": "예: 쏘나씨 V11",
+        "nameViLabel": "베트남어 병기명",
+        "nameChangedHint": "한국어명이 바뀌었습니다. 베트남어 병기명이 이전 이름 기준일 수 있으니 ‘Gemini 제안’으로 재확인하세요.",
         "placeholder": "예: Sonasea V11",
         "suggest": "Gemini 제안",
         "suggesting": "제안 중…",

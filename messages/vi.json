@@ -1367,8 +1367,12 @@
     "detail": {
       "back": "Danh sách villa",
       "nameVi": {
-        "title": "Tên tiếng Việt (hiển thị kèm)",
-        "desc": "Hiển thị cùng tên tiếng Hàn trên màn hình nhà cung cấp và bên ngoài. Nhấn ‘Gợi ý Gemini’ để lấy phiên âm rồi kiểm tra, chỉnh sửa và lưu.",
+        "title": "Chỉnh sửa tên villa",
+        "desc": "Hiển thị cùng tên tiếng Hàn trên màn hình nhà cung cấp và bên ngoài. Nhấn ‘Gợi ý Gemini’ để lấy phiên âm rồi kiểm tra, chỉnh sửa và lưu. Tên tiếng Hàn là mã nhận diện bán hàng của người vận hành, chỉ ADMIN mới được thay đổi.",
+        "nameLabel": "Tên tiếng Hàn (mã nhận diện)",
+        "namePlaceholder": "Ví dụ: 쏘나씨 V11",
+        "nameViLabel": "Tên tiếng Việt (hiển thị kèm)",
+        "nameChangedHint": "Tên tiếng Hàn đã thay đổi. Tên tiếng Việt có thể vẫn theo tên cũ, hãy nhấn ‘Gợi ý Gemini’ để kiểm tra lại.",
         "placeholder": "Ví dụ: Sonasea V11",
         "suggest": "Gợi ý Gemini",
         "suggesting": "Đang gợi ý…",

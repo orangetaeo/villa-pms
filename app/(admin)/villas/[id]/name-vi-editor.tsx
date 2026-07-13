@@ -1,8 +1,9 @@
 "use client";
 
-// 빌라 베트남어 병기명(nameVi) 편집기 (ADR-0020) — ADMIN 빌라 상세 전용.
+// 빌라 한국어명(name)·베트남어 병기명(nameVi) 편집기 (ADR-0020) — ADMIN 빌라 상세 전용.
+// ADMIN만 한국어 원명과 베트남어 병기명을 함께 수정할 수 있다(공급자는 이름 변경권 없음).
 // nameVi가 비어 있으면 화면 진입 시 Gemini 음역을 "자동으로" 채워 넣는다(수동 버튼 클릭 불필요).
-// ADMIN은 자동 제안값을 그대로 검수·수정·저장하거나 "제안" 버튼으로 다시 생성할 수 있다. 저장값만 nameVi에 반영.
+// "제안" 버튼은 현재 입력 중인 한국어명 초안 기준으로 음역을 재생성한다. 저장값만 반영.
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -20,6 +21,7 @@ export default function NameViEditor({
 }) {
   const t = useTranslations("adminVillas.detail.nameVi");
   const router = useRouter();
+  const [nameValue, setNameValue] = useState(name);
   const [value, setValue] = useState(initialNameVi ?? "");
   const [suggesting, setSuggesting] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -36,7 +38,8 @@ export default function NameViEditor({
       const res = await fetch(`/api/villas/${villaId}/name-vi`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "suggest" }),
+        // 저장 전 새 이름 기준으로 음역하도록 현재 입력 중인 초안 name을 함께 전달.
+        body: JSON.stringify({ action: "suggest", name: nameValue }),
       });
       if (res.status === 503) {
         setError(t("errGemini"));
@@ -63,14 +66,14 @@ export default function NameViEditor({
       const res = await fetch(`/api/villas/${villaId}/name-vi`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "save", nameVi: value }),
+        body: JSON.stringify({ action: "save", name: nameValue, nameVi: value }),
       });
       if (!res.ok) {
         setError(t("errSave"));
         return;
       }
       setSaved(true);
-      router.refresh(); // 헤더 등 서버 렌더 갱신
+      router.refresh(); // 헤더·목록 등 서버 렌더 갱신(빌라명 즉시 반영)
     } catch {
       setError(t("errSave"));
     } finally {
@@ -88,12 +91,35 @@ export default function NameViEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const previewName = formatVillaName({ name, nameVi: value });
+  const previewName = formatVillaName({ name: nameValue, nameVi: value });
+  // 저장된 원명과 달라졌으면 nameVi가 구명 기준일 수 있으므로 재확인 안내.
+  const nameChanged = nameValue.trim() !== name.trim();
 
   return (
     <CollapsibleCard title={t("title")} icon="translate" defaultOpen>
       <p className="text-xs text-admin-muted mb-3">{t("desc")}</p>
 
+      {/* 한국어 원명(name) — 운영자 판매 식별자. ADMIN만 편집 */}
+      <label className="mb-1 block text-xs font-medium text-slate-400">{t("nameLabel")}</label>
+      <input
+        type="text"
+        value={nameValue}
+        maxLength={100}
+        onChange={(e) => {
+          setNameValue(e.target.value);
+          setSaved(false);
+        }}
+        placeholder={t("namePlaceholder")}
+        className="mb-2 w-full rounded-lg bg-slate-900/60 border border-slate-700 px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:border-admin-primary focus:outline-none"
+      />
+      {nameChanged && (
+        <p className="mb-3 rounded-md bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-400">
+          {t("nameChangedHint")}
+        </p>
+      )}
+
+      {/* 베트남어 병기명(nameVi) */}
+      <label className="mb-1 block text-xs font-medium text-slate-400">{t("nameViLabel")}</label>
       <div className="flex items-center gap-2">
         <input
           type="text"
