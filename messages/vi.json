@@ -2375,6 +2375,20 @@
         "oa": "Vui lòng nhập liên kết hợp lệ bắt đầu bằng https://."
       }
     },
+    "zaloNotifyGroupCard": {
+      "title": "Nhóm thông báo Zalo",
+      "description": "Gộp các thông báo công việc của quản trị viên (đặt phòng, chuyển khoản, phản hồi đơn hàng...) vào một nhóm Zalo thay vì gửi DM riêng lẻ. Chọn nhóm trong số các nhóm chat mà tài khoản bot hệ thống đang tham gia.",
+      "botDisconnected": "Tài khoản Zalo của bot hệ thống chưa được kết nối nên không tải được danh sách nhóm. Vui lòng đăng nhập ở 'Kết nối Bot Zalo' trước.",
+      "selectLabel": "Nhóm nhận thông báo",
+      "optionNone": "Không đặt (gửi DM riêng cho từng quản trị viên)",
+      "optionMissing": "Nhóm đang đặt hiện tại (không có trong danh sách)",
+      "hintNone": "Khi không đặt nhóm, thông báo sẽ được gửi DM riêng cho từng quản trị viên.",
+      "hintGroup": "Một thông báo công việc sẽ được gửi vào nhóm đã chọn. Chỉ để quản trị viên trong nhóm (có chứa thông tin nội bộ như giá vốn).",
+      "save": "Lưu",
+      "saving": "Đang lưu...",
+      "saved": "Đã lưu.",
+      "error": "Lưu thất bại. Vui lòng thử lại."
+    },
     "minibarCardTitle": "Minibar tiêu chuẩn công ty",
     "minibarCardDesc": "Quản lý danh mục và đơn giá minibar dùng chung cho mọi villa.",
     "minibarCardCta": "Quản lý",
