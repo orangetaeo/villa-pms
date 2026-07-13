@@ -301,10 +301,16 @@ export async function loadGuestCheckin(
       vendorAccepted: o.vendorStatus === "VENDOR_ACCEPTED",
       // ★연락처 게이트는 로더 계층에서 — 미수락 벤더 신원은 반환값 자체에 싣지 않는다(방어심층,
       //   새 소비자가 붙어도 누수 불가). 렌더 계층(orders/page)의 accepted 게이트와 동일 조건.
+      //   ★TICKET 제외(P3-⑤ 방어심층) — 티켓 문의는 본사(Villa Go) 일원화라 벤더 연락처를 게스트에
+      //   싣지 않는다. 클라 게이트(guest-vendor-contact)는 불변이되 로더 계층에서 종결(값 자체 미포함).
       vendorName:
-        o.status === "CONFIRMED" || o.vendorStatus === "VENDOR_ACCEPTED" ? o.vendor?.name ?? null : null,
+        o.type !== "TICKET" && (o.status === "CONFIRMED" || o.vendorStatus === "VENDOR_ACCEPTED")
+          ? o.vendor?.name ?? null
+          : null,
       vendorPhone:
-        o.status === "CONFIRMED" || o.vendorStatus === "VENDOR_ACCEPTED" ? o.vendor?.phone ?? null : null,
+        o.type !== "TICKET" && (o.status === "CONFIRMED" || o.vendorStatus === "VENDOR_ACCEPTED")
+          ? o.vendor?.phone ?? null
+          : null,
       // 희망 날짜는 @db.Date(자정 UTC 저장) → YYYY-MM-DD. 시간은 "HH:MM" 문자열 그대로.
       serviceDate: o.serviceDate ? o.serviceDate.toISOString().slice(0, 10) : null,
       serviceTime: o.serviceTime ?? null,
@@ -315,8 +321,10 @@ export async function loadGuestCheckin(
       proposalPending: o.proposedServiceDate != null && o.vendorProposalRespondedAt == null,
       // 선택 옵션은 라벨 스냅샷만(원가 없음 — ResolvedSelectedOption엔 costVnd 자체가 없음, 누수 0)
       selectedOptions: parseSelectedOptions(o.selectedOptions),
-      // 발행된 티켓 이미지 — 상태 무관 노출(발행된 것 자체가 게스트 대상 산출물, ADR-0034)
-      ticketUrls: o.ticketUrls,
+      // 발행된 티켓 이미지 — 발행 산출물이라 상태 무관 노출이 원칙이나, ★취소(CANCELLED) 주문은
+      //   소비자에게서 완전 차단(테오 확정) — 로더 계층에서 빈 배열로 절단(방어심층, 항목 7). DB·스토리지의
+      //   ticketUrls 원본은 보존(운영자·벤더 증빙 열람 유지). 다운로드 프록시도 CANCELLED면 404로 대칭 차단.
+      ticketUrls: o.status === "CANCELLED" ? [] : o.ticketUrls,
       // 이용자 스냅샷 원본 — RSC 전용(page 매핑에서 이름만 추출). 클라 payload엔 이름만.
       ticketGuests: o.ticketGuests,
     })),

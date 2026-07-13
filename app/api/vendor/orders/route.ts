@@ -15,6 +15,7 @@ import { formatVillaName } from "@/lib/villa-name";
 import { parsePageParams } from "@/lib/pagination";
 import { parseUtcDateOnly } from "@/lib/date-vn";
 import { whitelistTicketGuests } from "@/lib/ticket-guests";
+import { EXCLUDE_FREE_TICKET_WHERE } from "@/lib/service-order";
 
 const ROW_SELECT = {
   id: true,
@@ -194,13 +195,11 @@ export async function GET(req: Request) {
   // ★무료 항목 제외(테오): 소비자 무료(priceVnd=0)이면서 벤더 지급도 0(costVnd=0)인 TICKET은
   //   벤더가 할 일도 받을 돈도 없는 라인 → 발주함·예약현황·정산·뱃지 전부에서 숨긴다.
   //   base에 넣어 모든 count·findMany·aggregate(...base 사용)로 자동 전파.
-  //   ★경계: costVnd>0(지급 있음)은 AND 불충족으로 계속 표시(정산 누락 방지).
-  //     주의 — SQL 3치 논리상 priceVnd null(스냅샷 없음)+costVnd 0 TICKET도 NOT(NULL)=NULL로 함께
-  //     숨겨진다(QA 실SQL 캡처로 확인). 무해: 정상 생성 경로는 NO_PRICE 가드로 priceVnd null 불가,
-  //     유일 경로(운영자 PATCH priceVnd=null)도 지급 0이라 벤더 액션·정산 없음.
+  //   ★경계·SQL 3치 논리는 EXCLUDE_FREE_TICKET_WHERE(lib/service-order.ts) 주석에 정본으로 보존.
+  //   (허브·벤더 통계와 동일 상수 재사용 — 세 화면 정산 정의 동기화.)
   const base: Prisma.ServiceOrderWhereInput = {
     vendorId,
-    NOT: { AND: [{ type: "TICKET" }, { priceVnd: 0n }, { costVnd: 0n }] },
+    ...EXCLUDE_FREE_TICKET_WHERE,
   };
   // 탭 뱃지 카운트 — 항상(검색 무관). 발주함=응답 대기, 시간제안=미해결 제안(고객 응답 대기).
   const [inboxCount, proposalPendingCount] = await Promise.all([

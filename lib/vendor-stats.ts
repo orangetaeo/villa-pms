@@ -14,10 +14,11 @@
 //   통화 VND 단일(합산 OK, 원장 아님). BigInt 문자열/안전정수 직렬화.
 //
 // supplier-stats.ts 구조 미러(순수 함수 층 + DB 스코프 단일 로더).
-import { ServiceOrderStatus, ServiceVendorStatus, type PrismaClient } from "@prisma/client";
+import { ServiceOrderStatus, ServiceVendorStatus, type Prisma, type PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { StatsPeriod } from "@/lib/statistics";
 import { pickI18n, selectedOptionLabels } from "@/lib/service-display";
+import { EXCLUDE_FREE_TICKET_WHERE } from "@/lib/service-order";
 
 // 매출 인식 = 수락 + 확정/이행. 거절·취소·대기 제외.
 const REVENUE_VENDOR_STATUS = ServiceVendorStatus.VENDOR_ACCEPTED;
@@ -350,11 +351,13 @@ export async function loadVendorStats(
 
   // 정산 잔액 — 전역(기간 무관), 발주함 정산탭 settleTotals(app/api/vendor/orders)와 동일 쿼리.
   //   기간 스코프로 계산하면 미래 serviceDate의 지급대기 건이 빠져 두 화면 숫자가 어긋난다.
-  const settleable = {
+  //   ★무료 티켓(지급 0) 제외 — 발주함 정산탭·허브 합계와 동일 상수(P3-④, 주석과 정합·금액 무영향).
+  const settleable: Prisma.ServiceOrderWhereInput = {
     vendorId,
     vendorStatus: ServiceVendorStatus.VENDOR_ACCEPTED,
     status: { not: ServiceOrderStatus.CANCELLED },
-  } as const;
+    ...EXCLUDE_FREE_TICKET_WHERE,
+  };
   // 시간 제안 스냅샷(ADR-0035) — 전역 count. vendorId 스코프. 주문당 최신 결과(outcome) 기준.
   //   ★취소 제외(status not CANCELLED) — admin service-orders-hub 제안 집계와 정의 통일(QA 비대칭 지적).
   const notCancelled = { status: { not: ServiceOrderStatus.CANCELLED } } as const;

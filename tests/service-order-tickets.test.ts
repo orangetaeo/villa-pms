@@ -319,6 +319,27 @@ describe("벤더 티켓 발행 POST", () => {
     expect(await res.json()).toMatchObject({ error: "CONCURRENT_MODIFICATION" });
     expect(sendVendorResponseOperatorNotifications).not.toHaveBeenCalled();
   });
+
+  it("★배열 append 낙관 가드(P3-③): updateMany where에 ticketUrls:{equals:읽은배열} 포함(모든 분기)", async () => {
+    // 이미 1장 발행된 스냅샷 → append. where가 읽은 배열 그대로일 때만 갱신하도록 equals 가드가 들어가야
+    //   동시 업로드 경합에서 stale 스냅샷 덮어쓰기를 막는다(DELETE의 has 가드와 대칭).
+    soFindUnique.mockResolvedValue({ ...baseTicketOrder, ticketUrls: ["/u/pre.jpg"], ticketsIssuedAt: new Date() });
+    saveTicketFiles.mockResolvedValue({ ok: true, urls: ["/u/x.jpg"] });
+    await VENDOR_POST(formReq(), P("so-1"));
+    const call = soUpdateMany.mock.calls[0][0] as { where: Record<string, unknown> };
+    expect(call.where.ticketUrls).toEqual({ equals: ["/u/pre.jpg"] });
+  });
+
+  it("★append 경합(다른 업로드가 먼저 배열 변경) → count=0 → 409(재시도) — DB 미기록", async () => {
+    soFindUnique.mockResolvedValue({ ...baseTicketOrder, ticketUrls: ["/u/pre.jpg"], ticketsIssuedAt: new Date() });
+    saveTicketFiles.mockResolvedValue({ ok: true, urls: ["/u/x.jpg"] });
+    soUpdateMany.mockResolvedValue({ count: 0 }); // equals 가드 불일치(경합 패배)
+    const res = await VENDOR_POST(formReq(), P("so-1"));
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: "CONCURRENT_MODIFICATION" });
+    expect(sendVendorResponseOperatorNotifications).not.toHaveBeenCalled();
+    expect(writeAuditLog).not.toHaveBeenCalled();
+  });
 });
 
 describe("벤더 티켓 삭제 DELETE", () => {

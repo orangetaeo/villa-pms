@@ -94,6 +94,7 @@ export interface GuestLabels {
     requested: string; // 요청 완료 토스트
     error: string;
     configError: string; // 품목 설정 오류(VARIANT_REQUIRED/NO_PRICE 등) — 운영자 문의 안내
+    ticketCheckinRequired: string; // 미체크인+규칙 variant(어린이·무료 등) 신청 시 — 셀프 체크인(여권 확인) 선행 유도(P2-B)
     perUnit: (label: string) => string;
     variantRequired: string;
     goNext: string; // 옵션 없이 다음
@@ -347,6 +348,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       requested: "요청이 접수되었습니다.",
       error: "요청 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.",
       configError: "이 품목의 설정에 문제가 있어요. 운영자에게 문의해 주세요.",
+      ticketCheckinRequired: "티켓 이용자 구분(어린이·무료 등)을 적용하려면 먼저 셀프 체크인(여권 확인)을 완료해 주세요.",
       perUnit: (l) => `/ ${l}`,
       variantRequired: "옵션을 선택해주세요",
       goNext: "옵션 없이 완료",
@@ -581,6 +583,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       requested: "Your request has been received.",
       error: "Something went wrong. Please try again shortly.",
       configError: "There's a problem with this item's setup. Please contact the operator.",
+      ticketCheckinRequired: "To apply ticket categories (child, free, etc.), please complete self check-in (passport verification) first.",
       perUnit: (l) => `/ ${l}`,
       variantRequired: "Please choose an option",
       goNext: "Finish without options",
@@ -815,6 +818,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       requested: "Ваш запрос принят.",
       error: "Произошла ошибка. Повторите попытку позже.",
       configError: "Проблема с настройкой этой позиции. Пожалуйста, свяжитесь с оператором.",
+      ticketCheckinRequired: "Чтобы применить категории билетов (детский, бесплатный и т. п.), сначала завершите самостоятельное заселение (проверку паспорта).",
       perUnit: (l) => `/ ${l}`,
       variantRequired: "Выберите опцию",
       goNext: "Завершить без опций",
@@ -1049,6 +1053,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       requested: "您的请求已受理。",
       error: "处理时出现问题，请稍后再试。",
       configError: "此项目的设置有问题，请联系运营方。",
+      ticketCheckinRequired: "若要使用票种区分（儿童·免费等），请先完成自助入住（护照确认）。",
       perUnit: (l) => `/ ${l}`,
       variantRequired: "请选择选项",
       goNext: "不选选项直接完成",
@@ -1283,6 +1288,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       requested: "Đã nhận yêu cầu của bạn.",
       error: "Đã xảy ra lỗi. Vui lòng thử lại sau.",
       configError: "Mục này có vấn đề về thiết lập. Vui lòng liên hệ người điều hành.",
+      ticketCheckinRequired: "Để áp dụng phân loại vé (trẻ em, miễn phí, v.v.), vui lòng hoàn tất tự nhận phòng (xác minh hộ chiếu) trước.",
       perUnit: (l) => `/ ${l}`,
       variantRequired: "Vui lòng chọn tùy chọn",
       goNext: "Hoàn tất không chọn tùy chọn",

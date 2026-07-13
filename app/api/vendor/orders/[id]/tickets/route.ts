@@ -123,6 +123,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     id,
     vendorId,
     status: { notIn: ["CANCELLED", "DELIVERED"] },
+    // ★배열 append 낙관 가드(P3-③) — 읽은 스냅샷(order.ticketUrls) 그대로일 때만 갱신. 동시 업로드가
+    //   먼저 append하면 배열 불일치로 count 0 → 409(재시도). newUrls는 stale 스냅샷 위에 계산됐으므로
+    //   그대로 쓰면 동시 추가분을 덮어써 유실된다. DELETE의 ticketUrls:{has} 가드와 대칭.
+    ticketUrls: { equals: order.ticketUrls },
     ...(accept ? { vendorStatus: "PENDING_VENDOR" } : {}),
     ...(autoConfirm ? { status: "REQUESTED" } : {}),
   };

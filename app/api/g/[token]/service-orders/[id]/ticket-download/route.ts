@@ -68,9 +68,14 @@ export async function GET(
   //   ★ ticketUrls만 select — 다른 필드(원가·벤더 bankInfo 등)는 애초에 안 읽는다.
   const order = await prisma.serviceOrder.findFirst({
     where: { id, bookingId: t.bookingId, requestedVia: "GUEST" },
-    select: { ticketUrls: true },
+    select: { status: true, ticketUrls: true },
   });
   if (!order) return NextResponse.json({ error: "ORDER_NOT_FOUND" }, { status: 404 });
+  // ★취소(CANCELLED) 주문의 티켓은 소비자 접근 완전 차단(테오 확정, 항목 7) — 이미 발급된 다운로드 URL
+  //   재사용도 막는다. 존재 비노출 위해 로더의 빈 배열 절단과 동일하게 404(원본은 DB에 증빙 보존).
+  if (order.status === "CANCELLED") {
+    return NextResponse.json({ error: "ORDER_NOT_FOUND" }, { status: 404 });
+  }
 
   // 인덱스 범위 밖 → 400(존재하지 않는 티켓). u는 신뢰된 URL 배열의 오프셋일 뿐.
   if (u >= order.ticketUrls.length) {

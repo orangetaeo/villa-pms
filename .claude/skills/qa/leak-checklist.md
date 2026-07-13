@@ -14,6 +14,7 @@
 - BigInt 직렬화 오류 (JSON.stringify throw)
 
 ## 교훈 축적 (발견 버그 → 패턴화하여 추가)
+- (2026-07-13 티켓 3포지션 감사 P3-③) **배열 필드 append mutation은 DELETE와 달리 낙관 가드가 누락되기 쉽다 — read-modify-write 배열은 has/equals 가드로 대칭 방어**. `ticketUrls`처럼 read(스냅샷)→[...old, ...new]→updateMany로 append하는 경로는, 동시 업로드가 먼저 append하면 stale 스냅샷 위에 계산한 newUrls가 상대 추가분을 덮어써 유실된다. DELETE는 이미 `ticketUrls:{has:url}` 가드가 있으나 POST append는 빠지기 쉬움 → updateMany where에 `ticketUrls:{equals: 읽은배열}`을 넣어 배열이 그대로일 때만 갱신하고 count 0이면 409(재시도). 검토법: 스칼라 리스트(String[])·JSON 배열을 read 후 확장해 통째로 쓰는 update를 grep해 "where에 이전 배열 스냅샷 가드가 있는가"를 DELETE 경로와 짝으로 확인. 상태 전이 updateMany 가드(기대상태 where)의 배열판.
 - (2026-07-11 이용자 이름 QA) **벤더/외부 응답의 booking 조인은 폴백 계산용 필드라도 명시 필드만 반환** — `...o.booking` 스프레드 금지, 조인으로 가져온 필드(guestName 등)는 계산에 소비만 하고 재노출되지 않는지 grep. PII 확장 시 `not.toHaveProperty("guestPhone")`류 부재 단언 테스트를 함께 남길 것(이번 구현이 참조 사례).
 - (2026-07-11 벤더 보드 날짜검색 QA) **반개구간 프리셋([from,to))을 inclusive API(from≤x≤to)에 붙일 때 끝값 -1일 변환 검증** — resolveQuickRange류가 [from,to)를 반환하면 소비처에서 하루 당겨야 off-by-one이 없다. 또 **@db.Date 단일일 필터는 gte=lte 동일 UTC자정값이 정확히 매칭 — 타임존 오프셋 적용 금지**(vnDayStartUtc는 timestamp 필드 전용). "안 보인다=기능 누락"으로 단정하기 전에 **정렬×볼륨으로 묻혔는지 페이지 위치를 실측**(승인 건이 asc 정렬 47페이지에 존재했던 사례).
 - (2026-07-10 ADR-0034 티켓 발행 QA) **첨부/발행류 API의 자격 가드는 status·vendorStatus 두 축 짝검토** — CANCELLED/DELIVERED(status 축)만 막고 VENDOR_REJECTED(vendorStatus 축)를 열어두면 "거절한 주문에 산출물 첨부" 의미 불일치가 생김. "이 주문이 아직 그 행위를 받을 자격이 있나"를 두 축 모두로 판정.
