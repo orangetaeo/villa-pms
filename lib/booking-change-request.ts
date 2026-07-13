@@ -8,7 +8,8 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { BookingStatus } from "@prisma/client";
 import { prisma as defaultPrisma } from "@/lib/prisma";
-import { sendBotMessage } from "@/lib/zalo-runtime";
+import { sendBotMessage, sendBotGroupMessage } from "@/lib/zalo-runtime";
+import { getAdminNotifyGroupId } from "@/lib/operator-notify";
 
 export const CHANGE_REQUEST_KINDS = ["CANCEL", "MODIFY", "HOLD_EXTEND"] as const;
 export type ChangeRequestKind = (typeof CHANGE_REQUEST_KINDS)[number];
@@ -259,16 +260,6 @@ export async function notifyOperatorsOfChangeRequest(input: {
   bookingId: string;
 }): Promise<void> {
   try {
-    const operators = await defaultPrisma.user.findMany({
-      where: {
-        role: { in: ["OWNER", "ADMIN"] },
-        zaloUserId: { not: null },
-        deletedAt: null,
-      },
-      select: { zaloUserId: true },
-    });
-    if (operators.length === 0) return;
-
     const d = (x: Date) => x.toISOString().slice(0, 10);
     const lines = [
       `📮 파트너 ${KIND_LABEL_KO[input.kind]}`,
@@ -278,6 +269,29 @@ export async function notifyOperatorsOfChangeRequest(input: {
     if (input.note?.trim()) lines.push(`메모: ${input.note.trim()}`);
     lines.push(`처리: /bookings/${input.bookingId}`);
     const text = lines.join("\n");
+
+    // 그룹 설정 시 그룹방 1건 직발송 (ADR-0040). 이 경로는 큐 미경유 즉시 발송이라
+    // 그룹 발송도 시스템봇으로 1건만 보낸다(운영자 소유자 미연결이어도 시도 — best-effort).
+    const groupThreadId = await getAdminNotifyGroupId(defaultPrisma);
+    if (groupThreadId) {
+      try {
+        await sendBotGroupMessage(groupThreadId, text);
+      } catch {
+        // best-effort — 실패해도 요청 생성 자체는 이미 성공
+      }
+      return;
+    }
+
+    // 미설정 폴백 — 기존 개별 직발송 (OWNER/ADMIN, zaloUserId 연결)
+    const operators = await defaultPrisma.user.findMany({
+      where: {
+        role: { in: ["OWNER", "ADMIN"] },
+        zaloUserId: { not: null },
+        deletedAt: null,
+      },
+      select: { zaloUserId: true },
+    });
+    if (operators.length === 0) return;
 
     for (const op of operators) {
       if (!op.zaloUserId) continue;

@@ -30,7 +30,8 @@ const INTERNAL_TIMEOUT_MS = 15_000;
 
 // ── 발송 명령 union (내부 RPC — ext/send union의 상위집합. adminUserId를 실어 다중 관리자 세션 지원) ──
 export type WorkerSendCommand =
-  | { fn: "sendBotMessage"; zaloUserId: string; text: string }
+  // threadType(선택) — ADR-0040 그룹 발송(ThreadType.Group=1). 미지정 시 워커가 USER(0)로 처리(기존 동작).
+  | { fn: "sendBotMessage"; zaloUserId: string; text: string; threadType?: number }
   | {
       fn: "sendBotMessageWithAttachments";
       zaloUserId: string;

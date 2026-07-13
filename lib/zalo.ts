@@ -13,6 +13,7 @@ import type { DbClient } from "@/lib/availability";
 import {
   sendBotMessage,
   sendBotMessageWithAttachments,
+  sendBotGroupMessage,
   ERROR_BOT_NOT_CONNECTED,
   type BotAttachment,
 } from "@/lib/zalo-runtime";
@@ -616,6 +617,11 @@ export interface EnqueueNotificationParams {
   payload: Record<string, unknown>;
   /** 비즈니스 트랜잭션 안에서 원자적으로 적재할 때 tx 주입 (T1.3·T1.8 패턴) */
   db?: DbClient;
+  /**
+   * 그룹 발송 대상 thread id (ADR-0040) — 설정 시 dispatchOne이 시스템봇 ThreadType.Group으로 발송한다.
+   * 운영자 그룹 라우팅은 lib/operator-notify.enqueueOperatorNotification가 채운다(직접 호출 지양).
+   */
+  groupThreadId?: string | null;
 }
 
 /**
@@ -633,6 +639,7 @@ export async function enqueueNotification(
       channel: "ZALO",
       payload: params.payload as Prisma.InputJsonValue,
       status: NotificationStatus.PENDING,
+      ...(params.groupThreadId ? { groupThreadId: params.groupThreadId } : {}),
     },
   });
 }
@@ -818,11 +825,111 @@ async function resolveStatementAttachment(
   }
 }
 
+/**
+ * 그룹방 발송 (ADR-0040) — 시스템봇 ThreadType.Group 1건. groupThreadId 있는 Notification 전용.
+ *  - user.zaloUserId 미참조(소유자 미연결이어도 발송 가능·재시도 유지).
+ *  - 첨부 없음: 그룹 라우팅 대상(GROUP_ROUTED_TYPES)은 전부 텍스트 알림(SETTLEMENT_READY 등 첨부류 제외).
+ *  - 에러 정책은 개별 DM과 동일: BOT_NOT_CONNECTED=attempt 미증가 재시도, 그 외=attempt+1 일반 재시도(3회).
+ *  - 미러: ownerAdminId_zaloUserId findUnique의 zaloUserId 자리에 groupThreadId를 넘기면 GROUP 대화 행에 매칭.
+ */
+async function dispatchGroupOne(
+  notification: DispatchTarget,
+  summary: DispatchSummary,
+  groupThreadId: string,
+  attempt: number
+): Promise<void> {
+  // 본문 빌더는 화이트리스트 필드만 → 마진·판매가 미노출 (개별 DM과 동일 빌더 재사용).
+  const text = buildNotificationText(
+    notification.type,
+    notification.payload as Record<string, unknown> | null
+  );
+  const result = await sendBotGroupMessage(groupThreadId, text);
+
+  // 봇 미연결 — 기록만(크래시 금지), attempt 미증가로 재시도 대상 유지 (D5.4)
+  if (!result.ok && result.error === ERROR_BOT_NOT_CONNECTED) {
+    await prisma.notification.update({
+      where: { id: notification.id },
+      data: { status: NotificationStatus.FAILED, error: ERROR_BOT_NOT_CONNECTED },
+    });
+    summary.failed += 1;
+    return;
+  }
+
+  if (!result.ok) {
+    await prisma.notification.update({
+      where: { id: notification.id },
+      data: {
+        status: NotificationStatus.FAILED,
+        error: result.error,
+        payload: withAttempt(notification.payload, attempt + 1),
+      },
+    });
+    summary.failed += 1;
+    return;
+  }
+
+  // 성공 — SENT 전환. 미러 실패가 SENT 상태를 되돌리지 않도록 별도 처리.
+  await prisma.notification.update({
+    where: { id: notification.id },
+    data: { status: NotificationStatus.SENT, sentAt: new Date(), error: null },
+  });
+  summary.sent += 1;
+
+  // ZaloMessage(SYSTEM·OUTBOUND) 미러 — GROUP 대화(zaloUserId 슬롯=groupThreadId)에 기록.
+  //   시스템봇 소유자 미상·그룹 대화 부재면 미러 생략(발송 자체는 유효).
+  try {
+    const systemOwnerId = await getSystemBotOwnerId();
+    if (!systemOwnerId) {
+      summary.mirrorSkipped += 1;
+      return;
+    }
+    const conversation = await prisma.zaloConversation.findUnique({
+      where: {
+        ownerAdminId_zaloUserId: { ownerAdminId: systemOwnerId, zaloUserId: groupThreadId },
+      },
+      select: { id: true },
+    });
+    if (!conversation) {
+      summary.mirrorSkipped += 1;
+      return;
+    }
+    await prisma.zaloMessage.create({
+      data: {
+        conversationId: conversation.id,
+        direction: ZaloMessageDirection.OUTBOUND,
+        source: ZaloMessageSource.SYSTEM,
+        msgType: "text",
+        text,
+        attachmentUrls: [],
+        zaloMsgId: result.messageId,
+        status: ZaloMessageStatus.SENT,
+      },
+    });
+    await prisma.zaloConversation.update({
+      where: { id: conversation.id },
+      data: { lastMessageAt: new Date(), lastMessageText: text, lastMessageType: "text" },
+    });
+  } catch (e) {
+    console.error(`[zalo] 알림 ${notification.id} 그룹 ZaloMessage 미러 기록 실패`, e);
+    summary.mirrorSkipped += 1;
+  }
+}
+
 async function dispatchOne(
   notification: DispatchTarget,
   summary: DispatchSummary
 ): Promise<void> {
   const attempt = getAttemptCount(notification.payload);
+
+  // 0) 그룹 발송 분기 (ADR-0040) — NO_ZALO_LINK 판정보다 **먼저**.
+  //    그룹 행(groupThreadId)은 user.zaloUserId를 절대 참조하지 않는다:
+  //    시스템봇 소유자가 Zalo 미연결이어도 영구 FAILED(NO_ZALO_LINK)로 사장되면 안 되기 때문
+  //    (TDA 지적 사고 지점 — 소유자 zaloUserId 유무와 그룹 발송 가능성은 무관).
+  if (notification.groupThreadId) {
+    await dispatchGroupOne(notification, summary, notification.groupThreadId, attempt);
+    return;
+  }
+
   const zaloUserId = notification.user.zaloUserId;
 
   // 1) 사용자 Zalo 미연결 — 영구 실패, 재시도 제외 (계약 완료 기준 2)

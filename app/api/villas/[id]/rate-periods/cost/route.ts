@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { requireAuth } from "@/lib/api-guard";
 import { computeSalePriceVnd, suggestSalePriceKrw, getFxVndPerKrw } from "@/lib/pricing";
+import { enqueueOperatorNotification } from "@/lib/operator-notify";
 import { MarginType, NotificationType, ProposalStatus, type SeasonType } from "@prisma/client";
 
 const vndPositiveDigits = z.string().regex(/^[1-9]\d{0,14}$/); // 원가 — 0 불가
@@ -188,27 +189,24 @@ export async function PATCH(
           })
         : [];
     if (activeProposals.length > 0) {
-      const admins = await tx.user.findMany({ where: { role: { in: ["OWNER", "ADMIN"] } }, select: { id: true } });
-      if (admins.length > 0) {
-        await tx.notification.createMany({
-          data: activeProposals.flatMap((pr) =>
-            admins.flatMap((a) =>
-              costChanges.map((c) => ({
-                userId: a.id,
-                type: NotificationType.RATE_CHANGED_DURING_PROPOSAL,
-                payload: {
-                  villaId,
-                  villaName: villa.name,
-                  season: c.season,
-                  oldCostVnd: c.oldCostVnd.toString(),
-                  newCostVnd: c.newCostVnd === null ? null : c.newCostVnd.toString(),
-                  proposalId: pr.id,
-                  proposalCount: activeProposals.length, // 영향받는 유효 제안 수(문구 표기용)
-                },
-              }))
-            )
-          ),
-        });
+      // 운영자 알림 — 그룹 설정 시 (제안×원가변경)당 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0040).
+      // 종전 tx.notification.createMany 직적재를 헬퍼로 전환(그룹 라우팅 단일 원천).
+      for (const pr of activeProposals) {
+        for (const c of costChanges) {
+          await enqueueOperatorNotification({
+            db: tx,
+            type: NotificationType.RATE_CHANGED_DURING_PROPOSAL,
+            payload: {
+              villaId,
+              villaName: villa.name,
+              season: c.season,
+              oldCostVnd: c.oldCostVnd.toString(),
+              newCostVnd: c.newCostVnd === null ? null : c.newCostVnd.toString(),
+              proposalId: pr.id,
+              proposalCount: activeProposals.length, // 영향받는 유효 제안 수(문구 표기용)
+            },
+          });
+        }
       }
     }
 
