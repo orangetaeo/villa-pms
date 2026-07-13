@@ -3,6 +3,14 @@
 // 게스트 청구 = 미니바 소비분(minibarChargeVnd) + 확정 부가옵션(CONFIRMED|DELIVERED ServiceOrder).
 //   통화별 분리(ADR-0003): VND/KRW 합산 금지 — guestChargeVnd(미니바+VND옵션)·guestChargeKrw(KRW옵션) 별도.
 //   보증금 차감(deductionVnd)은 별개(게스트↔운영자, 공급자 정산 F6 무관). 순수 — BigInt, 부동소수점 금지.
+//
+// ★원천 통화 1회 계상 규칙(T-guest-bill-double-count-fix, P1 과청구 수정):
+//   ServiceOrder에서 priceVnd = 판매가 원천, priceKrw = 주문 시점 환산 표시 스냅샷
+//   (guest·admin 생성 경로 모두 priceKrw = priceKrwCeil(totalPriceVnd, fx) — 같은 금액의 KRW 표시본).
+//   따라서 주문 하나는 원천 통화로 딱 1회만 계상한다:
+//     · priceVnd != null           → serviceVnd에만 합산 (priceKrw는 스냅샷이므로 무시)
+//     · priceVnd == null && priceKrw > 0 → serviceKrw에 합산 (KRW-원천 주문 보존)
+//   두 컬럼을 각각 합산하면 같은 금액을 ₫+₩로 이중 청구하게 되므로 금지.
 
 export interface ServiceChargeLine {
   priceKrw: number | null;
@@ -26,8 +34,9 @@ export function computeGuestBill(
   let serviceVnd = 0n;
   let serviceKrw = 0;
   for (const o of serviceOrders) {
+    // 원천 통화로 1회만 계상 — priceVnd 있으면 그것이 원천(priceKrw는 표시 스냅샷이므로 무시).
     if (o.priceVnd != null) serviceVnd += o.priceVnd;
-    if (o.priceKrw != null && o.priceKrw > 0) serviceKrw += o.priceKrw;
+    else if (o.priceKrw != null && o.priceKrw > 0) serviceKrw += o.priceKrw;
   }
   return {
     minibarVnd,

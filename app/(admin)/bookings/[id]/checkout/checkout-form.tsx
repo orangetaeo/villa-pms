@@ -718,16 +718,26 @@ export default function CheckoutForm({
                       {o.name}
                       {o.quantity > 1 && <span className="text-slate-500"> ×{o.quantity}</span>}
                     </span>
+                    {/* 원천 통화 우선 표기 — 판매가 원천은 priceVnd(VND 굵게 주 표기),
+                        priceKrw는 주문 시점 환산 스냅샷이므로 "≈ N원" 참고로 강등.
+                        priceVnd 없고 priceKrw만 = KRW-원천 주문 → KRW 주 표기. */}
                     <span className="text-right tabular-nums shrink-0">
-                      {o.priceKrw != null && (
+                      {o.priceVnd != null ? (
+                        <>
+                          <span className="block text-slate-200 font-semibold">
+                            {formatThousands(o.priceVnd)}₫
+                          </span>
+                          {o.priceKrw != null && (
+                            <span className="block text-slate-400">
+                              ≈ {formatThousands(o.priceKrw)}원
+                            </span>
+                          )}
+                        </>
+                      ) : o.priceKrw != null ? (
                         <span className="block text-slate-200 font-semibold">
                           {formatThousands(o.priceKrw)}원
                         </span>
-                      )}
-                      {o.priceVnd != null && (
-                        <span className="block text-slate-400">{formatThousands(o.priceVnd)}₫</span>
-                      )}
-                      {o.priceKrw == null && o.priceVnd == null && (
+                      ) : (
                         <span className="text-slate-600">—</span>
                       )}
                     </span>
@@ -742,19 +752,22 @@ export default function CheckoutForm({
           <div className="border-t border-slate-800 pt-3 space-y-2">
             {fx ? (
               <>
-                {/* 통화별 청구 소계 — 작은 글씨(slate). ₩ 소계는 0원이어도 표시 유지. */}
+                {/* 통화별 청구 소계 — 작은 글씨(slate). ₩ 소계는 KRW-원천 주문 합(대부분 0)이라
+                    0이면 행 숨김(VND 원천만 남겨 혼동 제거). */}
                 <div className="flex justify-between items-center text-[13px]">
                   <span className="text-slate-400">{t("guestBillSubtotalVnd")}</span>
                   <span className="font-semibold text-slate-300 tabular-nums">
                     {formatThousands(guestBill.totalVnd)}₫
                   </span>
                 </div>
-                <div className="flex justify-between items-center text-[13px]">
-                  <span className="text-slate-400">{t("guestBillSubtotalKrw")}</span>
-                  <span className="font-semibold text-slate-300 tabular-nums">
-                    {formatThousands(guestBill.totalKrw)}원
-                  </span>
-                </div>
+                {guestBill.totalKrw > 0 && (
+                  <div className="flex justify-between items-center text-[13px]">
+                    <span className="text-slate-400">{t("guestBillSubtotalKrw")}</span>
+                    <span className="font-semibold text-slate-300 tabular-nums">
+                      {formatThousands(guestBill.totalKrw)}원
+                    </span>
+                  </div>
+                )}
                 {/* 대표 총액(강조) — 통합 환산 총액. 미니바 수량 변경 시 실시간 반영. */}
                 <div className="flex justify-between items-center border-t border-slate-800/60 pt-3">
                   <span className="font-bold text-white">{t("guestBillGrandTotal")}</span>
@@ -773,19 +786,22 @@ export default function CheckoutForm({
               </>
             ) : (
               <>
-                {/* 폴백 — 환율 캐시 없음: 통합 환산 불가 → 통화별 총액 두 줄을 대표로(합산 금지). */}
+                {/* 폴백 — 환율 캐시 없음: 통합 환산 불가 → 통화별 총액 대표 표기(합산 금지).
+                    ₩ 총액은 KRW-원천 주문 합(대부분 0)이라 0이면 숨김. */}
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-white">{t("guestBillTotalVnd")}</span>
                   <span className="text-lg font-black text-emerald-400 tabular-nums">
                     {formatThousands(guestBill.totalVnd)}₫
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-white">{t("guestBillTotalKrw")}</span>
-                  <span className="text-lg font-black text-emerald-400 tabular-nums">
-                    {formatThousands(guestBill.totalKrw)}원
-                  </span>
-                </div>
+                {guestBill.totalKrw > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-white">{t("guestBillTotalKrw")}</span>
+                    <span className="text-lg font-black text-emerald-400 tabular-nums">
+                      {formatThousands(guestBill.totalKrw)}원
+                    </span>
+                  </div>
+                )}
               </>
             )}
             <p className="text-[11px] text-slate-500 leading-relaxed pt-1">

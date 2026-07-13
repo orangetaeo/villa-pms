@@ -11,6 +11,7 @@
 import { prisma } from "./prisma";
 import { guestTokenState, type GuestTokenState } from "./guest-checkin";
 import { parseSelectedOptions, type ResolvedSelectedOption } from "./service-catalog";
+import { computeGuestBill, type ServiceChargeLine } from "./checkout-settlement";
 
 // ── 미니바 이용 라인(스냅샷) ──────────────────────────────────────────
 export interface GuestReceiptMinibarLine {
@@ -72,8 +73,8 @@ export interface GuestReceiptData {
   minibar: GuestReceiptMinibarLine[];
   services: GuestReceiptServiceLine[];
   usage: {
-    guestChargeVnd: string | null; // 미니바 + VND옵션 합계(record 캐시)
-    guestChargeKrw: number | null; // KRW옵션 합계(record 캐시)
+    guestChargeVnd: string | null; // 미니바 + VND옵션 합계(라인 라이브 파생 — 구 캐시 정정)
+    guestChargeKrw: number | null; // KRW-원천 옵션 합계(라인 라이브 파생 — 구 캐시 정정)
     fxVndPerKrw: number | null; // settlementFx.vndPerKrw — 있으면 환산 합계 표시
     fxVndPerUsd: number | null; // settlementFx.vndPerUsd — USD 수납 라인 환산(미수납 잔액 계산)
   };
@@ -123,6 +124,27 @@ export function deriveDepositSettlement(input: DepositDerivationInput): DepositD
     refund = r > 0 ? r : 0;
   }
   return { offsetAmount: offset, damageDeductVnd: damage, totalDeductVnd: total, refundAmount: refund };
+}
+
+// ── 총 이용 금액 라이브 파생(순수) — record 캐시 대신 라인에서 재계산 ────────────
+//   T-guest-bill-double-count-fix(P1): guestChargeVnd/Krw는 과거 이중 계상 버그로 잘못 저장된
+//   레코드가 있으므로 캐시를 신뢰하지 않고 미니바 라인 + 확정 서비스 주문에서 매 조회 시 파생한다.
+//   computeGuestBill의 원천 통화 1회 계상 규칙을 그대로 재사용 → 구 레코드도 즉시 정정 표시.
+export interface GuestUsageInput {
+  minibarLineVnds: bigint[]; // 미니바 라인별 판매액(lineVnd)
+  services: ServiceChargeLine[]; // 확정 서비스 주문(priceVnd 원천 / priceKrw 표시 스냅샷)
+}
+export interface GuestUsageResult {
+  guestChargeVnd: bigint | null; // 미니바 + VND옵션 (0이면 null)
+  guestChargeKrw: number | null; // KRW-원천 옵션 (0이면 null)
+}
+export function deriveGuestUsage(input: GuestUsageInput): GuestUsageResult {
+  const minibarVnd = input.minibarLineVnds.reduce((acc, v) => acc + v, 0n);
+  const bill = computeGuestBill(minibarVnd, input.services);
+  return {
+    guestChargeVnd: bill.totalVnd > 0n ? bill.totalVnd : null,
+    guestChargeKrw: bill.totalKrw > 0 ? bill.totalKrw : null,
+  };
 }
 
 /** 토큰 없음 → null(404). 만료·회수 → state만 채워 반환(page는 만료 안내). 체크아웃 전 → ready=false(page redirect). */
@@ -175,8 +197,7 @@ export async function loadGuestReceipt(
           deductionVnd: true, // 보증금에서 빠진 총액(파손 + 상계)
           damageFound: true, // 파손 여부(금액만 표기 — 사진·메모 select 안 함)
           settledAt: true,
-          guestChargeVnd: true,
-          guestChargeKrw: true,
+          // ★guestChargeVnd/Krw 캐시는 조회하지 않는다 — 아래에서 라인으로 라이브 파생(구 레코드 이중 계상 정정).
           settledVnd: true,
           settledKrw: true,
           settledUsd: true,
@@ -257,6 +278,13 @@ export async function loadGuestReceipt(
     lineVnd: m.lineVnd.toString(),
   }));
 
+  // 총 이용 금액 라이브 파생(원천 통화 1회 계상) — record 캐시 대신 라인에서 재계산.
+  //   구 레코드의 이중 계상 캐시(guestChargeVnd/Krw)를 즉시 정정 표시. 미수납 잔액 계산(page)도 이 값 사용.
+  const usage = deriveGuestUsage({
+    minibarLineVnds: record.minibarLines.map((m) => m.lineVnd),
+    services: svcOrders.map((o) => ({ priceVnd: o.priceVnd, priceKrw: o.priceKrw })),
+  });
+
   // 보증금 상계 = ΣDEPOSIT 라인(통화=보증금 통화 — checkout.ts 검증). 방어적으로 보증금 통화 라인만 합산.
   const depositOffset = record.settlementLines
     .filter((l) => l.method === "DEPOSIT" && (booking.depositCurrency == null || l.currency === booking.depositCurrency))
@@ -301,8 +329,8 @@ export async function loadGuestReceipt(
     minibar,
     services,
     usage: {
-      guestChargeVnd: record.guestChargeVnd?.toString() ?? null,
-      guestChargeKrw: record.guestChargeKrw,
+      guestChargeVnd: usage.guestChargeVnd?.toString() ?? null,
+      guestChargeKrw: usage.guestChargeKrw,
       fxVndPerKrw,
       fxVndPerUsd,
     },

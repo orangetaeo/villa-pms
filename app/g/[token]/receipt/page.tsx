@@ -82,13 +82,6 @@ export default async function GuestReceiptPage({
       ? pickI18n(s.nameKo, s.nameI18n, lang)
       : (L.serviceTypes[s.type as keyof typeof L.serviceTypes] ?? s.type);
 
-  const priceOf = (priceKrw: number | null, priceVnd: string | null): string =>
-    priceKrw != null && priceKrw > 0
-      ? guestKrw(priceKrw, lang)
-      : priceVnd
-        ? guestVnd(priceVnd)
-        : "—";
-
   // 총 이용 금액 — record 캐시(guestChargeVnd = 미니바 + VND옵션, guestChargeKrw = KRW옵션).
   const chargeVnd = data.usage.guestChargeVnd;
   const chargeKrw = data.usage.guestChargeKrw;
@@ -242,8 +235,25 @@ export default async function GuestReceiptPage({
                           </p>
                         )}
                       </div>
-                      <span className="shrink-0 text-sm font-bold text-slate-900 tabular-nums">
-                        {priceOf(s.priceKrw, s.priceVnd)}
+                      {/* 원천 통화 우선 — 판매가 원천은 priceVnd(₫ 주 표기), priceKrw는 환산 스냅샷이므로
+                          "≈" 참고로 강등. priceVnd 없고 priceKrw만 = KRW-원천 → KRW 주 표기. */}
+                      <span className="shrink-0 text-right">
+                        {s.priceVnd ? (
+                          <>
+                            <span className="block text-sm font-bold text-slate-900 tabular-nums">
+                              {guestVnd(s.priceVnd)}
+                            </span>
+                            {s.priceKrw != null && s.priceKrw > 0 && (
+                              <span className="block text-[11px] text-slate-400 tabular-nums">
+                                ≈ {guestKrw(s.priceKrw, lang)}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="block text-sm font-bold text-slate-900 tabular-nums">
+                            {s.priceKrw != null && s.priceKrw > 0 ? guestKrw(s.priceKrw, lang) : "—"}
+                          </span>
+                        )}
                       </span>
                     </div>
                   );
