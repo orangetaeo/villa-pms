@@ -1,7 +1,7 @@
 // /g/[token]/options — 게스트 부가 옵션 신청 (비로그인 공개, ADR-0019 v2 게스트 UI 개편)
 //
 // ★ 누수 차단(원칙2): 게스트=한국 여행객. 자기 예약 하나만. 카탈로그는 판매가만(원가·마진 0).
-//   게스트 가격은 KRW만(priceKrwCeil). 카탈로그 이름·설명·옵션 라벨은 pickI18n로 언어 해석.
+//   게스트 가격은 ₫ 원천 단일 표기(다국적 커버). 카탈로그 이름·설명·옵션 라벨은 pickI18n로 언어 해석.
 //   토큰 없음=404. 만료·회수=안내 화면. 언어: ?lang= > p-locale 쿠키 > ko.
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -16,10 +16,9 @@ import {
 import { parseCatalogOptions } from "@/lib/service-catalog";
 import { pickI18n } from "@/lib/service-display";
 import { guestsFromPassportOcr } from "@/lib/ticket-guests";
-import { getDailyRates, CURRENCY_BY_LANG } from "@/lib/fx-rates";
 import { GuestExpiredView } from "../../_components/guest-expired-view";
 import GuestOptions from "../../_components/guest-options";
-import type { GuestConvert, GuestBookingView } from "../../_components/types";
+import type { GuestBookingView } from "../../_components/types";
 import type { GuestCatalogView, GuestOption } from "../../_components/types";
 
 export const metadata: Metadata = { title: "부가 옵션 — Villa Go" };
@@ -134,14 +133,7 @@ export default async function GuestOptionsPage({
     stayChargeKrw: null,
   };
 
-  // ── 하단 "오늘 환율 기준" 환산 통화 — 언어 모국통화 1개(vi=없음). 일1회 캐시, 장애 시 null(VND만) ──
-  const currency = CURRENCY_BY_LANG[lang];
-  let convert: GuestConvert | null = null;
-  if (currency) {
-    const rates = await getDailyRates(prisma);
-    const vndPerUnit = rates?.vndPerUnit[currency];
-    if (vndPerUnit && vndPerUnit > 0) convert = { currency, vndPerUnit };
-  }
+  // 금액은 ₫ 원천 단일 표기(다국적 커버) — 모국통화 환산 보조 표기 제거(2026-07-13, 테오 지시).
 
   return (
     <div className="bg-slate-50 text-slate-900 antialiased">
@@ -150,7 +142,6 @@ export default async function GuestOptionsPage({
         lang={lang}
         booking={booking}
         catalog={catalog}
-        convert={convert}
         checkedInGuests={checkedInGuests}
       />
     </div>

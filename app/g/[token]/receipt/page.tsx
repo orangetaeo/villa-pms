@@ -86,21 +86,22 @@ export default async function GuestReceiptPage({
   const chargeVnd = data.usage.guestChargeVnd;
   const chargeKrw = data.usage.guestChargeKrw;
   const fx = data.usage.fxVndPerKrw;
-  // 환산 합계(≈) — VND·KRW 둘 다 있고 환율 있을 때만. 전부 VND로 환산 표기.
+  // 환산 합계(≈) — KRW-원천 청구가 있고 환율 있을 때 전부 VND로 환산 표기(₫ 단일 정본).
   const approxVnd =
-    fx && chargeVnd && chargeKrw != null && chargeKrw > 0
-      ? (BigInt(chargeVnd) + BigInt(Math.round(chargeKrw * fx))).toString()
+    fx && chargeKrw != null && chargeKrw > 0
+      ? (BigInt(chargeVnd ?? "0") + BigInt(Math.round(chargeKrw * fx))).toString()
       : null;
 
   const dep = data.deposit;
   const st = data.settlement;
 
-  // 미수납 잔액(≈) — 청구 환산 − 결제 환산(수납 라인 우선, 구 데이터는 settled* 폴백).
+  // 미수납/초과 잔액(≈) — 청구 환산 − 결제 환산(수납 라인 우선, 구 데이터는 settled* 폴백).
   //   환산 불가 통화가 끼면(환율 스냅샷 없음) 계산 생략(오표기 방지). 끝전 1만₫ 면제(운영자 화면과 동일 규칙).
-  const outstandingVnd = (() => {
+  //   rest>0=미수납(손님이 더 낼 돈), rest<0=초과 수납(손님에게 돌려줄 돈). 상호 배타.
+  const balance = (() => {
     const fxUsd = data.usage.fxVndPerUsd;
     const kr = chargeKrw ?? 0;
-    if (kr > 0 && !fx) return null;
+    if (kr > 0 && !fx) return { outstanding: null, excess: null };
     const charge = BigInt(chargeVnd ?? "0") + (kr > 0 && fx ? BigInt(Math.round(kr * fx)) : 0n);
     let paidVnd = 0n;
     let paidKrw = 0;
@@ -116,14 +117,19 @@ export default async function GuestReceiptPage({
       paidKrw = st.settledKrw ?? 0;
       paidUsd = st.settledUsd ?? 0;
     }
-    if ((paidKrw > 0 && !fx) || (paidUsd > 0 && !fxUsd)) return null;
+    if ((paidKrw > 0 && !fx) || (paidUsd > 0 && !fxUsd)) return { outstanding: null, excess: null };
     const paid =
       paidVnd +
       (paidKrw > 0 && fx ? BigInt(Math.round(paidKrw * fx)) : 0n) +
       (paidUsd > 0 && fxUsd ? BigInt(Math.round(paidUsd * fxUsd)) : 0n);
     const rest = charge - paid;
-    return rest > 10_000n ? rest.toString() : null;
+    return {
+      outstanding: rest > 10_000n ? rest.toString() : null,
+      excess: rest < -10_000n ? (-rest).toString() : null,
+    };
   })();
+  const outstandingVnd = balance.outstanding;
+  const excessVnd = balance.excess;
 
   return (
     <div className="bg-slate-50 text-slate-900 antialiased">
@@ -235,20 +241,13 @@ export default async function GuestReceiptPage({
                           </p>
                         )}
                       </div>
-                      {/* 원천 통화 우선 — 판매가 원천은 priceVnd(₫ 주 표기), priceKrw는 환산 스냅샷이므로
-                          "≈" 참고로 강등. priceVnd 없고 priceKrw만 = KRW-원천 → KRW 주 표기. */}
+                      {/* ₫ 원천 단일 표기(다국적 커버) — priceVnd 있으면 ₫만. priceVnd 없고 priceKrw만 =
+                          KRW-원천(환산 불가) → ₩ 유지(왜곡 방지). KRW 환산 병기(≈원)는 제거. */}
                       <span className="shrink-0 text-right">
                         {s.priceVnd ? (
-                          <>
-                            <span className="block text-sm font-bold text-slate-900 tabular-nums">
-                              {guestVnd(s.priceVnd)}
-                            </span>
-                            {s.priceKrw != null && s.priceKrw > 0 && (
-                              <span className="block text-[11px] text-slate-400 tabular-nums">
-                                ≈ {guestKrw(s.priceKrw, lang)}
-                              </span>
-                            )}
-                          </>
+                          <span className="block text-sm font-bold text-slate-900 tabular-nums">
+                            {guestVnd(s.priceVnd)}
+                          </span>
                         ) : (
                           <span className="block text-sm font-bold text-slate-900 tabular-nums">
                             {s.priceKrw != null && s.priceKrw > 0 ? guestKrw(s.priceKrw, lang) : "—"}
@@ -262,24 +261,25 @@ export default async function GuestReceiptPage({
             )}
           </section>
 
-          {/* 총 이용 금액 */}
+          {/* 총 이용 금액 — ₫ 단일 표기(다국적 커버). KRW-원천 청구는 환산 합계(≈)로 흡수,
+              환율 스냅샷이 없어 환산 불가한 경우에만 ₩ 원천 폴백(왜곡 방지). */}
           <section className="bg-slate-900 text-white rounded-2xl p-5 space-y-2">
             <h3 className="text-sm font-semibold text-slate-300">{R.usageTitle}</h3>
             <div className="space-y-1.5">
-              {chargeVnd && (
+              {chargeVnd ? (
                 <div className="flex items-baseline justify-between">
                   <span className="text-xs text-slate-400">VND</span>
                   <span className="text-xl font-extrabold tabular-nums">{guestVnd(chargeVnd)}</span>
                 </div>
-              )}
-              {chargeKrw != null && chargeKrw > 0 && (
+              ) : chargeKrw != null && chargeKrw > 0 && !fx ? (
                 <div className="flex items-baseline justify-between">
                   <span className="text-xs text-slate-400">KRW</span>
                   <span className="text-xl font-extrabold tabular-nums">{guestKrw(chargeKrw, lang)}</span>
                 </div>
-              )}
-              {!chargeVnd && (chargeKrw == null || chargeKrw === 0) && (
-                <span className="text-xl font-extrabold tabular-nums">{guestVnd("0")}</span>
+              ) : (
+                !approxVnd && (
+                  <span className="text-xl font-extrabold tabular-nums">{guestVnd("0")}</span>
+                )
               )}
             </div>
             {approxVnd && (
@@ -383,12 +383,22 @@ export default async function GuestReceiptPage({
                     )}
                 </>
               )}
-              {/* 미수납 잔액 — 청구가 결제(보증금 차감 포함)로 다 채워지지 않은 경우만 (구 데이터 대비) */}
+              {/* 미수납 잔액 — 청구가 결제(보증금 차감 포함)로 다 채워지지 않은 경우(손님이 더 낼 돈). */}
               {outstandingVnd && (
                 <div className="flex items-center justify-between px-4 py-3 bg-rose-50">
                   <span className="font-bold text-rose-700">{R.outstandingLabel}</span>
                   <span className="font-extrabold text-rose-700 tabular-nums">
                     ≈ {money(outstandingVnd, "VND", lang)}
+                  </span>
+                </div>
+              )}
+              {/* 초과 수납(환불 예정) — 결제가 청구를 초과한 경우(손님에게 돌려줄 돈). 긍정 색.
+                  이중 계상 버그 시절 승인된 체크아웃(전액 상계·환불 0)의 모순을 영수증이 스스로 설명. */}
+              {excessVnd && (
+                <div className="flex items-center justify-between px-4 py-3 bg-emerald-50">
+                  <span className="font-bold text-emerald-700">{R.excessLabel}</span>
+                  <span className="font-extrabold text-emerald-700 tabular-nums">
+                    ≈ {money(excessVnd, "VND", lang)}
                   </span>
                 </div>
               )}
