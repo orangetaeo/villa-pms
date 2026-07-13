@@ -152,6 +152,8 @@ export interface GuestLabels {
     vendorContactLabel: string; // "담당자" 라벨
     vendorContactHint: string; // "궁금한 점은 담당자에게 직접 연락하세요"
     ticketContactNotice: string; // 티켓 문의 본사 일원화 — "티켓 관련 문의는 Villa Go로 연락해 주세요"
+    ticketContactKakao: string; // 티켓 문의 카카오톡 버튼 라벨
+    ticketContactPhone: string; // 티켓 문의 전화 버튼 라벨
   };
   // 출입 정보(A1) — G5 완료화면 카드. wifi 비번은 서명 후에만 노출.
   access: {
@@ -366,6 +368,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       vendorContactLabel: "담당자",
       vendorContactHint: "궁금한 점은 담당자에게 직접 연락하세요.",
       ticketContactNotice: "티켓 관련 문의는 Villa Go로 연락해 주세요.",
+      ticketContactKakao: "카카오톡 문의",
+      ticketContactPhone: "전화 연결",
     },
     access: {
       title: "출입 정보",
@@ -565,6 +569,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       vendorContactLabel: "Provider",
       vendorContactHint: "For any questions, contact the provider directly.",
       ticketContactNotice: "For ticket inquiries, please contact Villa Go.",
+      ticketContactKakao: "KakaoTalk",
+      ticketContactPhone: "Call",
     },
     access: {
       title: "Access info",
@@ -764,6 +770,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       vendorContactLabel: "Исполнитель",
       vendorContactHint: "По любым вопросам обращайтесь напрямую к исполнителю.",
       ticketContactNotice: "По вопросам о билетах обращайтесь в Villa Go.",
+      ticketContactKakao: "KakaoTalk",
+      ticketContactPhone: "Позвонить",
     },
     access: {
       title: "Информация о доступе",
@@ -963,6 +971,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       vendorContactLabel: "服务方",
       vendorContactHint: "如有疑问，请直接联系服务方。",
       ticketContactNotice: "门票相关问题，请联系 Villa Go。",
+      ticketContactKakao: "KakaoTalk 咨询",
+      ticketContactPhone: "电话联系",
     },
     access: {
       title: "出入信息",
@@ -1162,6 +1172,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       vendorContactLabel: "Nhân viên phụ trách",
       vendorContactHint: "Mọi thắc mắc, vui lòng liên hệ trực tiếp nhân viên phụ trách.",
       ticketContactNotice: "Mọi thắc mắc về vé, vui lòng liên hệ Villa Go.",
+      ticketContactKakao: "KakaoTalk",
+      ticketContactPhone: "Gọi điện",
     },
     access: {
       title: "Thông tin ra vào",
