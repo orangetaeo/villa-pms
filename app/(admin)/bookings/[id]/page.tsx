@@ -32,6 +32,7 @@ import PartnerAssignCard from "./partner-assign-card";
 import BookingModifyPanel, { type VillaOption } from "./booking-modify-panel";
 import ChangeRequestPanel from "./change-request-panel";
 import { modifiableKind } from "@/lib/booking-modify";
+import { narrowVendorSettleMethod } from "@/lib/service-orders-hub";
 import { CoachMark, TourHelpButton } from "@/components/tour/coach-mark";
 import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
@@ -144,13 +145,24 @@ export default async function BookingDetailPage({
           passportOcrJson: true, // TICKET 이용자 선택 명단(이름·생년월일) — 주문 추가 폼(ADR-0036)
         },
       },
-      // 체크아웃 게스트 수납 (2026-07-10) — 결제수단·통화별 실수납액. 통화별 금액(재무)은 STAFF면 select에서 제외.
+      // 체크아웃 게스트 수납 (2026-07-10, 혼합 수납 2026-07-13) — 결제수단·통화별 실수납액·수납 라인.
+      //   통화별 금액·수납 라인(재무)은 STAFF면 select에서 제외(라인엔 금액이 있으므로 showFinance 게이트 필수).
       checkOutRecord: {
         select: {
           settlementMethod: true,
           settledAt: true,
           settlementNote: true,
-          ...(showFinance ? { settledVnd: true, settledKrw: true, settledUsd: true } : {}),
+          ...(showFinance
+            ? {
+                settledVnd: true,
+                settledKrw: true,
+                settledUsd: true,
+                settlementLines: {
+                  orderBy: { createdAt: "asc" },
+                  select: { method: true, currency: true, amount: true },
+                },
+              }
+            : {}),
         },
       },
       payments: {
@@ -319,7 +331,7 @@ export default async function BookingDetailPage({
     vendorRespondedAt: o.vendorRespondedAt?.toISOString() ?? null,
     vendorRejectReason: o.vendorRejectReason,
     vendorSettledAt: o.vendorSettledAt?.toISOString() ?? null,
-    vendorSettleMethod: o.vendorSettleMethod,
+    vendorSettleMethod: narrowVendorSettleMethod(o.vendorSettleMethod),
     vendorCompletedAt: o.vendorCompletedAt?.toISOString() ?? null,
     // 일정 협의(propose) — 제안 날짜는 @db.Date(YYYY-MM-DD), 처리 시각은 ISO 타임스탬프
     proposedServiceDate: o.proposedServiceDate
@@ -896,12 +908,48 @@ export default async function BookingDetailPage({
                 </div>
                 {showFinance &&
                   (() => {
-                    // 통화별 실수납액은 showFinance일 때만 select됨 — 타입 좁히기용 캐스트.
+                    // 통화별 실수납액·수납 라인은 showFinance일 때만 select됨 — 타입 좁히기용 캐스트.
                     const co = booking.checkOutRecord as {
                       settledVnd?: bigint | null;
                       settledKrw?: number | null;
                       settledUsd?: number | null;
+                      settlementLines?: {
+                        method: string;
+                        currency: string;
+                        amount: bigint;
+                      }[];
                     };
+                    // 원본 통화 그대로 표시(환산 저장 금지, ADR-0003).
+                    const fmtLineAmount = (amount: bigint, currency: string) =>
+                      currency === "KRW"
+                        ? `${formatThousands(amount)}₩`
+                        : currency === "USD"
+                          ? `$${formatThousands(amount)}`
+                          : `${formatThousands(amount)}₫`;
+                    const lines = co.settlementLines ?? [];
+                    // 라인이 있으면 수단별 라인 표시(혼합 수납). 없으면 구 데이터 폴백(통화별 합계).
+                    if (lines.length > 0) {
+                      return (
+                        <div className="space-y-1.5 border-t border-slate-800 pt-3">
+                          <p className="text-xs text-admin-muted">
+                            {t("detail.checkoutSettlement.lines")}
+                          </p>
+                          <ul className="space-y-1 tabular-nums">
+                            {lines.map((l, i) => (
+                              <li key={i} className="flex items-center justify-between gap-3">
+                                <span className="text-admin-muted">
+                                  {t(`detail.checkoutSettlement.methods.${l.method}`)}
+                                </span>
+                                <span className="text-white font-semibold">
+                                  {fmtLineAmount(l.amount, l.currency)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    }
+                    // 폴백 — 구 데이터(라인 없음): 통화별 합계 표시.
                     if (co.settledVnd == null && co.settledKrw == null && co.settledUsd == null) {
                       return null;
                     }

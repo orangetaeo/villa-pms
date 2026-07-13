@@ -37,11 +37,26 @@ const checkoutSchema = z.object({
     .max(100)
     .optional(),
   // 게스트 통합정산 수납 (ADR-0019 S4) — 현금/계좌이체/기타. 미지정이면 청구액만 기록(미수납).
-  //   amounts: 통화별 실수납액(분할 수납, 2026-07-10). VND는 동 단위 숫자 문자열(BigInt 정밀도), KRW/USD는 정수.
+  //   ★ 결제수단 혼합(분할) 지원 (T-checkout-mixed): lines[]로 수단×통화×금액을 받는다.
+  //     - method는 lines가 없을 때만 필수(구 shape 하위호환) — refine으로 검증.
+  //     - lines·amounts의 method 모두 MIXED 제외(enum에서 자연 거부 — 서버 파생 전용).
+  //   amounts(구 shape): 통화별 실수납액. VND는 동 단위 숫자 문자열(BigInt 정밀도), KRW/USD는 정수.
   settlement: z
     .object({
-      method: z.enum(["CASH", "BANK_TRANSFER", "OTHER"]),
+      method: z.enum(["CASH", "BANK_TRANSFER", "OTHER"]).optional(),
       note: z.string().trim().max(500).optional().nullable(),
+      // 혼합 수납 라인 — amount는 원본 통화 최소단위 숫자 문자열(양수 검증은 lib normalize가 담당, 0은 400).
+      lines: z
+        .array(
+          z.object({
+            method: z.enum(["CASH", "BANK_TRANSFER", "OTHER"]),
+            currency: z.enum(["VND", "KRW", "USD"]),
+            amount: z.string().regex(/^\d+$/),
+          })
+        )
+        .max(12)
+        .optional()
+        .nullable(),
       amounts: z
         .object({
           vnd: z.string().regex(/^\d+$/).optional(),
@@ -50,6 +65,11 @@ const checkoutSchema = z.object({
         })
         .optional()
         .nullable(),
+    })
+    // lines가 없으면 method 필수(구 shape 하위호환). lines가 있으면 수단은 라인에서 파생.
+    .refine((s) => (s.lines != null && s.lines.length > 0) || s.method != null, {
+      message: "lines가 없으면 method가 필요합니다",
+      path: ["method"],
     })
     .optional()
     .nullable(),
@@ -150,7 +170,7 @@ export async function POST(
     //   remaining 필드가 없으면 기존 consumedQty를 그대로 사용(하위 호환). 가격·차감은 lib/checkout이 재계산.
     const minibarLines = await normalizeMinibarLines(id, parsed.data.minibarLines);
 
-    // 게스트 통화별 실수납 분할 — amounts를 lib 타입(BigInt VND)으로 정규화.
+    // 게스트 수납 — 혼합 라인(lines) 또는 구 shape(amounts+method)을 lib 타입(BigInt)으로 정규화.
     const rawSettlement = parsed.data.settlement ?? null;
     const rawAmounts = rawSettlement?.amounts ?? null;
     const amounts = rawAmounts
@@ -160,8 +180,20 @@ export async function POST(
           usd: rawAmounts.usd ?? null,
         }
       : null;
+    // 혼합 수납 라인 — 숫자 문자열 amount를 BigInt로. 양수·중복 병합·13라인↑ 검증은 lib normalize.
+    const lines =
+      rawSettlement?.lines && rawSettlement.lines.length > 0
+        ? rawSettlement.lines.map((l) => ({
+            method: l.method,
+            currency: l.currency,
+            amount: BigInt(l.amount),
+          }))
+        : null;
+    // 환율 스냅샷 조건 — 라인 합계 > 0 || 구 amounts 양수.
+    const hasLineAmount = !!lines && lines.some((l) => l.amount > 0n);
     const hasSettledAmount =
-      !!amounts && ((amounts.vnd ?? 0n) > 0n || (amounts.krw ?? 0) > 0 || (amounts.usd ?? 0) > 0);
+      hasLineAmount ||
+      (!!amounts && ((amounts.vnd ?? 0n) > 0n || (amounts.krw ?? 0) > 0 || (amounts.usd ?? 0) > 0));
     // 환율 스냅샷은 서버가 조회(클라 환율 신뢰 금지). 실수납 금액이 있을 때만.
     const rates = hasSettledAmount ? await getDailyRates(prisma) : null;
     const settlementFx = rates
@@ -177,7 +209,7 @@ export async function POST(
       deductionVnd: parsed.data.deductionVnd ? BigInt(parsed.data.deductionVnd) : null,
       minibarLines,
       settlement: rawSettlement
-        ? { method: rawSettlement.method, note: rawSettlement.note, amounts }
+        ? { method: rawSettlement.method ?? null, note: rawSettlement.note, lines, amounts }
         : null,
       settlementFx,
       actorUserId: session.user.id,

@@ -3,7 +3,7 @@
 // 체크아웃 검수 폼 (b4 변환, T3.3) — 미니바 소모 입력(#2b) + 게스트 청구·다통화 수납 +
 // 파손 리포트 + 하단 고정 액션 바 (전액 환불 / 차감 후 환불 승인).
 // 사진 비교 섹션은 정책 변경(2026-07-10)으로 제거 — 파손 시에만 증빙 사진 입력.
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -46,6 +46,19 @@ export interface ConfirmedServiceOrder {
 
 const SETTLEMENT_METHODS: GuestSettlementMethodValue[] = ["CASH", "BANK_TRANSFER", "OTHER"];
 
+/** 수납 통화(원본 통화 그대로 저장, 환산 저장 금지 — ADR-0003) */
+type SettleCurrency = "VND" | "KRW" | "USD";
+const SETTLE_CURRENCIES: SettleCurrency[] = ["VND", "KRW", "USD"];
+
+/** 수납 라인 입력값 — 수단×통화×금액(원본 통화 정수 디지털 문자열). id는 React key·행 조작용. */
+interface SettlementLineInput {
+  id: string;
+  method: GuestSettlementMethodValue;
+  currency: SettleCurrency;
+  /** 원본 통화 정수 디지털("500000"). 천단위 표시는 렌더 시 formatThousands. */
+  amount: string;
+}
+
 export default function CheckoutForm({
   bookingId,
   minibar,
@@ -75,13 +88,24 @@ export default function CheckoutForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 게스트 통합정산 수납 (ADR-0019 S4) — 결제수단(선택)·메모. 미선택도 허용(청구액만 기록·미수납).
-  const [settlementMethod, setSettlementMethod] = useState<GuestSettlementMethodValue | null>(null);
+  // 게스트 통합정산 수납 (ADR-0019 S4) — 메모(선택).
   const [settlementNote, setSettlementNote] = useState("");
-  // 통화별 실수납액(분할 수납, 2026-07-10) — ₫(동 단위 문자열)·₩(정수)·$(정수). 각각 선택 입력.
-  const [settledVndInput, setSettledVndInput] = useState("");
-  const [settledKrwInput, setSettledKrwInput] = useState("");
-  const [settledUsdInput, setSettledUsdInput] = useState("");
+  // 수납 라인(혼합 수납, 2026-07-13) — 각 행 = 수단×통화×금액. 기본 1행(현금·₫·빈 금액). 최대 12행.
+  //   실수납이 "현금 ₫ + 계좌이체 ₩"처럼 섞여도 라인으로 각각 기록. 저장은 원본 통화 그대로(ADR-0003).
+  const settleIdSeq = useRef(1);
+  const [settleLines, setSettleLines] = useState<SettlementLineInput[]>([
+    { id: "sl0", method: "CASH", currency: "VND", amount: "" },
+  ]);
+  const addSettleLine = () =>
+    setSettleLines((ls) =>
+      ls.length >= 12
+        ? ls
+        : [...ls, { id: `sl${settleIdSeq.current++}`, method: "CASH", currency: "VND", amount: "" }]
+    );
+  const removeSettleLine = (id: string) =>
+    setSettleLines((ls) => (ls.length <= 1 ? ls : ls.filter((l) => l.id !== id)));
+  const updateSettleLine = (id: string, patch: Partial<SettlementLineInput>) =>
+    setSettleLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...patch } : l)));
 
   // ── 미니바 "남은 수량" 입력 (소모 자동계산) ─────────────────────────
   // 운영자는 소모량을 직접 세지 않는다. 현재 "남은 수량(remaining)"만 입력하면
@@ -149,16 +173,24 @@ export default function CheckoutForm({
   // 총 차감액 = 미니바 자동 차감 + 파손 등 기타 차감 (BigInt, float 금지)
   const totalDeductionVnd = minibarTotal + damageDeductionVnd;
 
-  // ── 통화별 실수납액 파싱 (분할 수납) ────────────────────────────────
-  const settledVndDigits = settledVndInput.replace(/[^\d]/g, "");
-  const settledKrwDigits = settledKrwInput.replace(/[^\d]/g, "");
-  const settledUsdDigits = settledUsdInput.replace(/[^\d]/g, "");
-  const settledVndBig = settledVndDigits ? BigInt(settledVndDigits) : 0n;
-  const settledKrwNum = settledKrwDigits ? parseInt(settledKrwDigits, 10) : 0;
-  const settledUsdNum = settledUsdDigits ? parseInt(settledUsdDigits, 10) : 0;
+  // ── 수납 라인 파싱(혼합 수납) — 통화별 합계 집계(BigInt, float 금지). amount>0 라인만 유효. ─────
+  const parsedSettleLines = settleLines.map((l) => {
+    const digits = l.amount.replace(/[^\d]/g, "");
+    const amount = digits ? BigInt(digits) : 0n;
+    return { ...l, digits, amount, valid: amount > 0n };
+  });
+  const validSettleLines = parsedSettleLines.filter((l) => l.valid);
+  // 통화별 합계 — 표시(환산·잔여)·저장 비정규화의 소스. VND=BigInt 유지.
+  const settledVndBig = validSettleLines
+    .filter((l) => l.currency === "VND")
+    .reduce((s, l) => s + l.amount, 0n);
+  const settledKrwNum = validSettleLines
+    .filter((l) => l.currency === "KRW")
+    .reduce((s, l) => s + Number(l.amount), 0);
+  const settledUsdNum = validSettleLines
+    .filter((l) => l.currency === "USD")
+    .reduce((s, l) => s + Number(l.amount), 0);
   const hasSettledAmount = settledVndBig > 0n || settledKrwNum > 0 || settledUsdNum > 0;
-  // 수납액을 입력했는데 결제수단 미선택이면 제출 차단(무엇으로 받았는지 미상 방지)
-  const settlementReady = !hasSettledAmount || settlementMethod !== null;
 
   // ── 근사 환산(≈) — 표시 전용. 저장 금액 아님(저장은 원본 통화 그대로, ADR-0003). fx null이면 생략.
   //   통합 환산 총액 = VND 청구 + KRW 청구를 오늘 환율로 VND 환산(합산은 표시용 근사).
@@ -191,28 +223,17 @@ export default function CheckoutForm({
   const remainingKrw = fx ? Math.floor(Number(absRemainingVnd) / fx.vndPerKrw / 1000) * 1000 : 0;
   const remainingUsd = fx ? Math.floor(Number(absRemainingVnd) / fx.vndPerUsd) : 0;
 
-  // ── 원터치 채우기 값 — 각 통화 칸을 "그 통화로 잔여 전액 수납"에 맞춰 채운다(다른 칸 값은 유지).
-  //   remaining_excl_C = 총액 − (해당 칸 제외한 다른 칸 환산합). 절삭 내림이라 채워도 끝전이 남을 수
-  //   있으나 허용치(1만₫) 안이므로 수납 완료로 수렴.
-  const otherExclVnd = settledEquivVnd - settledVndBig; // ₩·$ 환산합(fx 없으면 0)
-  const otherExclKrw = fx ? settledVndBig + BigInt(Math.round(settledUsdNum * fx.vndPerUsd)) : settledVndBig;
-  const otherExclUsd = fx ? settledVndBig + BigInt(Math.round(settledKrwNum * fx.vndPerKrw)) : settledVndBig;
-  const fillVndBig = truncVnd(totalVndEquiv - otherExclVnd); // ₫ 칸 채움값(1만 단위 절삭)
-  const fillKrw = fx ? Math.floor(Number(totalVndEquiv - otherExclKrw) / fx.vndPerKrw / 1000) * 1000 : 0;
-  const fillUsd = fx ? Math.floor(Number(totalVndEquiv - otherExclUsd) / fx.vndPerUsd) : 0;
-
-  const canRefundFull = !damageFound && settlementReady && !busy;
+  const canRefundFull = !damageFound && !busy;
   const canDeduct =
     damageFound &&
     deductionValid &&
     (damageNote.trim().length > 0 || damagePhotos.length > 0) &&
-    settlementReady &&
     !busy;
   // 미니바만 차감(파손 없음)으로도 "차감 후 환불 승인" 가능
   const canDeductMinibarOnly =
     // 보증금 미수취(NONE)여도 허용 — 미니바는 보증금 차감이 아니라 게스트 청구(정산)로 기록되므로
     // 여기서 막으면 무보증금+미니바 소비 조합의 체크아웃이 불가능해진다(consumer-bugs #5, 서버는 NONE 유지).
-    !damageFound && minibarTotal > 0n && settlementReady && !busy;
+    !damageFound && minibarTotal > 0n && !busy;
 
   // 환불 예정액 — 보증금 VND일 때만 산출 (BigInt, float 금지)
   const refundEstimate = (() => {
@@ -263,21 +284,20 @@ export default function CheckoutForm({
           deductionVnd: hasDeduction ? totalDeductionVnd.toString() : undefined,
           // 미니바 품목별 판매 캡처(매출·마진 통계 소스). 0건이면 빈 배열(라인 미생성).
           minibarLines: minibarLines.length ? minibarLines : undefined,
-          // 게스트 통합정산 수납(ADR-0019 S4) — 결제수단 선택 시에만. 미선택이면 청구액만 기록(미수납).
-          //   amounts: 통화별 실수납액(양수만). 환율 스냅샷은 서버가 조회(클라 환율 신뢰 금지).
-          settlement: settlementMethod
-            ? {
-                method: settlementMethod,
-                note: settlementNote.trim() || undefined,
-                amounts: hasSettledAmount
-                  ? {
-                      ...(settledVndBig > 0n ? { vnd: settledVndDigits } : {}),
-                      ...(settledKrwNum > 0 ? { krw: settledKrwNum } : {}),
-                      ...(settledUsdNum > 0 ? { usd: settledUsdNum } : {}),
-                    }
-                  : undefined,
-              }
-            : undefined,
+          // 게스트 통합정산 수납(혼합 수납, ADR-0019 S4) — 유효 라인(amount>0)이 1개 이상일 때만 전송.
+          //   lines: 수단×통화×금액(원본 통화 정수 문자열). method=MIXED 전송 금지(서버 파생). 환율 스냅샷은 서버 조회.
+          //   유효 라인이 없으면 settlement 미전송(청구액만 기록·미수납, 기존과 동일).
+          settlement:
+            validSettleLines.length > 0
+              ? {
+                  note: settlementNote.trim() || undefined,
+                  lines: validSettleLines.map((l) => ({
+                    method: l.method,
+                    currency: l.currency,
+                    amount: l.digits,
+                  })),
+                }
+              : undefined,
         }),
       });
       if (!res.ok) {
@@ -578,91 +598,81 @@ export default function CheckoutForm({
             </div>
           </div>
 
-          {/* 우: 결제수단(선택) + 메모 */}
+          {/* 우: 수납 라인(혼합 수납) + 메모 */}
           <div className="bg-admin-bg border border-slate-800 rounded-lg p-5 space-y-4 self-start">
-            <div>
-              <p className="text-xs font-bold text-slate-400 tracking-wider mb-3">
-                {t("settlementMethod")}
-              </p>
-              <div className="flex flex-col gap-2">
-                {SETTLEMENT_METHODS.map((m) => (
-                  <label
-                    key={m}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border cursor-pointer transition-colors ${
-                      settlementMethod === m
-                        ? "border-admin-primary bg-admin-primary/10"
-                        : "border-slate-700 hover:border-slate-500"
-                    }`}
-                  >
+            {/* 수납 라인 — 각 행 [수단][통화][금액]. 현금 ₫ + 계좌이체 ₩ 처럼 혼합 기록. 저장은 원본 통화 그대로. */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-bold text-slate-400 tracking-wider">{t("settledAmountsTitle")}</p>
+                <span className="text-[11px] text-slate-500 tabular-nums">{settleLines.length}/12</span>
+              </div>
+
+              <div className="space-y-2">
+                {parsedSettleLines.map((l) => (
+                  <div key={l.id} className="flex items-center gap-2">
+                    <select
+                      aria-label={t("settlementMethod")}
+                      value={l.method}
+                      onChange={(e) =>
+                        updateSettleLine(l.id, { method: e.target.value as GuestSettlementMethodValue })
+                      }
+                      className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-2.5 text-sm text-white focus:ring-admin-primary focus:border-admin-primary outline-none"
+                    >
+                      {SETTLEMENT_METHODS.map((m) => (
+                        <option key={m} value={m}>
+                          {t(`settlementMethods.${m}`)}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label={t("settlementCurrency")}
+                      value={l.currency}
+                      onChange={(e) =>
+                        updateSettleLine(l.id, { currency: e.target.value as SettleCurrency })
+                      }
+                      className="w-[76px] shrink-0 bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-2 text-sm text-white focus:ring-admin-primary focus:border-admin-primary outline-none"
+                    >
+                      {SETTLE_CURRENCIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c === "VND" ? "₫ VND" : c === "KRW" ? "₩ KRW" : "$ USD"}
+                        </option>
+                      ))}
+                    </select>
                     <input
-                      type="radio"
-                      name="settlementMethod"
-                      className="accent-admin-primary"
-                      checked={settlementMethod === m}
-                      onChange={() => setSettlementMethod(m)}
+                      type="text"
+                      inputMode="numeric"
+                      aria-label={t("settlementAmount")}
+                      value={l.digits ? formatThousands(l.digits) : ""}
+                      onChange={(e) => updateSettleLine(l.id, { amount: e.target.value.replace(/[^\d]/g, "") })}
+                      className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-3 text-sm text-white text-right tabular-nums focus:ring-admin-primary focus:border-admin-primary outline-none"
+                      placeholder="0"
                     />
-                    <span className="text-sm font-medium text-slate-200">
-                      {t(`settlementMethods.${m}`)}
-                    </span>
-                  </label>
+                    <button
+                      type="button"
+                      aria-label={t("settlementLineRemove")}
+                      onClick={() => removeSettleLine(l.id)}
+                      disabled={settleLines.length <= 1}
+                      className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:hover:text-slate-500 disabled:hover:bg-transparent transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">close</span>
+                    </button>
+                  </div>
                 ))}
               </div>
-              {settlementMethod && (
-                <button
-                  type="button"
-                  onClick={() => setSettlementMethod(null)}
-                  className="mt-2 text-xs text-slate-500 hover:text-slate-300"
-                >
-                  {t("settlementClear")}
-                </button>
-              )}
-              <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
-                {t("settlementOptionalNote")}
-              </p>
-            </div>
 
-            {/* 통화별 실수납액(분할 수납) — ₫/₩/$ 각각 선택 입력. 저장은 원본 통화 그대로. */}
-            <div className="space-y-2">
-              <p className="text-xs font-bold text-slate-400 tracking-wider">{t("settledAmountsTitle")}</p>
-              <div className="grid grid-cols-1 gap-2">
-                <div className="relative">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    aria-label={t("settledVnd")}
-                    value={settledVndDigits ? formatThousands(settledVndDigits) : ""}
-                    onChange={(e) => setSettledVndInput(e.target.value.replace(/[^\d]/g, ""))}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 pl-4 pr-10 text-sm text-white tabular-nums focus:ring-admin-primary focus:border-admin-primary outline-none"
-                    placeholder="0"
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">₫</span>
-                </div>
-                <div className="relative">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    aria-label={t("settledKrw")}
-                    value={settledKrwDigits ? formatThousands(settledKrwDigits) : ""}
-                    onChange={(e) => setSettledKrwInput(e.target.value.replace(/[^\d]/g, ""))}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 pl-4 pr-10 text-sm text-white tabular-nums focus:ring-admin-primary focus:border-admin-primary outline-none"
-                    placeholder="0"
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">₩</span>
-                </div>
-                <div className="relative">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    aria-label={t("settledUsd")}
-                    value={settledUsdDigits ? formatThousands(settledUsdDigits) : ""}
-                    onChange={(e) => setSettledUsdInput(e.target.value.replace(/[^\d]/g, ""))}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg py-2.5 pl-4 pr-10 text-sm text-white tabular-nums focus:ring-admin-primary focus:border-admin-primary outline-none"
-                    placeholder="0"
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
-                </div>
-              </div>
-              {/* 수납 잔여 자동 가감산 — 통화별 실시간 환산(≈) + 원터치 채우기. 소프트 안내(제출 차단 없음). */}
+              <button
+                type="button"
+                onClick={addSettleLine}
+                disabled={settleLines.length >= 12}
+                className="flex items-center gap-1.5 text-xs font-bold text-admin-primary hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span>
+                {t("settlementLineAdd")}
+              </button>
+
+              <p className="text-[11px] text-slate-500 leading-relaxed">{t("settlementOptionalNote")}</p>
+
+              {/* 수납 잔여 자동 가감산 — 통화별 실시간 환산(≈). 소프트 안내(제출 차단 없음). */}
               {billHasBill && (
                 <div className="rounded-lg bg-slate-900/60 border border-slate-800 px-3 py-2.5 space-y-2">
                   {hasSettledAmount && fx && (
@@ -677,63 +687,25 @@ export default function CheckoutForm({
                       {t("settledComplete")}
                     </p>
                   ) : (
-                    <div className="space-y-1.5">
-                      {/* 잔여 행 — 각 통화 하나로 받을 때 금액(잔여 양수) / 초과액(잔여 음수) */}
-                      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-                        <span className={`text-xs font-bold ${isExcess ? "text-amber-400" : "text-slate-300"}`}>
-                          {isExcess ? t("settledExcess") : t("settledRemaining")}
-                        </span>
-                        <span
-                          className={`text-sm font-black tabular-nums ${isExcess ? "text-amber-400" : "text-emerald-400"}`}
-                        >
-                          {fx ? (
-                            <>
-                              ≈ {formatThousands(remainingVndDisplay)}₫ · ≈ ₩{formatThousands(remainingKrw)} · ≈ $
-                              {formatThousands(remainingUsd)}
-                            </>
-                          ) : (
-                            <>≈ {formatThousands(remainingVndDisplay)}₫</>
-                          )}
-                        </span>
-                      </div>
-                      {/* 원터치 채우기 칩 — 잔여가 양수(부족)일 때만. 탭 시 해당 칸 채움(다른 칸 유지). */}
-                      {!isExcess && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {fillVndBig > 0n && (
-                            <button
-                              type="button"
-                              onClick={() => setSettledVndInput(fillVndBig.toString())}
-                              className="text-[11px] px-2 py-1 rounded-md border border-emerald-500/40 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors tabular-nums"
-                            >
-                              {t("fillRemaining", { amount: `${formatThousands(fillVndBig)}₫` })}
-                            </button>
-                          )}
-                          {fx && fillKrw > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => setSettledKrwInput(String(fillKrw))}
-                              className="text-[11px] px-2 py-1 rounded-md border border-emerald-500/40 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors tabular-nums"
-                            >
-                              {t("fillRemaining", { amount: `₩${formatThousands(fillKrw)}` })}
-                            </button>
-                          )}
-                          {fx && fillUsd > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => setSettledUsdInput(String(fillUsd))}
-                              className="text-[11px] px-2 py-1 rounded-md border border-emerald-500/40 text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors tabular-nums"
-                            >
-                              {t("fillRemaining", { amount: `$${formatThousands(fillUsd)}` })}
-                            </button>
-                          )}
-                        </div>
-                      )}
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                      <span className={`text-xs font-bold ${isExcess ? "text-amber-400" : "text-slate-300"}`}>
+                        {isExcess ? t("settledExcess") : t("settledRemaining")}
+                      </span>
+                      <span
+                        className={`text-sm font-black tabular-nums ${isExcess ? "text-amber-400" : "text-emerald-400"}`}
+                      >
+                        {fx ? (
+                          <>
+                            ≈ {formatThousands(remainingVndDisplay)}₫ · ≈ ₩{formatThousands(remainingKrw)} · ≈ $
+                            {formatThousands(remainingUsd)}
+                          </>
+                        ) : (
+                          <>≈ {formatThousands(remainingVndDisplay)}₫</>
+                        )}
+                      </span>
                     </div>
                   )}
                 </div>
-              )}
-              {!settlementReady && (
-                <p className="text-[11px] text-amber-400 leading-relaxed">{t("settledNeedMethod")}</p>
               )}
             </div>
 

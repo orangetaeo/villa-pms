@@ -1,6 +1,6 @@
 # T-checkout-mixed-method-settlement — 체크아웃 수납 결제수단 혼합(분할) 지원
 
-- 상태: 착수 (2026-07-13)
+- 상태: 완료 (2026-07-13) — QA 1차 FAIL(공유 enum 소비처 회귀) → 재작업 후 tsc0·vitest 2940·build 통과
 - 담당: TDA(스키마) + BE + FE, QA 검증
 - 배경: 테오 지적 — 체크아웃 정산 실수납이 현금/계좌이체 등 **수단이 섞여** 들어올 수 있는데,
   현재 구조는 수납 금액만 통화별(₫/₩/$) 분할이고 결제수단은 `CheckOutRecord.settlementMethod`
