@@ -2,14 +2,26 @@
 
 // 공급자 이용규칙·위치/규모 자가 편집기 (라이트·vi) — PATCH /api/villas/[id]/info
 // 운영자 SalesEditor(다크)와 분리. 공급자가 만질 수 있는 사실 속성만:
-//   체크인/아웃·금연/반려동물/파티·주차·보증금·엑스트라베드 + 지도·해변거리·면적·층수.
-// 누수 0: 판매가·마진·요율 미참조. source·features·wifi는 폼에 없음(운영자 영역).
+//   체크인/아웃·금연/반려동물/파티·주차·보증금·엑스트라베드 + 셀링포인트(칩)
+//   + 와이파이·출입정보(⚠비공개) + 지도·해변거리·면적·층수.
+// 누수 0: 판매가·마진·요율 미참조. source·요율·마진은 폼에 없음(운영자 영역).
+// i18n: 셀링포인트 칩=features NS, 와이파이·출입정보=wizard.rules NS 재사용(마법사와 동일 문구).
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { minutesToHHMM, hhmmToMinutes, buildTimeOptions } from "@/lib/sales-display";
 import { formatThousands } from "@/lib/format";
+import { FEATURE_CATEGORIES, FEATURE_ITEMS } from "@/lib/features";
+import { ACCESS_TYPES, type AccessType } from "@/lib/villa-schema";
 import MapEmbed from "@/components/villa/map-embed";
+
+// 출입 방식 아이콘 (Material Symbols) — 화이트리스트와 1:1 (step-rules와 동일)
+const ACCESS_ICON: Record<AccessType, string> = {
+  KEYPAD: "dialpad",
+  KEY: "key",
+  SMARTKEY: "smartphone",
+  OTHER: "more_horiz",
+};
 
 const TIME_OPTIONS = buildTimeOptions();
 
@@ -22,6 +34,11 @@ export interface InfoInitial {
   parkingSlots: number;
   baseDepositVnd: string; // VND 동 단위 숫자 문자열 (빈 = 미입력)
   extraBedAvailable: boolean;
+  features: string[]; // 선택된 featureKey 목록
+  wifiSsid: string;
+  wifiPassword: string;
+  accessType: string; // "" = 미선택 (그 외 ACCESS_TYPES 값)
+  accessInfo: string;
   googleMapUrl: string;
   beachDistanceM: string;
   areaSqm: string;
@@ -36,6 +53,9 @@ export default function VillaInfoEditor({
   initial: InfoInitial;
 }) {
   const t = useTranslations("supplierInfo");
+  const tFeat = useTranslations("features"); // 셀링포인트 칩 라벨(카테고리·아이템)
+  const tRules = useTranslations("wizard.rules"); // 와이파이·출입정보 라벨 재사용
+  const tLoc = useTranslations("wizard.location"); // 셀링포인트 섹션 제목·힌트 재사용
   const router = useRouter();
 
   const [checkInTime, setCheckInTime] = useState(minutesToHHMM(initial.checkInTime));
@@ -46,6 +66,11 @@ export default function VillaInfoEditor({
   const [parkingSlots, setParkingSlots] = useState(initial.parkingSlots);
   const [baseDepositVnd, setBaseDepositVnd] = useState(initial.baseDepositVnd);
   const [extraBedAvailable, setExtraBedAvailable] = useState(initial.extraBedAvailable);
+  const [features, setFeatures] = useState<string[]>(initial.features);
+  const [wifiSsid, setWifiSsid] = useState(initial.wifiSsid);
+  const [wifiPassword, setWifiPassword] = useState(initial.wifiPassword);
+  const [accessType, setAccessType] = useState(initial.accessType);
+  const [accessInfo, setAccessInfo] = useState(initial.accessInfo);
   const [googleMapUrl, setGoogleMapUrl] = useState(initial.googleMapUrl);
   const [beachDistanceM, setBeachDistanceM] = useState(initial.beachDistanceM);
   const [areaSqm, setAreaSqm] = useState(initial.areaSqm);
@@ -57,9 +82,23 @@ export default function VillaInfoEditor({
   const digits = (v: string) => v.replace(/\D/g, "");
   const numOrNull = (v: string): number | null => (v === "" ? null : Number(v));
 
+  const featureSet = new Set(features);
+  function toggleFeature(featureKey: string) {
+    setFeatures((prev) =>
+      prev.includes(featureKey) ? prev.filter((k) => k !== featureKey) : [...prev, featureKey]
+    );
+  }
+
   async function handleSave() {
     setSaving(true);
     setMessage(null);
+    // 셀링포인트 → {category, featureKey}[] (사전 순회로 category 역참조, sales-editor 패턴)
+    const featureRows: { category: string; featureKey: string }[] = [];
+    for (const category of FEATURE_CATEGORIES) {
+      for (const item of FEATURE_ITEMS[category]) {
+        if (featureSet.has(item.featureKey)) featureRows.push({ category, featureKey: item.featureKey });
+      }
+    }
     const body = {
       checkInTime: hhmmToMinutes(checkInTime) ?? 840,
       checkOutTime: hhmmToMinutes(checkOutTime) ?? 660,
@@ -69,6 +108,11 @@ export default function VillaInfoEditor({
       parkingSlots,
       baseDepositVnd: baseDepositVnd === "" ? null : baseDepositVnd,
       extraBedAvailable,
+      features: featureRows,
+      wifiSsid: wifiSsid.trim() || null,
+      wifiPassword: wifiPassword.trim() || null,
+      accessType: accessType || null,
+      accessInfo: accessInfo.trim() || null,
       googleMapUrl: googleMapUrl.trim() || null,
       beachDistanceM: numOrNull(beachDistanceM),
       areaSqm: numOrNull(areaSqm),
@@ -169,6 +213,139 @@ export default function VillaInfoEditor({
           </div>
           <span className="mt-1 block text-[11px] text-neutral-400">{t("depositNote")}</span>
         </label>
+      </section>
+
+      {/* ⑤ 셀링포인트 — 사전 칩 다중선택(카테고리별). 라벨은 features NS 재사용 */}
+      <section className="rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm">
+        <h2 className="mb-1 flex items-center gap-2 text-base font-bold text-neutral-800">
+          <span className="material-symbols-outlined text-teal-600">sell</span>
+          {tLoc("featuresTitle")}
+        </h2>
+        <p className="mb-4 text-xs text-neutral-400">{tLoc("featuresHint")}</p>
+        <div className="space-y-4">
+          {FEATURE_CATEGORIES.map((category) => (
+            <div key={category}>
+              <p className="mb-2 px-0.5 text-[11px] font-bold uppercase tracking-wider text-neutral-400">
+                {tFeat(`categories.${category}`)}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {FEATURE_ITEMS[category].map((item) => {
+                  const on = featureSet.has(item.featureKey);
+                  return (
+                    <button
+                      key={item.featureKey}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => toggleFeature(item.featureKey)}
+                      className={`flex items-center gap-1.5 rounded-full border-2 px-3 py-2 text-sm font-medium transition-all active:scale-95 ${
+                        on
+                          ? "border-teal-500 bg-teal-50 text-teal-700"
+                          : "border-neutral-200 bg-white text-neutral-500"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-base">{item.icon}</span>
+                      <span className="whitespace-nowrap">{tFeat(`items.${item.featureKey}`)}</span>
+                      {on && <span className="material-symbols-outlined text-base">check</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* 와이파이 — ⚠ 비공개(고객 화면 미노출). 라벨은 wizard.rules NS 재사용 */}
+      <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 shadow-sm">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-base text-amber-600">wifi</span>
+            <span className="text-base font-bold text-neutral-800">{tRules("wifiTitle")}</span>
+          </span>
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+            {tRules("privateBadge")}
+          </span>
+        </div>
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-neutral-600">{tRules("wifiSsid")}</span>
+            <input
+              type="text"
+              value={wifiSsid}
+              onChange={(e) => setWifiSsid(e.target.value)}
+              maxLength={100}
+              aria-label={tRules("wifiSsid")}
+              className="h-11 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-neutral-600">{tRules("wifiPassword")}</span>
+            <input
+              type="text"
+              value={wifiPassword}
+              onChange={(e) => setWifiPassword(e.target.value)}
+              maxLength={100}
+              aria-label={tRules("wifiPassword")}
+              className="h-11 w-full rounded-lg border border-neutral-200 bg-white px-3 text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+            />
+          </label>
+        </div>
+        <p className="mt-2 flex items-start gap-1 text-[11px] leading-relaxed text-amber-700">
+          <span className="material-symbols-outlined mt-0.5 text-xs">visibility_off</span>
+          {tRules("wifiHint")}
+        </p>
+      </section>
+
+      {/* 출입 정보 — ⚠ 비공개(청소 담당·운영자만). 출입방식 칩 4종 + 정보 필드 */}
+      <section className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4 shadow-sm">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-base text-amber-600">lock</span>
+            <span className="text-base font-bold text-neutral-800">{tRules("accessTitle")}</span>
+          </span>
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+            {tRules("privateBadge")}
+          </span>
+        </div>
+
+        {/* 출입 방식 아이콘 칩 4종 (재터치로 해제) */}
+        <p className="mb-2 text-xs font-medium text-neutral-600">{tRules("accessType")}</p>
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          {ACCESS_TYPES.map((at) => {
+            const on = accessType === at;
+            return (
+              <button
+                key={at}
+                type="button"
+                aria-pressed={on}
+                onClick={() => setAccessType(on ? "" : at)}
+                className={`flex items-center gap-2 rounded-xl border-2 px-3 py-3 text-sm font-semibold transition-all active:scale-95 ${
+                  on ? "border-teal-500 bg-teal-50 text-teal-700" : "border-neutral-200 bg-white text-neutral-500"
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">{ACCESS_ICON[at]}</span>
+                <span className="whitespace-nowrap">{tRules(`accessTypeOpt.${at}`)}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-neutral-600">{tRules("accessInfo")}</span>
+          <textarea
+            value={accessInfo}
+            onChange={(e) => setAccessInfo(e.target.value)}
+            maxLength={500}
+            rows={2}
+            placeholder={tRules("accessInfoPlaceholder")}
+            aria-label={tRules("accessInfo")}
+            className="w-full resize-none rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+          />
+        </label>
+        <p className="mt-2 flex items-start gap-1 text-[11px] leading-relaxed text-amber-700">
+          <span className="material-symbols-outlined mt-0.5 text-xs">visibility_off</span>
+          {tRules("accessHint")}
+        </p>
       </section>
 
       {/* ③ 위치·규모 */}

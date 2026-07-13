@@ -96,7 +96,7 @@ async function resolveThreadZaloUserId(
  * 운영자 화면에 한국어 원문이 사라졌다. originalText(ko)가 오면 villa도 자체 발송과 동일하게
  * text=원문(ko)·translatedText=발송문(vi)으로 저장(OutboundBubble이 둘 다 표시).
  *
- * 멱등·레이스 안전: zaloMsgId 기준 upsert — self-echo(saveOutboundEcho)가 먼저/나중에 와도
+ * 멱등·레이스 안전: 대화×zaloMsgId 기준 upsert — self-echo(saveOutboundEcho)가 먼저/나중에 와도
  *   ① ext/send가 먼저면 create → echo는 zaloMsgId 존재로 skip.
  *   ② echo가 먼저(vi·translatedText=null)면 update로 text=ko·translatedText=vi 보강.
  * zaloMsgId 없으면(발송 응답에 msgId 부재) 키가 없어 echo에 위임(원문 없이 vi만 — 드묾).
@@ -111,7 +111,7 @@ async function persistOutboundOriginal(
   if (!zaloMsgId) return;
   try {
     await prisma.zaloMessage.upsert({
-      where: { zaloMsgId },
+      where: { conversationId_zaloMsgId: { conversationId, zaloMsgId } },
       update: { text: originalText, translatedText: sentText },
       create: {
         conversationId,

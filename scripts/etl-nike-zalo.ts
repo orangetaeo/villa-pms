@@ -552,8 +552,9 @@ async function main() {
           continue;
         }
 
-        // 멱등: zaloMsgId 존재 시 skip
-        const existing = await prisma.zaloMessage.findUnique({
+        // 멱등: zaloMsgId 존재 시 skip. zaloMsgId는 더 이상 전역 unique가 아니므로(대화별 복합키로 전환,
+        // 2026-07-13) findFirst로 전역 존재 여부만 확인 — Nike 과거 임포트의 기존 전역 멱등 의미 보존.
+        const existing = await prisma.zaloMessage.findFirst({
           where: { zaloMsgId: msg.zaloMsgId },
           select: { id: true },
         });
@@ -716,7 +717,8 @@ async function main() {
         if (j) retryJobs.push(j);
       }
       await runPool(retryJobs, 4, async (job) => {
-        const existing = await prisma.zaloMessage.findUnique({
+        // zaloMsgId 전역 unique 폐지(대화별 복합키 전환, 2026-07-13) → findFirst로 조회.
+        const existing = await prisma.zaloMessage.findFirst({
           where: { zaloMsgId: job.zaloMsgId },
           select: { attachmentUrls: true },
         });

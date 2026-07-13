@@ -819,7 +819,8 @@ export function mergeGroupMember(
 /**
  * 수신 메시지 1건 저장 (ADR-0007 — 관리자별 귀속).
  *  1) (ownerAdminId, zaloUserId) 복합키로 ZaloConversation upsert (관리자별 격리)
- *  2) zaloMsgId 멱등 — 이미 존재하면 저장 스킵(중복 0)
+ *  2) (conversationId, zaloMsgId) 복합키 멱등 — **해당 대화 내** 이미 존재하면 스킵(전역 아님).
+ *     같은 그룹 메시지가 다계정(소유자) 대화에 각각 저장되도록 전역 unique를 폐지했다(2026-07-13).
  *  3) ZaloMessage(INBOUND·USER·text) 생성
  *  4) conversation.lastMessageAt·lastInboundAt=now, unreadCount+1
  *  5) 전화번호 매칭: **시스템봇 수신(isSystemBot)만** (전역 온보딩, D4).
@@ -878,10 +879,12 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
     select: { id: true, userId: true, displayName: true, translateMode: true, groupMembers: true },
   });
 
-  // 2) 멱등 — 동일 zaloMsgId 이미 있으면 스킵
+  // 2) 멱등 — 동일 zaloMsgId가 **이 대화에** 이미 있으면 스킵.
+  //    (conversationId, zaloMsgId) 복합키로 스코프 — 같은 그룹 메시지가 다계정(소유자) 대화에
+  //    각각 저장돼야 하므로, 타 소유자 대화의 저장분을 중복으로 오판하지 않는다(전역 unique 폐지).
   if (zaloMsgId) {
     const existing = await prisma.zaloMessage.findUnique({
-      where: { zaloMsgId },
+      where: { conversationId_zaloMsgId: { conversationId: conversation.id, zaloMsgId } },
       select: { id: true },
     });
     if (existing) {
@@ -896,26 +899,43 @@ export async function saveInboundMessage(parsed: ParsedInbound): Promise<{
   }
 
   // 3) 메시지 생성 (cliMsgId·인용 스냅샷 함께 저장 — ADR-0009 R3-1)
-  const created = await prisma.zaloMessage.create({
-    data: {
-      conversationId: conversation.id,
-      direction: ZaloMessageDirection.INBOUND,
-      source: ZaloMessageSource.USER,
-      msgType: msgType ?? "text",
-      text: text || null,
-      attachmentUrls: attachmentUrls ?? [],
-      zaloMsgId,
-      globalMsgId: globalMsgId ?? null,
-      cliMsgId: cliMsgId ?? null,
-      // 그룹 메시지 발신자 식별 (ADR-0010 D3). 1:1은 null(상대 고정).
-      senderUid: senderUid ?? null,
-      quotedMsgId: quote?.quotedMsgId ?? null,
-      quotedText: quote?.quotedText ?? null,
-      quotedSender: quote?.quotedSender ?? null,
-      status: ZaloMessageStatus.SENT,
-    },
-    select: { id: true },
-  });
+  //    동일 대화 내 동시 도착(findUnique 통과 후 다른 리스너가 먼저 create) 레이스는 복합키 P2002로
+  //    드러난다 → duplicated 반환으로 무해화(메시지 드롭 0). 타 에러는 rethrow(호출부 try/catch).
+  let created: { id: string };
+  try {
+    created = await prisma.zaloMessage.create({
+      data: {
+        conversationId: conversation.id,
+        direction: ZaloMessageDirection.INBOUND,
+        source: ZaloMessageSource.USER,
+        msgType: msgType ?? "text",
+        text: text || null,
+        attachmentUrls: attachmentUrls ?? [],
+        zaloMsgId,
+        globalMsgId: globalMsgId ?? null,
+        cliMsgId: cliMsgId ?? null,
+        // 그룹 메시지 발신자 식별 (ADR-0010 D3). 1:1은 null(상대 고정).
+        senderUid: senderUid ?? null,
+        quotedMsgId: quote?.quotedMsgId ?? null,
+        quotedText: quote?.quotedText ?? null,
+        quotedSender: quote?.quotedSender ?? null,
+        status: ZaloMessageStatus.SENT,
+      },
+      select: { id: true },
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      // 동일 대화 내 잔여 레이스 — 이미 저장됨(중복). 드롭하지 않고 duplicated로 반환.
+      return {
+        saved: false,
+        duplicated: true,
+        matchedUserId: conversation.userId,
+        messageId: null,
+        translateMode: conversation.translateMode,
+      };
+    }
+    throw err;
+  }
 
   // 4) 대화 메타 갱신 (+ displayName 보강 + 그룹 발신자 점진 누적)
   //    그룹: 매 메시지 발신자(senderUid+senderName)를 groupMembers에 누적 → getGroupInfo가 멤버를
@@ -1230,7 +1250,7 @@ export interface ParsedOutbound {
  *  - lastInboundAt **갱신 안 함**, lastMessageAt만 갱신
  *  - createdAt = zca-js 타임스탬프(있으면) — 앱 발신 정렬 보존
  *
- * 멱등(필수): zaloMsgId가 이미 ZaloMessage에 있으면 스킵 —
+ * 멱등(필수): (conversationId, zaloMsgId) 복합키로 **해당 대화 내** 이미 있으면 스킵(전역 아님) —
  *   프로그램(S4 dispatchOne SYSTEM 미러 / b14 CHAT 발송)이 이미 같은 msgId로 저장한 경우 중복 방지.
  *
  * 예외 안전: 호출부(handleInboundEvent)에서 try/catch — 여기선 throw 가능.
@@ -1281,13 +1301,14 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
     select: { id: true, displayName: true, translateMode: true },
   });
 
-  // 2) 멱등 — 프로그램이 이미 같은 zaloMsgId로 저장했으면 스킵 (중복 0)
+  // 2) 멱등 — 프로그램이 이미 같은 zaloMsgId로 **이 대화에** 저장했으면 스킵 (중복 0)
+  //    (conversationId, zaloMsgId) 복합키로 스코프 — 멱등 범위는 전역이 아니라 해당 대화 내.
   //    단, route(POST /api/zalo/messages) 발신은 zca-js send가 globalMsgId를 안 돌려줘 null로 저장된다.
   //    self-echo에는 globalMsgId가 실려 오므로, 기존 행에 없으면 여기서 보강(답글 인용 점프 앵커 — 상대가
   //    내 발신을 인용해 답글하면 quote.globalMsgId가 이 값과 매칭돼야 점프됨). 첫 echo 1회만 update.
   if (zaloMsgId) {
     const existing = await prisma.zaloMessage.findUnique({
-      where: { zaloMsgId },
+      where: { conversationId_zaloMsgId: { conversationId: conversation.id, zaloMsgId } },
       select: { id: true, globalMsgId: true, cliMsgId: true },
     });
     if (existing) {
@@ -1312,27 +1333,42 @@ export async function saveOutboundEcho(parsed: ParsedOutbound): Promise<{
 
   // 3) OUTBOUND·CHAT 메시지 생성. sentBy 미상(앱 발신은 발송자 식별 불가) → null.
   //    cliMsgId·인용 스냅샷 함께 저장 — 내가 앱에서 보낸 메시지도 리액션·답글 대상이 되게 (ADR-0009 R3-1).
-  const created = await prisma.zaloMessage.create({
-    data: {
-      conversationId: conversation.id,
-      direction: ZaloMessageDirection.OUTBOUND,
-      source: ZaloMessageSource.CHAT,
-      msgType: msgType ?? "text",
-      text: text || null,
-      attachmentUrls: attachmentUrls ?? [],
-      zaloMsgId,
-      globalMsgId: globalMsgId ?? null,
-      cliMsgId: cliMsgId ?? null,
-      // 그룹 echo 발신자(내 ownId 등). 1:1은 null. (ADR-0010 D3)
-      senderUid: senderUid ?? null,
-      quotedMsgId: quote?.quotedMsgId ?? null,
-      quotedText: quote?.quotedText ?? null,
-      quotedSender: quote?.quotedSender ?? null,
-      status: ZaloMessageStatus.SENT,
-      createdAt,
-    },
-    select: { id: true },
-  });
+  //    동일 대화 내 잔여 레이스(복합키 P2002)는 duplicated 반환으로 무해화(드롭 0). 타 에러는 rethrow.
+  let created: { id: string };
+  try {
+    created = await prisma.zaloMessage.create({
+      data: {
+        conversationId: conversation.id,
+        direction: ZaloMessageDirection.OUTBOUND,
+        source: ZaloMessageSource.CHAT,
+        msgType: msgType ?? "text",
+        text: text || null,
+        attachmentUrls: attachmentUrls ?? [],
+        zaloMsgId,
+        globalMsgId: globalMsgId ?? null,
+        cliMsgId: cliMsgId ?? null,
+        // 그룹 echo 발신자(내 ownId 등). 1:1은 null. (ADR-0010 D3)
+        senderUid: senderUid ?? null,
+        quotedMsgId: quote?.quotedMsgId ?? null,
+        quotedText: quote?.quotedText ?? null,
+        quotedSender: quote?.quotedSender ?? null,
+        status: ZaloMessageStatus.SENT,
+        createdAt,
+      },
+      select: { id: true },
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      // 동일 대화 내 잔여 레이스 — 이미 저장됨(중복). 드롭하지 않고 duplicated로 반환.
+      return {
+        saved: false,
+        duplicated: true,
+        messageId: null,
+        translateMode: conversation.translateMode,
+      };
+    }
+    throw err;
+  }
 
   // 4) 대화 메타 — lastMessageAt만 갱신(unread·lastInboundAt 미변경). displayName 보강.
   await prisma.zaloConversation.update({

@@ -306,6 +306,8 @@ export async function loadVendorStats(
   const orders = await db.serviceOrder.findMany({
     where: {
       vendorId,
+      // 무료 티켓(발권·지급 없음)은 벤더 보드와 동일하게 통계에서도 제외 — 인기 품목 0₫ 유령 행 방지(테오 지시 2026-07-13)
+      ...EXCLUDE_FREE_TICKET_WHERE,
       // 발주는 booking 필수(bookingId 비널) — serviceDate 우선, 없으면 booking.checkOut으로 귀속.
       OR: [
         // 매출/추이 대상 + 직전 동기간: 귀속일(serviceDate)이 윈도우 내

@@ -46,4 +46,14 @@ describe("벤더 통계 settleable 무료 티켓 제외 (P3-④)", () => {
       expect(where.vendorId).toBe("vd-1"); // 누수 방어 — 스코프 강제 유지
     }
   });
+
+  it("매출/인기품목 원본 findMany where에도 무료 제외 NOT 포함 — 인기 품목 0₫ 유령 행 방지(테오 2026-07-13)", async () => {
+    await loadVendorStats("vd-1", period, "vi", db);
+    // 첫 findMany = 매출 윈도우 rows(인기 품목·추이·수락율 원천)
+    expect(soFindMany).toHaveBeenCalled();
+    const where = (soFindMany.mock.calls[0][0] as { where: Record<string, unknown> }).where;
+    expect(eq(where.NOT, EXCLUDE_FREE_TICKET_WHERE.NOT)).toBe(true);
+    expect(where.vendorId).toBe("vd-1");
+    expect(where.OR).toBeDefined(); // 귀속일 윈도우 조건 보존
+  });
 });
