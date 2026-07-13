@@ -14,6 +14,7 @@ import type { PhotoSpace } from "@prisma/client";
 import type { FeatureCategoryKey } from "@/lib/features";
 import type { BedTypeKey } from "@/lib/bedding";
 import RatePeriodEditor, { type RatePeriodInitial } from "./rate-period-editor";
+import PremiumDaysEditor from "./premium-days-editor";
 import VillaActions from "./villa-actions";
 import ForceSellableAction from "./force-sellable-action";
 import DetailTabs from "./detail-tabs";
@@ -189,6 +190,9 @@ export default async function VillaDetailPage({
         supplierCostVnd: true, marginType: true, marginValue: true, salePriceVnd: true, salePriceKrw: true,
         // ADR-0031 소비자 직판가 (운영자 전용 — showFinance 게이트 안, 누수 아님)
         consumerMarginType: true, consumerMarginValue: true, consumerSalePriceVnd: true, consumerSalePriceKrw: true,
+        // ADR-0042 프리미엄일 컬럼 (운영자 전용 — showFinance 게이트 안, 마진 비공개 등급)
+        premiumSupplierCostVnd: true, premiumSalePriceVnd: true, premiumSalePriceKrw: true,
+        premiumConsumerSalePriceVnd: true, premiumConsumerSalePriceKrw: true,
       },
     });
     // ADR-0031 — 소비자가 필드 매핑(null=빈값 → 편집기에서 Net 폴백 표기)
@@ -198,6 +202,25 @@ export default async function VillaDetailPage({
       consumerSalePriceVnd: r.consumerSalePriceVnd != null ? r.consumerSalePriceVnd.toString() : "",
       consumerSalePriceKrw: r.consumerSalePriceKrw ?? 0,
     });
+    // ADR-0042 — 프리미엄 컬럼 매핑(null=빈값). 하나라도 값이 있으면 편집기에서 토글 ON으로 로드.
+    //   전체 교체 라우트이므로 기존 값을 반드시 폼에 채워 되돌려 보내야 유실되지 않음.
+    const premiumFields = (r: (typeof rpRows)[number]) => {
+      const hasAny =
+        r.premiumSupplierCostVnd != null ||
+        r.premiumSalePriceVnd != null ||
+        r.premiumSalePriceKrw != null ||
+        r.premiumConsumerSalePriceVnd != null ||
+        r.premiumConsumerSalePriceKrw != null;
+      return {
+        premiumEnabled: hasAny,
+        premiumSupplierCostVnd: r.premiumSupplierCostVnd != null ? r.premiumSupplierCostVnd.toString() : "",
+        premiumSalePriceVnd: r.premiumSalePriceVnd != null ? r.premiumSalePriceVnd.toString() : "",
+        premiumSalePriceKrw: r.premiumSalePriceKrw ?? 0,
+        premiumConsumerSalePriceVnd:
+          r.premiumConsumerSalePriceVnd != null ? r.premiumConsumerSalePriceVnd.toString() : "",
+        premiumConsumerSalePriceKrw: r.premiumConsumerSalePriceKrw ?? 0,
+      };
+    };
     const baseRow = rpRows.find((r) => r.isBase);
     ratePeriodInitial = {
       base: baseRow
@@ -209,6 +232,7 @@ export default async function VillaDetailPage({
             salePriceVnd: baseRow.salePriceVnd.toString(),
             salePriceKrw: baseRow.salePriceKrw,
             ...consumerFields(baseRow),
+            ...premiumFields(baseRow),
             label: baseRow.label ?? "",
           }
         : null,
@@ -224,6 +248,7 @@ export default async function VillaDetailPage({
           salePriceVnd: r.salePriceVnd.toString(),
           salePriceKrw: r.salePriceKrw,
           ...consumerFields(r),
+          ...premiumFields(r),
           label: r.label ?? "",
         })),
     };
@@ -534,6 +559,10 @@ export default async function VillaDetailPage({
               )}
             </CollapsibleCard>
           )}
+
+          {/* 프리미엄 요일 (ADR-0042) — 주말·특정 요일을 프리미엄가로 판정. 가격 아님(비밀 아님)이라
+              전 운영자 노출. 실제 프리미엄 금액은 위 요율표의 "프리미엄 요금" 토글에서 입력. */}
+          <PremiumDaysEditor villaId={villa.id} initialDays={villa.premiumDays} />
 
           {/* 비품 현황 — 관리자 편집 가능 (Batch A). 미니바는 회사표준(#2b)으로 분리 */}
           <AdminAmenitiesEditor

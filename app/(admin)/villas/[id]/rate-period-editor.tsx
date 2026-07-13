@@ -25,6 +25,14 @@ interface RateFields {
   consumerMarginValue: string;
   consumerSalePriceVnd: string;
   consumerSalePriceKrw: number;
+  // ADR-0042 프리미엄일(주말·공휴일) 2단 요금 — 켜면 프리미엄 컬럼 입력, 빈값=평일가 폴백(저장 시 null).
+  //   premiumEnabled는 UI 전용(저장 안 함). 판정(요일/공휴일)은 이 행이 아니라 빌라 premiumDays·공휴일 캘린더.
+  premiumEnabled: boolean;
+  premiumSupplierCostVnd: string;
+  premiumSalePriceVnd: string;
+  premiumSalePriceKrw: number;
+  premiumConsumerSalePriceVnd: string;
+  premiumConsumerSalePriceKrw: number;
   label: string;
 }
 interface PeriodRow extends RateFields {
@@ -76,6 +84,13 @@ const emptyFields = (season: Season): RateFields => ({
   consumerMarginValue: "0", // 기본 0 = Net과 동일(소비자 마크업 미설정)
   consumerSalePriceVnd: "",
   consumerSalePriceKrw: 0,
+  // ADR-0042 — 기본 꺼짐(전 컬럼 미설정=평일가). 켜면 프리미엄 입력칸 노출
+  premiumEnabled: false,
+  premiumSupplierCostVnd: "",
+  premiumSalePriceVnd: "",
+  premiumSalePriceKrw: 0,
+  premiumConsumerSalePriceVnd: "",
+  premiumConsumerSalePriceKrw: 0,
   label: "",
 });
 
@@ -106,13 +121,27 @@ export default function RatePeriodEditor({
     const krw = suggestKrw(saleVnd, fxVndPerKrw);
     const consumerVnd = suggestMarkupVnd(saleVnd, f.consumerMarginType, f.consumerMarginValue);
     const consumerKrw = suggestKrw(consumerVnd, fxVndPerKrw);
-    return {
+    const next: RateFields = {
       ...f,
       salePriceVnd: saleVnd,
       salePriceKrw: krw ?? f.salePriceKrw,
       consumerSalePriceVnd: consumerVnd,
       consumerSalePriceKrw: consumerKrw ?? f.consumerSalePriceKrw,
     };
+    // ADR-0042 §3 — 프리미엄 제안은 "같은 마진 축의 다른 원가 베이스": 행의 marginType/marginValue를
+    //   premiumSupplierCostVnd에 적용해 프리미엄 Net을 파생, 소비자 마진을 프리미엄 Net에 적용해 소비자가 파생.
+    //   프리미엄 원가가 비어 있으면(=평일 폴백) 제안 없음. 켜진 행만 재산출.
+    if (f.premiumEnabled && f.premiumSupplierCostVnd) {
+      const pSaleVnd = suggestMarkupVnd(f.premiumSupplierCostVnd, f.marginType, f.marginValue);
+      const pKrw = suggestKrw(pSaleVnd, fxVndPerKrw);
+      const pConsumerVnd = suggestMarkupVnd(pSaleVnd, f.consumerMarginType, f.consumerMarginValue);
+      const pConsumerKrw = suggestKrw(pConsumerVnd, fxVndPerKrw);
+      next.premiumSalePriceVnd = pSaleVnd;
+      next.premiumSalePriceKrw = pKrw ?? f.premiumSalePriceKrw;
+      next.premiumConsumerSalePriceVnd = pConsumerVnd;
+      next.premiumConsumerSalePriceKrw = pConsumerKrw ?? f.premiumConsumerSalePriceKrw;
+    }
+    return next;
   }
 
   function patchBase(patch: Partial<RateFields>, resuggest = false) {
@@ -163,6 +192,15 @@ export default function RatePeriodEditor({
       consumerMarginValue: f.consumerMarginValue || "0",
       consumerSalePriceVnd: f.consumerSalePriceVnd || null,
       consumerSalePriceKrw: f.consumerSalePriceKrw || null,
+      // ADR-0042 프리미엄일 — 토글 OFF이거나 빈값은 null(평일가 폴백). 켜진 값만 전송.
+      //   전체 교체 라우트라 미전송=null이므로 켜진 칸은 반드시 값 포함(값 유실 방지).
+      premiumSupplierCostVnd: f.premiumEnabled && f.premiumSupplierCostVnd ? f.premiumSupplierCostVnd : null,
+      premiumSalePriceVnd: f.premiumEnabled && f.premiumSalePriceVnd ? f.premiumSalePriceVnd : null,
+      premiumSalePriceKrw: f.premiumEnabled && f.premiumSalePriceKrw ? f.premiumSalePriceKrw : null,
+      premiumConsumerSalePriceVnd:
+        f.premiumEnabled && f.premiumConsumerSalePriceVnd ? f.premiumConsumerSalePriceVnd : null,
+      premiumConsumerSalePriceKrw:
+        f.premiumEnabled && f.premiumConsumerSalePriceKrw ? f.premiumConsumerSalePriceKrw : null,
       label: f.label.trim() || null,
     });
     const body = {
@@ -455,6 +493,107 @@ function RateFieldsRow({
         </Field>
       </div>
       <p className="text-[10px] text-slate-500 mt-2">{tr("consumerHint")}</p>
+    </div>
+
+    {/* ADR-0042 — 프리미엄일(주말·공휴일) 2단 요금. 켜면 프리미엄 원가·Net·소비자가 입력.
+        비운 칸은 평일가로 폴백(무중단). 어느 박이 프리미엄인지는 빌라 프리미엄 요일 + 공휴일 캘린더가 결정. */}
+    <div className="rounded-lg border border-fuchsia-500/25 bg-fuchsia-500/[0.04] p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-[10px] font-bold text-fuchsia-300 uppercase tracking-wider">
+          <span className="material-symbols-outlined text-sm">weekend</span>
+          {tr("premiumSection")}
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={fields.premiumEnabled}
+          aria-label={tr("premiumSection")}
+          onClick={() => onPatch({ premiumEnabled: !fields.premiumEnabled }, true)}
+          className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${fields.premiumEnabled ? "bg-fuchsia-500" : "bg-slate-700"}`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${fields.premiumEnabled ? "translate-x-5" : ""}`}
+          />
+        </button>
+      </div>
+      {fields.premiumEnabled && (
+        <div className="mt-3 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {/* 프리미엄 원가 */}
+            <Field label={tr("colPremiumCost")}>
+              <NumInput
+                value={fields.premiumSupplierCostVnd}
+                onChange={(d) => onPatch({ premiumSupplierCostVnd: d }, true)}
+                suffix="₫"
+                ariaLabel={tr("colPremiumCost")}
+              />
+            </Field>
+            {/* 프리미엄 Net 판매가 VND */}
+            <Field label={tr("colPremiumSaleVnd")}>
+              <NumInput
+                value={fields.premiumSalePriceVnd}
+                onChange={(d) => {
+                  const krw = suggestKrw(d, fxVndPerKrw);
+                  const consumerVnd = suggestMarkupVnd(d, fields.consumerMarginType, fields.consumerMarginValue);
+                  const consumerKrw = suggestKrw(consumerVnd, fxVndPerKrw);
+                  onPatch({
+                    premiumSalePriceVnd: d,
+                    ...(krw !== null ? { premiumSalePriceKrw: krw } : {}),
+                    premiumConsumerSalePriceVnd: consumerVnd,
+                    ...(consumerKrw !== null ? { premiumConsumerSalePriceKrw: consumerKrw } : {}),
+                  });
+                }}
+                suffix="₫"
+                ariaLabel={tr("colPremiumSaleVnd")}
+              />
+            </Field>
+            {/* 프리미엄 Net 판매가 KRW */}
+            <Field label={tr("colPremiumSaleKrw")}>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={fields.premiumSalePriceKrw ? `₩${formatThousands(String(fields.premiumSalePriceKrw))}` : "₩0"}
+                onChange={(e) => {
+                  const d = toDigits(e.target.value);
+                  onPatch({ premiumSalePriceKrw: d ? Number.parseInt(d, 10) : 0 });
+                }}
+                aria-label={tr("colPremiumSaleKrw")}
+                className="w-full h-10 bg-slate-900 border border-slate-700 rounded px-3 text-right text-xs font-bold text-slate-100 tabular-nums"
+              />
+            </Field>
+            {/* 프리미엄 소비자가 VND */}
+            <Field label={tr("colPremiumConsumerVnd")}>
+              <NumInput
+                value={fields.premiumConsumerSalePriceVnd}
+                onChange={(d) => {
+                  const krw = suggestKrw(d, fxVndPerKrw);
+                  onPatch({
+                    premiumConsumerSalePriceVnd: d,
+                    ...(krw !== null ? { premiumConsumerSalePriceKrw: krw } : {}),
+                  });
+                }}
+                suffix="₫"
+                ariaLabel={tr("colPremiumConsumerVnd")}
+              />
+            </Field>
+            {/* 프리미엄 소비자가 KRW */}
+            <Field label={tr("colPremiumConsumerKrw")}>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={fields.premiumConsumerSalePriceKrw ? `₩${formatThousands(String(fields.premiumConsumerSalePriceKrw))}` : "₩0"}
+                onChange={(e) => {
+                  const d = toDigits(e.target.value);
+                  onPatch({ premiumConsumerSalePriceKrw: d ? Number.parseInt(d, 10) : 0 });
+                }}
+                aria-label={tr("colPremiumConsumerKrw")}
+                className="w-full h-10 bg-slate-900 border border-slate-700 rounded px-3 text-right text-xs font-bold text-slate-100 tabular-nums"
+              />
+            </Field>
+          </div>
+          <p className="text-[10px] text-slate-500">{tr("premiumHint")}</p>
+        </div>
+      )}
     </div>
     </div>
   );

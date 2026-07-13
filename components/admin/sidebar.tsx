@@ -116,6 +116,8 @@ const NAV: NavEntry[] = [
       // 사용자·설정=시스템(isSystemAdmin) — OWNER만 노출 (MANAGER/STAFF 미노출)
       { key: "users", href: "/users", icon: "group", cap: isSystemAdmin },
       { key: "settings", href: "/settings", icon: "settings", cap: isSystemAdmin },
+      // 공휴일 캘린더(ADR-0042) — 프리미엄 박 판정의 공휴일 축. 설정과 동일 등급(isSystemAdmin)
+      { key: "holidays", href: "/settings/holidays", icon: "event", cap: isSystemAdmin },
     ],
   },
 ];
