@@ -632,13 +632,15 @@ export default function CheckoutForm({
       </section>
 
       {/* ③ 부가서비스(게스트 청구) 확인 (ADR-0019 S4, b20) — 미니바 + 확정 부가옵션, 통화별 분리 */}
+      {/* ③+④ 나란히 배치(lg 2열) — 카드 내용이 좌측 절반만 쓰던 여백 낭비 제거(테오 피드백 2026-07-13) */}
+      <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
       <section className="bg-admin-card border border-slate-800 rounded-xl p-6 shadow-sm space-y-5">
         <h3 className="text-xl font-bold flex items-center gap-2 whitespace-nowrap text-white">
           <span className="material-symbols-outlined text-emerald-400">receipt_long</span>
           {t("guestBillTitle")}
         </h3>
 
-        <div className="max-w-xl space-y-4">
+        <div className="space-y-4">
           {/* 미니바 소비 합계(실시간 미리보기) */}
           <div className="flex justify-between items-center text-sm border-b border-slate-800 pb-3">
             <span className="text-slate-400">{t("guestBillMinibar")}</span>
@@ -750,7 +752,7 @@ export default function CheckoutForm({
           <span className="material-symbols-outlined text-admin-primary">calculate</span>
           {t("offsetSummaryTitle")}
         </h3>
-        <div className="max-w-xl space-y-3 tabular-nums">
+        <div className="space-y-3 tabular-nums">
           {depositVnd ? (
             <>
               <div className="flex justify-between items-center text-sm">
@@ -814,6 +816,7 @@ export default function CheckoutForm({
           )}
         </div>
       </section>
+      </div>
 
       {/* ⑤ 수납 라인(혼합 수납 + 보증금 상계) + 정산 메모 */}
       <section className="bg-admin-card border border-slate-800 rounded-xl p-6 shadow-sm space-y-5">
