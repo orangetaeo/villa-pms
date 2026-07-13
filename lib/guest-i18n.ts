@@ -220,6 +220,37 @@ export interface GuestLabels {
     BARBER: string;
     FRUIT: string;
   };
+  // 정산 내역(영수증) — /g/[token]/receipt (T-guest-settlement-receipt). 체크아웃 후 이용 금액·보증금 환불 확인.
+  receipt: {
+    entryTitle: string; // 진입점 카드 제목
+    entryHint: string; // 진입점 보조 문구
+    entryCta: string; // 진입점 버튼 라벨 "정산 내역(영수증) 보기"
+    pageTitle: string; // 페이지 제목
+    pageSubtitle: string; // 페이지 부제
+    reservationTitle: string; // 예약 요약 섹션 제목
+    guestLabel: string; // 예약자 라벨
+    minibarTitle: string; // 미니바 이용 내역 섹션
+    minibarEmpty: string; // 이용 미니바 없음
+    qtyUnit: (n: number) => string; // 수량 표기 "N개"
+    serviceTitle: string; // 부가서비스 내역 섹션
+    serviceEmpty: string; // 이용 부가서비스 없음
+    usageTitle: string; // 총 이용 금액 섹션
+    usageApprox: (v: string) => string; // 환산 합계 "≈ {v}"
+    depositTitle: string; // 보증금 정산 섹션
+    depositReceived: string; // 수취 보증금
+    depositOffset: string; // 보증금 상계
+    damageDeduct: string; // 파손 차감
+    totalDeduct: string; // 차감 총액(구 데이터)
+    refund: string; // 환불액
+    paymentTitle: string; // 결제 내역 섹션
+    paidLabel: string; // 수납(구 데이터 폴백 라벨)
+    methodCash: string; // 현금
+    methodBank: string; // 계좌이체
+    methodOther: string; // 기타
+    methodDeposit: string; // 보증금 차감(수납 라인)
+    settledAtLabel: string; // 정산 일시
+    note: string; // 하단 안내
+  };
   footerNote: string;
 }
 
@@ -430,6 +461,36 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       BARBER: "이발",
       FRUIT: "과일",
     },
+    receipt: {
+      entryTitle: "정산 내역",
+      entryHint: "체크아웃 정산이 완료되었습니다. 이용 금액과 보증금 환불 내역을 확인하세요.",
+      entryCta: "정산 내역(영수증) 보기",
+      pageTitle: "정산 내역",
+      pageSubtitle: "체크아웃 정산 결과입니다.",
+      reservationTitle: "예약 정보",
+      guestLabel: "예약자",
+      minibarTitle: "미니바 이용 내역",
+      minibarEmpty: "이용하신 미니바가 없습니다.",
+      qtyUnit: (n) => `${n}개`,
+      serviceTitle: "부가서비스 내역",
+      serviceEmpty: "이용하신 부가서비스가 없습니다.",
+      usageTitle: "총 이용 금액",
+      usageApprox: (v) => `환산 합계 ≈ ${v}`,
+      depositTitle: "보증금 정산",
+      depositReceived: "수취 보증금",
+      depositOffset: "보증금 상계",
+      damageDeduct: "파손 차감",
+      totalDeduct: "차감 총액",
+      refund: "환불액",
+      paymentTitle: "결제 내역",
+      paidLabel: "수납",
+      methodCash: "현금",
+      methodBank: "계좌이체",
+      methodOther: "기타",
+      methodDeposit: "보증금 차감",
+      settledAtLabel: "정산 일시",
+      note: "본 내역은 체크아웃 시점의 정산 결과입니다. 문의는 예약하신 여행사로 연락해 주세요.",
+    },
     footerNote: "문의사항은 예약하신 여행사로 연락해 주세요.",
   },
 
@@ -630,6 +691,36 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       MASSAGE: "Massage",
       BARBER: "Barber",
       FRUIT: "Fruit",
+    },
+    receipt: {
+      entryTitle: "Settlement receipt",
+      entryHint: "Your check-out settlement is complete. Review your charges and deposit refund.",
+      entryCta: "View settlement receipt",
+      pageTitle: "Settlement receipt",
+      pageSubtitle: "Your check-out settlement results.",
+      reservationTitle: "Reservation",
+      guestLabel: "Guest",
+      minibarTitle: "Minibar usage",
+      minibarEmpty: "No minibar items used.",
+      qtyUnit: (n) => `${n}`,
+      serviceTitle: "Add-on services",
+      serviceEmpty: "No add-on services used.",
+      usageTitle: "Total charges",
+      usageApprox: (v) => `Converted total ≈ ${v}`,
+      depositTitle: "Deposit settlement",
+      depositReceived: "Deposit received",
+      depositOffset: "Applied to charges",
+      damageDeduct: "Damage deduction",
+      totalDeduct: "Total deducted",
+      refund: "Refund",
+      paymentTitle: "Payment",
+      paidLabel: "Paid",
+      methodCash: "Cash",
+      methodBank: "Bank transfer",
+      methodOther: "Other",
+      methodDeposit: "From deposit",
+      settledAtLabel: "Settled at",
+      note: "This is the settlement result at check-out. For inquiries, please contact your travel agency.",
     },
     footerNote: "For inquiries, please contact your travel agency.",
   },
@@ -832,6 +923,36 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       BARBER: "Барбер",
       FRUIT: "Фрукты",
     },
+    receipt: {
+      entryTitle: "Итоговый расчёт",
+      entryHint: "Расчёт при выезде завершён. Проверьте суммы и возврат депозита.",
+      entryCta: "Открыть итоговый расчёт",
+      pageTitle: "Итоговый расчёт",
+      pageSubtitle: "Результаты расчёта при выезде.",
+      reservationTitle: "Бронирование",
+      guestLabel: "Гость",
+      minibarTitle: "Мини-бар",
+      minibarEmpty: "Мини-бар не использовался.",
+      qtyUnit: (n) => `${n}`,
+      serviceTitle: "Дополнительные услуги",
+      serviceEmpty: "Дополнительные услуги не использовались.",
+      usageTitle: "Итого к оплате",
+      usageApprox: (v) => `Итого в пересчёте ≈ ${v}`,
+      depositTitle: "Расчёт депозита",
+      depositReceived: "Внесённый депозит",
+      depositOffset: "Зачтено в счёт оплаты",
+      damageDeduct: "Удержание за ущерб",
+      totalDeduct: "Всего удержано",
+      refund: "Возврат",
+      paymentTitle: "Оплата",
+      paidLabel: "Оплачено",
+      methodCash: "Наличные",
+      methodBank: "Банковский перевод",
+      methodOther: "Другое",
+      methodDeposit: "Из депозита",
+      settledAtLabel: "Дата расчёта",
+      note: "Это результат расчёта на момент выезда. По вопросам обращайтесь в ваше турагентство.",
+    },
     footerNote: "По вопросам обращайтесь в ваше турагентство.",
   },
 
@@ -1033,6 +1154,36 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       BARBER: "理发",
       FRUIT: "水果",
     },
+    receipt: {
+      entryTitle: "结算明细",
+      entryHint: "退房结算已完成。请查看消费金额与押金退还明细。",
+      entryCta: "查看结算明细（收据）",
+      pageTitle: "结算明细",
+      pageSubtitle: "退房结算结果。",
+      reservationTitle: "预订信息",
+      guestLabel: "预订人",
+      minibarTitle: "迷你吧消费",
+      minibarEmpty: "未使用迷你吧。",
+      qtyUnit: (n) => `${n}`,
+      serviceTitle: "附加服务明细",
+      serviceEmpty: "未使用附加服务。",
+      usageTitle: "消费总额",
+      usageApprox: (v) => `折算合计 ≈ ${v}`,
+      depositTitle: "押金结算",
+      depositReceived: "已收押金",
+      depositOffset: "抵扣消费",
+      damageDeduct: "损坏扣除",
+      totalDeduct: "扣除总额",
+      refund: "退款",
+      paymentTitle: "支付明细",
+      paidLabel: "收款",
+      methodCash: "现金",
+      methodBank: "银行转账",
+      methodOther: "其他",
+      methodDeposit: "押金抵扣",
+      settledAtLabel: "结算时间",
+      note: "本明细为退房时点的结算结果。如有疑问，请联系您预订的旅行社。",
+    },
     footerNote: "如有疑问，请联系您预订的旅行社。",
   },
 
@@ -1233,6 +1384,36 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       MASSAGE: "Massage",
       BARBER: "Cắt tóc",
       FRUIT: "Trái cây",
+    },
+    receipt: {
+      entryTitle: "Chi tiết quyết toán",
+      entryHint: "Quyết toán khi trả phòng đã hoàn tất. Xem chi phí sử dụng và hoàn tiền đặt cọc.",
+      entryCta: "Xem chi tiết quyết toán (hóa đơn)",
+      pageTitle: "Chi tiết quyết toán",
+      pageSubtitle: "Kết quả quyết toán khi trả phòng.",
+      reservationTitle: "Thông tin đặt phòng",
+      guestLabel: "Người đặt",
+      minibarTitle: "Minibar đã dùng",
+      minibarEmpty: "Không sử dụng minibar.",
+      qtyUnit: (n) => `${n}`,
+      serviceTitle: "Dịch vụ bổ sung",
+      serviceEmpty: "Không sử dụng dịch vụ bổ sung.",
+      usageTitle: "Tổng chi phí",
+      usageApprox: (v) => `Tổng quy đổi ≈ ${v}`,
+      depositTitle: "Quyết toán đặt cọc",
+      depositReceived: "Tiền cọc đã nhận",
+      depositOffset: "Cấn trừ vào chi phí",
+      damageDeduct: "Khấu trừ hư hỏng",
+      totalDeduct: "Tổng khấu trừ",
+      refund: "Hoàn lại",
+      paymentTitle: "Thanh toán",
+      paidLabel: "Đã thu",
+      methodCash: "Tiền mặt",
+      methodBank: "Chuyển khoản",
+      methodOther: "Khác",
+      methodDeposit: "Trừ vào tiền cọc",
+      settledAtLabel: "Thời điểm quyết toán",
+      note: "Đây là kết quả quyết toán tại thời điểm trả phòng. Mọi thắc mắc vui lòng liên hệ công ty du lịch của bạn.",
     },
     footerNote: "Mọi thắc mắc vui lòng liên hệ công ty du lịch của bạn.",
   },

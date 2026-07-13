@@ -121,6 +121,8 @@ export interface GuestFlowProps {
   amenityGroups: GuestAmenityGroup[];
   minibar: GuestMinibarView[];
   agreement: GuestAgreementView;
+  /** 정산 내역(영수증) 링크 — 체크아웃 완료 시에만 서버가 채움. null=미노출(T-guest-settlement-receipt). */
+  receiptHref?: string | null;
 }
 
 /** 하단 "오늘 환율 기준" 환산 — 언어 모국통화 1개. vi거나 API 장애 시 null(VND만 표기). */
@@ -154,4 +156,6 @@ export interface GuestOrdersProps {
   contactKakaoUrl?: string | null;
   /** 티켓 문의 전화번호(AppSetting CONTACT_PHONE). 없으면 버튼 미노출 */
   contactPhone?: string | null;
+  /** 정산 내역(영수증) 링크 — 체크아웃 완료 시에만 서버가 채움. null=미노출(T-guest-settlement-receipt). */
+  receiptHref?: string | null;
 }
