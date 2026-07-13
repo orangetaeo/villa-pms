@@ -244,6 +244,7 @@ export interface GuestLabels {
     refund: string; // 환불액
     paymentTitle: string; // 결제 내역 섹션
     paidLabel: string; // 수납(구 데이터 폴백 라벨)
+    outstandingLabel: string; // 미수납 잔액(청구가 결제로 다 안 채워진 구 데이터)
     methodCash: string; // 현금
     methodBank: string; // 계좌이체
     methodOther: string; // 기타
@@ -484,6 +485,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       refund: "환불액",
       paymentTitle: "결제 내역",
       paidLabel: "수납",
+      outstandingLabel: "미수납 잔액",
       methodCash: "현금",
       methodBank: "계좌이체",
       methodOther: "기타",
@@ -715,6 +717,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       refund: "Refund",
       paymentTitle: "Payment",
       paidLabel: "Paid",
+      outstandingLabel: "Outstanding balance",
       methodCash: "Cash",
       methodBank: "Bank transfer",
       methodOther: "Other",
@@ -946,6 +949,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       refund: "Возврат",
       paymentTitle: "Оплата",
       paidLabel: "Оплачено",
+      outstandingLabel: "Остаток к оплате",
       methodCash: "Наличные",
       methodBank: "Банковский перевод",
       methodOther: "Другое",
@@ -1177,6 +1181,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       refund: "退款",
       paymentTitle: "支付明细",
       paidLabel: "收款",
+      outstandingLabel: "未收余额",
       methodCash: "现金",
       methodBank: "银行转账",
       methodOther: "其他",
@@ -1408,6 +1413,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       refund: "Hoàn lại",
       paymentTitle: "Thanh toán",
       paidLabel: "Đã thu",
+      outstandingLabel: "Số tiền còn thiếu",
       methodCash: "Tiền mặt",
       methodBank: "Chuyển khoản",
       methodOther: "Khác",

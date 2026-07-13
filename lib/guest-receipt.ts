@@ -29,6 +29,8 @@ export interface GuestReceiptServiceLine {
   nameKo: string | null;
   nameI18n: unknown;
   quantity: number;
+  serviceDate: string | null; // 이용일 "YYYY-MM-DD" (테오 요청 2026-07-13)
+  serviceTime: string | null; // 이용 시각 "HH:MM"(비TICKET만 존재)
   priceKrw: number | null; // 판매가(KRW 채널)
   priceVnd: string | null; // 판매가(VND 채널)
   // 선택 옵션 라벨 스냅샷만(원가 없음 — ResolvedSelectedOption엔 costVnd 자체가 없음). page에서 언어 해석.
@@ -73,6 +75,7 @@ export interface GuestReceiptData {
     guestChargeVnd: string | null; // 미니바 + VND옵션 합계(record 캐시)
     guestChargeKrw: number | null; // KRW옵션 합계(record 캐시)
     fxVndPerKrw: number | null; // settlementFx.vndPerKrw — 있으면 환산 합계 표시
+    fxVndPerUsd: number | null; // settlementFx.vndPerUsd — USD 수납 라인 환산(미수납 잔액 계산)
   };
   deposit: GuestReceiptDeposit | null;
   settlement: {
@@ -137,7 +140,7 @@ export async function loadGuestReceipt(
     booking: null,
     minibar: [],
     services: [],
-    usage: { guestChargeVnd: null, guestChargeKrw: null, fxVndPerKrw: null },
+    usage: { guestChargeVnd: null, guestChargeKrw: null, fxVndPerKrw: null, fxVndPerUsd: null },
     deposit: null,
     settlement: {
       lines: [],
@@ -203,12 +206,15 @@ export async function loadGuestReceipt(
       bookingId: t.bookingId,
       status: { in: ["CONFIRMED", "DELIVERED"] },
     },
-    orderBy: { createdAt: "asc" },
+    // 이용일 오름차순(미지정은 뒤로) → 생성순 — 영수증은 이용 시간순이 자연스럽다(테오 요청 2026-07-13)
+    orderBy: [{ serviceDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
     select: {
       id: true,
       type: true,
       catalogItemId: true,
       quantity: true,
+      serviceDate: true,
+      serviceTime: true,
       priceKrw: true,
       priceVnd: true,
       selectedOptions: true,
@@ -233,6 +239,8 @@ export async function loadGuestReceipt(
       nameKo: cat?.nameKo ?? null,
       nameI18n: cat?.nameI18n ?? null,
       quantity: o.quantity,
+      serviceDate: o.serviceDate ? o.serviceDate.toISOString().slice(0, 10) : null,
+      serviceTime: o.serviceTime ?? null,
       priceKrw: o.priceKrw,
       priceVnd: o.priceVnd?.toString() ?? null,
       selectedOptions: parseSelectedOptions(o.selectedOptions),
@@ -271,8 +279,9 @@ export async function loadGuestReceipt(
       }
     : null;
 
-  const fx = record.settlementFx as { vndPerKrw?: number } | null;
+  const fx = record.settlementFx as { vndPerKrw?: number; vndPerUsd?: number } | null;
   const fxVndPerKrw = fx && typeof fx.vndPerKrw === "number" && fx.vndPerKrw > 0 ? fx.vndPerKrw : null;
+  const fxVndPerUsd = fx && typeof fx.vndPerUsd === "number" && fx.vndPerUsd > 0 ? fx.vndPerUsd : null;
 
   return {
     state,
@@ -291,6 +300,7 @@ export async function loadGuestReceipt(
       guestChargeVnd: record.guestChargeVnd?.toString() ?? null,
       guestChargeKrw: record.guestChargeKrw,
       fxVndPerKrw,
+      fxVndPerUsd,
     },
     deposit,
     settlement: {
