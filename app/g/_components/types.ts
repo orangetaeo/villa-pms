@@ -150,4 +150,8 @@ export interface GuestOrdersProps {
   requestedOrders: GuestRequestedOrder[];
   /** 방금 신청 완료(?ordered=1)면 상단 성공 배너 표시 */
   justOrdered?: boolean;
+  /** 티켓 문의 카카오톡 채널 URL(AppSetting CONTACT_KAKAO_URL). 없으면 버튼 미노출 */
+  contactKakaoUrl?: string | null;
+  /** 티켓 문의 전화번호(AppSetting CONTACT_PHONE). 없으면 버튼 미노출 */
+  contactPhone?: string | null;
 }
