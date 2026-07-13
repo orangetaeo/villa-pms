@@ -8,6 +8,7 @@ interface FakeApi {
   getOwnId: () => string;
   sendMessage: ReturnType<typeof vi.fn>;
   getAvatarUrlProfile: ReturnType<typeof vi.fn>;
+  getGroupInfo: ReturnType<typeof vi.fn>;
   listener: {
     on: ReturnType<typeof vi.fn>;
     start: ReturnType<typeof vi.fn>;
@@ -22,6 +23,12 @@ function makeApi(ownId: string): FakeApi {
     sendMessage: vi.fn(async () => ({ message: { msgId: `srv-${ownId}` } })),
     getAvatarUrlProfile: vi.fn(async (zid: string) => ({
       [zid]: { avatar: `https://cdn/avatar-${zid}.jpg` },
+    })),
+    // 그룹 아바타 조회 — gridInfoMap[groupId].{fullAvt(대형), avt}. 그룹 백필/lazy 갱신 경로.
+    getGroupInfo: vi.fn(async (gid: string) => ({
+      gridInfoMap: {
+        [gid]: { fullAvt: `https://cdn/group-full-${gid}.jpg`, avt: `https://cdn/group-${gid}.jpg` },
+      },
     })),
     listener: {
       on: vi.fn(),
@@ -81,8 +88,9 @@ vi.mock("@/lib/audit-log", () => ({ writeAuditLog: vi.fn(async () => {}) }));
 // 소유자별 백필 대상(avatarUrl null) 대화를 반환. owner 스코프·update 호출을 검증.
 type FindManyArg = { where: { ownerAdminId: string; avatarUrl: null } };
 type UpdateArg = { where: { id: string }; data: Record<string, unknown> };
-const backfillTargetsByOwner: Record<string, { id: string; zaloUserId: string }[]> = {};
-const mockConvFindMany = vi.fn<(arg: FindManyArg) => Promise<{ id: string; zaloUserId: string }[]>>(
+type BackfillTarget = { id: string; zaloUserId: string; threadType?: "USER" | "GROUP" };
+const backfillTargetsByOwner: Record<string, BackfillTarget[]> = {};
+const mockConvFindMany = vi.fn<(arg: FindManyArg) => Promise<BackfillTarget[]>>(
   async (arg) => backfillTargetsByOwner[arg.where.ownerAdminId] ?? []
 );
 const mockConvUpdate = vi.fn<(arg: UpdateArg) => Promise<object>>(async () => ({}));
@@ -284,5 +292,44 @@ describe("아바타 백필 트리거 (봇 연결 직후)", () => {
     await connectAllActive();
     await flushBackfill(50);
     expect(mockConvUpdate).not.toHaveBeenCalled();
+  });
+
+  it("GROUP 대화는 개인 프로필 대신 getGroupInfo로 조회해 fullAvt(대형) 우선 저장", async () => {
+    backfillTargetsByOwner["theo"] = [{ id: "grp-1", zaloUserId: "g-1", threadType: "GROUP" }];
+    mockLoadAll.mockResolvedValue([systemCred]);
+    await connectAllActive();
+    await flushBackfill();
+
+    // 그룹은 getGroupInfo 경로 — 개인 프로필 API(getAvatarUrlProfile) 미사용.
+    expect(apisByImei.get("imei-sys")!.getGroupInfo).toHaveBeenCalledWith("g-1");
+    expect(apisByImei.get("imei-sys")!.getAvatarUrlProfile).not.toHaveBeenCalled();
+    const upd = mockConvUpdate.mock.calls.find((c) => c[0].where.id === "grp-1");
+    expect(upd).toBeTruthy();
+    expect(upd![0].data.avatarUrl).toBe("https://cdn/group-full-g-1.jpg");
+    expect(upd![0].data.avatarFetchedAt).toBeInstanceOf(Date);
+  });
+
+  it("GROUP 아바타 fullAvt 없으면 avt 폴백, 둘 다 없으면 fetchedAt만 갱신", async () => {
+    backfillTargetsByOwner["theo"] = [
+      { id: "grp-avt", zaloUserId: "g-avt", threadType: "GROUP" },
+      { id: "grp-none", zaloUserId: "g-none", threadType: "GROUP" },
+    ];
+    mockLoadAll.mockResolvedValue([systemCred]);
+    apisByImei.get("imei-sys")!.getGroupInfo.mockImplementation(async (gid: string) => ({
+      gridInfoMap: {
+        [gid]:
+          gid === "g-avt"
+            ? { avt: `https://cdn/group-${gid}.jpg` } // fullAvt 없음 → avt 폴백
+            : {}, // 아바타 전무 → URL 미교체
+      },
+    }));
+    await connectAllActive();
+    await flushBackfill();
+
+    const updAvt = mockConvUpdate.mock.calls.find((c) => c[0].where.id === "grp-avt");
+    expect(updAvt![0].data.avatarUrl).toBe("https://cdn/group-g-avt.jpg");
+    const updNone = mockConvUpdate.mock.calls.find((c) => c[0].where.id === "grp-none");
+    expect(updNone![0].data.avatarFetchedAt).toBeInstanceOf(Date);
+    expect(updNone![0].data.avatarUrl).toBeUndefined();
   });
 });

@@ -1500,6 +1500,33 @@ export async function fetchAvatarUrl(
 }
 
 /**
+ * 그룹 아바타 URL 조회 (ADR-0010) — best-effort.
+ * 개인 프로필 API(getAvatarUrlProfile)는 그룹 id에 항상 빈 응답이므로 그룹은 이 경로로 조회한다.
+ * zca-js getGroupInfo(groupId) → gridInfoMap[groupId].{ fullAvt(대형), avt }. fullAvt 우선, 없으면 avt.
+ * 실패/미존재면 null. 누수 0(공개 그룹 이미지). credential·멤버 프로필 미반환.
+ */
+export async function fetchGroupAvatarUrl(
+  adminUserId: string,
+  groupId: string
+): Promise<string | null> {
+  try {
+    const api = await getApiForAdmin(adminUserId);
+    if (!api) return null;
+    const res = await api.getGroupInfo(groupId);
+    const info = res?.gridInfoMap?.[groupId];
+    const url = info?.fullAvt || info?.avt;
+    return typeof url === "string" && url.length > 0 ? url : null;
+  } catch (err) {
+    // 그룹 공개 이미지 — 상태/메시지만(credential 0)
+    console.error(
+      "[ZaloPool] 그룹 아바타 조회 실패:",
+      err instanceof Error ? err.message : String(err)
+    );
+    return null;
+  }
+}
+
+/**
  * 수신 시 아바타 lazy 갱신 (ADR-0009 D8.2) — 리스너 외부 fire-and-forget 전용.
  * avatarUrl이 없거나 avatarFetchedAt이 TTL을 넘긴 대화만 1회 조회. 수신 핸들러를 블로킹하지 않는다.
  * 실패는 무시(다음 수신 때 재시도). 캐시 적중이면 zca-js 호출 0.
@@ -1514,7 +1541,7 @@ async function maybeRefreshAvatar(
       where: {
         ownerAdminId_zaloUserId: { ownerAdminId: inst.ownerAdminId, zaloUserId },
       },
-      select: { id: true, avatarUrl: true, avatarFetchedAt: true },
+      select: { id: true, threadType: true, avatarUrl: true, avatarFetchedAt: true },
     });
     if (!conv) return;
     const fresh =
@@ -1523,7 +1550,11 @@ async function maybeRefreshAvatar(
       Date.now() - conv.avatarFetchedAt.getTime() < AVATAR_TTL_MS;
     if (fresh) return; // 캐시 유효 — 조회 스킵
 
-    const url = await fetchAvatarUrl(inst.ownerAdminId, zaloUserId);
+    // GROUP은 개인 프로필 API로는 항상 실패 → getGroupInfo 아바타로 조회(USER는 기존 그대로).
+    const url =
+      conv.threadType === "GROUP"
+        ? await fetchGroupAvatarUrl(inst.ownerAdminId, zaloUserId)
+        : await fetchAvatarUrl(inst.ownerAdminId, zaloUserId);
     // 실패해도 fetchedAt은 갱신해 잦은 재시도를 막는다(URL은 성공 시에만 교체).
     await prisma.zaloConversation.update({
       where: { id: conv.id },
@@ -1608,6 +1639,13 @@ async function maybeRefreshGroupMembers(
     }
     const groupName =
       typeof info.name === "string" && info.name.trim().length > 0 ? info.name : null;
+    // 그룹 아바타 — getGroupInfo를 이미 호출한 김에 함께 저장(추가 API 0). fullAvt(대형) 우선.
+    const groupAvatar =
+      typeof info.fullAvt === "string" && info.fullAvt.length > 0
+        ? info.fullAvt
+        : typeof info.avt === "string" && info.avt.length > 0
+          ? info.avt
+          : null;
 
     await prisma.zaloConversation.update({
       where: { id: conv.id },
@@ -1615,6 +1653,9 @@ async function maybeRefreshGroupMembers(
         groupMembers: members as Prisma.InputJsonValue,
         // 그룹명은 displayName이 비어 있을 때만 보강(수동 지정 보존).
         ...(groupName && !conv.displayName ? { displayName: groupName } : {}),
+        // 아바타는 있을 때만 교체. fetchedAt은 항상 갱신해 maybeRefreshAvatar 재시도 억제.
+        ...(groupAvatar ? { avatarUrl: groupAvatar } : {}),
+        avatarFetchedAt: new Date(),
       },
     });
   } catch (err) {
@@ -1651,13 +1692,17 @@ async function backfillAvatars(inst: ZaloBotInstance): Promise<void> {
       where: { ownerAdminId, avatarUrl: null },
       orderBy: { lastMessageAt: "desc" },
       take: AVATAR_BACKFILL_BATCH,
-      select: { id: true, zaloUserId: true },
+      select: { id: true, zaloUserId: true, threadType: true },
     });
     if (targets.length === 0) return;
 
     for (const conv of targets) {
       try {
-        const url = await fetchAvatarUrl(ownerAdminId, conv.zaloUserId);
+        // GROUP은 그룹 아바타 경로, USER는 개인 프로필 경로.
+        const url =
+          conv.threadType === "GROUP"
+            ? await fetchGroupAvatarUrl(ownerAdminId, conv.zaloUserId)
+            : await fetchAvatarUrl(ownerAdminId, conv.zaloUserId);
         // 실패(비친구·조회 실패)여도 fetchedAt만 갱신해 재시도를 억제(URL은 성공 시에만 교체).
         await prisma.zaloConversation.update({
           where: { id: conv.id },
