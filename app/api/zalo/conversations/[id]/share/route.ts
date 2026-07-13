@@ -16,12 +16,14 @@
 // 발송: getApiForAdmin → zca-js. 봇 미연결·실패는 status=FAILED 기록(500 금지, 영속은 200).
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { ThreadType } from "zca-js";
 import {
   ProposalStatus,
   ZaloCounterpartyType,
   ZaloMessageDirection,
   ZaloMessageSource,
   ZaloMessageStatus,
+  ZaloThreadType,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
@@ -73,6 +75,16 @@ interface ConversationCtx {
   zaloUserId: string;
   userId: string | null;
   counterpartyType: ZaloCounterpartyType;
+  // ADR-0010 S4 — 그룹 대화면 zaloUserId 슬롯에 그룹 id 저장. 발송 시 ThreadType.Group 필요.
+  threadType: ZaloThreadType;
+}
+
+/**
+ * 발송용 zca-js ThreadType 파생 — 그룹 대화(GROUP)면 Group, 1:1은 User.
+ * messages/route.ts와 동일 패턴. 미전달 시 zca-js 기본 User라 그룹 id가 낯선 1:1로 오발송됨(P0).
+ */
+function sendThreadTypeOf(conv: ConversationCtx): ThreadType {
+  return conv.threadType === ZaloThreadType.GROUP ? ThreadType.Group : ThreadType.User;
 }
 
 /** 공유 결과를 ZaloMessage(OUTBOUND·CHAT)로 영속 + lastMessageAt + AuditLog. 본문/금액 미기록. */
@@ -151,7 +163,7 @@ export async function POST(
   // 소유 검증 — 본인(ownerAdminId) 대화만 (ADR-0007 D3.4). 타인/미존재는 404.
   const conversation = await prisma.zaloConversation.findFirst({
     where: { id: conversationId, ownerAdminId: adminUserId },
-    select: { id: true, zaloUserId: true, userId: true, counterpartyType: true },
+    select: { id: true, zaloUserId: true, userId: true, counterpartyType: true, threadType: true },
   });
   if (!conversation) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -261,7 +273,8 @@ async function handlePhoto(
     conv.zaloUserId,
     buffer,
     fileName,
-    captionText
+    captionText,
+    sendThreadTypeOf(conv)
   );
 
   return persistShare(
@@ -328,7 +341,8 @@ async function handleFile(
     conv.zaloUserId,
     buffer,
     displayName as `${string}.${string}`,
-    captionText
+    captionText,
+    sendThreadTypeOf(conv)
   );
 
   // 본문(text)은 파일명(다운로드 표시·증빙). 캡션이 있으면 캡션 우선.
@@ -407,7 +421,12 @@ async function handleProposal(
     },
     baseUrl
   );
-  const send = await sendChatMessageAsAdmin(adminUserId, conv.zaloUserId, text);
+  const send = await sendChatMessageAsAdmin(
+    adminUserId,
+    conv.zaloUserId,
+    text,
+    sendThreadTypeOf(conv)
+  );
   return persistShare(conv.id, adminUserId, "proposal_share", text, [], send, {
     type: "proposal",
     id: proposal.id,
@@ -526,14 +545,15 @@ async function sendVillaShare(
   photoUrl: string | null,
   villaName: string
 ): Promise<NextResponse> {
+  const sendThreadType = sendThreadTypeOf(conv);
   const image = photoUrl ? await loadVillaShareImage(photoUrl) : null;
   let send = image
-    ? await sendChatImageAsAdmin(adminUserId, conv.zaloUserId, image.buffer, image.fileName, text)
-    : await sendChatMessageAsAdmin(adminUserId, conv.zaloUserId, text);
+    ? await sendChatImageAsAdmin(adminUserId, conv.zaloUserId, image.buffer, image.fileName, text, sendThreadType)
+    : await sendChatMessageAsAdmin(adminUserId, conv.zaloUserId, text, sendThreadType);
   let sentWithPhoto = image != null;
   if (image && !send.ok) {
     // 이미지 발송 실패(포맷·용량 등) — 텍스트만으로 1회 재시도. 봇 미연결이면 이것도 실패(기존 FAILED 기록과 동일).
-    send = await sendChatMessageAsAdmin(adminUserId, conv.zaloUserId, text);
+    send = await sendChatMessageAsAdmin(adminUserId, conv.zaloUserId, text, sendThreadType);
     sentWithPhoto = false;
   }
   return persistShare(
@@ -600,7 +620,12 @@ async function handleSettlement(
     itemCount: settlement._count.items,
     status: settlement.status,
   });
-  const send = await sendChatMessageAsAdmin(adminUserId, conv.zaloUserId, text);
+  const send = await sendChatMessageAsAdmin(
+    adminUserId,
+    conv.zaloUserId,
+    text,
+    sendThreadTypeOf(conv)
+  );
   return persistShare(conv.id, adminUserId, "settlement_share", text, [], send, {
     type: "settlement",
     id: settlement.id,
