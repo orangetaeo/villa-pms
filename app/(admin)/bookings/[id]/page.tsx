@@ -13,7 +13,8 @@ import { formatDateTime, formatThousands } from "@/lib/format";
 import { toDateOnlyString } from "@/lib/date-vn";
 import { formatRemainingHours } from "@/lib/booking-stats";
 import { stripOptionCosts } from "@/lib/service-catalog";
-import { whitelistTicketGuests, guestsFromPassportOcr } from "@/lib/ticket-guests";
+import { whitelistTicketGuests } from "@/lib/ticket-guests";
+import { loadCheckinRoster } from "@/lib/checkin-roster";
 import ActionPanel from "./action-panel";
 import PaperDocsSection from "./paper-docs-section";
 import MemoBox from "./memo-box";
@@ -605,6 +606,9 @@ export default async function BookingDetailPage({
     return null;
   };
 
+  // 티켓 주문 폼 이용자 명단 — 운영자 확정본 우선, 없으면 게스트 자동 OCR 잠정본(ADR-0043). 게스트/서버 검증과 동일 원천.
+  const checkedInGuests = await loadCheckinRoster(prisma, booking.id);
+
   return (
     <div className="max-w-7xl mx-auto space-y-8">
       {/* 헤더 (b11) */}
@@ -992,7 +996,7 @@ export default async function BookingDetailPage({
                 nameKo: v.nameKo ?? null,
               }))}
               representativeName={booking.guestName}
-              checkedInGuests={guestsFromPassportOcr(booking.checkInRecord?.passportOcrJson)}
+              checkedInGuests={checkedInGuests}
             />
             </div>
           )}

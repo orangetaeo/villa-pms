@@ -68,6 +68,7 @@ describe("P2-2 — /g 로더 wifiPassword 서명 게이트", () => {
       expiresAt: FUTURE,
       revokedAt: null,
       agreementSignedAt: null,
+      passportPhotoUrls: [],
     });
     const data = await loadGuestCheckin("tok1", NOW);
     expect(data?.alreadySigned).toBe(false);
@@ -83,6 +84,7 @@ describe("P2-2 — /g 로더 wifiPassword 서명 게이트", () => {
       expiresAt: FUTURE,
       revokedAt: null,
       agreementSignedAt: new Date("2026-06-14T10:00:00.000Z"),
+      passportPhotoUrls: [],
     });
     const data = await loadGuestCheckin("tok1", NOW);
     expect(data?.alreadySigned).toBe(true);

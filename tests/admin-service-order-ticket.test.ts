@@ -7,12 +7,15 @@ const bookingFindUnique = vi.fn();
 const catalogFindUnique = vi.fn();
 const soCreate = vi.fn();
 const checkInFindUnique = vi.fn();
+const guestTokenFindUnique = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     booking: { findUnique: (...a: unknown[]) => bookingFindUnique(...a) },
     serviceCatalogItem: { findUnique: (...a: unknown[]) => catalogFindUnique(...a) },
     serviceOrder: { create: (...a: unknown[]) => soCreate(...a) },
     checkInRecord: { findUnique: (...a: unknown[]) => checkInFindUnique(...a) },
+    // 명단 로더(loadCheckinRoster)가 토큰 잠정본도 병렬 조회(ADR-0043) — 확정본 우선이라 여기선 null(폴백 없음).
+    guestCheckinToken: { findUnique: (...a: unknown[]) => guestTokenFindUnique(...a) },
   },
 }));
 
@@ -85,6 +88,7 @@ beforeEach(() => {
   bookingFindUnique.mockResolvedValue({ id: "bk-1", status: "CHECKED_IN", villaId: "v1" });
   catalogFindUnique.mockResolvedValue(ticketItem);
   checkInFindUnique.mockResolvedValue({ passportOcrJson: passportOcr });
+  guestTokenFindUnique.mockResolvedValue({ passportOcrJson: null });
   soCreate.mockResolvedValue({ id: "so-new" });
   catalogParse.mockReturnValue({ variants: [], addons: [], modifiers: [] });
 });

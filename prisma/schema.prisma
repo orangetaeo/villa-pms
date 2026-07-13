@@ -666,6 +666,10 @@ model GuestCheckinToken {
   // 게스트 셀프 여권 사진(동의서 후 단계, ADR-0019 v2 #1) — 인원수만큼, 비공개 증빙(/api/passports).
   //   OCR은 관리자 체크인 단계에서. 관리자 completeCheckIn이 채택(passportPhotoUrls).
   passportPhotoUrls String[] @default([])
+  // 게스트 자동 OCR 잠정본 — PassportOcrData[] 업로드순 누적, 운영자 확정본이 항상 우선. ADR-0043.
+  //   게스트 업로드 즉시 Gemini OCR → 여기에 원자 append. CheckInRecord.passportOcrJson(운영자 확정본)이
+  //   존재하면 그것이 정본이며 이 잠정본은 무시된다(치유=운영자 체크인 확정).
+  passportOcrJson Json?
   createdAt   DateTime  @default(now())
 }
 
