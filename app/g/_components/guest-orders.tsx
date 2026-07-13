@@ -14,7 +14,7 @@ import { guestVndPrice, guestVnd } from "./guest-format";
 import { groupGuestOrders } from "./group-orders";
 import type { GuestOrdersProps, GuestRequestedOrder } from "./types";
 
-export default function GuestOrders({ token, lang, requestedOrders, justOrdered, contactKakaoUrl, contactPhone }: GuestOrdersProps) {
+export default function GuestOrders({ token, lang, requestedOrders, justOrdered, contactKakaoUrl, contactPhone, receiptHref }: GuestOrdersProps) {
   const L = GUEST_LABELS[lang];
   const router = useRouter();
   const suffix = lang === "ko" ? "" : `?lang=${lang}`;
@@ -138,6 +138,20 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered,
       </header>
 
       <main className="flex-grow px-4 py-5 space-y-4 pb-32">
+        {/* 정산 내역(영수증) 진입점 — 체크아웃 완료 시에만(receiptHref) 상단 배너 */}
+        {receiptHref && (
+          <a
+            href={receiptHref}
+            className="flex items-center gap-3 bg-slate-900 text-white rounded-xl p-4 shadow-lg active:scale-[0.98] transition-transform"
+          >
+            <span className="material-symbols-outlined text-teal-300">receipt_long</span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold">{L.receipt.entryTitle}</p>
+              <p className="text-[11px] text-slate-300 leading-snug">{L.receipt.entryHint}</p>
+            </div>
+            <span className="material-symbols-outlined text-slate-400 shrink-0">chevron_right</span>
+          </a>
+        )}
         {/* 신청 직후 성공 배너(ordered=1) — 자동 발주로 담당자에게 바로 전달됨 안내 */}
         {justOrdered && (
           <div className="bg-teal-50 border border-teal-100 rounded-xl p-4 flex gap-3">

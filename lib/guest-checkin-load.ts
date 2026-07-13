@@ -45,6 +45,8 @@ export interface GuestCheckinData {
   state: GuestTokenState;
   bookingId: string;
   alreadySigned: boolean;
+  /** 체크아웃 완료(status=CHECKED_OUT) — 정산 내역(영수증) 진입점 노출 게이트(T-guest-settlement-receipt). */
+  checkedOut: boolean;
   booking: {
     villaName: string;
     complex: string | null;
@@ -135,6 +137,7 @@ export async function loadGuestCheckin(
       state,
       bookingId: t.bookingId,
       alreadySigned: t.agreementSignedAt != null,
+      checkedOut: false,
       booking: null,
       amenities: [],
       minibar: [],
@@ -149,6 +152,7 @@ export async function loadGuestCheckin(
     where: { id: t.bookingId },
     select: {
       id: true,
+      status: true, // 정산 내역 진입점 게이트(checkedOut 파생)
       villaId: true,
       checkIn: true,
       checkOut: true,
@@ -236,6 +240,7 @@ export async function loadGuestCheckin(
     state,
     bookingId: t.bookingId,
     alreadySigned: t.agreementSignedAt != null,
+    checkedOut: booking.status === "CHECKED_OUT",
     booking: {
       villaName: booking.villa.name,
       complex: booking.villa.complex,

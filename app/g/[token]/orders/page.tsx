@@ -113,6 +113,7 @@ export default async function GuestOrdersPage({
         justOrdered={justOrdered}
         contactKakaoUrl={contact.kakaoUrl}
         contactPhone={contact.phone}
+        receiptHref={data.checkedOut ? `/g/${token}/receipt${lang === "ko" ? "" : `?lang=${lang}`}` : null}
       />
     </div>
   );

@@ -101,6 +101,7 @@ export default async function GuestCheckinPage({
         amenityGroups={amenityGroups}
         minibar={minibar}
         agreement={agreement}
+        receiptHref={data.checkedOut ? `/g/${token}/receipt${lang === "ko" ? "" : `?lang=${lang}`}` : null}
       />
     </div>
   );
