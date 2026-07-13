@@ -319,9 +319,41 @@ describe("quoteStayByPeriod — ADR-0042 프리미엄 (요일·공휴일)", () =
       premiumDays: [5, 6],
       holidayDates: [utc("2026-07-10")],
     });
-    // 금액은 완전 동일(컬럼 폴백). 사유 플래그만 표기됨(가격 영향 0).
+    // 금액 완전 동일(컬럼 폴백) + QA P2: premium* 전부 null이면 뱃지 플래그도 미표기(전 박 undefined).
     expect(withFlags.totalSaleVnd).toBe(noPremium.totalSaleVnd);
     expect(withFlags.totalSupplierCostVnd).toBe(noPremium.totalSupplierCostVnd);
+    expect(withFlags.nightly.every((n) => n.premium === undefined)).toBe(true);
+  });
+
+  it("③b (QA P2) 미설정 빌라 — 금·토 박이라도 premium* 전무면 premium undefined (주말 뱃지 소급 노출 차단)", () => {
+    // default premiumDays '{5,6}'로 백필됐지만 프리미엄 가격 0건인 기존 빌라 시나리오.
+    // 07-10(금)·07-11(토)도 프리미엄 값이 없으므로 평일과 완전 동일 — 행 분리·뱃지 없음.
+    const q = quoteStayByPeriod({
+      checkIn: utc("2026-07-10"),
+      checkOut: utc("2026-07-12"),
+      saleCurrency: Currency.VND,
+      base, // premium* 컬럼 전무
+      periods: [],
+      premiumDays: [5, 6],
+    });
+    expect(q.nightly.map((n) => n.premium)).toEqual([undefined, undefined]);
+    expect(q.totalSaleVnd).toBe(1_200_000n + 1_200_000n); // 전부 평일가
+  });
+
+  it("③c (QA P2) 부분 설정 — premiumSupplierCostVnd만 있어도(판매가 null) 원가 웃돈 적용 박은 프리미엄 표기", () => {
+    // 원가 컬럼도 프리미엄 판정에 포함 — premium 뱃지 = "웃돈 또는 프리미엄 원가 적용됨".
+    const costOnly: RatePeriodLike = { ...base, premiumSupplierCostVnd: 1_400_000n };
+    const q = quoteStayByPeriod({
+      checkIn: utc("2026-07-11"), // 토 1박
+      checkOut: utc("2026-07-12"),
+      saleCurrency: Currency.VND,
+      base: costOnly,
+      periods: [],
+      premiumDays: [6],
+    });
+    expect(q.nightly[0].premium).toBe("WEEKDAY_RULE");
+    expect(q.nightly[0].costVnd).toBe(1_400_000n); // 프리미엄 원가 적용
+    expect(q.totalSaleVnd).toBe(1_200_000n); // 판매가는 평일 폴백(설정 안 함)
   });
 
   it("④ 컬럼 단위 폴백 — premiumSalePriceVnd만 설정 시 KRW는 평일가", () => {

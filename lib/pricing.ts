@@ -258,6 +258,22 @@ function resolvePremiumRow(rate: RatePeriodLike): RatePeriodLike {
   };
 }
 
+/**
+ * 이 요금 행에 프리미엄 값이 하나라도 설정돼 있는가 (ADR-0042, QA P2).
+ * 전부 null이면 프리미엄 요일/공휴일이어도 실제 적용될 웃돈이 없다 → 평일과 완전 동일(금액·뱃지).
+ * premiumDays default '{5,6}'로 백필된 미설정 빌라가 주말 뱃지를 소급 노출하는 것을 차단
+ * (계약 기준 2 "기존 빌라 견적 결과 완전 불변"을 표시층까지 보장). 원가 컬럼 포함.
+ */
+function hasAnyPremiumValue(rate: RatePeriodLike): boolean {
+  return (
+    rate.premiumSupplierCostVnd != null ||
+    rate.premiumSalePriceVnd != null ||
+    rate.premiumSalePriceKrw != null ||
+    rate.premiumConsumerSalePriceVnd != null ||
+    rate.premiumConsumerSalePriceKrw != null
+  );
+}
+
 /** 한 요금 행에서 계층에 맞는 박당 VND 판매가 (ADR-0031). CONSUMER는 null이면 Net 폴백. */
 function nightSaleVnd(rate: RatePeriodLike, tier: PriceTier): bigint {
   return tier === "CONSUMER"
@@ -362,11 +378,15 @@ export function quoteStayByPeriod(input: QuoteStayByPeriodInput): StayQuote {
     const date = new Date(input.checkIn.getTime() + i * MS_PER_DAY);
     const rawRate = resolveRatePeriod(date, input.periods, input.base);
     // ADR-0042: 프리미엄 박이면 각 가격 컬럼을 premiumX ?? X로 해소한 유효 행 사용(컬럼 단위 폴백).
+    // ⚠ QA P2: 프리미엄 요일/공휴일이어도 그 행에 premium* 값이 하나도 없으면(미설정 빌라 — default '{5,6}'
+    //   백필) 적용될 웃돈이 없다 → 프리미엄 취급 안 함(금액·뱃지 모두 평일과 동일). 뱃지 의미 =
+    //   "실제 웃돈/프리미엄 원가 적용된 박"으로 명확화(계약 기준 2 표시층까지 보장).
     const reason = premiumReasonFor(date, premiumDaySet, holidaySet);
-    const rate = reason ? resolvePremiumRow(rawRate) : rawRate;
+    const applied = reason !== null && hasAnyPremiumValue(rawRate);
+    const rate = applied ? resolvePremiumRow(rawRate) : rawRate;
 
     const night: NightQuote = { date, season: rate.season, costVnd: rate.supplierCostVnd };
-    if (reason) night.premium = reason;
+    if (applied) night.premium = reason;
     // USD(Phase 2)는 요율표에 판매단가가 없어 sale 칸을 비운다 — 원가만 박별 합산.
     // 계층(ADR-0031): CONSUMER면 소비자가(폴백 Net), 아니면 Net. 원가는 계층 무관 동일.
     const tier: PriceTier = input.priceTier ?? "NET";
