@@ -1,9 +1,13 @@
 "use client";
 
-// 체크아웃 검수 폼 (b4 변환, T3.3) — 미니바 소모 입력(#2b) + 게스트 청구·다통화 수납 +
-// 파손 리포트 + 하단 고정 액션 바 (전액 환불 / 차감 후 환불 승인).
+// 체크아웃 검수 폼 (b4 변환, T3.3) — 파손 리포트(최상단) → 미니바 확인 → 부가서비스 청구 확인 →
+// 가감산 요약(보증금−파손−청구) → 수납 라인(보증금 상계 DEPOSIT 포함) → 하단 액션 바.
+// 재설계(2026-07-13, T-checkout-deposit-offset):
+//   - 보증금이 있으면 청구를 보증금에서 상계(DEPOSIT 수납 라인)하고 잔액만 환불 — 전액수납+별도환불 프로세스 폐기.
+//   - 미니바 이중 계상 제거: 미니바는 게스트 청구로만 1회 계상(보증금 차감 deductionVnd에 합산하지 않음).
+//   - damageFound = 실제 파손일 때만 true, deductionVnd = 파손 차감만.
 // 사진 비교 섹션은 정책 변경(2026-07-10)으로 제거 — 파손 시에만 증빙 사진 입력.
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -44,16 +48,21 @@ export interface ConfirmedServiceOrder {
   priceVnd: string | null;
 }
 
-const SETTLEMENT_METHODS: GuestSettlementMethodValue[] = ["CASH", "BANK_TRANSFER", "OTHER"];
+/** 수납 수단 — 기본 3종 + 보증금 상계(DEPOSIT, VND 전용). DEPOSIT은 보증금 HELD·VND일 때만 사용. */
+type CheckoutSettleMethod = GuestSettlementMethodValue | "DEPOSIT";
+const BASE_METHODS: GuestSettlementMethodValue[] = ["CASH", "BANK_TRANSFER", "OTHER"];
 
 /** 수납 통화(원본 통화 그대로 저장, 환산 저장 금지 — ADR-0003) */
 type SettleCurrency = "VND" | "KRW" | "USD";
 const SETTLE_CURRENCIES: SettleCurrency[] = ["VND", "KRW", "USD"];
 
+/** 자동 제안 보증금 상계 라인의 고정 id — dirty 판정·재계산 대상 식별용. */
+const DEPOSIT_AUTO_ID = "depositAuto";
+
 /** 수납 라인 입력값 — 수단×통화×금액(원본 통화 정수 디지털 문자열). id는 React key·행 조작용. */
 interface SettlementLineInput {
   id: string;
-  method: GuestSettlementMethodValue;
+  method: CheckoutSettleMethod;
   currency: SettleCurrency;
   /** 원본 통화 정수 디지털("500000"). 천단위 표시는 렌더 시 formatThousands. */
   amount: string;
@@ -64,14 +73,17 @@ export default function CheckoutForm({
   minibar,
   depositLabel,
   depositVnd,
+  depositStatus,
   confirmedOrders,
   fx,
 }: {
   bookingId: string;
   minibar: MinibarItem[];
   depositLabel: string | null;
-  /** 보증금이 VND일 때만 — 환불 예정액 계산용 (동 단위 숫자 문자열) */
+  /** 보증금이 VND일 때만 — 환불·상계 계산용 (동 단위 숫자 문자열) */
   depositVnd: string | null;
+  /** 보증금 상태 — HELD(수취)일 때만 보증금 상계(DEPOSIT) 제안·허용. */
+  depositStatus: "NONE" | "HELD" | "REFUNDED" | "PARTIAL_DEDUCTED";
   /** 확정 부가옵션(CONFIRMED|DELIVERED) — 게스트 청구서 합산용. 판매가만. */
   confirmedOrders: ConfirmedServiceOrder[];
   /** 오늘 환율 스냅샷 — 환산 "≈" 표시용. null이면 환산줄 생략(VND만). */
@@ -84,7 +96,7 @@ export default function CheckoutForm({
   const [damageFound, setDamageFound] = useState(false);
   const [damageNote, setDamageNote] = useState("");
   const [damagePhotos, setDamagePhotos] = useState<string[]>([]);
-  const [deduction, setDeduction] = useState(""); // 파손 등 기타 차감 (동 단위 숫자 문자열)
+  const [deduction, setDeduction] = useState(""); // 파손 차감 (동 단위 숫자 문자열)
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,20 +104,27 @@ export default function CheckoutForm({
   const [settlementNote, setSettlementNote] = useState("");
   // 수납 라인(혼합 수납, 2026-07-13) — 각 행 = 수단×통화×금액. 기본 1행(현금·₫·빈 금액). 최대 12행.
   //   실수납이 "현금 ₫ + 계좌이체 ₩"처럼 섞여도 라인으로 각각 기록. 저장은 원본 통화 그대로(ADR-0003).
+  //   보증금 상계는 method=DEPOSIT(VND) 라인으로 표현 — 보증금에서 청구를 차감(잔액만 환불).
   const settleIdSeq = useRef(1);
   const [settleLines, setSettleLines] = useState<SettlementLineInput[]>([
     { id: "sl0", method: "CASH", currency: "VND", amount: "" },
   ]);
+  // 운영자가 자동 제안된 보증금 상계 라인을 직접 수정·삭제하면 이후 자동 재계산 중단(dirty).
+  const depositDirtyRef = useRef(false);
   const addSettleLine = () =>
     setSettleLines((ls) =>
       ls.length >= 12
         ? ls
         : [...ls, { id: `sl${settleIdSeq.current++}`, method: "CASH", currency: "VND", amount: "" }]
     );
-  const removeSettleLine = (id: string) =>
+  const removeSettleLine = (id: string) => {
+    if (id === DEPOSIT_AUTO_ID) depositDirtyRef.current = true; // 자동 상계 라인 삭제 = 수동 개입
     setSettleLines((ls) => (ls.length <= 1 ? ls : ls.filter((l) => l.id !== id)));
-  const updateSettleLine = (id: string, patch: Partial<SettlementLineInput>) =>
+  };
+  const updateSettleLine = (id: string, patch: Partial<SettlementLineInput>) => {
+    if (id === DEPOSIT_AUTO_ID) depositDirtyRef.current = true; // 자동 상계 라인 수정 = 수동 개입
     setSettleLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  };
 
   // ── 미니바 "남은 수량" 입력 (소모 자동계산) ─────────────────────────
   // 운영자는 소모량을 직접 세지 않는다. 현재 "남은 수량(remaining)"만 입력하면
@@ -128,12 +147,12 @@ export default function CheckoutForm({
     return { item: m, remaining, consumed, unit, lineDeduction };
   });
 
-  /** 미니바 차감 합계(BigInt) */
+  /** 미니바 청구 합계(BigInt) — 게스트 청구로만 계상(보증금 차감 아님). */
   const minibarTotal = minibarRows.reduce((sum, r) => sum + r.lineDeduction, 0n);
 
   // ── 게스트 청구서 합산 (ADR-0019 S4) ───────────────────────────
   //   미니바 소비(실시간 미리보기, 단가는 서버 스냅샷이 정본) + 확정 부가옵션(판매가만).
-  //   통화별 분리(ADR-0003): VND/KRW 합산 금지. 보증금 차감은 별개(아래 보증금 정산 섹션).
+  //   통화별 분리(ADR-0003): VND/KRW 합산 금지. 보증금 상계는 아래 수납 라인(DEPOSIT).
   const guestBill = computeGuestBill(
     minibarTotal,
     confirmedOrders.map((o) => ({
@@ -169,9 +188,8 @@ export default function CheckoutForm({
   const damageDeductionVnd =
     damageFound && /^\d+$/.test(deductionDigits) ? BigInt(deductionDigits) : 0n;
   const deductionValid = /^\d+$/.test(deductionDigits) && BigInt(deductionDigits) > 0n;
-
-  // 총 차감액 = 미니바 자동 차감 + 파손 등 기타 차감 (BigInt, float 금지)
-  const totalDeductionVnd = minibarTotal + damageDeductionVnd;
+  // 실제 파손 = 토글 ON + 유효 차감액. 보증금에서 빠지는 파손 차감의 유일한 근거.
+  const hasRealDamage = damageFound && damageDeductionVnd > 0n;
 
   // ── 수납 라인 파싱(혼합 수납) — 통화별 합계 집계(BigInt, float 금지). amount>0 라인만 유효. ─────
   const parsedSettleLines = settleLines.map((l) => {
@@ -180,7 +198,7 @@ export default function CheckoutForm({
     return { ...l, digits, amount, valid: amount > 0n };
   });
   const validSettleLines = parsedSettleLines.filter((l) => l.valid);
-  // 통화별 합계 — 표시(환산·잔여)·저장 비정규화의 소스. VND=BigInt 유지.
+  // 통화별 합계 — 표시(환산·잔여)·저장 비정규화의 소스. VND=BigInt 유지. DEPOSIT 라인도 VND 수납에 포함.
   const settledVndBig = validSettleLines
     .filter((l) => l.currency === "VND")
     .reduce((s, l) => s + l.amount, 0n);
@@ -191,6 +209,12 @@ export default function CheckoutForm({
     .filter((l) => l.currency === "USD")
     .reduce((s, l) => s + Number(l.amount), 0);
   const hasSettledAmount = settledVndBig > 0n || settledKrwNum > 0 || settledUsdNum > 0;
+
+  // 보증금 상계액(ΣDEPOSIT 라인, VND) — 보증금에서 청구를 차감한 총액. 환불 예정액 계산 소스.
+  const depositOffsetVnd = validSettleLines
+    .filter((l) => l.method === "DEPOSIT" && l.currency === "VND")
+    .reduce((s, l) => s + l.amount, 0n);
+  const hasDepositLine = depositOffsetVnd > 0n;
 
   // ── 근사 환산(≈) — 표시 전용. 저장 금액 아님(저장은 원본 통화 그대로, ADR-0003). fx null이면 생략.
   //   통합 환산 총액 = VND 청구 + KRW 청구를 오늘 환율로 VND 환산(합산은 표시용 근사).
@@ -223,47 +247,69 @@ export default function CheckoutForm({
   const remainingKrw = fx ? Math.floor(Number(absRemainingVnd) / fx.vndPerKrw / 1000) * 1000 : 0;
   const remainingUsd = fx ? Math.floor(Number(absRemainingVnd) / fx.vndPerUsd) : 0;
 
-  const canRefundFull = !damageFound && !busy;
-  const canDeduct =
-    damageFound &&
-    deductionValid &&
-    (damageNote.trim().length > 0 || damagePhotos.length > 0) &&
-    !busy;
-  // 미니바만 차감(파손 없음)으로도 "차감 후 환불 승인" 가능
-  const canDeductMinibarOnly =
-    // 보증금 미수취(NONE)여도 허용 — 미니바는 보증금 차감이 아니라 게스트 청구(정산)로 기록되므로
-    // 여기서 막으면 무보증금+미니바 소비 조합의 체크아웃이 불가능해진다(consumer-bugs #5, 서버는 NONE 유지).
-    !damageFound && minibarTotal > 0n && !busy;
-
-  // 환불 예정액 — 보증금 VND일 때만 산출 (BigInt, float 금지)
-  const refundEstimate = (() => {
-    if (!depositVnd) return null;
-    const deposit = BigInt(depositVnd);
-    const left = deposit > totalDeductionVnd ? deposit - totalDeductionVnd : 0n;
-    return `${formatThousands(left)}₫`;
+  // ── 보증금 상계 자동 제안 ─────────────────────────────────────────
+  //   보증금이 HELD·VND일 때만: 청구를 보증금에서 상계하는 DEPOSIT 라인을 프리필.
+  //   제안액 = min(보증금 − 파손차감, 총청구 환산 VND) 을 1만₫ 단위로 내림(끝전 면제, 서버 초과 400 예방).
+  const depositBig = depositVnd ? BigInt(depositVnd) : 0n;
+  const depositHeldVnd = depositStatus === "HELD" && depositVnd != null && depositBig > 0n;
+  const depositAvailForOffset = depositBig > damageDeductionVnd ? depositBig - damageDeductionVnd : 0n;
+  const suggestedDepositOffset = (() => {
+    if (!depositHeldVnd) return 0n;
+    const cap = totalVndEquiv < depositAvailForOffset ? totalVndEquiv : depositAvailForOffset;
+    return truncVnd(cap);
   })();
 
-  /** 미니바 소모 요약 메모 (차감 근거 증빙 — 소모>0 항목만) */
-  const minibarNote = () => {
-    const lines = minibarRows
-      .filter((r) => r.consumed > 0)
-      .map((r) => `${r.item.label} x${r.consumed} = ${formatThousands(r.lineDeduction)}₫`);
-    if (lines.length === 0) return "";
-    return `${t("minibarNotePrefix")} ${lines.join(", ")}`;
-  };
+  // 자동 상계 라인 동기화 — dirty(수동 개입) 전까지 파손·미니바·부가옵션 변경에 맞춰 재계산.
+  useEffect(() => {
+    if (!depositHeldVnd || depositDirtyRef.current) return;
+    setSettleLines((ls) => {
+      const existing = ls.find((l) => l.id === DEPOSIT_AUTO_ID);
+      if (suggestedDepositOffset <= 0n) {
+        return existing ? ls.filter((l) => l.id !== DEPOSIT_AUTO_ID) : ls;
+      }
+      const amountStr = suggestedDepositOffset.toString();
+      if (existing) {
+        if (existing.amount === amountStr && existing.method === "DEPOSIT" && existing.currency === "VND") {
+          return ls; // 변화 없음 — 재렌더 방지
+        }
+        return ls.map((l) =>
+          l.id === DEPOSIT_AUTO_ID
+            ? { ...l, method: "DEPOSIT", currency: "VND", amount: amountStr }
+            : l
+        );
+      }
+      // 상단에 삽입(가장 먼저 보이도록)
+      return [
+        { id: DEPOSIT_AUTO_ID, method: "DEPOSIT", currency: "VND", amount: amountStr },
+        ...ls,
+      ];
+    });
+  }, [depositHeldVnd, suggestedDepositOffset]);
 
-  // 차감이 발생하면(미니바+파손>0) BE 보증금 차감 경로(damageFound) 사용 —
-  // 미니바 소모도 보증금 차감 근거이므로 deductionVnd로 반영(ADR-0003: 소모분 deductionVnd 반영).
-  const hasDeduction = totalDeductionVnd > 0n;
+  // ── 환불 예정액 — 보증금 VND일 때만. 보증금 − 파손차감 − 보증금상계(0 미만 방지). ─────
+  const refundEstimateVnd = (() => {
+    if (!depositVnd) return null;
+    const deducted = damageDeductionVnd + depositOffsetVnd;
+    return depositBig > deducted ? depositBig - deducted : 0n;
+  })();
+  const refundEstimate = refundEstimateVnd != null ? `${formatThousands(refundEstimateVnd)}₫` : null;
+
+  // ── 가감산 요약(최종 결제 판단) — 보증금 − 파손 − 총청구(환산) = 순액. ─────
+  //   양수 → 환불 예정액, 음수 → 추가로 받을 금액. 보증금 없으면 총청구 = 받을 금액.
+  const netSettlementVnd = depositVnd ? depositBig - damageDeductionVnd - totalVndEquiv : -totalVndEquiv;
+  const netAbsVnd = netSettlementVnd < 0n ? -netSettlementVnd : netSettlementVnd;
+
+  const canRefundFull = !damageFound && !hasDepositLine && !busy;
+  const canDeduct =
+    // 파손 토글 ON이면 상세(금액+메모/사진) 완비 필수, 그 후 파손 차감 또는 보증금 상계가 있으면 활성.
+    (!damageFound || (deductionValid && (damageNote.trim().length > 0 || damagePhotos.length > 0))) &&
+    (hasRealDamage || hasDepositLine) &&
+    !busy;
 
   const submit = async () => {
     setBusy(true);
     setError(null);
     try {
-      // 차감 근거 메모 — 파손 메모 + 미니바 소모 요약 결합 (둘 중 하나라도 있으면 전송)
-      const combinedNote = [damageFound && damageNote.trim() ? damageNote.trim() : "", minibarNote()]
-        .filter(Boolean)
-        .join("\n");
       // 미니바 판매 라인 — 소모>0만. 가격은 보내지 않는다(서버가 스냅샷 재계산, 마진 비공개).
       //   "남은 수량(remaining)"을 보내면 서버가 par를 재조회해 소비량을 역산한다(클라 par/소비 신뢰 금지).
       const minibarLines = minibarRows
@@ -276,17 +322,17 @@ export default function CheckoutForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          // 상태 사진은 정책 변경(2026-07-10)으로 미전송 — 파손 시에만 damagePhotoUrls로 증빙.
-          // 보증금에서 차감하는 모든 경로(미니바 소모·파손)는 BE 차감 경로로 통일
-          damageFound: hasDeduction,
-          damageNote: hasDeduction && combinedNote ? combinedNote : undefined,
-          damagePhotoUrls: hasDeduction && damagePhotos.length ? damagePhotos : undefined,
-          deductionVnd: hasDeduction ? totalDeductionVnd.toString() : undefined,
+          // damageFound = 실제 파손일 때만 true. 미니바는 게스트 청구(정산)로만 계상(이중 계상 제거).
+          damageFound: hasRealDamage,
+          damageNote: hasRealDamage && damageNote.trim() ? damageNote.trim() : undefined,
+          damagePhotoUrls: hasRealDamage && damagePhotos.length ? damagePhotos : undefined,
+          // deductionVnd = 파손 차감만(미니바 미포함).
+          deductionVnd: hasRealDamage ? damageDeductionVnd.toString() : undefined,
           // 미니바 품목별 판매 캡처(매출·마진 통계 소스). 0건이면 빈 배열(라인 미생성).
           minibarLines: minibarLines.length ? minibarLines : undefined,
           // 게스트 통합정산 수납(혼합 수납, ADR-0019 S4) — 유효 라인(amount>0)이 1개 이상일 때만 전송.
-          //   lines: 수단×통화×금액(원본 통화 정수 문자열). method=MIXED 전송 금지(서버 파생). 환율 스냅샷은 서버 조회.
-          //   유효 라인이 없으면 settlement 미전송(청구액만 기록·미수납, 기존과 동일).
+          //   lines: 수단×통화×금액(원본 통화 정수 문자열). method=MIXED 전송 금지(서버 파생).
+          //   DEPOSIT(보증금 상계) 라인 포함 가능 — 서버가 VND·보증금 잔여·HELD 여부를 검증.
           settlement:
             validSettleLines.length > 0
               ? {
@@ -316,7 +362,115 @@ export default function CheckoutForm({
 
   return (
     <div className="space-y-10">
-      {/* 미니바 차감 자동계산 (b16) — 소모=비치−남은, 차감액=소모×단가 실시간 */}
+      {/* ① 파손 및 손실 리포트 (최상단, b4 Damage Section) */}
+      <section className="bg-[#7F1D1D]/10 border border-[#7F1D1D]/30 rounded-xl p-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-admin-alert rounded-lg">
+              <span className="material-symbols-outlined text-white">report_problem</span>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-white whitespace-nowrap">{t("damageTitle")}</h3>
+              <p className="text-sm text-[#F87171]">{t("damageDesc")}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 bg-slate-900 p-2 rounded-full border border-slate-700 whitespace-nowrap self-start">
+            <span className="text-sm px-4 font-medium text-slate-400 whitespace-nowrap">{t("damageFound")}</span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only"
+                checked={damageFound}
+                onChange={(e) => setDamageFound(e.target.checked)}
+              />
+              {/* 켜짐 표시를 React 상태(damageFound)가 직접 제어 — peer-checked CSS 의존 제거 */}
+              <span
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                  damageFound ? "bg-admin-primary" : "bg-slate-700"
+                }`}
+              >
+                <span
+                  className={`absolute top-[2px] h-5 w-5 rounded-full border bg-white transition-transform ${
+                    damageFound ? "translate-x-[22px] border-white" : "translate-x-[2px] border-gray-300"
+                  }`}
+                />
+              </span>
+            </label>
+            <span className="text-sm px-4 font-bold text-white whitespace-nowrap">
+              {damageFound ? "ON" : "OFF"}
+            </span>
+          </div>
+        </div>
+
+        {damageFound && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="space-y-3">
+              <p className="text-xs text-slate-400 font-bold tracking-wider whitespace-nowrap">{t("damagePhotos")}</p>
+              <div className="grid grid-cols-2 gap-3">
+                {damagePhotos.map((url, i) => (
+                  <div key={url} className="relative aspect-square rounded-xl overflow-hidden border-2 border-admin-alert/50">
+                    <Image src={url} alt={`${t("damagePhotos")} ${i + 1}`} fill sizes="200px" className="object-cover" />
+                    <button
+                      type="button"
+                      aria-label={t("removePhoto")}
+                      onClick={() => setDamagePhotos((p) => p.filter((u) => u !== url))}
+                      className="absolute top-2 right-2 bg-black/60 p-1.5 rounded-full hover:bg-red-600 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-white text-sm">close</span>
+                    </button>
+                  </div>
+                ))}
+                <label className="aspect-square rounded-xl border-2 border-dashed border-slate-600 flex flex-col items-center justify-center text-slate-500 hover:text-white hover:border-slate-400 transition-all cursor-pointer">
+                  <span className="material-symbols-outlined text-3xl">
+                    {uploading === "damage" ? "hourglass_top" : "add_a_photo"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={uploading !== null}
+                    onChange={(e) => onDamagePhoto(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+              </div>
+            </div>
+            <div className="lg:col-span-2 space-y-6">
+              <div className="space-y-2">
+                <label className="text-xs text-slate-400 font-bold tracking-wider whitespace-nowrap" htmlFor="damageNote">
+                  {t("damageNote")}
+                </label>
+                <textarea
+                  id="damageNote"
+                  value={damageNote}
+                  onChange={(e) => setDamageNote(e.target.value)}
+                  rows={3}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-4 text-white font-medium focus:ring-admin-primary focus:border-admin-primary outline-none"
+                  placeholder={t("damageNotePlaceholder")}
+                />
+              </div>
+              <div className="space-y-2 max-w-sm">
+                <label className="text-xs text-slate-400 font-bold tracking-wider whitespace-nowrap" htmlFor="deduction">
+                  {t("deduction")}
+                </label>
+                <div className="relative">
+                  <input
+                    id="deduction"
+                    type="text"
+                    inputMode="numeric"
+                    value={deduction ? formatThousands(deductionDigits) : ""}
+                    onChange={(e) => setDeduction(e.target.value.replace(/[^\d]/g, ""))}
+                    className="w-full bg-slate-900 border-2 border-admin-alert rounded-lg py-3 px-4 text-red-400 font-bold text-lg focus:ring-admin-alert focus:border-admin-alert outline-none whitespace-nowrap"
+                    placeholder="0"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-red-400 text-sm whitespace-nowrap">VND</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* ② 미니바 확인 (b16) — 소모=비치−남은, 차감액=소모×단가 실시간 */}
       <section className="bg-admin-card rounded-xl border border-slate-800 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between gap-2 px-6 py-4 border-b border-slate-800 bg-slate-800/30">
           <h3 className="text-xl font-bold flex items-center gap-2 whitespace-nowrap text-white">
@@ -477,130 +631,200 @@ export default function CheckoutForm({
         </div>
       </section>
 
-      {/* 게스트 통합 청구서 (ADR-0019 S4, b20 청구서 미니요약) — 미니바 + 확정 부가옵션, 통화별 분리 */}
+      {/* ③ 부가서비스(게스트 청구) 확인 (ADR-0019 S4, b20) — 미니바 + 확정 부가옵션, 통화별 분리 */}
       <section className="bg-admin-card border border-slate-800 rounded-xl p-6 shadow-sm space-y-5">
         <h3 className="text-xl font-bold flex items-center gap-2 whitespace-nowrap text-white">
           <span className="material-symbols-outlined text-emerald-400">receipt_long</span>
           {t("guestBillTitle")}
         </h3>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* 좌: 합산 내역 */}
-          <div className="space-y-4">
-            {/* 미니바 소비 합계(실시간 미리보기) */}
-            <div className="flex justify-between items-center text-sm border-b border-slate-800 pb-3">
-              <span className="text-slate-400">{t("guestBillMinibar")}</span>
-              <span className="font-bold text-slate-200 tabular-nums">
-                {formatThousands(guestBill.minibarVnd)}₫
-              </span>
-            </div>
-
-            {/* 확정 부가옵션 목록 (판매가만) */}
-            <div className="space-y-2">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                {t("guestBillServices")}
-              </p>
-              {confirmedOrders.length === 0 ? (
-                <p className="text-xs text-slate-600">{t("guestBillNoServices")}</p>
-              ) : (
-                <ul className="space-y-1.5">
-                  {confirmedOrders.map((o) => (
-                    <li
-                      key={o.id}
-                      className="flex justify-between items-start gap-3 text-sm"
-                    >
-                      <span className="text-slate-300">
-                        {o.name}
-                        {o.quantity > 1 && (
-                          <span className="text-slate-500"> ×{o.quantity}</span>
-                        )}
-                      </span>
-                      <span className="text-right tabular-nums shrink-0">
-                        {o.priceKrw != null && (
-                          <span className="block text-slate-200 font-semibold">
-                            {formatThousands(o.priceKrw)}원
-                          </span>
-                        )}
-                        {o.priceVnd != null && (
-                          <span className="block text-slate-400">
-                            {formatThousands(o.priceVnd)}₫
-                          </span>
-                        )}
-                        {o.priceKrw == null && o.priceVnd == null && (
-                          <span className="text-slate-600">—</span>
-                        )}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* 총 청구액 — 대표 총액 = 통합 환산(손님에게 받을 최종액). 통화별은 소계로 격하.
-                환산(≈)은 표시용 근사(저장 금액 아님, ADR-0003 — 실제 수납·저장은 원본 통화). */}
-            <div className="border-t border-slate-800 pt-3 space-y-2">
-              {fx ? (
-                <>
-                  {/* 통화별 청구 소계 — 작은 글씨(slate). ₩ 소계는 0원이어도 표시 유지. */}
-                  <div className="flex justify-between items-center text-[13px]">
-                    <span className="text-slate-400">{t("guestBillSubtotalVnd")}</span>
-                    <span className="font-semibold text-slate-300 tabular-nums">
-                      {formatThousands(guestBill.totalVnd)}₫
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-[13px]">
-                    <span className="text-slate-400">{t("guestBillSubtotalKrw")}</span>
-                    <span className="font-semibold text-slate-300 tabular-nums">
-                      {formatThousands(guestBill.totalKrw)}원
-                    </span>
-                  </div>
-                  {/* 대표 총액(강조) — 통합 환산 총액. 미니바 수량 변경 시 실시간 반영. */}
-                  <div className="flex justify-between items-center border-t border-slate-800/60 pt-3">
-                    <span className="font-bold text-white">{t("guestBillGrandTotal")}</span>
-                    <span className="text-right">
-                      <span className="block text-xl font-black text-emerald-400 tabular-nums">
-                        ≈ {formatThousands(totalVndEquiv)}₫
-                      </span>
-                      {(guestBill.totalVnd > 0n || guestBill.totalKrw > 0) && (
-                        <span className="block text-[11px] text-slate-500 tabular-nums">
-                          {formatConverted(totalVndEquiv, "KRW", fx.vndPerKrw)} ·{" "}
-                          {formatConverted(totalVndEquiv, "USD", fx.vndPerUsd)}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {/* 폴백 — 환율 캐시 없음: 통합 환산 불가 → 통화별 총액 두 줄을 대표로(합산 금지). */}
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-white">{t("guestBillTotalVnd")}</span>
-                    <span className="text-lg font-black text-emerald-400 tabular-nums">
-                      {formatThousands(guestBill.totalVnd)}₫
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-white">{t("guestBillTotalKrw")}</span>
-                    <span className="text-lg font-black text-emerald-400 tabular-nums">
-                      {formatThousands(guestBill.totalKrw)}원
-                    </span>
-                  </div>
-                </>
-              )}
-              <p className="text-[11px] text-slate-500 leading-relaxed pt-1">
-                {t("guestBillCurrencyNote")}
-              </p>
-              {fx && (
-                <p className="text-[11px] text-slate-600 leading-relaxed">
-                  {t("fxAsOf", { date: fx.date })}
-                </p>
-              )}
-            </div>
+        <div className="max-w-xl space-y-4">
+          {/* 미니바 소비 합계(실시간 미리보기) */}
+          <div className="flex justify-between items-center text-sm border-b border-slate-800 pb-3">
+            <span className="text-slate-400">{t("guestBillMinibar")}</span>
+            <span className="font-bold text-slate-200 tabular-nums">
+              {formatThousands(guestBill.minibarVnd)}₫
+            </span>
           </div>
 
-          {/* 우: 수납 라인(혼합 수납) + 메모 */}
+          {/* 확정 부가옵션 목록 (판매가만) */}
+          <div className="space-y-2">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              {t("guestBillServices")}
+            </p>
+            {confirmedOrders.length === 0 ? (
+              <p className="text-xs text-slate-600">{t("guestBillNoServices")}</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {confirmedOrders.map((o) => (
+                  <li key={o.id} className="flex justify-between items-start gap-3 text-sm">
+                    <span className="text-slate-300">
+                      {o.name}
+                      {o.quantity > 1 && <span className="text-slate-500"> ×{o.quantity}</span>}
+                    </span>
+                    <span className="text-right tabular-nums shrink-0">
+                      {o.priceKrw != null && (
+                        <span className="block text-slate-200 font-semibold">
+                          {formatThousands(o.priceKrw)}원
+                        </span>
+                      )}
+                      {o.priceVnd != null && (
+                        <span className="block text-slate-400">{formatThousands(o.priceVnd)}₫</span>
+                      )}
+                      {o.priceKrw == null && o.priceVnd == null && (
+                        <span className="text-slate-600">—</span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* 총 청구액 — 대표 총액 = 통합 환산(손님에게 받을 최종액). 통화별은 소계로 격하.
+              환산(≈)은 표시용 근사(저장 금액 아님, ADR-0003 — 실제 수납·저장은 원본 통화). */}
+          <div className="border-t border-slate-800 pt-3 space-y-2">
+            {fx ? (
+              <>
+                {/* 통화별 청구 소계 — 작은 글씨(slate). ₩ 소계는 0원이어도 표시 유지. */}
+                <div className="flex justify-between items-center text-[13px]">
+                  <span className="text-slate-400">{t("guestBillSubtotalVnd")}</span>
+                  <span className="font-semibold text-slate-300 tabular-nums">
+                    {formatThousands(guestBill.totalVnd)}₫
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-[13px]">
+                  <span className="text-slate-400">{t("guestBillSubtotalKrw")}</span>
+                  <span className="font-semibold text-slate-300 tabular-nums">
+                    {formatThousands(guestBill.totalKrw)}원
+                  </span>
+                </div>
+                {/* 대표 총액(강조) — 통합 환산 총액. 미니바 수량 변경 시 실시간 반영. */}
+                <div className="flex justify-between items-center border-t border-slate-800/60 pt-3">
+                  <span className="font-bold text-white">{t("guestBillGrandTotal")}</span>
+                  <span className="text-right">
+                    <span className="block text-xl font-black text-emerald-400 tabular-nums">
+                      ≈ {formatThousands(totalVndEquiv)}₫
+                    </span>
+                    {(guestBill.totalVnd > 0n || guestBill.totalKrw > 0) && (
+                      <span className="block text-[11px] text-slate-500 tabular-nums">
+                        {formatConverted(totalVndEquiv, "KRW", fx.vndPerKrw)} ·{" "}
+                        {formatConverted(totalVndEquiv, "USD", fx.vndPerUsd)}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* 폴백 — 환율 캐시 없음: 통합 환산 불가 → 통화별 총액 두 줄을 대표로(합산 금지). */}
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-white">{t("guestBillTotalVnd")}</span>
+                  <span className="text-lg font-black text-emerald-400 tabular-nums">
+                    {formatThousands(guestBill.totalVnd)}₫
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-white">{t("guestBillTotalKrw")}</span>
+                  <span className="text-lg font-black text-emerald-400 tabular-nums">
+                    {formatThousands(guestBill.totalKrw)}원
+                  </span>
+                </div>
+              </>
+            )}
+            <p className="text-[11px] text-slate-500 leading-relaxed pt-1">
+              {t("guestBillCurrencyNote")}
+            </p>
+            {fx && (
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                {t("fxAsOf", { date: fx.date })}
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ④ 가감산 요약 — 보증금 − 파손 − 총청구(환산) = 최종 (환불 예정 / 추가 청구) */}
+      <section className="bg-admin-card border border-slate-800 rounded-xl p-6 shadow-sm">
+        <h3 className="text-xl font-bold flex items-center gap-2 whitespace-nowrap text-white mb-5">
+          <span className="material-symbols-outlined text-admin-primary">calculate</span>
+          {t("offsetSummaryTitle")}
+        </h3>
+        <div className="max-w-xl space-y-3 tabular-nums">
+          {depositVnd ? (
+            <>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-400">{t("offsetDeposit")}</span>
+                <span className="font-bold text-slate-200">{formatThousands(depositVnd)}₫</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-400">{t("offsetDamage")} (−)</span>
+                <span className={`font-bold ${damageDeductionVnd > 0n ? "text-red-400" : "text-slate-600"}`}>
+                  {formatThousands(damageDeductionVnd)}₫
+                </span>
+              </div>
+              <div className="flex justify-between items-start text-sm">
+                <span className="text-slate-400">{t("offsetCharge")} (−)</span>
+                <span className="text-right">
+                  <span className={`block font-bold ${totalVndEquiv > 0n ? "text-red-400" : "text-slate-600"}`}>
+                    {fx ? "≈ " : ""}
+                    {formatThousands(totalVndEquiv)}₫
+                  </span>
+                </span>
+              </div>
+              <div className="h-px bg-slate-800 my-2" />
+              <div className="flex justify-between items-center">
+                {netSettlementVnd > 0n ? (
+                  <>
+                    <span className="font-bold text-white">{t("offsetRefundLabel")}</span>
+                    <span className="text-2xl font-black text-emerald-400">
+                      {fx ? "≈ " : ""}
+                      {formatThousands(netAbsVnd)}₫
+                    </span>
+                  </>
+                ) : netSettlementVnd < 0n ? (
+                  <>
+                    <span className="font-bold text-white">{t("offsetCollectLabel")}</span>
+                    <span className="text-2xl font-black text-amber-500">
+                      ≈ {formatThousands(netAbsVnd)}₫
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="font-bold text-white">{t("offsetSettledLabel")}</span>
+                    <span className="text-2xl font-black text-slate-300">0₫</span>
+                  </>
+                )}
+              </div>
+            </>
+          ) : (
+            // 보증금 없음 — 총 청구 = 받을 금액으로 단순 표시.
+            <div className="flex justify-between items-center">
+              <span className="font-bold text-white">{t("offsetChargeOnlyLabel")}</span>
+              <span className="text-2xl font-black text-amber-500">
+                {fx ? "≈ " : ""}
+                {formatThousands(totalVndEquiv)}₫
+              </span>
+            </div>
+          )}
+          {fx && (
+            <p className="text-[11px] text-slate-600 leading-relaxed pt-1">
+              {t("fxAsOf", { date: fx.date })}
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* ⑤ 수납 라인(혼합 수납 + 보증금 상계) + 정산 메모 */}
+      <section className="bg-admin-card border border-slate-800 rounded-xl p-6 shadow-sm space-y-5">
+        <h3 className="text-xl font-bold flex items-center gap-2 whitespace-nowrap text-white">
+          <span className="material-symbols-outlined text-emerald-400">payments</span>
+          {t("settledAmountsTitle")}
+        </h3>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* 좌: 수납 라인 */}
           <div className="bg-admin-bg border border-slate-800 rounded-lg p-5 space-y-4 self-start">
-            {/* 수납 라인 — 각 행 [수단][통화][금액]. 현금 ₫ + 계좌이체 ₩ 처럼 혼합 기록. 저장은 원본 통화 그대로. */}
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs font-bold text-slate-400 tracking-wider">{t("settledAmountsTitle")}</p>
@@ -608,56 +832,62 @@ export default function CheckoutForm({
               </div>
 
               <div className="space-y-2">
-                {parsedSettleLines.map((l) => (
-                  <div key={l.id} className="flex items-center gap-2">
-                    <select
-                      aria-label={t("settlementMethod")}
-                      value={l.method}
-                      onChange={(e) =>
-                        updateSettleLine(l.id, { method: e.target.value as GuestSettlementMethodValue })
-                      }
-                      className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-2.5 text-sm text-white focus:ring-admin-primary focus:border-admin-primary outline-none"
-                    >
-                      {SETTLEMENT_METHODS.map((m) => (
-                        <option key={m} value={m}>
-                          {t(`settlementMethods.${m}`)}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      aria-label={t("settlementCurrency")}
-                      value={l.currency}
-                      onChange={(e) =>
-                        updateSettleLine(l.id, { currency: e.target.value as SettleCurrency })
-                      }
-                      className="w-[76px] shrink-0 bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-2 text-sm text-white focus:ring-admin-primary focus:border-admin-primary outline-none"
-                    >
-                      {SETTLE_CURRENCIES.map((c) => (
-                        <option key={c} value={c}>
-                          {c === "VND" ? "₫ VND" : c === "KRW" ? "₩ KRW" : "$ USD"}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      aria-label={t("settlementAmount")}
-                      value={l.digits ? formatThousands(l.digits) : ""}
-                      onChange={(e) => updateSettleLine(l.id, { amount: e.target.value.replace(/[^\d]/g, "") })}
-                      className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-3 text-sm text-white text-right tabular-nums focus:ring-admin-primary focus:border-admin-primary outline-none"
-                      placeholder="0"
-                    />
-                    <button
-                      type="button"
-                      aria-label={t("settlementLineRemove")}
-                      onClick={() => removeSettleLine(l.id)}
-                      disabled={settleLines.length <= 1}
-                      className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:hover:text-slate-500 disabled:hover:bg-transparent transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">close</span>
-                    </button>
-                  </div>
-                ))}
+                {parsedSettleLines.map((l) => {
+                  const isDeposit = l.method === "DEPOSIT";
+                  const methodOptions: CheckoutSettleMethod[] =
+                    depositHeldVnd || isDeposit ? [...BASE_METHODS, "DEPOSIT"] : BASE_METHODS;
+                  return (
+                    <div key={l.id} className="flex items-center gap-2">
+                      <select
+                        aria-label={t("settlementMethod")}
+                        value={l.method}
+                        onChange={(e) => {
+                          const m = e.target.value as CheckoutSettleMethod;
+                          // DEPOSIT 선택 시 통화 VND 고정.
+                          updateSettleLine(l.id, m === "DEPOSIT" ? { method: m, currency: "VND" } : { method: m });
+                        }}
+                        className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-2.5 text-sm text-white focus:ring-admin-primary focus:border-admin-primary outline-none"
+                      >
+                        {methodOptions.map((m) => (
+                          <option key={m} value={m}>
+                            {t(`settlementMethods.${m}`)}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        aria-label={t("settlementCurrency")}
+                        value={isDeposit ? "VND" : l.currency}
+                        disabled={isDeposit}
+                        onChange={(e) => updateSettleLine(l.id, { currency: e.target.value as SettleCurrency })}
+                        className="w-[76px] shrink-0 bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-2 text-sm text-white focus:ring-admin-primary focus:border-admin-primary outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {SETTLE_CURRENCIES.map((c) => (
+                          <option key={c} value={c}>
+                            {c === "VND" ? "₫ VND" : c === "KRW" ? "₩ KRW" : "$ USD"}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        aria-label={t("settlementAmount")}
+                        value={l.digits ? formatThousands(l.digits) : ""}
+                        onChange={(e) => updateSettleLine(l.id, { amount: e.target.value.replace(/[^\d]/g, "") })}
+                        className="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded-lg py-2.5 px-3 text-sm text-white text-right tabular-nums focus:ring-admin-primary focus:border-admin-primary outline-none"
+                        placeholder="0"
+                      />
+                      <button
+                        type="button"
+                        aria-label={t("settlementLineRemove")}
+                        onClick={() => removeSettleLine(l.id)}
+                        disabled={settleLines.length <= 1}
+                        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-30 disabled:hover:text-slate-500 disabled:hover:bg-transparent transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">close</span>
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
 
               <button
@@ -671,6 +901,9 @@ export default function CheckoutForm({
               </button>
 
               <p className="text-[11px] text-slate-500 leading-relaxed">{t("settlementOptionalNote")}</p>
+              {depositHeldVnd && (
+                <p className="text-[11px] text-admin-primary leading-relaxed">{t("depositOffsetHint")}</p>
+              )}
 
               {/* 수납 잔여 자동 가감산 — 통화별 실시간 환산(≈). 소프트 안내(제출 차단 없음). */}
               {billHasBill && (
@@ -710,10 +943,7 @@ export default function CheckoutForm({
             </div>
 
             <div className="space-y-2">
-              <label
-                className="text-xs font-bold text-slate-400 tracking-wider"
-                htmlFor="settlementNote"
-              >
+              <label className="text-xs font-bold text-slate-400 tracking-wider" htmlFor="settlementNote">
                 {t("settlementNote")}
               </label>
               <textarea
@@ -727,146 +957,40 @@ export default function CheckoutForm({
               />
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* 파손 및 손실 리포트 (b4 Damage Section) */}
-      <section className="bg-[#7F1D1D]/10 border border-[#7F1D1D]/30 rounded-xl p-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-admin-alert rounded-lg">
-              <span className="material-symbols-outlined text-white">report_problem</span>
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-white whitespace-nowrap">{t("damageTitle")}</h3>
-              <p className="text-sm text-[#F87171]">{t("damageDesc")}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4 bg-slate-900 p-2 rounded-full border border-slate-700 whitespace-nowrap self-start">
-            <span className="text-sm px-4 font-medium text-slate-400 whitespace-nowrap">{t("damageFound")}</span>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                className="sr-only"
-                checked={damageFound}
-                onChange={(e) => setDamageFound(e.target.checked)}
-              />
-              {/* 켜짐 표시를 React 상태(damageFound)가 직접 제어 — peer-checked CSS 의존 제거 */}
-              <span
-                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                  damageFound ? "bg-admin-primary" : "bg-slate-700"
-                }`}
-              >
-                <span
-                  className={`absolute top-[2px] h-5 w-5 rounded-full border bg-white transition-transform ${
-                    damageFound ? "translate-x-[22px] border-white" : "translate-x-[2px] border-gray-300"
-                  }`}
-                />
-              </span>
-            </label>
-            <span className="text-sm px-4 font-bold text-white whitespace-nowrap">
-              {damageFound ? "ON" : "OFF"}
-            </span>
-          </div>
-        </div>
-
-        {damageFound && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="space-y-3">
-              <p className="text-xs text-slate-400 font-bold tracking-wider whitespace-nowrap">{t("damagePhotos")}</p>
-              <div className="grid grid-cols-2 gap-3">
-                {damagePhotos.map((url, i) => (
-                  <div key={url} className="relative aspect-square rounded-xl overflow-hidden border-2 border-admin-alert/50">
-                    <Image src={url} alt={`${t("damagePhotos")} ${i + 1}`} fill sizes="200px" className="object-cover" />
-                    <button
-                      type="button"
-                      aria-label={t("removePhoto")}
-                      onClick={() => setDamagePhotos((p) => p.filter((u) => u !== url))}
-                      className="absolute top-2 right-2 bg-black/60 p-1.5 rounded-full hover:bg-red-600 transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-white text-sm">close</span>
-                    </button>
+          {/* 우: 보증금 정산 상세 — 원천 보증금 − 파손 차감 − 보증금 상계 = 환불 예정액 */}
+          {depositVnd && (
+            <div className="bg-admin-bg border border-slate-800 rounded-lg p-5 self-start">
+              <h5 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">
+                {t("settlementTitle")}
+              </h5>
+              <div className="space-y-3 tabular-nums">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-400">{t("settlementDeposit")}</span>
+                  <span className="font-bold text-slate-200">{formatThousands(depositVnd)}₫</span>
+                </div>
+                {damageDeductionVnd > 0n && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-400">{t("settlementDamage")} (−)</span>
+                    <span className="font-bold text-red-400">{formatThousands(damageDeductionVnd)}₫</span>
                   </div>
-                ))}
-                <label className="aspect-square rounded-xl border-2 border-dashed border-slate-600 flex flex-col items-center justify-center text-slate-500 hover:text-white hover:border-slate-400 transition-all cursor-pointer">
-                  <span className="material-symbols-outlined text-3xl">
-                    {uploading === "damage" ? "hourglass_top" : "add_a_photo"}
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    disabled={uploading !== null}
-                    onChange={(e) => onDamagePhoto(e.target.files?.[0] ?? null)}
-                  />
-                </label>
-              </div>
-            </div>
-            <div className="lg:col-span-2 space-y-6">
-              <div className="space-y-2">
-                <label className="text-xs text-slate-400 font-bold tracking-wider whitespace-nowrap" htmlFor="damageNote">
-                  {t("damageNote")}
-                </label>
-                <textarea
-                  id="damageNote"
-                  value={damageNote}
-                  onChange={(e) => setDamageNote(e.target.value)}
-                  rows={3}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-lg p-4 text-white font-medium focus:ring-admin-primary focus:border-admin-primary outline-none"
-                  placeholder={t("damageNotePlaceholder")}
-                />
-              </div>
-              <div className="space-y-2 max-w-sm">
-                <label className="text-xs text-slate-400 font-bold tracking-wider whitespace-nowrap" htmlFor="deduction">
-                  {t("deduction")}
-                </label>
-                <div className="relative">
-                  <input
-                    id="deduction"
-                    type="text"
-                    inputMode="numeric"
-                    value={deduction ? formatThousands(deductionDigits) : ""}
-                    onChange={(e) => setDeduction(e.target.value.replace(/[^\d]/g, ""))}
-                    className="w-full bg-slate-900 border-2 border-admin-alert rounded-lg py-3 px-4 text-red-400 font-bold text-lg focus:ring-admin-alert focus:border-admin-alert outline-none whitespace-nowrap"
-                    placeholder="0"
-                  />
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-red-400 text-sm whitespace-nowrap">VND</span>
+                )}
+                {depositOffsetVnd > 0n && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-400">{t("settlementOffset")} (−)</span>
+                    <span className="font-bold text-red-400">{formatThousands(depositOffsetVnd)}₫</span>
+                  </div>
+                )}
+                <div className="h-px bg-slate-800 my-2" />
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-white">{t("settlementRefund")}</span>
+                  <span className="text-lg font-black text-emerald-400">{refundEstimate}</span>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </section>
-
-      {/* 보증금 정산 상세 (b16) — 보증금 − 차감 합계 = 환불 예정액 자동 */}
-      {depositVnd && (
-        <section className="bg-admin-card border border-slate-800 rounded-xl p-6 shadow-sm max-w-md">
-          <h5 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">
-            {t("settlementTitle")}
-          </h5>
-          <div className="space-y-3 tabular-nums">
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-400">{t("settlementDeposit")}</span>
-              <span className="font-bold text-slate-200">{formatThousands(depositVnd)}₫</span>
-            </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-400">{t("settlementMinibar")} (−)</span>
-              <span className="font-bold text-red-400">{formatThousands(minibarTotal)}₫</span>
-            </div>
-            {damageDeductionVnd > 0n && (
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-slate-400">{t("settlementDamage")} (−)</span>
-                <span className="font-bold text-red-400">{formatThousands(damageDeductionVnd)}₫</span>
-              </div>
-            )}
-            <div className="h-px bg-slate-800 my-2" />
-            <div className="flex justify-between items-center">
-              <span className="font-bold text-white">{t("settlementRefund")}</span>
-              <span className="text-lg font-black text-emerald-400">{refundEstimate}</span>
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* 인라인 가이드 — T-9 (제출·환불 버튼 안내) */}
       <InlineGuide variant="dark" text={t("guide.submit")} />
@@ -875,7 +999,7 @@ export default function CheckoutForm({
         <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-3">{error}</p>
       )}
 
-      {/* 하단 고정 액션 바 (b4 Sticky Bottom Bar) */}
+      {/* ⑥ 하단 고정 액션 바 (b4 Sticky Bottom Bar) */}
       <div className="fixed bottom-0 left-0 lg:left-64 right-0 bg-admin-card border-t border-slate-800 px-4 md:px-8 py-4 z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="flex flex-col whitespace-nowrap">
@@ -894,8 +1018,8 @@ export default function CheckoutForm({
           <div className="flex gap-4">
             <button
               type="button"
-              // 차감(미니바·파손)이 1원이라도 있으면 전액 환불 불가 — 차감 후 환불 경로로 유도
-              disabled={!canRefundFull || minibarTotal > 0n}
+              // 보증금에서 차감(파손·상계)이 있으면 전액 환불 불가 — 차감 후 환불 경로로 유도
+              disabled={!canRefundFull}
               onClick={submit}
               className="flex items-center gap-2 px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold border border-emerald-500 shadow-lg shadow-emerald-900/20 transition-all active:scale-95 whitespace-nowrap"
             >
@@ -904,7 +1028,7 @@ export default function CheckoutForm({
             </button>
             <button
               type="button"
-              disabled={!(canDeduct || canDeductMinibarOnly)}
+              disabled={!canDeduct}
               onClick={submit}
               className="flex items-center gap-2 px-10 py-4 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-lg transition-all active:scale-95 shadow-lg shadow-orange-900/20 whitespace-nowrap"
             >

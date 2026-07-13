@@ -42,6 +42,7 @@ export default async function CheckoutPage({
         guestName: true,
         depositAmount: true,
         depositCurrency: true,
+        depositStatus: true,
         villaId: true,
         villa: { select: { name: true } },
       },
@@ -180,6 +181,7 @@ export default async function CheckoutPage({
           minibar={minibar}
           depositLabel={depositLabel}
           depositVnd={depositVnd}
+          depositStatus={booking.depositStatus}
           confirmedOrders={confirmedOrders}
           fx={fx}
         />

@@ -10,14 +10,15 @@ import { formatVillaName } from "@/lib/villa-name";
 import { resolveQuickRange, parseUtcDateOnly } from "@/lib/date-vn";
 
 /**
- * 벤더 정산 수단 좁히기 — GuestSettlementMethod enum이 게스트 혼합수납(MIXED)을 위해 넓어졌으나,
- *   벤더 정산(ServiceOrder.vendorSettleMethod)은 CASH|BANK_TRANSFER|OTHER만 생성한다(MIXED 미사용).
- *   생성 타입에 MIXED가 포함되므로 소비 지점에서 런타임 정규화로 좁힌다(MIXED→null, 방어적).
+ * 벤더 정산 수단 좁히기 — GuestSettlementMethod enum이 게스트 수납용으로 넓어졌으나(MIXED·DEPOSIT …),
+ *   벤더 정산(ServiceOrder.vendorSettleMethod)은 CASH|BANK_TRANSFER|OTHER만 생성한다.
+ *   ★화이트리스트 방식(PR #276 교훈, ADR-0041): 허용값만 통과시키고 그 외(MIXED·DEPOSIT·미래 값)는
+ *     전부 null로 좁힌다 — enum 값 추가 때마다 벤더 정산 소비처에 회귀가 새는 것을 원천 차단.
  */
 export function narrowVendorSettleMethod(
   m: GuestSettlementMethod | null | undefined
 ): "CASH" | "BANK_TRANSFER" | "OTHER" | null {
-  return m == null || m === "MIXED" ? null : m;
+  return m === "CASH" || m === "BANK_TRANSFER" || m === "OTHER" ? m : null;
 }
 
 export type HubOrder = {

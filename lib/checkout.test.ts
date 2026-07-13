@@ -15,7 +15,12 @@ vi.mock("@/lib/fx-rates", () => ({
   })),
 }));
 
-import { completeCheckout, resolveDepositOutcome, CheckoutRejectedError } from "./checkout";
+import {
+  completeCheckout,
+  resolveDepositOutcome,
+  CheckoutRejectedError,
+  DepositOffsetError,
+} from "./checkout";
 import { createCheckoutCleaningTask } from "./cleaning";
 import { writeAuditLog } from "./audit-log";
 import { POST as checkoutPost } from "../app/api/bookings/[id]/checkout/route";
@@ -80,6 +85,39 @@ describe("resolveDepositOutcome — 보증금 상태기계 (SPEC F4 체크아웃
     expect(() => resolveDepositOutcome(false, 1n, DepositStatus.NONE)).toThrow(RangeError);
     expect(() => resolveDepositOutcome(true, 0n, DepositStatus.NONE)).toThrow(RangeError);
   });
+
+  // ── 보증금 상계(depositOffsetVnd, ADR-0041) ──────────────────────────────
+  it("HELD 무파손 + 상계>0 → PARTIAL_DEDUCTED, deductionVnd=상계액", () => {
+    expect(resolveDepositOutcome(false, null, DepositStatus.HELD, 2_000_000n)).toEqual({
+      depositStatus: DepositStatus.PARTIAL_DEDUCTED,
+      deductionVnd: 2_000_000n,
+    });
+  });
+
+  it("HELD 파손 + 상계 → deductionVnd=파손+상계 합", () => {
+    expect(resolveDepositOutcome(true, 1_500_000n, DepositStatus.HELD, 2_000_000n)).toEqual({
+      depositStatus: DepositStatus.PARTIAL_DEDUCTED,
+      deductionVnd: 3_500_000n,
+    });
+  });
+
+  it("HELD 무파손 + 상계 0 → REFUNDED", () => {
+    expect(resolveDepositOutcome(false, null, DepositStatus.HELD, 0n)).toEqual({
+      depositStatus: DepositStatus.REFUNDED,
+      deductionVnd: null,
+    });
+  });
+
+  it("NONE + 상계>0 → DepositOffsetError(DEPOSIT_NOT_HELD)", () => {
+    expect(() =>
+      resolveDepositOutcome(false, null, DepositStatus.NONE, 1_000_000n)
+    ).toThrow(DepositOffsetError);
+    try {
+      resolveDepositOutcome(false, null, DepositStatus.NONE, 1_000_000n);
+    } catch (e) {
+      expect((e as DepositOffsetError).code).toBe("DEPOSIT_NOT_HELD");
+    }
+  });
 });
 
 // ===================== DB층 — mocked prisma (QA D1) =====================
@@ -89,6 +127,8 @@ function makeTxMock(opts: {
     id: string;
     status: BookingStatus;
     depositStatus?: DepositStatus;
+    depositAmount?: number | null;
+    depositCurrency?: "VND" | "KRW" | "USD" | null;
     villaId?: string;
     checkOut?: Date;
     seller?: "OPERATOR" | "SUPPLIER";
@@ -750,6 +790,168 @@ describe("completeCheckout — 상태 가드·원자성 (계약 완료 기준)",
       completeCheckout(makePrismaMock(tx), { ...BASE_INPUT, settlement: { lines } })
     ).rejects.toThrow(RangeError);
   });
+
+  // ── 보증금 상계(DEPOSIT 수납 라인, ADR-0041) ───────────────────────────────
+  const HELD_VND_BOOKING = {
+    id: "bk1",
+    status: BookingStatus.CHECKED_IN,
+    depositStatus: DepositStatus.HELD,
+    depositAmount: 5_000_000,
+    depositCurrency: "VND" as const,
+  };
+
+  it("DEPOSIT 단독: settlementMethod=DEPOSIT·depositDeductVnd=상계액·PARTIAL_DEDUCTED, 라인 저장", async () => {
+    const tx = makeTxMock({ booking: { ...HELD_VND_BOOKING } });
+    await completeCheckout(makePrismaMock(tx), {
+      ...BASE_INPUT,
+      settlement: { lines: [{ method: "DEPOSIT", currency: "VND", amount: 2_000_000n }] },
+      settlementFx: { date: "2026-07-05", vndPerKrw: 19, vndPerUsd: 25_000 },
+    });
+    // 파손 없이 상계만 → PARTIAL_DEDUCTED + depositDeductVnd = 상계액
+    expect(tx.booking.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          depositStatus: DepositStatus.PARTIAL_DEDUCTED,
+          depositDeductVnd: 2_000_000n,
+        }),
+      })
+    );
+    // 수납 라인 원장에 DEPOSIT 라인 저장
+    expect(tx.checkoutSettlementLine.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({ method: "DEPOSIT", currency: "VND", amount: 2_000_000n }),
+      ],
+    });
+    // 단일 수단 → settlementMethod=DEPOSIT
+    const settleUpdate = tx.checkOutRecord.update.mock.calls
+      .map((c) => (c[0] as { data: Record<string, unknown> }).data)
+      .find((d) => "settlementMethod" in d)!;
+    expect(settleUpdate.settlementMethod).toBe("DEPOSIT");
+    // AuditLog에 상계액 문자열 기록
+    expect(writeAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: expect.objectContaining({
+          depositOffsetVnd: { new: "2000000" },
+          depositDeductVnd: { new: "2000000" },
+        }),
+      })
+    );
+  });
+
+  it("DEPOSIT + 파손: depositDeductVnd=파손+상계 합", async () => {
+    const tx = makeTxMock({ booking: { ...HELD_VND_BOOKING } });
+    await completeCheckout(makePrismaMock(tx), {
+      ...BASE_INPUT,
+      damageFound: true,
+      damageNote: "유리 파손",
+      deductionVnd: 1_000_000n,
+      settlement: { lines: [{ method: "DEPOSIT", currency: "VND", amount: 2_000_000n }] },
+    });
+    expect(tx.booking.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          depositStatus: DepositStatus.PARTIAL_DEDUCTED,
+          depositDeductVnd: 3_000_000n, // 파손 1M + 상계 2M
+        }),
+      })
+    );
+  });
+
+  it("DEPOSIT + 현금 혼합 → settlementMethod=MIXED", async () => {
+    const tx = makeTxMock({ booking: { ...HELD_VND_BOOKING } });
+    await completeCheckout(makePrismaMock(tx), {
+      ...BASE_INPUT,
+      settlement: {
+        lines: [
+          { method: "DEPOSIT", currency: "VND", amount: 2_000_000n },
+          { method: "CASH", currency: "VND", amount: 500_000n },
+        ],
+      },
+    });
+    const settleUpdate = tx.checkOutRecord.update.mock.calls
+      .map((c) => (c[0] as { data: Record<string, unknown> }).data)
+      .find((d) => "settlementMethod" in d)!;
+    expect(settleUpdate.settlementMethod).toBe("MIXED");
+    // 보증금에서 빠진 총액 = 상계 2M만(현금은 실수납이지 보증금 차감 아님)
+    expect(tx.booking.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ depositDeductVnd: 2_000_000n }),
+      })
+    );
+  });
+
+  it("상계액 > (보증금 − 파손차감) → DepositOffsetError(DEPOSIT_OFFSET_EXCEEDS)", async () => {
+    const tx = makeTxMock({ booking: { ...HELD_VND_BOOKING } }); // 보증금 5M
+    await expect(
+      completeCheckout(makePrismaMock(tx), {
+        ...BASE_INPUT,
+        damageFound: true,
+        damageNote: "파손",
+        deductionVnd: 4_000_000n, // 잔액 1M
+        settlement: { lines: [{ method: "DEPOSIT", currency: "VND", amount: 2_000_000n }] }, // 2M > 1M
+      })
+    ).rejects.toMatchObject({ code: "DEPOSIT_OFFSET_EXCEEDS" });
+    expect(tx.checkOutRecord.create).not.toHaveBeenCalled();
+  });
+
+  it("보증금 NONE(미수취) + DEPOSIT 라인 → DepositOffsetError(DEPOSIT_NOT_HELD)", async () => {
+    const tx = makeTxMock({
+      booking: { id: "bk1", status: BookingStatus.CHECKED_IN, depositStatus: DepositStatus.NONE },
+    });
+    await expect(
+      completeCheckout(makePrismaMock(tx), {
+        ...BASE_INPUT,
+        settlement: { lines: [{ method: "DEPOSIT", currency: "VND", amount: 1_000_000n }] },
+      })
+    ).rejects.toMatchObject({ code: "DEPOSIT_NOT_HELD" });
+  });
+
+  it("보증금 통화 KRW(비VND) + DEPOSIT 라인 → DepositOffsetError(DEPOSIT_NOT_VND)", async () => {
+    const tx = makeTxMock({
+      booking: {
+        id: "bk1",
+        status: BookingStatus.CHECKED_IN,
+        depositStatus: DepositStatus.HELD,
+        depositAmount: 3_000_000,
+        depositCurrency: "KRW",
+      },
+    });
+    await expect(
+      completeCheckout(makePrismaMock(tx), {
+        ...BASE_INPUT,
+        settlement: { lines: [{ method: "DEPOSIT", currency: "VND", amount: 1_000_000n }] },
+      })
+    ).rejects.toMatchObject({ code: "DEPOSIT_NOT_VND" });
+  });
+
+  it("보증금 금액 미기록(depositAmount=null) + DEPOSIT 라인 → DEPOSIT_OFFSET_EXCEEDS", async () => {
+    const tx = makeTxMock({
+      booking: {
+        id: "bk1",
+        status: BookingStatus.CHECKED_IN,
+        depositStatus: DepositStatus.HELD,
+        depositAmount: null,
+        depositCurrency: "VND",
+      },
+    });
+    await expect(
+      completeCheckout(makePrismaMock(tx), {
+        ...BASE_INPUT,
+        settlement: { lines: [{ method: "DEPOSIT", currency: "VND", amount: 1_000_000n }] },
+      })
+    ).rejects.toMatchObject({ code: "DEPOSIT_OFFSET_EXCEEDS" });
+  });
+
+  it("DEPOSIT 라인 currency=KRW → RangeError (트랜잭션 진입 전, normalize 검증)", async () => {
+    const tx = makeTxMock({ booking: { ...HELD_VND_BOOKING } });
+    await expect(
+      completeCheckout(makePrismaMock(tx), {
+        ...BASE_INPUT,
+        settlement: { lines: [{ method: "DEPOSIT", currency: "KRW", amount: 100_000n }] },
+      })
+    ).rejects.toThrow(RangeError);
+    expect(tx.checkOutRecord.create).not.toHaveBeenCalled();
+  });
 });
 
 // ===================== route — 401/403/404/409/400 (QA D1) =====================
@@ -900,5 +1102,83 @@ describe("POST /api/bookings/[id]/checkout", () => {
       settlement: { lines: [{ method: "CASH", currency: "VND", amount: "0" }] },
     });
     expect(res.status).toBe(400);
+  });
+
+  // ── 보증금 상계(DEPOSIT 라인, ADR-0041) 라우트 매핑 ─────────────────────────
+  it("DEPOSIT 라인 성공 → 200 (보증금 HELD·VND, 상계 ≤ 잔액)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "a1", role: "ADMIN" } });
+    await setupRoutePrisma(
+      makeTxMock({
+        booking: {
+          id: "bk1",
+          status: BookingStatus.CHECKED_IN,
+          depositStatus: DepositStatus.HELD,
+          depositAmount: 5_000_000,
+          depositCurrency: "VND",
+        },
+      })
+    );
+    const res = await callCheckout({
+      damageFound: false,
+      settlement: { lines: [{ method: "DEPOSIT", currency: "VND", amount: "2000000" }] },
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it("상계 초과 → 400 {error: DEPOSIT_OFFSET_EXCEEDS}", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "a1", role: "ADMIN" } });
+    await setupRoutePrisma(
+      makeTxMock({
+        booking: {
+          id: "bk1",
+          status: BookingStatus.CHECKED_IN,
+          depositStatus: DepositStatus.HELD,
+          depositAmount: 1_000_000,
+          depositCurrency: "VND",
+        },
+      })
+    );
+    const res = await callCheckout({
+      damageFound: false,
+      settlement: { lines: [{ method: "DEPOSIT", currency: "VND", amount: "2000000" }] },
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("DEPOSIT_OFFSET_EXCEEDS");
+  });
+
+  it("보증금 NONE + DEPOSIT 라인 → 400 {error: DEPOSIT_NOT_HELD}", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "a1", role: "ADMIN" } });
+    await setupRoutePrisma(
+      makeTxMock({
+        booking: { id: "bk1", status: BookingStatus.CHECKED_IN, depositStatus: DepositStatus.NONE },
+      })
+    );
+    const res = await callCheckout({
+      damageFound: false,
+      settlement: { lines: [{ method: "DEPOSIT", currency: "VND", amount: "1000000" }] },
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("DEPOSIT_NOT_HELD");
+  });
+
+  it("DEPOSIT 라인 currency=KRW → 400 (RangeError→invalid_input)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "a1", role: "ADMIN" } });
+    await setupRoutePrisma(
+      makeTxMock({
+        booking: {
+          id: "bk1",
+          status: BookingStatus.CHECKED_IN,
+          depositStatus: DepositStatus.HELD,
+          depositAmount: 5_000_000,
+          depositCurrency: "VND",
+        },
+      })
+    );
+    const res = await callCheckout({
+      damageFound: false,
+      settlement: { lines: [{ method: "DEPOSIT", currency: "KRW", amount: "100000" }] },
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("invalid_input");
   });
 });
