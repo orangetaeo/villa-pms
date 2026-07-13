@@ -1,5 +1,22 @@
 // S3 수신 파싱 순수 함수 단위 테스트 (ADR-0006 S3) — DB·zca-js 의존 없음
-import { describe, expect, it } from "vitest";
+// + saveInboundMessage/saveOutboundEcho 대화별 멱등(복합키) 스코프 테스트 (prisma 모킹)
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma, ZaloTranslateMode } from "@prisma/client";
+
+// DB·부수효과 모듈 차단 — 저장 함수의 멱등 스코프/레이스 처리만 검증 (호출 인자 검증)
+const prismaMock = vi.hoisted(() => ({
+  zaloConversation: { upsert: vi.fn(), update: vi.fn() },
+  zaloMessage: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+}));
+vi.mock("@/lib/prisma", () => ({ prisma: prismaMock }));
+vi.mock("@/lib/gemini", () => ({
+  translateText: vi.fn(),
+  transcribeVoice: vi.fn(),
+  translateImage: vi.fn(),
+}));
+vi.mock("@/lib/zalo-webhook", () => ({ pushInboundToNike: vi.fn() }));
+vi.mock("@/lib/realtime-notify", () => ({ notifyRealtime: vi.fn(async () => {}) }));
+
 import {
   extractText,
   extractDisplayText,
@@ -13,6 +30,8 @@ import {
   classifyInbound,
   isCallSystemText,
   buildCallDetail,
+  saveInboundMessage,
+  saveOutboundEcho,
 } from "./zalo-inbound";
 
 describe("extractText — content 타입별 안전 파싱 (버그 B)", () => {
@@ -503,5 +522,186 @@ describe("buildCallDetail — 통화 params → 구조화 텍스트", () => {
     );
     expect(out.msgType).toBe("call");
     expect(out.text).toBe("CALL:out:missed:0:audio");
+  });
+});
+
+// ===================== 대화별 멱등(복합키) 저장 스코프 (2026-07-13) =====================
+// 배경: zaloMsgId 전역 @unique 때문에 같은 그룹 메시지가 다계정(소유자) 대화에 각각 저장되지 못하고
+//       첫 저장 외 유실됐다. 멱등을 (conversationId, zaloMsgId) 복합키로 전환 + create P2002 무해화.
+
+/** upsert가 특정 conversationId를 반환하도록 세팅(대화 스코프 시뮬레이션). */
+function mockConversation(id: string) {
+  prismaMock.zaloConversation.upsert.mockResolvedValue({
+    id,
+    userId: null,
+    displayName: null,
+    translateMode: ZaloTranslateMode.OFF,
+    groupMembers: null,
+  });
+}
+
+/** 라이브 복합 UNIQUE 위반과 동형인 Prisma P2002 에러. */
+function p2002() {
+  return new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+    code: "P2002",
+    clientVersion: "test",
+  });
+}
+
+const inbound = (over: Record<string, unknown> = {}) =>
+  ({
+    ownerAdminId: "admin-1",
+    isSystemBot: false,
+    senderZaloUserId: "grp-123",
+    text: "hello",
+    zaloMsgId: "grp-msg-1",
+    displayName: null,
+    senderPhone: null,
+    threadType: "GROUP" as const,
+    ...over,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  }) as any;
+
+const outbound = (over: Record<string, unknown> = {}) =>
+  ({
+    ownerAdminId: "admin-1",
+    senderZaloUserId: "grp-123",
+    text: "reply",
+    zaloMsgId: "grp-msg-1",
+    createdAt: new Date("2026-07-13T10:00:00Z"),
+    displayName: null,
+    threadType: "GROUP" as const,
+    ...over,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  }) as any;
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  prismaMock.zaloConversation.update.mockResolvedValue({});
+  prismaMock.zaloMessage.update.mockResolvedValue({});
+});
+
+describe("saveInboundMessage — 대화별 멱등(복합키) 스코프", () => {
+  it("멱등 조회를 (conversationId, zaloMsgId) 복합키로 호출한다", async () => {
+    mockConversation("conv-A");
+    prismaMock.zaloMessage.findUnique.mockResolvedValue(null);
+    prismaMock.zaloMessage.create.mockResolvedValue({ id: "m-db-1" });
+
+    const res = await saveInboundMessage(inbound({ zaloMsgId: "grp-msg-1" }));
+
+    expect(res).toMatchObject({ saved: true, duplicated: false, messageId: "m-db-1" });
+    expect(prismaMock.zaloMessage.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { conversationId_zaloMsgId: { conversationId: "conv-A", zaloMsgId: "grp-msg-1" } },
+      })
+    );
+  });
+
+  it("같은 zaloMsgId라도 conversationId가 다르면(타 소유자 대화) 저장이 스킵되지 않는다", async () => {
+    // 타 소유자 대화(conv-OTHER)에는 이미 같은 zaloMsgId가 있지만, 내 대화(conv-A)에는 없음.
+    prismaMock.zaloMessage.findUnique.mockImplementation(
+      async ({ where }: { where: { conversationId_zaloMsgId: { conversationId: string } } }) =>
+        where.conversationId_zaloMsgId.conversationId === "conv-OTHER" ? { id: "other-row" } : null
+    );
+    prismaMock.zaloMessage.create.mockResolvedValue({ id: "m-A" });
+    mockConversation("conv-A");
+
+    const res = await saveInboundMessage(inbound({ zaloMsgId: "grp-msg-1" }));
+
+    expect(res).toMatchObject({ saved: true, duplicated: false, messageId: "m-A" });
+    expect(prismaMock.zaloMessage.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("같은 대화에 같은 zaloMsgId 재수신은 duplicated=true, create 미호출", async () => {
+    mockConversation("conv-A");
+    prismaMock.zaloMessage.findUnique.mockResolvedValue({ id: "existing" });
+
+    const res = await saveInboundMessage(inbound());
+
+    expect(res).toMatchObject({ saved: false, duplicated: true, messageId: null });
+    expect(prismaMock.zaloMessage.create).not.toHaveBeenCalled();
+  });
+
+  it("create가 P2002(동일 대화 레이스)를 던지면 throw 없이 duplicated=true 반환", async () => {
+    mockConversation("conv-A");
+    prismaMock.zaloMessage.findUnique.mockResolvedValue(null);
+    prismaMock.zaloMessage.create.mockRejectedValue(p2002());
+
+    const res = await saveInboundMessage(inbound());
+
+    expect(res).toMatchObject({ saved: false, duplicated: true, messageId: null });
+  });
+
+  it("create가 P2002 외 에러면 그대로 rethrow(무해화 금지)", async () => {
+    mockConversation("conv-A");
+    prismaMock.zaloMessage.findUnique.mockResolvedValue(null);
+    prismaMock.zaloMessage.create.mockRejectedValue(new Error("db down"));
+
+    await expect(saveInboundMessage(inbound())).rejects.toThrow("db down");
+  });
+});
+
+describe("saveOutboundEcho — 대화별 멱등(복합키) 스코프", () => {
+  it("멱등 조회를 (conversationId, zaloMsgId) 복합키로 호출한다", async () => {
+    mockConversation("conv-A");
+    prismaMock.zaloMessage.findUnique.mockResolvedValue(null);
+    prismaMock.zaloMessage.create.mockResolvedValue({ id: "e-db-1" });
+
+    const res = await saveOutboundEcho(outbound({ zaloMsgId: "grp-msg-1" }));
+
+    expect(res).toMatchObject({ saved: true, duplicated: false, messageId: "e-db-1" });
+    expect(prismaMock.zaloMessage.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { conversationId_zaloMsgId: { conversationId: "conv-A", zaloMsgId: "grp-msg-1" } },
+      })
+    );
+  });
+
+  it("같은 zaloMsgId라도 conversationId가 다르면 저장이 스킵되지 않는다", async () => {
+    prismaMock.zaloMessage.findUnique.mockImplementation(
+      async ({ where }: { where: { conversationId_zaloMsgId: { conversationId: string } } }) =>
+        where.conversationId_zaloMsgId.conversationId === "conv-OTHER"
+          ? { id: "other-row", globalMsgId: null, cliMsgId: null }
+          : null
+    );
+    prismaMock.zaloMessage.create.mockResolvedValue({ id: "e-A" });
+    mockConversation("conv-A");
+
+    const res = await saveOutboundEcho(outbound({ zaloMsgId: "grp-msg-1" }));
+
+    expect(res).toMatchObject({ saved: true, duplicated: false, messageId: "e-A" });
+    expect(prismaMock.zaloMessage.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("같은 대화에 이미 저장됐으면 duplicated=true, create 미호출", async () => {
+    mockConversation("conv-A");
+    prismaMock.zaloMessage.findUnique.mockResolvedValue({
+      id: "existing",
+      globalMsgId: null,
+      cliMsgId: null,
+    });
+
+    const res = await saveOutboundEcho(outbound());
+
+    expect(res).toMatchObject({ saved: false, duplicated: true, messageId: null });
+    expect(prismaMock.zaloMessage.create).not.toHaveBeenCalled();
+  });
+
+  it("create가 P2002(동일 대화 레이스)를 던지면 throw 없이 duplicated=true 반환", async () => {
+    mockConversation("conv-A");
+    prismaMock.zaloMessage.findUnique.mockResolvedValue(null);
+    prismaMock.zaloMessage.create.mockRejectedValue(p2002());
+
+    const res = await saveOutboundEcho(outbound());
+
+    expect(res).toMatchObject({ saved: false, duplicated: true, messageId: null });
+  });
+
+  it("create가 P2002 외 에러면 그대로 rethrow", async () => {
+    mockConversation("conv-A");
+    prismaMock.zaloMessage.findUnique.mockResolvedValue(null);
+    prismaMock.zaloMessage.create.mockRejectedValue(new Error("db down"));
+
+    await expect(saveOutboundEcho(outbound())).rejects.toThrow("db down");
   });
 });

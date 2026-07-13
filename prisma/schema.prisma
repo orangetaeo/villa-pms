@@ -1453,7 +1453,7 @@ model ZaloMessage {
   // 사진 캡션 번역(ko) — 사진 메시지의 translatedText는 이미지 OCR 번역 전용이라 분리.
   // 같은 사진에 캡션 번역과 이미지 속 글자 OCR이 둘 다 필요한 사례 대응(additive, 기존 행 null).
   captionTranslated String?
-  zaloMsgId      String?              @unique // Zalo msg_id (webhook 멱등성)
+  zaloMsgId      String?              // Zalo msg_id — 대화별 멱등(같은 그룹 메시지가 소유자별 대화에 각각 저장됨. 전역 @unique 제거)
   status         ZaloMessageStatus
   error          String?
   sentBy         String? // OUTBOUND CHAT: 발신 ADMIN userId
@@ -1482,6 +1482,10 @@ model ZaloMessage {
   @@index([conversationId, createdAt])
   // 답글 인용 앵커 DB 폴백(배치 밖 원본) 조회용 — where conversationId + globalMsgId in [...].
   @@index([conversationId, globalMsgId])
+  // 대화별 멱등 — 같은 그룹 메시지가 다계정(소유자) 대화에 각각 저장되되, 한 대화 내 재수신은 중복 차단.
+  @@unique([conversationId, zaloMsgId])
+  // ownerAdminId 스코프 findFirst(리액션·webhook·인용 앵커)용 단독 조회 인덱스.
+  @@index([zaloMsgId])
 }
 
 // ===================== Zalo 봇 계정 (ADR-0006 — zca-js 개인 계정 QR 로그인) =====================
