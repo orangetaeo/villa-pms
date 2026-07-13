@@ -8,7 +8,12 @@ import {
 } from "@prisma/client";
 import { createCheckoutCleaningTask } from "./cleaning";
 import { writeAuditLog } from "./audit-log";
-import { computeGuestBill, type GuestSettlementMethodValue } from "./checkout-settlement";
+import {
+  computeGuestBill,
+  normalizeSettlementLines,
+  type GuestSettlementMethodValue,
+  type SettlementLineInput,
+} from "./checkout-settlement";
 import { planRecover } from "./minibar-inventory";
 
 /**
@@ -93,18 +98,48 @@ export interface CompleteCheckoutInput {
   minibarLines?: MinibarLineInput[];
   /**
    * 게스트 통합정산(미니바+확정옵션) 수납 — 입력 시 결제수단·수납시각 기록 (ADR-0019 S4).
-   * amounts: 통화별 실수납액(분할 수납, 테오 요청 2026-07-10). 원본 통화 그대로 저장(환산 저장 금지).
-   *   VND=BigInt(동), KRW/USD=정수. 미입력·0은 null. 음수·비정수는 RangeError.
+   *   ★ 결제수단 혼합(분할) 지원 (T-checkout-mixed): lines[]로 수단×통화×금액을 받아
+   *     서버가 통화별 합계(settledVnd/Krw/Usd)와 대표 수단(1종=그 수단·2종↑=MIXED)을 파생한다.
+   *   하위호환: lines 없이 amounts+method(구 shape)면 amounts를 그 단일 수단의 라인들로 변환(0/null 통화는 라인 미생성).
+   *     lines·amounts 둘 다 없고 method만이면 기존처럼 수단·수납시각만 기록(금액 없음).
+   *   amounts: 통화별 실수납액. 원본 통화 그대로(환산 저장 금지). VND=BigInt(동), KRW/USD=정수. 음수·비정수는 RangeError.
    */
   settlement?: {
-    method: GuestSettlementMethodValue;
+    method?: GuestSettlementMethodValue | null;
     note?: string | null;
+    lines?: SettlementLineInput[] | null;
     amounts?: { vnd?: bigint | null; krw?: number | null; usd?: number | null } | null;
   } | null;
   /** 수납 환율 스냅샷 — 라우트가 getDailyRates로 조회해 전달(클라 신뢰 금지). 없으면 null */
   settlementFx?: { date: string; vndPerKrw: number; vndPerUsd: number } | null;
   actorUserId: string;
   now: Date;
+}
+
+/**
+ * 수납 입력(settlement)에서 유효 라인 배열을 해석한다 — 순수. (T-checkout-mixed)
+ *   ① lines가 있으면 lines 우선.
+ *   ② lines 없고 amounts+method(구 shape)면 amounts를 그 단일 수단의 라인들로 변환(0/null 통화는 라인 미생성).
+ *   ③ 둘 다 없으면 빈 배열(수단·수납시각만 기록하는 기존 동작 — 라인 없음).
+ *   음수·비정수 금액 검증은 호출부의 amounts 검증 + normalizeSettlementLines가 담당.
+ */
+export function resolveSettlementLines(
+  settlement: CompleteCheckoutInput["settlement"]
+): SettlementLineInput[] {
+  if (!settlement) return [];
+  if (settlement.lines && settlement.lines.length > 0) {
+    return settlement.lines;
+  }
+  const amounts = settlement.amounts;
+  const method = settlement.method;
+  if (amounts && method) {
+    const out: SettlementLineInput[] = [];
+    if (amounts.vnd != null && amounts.vnd > 0n) out.push({ method, currency: "VND", amount: amounts.vnd });
+    if (amounts.krw != null && amounts.krw > 0) out.push({ method, currency: "KRW", amount: BigInt(amounts.krw) });
+    if (amounts.usd != null && amounts.usd > 0) out.push({ method, currency: "USD", amount: BigInt(amounts.usd) });
+    return out;
+  }
+  return [];
 }
 
 // ===================== DB 층 =====================
@@ -136,6 +171,11 @@ export async function completeCheckout(
       throw new RangeError("수납액(USD)은 0 이상 정수여야 합니다");
     }
   }
+
+  // 수납 라인 해석·정규화 (혼합 수납) — 검증(0·음수·13라인↑)·(수단,통화) 병합·통화별 합계·대표 수단 파생.
+  //   트랜잭션 진입 전에 선반영해 잘못된 입력이 record를 만들었다가 롤백되는 낭비를 막는다.
+  const resolvedSettlementLines = resolveSettlementLines(input.settlement);
+  const normalizedSettlement = normalizeSettlementLines(resolvedSettlementLines);
 
   return prisma.$transaction(async (tx) => {
     const booking = await tx.booking.findUnique({
@@ -300,14 +340,28 @@ export async function completeCheckout(
       select: { priceKrw: true, priceVnd: true },
     });
     const bill = computeGuestBill(minibarChargeVnd, svcOrders);
-    // 통화별 실수납액 — 0/미입력은 null. 양수 값이 하나라도 있으면 환율 스냅샷 동봉(표시·검증 근거).
-    const settledVnd =
-      settlementAmounts?.vnd != null && settlementAmounts.vnd > 0n ? settlementAmounts.vnd : null;
-    const settledKrw =
-      settlementAmounts?.krw != null && settlementAmounts.krw > 0 ? settlementAmounts.krw : null;
-    const settledUsd =
-      settlementAmounts?.usd != null && settlementAmounts.usd > 0 ? settlementAmounts.usd : null;
+    // 수납 라인(수단×통화) — normalize 결과가 통화별 합계·대표 수단의 단일 원천.
+    //   라인이 있으면 CheckoutSettlementLine 원장 생성 + settlementMethod=derivedMethod(1종=그 수단·2종↑=MIXED).
+    //   라인이 없으면(구 shape의 method-only 등) 기존처럼 수단·수납시각만 기록.
+    const settledVnd = normalizedSettlement.settledVnd;
+    const settledKrw = normalizedSettlement.settledKrw;
+    const settledUsd = normalizedSettlement.settledUsd;
+    const settlementLines = normalizedSettlement.lines;
+    const hasSettlementLines = settlementLines.length > 0;
+    // 양수 수납액이 하나라도 있으면 환율 스냅샷 동봉(표시·검증 근거).
     const hasSettledAmount = settledVnd != null || settledKrw != null || settledUsd != null;
+
+    if (hasSettlementLines) {
+      await tx.checkoutSettlementLine.createMany({
+        data: settlementLines.map((l) => ({
+          checkOutRecordId: record.id,
+          method: l.method,
+          currency: l.currency,
+          amount: l.amount,
+        })),
+      });
+    }
+
     await tx.checkOutRecord.update({
       where: { id: record.id },
       data: {
@@ -315,7 +369,10 @@ export async function completeCheckout(
         guestChargeKrw: bill.totalKrw > 0 ? bill.totalKrw : null,
         ...(input.settlement
           ? {
-              settlementMethod: input.settlement.method,
+              // 라인 있으면 파생 수단(MIXED 가능), 없으면 구 shape의 단일 method(없으면 null)
+              settlementMethod: hasSettlementLines
+                ? normalizedSettlement.derivedMethod
+                : input.settlement.method ?? null,
               settledAt: input.now,
               settlementNote: input.settlement.note?.trim() || null,
               settledVnd,
@@ -355,6 +412,18 @@ export async function completeCheckout(
               settledVnd: { new: settledVnd?.toString() ?? null },
               settledKrw: { new: settledKrw ?? null },
               settledUsd: { new: settledUsd ?? null },
+              // 수납 라인(수단×통화) 요약 — BigInt 금액은 문자열. 라인 없으면 미기록.
+              ...(hasSettlementLines
+                ? {
+                    settlementLines: {
+                      new: settlementLines.map((l) => ({
+                        method: l.method,
+                        currency: l.currency,
+                        amount: l.amount.toString(),
+                      })),
+                    },
+                  }
+                : {}),
             }
           : {}),
         // 전환 회수(RECOVER) 발생 시 회수 품목 수만 기록 — 원가·수량 상세는 원장에 (마진 비공개)

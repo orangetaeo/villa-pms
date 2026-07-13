@@ -123,7 +123,7 @@ export default async function SettingsPage() {
       Boolean(process.env.NEXT_PUBLIC_ZALO_OA_URL),
   };
 
-  // 운영자 Zalo 알림 그룹방(ADR-0039) — 시스템봇 소유자의 GROUP 대화 목록 + 현재 설정값.
+  // 운영자 Zalo 알림 그룹방(ADR-0040) — 시스템봇 소유자의 GROUP 대화 목록 + 현재 설정값.
   // 시스템봇 미연결(소유자 미상)이면 목록은 비고 폼이 안내 표시.
   const notifyGroupOwnerId = await getSystemBotOwnerId();
   const notifyGroupConversations = notifyGroupOwnerId
@@ -192,7 +192,7 @@ export default async function SettingsPage() {
           공급자·청소 온보딩(/zalo-connect)에 노출. 비우면 env 폴백 */}
       <ZaloConnectSettingForm initial={zaloConnectInitial} />
 
-      {/* Card 4c: 운영자 Zalo 알림 그룹방 (ADR-0039) — 운영자 업무 알림을 그룹방 1건으로 수신.
+      {/* Card 4c: 운영자 Zalo 알림 그룹방 (ADR-0040) — 운영자 업무 알림을 그룹방 1건으로 수신.
           미설정 시 운영자 개별 DM 발송(폴백) */}
       <ZaloNotifyGroupForm initial={zaloNotifyGroupInitial} />
 

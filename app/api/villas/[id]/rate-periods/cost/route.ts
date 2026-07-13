@@ -189,7 +189,7 @@ export async function PATCH(
           })
         : [];
     if (activeProposals.length > 0) {
-      // 운영자 알림 — 그룹 설정 시 (제안×원가변경)당 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0039).
+      // 운영자 알림 — 그룹 설정 시 (제안×원가변경)당 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0040).
       // 종전 tx.notification.createMany 직적재를 헬퍼로 전환(그룹 라우팅 단일 원천).
       for (const pr of activeProposals) {
         for (const c of costChanges) {

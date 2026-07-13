@@ -149,7 +149,7 @@ export async function sendVendorResponseOperatorNotifications(
       input.action === "propose" ? input.proposedServiceTime || undefined : undefined,
     proposalNote: input.action === "propose" ? input.proposalNote?.trim() || undefined : undefined,
   };
-  // 운영자 Zalo 알림 — 그룹 설정 시 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0039)
+  // 운영자 Zalo 알림 — 그룹 설정 시 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0040)
   await enqueueOperatorNotification({
     type: NotificationType.VENDOR_PO_RESPONSE,
     payload,

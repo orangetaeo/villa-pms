@@ -3,11 +3,22 @@
 //     한 페이지(기본 10건)만 반환한다. 합계 카드는 집계 쿼리, 셀렉터 옵션은 참조 테이블에서 산출.
 //   /api/service-orders(뷰 전환·필터·페이지)와 /service-orders 페이지(SSR 초기 1페이지)가 공유.
 //   ★ 누수 경계: costVnd(공급자 지급액)만. 판매가·마진 미포함(원칙2). 호출부가 canViewFinance 게이트.
-import { Prisma } from "@prisma/client";
+import { Prisma, type GuestSettlementMethod } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { pickI18n, selectedOptionLabels } from "@/lib/service-display";
 import { formatVillaName } from "@/lib/villa-name";
 import { resolveQuickRange, parseUtcDateOnly } from "@/lib/date-vn";
+
+/**
+ * 벤더 정산 수단 좁히기 — GuestSettlementMethod enum이 게스트 혼합수납(MIXED)을 위해 넓어졌으나,
+ *   벤더 정산(ServiceOrder.vendorSettleMethod)은 CASH|BANK_TRANSFER|OTHER만 생성한다(MIXED 미사용).
+ *   생성 타입에 MIXED가 포함되므로 소비 지점에서 런타임 정규화로 좁힌다(MIXED→null, 방어적).
+ */
+export function narrowVendorSettleMethod(
+  m: GuestSettlementMethod | null | undefined
+): "CASH" | "BANK_TRANSFER" | "OTHER" | null {
+  return m == null || m === "MIXED" ? null : m;
+}
 
 export type HubOrder = {
   id: string;
@@ -236,7 +247,7 @@ function mapRow(o: RawRow, itemName: string | null, locale: string): HubOrder {
     status: o.status,
     costVnd: o.costVnd.toString(),
     vendorSettledAt: iso(o.vendorSettledAt),
-    vendorSettleMethod: o.vendorSettleMethod,
+    vendorSettleMethod: narrowVendorSettleMethod(o.vendorSettleMethod),
     vendorSettleNote: o.vendorSettleNote,
     poSentAt: iso(o.poSentAt),
     vendorRespondedAt: iso(o.vendorRespondedAt),

@@ -25,7 +25,7 @@ export async function notifyOperatorsVillaPendingReview(
       _count: { select: { photos: true } },
     },
   });
-  // 운영자 알림 — 그룹 설정 시 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0039)
+  // 운영자 알림 — 그룹 설정 시 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0040)
   await enqueueOperatorNotification({
     db,
     type: NotificationType.VILLA_PENDING_REVIEW,
@@ -96,7 +96,7 @@ export async function notifyOperatorsVillaContentUpdated(
   });
   if (pending) return;
 
-  // 운영자 알림 — 그룹 설정 시 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0039)
+  // 운영자 알림 — 그룹 설정 시 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0040)
   await enqueueOperatorNotification({
     db,
     type: NotificationType.VILLA_CONTENT_UPDATED,

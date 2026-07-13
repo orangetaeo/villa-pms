@@ -21,7 +21,7 @@ export async function notifyOperatorsGuestPaymentNotice(
   }
 ): Promise<void> {
   try {
-    // 운영자 알림 — 그룹 설정 시 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0039)
+    // 운영자 알림 — 그룹 설정 시 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0040)
     await enqueueOperatorNotification({
       db,
       type: NotificationType.GUEST_PAYMENT_NOTICE,
@@ -54,7 +54,7 @@ export async function notifyOperatorsServiceOrderRequested(
   }
 ): Promise<void> {
   try {
-    // 운영자 알림 — 그룹 설정 시 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0039)
+    // 운영자 알림 — 그룹 설정 시 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0040)
     await enqueueOperatorNotification({
       db,
       type: NotificationType.SERVICE_ORDER_REQUESTED,

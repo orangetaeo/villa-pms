@@ -670,6 +670,8 @@ model CheckOutRecord {
   createdAt       DateTime  @default(now())
 
   minibarLines    CheckoutMinibarLine[]
+  // 수납 라인 원장(수단×통화, 2026-07-13) — 혼합 수납 지원. settledVnd/Krw/Usd = Σ라인(통화별) 캐시.
+  settlementLines CheckoutSettlementLine[]
 }
 
 // 게스트 체크아웃 정산 결제수단 (ADR-0019 S4) — PG 없음, 현장 수납.
@@ -677,6 +679,22 @@ enum GuestSettlementMethod {
   CASH // 현금
   BANK_TRANSFER // 계좌이체
   OTHER // 기타
+  MIXED // 혼합 수납(라인 수단 2종 이상) — 서버 파생 전용, 클라 직접 지정 금지
+}
+
+// 체크아웃 수납 라인(수단×통화×금액) — 혼합 수납(현금+계좌이체 등) 원장 (계약서 T-checkout-mixed-method-settlement).
+//   amount는 원본 통화 최소단위 정수(VND=동, KRW=원, USD=정수 달러 — 환산 저장 금지).
+//   기록 경로는 lib/checkout.ts completeCheckout 단일 — 다른 경로에서 생성 금지.
+model CheckoutSettlementLine {
+  id               String                @id @default(cuid())
+  checkOutRecordId String
+  record           CheckOutRecord        @relation(fields: [checkOutRecordId], references: [id], onDelete: Cascade)
+  method           GuestSettlementMethod
+  currency         Currency
+  amount           BigInt
+  createdAt        DateTime              @default(now())
+
+  @@index([checkOutRecordId])
 }
 
 // 체크아웃 미니바 판매 라인(품목별 스냅샷) — 미니바 매출·품목 인기·(원가 입력 후)마진 통계의 단일 소스.
@@ -1322,7 +1340,7 @@ model Notification {
   error     String?
   createdAt DateTime           @default(now())
 
-  // 그룹 발송 대상 thread id — 설정 시 dispatchOne이 시스템봇 ThreadType.Group으로 발송 (ADR-0039).
+  // 그룹 발송 대상 thread id — 설정 시 dispatchOne이 시스템봇 ThreadType.Group으로 발송 (ADR-0040).
   // null이면 기존 개별 DM(user.zaloUserId) 발송. additive: 라이브 ALTER TABLE ADD COLUMN.
   groupThreadId String?
 

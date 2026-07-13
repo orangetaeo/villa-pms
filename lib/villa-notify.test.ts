@@ -17,7 +17,7 @@ function mockDb(opts: MockOptions = {}) {
   const villaFindUnique = vi.fn(async () => opts.villa ?? null);
   const notifFindFirst = vi.fn(async () => opts.pendingDup ?? null);
   const notifCreate = vi.fn(async (args: unknown) => args);
-  // ADR-0039 — enqueueOperatorNotification가 그룹 설정을 조회함. 기본 미설정(null) → 개별 DM fan-out 유지.
+  // ADR-0040 — enqueueOperatorNotification가 그룹 설정을 조회함. 기본 미설정(null) → 개별 DM fan-out 유지.
   const appSettingFindUnique = vi.fn(async () => null);
   const db = {
     user: { findMany: userFindMany },

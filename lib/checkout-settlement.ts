@@ -44,3 +44,88 @@ export type GuestSettlementMethodValue = (typeof GUEST_SETTLEMENT_METHODS)[numbe
 export function isGuestSettlementMethod(v: string): v is GuestSettlementMethodValue {
   return (GUEST_SETTLEMENT_METHODS as readonly string[]).includes(v);
 }
+
+// ===================== 수납 라인(수단×통화) 정규화 — 혼합 수납 (T-checkout-mixed) =====================
+//
+// 체크아웃 게스트 수납은 "현금 500만₫ + 계좌이체 20만₩"처럼 수단·통화가 섞여 들어올 수 있다.
+//   라인(수단, 통화, 원본 통화 최소단위 금액)으로 받아 서버가 검증·병합·통화별 합계·대표 수단을 파생한다.
+//   금액은 원본 통화 그대로(VND=동, KRW=원, USD=정수 달러) — 환산 저장 금지. 부동소수점 금지.
+
+export type SettlementCurrency = "VND" | "KRW" | "USD";
+
+export interface SettlementLineInput {
+  method: GuestSettlementMethodValue; // CASH | BANK_TRANSFER | OTHER (MIXED는 서버 파생 전용 — 입력 금지)
+  currency: SettlementCurrency;
+  amount: bigint; // 원본 통화 최소단위 정수 (> 0)
+}
+
+/** 파생 대표 수단 — 라인 수단 1종이면 그 수단, 2종 이상이면 "MIXED". 라인 없으면 null. */
+export type DerivedSettlementMethod = GuestSettlementMethodValue | "MIXED";
+
+export interface NormalizedSettlement {
+  /** (수단,통화) 중복 병합된 라인 — 이 배열이 CheckoutSettlementLine 저장·표시의 원천 */
+  lines: SettlementLineInput[];
+  settledVnd: bigint | null; // Σ VND 라인 (0이면 null)
+  settledKrw: number | null; // Σ KRW 라인 (0이면 null, Number 안전범위 검증 후 변환)
+  settledUsd: number | null; // Σ USD 라인 (0이면 null)
+  derivedMethod: DerivedSettlementMethod | null;
+}
+
+/** 수납 라인 최대 개수 — 방어적 상한(현장 수납이 12건을 넘길 이유 없음). */
+export const MAX_SETTLEMENT_LINES = 12;
+
+/**
+ * 수납 라인 검증·병합·집계 — 순수. (SPEC: 혼합 수납)
+ *   - 검증: amount ≤ 0 → RangeError, 라인 수 > 12 → RangeError
+ *   - (method, currency) 중복 라인은 금액 합산 병합
+ *   - 통화별 합계 산출(KRW/USD는 Number 안전범위 검증 후 number 변환, 0이면 null)
+ *   - 수단 종류 1개 → 그 수단, 2개 이상 → "MIXED"를 derivedMethod로 반환
+ *   - 빈 배열 → lines=[]·전부 null·derivedMethod=null
+ */
+export function normalizeSettlementLines(lines: SettlementLineInput[]): NormalizedSettlement {
+  if (lines.length > MAX_SETTLEMENT_LINES) {
+    throw new RangeError(`수납 라인은 최대 ${MAX_SETTLEMENT_LINES}건까지 입력할 수 있습니다`);
+  }
+
+  // (수단,통화) 병합 — 입력 순서 보존
+  const merged = new Map<string, SettlementLineInput>();
+  for (const l of lines) {
+    if (l.amount <= 0n) {
+      throw new RangeError("수납액은 0보다 커야 합니다");
+    }
+    const key = `${l.method}|${l.currency}`;
+    const prev = merged.get(key);
+    if (prev) {
+      prev.amount += l.amount;
+    } else {
+      merged.set(key, { method: l.method, currency: l.currency, amount: l.amount });
+    }
+  }
+  const mergedLines = [...merged.values()];
+
+  let vnd = 0n;
+  let krw = 0n;
+  let usd = 0n;
+  const methods = new Set<GuestSettlementMethodValue>();
+  for (const l of mergedLines) {
+    methods.add(l.method);
+    if (l.currency === "VND") vnd += l.amount;
+    else if (l.currency === "KRW") krw += l.amount;
+    else usd += l.amount;
+  }
+
+  const MAX_SAFE = BigInt(Number.MAX_SAFE_INTEGER);
+  if (krw > MAX_SAFE) throw new RangeError("수납액(KRW) 합계가 안전 정수 범위를 초과했습니다");
+  if (usd > MAX_SAFE) throw new RangeError("수납액(USD) 합계가 안전 정수 범위를 초과했습니다");
+
+  const derivedMethod: DerivedSettlementMethod | null =
+    methods.size === 0 ? null : methods.size === 1 ? [...methods][0] : "MIXED";
+
+  return {
+    lines: mergedLines,
+    settledVnd: vnd > 0n ? vnd : null,
+    settledKrw: krw > 0n ? Number(krw) : null,
+    settledUsd: usd > 0n ? Number(usd) : null,
+    derivedMethod,
+  };
+}

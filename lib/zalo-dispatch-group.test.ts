@@ -1,4 +1,4 @@
-// ADR-0039 — dispatchOne 그룹 발송 분기 (lib/zalo dispatchPendingNotifications)
+// ADR-0040 — dispatchOne 그룹 발송 분기 (lib/zalo dispatchPendingNotifications)
 //   그룹 행(groupThreadId)은 user.zaloUserId 없이도 발송되며 NO_ZALO_LINK가 적용되지 않는다.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NotificationType, NotificationStatus } from "@prisma/client";

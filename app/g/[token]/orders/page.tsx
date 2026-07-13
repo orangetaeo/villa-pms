@@ -100,9 +100,20 @@ export default async function GuestOrdersPage({
     };
   });
 
+  // 티켓 문의 안내 박스의 카카오톡·전화 버튼용 연락처 — 티켓 주문이 있을 때만 조회(불필요 쿼리 회피).
+  const hasTicket = requestedOrders.some((o) => o.type === "TICKET");
+  const contact = hasTicket ? await getContactSettings() : { kakaoUrl: null, phone: null };
+
   return (
     <div className="bg-slate-50 text-slate-900 antialiased">
-      <GuestOrders token={token} lang={lang} requestedOrders={requestedOrders} justOrdered={justOrdered} />
+      <GuestOrders
+        token={token}
+        lang={lang}
+        requestedOrders={requestedOrders}
+        justOrdered={justOrdered}
+        contactKakaoUrl={contact.kakaoUrl}
+        contactPhone={contact.phone}
+      />
     </div>
   );
 }

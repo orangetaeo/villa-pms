@@ -78,7 +78,7 @@ export async function runRosterReminders(
     return { targetCount: 0, notificationCount: 0, bookingIds: [] };
   }
 
-  // 운영자 알림 — 그룹 설정 시 대상당 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0039).
+  // 운영자 알림 — 그룹 설정 시 대상당 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0040).
   // notificationCount = 실제 적재된 Notification 행 수(그룹=대상 수, 개별=대상×운영자 수).
   let notificationCount = 0;
   for (const t of targets) {

@@ -1,4 +1,4 @@
-// ADR-0039 — 운영자 알림 그룹 라우팅 3중 게이트 (lib/operator-notify)
+// ADR-0040 — 운영자 알림 그룹 라우팅 3중 게이트 (lib/operator-notify)
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NotificationType } from "@prisma/client";
 

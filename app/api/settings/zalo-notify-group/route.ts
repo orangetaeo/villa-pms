@@ -1,4 +1,4 @@
-// GET/PUT /api/settings/zalo-notify-group — 운영자 Zalo 알림 그룹방 설정 (ADR-0039, ADMIN 전용)
+// GET/PUT /api/settings/zalo-notify-group — 운영자 Zalo 알림 그룹방 설정 (ADR-0040, ADMIN 전용)
 //
 //   GET  = 시스템봇 소유자(테오)의 GROUP 대화 목록 + 현재 설정값(ZALO_ADMIN_NOTIFY_GROUP_ID).
 //   PUT  = 그룹 thread id 저장(=그룹 라우팅 활성) 또는 null 해제(=개별 DM 복귀).

@@ -1,4 +1,4 @@
-# ADR-0039 — 운영자 Zalo 알림 그룹방 발송
+# ADR-0040 — 운영자 Zalo 알림 그룹방 발송
 
 - 상태: 채택 (2026-07-13)
 - 관련: ADR-0005(Zalo 개인계정 발송), ADR-0007(멀티 계정 풀), ADR-0010 S4(그룹 채팅), ADR-0032(리스너 워커 분리)
@@ -20,7 +20,7 @@
 ```prisma
 model Notification {
   // ...
-  groupThreadId String? // 설정 시 dispatchOne이 시스템봇 ThreadType.Group으로 발송 (ADR-0039)
+  groupThreadId String? // 설정 시 dispatchOne이 시스템봇 ThreadType.Group으로 발송 (ADR-0040)
 }
 ```
 

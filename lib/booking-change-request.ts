@@ -270,7 +270,7 @@ export async function notifyOperatorsOfChangeRequest(input: {
     lines.push(`처리: /bookings/${input.bookingId}`);
     const text = lines.join("\n");
 
-    // 그룹 설정 시 그룹방 1건 직발송 (ADR-0039). 이 경로는 큐 미경유 즉시 발송이라
+    // 그룹 설정 시 그룹방 1건 직발송 (ADR-0040). 이 경로는 큐 미경유 즉시 발송이라
     // 그룹 발송도 시스템봇으로 1건만 보낸다(운영자 소유자 미연결이어도 시도 — best-effort).
     const groupThreadId = await getAdminNotifyGroupId(defaultPrisma);
     if (groupThreadId) {

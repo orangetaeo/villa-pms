@@ -86,7 +86,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     : null;
   const itemName = item?.nameKo ?? order.vendorName ?? "—";
 
-  // 운영자(테오)들에게 완료 통지(ko) — 그룹 설정 시 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0039).
+  // 운영자(테오)들에게 완료 통지(ko) — 그룹 설정 시 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0040).
   await enqueueOperatorNotification({
     type: NotificationType.VENDOR_PO_RESPONSE,
     payload: {

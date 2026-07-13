@@ -1,4 +1,4 @@
-// lib/operator-notify.ts — 운영자(테오) Zalo 알림 단일 진입점 (ADR-0039)
+// lib/operator-notify.ts — 운영자(테오) Zalo 알림 단일 진입점 (ADR-0040)
 //
 // 배경: 운영자 대상 업무 알림이 그동안 zaloUserId 연결된 활성 운영자 수만큼 개별 1:1 DM으로
 //   fan-out 됐다. 테오가 Zalo 그룹방("villa go 주문 알림방")을 개설 — 운영자 알림을 그룹방 1건으로
@@ -13,7 +13,7 @@
 //
 // ★ 누수 0: payload는 각 호출부가 화이트리스트로 구성(판매가·마진 미포함) — 이 모듈은 배선만.
 //   그룹 멤버십 전제(멤버=운영자만, 관리 책임=테오). 원가 열람이 정당한 운영자 그룹이므로
-//   RATE_CHANGED_DURING_PROPOSAL 같은 원가 표기 알림도 라우팅 대상에 포함(ADR-0039 §4).
+//   RATE_CHANGED_DURING_PROPOSAL 같은 원가 표기 알림도 라우팅 대상에 포함(ADR-0040 §4).
 import { NotificationType, type Prisma, type PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { enqueueNotification } from "@/lib/zalo";
@@ -28,7 +28,7 @@ export const ZALO_ADMIN_NOTIFY_GROUP_ID_KEY = "ZALO_ADMIN_NOTIFY_GROUP_ID";
 export const OPERATOR_ROLES = ["OWNER", "MANAGER", "STAFF", "ADMIN"] as const;
 
 /**
- * 그룹방으로 라우팅할 운영자 대상 알림 타입 화이트리스트 (ADR-0039).
+ * 그룹방으로 라우팅할 운영자 대상 알림 타입 화이트리스트 (ADR-0040).
  * 전부 "운영자 전원이 같은 정보를 받으면 되는" 업무 통지다.
  *
  * ⚠ SECURITY_ALERT·ZALO_LISTENER_DOWN은 의도적으로 제외 — 절대 추가하지 마라:
@@ -89,7 +89,7 @@ export interface EnqueueOperatorNotificationParams {
 }
 
 /**
- * 운영자 대상 알림 적재 단일 진입점 (ADR-0039).
+ * 운영자 대상 알림 적재 단일 진입점 (ADR-0040).
  *  - 3중 게이트 충족: Notification 1행(userId=시스템봇 소유자, groupThreadId=그룹) → 그룹방 1건 발송.
  *  - 불충족: findNotifiableOperators 개별 DM fan-out (기존 동작 보존).
  * @returns 적재한 Notification 행 수(그룹=1, fan-out=운영자 수, 대상 0명=0).

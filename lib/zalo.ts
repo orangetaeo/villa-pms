@@ -618,7 +618,7 @@ export interface EnqueueNotificationParams {
   /** 비즈니스 트랜잭션 안에서 원자적으로 적재할 때 tx 주입 (T1.3·T1.8 패턴) */
   db?: DbClient;
   /**
-   * 그룹 발송 대상 thread id (ADR-0039) — 설정 시 dispatchOne이 시스템봇 ThreadType.Group으로 발송한다.
+   * 그룹 발송 대상 thread id (ADR-0040) — 설정 시 dispatchOne이 시스템봇 ThreadType.Group으로 발송한다.
    * 운영자 그룹 라우팅은 lib/operator-notify.enqueueOperatorNotification가 채운다(직접 호출 지양).
    */
   groupThreadId?: string | null;
@@ -826,7 +826,7 @@ async function resolveStatementAttachment(
 }
 
 /**
- * 그룹방 발송 (ADR-0039) — 시스템봇 ThreadType.Group 1건. groupThreadId 있는 Notification 전용.
+ * 그룹방 발송 (ADR-0040) — 시스템봇 ThreadType.Group 1건. groupThreadId 있는 Notification 전용.
  *  - user.zaloUserId 미참조(소유자 미연결이어도 발송 가능·재시도 유지).
  *  - 첨부 없음: 그룹 라우팅 대상(GROUP_ROUTED_TYPES)은 전부 텍스트 알림(SETTLEMENT_READY 등 첨부류 제외).
  *  - 에러 정책은 개별 DM과 동일: BOT_NOT_CONNECTED=attempt 미증가 재시도, 그 외=attempt+1 일반 재시도(3회).
@@ -921,7 +921,7 @@ async function dispatchOne(
 ): Promise<void> {
   const attempt = getAttemptCount(notification.payload);
 
-  // 0) 그룹 발송 분기 (ADR-0039) — NO_ZALO_LINK 판정보다 **먼저**.
+  // 0) 그룹 발송 분기 (ADR-0040) — NO_ZALO_LINK 판정보다 **먼저**.
   //    그룹 행(groupThreadId)은 user.zaloUserId를 절대 참조하지 않는다:
   //    시스템봇 소유자가 Zalo 미연결이어도 영구 FAILED(NO_ZALO_LINK)로 사장되면 안 되기 때문
   //    (TDA 지적 사고 지점 — 소유자 zaloUserId 유무와 그룹 발송 가능성은 무관).

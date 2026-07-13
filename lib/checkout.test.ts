@@ -7,6 +7,13 @@ vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 vi.mock("@/lib/cleaning", () => ({
   createCheckoutCleaningTask: vi.fn(async () => ({ id: "ct1" })),
 }));
+// 환율 스냅샷 — 실수납 금액이 있을 때 라우트가 조회. DB 접근 없이 고정값 반환.
+vi.mock("@/lib/fx-rates", () => ({
+  getDailyRates: vi.fn(async () => ({
+    date: "2026-07-05",
+    vndPerUnit: { KRW: 19, USD: 25_000 },
+  })),
+}));
 
 import { completeCheckout, resolveDepositOutcome, CheckoutRejectedError } from "./checkout";
 import { createCheckoutCleaningTask } from "./cleaning";
@@ -135,6 +142,11 @@ function makeTxMock(opts: {
       create: vi.fn(async (args: { data: Record<string, unknown> }) => ({
         id: "cml1",
         ...args.data,
+      })),
+    },
+    checkoutSettlementLine: {
+      createMany: vi.fn(async (args: { data: Record<string, unknown>[] }) => ({
+        count: args.data.length,
       })),
     },
     minibarStockMovement: {
@@ -581,6 +593,163 @@ describe("completeCheckout — 상태 가드·원자성 (계약 완료 기준)",
       })
     ).rejects.toThrow(RangeError);
   });
+
+  // ── 결제수단 혼합(분할) 수납 (T-checkout-mixed) ────────────────────────────
+  it("혼합 라인(현금 VND + 이체 KRW): 라인 2건 createMany + settlementMethod=MIXED + 통화별 합계", async () => {
+    const tx = makeTxMock({ booking: { id: "bk1", status: BookingStatus.CHECKED_IN } });
+    await completeCheckout(makePrismaMock(tx), {
+      ...BASE_INPUT,
+      settlement: {
+        lines: [
+          { method: "CASH", currency: "VND", amount: 5_000_000n },
+          { method: "BANK_TRANSFER", currency: "KRW", amount: 200_000n },
+        ],
+      },
+      settlementFx: { date: "2026-07-05", vndPerKrw: 19, vndPerUsd: 25_000 },
+    });
+    // 원장 라인 2건
+    expect(tx.checkoutSettlementLine.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          checkOutRecordId: "cor1",
+          method: "CASH",
+          currency: "VND",
+          amount: 5_000_000n,
+        }),
+        expect.objectContaining({
+          checkOutRecordId: "cor1",
+          method: "BANK_TRANSFER",
+          currency: "KRW",
+          amount: 200_000n,
+        }),
+      ],
+    });
+    // 비정규화 캐시 + 파생 수단
+    const settleUpdate = tx.checkOutRecord.update.mock.calls
+      .map((c) => (c[0] as { data: Record<string, unknown> }).data)
+      .find((d) => "settlementMethod" in d)!;
+    expect(settleUpdate).toMatchObject({
+      settlementMethod: "MIXED",
+      settledVnd: 5_000_000n,
+      settledKrw: 200_000,
+      settledUsd: null,
+      settlementFx: { date: "2026-07-05", vndPerKrw: 19, vndPerUsd: 25_000 },
+    });
+    // AuditLog 라인 요약(BigInt는 문자열)
+    expect(writeAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        changes: expect.objectContaining({
+          settlementLines: {
+            new: [
+              { method: "CASH", currency: "VND", amount: "5000000" },
+              { method: "BANK_TRANSFER", currency: "KRW", amount: "200000" },
+            ],
+          },
+        }),
+      })
+    );
+  });
+
+  it("단일 수단 라인 여러 통화: settlementMethod=그 수단(MIXED 아님)", async () => {
+    const tx = makeTxMock({ booking: { id: "bk1", status: BookingStatus.CHECKED_IN } });
+    await completeCheckout(makePrismaMock(tx), {
+      ...BASE_INPUT,
+      settlement: {
+        lines: [
+          { method: "CASH", currency: "VND", amount: 3_000_000n },
+          { method: "CASH", currency: "USD", amount: 50n },
+        ],
+      },
+    });
+    const settleUpdate = tx.checkOutRecord.update.mock.calls
+      .map((c) => (c[0] as { data: Record<string, unknown> }).data)
+      .find((d) => "settlementMethod" in d)!;
+    expect(settleUpdate.settlementMethod).toBe("CASH");
+    expect(settleUpdate.settledVnd).toBe(3_000_000n);
+    expect(settleUpdate.settledUsd).toBe(50);
+    expect(settleUpdate.settledKrw).toBeNull();
+  });
+
+  it("중복 (수단,통화) 라인은 합산 병합 후 1건 저장", async () => {
+    const tx = makeTxMock({ booking: { id: "bk1", status: BookingStatus.CHECKED_IN } });
+    await completeCheckout(makePrismaMock(tx), {
+      ...BASE_INPUT,
+      settlement: {
+        lines: [
+          { method: "CASH", currency: "VND", amount: 1_000_000n },
+          { method: "CASH", currency: "VND", amount: 2_000_000n },
+        ],
+      },
+    });
+    const createManyArg = tx.checkoutSettlementLine.createMany.mock.calls[0][0] as {
+      data: unknown[];
+    };
+    expect(createManyArg.data).toHaveLength(1);
+    expect(createManyArg.data[0]).toMatchObject({ currency: "VND", amount: 3_000_000n });
+  });
+
+  it("구 shape(amounts+method) 하위호환: 단일 수단 라인으로 변환 저장", async () => {
+    const tx = makeTxMock({ booking: { id: "bk1", status: BookingStatus.CHECKED_IN } });
+    await completeCheckout(makePrismaMock(tx), {
+      ...BASE_INPUT,
+      settlement: { method: "BANK_TRANSFER", amounts: { vnd: 4_000_000n, krw: 100_000, usd: null } },
+      settlementFx: { date: "2026-07-05", vndPerKrw: 19, vndPerUsd: 25_000 },
+    });
+    // amounts → 라인 2건(VND, KRW)으로 변환, USD null은 미생성
+    const createManyArg = tx.checkoutSettlementLine.createMany.mock.calls[0][0] as {
+      data: Array<{ method: string; currency: string; amount: bigint }>;
+    };
+    expect(createManyArg.data).toHaveLength(2);
+    expect(createManyArg.data.every((l) => l.method === "BANK_TRANSFER")).toBe(true);
+    const settleUpdate = tx.checkOutRecord.update.mock.calls
+      .map((c) => (c[0] as { data: Record<string, unknown> }).data)
+      .find((d) => "settlementMethod" in d)!;
+    // 수단 1종 → MIXED 아님
+    expect(settleUpdate.settlementMethod).toBe("BANK_TRANSFER");
+    expect(settleUpdate.settledVnd).toBe(4_000_000n);
+    expect(settleUpdate.settledKrw).toBe(100_000);
+  });
+
+  it("method만(금액 없음) 하위호환: 라인 미생성 + 수단·수납시각만 기록", async () => {
+    const tx = makeTxMock({ booking: { id: "bk1", status: BookingStatus.CHECKED_IN } });
+    await completeCheckout(makePrismaMock(tx), {
+      ...BASE_INPUT,
+      settlement: { method: "CASH" },
+      settlementFx: { date: "2026-07-05", vndPerKrw: 19, vndPerUsd: 25_000 },
+    });
+    expect(tx.checkoutSettlementLine.createMany).not.toHaveBeenCalled();
+    const settleUpdate = tx.checkOutRecord.update.mock.calls
+      .map((c) => (c[0] as { data: Record<string, unknown> }).data)
+      .find((d) => "settlementMethod" in d)!;
+    expect(settleUpdate.settlementMethod).toBe("CASH");
+    expect(settleUpdate.settledVnd).toBeNull();
+    expect(settleUpdate.settledAt).toBe(NOW);
+    // 실수납 없음 → 환율 스냅샷 미저장
+    expect(settleUpdate.settlementFx).toBeUndefined();
+  });
+
+  it("라인 amount 0 → RangeError (트랜잭션 진입 전 검증)", async () => {
+    const tx = makeTxMock({ booking: { id: "bk1", status: BookingStatus.CHECKED_IN } });
+    await expect(
+      completeCheckout(makePrismaMock(tx), {
+        ...BASE_INPUT,
+        settlement: { lines: [{ method: "CASH", currency: "VND", amount: 0n }] },
+      })
+    ).rejects.toThrow(RangeError);
+    expect(tx.checkOutRecord.create).not.toHaveBeenCalled();
+  });
+
+  it("라인 13건 이상 → RangeError", async () => {
+    const tx = makeTxMock({ booking: { id: "bk1", status: BookingStatus.CHECKED_IN } });
+    const lines = Array.from({ length: 13 }, () => ({
+      method: "CASH" as const,
+      currency: "VND" as const,
+      amount: 1_000n,
+    }));
+    await expect(
+      completeCheckout(makePrismaMock(tx), { ...BASE_INPUT, settlement: { lines } })
+    ).rejects.toThrow(RangeError);
+  });
 });
 
 // ===================== route — 401/403/404/409/400 (QA D1) =====================
@@ -650,5 +819,86 @@ describe("POST /api/bookings/[id]/checkout", () => {
     const data = await res.json();
     // BigInt 차감액이 문자열로 직렬화
     expect(data.record.deductionVnd).toBe("1500000");
+  });
+
+  // ── 혼합 수납 라인 (T-checkout-mixed) ──────────────────────────────────
+  it("혼합 라인 성공 → 200 (method 없이 lines만)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "a1", role: "ADMIN" } });
+    await setupRoutePrisma(
+      makeTxMock({ booking: { id: "bk1", status: BookingStatus.CHECKED_IN } })
+    );
+    const res = await callCheckout({
+      damageFound: false,
+      settlement: {
+        lines: [
+          { method: "CASH", currency: "VND", amount: "5000000" },
+          { method: "BANK_TRANSFER", currency: "KRW", amount: "200000" },
+        ],
+      },
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it("method=MIXED 직접 지정 → 400 (서버 파생 전용)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "a1", role: "ADMIN" } });
+    const res = await callCheckout({
+      damageFound: false,
+      settlement: { method: "MIXED" },
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("라인 method=MIXED → 400", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "a1", role: "ADMIN" } });
+    const res = await callCheckout({
+      damageFound: false,
+      settlement: { lines: [{ method: "MIXED", currency: "VND", amount: "1000" }] },
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("lines·method 모두 없음 → 400 (구 shape 하위호환 refine)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "a1", role: "ADMIN" } });
+    const res = await callCheckout({
+      damageFound: false,
+      settlement: { note: "메모만" },
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("라인 13건 이상 → 400 (zod max)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "a1", role: "ADMIN" } });
+    const res = await callCheckout({
+      damageFound: false,
+      settlement: {
+        lines: Array.from({ length: 13 }, () => ({
+          method: "CASH",
+          currency: "VND",
+          amount: "1000",
+        })),
+      },
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("라인 음수 amount → 400 (regex)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "a1", role: "ADMIN" } });
+    const res = await callCheckout({
+      damageFound: false,
+      settlement: { lines: [{ method: "CASH", currency: "VND", amount: "-1" }] },
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("라인 amount 0 → 400 (lib RangeError)", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "a1", role: "ADMIN" } });
+    await setupRoutePrisma(
+      makeTxMock({ booking: { id: "bk1", status: BookingStatus.CHECKED_IN } })
+    );
+    const res = await callCheckout({
+      damageFound: false,
+      settlement: { lines: [{ method: "CASH", currency: "VND", amount: "0" }] },
+    });
+    expect(res.status).toBe(400);
   });
 });
