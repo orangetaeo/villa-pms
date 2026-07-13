@@ -14,7 +14,7 @@ import { guestVndPrice, guestVnd } from "./guest-format";
 import { groupGuestOrders } from "./group-orders";
 import type { GuestOrdersProps, GuestRequestedOrder } from "./types";
 
-export default function GuestOrders({ token, lang, requestedOrders, justOrdered }: GuestOrdersProps) {
+export default function GuestOrders({ token, lang, requestedOrders, justOrdered, contactKakaoUrl, contactPhone }: GuestOrdersProps) {
   const L = GUEST_LABELS[lang];
   const router = useRouter();
   const suffix = lang === "ko" ? "" : `?lang=${lang}`;
@@ -406,9 +406,35 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered 
 
         {/* 티켓 문의 본사 안내(테오) — 라인마다 반복하지 않고 티켓 주문이 하나라도 있으면 합계 위에 1회만. */}
         {requestedOrders.some((o) => o.type === "TICKET") && (
-          <div className="flex items-start gap-2 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2.5">
-            <span className="material-symbols-outlined text-teal-600 text-[16px]">support_agent</span>
-            <p className="text-[11px] text-teal-700/90 leading-snug">{L.result.ticketContactNotice}</p>
+          <div className="flex flex-col gap-2 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2.5">
+            <div className="flex items-start gap-2">
+              <span className="material-symbols-outlined text-teal-600 text-[16px]">support_agent</span>
+              <p className="text-[11px] text-teal-700/90 leading-snug">{L.result.ticketContactNotice}</p>
+            </div>
+            {(contactKakaoUrl || contactPhone) && (
+              <div className="flex flex-wrap gap-2 pl-6">
+                {contactKakaoUrl && (
+                  <a
+                    href={contactKakaoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 h-8 px-3 rounded-lg text-[11px] font-semibold bg-teal-600 text-white active:scale-95"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">chat</span>
+                    {L.result.ticketContactKakao}
+                  </a>
+                )}
+                {contactPhone && (
+                  <a
+                    href={`tel:${contactPhone}`}
+                    className="inline-flex items-center gap-1 h-8 px-3 rounded-lg text-[11px] font-semibold border border-teal-200 bg-white text-teal-700 active:scale-95"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">call</span>
+                    {L.result.ticketContactPhone}
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         )}
 
