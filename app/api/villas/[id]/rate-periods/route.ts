@@ -13,7 +13,7 @@ import { requireCapability } from "@/lib/api-guard";
 
 const digits = z.string().regex(/^\d{1,15}$/); // VND 동·퍼센트 — BigInt 문자열 수신
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/); // YYYY-MM-DD (UTC 자정 변환)
-const SEASONS = ["LOW", "HIGH", "PEAK"] as const;
+const SEASONS = ["LOW", "SHOULDER", "HIGH", "PEAK"] as const;
 
 const priceFields = {
   season: z.enum(SEASONS),

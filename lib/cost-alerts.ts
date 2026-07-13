@@ -17,7 +17,7 @@ export interface CostAlertRow {
   notificationId: string;
   villaId: string;
   villaName: string;
-  season: "LOW" | "HIGH" | "PEAK";
+  season: "LOW" | "SHOULDER" | "HIGH" | "PEAK";
   oldCostVnd: string; // 동 단위 문자열
   newCostVnd: string | null; // 삭제면 null
   deltaVnd: string; // new − old (음수 가능, "−"/"+" 부호는 표시단에서)
@@ -43,7 +43,7 @@ export interface CostAlertGroup {
 interface RatePayload {
   villaId: string;
   villaName: string;
-  season: "LOW" | "HIGH" | "PEAK";
+  season: "LOW" | "SHOULDER" | "HIGH" | "PEAK";
   oldCostVnd: string;
   newCostVnd: string | null;
   proposalId: string;
@@ -130,17 +130,17 @@ export async function loadCostAlerts(
     where: { villaId: { in: villaIds } },
     select: { villaId: true, season: true, isBase: true, salePriceVnd: true },
   });
-  // villaId별로 묶어 시즌 대표행(LOW=base, HIGH/PEAK=그 시즌 첫 기간 없으면 base) → (villaId::season) 판매가 맵.
-  const byVilla = new Map<string, { season: "LOW" | "HIGH" | "PEAK"; isBase: boolean; salePriceVnd: bigint }[]>();
+  // villaId별로 묶어 시즌 대표행(LOW=base, SHOULDER/HIGH/PEAK=그 시즌 첫 기간 없으면 미포함) → (villaId::season) 판매가 맵.
+  const byVilla = new Map<string, { season: "LOW" | "SHOULDER" | "HIGH" | "PEAK"; isBase: boolean; salePriceVnd: bigint }[]>();
   for (const r of ratePeriods) {
     const arr = byVilla.get(r.villaId) ?? [];
-    arr.push({ season: r.season as "LOW" | "HIGH" | "PEAK", isBase: r.isBase, salePriceVnd: r.salePriceVnd });
+    arr.push({ season: r.season as "LOW" | "SHOULDER" | "HIGH" | "PEAK", isBase: r.isBase, salePriceVnd: r.salePriceVnd });
     byVilla.set(r.villaId, arr);
   }
   const rateMap = new Map<string, bigint>();
   for (const [villaId, rows] of byVilla) {
     const rep = representativeRatesBySeason(rows);
-    for (const season of ["LOW", "HIGH", "PEAK"] as const) {
+    for (const season of ["LOW", "SHOULDER", "HIGH", "PEAK"] as const) {
       const r = rep[season];
       if (r) rateMap.set(`${villaId}::${season}`, r.salePriceVnd);
     }

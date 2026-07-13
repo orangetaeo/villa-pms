@@ -6,6 +6,7 @@ import {
   quoteStayForVilla,
   pickRepresentativeRate,
   representativeRatesBySeason,
+  buildRatePeriodRowsFromSeasonCosts,
   MissingBaseRateError,
   type RatePeriodLike,
 } from "@/lib/pricing";
@@ -62,6 +63,72 @@ describe("resolveRatePeriod — 기간 우선, 없으면 기본요금", () => {
     const lowOverlap: RatePeriodLike = { ...base, isBase: false, startDate: utc("2026-07-10"), endDate: utc("2026-07-20") };
     // PEAK(peakSummer) vs LOW(lowOverlap) 겹침 → PEAK 우선
     expect(resolveRatePeriod(utc("2026-07-11"), [lowOverlap, peakSummer], base)).toBe(peakSummer);
+  });
+});
+
+// 준성수기(SHOULDER, T-season-shoulder) — LOW < SHOULDER < HIGH < PEAK
+const shoulderSpring: RatePeriodLike = {
+  season: SeasonType.SHOULDER,
+  isBase: false,
+  startDate: utc("2026-09-01"),
+  endDate: utc("2026-09-10"),
+  supplierCostVnd: 2_000_000n,
+  salePriceVnd: 2_400_000n,
+  salePriceKrw: 120_000,
+};
+
+describe("SHOULDER(준성수기) — 우선순위 LOW < SHOULDER < HIGH", () => {
+  const overlap = { startDate: utc("2026-07-10"), endDate: utc("2026-07-20") };
+  const shoulderOverlap: RatePeriodLike = { ...shoulderSpring, ...overlap };
+  const lowOverlap: RatePeriodLike = { ...base, isBase: false, ...overlap };
+  const highOverlap: RatePeriodLike = {
+    season: SeasonType.HIGH,
+    isBase: false,
+    ...overlap,
+    supplierCostVnd: 3_000_000n,
+    salePriceVnd: 3_600_000n,
+    salePriceKrw: 180_000,
+  };
+
+  it("SHOULDER vs LOW 겹침 → SHOULDER 우선", () => {
+    expect(resolveRatePeriod(utc("2026-07-11"), [lowOverlap, shoulderOverlap], base)).toBe(shoulderOverlap);
+  });
+  it("HIGH vs SHOULDER 겹침 → HIGH 우선", () => {
+    expect(resolveRatePeriod(utc("2026-07-11"), [shoulderOverlap, highOverlap], base)).toBe(highOverlap);
+  });
+  it("SHOULDER 기간 걸린 날 → SHOULDER 가격 박별 합산", () => {
+    const q = quoteStayByPeriod({
+      checkIn: utc("2026-09-01"),
+      checkOut: utc("2026-09-03"),
+      saleCurrency: Currency.VND,
+      base,
+      periods: [shoulderSpring],
+    });
+    expect(q.nightly.map((n) => n.season)).toEqual([SeasonType.SHOULDER, SeasonType.SHOULDER]);
+    expect(q.totalSaleVnd).toBe(2_400_000n + 2_400_000n);
+  });
+});
+
+describe("buildRatePeriodRowsFromSeasonCosts — SHOULDER 선택·방어 스킵", () => {
+  const globalSeasons = [
+    { season: SeasonType.SHOULDER, startDate: utc("2026-09-01"), endDate: utc("2026-09-10"), label: null },
+    { season: SeasonType.HIGH, startDate: utc("2026-10-01"), endDate: utc("2026-11-01"), label: null },
+  ];
+  it("SHOULDER 원가 있으면 SHOULDER 기간행 생성", () => {
+    const { base: b, periods } = buildRatePeriodRowsFromSeasonCosts(
+      { LOW: 1_000_000n, SHOULDER: 2_000_000n, HIGH: 3_000_000n, PEAK: 5_000_000n },
+      globalSeasons
+    );
+    expect(b.season).toBe(SeasonType.LOW);
+    expect(periods.map((p) => p.season)).toEqual([SeasonType.SHOULDER, SeasonType.HIGH]);
+    expect(periods.find((p) => p.season === SeasonType.SHOULDER)!.supplierCostVnd).toBe(2_000_000n);
+  });
+  it("SHOULDER 원가 미포함(구 payload) → 전역 SHOULDER 기간 스킵(방어), HIGH만 생성", () => {
+    const { periods } = buildRatePeriodRowsFromSeasonCosts(
+      { LOW: 1_000_000n, HIGH: 3_000_000n, PEAK: 5_000_000n },
+      globalSeasons
+    );
+    expect(periods.map((p) => p.season)).toEqual([SeasonType.HIGH]);
   });
 });
 
@@ -137,6 +204,13 @@ describe("representativeRatesBySeason — 시즌별 대표행(표시·경보용)
   it("LOW=base, HIGH/PEAK=해당 시즌 기간", () => {
     const rep = representativeRatesBySeason([baseRow, highRow, peak1]);
     expect(rep.LOW).toBe(baseRow);
+    expect(rep.HIGH).toBe(highRow);
+    expect(rep.PEAK).toBe(peak1);
+  });
+  it("SHOULDER 기간 포함 시 rep.SHOULDER 반환 (T-season-shoulder)", () => {
+    const shoulderRow = { season: SeasonType.SHOULDER, isBase: false, supplierCostVnd: 2_000_000n };
+    const rep = representativeRatesBySeason([baseRow, shoulderRow, highRow, peak1]);
+    expect(rep.SHOULDER).toBe(shoulderRow);
     expect(rep.HIGH).toBe(highRow);
     expect(rep.PEAK).toBe(peak1);
   });

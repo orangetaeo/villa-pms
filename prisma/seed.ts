@@ -392,6 +392,7 @@ async function main() {
       //   멱등성: 빌라별 deleteMany → create + createMany (upsert 대신 전량 재생성).
       const costsBySeason: Record<SeasonType, bigint> = {
         [SeasonType.LOW]: 0n,
+        [SeasonType.SHOULDER]: 0n,
         [SeasonType.HIGH]: 0n,
         [SeasonType.PEAK]: 0n,
       };

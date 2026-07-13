@@ -286,6 +286,8 @@ export async function PUT(
         LOW: BigInt(data.rates.LOW),
         HIGH: BigInt(data.rates.HIGH),
         PEAK: BigInt(data.rates.PEAK),
+        // SHOULDER(준성수기)는 선택 — 전송 시에만 포함(미전송 구 payload 하위호환)
+        ...(data.rates.SHOULDER != null ? { SHOULDER: BigInt(data.rates.SHOULDER) } : {}),
       },
       globalSeasons
     );
@@ -338,7 +340,7 @@ export async function PUT(
       accessInfo: { new: data.accessInfo != null && data.accessInfo !== "" },
       wifiPassword: { new: data.wifiPassword != null && data.wifiPassword !== "" },
       supplierCostVnd: {
-        new: `LOW=${data.rates.LOW},HIGH=${data.rates.HIGH},PEAK=${data.rates.PEAK}`,
+        new: `LOW=${data.rates.LOW},HIGH=${data.rates.HIGH},PEAK=${data.rates.PEAK}${data.rates.SHOULDER != null ? `,SHOULDER=${data.rates.SHOULDER}` : ""}`,
       },
     },
   });

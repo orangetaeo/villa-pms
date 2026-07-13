@@ -10,7 +10,7 @@ import { formatThousands } from "@/lib/format";
 import CollapsibleCard from "@/components/admin/collapsible-card";
 import { DateField } from "@/components/date-field";
 
-type Season = "LOW" | "HIGH" | "PEAK";
+type Season = "LOW" | "SHOULDER" | "HIGH" | "PEAK";
 type MarginType = "PERCENT" | "FIXED_VND";
 
 interface RateFields {
@@ -38,9 +38,10 @@ export interface RatePeriodInitial {
   periods: (RateFields & { startDate: string; endDate: string })[];
 }
 
-const SEASONS: Season[] = ["LOW", "HIGH", "PEAK"];
+const SEASONS: Season[] = ["LOW", "SHOULDER", "HIGH", "PEAK"];
 const SEASON_BADGE: Record<Season, string> = {
   LOW: "bg-emerald-500/10 text-emerald-500",
+  SHOULDER: "bg-amber-500/10 text-amber-500",
   HIGH: "bg-orange-500/10 text-orange-500",
   PEAK: "bg-red-500/10 text-red-500",
 };

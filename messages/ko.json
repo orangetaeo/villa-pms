@@ -739,6 +739,7 @@
         "baseRate": "기본요금",
         "seasons": {
           "LOW": "비수기",
+          "SHOULDER": "준성수기",
           "HIGH": "성수기",
           "PEAK": "극성수기"
         },
@@ -1268,6 +1269,7 @@
         "consumerHint": "비우면 Net 판매가로 판매됩니다. 직접 소비자(DIRECT) 채널 예약에만 적용됩니다.",
         "seasons": {
           "LOW": "비수기",
+          "SHOULDER": "준성수기",
           "HIGH": "성수기",
           "PEAK": "극성수기"
         },
@@ -1591,6 +1593,7 @@
     "editResubmit": "수정 후 재제출",
     "season": {
       "LOW": "비수기",
+      "SHOULDER": "준성수기",
       "HIGH": "성수기",
       "PEAK": "극성수기"
     },
@@ -1741,11 +1744,14 @@
       "subtitle": "시즌별로 1박에 받을 금액을 입력하세요.",
       "LOW": "비수기",
       "LOWHint": "매년 5월~9월",
+      "SHOULDER": "준성수기",
+      "SHOULDERHint": "성수기 전후 (선택)",
       "HIGH": "성수기",
       "HIGHHint": "매년 10월~4월",
       "PEAK": "극성수기 (설·연휴)",
       "PEAKHint": "축제·설 연휴",
-      "empty": "금액 미입력"
+      "empty": "금액 미입력",
+      "optional": "선택"
     }
   },
   "amenities": {
@@ -2134,6 +2140,7 @@
       "colActions": "관리",
       "names": {
         "LOW": "비수기",
+        "SHOULDER": "준성수기",
         "HIGH": "성수기",
         "PEAK": "극성수기"
       },
@@ -3828,6 +3835,7 @@
     "removePeriod": "삭제",
     "seasons": {
       "LOW": "비수기",
+      "SHOULDER": "준성수기",
       "HIGH": "성수기",
       "PEAK": "극성수기"
     },
@@ -3904,6 +3912,7 @@
     "stayRange": "숙박",
     "seasons": {
       "LOW": "비수기",
+      "SHOULDER": "준성수기",
       "HIGH": "성수기",
       "PEAK": "극성수기"
     },

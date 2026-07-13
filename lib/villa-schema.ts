@@ -29,8 +29,14 @@ export const PHOTO_SPACES = [
   "ETC",
 ] as const;
 
-export const SEASONS = ["LOW", "HIGH", "PEAK"] as const;
+export const SEASONS = ["LOW", "SHOULDER", "HIGH", "PEAK"] as const;
 export type Season = (typeof SEASONS)[number];
+
+/**
+ * 원가 입력이 필수인 시즌 — LOW/HIGH/PEAK. SHOULDER(준성수기)는 선택(빈 값 허용·미전송).
+ * 마법사 제출 게이트(allEntered)·필수 경고 표시가 이 목록을 단일 원천으로 참조한다.
+ */
+export const REQUIRED_SEASONS = ["LOW", "HIGH", "PEAK"] as const;
 
 /** VND 동 단위 숫자 문자열 (0 허용 — 참고 시세용) */
 const vndDigits = z.string().regex(/^\d{1,15}$/);
@@ -126,11 +132,12 @@ export const villaCreateSchema = z.object({
       extraBedAvailable: z.boolean(),
     })
     .optional(),
-  // 원가 (6/6) — 시즌 3종 모두 필수
+  // 원가 (6/6) — LOW/HIGH/PEAK 필수, SHOULDER(준성수기)는 선택(구 payload 하위호환)
   rates: z.object({
     LOW: vndPositiveDigits,
     HIGH: vndPositiveDigits,
     PEAK: vndPositiveDigits,
+    SHOULDER: vndPositiveDigits.optional(),
   }),
   // ── 잠자리 구성·셀링포인트·판매정보 (v1.5 T-bedroom-composition-sync) — 전부 선택(하위호환) ──
   //   전송 시 서버가 bedroomDetails로 bedrooms/bathrooms/maxGuests를 파생하고 body 스칼라는 무시.

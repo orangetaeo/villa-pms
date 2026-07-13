@@ -2,7 +2,7 @@
 
 // 시즌 달력 관리 (T1.7 — Stitch b8 시즌 달력 카드 변환)
 // 목록은 RSC props, 추가/수정/삭제는 /api/seasons fetch → router.refresh()
-// 겹침(overlaps)은 차단이 아닌 경고 — PEAK > HIGH > LOW 우선 규칙 안내만 표시
+// 겹침(overlaps)은 차단이 아닌 경고 — PEAK > HIGH > SHOULDER > LOW 우선 규칙 안내만 표시
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
@@ -13,7 +13,7 @@ import { DateField } from "@/components/date-field";
 
 export interface SeasonRow {
   id: string;
-  season: "LOW" | "HIGH" | "PEAK";
+  season: "LOW" | "SHOULDER" | "HIGH" | "PEAK";
   startDate: string; // "YYYY-MM-DD"
   endDate: string;
   label: string | null;
@@ -21,7 +21,7 @@ export interface SeasonRow {
 
 const seasonFormSchema = z
   .object({
-    season: z.enum(["LOW", "HIGH", "PEAK"]),
+    season: z.enum(["LOW", "SHOULDER", "HIGH", "PEAK"]),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     label: z.string().trim().max(100).optional(),
@@ -31,14 +31,15 @@ const seasonFormSchema = z
 
 type SeasonFormValues = z.infer<typeof seasonFormSchema>;
 
-// 시즌 뱃지 색 (b8: LOW=green / HIGH=orange / PEAK=red)
+// 시즌 뱃지 색 (b8: LOW=green / SHOULDER=amber / HIGH=orange / PEAK=red)
 const SEASON_BADGE_CLASS: Record<SeasonRow["season"], string> = {
   LOW: "bg-green-900/30 text-green-400 border border-green-800/50",
+  SHOULDER: "bg-amber-900/30 text-amber-400 border border-amber-800/50",
   HIGH: "bg-orange-900/30 text-orange-400 border border-orange-800/50",
   PEAK: "bg-red-900/30 text-red-400 border border-red-800/50",
 };
 
-const SEASON_OPTIONS: SeasonRow["season"][] = ["LOW", "HIGH", "PEAK"];
+const SEASON_OPTIONS: SeasonRow["season"][] = ["LOW", "SHOULDER", "HIGH", "PEAK"];
 
 /** "YYYY-MM-DD" → "YYYY.MM.DD" (DESIGN.md 점 표기) */
 function toDotDate(dateStr: string): string {

@@ -854,6 +854,7 @@
         "baseRate": "Giá cơ bản",
         "seasons": {
           "LOW": "Mùa thấp điểm",
+          "SHOULDER": "Cận cao điểm",
           "HIGH": "Mùa cao điểm",
           "PEAK": "Cao điểm lễ Tết"
         },
@@ -1383,6 +1384,7 @@
         "consumerHint": "Để trống sẽ bán theo giá Net. Chỉ áp dụng cho đặt phòng kênh khách trực tiếp (DIRECT).",
         "seasons": {
           "LOW": "Mùa thấp điểm",
+          "SHOULDER": "Cận cao điểm",
           "HIGH": "Mùa cao điểm",
           "PEAK": "Cao điểm lễ Tết"
         },
@@ -1706,6 +1708,7 @@
     "editResubmit": "Sửa và gửi lại",
     "season": {
       "LOW": "Mùa thấp điểm",
+      "SHOULDER": "Cận cao điểm",
       "HIGH": "Mùa cao điểm",
       "PEAK": "Cao điểm lễ Tết"
     },
@@ -1856,11 +1859,14 @@
       "subtitle": "Nhập giá bạn nhận cho mỗi đêm, theo từng mùa.",
       "LOW": "Mùa thấp điểm",
       "LOWHint": "T5 - T9 hàng năm",
+      "SHOULDER": "Cận cao điểm",
+      "SHOULDERHint": "Trước/sau cao điểm (tùy chọn)",
       "HIGH": "Mùa cao điểm",
       "HIGHHint": "T10 - T4 hàng năm",
       "PEAK": "Cao điểm lễ Tết",
       "PEAKHint": "Lễ hội & Tết Nguyên Đán",
-      "empty": "Chưa nhập giá"
+      "empty": "Chưa nhập giá",
+      "optional": "Tùy chọn"
     }
   },
   "amenities": {
@@ -2249,6 +2255,7 @@
       "colActions": "Quản lý",
       "names": {
         "LOW": "Mùa thấp điểm",
+        "SHOULDER": "Cận cao điểm",
         "HIGH": "Mùa cao điểm",
         "PEAK": "Cao điểm lễ Tết"
       },
@@ -3943,6 +3950,7 @@
     "removePeriod": "Xóa",
     "seasons": {
       "LOW": "Mùa thấp điểm",
+      "SHOULDER": "Cận cao điểm",
       "HIGH": "Mùa cao điểm",
       "PEAK": "Cao điểm lễ Tết"
     },
@@ -4019,6 +4027,7 @@
     "stayRange": "Lưu trú",
     "seasons": {
       "LOW": "Mùa thấp điểm",
+      "SHOULDER": "Cận cao điểm",
       "HIGH": "Mùa cao điểm",
       "PEAK": "Cao điểm lễ Tết"
     },

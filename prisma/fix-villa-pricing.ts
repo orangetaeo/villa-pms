@@ -19,7 +19,7 @@ function typicalBaseCost(bedrooms: number): bigint {
   if (bedrooms === 4) return 3_800_000n;
   return 5_000_000n;
 }
-const SEASON_MUL: Record<SeasonType, number> = { LOW: 1.0, HIGH: 1.3, PEAK: 1.6 } as Record<SeasonType, number>;
+const SEASON_MUL: Record<SeasonType, number> = { LOW: 1.0, SHOULDER: 1.15, HIGH: 1.3, PEAK: 1.6 };
 const round = (v: number, unit: number) => BigInt(Math.round(v / unit) * unit);
 const isJunkCost = (c: bigint) => c <= 0n || c % 100_000n !== 0n; // 실제 원가는 10만 단위 라운드
 

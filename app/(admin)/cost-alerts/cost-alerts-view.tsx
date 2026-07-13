@@ -12,7 +12,7 @@ import ListSearch from "@/components/list-search";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { formatThousands } from "@/lib/format";
 
-type Season = "LOW" | "HIGH" | "PEAK";
+type Season = "LOW" | "SHOULDER" | "HIGH" | "PEAK";
 
 interface CostAlertRow {
   notificationId: string;
