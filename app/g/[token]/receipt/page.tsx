@@ -102,6 +102,36 @@ export default async function GuestReceiptPage({
   const dep = data.deposit;
   const st = data.settlement;
 
+  // 미수납 잔액(≈) — 청구 환산 − 결제 환산(수납 라인 우선, 구 데이터는 settled* 폴백).
+  //   환산 불가 통화가 끼면(환율 스냅샷 없음) 계산 생략(오표기 방지). 끝전 1만₫ 면제(운영자 화면과 동일 규칙).
+  const outstandingVnd = (() => {
+    const fxUsd = data.usage.fxVndPerUsd;
+    const kr = chargeKrw ?? 0;
+    if (kr > 0 && !fx) return null;
+    const charge = BigInt(chargeVnd ?? "0") + (kr > 0 && fx ? BigInt(Math.round(kr * fx)) : 0n);
+    let paidVnd = 0n;
+    let paidKrw = 0;
+    let paidUsd = 0;
+    if (st.lines.length > 0) {
+      for (const l of st.lines) {
+        if (l.currency === "VND") paidVnd += BigInt(l.amount);
+        else if (l.currency === "KRW") paidKrw += Number(l.amount);
+        else if (l.currency === "USD") paidUsd += Number(l.amount);
+      }
+    } else {
+      paidVnd = BigInt(st.settledVnd ?? "0");
+      paidKrw = st.settledKrw ?? 0;
+      paidUsd = st.settledUsd ?? 0;
+    }
+    if ((paidKrw > 0 && !fx) || (paidUsd > 0 && !fxUsd)) return null;
+    const paid =
+      paidVnd +
+      (paidKrw > 0 && fx ? BigInt(Math.round(paidKrw * fx)) : 0n) +
+      (paidUsd > 0 && fxUsd ? BigInt(Math.round(paidUsd * fxUsd)) : 0n);
+    const rest = charge - paid;
+    return rest > 10_000n ? rest.toString() : null;
+  })();
+
   return (
     <div className="bg-slate-50 text-slate-900 antialiased">
       <div className="max-w-md mx-auto min-h-screen bg-white flex flex-col shadow-2xl">
@@ -203,6 +233,13 @@ export default async function GuestReceiptPage({
                         </p>
                         {opts.length > 0 && (
                           <p className="text-[11px] text-slate-400">{opts.join(" · ")}</p>
+                        )}
+                        {/* 이용일·시각 (테오 요청 2026-07-13) — 날짜는 언어중립 숫자 표기 */}
+                        {(s.serviceDate || s.serviceTime) && (
+                          <p className="text-[11px] text-slate-400 tabular-nums flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[13px]">event</span>
+                            {[s.serviceDate?.replaceAll("-", "."), s.serviceTime].filter(Boolean).join(" ")}
+                          </p>
                         )}
                       </div>
                       <span className="shrink-0 text-sm font-bold text-slate-900 tabular-nums">
@@ -334,6 +371,15 @@ export default async function GuestReceiptPage({
                       <div className="px-4 py-3 text-slate-400">—</div>
                     )}
                 </>
+              )}
+              {/* 미수납 잔액 — 청구가 결제(보증금 차감 포함)로 다 채워지지 않은 경우만 (구 데이터 대비) */}
+              {outstandingVnd && (
+                <div className="flex items-center justify-between px-4 py-3 bg-rose-50">
+                  <span className="font-bold text-rose-700">{R.outstandingLabel}</span>
+                  <span className="font-extrabold text-rose-700 tabular-nums">
+                    ≈ {money(outstandingVnd, "VND", lang)}
+                  </span>
+                </div>
               )}
             </div>
             {st.settledAt && (
