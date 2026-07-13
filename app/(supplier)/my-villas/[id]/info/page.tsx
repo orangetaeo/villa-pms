@@ -46,6 +46,14 @@ export default async function VillaInfoPage({
       beachDistanceM: true,
       areaSqm: true,
       floors: true,
+      // 셀링포인트·와이파이·출입정보 prefill (명시 select — include 금지).
+      //   wifiPassword·accessInfo는 비공개 필드지만 자기 빌라(아래 supplierId 스코프 확인)라 허용(edit/page.tsx 전례).
+      //   출입정보는 기존 accessType/accessInfo 재사용(신규 doorAccess 컬럼 없음 — TDA 결정).
+      wifiSsid: true,
+      wifiPassword: true,
+      accessType: true,
+      accessInfo: true,
+      features: { select: { category: true, featureKey: true } },
     },
   });
   // 타인 빌라·미존재는 동일하게 404 (존재 비노출)
@@ -62,6 +70,11 @@ export default async function VillaInfoPage({
     parkingSlots: villa.parkingSlots,
     baseDepositVnd: villa.baseDepositVnd ? villa.baseDepositVnd.toString() : "",
     extraBedAvailable: villa.extraBedAvailable,
+    features: villa.features.map((f) => f.featureKey),
+    wifiSsid: villa.wifiSsid ?? "",
+    wifiPassword: villa.wifiPassword ?? "",
+    accessType: villa.accessType ?? "",
+    accessInfo: villa.accessInfo ?? "",
     googleMapUrl: villa.googleMapUrl ?? "",
     beachDistanceM: villa.beachDistanceM != null ? String(villa.beachDistanceM) : "",
     areaSqm: villa.areaSqm != null ? String(villa.areaSqm) : "",
