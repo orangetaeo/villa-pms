@@ -20,9 +20,9 @@ import type { Prisma } from "@prisma/client";
 import { notifyOperatorsServiceOrderRequested } from "@/lib/consumer-signal-notify";
 import { sendVendorPoNotifications } from "@/lib/vendor-dispatch";
 import { resolveOrderVendorId } from "@/lib/regional-vendor";
-import { guestsFromPassportOcr } from "@/lib/ticket-guests";
 import { readVariantRule } from "@/lib/ticket-variant-rules";
 import { validateTicketGuests } from "@/lib/ticket-order-validation";
+import { loadCheckinRoster } from "@/lib/checkin-roster";
 
 const schema = z.object({
   catalogItemId: z.string().min(1).max(40),
@@ -141,13 +141,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     quantity: pricing.quantity,
     // 만나이 판정 기준일 — 명단 제공 시에만 계산(불필요한 변환 회피, 기존 호출 패턴 보존).
     serviceDateOnly: d.ticketGuests && d.ticketGuests.length > 0 ? toDateOnlyString(serviceDate) : "",
-    loadConfirmedGuests: async () => {
-      const ci = await prisma.checkInRecord.findUnique({
-        where: { bookingId: t.bookingId },
-        select: { passportOcrJson: true },
-      });
-      return guestsFromPassportOcr(ci?.passportOcrJson);
-    },
+    // 명단 정본 = 운영자 확정본 우선, 없으면 게스트 자동 OCR 잠정본(ADR-0043). UI(옵션 화면)와 동일 원천.
+    //   지연 로딩 보존 — 명단 미제공 시 이 콜백이 호출되지 않아 체크인·토큰 조회조차 하지 않는다(기존 동작).
+    loadConfirmedGuests: () => loadCheckinRoster(prisma, t.bookingId),
   });
   if (!ticketValidation.ok) {
     return NextResponse.json({ error: ticketValidation.error }, { status: 400 });

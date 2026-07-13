@@ -69,6 +69,7 @@ beforeEach(() => {
     expiresAt: new Date(Date.now() + 86_400_000),
     revokedAt: null,
     agreementSignedAt: new Date(),
+    passportPhotoUrls: [],
   });
   bookingFindUnique.mockResolvedValue({
     id: "bk-1",

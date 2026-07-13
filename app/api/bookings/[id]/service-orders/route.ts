@@ -19,8 +19,8 @@ import { priceKrwCeil } from "@/lib/service-display";
 import { getFxVndPerKrw } from "@/lib/pricing";
 import { resolveOrderVendorId } from "@/lib/regional-vendor";
 import { readVariantRule } from "@/lib/ticket-variant-rules";
-import { guestsFromPassportOcr } from "@/lib/ticket-guests";
 import { validateTicketGuests } from "@/lib/ticket-order-validation";
+import { loadCheckinRoster } from "@/lib/checkin-roster";
 import type { Prisma } from "@prisma/client";
 
 const createSchema = z.object({
@@ -167,13 +167,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // 만나이 판정 기준일 — 명단 제공 + serviceDate 있을 때만 계산(운영자 폼은 날짜 선택).
     serviceDateOnly:
       d.ticketGuests && d.ticketGuests.length > 0 && serviceDate ? toDateOnlyString(serviceDate) : "",
-    loadConfirmedGuests: async () => {
-      const ci = await prisma.checkInRecord.findUnique({
-        where: { bookingId: id },
-        select: { passportOcrJson: true },
-      });
-      return guestsFromPassportOcr(ci?.passportOcrJson);
-    },
+    // 명단 정본 = 운영자 확정본 우선, 없으면 게스트 자동 OCR 잠정본(ADR-0043). 게스트 경로와 동일 원천.
+    //   지연 로딩 보존 — 명단 미제공 시 이 콜백 미호출(체크인·토큰 조회 없음, 기존 동작).
+    loadConfirmedGuests: () => loadCheckinRoster(prisma, id),
   });
   if (!ticketValidation.ok) {
     return NextResponse.json({ error: ticketValidation.error }, { status: 400 });
