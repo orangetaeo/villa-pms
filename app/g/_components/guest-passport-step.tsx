@@ -2,8 +2,11 @@
 
 // app/g/_components/guest-passport-step.tsx — G4 여권 사진 업로드 (ADR-0019 v2 #1)
 //   동의서 서명 후 단계. 인원수(guestCount)만큼 슬롯, 카메라/갤러리에서 1장씩 → POST /api/g/[token]/passport.
-//   ★ 비공개 증빙: 안내만 노출, 원가·마진·타예약 0. 건너뛰기 허용(선택).
-import { useRef, useState } from "react";
+//   ★ 비공개 증빙: 안내만 노출, 원가·마진·타예약 0.
+//   ★ 필수화(guest-passport-photo-required): 슬롯 전원 done이어야 부모가 "체크인 완료"를 연다.
+//     - done 수를 onDoneCount로 부모에 리프트(부모가 게이트 판정).
+//     - 재방문 시 initialDoneCount(서버 누적 장수)만큼 앞 슬롯을 done으로 초기화(사진 URL은 미수신).
+import { useEffect, useRef, useState } from "react";
 import type { GuestLabels } from "@/lib/guest-i18n";
 import {
   resizeImage,
@@ -21,14 +24,30 @@ export default function GuestPassportStep({
   token,
   guestCount,
   labels,
+  initialDoneCount = 0,
+  onDoneCount,
 }: {
   token: string;
   guestCount: number;
   labels: GuestLabels["passport"];
+  /** 재방문 시 서버에 누적된 여권 사진 장수 — 앞에서부터 min(값, 슬롯 수)개를 done으로 초기화. */
+  initialDoneCount?: number;
+  /** 완료(done) 슬롯 수를 부모(GuestFlow)에 알림 — 부모가 완료 게이트 판정. */
+  onDoneCount?: (n: number) => void;
 }) {
   const slotCount = Math.max(1, guestCount);
-  const [states, setStates] = useState<SlotState[]>(() => Array(slotCount).fill("empty"));
+  const [states, setStates] = useState<SlotState[]>(() => {
+    // 앞에서부터 min(누적 장수, 슬롯 수)개를 done으로 초기화(나머지는 empty)
+    const doneInit = Math.min(Math.max(0, initialDoneCount), slotCount);
+    return Array.from({ length: slotCount }, (_, i) => (i < doneInit ? "done" : "empty"));
+  });
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // done 수를 부모에 리프트(초기값 포함) — 게이트는 여기서 판정하지 않고 수만 올린다.
+  const doneCount = states.filter((s) => s === "done").length;
+  useEffect(() => {
+    onDoneCount?.(doneCount);
+  }, [doneCount, onDoneCount]);
 
   const setSlot = (i: number, s: SlotState) =>
     setStates((prev) => prev.map((v, idx) => (idx === i ? s : v)));
