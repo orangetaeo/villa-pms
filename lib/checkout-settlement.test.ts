@@ -29,6 +29,38 @@ describe("computeGuestBill — 통화별 게스트 청구 합산 (ADR-0003)", ()
     expect(bill.totalVnd).toBe(0n);
     expect(bill.totalKrw).toBe(0);
   });
+
+  // ── 원천 통화 1회 계상 (T-guest-bill-double-count-fix, P1 과청구 수정) ──
+  it("양컬럼 주문(₫원천 + ₩표시 스냅샷) → VND 1회만, KRW 미청구", () => {
+    // 티켓 주문: priceVnd=2,800,000₫(원천), priceKrw=166,000원(같은 금액 환산 스냅샷)
+    const bill = computeGuestBill(null, [{ priceVnd: 2_800_000n, priceKrw: 166_000 }]);
+    expect(bill.serviceVnd).toBe(2_800_000n);
+    expect(bill.serviceKrw).toBe(0); // 스냅샷 무시 — 이중 청구 금지
+    expect(bill.totalVnd).toBe(2_800_000n);
+    expect(bill.totalKrw).toBe(0);
+  });
+
+  it("₫ null + ₩>0 주문 → KRW-원천 보존 합산", () => {
+    const bill = computeGuestBill(null, [
+      { priceVnd: null, priceKrw: 50_000 },
+      { priceVnd: null, priceKrw: 30_000 },
+    ]);
+    expect(bill.serviceVnd).toBe(0n);
+    expect(bill.serviceKrw).toBe(80_000);
+    expect(bill.totalKrw).toBe(80_000);
+  });
+
+  it("혼합(양컬럼 ₫원천 + KRW-원천 + VND-원천) → 원천별 1회 계상", () => {
+    const bill = computeGuestBill(70_000n, [
+      { priceVnd: 2_800_000n, priceKrw: 166_000 }, // ₫원천(₩스냅샷 무시)
+      { priceVnd: null, priceKrw: 600_000 }, // KRW-원천
+      { priceVnd: 1_650_000n, priceKrw: null }, // VND-원천
+    ]);
+    expect(bill.serviceVnd).toBe(4_450_000n); // 2,800,000 + 1,650,000
+    expect(bill.serviceKrw).toBe(600_000);
+    expect(bill.totalVnd).toBe(4_520_000n); // 미니바 70,000 + 4,450,000
+    expect(bill.totalKrw).toBe(600_000);
+  });
 });
 
 // ===================== normalizeSettlementLines (혼합 수납) =====================

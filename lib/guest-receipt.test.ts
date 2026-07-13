@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveDepositSettlement } from "./guest-receipt";
+import { deriveDepositSettlement, deriveGuestUsage } from "./guest-receipt";
 
 // 보증금 파생 계산 — 상계/파손 분리·환불 음수 방지·구 데이터 폴백 (T-guest-settlement-receipt)
 describe("deriveDepositSettlement — 보증금 가감산 파생", () => {
@@ -138,5 +138,35 @@ describe("deriveDepositSettlement — 보증금 가감산 파생", () => {
     });
     expect(r.damageDeductVnd).toBe(500_000n); // 상계 차감 없이 전부 파손
     expect(r.refundAmount).toBe(100_000); // amount − 상계(₩)만
+  });
+});
+
+// 총 이용 금액 라이브 파생 — 원천 통화 1회 계상(구 캐시 정정) (T-guest-bill-double-count-fix)
+describe("deriveGuestUsage — 라인 기반 총 이용 파생", () => {
+  it("양컬럼 주문(₫원천 + ₩스냅샷) → VND만 계상, KRW null (실사례: 2.8M₫)", () => {
+    const u = deriveGuestUsage({
+      minibarLineVnds: [],
+      services: [{ priceVnd: 2_800_000n, priceKrw: 166_000 }],
+    });
+    expect(u.guestChargeVnd).toBe(2_800_000n);
+    expect(u.guestChargeKrw).toBeNull(); // 스냅샷 이중 청구 금지
+  });
+
+  it("미니바 + 양컬럼 + KRW-원천 혼합", () => {
+    const u = deriveGuestUsage({
+      minibarLineVnds: [70_000n, 30_000n],
+      services: [
+        { priceVnd: 2_800_000n, priceKrw: 166_000 }, // ₫원천
+        { priceVnd: null, priceKrw: 600_000 }, // KRW-원천 보존
+      ],
+    });
+    expect(u.guestChargeVnd).toBe(2_900_000n); // 미니바 100,000 + 2,800,000
+    expect(u.guestChargeKrw).toBe(600_000);
+  });
+
+  it("이용 없음 → 둘 다 null", () => {
+    const u = deriveGuestUsage({ minibarLineVnds: [], services: [] });
+    expect(u.guestChargeVnd).toBeNull();
+    expect(u.guestChargeKrw).toBeNull();
   });
 });
