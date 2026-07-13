@@ -3486,7 +3486,7 @@
       "DEPOSIT": "보증금 차감"
     },
     "settlementClear": "선택 해제",
-    "settlementOptionalNote": "결제수단을 선택하지 않으면 청구액만 기록되고 미수납 상태로 남습니다.",
+    "settlementOptionalNote": "받을 금액이 남아 있으면 체크아웃을 승인할 수 없습니다. 수납액(보증금 차감 포함)으로 청구를 채워주세요.",
     "settlementNote": "정산 메모 (선택)",
     "settlementNotePlaceholder": "예: 현금 USD로 수령, 잔액 환불",
     "par": "비치 목표",
@@ -3498,6 +3498,7 @@
     "settledUsd": "수납액 ($)",
     "settledEquiv": "수납 환산 합계",
     "settledRemaining": "잔여 (받을 금액)",
+    "settleOutstandingBlock": "받을 금액이 남아 있습니다 — 수납액(보증금 차감 포함)을 입력해야 승인할 수 있습니다.",
     "settledExcess": "초과",
     "settledComplete": "수납 완료",
     "fillRemaining": "잔여 {amount} 입력",

@@ -299,11 +299,25 @@ export default function CheckoutForm({
   const netSettlementVnd = depositVnd ? depositBig - damageDeductionVnd - totalVndEquiv : -totalVndEquiv;
   const netAbsVnd = netSettlementVnd < 0n ? -netSettlementVnd : netSettlementVnd;
 
-  const canRefundFull = !damageFound && !hasDepositLine && !busy;
+  // ── 승인 하드 게이트(테오 지시 2026-07-13): 받을 돈(잔여 수납액)이 남아 있으면 승인 불가. ─────
+  //   잔여 > 끝전 허용치(1만₫) && 초과 수납 아님 → 미수납 상태. 수납 라인(보증금 상계 포함)으로
+  //   청구를 커버해야 버튼 활성. 청구 0이면 게이트 미적용.
+  //   fx 없음 폴백: 통합 환산이 불가하므로 통화별 직접 비교(₫는 끝전 허용, ₩는 정확, $ 수납은 환산 불가라 미반영)
+  //   — fx 장애 시 KRW 청구 체크아웃이 영구 차단되는 것을 방지.
+  const settlementOutstanding =
+    billHasBill &&
+    !isExcess &&
+    (fx
+      ? !isSettled
+      : guestBill.totalVnd - settledVndBig > SETTLE_TOLERANCE_VND ||
+        guestBill.totalKrw > settledKrwNum);
+
+  const canRefundFull = !damageFound && !hasDepositLine && !settlementOutstanding && !busy;
   const canDeduct =
     // 파손 토글 ON이면 상세(금액+메모/사진) 완비 필수, 그 후 파손 차감 또는 보증금 상계가 있으면 활성.
     (!damageFound || (deductionValid && (damageNote.trim().length > 0 || damagePhotos.length > 0))) &&
     (hasRealDamage || hasDepositLine) &&
+    !settlementOutstanding &&
     !busy;
 
   const submit = async () => {
@@ -1023,27 +1037,33 @@ export default function CheckoutForm({
               </div>
             )}
           </div>
-          {/* 모바일(<sm): 버튼 세로 스택(w-full) — 가로 넘침·잘림 0. sm↑: 가로 배치. */}
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full md:w-auto">
-            <button
-              type="button"
-              // 보증금에서 차감(파손·상계)이 있으면 전액 환불 불가 — 차감 후 환불 경로로 유도
-              disabled={!canRefundFull}
-              onClick={submit}
-              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 sm:px-8 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold border border-emerald-500 shadow-lg shadow-emerald-900/20 transition-all active:scale-95 whitespace-nowrap"
-            >
-              <span className="material-symbols-outlined">payments</span>
-              {t("refundFull")}
-            </button>
-            <button
-              type="button"
-              disabled={!canDeduct}
-              onClick={submit}
-              className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 sm:px-10 py-4 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-lg transition-all active:scale-95 shadow-lg shadow-orange-900/20 whitespace-nowrap"
-            >
-              <span className="material-symbols-outlined">check_circle</span>
-              {t("refundDeduct")}
-            </button>
+          <div className="flex flex-col gap-2 w-full md:w-auto">
+            {/* 승인 하드 게이트 사유 — 잔여 수납액이 남아 승인 불가일 때만 표시 */}
+            {settlementOutstanding && (
+              <p className="text-xs text-amber-400 md:text-right">{t("settleOutstandingBlock")}</p>
+            )}
+            {/* 모바일(<sm): 2열 그리드(컴팩트, 세로 공간 최소) — 가로 넘침·잘림 0. sm↑: 가로 배치. */}
+            <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-4 w-full md:w-auto">
+              <button
+                type="button"
+                // 보증금에서 차감(파손·상계)이 있거나 잔여 수납액이 남으면 전액 환불 불가
+                disabled={!canRefundFull}
+                onClick={submit}
+                className="flex items-center justify-center gap-1.5 sm:gap-2 w-full sm:w-auto px-2 sm:px-8 py-3 sm:py-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-[13px] sm:text-base border border-emerald-500 shadow-lg shadow-emerald-900/20 transition-all active:scale-95 whitespace-nowrap"
+              >
+                <span className="material-symbols-outlined text-[18px] sm:text-[24px]">payments</span>
+                {t("refundFull")}
+              </button>
+              <button
+                type="button"
+                disabled={!canDeduct}
+                onClick={submit}
+                className="flex items-center justify-center gap-1.5 sm:gap-2 w-full sm:w-auto px-2 sm:px-10 py-3 sm:py-4 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-[13px] sm:text-lg transition-all active:scale-95 shadow-lg shadow-orange-900/20 whitespace-nowrap"
+              >
+                <span className="material-symbols-outlined text-[18px] sm:text-[24px]">check_circle</span>
+                {t("refundDeduct")}
+              </button>
+            </div>
           </div>
         </div>
       </div>

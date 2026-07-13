@@ -3601,7 +3601,7 @@
       "DEPOSIT": "Trừ tiền cọc"
     },
     "settlementClear": "Bỏ chọn",
-    "settlementOptionalNote": "Nếu không chọn hình thức thanh toán, chỉ ghi nhận số tiền phải thu và để ở trạng thái chưa thu.",
+    "settlementOptionalNote": "Không thể duyệt trả phòng khi vẫn còn số tiền cần thu. Hãy nhập khoản thu (kể cả trừ tiền cọc) để đủ số tiền cần thanh toán.",
     "settlementNote": "Ghi chú quyết toán (tùy chọn)",
     "settlementNotePlaceholder": "VD: Nhận tiền mặt USD, hoàn phần còn lại",
     "par": "Định mức",
@@ -3613,6 +3613,7 @@
     "settledUsd": "Đã thu ($)",
     "settledEquiv": "Tổng quy đổi đã thu",
     "settledRemaining": "Còn lại (cần thu)",
+    "settleOutstandingBlock": "Vẫn còn số tiền cần thu — nhập khoản thu (kể cả trừ tiền cọc) trước khi phê duyệt.",
     "settledExcess": "Vượt",
     "settledComplete": "Đã thu đủ",
     "fillRemaining": "Điền còn lại {amount}",

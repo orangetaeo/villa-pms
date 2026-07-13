@@ -143,7 +143,7 @@ export default async function CheckoutPage({
     : null;
 
   return (
-    <div className="max-w-7xl mx-auto pb-52 md:pb-32">
+    <div className="max-w-7xl mx-auto pb-44 md:pb-32">
       {/* 헤더 — b4 TopAppBar 콘텐츠 영역 변환 */}
       <div className="flex items-center gap-4 mb-8">
         <Link
