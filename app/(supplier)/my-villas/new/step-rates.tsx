@@ -1,19 +1,25 @@
 "use client";
 
-// 5/5 원가 입력 (a5-rate-input) — 시즌 3카드 + 숫자 키패드, 3종 모두 입력 전 제출 비활성
+// 5/5 원가 입력 (a5-rate-input) — 시즌 카드 + 숫자 키패드. LOW/HIGH/PEAK 필수(입력 전 제출 비활성),
+//   SHOULDER(준성수기)는 선택(빈 값 허용).
 // 공급자 화면: VND 점 구분(1.500.000₫)만 — KRW·마진·판매가 절대 노출 금지
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { SEASONS, type Season } from "@/lib/villa-schema";
+import { SEASONS, REQUIRED_SEASONS, type Season } from "@/lib/villa-schema";
 import { formatVnd, type WizardState } from "./wizard-types";
 
 const MAX_DIGITS = 12;
 
 const SEASON_STYLE: Record<Season, { icon: string; iconBg: string; iconColor: string }> = {
   LOW: { icon: "spa", iconBg: "bg-green-100", iconColor: "text-green-600" },
-  HIGH: { icon: "sunny", iconBg: "bg-orange-100", iconColor: "text-amber-500" },
+  SHOULDER: { icon: "wb_twilight", iconBg: "bg-amber-100", iconColor: "text-amber-500" },
+  HIGH: { icon: "sunny", iconBg: "bg-orange-100", iconColor: "text-orange-500" },
   PEAK: { icon: "celebration", iconBg: "bg-red-100", iconColor: "text-red-600" },
 };
+
+// 선택 시즌 판별(SHOULDER) — 필수 경고·제출 게이트 제외
+const isRequiredSeason = (s: Season): boolean =>
+  (REQUIRED_SEASONS as readonly string[]).includes(s);
 
 interface Props {
   state: WizardState;
@@ -28,7 +34,8 @@ export default function StepRates({ state, update, submitting, submitError, onSu
   const tw = useTranslations("wizard");
   const [activeSeason, setActiveSeason] = useState<Season>("LOW");
 
-  const allEntered = SEASONS.every((season) => state.rates[season] !== "");
+  // 제출 게이트는 필수 시즌(LOW/HIGH/PEAK)만 — SHOULDER는 선택이라 빈 값이어도 제출 가능
+  const allEntered = REQUIRED_SEASONS.every((season) => state.rates[season] !== "");
 
   function handleKey(key: string) {
     const current = state.rates[activeSeason];
@@ -91,9 +98,14 @@ export default function StepRates({ state, update, submitting, submitError, onSu
                   >
                     {value === "" ? "0₫" : `${formatVnd(value)}₫`}
                   </span>
-                  {value === "" && (
-                    <span className="text-[10px] font-semibold text-red-600">{t("empty")}</span>
-                  )}
+                  {value === "" &&
+                    (isRequiredSeason(season) ? (
+                      <span className="text-[10px] font-semibold text-red-600">{t("empty")}</span>
+                    ) : (
+                      <span className="text-[10px] font-semibold text-neutral-400">
+                        {t("optional")}
+                      </span>
+                    ))}
                 </div>
               </button>
             );

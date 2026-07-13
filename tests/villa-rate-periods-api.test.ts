@@ -82,6 +82,28 @@ describe("검증·영속 (OWNER)", () => {
     expect(res.status).toBe(400);
   });
 
+  it("SHOULDER(준성수기) 시즌 기간 수용 — 200, BigInt 영속 (T-season-shoulder)", async () => {
+    const res = await req({
+      ...BASE,
+      periods: [
+        {
+          season: "SHOULDER",
+          startDate: "2026-09-01",
+          endDate: "2026-09-10",
+          supplierCostVnd: "2000000",
+          marginType: "PERCENT",
+          marginValue: "20",
+          salePriceVnd: "2400000",
+          salePriceKrw: 120000,
+        },
+      ],
+    });
+    expect(res.status).toBe(200);
+    const periodArg = tx.villaRatePeriod.createMany.mock.calls[0][0].data;
+    expect(periodArg[0].season).toBe("SHOULDER");
+    expect(periodArg[0].supplierCostVnd).toBe(2000000n);
+  });
+
   it("ADR-0031 — 소비자 직판가 미전송 시 기본(마진0·가격 null=Net 폴백)", async () => {
     const res = await req(BASE); // 소비자 필드 없는 구 페이로드
     expect(res.status).toBe(200);

@@ -15,6 +15,7 @@ import { formatVillaName } from "@/lib/villa-name";
 
 const SEASON_LABEL: Record<SeasonType, string> = {
   LOW: "비수기",
+  SHOULDER: "준성수기",
   HIGH: "성수기",
   PEAK: "극성수기",
 };

@@ -19,10 +19,11 @@ import { assertValidStayRange, type DbClient, type StayRange } from "./availabil
 
 const MS_PER_DAY = 86_400_000;
 
-/** 시즌 겹침 시 우선순위 — 극성수기 > 성수기 > 비수기 */
+/** 시즌 겹침 시 우선순위 — 극성수기 > 성수기 > 준성수기 > 비수기 */
 const SEASON_PRECEDENCE: Record<SeasonType, number> = {
-  [SeasonType.PEAK]: 2,
-  [SeasonType.HIGH]: 1,
+  [SeasonType.PEAK]: 3,
+  [SeasonType.HIGH]: 2,
+  [SeasonType.SHOULDER]: 1,
   [SeasonType.LOW]: 0,
 };
 
@@ -80,11 +81,13 @@ export interface StayQuote {
 
 // ===================== 기간별 요금 (ADR-0014) — 순수 함수 층 =====================
 
-/** 빌라 생성/수정 입력의 시즌별 원가 (LOW/HIGH/PEAK, 동 단위 BigInt). */
+/** 빌라 생성/수정 입력의 시즌별 원가 (LOW/HIGH/PEAK 필수, SHOULDER 선택, 동 단위 BigInt). */
 export interface SeasonCostsVnd {
   LOW: bigint;
   HIGH: bigint;
   PEAK: bigint;
+  /** 준성수기 — 선택(구 payload 하위호환). 미포함 시 전역 SHOULDER 기간이 있어도 그 기간 스킵. */
+  SHOULDER?: bigint;
 }
 
 /** VillaRatePeriod 생성용 행 (Prisma create 입력 호환 — villaId는 호출자가 부여) */
@@ -148,7 +151,12 @@ export function buildRatePeriodRowsFromSeasonCosts(
   const base = row(SeasonType.LOW, costs.LOW, true, null, null, null);
   const periods = globalSeasons
     .filter((s) => s.season !== SeasonType.LOW)
-    .map((s) => row(s.season, costs[s.season as "HIGH" | "PEAK"], false, s.startDate, s.endDate, s.label));
+    // 해당 시즌 원가가 입력에 없으면(예: SHOULDER 미전송인 구 payload) 그 전역 기간은 스킵 — 방어.
+    .flatMap((s) => {
+      const cost = costs[s.season as keyof SeasonCostsVnd];
+      if (cost == null) return [];
+      return [row(s.season, cost, false, s.startDate, s.endDate, s.label)];
+    });
   return { base, periods };
 }
 
@@ -169,7 +177,7 @@ export function representativeRatesBySeason<
   const base = ratePeriods.find((r) => r.isBase) ?? null;
   const out: Partial<Record<SeasonType, T>> = {};
   if (base) out.LOW = base;
-  for (const season of [SeasonType.HIGH, SeasonType.PEAK]) {
+  for (const season of [SeasonType.SHOULDER, SeasonType.HIGH, SeasonType.PEAK]) {
     const period = ratePeriods.find((r) => !r.isBase && r.season === season);
     if (period) out[season] = period; // base 폴백 제거 — 없으면 미포함
   }

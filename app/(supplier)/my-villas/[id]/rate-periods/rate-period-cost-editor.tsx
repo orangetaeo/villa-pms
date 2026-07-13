@@ -10,8 +10,8 @@ import { useTranslations } from "next-intl";
 import { formatVnd } from "@/app/(supplier)/my-villas/new/wizard-types";
 import { DateField } from "@/components/date-field";
 
-type Season = "LOW" | "HIGH" | "PEAK";
-const SEASONS: Season[] = ["LOW", "HIGH", "PEAK"];
+type Season = "LOW" | "SHOULDER" | "HIGH" | "PEAK";
+const SEASONS: Season[] = ["LOW", "SHOULDER", "HIGH", "PEAK"];
 
 interface BaseFields {
   season: Season;

@@ -88,7 +88,7 @@ const VILLAS: DemoVilla[] = [
     maxGuests: 10,
     hasPool: true,
     breakfast: true,
-    rate: { LOW: 4_000_000n, HIGH: 6_000_000n, PEAK: 8_000_000n },
+    rate: { LOW: 4_000_000n, SHOULDER: 5_000_000n, HIGH: 6_000_000n, PEAK: 8_000_000n },
   },
   {
     id: "demo-villa-ocean",
@@ -99,7 +99,7 @@ const VILLAS: DemoVilla[] = [
     maxGuests: 8,
     hasPool: true,
     breakfast: true,
-    rate: { LOW: 3_200_000n, HIGH: 4_800_000n, PEAK: 6_500_000n },
+    rate: { LOW: 3_200_000n, SHOULDER: 4_000_000n, HIGH: 4_800_000n, PEAK: 6_500_000n },
   },
   {
     id: "demo-villa-garden",
@@ -110,7 +110,7 @@ const VILLAS: DemoVilla[] = [
     maxGuests: 6,
     hasPool: false,
     breakfast: false,
-    rate: { LOW: 2_200_000n, HIGH: 3_200_000n, PEAK: 4_500_000n },
+    rate: { LOW: 2_200_000n, SHOULDER: 2_700_000n, HIGH: 3_200_000n, PEAK: 4_500_000n },
   },
 ];
 

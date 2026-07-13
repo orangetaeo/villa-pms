@@ -116,17 +116,24 @@ export default async function EditVillaPage({
     bedroomDetails: villa.bedroomDetails,
     features: villa.features,
     // 마법사 rates 입력 prefill — LOW=base, HIGH/PEAK=그 시즌 첫 기간.
-    //   ⚠️ prefill은 base(LOW) 폴백이 필요하다(표시·경보와 상반): 마법사는 3시즌 원가를 모두
-    //   필수로 받아 비면 제출 잠김(step-rates allEntered). HIGH/PEAK 기간이 아직 없는 빌라
+    //   ⚠️ prefill은 base(LOW) 폴백이 필요하다(표시·경보와 상반): 마법사는 필수 3시즌(LOW/HIGH/PEAK)
+    //   원가를 모두 받아 비면 제출 잠김(step-rates allEntered). HIGH/PEAK 기간이 아직 없는 빌라
     //   (전역 시즌 미설정 시 생성분 등)는 base 원가로 채워 재제출을 막지 않는다.
     //   representativeRatesBySeason 자체는 폴백 없음(디버깅 수정) — 여기서만 명시적 폴백.
+    //   SHOULDER(준성수기)는 선택 필드 — 실제 SHOULDER 기간이 있을 때만 prefill(base 폴백 없음, 비면 미입력).
     rates: (() => {
       const rep = representativeRatesBySeason(villa.ratePeriods);
       const base = rep.LOW ?? null;
-      return (["LOW", "HIGH", "PEAK"] as const).flatMap((season) => {
+      const out: { season: "LOW" | "SHOULDER" | "HIGH" | "PEAK"; supplierCostVnd: string }[] = [];
+      for (const season of ["LOW", "HIGH", "PEAK"] as const) {
         const r = rep[season] ?? base;
-        return r ? [{ season, supplierCostVnd: r.supplierCostVnd.toString() }] : [];
-      });
+        if (r) out.push({ season, supplierCostVnd: r.supplierCostVnd.toString() });
+      }
+      // 선택 시즌: 실제 값이 있을 때만(폴백 없음)
+      if (rep.SHOULDER) {
+        out.push({ season: "SHOULDER", supplierCostVnd: rep.SHOULDER.supplierCostVnd.toString() });
+      }
+      return out;
     })(),
   };
 

@@ -212,7 +212,7 @@ export const INITIAL_STATE: WizardState = {
   wifiPassword: "",
   accessType: "",
   accessInfo: "",
-  rates: { LOW: "", HIGH: "", PEAK: "" },
+  rates: { LOW: "", SHOULDER: "", HIGH: "", PEAK: "" },
 };
 
 export interface PhotoSlot {

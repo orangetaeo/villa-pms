@@ -80,7 +80,7 @@ describe("villaToWizardState — 재제출 prefill", () => {
     expect(state.bedrooms).toBe(2);
     expect(state.hasPool).toBe(true);
     expect(state.monthlyRent).toBe("30000000");
-    expect(state.rates).toEqual({ LOW: "1500000", HIGH: "2500000", PEAK: "4000000" });
+    expect(state.rates).toEqual({ LOW: "1500000", SHOULDER: "", HIGH: "2500000", PEAK: "4000000" });
     expect(state.amenities).toEqual({ "KITCHEN:kettle": 1, "MINIBAR:water": 6 });
     // 이용 규칙 prefill — 재제출 시 기존값 그대로 전달
     expect(state.rules).toEqual({
@@ -143,7 +143,7 @@ describe("villaToWizardState — 재제출 prefill", () => {
       ...BASE,
       rates: [{ season: "LOW", supplierCostVnd: "1000000" }],
     });
-    expect(state.rates).toEqual({ LOW: "1000000", HIGH: "", PEAK: "" });
+    expect(state.rates).toEqual({ LOW: "1000000", SHOULDER: "", HIGH: "", PEAK: "" });
   });
 
   it("비품 없으면 customAmenities는 빈 배열", () => {

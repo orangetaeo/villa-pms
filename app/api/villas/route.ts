@@ -156,6 +156,8 @@ export async function POST(req: Request) {
         LOW: BigInt(data.rates.LOW),
         HIGH: BigInt(data.rates.HIGH),
         PEAK: BigInt(data.rates.PEAK),
+        // SHOULDER(준성수기)는 선택 — 전송 시에만 포함(미전송 구 payload 하위호환)
+        ...(data.rates.SHOULDER != null ? { SHOULDER: BigInt(data.rates.SHOULDER) } : {}),
       },
       globalSeasons
     );
@@ -216,7 +218,7 @@ export async function POST(req: Request) {
       accessInfo: { new: data.accessInfo != null && data.accessInfo !== "" },
       wifiPassword: { new: data.wifiPassword != null && data.wifiPassword !== "" },
       supplierCostVnd: {
-        new: `LOW=${data.rates.LOW},HIGH=${data.rates.HIGH},PEAK=${data.rates.PEAK}`,
+        new: `LOW=${data.rates.LOW},HIGH=${data.rates.HIGH},PEAK=${data.rates.PEAK}${data.rates.SHOULDER != null ? `,SHOULDER=${data.rates.SHOULDER}` : ""}`,
       },
     },
   });
@@ -300,10 +302,10 @@ export async function GET(req: Request) {
         _count: { select: { photos: true, bookings: true, amenities: true } },
       },
     });
-    // ratePeriods → 시즌별 대표행 rates 배열(LOW=base, HIGH/PEAK=그 시즌 첫 기간 없으면 base)로 변환.
+    // ratePeriods → 시즌별 대표행 rates 배열(LOW=base, SHOULDER/HIGH/PEAK=그 시즌 첫 기간 없으면 미포함)로 변환.
     const shaped = villas.map(({ ratePeriods, ...v }) => {
       const rep = representativeRatesBySeason(ratePeriods);
-      const rates = (["LOW", "HIGH", "PEAK"] as const)
+      const rates = (["LOW", "SHOULDER", "HIGH", "PEAK"] as const)
         .map((season) => {
           const r = rep[season];
           return r ? { ...r, season } : null;
@@ -342,7 +344,7 @@ export async function GET(req: Request) {
   // ratePeriods → 시즌별 대표 원가행 rates 배열(원가만)로 변환 — 기존 소비처 호환.
   const shaped = villas.map(({ ratePeriods, ...v }) => {
     const rep = representativeRatesBySeason(ratePeriods);
-    const rates = (["LOW", "HIGH", "PEAK"] as const)
+    const rates = (["LOW", "SHOULDER", "HIGH", "PEAK"] as const)
       .map((season) => {
         const r = rep[season];
         return r ? { season, supplierCostVnd: r.supplierCostVnd } : null;

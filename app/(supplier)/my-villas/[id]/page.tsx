@@ -24,8 +24,8 @@ import { formatVillaName } from "@/lib/villa-name";
 import { CoachMark, TourHelpButton } from "@/components/tour/coach-mark";
 import { buildTourLabels, buildTourSteps } from "@/components/tour/tour-definitions";
 
-// 시즌 표시 순서 (비수기 → 성수기 → 극성수기). PEAK는 강조색
-const SEASON_ORDER: SeasonType[] = ["LOW", "HIGH", "PEAK"];
+// 시즌 표시 순서 (비수기 → 준성수기 → 성수기 → 극성수기). PEAK는 강조색
+const SEASON_ORDER: SeasonType[] = ["LOW", "SHOULDER", "HIGH", "PEAK"];
 
 /** 빌라 조회 (소유 검증 포함). rates는 supplierCostVnd만 — 판매가·마진 미조회 */
 async function getVilla(id: string, supplierId: string) {

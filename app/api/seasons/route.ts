@@ -12,7 +12,7 @@ import { requireCapability } from "@/lib/api-guard";
 
 // route.ts는 HTTP 메서드 외 export 금지(Next 빌드 검증) — [id]/route.ts에 동일 헬퍼 중복 유지
 const seasonBodySchema = z.object({
-  season: z.enum(["LOW", "HIGH", "PEAK"]),
+  season: z.enum(["LOW", "SHOULDER", "HIGH", "PEAK"]),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD 형식"),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD 형식"),
   label: z.string().trim().min(1).max(100).optional(),
