@@ -47,6 +47,9 @@ export interface GuestCheckinData {
   alreadySigned: boolean;
   /** 체크아웃 완료(status=CHECKED_OUT) — 정산 내역(영수증) 진입점 노출 게이트(T-guest-settlement-receipt). */
   checkedOut: boolean;
+  /** 이미 업로드된 여권 사진 장수 — 재방문 시 슬롯 초기 done 처리·완료 게이트 반영용.
+   *  ★사진 URL 자체는 클라 미전달(증빙 비공개) — 장수(number)만 노출. */
+  passportUploadedCount: number;
   booking: {
     villaName: string;
     complex: string | null;
@@ -121,10 +124,11 @@ export async function loadGuestCheckin(
 ): Promise<GuestCheckinData | null> {
   const t = await prisma.guestCheckinToken.findUnique({
     where: { token },
-    select: { bookingId: true, expiresAt: true, revokedAt: true, agreementSignedAt: true },
+    select: { bookingId: true, expiresAt: true, revokedAt: true, agreementSignedAt: true, passportPhotoUrls: true },
   });
   if (!t) return null;
   const state = guestTokenState(t, now);
+  const passportUploadedCount = t.passportPhotoUrls.length; // 장수만(URL 자체는 클라 미전달)
 
   const emptyAgreement = {
     version: AGREEMENT_VERSION,
@@ -138,6 +142,7 @@ export async function loadGuestCheckin(
       bookingId: t.bookingId,
       alreadySigned: t.agreementSignedAt != null,
       checkedOut: false,
+      passportUploadedCount,
       booking: null,
       amenities: [],
       minibar: [],
@@ -241,6 +246,7 @@ export async function loadGuestCheckin(
     bookingId: t.bookingId,
     alreadySigned: t.agreementSignedAt != null,
     checkedOut: booking.status === "CHECKED_OUT",
+    passportUploadedCount,
     booking: {
       villaName: booking.villa.name,
       complex: booking.villa.complex,

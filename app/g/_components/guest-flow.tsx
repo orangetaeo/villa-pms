@@ -23,6 +23,13 @@ export default function GuestFlow(props: GuestFlowProps) {
   const L = GUEST_LABELS[lang];
 
   const [step, setStep] = useState<Step>(0);
+  // G4 여권 슬롯 수 = 투숙 인원(최소 1). 완료 게이트 판정용.
+  const passportSlotCount = Math.max(1, booking.guestCount);
+  // 업로드 완료(done) 슬롯 수 — GuestPassportStep이 리프트. 재방문 누적 장수로 초기화(슬롯 수로 클램프).
+  const [passportDone, setPassportDone] = useState(() =>
+    Math.min(Math.max(0, props.passportUploadedCount), passportSlotCount)
+  );
+  const passportComplete = passportDone >= passportSlotCount;
   const [amenitiesChecked, setAmenitiesChecked] = useState(false);
   const [signed, setSigned] = useState(props.alreadySigned);
   const [signedVersion, setSignedVersion] = useState<string | null>(props.signedVersion);
@@ -385,23 +392,25 @@ export default function GuestFlow(props: GuestFlowProps) {
               token={token}
               guestCount={booking.guestCount}
               labels={L.passport}
+              initialDoneCount={props.passportUploadedCount}
+              onDoneCount={setPassportDone}
             />
           </main>
           <StickyBar>
             <div className="space-y-2">
+              {/* 완료 게이트 안내 — 전원 업로드 전에는 진행 문구 노출 */}
+              {!passportComplete && (
+                <p className="text-xs text-center text-slate-400 leading-relaxed">
+                  {L.passport.progress(passportDone, passportSlotCount)}
+                </p>
+              )}
               <button
                 type="button"
+                disabled={!passportComplete}
                 onClick={() => setStep(4)}
-                className="w-full h-14 bg-teal-600 text-white font-bold rounded-xl shadow-lg shadow-teal-600/20 active:scale-[0.98] transition-transform"
+                className="w-full h-14 bg-teal-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-xl shadow-lg shadow-teal-600/20 active:scale-[0.98] transition-transform"
               >
                 {L.passport.finishCta}
-              </button>
-              <button
-                type="button"
-                onClick={() => setStep(4)}
-                className="w-full h-10 text-slate-400 text-sm font-semibold"
-              >
-                {L.passport.skip}
               </button>
             </div>
           </StickyBar>

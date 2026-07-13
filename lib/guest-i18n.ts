@@ -70,8 +70,9 @@ export interface GuestLabels {
     uploaded: string; // 업로드 완료
     error: string;
     processFailed: string; // 변환 실패(HEIC 디코딩 실패·5MB 초과) — 재촬영 안내
-    skip: string; // 건너뛰기
+    skip: string; // 건너뛰기(미사용 — 필수화 이후 스킵 버튼 제거, 하위호환 위해 키 잔존)
     finishCta: string; // 완료로
+    progress: (n: number, N: number) => string; // "여권 사진 n/N — 전원 업로드 안내"(완료 게이트)
   };
   // 옵션 페이지(별도 라우트 /g/[token]/options)
   addons: {
@@ -329,6 +330,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       processFailed: "이 사진은 처리할 수 없습니다. 다시 촬영해 주세요.",
       skip: "나중에 하기",
       finishCta: "체크인 완료",
+      progress: (n, N) => `여권 사진 ${n}/${N} — 투숙 인원 전원의 여권 사진을 올려주세요`,
     },
     addons: {
       title: "부가 옵션 신청",
@@ -566,6 +568,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       processFailed: "This photo can't be processed. Please retake it.",
       skip: "Do this later",
       finishCta: "Finish check-in",
+      progress: (n, N) => `Passport photos ${n}/${N} — please upload one for every guest`,
     },
     addons: {
       title: "Add-on options",
@@ -803,6 +806,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       processFailed: "Это фото невозможно обработать. Сделайте новый снимок.",
       skip: "Сделать позже",
       finishCta: "Завершить заселение",
+      progress: (n, N) => `Фото паспорта ${n}/${N} — загрузите для каждого гостя`,
     },
     addons: {
       title: "Дополнительные опции",
@@ -1040,6 +1044,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       processFailed: "无法处理这张照片，请重新拍摄。",
       skip: "稍后再做",
       finishCta: "完成入住",
+      progress: (n, N) => `护照照片 ${n}/${N} — 请上传每位住客的护照照片`,
     },
     addons: {
       title: "附加选项",
@@ -1277,6 +1282,7 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       processFailed: "Không thể xử lý ảnh này. Vui lòng chụp lại.",
       skip: "Để sau",
       finishCta: "Hoàn tất nhận phòng",
+      progress: (n, N) => `Ảnh hộ chiếu ${n}/${N} — vui lòng tải lên cho tất cả khách`,
     },
     addons: {
       title: "Tùy chọn bổ sung",

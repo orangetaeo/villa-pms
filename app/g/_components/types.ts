@@ -120,6 +120,9 @@ export interface GuestFlowProps {
   amenityGroups: GuestAmenityGroup[];
   minibar: GuestMinibarView[];
   agreement: GuestAgreementView;
+  /** 이미 업로드된 여권 사진 장수 — G4 슬롯 초기 done 처리·완료 게이트 반영용.
+   *  ★사진 URL 자체는 클라 미전달(증빙 비공개) — 장수(number)만. */
+  passportUploadedCount: number;
   /** 정산 내역(영수증) 링크 — 체크아웃 완료 시에만 서버가 채움. null=미노출(T-guest-settlement-receipt). */
   receiptHref?: string | null;
 }
