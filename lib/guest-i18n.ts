@@ -119,6 +119,8 @@ export interface GuestLabels {
     ticketHeightPlaceholder: string; // 신장 입력 placeholder "예: 120"
     ticketHeightNotice: string; // 신장 자가신고 고지(현장 재측정·차액) — 허위신고 방지
     ticketVariantRequired: string; // 하단 경고: 구분 미배정 시
+    ticketVariantSectionLabel: string; // TICKET 구분 섹션 제목 "구분 선택"(timeLabel "시간 선택" 오용 대체)
+    ticketVariantCheckinHint: string; // 미체크인+규칙 구분(어린이·시니어·무료 등) — 셀프 체크인(여권 확인) 후 인원별 선택 가능 안내
     priceInquiry: string; // 환율 미설정 시 "가격 문의"
     rateNote: string; // 하단 환산액 안내 "오늘 환율 기준"
     backToCheckin: string; // 체크인으로 돌아가기
@@ -372,6 +374,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       ticketHeightPlaceholder: "예: 120",
       ticketHeightNotice: "키는 현장에서 다시 잽니다. 신고와 다르면 차액을 현장에서 받을 수 있어요.",
       ticketVariantRequired: "티켓 이용자의 구분을 선택하세요",
+      ticketVariantSectionLabel: "구분 선택",
+      ticketVariantCheckinHint: "어린이·시니어 등 구분 요금은 셀프 체크인(여권 확인)을 완료하면 인원별로 선택할 수 있어요.",
       priceInquiry: "가격 문의",
       rateNote: "오늘 환율 기준",
       backToCheckin: "체크인 화면으로",
@@ -607,6 +611,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       ticketHeightPlaceholder: "e.g. 120",
       ticketHeightNotice: "Height is re-measured on site. If it differs from what you declare, the difference may be charged there.",
       ticketVariantRequired: "Select a category for each ticket guest",
+      ticketVariantSectionLabel: "Ticket type",
+      ticketVariantCheckinHint: "Categories like child or senior become selectable per person once you complete self check-in (passport verification).",
       priceInquiry: "Ask for price",
       rateNote: "Today's exchange rate",
       backToCheckin: "Back to check-in",
@@ -842,6 +848,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       ticketHeightPlaceholder: "напр. 120",
       ticketHeightNotice: "Рост измеряют на месте. При расхождении с заявленным возможна доплата.",
       ticketVariantRequired: "Выберите категорию для каждого гостя",
+      ticketVariantSectionLabel: "Категория билета",
+      ticketVariantCheckinHint: "Категории «детский», «пожилой» и т. п. можно выбрать для каждого гостя после самостоятельного заселения (проверки паспорта).",
       priceInquiry: "Уточнить цену",
       rateNote: "По курсу на сегодня",
       backToCheckin: "Назад к заселению",
@@ -1077,6 +1085,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       ticketHeightPlaceholder: "例如 120",
       ticketHeightNotice: "身高将在现场重新测量。若与申报不符，可能在现场补差价。",
       ticketVariantRequired: "请为每位门票使用者选择类别",
+      ticketVariantSectionLabel: "票种选择",
+      ticketVariantCheckinHint: "儿童·长者等票种价格，在完成自助入住（护照确认）后即可按人数分别选择。",
       priceInquiry: "价格咨询",
       rateNote: "按今日汇率",
       backToCheckin: "返回入住页面",
@@ -1312,6 +1322,8 @@ export const GUEST_LABELS: Record<PublicLang, GuestLabels> = {
       ticketHeightPlaceholder: "vd: 120",
       ticketHeightNotice: "Chiều cao sẽ được đo lại tại chỗ. Nếu khác với khai báo, có thể phải trả thêm phần chênh lệch.",
       ticketVariantRequired: "Chọn loại vé cho từng khách",
+      ticketVariantSectionLabel: "Chọn loại vé",
+      ticketVariantCheckinHint: "Các loại vé như trẻ em, người cao tuổi có thể chọn theo từng người sau khi hoàn tất tự nhận phòng (xác minh hộ chiếu).",
       priceInquiry: "Hỏi giá",
       rateNote: "Theo tỷ giá hôm nay",
       backToCheckin: "Về trang nhận phòng",
