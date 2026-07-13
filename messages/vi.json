@@ -4100,7 +4100,23 @@
     "invalid": "Các giai đoạn bị trùng hoặc ngày không hợp lệ.",
     "saveError": "Lưu thất bại. Vui lòng thử lại.",
     "salePrice": "Giá bán của bạn / đêm",
-    "salePriceHint": "Giá bạn bán cho khách của mình (không bắt buộc). Cần có để tạo liên kết bán phòng."
+    "salePriceHint": "Giá bạn bán cho khách của mình (không bắt buộc). Cần có để tạo liên kết bán phòng.",
+    "premiumDaysTitle": "Ngày cuối tuần / ngày lễ",
+    "premiumDaysHint": "Chọn các thứ trong tuần được tính giá cao hơn (giá cuối tuần / ngày lễ). Mặc định Thứ Sáu·Thứ Bảy.",
+    "holidayNote": "Ngày lễ do công ty tự áp dụng.",
+    "weekdays": {
+      "0": "CN",
+      "1": "T2",
+      "2": "T3",
+      "3": "T4",
+      "4": "T5",
+      "5": "T6",
+      "6": "T7"
+    },
+    "premiumToggle": "Giá cuối tuần / ngày lễ",
+    "premiumCost": "Giá gốc cuối tuần / ngày lễ / đêm",
+    "premiumSalePrice": "Giá bán cuối tuần / ngày lễ / đêm",
+    "premiumEmptyHint": "Để trống thì áp dụng giá ngày thường."
   },
   "costSeasons": {
     "title": "Giá gốc & mùa",
