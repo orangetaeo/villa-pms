@@ -83,7 +83,8 @@ export default function PremiumDaysEditor({
     >
       <div className="space-y-3">
         <p className="text-[11px] text-slate-500 leading-relaxed">{t("hint")}</p>
-        <div className="flex flex-wrap gap-2">
+        {/* 7열 그리드 — 좁은 화면에서도 요일 7개가 항상 한 줄(칩이 폭에 맞게 축소, 최대 44px) */}
+        <div className="grid max-w-xs grid-cols-7 gap-1.5">
           {DAY_INDEXES.map((d) => {
             const on = days.has(d);
             // 주말(일·토)은 시각적 강조색만 다르게 — 판정 로직은 동일
@@ -94,7 +95,7 @@ export default function PremiumDaysEditor({
                 type="button"
                 aria-pressed={on}
                 onClick={() => toggle(d)}
-                className={`w-11 h-11 rounded-lg text-sm font-bold flex items-center justify-center transition-all ${
+                className={`aspect-square w-full max-w-11 rounded-lg text-sm font-bold flex items-center justify-center transition-all ${
                   on
                     ? "bg-fuchsia-500/15 text-fuchsia-300 border border-fuchsia-500/40"
                     : `bg-slate-900/60 border border-slate-700 hover:border-slate-500 ${weekend ? "text-slate-300" : "text-slate-400"}`
