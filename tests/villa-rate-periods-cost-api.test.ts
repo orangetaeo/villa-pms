@@ -16,8 +16,10 @@ const tx = {
   },
   proposal: { findMany: vi.fn(async (): Promise<{ id: string }[]> => []) },
   user: { findMany: vi.fn(async (): Promise<{ id: string }[]> => []) },
+  // ADR-0040 — 알림 적재는 enqueueOperatorNotification 경유(그룹 미설정 → 개별 create fan-out)
+  appSetting: { findUnique: vi.fn(async (): Promise<{ value: string } | null> => null) },
   notification: {
-    createMany: vi.fn(async (_a: { data: Array<{ payload: Record<string, unknown> }> }) => ({})),
+    create: vi.fn(async (_a: { data: { payload: Record<string, unknown> } }) => ({})),
   },
 };
 const transactionSpy = vi.fn(async (fn: (t: unknown) => Promise<unknown>) => fn(tx));
@@ -128,8 +130,9 @@ describe("마진 보존·판매가 재계산·누수0 (SUPPLIER 소유)", () => 
     tx.user.findMany.mockResolvedValue([{ id: "a1" }]);
     const res = await req(BODY);
     expect(res.status).toBe(200);
-    const notif = tx.notification.createMany.mock.calls[0][0].data;
-    const baseAlert = notif.find((n) => n.payload.season === "LOW");
+    // ADR-0040 — 그룹 미설정 → 운영자 개별 DM fan-out(create). (제안×원가변경)당 헬퍼 1회.
+    const alerts = tx.notification.create.mock.calls.map((c) => c[0].data);
+    const baseAlert = alerts.find((d) => d.payload.season === "LOW");
     expect(baseAlert?.payload).toMatchObject({
       season: "LOW",
       oldCostVnd: "900000",
@@ -148,7 +151,7 @@ describe("마진 보존·판매가 재계산·누수0 (SUPPLIER 소유)", () => 
     tx.user.findMany.mockResolvedValue([{ id: "a1" }]);
     await req(BODY);
     expect(tx.proposal.findMany).not.toHaveBeenCalled(); // costChanges 0 → 단락
-    expect(tx.notification.createMany).not.toHaveBeenCalled();
+    expect(tx.notification.create).not.toHaveBeenCalled();
   });
 
   it("겹치는 기간 거부 (400)", async () => {

@@ -3,8 +3,7 @@
 // 입금확인을 놓치면 예약이 자동 취소되므로 운영자 전원에게 Zalo로 배선한다.
 // 판매가·원가·마진은 payload에 절대 미포함(원칙2와 동일 기준 — 금액은 관리자 화면에서).
 import { NotificationType, type Prisma, type PrismaClient } from "@prisma/client";
-import { enqueueNotification } from "@/lib/zalo";
-import { findNotifiableOperators } from "@/lib/villa-notify";
+import { enqueueOperatorNotification } from "@/lib/operator-notify";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -22,23 +21,20 @@ export async function notifyOperatorsGuestPaymentNotice(
   }
 ): Promise<void> {
   try {
-    const operators = await findNotifiableOperators(db);
-    for (const op of operators) {
-      await enqueueNotification({
-        db,
-        userId: op.id,
-        type: NotificationType.GUEST_PAYMENT_NOTICE,
-        payload: {
-          bookingId: params.bookingId,
-          villaName: params.villaName,
-          guestName: params.guestName,
-          depositorName: params.depositorName,
-          checkIn: params.checkIn.toISOString().slice(0, 10),
-          checkOut: params.checkOut.toISOString().slice(0, 10),
-          holdExpiresAt: params.holdExpiresAt?.toISOString() ?? null,
-        },
-      });
-    }
+    // 운영자 알림 — 그룹 설정 시 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0040)
+    await enqueueOperatorNotification({
+      db,
+      type: NotificationType.GUEST_PAYMENT_NOTICE,
+      payload: {
+        bookingId: params.bookingId,
+        villaName: params.villaName,
+        guestName: params.guestName,
+        depositorName: params.depositorName,
+        checkIn: params.checkIn.toISOString().slice(0, 10),
+        checkOut: params.checkOut.toISOString().slice(0, 10),
+        holdExpiresAt: params.holdExpiresAt?.toISOString() ?? null,
+      },
+    });
   } catch (e) {
     console.error("[consumer-signal] 입금통보 운영자 알림 실패", e);
   }
@@ -58,23 +54,20 @@ export async function notifyOperatorsServiceOrderRequested(
   }
 ): Promise<void> {
   try {
-    const operators = await findNotifiableOperators(db);
-    for (const op of operators) {
-      await enqueueNotification({
-        db,
-        userId: op.id,
-        type: NotificationType.SERVICE_ORDER_REQUESTED,
-        payload: {
-          bookingId: params.bookingId,
-          orderId: params.orderId,
-          villaName: params.villaName,
-          serviceName: params.serviceName,
-          quantity: params.quantity,
-          serviceDate: params.serviceDate,
-          serviceTime: params.serviceTime,
-        },
-      });
-    }
+    // 운영자 알림 — 그룹 설정 시 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0040)
+    await enqueueOperatorNotification({
+      db,
+      type: NotificationType.SERVICE_ORDER_REQUESTED,
+      payload: {
+        bookingId: params.bookingId,
+        orderId: params.orderId,
+        villaName: params.villaName,
+        serviceName: params.serviceName,
+        quantity: params.quantity,
+        serviceDate: params.serviceDate,
+        serviceTime: params.serviceTime,
+      },
+    });
   } catch (e) {
     console.error("[consumer-signal] 부가서비스 요청 운영자 알림 실패", e);
   }

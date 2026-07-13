@@ -1094,11 +1094,25 @@ async function sendVia(
  */
 export async function sendBotMessage(
   zaloUserId: string,
-  text: string
+  text: string,
+  // ADR-0040 그룹 발송 — 기본 USER(기존 호출 시그니처·동작 불변). GROUP이면 zaloUserId=그룹 thread id.
+  threadType: ThreadType = ThreadType.User
 ): Promise<BotSendResult> {
   // ADR-0032 BE-3 — 세션 비보유 웹이면 워커 위임(기본 미설정=false → 현행 in-process 발송).
-  if (shouldDelegate()) return delegateSend({ fn: "sendBotMessage", zaloUserId, text });
-  return sendVia(getSystemBotApi(), zaloUserId, text);
+  if (shouldDelegate()) return delegateSend({ fn: "sendBotMessage", zaloUserId, text, threadType });
+  return sendVia(getSystemBotApi(), zaloUserId, text, threadType);
+}
+
+/**
+ * 시스템 알림 그룹방 발송 (ADR-0040) — 시스템봇 인스턴스로 ThreadType.Group 전송.
+ * groupThreadId = ZaloConversation(threadType GROUP)의 zaloUserId 슬롯(그룹 id).
+ * 봇 미연결 시 ERROR_BOT_NOT_CONNECTED(호출부에서 attempt 미증가 재시도).
+ */
+export async function sendBotGroupMessage(
+  groupThreadId: string,
+  text: string
+): Promise<BotSendResult> {
+  return sendBotMessage(groupThreadId, text, ThreadType.Group);
 }
 
 /**

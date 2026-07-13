@@ -17,7 +17,7 @@ import {
 } from "./availability";
 import { countNights } from "./hold";
 import { writeAuditLog } from "./audit-log";
-import { enqueueNotification } from "./zalo";
+import { enqueueOperatorNotification } from "./operator-notify";
 import { toDateOnlyString } from "./date-vn";
 
 /**
@@ -153,9 +153,6 @@ export async function createSupplierDirectBooking(
   });
 }
 
-/** 운영자 직접예약 통지 대상 역할 — 선점 판단은 운영 실무라 STAFF 포함 (roster-reminder 패턴) */
-const OPERATOR_ROLES = ["OWNER", "MANAGER", "STAFF", "ADMIN"] as const;
-
 interface DirectBookingNoticePayload {
   bookingId: string;
   villaName: string;
@@ -167,7 +164,7 @@ interface DirectBookingNoticePayload {
 }
 
 /**
- * 공급자 직접예약 생성 시 zaloUserId 연결된 활성 운영자 전원에게 PENDING 알림 적재.
+ * 공급자 직접예약 생성 시 운영자 통지 적재 — 그룹 설정 시 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0040).
  * 운영자 0명(미연결)이면 알림 0건이지만 정상(선점 통지는 정보성, 본 트랜잭션 깨지 않음).
  * payload에 판매가·마진·공급자 받은 금액 절대 미포함.
  */
@@ -175,28 +172,17 @@ async function enqueueOperatorDirectBookingNotice(
   db: Prisma.TransactionClient,
   payload: DirectBookingNoticePayload
 ): Promise<void> {
-  const operators = await db.user.findMany({
-    where: {
-      role: { in: [...OPERATOR_ROLES] },
-      isActive: true,
-      zaloUserId: { not: null },
+  await enqueueOperatorNotification({
+    db,
+    type: NotificationType.SUPPLIER_DIRECT_BOOKING,
+    payload: {
+      bookingId: payload.bookingId,
+      villaName: payload.villaName,
+      supplierName: payload.supplierName,
+      guestName: payload.guestName,
+      checkIn: payload.checkIn,
+      checkOut: payload.checkOut,
+      guestCount: payload.guestCount,
     },
-    select: { id: true },
   });
-  for (const op of operators) {
-    await enqueueNotification({
-      db,
-      userId: op.id,
-      type: NotificationType.SUPPLIER_DIRECT_BOOKING,
-      payload: {
-        bookingId: payload.bookingId,
-        villaName: payload.villaName,
-        supplierName: payload.supplierName,
-        guestName: payload.guestName,
-        checkIn: payload.checkIn,
-        checkOut: payload.checkOut,
-        guestCount: payload.guestCount,
-      },
-    });
-  }
 }
