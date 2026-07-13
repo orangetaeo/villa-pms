@@ -1,7 +1,6 @@
 // app/g/_components/types.ts — 게스트 셀프 체크인 클라이언트 props 타입 (ADR-0019 S3)
 //   ★ 서버가 직렬화해 클라로 넘기는 데이터: 판매가만(원가·마진·타예약 0). VND는 문자열.
 import type { PublicLang } from "@/lib/public-i18n";
-import type { DisplayCurrency } from "@/lib/fx-rates";
 
 export interface GuestBookingView {
   villaName: string;
@@ -125,21 +124,14 @@ export interface GuestFlowProps {
   receiptHref?: string | null;
 }
 
-/** 하단 "오늘 환율 기준" 환산 — 언어 모국통화 1개. vi거나 API 장애 시 null(VND만 표기). */
-export interface GuestConvert {
-  currency: DisplayCurrency;
-  vndPerUnit: number; // 1 통화단위 = X VND
-}
-
 /** 옵션 선택 페이지(/g/[token]/options) props — 체크인과 독립 라우트, 투숙 중 접근.
- *   ★요청 내역은 별도 페이지(/g/[token]/orders)로 분리 — 옵션이 많아져도 확인·정산이 쉽게. */
+ *   ★요청 내역은 별도 페이지(/g/[token]/orders)로 분리 — 옵션이 많아져도 확인·정산이 쉽게.
+ *   ★금액은 ₫ 원천 단일 표기(다국적 커버) — 모국통화 환산 보조 표기 제거(2026-07-13). */
 export interface GuestOptionsProps {
   token: string;
   lang: PublicLang;
   booking: GuestBookingView;
   catalog: GuestCatalogView[];
-  /** 금액은 항상 VND 기본 표기. convert가 있으면 하단에 모국통화 환산액("오늘 환율 기준") 추가. */
-  convert: GuestConvert | null;
   /** 체크인된 투숙객 명단(이름·생년월일만) — TICKET 품목에서 이용자 선택용(ADR-0036).
    *   자기 예약 명단이라 누수 아님(여권번호 등 미포함). 체크인 전이면 빈 배열 → 기존 수량 입력 유지. */
   checkedInGuests: { name: string | null; birthDate: string | null }[];

@@ -14,7 +14,6 @@ import {
 } from "@/lib/service-catalog";
 import { GUEST_LABELS } from "@/lib/guest-i18n";
 import { PublicLangSelector } from "@/components/public-lang-selector";
-import { formatConverted } from "@/lib/fx-rates";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import { todayVnDateString } from "@/lib/date-vn";
 import { readVariantRule, anyVariantHasHeightRule, type VariantRule } from "@/lib/ticket-variant-rules";
@@ -83,7 +82,7 @@ function ticketVariantContext(
 }
 
 export default function GuestOptions(props: GuestOptionsProps) {
-  const { token, lang, booking, catalog, convert, checkedInGuests } = props;
+  const { token, lang, booking, catalog, checkedInGuests } = props;
   const L = GUEST_LABELS[lang];
   const router = useRouter();
   const suffix = lang === "ko" ? "" : `?lang=${lang}`;
@@ -203,12 +202,8 @@ export default function GuestOptions(props: GuestOptionsProps) {
     return people.some((p) => p.key == null);
   });
   const canSubmit = anySelected && !missingDateTime && !missingTicketVariant;
-  // 합계는 항상 VND 기본. convert 있으면 하단에 "오늘 환율 기준" 모국통화 환산 보조 표기.
+  // 합계 = ₫ 원천 단일 표기(다국적 커버). 모국통화 환산 보조 표기 제거 — 5언어 전부 ₫로 일관.
   const grandTotalStr = guestVnd(grandTotal.vnd.toString());
-  const convertedStr =
-    convert && grandTotal.vnd > 0n
-      ? formatConverted(grandTotal.vnd, convert.currency, convert.vndPerUnit)
-      : null;
 
   const submitOrders = async () => {
     if (submitting) return;
@@ -425,11 +420,6 @@ export default function GuestOptions(props: GuestOptionsProps) {
                 <span className="text-xl font-extrabold text-teal-600 tabular-nums block">
                   {grandTotalStr}
                 </span>
-                {convertedStr && (
-                  <span className="text-[11px] text-slate-400 tabular-nums block leading-tight">
-                    {convertedStr} · {L.addons.rateNote}
-                  </span>
-                )}
               </div>
             </div>
           )}
