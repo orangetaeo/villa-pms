@@ -185,7 +185,8 @@ export default function RatePeriodCostEditor({
           <span className="font-bold text-neutral-800">{t("premiumDaysTitle")}</span>
         </div>
         <p className="mb-3 text-xs leading-relaxed text-neutral-500">{t("premiumDaysHint")}</p>
-        <div className="flex flex-wrap gap-2">
+        {/* 7열 그리드 — 좁은 화면에서도 요일 7개가 항상 한 줄(칩이 폭에 맞게 축소, 최대 48px) */}
+        <div className="grid max-w-xs grid-cols-7 gap-1.5">
           {DAY_INDEXES.map((d) => {
             const on = days.has(d);
             const weekend = d === 0 || d === 6;
@@ -195,7 +196,7 @@ export default function RatePeriodCostEditor({
                 type="button"
                 aria-pressed={on}
                 onClick={() => toggleDay(d)}
-                className={`flex h-12 w-12 items-center justify-center rounded-xl text-sm font-bold transition-all active:scale-95 ${
+                className={`flex aspect-square w-full max-w-12 items-center justify-center rounded-xl text-sm font-bold transition-all active:scale-95 ${
                   on
                     ? "bg-amber-400 text-white shadow-sm shadow-amber-400/30"
                     : `border-2 border-neutral-200 bg-white ${weekend ? "text-neutral-600" : "text-neutral-400"}`
