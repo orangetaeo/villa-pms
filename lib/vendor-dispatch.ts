@@ -3,8 +3,8 @@
 //   호출부: 운영자 수동 발주(dispatch route)·게스트 자동 발주(g/service-orders POST)·취소(service-orders PATCH·게스트 취소).
 //   ★ 누수: Zalo/인앱 본문에 판매가·마진 절대 없음(품목·수량·빌라·옵션 라벨·본인 정산액 costVnd만).
 //   ★ 인앱 적재 실패는 try/catch로 격리 — 알림 실패가 발주/취소 본 로직을 깨지 않게(호출부와 동일 정책).
-import { prisma } from "@/lib/prisma";
 import { enqueueNotification } from "@/lib/zalo";
+import { enqueueOperatorNotification } from "@/lib/operator-notify";
 import {
   enqueueInAppNotification,
   buildVendorNotifText,
@@ -15,7 +15,6 @@ import {
 } from "@/lib/inapp-notification";
 import { selectedOptionLabels } from "@/lib/service-display";
 import { toDateOnlyString } from "@/lib/date-vn";
-import { OPERATOR_ROLES } from "@/lib/permissions";
 import { NotificationType } from "@prisma/client";
 
 /** 벤더 관계(발주 통보 대상) — userId 없으면 통보 불가, zaloUserId 없으면 Zalo만 생략(인앱은 적재). */
@@ -132,14 +131,6 @@ export interface VendorResponseNotifyInput {
 export async function sendVendorResponseOperatorNotifications(
   input: VendorResponseNotifyInput
 ): Promise<void> {
-  const operators = await prisma.user.findMany({
-    where: {
-      role: { in: [...OPERATOR_ROLES] },
-      isActive: true,
-      zaloUserId: { not: null },
-    },
-    select: { id: true },
-  });
   const payload = {
     vendorName: input.vendorNameKo || input.vendorName || "—",
     // accepted: accept/propose 모두 수락 계열(true), reject만 false.
@@ -158,13 +149,11 @@ export async function sendVendorResponseOperatorNotifications(
       input.action === "propose" ? input.proposedServiceTime || undefined : undefined,
     proposalNote: input.action === "propose" ? input.proposalNote?.trim() || undefined : undefined,
   };
-  for (const op of operators) {
-    await enqueueNotification({
-      userId: op.id,
-      type: NotificationType.VENDOR_PO_RESPONSE,
-      payload,
-    });
-  }
+  // 운영자 Zalo 알림 — 그룹 설정 시 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0039)
+  await enqueueOperatorNotification({
+    type: NotificationType.VENDOR_PO_RESPONSE,
+    payload,
+  });
 
   // 운영자 인앱 알림(벨) — Zalo 미연결 운영자도 인지. 적재 실패는 본 로직에 영향 0.
   try {

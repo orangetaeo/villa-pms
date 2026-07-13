@@ -68,7 +68,7 @@ function sendJson(res: http.ServerResponse, status: number, body: unknown): void
 async function executeSendCommand(cmd: WorkerSendCommand): Promise<unknown> {
   switch (cmd.fn) {
     case "sendBotMessage":
-      return sendBotMessage(cmd.zaloUserId, cmd.text);
+      return sendBotMessage(cmd.zaloUserId, cmd.text, toThreadType(cmd.threadType));
     case "sendBotMessageWithAttachments":
       return sendBotMessageWithAttachments(
         cmd.zaloUserId,

@@ -1,5 +1,5 @@
 import { BookingStatus, NotificationType, type PrismaClient } from "@prisma/client";
-import { enqueueNotification } from "./zalo";
+import { enqueueOperatorNotification } from "./operator-notify";
 import { todayInVillaTimezone } from "./timeline";
 import { addUtcDays, toDateOnlyString } from "./date-vn";
 
@@ -11,9 +11,6 @@ import { addUtcDays, toDateOnlyString } from "./date-vn";
  * 날짜 정확 매칭(checkIn == today+3)이라 예약당 1회 — 멱등(cron 누락 시 미발송 허용).
  * payload에 판매가·마진 절대 미포함 (마진 비공개).
  */
-
-/** 리마인더 대상 운영자 역할 — 명단 후속은 운영 실무라 STAFF 포함 */
-const OPERATOR_ROLES = ["OWNER", "MANAGER", "STAFF", "ADMIN"] as const;
 
 export interface RosterReminderTarget {
   bookingId: string;
@@ -81,35 +78,24 @@ export async function runRosterReminders(
     return { targetCount: 0, notificationCount: 0, bookingIds: [] };
   }
 
-  const operators = await db.user.findMany({
-    where: {
-      role: { in: [...OPERATOR_ROLES] },
-      isActive: true,
-      zaloUserId: { not: null },
-    },
-    select: { id: true },
-  });
-
+  // 운영자 알림 — 그룹 설정 시 대상당 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0039).
+  // notificationCount = 실제 적재된 Notification 행 수(그룹=대상 수, 개별=대상×운영자 수).
   let notificationCount = 0;
   for (const t of targets) {
-    for (const op of operators) {
-      await enqueueNotification({
-        db,
-        userId: op.id,
-        type: NotificationType.ROSTER_REMINDER,
-        payload: {
-          bookingId: t.bookingId,
-          villaName: t.villaName,
-          checkIn: toDateOnlyString(t.checkIn),
-          guestName: t.guestName,
-          guestCount: t.guestCount,
-          token: t.token,
-          partnerName: t.partnerName,
-          partnerPhone: t.partnerPhone,
-        },
-      });
-      notificationCount += 1;
-    }
+    notificationCount += await enqueueOperatorNotification({
+      db,
+      type: NotificationType.ROSTER_REMINDER,
+      payload: {
+        bookingId: t.bookingId,
+        villaName: t.villaName,
+        checkIn: toDateOnlyString(t.checkIn),
+        guestName: t.guestName,
+        guestCount: t.guestCount,
+        token: t.token,
+        partnerName: t.partnerName,
+        partnerPhone: t.partnerPhone,
+      },
+    });
   }
 
   return {

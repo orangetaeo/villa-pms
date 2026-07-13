@@ -21,6 +21,11 @@ import BankContactForm, { type BankContactInitial } from "./bank-contact-form";
 import ZaloConnectSettingForm, {
   type ZaloConnectInitial,
 } from "./zalo-connect-setting-form";
+import ZaloNotifyGroupForm, {
+  type ZaloNotifyGroupInitial,
+} from "./zalo-notify-group-form";
+import { getSystemBotOwnerId } from "@/lib/zalo-credentials";
+import { ZALO_ADMIN_NOTIFY_GROUP_ID_KEY } from "@/lib/operator-notify";
 import CancellationPolicyForm from "./cancellation-policy-form";
 import { getAgreementContent } from "@/lib/agreement-store";
 import AgreementForm from "./agreement-form";
@@ -65,6 +70,7 @@ export default async function SettingsPage() {
             ...BANK_CONTACT_KEYS,
             ZALO_CONNECT_QR_URL_KEY,
             ZALO_CONNECT_OA_URL_KEY,
+            ZALO_ADMIN_NOTIFY_GROUP_ID_KEY,
           ],
         },
       },
@@ -117,6 +123,25 @@ export default async function SettingsPage() {
       Boolean(process.env.NEXT_PUBLIC_ZALO_OA_URL),
   };
 
+  // 운영자 Zalo 알림 그룹방(ADR-0039) — 시스템봇 소유자의 GROUP 대화 목록 + 현재 설정값.
+  // 시스템봇 미연결(소유자 미상)이면 목록은 비고 폼이 안내 표시.
+  const notifyGroupOwnerId = await getSystemBotOwnerId();
+  const notifyGroupConversations = notifyGroupOwnerId
+    ? await prisma.zaloConversation.findMany({
+        where: { ownerAdminId: notifyGroupOwnerId, threadType: "GROUP" },
+        orderBy: { lastMessageAt: "desc" },
+        select: { zaloUserId: true, displayName: true, nickname: true },
+      })
+    : [];
+  const zaloNotifyGroupInitial: ZaloNotifyGroupInitial = {
+    selectedGroupId: settingValue(ZALO_ADMIN_NOTIFY_GROUP_ID_KEY) || null,
+    groups: notifyGroupConversations.map((c) => ({
+      id: c.zaloUserId,
+      name: c.nickname ?? c.displayName,
+    })),
+    botConnected: notifyGroupOwnerId !== null,
+  };
+
   // 홀드 시간 — 미설정/파싱 불가 시 기본 48 표시 (lib/hold DEFAULT_HOLD_HOURS)
   const parsedHold = holdSetting ? Number.parseInt(holdSetting.value, 10) : Number.NaN;
   const initialHoldHours =
@@ -166,6 +191,10 @@ export default async function SettingsPage() {
       {/* Card 4b: Zalo 연결 온보딩 QR·친구추가 링크 (T-zalo-connect-qr-admin-setting).
           공급자·청소 온보딩(/zalo-connect)에 노출. 비우면 env 폴백 */}
       <ZaloConnectSettingForm initial={zaloConnectInitial} />
+
+      {/* Card 4c: 운영자 Zalo 알림 그룹방 (ADR-0039) — 운영자 업무 알림을 그룹방 1건으로 수신.
+          미설정 시 운영자 개별 DM 발송(폴백) */}
+      <ZaloNotifyGroupForm initial={zaloNotifyGroupInitial} />
 
       {/* Card 5: 취소·환불 정책 — 공개 제안 페이지 표시 (#6b) */}
       <CancellationPolicyForm initial={cancellationPolicy} />

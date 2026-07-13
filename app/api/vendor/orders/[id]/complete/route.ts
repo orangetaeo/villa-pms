@@ -7,10 +7,10 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/api-guard";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
-import { isVendor, OPERATOR_ROLES, type Role } from "@/lib/permissions";
+import { isVendor, type Role } from "@/lib/permissions";
 import { getVendorIdForUser } from "@/lib/vendor-auth";
 import { canReportComplete } from "@/lib/vendor-order";
-import { enqueueNotification } from "@/lib/zalo";
+import { enqueueOperatorNotification } from "@/lib/operator-notify";
 import { buildAdminNotifText, enqueueInAppForOperators } from "@/lib/inapp-notification";
 import { NotificationType } from "@prisma/client";
 
@@ -86,28 +86,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     : null;
   const itemName = item?.nameKo ?? order.vendorName ?? "—";
 
-  // 운영자(테오)들에게 완료 통지(ko) — respond 라우트와 동일 수신자 규칙.
-  const operators = await prisma.user.findMany({
-    where: { role: { in: [...OPERATOR_ROLES] }, isActive: true, zaloUserId: { not: null } },
-    select: { id: true },
+  // 운영자(테오)들에게 완료 통지(ko) — 그룹 설정 시 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0039).
+  await enqueueOperatorNotification({
+    type: NotificationType.VENDOR_PO_RESPONSE,
+    payload: {
+      action: "complete",
+      vendorName: order.vendor?.nameKo || order.vendor?.name || "—",
+      itemName,
+      villaName: order.booking?.villa?.name ?? "—",
+      // 발주 요약 — 정산 처리 신호(일정·수량·발주액)
+      serviceDate: order.serviceDate ? order.serviceDate.toISOString().slice(0, 10) : null,
+      serviceTime: order.serviceTime ?? null,
+      quantity: order.quantity,
+      costVnd: order.costVnd > 0n ? order.costVnd.toString() : null,
+    },
   });
-  for (const op of operators) {
-    await enqueueNotification({
-      userId: op.id,
-      type: NotificationType.VENDOR_PO_RESPONSE,
-      payload: {
-        action: "complete",
-        vendorName: order.vendor?.nameKo || order.vendor?.name || "—",
-        itemName,
-        villaName: order.booking?.villa?.name ?? "—",
-        // 발주 요약 — 정산 처리 신호(일정·수량·발주액)
-        serviceDate: order.serviceDate ? order.serviceDate.toISOString().slice(0, 10) : null,
-        serviceTime: order.serviceTime ?? null,
-        quantity: order.quantity,
-        costVnd: order.costVnd > 0n ? order.costVnd.toString() : null,
-      },
-    });
-  }
 
   // 운영자 인앱 알림(벨) — Zalo 미연결 운영자도 인지(admin-vendor-ops C). 금액 미포함.
   try {

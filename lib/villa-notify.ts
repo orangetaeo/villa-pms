@@ -2,23 +2,12 @@
 // 신규 등록/재제출(VILLA_PENDING_REVIEW)·승인 후 콘텐츠 수정(VILLA_CONTENT_UPDATED).
 // 판매가·마진·원가 등 금액 정보는 payload에 절대 미포함.
 import { NotificationType, type Prisma, type PrismaClient } from "@prisma/client";
-import { enqueueNotification } from "@/lib/zalo";
+import { enqueueOperatorNotification, findNotifiableOperators } from "@/lib/operator-notify";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
-/** 운영자 통지 대상 — 직접예약 통지(roster-reminder 패턴)와 동일하게 STAFF 포함 */
-const OPERATOR_ROLES = ["OWNER", "MANAGER", "STAFF", "ADMIN"] as const;
-
-export async function findNotifiableOperators(db: DbClient): Promise<{ id: string }[]> {
-  return db.user.findMany({
-    where: {
-      role: { in: [...OPERATOR_ROLES] },
-      isActive: true,
-      zaloUserId: { not: null },
-    },
-    select: { id: true },
-  });
-}
+// findNotifiableOperators는 lib/operator-notify로 이동(단일 원천). 기존 import 경로 호환을 위해 재노출.
+export { findNotifiableOperators };
 
 /** 빌라 신규 등록·반려 후 재제출 → 운영자 전원 통지. 운영자 0명(미연결)이어도 정상(정보성). */
 export async function notifyOperatorsVillaPendingReview(
@@ -36,29 +25,26 @@ export async function notifyOperatorsVillaPendingReview(
       _count: { select: { photos: true } },
     },
   });
-  const operators = await findNotifiableOperators(db);
-  for (const op of operators) {
-    await enqueueNotification({
-      db,
-      userId: op.id,
-      type: NotificationType.VILLA_PENDING_REVIEW,
-      payload: {
-        villaId: params.villaId,
-        villaName: params.villaName,
-        supplierName: params.supplierName,
-        resubmitted: params.resubmitted,
-        ...(villa
-          ? {
-              complex: villa.complex,
-              bedrooms: villa.bedrooms,
-              bathrooms: villa.bathrooms,
-              maxGuests: villa.maxGuests,
-              photoCount: villa._count.photos,
-            }
-          : {}),
-      },
-    });
-  }
+  // 운영자 알림 — 그룹 설정 시 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0039)
+  await enqueueOperatorNotification({
+    db,
+    type: NotificationType.VILLA_PENDING_REVIEW,
+    payload: {
+      villaId: params.villaId,
+      villaName: params.villaName,
+      supplierName: params.supplierName,
+      resubmitted: params.resubmitted,
+      ...(villa
+        ? {
+            complex: villa.complex,
+            bedrooms: villa.bedrooms,
+            bathrooms: villa.bathrooms,
+            maxGuests: villa.maxGuests,
+            photoCount: villa._count.photos,
+          }
+        : {}),
+    },
+  });
 }
 
 export type VillaContentKind = "PHOTOS" | "AMENITIES" | "INFO";
@@ -110,17 +96,14 @@ export async function notifyOperatorsVillaContentUpdated(
   });
   if (pending) return;
 
-  const operators = await findNotifiableOperators(db);
-  for (const op of operators) {
-    await enqueueNotification({
-      db,
-      userId: op.id,
-      type: NotificationType.VILLA_CONTENT_UPDATED,
-      payload: {
-        villaId: params.villaId,
-        villaName: params.villaName,
-        kind: params.kind,
-      },
-    });
-  }
+  // 운영자 알림 — 그룹 설정 시 그룹방 1건, 미설정 시 개별 DM fan-out (ADR-0039)
+  await enqueueOperatorNotification({
+    db,
+    type: NotificationType.VILLA_CONTENT_UPDATED,
+    payload: {
+      villaId: params.villaId,
+      villaName: params.villaName,
+      kind: params.kind,
+    },
+  });
 }

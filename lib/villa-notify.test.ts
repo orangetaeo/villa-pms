@@ -17,12 +17,15 @@ function mockDb(opts: MockOptions = {}) {
   const villaFindUnique = vi.fn(async () => opts.villa ?? null);
   const notifFindFirst = vi.fn(async () => opts.pendingDup ?? null);
   const notifCreate = vi.fn(async (args: unknown) => args);
+  // ADR-0039 — enqueueOperatorNotification가 그룹 설정을 조회함. 기본 미설정(null) → 개별 DM fan-out 유지.
+  const appSettingFindUnique = vi.fn(async () => null);
   const db = {
     user: { findMany: userFindMany },
     villa: { findUnique: villaFindUnique },
     notification: { findFirst: notifFindFirst, create: notifCreate },
+    appSetting: { findUnique: appSettingFindUnique },
   } as unknown as PrismaClient;
-  return { db, userFindMany, villaFindUnique, notifFindFirst, notifCreate };
+  return { db, userFindMany, villaFindUnique, notifFindFirst, notifCreate, appSettingFindUnique };
 }
 
 describe("notifyOperatorsVillaPendingReview — 신규 등록·재제출 승인 대기 통지", () => {
