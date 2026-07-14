@@ -35,6 +35,7 @@ vendorId 변경(PATCH)은 아래 **전부** 충족 시 허용:
 4. i18n ko/vi 동시(신규 문구 있으면), 하드코딩 금지.
 5. 회귀: 기존 REQUESTED/거절 상태 변경+자동 재발주 동작 불변. `npm run build`·typecheck·전체 테스트 통과.
 6. 재발주 체인 CONFIRMED 경로 검증(PR #307 회귀): CONFIRMED 주문 공급자 변경 → 발주 사이클 리셋(vendorStatus=null) 후 자동 재발주가 dispatch 라우트에서 통과해 PENDING_VENDOR로 복귀해야 한다. `canDispatch`(lib/vendor-order.ts)가 CONFIRMED를 허용하지 않으면 409 CANNOT_DISPATCH로 벤더 발주함(PENDING_VENDOR만 조회)에서 사라지는 회귀 발생(demo-svc-so-2 실사례).
+7. **타입(카테고리) 매칭 필터** (2026-07-14 테오 추가 — "해당 카테고리에 소속된 업체만 보여야"): 셀렉터 목록은 해당 주문 type을 취급하는 업체만 표시. 업체의 취급 타입 = 파생(활성 카탈로그 품목 type ∪ 지역 커버리지 type ∪ 빌라 지정 type — ServiceVendor에 타입 컬럼 없음). 신호 0인 미분류 업체는 어느 타입에도 미표시(카탈로그·지역 연결 후 노출). 현재 배정된 업체는 타입 불일치여도 select 값 표시 유지(값 왜곡 금지). 서버도 동일 판정으로 타입 불일치 교체 거부(400 VENDOR_TYPE_MISMATCH — UI 우회 봉쇄, 판정 헬퍼 공유).
 
 ## 수정 금지 구역
 

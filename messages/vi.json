@@ -3026,7 +3026,8 @@
         "unresolvedWarn": "Đề xuất giờ của nhà cung cấp chưa được xử lý — hãy áp dụng/bỏ qua trước"
       },
       "changeLiveConfirm": "Đơn này đã được gửi cho nhà cung cấp. Nếu đổi nhà cung cấp, NCC cũ sẽ nhận được thông báo hủy đặt hàng. Tiếp tục?",
-      "ticketVendorRequired": "Đơn vé phải chỉ định nhà cung cấp (không thể tự cung cấp)"
+      "ticketVendorRequired": "Đơn vé phải chỉ định nhà cung cấp (không thể tự cung cấp)",
+      "typeMismatch": "Nhà cung cấp này không phụ trách danh mục này — không thể đổi"
     }
   },
   "adminReceivables": {

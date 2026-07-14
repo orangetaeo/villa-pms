@@ -2911,7 +2911,8 @@
         "unresolvedWarn": "공급자의 시간 제안이 미처리 상태입니다 — 먼저 적용/무시하세요"
       },
       "changeLiveConfirm": "이 발주는 이미 공급자에게 전달되었습니다. 공급자를 변경하면 기존 공급자에게 발주 취소가 통보됩니다. 계속하시겠습니까?",
-      "ticketVendorRequired": "티켓 주문은 공급자를 지정해야 합니다(직접 제공 불가)"
+      "ticketVendorRequired": "티켓 주문은 공급자를 지정해야 합니다(직접 제공 불가)",
+      "typeMismatch": "이 카테고리를 취급하지 않는 업체입니다 — 변경할 수 없습니다"
     }
   },
   "adminReceivables": {

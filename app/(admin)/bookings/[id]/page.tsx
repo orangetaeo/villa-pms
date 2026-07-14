@@ -14,6 +14,7 @@ import { toDateOnlyString } from "@/lib/date-vn";
 import { formatRemainingHours } from "@/lib/booking-stats";
 import { stripOptionCosts } from "@/lib/service-catalog";
 import { canSellItem } from "@/lib/ticket-vendor-guard";
+import { vendorServiceTypes, VENDOR_SERVICE_TYPE_SELECT } from "@/lib/vendor-service-types";
 import { whitelistTicketGuests } from "@/lib/ticket-guests";
 import { loadCheckinRoster } from "@/lib/checkin-roster";
 import ActionPanel from "./action-panel";
@@ -273,11 +274,12 @@ export default async function BookingDetailPage({
         vendor: { select: { approvalStatus: true, active: true } },
       },
     }),
-    // 대체 벤더 지정용(admin-vendor-ops D) — 승인(APPROVED)된 공급자만. 이름만(계좌·연락처 불필요).
+    // 대체 벤더 지정용(admin-vendor-ops D) — 승인(APPROVED)된 공급자만. 이름 + 취급타입 파생용 세 관계만
+    //   (계좌·연락처 등 민감 필드 미포함). 취급타입은 서버에서 파생해 types:string[]만 직렬화(내부 관계 미노출).
     prisma.serviceVendor.findMany({
       where: { approvalStatus: "APPROVED" },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, nameKo: true },
+      select: { id: true, name: true, nameKo: true, ...VENDOR_SERVICE_TYPE_SELECT },
     }),
   ]);
 
@@ -1002,6 +1004,8 @@ export default async function BookingDetailPage({
                 id: v.id,
                 name: v.name,
                 nameKo: v.nameKo ?? null,
+                // 취급 서비스타입(카테고리) 파생 — 활성 카탈로그 ∪ 지역 ∪ 빌라지정. 내부 관계 데이터는 미노출.
+                types: Array.from(vendorServiceTypes(v)),
               }))}
               representativeName={booking.guestName}
               checkedInGuests={checkedInGuests}
