@@ -5362,7 +5362,7 @@
     "month": "Tháng {month}/{year}",
     "prevMonth": "Tháng trước",
     "nextMonth": "Tháng sau",
-    "foot": "Chạm ngày: xem các mức giá đêm đó · Rê chuột lên dải màu·lớp: làm nổi phạm vi giai đoạn · [Thêm giai đoạn]: nhập ngày hoặc chạm lịch → nhập giá · [Chọn ngày]: chọn nhiều ngày (kể cả rời rạc) rồi xử lý một lần · [Điều chỉnh hàng loạt]: nhập khoảng và % để chỉnh nhanh. Có thể để trùng nhau — ô luôn hiển thị mức giá thắng.",
+    "foot": "Chạm ngày: xem các mức giá đêm đó · Kéo chuột qua các ngày: chọn nhanh khoảng thời gian (nếu chưa mở công cụ, [Thêm giai đoạn] sẽ tự mở) · Rê chuột lên dải màu·lớp: làm nổi phạm vi giai đoạn · [Thêm giai đoạn]: nhập ngày, chạm lịch hoặc kéo chuột → nhập giá · [Chọn ngày]: chọn nhiều ngày (kể cả rời rạc) rồi xử lý một lần · [Điều chỉnh hàng loạt]: nhập khoảng và % để chỉnh nhanh. Có thể để trùng nhau — ô luôn hiển thị mức giá thắng.",
     "dow": { "sun": "CN", "mon": "T2", "tue": "T3", "wed": "T4", "thu": "T5", "fri": "T6", "sat": "T7" },
     "axis": { "net": "Giá bán (Net)", "consumer": "Giá khách lẻ", "cost": "Giá gốc" },
     "tools": { "add": "+ Thêm giai đoạn", "select": "☑ Chọn ngày", "bulk": "⚡ Điều chỉnh hàng loạt", "copy": "📋 Sao chép năm" },

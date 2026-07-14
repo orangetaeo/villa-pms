@@ -2,7 +2,7 @@
 
 // 월 그리드 — 시즌색 셀 + 밤별 승자가 + 프리미엄 ●/공휴일 ★ + 주 하단 겹침 밴드 (rate-calendar-ux)
 // interaction-spec.html renderCalendar 이식. 승자·가격·lane-packing은 calendar-lib 순수 함수 재사용.
-import { memo, useMemo } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { PremiumReason } from "@/lib/pricing";
 import type { Axis, Season, WorkLayer } from "./types";
@@ -60,6 +60,7 @@ function CalendarGrid({
   onPrev,
   onNext,
   onCellTap,
+  onRangeDrag,
   onBandEnter,
   onBandLeave,
   onBandClick,
@@ -80,11 +81,35 @@ function CalendarGrid({
   onPrev: () => void;
   onNext: () => void;
   onCellTap: (ds: string) => void;
+  /** 마우스 드래그로 범위 지정 — a≤b 포함 구간(ISO). 같은 셀에서 눌렀다 떼면 호출되지 않음(탭 유지). */
+  onRangeDrag: (a: string, b: string) => void;
   onBandEnter: (layerId: string) => void;
   onBandLeave: () => void;
   onBandClick: (layerId: string) => void;
 }) {
   const t = useTranslations("rateCalendar");
+
+  // 드래그 범위 지정 (마우스 전용 — 터치는 스크롤과 충돌하므로 기존 탭-탭 유지).
+  // anchor=누른 셀, hover=현재 셀. 떼는 순간 anchor≠hover면 onRangeDrag, 같으면 click이 기존 탭 처리.
+  const [drag, setDrag] = useState<{ anchor: string; hover: string } | null>(null);
+  useEffect(() => {
+    if (!drag) return;
+    const up = () => {
+      setDrag(null);
+      if (drag.anchor !== drag.hover) {
+        const [a, b] = drag.anchor <= drag.hover ? [drag.anchor, drag.hover] : [drag.hover, drag.anchor];
+        onRangeDrag(a, b);
+      }
+    };
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+    return () => {
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+    };
+  }, [drag, onRangeDrag]);
+  const dragMin = drag ? (drag.anchor <= drag.hover ? drag.anchor : drag.hover) : null;
+  const dragMax = drag ? (drag.anchor <= drag.hover ? drag.hover : drag.anchor) : null;
 
   const dows = [t("dow.sun"), t("dow.mon"), t("dow.tue"), t("dow.wed"), t("dow.thu"), t("dow.fri"), t("dow.sat")];
 
@@ -174,6 +199,7 @@ function CalendarGrid({
                 const isSel = ds === selected;
                 const isPicked = pickedDays.has(ds);
                 const inRange = rangeContains(pickRangeStart, pickRangeEnd, ds);
+                const inDrag = dragMin != null && dragMin <= ds && ds <= dragMax!;
                 const isHl =
                   cell.winId != null &&
                   hlStart != null &&
@@ -185,12 +211,22 @@ function CalendarGrid({
                     type="button"
                     key={i}
                     onClick={() => onCellTap(ds)}
+                    onPointerDown={(e) => {
+                      // 마우스 좌클릭만 드래그 시작 — preventDefault로 텍스트 선택 방지
+                      if (e.pointerType === "mouse" && e.button === 0) {
+                        e.preventDefault();
+                        setDrag({ anchor: ds, hover: ds });
+                      }
+                    }}
+                    onPointerEnter={() => {
+                      setDrag((d) => (d && d.hover !== ds ? { ...d, hover: ds } : d));
+                    }}
                     className={[
-                      "relative flex min-h-[62px] flex-col justify-between rounded-lg border px-2 pb-1 pt-1.5 text-left transition-colors",
+                      "relative flex min-h-[62px] select-none flex-col justify-between rounded-lg border px-2 pb-1 pt-1.5 text-left transition-colors",
                       "hover:border-[var(--rc-accent)]",
                       out ? "pointer-events-none opacity-30" : "",
                       isSel ? "border-[var(--rc-accent)] ring-2 ring-[var(--rc-accent)]" : "border-transparent",
-                      isPicked || inRange ? "ring-2 ring-[var(--rc-accent)] ring-inset" : "",
+                      isPicked || inRange || inDrag ? "ring-2 ring-[var(--rc-accent)] ring-inset" : "",
                       isHl ? "ring-2 ring-[var(--rc-text)] ring-inset" : "",
                     ].join(" ")}
                     style={{

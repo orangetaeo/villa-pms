@@ -213,6 +213,31 @@ export default function RateCalendar({
     setSelected(ds);
   }
 
+  /* ───────── 캘린더 드래그 범위 지정 (a≤b 포함 구간) ─────────
+     add/bulk: 시작~종료(체크아웃=b+1) 채움 · select: 구간 전체를 바구니에 추가 ·
+     도구 없음: [기간 추가]를 드래그 구간으로 미리 채워서 열기 · copy: 무시 */
+  function onRangeDrag(a: string, b: string) {
+    const endEx = iso(addDays(toUtc(b), 1));
+    if (tool.kind === "select") {
+      const days = new Set(tool.s.days);
+      for (let d = toUtc(a); iso(d) < endEx; d = addDays(d, 1)) days.add(iso(d));
+      setTool({ kind: "select", s: { ...tool.s, days, err: false } });
+      return;
+    }
+    if (tool.kind === "add") {
+      setTool({ kind: "add", s: { ...tool.s, start: a, end: endEx, err: false } });
+      return;
+    }
+    if (tool.kind === "bulk") {
+      setTool({ kind: "bulk", s: { ...tool.s, start: a, end: endEx, err: false } });
+      return;
+    }
+    if (tool.kind === "copy") return;
+    setSelected(null);
+    setEdit(null);
+    setTool({ kind: "add", s: { start: a, end: endEx, form: emptyPriceForm("HIGH"), err: false } });
+  }
+
   /* ───────── 도구 열기 ───────── */
   const openAdd = () => {
     setSelected(null);
@@ -554,6 +579,7 @@ export default function RateCalendar({
             onPrev={() => setView((v) => (v.m === 0 ? { y: v.y - 1, m: 11 } : { y: v.y, m: v.m - 1 }))}
             onNext={() => setView((v) => (v.m === 11 ? { y: v.y + 1, m: 0 } : { y: v.y, m: v.m + 1 }))}
             onCellTap={onCellTap}
+            onRangeDrag={onRangeDrag}
             onBandEnter={setHlLayerId}
             onBandLeave={() => setHlLayerId(null)}
             onBandClick={onLayerClick}
