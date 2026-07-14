@@ -76,6 +76,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       type: true,
       priceVnd: true,
       costVnd: true,
+      // 벤더 변경 허용 규칙(service-order-vendor-change-expansion) — 정산·이행·발권 전 판정용.
+      vendorSettledAt: true,
+      vendorCompletedAt: true,
+      ticketUrls: true,
       proposedServiceDate: true,
       vendorProposalRespondedAt: true,
       booking: { select: { status: true } },
@@ -127,16 +131,31 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (d.status !== undefined) {
       return NextResponse.json({ error: "VENDOR_CHANGE_EXCLUSIVE" }, { status: 400 });
     }
-    // 발주가 살아있거나(수락·대기) 이미 고객확정 이후면 변경 금지 — 이중 발주·이행 중 교체 사고 방지.
-    if (
-      existing.status !== "REQUESTED" ||
-      existing.vendorStatus === "PENDING_VENDOR" ||
-      existing.vendorStatus === "VENDOR_ACCEPTED"
-    ) {
+    // ── 벤더 변경 허용 규칙(service-order-vendor-change-expansion) — "이행·정산·발권 전이면 변경 가능".
+    //   살아있는 발주(PENDING_VENDOR·VENDOR_ACCEPTED)에서의 교체는 아래에서 구 업체에 취소 통보로 안전핀 처리.
+    //   규칙: ①status∈{REQUESTED,CONFIRMED} ②미정산 ③미이행 ④TICKET이면 미발권 — 하나라도 위반 시 409 VENDOR_LOCKED.
+    const statusChangeable = existing.status === "REQUESTED" || existing.status === "CONFIRMED";
+    const alreadySettled = existing.vendorSettledAt != null;
+    const alreadyCompleted = existing.vendorCompletedAt != null;
+    const ticketAlreadyIssued =
+      existing.type === "TICKET" && (existing.ticketUrls?.length ?? 0) > 0;
+    if (!statusChangeable || alreadySettled || alreadyCompleted || ticketAlreadyIssued) {
+      // 사유 필드 — 클라·QA가 잠금 원인을 구분(STATUS_CLOSED·SETTLED·COMPLETED·TICKET_ISSUED).
+      const reason = !statusChangeable
+        ? "STATUS_CLOSED"
+        : alreadySettled
+          ? "SETTLED"
+          : alreadyCompleted
+            ? "COMPLETED"
+            : "TICKET_ISSUED";
       return NextResponse.json(
-        { error: "VENDOR_LOCKED", status: existing.status, vendorStatus: existing.vendorStatus },
+        { error: "VENDOR_LOCKED", reason, status: existing.status, vendorStatus: existing.vendorStatus },
         { status: 409 }
       );
+    }
+    // ⑤TICKET은 직접 제공(null) 전환 금지 — 티켓은 QR 발행 벤더 없이는 이행 불가(PR #304 정합).
+    if (existing.type === "TICKET" && d.vendorId === null) {
+      return NextResponse.json({ error: "TICKET_VENDOR_REQUIRED" }, { status: 400 });
     }
     if (d.vendorId !== null) {
       // 승인(APPROVED)된 벤더만 발주 대상 — 자가가입 대기·거절 벤더 배정 차단(ADR-0023 S5).
@@ -186,16 +205,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   if (d.vendorId !== undefined) {
-    // ★RMW 가드(QA LOW) — 조회~갱신 사이 다른 운영자의 dispatch/수락 레이스 차단.
-    //   여전히 REQUESTED + 발주 비활성(미발주·거절)인 행만 갱신. 0건이면 상태가 바뀐 것 → 409.
-    const res = await prisma.serviceOrder.updateMany({
-      where: {
-        id,
-        status: "REQUESTED",
-        OR: [{ vendorStatus: null }, { vendorStatus: "VENDOR_REJECTED" }],
-      },
-      data,
-    });
+    // ★RMW 가드 — 조회~갱신 사이 다른 요청의 전이(확정·정산·이행·발권) 레이스 차단.
+    //   새 허용 규칙과 동일 조건의 행만 갱신: status∈{REQUESTED,CONFIRMED}·미정산·미이행·(TICKET이면 미발권).
+    //   0건이면 그 사이 잠금 조건으로 바뀐 것 → 409.
+    const changeWhere: Record<string, unknown> = {
+      id,
+      status: { in: ["REQUESTED", "CONFIRMED"] },
+      vendorSettledAt: null,
+      vendorCompletedAt: null,
+    };
+    if (existing.type === "TICKET") changeWhere.ticketUrls = { isEmpty: true };
+    const res = await prisma.serviceOrder.updateMany({ where: changeWhere, data });
     if (res.count === 0) {
       return NextResponse.json({ error: "VENDOR_LOCKED" }, { status: 409 });
     }
@@ -284,6 +304,51 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
   }
 
+  // ── 벤더 변경 시 구 업체 취소 통보(service-order-vendor-change-expansion 안전핀) ──────────────
+  //   변경 전 살아있는 발주(PENDING_VENDOR·VENDOR_ACCEPTED)였고 구 vendorId가 있으면, 구 업체는 준비 중일 수
+  //   있으므로 stale PO 방지를 위해 발주 취소를 통보한다(무료 티켓 제외 — 실제 PO 이력 없음).
+  //   ★best-effort: 통보 실패해도 변경(트랜잭션)은 이미 성공. ★누수: 판매가·마진 없음(품목·수량·빌라·날짜만).
+  let oldVendorNotified = false;
+  const changedFromLivePo =
+    d.vendorId !== undefined &&
+    vendorHasLivePo({ vendorId: existing.vendorId, vendorStatus: existing.vendorStatus }) &&
+    !isFreeTicketOrder;
+  if (changedFromLivePo && existing.vendorId) {
+    try {
+      // 구 업체 통보 대상 — updateMany로 vendor 관계가 새 업체로 바뀌었으므로 구 vendorId로 직접 조회.
+      const oldVendor = await prisma.serviceVendor.findUnique({
+        where: { id: existing.vendorId },
+        select: { userId: true, user: { select: { zaloUserId: true, locale: true } } },
+      });
+      const info = await prisma.serviceOrder.findUnique({
+        where: { id },
+        select: {
+          quantity: true,
+          serviceDate: true,
+          catalogItemId: true,
+          vendorName: true,
+          booking: { select: { villa: { select: { name: true } } } },
+        },
+      });
+      const item = info?.catalogItemId
+        ? await prisma.serviceCatalogItem.findUnique({
+            where: { id: info.catalogItemId },
+            select: { nameKo: true },
+          })
+        : null;
+      const { zaloSent } = await sendVendorPoCancelledNotifications({
+        vendor: oldVendor ? { userId: oldVendor.userId, user: oldVendor.user } : null,
+        itemName: item?.nameKo ?? info?.vendorName ?? "—",
+        quantity: info?.quantity ?? 0,
+        villaName: info?.booking?.villa?.name ?? "—",
+        serviceDate: info?.serviceDate ?? null,
+      });
+      oldVendorNotified = zaloSent;
+    } catch {
+      // 무시 — 통보 실패가 변경 성공을 되돌리지 않는다.
+    }
+  }
+
   await writeAuditLog({
     db: prisma,
     userId: actorId,
@@ -303,7 +368,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         ? { vendorId: { old: existing.vendorId, new: d.vendorId } }
         : {}),
       ...(vendorNotified ? { vendorPoCancelNotified: { new: true } } : {}),
+      ...(oldVendorNotified ? { oldVendorPoCancelNotified: { new: true } } : {}),
     },
   });
-  return NextResponse.json({ id, changed: true, ...(vendorNotified ? { vendorNotified: true } : {}) });
+  return NextResponse.json({
+    id,
+    changed: true,
+    ...(vendorNotified || oldVendorNotified ? { vendorNotified: true } : {}),
+  });
 }

@@ -2899,7 +2899,7 @@
       "completedAt": "이행 완료 {date}",
       "change": "공급자 변경",
       "changeNone": "직접 제공(발주 없음)",
-      "changeLocked": "발주 진행·수락 상태에서는 공급자를 변경할 수 없습니다",
+      "changeLocked": "정산·이행 완료 또는 발권된 주문은 공급자를 변경할 수 없습니다",
       "changeDispatched": "업체 변경 및 발주 발송 완료",
       "changeDispatchedNoZalo": "업체를 변경하고 발주했으나 공급자 Zalo 미연결 — 수동 연락이 필요합니다",
       "changeDispatchFailed": "업체는 변경됐으나 발주 발송 실패 — 발주 보내기를 눌러 재시도하세요",
@@ -2909,7 +2909,9 @@
         "ignore": "무시",
         "confirmGate": "공급자가 제안한 일정을 적용/무시해야 확정할 수 있습니다",
         "unresolvedWarn": "공급자의 시간 제안이 미처리 상태입니다 — 먼저 적용/무시하세요"
-      }
+      },
+      "changeLiveConfirm": "이 발주는 이미 공급자에게 전달되었습니다. 공급자를 변경하면 기존 공급자에게 발주 취소가 통보됩니다. 계속하시겠습니까?",
+      "ticketVendorRequired": "티켓 주문은 공급자를 지정해야 합니다(직접 제공 불가)"
     }
   },
   "adminReceivables": {
