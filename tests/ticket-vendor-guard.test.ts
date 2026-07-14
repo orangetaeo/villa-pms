@@ -101,6 +101,10 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/audit-log", () => ({ writeAuditLog: vi.fn() }));
 vi.mock("@/lib/guest-checkin", () => ({ guestTokenState: () => "OK" }));
 vi.mock("@/lib/guest-rate-limit", () => ({ guestRateLimit: vi.fn(async () => null) }));
+vi.mock("@/lib/rate-limit", () => ({
+  checkRateLimit: () => ({ allowed: true }),
+  clientIp: () => "1.2.3.4",
+}));
 vi.mock("@/lib/csrf", () => ({ assertSameOrigin: vi.fn(async () => null) }));
 vi.mock("@/lib/consumer-signal-notify", () => ({
   notifyOperatorsServiceOrderRequested: vi.fn(async () => {}),
@@ -126,7 +130,8 @@ vi.mock("@/lib/service-catalog", () => {
     parseCatalogOptions: () => ({ variants: [], addons: [], modifiers: [] }),
     resolveOrderPricing: () => ({ totalPriceVnd: pricingTotal.value, quantity: 1, snapshot: [] }),
     ServiceSelectionError,
-    parseAudiences: () => ["GUEST"],
+    // 세 채널 모두 자격 통과(게스트=GUEST·파트너=PARTNER 필터). 가드 자체가 대상이라 audience는 열어둔다.
+    parseAudiences: () => ["ADMIN", "PARTNER", "GUEST"],
   };
 });
 
@@ -141,6 +146,7 @@ vi.mock("@/lib/permissions", () => ({
 
 import { POST as GUEST_POST } from "@/app/api/g/[token]/service-orders/route";
 import { POST as ADMIN_POST } from "@/app/api/bookings/[id]/service-orders/route";
+import { POST as PARTNER_POST } from "@/app/api/p/[token]/service-orders/route";
 
 const guestReq = (body: unknown) =>
   new Request("http://local/x", {
@@ -267,6 +273,55 @@ describe("운영자 POST — TICKET 벤더 가드 (대칭)", () => {
   it("비TICKET(BBQ) 벤더 미지정 → 201(직접 제공 회귀 불변)", async () => {
     catalogFindUnique.mockResolvedValue(ticketItem({ type: "BBQ", vendorId: null, vendor: null }));
     const res = await ADMIN_POST(guestReq({ ...ticketBody, serviceTime: "14:00" }), AP("bk-1"));
+    expect(res.status).toBe(201);
+    expect(soCreate).toHaveBeenCalledOnce();
+  });
+});
+
+describe("파트너 POST — TICKET 벤더 가드 (대칭, /p 제안 채널)", () => {
+  // 파트너 라우트는 booking.findUnique로 제안 소속·상태를 먼저 검증한다(proposalItem·villa 필드 함께 제공).
+  const partnerBooking = {
+    id: "bk-1",
+    status: "CONFIRMED",
+    channel: "AGENCY", // DIRECT 아님 → requestedVia=PARTNER
+    villaId: null,
+    proposalItem: { proposal: { token: "ptok", expiresAt: new Date(Date.now() + 86400000) } },
+    villa: { name: "Villa A" },
+  };
+  const partnerBody = { bookingId: "bk-1", catalogItemId: "ci-1", quantity: 1, serviceDate: "2026-08-01" };
+  const PP = (token: string) => ({ params: Promise.resolve({ token }) });
+
+  beforeEach(() => {
+    bookingFindUnique.mockResolvedValue(partnerBooking);
+    vendorFindUnique.mockResolvedValue({ approvalStatus: "APPROVED", active: true });
+  });
+
+  it("승인·활성 벤더 TICKET → 201", async () => {
+    catalogFindUnique.mockResolvedValue(ticketItem());
+    const res = await PARTNER_POST(guestReq(partnerBody), PP("ptok"));
+    expect(res.status).toBe(201);
+    expect(soCreate).toHaveBeenCalledOnce();
+  });
+
+  it("벤더 미지정 TICKET → 400 TICKET_VENDOR_REQUIRED", async () => {
+    catalogFindUnique.mockResolvedValue(ticketItem({ vendorId: null, vendor: null }));
+    const res = await PARTNER_POST(guestReq(partnerBody), PP("ptok"));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: "TICKET_VENDOR_REQUIRED" });
+    expect(soCreate).not.toHaveBeenCalled();
+  });
+
+  it("미승인 벤더 TICKET → 400", async () => {
+    catalogFindUnique.mockResolvedValue(ticketItem());
+    vendorFindUnique.mockResolvedValue({ approvalStatus: "PENDING_APPROVAL", active: true });
+    const res = await PARTNER_POST(guestReq(partnerBody), PP("ptok"));
+    expect(res.status).toBe(400);
+    expect(soCreate).not.toHaveBeenCalled();
+  });
+
+  it("비TICKET(과일=FRUIT) 벤더 미지정 → 201(파트너 직접 제공 회귀 불변)", async () => {
+    catalogFindUnique.mockResolvedValue(ticketItem({ type: "FRUIT", vendorId: null, vendor: null }));
+    const res = await PARTNER_POST(guestReq(partnerBody), PP("ptok"));
     expect(res.status).toBe(201);
     expect(soCreate).toHaveBeenCalledOnce();
   });
