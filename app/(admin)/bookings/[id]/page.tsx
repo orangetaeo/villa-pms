@@ -13,6 +13,7 @@ import { formatDateTime, formatThousands } from "@/lib/format";
 import { toDateOnlyString } from "@/lib/date-vn";
 import { formatRemainingHours } from "@/lib/booking-stats";
 import { stripOptionCosts } from "@/lib/service-catalog";
+import { canSellItem } from "@/lib/ticket-vendor-guard";
 import { whitelistTicketGuests } from "@/lib/ticket-guests";
 import { loadCheckinRoster } from "@/lib/checkin-roster";
 import ActionPanel from "./action-panel";
@@ -266,6 +267,10 @@ export default async function BookingDetailPage({
         unitLabelKo: true,
         priceVnd: true,
         options: true,
+        // ★TICKET 판매가능 벤더 판정용(계약 ticket-vendor-required-sale-block) — 벤더 승인·활성만.
+        //   TICKET은 비지역 타입이라 해석된 벤더=vendorId. 파생 ticketSellable(boolean)만 클라로 내림(내부 상태 미노출).
+        vendorId: true,
+        vendor: { select: { approvalStatus: true, active: true } },
       },
     }),
     // 대체 벤더 지정용(admin-vendor-ops D) — 승인(APPROVED)된 공급자만. 이름만(계좌·연락처 불필요).
@@ -354,6 +359,9 @@ export default async function BookingDetailPage({
     priceVnd: c.priceVnd?.toString() ?? null,
     // 주문 패널은 옵션 원가를 쓰지 않음 — 클라 노출 차단 위해 항상 제거(원칙2)
     options: stripOptionCosts(c.options ?? null),
+    // ★TICKET 판매가능 벤더 파생 플래그(계약 ticket-vendor-required-sale-block) — 벤더 내부 상태 대신 boolean만.
+    //   비TICKET은 항상 true(직접 제공 모드 불변). 폼이 미판매 TICKET을 비활성 처리한다.
+    ticketSellable: canSellItem({ itemType: c.type, resolvedVendorId: c.vendorId, vendor: c.vendor }),
   }));
 
   const code = booking.id.slice(-8);

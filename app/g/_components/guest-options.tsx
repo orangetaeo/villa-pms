@@ -38,6 +38,9 @@ const CONFIG_ERROR_CODES = new Set([
   "NO_PRICE",
   "UNKNOWN_VARIANT",
   "VARIANT_PRICE_REQUIRED",
+  // ★TICKET 판매가능 벤더 미확보(계약 ticket-vendor-required-sale-block) — 메뉴 숨김이 1차 방어라 드물게 도달.
+  //   게스트 재시도로 해결 불가(운영자 카탈로그 공급자 지정 문제) → "운영자 문의" 구체 문구.
+  "TICKET_VENDOR_REQUIRED",
 ]);
 
 function emptySelection(variantKey: string | null): CardSelection {

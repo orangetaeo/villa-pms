@@ -12,6 +12,7 @@ import {
 } from "./agreement";
 import { effectivePar } from "./minibar-inventory";
 import { stripOptionCosts, parseSelectedOptions, type ResolvedSelectedOption } from "./service-catalog";
+import { canSellItem } from "./ticket-vendor-guard";
 import { getFxVndPerKrw } from "./pricing";
 import { parseAudiences } from "./service-catalog";
 
@@ -209,6 +210,9 @@ export async function loadGuestCheckin(
         descKo: true, descI18n: true, unitLabelKo: true,
         priceVnd: true, photoUrl: true, options: true, audiences: true,
         pickupAvailable: true, pickupNote: true,
+        // ★TICKET 판매가능 벤더 필터용(계약 ticket-vendor-required-sale-block) — 벤더 승인·활성만 조회.
+        //   TICKET은 비지역 타입이라 해석된 벤더=vendorId. 판정에만 쓰고 게스트 payload엔 절대 미노출(누수 0).
+        vendorId: true, vendor: { select: { approvalStatus: true, active: true } },
       },
     }),
     prisma.serviceOrder.findMany({
@@ -267,8 +271,12 @@ export async function loadGuestCheckin(
     minibar,
     fxVndPerKrw,
     // 게스트 자격(GUEST) 항목만 — audiences에 GUEST 없는 항목(과일 바구니 등) 비노출(ADR-0023)
+    //   + ★TICKET 판매가능 벤더 미확보 품목 제외(계약 ticket-vendor-required-sale-block) — 벤더 QR 발행 없이는
+    //     이행 불가라 구매 진입 자체 차단. 비TICKET은 canSellItem이 항상 true(직접 제공 모드 불변). 벤더 내부
+    //     상태(승인·활성)는 판정에만 쓰고 아래 map 출력엔 절대 싣지 않는다(누수 0).
     catalog: catalogRows
       .filter((c) => parseAudiences(c.audiences).includes("GUEST"))
+      .filter((c) => canSellItem({ itemType: c.type, resolvedVendorId: c.vendorId, vendor: c.vendor }))
       .map((c) => ({
       id: c.id,
       type: c.type,
