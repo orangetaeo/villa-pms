@@ -5424,6 +5424,13 @@
       "preview": "Sẽ sao chép {n} giai đoạn → năm {y}",
       "apply": "Sao chép"
     },
-    "edit": { "title": "Sửa lớp giá", "save": "Lưu" }
+    "edit": { "title": "Sửa lớp giá", "save": "Lưu" },
+    "premium": {
+      "editLabel": "Sửa ngày cao cấp",
+      "hint": "Đêm của các ngày được chọn sẽ áp dụng giá cao cấp ở bảng giá. Mặc định là Thứ Sáu·Thứ Bảy. Ngày lễ được đặt ở Cài đặt → Quản lý ngày lễ.",
+      "save": "Lưu ngày",
+      "saving": "Đang lưu…",
+      "weekdays": { "0": "CN", "1": "T2", "2": "T3", "3": "T4", "4": "T5", "5": "T6", "6": "T7" }
+    }
   }
 }

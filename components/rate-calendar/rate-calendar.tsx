@@ -111,6 +111,47 @@ export default function RateCalendar({
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
+  // 프리미엄 요일 편집 (admin 전용 — ADR-0042 통합). 범례 "● 프리미엄일"을 눌러 인라인 칩 행으로 펼침.
+  // 로컬 상태로 즉시 반영(캘린더 ● 마커·판정과 동시 갱신) 후 PATCH /info로 영속화.
+  const [premiumDaysState, setPremiumDaysState] = useState<Set<number>>(() => new Set(premiumDays));
+  const [premiumOpen, setPremiumOpen] = useState(false);
+  const [premiumSaving, setPremiumSaving] = useState(false);
+  const [premiumMsg, setPremiumMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // 캘린더·패널에 흘려보내는 프리미엄 요일: admin은 편집 중 로컬 상태(즉시 일관), supplier는 주입 prop 그대로.
+  const livePremiumDays = useMemo(
+    () => (mode === "admin" ? [...premiumDaysState].sort((a, b) => a - b) : premiumDays),
+    [mode, premiumDaysState, premiumDays]
+  );
+
+  function togglePremiumDay(d: number) {
+    setPremiumDaysState((prev) => {
+      const next = new Set(prev);
+      if (next.has(d)) next.delete(d);
+      else next.add(d);
+      return next;
+    });
+    setPremiumMsg(null);
+  }
+  async function savePremiumDays() {
+    setPremiumSaving(true);
+    setPremiumMsg(null);
+    try {
+      const res = await fetch(`/api/villas/${villaId}/info`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        // 빈 배열 허용(공휴일만 프리미엄) — 정렬·중복제거는 서버 담당
+        body: JSON.stringify({ premiumDays: [...premiumDaysState] }),
+      });
+      if (!res.ok) throw new Error(`HTTP_${res.status}`);
+      setPremiumMsg({ ok: true, text: t("saved") });
+      router.refresh();
+    } catch {
+      setPremiumMsg({ ok: false, text: t("saveError") });
+    } finally {
+      setPremiumSaving(false);
+    }
+  }
+
   const axes: Axis[] = mode === "supplier" ? ["cost"] : ["net", "consumer", "cost"];
 
   const closeAll = () => {
@@ -400,9 +441,72 @@ export default function RateCalendar({
               {tr(`seasons.${s}`)}
             </span>
           ))}
-          <span className="whitespace-nowrap text-[var(--rc-shoulder)]">{t("legendPremium")}</span>
+          {mode === "admin" ? (
+            <button
+              type="button"
+              onClick={() => setPremiumOpen((o) => !o)}
+              aria-expanded={premiumOpen}
+              title={t("premium.editLabel")}
+              className="inline-flex items-center gap-1 whitespace-nowrap text-[var(--rc-shoulder)] hover:opacity-80"
+            >
+              {t("legendPremium")}
+              <span className="material-symbols-outlined text-[15px] leading-none">
+                {premiumOpen ? "expand_less" : "edit"}
+              </span>
+            </button>
+          ) : (
+            <span className="whitespace-nowrap text-[var(--rc-shoulder)]">{t("legendPremium")}</span>
+          )}
           <span className="whitespace-nowrap text-amber-300">{t("legendHoliday")}</span>
         </div>
+
+        {/* 프리미엄 요일 인라인 편집 (admin) — 범례 클릭 시 펼침. 어느 요일 밤이 프리미엄인가의 요일 축(비밀 아님).
+            실제 프리미엄 금액은 레이어 편집의 "프리미엄 요금"에서 입력, 공휴일은 설정 → 공휴일 관리. */}
+        {mode === "admin" && premiumOpen && (
+          <div className="mb-4 rounded-xl border border-[var(--rc-border)] bg-[var(--rc-card)] px-4 py-3">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <div className="grid grid-cols-7 gap-1.5">
+                {DAY_INDEXES.map((d) => {
+                  const on = premiumDaysState.has(d);
+                  const weekend = d === 0 || d === 6;
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => togglePremiumDay(d)}
+                      className={`flex aspect-square w-9 items-center justify-center rounded-lg text-sm font-bold transition-all ${
+                        on
+                          ? "border border-[var(--rc-shoulder)] bg-[color-mix(in_srgb,var(--rc-shoulder)_16%,transparent)] text-[var(--rc-shoulder)]"
+                          : `border border-[var(--rc-border2)] bg-[var(--rc-surface2)] hover:border-[var(--rc-accent)] ${weekend ? "text-[var(--rc-text)]" : "text-[var(--rc-muted)]"}`
+                      }`}
+                    >
+                      {t(`premium.weekdays.${d}` as "premium.weekdays.0")}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={savePremiumDays}
+                disabled={premiumSaving}
+                className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[var(--rc-accent)] bg-[var(--rc-accent)] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-sm">save</span>
+                {premiumSaving ? t("premium.saving") : t("premium.save")}
+              </button>
+              {premiumMsg && (
+                <span
+                  role="status"
+                  className={`text-xs font-medium ${premiumMsg.ok ? "text-emerald-400" : "text-red-400"}`}
+                >
+                  {premiumMsg.text}
+                </span>
+              )}
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-[var(--rc-muted)]">{t("premium.hint")}</p>
+          </div>
+        )}
 
         {/* 축 토글 + 도구 + 상태 */}
         <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -444,7 +548,7 @@ export default function RateCalendar({
             layers={layers}
             base={base}
             axis={axis}
-            premiumDays={premiumDays}
+            premiumDays={livePremiumDays}
             holidaySet={holidaySet}
             holidays={holidays}
             selected={selected}
@@ -513,7 +617,7 @@ export default function RateCalendar({
               axis={axis}
               layers={layers}
               base={base}
-              premiumDays={premiumDays}
+              premiumDays={livePremiumDays}
               holidaySet={holidaySet}
               holidays={holidays}
               selected={selected}
@@ -547,3 +651,6 @@ export default function RateCalendar({
 }
 
 const EMPTY_SET: Set<string> = new Set();
+
+// getUTCDay 인덱스 0=일 … 6=토 (숙박일 @db.Date UTC 자정 기준 — lib/pricing과 동일 축)
+const DAY_INDEXES = [0, 1, 2, 3, 4, 5, 6] as const;
