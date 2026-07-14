@@ -158,12 +158,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       return NextResponse.json({ error: "TICKET_VENDOR_REQUIRED" }, { status: 400 });
     }
     if (d.vendorId !== null) {
-      // 승인(APPROVED)된 벤더만 발주 대상 — 자가가입 대기·거절 벤더 배정 차단(ADR-0023 S5).
+      // 승인(APPROVED)+활성(active) 벤더만 발주 대상 — 자가가입 대기·거절·비활성 벤더 배정 차단
+      //   (ADR-0023 S5 + PR #304 canSellItem 의미론 정합: 비활성 벤더는 판매·발주 불가).
       const vendor = await prisma.serviceVendor.findUnique({
         where: { id: d.vendorId },
-        select: { id: true, approvalStatus: true },
+        select: { id: true, approvalStatus: true, active: true },
       });
-      if (!vendor || vendor.approvalStatus !== "APPROVED") {
+      if (!vendor || vendor.approvalStatus !== "APPROVED" || !vendor.active) {
         return NextResponse.json({ error: "VENDOR_NOT_APPROVED_OR_MISSING" }, { status: 400 });
       }
     }

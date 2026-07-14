@@ -27,7 +27,9 @@ const writeAuditLog = vi.fn();
 vi.mock("@/lib/audit-log", () => ({ writeAuditLog: (...a: unknown[]) => writeAuditLog(...a) }));
 
 // 구 업체 취소 통보 헬퍼 — 발송 여부만 관찰(내부 Zalo/인앱은 별도 테스트 소관).
-const sendVendorPoCancelledNotifications = vi.fn(async () => ({ zaloSent: true }));
+const sendVendorPoCancelledNotifications = vi.fn(
+  async (..._a: unknown[]) => ({ zaloSent: true })
+);
 vi.mock("@/lib/vendor-dispatch", () => ({
   sendVendorPoCancelledNotifications: (...a: unknown[]) => sendVendorPoCancelledNotifications(...a),
 }));
@@ -79,10 +81,11 @@ function primeChange(existing: Record<string, unknown>) {
   soFindUnique.mockReset();
   soFindUnique.mockResolvedValueOnce(existing).mockResolvedValueOnce(info);
   soUpdateMany.mockResolvedValue({ count: 1 });
-  // 승인 벤더 검증 + 구 업체 조회(동일 mock, superset 반환).
+  // 승인+활성 벤더 검증 + 구 업체 조회(동일 mock, superset 반환).
   vendorFindUnique.mockResolvedValue({
     id: "v-new",
     approvalStatus: "APPROVED",
+    active: true,
     userId: "old-vu",
     user: { zaloUserId: "z-1", locale: "vi" },
   });
@@ -189,6 +192,16 @@ describe("거부 케이스", () => {
     expect(soUpdateMany).not.toHaveBeenCalled();
   });
 
+  it("비활성(active=false) 벤더로 교체 시도 — 400 VENDOR_NOT_APPROVED_OR_MISSING", async () => {
+    primeChange({ ...baseOrder, status: "REQUESTED", vendorStatus: null });
+    // 승인은 됐으나 비활성 — 판매·발주 불가(PR #304 canSellItem 정합).
+    vendorFindUnique.mockResolvedValue({ id: "v-new", approvalStatus: "APPROVED", active: false });
+    const res = await call({ vendorId: "v-new" });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: "VENDOR_NOT_APPROVED_OR_MISSING" });
+    expect(soUpdateMany).not.toHaveBeenCalled();
+  });
+
   it("TICKET 미발권 + 새 벤더 지정 — 허용(200), where에 ticketUrls isEmpty 가드", async () => {
     primeChange({ ...baseOrder, type: "TICKET", status: "REQUESTED", vendorStatus: null });
     const res = await call({ vendorId: "v-new" });
@@ -245,7 +258,7 @@ describe("동시성 가드 (updateMany count===0)", () => {
     soFindUnique.mockReset();
     soFindUnique.mockResolvedValueOnce({ ...baseOrder, status: "CONFIRMED", vendorStatus: "VENDOR_ACCEPTED" });
     soUpdateMany.mockResolvedValue({ count: 0 });
-    vendorFindUnique.mockResolvedValue({ id: "v-new", approvalStatus: "APPROVED" });
+    vendorFindUnique.mockResolvedValue({ id: "v-new", approvalStatus: "APPROVED", active: true });
     const res = await call({ vendorId: "v-new" });
     expect(res.status).toBe(409);
     expect(await res.json()).toMatchObject({ error: "VENDOR_LOCKED" });
