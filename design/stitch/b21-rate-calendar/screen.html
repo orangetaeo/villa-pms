@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B21 · 운영자 요금 캘린더 — Villa PMS Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0F172A; --sidebar:#0F172A; --card:#1E293B; --surface2:#16202F;
+    --border:#1E293B; --border-2:#2A3A52; --divider:#243149;
+    --text:#E6ECF2; --muted:#93A1B0; --faint:#5C6B7A;
+    --blue:#3B82F6; --blue-ink:#0B1220;
+    --low:#34D399; --shoulder:#FBBF24; --high:#FB923C; --peak:#F87171;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:"Public Sans","Noto Sans KR",sans-serif; font-size:14px; line-height:1.5;
+    word-break:keep-all; -webkit-font-smoothing:antialiased;
+  }
+  .tnum{font-variant-numeric:tabular-nums;}
+  span[class*="badge"],.chip,button,th,.tnum,.band,.pill{white-space:nowrap;}
+
+  /* ── shell ── */
+  .shell{display:grid; grid-template-columns:236px 1fr; min-height:100vh;}
+
+  /* ── sidebar ── */
+  .side{background:var(--sidebar); border-right:1px solid var(--border); display:flex; flex-direction:column; padding:18px 14px;}
+  .brand{display:flex; align-items:center; gap:11px; padding:6px 8px 18px;}
+  .brand .logo{width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,#3B82F6,#2563EB); display:grid; place-items:center; font-weight:800; color:#fff; font-size:16px; box-shadow:0 4px 14px rgba(37,99,235,.35);}
+  .brand .bt{font-weight:700; font-size:15px; letter-spacing:-.01em;}
+  .brand .bs{font-size:9px; color:var(--faint); letter-spacing:.18em; text-transform:uppercase; margin-top:2px;}
+  nav{display:flex; flex-direction:column; gap:2px; margin-top:4px;}
+  nav a{display:flex; align-items:center; gap:11px; padding:9px 11px; border-radius:9px; color:var(--muted); text-decoration:none; font-size:13.5px; font-weight:500;}
+  nav a .ic{width:17px; text-align:center; opacity:.85; font-size:14px;}
+  nav a:hover{background:#16202F; color:var(--text);}
+  nav a.on{background:color-mix(in srgb,var(--blue) 16%,transparent); color:#fff; font-weight:600;}
+  nav a.on .ic{opacity:1;}
+  .side .prof{margin-top:auto; display:flex; align-items:center; gap:10px; padding:11px 8px 2px; border-top:1px solid var(--border);}
+  .side .prof .av{width:32px; height:32px; border-radius:50%; background:#243149; display:grid; place-items:center; font-size:12px; color:var(--muted); font-weight:600;}
+  .side .prof .pn{font-size:12.5px; font-weight:600;}
+  .side .prof .pr{font-size:10.5px; color:var(--faint);}
+
+  /* ── main ── */
+  main{padding:22px 26px 60px; min-width:0;}
+  .crumb{font-size:12px; color:var(--faint); margin-bottom:8px;}
+  .crumb b{color:var(--muted); font-weight:500;}
+  .vhead{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:4px;}
+  .vhead h1{font-size:20px; font-weight:800; margin:0; letter-spacing:-.02em;}
+  .badge{font-size:10.5px; font-weight:700; border-radius:5px; padding:3px 8px; letter-spacing:.03em;}
+  .badge.ok{background:color-mix(in srgb,var(--low) 20%,transparent); color:var(--low); border:1px solid color-mix(in srgb,var(--low) 40%,transparent);}
+  .sup-chip{display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); background:var(--surface2); border:1px solid var(--border-2); border-radius:999px; padding:4px 10px 4px 8px;}
+  .sup-chip .z{width:15px;height:15px;border-radius:4px;background:#0068FF;display:inline-grid;place-items:center;color:#fff;font-size:8px;font-weight:800;}
+  .fx{margin-left:auto; font-size:12px; color:var(--muted); background:var(--surface2); border:1px solid var(--border-2); border-radius:8px; padding:6px 11px;}
+  .fx b{color:var(--text); font-weight:600;}
+
+  /* tabs */
+  .tabs{display:flex; gap:2px; border-bottom:1px solid var(--border); margin:16px 0 18px;}
+  .tabs a{padding:9px 15px; font-size:13.5px; color:var(--muted); text-decoration:none; border-bottom:2px solid transparent; font-weight:500;}
+  .tabs a:hover{color:var(--text);}
+  .tabs a.on{color:#fff; border-bottom-color:var(--blue); font-weight:600;}
+
+  /* rulebar */
+  .rulebar{display:flex; flex-wrap:wrap; align-items:center; gap:7px 16px; background:var(--card); border:1px solid var(--border); border-radius:11px; padding:10px 15px; margin-bottom:16px; font-size:12.5px; color:var(--muted);}
+  .rulebar .rule b{color:var(--text); font-weight:600;}
+  .rulebar .sp{flex:1;}
+  .chip{display:inline-flex; align-items:center; gap:6px; font-size:12px;}
+  .dot{width:10px; height:10px; border-radius:3px; display:inline-block;}
+  .chip.pm{color:var(--shoulder);}
+
+  /* layout */
+  .grid{display:grid; grid-template-columns:minmax(0,1fr) 344px; gap:18px; align-items:start;}
+
+  /* calendar card */
+  .cal{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px 16px 20px;}
+  .cal-head{display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap;}
+  .nav{display:flex; gap:5px;}
+  .nav button{width:30px; height:30px; border-radius:8px; border:1px solid var(--border-2); background:var(--surface2); color:var(--text); cursor:pointer; font-size:14px; line-height:1;}
+  .nav button:hover{border-color:var(--blue);}
+  .cal-title{font-size:16px; font-weight:700; letter-spacing:-.01em;}
+  .cal-head .sp{flex:1;}
+  .seg{display:inline-flex; background:var(--surface2); border:1px solid var(--border-2); border-radius:9px; padding:3px;}
+  .seg button{border:0; background:transparent; color:var(--muted); font:inherit; font-size:12px; padding:5px 12px; border-radius:6px; cursor:pointer; font-weight:500;}
+  .seg button.on{background:var(--blue); color:#fff; font-weight:600;}
+  .tools{display:flex; gap:7px; flex-wrap:wrap;}
+  .btn{border:1px solid var(--border-2); background:var(--surface2); color:var(--text); font:inherit; font-size:12.5px; padding:7px 13px; border-radius:9px; cursor:pointer; font-weight:500;}
+  .btn:hover{border-color:var(--blue);}
+  .btn.primary{background:var(--blue); border-color:var(--blue); color:#fff; font-weight:600; box-shadow:0 3px 12px rgba(59,130,246,.32);}
+
+  .dow{display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:6px;}
+  .dow div{text-align:center; font-size:11px; color:var(--faint); letter-spacing:.08em; padding:3px 0;}
+  .dow div.sat{color:#7FA8E6;} .dow div.sun{color:#E68A8A;}
+
+  .week{margin-bottom:4px;}
+  .days{display:grid; grid-template-columns:repeat(7,1fr); gap:4px;}
+  .cell{position:relative; min-height:62px; border-radius:9px; padding:6px 8px 5px; background:var(--surface2); border:1px solid transparent; display:flex; flex-direction:column; justify-content:space-between; cursor:pointer; transition:border-color .12s;}
+  .cell:hover{border-color:var(--blue);}
+  .cell.low{background:color-mix(in srgb,var(--low) 13%,var(--surface2));}
+  .cell.high{background:color-mix(in srgb,var(--high) 16%,var(--surface2));}
+  .cell.peak{background:color-mix(in srgb,var(--peak) 19%,var(--surface2));}
+  .cell.base{background:color-mix(in srgb,var(--low) 7%,var(--surface2));}
+  .cell.out{opacity:.30; pointer-events:none;}
+  .cell.sel{border-color:var(--blue); box-shadow:0 0 0 2px var(--blue), 0 6px 16px rgba(59,130,246,.28);}
+  .cell .d{font-size:12px; color:var(--muted); font-weight:500;}
+  .cell.sel .d{color:#fff; font-weight:700;}
+  .cell .p{font-size:12.5px; font-weight:700; letter-spacing:-.02em;}
+  .p.high{color:var(--high);} .p.peak{color:var(--peak);} .p.low{color:var(--low);} .p.base{color:var(--text);}
+  .cell .mark{position:absolute; top:6px; right:7px; font-size:10px; line-height:1;}
+  .mark.hol{color:#FFD166;} .mark.pm{color:var(--shoulder);}
+
+  .bands{display:grid; grid-template-columns:repeat(7,1fr); gap:3px 4px; margin-top:4px;}
+  .band{height:17px; border-radius:5px; font-size:10px; line-height:17px; font-weight:700; padding:0 8px; overflow:hidden; text-overflow:ellipsis; color:#10151F; box-shadow:inset 0 -1px 0 rgba(0,0,0,.12);}
+  .band.high{background:var(--high);} .band.peak{background:var(--peak);} .band.shoulder{background:var(--shoulder);}
+  .band.cl{border-top-left-radius:0; border-bottom-left-radius:0; box-shadow:inset 3px 0 0 rgba(0,0,0,.16), inset 0 -1px 0 rgba(0,0,0,.12);}
+  .band.cr{border-top-right-radius:0; border-bottom-right-radius:0;}
+
+  /* right panel */
+  .panel{display:flex; flex-direction:column; gap:16px;}
+  .pcard{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:15px 15px 13px;}
+  .pcard h2{font-size:11px; margin:0 0 12px; color:var(--muted); font-weight:700; letter-spacing:.1em; text-transform:uppercase;}
+
+  .layer{display:flex; align-items:flex-start; gap:10px; padding:10px 11px; border-radius:11px; border:1px solid var(--border-2); background:var(--surface2); margin-bottom:8px; cursor:pointer; transition:border-color .12s;}
+  .layer:hover{border-color:var(--blue);}
+  .layer .bar{width:4px; align-self:stretch; border-radius:2px; flex:none;}
+  .layer .b{flex:1; min-width:0;}
+  .layer .t{font-weight:700; font-size:13.5px; display:flex; align-items:center; gap:8px;}
+  .lbadge{font-size:9.5px; font-weight:800; border-radius:5px; padding:2px 6px; letter-spacing:.03em; color:#10151F;}
+  .layer .sub{font-size:11.5px; color:var(--muted); margin-top:3px;}
+  .layer .price{font-size:13px; font-weight:700; margin-top:4px;}
+  .pm-note{font-size:11px; color:var(--shoulder); font-weight:600;}
+  .layer .del{border:0; background:none; color:var(--faint); cursor:pointer; font-size:15px; padding:2px 5px; border-radius:6px; align-self:center;}
+  .layer .del:hover{color:var(--peak); background:var(--card);}
+  .layer.base-row{border-style:dashed; opacity:.92;}
+
+  .stack-date{font-size:14.5px; font-weight:700; margin-bottom:10px;}
+  .stack-date .hol{color:#FFD166; font-weight:600; font-size:13px;}
+  .sitem{border:1px solid var(--border-2); border-radius:11px; padding:10px 11px; margin-bottom:8px; display:flex; align-items:center; gap:10px; background:var(--surface2);}
+  .sitem.win{border-color:var(--blue); background:color-mix(in srgb,var(--blue) 12%,var(--surface2)); box-shadow:0 3px 12px rgba(59,130,246,.15);}
+  .sitem .b{flex:1; min-width:0;}
+  .sitem .t{font-size:13px; font-weight:700;}
+  .sitem .why{font-size:11px; color:var(--muted); margin-top:2px;}
+  .sitem .pr{font-size:13px; font-weight:700;}
+  .sitem.lose{opacity:.5;}
+  .sitem.lose .pr{text-decoration:line-through;}
+  .win-tag{font-size:10px; font-weight:800; color:#fff; background:var(--blue); border-radius:5px; padding:2px 7px;}
+
+  .foot{margin-top:18px; font-size:11.5px; color:var(--faint); line-height:1.75; border-top:1px solid var(--border); padding-top:12px;}
+  .foot b{color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="shell">
+  <!-- ───────── sidebar ───────── -->
+  <aside class="side">
+    <div class="brand">
+      <div class="logo">V</div>
+      <div><div class="bt">Villa PMS</div><div class="bs">Villa PMS Admin</div></div>
+    </div>
+    <nav>
+      <a href="#"><span class="ic">▤</span>대시보드</a>
+      <a href="#"><span class="ic">▦</span>예약</a>
+      <a href="#"><span class="ic">◈</span>제안</a>
+      <a href="#" class="on"><span class="ic">◱</span>빌라</a>
+      <a href="#"><span class="ic">▥</span>공실 보드</a>
+      <a href="#"><span class="ic">✦</span>청소 검수</a>
+      <a href="#"><span class="ic">₩</span>정산</a>
+      <a href="#"><span class="ic">✉</span>메시지</a>
+      <a href="#"><span class="ic">◔</span>사용자</a>
+      <a href="#"><span class="ic">⚙</span>설정</a>
+    </nav>
+    <div class="prof">
+      <div class="av">관</div>
+      <div><div class="pn">관리자</div><div class="pr">최고 관리자</div></div>
+    </div>
+  </aside>
+
+  <!-- ───────── main ───────── -->
+  <main>
+    <div class="crumb"><b>빌라</b> › V-PQ Ocean Villa</div>
+    <div class="vhead">
+      <h1>V-PQ Ocean Villa</h1>
+      <span class="badge ok">판매 가능</span>
+      <span class="sup-chip"><span class="z">Z</span>Nguyễn Văn An · Zalo 연결됨</span>
+      <span class="fx">환율 참고 <b>1,000,000₫ ≈ 53,000원</b> · 수동</span>
+    </div>
+
+    <div class="tabs">
+      <a href="#">사진</a>
+      <a href="#">기본 정보</a>
+      <a href="#" class="on">요금</a>
+      <a href="#">캘린더</a>
+      <a href="#">iCal 연동</a>
+    </div>
+
+    <div class="rulebar">
+      <span class="rule">겹침 허용 — 이기는 순서: <b>① 짧은 기간 ② 높은 시즌 ③ 늦은 시작일</b> · 기간을 지우면 아래 요금이 자동 복원됩니다.</span>
+      <span class="sp"></span>
+      <span class="chip"><span class="dot" style="background:var(--low)"></span>비수기</span>
+      <span class="chip"><span class="dot" style="background:var(--shoulder)"></span>준성수기</span>
+      <span class="chip"><span class="dot" style="background:var(--high)"></span>성수기</span>
+      <span class="chip"><span class="dot" style="background:var(--peak)"></span>극성수기</span>
+      <span class="chip pm">● 프리미엄일(금·토)</span>
+      <span class="chip" style="color:#FFD166">★ 공휴일</span>
+    </div>
+
+    <div class="grid">
+      <!-- ── calendar ── -->
+      <section class="cal">
+        <div class="cal-head">
+          <div class="nav"><button aria-label="이전 달">‹</button><button aria-label="다음 달">›</button></div>
+          <div class="cal-title tnum">2027년 2월</div>
+          <span class="sp"></span>
+          <div class="seg" role="group" aria-label="가격 축">
+            <button class="on">판매가(Net)</button>
+            <button>소비자가</button>
+            <button>원가</button>
+          </div>
+        </div>
+        <div class="tools" style="margin-bottom:14px">
+          <button class="btn primary">+ 기간 추가</button>
+          <button class="btn">☑ 날짜 선택</button>
+          <button class="btn">⚡ 일괄 조정</button>
+          <button class="btn">📋 연도 복사</button>
+        </div>
+
+        <div class="dow"><div class="sun">일</div><div>월</div><div>화</div><div>수</div><div>목</div><div class="sat">금</div><div class="sat">토</div></div>
+
+        <!-- week 1 : Jan31 – Feb6 -->
+        <div class="week">
+          <div class="days">
+            <div class="cell high out"><span class="d tnum">31</span><span class="p high tnum">7M</span></div>
+            <div class="cell high"><span class="d tnum">1</span><span class="p high tnum">7M</span></div>
+            <div class="cell high"><span class="d tnum">2</span><span class="p high tnum">7M</span></div>
+            <div class="cell high"><span class="d tnum">3</span><span class="p high tnum">7M</span></div>
+            <div class="cell high"><span class="d tnum">4</span><span class="p high tnum">7M</span></div>
+            <div class="cell peak"><span class="d tnum">5</span><span class="p peak tnum">10.5M</span></div>
+            <div class="cell peak"><span class="d tnum">6</span><span class="mark hol">★</span><span class="p peak tnum">10.5M</span></div>
+          </div>
+          <div class="bands">
+            <div class="band high cr" style="grid-column:1/8; grid-row:1">겨울 성수기</div>
+            <div class="band peak cr" style="grid-column:6/8; grid-row:2">설 연휴</div>
+          </div>
+        </div>
+
+        <!-- week 2 : Feb7 – Feb13 -->
+        <div class="week">
+          <div class="days">
+            <div class="cell peak sel"><span class="d tnum">7</span><span class="mark hol">★</span><span class="p peak tnum">10.5M</span></div>
+            <div class="cell peak"><span class="d tnum">8</span><span class="mark hol">★</span><span class="p peak tnum">10.5M</span></div>
+            <div class="cell peak"><span class="d tnum">9</span><span class="p peak tnum">10.5M</span></div>
+            <div class="cell peak"><span class="d tnum">10</span><span class="p peak tnum">10.5M</span></div>
+            <div class="cell high"><span class="d tnum">11</span><span class="p high tnum">7M</span></div>
+            <div class="cell high"><span class="d tnum">12</span><span class="mark pm">●</span><span class="p high tnum">7.6M</span></div>
+            <div class="cell high"><span class="d tnum">13</span><span class="mark pm">●</span><span class="p high tnum">7.6M</span></div>
+          </div>
+          <div class="bands">
+            <div class="band high cl cr" style="grid-column:1/8; grid-row:1"></div>
+            <div class="band peak cl" style="grid-column:1/5; grid-row:2"></div>
+          </div>
+        </div>
+
+        <!-- week 3 : Feb14 – Feb20 -->
+        <div class="week">
+          <div class="days">
+            <div class="cell high"><span class="d tnum">14</span><span class="p high tnum">7M</span></div>
+            <div class="cell high"><span class="d tnum">15</span><span class="p high tnum">7M</span></div>
+            <div class="cell high"><span class="d tnum">16</span><span class="p high tnum">7M</span></div>
+            <div class="cell high"><span class="d tnum">17</span><span class="p high tnum">7M</span></div>
+            <div class="cell high"><span class="d tnum">18</span><span class="p high tnum">7M</span></div>
+            <div class="cell high"><span class="d tnum">19</span><span class="mark pm">●</span><span class="p high tnum">7.6M</span></div>
+            <div class="cell high"><span class="d tnum">20</span><span class="mark pm">●</span><span class="p high tnum">7.6M</span></div>
+          </div>
+          <div class="bands"><div class="band high cl cr" style="grid-column:1/8; grid-row:1"></div></div>
+        </div>
+
+        <!-- week 4 : Feb21 – Feb27 -->
+        <div class="week">
+          <div class="days">
+            <div class="cell high"><span class="d tnum">21</span><span class="p high tnum">7M</span></div>
+            <div class="cell high"><span class="d tnum">22</span><span class="p high tnum">7M</span></div>
+            <div class="cell high"><span class="d tnum">23</span><span class="p high tnum">7M</span></div>
+            <div class="cell high"><span class="d tnum">24</span><span class="p high tnum">7M</span></div>
+            <div class="cell high"><span class="d tnum">25</span><span class="p high tnum">7M</span></div>
+            <div class="cell high"><span class="d tnum">26</span><span class="mark pm">●</span><span class="p high tnum">7.6M</span></div>
+            <div class="cell high"><span class="d tnum">27</span><span class="mark pm">●</span><span class="p high tnum">7.6M</span></div>
+          </div>
+          <div class="bands"><div class="band high cl cr" style="grid-column:1/8; grid-row:1"></div></div>
+        </div>
+
+        <!-- week 5 : Feb28 – Mar6 -->
+        <div class="week">
+          <div class="days">
+            <div class="cell high"><span class="d tnum">28</span><span class="p high tnum">7M</span></div>
+            <div class="cell base out"><span class="d tnum">1</span><span class="p base tnum">5.2M</span></div>
+            <div class="cell base out"><span class="d tnum">2</span><span class="p base tnum">5.2M</span></div>
+            <div class="cell base out"><span class="d tnum">3</span><span class="p base tnum">5.2M</span></div>
+            <div class="cell base out"><span class="d tnum">4</span><span class="p base tnum">5.2M</span></div>
+            <div class="cell base out"><span class="d tnum">5</span><span class="p base tnum">5.2M</span></div>
+            <div class="cell base out"><span class="d tnum">6</span><span class="p base tnum">5.2M</span></div>
+          </div>
+          <div class="bands"><div class="band high cl" style="grid-column:1/2; grid-row:1"></div></div>
+        </div>
+
+        <div class="foot"><b>조작 방법</b> — 날짜 탭: 그 날의 요금 스택 확인 · 색 밴드/레이어 카드에 마우스 올림: 기간 범위 하이라이트 · [+ 기간 추가]: 날짜 직접 입력 또는 캘린더 탭 → 가격 입력 · [☑ 날짜 선택]: 떨어져 있는 날짜까지 담아 한꺼번에 고정가/% 처리 · [⚡ 일괄 조정]: 연속 기간에 %만 입력해 대량 조절. 겹치게 만들어도 됩니다 — 셀에는 항상 "이긴" 요금만 표시됩니다.</div>
+      </section>
+
+      <!-- ── right panel ── -->
+      <aside class="panel">
+        <div class="pcard">
+          <h2>요금 레이어</h2>
+
+          <div class="layer">
+            <span class="bar" style="background:var(--peak)"></span>
+            <div class="b">
+              <div class="t">설 연휴 <span class="lbadge" style="background:var(--peak)">극성수기</span></div>
+              <div class="sub tnum">2027.02.05 → 2027.02.11 · 6박</div>
+              <div class="price tnum">10,500,000 ₫</div>
+            </div>
+            <button class="del" aria-label="삭제">✕</button>
+          </div>
+
+          <div class="layer">
+            <span class="bar" style="background:var(--shoulder)"></span>
+            <div class="b">
+              <div class="t">1월 특가 주간 <span class="lbadge" style="background:var(--shoulder)">준성수기</span></div>
+              <div class="sub tnum">2027.01.10 → 2027.01.17 · 7박</div>
+              <div class="price tnum">6,000,000 ₫</div>
+            </div>
+            <button class="del" aria-label="삭제">✕</button>
+          </div>
+
+          <div class="layer">
+            <span class="bar" style="background:var(--high)"></span>
+            <div class="b">
+              <div class="t">겨울 성수기 <span class="lbadge" style="background:var(--high)">성수기</span></div>
+              <div class="sub tnum">2026.12.20 → 2027.03.01 · 71박</div>
+              <div class="price tnum">7,000,000 ₫ <span class="pm-note tnum">● 7,600,000</span></div>
+            </div>
+            <button class="del" aria-label="삭제">✕</button>
+          </div>
+
+          <div class="layer base-row">
+            <span class="bar" style="background:var(--low)"></span>
+            <div class="b">
+              <div class="t">기본요금 (연중)</div>
+              <div class="sub">다른 기간이 없을 때 적용</div>
+              <div class="price tnum">5,200,000 ₫</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pcard">
+          <h2>선택한 날짜</h2>
+          <div class="stack-date tnum">2027.02.07 <span class="hol">★ 설날</span></div>
+
+          <div class="sitem win">
+            <span class="dot" style="background:var(--peak)"></span>
+            <div class="b">
+              <div class="t">설 연휴</div>
+              <div class="why tnum">6박 · 극성수기</div>
+            </div>
+            <span class="pr tnum">10,500,000 ₫</span>
+            <span class="win-tag">적용</span>
+          </div>
+
+          <div class="sitem lose">
+            <span class="dot" style="background:var(--high)"></span>
+            <div class="b">
+              <div class="t">겨울 성수기</div>
+              <div class="why">설 연휴 기간에 가려짐</div>
+            </div>
+            <span class="pr tnum">7,000,000 ₫</span>
+          </div>
+
+          <div class="sitem lose">
+            <span class="dot" style="background:var(--low)"></span>
+            <div class="b">
+              <div class="t">기본요금</div>
+              <div class="why">설 연휴 기간에 가려짐</div>
+            </div>
+            <span class="pr tnum">5,200,000 ₫</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</body>
+</html>

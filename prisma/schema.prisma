@@ -460,10 +460,14 @@ model VillaRatePeriod {
   premiumConsumerSalePriceVnd BigInt? // 프리미엄 소비자 직판가/박 (VND). null=consumerSalePriceVnd(→salePrice 폴백은 기존 계층 로직)
   premiumConsumerSalePriceKrw Int? // 프리미엄 소비자 직판가/박 (KRW). null=consumerSalePriceKrw
   premiumSupplierSalePriceVnd BigInt? // 프리미엄 공급자 자기 판매 정가/박 (VND). null=supplierSalePriceVnd
+  // rate-calendar-ux — 일괄 작업(일괄 조정·연도 복사·선택 적용)이 만든 레이어들의 그룹 키.
+  //   같은 batchId = 한 번의 작업 → 그룹 단위 취소·목록 묶음 표시용. 수동 생성 행은 null.
+  batchId         String?
   updatedAt       DateTime   @updatedAt
 
   @@index([villaId, startDate, endDate])
   @@index([villaId, isBase])
+  @@index([villaId, batchId])
 }
 
 // ===================== 캘린더 =====================

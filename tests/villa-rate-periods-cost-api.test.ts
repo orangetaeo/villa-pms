@@ -154,14 +154,27 @@ describe("마진 보존·판매가 재계산·누수0 (SUPPLIER 소유)", () => 
     expect(tx.notification.create).not.toHaveBeenCalled();
   });
 
-  it("겹치는 기간 거부 (400)", async () => {
+  it("겹치는 기간 허용 (200) — rate-calendar-ux 승자 규칙(밤별 resolveRatePeriod). 두 행 모두 생성", async () => {
+    // ★ 겹침 허용: A10 공급자 캘린더가 '겨울 성수기 위 Tết' 같은 겹침 레이어를 만들 수 있어야 함.
+    //   견적은 밤별 승자 1행만 뽑으므로 원가 기간이 겹쳐도 이중 계상 없음.
     tx.villaRatePeriod.findMany.mockResolvedValue([]);
     const res = await req({
       ...BODY,
       periods: [
-        { season: "PEAK", startDate: "2026-02-10", endDate: "2026-02-20", supplierCostVnd: "5000000" },
-        { season: "HIGH", startDate: "2026-02-15", endDate: "2026-02-25", supplierCostVnd: "4000000" },
+        { season: "HIGH", startDate: "2026-02-10", endDate: "2026-02-20", supplierCostVnd: "5000000" },
+        { season: "PEAK", startDate: "2026-02-15", endDate: "2026-02-25", supplierCostVnd: "4000000" },
       ],
+    });
+    expect(res.status).toBe(200);
+    const createdPeriods = tx.villaRatePeriod.create.mock.calls.filter((c) => c[0].data.isBase === false);
+    expect(createdPeriods).toHaveLength(2);
+  });
+
+  it("half-open 위반 거부 (400) — endDate ≤ startDate", async () => {
+    tx.villaRatePeriod.findMany.mockResolvedValue([]);
+    const res = await req({
+      ...BODY,
+      periods: [{ season: "PEAK", startDate: "2026-02-20", endDate: "2026-02-20", supplierCostVnd: "5000000" }],
     });
     expect(res.status).toBe(400);
   });

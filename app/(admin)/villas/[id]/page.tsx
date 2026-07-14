@@ -13,7 +13,8 @@ import { minibarItemName } from "@/lib/minibar";
 import type { PhotoSpace } from "@prisma/client";
 import type { FeatureCategoryKey } from "@/lib/features";
 import type { BedTypeKey } from "@/lib/bedding";
-import RatePeriodEditor, { type RatePeriodInitial } from "./rate-period-editor";
+import RateCalendar from "@/components/rate-calendar/rate-calendar";
+import type { HolidayDTO, RateLayerDTO } from "@/components/rate-calendar/types";
 import PremiumDaysEditor from "./premium-days-editor";
 import VillaActions from "./villa-actions";
 import ForceSellableAction from "./force-sellable-action";
@@ -178,80 +179,51 @@ export default async function VillaDetailPage({
 
   const fxVndPerKrw = fxSetting ? Number.parseFloat(fxSetting.value) || null : null;
 
-  // 기간별 요금 (ADR-0014) — 판매가 포함이라 canViewFinance(showFinance)일 때만 로드(누수 차단).
-  // 초기값: VillaRatePeriod 기본요금(base) 행. 없으면 빈 폼(공급자 원가 입력 전 빌라).
-  let ratePeriodInitial: RatePeriodInitial = { base: null, periods: [] };
+  // 기간별 요금 캘린더 (ADR-0014·ADR-0044) — 판매가·마진 포함이라 canViewFinance(showFinance)일 때만
+  //   로드(누수 차단). 레이어 DTO(전 가격 컬럼) + 전역 공휴일(★·프리미엄 판정). 겹침 허용 승자 규칙은
+  //   컴포넌트가 lib/pricing.resolveRatePeriod 재사용해 밤별로 판정한다(서버 견적과 동일).
+  let rateCalendarLayers: RateLayerDTO[] = [];
+  let rateCalendarHolidays: HolidayDTO[] = [];
   if (showFinance) {
-    const rpRows = await prisma.villaRatePeriod.findMany({
-      where: { villaId: id },
-      orderBy: [{ isBase: "desc" }, { startDate: "asc" }],
-      select: {
-        season: true, isBase: true, startDate: true, endDate: true, label: true,
-        supplierCostVnd: true, marginType: true, marginValue: true, salePriceVnd: true, salePriceKrw: true,
-        // ADR-0031 소비자 직판가 (운영자 전용 — showFinance 게이트 안, 누수 아님)
-        consumerMarginType: true, consumerMarginValue: true, consumerSalePriceVnd: true, consumerSalePriceKrw: true,
-        // ADR-0042 프리미엄일 컬럼 (운영자 전용 — showFinance 게이트 안, 마진 비공개 등급)
-        premiumSupplierCostVnd: true, premiumSalePriceVnd: true, premiumSalePriceKrw: true,
-        premiumConsumerSalePriceVnd: true, premiumConsumerSalePriceKrw: true,
-      },
-    });
-    // ADR-0031 — 소비자가 필드 매핑(null=빈값 → 편집기에서 Net 폴백 표기)
-    const consumerFields = (r: (typeof rpRows)[number]) => ({
+    const [rpRows, holidayRows] = await Promise.all([
+      prisma.villaRatePeriod.findMany({
+        where: { villaId: id },
+        orderBy: [{ isBase: "desc" }, { startDate: "asc" }],
+        select: {
+          id: true, season: true, isBase: true, startDate: true, endDate: true, label: true, batchId: true,
+          supplierCostVnd: true, marginType: true, marginValue: true, salePriceVnd: true, salePriceKrw: true,
+          // ADR-0031 소비자 직판가 / ADR-0042 프리미엄일 (운영자 전용 — showFinance 게이트 안, 마진 비공개 등급)
+          consumerMarginType: true, consumerMarginValue: true, consumerSalePriceVnd: true, consumerSalePriceKrw: true,
+          premiumSupplierCostVnd: true, premiumSalePriceVnd: true, premiumSalePriceKrw: true,
+          premiumConsumerSalePriceVnd: true, premiumConsumerSalePriceKrw: true,
+        },
+      }),
+      prisma.holidayDate.findMany({ orderBy: { date: "asc" }, select: { date: true, label: true } }),
+    ]);
+    rateCalendarLayers = rpRows.map((r) => ({
+      id: r.id,
+      isBase: r.isBase,
+      season: r.season,
+      startDate: r.startDate ? iso(r.startDate) : null,
+      endDate: r.endDate ? iso(r.endDate) : null,
+      label: r.label,
+      batchId: r.batchId,
+      costVnd: r.supplierCostVnd.toString(),
+      netVnd: r.salePriceVnd.toString(),
+      netKrw: r.salePriceKrw,
+      consumerVnd: r.consumerSalePriceVnd != null ? r.consumerSalePriceVnd.toString() : null,
+      consumerKrw: r.consumerSalePriceKrw,
+      premiumCostVnd: r.premiumSupplierCostVnd != null ? r.premiumSupplierCostVnd.toString() : null,
+      premiumNetVnd: r.premiumSalePriceVnd != null ? r.premiumSalePriceVnd.toString() : null,
+      premiumNetKrw: r.premiumSalePriceKrw,
+      premiumConsumerVnd: r.premiumConsumerSalePriceVnd != null ? r.premiumConsumerSalePriceVnd.toString() : null,
+      premiumConsumerKrw: r.premiumConsumerSalePriceKrw,
+      marginType: r.marginType,
+      marginValue: r.marginValue.toString(),
       consumerMarginType: r.consumerMarginType,
       consumerMarginValue: r.consumerMarginValue.toString(),
-      consumerSalePriceVnd: r.consumerSalePriceVnd != null ? r.consumerSalePriceVnd.toString() : "",
-      consumerSalePriceKrw: r.consumerSalePriceKrw ?? 0,
-    });
-    // ADR-0042 — 프리미엄 컬럼 매핑(null=빈값). 하나라도 값이 있으면 편집기에서 토글 ON으로 로드.
-    //   전체 교체 라우트이므로 기존 값을 반드시 폼에 채워 되돌려 보내야 유실되지 않음.
-    const premiumFields = (r: (typeof rpRows)[number]) => {
-      const hasAny =
-        r.premiumSupplierCostVnd != null ||
-        r.premiumSalePriceVnd != null ||
-        r.premiumSalePriceKrw != null ||
-        r.premiumConsumerSalePriceVnd != null ||
-        r.premiumConsumerSalePriceKrw != null;
-      return {
-        premiumEnabled: hasAny,
-        premiumSupplierCostVnd: r.premiumSupplierCostVnd != null ? r.premiumSupplierCostVnd.toString() : "",
-        premiumSalePriceVnd: r.premiumSalePriceVnd != null ? r.premiumSalePriceVnd.toString() : "",
-        premiumSalePriceKrw: r.premiumSalePriceKrw ?? 0,
-        premiumConsumerSalePriceVnd:
-          r.premiumConsumerSalePriceVnd != null ? r.premiumConsumerSalePriceVnd.toString() : "",
-        premiumConsumerSalePriceKrw: r.premiumConsumerSalePriceKrw ?? 0,
-      };
-    };
-    const baseRow = rpRows.find((r) => r.isBase);
-    ratePeriodInitial = {
-      base: baseRow
-        ? {
-            season: baseRow.season,
-            supplierCostVnd: baseRow.supplierCostVnd.toString(),
-            marginType: baseRow.marginType,
-            marginValue: baseRow.marginValue.toString(),
-            salePriceVnd: baseRow.salePriceVnd.toString(),
-            salePriceKrw: baseRow.salePriceKrw,
-            ...consumerFields(baseRow),
-            ...premiumFields(baseRow),
-            label: baseRow.label ?? "",
-          }
-        : null,
-      periods: rpRows
-        .filter((r) => !r.isBase)
-        .map((r) => ({
-          season: r.season,
-          startDate: r.startDate ? iso(r.startDate) : "",
-          endDate: r.endDate ? iso(r.endDate) : "",
-          supplierCostVnd: r.supplierCostVnd.toString(),
-          marginType: r.marginType,
-          marginValue: r.marginValue.toString(),
-          salePriceVnd: r.salePriceVnd.toString(),
-          salePriceKrw: r.salePriceKrw,
-          ...consumerFields(r),
-          ...premiumFields(r),
-          label: r.label ?? "",
-        })),
-    };
+    }));
+    rateCalendarHolidays = holidayRows.map((h) => ({ date: iso(h.date), label: h.label }));
   }
 
   // 비품 편집기 초기값 (Batch A — 관리자 CRUD). 사전 항목 수량 맵 + custom 행 배열.
@@ -397,6 +369,20 @@ export default async function VillaDetailPage({
 
   const overview = (
     <div>
+      {/* 기간별 요금 캘린더 (ADR-0044) — 캘린더+패널이 넓어야 하므로 2단 그리드 위 전폭 배치.
+          finance 권한자 전용(판매가·마진). STAFF는 아래 우측 열의 원가 읽기뷰 표로 강등. */}
+      {showFinance && (
+        <div className="mb-6">
+          <RateCalendar
+            villaId={villa.id}
+            mode="admin"
+            fxVndPerKrw={fxVndPerKrw}
+            layers={rateCalendarLayers}
+            premiumDays={villa.premiumDays}
+            holidays={rateCalendarHolidays}
+          />
+        </div>
+      )}
       {/* 2단 레이아웃 (b10) */}
       <div className="grid grid-cols-12 gap-8">
         {/* 좌측: 사진 + 기본 정보 */}
@@ -509,10 +495,8 @@ export default async function VillaDetailPage({
 
         {/* 우측: 요율 + 비품 + 수정 이력 */}
         <div className="col-span-12 lg:col-span-5 space-y-6">
-          {/* 기간별 요금 (ADR-0014) — 편집은 가격설정 권한(canViewFinance). STAFF는 원가 읽기뷰로 강등 */}
-          {showFinance ? (
-            <RatePeriodEditor villaId={villa.id} fxVndPerKrw={fxVndPerKrw} initial={ratePeriodInitial} />
-          ) : (
+          {/* 기간별 요금 (ADR-0014) — finance 권한자는 위 전폭 캘린더에서 편집. STAFF는 원가 읽기뷰로 강등 */}
+          {!showFinance && (
             <CollapsibleCard
               title={t("rates.title")}
               icon="payments"

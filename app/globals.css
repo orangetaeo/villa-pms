@@ -132,3 +132,23 @@ input:focus {
 .scrollbar-none::-webkit-scrollbar {
   display: none; /* Chrome/Safari */
 }
+
+/* ── 기간별 요금 캘린더 (rate-calendar-ux) — 다크 표준 토큰 + B21 시즌 시맨틱색 ──
+   컴포넌트가 var(--rc-*)로 참조. admin 다크 고정(운영자). supplier 라이트는 UX-VN이
+   [data-rc-mode="supplier"] 오버라이드로 추후 정의(현재 admin만 배선). */
+.rate-calendar {
+  --rc-bg: #0f172a;
+  --rc-card: #1e293b;
+  --rc-surface2: #16202f;
+  --rc-border: #1e293b;
+  --rc-border2: #2a3a52;
+  --rc-text: #e6ecf2;
+  --rc-muted: #93a1b0;
+  --rc-faint: #5c6b7a;
+  --rc-accent: #3b82f6;
+  /* 시즌 시맨틱색 (B21 그대로) — 데이터 축, 액션 블루와 분리 */
+  --rc-low: #34d399;
+  --rc-shoulder: #fbbf24;
+  --rc-high: #fb923c;
+  --rc-peak: #f87171;
+}

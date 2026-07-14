@@ -190,6 +190,33 @@ Nước ngọt 2, Bia 0, Bánh kẹo 3). Bottom: primary teal "Tiếp tục" + c
 no margin — nothing about money.
 ```
 
+**A10. 공급자 원가 캘린더 — 겹침 기간 (a10-rate-calendar, rate-calendar-ux)**
+> 정본 = `design/stitch/rate-calendar/interaction-spec.html`(테오 승인 목업). 이 화면의 존재 이유는 **기간 겹침**(긴 성수기 안에 짧은 명절이 겹침)이므로 캘린더 주(週) 아래 색 밴드로 겹침을 반드시 표현한다. 마진·판매가(Net)·소비자가·KRW 절대 노출 금지 — **원가(Giá gốc)만**, 자기판매 정가(Giá bán của bạn)는 선택.
+```
+Mobile app screen (390px), Vietnamese, light theme, teal primary #0D9488, for a
+villa supplier (NCC): a PERIOD-BASED COST CALENDAR "Giá theo giai đoạn" where rate
+periods may OVERLAP and the shortest/highest-season period wins per night. App bar
+"Giá theo giai đoạn" + villa subtitle. A reassurance strip "Chỉ hiển thị giá gốc của
+bạn — không có phí, không có giá bán." Month calendar for "Tháng 2/2027": weekday row
+CN T2 T3 T4 T5 T6 T7, each date cell (min 56px, large touch) tinted by its WINNING
+season color (Thấp điểm green #059669 / Cận cao điểm amber #D97706 / Cao điểm orange
+#EA580C / Đỉnh điểm red #DC2626), showing day number and the nightly SUPPLIER COST
+only, abbreviated in triệu ("5,5tr", "8tr"), colored by season; top-right marker ●
+(premium T6·T7, amber) or ★ (holiday). BELOW EACH WEEK ROW render horizontal period
+bands (colored pills, lane-packed) so a long orange "Cao điểm mùa đông" band and a
+short red "Tết" band VISIBLY OVERLAP in early February — the Feb 5–10 cells show the
+red peak cost because the shorter+higher period wins; Feb 6,7,8 show ★. A legend row
+of season chips + "● Ngày cao cấp (T6·T7)" + "★ Ngày lễ". Exactly TWO large action
+buttons: teal "+ Thêm giai đoạn" and outline "☑ Chọn ngày". Then a bottom-sheet-style
+card (grab handle) "Các giai đoạn giá": vertical layer rows, each = season-colored
+left bar, period name + season badge, date range "05/02 → 11/02/2027 · 6 đêm", and
+supplier cost with DOT separators "8.000.000₫" (with a small amber "● 6.000.000"
+premium note where present), right chevron. A dashed "Giá cơ bản (cả năm)" base row
+"4.000.000₫" with an optional teal self-sale line "Giá bán của bạn 6.500.000₫". VND
+with dot separators. Use "villa", never "biệt thự". NO margin, NO sale/net/consumer
+price, NO KRW, NO exchange rate — supplier sees only their own cost.
+```
+
 ### B. 운영자 화면 (PC, 다크, 한국어 라벨)
 
 **B1. 대시보드**
@@ -423,6 +450,38 @@ buttons; 확정 rows show 제공완료 / 취소. Below: a 체크아웃 게스트
 미니바 소비 합계 (235,000₫) + 확정 옵션 합계 (890,000원) with note "통화별 별도 집계 —
 KRW와 VND는 합산하지 않습니다", 보증금 별도 표기, 결제수단 select (현금/계좌이체/기타),
 게스트 청구액 통화별 표기, "정산 완료 기록" button (emerald). VND commas. 통화 분리(ADR-0003).
+```
+
+**B21. 운영자 요금 캘린더 — 겹침 기간 (b21-rate-calendar, rate-calendar-ux)**
+> 정본 = `design/stitch/rate-calendar/interaction-spec.html`(테오 승인 목업). 빌라 상세의 "요금" 탭. 이 화면의 존재 이유는 **기간 겹침 + 밤별 승자 규칙**(① 짧은 기간 ② 높은 시즌 ③ 늦은 시작일)이다. 시즌색은 데이터 시맨틱이므로 포인트 블루와 역할을 분리해 유지한다.
+```
+Dark admin web screen, Korean, desktop: the "요금" tab inside a villa detail page
+for a villa rental operations manager — a PERIOD-BASED RATE CALENDAR where rate
+periods may OVERLAP and the shortest/highest-season period wins per night. Standard
+10-menu sidebar (빌라 active), brand "Villa PMS" + subtitle "Villa PMS Admin", profile
+"관리자 / 최고 관리자". Dark navy #0F172A bg/sidebar, cards #1E293B, borders slate-800,
+point accent blue #3B82F6, Public Sans + Noto Sans KR. Villa header "V-PQ Ocean Villa"
++ "판매 가능" badge + Zalo supplier chip + "환율 참고 1,000,000₫ ≈ 53,000원". Detail
+tabs 사진/기본 정보/요금(active)/캘린더/iCal 연동. A rule bar "겹침 허용 — 이기는
+순서: ① 짧은 기간 ② 높은 시즌 ③ 늦은 시작일 · 기간을 지우면 아래 요금이 자동 복원" +
+season legend chips (비수기 emerald #34D399 / 준성수기 amber #FBBF24 / 성수기 orange
+#FB923C / 극성수기 red #F87171 / ● 프리미엄일(금·토) / ★ 공휴일). Two-column main.
+LEFT calendar card "2027년 2월": ‹ › nav, a segmented price-axis toggle 판매가(Net)
+(selected, blue) / 소비자가 / 원가, four tool buttons — primary blue "+ 기간 추가",
+outline "☑ 날짜 선택", "⚡ 일괄 조정", "📋 연도 복사". Month grid: each date cell tinted
+by its WINNING season color, day number + nightly price abbreviated ("7M", "10.5M")
+in the season color + top-right ● (premium) or ★ (holiday) marker. BELOW EACH WEEK
+render horizontal period bands (lane-packed): a long orange "겨울 성수기" band with a
+short red "설 연휴" band nested BELOW it in early February — the Feb 5–10 cells show
+the red PEAK price because the shorter+higher period wins; Feb 6,7,8 show ★ (설날).
+RIGHT panel (~344px). Card "요금 레이어": layer rows sorted shortest-first, each with a
+season-colored left bar, name + season badge, date range "2026.12.20 → 2027.03.01 ·
+71박", price with COMMA separators "7,000,000 ₫" (+ amber "● 7,600,000" premium note),
+✕ delete; a dashed "기본요금 (연중)" base row "5,200,000 ₫". Card "선택한 날짜"
+(2027.02.07 ★ 설날): a WINNER STACK — top row blue-bordered with a "적용" tag = 설 연휴
+(6박 · 극성수기, 10,500,000 ₫); dimmed strikethrough rows below = 겨울 성수기 and
+기본요금, each captioned "설 연휴 기간에 가려짐". Dense but readable, tabular-nums, nowrap
+on badges/dates/amounts, keep-all. All Korean, no English. VND with comma separators.
 ```
 
 ### C. 공개 제안 페이지 (모바일 우선, 한국어)

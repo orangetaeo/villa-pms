@@ -8,7 +8,8 @@ import { getSupplierLocale } from "@/lib/locale";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { toDateOnlyString } from "@/lib/date-vn";
-import RatePeriodCostEditor, { type InitialRatePeriod } from "./rate-period-cost-editor";
+import SupplierRateCalendar from "./supplier-rate-calendar";
+import type { SupplierLayerDTO } from "./supplier-calendar-lib";
 
 export const metadata: Metadata = {
   title: "Giá gốc theo giai đoạn",
@@ -50,34 +51,38 @@ export default async function SupplierRatePeriodsPage({
   const locale = await getSupplierLocale(session.user.locale);
   const t = await getTranslations({ locale, namespace: "supplierRatePeriods" });
 
+  // 전역 공휴일 — ★ 표시 + 프리미엄 판정용(가격 아님·비밀 아님).
+  const holidayRows = await prisma.holidayDate.findMany({
+    orderBy: { date: "asc" },
+    select: { date: true, label: true },
+  });
+  const holidays = holidayRows.map((h) => ({ date: toDateOnlyString(h.date), label: h.label }));
+
+  // ★ 마진 비공개: 공급자 소유 금액(원가·프리미엄 원가·자기 판매가)만 DTO로 직렬화. Net/소비자가/마진 부재.
+  const toLayerDTO = (r: (typeof villa.ratePeriods)[number], isBase: boolean): SupplierLayerDTO => ({
+    id: r.id,
+    isBase,
+    season: r.season,
+    startDate: isBase ? null : r.startDate ? toDateOnlyString(r.startDate) : null,
+    endDate: isBase ? null : r.endDate ? toDateOnlyString(r.endDate) : null,
+    label: r.label ?? null,
+    supplierCostVnd: r.supplierCostVnd.toString(),
+    ownSaleVnd: r.supplierSalePriceVnd?.toString() ?? null,
+    premiumCostVnd: r.premiumSupplierCostVnd?.toString() ?? null,
+    premiumOwnSaleVnd: r.premiumSupplierSalePriceVnd?.toString() ?? null,
+  });
+
   const baseRow = villa.ratePeriods.find((r) => r.isBase);
-  const base = baseRow
-    ? {
-        season: baseRow.season,
-        supplierCostVnd: baseRow.supplierCostVnd.toString(),
-        supplierSalePriceVnd: baseRow.supplierSalePriceVnd?.toString() ?? "",
-        premiumSupplierCostVnd: baseRow.premiumSupplierCostVnd?.toString() ?? "",
-        premiumSupplierSalePriceVnd: baseRow.premiumSupplierSalePriceVnd?.toString() ?? "",
-        label: baseRow.label ?? "",
-      }
+  const base: SupplierLayerDTO = baseRow
+    ? toLayerDTO(baseRow, true)
     : {
-        season: "LOW" as const, supplierCostVnd: "", supplierSalePriceVnd: "",
-        premiumSupplierCostVnd: "", premiumSupplierSalePriceVnd: "", label: "",
+        id: "", isBase: true, season: "LOW", startDate: null, endDate: null, label: null,
+        supplierCostVnd: "", ownSaleVnd: null, premiumCostVnd: null, premiumOwnSaleVnd: null,
       };
 
-  const periods: InitialRatePeriod[] = villa.ratePeriods
+  const periods: SupplierLayerDTO[] = villa.ratePeriods
     .filter((r) => !r.isBase)
-    .map((r) => ({
-      id: r.id,
-      season: r.season,
-      startDate: r.startDate ? toDateOnlyString(r.startDate) : "",
-      endDate: r.endDate ? toDateOnlyString(r.endDate) : "",
-      supplierCostVnd: r.supplierCostVnd.toString(),
-      supplierSalePriceVnd: r.supplierSalePriceVnd?.toString() ?? "",
-      premiumSupplierCostVnd: r.premiumSupplierCostVnd?.toString() ?? "",
-      premiumSupplierSalePriceVnd: r.premiumSupplierSalePriceVnd?.toString() ?? "",
-      label: r.label ?? "",
-    }));
+    .map((r) => toLayerDTO(r, false));
 
   return (
     <div className="mx-auto w-full max-w-[420px]">
@@ -95,11 +100,12 @@ export default async function SupplierRatePeriodsPage({
         <div className="h-10 w-10" />
       </header>
 
-      <RatePeriodCostEditor
+      <SupplierRateCalendar
         villaId={villa.id}
         initialBase={base}
         initialPeriods={periods}
         initialPremiumDays={villa.premiumDays}
+        holidays={holidays}
       />
     </div>
   );

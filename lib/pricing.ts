@@ -207,6 +207,11 @@ export function priceTierForChannel(channel: BookingChannel): PriceTier {
 
 /** 기간별 요금 행 (ADR-0014) — 날짜 범위 + 가격을 한 행에. base는 startDate/endDate null. */
 export interface RatePeriodLike {
+  /**
+   * 행 id (cuid). 겹침 승자 4단계 tie-break의 최종 기준(④ 큰 id = 최신 행 근사).
+   * 미포함이면 tie-break ④는 스킵(빈 문자열 비교) — 완전 동일 범위·시즌 중복행에서만 의미.
+   */
+  id?: string;
   season: SeasonType;
   isBase: boolean;
   /** isBase=false일 때만 채움. 포함 — @db.Date UTC 자정 */
@@ -302,29 +307,49 @@ export class MissingBaseRateError extends MissingRateError {
   }
 }
 
+/** 기간 길이(ms) — @db.Date 자정이라 박 수와 단조 동치(더 짧은 기간 판정용). base(날짜 null)엔 미사용. */
+function periodLengthMs(p: RatePeriodLike): number {
+  return (p.endDate?.getTime() ?? 0) - (p.startDate?.getTime() ?? 0);
+}
+
 /**
- * 날짜의 적용 요금 판정 (ADR-0014 D2) — 그 날짜를 덮는 웃돈 기간 우선, 없으면 기본요금.
- * 입력 단계서 겹침을 거부하므로 보통 매칭은 0~1개. 방어적으로 겹침 시 PEAK>HIGH>LOW,
- * 같으면 startDate 늦은 것(최근 지정) 우선 — 결정적.
+ * 겹침 승자 규칙 (rate-calendar-ux) — 후보 p가 현재 best를 이기는가.
+ * ① 짧은 기간(박 수 asc) → ② SEASON_PRECEDENCE 높은 쪽(PEAK>HIGH>SHOULDER>LOW) →
+ * ③ startDate 늦은 쪽 → ④ id 사전순 큰 쪽.
+ * ④는 cuid가 생성순 대략 단조증가라 "최신 행" 근사(엄밀 보장 아님) — 완전 동일 범위·시즌
+ *    중복행(예: 원본 기간 위 조정 레이어)에서만 도달. id 미포함이면 "" 비교로 무해히 스킵.
+ * 목업 정본 stackFor(interaction-spec.html)의 sort와 동일 순서.
  */
-export function resolveRatePeriod(
+function periodBeats(p: RatePeriodLike, best: RatePeriodLike): boolean {
+  const lp = periodLengthMs(p);
+  const lb = periodLengthMs(best);
+  if (lp !== lb) return lp < lb; // ① 짧은 기간
+  const sp = SEASON_PRECEDENCE[p.season];
+  const sb = SEASON_PRECEDENCE[best.season];
+  if (sp !== sb) return sp > sb; // ② 높은 시즌
+  const stp = p.startDate?.getTime() ?? -Infinity;
+  const stb = best.startDate?.getTime() ?? -Infinity;
+  if (stp !== stb) return stp > stb; // ③ 늦은 시작일
+  return (p.id ?? "") > (best.id ?? ""); // ④ 큰 id(최신 근사)
+}
+
+/**
+ * 날짜의 적용 요금 판정 (ADR-0014 D2 · rate-calendar-ux 겹침 허용) — 그 날짜를 덮는 웃돈 기간 중
+ * 승자 1개(periodBeats 4단계), 어떤 기간도 없으면 기본요금(base). 겹침은 허용되며 항상 결정적.
+ * 제네릭 T: 승자 선택은 season/isBase/날짜/id만 보므로 추가 컬럼(원가·공급자가 등)을 실은 행을
+ *   넘기면 그 행 참조를 그대로 돌려준다(rate-layers 구간화·공급자 견적이 원본 컬럼 회수에 활용).
+ */
+export function resolveRatePeriod<T extends RatePeriodLike>(
   date: Date,
-  periods: RatePeriodLike[],
-  base: RatePeriodLike | null
-): RatePeriodLike {
+  periods: T[],
+  base: T | null
+): T {
   const t = date.getTime();
-  let best: RatePeriodLike | null = null;
+  let best: T | null = null;
   for (const p of periods) {
     if (p.isBase || !p.startDate || !p.endDate) continue;
     if (p.startDate.getTime() <= t && t < p.endDate.getTime()) {
-      if (
-        !best ||
-        SEASON_PRECEDENCE[p.season] > SEASON_PRECEDENCE[best.season] ||
-        (SEASON_PRECEDENCE[p.season] === SEASON_PRECEDENCE[best.season] &&
-          p.startDate.getTime() > (best.startDate?.getTime() ?? -Infinity))
-      ) {
-        best = p;
-      }
+      if (!best || periodBeats(p, best)) best = p;
     }
   }
   if (best) return best;
@@ -601,6 +626,7 @@ export async function quoteStayForVilla(
   assertValidStayRange(range);
 
   const RP_SELECT = {
+    id: true, // 겹침 승자 4단계 tie-break ④(최신 행) — 동일 범위 중복행(조정 레이어 등) 결정성
     season: true,
     isBase: true,
     startDate: true,
@@ -667,6 +693,7 @@ export class MissingSupplierPriceError extends Error {
 
 /** 공급자 판매가 견적용 행 — supplierSalePriceVnd(+프리미엄)만 보는 RatePeriodLike의 부분집합 */
 interface SupplierRatePeriodLike {
+  id: string;
   season: SeasonType;
   isBase: boolean;
   startDate: Date | null;
@@ -697,6 +724,7 @@ export async function quoteSupplierSaleForVilla(
   // ⚠ supplierSalePriceVnd·프리미엄 공급자가·날짜·season만 select — 운영자 salePrice*/margin*/supplierCostVnd·
   //    premiumSalePrice*/premiumConsumer* 절대 미포함(마진 비공개). 공급자 자기 필드 2개만.
   const SRP_SELECT = {
+    id: true, // 겹침 승자 tie-break ④ + sourceOf 원본 회수 키(동일 범위 중복행 결정성)
     season: true,
     isBase: true,
     startDate: true,
@@ -729,8 +757,10 @@ export async function quoteSupplierSaleForVilla(
   const nightlyVnd: bigint[] = [];
   let totalVnd = 0n;
 
-  // 기간 선택을 위한 어댑터(가격 0) — resolveRatePeriod의 겹침/우선순위 로직 재사용
+  // 기간 선택을 위한 어댑터(가격 0) — resolveRatePeriod의 겹침/우선순위 로직 재사용.
+  // id를 실어 승자 tie-break ④와 sourceOf 원본 회수를 동일 범위 중복행에서도 결정적으로 유지.
   const toLike = (r: SupplierRatePeriodLike): RatePeriodLike => ({
+    id: r.id,
     season: r.season,
     isBase: r.isBase,
     startDate: r.startDate,
@@ -741,17 +771,10 @@ export async function quoteSupplierSaleForVilla(
   });
   const baseLike = toLike(base);
   const periodLikes = periods.map(toLike);
-  // season+startDate(또는 isBase)로 원본 SupplierRatePeriodLike를 찾기 위한 인덱스
+  // 승자 행 id로 원본 SupplierRatePeriodLike 회수(동일 범위 중복행도 정확 — season+날짜 매칭 모호성 제거)
   const sourceOf = (chosen: RatePeriodLike): SupplierRatePeriodLike => {
     if (chosen.isBase) return base;
-    return (
-      periods.find(
-        (p) =>
-          p.season === chosen.season &&
-          p.startDate?.getTime() === chosen.startDate?.getTime() &&
-          p.endDate?.getTime() === chosen.endDate?.getTime()
-      ) ?? base
-    );
+    return periods.find((p) => p.id === chosen.id) ?? base;
   };
 
   // ADR-0042 프리미엄 판정 입력 — 미지정/빈 배열이면 null(스킵) → 기존 공급자 견적 완전 무중단.

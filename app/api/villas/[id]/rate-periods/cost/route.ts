@@ -46,23 +46,15 @@ const periodSchema = z.object({
 const patchSchema = z
   .object({ base: baseSchema, periods: z.array(periodSchema).max(60) })
   .superRefine((data, ctx) => {
-    const valid = data.periods.filter((p, i) => {
+    // half-open 검증만(각 기간 endDate>startDate). ★겹침 허용(rate-calendar-ux · 계약 §1 승자 규칙 정렬).
+    //   견적은 lib/pricing.resolveRatePeriod가 밤별 승자 1행을 뽑으므로 원가 기간이 겹쳐도 정상이며,
+    //   각 행 salePrice는 서버가 행별 독립 파생(마진 보존) — 밤당 승자 1행이라 이중 계상 없음.
+    //   (A10 공급자 캘린더가 "겨울 성수기 위 Tết 극성수기" 같은 겹침 레이어를 만들 수 있어야 함.)
+    data.periods.forEach((p, i) => {
       if (toUtc(p.startDate).getTime() >= toUtc(p.endDate).getTime()) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["periods", i, "endDate"], message: "endDate must be after startDate" });
-        return false;
       }
-      return true;
     });
-    const sorted = [...valid].sort((a, b) => toUtc(a.startDate).getTime() - toUtc(b.startDate).getTime());
-    for (let i = 1; i < sorted.length; i++) {
-      if (toUtc(sorted[i].startDate).getTime() < toUtc(sorted[i - 1].endDate).getTime()) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["periods", data.periods.indexOf(sorted[i]), "startDate"],
-          message: "기간이 다른 기간과 겹칩니다",
-        });
-      }
-    }
   });
 
 export async function PATCH(
