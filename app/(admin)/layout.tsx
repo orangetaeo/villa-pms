@@ -77,6 +77,8 @@ const ADMIN_CLIENT_NAMESPACES = [
   "account",
   // 운영자 인앱 알림 벨(components/admin/admin-notification-bell) — admin-vendor-ops C
   "adminNotif",
+  // 기간별 요금 캘린더(components/rate-calendar) — ADR-0044, 빌라 상세 요금 탭
+  "rateCalendar",
 ] as const;
 
 export default async function AdminLayout({
