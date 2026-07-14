@@ -41,10 +41,13 @@ export function canTransitionVendorGate(
 
 /**
  * 운영자가 이 주문을 (재)발주할 수 있는가.
- * - status가 REQUESTED(고객 미확정)이고
+ * - status가 REQUESTED(고객 미확정) 또는 CONFIRMED(고객 확정 후)이고
+ *   — 확정 후에도 공급자 변경·재발주가 가능하므로(service-order-vendor-change-expansion / PR #307),
+ *     변경 성공 후 자동 재발주 체인이 CONFIRMED 주문에서도 통과해야 한다(CONFIRMED 배제 시 409 CANNOT_DISPATCH
+ *     로 발주 사이클만 리셋되고 재발주가 안 나가 벤더 발주함에서 사라지는 회귀 — demo-svc-so-2 실사례).
  * - vendorId가 지정되어 있고
  * - 아직 발주 전(vendorStatus==null)이거나 직전 발주가 거절됨(VENDOR_REJECTED → 대체/재발주 허용).
- * VENDOR_ACCEPTED·PENDING_VENDOR 상태에서는 재발주 불가(중복 발송 방지).
+ * VENDOR_ACCEPTED·PENDING_VENDOR 상태에서는 재발주 불가(중복 발송 방지 — vendorStatus 조건 불변).
  */
 export function canDispatch(order: {
   status: string;
@@ -52,7 +55,7 @@ export function canDispatch(order: {
   vendorStatus: ServiceVendorStatus | null;
 }): boolean {
   return (
-    order.status === "REQUESTED" &&
+    (order.status === "REQUESTED" || order.status === "CONFIRMED") &&
     order.vendorId != null &&
     (order.vendorStatus == null || order.vendorStatus === "VENDOR_REJECTED")
   );

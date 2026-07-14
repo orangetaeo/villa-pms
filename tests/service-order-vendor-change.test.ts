@@ -26,12 +26,14 @@ vi.mock("@/lib/prisma", () => ({
 const writeAuditLog = vi.fn();
 vi.mock("@/lib/audit-log", () => ({ writeAuditLog: (...a: unknown[]) => writeAuditLog(...a) }));
 
-// 구 업체 취소 통보 헬퍼 — 발송 여부만 관찰(내부 Zalo/인앱은 별도 테스트 소관).
+// 구 업체 취소 통보 + 발주 통보 헬퍼 — 발송 여부만 관찰(내부 Zalo/인앱은 별도 테스트 소관).
 const sendVendorPoCancelledNotifications = vi.fn(
   async (..._a: unknown[]) => ({ zaloSent: true })
 );
+const sendVendorPoNotifications = vi.fn(async (..._a: unknown[]) => ({ zaloSent: true }));
 vi.mock("@/lib/vendor-dispatch", () => ({
   sendVendorPoCancelledNotifications: (...a: unknown[]) => sendVendorPoCancelledNotifications(...a),
+  sendVendorPoNotifications: (...a: unknown[]) => sendVendorPoNotifications(...a),
 }));
 
 vi.mock("@/lib/inapp-notification", () => ({
@@ -41,6 +43,7 @@ vi.mock("@/lib/inapp-notification", () => ({
 }));
 
 import { PATCH } from "@/app/api/service-orders/[id]/route";
+import { POST as DISPATCH } from "@/app/api/service-orders/[id]/dispatch/route";
 
 const ADMIN = { user: { id: "admin-1", role: "ADMIN" } };
 
@@ -264,5 +267,64 @@ describe("동시성 가드 (updateMany count===0)", () => {
     expect(await res.json()).toMatchObject({ error: "VENDOR_LOCKED" });
     expect(sendVendorPoCancelledNotifications).not.toHaveBeenCalled();
     expect(writeAuditLog).not.toHaveBeenCalled();
+  });
+});
+
+describe("변경→재발주 체인 (CONFIRMED 경로 회귀 — PR #307)", () => {
+  // 발주함 조회는 PENDING_VENDOR만 → 변경 후 자동 재발주가 CONFIRMED에서 실패하면 벤더 발주함에서 사라짐.
+  //   PATCH가 발주 사이클을 리셋(vendorStatus=null)한 뒤, dispatch가 CONFIRMED 주문에서도 통과해 복귀해야 한다.
+  const dispatchOrder = {
+    id: "so-1",
+    status: "CONFIRMED",
+    vendorId: "v-new",
+    vendorStatus: null, // 변경 직후 리셋 상태
+    serviceDate: null,
+    serviceTime: null,
+    quantity: 2,
+    costVnd: 80000n,
+    selectedOptions: null,
+    catalogItemId: "ci-1",
+    vendorName: "새업체",
+    guestNote: null,
+    customerName: null,
+    vendor: {
+      id: "v-new",
+      name: "새업체",
+      userId: "new-vu",
+      approvalStatus: "APPROVED",
+      user: { zaloUserId: "z-2", locale: "vi" },
+    },
+    booking: { guestName: "홍길동", villa: { name: "V11", address: null } },
+  };
+
+  it("CONFIRMED + vendorStatus=null 주문 dispatch → 200 + PENDING_VENDOR 전이 + Zalo 발주", async () => {
+    soFindUnique.mockReset();
+    soFindUnique.mockResolvedValue(dispatchOrder);
+    soUpdateMany.mockResolvedValue({ count: 1 });
+    catalogFindUnique.mockResolvedValue({ nameKo: "과일바구니" });
+
+    const res = await DISPATCH(new Request("http://local/x", { method: "POST" }), {
+      params: Promise.resolve({ id: "so-1" }),
+    });
+    expect(res.status).toBe(200);
+    expect(soUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "so-1", status: "CONFIRMED", vendorStatus: null },
+        data: expect.objectContaining({ vendorStatus: "PENDING_VENDOR" }),
+      })
+    );
+    expect(sendVendorPoNotifications).toHaveBeenCalledOnce();
+  });
+
+  it("CONFIRMED + VENDOR_ACCEPTED(발주 살아있음)는 재발주 불가 — 409 CANNOT_DISPATCH", async () => {
+    soFindUnique.mockReset();
+    soFindUnique.mockResolvedValue({ ...dispatchOrder, vendorStatus: "VENDOR_ACCEPTED" });
+
+    const res = await DISPATCH(new Request("http://local/x", { method: "POST" }), {
+      params: Promise.resolve({ id: "so-1" }),
+    });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: "CANNOT_DISPATCH" });
+    expect(sendVendorPoNotifications).not.toHaveBeenCalled();
   });
 });
