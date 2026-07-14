@@ -1,0 +1,922 @@
+<title>기간별 요금 캘린더 — UX 개편 목업</title>
+<style>
+  :root {
+    --bg: #0f1317;
+    --surface: #171d24;
+    --surface2: #1e2630;
+    --border: #2b3540;
+    --border-soft: #232c36;
+    --text: #e6ecf2;
+    --muted: #93a1b0;
+    --faint: #5c6b7a;
+    --accent: #2dd4bf;
+    --accent-ink: #062e2a;
+    --low: #34d399;
+    --shoulder: #fbbf24;
+    --high: #fb923c;
+    --peak: #f87171;
+    --cell-hover: rgba(45,212,191,.08);
+    color-scheme: dark;
+  }
+  [data-mode="supplier"] {
+    --bg: #f4f7f8;
+    --surface: #ffffff;
+    --surface2: #eef3f5;
+    --border: #d7e0e5;
+    --border-soft: #e3eaee;
+    --text: #16222b;
+    --muted: #5c6b77;
+    --faint: #93a1ab;
+    --accent: #0d9488;
+    --accent-ink: #ffffff;
+    --low: #059669;
+    --shoulder: #d97706;
+    --high: #ea580c;
+    --peak: #dc2626;
+    --cell-hover: rgba(13,148,136,.08);
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Pretendard Variable", Pretendard, -apple-system, "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    transition: background .25s;
+  }
+  .app { max-width: 1180px; margin: 0 auto; padding: 20px 20px 60px; }
+
+  /* ── header ── */
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 6px; }
+  h1 { font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+  h1 .tag { color: var(--muted); font-weight: 500; font-size: 13px; margin-left: 8px; }
+  .spacer { flex: 1; }
+  .seg { display: inline-flex; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 2px; }
+  .seg button {
+    border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12.5px;
+    padding: 5px 12px; border-radius: 6px; cursor: pointer;
+  }
+  .seg button.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .seg button:focus-visible, .btn:focus-visible, .cal-nav button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .rulebar {
+    display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center;
+    background: var(--surface); border: 1px solid var(--border-soft); border-radius: 10px;
+    padding: 9px 14px; margin: 12px 0 16px; font-size: 12.5px; color: var(--muted);
+  }
+  .rulebar b { color: var(--text); font-weight: 600; }
+  .rulebar .pm { color: var(--shoulder); }
+  .chip { display: inline-flex; align-items: center; gap: 5px; }
+  .dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+
+  /* ── layout ── */
+  .main { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .main { grid-template-columns: 1fr; } }
+
+  /* ── calendar ── */
+  .cal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 14px 18px; }
+  .cal-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .cal-title { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .cal-nav { display: flex; gap: 4px; }
+  .cal-nav button {
+    width: 28px; height: 28px; border-radius: 7px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); cursor: pointer; font-size: 13px; line-height: 1;
+  }
+  .btn {
+    border: 1px solid var(--border); background: var(--surface2); color: var(--text);
+    font: inherit; font-size: 12.5px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .btn.danger { color: var(--peak); }
+
+  .dow { display: grid; grid-template-columns: repeat(7,1fr); margin-bottom: 4px; }
+  .dow div { text-align: center; font-size: 11px; color: var(--faint); padding: 2px 0; letter-spacing: .06em; }
+
+  .week { margin-bottom: 3px; }
+  .days { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; }
+  .cell {
+    position: relative; min-height: 56px; border-radius: 8px; padding: 5px 6px 4px;
+    background: var(--surface2); border: 1px solid transparent; cursor: pointer;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .cell:hover { border-color: var(--accent); background: var(--cell-hover); }
+  .cell.out { opacity: .28; }
+  .cell.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .cell.rangepick { border-color: var(--accent); background: var(--cell-hover); }
+  .cell.hl { box-shadow: inset 0 0 0 2px var(--accent); }
+  .cell.picked { box-shadow: inset 0 0 0 2px var(--accent); }
+  .cell.picked .d { color: var(--accent); font-weight: 700; }
+  .cell .d { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .cell .p { font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .cell .mark { position: absolute; top: 5px; right: 6px; font-size: 9px; line-height: 1; }
+  .cell .pm { color: var(--shoulder); }
+
+  .bands { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px 3px; margin-top: 3px; }
+  .band {
+    height: 15px; border-radius: 4px; font-size: 10px; line-height: 15px; font-weight: 600;
+    padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: var(--bg); opacity: .92; cursor: pointer;
+  }
+  .band.cont-l { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+  .band.cont-r { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  .band.hl { outline: 2px solid var(--text); }
+
+  /* ── right panel ── */
+  .panel { display: flex; flex-direction: column; gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+  .card h2 { font-size: 12px; margin: 0 0 10px; color: var(--muted); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+
+  .layer {
+    display: flex; align-items: flex-start; gap: 9px; padding: 9px 10px; border-radius: 10px;
+    border: 1px solid var(--border-soft); background: var(--surface2); margin-bottom: 7px; cursor: pointer;
+  }
+  .layer:hover { border-color: var(--accent); }
+  .layer .bar { width: 4px; align-self: stretch; border-radius: 2px; flex: none; }
+  .layer .body { flex: 1; min-width: 0; }
+  .layer .t { font-weight: 650; font-size: 13px; display: flex; align-items: center; gap: 7px; }
+  .layer .sub { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 1px; }
+  .layer .price { font-size: 12.5px; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 3px; }
+  .layer .del { border: 0; background: none; color: var(--faint); cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: 5px; }
+  .layer .del:hover { color: var(--peak); background: var(--surface); }
+  .layer.base-row { border-style: dashed; }
+  .badge {
+    font-size: 10px; font-weight: 700; border-radius: 4px; padding: 1px 6px; letter-spacing: .04em; color: var(--bg);
+  }
+
+  /* stack */
+  .stack-date { font-size: 14px; font-weight: 700; margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+  .stack-item {
+    border: 1px solid var(--border-soft); border-radius: 10px; padding: 8px 10px; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 9px; background: var(--surface2);
+  }
+  .stack-item.win { border-color: var(--accent); }
+  .stack-item .body { flex: 1; min-width: 0; }
+  .stack-item .t { font-size: 12.5px; font-weight: 650; }
+  .stack-item .why { font-size: 11px; color: var(--muted); }
+  .stack-item .pr { font-size: 12.5px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .stack-item.lose { opacity: .55; }
+  .stack-item.lose .pr { text-decoration: line-through; }
+  .win-tag { font-size: 10px; font-weight: 700; color: var(--accent-ink); background: var(--accent); border-radius: 4px; padding: 1px 6px; }
+  .pm-note { font-size: 11px; color: var(--shoulder); margin-top: 4px; }
+  .empty { color: var(--faint); font-size: 12.5px; }
+
+  /* add form */
+  .form-row { margin-bottom: 10px; }
+  .form-row label { display: block; font-size: 11.5px; color: var(--muted); margin-bottom: 4px; }
+  .form-row input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 7px 9px; font: inherit; font-variant-numeric: tabular-nums;
+  }
+  .form-row input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .form-row select { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 9px; font: inherit; }
+  .form-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .axis-checks { display: flex; gap: 12px; flex-wrap: wrap; }
+  .axis-checks label { display: flex; align-items: center; gap: 5px; color: var(--text); margin: 0; font-size: 12.5px; cursor: pointer; }
+  .preview-box { background: var(--surface2); border: 1px dashed var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; margin-bottom: 10px; }
+  .err-msg { color: var(--peak); font-size: 11.5px; margin-top: 8px; }
+  .run-row { display: flex; align-items: center; gap: 8px; font-size: 12px; font-variant-numeric: tabular-nums; padding: 5px 8px; border: 1px solid var(--border-soft); border-radius: 7px; margin-bottom: 5px; background: var(--surface2); }
+  .run-row .x { margin-left: auto; border: 0; background: none; color: var(--faint); cursor: pointer; font-size: 13px; padding: 0 3px; }
+  .run-row .x:hover { color: var(--peak); }
+  .mini-seg { display: inline-flex; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 2px; margin-bottom: 10px; }
+  .mini-seg button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 6px; cursor: pointer; }
+  .mini-seg button.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .range-add { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; align-items: end; margin-bottom: 10px; }
+  .range-add .form-row { margin-bottom: 0; }
+  .copy-row { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 6px 8px; border: 1px solid var(--border-soft); border-radius: 7px; margin-bottom: 5px; background: var(--surface2); cursor: pointer; }
+  .copy-row input { accent-color: var(--accent); }
+  .copy-row .rng { color: var(--muted); font-variant-numeric: tabular-nums; margin-left: auto; }
+  .warn-box { background: color-mix(in srgb, var(--shoulder) 12%, var(--surface2)); border: 1px solid color-mix(in srgb, var(--shoulder) 40%, var(--border)); border-radius: 8px; padding: 8px 10px; font-size: 11.5px; color: var(--text); margin-bottom: 10px; }
+  .pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    border: 1px solid var(--border); background: var(--surface2); color: var(--text);
+    font: inherit; font-size: 12px; padding: 4px 11px; border-radius: 999px; cursor: pointer;
+  }
+  .pill.on { border-color: transparent; color: var(--bg); font-weight: 700; }
+  .hint { font-size: 11.5px; color: var(--muted); }
+  .form-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+  .footnote { margin-top: 18px; font-size: 12px; color: var(--faint); line-height: 1.7; }
+  .footnote b { color: var(--muted); }
+</style>
+
+<div class="app" id="app">
+  <header>
+    <h1 id="h-title">기간별 요금 캘린더<span class="tag" id="h-tag">UX 개편 목업 · V-PQ Ocean Villa</span></h1>
+    <div class="spacer"></div>
+    <div class="seg" id="seg-axis" role="group" aria-label="가격 축"></div>
+    <div class="seg" id="seg-mode" role="group" aria-label="화면 모드">
+      <button data-m="admin" class="on">운영자</button>
+      <button data-m="supplier">공급자 (NCC)</button>
+    </div>
+  </header>
+
+  <div class="rulebar" id="rulebar"></div>
+
+  <div class="main">
+    <section class="cal">
+      <div class="cal-head">
+        <div class="cal-nav">
+          <button id="prev" aria-label="이전 달">‹</button>
+          <button id="next" aria-label="다음 달">›</button>
+        </div>
+        <div class="cal-title" id="cal-title"></div>
+        <div class="spacer"></div>
+        <button class="btn primary" id="btn-add"></button>
+        <button class="btn" id="btn-sel"></button>
+        <button class="btn" id="btn-bulk"></button>
+        <button class="btn" id="btn-copy"></button>
+      </div>
+      <div class="dow" id="dow"></div>
+      <div id="weeks"></div>
+      <div class="footnote" id="cal-foot"></div>
+    </section>
+
+    <aside class="panel">
+      <div class="card" id="card-copy" style="display:none">
+        <h2 id="copy-title"></h2>
+        <div id="copy-body"></div>
+      </div>
+      <div class="card" id="card-sel" style="display:none">
+        <h2 id="sel-title"></h2>
+        <div id="sel-body"></div>
+      </div>
+      <div class="card" id="card-bulk" style="display:none">
+        <h2 id="bulk-title"></h2>
+        <div id="bulk-body"></div>
+      </div>
+      <div class="card" id="card-add" style="display:none">
+        <h2 id="add-title"></h2>
+        <div id="add-body"></div>
+      </div>
+      <div class="card">
+        <h2 id="layers-title"></h2>
+        <div id="layers"></div>
+      </div>
+      <div class="card">
+        <h2 id="stack-title"></h2>
+        <div id="stack"><div class="empty" id="stack-empty"></div></div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ───────── i18n ───────── */
+const I18N = {
+  admin: {
+    title: '기간별 요금 캘린더', tag: 'UX 개편 목업 · V-PQ Ocean Villa',
+    axis: { net: '판매가(Net)', consumer: '소비자가', cost: '원가' },
+    rule: '겹침 허용 — 이기는 순서: <b>① 짧은 기간 ② 높은 시즌 ③ 늦은 시작일</b> · 기간을 지우면 아래 요금이 자동 복원',
+    legend: { LOW:'비수기', SHOULDER:'준성수기', HIGH:'성수기', PEAK:'극성수기' },
+    pm: '● 프리미엄일(금·토)', hol: '★ 공휴일',
+    add: '+ 기간 추가', addTitle: '새 요금 기간',
+    sel: '☑ 날짜 선택', selTitle: '날짜 선택 → 한꺼번에 처리',
+    selHint: '캘린더에서 날짜를 탭해 담으세요(다시 탭하면 해제). 떨어져 있는 날짜도 함께 담아 <b>한 번에</b> 가격을 넣거나 %로 조정합니다.',
+    rangeAddL: '범위로 담기', rangeAddBtn: '+ 담기',
+    selCount: (n,r) => `${n}박 선택 · ${r}개 구간`, selEmpty: '아직 담은 날짜가 없습니다',
+    modeSet: '고정가 입력', modePct: '% 조정', clearSel: '선택 해제',
+    copy: '📋 연도 복사', copyTitle: '다른 연도로 복사',
+    copyHint: '올해 세팅한 요금 레이어를 통째로 다음 해에 재사용합니다. 복사할 레이어를 고르고, 필요하면 내년 가격 인상률(%)도 함께 적용하세요.',
+    copyWarn: '⚠ <b>설날 등 음력 공휴일 기간</b>은 해마다 날짜가 달라집니다. 같은 월·일로 복사되므로, 복사 후 해당 레이어만 새 날짜로 옮겨 주세요. (공휴일 ★ 표시와 프리미엄 요일은 자동으로 새 해 기준으로 적용됩니다)',
+    srcYearL: '원본 연도', dstYearL: '대상 연도', copyPctL: '가격 인상률 (%) — 비우면 동일 가격',
+    copyPick: '복사할 레이어', copyPreview: (n,y) => `레이어 ${n}개 → ${y}년으로 복사 예정`,
+    copyEmptyYear: '이 연도에는 복사할 레이어가 없습니다', copyBtn: '복사',
+    bulk: '⚡ 일괄 조정', bulkTitle: '가격 일괄 조정',
+    bulkHint: '입력한 기간의 밤마다 <b>현재 적용가 × 조정률</b>로 조정 레이어를 자동 생성합니다. 원본 기간은 그대로 보존되며, 조정 레이어를 지우면 원래 가격으로 복원됩니다.',
+    startL: '시작일', endL: '종료일 (체크아웃)',
+    pctL: '조정률 (%) — 예: +10, -15', targetsL: '조정할 가격',
+    bulkPreview: (n,s) => `${n}박 · 조정 레이어 ${s}개 생성 예정`,
+    invalid: '시작일·종료일·값을 확인하세요',
+    apply: '적용', pickOrType: '날짜를 직접 입력하거나 캘린더를 탭하세요',
+    bulkTag: (p) => `일괄 ${p>0?'+':''}${p}%`,
+    layers: '요금 레이어', base: '기본요금 (연중)', nights: '박',
+    stackT: '선택한 날짜', stackEmpty: '캘린더에서 날짜를 탭하면 그 날 밤에 겹친 요금이 순서대로 보입니다.',
+    applied: '적용', hiddenBy: (w) => `${w} 기간에 가려짐`, baseWhy: '다른 기간이 없을 때',
+    pmApplied: '프리미엄일 요금 적용됨 (프리미엄가 → 평일가 폴백)',
+    label: '기간 이름', season: '시즌', price: { net:'판매가 Net (₫/박)', consumer:'소비자가 (₫/박)', cost:'원가 (₫/박)' },
+    save: '기간 추가', cancel: '취소', del: '삭제',
+    foot: '<b>조작 방법</b> — 날짜 탭: 그 날의 요금 스택 확인 · 색 밴드/레이어 카드에 마우스: 기간 범위 하이라이트 · [+ 기간 추가]: 날짜 직접 입력 or 캘린더 탭 → 가격 입력 · [☑ 날짜 선택]: 날짜를 여러 개(떨어져 있어도) 담아두고 한꺼번에 고정가/% 처리 · [⚡ 일괄 조정]: 연속 기간에 %만 입력하면 대량 조절. 겹치게 만들어도 됩니다 — 셀에는 항상 “이긴” 요금만 표시됩니다.',
+    dows: ['일','월','화','수','목','금','토'],
+    month: (y,m) => `${y}년 ${m}월`,
+  },
+  supplier: {
+    title: 'Giá theo giai đoạn', tag: 'Bản mẫu UX · V-PQ Ocean Villa',
+    axis: { cost: 'Giá gốc' },
+    rule: 'Cho phép trùng giai đoạn — ưu tiên: <b>① giai đoạn ngắn ② mùa cao hơn ③ bắt đầu muộn hơn</b>',
+    legend: { LOW:'Thấp điểm', SHOULDER:'Cận cao điểm', HIGH:'Cao điểm', PEAK:'Đỉnh điểm' },
+    pm: '● Ngày cao cấp (T6·T7)', hol: '★ Ngày lễ',
+    add: '+ Thêm giai đoạn', addTitle: 'Giai đoạn mới',
+    sel: '☑ Chọn ngày', selTitle: 'Chọn ngày → xử lý cùng lúc',
+    selHint: 'Chạm các ngày trên lịch để chọn (chạm lại để bỏ). Có thể chọn ngày rời rạc rồi nhập giá <b>một lần</b>.',
+    rangeAddL: 'Thêm theo khoảng', rangeAddBtn: '+ Thêm',
+    selCount: (n,r) => `${n} đêm · ${r} khoảng`, selEmpty: 'Chưa chọn ngày nào',
+    modeSet: 'Nhập giá', modePct: 'Điều chỉnh %', clearSel: 'Bỏ chọn',
+    copy: '📋 Sao chép năm', copyTitle: 'Sao chép sang năm khác',
+    copyHint: 'Dùng lại các giai đoạn giá của năm nay cho năm sau. Chọn giai đoạn cần sao chép, có thể áp dụng tỷ lệ tăng giá (%).',
+    copyWarn: '⚠ <b>Các kỳ nghỉ âm lịch (Tết...)</b> đổi ngày mỗi năm. Sau khi sao chép, hãy chỉnh lại ngày cho các giai đoạn đó.',
+    srcYearL: 'Năm gốc', dstYearL: 'Năm đích', copyPctL: 'Tỷ lệ tăng giá (%) — bỏ trống = giữ nguyên',
+    copyPick: 'Giai đoạn cần sao chép', copyPreview: (n,y) => `Sẽ sao chép ${n} giai đoạn → năm ${y}`,
+    copyEmptyYear: 'Năm này không có giai đoạn nào', copyBtn: 'Sao chép',
+    bulk: '⚡ Điều chỉnh hàng loạt', bulkTitle: 'Điều chỉnh giá hàng loạt',
+    bulkHint: 'Tạo lớp giá điều chỉnh (<b>giá hiện tại × tỷ lệ</b>) cho từng đêm trong khoảng đã chọn. Giai đoạn gốc được giữ nguyên — xóa lớp là giá trở lại như cũ.',
+    startL: 'Ngày bắt đầu', endL: 'Ngày kết thúc (trả phòng)',
+    pctL: 'Tỷ lệ (%) — VD: +10, -15', targetsL: 'Giá áp dụng',
+    bulkPreview: (n,s) => `${n} đêm · sẽ tạo ${s} lớp điều chỉnh`,
+    invalid: 'Kiểm tra ngày và giá trị',
+    apply: 'Áp dụng', pickOrType: 'Nhập ngày hoặc chạm trên lịch',
+    bulkTag: (p) => `Hàng loạt ${p>0?'+':''}${p}%`,
+    layers: 'Các giai đoạn giá', base: 'Giá cơ bản (cả năm)', nights: 'đêm',
+    stackT: 'Ngày đã chọn', stackEmpty: 'Chạm một ngày trên lịch để xem các mức giá trùng nhau.',
+    applied: 'Áp dụng', hiddenBy: (w) => `Bị che bởi “${w}”`, baseWhy: 'Khi không có giai đoạn nào',
+    pmApplied: 'Áp dụng giá ngày cao cấp',
+    label: 'Tên giai đoạn', season: 'Mùa', price: { cost:'Giá gốc (₫/đêm)' },
+    save: 'Thêm', cancel: 'Hủy', del: 'Xóa',
+    foot: '<b>Cách dùng</b> — Chạm ngày để xem giá đêm đó · [+ Thêm giai đoạn]: nhập ngày hoặc chạm trên lịch → nhập giá gốc · [☑ Chọn ngày]: chọn nhiều ngày (kể cả rời rạc) rồi nhập giá một lần · [⚡ Điều chỉnh hàng loạt]: nhập khoảng ngày và tỷ lệ %. Chỉ hiển thị giá gốc của bạn.',
+    dows: ['CN','T2','T3','T4','T5','T6','T7'],
+    month: (y,m) => `Tháng ${m}/${y}`,
+  },
+};
+
+/* ───────── data (demo) ───────── */
+const SEASONS = { LOW:{rank:0,v:'--low'}, SHOULDER:{rank:1,v:'--shoulder'}, HIGH:{rank:2,v:'--high'}, PEAK:{rank:3,v:'--peak'} };
+let nextId = 10;
+const base = { id:0, isBase:true, label:'기본요금', season:'LOW',
+  cost:4000000, net:5200000, consumer:5800000 };
+let periods = [
+  { id:1, label:'겨울 성수기', labelVi:'Cao điểm mùa đông', season:'HIGH', start:'2026-12-20', end:'2027-03-01',
+    cost:5500000, net:7000000, consumer:7800000, pCost:6000000, pNet:7600000, pConsumer:8400000 },
+  { id:2, label:'설 연휴', labelVi:'Tết Nguyên đán', season:'PEAK', start:'2027-02-05', end:'2027-02-11',
+    cost:8000000, net:10500000, consumer:11500000 },
+  { id:3, label:'1월 특가 주간', labelVi:'Tuần khuyến mãi T1', season:'SHOULDER', start:'2027-01-10', end:'2027-01-17',
+    cost:4500000, net:6000000, consumer:6600000 },
+];
+const holidays = { '2027-01-01':'신정', '2027-02-06':'설 연휴', '2027-02-07':'설날', '2027-02-08':'설 연휴' };
+const premiumDays = [5,6]; // 금·토
+
+/* ───────── state ───────── */
+let mode = 'admin';
+let axis = 'net';                    // net | consumer | cost
+let view = { y:2027, m:1 };          // m: 0-based → 2027년 2월
+let selected = null;                 // 'YYYY-MM-DD'
+let addState = null;                 // null | {start, end, season, label, ...} — 새 기간 폼
+let bulkState = null;                // null | {start, end, pct, axes:{net,consumer,cost}} — 일괄 조정
+let selState = null;                 // null | {days:Set, tab:'set'|'pct', ...} — 날짜 선택 바구니
+let copyState = null;                // null | {src, dst, pct, include:Set} — 연도 복사
+let hlPeriod = null;
+
+/* ───────── date utils (UTC, half-open [start,end)) ───────── */
+const d2s = d => d.toISOString().slice(0,10);
+const s2d = s => new Date(s + 'T00:00:00Z');
+const addD = (d,n) => new Date(d.getTime() + n*86400000);
+const nightsOf = p => Math.round((s2d(p.end) - s2d(p.start)) / 86400000);
+const covers = (p,ds) => p.start <= ds && ds < p.end;
+
+/* ───────── resolution: ①짧은 기간 ②높은 시즌 ③늦은 시작 ④최신 ───────── */
+function stackFor(ds) {
+  const cov = periods.filter(p => covers(p,ds));
+  cov.sort((a,b) =>
+    (nightsOf(a) - nightsOf(b)) ||
+    (SEASONS[b.season].rank - SEASONS[a.season].rank) ||
+    (a.start < b.start ? 1 : a.start > b.start ? -1 : 0) ||
+    (b.id - a.id));
+  return [...cov, base];
+}
+function premiumReason(ds) {
+  if (holidays[ds]) return 'HOLIDAY';
+  if (premiumDays.includes(s2d(ds).getUTCDay())) return 'WEEKDAY';
+  return null;
+}
+const PKEY = { cost:'pCost', net:'pNet', consumer:'pConsumer' };
+function priceOf(row, ax, ds) {
+  const v = row[ax];
+  const reason = premiumReason(ds);
+  if (reason && !row.isBase) {
+    const anyPm = row.pCost != null || row.pNet != null || row.pConsumer != null;
+    if (anyPm) return { v: row[PKEY[ax]] ?? v, pm:true, reason };
+  }
+  return { v, pm:false, reason };
+}
+const fmt = v => v == null ? '—' : (v/1e6).toFixed(1).replace(/\.0$/,'') + 'M';
+const fmtFull = v => v == null ? '—' : v.toLocaleString('en-US') + ' ₫';
+
+/* ───────── render ───────── */
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(SEASONS[n].v).trim();
+const t = () => I18N[mode];
+const pLabel = p => (mode==='supplier' && p.labelVi) ? p.labelVi : (p.isBase ? t().base : p.label);
+
+function render() {
+  const L = t();
+  document.documentElement.dataset.mode = mode;
+  $('h-title').firstChild.textContent = L.title;
+  $('h-tag').textContent = L.tag;
+  $('btn-add').textContent = L.add;
+  $('btn-sel').textContent = L.sel;
+  $('btn-bulk').textContent = L.bulk;
+  $('btn-copy').textContent = L.copy;
+  $('layers-title').textContent = L.layers;
+  $('stack-title').textContent = L.stackT;
+  $('cal-foot').innerHTML = L.foot;
+
+  // axis segmented
+  const axes = Object.keys(L.axis);
+  if (!axes.includes(axis)) axis = axes[0];
+  $('seg-axis').innerHTML = axes.map(a =>
+    `<button data-a="${a}" class="${a===axis?'on':''}">${L.axis[a]}</button>`).join('');
+  $('seg-axis').querySelectorAll('button').forEach(b =>
+    b.onclick = () => { axis = b.dataset.a; render(); });
+
+  // rulebar
+  $('rulebar').innerHTML =
+    `<span>${L.rule}</span><span class="spacer"></span>` +
+    Object.keys(SEASONS).map(s =>
+      `<span class="chip"><span class="dot" style="background:${css(s)}"></span>${L.legend[s]}</span>`).join('') +
+    `<span class="chip pm">${L.pm}</span><span class="chip">${L.hol}</span>`;
+
+  renderCalendar();
+  renderLayers();
+  renderStack();
+  renderAddCard();
+  renderBulkCard();
+  renderSelCard();
+  renderCopyCard();
+}
+
+function renderCalendar() {
+  const L = t();
+  $('cal-title').textContent = L.month(view.y, view.m+1);
+  $('dow').innerHTML = L.dows.map(d => `<div>${d}</div>`).join('');
+
+  const first = new Date(Date.UTC(view.y, view.m, 1));
+  const dim = new Date(Date.UTC(view.y, view.m+1, 0)).getUTCDate();
+  const gridStart = addD(first, -first.getUTCDay());
+  const weeks = Math.ceil((first.getUTCDay() + dim) / 7);
+  let html = '';
+
+  for (let w=0; w<weeks; w++) {
+    const wStart = addD(gridStart, w*7);
+    // day cells
+    let cells = '';
+    for (let i=0; i<7; i++) {
+      const d = addD(wStart, i), ds = d2s(d);
+      const out = d.getUTCMonth() !== view.m;
+      const win = stackFor(ds)[0];
+      const { v, pm } = priceOf(win, axis, ds);
+      const tint = css(win.season);
+      const cls = ['cell', out?'out':'', ds===selected?'sel':'',
+        inPickRange(ds) ? 'rangepick' : '',
+        (selState && selState.days.has(ds)) ? 'picked' : '',
+        (hlPeriod && covers(hlPeriod, ds)) ? 'hl' : ''].join(' ');
+      const mark = holidays[ds] ? '<span class="mark">★</span>' :
+                   pm ? '<span class="mark pm">●</span>' : '';
+      cells += `<div class="${cls}" data-d="${ds}" style="background:color-mix(in srgb, ${tint} ${win.isBase?7:16}%, var(--surface2))">
+        <span class="d">${d.getUTCDate()}</span>${mark}
+        <span class="p" style="color:${win.isBase?'var(--text)':tint}">${out?'':fmt(v)}</span>
+      </div>`;
+    }
+    // bands (lane-packed)
+    const wEndEx = d2s(addD(wStart, 7));
+    const wStartS = d2s(wStart);
+    const segs = periods
+      .filter(p => p.start < wEndEx && p.end > wStartS)
+      .sort((a,b) => a.start < b.start ? -1 : a.start > b.start ? 1 : nightsOf(b)-nightsOf(a))
+      .map(p => {
+        const from = p.start > wStartS ? p.start : wStartS;
+        const to = p.end < wEndEx ? p.end : wEndEx;
+        return { p, a: Math.round((s2d(from)-wStart)/86400000), b: Math.round((s2d(to)-wStart)/86400000),
+                 contL: p.start < wStartS, contR: p.end > wEndEx };
+      });
+    const lanes = [];
+    segs.forEach(s => {
+      let l = lanes.findIndex(end => end <= s.a);
+      if (l === -1) { lanes.push(s.b); l = lanes.length-1; } else lanes[l] = s.b;
+      s.lane = l;
+    });
+    let bands = '';
+    segs.forEach(s => {
+      bands += `<div class="band ${s.contL?'cont-l':''} ${s.contR?'cont-r':''} ${hlPeriod===s.p?'hl':''}"
+        data-p="${s.p.id}" title="${pLabel(s.p)}"
+        style="grid-column:${s.a+1}/${s.b+1};grid-row:${s.lane+1};background:${css(s.p.season)}">${s.contL?'':pLabel(s.p)}</div>`;
+    });
+    html += `<div class="week"><div class="days">${cells}</div>${segs.length?`<div class="bands">${bands}</div>`:''}</div>`;
+  }
+  $('weeks').innerHTML = html;
+
+  $('weeks').querySelectorAll('.cell').forEach(c => c.onclick = () => onCellTap(c.dataset.d));
+  $('weeks').querySelectorAll('.band').forEach(b => {
+    b.onmouseenter = () => { hlPeriod = periods.find(p => p.id == b.dataset.p); renderCalendar(); };
+    b.onmouseleave = () => { hlPeriod = null; renderCalendar(); };
+    b.onclick = e => { e.stopPropagation(); const p = periods.find(x => x.id == b.dataset.p);
+      selected = p.start; render(); };
+  });
+}
+
+/* ── 범위 선택 공용 (추가 폼 · 일괄 조정 공유): 직접 입력 ↔ 캘린더 탭 양방향 ── */
+function activeRange() { return addState || bulkState; }
+function inPickRange(ds) {
+  const r = activeRange(); if (!r) return false;
+  if (r.start && !r.end) return ds === r.start;
+  if (r.start && r.end) return r.start <= ds && ds < r.end;
+  return false;
+}
+function validRange(s) { return !!(s.start && s.end && s.start < s.end); }
+function nightsBetween(s) { return Math.round((s2d(s.end) - s2d(s.start)) / 86400000); }
+function bindRangeInputs(prefix, state) {
+  ['start','end'].forEach(k => {
+    const el = $(prefix + k); if (!el) return;
+    el.onchange = () => { state[k] = el.value; state.err = false; render(); };
+  });
+}
+
+function renderLayers() {
+  const L = t();
+  const sorted = [...periods].sort((a,b) =>
+    (nightsOf(a)-nightsOf(b)) || (SEASONS[b.season].rank - SEASONS[a.season].rank) || (a.start<b.start?1:-1));
+  let html = sorted.map(p => {
+    const pr = p[axis];
+    const pmv = p[PKEY[axis]];
+    return `<div class="layer" data-p="${p.id}">
+      <span class="bar" style="background:${css(p.season)}"></span>
+      <div class="body">
+        <div class="t">${pLabel(p)} <span class="badge" style="background:${css(p.season)}">${L.legend[p.season]}</span></div>
+        <div class="sub">${p.start} → ${p.end} · ${nightsOf(p)}${L.nights}</div>
+        <div class="price">${fmtFull(pr)}${pmv!=null ? ` <span class="pm-note">● ${fmt(pmv)}</span>`:''}</div>
+      </div>
+      <button class="del" data-del="${p.id}" title="${L.del}" aria-label="${L.del}">✕</button>
+    </div>`;
+  }).join('');
+  html += `<div class="layer base-row">
+    <span class="bar" style="background:${css(base.season)}"></span>
+    <div class="body">
+      <div class="t">${L.base}</div>
+      <div class="sub">${t().baseWhy}</div>
+      <div class="price">${fmtFull(base[axis])}</div>
+    </div>
+  </div>`;
+  $('layers').innerHTML = html;
+  $('layers').querySelectorAll('.layer[data-p]').forEach(el => {
+    el.onmouseenter = () => { hlPeriod = periods.find(p => p.id == el.dataset.p); renderCalendar(); };
+    el.onmouseleave = () => { hlPeriod = null; renderCalendar(); };
+    el.onclick = () => { const p = periods.find(x => x.id == el.dataset.p);
+      const d = s2d(p.start); view = {y:d.getUTCFullYear(), m:d.getUTCMonth()}; selected = p.start; render(); };
+  });
+  $('layers').querySelectorAll('[data-del]').forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    periods = periods.filter(p => p.id != b.dataset.del);
+    hlPeriod = null; render();
+  });
+}
+
+function renderStack() {
+  const L = t();
+  if (!selected) { $('stack').innerHTML = `<div class="empty">${L.stackEmpty}</div>`; return; }
+  const stack = stackFor(selected);
+  const win = stack[0];
+  const holName = holidays[selected];
+  let html = `<div class="stack-date">${selected}${holName ? ` <span style="color:var(--shoulder)">★ ${holName}</span>`:''}</div>`;
+  stack.forEach((row,i) => {
+    const { v, pm } = priceOf(row, axis, selected);
+    html += `<div class="stack-item ${i===0?'win':'lose'}">
+      <span class="dot" style="background:${css(row.season)}"></span>
+      <div class="body">
+        <div class="t">${pLabel(row)}</div>
+        <div class="why">${i===0 ? (row.isBase ? L.baseWhy : `${nightsOf(row)}${L.nights} · ${L.legend[row.season]}`) : L.hiddenBy(pLabel(win))}</div>
+        ${i===0 && pm ? `<div class="pm-note">● ${L.pmApplied}</div>` : ''}
+      </div>
+      <span class="pr">${fmtFull(i===0 ? v : row[axis])}</span>
+      ${i===0 ? `<span class="win-tag">${L.applied}</span>` : ''}
+    </div>`;
+  });
+  $('stack').innerHTML = html;
+}
+
+/* ───────── add flow (날짜 직접 입력 + 캘린더 탭) ───────── */
+function renderAddCard() {
+  const L = t();
+  const card = $('card-add');
+  if (!addState) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  $('add-title').textContent = L.addTitle;
+  const axes = Object.keys(L.axis);
+  const ok = validRange(addState);
+  $('add-body').innerHTML = `
+    <div class="hint" style="margin-bottom:10px">${L.pickOrType}</div>
+    <div class="form-grid2">
+      <div class="form-row"><label>${L.startL}</label><input type="date" id="a-start" value="${addState.start||''}"></div>
+      <div class="form-row"><label>${L.endL}</label><input type="date" id="a-end" value="${addState.end||''}"></div>
+    </div>
+    ${ok ? `<div class="preview-box">${nightsBetween(addState)}${L.nights}</div>` : ''}
+    <div class="form-row"><label>${L.label}</label><input id="f-label" value="${addState.label||''}" placeholder="${mode==='admin'?'예: 크리스마스 위크':'VD: Tuần lễ Giáng sinh'}"></div>
+    <div class="form-row"><label>${L.season}</label><div class="pills">${Object.keys(SEASONS).map(s =>
+      `<button class="pill ${addState.season===s?'on':''}" data-s="${s}" style="${addState.season===s?`background:${css(s)};border-color:${css(s)}`:''}">${L.legend[s]}</button>`).join('')}</div></div>
+    ${axes.map(a => `<div class="form-row"><label>${L.price[a]}</label><input id="f-${a}" inputmode="numeric" value="${addState[a]||''}" placeholder="7000000"></div>`).join('')}
+    <div class="form-actions">
+      <button class="btn primary" id="add-save">${L.save}</button>
+      <button class="btn" id="add-cancel">${L.cancel}</button>
+    </div>
+    ${addState.err ? `<div class="err-msg">${L.invalid}</div>` : ''}`;
+  bindRangeInputs('a-', addState);
+  $('add-body').querySelectorAll('.pill').forEach(b => b.onclick = () => {
+    snapForm(); addState.season = b.dataset.s; renderAddCard(); });
+  $('add-save').onclick = () => {
+    snapForm();
+    if (!validRange(addState)) { addState.err = true; renderAddCard(); return; }
+    const p = { id: nextId++, label: $('f-label').value || '새 기간', labelVi: $('f-label').value || 'Giai đoạn mới',
+      season: addState.season, start: addState.start, end: addState.end,
+      cost: num('f-cost'), net: num('f-net'), consumer: num('f-consumer') };
+    if (mode === 'supplier') { p.net = null; p.consumer = null; }
+    periods.push(p);
+    selected = p.start; addState = null; render();
+  };
+  $('add-cancel').onclick = () => { addState = null; render(); };
+}
+function snapForm() {
+  if (!addState) return;
+  const lb = $('f-label'); if (lb) addState.label = lb.value;
+  ['cost','net','consumer'].forEach(a => { const el = $('f-'+a); if (el) addState[a] = el.value; });
+}
+function num(id) { const el = $(id); if (!el) return null; const v = parseInt(String(el.value).replace(/[^\d]/g,''),10); return isNaN(v) ? null : v; }
+
+/* ───────── bulk adjust (대량 가격 조절) ─────────
+   범위 내 밤들을 "현재 승자 행" 기준으로 구간화 → 구간별 조정 레이어 자동 생성.
+   원본 기간은 보존 — 조정 레이어 삭제 시 원래 가격 복원. */
+function segmentsOver(startS, endS) {
+  const segs = []; let cur = null;
+  for (let d = s2d(startS); d2s(d) < endS; d = addD(d,1)) {
+    const ds = d2s(d), w = stackFor(ds)[0];
+    if (cur && cur.row === w) cur.end = d2s(addD(d,1));
+    else { cur = { row: w, start: ds, end: d2s(addD(d,1)) }; segs.push(cur); }
+  }
+  return segs;
+}
+function bulkSegments() {
+  const s = bulkState;
+  if (!s || !validRange(s)) return null;
+  return { segs: segmentsOver(s.start, s.end), nights: nightsBetween(s) };
+}
+function pushAdjustLayers(segs, pct, sel) {
+  const adj = v => v == null ? null : Math.round(v * (1 + pct/100) / 1000) * 1000; // 1,000₫ 단위 반올림
+  const ax = (row, key, on) => on ? adj(row[key]) : row[key];
+  segs.forEach(g => {
+    const r = g.row;
+    periods.push({ id: nextId++,
+      label: `${I18N.admin.bulkTag(pct)} · ${r.isBase ? '기본요금' : r.label}`,
+      labelVi: `${I18N.supplier.bulkTag(pct)} · ${r.isBase ? 'Giá cơ bản' : (r.labelVi || r.label)}`,
+      season: r.season, start: g.start, end: g.end,
+      cost: ax(r,'cost',sel.cost), net: ax(r,'net',sel.net), consumer: ax(r,'consumer',sel.consumer),
+      pCost: r.pCost != null ? ax(r,'pCost',sel.cost) : null,
+      pNet: r.pNet != null ? ax(r,'pNet',sel.net) : null,
+      pConsumer: r.pConsumer != null ? ax(r,'pConsumer',sel.consumer) : null });
+  });
+}
+function renderBulkCard() {
+  const L = t();
+  const card = $('card-bulk');
+  if (!bulkState) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  $('bulk-title').textContent = L.bulkTitle;
+  const axes = Object.keys(L.axis);
+  const info = bulkSegments();
+  $('bulk-body').innerHTML = `
+    <div class="hint" style="margin-bottom:10px">${L.bulkHint}</div>
+    <div class="form-grid2">
+      <div class="form-row"><label>${L.startL}</label><input type="date" id="b-start" value="${bulkState.start||''}"></div>
+      <div class="form-row"><label>${L.endL}</label><input type="date" id="b-end" value="${bulkState.end||''}"></div>
+    </div>
+    <div class="form-row"><label>${L.pctL}</label><input id="b-pct" inputmode="numeric" value="${bulkState.pct||''}" placeholder="+10"></div>
+    ${axes.length > 1 ? `<div class="form-row"><label>${L.targetsL}</label><div class="axis-checks">${axes.map(a =>
+      `<label><input type="checkbox" data-ax="${a}" ${bulkState.axes[a]?'checked':''}>${L.axis[a]}</label>`).join('')}</div></div>` : ''}
+    ${info ? `<div class="preview-box">${L.bulkPreview(info.nights, info.segs.length)}</div>` : ''}
+    <div class="form-actions">
+      <button class="btn primary" id="bulk-apply">${L.apply}</button>
+      <button class="btn" id="bulk-cancel">${L.cancel}</button>
+    </div>
+    ${bulkState.err ? `<div class="err-msg">${L.invalid}</div>` : ''}`;
+  bindRangeInputs('b-', bulkState);
+  $('b-pct').onchange = () => { bulkState.pct = $('b-pct').value; bulkState.err = false; renderBulkCard(); };
+  $('bulk-body').querySelectorAll('[data-ax]').forEach(c => c.onchange = () => { bulkState.axes[c.dataset.ax] = c.checked; });
+  $('bulk-apply').onclick = applyBulk;
+  $('bulk-cancel').onclick = () => { bulkState = null; render(); };
+}
+function applyBulk() {
+  const s = bulkState;
+  const pct = parseFloat(String(s.pct).replace(/[^\d.+-]/g, ''));
+  const info = bulkSegments();
+  const sel = mode === 'supplier' ? { cost:true, net:false, consumer:false } : s.axes;
+  if (!info || !pct || !Object.values(sel).some(Boolean)) { s.err = true; renderBulkCard(); return; }
+  pushAdjustLayers(info.segs, pct, sel);
+  selected = s.start; bulkState = null; render();
+}
+
+/* ───────── selection basket (날짜 먼저 담고 한꺼번에 처리) ───────── */
+function selRuns() {
+  const days = [...selState.days].sort();
+  const runs = [];
+  days.forEach(ds => {
+    const last = runs[runs.length-1];
+    if (last && last.end === ds) { last.end = d2s(addD(s2d(ds),1)); last.n++; }
+    else runs.push({ start: ds, end: d2s(addD(s2d(ds),1)), n: 1 });
+  });
+  return runs;
+}
+function snapSel() {
+  if (!selState) return;
+  [['s-label','label'],['s-pct','pct'],['s-rs','rs'],['s-re','re']].forEach(([id,k]) => {
+    const el = $(id); if (el) selState[k] = el.value; });
+  ['cost','net','consumer'].forEach(a => { const el = $('s-'+a); if (el) selState[a] = el.value; });
+}
+function renderSelCard() {
+  const L = t();
+  const card = $('card-sel');
+  if (!selState) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  $('sel-title').textContent = L.selTitle;
+  const axes = Object.keys(L.axis);
+  const runs = selRuns();
+  const total = selState.days.size;
+  $('sel-body').innerHTML = `
+    <div class="hint" style="margin-bottom:10px">${L.selHint}</div>
+    <div class="form-row" style="margin-bottom:4px"><label>${L.rangeAddL}</label></div>
+    <div class="range-add" style="margin-bottom:10px">
+      <div class="form-row"><input type="date" id="s-rs" value="${selState.rs||''}" aria-label="${L.startL}"></div>
+      <div class="form-row"><input type="date" id="s-re" value="${selState.re||''}" aria-label="${L.endL}"></div>
+      <button class="btn" id="s-radd">${L.rangeAddBtn}</button>
+    </div>
+    ${total ? `<div class="preview-box">${L.selCount(total, runs.length)}</div>` +
+      runs.map((r,i) => `<div class="run-row"><span class="dot" style="background:var(--accent)"></span>
+        ${r.start} → ${r.end} · ${r.n}${L.nights}<button class="x" data-run="${i}" title="${L.del}" aria-label="${L.del}">✕</button></div>`).join('')
+      : `<div class="hint" style="margin-bottom:10px">${L.selEmpty}</div>`}
+    <div class="mini-seg" role="group">
+      <button data-tab="set" class="${selState.tab==='set'?'on':''}">${L.modeSet}</button>
+      <button data-tab="pct" class="${selState.tab==='pct'?'on':''}">${L.modePct}</button>
+    </div>
+    ${selState.tab === 'set' ? `
+      <div class="form-row"><label>${L.label}</label><input id="s-label" value="${selState.label||''}" placeholder="${mode==='admin'?'예: 이벤트 특가':'VD: Giá sự kiện'}"></div>
+      <div class="form-row"><label>${L.season}</label><div class="pills">${Object.keys(SEASONS).map(s =>
+        `<button class="pill ${selState.season===s?'on':''}" data-s="${s}" style="${selState.season===s?`background:${css(s)};border-color:${css(s)}`:''}">${L.legend[s]}</button>`).join('')}</div></div>
+      ${axes.map(a => `<div class="form-row"><label>${L.price[a]}</label><input id="s-${a}" inputmode="numeric" value="${selState[a]||''}" placeholder="7000000"></div>`).join('')}
+    ` : `
+      <div class="form-row"><label>${L.pctL}</label><input id="s-pct" inputmode="numeric" value="${selState.pct||''}" placeholder="+10"></div>
+      ${axes.length > 1 ? `<div class="form-row"><label>${L.targetsL}</label><div class="axis-checks">${axes.map(a =>
+        `<label><input type="checkbox" data-ax="${a}" ${selState.axes[a]?'checked':''}>${L.axis[a]}</label>`).join('')}</div></div>` : ''}
+    `}
+    <div class="form-actions">
+      <button class="btn primary" id="s-apply">${L.apply}</button>
+      <button class="btn" id="s-clear">${L.clearSel}</button>
+      <button class="btn" id="s-cancel">${L.cancel}</button>
+    </div>
+    ${selState.err ? `<div class="err-msg">${L.invalid}</div>` : ''}`;
+  $('s-radd').onclick = () => {
+    snapSel();
+    if (selState.rs && selState.re && selState.rs < selState.re)
+      for (let d = s2d(selState.rs); d2s(d) < selState.re; d = addD(d,1)) selState.days.add(d2s(d));
+    selState.err = false; render();
+  };
+  $('sel-body').querySelectorAll('.mini-seg button').forEach(b => b.onclick = () => {
+    snapSel(); selState.tab = b.dataset.tab; selState.err = false; renderSelCard(); });
+  $('sel-body').querySelectorAll('.pill').forEach(b => b.onclick = () => {
+    snapSel(); selState.season = b.dataset.s; renderSelCard(); });
+  $('sel-body').querySelectorAll('[data-ax]').forEach(c => c.onchange = () => { selState.axes[c.dataset.ax] = c.checked; });
+  $('sel-body').querySelectorAll('[data-run]').forEach(b => b.onclick = () => {
+    snapSel();
+    const r = selRuns()[+b.dataset.run];
+    for (let d = s2d(r.start); d2s(d) < r.end; d = addD(d,1)) selState.days.delete(d2s(d));
+    render();
+  });
+  $('s-clear').onclick = () => { snapSel(); selState.days.clear(); render(); };
+  $('s-cancel').onclick = () => { selState = null; render(); };
+  $('s-apply').onclick = applySel;
+}
+function applySel() {
+  snapSel();
+  const runs = selRuns();
+  if (!runs.length) { selState.err = true; renderSelCard(); return; }
+  if (selState.tab === 'set') {
+    const prices = { cost: num('s-cost'), net: num('s-net'), consumer: num('s-consumer') };
+    if (mode === 'supplier') { prices.net = null; prices.consumer = null; }
+    if (prices.cost == null && prices.net == null && prices.consumer == null) { selState.err = true; renderSelCard(); return; }
+    runs.forEach(r => periods.push({ id: nextId++,
+      label: selState.label || '선택 기간', labelVi: selState.label || 'Ngày đã chọn',
+      season: selState.season, start: r.start, end: r.end, ...prices }));
+  } else {
+    const pct = parseFloat(String(selState.pct).replace(/[^\d.+-]/g, ''));
+    const sel = mode === 'supplier' ? { cost:true, net:false, consumer:false } : selState.axes;
+    if (!pct || !Object.values(sel).some(Boolean)) { selState.err = true; renderSelCard(); return; }
+    runs.forEach(r => pushAdjustLayers(segmentsOver(r.start, r.end), pct, sel));
+  }
+  selected = runs[0].start;
+  selState = null; render();
+}
+
+/* ───────── year copy (연도 복사 — 올해 세팅 재사용) ───────── */
+function shiftDate(ds, dy) {
+  const [y,m,d] = ds.split('-').map(Number);
+  let t = new Date(Date.UTC(y+dy, m-1, d));
+  if (t.getUTCMonth() !== m-1) t = new Date(Date.UTC(y+dy, m, 0)); // 2/29 → 2/28 보정
+  return d2s(t);
+}
+function layersInYear(y) {
+  return periods.filter(p => p.start < `${y+1}-01-01` && p.end > `${y}-01-01`);
+}
+function renderCopyCard() {
+  const L = t();
+  const card = $('card-copy');
+  if (!copyState) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  $('copy-title').textContent = L.copyTitle;
+  const years = [...new Set(periods.flatMap(p => [ +p.start.slice(0,4), +p.end.slice(0,4) ]))].sort();
+  const list = layersInYear(copyState.src);
+  const incN = list.filter(p => copyState.include.has(p.id)).length;
+  $('copy-body').innerHTML = `
+    <div class="hint" style="margin-bottom:10px">${L.copyHint}</div>
+    <div class="warn-box">${L.copyWarn}</div>
+    <div class="form-grid2">
+      <div class="form-row"><label>${L.srcYearL}</label><select id="c-src">${years.map(y =>
+        `<option ${y===copyState.src?'selected':''}>${y}</option>`).join('')}</select></div>
+      <div class="form-row"><label>${L.dstYearL}</label><input id="c-dst" inputmode="numeric" value="${copyState.dst}"></div>
+    </div>
+    <div class="form-row"><label>${L.copyPctL}</label><input id="c-pct" inputmode="numeric" value="${copyState.pct||''}" placeholder="+5"></div>
+    <div class="form-row"><label>${L.copyPick}</label>
+      ${list.length ? list.map(p => `<label class="copy-row"><input type="checkbox" data-cp="${p.id}" ${copyState.include.has(p.id)?'checked':''}>
+        <span class="dot" style="background:${css(p.season)}"></span>${pLabel(p)}<span class="rng">${p.start.slice(5)}~${p.end.slice(5)}</span></label>`).join('')
+      : `<div class="hint">${L.copyEmptyYear}</div>`}
+    </div>
+    ${incN ? `<div class="preview-box">${L.copyPreview(incN, copyState.dst)}</div>` : ''}
+    <div class="form-actions">
+      <button class="btn primary" id="c-apply">${L.copyBtn}</button>
+      <button class="btn" id="c-cancel">${L.cancel}</button>
+    </div>
+    ${copyState.err ? `<div class="err-msg">${L.invalid}</div>` : ''}`;
+  $('c-src').onchange = () => {
+    copyState.src = +$('c-src').value; copyState.dst = copyState.src + 1;
+    copyState.include = new Set(layersInYear(copyState.src).map(p => p.id));
+    renderCopyCard(); };
+  $('c-dst').onchange = () => { copyState.dst = parseInt($('c-dst').value,10) || copyState.dst; copyState.err = false; renderCopyCard(); };
+  $('c-pct').onchange = () => { copyState.pct = $('c-pct').value; };
+  $('copy-body').querySelectorAll('[data-cp]').forEach(c => c.onchange = () => {
+    const id = +c.dataset.cp;
+    if (c.checked) copyState.include.add(id); else copyState.include.delete(id);
+    renderCopyCard(); });
+  $('c-apply').onclick = applyCopy;
+  $('c-cancel').onclick = () => { copyState = null; render(); };
+}
+function applyCopy() {
+  const s = copyState;
+  const dy = s.dst - s.src;
+  const list = layersInYear(s.src).filter(p => s.include.has(p.id));
+  if (!list.length || !dy || !Number.isInteger(s.dst) || s.dst < 2020 || s.dst > 2100) { s.err = true; renderCopyCard(); return; }
+  const pct = parseFloat(String(s.pct||'').replace(/[^\d.+-]/g,'')) || 0;
+  const adj = v => v == null ? null : (pct ? Math.round(v*(1+pct/100)/1000)*1000 : v);
+  list.forEach(p => periods.push({ ...p, id: nextId++,
+    start: shiftDate(p.start, dy), end: shiftDate(p.end, dy),
+    cost: adj(p.cost), net: adj(p.net), consumer: adj(p.consumer),
+    pCost: adj(p.pCost), pNet: adj(p.pNet), pConsumer: adj(p.pConsumer) }));
+  const first = list.map(p => shiftDate(p.start, dy)).sort()[0];
+  const fd = s2d(first);
+  view = { y: fd.getUTCFullYear(), m: fd.getUTCMonth() };
+  selected = first; copyState = null; render();
+}
+
+function onCellTap(ds) {
+  if (selState) {
+    snapSel();
+    if (selState.days.has(ds)) selState.days.delete(ds); else selState.days.add(ds);
+    selState.err = false; render(); return;
+  }
+  const s = activeRange();
+  if (s) {
+    if (!s.start || (s.start && s.end)) { s.start = ds; s.end = ''; }
+    else {
+      let a = s.start, b = ds;
+      if (b < a) { b = s.start; a = ds; }
+      s.start = a; s.end = d2s(addD(s2d(b),1));
+    }
+    s.err = false; snapForm(); render(); return;
+  }
+  selected = ds; render();
+}
+
+/* ───────── top controls ───────── */
+$('prev').onclick = () => { view.m--; if (view.m<0){view.m=11;view.y--;} render(); };
+$('next').onclick = () => { view.m++; if (view.m>11){view.m=0;view.y++;} render(); };
+$('btn-add').onclick = () => { addState = { start:'', end:'', season:'HIGH' }; bulkState = null; selState = null; copyState = null; selected = null; render(); };
+$('btn-sel').onclick = () => { selState = { days: new Set(), tab:'set', season:'HIGH', axes:{ net:true, consumer:true, cost:false } }; addState = null; bulkState = null; copyState = null; selected = null; render(); };
+$('btn-bulk').onclick = () => { bulkState = { start:'', end:'', pct:'', axes:{ net:true, consumer:true, cost:false } }; addState = null; selState = null; copyState = null; selected = null; render(); };
+$('btn-copy').onclick = () => {
+  const src = view.y;
+  copyState = { src, dst: src+1, pct:'', include: new Set(layersInYear(src).map(p => p.id)) };
+  addState = null; bulkState = null; selState = null; selected = null; render();
+};
+$('seg-mode').querySelectorAll('button').forEach(b => b.onclick = () => {
+  mode = b.dataset.m;
+  $('seg-mode').querySelectorAll('button').forEach(x => x.classList.toggle('on', x===b));
+  axis = mode === 'supplier' ? 'cost' : 'net';
+  addState = null; bulkState = null; selState = null; copyState = null; render();
+});
+
+selected = '2027-02-07';
+render();
+</script>
