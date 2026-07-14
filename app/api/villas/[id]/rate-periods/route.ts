@@ -35,6 +35,8 @@ const priceFields = {
   premiumConsumerSalePriceVnd: digits.nullable().optional(),
   premiumConsumerSalePriceKrw: z.number().int().min(0).nullable().optional(),
   label: z.string().trim().max(60).nullable().optional(),
+  // rate-calendar-ux — 일괄 작업으로 생성된 행의 그룹 키. 전체 교체에서도 행 단위 보존(옵셔널 통과).
+  batchId: z.string().max(40).nullable().optional(),
 };
 
 const baseSchema = z.object(priceFields); // isBase=true — 날짜 없음
@@ -65,30 +67,17 @@ const patchSchema = z
     periods: z.array(periodSchema).max(60),
   })
   .superRefine((data, ctx) => {
-    // 각 기간: start < end (half-open)
-    const valid = data.periods.filter((p, i) => {
+    // 각 기간: start < end (half-open). rate-calendar-ux: 겹침 거부는 제거(겹침 허용 — 견적은
+    //   lib/pricing.ts resolveRatePeriod의 4단계 승자 규칙으로 밤별 결정). half-open만 유지.
+    data.periods.forEach((p, i) => {
       if (toUtc(p.startDate).getTime() >= toUtc(p.endDate).getTime()) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["periods", i, "endDate"],
           message: "endDate must be after startDate",
         });
-        return false;
       }
-      return true;
     });
-    // 겹침 거부 — 시즌 무관, 날짜만(half-open). 정렬 후 인접 비교 (ADR-0014 D3)
-    const sorted = [...valid].sort((a, b) => toUtc(a.startDate).getTime() - toUtc(b.startDate).getTime());
-    for (let i = 1; i < sorted.length; i++) {
-      if (toUtc(sorted[i].startDate).getTime() < toUtc(sorted[i - 1].endDate).getTime()) {
-        const idx = data.periods.indexOf(sorted[i]);
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["periods", idx, "startDate"],
-          message: "기간이 다른 기간과 겹칩니다",
-        });
-      }
-    }
   });
 
 export async function PATCH(
@@ -143,6 +132,7 @@ export async function PATCH(
         consumerSalePriceKrw: base.consumerSalePriceKrw ?? null,
         // ADR-0042 프리미엄일 컬럼(null=평일 폴백)
         ...premiumData(base),
+        batchId: base.batchId ?? null, // 보통 base는 수동 → null
       },
     });
     if (periods.length > 0) {
@@ -166,6 +156,7 @@ export async function PATCH(
           consumerSalePriceKrw: p.consumerSalePriceKrw ?? null,
           // ADR-0042 프리미엄일 컬럼(null=평일 폴백)
           ...premiumData(p),
+          batchId: p.batchId ?? null, // 일괄 작업 유래 행이면 그룹 키 보존
         })),
       });
     }

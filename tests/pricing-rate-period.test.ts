@@ -61,8 +61,102 @@ describe("resolveRatePeriod — 기간 우선, 없으면 기본요금", () => {
   });
   it("겹침 방어 tie-break: 우선순위 높은 시즌, 같으면 startDate 늦은 것", () => {
     const lowOverlap: RatePeriodLike = { ...base, isBase: false, startDate: utc("2026-07-10"), endDate: utc("2026-07-20") };
-    // PEAK(peakSummer) vs LOW(lowOverlap) 겹침 → PEAK 우선
+    // PEAK(peakSummer) vs LOW(lowOverlap) 겹침 → PEAK 우선 (동일 길이 → 시즌)
     expect(resolveRatePeriod(utc("2026-07-11"), [lowOverlap, peakSummer], base)).toBe(peakSummer);
+  });
+});
+
+// rate-calendar-ux — 겹침 허용 + 4단계 승자 규칙
+//   ① 짧은 기간(박 수) → ② 시즌(PEAK>HIGH>SHOULDER>LOW) → ③ 늦은 시작일 → ④ 큰 id
+describe("resolveRatePeriod — 겹침 승자 4단계", () => {
+  it("① 완전 포함: HIGH 90박 안의 PEAK 6박 → 짧은 PEAK 승", () => {
+    const highLong: RatePeriodLike = {
+      ...base, isBase: false, season: SeasonType.HIGH,
+      startDate: utc("2026-12-01"), endDate: utc("2027-03-01"), // ~90박
+      supplierCostVnd: 3_000_000n, salePriceVnd: 3_600_000n, salePriceKrw: 180_000,
+    };
+    const peakShort: RatePeriodLike = {
+      ...base, isBase: false, season: SeasonType.PEAK,
+      startDate: utc("2027-02-05"), endDate: utc("2027-02-11"), // 6박, HIGH 내부
+      supplierCostVnd: 8_000_000n, salePriceVnd: 10_500_000n, salePriceKrw: 525_000,
+    };
+    expect(resolveRatePeriod(utc("2027-02-07"), [highLong, peakShort], base)).toBe(peakShort);
+    // 경계 밖(HIGH만) 날짜는 HIGH
+    expect(resolveRatePeriod(utc("2026-12-20"), [highLong, peakShort], base)).toBe(highLong);
+  });
+
+  it("① 짧은 기간이 낮은 시즌이어도 승 (박 수가 시즌보다 우선)", () => {
+    const peakLong: RatePeriodLike = {
+      ...base, isBase: false, season: SeasonType.PEAK,
+      startDate: utc("2027-01-01"), endDate: utc("2027-02-01"), // 31박
+    };
+    const lowShort: RatePeriodLike = {
+      ...base, isBase: false, season: SeasonType.LOW,
+      startDate: utc("2027-01-10"), endDate: utc("2027-01-13"), // 3박 특가, PEAK 내부
+      supplierCostVnd: 500_000n, salePriceVnd: 600_000n, salePriceKrw: 30_000,
+    };
+    expect(resolveRatePeriod(utc("2027-01-11"), [peakLong, lowShort], base)).toBe(lowShort);
+  });
+
+  it("② 동일 길이 tie → 높은 시즌", () => {
+    const range = { startDate: utc("2027-05-01"), endDate: utc("2027-05-08") }; // 7박
+    const high: RatePeriodLike = { ...base, isBase: false, season: SeasonType.HIGH, ...range };
+    const peak: RatePeriodLike = { ...base, isBase: false, season: SeasonType.PEAK, ...range };
+    expect(resolveRatePeriod(utc("2027-05-03"), [high, peak], base)).toBe(peak);
+  });
+
+  it("③ 동일 길이·동일 시즌 → 늦은 시작일", () => {
+    const early: RatePeriodLike = { ...base, isBase: false, season: SeasonType.HIGH, startDate: utc("2027-05-01"), endDate: utc("2027-05-06") };
+    const late: RatePeriodLike = { ...base, isBase: false, season: SeasonType.HIGH, startDate: utc("2027-05-03"), endDate: utc("2027-05-08") };
+    // 2027-05-04 는 둘 다 커버, 동일 길이(5박)·동일 시즌 → 늦은 시작(late) 승
+    expect(resolveRatePeriod(utc("2027-05-04"), [early, late], base)).toBe(late);
+  });
+
+  it("④ 완전 동일 범위·시즌 → 큰 id (최신 행 근사)", () => {
+    const shared = { season: SeasonType.HIGH, isBase: false as const, startDate: utc("2027-05-01"), endDate: utc("2027-05-08") };
+    const older: RatePeriodLike = { ...base, ...shared, id: "aaa" };
+    const newer: RatePeriodLike = { ...base, ...shared, id: "zzz" };
+    expect(resolveRatePeriod(utc("2027-05-03"), [older, newer], base)).toBe(newer);
+    expect(resolveRatePeriod(utc("2027-05-03"), [newer, older], base)).toBe(newer);
+  });
+
+  it("회귀: 겹침 없는 기존 데이터는 규칙 교체 전과 동일 결과", () => {
+    // peakTet(2/14-2/20)·peakSummer(7/10-7/20)는 겹치지 않음 → 각자 자기 구간, 밖은 base
+    expect(resolveRatePeriod(utc("2026-02-15"), [peakTet, peakSummer], base)).toBe(peakTet);
+    expect(resolveRatePeriod(utc("2026-07-11"), [peakTet, peakSummer], base)).toBe(peakSummer);
+    expect(resolveRatePeriod(utc("2026-05-01"), [peakTet, peakSummer], base)).toBe(base);
+  });
+});
+
+describe("겹침 승자 × 프리미엄 폴백 · ADR-0031 계층 (승자 행에 그대로 적용)", () => {
+  it("짧은 PEAK 승자 행 위에서 프리미엄(premiumX ?? X)·CONSUMER 계층 적용", () => {
+    const highLong: RatePeriodLike = {
+      ...base, isBase: false, season: SeasonType.HIGH,
+      startDate: utc("2026-12-01"), endDate: utc("2027-03-01"),
+      supplierCostVnd: 3_000_000n, salePriceVnd: 3_600_000n, salePriceKrw: 180_000,
+    };
+    const peakShort: RatePeriodLike = {
+      ...base, isBase: false, season: SeasonType.PEAK,
+      startDate: utc("2027-02-05"), endDate: utc("2027-02-11"),
+      supplierCostVnd: 8_000_000n, salePriceVnd: 10_000_000n, salePriceKrw: 500_000,
+      consumerSalePriceVnd: 12_000_000n,
+      premiumSalePriceVnd: 11_000_000n,
+      premiumConsumerSalePriceVnd: 13_000_000n,
+    };
+    // 2027-02-05(금)·02-06(토) = 프리미엄 요일, 둘 다 PEAK 승자 커버. CONSUMER 계층.
+    const q = quoteStayByPeriod({
+      checkIn: utc("2027-02-05"),
+      checkOut: utc("2027-02-07"),
+      saleCurrency: Currency.VND,
+      base,
+      periods: [highLong, peakShort],
+      priceTier: "CONSUMER",
+      premiumDays: [5, 6],
+    });
+    // 승자=peakShort, 프리미엄 CONSUMER = premiumConsumerSalePriceVnd 13,000,000 × 2박
+    expect(q.nightly.map((n) => n.season)).toEqual([SeasonType.PEAK, SeasonType.PEAK]);
+    expect(q.totalSaleVnd).toBe(13_000_000n + 13_000_000n);
+    expect(q.nightly.every((n) => n.premium === "WEEKDAY_RULE")).toBe(true);
   });
 });
 

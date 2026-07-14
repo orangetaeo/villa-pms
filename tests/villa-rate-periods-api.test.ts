@@ -146,7 +146,7 @@ describe("검증·영속 (OWNER)", () => {
     expect(res.status).toBe(400);
   });
 
-  it("겹치는 기간 거부 (400)", async () => {
+  it("겹치는 기간 허용 (200) — rate-calendar-ux: 겹침 허용, 견적은 승자 규칙으로 결정", async () => {
     const res = await req({
       ...BASE,
       periods: [
@@ -154,7 +154,18 @@ describe("검증·영속 (OWNER)", () => {
         { ...BASE.periods[1], startDate: "2026-02-15", endDate: "2026-02-25" },
       ],
     });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
+    expect(tx.villaRatePeriod.createMany).toHaveBeenCalled();
+  });
+
+  it("batchId 행 단위 보존 (전체 교체에서도 통과)", async () => {
+    const res = await req({
+      ...BASE,
+      periods: [{ ...BASE.periods[0], batchId: "batch_abc" }],
+    });
+    expect(res.status).toBe(200);
+    const periodArg = tx.villaRatePeriod.createMany.mock.calls[0][0].data;
+    expect(periodArg[0].batchId).toBe("batch_abc");
   });
 
   it("인접(경계 맞닿음)은 겹침 아님 — half-open 허용 (200)", async () => {
