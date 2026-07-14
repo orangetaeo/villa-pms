@@ -29,7 +29,8 @@ export default function PriceFields({
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* 좁은 사이드 패널에 3열은 마진 칸이 뭉개짐 — 2열(원가·마진 / Net)로 배치 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* 원가 */}
         <Field label={tr("colCost")}>
           <NumInput
