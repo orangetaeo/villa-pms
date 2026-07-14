@@ -15,7 +15,6 @@ import type { FeatureCategoryKey } from "@/lib/features";
 import type { BedTypeKey } from "@/lib/bedding";
 import RateCalendar from "@/components/rate-calendar/rate-calendar";
 import type { HolidayDTO, RateLayerDTO } from "@/components/rate-calendar/types";
-import PremiumDaysEditor from "./premium-days-editor";
 import VillaActions from "./villa-actions";
 import ForceSellableAction from "./force-sellable-action";
 import DetailTabs from "./detail-tabs";
@@ -544,9 +543,8 @@ export default async function VillaDetailPage({
             </CollapsibleCard>
           )}
 
-          {/* 프리미엄 요일 (ADR-0042) — 주말·특정 요일을 프리미엄가로 판정. 가격 아님(비밀 아님)이라
-              전 운영자 노출. 실제 프리미엄 금액은 위 요율표의 "프리미엄 요금" 토글에서 입력. */}
-          <PremiumDaysEditor villaId={villa.id} initialDays={villa.premiumDays} />
+          {/* 프리미엄 요일(ADR-0042)은 위 기간별 요금 캘린더 범례 "● 프리미엄일"을 눌러 인라인 편집한다
+              (별도 카드 통합 — 중복 제거). 실제 프리미엄 금액은 레이어 편집의 "프리미엄 요금"에서 입력. */}
 
           {/* 비품 현황 — 관리자 편집 가능 (Batch A). 미니바는 회사표준(#2b)으로 분리 */}
           <AdminAmenitiesEditor
