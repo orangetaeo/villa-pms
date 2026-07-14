@@ -24,6 +24,18 @@ type DbClient = PrismaClient | Prisma.TransactionClient;
 /** AppSetting 키 — 운영자 알림 그룹 thread id. 값이 있으면 그룹 라우팅 활성. */
 export const ZALO_ADMIN_NOTIFY_GROUP_ID_KEY = "ZALO_ADMIN_NOTIFY_GROUP_ID";
 
+/**
+ * AppSetting 키 — 운영자 알림 일시정지 킬스위치.
+ * 값 "1" 또는 "true"(trim, 대소문자 무관)면 enqueueOperatorNotification이 그룹·개별 DM 폴백
+ * 모두 미적재하고 0 반환(드롭 — 재개 후 소급 발송 없음).
+ *
+ * ★ 범위: 이 스위치는 enqueueOperatorNotification 경유 "운영자 업무 알림"만 멈춘다.
+ *   - SECURITY_ALERT(lib/security-alerts)·ZALO_LISTENER_DOWN(lib/zalo-health)은 별도 직접 적재
+ *     경로라 영향 없음(계속 발송) — 보안·장애 경보는 절대 침묵시키지 않는다(의도된 경계).
+ *   - 공급자·벤더·게스트·청소자 알림은 무관(불변).
+ */
+export const ZALO_OPERATOR_NOTIFY_PAUSED_KEY = "ZALO_OPERATOR_NOTIFY_PAUSED";
+
 /** 운영자 통지 대상 역할 — roster-reminder·직접예약 통지 패턴과 동일(STAFF 포함) */
 export const OPERATOR_ROLES = ["OWNER", "MANAGER", "STAFF", "ADMIN"] as const;
 
@@ -81,6 +93,25 @@ export async function getAdminNotifyGroupId(db: DbClient): Promise<string | null
   }
 }
 
+/**
+ * 운영자 알림 일시정지 여부 조회 — fail-open.
+ * 값 "1"/"true"(trim·소문자 비교)만 true. 그 외 값·빈 값·키 부재·조회 throw = false(알림 계속).
+ * tx 주입 지원(getAdminNotifyGroupId와 동일 패턴).
+ */
+export async function isOperatorNotifyPaused(db: DbClient): Promise<boolean> {
+  try {
+    const row = await db.appSetting.findUnique({
+      where: { key: ZALO_OPERATOR_NOTIFY_PAUSED_KEY },
+      select: { value: true },
+    });
+    const value = row?.value?.trim().toLowerCase();
+    return value === "1" || value === "true";
+  } catch {
+    // AppSetting 조회 불가 — fail-open: 알림을 실수로 전부 침묵시키지 않는다
+    return false;
+  }
+}
+
 export interface EnqueueOperatorNotificationParams {
   type: NotificationType;
   payload: Record<string, unknown>;
@@ -99,6 +130,12 @@ export async function enqueueOperatorNotification(
 ): Promise<number> {
   const { type, payload, db } = params;
   const client: DbClient = db ?? prisma;
+
+  // 킬스위치 — 일시정지면 그룹·개별 DM 폴백 모두 미적재하고 즉시 0 반환(드롭, 소급 없음).
+  // fail-open이라 조회 실패·키 부재는 정지 아님. 보안·장애 경보는 별도 경로라 영향 없음.
+  if (await isOperatorNotifyPaused(client)) {
+    return 0;
+  }
 
   // getSystemBotOwnerId는 전역 prisma를 쓰므로, 그룹 라우팅이 활성일 때만 호출한다
   // (그룹 미설정 폴백 경로는 실 DB를 건드리지 않아 기존 테스트 회귀 없음).
