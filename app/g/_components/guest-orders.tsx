@@ -443,40 +443,6 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered,
           <p className="text-xs text-red-500 px-1">{cancelError}</p>
         )}
 
-        {/* 티켓 문의 본사 안내(테오) — 라인마다 반복하지 않고 티켓 주문이 하나라도 있으면 합계 위에 1회만. */}
-        {requestedOrders.some((o) => o.type === "TICKET") && (
-          <div className="flex flex-col gap-2 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2.5">
-            <div className="flex items-start gap-2">
-              <span className="material-symbols-outlined text-teal-600 text-[16px]">support_agent</span>
-              <p className="text-[11px] text-teal-700/90 leading-snug">{L.result.ticketContactNotice}</p>
-            </div>
-            {(contactKakaoUrl || contactPhone) && (
-              <div className="flex flex-wrap gap-2 pl-6">
-                {contactKakaoUrl && (
-                  <a
-                    href={contactKakaoUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 h-8 px-3 rounded-lg text-[11px] font-semibold bg-teal-600 text-white active:scale-95"
-                  >
-                    <span className="material-symbols-outlined text-[15px]">chat</span>
-                    {L.result.ticketContactKakao}
-                  </a>
-                )}
-                {contactPhone && (
-                  <a
-                    href={`tel:${contactPhone}`}
-                    className="inline-flex items-center gap-1 h-8 px-3 rounded-lg text-[11px] font-semibold border border-teal-200 bg-white text-teal-700 active:scale-95"
-                  >
-                    <span className="material-symbols-outlined text-[15px]">call</span>
-                    {L.result.ticketContactPhone}
-                  </a>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* 체크아웃 정산 미리보기(A2) — 상태별 합계(판매가 VND). 미니바는 체크아웃 시 합산(안내문구 유지). */}
         {hasSummary && (
           <section className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
@@ -509,6 +475,40 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered,
           <span className="material-symbols-outlined text-slate-400 text-[20px]">payments</span>
           <p className="text-xs text-slate-500 leading-relaxed">{L.result.settleNote}</p>
         </div>
+
+        {/* 티켓 문의 본사 안내(테오) — 라인마다 반복하지 않고 티켓 주문이 하나라도 있으면 페이지 맨 아래(정산 안내 밑)에 1회만. */}
+        {requestedOrders.some((o) => o.type === "TICKET") && (
+          <div className="flex flex-col gap-2 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2.5">
+            <div className="flex items-start gap-2">
+              <span className="material-symbols-outlined text-teal-600 text-[16px]">support_agent</span>
+              <p className="text-[11px] text-teal-700/90 leading-snug">{L.result.ticketContactNotice}</p>
+            </div>
+            {(contactKakaoUrl || contactPhone) && (
+              <div className="flex flex-wrap gap-2 pl-6">
+                {contactKakaoUrl && (
+                  <a
+                    href={contactKakaoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 h-8 px-3 rounded-lg text-[11px] font-semibold bg-teal-600 text-white active:scale-95"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">chat</span>
+                    {L.result.ticketContactKakao}
+                  </a>
+                )}
+                {contactPhone && (
+                  <a
+                    href={`tel:${contactPhone}`}
+                    className="inline-flex items-center gap-1 h-8 px-3 rounded-lg text-[11px] font-semibold border border-teal-200 bg-white text-teal-700 active:scale-95"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">call</span>
+                    {L.result.ticketContactPhone}
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       {/* 하단 — 부가 옵션 신청 화면으로 진입 */}
