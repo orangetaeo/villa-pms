@@ -17,7 +17,7 @@
 
 ## 완료 기준 (테스트 가능)
 
-1. **서버 가드(정본)** — 게스트 POST `/api/g/[token]/service-orders`와 운영자 POST `/api/bookings/[id]/service-orders` 모두: TICKET인데 판매가능 벤더가 없으면 `400 { error: "TICKET_VENDOR_REQUIRED" }`. 판정은 공유 헬퍼 1곳(단일 원천 — UI/서버 재구현 금지, ruleHasAny 패턴).
+1. **서버 가드(정본)** — 주문 생성 3경로 전부: 게스트 POST `/api/g/[token]/service-orders`, 운영자 POST `/api/bookings/[id]/service-orders`, 파트너 POST `/api/p/[token]/service-orders`(2026-07-14 추가 — 판매 채널 전수 커버). TICKET인데 판매가능 벤더가 없으면 `400 { error: "TICKET_VENDOR_REQUIRED" }`. 판정은 공유 헬퍼 1곳(단일 원천 — UI/서버 재구현 금지, ruleHasAny 패턴). 파트너 화면에 품목 노출이 있으면 게스트와 동일하게 목록 제외.
 2. **게스트 메뉴 숨김** — 게스트 부가서비스 메뉴에서 벤더 미확보 TICKET 품목은 목록에서 제외(구매 진입 자체 차단).
 3. **운영자 주문 폼** — 카탈로그 선택지에서 해당 TICKET 품목 비활성 + "공급자 미지정 — 판매 불가" 안내(ko/vi). 서버 400 메시지도 i18n 매핑.
 4. **회귀 없음** — 벤더 정상 배정된 TICKET(자동 발주·무료 확정 경로), 비TICKET 벤더 미지정(직접 제공) 기존 동작 불변.
