@@ -237,7 +237,7 @@ export interface RatePeriodLike {
  * 프리미엄 박 판정 (ADR-0042) — 요일(premiumDays) ∨ 공휴일(holidaySet). 둘 다면 HOLIDAY 우선(결정적).
  * 평일이면 null. 요일은 반드시 getUTCDay(숙박일 @db.Date UTC 자정 — 로컬 타임존 오염 금지).
  */
-function premiumReasonFor(
+export function premiumReasonFor(
   date: Date,
   premiumDaySet: ReadonlySet<number> | null,
   holidaySet: ReadonlySet<number> | null
@@ -269,7 +269,7 @@ function resolvePremiumRow(rate: RatePeriodLike): RatePeriodLike {
  * premiumDays default '{5,6}'로 백필된 미설정 빌라가 주말 뱃지를 소급 노출하는 것을 차단
  * (계약 기준 2 "기존 빌라 견적 결과 완전 불변"을 표시층까지 보장). 원가 컬럼 포함.
  */
-function hasAnyPremiumValue(rate: RatePeriodLike): boolean {
+export function hasAnyPremiumValue(rate: RatePeriodLike): boolean {
   return (
     rate.premiumSupplierCostVnd != null ||
     rate.premiumSalePriceVnd != null ||
@@ -320,7 +320,7 @@ function periodLengthMs(p: RatePeriodLike): number {
  *    중복행(예: 원본 기간 위 조정 레이어)에서만 도달. id 미포함이면 "" 비교로 무해히 스킵.
  * 목업 정본 stackFor(interaction-spec.html)의 sort와 동일 순서.
  */
-function periodBeats(p: RatePeriodLike, best: RatePeriodLike): boolean {
+export function periodBeats(p: RatePeriodLike, best: RatePeriodLike): boolean {
   const lp = periodLengthMs(p);
   const lb = periodLengthMs(best);
   if (lp !== lb) return lp < lb; // ① 짧은 기간

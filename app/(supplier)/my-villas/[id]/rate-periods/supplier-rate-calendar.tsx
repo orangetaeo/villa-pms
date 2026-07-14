@@ -350,7 +350,7 @@ export default function SupplierRateCalendar({
                         <span className="absolute right-1 top-0.5 text-[9px] leading-none text-amber-500" aria-hidden>
                           ★
                         </span>
-                      ) : premium && reason === "WEEKDAY" ? (
+                      ) : premium && reason === "WEEKDAY_RULE" ? (
                         <span className="absolute right-1 top-0.5 text-[9px] leading-none text-[#D97706]" aria-hidden>
                           ●
                         </span>

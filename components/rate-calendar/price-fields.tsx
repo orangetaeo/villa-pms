@@ -1,7 +1,7 @@
 "use client";
 
 // 가격 입력 폼 — 원가+마진→판매가 자동제안 (rate-calendar-ux)
-// rate-period-editor RateFieldsRow와 동일 흐름. mode='admin'=3축(원가·Net·소비자·프리미엄),
+// 구 rate-period-editor(삭제됨) RateFieldsRow 흐름 승계. mode='admin'=3축(원가·Net·소비자·프리미엄),
 //   mode='supplier'=원가만(Net/소비자/프리미엄 Net 미노출 — 누수 차단). 라벨은 상위 폼에서.
 import { useTranslations } from "next-intl";
 import type { MarginType } from "@prisma/client";

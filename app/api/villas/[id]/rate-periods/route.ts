@@ -10,61 +10,37 @@ import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { canSetPrice } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
+// rate-calendar-fixes §5 — 자체 인라인(digits·isoDate·SEASONS·toUtc·priceFields·premiumData)을 공용
+//   fragment로 통합(동작 불변). priceColumns = 구 priceFields에서 season·label·batchId를 뺀 가격 컬럼 집합.
+//   buildPriceColumnData = 구 인라인 가격 매핑 + premiumData를 합친 전 가격 컬럼 빌더(동일 시맨틱).
+import {
+  SEASONS,
+  isoDate,
+  toUtc,
+  priceColumns,
+  buildPriceColumnData,
+  MAX_RATE_PERIOD_ROWS,
+} from "@/lib/rate-period-input";
 
-const digits = z.string().regex(/^\d{1,15}$/); // VND 동·퍼센트 — BigInt 문자열 수신
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/); // YYYY-MM-DD (UTC 자정 변환)
-const SEASONS = ["LOW", "SHOULDER", "HIGH", "PEAK"] as const;
+const labelField = z.string().trim().max(60).nullable().optional();
+// rate-calendar-ux — 일괄 작업으로 생성된 행의 그룹 키. 전체 교체에서도 행 단위 보존(옵셔널 통과).
+const batchIdField = z.string().max(40).nullable().optional();
 
+// 구 인라인 priceFields = season + priceColumns(가격 컬럼) + label + batchId. 공용 fragment로 대체.
 const priceFields = {
   season: z.enum(SEASONS),
-  supplierCostVnd: digits,
-  marginType: z.enum(["PERCENT", "FIXED_VND"]),
-  marginValue: digits,
-  salePriceVnd: digits,
-  salePriceKrw: z.number().int().min(0),
-  // ADR-0031 소비자 직판가 — Net 대비. VND/KRW는 null 허용(Net 폴백). 마진 미전송 시 기본(0=Net과 동일).
-  consumerMarginType: z.enum(["PERCENT", "FIXED_VND"]).default("PERCENT"),
-  consumerMarginValue: digits.default("0"),
-  consumerSalePriceVnd: digits.nullable().optional(),
-  consumerSalePriceKrw: z.number().int().min(0).nullable().optional(),
-  // ADR-0042 프리미엄일(요일·공휴일) 2단 요금 — 전부 nullable(null=평일 컬럼 폴백). ADMIN이 명시 책정.
-  //   전체 교체 라우트라 미전송=null(=프리미엄 미설정=평일가). 구 FE payload 하위호환.
-  premiumSupplierCostVnd: digits.nullable().optional(),
-  premiumSalePriceVnd: digits.nullable().optional(),
-  premiumSalePriceKrw: z.number().int().min(0).nullable().optional(),
-  premiumConsumerSalePriceVnd: digits.nullable().optional(),
-  premiumConsumerSalePriceKrw: z.number().int().min(0).nullable().optional(),
-  label: z.string().trim().max(60).nullable().optional(),
-  // rate-calendar-ux — 일괄 작업으로 생성된 행의 그룹 키. 전체 교체에서도 행 단위 보존(옵셔널 통과).
-  batchId: z.string().max(40).nullable().optional(),
+  ...priceColumns,
+  label: labelField,
+  batchId: batchIdField,
 };
 
 const baseSchema = z.object(priceFields); // isBase=true — 날짜 없음
 const periodSchema = z.object({ ...priceFields, startDate: isoDate, endDate: isoDate });
 
-const toUtc = (s: string) => new Date(`${s}T00:00:00.000Z`);
-
-/** ADR-0042 프리미엄 컬럼 → prisma data (null=평일 폴백). VND는 BigInt, KRW는 Int. */
-type PremiumInput = {
-  premiumSupplierCostVnd?: string | null;
-  premiumSalePriceVnd?: string | null;
-  premiumSalePriceKrw?: number | null;
-  premiumConsumerSalePriceVnd?: string | null;
-  premiumConsumerSalePriceKrw?: number | null;
-};
-const premiumData = (p: PremiumInput) => ({
-  premiumSupplierCostVnd: p.premiumSupplierCostVnd != null ? BigInt(p.premiumSupplierCostVnd) : null,
-  premiumSalePriceVnd: p.premiumSalePriceVnd != null ? BigInt(p.premiumSalePriceVnd) : null,
-  premiumSalePriceKrw: p.premiumSalePriceKrw ?? null,
-  premiumConsumerSalePriceVnd:
-    p.premiumConsumerSalePriceVnd != null ? BigInt(p.premiumConsumerSalePriceVnd) : null,
-  premiumConsumerSalePriceKrw: p.premiumConsumerSalePriceKrw ?? null,
-});
-
 const patchSchema = z
   .object({
     base: baseSchema, // 기본요금 필수 (없으면 기간 밖 날짜 견적 불가 — ADR-0014 D5)
-    periods: z.array(periodSchema).max(60),
+    periods: z.array(periodSchema).max(MAX_RATE_PERIOD_ROWS),
   })
   .superRefine((data, ctx) => {
     // 각 기간: start < end (half-open). rate-calendar-ux: 겹침 거부는 제거(겹침 허용 — 견적은
@@ -120,18 +96,8 @@ export async function PATCH(
         startDate: null,
         endDate: null,
         label: base.label ?? null,
-        supplierCostVnd: BigInt(base.supplierCostVnd),
-        marginType: base.marginType,
-        marginValue: BigInt(base.marginValue),
-        salePriceVnd: BigInt(base.salePriceVnd),
-        salePriceKrw: base.salePriceKrw,
-        // ADR-0031 — 소비자 직판가(null=Net 폴백)
-        consumerMarginType: base.consumerMarginType,
-        consumerMarginValue: BigInt(base.consumerMarginValue),
-        consumerSalePriceVnd: base.consumerSalePriceVnd != null ? BigInt(base.consumerSalePriceVnd) : null,
-        consumerSalePriceKrw: base.consumerSalePriceKrw ?? null,
-        // ADR-0042 프리미엄일 컬럼(null=평일 폴백)
-        ...premiumData(base),
+        // ADR-0031 소비자 직판가·ADR-0042 프리미엄일 컬럼 포함 전 가격 컬럼(BigInt/Int 변환·null 폴백)
+        ...buildPriceColumnData(base),
         batchId: base.batchId ?? null, // 보통 base는 수동 → null
       },
     });
@@ -144,18 +110,7 @@ export async function PATCH(
           startDate: toUtc(p.startDate),
           endDate: toUtc(p.endDate),
           label: p.label ?? null,
-          supplierCostVnd: BigInt(p.supplierCostVnd),
-          marginType: p.marginType,
-          marginValue: BigInt(p.marginValue),
-          salePriceVnd: BigInt(p.salePriceVnd),
-          salePriceKrw: p.salePriceKrw,
-          // ADR-0031 — 소비자 직판가(null=Net 폴백)
-          consumerMarginType: p.consumerMarginType,
-          consumerMarginValue: BigInt(p.consumerMarginValue),
-          consumerSalePriceVnd: p.consumerSalePriceVnd != null ? BigInt(p.consumerSalePriceVnd) : null,
-          consumerSalePriceKrw: p.consumerSalePriceKrw ?? null,
-          // ADR-0042 프리미엄일 컬럼(null=평일 폴백)
-          ...premiumData(p),
+          ...buildPriceColumnData(p),
           batchId: p.batchId ?? null, // 일괄 작업 유래 행이면 그룹 키 보존
         })),
       });

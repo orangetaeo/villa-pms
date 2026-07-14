@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { WorkLayer } from "@/components/rate-calendar/types";
 import {
   packWeekBands,
+  parsePct,
   segmentCount,
   sortLayersForPanel,
   stackForDate,
@@ -103,6 +104,35 @@ describe("sortLayersForPanel — 짧은 기간·높은 시즌 우선", () => {
     const high = mk({ id: "high", season: "HIGH", start: "2027-01-01", end: "2027-01-31" });
     const peak = mk({ id: "peak", season: "PEAK", start: "2027-01-10", end: "2027-01-13" });
     expect(sortLayersForPanel([high, peak]).map((r) => r.id)).toEqual(["peak", "high"]);
+  });
+});
+
+describe("parsePct — % 입력 파싱(로케일 콤마 + 검증)", () => {
+  it("일반 소수점", () => {
+    expect(parsePct("1.5")).toBe(1.5);
+    expect(parsePct("10")).toBe(10);
+  });
+  it("로케일 콤마를 소수점으로 정규화", () => {
+    expect(parsePct("1,5")).toBe(1.5);
+    expect(parsePct("0,25")).toBe(0.25);
+  });
+  it("음수·부호 허용", () => {
+    expect(parsePct("-30")).toBe(-30);
+    expect(parsePct("-1,5")).toBe(-1.5);
+  });
+  it("소수점 2개 이상 → null(err)", () => {
+    expect(parsePct("1.5.5")).toBeNull();
+    expect(parsePct("1,5,5")).toBeNull();
+  });
+  it("숫자 아님·빈값·0 → null", () => {
+    expect(parsePct("abc")).toBeNull();
+    expect(parsePct("")).toBeNull();
+    expect(parsePct("0")).toBeNull();
+    expect(parsePct("0,0")).toBeNull();
+  });
+  it("공백·통화기호 등 잡문자 제거 후 파싱", () => {
+    expect(parsePct(" 1,5 ")).toBe(1.5);
+    expect(parsePct("5%")).toBe(5);
   });
 });
 

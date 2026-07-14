@@ -27,6 +27,7 @@ import NameViEditor from "./name-vi-editor";
 import CleaningInfoEditor from "./cleaning-info-editor";
 import CleanerAssignEditor from "./cleaner-assign-editor";
 import RegionalVendorEditor from "./regional-vendor-editor";
+import PremiumDaysEditor from "./premium-days-editor";
 import { REGIONAL_VENDOR_TYPES, type RegionalVendorType } from "@/lib/regional-vendor";
 import PhotoGallery from "./photo-gallery";
 import CollapsibleCard from "@/components/admin/collapsible-card";
@@ -543,8 +544,12 @@ export default async function VillaDetailPage({
             </CollapsibleCard>
           )}
 
-          {/* 프리미엄 요일(ADR-0042)은 위 기간별 요금 캘린더 범례 "● 프리미엄일"을 눌러 인라인 편집한다
-              (별도 카드 통합 — 중복 제거). 실제 프리미엄 금액은 레이어 편집의 "프리미엄 요금"에서 입력. */}
+          {/* 프리미엄 요일(ADR-0042). finance 권한자는 위 요금 캘린더 범례 "● 프리미엄일"에서 인라인 편집(중복
+              제거). STAFF는 캘린더가 없으므로(마진 비공개) 여기 컴팩트 카드로 요일 축만 편집 — /info PATCH는
+              premiumDays만 보내고 판매가·마진은 전송·응답 어디에도 없다(C3 누수 0). */}
+          {!showFinance && (
+            <PremiumDaysEditor villaId={villa.id} initialDays={villa.premiumDays} />
+          )}
 
           {/* 비품 현황 — 관리자 편집 가능 (Batch A). 미니바는 회사표준(#2b)으로 분리 */}
           <AdminAmenitiesEditor
