@@ -4,7 +4,7 @@
 //   /api/bookings/[id]/service-orders (POST) + /api/service-orders/[id] (PATCH). 저장 후 router.refresh().
 //   ★ 마진 비공개: 원가(costVnd)·확정가 조정칸은 showCost(canViewFinance)일 때만. 서버 페이로드에서도 제외됨.
 //   게스트 요청(requestedVia=GUEST·REQUESTED) 행은 amber 강조("요청 대기"). 합계는 resolveOrderPricing 재사용.
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { formatThousands, formatDateTime } from "@/lib/format";
@@ -287,6 +287,8 @@ export default function ServiceOrdersPanel({
         const code = await res.json().then((d) => d?.error).catch(() => null);
         if (res.status === 409 && code === "VENDOR_LOCKED") {
           setMessage({ tone: "warn", text: t("vendor.changeLocked") });
+        } else if (res.status === 400 && code === "TICKET_VENDOR_REQUIRED") {
+          setMessage({ tone: "warn", text: t("vendor.ticketVendorRequired") });
         } else {
           fail();
         }
@@ -997,21 +999,38 @@ function VendorCell({
   onChangeVendor: (orderId: string, vendorId: string | null) => void;
   t: ReturnType<typeof useTranslations>;
 }) {
-  // 대체 벤더 지정 가능 — 서버 가드(VENDOR_LOCKED)와 동일 조건(REQUESTED + 발주 전/거절)
+  // 대체 벤더 지정 가능 — 서버 새 허용 규칙과 대칭(이행·정산·발권 전이면 교체 가능).
+  //   ①status∈{REQUESTED,CONFIRMED} ②미정산 ③미이행 ④TICKET이면 미발권.
+  const isTicketOrder = order.type === "TICKET";
   const canChangeVendor =
-    order.status === "REQUESTED" &&
-    (order.vendorStatus === null || order.vendorStatus === "VENDOR_REJECTED");
+    (order.status === "REQUESTED" || order.status === "CONFIRMED") &&
+    !order.vendorSettledAt &&
+    !order.vendorCompletedAt &&
+    !(isTicketOrder && order.ticketUrls.length > 0);
+  // 살아있는 발주(PENDING_VENDOR·VENDOR_ACCEPTED)에서 교체 시 구 업체에 취소 통보가 나감 — 실수 클릭 방지 확인 1회.
+  const handleVendorSelect = (e: ChangeEvent<HTMLSelectElement>) => {
+    const next = e.target.value || null;
+    if (next === (order.vendorId ?? null)) return; // 변경 없음
+    const livePo =
+      order.vendorStatus === "PENDING_VENDOR" || order.vendorStatus === "VENDOR_ACCEPTED";
+    if (livePo && !window.confirm(t("vendor.changeLiveConfirm"))) {
+      // 취소 — 컨트롤드 select를 원래 값으로 강제 원복.
+      e.target.value = order.vendorId ?? "";
+      return;
+    }
+    onChangeVendor(order.id, next);
+  };
   const vendorSelect = canChangeVendor && vendorOptions.length > 0 && (
     <select
       value={order.vendorId ?? ""}
-      onChange={(e) => onChangeVendor(order.id, e.target.value || null)}
+      onChange={handleVendorSelect}
       disabled={busy}
       aria-label={t("vendor.change")}
       title={t("vendor.change")}
       className="mt-1 block w-full max-w-[160px] bg-admin-bg border border-slate-700 rounded px-1.5 py-1 text-[11px] text-slate-300 focus:border-admin-primary focus:outline-none disabled:opacity-50"
     >
-      {/* 없음 = 직접 제공(발주 흐름 없음) */}
-      <option value="">{t("vendor.changeNone")}</option>
+      {/* 없음 = 직접 제공(발주 흐름 없음) — TICKET은 벤더 필수라 미노출(PR #304 정합) */}
+      {!isTicketOrder && <option value="">{t("vendor.changeNone")}</option>}
       {vendorOptions.map((v) => (
         <option key={v.id} value={v.id}>
           {v.nameKo || v.name}

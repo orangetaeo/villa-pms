@@ -3014,7 +3014,7 @@
       "completedAt": "Đã hoàn thành {date}",
       "change": "Đổi nhà cung cấp",
       "changeNone": "Tự cung cấp (không đặt hàng)",
-      "changeLocked": "Không thể đổi nhà cung cấp khi đơn đang gửi hoặc đã được nhận",
+      "changeLocked": "Không thể đổi nhà cung cấp khi đơn đã quyết toán, đã hoàn thành hoặc đã phát hành vé",
       "changeDispatched": "Đã đổi nhà cung cấp và gửi đặt hàng",
       "changeDispatchedNoZalo": "Đã đổi nhà cung cấp và gửi đặt hàng nhưng NCC chưa liên kết Zalo — cần liên hệ thủ công",
       "changeDispatchFailed": "Đã đổi nhà cung cấp nhưng gửi đặt hàng thất bại — nhấn Gửi đặt hàng để thử lại",
@@ -3024,7 +3024,9 @@
         "ignore": "Bỏ qua",
         "confirmGate": "Cần áp dụng/bỏ qua lịch đề xuất trước khi xác nhận",
         "unresolvedWarn": "Đề xuất giờ của nhà cung cấp chưa được xử lý — hãy áp dụng/bỏ qua trước"
-      }
+      },
+      "changeLiveConfirm": "Đơn này đã được gửi cho nhà cung cấp. Nếu đổi nhà cung cấp, NCC cũ sẽ nhận được thông báo hủy đặt hàng. Tiếp tục?",
+      "ticketVendorRequired": "Đơn vé phải chỉ định nhà cung cấp (không thể tự cung cấp)"
     }
   },
   "adminReceivables": {
