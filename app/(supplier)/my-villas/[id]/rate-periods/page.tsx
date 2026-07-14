@@ -66,7 +66,7 @@ export default async function SupplierRatePeriodsPage({
     startDate: isBase ? null : r.startDate ? toDateOnlyString(r.startDate) : null,
     endDate: isBase ? null : r.endDate ? toDateOnlyString(r.endDate) : null,
     label: r.label ?? null,
-    costVnd: r.supplierCostVnd.toString(),
+    supplierCostVnd: r.supplierCostVnd.toString(),
     ownSaleVnd: r.supplierSalePriceVnd?.toString() ?? null,
     premiumCostVnd: r.premiumSupplierCostVnd?.toString() ?? null,
     premiumOwnSaleVnd: r.premiumSupplierSalePriceVnd?.toString() ?? null,
@@ -77,7 +77,7 @@ export default async function SupplierRatePeriodsPage({
     ? toLayerDTO(baseRow, true)
     : {
         id: "", isBase: true, season: "LOW", startDate: null, endDate: null, label: null,
-        costVnd: "", ownSaleVnd: null, premiumCostVnd: null, premiumOwnSaleVnd: null,
+        supplierCostVnd: "", ownSaleVnd: null, premiumCostVnd: null, premiumOwnSaleVnd: null,
       };
 
   const periods: SupplierLayerDTO[] = villa.ratePeriods

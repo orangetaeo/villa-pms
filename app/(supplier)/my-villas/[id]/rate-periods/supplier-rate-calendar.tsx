@@ -148,7 +148,7 @@ export default function SupplierRateCalendar({
   /* ───────── 시트 확정 ───────── */
   function confirmSheet() {
     if (!sheet) return;
-    if (!draft.costVnd) {
+    if (!draft.supplierCostVnd) {
       setSheetError(t("cal.errCost"));
       return;
     }
@@ -203,13 +203,13 @@ export default function SupplierRateCalendar({
   async function save() {
     setSaving(true);
     setMsg(null);
-    if (!base.costVnd) {
+    if (!base.supplierCostVnd) {
       setMsg({ ok: false, text: t("baseCostRequired") });
       setSaving(false);
       return;
     }
     for (const p of periods) {
-      if (!p.start || !p.end || !p.costVnd) {
+      if (!p.start || !p.end || !p.supplierCostVnd) {
         setMsg({ ok: false, text: t("periodIncomplete") });
         setSaving(false);
         return;
@@ -500,7 +500,7 @@ export default function SupplierRateCalendar({
                 </span>
               </span>
               <span className="text-right">
-                <span className="block text-sm font-extrabold tabular-nums text-neutral-800">{fmtFull(p.costVnd)}</span>
+                <span className="block text-sm font-extrabold tabular-nums text-neutral-800">{fmtFull(p.supplierCostVnd)}</span>
                 {p.premiumOpen && p.premiumCostVnd && (
                   <span className="mt-0.5 block text-[10.5px] font-bold tabular-nums text-[#D97706]">
                     ● {fmtFull(p.premiumCostVnd)}
@@ -525,7 +525,7 @@ export default function SupplierRateCalendar({
           </span>
           <span className="text-right">
             <span className="block text-sm font-extrabold tabular-nums text-neutral-800">
-              {base.costVnd ? fmtFull(base.costVnd) : t("cal.baseUnset")}
+              {base.supplierCostVnd ? fmtFull(base.supplierCostVnd) : t("cal.baseUnset")}
             </span>
             {base.ownSaleVnd && (
               <span className="mt-0.5 block text-[10.5px] font-bold tabular-nums text-teal-600">

@@ -1,6 +1,6 @@
 // 공급자 원가 캘린더 — 순수 로직 층 (rate-calendar-ux · A10)
 //
-// ★ 마진 비공개(사업원칙 2): 공급자는 원가(costVnd)·프리미엄 원가·자기 판매가(ownSale)만 다룬다.
+// ★ 마진 비공개(사업원칙 2): 공급자는 원가(supplierCostVnd)·프리미엄 원가·자기 판매가(ownSale)만 다룬다.
 //   운영자 Net/소비자가/마진은 서버 select에서 아예 제외되어 이 파일·번들·DOM 어디에도 없다.
 //   승자 판정(밤별 요금)은 서버(lib/pricing.resolveRatePeriod)와 동일한 공용 엔진을 재사용하려고
 //   WorkLayer로 변환하는데, WorkLayer 타입이 요구하는 net/consumer/margin 필드는 **더미(null·0)** 로 채운다
@@ -29,7 +29,7 @@ export interface SupplierLayer {
   start: string; // YYYY-MM-DD (base는 "")
   end: string; // YYYY-MM-DD half-open (base는 "")
   label: string;
-  costVnd: string; // 원가(필수)
+  supplierCostVnd: string; // 원가(필수)
   ownSaleVnd: string; // 공급자 자기 판매가(선택 — 운영자 마진과 무관)
   premiumOpen: boolean; // 주말·공휴일 요금 토글
   premiumCostVnd: string; // 프리미엄 박 원가(선택)
@@ -44,7 +44,7 @@ export interface SupplierLayerDTO {
   startDate: string | null;
   endDate: string | null;
   label: string | null;
-  costVnd: string;
+  supplierCostVnd: string;
   ownSaleVnd: string | null;
   premiumCostVnd: string | null;
   premiumOwnSaleVnd: string | null;
@@ -66,7 +66,7 @@ export function fromDTO(d: SupplierLayerDTO): SupplierLayer {
     start: d.startDate ?? "",
     end: d.endDate ?? "",
     label: d.label ?? "",
-    costVnd: d.costVnd,
+    supplierCostVnd: d.supplierCostVnd,
     ownSaleVnd: d.ownSaleVnd ?? "",
     premiumOpen: Boolean(premiumCostVnd || premiumOwnSaleVnd),
     premiumCostVnd,
@@ -83,7 +83,7 @@ export function emptyLayer(season: Season): SupplierLayer {
     start: "",
     end: "",
     label: "",
-    costVnd: "",
+    supplierCostVnd: "",
     ownSaleVnd: "",
     premiumOpen: false,
     premiumCostVnd: "",
@@ -106,7 +106,7 @@ function toWork(l: SupplierLayer): WorkLayer {
     end: l.end ? toUtc(l.end) : null,
     label: l.label || null,
     batchId: null,
-    cost: BigInt(l.costVnd || "0"),
+    cost: BigInt(l.supplierCostVnd || "0"),
     net: null, // ← 운영자 Net 미보유(누수 차단)
     netKrw: null,
     consumer: null,
@@ -125,9 +125,9 @@ function toWork(l: SupplierLayer): WorkLayer {
 
 /** 캘린더 표시용 WorkLayer[] — 원가 있는 행만(빈 원가 신규행은 승자에서 제외). */
 export function toWorkLayers(base: SupplierLayer, periods: SupplierLayer[]): { works: WorkLayer[]; baseWork: WorkLayer | null } {
-  const baseWork = base.costVnd ? toWork(base) : null;
+  const baseWork = base.supplierCostVnd ? toWork(base) : null;
   const works = periods
-    .filter((p) => p.start && p.end && p.costVnd)
+    .filter((p) => p.start && p.end && p.supplierCostVnd)
     .map(toWork);
   return { works: baseWork ? [...works, baseWork] : works, baseWork };
 }
@@ -200,7 +200,7 @@ export function buildSaveBody(base: SupplierLayer, periods: SupplierLayer[]): Sa
   return {
     base: {
       season: base.season,
-      supplierCostVnd: base.costVnd,
+      supplierCostVnd: base.supplierCostVnd,
       supplierSalePriceVnd: base.ownSaleVnd || null,
       ...premiumOut(base),
       label: base.label.trim() || null,
@@ -210,7 +210,7 @@ export function buildSaveBody(base: SupplierLayer, periods: SupplierLayer[]): Sa
       season: p.season,
       startDate: p.start,
       endDate: p.end,
-      supplierCostVnd: p.costVnd,
+      supplierCostVnd: p.supplierCostVnd,
       supplierSalePriceVnd: p.ownSaleVnd || null,
       ...premiumOut(p),
       label: p.label.trim() || null,

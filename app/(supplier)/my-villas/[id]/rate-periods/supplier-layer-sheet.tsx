@@ -136,8 +136,8 @@ export default function SupplierLayerSheet({
 
           {/* 원가 (필수) */}
           <CostInput
-            value={layer.costVnd}
-            onChange={(d) => onChange({ ...layer, costVnd: d })}
+            value={layer.supplierCostVnd}
+            onChange={(d) => onChange({ ...layer, supplierCostVnd: d })}
             label={t("cost")}
           />
 
