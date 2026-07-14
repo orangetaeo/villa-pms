@@ -28,6 +28,15 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered,
   const [declinedId, setDeclinedId] = useState<string | null>(null);
   // 티켓 확대 라이트박스(ADR-0034) — 선택한 티켓 URL. body 포털로 렌더(헤더 fixed 함정 회피).
   const [lightbox, setLightbox] = useState<string | null>(null);
+  // 품목 그룹 접기(g.key 기준) — 기본 전부 펼침(QR·시간제안 등 중요 정보가 숨지 않게). 헤더 탭으로 토글.
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const toggleGroup = (key: string) =>
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   // 미해결 제안이 하나라도 있으면 상단 배너(게스트 알림 채널 없음 → 페이지 내 배너가 "알림").
   const hasProposal = requestedOrders.some((o) => o.proposalPending);
@@ -176,13 +185,21 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered,
           <section className="space-y-3">
             <h3 className="px-1 text-sm font-bold text-slate-800">{L.result.requestedTitle}</h3>
             {/* 품목별 그룹 카드 — 헤더(품목명·총 수량·이용일) + 내부 주문 라인(구분별). */}
-            {groups.map((g) => (
+            {groups.map((g) => {
+              const collapsed = collapsedGroups.has(g.key);
+              const expanded = !collapsed;
+              return (
               <div
                 key={g.key}
                 className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden"
               >
-                {/* 그룹 헤더 */}
-                <div className="px-4 py-3 border-b border-slate-100 flex items-start gap-2">
+                {/* 그룹 헤더 — 탭하면 본문(주문 라인) 접고 펴기. 접힘 시 border-b 제거. */}
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(g.key)}
+                  aria-expanded={expanded}
+                  className={`w-full text-left px-4 py-3 flex items-start gap-2 ${collapsed ? "" : "border-b border-slate-100"}`}
+                >
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-slate-800 truncate">{g.name}</p>
                     {g.serviceDate && (
@@ -195,9 +212,15 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered,
                   <span className="ml-auto shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600 tabular-nums">
                     × {g.totalQuantity}
                   </span>
-                </div>
+                  <span
+                    className={`material-symbols-outlined shrink-0 text-[20px] text-slate-400 transition-transform ${collapsed ? "" : "rotate-180"}`}
+                  >
+                    expand_more
+                  </span>
+                </button>
 
-                {/* 주문 라인 — 구분(옵션 라벨)별. 기존 정보 전부 유지. */}
+                {/* 주문 라인 — 구분(옵션 라벨)별. 기존 정보 전부 유지. 접힘 시 미렌더. */}
+                {!collapsed && (
                 <div className="divide-y divide-slate-100">
                   {g.orders.map((o) => {
                     // 헤더가 이용일을 요약하면(g.serviceDate) 라인은 시간만, 아니면 라인마다 날짜+시간.
@@ -409,8 +432,10 @@ export default function GuestOrders({ token, lang, requestedOrders, justOrdered,
                     );
                   })}
                 </div>
+                )}
               </div>
-            ))}
+              );
+            })}
           </section>
         )}
 
