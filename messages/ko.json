@@ -1664,7 +1664,7 @@
     "editInfoTitle": "이용 규칙 · 위치 정보",
     "editInfoDesc": "체크인/아웃, 흡연·반려동물·파티·주차, 보증금, 지도·면적을 직접 수정",
     "editInfo": "수정",
-    "price": "원가",
+    "price": "공급자 원가",
     "rejectionTitle": "반려 사유",
     "editResubmit": "수정 후 재제출",
     "season": {
@@ -1674,8 +1674,8 @@
       "PEAK": "극성수기"
     },
     "managePhotos": "사진 관리",
-    "manageCost": "원가·시즌",
-    "manageRatePeriods": "기간별 원가 입력",
+    "manageCost": "공급자 원가·시즌",
+    "manageRatePeriods": "기간별 공급자 원가 입력",
     "sales": {
       "title": "판매 정보",
       "readOnly": "보기 전용",
@@ -1816,8 +1816,8 @@
       "accessHint": "청소 담당·운영자만 봅니다. 고객에게는 공개되지 않습니다."
     },
     "rates": {
-      "title": "1박 원가",
-      "subtitle": "시즌별로 1박에 받을 금액을 입력하세요.",
+      "title": "공급자 원가 (1박)",
+      "subtitle": "시즌별 1박 공급자 원가(공급자가 받는 금액)를 입력하세요. 소비자 판매가가 아닙니다.",
       "LOW": "비수기",
       "LOWHint": "매년 5월~9월",
       "SHOULDER": "준성수기",
@@ -1826,7 +1826,7 @@
       "HIGHHint": "매년 10월~4월",
       "PEAK": "극성수기 (설·연휴)",
       "PEAKHint": "축제·설 연휴",
-      "empty": "금액 미입력",
+      "empty": "원가 미입력",
       "optional": "선택"
     }
   },
@@ -3965,12 +3965,12 @@
     "error": "처리에 실패했습니다. 다시 시도해주세요."
   },
   "supplierRatePeriods": {
-    "title": "기간별 원가",
+    "title": "기간별 공급자 원가",
     "back": "뒤로",
-    "intro": "기본요금(비수기)을 정하고, 성수기·극성수기 기간을 추가해 기간마다 원가를 입력하세요. 판매가는 운영자가 정합니다.",
+    "intro": "기본요금(비수기)을 정하고, 성수기·극성수기 기간을 추가해 기간마다 공급자 원가를 입력하세요. 판매가는 운영자가 정합니다.",
     "baseTitle": "기본요금 (비수기 기준)",
-    "baseHint": "특별 기간이 아닌 날짜의 원가",
-    "cost": "1박 원가",
+    "baseHint": "특별 기간이 아닌 날짜의 공급자 원가",
+    "cost": "공급자 원가 / 박",
     "labelPlaceholder": "기간 이름 (예: 2026 설)",
     "periodLabel": "기간 이름",
     "removePeriod": "삭제",
@@ -3985,9 +3985,9 @@
     "addPeriod": "기간 추가",
     "save": "저장",
     "saving": "저장 중...",
-    "baseCostRequired": "기본요금 원가를 입력하세요.",
+    "baseCostRequired": "기본요금 공급자 원가를 입력하세요.",
     "datePlaceholder": "날짜 선택",
-    "periodIncomplete": "각 기간의 날짜와 원가를 모두 입력하세요.",
+    "periodIncomplete": "각 기간의 날짜와 공급자 원가를 모두 입력하세요.",
     "invalid": "기간이 겹치거나 날짜가 올바르지 않습니다.",
     "saveError": "저장에 실패했습니다. 다시 시도하세요.",
     "salePrice": "내 판매가 / 박",
@@ -4005,12 +4005,12 @@
       "6": "토"
     },
     "premiumToggle": "주말·공휴일 요금",
-    "premiumCost": "주말·공휴일 원가 / 박",
+    "premiumCost": "주말·공휴일 공급자 원가 / 박",
     "premiumSalePrice": "주말·공휴일 판매가 / 박",
     "premiumEmptyHint": "비워 두면 평일가가 적용됩니다."
   },
   "costSeasons": {
-    "title": "원가 · 시즌",
+    "title": "공급자 원가 · 시즌",
     "back": "뒤로",
     "saveChanges": "변경 저장",
     "saving": "저장 중...",
@@ -4021,7 +4021,7 @@
     "appliedRange": "적용: {start} – {end}",
     "noDateRange": "기간 미설정",
     "editDates": "날짜 수정",
-    "enterPriceHint": "{season} 원가를 입력하세요",
+    "enterPriceHint": "{season} 공급자 원가를 입력하세요",
     "backspace": "지우기",
     "pickRangeTitle": "{season} 기간 선택",
     "pickRangeHint": "시작일과 종료일을 차례로 누르세요",
@@ -5249,8 +5249,8 @@
         "desc": "'수정'을 눌러 주방·욕실·미니바 비품을 갱신하세요."
       },
       "rates": {
-        "title": "시즌별 원가",
-        "desc": "기간별로 내 원가를 입력하세요 — 성수기·명절 기간은 따로 지정하세요."
+        "title": "시즌별 공급자 원가",
+        "desc": "기간별로 공급자 원가(내가 받는 금액)를 입력하세요 — 성수기·명절 기간은 따로 지정하세요."
       },
       "sellLink": {
         "title": "직접 판매 링크",
