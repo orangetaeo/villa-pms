@@ -3,7 +3,8 @@
 //   · ADJUST     : 각 range의 밤을 "현재 승자 행" 기준 구간화(segmentByWinner) → 구간별 조정 레이어
 //                  (가격 = 승자값 × (1+pct/100), VND 1,000동·KRW 100원 반올림; premium 컬럼은 원본 non-null만).
 //   · SET        : range당 레이어 1개(고정가 입력).
-//   · COPY_YEAR  : 선택 레이어를 연도 시프트(같은 월·일, 2/29→2/28)해 복사, pct 있으면 전 컬럼 조정.
+//   · COPY_YEAR  : 선택 레이어를 연도 시프트해 복사 — start=같은 월·일(2/29→2/28 보정),
+//                  end=마지막 밤 시프트 후 +1일(shiftEndDateYears, 밤 수 보존). pct 있으면 전 컬럼 조정.
 // base(isBase) 생성 금지 — 모든 신규 행 isBase=false. 권한 ADMIN(canSetPrice). writeAuditLog 필수.
 //
 // rate-calendar-fixes §4 — 구간화·row 배열 생성(계산·DB 읽기)은 $transaction 밖에서 완료하고,
