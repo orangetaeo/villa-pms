@@ -1932,7 +1932,7 @@
     },
     "rates": {
       "title": "Giá gốc của bạn (mỗi đêm)",
-      "subtitle": "Nhập giá gốc bạn nhận cho mỗi đêm theo từng mùa. Đây không phải giá bán cho khách.",
+      "subtitle": "Nhập giá gốc mỗi đêm theo từng mùa (giá bạn cung cấp cho Villa Go).",
       "LOW": "Mùa thấp điểm",
       "LOWHint": "T5 - T9 hàng năm",
       "SHOULDER": "Cận cao điểm",
