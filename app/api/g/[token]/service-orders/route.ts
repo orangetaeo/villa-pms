@@ -20,6 +20,7 @@ import type { Prisma } from "@prisma/client";
 import { notifyOperatorsServiceOrderRequested } from "@/lib/consumer-signal-notify";
 import { sendVendorPoNotifications } from "@/lib/vendor-dispatch";
 import { resolveOrderVendorId } from "@/lib/regional-vendor";
+import { canSellItem } from "@/lib/ticket-vendor-guard";
 import { readVariantRule } from "@/lib/ticket-variant-rules";
 import { validateTicketGuests } from "@/lib/ticket-order-validation";
 import { loadCheckinRoster } from "@/lib/checkin-roster";
@@ -187,6 +188,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
         user: { select: { zaloUserId: true, locale: true } },
       },
     });
+  }
+
+  // ★TICKET 판매가능 벤더 가드(계약 ticket-vendor-required-sale-block) — 해석된 벤더가 승인·활성이 아니면
+  //   판매(주문 생성) 자체를 차단. 티켓은 벤더 QR 발행 없이는 이행 불가라 판매 시점에 벤더가 확보돼야 한다.
+  //   ★무료 티켓 분기보다 앞 — 무료 variant 포함 품목 단위로 동일 차단(부분 허용 없음). 비TICKET은 항상 통과.
+  //   dispatchVendor는 resolvedVendorId 기준으로 이미 로드됨(TICKET은 비지역 타입이라 item.vendor 그대로) —
+  //   순수 판정으로 중복 쿼리 없이 검사.
+  if (!canSellItem({ itemType: item.type, resolvedVendorId, vendor: dispatchVendor })) {
+    return NextResponse.json({ error: "TICKET_VENDOR_REQUIRED" }, { status: 400 });
   }
 
   // ★무료 티켓(판매가 0 — 무료/유아 variant) — 업체 QR 발행·소비자 제시 불필요(테오). 그냥 입장.
