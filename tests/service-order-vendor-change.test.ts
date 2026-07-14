@@ -84,11 +84,18 @@ function primeChange(existing: Record<string, unknown>) {
   soFindUnique.mockReset();
   soFindUnique.mockResolvedValueOnce(existing).mockResolvedValueOnce(info);
   soUpdateMany.mockResolvedValue({ count: 1 });
-  // 승인+활성 벤더 검증 + 구 업체 조회(동일 mock, superset 반환).
+  // 승인+활성+취급타입 검증 + 구 업체 조회(동일 mock, superset 반환).
+  //   catalogItems에 FOOD·TICKET 모두 포함 → 케이스별 order.type(FOOD 또는 TICKET) 타입 매칭 통과.
   vendorFindUnique.mockResolvedValue({
     id: "v-new",
     approvalStatus: "APPROVED",
     active: true,
+    catalogItems: [
+      { type: "FOOD", active: true },
+      { type: "TICKET", active: true },
+    ],
+    regionCoverage: [],
+    villaAssignments: [],
     userId: "old-vu",
     user: { zaloUserId: "z-1", locale: "vi" },
   });
@@ -205,6 +212,52 @@ describe("거부 케이스", () => {
     expect(soUpdateMany).not.toHaveBeenCalled();
   });
 
+  it("타입 불일치 벤더로 교체 시도 — 400 VENDOR_TYPE_MISMATCH (승인·활성 통과 후)", async () => {
+    primeChange({ ...baseOrder, type: "FOOD", status: "REQUESTED", vendorStatus: null });
+    // 승인·활성이나 취급 타입이 BBQ뿐 — FOOD 주문 배정 불가.
+    vendorFindUnique.mockResolvedValue({
+      id: "v-new",
+      approvalStatus: "APPROVED",
+      active: true,
+      catalogItems: [{ type: "BBQ", active: true }],
+      regionCoverage: [],
+      villaAssignments: [],
+    });
+    const res = await call({ vendorId: "v-new" });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: "VENDOR_TYPE_MISMATCH" });
+    expect(soUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("미분류(신호 0) 벤더로 교체 시도 — 400 VENDOR_TYPE_MISMATCH", async () => {
+    primeChange({ ...baseOrder, type: "FOOD", status: "REQUESTED", vendorStatus: null });
+    vendorFindUnique.mockResolvedValue({
+      id: "v-new",
+      approvalStatus: "APPROVED",
+      active: true,
+      catalogItems: [],
+      regionCoverage: [],
+      villaAssignments: [],
+    });
+    const res = await call({ vendorId: "v-new" });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: "VENDOR_TYPE_MISMATCH" });
+  });
+
+  it("지역 커버리지 신호만으로 타입 매칭 → 허용(200)", async () => {
+    primeChange({ ...baseOrder, type: "MASSAGE", status: "REQUESTED", vendorStatus: null });
+    vendorFindUnique.mockResolvedValue({
+      id: "v-new",
+      approvalStatus: "APPROVED",
+      active: true,
+      catalogItems: [],
+      regionCoverage: [{ serviceType: "MASSAGE" }],
+      villaAssignments: [],
+    });
+    const res = await call({ vendorId: "v-new" });
+    expect(res.status).toBe(200);
+  });
+
   it("TICKET 미발권 + 새 벤더 지정 — 허용(200), where에 ticketUrls isEmpty 가드", async () => {
     primeChange({ ...baseOrder, type: "TICKET", status: "REQUESTED", vendorStatus: null });
     const res = await call({ vendorId: "v-new" });
@@ -261,7 +314,14 @@ describe("동시성 가드 (updateMany count===0)", () => {
     soFindUnique.mockReset();
     soFindUnique.mockResolvedValueOnce({ ...baseOrder, status: "CONFIRMED", vendorStatus: "VENDOR_ACCEPTED" });
     soUpdateMany.mockResolvedValue({ count: 0 });
-    vendorFindUnique.mockResolvedValue({ id: "v-new", approvalStatus: "APPROVED", active: true });
+    vendorFindUnique.mockResolvedValue({
+      id: "v-new",
+      approvalStatus: "APPROVED",
+      active: true,
+      catalogItems: [{ type: "FOOD", active: true }],
+      regionCoverage: [],
+      villaAssignments: [],
+    });
     const res = await call({ vendorId: "v-new" });
     expect(res.status).toBe(409);
     expect(await res.json()).toMatchObject({ error: "VENDOR_LOCKED" });

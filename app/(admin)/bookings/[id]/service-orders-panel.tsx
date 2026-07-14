@@ -99,6 +99,9 @@ export interface VendorOption {
   id: string;
   name: string;
   nameKo: string | null;
+  // 취급 서비스타입(카테고리) 파생 목록 — 서버에서 활성 카탈로그 ∪ 지역 ∪ 빌라지정 합집합으로 산출.
+  //   셀렉터는 주문 type을 취급하는 업체만 노출(미분류=빈 배열=미표시). 내부 관계 데이터는 미포함.
+  types: string[];
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -289,6 +292,8 @@ export default function ServiceOrdersPanel({
           setMessage({ tone: "warn", text: t("vendor.changeLocked") });
         } else if (res.status === 400 && code === "TICKET_VENDOR_REQUIRED") {
           setMessage({ tone: "warn", text: t("vendor.ticketVendorRequired") });
+        } else if (res.status === 400 && code === "VENDOR_TYPE_MISMATCH") {
+          setMessage({ tone: "warn", text: t("vendor.typeMismatch") });
         } else {
           fail();
         }
@@ -1020,7 +1025,14 @@ function VendorCell({
     }
     onChangeVendor(order.id, next);
   };
-  const vendorSelect = canChangeVendor && vendorOptions.length > 0 && (
+  // 타입(카테고리) 매칭 — 이 주문 type을 취급하는 업체만 노출(미분류=빈 types=미표시). 서버 가드와 대칭.
+  const typeMatchedVendors = vendorOptions.filter((v) => v.types.includes(order.type));
+  // 현재 배정 업체가 타입 불일치·미분류라 필터 목록에서 빠지면, select 현재 값 표시용으로 비활성 옵션 유지(값 왜곡 금지).
+  const currentOutOfList =
+    order.vendorId != null && !typeMatchedVendors.some((v) => v.id === order.vendorId)
+      ? vendorOptions.find((v) => v.id === order.vendorId)
+      : undefined;
+  const vendorSelect = canChangeVendor && (typeMatchedVendors.length > 0 || currentOutOfList) && (
     <select
       value={order.vendorId ?? ""}
       onChange={handleVendorSelect}
@@ -1031,7 +1043,13 @@ function VendorCell({
     >
       {/* 없음 = 직접 제공(발주 흐름 없음) — TICKET은 벤더 필수라 미노출(PR #304 정합) */}
       {!isTicketOrder && <option value="">{t("vendor.changeNone")}</option>}
-      {vendorOptions.map((v) => (
+      {/* 현재 배정 업체가 타입 불일치·미분류면 값 표시용 비활성 옵션(재선택 불가, 값 유지) */}
+      {currentOutOfList && (
+        <option value={currentOutOfList.id} disabled>
+          {currentOutOfList.nameKo || currentOutOfList.name}
+        </option>
+      )}
+      {typeMatchedVendors.map((v) => (
         <option key={v.id} value={v.id}>
           {v.nameKo || v.name}
         </option>

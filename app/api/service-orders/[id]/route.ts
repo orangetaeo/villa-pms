@@ -10,6 +10,7 @@ import { isOperator, canViewFinance, type Role } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
 import { assertServiceTransition, InvalidServiceTransitionError } from "@/lib/service-order";
 import { canConfirmCustomer, hasUnresolvedProposal, vendorHasLivePo } from "@/lib/vendor-order";
+import { vendorHandlesType, VENDOR_SERVICE_TYPE_SELECT } from "@/lib/vendor-service-types";
 import { enqueueInAppNotification, buildVendorNotifText, vendorNotifLocale } from "@/lib/inapp-notification";
 import { sendVendorPoCancelledNotifications } from "@/lib/vendor-dispatch";
 import { toDateOnlyString } from "@/lib/date-vn";
@@ -160,12 +161,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (d.vendorId !== null) {
       // 승인(APPROVED)+활성(active) 벤더만 발주 대상 — 자가가입 대기·거절·비활성 벤더 배정 차단
       //   (ADR-0023 S5 + PR #304 canSellItem 의미론 정합: 비활성 벤더는 판매·발주 불가).
+      //   ★취급 타입(카테고리) 판정용 세 관계도 함께 로드 — 승인·활성 검증 뒤 타입 대칭 가드에 재사용(추가 쿼리 0).
       const vendor = await prisma.serviceVendor.findUnique({
         where: { id: d.vendorId },
-        select: { id: true, approvalStatus: true, active: true },
+        select: { id: true, approvalStatus: true, active: true, ...VENDOR_SERVICE_TYPE_SELECT },
       });
       if (!vendor || vendor.approvalStatus !== "APPROVED" || !vendor.active) {
         return NextResponse.json({ error: "VENDOR_NOT_APPROVED_OR_MISSING" }, { status: 400 });
+      }
+      // 타입(카테고리) 매칭 — 새 벤더가 이 주문 type을 취급하지 않으면 거부(미분류=신호0도 거부). UI 필터 우회 봉쇄.
+      if (!vendorHandlesType(vendor, existing.type)) {
+        return NextResponse.json({ error: "VENDOR_TYPE_MISMATCH" }, { status: 400 });
       }
     }
     // 발주 사이클 리셋 — 새 벤더(또는 직접 제공)로 처음부터. 이전 거절 사유·제안 흔적 제거.
