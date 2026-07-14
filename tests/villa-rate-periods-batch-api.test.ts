@@ -83,7 +83,7 @@ describe("ADJUST — 승자 구간화 + 조정 레이어", () => {
     const json = await res.json();
     expect(json.created).toBe(3);
     expect(json.batchId).toMatch(/^batch_/);
-    const rows = tx.villaRatePeriod.createMany.mock.calls[0][0].data;
+    const rows = (tx.villaRatePeriod.createMany.mock.calls as unknown as [[{ data: any[] }]])[0][0].data;
     expect(rows).toHaveLength(3);
     // 모두 같은 batchId, isBase=false
     expect(new Set(rows.map((r: { batchId: string }) => r.batchId)).size).toBe(1);
@@ -117,7 +117,7 @@ describe("COPY_YEAR — 연도 시프트 + pct", () => {
     tx.villaRatePeriod.findMany.mockResolvedValue([peakRow]);
     const res = await req({ action: "COPY_YEAR", srcYear: 2027, dstYear: 2028, layerIds: ["peak"], pct: 5 });
     expect(res.status).toBe(200);
-    const rows = tx.villaRatePeriod.createMany.mock.calls[0][0].data;
+    const rows = (tx.villaRatePeriod.createMany.mock.calls as unknown as [[{ data: any[] }]])[0][0].data;
     expect(rows).toHaveLength(1);
     expect(rows[0].startDate).toEqual(utc("2028-01-10"));
     expect(rows[0].endDate).toEqual(utc("2028-01-13"));
@@ -147,7 +147,7 @@ describe("SET — range당 레이어 1개", () => {
       prices: { supplierCostVnd: "2000000", marginType: "PERCENT", marginValue: "20", salePriceVnd: "2400000", salePriceKrw: 120000 },
     });
     expect(res.status).toBe(200);
-    const rows = tx.villaRatePeriod.createMany.mock.calls[0][0].data;
+    const rows = (tx.villaRatePeriod.createMany.mock.calls as unknown as [[{ data: any[] }]])[0][0].data;
     expect(rows).toHaveLength(2);
     expect(rows.every((r: { season: string }) => r.season === "SHOULDER")).toBe(true);
     expect(rows[0].salePriceVnd).toBe(2_400_000n);
