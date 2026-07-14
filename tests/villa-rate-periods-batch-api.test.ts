@@ -6,16 +6,27 @@ vi.mock("@/auth", () => ({ auth: (...a: unknown[]) => mockAuth(...a) }));
 vi.mock("@/lib/audit-log", () => ({ writeAuditLog: vi.fn(async () => {}) }));
 vi.mock("@/lib/security-event", () => ({ recordSecurityEvent: vi.fn(async () => {}) }));
 
+// rate-calendar-fixes §4 — 읽기·구간화는 $transaction 밖(prisma.*), 캡 count·createMany·audit만 tx.
 const tx = {
   villa: { findUnique: vi.fn() },
   villaRatePeriod: {
     findFirst: vi.fn(),
     findMany: vi.fn(),
+    count: vi.fn(async () => 0),
     createMany: vi.fn(async () => ({})),
   },
 };
 vi.mock("@/lib/prisma", () => ({
-  prisma: { $transaction: (fn: (t: unknown) => Promise<unknown>) => fn(tx) },
+  // getter로 지연 접근 — 팩토리는 호이스팅되어 tx 초기화 전 실행되므로 즉시 tx.* 접근 불가.
+  prisma: {
+    get villa() {
+      return tx.villa;
+    },
+    get villaRatePeriod() {
+      return tx.villaRatePeriod;
+    },
+    $transaction: (fn: (t: unknown) => Promise<unknown>) => fn(tx),
+  },
 }));
 
 import { POST } from "@/app/api/villas/[id]/rate-periods/batch/route";
@@ -161,5 +172,107 @@ describe("SET — range당 레이어 1개", () => {
       prices: { supplierCostVnd: "2000000", marginType: "PERCENT", marginValue: "20", salePriceVnd: "2400000", salePriceKrw: 120000 },
     });
     expect(res.status).toBe(400);
+  });
+});
+
+// ── rate-calendar-fixes 후속 수정 ──
+describe("§1 pct 하한 검증", () => {
+  beforeEach(() => mockAuth.mockResolvedValue({ user: { id: "o1", role: "OWNER" } }));
+
+  it("pct=-150 → 400 VALIDATION_FAILED (gt(-100))", async () => {
+    tx.villaRatePeriod.findFirst.mockResolvedValue(baseRow);
+    tx.villaRatePeriod.findMany.mockResolvedValue([]);
+    const res = await req({
+      action: "ADJUST",
+      ranges: [{ start: "2027-01-01", end: "2027-01-03" }],
+      pct: -150,
+      targets: { net: true },
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("VALIDATION_FAILED");
+    expect(tx.villaRatePeriod.createMany).not.toHaveBeenCalled();
+  });
+
+  it("pct=600 → 400 (max(500))", async () => {
+    const res = await req({
+      action: "ADJUST",
+      ranges: [{ start: "2027-01-01", end: "2027-01-03" }],
+      pct: 600,
+      targets: { net: true },
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("§2 레이어 총량 캡 LAYER_LIMIT", () => {
+  beforeEach(() => mockAuth.mockResolvedValue({ user: { id: "o1", role: "OWNER" } }));
+
+  it("기존 non-base 200행 + 신규 1행 → 400 LAYER_LIMIT (사전 count 검사)", async () => {
+    tx.villaRatePeriod.count.mockResolvedValue(200); // 이미 캡 도달
+    const res = await req({
+      action: "SET",
+      ranges: [{ start: "2027-03-01", end: "2027-03-05" }],
+      season: "HIGH",
+      prices: { supplierCostVnd: "2000000", marginType: "PERCENT", marginValue: "20", salePriceVnd: "2400000", salePriceKrw: 120000 },
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("LAYER_LIMIT");
+    expect(tx.villaRatePeriod.createMany).not.toHaveBeenCalled();
+  });
+
+  it("기존 199행 + 신규 1행 = 200 → 정상(캡 이내)", async () => {
+    tx.villaRatePeriod.count.mockResolvedValue(199);
+    const res = await req({
+      action: "SET",
+      ranges: [{ start: "2027-03-01", end: "2027-03-05" }],
+      season: "HIGH",
+      prices: { supplierCostVnd: "2000000", marginType: "PERCENT", marginValue: "20", salePriceVnd: "2400000", salePriceKrw: 120000 },
+    });
+    expect(res.status).toBe(200);
+    expect(tx.villaRatePeriod.createMany).toHaveBeenCalled();
+  });
+});
+
+describe("§4 range 밤 수 상한 RANGE_TOO_LONG", () => {
+  beforeEach(() => mockAuth.mockResolvedValue({ user: { id: "o1", role: "OWNER" } }));
+
+  it("range 1101박(> 1100) → 400 RANGE_TOO_LONG", async () => {
+    // 2027-01-01 + 1101일 = 2030-01-06
+    const res = await req({
+      action: "SET",
+      ranges: [{ start: "2027-01-01", end: "2030-01-06" }],
+      season: "HIGH",
+      prices: { supplierCostVnd: "2000000", marginType: "PERCENT", marginValue: "20", salePriceVnd: "2400000", salePriceKrw: 120000 },
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("RANGE_TOO_LONG");
+  });
+
+  it("range 1100박(경계) → 정상", async () => {
+    // 2027-01-01 + 1100일 = 2030-01-05
+    const res = await req({
+      action: "SET",
+      ranges: [{ start: "2027-01-01", end: "2030-01-05" }],
+      season: "HIGH",
+      prices: { supplierCostVnd: "2000000", marginType: "PERCENT", marginValue: "20", salePriceVnd: "2400000", salePriceKrw: 120000 },
+    });
+    expect(res.status).toBe(200);
+  });
+});
+
+describe("§3 COPY_YEAR 윤년 경계 — 밤 수 보존", () => {
+  beforeEach(() => mockAuth.mockResolvedValue({ user: { id: "o1", role: "OWNER" } }));
+
+  it("[2024-01-01, 2024-02-29) +1년 → [2025-01-01, 2025-03-01) (59박 보존)", async () => {
+    const leapRow = {
+      ...baseRow, id: "leap", season: "HIGH", isBase: false,
+      startDate: utc("2024-01-01"), endDate: utc("2024-02-29"),
+    };
+    tx.villaRatePeriod.findMany.mockResolvedValue([leapRow]);
+    const res = await req({ action: "COPY_YEAR", srcYear: 2024, dstYear: 2025, layerIds: ["leap"] });
+    expect(res.status).toBe(200);
+    const rows = (tx.villaRatePeriod.createMany.mock.calls as unknown as [[{ data: any[] }]])[0][0].data;
+    expect(rows[0].startDate).toEqual(utc("2025-01-01"));
+    expect(rows[0].endDate).toEqual(utc("2025-03-01"));
   });
 });

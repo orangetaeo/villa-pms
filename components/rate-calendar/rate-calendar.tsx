@@ -11,7 +11,7 @@ import { useTranslations } from "next-intl";
 import CollapsibleCard from "@/components/admin/collapsible-card";
 import type { Axis, CalendarMode, HolidayDTO, RateLayerDTO, WorkLayer } from "./types";
 import { SEASON_LIST, SEASON_VAR } from "./types";
-import { addDays, holidayTimeSet, iso, layerYears, toUtc, toWorkLayer } from "./calendar-lib";
+import { addDays, holidayTimeSet, iso, layerYears, parsePct, toUtc, toWorkLayer } from "./calendar-lib";
 import { emptyPriceForm, toPricePayload, type PriceFormState } from "./price-suggest";
 import CalendarGrid from "./calendar-grid";
 import LayerPanel from "./layer-panel";
@@ -60,11 +60,6 @@ function formFromLayer(w: WorkLayer): PriceFormState {
     premiumConsumerSalePriceKrw: w.pConsumerKrw ?? 0,
     label: w.label ?? "",
   };
-}
-
-function parsePct(raw: string): number | null {
-  const v = parseFloat(raw.replace(/[^\d.+-]/g, ""));
-  return Number.isFinite(v) && v !== 0 ? v : null;
 }
 
 export default function RateCalendar({

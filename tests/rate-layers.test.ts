@@ -5,6 +5,7 @@ import {
   adjustVnd,
   adjustKrw,
   shiftDateYears,
+  shiftEndDateYears,
   generateBatchId,
   type DateRange,
 } from "@/lib/rate-layers";
@@ -108,6 +109,33 @@ describe("shiftDateYears — 같은 월·일, 2/29→2/28 보정", () => {
   it("2/29 → 대상도 윤년이면 그대로", () => {
     // 2028 → 2032 둘 다 윤년
     expect(shiftDateYears(utc("2028-02-29"), 4)).toEqual(utc("2032-02-29"));
+  });
+});
+
+describe("shiftEndDateYears — COPY_YEAR 윤년 경계(마지막 밤 보존)", () => {
+  const nights = (start: Date, end: Date) =>
+    (end.getTime() - start.getTime()) / 86_400_000;
+
+  it("[2024-01-01, 2024-02-29) +1년 → end=2025-03-01 (59박 보존, 직접 시프트 58박 버그 방지)", () => {
+    // C1: exclusive end를 직접 시프트하면 2025-02-28(58박)로 1박 유실. 마지막 밤(02-28)→+1일로 복원.
+    const start = shiftDateYears(utc("2024-01-01"), 1);
+    const end = shiftEndDateYears(utc("2024-02-29"), 1);
+    expect(start).toEqual(utc("2025-01-01"));
+    expect(end).toEqual(utc("2025-03-01"));
+    expect(nights(utc("2024-01-01"), utc("2024-02-29"))).toBe(59); // 원본 밤 수
+    expect(nights(start, end)).toBe(59); // 시프트 후 동일
+  });
+
+  it("단일 밤 [2024-02-28, 2024-02-29) +1년 → [2025-02-28, 2025-03-01) 1박 보존", () => {
+    const start = shiftDateYears(utc("2024-02-28"), 1);
+    const end = shiftEndDateYears(utc("2024-02-29"), 1);
+    expect(start).toEqual(utc("2025-02-28"));
+    expect(end).toEqual(utc("2025-03-01"));
+    expect(nights(start, end)).toBe(1);
+  });
+
+  it("평범한 exclusive end +1년 (비경계)", () => {
+    expect(shiftEndDateYears(utc("2027-01-13"), 1)).toEqual(utc("2028-01-13"));
   });
 });
 

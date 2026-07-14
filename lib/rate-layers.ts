@@ -116,6 +116,19 @@ export function shiftDateYears(date: Date, deltaYears: number): Date {
   return shifted;
 }
 
+/**
+ * 반개구간 [start, end)의 exclusive endDate 연도 시프트 (COPY_YEAR 윤년 경계 보존).
+ * exclusive end를 shiftDateYears로 직접 시프트하면 2/29→2/28 클램프로 마지막 밤이 유실된다
+ * (예: [2024-01-01, 2024-02-29) +1년 → end 2024-02-29를 직접 시프트 시 2025-02-28 = 58박, 1박 손실).
+ * 대신 마지막 밤(end−1일)을 시프트한 뒤 +1일로 exclusive end를 복원 → 밤 수·마지막 밤 보존.
+ * @db.Date UTC 자정 기준(UTC라 DST 없음 — MS_PER_DAY 가감이 안전).
+ */
+export function shiftEndDateYears(endExclusive: Date, deltaYears: number): Date {
+  const lastNight = new Date(endExclusive.getTime() - MS_PER_DAY);
+  const shiftedLast = shiftDateYears(lastNight, deltaYears);
+  return new Date(shiftedLast.getTime() + MS_PER_DAY);
+}
+
 /** 일괄 작업 그룹 키 — 그룹 단위 취소·묶음 표시용. 스키마 default cuid()와 별개(외부 의존 없이 난수 생성). */
 export function generateBatchId(): string {
   return `batch_${randomBytes(18).toString("base64url")}`;

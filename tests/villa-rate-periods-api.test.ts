@@ -131,6 +131,50 @@ describe("검증·영속 (OWNER)", () => {
     expect(baseArg.consumerSalePriceKrw).toBe(75000);
   });
 
+  // rate-calendar-fixes §5/C2 — 인라인 priceFields/premiumData → 공용 fragment(priceColumns·buildPriceColumnData)
+  //   교체의 동작 불변 게이트(특성화). 프리미엄 컬럼·digits 검증 분기를 고정한다.
+  it("ADR-0042 — 프리미엄 컬럼 전송 시 BigInt/Int 영속 (buildPriceColumnData 경유)", async () => {
+    const res = await req({
+      ...BASE,
+      base: {
+        ...BASE.base,
+        premiumSupplierCostVnd: "1500000",
+        premiumSalePriceVnd: "1800000",
+        premiumSalePriceKrw: 90000,
+        premiumConsumerSalePriceVnd: "2000000",
+        premiumConsumerSalePriceKrw: 100000,
+      },
+    });
+    expect(res.status).toBe(200);
+    const baseArg = tx.villaRatePeriod.create.mock.calls[0][0].data;
+    expect(baseArg.premiumSupplierCostVnd).toBe(1500000n);
+    expect(baseArg.premiumSalePriceVnd).toBe(1800000n);
+    expect(baseArg.premiumSalePriceKrw).toBe(90000);
+    expect(baseArg.premiumConsumerSalePriceVnd).toBe(2000000n);
+    expect(baseArg.premiumConsumerSalePriceKrw).toBe(100000);
+  });
+
+  it("ADR-0042 — 프리미엄 컬럼 미전송 시 전부 null (평일 폴백)", async () => {
+    const res = await req(BASE);
+    expect(res.status).toBe(200);
+    const baseArg = tx.villaRatePeriod.create.mock.calls[0][0].data;
+    expect(baseArg.premiumSupplierCostVnd).toBeNull();
+    expect(baseArg.premiumSalePriceVnd).toBeNull();
+    expect(baseArg.premiumSalePriceKrw).toBeNull();
+    expect(baseArg.premiumConsumerSalePriceVnd).toBeNull();
+    expect(baseArg.premiumConsumerSalePriceKrw).toBeNull();
+  });
+
+  it("digits 위반 — 비숫자 supplierCostVnd 거부 (400)", async () => {
+    const res = await req({ ...BASE, base: { ...BASE.base, supplierCostVnd: "12x" } });
+    expect(res.status).toBe(400);
+  });
+
+  it("salePriceKrw 음수 거부 (400, min(0))", async () => {
+    const res = await req({ ...BASE, base: { ...BASE.base, salePriceKrw: -1 } });
+    expect(res.status).toBe(400);
+  });
+
   it("기간 없이 base만 허용 (periods=[], createMany 미호출)", async () => {
     const res = await req({ ...BASE, periods: [] });
     expect(res.status).toBe(200);

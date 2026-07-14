@@ -12,6 +12,7 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { requireAuth } from "@/lib/api-guard";
 import { computeSalePriceVnd, suggestSalePriceKrw, getFxVndPerKrw } from "@/lib/pricing";
 import { enqueueOperatorNotification } from "@/lib/operator-notify";
+import { MAX_RATE_PERIOD_ROWS } from "@/lib/rate-period-input";
 import { MarginType, NotificationType, ProposalStatus, type SeasonType } from "@prisma/client";
 
 const vndPositiveDigits = z.string().regex(/^[1-9]\d{0,14}$/); // 원가 — 0 불가
@@ -44,7 +45,7 @@ const periodSchema = z.object({
 });
 
 const patchSchema = z
-  .object({ base: baseSchema, periods: z.array(periodSchema).max(60) })
+  .object({ base: baseSchema, periods: z.array(periodSchema).max(MAX_RATE_PERIOD_ROWS) })
   .superRefine((data, ctx) => {
     // half-open 검증만(각 기간 endDate>startDate). ★겹침 허용(rate-calendar-ux · 계약 §1 승자 규칙 정렬).
     //   견적은 lib/pricing.resolveRatePeriod가 밤별 승자 1행을 뽑으므로 원가 기간이 겹쳐도 정상이며,

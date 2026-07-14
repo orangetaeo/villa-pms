@@ -15,6 +15,7 @@ import {
   toUtc,
   priceColumns,
   buildPriceColumnData,
+  MAX_RATE_PERIOD_ROWS,
 } from "@/lib/rate-period-input";
 
 const layerSchema = z
@@ -61,6 +62,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const villa = await tx.villa.findUnique({ where: { id }, select: { id: true } });
     if (!villa) return { kind: "NOT_FOUND" as const };
 
+    // 레이어 총량 소프트 캡 — 사전 count 검사(C4: 동시 레이스 일시 초과 허용). 캡 도달 시 400 LAYER_LIMIT.
+    const existing = await tx.villaRatePeriod.count({ where: { villaId: id, isBase: false } });
+    if (existing + 1 > MAX_RATE_PERIOD_ROWS) return { kind: "LAYER_LIMIT" as const };
+
     const created = await tx.villaRatePeriod.create({
       data: {
         villaId: id,
@@ -94,6 +99,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   if (result.kind === "NOT_FOUND") {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
+  if (result.kind === "LAYER_LIMIT") {
+    return NextResponse.json(
+      { error: "LAYER_LIMIT", limit: MAX_RATE_PERIOD_ROWS },
+      { status: 400 }
+    );
   }
   // 응답에 금액 미포함 — 생성된 레이어 id만
   return NextResponse.json({ id: result.id });

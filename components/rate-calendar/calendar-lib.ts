@@ -4,7 +4,14 @@
 // segmentByWinner는 lib/rate-layers.ts의 구간화와 **동일 알고리즘**(같은 resolveRatePeriod 루프)이나,
 //   rate-layers.ts는 generateBatchId가 node:crypto를 import하므로 클라 번들에 넣을 수 없어 여기서
 //   동형 미러를 둔다(가격은 안 읽는 8줄 루프 — 판정 코어는 공유되므로 서버와 결과 동일).
-import { resolveRatePeriod, type RatePeriodLike } from "@/lib/pricing";
+import {
+  hasAnyPremiumValue,
+  periodBeats,
+  premiumReasonFor,
+  resolveRatePeriod,
+  type PremiumReason,
+  type RatePeriodLike,
+} from "@/lib/pricing";
 import type { Axis, HolidayDTO, RateLayerDTO, Season, WorkLayer } from "./types";
 
 const MS_PER_DAY = 86_400_000;
@@ -44,7 +51,10 @@ export function toWorkLayer(dto: RateLayerDTO): WorkLayer {
   };
 }
 
-/** 승자 판정용 어댑터 — resolveRatePeriod는 season/isBase/날짜/id만 읽음(가격은 무의미). */
+/**
+ * WorkLayer → RatePeriodLike 어댑터. 승자 판정(resolveRatePeriod·periodBeats)은 season/isBase/날짜/id만
+ * 읽고, hasAnyPremiumValue는 premium* 컬럼만 읽으므로 두 소비처를 한 어댑터로 커버한다(프리미엄 컬럼 포함).
+ */
 function toLike(w: WorkLayer): RatePeriodLike {
   return {
     id: w.id,
@@ -55,7 +65,33 @@ function toLike(w: WorkLayer): RatePeriodLike {
     supplierCostVnd: w.cost,
     salePriceVnd: w.net ?? w.cost,
     salePriceKrw: w.netKrw ?? 0,
+    premiumSupplierCostVnd: w.pCost,
+    premiumSalePriceVnd: w.pNet,
+    premiumSalePriceKrw: w.pNetKrw,
+    premiumConsumerSalePriceVnd: w.pConsumer,
+    premiumConsumerSalePriceKrw: w.pConsumerKrw,
   };
+}
+
+/**
+ * WorkLayer 정렬 비교자 — lib/pricing.periodBeats(서버 승자 규칙 단일 원천) 기반.
+ * a가 b를 이기면 -1(앞), b가 a를 이기면 +1. 손 복사한 4단계 tie-break 제거 → 서버와 항상 동일.
+ */
+function byWinnerRule(a: WorkLayer, b: WorkLayer): number {
+  const la = toLike(a);
+  const lb = toLike(b);
+  return periodBeats(la, lb) ? -1 : periodBeats(lb, la) ? 1 : 0;
+}
+
+/** % 입력 파싱 (로케일 콤마 허용) — 콤마를 소수점으로 정규화("1,5"→1.5) 후 파싱.
+ * 소수점이 2개 이상이거나 숫자가 아니면 null(호출부 err 처리). 0도 null(무의미 조정).
+ * 일괄 조정·선택 % 두 입력이 이 함수를 공유한다(로케일 일관). */
+export function parsePct(raw: string): number | null {
+  const cleaned = raw.replace(/,/g, ".").replace(/[^\d.+-]/g, "");
+  // 소수점 2개 이상 = 오타·로케일 혼용 → 무효(NaN 취급)
+  if ((cleaned.match(/\./g) ?? []).length > 1) return null;
+  const v = parseFloat(cleaned);
+  return Number.isFinite(v) && v !== 0 ? v : null;
 }
 
 /** 그 날짜(밤)의 승자 + 가려진 행들(스택). 첫 원소가 승자, 나머지는 가려짐 순(짧은 기간·높은 시즌 우선). */
@@ -63,18 +99,8 @@ export function stackForDate(date: Date, periods: WorkLayer[], base: WorkLayer |
   const cov = periods.filter(
     (p) => !p.isBase && p.start && p.end && p.start.getTime() <= date.getTime() && date.getTime() < p.end.getTime()
   );
-  // pricing.ts periodBeats와 동일한 정렬(① 짧은 기간 ② 높은 시즌 ③ 늦은 시작 ④ 큰 id)
-  const rank: Record<Season, number> = { LOW: 0, SHOULDER: 1, HIGH: 2, PEAK: 3 };
-  cov.sort((a, b) => {
-    const la = a.end!.getTime() - a.start!.getTime();
-    const lb = b.end!.getTime() - b.start!.getTime();
-    if (la !== lb) return la - lb;
-    if (rank[a.season] !== rank[b.season]) return rank[b.season] - rank[a.season];
-    const sa = a.start!.getTime();
-    const sb = b.start!.getTime();
-    if (sa !== sb) return sb - sa;
-    return a.id > b.id ? -1 : a.id < b.id ? 1 : 0;
-  });
+  // 승자 규칙은 lib/pricing.periodBeats 단일 원천(① 짧은 기간 ② 높은 시즌 ③ 늦은 시작 ④ 큰 id).
+  cov.sort(byWinnerRule);
   return base ? [...cov, base] : cov;
 }
 
@@ -96,15 +122,14 @@ export function winnerForDate(date: Date, periods: WorkLayer[], base: WorkLayer 
 }
 
 /* ───────── 프리미엄 판정 (ADR-0042 — pricing.ts와 동일 규칙) ───────── */
-export function premiumReason(date: Date, premiumDays: number[], holidaySet: Set<number>): "HOLIDAY" | "WEEKDAY" | null {
-  if (holidaySet.has(date.getTime())) return "HOLIDAY";
-  if (premiumDays.includes(date.getUTCDay())) return "WEEKDAY";
-  return null;
+export function premiumReason(date: Date, premiumDays: number[], holidaySet: Set<number>): PremiumReason | null {
+  // 판정 규칙은 lib/pricing.premiumReasonFor 단일 원천(공휴일 우선 → 요일). premiumDays(요일 배열)를 Set로.
+  return premiumReasonFor(date, premiumDays.length > 0 ? new Set(premiumDays) : null, holidaySet);
 }
 
-/** 그 행에 프리미엄 값이 하나라도 있는가 (없으면 프리미엄 요일이어도 평일과 동일). */
+/** 그 행에 프리미엄 값이 하나라도 있는가 — lib/pricing.hasAnyPremiumValue 재사용(WorkLayer→Like 어댑터). */
 function hasAnyPremium(w: WorkLayer): boolean {
-  return w.pCost != null || w.pNet != null || w.pNetKrw != null || w.pConsumer != null || w.pConsumerKrw != null;
+  return hasAnyPremiumValue(toLike(w));
 }
 
 /**
@@ -207,16 +232,8 @@ export function packWeekBands(periods: WorkLayer[], weekStart: Date): WeekBand[]
 /* ───────── 레이어 패널 정렬 + 연도 그룹 ───────── */
 /** 패널 목록 정렬 — 짧은 기간·높은 시즌·늦은 시작 우선(승자 규칙과 동일 방향, 표시용). base 제외. */
 export function sortLayersForPanel(periods: WorkLayer[]): WorkLayer[] {
-  const rank: Record<Season, number> = { LOW: 0, SHOULDER: 1, HIGH: 2, PEAK: 3 };
-  return [...periods]
-    .filter((p) => !p.isBase && p.start && p.end)
-    .sort((a, b) => {
-      const la = a.end!.getTime() - a.start!.getTime();
-      const lb = b.end!.getTime() - b.start!.getTime();
-      if (la !== lb) return la - lb;
-      if (rank[a.season] !== rank[b.season]) return rank[b.season] - rank[a.season];
-      return b.start!.getTime() - a.start!.getTime();
-    });
+  // 승자 규칙과 동일 방향(짧은 기간·높은 시즌·늦은 시작·큰 id) — periodBeats 단일 원천 재사용. base 제외.
+  return [...periods].filter((p) => !p.isBase && p.start && p.end).sort(byWinnerRule);
 }
 
 /** 레이어가 걸친 연도들(시작~종료-1박). half-open이라 종료 전날까지. */

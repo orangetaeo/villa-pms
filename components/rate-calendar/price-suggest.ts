@@ -1,6 +1,6 @@
 // 기간별 요금 캘린더 — 가격 폼 상태 + 원가+마진→판매가 자동제안 (rate-calendar-ux)
 //
-// rate-period-editor.tsx의 suggestMarkupVnd/suggestKrw/withSuggestion 로직을 추출·재사용.
+// 구 rate-period-editor.tsx(삭제됨)에서 추출·이관한 suggestMarkupVnd/suggestKrw/withSuggestion 로직.
 // 원가 변경 → Net(원가+마진) 재산출 → 소비자가(Net+소비자마진) 연쇄, 프리미엄도 동형(다른 원가 베이스).
 // 금액은 BigInt 정수 연산(float 금지). KRW 환산만 환율 나눗셈 + 1,000원 반올림.
 import type { MarginType } from "@prisma/client";
@@ -43,7 +43,7 @@ export function suggestKrw(saleVnd: string, fx: number | null): number | null {
   return Math.round(vnd / fx / 1000) * 1000;
 }
 
-/** 원가/마진 변경 시 판매가·소비자가·프리미엄 연쇄 재산출(rate-period-editor withSuggestion 동형). */
+/** 원가/마진 변경 시 판매가·소비자가·프리미엄 연쇄 재산출(구 rate-period-editor withSuggestion 동형·이관). */
 export function withSuggestion(f: PriceFormState, fx: number | null): PriceFormState {
   const saleVnd = suggestMarkupVnd(f.supplierCostVnd, f.marginType, f.marginValue);
   const krw = suggestKrw(saleVnd, fx);

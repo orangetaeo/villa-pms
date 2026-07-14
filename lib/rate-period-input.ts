@@ -10,6 +10,14 @@ export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/); // YYYY-MM-DD (U
 export const SEASONS = ["LOW", "SHOULDER", "HIGH", "PEAK"] as const;
 export const toUtc = (s: string) => new Date(`${s}T00:00:00.000Z`);
 
+/**
+ * 한 빌라의 non-base(웃돈 기간·레이어) 행 총량 소프트 캡 — ADMIN 전용. 초과 생성 시 400 LAYER_LIMIT.
+ * 레이어 POST·batch POST(ADJUST/SET/COPY_YEAR)는 사전 count 검사로 강제하고, 전체 교체 PATCH·공급자
+ * cost PATCH는 periods 배열 상한으로 정렬한다.
+ * C4(rate-calendar-fixes): 사전 count 검사이므로 동시 배치 레이스로 인한 일시 초과는 허용 한계.
+ */
+export const MAX_RATE_PERIOD_ROWS = 200;
+
 /** 가격 컬럼 fragment(시즌·라벨·날짜 제외) — base/period/SET 공용. 메인 PATCH priceFields와 동일 집합. */
 export const priceColumns = {
   supplierCostVnd: digits,
