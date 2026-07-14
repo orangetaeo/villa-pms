@@ -1789,7 +1789,7 @@
       "PEAK": "Cao điểm lễ Tết"
     },
     "managePhotos": "Quản lý ảnh",
-    "manageCost": "Giá & mùa",
+    "manageCost": "Giá gốc & mùa",
     "manageRatePeriods": "Nhập giá gốc theo giai đoạn",
     "sales": {
       "title": "Thông tin bán hàng",
@@ -1931,8 +1931,8 @@
       "accessHint": "Chỉ nhân viên dọn dẹp và quản lý xem được. Không công khai cho khách."
     },
     "rates": {
-      "title": "Giá gốc mỗi đêm",
-      "subtitle": "Nhập giá bạn nhận cho mỗi đêm, theo từng mùa.",
+      "title": "Giá gốc của bạn (mỗi đêm)",
+      "subtitle": "Nhập giá gốc bạn nhận cho mỗi đêm theo từng mùa. Đây không phải giá bán cho khách.",
       "LOW": "Mùa thấp điểm",
       "LOWHint": "T5 - T9 hàng năm",
       "SHOULDER": "Cận cao điểm",
