@@ -67,9 +67,26 @@ export const DateField = forwardRef<HTMLInputElement, DateFieldProps>(function D
     sync();
   }, [value, sync]);
 
+  // 입력칸 어디를 눌러도 달력이 열리게 — 기본 동작은 아이콘 클릭 시에만 피커가 열린다.
+  // showPicker()는 사용자 제스처 밖·미지원 브라우저에서 throw하므로 폴백은 focus.
+  const openPicker = useCallback(() => {
+    const el = innerRef.current;
+    if (!el || el.disabled || el.readOnly) return;
+    try {
+      el.showPicker?.();
+    } catch {
+      /* 미지원·제스처 제한 — 포커스만 */
+    }
+    el.focus();
+  }, []);
+
   // 래퍼가 박스(caller className) 역할. 안내 문구는 input 뒤, input은 투명하게 앞.
+  // flex items-center: 래퍼에 고정 높이가 있어도 input(달력 아이콘 포함)을 수직 중앙 정렬.
   return (
-    <div className={`relative ${wrapperClassName} ${className}`}>
+    <div
+      className={`relative flex cursor-pointer items-center ${wrapperClassName} ${className}`}
+      onClick={openPicker}
+    >
       {empty && placeholder ? (
         <span
           aria-hidden
@@ -94,7 +111,7 @@ export const DateField = forwardRef<HTMLInputElement, DateFieldProps>(function D
           sync();
         }}
         // 투명 배경 + 패딩/보더 제거(박스는 래퍼가 담당). 글자색·폰트·color-scheme은 래퍼에서 상속.
-        className={`relative z-10 w-full border-0 bg-transparent p-0 outline-none${empty ? " date-empty" : ""}`}
+        className={`relative z-10 w-full cursor-pointer border-0 bg-transparent p-0 outline-none${empty ? " date-empty" : ""}`}
       />
     </div>
   );
