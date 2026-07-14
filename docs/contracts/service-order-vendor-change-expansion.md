@@ -34,6 +34,7 @@ vendorId 변경(PATCH)은 아래 **전부** 충족 시 허용:
 3. 클라: VendorCell 셀렉터가 새 허용 규칙과 동일 조건으로 노출(서버-클라 판정 대칭). TICKET 주문에는 "없음(직접 제공)" 옵션 미노출. 살아있는 발주 상태에서 변경 시 확인(confirm) 1회 — 실수 클릭으로 구 업체 취소 통보가 나가는 사고 방지.
 4. i18n ko/vi 동시(신규 문구 있으면), 하드코딩 금지.
 5. 회귀: 기존 REQUESTED/거절 상태 변경+자동 재발주 동작 불변. `npm run build`·typecheck·전체 테스트 통과.
+6. 재발주 체인 CONFIRMED 경로 검증(PR #307 회귀): CONFIRMED 주문 공급자 변경 → 발주 사이클 리셋(vendorStatus=null) 후 자동 재발주가 dispatch 라우트에서 통과해 PENDING_VENDOR로 복귀해야 한다. `canDispatch`(lib/vendor-order.ts)가 CONFIRMED를 허용하지 않으면 409 CANNOT_DISPATCH로 벤더 발주함(PENDING_VENDOR만 조회)에서 사라지는 회귀 발생(demo-svc-so-2 실사례).
 
 ## 수정 금지 구역
 

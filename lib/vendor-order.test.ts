@@ -53,8 +53,23 @@ describe("canDispatch", () => {
       canDispatch({ status: "REQUESTED", vendorId: "v1", vendorStatus: "VENDOR_ACCEPTED" })
     ).toBe(false);
   });
-  it("고객확정·취소 등 REQUESTED 아님이면 불가", () => {
-    expect(canDispatch({ status: "CONFIRMED", vendorId: "v1", vendorStatus: null })).toBe(false);
+  it("CONFIRMED(고객확정 후)도 미발주·거절이면 재발주 가능 — 공급자 변경 재발주 체인(PR #307)", () => {
+    // 확정 후 공급자 변경 → 발주 사이클 리셋(vendorStatus=null) → 자동 재발주가 통과해야 함.
+    expect(canDispatch({ status: "CONFIRMED", vendorId: "v1", vendorStatus: null })).toBe(true);
+    expect(
+      canDispatch({ status: "CONFIRMED", vendorId: "v1", vendorStatus: "VENDOR_REJECTED" })
+    ).toBe(true);
+  });
+  it("CONFIRMED라도 발송중·수락 상태면 재발주 불가(중복 방지 유지)", () => {
+    expect(
+      canDispatch({ status: "CONFIRMED", vendorId: "v1", vendorStatus: "PENDING_VENDOR" })
+    ).toBe(false);
+    expect(
+      canDispatch({ status: "CONFIRMED", vendorId: "v1", vendorStatus: "VENDOR_ACCEPTED" })
+    ).toBe(false);
+  });
+  it("종결(DELIVERED·CANCELLED) 상태면 불가", () => {
+    expect(canDispatch({ status: "DELIVERED", vendorId: "v1", vendorStatus: null })).toBe(false);
     expect(canDispatch({ status: "CANCELLED", vendorId: "v1", vendorStatus: null })).toBe(false);
   });
 });
