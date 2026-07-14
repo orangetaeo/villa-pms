@@ -6,6 +6,7 @@
 //   audiences ∋ PARTNER 인 활성 항목만(과일 바구니·도시락 등). GUEST 전용은 노출하지 않는다(서버 필터).
 import { prisma } from "./prisma";
 import { parseAudiences, parseCatalogOptions } from "./service-catalog";
+import { canSellItem } from "./ticket-vendor-guard";
 import { pickI18n } from "./service-display";
 import { getFxVndPerKrw } from "./pricing";
 import type { Currency } from "@prisma/client";
@@ -83,6 +84,9 @@ export async function loadPartnerAddon(
         id: true, type: true, nameKo: true, nameI18n: true,
         descKo: true, descI18n: true, unitLabelKo: true,
         priceVnd: true, photoUrl: true, options: true, audiences: true,
+        // ★TICKET 판매가능 벤더 필터용(계약 ticket-vendor-required-sale-block) — 판정 전용. 아래 map 출력엔
+        //   절대 싣지 않는다(vendorId·승인상태 파트너 비노출 원칙 유지). TICKET은 비지역 타입이라 해석 벤더=vendorId.
+        vendorId: true, vendor: { select: { approvalStatus: true, active: true } },
       },
     }),
     prisma.serviceOrder.findMany({
@@ -97,8 +101,11 @@ export async function loadPartnerAddon(
   ]);
 
   // PARTNER 자격 항목만(과일 바구니·도시락 등) — audiences에 PARTNER 없는 항목은 서버에서 제외.
+  //   + ★TICKET 판매가능 벤더 미확보 품목 제외(계약 ticket-vendor-required-sale-block, 게스트 메뉴와 동일) —
+  //     벤더 QR 발행 없이는 이행 불가라 요청 진입 자체 차단. 비TICKET은 canSellItem이 항상 true(불변).
   const catalog: PartnerCatalogView[] = catalogRows
     .filter((c) => parseAudiences(c.audiences).includes("PARTNER"))
+    .filter((c) => canSellItem({ itemType: c.type, resolvedVendorId: c.vendorId, vendor: c.vendor }))
     .map((c) => {
       const opts = parseCatalogOptions(c.options);
       return {

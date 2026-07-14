@@ -45,6 +45,9 @@ export interface OrderCatalogItem {
   unitLabelKo: string;
   priceVnd: string | null; // 판매가 VND(단일통화) — KRW는 주문 생성 시 환율 스냅샷
   options: unknown;
+  // ★TICKET 판매가능 벤더 파생 플래그(계약 ticket-vendor-required-sale-block) — false면 공급자 미지정 TICKET이라
+  //   판매 불가(폼에서 비활성). 비TICKET은 항상 true. 벤더 내부 상태는 서버에서 종결·미노출(boolean만).
+  ticketSellable: boolean;
 }
 
 export interface SelectedOptionSnapshot {
@@ -1294,6 +1297,8 @@ function AddOrderForm({
     () => (item ? parseCatalogOptions(item.options) : {}),
     [item]
   );
+  // ★TICKET 판매가능 벤더 미확보 품목(계약 ticket-vendor-required-sale-block) — 선택 시 판매 차단(서버 400 대칭).
+  const itemNotSellable = !!item && !item.ticketSellable;
 
   // 티켓 이용자 선택 모드 — TICKET + 체크인 명단. variant 있으면 인원별 구분 자동 판정, 없으면 이름 선택만.
   const isTicketWithGuests = item?.type === "TICKET" && checkedInGuests.length > 0;
@@ -1450,6 +1455,11 @@ function AddOrderForm({
 
   async function handleAdd() {
     if (!item) return;
+    // ★TICKET 공급자 미지정 — 판매 불가(서버 400 TICKET_VENDOR_REQUIRED와 대칭). 폼 진입 차단.
+    if (itemNotSellable) {
+      setError(t("ticketNotSellable"));
+      return;
+    }
     // TICKET은 이용일 필수(시간 불요). 그 외는 날짜 선택.
     if (item.type === "TICKET" && !serviceDate) {
       setError(t("ticketPicker.dateRequired"));
@@ -1587,12 +1597,20 @@ function AddOrderForm({
             className={`mt-1 ${selCls}`}
           >
             {visibleCatalog.map((c) => (
-              <option key={c.id} value={c.id}>
+              <option key={c.id} value={c.id} disabled={!c.ticketSellable}>
                 {c.nameKo}
                 {c.unitLabelKo ? ` / ${c.unitLabelKo}` : ""}
+                {c.ticketSellable ? "" : ` — ${t("ticketNotSellableShort")}`}
               </option>
             ))}
           </select>
+          {/* ★TICKET 공급자 미지정 — 판매 불가 안내(서버 가드와 대칭) */}
+          {itemNotSellable && (
+            <p className="mt-1 flex items-center gap-1 text-[11px] font-medium text-amber-400">
+              <span className="material-symbols-outlined text-[14px]">block</span>
+              {t("ticketNotSellable")}
+            </p>
+          )}
         </div>
         {/* 수량 — 티켓 이용자 선택 모드는 선택 인원 수로 결정되므로 숨김. */}
         {!isTicketWithGuests && (
@@ -1902,7 +1920,7 @@ function AddOrderForm({
         <button
           type="button"
           onClick={handleAdd}
-          disabled={busy || !item}
+          disabled={busy || !item || itemNotSellable}
           className="bg-admin-primary hover:bg-blue-600 disabled:opacity-50 text-white px-6 py-2 rounded-lg font-bold text-sm flex items-center gap-1.5 whitespace-nowrap transition-all"
         >
           <span className="material-symbols-outlined text-base">add</span>

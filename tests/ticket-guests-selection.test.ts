@@ -88,8 +88,9 @@ const ticketItem = {
   nameKo: "케이블카",
   priceVnd: 500000n,
   options: null,
-  vendorId: null,
-  vendor: null,
+  // ★판매가능 벤더 배정(TICKET 판매 요건, 계약 ticket-vendor-required-sale-block) — 미배정이면 판매 자체 차단(400).
+  vendorId: "v-1",
+  vendor: { id: "v-1", userId: "vu-1", approvalStatus: "APPROVED", active: true, user: { zaloUserId: null, locale: "vi" } },
 };
 const base = { catalogItemId: "ci-1", quantity: 1, serviceDate: "2026-08-01", serviceTime: "14:00" };
 

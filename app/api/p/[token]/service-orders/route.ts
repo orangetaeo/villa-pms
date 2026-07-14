@@ -22,6 +22,7 @@ import {
 import { priceKrwCeil } from "@/lib/service-display";
 import { getFxVndPerKrw } from "@/lib/pricing";
 import { resolveOrderVendorId } from "@/lib/regional-vendor";
+import { loadCanSellItem } from "@/lib/ticket-vendor-guard";
 import { parseUtcDateOnly } from "@/lib/date-vn";
 import type { Prisma } from "@prisma/client";
 import { notifyOperatorsServiceOrderRequested } from "@/lib/consumer-signal-notify";
@@ -130,6 +131,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     itemVendorId: item.vendorId,
     villaId: booking.villaId,
   });
+
+  // ★TICKET 판매가능 벤더 가드(계약 ticket-vendor-required-sale-block) — 게스트·운영자 라우트와 대칭.
+  //   파트너(여행사) 채널도 예외 없음 — 벤더 QR 발행 없이는 이행 불가라 판매 시점에 벤더가 확보돼야 한다.
+  //   이 라우트는 벤더 엔티티를 로드하지 않으므로 조회 래퍼로 승인·활성만 조회(누수 0). 비TICKET은 조회 없이 통과.
+  if (!(await loadCanSellItem({ itemType: item.type, resolvedVendorId }, prisma))) {
+    return NextResponse.json({ error: "TICKET_VENDOR_REQUIRED" }, { status: 400 });
+  }
 
   const created = await prisma.serviceOrder.create({
     data: {

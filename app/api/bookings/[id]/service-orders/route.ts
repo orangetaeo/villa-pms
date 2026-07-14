@@ -18,6 +18,7 @@ import {
 import { priceKrwCeil } from "@/lib/service-display";
 import { getFxVndPerKrw } from "@/lib/pricing";
 import { resolveOrderVendorId } from "@/lib/regional-vendor";
+import { loadCanSellItem } from "@/lib/ticket-vendor-guard";
 import { readVariantRule } from "@/lib/ticket-variant-rules";
 import { validateTicketGuests } from "@/lib/ticket-order-validation";
 import { loadCheckinRoster } from "@/lib/checkin-roster";
@@ -188,6 +189,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     itemVendorId: item.vendorId,
     villaId: booking.villaId,
   });
+
+  // ★TICKET 판매가능 벤더 가드(계약 ticket-vendor-required-sale-block) — 게스트 라우트와 대칭. 해석된 벤더가
+  //   승인·활성이 아니면 판매(주문 생성) 자체를 차단(티켓은 벤더 QR 발행 없이는 이행 불가). 무료 티켓 포함 품목
+  //   단위 차단(부분 허용 없음). 비TICKET은 조회 없이 통과. TICKET은 resolvedVendorId로 승인·활성만 조회(누수 0).
+  if (!(await loadCanSellItem({ itemType: item.type, resolvedVendorId }, prisma))) {
+    return NextResponse.json({ error: "TICKET_VENDOR_REQUIRED" }, { status: 400 });
+  }
 
   // ★무료 티켓(판매가 0 — 무료/유아 variant) — 업체 QR 발행·발주함 불필요(테오, 게스트 경로 준용).
   //   생성 시점 즉시 확정(CONFIRMED)+수락(VENDOR_ACCEPTED)으로 세팅해 발주함을 미경유한다(할 일 없음).

@@ -2959,6 +2959,8 @@
     "adding": "Đang thêm...",
     "cancelAdd": "Đóng",
     "variantRequired": "Vui lòng chọn 1 lựa chọn.",
+    "ticketNotSellable": "Chưa chỉ định nhà cung cấp — không thể bán. Vé cần có nhà cung cấp mới bán được.",
+    "ticketNotSellableShort": "Không thể bán",
     "ticketPicker": {
       "title": "Khách dùng vé",
       "autoHint": "Chọn khách thì hệ thống tự phân loại (người lớn·trẻ em·người cao tuổi...) theo hộ chiếu.",

@@ -8,6 +8,7 @@ const catalogFindUnique = vi.fn();
 const soCreate = vi.fn();
 const checkInFindUnique = vi.fn();
 const guestTokenFindUnique = vi.fn();
+const vendorFindUnique = vi.fn();
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     booking: { findUnique: (...a: unknown[]) => bookingFindUnique(...a) },
@@ -16,6 +17,8 @@ vi.mock("@/lib/prisma", () => ({
     checkInRecord: { findUnique: (...a: unknown[]) => checkInFindUnique(...a) },
     // 명단 로더(loadCheckinRoster)가 토큰 잠정본도 병렬 조회(ADR-0043) — 확정본 우선이라 여기선 null(폴백 없음).
     guestCheckinToken: { findUnique: (...a: unknown[]) => guestTokenFindUnique(...a) },
+    // TICKET 판매가능 벤더 가드(loadCanSellItem) — resolvedVendorId의 승인·활성 조회.
+    serviceVendor: { findUnique: (...a: unknown[]) => vendorFindUnique(...a) },
   },
 }));
 
@@ -51,7 +54,8 @@ vi.mock("@/lib/service-catalog", () => {
 });
 vi.mock("@/lib/service-display", () => ({ priceKrwCeil: () => 0 }));
 vi.mock("@/lib/pricing", () => ({ getFxVndPerKrw: async () => null }));
-vi.mock("@/lib/regional-vendor", () => ({ resolveOrderVendorId: async () => null }));
+// TICKET은 카탈로그 기본 벤더(v-1)로 해석 — 판매가능 벤더 가드(계약 ticket-vendor-required-sale-block) 통과용.
+vi.mock("@/lib/regional-vendor", () => ({ resolveOrderVendorId: async () => "v-1" }));
 vi.mock("@/lib/date-vn", () => ({
   parseUtcDateOnly: (s: string) => (s ? new Date("2026-08-01T00:00:00Z") : null),
   toDateOnlyString: () => "2026-08-01",
@@ -77,7 +81,7 @@ const ticketItem = {
   nameKo: "케이블카",
   priceVnd: 500000n,
   options: null,
-  vendorId: null,
+  vendorId: "v-1", // ★판매가능 벤더 배정(TICKET 판매 요건) — 계약 ticket-vendor-required-sale-block
 };
 const base = { catalogItemId: "ci-1", quantity: 1, serviceDate: "2026-08-01" };
 const params = { params: Promise.resolve({ id: "bk-1" }) };
@@ -91,6 +95,8 @@ beforeEach(() => {
   guestTokenFindUnique.mockResolvedValue({ passportOcrJson: null });
   soCreate.mockResolvedValue({ id: "so-new" });
   catalogParse.mockReturnValue({ variants: [], addons: [], modifiers: [] });
+  // 기본 벤더 = 승인·활성(판매가능) — TICKET 가드 통과. 미판매 케이스는 개별 테스트에서 오버라이드.
+  vendorFindUnique.mockResolvedValue({ approvalStatus: "APPROVED", active: true });
 });
 
 describe("ADMIN TICKET 이용자 스냅샷 검증(공유 lib)", () => {
