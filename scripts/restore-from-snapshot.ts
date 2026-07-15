@@ -19,6 +19,7 @@
 import { PrismaClient, Prisma } from "@prisma/client";
 import { readFileSync } from "fs";
 import { gunzipSync } from "node:zlib";
+import { reviveDumpBigInt } from "../lib/snapshot-restore";
 
 const prisma = new PrismaClient();
 
@@ -26,14 +27,6 @@ const argv = process.argv.slice(2);
 const SNAPSHOT_PATH = argv.find((a) => !a.startsWith("--"));
 const EXECUTE = argv.includes("--execute");
 const FORCE = argv.includes("--force");
-
-/** `"123n"`/`"-5n"` 문자열 → BigInt 역변환. 그 외 값은 그대로. */
-function reviveBigInt(_key: string, value: unknown): unknown {
-  if (typeof value === "string" && /^-?\d+n$/.test(value)) {
-    return BigInt(value.slice(0, -1));
-  }
-  return value;
-}
 
 /** dmmf 모델명 → 실제 테이블명(@@map 있으면 dbName, 없으면 모델명). PascalCase는 큰따옴표 인용 필요. */
 function tableNameFor(modelName: string): string {
@@ -49,9 +42,10 @@ function clientProp(modelName: string): string {
 function loadSnapshot(path: string): Record<string, unknown[]> {
   const raw = readFileSync(path);
   const text = path.endsWith(".gz") ? gunzipSync(raw).toString("utf8") : raw.toString("utf8");
-  const parsed = JSON.parse(text, reviveBigInt);
+  // 전역 reviver 대신 일반 파싱 후, dmmf가 BigInt로 선언한 필드에만 역변환(P2-1 — String 컬럼 오변환 방지).
+  const parsed = JSON.parse(text);
   if (!parsed || typeof parsed !== "object") throw new Error("스냅샷 형식 오류(객체 아님)");
-  return parsed as Record<string, unknown[]>;
+  return reviveDumpBigInt(parsed as Record<string, unknown[]>);
 }
 
 async function main() {

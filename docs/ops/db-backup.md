@@ -81,7 +81,8 @@ DATABASE_URL="<복원대상>" npx tsx --env-file=.env scripts/restore-from-snaps
 ```
 - 대상 DB에 기존 행이 있으면 중단됨 → 의도적 덮어쓰기면 `--force` 추가(위 5.3 수동 정리 후 권장).
 - 동작: 각 테이블 `DISABLE TRIGGER ALL`(FK 순서 무관) → `createMany(skipDuplicates)` → `ENABLE TRIGGER ALL`.
-- 왕복: BigInt(`"123n"`/`"-5n"`)만 역변환, Date(ISO)·Json(객체)·enum(문자열)·null은 그대로 Prisma 수용.
+- 왕복: dmmf가 BigInt로 선언한 필드만 역변환(`"123n"`/`"-5n"`), Date(ISO)·Json(객체)·enum(문자열)·null은 그대로 Prisma 수용.
+- ⚠ **복원 중간 실패 시 부분 삽입 상태가 남는다**(모델별 순차 삽입, 전체 트랜잭션 아님) — 재시도 전 대상 DB를 반드시 비우고(§5.3 수동 초기화) 처음부터 다시 실행할 것. 부분 삽입 위에 `--force`로 재실행 금지(중복·불일치 유발).
 
 ### 5.5 복원 후 검증
 - `npx prisma studio`로 핵심 테이블(User·Villa·Booking·CheckInRecord) 행 수·샘플 확인.

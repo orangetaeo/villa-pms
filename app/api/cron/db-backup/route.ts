@@ -67,6 +67,7 @@ async function pruneBucketPrefix(
   const keys = (listed.Contents ?? [])
     .map((o) => o.Key)
     .filter((k): k is string => typeof k === "string");
+  // ListObjectsV2는 응답당 최대 1000키(미페이지네이션) — 보존 14/12 규모에선 초과할 수 없어 무해.
   const toPrune = selectKeysToPrune(keys, keep);
   for (const Key of toPrune) {
     await client.send(new DeleteObjectCommand({ Bucket: bucket, Key }));
@@ -74,9 +75,18 @@ async function pruneBucketPrefix(
   return toPrune.length;
 }
 
+/**
+ * 실패 사유 살균 — DATABASE_URL 형태(postgresql://…) 연결 문자열을 마스킹하고 120자로 절단(P2-3).
+ * 예외 메시지에 연결 문자열·자격증명이 섞여 나올 수 있어, 감사·인앱 노출 전에 방어적으로 제거한다.
+ */
+function sanitizeReason(reason: string): string {
+  const masked = reason.replace(/postgres(?:ql)?:\/\/\S*/gi, "postgresql://***masked***");
+  return masked.slice(0, 120);
+}
+
 /** 백업 실패 경보 — ZALO_OPERATOR_NOTIFY_PAUSED와 무관하게 발송되는 장애 축(인앱 직접 적재 + 감사). */
 async function alertBackupFailure(reason: string): Promise<void> {
-  const short = reason.slice(0, 200);
+  const short = sanitizeReason(reason);
   // ① 인앱 — 운영자 전원(enqueueInAppForOperators는 pause 스위치를 거치지 않는 DB 직접 적재 경로).
   try {
     await enqueueInAppForOperators({
@@ -157,10 +167,11 @@ async function handle(req: Request) {
       pruned: prunedDaily + prunedMonthly,
     });
   } catch (e) {
+    // 상세 메시지는 서버 로그로만(연결 문자열·자격증명 유출 방지). 응답은 cleanup-passports와 대칭으로 일반화.
     const reason = e instanceof Error ? e.message : String(e);
     console.error("[cron/db-backup] 실패:", reason);
-    await alertBackupFailure(reason);
-    return Response.json({ status: "error", reason }, { status: 500 });
+    await alertBackupFailure(reason); // 감사·인앱은 sanitizeReason으로 마스킹·절단
+    return Response.json({ status: "error", reason: "internal_error" }, { status: 500 });
   }
 }
 
