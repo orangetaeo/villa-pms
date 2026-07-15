@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="vi" data-lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Villa GO — Giới thiệu cho đối tác dịch vụ</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Villa GO — Đối tác dịch vụ tại Phú Quốc: nhận đơn từ khách Hàn Quốc qua Zalo.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Villa GO — Giới thiệu cho đối tác dịch vụ">
+<meta property="og:description" content="Villa GO — Đối tác dịch vụ tại Phú Quốc: nhận đơn từ khách Hàn Quốc qua Zalo.">
+<style>
+  :root{
+    --teal:#0F9488;
+    --teal-deep:#093B36;
+    --teal-soft:#DCEEEB;
+    --orange:#F5990E;
+    --paper:#F7FAF9;
+    --card:#FFFFFF;
+    --ink:#22403C;
+    --ink-soft:#5C7773;
+    --line:#D8E6E3;
+    --hero-ink:#FFFFFF;
+    --hero-sub:#BFE0DB;
+    --shadow:0 1px 3px rgba(9,59,54,.08);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --teal:#2FB5A8; --teal-deep:#062825; --teal-soft:#123E39; --orange:#F5A93C;
+      --paper:#0C1917; --card:#132522; --ink:#DCEBE8; --ink-soft:#8FAAA5;
+      --line:#1F3833; --hero-ink:#FFFFFF; --hero-sub:#9CCCC5; --shadow:0 1px 3px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"]{
+    --teal:#0F9488; --teal-deep:#093B36; --teal-soft:#DCEEEB; --orange:#F5990E;
+    --paper:#F7FAF9; --card:#FFFFFF; --ink:#22403C; --ink-soft:#5C7773;
+    --line:#D8E6E3; --hero-ink:#FFFFFF; --hero-sub:#BFE0DB; --shadow:0 1px 3px rgba(9,59,54,.08);
+  }
+  :root[data-theme="dark"]{
+    --teal:#2FB5A8; --teal-deep:#062825; --teal-soft:#123E39; --orange:#F5A93C;
+    --paper:#0C1917; --card:#132522; --ink:#DCEBE8; --ink-soft:#8FAAA5;
+    --line:#1F3833; --hero-ink:#FFFFFF; --hero-sub:#9CCCC5; --shadow:0 1px 3px rgba(0,0,0,.35);
+  }
+
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:'Be Vietnam Pro','Noto Sans KR','Segoe UI',system-ui,-apple-system,sans-serif;
+    font-size:16.5px; line-height:1.7;
+  }
+  .wrap{max-width:640px; margin:0 auto; padding:0 20px}
+
+  [data-lang="vi"] .ko{display:none !important}
+  [data-lang="ko"] .vi{display:none !important}
+
+  .lang-toggle{
+    position:absolute; top:18px; right:20px; display:flex; gap:0;
+    border:1px solid rgba(255,255,255,.35); border-radius:99px; overflow:hidden;
+    backdrop-filter:blur(4px);
+  }
+  .lang-toggle button{
+    appearance:none; border:0; background:transparent; color:rgba(255,255,255,.75);
+    font:inherit; font-size:13px; font-weight:600; padding:5px 14px; cursor:pointer;
+    letter-spacing:.04em;
+  }
+  .lang-toggle button[aria-pressed="true"]{background:#fff; color:var(--teal-deep)}
+  .lang-toggle button:focus-visible{outline:2px solid var(--orange); outline-offset:-2px}
+
+  .hero{
+    position:relative; background:var(--teal-deep); color:var(--hero-ink);
+    padding:64px 0 56px; overflow:hidden;
+  }
+  .hero::after{
+    content:""; position:absolute; right:-70px; bottom:-90px; width:320px; height:320px;
+    background:radial-gradient(circle at 50% 42%, rgba(255,255,255,.06) 58%, transparent 59%);
+    border-radius:50%;
+  }
+  .brand{display:flex; align-items:center; gap:14px; margin-bottom:34px}
+  .brand svg{flex:0 0 auto}
+  .brand-name{font-size:22px; font-weight:800; letter-spacing:.01em}
+  .brand-tag{font-size:12.5px; color:var(--hero-sub); letter-spacing:.14em; text-transform:uppercase; font-weight:600}
+  .hero h1{
+    font-size:clamp(28px,7vw,38px); line-height:1.25; font-weight:800; margin:0 0 16px;
+    letter-spacing:-.015em; text-wrap:balance;
+  }
+  .hero h1 em{font-style:normal; color:#7CE0D3}
+  .hero p.lede{font-size:17.5px; color:var(--hero-sub); margin:0; max-width:34em}
+  .hero .free-pill{
+    display:inline-flex; align-items:center; gap:8px; margin-top:26px;
+    background:var(--orange); color:#3A2400; font-weight:700; font-size:15px;
+    padding:9px 18px; border-radius:99px;
+  }
+  .service-chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:22px}
+  .service-chips span{
+    font-size:13.5px; font-weight:600; color:#fff; background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.22); border-radius:99px; padding:4px 13px;
+  }
+
+  section{padding:52px 0 8px}
+  .eyebrow{
+    font-size:12.5px; font-weight:700; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--teal); margin:0 0 10px;
+  }
+  h2{
+    font-size:clamp(22px,5.4vw,27px); font-weight:800; line-height:1.3;
+    margin:0 0 14px; letter-spacing:-.01em; text-wrap:balance;
+  }
+  .section-sub{color:var(--ink-soft); margin:0 0 28px; max-width:36em}
+
+  .flow{display:flex; flex-direction:column; gap:0; margin:8px 0 24px}
+  .flow-step{
+    display:flex; gap:16px; align-items:flex-start;
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:18px 18px; box-shadow:var(--shadow);
+  }
+  .flow-who{
+    flex:0 0 auto; font-size:11.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+    padding:4px 10px; border-radius:6px; margin-top:3px; white-space:nowrap;
+  }
+  .flow-who.you{background:var(--teal-soft); color:var(--teal)}
+  .flow-who.us{background:var(--teal); color:#fff}
+  .flow-body strong{display:block; font-size:16.5px; margin-bottom:2px}
+  .flow-body span{color:var(--ink-soft); font-size:15px; line-height:1.6; display:block}
+  .flow-arrow{align-self:center; color:var(--teal); padding:4px 0; line-height:1}
+  .money-note{
+    display:flex; gap:12px; align-items:flex-start;
+    background:var(--teal-soft); border-radius:14px; padding:16px 18px; margin-top:20px;
+    font-size:15.5px;
+  }
+  .money-note svg{flex:0 0 auto; margin-top:3px}
+
+  .benefits{display:grid; grid-template-columns:1fr; gap:14px; margin-top:4px}
+  @media (min-width:560px){.benefits{grid-template-columns:1fr 1fr}}
+  .benefit{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:20px 20px 18px; box-shadow:var(--shadow);
+  }
+  .benefit .icon{
+    width:42px; height:42px; border-radius:11px; background:var(--teal-soft);
+    display:flex; align-items:center; justify-content:center; margin-bottom:14px;
+  }
+  .benefit h3{font-size:17px; font-weight:700; margin:0 0 6px; line-height:1.4}
+  .benefit p{font-size:15px; color:var(--ink-soft); margin:0; line-height:1.65}
+
+  .why{display:flex; flex-direction:column; gap:12px}
+  .why-item{
+    display:flex; gap:14px; align-items:flex-start;
+    border-left:3px solid var(--teal); padding:2px 0 2px 16px;
+  }
+  .why-item strong{display:block; font-size:16.5px; margin-bottom:2px}
+  .why-item p{margin:0; color:var(--ink-soft); font-size:15px}
+
+  .steps{list-style:none; margin:8px 0 0; padding:0; counter-reset:step}
+  .steps li{counter-increment:step; position:relative; padding:0 0 30px 56px}
+  .steps li::before{
+    content:counter(step); position:absolute; left:0; top:0;
+    width:36px; height:36px; border-radius:50%;
+    background:var(--teal); color:#fff; font-weight:800; font-size:16px;
+    display:flex; align-items:center; justify-content:center;
+    font-variant-numeric:tabular-nums;
+  }
+  .steps li::after{
+    content:""; position:absolute; left:17px; top:42px; bottom:6px; width:2px;
+    background:var(--line);
+  }
+  .steps li:last-child{padding-bottom:6px}
+  .steps li:last-child::after{display:none}
+  .steps strong{display:block; font-size:16.5px; margin-bottom:2px}
+  .steps p{margin:0; color:var(--ink-soft); font-size:15px}
+
+  .faq details{
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    margin-bottom:10px; overflow:hidden;
+  }
+  .faq summary{
+    cursor:pointer; padding:15px 18px; font-weight:700; font-size:15.5px;
+    list-style:none; display:flex; justify-content:space-between; gap:12px; align-items:center;
+  }
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::after{
+    content:"+"; color:var(--teal); font-size:20px; font-weight:600; line-height:1;
+    transition:transform .15s ease;
+  }
+  @media (prefers-reduced-motion: reduce){.faq summary::after{transition:none}}
+  .faq details[open] summary::after{transform:rotate(45deg)}
+  .faq summary:focus-visible{outline:2px solid var(--teal); outline-offset:-2px; border-radius:12px}
+  .faq .a{padding:0 18px 16px; color:var(--ink-soft); font-size:15px}
+  .faq .a p{margin:0}
+
+  .cta{
+    background:var(--teal-deep); color:var(--hero-ink); border-radius:18px;
+    padding:36px 26px; margin:56px 0 0; text-align:center;
+  }
+  .cta h2{color:#fff}
+  .cta p{color:var(--hero-sub); margin:0 0 24px; font-size:15.5px}
+  .cta .btns{display:flex; flex-direction:column; gap:10px; max-width:340px; margin:0 auto}
+  .cta a{
+    display:block; text-decoration:none; font-weight:700; font-size:16px;
+    padding:14px 20px; border-radius:12px;
+  }
+  .cta a.primary{background:var(--orange); color:#3A2400}
+  .cta a.secondary{background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.3)}
+  .cta a:focus-visible{outline:3px solid #fff; outline-offset:2px}
+  .cta .url{font-size:14px; color:var(--hero-sub); margin-top:18px; letter-spacing:.03em}
+
+  footer{padding:34px 0 44px; text-align:center; color:var(--ink-soft); font-size:13px}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="lang-toggle" role="group" aria-label="Ngôn ngữ / 언어">
+    <button type="button" id="btn-vi" aria-pressed="true" onclick="setLang('vi')">VI</button>
+    <button type="button" id="btn-ko" aria-pressed="false" onclick="setLang('ko')">KO</button>
+  </div>
+  <div class="wrap">
+    <div class="brand">
+      <svg width="52" height="52" viewBox="0 0 64 64" aria-hidden="true">
+        <rect width="64" height="64" rx="15" fill="#0F9488"/>
+        <path d="M32 8c-9.4 0-17 7.4-17 16.5C15 37 32 56 32 56S49 37 49 24.5C49 15.4 41.4 8 32 8z" fill="#fff"/>
+        <path d="M32 17l-9 8h2.5v9h5v-5.5h3V34h5v-9H41l-9-8z" fill="#0F9488"/>
+        <circle cx="35.5" cy="21.5" r="2.4" fill="#F5990E"/>
+      </svg>
+      <div>
+        <div class="brand-name">Villa GO</div>
+        <div class="brand-tag"><span class="vi">Phú Quốc · Đối tác dịch vụ</span><span class="ko">푸꾸옥 · 서비스 파트너</span></div>
+      </div>
+    </div>
+
+    <h1>
+      <span class="vi">Dịch vụ của bạn, đến thẳng <em>khách quốc tế</em> trong villa.</span>
+      <span class="ko">당신의 서비스가 빌라 안 <em>세계 각국 손님</em>에게 바로 닿습니다.</span>
+    </h1>
+    <p class="lede">
+      <span class="vi">Villa GO vận hành các villa cho khách quốc tế tại Phú Quốc — Hàn Quốc, Nga, Trung Quốc, Ấn Độ, Âu Mỹ. Khách đặt dịch vụ ngay trong villa — và đơn hàng được gửi thẳng đến Zalo của bạn, bằng tiếng Việt.</span>
+      <span class="ko">Villa GO는 푸꾸옥에서 한국·러시아·중국·인도·영어권 등 세계 각국 손님이 머무는 빌라들을 운영합니다. 손님이 빌라 안에서 서비스를 주문하면 — 그 주문이 베트남어로 당신의 Zalo에 바로 전달됩니다.</span>
+    </p>
+    <div class="service-chips" aria-hidden="true">
+      <span class="vi">Massage</span><span class="ko">마사지</span>
+      <span class="vi">Vé tham quan</span><span class="ko">입장권</span>
+      <span class="vi">Trái cây</span><span class="ko">과일</span>
+      <span class="vi">Đồ ăn / BBQ</span><span class="ko">음식 / BBQ</span>
+      <span class="vi">Thuê xe</span><span class="ko">차량 대여</span>
+      <span class="vi">Cắt tóc</span><span class="ko">이발</span>
+    </div>
+    <div class="free-pill">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+      <span class="vi">Hợp tác miễn phí — không phí đăng ký, không phí tháng</span>
+      <span class="ko">무료 입점 — 가입비·월 이용료 없음</span>
+    </div>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <!-- business model -->
+  <section>
+    <p class="eyebrow"><span class="vi">Cách hợp tác</span><span class="ko">협력 방식</span></p>
+    <h2>
+      <span class="vi">Bạn chỉ cần làm tốt dịch vụ. Đơn hàng để chúng tôi lo.</span>
+      <span class="ko">당신은 서비스만 잘하면 됩니다. 주문은 저희가 만들어 옵니다.</span>
+    </h2>
+    <p class="section-sub">
+      <span class="vi">Du khách quốc tế nghỉ tại villa của Villa GO có thể đặt dịch vụ ngay trên điện thoại. Chúng tôi lo toàn bộ việc giới thiệu, giao tiếp ngoại ngữ và thu tiền khách — bạn nhận đơn rõ ràng và giao dịch vụ.</span>
+      <span class="ko">Villa GO 빌라에 머무는 각국 손님은 휴대폰으로 바로 서비스를 주문합니다. 소개·외국어 응대·고객 수금은 전부 저희가 처리하고 — 당신은 명확한 주문을 받아 서비스만 제공하면 됩니다.</span>
+    </p>
+
+    <div class="flow">
+      <div class="flow-step">
+        <span class="flow-who you"><span class="vi">Bạn</span><span class="ko">업체</span></span>
+        <div class="flow-body">
+          <strong><span class="vi">Gửi bảng giá dịch vụ của bạn</span><span class="ko">서비스 가격표 전달</span></strong>
+          <span><span class="vi">Dịch vụ nào, giá bao nhiêu, khu vực phục vụ ở đâu — chỉ cần nhắn Zalo cho chúng tôi.</span><span class="ko">어떤 서비스를 얼마에, 어느 지역까지 — Zalo로 알려주기만 하면 됩니다.</span></span>
+        </div>
+      </div>
+      <div class="flow-arrow" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 4v14m0 0l-6-6m6 6l6-6"/></svg></div>
+      <div class="flow-step">
+        <span class="flow-who us">Villa GO</span>
+        <div class="flow-body">
+          <strong><span class="vi">Giới thiệu cho khách trong villa</span><span class="ko">빌라 안 손님에게 소개</span></strong>
+          <span><span class="vi">Khách đặt dịch vụ trên hệ thống → đơn hàng bay thẳng vào Zalo của bạn: tên khách, số lượng, thời gian, địa chỉ villa.</span><span class="ko">손님이 시스템에서 주문하면 → 이용자 이름·수량·시간·빌라 위치가 담긴 주문이 당신의 Zalo로 즉시 전달됩니다.</span></span>
+        </div>
+      </div>
+      <div class="flow-arrow" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 4v14m0 0l-6-6m6 6l6-6"/></svg></div>
+      <div class="flow-step">
+        <span class="flow-who you"><span class="vi">Bạn</span><span class="ko">업체</span></span>
+        <div class="flow-body">
+          <strong><span class="vi">Giao dịch vụ &amp; nhận đủ giá của mình</span><span class="ko">서비스 제공 &amp; 금액 전액 수령</span></strong>
+          <span><span class="vi">Giá trong bảng giá của bạn là tiền bạn nhận — không bị trừ phần trăm.</span><span class="ko">가격표에 적은 금액 그대로 받습니다 — 수수료 공제가 없습니다.</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="money-note">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v5m0 3h.01"/></svg>
+      <div>
+        <span class="vi"><strong>Vì sao miễn phí?</strong> Villa GO có nguồn thu riêng từ phía khách hàng. Chúng tôi không trừ tiền của đối tác — đơn của bạn càng nhiều, cả hai càng có lợi.</span>
+        <span class="ko"><strong>왜 무료인가요?</strong> Villa GO의 수익은 고객 쪽에서 나옵니다. 파트너의 몫에서는 공제하지 않습니다 — 주문이 늘수록 서로에게 이익입니다.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- benefits -->
+  <section>
+    <p class="eyebrow"><span class="vi">Lợi ích cho đối tác</span><span class="ko">파트너 혜택</span></p>
+    <h2>
+      <span class="vi">6 lý do nên hợp tác với Villa GO</span>
+      <span class="ko">Villa GO와 협력해야 하는 6가지 이유</span>
+    </h2>
+
+    <div class="benefits">
+      <div class="benefit">
+        <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div>
+        <h3><span class="vi">Khách mới, không tốn tiền quảng cáo</span><span class="ko">광고비 없이 새 고객 확보</span></h3>
+        <p><span class="vi">Du khách các nước nghỉ villa thấy dịch vụ của bạn ngay trong ứng dụng và đặt trực tiếp. Bạn không cần chạy quảng cáo, không cần tìm khách.</span><span class="ko">빌라에 머무는 각국 손님이 앱에서 서비스를 보고 바로 주문합니다. 광고도, 손님 찾기도 필요 없습니다.</span></p>
+      </div>
+
+      <div class="benefit">
+        <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" aria-hidden="true"><path d="M18 8a6 6 0 10-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M10 21a2 2 0 004 0"/></svg></div>
+        <h3><span class="vi">Đơn hàng rõ ràng qua Zalo, tiếng Việt</span><span class="ko">주문은 Zalo로, 베트남어로 명확하게</span></h3>
+        <p><span class="vi">Mỗi đơn ghi rõ: tên khách, dịch vụ, số lượng, ngày giờ, villa nào. Không hiểu lầm, không cần gọi đi gọi lại.</span><span class="ko">모든 주문에 이용자 이름·서비스·수량·일시·빌라 위치가 명시됩니다. 오해도, 재확인 전화도 없습니다.</span></p>
+      </div>
+
+      <div class="benefit">
+        <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+        <h3><span class="vi">Bận? Đề xuất giờ khác bằng 1 chạm</span><span class="ko">바쁘면 한 번의 터치로 시간 제안</span></h3>
+        <p><span class="vi">Không nhận được đơn đúng giờ đó? Chấp nhận, từ chối, hoặc đề xuất thời gian khác — khách xác nhận lại qua hệ thống. Không bị phạt.</span><span class="ko">그 시간에 어렵다면 수락·거절 또는 다른 시간 제안이 가능합니다 — 손님이 시스템에서 다시 확인합니다. 불이익이 없습니다.</span></p>
+      </div>
+
+      <div class="benefit">
+        <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 8h3v3H8zM13 8h3M13 11h3M8 14h8M8 17h5"/></svg></div>
+        <h3><span class="vi">Vé tham quan: chỉ cần gửi vé QR</span><span class="ko">입장권 업체: QR 티켓만 올리면 끝</span></h3>
+        <p><span class="vi">Với vé tham quan, bạn chỉ cần upload vé điện tử (QR) lên hệ thống — khách nhận vé ngay trên điện thoại, không cần gặp mặt giao vé.</span><span class="ko">입장권은 전자 티켓(QR)을 시스템에 올리기만 하면 손님이 휴대폰으로 바로 받습니다 — 대면 전달이 필요 없습니다.</span></p>
+      </div>
+
+      <div class="benefit">
+        <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" aria-hidden="true"><path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/></svg></div>
+        <h3><span class="vi">Khu vực của bạn, bạn được ưu tiên</span><span class="ko">담당 지역에서 우선 배정</span></h3>
+        <p><span class="vi">Bạn đăng ký khu vực phục vụ — đơn hàng từ các villa trong khu vực đó được gửi cho bạn trước. Đăng ký sớm, giữ khu vực sớm.</span><span class="ko">담당 지역을 등록하면 그 지역 빌라의 주문이 당신에게 우선 배정됩니다. 먼저 등록할수록 지역을 먼저 확보합니다.</span></p>
+      </div>
+
+      <div class="benefit">
+        <div class="icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" aria-hidden="true"><path d="M4 19V5a2 2 0 012-2h12a2 2 0 012 2v14"/><path d="M2 19h20M8 8h8M8 12h8"/></svg></div>
+        <h3><span class="vi">Mọi đơn đều có ghi chép minh bạch</span><span class="ko">모든 주문이 투명하게 기록</span></h3>
+        <p><span class="vi">Mỗi đơn — ngày, dịch vụ, số tiền — đều được lưu trong hệ thống. Đối soát rõ ràng từng đơn, xem lại lúc nào cũng được.</span><span class="ko">주문마다 날짜·서비스·금액이 시스템에 남습니다. 건별로 명확하게 대사하고 언제든 다시 확인할 수 있습니다.</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- why now -->
+  <section>
+    <p class="eyebrow"><span class="vi">Vì sao nên bắt đầu ngay</span><span class="ko">지금 시작해야 하는 이유</span></p>
+    <h2>
+      <span class="vi">Khu vực tốt không chờ ai</span>
+      <span class="ko">좋은 지역은 기다려주지 않습니다</span>
+    </h2>
+
+    <div class="why">
+      <div class="why-item">
+        <div>
+          <strong><span class="vi">Mỗi khu vực chỉ cần vài đối tác tin cậy</span><span class="ko">지역마다 필요한 파트너는 소수입니다</span></strong>
+          <p><span class="vi">Chúng tôi ưu tiên gửi đơn cho đối tác đã phụ trách khu vực đó. Đăng ký trước = nhận đơn trước.</span><span class="ko">이미 그 지역을 담당하는 파트너에게 주문이 우선 갑니다. 먼저 등록한 업체가 먼저 주문을 받습니다.</span></p>
+        </div>
+      </div>
+      <div class="why-item">
+        <div>
+          <strong><span class="vi">Khách quốc tế chi tiêu mạnh cho dịch vụ</span><span class="ko">해외 손님은 부가서비스 지출이 큽니다</span></strong>
+          <p><span class="vi">Massage tại villa, BBQ, vé tham quan, thuê xe — khách nghỉ villa nguyên căn thường đặt nhiều dịch vụ trong suốt kỳ nghỉ.</span><span class="ko">빌라 마사지, BBQ, 입장권, 차량까지 — 독채 빌라 손님은 휴가 내내 여러 서비스를 주문하는 경우가 많습니다.</span></p>
+        </div>
+      </div>
+      <div class="why-item">
+        <div>
+          <strong><span class="vi">Không mất gì để thử</span><span class="ko">시도해도 잃을 것이 없습니다</span></strong>
+          <p><span class="vi">Miễn phí, không ràng buộc, không doanh số tối thiểu. Chỉ cần một tin nhắn Zalo để bắt đầu.</span><span class="ko">무료, 무약정, 최소 물량 조건 없음. Zalo 메시지 한 통이면 시작됩니다.</span></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- how it works -->
+  <section>
+    <p class="eyebrow"><span class="vi">Bắt đầu thế nào</span><span class="ko">진행 방법</span></p>
+    <h2>
+      <span class="vi">4 bước — bắt đầu trong tuần này</span>
+      <span class="ko">4단계 — 이번 주 안에 시작합니다</span>
+    </h2>
+
+    <ol class="steps">
+      <li>
+        <strong><span class="vi">Nhắn Zalo cho Villa GO</span><span class="ko">Villa GO에 Zalo로 연락</span></strong>
+        <p><span class="vi">Giới thiệu dịch vụ, bảng giá và khu vực bạn phục vụ.</span><span class="ko">서비스 내용, 가격표, 담당 가능 지역을 알려주세요.</span></p>
+      </li>
+      <li>
+        <strong><span class="vi">Villa GO tạo tài khoản đối tác cho bạn</span><span class="ko">파트너 계정 발급</span></strong>
+        <p><span class="vi">Chúng tôi đưa dịch vụ của bạn lên hệ thống và cấp tài khoản xem đơn hàng.</span><span class="ko">서비스를 시스템에 등록하고, 주문을 확인할 수 있는 계정을 만들어 드립니다.</span></p>
+      </li>
+      <li>
+        <strong><span class="vi">Nhận đơn qua Zalo</span><span class="ko">Zalo로 주문 수신</span></strong>
+        <p><span class="vi">Có khách đặt là Zalo báo ngay. Chấp nhận, từ chối hoặc đề xuất giờ khác — tuỳ bạn.</span><span class="ko">주문이 들어오면 즉시 Zalo로 알림이 갑니다. 수락·거절·시간 제안은 당신의 선택입니다.</span></p>
+      </li>
+      <li>
+        <strong><span class="vi">Giao dịch vụ — nhận tiền — xem thống kê</span><span class="ko">서비스 제공 — 정산 — 내역 확인</span></strong>
+        <p><span class="vi">Giao dịch vụ đúng hẹn, nhận đủ giá của mình. Mọi đơn được ghi lại để đối soát.</span><span class="ko">약속대로 서비스를 제공하고 정한 금액을 전액 받습니다. 모든 주문은 대사용으로 기록됩니다.</span></p>
+      </li>
+    </ol>
+  </section>
+
+  <!-- FAQ -->
+  <section>
+    <p class="eyebrow"><span class="vi">Câu hỏi thường gặp</span><span class="ko">자주 묻는 질문</span></p>
+    <h2><span class="vi">Những điều đối tác hay hỏi</span><span class="ko">파트너들이 자주 묻는 것들</span></h2>
+
+    <div class="faq">
+      <details>
+        <summary><span class="vi">Có mất phí gì không?</span><span class="ko">비용이 드나요?</span></summary>
+        <div class="a"><p><span class="vi">Không. Không phí đăng ký, không phí tháng, không trừ phần trăm từ bảng giá của bạn. Nguồn thu của Villa GO đến từ phía khách hàng.</span><span class="ko">아니요. 가입비·월 이용료·가격표 공제가 전혀 없습니다. Villa GO의 수익은 고객 쪽에서 나옵니다.</span></p></div>
+      </details>
+      <details>
+        <summary><span class="vi">Giá dịch vụ ai quyết định?</span><span class="ko">서비스 가격은 누가 정하나요?</span></summary>
+        <div class="a"><p><span class="vi">Bạn. Bảng giá bạn gửi là số tiền bạn nhận. Muốn đổi giá chỉ cần báo cho chúng tôi.</span><span class="ko">업체가 정합니다. 보내주신 가격표 금액이 곧 받는 금액이고, 변경은 알려주시기만 하면 됩니다.</span></p></div>
+      </details>
+      <details>
+        <summary><span class="vi">Tôi không biết ngoại ngữ, có sao không?</span><span class="ko">외국어를 못해도 되나요?</span></summary>
+        <div class="a"><p><span class="vi">Không sao. Mọi giao tiếp với khách do Villa GO lo. Đơn hàng gửi cho bạn hoàn toàn bằng tiếng Việt.</span><span class="ko">괜찮습니다. 손님과의 소통은 Villa GO가 전담하고, 업체에 가는 주문은 전부 베트남어입니다.</span></p></div>
+      </details>
+      <details>
+        <summary><span class="vi">Thanh toán, đối soát thế nào?</span><span class="ko">정산은 어떻게 하나요?</span></summary>
+        <div class="a"><p><span class="vi">Mỗi đơn được ghi lại trong hệ thống (ngày, dịch vụ, số tiền). Hai bên đối soát theo từng đơn, rõ ràng và có thể xem lại bất cứ lúc nào. Cách thanh toán (tiền mặt / chuyển khoản, theo đơn / theo kỳ) thống nhất khi bắt đầu hợp tác.</span><span class="ko">모든 주문이 시스템에 기록되어(일자·서비스·금액) 건별로 투명하게 대사합니다. 지급 방식(현금/이체, 건별/기간별)은 협력 시작 시 협의합니다.</span></p></div>
+      </details>
+      <details>
+        <summary><span class="vi">Đơn đến lúc tôi bận thì sao?</span><span class="ko">바쁠 때 주문이 오면요?</span></summary>
+        <div class="a"><p><span class="vi">Bạn có thể từ chối hoặc đề xuất giờ khác ngay trên hệ thống — khách sẽ xác nhận lại. Không có phạt, không ảnh hưởng hợp tác.</span><span class="ko">시스템에서 바로 거절하거나 다른 시간을 제안할 수 있고, 손님이 다시 확인합니다. 벌칙이나 불이익이 없습니다.</span></p></div>
+      </details>
+      <details>
+        <summary><span class="vi">Dịch vụ của tôi không có trong danh sách?</span><span class="ko">제 서비스가 목록에 없는데요?</span></summary>
+        <div class="a"><p><span class="vi">Cứ nhắn cho chúng tôi. Massage, cắt tóc, vé tham quan, trái cây, đồ ăn, BBQ, thuê xe, hướng dẫn viên… — nếu khách villa cần, chúng tôi đều muốn hợp tác.</span><span class="ko">일단 연락 주세요. 마사지·이발·입장권·과일·음식·BBQ·차량·가이드 외에도 빌라 손님에게 필요한 서비스라면 협력을 원합니다.</span></p></div>
+      </details>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <div class="cta">
+    <h2><span class="vi">Một tin nhắn Zalo — bắt đầu nhận đơn</span><span class="ko">Zalo 메시지 한 통으로 주문 받기 시작</span></h2>
+    <p><span class="vi">Miễn phí · Không ràng buộc · Giá của bạn, bạn nhận đủ</span><span class="ko">무료 · 무약정 · 정한 가격 그대로 수령</span></p>
+    <div class="btns">
+      <!-- TODO: 실제 Zalo OA 링크 확정 시 교체 -->
+      <a class="primary" href="https://villa-go.net"><span class="vi">Nhắn Zalo cho Villa GO</span><span class="ko">Villa GO에 Zalo로 문의하기</span></a>
+      <a class="secondary" href="https://villa-go.net"><span class="vi">Xem thêm về Villa GO — villa-go.net</span><span class="ko">Villa GO 더 알아보기 — villa-go.net</span></a>
+    </div>
+    <div class="url">villa-go.net · Phú Quốc, Việt Nam</div>
+  </div>
+
+  <footer>
+    <span class="vi">© Villa GO — Nền tảng quản lý &amp; cho thuê villa tại Phú Quốc</span>
+    <span class="ko">© Villa GO — 푸꾸옥 빌라 관리·판매 플랫폼</span>
+  </footer>
+</main>
+
+<script>
+  function setLang(l){
+    document.documentElement.setAttribute('data-lang', l);
+    document.getElementById('btn-vi').setAttribute('aria-pressed', String(l==='vi'));
+    document.getElementById('btn-ko').setAttribute('aria-pressed', String(l==='ko'));
+    document.documentElement.lang = l;
+  }
+  setLang('vi');
+</script>
+</body>
+</html>

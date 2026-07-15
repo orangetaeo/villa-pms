@@ -17,9 +17,11 @@
 
 ## 3. 범위
 
-- **신규**: `public/intro.html` — 완전한 HTML 문서(doctype/head/meta/og 포함)로 변환한 소개 페이지.
-- **추가만(공유 파일)**: `messages/ko.json`·`messages/vi.json` — `auth.login.introLink`(문구) 키 추가. 기존 키 수정 0.
-- **안전 수정**: `app/(auth)/login/LoginForm.tsx` — 하단에 `/intro.html` 텍스트 링크 1개 추가(기존 signup 링크 옆/아래). 로직 변경 0.
+- **신규**: `public/intro.html` — 완전한 HTML 문서(doctype/head/meta/og 포함)로 변환한 빌라 관리인(공급자) 소개 페이지. vi 기본 + KO 토글.
+- **신규(범위 확장 2026-07-15)**: `public/intro-vendor.html` — 부가서비스 업체(마사지·입장권·BBQ 등) 소개 페이지. vi 기본 + KO 토글.
+- **신규(범위 확장 2026-07-15)**: `public/intro-partner.html` — 여행사·랜드사(B2B 파트너) 안내 페이지. ko 기본 + 6개 언어(ko/en/vi/ru/zh/hi) JS 사전 토글.
+- **추가만(공유 파일)**: `messages/ko.json`·`messages/vi.json` — `auth.login` NS에 `introHeading`·`introVilla`·`introVendor`·`introPartner`(문구) 키 추가. 기존 키 수정 0. (기존 브랜치에서 추가했던 `introLink` 단일 키는 3링크 블록 개편으로 대체·제거)
+- **안전 수정**: `app/(auth)/login/LoginForm.tsx` + `page.tsx` — signup 링크 아래에 소개 링크 블록(헤딩 + 3링크: `/intro.html`·`/intro-vendor.html`·`/intro-partner.html`) 추가. 로직 변경 0.
 
 ### 수정 금지 구역
 - `app/api/**`, `prisma/schema.prisma`, `lib/**`, 그 외 로그인 플로우 로직(actions.ts) 일체.

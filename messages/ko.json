@@ -1557,7 +1557,10 @@
       "forgotPassword": "비밀번호를 잊으셨나요?",
       "noAccount": "계정이 없으신가요?",
       "signupLink": "회원가입",
-      "introLink": "Villa GO가 궁금하신가요? 소개 보기",
+      "introHeading": "Villa GO가 처음이신가요?",
+      "introVilla": "빌라 관리인 소개",
+      "introVendor": "서비스 업체 소개",
+      "introPartner": "여행사·랜드사 안내",
       "rememberMe": "전화번호·비밀번호 저장",
       "passkeyButton": "지문·얼굴로 로그인",
       "errors": {

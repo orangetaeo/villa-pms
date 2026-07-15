@@ -21,7 +21,10 @@ interface Labels {
   forgotPassword: string;
   noAccount: string;
   signupLink: string;
-  introLink: string;
+  introHeading: string;
+  introVilla: string;
+  introVendor: string;
+  introPartner: string;
   rememberMe: string;
   passkeyButton: string;
   errorMessages: Record<string, string>;
@@ -264,13 +267,35 @@ export default function LoginForm({ labels }: { labels: Labels }) {
             {labels.noAccount}{" "}
             <span className="text-teal-600 font-bold">{labels.signupLink}</span>
           </Link>
-          {/* 사업 소개(가입 전 설득) 정적 페이지 — next/link 불필요한 static /public 파일 */}
-          <a
-            className="mt-3 block text-sm font-medium text-slate-500 hover:text-teal-600 transition-colors"
-            href="/intro.html"
-          >
-            {labels.introLink}
-          </a>
+        </div>
+
+        {/* 사업 소개(가입 전 설득) 정적 페이지 3종 — next/link 불필요한 static /public 파일 */}
+        <div className="text-center">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            {labels.introHeading}
+          </p>
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+            <a
+              className="text-sm font-medium text-slate-500 hover:text-teal-600 transition-colors"
+              href="/intro.html"
+            >
+              {labels.introVilla}
+            </a>
+            <span className="text-slate-300" aria-hidden="true">·</span>
+            <a
+              className="text-sm font-medium text-slate-500 hover:text-teal-600 transition-colors"
+              href="/intro-vendor.html"
+            >
+              {labels.introVendor}
+            </a>
+            <span className="text-slate-300" aria-hidden="true">·</span>
+            <a
+              className="text-sm font-medium text-slate-500 hover:text-teal-600 transition-colors"
+              href="/intro-partner.html"
+            >
+              {labels.introPartner}
+            </a>
+          </div>
         </div>
       </section>
 

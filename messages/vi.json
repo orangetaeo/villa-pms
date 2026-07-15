@@ -1672,7 +1672,10 @@
       "forgotPassword": "Quên mật khẩu?",
       "noAccount": "Chưa có tài khoản?",
       "signupLink": "Đăng ký",
-      "introLink": "Villa GO là gì? Tìm hiểu ngay",
+      "introHeading": "Bạn mới biết Villa GO?",
+      "introVilla": "Dành cho chủ villa",
+      "introVendor": "Dành cho đối tác dịch vụ",
+      "introPartner": "Dành cho công ty du lịch",
       "rememberMe": "Lưu số điện thoại & mật khẩu",
       "passkeyButton": "Đăng nhập bằng vân tay·khuôn mặt",
       "errors": {
