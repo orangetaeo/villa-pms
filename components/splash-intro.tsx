@@ -91,10 +91,8 @@ export default function SplashIntro({ tagline }: { tagline: string }) {
             >
               {/* ① 흰색 지도핀 실루엣 */}
               <path className="vg-pin" d={PIN_PATH} fill="#ffffff" />
-              {/* ② 핀 안 티얼 집 (경사지붕 + 굴뚝 + 몸체) */}
+              {/* ② 핀 안 티얼 집 (경사지붕 + 몸체) */}
               <g className="vg-house" fill="#12857A">
-                {/* 굴뚝 */}
-                <rect x="120" y="58" width="14" height="34" rx="2" />
                 {/* 경사지붕 (처마 오버행) */}
                 <polygon points="100,50 150,92 132,92 132,88 68,88 68,92 50,92" />
                 {/* 몸체 */}
