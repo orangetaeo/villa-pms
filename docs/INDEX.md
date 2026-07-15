@@ -31,6 +31,7 @@
 | 배포·환경변수·cron | .claude/skills/ops/deployment-pattern.md |
 | ★보안 잔여 마스터 핸드오프(에픽 종료 후 OPS/인프라/제품 트랙) | docs/ops/security-handoff.md |
 | Cron 등록 런북(8개 등록·검증 완료) | docs/ops/cron-registration.md |
+| DB 자동 백업(R2 논리 스냅샷)·복원 런북 | docs/ops/db-backup.md — 왜 pg_dump 아닌 JSON 스냅샷(서버 PG18 vs 로컬 17)·프라이빗 버킷 준비(BACKUP_BUCKET_NAME)·보존(daily 14/monthly 12)·복원 절차·검증. cron `0 20 * * *`. `lib/db-snapshot.ts`·`app/api/cron/db-backup`·`scripts/restore-from-snapshot.ts` |
 | 시크릿 스캔 결과(P0-4, 노출 0건) | docs/ops/secret-scan-2026-06-28.md |
 | 시크릿 교체 런북(런칭 전·유출 시, 순서 제약) | docs/ops/secret-rotation-runbook.md |
 | 인시던트 대응 절차서(P3-S4, 탐지·격리·통지·시나리오 플레이북) | docs/ops/incident-response.md |
