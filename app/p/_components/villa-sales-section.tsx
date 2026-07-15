@@ -21,7 +21,7 @@ const BED_ICON: Record<BedTypeKey, string> = {
   DOUBLE: "bed",
   SINGLE: "single_bed",
   TWIN: "single_bed",
-  BUNK: "bunk_bed",
+  BUNK: "bed", // Material Symbols에 bunk_bed 글리프 없음 (lib/bedding.ts와 동일 사유)
 };
 const FEATURE_ICON: Record<string, string> = {
   viewSea: "waves",

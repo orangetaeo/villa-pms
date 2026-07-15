@@ -12,7 +12,7 @@ export const BED_TYPE_META: Record<BedTypeKey, { icon: string }> = {
   DOUBLE: { icon: "bed" },
   SINGLE: { icon: "single_bed" },
   TWIN: { icon: "single_bed" },
-  BUNK: { icon: "bunk_bed" },
+  BUNK: { icon: "bed" }, // Material Symbols에 bunk_bed 글리프 없음 — 리가처 실패로 "bunk_" 원시 텍스트 노출됨
 };
 
 /** 사전 검증 — API에서 임의 bedType 주입 차단 (enum 외 값 거부) */
