@@ -21,6 +21,7 @@ interface Labels {
   forgotPassword: string;
   noAccount: string;
   signupLink: string;
+  introLink: string;
   rememberMe: string;
   passkeyButton: string;
   errorMessages: Record<string, string>;
@@ -263,6 +264,13 @@ export default function LoginForm({ labels }: { labels: Labels }) {
             {labels.noAccount}{" "}
             <span className="text-teal-600 font-bold">{labels.signupLink}</span>
           </Link>
+          {/* 사업 소개(가입 전 설득) 정적 페이지 — next/link 불필요한 static /public 파일 */}
+          <a
+            className="mt-3 block text-sm font-medium text-slate-500 hover:text-teal-600 transition-colors"
+            href="/intro.html"
+          >
+            {labels.introLink}
+          </a>
         </div>
       </section>
 
