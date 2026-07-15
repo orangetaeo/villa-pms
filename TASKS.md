@@ -168,3 +168,4 @@
 - [ ] cron Bearer 비교 timingSafeEqual 전환 (BE, 저위험)
 - [ ] /inspections·/availability tabHref 클론 패턴 전환 (FE, 신규 필터 추가 시 유실 예방)
 - [ ] ADMIN 금액 "원" 리터럴 잔여분·CLAUDE.md 마이그레이션 규칙 정정·ADR-0006 번호 중복 정리 (문서 위생)
+- [ ] **T-sec-csp-enforce: CSP Report-Only→enforce 전환** (BE/TDA/OPS, 2026-07-15 등재) — 도메인(villa-go.net)·Cloudflare 연결 완료로 재개 가능. 3단계: ① CSP 위반 보고 영속화(CspReport 테이블 스키마 additive + /api/csp-report DB 저장 전환 — 현재 console.warn뿐이라 배포마다 로그 소실, TDA 스키마 검토) ② 1~2주 실사용 위반 수집→img-src 허용목록 확정(기확인: `*.zdn.vn`·`blob:` 추가 필요, [[csp-enforce-blockers]] 메모리 참조) ③ 위반 0 확인 후 next.config.ts 헤더 키 플립+채팅 이미지·업로드 미리보기 집중 검증. ⚠강행 금지 — 채팅 Zalo CDN 이미지 회귀 위험
