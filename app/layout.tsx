@@ -2,6 +2,12 @@ import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { cookies } from "next/headers";
 import "./globals.css";
+import SplashIntro from "@/components/splash-intro";
+
+// T-splash-intro — 페인트 전 동기 게이트: sessionStorage(세션당 1회)·reduced-motion·
+// 제외경로(/p·/g) 판정 후 html[data-splash]를 세팅한다(스플래시 표시는 CSS가 결정).
+// 어떤 예외든 조용히 스킵(스플래시 미표시 폴백). ※ 향후 CSP enforce 시 nonce 필요.
+const SPLASH_GATE = `(function(){try{if(sessionStorage.getItem('vg-splash'))return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var p=location.pathname;if(p.indexOf('/p/')===0||p.indexOf('/g/')===0)return;document.documentElement.setAttribute('data-splash','1');}catch(e){}})();`;
 
 export const metadata: Metadata = {
   title: "Villa Go",
@@ -33,9 +39,14 @@ export default async function RootLayout({
   // 접근성·SEO: 현재 locale 쿠키(미들웨어가 설정)를 <html lang>에 반영. 기본 vi
   const cookieLocale = (await cookies()).get("locale")?.value;
   const lang = cookieLocale === "ko" ? "ko" : "vi";
+  // T-splash-intro 태그라인: 오버레이는 빈 i18n provider 밖이라 layout(서버)에서
+  // 동일 locale 로직으로 문자열을 골라 prop 전달(messages/*.json 미변경).
+  const splashTagline =
+    lang === "ko" ? "찾던 그 빌라, 여기 있어요" : "Villa bạn tìm, có ở đây";
   return (
     <html lang={lang}>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: SPLASH_GATE }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
@@ -53,6 +64,9 @@ export default async function RootLayout({
             locale 컨텍스트만 유지(서버에서 자동 상속)하고 messages는 비움.
             클라이언트 useTranslations가 필요한 구역은 각 구역 레이아웃에서
             화이트리스트 provider로 공급: (admin)/layout.tsx, (supplier)/layout.tsx */}
+        {/* T-splash-intro — NextIntlClientProvider 밖(빈 provider)에 정적 마운트.
+            표시 여부는 CSS html[data-splash="1"]가 결정(기본 display:none). */}
+        <SplashIntro tagline={splashTagline} />
         <NextIntlClientProvider messages={{}}>
           {children}
         </NextIntlClientProvider>
