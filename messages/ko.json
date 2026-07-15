@@ -1562,7 +1562,7 @@
       "errors": {
         "invalidCredentials": "전화번호 또는 비밀번호가 올바르지 않습니다.",
         "accountDisabled": "비활성화된 계정입니다. 관리자에게 문의하세요.",
-        "tooManyAttempts": "시도가 너무 많습니다. 10분 후 다시 시도해 주세요.",
+        "tooManyAttempts": "시도가 너무 많습니다. 1분 후 다시 시도해 주세요.",
         "serverError": "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
       }
     },
@@ -1624,7 +1624,7 @@
       "errors": {
         "phoneExists": "이미 등록된 전화번호입니다.",
         "passwordTooShort": "비밀번호는 최소 8자 이상이어야 합니다.",
-        "signupDoneLoginLater": "가입은 완료되었습니다. 10분 후 로그인해 주세요.",
+        "signupDoneLoginLater": "가입은 완료되었습니다. 1분 후 로그인해 주세요.",
         "serverError": "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
       }
     }
@@ -4761,7 +4761,7 @@
     "errors": {
       "phoneExists": "이미 등록된 전화번호입니다.",
       "passwordTooShort": "비밀번호는 최소 8자 이상이어야 합니다.",
-      "signupDoneLoginLater": "가입은 완료되었습니다. 10분 후 로그인해 주세요.",
+      "signupDoneLoginLater": "가입은 완료되었습니다. 1분 후 로그인해 주세요.",
       "serverError": "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
     }
   },

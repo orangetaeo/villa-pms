@@ -10,9 +10,10 @@ import { readCookie, AUTH_CHALLENGE_COOKIE } from "@/lib/webauthn";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/types";
 
 // 무차별 대입·크리덴셜 스터핑 방어 (T-sec-auth-ratelimit, Phase 1 보안)
-// 전화번호: 한 계정 집중 공격 차단 / IP: 한 출처에서 여러 계정 시도(스터핑) 차단
-const LOGIN_PHONE_LIMIT = { max: 5, windowMs: 10 * 60_000 };
-const LOGIN_IP_LIMIT = { max: 20, windowMs: 10 * 60_000 };
+// 전화번호: 한 계정 집중 공격 차단(1분 5회) / IP: 한 출처에서 여러 계정 시도(스터핑) 차단(1분 20회)
+// 창(windowMs)은 안내 문구("1분 후 다시 시도")가 항상 참이 되도록 phone·IP 동일 1분(운영자 지시 2026-07-15).
+const LOGIN_PHONE_LIMIT = { max: 5, windowMs: 60_000 };
+const LOGIN_IP_LIMIT = { max: 20, windowMs: 60_000 };
 
 // 세션 수명 (보안 P0-5①) — JWT 만료를 명시(기본값 의존 제거). 7일·하루 단위 갱신.
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7일

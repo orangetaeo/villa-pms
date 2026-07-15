@@ -10,6 +10,8 @@
 HTTP 429 관행과 동일하게 구분 표시해도 브루트포스 방어 약화 없음 — 오히려 공격자는 이미 응답 지연 없이도
 차단을 인지 가능. 사용자 혼란 비용이 더 큼 → 구분 메시지 도입 결정 (운영자 승인 2026-07-15).
 
+> 정책 변경(운영자 지시 2026-07-15): 잠금 창 10분 → **1분**으로 단축. auth.ts의 LOGIN_PHONE_LIMIT·LOGIN_IP_LIMIT windowMs=60_000, 안내 문구(ko/vi)도 "1분"으로 수정. max(5·20) 유지.
+
 ## 범위
 
 1. **auth.ts** — credentials authorize의 rate limit 차단 시 `return null` 대신
