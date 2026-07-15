@@ -348,8 +348,8 @@
     <h2 data-i18n="ctaH2"></h2>
     <p data-i18n="ctaP"></p>
     <div class="btns">
-      <!-- TODO: 카카오톡 채널·Zalo OA URL 확정 시 교체 -->
-      <a class="primary" href="https://villa-go.net" data-i18n="ctaB1"></a>
+      <!-- 문의 채널: ko=카카오톡 채널, 그 외 언어=Zalo (setLang이 href 전환) -->
+      <a class="primary" id="cta-primary" href="https://pf.kakao.com/_mVAfX/chat" data-i18n="ctaB1"></a>
       <a class="secondary" href="https://villa-go.net" data-i18n="ctaB2"></a>
     </div>
     <div class="url">villa-go.net · Phú Quốc, Việt Nam</div>
@@ -426,6 +426,7 @@ const I18N = {
     a6: "신규 파트너는 선입금으로 시작하며, 거래 이력이 쌓이면 주 단위 정산 등 여신 조건으로 전환 가능합니다. 조건은 거래 규모에 따라 협의합니다.",
     ctaH2: "첫 견적, 오늘 받아보세요",
     ctaP: "등록 무료 · 건별 거래 · 한국어 응대",
+    ctaB1Href: "https://pf.kakao.com/_mVAfX/chat",
     ctaB1: "카카오톡 채널로 문의하기",
     ctaB2: "Villa GO 더 알아보기 — villa-go.net",
     footer: "© Villa GO — 푸꾸옥 빌라 관리·판매 플랫폼"
@@ -496,7 +497,8 @@ const I18N = {
     a6: "New partners start on prepayment; with trading history, weekly credit settlement is available. Terms scale with volume.",
     ctaH2: "Get your first quote today",
     ctaP: "Free to join · Case-by-case bookings · English support",
-    ctaB1: "Message us",
+    ctaB1Href: "https://zalo.me/0799493138",
+    ctaB1: "Message us on Zalo",
     ctaB2: "More about Villa GO — villa-go.net",
     footer: "© Villa GO — Villa management & sales platform in Phu Quoc"
   },
@@ -566,7 +568,8 @@ const I18N = {
     a6: "Đối tác mới thanh toán trước; có lịch sử giao dịch sẽ được xét công nợ, đối soát theo tuần. Điều kiện theo quy mô hợp tác.",
     ctaH2: "Nhận báo giá đầu tiên hôm nay",
     ctaP: "Miễn phí · Theo từng booking · Hỗ trợ tiếng Việt",
-    ctaB1: "Nhắn tin cho chúng tôi",
+    ctaB1Href: "https://zalo.me/0799493138",
+    ctaB1: "Nhắn Zalo cho chúng tôi",
     ctaB2: "Tìm hiểu thêm — villa-go.net",
     footer: "© Villa GO — Nền tảng quản lý & cho thuê villa tại Phú Quốc"
   },
@@ -636,7 +639,8 @@ const I18N = {
     a6: "Новые партнёры — по предоплате; с историей сделок доступны еженедельные расчёты в кредит. Условия зависят от оборота.",
     ctaH2: "Получите первую смету сегодня",
     ctaP: "Бесплатно · По каждой заявке · Поддержка на английском",
-    ctaB1: "Написать нам",
+    ctaB1Href: "https://zalo.me/0799493138",
+    ctaB1: "Написать нам в Zalo",
     ctaB2: "Подробнее — villa-go.net",
     footer: "© Villa GO — платформа управления и аренды вилл на Фукуоке"
   },
@@ -706,7 +710,8 @@ const I18N = {
     a6: "新伙伴先款；有交易记录后可周结授信，条件随规模而定。",
     ctaH2: "今天就拿首份报价",
     ctaP: "免费注册 · 按单合作 · 英文对接",
-    ctaB1: "联系我们",
+    ctaB1Href: "https://zalo.me/0799493138",
+    ctaB1: "通过 Zalo 联系我们",
     ctaB2: "了解更多 — villa-go.net",
     footer: "© Villa GO — 富国岛别墅管理与销售平台"
   },
@@ -776,7 +781,8 @@ const I18N = {
     a6: "नए पार्टनर प्रीपेमेंट पर; ट्रैक रिकॉर्ड के साथ साप्ताहिक क्रेडिट सेटलमेंट उपलब्ध। शर्तें वॉल्यूम पर निर्भर।",
     ctaH2: "पहला कोटेशन आज ही लें",
     ctaP: "मुफ़्त · केस-दर-केस · अंग्रेज़ी सपोर्ट",
-    ctaB1: "हमें मैसेज करें",
+    ctaB1Href: "https://zalo.me/0799493138",
+    ctaB1: "Zalo पर मैसेज करें",
     ctaB2: "और जानें — villa-go.net",
     footer: "© Villa GO — फु कुओक विला प्रबंधन व बिक्री प्लेटफ़ॉर्म"
   }
@@ -788,6 +794,8 @@ function setLang(l){
     const k = el.getAttribute('data-i18n');
     if (dict[k] !== undefined) el.innerHTML = dict[k];
   });
+  const cta1 = document.getElementById('cta-primary');
+  if (cta1 && dict.ctaB1Href) cta1.setAttribute('href', dict.ctaB1Href);
   document.querySelectorAll('.lang-bar button').forEach(b => {
     b.setAttribute('aria-pressed', String(b.getAttribute('data-setlang') === l));
   });
