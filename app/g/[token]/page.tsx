@@ -55,13 +55,13 @@ export default async function GuestCheckinPage({
 
   const sheetLang = lang as SheetLang; // PublicLang ⊆ SheetLang (ko/vi/en/zh/ru 동일)
 
-  // ── G2 어메니티: 카테고리별로 묶고 라벨 해석(미니바 제외) ──
-  const byCategory = new Map<string, string[]>();
+  // ── G2 어메니티: 카테고리별로 묶고 라벨 해석 + 비치 수량(미니바 제외) ──
+  const byCategory = new Map<string, { label: string; qty: number }[]>();
   for (const a of data.amenities) {
     if (!AMENITY_ORDER.includes(a.category)) continue;
     const label = amenityLabel(a.itemKey, sheetLang, a.customLabel, a.customLabelKo);
     const arr = byCategory.get(a.category) ?? [];
-    arr.push(label);
+    arr.push({ label, qty: a.quantity });
     byCategory.set(a.category, arr);
   }
   const amenityGroups: GuestAmenityGroup[] = AMENITY_ORDER.filter((c) => byCategory.has(c)).map(

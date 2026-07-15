@@ -1,6 +1,6 @@
 # T-guest-amenity-quantity — 게스트 체크인 G2 비품 수량 표시
 
-- 상태: 진행 중 (2026-07-15 착수, worktree `worktree-guest-amenity-qty`)
+- 상태: 완료 (2026-07-15, QA PASS 결함 0건 — tsc·lint·build 통과)
 - 요청: 소비자(게스트) 체크인 화면에서 비품의 수량을 확인할 수 없음 → 수량 노출.
 
 ## 배경 (Triage)

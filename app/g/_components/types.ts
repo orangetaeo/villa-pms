@@ -21,11 +21,12 @@ export interface GuestBookingView {
   stayChargeKrw: number | null;
 }
 
-/** G2 비품 — 카테고리별로 묶은 라벨(서버에서 lang 해석 완료) */
+/** G2 비품 — 카테고리별로 묶은 품목(서버에서 lang 해석 완료) */
 export interface GuestAmenityGroup {
   category: string; // KITCHEN/BATHROOM/APPLIANCE
   label: string; // 카테고리 라벨(언어별)
-  items: string[]; // 품목 라벨(언어별, custom은 customLabel)
+  // 품목 라벨(언어별, custom은 customLabel) + 비치 수량(qty). qty≥2일 때만 칩에 ×N 표기.
+  items: { label: string; qty: number }[];
 }
 
 export interface GuestMinibarView {

@@ -233,12 +233,16 @@ export default function GuestFlow(props: GuestFlowProps) {
                   {g.label}
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {g.items.map((label, i) => (
+                  {g.items.map((it, i) => (
                     <span
                       key={`${g.category}-${i}`}
                       className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-full px-3 py-1.5"
                     >
-                      {label}
+                      {it.label}
+                      {/* 수량은 실수량(≥2)일 때만 ×N — 언어 중립 표기(i18n 불필요). 라벨보다 옅은 톤. */}
+                      {it.qty >= 2 && (
+                        <span className="text-slate-400 font-semibold">×{it.qty}</span>
+                      )}
                     </span>
                   ))}
                 </div>
