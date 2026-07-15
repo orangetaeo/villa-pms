@@ -1672,11 +1672,16 @@
       "forgotPassword": "Quên mật khẩu?",
       "noAccount": "Chưa có tài khoản?",
       "signupLink": "Đăng ký",
+      "introHeading": "Bạn mới biết Villa GO?",
+      "introVilla": "Dành cho chủ villa",
+      "introVendor": "Dành cho đối tác dịch vụ",
+      "introPartner": "Dành cho công ty du lịch",
       "rememberMe": "Lưu số điện thoại & mật khẩu",
       "passkeyButton": "Đăng nhập bằng vân tay·khuôn mặt",
       "errors": {
         "invalidCredentials": "Số điện thoại hoặc mật khẩu không đúng.",
         "accountDisabled": "Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.",
+        "tooManyAttempts": "Bạn đã thử quá nhiều lần. Vui lòng thử lại sau 1 phút.",
         "serverError": "Đã xảy ra lỗi máy chủ. Vui lòng thử lại sau."
       }
     },
@@ -1738,6 +1743,7 @@
       "errors": {
         "phoneExists": "Số điện thoại này đã được đăng ký.",
         "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự.",
+        "signupDoneLoginLater": "Đăng ký đã hoàn tất. Vui lòng đăng nhập sau 1 phút.",
         "serverError": "Đã xảy ra lỗi. Vui lòng thử lại sau."
       }
     }
@@ -4759,6 +4765,7 @@
     "errors": {
       "phoneExists": "Số điện thoại này đã được đăng ký.",
       "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự.",
+      "signupDoneLoginLater": "Đăng ký đã hoàn tất. Vui lòng đăng nhập sau 1 phút.",
       "serverError": "Đã xảy ra lỗi. Vui lòng thử lại sau."
     }
   },

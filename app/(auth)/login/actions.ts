@@ -1,7 +1,7 @@
 "use server";
 
 import { signIn } from "@/auth";
-import { AuthError } from "next-auth";
+import { AuthError, CredentialsSignin } from "next-auth";
 
 export type LoginState = { error?: string; success?: boolean } | null;
 
@@ -23,6 +23,11 @@ export async function loginAction(
     });
   } catch (error) {
     if (error instanceof AuthError) {
+      // rate limit 잠금 — 일반 자격증명 실패(code="credentials")와 code로 구분.
+      // 잠금이면 "시도가 너무 많습니다" 안내(비번 초기화 후 혼란 방지, T-login-ratelimit-message).
+      if (error instanceof CredentialsSignin && error.code === "rate_limited") {
+        return { error: "tooManyAttempts" };
+      }
       switch (error.type) {
         case "CredentialsSignin":
           return { error: "invalidCredentials" };

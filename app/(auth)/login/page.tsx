@@ -21,11 +21,16 @@ export default async function LoginPage() {
     forgotPassword: t("forgotPassword"),
     noAccount: t("noAccount"),
     signupLink: t("signupLink"),
+    introHeading: t("introHeading"),
+    introVilla: t("introVilla"),
+    introVendor: t("introVendor"),
+    introPartner: t("introPartner"),
     rememberMe: t("rememberMe"),
     passkeyButton: t("passkeyButton"),
     errorMessages: {
       invalidCredentials: t("errors.invalidCredentials"),
       accountDisabled: t("errors.accountDisabled"),
+      tooManyAttempts: t("errors.tooManyAttempts"),
       serverError: t("errors.serverError"),
     },
   };
