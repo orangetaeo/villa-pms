@@ -48,6 +48,8 @@ export default async function SignupPage({
         phoneExists: t("errors.phoneExists"),
         passwordTooShort: t("errors.passwordTooShort"),
         serverError: t("errors.serverError"),
+        // 가입 완료 후 자동 로그인이 rate limit에 걸린 경우 안내(계정은 이미 생성됨)
+        signupDoneLoginLater: t("errors.signupDoneLoginLater"),
       },
     };
     return <SignupForm labels={labels} />;
@@ -77,6 +79,8 @@ export default async function SignupPage({
         phoneExists: t("errors.phoneExists"),
         passwordTooShort: t("errors.passwordTooShort"),
         serverError: t("errors.serverError"),
+        // 가입 완료 후 자동 로그인이 rate limit에 걸린 경우 안내(계정은 이미 생성됨)
+        signupDoneLoginLater: t("errors.signupDoneLoginLater"),
       },
     };
     return <CleanerSignupForm labels={labels} />;

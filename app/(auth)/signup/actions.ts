@@ -4,7 +4,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { headers } from "next/headers";
 import { signIn } from "@/auth";
-import { AuthError } from "next-auth";
+import { AuthError, CredentialsSignin } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
@@ -100,7 +100,14 @@ export async function signupAction(
   try {
     await signIn("credentials", { phone, password, redirectTo });
   } catch (error) {
-    if (error instanceof AuthError) return { error: "serverError" };
+    if (error instanceof AuthError) {
+      // 가입 직전 로그인 시도가 rate limit에 걸린 경우 — 계정 생성은 이미 성공했으므로
+      // serverError로 뭉개지 않고 "가입 완료, 잠시 후 로그인" 안내(이번 사고의 실제 경로).
+      if (error instanceof CredentialsSignin && error.code === "rate_limited") {
+        return { error: "signupDoneLoginLater" };
+      }
+      return { error: "serverError" };
+    }
     throw error; // NEXT_REDIRECT re-throw
   }
   return null;

@@ -30,6 +30,7 @@ export default async function LoginPage() {
     errorMessages: {
       invalidCredentials: t("errors.invalidCredentials"),
       accountDisabled: t("errors.accountDisabled"),
+      tooManyAttempts: t("errors.tooManyAttempts"),
       serverError: t("errors.serverError"),
     },
   };
