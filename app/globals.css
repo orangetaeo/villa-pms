@@ -152,3 +152,233 @@ input:focus {
   --rc-high: #fb923c;
   --rc-peak: #f87171;
 }
+
+/* === T-splash-intro === */
+/* villa-go.net 최초 진입 핀 드롭 스플래시. 표시는 오직 html[data-splash="1"]가 결정.
+   애니메이션은 transform/opacity만(컴포지터 전용) — width/top 등 리플로우 속성 금지.
+   무대 배경은 불투명 티얼 라디얼 그라데이션 → 다크(운영자)·라이트(공급자) 착지 화면을
+   완전히 덮는다. 총 연출 1.6s(하드 상한 2.2s는 JS). */
+
+#vg-splash {
+  display: none;
+}
+
+html[data-splash="1"] #vg-splash {
+  display: flex;
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  align-items: center;
+  justify-content: center;
+  /* 불투명 티얼 라디얼 무대 — 중앙 밝고 가장자리 어둡게 */
+  background:
+    radial-gradient(
+      circle at 50% 42%,
+      #16a598 0%,
+      #12857a 42%,
+      #0a5b53 78%,
+      #063f39 100%
+    );
+  overflow: hidden;
+  /* 1.3–1.6s 전체 오버레이 페이드 아웃 (opacity만) */
+  animation: vg-overlay-out 300ms ease-in 1300ms both;
+}
+
+html[data-splash="1"] #vg-splash .vg-stage {
+  perspective: 900px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* 핀 착지 영역 (그림자·링은 여기 바닥에 고정, 로고만 낙하) */
+html[data-splash="1"] #vg-splash .vg-pinwrap {
+  position: relative;
+  width: 132px;
+  height: 198px;
+}
+
+html[data-splash="1"] #vg-splash .vg-logo {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 82%; /* 핀 팁 근처 — 스쿼시/스트레치 기준 */
+  transform-style: preserve-3d;
+  will-change: transform;
+  animation: vg-drop 600ms cubic-bezier(0.5, 0, 0.75, 0) 100ms both;
+}
+
+html[data-splash="1"] #vg-splash .vg-svg {
+  display: block;
+  width: 132px;
+  height: 198px;
+}
+
+/* 착지 순간 바닥 티얼 링 파동 1회 */
+html[data-splash="1"] #vg-splash .vg-ring {
+  position: absolute;
+  left: 50%;
+  top: 92%;
+  width: 60px;
+  height: 60px;
+  margin: -30px 0 0 -30px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.75);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: vg-ring 520ms ease-out 500ms both;
+}
+
+/* 타원 그림자 — 커졌다 수축 */
+html[data-splash="1"] #vg-splash .vg-shadow {
+  position: absolute;
+  left: 50%;
+  top: 95%;
+  width: 96px;
+  height: 22px;
+  margin: -11px 0 0 -48px;
+  border-radius: 50%;
+  background: rgba(3, 40, 36, 0.45);
+  filter: blur(4px);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: vg-shadow 600ms ease-out 100ms both;
+}
+
+/* 오렌지 지붕점 "톡" 팝 (0.7–0.9s) */
+html[data-splash="1"] #vg-splash .vg-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: vg-dot-pop 220ms cubic-bezier(0.34, 1.56, 0.64, 1) 700ms both;
+}
+
+/* 워드마크 슬라이드 업 + 페이드 (0.9–1.3s) */
+html[data-splash="1"] #vg-splash .vg-wordmark {
+  margin-top: 26px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-weight: 800;
+  font-size: clamp(30px, 9vw, 44px);
+  letter-spacing: 0.5px;
+  line-height: 1;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: vg-rise 400ms ease-out 900ms both;
+}
+html[data-splash="1"] #vg-splash .vg-word-villa {
+  color: #ffffff;
+}
+html[data-splash="1"] #vg-splash .vg-word-go {
+  color: #f5a11c;
+}
+
+/* 태그라인 페이드 인 (이어서) */
+html[data-splash="1"] #vg-splash .vg-tagline {
+  margin-top: 12px;
+  padding: 0 24px;
+  max-width: 100%;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.88);
+  font-weight: 600;
+  font-size: clamp(13px, 3.6vw, 16px);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: vg-rise 360ms ease-out 1080ms both;
+}
+
+@keyframes vg-drop {
+  0% {
+    transform: translate3d(0, -135%, -620px) scaleY(1.22);
+  }
+  66% {
+    /* 착지(0.5s) — 임팩트 스쿼시 */
+    transform: translate3d(0, 0, 0) scaleY(0.9);
+  }
+  76% {
+    transform: translate3d(0, -14%, 0) scaleY(1.06);
+  }
+  86% {
+    transform: translate3d(0, 0, 0) scaleY(0.97);
+  }
+  93% {
+    transform: translate3d(0, -5%, 0) scaleY(1.02);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scaleY(1);
+  }
+}
+
+@keyframes vg-ring {
+  0% {
+    transform: scale(0.2);
+    opacity: 0.65;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+@keyframes vg-shadow {
+  0% {
+    transform: scale(0.35);
+    opacity: 0.18;
+  }
+  66% {
+    transform: scale(1.15);
+    opacity: 0.5;
+  }
+  82% {
+    transform: scale(0.9);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.38;
+  }
+}
+
+@keyframes vg-dot-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes vg-rise {
+  0% {
+    transform: translate3d(0, 18px, 0);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes vg-overlay-out {
+  to {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+/* 이중 방어: reduced-motion에서는 게이트가 이미 거르지만 CSS로도 무효화 */
+@media (prefers-reduced-motion: reduce) {
+  html[data-splash="1"] #vg-splash {
+    display: none !important;
+  }
+}
