@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
@@ -10,13 +10,21 @@ import { readCookie, AUTH_CHALLENGE_COOKIE } from "@/lib/webauthn";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/types";
 
 // 무차별 대입·크리덴셜 스터핑 방어 (T-sec-auth-ratelimit, Phase 1 보안)
-// 전화번호: 한 계정 집중 공격 차단 / IP: 한 출처에서 여러 계정 시도(스터핑) 차단
-const LOGIN_PHONE_LIMIT = { max: 5, windowMs: 10 * 60_000 };
-const LOGIN_IP_LIMIT = { max: 20, windowMs: 10 * 60_000 };
+// 전화번호: 한 계정 집중 공격 차단(1분 5회) / IP: 한 출처에서 여러 계정 시도(스터핑) 차단(1분 20회)
+// 창(windowMs)은 안내 문구("1분 후 다시 시도")가 항상 참이 되도록 phone·IP 동일 1분(운영자 지시 2026-07-15).
+const LOGIN_PHONE_LIMIT = { max: 5, windowMs: 60_000 };
+const LOGIN_IP_LIMIT = { max: 20, windowMs: 60_000 };
 
 // 세션 수명 (보안 P0-5①) — JWT 만료를 명시(기본값 의존 제거). 7일·하루 단위 갱신.
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7일
 const IS_PROD = process.env.NODE_ENV === "production";
+
+// 로그인 잠금(rate limit) 전용 에러 — authorize에서 throw하면 signIn 호출부에서
+// AuthError로 잡히고 error.code === "rate_limited"로 일반 실패와 구분 가능(Auth.js v5).
+// ⚠ 계정 존재 여부는 노출하지 않는다(존재하지 않는 번호로도 시도 횟수만 기준이라 동일 메시지).
+class RateLimitedError extends CredentialsSignin {
+  code = "rate_limited";
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   // 세션·쿠키 보안 명시 (보안 P0-5①) — httpOnly(JS 접근 차단)·sameSite lax(CSRF 완화)·secure(prod HTTPS).
@@ -51,7 +59,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             path: "/login",
             meta: { scope: !phoneOk ? "phone" : "ip" },
           });
-          return null;
+          // return null 대신 전용 에러 throw — 화면에서 잠금 안내를 일반 실패와 구분 표시.
+          // (보안 검토 완료: 계정 존재 여부 미노출. 기록은 위에서 그대로 유지.)
+          throw new RateLimitedError();
         }
 
         const user = await prisma.user.findUnique({
