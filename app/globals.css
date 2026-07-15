@@ -157,7 +157,7 @@ input:focus {
 /* villa-go.net 최초 진입 핀 드롭 스플래시. 표시는 오직 html[data-splash="1"]가 결정.
    애니메이션은 transform/opacity만(컴포지터 전용) — width/top 등 리플로우 속성 금지.
    무대 배경은 불투명 티얼 라디얼 그라데이션 → 다크(운영자)·라이트(공급자) 착지 화면을
-   완전히 덮는다. 총 연출 1.6s(하드 상한 2.2s는 JS). */
+   완전히 덮는다. 총 연출 2.6s(등장 1.3s + 완성 홀드 1s + 페이드 0.3s, 하드 상한 3.2s는 JS). */
 
 #vg-splash {
   display: none;
@@ -180,8 +180,8 @@ html[data-splash="1"] #vg-splash {
       #063f39 100%
     );
   overflow: hidden;
-  /* 1.3–1.6s 전체 오버레이 페이드 아웃 (opacity만) */
-  animation: vg-overlay-out 300ms ease-in 1300ms both;
+  /* 등장(0.0~1.3s)은 그대로, 완성 로고 홀드 +1s → 2.3–2.6s 페이드 아웃 (opacity만) */
+  animation: vg-overlay-out 300ms ease-in 2300ms both;
 }
 
 html[data-splash="1"] #vg-splash .vg-stage {

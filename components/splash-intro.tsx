@@ -10,8 +10,8 @@ import { useEffect, useRef } from "react";
  * 표시 여부는 오직 CSS `html[data-splash="1"] #vg-splash`가 결정(기본 display:none).
  *
  * 타임라인·스킵 로직: CSS 키프레임은 data-splash 세팅 시 자동 시작하므로 JS는 종료만 관리.
- *  - 정상 종료: 1.6s(애니메이션 끝)
- *  - 하드 상한: 2.2s
+ *  - 정상 종료: 2.6s(등장 1.3s + 완성 로고 홀드 1s + 페이드 0.3s)
+ *  - 하드 상한: 3.2s
  *  - 즉시 스킵: 오버레이 pointerdown / window keydown / visibilitychange(hidden)
  * 종료 시점에 sessionStorage 기록(마운트 시점 금지 — /logout 중간 홉이 1회분을 소진하면 안 됨).
  */
@@ -49,9 +49,9 @@ export default function SplashIntro({ tagline }: { tagline: string }) {
       if (document.visibilityState === "hidden") finish();
     };
 
-    // 정상 종료(애니메이션 끝) + 하드 상한 이중 방어.
-    timers.push(window.setTimeout(finish, 1600));
-    timers.push(window.setTimeout(finish, 2200));
+    // 정상 종료(애니메이션 끝, 완성 홀드 +1s로 2.6s) + 하드 상한 이중 방어.
+    timers.push(window.setTimeout(finish, 2600));
+    timers.push(window.setTimeout(finish, 3200));
     window.addEventListener("keydown", finish);
     document.addEventListener("visibilitychange", onVisibility);
 
