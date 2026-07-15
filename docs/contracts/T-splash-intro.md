@@ -16,6 +16,7 @@
 - **1회 제어**: sessionStorage(세션당 1회), 플래그 기록은 재생 완료/스킵 **시점**(중간 홉 /logout이 1회분 소진 방지).
 - **제외 경로**: `/p/`(제안 링크)·`/g/`(게스트 링크)는 스플래시 미표시 — 외부 손님 링크에 지연 금지.
 - **접근성**: prefers-reduced-motion=스킵(또는 ≤300ms 정적 페이드), 탭/키 입력 즉시 스킵, 오버레이 `aria-hidden` + 포커스 트랩 금지, `visibilitychange`·3.2s setTimeout 하드 종료.
+- **포커스 억제(모바일 키보드 가림 방지)**: 재생 중 오버레이 밖 요소(로그인 input autoFocus 등)로 들어오는 포커스를 focusin으로 흡수·blur, 종료 시 원래 대상으로 복원(데스크톱 autoFocus UX 유지, 모바일은 인트로 종료 후에야 키보드). 스플래시 미표시 경로(재방문·reduced-motion·/p·/g)는 리스너 미등록으로 부작용 0.
 - **CSP 유의**: 인라인 게이트 스크립트는 향후 CSP enforce 시 nonce 필요 — `docs/ops/` CSP 백로그(T-sec-csp-enforce)에 본 스크립트 포함하도록 명기.
 
 ## 3. 범위
