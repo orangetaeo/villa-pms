@@ -6,7 +6,8 @@
 
 1. **`lib/db-snapshot.ts`** — `prisma/export-full-snapshot.ts`의 dmmf 전 모델 JSON 스냅샷 로직을 공용 모듈로 추출(BigInt → `"123n"` 직렬화 유지). 기존 스크립트는 이 모듈을 쓰도록 리팩터.
 2. **`app/api/cron/db-backup/route.ts`** — CRON_SECRET Bearer 게이트(기존 cron 패턴 동일) → 스냅샷 → gzip → R2 업로드 → 보존 pruning → 요약 JSON 응답. 실패 시 500 + 장애 경보(기존 security-alerts/operator-notify 장애축 경로 재사용 — ZALO_OPERATOR_NOTIFY_PAUSED와 무관하게 발송되는 축).
-3. **저장소**: 백업 전용 **프라이빗 R2 버킷** (`BACKUP_BUCKET_NAME` env, 기존 STORAGE_* 자격증명 재사용). 공개 이미지 버킷(`STORAGE_BUCKET_NAME`) 사용 금지 — 백업엔 여권·원가·마진 포함. env 미설정 시 500(무단 폴백 금지).
+3. **저장소**: 백업 전용 **프라이빗 R2 버킷** (`BACKUP_BUCKET_NAME` env 필수, 미설정 시 500 — 공개 이미지 버킷 `STORAGE_BUCKET_NAME` 폴백 절대 금지. 백업엔 여권·원가·마진 포함).
+   - **자격증명(실측 반영)**: 기존 STORAGE_* R2 토큰이 버킷 스코프라 새 백업 버킷 접근 불가일 수 있음(계정 수준 CreateBucket 403 실증). 라우트는 `BACKUP_ACCOUNT_ID`/`BACKUP_ACCESS_KEY_ID`/`BACKUP_SECRET_ACCESS_KEY`를 우선 사용하고, 미설정 항목만 `STORAGE_*`로 폴백. 버킷명은 폴백 없음. 준비: ① Cloudflare에서 프라이빗 버킷 `villa-pms-db-backups` 생성 ② 그 버킷 Object R/W 토큰 발급(기존 토큰에 버킷 추가 시 BACKUP_* 자격증명 env 불필요) ③ Railway에 `BACKUP_BUCKET_NAME`(+새 토큰이면 BACKUP_* 3종) 추가.
    - 키 구조: `daily/villa-pms-YYYY-MM-DD.json.gz`, 매월 1일자는 `monthly/`에도 복사.
 4. **보존 정책**: daily 최근 14개, monthly 최근 12개 — 초과분 cron 실행 시 삭제.
 5. **`scripts/restore-from-snapshot.ts`** — 스냅샷 → 빈 DB 복원(테이블 owner 권한으로 `DISABLE TRIGGER ALL` → insert → 복구, BigInt `"123n"` 역변환). `--execute` 플래그 없으면 드라이런.
