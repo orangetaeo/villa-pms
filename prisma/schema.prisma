@@ -1632,9 +1632,14 @@ model ZaloAccount {
   @@index([kind, isActive])
 }
 
-// ===================== 인스타그램 자동 포스팅 (instagram-marketing-p1, Phase 1) =====================
-// 기획: docs/marketing/instagram-marketing-plan.md §3-3. InstagramMessage(DM)는 Phase 2.
-// 토큰·설정은 AppSetting: IG_ACCESS_TOKEN(AES-256-GCM 암호문)·IG_USER_ID·IG_AUTOPOST_PAUSED(킬스위치).
+// ===================== 인스타그램 자동 포스팅 (instagram-marketing-p1·p2) =====================
+// 기획: docs/marketing/instagram-marketing-plan.md §3-3. Phase 2: InstagramMessage(DM)·InstagramInsightSnapshot.
+// 토큰·설정은 AppSetting:
+//   IG_ACCESS_TOKEN         — 장기 토큰 (AES-256-GCM 암호문, lib/secret-crypto·키=ZALO_CREDS_KEY)
+//   IG_USER_ID / IG_AUTOPOST_PAUSED(킬스위치)
+//   IG_WEBHOOK_VERIFY_TOKEN — 웹훅 GET 검증용 (Phase 2, 평문 가능 — 비밀성 낮음)
+//   IG_APP_SECRET           — X-Hub-Signature-256 서명 검증용 (Phase 2, ★암호화 저장 — lib/secret-crypto 재사용)
+//   IG_REELS_PER_WEEK       — 주당 릴스 초안 수 (Phase 2, 기본 0=끔)
 
 enum IgPostKind {
   VILLA_SHOWCASE // 빌라 쇼케이스 (villaId 연결)
@@ -1677,6 +1682,73 @@ model InstagramPost {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // ---- 인사이트 캐시 (Phase 2) — 카드 뱃지·정렬용. 정본은 InstagramInsightSnapshot(추이) ----
+  latestReach        Int? // 최신 도달 수 — "반응 좋은 순" orderBy 전용 (Json 정렬 회피)
+  latestInsightsJson Json? // 최신 지표 원본 {reach,likes,comments,saved,shares,...} — 표시용
+  insightsSyncedAt   DateTime? // 인사이트 cron 마지막 수집 시각
+
+  insightSnapshots InstagramInsightSnapshot[]
+
   @@index([status, scheduledAt]) // 발행 cron: QUEUED + 시간 도래분 조회
   @@index([villaId]) // 빌라 로테이션 선정(포스팅 이력 조회)
+}
+
+// ===================== 인스타그램 DM 인박스 (instagram-marketing-p2) =====================
+
+enum IgMsgDirection {
+  IN // 상대 → 우리 (웹훅 수신)
+  OUT // 우리 → 상대 (운영자 답장·자동응답 — Send API 응답의 message_id 저장)
+}
+
+// DM 메시지. 스레드 = 상대 IGSID(igThreadId) 기준 — 우리 IG 계정이 1개이므로 상대 id만으로 스레드가 유일하다.
+// ★멱등 unique 전략 (TDA 판단): igMessageId 단독 unique 채택.
+//   Zalo의 (conversationId, zaloMsgId) 복합키 교훈은 "같은 그룹 메시지가 소유자별 대화에 각각 존재"하는
+//   다계정 상황이 원인이었음. 인스타는 ① 우리 계정 1개 ② Meta message mid는 앱 스코프 전역 유일
+//   ③ 웹훅 재전송(retry)·message_echoes 중복도 같은 mid → 단독 unique로 충분.
+//   IG 계정을 2개 이상 연결하게 되면 그때 (igAccountId, igMessageId) 복합으로 이관할 것.
+// 수신 저장은 P2002를 duplicated로 흡수(Zalo 패턴). OUT 행은 생성 시 readByAdmin=true로 넣을 것(미읽음 집계 오염 방지).
+model InstagramMessage {
+  id          String         @id @default(cuid())
+  igThreadId  String // 상대 IGSID — 스레드 키
+  igSenderId  String // 발신자 IGSID (IN=상대, OUT=우리 IG_USER_ID)
+  senderName  String? // 상대 표시명 (프로필 조회 캐시, 실패 시 null)
+  direction   IgMsgDirection
+  text        String?
+  attachments Json? // 웹훅 attachments 원본 배열 [{type,payload:{url}}] — 미디어 URL은 만료될 수 있음
+  igMessageId String         @unique // Meta message mid — 멱등 키 (웹훅 재전송·echo 중복 흡수)
+  receivedAt  DateTime // 수신·발신 시각 (웹훅 timestamp ms → UTC)
+  readByAdmin Boolean        @default(false) // 미읽음 집계는 direction=IN && !readByAdmin 로 조회
+  autoReplied Boolean        @default(false) // 이 수신(IN)에 카카오 유도 자동응답을 발송했는가 — 스레드 첫 응답 1회 제어
+  createdAt   DateTime       @default(now())
+
+  @@index([igThreadId, receivedAt]) // 대화 뷰 + 24h 창 판정(스레드 최신 IN)
+  @@index([readByAdmin]) // 미읽음 뱃지 집계
+}
+
+// ===================== 인스타그램 인사이트 스냅샷 (instagram-marketing-p2) =====================
+
+enum IgInsightScope {
+  ACCOUNT // 계정 단위 (팔로워 수·프로필 방문 등)
+  MEDIA // 게시물 단위 (reach·likes·comments·saved·shares)
+}
+
+// 일별 인사이트 스냅샷 — 추이(팔로워 변화·일별 도달)의 정본. 최신값 캐시는 InstagramPost.latest*.
+// ★igMediaId는 NOT NULL + 기본 ""(ACCOUNT 스코프 센티널): nullable이면 Postgres unique가 NULL을
+//   서로 다른 값으로 취급해 ACCOUNT 일 1회 멱등이 깨지고, Prisma 복합 unique upsert도 불가하기 때문.
+// ★일 1회 멱등: capturedOn=@db.Date(VN 기준 수집일) + @@unique([scope, igMediaId, capturedOn]) → cron 재실행 시 upsert.
+model InstagramInsightSnapshot {
+  id        String         @id @default(cuid())
+  scope     IgInsightScope
+  igMediaId String         @default("") // MEDIA면 인스타 media id, ACCOUNT면 "" (unique NULL 함정 회피)
+  // 발행 포스트와 연결 (MEDIA 스코프, 매칭되는 InstagramPost가 있을 때). 포스트 삭제 시 스냅샷 보존.
+  postId    String?
+  post      InstagramPost? @relation(fields: [postId], references: [id], onDelete: SetNull)
+
+  capturedOn  DateTime @db.Date // 수집일 (Asia/Ho_Chi_Minh 기준 날짜)
+  metricsJson Json // 유연 저장: {reach,likes,comments,saved,shares} 또는 {followerCount,profileViews,...}
+  createdAt   DateTime @default(now())
+
+  @@unique([scope, igMediaId, capturedOn]) // 일 1회 멱등 (cron upsert 키)
+  @@index([postId, capturedOn]) // 포스트별 추이
+  @@index([scope, capturedOn]) // 계정 추이·기간 요약(최근 7/30일)
 }

@@ -28,6 +28,7 @@ import {
   type ServiceData,
   type CtaData,
 } from "@/lib/instagram/templates";
+import { reelCover916, reelCta916, REEL_CANVAS } from "@/lib/instagram/reel-templates";
 
 const FONT_DIR = path.join(process.cwd(), "assets", "fonts");
 const JPEG_QUALITY = 85;
@@ -50,11 +51,18 @@ function loadFonts(): FontSpec[] {
   return _fonts;
 }
 
-/** satori 노드 → SVG 문자열(1080×1350). satori 타입은 ReactNode를 기대하므로 unknown 캐스팅. */
-async function nodeToSvg(node: SatoriNode): Promise<string> {
+/**
+ * satori 노드 → SVG 문자열. 기본 캔버스는 1080×1350(캐러셀), 릴스(9:16)는 width/height를 넘겨 오버라이드.
+ * satori 타입은 ReactNode를 기대하므로 unknown 캐스팅.
+ */
+async function nodeToSvg(
+  node: SatoriNode,
+  width: number = CANVAS.width,
+  height: number = CANVAS.height
+): Promise<string> {
   return satori(node as unknown as Parameters<typeof satori>[0], {
-    width: CANVAS.width,
-    height: CANVAS.height,
+    width,
+    height,
     fonts: loadFonts(),
   });
 }
@@ -190,5 +198,74 @@ export async function renderCarousel(slides: SlideInput[], baseName: string): Pr
   return out;
 }
 
+// ═════════════════════ 릴스(9:16, 1080×1920) 프레임 렌더 — additive (P2) ═════════════════════
+// P1 캐러셀 경로(renderSlide/renderCarousel)는 전혀 손대지 않는다. 릴스는 캔버스가 1080×1920이라
+// 별도 크롭·오버레이·래스터화 경로를 둔다. 산출은 **R2 업로드 없이 JPEG 버퍼 배열** — ffmpeg가
+// 로컬에서 소비하고 최종 MP4만 업로드하기 때문(프레임을 개별 업로드하면 R2 낭비).
+
+/** 사진을 1080×1920 cover-crop한 JPEG 베이스 버퍼(EXIF 회전 반영). */
+async function toReelBaseCanvas(photoBuffer: Buffer): Promise<Buffer> {
+  return sharp(photoBuffer)
+    .rotate()
+    .resize(REEL_CANVAS.width, REEL_CANVAS.height, { fit: "cover", position: "attention" })
+    .toBuffer();
+}
+
+/** 릴스 오버레이(투명 배경, 1080×1920) satori → 알파 PNG. */
+async function reelOverlayToPng(node: SatoriNode): Promise<Buffer> {
+  const svg = await nodeToSvg(node, REEL_CANVAS.width, REEL_CANVAS.height);
+  return sharp(Buffer.from(svg)).png().toBuffer();
+}
+
+/** 1080×1920 베이스 사진 위에 릴스 오버레이 합성 → JPEG. */
+async function compositeReelJpeg(photoBuffer: Buffer, overlay: SatoriNode): Promise<Buffer> {
+  const [base, overlayPng] = await Promise.all([toReelBaseCanvas(photoBuffer), reelOverlayToPng(overlay)]);
+  return sharp(base)
+    .composite([{ input: overlayPng, top: 0, left: 0 }])
+    .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
+    .toBuffer();
+}
+
+/** 오버레이 없는 릴스 사진 프레임 → JPEG(크롭만). */
+async function toReelBaseJpeg(photoBuffer: Buffer): Promise<Buffer> {
+  return sharp(await toReelBaseCanvas(photoBuffer))
+    .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
+    .toBuffer();
+}
+
+/** 릴스 엔딩 CTA(불투명 teal 카드, 1080×1920) satori → JPEG(합성 없음). */
+async function reelCardJpeg(node: SatoriNode): Promise<Buffer> {
+  const svg = await nodeToSvg(node, REEL_CANVAS.width, REEL_CANVAS.height);
+  return sharp(Buffer.from(svg))
+    .flatten({ background: "#0F766E" })
+    .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
+    .toBuffer();
+}
+
+/**
+ * 릴스 프레임 1장을 1080×1920 JPEG 버퍼로 렌더(업로드 없음).
+ *   cover → 사진 + 감성 오버레이 / cta → teal 카드 / info·service·raw → 사진 원본(오버레이 없음).
+ */
+export async function renderReelFrameBuffer(input: SlideInput): Promise<Buffer> {
+  if (input.templateId === "cta") {
+    return reelCardJpeg(reelCta916(input.data));
+  }
+  const photo = await fetchPhotoBuffer(input.srcPhotoUrl);
+  if (input.templateId === "cover") {
+    return compositeReelJpeg(photo, reelCover916(input.data));
+  }
+  // info·service·raw: 릴스는 사진 몰입 우선이라 중간 프레임은 오버레이 없이 원본 크롭.
+  return toReelBaseJpeg(photo);
+}
+
+/** 릴스 슬라이드 배열 → 1080×1920 JPEG 버퍼 배열(순서 유지). ffmpeg 입력용. */
+export async function renderReelFrameBuffers(slides: SlideInput[]): Promise<Buffer[]> {
+  const out: Buffer[] = [];
+  for (const s of slides) {
+    out.push(await renderReelFrameBuffer(s));
+  }
+  return out;
+}
+
 // 테스트/스모크 전용 — 업로드 없이 JPEG 버퍼만 반환.
-export const __renderInternals = { compositeToJpeg, cardToJpeg, toBaseCanvasJpeg, nodeToSvg };
+export const __renderInternals = { compositeToJpeg, cardToJpeg, toBaseCanvasJpeg, nodeToSvg, toReelBaseJpeg, reelCardJpeg };

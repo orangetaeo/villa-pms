@@ -21,6 +21,28 @@ export const IG_TOKEN_EXPIRES_AT_KEY = "IG_TOKEN_EXPIRES_AT";
 /** 마지막 갱신·수동 저장 시각(ISO). 주 1회 갱신 게이트 기준. */
 export const IG_TOKEN_REFRESHED_AT_KEY = "IG_TOKEN_REFRESHED_AT";
 
+// ── Phase 2 (DM 인박스·웹훅) 키 ──
+/** 웹훅 GET 검증(hub.verify_token) 토큰. 평문 저장(비밀성 낮음). */
+export const IG_WEBHOOK_VERIFY_TOKEN_KEY = "IG_WEBHOOK_VERIFY_TOKEN";
+/** X-Hub-Signature-256 서명 검증용 앱 시크릿. ★AES-256-GCM 암호화 저장(토큰과 동일 방식). */
+export const IG_APP_SECRET_KEY = "IG_APP_SECRET";
+/** DM 카카오 유도 자동응답 문구 오버라이드. 미설정 시 코드 내장 기본값(IG_DM_AUTOREPLY_DEFAULT). */
+export const IG_DM_AUTOREPLY_TEXT_KEY = "IG_DM_AUTOREPLY_TEXT";
+/** DM 자동응답 킬스위치. "1"/"true"면 자동응답 정지(수신·인박스는 계속 동작). */
+export const IG_DM_AUTOREPLY_PAUSED_KEY = "IG_DM_AUTOREPLY_PAUSED";
+
+/** 카카오 유도 자동응답 기본 문구(한국어) — 카피 가이드 톤. 판매가·마진 절대 미포함. */
+export const IG_DM_AUTOREPLY_DEFAULT = [
+  "안녕하세요, 빌라고 푸꾸옥입니다 🌴",
+  "문의 주셔서 감사해요!",
+  "",
+  "빠르고 편한 상담은 카카오톡 채널에서 도와드리고 있어요 💬",
+  "👉 http://pf.kakao.com/_mVAfX",
+  "",
+  "날짜와 인원만 남겨주시면 딱 맞는 빌라와 견적을 안내드릴게요.",
+  "인스타 프로필 링크에서도 카카오톡 채널로 바로 연결돼요 🙌",
+].join("\n");
+
 /** 수동 저장 시 만료 가정치(장기 토큰 발급 직후 60일). */
 export const IG_LONG_LIVED_TOKEN_TTL_MS = 60 * 24 * 60 * 60 * 1000;
 
@@ -132,4 +154,42 @@ export async function resetIgTokenTimestampsForManualSave(db: DbClient = prisma)
   const now = new Date();
   const expires = new Date(now.getTime() + IG_LONG_LIVED_TOKEN_TTL_MS);
   await setIgTokenTimestamps(expires.toISOString(), now.toISOString(), db);
+}
+
+// ===================== Phase 2: 웹훅 검증·자동응답 설정 접근점 =====================
+
+/** 웹훅 GET 검증 토큰(평문) — 미설정 시 null. GET verify에서 hub.verify_token과 비교. */
+export async function getIgWebhookVerifyToken(db: DbClient = prisma): Promise<string | null> {
+  return readSetting(db, IG_WEBHOOK_VERIFY_TOKEN_KEY);
+}
+
+/** 앱 시크릿(평문) — 미설정·복호화 실패 시 null. ★서명 검증 내부에서만 호출(평문 반환 금지 대상). */
+export async function getIgAppSecret(db: DbClient = prisma): Promise<string | null> {
+  const enc = await readSetting(db, IG_APP_SECRET_KEY);
+  if (!enc) return null;
+  try {
+    return decryptSecret(enc);
+  } catch {
+    console.error("[instagram/settings] IG_APP_SECRET 복호화 실패");
+    return null;
+  }
+}
+
+/** 앱 시크릿 저장(암호화). 빈 문자열이면 무시(기존값 보존). */
+export async function setIgAppSecret(secret: string, db: DbClient = prisma): Promise<void> {
+  const trimmed = secret.trim();
+  if (trimmed.length === 0) return;
+  await writeSetting(db, IG_APP_SECRET_KEY, encryptSecret(trimmed));
+}
+
+/** DM 자동응답 문구 — 오버라이드 없으면 기본값. */
+export async function getIgDmAutoReplyText(db: DbClient = prisma): Promise<string> {
+  const v = await readSetting(db, IG_DM_AUTOREPLY_TEXT_KEY);
+  return v && v.trim().length > 0 ? v : IG_DM_AUTOREPLY_DEFAULT;
+}
+
+/** DM 자동응답 정지 여부 — fail-open. "1"/"true"(trim·소문자)만 true. */
+export async function isIgDmAutoReplyPaused(db: DbClient = prisma): Promise<boolean> {
+  const v = (await readSetting(db, IG_DM_AUTOREPLY_PAUSED_KEY))?.toLowerCase();
+  return v === "1" || v === "true";
 }

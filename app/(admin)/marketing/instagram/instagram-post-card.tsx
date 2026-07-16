@@ -237,6 +237,13 @@ export default function InstagramPostCard({
                 {t("card.slides", { n: post.media.length })}
               </span>
             )}
+            {/* 발행됨 도달 뱃지 — 인사이트 수집분(latestReach)만. 미수집이면 미표시. */}
+            {post.status === "PUBLISHED" && post.latestReach != null && (
+              <span className="inline-flex items-center gap-1 rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                <span className="material-symbols-outlined text-[13px]">visibility</span>
+                {t("card.reachBadge", { n: post.latestReach.toLocaleString("ko-KR") })}
+              </span>
+            )}
           </div>
 
           <p className="truncate text-sm font-bold text-white">

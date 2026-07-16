@@ -4,9 +4,10 @@ import type { InstagramPost, Villa } from "@prisma/client";
 
 export interface IgPostMediaItem {
   srcPhotoId: string | null;
-  renderedUrl: string;
-  templateId: string;
+  renderedUrl: string; // 이미지: 렌더 JPEG / 릴스: 포스터(첫 프레임) JPEG
+  templateId: string; // 릴스는 "reel"
   overlayText: string | null;
+  videoUrl?: string; // 릴스 전용 — MP4 공개 URL(이미지 포스트는 없음)
 }
 
 export interface SerializedIgPost {
@@ -23,6 +24,9 @@ export interface SerializedIgPost {
   publishedAt: string | null;
   failReason: string | null;
   flaggedTerms: string[];
+  // 인사이트 캐시 (Phase 2, additive) — 카드 뱃지·정렬용. 미수집이면 null(기존 소비처 무해).
+  latestReach: number | null;
+  insightsSyncedAt: string | null;
   createdBy: string | null;
   createdAt: string;
   updatedAt: string;
@@ -34,12 +38,14 @@ function toMedia(json: unknown): IgPostMediaItem[] {
   if (!Array.isArray(json)) return [];
   return json.map((raw) => {
     const m = (raw ?? {}) as Record<string, unknown>;
-    return {
+    const item: IgPostMediaItem = {
       srcPhotoId: typeof m.srcPhotoId === "string" ? m.srcPhotoId : null,
       renderedUrl: typeof m.renderedUrl === "string" ? m.renderedUrl : "",
       templateId: typeof m.templateId === "string" ? m.templateId : "raw",
       overlayText: typeof m.overlayText === "string" ? m.overlayText : null,
     };
+    if (typeof m.videoUrl === "string") item.videoUrl = m.videoUrl;
+    return item;
   });
 }
 
@@ -63,6 +69,8 @@ export function serializeIgPost(post: PostWithVilla): SerializedIgPost {
     publishedAt: post.publishedAt?.toISOString() ?? null,
     failReason: post.failReason,
     flaggedTerms: toFlagged(post.flaggedTerms),
+    latestReach: post.latestReach ?? null,
+    insightsSyncedAt: post.insightsSyncedAt?.toISOString() ?? null,
     createdBy: post.createdBy,
     createdAt: post.createdAt.toISOString(),
     updatedAt: post.updatedAt.toISOString(),

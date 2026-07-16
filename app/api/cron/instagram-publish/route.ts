@@ -10,14 +10,15 @@ import { prisma } from "@/lib/prisma";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { writeAuditLog } from "@/lib/audit-log";
 import { enqueueInAppForOperators } from "@/lib/inapp-notification";
-import { publishInstagramPost } from "@/lib/instagram/publish";
+import { publishInstagramPost, publishInstagramReel } from "@/lib/instagram/publish";
 import { isAutopostPaused } from "@/lib/instagram/settings";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 300; // 컨테이너 폴링(최대 60s/컨테이너) × 도래분
+export const maxDuration = 300; // 컨테이너 폴링(이미지 60s·릴스 최대 300s/컨테이너) × 도래분
 
 interface MediaEntry {
   renderedUrl?: unknown;
+  videoUrl?: unknown;
 }
 
 async function handle(req: Request) {
@@ -49,19 +50,26 @@ async function handle(req: Request) {
 
     const post = await prisma.instagramPost.findUnique({
       where: { id },
-      select: { id: true, caption: true, mediaJson: true },
+      select: { id: true, kind: true, caption: true, mediaJson: true },
     });
     if (!post) continue;
 
     const media = (Array.isArray(post.mediaJson) ? (post.mediaJson as MediaEntry[]) : []);
-    const imageUrls = media
-      .map((m) => (typeof m?.renderedUrl === "string" ? m.renderedUrl : null))
-      .filter((u): u is string => !!u);
 
     try {
-      if (imageUrls.length === 0) throw new Error("렌더 이미지 URL이 없습니다(mediaJson 비정상)");
-
-      const result = await publishInstagramPost({ imageUrls, caption: post.caption });
+      let result;
+      if (post.kind === "REELS") {
+        // 릴스 발행 경로 — mediaJson[0].videoUrl. 이미지 캐러셀 경로와 분리.
+        const videoUrl = media.map((m) => (typeof m?.videoUrl === "string" ? m.videoUrl : null)).find((u): u is string => !!u);
+        if (!videoUrl) throw new Error("릴스 동영상 URL이 없습니다(mediaJson.videoUrl 비정상)");
+        result = await publishInstagramReel({ videoUrl, caption: post.caption });
+      } else {
+        const imageUrls = media
+          .map((m) => (typeof m?.renderedUrl === "string" ? m.renderedUrl : null))
+          .filter((u): u is string => !!u);
+        if (imageUrls.length === 0) throw new Error("렌더 이미지 URL이 없습니다(mediaJson 비정상)");
+        result = await publishInstagramPost({ imageUrls, caption: post.caption });
+      }
 
       if (result.ok) {
         await prisma.instagramPost.update({

@@ -20,6 +20,8 @@
 | `cron-cleanup-passports` | `/api/cron/cleanup-passports` | `0 3 * * *` | 매일 10:00 | 90일 경과 여권·서명 사진 삭제(개인정보 보존정책, 메시지 없음) |
 | `cron-security-alerts` | `/api/cron/security-alerts` | `*/10 * * * *` | 10분마다 | 보안 이상탐지 경보(SecurityEvent 임계치 초과 시 운영자에게 **Zalo 발송**, 60분 쿨다운) — 보안 P3-S3 |
 | `cron-checkout-reminder` | `/api/cron/checkout-reminder` | `0 1 * * *` | 매일 08:00 | **Zalo 알림 큐 적재**(내일 체크아웃 예약 → 담당 청소원/공급자 D-1 사전 청소알림, checkOut==today+1 멱등) — PR #139 |
+| `cron-instagram-draft` | `/api/cron/instagram-draft` | `20 21 * * *` | 매일 04:20 | 인스타 초안 일 3건 생성(SELLABLE·사진4장↑ 빌라 로테이션, 승인 큐 적재 — 발행 아님). GraphQL 등록(2026-07-16) |
+| `cron-instagram-insights` | `/api/cron/instagram-insights` | `0 22 * * *` | 매일 05:00 | 인스타 인사이트 수집(30일 내 매일+구포스트 주1회, PUBLISHED 0건=no-op). GraphQL 등록(2026-07-16) |
 | `cron-instagram-token-refresh` | `/api/cron/instagram-token-refresh` | `40 20 * * *` | 매일 03:40 | IG 장기토큰 자동 갱신(멱등 — 주 1회만 실제 갱신, 실패 시 IG_TOKEN_REFRESH_FAILED 인앱 경보). GraphQL API로 등록(2026-07-16, db-backup 선례) |
 | `cron-db-backup` | `/api/cron/db-backup` | `0 20 * * *` | 매일 03:00 | DB 스냅샷 R2 백업(메시지 없음) — 프라이빗 버킷 gzip, daily 14·monthly 12 보존. 런북 `docs/ops/db-backup.md`. ⚠ curl 타임아웃 `-m 300`(스냅샷 여유) |
 
