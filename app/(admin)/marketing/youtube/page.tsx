@@ -12,6 +12,7 @@ import { auth } from "@/auth";
 import { isOperator, isSystemAdmin } from "@/lib/permissions";
 import YoutubeSettingsPanel from "./youtube-settings";
 import YoutubeQueue from "./youtube-queue";
+import YoutubeInsights from "./youtube-insights";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
@@ -89,6 +90,14 @@ export default async function YoutubeMarketingPage({
           <p className="text-sm text-slate-500 mt-1">{t("subtitle")}</p>
         </div>
         <div className="flex items-center gap-3 pt-1">
+          {/* 직접 촬영 클립 → 자동 편집 쇼츠 생성 */}
+          <Link
+            href="/marketing/youtube/create"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-admin-primary px-3 py-1.5 text-xs font-bold text-white hover:opacity-90"
+          >
+            <span className="material-symbols-outlined text-[16px]">add</span>
+            {t("createButton")}
+          </Link>
           {/* 인스타그램 화면 상호 이동 */}
           <Link
             href="/marketing/instagram"
@@ -156,6 +165,9 @@ export default async function YoutubeMarketingPage({
           })}
         </div>
       )}
+
+      {/* 성과(인사이트) — 발행됨 탭 상단 요약 스트립(인스타그램과 대칭) */}
+      {activeKey === "published" && <YoutubeInsights />}
 
       {/* 콘텐츠 큐(클라이언트) — status/page prop 변경 시 재조회 */}
       <YoutubeQueue status={status ?? null} page={page} oauth={oauth} />
