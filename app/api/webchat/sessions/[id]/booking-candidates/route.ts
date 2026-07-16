@@ -166,6 +166,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
         checkIn: { lte: future },
       },
       select: CANDIDATE_SELECT,
+      orderBy: { checkIn: "asc" },
+      take: 200, // 상한 가드(QA P2) — 윈도우 내 예약이 이보다 많으면 앱 필터가 놓칠 수 있으나 운영 규모상 여유
     })) as CandidateRow[];
     const matched = rows.filter((b) => {
       const bp = normalizePhone(b.guestPhone ?? "");
