@@ -13,6 +13,7 @@ import {
   type CatalogOptions,
 } from "@/lib/service-catalog";
 import { GUEST_LABELS } from "@/lib/guest-i18n";
+import { getServiceLiabilityText } from "@/lib/service-liability";
 import { PublicLangSelector } from "@/components/public-lang-selector";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import { todayVnDateString } from "@/lib/date-vn";
@@ -88,6 +89,8 @@ function ticketVariantContext(
 export default function GuestOptions(props: GuestOptionsProps) {
   const { token, lang, booking, catalog, checkedInGuests } = props;
   const L = GUEST_LABELS[lang];
+  // ★책임 제한 고지 — GUEST_LABELS가 아닌 service-liability 모듈 단일 원천에서 현재 언어로 직접 렌더(문구 이중정의 금지).
+  const liability = getServiceLiabilityText(lang);
   const router = useRouter();
   const suffix = lang === "ko" ? "" : `?lang=${lang}`;
   const ordersHref = `/g/${token}/orders${suffix}`;
@@ -102,6 +105,8 @@ export default function GuestOptions(props: GuestOptionsProps) {
   );
   const [submitting, setSubmitting] = useState(false);
   const [ordersError, setOrdersError] = useState<string | null>(null);
+  // ★책임 제한 고지 동의 — 미체크 시 신청 버튼 disabled(서버 400 CONSENT_REQUIRED와 대칭).
+  const [consentChecked, setConsentChecked] = useState(false);
   // 카테고리 탭 — 표시 필터만(선택 상태 selections는 전체 catalog 기준으로 유지). 실존 타입만 노출.
   const [activeType, setActiveType] = useState<string>(ALL_TYPES);
   const typeTabs = useMemo(() => buildGuestTypeTabs(catalog), [catalog]);
@@ -214,12 +219,13 @@ export default function GuestOptions(props: GuestOptionsProps) {
     );
     return people.some((p) => p.key == null);
   });
-  const canSubmit = anySelected && !missingDateTime && !missingTicketVariant;
+  const canSubmit = anySelected && !missingDateTime && !missingTicketVariant && consentChecked;
   // 합계 = ₫ 원천 단일 표기(다국적 커버). 모국통화 환산 보조 표기 제거 — 5언어 전부 ₫로 일관.
   const grandTotalStr = guestVnd(grandTotal.vnd.toString());
 
   const submitOrders = async () => {
     if (submitting) return;
+    if (!consentChecked) return; // 책임 고지 미동의 — 서버 400과 대칭(버튼 disabled 이중 방어)
     const chosen = catalog.filter((c) => (selections[c.id]?.quantity ?? 0) > 0);
     if (chosen.length === 0) return;
     setSubmitting(true);
@@ -231,7 +237,8 @@ export default function GuestOptions(props: GuestOptionsProps) {
       const res = await fetch(`/api/g/${token}/service-orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        // ★모든 POST(품목·티켓 그룹별 다중)에 동의 플래그·표시언어를 실어 전 행에 스냅샷 저장(계약 service-order-liability-consent).
+        body: JSON.stringify({ ...body, liabilityConsent: true, locale: lang }),
       });
       if (!res.ok) {
         let code: string | null = null;
@@ -475,6 +482,20 @@ export default function GuestOptions(props: GuestOptionsProps) {
               {L.addons.ticketVariantRequired}
             </p>
           )}
+          {/* ★책임 제한 고지 + 필수 동의 (계약 service-order-liability-consent) — 문구는 service-liability 단일 원천. 아주 작은 글씨. */}
+          <div className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2 space-y-1.5">
+            <p className="text-[11px] font-bold text-slate-500">{liability.title}</p>
+            <p className="text-[11px] text-slate-400 leading-snug">{liability.body}</p>
+            <label className="flex items-start gap-2 pt-0.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={consentChecked}
+                onChange={(e) => setConsentChecked(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500 shrink-0"
+              />
+              <span className="text-[11px] font-medium text-slate-600 leading-snug">{liability.consentLabel}</span>
+            </label>
+          </div>
           <button
             type="button"
             disabled={submitting || !canSubmit}

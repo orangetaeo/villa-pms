@@ -93,6 +93,7 @@ const createBody = {
   quantity: 1,
   serviceDate: "2026-08-01",
   serviceTime: "14:00",
+  liabilityConsent: true,
 };
 
 describe("게스트 주문 생성 자동 발주", () => {
