@@ -262,6 +262,7 @@
     "vendors": "Nhà cung cấp dịch vụ",
     "services": "Danh mục dịch vụ",
     "instagram": "Instagram",
+    "youtube": "YouTube",
     "messages": "Tin nhắn",
     "users": "Người dùng",
     "settings": "Cài đặt",
@@ -455,6 +456,137 @@
       },
       "viewPost": "Xem",
       "noVilla": "Chưa gán villa"
+    }
+  },
+  "adminYoutube": {
+    "title": "YouTube Shorts",
+    "subtitle": "Xem xét, duyệt Shorts tự động tạo và quản lý lịch sử đăng.",
+    "breadcrumbAdmin": "Vận hành",
+    "breadcrumbMarketing": "Marketing",
+    "breadcrumbCurrent": "YouTube",
+    "linkToInstagram": "Instagram",
+    "kst": "KST",
+    "loading": "Đang tải...",
+    "empty": "Không có Shorts phù hợp.",
+    "tabs": {
+      "pending": "Chờ duyệt",
+      "queued": "Chờ đăng",
+      "published": "Đã đăng",
+      "failed": "Lỗi·Đã hủy",
+      "all": "Tất cả"
+    },
+    "failedChip": {
+      "FAILED": "Lỗi",
+      "CANCELLED": "Đã hủy"
+    },
+    "source": {
+      "VILLA_AUTO": "Villa tự động",
+      "UPLOADED": "Tải lên thủ công"
+    },
+    "status": {
+      "DRAFT": "Đang tạo",
+      "PENDING_APPROVAL": "Chờ duyệt",
+      "QUEUED": "Chờ đăng",
+      "PUBLISHING": "Đang đăng",
+      "PUBLISHED": "Đã đăng",
+      "FAILED": "Lỗi",
+      "CANCELLED": "Đã hủy"
+    },
+    "card": {
+      "noVilla": "Chưa gán villa",
+      "noMedia": "Không có video",
+      "noPoster": "Không có xem trước",
+      "play": "Phát video",
+      "scheduledAt": "Dự kiến đăng",
+      "publishedAt": "Thời gian đăng",
+      "flagged": "Cần kiểm tra từ cấm",
+      "flaggedTerms": "Phát hiện: {terms}",
+      "failReason": "Lý do lỗi",
+      "titleLabel": "Tiêu đề",
+      "titleRequired": "Vui lòng nhập tiêu đề.",
+      "descriptionLabel": "Mô tả",
+      "edit": "Sửa",
+      "showMore": "Xem thêm mô tả",
+      "showLess": "Thu gọn mô tả",
+      "save": "Lưu",
+      "saving": "Đang lưu...",
+      "cancel": "Hủy",
+      "changeSchedule": "Đổi thời gian đăng",
+      "date": "Ngày",
+      "slot": "Khung giờ",
+      "datePlaceholder": "Chọn ngày",
+      "approve": "Duyệt",
+      "approving": "Đang duyệt...",
+      "reject": "Từ chối",
+      "rejecting": "Đang từ chối...",
+      "rejectReasonLabel": "Lý do từ chối (tùy chọn)",
+      "rejectReasonPlaceholder": "VD: Chất lượng video thấp",
+      "rejectConfirm": "Từ chối",
+      "viewOnShorts": "Xem trên YouTube",
+      "openStudio": "Mở trong YouTube Studio",
+      "unlistedNote": "Đã tải lên ở chế độ không công khai (unlisted). Trước khi vượt qua kiểm duyệt API, việc đăng công khai bị hạn chế. Hãy chuyển sang công khai trong YouTube Studio.",
+      "privacy": {
+        "public": "Công khai",
+        "unlisted": "Không công khai",
+        "private": "Riêng tư"
+      }
+    },
+    "bulk": {
+      "approveAll": "Duyệt tất cả {n}",
+      "approving": "Đang duyệt... ({done}/{total})",
+      "result": "Duyệt {ok} · Lỗi {fail}",
+      "resultOk": "Đã duyệt tất cả {ok}.",
+      "confirm": "Duyệt tất cả {n} mục chờ duyệt?"
+    },
+    "settings": {
+      "title": "Cài đặt kết nối YouTube",
+      "clientId": "Client ID",
+      "clientIdPlaceholder": "VD: 1234567890-abcxyz.apps.googleusercontent.com",
+      "clientSecret": "Client Secret",
+      "clientSecretState": "Đã đặt",
+      "clientSecretUnset": "Chưa đặt",
+      "clientSecretPlaceholder": "Nhập secret mới (để trống để giữ nguyên)",
+      "clientSecretHint": "Secret sẽ không hiển thị lại sau khi lưu.",
+      "connectTitle": "Kết nối tài khoản YouTube",
+      "connectHint": "Sau khi lưu Client ID·Secret và kết nối tài khoản, có thể tự động tải lên.",
+      "connect": "Kết nối tài khoản YouTube",
+      "reconnect": "Kết nối lại",
+      "connected": "Đã kết nối",
+      "notConnected": "Chưa kết nối",
+      "connectReadOnly": "Chỉ OWNER/ADMIN mới kết nối tài khoản.",
+      "privacyStatus": "Trạng thái công khai",
+      "privacyHint": "Trước khi vượt kiểm duyệt API, đăng công khai bị hạn chế nên mặc định là 'Không công khai'.",
+      "privacy": {
+        "public": "Công khai (public)",
+        "unlisted": "Không công khai (unlisted)",
+        "private": "Riêng tư (private)"
+      },
+      "shortsPerDay": "Số bản nháp/ngày",
+      "shortsPerDayHint": "Số Shorts nháp tự tạo mỗi ngày (0~10, 0=tắt).",
+      "dailyUploadCap": "Giới hạn tải lên/ngày",
+      "dailyUploadCapHint": "Số lượng tải lên tối đa mỗi ngày (0~50).",
+      "autopostPaused": "Tạm dừng tự động tải lên",
+      "autopostActive": "Đang tự động tải lên",
+      "autopostPausedHint": "Khi bật, Shorts đã lên lịch sẽ không được tải lên.",
+      "save": "Lưu cài đặt",
+      "saving": "Đang lưu...",
+      "saved": "Đã lưu cài đặt.",
+      "readOnly": "Chỉ OWNER/ADMIN mới thay đổi cài đặt. Giá trị hiện tại chỉ để xem.",
+      "forbidden": "Không có quyền thay đổi cài đặt (chỉ OWNER/ADMIN).",
+      "loadError": "Không tải được cài đặt.",
+      "saveError": "Lưu cài đặt thất bại."
+    },
+    "oauth": {
+      "connected": "Đã kết nối tài khoản YouTube.",
+      "error": "Kết nối YouTube thất bại. ({code})"
+    },
+    "toast": {
+      "saved": "Đã lưu.",
+      "approved": "Đã duyệt.",
+      "rejected": "Đã từ chối.",
+      "stateChanged": "Trạng thái đã thay đổi. Đang làm mới danh sách.",
+      "error": "Đã xảy ra lỗi. Vui lòng thử lại.",
+      "loadError": "Không tải được danh sách."
     }
   },
   "account": {
@@ -4532,7 +4664,8 @@
     "villaDetail": "Chi tiết villa",
     "statistics": "Thống kê",
     "serviceOrders": "Quyết toán dịch vụ",
-    "instagram": "Nội dung Instagram"
+    "instagram": "Nội dung Instagram",
+    "youtube": "YouTube Shorts"
   },
   "adminCheckinSheet": {
     "title": "Phiếu nhận phòng hôm nay",
