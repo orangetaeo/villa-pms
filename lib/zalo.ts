@@ -606,6 +606,26 @@ export function buildNotificationText(
         `사유: ${str(p.lastError, "알 수 없음")}`,
         `해당 관리자 폰으로 /zalo-connect 에서 QR 재로그인해주세요.`,
       ].join("\n");
+
+    case NotificationType.WEBCHAT_NEW_MESSAGE: {
+      // 수신자=운영자(테오) → 한국어. 홈페이지 웹 채팅 신규 문의 알림(T-webchat-mvp).
+      // payload는 lib/webchat-notify가 화이트리스트로 구성 — 방문자 연락처·원문 전문·판매가·마진 미포함.
+      // preview=ko 번역 미리보기 120자(webchat-notify에서 절삭). adminUrl=상대경로 → base 접두로 절대경로화.
+      const preview = str(p.preview, "(내용 없음)");
+      const lines = [
+        `🌐 웹 채팅 새 문의 (언어: ${str(p.visitorLocale)})`,
+        preview,
+      ];
+      const adminPath =
+        typeof p.adminUrl === "string" && p.adminUrl.startsWith("/") ? p.adminUrl : null;
+      const base = (
+        process.env.VILLA_PUBLIC_BASE_URL ||
+        process.env.NEXTAUTH_URL ||
+        ""
+      ).replace(/\/+$/, "");
+      if (adminPath) lines.push(base ? `${base}${adminPath}` : adminPath);
+      return lines.join("\n");
+    }
   }
 }
 
