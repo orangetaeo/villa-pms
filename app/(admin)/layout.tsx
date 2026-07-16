@@ -85,6 +85,10 @@ const ADMIN_CLIENT_NAMESPACES = [
   "adminInstagram",
   // 유튜브 쇼츠 승인 큐(/marketing/youtube — youtube-queue·youtube-short-card·youtube-settings)
   "adminYoutube",
+  // 사업 계약서 관리(/contracts — contract-create-form·[id]/contract-actions). 서명본 열람/발송/무효화.
+  "adminContracts",
+  // 계약 본문·서명 블록 공용 컴포넌트(components/business-contract/contract-document) — 포털 공용 NS.
+  "businessContract",
 ] as const;
 
 export default async function AdminLayout({

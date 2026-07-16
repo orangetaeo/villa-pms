@@ -130,6 +130,8 @@ const NAV: NavEntry[] = [
       { key: "holidays", href: "/settings/holidays", icon: "event", cap: isSystemAdmin },
       // 사업 계약서 문서 뷰어 — 마진 전략·원가 구조 포함이라 재무 등급만(canViewFinance=OWNER/MANAGER, STAFF 숨김)
       { key: "documents", href: "/documents", icon: "description", cap: canViewFinance },
+      // 계약 전자서명 관리(T-business-contract-esign) — 상대 발송·서명본 열람. 재무 등급만(FINANCE_PATHS).
+      { key: "contracts", href: "/contracts", icon: "history_edu", cap: canViewFinance },
     ],
   },
 ];

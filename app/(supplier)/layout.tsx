@@ -8,6 +8,7 @@ import {
   SUPPLIER_FULLSCREEN_PREFIXES,
   SUPPLIER_OWN_HEADER_PREFIXES,
 } from "@/components/supplier/tab-bar-constants";
+import Link from "next/link";
 import { PortalHeader } from "@/components/portal/portal-header";
 import PullToRefresh from "@/components/pull-to-refresh";
 import { TourHelpButton } from "@/components/tour/coach-mark";
@@ -42,6 +43,8 @@ const SUPPLIER_CLIENT_NAMESPACES = [
   "supplierSellLink",
   // 공급자 이용규칙·위치/규모 자가 편집기(info-editor, 클라이언트). 운영자 sales(다크)와 분리된 vi 네임스페이스.
   "supplierInfo",
+  // 사업 계약서 열람·서명(/contract — counterpart-contract-view 등 포털 공용 컴포넌트). 누락 시 라벨 raw 키.
+  "businessContract",
 ] as const;
 
 function pickMessages(all: AbstractIntlMessages): AbstractIntlMessages {
@@ -70,6 +73,8 @@ export default async function SupplierLayout({
   const messages = pickMessages(allMessages);
   // 코치마크 "?" 재생 버튼 라벨 — 투어 문구는 각 페이지 RSC가 번역해 props로 전달(화이트리스트 비의존)
   const tTour = await getTranslations({ locale, namespace: "tour" });
+  // 계약서 진입(헤더 아이콘) — SUPPLIER만(CLEANER 제외). 서버 렌더 라벨(화이트리스트 비의존).
+  const tContract = await getTranslations({ locale, namespace: "businessContract" });
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
@@ -86,7 +91,21 @@ export default async function SupplierLayout({
           // 청소 상세(/cleaning/[id])도 fixed 뒤로가기 바가 있어 목록(/cleaning)과 달리 숨긴다.
           fullscreenPrefixes={[...SUPPLIER_OWN_HEADER_PREFIXES, "/cleaning/"]}
           // "?" 투어 재생 — 투어가 정의된 화면(pathname 정확일치)에서만 렌더됨
-          right={<TourHelpButton label={tTour("help")} />}
+          right={
+            <>
+              {!isCleaner && (
+                <Link
+                  href="/contract"
+                  aria-label={tContract("navLabel")}
+                  title={tContract("navLabel")}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition-colors hover:text-teal-600"
+                >
+                  <span className="material-symbols-outlined text-[20px]">gavel</span>
+                </Link>
+              )}
+              <TourHelpButton label={tTour("help")} />
+            </>
+          }
         />
         {/* 모바일 당겨서 새로고침 — 공급자 전 화면(라이트 테마, 풀스크린 마법사 제외) */}
         <PullToRefresh fullscreenPrefixes={SUPPLIER_FULLSCREEN_PREFIXES} variant="light" />

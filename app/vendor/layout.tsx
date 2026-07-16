@@ -4,6 +4,7 @@
 //      adminXxx(판매가·마진 라벨) RSC payload 노출 금지.
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
 import VendorNotificationBell from "@/components/vendor/vendor-notification-bell";
 import { PortalHeader } from "@/components/portal/portal-header";
@@ -18,7 +19,8 @@ import { getTranslations } from "next-intl/server";
 // - pagination: 목록 화면의 공용 PaginationBar(useTranslations("pagination")). 누락 시 라벨이 raw 키로 깨짐.
 // - vendorNotif: 인앱 알림센터 벨·시트(VendorNotificationBell). 누락 시 라벨이 raw 키로 깨짐.
 // 운영자(adminXxx)·빌라공급자(earnings 등) 네임스페이스는 직렬화하지 않는다(누수 방지).
-const VENDOR_CLIENT_NAMESPACES = ["vendor", "account", "pagination", "vendorNotif"] as const;
+// - businessContract: 사업 계약서 열람·서명(/vendor/contract — counterpart-contract-view 포털 공용). 누락 시 라벨 raw 키.
+const VENDOR_CLIENT_NAMESPACES = ["vendor", "account", "pagination", "vendorNotif", "businessContract"] as const;
 
 function pickMessages(all: AbstractIntlMessages): AbstractIntlMessages {
   const picked: AbstractIntlMessages = {};
@@ -45,6 +47,8 @@ export default async function VendorLayout({
   const messages = pickMessages(allMessages);
   // 코치마크 "?" 라벨 — 투어 문구는 페이지 RSC가 번역해 props로 전달(화이트리스트 무변경)
   const tTour = await getTranslations({ locale, namespace: "tour" });
+  // 계약서 진입(헤더 아이콘) — 승인된 벤더만(승인 게이트 화면엔 미노출). 서버 렌더 라벨.
+  const tContract = await getTranslations({ locale, namespace: "businessContract" });
   // 미승인(승인대기·거절) 게이트 화면엔 CoachMark가 안 뜨므로 "?"도 숨김 — 죽은 버튼 방지
   // (파트너 showNav 게이트와 대칭, QA T-tutorial-onboarding-2 결함 1)
   const vendor = await getVendorForUser(session.user.id);
@@ -61,6 +65,16 @@ export default async function VendorLayout({
           name={session.user.name ?? null}
           right={
             <>
+              {approved && (
+                <Link
+                  href="/vendor/contract"
+                  aria-label={tContract("navLabel")}
+                  title={tContract("navLabel")}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition-colors hover:text-teal-600"
+                >
+                  <span className="material-symbols-outlined text-[20px]">gavel</span>
+                </Link>
+              )}
               {/* "?" 투어 재생 — 승인된 벤더 + 투어 정의 화면(/vendor 정확일치)에서만 렌더 */}
               {approved && <TourHelpButton label={tTour("help")} />}
               <VendorNotificationBell />

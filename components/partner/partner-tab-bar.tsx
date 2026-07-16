@@ -11,6 +11,7 @@ const TABS = [
   { href: "/partner", icon: "event_available", key: "bookings" },
   { href: "/partner/receivables", icon: "request_quote", key: "receivables" },
   { href: "/partner/proposals", icon: "description", key: "proposals" },
+  { href: "/partner/contract", icon: "gavel", key: "contract" },
 ] as const;
 
 export function PartnerTabBar() {

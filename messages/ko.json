@@ -66,7 +66,8 @@
     "tabs": {
       "bookings": "예약 현황",
       "receivables": "미수",
-      "proposals": "제안서"
+      "proposals": "제안서",
+      "contract": "계약서"
     },
     "logout": "로그아웃",
     "bookings": {
@@ -284,7 +285,8 @@
     },
     "revenue": "매출관리",
     "holidays": "공휴일",
-    "documents": "계약서"
+    "documents": "계약서",
+    "contracts": "계약 서명 관리"
   },
   "adminDocuments": {
     "title": "사업 계약서",
@@ -6106,6 +6108,137 @@
         "5": "금",
         "6": "토"
       }
+    }
+  },
+  "businessContract": {
+    "navLabel": "계약서",
+    "title": "사업 계약서",
+    "loading": "불러오는 중…",
+    "loadError": "계약서를 불러오지 못했습니다.",
+    "unavailable": "계약서를 준비 중입니다. 잠시 후 다시 확인해 주세요.",
+    "read": "계약 내용을 끝까지 확인한 뒤 서명해 주세요.",
+    "print": "인쇄",
+    "status": {
+      "SENT": "서명 요청됨",
+      "SIGNED": "서명 완료"
+    },
+    "empty": {
+      "title": "받은 계약서가 없습니다",
+      "desc": "운영자가 계약서를 보내면 여기에서 확인하고 서명할 수 있습니다."
+    },
+    "sign": {
+      "title": "전자 서명",
+      "guide": "정보를 입력하고 아래에 서명한 뒤 제출하세요.",
+      "idNumber": "신분증(CCCD)/여권 번호",
+      "idNumberOptional": "신분증/여권 번호 (선택)",
+      "signName": "서명자 성명",
+      "address": "주소",
+      "addressOptional": "주소 (선택)",
+      "signature": "서명",
+      "signPrompt": "여기에 손가락 또는 마우스로 서명해 주세요",
+      "clear": "지우기",
+      "submit": "서명 제출",
+      "submitting": "제출 중…",
+      "confirm": "이 계약에 서명하시겠습니까? 제출 후에는 변경할 수 없습니다.",
+      "required": "필수 항목을 모두 입력하고 서명해 주세요.",
+      "signatureRequired": "서명을 입력해 주세요.",
+      "error": "제출에 실패했습니다. 다시 시도해 주세요.",
+      "alreadySigned": "이미 서명이 완료된 계약입니다."
+    },
+    "signed": {
+      "banner": "서명이 완료되었습니다.",
+      "signer": "서명자",
+      "signedAt": "서명일",
+      "signatureImage": "서명"
+    }
+  },
+  "adminContracts": {
+    "title": "사업 계약서",
+    "subtitle": "빌라 공급자·부가서비스 업체·파트너 계약을 발송하고 서명본을 관리합니다.",
+    "backToList": "계약 목록",
+    "print": "인쇄",
+    "type": {
+      "VILLA_SUPPLY": "빌라 공급",
+      "SERVICE_VENDOR": "부가서비스",
+      "PARTNER_AGENCY": "파트너(여행사)"
+    },
+    "status": {
+      "DRAFT": "초안",
+      "SENT": "서명 요청됨",
+      "SIGNED": "서명 완료",
+      "VOID": "무효"
+    },
+    "payMethod": {
+      "CASH": "현금",
+      "BANK": "계좌이체"
+    },
+    "settleCycle": {
+      "MONTHLY": "매월",
+      "WEEKLY": "매주",
+      "PER_ORDER": "건별"
+    },
+    "list": {
+      "heading": "계약 목록",
+      "counterpart": "상대",
+      "type": "유형",
+      "status": "상태",
+      "signedAt": "서명일",
+      "createdAt": "생성일",
+      "view": "열람",
+      "empty": "생성된 계약서가 없습니다."
+    },
+    "create": {
+      "heading": "신규 계약서 작성",
+      "counterpart": "계약 상대",
+      "counterpartPlaceholder": "상대를 선택하세요",
+      "noCandidates": "계약 가능한 승인 계정이 없습니다.",
+      "locale": "계약서 언어",
+      "companyName": "갑(운영사) 상호",
+      "companyPassport": "갑 대표 신분/여권 번호",
+      "bankInfo": "계좌 정보 (계좌이체 시)",
+      "specialTerms": "특약 사항 (선택)",
+      "cancelFreeDays": "무료 취소 기준일 (체크인 전, 일)",
+      "cancelPartialPct": "부분 취소 수수료율 (%)",
+      "payMethod": "지급 방법",
+      "settleCycle": "정산 주기",
+      "settleDetail": "정산 상세 (예: 매월 5일)",
+      "partnerCompany": "파트너 상호",
+      "partnerBizNo": "사업자번호 (선택)",
+      "partnerRep": "파트너 대표자",
+      "partnerContact": "파트너 연락처",
+      "submit": "계약서 생성 (초안)",
+      "submitting": "생성 중…",
+      "invalid": "입력값을 확인해 주세요.",
+      "error": "생성에 실패했습니다.",
+      "duplicateActive": "이미 진행 중인 계약(초안·발송)이 있습니다.",
+      "duplicateSigned": "이미 서명된 계약이 있습니다. 재계약하려면 기존 계약을 무효화하세요.",
+      "created": "초안이 생성되었습니다."
+    },
+    "detail": {
+      "heading": "계약 상세",
+      "counterpart": "상대",
+      "type": "유형",
+      "status": "상태",
+      "locale": "언어",
+      "standardVersion": "표준 버전",
+      "createdAt": "생성일",
+      "sentAt": "발송일",
+      "signedAt": "서명일",
+      "signName": "서명자",
+      "idNumber": "신분/여권",
+      "address": "주소",
+      "signatureImage": "서명 이미지",
+      "unavailable": "정본 계약서 파일을 불러오지 못했습니다."
+    },
+    "actions": {
+      "send": "서명 요청 발송",
+      "sendConfirm": "이 계약서를 상대에게 발송하시겠습니까? 발송 후에는 내용을 수정할 수 없습니다.",
+      "sending": "발송 중…",
+      "sendError": "발송에 실패했습니다.",
+      "void": "무효화",
+      "voidConfirm": "이 계약을 무효화하시겠습니까? 되돌릴 수 없습니다.",
+      "voiding": "무효화 중…",
+      "voidError": "무효화에 실패했습니다."
     }
   }
 }

@@ -66,7 +66,8 @@
     "tabs": {
       "bookings": "Đặt phòng",
       "receivables": "Công nợ",
-      "proposals": "Đề xuất"
+      "proposals": "Đề xuất",
+      "contract": "Hợp đồng"
     },
     "logout": "Đăng xuất",
     "bookings": {
@@ -284,7 +285,8 @@
     },
     "revenue": "Doanh thu",
     "holidays": "Ngày lễ",
-    "documents": "Hợp đồng"
+    "documents": "Hợp đồng",
+    "contracts": "Ký hợp đồng"
   },
   "adminDocuments": {
     "title": "Hợp đồng kinh doanh",
@@ -6106,6 +6108,137 @@
         "5": "T6",
         "6": "T7"
       }
+    }
+  },
+  "businessContract": {
+    "navLabel": "Hợp đồng",
+    "title": "Hợp đồng hợp tác",
+    "loading": "Đang tải…",
+    "loadError": "Không tải được hợp đồng.",
+    "unavailable": "Hợp đồng đang được chuẩn bị. Vui lòng kiểm tra lại sau.",
+    "read": "Vui lòng đọc kỹ toàn bộ hợp đồng trước khi ký.",
+    "print": "In",
+    "status": {
+      "SENT": "Chờ ký",
+      "SIGNED": "Đã ký"
+    },
+    "empty": {
+      "title": "Chưa có hợp đồng nào",
+      "desc": "Khi quản trị viên gửi hợp đồng, bạn sẽ xem và ký tại đây."
+    },
+    "sign": {
+      "title": "Ký điện tử",
+      "guide": "Điền thông tin và ký vào bên dưới rồi gửi.",
+      "idNumber": "Số CCCD/hộ chiếu",
+      "idNumberOptional": "Số CCCD/hộ chiếu (không bắt buộc)",
+      "signName": "Họ tên người ký",
+      "address": "Địa chỉ",
+      "addressOptional": "Địa chỉ (không bắt buộc)",
+      "signature": "Chữ ký",
+      "signPrompt": "Ký vào đây bằng ngón tay hoặc chuột",
+      "clear": "Xóa",
+      "submit": "Gửi chữ ký",
+      "submitting": "Đang gửi…",
+      "confirm": "Bạn có chắc muốn ký hợp đồng này? Sau khi gửi sẽ không thể thay đổi.",
+      "required": "Vui lòng điền đầy đủ thông tin bắt buộc và ký.",
+      "signatureRequired": "Vui lòng ký tên.",
+      "error": "Gửi không thành công. Vui lòng thử lại.",
+      "alreadySigned": "Hợp đồng này đã được ký."
+    },
+    "signed": {
+      "banner": "Đã ký thành công.",
+      "signer": "Người ký",
+      "signedAt": "Ngày ký",
+      "signatureImage": "Chữ ký"
+    }
+  },
+  "adminContracts": {
+    "title": "Hợp đồng hợp tác",
+    "subtitle": "Gửi và quản lý bản ký hợp đồng với nhà cung cấp villa, đối tác dịch vụ và đại lý.",
+    "backToList": "Danh sách hợp đồng",
+    "print": "In",
+    "type": {
+      "VILLA_SUPPLY": "Cung cấp villa",
+      "SERVICE_VENDOR": "Dịch vụ bổ sung",
+      "PARTNER_AGENCY": "Đối tác (đại lý)"
+    },
+    "status": {
+      "DRAFT": "Bản nháp",
+      "SENT": "Chờ ký",
+      "SIGNED": "Đã ký",
+      "VOID": "Vô hiệu"
+    },
+    "payMethod": {
+      "CASH": "Tiền mặt",
+      "BANK": "Chuyển khoản"
+    },
+    "settleCycle": {
+      "MONTHLY": "Hàng tháng",
+      "WEEKLY": "Hàng tuần",
+      "PER_ORDER": "Theo từng đơn"
+    },
+    "list": {
+      "heading": "Danh sách hợp đồng",
+      "counterpart": "Đối tác",
+      "type": "Loại",
+      "status": "Trạng thái",
+      "signedAt": "Ngày ký",
+      "createdAt": "Ngày tạo",
+      "view": "Xem",
+      "empty": "Chưa có hợp đồng nào."
+    },
+    "create": {
+      "heading": "Tạo hợp đồng mới",
+      "counterpart": "Đối tác hợp đồng",
+      "counterpartPlaceholder": "Chọn đối tác",
+      "noCandidates": "Không có tài khoản đã duyệt nào để ký hợp đồng.",
+      "locale": "Ngôn ngữ hợp đồng",
+      "companyName": "Tên bên A (bên vận hành)",
+      "companyPassport": "Số CMND/hộ chiếu người đại diện bên A",
+      "bankInfo": "Thông tin tài khoản (khi chuyển khoản)",
+      "specialTerms": "Điều khoản đặc biệt (không bắt buộc)",
+      "cancelFreeDays": "Số ngày hủy miễn phí (trước nhận phòng)",
+      "cancelPartialPct": "Phí hủy một phần (%)",
+      "payMethod": "Phương thức thanh toán",
+      "settleCycle": "Chu kỳ thanh toán",
+      "settleDetail": "Chi tiết thanh toán (VD: ngày 5 hàng tháng)",
+      "partnerCompany": "Tên công ty đối tác",
+      "partnerBizNo": "Mã số thuế (không bắt buộc)",
+      "partnerRep": "Người đại diện đối tác",
+      "partnerContact": "Liên hệ đối tác",
+      "submit": "Tạo hợp đồng (bản nháp)",
+      "submitting": "Đang tạo…",
+      "invalid": "Vui lòng kiểm tra thông tin nhập.",
+      "error": "Tạo không thành công.",
+      "duplicateActive": "Đã có hợp đồng đang xử lý (nháp/đã gửi).",
+      "duplicateSigned": "Đã có hợp đồng đã ký. Để ký lại, hãy vô hiệu hợp đồng hiện tại.",
+      "created": "Đã tạo bản nháp."
+    },
+    "detail": {
+      "heading": "Chi tiết hợp đồng",
+      "counterpart": "Đối tác",
+      "type": "Loại",
+      "status": "Trạng thái",
+      "locale": "Ngôn ngữ",
+      "standardVersion": "Phiên bản chuẩn",
+      "createdAt": "Ngày tạo",
+      "sentAt": "Ngày gửi",
+      "signedAt": "Ngày ký",
+      "signName": "Người ký",
+      "idNumber": "CMND/hộ chiếu",
+      "address": "Địa chỉ",
+      "signatureImage": "Hình chữ ký",
+      "unavailable": "Không tải được tệp hợp đồng chuẩn."
+    },
+    "actions": {
+      "send": "Gửi yêu cầu ký",
+      "sendConfirm": "Gửi hợp đồng này cho đối tác? Sau khi gửi sẽ không thể sửa nội dung.",
+      "sending": "Đang gửi…",
+      "sendError": "Gửi không thành công.",
+      "void": "Vô hiệu",
+      "voidConfirm": "Vô hiệu hợp đồng này? Không thể hoàn tác.",
+      "voiding": "Đang vô hiệu…",
+      "voidError": "Vô hiệu không thành công."
     }
   }
 }

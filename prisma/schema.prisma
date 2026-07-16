@@ -1343,6 +1343,47 @@ model AppSetting {
   updatedAt DateTime @updatedAt
 }
 
+// ===================== 사업 계약서 전자서명 (T-business-contract-esign) =====================
+// 운영자가 상대방(공급자·부가서비스업체·파트너 여행사) 승인 후 서명용 정본 계약서를 발송하고,
+// 상대방이 프로그램 내에서 전자서명하는 흐름의 정본 레코드.
+//   ★ 마진 비공개: termsJson에는 별표(신원·취소수수료율·정산주기 등)만 저장 —
+//     원가·마진·판매가(KRW) 필드는 절대 포함 금지(zod .strict()로 봉인, lib/business-contract.ts).
+//   서명 봉인: 서명 시점 렌더된 전문의 SHA-256(contentHash)·서명 이미지(비공개 sig-)·서명 시각 저장.
+enum BusinessContractType {
+  VILLA_SUPPLY // 빌라 공급(중계인·부동산·분양자, Role=SUPPLIER)
+  SERVICE_VENDOR // 부가서비스 원천 공급자(Role=VENDOR)
+  PARTNER_AGENCY // 여행사·랜드사 파트너(Role=PARTNER, 한국어 정본만)
+}
+
+enum BusinessContractStatus {
+  DRAFT // 작성 중(운영자만, 상대방 미노출)
+  SENT // 서명 요청 발송됨(상대방 열람·서명 가능)
+  SIGNED // 서명 완료(봉인 — 변경 불가, 재계약은 VOID 후 신규)
+  VOID // 무효화(재계약 개방)
+}
+
+model BusinessContract {
+  id                  String                 @id @default(cuid())
+  type                BusinessContractType
+  counterpartId       String // User.id (SUPPLIER/VENDOR/PARTNER 계정) — 관계 미설정(id 보존만, additive)
+  status              BusinessContractStatus @default(DRAFT)
+  standardVersion     String // 서명용 정본 버전(예: "v0.3")
+  termsJson           Json // ADMIN 입력 별표 값 (타입별 필드, 원가·마진·판매가 금지)
+  locale              String                 @default("vi") // 상대방 표시 언어(파트너=ko)
+  counterpartIdNumber String? // 서명 시 본인 입력(신분증/여권 번호)
+  counterpartAddress  String? // 서명 시 본인 입력(주소) — User 모델에 주소 없어 서명 시 수집, 정본 렌더용
+  counterpartSignName String? // 서명자 성명
+  signatureUrl        String? // savePassportFile "sig-" 비공개 저장 경로(/api/passports/<name>)
+  signedAt            DateTime?
+  contentHash         String? // 서명 시점 렌더된 전문 SHA-256(증빙 봉인)
+  sentAt              DateTime?
+  createdById         String
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  @@index([counterpartId, type])
+}
+
 // ===================== 알림 로그 =====================
 
 enum NotificationType {

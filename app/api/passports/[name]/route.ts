@@ -11,11 +11,16 @@ import { fileBelongsToUploader } from "@/lib/passport-name";
  * 운영자(ADMIN)는 전체 접근. 공급자(SUPPLIER)는 F10 D5(T10.5)에서 본인이 업로드한 파일만 접근.
  *   파일명에 업로더 id가 박혀 있으므로(storage.buildFileName: ts-uploaderId-uuid.ext) 본인 업로드분만 매칭한다.
  *   → 공급자는 자기 게스트분 여권/서명만 보고, 운영자·타 공급자 게스트분은 도달 불가(타인 여권 차단).
+ * VENDOR·PARTNER(T-business-contract-esign): 사업 계약 전자서명 이미지(sig-)를 본인 업로드분만 접근.
+ *   이들은 서명 파일 외 업로드가 없어 스코프가 자기 계약 서명으로 자연히 한정된다(파일명 업로더 id 매칭).
  * 비로그인·CLEANER 등은 모두 차단.
  * private,no-store: 프록시·브라우저 캐시 잔존 차단 (여권 90일 삭제 정책 정합).
  */
 
 const SAFE_NAME = /^[a-zA-Z0-9._-]+$/; // 경로 탈출(../) 차단
+
+// 본인 업로드분만 접근 가능한 비운영자 role(파일명 업로더 id 매칭으로 스코프 한정).
+const SELF_SCOPED_ROLES = new Set(["SUPPLIER", "VENDOR", "PARTNER"]);
 
 export async function GET(
   _req: Request,
@@ -31,10 +36,10 @@ export async function GET(
     return NextResponse.json({ error: "invalid_name" }, { status: 400 });
   }
 
-  // 운영자=전체 / 공급자=본인 업로드 파일만(파일명 업로더 id 매칭). 그 외 역할 차단.
+  // 운영자=전체 / 공급자·VENDOR·PARTNER=본인 업로드 파일만(파일명 업로더 id 매칭). 그 외 역할 차단.
   const allowed =
     isOperator(session.user.role) ||
-    (session.user.role === "SUPPLIER" &&
+    (SELF_SCOPED_ROLES.has(session.user.role) &&
       fileBelongsToUploader(name, session.user.id));
   if (!allowed) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });

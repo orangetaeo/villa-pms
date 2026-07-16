@@ -20,7 +20,9 @@ import { evaluateRequest } from "@/lib/ddos-guard";
 
 const SYSTEM_ADMIN_PATHS = ["/users", "/settings"];
 
-const FINANCE_PATHS = ["/settlements", "/cost-alerts", "/proposals", "/earnings", "/documents"];
+// /contracts = 사업 계약서 관리(운영자) — 마진 전략·원가 구조가 담긴 재무 등급 문서(T-business-contract-esign).
+//   (상대방 서명 페이지는 별도 경로 /contract·/vendor/contract·/partner/contract — 아래 포털 게이트가 담당)
+const FINANCE_PATHS = ["/settlements", "/cost-alerts", "/proposals", "/earnings", "/documents", "/contracts"];
 
 // 운영자 전체 접근(isOperator)이며 SUPPLIER/CLEANER와 공유하지 않는 경로.
 // (/calendar·/cleaning·/my-villas는 SUPPLIER/CLEANER도 접근하므로 아래 공유 게이트에서 별도 처리)
@@ -46,11 +48,13 @@ const OPERATOR_PROTECTED_PATHS = [
 // SUPPLIER/CLEANER 화면 — locale=vi 적용 + 역할별 접근 제어 (기존 규칙 보존)
 // [QA D-3] /earnings·/cleaning은 SUPPLIER 탭바 노출 및 청소 권한으로 함께 허용
 type SupplierRole = "SUPPLIER" | "CLEANER";
+// /contract = 공급자 자기 사업 계약서 열람·서명(T-business-contract-esign). SUPPLIER만(CLEANER 제외).
+//   ★ 접두 주의: "/contract" ≠ 운영자 "/contracts"(matchesPath는 정확일치 또는 "/" 구분자만 매칭).
 const SUPPLIER_CLEANER_ALLOWED: Record<SupplierRole, string[]> = {
-  SUPPLIER: ["/my-villas", "/calendar", "/cleaning", "/earnings"],
+  SUPPLIER: ["/my-villas", "/calendar", "/cleaning", "/earnings", "/contract"],
   CLEANER: ["/cleaning"],
 };
-const SUPPLIER_CLEANER_PATHS = ["/my-villas", "/calendar", "/cleaning", "/earnings"];
+const SUPPLIER_CLEANER_PATHS = ["/my-villas", "/calendar", "/cleaning", "/earnings", "/contract"];
 
 // VENDOR(원천 공급자) 전용 영역 — vi 기본·모바일. 발주함·예약현황·정산·통계 (ADR-0023 §6).
 // VENDOR는 오직 이 경로만 접근, 그 외(운영·SUPPLIER 영역)는 차단.
@@ -210,6 +214,12 @@ export default auth((req) => {
         return NextResponse.redirect(new URL("/login", req.url));
       }
     }
+  }
+
+  // SUPPLIER 전용 경로(/earnings·/contract 등 운영 영역 밖): 미인증은 로그인으로.
+  // (/earnings는 FINANCE_PATHS(운영자 보호)에도 속해 위에서 걸리지만 /contract는 여기가 유일한 unauth 게이트)
+  if (isSupplierCleanerPath && !isSharedOperatorPath && !session) {
+    return NextResponse.redirect(new URL("/login", req.url));
   }
 
   // SUPPLIER 전용 경로(/earnings 등 운영 영역 밖): 역할별 접근 제어.
