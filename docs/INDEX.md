@@ -57,6 +57,7 @@
 ## 3열람실 — 참고 서가 (필요 시만)
 | 문서 | 내용 |
 |---|---|
+| docs/marketing/instagram-marketing-plan.md | 인스타그램 마케팅 기획 v1 (2026-07-16) — 한국인 대상 일 3건 자동 포스팅·Graph API 발행 파이프라인·DM 인박스·카카오 유도. 착수 전 필독 |
 | COSTS.md | 토큰 비용 기록 (FIN) |
 | IDEAS.md | 범위 밖 아이디어 |
 | reference/ | 기존 프로젝트(Nike·환전·TravelDiary) 코드 발췌 — [SHARED-MODULE] 주석 확인 |
