@@ -109,7 +109,9 @@ export function coverTemplate(d: CoverData): SatoriNode {
 export interface InfoData {
   villaName: string;
   facts: string[]; // 예: ["침실 3", "최대 8인", "해변 도보 5분"]
-  priceValue?: string | null; // "45만원~" — "1박 "은 템플릿 고정. null/미지정이면 뱃지 숨김
+  // ⚠ 마진 비공개 원칙(QA P2 #1): 운영자가 승인한 "공개 시작가 티저" 문자열만 허용 — 반드시 "~" 포함 표기(예: "45만원~").
+  //   quote 엔진 판매가·원가·마진 파생값을 절대 주입하지 말 것. 자동 파이프라인(draft.ts)은 null 고정.
+  priceValue?: string | null; // null/미지정이면 뱃지 숨김. "1박 "은 템플릿 고정
 }
 
 export function infoTemplate(d: InfoData): SatoriNode {
