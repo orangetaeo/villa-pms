@@ -626,6 +626,11 @@ export function buildNotificationText(
       if (adminPath) lines.push(base ? `${base}${adminPath}` : adminPath);
       return lines.join("\n");
     }
+
+    case NotificationType.MARKETING_ALERT:
+      // 수신자=운영자 → 한국어. 마케팅 자동화 통지(IG 초안·IG/YT 발행실패·YT 토큰·편집 잡 완료).
+      // ★스텁 (marketing-s2 §D) — 세부 payload 분기 본문은 BE가 구현. 화이트리스트 필드(summary)만 표기.
+      return `📣 마케팅 알림: ${str(p.summary, "상세는 관리자 화면에서 확인해주세요.")}`;
   }
 }
 
