@@ -56,6 +56,28 @@ export function localeBadge(locale: string): string {
   return code ? code.toUpperCase() : "?";
 }
 
+/**
+ * sourcePage 파싱 — 부착면 코드값을 읽기 좋은 뱃지로 변환.
+ *   `g:XXXXXXXX`(게스트 포털)·`p:XXXXXXXX`(제안 링크)는 토큰 앞 8자 프리픽스만 저장됨(계약 §B).
+ *   `auth`(로그인·가입)·`intro`/`intro-vendor`/`intro-partner`(모집 소개)는 고정 라벨.
+ *   labelKey는 adminWebchat.source.* 하위 키 — 컴포넌트가 t()로 렌더. code는 뱃지 옆 짧은 식별자.
+ */
+export type SourcePageInfo =
+  | { labelKey: string; code: string | null; raw: null } // 알려진 종류
+  | { labelKey: null; code: null; raw: string }; // 미분류(원문 그대로)
+
+export function parseSourcePage(sourcePage: string | null): SourcePageInfo {
+  const v = (sourcePage || "").trim();
+  if (!v) return { labelKey: "unknown", code: null, raw: null };
+  if (v.startsWith("g:")) return { labelKey: "guest", code: v.slice(2) || null, raw: null };
+  if (v.startsWith("p:")) return { labelKey: "proposal", code: v.slice(2) || null, raw: null };
+  if (v === "auth") return { labelKey: "auth", code: null, raw: null };
+  if (v === "intro") return { labelKey: "intro", code: null, raw: null };
+  if (v === "intro-vendor") return { labelKey: "introVendor", code: null, raw: null };
+  if (v === "intro-partner") return { labelKey: "introPartner", code: null, raw: null };
+  return { labelKey: null, code: null, raw: v };
+}
+
 /** 연락처 존재 여부. */
 export function hasContact(s: {
   contactEmail: string | null;
