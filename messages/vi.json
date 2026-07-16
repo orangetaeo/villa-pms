@@ -3775,6 +3775,60 @@
     "nonVndDamageNote": "Khoản trừ hư hỏng được ghi bằng ₫ và không tự động phản ánh vào số dư tiền cọc ngoại tệ (₩·$). Vui lòng xử lý khoản trừ hư hỏng riêng.",
     "offsetNoFxNote": "Không có tỷ giá nên không thể quy đổi tiền cọc ngoại tệ sang ₫. Vui lòng kiểm tra tiền cọc và số tiền phải thu riêng."
   },
+  "adminWebchat": {
+    "tab": {
+      "zalo": "Zalo",
+      "webchat": "Chat web"
+    },
+    "title": "Chat web",
+    "filter": {
+      "open": "Đang mở",
+      "blocked": "Đã chặn",
+      "all": "Tất cả"
+    },
+    "empty": "Chưa có yêu cầu chat web",
+    "loadMore": "Xem thêm",
+    "loading": "Đang tải…",
+    "selectSession": "Chọn một cuộc trò chuyện ở bên trái",
+    "back": "Về danh sách",
+    "unknownContact": "Khách ẩn danh",
+    "blockedBadge": "Đã chặn",
+    "hasContact": "Có liên hệ",
+    "createdAt": "Bắt đầu {date}",
+    "lang": "Ngôn ngữ",
+    "untranslated": "Chưa dịch",
+    "translationFailedBadge": "⚠ Dịch thất bại — đã gửi bản gốc tiếng Hàn",
+    "noMessages": "Chưa có tin nhắn",
+    "composer": {
+      "placeholder": "Nhập trả lời (tiếng Hàn)",
+      "send": "Gửi",
+      "sending": "Đang gửi…"
+    },
+    "banner": {
+      "closed": "Cuộc trò chuyện đã kết thúc. Không thể trả lời.",
+      "blocked": "Cuộc trò chuyện đã bị chặn. Bỏ chặn để trả lời.",
+      "notOpen": "Cuộc trò chuyện này không còn mở. Vui lòng làm mới danh sách."
+    },
+    "block": {
+      "block": "Chặn",
+      "unblock": "Bỏ chặn",
+      "confirmBlock": "Chặn khách này? Sau khi chặn sẽ không nhận được tin nhắn nữa.",
+      "confirmUnblock": "Bỏ chặn cuộc trò chuyện này?"
+    },
+    "contact": {
+      "email": "Email",
+      "zalo": "Zalo",
+      "kakao": "Kakao",
+      "none": "Không có liên hệ"
+    },
+    "sendFailed": "Gửi thất bại. Vui lòng thử lại sau.",
+    "time": {
+      "now": "Vừa xong",
+      "minutesAgo": "{n} phút trước",
+      "hoursAgo": "{n} giờ trước",
+      "yesterday": "Hôm qua"
+    }
+  },
   "adminMessages": {
     "headerCollapse": "Thu gọn tiêu đề",
     "headerExpand": "Mở rộng tiêu đề",

@@ -62,6 +62,8 @@ const ADMIN_CLIENT_NAMESPACES = [
   // 누락으로 클라이언트 라벨이 raw 키로 깨지던 버그 수정(2026-06-27).
   "revenue",
   "adminMessages",
+  // 웹 채팅 인박스 탭(/messages?tab=webchat) — source-tabs·webchat-client/inbox/thread (T-webchat-inbox)
+  "adminWebchat",
   "adminZalo",
   "adminCostAlerts",
   "amenities",
