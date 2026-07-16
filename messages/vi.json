@@ -282,7 +282,32 @@
       "system": "Hệ thống"
     },
     "revenue": "Doanh thu",
-    "holidays": "Ngày lễ"
+    "holidays": "Ngày lễ",
+    "documents": "Hợp đồng"
+  },
+  "adminDocuments": {
+    "title": "Hợp đồng kinh doanh",
+    "subtitle": "Bản nháp hợp đồng villa, đối tác và dịch vụ bổ sung. Chứa điều kiện biên lợi nhuận·giá vốn nên chỉ người có quyền tài chính mới xem được.",
+    "statusDraft": "Bản nháp (chờ duyệt)",
+    "backToList": "Về danh sách",
+    "docs": {
+      "framework": {
+        "name": "Khung hệ thống hợp đồng",
+        "desc": "Tài liệu gốc giải thích cơ sở thiết kế 3 loại hợp đồng, dòng tiền và cấu trúc phụ lục."
+      },
+      "villa": {
+        "name": "Hợp đồng cung cấp villa",
+        "desc": "Bản nháp hợp đồng cung cấp với người quản lý·môi giới·bất động sản villa (Việt Nam). Gồm điều kiện giá vốn·quyết toán."
+      },
+      "partner": {
+        "name": "Hợp đồng bán B2B",
+        "desc": "Bản nháp hợp đồng bán giá net B2B cho công ty du lịch·land Hàn Quốc."
+      },
+      "vendor": {
+        "name": "Hợp đồng cung cấp dịch vụ bổ sung",
+        "desc": "Bản nháp hợp đồng cung cấp giá net với nhà cung cấp dịch vụ bổ sung như BBQ·bữa sáng·xe (Việt Nam)."
+      }
+    }
   },
   "adminInstagram": {
     "title": "Nội dung Instagram",
