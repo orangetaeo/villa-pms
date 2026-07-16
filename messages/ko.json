@@ -1197,6 +1197,11 @@
         "phone": "연락처",
         "none": "—"
       },
+      "policyConsent": {
+        "label": "취소·환불 규정 동의",
+        "at": "{at} 동의",
+        "tier": "체크인 {full}일 전 100% · {partial}일 전 {pct}% 환불"
+      },
       "price": {
         "title": "가격 스냅샷",
         "currencyBadge": "판매 통화: {currency}",

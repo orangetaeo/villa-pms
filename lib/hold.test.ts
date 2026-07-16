@@ -211,6 +211,40 @@ describe("createHoldFromProposalItem — seller 전파", () => {
   });
 });
 
+// ===================== createHoldFromProposalItem — 취소·환불 규정 동의 스냅샷 (T-proposal-policy-consent) =====================
+
+describe("createHoldFromProposalItem — policyConsentJson 저장", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockQuoteStay.mockResolvedValue({ totalSupplierCostVnd: 4_000_000n });
+  });
+
+  it("policyConsentJson 전달 시 booking.create.data에 그대로 저장", async () => {
+    const tx = makeHoldTx({ seller: BookingSeller.OPERATOR, saleCurrency: "KRW" });
+    const snapshot = {
+      agreedAt: "2026-07-16T00:00:00.000Z",
+      policy: { fullDays: 30, partialDays: 14, partialPct: 50 },
+      locale: "ko",
+      source: "proposal" as const,
+    };
+    await createHoldFromProposalItem(holdPrisma(tx), {
+      ...HOLD_INPUT,
+      policyConsentJson: snapshot,
+    });
+    expect(tx._created[0].policyConsentJson).toEqual(snapshot);
+  });
+
+  it("policyConsentJson 미전달(null)이면 컬럼 미설정 (기존 플로우 회귀 0)", async () => {
+    const tx = makeHoldTx({ seller: BookingSeller.OPERATOR, saleCurrency: "KRW" });
+    await createHoldFromProposalItem(holdPrisma(tx), { ...HOLD_INPUT, policyConsentJson: null });
+    expect(tx._created[0].policyConsentJson).toBeUndefined();
+    // 인자 자체를 안 준 경우도 동일
+    const tx2 = makeHoldTx({ seller: BookingSeller.OPERATOR, saleCurrency: "KRW" });
+    await createHoldFromProposalItem(holdPrisma(tx2), HOLD_INPUT);
+    expect(tx2._created[0].policyConsentJson).toBeUndefined();
+  });
+});
+
 
 // ===================== createHoldFromProposalItem — 정원 검증 (consumer-bugs #1) =====================
 

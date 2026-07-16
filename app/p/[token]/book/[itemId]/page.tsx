@@ -7,6 +7,10 @@ import { ProposalStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { effectiveProposalStatus } from "@/lib/proposal";
 import { resolveHoldHours, HOLD_HOURS_DEFAULT_KEY } from "@/lib/hold";
+import {
+  CANCELLATION_POLICY_KEY,
+  parseCancellationPolicy,
+} from "@/lib/cancellation-policy";
 import { BookingForm } from "../../../_components/booking-form";
 import { PublicFooter } from "../../../_components/public-footer";
 import { LangSelector } from "../../../_components/lang-selector";
@@ -86,6 +90,18 @@ export default async function BookingRequestPage({
     where: { key: HOLD_HOURS_DEFAULT_KEY },
   });
   const holdHours = resolveHoldHours(holdSetting?.value);
+
+  // 취소·환불 규정 (T-proposal-policy-consent) — enabled=true면 폼에 동의 체크박스 노출.
+  //   미설정·손상 시 기본값 폴백(공개 표시 안전, 메인 /p와 동일 규칙).
+  const policyRow = await prisma.appSetting.findUnique({
+    where: { key: CANCELLATION_POLICY_KEY },
+    select: { value: true },
+  });
+  const policy = parseCancellationPolicy(policyRow?.value);
+  const consentPolicy = policy.enabled
+    ? { fullDays: policy.fullDays, partialDays: policy.partialDays, partialPct: policy.partialPct }
+    : null;
+
   const nights = Math.round(
     (item.checkOut.getTime() - item.checkIn.getTime()) / 86_400_000
   );
@@ -156,7 +172,13 @@ export default async function BookingRequestPage({
             <p className="text-sm text-amber-800 leading-relaxed">{t.bookPage.holdInfo(holdHours)}</p>
           </div>
 
-          <BookingForm token={token} itemId={item.id} lang={lang} maxGuests={item.villa.maxGuests} />
+          <BookingForm
+            token={token}
+            itemId={item.id}
+            lang={lang}
+            maxGuests={item.villa.maxGuests}
+            cancellationPolicy={consentPolicy}
+          />
         </main>
 
         <PublicFooter lang={lang} />

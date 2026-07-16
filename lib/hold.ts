@@ -2,6 +2,7 @@ import {
   BookingSeller,
   BookingStatus,
   NotificationType,
+  Prisma,
   PrismaClient,
   ProposalStatus,
   type Booking,
@@ -129,6 +130,12 @@ export interface CreateHoldInput {
   holdHours?: number;
   /** 비로그인 고객 액션이므로 null 허용 — AuditLog에는 시스템 기록 */
   actorUserId?: string | null;
+  /**
+   * 취소·환불 규정 전자 동의 스냅샷 (T-proposal-policy-consent) — 라우트가 AppSetting에서
+   * 서버 산출해 전달(클라 값 불신). CANCELLATION_POLICY.enabled=false면 미전달(null 저장).
+   * { agreedAt, policy:{fullDays,partialDays,partialPct}, locale, source:"proposal" } — 금액·마진 없음.
+   */
+  policyConsentJson?: Prisma.InputJsonValue | null;
   now: Date;
 }
 
@@ -226,6 +233,10 @@ export async function createHoldFromProposalItem(
         // 공급자 직접판매: 우리 원가는 null(스키마는 NOT NULL이라 0n) + 공급자가 받은 금액 기록
         supplierCostVnd,
         ...(isSupplierSale ? { supplierSalePriceVnd: item.totalVnd } : {}),
+        // 취소·환불 규정 동의 스냅샷 — 정책 enabled=true인 경우에만 라우트가 전달(서버 산출). 그 외 null.
+        ...(input.policyConsentJson != null
+          ? { policyConsentJson: input.policyConsentJson }
+          : {}),
       },
     });
 

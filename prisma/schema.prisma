@@ -612,6 +612,10 @@ model Booking {
   breakfastIncluded Boolean        @default(false)
   note              String?
   cancelReason      String?
+  // 취소·환불 규정 전자 동의 스냅샷 (T-proposal-policy-consent) — /p 직판 가예약 시점 서버 산출.
+  // { agreedAt, policy:{fullDays,partialDays,partialPct}, locale, source:"proposal" }. 금액·마진 없음.
+  // additive raw SQL ALTER로 라이브 반영(prisma db execute). CANCELLATION_POLICY.enabled=false면 null.
+  policyConsentJson Json?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 

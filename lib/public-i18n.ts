@@ -216,6 +216,9 @@ export interface PublicLabels {
     errCount: string;
     errOverCapacity: string;
     alertError: string;
+    // 취소·환불 규정 전자 동의 (T-proposal-policy-consent) — 정책 enabled일 때만 렌더
+    policyConsentTitle: string;
+    policyConsentLabel: string;
   };
   // 명단 입력 폼
   rosterForm: {
@@ -393,6 +396,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       errCount: "인원을 선택해주세요",
       errOverCapacity: "빌라 정원을 초과했습니다 — 인원을 줄여주세요",
       alertError: "신청 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.",
+      policyConsentTitle: "취소·환불 규정",
+      policyConsentLabel: "위 취소·환불 규정을 확인했으며 동의합니다.",
     },
     rosterForm: {
       label: "투숙객 명단",
@@ -561,6 +566,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       errCount: "Please select the number of guests",
       errOverCapacity: "Exceeds the villa's maximum capacity — please reduce the number of guests",
       alertError: "Something went wrong. Please try again shortly.",
+      policyConsentTitle: "Cancellation & refund policy",
+      policyConsentLabel: "I have read and agree to the cancellation & refund policy above.",
     },
     rosterForm: {
       label: "Guest list",
@@ -729,6 +736,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       errCount: "Выберите количество гостей",
       errOverCapacity: "Превышена вместимость виллы — уменьшите количество гостей",
       alertError: "Произошла ошибка. Повторите попытку позже.",
+      policyConsentTitle: "Условия отмены и возврата",
+      policyConsentLabel: "Я ознакомился(лась) и согласен(на) с условиями отмены и возврата выше.",
     },
     rosterForm: {
       label: "Список гостей",
@@ -897,6 +906,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       errCount: "请选择人数",
       errOverCapacity: "超出别墅最大入住人数——请减少人数",
       alertError: "处理时出现问题，请稍后再试。",
+      policyConsentTitle: "取消与退款政策",
+      policyConsentLabel: "我已阅读并同意上述取消与退款政策。",
     },
     rosterForm: {
       label: "入住客人名单",
@@ -1065,6 +1076,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       errCount: "Vui lòng chọn số khách",
       errOverCapacity: "Vượt quá sức chứa của villa — vui lòng giảm số khách",
       alertError: "Đã xảy ra lỗi. Vui lòng thử lại sau.",
+      policyConsentTitle: "Chính sách hủy & hoàn tiền",
+      policyConsentLabel: "Tôi đã đọc và đồng ý với chính sách hủy & hoàn tiền ở trên.",
     },
     rosterForm: {
       label: "Danh sách khách",
