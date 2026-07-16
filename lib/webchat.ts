@@ -15,14 +15,23 @@ import { todayVnDateString } from "@/lib/date-vn";
 import { prisma } from "@/lib/prisma";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
+// 클라이언트(위젯·로더)와 공유하는 순수 상수는 별도 파일에 두고 재-export(단일 원천).
+// 서버 전용 모듈(이 파일)을 client에서 import하지 못하게 하는 경계.
+export {
+  MSG_MAX_LEN,
+  POLL_MIN_MS,
+  POLL_MAX_MS,
+  POLL_IDLE_BACKOFF_MS,
+  POLL_IDLE_AFTER_MS,
+  WEBCHAT_LOCALES,
+} from "@/lib/webchat-constants";
+
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
 // ───────────────────────── 상수 (env 남발 금지 — 기획 §9 P2) ─────────────────────────
 
 /** 세션 슬라이딩 TTL(일) — 발신마다 expiresAt 연장. 만료≠삭제(무기한 보존). */
 export const SESSION_TTL_DAYS = 30;
-/** 메시지 본문 최대 길이(서버 400). */
-export const MSG_MAX_LEN = 2000;
 /** 세션당 스로틀 — 15msg / 60s. */
 export const THROTTLE_SESSION = { max: 15, windowMs: 60_000 };
 /** ipHash당 스로틀 — 40msg / 60s. */
@@ -30,11 +39,7 @@ export const THROTTLE_IP = { max: 40, windowMs: 60_000 };
 /** 인박스 미리보기 절삭 길이. */
 export const PREVIEW_MAX_LEN = 120;
 
-/** 폴링 권장 파라미터(FE 참조용 — 서버는 강제 안 함). */
-export const POLL_MIN_MS = 3_000;
-export const POLL_MAX_MS = 5_000;
-export const POLL_IDLE_BACKOFF_MS = 15_000;
-export const POLL_IDLE_AFTER_MS = 60_000;
+// MSG_MAX_LEN·POLL_* 는 lib/webchat-constants.ts에서 재-export(상단 export 블록).
 
 /** 방문자 세션 쿠키 이름. */
 export const WEBCHAT_COOKIE = "webchat-session";
