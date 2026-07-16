@@ -5,21 +5,22 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { isSystemAdmin } from "@/lib/permissions";
+import { isOperator } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
 
 const PAGE_SIZE = 30;
 
 export async function GET(req: Request) {
-  // 첫 줄 role 검사 — ADMIN 전용
-  const g = await requireCapability(isSystemAdmin, "isSystemAdmin", req);
+  // 첫 줄 role 검사 — 운영자 전체(OWNER/MANAGER/STAFF/ADMIN). 웹챗은 구조적 무금액이라 STAFF 개방 안전.
+  const g = await requireCapability(isOperator, "isOperator", req);
   if (!g.ok) return g.response;
 
   const sp = new URL(req.url).searchParams;
   const filter = sp.get("filter") ?? "open";
   const cursor = sp.get("cursor");
 
-  const where: Prisma.WebChatSessionWhereInput = { ownerAdminId: g.userId };
+  // 웹챗 세션은 조직 공유 자산 — Zalo 대화(개인 스코프)와 다름 (T-webchat-expand)
+  const where: Prisma.WebChatSessionWhereInput = {};
   if (filter === "open") where.status = "OPEN";
   else if (filter === "blocked") where.status = "BLOCKED";
   // filter=all → status 무필터

@@ -3,7 +3,10 @@
  * 의존성 0 · 전역 오염 0(IIFE) · 인라인 스타일. 우하단 플로팅 버튼 → iframe(/webchat/widget) 토글.
  * iframe은 첫 오픈 시 lazy 생성(폴링 비용 절약). 재방문 미확인 답장은 1회 GET으로 뱃지만 표시.
  * ⚠ public/*.js는 Next 해시 미부여 + CF 엣지 캐시 → intro.html은 `?v=` 캐시버스팅으로 참조(기획 §9).
- * data-page 속성 = sourcePage(?src=)로 위젯에 전달.
+ * sourcePage(?src=) 지정 방법 2가지:
+ *   ① 정적 HTML(intro 3종): <script … data-page="…"> 속성 (currentScript 경유)
+ *   ② Next 라우트: window.__VG_WEBCHAT_PAGE 전역 (Next <Script>/동적 주입은 currentScript=null)
+ * 선택: window.__VG_WEBCHAT_OFFSET(px) = FAB·데스크톱 패널 하단 오프셋(하단 고정 CTA 회피용).
  */
 (function () {
   "use strict";
@@ -14,14 +17,28 @@
   var TEAL_DEEP = "#093B36";
   var LS_LAST_SEEN = "webchat:lastSeen";
 
-  // data-page: 현재 스크립트 태그 속성에서 sourcePage 추출.
+  // data-page: ① 스크립트 태그 속성 → ② 전역(__VG_WEBCHAT_PAGE) 폴백.
+  //   Next 동적 주입 스크립트는 실행 시점 document.currentScript=null·마지막 태그 보장 없음 →
+  //   전역이 신뢰 가능한 경로. 정적 intro HTML(defer)은 currentScript로 data-page를 읽는다.
   var thisScript =
     document.currentScript ||
     (function () {
       var s = document.getElementsByTagName("script");
       return s[s.length - 1];
     })();
-  var dataPage = (thisScript && thisScript.getAttribute("data-page")) || "";
+  var dataPage =
+    (thisScript && thisScript.getAttribute("data-page")) ||
+    (typeof window.__VG_WEBCHAT_PAGE === "string" ? window.__VG_WEBCHAT_PAGE : "") ||
+    "";
+
+  // 하단 오프셋(px) — /g·/p의 sticky 하단 CTA와 겹치지 않게 FAB·패널을 위로 올린다.
+  var offset = 0;
+  try {
+    var o = window.__VG_WEBCHAT_OFFSET;
+    if (typeof o === "number" && isFinite(o) && o > 0) offset = o;
+  } catch (e) {
+    /* 무시 */
+  }
 
   var open = false;
   var iframe = null;
@@ -39,7 +56,7 @@
   btn.style.cssText = [
     "position:fixed",
     "right:18px",
-    "bottom:calc(18px + env(safe-area-inset-bottom))",
+    "bottom:calc(" + (18 + offset) + "px + env(safe-area-inset-bottom))",
     "width:58px",
     "height:58px",
     "border-radius:50%",
@@ -118,7 +135,7 @@
       panel.style.cssText = [
         "position:fixed",
         "right:18px",
-        "bottom:calc(88px + env(safe-area-inset-bottom))",
+        "bottom:calc(" + (88 + offset) + "px + env(safe-area-inset-bottom))",
         "width:380px",
         "height:560px",
         "max-height:calc(100vh - 110px)",

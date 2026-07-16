@@ -48,8 +48,10 @@ export default async function MessagesPage({
       where: { ownerAdminId },
       _sum: { unreadCount: true },
     }),
+    // 웹챗 세션은 조직 공유 자산 — Zalo 대화(개인 스코프)와 다름 (T-webchat-expand).
+    // 인박스가 조직 전체를 보여주므로 미읽음 뱃지도 ownerAdminId 불문 전 세션 집계.
     prisma.webChatSession.aggregate({
-      where: { ownerAdminId, status: { not: "BLOCKED" } },
+      where: { status: { not: "BLOCKED" } },
       _sum: { unreadForAdmin: true },
     }),
   ]);

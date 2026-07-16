@@ -11,6 +11,7 @@ import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { recordSecurityEvent } from "@/lib/security-event";
 import { translateText, type TranslateTarget } from "@/lib/gemini";
 import { getSystemBotOwnerId } from "@/lib/zalo-credentials";
+import { OPERATOR_ROLES } from "@/lib/permissions";
 import { todayVnDateString } from "@/lib/date-vn";
 import { prisma } from "@/lib/prisma";
 import type { Prisma, PrismaClient } from "@prisma/client";
@@ -180,6 +181,32 @@ export async function resolveWebChatOwnerAdminId(db: DbClient = prisma): Promise
     select: { id: true },
   });
   return senior?.id ?? null;
+}
+
+// ───────────────────────── 실시간 fan-out 대상 (활성 운영자 전원) ─────────────────────────
+
+/** 활성 운영자 id 캐시 — 명단은 저빈도 변경이라 60s 인메모리 캐시로 findMany 절약. */
+let operatorIdsCache: { ids: string[]; at: number } | null = null;
+const OPERATOR_IDS_TTL_MS = 60_000;
+
+/**
+ * 웹챗 실시간 신호를 발행할 활성 운영자(OWNER/MANAGER/STAFF/ADMIN & isActive) id 전원.
+ * 웹챗 세션은 조직 공유 자산이라 신규 메시지·운영자 답장 신호를 운영자 전원 채널로 fan-out한다
+ * (Zalo 개인 스코프와 다름 — T-webchat-expand). realtime-bus는 무변경(채널 키=userId 유지).
+ * 60초 캐시 — 운영자 명단 변경(계정 추가·비활성)은 최대 1분 지연 반영(신호 채널 한정, 무해).
+ */
+export async function listActiveOperatorIds(db: DbClient = prisma): Promise<string[]> {
+  const now = Date.now();
+  if (operatorIdsCache && now - operatorIdsCache.at < OPERATOR_IDS_TTL_MS) {
+    return operatorIdsCache.ids;
+  }
+  const rows = await db.user.findMany({
+    where: { role: { in: [...OPERATOR_ROLES] }, isActive: true },
+    select: { id: true },
+  });
+  const ids = rows.map((r) => r.id);
+  operatorIdsCache = { ids, at: now };
+  return ids;
 }
 
 // ───────────────────────── 킬스위치 / 일일 번역 캡 ─────────────────────────

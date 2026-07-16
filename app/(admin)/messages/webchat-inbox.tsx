@@ -10,6 +10,7 @@ import {
   localeBadge,
   hasContact,
 } from "./webchat-types";
+import { SourcePageLabel } from "./webchat-source-badge";
 
 /** 상대시간(간이) — 방금 / N분 전 / N시간 전 / 어제 / MM.DD (Asia/Ho_Chi_Minh). */
 function relativeTime(
@@ -134,9 +135,7 @@ export function WebChatInbox({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-0.5 gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-sm font-bold text-white truncate">
-                          {s.sourcePage || t("unknownContact")}
-                        </span>
+                        <SourcePageLabel sourcePage={s.sourcePage} />
                         {hasContact(s) && (
                           <span
                             className="material-symbols-outlined text-[14px] text-emerald-400 shrink-0"
