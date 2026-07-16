@@ -77,6 +77,9 @@ async function PartnerShell({
     partner: (allMessages as Record<string, unknown>).partner as AbstractIntlMessages,
     pagination: (allMessages as Record<string, unknown>).pagination as AbstractIntlMessages,
     account: (allMessages as Record<string, unknown>).account as AbstractIntlMessages,
+    // 사업 계약서 열람·서명(/partner/contract — counterpart-contract-view 포털 공용). 누락 시 라벨 raw 키.
+    businessContract: (allMessages as Record<string, unknown>)
+      .businessContract as AbstractIntlMessages,
   };
   const t = await getTranslations({ locale, namespace: "partner" });
   // 코치마크 "?" 라벨 — 투어 문구는 각 페이지 RSC가 번역해 props로 전달(clientMessages 무변경)
