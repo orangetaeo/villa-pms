@@ -19,6 +19,8 @@ interface Labels {
   phonePlaceholder: string;
   password: string;
   passwordPlaceholder: string;
+  passwordConfirm: string;
+  passwordConfirmPlaceholder: string;
   zalo: string;
   zaloPlaceholder: string;
   zaloHint: string;
@@ -60,6 +62,11 @@ export default function VendorSignupForm({ labels }: { labels: Labels }) {
     const password = String(fd.get("password") ?? "");
     if (password.length < 8) {
       setError("passwordTooShort");
+      return;
+    }
+    // 비밀번호 확인 일치 검사 — API body에는 passwordConfirm을 포함하지 않는다(API 스키마 불변)
+    if (String(fd.get("passwordConfirm") ?? "") !== password) {
+      setError("passwordMismatch");
       return;
     }
     const body = {
@@ -234,6 +241,31 @@ export default function VendorSignupForm({ labels }: { labels: Labels }) {
                   {showPassword ? "visibility_off" : "visibility"}
                 </span>
               </button>
+            </div>
+          </div>
+
+          {/* 비밀번호 확인 — 보기 토글은 위 비밀번호 필드의 showPassword 상태를 공유 */}
+          <div>
+            <label
+              className="block text-sm font-semibold text-neutral-700 mb-2 ml-1"
+              htmlFor="passwordConfirm"
+            >
+              {labels.passwordConfirm}
+            </label>
+            <div className="relative">
+              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">
+                lock
+              </span>
+              <input
+                className={`${inputCls} pl-12`}
+                id="passwordConfirm"
+                name="passwordConfirm"
+                autoComplete="new-password"
+                placeholder={labels.passwordConfirmPlaceholder}
+                type={showPassword ? "text" : "password"}
+                minLength={8}
+                required
+              />
             </div>
           </div>
 

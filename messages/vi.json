@@ -1726,6 +1726,8 @@
       "phonePlaceholder": "0xxx xxx xxx",
       "password": "Mật khẩu",
       "passwordPlaceholder": "••••••••",
+      "passwordConfirm": "Xác nhận mật khẩu",
+      "passwordConfirmPlaceholder": "Nhập lại mật khẩu",
       "bankSection": "Tài khoản nhận thanh toán (tùy chọn)",
       "bankBank": "Tên ngân hàng",
       "bankBankPlaceholder": "VD: Vietcombank",
@@ -1743,6 +1745,7 @@
       "errors": {
         "phoneExists": "Số điện thoại này đã được đăng ký.",
         "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự.",
+        "passwordMismatch": "Mật khẩu không khớp",
         "signupDoneLoginLater": "Đăng ký đã hoàn tất. Vui lòng đăng nhập sau 1 phút.",
         "serverError": "Đã xảy ra lỗi. Vui lòng thử lại sau."
       }
@@ -4703,6 +4706,8 @@
     "phonePlaceholder": "0xxx xxx xxx",
     "password": "Mật khẩu",
     "passwordPlaceholder": "Ít nhất 8 ký tự",
+    "passwordConfirm": "Xác nhận mật khẩu",
+    "passwordConfirmPlaceholder": "Nhập lại mật khẩu",
     "zalo": "Zalo ID (tùy chọn)",
     "zaloPlaceholder": "Zalo user ID",
     "zaloHint": "Dùng để nhận thông báo đơn đặt hàng.",
@@ -4726,6 +4731,7 @@
     "errors": {
       "phoneExists": "Số điện thoại này đã được đăng ký.",
       "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự.",
+      "passwordMismatch": "Mật khẩu không khớp",
       "serverError": "Đã xảy ra lỗi. Vui lòng thử lại sau."
     }
   },
@@ -4755,6 +4761,8 @@
     "phonePlaceholder": "0xxx xxx xxx",
     "password": "Mật khẩu",
     "passwordPlaceholder": "••••••••",
+    "passwordConfirm": "Xác nhận mật khẩu",
+    "passwordConfirmPlaceholder": "Nhập lại mật khẩu",
     "zaloContact": "Zalo ID (tùy chọn)",
     "zaloContactPlaceholder": "Số điện thoại hoặc ID Zalo",
     "submit": "Đăng ký",
@@ -4765,6 +4773,7 @@
     "errors": {
       "phoneExists": "Số điện thoại này đã được đăng ký.",
       "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự.",
+      "passwordMismatch": "Mật khẩu không khớp",
       "signupDoneLoginLater": "Đăng ký đã hoàn tất. Vui lòng đăng nhập sau 1 phút.",
       "serverError": "Đã xảy ra lỗi. Vui lòng thử lại sau."
     }
@@ -4782,6 +4791,8 @@
     "phonePlaceholder": "Nhập số điện thoại",
     "password": "Mật khẩu",
     "passwordPlaceholder": "Ít nhất 8 ký tự",
+    "passwordConfirm": "Xác nhận mật khẩu",
+    "passwordConfirmPlaceholder": "Nhập lại mật khẩu",
     "email": "Email (tùy chọn)",
     "emailPlaceholder": "name@company.com",
     "submit": "Gửi đăng ký",
@@ -4795,6 +4806,7 @@
     "errors": {
       "phoneExists": "Số điện thoại này đã được đăng ký.",
       "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự.",
+      "passwordMismatch": "Mật khẩu không khớp",
       "serverError": "Đã xảy ra lỗi. Vui lòng thử lại sau."
     }
   },

@@ -25,6 +25,8 @@ export default async function VendorSignupPage() {
     phonePlaceholder: t("phonePlaceholder"),
     password: t("password"),
     passwordPlaceholder: t("passwordPlaceholder"),
+    passwordConfirm: t("passwordConfirm"),
+    passwordConfirmPlaceholder: t("passwordConfirmPlaceholder"),
     zalo: t("zalo"),
     zaloPlaceholder: t("zaloPlaceholder"),
     zaloHint: t("zaloHint"),
@@ -48,6 +50,7 @@ export default async function VendorSignupPage() {
     errorMessages: {
       phoneExists: t("errors.phoneExists"),
       passwordTooShort: t("errors.passwordTooShort"),
+      passwordMismatch: t("errors.passwordMismatch"),
       serverError: t("errors.serverError"),
     },
   };

@@ -30,6 +30,8 @@ export default async function SignupPage({
       phonePlaceholder: t("phonePlaceholder"),
       password: t("password"),
       passwordPlaceholder: t("passwordPlaceholder"),
+      passwordConfirm: t("passwordConfirm"),
+      passwordConfirmPlaceholder: t("passwordConfirmPlaceholder"),
       bankSection: t("bankSection"),
       bankBank: t("bankBank"),
       bankBankPlaceholder: t("bankBankPlaceholder"),
@@ -47,6 +49,7 @@ export default async function SignupPage({
       errorMessages: {
         phoneExists: t("errors.phoneExists"),
         passwordTooShort: t("errors.passwordTooShort"),
+        passwordMismatch: t("errors.passwordMismatch"),
         serverError: t("errors.serverError"),
         // 가입 완료 후 자동 로그인이 rate limit에 걸린 경우 안내(계정은 이미 생성됨)
         signupDoneLoginLater: t("errors.signupDoneLoginLater"),
@@ -68,6 +71,8 @@ export default async function SignupPage({
       phonePlaceholder: t("phonePlaceholder"),
       password: t("password"),
       passwordPlaceholder: t("passwordPlaceholder"),
+      passwordConfirm: t("passwordConfirm"),
+      passwordConfirmPlaceholder: t("passwordConfirmPlaceholder"),
       zaloContact: t("zaloContact"),
       zaloContactPlaceholder: t("zaloContactPlaceholder"),
       submit: t("submit"),
@@ -78,6 +83,7 @@ export default async function SignupPage({
       errorMessages: {
         phoneExists: t("errors.phoneExists"),
         passwordTooShort: t("errors.passwordTooShort"),
+        passwordMismatch: t("errors.passwordMismatch"),
         serverError: t("errors.serverError"),
         // 가입 완료 후 자동 로그인이 rate limit에 걸린 경우 안내(계정은 이미 생성됨)
         signupDoneLoginLater: t("errors.signupDoneLoginLater"),
@@ -102,6 +108,8 @@ export default async function SignupPage({
       phonePlaceholder: t("phonePlaceholder"),
       password: t("password"),
       passwordPlaceholder: t("passwordPlaceholder"),
+      passwordConfirm: t("passwordConfirm"),
+      passwordConfirmPlaceholder: t("passwordConfirmPlaceholder"),
       email: t("email"),
       emailPlaceholder: t("emailPlaceholder"),
       submit: t("submit"),
@@ -115,6 +123,7 @@ export default async function SignupPage({
       errorMessages: {
         phoneExists: t("errors.phoneExists"),
         passwordTooShort: t("errors.passwordTooShort"),
+        passwordMismatch: t("errors.passwordMismatch"),
         serverError: t("errors.serverError"),
       },
     };
