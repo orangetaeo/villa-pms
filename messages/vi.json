@@ -4355,7 +4355,7 @@
       "defaultClientName": "Khách webchat",
       "error": {
         "notActive": "Đề xuất đã hết hạn hoặc bị hủy. Hãy chọn đề xuất khác.",
-        "sessionClosed": "Không thể gửi tới hội thoại đã đóng hoặc bị chặn.",
+        "sessionClosed": "Không thể gửi tới cuộc trò chuyện đã đóng hoặc bị chặn.",
         "generic": "Gửi thất bại. Vui lòng thử lại sau.",
         "invalidDates": "Hãy kiểm tra ngày nhận/trả phòng.",
         "forbidden": "Chỉ quản lý trở lên mới tạo được đề xuất.",
