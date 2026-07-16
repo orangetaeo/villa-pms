@@ -21,6 +21,8 @@ import {
 } from "@/lib/instagram/draft";
 import { renderCarousel } from "@/lib/instagram/render";
 import { renderAndBuildReel } from "@/lib/instagram/reels";
+import { getYoutubeShortsPerDay } from "@/lib/youtube/settings";
+import { runYoutubeDraftBatch } from "@/lib/youtube/draft";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // 3곳 × 캐러셀 렌더 + Gemini — 여유 상한
@@ -140,6 +142,60 @@ async function handle(req: Request) {
     }
   }
 
+  // ── 유튜브 쇼츠 자동 초안(youtube-shorts-s1) — YT_SHORTS_PER_DAY≥1일 때만. 0이면 조기 반환(기존 동작 완전 동일). ──
+  //   인스타 흐름과 완전 격리(try/catch): 유튜브 실패가 인스타 초안 결과에 영향 주지 않게 함. 실패 시 인앱 경보 YT_DRAFT_FAILED.
+  let ytSummary: { created: number; failed: number; flagged: number } | undefined;
+  const shortsPerDay = await getYoutubeShortsPerDay();
+  if (shortsPerDay >= 1) {
+    try {
+      const yt = await runYoutubeDraftBatch(shortsPerDay, now);
+      const ytFlagged = yt.created.filter((c) => c.flagged.length > 0).length;
+      ytSummary = { created: yt.created.length, failed: yt.failures.length, flagged: ytFlagged };
+
+      if (yt.created.length > 0) {
+        try {
+          await enqueueInAppForOperators({
+            type: "YT_DRAFTS_READY",
+            title: "유튜브 쇼츠 초안 승인 대기",
+            body:
+              `오늘 유튜브 쇼츠 초안 ${yt.created.length}건이 생성되었습니다.` +
+              (ytFlagged > 0 ? ` (금칙어 경고 ${ytFlagged}건 — 확인 필요)` : "") +
+              `\n승인 전에는 업로드되지 않습니다.`,
+            href: "/marketing/youtube",
+          });
+        } catch (e) {
+          console.error("[cron/instagram-draft] 유튜브 초안 알림 적재 실패:", e instanceof Error ? e.message : String(e));
+        }
+      }
+      if (yt.failures.length > 0) {
+        try {
+          await enqueueInAppForOperators({
+            type: "YT_DRAFT_FAILED",
+            title: "⚠️ 유튜브 쇼츠 초안 실패",
+            body: `유튜브 쇼츠 초안 ${yt.failures.length}건 생성이 실패했습니다. 로그를 확인하세요.`,
+            href: "/marketing/youtube",
+          });
+        } catch (e) {
+          console.error("[cron/instagram-draft] 유튜브 실패 경보 적재 실패:", e instanceof Error ? e.message : String(e));
+        }
+      }
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e);
+      console.error("[cron/instagram-draft] 유튜브 초안 배치 실패(격리):", reason);
+      try {
+        await enqueueInAppForOperators({
+          type: "YT_DRAFT_FAILED",
+          title: "⚠️ 유튜브 쇼츠 초안 실패",
+          body: "유튜브 쇼츠 초안 배치가 실패했습니다. 로그를 확인하세요.",
+          href: "/marketing/youtube",
+        });
+      } catch {
+        /* 경보 적재 실패는 무시 */
+      }
+      ytSummary = { created: 0, failed: 1, flagged: 0 };
+    }
+  }
+
   return Response.json({
     status: "ok",
     created: created.length,
@@ -147,6 +203,7 @@ async function handle(req: Request) {
     failed: failures.length,
     flagged: created.filter((c) => c.flagged.length > 0).length,
     failures,
+    ...(ytSummary ? { youtube: ytSummary } : {}),
   });
 }
 

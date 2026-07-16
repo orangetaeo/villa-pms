@@ -115,6 +115,7 @@ const NAV: NavEntry[] = [
     icon: "campaign",
     items: [
       { key: "instagram", href: "/marketing/instagram", icon: "photo_camera" },
+      { key: "youtube", href: "/marketing/youtube", icon: "smart_display" },
     ],
   },
   { key: "messages", href: "/messages", icon: "chat" },

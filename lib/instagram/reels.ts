@@ -20,7 +20,19 @@ import sharp from "sharp";
 import ffmpegStatic from "ffmpeg-static";
 import { renderReelFrameBuffers, type SlideInput } from "@/lib/instagram/render";
 import { REEL_CANVAS } from "@/lib/instagram/reel-templates";
+import type { CtaData } from "@/lib/instagram/templates";
 import { saveInstagramVideo, saveInstagramRender } from "@/lib/storage";
+
+/**
+ * 유튜브 쇼츠용 엔딩 CTA(youtube-shorts-s1) — 유튜브 설명·영상엔 링크가 클릭되지 않으므로
+ * "프로필 링크" 대신 카카오톡 채널 검색을 안내한다. renderAndBuildReel({ ctaOverride: YOUTUBE_REEL_CTA }).
+ * ★ 인스타 경로는 이 옵션 미지정이 기본값 → 기존 동작 완전 동일.
+ */
+export const YOUTUBE_REEL_CTA: CtaData = {
+  headline: "예약 · 견적 문의는\n카카오톡 채널\n'빌라고' 검색",
+  kakaoLabel: "카카오톡 채널 '빌라고' 검색",
+  helper: "유튜브에선 링크가 안 눌려요 — 카카오톡에서 '빌라고'를 검색해 주세요",
+};
 
 const FFMPEG_PATH: string = ffmpegStatic ?? "ffmpeg";
 
@@ -43,6 +55,11 @@ export interface BuildReelOptions {
   audio?: ReelAudioMode; // 기본 "silent"
   transitionSec?: number;
   perFrameBaseSec?: number;
+  /**
+   * 엔딩 CTA 슬라이드 데이터 교체(유튜브 변형 등). 미지정이면 슬라이드 원본 CTA 유지(인스타 기본, 무변경).
+   * renderAndBuildReel에서만 적용된다(buildReelVideo는 프레임 버퍼만 다루므로 무시).
+   */
+  ctaOverride?: CtaData;
 }
 
 export interface ReelVideo {
@@ -290,7 +307,10 @@ export async function renderAndBuildReel(
   baseName: string,
   opts: BuildReelOptions = {}
 ): Promise<ReelBuildResult> {
-  const reelSlides = selectReelSlides(slides);
+  // 엔딩 CTA 교체(유튜브 변형): ctaOverride 지정 시 cta 슬라이드 data만 교체. 미지정=인스타 기본(무변경).
+  const reelSlides = selectReelSlides(slides).map((s) =>
+    s.templateId === "cta" && opts.ctaOverride ? { ...s, data: opts.ctaOverride } : s
+  );
   const frames = await renderReelFrameBuffers(reelSlides);
   const video = await buildReelVideo(frames, opts);
 

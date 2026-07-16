@@ -83,6 +83,8 @@ const ADMIN_CLIENT_NAMESPACES = [
   "rateCalendar",
   // 인스타그램 콘텐츠 큐(/marketing/instagram — instagram-queue·instagram-post-card·instagram-settings)
   "adminInstagram",
+  // 유튜브 쇼츠 승인 큐(/marketing/youtube — youtube-queue·youtube-short-card·youtube-settings)
+  "adminYoutube",
 ] as const;
 
 export default async function AdminLayout({
