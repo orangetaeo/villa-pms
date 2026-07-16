@@ -9,7 +9,7 @@ import { IgPostStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { writeAuditLog } from "@/lib/audit-log";
-import { enqueueInAppForOperators } from "@/lib/inapp-notification";
+import { notifyMarketing } from "@/lib/marketing-notify";
 import { publishInstagramPost, publishInstagramReel } from "@/lib/instagram/publish";
 import { isAutopostPaused } from "@/lib/instagram/settings";
 
@@ -120,18 +120,13 @@ async function handle(req: Request) {
     }
   }
 
-  // 실패분 운영자 경보(장애 축 — 인앱 직접 적재, 킬스위치 무관).
+  // 실패분 운영자 경보(장애 축 — 인앱 벨 + Zalo 그룹, 킬스위치는 Zalo에만 적용).
   if (failed.length > 0) {
-    try {
-      await enqueueInAppForOperators({
-        type: "IG_PUBLISH_FAILED",
-        title: "⚠️ 인스타 발행 실패",
-        body: `인스타 발행 ${failed.length}건이 실패했습니다. 마케팅 큐에서 사유를 확인하세요.`,
-        href: "/marketing/instagram",
-      });
-    } catch (e) {
-      console.error("[cron/instagram-publish] 실패 경보 적재 실패:", e instanceof Error ? e.message : String(e));
-    }
+    await notifyMarketing({
+      kind: "IG_PUBLISH_FAILED",
+      summary: `인스타 발행 ${failed.length}건이 실패했습니다. 마케팅 큐에서 사유를 확인하세요.`,
+      href: "/marketing/instagram",
+    });
   }
 
   return Response.json({ status: "ok", published: published.length, failed: failed.length, failures: failed });

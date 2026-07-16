@@ -35,6 +35,38 @@ export interface WebChatThreadMessage {
   createdAt: string;
 }
 
+/**
+ * 예약 요약 — 세션↔예약 연결 배지·연결 응답용 (T-webchat-guest-link-share).
+ * ★금액 필드(판매가·원가·마진·정산) 절대 미포함 — 운영자 표시 전용 화이트리스트.
+ */
+export interface BookingSummary {
+  bookingId: string;
+  guestName: string;
+  villaName: string | null;
+  checkIn: string;
+  checkOut: string;
+  status: string;
+}
+
+/**
+ * 예약 후보 — 연결 팝오버의 자동 추천/검색 결과 요소.
+ * matchType: token=링크 유입(신뢰도 최상)·contact=연락처 일치·search=수동 검색.
+ * ★전화는 뒷 4자리만(guestPhoneLast4), 금액 필드 없음.
+ */
+export interface BookingCandidate {
+  bookingId: string;
+  guestName: string;
+  guestPhoneLast4: string | null;
+  villaName: string | null;
+  checkIn: string;
+  checkOut: string;
+  status: string;
+  matchType: "token" | "contact" | "search";
+}
+
+/** 빠른 링크 발송 종류 — send-link API kind와 일치. */
+export type QuickLinkKind = "checkin" | "options" | "receipt";
+
 /** 스레드 상세 — /api/webchat/sessions/[id] 의 session. */
 export interface WebChatThreadData {
   id: string;
@@ -47,6 +79,9 @@ export interface WebChatThreadData {
   unreadForAdmin: number;
   lastMessageAt: string | null;
   createdAt: string;
+  // 세션↔예약 연결(운영자 전용) — 미연결이면 둘 다 null. ★방문자 폴링 응답엔 부재.
+  bookingId: string | null;
+  booking: BookingSummary | null;
   messages: WebChatThreadMessage[];
 }
 

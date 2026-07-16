@@ -4,8 +4,8 @@
 //             app/uploads/[name]/route.ts가 서빙) — URL 형태는 두 모드 모두 /uploads/<파일명>
 import { promises as fs } from "fs";
 import path from "path";
-import { randomUUID } from "crypto";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { randomUUID, createHash, createHmac } from "crypto";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 
 // 기본: ./public/uploads → next가 /uploads/<파일명>으로 정적 서빙
 // Railway volume 사용 시 UPLOAD_DIR을 volume 마운트 경로로 지정
@@ -449,4 +449,190 @@ export async function saveAttachmentFile(
   await fs.mkdir(UPLOAD_DIR, { recursive: true });
   await fs.writeFile(path.join(UPLOAD_DIR, storageKey), buffer);
   return { url: `/uploads/${storageKey}`, displayName };
+}
+
+// ═════════════════ 유튜브 직접 촬영 클립 — presigned 직업로드 + 편집 산출물 (marketing-s2 §A) ═════════════════
+// 릴스 렌더 산출물(saveInstagramVideo)과 원칙은 같으나(공개 R2), 클립은 **원본 촬영본**이라 브라우저가
+// R2로 직접 PUT(서버 미경유)하도록 presigned URL을 발급한다. 편집 파이프라인(lib/youtube/edit.ts)이
+// 클립을 GetObject로 내려받아 합성 → 최종 MP4는 saveYoutubeRenderedVideo로 다시 R2 업로드.
+//
+// ★ 클립 키 규약: `youtube-clips/{cuid}.{ext}` — presign 발급 시점에 서버가 확정(클라 파일명 신뢰 금지).
+// ★ 편집 산출물 prefix: `youtube-renders/` — 클립(원본)과 수명·정리 정책 분리(정리 정책은 백로그).
+
+/** 유튜브 클립 업로드 허용 MIME → 확장자 (mp4·mov). 여기 없는 타입은 presign 거부. */
+export const YT_CLIP_MIME_EXT: Record<string, string> = {
+  "video/mp4": "mp4",
+  "video/quicktime": "mov",
+};
+
+/** 클립당 최대 크기 — 500MB(계약 §A-1). presign 발급 시 sizeBytes 게이트. */
+export const YT_CLIP_MAX_BYTES = 500 * 1024 * 1024;
+
+const YOUTUBE_CLIP_PREFIX = "youtube-clips";
+const YOUTUBE_RENDER_PREFIX = "youtube-renders";
+
+/** 클립 MIME 화이트리스트 여부(presign 라우트 게이트). */
+export function isAllowedClipMime(mimeType: string): boolean {
+  return mimeType in YT_CLIP_MIME_EXT;
+}
+
+/** R2 구성 여부 — presign은 R2 전용(디스크 폴백은 직업로드 불가). */
+export function isR2Configured(): boolean {
+  return getR2Config() !== null;
+}
+
+/** 서버가 확정하는 클립 저장 키: `youtube-clips/{cuid}.{ext}` (클라 파일명 미신뢰). */
+export function youtubeClipKey(mimeType: string): string {
+  const ext = YT_CLIP_MIME_EXT[mimeType];
+  if (!ext) throw new Error(`DISALLOWED_CLIP_MIME: ${mimeType}`);
+  return `${YOUTUBE_CLIP_PREFIX}/${randomUUID().replace(/-/g, "")}.${ext}`;
+}
+
+// ── SigV4 presign (의존성 0 — Node crypto 직접, @aws-sdk/s3-request-presigner 미설치 대응) ──
+// AWS SigV4 query-string 서명. R2는 region "auto"·service "s3". SignedHeaders=host만 서명해
+// 브라우저 PUT이 Content-Type 헤더를 자유롭게 보낼 수 있게 한다(무서명 헤더는 서명 불변).
+function encodeRfc3986(str: string): string {
+  return encodeURIComponent(str).replace(
+    /[!*'()]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`
+  );
+}
+/** 키 경로 세그먼트별 인코딩(슬래시 보존) — S3 canonical URI 규칙. */
+function encodeKeyPath(key: string): string {
+  return key.split("/").map(encodeRfc3986).join("/");
+}
+function hmac(key: Buffer | string, data: string): Buffer {
+  return createHmac("sha256", key).update(data, "utf8").digest();
+}
+function sha256Hex(data: string): string {
+  return createHash("sha256").update(data, "utf8").digest("hex");
+}
+
+/**
+ * R2 오브젝트 PUT용 presigned URL 발급(SigV4, 기본 10분 유효). R2 미설정 시 throw.
+ * 브라우저가 이 URL로 `PUT <파일바이트>` 하면 곧장 R2에 저장된다(서버 미경유).
+ */
+export function presignR2PutUrl(key: string, expiresSec = 600): string {
+  const r2 = getR2Config();
+  if (!r2) throw new Error("R2_NOT_CONFIGURED");
+  const host = `${r2.accountId}.r2.cloudflarestorage.com`;
+  const region = "auto";
+  const service = "s3";
+
+  const now = new Date();
+  const amzDate = `${now.toISOString().replace(/[:-]|\.\d{3}/g, "").slice(0, 15)}Z`; // YYYYMMDDTHHMMSSZ
+  const dateStamp = amzDate.slice(0, 8); // YYYYMMDD
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+  const canonicalUri = `/${r2.bucket}/${encodeKeyPath(key)}`;
+  const signedHeaders = "host";
+
+  const query: Record<string, string> = {
+    "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
+    "X-Amz-Credential": `${r2.accessKeyId}/${credentialScope}`,
+    "X-Amz-Date": amzDate,
+    "X-Amz-Expires": String(expiresSec),
+    "X-Amz-SignedHeaders": signedHeaders,
+  };
+  const canonicalQuery = Object.keys(query)
+    .sort()
+    .map((k) => `${encodeRfc3986(k)}=${encodeRfc3986(query[k])}`)
+    .join("&");
+
+  const canonicalRequest = [
+    "PUT",
+    canonicalUri,
+    canonicalQuery,
+    `host:${host}\n`,
+    signedHeaders,
+    "UNSIGNED-PAYLOAD",
+  ].join("\n");
+
+  const stringToSign = [
+    "AWS4-HMAC-SHA256",
+    amzDate,
+    credentialScope,
+    sha256Hex(canonicalRequest),
+  ].join("\n");
+
+  const kDate = hmac(`AWS4${r2.secretAccessKey}`, dateStamp);
+  const kRegion = hmac(kDate, region);
+  const kService = hmac(kRegion, service);
+  const kSigning = hmac(kService, "aws4_request");
+  const signature = createHmac("sha256", kSigning).update(stringToSign, "utf8").digest("hex");
+
+  return `https://${host}${canonicalUri}?${canonicalQuery}&X-Amz-Signature=${signature}`;
+}
+
+/** R2 오브젝트를 Buffer로 다운로드(편집 파이프라인이 클립 원본을 tmp로 내려받을 때). R2 미설정 시 throw. */
+export async function getR2ObjectBuffer(key: string): Promise<Buffer> {
+  const r2 = getR2Config();
+  if (!r2) throw new Error("R2_NOT_CONFIGURED");
+  const res = await getR2Client(r2).send(
+    new GetObjectCommand({ Bucket: r2.bucket, Key: key })
+  );
+  const body = res.Body;
+  if (!body) throw new Error(`R2_OBJECT_EMPTY: ${key}`);
+  // v3 sdkStream — Node에서 transformToByteArray 제공.
+  const bytes = await (body as { transformToByteArray: () => Promise<Uint8Array> }).transformToByteArray();
+  return Buffer.from(bytes);
+}
+
+/**
+ * 편집된 유튜브 세로 영상 MP4 저장 → 공개 URL(prefix youtube-renders/). saveInstagramVideo와 동일 백엔드.
+ */
+export async function saveYoutubeRenderedVideo(
+  buffer: Buffer,
+  baseName: string
+): Promise<{ url: string; key: string }> {
+  const safeBase = baseName.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 60) || "yt";
+  const fileName = `${safeBase}-${Date.now()}-${randomUUID()}.mp4`;
+  const key = `${YOUTUBE_RENDER_PREFIX}/${fileName}`;
+  const r2 = getR2Config();
+
+  if (r2) {
+    await getR2Client(r2).send(
+      new PutObjectCommand({
+        Bucket: r2.bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: "video/mp4",
+        CacheControl: "public, max-age=31536000, immutable",
+      })
+    );
+    return { url: `${r2.publicUrl}/${key}`, key };
+  }
+
+  const dir = path.join(UPLOAD_DIR, YOUTUBE_RENDER_PREFIX);
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(path.join(dir, fileName), buffer);
+  return { url: `/uploads/${key}`, key };
+}
+
+/** 편집 영상 포스터(첫 프레임 JPEG) 저장 → 공개 URL(prefix youtube-renders/). */
+export async function saveYoutubeRenderPoster(
+  buffer: Buffer,
+  baseName: string
+): Promise<{ url: string; key: string }> {
+  const safeBase = baseName.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 60) || "yt";
+  const fileName = `${safeBase}-poster-${Date.now()}-${randomUUID()}.jpg`;
+  const key = `${YOUTUBE_RENDER_PREFIX}/${fileName}`;
+  const r2 = getR2Config();
+
+  if (r2) {
+    await getR2Client(r2).send(
+      new PutObjectCommand({
+        Bucket: r2.bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: "image/jpeg",
+        CacheControl: "public, max-age=31536000, immutable",
+      })
+    );
+    return { url: `${r2.publicUrl}/${key}`, key };
+  }
+
+  const dir = path.join(UPLOAD_DIR, YOUTUBE_RENDER_PREFIX);
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(path.join(dir, fileName), buffer);
+  return { url: `/uploads/${key}`, key };
 }

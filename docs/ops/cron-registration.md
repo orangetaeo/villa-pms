@@ -22,6 +22,7 @@
 | `cron-checkout-reminder` | `/api/cron/checkout-reminder` | `0 1 * * *` | 매일 08:00 | **Zalo 알림 큐 적재**(내일 체크아웃 예약 → 담당 청소원/공급자 D-1 사전 청소알림, checkOut==today+1 멱등) — PR #139 |
 | `cron-instagram-draft` | `/api/cron/instagram-draft` | `20 21 * * *` | 매일 04:20 | 인스타 초안 일 3건 생성(SELLABLE·사진4장↑ 빌라 로테이션, 승인 큐 적재 — 발행 아님). GraphQL 등록(2026-07-16) |
 | `cron-instagram-insights` | `/api/cron/instagram-insights` | `0 22 * * *` | 매일 05:00 | 인스타 인사이트 수집(30일 내 매일+구포스트 주1회, PUBLISHED 0건=no-op). GraphQL 등록(2026-07-16) |
+| `cron-youtube-edit-jobs` | `/api/cron/youtube-edit-jobs` | `*/15 * * * *` | 15분 간격 | 유튜브 편집 잡 안전망(PENDING 잔류 처리·PROCESSING 10분 고아 회수, 잡 0건=no-op). GraphQL 등록(2026-07-16) |
 | `cron-youtube-publish` | `/api/cron/youtube-publish` | `35 3,10 * * *` | KST 12:35·19:35 | 유튜브 쇼츠 발행(QUEUED→업로드, 킬스위치 YT_AUTOPOST_PAUSED 기본 정지·감사 전 unlisted). GraphQL 등록(2026-07-16) |
 | `cron-instagram-token-refresh` | `/api/cron/instagram-token-refresh` | `40 20 * * *` | 매일 03:40 | IG 장기토큰 자동 갱신(멱등 — 주 1회만 실제 갱신, 실패 시 IG_TOKEN_REFRESH_FAILED 인앱 경보). GraphQL API로 등록(2026-07-16, db-backup 선례) |
 | `cron-db-backup` | `/api/cron/db-backup` | `0 20 * * *` | 매일 03:00 | DB 스냅샷 R2 백업(메시지 없음) — 프라이빗 버킷 gzip, daily 14·monthly 12 보존. 런북 `docs/ops/db-backup.md`. ⚠ curl 타임아웃 `-m 300`(스냅샷 여유) |
