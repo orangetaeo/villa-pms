@@ -375,7 +375,9 @@
       "readOnly": "설정 변경은 OWNER/ADMIN만 가능합니다. 현재 값은 조회만 됩니다.",
       "forbidden": "설정 변경 권한이 없습니다 (OWNER/ADMIN 전용).",
       "loadError": "설정을 불러오지 못했습니다.",
-      "saveError": "설정 저장에 실패했습니다."
+      "saveError": "설정 저장에 실패했습니다.",
+      "tokenExpiry": "만료 D-{days} · 자동 갱신 주 1회",
+      "tokenExpired": "만료됨 · 갱신 필요"
     },
     "toast": {
       "saved": "저장했습니다.",

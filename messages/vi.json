@@ -375,7 +375,9 @@
       "readOnly": "Chỉ OWNER/ADMIN mới đổi được cài đặt. Hiện chỉ xem.",
       "forbidden": "Không có quyền đổi cài đặt (chỉ OWNER/ADMIN).",
       "loadError": "Không tải được cài đặt.",
-      "saveError": "Lưu cài đặt thất bại."
+      "saveError": "Lưu cài đặt thất bại.",
+      "tokenExpiry": "Còn {days} ngày · Tự gia hạn hằng tuần",
+      "tokenExpired": "Đã hết hạn · Cần gia hạn"
     },
     "toast": {
       "saved": "Đã lưu.",

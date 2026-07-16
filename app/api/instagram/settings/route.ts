@@ -11,9 +11,12 @@ import {
   getIgGraphBase,
   getIgAccessTokenMeta,
   isAutopostPaused,
+  getIgTokenExpiresAt,
+  getIgTokenRefreshedAt,
   setIgUserId,
   setIgAccessToken,
   setAutopostPaused,
+  resetIgTokenTimestampsForManualSave,
 } from "@/lib/instagram/settings";
 
 export async function GET() {
@@ -21,11 +24,13 @@ export async function GET() {
   if (!session?.user?.id) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   if (!isOperator(session.user.role)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
 
-  const [userId, graphBase, tokenMeta, paused] = await Promise.all([
+  const [userId, graphBase, tokenMeta, paused, tokenExpiresAt, tokenRefreshedAt] = await Promise.all([
     getIgUserId(),
     getIgGraphBase(),
     getIgAccessTokenMeta(),
     isAutopostPaused(),
+    getIgTokenExpiresAt(),
+    getIgTokenRefreshedAt(),
   ]);
 
   return NextResponse.json({
@@ -34,6 +39,8 @@ export async function GET() {
     accessTokenSet: tokenMeta.set,
     accessTokenLast4: tokenMeta.last4, // 말미 4자만(평문 아님)
     autopostPaused: paused,
+    tokenExpiresAt, // ISO|null — 자동 갱신 만료 시각(D-일 표시용)
+    tokenRefreshedAt, // ISO|null — 마지막 갱신·저장 시각
   });
 }
 
@@ -73,6 +80,9 @@ export async function PUT(req: Request) {
   }
   if (parsed.data.accessToken !== undefined && parsed.data.accessToken.length > 0) {
     await setIgAccessToken(parsed.data.accessToken);
+    // 수동 저장한 장기 토큰은 방금 발급된 것으로 간주 — 갱신·만료 타임스탬프 리셋(지금·now+60일).
+    //   이후 갱신 cron 이 실측 expires_in 으로 보정한다.
+    await resetIgTokenTimestampsForManualSave();
     // ★ 토큰 평문·암호문 절대 감사로그 미기록 — 설정 사실만.
     changes.accessToken = { new: "***set***" };
   }
@@ -89,15 +99,19 @@ export async function PUT(req: Request) {
     changes,
   });
 
-  const [userId, tokenMeta, paused] = await Promise.all([
+  const [userId, tokenMeta, paused, tokenExpiresAt, tokenRefreshedAt] = await Promise.all([
     getIgUserId(),
     getIgAccessTokenMeta(),
     isAutopostPaused(),
+    getIgTokenExpiresAt(),
+    getIgTokenRefreshedAt(),
   ]);
   return NextResponse.json({
     igUserId: userId,
     accessTokenSet: tokenMeta.set,
     accessTokenLast4: tokenMeta.last4,
     autopostPaused: paused,
+    tokenExpiresAt,
+    tokenRefreshedAt,
   });
 }
