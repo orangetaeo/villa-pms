@@ -1611,6 +1611,8 @@
       "phonePlaceholder": "0xxx xxx xxx",
       "password": "비밀번호",
       "passwordPlaceholder": "••••••••",
+      "passwordConfirm": "비밀번호 확인",
+      "passwordConfirmPlaceholder": "비밀번호를 한 번 더 입력",
       "bankSection": "정산받을 계좌 (선택)",
       "bankBank": "은행명",
       "bankBankPlaceholder": "예: Vietcombank",
@@ -1628,6 +1630,7 @@
       "errors": {
         "phoneExists": "이미 등록된 전화번호입니다.",
         "passwordTooShort": "비밀번호는 최소 8자 이상이어야 합니다.",
+        "passwordMismatch": "비밀번호가 일치하지 않습니다",
         "signupDoneLoginLater": "가입은 완료되었습니다. 1분 후 로그인해 주세요.",
         "serverError": "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
       }
@@ -4703,6 +4706,8 @@
     "phonePlaceholder": "0xxx xxx xxx",
     "password": "비밀번호",
     "passwordPlaceholder": "최소 8자 이상",
+    "passwordConfirm": "비밀번호 확인",
+    "passwordConfirmPlaceholder": "비밀번호를 한 번 더 입력",
     "zalo": "Zalo ID (선택)",
     "zaloPlaceholder": "Zalo 사용자 ID",
     "zaloHint": "발주 알림 수신용입니다.",
@@ -4726,6 +4731,7 @@
     "errors": {
       "phoneExists": "이미 등록된 전화번호입니다.",
       "passwordTooShort": "비밀번호는 최소 8자 이상이어야 합니다.",
+      "passwordMismatch": "비밀번호가 일치하지 않습니다",
       "serverError": "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
     }
   },
@@ -4755,6 +4761,8 @@
     "phonePlaceholder": "0xxx xxx xxx",
     "password": "비밀번호",
     "passwordPlaceholder": "••••••••",
+    "passwordConfirm": "비밀번호 확인",
+    "passwordConfirmPlaceholder": "비밀번호를 한 번 더 입력",
     "zaloContact": "Zalo ID (선택)",
     "zaloContactPlaceholder": "Zalo 전화번호 또는 ID",
     "submit": "회원가입",
@@ -4765,6 +4773,7 @@
     "errors": {
       "phoneExists": "이미 등록된 전화번호입니다.",
       "passwordTooShort": "비밀번호는 최소 8자 이상이어야 합니다.",
+      "passwordMismatch": "비밀번호가 일치하지 않습니다",
       "signupDoneLoginLater": "가입은 완료되었습니다. 1분 후 로그인해 주세요.",
       "serverError": "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
     }
@@ -4782,6 +4791,8 @@
     "phonePlaceholder": "전화번호 입력",
     "password": "비밀번호",
     "passwordPlaceholder": "최소 8자 이상",
+    "passwordConfirm": "비밀번호 확인",
+    "passwordConfirmPlaceholder": "비밀번호를 한 번 더 입력",
     "email": "이메일 (선택)",
     "emailPlaceholder": "name@company.com",
     "submit": "가입 신청",
@@ -4795,6 +4806,7 @@
     "errors": {
       "phoneExists": "이미 등록된 전화번호입니다.",
       "passwordTooShort": "비밀번호는 최소 8자 이상이어야 합니다.",
+      "passwordMismatch": "비밀번호가 일치하지 않습니다",
       "serverError": "오류가 발생했습니다. 잠시 후 다시 시도해주세요."
     }
   },

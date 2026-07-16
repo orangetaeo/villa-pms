@@ -4,7 +4,7 @@
 //   공급자 폼(SignupForm)의 단순화 버전: 이름·전화·비밀번호 + 선택 Zalo ID(계좌 없음).
 //   signupAction 재사용(hidden kind=cleaner) → role=CLEANER 생성 후 /zalo-connect로 자동 로그인.
 //   ★ 승인 게이트 없음 — 배정 전까지 빈 청소 목록만 보이므로 누수·위험 없음(공급자 자가가입과 동일 패턴).
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signupAction } from "./actions";
@@ -20,6 +20,8 @@ interface Labels {
   phonePlaceholder: string;
   password: string;
   passwordPlaceholder: string;
+  passwordConfirm: string;
+  passwordConfirmPlaceholder: string;
   zaloContact: string;
   zaloContactPlaceholder: string;
   submit: string;
@@ -33,7 +35,19 @@ interface Labels {
 export default function CleanerSignupForm({ labels }: { labels: Labels }) {
   const [state, formAction, isPending] = useActionState(signupAction, null);
   const [showPassword, setShowPassword] = useState(false);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const confirmRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  // 비밀번호 확인 일치 검사 — 두 입력 중 어느 쪽이 바뀌어도 확인 필드에 네이티브 검증 메시지를 설정.
+  // 불일치 시 제출이 차단된다(setCustomValidity). 빈 확인 필드는 required가 처리.
+  function syncPasswordMatch() {
+    const pw = passwordRef.current?.value ?? "";
+    const cf = confirmRef.current?.value ?? "";
+    confirmRef.current?.setCustomValidity(
+      cf && cf !== pw ? labels.errorMessages.passwordMismatch : ""
+    );
+  }
 
   return (
     <div className="bg-white text-neutral-900 min-h-screen flex flex-col w-full">
@@ -145,6 +159,7 @@ export default function CleanerSignupForm({ labels }: { labels: Labels }) {
                 lock
               </span>
               <input
+                ref={passwordRef}
                 className="w-full h-16 pl-12 pr-12 bg-neutral-50 border border-neutral-200 rounded-xl text-lg transition-all focus:bg-white"
                 id="password"
                 name="password"
@@ -153,6 +168,7 @@ export default function CleanerSignupForm({ labels }: { labels: Labels }) {
                 type={showPassword ? "text" : "password"}
                 minLength={8}
                 required
+                onChange={syncPasswordMatch}
               />
               <button
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 active:text-teal-600 transition-colors"
@@ -164,6 +180,33 @@ export default function CleanerSignupForm({ labels }: { labels: Labels }) {
                   {showPassword ? "visibility_off" : "visibility"}
                 </span>
               </button>
+            </div>
+          </div>
+
+          {/* 비밀번호 확인 — 보기 토글은 위 비밀번호 필드의 showPassword 상태를 공유 */}
+          <div className="group">
+            <label
+              className="block text-sm font-semibold text-neutral-700 mb-2 ml-1"
+              htmlFor="passwordConfirm"
+            >
+              {labels.passwordConfirm}
+            </label>
+            <div className="relative">
+              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400">
+                lock
+              </span>
+              <input
+                ref={confirmRef}
+                className="w-full h-16 pl-12 pr-4 bg-neutral-50 border border-neutral-200 rounded-xl text-lg transition-all focus:bg-white"
+                id="passwordConfirm"
+                name="passwordConfirm"
+                autoComplete="new-password"
+                placeholder={labels.passwordConfirmPlaceholder}
+                type={showPassword ? "text" : "password"}
+                minLength={8}
+                required
+                onChange={syncPasswordMatch}
+              />
             </div>
           </div>
 

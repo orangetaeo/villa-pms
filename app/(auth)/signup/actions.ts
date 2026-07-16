@@ -45,6 +45,11 @@ export async function signupAction(
   // (연결 화면에 "건너뛰기 → /cleaning"이 있어 강제되지 않음). 공급자는 기존대로 /my-villas.
   const redirectTo = kind === "cleaner" ? "/zalo-connect" : "/my-villas";
 
+  // 비밀번호 확인 일치 검사 — 클라 네이티브 검증 우회·JS 미동작 대비(zod 스키마 밖 단순 비교)
+  if (formData.get("passwordConfirm") !== formData.get("password")) {
+    return { error: "passwordMismatch" };
+  }
+
   const parsed = signupSchema.safeParse({
     name: formData.get("name"),
     phone: formData.get("phone"),
