@@ -27,6 +27,18 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       unreadForAdmin: true,
       lastMessageAt: true,
       createdAt: true,
+      // 세션↔예약 연결(운영자 전용 — 방문자 폴링 응답엔 절대 미포함). ★금액 필드 select 배제.
+      bookingId: true,
+      booking: {
+        select: {
+          id: true,
+          guestName: true,
+          checkIn: true,
+          checkOut: true,
+          status: true,
+          villa: { select: { name: true } },
+        },
+      },
       messages: {
         orderBy: { createdAt: "asc" },
         select: {
@@ -68,6 +80,18 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       unreadForAdmin: 0,
       lastMessageAt: s.lastMessageAt ? s.lastMessageAt.toISOString() : null,
       createdAt: s.createdAt.toISOString(),
+      // 세션↔예약 연결 요약(미연결이면 둘 다 null). ★금액 무관 표시 전용.
+      bookingId: s.bookingId ?? null,
+      booking: s.booking
+        ? {
+            bookingId: s.booking.id,
+            guestName: s.booking.guestName,
+            villaName: s.booking.villa?.name ?? null,
+            checkIn: s.booking.checkIn.toISOString(),
+            checkOut: s.booking.checkOut.toISOString(),
+            status: s.booking.status,
+          }
+        : null,
       messages: s.messages.map((m) => ({
         id: m.id,
         direction: m.direction,

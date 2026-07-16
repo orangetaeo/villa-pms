@@ -24,6 +24,7 @@ import {
   LOCALE_CHIP_LABEL,
   type WidgetStrings,
 } from "@/lib/webchat-widget-i18n";
+import { Linkify } from "@/components/linkify";
 
 // ───────────────────────── 타입 ─────────────────────────
 
@@ -47,39 +48,12 @@ const LS_LAST_SEEN = "webchat:lastSeen";
 
 const POLL_BASE_MS = Math.round((POLL_MIN_MS + POLL_MAX_MS) / 2);
 
-// ───────────────────────── 안전 렌더러(평문 + http(s) 자동링크) ─────────────────────────
-// chat-pane.tsx RichText의 http(s)-only 패턴을 위젯용으로 최소 이식. dangerouslySetInnerHTML 없음.
-
-const URL_RE = /https?:\/\/[^\s<]+/g;
+// ───────────────────────── 안전 렌더러 ─────────────────────────
+// 평문 + http(s) 자동링크는 공용 <Linkify>(components/linkify) 사용 — dangerouslySetInnerHTML 없음.
+// 위젯 스코프 클래스(wc-link) + nofollow 지정으로 버블 대비색 유지.
 
 function LinkifiedText({ text }: { text: string }) {
-  if (!text.includes("http")) return <>{text}</>;
-  const out: React.ReactNode[] = [];
-  let last = 0;
-  let key = 0;
-  let m: RegExpExecArray | null;
-  URL_RE.lastIndex = 0;
-  while ((m = URL_RE.exec(text)) !== null) {
-    if (m.index > last) out.push(text.slice(last, m.index));
-    let url = m[0];
-    const trail = url.match(/[.,;:!?)\]]+$/)?.[0] ?? "";
-    if (trail) url = url.slice(0, url.length - trail.length);
-    out.push(
-      <a
-        key={key++}
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer nofollow"
-        className="wc-link"
-      >
-        {url}
-      </a>
-    );
-    if (trail) out.push(trail);
-    last = m.index + m[0].length;
-  }
-  if (last < text.length) out.push(text.slice(last));
-  return <>{out}</>;
+  return <Linkify text={text} linkClassName="wc-link" rel="noopener noreferrer nofollow" />;
 }
 
 // ───────────────────────── Turnstile(선택) ─────────────────────────
