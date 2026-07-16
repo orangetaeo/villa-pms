@@ -627,6 +627,7 @@ model Booking {
   settlementItem SettlementItem?
   cleaningTasks  CleaningTask[]
   receivable     PartnerReceivable? // B2B 객실료 채권 (ADR-0022)
+  webChatSessions WebChatSession[] @relation("WebChatSessionBooking") // 웹챗 세션 식별 연결 (T-webchat-guest-link-share) — additive raw SQL
 
   @@index([villaId, checkIn, checkOut])
   @@index([status, holdExpiresAt])
@@ -1247,6 +1248,9 @@ model ServiceOrder {
   // 티켓 이용자 선택 스냅샷 (ADR-0036) — 소비자가 체크인 명단(여권 확정본)에서 고른 [{name,birthDate}].
   //   차일드/어덜트/시니어 구분용으로 벤더에 전달. ★이름·생년월일만(여권번호 등 금지). null=미선택(체크인 전 주문 등)
   ticketGuests    Json?
+  // 책임 제한 고지 동의 스냅샷 — 소비자 신청 경로(/g·/p)에서 서버 산출 { agreedAt, version, locale, source }.
+  //   null=제도 이전 주문·admin 대리 생성(동의 미적용). 문구·버전 원천=lib/service-liability.ts. 백필 금지.
+  liabilityConsentJson Json?
   createdAt   DateTime           @default(now())
 
   @@index([vendorId, vendorStatus])
@@ -1408,6 +1412,7 @@ enum NotificationType {
   SERVICE_ORDER_REQUESTED // 게스트/파트너 부가서비스 요청 → 운영자 통지(ko). 금액 미포함 (A1). additive: 라이브 ALTER TYPE ADD VALUE
   ZALO_LISTENER_DOWN // Zalo 리스너 미연결(≈10분+) 감지 → 운영자 통지(ko). 워치독(lib/zalo-health). additive: 라이브 ALTER TYPE ADD VALUE
   WEBCHAT_NEW_MESSAGE // 웹 채팅 신규 문의(비로그인 방문자) → 운영자 통지(ko 미리보기, 판매가·마진 미포함). 대화당 첫 메시지 즉시+후속 10분 디바운스 (ADR-0045). additive: 라이브 ALTER TYPE ADD VALUE
+  MARKETING_ALERT // 마케팅 자동화 통지(IG 초안·IG/YT 발행실패·YT 토큰·편집 잡 완료) → 운영자(ko). 세부 구분=payload 분기(타입 증식 금지 교훈, marketing-s2 §D). additive: 라이브 ALTER TYPE ADD VALUE
 }
 
 enum NotificationStatus {
@@ -1610,6 +1615,13 @@ model WebChatSession {
 
   unreadForAdmin Int @default(0) // 운영자 미확인 수 — 스레드 열람 시 0 리셋(totalUnread 정확도)
 
+  // 세션↔예약 연결 (T-webchat-guest-link-share) — 운영자 식별용, 조직 공유 스코프.
+  // ★방문자 폴링 응답에 절대 미노출(누수 게이트). 라이브 반영=additive raw SQL(migrations-manual).
+  bookingId       String?
+  booking         Booking?  @relation("WebChatSessionBooking", fields: [bookingId], references: [id], onDelete: SetNull)
+  bookingLinkedAt DateTime? // 연결 시각
+  bookingLinkedBy String?   // 연결한 운영자 userId (감사 추적 — AuditLog와 병행)
+
   // 인박스 미리보기 비정규화(ZaloConversation.lastMessageText 동형, 기획 §9 P1-3) — N+1 제거.
   // 표시 전용(누수 무관: 본문·방향만). 메시지 쓰기 경로가 lastMessageAt와 함께 갱신.
   lastMessageText      String?
@@ -1625,6 +1637,7 @@ model WebChatSession {
   @@index([ownerAdminId, lastMessageAt]) // 운영자 인박스 정렬
   @@index([status])
   @@index([ipHash, createdAt]) // 어뷰즈 조사(IP 기준 세션 대량 생성 추적)
+  @@index([bookingId]) // 세션↔예약 연결 역조회 (T-webchat-guest-link-share)
 }
 
 // 웹 채팅 메시지 — 방향별 원문 + 번역 캐시. ★금액 컬럼 없음.
@@ -1774,9 +1787,14 @@ model InstagramMessage {
 
 // ===================== 인스타그램 인사이트 스냅샷 (instagram-marketing-p2) =====================
 
+// ★YT_MEDIA를 별도 enum·테이블이 아닌 여기에 additive한 이유 (TDA, marketing-s2 §B):
+//   스냅샷 테이블은 metricsJson 기반 범용 구조라 플랫폼 중립 — 별도 테이블은 unique·인덱스·cron upsert
+//   로직 중복만 낳는다. YtShortStatus 분리 근거였던 "exhaustive switch 파급"은 IgInsightScope에
+//   해당 없음(소비처 전수 grep: where 필터로 좁혀 쓰기만 — insights.ts·summary API, 2026-07-16 확인).
 enum IgInsightScope {
   ACCOUNT // 계정 단위 (팔로워 수·프로필 방문 등)
   MEDIA // 게시물 단위 (reach·likes·comments·saved·shares)
+  YT_MEDIA // 유튜브 쇼츠 영상 단위 — igMediaId 자리에 ytVideoId 저장 (marketing-s2 §B). additive: 라이브 ALTER TYPE ADD VALUE
 }
 
 // 일별 인사이트 스냅샷 — 추이(팔로워 변화·일별 도달)의 정본. 최신값 캐시는 InstagramPost.latest*.
@@ -1786,7 +1804,7 @@ enum IgInsightScope {
 model InstagramInsightSnapshot {
   id        String         @id @default(cuid())
   scope     IgInsightScope
-  igMediaId String         @default("") // MEDIA면 인스타 media id, ACCOUNT면 "" (unique NULL 함정 회피)
+  igMediaId String         @default("") // MEDIA면 인스타 media id, YT_MEDIA면 ytVideoId, ACCOUNT면 "" (unique NULL 함정 회피)
   // 발행 포스트와 연결 (MEDIA 스코프, 매칭되는 InstagramPost가 있을 때). 포스트 삭제 시 스냅샷 보존.
   postId    String?
   post      InstagramPost? @relation(fields: [postId], references: [id], onDelete: SetNull)
@@ -1837,6 +1855,16 @@ enum YtSourceType {
   UPLOADED // 직접 촬영 영상 업로드 (S2 콘텐츠 2 대비)
 }
 
+// 직접 촬영 클립 자동 편집 잡 상태 (marketing-s2 §A-3) — YoutubeShort.editJobStatus 전용.
+// ★YtShortStatus(발행 라이프사이클)와 별개 축: 편집(렌더) 파이프라인만 다루며, DONE 후 승인 큐 합류는
+//   status(DRAFT→PENDING_APPROVAL)가 담당. 상태 겸용 시 두 관심사가 한 enum에 얽혀 전이 가드가 복잡해짐.
+enum YtEditJobStatus {
+  PENDING // 편집 요청됨 — 잡 러너 픽업 대기
+  PROCESSING // ffmpeg 렌더 중 (중복 실행 방지 락 — where: PENDING 조건부 전이로 획득)
+  DONE // 렌더 완료 (videoUrl 확정 → 미리보기·승인 큐)
+  FAILED // 렌더 실패 (editError 기록 + 경보)
+}
+
 model YoutubeShort {
   id String @id @default(cuid())
 
@@ -1867,10 +1895,23 @@ model YoutubeShort {
   // 금칙어 가드 플래그: Gemini 메타에서 검출된 위반 용어 배열 (InstagramPost.flaggedTerms 패턴). null = 위반 없음
   flaggedTerms Json?
 
+  // ---- 직접 촬영 자동 편집 잡 (marketing-s2 §A) — sourceType=UPLOADED 전용, VILLA_AUTO는 전부 null ----
+  editJobStatus   YtEditJobStatus? // null=편집 잡 아님. PENDING→PROCESSING(조건부 update 락)→DONE/FAILED
+  editParamsJson  Json? // 클립 순서·구간(시작/길이)·자막(텍스트+시간)·헤드라인 — 정확 스키마는 BE(lib/youtube/edit.ts)가 정의
+  editError       String? // 편집(렌더) 실패 사유 — 업로드 실패 failReason과 별개 축
+  sourceClipsJson Json? // 업로드된 원본 클립 R2 키 목록 (presigned PUT 완료분, 순서=업로드 세션 기준)
+
+  // ---- 성과 캐시 (marketing-s2 §B) — 뱃지·정렬용 최신값. 추이 정본은 InstagramInsightSnapshot(scope=YT_MEDIA) ----
+  latestViews    Int? // videos.list statistics.viewCount
+  latestLikes    Int? // statistics.likeCount
+  latestComments Int? // statistics.commentCount
+  statsSyncedAt  DateTime? // 마지막 성과 수집 시각 (UTC)
+
   createdBy String? // 생성 주체 — cron이면 "cron:youtube-draft", 수동이면 User.id (FK 없음)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([status, scheduledAt]) // 업로드 cron: QUEUED + 시간 도래분 조회
   @@index([villaId]) // 빌라 로테이션 선정(쇼츠 이력 조회)
+  @@index([editJobStatus]) // 편집 잡 폴링 (PENDING/PROCESSING 조회 — null 다수라 선택도 충분)
 }

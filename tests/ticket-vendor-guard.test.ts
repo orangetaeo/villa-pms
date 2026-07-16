@@ -157,7 +157,7 @@ const guestReq = (body: unknown) =>
 const GP = (token: string) => ({ params: Promise.resolve({ token }) });
 const AP = (id: string) => ({ params: Promise.resolve({ id }) });
 
-const ticketBody = { catalogItemId: "ci-1", quantity: 1, serviceDate: "2026-08-01" };
+const ticketBody = { catalogItemId: "ci-1", quantity: 1, serviceDate: "2026-08-01", liabilityConsent: true };
 
 const ticketItem = (over: Record<string, unknown> = {}) => ({
   id: "ci-1",
@@ -288,7 +288,7 @@ describe("파트너 POST — TICKET 벤더 가드 (대칭, /p 제안 채널)", (
     proposalItem: { proposal: { token: "ptok", expiresAt: new Date(Date.now() + 86400000) } },
     villa: { name: "Villa A" },
   };
-  const partnerBody = { bookingId: "bk-1", catalogItemId: "ci-1", quantity: 1, serviceDate: "2026-08-01" };
+  const partnerBody = { bookingId: "bk-1", catalogItemId: "ci-1", quantity: 1, serviceDate: "2026-08-01", liabilityConsent: true };
   const PP = (token: string) => ({ params: Promise.resolve({ token }) });
 
   beforeEach(() => {

@@ -54,6 +54,8 @@
 | 운영자 권한 3단계(OWNER/MANAGER/STAFF) **[채택·S-RBAC-1 진행]** | docs/decisions/ADR-0013-operator-rbac-tiers.md + docs/contracts/S-RBAC-1.md — ADMIN→OWNER. 돈 경계 {OWNER,MANAGER} vs STAFF(§6.1 입금확인 금액숨김), OWNER↔MANAGER=시스템통제, 카뱅 알림파싱 Phase 2(§6.2). 핵심=lib/permissions.ts capability 헬퍼. additive 전략(ADMIN 유지→S-RBAC-2서 치환·제거) |
 | 여행사·랜드사(B2B) 결제조건·미수(여신) 관리 **[제안·PARTNER-1 구현]** | docs/decisions/ADR-0022-partner-receivables-credit.md + docs/contracts/PARTNER-1.md — 돈흐름 2분리(B2B 객실료=Partner AR / B2C 보증금·미니바=게스트 현장). 등급제(A선불 의무·B 주15/30일여신·C특별), 신규=A의무·선금30%·Phase1 ADMIN전담·보증예치금 미도입. 신규모델 Partner·PartnerReceivable·PartnerInvoice(raw ALTER), LEDGER 현금주의 유지(ADR-0018 정합), **lib/partner.ts**(computeDepositDue·computeDueDate·outstandingForPartner·canCreateBookingFor·agingBuckets) 신용한도 게이트. 스프린트 PARTNER-1~3, 화면 /partners·/receivables·청구서 |
 
+| 웹챗 게스트 링크 전달(세션↔예약 연결+원클릭 발송+제안 발송) **[배포완료 PR #340+#344]** | docs/plans/webchat-guest-link-share.md + docs/contracts/T-webchat-guest-link-share.md + T-webchat-proposal-link-send.md — WebChatSession.bookingId additive·자동 후보(sourcePage g:토큰8자 매칭)·빠른 링크 3종(체크인/부가서비스/영수증, 5언어 사전 템플릿=Gemini 미경유)·**제안(/p) 발송(#344)**=예약 미연결 세션 가능·간이 생성 체이닝·생성=canSetPrice 이원화·핵심 위험=오발송(확인 다이얼로그+revoke 동선+AuditLog) |
+
 ## 3열람실 — 참고 서가 (필요 시만)
 | 문서 | 내용 |
 |---|---|

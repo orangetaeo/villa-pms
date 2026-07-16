@@ -70,7 +70,7 @@ const jsonReq = (body: unknown) =>
     body: JSON.stringify(body),
   });
 
-const createBody = { catalogItemId: "ci-1", quantity: 1, serviceDate: "2026-08-01", serviceTime: "14:00" };
+const createBody = { catalogItemId: "ci-1", quantity: 1, serviceDate: "2026-08-01", serviceTime: "14:00", liabilityConsent: true };
 
 // 카탈로그 기본 벤더 = v-catalog(승인·활성). 지역 지정 업체 = v-regional.
 const catalogItem = {

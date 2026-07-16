@@ -13,6 +13,7 @@ import {
 import { priceKrwCeil } from "@/lib/service-display";
 import { formatThousands } from "@/lib/format";
 import { PUBLIC_LABELS, type PublicLang } from "@/lib/public-i18n";
+import { getServiceLiabilityText } from "@/lib/service-liability";
 import { catalogImage } from "@/lib/service-image";
 import type { Currency } from "@prisma/client";
 import type {
@@ -60,6 +61,8 @@ export function PartnerAddonSection({
 }) {
   const t = PUBLIC_LABELS[lang].partnerAddon;
   const krwSuffix = PUBLIC_LABELS[lang].krwSuffix;
+  // ★책임 제한 고지 — PUBLIC_LABELS가 아닌 service-liability 모듈 단일 원천에서 현재 언어로 직접 렌더(문구 이중정의 금지).
+  const liability = getServiceLiabilityText(lang);
 
   const [selections, setSelections] = useState<Record<string, Selection>>(() =>
     Object.fromEntries(catalog.map((c) => [c.id, emptySelection(c.variants[0]?.key ?? null)]))
@@ -68,6 +71,8 @@ export function PartnerAddonSection({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  // ★책임 제한 고지 동의 — 미체크 시 신청 버튼 disabled(서버 400 CONSENT_REQUIRED와 대칭).
+  const [consentChecked, setConsentChecked] = useState(false);
 
   // 판매가 표기 — saleCurrency=KRW면 fx로 KRW 올림(없으면 문의), VND면 ₫.
   const fmtPrice = (vndStr: string | null | undefined): string => {
@@ -129,6 +134,7 @@ export function PartnerAddonSection({
 
   const submit = async () => {
     if (submitting) return;
+    if (!consentChecked) return; // 책임 고지 미동의 — 서버 400과 대칭(버튼 disabled 이중 방어)
     const chosen = catalog.filter((c) => (selections[c.id]?.quantity ?? 0) > 0);
     if (chosen.length === 0) return;
     setSubmitting(true);
@@ -149,6 +155,9 @@ export function PartnerAddonSection({
             modifierKeys: sel.modifierKeys,
             quantity: sel.quantity,
             guestNote: sel.guestNote ?? undefined,
+            // ★책임 고지 동의 플래그·표시언어 — 각 품목 POST마다 실어 전 행에 스냅샷 저장(계약 service-order-liability-consent).
+            liabilityConsent: true,
+            locale: lang,
           }),
         });
         if (!res.ok) throw new Error(`HTTP_${res.status}`);
@@ -359,10 +368,27 @@ export function PartnerAddonSection({
 
       {error && <p className="text-sm text-red-500 text-center">{error}</p>}
 
+      {/* ★책임 제한 고지 + 필수 동의 (계약 service-order-liability-consent) — 문구는 service-liability 단일 원천. 아주 작은 글씨. */}
+      {!orderingClosed && catalog.length > 0 && (
+        <div className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2.5 space-y-1.5">
+          <p className="text-[11px] font-bold text-slate-500">{liability.title}</p>
+          <p className="text-[11px] text-slate-400 leading-snug">{liability.body}</p>
+          <label className="flex items-start gap-2 pt-0.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={consentChecked}
+              onChange={(e) => setConsentChecked(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500 shrink-0"
+            />
+            <span className="text-[11px] font-medium text-slate-600 leading-snug">{liability.consentLabel}</span>
+          </label>
+        </div>
+      )}
+
       {!orderingClosed && catalog.length > 0 && (
         <button
           type="button"
-          disabled={submitting || !anySelected}
+          disabled={submitting || !anySelected || !consentChecked}
           onClick={submit}
           className="w-full h-14 bg-teal-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-lg shadow-lg shadow-teal-100 active:scale-[0.98] transition-transform"
         >

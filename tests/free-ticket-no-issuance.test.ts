@@ -98,6 +98,7 @@ const createBody = {
   catalogItemId: "ci-1",
   quantity: 1,
   serviceDate: "2026-08-01",
+  liabilityConsent: true,
   // TICKET은 이용일만 — serviceTime 없이도 통과
 };
 

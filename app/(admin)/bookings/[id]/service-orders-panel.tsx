@@ -74,6 +74,8 @@ export interface OrderRow {
   requestedVia: "ADMIN" | "GUEST" | "PARTNER"; // PARTNER = 여행사/랜드사 채널(ADR-0023)
   customerName: string | null; // 이용자 이름 스냅샷 — 예약 대표자와 다를 때만 식별용 표시
   guestNote: string | null;
+  // 책임 제한 고지 동의 스냅샷(계약 service-order-liability-consent) — 게스트·파트너 신청 시만. 없으면 null(제도 이전·운영자 대리).
+  liabilityConsent: { agreedAt: string; version: string } | null;
   selectedOptions: SelectedOptionSnapshot[];
   ticketUrls: string[]; // 티켓형(TICKET) 발행 이미지 URL — 발행 현황·대리 첨부(ADR-0034)
   ticketGuests: { name: string | null; birthDate: string | null }[]; // TICKET 선택 이용자(이름·생년월일, ADR-0036). 미선택이면 빈 배열.
@@ -653,6 +655,16 @@ export default function ServiceOrdersPanel({
                           <p className="text-[11px] text-teal-300/90 flex items-center gap-0.5">
                             <span className="material-symbols-outlined text-[13px]">person</span>
                             {t("customerName")}: {o.customerName}
+                          </p>
+                        )}
+                        {/* 책임 제한 고지 동의(계약 service-order-liability-consent) — 신청 시점 증빙. 있을 때만 비침습 1줄. */}
+                        {o.liabilityConsent && (
+                          <p className="text-[11px] text-slate-500 flex items-center gap-0.5">
+                            <span className="material-symbols-outlined text-[13px]">verified_user</span>
+                            {t("liabilityConsentAt", {
+                              date: formatDateTime(new Date(o.liabilityConsent.agreedAt)),
+                            })}{" "}
+                            (v{o.liabilityConsent.version})
                           </p>
                         )}
 

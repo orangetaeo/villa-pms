@@ -6,8 +6,11 @@
 // 안전 렌더: dangerouslySetInnerHTML 미사용(텍스트만, whitespace-pre-wrap) — 위젯/인박스 공통 규약.
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { type WebChatThreadData, localeBadge } from "./webchat-types";
+import { type WebChatThreadData, type QuickLinkKind, localeBadge } from "./webchat-types";
 import { SourcePageLabel } from "./webchat-source-badge";
+import { WebChatBookingBar } from "./webchat-booking-bar";
+import { WebChatQuickLinks } from "./webchat-quick-links";
+import { Linkify } from "@/components/linkify";
 
 function msgTime(iso: string): string {
   const d = new Date(iso);
@@ -36,17 +39,28 @@ export function WebChatThread({
   loading,
   sending,
   blocking,
+  canCreateProposal,
   onBack,
   onSend,
   onToggleBlock,
+  onLinkBooking,
+  onUnlinkBooking,
+  onSendLink,
+  onSendProposal,
 }: {
   thread: WebChatThreadData | null;
   loading: boolean;
   sending: boolean;
   blocking: boolean;
+  /** 제안 생성 권한(canSetPrice) — 제안 모달 B 섹션 게이트. */
+  canCreateProposal: boolean;
   onBack: () => void;
   onSend: (text: string) => void;
   onToggleBlock: (nextBlocked: boolean) => void;
+  onLinkBooking: (bookingId: string) => Promise<boolean>;
+  onUnlinkBooking: () => Promise<boolean>;
+  onSendLink: (kind: QuickLinkKind) => Promise<{ ok: boolean; error?: string }>;
+  onSendProposal: (proposalId: string) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const t = useTranslations("adminWebchat");
   const [draft, setDraft] = useState("");
@@ -158,6 +172,16 @@ export function WebChatThread({
             {blocked ? t("block.unblock") : t("block.block")}
           </button>
         </div>
+
+        {/* 예약 연결 배지 / 연결 버튼 */}
+        <div className="mt-2.5">
+          <WebChatBookingBar
+            sessionId={thread.id}
+            booking={thread.booking}
+            onLink={onLinkBooking}
+            onUnlink={onUnlinkBooking}
+          />
+        </div>
       </div>
 
       {/* 메시지 */}
@@ -169,10 +193,12 @@ export function WebChatThread({
             m.direction === "INBOUND" ? (
               <div key={m.id} className="flex justify-start">
                 <div className="max-w-[78%] rounded-2xl rounded-tl-sm bg-slate-800 px-3.5 py-2.5">
-                  <p className="text-sm text-white whitespace-pre-wrap break-words">{m.text}</p>
+                  <p className="text-sm text-white whitespace-pre-wrap break-words">
+                    <Linkify text={m.text} linkClassName="text-sky-300 underline underline-offset-2 break-all" />
+                  </p>
                   {m.translatedText ? (
                     <p className="mt-1.5 pt-1.5 border-t border-slate-700/60 text-sm text-teal-300 whitespace-pre-wrap break-words">
-                      {m.translatedText}
+                      <Linkify text={m.translatedText} linkClassName="text-teal-200 underline underline-offset-2 break-all" />
                     </p>
                   ) : (
                     <p className="mt-1 text-[10px] text-slate-500">{t("untranslated")}</p>
@@ -185,7 +211,9 @@ export function WebChatThread({
             ) : (
               <div key={m.id} className="flex justify-end">
                 <div className="max-w-[78%] rounded-2xl rounded-tr-sm bg-blue-600 px-3.5 py-2.5">
-                  <p className="text-sm text-white whitespace-pre-wrap break-words">{m.text}</p>
+                  <p className="text-sm text-white whitespace-pre-wrap break-words">
+                    <Linkify text={m.text} linkClassName="text-blue-100 underline underline-offset-2 break-all" />
+                  </p>
                   {m.translationFailed && (
                     <p className="mt-1.5 text-[10px] font-bold text-amber-200 bg-amber-500/20 rounded px-1.5 py-0.5 inline-block">
                       {t("translationFailedBadge")}
@@ -201,9 +229,25 @@ export function WebChatThread({
         )}
       </div>
 
+      {/* 빠른 링크(열림 상태) — 제안 보내기는 항상, 예약 링크 3종은 연결된 세션만(내부 게이트) */}
+      {canReply && (
+        <div className="shrink-0 border-t border-slate-800">
+          <WebChatQuickLinks
+            sessionId={thread.id}
+            hasBooking={!!thread.booking}
+            canCreateProposal={canCreateProposal}
+            defaultClientName={
+              thread.contactZalo ?? thread.contactKakao ?? t("proposal.defaultClientName")
+            }
+            onSend={onSendLink}
+            onSendProposal={onSendProposal}
+          />
+        </div>
+      )}
+
       {/* 답장 or 상태 배너 */}
       {canReply ? (
-        <div className="shrink-0 px-3 py-3 border-t border-slate-800 bg-slate-900">
+        <div className="shrink-0 px-3 pb-3 pt-1 bg-slate-900">
           <div className="flex items-end gap-2">
             <textarea
               value={draft}

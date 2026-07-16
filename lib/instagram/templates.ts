@@ -5,8 +5,10 @@
 //   cta = 불투명 teal 그라디언트 카드(사진 없음).
 //
 // satori 제약(SPEC §0): flexbox + absolute만, box-shadow 대신 반투명 fill/border, 다자식 요소는 display:flex.
-// ⚠ 이모지 미사용: satori 기본 폰트로 렌더 불가(두부). info 정보바는 텍스트+앰버 dot 구분으로 대체
-//   (SPEC의 SVG 아이콘 교체는 아이콘 에셋 준비 후 후속 — BE 인계 확인 #1). 이모지는 캡션(인스타 렌더)에만.
+// ⚠ 이모지 미사용: satori 기본 폰트로 렌더 불가(두부). 이모지는 캡션(인스타 렌더)에만.
+//   info 정보바 아이콘: 모노크롬 SVG(assets/icons/info-{bed,guests,beach}.svg, DESIGN, fill #FFF9F0)를
+//   base64 data URI로 인라인해 satori <img>(height 40)로 렌더(marketing-s2 §E, SPEC §2-2). 순서=침실→인원→해변.
+//   ★ 소스 SVG 편집 시 아래 base64 상수도 재생성할 것(scripts로 base64 -w0 <svg>).
 
 const W = 1080;
 const H = 1350;
@@ -52,9 +54,22 @@ function scrim(pos: "top" | "bottom", height: number, gradient: string): SatoriN
   });
 }
 
-/** 앰버 dot(정보 구분). */
-function dot(): SatoriNode {
-  return div({ width: 12, height: 12, borderRadius: 999, backgroundColor: BRAND.sand, margin: "0 22px" });
+// 정보바 아이콘 (assets/icons/info-*.svg → base64 data URI). fill #FFF9F0 고정 · viewBox 32×32 · satori-safe.
+//   순서 인덱스: 0=침실(bed), 1=인원(guests), 2=해변/수영장(beach).
+const ICON_BED =
+  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0iI0ZGRjlGMCI+CiAgPHJlY3QgeD0iMyIgeT0iOS41IiB3aWR0aD0iMi44IiBoZWlnaHQ9IjE1IiByeD0iMS40Ii8+CiAgPHJlY3QgeD0iNi42IiB5PSIxMi44IiB3aWR0aD0iNy4yIiBoZWlnaHQ9IjQuNiIgcng9IjIuMyIvPgogIDxwYXRoIGQ9Ik02IDE1LjUgaDE4LjUgYTMgMyAwIDAgMSAzIDMgVjIxIEg2IFoiLz4KICA8cmVjdCB4PSI0IiB5PSIyMC40IiB3aWR0aD0iMjQiIGhlaWdodD0iMi44IiByeD0iMS40Ii8+CiAgPHJlY3QgeD0iNC42IiB5PSIyMi44IiB3aWR0aD0iMi42IiBoZWlnaHQ9IjMuNiIgcng9IjAuOSIvPgogIDxyZWN0IHg9IjI0LjgiIHk9IjIyLjgiIHdpZHRoPSIyLjYiIGhlaWdodD0iMy42IiByeD0iMC45Ii8+Cjwvc3ZnPgo=";
+const ICON_GUESTS =
+  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0iI0ZGRjlGMCI+CiAgPHBhdGggZD0iTTMuOSAyNi41IGE2LjQgNi40IDAgMCAxIDEyLjggMCBaIi8+CiAgPGNpcmNsZSBjeD0iMTAuMyIgY3k9IjEwLjgiIHI9IjQuNiIvPgogIDxwYXRoIGQ9Ik0xMi42IDI3IGE3LjcgNy43IDAgMCAxIDE1LjQgMCBaIi8+CiAgPGNpcmNsZSBjeD0iMjAuMyIgY3k9IjEyIiByPSI1LjIiLz4KPC9zdmc+Cg==";
+const ICON_BEACH =
+  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0iI0ZGRjlGMCI+CiAgPGNpcmNsZSBjeD0iMTYiIGN5PSI0LjIiIHI9IjEuNSIvPgogIDxyZWN0IHg9IjE1LjMiIHk9IjUiIHdpZHRoPSIxLjQiIGhlaWdodD0iMjIiIHJ4PSIwLjciLz4KICA8cGF0aCBkPSJNMTYgNC41IEMyNC4yIDQuNSAyNy4yIDkuNCAyNy4yIDE1IHEtMi44IDMgLTUuNiAwIHEtMi44IDMgLTUuNiAwIHEtMi44IDMgLTUuNiAwIHEtMi44IDMgLTUuNiAwIEM0LjggOS40IDcuOCA0LjUgMTYgNC41IFoiLz4KPC9zdmc+Cg==";
+const INFO_ICONS = [ICON_BED, ICON_GUESTS, ICON_BEACH] as const;
+
+/** 정보바 아이콘 <img> 노드(height 40). satori는 data URI 이미지를 지원(SatoriNode 타입 외 props라 캐스팅). */
+function infoIcon(dataUri: string): SatoriNode {
+  return {
+    type: "img",
+    props: { src: dataUri, width: 40, height: 40, style: { display: "flex", marginRight: 16 } },
+  } as unknown as SatoriNode;
 }
 
 // ── 커버 ──────────────────────────────────────────────
@@ -115,10 +130,17 @@ export interface InfoData {
 }
 
 export function infoTemplate(d: InfoData): SatoriNode {
-  const chips: SatoriNode[] = [];
-  d.facts.forEach((f, i) => {
-    if (i > 0) chips.push(dot());
-    chips.push(div({ fontFamily: FONT_SANS, fontWeight: 700, fontSize: 40, color: "#FFFFFF" }, f));
+  // 각 항목 = [아이콘 img + 텍스트] 그룹, 그룹 사이 간격(marginRight). 앰버 dot 폐지(marketing-s2 §E).
+  //   아이콘은 순서 인덱스(0 침실·1 인원·2 해변)로 매핑. 4번째+ 항목은 아이콘 없이 텍스트만(안전 폴백).
+  const chips: SatoriNode[] = d.facts.map((f, i) => {
+    const iconSrc = INFO_ICONS[i];
+    return div(
+      { alignItems: "center", marginRight: i < d.facts.length - 1 ? 40 : 0 },
+      [
+        ...(iconSrc ? [infoIcon(iconSrc)] : []),
+        div({ fontFamily: FONT_SANS, fontWeight: 700, fontSize: 40, color: "#FFFFFF" }, f),
+      ]
+    );
   });
 
   const children: SatoriNode[] = [
