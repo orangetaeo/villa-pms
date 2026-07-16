@@ -134,6 +134,9 @@ export default async function BookingDetailPage({
       breakfastIncluded: true,
       note: true,
       cancelReason: true,
+      // 취소·환불 규정 전자 동의 스냅샷 (T-proposal-policy-consent) — 있을 때만 1줄 증빙 표시.
+      //   정책 %·일수만 담김(금액·마진 없음) → 재무권한 무관 표시 가능.
+      policyConsentJson: true,
       villa: { select: { id: true, name: true } },
       // 분할 숙박(ADR-0030 T-E/T-G) — 이 예약이 다른 예약의 연장이면 원 예약 역링크(금액 아님)
       parentBookingId: true,
@@ -619,6 +622,24 @@ export default async function BookingDetailPage({
   // 티켓 주문 폼 이용자 명단 — 운영자 확정본 우선, 없으면 게스트 자동 OCR 잠정본(ADR-0043). 게스트/서버 검증과 동일 원천.
   const checkedInGuests = await loadCheckinRoster(prisma, booking.id);
 
+  // 취소·환불 규정 전자 동의 증빙 (T-proposal-policy-consent) — /p 직판 가예약 시점 서버 스냅샷.
+  //   있을 때만 예약 정보에 1줄 표시(동의 시각 + 당시 정책 조건). 금액·마진 없음.
+  const policyConsent = (() => {
+    const c = booking.policyConsentJson as {
+      agreedAt?: unknown;
+      policy?: { fullDays?: unknown; partialDays?: unknown; partialPct?: unknown };
+    } | null;
+    if (!c || typeof c.agreedAt !== "string") return null;
+    const p = c.policy;
+    const num = (v: unknown) => (typeof v === "number" ? v : null);
+    return {
+      agreedAt: new Date(c.agreedAt),
+      fullDays: num(p?.fullDays),
+      partialDays: num(p?.partialDays),
+      partialPct: num(p?.partialPct),
+    };
+  })();
+
   return (
     <div className="max-w-7xl mx-auto space-y-8">
       {/* 헤더 (b11) */}
@@ -778,6 +799,29 @@ export default async function BookingDetailPage({
                   {booking.guestPhone ?? t("detail.info.none")}
                 </p>
               </div>
+              {/* 취소·환불 규정 전자 동의 증빙 (T-proposal-policy-consent) — 있을 때만 */}
+              {policyConsent && (
+                <div className="col-span-2">
+                  <p className="text-xs text-admin-muted mb-1">{t("detail.policyConsent.label")}</p>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="material-symbols-outlined text-green-500 text-base">verified_user</span>
+                    <span className="font-semibold text-white">
+                      {t("detail.policyConsent.at", { at: formatDateTime(policyConsent.agreedAt) })}
+                    </span>
+                    {policyConsent.fullDays != null &&
+                      policyConsent.partialDays != null &&
+                      policyConsent.partialPct != null && (
+                        <span className="text-admin-muted">
+                          {t("detail.policyConsent.tier", {
+                            full: policyConsent.fullDays,
+                            partial: policyConsent.partialDays,
+                            pct: policyConsent.partialPct,
+                          })}
+                        </span>
+                      )}
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 

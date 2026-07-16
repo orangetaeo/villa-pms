@@ -1180,6 +1180,11 @@
         "phone": "Liên hệ",
         "none": "—"
       },
+      "policyConsent": {
+        "label": "Đồng ý chính sách hủy & hoàn tiền",
+        "at": "Đã đồng ý lúc {at}",
+        "tier": "Trước nhận phòng {full} ngày hoàn 100% · {partial} ngày hoàn {pct}%"
+      },
       "price": {
         "title": "Giá đã chốt",
         "currencyBadge": "Tiền tệ: {currency}",

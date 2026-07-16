@@ -4,6 +4,11 @@ import { createHoldFromProposalItem, HoldRejectedError } from "@/lib/hold";
 import { MissingRateError } from "@/lib/pricing";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { assertSameOrigin } from "@/lib/csrf";
+import {
+  CANCELLATION_POLICY_KEY,
+  parseCancellationPolicy,
+} from "@/lib/cancellation-policy";
+import { isPublicLang } from "@/lib/public-i18n";
 
 // 공개·미인증 엔드포인트 폭주 방어 (T-sec-public-hardening)
 // 토큰: 경로값이라 스푸핑 불가(1차) / IP: best-effort(XFF). 제안 ACTIVE→USED 가드로
@@ -25,6 +30,10 @@ const bodySchema = z.object({
   guestName: z.string().trim().min(1).max(100),
   guestPhone: z.string().trim().regex(/^[0-9+\-\s]{9,20}$/),
   guestCount: z.number().int().min(1).max(16),
+  // 취소·환불 규정 전자 동의 (T-proposal-policy-consent). 정책 enabled=true일 때만 필수.
+  //   정책 값 자체는 서버가 AppSetting에서 읽어 산출(클라 값 불신) — 여기선 동의 플래그·표시 언어만 수신.
+  policyConsent: z.boolean().optional(),
+  locale: z.string().optional(),
 });
 
 export async function POST(
@@ -60,12 +69,43 @@ export async function POST(
     return Response.json({ error: "not_found" }, { status: 404 });
   }
 
+  // 취소·환불 규정 전자 동의 게이트 (T-proposal-policy-consent, 직판 분쟁 방어).
+  //   정책은 서버가 AppSetting에서 읽어 판정·스냅샷 산출(클라 값 불신). enabled=false면 미요구·미저장.
+  const policyRow = await prisma.appSetting.findUnique({
+    where: { key: CANCELLATION_POLICY_KEY },
+    select: { value: true },
+  });
+  const policy = parseCancellationPolicy(policyRow?.value);
+  let policyConsentJson: {
+    agreedAt: string;
+    policy: { fullDays: number; partialDays: number; partialPct: number };
+    locale: string;
+    source: "proposal";
+  } | null = null;
+  if (policy.enabled) {
+    if (parsed.data.policyConsent !== true) {
+      return Response.json({ error: "CONSENT_REQUIRED" }, { status: 400 });
+    }
+    // 스냅샷은 서버 정책값으로 구성 — 동의 당시 조건 증빙(정책이 이후 바뀌어도 불변).
+    policyConsentJson = {
+      agreedAt: new Date().toISOString(),
+      policy: {
+        fullDays: policy.fullDays,
+        partialDays: policy.partialDays,
+        partialPct: policy.partialPct,
+      },
+      locale: isPublicLang(parsed.data.locale) ? parsed.data.locale : "ko",
+      source: "proposal",
+    };
+  }
+
   try {
     const booking = await createHoldFromProposalItem(prisma, {
       proposalItemId: item.id,
       guestName: parsed.data.guestName,
       guestCount: parsed.data.guestCount,
       guestPhone: parsed.data.guestPhone,
+      policyConsentJson,
       now: new Date(),
     });
     return Response.json({ bookingId: booking.id }, { status: 201 });
