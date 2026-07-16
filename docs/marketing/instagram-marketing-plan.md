@@ -38,7 +38,7 @@
    - 앱 유형: Business (개인 Facebook 계정으로 생성 가능 — 서류 불필요)
    - 제품 추가: Instagram → Instagram API 설정
    - 필요 권한: `instagram_business_basic`, `instagram_business_content_publish`(발행), `instagram_business_manage_messages`(DM), `instagram_business_manage_comments`(댓글)
-   - **운영 방침(확정 2026-07-16): 사업자 서류가 없으므로 App Review·비즈니스 인증(Business Verification)은 배제한다.** 자기 소유 계정만 운영하는 구조에서는 **Standard Access(앱에 관리자/테스터 역할이 있는 계정)만으로 발행·DM 웹훅 모두 동작** — 우리 IG 계정을 앱의 Instagram 테스터로 등록하면 됨.
+   - **운영 방침(확정 2026-07-16): 사업자 서류가 없으므로 App Review·비즈니스 인증(Business Verification)은 배제한다.** 자기 소유 계정만 운영하는 구조에서는 **Standard Access(앱에 연결된 자기 계정)만으로 발행·DM 웹훅 모두 동작** — 최신 콘솔(Instagram API with Instagram Login)에서는 테스터 초대 없이 **앱 대시보드 "Add an Instagram account"로 계정 연결 → "Generate token" 버튼으로 60일 장기 토큰까지 즉시 발급**된다 (INTEG 실조사 2026-07-16, 상세=instagram-account-setup.md).
    - Standard Access 한계(알아둘 것): 앱에 역할이 없는 **타인 계정**은 다룰 수 없음(우리는 해당 없음). 향후 사업자등록 후 인증을 추가하면 제한 해제·광고 집행 확장 가능 — 그때 가서 하면 되고 지금 블로커 아님.
    - ※ 용어 구분: 2번의 "프로페셔널(비즈니스) 계정 전환"은 인스타 앱 내 무료 전환으로 **서류 불필요** — 사업자 인증과 별개이며 API 사용의 필수 전제라 유지한다.
 6. 장기 액세스 토큰 발급 → AppSetting에 암호화 저장 (Zalo creds와 동일한 AES-256-GCM 패턴 재사용)
@@ -252,7 +252,7 @@ model InstagramMessage {   // DM 인박스
 | 1 | 포스트 수정 불가 | 발행 후 API 수정·삭제 불가 → **발행 전 승인 큐 필수**, 발행 후 수정은 인스타 앱 수동 |
 | 2 | 링크 클릭 불가 | 캡션 링크 죽음 → 프로필 링크 1곳 + DM 자동응답이 유일한 전환 경로 |
 | 3 | 계정 생성·전환 | API 불가, 수동. 비즈니스 전환 필수. FB 페이지 연결 권장 |
-| 4 | 사업자 인증 배제 | **사업자 서류 없음 → App Review·Business Verification 배제 확정.** 자기 계정+Standard Access(테스터 등록)로 발행·웹훅 전부 운영. 타인 계정 관리·광고 집행만 불가(현재 불필요) |
+| 4 | 사업자 인증 배제 | **사업자 서류 없음 → App Review·Business Verification 배제 확정.** 자기 계정+Standard Access(대시보드 계정 연결·Generate token)로 발행·웹훅 전부 운영. 타인 계정 관리·광고 집행만 불가(현재 불필요) |
 | 5 | 계정 워밍업 | 신규 계정 즉시 자동화 = 밴 위험. 2주 수동 운영 후 자동화 |
 | 6 | 이미지 요건 | JPEG만, 공개 URL 필수, 4:5(1080×1350) 권장, 캐러셀 10장 |
 | 7 | 발행 한도 | API 발행 100건/24h — 일 3건 여유 |
@@ -268,7 +268,7 @@ model InstagramMessage {   // DM 인박스
 
 | 단계 | 태스크 | 담당 | 산출물 |
 |---|---|---|---|
-| P0 | 계정 생성·프로페셔널 전환·개발자 앱·테스터 등록·토큰 (수동, 서류 불요) | 테오 (가이드: OPS) | IG 계정 + 토큰 |
+| P0 | 계정 생성·프로페셔널 전환·개발자 앱·계정 연결(Add account)·토큰 (수동, 서류 불요 — 가이드: docs/marketing/instagram-account-setup.md) | 테오 | IG 계정 + 토큰 |
 | P0 | 경쟁사 벤치마킹 → **Stitch로 오버레이 템플릿 시안 생성**(4종×변형, flexbox 제약) → design/stitch/instagram-templates/ | DESIGN | Stitch export + 템플릿 스펙 |
 | P0 | COPY 서브에이전트 신설 + copy-guide.md·hashtags.md 초판 (트렌드 리서치 포함) | COPY(신설) | 카피 가이드 + 해시태그 사전 |
 | P1 | Stitch export → satori 템플릿 변환 + 렌더 파이프라인 (sharp+satori) | BE | lib/instagram/render.ts |

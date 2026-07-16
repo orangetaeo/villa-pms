@@ -261,6 +261,7 @@
     "serviceOrders": "부가서비스 정산",
     "vendors": "부가서비스 공급자",
     "services": "서비스 카탈로그",
+    "instagram": "인스타그램",
     "messages": "메시지",
     "users": "사용자",
     "settings": "설정",
@@ -277,10 +278,114 @@
       "addon": "부가서비스",
       "partner": "파트너",
       "finance": "재무",
+      "marketing": "마케팅",
       "system": "시스템"
     },
     "revenue": "매출관리",
     "holidays": "공휴일"
+  },
+  "adminInstagram": {
+    "title": "인스타그램 콘텐츠",
+    "subtitle": "자동 생성된 포스트를 검토·승인하고 발행 이력을 관리합니다.",
+    "breadcrumbAdmin": "운영",
+    "breadcrumbMarketing": "마케팅",
+    "breadcrumbCurrent": "인스타그램",
+    "tabs": {
+      "pending": "승인 대기",
+      "queued": "발행 예정",
+      "published": "발행됨",
+      "failed": "실패·취소",
+      "all": "전체"
+    },
+    "failedChip": {
+      "FAILED": "실패",
+      "CANCELLED": "취소됨"
+    },
+    "kst": "KST",
+    "kind": {
+      "VILLA_SHOWCASE": "빌라 쇼케이스",
+      "SERVICE": "부가서비스",
+      "INFO": "정보",
+      "REELS": "릴스"
+    },
+    "status": {
+      "DRAFT": "생성 중",
+      "PENDING_APPROVAL": "승인 대기",
+      "QUEUED": "발행 예정",
+      "PUBLISHING": "발행 중",
+      "PUBLISHED": "발행됨",
+      "FAILED": "실패",
+      "CANCELLED": "취소됨"
+    },
+    "card": {
+      "noVilla": "빌라 미지정",
+      "noMedia": "이미지 없음",
+      "slides": "{n}장",
+      "scheduledAt": "발행 예정",
+      "publishedAt": "발행 시각",
+      "flagged": "금칙어 검토 필요",
+      "flaggedTerms": "검출: {terms}",
+      "failReason": "실패 사유",
+      "captionLabel": "캡션",
+      "editCaption": "캡션 편집",
+      "save": "저장",
+      "saving": "저장 중...",
+      "cancel": "취소",
+      "changeSchedule": "발행 시각 변경",
+      "date": "날짜",
+      "slot": "시간대",
+      "datePlaceholder": "날짜 선택",
+      "approve": "승인",
+      "approving": "승인 중...",
+      "reject": "반려",
+      "rejecting": "반려 중...",
+      "rejectReasonLabel": "반려 사유 (선택)",
+      "rejectReasonPlaceholder": "예: 사진 화질이 낮습니다",
+      "rejectConfirm": "반려하기",
+      "viewOnInstagram": "인스타에서 보기",
+      "publishedLockNote": "발행된 포스트는 인스타그램 앱에서만 수정할 수 있습니다."
+    },
+    "bulk": {
+      "approveAll": "{n}건 모두 승인",
+      "approving": "승인 중... ({done}/{total})",
+      "result": "{ok}건 승인 · {fail}건 실패",
+      "resultOk": "{ok}건 모두 승인했습니다.",
+      "confirm": "승인 대기 {n}건을 모두 승인할까요?"
+    },
+    "empty": "해당하는 포스트가 없습니다.",
+    "loading": "불러오는 중...",
+    "settings": {
+      "title": "인스타그램 연동 설정",
+      "open": "설정 열기",
+      "close": "설정 접기",
+      "igUserId": "IG User ID",
+      "igUserIdPlaceholder": "예: 17841400000000000",
+      "graphBase": "Graph API 베이스",
+      "accessToken": "액세스 토큰",
+      "accessTokenState": "설정됨 ····{last4}",
+      "accessTokenUnset": "미설정",
+      "accessTokenPlaceholder": "새 토큰 입력 (비우면 기존 유지)",
+      "accessTokenHint": "토큰은 저장 후 다시 표시되지 않습니다. 말미 4자리만 확인됩니다.",
+      "autopostPaused": "자동 발행 일시정지",
+      "autopostActive": "자동 발행 중",
+      "autopostPausedHint": "켜면 예약된 포스트가 발행되지 않습니다.",
+      "save": "설정 저장",
+      "saving": "저장 중...",
+      "saved": "설정을 저장했습니다.",
+      "readOnly": "설정 변경은 OWNER/ADMIN만 가능합니다. 현재 값은 조회만 됩니다.",
+      "forbidden": "설정 변경 권한이 없습니다 (OWNER/ADMIN 전용).",
+      "loadError": "설정을 불러오지 못했습니다.",
+      "saveError": "설정 저장에 실패했습니다."
+    },
+    "toast": {
+      "saved": "저장했습니다.",
+      "approved": "승인했습니다.",
+      "rejected": "반려했습니다.",
+      "stateChanged": "상태가 변경되었습니다. 목록을 새로고칩니다.",
+      "notEditable": "이 상태에서는 수정할 수 없습니다.",
+      "error": "오류가 발생했습니다. 다시 시도해주세요.",
+      "loadError": "목록을 불러오지 못했습니다."
+    }
   },
   "account": {
     "title": "내 계정",
@@ -4179,7 +4284,8 @@
     "villaDetail": "빌라 상세",
     "availability": "공실 보드",
     "statistics": "통계",
-    "serviceOrders": "부가서비스 정산"
+    "serviceOrders": "부가서비스 정산",
+    "instagram": "인스타그램 콘텐츠"
   },
   "pagination": {
     "summary": "{from}–{to} · 총 {total}건",
