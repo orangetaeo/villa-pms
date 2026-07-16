@@ -16,6 +16,13 @@ export const IG_ACCESS_TOKEN_KEY = "IG_ACCESS_TOKEN";
 export const IG_USER_ID_KEY = "IG_USER_ID";
 export const IG_AUTOPOST_PAUSED_KEY = "IG_AUTOPOST_PAUSED";
 export const IG_GRAPH_BASE_KEY = "IG_GRAPH_BASE";
+/** 장기 토큰 만료 시각(ISO, now+expires_in). 갱신·수동 저장 시 upsert. */
+export const IG_TOKEN_EXPIRES_AT_KEY = "IG_TOKEN_EXPIRES_AT";
+/** 마지막 갱신·수동 저장 시각(ISO). 주 1회 갱신 게이트 기준. */
+export const IG_TOKEN_REFRESHED_AT_KEY = "IG_TOKEN_REFRESHED_AT";
+
+/** 수동 저장 시 만료 가정치(장기 토큰 발급 직후 60일). */
+export const IG_LONG_LIVED_TOKEN_TTL_MS = 60 * 24 * 60 * 60 * 1000;
 
 /** Instagram API with Instagram Login 기본 base. IG_GRAPH_BASE로 오버라이드 가능. */
 export const IG_GRAPH_BASE_DEFAULT = "https://graph.instagram.com/v23.0";
@@ -89,4 +96,40 @@ export async function setAutopostPaused(paused: boolean, db: DbClient = prisma):
 export async function getIgGraphBase(db: DbClient = prisma): Promise<string> {
   const v = await readSetting(db, IG_GRAPH_BASE_KEY);
   return (v ?? IG_GRAPH_BASE_DEFAULT).replace(/\/$/, "");
+}
+
+/**
+ * Graph API 호스트 루트(버전 경로 제거) — refresh_access_token 엔드포인트는 버전 경로 없이
+ * 호스트 루트에 위치(예: https://graph.instagram.com). base 끝의 /vNN(.N)? 세그먼트를 제거한다.
+ */
+export async function getIgGraphHostRoot(db: DbClient = prisma): Promise<string> {
+  const base = await getIgGraphBase(db);
+  return base.replace(/\/v\d+(\.\d+)?$/i, "");
+}
+
+/** 토큰 만료 시각(ISO) — 미설정 시 null. 설정 화면 D-일 표시·갱신 긴급도 판단용. */
+export async function getIgTokenExpiresAt(db: DbClient = prisma): Promise<string | null> {
+  return readSetting(db, IG_TOKEN_EXPIRES_AT_KEY);
+}
+
+/** 마지막 갱신·수동 저장 시각(ISO) — 미설정 시 null. 주 1회 갱신 게이트 기준. */
+export async function getIgTokenRefreshedAt(db: DbClient = prisma): Promise<string | null> {
+  return readSetting(db, IG_TOKEN_REFRESHED_AT_KEY);
+}
+
+/** 갱신·수동 저장 시 만료/갱신 타임스탬프 동시 기록(둘 다 ISO). */
+export async function setIgTokenTimestamps(
+  expiresAtIso: string,
+  refreshedAtIso: string,
+  db: DbClient = prisma
+): Promise<void> {
+  await writeSetting(db, IG_TOKEN_EXPIRES_AT_KEY, expiresAtIso);
+  await writeSetting(db, IG_TOKEN_REFRESHED_AT_KEY, refreshedAtIso);
+}
+
+/** 수동 토큰 저장 시 타임스탬프 리셋(지금·now+60일 가정). 갱신 cron이 이후 실측치로 보정. */
+export async function resetIgTokenTimestampsForManualSave(db: DbClient = prisma): Promise<void> {
+  const now = new Date();
+  const expires = new Date(now.getTime() + IG_LONG_LIVED_TOKEN_TTL_MS);
+  await setIgTokenTimestamps(expires.toISOString(), now.toISOString(), db);
 }
