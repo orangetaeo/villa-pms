@@ -23,6 +23,14 @@ export interface SerializedYtShort {
   publishedAt: string | null;
   failReason: string | null;
   flaggedTerms: string[];
+  // ── 직접 촬영 자동 편집 잡 (marketing-s2 §A) — 편집 잡 아니면 editJobStatus=null ──
+  editJobStatus: string | null; // PENDING/PROCESSING/DONE/FAILED (렌더 축, status와 별개)
+  editError: string | null; // 렌더 실패 사유(업로드 failReason과 별개 축)
+  // ── 성과 캐시 (marketing-s2 §B) — 타 에이전트가 값을 채움(필드만 additive) ──
+  latestViews: number | null;
+  latestLikes: number | null;
+  latestComments: number | null;
+  statsSyncedAt: string | null;
   createdBy: string | null;
   createdAt: string;
   updatedAt: string;
@@ -56,6 +64,12 @@ export function serializeYtShort(short: ShortWithVilla): SerializedYtShort {
     publishedAt: short.publishedAt?.toISOString() ?? null,
     failReason: short.failReason,
     flaggedTerms: toStringArray(short.flaggedTerms),
+    editJobStatus: short.editJobStatus ?? null,
+    editError: short.editError ?? null,
+    latestViews: short.latestViews ?? null,
+    latestLikes: short.latestLikes ?? null,
+    latestComments: short.latestComments ?? null,
+    statsSyncedAt: short.statsSyncedAt?.toISOString() ?? null,
     createdBy: short.createdBy,
     createdAt: short.createdAt.toISOString(),
     updatedAt: short.updatedAt.toISOString(),

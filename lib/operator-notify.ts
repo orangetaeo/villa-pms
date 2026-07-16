@@ -61,6 +61,8 @@ export const GROUP_ROUTED_TYPES: ReadonlySet<NotificationType> = new Set([
   // 웹 채팅 신규 문의(T-webchat-mvp) — 운영자 전원이 같은 정보를 받으면 되는 업무 통지.
   // ★ 새 운영자 타입은 여기 명시 추가 필수(누락 시 그룹 라우팅 안 되고 개별 DM 폴백).
   NotificationType.WEBCHAT_NEW_MESSAGE,
+  // 마케팅 자동화 통지(marketing-s2 §D) — 초안 승인 대기·발행/수집/편집 실패 경보. lib/marketing-notify 경유.
+  NotificationType.MARKETING_ALERT,
 ]);
 
 /**

@@ -13,9 +13,10 @@ import { IgPostStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { writeAuditLog } from "@/lib/audit-log";
-import { enqueueInAppForOperators } from "@/lib/inapp-notification";
+import { notifyMarketing } from "@/lib/marketing-notify";
 import { parseUtcDateOnly, todayVnDateString } from "@/lib/date-vn";
 import { loadInsightsContext, syncMediaInsights, syncAccountInsights } from "@/lib/instagram/insights";
+import { syncYoutubeShortStats } from "@/lib/youtube/stats";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // 미디어 다건 × Graph API 콜
@@ -106,21 +107,49 @@ async function handle(req: Request) {
     });
   }
 
-  // 전체 실패급 경보: 미디어 대상이 있는데 전부 실패(토큰·권한 이상 의심).
+  // 전체 실패급 경보: 미디어 대상이 있는데 전부 실패(토큰·권한 이상 의심). 인앱 벨 + Zalo 그룹.
   if (posts.length > 0 && mediaOk === 0) {
-    try {
-      await enqueueInAppForOperators({
-        type: "IG_INSIGHTS_FAILED",
-        title: "⚠️ 인스타 인사이트 수집 실패",
-        body: `인스타 지표 수집이 전부 실패했습니다(대상 ${posts.length}건). 연동 설정에서 토큰·권한을 확인하세요.`,
-        href: "/marketing/instagram",
+    await notifyMarketing({
+      kind: "IG_INSIGHTS_FAILED",
+      summary: `인스타 지표 수집이 전부 실패했습니다(대상 ${posts.length}건). 연동 설정에서 토큰·권한을 확인하세요.`,
+      href: "/marketing/instagram",
+    });
+  }
+
+  // ── 유튜브 쇼츠 성과 수집(marketing-s2 §B) — 인스타 블록과 완전 격리(try/catch). ──
+  //   토큰 미연결/미설정이면 fetchYoutubeVideoStats가 실패 사유 반환(targeted>0 && ok=0 → 경보).
+  //   대상 0건(발행 쇼츠 없음)이면 no-op. 쓰기 발생 시 요약 AuditLog 1건.
+  let yt: { targeted: number; ok: number; reason?: string } = { targeted: 0, ok: 0 };
+  try {
+    yt = await syncYoutubeShortStats(capturedOn);
+    if (yt.ok > 0) {
+      await writeAuditLog({
+        userId: null,
+        action: "CREATE",
+        entity: "YoutubeShort",
+        entityId: vnToday,
+        changes: {
+          capturedOn: { new: vnToday },
+          statsOk: { new: yt.ok },
+          targeted: { new: yt.targeted },
+        },
       });
-    } catch (e) {
-      console.error(
-        "[cron/instagram-insights] 실패 경보 적재 실패:",
-        e instanceof Error ? e.message : String(e)
-      );
     }
+    // 대상이 있는데 전부 실패(토큰·쿼터 이상 의심) — 경보.
+    if (yt.targeted > 0 && yt.ok === 0) {
+      await notifyMarketing({
+        kind: "YT_STATS_FAILED",
+        summary:
+          `유튜브 쇼츠 성과 수집이 전부 실패했습니다(대상 ${yt.targeted}건).` +
+          (yt.reason ? ` 사유: ${yt.reason}` : " 유튜브 연결·쿼터를 확인하세요."),
+        href: "/marketing/youtube",
+      });
+    }
+  } catch (e) {
+    console.error(
+      "[cron/instagram-insights] 유튜브 성과 수집 실패(격리):",
+      e instanceof Error ? e.message : String(e)
+    );
   }
 
   return Response.json({
@@ -129,6 +158,7 @@ async function handle(req: Request) {
     mediaOk,
     failCount,
     account: accountOk ? "ok" : "fail",
+    youtube: { targeted: yt.targeted, ok: yt.ok, ...(yt.reason ? { reason: yt.reason } : {}) },
     ...(failures.length > 0 ? { failures } : {}),
   });
 }

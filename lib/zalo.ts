@@ -138,6 +138,23 @@ const SEASON_LABEL_KO: Record<string, string> = {
 };
 
 /**
+ * 마케팅 알림 kind별 한국어 제목 프리픽스 (MARKETING_ALERT payload.kind 분기 — marketing-s2 §D).
+ * ★ lib/marketing-notify.MarketingAlertKind와 1:1. 새 kind 추가 시 양쪽 동시 등재.
+ */
+const MARKETING_ALERT_PREFIX: Record<string, string> = {
+  IG_DRAFTS_READY: "📸 인스타 초안 승인 대기",
+  YT_DRAFTS_READY: "📹 유튜브 쇼츠 초안 승인 대기",
+  IG_PUBLISH_FAILED: "🚨 인스타 발행 실패",
+  YT_PUBLISH_FAILED: "🚨 유튜브 쇼츠 업로드 실패",
+  YT_DRAFT_FAILED: "🚨 유튜브 쇼츠 초안 실패",
+  IG_TOKEN_REFRESH_FAILED: "🚨 인스타 토큰 갱신 실패",
+  IG_INSIGHTS_FAILED: "🚨 인스타 인사이트 수집 실패",
+  YT_STATS_FAILED: "🚨 유튜브 성과 수집 실패",
+  YT_EDIT_DONE: "✅ 유튜브 편집 완료",
+  YT_EDIT_FAILED: "🚨 유튜브 편집 실패",
+};
+
+/**
  * payload에서 첨부 URL 배열을 안전 추출 (전달 증빙용).
  * 현재 TAMTRU_PASSPORT의 passportPhotoUrls만 미러 attachmentUrls에 기록한다.
  * (Phase 1: 텍스트 알림 + 첨부 URL 증빙. 실 이미지 발송은 잔여 — dispatchOne 주석 참조)
@@ -627,10 +644,21 @@ export function buildNotificationText(
       return lines.join("\n");
     }
 
-    case NotificationType.MARKETING_ALERT:
-      // 수신자=운영자 → 한국어. 마케팅 자동화 통지(IG 초안·IG/YT 발행실패·YT 토큰·편집 잡 완료).
-      // ★스텁 (marketing-s2 §D) — 세부 payload 분기 본문은 BE가 구현. 화이트리스트 필드(summary)만 표기.
-      return `📣 마케팅 알림: ${str(p.summary, "상세는 관리자 화면에서 확인해주세요.")}`;
+    case NotificationType.MARKETING_ALERT: {
+      // 수신자=운영자 → 한국어. 마케팅 자동화 통지(IG 초안·IG/YT 발행실패·YT 토큰·성과·편집 잡).
+      // ★ 화이트리스트 필드(kind·summary·href)만 — 판매가·마진 개념 없음. href는 base 접두로 절대경로화(로그인 게이트).
+      const kind = typeof p.kind === "string" ? p.kind : "";
+      const prefix = MARKETING_ALERT_PREFIX[kind] ?? "📣 마케팅 알림";
+      const lines = [`${prefix}: ${str(p.summary, "상세는 관리자 화면에서 확인해주세요.")}`];
+      const hrefPath = typeof p.href === "string" && p.href.startsWith("/") ? p.href : null;
+      const base = (
+        process.env.VILLA_PUBLIC_BASE_URL ||
+        process.env.NEXTAUTH_URL ||
+        ""
+      ).replace(/\/+$/, "");
+      if (hrefPath && base) lines.push(`${base}${hrefPath}`);
+      return lines.join("\n");
+    }
   }
 }
 
