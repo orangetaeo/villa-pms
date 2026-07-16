@@ -6,8 +6,8 @@
 //   ★URL은 번역문과 분리 — 본문 뒤에 줄바꿈 후 붙인다(번역문 안에 URL이 섞이지 않게).
 //   문구는 자연스러운 초안(추후 LOC 감수 예정). 브랜드명 "Villa GO".
 
-/** 발송 가능한 링크 종류 — /g(체크인) · /g/options(부가서비스) · /g/receipt(영수증). */
-export type LinkKind = "checkin" | "options" | "receipt";
+/** 발송 가능한 링크 종류 — /g(체크인) · /g/options(부가서비스) · /g/receipt(영수증) · /p(제안 링크). */
+export type LinkKind = "checkin" | "options" | "receipt" | "proposal";
 
 /** 사전 번역 지원 언어(웹챗 5언어와 동일). */
 const TEMPLATE_LOCALES = ["ko", "vi", "en", "zh", "ru"] as const;
@@ -35,6 +35,13 @@ const BODY: Record<LinkKind, Record<TemplateLocale, string>> = {
     en: "[Villa GO] Your check-out receipt. You can review your charges and deposit refund using the link below.",
     zh: "[Villa GO] 您的退房结算单。您可以通过以下链接查看消费明细和押金退款。",
     ru: "[Villa GO] Итоговый счёт при выезде. Вы можете посмотреть детали расходов и возврат депозита по ссылке ниже.",
+  },
+  proposal: {
+    ko: "[Villa GO] 요청하신 빌라 제안입니다. 아래 링크에서 빌라 정보와 가격을 확인하신 뒤 마음에 드시는 빌라로 예약을 신청하실 수 있습니다. 링크에는 유효기간이 있으니 기간 내에 확인 부탁드립니다.",
+    vi: "[Villa GO] Đây là đề xuất biệt thự theo yêu cầu của Quý khách. Quý khách vui lòng xem thông tin và giá qua liên kết bên dưới, sau đó đặt biệt thự mình ưng ý. Liên kết có thời hạn hiệu lực, kính mong Quý khách kiểm tra trong thời gian đó.",
+    en: "[Villa GO] Here is the villa proposal you requested. Please review the villa details and prices using the link below, then request a booking for the villa you like. The link has an expiry date, so please check it in time.",
+    zh: "[Villa GO] 这是您所需的别墅提案。请通过以下链接查看别墅信息和价格，然后选择您心仪的别墅提交预订申请。链接设有有效期，请在期限内查看。",
+    ru: "[Villa GO] Это предложение вилл по вашему запросу. Пожалуйста, ознакомьтесь с информацией и ценами по ссылке ниже, а затем отправьте заявку на понравившуюся виллу. Ссылка действует ограниченное время, просьба проверить её вовремя.",
   },
 };
 
