@@ -108,6 +108,15 @@ const NAV: NavEntry[] = [
       { key: "statistics", href: "/statistics", icon: "analytics" },
     ],
   },
+  {
+    // 마케팅 도메인(인스타그램 콘텐츠 큐) — 콘텐츠에 마진·판매가 없어 전 운영자 노출.
+    // 설정(토큰) 변경만 API에서 isSystemAdmin 게이트. Phase 2에 DM 인박스 추가 예정.
+    group: "marketing",
+    icon: "campaign",
+    items: [
+      { key: "instagram", href: "/marketing/instagram", icon: "photo_camera" },
+    ],
+  },
   { key: "messages", href: "/messages", icon: "chat" },
   {
     group: "system",

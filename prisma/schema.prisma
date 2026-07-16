@@ -224,6 +224,7 @@ model Villa {
   features       VillaFeature[] // ⑤ 셀링포인트 태그 (ADR-0011, 사전 패턴)
   minibarStocks  VillaMinibarStock[] // #2c: 빌라별 미니바 비치수량 오버라이드 (가격은 회사표준 유지)
   serviceVendors VillaServiceVendor[] // 빌라별 지역 지정 업체(마사지·이발 등 지역 분포 서비스) — ADR-0037
+  instagramPosts InstagramPost[] // 인스타그램 자동 포스팅 (instagram-marketing-p1) — 빌라 삭제 시 SetNull(발행 이력 보존)
 
   @@index([supplierId])
   @@index([status, isSellable])
@@ -1629,4 +1630,53 @@ model ZaloAccount {
   @@unique([userId, kind]) // 관리자 1명당 kind별 1계정 (개인 1 + (테오만)시스템 1)
   @@index([isActive])
   @@index([kind, isActive])
+}
+
+// ===================== 인스타그램 자동 포스팅 (instagram-marketing-p1, Phase 1) =====================
+// 기획: docs/marketing/instagram-marketing-plan.md §3-3. InstagramMessage(DM)는 Phase 2.
+// 토큰·설정은 AppSetting: IG_ACCESS_TOKEN(AES-256-GCM 암호문)·IG_USER_ID·IG_AUTOPOST_PAUSED(킬스위치).
+
+enum IgPostKind {
+  VILLA_SHOWCASE // 빌라 쇼케이스 (villaId 연결)
+  SERVICE // 부가서비스 홍보
+  INFO // 정보성 (지역·여행 팁 등)
+  REELS // 릴스
+}
+
+enum IgPostStatus {
+  DRAFT // 렌더·캡션 생성 중간 상태
+  PENDING_APPROVAL // 초안 완성 — 운영자 승인 대기
+  QUEUED // 승인됨 — scheduledAt 슬롯 발행 대기
+  PUBLISHING // 발행 cron이 Graph API 처리 중 (중복 발행 방지 락)
+  PUBLISHED // 발행 완료 (igMediaId·igPermalink 확정)
+  FAILED // 발행 실패 (failReason 기록 + Zalo 경보)
+  CANCELLED // 운영자 반려·취소
+}
+
+model InstagramPost {
+  id      String  @id @default(cuid())
+  // 빌라 쇼케이스면 연결, 정보/서비스 포스트면 null. 빌라 삭제 시 SetNull — 발행 이력(permalink)은 보존.
+  villaId String?
+  villa   Villa?  @relation(fields: [villaId], references: [id], onDelete: SetNull)
+
+  kind        IgPostKind
+  status      IgPostStatus @default(DRAFT)
+  scheduledAt DateTime // 발행 예정 슬롯 (07:30/12:30/20:00 KST) — UTC 저장
+  caption     String // 승인된 최종 캡션 (해시태그 포함)
+  // 렌더 산출물 배열: [{srcPhotoId, renderedUrl, templateId, overlayText}] — renderedUrl은 R2 instagram-renders/ 공개 URL
+  mediaJson   Json
+
+  igMediaId   String? // 발행 후 인스타 media id
+  igPermalink String? // 발행 후 포스트 URL
+  publishedAt DateTime?
+  failReason  String?
+  // 금칙어 가드 플래그: Gemini 캡션에서 검출된 위반 용어 배열 (예: ["최저가","100%"]). null = 위반 없음
+  flaggedTerms Json?
+
+  createdBy String? // 생성 주체 — cron이면 "cron:instagram-draft", 수동이면 User.id (VillaPhoto.uploadedBy 패턴, FK 없음)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, scheduledAt]) // 발행 cron: QUEUED + 시간 도래분 조회
+  @@index([villaId]) // 빌라 로테이션 선정(포스팅 이력 조회)
 }

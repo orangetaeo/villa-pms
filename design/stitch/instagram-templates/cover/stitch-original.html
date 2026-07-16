@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700&family=Public+Sans:wght@300;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+        }
+        .canvas-container {
+            width: 1080px;
+            height: 1350px;
+            position: relative;
+            background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAcddKmHxnNY3El14cQCZGKsvtdTOZxpcZWz9970-BbvV_VRBtNXCoA3uEnyJ4A8za2n6MigEotqv29V4mri4-DglTIZEk8pozbrGGf6Ki7DwpywXNu9BmjqWZuM2NGZxIH4tlsTDopRXmv6O_MnMB3nHKLOFFkjgVUiUdE8KAKiOTXBPy-_u05yc09xcAZe0VuqOM7d2SNvVhXJAuG8nticw8G5miFxx91SKeaDMCUaAZmiGVQSu9ThtxOtJ3vu-_W1JzgX9zGTMPC');
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        /* Top Gradient Scrim */
+        .scrim-top {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 30%;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0) 100%);
+            z-index: 1;
+        }
+        /* Bottom Gradient Scrim */
+        .scrim-bottom {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 25%;
+            background: linear-gradient(to top, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0) 100%);
+            z-index: 1;
+        }
+        .content-top {
+            position: relative;
+            z-index: 10;
+            padding-top: 140px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        .headline {
+            font-family: 'Nanum Myeongjo', serif;
+            font-size: 64px;
+            font-weight: 700;
+            color: #FFF9F0;
+            line-height: 1.3;
+            letter-spacing: -0.02em;
+            text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            word-break: keep-all;
+        }
+        .divider {
+            width: 60px;
+            height: 1px;
+            background-color: #FFF9F0;
+            margin-top: 32px;
+            opacity: 0.8;
+        }
+        .content-bottom {
+            position: relative;
+            z-index: 10;
+            padding: 0 80px 80px 80px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .brand-name {
+            font-family: 'Public Sans', sans-serif;
+            font-size: 32px;
+            font-weight: 600;
+            color: #FFF9F0;
+            letter-spacing: 0.2em;
+            margin-bottom: 8px;
+        }
+        .handle {
+            font-family: 'Public Sans', sans-serif;
+            font-size: 16px;
+            font-weight: 300;
+            color: #FFF9F0;
+            opacity: 0.9;
+            letter-spacing: 0.05em;
+        }
+    </style>
+</head>
+<body>
+    <div class="canvas-container">
+        <!-- Visual Layering -->
+        <div class="scrim-top"></div>
+        <div class="scrim-bottom"></div>
+
+        <!-- Upper Content -->
+        <div class="content-top">
+            <h1 class="headline">푸꾸옥에서<br>눈 뜨자마자 수영장</h1>
+            <div class="divider"></div>
+        </div>
+
+        <!-- Lower Content -->
+        <div class="content-bottom">
+            <div class="brand-name">VILLA GO</div>
+            <div class="handle">@villago.phuquoc</div>
+        </div>
+    </div>
+</body>
+</html>

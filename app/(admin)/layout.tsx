@@ -81,6 +81,8 @@ const ADMIN_CLIENT_NAMESPACES = [
   "adminNotif",
   // 기간별 요금 캘린더(components/rate-calendar) — ADR-0044, 빌라 상세 요금 탭
   "rateCalendar",
+  // 인스타그램 콘텐츠 큐(/marketing/instagram — instagram-queue·instagram-post-card·instagram-settings)
+  "adminInstagram",
 ] as const;
 
 export default async function AdminLayout({

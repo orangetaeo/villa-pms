@@ -261,6 +261,7 @@
     "serviceOrders": "Quyết toán dịch vụ",
     "vendors": "Nhà cung cấp dịch vụ",
     "services": "Danh mục dịch vụ",
+    "instagram": "Instagram",
     "messages": "Tin nhắn",
     "users": "Người dùng",
     "settings": "Cài đặt",
@@ -277,10 +278,114 @@
       "addon": "Dịch vụ bổ sung",
       "partner": "Đối tác",
       "finance": "Tài chính",
+      "marketing": "Marketing",
       "system": "Hệ thống"
     },
     "revenue": "Doanh thu",
     "holidays": "Ngày lễ"
+  },
+  "adminInstagram": {
+    "title": "Nội dung Instagram",
+    "subtitle": "Xem xét, duyệt bài viết được tạo tự động và quản lý lịch sử đăng.",
+    "breadcrumbAdmin": "Vận hành",
+    "breadcrumbMarketing": "Marketing",
+    "breadcrumbCurrent": "Instagram",
+    "tabs": {
+      "pending": "Chờ duyệt",
+      "queued": "Chờ đăng",
+      "published": "Đã đăng",
+      "failed": "Lỗi·Đã hủy",
+      "all": "Tất cả"
+    },
+    "failedChip": {
+      "FAILED": "Lỗi",
+      "CANCELLED": "Đã hủy"
+    },
+    "kst": "KST",
+    "kind": {
+      "VILLA_SHOWCASE": "Giới thiệu villa",
+      "SERVICE": "Dịch vụ bổ sung",
+      "INFO": "Thông tin",
+      "REELS": "Reels"
+    },
+    "status": {
+      "DRAFT": "Đang tạo",
+      "PENDING_APPROVAL": "Chờ duyệt",
+      "QUEUED": "Chờ đăng",
+      "PUBLISHING": "Đang đăng",
+      "PUBLISHED": "Đã đăng",
+      "FAILED": "Lỗi",
+      "CANCELLED": "Đã hủy"
+    },
+    "card": {
+      "noVilla": "Chưa gán villa",
+      "noMedia": "Không có ảnh",
+      "slides": "{n} ảnh",
+      "scheduledAt": "Dự kiến đăng",
+      "publishedAt": "Thời gian đăng",
+      "flagged": "Cần kiểm tra từ cấm",
+      "flaggedTerms": "Phát hiện: {terms}",
+      "failReason": "Lý do lỗi",
+      "captionLabel": "Chú thích",
+      "editCaption": "Sửa chú thích",
+      "save": "Lưu",
+      "saving": "Đang lưu...",
+      "cancel": "Hủy",
+      "changeSchedule": "Đổi giờ đăng",
+      "date": "Ngày",
+      "slot": "Khung giờ",
+      "datePlaceholder": "Chọn ngày",
+      "approve": "Duyệt",
+      "approving": "Đang duyệt...",
+      "reject": "Từ chối",
+      "rejecting": "Đang từ chối...",
+      "rejectReasonLabel": "Lý do từ chối (tùy chọn)",
+      "rejectReasonPlaceholder": "VD: Ảnh chất lượng thấp",
+      "rejectConfirm": "Từ chối",
+      "viewOnInstagram": "Xem trên Instagram",
+      "publishedLockNote": "Bài đã đăng chỉ có thể sửa trong ứng dụng Instagram."
+    },
+    "bulk": {
+      "approveAll": "Duyệt tất cả {n}",
+      "approving": "Đang duyệt... ({done}/{total})",
+      "result": "Duyệt {ok} · Lỗi {fail}",
+      "resultOk": "Đã duyệt tất cả {ok} bài.",
+      "confirm": "Duyệt tất cả {n} bài đang chờ?"
+    },
+    "empty": "Không có bài viết phù hợp.",
+    "loading": "Đang tải...",
+    "settings": {
+      "title": "Cài đặt kết nối Instagram",
+      "open": "Mở cài đặt",
+      "close": "Thu gọn cài đặt",
+      "igUserId": "IG User ID",
+      "igUserIdPlaceholder": "VD: 17841400000000000",
+      "graphBase": "Graph API base",
+      "accessToken": "Access token",
+      "accessTokenState": "Đã đặt ····{last4}",
+      "accessTokenUnset": "Chưa đặt",
+      "accessTokenPlaceholder": "Nhập token mới (để trống nếu giữ nguyên)",
+      "accessTokenHint": "Token không hiển thị lại sau khi lưu. Chỉ xem được 4 ký tự cuối.",
+      "autopostPaused": "Tạm dừng đăng tự động",
+      "autopostActive": "Đang đăng tự động",
+      "autopostPausedHint": "Khi bật, các bài đã lên lịch sẽ không được đăng.",
+      "save": "Lưu cài đặt",
+      "saving": "Đang lưu...",
+      "saved": "Đã lưu cài đặt.",
+      "readOnly": "Chỉ OWNER/ADMIN mới đổi được cài đặt. Hiện chỉ xem.",
+      "forbidden": "Không có quyền đổi cài đặt (chỉ OWNER/ADMIN).",
+      "loadError": "Không tải được cài đặt.",
+      "saveError": "Lưu cài đặt thất bại."
+    },
+    "toast": {
+      "saved": "Đã lưu.",
+      "approved": "Đã duyệt.",
+      "rejected": "Đã từ chối.",
+      "stateChanged": "Trạng thái đã thay đổi. Đang làm mới danh sách.",
+      "notEditable": "Không thể sửa ở trạng thái này.",
+      "error": "Đã xảy ra lỗi. Vui lòng thử lại.",
+      "loadError": "Không tải được danh sách."
+    }
   },
   "account": {
     "title": "Tài khoản của tôi",
@@ -4348,7 +4453,8 @@
     "villas": "Quản lý villa",
     "villaDetail": "Chi tiết villa",
     "statistics": "Thống kê",
-    "serviceOrders": "Quyết toán dịch vụ"
+    "serviceOrders": "Quyết toán dịch vụ",
+    "instagram": "Nội dung Instagram"
   },
   "adminCheckinSheet": {
     "title": "Phiếu nhận phòng hôm nay",

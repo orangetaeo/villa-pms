@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VILLA GO · Instagram Info-Bar Template</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700&family=Public+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================================
+       VILLA GO — Instagram INFO-BAR overlay (1080 x 1350, 4:5)
+       Bottom translucent dark bar with 3 icon+text facts + top-right
+       price badge. satori-safe: flexbox + absolute only.
+       ⚠ Emoji (🛏👨‍👩‍👧🏖) require a satori emoji asset loader (twemoji) OR
+         swap each .ico span for a bundled monochrome <img> icon.
+       ============================================================ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { display: flex; justify-content: center; background: #111; }
+
+    .artboard {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      width: 1080px;
+      height: 1350px;
+      overflow: hidden;
+      font-family: 'Public Sans', 'Pretendard', sans-serif;
+    }
+
+    .photo {
+      position: absolute; top: 0; left: 0;
+      width: 1080px; height: 1350px;
+      object-fit: cover;
+    }
+
+    /* Bottom gradient bar occupies roughly the lower 1/3 for legibility */
+    .scrim-bottom {
+      position: absolute; bottom: 0; left: 0;
+      width: 1080px; height: 470px;
+      background: linear-gradient(to top, rgba(10,17,20,0.86) 0%, rgba(10,17,20,0.62) 42%, rgba(10,17,20,0) 100%);
+    }
+
+    /* --- top row: price badge, right-aligned --- */
+    .top {
+      position: relative;
+      display: flex;
+      flex-direction: row;
+      justify-content: flex-end;
+      padding: 72px 72px 0 72px;
+    }
+    .price-badge {
+      display: flex;
+      align-items: baseline;
+      padding: 20px 34px;
+      border-radius: 999px;
+      background: #FFF9F0;
+    }
+    .price-lead {
+      font-size: 26px;
+      font-weight: 600;
+      color: #0F766E;
+      letter-spacing: -0.01em;
+    }
+    .price-value {
+      margin-left: 8px;
+      font-size: 34px;
+      font-weight: 700;
+      color: #0D9488;
+      letter-spacing: -0.02em;
+    }
+
+    /* --- bottom: villa name + info bar --- */
+    .bottom {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      padding: 0 84px 96px 84px;
+    }
+    .villa-name {
+      font-family: 'Nanum Myeongjo', serif;
+      font-size: 46px;
+      font-weight: 700;
+      color: #FFF9F0;
+      letter-spacing: -0.01em;
+      word-break: keep-all;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.4);
+    }
+    .info-row {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      margin-top: 34px;
+    }
+    .info-item {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+    }
+    .ico {
+      display: flex;
+      font-size: 40px;
+      line-height: 1;
+    }
+    .info-text {
+      margin-left: 16px;
+      font-size: 36px;
+      font-weight: 600;
+      color: #FFF9F0;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+    }
+    .dot {
+      display: flex;
+      width: 8px; height: 8px;
+      margin: 0 30px;
+      border-radius: 999px;
+      background: #F59E0B;
+    }
+  </style>
+</head>
+<body>
+  <div class="artboard">
+    <img class="photo" src="https://picsum.photos/seed/villagovilla/1080/1350" alt="villa" data-inject="photoUrl">
+
+    <div class="scrim-bottom"></div>
+
+    <div class="top">
+      <div class="price-badge">
+        <div class="price-lead">1박</div>
+        <div class="price-value" data-inject="priceBadge">45만원~</div>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <div class="villa-name" data-inject="villaName">쏘나씨 오션 풀빌라</div>
+      <div class="info-row">
+        <div class="info-item">
+          <div class="ico">🛏</div>
+          <div class="info-text">침실 <span data-inject="bedrooms">3</span></div>
+        </div>
+        <div class="dot"></div>
+        <div class="info-item">
+          <div class="ico">👨‍👩‍👧</div>
+          <div class="info-text">최대 <span data-inject="maxGuests">8</span>인</div>
+        </div>
+        <div class="dot"></div>
+        <div class="info-item">
+          <div class="ico">🏖</div>
+          <div class="info-text">해변 <span data-inject="beachDistance">도보 5분</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
