@@ -4273,6 +4273,50 @@
     "lang": "Ngôn ngữ",
     "untranslated": "Chưa dịch",
     "translationFailedBadge": "⚠ Dịch thất bại — đã gửi bản gốc tiếng Hàn",
+    "booking": {
+      "connect": "Liên kết đặt phòng",
+      "modalTitle": "Liên kết đặt phòng",
+      "close": "Đóng",
+      "searchPlaceholder": "Tìm theo tên khách · SĐT · tên villa",
+      "noCandidates": "Không có gợi ý tự động. Hãy thử tìm kiếm.",
+      "noSearchResults": "Không có kết quả",
+      "match": {
+        "token": "Từ liên kết",
+        "contact": "Trùng liên hệ"
+      },
+      "noVilla": "Chưa chọn villa",
+      "noPhone": "Không có SĐT",
+      "confirmTitle": "Liên kết đặt phòng này?",
+      "fieldGuest": "Khách",
+      "fieldPhone": "4 số cuối SĐT",
+      "fieldVilla": "Villa",
+      "fieldCheckIn": "Nhận phòng",
+      "confirmWarning": "Bạn đã xác nhận tên / 4 số cuối SĐT với khách chưa? Liên kết sai có thể gửi nhầm link cho khách khác.",
+      "cancel": "Hủy",
+      "doLink": "Liên kết",
+      "linking": "Đang liên kết…",
+      "confirmUnlink": "Gỡ liên kết đặt phòng?",
+      "unlink": "Gỡ liên kết",
+      "openBooking": "Mở chi tiết đặt phòng"
+    },
+    "quickLink": {
+      "label": "Link nhanh:",
+      "checkin": "Hướng dẫn nhận phòng",
+      "options": "Dịch vụ thêm",
+      "receipt": "Hóa đơn",
+      "sending": "Đang gửi…",
+      "confirm": {
+        "checkin": "Gửi link hướng dẫn nhận phòng cho khách?",
+        "options": "Gửi link dịch vụ thêm cho khách?",
+        "receipt": "Gửi link hóa đơn cho khách?"
+      },
+      "error": {
+        "notCheckedOut": "Chỉ gửi được sau khi khách trả phòng.",
+        "notLinked": "Hãy liên kết đặt phòng trước.",
+        "sessionClosed": "Không thể gửi tới hội thoại đã đóng hoặc bị chặn.",
+        "generic": "Gửi thất bại. Vui lòng thử lại sau."
+      }
+    },
     "noMessages": "Chưa có tin nhắn",
     "composer": {
       "placeholder": "Nhập trả lời (tiếng Hàn)",

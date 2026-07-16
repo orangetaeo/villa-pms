@@ -627,6 +627,7 @@ model Booking {
   settlementItem SettlementItem?
   cleaningTasks  CleaningTask[]
   receivable     PartnerReceivable? // B2B 객실료 채권 (ADR-0022)
+  webChatSessions WebChatSession[] @relation("WebChatSessionBooking") // 웹챗 세션 식별 연결 (T-webchat-guest-link-share) — additive raw SQL
 
   @@index([villaId, checkIn, checkOut])
   @@index([status, holdExpiresAt])
@@ -1570,6 +1571,13 @@ model WebChatSession {
 
   unreadForAdmin Int @default(0) // 운영자 미확인 수 — 스레드 열람 시 0 리셋(totalUnread 정확도)
 
+  // 세션↔예약 연결 (T-webchat-guest-link-share) — 운영자 식별용, 조직 공유 스코프.
+  // ★방문자 폴링 응답에 절대 미노출(누수 게이트). 라이브 반영=additive raw SQL(migrations-manual).
+  bookingId       String?
+  booking         Booking?  @relation("WebChatSessionBooking", fields: [bookingId], references: [id], onDelete: SetNull)
+  bookingLinkedAt DateTime? // 연결 시각
+  bookingLinkedBy String?   // 연결한 운영자 userId (감사 추적 — AuditLog와 병행)
+
   // 인박스 미리보기 비정규화(ZaloConversation.lastMessageText 동형, 기획 §9 P1-3) — N+1 제거.
   // 표시 전용(누수 무관: 본문·방향만). 메시지 쓰기 경로가 lastMessageAt와 함께 갱신.
   lastMessageText      String?
@@ -1585,6 +1593,7 @@ model WebChatSession {
   @@index([ownerAdminId, lastMessageAt]) // 운영자 인박스 정렬
   @@index([status])
   @@index([ipHash, createdAt]) // 어뷰즈 조사(IP 기준 세션 대량 생성 추적)
+  @@index([bookingId]) // 세션↔예약 연결 역조회 (T-webchat-guest-link-share)
 }
 
 // 웹 채팅 메시지 — 방향별 원문 + 번역 캐시. ★금액 컬럼 없음.
