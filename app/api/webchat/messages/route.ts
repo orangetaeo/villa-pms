@@ -19,6 +19,7 @@ import {
   computeExpiresAt,
   previewText,
   resolveWebChatOwnerAdminId,
+  listActiveOperatorIds,
   verifyTurnstile,
 } from "@/lib/webchat";
 import { publish } from "@/lib/realtime-bus";
@@ -64,7 +65,7 @@ export async function POST(req: Request) {
   const existing = cookieSessionId
     ? await prisma.webChatSession.findUnique({
         where: { id: cookieSessionId },
-        select: { id: true, status: true, expiresAt: true, ownerAdminId: true },
+        select: { id: true, status: true, expiresAt: true },
       })
     : null;
 
@@ -101,7 +102,6 @@ export async function POST(req: Request) {
 
   let sessionId: string;
   let messageOut: { id: string; createdAt: Date };
-  let ownerForSignal: string;
   const isFirstMessage = !existing;
 
   if (!existing) {
@@ -137,13 +137,11 @@ export async function POST(req: Request) {
       },
       select: {
         id: true,
-        ownerAdminId: true,
         messages: { select: { id: true, createdAt: true } },
       },
     });
     sessionId = created.id;
     messageOut = created.messages[0];
-    ownerForSignal = created.ownerAdminId;
   } else {
     const result = await prisma.$transaction(async (tx) => {
       const m = await tx.webChatMessage.create({
@@ -172,12 +170,14 @@ export async function POST(req: Request) {
     });
     sessionId = existing.id;
     messageOut = result;
-    ownerForSignal = existing.ownerAdminId;
   }
 
-  // 실시간 신호(식별만) — best-effort
+  // 실시간 신호(식별만) — best-effort. 웹챗은 조직 공유 자산이라 활성 운영자 전원 채널로 fan-out.
   try {
-    publish(ownerForSignal, { type: "inbound", conversationId: sessionId, source: "webchat" });
+    const operatorIds = await listActiveOperatorIds();
+    for (const opId of operatorIds) {
+      publish(opId, { type: "inbound", conversationId: sessionId, source: "webchat" });
+    }
   } catch {
     /* 신호 실패는 무해 */
   }

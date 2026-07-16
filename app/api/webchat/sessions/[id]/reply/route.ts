@@ -6,16 +6,22 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
-import { isSystemAdmin } from "@/lib/permissions";
+import { isOperator } from "@/lib/permissions";
 import { requireCapability, notFoundIfMissing } from "@/lib/api-guard";
 import { publish } from "@/lib/realtime-bus";
-import { maybeTranslate, computeExpiresAt, previewText, MSG_MAX_LEN } from "@/lib/webchat";
+import {
+  maybeTranslate,
+  computeExpiresAt,
+  previewText,
+  listActiveOperatorIds,
+  MSG_MAX_LEN,
+} from "@/lib/webchat";
 
 const schema = z.object({ text: z.string() });
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  // 첫 줄 role 검사 — ADMIN 전용
-  const g = await requireCapability(isSystemAdmin, "isSystemAdmin", req);
+  // 첫 줄 role 검사 — 운영자 전체(OWNER/MANAGER/STAFF/ADMIN). 웹챗은 구조적 무금액이라 STAFF 개방 안전.
+  const g = await requireCapability(isOperator, "isOperator", req);
   if (!g.ok) return g.response;
 
   const { id } = await ctx.params;
@@ -36,10 +42,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     return NextResponse.json({ error: "INVALID_LENGTH" }, { status: 400 });
   }
 
-  // 소유 스코프 강제 — 타 운영자 세션은 404
+  // 웹챗 세션은 조직 공유 자산 — Zalo 대화(개인 스코프)와 다름 (T-webchat-expand)
   const session = await prisma.webChatSession.findFirst({
-    where: { id, ownerAdminId: g.userId },
-    select: { id: true, status: true, visitorLocale: true, ownerAdminId: true },
+    where: { id },
+    select: { id: true, status: true, visitorLocale: true },
   });
   const found = notFoundIfMissing(session);
   if (!found.ok) return found.response;
@@ -85,9 +91,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     return m;
   });
 
-  // 실시간 신호(식별만) — best-effort
+  // 실시간 신호(식별만) — best-effort. 웹챗은 조직 공유 자산이라 활성 운영자 전원 채널로 fan-out.
   try {
-    publish(s.ownerAdminId, { type: "outbound", conversationId: s.id, source: "webchat" });
+    const operatorIds = await listActiveOperatorIds();
+    for (const opId of operatorIds) {
+      publish(opId, { type: "outbound", conversationId: s.id, source: "webchat" });
+    }
   } catch {
     /* 신호 실패는 무해 */
   }
