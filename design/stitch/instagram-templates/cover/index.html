@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VILLA GO · Instagram Cover Template</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Public+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================================
+       VILLA GO — Instagram COVER overlay (1080 x 1350, 4:5)
+       satori-safe: flexbox + absolute only. No grid / backdrop-filter /
+       filter / transform. Photo = <img> layer (sharp-composite or {photoUrl}).
+       ============================================================ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { display: flex; justify-content: center; background: #111; }
+
+    .artboard {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      width: 1080px;
+      height: 1350px;
+      overflow: hidden;
+      font-family: 'Public Sans', 'Pretendard', sans-serif;
+    }
+
+    /* --- Layer 0: villa photo (composited by sharp OR injected {photoUrl}) --- */
+    .photo {
+      position: absolute;
+      top: 0; left: 0;
+      width: 1080px; height: 1350px;
+      object-fit: cover;
+    }
+
+    /* --- Layer 1: legibility scrims (satori supports linear-gradient) --- */
+    .scrim-top {
+      position: absolute; top: 0; left: 0;
+      width: 1080px; height: 460px;
+      background: linear-gradient(to bottom, rgba(12,20,24,0.55) 0%, rgba(12,20,24,0) 100%);
+    }
+    .scrim-bottom {
+      position: absolute; bottom: 0; left: 0;
+      width: 1080px; height: 420px;
+      background: linear-gradient(to top, rgba(12,20,24,0.62) 0%, rgba(12,20,24,0) 100%);
+    }
+
+    /* --- Layer 10: content --- */
+    .top {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 150px 96px 0 96px;
+    }
+    .eyebrow {
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: 0.34em;
+      color: #FFF9F0;
+      opacity: 0.88;
+    }
+    .headline {
+      margin-top: 30px;
+      font-family: 'Nanum Myeongjo', serif;
+      font-size: 68px;
+      font-weight: 800;
+      line-height: 1.32;
+      letter-spacing: -0.02em;
+      text-align: center;
+      color: #FFF9F0;
+      text-shadow: 0 4px 18px rgba(0,0,0,0.38);
+      word-break: keep-all;
+    }
+    .divider {
+      width: 68px; height: 2px;
+      margin-top: 40px;
+      background: #F59E0B;
+    }
+
+    .bottom {
+      position: relative;
+      display: flex;
+      flex-direction: row;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 0 96px 96px 96px;
+    }
+    .brand-block { display: flex; flex-direction: column; }
+    .brand {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      color: #FFF9F0;
+    }
+    .handle {
+      margin-top: 8px;
+      font-size: 20px;
+      font-weight: 300;
+      letter-spacing: 0.06em;
+      color: #FFF9F0;
+      opacity: 0.9;
+    }
+    .slide-hint {
+      display: flex;
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: #FFF9F0;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div class="artboard">
+    <!-- Layer 0: photo. In satori runtime this is composited by sharp; for preview an <img> is used. -->
+    <img class="photo" src="https://picsum.photos/seed/villagopool/1080/1350" alt="villa" data-inject="photoUrl">
+
+    <!-- Layer 1 -->
+    <div class="scrim-top"></div>
+    <div class="scrim-bottom"></div>
+
+    <!-- Layer 10 -->
+    <div class="top">
+      <div class="eyebrow" data-inject="eyebrow">PHU QUOC PRIVATE POOL VILLA</div>
+      <div class="headline" data-inject="headline">푸꾸옥에서<br>눈 뜨자마자 수영장</div>
+      <div class="divider"></div>
+    </div>
+
+    <div class="bottom">
+      <div class="brand-block">
+        <div class="brand" data-inject="brandName">VILLA GO</div>
+        <div class="handle" data-inject="handle">@villago.phuquoc</div>
+      </div>
+      <div class="slide-hint" data-inject="slideHint">밀어서 더보기 →</div>
+    </div>
+  </div>
+</body>
+</html>

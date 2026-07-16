@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VILLA GO · Instagram CTA (Last Card) Template</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Public+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================================
+       VILLA GO — Instagram CTA / last carousel card (1080 x 1350)
+       NO photo. Brand teal gradient background rendered by satori.
+       satori-safe: flexbox + absolute only, linear-gradient bg,
+       semi-transparent circles for depth (no blur/filter).
+       ============================================================ */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { display: flex; justify-content: center; background: #111; }
+
+    .artboard {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      width: 1080px;
+      height: 1350px;
+      overflow: hidden;
+      font-family: 'Public Sans', 'Pretendard', sans-serif;
+      background: linear-gradient(150deg, #0D9488 0%, #0F766E 52%, #115E59 100%);
+    }
+
+    /* soft translucent decor circles (satori-safe: plain semi-transparent fills) */
+    .decor-1 {
+      position: absolute;
+      top: -180px; right: -160px;
+      width: 620px; height: 620px;
+      border-radius: 999px;
+      background: rgba(255,249,240,0.06);
+    }
+    .decor-2 {
+      position: absolute;
+      bottom: -220px; left: -180px;
+      width: 680px; height: 680px;
+      border-radius: 999px;
+      background: rgba(245,158,11,0.08);
+    }
+
+    /* --- top: brand lockup --- */
+    .top {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 150px;
+    }
+    .brand {
+      font-size: 44px;
+      font-weight: 700;
+      letter-spacing: 0.26em;
+      color: #FFF9F0;
+    }
+    .handle {
+      margin-top: 14px;
+      font-size: 22px;
+      font-weight: 300;
+      letter-spacing: 0.08em;
+      color: #FFF9F0;
+      opacity: 0.85;
+    }
+
+    /* --- center: headline + kakao chip --- */
+    .center {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 96px;
+    }
+    .divider {
+      width: 68px; height: 3px;
+      margin-bottom: 46px;
+      background: #F59E0B;
+    }
+    .headline {
+      font-family: 'Nanum Myeongjo', serif;
+      font-size: 64px;
+      font-weight: 800;
+      line-height: 1.36;
+      text-align: center;
+      color: #FFF9F0;
+      letter-spacing: -0.02em;
+      word-break: keep-all;
+    }
+    .kakao-btn {
+      display: flex;
+      align-items: center;
+      margin-top: 58px;
+      padding: 30px 52px;
+      border-radius: 999px;
+      background: #FEE500;
+    }
+    .kakao-btn-text {
+      font-size: 38px;
+      font-weight: 700;
+      color: #191600;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+    }
+
+    /* --- bottom: helper line --- */
+    .bottom {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-bottom: 140px;
+    }
+    .helper {
+      font-size: 30px;
+      font-weight: 400;
+      color: #FFF9F0;
+      opacity: 0.9;
+      letter-spacing: -0.01em;
+      word-break: keep-all;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="artboard">
+    <div class="decor-1"></div>
+    <div class="decor-2"></div>
+
+    <div class="top">
+      <div class="brand" data-inject="brandName">VILLA GO</div>
+      <div class="handle" data-inject="handle">푸꾸옥 프라이빗 풀빌라</div>
+    </div>
+
+    <div class="center">
+      <div class="divider"></div>
+      <div class="headline" data-inject="ctaHeadline">예약 · 견적 문의는<br>프로필 링크 →<br>카카오톡 상담</div>
+      <div class="kakao-btn">
+        <div class="kakao-btn-text" data-inject="kakaoLabel">카카오톡으로 상담하기</div>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <div class="helper" data-inject="ctaHelper">프로필 링크를 눌러 카카오 채널로 연결됩니다</div>
+    </div>
+  </div>
+</body>
+</html>

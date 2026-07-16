@@ -167,6 +167,52 @@ export function getUploadDir(): string {
   return UPLOAD_DIR;
 }
 
+// ===================== 인스타그램 렌더 산출물 — 공개 이미지 (instagram-marketing-p1) =====================
+// 합성된 JPEG 캐러셀 이미지를 공개 URL로 저장한다. Instagram Graph API 발행은 **공개 접근 URL 필수**
+// (image_url을 Meta 서버가 직접 fetch). 빌라 사진과 동일한 공개 R2 버킷/도메인을 재사용하되,
+// prefix `instagram-renders/`로 구분(수명·정리 정책 분리 가능). saveFile과 달리 이미 서버에서 합성한
+// JPEG이므로 uploaderId·매직바이트 검사 파이프라인이 아니라 결정형 저장만 수행.
+//
+// ⚠ 공개 URL 형태:
+//   - R2 모드(STORAGE_* 설정): `${publicUrl}/instagram-renders/<name>.jpg` = 절대 공개 URL(Meta fetch 가능).
+//   - 디스크 폴백: `/uploads/instagram-renders/<name>.jpg` = 상대 경로 → 발행 클라이언트가 앱 origin으로
+//     절대화해야 Meta가 접근 가능(publish.ts toAbsoluteMediaUrl 참조). 프로덕션은 R2 경로가 정본.
+const INSTAGRAM_RENDER_PREFIX = "instagram-renders";
+
+/**
+ * 인스타그램 렌더 JPEG 저장 → 공개 URL 반환.
+ * @param buffer 합성 완료된 JPEG 바이트
+ * @param baseName 파일명 접두(예: 포스트id-슬롯index) — 영숫자·하이픈만 유지
+ * @returns url(공개 or 상대 URL), key(버킷/디스크 키)
+ */
+export async function saveInstagramRender(
+  buffer: Buffer,
+  baseName: string
+): Promise<{ url: string; key: string }> {
+  const safeBase = baseName.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 60) || "render";
+  const fileName = `${safeBase}-${Date.now()}-${randomUUID()}.jpg`;
+  const key = `${INSTAGRAM_RENDER_PREFIX}/${fileName}`;
+  const r2 = getR2Config();
+
+  if (r2) {
+    await getR2Client(r2).send(
+      new PutObjectCommand({
+        Bucket: r2.bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: "image/jpeg",
+        CacheControl: "public, max-age=31536000, immutable",
+      })
+    );
+    return { url: `${r2.publicUrl}/${key}`, key };
+  }
+
+  const dir = path.join(UPLOAD_DIR, INSTAGRAM_RENDER_PREFIX);
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(path.join(dir, fileName), buffer);
+  return { url: `/uploads/${key}`, key };
+}
+
 // ===================== 여권 사진 — 비공개 저장 (T3.1, QA 합의 조건 A) =====================
 // 공개 업로드 파이프라인(saveFile)과 의도적으로 분리:
 // - R2 설정 여부와 무관하게 **항상 디스크(volume)** 의 passports/ 하위에 저장
