@@ -54,6 +54,16 @@ const PRIVACY_BADGE: Record<string, string> = {
   private: "bg-slate-800 border-slate-700 text-slate-400",
 };
 
+// 직접 촬영 자동 편집 잡 상태 뱃지(status와 별개 축) — DONE은 뱃지 생략(정상 큐 합류).
+const EDITJOB_BADGE: Record<string, string> = {
+  PENDING: "bg-slate-800 border-slate-700 text-slate-300",
+  PROCESSING: "bg-blue-500/15 border-blue-500/30 text-blue-300",
+  FAILED: "bg-red-500/10 border-red-500/30 text-red-400",
+};
+
+const fmtNum = (n: number | null | undefined) =>
+  n == null ? null : n.toLocaleString("ko-KR");
+
 export default function YoutubeShortCard({
   short,
   onChanged,
@@ -84,7 +94,9 @@ export default function YoutubeShortCard({
   const [slot, setSlot] = useState(kst.hm);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState<null | "meta" | "schedule" | "approve" | "reject">(null);
+  const [busy, setBusy] = useState<null | "meta" | "schedule" | "approve" | "reject" | "rerun">(
+    null
+  );
 
   // 공통 응답 처리: 409 → onConflict, ok → 성공콜백, 그 외 → 에러 토스트
   async function handle(res: Response, okMsg: string, after?: () => void): Promise<boolean> {
@@ -182,8 +194,29 @@ export default function YoutubeShortCard({
     }
   };
 
+  // 편집 잡 재실행(직접 촬영 UPLOADED, editJobStatus=FAILED) — run retry(동기, 수분).
+  const rerunEdit = async () => {
+    if (busy) return;
+    setBusy("rerun");
+    try {
+      const res = await fetch(`/api/youtube/edit-jobs/${short.id}/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ retry: true }),
+      });
+      await handle(res, t("editJob.DONE"));
+    } catch {
+      notify(t("toast.error"), "err");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const privacy = short.ytPrivacyStatus ?? undefined;
   const needsPublicSwitch = short.status === "PUBLISHED" && privacy === "unlisted";
+  const editJob = short.editJobStatus && short.editJobStatus !== "DONE" ? short.editJobStatus : null;
+  const publishedViews = short.status === "PUBLISHED" ? fmtNum(short.latestViews) : null;
+  const publishedLikes = short.status === "PUBLISHED" ? fmtNum(short.latestLikes) : null;
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-slate-800/50 bg-admin-card p-4">
@@ -256,6 +289,41 @@ export default function YoutubeShortCard({
             >
               {t(`status.${short.status}`)}
             </span>
+            {/* 직접 촬영 자동 편집 잡 상태(status와 별개 축) — PENDING/PROCESSING/FAILED */}
+            {editJob && (
+              <span
+                className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-bold ${
+                  EDITJOB_BADGE[editJob] ?? "border-slate-700 text-slate-400"
+                }`}
+                title={editJob === "FAILED" && short.editError ? short.editError : undefined}
+              >
+                {editJob === "PROCESSING" && (
+                  <span className="material-symbols-outlined animate-spin text-[12px]">
+                    progress_activity
+                  </span>
+                )}
+                {t(`editJob.${editJob}`)}
+              </span>
+            )}
+            {/* 발행됨 성과 뱃지 — latestViews·latestLikes, null=미표시 */}
+            {publishedViews != null && (
+              <span
+                className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-0.5 text-[10px] font-bold text-slate-300"
+                title={t("metric.views")}
+              >
+                <span className="material-symbols-outlined text-[12px]">visibility</span>
+                {publishedViews}
+              </span>
+            )}
+            {publishedLikes != null && (
+              <span
+                className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-0.5 text-[10px] font-bold text-slate-300"
+                title={t("metric.likes")}
+              >
+                <span className="material-symbols-outlined text-[12px]">thumb_up</span>
+                {publishedLikes}
+              </span>
+            )}
           </div>
 
           <p className="truncate text-sm font-bold text-white">
@@ -287,6 +355,31 @@ export default function YoutubeShortCard({
           {short.failReason && (
             <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1.5 text-[11px] text-red-300">
               <span className="font-bold">{t("card.failReason")}:</span> {short.failReason}
+            </div>
+          )}
+
+          {/* 편집 잡 실패(직접 촬영) — 사유 + 카드 내 재실행 */}
+          {editJob === "FAILED" && (
+            <div className="flex flex-col gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-2">
+              <p className="text-[11px] text-red-300">
+                <span className="font-bold">{t("editJob.errorLabel")}:</span>{" "}
+                {short.editError ?? t("toast.error")}
+              </p>
+              <button
+                type="button"
+                onClick={rerunEdit}
+                disabled={busy === "rerun"}
+                className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-red-500/40 px-3 py-1.5 text-[11px] font-bold text-red-200 hover:bg-red-500/20 disabled:opacity-50"
+              >
+                <span
+                  className={`material-symbols-outlined text-[14px] ${
+                    busy === "rerun" ? "animate-spin" : ""
+                  }`}
+                >
+                  {busy === "rerun" ? "progress_activity" : "refresh"}
+                </span>
+                {busy === "rerun" ? t("editJob.rerunning") : t("editJob.rerun")}
+              </button>
             </div>
           )}
         </div>

@@ -4,12 +4,12 @@
 //   → InstagramPost 3건 PENDING_APPROVAL(슬롯 07:30/12:30/20:00 KST) → 운영자 인앱 알림 + AuditLog.
 //
 // ★ 누수 0: 빌라 select는 공개 정보만(lib/instagram/draft VILLA_SELECT). 캡션 입력도 공개 정보만.
-// ★ 운영자 알림: enqueueInAppForOperators(db-backup 패턴) — NotificationType enum 추가 없이 인앱 벨로 통지.
+// ★ 운영자 알림: notifyMarketing(marketing-s2 §D) — 인앱 벨 + Zalo 그룹 병행(MARKETING_ALERT).
 import { IgPostStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { writeAuditLog } from "@/lib/audit-log";
-import { enqueueInAppForOperators } from "@/lib/inapp-notification";
+import { notifyMarketing } from "@/lib/marketing-notify";
 import {
   selectVillasForRotation,
   planVillaDraft,
@@ -124,22 +124,17 @@ async function handle(req: Request) {
     }
   }
 
-  // 운영자 인앱 알림(생성분이 있을 때만). 적재 실패는 격리(본 흐름 무영향).
+  // 운영자 알림(생성분이 있을 때만) — 인앱 벨 + Zalo 그룹.
   if (created.length > 0) {
     const flaggedCount = created.filter((c) => c.flagged.length > 0).length;
-    try {
-      await enqueueInAppForOperators({
-        type: "IG_DRAFTS_READY",
-        title: "인스타 초안 승인 대기",
-        body:
-          `오늘 인스타 초안 ${created.length}건이 생성되었습니다.` +
-          (flaggedCount > 0 ? ` (금칙어 경고 ${flaggedCount}건 — 확인 필요)` : "") +
-          `\n승인 전에는 발행되지 않습니다.`,
-        href: "/marketing/instagram",
-      });
-    } catch (e) {
-      console.error("[cron/instagram-draft] 운영자 알림 적재 실패:", e instanceof Error ? e.message : String(e));
-    }
+    await notifyMarketing({
+      kind: "IG_DRAFTS_READY",
+      summary:
+        `오늘 인스타 초안 ${created.length}건이 생성되었습니다.` +
+        (flaggedCount > 0 ? ` (금칙어 경고 ${flaggedCount}건 — 확인 필요)` : "") +
+        `\n승인 전에는 발행되지 않습니다.`,
+      href: "/marketing/instagram",
+    });
   }
 
   // ── 유튜브 쇼츠 자동 초안(youtube-shorts-s1) — YT_SHORTS_PER_DAY≥1일 때만. 0이면 조기 반환(기존 동작 완전 동일). ──
@@ -153,45 +148,30 @@ async function handle(req: Request) {
       ytSummary = { created: yt.created.length, failed: yt.failures.length, flagged: ytFlagged };
 
       if (yt.created.length > 0) {
-        try {
-          await enqueueInAppForOperators({
-            type: "YT_DRAFTS_READY",
-            title: "유튜브 쇼츠 초안 승인 대기",
-            body:
-              `오늘 유튜브 쇼츠 초안 ${yt.created.length}건이 생성되었습니다.` +
-              (ytFlagged > 0 ? ` (금칙어 경고 ${ytFlagged}건 — 확인 필요)` : "") +
-              `\n승인 전에는 업로드되지 않습니다.`,
-            href: "/marketing/youtube",
-          });
-        } catch (e) {
-          console.error("[cron/instagram-draft] 유튜브 초안 알림 적재 실패:", e instanceof Error ? e.message : String(e));
-        }
+        await notifyMarketing({
+          kind: "YT_DRAFTS_READY",
+          summary:
+            `오늘 유튜브 쇼츠 초안 ${yt.created.length}건이 생성되었습니다.` +
+            (ytFlagged > 0 ? ` (금칙어 경고 ${ytFlagged}건 — 확인 필요)` : "") +
+            `\n승인 전에는 업로드되지 않습니다.`,
+          href: "/marketing/youtube",
+        });
       }
       if (yt.failures.length > 0) {
-        try {
-          await enqueueInAppForOperators({
-            type: "YT_DRAFT_FAILED",
-            title: "⚠️ 유튜브 쇼츠 초안 실패",
-            body: `유튜브 쇼츠 초안 ${yt.failures.length}건 생성이 실패했습니다. 로그를 확인하세요.`,
-            href: "/marketing/youtube",
-          });
-        } catch (e) {
-          console.error("[cron/instagram-draft] 유튜브 실패 경보 적재 실패:", e instanceof Error ? e.message : String(e));
-        }
+        await notifyMarketing({
+          kind: "YT_DRAFT_FAILED",
+          summary: `유튜브 쇼츠 초안 ${yt.failures.length}건 생성이 실패했습니다. 로그를 확인하세요.`,
+          href: "/marketing/youtube",
+        });
       }
     } catch (e) {
       const reason = e instanceof Error ? e.message : String(e);
       console.error("[cron/instagram-draft] 유튜브 초안 배치 실패(격리):", reason);
-      try {
-        await enqueueInAppForOperators({
-          type: "YT_DRAFT_FAILED",
-          title: "⚠️ 유튜브 쇼츠 초안 실패",
-          body: "유튜브 쇼츠 초안 배치가 실패했습니다. 로그를 확인하세요.",
-          href: "/marketing/youtube",
-        });
-      } catch {
-        /* 경보 적재 실패는 무시 */
-      }
+      await notifyMarketing({
+        kind: "YT_DRAFT_FAILED",
+        summary: "유튜브 쇼츠 초안 배치가 실패했습니다. 로그를 확인하세요.",
+        href: "/marketing/youtube",
+      });
       ytSummary = { created: 0, failed: 1, flagged: 0 };
     }
   }

@@ -8,7 +8,7 @@
 //   - 실패(skip 제외) → 운영자 인앱 경보(IG_TOKEN_REFRESH_FAILED, 만료 7일 이내면 긴급 표시) + AuditLog.
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { writeAuditLog } from "@/lib/audit-log";
-import { enqueueInAppForOperators } from "@/lib/inapp-notification";
+import { notifyMarketing } from "@/lib/marketing-notify";
 import { refreshInstagramToken } from "@/lib/instagram/token-refresh";
 import {
   getIgAccessTokenMeta,
@@ -80,26 +80,20 @@ async function handle(req: Request) {
     },
   });
 
-  try {
-    const urgentPrefix = urgent ? "🚨 [긴급] " : "⚠️ ";
-    const expiryNote =
-      remainingDays != null
-        ? remainingDays >= 0
-          ? ` 만료까지 D-${remainingDays}.`
-          : " 이미 만료됨."
-        : "";
-    await enqueueInAppForOperators({
-      type: "IG_TOKEN_REFRESH_FAILED",
-      title: `${urgentPrefix}인스타 토큰 갱신 실패`,
-      body: `인스타그램 액세스 토큰 자동 갱신에 실패했습니다.${expiryNote} 연동 설정에서 토큰을 재발급·저장하세요. (사유: ${failReason})`,
-      href: "/marketing/instagram",
-    });
-  } catch (e) {
-    console.error(
-      "[cron/instagram-token-refresh] 실패 경보 적재 실패:",
-      e instanceof Error ? e.message : String(e)
-    );
-  }
+  const urgentPrefix = urgent ? "🚨 [긴급] " : "⚠️ ";
+  const expiryNote =
+    remainingDays != null
+      ? remainingDays >= 0
+        ? ` 만료까지 D-${remainingDays}.`
+        : " 이미 만료됨."
+      : "";
+  // 인앱 벨 + Zalo 그룹. 만료 임박 시 인앱 제목에 긴급 프리픽스 유지(title 오버라이드).
+  await notifyMarketing({
+    kind: "IG_TOKEN_REFRESH_FAILED",
+    title: `${urgentPrefix}인스타 토큰 갱신 실패`,
+    summary: `인스타그램 액세스 토큰 자동 갱신에 실패했습니다.${expiryNote} 연동 설정에서 토큰을 재발급·저장하세요. (사유: ${failReason})`,
+    href: "/marketing/instagram",
+  });
 
   return Response.json({
     status: "ok",
