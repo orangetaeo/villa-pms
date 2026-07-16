@@ -127,6 +127,8 @@ const NAV: NavEntry[] = [
       { key: "settings", href: "/settings", icon: "settings", cap: isSystemAdmin },
       // 공휴일 캘린더(ADR-0042) — 프리미엄 박 판정의 공휴일 축. 설정과 동일 등급(isSystemAdmin)
       { key: "holidays", href: "/settings/holidays", icon: "event", cap: isSystemAdmin },
+      // 사업 계약서 문서 뷰어 — 마진 전략·원가 구조 포함이라 재무 등급만(canViewFinance=OWNER/MANAGER, STAFF 숨김)
+      { key: "documents", href: "/documents", icon: "description", cap: canViewFinance },
     ],
   },
 ];

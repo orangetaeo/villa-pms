@@ -14,13 +14,13 @@ import { evaluateRequest } from "@/lib/ddos-guard";
 // (필드 마스킹은 각 화면·피드 select가 책임 — 미들웨어는 coarse 차단만)
 //
 //  SYSTEM_ADMIN_PATHS (isSystemAdmin, OWNER) : /users·/settings
-//  FINANCE_PATHS      (canViewFinance, OWNER/MANAGER) : /settlements·/cost-alerts·/proposals·/earnings
+//  FINANCE_PATHS      (canViewFinance, OWNER/MANAGER) : /settlements·/cost-alerts·/proposals·/earnings·/documents
 //  OPERATOR_PATHS     (isOperator, OWNER/MANAGER/STAFF) : /dashboard·/villas·/bookings·/inspections·/messages·/calendar·/cleaning·/my-villas
 //  (ADMIN은 transition 동안 모든 술어에 포함 — 회귀 0)
 
 const SYSTEM_ADMIN_PATHS = ["/users", "/settings"];
 
-const FINANCE_PATHS = ["/settlements", "/cost-alerts", "/proposals", "/earnings"];
+const FINANCE_PATHS = ["/settlements", "/cost-alerts", "/proposals", "/earnings", "/documents"];
 
 // 운영자 전체 접근(isOperator)이며 SUPPLIER/CLEANER와 공유하지 않는 경로.
 // (/calendar·/cleaning·/my-villas는 SUPPLIER/CLEANER도 접근하므로 아래 공유 게이트에서 별도 처리)
