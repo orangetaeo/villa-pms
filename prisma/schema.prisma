@@ -78,6 +78,9 @@ model User {
   zaloAccounts          ZaloAccount[]      @relation("AdminZaloAccounts") // 관리자가 소유한 봇 계정 (개인 + (테오만)시스템)
   ownedConversations    ZaloConversation[] @relation("AdminConversations") // 관리자가 받은 대화 (개인 스코프 기준)
   supplierConversations ZaloConversation[] @relation("SupplierConversations") // 공급자로서 매칭된 대화 (전역 zaloUserId 조인)
+
+  // 웹 채팅 (ADR-0045) — 익명 방문자 세션을 소유(수신)한 ADMIN. additive 역관계.
+  webChatSessions WebChatSession[] @relation("AdminWebChatSessions")
 }
 
 // 비밀번호 자가재설정 토큰 (Zalo 6자리 코드 방식, ADR — password-self-reset).
@@ -1357,6 +1360,7 @@ enum NotificationType {
   GUEST_PAYMENT_NOTICE // 게스트 "입금했습니다" 통보 → 운영자 통지(ko). 48h 홀드만료 전 입금확인 유도 (A1). additive: 라이브 ALTER TYPE ADD VALUE
   SERVICE_ORDER_REQUESTED // 게스트/파트너 부가서비스 요청 → 운영자 통지(ko). 금액 미포함 (A1). additive: 라이브 ALTER TYPE ADD VALUE
   ZALO_LISTENER_DOWN // Zalo 리스너 미연결(≈10분+) 감지 → 운영자 통지(ko). 워치독(lib/zalo-health). additive: 라이브 ALTER TYPE ADD VALUE
+  WEBCHAT_NEW_MESSAGE // 웹 채팅 신규 문의(비로그인 방문자) → 운영자 통지(ko 미리보기, 판매가·마진 미포함). 대화당 첫 메시지 즉시+후속 10분 디바운스 (ADR-0045). additive: 라이브 ALTER TYPE ADD VALUE
 }
 
 enum NotificationStatus {
@@ -1521,6 +1525,80 @@ model ZaloMessage {
   @@unique([conversationId, zaloMsgId])
   // ownerAdminId 스코프 findFirst(리액션·webhook·인용 앵커)용 단독 조회 인덱스.
   @@index([zaloMsgId])
+}
+
+// ===================== 웹 채팅 (ADR-0045 — 홈페이지 다국어 방문자 채팅) =====================
+// villa-go.net 비로그인 방문자(국제 관광객·여행사)가 사이트에서 바로 운영자(테오)와 채팅.
+// ZaloMessage 재사용 기각(zaloUserId·threadType·유니크 강결합) → 신규 분리 테이블 2개.
+// 운영자 인박스는 /messages "웹 채팅" 탭에서 표현만 어댑터 통합(저장은 분리).
+// ★금액 컬럼 절대 없음 — 마진 누수 표면 원천 제거(가격 공유는 운영자가 /p/[token] 제안 링크로만).
+
+enum WebChatSessionStatus {
+  OPEN // 진행 중
+  CLOSED // 종료(보존, 삭제 아님)
+  BLOCKED // 차단 — 폴링 403·발신 403·알림/번역 억제·인박스 필터 (BLOCKED 5종)
+}
+
+enum WebChatDirection {
+  INBOUND // 방문자 → 운영자
+  OUTBOUND // 운영자 → 방문자
+}
+
+// 방문자 세션 — 익명(비로그인). httpOnly 서명 쿠키로 식별, 슬라이딩 TTL 30일(expiresAt).
+// ownerAdminId: 이 세션을 수신한 ADMIN(기본 수신자=테오, AppSetting 해석). ZaloConversation 소유 패턴 준용.
+model WebChatSession {
+  id           String               @id @default(cuid())
+  ownerAdminId String // 이 세션을 소유(수신)한 ADMIN — 익명 생성 시 기본 수신자(테오) 배정
+  ownerAdmin   User                 @relation("AdminWebChatSessions", fields: [ownerAdminId], references: [id], onDelete: Cascade)
+  visitorLocale String              // 방문자 표시 언어(vi/ko/en/zh/ru, 자유 확장 — hi 등 미래 언어 수용)
+  status       WebChatSessionStatus @default(OPEN)
+
+  // 프로그레시브 연락처 수집(D10) — 무기명 즉시 시작, 오프라인/첫 응답 후에만 유도. Zalo 우선.
+  contactEmail String?
+  contactZalo  String?
+  contactKakao String?
+
+  sourcePage String? // 유입 페이지(intro.html 등) — 운영자 헤더 표시. 재고·가격 무관 표시 전용
+  ipHash     String  // HMAC-SHA256(secret, ip) — 원문 IP 저장 금지(무염 해시는 IPv4 전수대입 가역)
+
+  unreadForAdmin Int @default(0) // 운영자 미확인 수 — 스레드 열람 시 0 리셋(totalUnread 정확도)
+
+  // 인박스 미리보기 비정규화(ZaloConversation.lastMessageText 동형, 기획 §9 P1-3) — N+1 제거.
+  // 표시 전용(누수 무관: 본문·방향만). 메시지 쓰기 경로가 lastMessageAt와 함께 갱신.
+  lastMessageText      String?
+  lastMessageDirection WebChatDirection?
+  lastMessageAt        DateTime?
+
+  expiresAt DateTime // 세션 유효기간(슬라이딩 30일) — 만료≠삭제(무기한 보존, 정리는 기존 일일 cron 편입)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages WebChatMessage[]
+
+  @@index([ownerAdminId, lastMessageAt]) // 운영자 인박스 정렬
+  @@index([status])
+  @@index([ipHash, createdAt]) // 어뷰즈 조사(IP 기준 세션 대량 생성 추적)
+}
+
+// 웹 채팅 메시지 — 방향별 원문 + 번역 캐시. ★금액 컬럼 없음.
+model WebChatMessage {
+  id        String         @id @default(cuid())
+  sessionId String
+  session   WebChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  direction WebChatDirection
+  text      String // 원문(방문자 발신 또는 운영자 ko 원문)
+  sourceLocale String // 원문 언어(Gemini 자동감지 결과 또는 발신 언어)
+
+  translatedText   String? // 번역 캐시 — 재호출 금지(INBOUND=ko 번역, OUTBOUND=방문자 언어 번역)
+  translatedTo     String? // 번역 대상 언어
+  translationFailed Boolean @default(false) // 답장(OUTBOUND) 번역 실패 플래그 — 실패 시 ko 원문 발송+플래그(발송 누락 금지)
+
+  status String  @default("SENT") // 전송 상태(문자열 — SENT 등)
+  sentBy String? // OUTBOUND: 발신 ADMIN userId
+
+  createdAt DateTime @default(now())
+
+  @@index([sessionId, createdAt])
 }
 
 // ===================== Zalo 봇 계정 (ADR-0006 — zca-js 개인 계정 QR 로그인) =====================
