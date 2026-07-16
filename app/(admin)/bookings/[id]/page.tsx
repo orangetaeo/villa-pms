@@ -238,6 +238,7 @@ export default async function BookingDetailPage({
         requestedVia: true,
         guestNote: true,
         customerName: true, // 이용자 이름 스냅샷 — 대표자와 다를 때 패널 표시용
+        liabilityConsentJson: true, // 책임 제한 고지 동의 스냅샷(계약 service-order-liability-consent) — 재무데이터 아님(게이트 불필요)
         selectedOptions: true,
         ticketUrls: true, // 티켓형(TICKET) 발행 이미지 — 발행 현황·대리 첨부(ADR-0034)
         ticketGuests: true, // TICKET 선택 이용자(이름·생년월일) — 소비자 선택 스냅샷(ADR-0036)
@@ -299,6 +300,14 @@ export default async function BookingDetailPage({
     for (const e of extras) catalogNameById.set(e.id, e.nameKo);
   }
 
+  // 책임 고지 동의 스냅샷 파싱 — agreedAt·version만 추출(표시용). 값 불량이면 null(미표시).
+  const parseLiabilityConsent = (raw: unknown): { agreedAt: string; version: string } | null => {
+    if (!raw || typeof raw !== "object") return null;
+    const o = raw as { agreedAt?: unknown; version?: unknown };
+    if (typeof o.agreedAt !== "string" || typeof o.version !== "string") return null;
+    return { agreedAt: o.agreedAt, version: o.version };
+  };
+
   const parseSnapshot = (raw: unknown): SelectedOptionSnapshot[] => {
     if (!Array.isArray(raw)) return [];
     return raw
@@ -331,6 +340,7 @@ export default async function BookingDetailPage({
     requestedVia: o.requestedVia,
     guestNote: o.guestNote,
     customerName: o.customerName ?? null,
+    liabilityConsent: parseLiabilityConsent(o.liabilityConsentJson),
     selectedOptions: parseSnapshot(o.selectedOptions),
     ticketUrls: o.ticketUrls, // 티켓형(TICKET) 발행 이미지(ADR-0034)
     ticketGuests: whitelistTicketGuests(o.ticketGuests), // TICKET 선택 이용자(이름·생년월일, ADR-0036)

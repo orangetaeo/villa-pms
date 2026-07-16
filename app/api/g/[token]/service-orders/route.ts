@@ -24,6 +24,8 @@ import { canSellItem } from "@/lib/ticket-vendor-guard";
 import { readVariantRule } from "@/lib/ticket-variant-rules";
 import { validateTicketGuests } from "@/lib/ticket-order-validation";
 import { loadCheckinRoster } from "@/lib/checkin-roster";
+import { SERVICE_LIABILITY_VERSION } from "@/lib/service-liability";
+import { isPublicLang } from "@/lib/public-i18n";
 
 const schema = z.object({
   catalogItemId: z.string().min(1).max(40),
@@ -50,6 +52,10 @@ const schema = z.object({
     )
     .max(99)
     .optional(),
+  // ★책임 제한 고지 동의 (계약 service-order-liability-consent) — true가 아니면 생성 거부.
+  //   version은 서버 상수, locale은 서버가 표시언어로 산출·검증 — 클라는 플래그·표시언어만 보낸다(나머지 불신).
+  liabilityConsent: z.boolean().optional(),
+  locale: z.string().max(10).optional().nullable(),
 });
 
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
@@ -79,6 +85,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     return NextResponse.json({ error: "VALIDATION_FAILED", issues: parsed.error.flatten() }, { status: 400 });
   }
   const d = parsed.data;
+
+  // ★책임 제한 고지 동의 게이트 (계약 service-order-liability-consent) — 미동의면 생성 거부(스냅샷 미저장).
+  //   서버가 version(상수)·locale(표시언어 검증, 미지원=en)·source를 산출한다 — 클라 값은 동의 플래그·표시언어만 사용.
+  if (d.liabilityConsent !== true) {
+    return NextResponse.json({ error: "CONSENT_REQUIRED" }, { status: 400 });
+  }
+  const liabilityConsentJson = {
+    agreedAt: new Date().toISOString(),
+    version: SERVICE_LIABILITY_VERSION,
+    locale: isPublicLang(d.locale) ? d.locale : "en",
+    source: "guest" as const,
+  };
 
   const serviceDate = parseUtcDateOnly(d.serviceDate);
   if (serviceDate === null) {
@@ -231,6 +249,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       requestedVia: "GUEST",
       guestNote: d.guestNote ?? null,
       customerName, // ★이용자 이름 스냅샷(입력 또는 대표자 폴백) — 벤더 발주 문구·보드 노출용
+      // ★책임 제한 고지 동의 스냅샷(계약 service-order-liability-consent) — 신청 시점 증빙(불변).
+      liabilityConsentJson: liabilityConsentJson as unknown as Prisma.InputJsonValue,
       // TICKET 이용자 선택 스냅샷(이름·생년월일만) — 벤더 보드 표시용(ADR-0036). 미선택·비TICKET이면 미저장(null).
       ...(ticketGuestsSnapshot ? { ticketGuests: ticketGuestsSnapshot } : {}),
 
@@ -263,6 +283,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     changes: {
       requestedVia: { new: "GUEST" },
       catalogItemId: { new: item.id },
+      liabilityConsentVersion: { new: SERVICE_LIABILITY_VERSION }, // 책임 고지 동의 증빙(계약 service-order-liability-consent)
       // 무료 확정·자동 발주된 경우만 관련 필드 기록(운영자 수동 발주와 감사 이력 구분)
       ...(isFreeTicket
         ? {

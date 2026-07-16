@@ -33,6 +33,12 @@
 - [ ] admin 주문 상세 동의 1줄 표시(없으면 미표시)
 - [ ] 누수: 고지·동의 응답에 원가·마진·벤더 내부정보 없음
 - [ ] tsc 0 · lint · next build · 기존 테스트 회귀 0 (+신규: 가드 400 2경로·스냅샷 저장·admin 미적용)
+- [ ] (QA 합의 보강) 게스트 다중 POST: 2품목+티켓 구분분할 동시 신청 시 생성된 **모든 주문 행**에 스냅샷 존재
+- [ ] (QA 합의 보강) 감사 로그: 두 라우트 writeAuditLog changes에 `liabilityConsent: version` 포함
+- [ ] (QA 합의 보강) lib/service-liability.ts 접근자에 미지원 로케일 `?? "en"` 폴백
+- [ ] (QA 합의 보강) /p 파트너 화면도 체크 전 버튼 disabled 검증(양쪽 대칭)
+
+★구현 함정: 게스트=GUEST_LABELS·파트너=PUBLIC_LABELS로 i18n 시스템이 다름 — 양쪽 딕셔너리에 문구 키 추가 금지, 반드시 lib/service-liability.ts에서 직접 import.
 
 ## 수정 금지 구역
 

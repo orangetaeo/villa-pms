@@ -92,7 +92,7 @@ const ticketItem = {
   vendorId: "v-1",
   vendor: { id: "v-1", userId: "vu-1", approvalStatus: "APPROVED", active: true, user: { zaloUserId: null, locale: "vi" } },
 };
-const base = { catalogItemId: "ci-1", quantity: 1, serviceDate: "2026-08-01", serviceTime: "14:00" };
+const base = { catalogItemId: "ci-1", quantity: 1, serviceDate: "2026-08-01", serviceTime: "14:00", liabilityConsent: true };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -291,7 +291,7 @@ describe("TICKET 구분(variant) 규칙 서버 재검증(ADR-0036 개정)", () =
 });
 
 describe("TICKET 시간 정책 — 이용일만(테오 2026-07-12)", () => {
-  const noTime = { catalogItemId: "ci-1", quantity: 1, serviceDate: "2026-08-01" };
+  const noTime = { catalogItemId: "ci-1", quantity: 1, serviceDate: "2026-08-01", liabilityConsent: true };
 
   it("TICKET은 serviceTime 미제공이어도 생성 성공(null 저장)", async () => {
     const res = await CREATE(jsonReq(noTime), params);

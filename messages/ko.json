@@ -3310,6 +3310,7 @@
     "guestNote": "게스트 메모",
     "guestNotePlaceholder": "선택 입력",
     "customerName": "이용자",
+    "liabilityConsentAt": "책임고지 동의 {date}",
     "total": "합계",
     "add": "주문 추가",
     "adding": "추가 중...",
