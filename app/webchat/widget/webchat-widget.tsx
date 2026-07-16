@@ -102,10 +102,14 @@ export default function WebChatWidget({
   initialLocale,
   sourcePage,
   turnstileSiteKey,
+  standalone = false,
 }: {
   initialLocale: WebChatLocale | null;
   sourcePage: string;
   turnstileSiteKey: string | null;
+  // standalone: 전체 화면 라우트(/chat)로 직접 렌더될 때 true — iframe 부모가 없으므로
+  // 닫기 버튼을 숨긴다(전체 화면은 브라우저 뒤로가기가 닫기 역할). additive · 기본 false(iframe 로더).
+  standalone?: boolean;
 }) {
   const [locale, setLocale] = useState<WebChatLocale>(initialLocale ?? "en");
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -574,11 +578,13 @@ export default function WebChatWidget({
               <span>{t.headerSubtitle}</span>
             </div>
           </div>
-          <button type="button" className="wc-close" aria-label="close" onClick={doClose}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
-            </svg>
-          </button>
+          {!standalone && (
+            <button type="button" className="wc-close" aria-label="close" onClick={doClose}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
         </div>
         <div className="wc-langs" role="group" aria-label="language">
           {WEBCHAT_LOCALES.map((lc) => (

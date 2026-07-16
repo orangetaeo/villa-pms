@@ -4013,6 +4013,11 @@
       "guest": "게스트 포털",
       "proposal": "제안 링크",
       "auth": "로그인·가입",
+      "chat": "채팅 랜딩",
+      "ig": "인스타그램",
+      "kakao": "카카오",
+      "qr": "QR 코드",
+      "direct": "직접 방문",
       "intro": "소개(관리인)",
       "introVendor": "소개(업체)",
       "introPartner": "소개(파트너)"
