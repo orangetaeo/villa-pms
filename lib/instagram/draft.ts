@@ -31,6 +31,37 @@ export function computeSlotSchedule(now: Date = new Date()): Date[] {
   return IG_SLOTS_KST.map((s) => nextSlotUtc(now, s.h, s.m));
 }
 
+/** 저녁 슬롯(20:00 KST)의 IG_SLOTS_KST 인덱스 — 릴스는 저녁 슬롯에만 배치. */
+export const IG_EVENING_SLOT_INDEX = IG_SLOTS_KST.findIndex((s) => s.h === 20);
+
+// ── 릴스 스케줄 게이트 (AppSetting IG_REELS_PER_WEEK, 기본 0=끔) ──
+/** 주당 릴스 생성 횟수 설정 키. 0/미설정이면 릴스 완전 비활성(기존 캐러셀 동작 동일). */
+export const IG_REELS_PER_WEEK_KEY = "IG_REELS_PER_WEEK";
+
+/** 주당 릴스 횟수(0~7). 미설정·비정상·≤0이면 0(끔). */
+export async function getReelsPerWeek(db: DbClient = prisma): Promise<number> {
+  try {
+    const row = await db.appSetting.findUnique({ where: { key: IG_REELS_PER_WEEK_KEY }, select: { value: true } });
+    const n = parseInt((row?.value ?? "").trim(), 10);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    return Math.min(7, n);
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * 오늘(KST 요일)이 릴스 생성일인지 — perWeek회를 한 주(0~6)에 결정적으로 균등 분배.
+ * perWeek=0 → 항상 false, perWeek≥7 → 항상 true. 그 사이는 정확히 perWeek일만 true.
+ */
+export function isReelDayKst(now: Date, perWeek: number): boolean {
+  if (perWeek <= 0) return false;
+  if (perWeek >= 7) return true;
+  const kst = new Date(now.getTime() + KST_OFFSET_MS);
+  const dow = kst.getUTCDay(); // KST 기준 요일(0=일)
+  return Math.floor(((dow + 1) * perWeek) / 7) > Math.floor((dow * perWeek) / 7);
+}
+
 // ── 빌라 로테이션 선정 ──
 const VILLA_SELECT = {
   id: true,

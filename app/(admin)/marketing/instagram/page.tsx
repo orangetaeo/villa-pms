@@ -8,9 +8,11 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { IgPostStatus } from "@prisma/client";
 import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 import { isOperator, isSystemAdmin } from "@/lib/permissions";
 import InstagramSettingsPanel from "./instagram-settings";
 import InstagramQueue from "./instagram-queue";
+import InstagramInsights from "./instagram-insights";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("pageTitles");
@@ -59,6 +61,12 @@ export default async function InstagramMarketingPage({
   const page = Math.max(1, Number(params.page ?? "1") || 1);
   const activeKey = activeTabKey(status);
 
+  // DM 인박스 미읽음 총계(뱃지) — 미읽음 수신 메시지 수. 열람 시 서버가 읽음 처리 → 재방문 시 갱신.
+  //   ★ 운영자 전용 화면이라 스코프 불요(전체 IG 계정 1개). 원가/판매가 개념 부재(누수 불가).
+  const dmUnread = await prisma.instagramMessage.count({
+    where: { direction: "IN", readByAdmin: false },
+  });
+
   // 탭·칩 링크 — 기존 searchParams 를 전부 복제 후 status 만 조정, page 는 1로 리셋(제외).
   const hrefFor = (nextStatus?: string) => {
     const next = new URLSearchParams();
@@ -79,13 +87,28 @@ export default async function InstagramMarketingPage({
           <h1 className="text-2xl font-bold text-white tracking-tight">{t("title")}</h1>
           <p className="text-sm text-slate-500 mt-1">{t("subtitle")}</p>
         </div>
-        <nav className="hidden sm:flex text-xs text-slate-500 gap-2 whitespace-nowrap pt-1">
-          <span>{t("breadcrumbAdmin")}</span>
-          <span>/</span>
-          <span>{t("breadcrumbMarketing")}</span>
-          <span>/</span>
-          <span className="text-slate-300">{t("breadcrumbCurrent")}</span>
-        </nav>
+        <div className="flex items-center gap-3 pt-1">
+          {/* DM 인박스 진입 — 미읽음 총계 뱃지 */}
+          <Link
+            href="/marketing/instagram/dm"
+            className="relative inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-slate-800"
+          >
+            <span className="material-symbols-outlined text-[16px]">forum</span>
+            {t("dm.openInbox")}
+            {dmUnread > 0 && (
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-fuchsia-500 px-1.5 text-[10px] font-bold tabular-nums text-white">
+                {dmUnread > 99 ? "99+" : dmUnread}
+              </span>
+            )}
+          </Link>
+          <nav className="hidden sm:flex text-xs text-slate-500 gap-2 whitespace-nowrap">
+            <span>{t("breadcrumbAdmin")}</span>
+            <span>/</span>
+            <span>{t("breadcrumbMarketing")}</span>
+            <span>/</span>
+            <span className="text-slate-300">{t("breadcrumbCurrent")}</span>
+          </nav>
+        </div>
       </div>
 
       {/* 연동 설정(접이식) — GET=운영자, PUT=OWNER/ADMIN */}
@@ -137,6 +160,9 @@ export default async function InstagramMarketingPage({
           })}
         </div>
       )}
+
+      {/* 성과(인사이트) — 발행됨 탭 상단 요약 스트립 */}
+      {activeKey === "published" && <InstagramInsights />}
 
       {/* 콘텐츠 큐(클라이언트) — status/page prop 변경 시 재조회 */}
       <InstagramQueue status={status ?? null} page={page} />

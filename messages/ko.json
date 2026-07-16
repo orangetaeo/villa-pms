@@ -343,7 +343,8 @@
       "rejectReasonPlaceholder": "예: 사진 화질이 낮습니다",
       "rejectConfirm": "반려하기",
       "viewOnInstagram": "인스타에서 보기",
-      "publishedLockNote": "발행된 포스트는 인스타그램 앱에서만 수정할 수 있습니다."
+      "publishedLockNote": "발행된 포스트는 인스타그램 앱에서만 수정할 수 있습니다.",
+      "reachBadge": "도달 {n}"
     },
     "bulk": {
       "approveAll": "{n}건 모두 승인",
@@ -387,6 +388,73 @@
       "notEditable": "이 상태에서는 수정할 수 없습니다.",
       "error": "오류가 발생했습니다. 다시 시도해주세요.",
       "loadError": "목록을 불러오지 못했습니다."
+    },
+    "dm": {
+      "title": "DM 인박스",
+      "subtitle": "인스타그램 다이렉트 메시지를 확인하고 답장합니다.",
+      "breadcrumbCurrent": "DM 인박스",
+      "backToQueue": "콘텐츠 큐로",
+      "openInbox": "DM 인박스",
+      "threadListTitle": "대화 목록",
+      "empty": "받은 DM이 없습니다.",
+      "emptyHint": "인스타그램에서 새 메시지가 오면 여기에 표시됩니다.",
+      "selectThread": "왼쪽에서 대화를 선택하세요.",
+      "loading": "불러오는 중...",
+      "loadError": "대화를 불러오지 못했습니다.",
+      "you": "나",
+      "autoReplied": "자동응답",
+      "mediaLabel": "(미디어)",
+      "noPreview": "(내용 없음)",
+      "back": "목록",
+      "windowRemainingHours": "답장 가능 {hours}시간 남음",
+      "windowRemainingMinutes": "답장 가능 {minutes}분 남음",
+      "windowExpiredTitle": "응답 가능 시간(24시간)이 지났습니다",
+      "windowExpiredHint": "상대가 다시 메시지를 보내면 답장 창이 다시 열립니다.",
+      "windowNoInbound": "아직 상대의 메시지가 없어 답장할 수 없습니다.",
+      "inputPlaceholder": "답장을 입력하세요... (Ctrl/⌘+Enter 전송)",
+      "send": "전송",
+      "sending": "전송 중...",
+      "kakaoButton": "카카오 안내 보내기",
+      "kakaoSending": "보내는 중...",
+      "kakaoMessage": "안녕하세요! 빌라고입니다 😊 더 빠른 상담과 예약 안내는 카카오톡 채널에서 도와드리고 있어요. 아래 링크로 채널을 추가해 주시면 편하게 문의하실 수 있습니다 👉 https://pf.kakao.com/_mVAfX",
+      "sent": "전송했습니다.",
+      "kakaoSent": "카카오 안내를 보냈습니다.",
+      "errEmpty": "메시지를 입력하세요.",
+      "errTooLong": "메시지가 너무 깁니다 (최대 1000자).",
+      "errWindowExpired": "응답 가능 시간(24시간)이 지나 발송할 수 없습니다.",
+      "errNoInbound": "상대의 메시지가 없어 발송할 수 없습니다.",
+      "errSendFailed": "발송에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      "errForbidden": "권한이 없습니다.",
+      "errGeneric": "오류가 발생했습니다. 다시 시도해주세요."
+    },
+    "insights": {
+      "title": "성과",
+      "rangeToggle": {
+        "7": "최근 7일",
+        "30": "최근 30일"
+      },
+      "stat": {
+        "followers": "팔로워",
+        "rangeReach": "기간 도달",
+        "published": "총 발행",
+        "postsInRange": "기간 발행"
+      },
+      "followerTrend": "팔로워 추이",
+      "collecting": "수집 대기",
+      "emptyTitle": "성과 데이터 수집 대기",
+      "emptyHint": "포스트가 발행되고 인사이트가 수집되면 도달·팔로워 추이가 여기에 표시됩니다.",
+      "loadError": "성과를 불러오지 못했습니다.",
+      "topTitle": "반응 상위 포스트",
+      "topEmpty": "발행된 포스트가 없습니다.",
+      "metric": {
+        "reach": "도달",
+        "likes": "좋아요",
+        "comments": "댓글",
+        "saved": "저장",
+        "shares": "공유"
+      },
+      "viewPost": "보기",
+      "noVilla": "빌라 미지정"
     }
   },
   "account": {
@@ -5544,9 +5612,26 @@
     "prevMonth": "이전 달",
     "nextMonth": "다음 달",
     "foot": "날짜 탭: 그 날의 요금 스택 확인 · 드래그: 날짜를 끌어 기간 지정(도구가 닫혀 있으면 [기간 추가]가 자동으로 열립니다) · 색 밴드·레이어에 마우스: 기간 범위 하이라이트 · [기간 추가]: 날짜 직접 입력 또는 캘린더 탭·드래그 → 가격 입력 · [날짜 선택]: 떨어져 있는 날짜까지 담아 한꺼번에 고정가·% 처리 · [일괄 조정]: 연속 기간에 %만 입력해 대량 조절. 겹치게 만들어도 됩니다 — 셀에는 항상 이긴 요금만 표시됩니다.",
-    "dow": { "sun": "일", "mon": "월", "tue": "화", "wed": "수", "thu": "목", "fri": "금", "sat": "토" },
-    "axis": { "net": "판매가(Net)", "consumer": "소비자가", "cost": "원가" },
-    "tools": { "add": "+ 기간 추가", "select": "☑ 날짜 선택", "bulk": "⚡ 일괄 조정", "copy": "📋 연도 복사" },
+    "dow": {
+      "sun": "일",
+      "mon": "월",
+      "tue": "화",
+      "wed": "수",
+      "thu": "목",
+      "fri": "금",
+      "sat": "토"
+    },
+    "axis": {
+      "net": "판매가(Net)",
+      "consumer": "소비자가",
+      "cost": "원가"
+    },
+    "tools": {
+      "add": "+ 기간 추가",
+      "select": "☑ 날짜 선택",
+      "bulk": "⚡ 일괄 조정",
+      "copy": "📋 연도 복사"
+    },
     "layers": "요금 레이어",
     "yearFilter": "연도 필터",
     "allYears": "전체 연도",
@@ -5576,7 +5661,11 @@
     "invalid": "날짜·값을 확인하세요.",
     "saved": "저장되었습니다.",
     "saveError": "저장에 실패했습니다. 다시 시도해주세요.",
-    "add": { "title": "새 요금 기간", "hint": "날짜를 직접 입력하거나 캘린더를 탭하세요.", "save": "기간 추가" },
+    "add": {
+      "title": "새 요금 기간",
+      "hint": "날짜를 직접 입력하거나 캘린더를 탭하세요.",
+      "save": "기간 추가"
+    },
     "select": {
       "title": "날짜 선택 → 한꺼번에 처리",
       "hint": "캘린더에서 날짜를 탭해 담으세요(다시 탭하면 해제). 떨어져 있는 날짜도 함께 담아 한 번에 가격을 넣거나 %로 조정합니다.",
@@ -5605,13 +5694,24 @@
       "preview": "레이어 {n}개 → {y}년으로 복사 예정",
       "apply": "복사"
     },
-    "edit": { "title": "레이어 편집", "save": "저장" },
+    "edit": {
+      "title": "레이어 편집",
+      "save": "저장"
+    },
     "premium": {
       "editLabel": "프리미엄 요일 편집",
       "hint": "선택한 요일의 밤에는 요율표의 프리미엄 요금이 적용됩니다. 기본값은 금·토입니다. 공휴일은 설정 → 공휴일 관리에서 지정합니다.",
       "save": "요일 저장",
       "saving": "저장 중…",
-      "weekdays": { "0": "일", "1": "월", "2": "화", "3": "수", "4": "목", "5": "금", "6": "토" }
+      "weekdays": {
+        "0": "일",
+        "1": "월",
+        "2": "화",
+        "3": "수",
+        "4": "목",
+        "5": "금",
+        "6": "토"
+      }
     }
   }
 }

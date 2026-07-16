@@ -15,8 +15,12 @@ import {
   planVillaDraft,
   computeSlotSchedule,
   generateCaption,
+  getReelsPerWeek,
+  isReelDayKst,
+  IG_EVENING_SLOT_INDEX,
 } from "@/lib/instagram/draft";
 import { renderCarousel } from "@/lib/instagram/render";
+import { renderAndBuildReel } from "@/lib/instagram/reels";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // 3곳 × 캐러셀 렌더 + Gemini — 여유 상한
@@ -36,31 +40,59 @@ async function handle(req: Request) {
     return Response.json({ status: "ok", created: 0, note: "적격 빌라 없음(ACTIVE·isSellable·사진4장↑)" });
   }
 
-  const created: { id: string; villaId: string; flagged: string[] }[] = [];
+  // 릴스 게이트: IG_REELS_PER_WEEK≥1 && 오늘이 릴스일이면 저녁 슬롯 포스트만 REELS로 생성(기본 0=끔 → 전부 캐러셀).
+  const reelsPerWeek = await getReelsPerWeek();
+  const doReelToday = isReelDayKst(now, reelsPerWeek);
+
+  const created: { id: string; villaId: string; kind: string; flagged: string[] }[] = [];
   const failures: { villaId: string; reason: string }[] = [];
 
   for (let i = 0; i < villas.length; i++) {
     const villa = villas[i];
-    const scheduledAt = slots[i % slots.length];
+    const slotIndex = i % slots.length;
+    const scheduledAt = slots[slotIndex];
     try {
       const plan = planVillaDraft(villa);
 
-      // 1) 캡션(Gemini + 카피가이드 주입, 금칙어 가드) — villaId·슬롯 무관 순수 공개정보.
+      // 1) 캡션(Gemini + 카피가이드 주입, 금칙어 가드) — villaId·슬롯 무관 순수 공개정보. 캐러셀·릴스 공용.
       const caption = await generateCaption(plan.publicInfo, "VILLA_SHOWCASE");
 
-      // 2) 캐러셀 렌더 → R2 업로드.
       const baseName = `${villa.id}-${scheduledAt.toISOString().slice(0, 10)}-${i}`;
-      const rendered = await renderCarousel(plan.slides, baseName);
+
+      // 2) 렌더 — 저녁 슬롯 & 릴스일이면 릴스(MP4), 아니면 캐러셀. 릴스 실패 시 캐러셀 폴백(포스트 유실 방지).
+      let kind: "VILLA_SHOWCASE" | "REELS" = "VILLA_SHOWCASE";
+      let mediaJson: Prisma.InputJsonValue;
+      let slideCount: number;
+
+      const wantReel = doReelToday && slotIndex === IG_EVENING_SLOT_INDEX;
+      if (wantReel) {
+        try {
+          const reel = await renderAndBuildReel(plan.slides, baseName, { audio: "silent" });
+          kind = "REELS";
+          mediaJson = reel.mediaJson as unknown as Prisma.InputJsonValue;
+          slideCount = reel.frameCount;
+        } catch (reelErr) {
+          console.error(
+            `[cron/instagram-draft] 빌라 ${villa.id} 릴스 생성 실패 — 캐러셀 폴백:`,
+            reelErr instanceof Error ? reelErr.message : String(reelErr)
+          );
+        }
+      }
+      if (kind !== "REELS") {
+        const rendered = await renderCarousel(plan.slides, baseName);
+        mediaJson = rendered as unknown as Prisma.InputJsonValue;
+        slideCount = rendered.length;
+      }
 
       // 3) InstagramPost(PENDING_APPROVAL) 생성. flaggedTerms 있으면 승인화면 경고용으로 기록.
       const post = await prisma.instagramPost.create({
         data: {
           villaId: villa.id,
-          kind: "VILLA_SHOWCASE",
+          kind,
           status: IgPostStatus.PENDING_APPROVAL,
           scheduledAt,
           caption: caption.caption,
-          mediaJson: rendered as unknown as Prisma.InputJsonValue,
+          mediaJson: mediaJson!,
           flaggedTerms: caption.flaggedTerms.length > 0 ? caption.flaggedTerms : undefined,
           createdBy: CREATED_BY,
         },
@@ -74,15 +106,15 @@ async function handle(req: Request) {
         entityId: post.id,
         changes: {
           villaId: { new: villa.id },
-          kind: { new: "VILLA_SHOWCASE" },
+          kind: { new: kind },
           scheduledAt: { new: scheduledAt.toISOString() },
-          slideCount: { new: rendered.length },
+          slideCount: { new: slideCount! },
           usedGemini: { new: caption.usedGemini },
           flaggedTerms: { new: caption.flaggedTerms },
         },
       });
 
-      created.push({ id: post.id, villaId: villa.id, flagged: caption.flaggedTerms });
+      created.push({ id: post.id, villaId: villa.id, kind, flagged: caption.flaggedTerms });
     } catch (e) {
       const reason = e instanceof Error ? e.message : String(e);
       console.error(`[cron/instagram-draft] 빌라 ${villa.id} 초안 실패:`, reason);
@@ -111,6 +143,7 @@ async function handle(req: Request) {
   return Response.json({
     status: "ok",
     created: created.length,
+    reels: created.filter((c) => c.kind === "REELS").length,
     failed: failures.length,
     flagged: created.filter((c) => c.flagged.length > 0).length,
     failures,

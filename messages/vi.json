@@ -343,7 +343,8 @@
       "rejectReasonPlaceholder": "VD: Ảnh chất lượng thấp",
       "rejectConfirm": "Từ chối",
       "viewOnInstagram": "Xem trên Instagram",
-      "publishedLockNote": "Bài đã đăng chỉ có thể sửa trong ứng dụng Instagram."
+      "publishedLockNote": "Bài đã đăng chỉ có thể sửa trong ứng dụng Instagram.",
+      "reachBadge": "Tiếp cận {n}"
     },
     "bulk": {
       "approveAll": "Duyệt tất cả {n}",
@@ -387,6 +388,73 @@
       "notEditable": "Không thể sửa ở trạng thái này.",
       "error": "Đã xảy ra lỗi. Vui lòng thử lại.",
       "loadError": "Không tải được danh sách."
+    },
+    "dm": {
+      "title": "Hộp thư DM",
+      "subtitle": "Xem và trả lời tin nhắn trực tiếp Instagram.",
+      "breadcrumbCurrent": "Hộp thư DM",
+      "backToQueue": "Về hàng đợi nội dung",
+      "openInbox": "Hộp thư DM",
+      "threadListTitle": "Danh sách hội thoại",
+      "empty": "Chưa có DM nào.",
+      "emptyHint": "Tin nhắn mới từ Instagram sẽ hiển thị ở đây.",
+      "selectThread": "Chọn một hội thoại ở bên trái.",
+      "loading": "Đang tải...",
+      "loadError": "Không tải được hội thoại.",
+      "you": "Tôi",
+      "autoReplied": "Trả lời tự động",
+      "mediaLabel": "(phương tiện)",
+      "noPreview": "(không có nội dung)",
+      "back": "Danh sách",
+      "windowRemainingHours": "Còn {hours} giờ để trả lời",
+      "windowRemainingMinutes": "Còn {minutes} phút để trả lời",
+      "windowExpiredTitle": "Đã quá thời gian phản hồi (24 giờ)",
+      "windowExpiredHint": "Cửa sổ trả lời sẽ mở lại khi khách gửi tin nhắn mới.",
+      "windowNoInbound": "Chưa có tin nhắn từ khách nên không thể trả lời.",
+      "inputPlaceholder": "Nhập câu trả lời... (Ctrl/⌘+Enter để gửi)",
+      "send": "Gửi",
+      "sending": "Đang gửi...",
+      "kakaoButton": "Gửi hướng dẫn Kakao",
+      "kakaoSending": "Đang gửi...",
+      "kakaoMessage": "안녕하세요! 빌라고입니다 😊 더 빠른 상담과 예약 안내는 카카오톡 채널에서 도와드리고 있어요. 아래 링크로 채널을 추가해 주시면 편하게 문의하실 수 있습니다 👉 https://pf.kakao.com/_mVAfX",
+      "sent": "Đã gửi.",
+      "kakaoSent": "Đã gửi hướng dẫn Kakao.",
+      "errEmpty": "Vui lòng nhập tin nhắn.",
+      "errTooLong": "Tin nhắn quá dài (tối đa 1000 ký tự).",
+      "errWindowExpired": "Đã quá thời gian phản hồi (24 giờ) nên không thể gửi.",
+      "errNoInbound": "Không có tin nhắn từ khách nên không thể gửi.",
+      "errSendFailed": "Gửi thất bại. Vui lòng thử lại sau.",
+      "errForbidden": "Không có quyền.",
+      "errGeneric": "Đã xảy ra lỗi. Vui lòng thử lại."
+    },
+    "insights": {
+      "title": "Hiệu suất",
+      "rangeToggle": {
+        "7": "7 ngày qua",
+        "30": "30 ngày qua"
+      },
+      "stat": {
+        "followers": "Người theo dõi",
+        "rangeReach": "Tiếp cận trong kỳ",
+        "published": "Tổng đã đăng",
+        "postsInRange": "Đăng trong kỳ"
+      },
+      "followerTrend": "Xu hướng người theo dõi",
+      "collecting": "Đang chờ thu thập",
+      "emptyTitle": "Đang chờ dữ liệu hiệu suất",
+      "emptyHint": "Khi bài đăng được xuất bản và thu thập insight, số liệu tiếp cận và người theo dõi sẽ hiển thị ở đây.",
+      "loadError": "Không tải được hiệu suất.",
+      "topTitle": "Bài đăng tương tác cao nhất",
+      "topEmpty": "Chưa có bài đăng nào.",
+      "metric": {
+        "reach": "Tiếp cận",
+        "likes": "Thích",
+        "comments": "Bình luận",
+        "saved": "Đã lưu",
+        "shares": "Chia sẻ"
+      },
+      "viewPost": "Xem",
+      "noVilla": "Chưa gán villa"
     }
   },
   "account": {
@@ -5544,9 +5612,26 @@
     "prevMonth": "Tháng trước",
     "nextMonth": "Tháng sau",
     "foot": "Chạm ngày: xem các mức giá đêm đó · Kéo chuột qua các ngày: chọn nhanh khoảng thời gian (nếu chưa mở công cụ, [Thêm giai đoạn] sẽ tự mở) · Rê chuột lên dải màu·lớp: làm nổi phạm vi giai đoạn · [Thêm giai đoạn]: nhập ngày, chạm lịch hoặc kéo chuột → nhập giá · [Chọn ngày]: chọn nhiều ngày (kể cả rời rạc) rồi xử lý một lần · [Điều chỉnh hàng loạt]: nhập khoảng và % để chỉnh nhanh. Có thể để trùng nhau — ô luôn hiển thị mức giá thắng.",
-    "dow": { "sun": "CN", "mon": "T2", "tue": "T3", "wed": "T4", "thu": "T5", "fri": "T6", "sat": "T7" },
-    "axis": { "net": "Giá bán (Net)", "consumer": "Giá khách lẻ", "cost": "Giá gốc" },
-    "tools": { "add": "+ Thêm giai đoạn", "select": "☑ Chọn ngày", "bulk": "⚡ Điều chỉnh hàng loạt", "copy": "📋 Sao chép năm" },
+    "dow": {
+      "sun": "CN",
+      "mon": "T2",
+      "tue": "T3",
+      "wed": "T4",
+      "thu": "T5",
+      "fri": "T6",
+      "sat": "T7"
+    },
+    "axis": {
+      "net": "Giá bán (Net)",
+      "consumer": "Giá khách lẻ",
+      "cost": "Giá gốc"
+    },
+    "tools": {
+      "add": "+ Thêm giai đoạn",
+      "select": "☑ Chọn ngày",
+      "bulk": "⚡ Điều chỉnh hàng loạt",
+      "copy": "📋 Sao chép năm"
+    },
     "layers": "Các giai đoạn giá",
     "yearFilter": "Lọc theo năm",
     "allYears": "Tất cả các năm",
@@ -5576,7 +5661,11 @@
     "invalid": "Vui lòng kiểm tra ngày và giá trị.",
     "saved": "Đã lưu.",
     "saveError": "Lưu thất bại. Vui lòng thử lại.",
-    "add": { "title": "Giai đoạn giá mới", "hint": "Nhập ngày trực tiếp hoặc chạm trên lịch.", "save": "Thêm giai đoạn" },
+    "add": {
+      "title": "Giai đoạn giá mới",
+      "hint": "Nhập ngày trực tiếp hoặc chạm trên lịch.",
+      "save": "Thêm giai đoạn"
+    },
     "select": {
       "title": "Chọn ngày → xử lý cùng lúc",
       "hint": "Chạm các ngày trên lịch để chọn (chạm lại để bỏ). Có thể chọn ngày rời rạc rồi nhập giá một lần hoặc chỉnh theo %.",
@@ -5605,13 +5694,24 @@
       "preview": "Sẽ sao chép {n} giai đoạn → năm {y}",
       "apply": "Sao chép"
     },
-    "edit": { "title": "Sửa lớp giá", "save": "Lưu" },
+    "edit": {
+      "title": "Sửa lớp giá",
+      "save": "Lưu"
+    },
     "premium": {
       "editLabel": "Sửa ngày cao cấp",
       "hint": "Đêm của các ngày được chọn sẽ áp dụng giá cao cấp ở bảng giá. Mặc định là Thứ Sáu·Thứ Bảy. Ngày lễ được đặt ở Cài đặt → Quản lý ngày lễ.",
       "save": "Lưu ngày",
       "saving": "Đang lưu…",
-      "weekdays": { "0": "CN", "1": "T2", "2": "T3", "3": "T4", "4": "T5", "5": "T6", "6": "T7" }
+      "weekdays": {
+        "0": "CN",
+        "1": "T2",
+        "2": "T3",
+        "3": "T4",
+        "4": "T5",
+        "5": "T6",
+        "6": "T7"
+      }
     }
   }
 }

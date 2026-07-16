@@ -213,6 +213,45 @@ export async function saveInstagramRender(
   return { url: `/uploads/${key}`, key };
 }
 
+// ── 인스타그램 릴스 MP4 — 공개 동영상 (instagram-marketing-p2) ──
+// saveInstagramRender와 동일 원칙(Meta가 video_url을 직접 fetch → 공개 절대 URL 필수). prefix
+// `instagram-reels/`로 구분(수명·정리 정책 분리). ContentType=video/mp4. R2 없으면 디스크 폴백(상대 URL).
+const INSTAGRAM_REEL_PREFIX = "instagram-reels";
+
+/**
+ * 인스타그램 릴스 MP4 저장 → 공개 URL 반환.
+ * @param buffer H.264/AAC MP4 바이트(lib/instagram/reels.ts buildReelVideo 산출)
+ * @param baseName 파일명 접두(예: 포스트id-슬롯) — 영숫자·하이픈만 유지
+ * @returns url(공개 or 상대 URL), key
+ */
+export async function saveInstagramVideo(
+  buffer: Buffer,
+  baseName: string
+): Promise<{ url: string; key: string }> {
+  const safeBase = baseName.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 60) || "reel";
+  const fileName = `${safeBase}-${Date.now()}-${randomUUID()}.mp4`;
+  const key = `${INSTAGRAM_REEL_PREFIX}/${fileName}`;
+  const r2 = getR2Config();
+
+  if (r2) {
+    await getR2Client(r2).send(
+      new PutObjectCommand({
+        Bucket: r2.bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: "video/mp4",
+        CacheControl: "public, max-age=31536000, immutable",
+      })
+    );
+    return { url: `${r2.publicUrl}/${key}`, key };
+  }
+
+  const dir = path.join(UPLOAD_DIR, INSTAGRAM_REEL_PREFIX);
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(path.join(dir, fileName), buffer);
+  return { url: `/uploads/${key}`, key };
+}
+
 // ===================== 여권 사진 — 비공개 저장 (T3.1, QA 합의 조건 A) =====================
 // 공개 업로드 파이프라인(saveFile)과 의도적으로 분리:
 // - R2 설정 여부와 무관하게 **항상 디스크(volume)** 의 passports/ 하위에 저장

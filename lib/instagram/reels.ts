@@ -1,0 +1,322 @@
+// lib/instagram/reels.ts — 릴스(사진 슬라이드쇼 MP4) 생성 파이프라인 (instagram-marketing-p2 §B)
+//
+// 흐름:
+//   렌더 프레임(1080×1920 JPEG 버퍼, render.ts renderReelFrameBuffers)
+//   → sharp로 정확히 1080×1920 정규화(임의 크기 입력도 안전)
+//   → 임시 파일 기록 → ffmpeg(ffmpeg-static)로 xfade 크로스페이드 슬라이드쇼 H.264/AAC MP4 합성
+//   → MP4 버퍼 반환(호출부가 saveInstagramVideo로 R2 업로드).
+//
+// ★ ffmpeg 확보: 시스템 ffmpeg 존재 가정 금지 — ffmpeg-static npm 정적 바이너리(크로스 플랫폼, 로컬 Windows·
+//   Railway Linux 모두 동작)를 spawn. 실행파일 경로는 패키지 default export.
+// ★ BGM(§B): 기본은 **무음 AAC 트랙**(컨테이너에 항상 AAC 존재 → 발행 규격 충족, 운영자가 인스타 앱에서
+//   트렌드 음원을 얹기 좋음). 옵션 "ambient"는 ffmpeg aevalsrc로 **직접 합성한** 부드러운 패드(번들 음원 파일
+//   없음 → 저작권 리스크 0). 라이선스 근거: assets/audio/LICENSE.md.
+import { spawn } from "child_process";
+import { promises as fs } from "fs";
+import os from "os";
+import path from "path";
+import { randomUUID } from "crypto";
+import sharp from "sharp";
+import ffmpegStatic from "ffmpeg-static";
+import { renderReelFrameBuffers, type SlideInput } from "@/lib/instagram/render";
+import { REEL_CANVAS } from "@/lib/instagram/reel-templates";
+import { saveInstagramVideo, saveInstagramRender } from "@/lib/storage";
+
+const FFMPEG_PATH: string = ffmpegStatic ?? "ffmpeg";
+
+// 타이밍: 프레임당 기준 2.6s, 전환 0.5s, 총 길이는 [10s, 16s]로 클램프(§B "총 10~16초").
+//   총 길이를 먼저 클램프한 뒤 프레임당 표시시간 d를 역산 → 프레임 수 4~7에서 항상 10~16초에 안착.
+const TRANSITION_SEC = 0.5;
+const PER_FRAME_BASE_SEC = 2.6;
+const MIN_TOTAL_SEC = 10;
+const MAX_TOTAL_SEC = 16;
+const FPS = 30;
+
+const MIN_FRAMES = 2;
+const MAX_FRAMES = 10; // buildReelVideo 하드 상한
+const REEL_TARGET_MAX = 7; // §B 권장 상한(4~7장) — selectReelSlides 기준
+const MAX_MP4_BYTES = 100 * 1024 * 1024; // §B "100MB 미만"
+
+export type ReelAudioMode = "silent" | "ambient";
+
+export interface BuildReelOptions {
+  audio?: ReelAudioMode; // 기본 "silent"
+  transitionSec?: number;
+  perFrameBaseSec?: number;
+}
+
+export interface ReelVideo {
+  mp4: Buffer;
+  durationSec: number;
+  width: number;
+  height: number;
+  frameCount: number;
+  audio: ReelAudioMode;
+  perFrameSec: number;
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, v));
+}
+
+/** 프레임 수 → (총 길이, 프레임당 표시시간). 총 길이를 [10,16]로 클램프 후 d 역산. */
+export function computeReelTiming(
+  frameCount: number,
+  transitionSec = TRANSITION_SEC,
+  perFrameBase = PER_FRAME_BASE_SEC
+): { totalSec: number; perFrameSec: number; transitionSec: number } {
+  const n = frameCount;
+  const total = clamp(n * perFrameBase, MIN_TOTAL_SEC, MAX_TOTAL_SEC);
+  // total = n*d - (n-1)*T  →  d = (total + (n-1)*T) / n
+  const perFrame = (total + (n - 1) * transitionSec) / n;
+  return { totalSec: total, perFrameSec: perFrame, transitionSec };
+}
+
+/**
+ * 임의 크기 입력을 정확히 1080×1920 cover-crop PNG로 정규화(EXIF 회전 반영).
+ * ★ PNG 사용 이유: ffmpeg image2 demuxer(-loop 1)는 mozjpeg progressive JPEG를
+ *   "Invalid data / unspecified size"로 거부하는 경우가 있다(정적 빌드 실측). PNG는 무손실·무결점 디코드.
+ */
+async function normalizeFrame(buf: Buffer): Promise<Buffer> {
+  return sharp(buf)
+    .rotate()
+    .resize(REEL_CANVAS.width, REEL_CANVAS.height, { fit: "cover", position: "attention" })
+    .png({ compressionLevel: 6 })
+    .toBuffer();
+}
+
+/** ffmpeg 오디오 입력 인자(무음 or 합성 앰비언트). infinite 소스는 -t로 트림. */
+function audioInputArgs(mode: ReelAudioMode, totalSec: number): string[] {
+  if (mode === "ambient") {
+    // C장조풍 저음 패드(G3·C4·E4) 직접 합성 — 번들 음원 없음, 저작권 리스크 0.
+    const expr = `aevalsrc=0.09*sin(2*PI*196*t)+0.06*sin(2*PI*261.63*t)+0.045*sin(2*PI*329.63*t):s=44100:d=${totalSec.toFixed(3)}`;
+    return ["-f", "lavfi", "-i", expr];
+  }
+  return ["-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo"];
+}
+
+/** filter_complex 문자열 구성 — 프레임 정규화 + xfade 크로스페이드 체인 + (앰비언트 시) 오디오 페이드. */
+function buildFilterComplex(
+  n: number,
+  perFrameSec: number,
+  transitionSec: number,
+  totalSec: number,
+  audio: ReelAudioMode
+): { filter: string; audioMap: string } {
+  const parts: string[] = [];
+  for (let i = 0; i < n; i++) {
+    parts.push(
+      `[${i}:v]scale=${REEL_CANVAS.width}:${REEL_CANVAS.height}:force_original_aspect_ratio=increase,` +
+        `crop=${REEL_CANVAS.width}:${REEL_CANVAS.height},setsar=1,fps=${FPS},format=yuv420p[v${i}]`
+    );
+  }
+
+  if (n === 1) {
+    parts.push(`[v0]null[vout]`);
+  } else {
+    let prev = `[v0]`;
+    for (let i = 1; i < n; i++) {
+      const offset = i * (perFrameSec - transitionSec);
+      const out = i === n - 1 ? `[vout]` : `[x${i}]`;
+      parts.push(`${prev}[v${i}]xfade=transition=fade:duration=${transitionSec.toFixed(3)}:offset=${offset.toFixed(3)}${out}`);
+      prev = out;
+    }
+  }
+
+  let audioMap = `${n}:a`;
+  if (audio === "ambient") {
+    const fadeOutStart = Math.max(0, totalSec - 1.2).toFixed(3);
+    parts.push(`[${n}:a]afade=t=in:st=0:d=1.2,afade=t=out:st=${fadeOutStart}:d=1.2[aud]`);
+    audioMap = `[aud]`;
+  }
+
+  return { filter: parts.join(";"), audioMap };
+}
+
+function runFfmpeg(args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(FFMPEG_PATH, args, { stdio: ["ignore", "ignore", "pipe"] });
+    let stderr = "";
+    proc.stderr.on("data", (d) => {
+      stderr += d.toString();
+      if (stderr.length > 20_000) stderr = stderr.slice(-20_000); // tail만 보존
+    });
+    proc.on("error", (e) => reject(new Error(`ffmpeg 실행 실패: ${e.message}`)));
+    proc.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`ffmpeg 종료코드 ${code}: ${stderr.slice(-1200)}`));
+    });
+  });
+}
+
+/**
+ * 프레임(JPEG 버퍼 4~7장 권장) → 1080×1920 H.264/AAC 30fps MP4 슬라이드쇼(xfade 크로스페이드).
+ * @throws 프레임 수 범위 밖·ffmpeg 실패·100MB 초과.
+ */
+export async function buildReelVideo(frames: Buffer[], opts: BuildReelOptions = {}): Promise<ReelVideo> {
+  const n = frames.length;
+  if (n < MIN_FRAMES) throw new Error(`릴스 프레임이 부족합니다(${n} < ${MIN_FRAMES})`);
+  if (n > MAX_FRAMES) throw new Error(`릴스 프레임이 너무 많습니다(${n} > ${MAX_FRAMES})`);
+
+  const audio: ReelAudioMode = opts.audio ?? "silent";
+  const { totalSec, perFrameSec, transitionSec } = computeReelTiming(
+    n,
+    opts.transitionSec ?? TRANSITION_SEC,
+    opts.perFrameBaseSec ?? PER_FRAME_BASE_SEC
+  );
+
+  const workDir = path.join(os.tmpdir(), `ig-reel-${Date.now()}-${randomUUID().slice(0, 8)}`);
+  await fs.mkdir(workDir, { recursive: true });
+  const outPath = path.join(workDir, "reel.mp4");
+
+  try {
+    // 1) 프레임 정규화 + 기록.
+    const framePaths: string[] = [];
+    for (let i = 0; i < n; i++) {
+      const norm = await normalizeFrame(frames[i]);
+      const fp = path.join(workDir, `frame-${String(i).padStart(3, "0")}.png`);
+      await fs.writeFile(fp, norm);
+      framePaths.push(fp);
+    }
+
+    // 2) ffmpeg 인자.
+    const inputArgs: string[] = [];
+    for (let i = 0; i < n; i++) {
+      inputArgs.push("-loop", "1", "-t", perFrameSec.toFixed(3), "-i", framePaths[i]);
+    }
+    inputArgs.push(...audioInputArgs(audio, totalSec));
+
+    const { filter, audioMap } = buildFilterComplex(n, perFrameSec, transitionSec, totalSec, audio);
+
+    const args = [
+      "-y",
+      ...inputArgs,
+      "-filter_complex",
+      filter,
+      "-map",
+      "[vout]",
+      "-map",
+      audioMap,
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-profile:v",
+      "high",
+      "-level",
+      "4.0",
+      "-pix_fmt",
+      "yuv420p",
+      "-r",
+      String(FPS),
+      "-c:a",
+      "aac",
+      "-b:a",
+      "128k",
+      "-ar",
+      "44100",
+      "-movflags",
+      "+faststart",
+      "-t",
+      totalSec.toFixed(3),
+      outPath,
+    ];
+
+    await runFfmpeg(args);
+
+    const mp4 = await fs.readFile(outPath);
+    if (mp4.length > MAX_MP4_BYTES) {
+      throw new Error(`릴스 MP4가 100MB를 초과했습니다(${(mp4.length / 1024 / 1024).toFixed(1)}MB)`);
+    }
+
+    return {
+      mp4,
+      durationSec: totalSec,
+      width: REEL_CANVAS.width,
+      height: REEL_CANVAS.height,
+      frameCount: n,
+      audio,
+      perFrameSec,
+    };
+  } finally {
+    // 임시 파일 정리(실패해도 무시).
+    await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+// ── 슬라이드 → 릴스 프레임 선별 ──────────────────────────
+/** 캐러셀 슬라이드(cover, info, raw…, cta)에서 릴스 프레임을 4~7장으로 선별(커버 → 중간 사진 → 엔딩 CTA). */
+export function selectReelSlides(slides: SlideInput[]): SlideInput[] {
+  const cover = slides.find((s) => s.templateId === "cover");
+  const cta = slides.find((s) => s.templateId === "cta");
+  const middles = slides.filter((s) => s.templateId !== "cover" && s.templateId !== "cta");
+
+  const reserved = (cover ? 1 : 0) + (cta ? 1 : 0);
+  const maxMiddles = Math.max(0, REEL_TARGET_MAX - reserved); // 커버+CTA 포함 총 ≤7장
+  const chosen: SlideInput[] = [];
+  if (cover) chosen.push(cover);
+  chosen.push(...middles.slice(0, maxMiddles));
+  if (cta) chosen.push(cta);
+  return chosen;
+}
+
+// ── 오케스트레이션: 슬라이드 → 렌더 → MP4 → 업로드 ──────
+export interface ReelMediaEntry {
+  templateId: "reel";
+  srcPhotoId: string | null;
+  renderedUrl: string; // 포스터(첫 프레임 JPEG) 공개 URL — admin 썸네일·serialize 호환
+  overlayText: string | null;
+  videoUrl: string; // 발행용 MP4 공개 URL (publish cron REELS 경로가 읽음)
+  durationSec: number;
+  frameCount: number;
+  audio: ReelAudioMode;
+}
+
+export interface ReelBuildResult {
+  videoUrl: string;
+  posterUrl: string;
+  durationSec: number;
+  frameCount: number;
+  audio: ReelAudioMode;
+  mediaJson: ReelMediaEntry[];
+}
+
+/**
+ * 빌라 슬라이드 → 릴스 프레임 렌더 → MP4 합성 → R2 업로드(비디오+포스터) → mediaJson 반환.
+ * draft cron이 kind=REELS 포스트 생성 시 호출.
+ */
+export async function renderAndBuildReel(
+  slides: SlideInput[],
+  baseName: string,
+  opts: BuildReelOptions = {}
+): Promise<ReelBuildResult> {
+  const reelSlides = selectReelSlides(slides);
+  const frames = await renderReelFrameBuffers(reelSlides);
+  const video = await buildReelVideo(frames, opts);
+
+  const { url: videoUrl } = await saveInstagramVideo(video.mp4, baseName);
+  const { url: posterUrl } = await saveInstagramRender(frames[0], `${baseName}-poster`);
+
+  const cover = reelSlides.find((s) => s.templateId === "cover");
+  const overlayText = cover && cover.templateId === "cover" ? cover.data.headline : null;
+
+  const entry: ReelMediaEntry = {
+    templateId: "reel",
+    srcPhotoId: null,
+    renderedUrl: posterUrl,
+    overlayText,
+    videoUrl,
+    durationSec: video.durationSec,
+    frameCount: video.frameCount,
+    audio: video.audio,
+  };
+
+  return {
+    videoUrl,
+    posterUrl,
+    durationSec: video.durationSec,
+    frameCount: video.frameCount,
+    audio: video.audio,
+    mediaJson: [entry],
+  };
+}
