@@ -4166,7 +4166,7 @@
       "fieldPhone": "4 số cuối SĐT",
       "fieldVilla": "Villa",
       "fieldCheckIn": "Nhận phòng",
-      "confirmWarning": "Bạn đã xác nhận tên / 4 số cuối SĐT với khách chưa? Liên kết sai có thể gửi link cho nhầm khách.",
+      "confirmWarning": "Bạn đã xác nhận tên / 4 số cuối SĐT với khách chưa? Liên kết sai có thể gửi nhầm link cho khách khác.",
       "cancel": "Hủy",
       "doLink": "Liên kết",
       "linking": "Đang liên kết…",
