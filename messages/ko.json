@@ -3852,6 +3852,14 @@
     "selectSession": "왼쪽에서 대화를 선택하세요",
     "back": "목록으로",
     "unknownContact": "익명 방문자",
+    "source": {
+      "guest": "게스트 포털",
+      "proposal": "제안 링크",
+      "auth": "로그인·가입",
+      "intro": "소개(관리인)",
+      "introVendor": "소개(업체)",
+      "introPartner": "소개(파트너)"
+    },
     "blockedBadge": "차단됨",
     "hasContact": "연락처 있음",
     "createdAt": "시작 {date}",

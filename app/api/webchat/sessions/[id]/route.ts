@@ -3,19 +3,19 @@
 // ADMIN 전용(첫 줄 role 검사). ownerAdminId 스코프 강제(타 운영자 세션 404). 열람 시 unreadForAdmin=0 리셋.
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { isSystemAdmin } from "@/lib/permissions";
+import { isOperator } from "@/lib/permissions";
 import { requireCapability, notFoundIfMissing } from "@/lib/api-guard";
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  // 첫 줄 role 검사 — ADMIN 전용
-  const g = await requireCapability(isSystemAdmin, "isSystemAdmin", req);
+  // 첫 줄 role 검사 — 운영자 전체(OWNER/MANAGER/STAFF/ADMIN). 웹챗은 구조적 무금액이라 STAFF 개방 안전.
+  const g = await requireCapability(isOperator, "isOperator", req);
   if (!g.ok) return g.response;
 
   const { id } = await ctx.params;
 
-  // 소유 스코프 강제 — 타 운영자 세션은 404(존재 비노출)
+  // 웹챗 세션은 조직 공유 자산 — Zalo 대화(개인 스코프)와 다름 (T-webchat-expand)
   const session = await prisma.webChatSession.findFirst({
-    where: { id, ownerAdminId: g.userId },
+    where: { id },
     select: {
       id: true,
       visitorLocale: true,

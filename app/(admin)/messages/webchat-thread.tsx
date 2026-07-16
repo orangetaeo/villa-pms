@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { type WebChatThreadData, localeBadge } from "./webchat-types";
+import { SourcePageLabel } from "./webchat-source-badge";
 
 function msgTime(iso: string): string {
   const d = new Date(iso);
@@ -114,9 +115,7 @@ export function WebChatThread({
             </span>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-bold text-white truncate">
-                  {thread.sourcePage || t("unknownContact")}
-                </span>
+                <SourcePageLabel sourcePage={thread.sourcePage} />
                 <span className="text-[10px] font-bold text-slate-400 bg-slate-800 rounded px-1.5 py-0.5">
                   {t("lang")}: {thread.visitorLocale}
                 </span>

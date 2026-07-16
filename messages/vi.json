@@ -3967,6 +3967,14 @@
     "selectSession": "Chọn một cuộc trò chuyện ở bên trái",
     "back": "Về danh sách",
     "unknownContact": "Khách ẩn danh",
+    "source": {
+      "guest": "Cổng khách",
+      "proposal": "Liên kết báo giá",
+      "auth": "Đăng nhập·Đăng ký",
+      "intro": "Giới thiệu (quản lý)",
+      "introVendor": "Giới thiệu (nhà cung cấp)",
+      "introPartner": "Giới thiệu (đối tác)"
+    },
     "blockedBadge": "Đã chặn",
     "hasContact": "Có liên hệ",
     "createdAt": "Bắt đầu {date}",
