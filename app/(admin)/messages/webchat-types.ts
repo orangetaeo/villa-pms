@@ -72,6 +72,12 @@ export function parseSourcePage(sourcePage: string | null): SourcePageInfo {
   if (v.startsWith("g:")) return { labelKey: "guest", code: v.slice(2) || null, raw: null };
   if (v.startsWith("p:")) return { labelKey: "proposal", code: v.slice(2) || null, raw: null };
   if (v === "auth") return { labelKey: "auth", code: null, raw: null };
+  // T-webchat-chat-landing: 소비자 직행 /chat 유입면(화이트리스트: chat·ig·kakao·qr·direct).
+  if (v === "chat") return { labelKey: "chat", code: null, raw: null };
+  if (v === "ig") return { labelKey: "ig", code: null, raw: null };
+  if (v === "kakao") return { labelKey: "kakao", code: null, raw: null };
+  if (v === "qr") return { labelKey: "qr", code: null, raw: null };
+  if (v === "direct") return { labelKey: "direct", code: null, raw: null };
   if (v === "intro") return { labelKey: "intro", code: null, raw: null };
   if (v === "intro-vendor") return { labelKey: "introVendor", code: null, raw: null };
   if (v === "intro-partner") return { labelKey: "introPartner", code: null, raw: null };

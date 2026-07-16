@@ -4128,6 +4128,11 @@
       "guest": "Cổng khách",
       "proposal": "Liên kết báo giá",
       "auth": "Đăng nhập·Đăng ký",
+      "chat": "Trang chat",
+      "ig": "Instagram",
+      "kakao": "KakaoTalk",
+      "qr": "Mã QR",
+      "direct": "Truy cập trực tiếp",
       "intro": "Giới thiệu (quản lý)",
       "introVendor": "Giới thiệu (nhà cung cấp)",
       "introPartner": "Giới thiệu (đối tác)"
