@@ -26,6 +26,8 @@ import { loadCanSellItem } from "@/lib/ticket-vendor-guard";
 import { parseUtcDateOnly } from "@/lib/date-vn";
 import type { Prisma } from "@prisma/client";
 import { notifyOperatorsServiceOrderRequested } from "@/lib/consumer-signal-notify";
+import { SERVICE_LIABILITY_VERSION } from "@/lib/service-liability";
+import { isPublicLang } from "@/lib/public-i18n";
 
 // 공개·미인증 엔드포인트 폭주 방어 (T-sec-public-hardening — hold/roster 라우트와 동일 모델)
 const ORDER_TOKEN_LIMIT = { max: 40, windowMs: 10 * 60_000 };
@@ -41,6 +43,9 @@ const schema = z.object({
   serviceDate: z.string().optional().nullable(),
   serviceTime: z.string().regex(/^\d{2}:\d{2}$/).optional().nullable(),
   guestNote: z.string().max(500).optional().nullable(),
+  // ★책임 제한 고지 동의 (계약 service-order-liability-consent) — /g와 대칭. version·locale은 서버 산출.
+  liabilityConsent: z.boolean().optional(),
+  locale: z.string().max(10).optional().nullable(),
 });
 
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
@@ -68,6 +73,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     return NextResponse.json({ error: "VALIDATION_FAILED", issues: parsed.error.flatten() }, { status: 400 });
   }
   const d = parsed.data;
+
+  // ★책임 제한 고지 동의 게이트 (계약 service-order-liability-consent) — /g와 대칭. 미동의면 생성 거부(스냅샷 미저장).
+  //   서버가 version(상수)·locale(표시언어 검증, 미지원=en)·source를 산출 — 클라 값은 동의 플래그·표시언어만 사용.
+  if (d.liabilityConsent !== true) {
+    return NextResponse.json({ error: "CONSENT_REQUIRED" }, { status: 400 });
+  }
+  const liabilityConsentJson = {
+    agreedAt: new Date().toISOString(),
+    version: SERVICE_LIABILITY_VERSION,
+    locale: isPublicLang(d.locale) ? d.locale : "en",
+    source: "partner" as const,
+  };
 
   // 교차 토큰 가드 — bookingId가 이 token의 제안 소속인지 (done/roster 페이지·hold route와 동일 패턴)
   const booking = await prisma.booking.findUnique({
@@ -159,6 +176,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       // 발주 대상 스냅샷(S2 dispatch가 사용) — 지역 지정 업체 해석 결과(ADR-0037). 응답엔 노출하지 않는다.
       vendorId: resolvedVendorId,
       guestNote: d.guestNote ?? null,
+      // ★책임 제한 고지 동의 스냅샷(계약 service-order-liability-consent) — 신청 시점 증빙(불변).
+      liabilityConsentJson: liabilityConsentJson as unknown as Prisma.InputJsonValue,
     },
     select: { id: true },
   });
@@ -172,6 +191,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     changes: {
       requestedVia: { new: booking.channel === "DIRECT" ? "GUEST" : "PARTNER" },
       catalogItemId: { new: item.id },
+      liabilityConsentVersion: { new: SERVICE_LIABILITY_VERSION }, // 책임 고지 동의 증빙(계약 service-order-liability-consent)
     },
   });
 

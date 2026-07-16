@@ -1248,6 +1248,9 @@ model ServiceOrder {
   // 티켓 이용자 선택 스냅샷 (ADR-0036) — 소비자가 체크인 명단(여권 확정본)에서 고른 [{name,birthDate}].
   //   차일드/어덜트/시니어 구분용으로 벤더에 전달. ★이름·생년월일만(여권번호 등 금지). null=미선택(체크인 전 주문 등)
   ticketGuests    Json?
+  // 책임 제한 고지 동의 스냅샷 — 소비자 신청 경로(/g·/p)에서 서버 산출 { agreedAt, version, locale, source }.
+  //   null=제도 이전 주문·admin 대리 생성(동의 미적용). 문구·버전 원천=lib/service-liability.ts. 백필 금지.
+  liabilityConsentJson Json?
   createdAt   DateTime           @default(now())
 
   @@index([vendorId, vendorStatus])
