@@ -57,6 +57,7 @@
 ## 3열람실 — 참고 서가 (필요 시만)
 | 문서 | 내용 |
 |---|---|
+| docs/marketing/youtube-shorts-plan.md | 유튜브 쇼츠 기획 v1 (2026-07-16) — 빌라 정보 숏츠(릴스 재사용)+직접 촬영 자동 편집+YouTube API 자동 업로드. ★감사(audit) 전 업로드=강제 비공개·쇼츠 링크 클릭 불가 |
 | docs/marketing/instagram-marketing-plan.md | 인스타그램 마케팅 기획 v1 (2026-07-16) — 한국인 대상 일 3건 자동 포스팅·Graph API 발행 파이프라인·DM 인박스·카카오 유도. 착수 전 필독 |
 | docs/marketing/instagram-account-setup.md | 테오(비개발자)용 IG 계정·API 셋업 가이드 (2026-07-16) — 계정 생성→비즈니스 전환(서류X)→Meta Business앱→"API setup with Instagram login" 계정 연결→60일 토큰 발급/전달→2주 워밍업→보안. ★App Review·Business Verification 배제(자기계정+개발모드) |
 | COSTS.md | 토큰 비용 기록 (FIN) |
