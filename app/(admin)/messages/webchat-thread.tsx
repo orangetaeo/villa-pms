@@ -39,23 +39,28 @@ export function WebChatThread({
   loading,
   sending,
   blocking,
+  canCreateProposal,
   onBack,
   onSend,
   onToggleBlock,
   onLinkBooking,
   onUnlinkBooking,
   onSendLink,
+  onSendProposal,
 }: {
   thread: WebChatThreadData | null;
   loading: boolean;
   sending: boolean;
   blocking: boolean;
+  /** 제안 생성 권한(canSetPrice) — 제안 모달 B 섹션 게이트. */
+  canCreateProposal: boolean;
   onBack: () => void;
   onSend: (text: string) => void;
   onToggleBlock: (nextBlocked: boolean) => void;
   onLinkBooking: (bookingId: string) => Promise<boolean>;
   onUnlinkBooking: () => Promise<boolean>;
   onSendLink: (kind: QuickLinkKind) => Promise<{ ok: boolean; error?: string }>;
+  onSendProposal: (proposalId: string) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const t = useTranslations("adminWebchat");
   const [draft, setDraft] = useState("");
@@ -224,22 +229,25 @@ export function WebChatThread({
         )}
       </div>
 
-      {/* 빠른 링크(연결된 세션 + 열림 상태만) */}
-      {canReply && thread.booking && (
+      {/* 빠른 링크(열림 상태) — 제안 보내기는 항상, 예약 링크 3종은 연결된 세션만(내부 게이트) */}
+      {canReply && (
         <div className="shrink-0 border-t border-slate-800">
-          <WebChatQuickLinks onSend={onSendLink} />
+          <WebChatQuickLinks
+            sessionId={thread.id}
+            hasBooking={!!thread.booking}
+            canCreateProposal={canCreateProposal}
+            defaultClientName={
+              thread.contactZalo ?? thread.contactKakao ?? t("proposal.defaultClientName")
+            }
+            onSend={onSendLink}
+            onSendProposal={onSendProposal}
+          />
         </div>
       )}
 
       {/* 답장 or 상태 배너 */}
       {canReply ? (
-        <div
-          className={
-            thread.booking
-              ? "shrink-0 px-3 pb-3 pt-1 bg-slate-900"
-              : "shrink-0 px-3 py-3 border-t border-slate-800 bg-slate-900"
-          }
-        >
+        <div className="shrink-0 px-3 pb-3 pt-1 bg-slate-900">
           <div className="flex items-end gap-2">
             <textarea
               value={draft}

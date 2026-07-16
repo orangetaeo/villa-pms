@@ -22,7 +22,14 @@ import type {
 
 const POLL_INTERVAL_MS = 5000;
 
-export function WebChatClient({ initialSelectedId }: { initialSelectedId: string | null }) {
+export function WebChatClient({
+  initialSelectedId,
+  canCreateProposal,
+}: {
+  initialSelectedId: string | null;
+  /** 제안 생성 권한(canSetPrice) — page.tsx가 세션 role로 계산해 주입. 서버가 정본. */
+  canCreateProposal: boolean;
+}) {
   const t = useTranslations("adminWebchat");
   const [sessions, setSessions] = useState<WebChatSessionListItem[]>([]);
   const [filter, setFilter] = useState<WebChatFilter>("open");
@@ -329,6 +336,32 @@ export function WebChatClient({ initialSelectedId }: { initialSelectedId: string
     [fetchThread, refreshInbox]
   );
 
+  // 제안 링크 발송 — POST send-link(kind=proposal, proposalId). 성공 시 스레드 재조회 + 목록 갱신.
+  //   기존 제안 선택·새 제안 생성(모달) 양쪽이 최종적으로 이 핸들러로 발송한다.
+  const handleSendProposal = useCallback(
+    async (proposalId: string): Promise<{ ok: boolean; error?: string }> => {
+      const id = selectedIdRef.current;
+      if (!id) return { ok: false, error: "send_failed" };
+      try {
+        const res = await fetch(`/api/webchat/sessions/${id}/send-link`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ kind: "proposal", proposalId }),
+        });
+        if (!res.ok) {
+          const data = (await res.json().catch(() => ({}))) as { error?: string };
+          return { ok: false, error: data.error ?? "send_failed" };
+        }
+        await fetchThread(id, false);
+        refreshInbox();
+        return { ok: true };
+      } catch {
+        return { ok: false, error: "send_failed" };
+      }
+    },
+    [fetchThread, refreshInbox]
+  );
+
   // 실시간(SSE) + 폴링 폴백 — source==="webchat" 신호에만 반응.
   useEffect(() => {
     let es: EventSource | null = null;
@@ -448,12 +481,14 @@ export function WebChatClient({ initialSelectedId }: { initialSelectedId: string
             loading={threadLoading}
             sending={sending}
             blocking={blocking}
+            canCreateProposal={canCreateProposal}
             onBack={handleBack}
             onSend={handleSend}
             onToggleBlock={handleToggleBlock}
             onLinkBooking={handleLinkBooking}
             onUnlinkBooking={handleUnlinkBooking}
             onSendLink={handleSendLink}
+            onSendProposal={handleSendProposal}
           />
         }
       />

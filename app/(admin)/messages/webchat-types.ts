@@ -65,7 +65,37 @@ export interface BookingCandidate {
 }
 
 /** 빠른 링크 발송 종류 — send-link API kind와 일치. */
-export type QuickLinkKind = "checkin" | "options" | "receipt";
+export type QuickLinkKind = "checkin" | "options" | "receipt" | "proposal";
+
+/**
+ * 기존 제안 후보 — 채팅 내 "제안 보내기" 모달의 A 섹션 목록 요소.
+ * GET /api/webchat/sessions/[id]/proposal-candidates 응답 요소와 일치.
+ * ★금액 필드 없음(라우트가 select 원천 배제) — clientName·빌라명·날짜만.
+ */
+export interface ProposalCandidate {
+  proposalId: string;
+  clientName: string;
+  channel: string;
+  villaNames: string[];
+  checkIn: string | null; // 첫 item 기준(item마다 날짜 상이 가능)
+  checkOut: string | null;
+  expiresAt: string;
+}
+
+/**
+ * 새 제안 생성용 빌라 후보 — 모달 B 섹션 목록 요소.
+ * GET /api/proposals/candidates 응답 요소 중 표시에 쓰는 필드만(운영자 전용 다크 모달 내 표시라 판매가 노출 OK).
+ * ★이 데이터는 방문자 폴링 응답으로 나가지 않는다(운영자 화면 전용).
+ */
+export interface ProposalVillaCandidate {
+  id: string;
+  name: string;
+  complex: string | null;
+  maxGuests: number;
+  nights: number;
+  totalSaleKrw: number | null;
+  totalSaleVnd: string | null; // serializeBigInt → 문자열
+}
 
 /** 스레드 상세 — /api/webchat/sessions/[id] 의 session. */
 export interface WebChatThreadData {

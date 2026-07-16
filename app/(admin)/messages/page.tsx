@@ -12,7 +12,7 @@ import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { isOperator } from "@/lib/permissions";
+import { isOperator, canSetPrice } from "@/lib/permissions";
 import { getInboxData, getThreadData } from "./_thread-data";
 import { MessagesClient } from "./messages-client";
 import { SourceTabs } from "./source-tabs";
@@ -64,7 +64,11 @@ export default async function MessagesPage({
       <div className="-m-4 md:-m-8 h-[calc(100dvh-7.5rem)] lg:h-screen flex flex-col">
         <SourceTabs active="webchat" zaloUnread={zaloUnread} webchatUnread={webchatUnread} />
         <div className="flex-1 min-h-0">
-          <WebChatClient initialSelectedId={webchatSessionId ?? null} />
+          {/* 제안 생성 권한(canSetPrice=OWNER/MANAGER) — 모달 B 섹션 UI 게이트. 서버 POST /api/proposals가 정본. */}
+          <WebChatClient
+            initialSelectedId={webchatSessionId ?? null}
+            canCreateProposal={canSetPrice(session.user.role)}
+          />
         </div>
       </div>
     );
