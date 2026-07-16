@@ -16,6 +16,11 @@ export interface RealtimeEvent {
   type: "inbound" | "outbound" | "update";
   /** 변경이 일어난 대화 id — 클라이언트가 현재 열린 대화와 비교해 스레드도 갱신 */
   conversationId: string;
+  /**
+   * 소스 채널(additive). 미지정=zalo(기존 동작). webchat=웹 채팅 세션 신호 —
+   * FE 인박스가 Zalo 탭/웹챗 탭을 구분해 갱신(누수 무관: 식별 신호만, 본문 미탑재).
+   */
+  source?: "zalo" | "webchat";
 }
 
 // globalThis 캐시 — dev(HMR)·서버리스 중복 import에도 단일 인스턴스.
