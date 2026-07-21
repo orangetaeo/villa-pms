@@ -2759,10 +2759,29 @@ function Composer({
     });
   }
 
+  // 현재 입력창 텍스트를 첨부 캡션으로 — 번역 ON이고 현재 입력에 대한 settled 번역이면
+  //   번역문을 캡션으로(수신자 언어, 텍스트 발송과 동일 규칙). 아니면 원문 그대로. 빈 입력이면 "".
+  function currentOutgoingCaption(): string {
+    const body = text.trim();
+    if (!body) return "";
+    const reuse =
+      previewEnabled &&
+      !translating &&
+      preview &&
+      previewForRef.current === body &&
+      previewModeRef.current === translateMode
+        ? preview
+        : null;
+    return reuse || body;
+  }
+
   async function sendPendingFiles() {
     if (pendingFiles.length === 0 || sendingImage) return;
     setSendingImage(true);
     setError(null);
+    // 입력창 텍스트를 첨부의 캡션으로 실어 보낸다(이미지+캡션 한 메시지, Nike UX 동일). 첫 항목에만 부착.
+    const caption = currentOutgoingCaption();
+    let captionPending = caption.length > 0;
     try {
       // 순차 전송(수신자에게 드롭 순서 유지). 실패하면 그 항목부터 대기열에 남겨 재시도/제거 가능.
       for (const item of [...pendingFiles]) {
@@ -2779,6 +2798,8 @@ function Composer({
             fd.append("file", item.file);
             fd.append("type", "FILE");
           }
+          // 캡션은 첫 항목에만(수신자에게 이미지+캡션 1건). 서버(/share)가 caption→sendChatImageAsAdmin으로 전달.
+          if (captionPending) fd.append("caption", caption);
           const res = await fetch(`/api/zalo/conversations/${conversationId}/share`, {
             method: "POST",
             body: fd,
@@ -2803,6 +2824,13 @@ function Composer({
                 : t("fileError.generic"),
           );
           break;
+        }
+        // 캡션을 실은 첫 항목이 성공하면 입력창을 비운다(캡션 소진). 실패 시엔 유지해 재시도 가능.
+        if (captionPending) {
+          setText("");
+          setPreview("");
+          previewForRef.current = "";
+          captionPending = false;
         }
         if (item.url) URL.revokeObjectURL(item.url);
         setPendingFiles((prev) => prev.filter((p) => p.id !== item.id));
@@ -2966,6 +2994,12 @@ function Composer({
   }
 
   async function send() {
+    // 대기 첨부가 있으면 입력 텍스트를 캡션으로 실어 이미지/파일을 발송한다(Nike처럼 이미지+캡션 1건).
+    //   텍스트만 별도 발송하지 않고 캡션으로 소진 — 발송 버튼·Enter 모두 동일 동작.
+    if (pendingFiles.length > 0) {
+      void sendPendingFiles();
+      return;
+    }
     const body = text.trim();
     if (!body) return;
 
@@ -3480,7 +3514,7 @@ function Composer({
           <button
             type="button"
             onClick={send}
-            disabled={!text.trim()}
+            disabled={!text.trim() && pendingFiles.length === 0}
             aria-label={t("send")}
             className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold w-9 h-9 lg:w-auto lg:h-auto lg:px-4 lg:py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors active:scale-95 shrink-0"
           >
