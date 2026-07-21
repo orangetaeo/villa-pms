@@ -11,10 +11,5 @@ export const ADMIN_FULLSCREEN_PREFIXES = ["/messages"];
 export default function MobileNavSpacer() {
   const pathname = usePathname();
   if (ADMIN_FULLSCREEN_PREFIXES.some((p) => pathname.startsWith(p))) return null;
-  return (
-    <div
-      aria-hidden
-      className="lg:hidden h-[calc(5rem+env(safe-area-inset-bottom))]"
-    />
-  );
+  return <div aria-hidden className="lg:hidden h-20" />;
 }

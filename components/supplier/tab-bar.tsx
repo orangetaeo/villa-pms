@@ -41,11 +41,11 @@ export function TabBar({ role }: { role?: string }) {
 
   return (
     <>
-      {/* 본문 하단 패딩 확보용 스페이서 — 고정 탭바(높이+홈인디케이터 safe)에 콘텐츠가 가리지 않도록 */}
-      <div aria-hidden className="h-[calc(5rem+env(safe-area-inset-bottom))]" />
+      {/* 본문 하단 패딩 확보용 스페이서 — 고정 탭바에 콘텐츠가 가리지 않도록 */}
+      <div aria-hidden className="h-20" />
       <nav
         data-tour="tab-bar"
-        className="fixed bottom-0 left-0 z-50 flex h-[calc(4rem+env(safe-area-inset-bottom))] pb-safe w-full items-center justify-around rounded-t-xl border-t border-neutral-100 bg-white px-0.5 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]"
+        className="fixed bottom-0 left-0 z-50 flex h-16 w-full items-center justify-around rounded-t-xl border-t border-neutral-100 bg-white px-0.5 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]"
       >
         {tabs.map((tab) => {
           const active = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
