@@ -44,58 +44,6 @@ th,
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* iOS 안전영역 상단 패딩 — statusBarStyle black-translucent(투명 상태바)에서 콘텐츠가
-   상태바 뒤로 흐르므로, 최상단 고정/스티키 바는 이만큼 콘텐츠를 내려야 상태바에 가리지 않는다.
-   해당 바의 배경(어두운/teal)이 safe-area 영역까지 채워져 흰 상태바 글자의 가독성을 확보한다. */
-.pt-safe {
-  padding-top: env(safe-area-inset-top);
-}
-/* 상태바 영역만큼의 높이 — 최상단에 배치하는 배경 스트립용 */
-.h-safe-top {
-  height: env(safe-area-inset-top);
-}
-
-/* ★설치 앱(홈화면 아이콘) 전용 전역 상태바 백드롭 — 모든 화면 최상단을 브랜드 teal로 통일.
-   black-translucent(투명 상태바) 뒤 safe-area를 항상 teal로 채운다. per-page 스트립은
-   페이지 콘텐츠 스태킹에 가려 안 보이는 경우가 있어, 아주 높은 z로 전역 보장한다.
-   (스플래시 오버레이 z=2147483000 아래라 스플래시는 그대로 위를 덮는다. pointer-events 없음.)
-   Safari(브라우저)에서는 이 규칙이 적용되지 않고 theme-color가 상단을 처리한다. */
-@media (display-mode: standalone) {
-  body::before {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: env(safe-area-inset-top);
-    background: #0d9488;
-    z-index: 2147482000;
-    pointer-events: none;
-  }
-  /* 운영자(ADMIN) 다크 대시보드에서는 상단도 화면색(admin-bg #0F172A)에 맞춰 다크로 —
-     teal 상태바가 다크 화면과 이질감을 주던 문제 수정. admin 레이아웃 루트의
-     data-app-shell="admin" 마커를 :has()로 감지(iOS 15.4+). 공급자·인증 등 라이트는 teal 유지. */
-  body:has([data-app-shell="admin"])::before {
-    background: #0f172a;
-  }
-
-  /* ★하단·오버스크롤 흰색 방지 — 하단 safe-area(홈인디케이터)·바운스 영역은 <html> 루트 배경을
-     그대로 노출한다(정지 시 흰색 띠가 생기던 문제). 루트 배경을 화면별로 칠해 흰색이 안 드러나게.
-     ※ 하단 바 높이는 건드리지 않음(원래대로) — /messages 등 특수 레이아웃 불변. */
-  html {
-    background-color: #0d9488; /* 기본(스플래시·미표시): teal */
-  }
-  html:has([data-app-shell="admin"]) {
-    background-color: #0f172a; /* 운영자 다크 */
-  }
-  html:has([data-app-shell="supplier"]) {
-    background-color: #fafafa; /* 공급자 라이트(neutral-50) */
-  }
-  html:has([data-app-shell="auth"]) {
-    background-color: #f8fafc; /* 로그인·가입 라이트(slate-50) */
-  }
-}
-
 /* 모바일 터치 최소 타겟 (WCAG 2.5.5) */
 .touch-target {
   min-height: 56px;

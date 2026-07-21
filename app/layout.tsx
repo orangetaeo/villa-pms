@@ -7,10 +7,7 @@ import SplashIntro from "@/components/splash-intro";
 // T-splash-intro — 페인트 전 동기 게이트: sessionStorage(세션당 1회)·reduced-motion·
 // 제외경로(/p·/g) 판정 후 html[data-splash]를 세팅한다(스플래시 표시는 CSS가 결정).
 // 어떤 예외든 조용히 스킵(스플래시 미표시 폴백). ※ 향후 CSP enforce 시 nonce 필요.
-// ※ data-splash 세팅과 동시에 <html>에 인라인 티얼 배경을 칠한다 — 외부 globals.css가
-//    적용되기 전(HTML 스트리밍 첫 페인트)에 흰 <body>가 잠깐 보이던 깜빡임 제거.
-//    배경 해제는 스플래시 종료 시점(splash-intro.tsx finish)에서 style 초기화로 처리한다.
-const SPLASH_GATE = `(function(){try{if(sessionStorage.getItem('vg-splash'))return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var p=location.pathname;if(p.indexOf('/p/')===0||p.indexOf('/g/')===0||p.indexOf('/webchat')===0||p==='/chat'||p.indexOf('/chat/')===0||p==='/privacy'||p.indexOf('/privacy/')===0)return;var d=document.documentElement;d.setAttribute('data-splash','1');d.style.backgroundColor='#12857a';}catch(e){}})();`;
+const SPLASH_GATE = `(function(){try{if(sessionStorage.getItem('vg-splash'))return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var p=location.pathname;if(p.indexOf('/p/')===0||p.indexOf('/g/')===0||p.indexOf('/webchat')===0||p==='/chat'||p.indexOf('/chat/')===0||p==='/privacy'||p.indexOf('/privacy/')===0)return;document.documentElement.setAttribute('data-splash','1');}catch(e){}})();`;
 
 export const metadata: Metadata = {
   title: "Villa Go",
@@ -21,28 +18,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "Villa Go",
-    // black-translucent — 상태바를 투명하게 만들어 화면(스플래시 teal·운영자 다크·공급자 상단
-    // teal 스트립)이 상태바 뒤까지 채우게 한다. "default"(흰 상태바)의 이질감 제거.
-    // ⚠ 투명 상태바는 글자색이 항상 흰색으로 고정되므로, 최상단 safe-area는 반드시 어두운/teal
-    //    배경으로 채워야 한다(각 상단 바 .pt-safe + 배경). 흰 배경 위에 두면 시간·배터리가 안 보임.
-    statusBarStyle: "black-translucent",
-    // iOS 설치 PWA 부팅 중 흰 런치 화면 제거 — teal 스플래시(핀 로고+워드마크)를 기기별로 매칭.
-    //   ※ iOS는 media 쿼리가 기기 해상도와 정확히 일치해야 적용하므로 portrait 전 기종을 나열.
-    //   ※ 안드로이드는 이 태그를 무시하고 manifest background_color(teal)로 런치 스플래시를 그린다.
-    //   이미지 생성: scripts/gen-apple-splash.py (public/splash/apple-splash-*.png).
-    startupImage: [
-      { url: "/splash/apple-splash-1320x2868.png", media: "screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
-      { url: "/splash/apple-splash-1206x2622.png", media: "screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
-      { url: "/splash/apple-splash-1290x2796.png", media: "screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
-      { url: "/splash/apple-splash-1179x2556.png", media: "screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
-      { url: "/splash/apple-splash-1284x2778.png", media: "screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
-      { url: "/splash/apple-splash-1170x2532.png", media: "screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
-      { url: "/splash/apple-splash-1125x2436.png", media: "screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
-      { url: "/splash/apple-splash-1242x2688.png", media: "screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
-      { url: "/splash/apple-splash-828x1792.png", media: "screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" },
-      { url: "/splash/apple-splash-750x1334.png", media: "screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" },
-      { url: "/splash/apple-splash-640x1136.png", media: "screen and (device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" },
-    ],
+    statusBarStyle: "default",
   },
 };
 

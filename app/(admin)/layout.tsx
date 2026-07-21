@@ -140,7 +140,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-dvh bg-admin-bg text-slate-50 font-admin" data-app-shell="admin">
+    <div className="min-h-dvh bg-admin-bg text-slate-50 font-admin">
       <NextIntlClientProvider locale={locale} messages={messages}>
       <AdminSidebar
         userName={session.user.name}
@@ -152,8 +152,8 @@ export default async function AdminLayout({
       />
       {/* 모바일 당겨서 새로고침 — 전 admin 페이지 공용(풀스크린 라우트 자동 제외) */}
       <PullToRefresh fullscreenPrefixes={ADMIN_FULLSCREEN_PREFIXES} variant="dark" />
-      {/* 데스크톱: 사이드바 폭만큼 밀기 / 모바일: 헤더(h-14)+상태바 safe-area 높이만큼 내리기 */}
-      <main className="lg:pl-64 pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-0 min-h-dvh">
+      {/* 데스크톱: 사이드바 폭만큼 밀기 / 모바일: 헤더 높이만큼 내리기 */}
+      <main className="lg:pl-64 pt-14 lg:pt-0 min-h-dvh">
         <div className="p-4 md:p-8">{children}</div>
         {/* 모바일 하단 네비에 콘텐츠가 가리지 않도록 인-플로우 스페이서 (풀스크린 라우트는 자동 0) */}
         <MobileNavSpacer />

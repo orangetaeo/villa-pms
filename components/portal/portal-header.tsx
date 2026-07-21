@@ -46,13 +46,7 @@ export function PortalHeader({
   if (fullscreenPrefixes.some((p) => pathname.startsWith(p))) return null;
 
   return (
-    <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-neutral-100 bg-white/90 px-4 py-3 pt-safe backdrop-blur">
-      {/* 투명 상태바(black-translucent) 아래 흰 헤더가 오면 시간·배터리(흰 글자)가 안 보인다.
-          최상단 safe-area만 브랜드 teal로 채워 가독성 확보 — 헤더 본문(pt-safe로 아래로 내림)은 흰색 유지. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-safe-top bg-teal-600"
-      />
+    <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b border-neutral-100 bg-white/90 px-4 py-3 backdrop-blur">
       <div className="flex min-w-0 items-center gap-2">
         {showAccount && (
           <PortalAccountLink href={accountHref} className={INLINE_ACCOUNT_CLASS} />

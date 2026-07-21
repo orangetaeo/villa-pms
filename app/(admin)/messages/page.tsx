@@ -61,7 +61,7 @@ export default async function MessagesPage({
   // ── 웹 채팅 탭 ──
   if (isWebchat) {
     return (
-      <div className="-m-4 md:-m-8 h-[calc(100dvh-7.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] lg:h-screen flex flex-col">
+      <div className="-m-4 md:-m-8 h-[calc(100dvh-7.5rem)] lg:h-screen flex flex-col">
         <SourceTabs active="webchat" zaloUnread={zaloUnread} webchatUnread={webchatUnread} />
         <div className="flex-1 min-h-0">
           {/* 제안 생성 권한(canSetPrice=OWNER/MANAGER) — 모달 B 섹션 UI 게이트. 서버 POST /api/proposals가 정본. */}
@@ -90,7 +90,7 @@ export default async function MessagesPage({
   // 탭 바(상단)만 감싸고, MessagesClient는 원본 그대로 렌더.
   // MessagesClient 루트의 자체 여백·전체높이는 wrapper CSS로 중화([&>div]:!m-0/!h-full) — 파일 무변경.
   return (
-    <div className="-m-4 md:-m-8 h-[calc(100dvh-7.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] lg:h-screen flex flex-col">
+    <div className="-m-4 md:-m-8 h-[calc(100dvh-7.5rem)] lg:h-screen flex flex-col">
       <SourceTabs active="zalo" zaloUnread={zaloUnread} webchatUnread={webchatUnread} />
       <div className="flex-1 min-h-0 relative [&>div]:!m-0 [&>div]:!h-full">
         <MessagesClient

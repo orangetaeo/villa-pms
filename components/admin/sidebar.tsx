@@ -326,11 +326,8 @@ export default function AdminSidebar({
 
   return (
     <>
-      {/* 모바일 헤더 (b1-mobile 패턴): 햄버거 + 브랜드
-          pt-safe: 투명 상태바 아래로 콘텐츠가 흐르므로 상태바 높이만큼 내리고, 다크 배경이
-          safe-area까지 채워 흰 상태바 글자(시간·배터리)의 가독성을 확보한다. */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 pt-safe bg-slate-900/95 backdrop-blur-md border-b border-slate-800">
-        <div className="relative flex h-14 items-center justify-between px-4">
+      {/* 모바일 헤더 (b1-mobile 패턴): 햄버거 + 브랜드 */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 flex items-center justify-between px-4">
         <button
           type="button"
           aria-label={open ? t("closeMenu") : t("openMenu")}
@@ -358,7 +355,6 @@ export default function AdminSidebar({
         </Link>
         {/* 우측: 코치마크 "?" (투어 화면에서만 렌더 — 로고는 absolute 중앙이라 균형 무관) */}
         <div className="flex w-10 items-center justify-end">{tourHelp}</div>
-        </div>
       </header>
 
       {/* 드로어 오버레이 */}
@@ -374,7 +370,7 @@ export default function AdminSidebar({
           ★ h-[100dvh]: 모바일 크롬 하단 툴바가 100vh에 포함돼 하단 푸터(프로필·아이콘·언어)가
             툴바 뒤로 짤리던 버그 수정(dvh=실제 보이는 뷰포트). pb 세이프에어리어로 iOS 홈바도 회피. */}
       <aside
-        className={`h-[100dvh] w-64 fixed left-0 top-0 bg-admin-bg border-r border-admin-card flex flex-col px-4 pt-[calc(1rem_+_env(safe-area-inset-top))] pb-[calc(1rem_+_env(safe-area-inset-bottom))] gap-2 z-50 transition-transform duration-200 lg:translate-x-0 ${
+        className={`h-[100dvh] w-64 fixed left-0 top-0 bg-admin-bg border-r border-admin-card flex flex-col px-4 pt-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] gap-2 z-50 transition-transform duration-200 lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -492,7 +488,7 @@ export default function AdminSidebar({
       {/* 코치마크 앵커 — admin-nav 이중앵커의 모바일 쪽(데스크톱에선 display:none → 비가시 스킵) */}
       <nav
         data-tour="admin-nav"
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-30 h-[calc(4rem+env(safe-area-inset-bottom))] pb-safe bg-slate-900/95 backdrop-blur-md border-t border-slate-800 flex items-stretch justify-around px-1"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-30 h-16 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 flex items-stretch justify-around px-1"
       >
         <BottomItem href="/dashboard" icon="dashboard" label={t("dashboard")} />
         <BottomItem href="/bookings" icon="calendar_month" label={t("bookings")} />
