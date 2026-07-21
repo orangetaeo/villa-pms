@@ -2022,6 +2022,20 @@
         "saved": "Đã lưu · giao lại {count} việc",
         "errSave": "Lưu thất bại"
       },
+      "complexArea": {
+        "title": "Khu vực (quần thể)",
+        "desc": "Chỉ định quần thể mà villa này thuộc về. Khu vực được dùng cho việc phân công nhà cung cấp và bộ lọc tìm kiếm. Nếu không có trong danh sách, hãy thêm trước ở phần Cài đặt → Quản lý khu vực.",
+        "current": "Hiện tại:",
+        "label": "Quần thể",
+        "none": "Không có khu vực",
+        "inactiveSuffix": "(ngừng hoạt động)",
+        "empty": "Chưa có quần thể nào. Thêm ở phần Cài đặt → Quản lý khu vực.",
+        "save": "Lưu",
+        "saving": "Đang lưu…",
+        "saved": "Đã lưu",
+        "errUnknown": "Không tìm thấy quần thể đã chọn. Vui lòng tải lại danh sách.",
+        "errSave": "Lưu thất bại."
+      },
       "regionalVendor": {
         "title": "Nhà cung cấp theo khu vực",
         "desc": "Massage và cắt tóc là dịch vụ theo khu vực, hãy chọn cửa hàng gần villa này. Khi chỉ định, các đơn massage·cắt tóc của villa này sẽ được đặt cho nhà cung cấp đó. Nếu để trống sẽ dùng nhà cung cấp mặc định trong danh mục.",
