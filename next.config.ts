@@ -40,8 +40,9 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "SAMEORIGIN" }, // 클릭재킹 방어
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-DNS-Prefetch-Control", value: "off" },
-          // 미사용 브라우저 기능 비활성화 (코드상 geolocation/getUserMedia 사용 0건 확인)
-          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          // 브라우저 기능은 우리 사이트(self)만 허용, 외부 출처(iframe 등)는 차단. camera=사진촬영, microphone=음성입력(STT), geolocation=위치.
+          // ⚠ ()로 완전 차단 시 안드로이드 등에서 getUserMedia가 즉시 거부되어 "권한 필요" 오표시됨.
+          { key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=(self)" },
           // CSP는 Report-Only로 롤아웃 — 위반만 /api/csp-report로 수집, 앱 차단 없음 (enforce는 후속)
           { key: "Content-Security-Policy-Report-Only", value: CSP_REPORT_ONLY },
         ],
