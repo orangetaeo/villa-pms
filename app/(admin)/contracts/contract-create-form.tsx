@@ -35,7 +35,9 @@ const schema = z
     companyPassport: z.string().trim().min(1).max(60),
     companyContactVn: z.string().max(60).optional(),
     companyContactKr: z.string().max(60).optional(),
-    bankInfo: z.string().max(500).optional(),
+    bankName: z.string().max(100).optional(),
+    accountNumber: z.string().max(60).optional(),
+    accountHolder: z.string().max(100).optional(),
     specialTerms: z.string().max(4000).optional(),
     cancelFreeDays: z.coerce.number().int().min(0).max(365).optional(),
     cancelPartialPct: z.coerce.number().int().min(0).max(100).optional(),
@@ -129,7 +131,12 @@ export default function ContractCreateForm({
       companyContactVn: v.companyContactVn?.trim() ?? "", // 필수(BE requiredText)
     };
     if (v.companyContactKr?.trim()) common.companyContactKr = v.companyContactKr.trim();
-    if (v.bankInfo?.trim()) common.bankInfo = v.bankInfo.trim();
+    // 계좌 정보 — 은행명·계좌번호·예금주 3필드. 값 있는 항목만 담고, 전부 비면 키 자체를 생략.
+    const bank: Record<string, string> = {};
+    if (v.bankName?.trim()) bank.bankName = v.bankName.trim();
+    if (v.accountNumber?.trim()) bank.accountNumber = v.accountNumber.trim();
+    if (v.accountHolder?.trim()) bank.accountHolder = v.accountHolder.trim();
+    if (Object.keys(bank).length > 0) common.bankInfo = bank;
     if (v.specialTerms?.trim()) common.specialTerms = v.specialTerms.trim();
 
     let terms: Record<string, unknown>;
@@ -279,7 +286,14 @@ export default function ContractCreateForm({
               />
             </label>
             <PayMethodSelect register={register} labelClass={labelClass} inputClass={inputClass} label={t("create.payMethod")} cashLabel={t("payMethod.CASH")} bankLabel={t("payMethod.BANK")} />
-            <BankInfo register={register} labelClass={labelClass} inputClass={inputClass} label={t("create.bankInfo")} />
+            <BankInfo
+              register={register}
+              labelClass={labelClass}
+              inputClass={inputClass}
+              bankNameLabel={t("create.bankName")}
+              accountNumberLabel={t("create.accountNumber")}
+              accountHolderLabel={t("create.accountHolder")}
+            />
           </>
         )}
 
@@ -303,7 +317,14 @@ export default function ContractCreateForm({
               <input type="text" {...register("settleDetail")} className={inputClass} />
             </label>
             <PayMethodSelect register={register} labelClass={labelClass} inputClass={inputClass} label={t("create.payMethod")} cashLabel={t("payMethod.CASH")} bankLabel={t("payMethod.BANK")} />
-            <BankInfo register={register} labelClass={labelClass} inputClass={inputClass} label={t("create.bankInfo")} />
+            <BankInfo
+              register={register}
+              labelClass={labelClass}
+              inputClass={inputClass}
+              bankNameLabel={t("create.bankName")}
+              accountNumberLabel={t("create.accountNumber")}
+              accountHolderLabel={t("create.accountHolder")}
+            />
           </>
         )}
 
@@ -392,21 +413,36 @@ function PayMethodSelect({
   );
 }
 
+// 계좌 정보 — 은행명·계좌번호·예금주 3필드. 2열 그리드 흐름에 맞춰 개별 label로 배치.
 function BankInfo({
   register,
   labelClass,
   inputClass,
-  label,
+  bankNameLabel,
+  accountNumberLabel,
+  accountHolderLabel,
 }: {
   register: Register;
   labelClass: string;
   inputClass: string;
-  label: string;
+  bankNameLabel: string;
+  accountNumberLabel: string;
+  accountHolderLabel: string;
 }) {
   return (
-    <label className="block">
-      <span className={labelClass}>{label}</span>
-      <input type="text" {...register("bankInfo")} className={inputClass} />
-    </label>
+    <>
+      <label className="block">
+        <span className={labelClass}>{bankNameLabel}</span>
+        <input type="text" {...register("bankName")} className={inputClass} />
+      </label>
+      <label className="block">
+        <span className={labelClass}>{accountNumberLabel}</span>
+        <input type="text" inputMode="numeric" {...register("accountNumber")} className={inputClass} />
+      </label>
+      <label className="block">
+        <span className={labelClass}>{accountHolderLabel}</span>
+        <input type="text" {...register("accountHolder")} className={inputClass} />
+      </label>
+    </>
   );
 }

@@ -122,6 +122,37 @@ describe("renderBusinessContract", () => {
       renderBusinessContract("배당 {{unknownToken}}", baseData()),
     ).toThrow(/UNRESOLVED_CONTRACT_TOKEN/);
   });
+
+  it("bankInfo 객체(은행·계좌번호·예금주)는 라벨 조합 문자열로 렌더", () => {
+    const out = renderBusinessContract(
+      VILLA_FIXTURE,
+      baseData({
+        terms: {
+          ...baseData().terms,
+          bankInfo: { bankName: "VCB", accountNumber: "1002-123", accountHolder: "KIM HAKTAE" },
+        },
+      }),
+    );
+    // 순서: 은행 · 예금주 · 계좌번호
+    expect(out).toContain("계좌 은행 VCB · 예금주 KIM HAKTAE · 계좌번호 1002-123");
+  });
+
+  it("bankInfo 객체에서 값 있는 항목만 조합(빈 항목 생략)", () => {
+    const out = renderBusinessContract(
+      VILLA_FIXTURE,
+      baseData({ terms: { ...baseData().terms, bankInfo: { bankName: "VCB" } } }),
+    );
+    expect(out).toContain("계좌 은행 VCB");
+    expect(out).not.toContain("예금주");
+  });
+
+  it("bankInfo 레거시 문자열 계약은 그대로 렌더(하위호환)", () => {
+    const out = renderBusinessContract(
+      VILLA_FIXTURE,
+      baseData({ terms: { ...baseData().terms, bankInfo: "VCB 123 KIM" } }),
+    );
+    expect(out).toContain("계좌 VCB 123 KIM");
+  });
 });
 
 describe("contentHash", () => {
@@ -142,7 +173,7 @@ describe("parseTerms (zod .strict — 원가·마진 봉인)", () => {
       companyPassport: "M1",
       companyContactVn: "0799493138",
       payMethod: "BANK",
-      bankInfo: "VCB 123",
+      bankInfo: { bankName: "VCB", accountNumber: "123", accountHolder: "KIM" },
     });
     expect(r.success).toBe(true);
     if (r.success) {
