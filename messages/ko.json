@@ -4378,6 +4378,7 @@
       "villaShare": "[빌라 공유]",
       "proposalShare": "[제안서 공유]",
       "settlementShare": "[정산서 공유]",
+      "guestLinkShare": "[게스트 링크]",
       "sticker": "[스티커]",
       "voice": "[음성 메시지]",
       "call": "[통화]",
@@ -4390,7 +4391,8 @@
     "card": {
       "villaShare": "빌라 공유",
       "proposalShare": "제안서 공유",
-      "settlementShare": "정산서 공유"
+      "settlementShare": "정산서 공유",
+      "guestLinkShare": "게스트 링크"
     },
     "typeCard": {
       "sticker": "스티커",
@@ -4452,6 +4454,7 @@
       "villa": "빌라 공유",
       "proposal": "제안서 공유",
       "settlement": "정산서 공유",
+      "guestLink": "게스트 링크",
       "lockedHint": "분류 후 빌라·제안·정산 공유 가능"
     },
     "fileCard": {
@@ -4502,6 +4505,20 @@
       "bookingCount": "예약 {n}건",
       "loadingTitle": "공유 항목 불러오는 중",
       "loadingSubtitle": "잠시만 기다려 주세요"
+    },
+    "guestLinkModal": {
+      "title": "게스트 링크 보내기",
+      "subtitle": "{name} 고객에게 체크인·부가서비스·영수증 링크 발송",
+      "kindHeading": "보낼 링크",
+      "kindCheckin": "체크인",
+      "kindOptions": "부가서비스",
+      "kindReceipt": "영수증",
+      "receiptOnlyCheckedOut": "영수증은 체크아웃 완료 후 보낼 수 있습니다",
+      "searchPlaceholder": "고객명·전화·빌라 검색",
+      "loading": "예약을 불러오는 중…",
+      "empty": "예약을 찾을 수 없습니다. 검색어를 입력해 보세요.",
+      "checkedOutBadge": "체크아웃 완료",
+      "guard": "게스트 링크에는 금액 정보가 없습니다 (안내문·링크만)"
     },
     "shareCandidatesLoading": "공유 항목을 불러오는 중…",
     "inbox": {
