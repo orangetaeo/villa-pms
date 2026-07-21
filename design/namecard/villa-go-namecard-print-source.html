@@ -1,0 +1,154 @@
+<meta charset="utf-8">
+<title>Villa Go 명함 인쇄용</title>
+<style>
+  /* Trim 90x54mm, Bleed 3mm, Media 96x60mm */
+  @page { size: 96mm 60mm; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    font-family: "Poppins","Montserrat","Segoe UI",system-ui,-apple-system,sans-serif;
+    color:#12312D;
+  }
+  .fbody { font-family:"Inter","Segoe UI",system-ui,-apple-system,"Malgun Gothic",sans-serif; }
+
+  .psheet {
+    width:96mm; height:60mm; position:relative; overflow:hidden;
+    page-break-after: always; break-after: page;
+  }
+  .psheet:last-child { page-break-after: auto; break-after: auto; }
+
+  /* crop marks overlay */
+  .pcrop { position:absolute; inset:0; width:96mm; height:60mm; pointer-events:none; z-index:50; }
+
+  /* ---------- FRONT ---------- */
+  .pfront {
+    background:
+      radial-gradient(120% 140% at 82% -8%, #17A093 0%, rgba(23,160,147,0) 55%),
+      linear-gradient(158deg, #12897F 0%, #0B5C55 100%);
+    color:#fff;
+  }
+  .pfront .brand { position:absolute; left:8mm; top:17mm; display:flex; align-items:center; gap:3.6mm; }
+  .pfront .plogo { height:11mm; width:auto; display:block; filter:drop-shadow(0 1mm 1.4mm rgba(0,0,0,.18)); }
+  .pfront .pword { font-size:21pt; font-weight:700; letter-spacing:-.02em; line-height:1; }
+  .pfront .pword .go { color:#9FE3D8; }
+  .pfront .prule { position:absolute; left:8.4mm; top:30mm; width:13mm; height:.35mm; background:rgba(255,255,255,.26); }
+  .pfront .ptag { position:absolute; left:8.4mm; top:31.6mm; font-size:8pt; letter-spacing:.01em; color:rgba(255,255,255,.85); }
+  .pfront .pqrbox { position:absolute; right:8mm; bottom:7mm; display:flex; flex-direction:column; align-items:center; gap:1.3mm; }
+  .pfront .pqr { width:14mm; height:14mm; background:#fff; border-radius:1mm; display:block; padding:.6mm; }
+  .pfront .pqrlabel { font-size:6pt; font-weight:600; letter-spacing:.01em; color:#B9EDE4; white-space:nowrap; }
+
+  /* ---------- BACK ---------- */
+  .pback { background:#ffffff; color:#12312D; }
+  .pback .pstripe { position:absolute; left:0; top:0; bottom:0; width:5mm; background:linear-gradient(#12897F,#0B5C55); }
+  .pback .pstripe .pdot { position:absolute; left:4mm; top:12mm; width:1.5mm; height:1.5mm; border-radius:50%; background:#F5A623; box-shadow:0 0 0 .9mm rgba(245,166,35,.25); transform:translateX(-50%); }
+  .pback .ptop { position:absolute; left:9.5mm; right:8mm; top:7.5mm; display:flex; justify-content:space-between; align-items:flex-start; }
+  .pback .pname { font-size:14pt; font-weight:700; letter-spacing:-.01em; color:#0B5C55; line-height:1.05; }
+  .pback .pen { display:block; margin-top:1mm; font-size:6.5pt; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:#5C726D; }
+  .pback .prole { margin-top:1mm; font-size:8pt; color:#5C726D; }
+  .pback .pmini { height:9mm; width:auto; display:block; }
+  .pback .pbot { position:absolute; left:9.5mm; right:8mm; bottom:7.5mm; display:flex; align-items:flex-end; gap:5mm; }
+  .pback .pcontacts { flex:1; display:grid; gap:1.7mm; font-size:7.5pt; color:#334843; }
+  .pback .prow { display:flex; align-items:center; gap:2.2mm; }
+  .pback .pic { width:3.1mm; height:3.1mm; flex:none; color:#12897F; }
+  .pback .pqrbox2 { flex:none; display:flex; flex-direction:column; align-items:center; gap:1.2mm; }
+  .pback .pqr2 { width:14mm; height:14mm; background:#fff; border-radius:.8mm; display:block; }
+  .pback .pqrlabel2 { font-size:6pt; letter-spacing:.02em; color:#5C726D; }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="villaPin" viewBox="0 0 100 128">
+    <path d="M50 3 C25.7 3 6 22.7 6 47 C6 79 50 125 50 125 C50 125 94 79 94 47 C94 22.7 74.3 3 50 3 Z" fill="currentColor"/>
+    <g fill="#12897F">
+      <path d="M50 22 L74 43 L68 43 L68 45 L32 45 L32 43 L26 43 Z"/>
+      <rect x="34" y="45" width="32" height="27" rx="1.5"/>
+    </g>
+    <rect x="44.5" y="53" width="11" height="19" rx="2" fill="currentColor"/>
+    <circle cx="50" cy="34.5" r="5.4" fill="#F5A623"/>
+  </symbol>
+</svg>
+
+<!-- crop-mark template reused via JS clone -->
+<template id="cropTpl">
+  <svg class="pcrop" viewBox="0 0 96 60" preserveAspectRatio="none">
+    <g stroke="#000" stroke-width="0.15">
+      <line x1="3" y1="0" x2="3" y2="2"/><line x1="0" y1="3" x2="2" y2="3"/>
+      <line x1="93" y1="0" x2="93" y2="2"/><line x1="94" y1="3" x2="96" y2="3"/>
+      <line x1="3" y1="58" x2="3" y2="60"/><line x1="0" y1="57" x2="2" y2="57"/>
+      <line x1="93" y1="58" x2="93" y2="60"/><line x1="94" y1="57" x2="96" y2="57"/>
+    </g>
+  </svg>
+</template>
+
+<div id="doc"></div>
+
+<script>
+  var QR_MAP = {
+    'web': ["1111111000100100101111111","1000001001010111001000001","1011101011000000101011101","1011101011011110001011101","1011101010101000001011101","1000001010101011101000001","1111111010101010101111111","0000000011101010100000000","1011111000101110001111100","0110000000100010100100010","0000101110010011100011011","0011100101010000111100001","1010101001000001011110111","1011000000101100100101010","1010101000000111110111011","1001110011001101101110001","1010101100001010111110100","0000000010100001100011000","1111111001111000101010111","1000001011110011100011001","1011101010010001111110111","1011101011101110011011111","1011101010000111000001101","1000001001001101110111001","1111111010001010001111111"],
+    'zalo-htk': ["1111111001101100001111111","1000001000000111001000001","1011101010000011001011101","1011101010111011101011101","1011101010101101001011101","1000001010001111101000001","1111111010101010101111111","0000000010011110100000000","1011111000000110001111100","0100110011000110000100010","1111111100100001101011011","0010100010101101111010001","0111001010101101011110111","1100000110100110100101010","1010101111011101110111011","1010010110010001101110001","1000011001010100111110100","0000000011001011100011000","1111111000100010101010111","1000001010101100100011001","1011101011101011111110101","1011101011100001111011111","1011101010111000100001101","1000001001010001110111001","1111111010011001010111111"],
+    'zalo-ldk': ["1111111001000100001111111","1000001001111111001000001","1011101010110011001011101","1011101010111011101011101","1011101011011101001011101","1000001010100101101000001","1111111010101010101111111","0000000011000010100000000","1011111000101010001111100","1110110101101110000100010","1011111000000111101011011","1000010100011101111010001","0000011101001111011110111","1100010111000010100101010","1011111110111101110111011","1000000011010001101110001","1001011100010110111110100","0000000011001001100011000","1111111001000110101010111","1000001011101110100011001","1011101010001101111110101","1011101010100001111011111","1011101010011000100001101","1000001001010001110111001","1111111010111001010111111"],
+    'zalo-ktj': ["1111111000100100001111111","1000001000010111001000001","1011101011001011001011101","1011101010110011101011101","1011101011100101001011101","1000001011111111101000001","1111111010101010101111111","0000000011110010100000000","1011111000011000001111100","1100110010001000000100010","1110001111110111101011011","0111100001011101111010001","0111001110111001011110111","1000110011100010100101010","1011011110111111110111011","1011000100010001101110001","1001111100110100111110100","0000000011001001100011000","1111111001000100101010111","1000001010001100100011001","1011101011101101111110101","1011101011000001111011111","1011101011111000100001101","1000001000010001110111001","1111111010011001010111111"]
+  };
+
+  var ICON = {
+    phone: '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.4-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/>',
+    mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 6 10 7L22 6"/>',
+    insta: '<rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18"/>'
+  };
+
+  var PEOPLE = [
+    { key:'htk', nameEn:'KIM HAKTAE', sub:'Taeo · 김학태', role:'Founder & CEO', phone:'+84 79 949 3138 · Zalo', email:'biz.villago@gmail.com', zalo:'zalo-htk' },
+    { key:'ldk', nameEn:'LEE DOKYUNG', sub:'이도경', role:'Director', phone:'+84 33 798 0661 · Zalo', email:'revolej79@gmail.com', zalo:'zalo-ldk' },
+    { key:'ktj', nameEn:'KIM TAEJIN', sub:'김태진', role:'Director', phone:'+84 70 263 5421 · Zalo', email:'danangtrip@kakao.com', zalo:'zalo-ktj' }
+  ];
+
+  function pinSvg(cls, color){ return '<svg class="'+cls+'" viewBox="0 0 100 128" style="color:'+color+'"><use href="#villaPin"/></svg>'; }
+  function icon(name){ return '<svg class="pic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">'+ICON[name]+'</svg>'; }
+  function crop(){ return document.getElementById('cropTpl').innerHTML; }
+
+  function frontHtml(){
+    return '<div class="psheet pfront">'+crop()+
+      '<div class="brand">'+pinSvg('plogo','#fff')+'<span class="pword">Villa <span class="go">Go</span></span></div>'+
+      '<div class="prule"></div>'+
+      '<div class="ptag fbody">Premium Pool Villas · Phu Quoc</div>'+
+      '<div class="pqrbox"><canvas class="pqr" data-qr="web" width="600" height="600"></canvas>'+
+        '<span class="pqrlabel fbody">https://villa-go.net</span></div>'+
+      '</div>';
+  }
+  function backHtml(p){
+    return '<div class="psheet pback">'+crop()+
+      '<div class="pstripe"><span class="pdot"></span></div>'+
+      '<div class="ptop"><div><div class="pname">'+p.nameEn+'<span class="pen fbody">'+p.sub+'</span></div>'+
+        '<div class="prole fbody">'+p.role+'</div></div>'+pinSvg('pmini','#12897F')+'</div>'+
+      '<div class="pbot"><div class="pcontacts fbody">'+
+        '<div class="prow">'+icon('phone')+'<span>'+p.phone+'</span></div>'+
+        '<div class="prow">'+icon('mail')+'<span>'+p.email+'</span></div>'+
+        '<div class="prow">'+icon('insta')+'<span>Instagram @biz.villago</span></div>'+
+        '<div class="prow">'+icon('globe')+'<span>https://villa-go.net</span></div>'+
+      '</div>'+
+      '<div class="pqrbox2"><canvas class="pqr2" data-qr="'+p.zalo+'" width="600" height="600"></canvas>'+
+        '<span class="pqrlabel2 fbody">Zalo</span></div>'+
+      '</div></div>';
+  }
+
+  var html = '';
+  PEOPLE.forEach(function(p){ html += frontHtml() + backHtml(p); });
+  document.getElementById('doc').innerHTML = html;
+
+  function drawQR(cv){
+    var key = cv.getAttribute('data-qr') || 'web';
+    var rows = QR_MAP[key]; if(!rows) return;
+    var n = rows.length, margin = 2, total = n + margin*2;
+    var px = cv.width, cell = px/total, ctx = cv.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,px,px);
+    ctx.fillStyle = '#12312D';
+    for (var y=0; y<n; y++) for (var x=0; x<n; x++) {
+      if (rows[y].charAt(x)==='1') ctx.fillRect(Math.floor((x+margin)*cell), Math.floor((y+margin)*cell), Math.ceil(cell), Math.ceil(cell));
+    }
+  }
+  var els = document.querySelectorAll('canvas[data-qr]');
+  for (var i=0;i<els.length;i++) drawQR(els[i]);
+  document.title = 'Villa Go 명함 인쇄용 (6면)';
+  window.__ready = true;
+</script>

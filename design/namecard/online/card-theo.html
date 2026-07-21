@@ -1,0 +1,116 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>KIM HAKTAE · Villa Go</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --teal:#12897F;--teal-deep:#0B5C55;--orange:#F5A623;--mint:#9FE3D8;
+    --ink:#12312D;--muted:#5C726D;--line:#E3EAE8;--card:#fff;--bg:#EAF0EE;
+  }
+  html,body{background:var(--bg);color:var(--ink);
+    font-family:"Inter","Segoe UI",system-ui,-apple-system,"Malgun Gothic",sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.5;min-height:100%}
+  .display{font-family:"Poppins","Montserrat","Segoe UI",system-ui,sans-serif}
+  .wrap{max-width:440px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
+  .hero{
+    position:relative;color:#fff;padding:40px 26px 74px;
+    background:radial-gradient(120% 130% at 82% -10%,#17A093 0,rgba(23,160,147,0) 55%),
+      linear-gradient(158deg,var(--teal),var(--teal-deep));
+  }
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand svg{width:40px;height:40px;color:#fff;filter:drop-shadow(0 3px 6px rgba(0,0,0,.18))}
+  .brand .wm{font-size:23px;font-weight:700;letter-spacing:-.02em}
+  .brand .wm .go{color:var(--mint)}
+  .htag{margin-top:14px;font-size:13px;color:rgba(255,255,255,.85);letter-spacing:.01em}
+  .sheet{
+    background:var(--card);border-radius:22px 22px 0 0;margin-top:-46px;
+    padding:26px 22px calc(26px + env(safe-area-inset-bottom));flex:1;
+    box-shadow:0 -8px 30px -16px rgba(6,40,36,.35);position:relative;z-index:1}
+  .idrow{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+  .name{font-size:26px;font-weight:700;letter-spacing:-.01em;color:var(--teal-deep);line-height:1.08}
+  .name .ko{display:block;font-size:14px;font-weight:600;color:var(--muted);margin-top:6px;letter-spacing:.02em}
+  .role{margin-top:10px;display:inline-block;font-size:12px;font-weight:600;letter-spacing:.04em;
+    color:var(--teal-deep);background:#E7F4F1;border-radius:999px;padding:5px 12px}
+  .pinmini{width:34px;height:34px;color:var(--teal);flex:none}
+  .actions{margin-top:22px;display:flex;flex-direction:column;gap:10px}
+  a.act{display:flex;align-items:center;gap:14px;text-decoration:none;color:var(--ink);
+    border:1px solid var(--line);border-radius:14px;padding:13px 15px;background:#fff;
+    transition:transform .06s ease, border-color .15s ease}
+  a.act:active{transform:scale(.985)}
+  a.act .ico{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;flex:none;
+    background:#EAF4F2;color:var(--teal)}
+  a.act .ico svg{width:19px;height:19px}
+  a.act .tt{display:flex;flex-direction:column;min-width:0}
+  a.act .lb{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  a.act .vl{font-size:15px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  a.act.zalo .ico{background:#eaf1fb;color:#0068ff}
+  a.act.insta .ico{background:#fdeef4;color:#c13584}
+  .save{margin-top:16px}
+  button.savebtn{width:100%;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;
+    background:linear-gradient(158deg,var(--teal),var(--teal-deep));color:#fff;
+    font-size:15px;font-weight:700;letter-spacing:.01em;border-radius:14px;padding:15px;
+    box-shadow:0 8px 20px -8px rgba(11,92,85,.6)}
+  button.savebtn:active{transform:scale(.99)}
+  button.savebtn svg{width:19px;height:19px}
+  .savehint{margin-top:8px;text-align:center;font-size:11.5px;color:var(--muted)}
+  .foot{margin-top:22px;text-align:center;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#9AAAA6}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="brand"><span class="display"><svg viewBox="0 0 100 128" aria-hidden="true"><path d="M50 3 C25.7 3 6 22.7 6 47 C6 79 50 125 50 125 C50 125 94 79 94 47 C94 22.7 74.3 3 50 3 Z" fill="currentColor"/><g fill="#12897F"><path d="M50 22 L74 43 L68 43 L68 45 L32 45 L32 43 L26 43 Z"/><rect x="34" y="45" width="32" height="27" rx="1.5"/></g><rect x="44.5" y="53" width="11" height="19" rx="2" fill="currentColor"/><circle cx="50" cy="34.5" r="5.4" fill="#F5A623"/></svg></span><span class="wm display">Villa <span class="go">Go</span></span></div>
+    <div class="htag">푸꾸옥 프리미엄 풀빌라 · Premium Pool Villas in Phu Quoc</div>
+  </header>
+
+  <main class="sheet">
+    <div class="idrow">
+      <div>
+        <h1 class="name display">KIM HAKTAE<span class="ko">김학태 · Taeo</span></h1>
+        <span class="role display">Founder & CEO</span>
+      </div>
+      <span class="pinmini"><svg viewBox="0 0 100 128" aria-hidden="true"><path d="M50 3 C25.7 3 6 22.7 6 47 C6 79 50 125 50 125 C50 125 94 79 94 47 C94 22.7 74.3 3 50 3 Z" fill="currentColor"/><g fill="#12897F"><path d="M50 22 L74 43 L68 43 L68 45 L32 45 L32 43 L26 43 Z"/><rect x="34" y="45" width="32" height="27" rx="1.5"/></g><rect x="44.5" y="53" width="11" height="19" rx="2" fill="currentColor"/><circle cx="50" cy="34.5" r="5.4" fill="#F5A623"/></svg></span>
+    </div>
+
+    <div class="actions">
+      <a class="act" href="tel:+84799493138">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.4-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg></span>
+        <span class="tt"><span class="lb">Call · 전화</span><span class="vl">+84 79 949 3138</span></span>
+      </a>
+      <a class="act zalo" href="https://zalo.me/84799493138" target="_blank" rel="noopener">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.4 8.6 8.6 0 0 1-3.9-.9L3 20l1.1-4.4A8.4 8.4 0 1 1 21 11.5z"/></svg></span>
+        <span class="tt"><span class="lb">Zalo</span><span class="vl">Chat on Zalo</span></span>
+      </a>
+      <a class="act" href="mailto:biz.villago@gmail.com">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 6 10 7L22 6"/></svg></span>
+        <span class="tt"><span class="lb">Email</span><span class="vl">biz.villago@gmail.com</span></span>
+      </a>
+      <a class="act insta" href="https://instagram.com/biz.villago" target="_blank" rel="noopener">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none"/></svg></span>
+        <span class="tt"><span class="lb">Instagram</span><span class="vl">@biz.villago</span></span>
+      </a>
+      <a class="act" href="https://villa-go.net" target="_blank" rel="noopener">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18"/></svg></span>
+        <span class="tt"><span class="lb">Website</span><span class="vl">villa-go.net</span></span>
+      </a>
+    </div>
+
+    <div class="save">
+      <button class="savebtn display" id="saveBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-8H5v8"/><path d="M7 3v5h8"/><path d="M21 21H3V3h13l5 5v13z"/></svg><span>연락처 저장 · Save to contacts</span></button>
+      <div class="savehint">전화번호부에 저장 (.vcf) · Lưu vào danh bạ</div>
+    </div>
+
+    <div class="foot">Phu Quoc · Vietnam</div>
+  </main>
+</div>
+
+<script>
+  var VCARD = "BEGIN:VCARD\nVERSION:3.0\nN:KIM;HAKTAE;;;\nFN:KIM HAKTAE\nORG:Villa Go\nTITLE:Founder & CEO\nTEL;TYPE=CELL,VOICE:+84799493138\nEMAIL;TYPE=WORK:biz.villago@gmail.com\nURL:https://villa-go.net\nURL;TYPE=Zalo:https://zalo.me/84799493138\nX-SOCIALPROFILE;TYPE=instagram:https://instagram.com/biz.villago\nNOTE:Villa Go — Phu Quoc Premium Pool Villas\nEND:VCARD";
+  document.getElementById('saveBtn').addEventListener('click', function(){
+    var blob = new Blob([VCARD.replace(/\\n/g,'\r\n')], {type:'text/vcard;charset=utf-8'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'theo-villago.vcf';
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 400);
+  });
+</script>

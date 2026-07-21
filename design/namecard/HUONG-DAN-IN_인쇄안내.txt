@@ -1,0 +1,52 @@
+========================================================
+VILLA GO — DANH THIẾP / 명함 인쇄 안내
+File in: villa-go-namecard-print.pdf  (6 trang / 6면)
+========================================================
+
+■ TIẾNG VIỆT (gửi cho nhà in)
+
+1) SẢN PHẨM: Danh thiếp (name card) — 3 người, 2 mặt mỗi người.
+   Thứ tự trang trong PDF (mỗi người: Mặt trước rồi Mặt sau):
+     Trang 1–2 : KIM HAKTAE  (Founder & CEO)
+     Trang 3–4 : LEE DOKYUNG (Director)
+     Trang 5–6 : KIM TAEJIN  (Director)
+   → Mỗi người in RIÊNG. Mặt trước 3 người GIỐNG NHAU (chỉ khác mặt sau).
+
+2) KÍCH THƯỚC:
+   - Thành phẩm (trim)   : 90 × 54 mm
+   - Chừa xén (bleed)    : 3 mm mỗi cạnh  →  khổ file: 96 × 60 mm
+   - Vùng an toàn (safe) : nội dung cách mép cắt ≥ 4 mm
+   - Có sẵn DẤU CẮT (crop marks) ở 4 góc.
+
+3) MÀU & ĐỘ PHÂN GIẢI:
+   - Thiết kế dạng vector; chữ và mã QR đều nét (tương đương ≥ 300 dpi).
+   - File xuất hệ RGB. VUI LÒNG CHUYỂN SANG CMYK theo profile máy in.
+     Lấy mã HEX/RGB dưới đây làm CHUẨN, CMYK chỉ là tham khảo:
+       • Teal (màu chính)  HEX #12897F  RGB 18/137/127  ~CMYK 87/0/7/46
+       • Teal đậm          HEX #0B5C55  RGB 11/92/85    ~CMYK 88/0/8/64
+       • Cam (điểm nhấn)   HEX #F5A623  RGB 245/166/35  ~CMYK 0/32/86/4
+       • Xanh mint ("Go")  HEX #9FE3D8
+       • Mực đậm (QR/chữ)  HEX #12312D
+
+4) MÃ QR (đã kiểm tra QUÉT ĐƯỢC — vui lòng in nét, không phủ, không bo méo):
+   - Mặt trước : QR website  →  https://villa-go.net
+   - Mặt sau   : QR Zalo cá nhân của từng người.
+   * Nếu muốn dùng ẢNH QR Zalo chính thức (có logo Zalo ở giữa), hãy báo để thay.
+
+5) FONT: đã nhúng trong PDF — không cần cài thêm.
+
+6) ĐỀ XUẤT (tùy chọn): giấy 300–350 gsm, cán màng MỜ (matte). In 2 mặt.
+
+--------------------------------------------------------
+
+■ 한국어 (참고용)
+
+- 제품: 명함 3인 × 앞/뒤 = PDF 6면. 순서 = 각 사람 [앞면→뒷면].
+    1–2면 김학태(Founder & CEO) / 3–4면 이도경(Director) / 5–6면 김태진(Director)
+    앞면은 3인 공통, 뒷면만 개인정보.
+- 규격: 완성 90×54mm, 재단여백(bleed) 3mm → 파일 96×60mm, 안전선 4mm, 재단선 포함.
+- 색: 벡터 + 300dpi급, 파일은 RGB → 인쇄소에서 CMYK 변환. 기준색은 위 HEX/RGB.
+- QR: 앞면=웹사이트, 뒷면=개인 Zalo(스캔 확인됨). 선명 인쇄 필수.
+- 용지: 300–350gsm + 무광 코팅 권장(선택).
+
+문의: biz.villago@gmail.com
