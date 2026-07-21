@@ -21,6 +21,7 @@ import {
 } from "@/lib/instagram/draft";
 import { renderCarousel } from "@/lib/instagram/render";
 import { renderAndBuildReel } from "@/lib/instagram/reels";
+import { reelMiddleCaptions } from "@/lib/instagram/caption";
 import { getYoutubeShortsPerDay } from "@/lib/youtube/settings";
 import { runYoutubeDraftBatch } from "@/lib/youtube/draft";
 
@@ -69,7 +70,10 @@ async function handle(req: Request) {
       const wantReel = doReelToday && slotIndex === IG_EVENING_SLOT_INDEX;
       if (wantReel) {
         try {
-          const reel = await renderAndBuildReel(plan.slides, baseName, { audio: "silent" });
+          const reel = await renderAndBuildReel(plan.slides, baseName, {
+            audio: "lounge",
+            middleCaptions: reelMiddleCaptions(plan.publicInfo),
+          });
           kind = "REELS";
           mediaJson = reel.mediaJson as unknown as Prisma.InputJsonValue;
           slideCount = reel.frameCount;

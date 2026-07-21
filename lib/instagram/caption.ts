@@ -46,6 +46,24 @@ export function deriveFeatureTags(v: VillaPublicInfo): string[] {
   return [...tags];
 }
 
+/**
+ * 릴스/쇼츠 중간 프레임용 짧은 셀링포인트 캡션(공개정보만 — 원가·마진·판매가 절대 미포함).
+ * 밋밋한 중간 사진 위에 순서대로 올린다. 빌라 특성에 맞는 문구만 포함, 마지막은 카톡 유도.
+ */
+export function reelMiddleCaptions(v: VillaPublicInfo): string[] {
+  const out: string[] = [];
+  if (v.hasPool) out.push("전용 풀에서\n즐기는 하루");
+  out.push(`침실 ${v.bedrooms} · 최대 ${v.maxGuests}인`);
+  if (v.beachDistanceM != null) out.push(`해변까지 도보 ${v.beachDistanceM}m`);
+  const keys = new Set(v.featureKeys);
+  if (keys.has("viewSea")) out.push("바다가 보이는 풍경");
+  if (v.breakfastAvailable) out.push("조식 준비 가능");
+  if (keys.has("bbq")) out.push("정원에서 즐기는 BBQ");
+  if (keys.has("golfNearby")) out.push("골프장 가까이");
+  out.push("예약·견적은\n카카오톡 '빌라고'");
+  return out;
+}
+
 // ── 변수 치환 ──
 function substituteVars(text: string, v: VillaPublicInfo): string {
   return text

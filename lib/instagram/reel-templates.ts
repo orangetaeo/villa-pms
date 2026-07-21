@@ -77,6 +77,37 @@ export function reelCover916(d: CoverData): SatoriNode {
   );
 }
 
+// ── 릴스 중간 프레임 캡션(9:16) ─────────────────────────
+// 중간 사진이 밋밋하지 않도록 하단 1/3에 짧은 셀링포인트 텍스트를 올린다(공개정보만).
+// 하단 스크림으로 가독성 확보, sand 악센트 바 + 세리프 헤드라인 톤(커버와 일관).
+export function reelMiddle916(caption: string): SatoriNode {
+  return div(
+    { position: "relative", width: W, height: H, flexDirection: "column", justifyContent: "flex-end", backgroundColor: "transparent" },
+    [
+      scrim("top", 300, "linear-gradient(to bottom, rgba(10,17,20,0.34) 0%, rgba(10,17,20,0) 100%)"),
+      scrim("bottom", 680, "linear-gradient(to top, rgba(10,17,20,0.74) 0%, rgba(10,17,20,0.32) 44%, rgba(10,17,20,0) 100%)"),
+      div({ position: "relative", flexDirection: "column", alignItems: "center", padding: "0 96px 320px 96px" }, [
+        div({ width: 60, height: 3, backgroundColor: BRAND.sand, marginBottom: 30 }),
+        div(
+          {
+            fontFamily: FONT_SERIF,
+            fontWeight: 700,
+            fontSize: 70,
+            color: "#FFFFFF",
+            textAlign: "center",
+            lineHeight: 1.28,
+            whiteSpace: "pre-line",
+            textShadow: TEXT_SHADOW,
+            flexDirection: "column",
+          },
+          // 좌우 패딩 96 → 내부 폭 888. 균형 줄바꿈으로 고아 음절 방지.
+          wrapHeadlineToFit(caption, 70, W - 96 * 2)
+        ),
+      ]),
+    ]
+  );
+}
+
 // ── 릴스 엔딩 CTA(9:16, 불투명 카드) ────────────────────
 // P1 ctaTemplate과 동일 톤을 1080×1920로. 사진 없이 teal 그라디언트 카드.
 export function reelCta916(d: CtaData): SatoriNode {

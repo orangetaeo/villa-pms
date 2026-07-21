@@ -28,7 +28,7 @@ import {
   type ServiceData,
   type CtaData,
 } from "@/lib/instagram/templates";
-import { reelCover916, reelCta916, REEL_CANVAS } from "@/lib/instagram/reel-templates";
+import { reelCover916, reelCta916, reelMiddle916, REEL_CANVAS } from "@/lib/instagram/reel-templates";
 
 const FONT_DIR = path.join(process.cwd(), "assets", "fonts");
 const JPEG_QUALITY = 85;
@@ -244,9 +244,10 @@ async function reelCardJpeg(node: SatoriNode): Promise<Buffer> {
 
 /**
  * 릴스 프레임 1장을 1080×1920 JPEG 버퍼로 렌더(업로드 없음).
- *   cover → 사진 + 감성 오버레이 / cta → teal 카드 / info·service·raw → 사진 원본(오버레이 없음).
+ *   cover → 사진 + 감성 오버레이 / cta → teal 카드 / 중간(info·service·raw) → 사진 + (caption 있으면) 셀링포인트 오버레이.
+ * @param caption 중간 프레임에 올릴 짧은 셀링포인트(공개정보). 없으면 원본 크롭만.
  */
-export async function renderReelFrameBuffer(input: SlideInput): Promise<Buffer> {
+export async function renderReelFrameBuffer(input: SlideInput, caption?: string | null): Promise<Buffer> {
   if (input.templateId === "cta") {
     return reelCardJpeg(reelCta916(input.data));
   }
@@ -254,15 +255,21 @@ export async function renderReelFrameBuffer(input: SlideInput): Promise<Buffer> 
   if (input.templateId === "cover") {
     return compositeReelJpeg(photo, reelCover916(input.data));
   }
-  // info·service·raw: 릴스는 사진 몰입 우선이라 중간 프레임은 오버레이 없이 원본 크롭.
+  // 중간 프레임: 캡션이 있으면 셀링포인트 오버레이 합성, 없으면 원본 크롭.
+  if (caption) {
+    return compositeReelJpeg(photo, reelMiddle916(caption));
+  }
   return toReelBaseJpeg(photo);
 }
 
-/** 릴스 슬라이드 배열 → 1080×1920 JPEG 버퍼 배열(순서 유지). ffmpeg 입력용. */
-export async function renderReelFrameBuffers(slides: SlideInput[]): Promise<Buffer[]> {
+/**
+ * 릴스 슬라이드 배열 → 1080×1920 JPEG 버퍼 배열(순서 유지). ffmpeg 입력용.
+ * @param captions slides와 같은 길이·정렬. 각 원소가 있으면 그 프레임(중간)에 캡션 오버레이. 커버·CTA는 무시.
+ */
+export async function renderReelFrameBuffers(slides: SlideInput[], captions?: (string | null)[]): Promise<Buffer[]> {
   const out: Buffer[] = [];
-  for (const s of slides) {
-    out.push(await renderReelFrameBuffer(s));
+  for (let i = 0; i < slides.length; i++) {
+    out.push(await renderReelFrameBuffer(slides[i], captions?.[i] ?? null));
   }
   return out;
 }

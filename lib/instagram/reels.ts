@@ -36,6 +36,16 @@ export const YOUTUBE_REEL_CTA: CtaData = {
 
 const FFMPEG_PATH: string = ffmpegStatic ?? "ffmpeg";
 
+// 저작권 프리 라운지 배경음(합성) — C–Am–F–G 코드 진행(2초/코드, 8초 루프) + 부드러운 스웰.
+//   번들 음원 파일 없이 ffmpeg aevalsrc로 100% 생성 → 저작권·Content ID 리스크 0(assets/audio/LICENSE.md).
+//   각 코드 경계(2/4/6/8s)에서 스웰 ENV=0 → 주파수 전환 클릭 없음.
+// ★ exprs='...' 작은따옴표로 콤마 보호 — ffmpeg -i lavfi 필터그래프 구분자(,) 충돌 방지(따옴표 없으면 파싱 실패, 실측).
+const LOUNGE_ENV = "(0.5-0.5*cos(2*PI*(mod(t,2)/2)))";
+const LOUNGE_ROOT = "if(lt(mod(t,8),2),130.81,if(lt(mod(t,8),4),110.0,if(lt(mod(t,8),6),87.31,98.0)))";
+const LOUNGE_THIRD = "if(lt(mod(t,8),2),164.81,if(lt(mod(t,8),4),130.81,if(lt(mod(t,8),6),110.0,123.47)))";
+const LOUNGE_FIFTH = "if(lt(mod(t,8),2),196.0,if(lt(mod(t,8),4),164.81,if(lt(mod(t,8),6),130.81,146.83)))";
+const LOUNGE_VOICE = `0.10*${LOUNGE_ENV}*(sin(2*PI*(${LOUNGE_ROOT})*t)+sin(2*PI*(${LOUNGE_THIRD})*t)+sin(2*PI*(${LOUNGE_FIFTH})*t))`;
+
 // 타이밍: 프레임당 기준 2.6s, 전환 0.5s, 총 길이는 [10s, 16s]로 클램프(§B "총 10~16초").
 //   총 길이를 먼저 클램프한 뒤 프레임당 표시시간 d를 역산 → 프레임 수 4~7에서 항상 10~16초에 안착.
 const TRANSITION_SEC = 0.5;
@@ -49,7 +59,7 @@ const MAX_FRAMES = 10; // buildReelVideo 하드 상한
 const REEL_TARGET_MAX = 7; // §B 권장 상한(4~7장) — selectReelSlides 기준
 const MAX_MP4_BYTES = 100 * 1024 * 1024; // §B "100MB 미만"
 
-export type ReelAudioMode = "silent" | "ambient";
+export type ReelAudioMode = "silent" | "ambient" | "lounge";
 
 export interface BuildReelOptions {
   audio?: ReelAudioMode; // 기본 "silent"
@@ -60,6 +70,11 @@ export interface BuildReelOptions {
    * renderAndBuildReel에서만 적용된다(buildReelVideo는 프레임 버퍼만 다루므로 무시).
    */
   ctaOverride?: CtaData;
+  /**
+   * 중간 프레임에 순서대로 올릴 짧은 셀링포인트 캡션(공개정보만). 프레임 수보다 적으면 순환.
+   * 미지정이면 중간 프레임은 오버레이 없이 원본(기존 동작).
+   */
+  middleCaptions?: string[];
 }
 
 export interface ReelVideo {
@@ -102,8 +117,13 @@ async function normalizeFrame(buf: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
-/** ffmpeg 오디오 입력 인자(무음 or 합성 앰비언트). infinite 소스는 -t로 트림. */
+/** ffmpeg 오디오 입력 인자(무음 / 합성 앰비언트 / 합성 라운지 음악). infinite 소스는 -t로 트림. */
 function audioInputArgs(mode: ReelAudioMode, totalSec: number): string[] {
+  if (mode === "lounge") {
+    // C–Am–F–G 코드 진행 라운지 배경음(합성). exprs='...' 따옴표로 콤마 보호.
+    const src = `aevalsrc=exprs='${LOUNGE_VOICE}|${LOUNGE_VOICE}':c=stereo:s=44100:d=${totalSec.toFixed(3)}`;
+    return ["-f", "lavfi", "-i", src];
+  }
   if (mode === "ambient") {
     // C장조풍 저음 패드(G3·C4·E4) 직접 합성 — 번들 음원 없음, 저작권 리스크 0.
     const expr = `aevalsrc=0.09*sin(2*PI*196*t)+0.06*sin(2*PI*261.63*t)+0.045*sin(2*PI*329.63*t):s=44100:d=${totalSec.toFixed(3)}`;
@@ -141,7 +161,8 @@ function buildFilterComplex(
   }
 
   let audioMap = `${n}:a`;
-  if (audio === "ambient") {
+  if (audio !== "silent") {
+    // 합성 오디오(앰비언트·라운지)는 시작/끝 1.2s 페이드로 매끄럽게.
     const fadeOutStart = Math.max(0, totalSec - 1.2).toFixed(3);
     parts.push(`[${n}:a]afade=t=in:st=0:d=1.2,afade=t=out:st=${fadeOutStart}:d=1.2[aud]`);
     audioMap = `[aud]`;
@@ -277,6 +298,21 @@ export function selectReelSlides(slides: SlideInput[]): SlideInput[] {
   return chosen;
 }
 
+/**
+ * 중간 프레임(커버·CTA 제외)에 캡션을 순서대로 배정. captions가 프레임 수보다 적으면 순환.
+ * 커버·CTA는 null(각자 오버레이/카드가 있음). captions 미지정이면 전부 null(기존 동작).
+ */
+export function assignMiddleCaptions(slides: SlideInput[], captions?: string[]): (string | null)[] {
+  if (!captions || captions.length === 0) return slides.map(() => null);
+  let idx = 0;
+  return slides.map((s) => {
+    if (s.templateId === "cover" || s.templateId === "cta") return null;
+    const cap = captions[idx % captions.length];
+    idx += 1;
+    return cap;
+  });
+}
+
 // ── 오케스트레이션: 슬라이드 → 렌더 → MP4 → 업로드 ──────
 export interface ReelMediaEntry {
   templateId: "reel";
@@ -311,7 +347,8 @@ export async function renderAndBuildReel(
   const reelSlides = selectReelSlides(slides).map((s) =>
     s.templateId === "cta" && opts.ctaOverride ? { ...s, data: opts.ctaOverride } : s
   );
-  const frames = await renderReelFrameBuffers(reelSlides);
+  const captions = assignMiddleCaptions(reelSlides, opts.middleCaptions);
+  const frames = await renderReelFrameBuffers(reelSlides, captions);
   const video = await buildReelVideo(frames, opts);
 
   const { url: videoUrl } = await saveInstagramVideo(video.mp4, baseName);
