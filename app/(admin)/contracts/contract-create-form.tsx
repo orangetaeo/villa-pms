@@ -190,6 +190,7 @@ export default function ContractCreateForm({
   const inputClass =
     "h-10 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 text-sm text-slate-100 [color-scheme:dark] placeholder:text-slate-600";
   const labelClass = "mb-1.5 block text-xs font-medium text-slate-400";
+  const optLabel = t("create.optional");
   const isPartner = type === "PARTNER_AGENCY";
 
   if (candidates.length === 0) {
@@ -209,11 +210,17 @@ export default function ContractCreateForm({
         <span className="material-symbols-outlined text-admin-primary">note_add</span>
         {t("create.heading")}
       </h2>
+      <p className="text-xs text-slate-500">
+        <span className="text-red-400">*</span> {t("create.requiredHint")}
+      </p>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* 상대 */}
         <label className="block md:col-span-2">
-          <span className={labelClass}>{t("create.counterpart")}</span>
+          <span className={labelClass}>
+            {t("create.counterpart")}
+            <Req />
+          </span>
           <select
             value={counterpartId}
             onChange={(e) => onCounterpartChange(e.target.value)}
@@ -245,22 +252,34 @@ export default function ContractCreateForm({
 
         {/* 공통 */}
         <label className="block">
-          <span className={labelClass}>{t("create.companyName")}</span>
+          <span className={labelClass}>
+            {t("create.companyName")}
+            <Req />
+          </span>
           <input type="text" {...register("companyName")} className={inputClass} />
         </label>
         <label className="block">
-          <span className={labelClass}>{t("create.companyPassport")}</span>
+          <span className={labelClass}>
+            {t("create.companyPassport")}
+            <Req />
+          </span>
           <input type="text" {...register("companyPassport")} className={inputClass} />
         </label>
         <label className="block">
-          <span className={labelClass}>{t("create.companyContactVn")}</span>
+          <span className={labelClass}>
+            {t("create.companyContactVn")}
+            <Req />
+          </span>
           <input type="text" {...register("companyContactVn")} className={inputClass} />
           {errors.companyContactVn && (
             <span className="mt-1 block text-xs text-red-400">{t("create.invalid")}</span>
           )}
         </label>
         <label className="block">
-          <span className={labelClass}>{t("create.companyContactKr")}</span>
+          <span className={labelClass}>
+            {t("create.companyContactKr")}
+            <Opt label={optLabel} />
+          </span>
           <input type="text" {...register("companyContactKr")} className={inputClass} />
         </label>
 
@@ -268,7 +287,10 @@ export default function ContractCreateForm({
         {type === "VILLA_SUPPLY" && (
           <>
             <label className="block">
-              <span className={labelClass}>{t("create.cancelFreeDays")}</span>
+              <span className={labelClass}>
+                {t("create.cancelFreeDays")}
+                <Opt label={optLabel} />
+              </span>
               <input
                 type="number"
                 {...register("cancelFreeDays")}
@@ -277,7 +299,10 @@ export default function ContractCreateForm({
               />
             </label>
             <label className="block">
-              <span className={labelClass}>{t("create.cancelPartialPct")}</span>
+              <span className={labelClass}>
+                {t("create.cancelPartialPct")}
+                <Opt label={optLabel} />
+              </span>
               <input
                 type="number"
                 {...register("cancelPartialPct")}
@@ -290,6 +315,7 @@ export default function ContractCreateForm({
               register={register}
               labelClass={labelClass}
               inputClass={inputClass}
+              optLabel={optLabel}
               bankNameLabel={t("create.bankName")}
               accountNumberLabel={t("create.accountNumber")}
               accountHolderLabel={t("create.accountHolder")}
@@ -301,7 +327,10 @@ export default function ContractCreateForm({
         {type === "SERVICE_VENDOR" && (
           <>
             <label className="block">
-              <span className={labelClass}>{t("create.settleCycle")}</span>
+              <span className={labelClass}>
+                {t("create.settleCycle")}
+                <Req />
+              </span>
               <select {...register("settleCycle")} className={inputClass}>
                 <option value="">—</option>
                 <option value="MONTHLY">{t("settleCycle.MONTHLY")}</option>
@@ -313,7 +342,10 @@ export default function ContractCreateForm({
               )}
             </label>
             <label className="block">
-              <span className={labelClass}>{t("create.settleDetail")}</span>
+              <span className={labelClass}>
+                {t("create.settleDetail")}
+                <Opt label={optLabel} />
+              </span>
               <input type="text" {...register("settleDetail")} className={inputClass} />
             </label>
             <PayMethodSelect register={register} labelClass={labelClass} inputClass={inputClass} label={t("create.payMethod")} cashLabel={t("payMethod.CASH")} bankLabel={t("payMethod.BANK")} />
@@ -321,6 +353,7 @@ export default function ContractCreateForm({
               register={register}
               labelClass={labelClass}
               inputClass={inputClass}
+              optLabel={optLabel}
               bankNameLabel={t("create.bankName")}
               accountNumberLabel={t("create.accountNumber")}
               accountHolderLabel={t("create.accountHolder")}
@@ -332,25 +365,37 @@ export default function ContractCreateForm({
         {type === "PARTNER_AGENCY" && (
           <>
             <label className="block">
-              <span className={labelClass}>{t("create.partnerCompany")}</span>
+              <span className={labelClass}>
+                {t("create.partnerCompany")}
+                <Req />
+              </span>
               <input type="text" {...register("partnerCompany")} className={inputClass} />
               {errors.partnerCompany && (
                 <span className="mt-1 block text-xs text-red-400">{t("create.invalid")}</span>
               )}
             </label>
             <label className="block">
-              <span className={labelClass}>{t("create.partnerBizNo")}</span>
+              <span className={labelClass}>
+                {t("create.partnerBizNo")}
+                <Opt label={optLabel} />
+              </span>
               <input type="text" {...register("partnerBizNo")} className={inputClass} />
             </label>
             <label className="block">
-              <span className={labelClass}>{t("create.partnerRep")}</span>
+              <span className={labelClass}>
+                {t("create.partnerRep")}
+                <Req />
+              </span>
               <input type="text" {...register("partnerRep")} className={inputClass} />
               {errors.partnerRep && (
                 <span className="mt-1 block text-xs text-red-400">{t("create.invalid")}</span>
               )}
             </label>
             <label className="block">
-              <span className={labelClass}>{t("create.partnerContact")}</span>
+              <span className={labelClass}>
+                {t("create.partnerContact")}
+                <Req />
+              </span>
               <input type="text" {...register("partnerContact")} className={inputClass} />
               {errors.partnerContact && (
                 <span className="mt-1 block text-xs text-red-400">{t("create.invalid")}</span>
@@ -361,7 +406,10 @@ export default function ContractCreateForm({
 
         {/* 특약 — 전 타입 공통 */}
         <label className="block md:col-span-2">
-          <span className={labelClass}>{t("create.specialTerms")}</span>
+          <span className={labelClass}>
+            {t("create.specialTerms")}
+            <Opt label={optLabel} />
+          </span>
           <textarea
             {...register("specialTerms")}
             rows={3}
@@ -386,6 +434,20 @@ export default function ContractCreateForm({
 
 type Register = UseFormRegister<FormValues>;
 
+/** 필수 항목 마커(빨간 별표). */
+function Req() {
+  return (
+    <span className="text-red-400" aria-hidden="true">
+      {" *"}
+    </span>
+  );
+}
+
+/** 선택 항목 마커(회색 "· 선택"). label=현지화된 "선택" 단어. */
+function Opt({ label }: { label: string }) {
+  return <span className="ml-1 font-normal text-slate-500">· {label}</span>;
+}
+
 function PayMethodSelect({
   register,
   labelClass,
@@ -403,7 +465,10 @@ function PayMethodSelect({
 }) {
   return (
     <label className="block">
-      <span className={labelClass}>{label}</span>
+      <span className={labelClass}>
+        {label}
+        <Req />
+      </span>
       <select {...register("payMethod")} className={inputClass}>
         <option value="">—</option>
         <option value="CASH">{cashLabel}</option>
@@ -413,11 +478,12 @@ function PayMethodSelect({
   );
 }
 
-// 계좌 정보 — 은행명·계좌번호·예금주 3필드. 2열 그리드 흐름에 맞춰 개별 label로 배치.
+// 계좌 정보 — 은행명·계좌번호·예금주 3필드(모두 선택). 2열 그리드 흐름에 맞춰 개별 label로 배치.
 function BankInfo({
   register,
   labelClass,
   inputClass,
+  optLabel,
   bankNameLabel,
   accountNumberLabel,
   accountHolderLabel,
@@ -425,6 +491,7 @@ function BankInfo({
   register: Register;
   labelClass: string;
   inputClass: string;
+  optLabel: string;
   bankNameLabel: string;
   accountNumberLabel: string;
   accountHolderLabel: string;
@@ -432,15 +499,24 @@ function BankInfo({
   return (
     <>
       <label className="block">
-        <span className={labelClass}>{bankNameLabel}</span>
+        <span className={labelClass}>
+          {bankNameLabel}
+          <Opt label={optLabel} />
+        </span>
         <input type="text" {...register("bankName")} className={inputClass} />
       </label>
       <label className="block">
-        <span className={labelClass}>{accountNumberLabel}</span>
+        <span className={labelClass}>
+          {accountNumberLabel}
+          <Opt label={optLabel} />
+        </span>
         <input type="text" inputMode="numeric" {...register("accountNumber")} className={inputClass} />
       </label>
       <label className="block">
-        <span className={labelClass}>{accountHolderLabel}</span>
+        <span className={labelClass}>
+          {accountHolderLabel}
+          <Opt label={optLabel} />
+        </span>
         <input type="text" {...register("accountHolder")} className={inputClass} />
       </label>
     </>
