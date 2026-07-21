@@ -70,9 +70,9 @@ async function handle(req: Request) {
       if (wantReel) {
         try {
           const reel = await renderAndBuildReel(plan.slides, baseName, {
-            // ★오디오 무음: 합성 라운지 패드가 공포 앰비언스처럼 들려 제거(2026-07-21). 실음원 교체 예정.
+            // 오디오=번들 실음원(CC0 밝은 우쿨렐레). 파일 없으면 무음 폴백.
             //   중간 프레임 캡션은 슬라이드(reelCaption, 사진-공간 매칭)에 실려 자동 렌더.
-            audio: "silent",
+            audio: "bundled",
           });
           kind = "REELS";
           mediaJson = reel.mediaJson as unknown as Prisma.InputJsonValue;

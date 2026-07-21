@@ -12,7 +12,7 @@
 //   트렌드 음원을 얹기 좋음). 옵션 "ambient"는 ffmpeg aevalsrc로 **직접 합성한** 부드러운 패드(번들 음원 파일
 //   없음 → 저작권 리스크 0). 라이선스 근거: assets/audio/LICENSE.md.
 import { spawn } from "child_process";
-import { promises as fs } from "fs";
+import { promises as fs, existsSync } from "fs";
 import os from "os";
 import path from "path";
 import { randomUUID } from "crypto";
@@ -46,6 +46,11 @@ const LOUNGE_THIRD = "if(lt(mod(t,8),2),164.81,if(lt(mod(t,8),4),130.81,if(lt(mo
 const LOUNGE_FIFTH = "if(lt(mod(t,8),2),196.0,if(lt(mod(t,8),4),164.81,if(lt(mod(t,8),6),130.81,146.83)))";
 const LOUNGE_VOICE = `0.10*${LOUNGE_ENV}*(sin(2*PI*(${LOUNGE_ROOT})*t)+sin(2*PI*(${LOUNGE_THIRD})*t)+sin(2*PI*(${LOUNGE_FIFTH})*t))`;
 
+// 번들 배경음(실음원) — CC0 밝은 트랙 "Happy Whistling Ukulele"(FreePD, CC0-1.0, 출처표기 불필요).
+//   파일 경로. 없으면 buildReelVideo가 무음으로 폴백(안전). 볼륨은 영상 배경용으로 낮춘다.
+const REEL_BGM_PATH = path.join(process.cwd(), "assets", "audio", "reel-bgm.mp3");
+const REEL_BGM_VOLUME = 0.7; // 원곡 피크 0dB → 잘 들리는 배경 레벨(피크 ≈-6dB, 클리핑 없음). 영상에 다른 소리 없어 음악이 주가 됨.
+
 // 타이밍: 프레임당 기준 2.6s, 전환 0.5s, 총 길이는 [10s, 16s]로 클램프(§B "총 10~16초").
 //   총 길이를 먼저 클램프한 뒤 프레임당 표시시간 d를 역산 → 프레임 수 4~7에서 항상 10~16초에 안착.
 const TRANSITION_SEC = 0.5;
@@ -59,7 +64,7 @@ const MAX_FRAMES = 10; // buildReelVideo 하드 상한
 const REEL_TARGET_MAX = 7; // §B 권장 상한(4~7장) — selectReelSlides 기준
 const MAX_MP4_BYTES = 100 * 1024 * 1024; // §B "100MB 미만"
 
-export type ReelAudioMode = "silent" | "ambient" | "lounge";
+export type ReelAudioMode = "silent" | "ambient" | "lounge" | "bundled";
 
 export interface BuildReelOptions {
   audio?: ReelAudioMode; // 기본 "silent"
@@ -112,8 +117,12 @@ async function normalizeFrame(buf: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
-/** ffmpeg 오디오 입력 인자(무음 / 합성 앰비언트 / 합성 라운지 음악). infinite 소스는 -t로 트림. */
+/** ffmpeg 오디오 입력 인자(무음 / 합성 앰비언트·라운지 / 번들 실음원). infinite 소스는 -t로 트림. */
 function audioInputArgs(mode: ReelAudioMode, totalSec: number): string[] {
+  if (mode === "bundled") {
+    // 실음원 파일을 영상 길이만큼 반복(-stream_loop -1) 입력. 트림·볼륨·페이드는 filter_complex에서.
+    return ["-stream_loop", "-1", "-i", REEL_BGM_PATH];
+  }
   if (mode === "lounge") {
     // C–Am–F–G 코드 진행 라운지 배경음(합성). exprs='...' 따옴표로 콤마 보호.
     const src = `aevalsrc=exprs='${LOUNGE_VOICE}|${LOUNGE_VOICE}':c=stereo:s=44100:d=${totalSec.toFixed(3)}`;
@@ -156,9 +165,16 @@ function buildFilterComplex(
   }
 
   let audioMap = `${n}:a`;
-  if (audio !== "silent") {
+  const fadeOutStart = Math.max(0, totalSec - 1.2).toFixed(3);
+  if (audio === "bundled") {
+    // 실음원: 영상 길이로 트림 → 배경 볼륨 감쇠 → 시작/끝 페이드.
+    parts.push(
+      `[${n}:a]atrim=0:${totalSec.toFixed(3)},asetpts=PTS-STARTPTS,volume=${REEL_BGM_VOLUME},` +
+        `afade=t=in:st=0:d=1.0,afade=t=out:st=${fadeOutStart}:d=1.2[aud]`
+    );
+    audioMap = `[aud]`;
+  } else if (audio !== "silent") {
     // 합성 오디오(앰비언트·라운지)는 시작/끝 1.2s 페이드로 매끄럽게.
-    const fadeOutStart = Math.max(0, totalSec - 1.2).toFixed(3);
     parts.push(`[${n}:a]afade=t=in:st=0:d=1.2,afade=t=out:st=${fadeOutStart}:d=1.2[aud]`);
     audioMap = `[aud]`;
   }
@@ -191,7 +207,9 @@ export async function buildReelVideo(frames: Buffer[], opts: BuildReelOptions = 
   if (n < MIN_FRAMES) throw new Error(`릴스 프레임이 부족합니다(${n} < ${MIN_FRAMES})`);
   if (n > MAX_FRAMES) throw new Error(`릴스 프레임이 너무 많습니다(${n} > ${MAX_FRAMES})`);
 
-  const audio: ReelAudioMode = opts.audio ?? "silent";
+  // 번들 실음원 요청인데 파일이 없으면 무음으로 폴백(배포 누락 안전망).
+  let audio: ReelAudioMode = opts.audio ?? "silent";
+  if (audio === "bundled" && !existsSync(REEL_BGM_PATH)) audio = "silent";
   const { totalSec, perFrameSec, transitionSec } = computeReelTiming(
     n,
     opts.transitionSec ?? TRANSITION_SEC,

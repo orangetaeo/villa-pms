@@ -127,11 +127,10 @@ export async function runYoutubeDraftBatch(
 
       const baseName = `yt-${villa.id}-${scheduledAt.toISOString().slice(0, 10)}-${i}`;
       // 릴스 빌더에 유튜브 CTA 주입 — 엔딩 카드만 "카카오톡 채널 '빌라고' 검색"으로 교체.
-      //   ★오디오는 무음(silent): 합성 라운지 패드가 공포영화 앰비언스처럼 들려 제거(2026-07-21).
-      //   음악은 실음원 교체 예정 — YouTube Studio 오디오 라이브러리 곡을 번들할 때까지 무음.
+      //   오디오=번들 실음원(CC0 밝은 우쿨렐레, assets/audio/reel-bgm.mp3). 파일 없으면 무음 폴백.
       //   중간 프레임 캡션은 슬라이드(reelCaption, 사진-공간 매칭)에 실려 자동 렌더된다.
       const reel = await renderAndBuildReel(plan.slides, baseName, {
-        audio: "silent",
+        audio: "bundled",
         ctaOverride: YOUTUBE_REEL_CTA,
       });
 
