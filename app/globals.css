@@ -72,6 +72,12 @@ th,
     z-index: 2147482000;
     pointer-events: none;
   }
+  /* 운영자(ADMIN) 다크 대시보드에서는 상단도 화면색(admin-bg #0F172A)에 맞춰 다크로 —
+     teal 상태바가 다크 화면과 이질감을 주던 문제 수정. admin 레이아웃 루트의
+     data-app-shell="admin" 마커를 :has()로 감지(iOS 15.4+). 공급자·인증 등 라이트는 teal 유지. */
+  body:has([data-app-shell="admin"])::before {
+    background: #0f172a;
+  }
 }
 
 /* 모바일 터치 최소 타겟 (WCAG 2.5.5) */

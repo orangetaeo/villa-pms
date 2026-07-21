@@ -140,7 +140,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-dvh bg-admin-bg text-slate-50 font-admin">
+    <div className="min-h-dvh bg-admin-bg text-slate-50 font-admin" data-app-shell="admin">
       <NextIntlClientProvider locale={locale} messages={messages}>
       <AdminSidebar
         userName={session.user.name}
