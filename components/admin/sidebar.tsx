@@ -492,7 +492,7 @@ export default function AdminSidebar({
       {/* 코치마크 앵커 — admin-nav 이중앵커의 모바일 쪽(데스크톱에선 display:none → 비가시 스킵) */}
       <nav
         data-tour="admin-nav"
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-30 h-16 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 flex items-stretch justify-around px-1"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-30 h-[calc(4rem+env(safe-area-inset-bottom))] pb-safe bg-slate-900/95 backdrop-blur-md border-t border-slate-800 flex items-stretch justify-around px-1"
       >
         <BottomItem href="/dashboard" icon="dashboard" label={t("dashboard")} />
         <BottomItem href="/bookings" icon="calendar_month" label={t("bookings")} />
