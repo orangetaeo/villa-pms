@@ -78,6 +78,22 @@ th,
   body:has([data-app-shell="admin"])::before {
     background: #0f172a;
   }
+
+  /* ★하단·오버스크롤 흰색 방지 — 하단 safe-area(홈인디케이터)·바운스 영역은 <html> 루트 배경을
+     그대로 노출한다(스플래시 종료 후 흰색으로 돌아가 흰 띠가 생기던 문제). 루트 배경을 화면별로
+     칠해 어디서도 흰색이 드러나지 않게 한다. 상단은 body::before가 별도로 처리(라이트=teal). */
+  html {
+    background-color: #0d9488; /* 기본(스플래시·미표시): teal */
+  }
+  html:has([data-app-shell="admin"]) {
+    background-color: #0f172a; /* 운영자 다크 */
+  }
+  html:has([data-app-shell="supplier"]) {
+    background-color: #fafafa; /* 공급자 라이트(neutral-50) */
+  }
+  html:has([data-app-shell="auth"]) {
+    background-color: #f8fafc; /* 로그인·가입 라이트(slate-50) */
+  }
 }
 
 /* 모바일 터치 최소 타겟 (WCAG 2.5.5) */
