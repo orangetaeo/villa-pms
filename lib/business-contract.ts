@@ -110,12 +110,24 @@ const requiredText = (max: number) =>
 const optionalText = (max: number) =>
   z.string().max(max).refine(noBraces, NO_BRACES).optional();
 
+// 계좌 정보 — 은행명·계좌번호·예금주 3필드 구조(User.bankInfo·공급자/업체 폼과 동일 형태).
+// 각 필드 선택(부재 허용). .strict()로 미지정 키 거부. 렌더는 buildTokenMap에서 조합 문자열로.
+// ★ 레거시(문자열) bankInfo 계약은 buildTokenMap.formatBankInfo가 그대로 호환 렌더.
+const bankInfoSchema = z
+  .object({
+    bankName: optionalText(100), // 은행명
+    accountNumber: optionalText(60), // 계좌번호
+    accountHolder: optionalText(100), // 예금주(입금자명)
+  })
+  .strict()
+  .optional();
+
 const commonTermsShape = {
   companyName: requiredText(200), // 갑(계약 당사자 실명). Villa GO는 운영 브랜드로 병기
   companyPassport: requiredText(60), // 갑 대표 신분/여권 번호
   companyContactVn: requiredText(60), // 갑 베트남 연락처(Zalo) — 필수
   companyContactKr: optionalText(60), // 갑 한국 연락처(전화) — 선택, 비면 "해당 없음" 렌더
-  bankInfo: optionalText(500), // 계좌 정보(신원 정보 — 원가·마진 아님). 비면 "해당 없음" 렌더
+  bankInfo: bankInfoSchema, // 계좌 정보(은행·계좌번호·예금주). 전부 비면 "해당 없음" 렌더
   specialTerms: optionalText(4000), // 특약사항(자유 텍스트). 비면 "해당 없음" 렌더
 };
 
@@ -215,6 +227,36 @@ const SETTLE_CYCLE_LABEL: Record<"MONTHLY" | "WEEKLY" | "PER_ORDER", Record<Cont
 /** 값이 비어 있는 선택 항목의 표시 — 빈 렌더 방지(미치환 throw 규칙과 별개). */
 const NA_LABEL: Record<ContractLocale, string> = { ko: "해당 없음", vi: "Không áp dụng" };
 
+/** 계좌 정보 필드 라벨(렌더 조합용) — 은행·예금주·계좌번호 순으로 정본에 표기. */
+const BANK_FIELD_LABEL: Record<"bankName" | "accountHolder" | "accountNumber", Record<ContractLocale, string>> = {
+  bankName: { ko: "은행", vi: "Ngân hàng" },
+  accountHolder: { ko: "예금주", vi: "Chủ tài khoản" },
+  accountNumber: { ko: "계좌번호", vi: "Số tài khoản" },
+};
+
+/**
+ * termsJson.bankInfo → {{bankInfo}} 렌더 문자열.
+ *  - 객체({bankName,accountNumber,accountHolder}): 값 있는 항목만 "라벨 값 · …"으로 조합.
+ *  - 문자열(레거시 계약): 그대로(빈 값이면 NA).
+ *  - 전부 비면 NA 라벨.
+ */
+function formatBankInfo(v: unknown, loc: ContractLocale, na: string): string {
+  if (v == null) return na;
+  if (typeof v === "string") return v.trim() || na; // 레거시 문자열 계약 호환
+  if (typeof v === "object") {
+    const b = v as Record<string, unknown>;
+    const parts: string[] = [];
+    for (const key of ["bankName", "accountHolder", "accountNumber"] as const) {
+      const val = b[key];
+      if (typeof val === "string" && val.trim()) {
+        parts.push(`${BANK_FIELD_LABEL[key][loc]} ${val.trim()}`);
+      }
+    }
+    return parts.length > 0 ? parts.join(" · ") : na;
+  }
+  return na;
+}
+
 export interface RenderContractData {
   type: BusinessContractType;
   locale: ContractLocale;
@@ -259,7 +301,7 @@ function buildTokenMap(data: RenderContractData): Record<string, string> {
     companyPassport: str(t.companyPassport),
     companyContactVn: str(t.companyContactVn, BLANK), // 베트남 연락처(필수). 비면 서명란 공백
     companyContactKr: str(t.companyContactKr, na), // 한국 연락처(선택). 비면 "해당 없음"
-    bankInfo: str(t.bankInfo, na), // 비면 "해당 없음"
+    bankInfo: formatBankInfo(t.bankInfo, loc, na), // 은행·예금주·계좌번호 조합. 전부 비면 "해당 없음"
     specialTerms: str(t.specialTerms, na), // 비면 "해당 없음"
     signDate: fmtSignDate(data.signedAt),
   };
