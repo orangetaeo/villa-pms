@@ -286,7 +286,8 @@
     "revenue": "매출관리",
     "holidays": "공휴일",
     "documents": "계약서",
-    "contracts": "계약 서명 관리"
+    "contracts": "계약 서명 관리",
+    "complexAreas": "지역(단지)"
   },
   "adminDocuments": {
     "title": "사업 계약서",
@@ -2837,6 +2838,9 @@
     "zaloCardTitle": "Zalo 봇 연결",
     "zaloCardDesc": "예약·청소·정산 알림을 보내는 운영자 Zalo 계정을 연결합니다.",
     "zaloCardCta": "관리",
+    "complexAreaCardTitle": "지역(단지) 마스터",
+    "complexAreaCardDesc": "빌라·업체가 공통으로 쓰는 단지명을 등록·수정합니다.",
+    "complexAreaCardCta": "관리",
     "servicesCardTitle": "서비스 카탈로그",
     "servicesCardDesc": "BBQ·입장권·차량 등 부가서비스 판매 메뉴와 옵션·가격을 관리합니다.",
     "servicesCardCta": "관리",
@@ -5200,6 +5204,45 @@
     "ancillary": {
       "title": "부가서비스·미니바 매출",
       "subtitle": "미니바 판매와 부가서비스 매출·마진을 한곳에 모아 봅니다 (개요 KPI에는 합산 포함)"
+    }
+  },
+  "adminComplexAreas": {
+    "title": "지역(단지) 마스터",
+    "subtitle": "빌라·업체가 공통으로 쓰는 단지명 목록을 한곳에서 관리합니다",
+    "forbidden": "이 화면에 접근할 권한이 없습니다.",
+    "breadcrumbSettings": "설정",
+    "breadcrumbCurrent": "지역(단지) 마스터",
+    "intro": "단지명의 유일한 원천입니다. 여기 등록된 단지만 빌라 등록·업체 담당지역에서 선택할 수 있으며, 이름을 바꾸면 연결된 곳이 함께 갱신됩니다. 삭제 대신 비활성(은퇴)으로 전환하세요.",
+    "addButton": "단지 추가",
+    "empty": "등록된 단지가 없습니다.",
+    "active": "사용",
+    "inactive": "은퇴",
+    "edit": "수정",
+    "saved": "저장되었습니다.",
+    "error": "오류가 발생했습니다.",
+    "searchPlaceholder": "단지명·코드 검색",
+    "sortOrderShort": "정렬 {n}",
+    "villaBadge": "연결 빌라 {n}곳",
+    "errorNameRequired": "단지명을 입력하세요.",
+    "errorDuplicateName": "이미 같은 이름의 단지가 있습니다.",
+    "errorDuplicateCode": "이미 같은 코드의 단지가 있습니다.",
+    "errorRenameConflict": "이름 변경 시 업체 담당지역이 겹쳐 적용할 수 없습니다. 먼저 해당 업체의 담당지역을 정리하세요.",
+    "errorValidation": "입력값을 확인하세요.",
+    "renameConfirm": "이 단지명을 변경하면 연결된 빌라 {count}곳과 업체 담당지역 표기가 함께 바뀝니다. 계속하시겠습니까?",
+    "form": {
+      "createTitle": "단지 추가",
+      "editTitle": "{name} 수정",
+      "name": "단지명 (정본)",
+      "namePlaceholder": "예: Sonasea",
+      "nameHint": "라틴 표기(고유명사). 빌라·업체가 이 값을 그대로 사용합니다.",
+      "nameKo": "한국어 병기",
+      "nameKoPlaceholder": "예: 쏘나씨",
+      "nameKoHint": "운영자 화면 병기 전용(선택).",
+      "sortOrder": "정렬 순서",
+      "renameWarning": "이 단지명을 변경하면 연결된 빌라 {count}곳의 표기와 업체 담당지역 표기가 함께 바뀝니다.",
+      "cancel": "취소",
+      "save": "저장",
+      "saving": "저장 중…"
     }
   },
   "adminGuestToken": {

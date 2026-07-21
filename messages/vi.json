@@ -286,7 +286,8 @@
     "revenue": "Doanh thu",
     "holidays": "Ngày lễ",
     "documents": "Hợp đồng",
-    "contracts": "Ký hợp đồng"
+    "contracts": "Ký hợp đồng",
+    "complexAreas": "Khu (dự án)"
   },
   "adminDocuments": {
     "title": "Hợp đồng kinh doanh",
@@ -2952,6 +2953,9 @@
     "zaloCardTitle": "Kết nối Bot Zalo",
     "zaloCardDesc": "Kết nối tài khoản Zalo của quản trị viên để gửi thông báo.",
     "zaloCardCta": "Quản lý",
+    "complexAreaCardTitle": "Danh mục khu (dự án)",
+    "complexAreaCardDesc": "Đăng ký và sửa tên khu dùng chung cho villa và nhà cung cấp.",
+    "complexAreaCardCta": "Quản lý",
     "servicesCardTitle": "Danh mục dịch vụ",
     "servicesCardDesc": "Quản lý menu, tùy chọn và giá của dịch vụ bổ sung như BBQ, vé, xe.",
     "servicesCardCta": "Quản lý",
@@ -5200,6 +5204,45 @@
     "ancillary": {
       "title": "Doanh thu dịch vụ bổ sung · Minibar",
       "subtitle": "Xem doanh thu·biên lợi nhuận của minibar và dịch vụ bổ sung ở cùng một nơi (đã gộp vào KPI Tổng quan)"
+    }
+  },
+  "adminComplexAreas": {
+    "title": "Danh mục khu (dự án)",
+    "subtitle": "Quản lý tập trung tên khu dùng chung cho villa và nhà cung cấp",
+    "forbidden": "Bạn không có quyền truy cập màn hình này.",
+    "breadcrumbSettings": "Cài đặt",
+    "breadcrumbCurrent": "Danh mục khu (dự án)",
+    "intro": "Đây là nguồn duy nhất cho tên khu. Chỉ những khu đăng ký ở đây mới có thể chọn khi đăng ký villa hay khu vực phụ trách của nhà cung cấp; đổi tên sẽ cập nhật đồng loạt các nơi liên kết. Hãy chuyển sang ngừng dùng thay vì xoá.",
+    "addButton": "Thêm khu",
+    "empty": "Chưa có khu nào.",
+    "active": "Đang dùng",
+    "inactive": "Ngừng dùng",
+    "edit": "Sửa",
+    "saved": "Đã lưu.",
+    "error": "Đã xảy ra lỗi.",
+    "searchPlaceholder": "Tìm theo tên khu · mã",
+    "sortOrderShort": "Thứ tự {n}",
+    "villaBadge": "{n} villa liên kết",
+    "errorNameRequired": "Vui lòng nhập tên khu.",
+    "errorDuplicateName": "Đã có khu trùng tên.",
+    "errorDuplicateCode": "Đã có khu trùng mã.",
+    "errorRenameConflict": "Không thể đổi tên vì khu vực phụ trách của nhà cung cấp bị trùng. Hãy dọn khu vực phụ trách của nhà cung cấp đó trước.",
+    "errorValidation": "Vui lòng kiểm tra dữ liệu nhập.",
+    "renameConfirm": "Đổi tên khu này sẽ thay đổi đồng loạt {count} villa liên kết và cách hiển thị khu vực phụ trách của nhà cung cấp. Tiếp tục?",
+    "form": {
+      "createTitle": "Thêm khu",
+      "editTitle": "Sửa {name}",
+      "name": "Tên khu (chuẩn)",
+      "namePlaceholder": "VD: Sonasea",
+      "nameHint": "Tên Latinh (danh từ riêng). Villa và nhà cung cấp dùng đúng giá trị này.",
+      "nameKo": "Tên tiếng Hàn kèm theo",
+      "nameKoPlaceholder": "VD: 쏘나씨",
+      "nameKoHint": "Chỉ hiển thị kèm ở màn hình vận hành (tùy chọn).",
+      "sortOrder": "Thứ tự sắp xếp",
+      "renameWarning": "Đổi tên khu này sẽ thay đổi đồng loạt cách hiển thị của {count} villa liên kết và khu vực phụ trách của nhà cung cấp.",
+      "cancel": "Hủy",
+      "save": "Lưu",
+      "saving": "Đang lưu…"
     }
   },
   "adminGuestToken": {

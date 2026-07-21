@@ -225,6 +225,23 @@ export default async function SettingsPage() {
         </span>
       </Link>
 
+      {/* Card 8: 지역(단지) 마스터 (ADR-0046) — 빌라·업체 공통 단지명 단일 원천. 별도 페이지 링크 */}
+      <Link
+        href="/settings/complex-areas"
+        className="flex items-center justify-between bg-admin-card border border-slate-800 rounded-xl p-6 hover:border-slate-700 transition-colors group"
+      >
+        <div className="flex items-center gap-4">
+          <span className="material-symbols-outlined text-admin-primary text-3xl">apartment</span>
+          <div>
+            <h2 className="text-lg font-bold text-white">{t("complexAreaCardTitle")}</h2>
+            <p className="text-sm text-slate-500 mt-0.5">{t("complexAreaCardDesc")}</p>
+          </div>
+        </div>
+        <span className="text-sm font-bold text-admin-primary group-hover:underline whitespace-nowrap">
+          {t("complexAreaCardCta")} →
+        </span>
+      </Link>
+
       {/* 코치마크 투어 — 첫 진입 자동 1회, 이후 "?"로 재생 (T-tutorial-onboarding-6) */}
       <CoachMark
         tourId="adminSettings"
