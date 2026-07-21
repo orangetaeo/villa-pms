@@ -24,6 +24,7 @@ import SalesEditor, { type SalesInitial } from "./sales-editor";
 import AdminAmenitiesEditor from "./amenities-editor";
 import MinibarStockEditor, { type MinibarStockItem } from "./minibar-stock-editor";
 import NameViEditor from "./name-vi-editor";
+import ComplexAreaEditor from "./complex-area-editor";
 import CleaningInfoEditor from "./cleaning-info-editor";
 import CleanerAssignEditor from "./cleaner-assign-editor";
 import RegionalVendorEditor from "./regional-vendor-editor";
@@ -151,6 +152,13 @@ export default async function VillaDetailPage({
   for (const m of regionalMappings) {
     regionalInitial[m.serviceType as RegionalVendorType] = m.vendorId;
   }
+
+  // 지역(단지) 마스터 목록(ADR-0046) — 활성만, 지역 인라인 편집기 드롭다운 소스. name·nameKo만(누수 무관).
+  const complexAreaOptions = await prisma.complexArea.findMany({
+    where: { active: true },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, nameKo: true },
+  });
 
   // 사진을 공간별로 그룹화 (b10 — 공간별 섹션)
   const photoGroups = SPACE_ORDER.map((space) => ({
@@ -439,15 +447,9 @@ export default async function VillaDetailPage({
                 </span>
               </div>
             </div>
-            {/* 승인 판단용 보조 정보 — 단지·주소·월 임대 시세 */}
-            {(villa.complex || villa.address || villa.monthlyRentVnd != null) && (
+            {/* 승인 판단용 보조 정보 — 주소·월 임대 시세 (단지는 아래 지역 편집기 카드에서 표시·편집) */}
+            {(villa.address || villa.monthlyRentVnd != null) && (
               <dl className="mt-5 pt-5 border-t border-slate-800 space-y-2 text-sm">
-                {villa.complex && (
-                  <div className="flex gap-3">
-                    <dt className="w-28 shrink-0 text-slate-500">{t("info.complex")}</dt>
-                    <dd className="text-slate-300">{villa.complex}</dd>
-                  </div>
-                )}
                 {villa.address && (
                   <div className="flex gap-3">
                     <dt className="w-28 shrink-0 text-slate-500">{t("info.address")}</dt>
@@ -465,6 +467,14 @@ export default async function VillaDetailPage({
               </dl>
             )}
           </CollapsibleCard>
+
+          {/* 지역(단지) 지정 (ADR-0046) — 활성 마스터 드롭다운으로 표시·편집. 업체 배정·검색 필터에 사용 */}
+          <ComplexAreaEditor
+            villaId={villa.id}
+            initialComplexAreaId={villa.complexAreaId}
+            initialComplex={villa.complex}
+            areas={complexAreaOptions}
+          />
 
           {/* 베트남어 병기명 (ADR-0020) — Gemini 제안 + ADMIN 확정. 비운영자 화면에 병기 */}
           <NameViEditor villaId={villa.id} name={villa.name} initialNameVi={villa.nameVi} />
