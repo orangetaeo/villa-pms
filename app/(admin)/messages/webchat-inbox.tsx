@@ -149,6 +149,24 @@ export function WebChatInbox({
                             {t("blockedBadge")}
                           </span>
                         )}
+                        {s.bookingLink === "linked" && (
+                          <span
+                            className="shrink-0 inline-flex items-center gap-0.5 rounded bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 text-[9px] font-bold"
+                            title={t("bookingBadge.linked")}
+                          >
+                            <span className="material-symbols-outlined text-[11px]">event_available</span>
+                            {t("bookingBadge.linked")}
+                          </span>
+                        )}
+                        {s.bookingLink === "candidate" && (
+                          <span
+                            className="shrink-0 inline-flex items-center gap-0.5 rounded bg-amber-500/10 text-amber-300/90 px-1.5 py-0.5 text-[9px] font-medium"
+                            title={t("bookingBadge.candidateHint")}
+                          >
+                            <span className="material-symbols-outlined text-[11px]">link</span>
+                            {t("bookingBadge.candidate")}
+                          </span>
+                        )}
                       </div>
                       <span className="text-[10px] text-slate-500 tabular-nums shrink-0">
                         {relativeTime(s.lastMessageAt, now, t)}

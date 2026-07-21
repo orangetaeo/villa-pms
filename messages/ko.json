@@ -4157,6 +4157,11 @@
     },
     "blockedBadge": "차단됨",
     "hasContact": "연락처 있음",
+    "bookingBadge": {
+      "linked": "예약 연결됨",
+      "candidate": "예약 후보",
+      "candidateHint": "예약 후보 있음 — 대화를 열어 연결하세요"
+    },
     "createdAt": "시작 {date}",
     "lang": "언어",
     "untranslated": "미번역",

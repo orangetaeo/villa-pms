@@ -7,6 +7,9 @@ export type WebChatStatus = "OPEN" | "CLOSED" | "BLOCKED";
 export type WebChatDirection = "INBOUND" | "OUTBOUND";
 export type WebChatFilter = "open" | "blocked" | "all";
 
+/** 세션↔예약 배지 파생 값 — linked(연결됨)·candidate(후보 있음)·none. /api/webchat/inbox 정본. */
+export type BookingLink = "linked" | "candidate" | "none";
+
 /** 인박스 목록 항목 — /api/webchat/inbox 의 sessions[] 요소(비정규화 필드만). */
 export interface WebChatSessionListItem {
   id: string;
@@ -16,6 +19,8 @@ export interface WebChatSessionListItem {
   contactEmail: string | null;
   contactZalo: string | null;
   contactKakao: string | null;
+  // 예약 후보 배지(연결 전에도 목록에서 매칭 가능 세션 파악) — 금액 무관 파생값.
+  bookingLink: BookingLink;
   unreadForAdmin: number;
   lastMessageText: string | null;
   lastMessageDirection: WebChatDirection | null;

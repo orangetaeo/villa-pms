@@ -4272,6 +4272,11 @@
     },
     "blockedBadge": "Đã chặn",
     "hasContact": "Có liên hệ",
+    "bookingBadge": {
+      "linked": "Đã liên kết đặt phòng",
+      "candidate": "Ứng viên đặt phòng",
+      "candidateHint": "Có ứng viên đặt phòng — mở hội thoại để liên kết"
+    },
     "createdAt": "Bắt đầu {date}",
     "lang": "Ngôn ngữ",
     "untranslated": "Chưa dịch",
