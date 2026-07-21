@@ -8,31 +8,12 @@ import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
 import { normalizePhone } from "@/lib/password-reset";
+import { phoneTailMatch, tokenPrefixOf } from "@/lib/webchat-candidate-match";
 
 const PAGE_SIZE = 30;
 
 /** 세션↔예약 배지 파생 값 — linked(연결됨)·candidate(후보 있음)·none. 금액 무관. */
 export type BookingLink = "linked" | "candidate" | "none";
-
-/**
- * 전화 꼬리 매칭 — booking-candidates 라우트의 phoneTailMatch와 동일 로직(그 파일은 수정 금지라 인라인 복제).
- * 정규화 숫자의 마지막 8자리 비교(국가코드/선행0 차이 흡수). 8자리 미만이면 완전 일치만 인정.
- */
-function phoneTailMatch(a: string, b: string): boolean {
-  if (!a || !b) return false;
-  const tail = (s: string) => (s.length >= 8 ? s.slice(-8) : s);
-  const ta = tail(a);
-  const tb = tail(b);
-  if (ta.length < 8 || tb.length < 8) return a === b;
-  return ta === tb;
-}
-
-/** sourcePage `g:<prefix>`에서 토큰 prefix 추출(booking-candidates와 동일: 6자 이상만 식별에 사용). */
-function tokenPrefixOf(sourcePage: string | null): string | null {
-  const m = /^g:(.+)$/.exec(sourcePage ?? "");
-  const prefix = m?.[1]?.trim() ?? "";
-  return prefix.length >= 6 ? prefix : null;
-}
 
 export async function GET(req: Request) {
   // 첫 줄 role 검사 — 운영자 전체(OWNER/MANAGER/STAFF/ADMIN). 웹챗은 구조적 무금액이라 STAFF 개방 안전.

@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
 import { requireCapability, notFoundIfMissing } from "@/lib/api-guard";
 import { normalizePhone } from "@/lib/password-reset";
+import { phoneTailMatch, tokenPrefixOf } from "@/lib/webchat-candidate-match";
 
 // ★후보 공통 select — 금액 필드 없음. guestPhone은 뒷4자리 계산·매칭용(원본은 응답에 미노출).
 const CANDIDATE_SELECT = {
@@ -52,19 +53,6 @@ function serializeCandidate(b: CandidateRow, matchType: MatchType) {
     status: b.status,
     matchType,
   };
-}
-
-/**
- * 전화 꼬리 매칭 — 정규화 숫자의 마지막 8자리 비교(국가코드/선행0 차이 흡수, 예: 84901234567 ↔ 0901234567).
- * 8자리 미만이면 완전 일치만 인정(오매칭 방지). 운영자가 다이얼로그로 최종 확인하므로 보수적 근사 허용.
- */
-function phoneTailMatch(a: string, b: string): boolean {
-  if (!a || !b) return false;
-  const tail = (s: string) => (s.length >= 8 ? s.slice(-8) : s);
-  const ta = tail(a);
-  const tb = tail(b);
-  if (ta.length < 8 || tb.length < 8) return a === b;
-  return ta === tb;
 }
 
 /** 체크인이 오늘에 가까운 순(절대 거리 asc)으로 정렬 — 임박 예약 우선. */
@@ -132,9 +120,8 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
 
   // ⑴ 토큰 유입 매칭(신뢰도 최상) — sourcePage `g:<8자>` prefix로 GuestCheckinToken.token startsWith.
   //    revoke 무관(식별 목적). cuid/base64url 특성상 8자 prefix 충돌은 실질 0.
-  const m = /^g:(.+)$/.exec(s.sourcePage ?? "");
-  const prefix = m?.[1]?.trim() ?? "";
-  if (prefix.length >= 6) {
+  const prefix = tokenPrefixOf(s.sourcePage);
+  if (prefix) {
     const tokens = await prisma.guestCheckinToken.findMany({
       where: { token: { startsWith: prefix } },
       select: { bookingId: true },
