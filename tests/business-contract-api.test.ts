@@ -86,7 +86,7 @@ describe("ADMIN POST /business-contracts (생성)", () => {
     const res = await adminCreate(jreq("http://x/api/admin/business-contracts", "POST", {
       counterpartId: "sup1",
       locale: "vi",
-      terms: { companyName: "빌라고", companyPassport: "M1", payMethod: "CASH" },
+      terms: { companyName: "KIM HAKTAE", companyPassport: "M1", companyContactVn: "0799493138", payMethod: "CASH" },
     }));
     expect(res.status).toBe(201);
     expect(bc.create).toHaveBeenCalled();
@@ -99,7 +99,7 @@ describe("ADMIN POST /business-contracts (생성)", () => {
     mockAuth.mockResolvedValue(OWNER);
     user.findFirst.mockResolvedValue({ id: "o2", role: "OWNER" });
     const res = await adminCreate(jreq("http://x/api/admin/business-contracts", "POST", {
-      counterpartId: "o2", locale: "ko", terms: { companyName: "c", companyPassport: "p", partnerCompany: "여행사", partnerRep: "김", partnerContact: "010" },
+      counterpartId: "o2", locale: "ko", terms: { companyName: "c", companyPassport: "p", companyContactVn: "0799", partnerCompany: "여행사", partnerRep: "김", partnerContact: "010" },
     }));
     expect(res.status).toBe(400);
   });
@@ -108,7 +108,7 @@ describe("ADMIN POST /business-contracts (생성)", () => {
     mockAuth.mockResolvedValue(OWNER);
     user.findFirst.mockResolvedValue({ id: "pt1", role: "PARTNER" });
     const res = await adminCreate(jreq("http://x/api/admin/business-contracts", "POST", {
-      counterpartId: "pt1", locale: "vi", terms: { companyName: "c", companyPassport: "p", partnerCompany: "여행사", partnerRep: "김", partnerContact: "010" },
+      counterpartId: "pt1", locale: "vi", terms: { companyName: "c", companyPassport: "p", companyContactVn: "0799", partnerCompany: "여행사", partnerRep: "김", partnerContact: "010" },
     }));
     expect(res.status).toBe(400);
   });
@@ -126,7 +126,7 @@ describe("ADMIN POST /business-contracts (생성)", () => {
   it("이미 DRAFT/SENT 존재 시 409(ACTIVE), SIGNED 존재 시 409(SIGNED)", async () => {
     mockAuth.mockResolvedValue(OWNER);
     user.findFirst.mockResolvedValue({ id: "sup1", role: "SUPPLIER" });
-    const terms = { companyName: "빌라고", companyPassport: "M1", payMethod: "CASH" };
+    const terms = { companyName: "KIM HAKTAE", companyPassport: "M1", companyContactVn: "0799493138", payMethod: "CASH" };
 
     bc.findFirst.mockResolvedValueOnce({ id: "c0", status: "SENT" });
     let res = await adminCreate(jreq("http://x", "POST", { counterpartId: "sup1", locale: "vi", terms }));
@@ -244,7 +244,7 @@ describe("상대방 POST /business-contracts/[id]/sign (스코프·멱등·레�
       type: "VILLA_SUPPLY",
       locale: "vi",
       status: "SENT",
-      termsJson: { companyName: "빌라고", companyPassport: "M1", payMethod: "CASH", cancelFreeDays: 14, cancelPartialPct: 50 },
+      termsJson: { companyName: "KIM HAKTAE", companyPassport: "M1", companyContactVn: "0799493138", payMethod: "CASH", cancelFreeDays: 14, cancelPartialPct: 50 },
     });
     user.findUnique.mockResolvedValue({ name: "Nguyen", phone: "090", zaloContact: null });
     bc.updateMany.mockResolvedValue({ count: 1 });
@@ -261,7 +261,7 @@ describe("상대방 POST /business-contracts/[id]/sign (스코프·멱등·레�
     mockAuth.mockResolvedValue(SUPPLIER);
     bc.findFirst.mockResolvedValue({
       id: "c1", type: "VILLA_SUPPLY", locale: "vi", status: "SENT",
-      termsJson: { companyName: "빌라고", companyPassport: "M1", payMethod: "CASH", cancelFreeDays: 14, cancelPartialPct: 50 },
+      termsJson: { companyName: "KIM HAKTAE", companyPassport: "M1", companyContactVn: "0799493138", payMethod: "CASH", cancelFreeDays: 14, cancelPartialPct: 50 },
     });
     user.findUnique.mockResolvedValue({ name: "Nguyen", phone: "090", zaloContact: null });
     bc.updateMany.mockResolvedValue({ count: 0 });
@@ -273,7 +273,7 @@ describe("상대방 POST /business-contracts/[id]/sign (스코프·멱등·레�
     mockAuth.mockResolvedValue(SUPPLIER);
     bc.findFirst.mockResolvedValue({
       id: "c1", type: "VILLA_SUPPLY", locale: "vi", status: "SENT",
-      termsJson: { companyName: "빌라고", companyPassport: "M1", payMethod: "CASH" },
+      termsJson: { companyName: "KIM HAKTAE", companyPassport: "M1", companyContactVn: "0799493138", payMethod: "CASH" },
     });
     const res = await sign(signReq({ signName: "A {{signDate}}", idNumber: "1", address: "addr" }), P("c1"));
     expect(res.status).toBe(400);

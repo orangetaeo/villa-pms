@@ -1,7 +1,7 @@
 # HỢP ĐỒNG CUNG CẤP DỊCH VỤ BỔ SUNG — NHÀ CUNG CẤP DỊCH VỤ
 
-**Bên A**: {{companyName}} (Người vận hành Villa GO, sau đây gọi là "Công ty")
-- Số hộ chiếu: {{companyPassport}} / Quốc tịch: Hàn Quốc / Liên hệ: Zalo 0799493138
+**Bên A**: {{companyName}} (Quốc tịch: Hàn Quốc, Số hộ chiếu: {{companyPassport}}), vận hành thương hiệu "Villa GO", sau đây gọi là "Công ty"
+- Liên hệ: Zalo (Việt Nam) {{companyContactVn}} / Điện thoại (Hàn Quốc) {{companyContactKr}}
 - ※ Hợp đồng được ký với tư cách cá nhân trước khi đăng ký kinh doanh — khi thành lập pháp nhân hoặc hộ kinh doanh, tư cách được kế thừa theo Điều 8 Khoản 3.
 
 **Bên B (Nhà cung cấp dịch vụ)**: {{counterpartName}} (sau đây gọi là "Nhà cung cấp")

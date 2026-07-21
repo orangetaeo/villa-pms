@@ -1,7 +1,7 @@
 # 빌라 공급 계약서
 
-**갑**: {{companyName}} (Villa GO 운영자, 이하 "회사")
-- 여권번호: {{companyPassport}} / 국적: 대한민국 / 연락처: Zalo 0799493138
+**갑(회사)**: {{companyName}} (국적: 대한민국, 여권번호: {{companyPassport}}), 'Villa GO' 브랜드 운영자, 이하 "회사"
+- 연락처: Zalo(베트남) {{companyContactVn}} / 전화(한국) {{companyContactKr}}
 - ※ 사업자 등록 전 개인 자격 계약 — 법인·사업자 설립 시 제11조 4항에 따라 지위 승계
 
 **을(공급자)**: {{counterpartName}} (이하 "공급자")

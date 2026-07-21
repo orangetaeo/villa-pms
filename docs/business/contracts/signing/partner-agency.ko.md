@@ -1,7 +1,7 @@
 # B2B 판매 계약서 — 여행사·랜드사
 
-**갑**: {{companyName}} (Villa GO 운영자, 이하 "회사")
-- 여권번호: {{companyPassport}} / 연락처: Zalo 0799493138 · 카카오 pf.kakao.com/_mVAfX
+**갑(회사)**: {{companyName}} (국적: 대한민국, 여권번호: {{companyPassport}}), 'Villa GO' 브랜드 운영자, 이하 "회사"
+- 연락처: Zalo(베트남) {{companyContactVn}} / 전화(한국) {{companyContactKr}} · 카카오 pf.kakao.com/_mVAfX
 - ※ 사업자 등록 전 개인 자격 계약 — 법인·사업자 설립 시 제10조 3항에 따라 지위 승계
 
 **을(파트너)**: {{partnerCompany}} (이하 "파트너")
@@ -69,7 +69,7 @@
 
 ## 별표 — 지정 입금 계좌·담당 연락처
 - 회사 입금 계좌(KRW): {{bankInfo}}
-- 회사 담당: 테오(Villa GO) / Zalo 0799493138 · 카카오 pf.kakao.com/_mVAfX
+- 회사 담당: {{companyName}}(Villa GO) / Zalo(베트남) {{companyContactVn}} · 카카오 pf.kakao.com/_mVAfX
 - 파트너 정산 담당: {{partnerContact}}
 
 ## 특약 사항

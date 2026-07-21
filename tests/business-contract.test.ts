@@ -13,7 +13,8 @@ import {
 // 서명용 정본을 흉내낸 fixture (실제 파일 fs 의존 배제 — 순수 렌더 검증).
 const VILLA_FIXTURE = [
   "# 빌라 공급 계약",
-  "갑: {{companyName}} (여권 {{companyPassport}})",
+  "갑(회사): {{companyName}} (여권 {{companyPassport}})",
+  "연락처: Zalo(베트남) {{companyContactVn}} / 전화(한국) {{companyContactKr}}",
   "을: {{counterpartName}} / 연락처 {{counterpartZalo}}",
   "신분번호 {{counterpartIdNumber}} / 주소 {{counterpartAddress}}",
   "무료취소 {{cancelFreeDays}}일 · 부분환불 {{cancelPartialPct}}%",
@@ -29,8 +30,10 @@ const baseData = (over: Partial<RenderContractData> = {}): RenderContractData =>
   counterpartName: "Nguyen Van A",
   counterpartZalo: "0900000000",
   terms: {
-    companyName: "빌라고",
+    companyName: "KIM HAKTAE",
     companyPassport: "M1234",
+    companyContactVn: "0799493138",
+    companyContactKr: "01028675342",
     cancelFreeDays: 14,
     cancelPartialPct: 50,
     payMethod: "CASH",
@@ -42,10 +45,42 @@ describe("renderBusinessContract", () => {
   it("모든 토큰을 치환하고 미치환 {{ 잔존 없음", () => {
     const out = renderBusinessContract(VILLA_FIXTURE, baseData());
     expect(out).not.toContain("{{");
-    expect(out).toContain("빌라고");
+    expect(out).toContain("KIM HAKTAE");
     expect(out).toContain("Nguyen Van A");
     expect(out).toContain("14일");
     expect(out).toContain("현금"); // payMethod CASH ko 라벨
+  });
+
+  it("갑 연락처 2종(베트남 필수·한국 선택) 토큰이 치환된다", () => {
+    const out = renderBusinessContract(VILLA_FIXTURE, baseData());
+    expect(out).toContain("0799493138"); // companyContactVn
+    expect(out).toContain("01028675342"); // companyContactKr
+  });
+
+  it("companyContactKr 미입력 시 NA 라벨(한국), companyContactVn 미입력 시 공백(____)", () => {
+    const ko = renderBusinessContract(
+      VILLA_FIXTURE,
+      baseData({
+        terms: {
+          companyName: "KIM HAKTAE",
+          companyPassport: "M1234",
+          companyContactVn: "0799493138",
+          // companyContactKr 없음 → NA
+          cancelFreeDays: 14,
+          cancelPartialPct: 50,
+          payMethod: "CASH",
+        },
+      }),
+    );
+    expect(ko).toContain("전화(한국) 해당 없음");
+    // companyContactVn 자체가 없으면 서명란 공백(____)
+    const blank = renderBusinessContract(
+      VILLA_FIXTURE,
+      baseData({
+        terms: { companyName: "KIM HAKTAE", companyPassport: "M1234", payMethod: "CASH" },
+      }),
+    );
+    expect(blank).toContain("Zalo(베트남) ____");
   });
 
   it("signature-area 앵커 주석을 보존한다", () => {
@@ -103,8 +138,9 @@ describe("contentHash", () => {
 describe("parseTerms (zod .strict — 원가·마진 봉인)", () => {
   it("VILLA_SUPPLY 유효값 통과 + 기본값 채움", () => {
     const r = parseTerms("VILLA_SUPPLY", {
-      companyName: "빌라고",
+      companyName: "KIM HAKTAE",
       companyPassport: "M1",
+      companyContactVn: "0799493138",
       payMethod: "BANK",
       bankInfo: "VCB 123",
     });
@@ -127,6 +163,26 @@ describe("parseTerms (zod .strict — 원가·마진 봉인)", () => {
     expect(r.success).toBe(false);
   });
 
+  it("companyContactVn(베트남 연락처)은 필수 — 누락 시 거부", () => {
+    const r = parseTerms("VILLA_SUPPLY", {
+      companyName: "KIM HAKTAE",
+      companyPassport: "M1",
+      payMethod: "CASH",
+      // companyContactVn 누락
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("companyContactKr(한국 연락처)은 선택 — 없어도 통과", () => {
+    const r = parseTerms("VILLA_SUPPLY", {
+      companyName: "KIM HAKTAE",
+      companyPassport: "M1",
+      companyContactVn: "0799493138",
+      payMethod: "CASH",
+    });
+    expect(r.success).toBe(true);
+  });
+
   it("문자열에 {{ 포함(치환 주입)은 거부", () => {
     const r = parseTerms("VILLA_SUPPLY", {
       companyName: "빌라고 {{signDate}}",
@@ -137,12 +193,12 @@ describe("parseTerms (zod .strict — 원가·마진 봉인)", () => {
   });
 
   it("SERVICE_VENDOR settleCycle enum 검증", () => {
-    expect(parseTerms("SERVICE_VENDOR", { companyName: "c", companyPassport: "p", settleCycle: "MONTHLY", payMethod: "CASH" }).success).toBe(true);
-    expect(parseTerms("SERVICE_VENDOR", { companyName: "c", companyPassport: "p", settleCycle: "YEARLY", payMethod: "CASH" }).success).toBe(false);
+    expect(parseTerms("SERVICE_VENDOR", { companyName: "c", companyPassport: "p", companyContactVn: "0799", settleCycle: "MONTHLY", payMethod: "CASH" }).success).toBe(true);
+    expect(parseTerms("SERVICE_VENDOR", { companyName: "c", companyPassport: "p", companyContactVn: "0799", settleCycle: "YEARLY", payMethod: "CASH" }).success).toBe(false);
   });
 
   it("PARTNER_AGENCY 필수 필드", () => {
-    expect(parseTerms("PARTNER_AGENCY", { companyName: "c", companyPassport: "p", partnerCompany: "여행사", partnerRep: "김", partnerContact: "010" }).success).toBe(true);
+    expect(parseTerms("PARTNER_AGENCY", { companyName: "c", companyPassport: "p", companyContactVn: "0799", partnerCompany: "여행사", partnerRep: "김", partnerContact: "010" }).success).toBe(true);
     expect(parseTerms("PARTNER_AGENCY", { companyName: "c", companyPassport: "p" }).success).toBe(false);
   });
 });

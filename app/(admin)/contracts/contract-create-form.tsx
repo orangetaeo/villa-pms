@@ -33,6 +33,8 @@ const schema = z
     locale: z.enum(["ko", "vi"]),
     companyName: z.string().trim().min(1).max(200),
     companyPassport: z.string().trim().min(1).max(60),
+    companyContactVn: z.string().max(60).optional(),
+    companyContactKr: z.string().max(60).optional(),
     bankInfo: z.string().max(500).optional(),
     specialTerms: z.string().max(4000).optional(),
     cancelFreeDays: z.coerce.number().int().min(0).max(365).optional(),
@@ -48,6 +50,7 @@ const schema = z
   .superRefine((d, ctx) => {
     const req = (path: keyof typeof d) =>
       ctx.addIssue({ path: [path], code: z.ZodIssueCode.custom, message: "required" });
+    if (!d.companyContactVn?.trim()) req("companyContactVn"); // 베트남 연락처=전 타입 필수(BE requiredText 대칭)
     if (d.type === "VILLA_SUPPLY") {
       if (!d.payMethod) req("payMethod");
     } else if (d.type === "SERVICE_VENDOR") {
@@ -62,7 +65,20 @@ const schema = z
 
 type FormValues = z.input<typeof schema>;
 
-export default function ContractCreateForm({ candidates }: { candidates: ContractCandidate[] }) {
+export interface ContractPartyADefaults {
+  companyName?: string;
+  companyPassport?: string;
+  companyContactVn?: string;
+  companyContactKr?: string;
+}
+
+export default function ContractCreateForm({
+  candidates,
+  defaults,
+}: {
+  candidates: ContractCandidate[];
+  defaults?: ContractPartyADefaults;
+}) {
   const t = useTranslations("adminContracts");
   const router = useRouter();
 
@@ -80,8 +96,10 @@ export default function ContractCreateForm({ candidates }: { candidates: Contrac
       counterpartId: "",
       type: "VILLA_SUPPLY",
       locale: "vi",
-      companyName: "Villa GO",
-      companyPassport: "",
+      companyName: defaults?.companyName ?? "",
+      companyPassport: defaults?.companyPassport ?? "",
+      companyContactVn: defaults?.companyContactVn ?? "",
+      companyContactKr: defaults?.companyContactKr ?? "",
     },
   });
 
@@ -108,7 +126,9 @@ export default function ContractCreateForm({ candidates }: { candidates: Contrac
     const common: Record<string, unknown> = {
       companyName: v.companyName.trim(),
       companyPassport: v.companyPassport.trim(),
+      companyContactVn: v.companyContactVn?.trim() ?? "", // 필수(BE requiredText)
     };
+    if (v.companyContactKr?.trim()) common.companyContactKr = v.companyContactKr.trim();
     if (v.bankInfo?.trim()) common.bankInfo = v.bankInfo.trim();
     if (v.specialTerms?.trim()) common.specialTerms = v.specialTerms.trim();
 
@@ -224,6 +244,17 @@ export default function ContractCreateForm({ candidates }: { candidates: Contrac
         <label className="block">
           <span className={labelClass}>{t("create.companyPassport")}</span>
           <input type="text" {...register("companyPassport")} className={inputClass} />
+        </label>
+        <label className="block">
+          <span className={labelClass}>{t("create.companyContactVn")}</span>
+          <input type="text" {...register("companyContactVn")} className={inputClass} />
+          {errors.companyContactVn && (
+            <span className="mt-1 block text-xs text-red-400">{t("create.invalid")}</span>
+          )}
+        </label>
+        <label className="block">
+          <span className={labelClass}>{t("create.companyContactKr")}</span>
+          <input type="text" {...register("companyContactKr")} className={inputClass} />
         </label>
 
         {/* 빌라 공급 */}
