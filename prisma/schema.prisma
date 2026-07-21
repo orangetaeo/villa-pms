@@ -148,6 +148,22 @@ enum PhotoSpace {
   ETC
 }
 
+// 지역(단지) 마스터 — 단일 원천 (ADR-0046). Villa.complex는 이 마스터 name의 비정규화 캐시.
+// name = 라틴 정본(예: Sonasea) — 매칭·캐시에 이 값만 사용. nameKo = 운영자 화면 병기 전용(매칭 금지).
+// 삭제 없음 — active=false가 은퇴(기존 빌라 연결 유지, 신규 선택만 차단).
+model ComplexArea {
+  id        String   @id @default(cuid())
+  code      String   @unique // 라틴 슬러그(예: sonasea, sunset-sanato) — 불변 식별자, URL·스크립트용
+  name      String   @unique // 정본 표기 = 라틴 고유명사(예: Sonasea). Villa.complex 캐시에 이 값이 들어간다
+  nameKo    String? // 한국어 병기(예: 쏘나씨) — 운영자 화면 병기 전용, 매칭 사용 금지
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  villas Villa[]
+}
+
 model Villa {
   id                 String  @id @default(cuid())
   supplierId         String
@@ -158,7 +174,10 @@ model Villa {
   cleaner            User?   @relation("VillaCleaner", fields: [cleanerId], references: [id])
   name               String // 예: 쏘나씨 V12 (운영자 기준 한국어명)
   nameVi             String? // 베트남어/라틴 병기명 (예: Sonasea V12) — Gemini 제안+ADMIN 확정, ADR-0020. 비운영자 화면에 병기
-  complex            String? // 단지명: 쏘나씨, 썬셋 사나토
+  complex            String? // 단지명 — ComplexArea.name의 비정규화 캐시(ADR-0046). 서버가 마스터에서 파생해서만 쓴다(자유 문자열 수신 금지)
+  // 지역(단지) 마스터 FK — additive (ADR-0046). null = 단지 미지정
+  complexAreaId      String?
+  complexArea        ComplexArea? @relation(fields: [complexAreaId], references: [id])
   address            String?
   bedrooms           Int
   bathrooms          Int
@@ -229,6 +248,7 @@ model Villa {
 
   @@index([supplierId])
   @@index([status, isSellable])
+  @@index([complexAreaId])
 }
 
 model VillaPhoto {
@@ -1655,6 +1675,10 @@ model WebChatMessage {
 
   status String  @default("SENT") // 전송 상태(문자열 — SENT 등)
   sentBy String? // OUTBOUND: 발신 ADMIN userId
+
+  // [defensive-mirror] T-webchat-cards additive — generate 레이스 방지 (타 세션 소관 — DB SQL은 그 세션이 적용, 여기선 schema만 미러링)
+  kind    String?
+  payload Json?
 
   createdAt DateTime @default(now())
 
