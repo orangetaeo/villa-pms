@@ -3425,6 +3425,7 @@ function Composer({
             isGroup={isGroup}
             contactName={contactName}
             onError={setError}
+            onPickFiles={addPendingFiles}
             t={t}
             router={router}
           />
@@ -3554,6 +3555,7 @@ function AttachMenu({
   isGroup,
   contactName,
   onError,
+  onPickFiles,
   t,
   router,
 }: {
@@ -3563,6 +3565,8 @@ function AttachMenu({
   isGroup: boolean;
   contactName: string;
   onError: (msg: string | null) => void;
+  // 사진/파일 선택 → 즉시 전송하지 않고 컴포저 대기열로(미리보기 + 캡션 입력 후 전송). 붙여넣기·드롭과 동일 경로.
+  onPickFiles: (files: File[]) => void;
   t: ReturnType<typeof useTranslations>;
   router: ReturnType<typeof useRouter>;
 }) {
@@ -3641,58 +3645,13 @@ function AttachMenu({
   const locked = counterpartyType === "UNKNOWN";
   const typeLabel = t(COUNTERPARTY_LABEL_KEY[counterpartyType]);
 
-  async function uploadPhoto(file: File) {
-    setSubmitting(true);
-    setOpen(false);
-    try {
-      // 클라 리사이즈 (lib/image-resize): 일반 프리셋 1600px/0.82 JPEG 재인코딩 — EXIF 회전 반영, 전송 용량 절감.
-      // 채팅 사진은 증빙이 아닌 일반 공유이므로 일반 프리셋이 적합. 비이미지·디코딩 실패 시 원본 그대로 반환.
-      const blob = await resizeImage(file);
-      const fd = new FormData();
-      fd.append("file", blob, file.name);
-      const res = await fetch(`/api/zalo/conversations/${conversationId}/share`, {
-        method: "POST",
-        body: fd,
-      });
-      if (res.ok) refresh();
-    } catch {
-      /* noop */
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  // 일반 파일(비이미지 문서 등) — type=FILE 강제. 에러코드별 안내를 onError로 입력 영역에 표시.
-  async function uploadFile(file: File) {
-    setSubmitting(true);
-    setOpen(false);
+  // 사진/카메라/파일 선택 → 즉시 전송하지 않고 컴포저 대기열로(미리보기 + 캡션 입력 후 전송).
+  //   붙여넣기·드래그와 완전히 동일 경로(sendPendingFiles). 리사이즈·문서 분기·에러 안내는 대기열이 담당.
+  function pickToQueue(files: File[]) {
+    if (files.length === 0) return;
     onError(null);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("type", "FILE");
-      const res = await fetch(`/api/zalo/conversations/${conversationId}/share`, {
-        method: "POST",
-        body: fd,
-      });
-      if (res.ok) {
-        refresh();
-        return;
-      }
-      // 400 에러코드 → i18n 안내(매핑 없으면 generic).
-      let code: string | null = null;
-      try {
-        const data = (await res.json()) as { error?: string };
-        code = data.error ?? null;
-      } catch {
-        /* 본문 파싱 실패 → generic */
-      }
-      onError(code && FILE_ERROR_KEYS.has(code) ? t(`fileError.${code}`) : t("fileError.generic"));
-    } catch {
-      onError(t("fileError.generic"));
-    } finally {
-      setSubmitting(false);
-    }
+    onPickFiles(files);
+    setOpen(false);
   }
 
   async function shareJson(body: Record<string, unknown>) {
@@ -3735,7 +3694,7 @@ function AttachMenu({
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) void uploadPhoto(f);
+          if (f) pickToQueue([f]);
           e.target.value = "";
         }}
       />
@@ -3748,7 +3707,7 @@ function AttachMenu({
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) void uploadPhoto(f);
+          if (f) pickToQueue([f]);
           e.target.value = "";
         }}
       />
@@ -3760,7 +3719,7 @@ function AttachMenu({
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
-          if (f) void uploadFile(f);
+          if (f) pickToQueue([f]);
           e.target.value = "";
         }}
       />
