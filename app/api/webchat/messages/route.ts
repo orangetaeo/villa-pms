@@ -24,6 +24,7 @@ import {
 } from "@/lib/webchat";
 import { publish } from "@/lib/realtime-bus";
 import { enqueueWebChatNewMessageNotification } from "@/lib/webchat-notify";
+import { isWebChatCardKind, parseWebChatCardPayload } from "@/lib/webchat-card";
 
 // ───────────────────────── POST: 발신(+ 최초 세션 원자 생성) ─────────────────────────
 
@@ -247,19 +248,29 @@ export async function GET(req: Request) {
       text: true,
       translatedText: true,
       translationFailed: true,
+      // 카드 렌더용(OUTBOUND 링크 발송) — payload는 url·표시값만(금액·bookingId·proposalId 원문 없음).
+      kind: true,
+      payload: true,
       createdAt: true,
     },
   });
 
-  // INBOUND의 ko 번역은 방문자에게 불필요·미노출 — OUTBOUND만 translatedText 노출.
-  const messages = rows.map((m) => ({
-    id: m.id,
-    direction: m.direction,
-    text: m.text,
-    translatedText: m.direction === "OUTBOUND" ? m.translatedText : null,
-    translationFailed: m.translationFailed,
-    createdAt: m.createdAt.toISOString(),
-  }));
+  // INBOUND의 ko 번역은 방문자에게 불필요·미노출 — OUTBOUND만 translatedText·kind·payload 노출.
+  const messages = rows.map((m) => {
+    const isOut = m.direction === "OUTBOUND";
+    const card = isOut && isWebChatCardKind(m.kind) ? parseWebChatCardPayload(m.payload) : null;
+    return {
+      id: m.id,
+      direction: m.direction,
+      text: m.text,
+      translatedText: isOut ? m.translatedText : null,
+      translationFailed: m.translationFailed,
+      // 카드가 유효할 때만 kind/payload 노출(그 외 null — 폴백 텍스트 렌더).
+      kind: card ? m.kind : null,
+      payload: card,
+      createdAt: m.createdAt.toISOString(),
+    };
+  });
 
   return NextResponse.json({ ok: true, messages });
 }

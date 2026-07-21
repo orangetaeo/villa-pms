@@ -25,6 +25,13 @@ import {
   type WidgetStrings,
 } from "@/lib/webchat-widget-i18n";
 import { Linkify } from "@/components/linkify";
+import { WebChatLinkCard } from "@/components/webchat-link-card";
+import {
+  isWebChatCardKind,
+  parseWebChatCardPayload,
+  type WebChatCardKind,
+  type WebChatCardPayload,
+} from "@/lib/webchat-card";
 
 // ───────────────────────── 타입 ─────────────────────────
 
@@ -37,6 +44,9 @@ interface Msg {
   translatedText: string | null;
   translationFailed: boolean;
   createdAt: string;
+  // 카드형 메시지(운영자가 보낸 링크) — kind 있으면 카드, 없으면 텍스트 렌더.
+  kind?: string | null;
+  payload?: WebChatCardPayload | null;
   pending?: boolean; // 낙관적 발신(서버 확정 전)
   sendError?: boolean; // 발신 실패
 }
@@ -219,6 +229,8 @@ export default function WebChatWidget({
             text: m.text,
             translatedText: m.translatedText ?? null,
             translationFailed: !!m.translationFailed,
+            kind: m.kind ?? null,
+            payload: m.payload ?? null,
             createdAt: m.createdAt,
           }))
         );
@@ -593,6 +605,28 @@ export default function WebChatWidget({
               </div>
             );
           }
+          // OUTBOUND 카드: 운영자가 보낸 링크(kind 있음)는 카드로 렌더(없으면 텍스트).
+          const cardPayload = isWebChatCardKind(m.kind)
+            ? parseWebChatCardPayload(m.payload)
+            : null;
+          if (cardPayload && isWebChatCardKind(m.kind)) {
+            const kind = m.kind as WebChatCardKind;
+            return (
+              <div key={m.id} className="wc-row left">
+                <WebChatLinkCard
+                  title={t.card[kind]}
+                  subtitle={t.card.hint}
+                  openLabel={t.card.open}
+                  url={cardPayload.url}
+                  rel="noopener noreferrer nofollow"
+                  className="wc-card"
+                  titleClassName="wc-card-title"
+                  subtitleClassName="wc-card-sub"
+                  buttonClassName="wc-card-btn"
+                />
+              </div>
+            );
+          }
           // OUTBOUND: 번역문 주표시, 실패 시 원문+안내, 성공 시 원문 토글
           const hasTranslation = !!m.translatedText && !m.translationFailed;
           const primary = hasTranslation ? m.translatedText! : m.text;
@@ -790,6 +824,15 @@ const CSS = `
 .wc-orig{margin-top:5px; padding-top:6px; border-top:1px dashed var(--line); font-size:14px; color:var(--ink-soft)}
 .wc-link{color:var(--teal); text-decoration:underline; text-underline-offset:2px; word-break:break-all}
 .wc-bubble.me .wc-link{color:#EAFBF8}
+
+.wc-card{max-width:88%; display:flex; flex-direction:column; gap:5px; padding:12px 14px; border-radius:14px; border-bottom-left-radius:5px;
+  background:var(--card); border:1px solid var(--line)}
+.wc-card-title{font-weight:800; font-size:14.5px; color:var(--teal-deep)}
+.wc-card-sub{font-size:12.5px; color:var(--ink-soft)}
+.wc-card-btn{margin-top:5px; align-self:flex-start; display:inline-flex; align-items:center; text-decoration:none;
+  background:var(--teal); color:#fff; font-weight:700; font-size:13.5px; padding:8px 16px; border-radius:10px}
+.wc-card-btn:hover{background:#0C7D72}
+.wc-card-btn:focus-visible{outline:2px solid #F5990E; outline-offset:1px}
 .wc-cta{margin-top:10px; appearance:none; border:0; background:var(--teal); color:#fff; font:inherit; font-weight:700; font-size:13.5px; padding:8px 14px; border-radius:10px; cursor:pointer}
 .wc-cta.ghost{background:transparent; color:var(--ink-soft); border:1px solid var(--line)}
 .wc-cta:disabled{opacity:.5; cursor:default}

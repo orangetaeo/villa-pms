@@ -4272,6 +4272,11 @@
     },
     "blockedBadge": "Đã chặn",
     "hasContact": "Có liên hệ",
+    "bookingBadge": {
+      "linked": "Đã liên kết đặt phòng",
+      "candidate": "Ứng viên đặt phòng",
+      "candidateHint": "Có ứng viên đặt phòng — mở hội thoại để liên kết"
+    },
     "createdAt": "Bắt đầu {date}",
     "lang": "Ngôn ngữ",
     "untranslated": "Chưa dịch",
@@ -4319,6 +4324,14 @@
         "sessionClosed": "Không thể gửi tới hội thoại đã đóng hoặc bị chặn.",
         "generic": "Gửi thất bại. Vui lòng thử lại sau."
       }
+    },
+    "card": {
+      "checkin": "Hướng dẫn nhận phòng",
+      "options": "Đặt dịch vụ bổ sung",
+      "receipt": "Bảng kê thanh toán",
+      "proposal": "Đề xuất biệt thự",
+      "open": "Mở",
+      "hint": "Khách nhấn nút bên dưới để mở liên kết"
     },
     "proposal": {
       "sendButton": "Gửi đề xuất",
@@ -4480,6 +4493,7 @@
       "villaShare": "[Chia sẻ villa]",
       "proposalShare": "[Chia sẻ đề xuất]",
       "settlementShare": "[Chia sẻ quyết toán]",
+      "guestLinkShare": "[Liên kết khách]",
       "sticker": "[Nhãn dán]",
       "voice": "[Tin nhắn thoại]",
       "call": "[Cuộc gọi]",
@@ -4492,7 +4506,8 @@
     "card": {
       "villaShare": "Chia sẻ villa",
       "proposalShare": "Chia sẻ đề xuất",
-      "settlementShare": "Chia sẻ quyết toán"
+      "settlementShare": "Chia sẻ quyết toán",
+      "guestLinkShare": "Liên kết khách"
     },
     "typeCard": {
       "sticker": "Nhãn dán",
@@ -4554,6 +4569,7 @@
       "villa": "Chia sẻ villa",
       "proposal": "Chia sẻ đề xuất",
       "settlement": "Chia sẻ quyết toán",
+      "guestLink": "Liên kết khách",
       "lockedHint": "Phân loại trước để chia sẻ villa·đề xuất·quyết toán"
     },
     "fileCard": {
@@ -4604,6 +4620,20 @@
       "bookingCount": "{n} đặt phòng",
       "loadingTitle": "Đang tải mục chia sẻ",
       "loadingSubtitle": "Vui lòng đợi một chút"
+    },
+    "guestLinkModal": {
+      "title": "Gửi liên kết khách",
+      "subtitle": "Gửi liên kết nhận phòng·dịch vụ·bảng kê cho khách {name}",
+      "kindHeading": "Liên kết cần gửi",
+      "kindCheckin": "Nhận phòng",
+      "kindOptions": "Dịch vụ thêm",
+      "kindReceipt": "Bảng kê",
+      "receiptOnlyCheckedOut": "Bảng kê chỉ gửi được sau khi đã trả phòng",
+      "searchPlaceholder": "Tìm theo tên khách·điện thoại·villa",
+      "loading": "Đang tải đặt phòng…",
+      "empty": "Không tìm thấy đặt phòng. Hãy thử nhập từ khóa tìm kiếm.",
+      "checkedOutBadge": "Đã trả phòng",
+      "guard": "Liên kết khách không chứa thông tin số tiền (chỉ có hướng dẫn·liên kết)"
     },
     "shareCandidatesLoading": "Đang tải mục chia sẻ…",
     "inbox": {

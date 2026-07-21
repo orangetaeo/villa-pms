@@ -12,6 +12,7 @@
 import { Currency, SeasonType } from "@prisma/client";
 import { formatVnd, formatKrw, formatThousands } from "@/lib/format";
 import { formatVillaName } from "@/lib/villa-name";
+import { renderLinkMessage } from "@/lib/webchat-link-templates";
 
 const SEASON_LABEL: Record<SeasonType, string> = {
   LOW: "비수기",
@@ -261,6 +262,29 @@ export function buildSettlementShareText(s: SettlementShareView): string {
     `총 지급액: ${formatVnd(s.totalVnd)}`,
     `예약 ${s.itemCount}건 · ${statusLabel}`,
   ].join("\n");
+}
+
+// ── 게스트 링크 공유 (C) — CUSTOMER(투숙객) 전용. 금액 없음. ─────────
+//
+// /g 체크인·부가서비스·영수증 안내문. 대화 상대 언어(locale)로 사전 번역(webchat-link-templates 재사용).
+//   ★Gemini 미경유 — 5언어(ko/vi/en/zh/ru) 사전 번역이라 번역 비용 0·URL 훼손 0.
+//   ★금액 필드가 애초에 없음(링크·안내문뿐) — 마진/판매가/원가 누수 불가.
+
+/** 게스트 링크 종류 — /g(체크인) · /g/options(부가서비스) · /g/receipt(영수증). */
+export type GuestLinkKind = "checkin" | "options" | "receipt";
+
+/**
+ * 게스트 링크 공유 본문 — 안내문(대화 상대 언어) + 줄바꿈 + URL.
+ * @param locale 대화 상대 언어(CUSTOMER 대화 translateMode 파생: OFF→ko, VI→vi, EN→en). 5언어 밖은 en 폴백.
+ * @param url 완성된 /g 링크(체크인/옵션/영수증 경로 포함).
+ */
+export function buildGuestLinkShareText(
+  kind: GuestLinkKind,
+  locale: string | null | undefined,
+  url: string
+): string {
+  // webchat-link-templates의 방문자 언어 완성문(본문 + URL)을 그대로 사용 — 채널 독립 사전 번역.
+  return renderLinkMessage(kind, locale, url).visitor;
 }
 
 /** YYYY.MM.DD HH:mm (Asia/Ho_Chi_Minh) — 제안 유효기간 표시용 */

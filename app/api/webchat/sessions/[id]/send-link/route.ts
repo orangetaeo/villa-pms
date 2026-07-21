@@ -12,11 +12,7 @@ import { isOperator } from "@/lib/permissions";
 import { requireCapability, notFoundIfMissing } from "@/lib/api-guard";
 import { publish } from "@/lib/realtime-bus";
 import { computeExpiresAt, previewText, listActiveOperatorIds } from "@/lib/webchat";
-import {
-  generateGuestToken,
-  defaultGuestTokenExpiry,
-  isGuestTokenUsable,
-} from "@/lib/guest-checkin";
+import { ensureGuestLinkToken } from "@/lib/guest-link-token";
 import { renderLinkMessage, type LinkKind } from "@/lib/webchat-link-templates";
 import { effectiveProposalStatus } from "@/lib/proposal";
 import { isPublicLang } from "@/lib/public-i18n";
@@ -116,6 +112,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
           translatedTo: rendered.visitorLocale,
           translationFailed: false,
           sentBy: g.userId,
+          // 카드 렌더용 — kind로 제목·아이콘 결정, payload는 url만(금액·proposalId 원문 미포함).
+          kind: "proposal",
+          payload: { url },
         },
         select: { id: true, createdAt: true },
       });
@@ -193,31 +192,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     }
   }
 
-  // ── 토큰 확보: 활성(미회수·미만료) 있으면 재사용, 없으면 발급 ──
-  //   ★기존 guest-token POST(app/api/bookings/[id]/guest-token/route.ts)는 무조건 재발급(구 토큰 무효화)이라
-  //     여기서는 재사용 분기를 별도로 둔다(이미 QR·링크로 전달된 토큰을 깨지 않기 위함 — 기획 §C). 발급 시맨틱
-  //     (generateGuestToken + defaultGuestTokenExpiry + upsert revokedAt:null)은 기존 라우트와 동일.
+  // ── 토큰 확보: 활성(미회수·미만료) 있으면 재사용, 없으면 발급(채널 독립 lib — (C) Zalo 공유가 재사용) ──
   const now = new Date();
-  const existingToken = await prisma.guestCheckinToken.findUnique({
-    where: { bookingId: booking.id },
-    select: { token: true, expiresAt: true, revokedAt: true },
-  });
-
-  let token: string;
-  let tokenReused: boolean;
-  if (existingToken && isGuestTokenUsable(existingToken, now)) {
-    token = existingToken.token;
-    tokenReused = true;
-  } else {
-    token = generateGuestToken();
-    const expiresAt = defaultGuestTokenExpiry(booking.checkOut);
-    await prisma.guestCheckinToken.upsert({
-      where: { bookingId: booking.id },
-      create: { bookingId: booking.id, token, expiresAt },
-      update: { token, expiresAt, revokedAt: null },
-    });
-    tokenReused = false;
-  }
+  const { token, reused: tokenReused } = await ensureGuestLinkToken(booking.id, now);
 
   // URL 구성 — base + /g/<token>(+ /options | /receipt). base 미설정이면 상대경로(위젯 동일 오리진).
   const base = appBaseUrl();
@@ -241,6 +218,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         translatedTo: rendered.visitorLocale,
         translationFailed: false,
         sentBy: g.userId,
+        // 카드 렌더용 — kind로 제목·아이콘 결정, payload는 url만(금액·bookingId 원문 미포함).
+        kind,
+        payload: { url },
       },
       select: { id: true, createdAt: true },
     });

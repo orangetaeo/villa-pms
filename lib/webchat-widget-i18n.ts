@@ -53,6 +53,17 @@ export interface WidgetStrings {
   newChat: string;
   /** 일반 전송 실패(네트워크 등). */
   sendFailed: string;
+  /** 링크 카드 문구(운영자가 보낸 체크인·부가서비스·영수증·제안 링크). */
+  card: {
+    checkin: string;
+    options: string;
+    receipt: string;
+    proposal: string;
+    /** "열기" 버튼. */
+    open: string;
+    /** 카드 부제(짧은 안내). */
+    hint: string;
+  };
 }
 
 const vi: WidgetStrings = {
@@ -79,6 +90,14 @@ const vi: WidgetStrings = {
   blocked: "Cuộc trò chuyện này đã bị hạn chế.",
   newChat: "Bắt đầu trò chuyện mới",
   sendFailed: "Gửi không thành công. Vui lòng thử lại.",
+  card: {
+    checkin: "Hướng dẫn nhận phòng",
+    options: "Đặt dịch vụ bổ sung",
+    receipt: "Bảng kê thanh toán",
+    proposal: "Đề xuất biệt thự",
+    open: "Mở",
+    hint: "Nhấn nút bên dưới để mở.",
+  },
 };
 
 const ko: WidgetStrings = {
@@ -105,6 +124,14 @@ const ko: WidgetStrings = {
   blocked: "이 대화는 이용이 제한되었습니다.",
   newChat: "새 대화 시작",
   sendFailed: "전송하지 못했어요. 다시 시도해 주세요.",
+  card: {
+    checkin: "체크인 안내",
+    options: "부가서비스 신청",
+    receipt: "정산 영수증",
+    proposal: "빌라 제안",
+    open: "열기",
+    hint: "아래 버튼을 눌러 여세요.",
+  },
 };
 
 const en: WidgetStrings = {
@@ -131,6 +158,14 @@ const en: WidgetStrings = {
   blocked: "This conversation has been restricted.",
   newChat: "Start a new chat",
   sendFailed: "Couldn't send. Please try again.",
+  card: {
+    checkin: "Check-in guide",
+    options: "Book add-on services",
+    receipt: "Settlement receipt",
+    proposal: "Villa proposal",
+    open: "Open",
+    hint: "Tap the button below to open.",
+  },
 };
 
 const zh: WidgetStrings = {
@@ -157,6 +192,14 @@ const zh: WidgetStrings = {
   blocked: "此对话已被限制。",
   newChat: "开始新对话",
   sendFailed: "发送失败，请重试。",
+  card: {
+    checkin: "入住指引",
+    options: "预订附加服务",
+    receipt: "结算单",
+    proposal: "别墅推荐",
+    open: "打开",
+    hint: "点击下方按钮打开。",
+  },
 };
 
 const ru: WidgetStrings = {
@@ -183,6 +226,14 @@ const ru: WidgetStrings = {
   blocked: "Этот разговор ограничен.",
   newChat: "Начать новый чат",
   sendFailed: "Не удалось отправить. Попробуйте ещё раз.",
+  card: {
+    checkin: "Инструкция для заезда",
+    options: "Заказать дополнительные услуги",
+    receipt: "Итоговый счёт",
+    proposal: "Предложение вилл",
+    open: "Открыть",
+    hint: "Нажмите кнопку ниже, чтобы открыть.",
+  },
 };
 
 const DICT: Record<WebChatLocale, WidgetStrings> = { vi, ko, en, zh, ru };
