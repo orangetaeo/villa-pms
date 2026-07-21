@@ -120,10 +120,14 @@ const SPACE_PRIORITY: PhotoSpace[] = [
 ];
 
 /**
- * 공간 다양성 우선 사진 선별(외관→수영장→거실→침실…). 같은 공간 편중 방지 위해 라운드로빈.
- * @returns 4~max 장(우선순위·다양성 순).
+ * 공간 다양성 우선 사진 선별(외관→수영장→거실→침실…).
+ * ★공간당 1장 우선(breadth-first): 한 라운드에 각 공간에서 최대 1장씩만 뽑는다. 그렇게 모은 장수가
+ *   minCount 이상이면 거기서 멈춰 **같은 공간 사진이 여러 장 들어가는 것(예: 비슷한 침실 3장)을 방지**한다.
+ *   minCount에 못 미칠 때만 다음 라운드로 2번째 사진을 추가해 최소 장수를 채운다.
+ *   (실측 2026-07-21: 침실 4장 빌라가 캐러셀에 침실 3장 들어가 "동일 침대 사진 중복"으로 보인 문제 수정.)
+ * @returns minCount~max 장(공간 다양성 우선). 사진이 부족하면 있는 만큼.
  */
-export function selectDiversePhotos(photos: VillaPhotoRow[], max = 7): VillaPhotoRow[] {
+export function selectDiversePhotos(photos: VillaPhotoRow[], max = 7, minCount = 4): VillaPhotoRow[] {
   const bySpace = new Map<PhotoSpace, VillaPhotoRow[]>();
   for (const p of photos) {
     const arr = bySpace.get(p.space) ?? [];
@@ -131,10 +135,11 @@ export function selectDiversePhotos(photos: VillaPhotoRow[], max = 7): VillaPhot
     bySpace.set(p.space, arr);
   }
   const out: VillaPhotoRow[] = [];
-  // 라운드로빈: 우선순위 공간 순으로 한 장씩 소비하며 채운다.
-  let progressed = true;
-  while (out.length < max && progressed) {
-    progressed = false;
+  let round = 0;
+  while (out.length < max) {
+    // 첫 라운드(공간당 1장) 완료 후, 이미 최소 장수를 채웠으면 멈춘다(공간 편중 방지).
+    if (round >= 1 && out.length >= minCount) break;
+    let progressed = false;
     for (const space of SPACE_PRIORITY) {
       const arr = bySpace.get(space);
       if (arr && arr.length > 0) {
@@ -143,6 +148,8 @@ export function selectDiversePhotos(photos: VillaPhotoRow[], max = 7): VillaPhot
         if (out.length >= max) break;
       }
     }
+    if (!progressed) break; // 남은 사진 없음
+    round += 1;
   }
   return out;
 }
