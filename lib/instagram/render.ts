@@ -115,9 +115,10 @@ async function cardToJpeg(node: SatoriNode): Promise<Buffer> {
 // ── 슬라이드 입력 (유니온) ──
 export type SlideInput =
   | { templateId: "cover"; srcPhotoId: string; srcPhotoUrl: string; data: CoverData }
-  | { templateId: "info"; srcPhotoId: string; srcPhotoUrl: string; data: InfoData }
+  // reelCaption: 릴스 중간 프레임에 올릴 사진-공간 매칭 캡션(캐러셀은 무시). 없으면 원본만.
+  | { templateId: "info"; srcPhotoId: string; srcPhotoUrl: string; data: InfoData; reelCaption?: string | null }
   | { templateId: "service"; srcPhotoId: string; srcPhotoUrl: string; data: ServiceData }
-  | { templateId: "raw"; srcPhotoId: string; srcPhotoUrl: string } // 오버레이 없는 원본(중간 사진)
+  | { templateId: "raw"; srcPhotoId: string; srcPhotoUrl: string; reelCaption?: string | null } // 오버레이 없는 원본(중간 사진)
   | { templateId: "cta"; data: CtaData };
 
 /** mediaJson 원소(InstagramPost.mediaJson) — [{srcPhotoId, renderedUrl, templateId, overlayText}] */
@@ -203,12 +204,23 @@ export async function renderCarousel(slides: SlideInput[], baseName: string): Pr
 // 별도 크롭·오버레이·래스터화 경로를 둔다. 산출은 **R2 업로드 없이 JPEG 버퍼 배열** — ffmpeg가
 // 로컬에서 소비하고 최종 MP4만 업로드하기 때문(프레임을 개별 업로드하면 R2 낭비).
 
-/** 사진을 1080×1920 cover-crop한 JPEG 베이스 버퍼(EXIF 회전 반영). */
+/**
+ * 사진을 1080×1920(9:16) 프레임으로 — ★블러 배경 + 사진 전체 표시(contain).
+ * 정사각·가로 사진을 cover-crop하면 과도하게 확대·잘려 "너무 크게" 보이는 문제(실측 2026-07-21) 해결.
+ * 배경 = 같은 사진을 cover로 채운 뒤 블러+어둡게, 전경 = 비율 유지로 프레임 안에 사진 전체를 중앙 배치.
+ */
 async function toReelBaseCanvas(photoBuffer: Buffer): Promise<Buffer> {
-  return sharp(photoBuffer)
-    .rotate()
-    .resize(REEL_CANVAS.width, REEL_CANVAS.height, { fit: "cover", position: "attention" })
-    .toBuffer();
+  const rotated = await sharp(photoBuffer).rotate().toBuffer();
+  const [bg, fg] = await Promise.all([
+    sharp(rotated)
+      .resize(REEL_CANVAS.width, REEL_CANVAS.height, { fit: "cover", position: "centre" })
+      .blur(40)
+      .modulate({ brightness: 0.5 })
+      .toBuffer(),
+    // fit:"inside" = 비율 유지하며 프레임 안에 전체가 들어오도록(가로 사진은 상하 여백, 세로는 좌우 여백 → 블러가 채움).
+    sharp(rotated).resize(REEL_CANVAS.width, REEL_CANVAS.height, { fit: "inside" }).toBuffer(),
+  ]);
+  return sharp(bg).composite([{ input: fg, gravity: "center" }]).toBuffer();
 }
 
 /** 릴스 오버레이(투명 배경, 1080×1920) satori → 알파 PNG. */
@@ -244,10 +256,9 @@ async function reelCardJpeg(node: SatoriNode): Promise<Buffer> {
 
 /**
  * 릴스 프레임 1장을 1080×1920 JPEG 버퍼로 렌더(업로드 없음).
- *   cover → 사진 + 감성 오버레이 / cta → teal 카드 / 중간(info·service·raw) → 사진 + (caption 있으면) 셀링포인트 오버레이.
- * @param caption 중간 프레임에 올릴 짧은 셀링포인트(공개정보). 없으면 원본 크롭만.
+ *   cover → 사진 + 감성 오버레이 / cta → teal 카드 / 중간(info·raw) → 사진 + (reelCaption 있으면) 공간매칭 캡션.
  */
-export async function renderReelFrameBuffer(input: SlideInput, caption?: string | null): Promise<Buffer> {
+export async function renderReelFrameBuffer(input: SlideInput): Promise<Buffer> {
   if (input.templateId === "cta") {
     return reelCardJpeg(reelCta916(input.data));
   }
@@ -255,21 +266,19 @@ export async function renderReelFrameBuffer(input: SlideInput, caption?: string 
   if (input.templateId === "cover") {
     return compositeReelJpeg(photo, reelCover916(input.data));
   }
-  // 중간 프레임: 캡션이 있으면 셀링포인트 오버레이 합성, 없으면 원본 크롭.
+  // 중간 프레임: 사진-공간 매칭 캡션이 있으면 오버레이 합성, 없으면 원본(블러배경+전체표시).
+  const caption = input.templateId === "info" || input.templateId === "raw" ? input.reelCaption : null;
   if (caption) {
     return compositeReelJpeg(photo, reelMiddle916(caption));
   }
   return toReelBaseJpeg(photo);
 }
 
-/**
- * 릴스 슬라이드 배열 → 1080×1920 JPEG 버퍼 배열(순서 유지). ffmpeg 입력용.
- * @param captions slides와 같은 길이·정렬. 각 원소가 있으면 그 프레임(중간)에 캡션 오버레이. 커버·CTA는 무시.
- */
-export async function renderReelFrameBuffers(slides: SlideInput[], captions?: (string | null)[]): Promise<Buffer[]> {
+/** 릴스 슬라이드 배열 → 1080×1920 JPEG 버퍼 배열(순서 유지). ffmpeg 입력용. 캡션은 slide.reelCaption에서. */
+export async function renderReelFrameBuffers(slides: SlideInput[]): Promise<Buffer[]> {
   const out: Buffer[] = [];
-  for (let i = 0; i < slides.length; i++) {
-    out.push(await renderReelFrameBuffer(slides[i], captions?.[i] ?? null));
+  for (const s of slides) {
+    out.push(await renderReelFrameBuffer(s));
   }
   return out;
 }

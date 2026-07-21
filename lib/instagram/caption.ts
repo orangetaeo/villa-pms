@@ -5,6 +5,7 @@
 //
 // 캡션 = Gemini 본문(카피 가이드 주입) + 결정형 해시태그(로테이션) 조합. Gemini 미설정·실패 시 템플릿 폴백.
 // Gemini는 gemini.ts와 동일한 키·모델·REST 규약을 쓰되, 캡션 전용 프롬프트라 호출을 로컬 구현한다.
+import type { PhotoSpace } from "@prisma/client";
 import {
   getBannedTerms,
   getHashtagPools,
@@ -47,21 +48,31 @@ export function deriveFeatureTags(v: VillaPublicInfo): string[] {
 }
 
 /**
- * 릴스/쇼츠 중간 프레임용 짧은 셀링포인트 캡션(공개정보만 — 원가·마진·판매가 절대 미포함).
- * 밋밋한 중간 사진 위에 순서대로 올린다. 빌라 특성에 맞는 문구만 포함, 마지막은 카톡 유도.
+ * 릴스/쇼츠 중간 프레임 캡션 — ★사진 공간(PhotoSpace)에 매칭(공개정보만).
+ * 사진 내용과 문구가 맞도록(이질감 방지): 침실 사진엔 침실 문구, 수영장엔 수영장 문구 등.
+ * 원가·마진·판매가·supplier는 절대 미포함.
  */
-export function reelMiddleCaptions(v: VillaPublicInfo): string[] {
-  const out: string[] = [];
-  if (v.hasPool) out.push("전용 풀에서\n즐기는 하루");
-  out.push(`침실 ${v.bedrooms} · 최대 ${v.maxGuests}인`);
-  if (v.beachDistanceM != null) out.push(`해변까지 도보 ${v.beachDistanceM}m`);
+export function captionForPhotoSpace(space: PhotoSpace, v: VillaPublicInfo): string {
   const keys = new Set(v.featureKeys);
-  if (keys.has("viewSea")) out.push("바다가 보이는 풍경");
-  if (v.breakfastAvailable) out.push("조식 준비 가능");
-  if (keys.has("bbq")) out.push("정원에서 즐기는 BBQ");
-  if (keys.has("golfNearby")) out.push("골프장 가까이");
-  out.push("예약·견적은\n카카오톡 '빌라고'");
-  return out;
+  switch (space) {
+    case "POOL":
+      return "전용 수영장";
+    case "BEDROOM":
+      return `침실 ${v.bedrooms} · 최대 ${v.maxGuests}인`;
+    case "LIVING":
+      return "온 가족이 모이는 거실";
+    case "KITCHEN":
+      return "취사 가능한 주방";
+    case "BATHROOM":
+      return "여유로운 욕실";
+    case "EXTERIOR":
+      return v.beachDistanceM != null ? `해변까지 도보 ${v.beachDistanceM}m` : "프라이빗 풀빌라";
+    case "BALCONY":
+      return keys.has("viewSea") ? "바다가 보이는 풍경" : "탁 트인 베란다";
+    case "ETC":
+    default:
+      return "푸꾸옥 프라이빗 풀빌라";
+  }
 }
 
 // ── 변수 치환 ──

@@ -5,7 +5,7 @@
 import { PhotoSpace, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
-import { generateCaption, pickHeadline, type VillaPublicInfo } from "@/lib/instagram/caption";
+import { generateCaption, pickHeadline, captionForPhotoSpace, type VillaPublicInfo } from "@/lib/instagram/caption";
 import type { SlideInput } from "@/lib/instagram/render";
 import type { CoverData, InfoData, CtaData } from "@/lib/instagram/templates";
 
@@ -184,13 +184,26 @@ export function buildSlides(v: VillaRow, photos: VillaPhotoRow[], headline: stri
     // ★ 시작가(priceValue)는 미주입 — 마진 비공개 원칙상 안전한 공개 시작가가 없어 가격 뱃지 숨김.
     priceValue: null,
   };
+  // 릴스 중간 프레임 캡션은 각 사진의 공간(space)에 매칭 — 사진 내용과 문구 정합(이질감 방지). 캐러셀은 무시.
+  const pub = toPublicInfo(v);
 
   slides.push({ templateId: "cover", srcPhotoId: photos[0].id, srcPhotoUrl: photos[0].url, data: cover });
   if (photos[1]) {
-    slides.push({ templateId: "info", srcPhotoId: photos[1].id, srcPhotoUrl: photos[1].url, data: info });
+    slides.push({
+      templateId: "info",
+      srcPhotoId: photos[1].id,
+      srcPhotoUrl: photos[1].url,
+      data: info,
+      reelCaption: captionForPhotoSpace(photos[1].space, pub),
+    });
   }
   for (let i = 2; i < photos.length; i++) {
-    slides.push({ templateId: "raw", srcPhotoId: photos[i].id, srcPhotoUrl: photos[i].url });
+    slides.push({
+      templateId: "raw",
+      srcPhotoId: photos[i].id,
+      srcPhotoUrl: photos[i].url,
+      reelCaption: captionForPhotoSpace(photos[i].space, pub),
+    });
   }
   slides.push({ templateId: "cta", data: CTA_DATA });
   return slides;

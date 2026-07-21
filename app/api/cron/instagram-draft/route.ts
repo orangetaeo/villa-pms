@@ -21,7 +21,6 @@ import {
 } from "@/lib/instagram/draft";
 import { renderCarousel } from "@/lib/instagram/render";
 import { renderAndBuildReel } from "@/lib/instagram/reels";
-import { reelMiddleCaptions } from "@/lib/instagram/caption";
 import { getYoutubeShortsPerDay } from "@/lib/youtube/settings";
 import { runYoutubeDraftBatch } from "@/lib/youtube/draft";
 
@@ -72,8 +71,8 @@ async function handle(req: Request) {
         try {
           const reel = await renderAndBuildReel(plan.slides, baseName, {
             // ★오디오 무음: 합성 라운지 패드가 공포 앰비언스처럼 들려 제거(2026-07-21). 실음원 교체 예정.
+            //   중간 프레임 캡션은 슬라이드(reelCaption, 사진-공간 매칭)에 실려 자동 렌더.
             audio: "silent",
-            middleCaptions: reelMiddleCaptions(plan.publicInfo),
           });
           kind = "REELS";
           mediaJson = reel.mediaJson as unknown as Prisma.InputJsonValue;

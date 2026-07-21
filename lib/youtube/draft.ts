@@ -10,7 +10,6 @@ import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
 import { planVillaDraft, nextSlotUtc } from "@/lib/instagram/draft";
 import { renderAndBuildReel, YOUTUBE_REEL_CTA } from "@/lib/instagram/reels";
-import { reelMiddleCaptions } from "@/lib/instagram/caption";
 import { generateShortMeta } from "@/lib/youtube/meta";
 import { writeAuditLog } from "@/lib/audit-log";
 
@@ -130,11 +129,10 @@ export async function runYoutubeDraftBatch(
       // 릴스 빌더에 유튜브 CTA 주입 — 엔딩 카드만 "카카오톡 채널 '빌라고' 검색"으로 교체.
       //   ★오디오는 무음(silent): 합성 라운지 패드가 공포영화 앰비언스처럼 들려 제거(2026-07-21).
       //   음악은 실음원 교체 예정 — YouTube Studio 오디오 라이브러리 곡을 번들할 때까지 무음.
-      //   중간 프레임 셀링포인트 캡션(공개정보)으로 몰입감은 유지.
+      //   중간 프레임 캡션은 슬라이드(reelCaption, 사진-공간 매칭)에 실려 자동 렌더된다.
       const reel = await renderAndBuildReel(plan.slides, baseName, {
         audio: "silent",
         ctaOverride: YOUTUBE_REEL_CTA,
-        middleCaptions: reelMiddleCaptions(plan.publicInfo),
       });
 
       // 같은 빌라의 당일 InstagramPost 연결(가능 시) — 2플랫폼 크로스포스팅 추적.

@@ -70,11 +70,6 @@ export interface BuildReelOptions {
    * renderAndBuildReel에서만 적용된다(buildReelVideo는 프레임 버퍼만 다루므로 무시).
    */
   ctaOverride?: CtaData;
-  /**
-   * 중간 프레임에 순서대로 올릴 짧은 셀링포인트 캡션(공개정보만). 프레임 수보다 적으면 순환.
-   * 미지정이면 중간 프레임은 오버레이 없이 원본(기존 동작).
-   */
-  middleCaptions?: string[];
 }
 
 export interface ReelVideo {
@@ -298,21 +293,6 @@ export function selectReelSlides(slides: SlideInput[]): SlideInput[] {
   return chosen;
 }
 
-/**
- * 중간 프레임(커버·CTA 제외)에 캡션을 순서대로 배정. captions가 프레임 수보다 적으면 순환.
- * 커버·CTA는 null(각자 오버레이/카드가 있음). captions 미지정이면 전부 null(기존 동작).
- */
-export function assignMiddleCaptions(slides: SlideInput[], captions?: string[]): (string | null)[] {
-  if (!captions || captions.length === 0) return slides.map(() => null);
-  let idx = 0;
-  return slides.map((s) => {
-    if (s.templateId === "cover" || s.templateId === "cta") return null;
-    const cap = captions[idx % captions.length];
-    idx += 1;
-    return cap;
-  });
-}
-
 // ── 오케스트레이션: 슬라이드 → 렌더 → MP4 → 업로드 ──────
 export interface ReelMediaEntry {
   templateId: "reel";
@@ -347,8 +327,7 @@ export async function renderAndBuildReel(
   const reelSlides = selectReelSlides(slides).map((s) =>
     s.templateId === "cta" && opts.ctaOverride ? { ...s, data: opts.ctaOverride } : s
   );
-  const captions = assignMiddleCaptions(reelSlides, opts.middleCaptions);
-  const frames = await renderReelFrameBuffers(reelSlides, captions);
+  const frames = await renderReelFrameBuffers(reelSlides);
   const video = await buildReelVideo(frames, opts);
 
   const { url: videoUrl } = await saveInstagramVideo(video.mp4, baseName);
