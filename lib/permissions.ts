@@ -66,6 +66,19 @@ export const canSetPrice = (r?: Role): boolean =>
   r === "OWNER" || r === "MANAGER" || r === "ADMIN";
 
 /**
+ * 마케팅 화면(인스타그램·유튜브)을 볼 수 있는 계정 — 역할이 아니라 **특정 계정** 단일 전화번호로 제한.
+ * 운영자 지시(2026-07-21): 테오 개인 계정 0799493138만 노출(다른 OWNER·운영자도 숨김).
+ * 계정이 재생성돼도 번호만 같으면 유지. 확장이 필요하면 배열에 추가하거나 AppSetting으로 전환.
+ * 비교 시 숫자만 정규화(로그인 폼과 동일 규칙, lib/password-reset.normalizePhone).
+ */
+export const MARKETING_ALLOWED_PHONES = ["0799493138"];
+export const canSeeMarketing = (phone?: string | null): boolean => {
+  if (!phone) return false;
+  const digits = phone.replace(/[^0-9]/g, "");
+  return MARKETING_ALLOWED_PHONES.some((p) => p.replace(/[^0-9]/g, "") === digits);
+};
+
+/**
  * 공급자 직접 판매 링크 생성 — SUPPLIER 전용 (F10 Phase B, ADR-0021 §7).
  * 운영자의 canSetPrice(제안 링크·요율 마스터)와 **완전 분리**한다: 이건 공급자가
  * 자기 빌라를 자기 가격(supplierSalePriceVnd)으로 직접 판매하는 권한이고,

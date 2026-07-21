@@ -10,6 +10,7 @@ import { getTranslations } from "next-intl/server";
 import { YtShortStatus } from "@prisma/client";
 import { auth } from "@/auth";
 import { isSystemAdmin } from "@/lib/permissions";
+import { userCanSeeMarketing } from "@/lib/marketing-access";
 import YoutubeSettingsPanel from "./youtube-settings";
 import YoutubeQueue from "./youtube-queue";
 import YoutubeInsights from "./youtube-insights";
@@ -47,9 +48,9 @@ export default async function YoutubeMarketingPage({
 }: {
   searchParams: Promise<{ status?: string; page?: string; connected?: string; error?: string }>;
 }) {
-  // 페이지 게이트 — 마케팅은 운영자(테오) 전용(isSystemAdmin=OWNER). MANAGER/STAFF는 /login 바운스.
+  // 페이지 게이트 — 마케팅은 특정 계정(테오 phone) 전용. 그 외 계정은 /login 바운스.
   const session = await auth();
-  if (!session?.user?.id || !isSystemAdmin(session.user.role)) {
+  if (!session?.user?.id || !(await userCanSeeMarketing(session.user.id))) {
     redirect("/login");
   }
   const canEditSettings = isSystemAdmin(session.user.role);

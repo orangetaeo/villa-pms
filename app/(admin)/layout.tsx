@@ -9,6 +9,7 @@ import PullToRefresh from "@/components/pull-to-refresh";
 import { pickMessages } from "@/lib/intl-messages";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
+import { userCanSeeMarketing } from "@/lib/marketing-access";
 
 // [QA D-2b] 루트 layout이 전체 messages 직렬화를 중단함에 따라
 // admin 클라이언트 컴포넌트용 메시지는 여기서 화이트리스트로 공급.
@@ -133,6 +134,9 @@ export default async function AdminLayout({
   });
   const unreadCount = unreadAgg._sum.unreadCount ?? 0;
 
+  // 마케팅 그룹 노출 — 특정 계정(테오 phone) 전용. 사이드바는 이 boolean으로 그룹을 숨긴다.
+  const showMarketing = await userCanSeeMarketing(session.user.id);
+
   // 로그아웃 서버 액션 — 사이드바(클라이언트)에 전달. 완료 후 /login
   async function logoutAction() {
     "use server";
@@ -149,6 +153,7 @@ export default async function AdminLayout({
         logoutAction={logoutAction}
         currentLocale={locale === "vi" ? "vi" : "ko"}
         tourHelp={tourHelp}
+        showMarketing={showMarketing}
       />
       {/* 모바일 당겨서 새로고침 — 전 admin 페이지 공용(풀스크린 라우트 자동 제외) */}
       <PullToRefresh fullscreenPrefixes={ADMIN_FULLSCREEN_PREFIXES} variant="dark" />

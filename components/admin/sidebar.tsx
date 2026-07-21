@@ -111,13 +111,13 @@ const NAV: NavEntry[] = [
     ],
   },
   {
-    // 마케팅 도메인(인스타그램·유튜브 콘텐츠 큐) — 운영자(테오) 전용(isSystemAdmin=OWNER).
-    // 계정 연결·발행 전략은 운영자 소관이라 MANAGER/STAFF에게 메뉴부터 숨김(페이지 게이트도 동일).
+    // 마케팅 도메인(인스타그램·유튜브 콘텐츠 큐) — 특정 계정(테오 phone) 단일 노출.
+    // 역할 cap이 아니라 showMarketing prop으로 그룹 통째 필터(아래 navEntries). 페이지 게이트도 동일.
     group: "marketing",
     icon: "campaign",
     items: [
-      { key: "instagram", href: "/marketing/instagram", icon: "photo_camera", cap: isSystemAdmin },
-      { key: "youtube", href: "/marketing/youtube", icon: "smart_display", cap: isSystemAdmin },
+      { key: "instagram", href: "/marketing/instagram", icon: "photo_camera" },
+      { key: "youtube", href: "/marketing/youtube", icon: "smart_display" },
     ],
   },
   { key: "messages", href: "/messages", icon: "chat" },
@@ -145,10 +145,13 @@ export default function AdminSidebar({
   logoutAction,
   currentLocale = "ko",
   tourHelp,
+  showMarketing = false,
 }: {
   userName?: string | null;
   /** 사용자 역할 — NAV 역할별 필터 + 역할 라벨 표시 (S-RBAC) */
   role?: Role;
+  /** 마케팅 그룹 노출 여부 — 특정 계정(테오 phone) 전용. 레이아웃이 서버에서 판정해 주입. */
+  showMarketing?: boolean;
   /** 메시지 메뉴 미읽음 합계 뱃지 (T6.6, b14) */
   unreadCount?: number;
   /** 로그아웃 서버 액션 (layout에서 NextAuth signOut 주입) */
@@ -165,6 +168,8 @@ export default function AdminSidebar({
   const canSee = (leaf: NavLeaf) => !leaf.cap || leaf.cap(role);
   const navEntries: NavEntry[] = NAV.flatMap((e): NavEntry[] => {
     if (!isGroup(e)) return canSee(e) ? [e] : [];
+    // 마케팅은 역할이 아니라 특정 계정(테오 phone) 전용 — showMarketing 미충족 시 그룹 통째 숨김.
+    if (e.group === "marketing" && !showMarketing) return [];
     const items = e.items.filter(canSee);
     return items.length ? [{ ...e, items }] : [];
   });

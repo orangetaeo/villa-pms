@@ -7,7 +7,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
-import { isSystemAdmin } from "@/lib/permissions";
+import { userCanSeeMarketing } from "@/lib/marketing-access";
 import DmInbox from "./dm-inbox";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -18,9 +18,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export const dynamic = "force-dynamic";
 
 export default async function InstagramDmPage() {
-  // 마케팅 전용 게이트 — 운영자(테오) 전용(isSystemAdmin=OWNER). MANAGER/STAFF는 /login 바운스.
+  // 마케팅 전용 게이트 — 특정 계정(테오 phone) 전용. 그 외 계정은 /login 바운스.
   const session = await auth();
-  if (!session?.user?.id || !isSystemAdmin(session.user.role)) {
+  if (!session?.user?.id || !(await userCanSeeMarketing(session.user.id))) {
     redirect("/login");
   }
 
