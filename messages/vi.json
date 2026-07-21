@@ -4316,12 +4316,12 @@
       "label": "Link nhanh:",
       "checkin": "Hướng dẫn nhận phòng",
       "options": "Dịch vụ thêm",
-      "receipt": "Hóa đơn",
+      "receipt": "Bảng kê thanh toán",
       "sending": "Đang gửi…",
       "confirm": {
         "checkin": "Gửi link hướng dẫn nhận phòng cho khách?",
         "options": "Gửi link dịch vụ thêm cho khách?",
-        "receipt": "Gửi link hóa đơn cho khách?"
+        "receipt": "Gửi link bảng kê cho khách?"
       },
       "error": {
         "notCheckedOut": "Chỉ gửi được sau khi khách trả phòng.",
