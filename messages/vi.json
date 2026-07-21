@@ -2065,6 +2065,23 @@
           "5": "T6",
           "6": "T7"
         }
+      },
+      "photoEdit": {
+        "edit": "Chỉnh sửa",
+        "done": "Xong",
+        "add": "Thêm ảnh",
+        "uploading": "Đang tải lên…",
+        "delete": "Xóa",
+        "cancel": "Hủy",
+        "moveLeft": "Chuyển sang trái",
+        "moveRight": "Chuyển sang phải",
+        "bedroomN": "Phòng ngủ {n}",
+        "bathroomN": "Phòng tắm {n}",
+        "baselineBadge": "Chuẩn",
+        "baselineWarnTitle": "Xóa ảnh chuẩn",
+        "baselineWarnBody": "Ảnh này là ảnh chuẩn dùng để đối chiếu khi trả phòng (bằng chứng). Nếu xóa, ảnh sẽ không còn trong đối chiếu kiểm tra sau này. Bạn có chắc muốn xóa?",
+        "baselineLocked": "Không thể xóa ảnh chuẩn này vì đang có đặt phòng. Hãy thử lại sau khi trả phòng.",
+        "error": "Đã xảy ra lỗi khi xử lý ảnh. Vui lòng thử lại."
       }
     },
     "sales": {

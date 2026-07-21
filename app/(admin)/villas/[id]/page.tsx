@@ -30,7 +30,7 @@ import CleanerAssignEditor from "./cleaner-assign-editor";
 import RegionalVendorEditor from "./regional-vendor-editor";
 import PremiumDaysEditor from "./premium-days-editor";
 import { REGIONAL_VENDOR_TYPES, type RegionalVendorType } from "@/lib/regional-vendor";
-import PhotoGallery from "./photo-gallery";
+import PhotoSection from "./photo-section";
 import CollapsibleCard from "@/components/admin/collapsible-card";
 
 const SPACE_ORDER: PhotoSpace[] = [
@@ -88,7 +88,8 @@ export default async function VillaDetailPage({
         supplier: { select: { name: true, phone: true, zaloUserId: true } },
         photos: {
           orderBy: [{ space: "asc" }, { sortOrder: "asc" }],
-          select: { id: true, space: true, spaceLabel: true, url: true },
+          // isBaseline·sortOrder — 운영자 사진 편집기(추가·삭제·정렬)용. 누수 무관(url·공간만).
+          select: { id: true, space: true, spaceLabel: true, url: true, isBaseline: true, sortOrder: true },
         },
         amenities: {
           orderBy: { category: "asc" },
@@ -406,11 +407,21 @@ export default async function VillaDetailPage({
               </span>
             }
           >
-            {photoGroups.length === 0 ? (
-              <p className="text-sm text-admin-muted py-6 text-center">{t("photos.empty")}</p>
-            ) : (
-              <PhotoGallery groups={photoGroups} />
-            )}
+            <PhotoSection
+              groups={photoGroups}
+              villaId={villa.id}
+              bedrooms={villa.bedrooms}
+              bathrooms={villa.bathrooms}
+              hasPool={villa.hasPool}
+              initialPhotos={villa.photos.map((p) => ({
+                id: p.id,
+                space: p.space,
+                spaceLabel: p.spaceLabel,
+                url: p.url,
+                isBaseline: p.isBaseline,
+                sortOrder: p.sortOrder,
+              }))}
+            />
           </CollapsibleCard>
 
           {/* 기본 정보 요약 */}

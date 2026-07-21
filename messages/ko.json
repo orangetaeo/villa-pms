@@ -1950,6 +1950,23 @@
           "5": "금",
           "6": "토"
         }
+      },
+      "photoEdit": {
+        "edit": "편집",
+        "done": "완료",
+        "add": "사진 추가",
+        "uploading": "업로드 중…",
+        "delete": "삭제",
+        "cancel": "취소",
+        "moveLeft": "왼쪽으로 이동",
+        "moveRight": "오른쪽으로 이동",
+        "bedroomN": "침실 {n}",
+        "bathroomN": "욕실 {n}",
+        "baselineBadge": "기준",
+        "baselineWarnTitle": "기준 사진 삭제",
+        "baselineWarnBody": "이 사진은 체크아웃 비교(증빙)에 쓰이는 기준 사진입니다. 삭제하면 향후 검수 비교에서 빠집니다. 삭제하시겠습니까?",
+        "baselineLocked": "진행 중인 예약이 있어 이 기준 사진은 삭제할 수 없습니다. 체크아웃 후 다시 시도하세요.",
+        "error": "사진 처리 중 오류가 발생했습니다. 다시 시도하세요."
       }
     },
     "sales": {
