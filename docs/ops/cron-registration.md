@@ -21,7 +21,7 @@
 | `cron-security-alerts` | `/api/cron/security-alerts` | `*/10 * * * *` | 10분마다 | 보안 이상탐지 경보(SecurityEvent 임계치 초과 시 운영자에게 **Zalo 발송**, 60분 쿨다운) — 보안 P3-S3 |
 | `cron-checkout-reminder` | `/api/cron/checkout-reminder` | `0 1 * * *` | 매일 08:00 | **Zalo 알림 큐 적재**(내일 체크아웃 예약 → 담당 청소원/공급자 D-1 사전 청소알림, checkOut==today+1 멱등) — PR #139 |
 | `cron-instagram-draft` | `/api/cron/instagram-draft` | `20 21 * * *` | 매일 04:20 | 인스타 초안 일 3건 생성(SELLABLE·사진4장↑ 빌라 로테이션, 승인 큐 적재 — 발행 아님). GraphQL 등록(2026-07-16) |
-| `cron-instagram-publish` | `/api/cron/instagram-publish` | `35 22,3,11 * * *` | KST 07:35·12:35·20:35 | **인스타 실발행**(QUEUED=승인분 → Graph API 게시, 슬롯 07:30/12:30/20:00 KST). 킬스위치 `IG_AUTOPOST_PAUSED`(현재 0=발행). ★2026-07-21 등록 대상(워밍업 후 계획이었으나 오픈 결정) |
+| `cron-instagram-publish` | `/api/cron/instagram-publish` | `35 22,3,11 * * *` | KST 07:35·12:35·20:35 | **인스타 실발행**(QUEUED=승인분 → Graph API 게시, 슬롯 07:30/12:30/20:00 KST). 킬스위치 `IG_AUTOPOST_PAUSED`(현재 0=발행). ✅2026-07-21 **Railway GraphQL API로 등록·배포 완료**(serviceId 40829f31, RUN_CMD+`sh -c 'eval "$RUN_CMD"'` 패턴). 실발행 1건 검증(permalink 확정) |
 | `cron-instagram-insights` | `/api/cron/instagram-insights` | `0 22 * * *` | 매일 05:00 | 인스타 인사이트 수집(30일 내 매일+구포스트 주1회, PUBLISHED 0건=no-op). GraphQL 등록(2026-07-16) |
 | `cron-youtube-edit-jobs` | `/api/cron/youtube-edit-jobs` | `*/15 * * * *` | 15분 간격 | 유튜브 편집 잡 안전망(PENDING 잔류 처리·PROCESSING 10분 고아 회수, 잡 0건=no-op). GraphQL 등록(2026-07-16) |
 | `cron-youtube-publish` | `/api/cron/youtube-publish` | `35 3,10 * * *` | KST 12:35·19:35 | 유튜브 쇼츠 발행(QUEUED→업로드, 킬스위치 YT_AUTOPOST_PAUSED 기본 정지·감사 전 unlisted). GraphQL 등록(2026-07-16) |
