@@ -1,6 +1,7 @@
 // /villas/[id] — 운영자 빌라 상세·승인·요율 편집 (T1.2, Stitch b10-villa-detail 변환)
 // RSC: prisma 직접 조회. 요율 편집·승인 액션은 클라이언트 컴포넌트 + fetch
-// 제외(계약): iCal URL 관리(T1.6), 사진 추가·교체, isSellable 토글(T3.4)
+// 제외(계약): iCal URL 관리(T1.6), isSellable 토글(T3.4)
+// 사진 추가·교체·정렬: photo-section(보기↔편집 토글) → admin-photo-manager로 지원(운영자 편집)
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
