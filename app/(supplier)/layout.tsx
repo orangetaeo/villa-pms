@@ -77,7 +77,7 @@ export default async function SupplierLayout({
   const tContract = await getTranslations({ locale, namespace: "businessContract" });
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
+    <div className="min-h-screen bg-neutral-50 text-neutral-900" data-app-shell="supplier">
       <NextIntlClientProvider locale={locale} messages={messages}>
         {/* 공용 포털 헤더 — 4개 라이트 포털 동일 형태. 청소직원은 vi 고정이라 언어 전환 숨김.
             자체 앱바 페이지(빌라 상세·검수 하위)에서는 헤더를 숨겨 중앙 제목과 겹침 방지. */}
