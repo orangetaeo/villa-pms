@@ -10,6 +10,8 @@
 //   base64 data URI로 인라인해 satori <img>(height 40)로 렌더(marketing-s2 §E, SPEC §2-2). 순서=침실→인원→해변.
 //   ★ 소스 SVG 편집 시 아래 base64 상수도 재생성할 것(scripts로 base64 -w0 <svg>).
 
+import { wrapHeadlineToFit } from "@/lib/instagram/headline-wrap";
+
 const W = 1080;
 const H = 1350;
 
@@ -104,7 +106,8 @@ export function coverTemplate(d: CoverData): SatoriNode {
             textShadow: TEXT_SHADOW,
             flexDirection: "column",
           },
-          d.headline
+          // 좌우 패딩 84 → 내부 폭 912. 미리 균형 줄바꿈해 satori 고아 음절("로") 방지.
+          wrapHeadlineToFit(d.headline, 66, W - 84 * 2)
         ),
         div({ width: 68, height: 3, backgroundColor: BRAND.sand, marginTop: 34 }),
       ]),
@@ -195,7 +198,8 @@ export function serviceTemplate(d: ServiceData): SatoriNode {
       div({ position: "relative", flexDirection: "column", padding: "0 68px 96px 68px" }, [
         div(
           { fontFamily: FONT_SERIF, fontWeight: 700, fontSize: 62, color: "#FFFFFF", lineHeight: 1.24, whiteSpace: "pre-line", textShadow: TEXT_SHADOW, flexDirection: "column" },
-          d.headline
+          // 좌우 패딩 68 → 내부 폭 944.
+          wrapHeadlineToFit(d.headline, 62, W - 68 * 2)
         ),
         div({ alignItems: "center", marginTop: 36 }, [
           div({ backgroundColor: BRAND.kakaoYellow, color: BRAND.kakaoInk, fontFamily: FONT_SANS, fontWeight: 700, fontSize: 32, padding: "16px 30px", borderRadius: 999 }, d.ctaText),
@@ -241,7 +245,8 @@ export function ctaTemplate(d: CtaData): SatoriNode {
         div({ width: 68, height: 3, backgroundColor: BRAND.sand }),
         div(
           { fontFamily: FONT_SERIF, fontWeight: 700, fontSize: 62, color: "#FFFFFF", textAlign: "center", lineHeight: 1.3, marginTop: 40, whiteSpace: "pre-line", flexDirection: "column" },
-          d.headline
+          // 좌우 패딩 96 → 내부 폭 888.
+          wrapHeadlineToFit(d.headline, 62, W - 96 * 2)
         ),
         div({ backgroundColor: BRAND.kakaoYellow, color: BRAND.kakaoInk, fontFamily: FONT_SANS, fontWeight: 700, fontSize: 36, padding: "22px 42px", borderRadius: 999, marginTop: 52 }, d.kakaoLabel ?? "카카오톡으로 상담하기"),
       ]),

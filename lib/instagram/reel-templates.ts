@@ -9,6 +9,7 @@
 //   2) 중간: 사진 원본만(오버레이 없음) — 슬라이드쇼 몰입
 //   3) 엔딩: reelCta916 불투명 카드(카카오 상담 유도)
 import { BRAND, FONT_SERIF, FONT_SANS, type SatoriNode, type CoverData, type CtaData } from "@/lib/instagram/templates";
+import { wrapHeadlineToFit } from "@/lib/instagram/headline-wrap";
 
 const W = 1080;
 const H = 1920; // 9:16
@@ -59,7 +60,8 @@ export function reelCover916(d: CoverData): SatoriNode {
             textShadow: TEXT_SHADOW,
             flexDirection: "column",
           },
-          d.headline
+          // 좌우 패딩 90 → 내부 폭 900. 미리 균형 줄바꿈해 satori 고아 음절 방지.
+          wrapHeadlineToFit(d.headline, 74, W - 90 * 2)
         ),
         div({ width: 74, height: 3, backgroundColor: BRAND.sand, marginTop: 38 }),
       ]),
@@ -102,7 +104,8 @@ export function reelCta916(d: CtaData): SatoriNode {
         div({ width: 74, height: 3, backgroundColor: BRAND.sand }),
         div(
           { fontFamily: FONT_SERIF, fontWeight: 700, fontSize: 68, color: "#FFFFFF", textAlign: "center", lineHeight: 1.32, marginTop: 44, whiteSpace: "pre-line", flexDirection: "column" },
-          d.headline
+          // 좌우 패딩 100 → 내부 폭 880.
+          wrapHeadlineToFit(d.headline, 68, W - 100 * 2)
         ),
         div({ backgroundColor: BRAND.kakaoYellow, color: BRAND.kakaoInk, fontFamily: FONT_SANS, fontWeight: 700, fontSize: 40, padding: "24px 46px", borderRadius: 999, marginTop: 60 }, d.kakaoLabel ?? "카카오톡으로 상담하기"),
       ]),

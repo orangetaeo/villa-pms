@@ -24,8 +24,11 @@ const CSP_REPORT_ONLY = [
 
 const nextConfig: NextConfig = {
   // zca-js는 네이티브/ws 의존 — 서버 번들에서 제외하여 번들링 충돌 회피 (ADR-0006 S2).
+  // ffmpeg-static은 정적 바이너리를 default export 경로로 spawn한다. 번들링되면 경로가
+  //   .next/server/chunks/ffmpeg 로 깨져 런타임 spawn ENOENT(릴스/쇼츠 MP4 합성 전면 실패).
+  //   외부 패키지로 지정해야 node_modules의 실제 바이너리 경로로 해결된다.
   // (Next 15: instrumentation.ts는 기본 활성, serverExternalPackages는 stable)
-  serverExternalPackages: ["zca-js"],
+  serverExternalPackages: ["zca-js", "ffmpeg-static"],
   // 전역 HTTP 보안 헤더 (T-sec-public-hardening, Phase 1 보안). CSP는 인라인/CDN 호환성
   // 검증 후 별도 추가(후속). Referrer-Policy는 공개 제안 URL의 token이 외부 referrer로
   // 새는 것을 차단하는 핵심 항목.
