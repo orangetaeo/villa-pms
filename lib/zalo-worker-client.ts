@@ -235,3 +235,18 @@ export async function delegateStatus(adminUserId: string): Promise<{
     lastError: json.lastError ?? null,
   };
 }
+
+/**
+ * [일회성 유지보수] 대화명 보정 위임 — 세션 보유 워커에서 getUserInfo로 실제 상대명 교정.
+ * 세션은 워커에만 있으므로(ZALO_SESSION_LOCAL=false) 웹 라우트는 이 위임으로만 교정할 수 있다.
+ * 워커 불통 시 null(호출부에서 안전 실패 처리).
+ */
+export async function delegateRefreshNames(body: {
+  limit?: number;
+  dryRun?: boolean;
+}): Promise<Record<string, unknown> | null> {
+  const json = (await postInternal("/internal/refresh-names", body)) as
+    | Record<string, unknown>
+    | null;
+  return json && typeof json === "object" ? json : null;
+}

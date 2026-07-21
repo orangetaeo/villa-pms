@@ -203,6 +203,17 @@ const server = http.createServer((req, res) => {
         return sendJson(res, 200, status);
       }
 
+      // [일회성 유지보수] 대화명 보정 — 세션 보유 워커에서 getUserInfo로 실제 상대명 교정.
+      if (url.startsWith("/internal/refresh-names")) {
+        const body = (await readJson(req)) as { limit?: number; dryRun?: boolean };
+        const { refreshOwnerNamedConvos } = await import("@/lib/zalo-name-refresh");
+        const summary = await refreshOwnerNamedConvos({
+          limit: body.limit,
+          dryRun: body.dryRun,
+        });
+        return sendJson(res, 200, summary);
+      }
+
       return sendJson(res, 404, { error: "NOT_FOUND" });
     } catch (err) {
       // credential·시크릿·본문 미출력 — 일반 코드만.
