@@ -2759,20 +2759,10 @@ function Composer({
     });
   }
 
-  // 현재 입력창 텍스트를 첨부 캡션으로 — 번역 ON이고 현재 입력에 대한 settled 번역이면
-  //   번역문을 캡션으로(수신자 언어, 텍스트 발송과 동일 규칙). 아니면 원문 그대로. 빈 입력이면 "".
+  // 현재 입력창 텍스트를 첨부 캡션으로(원문 그대로). 번역은 서버(/share)가 대화 translateMode에
+  //   맞춰 수행하므로(텍스트 메시지와 동일 규칙) 클라는 원문만 보낸다 — 이중번역·타이밍 누락 방지.
   function currentOutgoingCaption(): string {
-    const body = text.trim();
-    if (!body) return "";
-    const reuse =
-      previewEnabled &&
-      !translating &&
-      preview &&
-      previewForRef.current === body &&
-      previewModeRef.current === translateMode
-        ? preview
-        : null;
-    return reuse || body;
+    return text.trim();
   }
 
   async function sendPendingFiles() {

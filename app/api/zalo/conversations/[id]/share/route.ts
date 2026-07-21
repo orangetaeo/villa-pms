@@ -41,6 +41,7 @@ import {
   sendChatImageAsAdmin,
   sendChatFileAsAdmin,
 } from "@/lib/zalo-runtime";
+import { translateText, previewTargetForMode, GeminiNotConfiguredError } from "@/lib/gemini";
 import {
   isCostSideType,
   isSellSideType,
@@ -107,7 +108,9 @@ async function persistShare(
   text: string | null,
   attachmentUrls: string[],
   send: { ok: boolean; messageId?: string | null; error?: string },
-  sharedEntity: { type: string; id: string }
+  sharedEntity: { type: string; id: string },
+  // 사진/파일 캡션 번역문(수신자에게 발송된 vi/en). text=원문(ko) 보존 — 사진 버블이 원문+번역 자막 표시.
+  captionTranslated: string | null = null
 ) {
   const status = send.ok ? ZaloMessageStatus.SENT : ZaloMessageStatus.FAILED;
   const now = new Date();
@@ -119,6 +122,7 @@ async function persistShare(
         source: ZaloMessageSource.CHAT,
         msgType,
         text,
+        captionTranslated,
         attachmentUrls,
         zaloMsgId: send.ok ? (send.messageId ?? null) : null,
         status,
@@ -276,6 +280,37 @@ async function handleMultipart(
   return handleFile(file, conv, adminUserId, captionText);
 }
 
+/**
+ * 사진/파일 캡션 발신 번역 (텍스트 메시지와 동일 규칙, ADR-0009 D7).
+ * VI/EN 모드면 캡션을 번역해 상대에게 발송하고 원문(ko)은 기록용으로 보존한다.
+ * OFF 모드면 원문 그대로. 번역 실패 시엔 원문(한국어) 오발송을 막기 위해 발송 중단(에러 응답).
+ *   ok=false면 라우트가 그 response(503/502)를 그대로 반환한다.
+ * outbound=상대에게 실제 발송할 캡션, translated=번역문(기록·사진 버블 자막). 캡션 없으면 undefined/null.
+ */
+async function resolveCaptionForSend(
+  conv: ConversationCtx,
+  captionText: string | undefined
+): Promise<
+  | { ok: true; outbound: string | undefined; translated: string | null }
+  | { ok: false; response: NextResponse }
+> {
+  if (!captionText) return { ok: true, outbound: undefined, translated: null };
+  const target = previewTargetForMode(conv.translateMode);
+  if (!target) return { ok: true, outbound: captionText, translated: null };
+  try {
+    const tr = (await translateText(captionText, target)).trim();
+    return { ok: true, outbound: tr || captionText, translated: tr || null };
+  } catch (err) {
+    if (err instanceof GeminiNotConfiguredError) {
+      return {
+        ok: false,
+        response: NextResponse.json({ error: "TRANSLATE_NOT_CONFIGURED" }, { status: 503 }),
+      };
+    }
+    return { ok: false, response: NextResponse.json({ error: "TRANSLATE_FAILED" }, { status: 502 }) };
+  }
+}
+
 async function handlePhoto(
   file: File,
   conv: ConversationCtx,
@@ -285,6 +320,10 @@ async function handlePhoto(
   if (file.size > MAX_FILE_SIZE) {
     return NextResponse.json({ error: "FILE_TOO_LARGE" }, { status: 400 });
   }
+
+  // 캡션 번역 — 번역 실패 시 원문 오발송 방지(저장·발송 전에 먼저 확정).
+  const cap = await resolveCaptionForSend(conv, captionText);
+  if (!cap.ok) return cap.response;
 
   const buffer = Buffer.from(await file.arrayBuffer());
   // 표시·증빙용 URL 확보(R2/디스크). 같은 Buffer로 zca-js 이미지 발송(URL 재다운로드 아님).
@@ -296,10 +335,11 @@ async function handlePhoto(
     conv.zaloUserId,
     buffer,
     fileName,
-    captionText,
+    cap.outbound, // 상대에게는 번역된 캡션(OFF면 원문)
     sendThreadTypeOf(conv)
   );
 
+  // text=원문 캡션(ko 기록), captionTranslated=발송 번역문 → 사진 버블이 원문+번역 자막 표시.
   return persistShare(
     conv.id,
     adminUserId,
@@ -307,7 +347,8 @@ async function handlePhoto(
     captionText ?? null,
     [url],
     send,
-    { type: "photo", id: fileName }
+    { type: "photo", id: fileName },
+    cap.translated
   );
 }
 
@@ -331,6 +372,10 @@ async function handleFile(
       { status }
     );
   }
+
+  // 캡션 번역 — 파일 저장 전에 확정(번역 실패 시 원문 오발송·불필요 저장 방지).
+  const cap = await resolveCaptionForSend(conv, captionText);
+  if (!cap.ok) return cap.response;
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const mimeType = file.type || "application/octet-stream";
@@ -364,11 +409,11 @@ async function handleFile(
     conv.zaloUserId,
     buffer,
     displayName as `${string}.${string}`,
-    captionText,
+    cap.outbound, // 상대에게는 번역된 캡션(OFF면 원문)
     sendThreadTypeOf(conv)
   );
 
-  // 본문(text)은 파일명(다운로드 표시·증빙). 캡션이 있으면 캡션 우선.
+  // 본문(text)은 원문 캡션(있으면)·없으면 파일명(다운로드 표시·증빙). captionTranslated=발송 번역문.
   return persistShare(
     conv.id,
     adminUserId,
@@ -376,7 +421,8 @@ async function handleFile(
     captionText ?? displayName,
     [url],
     send,
-    { type: "file", id: displayName }
+    { type: "file", id: displayName },
+    cap.translated
   );
 }
 
