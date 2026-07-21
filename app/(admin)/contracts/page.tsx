@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
+import { readContractPartyADefaults } from "@/lib/business-contract";
 import ContractCreateForm, { type ContractCandidate } from "./contract-create-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -71,6 +72,9 @@ export default async function AdminContractsPage() {
     role: c.role as ContractCandidate["role"],
   }));
 
+  // 갑(회사) 계약 주체 고정값 — 생성 폼 prefill(재입력 방지). 부재 시 빈 객체 → 수동 입력.
+  const partyADefaults = await readContractPartyADefaults(prisma);
+
   return (
     <div className="space-y-8">
       <header>
@@ -78,7 +82,7 @@ export default async function AdminContractsPage() {
         <p className="mt-1 text-sm text-admin-muted">{t("subtitle")}</p>
       </header>
 
-      <ContractCreateForm candidates={candidates} />
+      <ContractCreateForm candidates={candidates} defaults={partyADefaults} />
 
       <section className="overflow-hidden rounded-xl border border-slate-800 bg-admin-card shadow-lg">
         <div className="border-b border-slate-800 bg-slate-800/30 px-6 py-4">

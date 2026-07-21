@@ -12,6 +12,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import type { DbClient } from "./availability";
 
 // ── 타입·slug·locale 화이트리스트 ───────────────────────────────────────────
 export const CONTRACT_SLUG = {
@@ -21,8 +22,8 @@ export const CONTRACT_SLUG = {
 } as const;
 export type BusinessContractType = keyof typeof CONTRACT_SLUG;
 
-/** 현재 서명용 정본 표준 버전(테오 확정 v0.3). */
-export const CURRENT_STANDARD_VERSION = "v0.3";
+/** 현재 서명용 정본 표준 버전(테오 확정 v0.4 — Bên A 실명 당사자 + 연락처 2종 토큰). */
+export const CURRENT_STANDARD_VERSION = "v0.4";
 
 export type ContractLocale = "ko" | "vi";
 
@@ -62,6 +63,42 @@ export function isCounterpartRole(role: string | undefined | null): boolean {
   return typeof role === "string" && (COUNTERPART_ROLES as readonly string[]).includes(role);
 }
 
+// ── Bên A(갑) 계약 주체 고정값 — AppSetting에 저장, 생성 폼 prefill ──────────────
+/** AppSetting 키 — 갑(회사) 계약 주체 고정 정보(JSON 문자열). */
+export const CONTRACT_PARTY_A_KEY = "BUSINESS_CONTRACT_PARTY_A";
+
+/** 계약 생성 폼 prefill용 갑 기본값(모두 선택 — 부재 시 수동 입력 폴백). */
+export interface ContractPartyADefaults {
+  companyName?: string;
+  companyPassport?: string;
+  companyContactVn?: string;
+  companyContactKr?: string;
+}
+
+/**
+ * AppSetting BUSINESS_CONTRACT_PARTY_A(JSON 문자열) 읽기.
+ * 부재·JSON 파싱 실패·타입 불일치 시 빈 객체(안전) — 폼은 수동 입력으로 폴백한다.
+ */
+export async function readContractPartyADefaults(db: DbClient): Promise<ContractPartyADefaults> {
+  const row = await db.appSetting.findUnique({ where: { key: CONTRACT_PARTY_A_KEY } });
+  if (!row?.value) return {};
+  try {
+    const parsed = JSON.parse(row.value) as unknown;
+    if (!parsed || typeof parsed !== "object") return {};
+    const p = parsed as Record<string, unknown>;
+    const pick = (v: unknown): string | undefined =>
+      typeof v === "string" && v.trim() ? v.trim() : undefined;
+    return {
+      companyName: pick(p.companyName),
+      companyPassport: pick(p.companyPassport),
+      companyContactVn: pick(p.companyContactVn),
+      companyContactKr: pick(p.companyContactKr),
+    };
+  } catch {
+    return {};
+  }
+}
+
 // ── termsJson zod(타입별) — ★ 원가·마진·판매가 금지, .strict()로 미지정 키 거부 ──
 // 치환 주입 방지: 모든 자유 텍스트에 "{{" 포함 금지(무한 치환·토큰 위조 차단).
 const NO_BRACES = { message: "TEMPLATE_INJECTION" } as const;
@@ -74,8 +111,10 @@ const optionalText = (max: number) =>
   z.string().max(max).refine(noBraces, NO_BRACES).optional();
 
 const commonTermsShape = {
-  companyName: requiredText(200), // 갑(운영사) 상호
+  companyName: requiredText(200), // 갑(계약 당사자 실명). Villa GO는 운영 브랜드로 병기
   companyPassport: requiredText(60), // 갑 대표 신분/여권 번호
+  companyContactVn: requiredText(60), // 갑 베트남 연락처(Zalo) — 필수
+  companyContactKr: optionalText(60), // 갑 한국 연락처(전화) — 선택, 비면 "해당 없음" 렌더
   bankInfo: optionalText(500), // 계좌 정보(신원 정보 — 원가·마진 아님). 비면 "해당 없음" 렌더
   specialTerms: optionalText(4000), // 특약사항(자유 텍스트). 비면 "해당 없음" 렌더
 };
@@ -218,6 +257,8 @@ function buildTokenMap(data: RenderContractData): Record<string, string> {
     counterpartAddress: str(data.address, BLANK),
     companyName: str(t.companyName),
     companyPassport: str(t.companyPassport),
+    companyContactVn: str(t.companyContactVn, BLANK), // 베트남 연락처(필수). 비면 서명란 공백
+    companyContactKr: str(t.companyContactKr, na), // 한국 연락처(선택). 비면 "해당 없음"
     bankInfo: str(t.bankInfo, na), // 비면 "해당 없음"
     specialTerms: str(t.specialTerms, na), // 비면 "해당 없음"
     signDate: fmtSignDate(data.signedAt),
