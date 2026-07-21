@@ -100,6 +100,9 @@ export default async function EditVillaPage({
     });
     if (current) complexAreas = [...activeAreas, current];
   }
+  // 이 화면은 공급자 전용(위 role 가드) — nameKo(한글 병기)는 운영자 전용이므로
+  //   flight data에도 싣지 않도록 null로 걷어낸다(D6, 역할별 불필요 노출 최소화).
+  complexAreas = complexAreas.map((a) => ({ ...a, nameKo: null }));
 
   const forEdit: VillaForEdit = {
     name: villa.name,
