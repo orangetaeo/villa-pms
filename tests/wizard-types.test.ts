@@ -12,7 +12,8 @@ import {
 
 const BASE: VillaForEdit = {
   name: "쏘나씨 V12",
-  complex: "쏘나씨",
+  complexAreaId: "area_sonasea",
+  complex: "Sonasea",
   address: "Lô SV-01",
   bedrooms: 2,
   bathrooms: 1,
@@ -76,7 +77,8 @@ describe("villaToWizardState — 재제출 prefill", () => {
       ],
     });
     expect(state.name).toBe("쏘나씨 V12");
-    expect(state.complex).toBe("쏘나씨");
+    expect(state.complexAreaId).toBe("area_sonasea");
+    expect(state.complex).toBe("Sonasea");
     expect(state.bedrooms).toBe(2);
     expect(state.hasPool).toBe(true);
     expect(state.monthlyRent).toBe("30000000");
@@ -98,10 +100,12 @@ describe("villaToWizardState — 재제출 prefill", () => {
   it("null 필드는 빈 문자열로 (complex·address·monthlyRent)", () => {
     const state = villaToWizardState({
       ...BASE,
+      complexAreaId: null,
       complex: null,
       address: null,
       monthlyRentVnd: null,
     });
+    expect(state.complexAreaId).toBe("");
     expect(state.complex).toBe("");
     expect(state.address).toBe("");
     expect(state.monthlyRent).toBe("");

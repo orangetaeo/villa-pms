@@ -4,10 +4,10 @@
 // 침실·욕실·인원은 다음 "잠자리 구성" 스텝에서 방별 구성으로 파생(T-bedroom-composition-sync).
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import type { SupplierOption, WizardState } from "./wizard-types";
+import type { ComplexAreaOption, SupplierOption, WizardState } from "./wizard-types";
 
-// 단지명은 고유명사 — 번역하지 않는다 (i18n 용어 사전 규칙)
-const COMPLEXES = ["Sonasea", "Sunset Sanato", "Vinpearl"];
+// 단지명은 고유명사 — 번역하지 않는다 (i18n 용어 사전 규칙).
+// 목록은 하드코딩이 아니라 단지 마스터(ComplexArea)에서 주입 — ADR-0046, T-complex-area-master.
 
 interface Props {
   state: WizardState;
@@ -17,9 +17,19 @@ interface Props {
   /** ADMIN 직접등록 모드 — 귀속 공급자 선택 노출·필수 */
   isAdmin: boolean;
   suppliers: SupplierOption[];
+  /** 단지 마스터 목록 (active만, 서버 주입) */
+  complexAreas: ComplexAreaOption[];
 }
 
-export default function StepBasic({ state, update, onNext, onHome, isAdmin, suppliers }: Props) {
+export default function StepBasic({
+  state,
+  update,
+  onNext,
+  onHome,
+  isAdmin,
+  suppliers,
+  complexAreas,
+}: Props) {
   const t = useTranslations("wizard.basic");
   const tw = useTranslations("wizard");
   const [nameError, setNameError] = useState(false);
@@ -103,29 +113,43 @@ export default function StepBasic({ state, update, onNext, onHome, isAdmin, supp
             )}
           </section>
 
-          {/* 단지 */}
+          {/* 단지 — 마스터(ComplexArea) 주입 목록에서 선택. 자유 입력 불가(표기 통일). */}
           <section className="space-y-3">
             <label className="block px-1 text-sm font-semibold text-neutral-700" htmlFor="complex-select">
               {t("complex")}
             </label>
-            <div className="relative">
-              <select
-                id="complex-select"
-                value={state.complex}
-                onChange={(e) => update({ complex: e.target.value })}
-                className="h-14 w-full appearance-none rounded-xl border-2 border-neutral-100 bg-white px-4 text-lg font-medium transition-colors focus:border-teal-600 focus:ring-0"
-              >
-                <option value="">{t("complexPlaceholder")}</option>
-                {COMPLEXES.map((complex) => (
-                  <option key={complex} value={complex}>
-                    {complex}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2">
-                <span className="material-symbols-outlined text-neutral-400">expand_more</span>
+            {complexAreas.length === 0 ? (
+              // 마스터에 단지가 하나도 없을 때 — 자유 입력 대신 운영자 문의 안내 (D6)
+              <div className="flex items-start gap-2 rounded-xl border-2 border-neutral-100 bg-neutral-50 p-4">
+                <span className="material-symbols-outlined mt-0.5 text-neutral-400">info</span>
+                <p className="text-sm leading-relaxed text-neutral-500">{t("complexEmpty")}</p>
               </div>
-            </div>
+            ) : (
+              <div className="relative">
+                <select
+                  id="complex-select"
+                  value={state.complexAreaId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    const area = complexAreas.find((a) => a.id === id);
+                    // 표시명 캐시(complex)도 함께 갱신 — step-location 표시·서버는 id로 파생
+                    update({ complexAreaId: id, complex: area?.name ?? "" });
+                  }}
+                  className="h-14 w-full appearance-none rounded-xl border-2 border-neutral-100 bg-white px-4 text-lg font-medium transition-colors focus:border-teal-600 focus:ring-0"
+                >
+                  <option value="">{t("complexPlaceholder")}</option>
+                  {complexAreas.map((area) => (
+                    <option key={area.id} value={area.id}>
+                      {/* 공급자=라틴 name만. 운영자 직접등록 모드에서만 한글 병기 */}
+                      {isAdmin && area.nameKo ? `${area.name} (${area.nameKo})` : area.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2">
+                  <span className="material-symbols-outlined text-neutral-400">expand_more</span>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* 수영장·조식 토글 */}

@@ -29,6 +29,14 @@ export interface SupplierOption {
   phone: string | null;
 }
 
+/** 단지(지역) 마스터 옵션 — GET /api/complex-areas 또는 서버 주입 (ADR-0046, T-complex-area-master).
+ *  공급자 화면은 name(라틴 정본)만 표시. nameKo는 운영자 병기 전용(공급자·게스트 노출 금지). */
+export interface ComplexAreaOption {
+  id: string;
+  name: string;
+  nameKo: string | null;
+}
+
 // ===================== 잠자리 구성 (T-bedroom-composition-sync) =====================
 // 방별 구성이 진실의 원천 — 서버가 bedrooms/bathrooms/maxGuests를 파생. 클라이언트는 미리 계산해 캐시.
 
@@ -131,7 +139,10 @@ export interface WizardState {
   supplierId: string;
   // 1 기본 정보
   name: string;
-  complex: string; // "" = 미선택
+  // 단지 마스터 FK(전송값·서버 봉인). "" = 미선택 (ADR-0046)
+  complexAreaId: string;
+  // 단지 표시명 캐시(라틴 name) — step-location 등 표시 전용. 전송 안 함(서버가 complexAreaId로 파생)
+  complex: string;
   // bedrooms/bathrooms/maxGuests = 잠자리 스텝 파생 캐시(서버가 재계산하는 스칼라). 사진 슬롯 수·body 스칼라에 사용.
   bedrooms: number;
   bathrooms: number;
@@ -190,6 +201,7 @@ export const INITIAL_RULES: VillaRules = {
 export const INITIAL_STATE: WizardState = {
   supplierId: "",
   name: "",
+  complexAreaId: "",
   complex: "",
   // 잠자리 스텝 파생 캐시 — 기본 방 1개(킹1·전용욕실1) 기준
   bedrooms: 1,
@@ -284,7 +296,8 @@ export function photoSlotId(
 
 export interface VillaForEdit {
   name: string;
-  complex: string | null;
+  complexAreaId: string | null; // 단지 마스터 FK — 재제출 초기값 (ADR-0046)
+  complex: string | null; // 표시명 캐시(prefill 표시용)
   address: string | null;
   bedrooms: number;
   bathrooms: number;
@@ -447,6 +460,7 @@ export function villaToWizardState(villa: VillaForEdit): WizardState {
   return {
     supplierId: "", // 재제출(edit)은 공급자 컨텍스트 — 서버가 세션 강제, 미사용
     name: villa.name,
+    complexAreaId: villa.complexAreaId ?? "",
     complex: villa.complex ?? "",
     bedrooms: scalars.bedrooms,
     bathrooms: scalars.bathrooms,

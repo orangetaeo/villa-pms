@@ -13,6 +13,7 @@ import {
   buildBedroomDetails,
   type PhotoSlotState,
   type SupplierOption,
+  type ComplexAreaOption,
   type WizardState,
 } from "./wizard-types";
 import StepBasic from "./step-basic";
@@ -30,6 +31,7 @@ export default function VillaWizard({
   initialState,
   isAdmin = false,
   suppliers = [],
+  complexAreas = [],
 }: {
   /** T1.2b 재제출 — 있으면 PUT(수정), 없으면 POST(신규) */
   villaId?: string;
@@ -37,6 +39,8 @@ export default function VillaWizard({
   /** ADMIN 직접등록 모드 — 1단계에서 귀속 공급자 선택 노출 */
   isAdmin?: boolean;
   suppliers?: SupplierOption[];
+  /** 단지 마스터 목록 (active만, 서버 주입) — 1단계 드롭다운 소스 */
+  complexAreas?: ComplexAreaOption[];
 } = {}) {
   const t = useTranslations("wizard");
   const router = useRouter();
@@ -133,7 +137,8 @@ export default function VillaWizard({
           // ADMIN 직접등록 시에만 의미 — SUPPLIER는 서버가 세션으로 강제(바디 무시)
           supplierId: state.supplierId || undefined,
           name: state.name.trim(),
-          complex: state.complex || undefined,
+          // 단지 = 마스터 FK만 전송(서버가 complex 캐시 파생). 구 complex 자유 문자열 전송 제거 (ADR-0046)
+          complexAreaId: state.complexAreaId || undefined,
           // body 스칼라 — 하위호환용 파생값(서버는 bedroomDetails 전송 시 이 값들을 무시하고 재파생)
           bedrooms: state.bedrooms,
           bathrooms: state.bathrooms,
@@ -217,6 +222,7 @@ export default function VillaWizard({
           onHome={() => router.push("/my-villas")}
           isAdmin={isAdmin}
           suppliers={suppliers}
+          complexAreas={complexAreas}
         />
       )}
       {step === 2 && <StepBedding state={state} update={update} onNext={goNext} />}

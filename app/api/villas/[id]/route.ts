@@ -19,6 +19,7 @@ import { requireAuth, requireCapability } from "@/lib/api-guard";
 import { buildRatePeriodRowsFromSeasonCosts } from "@/lib/pricing";
 import { notifyOperatorsVillaPendingReview } from "@/lib/villa-notify";
 import { translateVillaCustomAmenities } from "@/lib/amenity-translate";
+import { resolveComplexAreaForVilla } from "@/lib/complex-area";
 
 const patchSchema = z.object({
   action: z.enum(["APPROVE", "REJECT", "DEACTIVATE", "REACTIVATE"]),
@@ -182,6 +183,12 @@ export async function PUT(
   }
   const data = parsed.data;
 
+  // 지역(단지) — ComplexArea 마스터 lookup(POST와 동일). 미존재/비활성 400 UNKNOWN_COMPLEX.
+  const areaResolved = await resolveComplexAreaForVilla(prisma, data.complexAreaId);
+  if (!areaResolved.ok) {
+    return NextResponse.json({ error: "UNKNOWN_COMPLEX" }, { status: 400 });
+  }
+
   // 잠자리 파생 스칼라(bedroomDetails 전송 시 body 스칼라 무시) + 풀 태그 → hasPool 보정 (POST와 동일 규칙)
   const features = data.features ?? [];
   const { bedrooms, bathrooms, maxGuests, rows: bedroomRows } = resolveBedroomScalars(data);
@@ -200,7 +207,9 @@ export async function PUT(
       where: { id, supplierId, status: "REJECTED" },
       data: {
         name: data.name,
-        complex: data.complex || null,
+        // 지역 마스터 파생(ADR-0046): complexAreaId + complex(=master.name) 동시 저장
+        complexAreaId: areaResolved.complexAreaId,
+        complex: areaResolved.complex,
         address: data.address || null,
         bedrooms,
         bathrooms,
@@ -326,6 +335,13 @@ export async function PUT(
     changes: {
       status: { old: "REJECTED", new: "PENDING_REVIEW" },
       rejectionReason: { old: "(반려됨)", new: null },
+      // 지역 마스터 연결(파생 캐시 포함) — 선택 안 함이면 미기록
+      ...(areaResolved.complexAreaId
+        ? {
+            complexAreaId: { new: areaResolved.complexAreaId },
+            complex: { new: areaResolved.complex },
+          }
+        : {}),
       // 파생 스칼라(bedroomDetails 반영값)
       bedrooms: { new: bedrooms },
       bathrooms: { new: bathrooms },

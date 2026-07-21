@@ -71,6 +71,8 @@ const NAV: NavEntry[] = [
       { key: "inspections", href: "/inspections", icon: "cleaning_services" },
       // 미니바 실재고(ADR-0019 S1). cap 미지정=전 운영자 노출
       { key: "inventory", href: "/inventory", icon: "inventory_2" },
+      // 지역(단지) 마스터(ADR-0046) — 빌라·업체 공통 단지명 단일 원천. cap 미지정=전 운영자(API도 isOperator)
+      { key: "complexAreas", href: "/settings/complex-areas", icon: "apartment" },
     ],
   },
   {

@@ -55,6 +55,8 @@ const ADMIN_CLIENT_NAMESPACES = [
   // 부가서비스 원천 공급자 관리(ADR-0023) /settings/vendors(vendors-manager) — 화이트리스트
   // 누락으로 라벨이 raw 키로 깨지던 버그 수정(2026-06-27, revenue와 동일 클래스).
   "adminVendors",
+  // 지역(단지) 마스터 CRUD /settings/complex-areas(complex-areas-manager) — ADR-0046
+  "adminComplexAreas",
   "adminGuestToken",
   "adminProposals",
   "adminInspections",
