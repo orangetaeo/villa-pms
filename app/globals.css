@@ -55,6 +55,25 @@ th,
   height: env(safe-area-inset-top);
 }
 
+/* ★설치 앱(홈화면 아이콘) 전용 전역 상태바 백드롭 — 모든 화면 최상단을 브랜드 teal로 통일.
+   black-translucent(투명 상태바) 뒤 safe-area를 항상 teal로 채운다. per-page 스트립은
+   페이지 콘텐츠 스태킹에 가려 안 보이는 경우가 있어, 아주 높은 z로 전역 보장한다.
+   (스플래시 오버레이 z=2147483000 아래라 스플래시는 그대로 위를 덮는다. pointer-events 없음.)
+   Safari(브라우저)에서는 이 규칙이 적용되지 않고 theme-color가 상단을 처리한다. */
+@media (display-mode: standalone) {
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-top);
+    background: #0d9488;
+    z-index: 2147482000;
+    pointer-events: none;
+  }
+}
+
 /* 모바일 터치 최소 타겟 (WCAG 2.5.5) */
 .touch-target {
   min-height: 56px;
