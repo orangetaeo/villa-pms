@@ -2194,6 +2194,7 @@
       "nameRequired": "빌라명을 입력해주세요.",
       "complex": "단지",
       "complexPlaceholder": "단지 선택 (선택사항)",
+      "complexEmpty": "등록된 단지가 없습니다. 운영자에게 문의해 추가해주세요.",
       "bedrooms": "침실",
       "bedroomsHint": "독립된 침실 수",
       "bathrooms": "욕실",

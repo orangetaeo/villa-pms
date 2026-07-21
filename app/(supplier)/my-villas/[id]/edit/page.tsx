@@ -28,6 +28,7 @@ export default async function EditVillaPage({
       supplierId: true,
       status: true,
       name: true,
+      complexAreaId: true,
       complex: true,
       address: true,
       bedrooms: true,
@@ -83,8 +84,26 @@ export default async function EditVillaPage({
   // 본인이지만 REJECTED가 아니면 수정 불가 → 상세로 (QA 조건 5)
   if (villa.status !== "REJECTED") redirect(`/my-villas/${id}`);
 
+  // 단지 마스터 — active만 (마법사 드롭다운 소스). ADR-0046
+  const activeAreas = await prisma.complexArea.findMany({
+    where: { active: true },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, nameKo: true },
+  });
+  // 재제출 안전장치: 이 빌라의 현재 단지가 비활성으로 빠졌으면 옵션에 보존 —
+  // 없으면 재제출 시 선택이 조용히 해제(complexAreaId="")되어 단지가 지워질 위험.
+  let complexAreas = activeAreas;
+  if (villa.complexAreaId && !activeAreas.some((a) => a.id === villa.complexAreaId)) {
+    const current = await prisma.complexArea.findUnique({
+      where: { id: villa.complexAreaId },
+      select: { id: true, name: true, nameKo: true },
+    });
+    if (current) complexAreas = [...activeAreas, current];
+  }
+
   const forEdit: VillaForEdit = {
     name: villa.name,
+    complexAreaId: villa.complexAreaId,
     complex: villa.complex,
     address: villa.address,
     bedrooms: villa.bedrooms,
@@ -137,5 +156,11 @@ export default async function EditVillaPage({
     })(),
   };
 
-  return <VillaWizard villaId={villa.id} initialState={villaToWizardState(forEdit)} />;
+  return (
+    <VillaWizard
+      villaId={villa.id}
+      initialState={villaToWizardState(forEdit)}
+      complexAreas={complexAreas}
+    />
+  );
 }

@@ -2309,6 +2309,7 @@
       "nameRequired": "Vui lòng nhập tên villa.",
       "complex": "Khu",
       "complexPlaceholder": "Chọn khu (không bắt buộc)",
+      "complexEmpty": "Chưa có khu nào. Vui lòng liên hệ quản lý để thêm khu.",
       "bedrooms": "Phòng ngủ",
       "bedroomsHint": "Tổng số phòng ngủ riêng",
       "bathrooms": "Phòng tắm",

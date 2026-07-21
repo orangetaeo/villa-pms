@@ -21,5 +21,18 @@ export default async function NewVillaPage() {
       })
     : [];
 
-  return <VillaWizard isAdmin={isOperator(role)} suppliers={suppliers} />;
+  // 단지 마스터 — active만, sortOrder→name 정렬 (GET /api/complex-areas와 동일 규칙, ADR-0046)
+  const complexAreas = await prisma.complexArea.findMany({
+    where: { active: true },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, nameKo: true },
+  });
+
+  return (
+    <VillaWizard
+      isAdmin={isOperator(role)}
+      suppliers={suppliers}
+      complexAreas={complexAreas}
+    />
+  );
 }
