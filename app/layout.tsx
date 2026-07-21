@@ -26,6 +26,23 @@ export const metadata: Metadata = {
     // ⚠ 투명 상태바는 글자색이 항상 흰색으로 고정되므로, 최상단 safe-area는 반드시 어두운/teal
     //    배경으로 채워야 한다(각 상단 바 .pt-safe + 배경). 흰 배경 위에 두면 시간·배터리가 안 보임.
     statusBarStyle: "black-translucent",
+    // iOS 설치 PWA 부팅 중 흰 런치 화면 제거 — teal 스플래시(핀 로고+워드마크)를 기기별로 매칭.
+    //   ※ iOS는 media 쿼리가 기기 해상도와 정확히 일치해야 적용하므로 portrait 전 기종을 나열.
+    //   ※ 안드로이드는 이 태그를 무시하고 manifest background_color(teal)로 런치 스플래시를 그린다.
+    //   이미지 생성: scripts/gen-apple-splash.py (public/splash/apple-splash-*.png).
+    startupImage: [
+      { url: "/splash/apple-splash-1320x2868.png", media: "screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
+      { url: "/splash/apple-splash-1206x2622.png", media: "screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
+      { url: "/splash/apple-splash-1290x2796.png", media: "screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
+      { url: "/splash/apple-splash-1179x2556.png", media: "screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
+      { url: "/splash/apple-splash-1284x2778.png", media: "screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
+      { url: "/splash/apple-splash-1170x2532.png", media: "screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
+      { url: "/splash/apple-splash-1125x2436.png", media: "screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
+      { url: "/splash/apple-splash-1242x2688.png", media: "screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" },
+      { url: "/splash/apple-splash-828x1792.png", media: "screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" },
+      { url: "/splash/apple-splash-750x1334.png", media: "screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" },
+      { url: "/splash/apple-splash-640x1136.png", media: "screen and (device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" },
+    ],
   },
 };
 
