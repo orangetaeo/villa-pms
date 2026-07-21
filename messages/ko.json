@@ -4205,6 +4205,14 @@
         "generic": "발송에 실패했습니다. 잠시 후 다시 시도하세요."
       }
     },
+    "card": {
+      "checkin": "체크인 안내",
+      "options": "부가서비스 신청",
+      "receipt": "정산 영수증",
+      "proposal": "빌라 제안",
+      "open": "열기",
+      "hint": "방문자가 아래 버튼으로 링크를 엽니다"
+    },
     "proposal": {
       "sendButton": "제안 보내기",
       "modalTitle": "제안 링크 보내기",

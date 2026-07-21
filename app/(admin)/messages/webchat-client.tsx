@@ -193,6 +193,8 @@ export function WebChatClient({
         translationFailed: false,
         status: "SENT",
         sentBy: null,
+        kind: null, // 운영자 일반 답장은 카드 아님
+        payload: null,
         createdAt: new Date().toISOString(),
       };
       setThread((prev) =>

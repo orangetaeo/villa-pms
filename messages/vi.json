@@ -4320,6 +4320,14 @@
         "generic": "Gửi thất bại. Vui lòng thử lại sau."
       }
     },
+    "card": {
+      "checkin": "Hướng dẫn nhận phòng",
+      "options": "Đặt dịch vụ bổ sung",
+      "receipt": "Bảng kê thanh toán",
+      "proposal": "Đề xuất biệt thự",
+      "open": "Mở",
+      "hint": "Khách nhấn nút bên dưới để mở liên kết"
+    },
     "proposal": {
       "sendButton": "Gửi đề xuất",
       "modalTitle": "Gửi liên kết đề xuất",
