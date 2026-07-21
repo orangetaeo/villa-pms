@@ -71,7 +71,8 @@ async function handle(req: Request) {
       if (wantReel) {
         try {
           const reel = await renderAndBuildReel(plan.slides, baseName, {
-            audio: "lounge",
+            // ★오디오 무음: 합성 라운지 패드가 공포 앰비언스처럼 들려 제거(2026-07-21). 실음원 교체 예정.
+            audio: "silent",
             middleCaptions: reelMiddleCaptions(plan.publicInfo),
           });
           kind = "REELS";
