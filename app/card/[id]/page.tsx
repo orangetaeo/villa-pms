@@ -154,7 +154,7 @@ export default async function CardPage({
               </span>
             </a>
 
-            <a className="vgc-act zalo" href={`https://zalo.me/${p.zalo}`} target="_blank" rel="noopener noreferrer">
+            <a className="vgc-act zalo" href={p.zaloUrl} target="_blank" rel="noopener noreferrer">
               <span className="ico">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.4 8.6 8.6 0 0 1-3.9-.9L3 20l1.1-4.4A8.4 8.4 0 1 1 21 11.5z" />

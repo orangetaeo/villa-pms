@@ -11,7 +11,8 @@ export interface Person {
   role: string;
   telDisp: string; // 표시용 (+84 79 949 3138)
   tel: string; // tel: 링크용 (+84799493138)
-  zalo: string; // zalo.me/<번호>
+  zalo: string; // 전화번호 (참고용)
+  zaloUrl: string; // 공식 Zalo 개인 딥링크(네임카드 QR 디코딩값 zaloapp.com/qr/p/…)
   email: string;
 }
 
@@ -24,6 +25,7 @@ export const PEOPLE: Record<CardId, Person> = {
     telDisp: "+84 79 949 3138",
     tel: "+84799493138",
     zalo: "84799493138",
+    zaloUrl: "https://zaloapp.com/qr/p/3bylrw17ttje",
     email: "biz.villago@gmail.com",
   },
   dokyung: {
@@ -34,6 +36,7 @@ export const PEOPLE: Record<CardId, Person> = {
     telDisp: "+84 33 798 0661",
     tel: "+84337980661",
     zalo: "84337980661",
+    zaloUrl: "https://zaloapp.com/qr/p/4z3rrvfiyiwa",
     email: "revolej79@gmail.com",
   },
   taejin: {
@@ -44,6 +47,7 @@ export const PEOPLE: Record<CardId, Person> = {
     telDisp: "+84 70 263 5421",
     tel: "+84702635421",
     zalo: "84702635421",
+    zaloUrl: "https://zaloapp.com/qr/p/1t7fescnevz5x",
     email: "danangtrip@kakao.com",
   },
 };
@@ -69,7 +73,7 @@ export function buildVCard(p: Person): string {
     `TEL;TYPE=CELL,VOICE:${p.tel}`,
     `EMAIL;TYPE=WORK:${p.email}`,
     "URL:https://villa-go.net",
-    `URL:https://zalo.me/${p.zalo}`,
+    `URL:${p.zaloUrl}`,
     "X-SOCIALPROFILE;TYPE=instagram:https://instagram.com/biz.villago",
     "NOTE:Villa Go — Phu Quoc Premium Pool Villas",
     "END:VCARD",
