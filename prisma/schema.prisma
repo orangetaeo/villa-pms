@@ -1676,7 +1676,9 @@ model WebChatMessage {
   status String  @default("SENT") // 전송 상태(문자열 — SENT 등)
   sentBy String? // OUTBOUND: 발신 ADMIN userId
 
-  // [defensive-mirror] T-webchat-cards additive — generate 레이스 방지 (타 세션 소관 — DB SQL은 그 세션이 적용, 여기선 schema만 미러링)
+  // 카드형 메시지(T-webchat-cards) — 링크 발송을 구조화 카드로 렌더. additive raw SQL.
+  // kind=checkin|options|receipt|proposal(null=일반 텍스트, 구 메시지 하위호환).
+  // payload=카드 표시용 JSON({url, 표시 요약}) — ★금액·bookingId·proposalId 원문 미포함(누수 표면 0).
   kind    String?
   payload Json?
 

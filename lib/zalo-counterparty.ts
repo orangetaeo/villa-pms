@@ -64,17 +64,23 @@ export function currencyForType(type: ZaloCounterpartyType): Currency {
 }
 
 /** 첨부 메뉴에 노출 가능한 공유 종류 (R2-5) — FE 가시성·서버 게이트 공용. */
-export type ShareKind = "PHOTO" | "VILLA" | "PROPOSAL" | "SETTLEMENT";
+export type ShareKind = "PHOTO" | "VILLA" | "PROPOSAL" | "SETTLEMENT" | "GUEST_LINK";
 
 /**
  * 분류별 허용 공유 종류 (R2-5):
  *  - 원가측(SUPPLIER): 사진 + 빌라 + 정산
  *  - 판매가측(CUSTOMER/TRAVEL_AGENCY/LAND_AGENCY): 사진 + 빌라 + 제안
+ *  - CUSTOMER(직접 투숙객)만 추가로 게스트 링크(체크인·부가서비스·영수증) — 투숙객 대상 안내.
+ *    여행사·랜드사는 투숙객이 아니므로 게스트 링크 미노출(1:1 CUSTOMER 대화 한정, 그룹 여부는 서버·FE가 별도 가드).
  *  - UNKNOWN: 사진만(분류 후 활성)
  *  - IGNORED(개인/기타, 업무 상대 아님): 사진만 — UNKNOWN과 동일 잠금, 단 분류 배너는 미노출(종착)
  */
 export function allowedShareKinds(type: ZaloCounterpartyType): ShareKind[] {
   if (isCostSideType(type)) return ["PHOTO", "VILLA", "SETTLEMENT"];
-  if (isSellSideType(type)) return ["PHOTO", "VILLA", "PROPOSAL"];
+  if (isSellSideType(type)) {
+    const kinds: ShareKind[] = ["PHOTO", "VILLA", "PROPOSAL"];
+    if (type === "CUSTOMER") kinds.push("GUEST_LINK");
+    return kinds;
+  }
   return ["PHOTO"]; // UNKNOWN · IGNORED
 }

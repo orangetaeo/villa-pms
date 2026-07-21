@@ -4162,6 +4162,11 @@
     },
     "blockedBadge": "차단됨",
     "hasContact": "연락처 있음",
+    "bookingBadge": {
+      "linked": "예약 연결됨",
+      "candidate": "예약 후보",
+      "candidateHint": "예약 후보 있음 — 대화를 열어 연결하세요"
+    },
     "createdAt": "시작 {date}",
     "lang": "언어",
     "untranslated": "미번역",
@@ -4209,6 +4214,14 @@
         "sessionClosed": "종료·차단된 대화에는 발송할 수 없습니다.",
         "generic": "발송에 실패했습니다. 잠시 후 다시 시도하세요."
       }
+    },
+    "card": {
+      "checkin": "체크인 안내",
+      "options": "부가서비스 신청",
+      "receipt": "정산 영수증",
+      "proposal": "빌라 제안",
+      "open": "열기",
+      "hint": "방문자가 아래 버튼으로 링크를 엽니다"
     },
     "proposal": {
       "sendButton": "제안 보내기",
@@ -4370,6 +4383,7 @@
       "villaShare": "[빌라 공유]",
       "proposalShare": "[제안서 공유]",
       "settlementShare": "[정산서 공유]",
+      "guestLinkShare": "[게스트 링크]",
       "sticker": "[스티커]",
       "voice": "[음성 메시지]",
       "call": "[통화]",
@@ -4382,7 +4396,8 @@
     "card": {
       "villaShare": "빌라 공유",
       "proposalShare": "제안서 공유",
-      "settlementShare": "정산서 공유"
+      "settlementShare": "정산서 공유",
+      "guestLinkShare": "게스트 링크"
     },
     "typeCard": {
       "sticker": "스티커",
@@ -4444,6 +4459,7 @@
       "villa": "빌라 공유",
       "proposal": "제안서 공유",
       "settlement": "정산서 공유",
+      "guestLink": "게스트 링크",
       "lockedHint": "분류 후 빌라·제안·정산 공유 가능"
     },
     "fileCard": {
@@ -4494,6 +4510,20 @@
       "bookingCount": "예약 {n}건",
       "loadingTitle": "공유 항목 불러오는 중",
       "loadingSubtitle": "잠시만 기다려 주세요"
+    },
+    "guestLinkModal": {
+      "title": "게스트 링크 보내기",
+      "subtitle": "{name} 고객에게 체크인·부가서비스·영수증 링크 발송",
+      "kindHeading": "보낼 링크",
+      "kindCheckin": "체크인",
+      "kindOptions": "부가서비스",
+      "kindReceipt": "영수증",
+      "receiptOnlyCheckedOut": "영수증은 체크아웃 완료 후 보낼 수 있습니다",
+      "searchPlaceholder": "고객명·전화·빌라 검색",
+      "loading": "예약을 불러오는 중…",
+      "empty": "예약을 찾을 수 없습니다. 검색어를 입력해 보세요.",
+      "checkedOutBadge": "체크아웃 완료",
+      "guard": "게스트 링크에는 금액 정보가 없습니다 (안내문·링크만)"
     },
     "shareCandidatesLoading": "공유 항목을 불러오는 중…",
     "inbox": {

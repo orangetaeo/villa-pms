@@ -11,6 +11,8 @@ import { SourcePageLabel } from "./webchat-source-badge";
 import { WebChatBookingBar } from "./webchat-booking-bar";
 import { WebChatQuickLinks } from "./webchat-quick-links";
 import { Linkify } from "@/components/linkify";
+import { WebChatLinkCard } from "@/components/webchat-link-card";
+import { isWebChatCardKind, parseWebChatCardPayload } from "@/lib/webchat-card";
 
 function msgTime(iso: string): string {
   const d = new Date(iso);
@@ -209,21 +211,50 @@ export function WebChatThread({
                 </div>
               </div>
             ) : (
-              <div key={m.id} className="flex justify-end">
-                <div className="max-w-[78%] rounded-2xl rounded-tr-sm bg-blue-600 px-3.5 py-2.5">
-                  <p className="text-sm text-white whitespace-pre-wrap break-words">
-                    <Linkify text={m.text} linkClassName="text-blue-100 underline underline-offset-2 break-all" />
-                  </p>
-                  {m.translationFailed && (
-                    <p className="mt-1.5 text-[10px] font-bold text-amber-200 bg-amber-500/20 rounded px-1.5 py-0.5 inline-block">
-                      {t("translationFailedBadge")}
-                    </p>
-                  )}
-                  <p className="mt-1 text-[10px] text-blue-200/80 text-right tabular-nums">
-                    {msgTime(m.createdAt)}
-                  </p>
-                </div>
-              </div>
+              (() => {
+                // OUTBOUND: kind 있으면 카드, 없으면 기존 텍스트(구 메시지·일반 답장 하위호환).
+                const card = isWebChatCardKind(m.kind)
+                  ? parseWebChatCardPayload(m.payload)
+                  : null;
+                if (card && isWebChatCardKind(m.kind)) {
+                  return (
+                    <div key={m.id} className="flex justify-end">
+                      <div className="max-w-[78%] flex flex-col items-end">
+                        <WebChatLinkCard
+                          title={t(`card.${m.kind}`)}
+                          subtitle={t("card.hint")}
+                          openLabel={t("card.open")}
+                          url={card.url}
+                          className="w-full rounded-2xl rounded-tr-sm border border-blue-500/40 bg-blue-950/50 px-3.5 py-3 flex flex-col gap-1.5"
+                          titleClassName="text-sm font-bold text-white"
+                          subtitleClassName="text-[11px] text-blue-200/80"
+                          buttonClassName="mt-0.5 inline-flex items-center gap-1 self-start rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white no-underline hover:bg-blue-500"
+                        />
+                        <p className="mt-1 text-[10px] text-blue-200/80 tabular-nums">
+                          {msgTime(m.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={m.id} className="flex justify-end">
+                    <div className="max-w-[78%] rounded-2xl rounded-tr-sm bg-blue-600 px-3.5 py-2.5">
+                      <p className="text-sm text-white whitespace-pre-wrap break-words">
+                        <Linkify text={m.text} linkClassName="text-blue-100 underline underline-offset-2 break-all" />
+                      </p>
+                      {m.translationFailed && (
+                        <p className="mt-1.5 text-[10px] font-bold text-amber-200 bg-amber-500/20 rounded px-1.5 py-0.5 inline-block">
+                          {t("translationFailedBadge")}
+                        </p>
+                      )}
+                      <p className="mt-1 text-[10px] text-blue-200/80 text-right tabular-nums">
+                        {msgTime(m.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()
             )
           )
         )}

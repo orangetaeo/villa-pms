@@ -38,6 +38,7 @@ import {
   VillaShareModal,
   ProposalShareModal,
   SettlementShareModal,
+  GuestLinkShareModal,
   ShareLoadingModal,
   NicknameModal,
 } from "./share-modals";
@@ -102,7 +103,7 @@ export interface MentionData {
 export interface ChatMessage {
   id: string;
   kind: "inbound" | "outbound" | "system";
-  msgType: string; // text | photo | villa_share | proposal_share | settlement_share
+  msgType: string; // text | photo | villa_share | proposal_share | settlement_share | guest_link_share
   text: string;
   translatedText: string | null;
   // 사진 캡션 번역(ko) — 사진 메시지의 translatedText는 이미지 OCR 전용이라 분리(사진 외 타입은 null).
@@ -1467,6 +1468,8 @@ function replyPreviewText(message: ChatMessage, t: ReturnType<typeof useTranslat
       return t("preview.proposalShare");
     case "settlement_share":
       return t("preview.settlementShare");
+    case "guest_link_share":
+      return t("preview.guestLinkShare");
     case "sticker":
       return t("preview.sticker");
     case "voice":
@@ -1793,6 +1796,20 @@ function OutboundBubble({
         headerBg="bg-amber-500/10 border-amber-500/30"
         iconColor="text-amber-400"
         titleColor="text-amber-300"
+      />
+    );
+  } else if (message.msgType === "guest_link_share") {
+    maxW = "max-w-[78%]";
+    card = (
+      <ShareTextCard
+        kind="guest_link"
+        label={t("card.guestLinkShare")}
+        text={message.text}
+        icon="key"
+        border="border-emerald-500/40"
+        headerBg="bg-emerald-500/10 border-emerald-500/30"
+        iconColor="text-emerald-400"
+        titleColor="text-emerald-300"
       />
     );
   } else {
@@ -2560,7 +2577,7 @@ function ShareTextCard({
   iconColor,
   titleColor,
 }: {
-  kind: "villa" | "proposal" | "settlement";
+  kind: "villa" | "proposal" | "settlement" | "guest_link";
   label: string;
   text: string;
   icon: string;
@@ -3381,6 +3398,7 @@ function Composer({
           <AttachMenu
             conversationId={conversationId}
             counterpartyType={counterpartyType}
+            isGroup={isGroup}
             contactName={contactName}
             onError={setError}
             t={t}
@@ -3509,6 +3527,7 @@ const FILE_ERROR_KEYS = new Set([
 function AttachMenu({
   conversationId,
   counterpartyType,
+  isGroup,
   contactName,
   onError,
   t,
@@ -3516,13 +3535,15 @@ function AttachMenu({
 }: {
   conversationId: string;
   counterpartyType: CounterpartyType;
+  // 그룹(단톡방) 여부 — 게스트 링크는 1:1 CUSTOMER만(그룹 미노출). 서버도 GROUP 403으로 이중 가드.
+  isGroup: boolean;
   contactName: string;
   onError: (msg: string | null) => void;
   t: ReturnType<typeof useTranslations>;
   router: ReturnType<typeof useRouter>;
 }) {
   const [open, setOpen] = useState(false);
-  const [modal, setModal] = useState<null | "VILLA" | "PROPOSAL" | "SETTLEMENT">(null);
+  const [modal, setModal] = useState<null | "VILLA" | "PROPOSAL" | "SETTLEMENT" | "GUEST_LINK">(null);
   const [submitting, setSubmitting] = useState(false);
   const refresh = useMutationRefresh(router); // perf #2: 공유/업로드 후 스레드 즉시 재fetch 또는 router.refresh
   const galleryRef = useRef<HTMLInputElement>(null);
@@ -3579,12 +3600,20 @@ function AttachMenu({
     void loadCandidates();
   }
 
+  // 게스트 링크 모달 — 예약 후보는 모달이 자체 검색 조회(candidates 캐시 미사용).
+  function openGuestLink() {
+    setOpen(false);
+    setModal("GUEST_LINK");
+  }
+
   // 가시성 (D2/R2-5) — 하드코딩 분기 대신 allowedShareKinds 헬퍼로 도출(분류 확장에 자동 대응).
   //  원가측(SUPPLIER)=사진+빌라+정산 / 판매가측(고객·여행사·랜드사)=사진+빌라+제안 / UNKNOWN=사진만
   const kinds = allowedShareKinds(counterpartyType);
   const canVilla = kinds.includes("VILLA");
   const canProposal = kinds.includes("PROPOSAL");
   const canSettlement = kinds.includes("SETTLEMENT");
+  // 게스트 링크는 CUSTOMER(allowedShareKinds가 부여) + 1:1(그룹 제외)만. 서버도 GROUP 403으로 이중 가드.
+  const canGuestLink = kinds.includes("GUEST_LINK") && !isGroup;
   const locked = counterpartyType === "UNKNOWN";
   const typeLabel = t(COUNTERPARTY_LABEL_KEY[counterpartyType]);
 
@@ -3752,7 +3781,7 @@ function AttachMenu({
               {t("attach.file")}
             </button>
 
-            {(canVilla || canProposal || canSettlement || locked) && (
+            {(canVilla || canProposal || canSettlement || canGuestLink || locked) && (
               <div className="my-1 border-t border-slate-700/70" />
             )}
 
@@ -3790,6 +3819,16 @@ function AttachMenu({
                 {t("attach.settlement")}
               </button>
             )}
+            {canGuestLink && (
+              <button
+                type="button"
+                onClick={openGuestLink}
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-200 hover:bg-slate-700/60"
+              >
+                <span className="material-symbols-outlined text-[20px] text-emerald-400">key</span>
+                {t("attach.guestLink")}
+              </button>
+            )}
             {locked && (
               <div className="flex items-center gap-2 px-3 py-2.5 text-[11px] text-amber-300 bg-amber-500/5">
                 <span className="material-symbols-outlined text-[16px] text-amber-400">lock</span>
@@ -3800,8 +3839,9 @@ function AttachMenu({
         </>
       )}
 
-      {/* 공유 선택 모달 — 후보 지연 조회(perf). 도착 전(cands===null)엔 로딩 셸 표시. */}
-      {modal !== null && cands === null && (
+      {/* 공유 선택 모달 — 후보 지연 조회(perf). 도착 전(cands===null)엔 로딩 셸 표시.
+          게스트 링크는 candidates 캐시를 쓰지 않고 모달이 자체 검색하므로 로딩 셸 제외. */}
+      {modal !== null && modal !== "GUEST_LINK" && cands === null && (
         <ShareLoadingModal onClose={() => setModal(null)} t={t} />
       )}
       {modal === "VILLA" && canVilla && cands !== null && (
@@ -3831,6 +3871,18 @@ function AttachMenu({
           contactName={contactName}
           onClose={() => setModal(null)}
           onSubmit={(settlementId) => void shareJson({ type: "SETTLEMENT", settlementId })}
+          submitting={submitting}
+          t={t}
+        />
+      )}
+      {modal === "GUEST_LINK" && canGuestLink && (
+        <GuestLinkShareModal
+          conversationId={conversationId}
+          contactName={contactName}
+          onClose={() => setModal(null)}
+          onSubmit={(kind, bookingId) =>
+            void shareJson({ type: "GUEST_LINK", kind, bookingId })
+          }
           submitting={submitting}
           t={t}
         />

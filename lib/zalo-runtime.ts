@@ -765,7 +765,10 @@ async function handleInboundEvent(inst: ZaloBotInstance, message: Message): Prom
         zaloMsgId,
         globalMsgId,
         createdAt: parseZaloTs(data.ts) ?? new Date(),
-        displayName,
+        // ★ 셀프에코의 data.dName = 발신자(=나/봇 소유자)의 이름이다. 이걸 상대 대화명으로 심으면
+        //   "내가 먼저 연 대화"가 전부 내 이름(예: "테오")으로 생성된다(실관측). 상대 대화명은
+        //   상대 수신 메시지의 dName 또는 maybeRefreshAvatar의 getUserInfo 프로필명이 채운다 → 여기선 null.
+        displayName: null,
         cliMsgId,
         quote,
         // ADR-0010 S4 — 그룹 echo도 threadType·senderUid(내 발신)로 미러.
@@ -1500,6 +1503,45 @@ export async function fetchAvatarUrl(
 }
 
 /**
+ * 상대(비친구 포함) 프로필 조회 — 표시명 + 아바타 (zca-js getUserInfo).
+ * 친구 추가 없이도 상대가 공개한 displayName/zaloName·아바타를 받는다(상대 프라이버시 설정 시 빈 값).
+ * getUserInfo 응답: { changed_profiles/unchanged_profiles: { [uid]: User{ displayName, zaloName, avatar } } }.
+ * displayName 우선, 없으면 zaloName. 실패/미존재/빈 값이면 name·avatar 각각 null.
+ * 누수 0(공개 프로필만). credential·전화번호 미저장.
+ */
+export async function fetchUserProfile(
+  adminUserId: string,
+  zaloUserId: string
+): Promise<{ name: string | null; avatar: string | null } | null> {
+  try {
+    const api = await getApiForAdmin(adminUserId);
+    if (!api) return null;
+    const res = await api.getUserInfo(zaloUserId);
+    const profile =
+      res?.changed_profiles?.[zaloUserId] ?? res?.unchanged_profiles?.[zaloUserId];
+    if (!profile || typeof profile !== "object") return null;
+    const p = profile as { displayName?: unknown; zaloName?: unknown; avatar?: unknown };
+    const displayName =
+      typeof p.displayName === "string" && p.displayName.trim().length > 0
+        ? p.displayName.trim()
+        : null;
+    const zaloName =
+      typeof p.zaloName === "string" && p.zaloName.trim().length > 0
+        ? p.zaloName.trim()
+        : null;
+    const avatar = typeof p.avatar === "string" && p.avatar.length > 0 ? p.avatar : null;
+    return { name: displayName ?? zaloName, avatar };
+  } catch (err) {
+    // 프로필 공개 정보만 — 상태/메시지만(개인정보 에코 금지)
+    console.error(
+      "[ZaloPool] 프로필 조회 실패:",
+      err instanceof Error ? err.message : String(err)
+    );
+    return null;
+  }
+}
+
+/**
  * 그룹 아바타 URL 조회 (ADR-0010) — best-effort.
  * 개인 프로필 API(getAvatarUrlProfile)는 그룹 id에 항상 빈 응답이므로 그룹은 이 경로로 조회한다.
  * zca-js getGroupInfo(groupId) → gridInfoMap[groupId].{ fullAvt(대형), avt }. fullAvt 우선, 없으면 avt.
@@ -1541,26 +1583,53 @@ async function maybeRefreshAvatar(
       where: {
         ownerAdminId_zaloUserId: { ownerAdminId: inst.ownerAdminId, zaloUserId },
       },
-      select: { id: true, threadType: true, avatarUrl: true, avatarFetchedAt: true },
+      select: {
+        id: true,
+        threadType: true,
+        avatarUrl: true,
+        avatarFetchedAt: true,
+        displayName: true,
+      },
     });
     if (!conv) return;
     const fresh =
       conv.avatarUrl &&
       conv.avatarFetchedAt &&
       Date.now() - conv.avatarFetchedAt.getTime() < AVATAR_TTL_MS;
-    if (fresh) return; // 캐시 유효 — 조회 스킵
+    if (fresh) return; // 캐시 유효 — 조회 스킵(이름 보정도 이 갱신 주기에 함께 태운다)
 
-    // GROUP은 개인 프로필 API로는 항상 실패 → getGroupInfo 아바타로 조회(USER는 기존 그대로).
-    const url =
-      conv.threadType === "GROUP"
-        ? await fetchGroupAvatarUrl(inst.ownerAdminId, zaloUserId)
-        : await fetchAvatarUrl(inst.ownerAdminId, zaloUserId);
-    // 실패해도 fetchedAt은 갱신해 잦은 재시도를 막는다(URL은 성공 시에만 교체).
+    // USER 1:1 대화명 보정 필요 여부 — 비어있거나 "봇 소유자 자기 이름"일 때.
+    //   내가 먼저 연 대화는 과거 OUTBOUND 셀프에코가 내 이름(inst.displayName)을 대화명으로 잘못 심었다.
+    //   실제 상대 프로필명으로 교정한다. 운영자가 수동 지정한 다른 nickname은 건드리지 않는다
+    //   (= 비었거나 정확히 내 이름일 때만 대상).
+    const nameNeedsFix =
+      conv.threadType !== "GROUP" &&
+      (!conv.displayName ||
+        (inst.displayName != null && conv.displayName === inst.displayName));
+
+    // GROUP은 개인 프로필 API로는 항상 실패 → getGroupInfo 아바타로 조회.
+    // USER: 이름 보정이 필요하면 getUserInfo로 아바타+표시명 함께 조회(호출 1회), 아니면 아바타 전용 경로.
+    let url: string | null = null;
+    let profileName: string | null = null;
+    if (conv.threadType === "GROUP") {
+      url = await fetchGroupAvatarUrl(inst.ownerAdminId, zaloUserId);
+    } else if (nameNeedsFix) {
+      const profile = await fetchUserProfile(inst.ownerAdminId, zaloUserId);
+      url = profile?.avatar ?? null;
+      profileName = profile?.name ?? null;
+    } else {
+      url = await fetchAvatarUrl(inst.ownerAdminId, zaloUserId);
+    }
+    // 실패해도 fetchedAt은 갱신해 잦은 재시도를 막는다(URL·이름은 얻었을 때만 교체).
+    //   이름은 실제 상대 프로필명이고 여전히 내 이름이 아닐 때만 반영(자기 이름 재기입 방지).
     await prisma.zaloConversation.update({
       where: { id: conv.id },
       data: {
         avatarFetchedAt: new Date(),
         ...(url ? { avatarUrl: url } : {}),
+        ...(profileName && profileName !== inst.displayName
+          ? { displayName: profileName }
+          : {}),
       },
     });
   } catch (err) {
@@ -1692,23 +1761,40 @@ async function backfillAvatars(inst: ZaloBotInstance): Promise<void> {
       where: { ownerAdminId, avatarUrl: null },
       orderBy: { lastMessageAt: "desc" },
       take: AVATAR_BACKFILL_BATCH,
-      select: { id: true, zaloUserId: true, threadType: true },
+      select: { id: true, zaloUserId: true, threadType: true, displayName: true },
     });
     if (targets.length === 0) return;
 
     for (const conv of targets) {
       try {
-        // GROUP은 그룹 아바타 경로, USER는 개인 프로필 경로.
-        const url =
-          conv.threadType === "GROUP"
-            ? await fetchGroupAvatarUrl(ownerAdminId, conv.zaloUserId)
-            : await fetchAvatarUrl(ownerAdminId, conv.zaloUserId);
-        // 실패(비친구·조회 실패)여도 fetchedAt만 갱신해 재시도를 억제(URL은 성공 시에만 교체).
+        // USER 대화명 보정 필요 여부 — 비었거나 "봇 소유자 자기 이름"(과거 셀프에코가 잘못 심음)일 때.
+        //   내가 먼저 열고 상대가 답하지 않은 대화는 avatarUrl·정상 대화명이 영영 안 채워지므로 여기서 함께 교정.
+        const nameNeedsFix =
+          conv.threadType !== "GROUP" &&
+          (!conv.displayName ||
+            (inst.displayName != null && conv.displayName === inst.displayName));
+
+        // GROUP은 그룹 아바타 경로. USER는 이름 보정이 필요하면 getUserInfo(아바타+표시명), 아니면 아바타 전용.
+        let url: string | null = null;
+        let profileName: string | null = null;
+        if (conv.threadType === "GROUP") {
+          url = await fetchGroupAvatarUrl(ownerAdminId, conv.zaloUserId);
+        } else if (nameNeedsFix) {
+          const profile = await fetchUserProfile(ownerAdminId, conv.zaloUserId);
+          url = profile?.avatar ?? null;
+          profileName = profile?.name ?? null;
+        } else {
+          url = await fetchAvatarUrl(ownerAdminId, conv.zaloUserId);
+        }
+        // 실패(비친구·조회 실패)여도 fetchedAt만 갱신해 재시도를 억제(URL·이름은 얻었을 때만 교체).
         await prisma.zaloConversation.update({
           where: { id: conv.id },
           data: {
             avatarFetchedAt: new Date(),
             ...(url ? { avatarUrl: url } : {}),
+            ...(profileName && profileName !== inst.displayName
+              ? { displayName: profileName }
+              : {}),
           },
         });
       } catch (err) {

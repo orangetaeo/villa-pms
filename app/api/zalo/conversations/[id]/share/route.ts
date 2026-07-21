@@ -24,7 +24,9 @@ import {
   ZaloMessageSource,
   ZaloMessageStatus,
   ZaloThreadType,
+  type ZaloTranslateMode,
 } from "@prisma/client";
+import { ensureGuestLinkToken } from "@/lib/guest-link-token";
 import { prisma } from "@/lib/prisma";
 import { writeAuditLog } from "@/lib/audit-log";
 import {
@@ -50,6 +52,8 @@ import {
   buildVillaShareTextForCustomer,
   buildProposalShareText,
   buildSettlementShareText,
+  buildGuestLinkShareText,
+  type GuestLinkKind,
   type VillaShareBase,
 } from "@/lib/zalo-share";
 import koMessages from "@/messages/ko.json";
@@ -68,6 +72,12 @@ const jsonShareSchema = z.discriminatedUnion("type", [
     settlementId: z.string().min(1).optional(),
     yearMonth: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional(),
   }),
+  // (C) 게스트 링크 — CUSTOMER(투숙객) 1:1 대화 전용. 예약의 /g 링크(체크인·부가서비스·영수증) 발송.
+  z.object({
+    type: z.literal("GUEST_LINK"),
+    kind: z.enum(["checkin", "options", "receipt"]),
+    bookingId: z.string().min(1),
+  }),
 ]);
 
 interface ConversationCtx {
@@ -77,6 +87,8 @@ interface ConversationCtx {
   counterpartyType: ZaloCounterpartyType;
   // ADR-0010 S4 — 그룹 대화면 zaloUserId 슬롯에 그룹 id 저장. 발송 시 ThreadType.Group 필요.
   threadType: ZaloThreadType;
+  // (C) 게스트 링크 안내문 언어 파생용(OFF→ko, VI→vi, EN→en).
+  translateMode: ZaloTranslateMode;
 }
 
 /**
@@ -163,7 +175,14 @@ export async function POST(
   // 소유 검증 — 본인(ownerAdminId) 대화만 (ADR-0007 D3.4). 타인/미존재는 404.
   const conversation = await prisma.zaloConversation.findFirst({
     where: { id: conversationId, ownerAdminId: adminUserId },
-    select: { id: true, zaloUserId: true, userId: true, counterpartyType: true, threadType: true },
+    select: {
+      id: true,
+      zaloUserId: true,
+      userId: true,
+      counterpartyType: true,
+      threadType: true,
+      translateMode: true,
+    },
   });
   if (!conversation) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -210,6 +229,10 @@ export async function POST(
       return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
     }
     return handleVilla(conversation, adminUserId, body.villaId);
+  }
+  if (body.type === "GUEST_LINK") {
+    // 게스트 링크는 금액 없음(무금액 게이트) — canViewFinance 불필요(STAFF 허용, 웹챗 send-link와 동일).
+    return handleGuestLink(conversation, adminUserId, body.kind, body.bookingId, req);
   }
   if (!canViewFinance(session.user.role)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
@@ -629,6 +652,81 @@ async function handleSettlement(
   return persistShare(conv.id, adminUserId, "settlement_share", text, [], send, {
     type: "settlement",
     id: settlement.id,
+  });
+}
+
+// ===================== GUEST_LINK 게스트 링크 (CUSTOMER 전용) =====================
+
+/** kind → /g 경로 suffix (send-link 라우트와 동일 규칙). */
+function guestKindPathSuffix(kind: GuestLinkKind): string {
+  return kind === "options" ? "/options" : kind === "receipt" ? "/receipt" : "";
+}
+
+/** CUSTOMER 대화 번역모드 → 안내문 언어(OFF→ko 한국 직접고객 기본, VI→vi, EN→en). 5언어 밖은 빌더가 en 폴백. */
+function localeForCustomer(mode: ZaloTranslateMode): string {
+  return mode === "VI" ? "vi" : mode === "EN" ? "en" : "ko";
+}
+
+/**
+ * 게스트 링크 공유 — 투숙객(CUSTOMER) 1:1 대화에서만. /g 체크인·부가서비스·영수증 링크 발송.
+ *  게이트(호출부 진입 전 재확인): counterpartyType=CUSTOMER + 1:1(GROUP 아님). 아니면 403.
+ *  예약 존재·영수증 게이트(체크아웃 완료) 검증 — 금액 필드는 조회하지 않는다(누수 불가·안내문뿐).
+ *  토큰: 활성 재사용/없으면 발급(ensureGuestLinkToken — 기전달 QR·링크 불파괴). 실패=FAILED(200 영속).
+ */
+async function handleGuestLink(
+  conv: ConversationCtx,
+  adminUserId: string,
+  kind: GuestLinkKind,
+  bookingId: string,
+  req: Request
+): Promise<NextResponse> {
+  // ★게이트 — 투숙객(CUSTOMER)만. 공급자·여행사·랜드사·UNKNOWN·IGNORED 거부(게스트 링크는 투숙객 대상).
+  if (conv.counterpartyType !== ZaloCounterpartyType.CUSTOMER) {
+    return NextResponse.json({ error: "COUNTERPARTY_NOT_ALLOWED" }, { status: 403 });
+  }
+  // ★그룹 대화 차단 — 1:1 CUSTOMER만(투숙객 개인 안내). 그룹엔 게스트 링크 미노출.
+  if (conv.threadType === ZaloThreadType.GROUP) {
+    return NextResponse.json({ error: "GROUP_NOT_ALLOWED" }, { status: 403 });
+  }
+
+  // 예약 로드 — 토큰 만료(checkOut) + 영수증 게이트(status·checkOutRecord)용. 금액 미조회.
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: {
+      id: true,
+      status: true,
+      checkOutRecord: { select: { id: true } },
+    },
+  });
+  if (!booking) {
+    return NextResponse.json({ error: "BOOKING_NOT_FOUND" }, { status: 404 });
+  }
+
+  // 영수증은 체크아웃 완료 예약만(웹챗 send-link와 동일 가드: CHECKED_OUT && CheckOutRecord 존재).
+  if (kind === "receipt") {
+    const checkedOut = booking.status === "CHECKED_OUT" && booking.checkOutRecord != null;
+    if (!checkedOut) {
+      return NextResponse.json({ error: "not_checked_out" }, { status: 400 });
+    }
+  }
+
+  // 토큰 확보(활성 재사용/발급) — 채널 독립 lib. URL: base + /g/<token>(+ /options | /receipt).
+  const { token } = await ensureGuestLinkToken(booking.id);
+  const baseUrl = resolveBaseUrl(req).replace(/\/$/, "");
+  const url = `${baseUrl}/g/${token}${guestKindPathSuffix(kind)}`;
+
+  // 안내문 — 대화 상대 언어 사전 번역(Gemini 미경유).
+  const text = buildGuestLinkShareText(kind, localeForCustomer(conv.translateMode), url);
+  const send = await sendChatMessageAsAdmin(
+    adminUserId,
+    conv.zaloUserId,
+    text,
+    sendThreadTypeOf(conv)
+  );
+  // sharedEntity에 kind 포함 → persistShare가 AuditLog에 "GUEST_LINK:<kind>:<bookingId>" 기록.
+  return persistShare(conv.id, adminUserId, "guest_link_share", text, [], send, {
+    type: `GUEST_LINK:${kind}`,
+    id: booking.id,
   });
 }
 

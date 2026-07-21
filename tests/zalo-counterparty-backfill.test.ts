@@ -78,10 +78,12 @@ describe("allowedShareKinds — 분류별 첨부 메뉴 가시성 (R2-5)", () =>
     expect(allowedShareKinds("SUPPLIER")).toEqual(["PHOTO", "VILLA", "SETTLEMENT"]);
   });
   it("판매가측(CUSTOMER/TRAVEL_AGENCY/LAND_AGENCY) → 사진+빌라+제안", () => {
-    const sell = ["PHOTO", "VILLA", "PROPOSAL"];
-    expect(allowedShareKinds("CUSTOMER")).toEqual(sell);
-    expect(allowedShareKinds("TRAVEL_AGENCY")).toEqual(sell);
-    expect(allowedShareKinds("LAND_AGENCY")).toEqual(sell);
+    // CUSTOMER(직접 고객=투숙객)만 게스트 링크(체크인/옵션/영수증) 추가 허용 (PR #347).
+    // 여행사·랜드사는 투숙객 대상이 아니라 GUEST_LINK 미포함.
+    expect(allowedShareKinds("CUSTOMER")).toEqual(["PHOTO", "VILLA", "PROPOSAL", "GUEST_LINK"]);
+    const agency = ["PHOTO", "VILLA", "PROPOSAL"];
+    expect(allowedShareKinds("TRAVEL_AGENCY")).toEqual(agency);
+    expect(allowedShareKinds("LAND_AGENCY")).toEqual(agency);
   });
   it("UNKNOWN → 사진만", () => {
     expect(allowedShareKinds("UNKNOWN")).toEqual(["PHOTO"]);

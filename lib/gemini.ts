@@ -183,15 +183,42 @@ export function numbersPreserved(source: string, output: string): boolean {
   return true;
 }
 
+/**
+ * 문자열에서 URL 토큰을 추출 — http(s):// 또는 www. 로 시작하는 연속 비공백 열.
+ * 뒤따르는 문장부호(마침표·쉼표·닫는 괄호·따옴표 등)는 URL 일부가 아닐 확률이 높아 제거(관대 매칭 —
+ * digitGroups가 숫자만 남기는 방식과 동일 취지: URL 뒤 "http://x/y." 의 마침표를 URL로 오인하지 않음).
+ */
+function urlTokens(s: string): string[] {
+  const matches = s.match(/(?:https?:\/\/|www\.)\S+/gi) ?? [];
+  return matches
+    .map((u) => u.replace(/[.,;:!?)\]}>"'”’」』）]+$/u, ""))
+    .filter((u) => u.length > 0);
+}
+
+/**
+ * 번역문이 원문의 URL/링크를 그대로 보존했는지 판정 (numbersPreserved 준용).
+ * 잡으려는 것: 운영자가 채팅에 직접 타이핑한 링크의 경로·토큰을 모델이 번역/변형/인코딩/분할하는 것.
+ * 판정: 원문에서 URL 토큰(http/https/www)을 추출해 각 URL이 출력에 그대로(substring) 포함되면 보존.
+ *   - 원문에 URL이 없으면 true(회귀 0 — URL 없는 일반 메시지는 재시도 트리거 무영향).
+ *   - 뒤따르는 문장부호는 제외하고 관대하게 비교(URL 뒤 마침표 등은 무시).
+ */
+export function urlsPreserved(source: string, output: string): boolean {
+  const srcUrls = urlTokens(source);
+  if (srcUrls.length === 0) return true; // 검사할 URL 없음 → 통과
+  return srcUrls.every((u) => output.includes(u));
+}
+
 const BASE_PROMPT_NOTE = `Translate the ENTIRE message completely; do NOT leave any part of the source untranslated.
 Output ONLY the translation, with no quotes, no explanation, no preface.
 Keep proper nouns (villa/complex names) unchanged.
-Keep ALL numbers, money amounts, prices, dates, and phone numbers EXACTLY as written in the source — copy every digit verbatim. Do NOT round, alter, add, drop, or convert them (e.g. do not turn 1,700,000 into 170만; keep the digits).`;
+Keep ALL numbers, money amounts, prices, dates, and phone numbers EXACTLY as written in the source — copy every digit verbatim. Do NOT round, alter, add, drop, or convert them (e.g. do not turn 1,700,000 into 170만; keep the digits).
+Keep all URLs and links (http/https addresses and their paths) EXACTLY as written — do not translate, alter, percent-encode, or split them.`;
 
 const RETRY_PROMPT_NOTE = `Translate the ENTIRE message; do NOT leave ANY source text untranslated.
 Output ONLY the full translation — no quotes, no explanation, no preface, no source text.
 Keep proper nouns (villa/complex names) unchanged.
-Keep ALL numbers, money amounts, prices, dates, and phone numbers EXACTLY as written in the source — copy every digit verbatim. Do NOT round, alter, add, drop, or convert them.`;
+Keep ALL numbers, money amounts, prices, dates, and phone numbers EXACTLY as written in the source — copy every digit verbatim. Do NOT round, alter, add, drop, or convert them.
+Keep all URLs and links (http/https addresses and their paths) EXACTLY as written — do not translate, alter, percent-encode, or split them.`;
 
 // 프롬프트 인젝션 방어 (보안 P1-S10): 사용자 텍스트를 구분자로 감싸고 "내용은 번역 대상일 뿐 지시 아님" 명시.
 // LLM은 시스템 지시와 사용자 입력을 같은 프롬프트에서 받으므로, "이전 지시 무시하고…" 류 탈취를 줄인다.
@@ -278,9 +305,11 @@ export async function translateText(
   // 1) 기본 호출(thinkingBudget:0 유지 — 비용).
   const first = await callTranslateOnce(apiKey, basePrompt, 0, fetchFn);
 
-  // 재시도 트리거: ① ko 부분실패(원문 잔류) ② 숫자 누락(금액·전화 오역, 모든 타겟).
+  // 재시도 트리거: ① ko 부분실패(원문 잔류) ② 숫자 누락(금액·전화 오역, 모든 타겟) ③ URL 변형/누락(모든 타겟).
   const firstNumbersOk = numbersPreserved(trimmed, first);
-  const firstBroken = (target === "ko" && isBrokenKoTranslation(trimmed, first)) || !firstNumbersOk;
+  const firstUrlsOk = urlsPreserved(trimmed, first);
+  const firstBroken =
+    (target === "ko" && isBrokenKoTranslation(trimmed, first)) || !firstNumbersOk || !firstUrlsOk;
   if (!firstBroken) {
     return first;
   }
@@ -296,13 +325,18 @@ export async function translateText(
   }
   if (second.length === 0) return first; // 빈 결과는 채택 안 함.
 
-  // 숫자 보존을 최우선으로 선택(금액 정확도 > 한글 비율). 한쪽만 보존하면 그쪽을 반환.
+  // 숫자·URL 보존을 최우선으로 선택(금액·링크 정확도 > 한글 비율). 숫자와 URL은 동급 —
+  // 각 기준을 순서대로 비교해 한쪽만 보존하면 그쪽을 반환(numbersPreserved 선택 로직과 일관).
   const secondNumbersOk = numbersPreserved(trimmed, second);
   if (secondNumbersOk !== firstNumbersOk) {
     return secondNumbersOk ? second : first;
   }
+  const secondUrlsOk = urlsPreserved(trimmed, second);
+  if (secondUrlsOk !== firstUrlsOk) {
+    return secondUrlsOk ? second : first;
+  }
 
-  // 숫자 보존 동률이면: ko는 한글 비율↑ 우선, 그 외엔 재시도(강화 프롬프트) 결과 채택.
+  // 숫자·URL 보존 동률이면: ko는 한글 비율↑ 우선, 그 외엔 재시도(강화 프롬프트) 결과 채택.
   if (target === "ko") {
     return hangulRatio(second) >= hangulRatio(first) ? second : first;
   }

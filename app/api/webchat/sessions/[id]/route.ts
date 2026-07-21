@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
 import { requireCapability, notFoundIfMissing } from "@/lib/api-guard";
+import { isWebChatCardKind, parseWebChatCardPayload } from "@/lib/webchat-card";
 
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   // 첫 줄 role 검사 — 운영자 전체(OWNER/MANAGER/STAFF/ADMIN). 웹챗은 구조적 무금액이라 STAFF 개방 안전.
@@ -51,6 +52,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
           translationFailed: true,
           status: true,
           sentBy: true,
+          // 카드 렌더용(링크 발송 메시지) — payload는 url·표시값만.
+          kind: true,
+          payload: true,
           createdAt: true,
         },
       },
@@ -92,18 +96,24 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
             status: s.booking.status,
           }
         : null,
-      messages: s.messages.map((m) => ({
-        id: m.id,
-        direction: m.direction,
-        text: m.text,
-        sourceLocale: m.sourceLocale,
-        translatedText: m.translatedText,
-        translatedTo: m.translatedTo,
-        translationFailed: m.translationFailed,
-        status: m.status,
-        sentBy: m.sentBy,
-        createdAt: m.createdAt.toISOString(),
-      })),
+      messages: s.messages.map((m) => {
+        const card = isWebChatCardKind(m.kind) ? parseWebChatCardPayload(m.payload) : null;
+        return {
+          id: m.id,
+          direction: m.direction,
+          text: m.text,
+          sourceLocale: m.sourceLocale,
+          translatedText: m.translatedText,
+          translatedTo: m.translatedTo,
+          translationFailed: m.translationFailed,
+          status: m.status,
+          sentBy: m.sentBy,
+          // 카드가 유효할 때만 노출(구 메시지·일반 대화=null → 텍스트 렌더).
+          kind: card ? m.kind : null,
+          payload: card,
+          createdAt: m.createdAt.toISOString(),
+        };
+      }),
     },
   });
 }

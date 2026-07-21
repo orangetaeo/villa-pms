@@ -8,6 +8,7 @@ interface FakeApi {
   getOwnId: () => string;
   sendMessage: ReturnType<typeof vi.fn>;
   getAvatarUrlProfile: ReturnType<typeof vi.fn>;
+  getUserInfo: ReturnType<typeof vi.fn>;
   getGroupInfo: ReturnType<typeof vi.fn>;
   listener: {
     on: ReturnType<typeof vi.fn>;
@@ -23,6 +24,14 @@ function makeApi(ownId: string): FakeApi {
     sendMessage: vi.fn(async () => ({ message: { msgId: `srv-${ownId}` } })),
     getAvatarUrlProfile: vi.fn(async (zid: string) => ({
       [zid]: { avatar: `https://cdn/avatar-${zid}.jpg` },
+    })),
+    // 비친구 포함 프로필 조회 — changed_profiles[uid].{displayName, zaloName, avatar}. 이름 보정 경로.
+    getUserInfo: vi.fn(async (zid: string) => ({
+      changed_profiles: {
+        [zid]: { displayName: `Name ${zid}`, zaloName: "", avatar: `https://cdn/avatar-${zid}.jpg` },
+      },
+      unchanged_profiles: {},
+      phonebook_version: 1,
     })),
     // 그룹 아바타 조회 — gridInfoMap[groupId].{fullAvt(대형), avt}. 그룹 백필/lazy 갱신 경로.
     getGroupInfo: vi.fn(async (gid: string) => ({
@@ -88,7 +97,12 @@ vi.mock("@/lib/audit-log", () => ({ writeAuditLog: vi.fn(async () => {}) }));
 // 소유자별 백필 대상(avatarUrl null) 대화를 반환. owner 스코프·update 호출을 검증.
 type FindManyArg = { where: { ownerAdminId: string; avatarUrl: null } };
 type UpdateArg = { where: { id: string }; data: Record<string, unknown> };
-type BackfillTarget = { id: string; zaloUserId: string; threadType?: "USER" | "GROUP" };
+type BackfillTarget = {
+  id: string;
+  zaloUserId: string;
+  threadType?: "USER" | "GROUP";
+  displayName?: string | null;
+};
 const backfillTargetsByOwner: Record<string, BackfillTarget[]> = {};
 const mockConvFindMany = vi.fn<(arg: FindManyArg) => Promise<BackfillTarget[]>>(
   async (arg) => backfillTargetsByOwner[arg.where.ownerAdminId] ?? []
@@ -257,23 +271,55 @@ describe("아바타 백필 트리거 (봇 연결 직후)", () => {
     }
   });
 
-  it("대상 대화는 getAvatarUrlProfile 조회 후 avatarUrl로 update", async () => {
-    backfillTargetsByOwner["theo"] = [{ id: "conv-1", zaloUserId: "zu-1" }];
+  it("대화명이 정상이면 getAvatarUrlProfile 조회 후 avatarUrl만 update(이름 미변경)", async () => {
+    // displayName이 실제 상대 이름(비었지도 봇 소유자명도 아님) → 아바타 전용 경로.
+    backfillTargetsByOwner["theo"] = [{ id: "conv-1", zaloUserId: "zu-1", displayName: "홍길동" }];
     mockLoadAll.mockResolvedValue([systemCred]);
     await connectAllActive();
     await flushBackfill();
 
-    // 시스템봇 API로 아바타 조회됨
+    // 시스템봇 API로 아바타 조회됨(이름 보정 불필요 → getUserInfo 미사용)
     expect(apisByImei.get("imei-sys")!.getAvatarUrlProfile).toHaveBeenCalledWith("zu-1");
-    // 성공 시 avatarUrl + avatarFetchedAt 갱신
+    expect(apisByImei.get("imei-sys")!.getUserInfo).not.toHaveBeenCalled();
+    // 성공 시 avatarUrl + avatarFetchedAt 갱신, displayName은 건드리지 않음.
     const upd = mockConvUpdate.mock.calls.find((c) => c[0].where.id === "conv-1");
     expect(upd).toBeTruthy();
     expect(upd![0].data.avatarUrl).toBe("https://cdn/avatar-zu-1.jpg");
     expect(upd![0].data.avatarFetchedAt).toBeInstanceOf(Date);
+    expect(upd![0].data.displayName).toBeUndefined();
+  });
+
+  it("대화명이 비었으면 getUserInfo로 상대 표시명+아바타 함께 보정", async () => {
+    // 내가 먼저 연 대화(displayName null) → getUserInfo 경로로 실제 상대명·아바타 채움.
+    backfillTargetsByOwner["theo"] = [{ id: "conv-2", zaloUserId: "zu-2", displayName: null }];
+    mockLoadAll.mockResolvedValue([systemCred]);
+    await connectAllActive();
+    await flushBackfill();
+
+    expect(apisByImei.get("imei-sys")!.getUserInfo).toHaveBeenCalledWith("zu-2");
+    const upd = mockConvUpdate.mock.calls.find((c) => c[0].where.id === "conv-2");
+    expect(upd).toBeTruthy();
+    expect(upd![0].data.displayName).toBe("Name zu-2"); // 프로필 표시명으로 교정
+    expect(upd![0].data.avatarUrl).toBe("https://cdn/avatar-zu-2.jpg");
+    expect(upd![0].data.avatarFetchedAt).toBeInstanceOf(Date);
+  });
+
+  it("대화명이 봇 소유자 자기 이름(셀프에코 오심)이면 getUserInfo로 상대명으로 교정", async () => {
+    // 과거 OUTBOUND 셀프에코가 봇 소유자명("Theo")을 대화명으로 잘못 심은 케이스.
+    backfillTargetsByOwner["theo"] = [{ id: "conv-3", zaloUserId: "zu-3", displayName: "Theo" }];
+    mockLoadAll.mockResolvedValue([systemCred]);
+    await connectAllActive();
+    await flushBackfill();
+
+    expect(apisByImei.get("imei-sys")!.getUserInfo).toHaveBeenCalledWith("zu-3");
+    const upd = mockConvUpdate.mock.calls.find((c) => c[0].where.id === "conv-3");
+    expect(upd).toBeTruthy();
+    expect(upd![0].data.displayName).toBe("Name zu-3");
   });
 
   it("비친구·조회 실패(null)여도 avatarFetchedAt만 갱신해 재시도 억제", async () => {
-    backfillTargetsByOwner["theo"] = [{ id: "conv-x", zaloUserId: "zu-x" }];
+    // 이름은 정상(아바타 전용 경로) — 아바타 조회만 실패하는 케이스로 검증.
+    backfillTargetsByOwner["theo"] = [{ id: "conv-x", zaloUserId: "zu-x", displayName: "김철수" }];
     mockLoadAll.mockResolvedValue([systemCred]);
     // 비친구 → 빈 응답(avatar 없음)
     apisByImei.get("imei-sys")!.getAvatarUrlProfile.mockResolvedValue({});
