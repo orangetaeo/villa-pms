@@ -7,7 +7,10 @@ import SplashIntro from "@/components/splash-intro";
 // T-splash-intro — 페인트 전 동기 게이트: sessionStorage(세션당 1회)·reduced-motion·
 // 제외경로(/p·/g) 판정 후 html[data-splash]를 세팅한다(스플래시 표시는 CSS가 결정).
 // 어떤 예외든 조용히 스킵(스플래시 미표시 폴백). ※ 향후 CSP enforce 시 nonce 필요.
-const SPLASH_GATE = `(function(){try{if(sessionStorage.getItem('vg-splash'))return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var p=location.pathname;if(p.indexOf('/p/')===0||p.indexOf('/g/')===0||p.indexOf('/webchat')===0||p==='/chat'||p.indexOf('/chat/')===0||p==='/privacy'||p.indexOf('/privacy/')===0)return;document.documentElement.setAttribute('data-splash','1');}catch(e){}})();`;
+// ※ data-splash 세팅과 동시에 <html>에 인라인 티얼 배경을 칠한다 — 외부 globals.css가
+//    적용되기 전(HTML 스트리밍 첫 페인트)에 흰 <body>가 잠깐 보이던 깜빡임 제거.
+//    배경 해제는 스플래시 종료 시점(splash-intro.tsx finish)에서 style 초기화로 처리한다.
+const SPLASH_GATE = `(function(){try{if(sessionStorage.getItem('vg-splash'))return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var p=location.pathname;if(p.indexOf('/p/')===0||p.indexOf('/g/')===0||p.indexOf('/webchat')===0||p==='/chat'||p.indexOf('/chat/')===0||p==='/privacy'||p.indexOf('/privacy/')===0)return;var d=document.documentElement;d.setAttribute('data-splash','1');d.style.backgroundColor='#12857a';}catch(e){}})();`;
 
 export const metadata: Metadata = {
   title: "Villa Go",
@@ -18,7 +21,11 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "Villa Go",
-    statusBarStyle: "default",
+    // black-translucent — 상태바를 투명하게 만들어 화면(스플래시 teal·운영자 다크·공급자 상단
+    // teal 스트립)이 상태바 뒤까지 채우게 한다. "default"(흰 상태바)의 이질감 제거.
+    // ⚠ 투명 상태바는 글자색이 항상 흰색으로 고정되므로, 최상단 safe-area는 반드시 어두운/teal
+    //    배경으로 채워야 한다(각 상단 바 .pt-safe + 배경). 흰 배경 위에 두면 시간·배터리가 안 보임.
+    statusBarStyle: "black-translucent",
   },
 };
 

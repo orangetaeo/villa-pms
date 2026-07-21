@@ -44,6 +44,17 @@ th,
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* iOS 안전영역 상단 패딩 — statusBarStyle black-translucent(투명 상태바)에서 콘텐츠가
+   상태바 뒤로 흐르므로, 최상단 고정/스티키 바는 이만큼 콘텐츠를 내려야 상태바에 가리지 않는다.
+   해당 바의 배경(어두운/teal)이 safe-area 영역까지 채워져 흰 상태바 글자의 가독성을 확보한다. */
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+/* 상태바 영역만큼의 높이 — 최상단에 배치하는 배경 스트립용 */
+.h-safe-top {
+  height: env(safe-area-inset-top);
+}
+
 /* 모바일 터치 최소 타겟 (WCAG 2.5.5) */
 .touch-target {
   min-height: 56px;

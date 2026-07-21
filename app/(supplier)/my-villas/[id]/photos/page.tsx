@@ -54,19 +54,25 @@ export default async function ManagePhotosPage({
 
   return (
     <div className="mx-auto w-full max-w-[420px]">
-      {/* TopAppBar — 뒤로가기(상세) + 제목 */}
-      <header className="sticky top-0 z-40 flex h-14 w-full items-center bg-white px-2 shadow-sm">
-        <Link
-          href={`/my-villas/${villa.id}`}
-          aria-label={t("back")}
-          className="flex h-10 w-10 items-center justify-center rounded-full transition-transform hover:bg-neutral-50 active:scale-95"
-        >
-          <span className="material-symbols-outlined text-teal-600">arrow_back</span>
-        </Link>
-        <h1 className="flex-1 truncate px-1 text-center text-lg font-semibold text-teal-600">
-          {t("title")}
-        </h1>
-        <div className="h-10 w-10" />
+      {/* TopAppBar — 뒤로가기(상세) + 제목. 투명 상태바 아래 흰 헤더 → pt-safe + teal 스트립 */}
+      <header className="sticky top-0 z-40 w-full bg-white pt-safe shadow-sm">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-safe-top bg-teal-600"
+        />
+        <div className="flex h-14 w-full items-center px-2">
+          <Link
+            href={`/my-villas/${villa.id}`}
+            aria-label={t("back")}
+            className="flex h-10 w-10 items-center justify-center rounded-full transition-transform hover:bg-neutral-50 active:scale-95"
+          >
+            <span className="material-symbols-outlined text-teal-600">arrow_back</span>
+          </Link>
+          <h1 className="flex-1 truncate px-1 text-center text-lg font-semibold text-teal-600">
+            {t("title")}
+          </h1>
+          <div className="h-10 w-10" />
+        </div>
       </header>
 
       <PhotoManager

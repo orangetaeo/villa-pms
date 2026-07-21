@@ -89,7 +89,12 @@ export default async function SupplierCheckoutPage({
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      <header className="sticky top-0 z-30 w-full border-b border-neutral-100 bg-white shadow-sm">
+      {/* App bar — 투명 상태바 아래 흰 헤더 → pt-safe + teal 스트립 */}
+      <header className="sticky top-0 z-30 w-full border-b border-neutral-100 bg-white pt-safe shadow-sm">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-safe-top bg-teal-600"
+        />
         <div className="flex h-16 items-center gap-3 px-3">
           <Link
             href="/my-bookings"

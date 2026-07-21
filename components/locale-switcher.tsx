@@ -61,7 +61,7 @@ export function LocaleSwitcher({
       className={
         inline
           ? "flex items-center gap-0.5 rounded-full border border-neutral-200 bg-white/90 p-0.5 shadow-sm"
-          : "fixed right-3 top-3 z-[60] flex items-center gap-0.5 rounded-full border border-neutral-200 bg-white/90 p-0.5 shadow-sm backdrop-blur"
+          : "fixed right-3 top-[calc(0.75rem+env(safe-area-inset-top))] z-[60] flex items-center gap-0.5 rounded-full border border-neutral-200 bg-white/90 p-0.5 shadow-sm backdrop-blur"
       }
       role="group"
       aria-label="Language / Ngôn ngữ / 언어"

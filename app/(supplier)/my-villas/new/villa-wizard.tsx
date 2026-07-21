@@ -199,19 +199,27 @@ export default function VillaWizard({
   return (
     <div className="flex min-h-screen flex-col bg-neutral-50">
       {/* TopAppBar — 전 단계 공통 (a2): 헤더 "Đăng ký villa" + "Bước N/5" */}
-      <header className="sticky top-0 z-50 flex h-16 w-full items-center justify-between border-b border-neutral-100 bg-white px-4 shadow-sm">
-        <button
-          type="button"
-          onClick={goBack}
-          className="flex h-10 w-10 items-center justify-center rounded-full transition-opacity hover:bg-neutral-50 active:opacity-80"
-          aria-label={t("back")}
-        >
-          <span className="material-symbols-outlined text-neutral-900">arrow_back</span>
-        </button>
-        <h1 className="font-headline text-lg font-semibold text-neutral-900">{t("header")}</h1>
-        <span className="text-sm font-bold text-teal-600">
-          {t("step", { n: step, total: TOTAL_STEPS })}
-        </span>
+      {/* 투명 상태바(black-translucent) 아래 흰 헤더 — pt-safe로 콘텐츠를 내리고 상단 safe-area를
+          teal로 채워 흰 상태바 글자(시간·배터리) 가독성 확보. 고정 높이(h-16) 콘텐츠는 내부 래퍼 유지. */}
+      <header className="sticky top-0 z-50 w-full border-b border-neutral-100 bg-white pt-safe shadow-sm">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-safe-top bg-teal-600"
+        />
+        <div className="flex h-16 w-full items-center justify-between px-4">
+          <button
+            type="button"
+            onClick={goBack}
+            className="flex h-10 w-10 items-center justify-center rounded-full transition-opacity hover:bg-neutral-50 active:opacity-80"
+            aria-label={t("back")}
+          >
+            <span className="material-symbols-outlined text-neutral-900">arrow_back</span>
+          </button>
+          <h1 className="font-headline text-lg font-semibold text-neutral-900">{t("header")}</h1>
+          <span className="text-sm font-bold text-teal-600">
+            {t("step", { n: step, total: TOTAL_STEPS })}
+          </span>
+        </div>
       </header>
 
       {step === 1 && (

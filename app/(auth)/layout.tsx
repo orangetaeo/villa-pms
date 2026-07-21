@@ -7,6 +7,12 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   const locale = await getSupplierLocale(null);
   return (
     <div className="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
+      {/* iOS 투명 상태바(black-translucent) 아래 라이트 배경이 오면 흰 상태바 글자가 안 보인다.
+          최상단 safe-area만 브랜드 teal로 채워 가독성 확보(데스크톱·안드로이드 safe=0이면 0높이). */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-x-0 top-0 z-[55] h-safe-top bg-teal-600"
+      />
       {/* 우측 상단 언어 전환 — 비로그인 화면이라 DB 영속(persist) 없이 쿠키만 */}
       <LocaleSwitcher current={locale} />
       {children}

@@ -71,6 +71,8 @@ export default function SplashIntro({ tagline }: { tagline: string }) {
       if (doneRef.current) return;
       doneRef.current = true;
       html.removeAttribute("data-splash");
+      // 게이트가 깜빡임 방지용으로 칠한 인라인 티얼 배경 해제 — 이후 각 화면 배경이 진실.
+      html.style.backgroundColor = "";
       // 완료/스킵 "시점"에 기록 — 세션당 1회.
       try {
         sessionStorage.setItem("vg-splash", "1");

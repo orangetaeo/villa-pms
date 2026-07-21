@@ -154,22 +154,30 @@ export function CleaningSubmit({
 
   return (
     <>
-      {/* TopAppBar (a4) */}
-      <nav className="fixed top-0 z-50 flex h-14 w-full items-center gap-3 border-b border-neutral-100 bg-white px-4 shadow-sm">
-        <Link
-          href="/cleaning"
-          aria-label={labels.back}
-          className="-ml-2 flex h-12 w-12 items-center justify-center rounded-full text-teal-600 transition-transform active:scale-95"
-        >
-          <span className="material-symbols-outlined">arrow_back</span>
-        </Link>
-        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold text-neutral-900">
-          {labels.title}
-        </h1>
-        {/* 코치마크 "?" — 이 화면은 공용 헤더가 숨으므로 자체 앱바 우측에 배치 */}
-        {helpSlot}
+      {/* TopAppBar (a4) — 투명 상태바 아래 흰 앱바(fixed) → pt-safe + teal 스트립 */}
+      <nav className="fixed top-0 z-50 w-full border-b border-neutral-100 bg-white pt-safe shadow-sm">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-safe-top bg-teal-600"
+        />
+        <div className="flex h-14 w-full items-center gap-3 px-4">
+          <Link
+            href="/cleaning"
+            aria-label={labels.back}
+            className="-ml-2 flex h-12 w-12 items-center justify-center rounded-full text-teal-600 transition-transform active:scale-95"
+          >
+            <span className="material-symbols-outlined">arrow_back</span>
+          </Link>
+          <h1 className="min-w-0 flex-1 truncate text-lg font-semibold text-neutral-900">
+            {labels.title}
+          </h1>
+          {/* 코치마크 "?" — 이 화면은 공용 헤더가 숨으므로 자체 앱바 우측에 배치 */}
+          {helpSlot}
+        </div>
       </nav>
 
+      {/* fixed 앱바 높이(safe+h-14) 오프셋 — mt-14는 h-14만 상쇄하므로 safe-area 스페이서 추가 */}
+      <div aria-hidden="true" className="h-safe-top" />
       {/* 헤더 — 제목·빌라명·진행 카운터 (a4) */}
       <header className="mt-14 border-b border-neutral-100 bg-white px-4 py-6">
         <div className="mb-4 flex flex-col gap-1">

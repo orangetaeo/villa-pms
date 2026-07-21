@@ -224,18 +224,26 @@ export default async function CleaningTaskPage({
 
   return (
     <>
-      {/* TopAppBar (a4) */}
-      <nav className="fixed top-0 z-50 flex h-14 w-full items-center gap-3 border-b border-neutral-100 bg-white px-4 shadow-sm">
-        <Link
-          href="/cleaning"
-          aria-label={t("back")}
-          className="-ml-2 flex h-12 w-12 items-center justify-center rounded-full text-teal-600 transition-transform active:scale-95"
-        >
-          <span className="material-symbols-outlined">arrow_back</span>
-        </Link>
-        <h1 className="text-lg font-semibold text-neutral-900">{t("submitTitle")}</h1>
+      {/* TopAppBar (a4) — 투명 상태바 아래 흰 앱바(fixed) → pt-safe + teal 스트립 */}
+      <nav className="fixed top-0 z-50 w-full border-b border-neutral-100 bg-white pt-safe shadow-sm">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-safe-top bg-teal-600"
+        />
+        <div className="flex h-14 w-full items-center gap-3 px-4">
+          <Link
+            href="/cleaning"
+            aria-label={t("back")}
+            className="-ml-2 flex h-12 w-12 items-center justify-center rounded-full text-teal-600 transition-transform active:scale-95"
+          >
+            <span className="material-symbols-outlined">arrow_back</span>
+          </Link>
+          <h1 className="text-lg font-semibold text-neutral-900">{t("submitTitle")}</h1>
+        </div>
       </nav>
 
+      {/* fixed 앱바 높이(safe+h-14) 오프셋 — mt-14는 h-14만 상쇄하므로 safe-area 스페이서 추가 */}
+      <div aria-hidden="true" className="h-safe-top" />
       <header className="mt-14 border-b border-neutral-100 bg-white px-4 py-6">
         <div className="flex flex-col gap-1">
           <h2 className="text-2xl font-bold text-neutral-900">{t("submittedPhotos")}</h2>
