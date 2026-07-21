@@ -2,7 +2,7 @@
 // 공개 페이지: 인증 불필요(미들웨어 보호목록 외 → 자동 통과). 회사 공통 정보 + 개인 연락처.
 // 인쇄 명함(design/namecard/)과 동일한 정보 원천이므로 값 변경 시 양쪽을 함께 갱신할 것.
 
-export type CardId = "theo" | "dokyung" | "taejin";
+export type CardId = "taeo" | "dokyung" | "taejin";
 
 export interface Person {
   id: CardId;
@@ -16,8 +16,8 @@ export interface Person {
 }
 
 export const PEOPLE: Record<CardId, Person> = {
-  theo: {
-    id: "theo",
+  taeo: {
+    id: "taeo",
     nameEn: "KIM HAKTAE",
     nameKo: "김학태 · Taeo",
     role: "Founder & CEO",
@@ -48,7 +48,7 @@ export const PEOPLE: Record<CardId, Person> = {
   },
 };
 
-export const CARD_IDS: CardId[] = ["theo", "dokyung", "taejin"];
+export const CARD_IDS: CardId[] = ["taeo", "dokyung", "taejin"];
 
 export function getPerson(id: string): Person | null {
   return (PEOPLE as Record<string, Person>)[id] ?? null;

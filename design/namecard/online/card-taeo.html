@@ -109,7 +109,7 @@
     var blob = new Blob([VCARD.replace(/\\n/g,'\r\n')], {type:'text/vcard;charset=utf-8'});
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
-    a.href = url; a.download = 'theo-villago.vcf';
+    a.href = url; a.download = 'taeo-villago.vcf';
     document.body.appendChild(a); a.click();
     setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 400);
   });
