@@ -20,6 +20,7 @@ import { buildRatePeriodRowsFromSeasonCosts, representativeRatesBySeason } from 
 import { romanizeVillaName } from "@/lib/gemini";
 import { notifyOperatorsVillaPendingReview } from "@/lib/villa-notify";
 import { translateVillaCustomAmenities } from "@/lib/amenity-translate";
+import { resolveComplexAreaForVilla } from "@/lib/complex-area";
 
 export async function POST(req: Request) {
   // 권한 검사 — SUPPLIER(자기 빌라) + ADMIN(테오 직접등록) 허용 (P1-S8: 중앙 가드 + 복합 역할조건 유지)
@@ -66,6 +67,13 @@ export async function POST(req: Request) {
     supplierId = supplier.id;
   }
 
+  // 지역(단지) — ComplexArea 마스터 lookup. 미존재/비활성 id면 400 UNKNOWN_COMPLEX.
+  //   complex(캐시)는 서버가 master.name으로만 파생 저장(자유 문자열 수신 폐지, ADR-0046).
+  const areaResolved = await resolveComplexAreaForVilla(prisma, data.complexAreaId);
+  if (!areaResolved.ok) {
+    return NextResponse.json({ error: "UNKNOWN_COMPLEX" }, { status: 400 });
+  }
+
   // 잠자리 구성 → 파생 스칼라(bedroomDetails 전송 시 body 스칼라 무시). features 풀 태그 → hasPool 보정.
   const features = data.features ?? [];
   const { bedrooms, bathrooms, maxGuests, rows: bedroomRows } = resolveBedroomScalars(data);
@@ -76,7 +84,9 @@ export async function POST(req: Request) {
       data: {
         supplierId,
         name: data.name,
-        complex: data.complex || null,
+        // 지역 마스터 파생(ADR-0046): complexAreaId + complex(=master.name) 동시 저장
+        complexAreaId: areaResolved.complexAreaId,
+        complex: areaResolved.complex,
         address: data.address || null,
         bedrooms,
         bathrooms,
@@ -203,6 +213,13 @@ export async function POST(req: Request) {
       // ADMIN 직접등록 시 actor(ADMIN)와 귀속 공급자가 다름 — 귀속 대상 기록
       supplierId: { new: supplierId },
       name: { new: data.name },
+      // 지역 마스터 연결(파생 캐시 포함) — 선택 안 함이면 미기록
+      ...(areaResolved.complexAreaId
+        ? {
+            complexAreaId: { new: areaResolved.complexAreaId },
+            complex: { new: areaResolved.complex },
+          }
+        : {}),
       ...(autoNameVi ? { nameVi: { new: autoNameVi } } : {}),
       // 파생 스칼라(bedroomDetails 반영값) 기록
       bedrooms: { new: bedrooms },

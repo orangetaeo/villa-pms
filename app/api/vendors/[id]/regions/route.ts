@@ -9,6 +9,7 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator } from "@/lib/permissions";
 import { requireCapability } from "@/lib/api-guard";
 import { REGIONAL_VENDOR_TYPES } from "@/lib/regional-vendor";
+import { activeComplexNameSet } from "@/lib/complex-area";
 
 const bodySchema = z.object({
   coverage: z.array(
@@ -40,6 +41,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       if (region) set.add(region);
     }
     byType.set(entry.serviceType, set);
+  }
+
+  // 지역 봉인(ADR-0046) — region은 활성 ComplexArea.name 집합에 속해야 한다.
+  //   마스터 밖 자유 문자열이 하나라도 있으면 400 UNKNOWN_REGION(표기 분열 재유입 차단).
+  const validRegions = await activeComplexNameSet(prisma);
+  for (const set of byType.values()) {
+    for (const region of set) {
+      if (!validRegions.has(region)) {
+        return NextResponse.json({ error: "UNKNOWN_REGION", region }, { status: 400 });
+      }
+    }
   }
 
   // 대상 벤더 존재 검증(404) — 미존재 벤더 커버리지 배정 차단.

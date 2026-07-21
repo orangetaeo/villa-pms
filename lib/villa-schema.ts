@@ -48,7 +48,10 @@ export const villaCreateSchema = z.object({
   supplierId: z.string().trim().min(1).max(40).optional(),
   // 기본 정보 (1/5)
   name: z.string().trim().min(1).max(100),
-  complex: z.string().trim().max(100).optional(),
+  // 지역(단지) — 자유 문자열 입력 폐지(ADR-0046). ComplexArea 마스터의 id만 수신.
+  //   서버가 active 마스터 lookup 후 Villa.complex(캐시)=master.name 파생 저장.
+  //   미전송/null = "선택 안 함"(complexAreaId·complex 둘 다 null). 구 complex 키는 zod strip.
+  complexAreaId: z.string().trim().min(1).max(40).nullable().optional(),
   bedrooms: z.number().int().min(1).max(20),
   bathrooms: z.number().int().min(1).max(20),
   maxGuests: z.number().int().min(1).max(50),
