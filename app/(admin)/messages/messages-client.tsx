@@ -305,7 +305,7 @@ export function MessagesClient({
     // 모바일: 헤더(3.5rem)+하단 네비(4rem) 제외한 높이 / 데스크톱: 풀높이(하단 네비 없음)
     // 키보드 열림(모바일): 인라인 height로 visual viewport에 맞춤 — 입력창이 항상 키보드 위에 보임
     <div
-      className="-m-4 md:-m-8 h-[calc(100dvh-7.5rem-env(safe-area-inset-top))] lg:h-screen flex"
+      className="-m-4 md:-m-8 h-[calc(100dvh-7.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] lg:h-screen flex"
       style={kbHeight != null ? { height: `${kbHeight}px` } : undefined}
     >
       {/* 다른 상대의 신규 채팅 토스트 — 클릭 시 onSelect로 클라이언트 전환(서버 왕복 없음) */}
