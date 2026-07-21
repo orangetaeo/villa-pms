@@ -6251,6 +6251,15 @@
       "WEEKLY": "Hàng tuần",
       "PER_ORDER": "Theo từng đơn"
     },
+    "partyA": {
+      "heading": "Thông tin cố định của bên A (bên ký hợp đồng)",
+      "description": "Giá trị này sẽ tự động điền làm thông tin bên A khi tạo hợp đồng mới. Chỉ sửa khi bên ký hợp đồng thay đổi (ví dụ đăng ký kinh doanh mới).",
+      "save": "Lưu",
+      "saving": "Đang lưu…",
+      "saved": "Đã lưu.",
+      "invalid": "Vui lòng kiểm tra thông tin nhập.",
+      "error": "Lưu không thành công."
+    },
     "list": {
       "heading": "Danh sách hợp đồng",
       "counterpart": "Đối tác",

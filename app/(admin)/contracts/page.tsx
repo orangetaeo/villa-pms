@@ -8,6 +8,7 @@ import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import { readContractPartyADefaults } from "@/lib/business-contract";
 import ContractCreateForm, { type ContractCandidate } from "./contract-create-form";
+import PartyASettingsForm from "./party-a-settings-form";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminContracts");
@@ -81,6 +82,8 @@ export default async function AdminContractsPage() {
         <h1 className="text-2xl font-bold text-white">{t("title")}</h1>
         <p className="mt-1 text-sm text-admin-muted">{t("subtitle")}</p>
       </header>
+
+      <PartyASettingsForm defaults={partyADefaults} />
 
       <ContractCreateForm candidates={candidates} defaults={partyADefaults} />
 
