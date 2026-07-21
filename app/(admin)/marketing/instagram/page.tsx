@@ -9,7 +9,7 @@ import { getTranslations } from "next-intl/server";
 import { IgPostStatus } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { isOperator, isSystemAdmin } from "@/lib/permissions";
+import { isSystemAdmin } from "@/lib/permissions";
 import InstagramSettingsPanel from "./instagram-settings";
 import InstagramQueue from "./instagram-queue";
 import InstagramInsights from "./instagram-insights";
@@ -47,9 +47,9 @@ export default async function InstagramMarketingPage({
 }: {
   searchParams: Promise<{ status?: string; page?: string }>;
 }) {
-  // 페이지 게이트(레이아웃 isOperator 위 2차 방어) — 비운영자는 /login 바운스.
+  // 페이지 게이트 — 마케팅은 운영자(테오) 전용(isSystemAdmin=OWNER). MANAGER/STAFF는 /login 바운스.
   const session = await auth();
-  if (!session?.user?.id || !isOperator(session.user.role)) {
+  if (!session?.user?.id || !isSystemAdmin(session.user.role)) {
     redirect("/login");
   }
   const canEditSettings = isSystemAdmin(session.user.role);

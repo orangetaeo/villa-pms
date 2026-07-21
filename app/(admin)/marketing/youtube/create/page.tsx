@@ -6,7 +6,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
-import { isOperator } from "@/lib/permissions";
+import { isSystemAdmin } from "@/lib/permissions";
 import CreateShortWizard from "./create-short-wizard";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -17,8 +17,9 @@ export async function generateMetadata(): Promise<Metadata> {
 export const dynamic = "force-dynamic";
 
 export default async function CreateShortPage() {
+  // 마케팅 전용 게이트 — 운영자(테오) 전용(isSystemAdmin=OWNER). MANAGER/STAFF는 /login 바운스.
   const session = await auth();
-  if (!session?.user?.id || !isOperator(session.user.role)) {
+  if (!session?.user?.id || !isSystemAdmin(session.user.role)) {
     redirect("/login");
   }
   return <CreateShortWizard />;

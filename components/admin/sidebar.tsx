@@ -111,13 +111,13 @@ const NAV: NavEntry[] = [
     ],
   },
   {
-    // 마케팅 도메인(인스타그램 콘텐츠 큐) — 콘텐츠에 마진·판매가 없어 전 운영자 노출.
-    // 설정(토큰) 변경만 API에서 isSystemAdmin 게이트. Phase 2에 DM 인박스 추가 예정.
+    // 마케팅 도메인(인스타그램·유튜브 콘텐츠 큐) — 운영자(테오) 전용(isSystemAdmin=OWNER).
+    // 계정 연결·발행 전략은 운영자 소관이라 MANAGER/STAFF에게 메뉴부터 숨김(페이지 게이트도 동일).
     group: "marketing",
     icon: "campaign",
     items: [
-      { key: "instagram", href: "/marketing/instagram", icon: "photo_camera" },
-      { key: "youtube", href: "/marketing/youtube", icon: "smart_display" },
+      { key: "instagram", href: "/marketing/instagram", icon: "photo_camera", cap: isSystemAdmin },
+      { key: "youtube", href: "/marketing/youtube", icon: "smart_display", cap: isSystemAdmin },
     ],
   },
   { key: "messages", href: "/messages", icon: "chat" },
