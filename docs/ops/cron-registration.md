@@ -23,7 +23,7 @@
 | `cron-instagram-draft` | `/api/cron/instagram-draft` | `20 21 * * *` | 매일 04:20 | 인스타 초안 일 3건 생성(SELLABLE·사진4장↑ 빌라 로테이션, 승인 큐 적재 — 발행 아님). GraphQL 등록(2026-07-16) |
 | `cron-instagram-publish` | `/api/cron/instagram-publish` | `35 22,3,11 * * *` | KST 07:35·12:35·20:35 | **인스타 실발행**(QUEUED=승인분 → Graph API 게시, 슬롯 07:30/12:30/20:00 KST). 킬스위치 `IG_AUTOPOST_PAUSED`(현재 0=발행). ✅2026-07-21 **Railway GraphQL API로 등록·배포 완료**(serviceId 40829f31, RUN_CMD+`sh -c 'eval "$RUN_CMD"'` 패턴). 실발행 1건 검증(permalink 확정) |
 | `cron-instagram-insights` | `/api/cron/instagram-insights` | `0 22 * * *` | 매일 05:00 | 인스타 인사이트 수집(30일 내 매일+구포스트 주1회, PUBLISHED 0건=no-op). GraphQL 등록(2026-07-16) |
-| `cron-youtube-edit-jobs` | `/api/cron/youtube-edit-jobs` | `*/15 * * * *` | 15분 간격 | 유튜브 편집 잡 안전망(PENDING 잔류 처리·PROCESSING 10분 고아 회수, 잡 0건=no-op). GraphQL 등록(2026-07-16) |
+| `cron-youtube-edit-jobs` | `/api/cron/youtube-edit-jobs` | `*/5 * * * *` | **5분 간격** | ★유튜브 편집 잡 **주 실행 경로**(안전망 아님 — run 라우트는 큐잉만 함). 1회 1건 렌더(2.5~8분)·PROCESSING 25분 고아 회수·잡 0건=no-op. 주기 15→5분 상향(villa-clip-narration-p2, 2026-07-22) |
 | `cron-youtube-publish` | `/api/cron/youtube-publish` | `35 3,10 * * *` | KST 12:35·19:35 | 유튜브 쇼츠 발행(QUEUED→업로드, 킬스위치 YT_AUTOPOST_PAUSED 기본 정지·감사 전 unlisted). GraphQL 등록(2026-07-16) |
 | `cron-instagram-token-refresh` | `/api/cron/instagram-token-refresh` | `40 20 * * *` | 매일 03:40 | IG 장기토큰 자동 갱신(멱등 — 주 1회만 실제 갱신, 실패 시 IG_TOKEN_REFRESH_FAILED 인앱 경보). GraphQL API로 등록(2026-07-16, db-backup 선례) |
 | `cron-db-backup` | `/api/cron/db-backup` | `0 20 * * *` | 매일 03:00 | DB 스냅샷 R2 백업(메시지 없음) — 프라이빗 버킷 gzip, daily 14·monthly 12 보존. 런북 `docs/ops/db-backup.md`. ⚠ curl 타임아웃 `-m 300`(스냅샷 여유) |

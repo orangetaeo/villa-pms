@@ -202,7 +202,8 @@ export default function YoutubeShortCard({
     }
   };
 
-  // 편집 잡 재실행(직접 촬영 UPLOADED, editJobStatus=FAILED) — run retry(동기, 수분).
+  // 편집 잡 재실행(직접 촬영 UPLOADED, editJobStatus=FAILED) — **대기열 등록만**(202).
+  //   실제 렌더는 cron이 수행한다(2.5~8분). 동기 실행은 브라우저 타임아웃 때문에 폐지됐다.
   const rerunEdit = async () => {
     if (busy) return;
     setBusy("rerun");
@@ -212,7 +213,7 @@ export default function YoutubeShortCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ retry: true }),
       });
-      await handle(res, t("editJob.DONE"));
+      await handle(res, t("editJob.queued"));
     } catch {
       notify(t("toast.error"), "err");
     } finally {

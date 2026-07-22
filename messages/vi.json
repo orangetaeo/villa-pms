@@ -654,8 +654,9 @@
       "FAILED": "Dựng lỗi",
       "DONE": "Đã dựng",
       "rerun": "Dựng lại",
-      "rerunning": "Đang dựng...",
-      "errorLabel": "Lý do dựng lỗi"
+      "rerunning": "Đang thêm...",
+      "errorLabel": "Lý do dựng lỗi",
+      "queued": "Đã thêm vào hàng đợi dựng video — sẽ thông báo khi xong"
     },
     "insights": {
       "title": "Hiệu quả",
@@ -751,17 +752,16 @@
         "summaryHeadlineOn": "Có tiêu đề",
         "summaryHeadlineOff": "Không tiêu đề",
         "summarySubtitles": "{n} phụ đề",
-        "run": "Chạy dựng",
-        "running": "Đang ghép video…",
-        "runningHint": "Có thể mất vài phút. Đừng đóng màn hình này.",
+        "run": "Bắt đầu dựng",
+        "running": "Đang thêm vào hàng đợi…",
+        "runningHint": "Vui lòng đợi trong giây lát.",
         "createError": "Tạo tác vụ dựng thất bại.",
-        "runError": "Dựng thất bại.",
-        "invalidState": "Tác vụ đã được xử lý. Vui lòng kiểm tra trong danh sách.",
+        "runError": "Thêm vào hàng đợi thất bại.",
+        "invalidState": "Việc này đang được xử lý hoặc đã xử lý xong. Hãy kiểm tra trong danh sách.",
         "retry": "Thử lại",
-        "successTitle": "Đã thêm vào hàng chờ duyệt",
-        "successHint": "Xem trước và duyệt trong hàng chờ.",
+        "successTitle": "Đã thêm vào hàng đợi dựng video",
+        "successHint": "Việc dựng video mất vài phút. Khi hoàn tất bạn sẽ nhận được thông báo và có thể xem trước trong hàng chờ duyệt.",
         "goToQueue": "Tới hàng chờ duyệt",
-        "preview": "Xem trước",
         "needClip": "Hãy tải lên ít nhất 1 clip trước."
       }
     },
