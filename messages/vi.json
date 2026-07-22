@@ -287,7 +287,9 @@
     "holidays": "Ngày lễ",
     "documents": "Hợp đồng",
     "contracts": "Ký hợp đồng",
-    "complexAreas": "Khu (dự án)"
+    "complexAreas": "Khu (dự án)",
+    "seoArticles": "Duyệt bài hướng dẫn",
+    "publicBlog": "Blog công khai"
   },
   "adminDocuments": {
     "title": "Hợp đồng kinh doanh",

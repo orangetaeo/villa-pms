@@ -287,7 +287,9 @@
     "holidays": "공휴일",
     "documents": "계약서",
     "contracts": "계약 서명 관리",
-    "complexAreas": "지역(단지)"
+    "complexAreas": "지역(단지)",
+    "seoArticles": "가이드 글 승인",
+    "publicBlog": "공개 블로그"
   },
   "adminDocuments": {
     "title": "사업 계약서",

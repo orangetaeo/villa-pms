@@ -20,6 +20,8 @@ interface NavLeaf {
   icon: string;
   /** 표시 조건 — 미지정이면 운영자 전체(isOperator). 재무·시스템 메뉴는 역할별 노출 (S-RBAC) */
   cap?: (r?: Role) => boolean;
+  /** 공개(비로그인) 페이지 — 새 탭으로 연다. 관리자 화면 흐름을 끊지 않기 위함 */
+  external?: boolean;
 }
 
 /** 아코디언 그룹 — group은 nav.groups.<group> i18n 키, items는 펼침 시 자식 메뉴 */
@@ -118,6 +120,10 @@ const NAV: NavEntry[] = [
     items: [
       { key: "instagram", href: "/marketing/instagram", icon: "photo_camera" },
       { key: "youtube", href: "/marketing/youtube", icon: "smart_display" },
+      // 가이드·빌라 글 승인 큐 (T-seo-s3) — 자동 생성 초안을 여기서 승인한다
+      { key: "seoArticles", href: "/marketing/seo", icon: "article" },
+      // 공개 블로그(비로그인 페이지) — 발행 결과 확인용. 새 탭으로 연다
+      { key: "publicBlog", href: "/blog", icon: "public", external: true },
     ],
   },
   { key: "messages", href: "/messages", icon: "chat" },
@@ -258,10 +264,15 @@ export default function AdminSidebar({
     indented?: boolean;
   }) => {
     const active = isActive(item.href);
+    // 공개 페이지는 새 탭 — 관리자 작업 흐름을 끊지 않는다. rel은 탭내빙(reverse tabnabbing) 방어.
+    const linkProps = item.external
+      ? { target: "_blank" as const, rel: "noopener noreferrer" }
+      : {};
     return (
       <Link
         href={item.href}
-        aria-current={active ? "page" : undefined}
+        {...linkProps}
+        aria-current={active && !item.external ? "page" : undefined}
         className={
           (active
             ? "bg-admin-card text-admin-primary font-bold"
