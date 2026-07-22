@@ -76,7 +76,8 @@ export async function GET(
   const villa = await resolveVilla(villaId, role, userId);
   if (!villa) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
 
-  // 미완료(UPLOADING)는 목록에서 제외 — 사용자에게 보일 상태가 아니다(고아는 정리 cron 대상).
+  // UPLOADING 제외 — P1에서 이 상태 행은 생기지 않지만(커밋 시 UPLOADED로 직접 생성),
+  //   재개 가능 업로드 도입 시 미완료분이 목록에 새지 않도록 필터를 미리 건다.
   const clips = await prisma.villaClip.findMany({
     where: { villaId, status: { not: "UPLOADING" } },
     select: CLIP_SELECT,

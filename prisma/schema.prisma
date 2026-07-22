@@ -273,7 +273,11 @@ model VillaPhoto {
 // VillaPhoto의 형제 모델(1:N, Cascade). 마케팅 소재로는 APPROVED만 사용한다(검수 게이트 원칙3).
 //   ★ 누수 0: 원가·마진·판매가 컬럼 없음. 공급자도 자기 빌라 클립만 조회 가능(라우트에서 supplierId 스코프 강제).
 enum VillaClipStatus {
-  UPLOADING // presign 발급됨 — 브라우저가 R2로 PUT 중. 커밋 전 임시 상태(고아 정리 대상)
+  // presign 발급 ~ 커밋 사이의 임시 상태. ★P1은 이 행을 만들지 않는다 — presign 단계에서 DB를 건드리지
+  //   않아 중단된 업로드가 DB 쓰레기를 남기지 않게 했다(행은 커밋 시 UPLOADED로 바로 생성).
+  //   따라서 고아는 "DB 행"이 아니라 **커밋되지 않은 R2 객체**이며, 정리는 villa-clips/ prefix 목록과
+  //   VillaClip.r2Key 차집합으로 한다(P3 정리 cron). 이 값은 재개 가능 업로드 도입 대비 예약.
+  UPLOADING
   UPLOADED // 업로드 완료 + 서버 실측 검증 통과. 운영자 검수 대기
   APPROVED // 운영자 승인 — 릴스·쇼츠 소재로 사용 가능
   REJECTED // 운영자 반려 (rejectionReason) — 소재 미사용, 공급자에게 사유 노출
