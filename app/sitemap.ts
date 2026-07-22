@@ -7,7 +7,7 @@
 // 빌라 0개 시점에도 정상 동작한다 — 정적 페이지만 실린 유효한 sitemap이 나온다.
 import type { MetadataRoute } from "next";
 import { absoluteUrl } from "@/lib/seo/base-url";
-import { BLOG_ROOT, blogPaths } from "@/lib/seo/routes";
+import { blogPaths } from "@/lib/seo/routes";
 import { getPublicVillas } from "@/lib/seo/public-villa";
 import { allFacetPages } from "@/lib/seo/facets";
 
@@ -18,9 +18,12 @@ export const revalidate = 3600;
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
 
+  // ★ sitemap에는 **실제로 200을 반환하는 URL만** 넣는다.
+  //   존재하지 않는 URL을 올리면 서치어드바이저·Search Console에 크롤 오류가 쌓이고,
+  //   사이트맵 전체의 신뢰도가 떨어진다(프로덕션 실측에서 /blog 404가 실제로 잡혔다).
+  //   → `/blog` 허브는 S2에서 페이지가 생기면 그때 이 목록에 추가한다.
   const staticEntries: MetadataRoute.Sitemap = [
     { url: absoluteUrl("/"), lastModified: now, changeFrequency: "daily", priority: 1 },
-    { url: absoluteUrl(BLOG_ROOT), lastModified: now, changeFrequency: "daily", priority: 0.9 },
     { url: absoluteUrl("/intro.html"), lastModified: now, changeFrequency: "monthly", priority: 0.4 },
     { url: absoluteUrl("/intro-vendor.html"), lastModified: now, changeFrequency: "monthly", priority: 0.3 },
     { url: absoluteUrl("/intro-partner.html"), lastModified: now, changeFrequency: "monthly", priority: 0.4 },
