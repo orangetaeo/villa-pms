@@ -58,6 +58,8 @@ export type MarketingAlertKind =
   | "IG_TOKEN_REFRESH_FAILED"
   | "IG_INSIGHTS_FAILED"
   | "YT_STATS_FAILED"
+  // ★ YT_EDIT_DONE은 2026-07-23부터 **발송하지 않는다**(테오) — 완료 통지가 실패 경보를 묻히게 해서.
+  //   정의는 되살릴 여지를 남겨 의도적으로 유지한다. 발송 지점은 cron/youtube-edit-jobs 한 곳뿐.
   | "YT_EDIT_DONE"
   | "YT_EDIT_FAILED"
   // 공개 SEO 가이드 글 (T-seo-s3) — 초안 승인 대기 / 발행 실패

@@ -1,4 +1,9 @@
-// lib/gemini-tts.ts — Gemini TTS (한국어 나레이션 음성 합성) + R2 캐시 (villa-clip-narration-p2)
+// lib/gemini-tts.ts — 한국어 나레이션 음성 합성 파사드 + R2 캐시 (villa-clip-narration-p2)
+//
+// ★ 2026-07-23부터 이 파일은 **엔진 두 개의 파사드**다(파일명은 호출부 churn을 피해 유지):
+//     기본  Google Cloud TTS Chirp 3: HD 한국어 (lib/google-tts.ts) — 로케일 전용 모델, 월 100만 자 무료
+//     폴백  Gemini TTS (아래 callGeminiTts)                          — 영어 기준 다국어 음성, 편당 약 $0.012
+//   `TTS_PROVIDER=gemini`로 예전 동작 복귀 가능.
 //
 // 왜 필요한가: 쇼츠·릴스에 음악 대신 나레이션을 넣는다(테오 확정). BGM이 유일한 Content ID
 //   리스크였는데 합성 음성은 그 위험이 0이고, 말이 있는 영상이 쇼츠 체류시간에 유리하다.
@@ -16,9 +21,24 @@
 import { createHash } from "crypto";
 import { readTtsAudio, saveTtsAudio } from "@/lib/storage";
 import { GeminiNotConfiguredError } from "@/lib/gemini";
+import { synthesizeWithGoogle, parseWavDuration, GOOGLE_TTS_MODEL, GOOGLE_TTS_LANGUAGE } from "@/lib/google-tts";
 
 const TTS_MODEL = process.env.GEMINI_TTS_MODEL ?? "gemini-2.5-flash-preview-tts";
 const TTS_VOICE = process.env.GEMINI_TTS_VOICE ?? "Kore";
+
+/**
+ * 합성 엔진 (2026-07-23 추가).
+ *   "google" = Google Cloud TTS Chirp 3: HD 한국어 — **기본값**. 로케일 전용 모델이라 한국어가
+ *              자연스럽고, 월 100만 자 무료라 우리 사용량(편당 370자)에선 사실상 0원이다.
+ *   "gemini" = 기존 Gemini TTS. 영어 기준 다국어 음성이라 한국어 억양이 겉돈다.
+ *
+ * ★ google이 실패하면 **자동으로 gemini로 폴백**한다. Cloud TTS는 GCP 콘솔에서 API 사용 설정과
+ *   API 키 제한 해제가 선행돼야 하는데(현재 API_KEY_SERVICE_BLOCKED), 그 조치 전에 배포되더라도
+ *   나레이션이 끊기면 안 된다. 폴백은 조용히 넘어가지 않고 console.error로 남긴다 —
+ *   "바꿨는데 사실은 계속 예전 엔진이었다"가 로그 없이 묻히는 게 최악이다.
+ */
+export type TtsProvider = "google" | "gemini";
+const TTS_PROVIDER: TtsProvider = process.env.TTS_PROVIDER === "gemini" ? "gemini" : "google";
 const TTS_TIMEOUT_MS = 60_000; // 음성 합성은 텍스트 생성보다 느리다
 
 /** Gemini TTS 출력 규격 — 문서 고정값(PCM 24kHz 16bit mono). WAV 헤더·길이 계산에 사용. */
@@ -86,9 +106,19 @@ export function wavDurationSec(
   return bytesPerSec > 0 ? dataBytes / bytesPerSec : 0;
 }
 
-/** 캐시 키 — 같은 (문장·목소리·모델)은 한 번만 합성한다. */
-export function ttsCacheKey(text: string, voice = TTS_VOICE, model = TTS_MODEL): string {
-  return createHash("sha256").update(`${model}\u0000${voice}\u0000${text}`).digest("hex");
+/**
+ * 캐시 키 — 같은 (엔진·문장·목소리·모델)은 한 번만 합성한다.
+ * ★ 엔진을 키에 넣어야 한다: 안 넣으면 Chirp 3: HD로 갈아탄 뒤에도 예전 Gemini 음성이
+ *   캐시에서 그대로 나와 "바꿨는데 소리가 똑같다"가 된다. 목소리 이름(Kore 등)을
+ *   두 엔진이 공유하므로 더더욱 구분자가 필요하다.
+ */
+export function ttsCacheKey(
+  text: string,
+  voice = TTS_VOICE,
+  model = TTS_MODEL,
+  provider: TtsProvider = TTS_PROVIDER
+): string {
+  return createHash("sha256").update(`${provider}\u0000${model}\u0000${voice}\u0000${text}`).digest("hex");
 }
 
 export interface TtsResult {
@@ -98,6 +128,8 @@ export interface TtsResult {
   cached: boolean;
   voice: string;
   model: string;
+  /** 실제로 합성에 쓰인 엔진 — 폴백이 일어나면 요청한 것과 다를 수 있다 */
+  provider?: TtsProvider;
 }
 
 /** Gemini TTS API 1회 호출 — 캐시 미스일 때만 호출된다. */
@@ -143,46 +175,71 @@ async function callGeminiTts(
 }
 
 /**
+ * WAV 길이(초) — 헤더를 실제로 파싱하고, 실패하면 Gemini 규격(24kHz·mono·16bit·44B 헤더)으로 폴백.
+ * ★ 엔진마다 헤더가 다를 수 있어 상수 계산만 쓰면 안 된다. 길이가 틀리면 컷 길이 역산이
+ *   통째로 어긋나 화면과 말이 안 맞는다(narration.ts computeNarrationTimeline).
+ */
+function durationOf(wav: Buffer): number {
+  return parseWavDuration(wav) ?? wavDurationSec(wav);
+}
+
+/**
  * 문장 1개 → 한국어 나레이션 WAV. R2 캐시 우선.
- * @throws GeminiNotConfiguredError 키 미설정 / Error API·응답 실패
+ *
+ * 엔진 선택: 기본 Chirp 3: HD(google) → 실패 시 Gemini TTS로 폴백.
+ * @throws GeminiNotConfiguredError 키 미설정 / Error 두 엔진 모두 실패
  */
 export async function synthesizeSpeech(
   text: string,
-  opts: { voice?: string; fetchFn?: typeof fetch } = {}
+  opts: { voice?: string; fetchFn?: typeof fetch; provider?: TtsProvider } = {}
 ): Promise<TtsResult> {
   const trimmed = text.trim();
   if (!trimmed) throw new Error("TTS 대상 문장이 비어 있습니다");
 
   const voice = opts.voice ?? TTS_VOICE;
   const fetchFn = opts.fetchFn ?? fetch;
-  const key = `tts/${ttsCacheKey(trimmed, voice)}.wav`;
+  const wanted = opts.provider ?? TTS_PROVIDER;
 
-  // ① 캐시 조회 — R2·디스크 양쪽 지원(readTtsAudio). 실패는 미스로 수렴.
+  // ① 캐시 조회 — 원하는 엔진의 키로만 본다(엔진이 키에 포함되므로 교차 히트 없음).
+  //    R2·디스크 양쪽 지원(readTtsAudio). 실패는 미스로 수렴.
+  const key = `tts/${ttsCacheKey(trimmed, voice, TTS_MODEL, wanted)}.wav`;
   const cachedWav = await readTtsAudio(key);
   if (cachedWav && cachedWav.length > 44) {
-    return {
-      wav: cachedWav,
-      durationSec: wavDurationSec(cachedWav),
-      cached: true,
-      voice,
-      model: TTS_MODEL,
-    };
+    return { wav: cachedWav, durationSec: durationOf(cachedWav), cached: true, voice, model: modelLabel(wanted), provider: wanted };
   }
 
-  // ② 합성
-  const wav = await callGeminiTts(trimmed, voice, fetchFn);
+  // ② 합성 — google 우선, 실패하면 gemini로 폴백(나레이션이 아예 빠지는 것보다 낫다).
+  let used: TtsProvider = wanted;
+  let wav: Buffer;
+  if (wanted === "google") {
+    try {
+      wav = (await synthesizeWithGoogle(trimmed, voice, fetchFn)).wav;
+    } catch (e) {
+      // 조용히 넘어가면 "엔진을 바꿨는데 소리가 그대로"인 상태를 아무도 모른다 — 반드시 남긴다.
+      console.error(`[tts] Chirp 3: HD 실패 → Gemini TTS로 폴백합니다: ${(e as Error).message}`);
+      used = "gemini";
+      wav = await callGeminiTts(trimmed, voice, fetchFn);
+    }
+  } else {
+    wav = await callGeminiTts(trimmed, voice, fetchFn);
+  }
 
-  // ③ 캐시 저장 — 실패해도 결과는 반환(best-effort)
+  // ③ 캐시 저장 — **실제 사용된 엔진의 키**로 저장한다. 폴백 결과를 google 키에 저장하면
+  //    콘솔 조치가 끝난 뒤에도 예전 음성이 계속 나온다.
   try {
-    await saveTtsAudio(wav, key);
+    await saveTtsAudio(wav, `tts/${ttsCacheKey(trimmed, voice, TTS_MODEL, used)}.wav`);
   } catch {
     // 캐시 저장 실패가 렌더를 막아선 안 된다
   }
 
-  return { wav, durationSec: wavDurationSec(wav), cached: false, voice, model: TTS_MODEL };
+  return { wav, durationSec: durationOf(wav), cached: false, voice, model: modelLabel(used), provider: used };
 }
 
-/** 현재 핀된 모델·목소리 — 운영자 화면 표시·감사 로그용. */
-export function ttsConfig(): { model: string; voice: string } {
-  return { model: TTS_MODEL, voice: TTS_VOICE };
+function modelLabel(p: TtsProvider): string {
+  return p === "google" ? `${GOOGLE_TTS_LANGUAGE}-${GOOGLE_TTS_MODEL}` : TTS_MODEL;
+}
+
+/** 현재 핀된 엔진·모델·목소리 — 운영자 화면 표시·감사 로그용. */
+export function ttsConfig(): { model: string; voice: string; provider: TtsProvider } {
+  return { model: modelLabel(TTS_PROVIDER), voice: TTS_VOICE, provider: TTS_PROVIDER };
 }

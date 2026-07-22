@@ -214,22 +214,13 @@ async function handle(req: Request) {
     }
   }
 
-  // 완료·실패·고아 경보.
-  // ★ notifyMarketing(인앱+Zalo 그룹) 사용 — 예전엔 여기서 인앱만 보냈다. 그때는 run 라우트(동기)가
-  //   정상 경로라 Zalo 알림은 그쪽이 담당했는데, 이제 렌더가 전부 이 cron에서 일어나므로
-  //   인앱만 보내면 **운영자가 Zalo 알림을 조용히 못 받게 된다**(알림 채널 누락).
-  if (done.length > 0) {
-    try {
-      await notifyMarketing({
-        kind: "YT_EDIT_DONE",
-        title: "🎬 유튜브 편집 완료",
-        summary: `직접 촬영 편집 ${done.length}건이 완성되었습니다. 승인 화면에서 미리보기 후 발행하세요.`,
-        href: "/marketing/youtube",
-      });
-    } catch {
-      /* 알림 실패는 본 처리 무관 */
-    }
-  }
+  // 실패·고아 경보만 보낸다.
+  //
+  // ★ 편집 **완료**(YT_EDIT_DONE) 알림은 발송하지 않는다(테오 2026-07-23).
+  //   운영자가 직접 눌러 시작한 작업이라 완료를 굳이 알릴 필요가 없고, 편수가 늘수록
+  //   인앱 벨·Zalo 그룹방이 "완료됐습니다"로 도배돼 정작 중요한 ⚠️ 실패 경보가 묻힌다.
+  //   결과는 /marketing/youtube 승인 화면에서 바로 확인할 수 있다.
+  //   ※ 실패 경보는 그대로 유지 — 자동화 장애는 침묵시키지 않는다(docs/NOTIFICATIONS.md 원칙).
   if (failed.length > 0 || orphans.length > 0) {
     await notifyEditFailed(failed.length + orphans.length);
   }

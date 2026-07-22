@@ -34,6 +34,13 @@
 > **유튜브 편집 완료·실패 알림 채널 변경(villa-clip-narration-p2, 2026-07-22)**: `YT_EDIT_DONE`·`YT_EDIT_FAILED`는
 > 예전에 동기 run 라우트가 Zalo로, cron이 인앱으로 각각 보냈다. 편집 잡이 **cron 단일 실행 경로**로 바뀌면서
 > cron도 `notifyMarketing`(인앱 벨 + Zalo 그룹방)을 쓴다 — 안 바꿨으면 운영자가 Zalo 알림을 조용히 놓쳤을 것.
+>
+> **★ 유튜브 편집 완료 알림 발송 중단(2026-07-23, 테오)**: `YT_EDIT_DONE`은 **더 이상 보내지 않는다**.
+> 운영자가 직접 눌러 시작한 작업이라 완료 통지의 가치가 낮고, 편수가 늘수록 인앱 벨·Zalo 그룹방이
+> "완료됐습니다"로 도배돼 정작 중요한 ⚠️ 실패 경보가 묻힌다. 결과 확인은 `/marketing/youtube` 승인 화면.
+> `YT_EDIT_FAILED`(실패·고아 회수)는 **그대로 발송** — 자동화 장애는 침묵시키지 않는다.
+> kind 정의(`lib/marketing-notify.ts`·`lib/zalo.ts` 라벨)는 되살릴 여지를 남겨 **의도적으로 남겨 뒀다**.
+> 발송 지점은 `app/api/cron/youtube-edit-jobs/route.ts` 한 곳뿐이므로 그 블록을 되살리면 재개된다.
 
 | ID | 언제 (트리거) | 문구 (전문) | 비고 |
 |---|---|---|---|
