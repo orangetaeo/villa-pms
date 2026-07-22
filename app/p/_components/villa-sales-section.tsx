@@ -11,7 +11,7 @@ import {
 import type { BedTypeKey } from "@/lib/bedding";
 import type { FeatureCategoryKey } from "@/lib/features";
 import {
-  cancellationTierLabel,
+  cancellationTierParts,
   cancellationTiers,
   type CancellationPolicy,
 } from "@/lib/cancellation-policy";
@@ -271,7 +271,23 @@ export function VillaSalesSection({
                 {cancellationTiers(cancellationPolicy).map((tier, i) => (
                   <li key={`${tier.kind}-${i}`} className="flex items-baseline gap-1.5">
                     <span className="text-teal-600 leading-none">·</span>
-                    <span>{cancellationTierLabel(tier, t)}</span>
+                    <span>
+                      {cancellationTierParts(tier, t).map((part, k) => {
+                        if (part.kind === "text") return <span key={k}>{part.text}</span>;
+                        // 숫자·"환불 불가"는 강조 — 고지문에서 고객이 실제로 읽는 부분
+                        const cls =
+                          part.kind === "days"
+                            ? "font-semibold text-neutral-700 tabular-nums"
+                            : part.kind === "pct"
+                              ? "font-bold text-neutral-700 tabular-nums"
+                              : "font-bold text-neutral-700";
+                        return (
+                          <span key={k} className={cls}>
+                            {part.text}
+                          </span>
+                        );
+                      })}
+                    </span>
                   </li>
                 ))}
               </ul>

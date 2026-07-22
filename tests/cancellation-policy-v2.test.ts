@@ -3,6 +3,7 @@ import {
   DEFAULT_CANCELLATION_POLICY,
   SUPPLIER_ALIGNED_TIERS,
   cancellationTierLabel,
+  cancellationTierParts,
   cancellationTiers,
   isValidCancellationPolicy,
   parseCancellationPolicy,
@@ -159,5 +160,33 @@ describe("표시 라벨 — N단계·5개국어", () => {
   it("당일 단계가 없으면 마지막 행은 'N일 이내' 문구를 쓴다(종전 동작)", () => {
     const rows = cancellationTiers(parseCancellationPolicy(V1_LIVE));
     expect(rows[2]).toEqual({ kind: "withinNone", days: 14, pct: 0 });
+  });
+});
+
+describe("★ 표시 강조 회귀 방지 (고지문 숫자 강조)", () => {
+  // 2026-07-22 회귀: 중복 제거하며 문장을 통짜 문자열로 만들어 일수·% 굵게 표시가 사라졌다.
+  // 조각(parts) API가 숫자·"환불 불가"를 별도 kind로 내보내는지 고정한다.
+  const f = PUBLIC_LABELS.ko.sales;
+
+  it("range 행 — 일수(days)·환불률(pct)이 강조 조각으로 분리된다", () => {
+    const rows = cancellationTiers(parseCancellationPolicy(V1_LIVE));
+    const parts = cancellationTierParts(rows[0], f);
+    expect(parts.filter((p) => p.kind === "days").map((p) => p.text)).toEqual(["30"]);
+    expect(parts.filter((p) => p.kind === "pct").map((p) => p.text)).toEqual(["100"]);
+  });
+
+  it("환불 불가 행 — noRefund 조각이 분리된다", () => {
+    const rows = cancellationTiers(parseCancellationPolicy(V1_LIVE));
+    const parts = cancellationTierParts(rows[2], f);
+    expect(parts.some((p) => p.kind === "noRefund")).toBe(true);
+    expect(parts.filter((p) => p.kind === "days").map((p) => p.text)).toEqual(["14"]);
+  });
+
+  it("조각을 이어붙이면 평문 라벨과 동일 — 텍스트 회귀 없음", () => {
+    for (const row of cancellationTiers({ tiers: SUPPLIER_ALIGNED_TIERS, enabled: true })) {
+      expect(cancellationTierParts(row, f).map((p) => p.text).join("")).toBe(
+        cancellationTierLabel(row, f),
+      );
+    }
   });
 });
