@@ -26,6 +26,7 @@ import AdminAmenitiesEditor from "./amenities-editor";
 import MinibarStockEditor, { type MinibarStockItem } from "./minibar-stock-editor";
 import NameViEditor from "./name-vi-editor";
 import ComplexAreaEditor from "./complex-area-editor";
+import SeoPublicCard from "./seo-public-card";
 import CleaningInfoEditor from "./cleaning-info-editor";
 import CleanerAssignEditor from "./cleaner-assign-editor";
 import RegionalVendorEditor from "./regional-vendor-editor";
@@ -523,6 +524,18 @@ export default async function VillaDetailPage({
             initialComplexAreaId={villa.complexAreaId}
             initialComplex={villa.complex}
             areas={complexAreaOptions}
+          />
+
+          {/* 공개 노출(SEO) — villa-go.net 공개 페이지·사이트맵 등재 제어 (T-seo-s2).
+              조건(검수·사진·소개문·슬러그) 체크리스트 + 소개문 자동 생성 + 공개 토글. */}
+          <SeoPublicCard
+            villaId={villa.id}
+            status={villa.status}
+            isSellable={villa.isSellable}
+            publicSlug={villa.publicSlug}
+            publicListed={villa.publicListed}
+            description={villa.description}
+            photoCount={villa.photos.length}
           />
 
           {/* 베트남어 병기명 (ADR-0020) — Gemini 제안 + ADMIN 확정. 비운영자 화면에 병기 */}

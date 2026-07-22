@@ -6621,5 +6621,27 @@
       "DISALLOWED_TYPE": "MP4 또는 MOV 영상만 올릴 수 있습니다.",
       "generic": "실패했습니다. 다시 시도해주세요."
     }
+  },
+  "adminVillaSeo": {
+    "title": "공개 노출 (SEO)",
+    "desc": "켜면 villa-go.net 공개 페이지와 사이트맵에 이 빌라가 실립니다. 가격·공실·주소·공급자 정보는 어떤 경우에도 노출되지 않습니다.",
+    "state": {
+      "on": "공개 중",
+      "off": "비공개"
+    },
+    "checks": {
+      "sellable": "판매 가능 상태(활성 + 청소 검수 통과)",
+      "photos": "사진 {n}장 (최소 {min}장)",
+      "description": "소개문 {n}자 (최소 {min}자)",
+      "slug": "공개 주소(slug) 발급됨"
+    },
+    "actions": {
+      "issueSlug": "공개 주소 발급",
+      "generateDescription": "소개문 자동 생성",
+      "publish": "공개하기",
+      "unpublish": "공개 내리기",
+      "openPublic": "공개 페이지 열기 →"
+    },
+    "shortDescriptionWarning": "소개문이 {n}자로 최소 {min}자에 못 미칩니다. 기존 글은 자동으로 덮어쓰지 않으니 직접 보완하거나 비운 뒤 자동 생성을 눌러주세요."
   }
 }
