@@ -860,6 +860,10 @@ export default function CreateShortWizard() {
             </ul>
             <p className="text-[11px] text-slate-600">{t("create.step2.durationHint")}</p>
             <p className="text-[11px] text-slate-600">{t("create.step2.spaceHint")}</p>
+            {/* 공간이 비면 그 컷은 대본에서 "미지정"이 되고 속도 조절도 안 걸린다 — 조용히 넘어가지 않게 알린다 */}
+            {clips.some((c) => !c.space) && (
+              <p className="text-[11px] text-amber-400">{t("create.step2.spaceMissingWarn")}</p>
+            )}
             {/* 컷별 메모 — 같은 공간이 여러 컷일 때 대본이 "또 다른 침실입니다"로 뭉개지지 않게 한다 */}
             <ul className="flex flex-col gap-2">
               {clips.map((c, i) => (

@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  ETC_TRANSIT_SPEED,
   MAX_SLOWDOWN,
   MAX_SPEEDUP,
   PACE_SPEED,
+  TRANSIT_MIN_SCREEN_SEC,
+  minScreenSecFor,
   pacingFilterChain,
   planClipTiming,
   resolveClipPace,
@@ -14,6 +17,14 @@ describe("resolveClipPace — 공간·메모 → 컷 성격", () => {
     expect(p.kind).toBe("transit");
     expect(p.sourceSpeed).toBeGreaterThan(1);
     expect(p.ramp).toBe(true);
+  });
+
+  it("ETC 단독은 메모로 확신한 이동 컷보다 **약하게** 민다 (추정 ≠ 확신)", () => {
+    // ETC는 "복도"가 아니라 "분류 안 됨"이다. 좋은 장면이 ETC로 들어왔을 때
+    // 1.85배로 날려버리면 최고의 컷을 잃는다.
+    expect(resolveClipPace("ETC").sourceSpeed).toBe(ETC_TRANSIT_SPEED);
+    expect(resolveClipPace("ETC", "복도").sourceSpeed).toBe(PACE_SPEED.transit);
+    expect(ETC_TRANSIT_SPEED).toBeLessThan(PACE_SPEED.transit);
   });
 
   it("외관·수영장은 hero — 첫인상 컷이라 살짝 느리게 흘린다", () => {
@@ -28,8 +39,13 @@ describe("resolveClipPace — 공간·메모 → 컷 성격", () => {
     }
   });
 
-  it("공간 미지정(null)은 feature로 안전하게 둔다 — 모르면 손대지 않는다", () => {
-    expect(resolveClipPace(null).kind).toBe("feature");
+  it("공간도 메모 신호도 없으면 **속도를 건드리지 않는다**(1.0배)", () => {
+    const p = resolveClipPace(null);
+    expect(p.kind).toBe("unknown");
+    expect(p.sourceSpeed).toBe(1);
+    expect(p.ramp).toBe(false);
+    // 근거 없는 배속은 "왜 이 컷만 이상하지?"를 만든다 — 필터도 안 붙어야 한다
+    expect(pacingFilterChain(planClipTiming(4, 20, p))).toBe("");
   });
 
   it("메모의 이동 단어가 공간 코드를 이긴다 (한국어·베트남어·영어)", () => {
@@ -49,7 +65,7 @@ describe("planClipTiming — 화면 길이는 고정, 원본 소비량만 바꾼
 
   it("이동 컷은 같은 화면 시간에 원본을 더 많이 소비한다(빨리 감기)", () => {
     const plan = planClipTiming(4, 20, transit);
-    expect(plan.readSec).toBeCloseTo(4 * PACE_SPEED.transit, 3);
+    expect(plan.readSec).toBeCloseTo(4 * transit.sourceSpeed, 3);
     expect(plan.screenSec).toBeCloseTo(4, 3); // ★ 화면 길이는 그대로
     expect(plan.factor).toBeLessThan(1);
     expect(plan.applied).toBe(true);
@@ -142,5 +158,26 @@ describe("pacingFilterChain — filter_complex 안전성", () => {
   it("정속 배속은 setpts 곱 하나로 표현된다", () => {
     const chain = pacingFilterChain({ readSec: 8, factor: 0.5, ramp: null, screenSec: 4, applied: true });
     expect(chain).toBe("setpts=0.500000*(PTS-STARTPTS)");
+  });
+});
+
+describe("minScreenSecFor — 이동 컷만 화면 점유 하한을 낮춘다", () => {
+  it("이동 컷은 기본 하한보다 짧게 허용된다(스쳐 지나가는 느낌)", () => {
+    expect(minScreenSecFor(resolveClipPace("ETC"), 2)).toBe(TRANSIT_MIN_SCREEN_SEC);
+  });
+
+  it("일반·핵심·미지정 컷은 기본 하한 그대로", () => {
+    for (const s of ["BEDROOM", "POOL", null]) {
+      expect(minScreenSecFor(resolveClipPace(s), 2)).toBe(2);
+    }
+  });
+
+  it("기본 하한이 이미 더 짧으면 그걸 존중한다", () => {
+    expect(minScreenSecFor(resolveClipPace("ETC"), 1)).toBe(1);
+  });
+
+  it("★ 0.8초 밑으로 내려가지 않는다 — xfade 전환 길이(0.4) 전제가 깨진다", () => {
+    // xfadeConcat: T = min(0.4, 최단세그먼트/2). 0.8 미만이면 T가 줄어 타임라인 가정이 흔들린다.
+    expect(TRANSIT_MIN_SCREEN_SEC).toBeGreaterThanOrEqual(0.8);
   });
 });
