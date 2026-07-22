@@ -98,9 +98,8 @@ export default async function BookingRequestPage({
     select: { value: true },
   });
   const policy = parseCancellationPolicy(policyRow?.value);
-  const consentPolicy = policy.enabled
-    ? { fullDays: policy.fullDays, partialDays: policy.partialDays, partialPct: policy.partialPct }
-    : null;
+  // S3: N단계 — 표시용만(저장 스냅샷은 서버 hold 라우트가 정책에서 재산출)
+  const consentPolicy = policy.enabled ? { tiers: policy.tiers } : null;
 
   const nights = Math.round(
     (item.checkOut.getTime() - item.checkIn.getTime()) / 86_400_000

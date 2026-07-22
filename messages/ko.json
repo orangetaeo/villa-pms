@@ -1430,6 +1430,18 @@
           "sending": "전달 중...",
           "sent": "전달 완료 {time}",
           "noZaloWarn": "공급자 Zalo 미연결 — 발송 대기 중입니다"
+        },
+        "estimate": {
+          "title": "취소 시 정산 예상",
+          "daysBefore": "체크인 {days}일 전",
+          "noShow": "체크인 당일 이후·노쇼",
+          "guestRefund": "고객 환불",
+          "penalty": "위약금 수취",
+          "supplierPay": "공급자 지급",
+          "noContract": "계약 단계표 없음",
+          "loss": "⚠ 회사 손실 {pct}%p — 지급률이 위약금률보다 높습니다",
+          "fromConsent": "고객 동의 당시 조건으로 판정했습니다.",
+          "hint": "예상치입니다. 실제 환불·지급 처리는 수납/정산에서 진행하세요."
         }
       },
       "log": {
@@ -2722,19 +2734,23 @@
       "title": "취소·환불 정책",
       "description": "모든 빌라 공용 취소·환불 정책입니다. 입금 확정 기준이며, 공개 제안 페이지에 표시됩니다.",
       "enabledLabel": "공개 표시",
-      "fullDaysLabel": "전액 환불 기한",
-      "partialDaysLabel": "부분 환불 기한",
-      "partialPctLabel": "부분 환불율",
-      "daysUnit": "일 전",
-      "preview": "공개 페이지 미리보기",
-      "lineFull": "체크인 {days}일 전까지 취소 시 100% 환불",
-      "linePartial": "체크인 {days}일 전까지 취소 시 {pct}% 환불",
-      "lineNone": "체크인 {days}일 이내 취소 시 환불 불가",
       "invalid": "전액 환불 기한은 부분 환불 기한보다 길어야 하며, 환불율은 0~100% 사이여야 합니다.",
       "save": "정책 저장",
       "saving": "저장 중...",
       "saved": "저장되었습니다",
-      "error": "저장에 실패했습니다. 다시 시도해주세요."
+      "error": "저장에 실패했습니다. 다시 시도해주세요.",
+      "colWhen": "취소 접수 시점",
+      "colDays": "체크인 D-",
+      "colRefund": "고객 환불 %",
+      "rowRange": "체크인 {days}일 전까지",
+      "rowSameDay": "체크인 당일",
+      "rowNoShow": "노쇼·체크인 후",
+      "rowRemove": "삭제",
+      "addRow": "단계 추가",
+      "applyPreset": "공급자 계약과 맞추기 (5단계)",
+      "lossTitle": "회사 손실이 나는 구간이 있습니다",
+      "lossRow": "체크인 {days}일 전: 고객 환불 {refund}% → 위약금 {pay}%보다 공급자 지급이 {loss}%p 많음",
+      "lossHint": "공급자 계약 기본 단계표(별표 2) 기준입니다. 고객 환불률을 낮추거나 계약 지급률을 조정하세요."
     },
     "seasons": {
       "title": "시즌 달력",

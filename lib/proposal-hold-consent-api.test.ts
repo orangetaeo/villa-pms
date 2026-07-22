@@ -96,17 +96,20 @@ describe("POST /api/p/[token]/hold — 취소·환불 규정 동의 게이트", 
     const passed = mockCreateHold.mock.calls[0][1] as {
       policyConsentJson: {
         agreedAt: string;
-        policy: { fullDays: number; partialDays: number; partialPct: number };
+        policy: { tiers: { fromDays: number; refundPct: number }[] };
         locale: string;
         source: string;
       } | null;
     };
     expect(passed.policyConsentJson).not.toBeNull();
     // 정책 값 = AppSetting 서버 값 (클라가 보낸 값이 아님)
+    // S3: 스냅샷은 N단계 배열. 라이브 v1 설정값(30/14/50)이 승격된 3단계가 저장된다.
     expect(passed.policyConsentJson!.policy).toEqual({
-      fullDays: 30,
-      partialDays: 14,
-      partialPct: 50,
+      tiers: [
+        { fromDays: 30, refundPct: 100 },
+        { fromDays: 14, refundPct: 50 },
+        { fromDays: -1, refundPct: 0 },
+      ],
     });
     expect(passed.policyConsentJson!.source).toBe("proposal");
     expect(passed.policyConsentJson!.locale).toBe("vi");

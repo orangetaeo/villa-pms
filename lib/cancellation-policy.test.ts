@@ -11,6 +11,9 @@ describe("isValidCancellationPolicy — 정합성", () => {
   it("기본값은 유효", () => {
     expect(isValidCancellationPolicy(DEFAULT_CANCELLATION_POLICY)).toBe(true);
   });
+  it("★ v1 형태는 저장 대상 아님 — isValid(v2)는 false (parse만 승격 허용)", () => {
+    expect(isValidCancellationPolicy({ fullDays: 30, partialDays: 14, partialPct: 50, enabled: true })).toBe(false);
+  });
   it("전액일 ≤ 부분일 역전 거부", () => {
     expect(isValidCancellationPolicy({ fullDays: 10, partialDays: 14, partialPct: 50, enabled: true })).toBe(false);
   });
@@ -42,31 +45,45 @@ describe("parseCancellationPolicy — 폴백 안전성", () => {
       DEFAULT_CANCELLATION_POLICY
     );
   });
-  it("유효 정책 보존", () => {
+  it("유효 v1 정책은 v2 3단계로 승격 보존 (S3 하위호환)", () => {
     const p = parseCancellationPolicy('{"fullDays":20,"partialDays":7,"partialPct":30,"enabled":false}');
-    expect(p).toEqual({ fullDays: 20, partialDays: 7, partialPct: 30, enabled: false });
+    expect(p).toEqual({
+      tiers: [
+        { fromDays: 20, refundPct: 100 },
+        { fromDays: 7, refundPct: 30 },
+        { fromDays: -1, refundPct: 0 },
+      ],
+      enabled: false,
+    });
   });
 });
 
 describe("serializeCancellationPolicy", () => {
-  it("유효 → JSON 문자열", () => {
-    expect(serializeCancellationPolicy({ fullDays: 20, partialDays: 7, partialPct: 30, enabled: true })).toBe(
-      '{"fullDays":20,"partialDays":7,"partialPct":30,"enabled":true}'
+  it("유효 → v2 JSON 문자열", () => {
+    expect(
+      serializeCancellationPolicy({
+        tiers: [
+          { fromDays: 20, refundPct: 100 },
+          { fromDays: 7, refundPct: 30 },
+          { fromDays: -1, refundPct: 0 },
+        ],
+        enabled: true,
+      })
+    ).toBe(
+      '{"tiers":[{"fromDays":20,"refundPct":100},{"fromDays":7,"refundPct":30},{"fromDays":-1,"refundPct":0}],"enabled":true}'
     );
   });
-  it("무효 → null (저장 거부)", () => {
+  it("무효(v1 형태 직접 저장 포함) → null (저장 거부)", () => {
     expect(serializeCancellationPolicy({ fullDays: 5, partialDays: 7, partialPct: 30, enabled: true })).toBeNull();
   });
 });
 
-describe("cancellationTiers — 표시 3단계", () => {
-  it("full(100%)/partial(pct)/none(0%) 순서", () => {
+describe("cancellationTiers — 표시(기본값 3단계)", () => {
+  it("range/range/withinNone 순서 — 마지막은 직전 하한(14일) 이내", () => {
     const t = cancellationTiers(DEFAULT_CANCELLATION_POLICY);
-    expect(t.map((x) => x.kind)).toEqual(["full", "partial", "none"]);
-    expect(t[0].pct).toBe(100);
-    expect(t[1].pct).toBe(50);
-    expect(t[2].pct).toBe(0);
-    expect(t[0].days).toBe(30);
-    expect(t[1].days).toBe(14);
+    expect(t.map((x) => x.kind)).toEqual(["range", "range", "withinNone"]);
+    expect(t[0]).toEqual({ kind: "range", days: 30, pct: 100 });
+    expect(t[1]).toEqual({ kind: "range", days: 14, pct: 50 });
+    expect(t[2]).toEqual({ kind: "withinNone", days: 14, pct: 0 });
   });
 });
