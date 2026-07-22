@@ -119,6 +119,45 @@ describe("computeNarrationTimeline — 문장이 여러 컷에 걸쳐 흐른다 
   });
 });
 
+describe("QA 회귀 — 실제 검증에서 발견된 결함", () => {
+  it("M-4: CTA 절이 2개여도 카드는 1장 — 길이가 덮어써지거나 이중 계상되지 않는다", () => {
+    // 모델이 범위 밖 cut 번호를 뱉으면 normalizeScript가 CTA로 흡수해 CTA 절이 2개가 될 수 있다.
+    // 예전 구현은 ctaDurationSec을 대입(=)해 뒤 절이 앞 절을 덮고, consumed를 절마다 더해
+    // 타임라인이 실제 영상보다 길다고 착각 → 마지막 발화가 영상 밖으로 밀려 잘렸다.
+    const lines = [
+      { durationSec: 4.0, parts: [p1(0, "첫 컷 문장이에요")] },
+      {
+        durationSec: 3.6,
+        parts: [pCta("카카오톡 채널에서"), pCta("빌라고를 검색해 주세요")],
+      },
+    ];
+    const r = computeNarrationTimeline({ lines, ...base });
+    // 카드 1장 = LEAD + 문장 전체 발화 + TAIL
+    expect(r.ctaDurationSec).toBeCloseTo(NARRATION_LEAD_SEC + 3.6 + NARRATION_TAIL_SEC, 5);
+    // 마지막 발화가 영상 안에서 끝난다(이게 깨지면 CTA가 잘린다)
+    const lastEnd = r.lineOffsets[1] + 3.6;
+    expect(lastEnd).toBeLessThanOrEqual(r.totalSec + 1e-9);
+  });
+
+  it("M-5: 모델이 컷 순서를 뒤집어 배정해도 화면 순서(인덱스 오름차순)로 정렬된다", () => {
+    // edit.ts는 클립을 인덱스 순으로 이어 붙인다 — 정렬하지 않으면 오디오와 화면이 전 구간 어긋난다.
+    const lines = normalizeScript(
+      [
+        { text: "다섯째 컷 설명", parts: [{ cut: 5, text: "다섯째 컷 설명" }] },
+        { text: "첫째 컷 설명", parts: [{ cut: 1, text: "첫째 컷 설명" }] },
+        { text: "검색해 보세요", parts: [{ cut: 0, text: "검색해 보세요" }] },
+      ],
+      5
+    );
+    const firstAssigned = Math.min(...lines[0].parts.flatMap((p) => p.clipIndexes));
+    const secondAssigned = Math.min(...lines[1].parts.flatMap((p) => p.clipIndexes));
+    expect(firstAssigned).toBeLessThan(secondAssigned); // 앞 문장이 앞 컷을 덮는다
+    expect(lines[0].text).toBe("첫째 컷 설명");
+    // CTA는 항상 맨 뒤
+    expect(lines.at(-1)!.parts.every((p) => p.clipIndexes.length === 0)).toBe(true);
+  });
+});
+
 describe("normalizeScript — 모델 출력 정리", () => {
   it("cut 번호(1-base)를 클립 인덱스(0-base)로 바꾸고 CTA는 cut 0", () => {
     const lines = normalizeScript(

@@ -18,6 +18,8 @@ import { verifyCronAuth } from "@/lib/cron-auth";
 import { writeAuditLog } from "@/lib/audit-log";
 import { notifyMarketing } from "@/lib/marketing-notify";
 import { validateEditParams, runYoutubeEditJob } from "@/lib/youtube/edit";
+import { canRerender } from "@/lib/youtube/rerender-guard";
+import { buildIntroSpecs } from "@/lib/youtube/narration";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 900; // 렌더 최대 8분 + 여유
@@ -75,7 +77,12 @@ async function handle(req: Request) {
 
     const short = await prisma.youtubeShort.findUnique({
       where: { id },
-      select: { id: true, editParamsJson: true, villa: { select: { name: true } } },
+      select: {
+        id: true,
+        status: true,
+        editParamsJson: true,
+        villa: { select: { name: true, bedrooms: true, hasPool: true, beachDistanceM: true } },
+      },
     });
     if (!short) continue;
 
@@ -85,6 +92,11 @@ async function handle(req: Request) {
         villaName: short.villa?.name ?? null,
         baseName: short.id,
       });
+      // ★ 발행 축은 **재렌더 가능한 상태일 때만** 승인 큐로 되돌린다(QA H-1 심층 방어).
+      //   이미 QUEUED/PUBLISHING/PUBLISHED인 건을 PENDING_APPROVAL로 되돌리면 재승인 →
+      //   유튜브 중복 업로드로 이어진다. 큐잉 라우트에서 이미 막지만, 경합·수동 DB 조작으로
+      //   PENDING이 된 경우에도 마지막 방어선이 필요하다.
+      const resetPublishAxis = canRerender(short.status);
       await prisma.youtubeShort.update({
         where: { id },
         data: {
@@ -93,7 +105,7 @@ async function handle(req: Request) {
           durationSec: result.durationSec,
           editJobStatus: YtEditJobStatus.DONE,
           editError: null,
-          status: YtShortStatus.PENDING_APPROVAL,
+          ...(resetPublishAxis ? { status: YtShortStatus.PENDING_APPROVAL } : {}),
         },
       });
       await writeAuditLog({
@@ -103,7 +115,7 @@ async function handle(req: Request) {
         entityId: id,
         changes: {
           editJobStatus: { old: "PROCESSING", new: "DONE" },
-          status: { new: "PENDING_APPROVAL" },
+          ...(resetPublishAxis ? { status: { new: "PENDING_APPROVAL" } } : {}),
           durationSec: { new: result.durationSec },
         },
       });

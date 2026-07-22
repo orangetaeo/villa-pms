@@ -353,6 +353,19 @@ export function normalizeScript(
     }
   }
 
+  // ★ 컷 순서 정규화(QA M-5): edit.ts는 클립을 **인덱스 오름차순**으로 이어 붙인다.
+  //   모델이 cut 5를 먼저, cut 1을 나중에 배정하면 오디오는 5번 설명인데 화면은 1번이 나온다
+  //   → 전 구간 화면·말 불일치. 절을 최소 clipIndex 기준으로 재정렬해 흐름을 화면 순서와 맞춘다.
+  //   (CTA 절은 clipIndexes가 비어 있으므로 항상 맨 뒤로 보낸다.)
+  const keyOf = (p: NarrationPart) =>
+    p.clipIndexes.length === 0 ? Number.MAX_SAFE_INTEGER : Math.min(...p.clipIndexes);
+  for (const l of lines) l.parts.sort((a, b) => keyOf(a) - keyOf(b));
+  lines.sort((a, b) => {
+    const ka = Math.min(...a.parts.map(keyOf));
+    const kb = Math.min(...b.parts.map(keyOf));
+    return ka - kb;
+  });
+
   return lines;
 }
 
@@ -464,6 +477,13 @@ export function computeNarrationTimeline(input: NarrationTimelineInput): Narrati
     let partStart = speechStart;
     let consumed = 0;
 
+    // ★ CTA 문장은 **문장 단위**로 처리한다(QA M-4). 아웃트로는 정지 카드 **1장**이라
+    //   절이 2개 이상 와도(모델이 범위 밖 컷 번호를 뱉으면 normalizeScript가 CTA로 흡수한다)
+    //   화면은 하나뿐이다. 예전엔 절마다 consumed를 더하고 ctaDurationSec을 대입해서
+    //   ⑴ 타임라인이 실제 영상보다 길다고 착각하고 ⑵ 뒤 절이 앞 절 계산을 덮어썼다
+    //   → 마지막 CTA 발화가 영상 밖으로 밀려 잘렸다.
+    const isCtaLine = line.parts.every((p) => p.clipIndexes.length === 0);
+
     line.parts.forEach((part, pi) => {
       const share = Math.max(1, part.text.length) / totalChars;
       const partSpeech = line.durationSec * share;
@@ -475,16 +495,11 @@ export function computeNarrationTimeline(input: NarrationTimelineInput): Narrati
         isCta: part.clipIndexes.length === 0,
       });
 
-      // 절이 차지하는 화면 시간 = 발화 + (문장 첫 절이면 LEAD) + (문장 끝 절이면 TAIL)
-      const head = pi === 0 ? NARRATION_LEAD_SEC : 0;
-      const tail = pi === line.parts.length - 1 ? NARRATION_TAIL_SEC : 0;
-      const span = partSpeech + head + tail;
-
-      if (part.clipIndexes.length === 0) {
-        // CTA 절 — 정지 카드 하나. 나가는 전환이 없으므로 T를 더하지 않는다.
-        ctaDurationSec = Math.max(ctaMinSec, span);
-        consumed += ctaDurationSec;
-      } else {
+      if (!isCtaLine && part.clipIndexes.length > 0) {
+        // 절이 차지하는 화면 시간 = 발화 + (문장 첫 절이면 LEAD) + (문장 끝 절이면 TAIL)
+        const head = pi === 0 ? NARRATION_LEAD_SEC : 0;
+        const tail = pi === line.parts.length - 1 ? NARRATION_TAIL_SEC : 0;
+        const span = partSpeech + head + tail;
         const per = span / part.clipIndexes.length;
         for (const ci of part.clipIndexes) {
           const d = Math.max(minSegmentSec, per + T);
@@ -495,6 +510,13 @@ export function computeNarrationTimeline(input: NarrationTimelineInput): Narrati
       }
       partStart += partSpeech;
     });
+
+    if (isCtaLine) {
+      // 카드 1장 = 리드 + 문장 전체 발화 + 테일 (나가는 전환 없음)
+      const span = NARRATION_LEAD_SEC + line.durationSec + NARRATION_TAIL_SEC;
+      ctaDurationSec = Math.max(ctaMinSec, span);
+      consumed = ctaDurationSec;
+    }
 
     cursor += consumed;
   }

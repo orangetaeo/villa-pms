@@ -136,14 +136,32 @@ export async function POST(
   const dup = await prisma.villaClip.findUnique({ where: { r2Key: key }, select: { id: true } });
   if (dup) return NextResponse.json({ error: "ALREADY_COMMITTED" }, { status: 409 });
 
-  // ── 서버 실측: HeadObject(크기) + ffprobe(길이·표시 해상도) ──
-  const probe = await probeR2Clip(key);
-  if (!probe) {
-    // 오브젝트 없음(PUT 미완료) 또는 비디오가 아님(위장·손상)
-    return NextResponse.json({ error: "UPLOAD_NOT_FOUND_OR_INVALID" }, { status: 400 });
-  }
-
   const policy = await loadVillaClipPolicy(prisma);
+
+  // ── 서버 실측: HeadObject(크기) + ffprobe(길이·표시 해상도) ──
+  //   ★ maxBytes를 넘겨 **다운로드 전에** 크기를 끊는다(QA H-2): presigned PUT엔 크기 제약이 없어
+  //     신고값과 무관하게 수 GB를 올릴 수 있고, 그걸 받아본 뒤 거부하면 OOM·egress 비용이 터진다.
+  const probed = await probeR2Clip(key, policy.maxBytes);
+  if (!probed.ok) {
+    // ★ 실패분은 스토리지에 남기지 않는다 — 정리 cron이 아직 없어 고아가 영구 누적된다(QA H-2).
+    await deleteR2Object(key);
+    await writeAuditLog({
+      userId,
+      action: "DELETE",
+      entity: "VillaClipUpload",
+      entityId: key,
+      changes: { villaId: { old: villaId }, rejected: { new: probed.reason } },
+    });
+    const status = probed.reason === "TOO_LARGE" ? 400 : 400;
+    return NextResponse.json(
+      probed.reason === "TOO_LARGE"
+        ? { error: "TOO_LARGE", maxBytes: policy.maxBytes }
+        : { error: "UPLOAD_NOT_FOUND_OR_INVALID" },
+      { status }
+    );
+  }
+  const probe = probed.probe;
+
   const existingCount = await prisma.villaClip.count({
     where: { villaId, status: { not: "UPLOADING" } },
   });

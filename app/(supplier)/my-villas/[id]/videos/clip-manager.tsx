@@ -42,6 +42,21 @@ type ErrorKey =
 
 const ALLOWED_MIME = ["video/mp4", "video/quicktime"];
 
+// ★ 사전에 있는 오류코드만 그대로 쓴다(QA L-8). 서버는 UPLOAD_NOT_FOUND_OR_INVALID·INVALID_KEY·
+//   R2_NOT_CONFIGURED·ALREADY_COMMITTED 등도 반환하는데, 그대로 t()에 넣으면
+//   베트남 공급자 화면에 **원시 키**가 그대로 보인다([[all-pages-vietnamese-required]] 동일 클래스).
+const KNOWN_ERRORS: string[] = [
+  "TOO_LARGE",
+  "TOO_LONG",
+  "TOO_SHORT",
+  "RESOLUTION_TOO_LOW",
+  "QUOTA_EXCEEDED",
+  "DISALLOWED_TYPE",
+];
+function toErrorKey(code: string | undefined): ErrorKey {
+  return code && KNOWN_ERRORS.includes(code) ? (code as ErrorKey) : "generic";
+}
+
 /** 브라우저에서 영상 길이·해상도 읽기. 못 읽으면 null(서버 판정에 위임). */
 function probeLocalVideo(
   file: File
@@ -150,7 +165,7 @@ export default function ClipManager({
       });
       if (!presignRes.ok) {
         const body = (await presignRes.json().catch(() => ({}))) as { error?: string };
-        setErrorKey((body.error as ErrorKey) ?? "generic");
+        setErrorKey(toErrorKey(body.error));
         setProgress(null);
         return;
       }
@@ -166,7 +181,7 @@ export default function ClipManager({
       });
       if (!commitRes.ok) {
         const body = (await commitRes.json().catch(() => ({}))) as { error?: string };
-        setErrorKey((body.error as ErrorKey) ?? "generic");
+        setErrorKey(toErrorKey(body.error));
         setProgress(null);
         return;
       }

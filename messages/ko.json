@@ -767,7 +767,7 @@
     },
     "narration": {
       "title": "AI 나레이션 대본",
-      "hint": "컷마다 한 문장. {max}자 이내, 숫자·영문 금지(음성이 이상하게 읽습니다). 고친 문장만 다시 합성됩니다.",
+      "hint": "한 문장이 여러 컷에 걸쳐 흐릅니다. 문장 최대 {max}자, 숫자·영문 금지. 고친 문장만 다시 합성됩니다.",
       "voiceInfo": "음성: {voice}",
       "loading": "불러오는 중…",
       "loadError": "대본을 불러오지 못했습니다.",
@@ -791,7 +791,8 @@
         "TOO_LONG": "{max}자를 넘습니다 — 15초에 안 들어갑니다",
         "HAS_DIGIT_OR_LATIN": "숫자·영문은 음성이 이상하게 읽습니다",
         "TOO_FEW_LINES": "문장이 너무 적습니다",
-        "TOO_MANY_LINES": "문장이 너무 많습니다"
+        "TOO_MANY_LINES": "문장이 너무 많습니다",
+        "PART_TOO_LONG": "자막 한 장이 너무 깁니다 — 컷을 나누세요"
       },
       "error": {
         "GEMINI_NOT_CONFIGURED": "Gemini API 키가 설정되지 않았습니다.",
@@ -800,7 +801,8 @@
         "RENDER_IN_PROGRESS": "렌더링 중입니다. 끝난 뒤 다시 시도하세요.",
         "LINES_REQUIRED": "문장을 하나 이상 입력하세요.",
         "generic": "처리에 실패했습니다."
-      }
+      },
+      "cutRange": "컷{from}~{to}"
     }
   },
   "account": {

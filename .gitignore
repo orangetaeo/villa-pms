@@ -61,3 +61,7 @@ smoke/*.mp4
 smoke/*.jpg
 smoke/wav/
 smoke/frames/
+smoke/scan*/
+smoke/seq*/
+smoke/*.png
+smoke/*.txt

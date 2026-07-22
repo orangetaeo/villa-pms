@@ -767,7 +767,7 @@
     },
     "narration": {
       "title": "Kịch bản lồng tiếng AI",
-      "hint": "Mỗi cảnh một câu. Tối đa {max} ký tự, không dùng số và chữ Latinh. Chỉ câu đã sửa mới được tổng hợp lại.",
+      "hint": "Một câu trải dài qua nhiều cảnh. Tối đa {max} ký tự mỗi câu, không dùng số và chữ Latinh.",
       "voiceInfo": "Giọng: {voice}",
       "loading": "Đang tải…",
       "loadError": "Không tải được kịch bản.",
@@ -791,7 +791,8 @@
         "TOO_LONG": "Vượt quá {max} ký tự",
         "HAS_DIGIT_OR_LATIN": "Số và chữ Latinh bị đọc sai",
         "TOO_FEW_LINES": "Quá ít câu",
-        "TOO_MANY_LINES": "Quá nhiều câu"
+        "TOO_MANY_LINES": "Quá nhiều câu",
+        "PART_TOO_LONG": "Một dòng phụ đề quá dài — hãy chia cảnh"
       },
       "error": {
         "GEMINI_NOT_CONFIGURED": "Chưa cấu hình khoá Gemini API.",
@@ -800,7 +801,8 @@
         "RENDER_IN_PROGRESS": "Đang render. Vui lòng thử lại sau.",
         "LINES_REQUIRED": "Hãy nhập ít nhất một câu.",
         "generic": "Xử lý thất bại."
-      }
+      },
+      "cutRange": "Cảnh {from}~{to}"
     }
   },
   "account": {

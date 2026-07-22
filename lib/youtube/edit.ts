@@ -885,7 +885,7 @@ export interface EditJobRenderResult {
  */
 export async function runYoutubeEditJob(
   params: EditParams,
-  ctx: { villaName?: string | null; baseName: string }
+  ctx: { villaName?: string | null; baseName: string; introSpecs?: string[] }
 ): Promise<EditJobRenderResult> {
   const dlDir = path.join(os.tmpdir(), `yt-edit-dl-${Date.now()}-${randomUUID().slice(0, 8)}`);
   await fs.mkdir(dlDir, { recursive: true });
@@ -907,6 +907,7 @@ export async function runYoutubeEditJob(
     // 나레이션 없는 영상이 "영상 없음"보다 낫다.
     let narrationTrack: NarrationTrack | undefined;
     let narrationCtaSec: number | undefined;
+    let narrationIntroHoldSec: number | undefined;
     let subtitles = params.subtitles;
     if (params.narration && params.narration.lines.length > 0) {
       try {
@@ -936,6 +937,8 @@ export async function runYoutubeEditJob(
         }
         // CTA 카드 길이 — 안 넘기면 2.8초 고정이라 마지막 문장이 잘린다.
         narrationCtaSec = timeline.ctaDurationSec;
+        // 인트로(스펙 칩)는 첫 문장이 끝날 때까지 유지 — 고정 1.5초면 설명이 남았는데 칩이 사라진다.
+        narrationIntroHoldSec = timeline.lineOffsets[0] + synth[0].durationSec + 0.4;
         // 자막 = 나레이션과 같은 소스(단일 진실), **절 단위**라 컷마다 바뀐다.
         // ★ CTA 절은 자막에서 제외 — 아웃트로 카드가 같은 내용을 큰 글씨로 이미 보여준다(겹침 방지).
         subtitles = timeline.subtitles
@@ -956,6 +959,11 @@ export async function runYoutubeEditJob(
       narration: narrationTrack,
       // 나레이션 마지막 문장이 CTA 카드 위에서 재생된다 — 카드 길이를 그 문장에 맞춘다.
       ctaDurationSec: narrationCtaSec,
+      // ★ 오프닝 스펙 칩·인트로 유지시간(QA M-6): 예전엔 스모크 스크립트에만 배선돼 있어
+      //   **운영 렌더에서는 스펙 칩이 절대 표시되지 않았다.** 음소거 시청자에게 침실 수·수영장·
+      //   해변 거리를 전달하는 게 오프닝 훅의 핵심이라 여기서도 넘긴다.
+      introSpecs: ctx.introSpecs,
+      introHoldSec: narrationIntroHoldSec,
     });
 
     const { url: videoUrl } = await saveYoutubeRenderedVideo(rendered.mp4, ctx.baseName);

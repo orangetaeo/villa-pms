@@ -215,13 +215,23 @@ export async function probeVideoFile(
   };
 }
 
+/** probeR2Clip 결과 — 크기 초과는 다운로드 없이 즉시 판별되므로 별도 사유로 돌려준다. */
+export type ProbeR2Result =
+  | { ok: true; probe: ClipProbe }
+  | { ok: false; reason: "NOT_FOUND" | "TOO_LARGE" | "INVALID" };
+
 /**
  * R2에 업로드된 클립을 실측 — HeadObject(크기) + tmp 다운로드 후 ffprobe(길이·해상도).
- * @returns 오브젝트가 없거나(아직 PUT 안 됨) 영상이 아니면 null
+ *
+ * ★ maxBytes를 반드시 넘겨라(QA H-2): presigned PUT에는 content-length 제약이 없어
+ *   클라가 신고한 크기와 **무관하게 임의 크기**를 올릴 수 있다. 크기 검사를 다운로드 뒤에 하면
+ *   수 GB 파일이 서버 메모리로 먼저 들어와 OOM·egress 비용 폭탄이 된다.
+ *   → HeadObject 크기로 **다운로드 전에** 끊는다.
  */
-export async function probeR2Clip(key: string): Promise<ClipProbe | null> {
+export async function probeR2Clip(key: string, maxBytes: number): Promise<ProbeR2Result> {
   const head = await headR2Object(key);
-  if (!head || head.sizeBytes <= 0) return null; // 업로드 미완료
+  if (!head || head.sizeBytes <= 0) return { ok: false, reason: "NOT_FOUND" }; // 업로드 미완료
+  if (head.sizeBytes > maxBytes) return { ok: false, reason: "TOO_LARGE" }; // ★ 다운로드 전 차단
 
   const workDir = path.join(os.tmpdir(), `villa-clip-${Date.now()}-${randomUUID().slice(0, 8)}`);
   await fs.mkdir(workDir, { recursive: true });
@@ -229,15 +239,18 @@ export async function probeR2Clip(key: string): Promise<ClipProbe | null> {
   try {
     await fs.writeFile(localPath, await getR2ObjectBuffer(key));
     const meta = await probeVideoFile(localPath);
-    if (!meta) return null;
+    if (!meta) return { ok: false, reason: "INVALID" };
     return {
-      sizeBytes: head.sizeBytes, // 크기는 R2 실측값이 정본(로컬 파일 크기와 동일하지만 출처를 명확히)
-      durationSec: meta.durationSec,
-      width: meta.width,
-      height: meta.height,
+      ok: true,
+      probe: {
+        sizeBytes: head.sizeBytes, // 크기는 R2 실측값이 정본(로컬 파일 크기와 동일하지만 출처를 명확히)
+        durationSec: meta.durationSec,
+        width: meta.width,
+        height: meta.height,
+      },
     };
   } catch {
-    return null;
+    return { ok: false, reason: "INVALID" };
   } finally {
     await fs.rm(workDir, { recursive: true, force: true }).catch(() => {});
   }

@@ -18,8 +18,10 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
 import { writeAuditLog } from "@/lib/audit-log";
+import { canRerender } from "@/lib/youtube/rerender-guard";
 
 export const dynamic = "force-dynamic";
+
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -37,10 +39,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const short = await prisma.youtubeShort.findUnique({
     where: { id },
-    select: { id: true, editJobStatus: true },
+    select: { id: true, editJobStatus: true, status: true },
   });
   if (!short || short.editJobStatus == null) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
+
+  // ★ 발행 축 가드(QA H-1): editJobStatus만 보면 **이미 발행된 쇼츠도 재렌더**된다.
+  //   그러면 cron 완료 시 status가 PUBLISHED → PENDING_APPROVAL로 되돌아가고 videoUrl이 교체돼,
+  //   운영자가 다시 승인하면 **같은 쇼츠가 유튜브에 두 번 업로드**된다(기존 ytVideoId는 덮어써져 고아).
+  //   채널이 API 감사 대기 중이라 중복 업로드는 비용이 크다 → 발행 파이프라인에 올라간 건 거부.
+  if (!canRerender(short.status)) {
+    return NextResponse.json(
+      { error: "ALREADY_PUBLISHED", status: short.status },
+      { status: 409 }
+    );
   }
 
   // 렌더 진행 중에 다시 큐에 넣으면 산출물과 파라미터가 어긋난다.

@@ -16,11 +16,13 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
 import { writeAuditLog } from "@/lib/audit-log";
+import { canRerender } from "@/lib/youtube/rerender-guard";
 import { GeminiNotConfiguredError } from "@/lib/gemini";
 import { ttsConfig } from "@/lib/gemini-tts";
 import {
   buildNarrationScript,
   validateNarrationLines,
+  normalizeScript,
   NARRATION_RULES,
   type NarrationClipHint,
   type NarrationLine,
@@ -231,24 +233,51 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   if (lines.length === 0) return NextResponse.json({ error: "LINES_REQUIRED" }, { status: 400 });
 
-  // 규칙 위반은 **거부하지 않고 경고로 돌려준다** — 운영자가 의도적으로 1자 넘길 수 있어야 한다.
-  //   단 총 길이 상한(쇼츠 60초)은 렌더 단계에서 하드하게 막힌다(edit.ts, 계약 C2).
-  const validation = validateNarrationLines(lines);
   const voice = typeof b.voice === "string" && b.voice.trim() ? b.voice.trim() : undefined;
   const rerender = b.rerender === true;
 
   const short = await loadShort(id);
   if (!short) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+
+  // ★ 저장 직전 컷 커버리지 재보정(QA M-3): 편집기가 문장을 추가·삭제하면 절 배정이 깨진다
+  //   (새 문장은 parts가 없어 CTA로 저장되고, 문장을 지우면 그 문장이 덮던 컷이 미배정으로 남는다).
+  //   미배정 컷은 clipDurations에 구멍을 남겨 렌더가 기본 4초를 쓰고 **타임라인 전체가 밀린다**.
+  //   → 서버가 normalizeScript로 모든 컷이 정확히 한 번씩 쓰이도록 항상 다시 맞춘다(컷 순서 정렬 포함).
+  const clipCount = clipHintsOf(short.editParamsJson).length;
+  const normalized =
+    clipCount > 0
+      ? normalizeScript(
+          lines.map((l) => ({
+            text: l.text,
+            parts: l.parts.map((p) => ({
+              // normalizeScript는 1-base cut을 받는다. CTA(빈 배열)는 0.
+              cut: p.clipIndexes.length ? p.clipIndexes[0] + 1 : 0,
+              text: p.text,
+            })),
+          })),
+          clipCount
+        )
+      : lines;
+
+  // 규칙 위반은 **거부하지 않고 경고로 돌려준다** — 운영자가 의도적으로 1자 넘길 수 있어야 한다.
+  //   단 총 길이 상한은 렌더 단계에서 하드하게 막힌다(edit.ts, 계약 C2).
+  const validation = validateNarrationLines(normalized);
   // 렌더 중(PROCESSING)에 파라미터를 갈아끼우면 산출물과 대본이 어긋난다.
   if (rerender && short.editJobStatus === YtEditJobStatus.PROCESSING) {
     return NextResponse.json({ error: "RENDER_IN_PROGRESS" }, { status: 409 });
+  }
+  // ★ 발행 축 가드(QA H-1) — run 라우트와 같은 이유. 이미 발행 파이프라인에 오른 쇼츠를 재렌더하면
+  //   status가 PENDING_APPROVAL로 되돌아가 재승인 → 유튜브 중복 업로드로 이어진다.
+  //   대본 "저장"만은 허용한다(기록용) — 막는 건 재렌더뿐.
+  if (rerender && !canRerender(short.status)) {
+    return NextResponse.json({ error: "ALREADY_PUBLISHED", status: short.status }, { status: 409 });
   }
 
   const prevParams =
     short.editParamsJson && typeof short.editParamsJson === "object" && !Array.isArray(short.editParamsJson)
       ? (short.editParamsJson as Record<string, unknown>)
       : {};
-  const nextParams = { ...prevParams, narration: { lines, ...(voice ? { voice } : {}) } };
+  const nextParams = { ...prevParams, narration: { lines: normalized, ...(voice ? { voice } : {}) } };
 
   await prisma.$transaction(async (tx) => {
     await tx.youtubeShort.update({
@@ -268,14 +297,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       entity: "YoutubeShortNarration",
       entityId: id,
       changes: {
-        lineCount: { new: String(lines.length) },
+        lineCount: { new: String(normalized.length) },
         // 대본 전문을 남긴다 — 발행 문구 분쟁 시 "무엇이 승인됐는지"가 정본이 된다.
-        script: { new: lines.map((l) => l.text).join(" / ") },
+        script: { new: normalized.map((l) => l.text).join(" / ") },
         rerender: { new: String(rerender) },
         ...(voice ? { voice: { new: voice } } : {}),
       },
     });
   });
 
-  return NextResponse.json({ lines, validation, rerender, tts: ttsConfig() });
+  return NextResponse.json({ lines: normalized, validation, rerender, tts: ttsConfig() });
 }

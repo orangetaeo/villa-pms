@@ -9,14 +9,20 @@
 //   재렌더는 editJobStatus=PENDING으로 되돌려 기존 잡 러너가 픽업한다.
 //
 // ★ 재TTS 비용: 문장별 캐시가 있어 **고친 문장만** 새로 합성된다 — 전체 재합성이 아니다.
-// ★ 글자수 카운터: 초당 5~6음절 × 컷 2.5초 ≈ 15자. 넘으면 15초에 안 들어가므로 즉시 경고.
+// ★ 글자수 카운터: **문장 상한**(여러 컷에 걸쳐 흐르므로 절 상한보다 길다) 기준.
 // ★ 숫자·영문 경고: TTS가 "브이십이"처럼 이상하게 읽는다 — 서버 검증 결과를 그대로 표시.
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
+interface Part {
+  clipIndexes: number[];
+  text: string;
+}
+
 interface Line {
   text: string;
-  clipIndex: number | null;
+  /** 컷별 절 — 한 문장이 여러 컷에 걸쳐 흐른다(villa-clip-narration-p2) */
+  parts: Part[];
 }
 
 type LineIssue =
@@ -24,6 +30,7 @@ type LineIssue =
   | "TOO_SHORT"
   | "TOO_LONG"
   | "HAS_DIGIT_OR_LATIN"
+  | "PART_TOO_LONG"
   | "TOO_FEW_LINES"
   | "TOO_MANY_LINES";
 
@@ -37,8 +44,17 @@ interface NarrationPayload {
   lines: Line[];
   voice?: string;
   validation: Validation | null;
-  rules: { minChars: number; maxChars: number; minLines: number; maxLines: number };
+  rules: { minChars: number; maxChars: number; sentenceMaxChars: number; minLines: number; maxLines: number };
   tts: { model: string; voice: string };
+}
+
+/** 문장이 덮는 컷 라벨 — 여러 컷이면 "컷1~3", CTA면 "CTA". */
+function cutLabelText(line: Line): { key: "cta" | "cut" | "range"; from: number; to: number } {
+  const idx = line.parts.flatMap((p) => p.clipIndexes);
+  if (idx.length === 0) return { key: "cta", from: 0, to: 0 };
+  const from = Math.min(...idx) + 1;
+  const to = Math.max(...idx) + 1;
+  return from === to ? { key: "cut", from, to } : { key: "range", from, to };
 }
 
 export default function NarrationEditor({
@@ -132,7 +148,15 @@ export default function NarrationEditor({
   };
 
   const updateLine = (i: number, text: string) => {
-    setLines((prev) => prev.map((l, idx) => (idx === i ? { ...l, text } : l)));
+    setLines((prev) =>
+      prev.map((l, idx) =>
+        idx === i
+          ? // 절이 하나뿐이면 문장=절이므로 같이 갱신한다. 여러 절이면 문장만 고치고
+            // 절 재분배는 서버 normalizeScript에 맡긴다(자막 경계는 유지).
+            { ...l, text, parts: l.parts.length === 1 ? [{ ...l.parts[0], text }] : l.parts }
+          : l
+      )
+    );
     setDirty(true);
     setValidation(null); // 수정하면 이전 검증 결과는 무효 — 저장 시 서버가 다시 본다
   };
@@ -144,7 +168,8 @@ export default function NarrationEditor({
   };
 
   const addLine = () => {
-    setLines((prev) => [...prev, { text: "", clipIndex: prev.length }]);
+    // 새 문장의 컷 배정은 **서버가 저장 시 normalizeScript로 재보정**한다(QA M-3).
+    setLines((prev) => [...prev, { text: "", parts: [{ clipIndexes: [], text: "" }] }]);
     setDirty(true);
   };
 
@@ -152,7 +177,9 @@ export default function NarrationEditor({
     return <p className="text-xs text-slate-500">{t("loading")}</p>;
   }
 
-  const maxChars = rules?.maxChars ?? 18;
+  // ★ 카운터는 **문장 상한**을 쓴다(QA L-13). 절 상한(maxChars)을 문장에 적용하면
+  //   정상 문장이 항상 경고로 표시된다.
+  const maxChars = rules?.sentenceMaxChars ?? 90;
 
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
@@ -181,14 +208,21 @@ export default function NarrationEditor({
             return (
               <li key={i} className="flex items-start gap-2">
                 <span className="mt-2 w-10 shrink-0 text-[10px] font-bold text-slate-500">
-                  {line.clipIndex == null ? t("cta") : t("cut", { n: line.clipIndex + 1 })}
+                  {(() => {
+                    const c = cutLabelText(line);
+                    return c.key === "cta"
+                      ? t("cta")
+                      : c.key === "cut"
+                        ? t("cut", { n: c.from })
+                        : t("cutRange", { from: c.from, to: c.to });
+                  })()}
                 </span>
                 <div className="min-w-0 flex-1">
                   <input
                     type="text"
                     value={line.text}
                     onChange={(e) => updateLine(i, e.target.value)}
-                    maxLength={120}
+                    maxLength={200}
                     className={`w-full rounded border bg-slate-900 px-2 py-1.5 text-sm text-slate-100 ${
                       issue || over ? "border-amber-500/60" : "border-slate-700"
                     }`}
