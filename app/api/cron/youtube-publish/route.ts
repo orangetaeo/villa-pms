@@ -5,11 +5,14 @@
 //
 // ★ 동시성 락: updateMany where {status:QUEUED} → data {status:PUBLISHING} 원자 선점. affected 0이면 다른 실행이 가져감(스킵).
 // ★ 킬스위치/상한 스킵 시 QUEUED 복구(인스타 패턴) — 선점 후 uploadYoutubeShort가 skipped면 되돌린다.
+// ★ 고아 회수(T-publish-orphan-reaper): 업로드 도중 프로세스가 죽으면 그 행이 PUBLISHING에 갇히므로,
+//   본 처리 전에 45분 초과 PUBLISHING을 FAILED로 자동 회수한다(QUEUED 복귀 없음 — 중복 업로드 방지).
 import { YtShortStatus, type Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { writeAuditLog } from "@/lib/audit-log";
 import { notifyMarketing } from "@/lib/marketing-notify";
+import { reapStalePublishing } from "@/lib/marketing/reap-stale-publishing";
 import { uploadYoutubeShort } from "@/lib/youtube/upload";
 import { isYoutubeAutopostPaused } from "@/lib/youtube/settings";
 
@@ -25,9 +28,17 @@ async function handle(req: Request) {
   const auth = verifyCronAuth(req, "youtube-publish");
   if (!auth.ok) return Response.json(auth.body, { status: auth.status });
 
+  // 발행 고아 자가 치유 — **킬스위치 검사보다 먼저**(정지 중에도 갇힌 행은 회수돼야 한다). 오류는 격리.
+  let reaped = { instagram: 0, youtube: 0 };
+  try {
+    reaped = await reapStalePublishing();
+  } catch (e) {
+    console.error("[youtube-publish] 고아 회수 실패:", e instanceof Error ? e.message : String(e));
+  }
+
   // 킬스위치가 켜져 있으면 아무 것도 PUBLISHING로 선점하지 않는다(복구 로직 불필요).
   if (await isYoutubeAutopostPaused()) {
-    return Response.json({ status: "ok", paused: true, published: 0 });
+    return Response.json({ status: "ok", paused: true, published: 0, reaped });
   }
 
   const now = new Date();
@@ -119,7 +130,14 @@ async function handle(req: Request) {
     });
   }
 
-  return Response.json({ status: "ok", published: published.length, failed: failed.length, skipped, failures: failed });
+  return Response.json({
+    status: "ok",
+    published: published.length,
+    failed: failed.length,
+    skipped,
+    failures: failed,
+    reaped, // 이번 실행에서 FAILED로 회수한 고아 건수(instagram/youtube)
+  });
 }
 
 export { handle as GET, handle as POST };

@@ -2,8 +2,14 @@
 // 인증: Authorization: Bearer ${CRON_SECRET} — verifyCronAuth(첫 줄 게이트).
 // 흐름:
 //   ① PROCESSING 고아(크래시 잔재) → FAILED + editError(경보).
+//   ①-b 발행 고아(status: PUBLISHING) 회수 → FAILED(T-publish-orphan-reaper).
 //   ② 전역 렌더 락 — 살아있는 PROCESSING이 있으면 이번 주기는 렌더를 건너뛴다(RENDER_BUSY).
 //   ③ PENDING 대기분 → 1건씩 렌더. PENDING→PROCESSING 원자 락 후 실행.
+//
+// ★ 이 cron은 사실상 **"마케팅 잡 틱"**이다(*/5분으로 가장 자주 도는 마케팅 cron).
+//   그래서 편집 축뿐 아니라 발행 축(InstagramPost·YoutubeShort의 PUBLISHING) 고아 회수도 여기서 같이 돈다
+//   — 새 cron 서비스를 등록하지 않고도 고아를 **5분 내 감지**하기 위함이다.
+//   발행 라우트들도 자기 실행 첫머리에서 같은 회수를 돌리지만, 그쪽은 하루 몇 번뿐이라 감지가 늦다.
 //
 // ★ 2026-07-22 역할 변경: 예전엔 run 라우트(동기)가 정상 경로고 이 cron이 안전망이었다.
 //   나레이션 투어 영상은 렌더가 2.5~8분이라 동기 실행이 브라우저 타임아웃에 걸린다
@@ -26,6 +32,7 @@ import { validateEditParams, runYoutubeEditJob } from "@/lib/youtube/edit";
 import { canRerender } from "@/lib/youtube/rerender-guard";
 import { buildIntroSpecs } from "@/lib/youtube/narration";
 import { isRenderBusy, winsRenderRace } from "@/lib/youtube/render-lock";
+import { reapStalePublishing } from "@/lib/marketing/reap-stale-publishing";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 900; // 렌더 최대 8분 + 여유
@@ -76,6 +83,16 @@ async function handle(req: Request) {
     }
   }
 
+  // ①-b 발행 고아(status: PUBLISHING) 회수 → FAILED + 경보(모듈이 자체 알림).
+  //   편집 축(①)과 **다른 축**이다: ①은 editJobStatus(렌더), 여기는 status(플랫폼 업로드).
+  //   회수 실패가 렌더 처리를 막으면 안 되므로 격리한다.
+  let publishOrphansReaped = { instagram: 0, youtube: 0 };
+  try {
+    publishOrphansReaped = await reapStalePublishing();
+  } catch (e) {
+    console.error("[youtube-edit-jobs] 발행 고아 회수 실패:", e instanceof Error ? e.message : String(e));
+  }
+
   // ② 전역 렌더 락(QA M-7) — 살아있는 PROCESSING = 다른 주기가 아직 ffmpeg를 돌리는 중.
   //   ★ 순서가 계약이다: **고아 회수(①) 다음에** 검사한다. 뒤집으면 크래시로 남은 PROCESSING이
   //     락을 영구 점유해 렌더가 영영 안 도는 데드락이 된다.
@@ -92,6 +109,7 @@ async function handle(req: Request) {
     return Response.json({
       status: "ok",
       orphansReaped: orphans.length,
+      publishOrphansReaped,
       skipped: "RENDER_BUSY",
       activeRenders: liveRenders,
       processed: 0,
@@ -228,6 +246,7 @@ async function handle(req: Request) {
   return Response.json({
     status: "ok",
     orphansReaped: orphans.length,
+    publishOrphansReaped, // 발행 축(PUBLISHING) 고아 회수 건수 — 편집 축 orphansReaped와 별개
     processed: pending.length,
     done: done.length,
     failed: failed.length,
