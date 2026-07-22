@@ -95,3 +95,28 @@ Railway 컨테이너 1대에서 ffmpeg가 2~3개 동시에 돌면 CPU·메모리
 | 죽은 PROCESSING이 락을 영구 점유 | 고아 회수를 락 검사 **앞**에 두고, 리스 판정도 같은 25분 컷오프를 공유 |
 | 두 주기가 동시에 기동해 둘 다 claim | claim 후 재검사 + id 최소값 tie-break, 패자는 PENDING 반납 |
 | 잡이 계속 밀려 적체 | 렌더 8분 < 주기 5분×2이므로 다음 주기가 이어받는다. 적체는 알림으로 이미 관측됨 |
+
+## 구현 결과 (2026-07-22)
+
+| 게이트 | 결과 |
+|---|---|
+| `npx tsc --noEmit` | 통과(0) |
+| `npm run lint` | 신규·수정 파일 error·warning 0 |
+| `npx next build` | 통과 (148 페이지 생성) |
+| `npx vitest run lib/youtube` | 32 passed (신규 render-lock 10건 포함) |
+| `npx vitest run` 전체 | 3505 passed / 5 failed — **전부 기존 baseline** (regional-vendor 3 + 미게이트 mutation 가드 2 = L-10 잔여). 신규 실패 0 |
+
+신규 파일: `lib/youtube/render-lock.ts`, `lib/youtube/render-lock.test.ts`
+수정 파일: `app/api/cron/youtube-edit-jobs/route.ts`
+
+### 구현 중 발견·수정한 회귀 1건
+
+조기 반환(RENDER_BUSY)을 넣자 **고아 회수 경보가 발송되지 않는** 경로가 생겼다 —
+기존 알림 블록이 함수 맨 끝에 있어서 락에 걸리면 그 아래로 못 내려간다.
+고아를 회수해 놓고 운영자는 모르는 조용한 실패가 되므로,
+경보를 `notifyEditFailed()`로 추출해 **조기 반환 경로에서도 발송**하도록 고쳤다.
+
+### 검증 잔여
+
+- 프로덕션 배포 후 cron 2연타 실측(`skipped:"RENDER_BUSY"`) — 배포 후 수행
+- 독립 QA 서브에이전트 검증은 이번 세션 설정상 미수행(작성자 검토로 대체) — 배포 전 필요 시 별도 수행
