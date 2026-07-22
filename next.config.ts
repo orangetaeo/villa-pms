@@ -29,7 +29,15 @@ const nextConfig: NextConfig = {
   //   .next/server/chunks/ffmpeg 로 깨져 런타임 spawn ENOENT(릴스/쇼츠 MP4 합성 전면 실패).
   //   외부 패키지로 지정해야 node_modules의 실제 바이너리 경로로 해결된다.
   // (Next 15: instrumentation.ts는 기본 활성, serverExternalPackages는 stable)
-  serverExternalPackages: ["zca-js", "ffmpeg-static"],
+  // ★ ffprobe-static도 반드시 포함(2026-07-22 실측): 빠뜨리면 번들러가 경로를 갈아엎어
+  //   서버에서 ffprobe spawn이 실패한다. 그런데 실패가 **조용하다** — lib/youtube/edit.ts의
+  //   probeDurationSec·probeIsHorizontal은 catch에서 null/false를 돌려주기 때문이다. 결과:
+  //     ⑴ segDurs가 실제 길이 대신 **요청 길이**로 폴백 → xfade 오프셋이 어긋나
+  //        마지막 프레임이 정지한 채 나레이션만 흐른다(실제 발행 영상에서 확인)
+  //     ⑵ 원본 부족분 감속 로직이 avail=null이라 아예 발동하지 않는다
+  //     ⑶ 가로 클립 blur 패딩이 영영 켜지지 않는다(항상 세로로 가정)
+  //   로컬에서는 ffprobe가 정상이라 재현되지 않아 원인 파악이 오래 걸렸다.
+  serverExternalPackages: ["zca-js", "ffmpeg-static", "ffprobe-static"],
   // 전역 HTTP 보안 헤더 (T-sec-public-hardening, Phase 1 보안). CSP는 인라인/CDN 호환성
   // 검증 후 별도 추가(후속). Referrer-Policy는 공개 제안 URL의 token이 외부 referrer로
   // 새는 것을 차단하는 핵심 항목.
