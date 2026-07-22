@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  cancellationTierLabel,
+  cancellationTierParts,
   cancellationTiers,
   type GuestRefundTier,
 } from "@/lib/cancellation-policy";
@@ -165,7 +165,17 @@ export function BookingForm({
           {/* S3: N단계 가변 — 공개 제안 페이지와 같은 조립 함수(문구 불일치 방지) */}
           <ul className="text-xs text-slate-600 space-y-1 leading-relaxed">
             {cancellationTiers({ tiers: cancellationPolicy.tiers, enabled: true }).map((tier, i) => (
-              <li key={`${tier.kind}-${i}`}>{cancellationTierLabel(tier, sales)}</li>
+              <li key={`${tier.kind}-${i}`}>
+                {cancellationTierParts(tier, sales).map((part, k) =>
+                  part.kind === "days" || part.kind === "pct" ? (
+                    <span key={k} className="font-semibold text-slate-800">
+                      {part.text}
+                    </span>
+                  ) : (
+                    <span key={k}>{part.text}</span>
+                  )
+                )}
+              </li>
             ))}
           </ul>
           <label className="flex items-start gap-2.5 pt-1 cursor-pointer select-none">

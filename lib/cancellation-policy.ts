@@ -184,22 +184,59 @@ export interface CancellationLabelFragments {
   cancelNoShow: string; // "노쇼 또는 체크인 후 취소 시 "
 }
 
-/** 행 1개 → 완성된 문장. 환불률 0이면 "환불 불가", 그 외에는 "N% 환불". */
+/**
+ * 행 1개 → 조각 배열. **표시 강조를 살리기 위해** 문장을 통짜 문자열로 주지 않는다
+ * (일수·환불률은 굵게, "환불 불가"는 강조 — 취소 규정은 고객이 숫자를 읽어야 하는 고지문).
+ * 강조 클래스는 화면마다 달라 kind만 넘기고 스타일은 호출측이 정한다.
+ */
+export type CancellationPartKind = "text" | "days" | "pct" | "noRefund";
+export interface CancellationLabelPart {
+  text: string;
+  kind: CancellationPartKind;
+}
+
+export function cancellationTierParts(
+  row: CancellationTierRow,
+  f: CancellationLabelFragments,
+): CancellationLabelPart[] {
+  // 금액 부분 — 환불률 0이면 "환불 불가"(noRefund), 그 외에는 "N"(pct) + "% 환불"(text)
+  const amount: CancellationLabelPart[] =
+    row.pct <= 0
+      ? [{ text: f.cancelNoneAfter, kind: "noRefund" }]
+      : [
+          { text: String(row.pct), kind: "pct" },
+          { text: f.cancelTierAfter, kind: "text" },
+        ];
+  switch (row.kind) {
+    case "range":
+      return [
+        { text: f.cancelTierBefore, kind: "text" },
+        { text: String(row.days), kind: "days" },
+        { text: f.cancelTierMid, kind: "text" },
+        ...amount,
+      ];
+    case "sameDay":
+      return [{ text: f.cancelSameDay, kind: "text" }, ...amount];
+    case "noShow":
+      return [{ text: f.cancelNoShow, kind: "text" }, ...amount];
+    case "withinNone":
+      return [
+        { text: f.cancelNoneBefore, kind: "text" },
+        { text: String(row.days), kind: "days" },
+        { text: f.cancelNoneMid, kind: "text" },
+        ...amount,
+      ];
+  }
+}
+
+/** 조각을 이어붙인 평문 — 강조가 불필요한 곳(관리자 요약·Zalo·테스트)용. */
 export function cancellationTierLabel(
   row: CancellationTierRow,
   f: CancellationLabelFragments,
 ): string {
-  const amount = row.pct <= 0 ? f.cancelNoneAfter : `${row.pct}${f.cancelTierAfter}`;
-  switch (row.kind) {
-    case "range":
-      return `${f.cancelTierBefore}${row.days}${f.cancelTierMid}${amount}`;
-    case "sameDay":
-      return `${f.cancelSameDay}${amount}`;
-    case "noShow":
-      return `${f.cancelNoShow}${amount}`;
-    case "withinNone":
-      return `${f.cancelNoneBefore}${row.days}${f.cancelNoneMid}${amount}`;
-  }
+  return cancellationTierParts(row, f)
+    .map((p) => p.text)
+    .join("");
 }
 
 // ── 판정 ────────────────────────────────────────────────────────────────────

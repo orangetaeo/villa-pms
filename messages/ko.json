@@ -4407,6 +4407,8 @@
     },
     "translateUnavailable": "번역을 사용할 수 없습니다. 원문이 그대로 전송됩니다.",
     "sendFailed": "전송에 실패했습니다. 잠시 후 다시 시도하세요.",
+    "sendUnavailable": "서버 재시작 중이라 전송하지 못했습니다. 잠시 후 다시 보내주세요.",
+    "sendTranslateFailed": "번역에 실패해 보내지 않았습니다(한국어 오발송 방지). 잠시 후 다시 시도하세요.",
     "windowClosedWarning": "마지막 수신 후 48시간이 지나 응답할 수 없습니다. 시스템 알림은 정상 발송됩니다.",
     "windowClosedPlaceholder": "공급자 응답 대기 중",
     "previewLabelEn": "영어 미리보기",
