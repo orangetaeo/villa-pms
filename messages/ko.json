@@ -6505,5 +6505,26 @@
         "REJECTED": "거절됨"
       }
     }
+  },
+  "marketingSeo": {
+    "title": "가이드 글 승인",
+    "subtitle": "자동 생성된 푸꾸옥 여행 가이드 초안입니다. 승인하면 발행 큐에 들어가고, 하루 상한만큼 순차 발행됩니다.",
+    "tabs": {
+      "pending": "승인 대기",
+      "approved": "발행 대기",
+      "published": "발행됨",
+      "rejected": "반려"
+    },
+    "empty": "해당 상태의 글이 없습니다.",
+    "chars": "{n}자",
+    "flagged": "금칙어 검출: {terms}",
+    "created": "생성",
+    "publishedAt": "발행",
+    "preview": "본문 미리보기",
+    "approve": "승인",
+    "reject": "반려",
+    "rejectPlaceholder": "반려 사유 (선택)",
+    "rejectedReason": "반려 사유",
+    "openPublic": "공개 페이지 열기 →"
   }
 }

@@ -6505,5 +6505,26 @@
         "REJECTED": "Đã từ chối"
       }
     }
+  },
+  "marketingSeo": {
+    "title": "Duyệt bài hướng dẫn",
+    "subtitle": "Bản nháp hướng dẫn du lịch Phú Quốc được tạo tự động. Sau khi duyệt, bài sẽ vào hàng chờ và đăng dần theo hạn mức mỗi ngày.",
+    "tabs": {
+      "pending": "Chờ duyệt",
+      "approved": "Chờ đăng",
+      "published": "Đã đăng",
+      "rejected": "Từ chối"
+    },
+    "empty": "Không có bài nào ở trạng thái này.",
+    "chars": "{n} ký tự",
+    "flagged": "Phát hiện từ cấm: {terms}",
+    "created": "Tạo",
+    "publishedAt": "Đăng",
+    "preview": "Xem trước nội dung",
+    "approve": "Duyệt",
+    "reject": "Từ chối",
+    "rejectPlaceholder": "Lý do từ chối (tuỳ chọn)",
+    "rejectedReason": "Lý do từ chối",
+    "openPublic": "Mở trang công khai →"
   }
 }

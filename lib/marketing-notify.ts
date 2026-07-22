@@ -28,6 +28,7 @@ export const MARKETING_DRAFTS_NOTIFY_PAUSED_KEY = "MARKETING_DRAFTS_NOTIFY_PAUSE
 const DRAFTS_READY_KINDS: ReadonlySet<MarketingAlertKind> = new Set([
   "IG_DRAFTS_READY",
   "YT_DRAFTS_READY",
+  "SEO_DRAFTS_READY",
 ]);
 
 /** 초안 승인 대기 알림 정지 여부 — fail-open(조회 실패·키 부재=false=알림 계속). */
@@ -58,7 +59,10 @@ export type MarketingAlertKind =
   | "IG_INSIGHTS_FAILED"
   | "YT_STATS_FAILED"
   | "YT_EDIT_DONE"
-  | "YT_EDIT_FAILED";
+  | "YT_EDIT_FAILED"
+  // 공개 SEO 가이드 글 (T-seo-s3) — 초안 승인 대기 / 발행 실패
+  | "SEO_DRAFTS_READY"
+  | "SEO_PUBLISH_FAILED";
 
 /** 인앱 벨 제목(ko 고정 — 운영 화면 기준 언어). body는 호출부 summary. */
 const MARKETING_INAPP_TITLE: Record<MarketingAlertKind, string> = {
@@ -70,6 +74,8 @@ const MARKETING_INAPP_TITLE: Record<MarketingAlertKind, string> = {
   IG_TOKEN_REFRESH_FAILED: "⚠️ 인스타 토큰 갱신 실패",
   IG_INSIGHTS_FAILED: "⚠️ 인스타 인사이트 수집 실패",
   YT_STATS_FAILED: "⚠️ 유튜브 성과 수집 실패",
+  SEO_DRAFTS_READY: "가이드 글 초안 승인 대기",
+  SEO_PUBLISH_FAILED: "⚠️ 가이드 글 발행 실패",
   YT_EDIT_DONE: "유튜브 편집 완료",
   YT_EDIT_FAILED: "⚠️ 유튜브 편집 실패",
 };

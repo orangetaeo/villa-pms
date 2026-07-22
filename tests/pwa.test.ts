@@ -11,7 +11,13 @@ describe("manifest()", () => {
 
   it("PWA 설치 필수 필드", () => {
     expect(m.display).toBe("standalone");
-    expect(m.start_url).toBe("/");
+    // ★ T-seo-s1: start_url은 "/"가 아니라 "/login"이다.
+    //   루트(/)가 비로그인 방문자에게 **공개 마케팅 홈**을 렌더하도록 바뀌었기 때문에,
+    //   start_url이 "/"면 앱을 설치한 베트남 공급자가 실행 시 로그인 대신 마케팅 홈을 보게 된다.
+    //   "/login"은 로그인 상태면 미들웨어가 역할별 홈으로 되돌려주므로 기존 경험이 보존된다.
+    //   이 단언을 "/"로 되돌리려면 먼저 app/page.tsx의 공개 홈 분기를 검토할 것.
+    expect(m.start_url).toBe("/login");
+    // scope는 "/" 유지 — 앱 안에서 공개 페이지로 이동해도 브라우저로 튕기지 않게 한다.
     expect(m.scope).toBe("/");
     expect(m.lang).toBe("vi");
   });

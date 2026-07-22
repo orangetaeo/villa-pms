@@ -1955,6 +1955,52 @@ model YoutubeShort {
   @@index([editJobStatus]) // 편집 잡 폴링 (PENDING/PROCESSING 조회 — null 다수라 선택도 충분)
 }
 
+// ===================== 공개 SEO 가이드 글 (T-seo-s3) =====================
+// villa-go.net/blog 에 발행되는 여행 가이드 콘텐츠. 빌라 수와 무관하게 검색 유입을 만드는 축.
+//
+// ★ 별도 enum: IgPostStatus·YtShortStatus와 공유하지 않는다. 상태 축(승인·점진발행)이 다르고,
+//   enum을 공유하면 한쪽 상태 추가가 다른 파이프라인의 exhaustive switch를 깨뜨린다(교훈 승계).
+// ★ 본문은 블록 JSON — 마크다운 렌더러 의존성을 추가하지 않고(package.json 동결) XSS 표면도 없다.
+// ★ 공개 경계(T-seo-s1 §4.1) 승계: 본문에 가격·공실·주소·공급자 정보를 넣지 않는다.
+enum SeoArticleStatus {
+  DRAFT // 생성 중(중간 상태)
+  PENDING_APPROVAL // 초안 완성 — 운영자 승인 대기. ★Gemini 창작물은 무검토 발행 금지
+  APPROVED // 승인됨 — 점진 발행 큐 대기(하루 상한 적용)
+  PUBLISHED // 공개 — /blog/[slug] 200, sitemap 등재
+  REJECTED // 반려 (rejectionReason)
+}
+
+model SeoArticle {
+  id String @id @default(cuid())
+
+  // 발급 후 **불변** — URL이 곧 SEO 자산이다. 제목이 바뀌어도 slug는 유지한다.
+  slug    String  @unique
+  title   String
+  summary String // 메타 디스크립션 겸 목록 요약
+  // 본문 블록 배열: [{type:"h2"|"p"|"ul", text?:string, items?:string[]}]
+  bodyJson Json
+
+  // 주제 풀 키 — 같은 주제를 반복 생성하지 않기 위한 중복 방지 축(유니크 아님: 리라이트 허용)
+  topicKey      String
+  coverPhotoUrl String? // 공개 빌라 사진 재사용(관문 경유분만)
+  // 관련 빌라 id — 내부 링크용. **FK 없음**(빌라 삭제·비공개 전환 시 렌더 단계에서 관문이 걸러낸다)
+  relatedVillaIds String[]
+
+  status          SeoArticleStatus @default(DRAFT)
+  approvedAt      DateTime?
+  publishedAt     DateTime? // 발행 시각 — 점진 발행 상한(일 N건) 집계 기준
+  lastPingAt      DateTime? // 마지막 IndexNow 색인 요청 시각
+  rejectionReason String?
+  flaggedTerms    Json? // 금칙어 가드 검출 결과 (InstagramPost.flaggedTerms 패턴)
+
+  createdBy String? // "cron:seo-draft" 또는 User.id (FK 없음)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, publishedAt]) // 공개 목록·점진 발행 큐 조회
+  @@index([topicKey]) // 주제 중복 생성 방지 조회
+}
+
 // ===================== 계약 조항 협의(네고) — T-contract-negotiation (S2) =====================
 // 계약은 DRAFT→SENT→SIGNED뿐이라 상대방은 "서명하거나 안 하거나"였다. 조항 단위로 이의를 남기고
 // 운영자가 수용/거절하는 창구. ★ 상태(BusinessContractStatus)는 건드리지 않는다 —

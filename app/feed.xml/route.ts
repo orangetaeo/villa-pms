@@ -6,6 +6,7 @@
 import { absoluteUrl } from "@/lib/seo/base-url";
 import { BLOG_ROOT, blogPaths } from "@/lib/seo/routes";
 import { getPublicVillas } from "@/lib/seo/public-villa";
+import { getPublishedArticles } from "@/lib/seo/article";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 3600;
@@ -28,6 +29,21 @@ interface FeedItem {
 
 export async function GET() {
   const items: FeedItem[] = [];
+
+  // 가이드 글이 RSS의 주 콘텐츠 — 네이버는 사이트맵보다 RSS 수집이 빠른 경우가 있다.
+  try {
+    const articles = await getPublishedArticles();
+    for (const a of articles) {
+      items.push({
+        title: a.title,
+        path: blogPaths.article(a.slug),
+        description: a.summary.slice(0, 300),
+        pubDate: a.publishedAt,
+      });
+    }
+  } catch {
+    // 글 조회 실패가 피드 전체를 깨뜨리지 않는다.
+  }
 
   try {
     const villas = await getPublicVillas();
