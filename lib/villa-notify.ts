@@ -47,7 +47,7 @@ export async function notifyOperatorsVillaPendingReview(
   });
 }
 
-export type VillaContentKind = "PHOTOS" | "AMENITIES" | "INFO";
+export type VillaContentKind = "PHOTOS" | "AMENITIES" | "INFO" | "CLIPS";
 
 /**
  * 라우트용 래퍼 — 공급자(SUPPLIER)가 승인(ACTIVE)된 빌라를 수정했을 때만 통지.

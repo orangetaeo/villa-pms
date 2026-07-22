@@ -180,14 +180,27 @@ export default function VillaWizard({
         }),
       });
       if (!res.ok) throw new Error("submit failed");
+      // 신규 등록 응답 {id, status} — 영상 온보딩으로 넘기기 위해 id가 필요(실패해도 등록은 성공이므로 무시).
+      const createdId = villaId
+        ? null
+        : await res
+            .json()
+            .then((b: { id?: string }) => b?.id ?? null)
+            .catch(() => null);
+
       // 운영자 대행 신규등록은 빌라 관리의 "승인 대기" 탭으로 복귀(공급자 화면 /my-villas로 새지 않게).
-      // 재제출(PUT)·공급자 신규는 기존대로 /my-villas.
+      // 재제출(PUT)은 기존대로 /my-villas.
+      // 공급자 신규는 **영상 등록(선택) 화면**으로 — 마법사의 사실상 마지막 단계.
+      //   영상은 실제 빌라가 있어야 업로드할 수 있어(빌라 스코프 presign) 등록 완료 후 화면으로 분리했다.
+      //   각 클립이 즉시 커밋되므로, 업로드 실패 시 클립 1개만 잃고 등록 전체는 안전하다.
       const next =
         isAdmin && !villaId
           ? "/villas?status=pending"
           : villaId
             ? "/my-villas?resubmitted=1"
-            : "/my-villas?created=1";
+            : createdId
+              ? `/my-villas/${createdId}/videos?created=1`
+              : "/my-villas?created=1";
       router.push(next);
       router.refresh();
     } catch {

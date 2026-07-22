@@ -11,6 +11,7 @@ import { useTranslations } from "next-intl";
 import { DateField } from "@/components/date-field";
 import ImageLightbox, { type LightboxImage } from "@/components/image-lightbox";
 import type { SerializedYtShort } from "@/lib/youtube/serialize";
+import NarrationEditor from "./narration-editor";
 
 const KST_OFFSET_MS = 9 * 3600 * 1000;
 const SLOT_OPTIONS = ["12:00", "19:30"] as const;
@@ -201,7 +202,8 @@ export default function YoutubeShortCard({
     }
   };
 
-  // 편집 잡 재실행(직접 촬영 UPLOADED, editJobStatus=FAILED) — run retry(동기, 수분).
+  // 편집 잡 재실행(직접 촬영 UPLOADED, editJobStatus=FAILED) — **대기열 등록만**(202).
+  //   실제 렌더는 cron이 수행한다(2.5~8분). 동기 실행은 브라우저 타임아웃 때문에 폐지됐다.
   const rerunEdit = async () => {
     if (busy) return;
     setBusy("rerun");
@@ -211,7 +213,7 @@ export default function YoutubeShortCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ retry: true }),
       });
-      await handle(res, t("editJob.DONE"));
+      await handle(res, t("editJob.queued"));
     } catch {
       notify(t("toast.error"), "err");
     } finally {
@@ -458,6 +460,13 @@ export default function YoutubeShortCard({
               )}
             </div>
           </div>
+
+          {/* AI 나레이션 대본 (villa-clip-narration-p2) — 직접 촬영 클립 쇼츠 전용.
+              Gemini 대본을 그대로 발행하면 사고이므로 여기서 사람이 읽고 고친 뒤 재렌더한다.
+              사진 자동생성(VILLA_AUTO)은 나레이션 소재가 없어 대상이 아니다(음악 유지). */}
+          {short.sourceType === "UPLOADED" && (
+            <NarrationEditor shortId={short.id} onChanged={onChanged} notify={notify} />
+          )}
 
           {/* 제목·설명 (편집 가능 상태는 편집 폼, 그 외는 표시만) */}
           {editingMeta ? (

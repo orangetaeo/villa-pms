@@ -1,0 +1,188 @@
+// lib/gemini-tts.ts — Gemini TTS (한국어 나레이션 음성 합성) + R2 캐시 (villa-clip-narration-p2)
+//
+// 왜 필요한가: 쇼츠·릴스에 음악 대신 나레이션을 넣는다(테오 확정). BGM이 유일한 Content ID
+//   리스크였는데 합성 음성은 그 위험이 0이고, 말이 있는 영상이 쇼츠 체류시간에 유리하다.
+//
+// API: models/{model}:generateContent + responseModalities:["AUDIO"].
+//   응답은 inlineData.data(base64) = **PCM 24kHz / 16bit / mono (raw, 헤더 없음)**.
+//   → 44바이트 WAV 헤더를 붙여 반환한다. ffmpeg/ffprobe 입력을 한 종류로 통일하기 위함
+//     (raw s16le는 입력마다 -f/-ar/-ac 플래그가 필요해 filter_complex 조립이 지저분해진다).
+//
+// ★ 모델 핀: preview 모델이라 수명주기가 짧다 — GEMINI_TTS_MODEL 환경변수로 코드 무변경 교체.
+//   (gemini-2.0-flash 퇴역 사고 대비책인 기존 GEMINI_MODEL 핀 패턴을 그대로 복제)
+// ★ 목소리: 30종 중 무엇이 한국어에 자연스러운지는 **들어봐야 안다** — GEMINI_TTS_VOICE로 교체 가능.
+// ★ 캐시: 같은 (문장·목소리·모델)은 재합성하지 않는다. 운영자가 대본 4줄 중 1줄만 고치면
+//   나머지 3줄은 캐시 히트 → 재렌더가 빠르고 저렴하다(계약 C7).
+import { createHash } from "crypto";
+import { readTtsAudio, saveTtsAudio } from "@/lib/storage";
+import { GeminiNotConfiguredError } from "@/lib/gemini";
+
+const TTS_MODEL = process.env.GEMINI_TTS_MODEL ?? "gemini-2.5-flash-preview-tts";
+const TTS_VOICE = process.env.GEMINI_TTS_VOICE ?? "Kore";
+const TTS_TIMEOUT_MS = 60_000; // 음성 합성은 텍스트 생성보다 느리다
+
+/** Gemini TTS 출력 규격 — 문서 고정값(PCM 24kHz 16bit mono). WAV 헤더·길이 계산에 사용. */
+export const TTS_SAMPLE_RATE = 24_000;
+export const TTS_BITS_PER_SAMPLE = 16;
+export const TTS_CHANNELS = 1;
+
+/**
+ * 톤 지시 — Gemini TTS는 자연어로 말투·속도를 지시할 수 있다.
+ *
+ * ★ 속도(2026-07-22 테오 피드백): 초기 "조금 느리고 또렷하게"는 **실제로 너무 느렸다**.
+ *   쇼츠는 첫 몇 초에 이탈이 갈리는 포맷이라 늘어지는 낭독은 치명적이다.
+ *   → "약간 빠르게, 경쾌하게"로 교정. 더 조정이 필요하면 GEMINI_TTS_STYLE로 코드 수정 없이 바꾼다.
+ */
+const STYLE_PROMPT =
+  process.env.GEMINI_TTS_STYLE ??
+  "다음 문장을 밝고 경쾌한 여행 소개 톤으로, 보통보다 약간 빠르게 자연스럽게 읽어줘. 또박또박 끊어 읽지 말고 자연스러운 구어체 속도로. 문장만 읽고 다른 말은 하지 마.";
+
+interface TtsResponse {
+  candidates?: {
+    content?: {
+      parts?: { inlineData?: { data?: string; mimeType?: string } }[];
+    };
+  }[];
+}
+
+/** raw PCM(s16le mono) → WAV(RIFF) 버퍼. 44바이트 표준 헤더. */
+export function pcmToWav(
+  pcm: Buffer,
+  sampleRate = TTS_SAMPLE_RATE,
+  channels = TTS_CHANNELS,
+  bitsPerSample = TTS_BITS_PER_SAMPLE
+): Buffer {
+  const byteRate = (sampleRate * channels * bitsPerSample) / 8;
+  const blockAlign = (channels * bitsPerSample) / 8;
+  const header = Buffer.alloc(44);
+  header.write("RIFF", 0);
+  header.writeUInt32LE(36 + pcm.length, 4); // 파일 크기 − 8
+  header.write("WAVE", 8);
+  header.write("fmt ", 12);
+  header.writeUInt32LE(16, 16); // fmt 청크 크기
+  header.writeUInt16LE(1, 20); // PCM
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+  header.write("data", 36);
+  header.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([header, pcm]);
+}
+
+/**
+ * WAV 버퍼의 재생 길이(초). ffprobe를 띄우지 않고 데이터 청크 크기로 직접 계산한다
+ * (문장마다 프로세스를 spawn하면 문장 수만큼 수백ms가 낭비된다).
+ */
+export function wavDurationSec(
+  wav: Buffer,
+  sampleRate = TTS_SAMPLE_RATE,
+  channels = TTS_CHANNELS,
+  bitsPerSample = TTS_BITS_PER_SAMPLE
+): number {
+  const dataBytes = Math.max(0, wav.length - 44);
+  const bytesPerSec = (sampleRate * channels * bitsPerSample) / 8;
+  return bytesPerSec > 0 ? dataBytes / bytesPerSec : 0;
+}
+
+/** 캐시 키 — 같은 (문장·목소리·모델)은 한 번만 합성한다. */
+export function ttsCacheKey(text: string, voice = TTS_VOICE, model = TTS_MODEL): string {
+  return createHash("sha256").update(`${model}\u0000${voice}\u0000${text}`).digest("hex");
+}
+
+export interface TtsResult {
+  wav: Buffer;
+  durationSec: number;
+  /** true면 R2 캐시에서 가져옴(API 미호출) */
+  cached: boolean;
+  voice: string;
+  model: string;
+}
+
+/** Gemini TTS API 1회 호출 — 캐시 미스일 때만 호출된다. */
+async function callGeminiTts(
+  text: string,
+  voice: string,
+  fetchFn: typeof fetch
+): Promise<Buffer> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new GeminiNotConfiguredError();
+
+  const res = await fetchFn(
+    `https://generativelanguage.googleapis.com/v1beta/models/${TTS_MODEL}:generateContent`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      signal: AbortSignal.timeout(TTS_TIMEOUT_MS),
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `${STYLE_PROMPT}\n\n${text}` }] }],
+        generationConfig: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
+          },
+        },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    // 본문에 프롬프트가 에코될 수 있으므로 상태 코드만 남긴다(gemini.ts 규약 동일)
+    throw new Error(`Gemini TTS HTTP ${res.status}`);
+  }
+
+  const data = (await res.json()) as TtsResponse;
+  const b64 = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data)?.inlineData
+    ?.data;
+  if (!b64) throw new Error("Gemini TTS 응답에 오디오가 없습니다");
+
+  const pcm = Buffer.from(b64, "base64");
+  if (pcm.length === 0) throw new Error("Gemini TTS 오디오가 비어 있습니다");
+  return pcmToWav(pcm);
+}
+
+/**
+ * 문장 1개 → 한국어 나레이션 WAV. R2 캐시 우선.
+ * @throws GeminiNotConfiguredError 키 미설정 / Error API·응답 실패
+ */
+export async function synthesizeSpeech(
+  text: string,
+  opts: { voice?: string; fetchFn?: typeof fetch } = {}
+): Promise<TtsResult> {
+  const trimmed = text.trim();
+  if (!trimmed) throw new Error("TTS 대상 문장이 비어 있습니다");
+
+  const voice = opts.voice ?? TTS_VOICE;
+  const fetchFn = opts.fetchFn ?? fetch;
+  const key = `tts/${ttsCacheKey(trimmed, voice)}.wav`;
+
+  // ① 캐시 조회 — R2·디스크 양쪽 지원(readTtsAudio). 실패는 미스로 수렴.
+  const cachedWav = await readTtsAudio(key);
+  if (cachedWav && cachedWav.length > 44) {
+    return {
+      wav: cachedWav,
+      durationSec: wavDurationSec(cachedWav),
+      cached: true,
+      voice,
+      model: TTS_MODEL,
+    };
+  }
+
+  // ② 합성
+  const wav = await callGeminiTts(trimmed, voice, fetchFn);
+
+  // ③ 캐시 저장 — 실패해도 결과는 반환(best-effort)
+  try {
+    await saveTtsAudio(wav, key);
+  } catch {
+    // 캐시 저장 실패가 렌더를 막아선 안 된다
+  }
+
+  return { wav, durationSec: wavDurationSec(wav), cached: false, voice, model: TTS_MODEL };
+}
+
+/** 현재 핀된 모델·목소리 — 운영자 화면 표시·감사 로그용. */
+export function ttsConfig(): { model: string; voice: string } {
+  return { model: TTS_MODEL, voice: TTS_VOICE };
+}

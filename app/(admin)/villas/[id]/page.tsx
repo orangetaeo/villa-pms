@@ -33,6 +33,7 @@ import RegionalVendorEditor from "./regional-vendor-editor";
 import PremiumDaysEditor from "./premium-days-editor";
 import { REGIONAL_VENDOR_TYPES, type RegionalVendorType } from "@/lib/regional-vendor";
 import PhotoSection from "./photo-section";
+import ClipReview from "./clip-review";
 import CollapsibleCard from "@/components/admin/collapsible-card";
 
 const SPACE_ORDER: PhotoSpace[] = [
@@ -92,6 +93,23 @@ export default async function VillaDetailPage({
           orderBy: [{ space: "asc" }, { sortOrder: "asc" }],
           // isBaseline·sortOrder — 운영자 사진 편집기(추가·삭제·정렬)용. 누수 무관(url·공간만).
           select: { id: true, space: true, spaceLabel: true, url: true, isBaseline: true, sortOrder: true },
+        },
+        // 영상 클립 검수 (villa-clip-narration P1) — 미완료 업로드(UPLOADING)는 제외. 금액 필드 없음.
+        clips: {
+          where: { status: { not: "UPLOADING" } },
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            url: true,
+            durationSec: true,
+            sizeBytes: true,
+            width: true,
+            height: true,
+            status: true,
+            rejectionReason: true,
+            note: true,
+            createdAt: true,
+          },
         },
         amenities: {
           orderBy: { category: "asc" },
@@ -422,6 +440,25 @@ export default async function VillaDetailPage({
                 url: p.url,
                 isBaseline: p.isBaseline,
                 sortOrder: p.sortOrder,
+              }))}
+            />
+          </CollapsibleCard>
+
+          {/* 영상 클립 검수 (villa-clip-narration P1) — 승인분만 릴스·쇼츠 소재로 사용 */}
+          <CollapsibleCard
+            title={t("clips.title")}
+            icon="movie"
+            headerMeta={
+              <span className="text-xs text-slate-500 whitespace-nowrap">
+                {t("clips.count", { count: villa.clips.length })}
+              </span>
+            }
+          >
+            <ClipReview
+              villaId={villa.id}
+              initialClips={villa.clips.map((c) => ({
+                ...c,
+                createdAt: c.createdAt.toISOString(),
               }))}
             />
           </CollapsibleCard>

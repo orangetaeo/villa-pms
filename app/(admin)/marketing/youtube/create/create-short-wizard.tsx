@@ -56,11 +56,9 @@ interface PresignResp {
 
 interface RunResp {
   ok: boolean;
+  /** true = 대기열 등록됨(렌더는 cron이 수행). 동기 렌더는 폐지됐다(villa-clip-narration-p2). */
+  queued: boolean;
   editJobStatus: string;
-  status: string;
-  videoUrl: string;
-  posterUrl: string | null;
-  durationSec: number | null;
 }
 
 const fmtSize = (bytes: number) => {
@@ -359,7 +357,7 @@ export default function CreateShortWizard() {
           jobIdRef.current = jobId;
         }
 
-        // run(동기, 수분)
+        // 대기열 등록(비동기) — 렌더는 cron이 수행한다. 동기 실행은 브라우저 타임아웃 때문에 폐지.
         setRunState("running");
         const runRes = await fetch(`/api/youtube/edit-jobs/${jobId}/run`, {
           method: "POST",
@@ -895,18 +893,8 @@ export default function CreateShortWizard() {
                   <p className="mt-1 text-xs text-slate-400">{t("create.step3.successHint")}</p>
                 </div>
               </div>
-              <div className="flex flex-col items-center gap-3">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  {t("create.step3.preview")}
-                </p>
-                <video
-                  src={result.videoUrl}
-                  poster={result.posterUrl ?? undefined}
-                  controls
-                  playsInline
-                  className="aspect-[9/16] w-56 rounded-xl border border-slate-700 bg-black object-cover"
-                />
-              </div>
+              {/* 미리보기 없음 — 이 시점엔 아직 렌더 전이다(대기열 등록만 됨).
+                  완성되면 운영자에게 알림이 가고, 승인 큐 카드에서 미리보기할 수 있다. */}
               <div className="flex justify-center">
                 <Link
                   href="/marketing/youtube?status=PENDING_APPROVAL"

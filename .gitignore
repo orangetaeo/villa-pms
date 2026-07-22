@@ -55,3 +55,13 @@ qa-tmp-*.txt
 # Zalo zca-js QR 임시 파일 (loginQR qrPath) — credential 노출 금지 (ADR-0006 D6.2)
 qr.png
 backups/
+
+# 나레이션 스모크 산출물(영상·오디오) — 스크립트만 커밋, 미디어는 제외 (villa-clip-narration-p2)
+smoke/*.mp4
+smoke/*.jpg
+smoke/wav/
+smoke/frames/
+smoke/scan*/
+smoke/seq*/
+smoke/*.png
+smoke/*.txt
