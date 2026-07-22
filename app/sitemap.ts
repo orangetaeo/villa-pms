@@ -7,8 +7,9 @@
 // 빌라 0개 시점에도 정상 동작한다 — 정적 페이지만 실린 유효한 sitemap이 나온다.
 import type { MetadataRoute } from "next";
 import { absoluteUrl } from "@/lib/seo/base-url";
-import { blogPaths } from "@/lib/seo/routes";
+import { BLOG_ROOT, blogPaths } from "@/lib/seo/routes";
 import { getPublicVillas } from "@/lib/seo/public-villa";
+import { getPublishedArticles } from "@/lib/seo/article";
 import { allFacetPages } from "@/lib/seo/facets";
 
 // DB를 읽으므로 정적 프리렌더 금지 — 요청 시 생성 + 1시간 재검증.
@@ -31,6 +32,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   let villaEntries: MetadataRoute.Sitemap = [];
   let facetEntries: MetadataRoute.Sitemap = [];
+  let articleEntries: MetadataRoute.Sitemap = [];
+
+  try {
+    // 가이드 글 — 발행분만. ★글이 1건 이상일 때만 /blog 허브를 등재한다(빈 허브 = 얇은 콘텐츠).
+    const articles = await getPublishedArticles();
+    if (articles.length > 0) {
+      articleEntries.push({
+        url: absoluteUrl(BLOG_ROOT),
+        lastModified: articles[0].publishedAt,
+        changeFrequency: "weekly",
+        priority: 0.8,
+      });
+      for (const a of articles) {
+        articleEntries.push({
+          url: absoluteUrl(blogPaths.article(a.slug)),
+          lastModified: a.updatedAt,
+          changeFrequency: "monthly",
+          priority: 0.7,
+        });
+      }
+    }
+  } catch {
+    articleEntries = [];
+  }
 
   try {
     const villas = await getPublicVillas();
@@ -54,5 +79,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // 500이 반복되면 검색엔진이 sitemap 제출 자체를 무효 처리한다.
   }
 
-  return [...staticEntries, ...villaEntries, ...facetEntries];
+  return [...staticEntries, ...articleEntries, ...villaEntries, ...facetEntries];
 }
