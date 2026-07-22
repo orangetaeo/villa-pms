@@ -7,6 +7,7 @@ import {
   isBrokenKoTranslation,
   numbersPreserved,
   hangulRatio,
+  isRetryableGeminiError,
   GeminiNotConfiguredError,
 } from "@/lib/gemini";
 
@@ -198,11 +199,65 @@ describe("translateText — 견고화(재시도)", () => {
     expect(fetchFn).toHaveBeenCalledTimes(1);
   });
 
-  it("API 오류(1차) → Error throw(상태 코드만)", async () => {
+  it("API 오류가 계속되면 Error throw(상태 코드만)", async () => {
     process.env.GEMINI_API_KEY = "test-key";
     const fetchFn = vi.fn(async () =>
       new Response("err", { status: 429 })
     ) as unknown as typeof fetch;
     await expect(translateText(VI_SOURCE, "ko", fetchFn)).rejects.toThrow("HTTP 429");
+  });
+});
+
+// 채팅 발신은 번역 실패 시 **미발송**이라(한국어 오발송 방지) Gemini 일시 오류 1건이 곧 화면의
+// "전송 실패"가 된다. 429·5xx·타임아웃은 1회 재시도로 흡수하고, 영구 오류는 즉시 실패시킨다.
+describe("translateText — 일시 오류 재시도 (2026-07-22 전송 실패 대응)", () => {
+  it("429(과부하) 1회 후 성공 → 재시도로 복구", async () => {
+    process.env.GEMINI_API_KEY = "test-key";
+    let n = 0;
+    const fetchFn = vi.fn(async () => {
+      n += 1;
+      if (n === 1) return new Response("overloaded", { status: 429 });
+      return new Response(
+        JSON.stringify({ candidates: [{ content: { parts: [{ text: "xin chào" }] } }] }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }) as unknown as typeof fetch;
+    const out = await translateText("안녕하세요", "vi", fetchFn);
+    expect(out).toBe("xin chào");
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it("503(모델 과부하) 1회 후 성공 → 재시도로 복구", async () => {
+    process.env.GEMINI_API_KEY = "test-key";
+    let n = 0;
+    const fetchFn = vi.fn(async () => {
+      n += 1;
+      if (n === 1) return new Response("unavailable", { status: 503 });
+      return new Response(
+        JSON.stringify({ candidates: [{ content: { parts: [{ text: "xin chào" }] } }] }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }) as unknown as typeof fetch;
+    expect(await translateText("안녕하세요", "vi", fetchFn)).toBe("xin chào");
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it("영구 오류(400)는 재시도하지 않고 즉시 실패(1회 호출)", async () => {
+    process.env.GEMINI_API_KEY = "test-key";
+    const fetchFn = vi.fn(async () =>
+      new Response("bad request", { status: 400 })
+    ) as unknown as typeof fetch;
+    await expect(translateText("안녕하세요", "vi", fetchFn)).rejects.toThrow("HTTP 400");
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("재시도 판정 — 일시(429·503·타임아웃) vs 영구(400·키 미설정)", () => {
+    expect(isRetryableGeminiError(new Error("Gemini API HTTP 429"))).toBe(true);
+    expect(isRetryableGeminiError(new Error("Gemini API HTTP 503"))).toBe(true);
+    const timeout = new Error("timed out");
+    timeout.name = "TimeoutError";
+    expect(isRetryableGeminiError(timeout)).toBe(true);
+    expect(isRetryableGeminiError(new Error("Gemini API HTTP 400"))).toBe(false);
+    expect(isRetryableGeminiError(new GeminiNotConfiguredError())).toBe(false);
   });
 });

@@ -26,11 +26,15 @@
 | `cron-youtube-edit-jobs` | `/api/cron/youtube-edit-jobs` | `*/5 * * * *` | **5분 간격** | ★유튜브 편집 잡 **주 실행 경로**(안전망 아님 — run 라우트는 큐잉만 함). 1회 1건 렌더(2.5~8분)·PROCESSING 25분 고아 회수·잡 0건=no-op. 주기 15→5분 상향(villa-clip-narration-p2, 2026-07-22) |
 | `cron-youtube-publish` | `/api/cron/youtube-publish` | `35 3,10 * * *` | KST 12:35·19:35 | 유튜브 쇼츠 발행(QUEUED→업로드, 킬스위치 YT_AUTOPOST_PAUSED 기본 정지·감사 전 unlisted). GraphQL 등록(2026-07-16) |
 | `cron-instagram-token-refresh` | `/api/cron/instagram-token-refresh` | `40 20 * * *` | 매일 03:40 | IG 장기토큰 자동 갱신(멱등 — 주 1회만 실제 갱신, 실패 시 IG_TOKEN_REFRESH_FAILED 인앱 경보). GraphQL API로 등록(2026-07-16, db-backup 선례) |
+| `cron-seo-draft` | `/api/cron/seo-draft` | `30 21 * * 0,2,4` | 월·수·금 04:30 (KST 06:30) | 가이드 글 초안 1건 생성(PENDING_APPROVAL 적재 — **발행 아님**). 주제 풀 8종 소진 시 no-op. GraphQL 등록(2026-07-22, serviceId fcde35d7) |
+| `cron-seo-publish` | `/api/cron/seo-publish` | `0 1 * * *` | 매일 08:00 (KST 10:00) | 승인(APPROVED) 가이드 글을 **일 상한(기본 5, AppSetting `SEO_PUBLISH_PER_DAY`)만큼** 발행 + IndexNow 핑. 승인분 0건이면 no-op. GraphQL 등록(2026-07-22, serviceId 09c8efd1) |
 | `cron-db-backup` | `/api/cron/db-backup` | `0 20 * * *` | 매일 03:00 | DB 스냅샷 R2 백업(메시지 없음) — 프라이빗 버킷 gzip, daily 14·monthly 12 보존. 런북 `docs/ops/db-backup.md`. ⚠ curl 타임아웃 `-m 300`(스냅샷 여유) |
 
 > **✅ 2026-07-03 등록 완료 — 이로써 전 크론(10개) 등록.** `cron-checkout-reminder`(PR #139 신규, 런북 최초 작성 06-26 이후 추가돼 누락됐던 것 발견·보완)와 `cron-security-alerts`(P3-S3)를 테오가 대시보드에서 등록. Run now 성공(각 1s·2s) + checkout-reminder는 앱 DB에서 무부작용 확인(내일 체크아웃 0건 → 알림 0건 멱등 no-op 200). **security-alerts는 스케줄 자동 실행(09:31Z)까지 정상 요약 반환 확인 — §가장 흔한 실패(sh -c) 통과.** checkout-reminder 자동 실행은 01:00 UTC 1회/일 — 익일 Cron Runs 초록 글랜스 권장. 위 등록 절차로 1개 추가하면 가동(Duplicate 후 URL `/api/cron/security-alerts`·스케줄 `*/10 * * * *`·이름 변경). 미등록 시 보안 경보가 자동 발송되지 않음(SecurityEvent는 계속 쌓임 — 수동 조회는 가능, [[incident-response]]). 임계치는 `lib/security-alerts.ts` `SECURITY_ALERT_THRESHOLDS` 상수.
 > ⚠️ Railway cron 스케줄은 **UTC**. VN(UTC+7) 현지 시각은 참고용.
 > 모든 라우트는 멱등(중복 실행 안전). `*/5`는 분, `0 0 * * *`는 매일 00:00 UTC.
+
+> **추가 2026-07-22 (PR #364, T-seo-s3)**: `cron-seo-draft`·`cron-seo-publish` 2종을 **GraphQL API로 등록·배포 완료**(cron-instagram-draft 설정을 그대로 복제 — image `curlimages/curl`, start `sh -c 'eval "$RUN_CMD"'`, RUN_CMD+CRON_SECRET 변수). 배포 SUCCESS 확인 후 **엔드포인트 직접 호출로 end-to-end 실검증**: draft → `{created:1, slugs:["airport-transfer"]}` 실제 초안 생성(1802자·블록 15·금칙어 0·금액 표기 0), publish → `{quota:5, published:0}` 승인분 없어 안전 no-op. ⚠ Railway cron 서비스는 **배포만으로 1회 실행되지 않는다**(초기 배포 후 DB 0건 확인) — 등록 직후 검증은 엔드포인트 직접 호출로 할 것.
 
 ## 등록 절차 (각 서비스 반복, 1개당 ~30초)
 

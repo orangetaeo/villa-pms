@@ -1469,6 +1469,18 @@
           "sending": "전달 중...",
           "sent": "전달 완료 {time}",
           "noZaloWarn": "공급자 Zalo 미연결 — 발송 대기 중입니다"
+        },
+        "estimate": {
+          "title": "취소 시 정산 예상",
+          "daysBefore": "체크인 {days}일 전",
+          "noShow": "체크인 당일 이후·노쇼",
+          "guestRefund": "고객 환불",
+          "penalty": "위약금 수취",
+          "supplierPay": "공급자 지급",
+          "noContract": "계약 단계표 없음",
+          "loss": "⚠ 회사 손실 {pct}%p — 지급률이 위약금률보다 높습니다",
+          "fromConsent": "고객 동의 당시 조건으로 판정했습니다.",
+          "hint": "예상치입니다. 실제 환불·지급 처리는 수납/정산에서 진행하세요."
         }
       },
       "log": {
@@ -2781,19 +2793,23 @@
       "title": "취소·환불 정책",
       "description": "모든 빌라 공용 취소·환불 정책입니다. 입금 확정 기준이며, 공개 제안 페이지에 표시됩니다.",
       "enabledLabel": "공개 표시",
-      "fullDaysLabel": "전액 환불 기한",
-      "partialDaysLabel": "부분 환불 기한",
-      "partialPctLabel": "부분 환불율",
-      "daysUnit": "일 전",
-      "preview": "공개 페이지 미리보기",
-      "lineFull": "체크인 {days}일 전까지 취소 시 100% 환불",
-      "linePartial": "체크인 {days}일 전까지 취소 시 {pct}% 환불",
-      "lineNone": "체크인 {days}일 이내 취소 시 환불 불가",
       "invalid": "전액 환불 기한은 부분 환불 기한보다 길어야 하며, 환불율은 0~100% 사이여야 합니다.",
       "save": "정책 저장",
       "saving": "저장 중...",
       "saved": "저장되었습니다",
-      "error": "저장에 실패했습니다. 다시 시도해주세요."
+      "error": "저장에 실패했습니다. 다시 시도해주세요.",
+      "colWhen": "취소 접수 시점",
+      "colDays": "체크인 D-",
+      "colRefund": "고객 환불 %",
+      "rowRange": "체크인 {days}일 전까지",
+      "rowSameDay": "체크인 당일",
+      "rowNoShow": "노쇼·체크인 후",
+      "rowRemove": "삭제",
+      "addRow": "단계 추가",
+      "applyPreset": "공급자 계약과 맞추기 (5단계)",
+      "lossTitle": "회사 손실이 나는 구간이 있습니다",
+      "lossRow": "체크인 {days}일 전: 고객 환불 {refund}% → 위약금 {pay}%보다 공급자 지급이 {loss}%p 많음",
+      "lossHint": "공급자 계약 기본 단계표(별표 2) 기준입니다. 고객 환불률을 낮추거나 계약 지급률을 조정하세요."
     },
     "seasons": {
       "title": "시즌 달력",
@@ -4450,6 +4466,8 @@
     },
     "translateUnavailable": "번역을 사용할 수 없습니다. 원문이 그대로 전송됩니다.",
     "sendFailed": "전송에 실패했습니다. 잠시 후 다시 시도하세요.",
+    "sendUnavailable": "서버 재시작 중이라 전송하지 못했습니다. 잠시 후 다시 보내주세요.",
+    "sendTranslateFailed": "번역에 실패해 보내지 않았습니다(한국어 오발송 방지). 잠시 후 다시 시도하세요.",
     "windowClosedWarning": "마지막 수신 후 48시간이 지나 응답할 수 없습니다. 시스템 알림은 정상 발송됩니다.",
     "windowClosedPlaceholder": "공급자 응답 대기 중",
     "previewLabelEn": "영어 미리보기",
@@ -6338,6 +6356,50 @@
       "signer": "서명자",
       "signedAt": "서명일",
       "signatureImage": "서명"
+    },
+    "negotiation": {
+      "title": "계약 조건 협의",
+      "desc": "조건이 맞지 않으면 해당 항목을 골라 알려주세요. 담당자가 확인 후 회신합니다.",
+      "open": "협의 요청",
+      "close": "닫기",
+      "pickClause": "어떤 항목인가요?",
+      "pickReason": "이유를 골라주세요",
+      "tierTitle": "원하는 지급률",
+      "tierHint": "각 시점에 받고 싶은 지급률(%)만 조정하세요. 고객 환불률은 자동으로 맞춰집니다.",
+      "tierDays": "체크인 며칠 전",
+      "tierPay": "공급자 지급률 %",
+      "note": "메모 (선택)",
+      "noteRequiredLabel": "메모 (필수)",
+      "noteRequired": "메모를 입력해주세요.",
+      "submit": "협의 요청 보내기",
+      "submitting": "보내는 중…",
+      "alreadyOpen": "이미 진행 중인 협의가 있습니다.",
+      "error": "요청에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      "blocked": "협의가 진행 중입니다. 담당자 회신 후 서명하실 수 있습니다.",
+      "reply": "회신",
+      "clause": {
+        "cancelTiers": "취소 수수료 단계표",
+        "payMethod": "지급 방법",
+        "bankInfo": "계좌 정보",
+        "settleCycle": "정산 주기",
+        "specialTerms": "특약 사항",
+        "other": "기타"
+      },
+      "reason": {
+        "CANCEL_FREE_PERIOD": "무료 취소 기간 조정",
+        "CANCEL_PAY_RATE": "단계별 지급률 조정",
+        "CANCEL_NOSHOW": "노쇼·당일 조건 이견",
+        "PAY_METHOD_CHANGE": "지급 방법 변경",
+        "BANK_INFO_CHANGE": "계좌 정보 수정",
+        "SETTLE_CYCLE_CHANGE": "정산 주기 변경",
+        "SPECIAL_TERMS_ADD": "특약 추가",
+        "OTHER": "기타 (메모로 설명)"
+      },
+      "status": {
+        "OPEN": "확인 중",
+        "ACCEPTED": "수용됨",
+        "REJECTED": "반영 안 됨"
+      }
     }
   },
   "adminContracts": {
@@ -6402,6 +6464,26 @@
       "specialTerms": "특약 사항",
       "cancelFreeDays": "무료 취소 기준일 (체크인 전, 일)",
       "cancelPartialPct": "부분 취소 수수료율 (%)",
+      "cancelTiers": "취소 수수료 단계표 (별표 2)",
+      "cancelTiersHint": "체크인 시점별 고객 환불률·공급자 지급률입니다. 공급자 지급률은 고객 위약금률(100 − 환불률)을 넘을 수 없습니다 — 넘으면 회사 손실이 됩니다.",
+      "tierPeriod": "취소 접수 시점",
+      "tierFromDays": "체크인 D-",
+      "tierGuestRefund": "고객 환불 %",
+      "tierSupplierPay": "공급자 지급 %",
+      "tierAdd": "단계 추가",
+      "tierReset": "기본값 복원",
+      "tierRemove": "삭제",
+      "tierNoshow": "노쇼·체크인 후",
+      "tierErrors": {
+        "TIER_COUNT": "단계는 2~8개여야 합니다.",
+        "TIER_RANGE": "{row}행: 값 범위를 확인하세요 (일수 -1~365, 비율 0~100 정수).",
+        "TIER_LAST_MUST_BE_NOSHOW": "마지막 단계는 노쇼·체크인 후여야 합니다.",
+        "TIER_FIRST_MUST_BE_POSITIVE": "첫 단계는 체크인 1일 전 이상이어야 합니다.",
+        "TIER_DAYS_NOT_DESCENDING": "{row}행: 일수는 위 행보다 작아야 합니다.",
+        "TIER_REFUND_NOT_DESCENDING": "{row}행: 고객 환불률은 위 행보다 클 수 없습니다.",
+        "TIER_PAY_NOT_ASCENDING": "{row}행: 공급자 지급률은 위 행보다 작을 수 없습니다.",
+        "TIER_PAY_EXCEEDS_PENALTY": "{row}행: 공급자 지급률이 고객 위약금률(100 − 환불률)을 초과합니다 — 회사 손실."
+      },
       "payMethod": "지급 방법",
       "settleCycle": "정산 주기",
       "settleDetail": "정산 상세 (예: 매월 5일)",
@@ -6442,7 +6524,67 @@
       "voidConfirm": "이 계약을 무효화하시겠습니까? 되돌릴 수 없습니다.",
       "voiding": "무효화 중…",
       "voidError": "무효화에 실패했습니다."
+    },
+    "negotiation": {
+      "title": "조항 협의",
+      "signBlocked": "미해결 — 상대방 서명 차단 중",
+      "proposal": "역제안",
+      "proposalRow": "고객 {refund}% · 공급자 {pay}%",
+      "accept": "수용",
+      "reject": "거절",
+      "working": "처리 중…",
+      "acceptApplies": "수용하면 역제안 값이 계약 조건에 반영됩니다(서버가 다시 검증).",
+      "acceptConfirm": "이 협의를 수용하시겠습니까? 역제안이 있으면 계약 조건이 갱신됩니다.",
+      "rejectConfirm": "이 협의를 거절하시겠습니까? 사유가 상대방에게 그대로 전달됩니다.",
+      "rejectNoteRequired": "거절 사유를 입력하세요 — 상대방에게 그대로 전달됩니다.",
+      "notePlaceholder": "회신 메모 (거절 시 필수)",
+      "termsInvalid": "역제안이 계약 검증을 통과하지 못했습니다(회사 손실 상한 등).",
+      "error": "처리에 실패했습니다.",
+      "clause": {
+        "cancelTiers": "취소 수수료 단계표",
+        "payMethod": "지급 방법",
+        "bankInfo": "계좌 정보",
+        "settleCycle": "정산 주기",
+        "specialTerms": "특약 사항",
+        "other": "기타"
+      },
+      "reason": {
+        "CANCEL_FREE_PERIOD": "무료 취소 기간 조정",
+        "CANCEL_PAY_RATE": "단계별 지급률 조정",
+        "CANCEL_NOSHOW": "노쇼·당일 조건 이견",
+        "PAY_METHOD_CHANGE": "지급 방법 변경",
+        "BANK_INFO_CHANGE": "계좌 정보 수정",
+        "SETTLE_CYCLE_CHANGE": "정산 주기 변경",
+        "SPECIAL_TERMS_ADD": "특약 추가",
+        "OTHER": "기타 (메모로 설명)"
+      },
+      "status": {
+        "OPEN": "확인 중",
+        "ACCEPTED": "수용됨",
+        "REJECTED": "거절됨"
+      }
     }
+  },
+  "marketingSeo": {
+    "title": "가이드 글 승인",
+    "subtitle": "자동 생성된 푸꾸옥 여행 가이드 초안입니다. 승인하면 발행 큐에 들어가고, 하루 상한만큼 순차 발행됩니다.",
+    "tabs": {
+      "pending": "승인 대기",
+      "approved": "발행 대기",
+      "published": "발행됨",
+      "rejected": "반려"
+    },
+    "empty": "해당 상태의 글이 없습니다.",
+    "chars": "{n}자",
+    "flagged": "금칙어 검출: {terms}",
+    "created": "생성",
+    "publishedAt": "발행",
+    "preview": "본문 미리보기",
+    "approve": "승인",
+    "reject": "반려",
+    "rejectPlaceholder": "반려 사유 (선택)",
+    "rejectedReason": "반려 사유",
+    "openPublic": "공개 페이지 열기 →"
   },
   "clipManage": {
     "title": "빌라 영상",

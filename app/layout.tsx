@@ -7,20 +7,42 @@ import SplashIntro from "@/components/splash-intro";
 // T-splash-intro — 페인트 전 동기 게이트: sessionStorage(세션당 1회)·reduced-motion·
 // 제외경로(/p·/g) 판정 후 html[data-splash]를 세팅한다(스플래시 표시는 CSS가 결정).
 // 어떤 예외든 조용히 스킵(스플래시 미표시 폴백). ※ 향후 CSP enforce 시 nonce 필요.
-const SPLASH_GATE = `(function(){try{if(sessionStorage.getItem('vg-splash'))return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var p=location.pathname;if(p.indexOf('/p/')===0||p.indexOf('/g/')===0||p.indexOf('/webchat')===0||p==='/chat'||p.indexOf('/chat/')===0||p==='/privacy'||p.indexOf('/privacy/')===0||p==='/card'||p.indexOf('/card/')===0)return;document.documentElement.setAttribute('data-splash','1');}catch(e){}})();`;
+//   ★ T-seo-s1: 공개 SEO 트리(`/` 공개 홈·`/blog/**`)도 제외한다. 전면 오버레이가 본문을
+//     가리면 크롤러·방문자 모두에게 인터스티셜로 보이고, 검색 유입의 첫인상을 스플래시가 잡아먹는다.
+const SPLASH_GATE = `(function(){try{if(sessionStorage.getItem('vg-splash'))return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var p=location.pathname;if(p==='/'||p==='/blog'||p.indexOf('/blog/')===0||p.indexOf('/p/')===0||p.indexOf('/g/')===0||p.indexOf('/webchat')===0||p==='/chat'||p.indexOf('/chat/')===0||p==='/privacy'||p.indexOf('/privacy/')===0||p==='/card'||p.indexOf('/card/')===0)return;document.documentElement.setAttribute('data-splash','1');}catch(e){}})();`;
 
-export const metadata: Metadata = {
-  title: "Villa Go",
-  description: "푸꾸옥 빌라 임대 관리 시스템",
-  applicationName: "Villa Go",
-  // PWA: app/manifest.ts·icon.svg·apple-icon.tsx는 Next가 자동 링크.
-  // iOS 홈화면 설치 시 전체화면(앱처럼) + 상태바 스타일.
-  appleWebApp: {
-    capable: true,
+// 검색엔진 소유확인 — 네이버 서치어드바이저·Google Search Console·Bing Webmaster.
+//   값은 env로만 주입한다(테오가 각 콘솔에서 발급). 미설정이면 메타 자체가 출력되지 않는다.
+//   ★ generateMetadata(함수)로 두는 이유: 모듈 상수로 두면 정적 렌더 경로에서 **빌드 타임 env**가
+//     구워진다(robots.txt에서 실제로 터진 사고와 동일 원인). 함수는 요청 시점에 평가된다.
+function verificationMeta(): Metadata["verification"] {
+  const naver = process.env.NAVER_SITE_VERIFICATION?.trim();
+  const google = process.env.GOOGLE_SITE_VERIFICATION?.trim();
+  const bing = process.env.BING_SITE_VERIFICATION?.trim();
+  return {
+    ...(google ? { google } : {}),
+    other: {
+      ...(naver ? { "naver-site-verification": naver } : {}),
+      ...(bing ? { "msvalidate.01": bing } : {}),
+    },
+  };
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  return {
     title: "Villa Go",
-    statusBarStyle: "default",
-  },
-};
+    description: "푸꾸옥 빌라 임대 관리 시스템",
+    applicationName: "Villa Go",
+    verification: verificationMeta(),
+    // PWA: app/manifest.ts·icon.svg·apple-icon.tsx는 Next가 자동 링크.
+    // iOS 홈화면 설치 시 전체화면(앱처럼) + 상태바 스타일.
+    appleWebApp: {
+      capable: true,
+      title: "Villa Go",
+      statusBarStyle: "default",
+    },
+  };
+}
 
 // PWA viewport — 모바일 상태바 teal(브랜드), safe-area(노치/홈바) 대응.
 // 디자인의 safe-bottom(env safe-area-inset)과 정합하려면 viewportFit cover 필요.
@@ -48,7 +70,11 @@ export default async function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: SPLASH_GATE }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin=""
+        />
         <link
           href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&family=Public+Sans:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap"
           rel="stylesheet"

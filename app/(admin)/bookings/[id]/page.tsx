@@ -17,6 +17,18 @@ import { canSellItem } from "@/lib/ticket-vendor-guard";
 import { vendorServiceTypes, VENDOR_SERVICE_TYPE_SELECT } from "@/lib/vendor-service-types";
 import { whitelistTicketGuests } from "@/lib/ticket-guests";
 import { loadCheckinRoster } from "@/lib/checkin-roster";
+// 취소 산출(S3) — 취소 시점의 고객 환불률·공급자 지급률·회사 손실 위험
+import {
+  cancellationTierLabel,
+  cancellationTiers,
+  parseCancellationPolicy,
+  promoteLegacyPolicy,
+  CANCELLATION_POLICY_KEY,
+  type GuestRefundTier,
+} from "@/lib/cancellation-policy";
+import { computeCancellationBreakdown } from "@/lib/cancellation-breakdown";
+import { readCancelTiers } from "@/lib/cancel-tiers";
+import { PUBLIC_LABELS } from "@/lib/public-i18n";
 import ActionPanel from "./action-panel";
 import PaperDocsSection from "./paper-docs-section";
 import MemoBox from "./memo-box";
@@ -137,7 +149,7 @@ export default async function BookingDetailPage({
       // 취소·환불 규정 전자 동의 스냅샷 (T-proposal-policy-consent) — 있을 때만 1줄 증빙 표시.
       //   정책 %·일수만 담김(금액·마진 없음) → 재무권한 무관 표시 가능.
       policyConsentJson: true,
-      villa: { select: { id: true, name: true } },
+      villa: { select: { id: true, name: true, supplierId: true } },
       // 분할 숙박(ADR-0030 T-E/T-G) — 이 예약이 다른 예약의 연장이면 원 예약 역링크(금액 아님)
       parentBookingId: true,
       parentBooking: { select: { id: true, villa: { select: { name: true } } } },
@@ -634,19 +646,79 @@ export default async function BookingDetailPage({
 
   // 취소·환불 규정 전자 동의 증빙 (T-proposal-policy-consent) — /p 직판 가예약 시점 서버 스냅샷.
   //   있을 때만 예약 정보에 1줄 표시(동의 시각 + 당시 정책 조건). 금액·마진 없음.
+  //   ★ S3: v2(tiers 배열)·v1(fullDays/partialDays/partialPct) 스냅샷을 모두 읽는다.
+  //      기존 예약의 v1 스냅샷은 **동의 당시 조건이 증빙 정본**이므로 현행 정책으로 재해석하지 않는다.
   const policyConsent = (() => {
     const c = booking.policyConsentJson as {
       agreedAt?: unknown;
-      policy?: { fullDays?: unknown; partialDays?: unknown; partialPct?: unknown };
+      policy?: {
+        tiers?: unknown;
+        fullDays?: unknown;
+        partialDays?: unknown;
+        partialPct?: unknown;
+      };
     } | null;
     if (!c || typeof c.agreedAt !== "string") return null;
     const p = c.policy;
     const num = (v: unknown) => (typeof v === "number" ? v : null);
+    const tiers: GuestRefundTier[] | null = Array.isArray(p?.tiers)
+      ? (p.tiers as GuestRefundTier[]).filter(
+          (t) => typeof t?.fromDays === "number" && typeof t?.refundPct === "number",
+        )
+      : num(p?.fullDays) !== null && num(p?.partialDays) !== null && num(p?.partialPct) !== null
+        ? promoteLegacyPolicy({
+            fullDays: p!.fullDays as number,
+            partialDays: p!.partialDays as number,
+            partialPct: p!.partialPct as number,
+            enabled: true,
+          }).tiers
+        : null;
+    return { agreedAt: new Date(c.agreedAt), tiers: tiers && tiers.length > 0 ? tiers : null };
+  })();
+
+  // ── 취소 산출 (S3) — 지금 취소하면 얼마를 환불·지급해야 하는지 미리 보여준다 ────────────
+  //   · 고객 환불률: **동의 스냅샷이 있으면 스냅샷 기준**(동의 당시 조건이 정본), 없으면 현행 정책
+  //   · 공급자 지급률: 해당 공급자의 서명 계약 별표2. 단계표 없는 레거시 계약이면 null(수동 판단)
+  //   · 금액은 canViewFinance만 — STAFF에는 비율만 보인다(판매가 미노출 원칙)
+  const cancellationBreakdown = await (async () => {
+    if (booking.status !== "HOLD" && booking.status !== "CONFIRMED") return null;
+    const [policyRow, contract] = await Promise.all([
+      prisma.appSetting.findUnique({
+        where: { key: CANCELLATION_POLICY_KEY },
+        select: { value: true },
+      }),
+      prisma.businessContract.findFirst({
+        where: {
+          counterpartId: booking.villa.supplierId,
+          type: "VILLA_SUPPLY",
+          status: { in: ["SIGNED", "SENT"] },
+        },
+        orderBy: [{ signedAt: "desc" }, { createdAt: "desc" }],
+        select: { termsJson: true },
+      }),
+    ]);
+    const guestTiers =
+      policyConsent?.tiers ?? parseCancellationPolicy(policyRow?.value).tiers;
+    const supplierTiers = readCancelTiers(
+      (contract?.termsJson as { cancelTiers?: unknown } | null)?.cancelTiers,
+    );
+    const b = computeCancellationBreakdown({
+      checkIn: booking.checkIn,
+      guestTiers,
+      supplierTiers,
+      totalKrw: showFinance ? booking.totalSaleKrw ?? null : null,
+      costVnd: booking.supplierCostVnd ?? null,
+    });
     return {
-      agreedAt: new Date(c.agreedAt),
-      fullDays: num(p?.fullDays),
-      partialDays: num(p?.partialDays),
-      partialPct: num(p?.partialPct),
+      daysBefore: b.daysBefore,
+      guestRefundPct: b.guestRefundPct,
+      guestPenaltyPct: b.guestPenaltyPct,
+      supplierPayPct: b.supplierPayPct,
+      companyLossPct: b.companyLossPct,
+      refundKrw: b.refundKrw,
+      penaltyKrw: b.penaltyKrw,
+      supplierPayVnd: b.supplierPayVnd === null ? null : b.supplierPayVnd.toString(),
+      fromConsent: policyConsent?.tiers != null,
     };
   })();
 
@@ -818,17 +890,13 @@ export default async function BookingDetailPage({
                     <span className="font-semibold text-white">
                       {t("detail.policyConsent.at", { at: formatDateTime(policyConsent.agreedAt) })}
                     </span>
-                    {policyConsent.fullDays != null &&
-                      policyConsent.partialDays != null &&
-                      policyConsent.partialPct != null && (
-                        <span className="text-admin-muted">
-                          {t("detail.policyConsent.tier", {
-                            full: policyConsent.fullDays,
-                            partial: policyConsent.partialDays,
-                            pct: policyConsent.partialPct,
-                          })}
-                        </span>
-                      )}
+                    {policyConsent.tiers && (
+                      <span className="text-admin-muted">
+                        {cancellationTiers({ tiers: policyConsent.tiers, enabled: true })
+                          .map((row) => cancellationTierLabel(row, PUBLIC_LABELS.ko.sales))
+                          .join(" · ")}
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -1083,6 +1151,7 @@ export default async function BookingDetailPage({
             }
             hasPassport={(booking.checkInRecord?.passportPhotoUrls.length ?? 0) > 0}
             tamTruSentAt={booking.checkInRecord?.tamTruSentAt?.toISOString() ?? null}
+            cancellationBreakdown={cancellationBreakdown}
           />
 
           {/* 예약 변경 (F-booking-modify) — 변경 가능 상태에서만. CHECKED_IN은 체크아웃일만 활성 */}

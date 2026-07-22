@@ -12,6 +12,8 @@ import { z } from "zod";
 import ContractDocument from "./contract-document";
 import ContractSignPad, { type SignPadHandle } from "./contract-sign-pad";
 import ContractPrintButton from "./print-button";
+import NegotiationPanel, { type NegotiationItem } from "./negotiation-panel";
+import type { CancelTier } from "@/lib/cancel-tiers";
 
 interface MineContract {
   id: string;
@@ -25,6 +27,10 @@ interface MineContract {
   signedAt: string | null;
   signatureUrl: string | null;
   sentAt: string | null;
+  // 협의(S2) — hasOpenNegotiation이면 서명 폼 대신 "협의 진행 중" 안내(서버도 409로 막음).
+  negotiations: NegotiationItem[];
+  hasOpenNegotiation: boolean;
+  cancelTiers: CancelTier[] | null;
 }
 
 function fmtDate(iso: string | null): string {
@@ -160,12 +166,28 @@ function ContractCard({
             {t("read")}
           </p>
           <ContractDocument body={contract.body} signed={false} />
-          <SignForm
+          <NegotiationPanel
             contractId={contract.id}
-            isPartner={contract.type === "PARTNER_AGENCY"}
-            defaultSignName={defaultSignName}
+            type={contract.type}
+            locale={contract.locale}
+            currentTiers={contract.cancelTiers}
+            negotiations={contract.negotiations ?? []}
             onChanged={onChanged}
           />
+          {contract.hasOpenNegotiation ? (
+            // 미해결 협의가 있는 동안은 서명 폼 자체를 감춘다(서버 sign도 409 — 이중 방어).
+            <p className="flex items-center gap-1.5 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+              <span className="material-symbols-outlined text-[18px]">hourglass_top</span>
+              {t("negotiation.blocked")}
+            </p>
+          ) : (
+            <SignForm
+              contractId={contract.id}
+              isPartner={contract.type === "PARTNER_AGENCY"}
+              defaultSignName={defaultSignName}
+              onChanged={onChanged}
+            />
+          )}
         </div>
       )}
     </section>

@@ -229,6 +229,18 @@ model Villa {
   //   해당 기간행 premium* 컬럼이 null이면 평일가 폴백 → 기존 빌라 완전 무중단.
   //   BE 검증: 0~6 정수·중복 제거(zod). 빈 배열 허용(공휴일만 프리미엄).
   premiumDays     Int[]       @default([5, 6])
+
+  // ── 공개 SEO 노출 (T-seo-s1, additive) ──────────────────────────────────────
+  //   ★ 기본 비공개(false). 테오 결정 2026-07-22 = "대표 빌라만 선별 공개" — 운영자가 켠 빌라만
+  //   공개 페이지·sitemap에 등재된다. 전체 빌라 목록/필터 페이지는 만들지 않는다.
+  //   ⚠ sitemap.xml은 공개 문서이므로 켠 빌라는 경쟁사도 전수 열람 가능하다. 이 플래그는
+  //     노출 총량을 빌라 단위로 통제하는 유일한 방어선이며, 은닉 수단이 아니다.
+  //   ⚠ 이 플래그가 켜져도 공개되는 것은 lib/seo/public-villa.ts 화이트리스트 범위뿐 —
+  //     가격·공실·주소·공급자·출입정보는 어떤 경로로도 나가지 않는다(계약 §4.1).
+  publicSlug     String?   @unique // URL 슬러그(라틴, 불변). null = 아직 발급 안 됨
+  publicListed   Boolean   @default(false) // 공개 페이지 노출 여부 — 운영자 토글(AuditLog 필수)
+  publicListedAt DateTime? // 최초 공개 전환 시각 — 점진 발행(하루 상한) 큐 정렬 기준
+
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -1484,6 +1496,7 @@ enum NotificationType {
   ZALO_LISTENER_DOWN // Zalo 리스너 미연결(≈10분+) 감지 → 운영자 통지(ko). 워치독(lib/zalo-health). additive: 라이브 ALTER TYPE ADD VALUE
   WEBCHAT_NEW_MESSAGE // 웹 채팅 신규 문의(비로그인 방문자) → 운영자 통지(ko 미리보기, 판매가·마진 미포함). 대화당 첫 메시지 즉시+후속 10분 디바운스 (ADR-0045). additive: 라이브 ALTER TYPE ADD VALUE
   MARKETING_ALERT // 마케팅 자동화 통지(IG 초안·IG/YT 발행실패·YT 토큰·편집 잡 완료) → 운영자(ko). 세부 구분=payload 분기(타입 증식 금지 교훈, marketing-s2 §D). additive: 라이브 ALTER TYPE ADD VALUE
+  CONTRACT_NEGOTIATION // 계약 조항 협의 — 요청(상대방→운영자 ko)·해소(운영자→상대방 payload.locale). 방향 구분=payload.kind(타입 증식 금지 교훈). additive: 라이브 ALTER TYPE ADD VALUE
 }
 
 enum NotificationStatus {
@@ -1991,4 +2004,74 @@ model YoutubeShort {
   @@index([status, scheduledAt]) // 업로드 cron: QUEUED + 시간 도래분 조회
   @@index([villaId]) // 빌라 로테이션 선정(쇼츠 이력 조회)
   @@index([editJobStatus]) // 편집 잡 폴링 (PENDING/PROCESSING 조회 — null 다수라 선택도 충분)
+}
+
+// ===================== 공개 SEO 가이드 글 (T-seo-s3) =====================
+// villa-go.net/blog 에 발행되는 여행 가이드 콘텐츠. 빌라 수와 무관하게 검색 유입을 만드는 축.
+//
+// ★ 별도 enum: IgPostStatus·YtShortStatus와 공유하지 않는다. 상태 축(승인·점진발행)이 다르고,
+//   enum을 공유하면 한쪽 상태 추가가 다른 파이프라인의 exhaustive switch를 깨뜨린다(교훈 승계).
+// ★ 본문은 블록 JSON — 마크다운 렌더러 의존성을 추가하지 않고(package.json 동결) XSS 표면도 없다.
+// ★ 공개 경계(T-seo-s1 §4.1) 승계: 본문에 가격·공실·주소·공급자 정보를 넣지 않는다.
+enum SeoArticleStatus {
+  DRAFT // 생성 중(중간 상태)
+  PENDING_APPROVAL // 초안 완성 — 운영자 승인 대기. ★Gemini 창작물은 무검토 발행 금지
+  APPROVED // 승인됨 — 점진 발행 큐 대기(하루 상한 적용)
+  PUBLISHED // 공개 — /blog/[slug] 200, sitemap 등재
+  REJECTED // 반려 (rejectionReason)
+}
+
+model SeoArticle {
+  id String @id @default(cuid())
+
+  // 발급 후 **불변** — URL이 곧 SEO 자산이다. 제목이 바뀌어도 slug는 유지한다.
+  slug    String  @unique
+  title   String
+  summary String // 메타 디스크립션 겸 목록 요약
+  // 본문 블록 배열: [{type:"h2"|"p"|"ul", text?:string, items?:string[]}]
+  bodyJson Json
+
+  // 주제 풀 키 — 같은 주제를 반복 생성하지 않기 위한 중복 방지 축(유니크 아님: 리라이트 허용)
+  topicKey      String
+  coverPhotoUrl String? // 공개 빌라 사진 재사용(관문 경유분만)
+  // 관련 빌라 id — 내부 링크용. **FK 없음**(빌라 삭제·비공개 전환 시 렌더 단계에서 관문이 걸러낸다)
+  relatedVillaIds String[]
+
+  status          SeoArticleStatus @default(DRAFT)
+  approvedAt      DateTime?
+  publishedAt     DateTime? // 발행 시각 — 점진 발행 상한(일 N건) 집계 기준
+  lastPingAt      DateTime? // 마지막 IndexNow 색인 요청 시각
+  rejectionReason String?
+  flaggedTerms    Json? // 금칙어 가드 검출 결과 (InstagramPost.flaggedTerms 패턴)
+
+  createdBy String? // "cron:seo-draft" 또는 User.id (FK 없음)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, publishedAt]) // 공개 목록·점진 발행 큐 조회
+  @@index([topicKey]) // 주제 중복 생성 방지 조회
+}
+
+// ===================== 계약 조항 협의(네고) — T-contract-negotiation (S2) =====================
+// 계약은 DRAFT→SENT→SIGNED뿐이라 상대방은 "서명하거나 안 하거나"였다. 조항 단위로 이의를 남기고
+// 운영자가 수용/거절하는 창구. ★ 상태(BusinessContractStatus)는 건드리지 않는다 —
+// "미해결(OPEN) 협의 존재"라는 **파생 판정**으로 서명을 차단해 enum 변경·롤백 비용을 없앴다.
+//   · clauseKey·reason·status는 String + zod 화이트리스트(lib/contract-negotiation.ts) — 값 추가가 잦아 enum ALTER 회피.
+//   · 관계 미설정(id 보존만) — BusinessContract 관례와 동일.
+//   · ★ 누수 0: 금액·원가·마진 컬럼 없음. 역제안(proposedJson)도 비율(취소 단계표)만.
+model ContractNegotiation {
+  id           String    @id @default(cuid())
+  contractId   String // BusinessContract.id
+  clauseKey    String // "cancelTiers" | "payMethod" | "bankInfo" | "settleCycle" | "specialTerms" | "other"
+  reason       String // 프리셋 사유 코드(자유 서술 강요 금지 — 베트남 사용자 UX)
+  proposedJson Json? // 숫자 역제안(현재는 취소 단계표만). 스키마는 S1 cancelTiersSchema 재사용
+  note         String? // 선택 자유 메모(상대방 언어)
+  status       String    @default("OPEN") // OPEN | ACCEPTED | REJECTED
+  createdById  String // 요청자 User.id (계약 상대방 본인)
+  resolvedById String? // 해소한 운영자 User.id
+  resolvedNote String? // 운영자 회신 사유(거절 시 필수) — 상대방 화면에 노출
+  createdAt    DateTime  @default(now())
+  resolvedAt   DateTime?
+
+  @@index([contractId, status])
 }

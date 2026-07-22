@@ -279,6 +279,24 @@ async function callTranslateOnce(
 const RETRY_THINKING_BUDGET = 256;
 
 /**
+ * 일시적(재시도 가치 있는) Gemini 오류인지 판정 — 429(rate limit)·5xx(overloaded)·408·타임아웃·네트워크.
+ * 400/403/404(키·모델·요청 오류)는 재시도해도 같은 결과이므로 제외한다.
+ * 근거: 채팅 발신은 번역 실패 시 **미발송**이라(한국어 오발송 방지) 일시 오류 1건이 곧 "전송 실패"로 보인다.
+ */
+export function isRetryableGeminiError(err: unknown): boolean {
+  if (err instanceof GeminiNotConfiguredError) return false;
+  const name = err instanceof Error ? err.name : "";
+  // AbortSignal.timeout → TimeoutError / AbortError, fetch 실패 → TypeError
+  if (name === "TimeoutError" || name === "AbortError" || name === "TypeError") return true;
+  const msg = err instanceof Error ? err.message : String(err);
+  return /Gemini API HTTP (408|429|5\d\d)/.test(msg);
+}
+
+/** 일시 오류 재시도 전 짧은 백오프 — 429·overloaded는 즉시 재호출하면 같은 결과가 잦다. */
+const TRANSLATE_RETRY_DELAY_MS = 700;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
  * 짧은 채팅 메시지 번역 — ko↔vi / ko↔en (GEMINI_API_KEY·모델 설정 재사용).
  * 결과는 번역문만 반환(설명·따옴표 없이). 빈 입력은 빈 문자열.
  * 번역 OFF 분기는 호출부 책임 — translateMode=OFF면 이 함수를 호출하지 않는다(D7.4).
@@ -303,7 +321,19 @@ export async function translateText(
   const basePrompt = buildTranslatePrompt(BASE_PROMPT_NOTE, target, trimmed);
 
   // 1) 기본 호출(thinkingBudget:0 유지 — 비용).
-  const first = await callTranslateOnce(apiKey, basePrompt, 0, fetchFn);
+  //    일시 오류(429·5xx·타임아웃·네트워크)면 1회만 재시도 — 이 호출이 실패하면 채팅이 **미발송**이라
+  //    운영자 화면엔 그대로 "전송 실패"로 보인다(2026-07-22). 영구 오류(키·모델)는 즉시 throw.
+  let first: string;
+  try {
+    first = await callTranslateOnce(apiKey, basePrompt, 0, fetchFn);
+  } catch (err) {
+    if (!isRetryableGeminiError(err)) throw err;
+    console.warn(
+      `[gemini] 번역 일시 오류 — 1회 재시도: ${err instanceof Error ? err.message : "unknown"}`
+    );
+    await sleep(TRANSLATE_RETRY_DELAY_MS);
+    first = await callTranslateOnce(apiKey, basePrompt, 0, fetchFn);
+  }
 
   // 재시도 트리거: ① ko 부분실패(원문 잔류) ② 숫자 누락(금액·전화 오역, 모든 타겟) ③ URL 변형/누락(모든 타겟).
   const firstNumbersOk = numbersPreserved(trimmed, first);
