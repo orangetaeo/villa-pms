@@ -243,3 +243,45 @@ describe("절대 URL 해석 — 빌드타임 env 구움 방지 회귀", () => {
     expect((mod as { dynamic?: string }).dynamic).toBe("force-dynamic");
   });
 });
+
+describe("IndexNow — 네이버 루트 URL 거부 대응 (프로덕션 실측 2026-07-22)", () => {
+  const origKey = process.env.INDEXNOW_KEY;
+  const origBase = process.env.SEO_PUBLIC_BASE_URL;
+
+  beforeEach(() => {
+    process.env.SEO_PUBLIC_BASE_URL = "https://villa-go.net";
+    process.env.INDEXNOW_KEY = "a".repeat(32);
+  });
+  afterEach(() => {
+    process.env.INDEXNOW_KEY = origKey;
+    process.env.SEO_PUBLIC_BASE_URL = origBase;
+    vi.restoreAllMocks();
+  });
+
+  function bodiesByEndpoint(spy: ReturnType<typeof vi.spyOn>) {
+    const out: Record<string, string[]> = {};
+    for (const call of spy.mock.calls) {
+      const url = String(call[0]);
+      const name = url.includes("naver") ? "naver" : "bing";
+      out[name] = JSON.parse((call[1] as RequestInit).body as string).urlList;
+    }
+    return out;
+  }
+
+  it("★ 루트가 섞여도 네이버 제출분에서만 제거하고, Bing에는 그대로 보낸다", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 200 }));
+    await pingIndexNow(["/", "/blog/villa/a"]);
+    const bodies = bodiesByEndpoint(spy);
+    expect(bodies.naver).toEqual(["https://villa-go.net/blog/villa/a"]); // 루트 제거
+    expect(bodies.bing).toEqual(["https://villa-go.net/", "https://villa-go.net/blog/villa/a"]);
+  });
+
+  it("루트만 제출하려 하면 네이버 호출 자체를 건너뛴다(배치 전체 422 방지)", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 200 }));
+    const res = await pingIndexNow(["/"]);
+    expect(spy).toHaveBeenCalledTimes(1); // bing만
+    const naver = res.find((r) => r.endpoint === "naver");
+    expect(naver?.skipped).toBe(true);
+    expect(naver?.ok).toBe(true); // 스킵은 실패가 아니다
+  });
+});
