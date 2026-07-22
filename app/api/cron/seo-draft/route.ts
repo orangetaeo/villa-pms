@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { writeAuditLog } from "@/lib/audit-log";
 import { getPublicVillas } from "@/lib/seo/public-villa";
-import { isArticlePublishable } from "@/lib/seo/article";
+import { isArticlePublishable, parseArticleBody } from "@/lib/seo/article";
 import {
   ARTICLE_TOPICS,
   pickTopic,
@@ -18,9 +18,12 @@ import {
   buildSummary,
   generateArticleBody,
   villaHints,
-  pickArticleImages,
-  interleaveImages,
   BRAND_FALLBACK_IMAGE,
+  generateVillaArticleBody,
+  villaTopicKey,
+  buildVillaArticleTitle,
+  pickVillaPhotos,
+  composeVillaBody,
 } from "@/lib/seo/article-draft";
 
 export const dynamic = "force-dynamic";
@@ -61,6 +64,64 @@ async function handle(req: Request) {
   const skipped: string[] = [];
 
   for (let i = 0; i < want; i++) {
+    // ── ① 빌라 글 우선 — 사진·영상이 본문과 정확히 맞는 유일한 글 종류 ──
+    //   가이드 글에 빌라 사진을 끼우면 본문과 무관한 이미지가 된다(테오 지적 2026-07-22).
+    //   사진이 의미를 가지려면 글의 주제가 그 빌라여야 한다.
+    const villa = villaPool.find((v) => !usedKeys.has(villaTopicKey(v.slug)));
+    if (villa) {
+      const key = villaTopicKey(villa.slug);
+      usedKeys.add(key);
+      const vDraft = await generateVillaArticleBody(villa);
+      if (!vDraft) {
+        skipped.push(`${key}: 생성 실패`);
+        continue;
+      }
+      const photos = pickVillaPhotos(villa, 4);
+      const video = villa.videos[0]
+        ? { ytVideoId: villa.videos[0].ytVideoId, title: villa.videos[0].title }
+        : null;
+      // 첫 사진은 커버(공유 썸네일), 나머지를 본문에 — 같은 사진 중복 노출 방지
+      const vCover = photos[0]?.url ?? BRAND_FALLBACK_IMAGE;
+      const vBody = composeVillaBody(vDraft.blocks, photos.slice(1), video);
+      if (!isArticlePublishable(parseArticleBody(vBody))) {
+        skipped.push(`${key}: 분량·구조 하한 미달`);
+        continue;
+      }
+      const vRow = await prisma.seoArticle.create({
+        data: {
+          slug: buildArticleSlug(key),
+          title: buildVillaArticleTitle(villa),
+          summary: buildSummary(vDraft.blocks),
+          bodyJson: vBody,
+          topicKey: key,
+          coverPhotoUrl: vCover,
+          relatedVillaIds: [villa.id],
+          status: SeoArticleStatus.PENDING_APPROVAL,
+          flaggedTerms: vDraft.flaggedTerms.length > 0 ? vDraft.flaggedTerms : undefined,
+          createdBy: CREATED_BY,
+        },
+        select: { id: true, slug: true, title: true },
+      });
+      created.push(vRow);
+      await writeAuditLog({
+        userId: null,
+        action: "CREATE",
+        entity: "SeoArticle",
+        entityId: vRow.id,
+        changes: {
+          kind: { new: "villa" },
+          topicKey: { new: key },
+          slug: { new: vRow.slug },
+          status: { new: "PENDING_APPROVAL" },
+          photos: { new: photos.length },
+          video: { new: video?.ytVideoId ?? null },
+          flaggedTerms: { new: vDraft.flaggedTerms },
+        },
+      });
+      continue;
+    }
+
+    // ── ② 가이드 글 — ★본문 이미지 없음(주제와 무관한 사진을 끼우지 않는다) ──
     const topic = pickTopic(usedKeys);
     if (!topic) {
       skipped.push("주제 풀 소진");
@@ -79,21 +140,16 @@ async function handle(req: Request) {
       continue;
     }
 
-    // 이미지 배치 — 첫 장은 커버(공유 썸네일·Article.image), 나머지는 본문 소제목 뒤에 삽입.
-    //   공개 빌라 사진이 없으면 커버만 브랜드 이미지로 채우고 본문 이미지는 넣지 않는다
-    //   (같은 브랜드 이미지를 본문에 반복 노출하는 것은 SEO상 의미가 없다).
-    // 주제 키를 시드로 — 글마다 다른 사진 조합이 나온다(같은 주제는 항상 같은 조합).
-    const images = pickArticleImages(villaPool, 3, topic.key);
-    const cover = images[0]?.url ?? BRAND_FALLBACK_IMAGE;
-    const bodyBlocks = interleaveImages(draft.blocks, images.slice(1));
+    // ★ 가이드 글에는 본문 이미지를 넣지 않는다 — 빌라 사진은 본문 주제와 무관하다.
+    //   커버만 브랜드 이미지로 채운다(공유 썸네일·Article.image가 비면 CTR이 떨어진다).
 
     const row = await prisma.seoArticle.create({
       data: {
         slug: buildArticleSlug(topic.key),
         title: topic.title,
         summary: buildSummary(draft.blocks),
-        bodyJson: bodyBlocks,
-        coverPhotoUrl: cover,
+        bodyJson: draft.blocks,
+        coverPhotoUrl: BRAND_FALLBACK_IMAGE,
         topicKey: topic.key,
         status: SeoArticleStatus.PENDING_APPROVAL,
         flaggedTerms: draft.flaggedTerms.length > 0 ? draft.flaggedTerms : undefined,
@@ -114,9 +170,8 @@ async function handle(req: Request) {
         slug: { new: row.slug },
         status: { new: "PENDING_APPROVAL" },
         flaggedTerms: { new: draft.flaggedTerms },
-        blocks: { new: bodyBlocks.length },
-        images: { new: images.length },
-        cover: { new: cover },
+        kind: { new: "guide" },
+        blocks: { new: draft.blocks.length },
       },
     });
   }

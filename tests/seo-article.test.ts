@@ -272,3 +272,102 @@ describe("이미지 선별·삽입", () => {
     expect(interleaveImages(blocks, [])).toBe(blocks);
   });
 });
+
+describe("영상 블록 — 임의 URL 주입 차단 (T-seo-villa-article)", () => {
+  it("유튜브 id 형식만 통과한다", () => {
+    expect(parseArticleBody([{ type: "video", ytVideoId: "_npkTtgL0zc", title: "빌라 투어" }])).toEqual([
+      { type: "video", ytVideoId: "_npkTtgL0zc", title: "빌라 투어" },
+    ]);
+  });
+
+  it("★ 형식을 벗어난 id는 버린다 (iframe src 주입 방지)", () => {
+    for (const bad of [
+      "https://evil.example/x",
+      "abc/../../etc",
+      "id with space",
+      "<script>",
+      "a", // 너무 짧음
+      "a".repeat(30), // 너무 김
+    ]) {
+      expect(parseArticleBody([{ type: "video", ytVideoId: bad, title: "t" }])).toEqual([]);
+    }
+  });
+
+  it("제목이 없으면 기본값을 넣는다(빈 iframe title 방지)", () => {
+    const out = parseArticleBody([{ type: "video", ytVideoId: "_npkTtgL0zc" }]);
+    expect(out).toEqual([{ type: "video", ytVideoId: "_npkTtgL0zc", title: "빌라 영상" }]);
+  });
+
+  it("★ 영상은 분량으로 치지 않는다", () => {
+    const blocks = parseArticleBody([
+      { type: "h2", text: "제목" },
+      { type: "video", ytVideoId: "_npkTtgL0zc", title: "가".repeat(100) },
+    ]);
+    expect(bodyTextLength(blocks)).toBe(2);
+  });
+});
+
+describe("빌라 글 구성", () => {
+  function v(over = {}) {
+    return {
+      id: "v1", slug: "sonasea-v3b", name: "Sonasea V3B", nameVi: null, complex: "Sonasea",
+      areaCode: "sonasea", areaName: "Sonasea", areaNameKo: "쏘나씨",
+      bedrooms: 3, bathrooms: 4, commonBathrooms: 0, maxGuests: 8, areaSqm: null, floors: null,
+      extraBedAvailable: false, hasPool: true, breakfastAvailable: false, beachDistanceM: 500,
+      featureKeys: ["bbq"], checkInTime: 840, checkOutTime: 660, smokingAllowed: false,
+      petsAllowed: false, partyAllowed: false, parkingSlots: 0, description: "설명",
+      photos: [
+        { id: "1", url: "https://pub-a.r2.dev/ext.jpg", space: "EXTERIOR", spaceLabel: null },
+        { id: "2", url: "https://pub-a.r2.dev/liv.jpg", space: "LIVING", spaceLabel: null },
+        { id: "3", url: "https://pub-a.r2.dev/bed.jpg", space: "BEDROOM", spaceLabel: null },
+      ],
+      videos: [{ ytVideoId: "_npkTtgL0zc", title: "빌라 투어", description: "", publishedAt: null }],
+      updatedAt: new Date(), publicListedAt: null,
+      ...over,
+    };
+  }
+
+  it("★ 그 빌라의 사진만 쓴다 — alt가 본문 주제와 일치한다", async () => {
+    const { pickVillaPhotos } = await import("@/lib/seo/article-draft");
+    const picks = pickVillaPhotos(v() as never, 4);
+    expect(picks.map((p) => p.url)).toEqual([
+      "https://pub-a.r2.dev/ext.jpg",
+      "https://pub-a.r2.dev/liv.jpg",
+      "https://pub-a.r2.dev/bed.jpg",
+    ]);
+    expect(picks[0].alt).toBe("쏘나씨 Sonasea V3B 외관");
+  });
+
+  it("영상은 본문 맨 끝에 배치된다 (글을 다 읽고 영상으로)", async () => {
+    const { composeVillaBody } = await import("@/lib/seo/article-draft");
+    const blocks = [
+      { type: "h2", text: "A" },
+      { type: "p", text: "a1" },
+    ] as never;
+    const out = composeVillaBody(blocks, [{ url: "https://pub-a.r2.dev/x.jpg", alt: "x" }], {
+      ytVideoId: "_npkTtgL0zc",
+      title: "투어",
+    });
+    expect(out[out.length - 1]).toEqual({ type: "video", ytVideoId: "_npkTtgL0zc", title: "투어" });
+  });
+
+  it("영상이 없으면 영상 블록도 없다", async () => {
+    const { composeVillaBody } = await import("@/lib/seo/article-draft");
+    const out = composeVillaBody([{ type: "h2", text: "A" }] as never, [], null);
+    expect(out.some((b) => b.type === "video")).toBe(false);
+  });
+
+  it("★ 빌라 글 프롬프트는 스펙 나열을 금지하고 가격·주소를 막는다", async () => {
+    const { buildVillaArticlePrompt } = await import("@/lib/seo/article-draft");
+    const p = buildVillaArticlePrompt(v() as never);
+    expect(p).toContain("스펙을 나열하지 마라");
+    expect(p).toContain("가격·요금·금액 표현 금지");
+    expect(p).toContain("상세 주소·소유자·관리인 정보를 쓰지 마라");
+    expect(p).toContain("이미지·영상 블록은 넣지 마라");
+  });
+
+  it("topicKey는 슬러그 기반이라 빌라당 한 번만 생성된다", async () => {
+    const { villaTopicKey } = await import("@/lib/seo/article-draft");
+    expect(villaTopicKey("sonasea-v3b")).toBe("villa-sonasea-v3b");
+  });
+});

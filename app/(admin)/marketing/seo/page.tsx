@@ -131,6 +131,10 @@ export default async function MarketingSeoPage({
                             {b.caption ? ` · ${b.caption}` : ""}
                           </figcaption>
                         </figure>
+                      ) : b.type === "video" ? (
+                        <p key={i} className="rounded-lg bg-slate-800 p-2 text-xs text-slate-300">
+                          🎬 영상: {b.title} (youtube {b.ytVideoId})
+                        </p>
                       ) : (
                         <p key={i} className="text-sm leading-relaxed text-slate-300">
                           {b.text}
