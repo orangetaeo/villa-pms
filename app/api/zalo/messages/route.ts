@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
+  Prisma,
   ZaloMessageDirection,
   ZaloMessageSource,
   ZaloMessageStatus,
@@ -341,54 +342,113 @@ export async function POST(req: Request) {
   }
 
   // 2) 영속 + lastMessageAt 갱신 + AuditLog (원자적)
+  //
+  // ★셀프에코 레이스(P2002) — 발송에 성공하면 zalo-worker 리스너가 **내 발신 에코**를 곧바로 받아
+  //   saveOutboundEcho가 같은 (conversationId, zaloMsgId)로 OUTBOUND 행을 먼저 만들어 버리는 일이 잦다.
+  //   이때 아래 create가 unique 위반(P2002)으로 터지면 500 → 클라가 "전송에 실패했습니다"를 띄우는데
+  //   **실제로는 상대에게 이미 전달된 상태**라 운영자가 재전송해 중복 발송이 된다(프로덕션 실측 2026-07-22).
+  //   → P2002면 실패로 처리하지 않고, 먼저 저장된 에코 행을 내 발신 기록(원문 ko·번역문·sentBy·인용)으로
+  //     보강한다. 드롭 0·중복 0이고 화면에도 원문+번역이 정상 표시된다.
   const now = new Date();
-  const message = await prisma.$transaction(async (tx) => {
-    const created = await tx.zaloMessage.create({
-      data: {
-        conversationId,
-        direction: ZaloMessageDirection.OUTBOUND,
-        source: ZaloMessageSource.CHAT,
-        msgType: "text",
-        text, // 원문 한국어(내 기록용)
-        translatedText, // 발송된 번역문(VI/EN 모드). OFF면 null
-        zaloMsgId,
-        status,
-        error,
-        sentBy: session.user.id,
-        // 답글이면 인용 스냅샷 기록(자기 화면 표시 — R3-2). 일반 발신이면 null.
-        quotedMsgId: quoteSnapshot?.quotedMsgId ?? null,
-        quotedText: quoteSnapshot?.quotedText ?? null,
-        quotedSender: quoteSnapshot?.quotedSender ?? null,
-      },
-      select: { id: true, status: true, createdAt: true, quotedText: true, quotedSender: true },
+  const messageSelect = {
+    id: true,
+    status: true,
+    createdAt: true,
+    quotedText: true,
+    quotedSender: true,
+  } as const;
+  // 에코 행 보강 패치 — 에코가 못 가진 정보만 덮어쓴다(globalMsgId·cliMsgId·createdAt은 에코 값 유지).
+  const echoPatch = {
+    source: ZaloMessageSource.CHAT,
+    msgType: "text",
+    text, // 원문 한국어(에코엔 발송된 번역문만 있어 한국어가 유실됨)
+    translatedText,
+    status,
+    error,
+    sentBy: session.user.id,
+    ...(quoteSnapshot
+      ? {
+          quotedMsgId: quoteSnapshot.quotedMsgId,
+          quotedText: quoteSnapshot.quotedText,
+          quotedSender: quoteSnapshot.quotedSender,
+        }
+      : {}),
+  };
+
+  // 트랜잭션 본문 — Postgres는 실패한 statement가 트랜잭션 전체를 중단시키므로 P2002 복구는
+  // 트랜잭션 **밖에서** 새 트랜잭션으로 재시도한다(patchEcho=true).
+  const persist = (patchEcho: boolean) =>
+    prisma.$transaction(async (tx) => {
+      const created =
+        patchEcho && zaloMsgId
+          ? await tx.zaloMessage.update({
+              where: { conversationId_zaloMsgId: { conversationId, zaloMsgId } },
+              data: echoPatch,
+              select: messageSelect,
+            })
+          : await tx.zaloMessage.create({
+              data: {
+                conversationId,
+                direction: ZaloMessageDirection.OUTBOUND,
+                source: ZaloMessageSource.CHAT,
+                msgType: "text",
+                text, // 원문 한국어(내 기록용)
+                translatedText, // 발송된 번역문(VI/EN 모드). OFF면 null
+                zaloMsgId,
+                status,
+                error,
+                sentBy: session.user.id,
+                // 답글이면 인용 스냅샷 기록(자기 화면 표시 — R3-2). 일반 발신이면 null.
+                quotedMsgId: quoteSnapshot?.quotedMsgId ?? null,
+                quotedText: quoteSnapshot?.quotedText ?? null,
+                quotedSender: quoteSnapshot?.quotedSender ?? null,
+              },
+              select: messageSelect,
+            });
+
+      await tx.zaloConversation.update({
+        where: { id: conversationId },
+        data: {
+          lastMessageAt: now,
+          // 인박스 미리보기 비정규화(perf) — 운영자 발신 원문 캐시.
+          lastMessageText: text,
+          lastMessageType: "text",
+        },
+      });
+
+      // 감사 로그 — 데이터 변경 API 동시 기록 (글로벌 절대 규칙). 본문 텍스트는 기록하지 않음.
+      await writeAuditLog({
+        userId: session.user.id,
+        action: patchEcho ? "UPDATE" : "CREATE",
+        entity: "ZaloMessage",
+        entityId: created.id,
+        changes: {
+          direction: { new: "OUTBOUND" },
+          source: { new: "CHAT" },
+          status: { new: status },
+          ...(patchEcho ? { echoReconciled: { new: "true" } } : {}),
+        },
+        db: tx,
+      });
+
+      return created;
     });
 
-    await tx.zaloConversation.update({
-      where: { id: conversationId },
-      data: {
-        lastMessageAt: now,
-        // 인박스 미리보기 비정규화(perf) — 운영자 발신 원문 캐시.
-        lastMessageText: text,
-        lastMessageType: "text",
-      },
-    });
-
-    // 감사 로그 — 데이터 변경 API 동시 기록 (글로벌 절대 규칙). 본문 텍스트는 기록하지 않음.
-    await writeAuditLog({
-      userId: session.user.id,
-      action: "CREATE",
-      entity: "ZaloMessage",
-      entityId: created.id,
-      changes: {
-        direction: { new: "OUTBOUND" },
-        source: { new: "CHAT" },
-        status: { new: status },
-      },
-      db: tx,
-    });
-
-    return created;
-  });
+  let message: Awaited<ReturnType<typeof persist>>;
+  try {
+    message = await persist(false);
+  } catch (err) {
+    if (
+      zaloMsgId &&
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002"
+    ) {
+      // 셀프에코가 먼저 저장됨 — 전송은 성공했으므로 실패 처리 금지. 그 행을 보강하고 정상 응답.
+      message = await persist(true);
+    } else {
+      throw err;
+    }
+  }
 
   // 실시간(SSE) — 발신 영속 완료 후 본인(ownerAdminId) 채널로 "outbound" 신호 발행.
   // 비블로킹·예외 격리: 발행 실패가 응답에 영향 없게 try/catch(신호일 뿐 — 데이터는 클라이언트가 fetch).
