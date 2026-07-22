@@ -38,7 +38,27 @@ interface Clip {
   villaClipId: string | null;
   startSec: string; // number input 문자열(빈 값=기본)
   durationSec: string;
+  /**
+   * 촬영 공간(PhotoSpace). **나레이션 대본과 컷 속도 조절이 둘 다 이 값을 쓴다.**
+   * 빌라 영상에서 불러오면 자동으로 채워지고, 직접 올린 파일은 운영자가 고른다.
+   * ★ 비워두면 그 컷은 대본에서 "공간 미지정"이 되고 속도 조절도 안 걸린다.
+   */
+  space: string;
+  /** 이 컷의 특징 메모 — 같은 공간이 여러 컷일 때 대본이 다른 점을 말하게 하는 근거 */
+  note: string;
 }
+
+/** 선택 가능한 공간 — Prisma PhotoSpace와 동일. i18n 키 create.step1.space.* 재사용. */
+const SPACES = [
+  "EXTERIOR",
+  "LIVING",
+  "KITCHEN",
+  "BEDROOM",
+  "BATHROOM",
+  "BALCONY",
+  "POOL",
+  "ETC",
+] as const;
 
 /** 빌라에 등록된 승인 영상 — GET /api/villas/[id]/clips 응답(화이트리스트, r2Key 없음). */
 interface VillaClipOption {
@@ -96,6 +116,9 @@ export default function CreateShortWizard() {
   const [clips, setClips] = useState<Clip[]>([]);
   const [horizontalMode, setHorizontalMode] = useState<"crop" | "blur">("crop");
   const [audio, setAudio] = useState<"silent" | "ambient">("silent");
+  // 컷 속도 조절(복도는 빠르게·방은 천천히)과 나레이션 밑 배경음 — 둘 다 기본 켬.
+  const [pacing, setPacing] = useState(true);
+  const [bgm, setBgm] = useState<"soft" | "none">("soft");
   const [headline, setHeadline] = useState("");
   const [villaId, setVillaId] = useState<string | null>(null);
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
@@ -303,6 +326,8 @@ export default function CreateShortWizard() {
             villaClipId: null,
             startSec: "",
             durationSec: "",
+            space: "",
+            note: "",
           });
         }
         // 업로드는 다음 tick(상태 반영 후) 시작
@@ -338,6 +363,9 @@ export default function CreateShortWizard() {
             startSec: "",
             // 실제 길이를 트림 상한(2~8초)에 맞춰 기본값으로 채운다 — 운영자가 STEP 2에서 조정.
             durationSec: String(Math.min(DUR_MAX, Math.max(DUR_MIN, opt.durationSec))),
+            // 공급자가 등록할 때 고른 공간·메모를 그대로 물려받는다 — 대본·속도 조절의 입력.
+            space: opt.space ?? "",
+            note: opt.note ?? "",
           },
         ];
       });
@@ -415,11 +443,17 @@ export default function CreateShortWizard() {
                 ...(durationSec != null && Number.isFinite(durationSec)
                   ? { durationSec }
                   : {}),
+                // ★ 공간·메모를 반드시 함께 보낸다: 이게 빠지면 대본이 "공간 미지정"으로 생성되고
+                //   컷 속도 조절도 판정 근거가 없어 전부 정속으로 돈다(2026-07-23까지의 실제 상태).
+                ...(c.space ? { space: c.space } : {}),
+                ...(c.note.trim() ? { note: c.note.trim() } : {}),
               };
             }),
             headline: headline.trim(),
             audio,
             horizontalMode,
+            pacing,
+            bgm,
             ...(villaId ? { villaId } : {}),
             ...(subtitles.length
               ? {
@@ -499,6 +533,8 @@ export default function CreateShortWizard() {
       headline,
       audio,
       horizontalMode,
+      pacing,
+      bgm,
       villaId,
       subtitles,
       t,
@@ -761,6 +797,22 @@ export default function CreateShortWizard() {
                   <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-200">
                     {c.fileName}
                   </span>
+                  {/* 공간 — 대본 문장과 컷 속도(복도는 빠르게·방은 천천히)를 함께 결정한다 */}
+                  <label className="flex items-center gap-1 text-[11px] text-slate-500">
+                    {t("create.step2.space")}
+                    <select
+                      value={c.space}
+                      onChange={(e) => updateClip(c.localId, { space: e.target.value })}
+                      className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-200 focus:border-admin-primary focus:outline-none"
+                    >
+                      <option value="">{t("create.step2.spaceNone")}</option>
+                      {SPACES.map((s) => (
+                        <option key={s} value={s}>
+                          {t(`create.step1.space.${s}` as never)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <label className="flex items-center gap-1 text-[11px] text-slate-500">
                     {t("create.step2.startSec")}
                     <input
@@ -807,7 +859,70 @@ export default function CreateShortWizard() {
               ))}
             </ul>
             <p className="text-[11px] text-slate-600">{t("create.step2.durationHint")}</p>
+            <p className="text-[11px] text-slate-600">{t("create.step2.spaceHint")}</p>
+            {/* 컷별 메모 — 같은 공간이 여러 컷일 때 대본이 "또 다른 침실입니다"로 뭉개지지 않게 한다 */}
+            <ul className="flex flex-col gap-2">
+              {clips.map((c, i) => (
+                <li key={`note-${c.localId}`} className="flex items-center gap-2">
+                  <span className="w-6 shrink-0 text-right text-[11px] text-slate-600 tabular-nums">
+                    {i + 1}
+                  </span>
+                  <input
+                    type="text"
+                    value={c.note}
+                    maxLength={200}
+                    placeholder={t("create.step2.notePlaceholder")}
+                    onChange={(e) => updateClip(c.localId, { note: e.target.value })}
+                    className="min-w-0 flex-1 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-sm text-slate-200 placeholder:text-slate-600 focus:border-admin-primary focus:outline-none"
+                  />
+                </li>
+              ))}
+            </ul>
+            <p className="text-[11px] text-slate-600">{t("create.step2.noteHint")}</p>
           </div>
+
+          {/* 컷 속도 조절 — 복도·계단은 빠르게 지나가고 수영장·외관은 여유 있게 */}
+          <fieldset className="space-y-2">
+            <legend className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              {t("create.step2.pacingTitle")}
+            </legend>
+            <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2.5">
+              <input
+                type="checkbox"
+                checked={pacing}
+                onChange={(e) => setPacing(e.target.checked)}
+                className="mt-0.5 accent-admin-primary"
+              />
+              <span className="flex flex-col gap-0.5">
+                <span className="text-sm font-bold text-slate-200">{t("create.step2.pacingOn")}</span>
+                <span className="text-[11px] text-slate-500">{t("create.step2.pacingHint")}</span>
+              </span>
+            </label>
+          </fieldset>
+
+          {/* 나레이션 밑 배경음 */}
+          <fieldset className="space-y-2">
+            <legend className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              {t("create.step2.bgmTitle")}
+            </legend>
+            <div className="inline-flex overflow-hidden rounded-lg border border-slate-700">
+              {(["soft", "none"] as const).map((b) => (
+                <button
+                  key={b}
+                  type="button"
+                  onClick={() => setBgm(b)}
+                  className={`px-4 py-1.5 text-xs font-bold transition-colors ${
+                    bgm === b
+                      ? "bg-admin-primary text-white"
+                      : "bg-slate-900 text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  {t(`create.step2.bgm_${b}`)}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-slate-600">{t("create.step2.bgmHint")}</p>
+          </fieldset>
 
           {/* 가로 클립 처리 */}
           <fieldset className="space-y-2">
