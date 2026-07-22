@@ -65,3 +65,6 @@ smoke/scan*/
 smoke/seq*/
 smoke/*.png
 smoke/*.txt
+smoke/wav*/
+smoke/r2keys.json
+smoke/*.json
