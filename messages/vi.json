@@ -4522,6 +4522,8 @@
     },
     "translateUnavailable": "Không thể dịch. Tin nhắn gốc sẽ được gửi.",
     "sendFailed": "Gửi thất bại. Vui lòng thử lại.",
+    "sendUnavailable": "Máy chủ đang khởi động lại nên chưa gửi được. Vui lòng gửi lại sau giây lát.",
+    "sendTranslateFailed": "Dịch thất bại nên chưa gửi (tránh gửi nhầm tiếng Hàn). Vui lòng thử lại sau.",
     "windowClosedWarning": "Đã quá 48 giờ kể từ tin nhắn cuối, không thể trả lời. Thông báo hệ thống vẫn được gửi.",
     "windowClosedPlaceholder": "Đang chờ nhà cung cấp trả lời",
     "previewLabelEn": "Xem trước tiếng Anh",
