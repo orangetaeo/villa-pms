@@ -818,11 +818,18 @@ export async function runYoutubeEditJob(
           local[i].durationSec = timeline.segmentDurations[i];
         }
         // 자막 = 나레이션과 같은 소스(단일 진실). 기존 subtitles는 대체된다.
-        subtitles = synth.map((s, i) => ({
-          text: s.text,
-          fromSec: timeline.subtitleRanges[i].fromSec,
-          toSec: timeline.subtitleRanges[i].toSec,
-        }));
+        // ★ CTA 문장(clipIndex=null)은 자막에서 제외한다 — 아웃트로 CTA 카드가 이미 같은 내용을
+        //   큰 글씨로 보여주고 있어, 자막을 덧그리면 카드 문구 위에 겹쳐 둘 다 읽기 나빠진다
+        //   (2026-07-22 실제 렌더 프레임 육안 확인). 음성은 CTA 문장도 그대로 읽는다.
+        subtitles = synth
+          .map((s, i) => ({
+            text: s.text,
+            fromSec: timeline.subtitleRanges[i].fromSec,
+            toSec: timeline.subtitleRanges[i].toSec,
+            isCta: s.clipIndex == null,
+          }))
+          .filter((s) => !s.isCta)
+          .map(({ text, fromSec, toSec }) => ({ text, fromSec, toSec }));
       } catch {
         // 키 미설정·API 실패·상한 초과 — 나레이션 없이 진행(무음/앰비언트 기존 경로)
         narrationTrack = undefined;
