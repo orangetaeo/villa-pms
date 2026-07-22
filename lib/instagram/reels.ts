@@ -34,6 +34,17 @@ export const YOUTUBE_REEL_CTA: CtaData = {
   helper: "유튜브에선 링크가 안 눌려요 — 카카오톡에서 '빌라고'를 검색해 주세요",
 };
 
+/**
+ * 인스타그램 릴스용 엔딩 CTA — 인스타는 **프로필 링크가 눌린다**.
+ * ★ 유튜브 문구("유튜브에선 링크가 안 눌려요")를 그대로 인스타에 올리면 엉뚱한 안내가 된다
+ *   (2026-07-22 실측: edit.ts가 YOUTUBE_REEL_CTA를 하드코딩하고 있었다).
+ *   문구는 사진 캐러셀 CTA(lib/instagram/draft.ts CTA_DATA)와 통일한다.
+ *   kakaoLabel·helper는 템플릿 기본값(카카오톡으로 상담하기 / 프로필 링크를 눌러…) 사용.
+ */
+export const INSTAGRAM_REEL_CTA: CtaData = {
+  headline: "예약 · 견적 문의는\n프로필 링크 →\n카카오톡 상담",
+};
+
 const FFMPEG_PATH: string = ffmpegStatic ?? "ffmpeg";
 
 // 저작권 프리 라운지 배경음(합성) — C–Am–F–G 코드 진행(2초/코드, 8초 루프) + 부드러운 스웰.

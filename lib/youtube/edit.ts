@@ -27,8 +27,9 @@ import {
   type SatoriNode,
 } from "@/lib/instagram/templates";
 import { reelCta916 } from "@/lib/instagram/reel-templates";
+import type { CtaData } from "@/lib/instagram/templates";
 import { wrapHeadlineToFit } from "@/lib/instagram/headline-wrap";
-import { YOUTUBE_REEL_CTA, type ReelAudioMode } from "@/lib/instagram/reels";
+import { YOUTUBE_REEL_CTA, INSTAGRAM_REEL_CTA, type ReelAudioMode } from "@/lib/instagram/reels";
 import { computeNarrationTimeline, synthesizeNarration } from "@/lib/youtube/narration";
 import {
   getR2ObjectBuffer,
@@ -92,6 +93,11 @@ export interface EditParams {
   audio: ReelAudioMode; // "silent" | "ambient"
   horizontalMode: "crop" | "blur"; // 가로 클립 처리(기본 crop)
   narration?: EditNarrationInput | null; // null·미지정 = 기존 동작(무변경)
+  /**
+   * 아웃트로 CTA 문구 변형. 기본 "youtube"(기존 동작 무변경).
+   * ★ 인스타는 프로필 링크가 눌리므로 유튜브 문구를 그대로 쓰면 안 된다.
+   */
+  ctaVariant?: "youtube" | "instagram";
 }
 
 export class EditValidationError extends Error {
@@ -197,7 +203,9 @@ export function validateEditParams(raw: unknown): EditParams {
     }
   }
 
-  return { clips, headline, villaId, subtitles, audio, horizontalMode, narration };
+  const ctaVariant: "youtube" | "instagram" = r.ctaVariant === "instagram" ? "instagram" : "youtube";
+
+  return { clips, headline, villaId, subtitles, audio, horizontalMode, narration, ctaVariant };
 }
 
 // ── satori 폰트 로드(프로세스 캐시) — render.ts와 동일 세트(브랜드 일관성) ──
@@ -694,6 +702,11 @@ export interface RenderOpts {
   /** 인트로 유지 시간(초). 미지정 시 INTRO_SEC(1.5). 나레이션 첫 문장 종료까지 잡아주면 자연스럽다. */
   introHoldSec?: number;
   /**
+   * 아웃트로 CTA 문구 교체. 미지정 시 유튜브 문구(기존 동작 무변경).
+   * ★ 인스타는 프로필 링크가 눌리므로 유튜브 문구("유튜브에선 링크가 안 눌려요")를 쓰면 안 된다.
+   */
+  ctaOverride?: CtaData;
+  /**
    * 아웃트로 CTA 카드 길이(초). 미지정 시 CTA_DUR_SEC(2.8).
    * ★ 나레이션 사용 시 반드시 넘겨라 — 마지막 문장이 이 카드 위에서 재생되므로,
    *   기본값보다 문장이 길면 말이 끝나기 전에 영상이 끝난다.
@@ -753,7 +766,7 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
     }
 
     // 2) 아웃트로 CTA 정지 카드 세그먼트.
-    const ctaJpeg = await nodeToJpeg(reelCta916(YOUTUBE_REEL_CTA), BRAND.teal);
+    const ctaJpeg = await nodeToJpeg(reelCta916(opts.ctaOverride ?? YOUTUBE_REEL_CTA), BRAND.teal);
     const ctaJpegPath = path.join(workDir, "cta.jpg");
     await fs.writeFile(ctaJpegPath, ctaJpeg);
     const ctaSeg = path.join(workDir, "seg-cta.mp4");
@@ -995,6 +1008,7 @@ export async function runYoutubeEditJob(
       // ★ 오프닝 스펙 칩·인트로 유지시간(QA M-6): 예전엔 스모크 스크립트에만 배선돼 있어
       //   **운영 렌더에서는 스펙 칩이 절대 표시되지 않았다.** 음소거 시청자에게 침실 수·수영장·
       //   해변 거리를 전달하는 게 오프닝 훅의 핵심이라 여기서도 넘긴다.
+      ctaOverride: params.ctaVariant === "instagram" ? INSTAGRAM_REEL_CTA : undefined,
       introSpecs: ctx.introSpecs,
       introHoldSec: narrationIntroHoldSec,
     });
