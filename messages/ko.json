@@ -381,6 +381,12 @@
       "expandAll": "전체 펼치기",
       "collapseAll": "전체 접기"
     },
+    "viewer": {
+      "open": "크게 보기",
+      "close": "닫기",
+      "prev": "이전",
+      "next": "다음"
+    },
     "bulk": {
       "approveAll": "{n}건 모두 승인",
       "approving": "승인 중... ({done}/{total})",
@@ -570,6 +576,12 @@
       "collapse": "접기",
       "expandAll": "전체 펼치기",
       "collapseAll": "전체 접기"
+    },
+    "viewer": {
+      "open": "크게 보기",
+      "close": "닫기",
+      "prev": "이전",
+      "next": "다음"
     },
     "bulk": {
       "approveAll": "{n}건 모두 승인",

@@ -1,13 +1,17 @@
 "use client";
 
-// 공용 이미지 라이트박스 — 클릭 확대, 좌우 이동(키보드 ←→·버튼), Esc·배경·X 닫기.
+// 공용 이미지·영상 라이트박스 — 클릭 확대, 좌우 이동(키보드 ←→·버튼), Esc·배경·X 닫기.
 // 원본 직접 로드(unoptimized) + 인접 이미지 프리로드로 모바일에서도 빠르게.
 // index/onIndexChange로 부모가 열림 상태를 제어(controlled).
-import { useCallback, useEffect } from "react";
+// ★ videoUrl 이 있는 항목은 이미지 대신 큰 플레이어(controls·autoPlay)로 재생 — url 은 포스터로 쓰인다.
+//   (마케팅 릴스·쇼츠용 additive. 기존 이미지 전용 호출부는 videoUrl 미전달 → 동작 불변)
+import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 
 export interface LightboxImage {
-  url: string;
+  url: string; // 이미지 원본 (영상 항목이면 포스터로 사용, 포스터가 없으면 "")
+  videoUrl?: string; // 있으면 영상 플레이어로 재생
   label?: string;
 }
 
@@ -20,6 +24,10 @@ interface Props {
 
 export default function ImageLightbox({ images, index, onIndexChange, labels }: Props) {
   const count = images.length;
+  // 카드·헤더 등 어떤 조상 안에서 호출돼도 화면 전체를 덮도록 body로 포털
+  // (transform·backdrop-filter 조상이 fixed의 containing block이 되는 함정 회피)
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const close = useCallback(() => onIndexChange(null), [onIndexChange]);
   const prev = useCallback(
@@ -47,17 +55,17 @@ export default function ImageLightbox({ images, index, onIndexChange, labels }: 
     };
   }, [index, close, prev, next]);
 
-  // 인접 이미지 미리 로드 — 화살표 누르면 즉시 뜨도록
+  // 인접 이미지 미리 로드 — 화살표 누르면 즉시 뜨도록(영상 항목은 제외)
   useEffect(() => {
     if (index === null || count < 2) return;
     for (const im of [images[(index + 1) % count], images[(index - 1 + count) % count]]) {
-      if (!im) continue;
+      if (!im || im.videoUrl || !im.url) continue;
       const img = new window.Image();
       img.src = im.url;
     }
   }, [index, images, count]);
 
-  if (index === null) return null;
+  if (index === null || !mounted) return null;
   const current = images[index];
   if (!current) return null;
 
@@ -69,7 +77,7 @@ export default function ImageLightbox({ images, index, onIndexChange, labels }: 
     next: labels?.next ?? "Next",
   };
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -114,21 +122,35 @@ export default function ImageLightbox({ images, index, onIndexChange, labels }: 
       )}
 
       {/* 배경·이미지 어디를 눌러도 닫힘 — 컨트롤 버튼만 stopPropagation. 이미지는 클릭 흡수 없이 통과 */}
-      <div className="relative h-[82vh] w-[92vw]">
-        <Image
-          src={current.url}
-          alt={current.label ?? ""}
-          fill
-          sizes="92vw"
-          className="object-contain"
-          priority
-          unoptimized
+      {current.videoUrl ? (
+        // 영상: 재생 컨트롤 조작이 닫힘으로 새지 않도록 클릭 흡수
+        <video
+          src={current.videoUrl}
+          poster={current.url || undefined}
+          controls
+          autoPlay
+          playsInline
+          onClick={(e) => e.stopPropagation()}
+          className="max-h-[82vh] max-w-[92vw] rounded-lg bg-black"
         />
-      </div>
+      ) : current.url ? (
+        <div className="relative h-[82vh] w-[92vw]">
+          <Image
+            src={current.url}
+            alt={current.label ?? ""}
+            fill
+            sizes="92vw"
+            className="object-contain"
+            priority
+            unoptimized
+          />
+        </div>
+      ) : null}
 
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white">
         {current.label ? `${current.label} · ${index + 1}/${count}` : `${index + 1}/${count}`}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

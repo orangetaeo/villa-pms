@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { DateField } from "@/components/date-field";
+import ImageLightbox, { type LightboxImage } from "@/components/image-lightbox";
 import type { SerializedYtShort } from "@/lib/youtube/serialize";
 
 const KST_OFFSET_MS = 9 * 3600 * 1000;
@@ -89,7 +90,8 @@ export default function YoutubeShortCard({
     ? [...SLOT_OPTIONS]
     : [kst.hm, ...SLOT_OPTIONS];
 
-  const [playing, setPlaying] = useState(false);
+  // 라이트박스(크게 보기) — 0이면 열림, null이면 닫힘(단일 영상)
+  const [zoom, setZoom] = useState<number | null>(null);
   const [descOpen, setDescOpen] = useState(false);
   const [editingMeta, setEditingMeta] = useState(false);
   const [title, setTitle] = useState(short.title);
@@ -224,6 +226,12 @@ export default function YoutubeShortCard({
   const publishedLikes = short.status === "PUBLISHED" ? fmtNum(short.latestLikes) : null;
 
   const hasWarning = short.flaggedTerms.length > 0 || !!short.failReason || editJob === "FAILED";
+  // 라이트박스 항목 — 쇼츠 MP4 1건(포스터가 있으면 첫 프레임으로)
+  const zoomItems: LightboxImage[] = short.videoUrl
+    ? [{ url: short.posterUrl ?? "", videoUrl: short.videoUrl, label: short.title }]
+    : short.posterUrl
+      ? [{ url: short.posterUrl, label: short.title }]
+      : [];
   const whenLabel =
     short.status === "PUBLISHED" ? t("card.publishedAt") : t("card.scheduledAt");
   const whenValue =
@@ -288,77 +296,84 @@ export default function YoutubeShortCard({
 
   return (
     <div className="rounded-xl border border-slate-800/50 bg-admin-card">
-      {/* 요약 줄(항상 표시) — 클릭 시 펼치기/접기 */}
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        title={open ? t("list.collapse") : t("list.expand")}
-        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-slate-800/30"
-      >
-        {/* 9:16 세로 썸네일(작게) */}
-        {short.posterUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={short.posterUrl}
-            alt=""
-            loading="lazy"
-            className="h-16 w-9 shrink-0 rounded-md border border-slate-700 bg-black object-cover"
-          />
+      {/* 요약 줄(항상 표시) — 썸네일 클릭=크게 재생, 나머지 클릭=펼치기/접기 */}
+      <div className="flex items-center gap-3 px-3 py-2.5">
+        {/* 9:16 세로 썸네일(작게) — 목록에서 바로 크게 재생 */}
+        {short.videoUrl || short.posterUrl ? (
+          <button
+            type="button"
+            onClick={() => setZoom(0)}
+            aria-label={t("card.play")}
+            title={t("card.play")}
+            className="group relative block h-16 w-9 shrink-0 overflow-hidden rounded-md border border-slate-700 bg-black"
+          >
+            {short.posterUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={short.posterUrl}
+                alt=""
+                loading="lazy"
+                className="h-full w-full object-cover"
+              />
+            ) : null}
+            <span className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/50">
+              <span className="material-symbols-outlined text-[22px] text-white/80 drop-shadow transition-colors group-hover:text-white">
+                play_circle
+              </span>
+            </span>
+          </button>
         ) : (
           <div className="flex h-16 w-9 shrink-0 items-center justify-center rounded-md border border-dashed border-slate-700 bg-black/40">
             <span className="material-symbols-outlined text-[16px] text-slate-600">movie</span>
           </div>
         )}
 
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {summaryBadges}
-            {/* 접힘 상태에서도 문제를 놓치지 않도록 경고 아이콘만 요약에 노출 */}
-            {hasWarning && (
-              <span
-                className={`material-symbols-outlined text-[15px] ${
-                  short.failReason || editJob === "FAILED" ? "text-red-400" : "text-amber-400"
-                }`}
-              >
-                warning
-              </span>
-            )}
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          title={open ? t("list.collapse") : t("list.expand")}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left transition-colors hover:bg-slate-800/30"
+        >
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {summaryBadges}
+              {/* 접힘 상태에서도 문제를 놓치지 않도록 경고 아이콘만 요약에 노출 */}
+              {hasWarning && (
+                <span
+                  className={`material-symbols-outlined text-[15px] ${
+                    short.failReason || editJob === "FAILED" ? "text-red-400" : "text-amber-400"
+                  }`}
+                >
+                  warning
+                </span>
+              )}
+            </div>
+
+            <p className="truncate text-sm font-bold text-white">{short.title}</p>
+            <p className="truncate text-[11px] text-slate-400 tabular-nums">
+              <span className="text-slate-500">{short.villaName ?? t("card.noVilla")}</span>
+              {" · "}
+              <span className="text-slate-500">{whenLabel}</span> {whenValue}
+            </p>
           </div>
 
-          <p className="truncate text-sm font-bold text-white">{short.title}</p>
-          <p className="truncate text-[11px] text-slate-400 tabular-nums">
-            <span className="text-slate-500">{short.villaName ?? t("card.noVilla")}</span>
-            {" · "}
-            <span className="text-slate-500">{whenLabel}</span> {whenValue}
-          </p>
-        </div>
-
-        <span className="material-symbols-outlined shrink-0 text-slate-500">
-          {open ? "expand_less" : "expand_more"}
-        </span>
-      </button>
+          <span className="material-symbols-outlined shrink-0 text-slate-500">
+            {open ? "expand_less" : "expand_more"}
+          </span>
+        </button>
+      </div>
 
       {open && (
         <div className="flex flex-col gap-3 border-t border-slate-800 p-4">
           {/* 상단: 세로(9:16) 영상 미리보기 + 메타 */}
           <div className="flex gap-3">
-            {/* 9:16 세로 썸네일 — 클릭 시 재생 */}
+            {/* 9:16 세로 썸네일 — 클릭 시 라이트박스에서 크게 재생 */}
             <div className="w-28 shrink-0">
-              {playing && short.videoUrl ? (
-                // 외부 R2 영상 URL — controls 재생
-                <video
-                  src={short.videoUrl}
-                  poster={short.posterUrl ?? undefined}
-                  controls
-                  autoPlay
-                  playsInline
-                  className="aspect-[9/16] w-28 rounded-lg border border-slate-700 bg-black object-cover"
-                />
-              ) : short.posterUrl || short.videoUrl ? (
+              {short.posterUrl || short.videoUrl ? (
                 <button
                   type="button"
-                  onClick={() => setPlaying(true)}
+                  onClick={() => setZoom(0)}
                   className="group relative block aspect-[9/16] w-28 overflow-hidden rounded-lg border border-slate-700 bg-black"
                   aria-label={t("card.play")}
                 >
@@ -732,6 +747,14 @@ export default function YoutubeShortCard({
           )}
         </div>
       )}
+
+      {/* 크게 보기 — 쇼츠 영상 라이트박스(Esc·배경·X 닫기) */}
+      <ImageLightbox
+        images={zoomItems}
+        index={zoom}
+        onIndexChange={setZoom}
+        labels={{ close: t("viewer.close"), prev: t("viewer.prev"), next: t("viewer.next") }}
+      />
     </div>
   );
 }

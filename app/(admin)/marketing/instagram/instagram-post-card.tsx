@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { DateField } from "@/components/date-field";
+import ImageLightbox, { type LightboxImage } from "@/components/image-lightbox";
 import type { SerializedIgPost } from "@/lib/instagram/serialize";
 
 const KST_OFFSET_MS = 9 * 3600 * 1000;
@@ -81,6 +82,8 @@ export default function InstagramPostCard({
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState<null | "caption" | "schedule" | "approve" | "reject">(null);
+  // 라이트박스(크게 보기) — 열린 슬라이드 index, 닫힘이면 null
+  const [zoom, setZoom] = useState<number | null>(null);
 
   // 공통 응답 처리: 409 → onConflict, ok → 성공콜백, 그 외 → 에러 토스트
   async function handle(
@@ -179,6 +182,12 @@ export default function InstagramPostCard({
   const rest = media.slice(1, 4);
   const extra = media.length - 4;
   const hasWarning = post.flaggedTerms.length > 0 || !!post.failReason;
+  // 라이트박스 항목 — 릴스(videoUrl)는 영상, 이미지 포스트는 렌더 JPEG
+  const zoomItems: LightboxImage[] = media.map((m) => ({
+    url: m.renderedUrl,
+    videoUrl: m.videoUrl,
+    label: m.overlayText ?? post.villaName ?? undefined,
+  }));
   const whenLabel =
     post.status === "PUBLISHED" ? t("card.publishedAt") : t("card.scheduledAt");
   const whenValue =
@@ -188,113 +197,157 @@ export default function InstagramPostCard({
 
   return (
     <div className="rounded-xl border border-slate-800/50 bg-admin-card">
-      {/* 요약 줄(항상 표시) — 클릭 시 펼치기/접기 */}
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        title={open ? t("list.collapse") : t("list.expand")}
-        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-slate-800/30"
-      >
-        {/* 썸네일(4:5) */}
+      {/* 요약 줄(항상 표시) — 썸네일 클릭=크게 보기, 나머지 클릭=펼치기/접기 */}
+      <div className="flex items-center gap-3 px-3 py-2.5">
+        {/* 썸네일(4:5) — 목록에서 바로 크게 보기 */}
         {cover ? (
-          // 외부 R2 렌더 URL — next/image remotePatterns 의존 제거 위해 img 사용(관례)
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={cover.renderedUrl}
-            alt=""
-            loading="lazy"
-            className="h-14 w-11 shrink-0 rounded-md border border-slate-700 object-cover"
-          />
+          <button
+            type="button"
+            onClick={() => setZoom(0)}
+            aria-label={t("viewer.open")}
+            title={t("viewer.open")}
+            className="group relative block h-14 w-11 shrink-0 overflow-hidden rounded-md border border-slate-700"
+          >
+            {/* 외부 R2 렌더 URL — next/image remotePatterns 의존 제거 위해 img 사용(관례) */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={cover.renderedUrl}
+              alt=""
+              loading="lazy"
+              className="h-full w-full object-cover"
+            />
+            <span className="absolute inset-0 flex items-center justify-center transition-colors group-hover:bg-black/45">
+              <span className="material-symbols-outlined text-[20px] text-white/0 transition-colors group-hover:text-white">
+                {cover.videoUrl ? "play_circle" : "zoom_in"}
+              </span>
+            </span>
+          </button>
         ) : (
           <div className="flex h-14 w-11 shrink-0 items-center justify-center rounded-md border border-dashed border-slate-700 text-[9px] leading-tight text-slate-600">
             {t("card.noMedia")}
           </div>
         )}
 
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span
-              className={`inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-bold ${
-                KIND_BADGE[post.kind] ?? "border-slate-700 text-slate-400"
-              }`}
-            >
-              {t(`kind.${post.kind}`)}
-            </span>
-            <span
-              className={`inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-bold ${
-                STATUS_BADGE[post.status] ?? "border-slate-700 text-slate-400"
-              }`}
-            >
-              {t(`status.${post.status}`)}
-            </span>
-            {post.media.length > 0 && (
-              <span className="text-[10px] font-medium text-slate-500">
-                {t("card.slides", { n: post.media.length })}
-              </span>
-            )}
-            {/* 발행됨 도달 뱃지 — 인사이트 수집분(latestReach)만. 미수집이면 미표시. */}
-            {post.status === "PUBLISHED" && post.latestReach != null && (
-              <span className="inline-flex items-center gap-1 rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
-                <span className="material-symbols-outlined text-[13px]">visibility</span>
-                {t("card.reachBadge", { n: post.latestReach.toLocaleString("ko-KR") })}
-              </span>
-            )}
-            {/* 접힘 상태에서도 문제를 놓치지 않도록 경고 아이콘만 요약에 노출 */}
-            {hasWarning && (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          title={open ? t("list.collapse") : t("list.expand")}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left transition-colors hover:bg-slate-800/30"
+        >
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <div className="flex flex-wrap items-center gap-1.5">
               <span
-                className={`material-symbols-outlined text-[15px] ${
-                  post.failReason ? "text-red-400" : "text-amber-400"
+                className={`inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-bold ${
+                  KIND_BADGE[post.kind] ?? "border-slate-700 text-slate-400"
                 }`}
               >
-                warning
+                {t(`kind.${post.kind}`)}
               </span>
-            )}
+              <span
+                className={`inline-flex items-center rounded border px-2 py-0.5 text-[10px] font-bold ${
+                  STATUS_BADGE[post.status] ?? "border-slate-700 text-slate-400"
+                }`}
+              >
+                {t(`status.${post.status}`)}
+              </span>
+              {post.media.length > 0 && (
+                <span className="text-[10px] font-medium text-slate-500">
+                  {t("card.slides", { n: post.media.length })}
+                </span>
+              )}
+              {/* 발행됨 도달 뱃지 — 인사이트 수집분(latestReach)만. 미수집이면 미표시. */}
+              {post.status === "PUBLISHED" && post.latestReach != null && (
+                <span className="inline-flex items-center gap-1 rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                  <span className="material-symbols-outlined text-[13px]">visibility</span>
+                  {t("card.reachBadge", { n: post.latestReach.toLocaleString("ko-KR") })}
+                </span>
+              )}
+              {/* 접힘 상태에서도 문제를 놓치지 않도록 경고 아이콘만 요약에 노출 */}
+              {hasWarning && (
+                <span
+                  className={`material-symbols-outlined text-[15px] ${
+                    post.failReason ? "text-red-400" : "text-amber-400"
+                  }`}
+                >
+                  warning
+                </span>
+              )}
+            </div>
+
+            <p className="truncate text-sm font-bold text-white">
+              {post.villaName ?? t("card.noVilla")}
+            </p>
+
+            {/* 발행 예정/시각 — KST 명기 */}
+            <p className="truncate text-[11px] text-slate-400 tabular-nums">
+              <span className="text-slate-500">{whenLabel}</span> {whenValue}
+            </p>
           </div>
 
-          <p className="truncate text-sm font-bold text-white">
-            {post.villaName ?? t("card.noVilla")}
-          </p>
-
-          {/* 발행 예정/시각 — KST 명기 */}
-          <p className="truncate text-[11px] text-slate-400 tabular-nums">
-            <span className="text-slate-500">{whenLabel}</span> {whenValue}
-          </p>
-        </div>
-
-        <span className="material-symbols-outlined shrink-0 text-slate-500">
-          {open ? "expand_less" : "expand_more"}
-        </span>
-      </button>
+          <span className="material-symbols-outlined shrink-0 text-slate-500">
+            {open ? "expand_less" : "expand_more"}
+          </span>
+        </button>
+      </div>
 
       {open && (
         <div className="flex flex-col gap-3 border-t border-slate-800 p-4">
-          {/* 캐러셀 썸네일 전체 */}
+          {/* 캐러셀 썸네일 전체 — 클릭하면 라이트박스로 크게 보기(릴스는 영상 재생) */}
           {media.length > 0 && (
             <div className="flex flex-wrap items-start gap-1.5">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={cover.renderedUrl}
-                alt={cover.overlayText ?? post.villaName ?? ""}
-                loading="lazy"
-                className="h-40 w-32 rounded-lg border border-slate-700 object-cover"
-              />
+              <button
+                type="button"
+                onClick={() => setZoom(0)}
+                aria-label={t("viewer.open")}
+                className="group relative block h-40 w-32 overflow-hidden rounded-lg border border-slate-700"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={cover.renderedUrl}
+                  alt={cover.overlayText ?? post.villaName ?? ""}
+                  loading="lazy"
+                  className="h-full w-full object-cover"
+                />
+                <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/40">
+                  <span className="material-symbols-outlined text-[34px] text-white/0 drop-shadow transition-colors group-hover:text-white/90">
+                    {cover.videoUrl ? "play_circle" : "zoom_in"}
+                  </span>
+                </span>
+                {/* 릴스는 접힌 상태에서도 영상임이 보이도록 상시 표시 */}
+                {cover.videoUrl && (
+                  <span className="material-symbols-outlined absolute bottom-1 right-1 rounded-full bg-black/60 p-0.5 text-[16px] text-white group-hover:opacity-0">
+                    movie
+                  </span>
+                )}
+              </button>
               {rest.length > 0 && (
                 <div className="flex flex-col gap-1.5">
                   {rest.map((m, i) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <button
                       key={i}
-                      src={m.renderedUrl}
-                      alt=""
-                      loading="lazy"
-                      className="h-[46px] w-[38px] rounded-md border border-slate-700 object-cover"
-                    />
+                      type="button"
+                      onClick={() => setZoom(i + 1)}
+                      aria-label={t("viewer.open")}
+                      className="block h-[46px] w-[38px] overflow-hidden rounded-md border border-slate-700 transition-opacity hover:opacity-75"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={m.renderedUrl}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                      />
+                    </button>
                   ))}
                   {extra > 0 && (
-                    <div className="flex h-[46px] w-[38px] items-center justify-center rounded-md border border-slate-700 bg-slate-800 text-[11px] font-bold text-slate-300">
+                    <button
+                      type="button"
+                      onClick={() => setZoom(4)}
+                      className="flex h-[46px] w-[38px] items-center justify-center rounded-md border border-slate-700 bg-slate-800 text-[11px] font-bold text-slate-300 hover:bg-slate-700"
+                    >
                       +{extra}
-                    </div>
+                    </button>
                   )}
                 </div>
               )}
@@ -528,6 +581,14 @@ export default function InstagramPostCard({
       )}
         </div>
       )}
+
+      {/* 크게 보기 — 이미지/릴스 영상 공용 라이트박스(좌우 이동·Esc·배경 닫기) */}
+      <ImageLightbox
+        images={zoomItems}
+        index={zoom}
+        onIndexChange={setZoom}
+        labels={{ close: t("viewer.close"), prev: t("viewer.prev"), next: t("viewer.next") }}
+      />
     </div>
   );
 }

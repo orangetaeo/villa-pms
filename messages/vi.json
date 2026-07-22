@@ -381,6 +381,12 @@
       "expandAll": "Mở rộng tất cả",
       "collapseAll": "Thu gọn tất cả"
     },
+    "viewer": {
+      "open": "Xem lớn",
+      "close": "Đóng",
+      "prev": "Trước",
+      "next": "Sau"
+    },
     "bulk": {
       "approveAll": "Duyệt tất cả {n}",
       "approving": "Đang duyệt... ({done}/{total})",
@@ -570,6 +576,12 @@
       "collapse": "Thu gọn",
       "expandAll": "Mở rộng tất cả",
       "collapseAll": "Thu gọn tất cả"
+    },
+    "viewer": {
+      "open": "Xem lớn",
+      "close": "Đóng",
+      "prev": "Trước",
+      "next": "Sau"
     },
     "bulk": {
       "approveAll": "Duyệt tất cả {n}",
