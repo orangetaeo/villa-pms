@@ -121,6 +121,16 @@ export default async function MarketingSeoPage({
                             <li key={j}>{it}</li>
                           ))}
                         </ul>
+                      ) : b.type === "img" ? (
+                        // 승인 화면에서도 실제 이미지를 확인할 수 있어야 한다(alt·배치 검수).
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <figure key={i}>
+                          <img src={b.url} alt={b.alt} className="w-full rounded-lg" />
+                          <figcaption className="mt-1 text-xs text-slate-500">
+                            alt: {b.alt}
+                            {b.caption ? ` · ${b.caption}` : ""}
+                          </figcaption>
+                        </figure>
                       ) : (
                         <p key={i} className="text-sm leading-relaxed text-slate-300">
                           {b.text}

@@ -16,7 +16,9 @@ import {
   MIN_ARTICLE_BODY_CHARS,
   DEFAULT_PUBLISH_PER_DAY,
   MAX_PUBLISH_PER_DAY,
+  isAllowedImageUrl,
 } from "@/lib/seo/article";
+import { pickArticleImages, interleaveImages } from "@/lib/seo/article-draft";
 import type { DbClient } from "@/lib/availability";
 
 describe("본문 블록 파싱 — 미신뢰 입력 방어", () => {
@@ -169,5 +171,104 @@ describe("점진 발행 상한 — 대량 자동생성 스팸 차단", () => {
     const where = calls.countWhere as { publishedAt: { gte: Date; lt: Date }; status: string };
     expect(where.status).toBe("PUBLISHED");
     expect(where.publishedAt.gte.toISOString()).toBe("2026-07-21T15:00:00.000Z");
+  });
+});
+
+// ── 이미지 (T-seo-s3 이미지 SEO 보강) ────────────────────────────────────────
+describe("본문 이미지 — 허용 호스트·alt 강제", () => {
+  const OK = "https://pub-abc.r2.dev/villa/exterior.jpg";
+
+  it("허용 호스트 + alt가 있으면 통과한다", () => {
+    expect(parseArticleBody([{ type: "img", url: OK, alt: "쏘나씨 V12 외관" }])).toEqual([
+      { type: "img", url: OK, alt: "쏘나씨 V12 외관" },
+    ]);
+  });
+
+  it("★ 허용 밖 외부 호스트는 버린다 (추적 벡터·깨진 이미지 차단)", () => {
+    for (const bad of [
+      "https://evil.example/x.jpg",
+      "http://pub-abc.r2.dev/x.jpg", // http
+      "//cdn.other/x.jpg",
+      "javascript:alert(1)",
+    ]) {
+      expect(parseArticleBody([{ type: "img", url: bad, alt: "설명" }])).toEqual([]);
+    }
+  });
+
+  it("alt가 없으면 버린다 (빈 alt 이미지는 SEO·접근성 양쪽에 무의미)", () => {
+    expect(parseArticleBody([{ type: "img", url: OK, alt: "" }])).toEqual([]);
+    expect(parseArticleBody([{ type: "img", url: OK }])).toEqual([]);
+  });
+
+  it("자사 루트 상대경로(브랜드 자산)는 허용한다", () => {
+    expect(isAllowedImageUrl("/og-villa-go.png")).toBe(true);
+    expect(isAllowedImageUrl("//evil.example/x.png")).toBe(false);
+  });
+
+  it("★ 이미지는 분량으로 치지 않는다 (이미지 도배로 글자수 하한 우회 차단)", () => {
+    const blocks = parseArticleBody([
+      { type: "h2", text: "제목" },
+      ...Array.from({ length: 20 }, () => ({ type: "img", url: OK, alt: "가".repeat(100) })),
+    ]);
+    expect(blocks.filter((b) => b.type === "img")).toHaveLength(20);
+    expect(bodyTextLength(blocks)).toBe(2); // h2 "제목"만 계산
+    expect(isArticlePublishable(blocks)).toBe(false);
+  });
+
+  it("캡션은 분량에 포함된다", () => {
+    const blocks = parseArticleBody([{ type: "img", url: OK, alt: "a", caption: "1234" }]);
+    expect(bodyTextLength(blocks)).toBe(4);
+  });
+});
+
+describe("이미지 선별·삽입", () => {
+  function villa(over = {}) {
+    return {
+      id: "v1", slug: "s1", name: "V12", nameVi: null, complex: "Sonasea",
+      areaCode: "sonasea", areaName: "Sonasea", areaNameKo: "쏘나씨",
+      bedrooms: 4, bathrooms: 4, commonBathrooms: 1, maxGuests: 10,
+      areaSqm: null, floors: null, extraBedAvailable: false, hasPool: true,
+      breakfastAvailable: false, beachDistanceM: null, featureKeys: [],
+      checkInTime: 840, checkOutTime: 660, smokingAllowed: false, petsAllowed: false,
+      partyAllowed: false, parkingSlots: 0, description: null,
+      photos: [
+        { id: "p1", url: "https://pub-abc.r2.dev/1.jpg", space: "BEDROOM", spaceLabel: null },
+        { id: "p2", url: "https://pub-abc.r2.dev/2.jpg", space: "EXTERIOR", spaceLabel: null },
+        { id: "p3", url: "https://pub-abc.r2.dev/3.jpg", space: "POOL", spaceLabel: null },
+      ],
+      updatedAt: new Date(), publicListedAt: null,
+      ...over,
+    };
+  }
+
+  it("공간 우선순위(외관→수영장)대로 중복 없이 고르고 한국어 alt를 만든다", () => {
+    const picks = pickArticleImages([villa() as never], 3);
+    expect(picks.map((p) => p.url)).toEqual([
+      "https://pub-abc.r2.dev/2.jpg", // EXTERIOR
+      "https://pub-abc.r2.dev/3.jpg", // POOL
+      "https://pub-abc.r2.dev/1.jpg", // BEDROOM
+    ]);
+    expect(picks[0].alt).toBe("쏘나씨 V12 외관");
+  });
+
+  it("공개 빌라가 없으면 빈 배열 — 외부 스톡 이미지를 끌어오지 않는다", () => {
+    expect(pickArticleImages([], 3)).toEqual([]);
+  });
+
+  it("이미지는 소제목 뒤 첫 문단 다음에 삽입된다", () => {
+    const blocks = [
+      { type: "h2", text: "A" },
+      { type: "p", text: "a1" },
+      { type: "p", text: "a2" },
+      { type: "h2", text: "B" },
+      { type: "p", text: "b1" },
+    ] as never;
+    const out = interleaveImages(blocks, [{ url: "https://pub-abc.r2.dev/1.jpg", alt: "x" }]);
+    expect(out.map((b) => b.type)).toEqual(["h2", "p", "img", "p", "h2", "p"]);
+  });
+
+  it("이미지가 없으면 본문을 그대로 둔다", () => {
+    const blocks = [{ type: "h2", text: "A" }] as never;
+    expect(interleaveImages(blocks, [])).toBe(blocks);
   });
 });
