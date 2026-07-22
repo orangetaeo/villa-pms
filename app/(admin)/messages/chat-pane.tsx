@@ -2624,6 +2624,20 @@ type PendingAttachment = { id: number; file: File; url: string | null; isImage: 
 // 한 번에 대기열에 둘 수 있는 최대 첨부 수 — 순차 업로드라 과다 적재 방지.
 const MAX_PENDING_ATTACH = 10;
 
+/**
+ * 502가 **앱이 낸 번역 실패**인지, **Railway 엣지가 낸 배포 교체 502**인지 구분.
+ * 라우트의 TRANSLATE_FAILED는 JSON({error})이고, 엣지 502는 JSON이 아니다(HTML/빈 본문).
+ * 둘 다 미발송이라 재전송은 안전하지만, 원인이 달라 안내 문구를 나눈다.
+ */
+async function isTranslateFailure(res: Response): Promise<boolean> {
+  try {
+    const body = (await res.clone().json()) as { error?: string };
+    return body?.error === "TRANSLATE_FAILED" || body?.error === "TRANSLATE_NOT_CONFIGURED";
+  } catch {
+    return false;
+  }
+}
+
 function Composer({
   conversationId,
   windowOpen,
@@ -3055,6 +3069,15 @@ function Composer({
           /* generic */
         }
         onOptimisticFail(tempId, code === "QUOTE_NOT_SUPPORTED" ? t("reply.notSupported") : t("sendFailed"));
+      } else if (res.status === 502 && !(await isTranslateFailure(res))) {
+        // 배포 교체 중 Railway 엣지 502("Retried single replica") — 앱까지 닿지 못한 요청.
+        // 원인이 서버 재시작임을 알려 "프로그램 버그"로 오해하고 재전송을 반복하지 않게 한다.
+        onOptimisticFail(tempId, t("sendUnavailable"));
+      } else if (res.status === 502 || res.status === 503) {
+        // TRANSLATE_FAILED/TRANSLATE_NOT_CONFIGURED — 한국어 오발송 방지로 **미발송**(재전송 안전).
+        onOptimisticFail(tempId, t("sendTranslateFailed"));
+      } else if (res.status === 504) {
+        onOptimisticFail(tempId, t("sendUnavailable"));
       } else {
         onOptimisticFail(tempId, t("sendFailed"));
       }

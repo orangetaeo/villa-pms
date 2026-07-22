@@ -299,6 +299,11 @@ export async function POST(req: Request) {
           return NextResponse.json({ error: "TRANSLATE_NOT_CONFIGURED" }, { status: 503 });
         }
         // 상태 코드만 — 본문 에코 방지(QA 권고). 한국어 오발송 방지 위해 미발송.
+        // ★관측 로그 필수: 이 실패는 화면에 "전송 실패"로만 보여, 로그가 없으면 원인 추적이 불가능했다.
+        console.warn(
+          `[zalo-send] 번역 실패로 미발송 (conv=${conversationId}, target=${target}): ` +
+            `${err instanceof Error ? err.message : "unknown"}`
+        );
         return NextResponse.json({ error: "TRANSLATE_FAILED" }, { status: 502 });
       }
     }
