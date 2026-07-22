@@ -80,7 +80,8 @@ export interface EditSubtitleInput {
  * 자막은 이 문장들에서 파생된다(단일 진실). 컷 길이도 이 문장들의 TTS 길이로 역산된다.
  */
 export interface EditNarrationInput {
-  lines: { text: string; clipIndex: number | null }[];
+  /** 문장 = TTS 입력(끊김 없이 한 번에 합성). parts = 컷별 절(자막 한 장·컷 길이 산출 단위). */
+  lines: { text: string; parts: { clipIndexes: number[]; text: string }[] }[];
   voice?: string; // 미지정 시 GEMINI_TTS_VOICE 기본값
 }
 export interface EditParams {
@@ -163,16 +164,32 @@ export function validateEditParams(raw: unknown): EditParams {
   if (r.narration && typeof r.narration === "object") {
     const nr = r.narration as Record<string, unknown>;
     const linesRaw = Array.isArray(nr.lines) ? nr.lines : [];
+    type ParsedLine = { text: string; parts: { clipIndexes: number[]; text: string }[] };
     const lines = linesRaw
-      .map((l) => {
+      .map((l): ParsedLine | null => {
         if (!l || typeof l !== "object") return null;
         const ll = l as Record<string, unknown>;
-        const text = typeof ll.text === "string" ? ll.text.trim().slice(0, 120) : "";
+        const text = typeof ll.text === "string" ? ll.text.trim().slice(0, 200) : "";
         if (!text) return null;
-        const ci = num(ll.clipIndex);
-        return { text, clipIndex: ci != null && ci >= 0 ? Math.floor(ci) : null };
+        // 절(자막 한 장) 배열. 없으면 문장 전체를 한 절로 취급(하위호환).
+        const partsRaw = Array.isArray(ll.parts) ? ll.parts : [];
+        const parts = partsRaw
+          .map((p) => {
+            if (!p || typeof p !== "object") return null;
+            const pp = p as Record<string, unknown>;
+            const ptext = typeof pp.text === "string" ? pp.text.trim().slice(0, 120) : "";
+            if (!ptext) return null;
+            const idxRaw = Array.isArray(pp.clipIndexes) ? pp.clipIndexes : [];
+            const clipIndexes = idxRaw
+              .map((v) => num(v))
+              .filter((v): v is number => v != null && v >= 0)
+              .map((v) => Math.floor(v));
+            return { clipIndexes, text: ptext };
+          })
+          .filter((p): p is { clipIndexes: number[]; text: string } => p !== null);
+        return { text, parts: parts.length > 0 ? parts : [{ clipIndexes: [], text }] };
       })
-      .filter((l): l is { text: string; clipIndex: number | null } => l !== null)
+      .filter((l): l is ParsedLine => l !== null)
       .slice(0, NARRATION_LINES_MAX);
     if (lines.length > 0) {
       const voice = typeof nr.voice === "string" && nr.voice.trim() ? nr.voice.trim() : undefined;
@@ -654,6 +671,12 @@ export interface RenderOpts {
   introSpecs?: string[];
   /** 인트로 유지 시간(초). 미지정 시 INTRO_SEC(1.5). 나레이션 첫 문장 종료까지 잡아주면 자연스럽다. */
   introHoldSec?: number;
+  /**
+   * 아웃트로 CTA 카드 길이(초). 미지정 시 CTA_DUR_SEC(2.8).
+   * ★ 나레이션 사용 시 반드시 넘겨라 — 마지막 문장이 이 카드 위에서 재생되므로,
+   *   기본값보다 문장이 길면 말이 끝나기 전에 영상이 끝난다.
+   */
+  ctaDurationSec?: number;
 }
 
 /**
@@ -701,9 +724,14 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
     const ctaJpegPath = path.join(workDir, "cta.jpg");
     await fs.writeFile(ctaJpegPath, ctaJpeg);
     const ctaSeg = path.join(workDir, "seg-cta.mp4");
-    await stillToSegment(ctaJpegPath, CTA_DUR_SEC, ctaSeg);
+    // ★ CTA 카드 길이는 고정이 아니다: 나레이션 마지막 문장(카카오톡 안내)이 이 카드 위에서 재생된다.
+    //   2.8초로 못박아두면 3초 넘는 CTA 문장이 **끝나기 전에 영상이 끝난다**
+    //   (테오 2026-07-22 "마지막 화면의 나레이션이 끝나지도 않았는데 화면이 끝나버린다").
+    //   호출부(잡 러너)가 computeNarrationTimeline의 마지막 세그먼트 길이를 넘겨준다.
+    const ctaDur = Math.max(CTA_DUR_SEC, opts.ctaDurationSec ?? CTA_DUR_SEC);
+    await stillToSegment(ctaJpegPath, ctaDur, ctaSeg);
     segPaths.push(ctaSeg);
-    segDurs.push((await probeDurationSec(ctaSeg)) ?? CTA_DUR_SEC);
+    segDurs.push((await probeDurationSec(ctaSeg)) ?? ctaDur);
 
     // 3) xfade 연결(비디오).
     const concatPath = path.join(workDir, "concat.mp4");
@@ -878,6 +906,7 @@ export async function runYoutubeEditJob(
     // TTS 실패 시엔 렌더 전체를 죽이지 않고 기존 audio 모드로 폴백한다(계약 C5) —
     // 나레이션 없는 영상이 "영상 없음"보다 낫다.
     let narrationTrack: NarrationTrack | undefined;
+    let narrationCtaSec: number | undefined;
     let subtitles = params.subtitles;
     if (params.narration && params.narration.lines.length > 0) {
       try {
@@ -885,7 +914,7 @@ export async function runYoutubeEditJob(
           voice: params.narration.voice,
         });
         const timeline = computeNarrationTimeline({
-          lineDurations: synth.map((s) => s.durationSec),
+          lines: synth.map((s) => ({ durationSec: s.durationSec, parts: s.parts })),
           transitionSec: TRANSITION_SEC,
           minSegmentSec: CLIP_DUR_MIN,
           ctaMinSec: CTA_DUR_SEC,
@@ -900,21 +929,16 @@ export async function runYoutubeEditJob(
         }
         narrationTrack = { wavPaths, offsetsSec: timeline.lineOffsets };
 
-        // 컷 길이 역산 — 마지막 세그먼트는 CTA(클립 아님)이므로 클립 수만큼만 적용.
-        for (let i = 0; i < local.length && i < timeline.segmentDurations.length - 1; i++) {
-          local[i].durationSec = timeline.segmentDurations[i];
+        // 컷 길이 역산 — 절(節) 단위로 산출된 값을 그대로 쓴다.
+        for (let i = 0; i < local.length; i++) {
+          const d = timeline.clipDurations[i];
+          if (typeof d === "number" && Number.isFinite(d)) local[i].durationSec = d;
         }
-        // 자막 = 나레이션과 같은 소스(단일 진실). 기존 subtitles는 대체된다.
-        // ★ CTA 문장(clipIndex=null)은 자막에서 제외한다 — 아웃트로 CTA 카드가 이미 같은 내용을
-        //   큰 글씨로 보여주고 있어, 자막을 덧그리면 카드 문구 위에 겹쳐 둘 다 읽기 나빠진다
-        //   (2026-07-22 실제 렌더 프레임 육안 확인). 음성은 CTA 문장도 그대로 읽는다.
-        subtitles = synth
-          .map((s, i) => ({
-            text: s.text,
-            fromSec: timeline.subtitleRanges[i].fromSec,
-            toSec: timeline.subtitleRanges[i].toSec,
-            isCta: s.clipIndex == null,
-          }))
+        // CTA 카드 길이 — 안 넘기면 2.8초 고정이라 마지막 문장이 잘린다.
+        narrationCtaSec = timeline.ctaDurationSec;
+        // 자막 = 나레이션과 같은 소스(단일 진실), **절 단위**라 컷마다 바뀐다.
+        // ★ CTA 절은 자막에서 제외 — 아웃트로 카드가 같은 내용을 큰 글씨로 이미 보여준다(겹침 방지).
+        subtitles = timeline.subtitles
           .filter((s) => !s.isCta)
           .map(({ text, fromSec, toSec }) => ({ text, fromSec, toSec }));
       } catch {
@@ -930,6 +954,8 @@ export async function runYoutubeEditJob(
       audio: params.audio,
       horizontalMode: params.horizontalMode,
       narration: narrationTrack,
+      // 나레이션 마지막 문장이 CTA 카드 위에서 재생된다 — 카드 길이를 그 문장에 맞춘다.
+      ctaDurationSec: narrationCtaSec,
     });
 
     const { url: videoUrl } = await saveYoutubeRenderedVideo(rendered.mp4, ctx.baseName);

@@ -51,9 +51,12 @@ const t0 = Date.now();
 bar("① 대본 생성 (Gemini)");
 console.log("TTS 설정:", ttsConfig());
 const lines = await buildNarrationScript(ctx);
-lines.forEach((l, i) =>
-  console.log(`  ${l.clipIndex == null ? "CTA " : `컷${i + 1} `} "${l.text}" (${l.text.length}자)`)
-);
+lines.forEach((l, i) => {
+  console.log(`  문장${i + 1} "${l.text}" (${l.text.length}자, 컷 ${l.parts.length}개)`);
+  l.parts.forEach((p) =>
+    console.log(`      [${p.clipIndexes.length ? p.clipIndexes.map((c) => c + 1).join(",") : "CTA"}] ${p.text}`)
+  );
+});
 
 bar("② 규칙 검증");
 const v = validateNarrationLines(lines);
@@ -67,10 +70,13 @@ synth.forEach((s, i) =>
 
 bar("④ 타임라인 (오디오 우선)");
 const TL = { transitionSec: 0.4, minSegmentSec: 2, ctaMinSec: 2.8 };
-const timeline = computeNarrationTimeline({ lineDurations: synth.map((s) => s.durationSec), ...TL });
-console.log("  세그먼트 길이:", timeline.segmentDurations.map((d) => d.toFixed(2)).join(", "));
+const timeline = computeNarrationTimeline({
+  lines: synth.map((s) => ({ durationSec: s.durationSec, parts: s.parts })),
+  ...TL,
+});
+console.log("  컷 길이:", timeline.clipDurations.map((d) => d.toFixed(2)).join(", "), "| CTA:", timeline.ctaDurationSec.toFixed(2));
 console.log("  오디오 오프셋:", timeline.lineOffsets.map((d) => d.toFixed(2)).join(", "));
-console.log("  자막 구간:", timeline.subtitleRanges.map((r) => `${r.fromSec.toFixed(1)}~${r.toSec.toFixed(1)}`).join(", "));
+console.log("  자막 구간:", timeline.subtitles.map((r) => `${r.fromSec.toFixed(1)}~${r.toSec.toFixed(1)}`).join(", "));
 console.log("  ★ 총 길이:", timeline.totalSec.toFixed(2), "초");
 
 bar("⑤ 나레이션 WAV 기록");
@@ -88,7 +94,7 @@ bar("⑥ 렌더 (ffmpeg)");
 const local = CLIPS.map((c, i) => ({
   path: path.resolve(c.file),
   startSec: 0,
-  durationSec: timeline.segmentDurations[i], // ★ 오디오 길이로 역산된 컷 길이
+  durationSec: timeline.clipDurations[i] ?? 4, // ★ 절 단위로 역산된 컷 길이
 }));
 const rendered = await renderEditedVideo(local, {
   headline: "엠빌라", // 빌라명이 곧 타이틀 — villaName과 중복 표기하지 않는다
@@ -98,15 +104,12 @@ const rendered = await renderEditedVideo(local, {
   // 오프닝 스펙 칩 + 첫 문장이 끝날 때까지 인트로 유지(음소거 시청자에게도 스펙 전달)
   introSpecs: buildIntroSpecs(ctx),
   introHoldSec: timeline.lineOffsets[0] + synth[0].durationSec + 0.4,
+  // ★ CTA 카드 길이 = 마지막 세그먼트 길이. 안 넘기면 2.8초 고정이라 마지막 문장이 잘린다.
+  ctaDurationSec: timeline.ctaDurationSec,
   narration: { wavPaths, offsetsSec: timeline.lineOffsets },
   // CTA 문장은 자막 제외 — 아웃트로 카드가 같은 내용을 큰 글씨로 이미 보여준다(겹침 방지).
-  subtitles: synth
-    .map((s, i) => ({
-      text: s.text,
-      fromSec: timeline.subtitleRanges[i].fromSec,
-      toSec: timeline.subtitleRanges[i].toSec,
-      isCta: s.clipIndex == null,
-    }))
+  // 자막은 절 단위(컷마다 바뀜). CTA 절은 아웃트로 카드와 겹치므로 제외.
+  subtitles: timeline.subtitles
     .filter((s) => !s.isCta)
     .map(({ text, fromSec, toSec }) => ({ text, fromSec, toSec })),
 });

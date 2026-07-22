@@ -30,7 +30,7 @@ import {
 export const dynamic = "force-dynamic";
 
 interface StoredNarration {
-  lines: { text: string; clipIndex: number | null }[];
+  lines: NarrationLine[];
   voice?: string;
 }
 
@@ -42,15 +42,30 @@ function readStoredNarration(editParams: Prisma.JsonValue | null): StoredNarrati
   const linesRaw = (n as Record<string, unknown>).lines;
   if (!Array.isArray(linesRaw)) return null;
   const lines = linesRaw
-    .map((l) => {
+    .map((l): NarrationLine | null => {
       if (!l || typeof l !== "object") return null;
       const ll = l as Record<string, unknown>;
       const text = typeof ll.text === "string" ? ll.text : "";
       if (!text.trim()) return null;
-      const ci = ll.clipIndex;
-      return { text, clipIndex: typeof ci === "number" && ci >= 0 ? Math.floor(ci) : null };
+      const partsRaw = Array.isArray(ll.parts) ? ll.parts : [];
+      const parts = partsRaw
+        .map((pp) => {
+          if (!pp || typeof pp !== "object") return null;
+          const p2 = pp as Record<string, unknown>;
+          const t = typeof p2.text === "string" ? p2.text : "";
+          if (!t.trim()) return null;
+          const idx = Array.isArray(p2.clipIndexes) ? p2.clipIndexes : [];
+          return {
+            clipIndexes: idx
+              .filter((v): v is number => typeof v === "number" && v >= 0)
+              .map((v) => Math.floor(v)),
+            text: t.trim(),
+          };
+        })
+        .filter((p2): p2 is { clipIndexes: number[]; text: string } => p2 !== null);
+      return { text: text.trim(), parts: parts.length ? parts : [{ clipIndexes: [], text: text.trim() }] };
     })
-    .filter((l): l is { text: string; clipIndex: number | null } => l !== null);
+    .filter((l): l is NarrationLine => l !== null);
   if (lines.length === 0) return null;
   const voice = (n as Record<string, unknown>).voice;
   return { lines, voice: typeof voice === "string" && voice ? voice : undefined };
@@ -188,13 +203,29 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!linesRaw) return NextResponse.json({ error: "LINES_REQUIRED" }, { status: 400 });
 
   const lines: NarrationLine[] = linesRaw
-    .map((l) => {
+    .map((l): NarrationLine | null => {
       if (!l || typeof l !== "object") return null;
       const ll = l as Record<string, unknown>;
-      const text = typeof ll.text === "string" ? ll.text.trim().slice(0, 120) : "";
+      const text = typeof ll.text === "string" ? ll.text.trim().slice(0, 200) : "";
       if (!text) return null;
-      const ci = ll.clipIndex;
-      return { text, clipIndex: typeof ci === "number" && ci >= 0 ? Math.floor(ci) : null };
+      // 절(자막 한 장) 배열. 운영자가 절 없이 문장만 고쳤으면 문장 전체를 한 절로 취급.
+      const partsRaw = Array.isArray(ll.parts) ? ll.parts : [];
+      const parts = partsRaw
+        .map((p) => {
+          if (!p || typeof p !== "object") return null;
+          const pp = p as Record<string, unknown>;
+          const t = typeof pp.text === "string" ? pp.text.trim().slice(0, 120) : "";
+          if (!t) return null;
+          const idx = Array.isArray(pp.clipIndexes) ? pp.clipIndexes : [];
+          return {
+            clipIndexes: idx
+              .filter((v): v is number => typeof v === "number" && v >= 0)
+              .map((v) => Math.floor(v)),
+            text: t,
+          };
+        })
+        .filter((p): p is { clipIndexes: number[]; text: string } => p !== null);
+      return { text, parts: parts.length ? parts : [{ clipIndexes: [], text }] };
     })
     .filter((l): l is NarrationLine => l !== null);
 
