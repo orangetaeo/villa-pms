@@ -10,6 +10,7 @@
 //   3) 엔딩: reelCta916 불투명 카드(카카오 상담 유도)
 import { BRAND, FONT_SERIF, FONT_SANS, type SatoriNode, type CoverData, type CtaData } from "@/lib/instagram/templates";
 import { wrapHeadlineToFit } from "@/lib/instagram/headline-wrap";
+import { brandLockup, brandLockupStacked } from "@/lib/brand/logo-lockup";
 
 const W = 1080;
 const H = 1920; // 9:16
@@ -68,7 +69,10 @@ export function reelCover916(d: CoverData): SatoriNode {
       // bottom — 브랜드/핸들 + 슬라이드 힌트
       div({ position: "relative", justifyContent: "space-between", alignItems: "flex-end", padding: "0 90px 150px 90px" }, [
         div({ flexDirection: "column" }, [
-          div({ fontFamily: FONT_SANS, fontWeight: 700, fontSize: 46, letterSpacing: 6, color: BRAND.cream }, d.brandName ?? "VILLA GO"),
+          // 브랜드 = 로고 락업(마크 + 워드마크). brandName을 넘긴 경우에만 예전처럼 글자로 렌더한다.
+          d.brandName
+            ? div({ fontFamily: FONT_SANS, fontWeight: 700, fontSize: 46, letterSpacing: 6, color: BRAND.cream }, d.brandName)
+            : (brandLockup({ variant: "photo", fontSize: 44, markHeight: 58, gap: 18 }) as SatoriNode),
           div({ fontFamily: FONT_SANS, fontWeight: 400, fontSize: 26, color: "rgba(255,249,240,0.82)", marginTop: 12 }, d.handle ?? "@villago.phuquoc"),
         ]),
         div({ fontFamily: FONT_SANS, fontWeight: 400, fontSize: 26, color: "rgba(255,249,240,0.85)" }, d.slideHint ?? "끝까지 보기 →"),
@@ -125,9 +129,11 @@ export function reelCta916(d: CtaData): SatoriNode {
     [
       div({ position: "absolute", top: -140, right: -120, width: 520, height: 520, borderRadius: 999, backgroundColor: "rgba(255,249,240,0.06)" }),
       div({ position: "absolute", bottom: -100, left: -140, width: 440, height: 440, borderRadius: 999, backgroundColor: "rgba(245,158,11,0.08)" }),
-      // top — 워드마크 + 핸들
-      div({ position: "relative", flexDirection: "column", alignItems: "center", paddingTop: 220 }, [
-        div({ fontFamily: FONT_SANS, fontWeight: 700, fontSize: 48, letterSpacing: 10, color: BRAND.cream }, d.brandName ?? "VILLA GO"),
+      // top — 로고 락업(세로) + 핸들. 엔딩 카드는 브랜드를 각인시키는 자리라 마크를 크게 세운다.
+      div({ position: "relative", flexDirection: "column", alignItems: "center", paddingTop: 190 }, [
+        d.brandName
+          ? div({ fontFamily: FONT_SANS, fontWeight: 700, fontSize: 48, letterSpacing: 10, color: BRAND.cream }, d.brandName)
+          : (brandLockupStacked({ variant: "teal", fontSize: 58, markHeight: 132, gap: 26 }) as SatoriNode),
         div({ fontFamily: FONT_SANS, fontWeight: 400, fontSize: 32, color: "rgba(255,249,240,0.85)", marginTop: 16 }, d.handle ?? "푸꾸옥 프라이빗 풀빌라"),
       ]),
       // center — 디바이더 + 헤드라인 + 카카오 버튼
