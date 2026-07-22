@@ -2,7 +2,7 @@
 
 > **용도**: 시스템이 보내는 모든 알림의 트리거·수신자·문구를 한 곳에 정리한 검토용 문서.
 > 문구 수정을 원하면 **알림 번호(예: A-03)와 바꿀 문구**만 알려주면 된다.
-> 최종 갱신: 2026-07-09 (T-zalo-notify-enrichment — 역할별 정보 보강·A-06 한국어 전환). 문구의 진실원천은 코드 — 수정 시 이 문서도 함께 갱신할 것.
+> 최종 갱신: 2026-07-22 (T-contract-negotiation — A-16 계약 협의 요청·B-12 협의 해소 추가). 문구의 진실원천은 코드 — 수정 시 이 문서도 함께 갱신할 것.
 > 문구 위치: Zalo 큐 알림=`lib/zalo.ts` buildNotificationText / 파트너=`lib/partner-notify.ts` / 벤더 인앱=`lib/inapp-notification.ts`
 
 ## 발송 구조 한눈에
@@ -47,6 +47,11 @@
 | A-12 | **보안 이상 탐지** (로그인 실패 급증·권한 거부 급증·SSRF 차단 등) | 🚨 보안 경보: {유형}\n최근 {N}분간 {건수}건 탐지.\n주요 출처: {출처}\nSecurityEvent를 확인하세요. (대응 절차: docs/ops/incident-response.md) | OWNER/ADMIN만. cron 10분 주기, 같은 유형 60분 쿨다운 |
 | A-13 | 벤더(부가서비스 공급자) **자가가입 — 승인 대기** | (인앱 전용) 제목: 공급자 가입 승인 대기 / 본문: {업체명} — /settings/vendors에서 승인 | **인앱(관리자 벨)만**. 벤더 마스터 PENDING 최상단 정렬과 병행 |
 | A-15 | 홈페이지 **웹 채팅 신규 문의** (방문자 발신) | 🌐 웹 채팅 새 문의 (언어: {visitorLocale})\n{ko 번역 미리보기 120자}\n{대화 링크 절대경로 — /messages?tab=webchat&session=…} | 운영자 전원(그룹 라우팅 대상). **대화당 첫 메시지 즉시, 후속은 세션당 10분 디바운스**(lib/webchat-notify, 인메모리). 방문자 연락처·원문 전문·판매가·마진 미포함(화이트리스트 payload). ko 번역 없으면 "(번역 없음)" |
+| A-16 | 상대방(공급자·벤더·파트너)이 **계약 조항 협의 요청** | 🤝 계약 협의 요청: {상대명} — {조항}
+사유: {사유}
+역제안(숫자) 포함 — 관리자 화면에서 확인하세요.
+메모: {메모}
+미해결 협의가 있는 동안 상대방은 서명할 수 없습니다. | 운영자 전원(그룹 라우팅 대상). `CONTRACT_NEGOTIATION` + payload.kind=REQUEST. 조항·사유는 코드가 아닌 라벨로 렌더. 금액·마진 미포함. **처리: /contracts/{계약id} 협의 패널에서 수용·거절** |
 
 ## B. 빌라 공급자(SUPPLIER)가 받는 알림 — 베트남어
 
@@ -61,6 +66,9 @@
 | B-07 | **월 정산 지급 완료** | 💰 Bảng thanh toán tháng {년월} đã sẵn sàng.\nTổng: {총액}₫\n📄 Tải phiếu quyết toán: {정산서 링크}\nVui lòng kiểm tra chi tiết trong ứng dụng. | {년월} 정산서 준비 완료 / 총액 / 정산서 PDF 다운로드 링크. **PDF 파일 첨부 발송** |
 | B-08 | 운영자가 **여권 전달**(임시거주신고용) | 🛂 Hộ chiếu khách (đăng ký tạm trú): {빌라명}\nKhách: {투숙객명}\nNhận phòng: {체크인}\nVui lòng kiểm tra ảnh hộ chiếu được gửi kèm và đăng ký tạm trú. | 투숙객 여권(임시거주신고) / **여권 사진 이미지 실제 첨부** |
 | B-09~11 | 청소 요청/승인/반려 | → **C. 청소 알림** 참조 (빌라에 청소 담당자가 없으면 공급자가 수신) | |
+| B-12 | 운영자가 **계약 협의를 수용·거절** | (수용) ✅ Đề nghị thương lượng đã được chấp nhận: {조항}
+Hợp đồng đã được cập nhật. Vui lòng kiểm tra và ký. / (거절) ❌ Đề nghị thương lượng không được áp dụng: {조항}
+Lý do: {운영자 사유} | `CONTRACT_NEGOTIATION` + payload.kind=RESOLVED. **수신자 언어(계약 locale)로 ko/vi 분기** — 파트너 계약은 ko. 거절 사유는 운영자가 입력한 문구 그대로 전달(필수 입력). 수용 시 조건 변경이 없으면 "이제 서명하실 수 있습니다" |
 
 ## C. 청소 담당(CLEANER — 미지정 시 공급자 폴백)이 받는 알림 — 베트남어
 

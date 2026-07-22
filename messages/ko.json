@@ -6279,6 +6279,50 @@
       "signer": "서명자",
       "signedAt": "서명일",
       "signatureImage": "서명"
+    },
+    "negotiation": {
+      "title": "계약 조건 협의",
+      "desc": "조건이 맞지 않으면 해당 항목을 골라 알려주세요. 담당자가 확인 후 회신합니다.",
+      "open": "협의 요청",
+      "close": "닫기",
+      "pickClause": "어떤 항목인가요?",
+      "pickReason": "이유를 골라주세요",
+      "tierTitle": "원하는 지급률",
+      "tierHint": "각 시점에 받고 싶은 지급률(%)만 조정하세요. 고객 환불률은 자동으로 맞춰집니다.",
+      "tierDays": "체크인 며칠 전",
+      "tierPay": "공급자 지급률 %",
+      "note": "메모 (선택)",
+      "noteRequiredLabel": "메모 (필수)",
+      "noteRequired": "메모를 입력해주세요.",
+      "submit": "협의 요청 보내기",
+      "submitting": "보내는 중…",
+      "alreadyOpen": "이미 진행 중인 협의가 있습니다.",
+      "error": "요청에 실패했습니다. 잠시 후 다시 시도해주세요.",
+      "blocked": "협의가 진행 중입니다. 담당자 회신 후 서명하실 수 있습니다.",
+      "reply": "회신",
+      "clause": {
+        "cancelTiers": "취소 수수료 단계표",
+        "payMethod": "지급 방법",
+        "bankInfo": "계좌 정보",
+        "settleCycle": "정산 주기",
+        "specialTerms": "특약 사항",
+        "other": "기타"
+      },
+      "reason": {
+        "CANCEL_FREE_PERIOD": "무료 취소 기간 조정",
+        "CANCEL_PAY_RATE": "단계별 지급률 조정",
+        "CANCEL_NOSHOW": "노쇼·당일 조건 이견",
+        "PAY_METHOD_CHANGE": "지급 방법 변경",
+        "BANK_INFO_CHANGE": "계좌 정보 수정",
+        "SETTLE_CYCLE_CHANGE": "정산 주기 변경",
+        "SPECIAL_TERMS_ADD": "특약 추가",
+        "OTHER": "기타 (메모로 설명)"
+      },
+      "status": {
+        "OPEN": "확인 중",
+        "ACCEPTED": "수용됨",
+        "REJECTED": "반영 안 됨"
+      }
     }
   },
   "adminContracts": {
@@ -6403,6 +6447,45 @@
       "voidConfirm": "이 계약을 무효화하시겠습니까? 되돌릴 수 없습니다.",
       "voiding": "무효화 중…",
       "voidError": "무효화에 실패했습니다."
+    },
+    "negotiation": {
+      "title": "조항 협의",
+      "signBlocked": "미해결 — 상대방 서명 차단 중",
+      "proposal": "역제안",
+      "proposalRow": "고객 {refund}% · 공급자 {pay}%",
+      "accept": "수용",
+      "reject": "거절",
+      "working": "처리 중…",
+      "acceptApplies": "수용하면 역제안 값이 계약 조건에 반영됩니다(서버가 다시 검증).",
+      "acceptConfirm": "이 협의를 수용하시겠습니까? 역제안이 있으면 계약 조건이 갱신됩니다.",
+      "rejectConfirm": "이 협의를 거절하시겠습니까? 사유가 상대방에게 그대로 전달됩니다.",
+      "rejectNoteRequired": "거절 사유를 입력하세요 — 상대방에게 그대로 전달됩니다.",
+      "notePlaceholder": "회신 메모 (거절 시 필수)",
+      "termsInvalid": "역제안이 계약 검증을 통과하지 못했습니다(회사 손실 상한 등).",
+      "error": "처리에 실패했습니다.",
+      "clause": {
+        "cancelTiers": "취소 수수료 단계표",
+        "payMethod": "지급 방법",
+        "bankInfo": "계좌 정보",
+        "settleCycle": "정산 주기",
+        "specialTerms": "특약 사항",
+        "other": "기타"
+      },
+      "reason": {
+        "CANCEL_FREE_PERIOD": "무료 취소 기간 조정",
+        "CANCEL_PAY_RATE": "단계별 지급률 조정",
+        "CANCEL_NOSHOW": "노쇼·당일 조건 이견",
+        "PAY_METHOD_CHANGE": "지급 방법 변경",
+        "BANK_INFO_CHANGE": "계좌 정보 수정",
+        "SETTLE_CYCLE_CHANGE": "정산 주기 변경",
+        "SPECIAL_TERMS_ADD": "특약 추가",
+        "OTHER": "기타 (메모로 설명)"
+      },
+      "status": {
+        "OPEN": "확인 중",
+        "ACCEPTED": "수용됨",
+        "REJECTED": "거절됨"
+      }
     }
   }
 }
