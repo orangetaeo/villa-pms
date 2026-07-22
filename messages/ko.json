@@ -375,6 +375,12 @@
       "publishedLockNote": "발행된 포스트는 인스타그램 앱에서만 수정할 수 있습니다.",
       "reachBadge": "도달 {n}"
     },
+    "list": {
+      "expand": "펼치기",
+      "collapse": "접기",
+      "expandAll": "전체 펼치기",
+      "collapseAll": "전체 접기"
+    },
     "bulk": {
       "approveAll": "{n}건 모두 승인",
       "approving": "승인 중... ({done}/{total})",
@@ -558,6 +564,12 @@
         "unlisted": "일부 공개",
         "private": "비공개"
       }
+    },
+    "list": {
+      "expand": "펼치기",
+      "collapse": "접기",
+      "expandAll": "전체 펼치기",
+      "collapseAll": "전체 접기"
     },
     "bulk": {
       "approveAll": "{n}건 모두 승인",

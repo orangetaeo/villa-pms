@@ -375,6 +375,12 @@
       "publishedLockNote": "Bài đã đăng chỉ có thể sửa trong ứng dụng Instagram.",
       "reachBadge": "Tiếp cận {n}"
     },
+    "list": {
+      "expand": "Mở rộng",
+      "collapse": "Thu gọn",
+      "expandAll": "Mở rộng tất cả",
+      "collapseAll": "Thu gọn tất cả"
+    },
     "bulk": {
       "approveAll": "Duyệt tất cả {n}",
       "approving": "Đang duyệt... ({done}/{total})",
@@ -558,6 +564,12 @@
         "unlisted": "Không công khai",
         "private": "Riêng tư"
       }
+    },
+    "list": {
+      "expand": "Mở rộng",
+      "collapse": "Thu gọn",
+      "expandAll": "Mở rộng tất cả",
+      "collapseAll": "Thu gọn tất cả"
     },
     "bulk": {
       "approveAll": "Duyệt tất cả {n}",

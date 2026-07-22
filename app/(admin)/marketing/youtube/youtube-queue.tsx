@@ -1,6 +1,8 @@
 "use client";
 
-// 유튜브 쇼츠 큐(클라이언트) — GET /api/youtube/shorts 소비, 카드 렌더 + 일괄 승인 + 페이지네이션.
+// 유튜브 쇼츠 큐(클라이언트) — GET /api/youtube/shorts 소비, 리스트 렌더 + 일괄 승인 + 페이지네이션.
+//   ★ 목록은 접힘 리스트(행당 요약 1줄). 펼침 상태(openIds)는 큐가 소유 → "전체 펼치기/접기" 지원.
+//     재조회·페이지 이동 시 사라진 id는 정리(스테일 방지).
 //   status/page 는 RSC(searchParams)에서 prop 으로 주입 → 변경 시 재조회(useEffect).
 //   목록은 서버 페이지네이션 10 그대로 사용(클라 slice 금지). 액션 성공/409 시 재조회.
 //   oauth: OAuth 리다이렉트 복귀 시 ?connected=1 / ?error=코드 → 토스트 1회.
@@ -28,7 +30,12 @@ export default function YoutubeQueue({
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<Toast | null>(null);
   const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null);
+  const [openIds, setOpenIds] = useState<string[]>([]);
   const toastTimer = useRef<number | null>(null);
+
+  const toggleOpen = useCallback((id: string) => {
+    setOpenIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }, []);
 
   const notify = useCallback((msg: string, kind: "ok" | "err" = "ok") => {
     setToast({ msg, kind });
@@ -67,6 +74,9 @@ export default function YoutubeQueue({
       setShorts(data.shorts);
       setTotal(data.total);
       setPageSize(data.pageSize ?? 10);
+      // 목록에서 사라진 항목의 펼침 상태 정리
+      const ids = new Set(data.shorts.map((s) => s.id));
+      setOpenIds((prev) => prev.filter((id) => ids.has(id)));
     } catch {
       notify(t("toast.loadError"), "err");
     } finally {
@@ -109,31 +119,46 @@ export default function YoutubeQueue({
     await load();
   };
 
+  const allOpen = shorts.length > 0 && openIds.length === shorts.length;
+
   return (
-    <div className="space-y-4">
-      {/* 일괄 승인 — 승인 대기 탭에서만 노출 */}
-      {status === "PENDING_APPROVAL" && pendingShorts.length > 0 && (
-        <div className="flex justify-end">
+    <div className="space-y-3">
+      {/* 툴바 — 전체 펼치기/접기 + (승인 대기 탭) 일괄 승인 */}
+      {shorts.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <button
             type="button"
-            onClick={bulkApprove}
-            disabled={!!bulk}
-            className="inline-flex items-center gap-2 rounded-lg bg-admin-primary px-4 py-2 text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
+            onClick={() => setOpenIds(allOpen ? [] : shorts.map((s) => s.id))}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-bold text-slate-300 transition-colors hover:bg-slate-800"
           >
-            <span className="material-symbols-outlined text-base">done_all</span>
-            {bulk
-              ? t("bulk.approving", { done: bulk.done, total: bulk.total })
-              : t("bulk.approveAll", { n: pendingShorts.length })}
+            <span className="material-symbols-outlined text-[16px]">
+              {allOpen ? "unfold_less" : "unfold_more"}
+            </span>
+            {allOpen ? t("list.collapseAll") : t("list.expandAll")}
           </button>
+
+          {status === "PENDING_APPROVAL" && pendingShorts.length > 0 && (
+            <button
+              type="button"
+              onClick={bulkApprove}
+              disabled={!!bulk}
+              className="inline-flex items-center gap-2 rounded-lg bg-admin-primary px-4 py-2 text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-base">done_all</span>
+              {bulk
+                ? t("bulk.approving", { done: bulk.done, total: bulk.total })
+                : t("bulk.approveAll", { n: pendingShorts.length })}
+            </button>
+          )}
         </div>
       )}
 
       {loading ? (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          {[0, 1].map((i) => (
+        <div className="flex flex-col gap-2">
+          {[0, 1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-64 animate-pulse rounded-xl border border-slate-800/50 bg-admin-card"
+              className="h-[84px] animate-pulse rounded-xl border border-slate-800/50 bg-admin-card"
             />
           ))}
         </div>
@@ -142,11 +167,13 @@ export default function YoutubeQueue({
           {t("empty")}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="flex flex-col gap-2">
           {shorts.map((s) => (
             <YoutubeShortCard
               key={s.id}
               short={s}
+              open={openIds.includes(s.id)}
+              onToggle={() => toggleOpen(s.id)}
               onChanged={load}
               onConflict={onConflict}
               notify={notify}
