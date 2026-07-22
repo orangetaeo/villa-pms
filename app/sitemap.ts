@@ -5,6 +5,9 @@
 // ★ 패싯 페이지는 매칭 3개 미만이면 생성되지 않으므로 sitemap에도 안 실린다(껍데기 URL 방지).
 //
 // 빌라 0개 시점에도 정상 동작한다 — 정적 페이지만 실린 유효한 sitemap이 나온다.
+//
+// ★ 이 파일은 **네이버·Bing·구글 공통 제출용**이라 최대 호환을 유지한다(비디오 확장 금지).
+//   구글 전용 비디오 사이트맵은 app/sitemap-video.xml/route.ts.
 import type { MetadataRoute } from "next";
 import { absoluteUrl } from "@/lib/seo/base-url";
 import { BLOG_ROOT, blogPaths } from "@/lib/seo/routes";
@@ -77,19 +80,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
       // 이미지 확장 — 이미지 검색 색인 힌트(빌라 사진은 곧 상품이라 유입 가치가 크다)
       ...(v.photos.length > 0 ? { images: v.photos.slice(0, 10).map((p) => p.url) } : {}),
-      // 비디오 확장 — 발행된 유튜브 쇼츠. 영상은 파일 메타가 아니라 사이트맵·구조화 데이터로 색인된다.
-      ...(v.videos.length > 0
-        ? {
-            videos: v.videos.map((vid) => ({
-              title: vid.title,
-              thumbnail_loc: `https://i.ytimg.com/vi/${vid.ytVideoId}/hqdefault.jpg`,
-              description: vid.description.slice(0, 200),
-              content_loc: `https://www.youtube.com/watch?v=${vid.ytVideoId}`,
-              player_loc: `https://www.youtube.com/embed/${vid.ytVideoId}`,
-              publication_date: (vid.publishedAt ?? v.updatedAt).toISOString(),
-            })),
-          }
-        : {}),
+      // ★ 비디오 확장은 여기에 넣지 않는다 — **네이버 서치어드바이저가 거부한다**(실측 2026-07-22:
+      //   "사이트맵/RSS 형식이 올바르지 않습니다. 오류 위치: 135행 14열" = <video:title> 지점).
+      //   네이버는 이미지 확장(image:)은 통과시키지만 비디오 확장(video:)은 규격에 없어 파싱에 실패한다.
+      //   → 비디오는 /sitemap-video.xml 로 분리해 **구글 Search Console에만** 제출한다.
     }));
 
     // 전체 목록 페이지 — 공개 빌라가 1곳이라도 있을 때만 등재(빈 목록 = 얇은 콘텐츠)
