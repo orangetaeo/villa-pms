@@ -11,6 +11,8 @@
 //   ★ 소스 SVG 편집 시 아래 base64 상수도 재생성할 것(scripts로 base64 -w0 <svg>).
 
 import { wrapHeadlineToFit } from "@/lib/instagram/headline-wrap";
+// 브랜드 로고 락업(마크 + 워드마크). 예전엔 전 템플릿이 "VILLA GO" 글자만 찍었다(테오 2026-07-23).
+import { brandLockup, brandLockupStacked } from "@/lib/brand/logo-lockup";
 
 const W = 1080;
 const H = 1350;
@@ -114,7 +116,9 @@ export function coverTemplate(d: CoverData): SatoriNode {
       // bottom — 브랜드/핸들 + 슬라이드 힌트
       div({ position: "relative", justifyContent: "space-between", alignItems: "flex-end", padding: "0 84px 96px 84px" }, [
         div({ flexDirection: "column" }, [
-          div({ fontFamily: FONT_SANS, fontWeight: 700, fontSize: 42, letterSpacing: 6, color: BRAND.cream }, d.brandName ?? "VILLA GO"),
+          d.brandName
+            ? div({ fontFamily: FONT_SANS, fontWeight: 700, fontSize: 42, letterSpacing: 6, color: BRAND.cream }, d.brandName)
+            : (brandLockup({ variant: "photo", fontSize: 40, markHeight: 52, gap: 16 }) as SatoriNode),
           div({ fontFamily: FONT_SANS, fontWeight: 400, fontSize: 24, color: "rgba(255,249,240,0.82)", marginTop: 10 }, d.handle ?? "@villago.phuquoc"),
         ]),
         div({ fontFamily: FONT_SANS, fontWeight: 400, fontSize: 24, color: "rgba(255,249,240,0.85)" }, d.slideHint ?? "밀어서 더보기 →"),
@@ -203,7 +207,9 @@ export function serviceTemplate(d: ServiceData): SatoriNode {
         ),
         div({ alignItems: "center", marginTop: 36 }, [
           div({ backgroundColor: BRAND.kakaoYellow, color: BRAND.kakaoInk, fontFamily: FONT_SANS, fontWeight: 700, fontSize: 32, padding: "16px 30px", borderRadius: 999 }, d.ctaText),
-          div({ fontFamily: FONT_SANS, fontWeight: 700, fontSize: 32, color: BRAND.cream, marginLeft: 26, letterSpacing: 4 }, d.brandName ?? "VILLA GO"),
+          d.brandName
+            ? div({ fontFamily: FONT_SANS, fontWeight: 700, fontSize: 32, color: BRAND.cream, marginLeft: 26, letterSpacing: 4 }, d.brandName)
+            : (div({ marginLeft: 26 }, brandLockup({ variant: "photo", fontSize: 32, markHeight: 42, gap: 12 }) as SatoriNode)),
         ]),
       ]),
     ]
@@ -235,9 +241,11 @@ export function ctaTemplate(d: CtaData): SatoriNode {
       // decor circles (블러 없음 — satori-safe depth)
       div({ position: "absolute", top: -120, right: -100, width: 460, height: 460, borderRadius: 999, backgroundColor: "rgba(255,249,240,0.06)" }),
       div({ position: "absolute", bottom: -80, left: -120, width: 380, height: 380, borderRadius: 999, backgroundColor: "rgba(245,158,11,0.08)" }),
-      // top — 워드마크 + 핸들
-      div({ position: "relative", flexDirection: "column", alignItems: "center", paddingTop: 132 }, [
-        div({ fontFamily: FONT_SANS, fontWeight: 700, fontSize: 44, letterSpacing: 10, color: BRAND.cream }, d.brandName ?? "VILLA GO"),
+      // top — 로고 락업(세로) + 핸들
+      div({ position: "relative", flexDirection: "column", alignItems: "center", paddingTop: 110 }, [
+        d.brandName
+          ? div({ fontFamily: FONT_SANS, fontWeight: 700, fontSize: 44, letterSpacing: 10, color: BRAND.cream }, d.brandName)
+          : (brandLockupStacked({ variant: "teal", fontSize: 54, markHeight: 118, gap: 24 }) as SatoriNode),
         div({ fontFamily: FONT_SANS, fontWeight: 400, fontSize: 30, color: "rgba(255,249,240,0.85)", marginTop: 14 }, d.handle ?? "푸꾸옥 프라이빗 풀빌라"),
       ]),
       // center — 디바이더 + 헤드라인 + 카카오 버튼

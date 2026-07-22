@@ -27,6 +27,7 @@ import {
   type SatoriNode,
 } from "@/lib/instagram/templates";
 import { reelCta916 } from "@/lib/instagram/reel-templates";
+import { brandLockup, brandMark } from "@/lib/brand/logo-lockup";
 import type { CtaData } from "@/lib/instagram/templates";
 import { wrapHeadlineToFit } from "@/lib/instagram/headline-wrap";
 import { YOUTUBE_REEL_CTA, INSTAGRAM_REEL_CTA, type ReelAudioMode } from "@/lib/instagram/reels";
@@ -249,7 +250,13 @@ async function nodeToJpeg(node: SatoriNode, bg: string): Promise<Buffer> {
 }
 
 // ── 오버레이 노드(1080×1920 투명) ──
-/** 우상단 반투명 워드마크 "VILLA GO" 워터마크 — 전 구간 표시. */
+/**
+ * 우상단 브랜드 로고 워터마크 — 전 구간 표시.
+ *
+ * ★ 2026-07-23 테오 지적: 여기가 "VILLA GO"라는 **글자만** 박혀 있었다. 로고 삽입이 아니었다.
+ *   → 실제 브랜드 마크(로케이션 핀 = 빌라) + Villa Go 워드마크 정식 락업으로 교체.
+ *   사진 위 어떤 밝기에서도 읽히도록 반투명 알약 배경은 유지한다(마크만 얹으면 밝은 하늘·수영장에서 사라진다).
+ */
 function watermarkNode(): SatoriNode {
   return div({ position: "relative", width: W, height: H, backgroundColor: "transparent" }, [
     div(
@@ -260,12 +267,9 @@ function watermarkNode(): SatoriNode {
         alignItems: "center",
         backgroundColor: "rgba(13,17,20,0.42)",
         borderRadius: 999,
-        padding: "14px 28px",
+        padding: "12px 26px 12px 22px",
       },
-      div(
-        { fontFamily: FONT_SANS, fontWeight: 700, fontSize: 34, letterSpacing: 6, color: "rgba(255,249,240,0.92)" },
-        "VILLA GO"
-      )
+      brandLockup({ variant: "photo", fontSize: 34, markHeight: 46, gap: 14 }) as SatoriNode
     ),
   ]);
 }
@@ -307,7 +311,9 @@ function introNode(
         padding: "0 80px",
       },
       [
-        div({ width: 74, height: 4, backgroundColor: BRAND.sand, marginBottom: 34 }),
+        // ★ 오프닝 브랜드 마크 — 예전엔 여기가 샌드 색 가로줄 하나였다(브랜드 신호 0).
+        //   첫 화면에서 "누가 파는 빌라인가"를 로고로 각인시킨다.
+        div({ marginBottom: 30 }, brandMark(104, "photo") as SatoriNode),
         div(
           {
             fontFamily: FONT_SERIF,

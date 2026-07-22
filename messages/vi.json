@@ -2188,6 +2188,32 @@
         "delete": "Xoá",
         "cancel": "Huỷ",
         "reasonPlaceholder": "Lý do từ chối (hiển thị cho nhà cung cấp)",
+        "uploadPick": "Thêm video",
+        "uploading": "Đang tải lên {pct}%",
+        "uploadHint": "mp4 · mov / tối đa {mb}MB · dưới {sec} giây / thêm được {n} video",
+        "full": "Đã đạt giới hạn video. Hãy xóa bớt rồi thêm mới.",
+        "spaceLabel": "Không gian",
+        "spaceNone": "Không chọn không gian",
+        "notePlaceholder": "Ghi chú (tùy chọn)",
+        "space": {
+          "EXTERIOR": "Ngoại thất",
+          "LIVING": "Phòng khách",
+          "KITCHEN": "Bếp",
+          "BEDROOM": "Phòng ngủ",
+          "BATHROOM": "Phòng tắm",
+          "BALCONY": "Ban công",
+          "POOL": "Hồ bơi",
+          "ETC": "Khác"
+        },
+        "uploadError": {
+          "TOO_LARGE": "Tệp quá lớn.",
+          "TOO_LONG": "Video quá dài.",
+          "TOO_SHORT": "Video quá ngắn.",
+          "RESOLUTION_TOO_LOW": "Độ phân giải quá thấp.",
+          "QUOTA_EXCEEDED": "Đã vượt giới hạn số video của villa này.",
+          "DISALLOWED_TYPE": "Chỉ chấp nhận tệp mp4 hoặc mov.",
+          "generic": "Tải lên thất bại. Vui lòng thử lại."
+        },
         "error": "Xử lý thất bại.",
         "status": {
           "UPLOADING": "Đang tải lên",
