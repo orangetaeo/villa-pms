@@ -8,6 +8,7 @@ import {
 } from "@/lib/permissions";
 import { clientIp } from "@/lib/rate-limit";
 import { evaluateRequest } from "@/lib/ddos-guard";
+import { isPublicSeoPath } from "@/lib/seo/routes";
 
 // ── 경로 게이트 3등급 (S-RBAC-3, ADR-0013) ──────────────────────────────────
 // 운영 영역을 capability별 3등급으로 분리한다. 역할 부족 시 /login 리다이렉트.
@@ -258,7 +259,13 @@ export default auth((req) => {
   const pref = prefRaw === "ko" || prefRaw === "vi" ? prefRaw : undefined;
   // 운영자(isOperator) 영역의 화면에는 운영자 locale 규칙(ko 기본). SUPPLIER/CLEANER는 아래 vi 기본.
   const isOperatorViewing = isOperator(role);
-  if (
+  if (isPublicSeoPath(pathname) && !session) {
+    // 공개 SEO 트리(비로그인) — 콘텐츠가 한국어 단독이므로 <html lang>도 ko여야 한다(T-seo-s1 §4.4).
+    //   pref-locale 토글보다 우선한다: 페이지 본문이 ko뿐인데 lang=vi로 나가면 검색엔진에
+    //   언어 불일치 신호를 주고, 잘못된 언어권에 노출된다.
+    //   ★ 로그인 상태에서는 이 분기를 타지 않는다 — 루트는 어차피 역할별 홈으로 리다이렉트된다.
+    res.cookies.set("locale", "ko", { path: "/" });
+  } else if (
     (isOperatorProtected && isOperatorViewing) ||
     (isSharedOperatorPath && isOperatorViewing)
   ) {
