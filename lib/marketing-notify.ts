@@ -10,9 +10,39 @@
 //   - ★ 누수 0: summary·href는 마케팅 통지 텍스트(판매가·마진 없음)만. payload 화이트리스트 = {kind, summary, href}.
 //   - 두 적재 모두 try/catch 격리 — 알림 실패가 cron 본 흐름(발행·수집)을 깨지 않게.
 import { NotificationType } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
 import { enqueueInAppForOperators } from "@/lib/inapp-notification";
 import { enqueueOperatorNotification } from "@/lib/operator-notify";
+
+/**
+ * AppSetting 키 — "초안 승인 대기" 정보성 알림 일시정지 킬스위치.
+ * 값 "1"/"true"(trim·소문자 비교)면 IG_DRAFTS_READY·YT_DRAFTS_READY 두 종류를
+ * 인앱 벨·Zalo 그룹방 **양쪽 모두** 미적재하고 즉시 종료(드롭). 나머지 kind(발행/수집/편집 실패
+ * 경보 등)는 영향 없이 계속 발송된다 — 자동화가 깨졌을 때는 반드시 알아야 하기 때문.
+ * fail-open: 키 부재·빈 값·조회 실패는 정지 아님(기존 동작 유지).
+ */
+export const MARKETING_DRAFTS_NOTIFY_PAUSED_KEY = "MARKETING_DRAFTS_NOTIFY_PAUSED";
+
+/** 이 스위치가 침묵시키는 "승인 대기" 정보성 kind (실패 경보는 제외). */
+const DRAFTS_READY_KINDS: ReadonlySet<MarketingAlertKind> = new Set([
+  "IG_DRAFTS_READY",
+  "YT_DRAFTS_READY",
+]);
+
+/** 초안 승인 대기 알림 정지 여부 — fail-open(조회 실패·키 부재=false=알림 계속). */
+async function isDraftsNotifyPaused(db: DbClient): Promise<boolean> {
+  try {
+    const row = await db.appSetting.findUnique({
+      where: { key: MARKETING_DRAFTS_NOTIFY_PAUSED_KEY },
+      select: { value: true },
+    });
+    const value = row?.value?.trim().toLowerCase();
+    return value === "1" || value === "true";
+  } catch {
+    return false;
+  }
+}
 
 /**
  * 마케팅 알림 종류 — MARKETING_ALERT payload.kind. 승인 대기(정보성) + 실패 경보 + 편집 잡 결과.
@@ -63,6 +93,12 @@ export interface NotifyMarketingParams {
 export async function notifyMarketing(params: NotifyMarketingParams): Promise<void> {
   const { kind, summary, href = null, db } = params;
   const title = params.title ?? MARKETING_INAPP_TITLE[kind];
+
+  // 킬스위치 — "초안 승인 대기" 정보성 알림만 정지(인앱·Zalo 양쪽 드롭). 실패 경보류는 통과.
+  // fail-open이라 키 부재·조회 실패는 정지 아님. 소급 발송 없음(재개 후 과거 초안 재통지 안 함).
+  if (DRAFTS_READY_KINDS.has(kind) && (await isDraftsNotifyPaused(db ?? prisma))) {
+    return;
+  }
 
   // ① 인앱 벨 — 기존 동작 유지(킬스위치 무관).
   try {
