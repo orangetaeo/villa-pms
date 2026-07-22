@@ -14,20 +14,21 @@ import {
 import { renderEditedVideo } from "../lib/youtube/edit";
 import { ttsConfig } from "../lib/gemini-tts";
 
-// 빌라 투어 순서 — 입구 → 수영장 → 테라스 → 거실 → 주방 → 침실N → 욕실 → 발코니
-// (테오 피드백 2026-07-22: 15초 3컷으로는 "맛보기"밖에 안 된다)
+// 빌라 투어 — 입구 → 수영장 → 외관 → 거실 → 다이닝 → 주방 → 침실3 → 욕실 → 발코니.
+// ★ note는 실제 파이프라인의 VillaClip.note 자리다. 침실이 3컷이라 note 없이는
+//   "또 다른 침실입니다" 같은 무정보 문장이 나온다(테오 피드백 2026-07-22).
 const CLIPS = [
-  { file: "smoke/clip-00-entrance.mp4", space: "EXTERIOR" },
-  { file: "smoke/clip-01-pool.mp4", space: "POOL" },
-  { file: "smoke/clip-02-terrace.mp4", space: "BALCONY" },
-  { file: "smoke/clip-03-living.mp4", space: "LIVING" },
-  { file: "smoke/clip-04-living2.mp4", space: "LIVING" },
-  { file: "smoke/clip-05-kitchen.mp4", space: "KITCHEN" },
-  { file: "smoke/clip-06-bed1.mp4", space: "BEDROOM" },
-  { file: "smoke/clip-07-bed2.mp4", space: "BEDROOM" },
-  { file: "smoke/clip-08-bed3.mp4", space: "BEDROOM" },
-  { file: "smoke/clip-09-bath.mp4", space: "BATHROOM" },
-  { file: "smoke/clip-10-balcony.mp4", space: "BALCONY" },
+  { file: "smoke/clip-00-entrance.mp4", space: "EXTERIOR", note: "빌라 정문과 진입로" },
+  { file: "smoke/clip-01-pool.mp4", space: "POOL", note: "단독 사용 프라이빗 수영장, 잔디 정원" },
+  { file: "smoke/clip-02-facade.mp4", space: "EXTERIOR", note: "이 층 건물 외관과 넓은 통창" },
+  { file: "smoke/clip-03-living.mp4", space: "LIVING", note: "거실, 큰 소파와 천장 선풍기, 정원으로 이어지는 통창" },
+  { file: "smoke/clip-04-dining.mp4", space: "LIVING", note: "다이닝 공간, 원목 식탁" },
+  { file: "smoke/clip-05-kitchen.mp4", space: "KITCHEN", note: "조리대와 인덕션, 조리도구 갖춘 주방" },
+  { file: "smoke/clip-06-bed1.mp4", space: "BEDROOM", note: "마스터 침실, 킹베드에 소파까지 있는 가장 넓은 방" },
+  { file: "smoke/clip-07-bed2.mp4", space: "BEDROOM", note: "둘째 침실, 화장대와 큰 창, 부부나 커플에게 알맞음" },
+  { file: "smoke/clip-08-twin.mp4", space: "BEDROOM", note: "트윈룸, 싱글 침대 두 개라 아이들이나 친구끼리 쓰기 좋음" },
+  { file: "smoke/clip-09-bath.mp4", space: "BATHROOM", note: "욕조가 있는 욕실" },
+  { file: "smoke/clip-10-balcony.mp4", space: "BALCONY", note: "발코니에서 내려다보이는 수영장과 정원" },
 ];
 
 // 실제 빌라 정보 대신 공개 정보만(누수 0 규약 동일). 이름은 TTS가 읽을 수 있는 한글 표기.
@@ -37,7 +38,7 @@ const ctx: NarrationVillaContext = {
   bedrooms: 3,
   hasPool: true, // 수영장 컷이 있다
   beachDistanceM: 120,
-  clipSpaces: CLIPS.map((c) => c.space),
+  clips: CLIPS.map((c) => ({ space: c.space, note: c.note })),
 };
 
 function bar(label: string) {

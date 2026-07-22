@@ -65,14 +65,28 @@ export interface NarrationLine {
 }
 
 // ── ① 대본 생성 (Gemini) ────────────────────────────────────────────
+/**
+ * 컷 1개의 대본 힌트.
+ * ★ note가 왜 필요한가(2026-07-22 테오 피드백): 공간 코드(BEDROOM)만 넘기면 침실이 3컷일 때
+ *   모델이 "또 다른 침실입니다"·"세 번째 침실입니다" 같은 **정보 없는 문장**을 만든다.
+ *   방마다 무엇이 다른지(킹베드·트윈·정원뷰·화장대)를 넘겨야 컷마다 다른 매력을 짚는다.
+ *   실제 파이프라인에서는 VillaClip.note(공급자·운영자 자유 메모)가 이 자리에 들어간다.
+ */
+export interface NarrationClipHint {
+  /** PhotoSpace 값(EXTERIOR·LIVING·POOL…). null이면 미지정 */
+  space: string | null;
+  /** 이 컷의 구분되는 특징 — 자유 텍스트. 예: "마스터 침실, 킹베드, 정원 통창" */
+  note?: string | null;
+}
+
 export interface NarrationVillaContext {
   villaName: string;
   complex?: string | null;
   bedrooms?: number | null;
   hasPool?: boolean;
   beachDistanceM?: number | null;
-  /** 클립별 촬영 공간 — PhotoSpace 값(EXTERIOR·LIVING·POOL…). null이면 미지정 */
-  clipSpaces: (string | null)[];
+  /** 컷별 힌트 — 순서 = 컷 순서 */
+  clips: NarrationClipHint[];
 }
 
 /** PhotoSpace → 대본 힌트(한국어). 나레이션 문장이 화면과 어긋나지 않게 한다. */
@@ -88,8 +102,25 @@ const SPACE_HINT: Record<string, string> = {
 };
 
 function buildPrompt(ctx: NarrationVillaContext): string {
-  const cuts = ctx.clipSpaces
-    .map((s, i) => `  컷${i + 1}: ${s ? (SPACE_HINT[s] ?? "빌라 내부") : "빌라 (공간 미지정)"}`)
+  // 같은 공간이 여러 컷이면 번호를 매겨 모델이 "또 다른 ~"으로 뭉개지 않게 한다.
+  const spaceSeen = new Map<string, number>();
+  const spaceTotal = new Map<string, number>();
+  for (const c of ctx.clips) {
+    const k = c.space ?? "ETC";
+    spaceTotal.set(k, (spaceTotal.get(k) ?? 0) + 1);
+  }
+
+  const cuts = ctx.clips
+    .map((c, i) => {
+      const k = c.space ?? "ETC";
+      const label = c.space ? (SPACE_HINT[c.space] ?? "빌라 내부") : "빌라 (공간 미지정)";
+      const total = spaceTotal.get(k) ?? 1;
+      const nth = (spaceSeen.get(k) ?? 0) + 1;
+      spaceSeen.set(k, nth);
+      const ord = total > 1 ? ` (${label} ${nth}/${total})` : "";
+      const note = c.note?.trim() ? ` — ${c.note.trim()}` : "";
+      return `  컷${i + 1}: ${label}${ord}${note}`;
+    })
     .join("\n");
 
   const facts: string[] = [];
@@ -119,6 +150,10 @@ function buildPrompt(ctx: NarrationVillaContext): string {
     "- 과장·허위 금지. 화면에 보이는 것만 말한다.",
     "- 각 문장은 그 컷 화면과 맞아야 한다.",
     "- 같은 표현을 반복하지 마라. 컷마다 **그 공간의 다른 매력**을 짚는다.",
+    "- **같은 공간이 여러 컷이면(예: 침실 세 개) 각 컷의 다른 점을 반드시 말하라.**",
+    "  '또 다른 침실입니다', '세 번째 침실입니다' 처럼 정보가 없는 문장은 금지다.",
+    "  침대 구성·방 크기·창밖 풍경·누가 쓰기 좋은지 같은 **구체적 차이**를 짚어라.",
+    "  컷 설명(— 뒤 텍스트)이 있으면 그 내용을 최우선으로 활용한다.",
     "- 투어처럼 흐르게 써라: 첫 문장은 시선을 끌고, 중간은 공간을 안내하고, 끝은 자연스럽게 마무리한다.",
     "",
     '출력은 JSON만: {"lines": ["문장1", "문장2", ...]}',
@@ -164,7 +199,7 @@ export async function buildNarrationScript(
   if (!raw) throw new Error("나레이션 대본 응답에서 JSON을 추출하지 못했습니다");
 
   const parsed = scriptSchema.parse(raw);
-  const clipCount = ctx.clipSpaces.length;
+  const clipCount = ctx.clips.length;
   // 마지막 문장 = CTA(clipIndex null), 앞 문장들은 컷 순서대로 매핑.
   return parsed.lines.map((t, i) => ({
     text: t.trim(),

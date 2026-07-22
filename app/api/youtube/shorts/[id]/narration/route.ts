@@ -22,6 +22,7 @@ import {
   buildNarrationScript,
   validateNarrationLines,
   NARRATION_RULES,
+  type NarrationClipHint,
   type NarrationLine,
   type NarrationVillaContext,
 } from "@/lib/youtube/narration";
@@ -79,15 +80,22 @@ async function loadShort(id: string) {
   });
 }
 
-/** 저장된 편집 파라미터에서 클립별 촬영 공간을 유추(없으면 클립 수만큼 null). */
-function clipSpacesOf(editParams: Prisma.JsonValue | null): (string | null)[] {
+/**
+ * 저장된 편집 파라미터에서 컷별 힌트(공간 + 메모)를 뽑는다.
+ * ★ note까지 넘겨야 침실이 여러 컷일 때 "또 다른 침실입니다" 같은 무정보 문장을 피한다
+ *   (테오 피드백 2026-07-22). note의 원천은 VillaClip.note(공급자·운영자 자유 메모).
+ */
+function clipHintsOf(editParams: Prisma.JsonValue | null): NarrationClipHint[] {
   if (!editParams || typeof editParams !== "object" || Array.isArray(editParams)) return [];
   const clips = (editParams as Record<string, unknown>).clips;
   if (!Array.isArray(clips)) return [];
   return clips.map((c) => {
-    if (!c || typeof c !== "object") return null;
-    const s = (c as Record<string, unknown>).space;
-    return typeof s === "string" ? s : null;
+    if (!c || typeof c !== "object") return { space: null };
+    const cc = c as Record<string, unknown>;
+    return {
+      space: typeof cc.space === "string" ? cc.space : null,
+      note: typeof cc.note === "string" ? cc.note : null,
+    };
   });
 }
 
@@ -130,14 +138,14 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: "VILLA_REQUIRED" }, { status: 400 });
   }
 
-  const spaces = clipSpacesOf(short.editParamsJson);
+  const hints = clipHintsOf(short.editParamsJson);
   const ctx: NarrationVillaContext = {
     villaName: short.villa.name,
     complex: short.villa.complex,
     bedrooms: short.villa.bedrooms,
     hasPool: short.villa.hasPool,
     beachDistanceM: short.villa.beachDistanceM,
-    clipSpaces: spaces.length > 0 ? spaces : [null, null, null],
+    clips: hints.length > 0 ? hints : [{ space: null }, { space: null }, { space: null }],
   };
 
   let lines: NarrationLine[];

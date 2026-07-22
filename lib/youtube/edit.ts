@@ -27,6 +27,7 @@ import {
   type SatoriNode,
 } from "@/lib/instagram/templates";
 import { reelCta916 } from "@/lib/instagram/reel-templates";
+import { wrapHeadlineToFit } from "@/lib/instagram/headline-wrap";
 import { YOUTUBE_REEL_CTA, type ReelAudioMode } from "@/lib/instagram/reels";
 import { computeNarrationTimeline, synthesizeNarration } from "@/lib/youtube/narration";
 import {
@@ -298,37 +299,60 @@ function introNode(headline: string, villaName?: string | null): SatoriNode {
 }
 
 /** 구간 자막 — 하단 캡션(반투명 바 + 흰 텍스트). */
-function subtitleNode(text: string): SatoriNode {
+/**
+ * 나레이션 자막 — 한국 "랜선집구경" 릴스 관례를 따른다(테오 레퍼런스 2026-07-22).
+ *   큰 굵은 흰 글씨 + 두꺼운 검정 외곽선, 배경 박스 없음.
+ *
+ * ★ 왜 박스를 뺐나: 박스는 영상을 가린다. 빌라 영상은 화면 자체가 상품이라 최대한 보여야 한다.
+ *   외곽선만으로도 밝은 수영장·해변 위에서 읽힌다(실제 합성 프레임으로 A/B 비교 확인).
+ * ★ 크기: 44px(화면 폭 4%)는 모바일에서 너무 작았다 → 66px(6%). 랜선집구경 자막의 통상 크기.
+ * ★ bottom 300: 인스타·쇼츠 UI(하단 캡션·버튼)에 가려지지 않는 안전 영역.
+ * ★ 외곽선은 satori의 textShadow를 8방향으로 깔아 구현한다(-webkit-text-stroke는 satori 미지원).
+ */
+const SUBTITLE_OUTLINE = [
+  "4px 4px 0 #000",
+  "-4px 4px 0 #000",
+  "4px -4px 0 #000",
+  "-4px -4px 0 #000",
+  "0 5px 0 #000",
+  "0 -5px 0 #000",
+  "5px 0 0 #000",
+  "-5px 0 0 #000",
+  "0 0 18px rgba(0,0,0,0.75)", // 밝은 배경에서 글자 경계를 한 번 더 살린다
+].join(",");
+
+const SUBTITLE_FONT_SIZE = 66;
+const SUBTITLE_MAX_WIDTH = W - 140; // 좌우 패딩 70px
+
+function subtitleNode(rawText: string): SatoriNode {
+  // ★ 어절 단위 줄바꿈 필수: satori는 한글을 **글자 단위로** 흘려서 "부/부에게", "친구나 아/이들이"
+  //   처럼 단어 한가운데가 끊긴다(2026-07-22 실제 렌더 확인 — 자막을 44→66px로 키우자 재발).
+  //   기존 [[satori-korean-orphan-headline-wrap]] 교훈의 동일 클래스라 같은 모듈을 재사용한다.
+  const text = wrapHeadlineToFit(rawText, SUBTITLE_FONT_SIZE, SUBTITLE_MAX_WIDTH);
   return div({ position: "relative", width: W, height: H, backgroundColor: "transparent" }, [
     div(
       {
         position: "absolute",
         left: 0,
-        bottom: 150,
+        bottom: 300,
         width: W,
         justifyContent: "center",
-        padding: "0 80px",
+        padding: "0 70px",
       },
       div(
         {
-          backgroundColor: "rgba(13,17,20,0.6)",
-          borderRadius: 20,
-          padding: "20px 34px",
-          maxWidth: W - 160,
+          fontFamily: FONT_SANS,
+          fontWeight: 700,
+          fontSize: SUBTITLE_FONT_SIZE,
+          lineHeight: 1.28,
+          color: "#FFFFFF",
+          textAlign: "center",
+          textShadow: SUBTITLE_OUTLINE,
+          whiteSpace: "pre-line",
+          flexDirection: "column",
+          maxWidth: SUBTITLE_MAX_WIDTH,
         },
-        div(
-          {
-            fontFamily: FONT_SANS,
-            fontWeight: 700,
-            fontSize: 44,
-            lineHeight: 1.3,
-            color: "#FFFFFF",
-            textAlign: "center",
-            whiteSpace: "pre-line",
-            flexDirection: "column",
-          },
-          text
-        )
+        text
       )
     ),
   ]);
