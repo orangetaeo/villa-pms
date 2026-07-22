@@ -7,6 +7,16 @@ import { generateCaption } from "../lib/instagram/caption";
 const prisma = new PrismaClient();
 const VILLA_ID = "cmru4fggf02bko80fp3nxkn00"; // M villa M1
 const videoUrl = readFileSync("smoke/ig-url.txt", "utf8").trim();
+// ★ 포스터(첫 프레임 JPEG)를 반드시 같이 넣는다 — 없으면 발행은 되지만 운영자 목록에서
+//   "이미지 없음"으로 보인다(2026-07-23 실측). 유튜브 렌더를 재사용할 때는 YoutubeShort.posterUrl,
+//   릴스 파이프라인(renderAndBuildReel)에서는 반환값 posterUrl을 쓴다.
+//   파일이 없으면 빈 문자열 — 카드가 영상 첫 프레임으로 대체 표시한다(포스터가 있는 편이 낫다).
+let posterUrl = "";
+try {
+  posterUrl = readFileSync("smoke/ig-poster-url.txt", "utf8").trim();
+} catch {
+  console.warn("⚠ smoke/ig-poster-url.txt 없음 — 포스터 없이 생성합니다");
+}
 
 const v = await prisma.villa.findUniqueOrThrow({
   where: { id: VILLA_ID },
@@ -43,7 +53,7 @@ const post = await prisma.instagramPost.create({
       {
         templateId: "reel",
         srcPhotoId: null,
-        renderedUrl: "",
+        renderedUrl: posterUrl,
         overlayText: null,
         videoUrl,
         durationSec: 43,
