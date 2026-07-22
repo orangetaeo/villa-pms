@@ -150,6 +150,8 @@ const MARKETING_ALERT_PREFIX: Record<string, string> = {
   IG_TOKEN_REFRESH_FAILED: "🚨 인스타 토큰 갱신 실패",
   IG_INSIGHTS_FAILED: "🚨 인스타 인사이트 수집 실패",
   YT_STATS_FAILED: "🚨 유튜브 성과 수집 실패",
+  SEO_DRAFTS_READY: "📝 가이드 글 초안 승인 대기",
+  SEO_PUBLISH_FAILED: "🚨 가이드 글 발행 실패",
   YT_EDIT_DONE: "✅ 유튜브 편집 완료",
   YT_EDIT_FAILED: "🚨 유튜브 편집 실패",
 };
