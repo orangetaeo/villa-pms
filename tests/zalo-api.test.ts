@@ -51,10 +51,25 @@ interface ZaloMsgCreateArg {
     text: string;
   };
 }
+interface ZaloMsgUpdateArg {
+  where: { conversationId_zaloMsgId: { conversationId: string; zaloMsgId: string } };
+  data: {
+    text: string;
+    translatedText: string | null;
+    status: string;
+    sentBy: string;
+  };
+}
 const tx = {
   zaloMessage: {
     create: vi.fn(async (_arg: ZaloMsgCreateArg) => ({
       id: "m1",
+      status: "SENT",
+      createdAt: new Date("2026-06-16T10:00:00Z"),
+    })),
+    // 셀프에코 레이스 복구 경로 — P2002 시 기존(에코) 행 보강.
+    update: vi.fn(async (_arg: ZaloMsgUpdateArg) => ({
+      id: "m-echo",
       status: "SENT",
       createdAt: new Date("2026-06-16T10:00:00Z"),
     })),
@@ -75,6 +90,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+import { Prisma } from "@prisma/client";
 import { writeAuditLog } from "@/lib/audit-log";
 import { GeminiNotConfiguredError as FakeGeminiNotConfigured } from "@/lib/gemini";
 import { POST as sendPost } from "@/app/api/zalo/messages/route";
@@ -129,7 +145,20 @@ beforeEach(() => {
     status: "SENT",
     createdAt: new Date("2026-06-16T10:00:00Z"),
   });
+  tx.zaloMessage.update.mockResolvedValue({
+    id: "m-echo",
+    status: "SENT",
+    createdAt: new Date("2026-06-16T10:00:00Z"),
+  });
 });
+
+/** 셀프에코가 먼저 저장돼 (conversationId, zaloMsgId) unique가 걸린 상황 */
+function p2002() {
+  return new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+    code: "P2002",
+    clientVersion: "test",
+  });
+}
 
 // ── POST /api/zalo/messages ───────────────────────────────────────────
 describe("POST /api/zalo/messages — 발신 (T6.6)", () => {
@@ -199,6 +228,45 @@ describe("POST /api/zalo/messages — 발신 (T6.6)", () => {
     expect(data.status).toBe("FAILED");
     expect(data.error).toBe("BOT_NOT_CONNECTED");
     expect(vi.mocked(writeAuditLog)).toHaveBeenCalled();
+  });
+
+  // ★셀프에코 레이스 — 워커 리스너가 내 발신 에코를 먼저 저장해 (conversationId, zaloMsgId) unique가
+  //   걸리는 경우. 전송 자체는 성공했으므로 500(화면 "전송 실패")이 아니라 에코 행 보강 + 200이어야 한다.
+  it("셀프에코 선저장(P2002) → 500 아님, 에코 행을 원문·번역문으로 보강 + 200", async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    mockConvFindFirst.mockResolvedValue({
+      id: "c1",
+      zaloUserId: "zu1",
+      threadType: "USER",
+      translateMode: "VI",
+    });
+    mockTranslateText.mockResolvedValue("Xin chào");
+    mockSendChat.mockResolvedValue({ ok: true, messageId: "zmsg-race" });
+    tx.zaloMessage.create.mockRejectedValueOnce(p2002());
+
+    const res = await sendReq({ conversationId: "c1", text: "안녕하세요" });
+
+    expect(res.status).toBe(200);
+    expect(tx.zaloMessage.update).toHaveBeenCalledTimes(1);
+    const arg = tx.zaloMessage.update.mock.calls[0]![0];
+    // 복합 unique로 그 대화의 에코 행만 지정
+    expect(arg.where).toEqual({
+      conversationId_zaloMsgId: { conversationId: "c1", zaloMsgId: "zmsg-race" },
+    });
+    // 에코엔 발송된 번역문만 있어 유실되는 한국어 원문·발신자·상태를 보강
+    expect(arg.data.text).toBe("안녕하세요");
+    expect(arg.data.translatedText).toBe("Xin chào");
+    expect(arg.data.status).toBe("SENT");
+    expect(arg.data.sentBy).toBe("admin1");
+    expect(vi.mocked(writeAuditLog)).toHaveBeenCalled();
+  });
+
+  it("P2002 외 DB 에러는 무해화하지 않고 그대로 rethrow", async () => {
+    mockAuth.mockResolvedValue(ADMIN);
+    mockSendChat.mockResolvedValue({ ok: true, messageId: "zmsg1" });
+    tx.zaloMessage.create.mockRejectedValueOnce(new Error("db down"));
+    await expect(sendReq({ conversationId: "c1", text: "안녕" })).rejects.toThrow("db down");
+    expect(tx.zaloMessage.update).not.toHaveBeenCalled();
   });
 
   it("발송 실패(타임아웃 등) → FAILED 기록 + 200", async () => {
