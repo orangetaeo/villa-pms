@@ -75,6 +75,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: v.updatedAt,
       changeFrequency: "weekly" as const,
       priority: 0.8,
+      // 이미지 확장 — 이미지 검색 색인 힌트(빌라 사진은 곧 상품이라 유입 가치가 크다)
+      ...(v.photos.length > 0 ? { images: v.photos.slice(0, 10).map((p) => p.url) } : {}),
+      // 비디오 확장 — 발행된 유튜브 쇼츠. 영상은 파일 메타가 아니라 사이트맵·구조화 데이터로 색인된다.
+      ...(v.videos.length > 0
+        ? {
+            videos: v.videos.map((vid) => ({
+              title: vid.title,
+              thumbnail_loc: `https://i.ytimg.com/vi/${vid.ytVideoId}/hqdefault.jpg`,
+              description: vid.description.slice(0, 200),
+              content_loc: `https://www.youtube.com/watch?v=${vid.ytVideoId}`,
+              player_loc: `https://www.youtube.com/embed/${vid.ytVideoId}`,
+              publication_date: (vid.publishedAt ?? v.updatedAt).toISOString(),
+            })),
+          }
+        : {}),
     }));
 
     facetEntries = allFacetPages(villas).map((f) => ({

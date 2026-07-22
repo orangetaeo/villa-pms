@@ -57,6 +57,7 @@ function villa(over: Partial<PublicVilla> = {}): PublicVilla {
     parkingSlots: 2,
     description: "설명",
     photos: [],
+    videos: [],
     updatedAt: new Date("2026-07-22T00:00:00Z"),
     publicListedAt: new Date("2026-07-22T00:00:00Z"),
     ...over,
@@ -342,5 +343,24 @@ describe("빌라 공개 준비 (T-seo-s2)", () => {
     expect(
       await isAutoListEnabled({ appSetting: { findUnique: async () => ({ value: "1" }) } } as never)
     ).toBe(true);
+  });
+});
+
+describe("SEO 파일명 정규화 (T-seo-media)", () => {
+  it("★ 경로 주입·유니코드 트릭을 걸러낸다", async () => {
+    const { sanitizeNameHint } = await import("@/lib/storage");
+    expect(sanitizeNameHint("../../etc/passwd")).toBe("etc-passwd");
+    expect(sanitizeNameHint(String.raw`a/b\c`)).toBe("a-b-c"); // 역슬래시도 하이픈으로
+    expect(sanitizeNameHint("쏘나씨 V3B")).toBe("v3b"); // 한글 제거 후 라틴만
+    expect(sanitizeNameHint("Biệt thự Đảo")).toBe("biet-thu-ao");
+    expect(sanitizeNameHint(null)).toBe("");
+    expect(sanitizeNameHint("!!!")).toBe("");
+  });
+
+  it("길이를 40자로 자르고 끝의 하이픈을 정리한다", async () => {
+    const { sanitizeNameHint } = await import("@/lib/storage");
+    const out = sanitizeNameHint("a".repeat(60));
+    expect(out).toHaveLength(40);
+    expect(sanitizeNameHint("sonasea-v3b-exterior")).toBe("sonasea-v3b-exterior");
   });
 });

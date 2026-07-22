@@ -131,6 +131,9 @@ export default function AdminPhotoManager({
       }
       const fd = new FormData();
       fd.append("file", blob, file.name.replace(/\.[^.]+$/, "") + ".jpg");
+      // SEO 파일명 — 서버가 villaId로 슬러그를 조회해 "슬러그-공간-..." 형태로 저장한다
+      fd.append("villaId", villaId);
+      fd.append("space", section.space);
       const up = await fetch("/api/uploads", { method: "POST", body: fd });
       if (!up.ok) throw new Error("upload");
       const { url } = (await up.json()) as { url: string };

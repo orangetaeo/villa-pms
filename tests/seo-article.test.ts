@@ -236,7 +236,7 @@ describe("이미지 선별·삽입", () => {
         { id: "p2", url: "https://pub-abc.r2.dev/2.jpg", space: "EXTERIOR", spaceLabel: null },
         { id: "p3", url: "https://pub-abc.r2.dev/3.jpg", space: "POOL", spaceLabel: null },
       ],
-      updatedAt: new Date(), publicListedAt: null,
+      videos: [], updatedAt: new Date(), publicListedAt: null,
       ...over,
     };
   }
