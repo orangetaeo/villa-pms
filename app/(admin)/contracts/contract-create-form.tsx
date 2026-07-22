@@ -7,9 +7,23 @@
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useForm, type UseFormRegister } from "react-hook-form";
+import {
+  useFieldArray,
+  useForm,
+  type Control,
+  type UseFormRegister,
+  type UseFormSetValue,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+// 별표 2 단계표 규칙 — 서버(lib/business-contract.ts)와 같은 순수 모듈을 공유해 검증이 어긋나지 않게 한다.
+import {
+  CANCEL_TIER_MAX_ROWS,
+  DEFAULT_CANCEL_TIERS,
+  cancelTierPeriodLabel,
+  validateCancelTiers,
+  type CancelTier,
+} from "@/lib/cancel-tiers";
 
 export interface ContractCandidate {
   id: string;
@@ -39,8 +53,15 @@ const schema = z
     accountNumber: z.string().max(60).optional(),
     accountHolder: z.string().max(100).optional(),
     specialTerms: z.string().max(4000).optional(),
-    cancelFreeDays: z.coerce.number().int().min(0).max(365).optional(),
-    cancelPartialPct: z.coerce.number().int().min(0).max(100).optional(),
+    cancelTiers: z
+      .array(
+        z.object({
+          fromDays: z.coerce.number().int().min(-1).max(365),
+          guestRefundPct: z.coerce.number().int().min(0).max(100),
+          supplierPayPct: z.coerce.number().int().min(0).max(100),
+        }),
+      )
+      .optional(),
     payMethod: z.enum(["CASH", "BANK"]).optional(),
     settleCycle: z.enum(["MONTHLY", "WEEKLY", "PER_ORDER"]).optional(),
     settleDetail: z.string().max(200).optional(),
@@ -55,6 +76,11 @@ const schema = z
     if (!d.companyContactVn?.trim()) req("companyContactVn"); // 베트남 연락처=전 타입 필수(BE requiredText 대칭)
     if (d.type === "VILLA_SUPPLY") {
       if (!d.payMethod) req("payMethod");
+      // 별표 2 단계표 — 서버와 동일 규칙(lib/cancel-tiers)으로 제출 차단. 메시지는 표 아래에 별도 표시.
+      const tiers = (d.cancelTiers ?? []) as CancelTier[];
+      if (validateCancelTiers(tiers).length > 0) {
+        ctx.addIssue({ path: ["cancelTiers"], code: z.ZodIssueCode.custom, message: "invalid" });
+      }
     } else if (d.type === "SERVICE_VENDOR") {
       if (!d.payMethod) req("payMethod");
       if (!d.settleCycle) req("settleCycle");
@@ -91,6 +117,7 @@ export default function ContractCreateForm({
     setValue,
     reset,
     setError,
+    control,
     formState: { isSubmitting, errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -102,6 +129,7 @@ export default function ContractCreateForm({
       companyPassport: defaults?.companyPassport ?? "",
       companyContactVn: defaults?.companyContactVn ?? "",
       companyContactKr: defaults?.companyContactKr ?? "",
+      cancelTiers: DEFAULT_CANCEL_TIERS.map((t) => ({ ...t })), // 테오 확정 5단계 프리셋
     },
   });
 
@@ -143,8 +171,12 @@ export default function ContractCreateForm({
     if (v.type === "VILLA_SUPPLY") {
       terms = {
         ...common,
-        cancelFreeDays: v.cancelFreeDays ?? 14,
-        cancelPartialPct: v.cancelPartialPct ?? 50,
+        // 별표 2 = 단계표(신규 계약). cancelFreeDays·cancelPartialPct는 서버 zod 기본값(레거시 호환)에 맡긴다.
+        cancelTiers: (v.cancelTiers ?? []).map((t) => ({
+          fromDays: t.fromDays,
+          guestRefundPct: t.guestRefundPct,
+          supplierPayPct: t.supplierPayPct,
+        })),
         payMethod: v.payMethod,
       };
     } else if (v.type === "SERVICE_VENDOR") {
@@ -286,30 +318,14 @@ export default function ContractCreateForm({
         {/* 빌라 공급 */}
         {type === "VILLA_SUPPLY" && (
           <>
-            <label className="block">
-              <span className={labelClass}>
-                {t("create.cancelFreeDays")}
-                <Opt label={optLabel} />
-              </span>
-              <input
-                type="number"
-                {...register("cancelFreeDays")}
-                placeholder="14"
-                className={inputClass}
-              />
-            </label>
-            <label className="block">
-              <span className={labelClass}>
-                {t("create.cancelPartialPct")}
-                <Opt label={optLabel} />
-              </span>
-              <input
-                type="number"
-                {...register("cancelPartialPct")}
-                placeholder="50"
-                className={inputClass}
-              />
-            </label>
+            <CancelTiersField
+              control={control}
+              register={register}
+              setValue={setValue}
+              tiers={(watch("cancelTiers") ?? []) as CancelTier[]}
+              labelClass={labelClass}
+              inputClass={inputClass}
+            />
             <PayMethodSelect register={register} labelClass={labelClass} inputClass={inputClass} label={t("create.payMethod")} cashLabel={t("payMethod.CASH")} bankLabel={t("payMethod.BANK")} />
             <BankInfo
               register={register}
@@ -446,6 +462,150 @@ function Req() {
 /** 선택 항목 마커(회색 "· 선택"). label=현지화된 "선택" 단어. */
 function Opt({ label }: { label: string }) {
   return <span className="ml-1 font-normal text-slate-500">· {label}</span>;
+}
+
+/**
+ * 별표 2 — 취소 수수료 단계표 편집기.
+ *  · 행은 구간 하한(체크인 D-n)만 입력 → 구간 겹침·구멍이 구조적으로 불가능.
+ *  · 마지막 행은 노쇼·체크인 후(-1) 고정(삭제·수정 불가).
+ *  · 검증은 서버와 같은 lib/cancel-tiers.validateCancelTiers — 규칙 이중 관리 없음.
+ */
+function CancelTiersField({
+  control,
+  register,
+  setValue,
+  tiers,
+  labelClass,
+  inputClass,
+}: {
+  control: Control<FormValues>;
+  register: Register;
+  setValue: UseFormSetValue<FormValues>;
+  tiers: CancelTier[];
+  labelClass: string;
+  inputClass: string;
+}) {
+  const t = useTranslations("adminContracts");
+  const { fields, insert, remove } = useFieldArray({ control, name: "cancelTiers" });
+  const issues = validateCancelTiers(tiers);
+  const numClass = `${inputClass} h-9 px-2 text-right`;
+  const lastIndex = fields.length - 1;
+
+  const addRow = () => {
+    if (fields.length >= CANCEL_TIER_MAX_ROWS) return;
+    const above = tiers[lastIndex - 1];
+    insert(lastIndex, {
+      fromDays: Math.max(0, (above?.fromDays ?? 1) - 1),
+      guestRefundPct: above?.guestRefundPct ?? 50,
+      supplierPayPct: above?.supplierPayPct ?? 50,
+    });
+  };
+
+  return (
+    <div className="md:col-span-2">
+      <span className={labelClass}>{t("create.cancelTiers")}</span>
+      <p className="mb-2 text-xs text-slate-500">{t("create.cancelTiersHint")}</p>
+
+      <div className="overflow-x-auto rounded-lg border border-slate-800">
+        <table className="w-full min-w-[520px] text-sm">
+          <thead>
+            <tr className="bg-slate-900/60 text-xs text-slate-400">
+              <th className="px-3 py-2 text-left font-medium">{t("create.tierPeriod")}</th>
+              <th className="w-28 px-2 py-2 text-right font-medium">{t("create.tierFromDays")}</th>
+              <th className="w-28 px-2 py-2 text-right font-medium">{t("create.tierGuestRefund")}</th>
+              <th className="w-28 px-2 py-2 text-right font-medium">{t("create.tierSupplierPay")}</th>
+              <th className="w-10 px-2 py-2" />
+            </tr>
+          </thead>
+          <tbody>
+            {fields.map((f, i) => {
+              const isNoshow = i === lastIndex;
+              return (
+                <tr key={f.id} className="border-t border-slate-800">
+                  <td className="px-3 py-2 text-slate-300">
+                    {issues.some((x) => x.index === i)
+                      ? "—"
+                      : cancelTierPeriodLabel(tiers, i, "ko")}
+                  </td>
+                  <td className="px-2 py-1.5 text-right">
+                    {isNoshow ? (
+                      <>
+                        <span className="text-xs text-slate-500">{t("create.tierNoshow")}</span>
+                        <input
+                          type="hidden"
+                          {...register(`cancelTiers.${i}.fromDays` as const, { valueAsNumber: true })}
+                        />
+                      </>
+                    ) : (
+                      <input
+                        type="number"
+                        className={numClass}
+                        {...register(`cancelTiers.${i}.fromDays` as const, { valueAsNumber: true })}
+                      />
+                    )}
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <input
+                      type="number"
+                      className={numClass}
+                      {...register(`cancelTiers.${i}.guestRefundPct` as const, { valueAsNumber: true })}
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <input
+                      type="number"
+                      className={numClass}
+                      {...register(`cancelTiers.${i}.supplierPayPct` as const, { valueAsNumber: true })}
+                    />
+                  </td>
+                  <td className="px-2 py-1.5 text-center">
+                    {!isNoshow && fields.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => remove(i)}
+                        aria-label={t("create.tierRemove")}
+                        className="text-slate-500 transition-colors hover:text-red-400"
+                      >
+                        <span className="material-symbols-outlined text-lg">close</span>
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          onClick={addRow}
+          disabled={fields.length >= CANCEL_TIER_MAX_ROWS}
+          className="h-8 rounded-lg border border-slate-700 px-3 text-xs text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-40"
+        >
+          {t("create.tierAdd")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setValue("cancelTiers", DEFAULT_CANCEL_TIERS.map((x) => ({ ...x })))}
+          className="h-8 rounded-lg border border-slate-700 px-3 text-xs text-slate-300 transition-colors hover:bg-slate-800"
+        >
+          {t("create.tierReset")}
+        </button>
+      </div>
+
+      {issues.length > 0 && (
+        <ul className="mt-2 space-y-0.5">
+          {issues.slice(0, 4).map((x, i) => (
+            <li key={`${x.code}-${x.index}-${i}`} className="text-xs text-red-400">
+              {t(`create.tierErrors.${x.code}`, { row: x.index + 1 })}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 function PayMethodSelect({
