@@ -736,7 +736,18 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
         seg,
         opts.horizontalMode
       );
-      const d = (await probeDurationSec(seg)) ?? clips[i].durationSec * scale;
+      // ★ probe 실패 시 요청 길이로 폴백하면 **조용히 깨진 영상**이 나온다:
+      //   실제 세그먼트는 더 짧은데 xfade 오프셋은 요청 길이를 믿어, 마지막 프레임이 정지한 채
+      //   나레이션만 흐른다(2026-07-22 실발행 영상에서 확인. 원인은 ffprobe-static 번들 누락).
+      //   폴백은 유지하되(렌더 자체는 살린다) 반드시 로그로 드러낸다.
+      const probed = await probeDurationSec(seg);
+      if (probed == null) {
+        console.error(
+          `[yt-edit] ffprobe 실패 — 세그먼트 ${i} 길이를 요청값(${(clips[i].durationSec * scale).toFixed(2)}s)으로 폴백합니다. ` +
+            `xfade 타이밍이 어긋나 화면이 정지할 수 있습니다. next.config serverExternalPackages에 ffprobe-static이 있는지 확인하세요.`
+        );
+      }
+      const d = probed ?? clips[i].durationSec * scale;
       segPaths.push(seg);
       segDurs.push(d);
     }
