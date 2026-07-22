@@ -16,16 +16,33 @@ export const DAILY_PING_LIMIT = 5;
 /** 1회 요청에 담을 수 있는 URL 상한(자체 규율 — 프로토콜 상한보다 훨씬 보수적으로). */
 const MAX_URLS_PER_BATCH = 10;
 
+// ★ 네이버는 **도메인 루트 URL을 거부**한다 — 프로덕션 실측(2026-07-22):
+//     https://villa-go.net  또는 https://villa-go.net/  → 422 "Invalid urls"
+//     https://villa-go.net/intro.html                    → 200
+//   더 위험한 건 배치에 루트가 하나라도 섞이면 **요청 전체가 422로 거부**되어 나머지 URL까지
+//   전부 색인 요청에 실패한다는 점이다. 그래서 네이버 제출분에서는 루트를 사전에 걸러낸다.
+//   (루트는 sitemap.xml로 이미 수집되므로 IndexNow로 밀 필요가 없다. Bing은 루트도 202 수락.)
 const ENDPOINTS = [
-  { name: "naver", url: "https://searchadvisor.naver.com/indexnow" },
-  { name: "bing", url: "https://www.bing.com/indexnow" },
+  { name: "naver", url: "https://searchadvisor.naver.com/indexnow", rejectsRoot: true },
+  { name: "bing", url: "https://www.bing.com/indexnow", rejectsRoot: false },
 ] as const;
+
+/** 사이트 루트인지 — "https://host" 또는 "https://host/" */
+function isSiteRoot(url: string): boolean {
+  try {
+    return new URL(url).pathname === "/";
+  } catch {
+    return false;
+  }
+}
 
 export interface PingResult {
   endpoint: string;
   ok: boolean;
   status: number | null;
   error?: string;
+  /** 제출할 URL이 남지 않아 호출 자체를 건너뜀(예: 네이버에 루트만 제출하려 한 경우) */
+  skipped?: boolean;
 }
 
 /** 키 미설정이면 핑을 시도하지 않는다(로컬·미설정 환경에서 조용히 무동작). */
@@ -58,15 +75,16 @@ export async function pingIndexNow(paths: string[]): Promise<PingResult[]> {
     });
   if (urlList.length === 0) return [];
 
-  const body = JSON.stringify({
-    host,
-    key,
-    keyLocation: absoluteUrl("/indexnow-key.txt"),
-    urlList,
-  });
+  const keyLocation = absoluteUrl("/indexnow-key.txt");
 
   return Promise.all(
     ENDPOINTS.map(async (ep): Promise<PingResult> => {
+      // 엔드포인트별로 제출 목록을 좁힌다 — 네이버는 루트가 섞이면 배치 전체를 거부한다.
+      const urls = ep.rejectsRoot ? urlList.filter((u) => !isSiteRoot(u)) : urlList;
+      if (urls.length === 0) {
+        return { endpoint: ep.name, ok: true, status: null, skipped: true };
+      }
+      const body = JSON.stringify({ host, key, keyLocation, urlList: urls });
       try {
         const res = await fetch(ep.url, {
           method: "POST",
