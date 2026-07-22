@@ -39,9 +39,11 @@
 **절대 금지**: 판매가·원가·마진·`baseDepositVnd`·`monthlyRentVnd` / 날짜별 공실·캘린더 / 상세주소·좌표 / 공급자 정보 / `accessType`·`accessInfo`·`wifiSsid`·`wifiPassword` / 미승인 사진·클립.
 > ★ 근거: 공급자는 자기 원가를 알므로 **공개 판매가 = 마진 역산**(원칙 2). 가격은 시작가·범위 포함 어떤 형태로도 넣지 않는다.
 
-### 4.2 노출 정책 — 테오 결정 2026-07-22
-- `publicListed` 기본 **false**. 켠 빌라만 페이지·sitemap 등재
-- **전체 빌라 목록/필터 페이지를 만들지 않는다**
+### 4.2 노출 정책 — 테오 결정 2026-07-22 (**개정**: 소비자 검색형 공개 사이트)
+- 빌라는 300~400개까지 확장 예정. **소비자가 조건(지역·이용시설·인원)으로 찾는 사이트**를 만든다 → 목록·패싯 경로는 S2에서 구현
+- `publicListed`는 **품질·동의 게이트**(미비·비동의·분쟁 빌라 제외용). 검수 통과 빌라는 원칙적으로 공개하며, `AppSetting: SEO_AUTO_LIST_ON_SELLABLE`(기본 on)로 자동 전환한다 — 300~400개 수동 토글은 비현실적
+- ★ **날짜(공실) 검색 절대 미제공** — `checkIn`·`checkOut`·`dateRangeValid`는 공개 필터에서 제외. 날짜 조건 검색 = 공실 현황 공개 = 원칙 1 정면 위반. 날짜는 상담 CTA로 유도
+- 공개 필터 허용 서브셋(`lib/villa-search.ts` 재사용): `area`·`minBedrooms`·`minGuests`·`pool`·`breakfast`·`smoking`·`pets`·`party`·`extraBed`·`bedType`·`beach`·`tags`. **금지: `supplierId`·`sellable`·`q`의 주소/공급자명 매칭**
 
 ### 4.3 robots 분기
 - disallow: `/api`, `/admin`, `/dashboard`, `/villas`(운영자), `/my-villas`, `/cleaning`, `/p/`, `/g/`, `/webchat`, `/partner`, `/vendor`, `/settings`, `/login`, `/logout`, `/chat`
