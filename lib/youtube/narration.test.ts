@@ -182,11 +182,41 @@ describe("validateNarrationLines", () => {
     expect(r.lineIssues[2]).toBeNull();
   });
 
-  it("18자를 넘으면 TOO_LONG — 15초에 안 들어간다", () => {
+  it("본문 문장이 상한을 넘으면 TOO_LONG — 자막 두 줄을 넘긴다", () => {
+    // ★ 첫 자리에 두면 안 된다: 첫 문장은 훅이라 상한이 다르다(hookMaxChars).
     const over = "가".repeat(NARRATION_RULES.maxChars + 1);
-    const r = validateNarrationLines([line(over), line("괜찮은 문장이에요"), line("또 괜찮은 문장이에요")]);
-    expect(r.lineIssues[0]).toBe("TOO_LONG");
+    const r = validateNarrationLines([line("괜찮은 문장이에요"), line(over), line("또 괜찮은 문장이에요")]);
+    expect(r.lineIssues[1]).toBe("TOO_LONG");
     expect(r.ok).toBe(false);
+  });
+
+  it("첫 문장(훅)만 더 긴 상한을 쓴다 — 이름+침실 수+수영장+해변을 한 문장에 담아야 한다", () => {
+    // 일반 상한(32자)은 넘지만 훅 상한(48자) 이내인 문장
+    const hook = "침실 세 개에 프라이빗 수영장, 문 열면 바로 해변인 엠빌라예요";
+    expect(hook.length).toBeGreaterThan(NARRATION_RULES.maxChars);
+    expect(hook.length).toBeLessThanOrEqual(NARRATION_RULES.hookMaxChars);
+
+    // 첫 자리에 있으면 통과
+    const ok = validateNarrationLines([
+      line(hook),
+      line("괜찮은 문장이에요"),
+      line("또 괜찮은 문장이에요"),
+    ]);
+    expect(ok.lineIssues[0]).toBeNull();
+
+    // 같은 문장이 두 번째 자리면 TOO_LONG — 훅 예외는 첫 문장에만 적용된다
+    const notOk = validateNarrationLines([
+      line("괜찮은 문장이에요"),
+      line(hook),
+      line("또 괜찮은 문장이에요"),
+    ]);
+    expect(notOk.lineIssues[1]).toBe("TOO_LONG");
+  });
+
+  it("훅 상한도 넘으면 첫 문장이라도 TOO_LONG", () => {
+    const tooLong = "가".repeat(NARRATION_RULES.hookMaxChars + 1);
+    const r = validateNarrationLines([line(tooLong), line("괜찮은 문장이에요"), line("또 괜찮은 문장이에요")]);
+    expect(r.lineIssues[0]).toBe("TOO_LONG");
   });
 
   it("경계값(최대 글자수 정확히)은 통과", () => {

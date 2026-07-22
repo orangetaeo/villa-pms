@@ -9,6 +9,7 @@ import {
   validateNarrationLines,
   computeNarrationTimeline,
   synthesizeNarration,
+  buildIntroSpecs,
   type NarrationVillaContext,
 } from "../lib/youtube/narration";
 import { renderEditedVideo } from "../lib/youtube/edit";
@@ -90,10 +91,13 @@ const local = CLIPS.map((c, i) => ({
   durationSec: timeline.segmentDurations[i], // ★ 오디오 길이로 역산된 컷 길이
 }));
 const rendered = await renderEditedVideo(local, {
-  headline: "푸꾸옥 엠빌라",
-  villaName: "엠빌라",
+  headline: "엠빌라", // 빌라명이 곧 타이틀 — villaName과 중복 표기하지 않는다
+  villaName: "푸꾸옥 쏘나씨",
   audio: "silent", // 나레이션이 대체하므로 음악 없음
   horizontalMode: "crop",
+  // 오프닝 스펙 칩 + 첫 문장이 끝날 때까지 인트로 유지(음소거 시청자에게도 스펙 전달)
+  introSpecs: buildIntroSpecs(ctx),
+  introHoldSec: timeline.lineOffsets[0] + synth[0].durationSec + 0.4,
   narration: { wavPaths, offsetsSec: timeline.lineOffsets },
   // CTA 문장은 자막 제외 — 아웃트로 카드가 같은 내용을 큰 글씨로 이미 보여준다(겹침 방지).
   subtitles: synth

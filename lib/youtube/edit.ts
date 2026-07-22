@@ -240,26 +240,40 @@ function watermarkNode(): SatoriNode {
 }
 
 /** 인트로 타이틀 — 하단 1/3에 헤드라인(세리프)+빌라명(고딕), 가독 스크림. */
-function introNode(headline: string, villaName?: string | null): SatoriNode {
+/**
+ * 오프닝 인트로 — 빌라 이름 + **핵심 스펙**(테오 피드백 2026-07-22).
+ *
+ * ★ 왜 스펙이 필요한가: 첫 화면에서 "방 몇 개인지·수영장이 있는지·해변이 얼마나 가까운지"가
+ *   안 보이면 시청자가 계속 볼 이유를 못 찾는다. 쇼츠는 첫 2~3초에 이탈이 갈린다.
+ *   나레이션 첫 문장(훅)과 **같은 정보를 화면에도** 띄워 음소거 시청자에게도 전달한다.
+ * ★ specs는 짧은 칩 문자열 배열: ["침실 셋", "프라이빗 수영장", "해변 바로 앞"]
+ */
+function introNode(
+  headline: string,
+  villaName?: string | null,
+  specs: string[] = []
+): SatoriNode {
+  // ★ 인트로는 **상단**에 놓는다: 하단 300은 나레이션 자막 자리라 겹치면 둘 다 못 읽는다
+  //   (2026-07-22 실제 렌더에서 타이틀과 첫 문장 자막이 포개짐). 스크림도 위에서 내려오게 바꾼다.
   return div({ position: "relative", width: W, height: H, backgroundColor: "transparent" }, [
-    // 하단 스크림
+    // 상단 스크림 — 밝은 하늘·외관 위에서도 흰 글씨가 읽히게
     div({
       position: "absolute",
       left: 0,
-      bottom: 0,
+      top: 0,
       width: W,
-      height: 780,
-      backgroundImage: "linear-gradient(to top, rgba(10,17,20,0.72) 0%, rgba(10,17,20,0) 100%)",
+      height: 980,
+      backgroundImage: "linear-gradient(to bottom, rgba(10,17,20,0.74) 0%, rgba(10,17,20,0) 100%)",
     }),
     div(
       {
         position: "absolute",
         left: 0,
-        bottom: 300,
+        top: 250,
         width: W,
         flexDirection: "column",
         alignItems: "center",
-        padding: "0 90px",
+        padding: "0 80px",
       },
       [
         div({ width: 74, height: 4, backgroundColor: BRAND.sand, marginBottom: 34 }),
@@ -290,6 +304,35 @@ function introNode(headline: string, villaName?: string | null): SatoriNode {
                   textAlign: "center",
                 },
                 villaName
+              ),
+            ]
+          : []),
+        // 핵심 스펙 칩 — 첫 화면에서 "방 몇 개·수영장·해변 거리"를 즉시 보여준다.
+        ...(specs.length
+          ? [
+              div(
+                {
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  justifyContent: "center",
+                  marginTop: 34,
+                  gap: 14,
+                },
+                specs.slice(0, 4).map((s) =>
+                  div(
+                    {
+                      backgroundColor: "rgba(255,255,255,0.16)",
+                      borderRadius: 999,
+                      padding: "14px 28px",
+                      fontFamily: FONT_SANS,
+                      fontWeight: 700,
+                      fontSize: 40,
+                      color: "#FFFFFF",
+                      textShadow: "0 2px 10px rgba(0,0,0,0.55)",
+                    },
+                    s
+                  )
+                )
               ),
             ]
           : []),
@@ -604,6 +647,13 @@ export interface RenderOpts {
    *   예산 초과는 조용히 줄이지 말고 **에러로 드러내야** 한다(계약 C2).
    */
   narration?: NarrationTrack;
+  /**
+   * 오프닝 스펙 칩 — ["침실 셋", "프라이빗 수영장", "해변 바로 앞"] 같은 짧은 문구 최대 4개.
+   * 나레이션 첫 문장(훅)과 같은 정보를 화면에도 띄워 음소거 시청자에게 전달한다.
+   */
+  introSpecs?: string[];
+  /** 인트로 유지 시간(초). 미지정 시 INTRO_SEC(1.5). 나레이션 첫 문장 종료까지 잡아주면 자연스럽다. */
+  introHoldSec?: number;
 }
 
 /**
@@ -667,7 +717,10 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
     let introPath: string | null = null;
     if (opts.headline) {
       introPath = path.join(workDir, "intro.png");
-      await fs.writeFile(introPath, await nodeToTransparentPng(introNode(opts.headline, opts.villaName)));
+      await fs.writeFile(
+        introPath,
+        await nodeToTransparentPng(introNode(opts.headline, opts.villaName, opts.introSpecs ?? []))
+      );
     }
 
     const subs = (opts.subtitles ?? []).filter((s) => s.fromSec < total);
@@ -708,7 +761,13 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
     cur = "[wm]";
     // 인트로(0~1.5s)
     if (introIdx >= 0) {
-      fParts.push(`${cur}[${introIdx}:v]overlay=0:0:enable='between(t,0,${INTRO_SEC})'[intro]`);
+      // ★ 인트로 표시 시간: 나레이션이 있으면 **첫 문장이 끝날 때까지** 유지한다.
+      //   고정 1.5초로 두면 스펙("침실 셋·수영장·해변 앞")이 사라진 뒤에도 그 설명이 계속 들려
+      //   화면과 말이 어긋난다(테오 피드백 2026-07-22). 음소거 시청자에게도 스펙이 남아야 한다.
+      const introHold = opts.introHoldSec != null ? Math.max(INTRO_SEC, opts.introHoldSec) : INTRO_SEC;
+      fParts.push(
+        `${cur}[${introIdx}:v]overlay=0:0:enable='between(t,0,${introHold.toFixed(2)})'[intro]`
+      );
       cur = "[intro]";
     }
     // 자막 구간별

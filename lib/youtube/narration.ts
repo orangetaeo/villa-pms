@@ -35,6 +35,12 @@ export const NARRATION_RULES = {
   minChars: 8,
   /** 문장 최대 글자수 — 한국어 초당 5~6음절 기준 ≈ 5.5초 발화. 자막 2줄 한계 */
   maxChars: 32,
+  /**
+   * 첫 문장(훅)만 예외적으로 길게 허용한다.
+   * ★ 오프닝은 빌라 이름 + 침실 수 + 수영장 + 해변 거리를 한 번에 담아야 해서 32자로는 부족하다
+   *   (테오 피드백 2026-07-22). 첫 컷은 정문·수영장 전경이라 조금 길어도 지루하지 않다.
+   */
+  hookMaxChars: 48,
   /** 문장(=컷) 수 — CTA 포함. edit.ts CLIP_COUNT_MAX(16) + CTA와 정합 */
   minLines: 3,
   maxLines: 17,
@@ -101,6 +107,33 @@ const SPACE_HINT: Record<string, string> = {
   ETC: "빌라 내부",
 };
 
+/** 개수 → 한글 수사. 대본에 아라비아 숫자가 섞이지 않게 한다(TTS 오독 방지). */
+function numToKo(n: number): string {
+  const ko = ["", "한", "두", "세", "네", "다섯", "여섯", "일곱", "여덟", "아홉", "열"];
+  return ko[n] ?? String(n);
+}
+
+/** 해변까지 거리 → 한국어 표현(숫자 없이). 문 앞이면 그 사실 자체가 최고의 훅이다. */
+function beachPhrase(m: number): string {
+  if (m <= 150) return "문을 열면 바로 앞이 해변";
+  if (m <= 400) return "해변까지 걸어서 몇 걸음";
+  if (m <= 1000) return "해변까지 도보 십 분 이내";
+  return "해변까지 차로 금방";
+}
+
+/**
+ * 오프닝 화면에 띄울 스펙 칩 — 나레이션 훅과 **같은 정보**를 음소거 시청자에게도 전달한다.
+ * 숫자 없이 한글로(화면 표기는 숫자여도 무방하지만 나레이션과 표현을 맞춰 일관성을 준다).
+ */
+export function buildIntroSpecs(ctx: NarrationVillaContext): string[] {
+  const chips: string[] = [];
+  if (ctx.bedrooms) chips.push(`침실 ${numToKo(ctx.bedrooms)} 개`);
+  if (ctx.hasPool) chips.push("프라이빗 수영장");
+  if (ctx.beachDistanceM != null && ctx.beachDistanceM <= 150) chips.push("해변 바로 앞");
+  else if (ctx.beachDistanceM != null && ctx.beachDistanceM <= 400) chips.push("해변 도보 이 분");
+  return chips.slice(0, 4);
+}
+
 function buildPrompt(ctx: NarrationVillaContext): string {
   // 같은 공간이 여러 컷이면 번호를 매겨 모델이 "또 다른 ~"으로 뭉개지 않게 한다.
   const spaceSeen = new Map<string, number>();
@@ -125,11 +158,11 @@ function buildPrompt(ctx: NarrationVillaContext): string {
 
   const facts: string[] = [];
   if (ctx.complex) facts.push(`단지: ${ctx.complex}`);
-  if (ctx.bedrooms) facts.push(`침실 ${ctx.bedrooms}개`);
-  if (ctx.hasPool) facts.push("개인 수영장 있음");
+  if (ctx.bedrooms) facts.push(`침실 ${numToKo(ctx.bedrooms)} 개`);
+  if (ctx.hasPool) facts.push("단독 사용 프라이빗 수영장 있음");
   if (ctx.beachDistanceM != null) {
     // 숫자를 그대로 주면 대본에 숫자가 섞인다 — 정성 표현으로 바꿔 전달한다.
-    facts.push(ctx.beachDistanceM <= 500 ? "해변이 아주 가까움" : "해변까지 차로 금방");
+    facts.push(beachPhrase(ctx.beachDistanceM));
   }
 
   return [
@@ -144,7 +177,11 @@ function buildPrompt(ctx: NarrationVillaContext): string {
     `  마지막 컷: 카카오톡 채널 '빌라고' 검색 안내 (CTA)`,
     "",
     "절대 규칙:",
-    `- 각 문장은 ${NARRATION_RULES.minChars}~${NARRATION_RULES.maxChars}자. 넘기지 마라(자막 두 줄을 넘긴다).`,
+    "- **첫 문장은 오프닝 훅이다.** 빌라 이름과 함께 위 '특징'의 핵심(침실 개수, 수영장, 해변까지 거리)을",
+    `  한 문장에 자연스럽게 담아라. 첫 문장만 최대 ${NARRATION_RULES.hookMaxChars}자까지 허용한다.`,
+    "  예: '침실 세 개에 프라이빗 수영장, 문 열면 바로 해변인 엠빌라예요.'",
+    "  단순 인사('환영합니다', '소개할게요')로만 채우지 마라 — 왜 계속 봐야 하는지가 첫 문장에 있어야 한다.",
+    `- 두 번째 문장부터는 ${NARRATION_RULES.minChars}~${NARRATION_RULES.maxChars}자. 넘기지 마라(자막 두 줄을 넘긴다).`,
     "- **숫자와 영문을 절대 쓰지 마라.** 음성이 이상하게 읽는다. '세 개', '아주 가까워요'처럼 한글로만.",
     "- 명사 나열 금지. '~예요', '~해요' 같은 완결된 구어체 문장으로.",
     "- 과장·허위 금지. 화면에 보이는 것만 말한다.",
@@ -229,12 +266,14 @@ export interface NarrationValidation {
  * 운영자 화면이 어느 문장이 왜 잘못됐는지 보여줄 수 있게 인덱스별로 돌려준다.
  */
 export function validateNarrationLines(lines: NarrationLine[]): NarrationValidation {
-  const lineIssues = lines.map((l): NarrationIssue | null => {
+  const lineIssues = lines.map((l, i): NarrationIssue | null => {
     const t = l.text.trim();
     if (!t) return "EMPTY";
     if (FORBIDDEN_CHARS_RE.test(t)) return "HAS_DIGIT_OR_LATIN";
     if (t.length < NARRATION_RULES.minChars) return "TOO_SHORT";
-    if (t.length > NARRATION_RULES.maxChars) return "TOO_LONG";
+    // 첫 문장(훅)은 스펙을 담아야 해서 상한이 다르다
+    const max = i === 0 ? NARRATION_RULES.hookMaxChars : NARRATION_RULES.maxChars;
+    if (t.length > max) return "TOO_LONG";
     return null;
   });
 
