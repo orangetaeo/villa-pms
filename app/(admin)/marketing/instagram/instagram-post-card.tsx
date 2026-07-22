@@ -177,7 +177,10 @@ export default function InstagramPostCard({
     }
   };
 
-  const media = post.media.filter((m) => m.renderedUrl);
+  // ★ 영상 항목은 포스터(renderedUrl)가 없을 수 있다 — 그때도 미디어로 세야 한다.
+  //   renderedUrl만 보면 포스터 없는 릴스가 통째로 걸러져 "이미지 없음"으로 보인다(2026-07-23 실측:
+  //   발행까지 정상인 릴스가 목록에서 미디어 0으로 표시됨). 포스터가 없으면 영상 첫 프레임을 쓴다.
+  const media = post.media.filter((m) => m.renderedUrl || m.videoUrl);
   const cover = media[0];
   const rest = media.slice(1, 4);
   const extra = media.length - 4;
@@ -209,13 +212,24 @@ export default function InstagramPostCard({
             className="group relative block h-14 w-11 shrink-0 overflow-hidden rounded-md border border-slate-700"
           >
             {/* 외부 R2 렌더 URL — next/image remotePatterns 의존 제거 위해 img 사용(관례) */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={cover.renderedUrl}
-              alt=""
-              loading="lazy"
-              className="h-full w-full object-cover"
-            />
+            {cover.renderedUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={cover.renderedUrl}
+                alt=""
+                loading="lazy"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              // 포스터가 없는 영상 — 첫 프레임을 썸네일로. preload=metadata라 전체를 받지 않는다.
+              <video
+                src={cover.videoUrl}
+                preload="metadata"
+                muted
+                playsInline
+                className="h-full w-full object-cover"
+              />
+            )}
             <span className="absolute inset-0 flex items-center justify-center transition-colors group-hover:bg-black/45">
               <span className="material-symbols-outlined text-[20px] text-white/0 transition-colors group-hover:text-white">
                 {cover.videoUrl ? "play_circle" : "zoom_in"}
@@ -302,13 +316,23 @@ export default function InstagramPostCard({
                 aria-label={t("viewer.open")}
                 className="group relative block h-40 w-32 overflow-hidden rounded-lg border border-slate-700"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={cover.renderedUrl}
-                  alt={cover.overlayText ?? post.villaName ?? ""}
-                  loading="lazy"
-                  className="h-full w-full object-cover"
-                />
+                {cover.renderedUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={cover.renderedUrl}
+                    alt={cover.overlayText ?? post.villaName ?? ""}
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <video
+                    src={cover.videoUrl}
+                    preload="metadata"
+                    muted
+                    playsInline
+                    className="h-full w-full object-cover"
+                  />
+                )}
                 <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/40">
                   <span className="material-symbols-outlined text-[34px] text-white/0 drop-shadow transition-colors group-hover:text-white/90">
                     {cover.videoUrl ? "play_circle" : "zoom_in"}
@@ -331,13 +355,23 @@ export default function InstagramPostCard({
                       aria-label={t("viewer.open")}
                       className="block h-[46px] w-[38px] overflow-hidden rounded-md border border-slate-700 transition-opacity hover:opacity-75"
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={m.renderedUrl}
-                        alt=""
-                        loading="lazy"
-                        className="h-full w-full object-cover"
-                      />
+                      {m.renderedUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={m.renderedUrl}
+                          alt=""
+                          loading="lazy"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <video
+                          src={m.videoUrl}
+                          preload="metadata"
+                          muted
+                          playsInline
+                          className="h-full w-full object-cover"
+                        />
+                      )}
                     </button>
                   ))}
                   {extra > 0 && (
