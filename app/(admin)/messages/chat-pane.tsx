@@ -137,7 +137,10 @@ export interface ChatMessage {
 export interface PendingMessage {
   id: string; // 임시 id ("pending-<n>")
   text: string;
-  status: "sending" | "failed";
+  // sending=발송 요청 중 / sent=서버가 발송 성공 응답(200) — 스레드 재fetch 도착 전까지의 짧은 구간 /
+  // failed=발송 실패. "sent"를 둔 이유: 200을 받은 뒤에도 스레드 재조회(수백 ms)를 기다리느라
+  // "전송 중…"이 계속 떠 실제보다 느리게 느껴졌다(2026-07-22 사용자 지적).
+  status: "sending" | "sent" | "failed";
   error?: string;
   baselineCount: number;
   // 답글로 보낸 경우 인용 스냅샷(전송 중 버블에도 인용 표시 — 진짜 버블과 동일하게).
@@ -446,6 +449,14 @@ export function ChatPane({
     },
     [initialMessages],
   );
+
+  // 발송 성공(서버 200) — 스레드 재fetch를 기다리지 않고 즉시 "전송됨"으로 전환.
+  //   진짜 메시지가 도착하면 아래 prune effect가 이 버블을 정식 OutboundBubble로 교체한다.
+  const markPendingSent = useCallback((id: string) => {
+    setPending((p) =>
+      p.map((m) => (m.id === id && m.status === "sending" ? { ...m, status: "sent" } : m)),
+    );
+  }, []);
 
   // 발송 실패 — 해당 버블을 빨간 안내(에러)로 전환(입력 본문은 유실되지 않고 버블에 남는다).
   const failPending = useCallback((id: string, error: string) => {
@@ -864,6 +875,7 @@ export function ChatPane({
           onClearReply={() => setReplyTarget(null)}
           onSent={markJustSent}
           onOptimisticSend={addPending}
+          onOptimisticSent={markPendingSent}
           onOptimisticFail={failPending}
           t={t}
           router={router}
@@ -1889,6 +1901,8 @@ function PendingBubble({
   t: ReturnType<typeof useTranslations>;
 }) {
   const failed = message.status === "failed";
+  // 서버가 발송 성공을 확인한 상태 — 정식 발신 버블과 같은 톤·"전송됨"으로 즉시 전환(스피너 종료).
+  const sent = message.status === "sent";
   return (
     <div className="flex justify-end">
       <div className="max-w-[70%] text-right min-w-0">
@@ -1900,7 +1914,7 @@ function PendingBubble({
         )}
         <div
           className={`rounded-xl rounded-br-sm px-4 py-3 inline-block text-left ${
-            failed ? "bg-blue-600/40" : "bg-blue-600/70"
+            failed ? "bg-blue-600/40" : sent ? "bg-blue-600" : "bg-blue-600/70"
           }`}
         >
           <p className="text-sm text-white whitespace-pre-wrap break-words">{message.text}</p>
@@ -1908,6 +1922,8 @@ function PendingBubble({
         <div className="mt-1 flex items-center justify-end gap-1 text-[10px] tabular-nums">
           {failed ? (
             <span className="text-red-400">{message.error ?? t("statusFailed")}</span>
+          ) : sent ? (
+            <span className="text-slate-600">{t("statusSent")}</span>
           ) : (
             <span className="flex items-center gap-1 text-slate-500">
               <span className="material-symbols-outlined text-[13px] animate-spin leading-none">
@@ -2650,6 +2666,7 @@ function Composer({
   onClearReply,
   onSent,
   onOptimisticSend,
+  onOptimisticSent,
   onOptimisticFail,
   t,
   router,
@@ -2668,6 +2685,8 @@ function Composer({
   // 엔터 즉시 "전송 중" 버블을 대화창에 추가하고 임시 id 반환(번역·발송은 백그라운드).
   //  quoted: 답글이면 인용 스냅샷(전송 중 버블에도 인용 표시).
   onOptimisticSend: (text: string, quoted?: { sender: string; text: string } | null) => string;
+  // 서버가 발송 성공(200)을 준 즉시 "전송 중…" 표시 종료(스레드 재fetch 대기 없이).
+  onOptimisticSent: (id: string) => void;
   // 발송 실패 시 해당 버블을 빨간 안내로 전환.
   onOptimisticFail: (id: string, error: string) => void;
   t: ReturnType<typeof useTranslations>;
@@ -3056,7 +3075,9 @@ function Composer({
         body: JSON.stringify(payload),
       });
       if (res.ok) {
-        // 성공 — 진짜 메시지가 폴링/refresh로 도착하면 ChatPane이 전송 중 버블을 prune한다.
+        // 성공 — 스레드 재fetch(수백 ms)를 기다리지 않고 버블을 즉시 "전송됨"으로 바꾼다.
+        //   진짜 메시지가 도착하면 ChatPane이 이 버블을 prune하고 정식 OutboundBubble로 교체.
+        onOptimisticSent(tempId);
         refresh();
       } else if (res.status === 409) {
         onOptimisticFail(tempId, t("windowClosedWarning"));

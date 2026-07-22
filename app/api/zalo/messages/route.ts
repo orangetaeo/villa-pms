@@ -276,6 +276,12 @@ export async function POST(req: Request) {
   // 0) 발신 번역 (ADR-0009 D7 / 사용자 지시 2026-06-16) — VI/EN 모드면 번역문을 상대에게 발송하고
   //    원문 한국어는 내 기록용으로 보관(text). 번역 실패 시 한국어 오발송을 막기 위해 발송 중단.
   //    OFF 모드면 원문 그대로 발송(translatedText=null).
+  // 구간 계측 — "왜 전송 중이 오래 뜨나"를 추측 없이 가르기 위한 최소 관측(2026-07-22).
+  //   translateMs=0이면 번역은 무관(OFF 모드는 아예 스킵), sendMs가 크면 Zalo 왕복, dbMs면 DB.
+  const t0 = Date.now();
+  let translateMs = 0;
+  let sendMs = 0;
+
   let outboundText = text; // 실제 상대에게 가는 본문
   let translatedText: string | null = null; // 발송된 번역문(기록·OutboundBubble 표시)
   const target = previewTargetForMode(conversation.translateMode);
@@ -288,13 +294,16 @@ export async function POST(req: Request) {
       outboundText = reuse;
       translatedText = reuse;
     } else {
+      const tTr = Date.now();
       try {
         const translated = (await translateText(text, target)).trim();
+        translateMs = Date.now() - tTr;
         if (translated) {
           outboundText = translated;
           translatedText = translated;
         }
       } catch (err) {
+        translateMs = Date.now() - tTr;
         if (err instanceof GeminiNotConfiguredError) {
           return NextResponse.json({ error: "TRANSLATE_NOT_CONFIGURED" }, { status: 503 });
         }
@@ -322,6 +331,7 @@ export async function POST(req: Request) {
   let error: string | null = null;
   let zaloMsgId: string | null = null;
 
+  const tSend = Date.now();
   const result = replyQuoteSource
     ? await sendChatReplyAsAdmin(
         session.user.id,
@@ -338,6 +348,7 @@ export async function POST(req: Request) {
         sendThreadType,
         outboundMentions
       );
+  sendMs = Date.now() - tSend;
   if (result.ok) {
     status = ZaloMessageStatus.SENT;
     zaloMsgId = result.messageId;
@@ -453,6 +464,16 @@ export async function POST(req: Request) {
     } else {
       throw err;
     }
+  }
+
+  // 구간 로그 — 느림 체감의 원인(번역/Zalo왕복/DB)을 한 줄로 가른다. 본문·번역문은 기록하지 않는다.
+  const totalMs = Date.now() - t0;
+  if (totalMs >= 1000) {
+    console.log(
+      `[zalo-send] 소요 ${totalMs}ms (번역 ${translateMs}ms · Zalo발송 ${sendMs}ms · 그외 ${
+        totalMs - translateMs - sendMs
+      }ms, mode=${conversation.translateMode}, status=${status})`
+    );
   }
 
   // 실시간(SSE) — 발신 영속 완료 후 본인(ownerAdminId) 채널로 "outbound" 신호 발행.
