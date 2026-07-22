@@ -1,17 +1,31 @@
 // POST /api/youtube/edit-jobs — 직접 촬영 클립 편집 잡 생성 (marketing-s2 §A-3). admin.
 // 권한(첫 줄): isOperator만. SUPPLIER/VENDOR/PARTNER 403.
-// 흐름: {params(EditParams), title?, villaId?} → 검증 → (villaId면) 빌라 공개정보로 meta 초안 생성
+// 소재 2종: ⑴ 마법사에서 새로 올린 `youtube-clips/…` 키 ⑵ **승인된 빌라 영상**(`clips[].villaClipId`
+//   → 서버가 `villa-clips/…` 키로 해석). ⑵가 VillaClip의 유일한 소비처다(youtube-villa-clip-source).
+// 흐름: {params(EditParams), title?, villaId?} → 소재 해석 → 검증 → (villaId면) 빌라 공개정보로 meta 초안 생성
 //   → YoutubeShort(sourceType=UPLOADED, status=DRAFT, editJobStatus=PENDING) 생성 → {id}. AuditLog.
 // ★ 이 시점엔 영상이 없어 videoUrl은 빈 문자열 placeholder — run 라우트가 렌더 후 채운다(DRAFT라 업로드 cron 미대상).
 // ★ 누수: meta 입력은 빌라 공개정보(VillaPublicInfo)만 — 원가·마진·판매가 미포함(meta.ts 봉인).
 import { NextResponse } from "next/server";
-import { YtShortStatus, YtSourceType, YtEditJobStatus, type Prisma } from "@prisma/client";
+import {
+  YtShortStatus,
+  YtSourceType,
+  YtEditJobStatus,
+  VillaClipStatus,
+  type Prisma,
+} from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
 import { writeAuditLog } from "@/lib/audit-log";
 import { validateEditParams, EditValidationError, type EditParams } from "@/lib/youtube/edit";
 import { generateShortMeta } from "@/lib/youtube/meta";
+import {
+  ClipSourceError,
+  extractClipRefs,
+  resolveSourceVilla,
+  applyResolvedClipKeys,
+} from "@/lib/youtube/villa-clip-source";
 import type { VillaPublicInfo } from "@/lib/instagram/caption";
 
 export const dynamic = "force-dynamic";
@@ -59,9 +73,43 @@ export async function POST(req: Request) {
   }
   const b = (body ?? {}) as Record<string, unknown>;
 
+  // ── 빌라 자산(VillaClip) 소재 해석 (youtube-villa-clip-source) ──
+  //   클라는 r2Key를 볼 수 없으므로 `clips[].villaClipId`로 보내고, 서버가 키로 바꾼다.
+  //   ★ validateEditParams **앞**에서 돈다 — 그쪽은 key가 이미 채워져 있다고 가정한다.
+  //   ★ 불변식: params에 실린 모든 `villa-clips/…` 키는 **APPROVED VillaClip 행으로 실재**해야 한다.
+  //     (형식만 맞는 문자열을 직접 써넣는 우회를 막는 이중 게이트. 형식 검사는 edit.ts CLIP_KEY_RE)
+  const requestedVillaId =
+    typeof b.villaId === "string" && b.villaId.trim() ? b.villaId.trim() : null;
+  let rawParams: unknown = b.params;
+  let sourceVillaId: string | null = null;
+
+  const refs = extractClipRefs(rawParams);
+  if (refs.ids.length > 0 || refs.keys.length > 0) {
+    const rows = await prisma.villaClip.findMany({
+      where: {
+        status: VillaClipStatus.APPROVED, // 검수 게이트(사업 원칙 3) — 미승인 영상은 소재가 될 수 없다
+        OR: [{ id: { in: refs.ids } }, { r2Key: { in: refs.keys } }],
+      },
+      select: { id: true, r2Key: true, villaId: true },
+    });
+    try {
+      const paramsVillaId =
+        typeof (rawParams as { villaId?: unknown } | null)?.villaId === "string"
+          ? ((rawParams as { villaId: string }).villaId.trim() || null)
+          : null;
+      sourceVillaId = resolveSourceVilla(rows, refs, paramsVillaId ?? requestedVillaId);
+      rawParams = applyResolvedClipKeys(rawParams, rows);
+    } catch (e) {
+      if (e instanceof ClipSourceError) {
+        return NextResponse.json({ error: e.code, message: e.message }, { status: 400 });
+      }
+      throw e;
+    }
+  }
+
   let params: EditParams;
   try {
-    params = validateEditParams(b.params);
+    params = validateEditParams(rawParams);
   } catch (e) {
     if (e instanceof EditValidationError) {
       return NextResponse.json({ error: "INVALID_PARAMS", code: e.code }, { status: 400 });
@@ -69,8 +117,8 @@ export async function POST(req: Request) {
     throw e;
   }
 
-  const villaId =
-    params.villaId ?? (typeof b.villaId === "string" && b.villaId.trim() ? b.villaId.trim() : null);
+  // 소재가 빌라 자산이면 그 빌라가 곧 이 쇼츠의 빌라다(운영자가 따로 안 골라도 메타·나레이션이 붙는다).
+  const villaId = params.villaId ?? requestedVillaId ?? sourceVillaId;
 
   // 메타(제목·설명·태그) 초안 — villaId 있으면 공개정보 기반 생성, 없으면 기본값/override.
   let title = typeof b.title === "string" && b.title.trim() ? b.title.trim().slice(0, 100) : "";
@@ -119,6 +167,8 @@ export async function POST(req: Request) {
       sourceType: { new: "UPLOADED" },
       editJobStatus: { new: "PENDING" },
       clipCount: { new: params.clips.length },
+      // 빌라 자산 재사용 건수 — "공급자 영상이 실제로 쓰였는지"를 감사 로그만으로 추적할 수 있어야 한다.
+      villaClipCount: { new: refs.ids.length + refs.keys.length },
       villaId: { new: villaId },
     },
   });

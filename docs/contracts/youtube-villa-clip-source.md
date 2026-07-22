@@ -94,3 +94,34 @@
 | 다른 빌라 영상이 한 쇼츠에 섞임 | 단일 빌라 강제(C3·C4). 소재 출처가 곧 콘텐츠 신뢰도 |
 | 마법사 STEP 1(클립)과 STEP 2(빌라)의 순서 역전 | 불러오기 패널이 자체 빌라 선택을 갖고 STEP 2에 prefill |
 | 미승인 클립이 발행물에 노출 | APPROVED만 허용(C2) — 검수 게이트 원칙과 동일선 |
+
+## 구현 결과 (2026-07-23)
+
+| 게이트 | 결과 |
+|---|---|
+| `npx tsc --noEmit` | 통과(0) |
+| `npm run lint` | 신규·수정 파일 error·warning 0 |
+| `npx next build` | 통과 — `/marketing/youtube/create` 5.99 kB |
+| `npx vitest run lib/youtube` | 47 passed (신규 villa-clip-source 15건 포함) |
+| `npx vitest run` 전체 | 3520 passed / 5 failed — **전부 기존 baseline**. 신규 실패 0 |
+
+신규: `lib/youtube/villa-clip-source.ts`, `lib/youtube/villa-clip-source.test.ts`
+수정: `lib/youtube/edit.ts`(CLIP_KEY_RE), `app/api/youtube/edit-jobs/route.ts`,
+`app/(admin)/marketing/youtube/create/create-short-wizard.tsx`, `messages/{ko,vi}.json`
+
+### 구현 중 함께 고친 것 1건
+
+마법사의 `MAX_CLIPS`가 **8**로 남아 있었다 — 서버는 "8컷으로는 맛보기밖에 안 된다"는 피드백으로
+`CLIP_COUNT_MAX`를 **16**으로 올렸는데 화면이 도로 8에서 막고 있었다(서버 상한이 무의미).
+16으로 맞추고 ko·vi 문구의 "최대 8개"도 함께 고쳤다.
+
+### 완료 기준 대조
+
+C1~C8·C10~C13 = 코드·유닛으로 충족. **C9(렌더까지 실사용)는 미검증** —
+프로덕션 `VillaClip`이 0행이라 검증에 실제 업로드가 선행돼야 한다(아래 잔여).
+
+### 잔여
+
+- 프로덕션 실사용 1회: 실빌라에 영상 1건 업로드 → 승인 → 마법사에서 불러오기 → 렌더(C9).
+  **이게 곧 "첫 VillaClip 생산"**이라 P1 완성 확인을 겸한다.
+- 독립 QA 서브에이전트 검증은 이번 세션 설정상 미수행(작성자 검토로 대체).

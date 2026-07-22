@@ -697,8 +697,8 @@
         "run": "Chạy dựng"
       },
       "step1": {
-        "title": "1. Tải clip",
-        "hint": "Chọn tệp mp4 hoặc mov. Tối đa 500MB mỗi clip, tối đa 8 clip.",
+        "title": "1. Chuẩn bị tư liệu",
+        "hint": "Chọn tệp mp4 hoặc mov. Tối đa 500MB mỗi clip, tối đa 16 clip.",
         "pick": "Chọn clip",
         "dropHint": "Có thể chọn nhiều tệp cùng lúc.",
         "uploading": "Đang tải lên",
@@ -708,11 +708,28 @@
         "remove": "Xóa",
         "tooLarge": "Tệp quá lớn (tối đa 500MB).",
         "badType": "Chỉ chấp nhận tệp mp4 hoặc mov.",
-        "limitReached": "Chỉ tải được tối đa 8 clip.",
+        "limitReached": "Chỉ thêm được tối đa 16 clip.",
         "presignError": "Chuẩn bị tải lên thất bại.",
         "uploadError": "Tải lên thất bại.",
         "r2NotConfigured": "Kho lưu trữ chưa được cấu hình. Vui lòng liên hệ quản trị.",
-        "countLabel": "{n} clip"
+        "countLabel": "{n} clip",
+        "importTitle": "Lấy video từ villa",
+        "importHint": "Dùng trực tiếp video đã đăng và được duyệt của villa. Không cần tải lên lại.",
+        "importPickVilla": "Chọn villa",
+        "importLoading": "Đang tải video…",
+        "importError": "Không tải được video.",
+        "importEmpty": "Villa này chưa có video được duyệt.",
+        "villaClipName": "Video villa",
+        "space": {
+          "EXTERIOR": "Ngoại thất",
+          "LIVING": "Phòng khách",
+          "KITCHEN": "Bếp",
+          "BEDROOM": "Phòng ngủ",
+          "BATHROOM": "Phòng tắm",
+          "BALCONY": "Ban công",
+          "POOL": "Hồ bơi",
+          "ETC": "Khác"
+        }
       },
       "step2": {
         "title": "2. Cấu hình",
@@ -758,6 +775,8 @@
         "running": "Đang thêm vào hàng đợi…",
         "runningHint": "Vui lòng đợi trong giây lát.",
         "createError": "Tạo tác vụ dựng thất bại.",
+        "clipVillaMismatch": "Villa đã chọn khác với villa của video. Một video chỉ được dùng clip của cùng một villa.",
+        "clipNotUsable": "Có video không dùng được. Chỉ video villa đã được duyệt mới làm tư liệu được.",
         "runError": "Thêm vào hàng đợi thất bại.",
         "invalidState": "Việc này đang được xử lý hoặc đã xử lý xong. Hãy kiểm tra trong danh sách.",
         "retry": "Thử lại",
