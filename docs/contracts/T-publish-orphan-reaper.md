@@ -20,8 +20,13 @@
 ### 1. `lib/marketing/reap-stale-publishing.ts` (신규)
 `reapStalePublishing(db?)` — InstagramPost·YoutubeShort 두 모델의 stale PUBLISHING을 FAILED로 회수.
 
-- 판정: `status = PUBLISHING AND updatedAt < now - 20분`
-  - 근거: 두 라우트 모두 `maxDuration = 300`(5분)이 하드 상한 → 20분은 정상 실행의 4배. 살아있는 발행을 죽일 수 없다.
+- 판정: `status = PUBLISHING AND updatedAt < now - 45분` (QA F2로 20분 → 45분 상향, 2026-07-23)
+  - ★ 근거는 `maxDuration`이 **아니다**: `export const maxDuration = 300`은 Vercel용 힌트라 self-hosted(Railway `next start`)에서는 강제되지 않는다.
+    실제 상한은 발행 경로의 fetch 타임아웃 합이다 — 인스타 캐러셀 10장 최악 ≈ **23분**
+    (자식 생성 10×30s + 자식 폴링 10×(60s+30s) + 부모 생성 30s + 부모 폴링 90s + media_publish 30s + permalink 30s).
+    릴스 ≈7분, 유튜브 업로드 ≈6분으로 캐러셀이 지배한다. → **45분 = 최악 경로의 약 2배**.
+  - 고아는 배포 교체·크래시 때만 생기는 드문 사건이라 감지가 20분 늦어도 무해하다. 반대로 살아있는 발행을 잘못 FAILED로 만들면 중복 게시·수동 확인 비용이 크다 — 여유 쪽으로 기울인다.
+  - ★ 동반 조정: `HTTP_TIMEOUT_MS`·`CONTAINER_POLL_TIMEOUT_MS`·`REEL_POLL_TIMEOUT_MS`(lib/instagram/publish.ts), 유튜브 업로드 `HTTP_TIMEOUT_MS`, 캐러셀 최대 장수(10장) 중 하나라도 올리면 이 컷오프도 함께 올려야 한다.
 - 회수: `updateMany`로 `{status: PUBLISHING}` 조건부 갱신(원자성 — 방금 성공한 행을 덮어쓰지 않는다)
   - `status = FAILED`, `failReason = "발행 중 중단(고아 자동 회수) — 계정에서 실제 발행 여부를 확인한 뒤 재발행하세요."`
 - **★ 절대 QUEUED로 되돌리지 않는다**: 끊긴 시점에 플랫폼에는 이미 올라갔을 수 있다(7/22 건은 안 올라갔지만 보장 불가).
@@ -56,10 +61,12 @@
 1. `npm run lint && npm run typecheck` 통과
 2. `npm run build` 통과 (배포 빌드 게이트)
 3. 단위 테스트 `__tests__`에 `reap-stale-publishing` 케이스:
-   - 20분 초과 PUBLISHING → FAILED + failReason 세팅 + 감사로그 1건
-   - 19분 경과 PUBLISHING → **건드리지 않음**(살아있는 발행 보호)
+   - 컷오프(45분) 초과 PUBLISHING → FAILED + failReason 세팅 + 감사로그 1건
+   - 컷오프 직전(44분) PUBLISHING → **건드리지 않음**(살아있는 발행 보호)
    - QUEUED·PUBLISHED·FAILED 행 → 영향 없음
    - 회수 0건이면 `notifyMarketing` 호출 없음
+   - (QA F1) findMany 직후 그 행이 PUBLISHED로 성공한 경합 → 덮어쓰지 않음. **페이크 DB에 판정을 위임해 가드 자체를 검증**한다(반환값만 목킹하면 where 가드를 지워도 통과함 — 뮤테이션으로 검출력 확인)
+   - (QA F3) 한 축이 도중 실패 → 그때까지 회수분은 경보되고 다른 축은 계속 돈다
 4. 회수된 행이 QUEUED가 아니라 FAILED인지 명시적으로 단언(중복 발행 방지 회귀 테스트)
 5. QA: 실제 DB의 현재 PUBLISHING 0건 상태에서 세 라우트가 200을 반환하고 아무 행도 바뀌지 않음을 확인
 
