@@ -509,17 +509,39 @@ interface LocalClip {
   durationSec: number;
 }
 
+/**
+ * 나레이션이 요구한 길이를 원본이 못 채울 때 허용하는 최대 감속 배율.
+ * 1.6배까지는 "느린 팬"처럼 보여 자연스럽지만, 그 이상은 슬로모션 티가 난다.
+ */
+const MAX_SLOWDOWN = 1.6;
+
 async function normalizeClip(
   clip: LocalClip,
   outPath: string,
   horizontalMode: "crop" | "blur"
 ): Promise<void> {
   const useBlur = horizontalMode === "blur" && (await probeIsHorizontal(clip.path));
-  const filter = normalizeFilter(useBlur ? "blur" : "crop");
+  let filter = normalizeFilter(useBlur ? "blur" : "crop");
+
+  // ★ 원본 부족분을 감속으로 채운다(2026-07-22 프로덕션 실측 결함).
+  //   나레이션 타임라인이 컷에 배정한 시간이 원본보다 길면 `-t`는 **그냥 짧게** 끝난다.
+  //   그러면 그 뒤 컷들이 앞당겨지면서 오디오와 어긋나고, 마지막에 화면이 멈춘 채
+  //   나레이션만 흐르는 상태가 된다("32초에 영상은 멈추고 나레이션만 나온다").
+  //   → setpts로 재생 속도를 늦춰 요청 길이를 정확히 채운다. 빌라 투어에서 살짝 느린 팬은
+  //     오히려 자연스럽다. 한계(MAX_SLOWDOWN)를 넘으면 채울 수 있는 데까지만 늘린다.
+  const srcDur = await probeDurationSec(clip.path);
+  const avail = srcDur != null ? Math.max(0, srcDur - clip.startSec) : null;
+  let readSec = clip.durationSec;
+  if (avail != null && avail > 0.1 && clip.durationSec > avail + 0.05) {
+    const factor = Math.min(MAX_SLOWDOWN, clip.durationSec / avail);
+    filter = `[0:v]setpts=${factor.toFixed(4)}*PTS[slow];[slow]` + filter.replace(/^\[0:v\]/, "");
+    readSec = avail; // 원본 전체를 읽고 감속으로 늘린다
+  }
+
   await run(FFMPEG_PATH, [
     "-y",
     "-ss", clip.startSec.toFixed(3),
-    "-t", clip.durationSec.toFixed(3),
+    "-t", readSec.toFixed(3),
     "-i", clip.path,
     "-filter_complex", filter,
     "-map", "[vout]",

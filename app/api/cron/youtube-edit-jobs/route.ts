@@ -91,6 +91,17 @@ async function handle(req: Request) {
       const result = await runYoutubeEditJob(editParams, {
         villaName: short.villa?.name ?? null,
         baseName: short.id,
+        // ★ 오프닝 스펙 칩(QA M-6) — 나레이션 훅과 같은 정보를 화면에도 띄운다.
+        //   음소거 시청자에게 침실 수·수영장·해변 거리를 전달하는 게 오프닝의 핵심이다.
+        introSpecs: short.villa
+          ? buildIntroSpecs({
+              villaName: short.villa.name,
+              bedrooms: short.villa.bedrooms,
+              hasPool: short.villa.hasPool,
+              beachDistanceM: short.villa.beachDistanceM,
+              clips: [],
+            })
+          : undefined,
       });
       // ★ 발행 축은 **재렌더 가능한 상태일 때만** 승인 큐로 되돌린다(QA H-1 심층 방어).
       //   이미 QUEUED/PUBLISHING/PUBLISHED인 건을 PENDING_APPROVAL로 되돌리면 재승인 →
