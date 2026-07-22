@@ -46,14 +46,15 @@ async function handle(req: Request) {
 
   // 빌라 힌트·이미지는 공개 관문 경유분만. 실패해도 글 생성은 계속한다(선택 재료).
   let hints: string[] = [];
-  let images: ReturnType<typeof pickArticleImages> = [];
+  let villaPool: Awaited<ReturnType<typeof getPublicVillas>> = [];
   try {
     const villas = await getPublicVillas();
     hints = villaHints(villas);
-    images = pickArticleImages(villas, 3);
+    // 시드 없이 뽑으면 모든 글이 같은 사진을 쓴다 — 주제별로 아래에서 다시 뽑는다.
+    villaPool = villas;
   } catch {
     hints = [];
-    images = [];
+    villaPool = [];
   }
 
   const created: { id: string; slug: string; title: string }[] = [];
@@ -81,6 +82,8 @@ async function handle(req: Request) {
     // 이미지 배치 — 첫 장은 커버(공유 썸네일·Article.image), 나머지는 본문 소제목 뒤에 삽입.
     //   공개 빌라 사진이 없으면 커버만 브랜드 이미지로 채우고 본문 이미지는 넣지 않는다
     //   (같은 브랜드 이미지를 본문에 반복 노출하는 것은 SEO상 의미가 없다).
+    // 주제 키를 시드로 — 글마다 다른 사진 조합이 나온다(같은 주제는 항상 같은 조합).
+    const images = pickArticleImages(villaPool, 3, topic.key);
     const cover = images[0]?.url ?? BRAND_FALLBACK_IMAGE;
     const bodyBlocks = interleaveImages(draft.blocks, images.slice(1));
 

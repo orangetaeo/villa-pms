@@ -227,18 +227,32 @@ export interface PickedImage {
  * 글에 쓸 이미지 후보를 공간 다양성 있게 고른다(같은 침실 사진 3장 같은 중복 방지).
  * alt는 "단지명 빌라명 공간" 형태 — 검색어와 맞물리게 한국어로 만든다.
  */
-export function pickArticleImages(villas: PublicVilla[], max = 3): PickedImage[] {
-  const out: PickedImage[] = [];
-  const usedSpaces = new Set<string>();
-  // 공간 우선순위 — 외관·수영장이 먼저(썸네일로 가장 설득력 있는 컷)
-  const priority = ["EXTERIOR", "POOL", "LIVING", "BEDROOM", "KITCHEN", "BALCONY", "BATHROOM", "ETC"];
+/** 문자열 → 결정적 정수(글마다 다른 사진을 고르기 위한 시드). 같은 글은 항상 같은 결과. */
+function seedOf(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
+}
 
-  for (const space of priority) {
+export function pickArticleImages(villas: PublicVilla[], max = 3, seedKey = ""): PickedImage[] {
+  if (villas.length === 0) return [];
+  const out: PickedImage[] = [];
+  const usedUrls = new Set<string>();
+  const seed = seedOf(seedKey);
+
+  // ★ 글마다 다른 사진이 나와야 한다 — 모든 글이 같은 이미지를 쓰면 중복 이미지 신호가 되고
+  //   독자에게도 성의 없어 보인다. 빌라 순서와 공간 시작점을 시드로 회전시킨다.
+  //   시드가 같으면 결과도 같다(재생성 시 URL이 널뛰지 않음).
+  const rotatedVillas = villas.map((_, i) => villas[(i + seed) % villas.length]);
+  const priority = ["EXTERIOR", "POOL", "LIVING", "BEDROOM", "KITCHEN", "BALCONY", "BATHROOM", "ETC"];
+  const rotatedSpaces = priority.map((_, i) => priority[(i + (seed % priority.length)) % priority.length]);
+
+  // 빌라를 번갈아 돌며 공간이 겹치지 않게 채운다(한 빌라 사진만 몰리는 것 방지).
+  for (const space of rotatedSpaces) {
     if (out.length >= max) break;
-    for (const v of villas) {
+    for (const v of rotatedVillas) {
       if (out.length >= max) break;
-      if (usedSpaces.has(space)) break;
-      const photo = v.photos.find((p) => p.space === space);
+      const photo = v.photos.find((p) => p.space === space && !usedUrls.has(p.url));
       if (!photo) continue;
       const where = v.areaNameKo ?? v.areaName ?? v.complex ?? "푸꾸옥";
       const spaceKo = SPACE_LABEL_KO[space] ?? "내부";
@@ -247,7 +261,8 @@ export function pickArticleImages(villas: PublicVilla[], max = 3): PickedImage[]
         alt: `${where} ${v.name} ${spaceKo}`,
         caption: `${where} · 침실 ${v.bedrooms}개 · 최대 ${v.maxGuests}인`,
       });
-      usedSpaces.add(space);
+      usedUrls.add(photo.url);
+      break; // 같은 공간은 한 장만 — 다음 공간으로
     }
   }
   return out;

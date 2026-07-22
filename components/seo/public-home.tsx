@@ -126,7 +126,12 @@ export default function PublicHome({ villas, areas }: PublicHomeProps) {
       {/* 추천 빌라 — ★ 가격·공실 표기 없음. CTA는 견적 문의 */}
       {featured.length > 0 && (
         <section className="px-5 py-8">
-          <h2 className="text-xl font-bold">추천 빌라</h2>
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-xl font-bold">추천 빌라</h2>
+            <Link href={blogPaths.villas()} className="text-sm font-semibold text-teal-700">
+              전체 보기 →
+            </Link>
+          </div>
           <div className="mt-4 space-y-5">
             {featured.map((v) => (
               <article key={v.id} className="overflow-hidden rounded-2xl border border-slate-200">
