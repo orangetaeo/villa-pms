@@ -18,6 +18,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { ThreadType } from "zca-js";
 import {
+  Prisma,
   ProposalStatus,
   ZaloCounterpartyType,
   ZaloMessageDirection,
@@ -113,50 +114,85 @@ async function persistShare(
   captionTranslated: string | null = null
 ) {
   const status = send.ok ? ZaloMessageStatus.SENT : ZaloMessageStatus.FAILED;
+  const zaloMsgId = send.ok ? (send.messageId ?? null) : null;
   const now = new Date();
-  const message = await prisma.$transaction(async (tx) => {
-    const created = await tx.zaloMessage.create({
-      data: {
-        conversationId,
-        direction: ZaloMessageDirection.OUTBOUND,
-        source: ZaloMessageSource.CHAT,
-        msgType,
-        text,
-        captionTranslated,
-        attachmentUrls,
-        zaloMsgId: send.ok ? (send.messageId ?? null) : null,
-        status,
-        error: send.ok ? null : (send.error ?? null),
-        sentBy: adminUserId,
-      },
-      select: { id: true, status: true, createdAt: true },
+  const messageSelect = { id: true, status: true, createdAt: true } as const;
+  // ★셀프에코 레이스(P2002) — messages/route.ts와 동일. 워커 리스너가 내 발신 에코를 먼저 저장하면
+  //   같은 (conversationId, zaloMsgId) create가 터져 500 → 실제로는 전달됐는데 "전송 실패"로 보인다.
+  //   → 에코 행을 내 발신 기록(원문·캡션 번역·R2 URL·sentBy)으로 보강하고 정상 응답한다.
+  const echoPatch = {
+    source: ZaloMessageSource.CHAT,
+    msgType,
+    text,
+    captionTranslated,
+    attachmentUrls,
+    status,
+    error: send.ok ? null : (send.error ?? null),
+    sentBy: adminUserId,
+  };
+  const persist = (patchEcho: boolean) =>
+    prisma.$transaction(async (tx) => {
+      const created =
+        patchEcho && zaloMsgId
+          ? await tx.zaloMessage.update({
+              where: { conversationId_zaloMsgId: { conversationId, zaloMsgId } },
+              data: echoPatch,
+              select: messageSelect,
+            })
+          : await tx.zaloMessage.create({
+              data: {
+                conversationId,
+                direction: ZaloMessageDirection.OUTBOUND,
+                source: ZaloMessageSource.CHAT,
+                msgType,
+                text,
+                captionTranslated,
+                attachmentUrls,
+                zaloMsgId,
+                status,
+                error: send.ok ? null : (send.error ?? null),
+                sentBy: adminUserId,
+              },
+              select: messageSelect,
+            });
+      await tx.zaloConversation.update({
+        where: { id: conversationId },
+        data: {
+          lastMessageAt: now,
+          // 인박스 미리보기 비정규화(perf) — 공유 카드 본문·타입 캐시.
+          lastMessageText: text,
+          lastMessageType: msgType,
+        },
+      });
+      // AuditLog — 본문·금액·credential 미기록 (D4.5)
+      await writeAuditLog({
+        userId: adminUserId,
+        action: patchEcho ? "UPDATE" : "CREATE",
+        entity: "ZaloMessage",
+        entityId: created.id,
+        changes: {
+          direction: { new: "OUTBOUND" },
+          source: { new: "CHAT" },
+          msgType: { new: msgType },
+          status: { new: status },
+          sharedEntity: { new: `${sharedEntity.type}:${sharedEntity.id}` },
+          ...(patchEcho ? { echoReconciled: { new: "true" } } : {}),
+        },
+        db: tx,
+      });
+      return created;
     });
-    await tx.zaloConversation.update({
-      where: { id: conversationId },
-      data: {
-        lastMessageAt: now,
-        // 인박스 미리보기 비정규화(perf) — 공유 카드 본문·타입 캐시.
-        lastMessageText: text,
-        lastMessageType: msgType,
-      },
-    });
-    // AuditLog — 본문·금액·credential 미기록 (D4.5)
-    await writeAuditLog({
-      userId: adminUserId,
-      action: "CREATE",
-      entity: "ZaloMessage",
-      entityId: created.id,
-      changes: {
-        direction: { new: "OUTBOUND" },
-        source: { new: "CHAT" },
-        msgType: { new: msgType },
-        status: { new: status },
-        sharedEntity: { new: `${sharedEntity.type}:${sharedEntity.id}` },
-      },
-      db: tx,
-    });
-    return created;
-  });
+
+  let message: Awaited<ReturnType<typeof persist>>;
+  try {
+    message = await persist(false);
+  } catch (err) {
+    if (zaloMsgId && err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      message = await persist(true);
+    } else {
+      throw err;
+    }
+  }
   return NextResponse.json({
     id: message.id,
     status: message.status,
