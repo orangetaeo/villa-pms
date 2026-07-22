@@ -122,10 +122,12 @@ const NAV: NavEntry[] = [
       { key: "youtube", href: "/marketing/youtube", icon: "smart_display" },
       // 가이드·빌라 글 승인 큐 (T-seo-s3) — 자동 생성 초안을 여기서 승인한다
       { key: "seoArticles", href: "/marketing/seo", icon: "article" },
-      // 공개 블로그(비로그인 페이지) — 발행 결과 확인용. 새 탭으로 연다
-      { key: "publicBlog", href: "/blog", icon: "public", external: true },
     ],
   },
+  // 공개 블로그(villa-go.net/blog) — **비로그인 공개 페이지**라 마케팅 그룹이 아니라 단독 항목으로 둔다.
+  //   · 발행 결과를 방문자와 같은 화면으로 확인하는 용도라 운영자 전원에게 보인다(민감 정보 0)
+  //   · ★새 탭으로 연다 — 관리자 작업 흐름을 끊지 않기 위함(NavLeaf.external)
+  { key: "publicBlog", href: "/blog", icon: "public", external: true },
   { key: "messages", href: "/messages", icon: "chat" },
   {
     group: "system",
