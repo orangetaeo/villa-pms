@@ -128,13 +128,35 @@ function getR2Client(config: R2Config): S3Client {
   return r2Client;
 }
 
-function buildFileName(mimeType: string, uploaderId: string): string {
+/**
+ * SEO 파일명 힌트 정규화 — **클라이언트 입력을 절대 신뢰하지 않는다.**
+ *   · 소문자 라틴·숫자·하이픈만 남긴다(경로 주입·유니코드 트릭 차단)
+ *   · 40자로 자른다(URL 비대 방지)
+ *   결과가 비면 힌트 없이 기존 이름 규칙을 쓴다.
+ */
+export function sanitizeNameHint(hint: string | null | undefined): string {
+  if (!hint) return "";
+  return hint
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40)
+    .replace(/-+$/g, "");
+}
+
+function buildFileName(mimeType: string, uploaderId: string, nameHint?: string): string {
   const ext = MIME_EXT[mimeType];
   // 화이트리스트 외 MIME은 확장자 유추 없이 즉시 거부 — 클라이언트 Content-Type 신뢰 금지
   if (!ext) throw new Error(`DISALLOWED_MIME: ${mimeType}`);
   const safeUploader = uploaderId.replace(/[^a-zA-Z0-9_-]/g, "");
-  // 파일명에 타임스탬프 + 업로더 기록 (증빙 목적, 수정 불가 규칙)
-  return `${Date.now()}-${safeUploader}-${randomUUID()}.${ext}`;
+  // ★ SEO: 파일명 앞에 의미를 붙인다(예: sonasea-v3b-exterior-...). 이미지 검색 결과에 URL이
+  //   그대로 노출되고, 파일명은 약하지만 실재하는 신호다. 기존 증빙 정보(타임스탬프·업로더·UUID)는
+  //   뒤에 그대로 유지 — "누가 언제 올렸는지"는 수정 불가 규칙이라 버리지 않는다.
+  const hint = sanitizeNameHint(nameHint);
+  const prefix = hint ? `${hint}-` : "";
+  return `${prefix}${Date.now()}-${safeUploader}-${randomUUID()}.${ext}`;
 }
 
 /**
@@ -144,9 +166,11 @@ function buildFileName(mimeType: string, uploaderId: string): string {
 export async function saveFile(
   buffer: Buffer,
   mimeType: string,
-  uploaderId: string
+  uploaderId: string,
+  /** SEO 파일명 힌트(예: "sonasea-v3b-exterior") — 서버에서 정규화 후 접두로 붙는다 */
+  nameHint?: string
 ): Promise<{ url: string }> {
-  const fileName = buildFileName(mimeType, uploaderId);
+  const fileName = buildFileName(mimeType, uploaderId, nameHint);
   assertImageBytes(buffer); // P3-S1 — 실제 바이트가 허용 이미지인지(위장 차단)
   const r2 = getR2Config();
 

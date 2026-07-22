@@ -71,11 +71,18 @@ export const PUBLIC_VILLA_SELECT = {
   // 소개문
   description: true,
 
-  // 미디어 — 사진만. 영상(VillaClip)은 origin 미반영 모델이라 의존하지 않는다.
-  //   병합 후 추가할 때는 반드시 status=APPROVED 필터를 건다(검수 게이트 원칙 3).
   photos: {
     select: { id: true, url: true, space: true, spaceLabel: true, sortOrder: true },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  },
+  // 발행된 유튜브 쇼츠 — VideoObject 구조화 데이터·비디오 사이트맵용 (T-seo-media).
+  //   ★ PUBLISHED + ytVideoId 있는 것만. 미발행·비공개 영상은 절대 노출하지 않는다.
+  //   ★ 영상 메타는 이미 유튜브에 공개된 정보(제목·설명)라 추가 누수 표면이 없다.
+  youtubeShorts: {
+    where: { status: "PUBLISHED", ytVideoId: { not: null } },
+    select: { ytVideoId: true, title: true, description: true, publishedAt: true },
+    orderBy: { publishedAt: "desc" },
+    take: 3,
   },
 } satisfies Prisma.VillaSelect;
 
@@ -110,6 +117,8 @@ export interface PublicVilla {
   parkingSlots: number;
   description: string | null;
   photos: { id: string; url: string; space: string; spaceLabel: string | null }[];
+  /** 발행된 쇼츠 — VideoObject·비디오 사이트맵용. 없으면 빈 배열 */
+  videos: { ytVideoId: string; title: string; description: string; publishedAt: Date | null }[];
   updatedAt: Date;
   publicListedAt: Date | null;
 }
@@ -150,6 +159,9 @@ export function toPublicVilla(row: PublicVillaRow): PublicVilla | null {
     parkingSlots: row.parkingSlots,
     description: row.description,
     photos: row.photos.map((p) => ({ id: p.id, url: p.url, space: String(p.space), spaceLabel: p.spaceLabel })),
+    videos: row.youtubeShorts
+      .filter((s): s is typeof s & { ytVideoId: string } => !!s.ytVideoId)
+      .map((s) => ({ ytVideoId: s.ytVideoId, title: s.title, description: s.description, publishedAt: s.publishedAt })),
     updatedAt: row.updatedAt,
     publicListedAt: row.publicListedAt,
   };

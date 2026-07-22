@@ -29,11 +29,18 @@ const FORBIDDEN_KEY_PATTERNS = [
   "status", "sellable", "quality", "rejection",
 ];
 
-/** 객체 트리에서 모든 키 이름을 수집(중첩 select 포함). */
+/**
+ * 객체 트리에서 **출력 키** 이름을 수집(중첩 select 포함).
+ * ★ where·orderBy·take 같은 **조회 조건 절은 건너뛴다** — 필터에 status를 쓰는 것은 누수가 아니라
+ *   오히려 게이트다(예: youtubeShorts where status=PUBLISHED). 우리가 막으려는 건 밖으로 나가는 필드다.
+ */
+const QUERY_CLAUSE_KEYS = new Set(["where", "orderBy", "take", "skip", "cursor", "distinct"]);
+
 function collectKeys(obj: unknown, out: string[] = []): string[] {
   if (obj && typeof obj === "object" && !Array.isArray(obj)) {
     for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
       out.push(k);
+      if (QUERY_CLAUSE_KEYS.has(k)) continue; // 조건 절 내부는 출력이 아니다
       collectKeys(v, out);
     }
   } else if (Array.isArray(obj)) {
@@ -83,6 +90,7 @@ function makeRow(over: Partial<PublicVillaRow> = {}): PublicVillaRow {
     parkingSlots: 2,
     description: "가".repeat(MIN_PUBLIC_BODY_CHARS),
     photos,
+    youtubeShorts: [],
     ...over,
   } as PublicVillaRow;
 }

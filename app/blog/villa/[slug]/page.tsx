@@ -87,13 +87,39 @@ export default async function PublicVillaPage({ params }: Params) {
     numberOfRooms: v.bedrooms,
     petsAllowed: v.petsAllowed,
     smokingAllowed: v.smokingAllowed,
-    image: v.photos.slice(0, 6).map((p) => p.url),
+    // ★ image를 URL 문자열이 아니라 ImageObject로 준다 — 구글 이미지의 "라이선스 가능" 배지는
+    //   IPTC 파일 메타데이터 **또는 구조화 데이터**로 활성화된다. 우리 업로드 파이프라인은
+    //   캔버스 재인코딩으로 EXIF/IPTC가 제거되므로(위치정보 유출 방지 측면에선 바람직)
+    //   구조화 데이터 경로를 쓴다. 사진 무단 도용 억제에도 도움이 된다.
+    image: v.photos.slice(0, 6).map((p) => ({
+      "@type": "ImageObject",
+      contentUrl: p.url,
+      creditText: "Villa GO",
+      creator: { "@type": "Organization", name: "Villa GO" },
+      copyrightNotice: "© Villa GO",
+      acquireLicensePage: absoluteUrl("/chat?src=seo"),
+    })),
     amenityFeature: [
       ...(v.hasPool ? [{ "@type": "LocationFeatureSpecification", name: "수영장", value: true }] : []),
       ...(v.breakfastAvailable ? [{ "@type": "LocationFeatureSpecification", name: "조식", value: true }] : []),
       ...features.map((k) => ({ "@type": "LocationFeatureSpecification", name: FEATURE_KO[k] ?? k, value: true })),
     ],
   };
+
+  // 발행된 유튜브 쇼츠가 있으면 VideoObject를 함께 낸다.
+  //   ★ 영상은 파일 메타데이터를 봇이 읽는 방식이 아니라 **구조화 데이터**로 색인된다
+  //     (검색결과 동영상 썸네일 노출 경로). 미발행·비공개 영상은 관문에서 이미 걸러진다.
+  const videoLd = v.videos.map((vid) => ({
+    "@context": "https://schema.org",
+    "@type": "VideoObject",
+    name: vid.title,
+    description: vid.description.slice(0, 500),
+    thumbnailUrl: [`https://i.ytimg.com/vi/${vid.ytVideoId}/hqdefault.jpg`],
+    uploadDate: (vid.publishedAt ?? new Date()).toISOString(),
+    contentUrl: `https://www.youtube.com/watch?v=${vid.ytVideoId}`,
+    embedUrl: `https://www.youtube.com/embed/${vid.ytVideoId}`,
+    publisher: { "@type": "Organization", name: "Villa GO" },
+  }));
 
   const specs: { label: string; value: string }[] = [
     { label: "침실", value: `${v.bedrooms}개` },
@@ -112,6 +138,13 @@ export default async function PublicVillaPage({ params }: Params) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
+      {videoLd.map((ld, i) => (
+        <script
+          key={i}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(ld).replace(/</g, "\\u003c") }}
+        />
+      ))}
 
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur">
         <Link href="/" className="text-lg font-extrabold tracking-tight text-teal-600">
