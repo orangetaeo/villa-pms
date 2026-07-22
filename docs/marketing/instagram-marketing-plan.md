@@ -224,6 +224,7 @@ model InstagramMessage {   // DM 인박스
   → 성공: PUBLISHED + permalink 저장 / 실패: FAILED + Zalo 경보
 ```
 - Railway cron 등록은 기존 GraphQL API 방식 재사용 (db-backup에서 검증됨).
+- **발행 고아 자동 회수(2026-07-23)**: 발행 중 프로세스가 끊겨 PUBLISHING에 갇힌 행은 45분 초과 시 자동으로 FAILED + 운영자 경보가 된다(`lib/marketing/reap-stale-publishing.ts`, 발행 cron 2종 + `youtube-edit-jobs`(*/5분)에서 실행). **자동 재발행은 하지 않는다** — 이미 올라갔을 수 있으므로 계정에서 실제 발행 여부를 확인한 뒤 사람이 재발행한다.
 - 승인 편의: "3건 일괄 승인" 버튼 + 승인 없이 24h 지나면 스킵(무단 발행 금지). 운영이 익숙해지면 "자동 승인 모드" 옵션 추가 가능.
 
 ### 3-5. 관리자 페이지 (admin, ko/다크)
