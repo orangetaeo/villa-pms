@@ -1,7 +1,10 @@
 "use client";
 
 // 직접 촬영 쇼츠 자동 편집 마법사 (3스텝) — /marketing/youtube/create.
-//   STEP 1: 클립 다중 업로드 (presign → R2 PUT 직업로드, XHR 진행률, 실패 재시도).
+//   STEP 1: 소재 확보 — ⑴ 승인된 **빌라 영상 불러오기**(재업로드 0) ⑵ 클립 다중 업로드
+//           (presign → R2 PUT 직업로드, XHR 진행률, 실패 재시도).
+//   ★ ⑴이 VillaClip의 소비처다(youtube-villa-clip-source). 불러온 클립은 업로드를 거치지 않고
+//     `villaClipId`만 서버로 보낸다 — 클라이언트는 r2Key를 볼 수 없고, 서버가 키로 해석한다.
 //   STEP 2: 순서·구간·가로처리·오디오·헤드라인·빌라·자막 구성.
 //   STEP 3: edit-jobs 생성 → run(동기, 수분) → 미리보기 + 승인 대기 큐 이동.
 //   ★ 누수 없음: 입력·응답에 원가·판매가·재고 개념 부재. 빌라 목록은 id·name만 사용.
@@ -10,7 +13,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
-const MAX_CLIPS = 8;
+// 서버(edit.ts CLIP_COUNT_MAX)와 같은 값이어야 한다 — 8로 두면 "빌라 투어는 8컷으로 맛보기밖에
+// 안 된다"고 상향한 서버 상한(16)을 화면이 도로 막는다.
+const MAX_CLIPS = 16;
 const MAX_SIZE = 500 * 1024 * 1024; // 500MB
 const MAX_SUBTITLES = 20;
 const HEADLINE_MAX = 120;
@@ -23,14 +28,29 @@ type ClipStatus = "uploading" | "done" | "error";
 
 interface Clip {
   localId: string;
-  file: File; // 재시도용 보존
+  file: File | null; // 재시도용 보존. 빌라 영상에서 불러온 항목은 null(업로드가 없다)
   fileName: string;
   sizeBytes: number;
   status: ClipStatus;
   progress: number; // 0~100
   key: string | null; // 업로드 완료 시 R2 key
+  /** 빌라 자산에서 불러온 소재. 서버가 이 id를 r2Key로 해석한다(클라는 키를 모른다). */
+  villaClipId: string | null;
   startSec: string; // number input 문자열(빈 값=기본)
   durationSec: string;
+}
+
+/** 빌라에 등록된 승인 영상 — GET /api/villas/[id]/clips 응답(화이트리스트, r2Key 없음). */
+interface VillaClipOption {
+  id: string;
+  url: string;
+  sizeBytes: number;
+  durationSec: number;
+  width: number;
+  height: number;
+  space: string | null;
+  note: string | null;
+  status: string;
 }
 
 interface Subtitle {
@@ -84,6 +104,11 @@ export default function CreateShortWizard() {
   const [villaQuery, setVillaQuery] = useState("");
   const [villaLoadError, setVillaLoadError] = useState(false);
 
+  // ── 빌라 영상 불러오기(VillaClip 소비) — 재업로드 없이 승인된 빌라 자산을 소재로 쓴다 ──
+  const [importVillaId, setImportVillaId] = useState("");
+  const [importOptions, setImportOptions] = useState<VillaClipOption[]>([]);
+  const [importState, setImportState] = useState<"idle" | "loading" | "error">("idle");
+
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const xhrs = useRef<Map<string, XMLHttpRequest>>(new Map());
@@ -120,6 +145,34 @@ export default function CreateShortWizard() {
     };
   }, []);
 
+  // 선택한 빌라의 **승인된** 영상만 불러온다. 미승인(UPLOADED·REJECTED)은 소재가 될 수 없고
+  // 서버도 거부하므로(CLIP_NOT_USABLE), 애초에 목록에서 뺀다.
+  useEffect(() => {
+    if (!importVillaId) {
+      setImportOptions([]);
+      setImportState("idle");
+      return;
+    }
+    let alive = true;
+    setImportState("loading");
+    fetch(`/api/villas/${importVillaId}/clips`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data: { clips?: VillaClipOption[] }) => {
+        if (!alive) return;
+        setImportOptions((data?.clips ?? []).filter((c) => c.status === "APPROVED"));
+        setImportState("idle");
+      })
+      .catch(() => {
+        if (alive) {
+          setImportOptions([]);
+          setImportState("error");
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, [importVillaId]);
+
   // 언마운트 시 진행 중 XHR 취소
   useEffect(() => {
     const map = xhrs.current;
@@ -139,6 +192,9 @@ export default function CreateShortWizard() {
   // 단일 클립 업로드 (presign → R2 PUT). 진행률·상태 갱신.
   const uploadClip = useCallback(
     async (clip: Clip) => {
+      // 빌라 영상에서 불러온 항목은 업로드 대상이 아니다(파일이 없다).
+      const file = clip.file;
+      if (!file) return;
       updateClip(clip.localId, { status: "uploading", progress: 0, key: null });
       try {
         const presignRes = await fetch("/api/youtube/clips/presign", {
@@ -146,7 +202,7 @@ export default function CreateShortWizard() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             fileName: clip.fileName,
-            contentType: clip.file.type || "video/mp4",
+            contentType: file.type || "video/mp4",
             sizeBytes: clip.sizeBytes,
           }),
         });
@@ -196,7 +252,7 @@ export default function CreateShortWizard() {
             xhrs.current.delete(clip.localId);
             reject(new Error("abort"));
           };
-          xhr.send(clip.file);
+          xhr.send(file);
         });
 
         updateClip(clip.localId, { status: "done", progress: 100, key: presign.key });
@@ -244,6 +300,7 @@ export default function CreateShortWizard() {
             status: "uploading",
             progress: 0,
             key: null,
+            villaClipId: null,
             startSec: "",
             durationSec: "",
           });
@@ -255,6 +312,39 @@ export default function CreateShortWizard() {
       if (fileInputRef.current) fileInputRef.current.value = "";
     },
     [t, uploadClip]
+  );
+
+  // 승인 영상 → 소재 목록에 추가. 업로드가 없으므로 곧바로 "done"이다.
+  const addVillaClip = useCallback(
+    (opt: VillaClipOption) => {
+      setUploadError(null);
+      setClips((prev) => {
+        if (prev.some((c) => c.villaClipId === opt.id)) return prev; // 같은 영상 두 번 담기 방지
+        if (prev.length >= MAX_CLIPS) {
+          setUploadError(t("create.step1.limitReached"));
+          return prev;
+        }
+        return [
+          ...prev,
+          {
+            localId: nextId(),
+            file: null,
+            fileName: opt.note?.trim() || t("create.step1.villaClipName"),
+            sizeBytes: opt.sizeBytes,
+            status: "done" as ClipStatus,
+            progress: 100,
+            key: null,
+            villaClipId: opt.id,
+            startSec: "",
+            // 실제 길이를 트림 상한(2~8초)에 맞춰 기본값으로 채운다 — 운영자가 STEP 2에서 조정.
+            durationSec: String(Math.min(DUR_MAX, Math.max(DUR_MIN, opt.durationSec))),
+          },
+        ];
+      });
+      // STEP 2의 빌라 선택을 미리 채운다 — 같은 값을 두 번 고르게 하지 않는다.
+      setVillaId((cur) => cur ?? importVillaId);
+    },
+    [importVillaId, t]
   );
 
   const removeClip = useCallback((localId: string) => {
@@ -319,7 +409,8 @@ export default function CreateShortWizard() {
               const startSec = c.startSec.trim() === "" ? undefined : Number(c.startSec);
               const durationSec = c.durationSec.trim() === "" ? undefined : Number(c.durationSec);
               return {
-                key: c.key,
+                // 빌라 자산은 id만 보낸다 — r2Key는 서버만 안다(클라 응답에 키가 없다).
+                ...(c.villaClipId ? { villaClipId: c.villaClipId } : { key: c.key }),
                 ...(startSec != null && Number.isFinite(startSec) ? { startSec } : {}),
                 ...(durationSec != null && Number.isFinite(durationSec)
                   ? { durationSec }
@@ -348,8 +439,22 @@ export default function CreateShortWizard() {
             body: JSON.stringify({ params, ...(villaId ? { villaId } : {}) }),
           });
           if (!createRes.ok) {
+            // 소재 자격 거부는 원인이 분명하므로 일반 오류로 뭉뚱그리지 않는다
+            // (빌라 불일치는 STEP 2에서 다른 빌라를 고른 경우라 안내 없이는 원인을 알 수 없다).
+            let code = "";
+            try {
+              code = (await createRes.json())?.error ?? "";
+            } catch {
+              /* ignore */
+            }
             setRunState("error");
-            setRunError(t("create.step3.createError"));
+            setRunError(
+              code === "CLIP_VILLA_MISMATCH"
+                ? t("create.step3.clipVillaMismatch")
+                : code === "CLIP_NOT_USABLE"
+                  ? t("create.step3.clipNotUsable")
+                  : t("create.step3.createError")
+            );
             return;
           }
           const created = (await createRes.json()) as { id: string };
@@ -457,6 +562,84 @@ export default function CreateShortWizard() {
           <div>
             <h2 className="text-sm font-bold text-slate-200">{t("create.step1.title")}</h2>
             <p className="mt-1 text-xs text-slate-500">{t("create.step1.hint")}</p>
+          </div>
+
+          {/* ── 빌라 영상 불러오기 — 공급자·운영자가 올려 승인된 자산을 재업로드 없이 소재로 ── */}
+          <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+            <div className="flex items-start gap-2">
+              <span className="material-symbols-outlined text-[20px] text-admin-primary">
+                video_library
+              </span>
+              <div>
+                <h3 className="text-sm font-bold text-slate-200">
+                  {t("create.step1.importTitle")}
+                </h3>
+                <p className="mt-0.5 text-[11px] text-slate-500">
+                  {t("create.step1.importHint")}
+                </p>
+              </div>
+            </div>
+
+            <select
+              value={importVillaId}
+              onChange={(e) => setImportVillaId(e.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200"
+            >
+              <option value="">{t("create.step1.importPickVilla")}</option>
+              {villas.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name}
+                  {v.complex ? ` · ${v.complex}` : ""}
+                </option>
+              ))}
+            </select>
+
+            {importState === "loading" && (
+              <p className="text-xs text-slate-500">{t("create.step1.importLoading")}</p>
+            )}
+            {importState === "error" && (
+              <p className="text-xs font-semibold text-red-300">{t("create.step1.importError")}</p>
+            )}
+            {importState === "idle" && importVillaId && importOptions.length === 0 && (
+              <p className="text-xs text-slate-500">{t("create.step1.importEmpty")}</p>
+            )}
+
+            {importOptions.length > 0 && (
+              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {importOptions.map((opt) => {
+                  const picked = clips.some((c) => c.villaClipId === opt.id);
+                  return (
+                    <li key={opt.id}>
+                      <button
+                        type="button"
+                        onClick={() => addVillaClip(opt)}
+                        disabled={picked}
+                        className="flex w-full flex-col items-start gap-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-left transition-colors hover:border-admin-primary/60 disabled:opacity-40"
+                      >
+                        <span className="flex w-full items-center justify-between gap-1">
+                          <span className="truncate text-xs font-bold text-slate-200">
+                            {opt.space
+                              ? t(`create.step1.space.${opt.space}` as never)
+                              : t("create.step1.villaClipName")}
+                          </span>
+                          {picked && (
+                            <span className="material-symbols-outlined text-[16px] text-emerald-400">
+                              check
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-[11px] text-slate-500 tabular-nums">
+                          {opt.durationSec}s · {opt.width}×{opt.height}
+                        </span>
+                        {opt.note && (
+                          <span className="line-clamp-1 text-[11px] text-slate-500">{opt.note}</span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
 
           <input
