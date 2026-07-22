@@ -13,6 +13,15 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { DbClient } from "./availability";
+import {
+  CANCEL_TIER_MAX_ROWS,
+  CANCEL_TIER_MIN_ROWS,
+  formatCancelTiersTable,
+  formatLegacyCancelTable,
+  readCancelTiers,
+  validateCancelTiers,
+  type CancelTier,
+} from "./cancel-tiers";
 
 // ── 타입·slug·locale 화이트리스트 ───────────────────────────────────────────
 export const CONTRACT_SLUG = {
@@ -22,8 +31,8 @@ export const CONTRACT_SLUG = {
 } as const;
 export type BusinessContractType = keyof typeof CONTRACT_SLUG;
 
-/** 현재 서명용 정본 표준 버전(테오 확정 v0.4 — Bên A 실명 당사자 + 연락처 2종 토큰). */
-export const CURRENT_STANDARD_VERSION = "v0.4";
+/** 현재 서명용 정본 표준 버전(테오 확정 v0.5 — 별표 2 취소 수수료 단계표). */
+export const CURRENT_STANDARD_VERSION = "v0.5";
 
 export type ContractLocale = "ko" | "vi";
 
@@ -133,11 +142,36 @@ const commonTermsShape = {
 
 const payMethodEnum = z.enum(["CASH", "BANK"]);
 
+// 별표 2 취소 수수료 단계표 — 행 규칙·상한은 lib/cancel-tiers.ts(순수 모듈, 클라 폼과 공유)가 단일 원천.
+const cancelTierRowSchema = z
+  .object({
+    fromDays: z.number().int().min(-1).max(365),
+    guestRefundPct: z.number().int().min(0).max(100),
+    supplierPayPct: z.number().int().min(0).max(100),
+  })
+  .strict();
+
+export const cancelTiersSchema = z
+  .array(cancelTierRowSchema)
+  .min(CANCEL_TIER_MIN_ROWS)
+  .max(CANCEL_TIER_MAX_ROWS)
+  .superRefine((tiers, ctx) => {
+    for (const issue of validateCancelTiers(tiers as CancelTier[])) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: issue.code,
+        ...(issue.index >= 0 ? { path: [issue.index] } : {}),
+      });
+    }
+  });
+
 export const villaSupplyTermsSchema = z
   .object({
     ...commonTermsShape,
+    // 레거시(단계표 이전) 계약 호환용 — 신규 계약은 cancelTiers를 사용한다.
     cancelFreeDays: z.number().int().min(0).max(365).default(14),
     cancelPartialPct: z.number().int().min(0).max(100).default(50),
+    cancelTiers: cancelTiersSchema.optional(),
     payMethod: payMethodEnum,
   })
   .strict();
@@ -309,6 +343,12 @@ function buildTokenMap(data: RenderContractData): Record<string, string> {
   if (data.type === "VILLA_SUPPLY") {
     map.cancelFreeDays = str(t.cancelFreeDays);
     map.cancelPartialPct = str(t.cancelPartialPct);
+    // 별표 2 — 단계표가 있으면 3열 표(+주석), 없으면 레거시 2열 3행을 그대로 재현.
+    //   ★ 레거시 폴백은 이미 서명된 계약의 렌더 결과를 보존하기 위한 것(contentHash 증빙 정합).
+    const tiers = readCancelTiers(t.cancelTiers);
+    map.cancelTiersTable = tiers
+      ? formatCancelTiersTable(tiers, loc)
+      : formatLegacyCancelTable(map.cancelFreeDays, map.cancelPartialPct, loc);
     map.payMethod = t.payMethod ? PAY_METHOD_LABEL[t.payMethod as "CASH" | "BANK"][loc] : "";
   } else if (data.type === "SERVICE_VENDOR") {
     map.settleCycle = t.settleCycle
