@@ -23,6 +23,8 @@ export const BLOG_ROOT = "/blog";
  */
 export const blogPaths = {
   hub: () => BLOG_ROOT,
+  /** 공개 빌라 전체 목록 (운영자 /villas와 충돌하지 않게 /blog 아래) */
+  villas: () => `${BLOG_ROOT}/villas`,
   villa: (slug: string) => `${BLOG_ROOT}/villa/${slug}`,
   area: (code: string) => `${BLOG_ROOT}/area/${code}`,
   feature: (key: string) => `${BLOG_ROOT}/feature/${key}`,

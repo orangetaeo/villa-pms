@@ -92,6 +92,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         : {}),
     }));
 
+    // 전체 목록 페이지 — 공개 빌라가 1곳이라도 있을 때만 등재(빈 목록 = 얇은 콘텐츠)
+    if (villas.length > 0) {
+      villaEntries.unshift({
+        url: absoluteUrl(blogPaths.villas()),
+        lastModified: now,
+        changeFrequency: "daily" as const,
+        priority: 0.9,
+      });
+    }
+
     facetEntries = allFacetPages(villas).map((f) => ({
       url: absoluteUrl(f.path),
       lastModified: f.lastModified,

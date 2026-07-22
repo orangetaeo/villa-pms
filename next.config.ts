@@ -14,10 +14,11 @@ const CSP_REPORT_ONLY = [
   "form-action 'self'",
   // challenges.cloudflare.com = Turnstile(웹챗 세션 생성 봇 차단). script/frame 양쪽 필요.
   "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
-  "frame-src 'self' https://challenges.cloudflare.com",
+  // youtube-nocookie = 쿠키 없는 임베드(개인정보 보호형). 빌라 페이지 쇼츠 재생용(T-seo-media).
+  "frame-src 'self' https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "img-src 'self' data: https://*.r2.dev https://*.r2.cloudflarestorage.com https://picsum.photos https://fastly.picsum.photos https://lh3.googleusercontent.com https://*.zadn.vn",
+  "img-src 'self' data: https://*.r2.dev https://*.r2.cloudflarestorage.com https://picsum.photos https://fastly.picsum.photos https://lh3.googleusercontent.com https://*.zadn.vn https://i.ytimg.com",
   "connect-src 'self'",
   "report-uri /api/csp-report",
 ].join("; ");

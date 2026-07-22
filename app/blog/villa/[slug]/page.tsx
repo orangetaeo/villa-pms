@@ -229,6 +229,33 @@ export default async function PublicVillaPage({ params }: Params) {
           </section>
         )}
 
+        {/* 영상 — 발행된 쇼츠가 있을 때만. VideoObject 구조화 데이터(위)와 짝을 이룬다.
+            ★ youtube-nocookie 도메인을 쓴다: 재생 전 추적 쿠키를 심지 않는 임베드다.
+            ★ loading="lazy" — 영상 iframe은 무겁다. 첫 화면 성능(Core Web Vitals)은 실제 랭킹 요소라
+              지연 로딩으로 본문 렌더를 막지 않는다. */}
+        {v.videos.length > 0 && (
+          <section className="mt-8">
+            <h2 className="text-lg font-bold">영상으로 보기</h2>
+            <div className="mt-3 space-y-4">
+              {v.videos.map((vid) => (
+                <figure key={vid.ytVideoId}>
+                  <div className="relative aspect-[9/16] w-full max-w-xs overflow-hidden rounded-2xl bg-slate-100">
+                    <iframe
+                      src={`https://www.youtube-nocookie.com/embed/${vid.ytVideoId}`}
+                      title={vid.title}
+                      loading="lazy"
+                      allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="absolute inset-0 h-full w-full"
+                    />
+                  </div>
+                  <figcaption className="mt-2 text-sm text-slate-600">{vid.title}</figcaption>
+                </figure>
+              ))}
+            </div>
+          </section>
+        )}
+
         <section className="mt-8">
           <h2 className="text-lg font-bold">이용 규칙</h2>
           <ul className="mt-2 space-y-1 text-sm text-slate-700">
