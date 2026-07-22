@@ -3,10 +3,20 @@ import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
-// CSP (Report-Only — T-sec-csp-report). 차단 없이 위반만 수집해 enforce 전 정책 정제.
-// 실제 앱 소스 반영: Google Fonts(googleapis/gstatic), 이미지(R2·picsum·googleusercontent·data).
-// script/style 'unsafe-inline'은 Next.js 인라인 부트스트랩용 — nonce화는 후속(middleware).
-const CSP_REPORT_ONLY = [
+// CSP — **enforce**(2026-07-23 전환). 2026-07-15~22 Report-Only로 수집한 실사용 위반 8,610건을
+// 근거로 출처를 확정한 뒤 플립했다. `report-uri`는 유지 — enforce 상태에서도 차단 사실이 계속 보고된다.
+//
+// 전환 근거(SecurityEvent CSP_REPORT 집계):
+//   img-src 6,565 = Zalo 그룹사진 `photo-stal-*.zdn.vn` → `*.zdn.vn` 허용으로 해소
+//   script-src-elem 1,331 = CF 프록시가 주입하는 비콘 → static.cloudflareinsights.com 허용으로 해소
+//   media-src 43 = 빌라 클립 mp4 → media-src 신설로 해소
+//   script-src(eval) 628 · frame-src(null) 36 = **고유 IP 2개·2026-07-21 이후 0건 = 브라우저 확장 노이즈**.
+//     → 'unsafe-eval'은 **넣지 않는다**(넣으면 CSP의 핵심 방어를 스스로 버린다). 확장이 막히는 건 의도된 결과다.
+//
+// ⚠ 되돌리기: 아래 헤더 key를 `Content-Security-Policy-Report-Only`로 되돌리고 배포(3~4분)하면 즉시 원복된다.
+// ⚠ script/style 'unsafe-inline'은 Next.js 인라인 부트스트랩용이라 남아 있다 — 인라인 XSS 방어는
+//   nonce 마이그레이션(별도 과제) 전까지 없다. 이번 전환의 효과는 **외부 출처 잠금**이다.
+const CSP = [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
@@ -22,7 +32,9 @@ const CSP_REPORT_ONLY = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   // blob: = 첨부 대기열·붙여넣기 미리보기 썸네일(objectURL). *.zdn.vn = Zalo 그룹 사진(photo-stal-*).
-  "img-src 'self' data: blob: https://*.r2.dev https://*.r2.cloudflarestorage.com https://picsum.photos https://fastly.picsum.photos https://lh3.googleusercontent.com https://*.zadn.vn https://*.zdn.vn https://i.ytimg.com",
+  // maps.google.com·maps.gstatic.com = 채팅의 **지도 링크 미리보기**(lib/maps-unfurl.ts가 og:image로
+  //   정적 지도 이미지를 뽑는다). 실측 60건 전부 /messages — 빠뜨리면 미리보기 이미지가 깨진다.
+  "img-src 'self' data: blob: https://*.r2.dev https://*.r2.cloudflarestorage.com https://picsum.photos https://fastly.picsum.photos https://lh3.googleusercontent.com https://*.zadn.vn https://*.zdn.vn https://i.ytimg.com https://maps.google.com https://maps.gstatic.com",
   // media-src = <video> 재생원. ★영상 기능(빌라 클립·릴스·쇼츠) 도입으로 **필수가 됐다**
   //   (2026-07-23 실측: /villas/[id]에서 pub-*.r2.dev/villa-clips/*.mp4가 default-src 폴백에 걸림).
   //   blob: = 업로드 전 로컬 미리보기(probeLocalVideo가 objectURL을 <video>에 물린다).
@@ -67,8 +79,9 @@ const nextConfig: NextConfig = {
           // 브라우저 기능은 우리 사이트(self)만 허용, 외부 출처(iframe 등)는 차단. camera=사진촬영, microphone=음성입력(STT), geolocation=위치.
           // ⚠ ()로 완전 차단 시 안드로이드 등에서 getUserMedia가 즉시 거부되어 "권한 필요" 오표시됨.
           { key: "Permissions-Policy", value: "camera=(self), microphone=(self), geolocation=(self)" },
-          // CSP는 Report-Only로 롤아웃 — 위반만 /api/csp-report로 수집, 앱 차단 없음 (enforce는 후속)
-          { key: "Content-Security-Policy-Report-Only", value: CSP_REPORT_ONLY },
+          // CSP enforce(2026-07-23) — 위반은 **차단**되고 동시에 /api/csp-report로 계속 보고된다.
+          //   문제가 생기면 key를 "Content-Security-Policy-Report-Only"로 되돌리고 배포하면 즉시 원복.
+          { key: "Content-Security-Policy", value: CSP },
         ],
       },
     ];

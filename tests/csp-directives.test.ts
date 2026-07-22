@@ -50,14 +50,31 @@ describe("CSP 디렉티브 — enforce 전환 시 필수 출처", () => {
     expect(v).toContain("https://*.zdn.vn"); // 그룹 사진(photo-stal-*)
   });
 
+  it("img-src에 지도 미리보기 호스트가 있다 (채팅 링크 unfurl의 og:image)", () => {
+    // 실측 60건 전부 /messages. 빠지면 지도 링크 미리보기 이미지가 깨진다.
+    expect(directive("img-src")).toContain("https://maps.google.com");
+  });
+
+  it("'unsafe-eval'을 넣지 않는다", () => {
+    // eval 위반 628건은 고유 IP 2개·2026-07-21 이후 0건 = 브라우저 확장 노이즈였다.
+    // 확장을 살리자고 'unsafe-eval'을 허용하면 CSP의 핵심 방어를 스스로 버리는 셈이다.
+    expect(directive("script-src")).not.toContain("unsafe-eval");
+  });
+
   it("차단 기조는 유지된다 — default-src·object-src", () => {
     expect(config).toContain(`"default-src 'self'"`);
     expect(config).toContain(`"object-src 'none'"`);
   });
 
-  it("아직 Report-Only다 (enforce 전환은 별도 결정)", () => {
-    // 이 단언이 깨졌다면 enforce로 플립한 것이다 —
-    // 위 출처들이 실제로 다 반영됐는지 확인한 뒤에만 통과시켜야 한다.
-    expect(config).toContain("Content-Security-Policy-Report-Only");
+  it("enforce로 전환돼 있다 (2026-07-23) — 위반이 실제로 차단된다", () => {
+    // Report-Only로 되돌렸다면 이 단언이 깨진다. 되돌리는 건 장애 대응으로서 정당하지만,
+    // **의도적 원복인지** 실수인지 구분되게 테스트도 함께 수정할 것.
+    expect(config).toMatch(/key: "Content-Security-Policy"/);
+    expect(config).not.toMatch(/key: "Content-Security-Policy-Report-Only"/);
+  });
+
+  it("enforce 상태에서도 report-uri를 유지한다 (차단 사실을 계속 수집)", () => {
+    // enforce로 바꾸면서 report-uri를 빼면 이후 위반이 **조용히** 차단된다 — 관측 불가가 된다.
+    expect(config).toContain("report-uri /api/csp-report");
   });
 });
