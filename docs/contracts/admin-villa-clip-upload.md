@@ -74,3 +74,28 @@
 | 공급자 경로 회귀 | 공급자 컴포넌트를 아예 수정하지 않는다(공용화 보류) |
 | 정책값 하드코딩으로 화면·서버 불일치 | policy를 서버 응답에서만 읽는다 |
 | 원시 오류코드 노출 | 사전에 있는 코드만 t() 대상, 나머지는 generic |
+
+## 구현 결과 (2026-07-23)
+
+| 게이트 | 결과 |
+|---|---|
+| `npx tsc --noEmit` | 통과(0) |
+| `npm run lint` | 신규·수정 파일 error·warning 0 |
+| `npx next build` | 통과 — `/villas/[id]` 31.6 kB |
+| `npx vitest run` 전체 | 3531 passed / 5 failed — **전부 기존 baseline**. 신규 실패 0(신규 11건 포함) |
+
+신규: `lib/villa-clip-upload.ts`, `lib/villa-clip-upload.test.ts`
+수정: `app/(admin)/villas/[id]/clip-review.tsx`, `app/(admin)/villas/[id]/page.tsx`(clips select에 `space` 추가),
+`messages/{ko,vi}.json`
+
+### 설계 메모
+
+- 정책값은 `GET /api/villas/[id]/clips`의 `policy`에서만 읽는다. **로딩 실패 시 업로드 UI를 감춘다** —
+  상한을 모르는 채 올리게 하면 대용량 업로드를 커밋 단계에서 통째로 버리게 된다.
+- 클립이 0개일 때도 업로더가 보여야 하므로 기존의 "빈 목록이면 조기 return" 구조를 걷어내고
+  빈 안내를 목록 자리로 옮겼다.
+- 공급자 컴포넌트는 **한 줄도 건드리지 않았다**(C7). 중복 로직 공용화는 백로그.
+
+### 잔여
+
+- C11(프로덕션 UI 실업로드)은 배포 후 수행
