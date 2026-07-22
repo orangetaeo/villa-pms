@@ -1445,6 +1445,7 @@ enum NotificationType {
   ZALO_LISTENER_DOWN // Zalo 리스너 미연결(≈10분+) 감지 → 운영자 통지(ko). 워치독(lib/zalo-health). additive: 라이브 ALTER TYPE ADD VALUE
   WEBCHAT_NEW_MESSAGE // 웹 채팅 신규 문의(비로그인 방문자) → 운영자 통지(ko 미리보기, 판매가·마진 미포함). 대화당 첫 메시지 즉시+후속 10분 디바운스 (ADR-0045). additive: 라이브 ALTER TYPE ADD VALUE
   MARKETING_ALERT // 마케팅 자동화 통지(IG 초안·IG/YT 발행실패·YT 토큰·편집 잡 완료) → 운영자(ko). 세부 구분=payload 분기(타입 증식 금지 교훈, marketing-s2 §D). additive: 라이브 ALTER TYPE ADD VALUE
+  CONTRACT_NEGOTIATION // 계약 조항 협의 — 요청(상대방→운영자 ko)·해소(운영자→상대방 payload.locale). 방향 구분=payload.kind(타입 증식 금지 교훈). additive: 라이브 ALTER TYPE ADD VALUE
 }
 
 enum NotificationStatus {
@@ -1952,4 +1953,28 @@ model YoutubeShort {
   @@index([status, scheduledAt]) // 업로드 cron: QUEUED + 시간 도래분 조회
   @@index([villaId]) // 빌라 로테이션 선정(쇼츠 이력 조회)
   @@index([editJobStatus]) // 편집 잡 폴링 (PENDING/PROCESSING 조회 — null 다수라 선택도 충분)
+}
+
+// ===================== 계약 조항 협의(네고) — T-contract-negotiation (S2) =====================
+// 계약은 DRAFT→SENT→SIGNED뿐이라 상대방은 "서명하거나 안 하거나"였다. 조항 단위로 이의를 남기고
+// 운영자가 수용/거절하는 창구. ★ 상태(BusinessContractStatus)는 건드리지 않는다 —
+// "미해결(OPEN) 협의 존재"라는 **파생 판정**으로 서명을 차단해 enum 변경·롤백 비용을 없앴다.
+//   · clauseKey·reason·status는 String + zod 화이트리스트(lib/contract-negotiation.ts) — 값 추가가 잦아 enum ALTER 회피.
+//   · 관계 미설정(id 보존만) — BusinessContract 관례와 동일.
+//   · ★ 누수 0: 금액·원가·마진 컬럼 없음. 역제안(proposedJson)도 비율(취소 단계표)만.
+model ContractNegotiation {
+  id           String    @id @default(cuid())
+  contractId   String // BusinessContract.id
+  clauseKey    String // "cancelTiers" | "payMethod" | "bankInfo" | "settleCycle" | "specialTerms" | "other"
+  reason       String // 프리셋 사유 코드(자유 서술 강요 금지 — 베트남 사용자 UX)
+  proposedJson Json? // 숫자 역제안(현재는 취소 단계표만). 스키마는 S1 cancelTiersSchema 재사용
+  note         String? // 선택 자유 메모(상대방 언어)
+  status       String    @default("OPEN") // OPEN | ACCEPTED | REJECTED
+  createdById  String // 요청자 User.id (계약 상대방 본인)
+  resolvedById String? // 해소한 운영자 User.id
+  resolvedNote String? // 운영자 회신 사유(거절 시 필수) — 상대방 화면에 노출
+  createdAt    DateTime  @default(now())
+  resolvedAt   DateTime?
+
+  @@index([contractId, status])
 }

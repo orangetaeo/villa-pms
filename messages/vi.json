@@ -6279,6 +6279,50 @@
       "signer": "Người ký",
       "signedAt": "Ngày ký",
       "signatureImage": "Chữ ký"
+    },
+    "negotiation": {
+      "title": "Thương lượng điều khoản",
+      "desc": "Nếu điều kiện chưa phù hợp, hãy chọn mục cần trao đổi. Phụ trách sẽ kiểm tra và phản hồi.",
+      "open": "Gửi đề nghị",
+      "close": "Đóng",
+      "pickClause": "Bạn muốn trao đổi mục nào?",
+      "pickReason": "Chọn lý do",
+      "tierTitle": "Tỷ lệ mong muốn",
+      "tierHint": "Chỉ cần chỉnh tỷ lệ thanh toán (%) bạn mong muốn ở từng mốc. Tỷ lệ hoàn cho khách sẽ tự khớp.",
+      "tierDays": "Số ngày trước khi nhận phòng",
+      "tierPay": "Tỷ lệ thanh toán %",
+      "note": "Ghi chú (không bắt buộc)",
+      "noteRequiredLabel": "Ghi chú (bắt buộc)",
+      "noteRequired": "Vui lòng nhập ghi chú.",
+      "submit": "Gửi đề nghị thương lượng",
+      "submitting": "Đang gửi…",
+      "alreadyOpen": "Đã có một đề nghị đang chờ xử lý.",
+      "error": "Gửi không thành công. Vui lòng thử lại sau.",
+      "blocked": "Đề nghị đang được xem xét. Bạn có thể ký sau khi phụ trách phản hồi.",
+      "reply": "Phản hồi",
+      "clause": {
+        "cancelTiers": "Bảng phí hủy",
+        "payMethod": "Phương thức thanh toán",
+        "bankInfo": "Thông tin tài khoản",
+        "settleCycle": "Chu kỳ quyết toán",
+        "specialTerms": "Điều khoản đặc biệt",
+        "other": "Khác"
+      },
+      "reason": {
+        "CANCEL_FREE_PERIOD": "Điều chỉnh thời hạn hủy miễn phí",
+        "CANCEL_PAY_RATE": "Điều chỉnh tỷ lệ thanh toán theo mốc",
+        "CANCEL_NOSHOW": "Chưa đồng ý điều kiện không đến / hủy trong ngày",
+        "PAY_METHOD_CHANGE": "Đổi phương thức thanh toán",
+        "BANK_INFO_CHANGE": "Sửa thông tin tài khoản",
+        "SETTLE_CYCLE_CHANGE": "Đổi chu kỳ quyết toán",
+        "SPECIAL_TERMS_ADD": "Bổ sung điều khoản đặc biệt",
+        "OTHER": "Khác (ghi chú bên dưới)"
+      },
+      "status": {
+        "OPEN": "Đang xem xét",
+        "ACCEPTED": "Đã chấp nhận",
+        "REJECTED": "Không áp dụng"
+      }
     }
   },
   "adminContracts": {
@@ -6403,6 +6447,45 @@
       "voidConfirm": "Vô hiệu hợp đồng này? Không thể hoàn tác.",
       "voiding": "Đang vô hiệu…",
       "voidError": "Vô hiệu không thành công."
+    },
+    "negotiation": {
+      "title": "Thương lượng điều khoản",
+      "signBlocked": "Chưa xử lý — đang chặn ký",
+      "proposal": "Đề xuất ngược",
+      "proposalRow": "Khách {refund}% · NCC {pay}%",
+      "accept": "Chấp nhận",
+      "reject": "Từ chối",
+      "working": "Đang xử lý…",
+      "acceptApplies": "Khi chấp nhận, giá trị đề xuất sẽ được áp vào hợp đồng (máy chủ kiểm tra lại).",
+      "acceptConfirm": "Chấp nhận đề nghị này? Nếu có đề xuất ngược, điều khoản hợp đồng sẽ được cập nhật.",
+      "rejectConfirm": "Từ chối đề nghị này? Lý do sẽ được gửi nguyên văn cho đối tác.",
+      "rejectNoteRequired": "Vui lòng nhập lý do từ chối — sẽ gửi nguyên văn cho đối tác.",
+      "notePlaceholder": "Ghi chú phản hồi (bắt buộc khi từ chối)",
+      "termsInvalid": "Đề xuất không qua được kiểm tra hợp đồng (vượt trần lỗ của công ty...).",
+      "error": "Xử lý không thành công.",
+      "clause": {
+        "cancelTiers": "Bảng phí hủy",
+        "payMethod": "Phương thức thanh toán",
+        "bankInfo": "Thông tin tài khoản",
+        "settleCycle": "Chu kỳ quyết toán",
+        "specialTerms": "Điều khoản đặc biệt",
+        "other": "Khác"
+      },
+      "reason": {
+        "CANCEL_FREE_PERIOD": "Điều chỉnh thời hạn hủy miễn phí",
+        "CANCEL_PAY_RATE": "Điều chỉnh tỷ lệ thanh toán theo mốc",
+        "CANCEL_NOSHOW": "Chưa đồng ý điều kiện không đến / hủy trong ngày",
+        "PAY_METHOD_CHANGE": "Đổi phương thức thanh toán",
+        "BANK_INFO_CHANGE": "Sửa thông tin tài khoản",
+        "SETTLE_CYCLE_CHANGE": "Đổi chu kỳ quyết toán",
+        "SPECIAL_TERMS_ADD": "Bổ sung điều khoản đặc biệt",
+        "OTHER": "Khác (ghi chú bên dưới)"
+      },
+      "status": {
+        "OPEN": "Đang xem xét",
+        "ACCEPTED": "Đã chấp nhận",
+        "REJECTED": "Đã từ chối"
+      }
     }
   }
 }

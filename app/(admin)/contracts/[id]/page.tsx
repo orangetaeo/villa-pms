@@ -14,6 +14,8 @@ import {
 import ContractDocument from "@/components/business-contract/contract-document";
 import ContractPrintButton from "@/components/business-contract/print-button";
 import ContractActions from "./contract-actions";
+import NegotiationActions from "./negotiation-actions";
+import { readCancelTiers } from "@/lib/cancel-tiers";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("adminContracts");
@@ -72,6 +74,24 @@ export default async function AdminContractDetailPage({
     where: { id: contract.counterpartId },
     select: { name: true, phone: true, zaloContact: true },
   });
+
+  // 협의(S2) — OPEN이 있으면 상대방 서명이 막혀 있다는 뜻이라 목록 맨 위에서 눈에 띄게 표시.
+  const negotiations = await prisma.contractNegotiation.findMany({
+    where: { contractId: id },
+    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+    select: {
+      id: true,
+      clauseKey: true,
+      reason: true,
+      status: true,
+      note: true,
+      proposedJson: true,
+      resolvedNote: true,
+      createdAt: true,
+      resolvedAt: true,
+    },
+  });
+  const hasOpenNegotiation = negotiations.some((n) => n.status === "OPEN");
 
   const signed = contract.status === "SIGNED";
 
@@ -140,6 +160,53 @@ export default async function AdminContractDetailPage({
           <Meta label={t("detail.address")} value={contract.counterpartAddress} />
         )}
       </dl>
+
+      {/* 협의(S2) — 미해결이 있으면 상대방 서명이 막혀 있다 */}
+      {negotiations.length > 0 && (
+        <section className="no-print space-y-3 rounded-xl border border-slate-800 bg-admin-card p-6">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="flex items-center gap-2 font-bold text-slate-100">
+              <span className="material-symbols-outlined text-admin-primary">handshake</span>
+              {t("negotiation.title")}
+            </h2>
+            {hasOpenNegotiation && (
+              <span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-bold text-amber-300">
+                {t("negotiation.signBlocked")}
+              </span>
+            )}
+          </div>
+          <ul className="space-y-3">
+            {negotiations.map((n) => (
+              <li key={n.id} className="rounded-lg border border-slate-800 p-4">
+                <p className="text-sm font-bold text-slate-100">
+                  {t(`negotiation.clause.${n.clauseKey}`)} · {t(`negotiation.reason.${n.reason}`)}
+                </p>
+                <p className="mt-0.5 text-xs text-slate-500">{fmt(n.createdAt)}</p>
+                {n.note && <p className="mt-2 text-sm text-slate-300">{n.note}</p>}
+                <div className="mt-3">
+                  <NegotiationActions
+                    contractId={contract.id}
+                    currentTerms={(contract.termsJson ?? null) as Record<string, unknown> | null}
+                    negotiation={{
+                      id: n.id,
+                      clauseKey: n.clauseKey,
+                      reason: n.reason,
+                      status: n.status,
+                      note: n.note,
+                      resolvedNote: n.resolvedNote,
+                      createdAt: n.createdAt.toISOString(),
+                      resolvedAt: n.resolvedAt?.toISOString() ?? null,
+                      proposedTiers:
+                        readCancelTiers((n.proposedJson as { cancelTiers?: unknown } | null)?.cancelTiers) ??
+                        null,
+                    }}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* 본문 — 프린트 대상 */}
       {body ? (
