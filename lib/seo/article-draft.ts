@@ -180,7 +180,7 @@ export async function generateArticleBody(
     const blocks = parseArticleBody(extractJsonArray(raw));
     if (blocks.length === 0) return null;
 
-    const flat = blocks.map((b) => (b.type === "ul" ? b.items.join(" ") : b.text)).join(" ");
+    const flat = blocks.map((b) => (b.type === "ul" ? b.items.join(" ") : b.type === "img" ? (b.caption ?? "") : b.text)).join(" ");
     return { blocks, flaggedTerms: findBannedTerms(flat) };
   } catch {
     return null;
@@ -192,4 +192,89 @@ export function buildSummary(blocks: ArticleBlock[], max = 150): string {
   const firstP = blocks.find((b) => b.type === "p");
   const text = firstP && firstP.type === "p" ? firstP.text : "";
   return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+}
+
+// ── 이미지 배치 (SEO: 이미지 검색 유입 · 공유 썸네일 · Article.image 권장 필드) ──
+//
+// ★ 이미지가 순위를 직접 올리지는 않는다. 실효는 ① 이미지 검색이라는 별도 유입 채널
+//   ② 공유 시 썸네일 CTR ③ 구조화 데이터 image 필드 충족 — 그리고 우리는 빌라 사진이 곧 상품이라
+//   전환에도 직결된다.
+// ★ 소스는 공개 관문(getPublicVillas) 통과 사진뿐. 공개 대상 빌라가 없으면 브랜드 이미지로 폴백한다
+//   (억지로 외부 스톡 이미지를 끌어오지 않는다 — 통제 못 하는 URL은 언제든 깨진다).
+
+/** 공개 빌라가 하나도 없을 때 쓰는 브랜드 폴백. public/og-villa-go.png */
+export const BRAND_FALLBACK_IMAGE = "/og-villa-go.png";
+
+/** PhotoSpace → 한국어 alt 조각. 이미지 검색은 alt 텍스트로 색인된다. */
+const SPACE_LABEL_KO: Record<string, string> = {
+  EXTERIOR: "외관",
+  POOL: "수영장",
+  LIVING: "거실",
+  BEDROOM: "침실",
+  KITCHEN: "주방",
+  BATHROOM: "욕실",
+  BALCONY: "발코니",
+  ETC: "내부",
+};
+
+export interface PickedImage {
+  url: string;
+  alt: string;
+  caption?: string;
+}
+
+/**
+ * 글에 쓸 이미지 후보를 공간 다양성 있게 고른다(같은 침실 사진 3장 같은 중복 방지).
+ * alt는 "단지명 빌라명 공간" 형태 — 검색어와 맞물리게 한국어로 만든다.
+ */
+export function pickArticleImages(villas: PublicVilla[], max = 3): PickedImage[] {
+  const out: PickedImage[] = [];
+  const usedSpaces = new Set<string>();
+  // 공간 우선순위 — 외관·수영장이 먼저(썸네일로 가장 설득력 있는 컷)
+  const priority = ["EXTERIOR", "POOL", "LIVING", "BEDROOM", "KITCHEN", "BALCONY", "BATHROOM", "ETC"];
+
+  for (const space of priority) {
+    if (out.length >= max) break;
+    for (const v of villas) {
+      if (out.length >= max) break;
+      if (usedSpaces.has(space)) break;
+      const photo = v.photos.find((p) => p.space === space);
+      if (!photo) continue;
+      const where = v.areaNameKo ?? v.areaName ?? v.complex ?? "푸꾸옥";
+      const spaceKo = SPACE_LABEL_KO[space] ?? "내부";
+      out.push({
+        url: photo.url,
+        alt: `${where} ${v.name} ${spaceKo}`,
+        caption: `${where} · 침실 ${v.bedrooms}개 · 최대 ${v.maxGuests}인`,
+      });
+      usedSpaces.add(space);
+    }
+  }
+  return out;
+}
+
+/**
+ * 본문 블록에 이미지를 끼워 넣는다 — 소제목(h2) 다음 문단 뒤에 하나씩.
+ * 첫 이미지는 커버로 따로 쓰므로 본문에는 두 번째부터 넣는다(같은 사진 중복 노출 방지).
+ */
+export function interleaveImages(blocks: ArticleBlock[], images: PickedImage[]): ArticleBlock[] {
+  if (images.length === 0) return blocks;
+  const out: ArticleBlock[] = [];
+  let imgIdx = 0;
+  let sawH2 = false;
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
+    out.push(b);
+    if (b.type === "h2") {
+      sawH2 = true;
+      continue;
+    }
+    // 소제목 바로 뒤 첫 문단 다음에 이미지 1장
+    if (sawH2 && b.type === "p" && imgIdx < images.length) {
+      const img = images[imgIdx++];
+      out.push({ type: "img", url: img.url, alt: img.alt, ...(img.caption ? { caption: img.caption } : {}) });
+      sawH2 = false;
+    }
+  }
+  return out;
 }

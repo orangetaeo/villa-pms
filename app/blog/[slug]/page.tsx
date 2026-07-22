@@ -11,6 +11,7 @@ import { getPublishedArticleBySlug } from "@/lib/seo/article";
 import ArticleBody from "@/components/seo/article-body";
 import { blogPaths, BLOG_ROOT } from "@/lib/seo/routes";
 import { absoluteUrl } from "@/lib/seo/base-url";
+import { BRAND_FALLBACK_IMAGE } from "@/lib/seo/article-draft";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 1800;
@@ -34,7 +35,9 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       url,
       locale: "ko_KR",
       publishedTime: a.publishedAt.toISOString(),
-      ...(a.coverPhotoUrl ? { images: [{ url: a.coverPhotoUrl }] } : {}),
+      // ★ OG 이미지는 항상 채운다 — 카톡·SNS 공유 시 썸네일 유무가 클릭률을 가른다.
+      //   커버가 없으면 브랜드 이미지로 폴백(빈 썸네일보다 낫다).
+      images: [{ url: absoluteUrl(a.coverPhotoUrl ?? BRAND_FALLBACK_IMAGE) }],
     },
   };
 }
@@ -61,7 +64,15 @@ export default async function ArticlePage({ params }: Params) {
     dateModified: article.updatedAt.toISOString(),
     mainEntityOfPage: absoluteUrl(blogPaths.article(article.slug)),
     publisher: { "@type": "Organization", name: "Villa GO" },
-    ...(article.coverPhotoUrl ? { image: [article.coverPhotoUrl] } : {}),
+    // image는 구글 Article 구조화 데이터 **권장 필드** — 비어 있으면 리치 결과 자격을 잃는다.
+    //   커버 + 본문 이미지를 함께 넣어 어떤 컷이 대표로 뽑혀도 되게 한다.
+    image: [
+      absoluteUrl(article.coverPhotoUrl ?? BRAND_FALLBACK_IMAGE),
+      ...article.blocks
+        .filter((b) => b.type === "img")
+        .map((b) => (b as { url: string }).url)
+        .map((u) => (u.startsWith("/") ? absoluteUrl(u) : u)),
+    ].filter((u, i, arr) => arr.indexOf(u) === i),
   };
 
   return (
@@ -97,7 +108,9 @@ export default async function ArticlePage({ params }: Params) {
           <div className="relative mt-5 aspect-[16/9] overflow-hidden rounded-2xl bg-slate-100">
             <Image
               src={article.coverPhotoUrl}
-              alt=""
+              // ★ 커버 alt를 비워두지 않는다 — 이미지 검색 색인은 alt 텍스트에 달려 있고,
+              //   글 대표 이미지가 무엇에 대한 사진인지 설명하는 것이 제목 그 자체다.
+              alt={article.title}
               fill
               sizes="(max-width: 640px) 100vw, 640px"
               className="object-cover"

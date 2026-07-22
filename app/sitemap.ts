@@ -45,11 +45,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.8,
       });
       for (const a of articles) {
+        // images = 사이트맵 이미지 확장. 이미지 검색 색인 힌트이며, 본문 이미지까지 포함시킨다.
+        //   ★ 절대 URL만 넣는다(루트 상대경로 브랜드 자산은 absoluteUrl로 승격).
+        const imgs = [
+          ...(a.coverPhotoUrl ? [a.coverPhotoUrl] : []),
+          ...a.blocks.filter((b) => b.type === "img").map((b) => (b as { url: string }).url),
+        ]
+          .map((u) => (u.startsWith("/") ? absoluteUrl(u) : u))
+          .filter((u, i, arr) => arr.indexOf(u) === i)
+          .slice(0, 10);
         articleEntries.push({
           url: absoluteUrl(blogPaths.article(a.slug)),
           lastModified: a.updatedAt,
           changeFrequency: "monthly",
           priority: 0.7,
+          ...(imgs.length > 0 ? { images: imgs } : {}),
         });
       }
     }

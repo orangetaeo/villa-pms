@@ -21,7 +21,29 @@ import type { DbClient } from "@/lib/availability";
 export type ArticleBlock =
   | { type: "h2"; text: string }
   | { type: "p"; text: string }
-  | { type: "ul"; items: string[] };
+  | { type: "ul"; items: string[] }
+  /** 본문 이미지 — alt는 필수(접근성 + 이미지 검색 유입의 실질 근거) */
+  | { type: "img"; url: string; alt: string; caption?: string };
+
+// ── 이미지 URL 허용 호스트 ───────────────────────────────────────────────────
+// ★ 임의 외부 URL을 본문에 넣지 못하게 막는다. 이유 3가지:
+//   ① next/image remotePatterns 밖이면 렌더 자체가 실패한다
+//   ② 외부 호스트 이미지는 방문자 IP가 제3자에게 새는 추적 벡터가 된다
+//   ③ 우리가 통제 못 하는 URL은 언제든 깨져 죽은 이미지가 남는다
+// 루트 상대경로("/og-villa-go.png")는 자사 자산이라 허용한다.
+const ALLOWED_IMAGE_HOST_SUFFIXES = [".r2.dev", ".r2.cloudflarestorage.com", "villa-go.net"];
+
+export function isAllowedImageUrl(url: string): boolean {
+  if (typeof url !== "string" || url.length === 0) return false;
+  if (url.startsWith("/") && !url.startsWith("//")) return true; // 자사 정적 자산
+  try {
+    const u = new URL(url);
+    if (u.protocol !== "https:") return false;
+    return ALLOWED_IMAGE_HOST_SUFFIXES.some((suf) => u.host === suf.replace(/^\./, "") || u.host.endsWith(suf));
+  } catch {
+    return false;
+  }
+}
 
 /** 발행에 필요한 본문 최소 길이(자). 미달분은 얇은 콘텐츠라 발행하지 않는다. */
 export const MIN_ARTICLE_BODY_CHARS = 800;
@@ -46,6 +68,14 @@ export function parseArticleBody(raw: unknown): ArticleBlock[] {
     if (type === "h2" || type === "p") {
       const text = typeof o.text === "string" ? o.text.trim().slice(0, TEXT_MAX) : "";
       if (text) out.push({ type, text });
+    } else if (type === "img") {
+      // 허용 호스트가 아니거나 alt가 없으면 **블록 자체를 버린다**(빈 alt 이미지는 SEO·접근성 양쪽에 무의미).
+      const url = typeof o.url === "string" ? o.url.trim() : "";
+      const alt = typeof o.alt === "string" ? o.alt.trim().slice(0, 200) : "";
+      const caption = typeof o.caption === "string" ? o.caption.trim().slice(0, 200) : "";
+      if (url && alt && isAllowedImageUrl(url)) {
+        out.push(caption ? { type: "img", url, alt, caption } : { type: "img", url, alt });
+      }
     } else if (type === "ul") {
       const items = Array.isArray(o.items)
         ? o.items
@@ -63,6 +93,8 @@ export function parseArticleBody(raw: unknown): ArticleBlock[] {
 export function bodyTextLength(blocks: ArticleBlock[]): number {
   return blocks.reduce((n, b) => {
     if (b.type === "ul") return n + b.items.join("").length;
+    // ★ 이미지는 분량으로 치지 않는다(캡션만) — 이미지 도배로 글자수 하한을 우회하는 것을 막는다.
+    if (b.type === "img") return n + (b.caption?.length ?? 0);
     return n + b.text.length;
   }, 0);
 }
