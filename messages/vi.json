@@ -2094,6 +2094,23 @@
         "baselineWarnBody": "Ảnh này là ảnh chuẩn dùng để đối chiếu khi trả phòng (bằng chứng). Nếu xóa, ảnh sẽ không còn trong đối chiếu kiểm tra sau này. Bạn có chắc muốn xóa?",
         "baselineLocked": "Không thể xóa ảnh chuẩn này vì đang có đặt phòng. Hãy thử lại sau khi trả phòng.",
         "error": "Đã xảy ra lỗi khi xử lý ảnh. Vui lòng thử lại."
+      },
+      "clips": {
+        "title": "Video clip",
+        "count": "{count}",
+        "empty": "Chưa có video nào.",
+        "approve": "Duyệt",
+        "reject": "Từ chối",
+        "delete": "Xoá",
+        "cancel": "Huỷ",
+        "reasonPlaceholder": "Lý do từ chối (hiển thị cho nhà cung cấp)",
+        "error": "Xử lý thất bại.",
+        "status": {
+          "UPLOADING": "Đang tải lên",
+          "UPLOADED": "Chờ duyệt",
+          "APPROVED": "Đã duyệt",
+          "REJECTED": "Bị từ chối"
+        }
       }
     },
     "sales": {
@@ -2331,7 +2348,10 @@
     },
     "sellLinkTitle": "Liên kết bán phòng",
     "sellLinkDesc": "Tạo liên kết để khách của bạn tự đặt phòng",
-    "manageSellLink": "Liên kết bán phòng"
+    "manageSellLink": "Liên kết bán phòng",
+    "clips": "Video",
+    "clipCount": "{count}",
+    "manageClips": "Quản lý"
   },
   "wizard": {
     "header": "Đăng ký villa",
@@ -6371,6 +6391,42 @@
       "voidConfirm": "Vô hiệu hợp đồng này? Không thể hoàn tác.",
       "voiding": "Đang vô hiệu…",
       "voidError": "Vô hiệu không thành công."
+    }
+  },
+  "clipManage": {
+    "title": "Video villa",
+    "back": "Quay lại",
+    "intro": "Hãy quay một đoạn ngắn về villa. Video sẽ được dùng để quảng bá trên Instagram và YouTube.",
+    "ruleDuration": "Mỗi video tối đa {sec} giây",
+    "ruleCount": "Tối đa {n} video mỗi villa",
+    "ruleWifi": "Nên tải lên khi có Wi-Fi",
+    "record": "Quay video",
+    "pick": "Chọn từ thư viện",
+    "full": "Đã đủ {n} video. Hãy xoá bớt rồi tải lên lại.",
+    "uploading": "Đang tải lên",
+    "uploadingHint": "Vui lòng không đóng màn hình.",
+    "listTitle": "Video đã tải {count}/{max}",
+    "empty": "Chưa có video nào.",
+    "duration": "{sec} giây",
+    "delete": "Xoá",
+    "cancel": "Huỷ",
+    "deleteConfirm": "Xoá video này?",
+    "done": "Hoàn tất",
+    "skip": "Để sau",
+    "status": {
+      "UPLOADING": "Đang tải lên",
+      "UPLOADED": "Chờ duyệt",
+      "APPROVED": "Đã duyệt",
+      "REJECTED": "Bị từ chối"
+    },
+    "error": {
+      "TOO_LARGE": "Tệp quá lớn. Vui lòng tải lên dưới {mb}MB.",
+      "TOO_LONG": "Video quá dài. Vui lòng quay dưới {sec} giây.",
+      "TOO_SHORT": "Video quá ngắn.",
+      "RESOLUTION_TOO_LOW": "Chất lượng quá thấp. Vui lòng quay rõ nét hơn.",
+      "QUOTA_EXCEEDED": "Chỉ được tải lên tối đa {n} video.",
+      "DISALLOWED_TYPE": "Chỉ chấp nhận video MP4 hoặc MOV.",
+      "generic": "Thất bại. Vui lòng thử lại."
     }
   }
 }

@@ -587,6 +587,7 @@ export function buildNotificationText(
         PHOTOS: "사진",
         AMENITIES: "비품",
         INFO: "이용규칙·위치 정보",
+        CLIPS: "영상", // villa-clip-narration P1 — 직접 촬영 클립 업로드
       };
       const kind = str(p.kind);
       return [

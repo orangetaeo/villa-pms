@@ -31,8 +31,15 @@
    - `GET /api/villas/[id]/clips` / `DELETE .../[clipId]` / `PATCH .../[clipId]`(ADMIN 승인·반려)
 3. **쿼터** — AppSetting 기반 상한(코드 배포 없이 조정 가능)
 4. **UI**
-   - 공급자: 빌라 등록 마법사 **선택 단계**("영상" — 건너뛰기 가능) + `/my-villas/[id]/videos`
-   - 운영자: 빌라 상세에 "영상" 탭(승인·반려·삭제)
+   - 공급자: 빌라 등록 **직후 영상 온보딩 화면**(선택 — "나중에 하기" 가능) + `/my-villas/[id]/videos`
+   - 운영자: 빌라 상세에 "영상 클립" 카드(승인·반려·삭제)
+
+   > **설계 변경(구현 중 확정)**: 당초 "마법사 안의 선택 단계"로 잡았으나, 마법사는 마지막 단계에서
+   > 한 번에 `POST /api/villas`를 호출하는 구조라 **제출 전에는 villaId가 없다**. 영상 presign은
+   > 빌라 스코프(권한 검사의 근거)이므로 마법사 내부에 두면 ⑴ 최대 8×80MB File을 브라우저 메모리에
+   > 들고 있다가 ⑵ 등록 성공 후 순차 업로드해야 하고, ⑶ 업로드 실패 시 등록 전체가 불확정 상태가 된다.
+   > → 등록 완료 후 `/my-villas/{id}/videos?created=1`로 자동 이동하는 **사실상의 마지막 단계**로 구현.
+   > 사용자 흐름(등록하면서 영상도 올린다)은 동일하고, 각 클립이 즉시 커밋돼 실패해도 클립 1개만 잃는다.
 5. **감사 로그** — 전 변경 경로 `writeAuditLog()` 동시 구현 (글로벌 절대 규칙)
 6. **i18n** — ko/vi 키 동시 추가
 
@@ -99,3 +106,24 @@ AppSetting 키: `VILLA_CLIP_MAX_BYTES`, `VILLA_CLIP_MAX_DURATION_SEC`, `VILLA_CL
 | presigned PUT은 브라우저→R2 직결이라 서버가 완료를 모름 | 커밋 API에서 HeadObject 실측. 미커밋 객체는 고아 → P3 정리 cron |
 | Railway 컨테이너에서 ffprobe 다운로드+실행 부하 | 커밋 시 1회, 클립당 수백ms. 편집(ffmpeg)은 기존 잡 러너가 담당 |
 | 공급자 영상의 마케팅 이용 허락 | 사업 계약서 `termsJson`에 콘텐츠 이용허락 조항 추가 — **별도 태스크로 분리**(법무 검토 필요) |
+| 공유 node_modules generate 레이스 | worktree의 `node_modules`는 메인 폴더 정션 → 다른 세션 `prisma generate`가 additive 타입을 되돌림. **메인 폴더 schema.prisma에 VillaClip 블록 선반영**(미커밋)으로 안정화 |
+
+## 구현 결과 (2026-07-22)
+
+| 게이트 | 결과 |
+|---|---|
+| `npx tsc --noEmit` | 통과 |
+| `npm run lint` | 신규 파일 error·warning 0 |
+| `npx next build` | 통과 — `/my-villas/[id]/videos` 라우트 등록 확인 |
+| `npx vitest run` (villa-clip, villa-notify) | 18 passed |
+| 라이브 DB 마이그레이션 | 적용·검증 완료(컬럼 18·인덱스 4·Prisma 조회 OK) |
+
+신규 파일: `lib/villa-clip.ts`, `lib/villa-clip.test.ts`,
+`app/api/villas/[id]/clips/{presign/route.ts, route.ts, [clipId]/route.ts}`,
+`app/(supplier)/my-villas/[id]/videos/{page.tsx, clip-manager.tsx}`,
+`app/(admin)/villas/[id]/clip-review.tsx`, `prisma/migrations-manual/2026-07-22-villa-clip.sql`
+
+수정 파일: `prisma/schema.prisma`, `lib/storage.ts`, `lib/villa-notify.ts`, `lib/zalo.ts`,
+`app/(supplier)/layout.tsx`, `app/(supplier)/my-villas/new/villa-wizard.tsx`,
+`app/(supplier)/my-villas/[id]/page.tsx`, `app/(admin)/villas/[id]/page.tsx`,
+`messages/{ko,vi}.json`

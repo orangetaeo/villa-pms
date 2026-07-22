@@ -245,6 +245,7 @@ model Villa {
   serviceVendors VillaServiceVendor[] // 빌라별 지역 지정 업체(마사지·이발 등 지역 분포 서비스) — ADR-0037
   instagramPosts InstagramPost[] // 인스타그램 자동 포스팅 (instagram-marketing-p1) — 빌라 삭제 시 SetNull(발행 이력 보존)
   youtubeShorts  YoutubeShort[] // 유튜브 쇼츠 자동 업로드 (youtube-shorts-s1) — 빌라 삭제 시 SetNull(발행 이력 보존)
+  clips          VillaClip[] // 직접 촬영 영상 클립 (villa-clip-narration P1) — 릴스·쇼츠 소재
 
   @@index([supplierId])
   @@index([status, isSellable])
@@ -264,6 +265,52 @@ model VillaPhoto {
   createdAt  DateTime   @default(now())
 
   @@index([villaId, space])
+}
+
+// ===================== 빌라 영상 클립 (villa-clip-narration P1) =====================
+// 관리인(SUPPLIER)·운영자가 직접 촬영한 짧은 영상. **빌라 소유 미디어 자산**으로 두는 것이 핵심 —
+// YoutubeShort.sourceClipsJson처럼 쇼츠 1건에 종속시키면 같은 영상을 릴스·쇼츠·제안링크에서 재사용할 수 없다.
+// VillaPhoto의 형제 모델(1:N, Cascade). 마케팅 소재로는 APPROVED만 사용한다(검수 게이트 원칙3).
+//   ★ 누수 0: 원가·마진·판매가 컬럼 없음. 공급자도 자기 빌라 클립만 조회 가능(라우트에서 supplierId 스코프 강제).
+enum VillaClipStatus {
+  UPLOADING // presign 발급됨 — 브라우저가 R2로 PUT 중. 커밋 전 임시 상태(고아 정리 대상)
+  UPLOADED // 업로드 완료 + 서버 실측 검증 통과. 운영자 검수 대기
+  APPROVED // 운영자 승인 — 릴스·쇼츠 소재로 사용 가능
+  REJECTED // 운영자 반려 (rejectionReason) — 소재 미사용, 공급자에게 사유 노출
+}
+
+model VillaClip {
+  id      String @id @default(cuid())
+  villaId String
+  villa   Villa  @relation(fields: [villaId], references: [id], onDelete: Cascade)
+
+  // R2 오브젝트 키(원본). 서버가 확정 — 클라 파일명 미신뢰(경로 주입 차단). villa-clips/{hex}.{mp4|mov}
+  r2Key    String  @unique
+  url      String // 공개 접근 URL — 편집 파이프라인·미리보기가 사용
+  mimeType String
+
+  // ── 서버 실측값 (커밋 시 R2 HeadObject + ffprobe로 확정) ──
+  //   ★ 클라 신고값을 저장하지 않는다: presigned PUT은 브라우저→R2 직결이라 신고 크기를 속일 수 있음.
+  sizeBytes   Int // 실제 오브젝트 크기(바이트)
+  durationSec Int // 반올림 초
+  width       Int
+  height      Int
+
+  // 촬영 공간 — VillaPhoto.space와 같은 사전 재사용. 나레이션·자막 자동 매칭(captionForPhotoSpace)에 물린다.
+  space PhotoSpace?
+  note  String? // 공급자 자유 메모(선택) — 베트남어 원문 그대로
+
+  status          VillaClipStatus @default(UPLOADING)
+  rejectionReason String? // 반려 사유 — 재업로드 시 유지(이력은 AuditLog)
+  reviewedBy      String? // 승인·반려한 운영자 User.id (FK 없음 — 계정 삭제와 무관하게 이력 보존)
+  reviewedAt      DateTime?
+
+  uploadedBy String // 업로더 User.id (증빙: 타임스탬프 + 업로더 기록 규칙)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([villaId, status]) // 빌라별 승인 클립 조회(편집 소재 선정)
+  @@index([status, createdAt]) // 운영자 검수 큐 + 고아(UPLOADING) 정리 cron
 }
 
 // ===================== 판매용 정보 확장 (v1.3 — ADR-0011) =====================

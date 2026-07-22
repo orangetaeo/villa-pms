@@ -1979,6 +1979,23 @@
         "baselineWarnBody": "이 사진은 체크아웃 비교(증빙)에 쓰이는 기준 사진입니다. 삭제하면 향후 검수 비교에서 빠집니다. 삭제하시겠습니까?",
         "baselineLocked": "진행 중인 예약이 있어 이 기준 사진은 삭제할 수 없습니다. 체크아웃 후 다시 시도하세요.",
         "error": "사진 처리 중 오류가 발생했습니다. 다시 시도하세요."
+      },
+      "clips": {
+        "title": "영상 클립",
+        "count": "{count}개",
+        "empty": "업로드된 영상이 없습니다.",
+        "approve": "승인",
+        "reject": "반려",
+        "delete": "삭제",
+        "cancel": "취소",
+        "reasonPlaceholder": "반려 사유 (공급자에게 표시)",
+        "error": "처리에 실패했습니다.",
+        "status": {
+          "UPLOADING": "업로드 중",
+          "UPLOADED": "검수 대기",
+          "APPROVED": "승인",
+          "REJECTED": "반려"
+        }
       }
     },
     "sales": {
@@ -2216,7 +2233,10 @@
     },
     "sellLinkTitle": "판매 링크",
     "sellLinkDesc": "내 고객이 직접 예약할 링크 만들기",
-    "manageSellLink": "판매 링크"
+    "manageSellLink": "판매 링크",
+    "clips": "영상",
+    "clipCount": "{count}개",
+    "manageClips": "관리"
   },
   "wizard": {
     "header": "빌라 등록",
@@ -6371,6 +6391,42 @@
       "voidConfirm": "이 계약을 무효화하시겠습니까? 되돌릴 수 없습니다.",
       "voiding": "무효화 중…",
       "voidError": "무효화에 실패했습니다."
+    }
+  },
+  "clipManage": {
+    "title": "빌라 영상",
+    "back": "뒤로",
+    "intro": "빌라를 짧게 찍어 올려주세요. 인스타그램·유튜브 홍보 영상에 사용됩니다.",
+    "ruleDuration": "영상 1개당 {sec}초 이내",
+    "ruleCount": "빌라당 최대 {n}개",
+    "ruleWifi": "와이파이에서 올리는 것을 권장합니다",
+    "record": "영상 촬영",
+    "pick": "갤러리에서 선택",
+    "full": "영상이 {n}개 모두 찼습니다. 삭제 후 다시 올려주세요.",
+    "uploading": "업로드 중",
+    "uploadingHint": "화면을 닫지 마세요.",
+    "listTitle": "올린 영상 {count}/{max}",
+    "empty": "아직 올린 영상이 없습니다.",
+    "duration": "{sec}초",
+    "delete": "삭제",
+    "cancel": "취소",
+    "deleteConfirm": "이 영상을 삭제할까요?",
+    "done": "완료",
+    "skip": "나중에 하기",
+    "status": {
+      "UPLOADING": "업로드 중",
+      "UPLOADED": "확인 대기",
+      "APPROVED": "사용 승인",
+      "REJECTED": "반려"
+    },
+    "error": {
+      "TOO_LARGE": "파일이 너무 큽니다. {mb}MB 이하로 올려주세요.",
+      "TOO_LONG": "영상이 너무 깁니다. {sec}초 이하로 찍어주세요.",
+      "TOO_SHORT": "영상이 너무 짧습니다.",
+      "RESOLUTION_TOO_LOW": "화질이 너무 낮습니다. 더 선명하게 찍어주세요.",
+      "QUOTA_EXCEEDED": "영상은 최대 {n}개까지 올릴 수 있습니다.",
+      "DISALLOWED_TYPE": "MP4 또는 MOV 영상만 올릴 수 있습니다.",
+      "generic": "실패했습니다. 다시 시도해주세요."
     }
   }
 }

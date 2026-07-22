@@ -51,6 +51,8 @@ async function getVilla(id: string, supplierId: string) {
       amenities: {
         select: { category: true },
       },
+      // 영상 클립 개수만 (villa-clip-narration P1) — 미완료 업로드(UPLOADING)는 제외
+      _count: { select: { clips: { where: { status: { not: "UPLOADING" } } } } },
       // 누수 차단 — supplierCostVnd만(ADR-0014 VillaRatePeriod). sale/margin 필드는 select에 부재
       ratePeriods: {
         select: { season: true, isBase: true, supplierCostVnd: true },
@@ -135,6 +137,7 @@ export default async function VillaDetailPage({
 
   const t = await getTranslations({ locale, namespace: "villaDetail" });
   const tPhoto = await getTranslations({ locale, namespace: "wizard.photos" });
+  const clipCount = villa._count.clips; // 영상 클립 개수 (villa-clip-narration P1)
   // 상태 라벨은 myVillas.status.* 재사용 (중복 정의 금지)
   const tStatus = await getTranslations({ locale, namespace: "myVillas.status" });
   // 판매정보 섹션 라벨 (a16) — sales/rules/bedding/features 4개 네임스페이스 번역자 주입
@@ -305,6 +308,26 @@ export default async function VillaDetailPage({
             ) : (
               <PhotoGrid photos={lightboxPhotos} />
             )}
+          </div>
+
+          {/* 2-1. 영상 클립 (villa-clip-narration P1) — 촬영 영상 업로드 진입. 선택 항목이라 개수만 표시 */}
+          <div className="rounded-xl border border-neutral-100 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-teal-600">movie</span>
+                <h3 className="font-semibold text-neutral-800">{t("clips")}</h3>
+                <span className="rounded bg-neutral-100 px-2 py-0.5 text-xs font-bold text-neutral-600">
+                  {t("clipCount", { count: clipCount })}
+                </span>
+              </div>
+              <Link
+                href={`/my-villas/${villa.id}/videos`}
+                className="flex shrink-0 items-center gap-1 rounded-lg bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-100"
+              >
+                <span className="material-symbols-outlined text-base">videocam</span>
+                {t("manageClips")}
+              </Link>
+            </div>
           </div>
 
           {/* 3. 비품 요약 — "수정" 진입(T6.4) */}

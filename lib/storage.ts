@@ -5,7 +5,13 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID, createHash, createHmac } from "crypto";
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  DeleteObjectCommand,
+} from "@aws-sdk/client-s3";
 
 // 기본: ./public/uploads → next가 /uploads/<파일명>으로 정적 서빙
 // Railway volume 사용 시 UPLOAD_DIR을 volume 마운트 경로로 지정
@@ -635,4 +641,65 @@ export async function saveYoutubeRenderPoster(
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(path.join(dir, fileName), buffer);
   return { url: `/uploads/${key}`, key };
+}
+
+// ===================== 빌라 영상 클립 — 직접 촬영 원본 (villa-clip-narration P1) =====================
+// 관리인·운영자가 올린 원본 영상. prefix `villa-clips/`로 유튜브 클립(youtube-clips/)과 분리 —
+// 수명·정리 정책이 다르다(빌라 자산은 승인 후 장기 보관, 유튜브 클립은 편집 후 폐기 대상).
+// ★ presign은 R2 전용. 브라우저가 직접 PUT하므로 **서버는 업로드 완료·실제 크기를 모른다**
+//   → 커밋 API가 headR2Object로 실측해야 한다(클라 신고 크기 신뢰 금지).
+
+const VILLA_CLIP_PREFIX = "villa-clips";
+
+/** 서버가 확정하는 빌라 클립 저장 키: `villa-clips/{hex}.{ext}` (클라 파일명 미신뢰 — 경로 주입 차단). */
+export function villaClipKey(mimeType: string): string {
+  const ext = YT_CLIP_MIME_EXT[mimeType];
+  if (!ext) throw new Error(`DISALLOWED_CLIP_MIME: ${mimeType}`);
+  return `${VILLA_CLIP_PREFIX}/${randomUUID().replace(/-/g, "")}.${ext}`;
+}
+
+/** presign이 발급한 형식의 빌라 클립 키인지 — 임의 R2 키 커밋·조회 차단(edit.ts CLIP_KEY_RE 패턴 재사용). */
+const VILLA_CLIP_KEY_RE = /^villa-clips\/[a-f0-9]{32}\.(mp4|mov)$/;
+export function isVillaClipKey(key: string): boolean {
+  return VILLA_CLIP_KEY_RE.test(key);
+}
+
+/** 빌라 클립 공개 URL — R2 모드는 절대 URL, 디스크 폴백은 /uploads/ 상대 경로. */
+export function villaClipPublicUrl(key: string): string {
+  const r2 = getR2Config();
+  return r2 ? `${r2.publicUrl}/${key}` : `/uploads/${key}`;
+}
+
+/**
+ * R2 오브젝트 메타데이터 조회(HeadObject) — 업로드 완료 여부와 **실제 크기**를 서버가 확인하는 유일한 수단.
+ * @returns 오브젝트가 없으면 null (아직 PUT 안 됨 / 잘못된 키)
+ */
+export async function headR2Object(
+  key: string
+): Promise<{ sizeBytes: number; contentType: string | null } | null> {
+  const r2 = getR2Config();
+  if (!r2) throw new Error("R2_NOT_CONFIGURED");
+  try {
+    const res = await getR2Client(r2).send(
+      new HeadObjectCommand({ Bucket: r2.bucket, Key: key })
+    );
+    return {
+      sizeBytes: typeof res.ContentLength === "number" ? res.ContentLength : 0,
+      contentType: res.ContentType ?? null,
+    };
+  } catch {
+    // NotFound·403 모두 "없음"으로 수렴 — 존재 여부를 호출부에 세분화해 흘리지 않는다.
+    return null;
+  }
+}
+
+/** R2 오브젝트 삭제 — 검증 실패분·삭제된 클립 정리용. 실패는 무시(best-effort, 고아는 정리 cron 대상). */
+export async function deleteR2Object(key: string): Promise<void> {
+  const r2 = getR2Config();
+  if (!r2) return;
+  try {
+    await getR2Client(r2).send(new DeleteObjectCommand({ Bucket: r2.bucket, Key: key }));
+  } catch {
+    // 무시 — 스토리지 정리 실패가 사용자 요청(삭제)을 막으면 안 된다.
+  }
 }
