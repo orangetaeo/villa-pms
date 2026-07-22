@@ -12,6 +12,8 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+// 업로드 인프라는 운영자 화면과 공용 — 같은 코드를 두 벌 두면 한쪽만 고쳐지는 사고가 난다.
+import { probeLocalVideo, putWithProgress } from "@/lib/video-upload-browser";
 
 export interface ManagedClip {
   id: string;
@@ -57,51 +59,6 @@ function toErrorKey(code: string | undefined): ErrorKey {
   return code && KNOWN_ERRORS.includes(code) ? (code as ErrorKey) : "generic";
 }
 
-/** 브라우저에서 영상 길이·해상도 읽기. 못 읽으면 null(서버 판정에 위임). */
-function probeLocalVideo(
-  file: File
-): Promise<{ durationSec: number; width: number; height: number } | null> {
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(file);
-    const video = document.createElement("video");
-    video.preload = "metadata";
-    const done = (result: { durationSec: number; width: number; height: number } | null) => {
-      URL.revokeObjectURL(url);
-      resolve(result);
-    };
-    video.onloadedmetadata = () => {
-      const d = video.duration;
-      // Infinity·NaN(스트리밍 메타 미완)이면 판정 불가 → 서버에 위임
-      if (!Number.isFinite(d) || d <= 0) return done(null);
-      done({ durationSec: d, width: video.videoWidth, height: video.videoHeight });
-    };
-    video.onerror = () => done(null);
-    video.src = url;
-  });
-}
-
-/** presigned URL로 직접 PUT — 진행률 필요해서 fetch 대신 XHR. */
-function putWithProgress(
-  url: string,
-  file: File,
-  contentType: string,
-  onProgress: (pct: number) => void
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url, true);
-    xhr.setRequestHeader("Content-Type", contentType);
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
-    };
-    xhr.onload = () =>
-      xhr.status >= 200 && xhr.status < 300
-        ? resolve()
-        : reject(new Error(`PUT ${xhr.status}`));
-    xhr.onerror = () => reject(new Error("PUT network error"));
-    xhr.send(file);
-  });
-}
 
 export default function ClipManager({
   villaId,

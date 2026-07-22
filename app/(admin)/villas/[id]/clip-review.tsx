@@ -22,6 +22,7 @@ import {
   type ClipErrorKey,
   type ClipUploadPolicy,
 } from "@/lib/villa-clip-upload";
+import { probeLocalVideo, putWithProgress } from "@/lib/video-upload-browser";
 
 export interface ReviewClip {
   id: string;
@@ -37,48 +38,6 @@ export interface ReviewClip {
   createdAt: string;
 }
 
-/** 브라우저에서 영상 길이·해상도 읽기. 못 읽으면 null(서버 실측에 위임 — 과잉 거절 방지). */
-function probeLocalVideo(
-  file: File
-): Promise<{ durationSec: number; width: number; height: number } | null> {
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(file);
-    const video = document.createElement("video");
-    video.preload = "metadata";
-    const done = (r: { durationSec: number; width: number; height: number } | null) => {
-      URL.revokeObjectURL(url);
-      resolve(r);
-    };
-    video.onloadedmetadata = () => {
-      const d = video.duration;
-      if (!Number.isFinite(d) || d <= 0) return done(null); // 스트리밍 메타 미완 → 판정 불가
-      done({ durationSec: d, width: video.videoWidth, height: video.videoHeight });
-    };
-    video.onerror = () => done(null);
-    video.src = url;
-  });
-}
-
-/** presigned URL로 직접 PUT — 진행률이 필요해 fetch 대신 XHR. */
-function putWithProgress(
-  url: string,
-  file: File,
-  contentType: string,
-  onProgress: (pct: number) => void
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url, true);
-    xhr.setRequestHeader("Content-Type", contentType);
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
-    };
-    xhr.onload = () =>
-      xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`PUT ${xhr.status}`));
-    xhr.onerror = () => reject(new Error("PUT network error"));
-    xhr.send(file);
-  });
-}
 
 export default function ClipReview({
   villaId,

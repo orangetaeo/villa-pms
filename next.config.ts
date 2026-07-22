@@ -13,13 +13,25 @@ const CSP_REPORT_ONLY = [
   "frame-ancestors 'self'",
   "form-action 'self'",
   // challenges.cloudflare.com = Turnstile(웹챗 세션 생성 봇 차단). script/frame 양쪽 필요.
-  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+  // static.cloudflareinsights.com = Cloudflare Web Analytics 비콘. **우리 코드가 아니라 프록시가
+  //   주입**한다(2026-07-23 실측: 로그인·비로그인 가리지 않고 전 페이지에서 script-src-elem 위반).
+  //   빠뜨리고 enforce하면 모든 페이지에서 콘솔 에러가 뜬다.
+  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://static.cloudflareinsights.com",
   // youtube-nocookie = 쿠키 없는 임베드(개인정보 보호형). 빌라 페이지 쇼츠 재생용(T-seo-media).
   "frame-src 'self' https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
-  "img-src 'self' data: https://*.r2.dev https://*.r2.cloudflarestorage.com https://picsum.photos https://fastly.picsum.photos https://lh3.googleusercontent.com https://*.zadn.vn https://i.ytimg.com",
-  "connect-src 'self'",
+  // blob: = 첨부 대기열·붙여넣기 미리보기 썸네일(objectURL). *.zdn.vn = Zalo 그룹 사진(photo-stal-*).
+  "img-src 'self' data: blob: https://*.r2.dev https://*.r2.cloudflarestorage.com https://picsum.photos https://fastly.picsum.photos https://lh3.googleusercontent.com https://*.zadn.vn https://*.zdn.vn https://i.ytimg.com",
+  // media-src = <video> 재생원. ★영상 기능(빌라 클립·릴스·쇼츠) 도입으로 **필수가 됐다**
+  //   (2026-07-23 실측: /villas/[id]에서 pub-*.r2.dev/villa-clips/*.mp4가 default-src 폴백에 걸림).
+  //   blob: = 업로드 전 로컬 미리보기(probeLocalVideo가 objectURL을 <video>에 물린다).
+  //   미지정 시 default-src 'self' 폴백 → enforce 순간 **영상이 전부 안 보인다**.
+  "media-src 'self' blob: https://*.r2.dev",
+  // connect-src = fetch/XHR 목적지. ★R2 presigned PUT은 브라우저→R2 직결이라 반드시 필요하다
+  //   (누락 시 enforce 순간 영상 업로드 전멸 — [[r2-bucket-cors-missing-blocks-browser-upload]]와 같은 증상).
+  //   challenges.cloudflare.com = Turnstile 위젯의 검증 요청(script/frame과 짝).
+  "connect-src 'self' https://*.r2.cloudflarestorage.com https://challenges.cloudflare.com",
   "report-uri /api/csp-report",
 ].join("; ");
 
