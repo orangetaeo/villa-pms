@@ -108,6 +108,7 @@ export default async function VillaDetailPage({
             status: true,
             rejectionReason: true,
             note: true,
+            space: true, // 검수 목록에 공간 배지 표시 + 업로드 시 지정한 값 확인용
             createdAt: true,
           },
         },
