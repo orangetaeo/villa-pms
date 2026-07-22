@@ -6526,5 +6526,27 @@
     "rejectPlaceholder": "Lý do từ chối (tuỳ chọn)",
     "rejectedReason": "Lý do từ chối",
     "openPublic": "Mở trang công khai →"
+  },
+  "adminVillaSeo": {
+    "title": "Hiển thị công khai (SEO)",
+    "desc": "Khi bật, villa này sẽ xuất hiện trên trang công khai villa-go.net và sitemap. Giá, tình trạng phòng trống, địa chỉ và thông tin nhà cung cấp không bao giờ được hiển thị.",
+    "state": {
+      "on": "Đang công khai",
+      "off": "Không công khai"
+    },
+    "checks": {
+      "sellable": "Trạng thái bán được (hoạt động + đã duyệt dọn dẹp)",
+      "photos": "{n} ảnh (tối thiểu {min})",
+      "description": "Giới thiệu {n} ký tự (tối thiểu {min})",
+      "slug": "Đã cấp địa chỉ công khai (slug)"
+    },
+    "actions": {
+      "issueSlug": "Cấp địa chỉ công khai",
+      "generateDescription": "Tạo giới thiệu tự động",
+      "publish": "Công khai",
+      "unpublish": "Gỡ công khai",
+      "openPublic": "Mở trang công khai →"
+    },
+    "shortDescriptionWarning": "Giới thiệu chỉ có {n} ký tự, chưa đạt tối thiểu {min}. Nội dung do người viết sẽ không bị ghi đè — hãy bổ sung thủ công hoặc xoá rồi bấm tạo tự động."
   }
 }

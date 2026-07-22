@@ -285,3 +285,62 @@ describe("IndexNow — 네이버 루트 URL 거부 대응 (프로덕션 실측 2
     expect(naver?.ok).toBe(true); // 스킵은 실패가 아니다
   });
 });
+
+describe("빌라 공개 준비 (T-seo-s2)", () => {
+  it("슬러그 충돌 시 접미 번호를 붙인다", async () => {
+    const taken = new Set(["sonasea-v3b", "sonasea-v3b-2"]);
+    const db = {
+      villa: {
+        findFirst: async (args: { where: { publicSlug: string } }) =>
+          taken.has(args.where.publicSlug) ? { id: "other" } : null,
+      },
+    } as never;
+    const { ensureUniquePublicSlug } = await import("@/lib/seo/villa-prep");
+    expect(await ensureUniquePublicSlug({ id: "abc123", name: "쏘나씨 V3B", nameVi: "Sonasea V3B" }, db)).toBe(
+      "sonasea-v3b-3"
+    );
+  });
+
+  it("공개 조건은 4가지를 모두 충족해야 한다", async () => {
+    const { evaluatePrep } = await import("@/lib/seo/villa-prep");
+    const base = {
+      status: "ACTIVE",
+      isSellable: true,
+      publicSlug: "s",
+      description: "가".repeat(600),
+      photoCount: 8,
+    };
+    expect(evaluatePrep(base).eligible).toBe(true);
+    expect(evaluatePrep({ ...base, publicSlug: null }).eligible).toBe(false);
+    expect(evaluatePrep({ ...base, description: "짧음" }).eligible).toBe(false);
+    expect(evaluatePrep({ ...base, photoCount: 7 }).eligible).toBe(false);
+    expect(evaluatePrep({ ...base, isSellable: false }).eligible).toBe(false);
+    expect(evaluatePrep({ ...base, status: "DRAFT" }).eligible).toBe(false);
+  });
+
+  it("★ 소개문 프롬프트에 가격·주소·공급자 지시가 금지로 들어간다", async () => {
+    const { buildVillaDescriptionPrompt } = await import("@/lib/seo/villa-prep");
+    const p = buildVillaDescriptionPrompt({
+      name: "V1", complex: "Sonasea", areaNameKo: "쏘나씨", bedrooms: 4, bathrooms: 4,
+      maxGuests: 10, areaSqm: null, floors: null, hasPool: true, breakfastAvailable: false,
+      beachDistanceM: 300, parkingSlots: 2, petsAllowed: false, smokingAllowed: false,
+      partyAllowed: false, extraBedAvailable: false, featureKeys: ["privatePool"], photoSpaces: ["외관"],
+    });
+    expect(p).toContain("가격·요금·금액을 절대 쓰지 마라");
+    expect(p).toContain("상세 주소·소유자·관리인 정보를 쓰지 마라");
+    expect(p).toContain("위에 없는 사실을 지어내지 마라");
+    // 사실 목록에 원가·판매가가 섞여 들어가지 않는다
+    expect(p).not.toMatch(/원가|판매가|마진|VND|KRW/);
+  });
+
+  it("자동 공개 스위치는 기본 off (조회 실패·미설정 모두 false)", async () => {
+    const { isAutoListEnabled } = await import("@/lib/seo/villa-prep");
+    expect(await isAutoListEnabled({ appSetting: { findUnique: async () => null } } as never)).toBe(false);
+    expect(
+      await isAutoListEnabled({ appSetting: { findUnique: async () => ({ value: "0" }) } } as never)
+    ).toBe(false);
+    expect(
+      await isAutoListEnabled({ appSetting: { findUnique: async () => ({ value: "1" }) } } as never)
+    ).toBe(true);
+  });
+});
