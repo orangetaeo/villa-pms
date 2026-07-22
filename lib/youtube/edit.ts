@@ -46,12 +46,16 @@ const FPS = 30;
 const CLIP_DUR_DEFAULT = 4;
 const CLIP_DUR_MIN = 2;
 const CLIP_DUR_MAX = 8;
-const CLIP_COUNT_MAX = 8;
+// 빌라 투어는 입구·수영장·거실·주방·침실N·욕실·발코니를 다 보여줘야 설득력이 생긴다.
+// 8컷으로는 "맛보기"밖에 안 된다(테오 피드백 2026-07-22) — 16컷까지 허용.
+const CLIP_COUNT_MAX = 16;
 
 const TRANSITION_SEC = 0.4; // xfade 크로스페이드 길이(세그먼트가 짧으면 축소)
 const CTA_DUR_SEC = 2.8; // 아웃트로 CTA 정지 카드
 const INTRO_SEC = 1.5; // 인트로 타이틀 표시 구간
-const TOTAL_MAX_SEC = 60; // 유튜브 쇼츠 상한(하드 컷)
+// 유튜브 쇼츠 상한(하드 컷). ★2024-10 이후 60초 → **3분**으로 상향됐다(인스타 릴스도 인앱 3분).
+//   60초로 두면 "쇼츠=1분"이라는 낡은 공식에 갇혀 빌라를 제대로 못 보여준다(테오 피드백 2026-07-22).
+const TOTAL_MAX_SEC = 180;
 // 나레이션 문장 수 상한 — 클립 8개 + CTA 1개. 대본 규칙(3~5문장)보다 넉넉히 두고 구조만 막는다.
 const NARRATION_LINES_MAX = CLIP_COUNT_MAX + 1;
 const MAX_MP4_BYTES = 200 * 1024 * 1024;

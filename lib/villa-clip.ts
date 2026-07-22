@@ -27,8 +27,11 @@ export const VILLA_CLIP_POLICY_DEFAULTS = {
   maxBytes: 80 * 1024 * 1024,
   /** 클립 1개 최대 길이 — 30초. 쇼츠 소재는 짧은 컷이 유리. */
   maxDurationSec: 30,
-  /** 빌라당 클립 수 — 8개. lib/youtube/edit.ts CLIP_COUNT_MAX와 정합. */
-  maxPerVilla: 8,
+  /**
+   * 빌라당 클립 수 — 16개. lib/youtube/edit.ts CLIP_COUNT_MAX와 정합.
+   * ★ 2026-07-22 상향(8→16): 입구·수영장·거실·주방·침실N·욕실·발코니를 다 담으려면 8컷으로 부족하다.
+   */
+  maxPerVilla: 16,
   /** 최소 짧은 변 — 540px. 9:16 1080×1920으로 업스케일되는 저화질 소재 차단. */
   minShortEdge: 540,
   /** 최소 길이 — 1.5초. 실수 터치로 찍힌 순간 영상 배제. */

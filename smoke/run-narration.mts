@@ -14,10 +14,20 @@ import {
 import { renderEditedVideo } from "../lib/youtube/edit";
 import { ttsConfig } from "../lib/gemini-tts";
 
+// 빌라 투어 순서 — 입구 → 수영장 → 테라스 → 거실 → 주방 → 침실N → 욕실 → 발코니
+// (테오 피드백 2026-07-22: 15초 3컷으로는 "맛보기"밖에 안 된다)
 const CLIPS = [
-  { file: "smoke/clip-00-exterior.mp4", space: "EXTERIOR" },
-  { file: "smoke/clip-01-living.mp4", space: "LIVING" },
-  { file: "smoke/clip-02-bedroom.mp4", space: "BEDROOM" },
+  { file: "smoke/clip-00-entrance.mp4", space: "EXTERIOR" },
+  { file: "smoke/clip-01-pool.mp4", space: "POOL" },
+  { file: "smoke/clip-02-terrace.mp4", space: "BALCONY" },
+  { file: "smoke/clip-03-living.mp4", space: "LIVING" },
+  { file: "smoke/clip-04-living2.mp4", space: "LIVING" },
+  { file: "smoke/clip-05-kitchen.mp4", space: "KITCHEN" },
+  { file: "smoke/clip-06-bed1.mp4", space: "BEDROOM" },
+  { file: "smoke/clip-07-bed2.mp4", space: "BEDROOM" },
+  { file: "smoke/clip-08-bed3.mp4", space: "BEDROOM" },
+  { file: "smoke/clip-09-bath.mp4", space: "BATHROOM" },
+  { file: "smoke/clip-10-balcony.mp4", space: "BALCONY" },
 ];
 
 // 실제 빌라 정보 대신 공개 정보만(누수 0 규약 동일). 이름은 TTS가 읽을 수 있는 한글 표기.
@@ -25,7 +35,7 @@ const ctx: NarrationVillaContext = {
   villaName: "엠빌라",
   complex: "쏘나씨",
   bedrooms: 3,
-  hasPool: false,
+  hasPool: true, // 수영장 컷이 있다
   beachDistanceM: 120,
   clipSpaces: CLIPS.map((c) => c.space),
 };

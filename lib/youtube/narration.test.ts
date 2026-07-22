@@ -126,11 +126,29 @@ describe("validateNarrationLines", () => {
   });
 
   it("문장 수가 범위 밖이면 대본 수준 문제로 잡힌다", () => {
+    // ★ 개수를 하드코딩하지 않는다 — NARRATION_RULES에서 파생한다.
+    //   과거 6개를 TOO_MANY로 못박아뒀다가 maxLines 5→17 상향(투어 길이 확장) 때 깨졌다.
     const ok = line("괜찮은 문장이에요");
-    expect(validateNarrationLines([ok, ok]).scriptIssues).toContain("TOO_FEW_LINES");
-    expect(
-      validateNarrationLines([ok, ok, ok, ok, ok, ok]).scriptIssues
-    ).toContain("TOO_MANY_LINES");
+    const tooFew = Array.from({ length: NARRATION_RULES.minLines - 1 }, () => ok);
+    const tooMany = Array.from({ length: NARRATION_RULES.maxLines + 1 }, () => ok);
+    const justRight = Array.from({ length: NARRATION_RULES.maxLines }, () => ok);
+
+    expect(validateNarrationLines(tooFew).scriptIssues).toContain("TOO_FEW_LINES");
+    expect(validateNarrationLines(tooMany).scriptIssues).toContain("TOO_MANY_LINES");
+    expect(validateNarrationLines(justRight).scriptIssues).toEqual([]); // 경계 상한은 통과
+  });
+
+  it("투어 길이 대본(11컷 + CTA)도 규칙을 통과한다 — 15초 공식에 갇히지 않는다", () => {
+    const tour = [
+      "푸꾸옥에서 만나는 특별한 휴식처입니다",
+      "나만의 공간에서 즐기는 시원한 물놀이예요",
+      "탁 트인 거실은 모두의 편안함을 선사해요",
+      "필요한 모든 것을 갖춘 편리한 주방입니다",
+      "안락한 침실은 편안한 밤을 선물합니다",
+      "카카오톡에서 빌라고를 검색해 보세요",
+    ].map(line);
+    const r = validateNarrationLines(tour);
+    expect(r.ok).toBe(true);
   });
 });
 
