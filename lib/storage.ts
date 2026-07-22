@@ -703,3 +703,57 @@ export async function deleteR2Object(key: string): Promise<void> {
     // 무시 — 스토리지 정리 실패가 사용자 요청(삭제)을 막으면 안 된다.
   }
 }
+
+/**
+ * TTS 나레이션 WAV 캐시 저장 (villa-clip-narration-p2). 키는 호출부가 확정한다
+ * (`tts/{sha256}.wav` — 같은 문장·목소리·모델이면 같은 키 → 재합성 0).
+ * R2 미설정 환경에서는 디스크 폴백에 저장한다(로컬 개발에서도 캐시가 동작해야 API 낭비가 없다).
+ */
+export async function saveTtsAudio(buffer: Buffer, key: string): Promise<{ key: string }> {
+  const r2 = getR2Config();
+  if (r2) {
+    await getR2Client(r2).send(
+      new PutObjectCommand({
+        Bucket: r2.bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: "audio/wav",
+        CacheControl: "public, max-age=31536000, immutable",
+      })
+    );
+    return { key };
+  }
+  const filePath = path.join(UPLOAD_DIR, key);
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, buffer);
+  return { key };
+}
+
+/**
+ * TTS 캐시 조회 — R2/디스크 양쪽 모드를 모두 지원한다. 없으면 null.
+ * ★ headR2Object+getR2ObjectBuffer 조합을 쓰지 않는 이유: 그 둘은 R2 전용(미설정 시 throw)이라
+ *   디스크 폴백 개발 환경에서 캐시가 항상 미스가 되어 TTS를 매번 재합성한다(API 낭비).
+ */
+export async function readTtsAudio(key: string): Promise<Buffer | null> {
+  const r2 = getR2Config();
+  if (r2) {
+    try {
+      const res = await getR2Client(r2).send(
+        new GetObjectCommand({ Bucket: r2.bucket, Key: key })
+      );
+      const body = res.Body;
+      if (!body) return null;
+      const bytes = await (
+        body as { transformToByteArray: () => Promise<Uint8Array> }
+      ).transformToByteArray();
+      return Buffer.from(bytes);
+    } catch {
+      return null; // NotFound 포함 — 캐시 미스로 수렴
+    }
+  }
+  try {
+    return await fs.readFile(path.join(UPLOAD_DIR, key));
+  } catch {
+    return null;
+  }
+}

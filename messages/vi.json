@@ -764,6 +764,43 @@
         "preview": "Xem trước",
         "needClip": "Hãy tải lên ít nhất 1 clip trước."
       }
+    },
+    "narration": {
+      "title": "Kịch bản lồng tiếng AI",
+      "hint": "Mỗi cảnh một câu. Tối đa {max} ký tự, không dùng số và chữ Latinh. Chỉ câu đã sửa mới được tổng hợp lại.",
+      "voiceInfo": "Giọng: {voice}",
+      "loading": "Đang tải…",
+      "loadError": "Không tải được kịch bản.",
+      "empty": "Chưa có kịch bản. Hãy bấm 'Tạo bản nháp'.",
+      "cut": "Cảnh {n}",
+      "cta": "CTA",
+      "generate": "Tạo bản nháp",
+      "generating": "Đang tạo…",
+      "draftReady": "Đã tạo bản nháp. Kiểm tra rồi lưu.",
+      "addLine": "Thêm câu",
+      "removeLine": "Xoá câu",
+      "save": "Lưu",
+      "saving": "Đang lưu…",
+      "saved": "Đã lưu kịch bản.",
+      "rerender": "Lưu + Tạo lại video",
+      "rerendering": "Đang đưa vào hàng đợi…",
+      "rerenderQueued": "Đã đưa việc tạo lại video vào hàng đợi.",
+      "issue": {
+        "EMPTY": "Câu trống",
+        "TOO_SHORT": "Quá ngắn",
+        "TOO_LONG": "Vượt quá {max} ký tự",
+        "HAS_DIGIT_OR_LATIN": "Số và chữ Latinh bị đọc sai",
+        "TOO_FEW_LINES": "Quá ít câu",
+        "TOO_MANY_LINES": "Quá nhiều câu"
+      },
+      "error": {
+        "GEMINI_NOT_CONFIGURED": "Chưa cấu hình khoá Gemini API.",
+        "SCRIPT_GENERATION_FAILED": "Tạo kịch bản thất bại.",
+        "VILLA_REQUIRED": "Chưa liên kết villa nên không tạo được kịch bản.",
+        "RENDER_IN_PROGRESS": "Đang render. Vui lòng thử lại sau.",
+        "LINES_REQUIRED": "Hãy nhập ít nhất một câu.",
+        "generic": "Xử lý thất bại."
+      }
     }
   },
   "account": {
