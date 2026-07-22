@@ -30,6 +30,24 @@ export default function ArticleBody({ blocks }: { blocks: ArticleBlock[] }) {
             </figure>
           );
         }
+        if (b.type === "video") {
+          // youtube-nocookie = 재생 전 추적 쿠키 없음. lazy = 첫 화면 성능(랭킹 요소) 보호.
+          return (
+            <figure key={i} className="my-6">
+              <div className="relative aspect-[9/16] w-full max-w-xs overflow-hidden rounded-2xl bg-slate-100">
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${b.ytVideoId}`}
+                  title={b.title}
+                  loading="lazy"
+                  allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="absolute inset-0 h-full w-full"
+                />
+              </div>
+              <figcaption className="mt-2 text-center text-xs text-slate-500">{b.title}</figcaption>
+            </figure>
+          );
+        }
         if (b.type === "h2") {
           return (
             <h2 key={i} className="pt-2 text-xl font-bold text-slate-900">

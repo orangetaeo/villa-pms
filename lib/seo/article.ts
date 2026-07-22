@@ -23,7 +23,14 @@ export type ArticleBlock =
   | { type: "p"; text: string }
   | { type: "ul"; items: string[] }
   /** 본문 이미지 — alt는 필수(접근성 + 이미지 검색 유입의 실질 근거) */
-  | { type: "img"; url: string; alt: string; caption?: string };
+  | { type: "img"; url: string; alt: string; caption?: string }
+  /** 본문 영상 — 유튜브 쇼츠 임베드. ytVideoId만 저장하고 임베드 URL은 렌더가 조립한다 */
+  | { type: "video"; ytVideoId: string; title: string };
+
+/** 유튜브 video id 형식 — 임의 문자열이 iframe src로 들어가는 것을 막는다. */
+export function isValidYtVideoId(id: string): boolean {
+  return typeof id === "string" && /^[A-Za-z0-9_-]{6,20}$/.test(id);
+}
 
 // ── 이미지 URL 허용 호스트 ───────────────────────────────────────────────────
 // ★ 임의 외부 URL을 본문에 넣지 못하게 막는다. 이유 3가지:
@@ -76,6 +83,11 @@ export function parseArticleBody(raw: unknown): ArticleBlock[] {
       if (url && alt && isAllowedImageUrl(url)) {
         out.push(caption ? { type: "img", url, alt, caption } : { type: "img", url, alt });
       }
+    } else if (type === "video") {
+      // ★ id 형식을 강제한다 — 검증 없이 iframe src에 넣으면 임의 URL 주입 통로가 된다.
+      const id = typeof o.ytVideoId === "string" ? o.ytVideoId.trim() : "";
+      const title = typeof o.title === "string" ? o.title.trim().slice(0, 200) : "";
+      if (isValidYtVideoId(id)) out.push({ type: "video", ytVideoId: id, title: title || "빌라 영상" });
     } else if (type === "ul") {
       const items = Array.isArray(o.items)
         ? o.items
@@ -93,8 +105,9 @@ export function parseArticleBody(raw: unknown): ArticleBlock[] {
 export function bodyTextLength(blocks: ArticleBlock[]): number {
   return blocks.reduce((n, b) => {
     if (b.type === "ul") return n + b.items.join("").length;
-    // ★ 이미지는 분량으로 치지 않는다(캡션만) — 이미지 도배로 글자수 하한을 우회하는 것을 막는다.
+    // ★ 이미지·영상은 분량으로 치지 않는다 — 미디어 도배로 글자수 하한을 우회하는 것을 막는다.
     if (b.type === "img") return n + (b.caption?.length ?? 0);
+    if (b.type === "video") return n;
     return n + b.text.length;
   }, 0);
 }

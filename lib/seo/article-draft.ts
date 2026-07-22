@@ -180,7 +180,9 @@ export async function generateArticleBody(
     const blocks = parseArticleBody(extractJsonArray(raw));
     if (blocks.length === 0) return null;
 
-    const flat = blocks.map((b) => (b.type === "ul" ? b.items.join(" ") : b.type === "img" ? (b.caption ?? "") : b.text)).join(" ");
+    const flat = blocks
+      .map((b) => (b.type === "ul" ? b.items.join(" ") : b.type === "img" ? (b.caption ?? "") : b.type === "video" ? b.title : b.text))
+      .join(" ");
     return { blocks, flaggedTerms: findBannedTerms(flat) };
   } catch {
     return null;
@@ -292,4 +294,167 @@ export function interleaveImages(blocks: ArticleBlock[], images: PickedImage[]):
     }
   }
   return out;
+}
+
+// ── 빌라 소개 글 (T-seo-villa-article) ───────────────────────────────────────
+//
+// 왜 따로 만드는가: 가이드 글(공항 이동·시즌 등)에 빌라 사진을 끼우면 **본문과 무관한 이미지**가 된다.
+// 사진이 의미를 가지려면 글의 주제가 그 빌라여야 한다. 그래서 가이드 글에서는 본문 이미지를 빼고,
+// 빌라를 소재로 한 글을 따로 만들어 거기에 해당 빌라의 사진·영상을 넣는다.
+//
+// ★ 중복 콘텐츠 회피: 빌라 상세 페이지(/blog/villa/[slug])는 **스펙 중심**이고,
+//   이 글은 **"어떤 여행에 맞는 빌라인가"** 각도로 쓴다. 같은 내용을 두 번 쓰지 않고 서로 링크한다.
+// ★ 공개 경계 승계: 가격·공실·주소·공급자 정보는 프롬프트에도 본문에도 들어가지 않는다.
+
+/** 빌라 글의 topicKey — 빌라 슬러그로 고정(중복 생성 방지 + slug 안정) */
+export function villaTopicKey(slug: string): string {
+  return `villa-${slug}`;
+}
+
+export function buildVillaArticleTitle(v: PublicVilla): string {
+  const where = v.areaNameKo ?? v.areaName ?? v.complex ?? "푸꾸옥";
+  const pool = v.hasPool ? "프라이빗 풀빌라" : "빌라";
+  return `${where} ${v.name} — 침실 ${v.bedrooms}개 ${pool}, 어떤 여행에 맞을까`;
+}
+
+export function buildVillaArticlePrompt(v: PublicVilla): string {
+  const where = v.areaNameKo ?? v.areaName ?? v.complex ?? "푸꾸옥";
+  const facts: string[] = [
+    `단지: ${where}`,
+    `구성: 침실 ${v.bedrooms}개 · 욕실 ${v.bathrooms}개 · 최대 ${v.maxGuests}인`,
+  ];
+  if (v.hasPool) facts.push("전용 수영장 있음");
+  if (v.breakfastAvailable) facts.push("조식 제공 가능");
+  if (v.beachDistanceM != null) facts.push(`해변까지 약 ${v.beachDistanceM}m`);
+  if (v.areaSqm) facts.push(`전용면적 약 ${v.areaSqm}㎡`);
+  if (v.floors) facts.push(`${v.floors}층 구조`);
+  if (v.parkingSlots > 0) facts.push(`주차 ${v.parkingSlots}대`);
+  facts.push(`반려동물 ${v.petsAllowed ? "동반 가능" : "동반 불가"}`);
+  facts.push(`흡연 ${v.smokingAllowed ? "가능" : "불가"}`);
+  facts.push(`파티 ${v.partyAllowed ? "가능" : "불가"}`);
+  const feats = v.featureKeys.map((k) => FEATURE_KO_ARTICLE[k]).filter(Boolean);
+  if (feats.length) facts.push(`특징: ${feats.join(", ")}`);
+  const spaces = [...new Set(v.photos.map((p) => SPACE_LABEL_KO[p.space] ?? "내부"))];
+  if (spaces.length) facts.push(`사진이 있는 공간: ${spaces.join(", ")}`);
+
+  return [
+    "너는 베트남 푸꾸옥 현지에서 빌라를 운영하는 회사의 콘텐츠 에디터다.",
+    `아래 빌라 한 곳을 소개하는 글을 쓴다. 제목은 이미 정해져 있으니 본문만 쓴다.`,
+    "",
+    `빌라: ${v.name} (${where})`,
+    "확인된 사실:",
+    ...facts.map((x) => `- ${x}`),
+    "",
+    "글의 각도(중요):",
+    "- 스펙을 나열하지 마라. 스펙은 이미 별도 페이지에 있다",
+    "- **어떤 여행·어떤 일행에게 맞는 빌라인지**를 중심으로 써라",
+    "- 이 구성으로 하루를 어떻게 보내게 되는지 그려줘라(아침·낮·저녁의 동선)",
+    "- 이 빌라가 안 맞는 경우도 솔직히 한 번 짚어라(예: 인원이 더 많거나, 도보 이동을 선호하지 않는 경우)",
+    "",
+    "형식(반드시 지켜라):",
+    '- JSON 배열만 출력한다. 코드펜스·설명 없이 배열 하나만',
+    '- 각 원소는 {"type":"h2","text":"..."} 또는 {"type":"p","text":"..."} 또는 {"type":"ul","items":["..."]}',
+    "- 소제목(h2) 3~4개, 각 소제목 아래 문단 2개 이상",
+    "- 전체 본문 900~1400자(한국어)",
+    "- **이미지·영상 블록은 넣지 마라**(시스템이 알아서 배치한다)",
+    "",
+    "내용 규칙(어기면 폐기된다):",
+    "- 위에 없는 사실을 지어내지 마라. 없는 시설·전망·서비스를 추측하지 않는다",
+    "- 가격·요금·금액 표현 금지('원', '동', '달러', '얼마')",
+    "- 특정 날짜의 예약 가능 여부를 쓰지 마라",
+    "- 상세 주소·소유자·관리인 정보를 쓰지 마라",
+    "- 최상급·과장('최고', '최상', '1위')·미확인 통계 금지",
+    "",
+    "마지막 문단에서 상담을 자연스럽게 권하되 호객성 문구는 쓰지 마라.",
+  ].join("\n");
+}
+
+const FEATURE_KO_ARTICLE: Record<string, string> = {
+  viewSea: "바다뷰",
+  viewMountain: "마운틴뷰",
+  viewCity: "시티뷰",
+  bbq: "BBQ 시설",
+  elevator: "엘리베이터",
+  generator: "발전기",
+  kidsPool: "키즈풀",
+  privatePool: "프라이빗 풀",
+  gym: "헬스장",
+  golfNearby: "골프장 인근",
+  beachFront: "해변 바로앞",
+  marketNearby: "시장 인근",
+};
+
+/**
+ * 빌라 한 곳의 사진을 공간 다양성 있게 고른다 — **그 빌라 글에만** 쓰이므로 본문과 정확히 맞는다.
+ * 첫 장은 커버로 쓰고 나머지를 본문에 배치한다.
+ */
+export function pickVillaPhotos(v: PublicVilla, max = 4): PickedImage[] {
+  const where = v.areaNameKo ?? v.areaName ?? v.complex ?? "푸꾸옥";
+  const priority = ["EXTERIOR", "POOL", "LIVING", "BEDROOM", "KITCHEN", "BALCONY", "BATHROOM", "ETC"];
+  const out: PickedImage[] = [];
+  const used = new Set<string>();
+  for (const space of priority) {
+    if (out.length >= max) break;
+    const photo = v.photos.find((p) => p.space === space && !used.has(p.url));
+    if (!photo) continue;
+    used.add(photo.url);
+    out.push({
+      url: photo.url,
+      alt: `${where} ${v.name} ${SPACE_LABEL_KO[space] ?? "내부"}`,
+      caption: photo.spaceLabel ?? `${v.name} ${SPACE_LABEL_KO[space] ?? ""}`.trim(),
+    });
+  }
+  return out;
+}
+
+/**
+ * 빌라 글 본문에 그 빌라의 사진·영상을 배치한다.
+ *   · 사진: 소제목 뒤 첫 문단 다음
+ *   · 영상: 본문 끝(직전)에 1개 — 글을 다 읽고 영상으로 넘어가는 흐름
+ */
+export function composeVillaBody(
+  blocks: ArticleBlock[],
+  photos: PickedImage[],
+  video: { ytVideoId: string; title: string } | null
+): ArticleBlock[] {
+  const withPhotos = interleaveImages(blocks, photos);
+  if (!video) return withPhotos;
+  return [...withPhotos, { type: "video", ytVideoId: video.ytVideoId, title: video.title }];
+}
+
+/**
+ * 빌라 글 본문 생성 — 그 빌라의 사실만으로 "어떤 여행에 맞는지" 각도로 쓴다.
+ * 실패 시 null(호출부가 이번 회차 건너뜀). 폴백 템플릿 없음(가이드 글과 동일 원칙).
+ */
+export async function generateVillaArticleBody(
+  v: PublicVilla,
+  fetchFn: typeof fetch = fetch
+): Promise<DraftResult | null> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const res = await fetchFn(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: buildVillaArticlePrompt(v) }] }],
+          generationConfig: { temperature: 0.7, thinkingConfig: { thinkingBudget: 0 } },
+        }),
+      }
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as GeminiResponse;
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const blocks = parseArticleBody(extractJsonArray(raw));
+    if (blocks.length === 0) return null;
+    const flat = blocks
+      .map((b) => (b.type === "ul" ? b.items.join(" ") : b.type === "img" ? (b.caption ?? "") : b.type === "video" ? b.title : b.text))
+      .join(" ");
+    return { blocks, flaggedTerms: findBannedTerms(flat) };
+  } catch {
+    return null;
+  }
 }
