@@ -75,6 +75,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "INVALID_TYPE" }, { status: 400 });
   }
 
+  // ★ 협의 게이트 (T-contract-negotiation S2) — 미해결(OPEN) 협의가 있으면 서명 불가.
+  //   BusinessContractStatus에 NEGOTIATING을 추가하지 않고 쓰는 파생 판정. 운영자가 수용·거절하면 풀린다.
+  const openNegotiation = await prisma.contractNegotiation.findFirst({
+    where: { contractId: id, status: "OPEN" },
+    select: { id: true },
+  });
+  if (openNegotiation) {
+    return NextResponse.json(
+      { error: "NEGOTIATION_OPEN", negotiationId: openNegotiation.id },
+      { status: 409 },
+    );
+  }
+
   let formData: FormData;
   try {
     formData = await req.formData();

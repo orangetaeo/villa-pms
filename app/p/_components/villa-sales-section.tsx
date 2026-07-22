@@ -10,7 +10,11 @@ import {
 } from "@/lib/sales-display";
 import type { BedTypeKey } from "@/lib/bedding";
 import type { FeatureCategoryKey } from "@/lib/features";
-import { cancellationTiers, type CancellationPolicy } from "@/lib/cancellation-policy";
+import {
+  cancellationTierLabel,
+  cancellationTiers,
+  type CancellationPolicy,
+} from "@/lib/cancellation-policy";
 import { PUBLIC_LABELS, BED_LABELS, FEATURE_LABELS, type PublicLang } from "@/lib/public-i18n";
 import MapEmbed from "@/components/villa/map-embed";
 
@@ -263,27 +267,11 @@ export function VillaSalesSection({
             <div>
               <p className="text-[12px] font-semibold text-neutral-800">{t.cancelTitle}</p>
               <ul className="text-[11px] text-neutral-500 leading-relaxed mt-1 space-y-0.5">
-                {cancellationTiers(cancellationPolicy).map((tier) => (
-                  <li key={tier.kind} className="flex items-baseline gap-1.5">
+                {/* S3: N단계 가변 — 문구 조립은 cancellationTierLabel 한 곳(동의 화면과 공유) */}
+                {cancellationTiers(cancellationPolicy).map((tier, i) => (
+                  <li key={`${tier.kind}-${i}`} className="flex items-baseline gap-1.5">
                     <span className="text-teal-600 leading-none">·</span>
-                    <span>
-                      {tier.kind === "none" ? (
-                        <>
-                          {t.cancelNoneBefore}
-                          <span className="font-semibold text-neutral-700 tabular-nums">{tier.days}</span>
-                          {t.cancelNoneMid}
-                          <span className="font-bold text-neutral-700">{t.cancelNoneAfter}</span>
-                        </>
-                      ) : (
-                        <>
-                          {t.cancelTierBefore}
-                          <span className="font-semibold text-neutral-700 tabular-nums">{tier.days}</span>
-                          {t.cancelTierMid}
-                          <span className="font-bold text-neutral-700 tabular-nums">{tier.pct}</span>
-                          {t.cancelTierAfter}
-                        </>
-                      )}
-                    </span>
+                    <span>{cancellationTierLabel(tier, t)}</span>
                   </li>
                 ))}
               </ul>

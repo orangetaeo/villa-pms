@@ -1,45 +1,83 @@
 "use client";
 
-// 취소·환불 정책 설정 (#6b) — 고정 3단계(전액/부분/불가)의 숫자만 편집 + 표시 토글.
+// 취소·환불 정책 설정 (#6b → T-guest-policy-tiers S3) — **N단계 가변** 편집 + 표시 토글.
 // AppSetting CANCELLATION_POLICY(JSON) → PUT /api/settings(단일 키). 공개 제안 페이지가 소비.
-import { useState } from "react";
+//
+// S3 추가:
+//  · 단계 추가·삭제(2~8행). 마지막 행은 노쇼·체크인 후 고정(-1), 0 = 체크인 당일.
+//  · 「공급자 계약과 맞추기」 프리셋 — 계약 별표2(5단계)와 back-to-back인 환불표로 한 번에 전환.
+//  · ★ 정합성 경고 — 공급자 지급률이 고객 위약금률(100−환불률)을 넘는 구간이 있으면 회사가 손실을 본다.
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
   CANCELLATION_POLICY_KEY,
+  POLICY_MAX_ROWS,
+  SUPPLIER_ALIGNED_TIERS,
+  isValidCancellationPolicy,
   serializeCancellationPolicy,
   type CancellationPolicy,
+  type GuestRefundTier,
 } from "@/lib/cancellation-policy";
+import { DEFAULT_CANCEL_TIERS } from "@/lib/cancel-tiers";
+import { findLossWindows } from "@/lib/cancellation-breakdown";
 
 export default function CancellationPolicyForm({ initial }: { initial: CancellationPolicy }) {
   const t = useTranslations("adminSettings.cancellationPolicy");
   const router = useRouter();
-  const [fullDays, setFullDays] = useState(initial.fullDays);
-  const [partialDays, setPartialDays] = useState(initial.partialDays);
-  const [partialPct, setPartialPct] = useState(initial.partialPct);
+  const [tiers, setTiers] = useState<GuestRefundTier[]>(() => initial.tiers.map((x) => ({ ...x })));
   const [enabled, setEnabled] = useState(initial.enabled);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
-  // 정합성: 전액일 > 부분일 ≥ 0, 0 ≤ 부분율 ≤ 100 (서버 검증과 동일)
-  const valid =
-    Number.isInteger(fullDays) &&
-    Number.isInteger(partialDays) &&
-    Number.isInteger(partialPct) &&
-    fullDays > partialDays &&
-    partialDays >= 0 &&
-    partialPct >= 0 &&
-    partialPct <= 100;
+  const policy: CancellationPolicy = { tiers, enabled };
+  const valid = isValidCancellationPolicy(policy);
+  const lastIndex = tiers.length - 1;
 
-  const num = (setter: (n: number) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setter(e.target.value === "" ? Number.NaN : Number.parseInt(e.target.value, 10));
+  // ★ 공급자 계약 기본 단계표(별표2 프리셋) 대비 손실 구간. 계약별 값이 다를 수 있으나
+  //   기본 프리셋과의 정합만 봐도 "고객 정책이 계약보다 후한지"가 드러난다.
+  const lossWindows = useMemo(
+    () => (valid ? findLossWindows(tiers, DEFAULT_CANCEL_TIERS) : []),
+    [tiers, valid],
+  );
+
+  const touch = () => {
     setDirty(true);
     setMessage(null);
   };
 
+  const setRow = (i: number, patch: Partial<GuestRefundTier>) => {
+    setTiers((prev) => prev.map((r, k) => (k === i ? { ...r, ...patch } : r)));
+    touch();
+  };
+
+  const addRow = () => {
+    if (tiers.length >= POLICY_MAX_ROWS) return;
+    setTiers((prev) => {
+      const above = prev[prev.length - 2];
+      const next = [...prev];
+      next.splice(prev.length - 1, 0, {
+        fromDays: Math.max(0, (above?.fromDays ?? 1) - 1),
+        refundPct: above?.refundPct ?? 50,
+      });
+      return next;
+    });
+    touch();
+  };
+
+  const removeRow = (i: number) => {
+    if (tiers.length <= 2 || i === lastIndex) return;
+    setTiers((prev) => prev.filter((_, k) => k !== i));
+    touch();
+  };
+
+  const applyPreset = () => {
+    setTiers(SUPPLIER_ALIGNED_TIERS.map((x) => ({ ...x })));
+    touch();
+  };
+
   const onSave = async () => {
-    const policy: CancellationPolicy = { fullDays, partialDays, partialPct, enabled };
     const value = serializeCancellationPolicy(policy);
     if (!value) {
       setMessage({ ok: false, text: t("invalid") });
@@ -82,8 +120,7 @@ export default function CancellationPolicyForm({ initial }: { initial: Cancellat
             aria-checked={enabled}
             onClick={() => {
               setEnabled((v) => !v);
-              setDirty(true);
-              setMessage(null);
+              touch();
             }}
             className={`relative w-11 h-6 rounded-full transition-colors ${
               enabled ? "bg-admin-primary" : "bg-slate-700"
@@ -101,33 +138,119 @@ export default function CancellationPolicyForm({ initial }: { initial: Cancellat
       <div className="p-6 md:p-8 space-y-6">
         <p className="text-sm text-slate-400">{t("description")}</p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Field label={t("fullDaysLabel")} suffix={t("daysUnit")}>
-            <NumberInput value={fullDays} onChange={num(setFullDays)} min={1} />
-          </Field>
-          <Field label={t("partialDaysLabel")} suffix={t("daysUnit")}>
-            <NumberInput value={partialDays} onChange={num(setPartialDays)} min={0} />
-          </Field>
-          <Field label={t("partialPctLabel")} suffix="%">
-            <NumberInput value={partialPct} onChange={num(setPartialPct)} min={0} max={100} />
-          </Field>
+        {/* 단계 표 */}
+        <div className="overflow-x-auto rounded-lg border border-slate-800">
+          <table className="w-full min-w-[420px] text-sm">
+            <thead>
+              <tr className="bg-slate-900/60 text-xs text-slate-400">
+                <th className="px-3 py-2 text-left font-medium">{t("colWhen")}</th>
+                <th className="w-32 px-2 py-2 text-right font-medium">{t("colDays")}</th>
+                <th className="w-28 px-2 py-2 text-right font-medium">{t("colRefund")}</th>
+                <th className="w-10 px-2 py-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {tiers.map((row, i) => {
+                const isLast = i === lastIndex;
+                return (
+                  <tr key={i} className="border-t border-slate-800">
+                    <td className="px-3 py-2 text-slate-300">
+                      {isLast
+                        ? t("rowNoShow")
+                        : row.fromDays === 0
+                          ? t("rowSameDay")
+                          : t("rowRange", { days: row.fromDays })}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      {isLast ? (
+                        <span className="block text-right text-xs text-slate-500">—</span>
+                      ) : (
+                        <NumberInput
+                          value={row.fromDays}
+                          onChange={(e) =>
+                            setRow(i, {
+                              fromDays:
+                                e.target.value === "" ? Number.NaN : Number.parseInt(e.target.value, 10),
+                            })
+                          }
+                          min={0}
+                        />
+                      )}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <NumberInput
+                        value={row.refundPct}
+                        onChange={(e) =>
+                          setRow(i, {
+                            refundPct:
+                              e.target.value === "" ? Number.NaN : Number.parseInt(e.target.value, 10),
+                          })
+                        }
+                        min={0}
+                        max={100}
+                      />
+                    </td>
+                    <td className="px-2 py-1.5 text-center">
+                      {!isLast && tiers.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => removeRow(i)}
+                          aria-label={t("rowRemove")}
+                          className="text-slate-500 transition-colors hover:text-red-400"
+                        >
+                          <span className="material-symbols-outlined text-lg">close</span>
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
 
-        {/* 미리보기 — 공개 페이지에 보일 3단계 문구 */}
-        <div className="bg-slate-900 border border-slate-700 rounded-lg p-4 space-y-1.5">
-          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-2">
-            {t("preview")}
-          </p>
-          {valid ? (
-            <ul className="text-xs text-slate-300 space-y-1">
-              <li>· {t("lineFull", { days: fullDays })}</li>
-              <li>· {t("linePartial", { days: partialDays, pct: partialPct })}</li>
-              <li>· {t("lineNone", { days: partialDays })}</li>
-            </ul>
-          ) : (
-            <p className="text-xs text-red-400">{t("invalid")}</p>
-          )}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={addRow}
+            disabled={tiers.length >= POLICY_MAX_ROWS}
+            className="h-8 rounded-lg border border-slate-700 px-3 text-xs text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-40"
+          >
+            {t("addRow")}
+          </button>
+          <button
+            type="button"
+            onClick={applyPreset}
+            className="h-8 rounded-lg border border-admin-primary/50 px-3 text-xs font-bold text-blue-300 transition-colors hover:bg-blue-500/10"
+          >
+            {t("applyPreset")}
+          </button>
         </div>
+
+        {!valid && <p className="text-xs text-red-400">{t("invalid")}</p>}
+
+        {/* ★ 정합성 경고 — 공급자 계약 기본 단계표 대비 회사가 손실을 보는 구간 */}
+        {lossWindows.length > 0 && (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
+            <p className="flex items-center gap-1.5 text-sm font-bold text-amber-300">
+              <span className="material-symbols-outlined text-base">warning</span>
+              {t("lossTitle")}
+            </p>
+            <ul className="mt-2 space-y-0.5 text-xs text-amber-200/90">
+              {lossWindows.map((w) => (
+                <li key={w.daysBefore}>
+                  {t("lossRow", {
+                    days: w.daysBefore,
+                    refund: w.guestRefundPct,
+                    pay: w.supplierPayPct,
+                    loss: w.lossPct,
+                  })}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-amber-200/70">{t("lossHint")}</p>
+          </div>
+        )}
 
         <div className="h-px bg-slate-800 w-full" />
         <div className="flex justify-end items-center gap-3">
@@ -154,26 +277,6 @@ export default function CancellationPolicyForm({ initial }: { initial: Cancellat
   );
 }
 
-function Field({
-  label,
-  suffix,
-  children,
-}: {
-  label: string;
-  suffix: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label className="block text-xs font-bold text-slate-300">{label}</label>
-      <div className="flex items-center gap-2">
-        {children}
-        <span className="text-sm text-slate-500 whitespace-nowrap">{suffix}</span>
-      </div>
-    </div>
-  );
-}
-
 function NumberInput({
   value,
   onChange,
@@ -193,7 +296,7 @@ function NumberInput({
       onChange={onChange}
       min={min}
       max={max}
-      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-slate-100 tabular-nums focus:border-admin-primary focus:outline-none"
+      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-right text-sm text-slate-100 tabular-nums focus:border-admin-primary focus:outline-none"
     />
   );
 }

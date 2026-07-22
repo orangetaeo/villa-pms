@@ -63,6 +63,9 @@ export const GROUP_ROUTED_TYPES: ReadonlySet<NotificationType> = new Set([
   NotificationType.WEBCHAT_NEW_MESSAGE,
   // 마케팅 자동화 통지(marketing-s2 §D) — 초안 승인 대기·발행/수집/편집 실패 경보. lib/marketing-notify 경유.
   NotificationType.MARKETING_ALERT,
+  // 계약 조항 협의 요청(T-contract-negotiation) — 운영자 전원이 같은 정보를 받으면 되는 업무 통지.
+  // ★ 상대방 대상 해소 알림(kind=RESOLVED)은 enqueueNotification 직접 경로라 이 화이트리스트와 무관하다.
+  NotificationType.CONTRACT_NEGOTIATION,
 ]);
 
 /**

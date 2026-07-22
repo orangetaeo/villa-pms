@@ -661,8 +661,84 @@ export function buildNotificationText(
       if (hrefPath && base) lines.push(`${base}${hrefPath}`);
       return lines.join("\n");
     }
+
+    case NotificationType.CONTRACT_NEGOTIATION: {
+      // 계약 조항 협의 — payload.kind로 방향 분기(타입 증식 금지).
+      //   REQUEST : 상대방 → 운영자(ko). RESOLVED : 운영자 → 상대방(payload.locale ko/vi).
+      // ★ 금액·마진 개념 없음 — 조항·사유 코드·상대 이름만.
+      const clause = str(p.clauseKey, "-");
+      if (p.kind === "RESOLVED") {
+        const ko = p.locale === "ko";
+        const clauseLabel = ko
+          ? NEGOTIATION_CLAUSE_LABEL_KO[clause] ?? clause
+          : NEGOTIATION_CLAUSE_LABEL_VI[clause] ?? clause;
+        const note = typeof p.resolvedNote === "string" ? p.resolvedNote.trim() : "";
+        if (p.accepted === true) {
+          const head = ko
+            ? `✅ 계약 협의가 수용되었습니다: ${clauseLabel}`
+            : `✅ Đề nghị thương lượng đã được chấp nhận: ${clauseLabel}`;
+          const body =
+            p.termsChanged === true
+              ? ko
+                ? "계약 내용이 갱신되었습니다. 확인 후 서명해주세요."
+                : "Hợp đồng đã được cập nhật. Vui lòng kiểm tra và ký."
+              : ko
+                ? "이제 서명하실 수 있습니다."
+                : "Bây giờ bạn có thể ký hợp đồng.";
+          return note ? [head, body, note].join("\n") : [head, body].join("\n");
+        }
+        const head = ko
+          ? `❌ 계약 협의가 반영되지 않았습니다: ${clauseLabel}`
+          : `❌ Đề nghị thương lượng không được áp dụng: ${clauseLabel}`;
+        const reasonLine = note
+          ? (ko ? `사유: ${note}` : `Lý do: ${note}`)
+          : (ko ? "사유는 담당자에게 문의해주세요." : "Vui lòng liên hệ phụ trách để biết lý do.");
+        return [head, reasonLine].join("\n");
+      }
+      // REQUEST — 운영자(ko)
+      const clauseLabel = NEGOTIATION_CLAUSE_LABEL_KO[clause] ?? clause;
+      const lines = [
+        `🤝 계약 협의 요청: ${str(p.counterpartName, "-")} — ${clauseLabel}`,
+        `사유: ${NEGOTIATION_REASON_LABEL_KO[str(p.reason)] ?? str(p.reason, "-")}`,
+      ];
+      if (p.hasProposal === true) lines.push("역제안(숫자) 포함 — 관리자 화면에서 확인하세요.");
+      const note = typeof p.note === "string" ? p.note.trim() : "";
+      if (note) lines.push(`메모: ${note}`);
+      lines.push("미해결 협의가 있는 동안 상대방은 서명할 수 없습니다.");
+      return lines.join("\n");
+    }
   }
 }
+
+/** 협의 알림 문구용 조항 라벨 — 화면 i18n과 별개(Zalo 텍스트 전용, 코드 노출 방지). */
+const NEGOTIATION_CLAUSE_LABEL_KO: Record<string, string> = {
+  cancelTiers: "취소 수수료 단계표(별표 2)",
+  payMethod: "지급 방법",
+  bankInfo: "계좌 정보",
+  settleCycle: "정산 주기",
+  specialTerms: "특약 사항",
+  other: "기타",
+};
+
+const NEGOTIATION_CLAUSE_LABEL_VI: Record<string, string> = {
+  cancelTiers: "Bảng phí hủy (Phụ lục 2)",
+  payMethod: "Phương thức thanh toán",
+  bankInfo: "Thông tin tài khoản",
+  settleCycle: "Chu kỳ quyết toán",
+  specialTerms: "Điều khoản đặc biệt",
+  other: "Khác",
+};
+
+const NEGOTIATION_REASON_LABEL_KO: Record<string, string> = {
+  CANCEL_FREE_PERIOD: "무료 취소 기간 조정 요청",
+  CANCEL_PAY_RATE: "단계별 지급률 조정 요청",
+  CANCEL_NOSHOW: "노쇼·당일 취소 조건 이견",
+  PAY_METHOD_CHANGE: "지급 방법 변경 요청",
+  BANK_INFO_CHANGE: "계좌 정보 수정",
+  SETTLE_CYCLE_CHANGE: "정산 주기 변경 요청",
+  SPECIAL_TERMS_ADD: "특약 추가 요청",
+  OTHER: "기타",
+};
 
 // ===================== 큐 적재 (비즈니스 로직 진입점) =====================
 

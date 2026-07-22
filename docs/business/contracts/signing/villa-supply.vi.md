@@ -81,11 +81,7 @@ Công ty và Nhà cung cấp ký kết hợp đồng về việc cung cấp và 
 - Giá gốc: lấy giá trị đăng ký trên hệ thống (bao gồm mùa, kỳ, ngày cao điểm) làm bản chính; việc thay đổi có hiệu lực khi đăng ký trên hệ thống + xác nhận qua Zalo giữa hai bên (không cần ký lại hợp đồng này).
 
 ## Phụ lục 2 — Phí hủy và tỷ lệ hoàn tiền
-| Thời điểm hủy (tính theo ngày nhận phòng) | Nghĩa vụ thanh toán của Công ty → Nhà cung cấp / Tỷ lệ hoàn |
-|---|---|
-| Trước {{cancelFreeDays}} ngày | Không tính phí (trước khi thanh toán = không quyết toán, sau khi thanh toán = hoàn 100%) |
-| Trong vòng {{cancelFreeDays}} ngày ~ ngày trước | {{cancelPartialPct}}% giá gốc |
-| Trong ngày · Không đến (no show) | 100% giá gốc |
+{{cancelTiersTable}}
 
 ## Phụ lục 3 — Phương thức thanh toán
 - Phương thức thanh toán: {{payMethod}}

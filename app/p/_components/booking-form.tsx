@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import {
+  cancellationTierLabel,
+  cancellationTiers,
+  type GuestRefundTier,
+} from "@/lib/cancellation-policy";
 import { PUBLIC_LABELS, type PublicLang } from "@/lib/public-i18n";
 
 /** c3 상태1 폼 (#5 5개 언어) — 이름·연락처·인원 → POST /api/p/[token]/hold */
@@ -28,7 +33,7 @@ export function BookingForm({
    * 취소·환불 규정 (T-proposal-policy-consent) — CANCELLATION_POLICY.enabled=true일 때만 전달.
    * null이면 동의 체크박스 미노출(하위호환). 값은 표시용일 뿐 — 저장 스냅샷은 서버가 재산출.
    */
-  cancellationPolicy: { fullDays: number; partialDays: number; partialPct: number } | null;
+  cancellationPolicy: { tiers: GuestRefundTier[] } | null;
 }) {
   const labels = PUBLIC_LABELS[lang];
   const t = labels.bookingForm;
@@ -157,25 +162,11 @@ export function BookingForm({
             <span className="material-symbols-outlined text-slate-500 text-base">gavel</span>
             <p className="text-sm font-bold text-slate-800">{t.policyConsentTitle}</p>
           </div>
+          {/* S3: N단계 가변 — 공개 제안 페이지와 같은 조립 함수(문구 불일치 방지) */}
           <ul className="text-xs text-slate-600 space-y-1 leading-relaxed">
-            <li>
-              {sales.cancelTierBefore}
-              <span className="font-semibold text-slate-800">{cancellationPolicy.fullDays}</span>
-              {sales.cancelTierMid}100{sales.cancelTierAfter}
-            </li>
-            <li>
-              {sales.cancelTierBefore}
-              <span className="font-semibold text-slate-800">{cancellationPolicy.partialDays}</span>
-              {sales.cancelTierMid}
-              <span className="font-semibold text-slate-800">{cancellationPolicy.partialPct}</span>
-              {sales.cancelTierAfter}
-            </li>
-            <li>
-              {sales.cancelNoneBefore}
-              <span className="font-semibold text-slate-800">{cancellationPolicy.partialDays}</span>
-              {sales.cancelNoneMid}
-              {sales.cancelNoneAfter}
-            </li>
+            {cancellationTiers({ tiers: cancellationPolicy.tiers, enabled: true }).map((tier, i) => (
+              <li key={`${tier.kind}-${i}`}>{cancellationTierLabel(tier, sales)}</li>
+            ))}
           </ul>
           <label className="flex items-start gap-2.5 pt-1 cursor-pointer select-none">
             <input
