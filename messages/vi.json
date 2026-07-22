@@ -763,7 +763,19 @@
         "subtitleTo": "Kết thúc (giây)",
         "addSubtitle": "Thêm phụ đề",
         "removeSubtitle": "Xóa",
-        "subtitleLimit": "Chỉ thêm được tối đa 20 phụ đề."
+        "subtitleLimit": "Chỉ thêm được tối đa 20 phụ đề.",
+        "space": "Không gian",
+        "spaceNone": "Chưa chọn",
+        "spaceHint": "Chọn không gian để lời dẫn nói đúng căn phòng, và các cảnh hành lang được tua nhanh.",
+        "notePlaceholder": "Đặc điểm cảnh này (VD: phòng ngủ chính, giường king, cửa kính ra vườn)",
+        "noteHint": "Khi nhiều cảnh cùng một không gian, ghi chú giúp tránh câu chung chung như \"một phòng ngủ khác\".",
+        "pacingTitle": "Điều chỉnh tốc độ cảnh",
+        "pacingOn": "Đoạn di chuyển nhanh, không gian chính chậm rãi",
+        "pacingHint": "Hành lang · cầu thang sẽ được tua nhanh, ngoại thất · hồ bơi chậm lại một chút. Độ dài video không đổi.",
+        "bgmTitle": "Nhạc nền cho lời dẫn",
+        "bgm_soft": "Bật nhẹ",
+        "bgm_none": "Tắt",
+        "bgmHint": "Thêm nhạc miễn phí bản quyền ở mức rất nhỏ dưới lời dẫn. Nghe chỉn chu hơn so với hoàn toàn im lặng."
       },
       "step3": {
         "title": "3. Chạy dựng",

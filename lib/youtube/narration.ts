@@ -20,6 +20,7 @@ import { z } from "zod";
 import { extractJsonFromAIResponse } from "@/lib/ai-utils";
 import { GeminiNotConfiguredError } from "@/lib/gemini";
 import { synthesizeSpeech, type TtsResult } from "@/lib/gemini-tts";
+import { resolveClipPace } from "@/lib/youtube/pacing";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 // 대본 생성은 구조화 JSON(문장+절 배정)을 요구해 응답이 길다 — 30초로는 부족했다(실측 타임아웃).
@@ -182,7 +183,11 @@ function buildPrompt(ctx: NarrationVillaContext): string {
       spaceSeen.set(k, nth);
       const ord = total > 1 ? ` (${label} ${nth}/${total})` : "";
       const note = c.note?.trim() ? ` — ${c.note.trim()}` : "";
-      return `  컷${i + 1}: ${label}${ord}${note}`;
+      // 페이싱(pacing.ts)과 **같은 판정**을 대본에도 알려준다. 빠르게 지나가는 컷에 긴 설명을
+      // 붙이면 화면은 이미 다음 방인데 말이 남는다 — 모델이 짧은 절을 배정하도록 명시한다.
+      const kind = resolveClipPace(c.space, c.note).kind;
+      const pace = kind === "transit" ? " [지나가는 컷 — 아주 짧게]" : kind === "hero" ? " [핵심 컷 — 여유 있게]" : "";
+      return `  컷${i + 1}: ${label}${ord}${note}${pace}`;
     })
     .join("\n");
 
@@ -230,6 +235,11 @@ function buildPrompt(ctx: NarrationVillaContext): string {
     "- **같은 공간이 여러 컷이면(예: 침실 세 개) 각 컷의 다른 점을 반드시 말하라.**",
     "  '또 다른 침실입니다' 처럼 정보 없는 표현은 금지. 침대 구성·창밖 풍경·누가 쓰기 좋은지를 짚어라.",
     "  컷 설명(— 뒤 텍스트)이 있으면 최우선으로 활용한다.",
+    "- **[지나가는 컷]으로 표시된 컷에는 아주 짧은 조각만 붙여라(열 자 안팎).**",
+    "  복도·계단은 빠르게 지나가도록 편집되므로, 긴 설명을 붙이면 화면은 벌써 다음 방인데 말이 남는다.",
+    "  '이 문을 열면', '올라가 보면' 처럼 다음 공간으로 넘어가는 연결구가 가장 잘 어울린다.",
+    "- **[핵심 컷]에는 감각을 담아라.** 색·빛·소리·질감 중 하나는 넣는다",
+    "  ('아침 햇살이 들어오는', '발끝에 닿는 시원한 물'). 사실 나열만으로는 마음이 안 움직인다.",
     "- 과장·허위 금지. 화면에 보이는 것만 말한다.",
     "",
     "출력은 JSON만. 각 문장을 text(전체 문장)와 parts(컷별 조각)로 쪼갠다.",
@@ -527,6 +537,74 @@ export function computeNarrationTimeline(input: NarrationTimelineInput): Narrati
   for (const s of subtitles) s.toSec = Math.min(s.toSec, totalSec);
 
   return { clipDurations, ctaDurationSec, lineOffsets, subtitles, totalSec };
+}
+
+// ── ④-b 실측 재동기화 (video-pacing-quality) ────────────────────────
+/**
+ * **실제로 렌더된 세그먼트 길이**로 오디오 오프셋·자막 구간을 다시 계산한다.
+ *
+ * ★ 왜 필요한가(2026-07-23 실측 결함): computeNarrationTimeline이 정한 컷 길이를 세그먼트가
+ *   항상 그대로 달성하지는 못한다 — 원본이 짧으면 감속 상한(1.6배)에 걸려 **더 짧게** 나온다.
+ *   그런데 오디오 오프셋은 계획값 그대로 깔리므로, 짧아진 만큼 그 뒤 모든 문장이 화면보다
+ *   늦게 나온다(누적 드리프트). 컷이 많을수록 어긋남이 커져 마지막엔 다른 방을 설명한다.
+ *   → 세그먼트를 다 만든 뒤 **실측 길이로 다시 계산**하면 드리프트가 구조적으로 0이 된다.
+ *
+ * ★ 부수 효과(의도한 것): 자막이 **컷 경계에 정확히 붙는다.** 예전에는 자막 구간을 글자수 비율로
+ *   나눈 발화 시간에 맞췄기 때문에 컷은 바뀌었는데 자막은 남거나 그 반대인 구간이 있었다.
+ *   화면이 바뀌는 순간 자막도 바뀌는 편이 훨씬 읽기 쉽다(랜선집구경 릴스 관례).
+ *
+ * @param lines            문장별 TTS 길이 + 절 구성 (computeNarrationTimeline과 동일 입력)
+ * @param actualClipDurs   실측 세그먼트 길이(초). 인덱스 = 클립 인덱스
+ * @param actualCtaDur     실측 CTA 카드 길이(초)
+ * @param transitionSec    xfade 전환 길이(초)
+ */
+export function retimeNarrationTimeline(
+  lines: { durationSec: number; parts: { clipIndexes: number[]; text: string }[] }[],
+  actualClipDurs: number[],
+  actualCtaDur: number,
+  transitionSec: number
+): Pick<NarrationTimeline, "lineOffsets" | "subtitles" | "totalSec"> {
+  const T = transitionSec;
+  const lineOffsets: number[] = [];
+  const subtitles: { text: string; fromSec: number; toSec: number; isCta: boolean }[] = [];
+  let cursor = 0;
+
+  for (const line of lines) {
+    lineOffsets.push(cursor + NARRATION_LEAD_SEC);
+    const isCtaLine = line.parts.every((p) => p.clipIndexes.length === 0);
+
+    if (isCtaLine) {
+      subtitles.push({
+        text: line.parts.map((p) => p.text).join(" "),
+        fromSec: cursor,
+        toSec: cursor + actualCtaDur,
+        isCta: true,
+      });
+      cursor += actualCtaDur;
+      continue;
+    }
+
+    for (const part of line.parts) {
+      // 이 절이 화면을 점유하는 시간 = 덮는 컷들의 실측 길이 합 − 전환 겹침
+      const span = part.clipIndexes.reduce(
+        (a, ci) => a + Math.max(0, (actualClipDurs[ci] ?? 0) - T),
+        0
+      );
+      if (span <= 0) continue; // 배정된 컷이 렌더되지 않은 절(방어) — 자막도 띄우지 않는다
+      subtitles.push({
+        text: part.text,
+        // 자막은 전환이 시작될 때 함께 뜬다(발화보다 LEAD만큼 먼저 — 읽을 시간이 생긴다)
+        fromSec: cursor,
+        toSec: cursor + span + SUBTITLE_TAIL_SEC,
+        isCta: false,
+      });
+      cursor += span;
+    }
+  }
+
+  const totalSec = cursor;
+  for (const s of subtitles) s.toSec = Math.min(s.toSec, totalSec);
+  return { lineOffsets, subtitles, totalSec };
 }
 
 // ── ③ 합성 (TTS 호출 묶음) ──────────────────────────────────────────

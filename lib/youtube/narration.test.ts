@@ -4,6 +4,7 @@ import {
   NARRATION_TAIL_SEC,
   NARRATION_RULES,
   computeNarrationTimeline,
+  retimeNarrationTimeline,
   normalizeScript,
   validateNarrationLines,
   type NarrationLine,
@@ -277,5 +278,61 @@ describe("gemini-tts WAV 유틸", () => {
     expect(ttsCacheKey("안녕하세요!", "Kore", "m1")).not.toBe(a);
     expect(ttsCacheKey("안녕하세요", "Puck", "m1")).not.toBe(a);
     expect(ttsCacheKey("안녕하세요", "Kore", "m2")).not.toBe(a);
+  });
+});
+
+// ── 실측 재동기화 (video-pacing-quality) ─────────────────────────────
+describe("retimeNarrationTimeline — 계획이 아니라 실측 길이로 다시 맞춘다", () => {
+  const lines = [
+    {
+      durationSec: 3.0,
+      parts: [
+        { clipIndexes: [0], text: "첫 컷 설명" },
+        { clipIndexes: [1], text: "둘째 컷 설명" },
+      ],
+    },
+    { durationSec: 2.0, parts: [{ clipIndexes: [2], text: "셋째 컷 설명" }] },
+    { durationSec: 2.4, parts: [{ clipIndexes: [], text: "카카오톡에서 빌라고를 검색해 보세요" }] },
+  ];
+
+  it("합계가 xfade 결과 길이와 정확히 일치한다 (Σd − 컷수×T)", () => {
+    const clipDurs = [3.0, 2.6, 2.2];
+    const ctaDur = 2.8;
+    const r = retimeNarrationTimeline(lines, clipDurs, ctaDur, T);
+    const xfadeTotal = clipDurs.reduce((a, b) => a + b, 0) + ctaDur - clipDurs.length * T;
+    expect(r.totalSec).toBeCloseTo(xfadeTotal, 6);
+  });
+
+  it("컷이 계획보다 짧게 나오면 그 뒤 문장 오프셋이 **앞당겨진다**(드리프트 제거)", () => {
+    const planned = retimeNarrationTimeline(lines, [4, 4, 4], 2.8, T);
+    const shrunk = retimeNarrationTimeline(lines, [4, 4, 2], 2.8, T); // 셋째 컷이 2초 짧게 렌더됨
+    // 셋째 컷 이전 문장은 그대로, 이후(CTA) 문장은 2초 당겨져야 한다
+    expect(shrunk.lineOffsets[0]).toBeCloseTo(planned.lineOffsets[0], 6);
+    expect(shrunk.lineOffsets[1]).toBeCloseTo(planned.lineOffsets[1], 6);
+    expect(planned.lineOffsets[2] - shrunk.lineOffsets[2]).toBeCloseTo(2, 6);
+  });
+
+  it("자막이 컷 경계에 정확히 붙는다 — 앞 자막이 끝나는 곳에서 다음 자막이 시작", () => {
+    const r = retimeNarrationTimeline(lines, [3, 2.6, 2.2], 2.8, T);
+    const nonCta = r.subtitles.filter((s) => !s.isCta);
+    expect(nonCta).toHaveLength(3);
+    expect(nonCta[0].fromSec).toBeCloseTo(0, 6);
+    expect(nonCta[1].fromSec).toBeCloseTo(3 - T, 6); // 첫 컷이 차지한 화면 시간
+    expect(nonCta[2].fromSec).toBeCloseTo(3 - T + (2.6 - T), 6);
+  });
+
+  it("자막은 발화보다 LEAD만큼 먼저 뜬다 — 읽을 시간을 준다", () => {
+    const r = retimeNarrationTimeline(lines, [3, 2.6, 2.2], 2.8, T);
+    expect(r.lineOffsets[0] - r.subtitles[0].fromSec).toBeCloseTo(NARRATION_LEAD_SEC, 6);
+  });
+
+  it("어떤 자막도 영상 끝을 넘지 않는다", () => {
+    const r = retimeNarrationTimeline(lines, [3, 2.6, 2.2], 2.8, T);
+    for (const s of r.subtitles) expect(s.toSec).toBeLessThanOrEqual(r.totalSec + 1e-9);
+  });
+
+  it("렌더되지 않은 컷을 가리키는 절은 자막을 만들지 않는다(방어)", () => {
+    const r = retimeNarrationTimeline(lines, [3, 2.6], 2.8, T); // 컷 2가 없음
+    expect(r.subtitles.filter((s) => s.text === "셋째 컷 설명")).toHaveLength(0);
   });
 });

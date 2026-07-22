@@ -31,16 +31,44 @@ import { brandLockup, brandMark } from "@/lib/brand/logo-lockup";
 import type { CtaData } from "@/lib/instagram/templates";
 import { wrapHeadlineToFit } from "@/lib/instagram/headline-wrap";
 import { YOUTUBE_REEL_CTA, INSTAGRAM_REEL_CTA, type ReelAudioMode } from "@/lib/instagram/reels";
-import { computeNarrationTimeline, synthesizeNarration } from "@/lib/youtube/narration";
+import {
+  computeNarrationTimeline,
+  retimeNarrationTimeline,
+  synthesizeNarration,
+} from "@/lib/youtube/narration";
+import { pacingFilterChain, planClipTiming, resolveClipPace } from "@/lib/youtube/pacing";
 import {
   getR2ObjectBuffer,
   saveYoutubeRenderedVideo,
   saveYoutubeRenderPoster,
 } from "@/lib/storage";
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 
 const FFMPEG_PATH: string = ffmpegStatic ?? "ffmpeg";
 const FFPROBE_PATH: string = ffprobeStatic.path;
+
+// ── 인코딩 품질(video-pacing-quality) ────────────────────────────────
+// ★ 이 파이프라인은 **3세대 인코딩**이다: 정규화 → xfade 연결 → 오버레이 합성.
+//   예전엔 세 단계 모두 `-preset veryfast` + CRF 기본값(23)이라 세대마다 디테일이 깎였다
+//   (수영장 물결·나무 질감처럼 고주파가 많은 화면에서 눈에 띈다).
+//   → 중간 산출물은 거의 무손실에 가깝게(CRF 16) 두고, **최종 1회만** 배포 품질로 조인다.
+//   중간 파일은 tmp에 잠깐 있다 지워지므로 커져도 문제가 없다.
+const INTERMEDIATE_CRF = "16";
+const INTERMEDIATE_PRESET = "veryfast";
+/** 최종 산출물 — 유튜브·인스타가 어차피 재인코딩하므로 소스 화질이 높을수록 결과가 좋다. */
+const FINAL_CRF = "20";
+const FINAL_PRESET = "fast";
+/** 상한 비트레이트 — 3분짜리가 200MB(MAX_MP4_BYTES)를 넘지 않게 묶는다(8Mbps × 180s ≈ 180MB). */
+const FINAL_MAXRATE = "8M";
+const FINAL_BUFSIZE = "16M";
+
+/** 중간 세그먼트 공통 인코딩 인자. */
+const INTERMEDIATE_ENC = [
+  "-c:v", "libx264",
+  "-preset", INTERMEDIATE_PRESET,
+  "-crf", INTERMEDIATE_CRF,
+  "-pix_fmt", "yuv420p",
+];
 
 const W = 1080;
 const H = 1920;
@@ -77,7 +105,21 @@ export interface EditClipInput {
   key: string; // presign 발급 R2 키 (youtube-clips/{hex}.{ext})
   startSec?: number; // 트림 시작(기본 0)
   durationSec?: number; // 트림 길이(기본 4, 2~8 클램프)
+  /**
+   * 촬영 공간(PhotoSpace). **나레이션 대본과 컷 속도 조절이 둘 다 이 값을 쓴다.**
+   * ★ 2026-07-23까지 이 필드가 스키마에 없어서 조용히 버려졌다 — 마법사가 보내도 저장되지 않고,
+   *   대본 생성기(clipHintsOf)는 항상 "공간 미지정"을 받았다. 그래서 나레이션이 화면과 무관한
+   *   일반론이 됐다("아름다운 공간입니다"). 이 한 줄이 대본 품질의 절반이다.
+   */
+  space?: string | null;
+  /** 이 컷의 특징 메모(VillaClip.note) — 같은 공간이 여러 컷일 때 다른 점을 말하게 하는 근거 */
+  note?: string | null;
 }
+
+/** 저장 가능한 공간 코드 화이트리스트 = Prisma PhotoSpace. 임의 문자열 저장을 막는다. */
+const PHOTO_SPACES = new Set([
+  "EXTERIOR", "LIVING", "KITCHEN", "BEDROOM", "BATHROOM", "BALCONY", "POOL", "ETC",
+]);
 export interface EditSubtitleInput {
   text: string;
   fromSec: number; // 최종 타임라인 기준 표시 시작(초)
@@ -105,6 +147,20 @@ export interface EditParams {
    * ★ 인스타는 프로필 링크가 눌리므로 유튜브 문구를 그대로 쓰면 안 된다.
    */
   ctaVariant?: "youtube" | "instagram";
+  /**
+   * 나레이션 아래 깔리는 배경음악 (video-pacing-quality). 기본 "soft".
+   *   "soft" = 번들 CC0 트랙을 아주 낮게(−20dB 수준) 깔아 무음의 어색함을 없앤다
+   *   "none" = 나레이션만
+   * ★ 나레이션이 없을 때는 기존 `audio` 모드가 그대로 쓰인다(무변경).
+   * ★ CC0 음원이라 Content ID 리스크 0 — assets/audio/LICENSE.md.
+   */
+  bgm?: "soft" | "none";
+  /**
+   * 컷 속도 조절(페이싱). 기본 켬.
+   * 복도·계단 같은 이동 컷은 빠르게 지나가고, 수영장·외관은 살짝 느리게 흘린다(pacing.ts).
+   * ★ 화면 길이는 절대 바뀌지 않는다 — 같은 시간에 원본을 얼마나 소비하느냐만 달라진다.
+   */
+  pacing?: boolean;
 }
 
 export class EditValidationError extends Error {
@@ -143,7 +199,11 @@ export function validateEditParams(raw: unknown): EditParams {
       CLIP_DUR_MAX,
       Math.max(CLIP_DUR_MIN, num(cc.durationSec) ?? CLIP_DUR_DEFAULT)
     );
-    return { key, startSec, durationSec };
+    // 공간·메모는 **화이트리스트 통과분만** 보존한다(임의 문자열 저장 금지).
+    const spaceRaw = typeof cc.space === "string" ? cc.space.trim().toUpperCase() : "";
+    const space = PHOTO_SPACES.has(spaceRaw) ? spaceRaw : null;
+    const note = typeof cc.note === "string" && cc.note.trim() ? cc.note.trim().slice(0, 200) : null;
+    return { key, startSec, durationSec, space, note };
   });
 
   const headline = typeof r.headline === "string" ? r.headline.trim().slice(0, 120) : "";
@@ -211,8 +271,22 @@ export function validateEditParams(raw: unknown): EditParams {
   }
 
   const ctaVariant: "youtube" | "instagram" = r.ctaVariant === "instagram" ? "instagram" : "youtube";
+  // 기본값을 "켬"으로 둔다 — 기존 잡을 재렌더하면 자동으로 좋아지는 쪽이 맞다(테오 2026-07-23).
+  const bgm: "soft" | "none" = r.bgm === "none" ? "none" : "soft";
+  const pacing = r.pacing !== false;
 
-  return { clips, headline, villaId, subtitles, audio, horizontalMode, narration, ctaVariant };
+  return {
+    clips,
+    headline,
+    villaId,
+    subtitles,
+    audio,
+    horizontalMode,
+    narration,
+    ctaVariant,
+    bgm,
+    pacing,
+  };
 }
 
 // ── satori 폰트 로드(프로세스 캐시) — render.ts와 동일 세트(브랜드 일관성) ──
@@ -390,25 +464,42 @@ function introNode(
  * ★ 외곽선은 satori의 textShadow를 8방향으로 깔아 구현한다(-webkit-text-stroke는 satori 미지원).
  */
 const SUBTITLE_OUTLINE = [
-  "4px 4px 0 #000",
-  "-4px 4px 0 #000",
-  "4px -4px 0 #000",
-  "-4px -4px 0 #000",
-  "0 5px 0 #000",
-  "0 -5px 0 #000",
-  "5px 0 0 #000",
-  "-5px 0 0 #000",
-  "0 0 18px rgba(0,0,0,0.75)", // 밝은 배경에서 글자 경계를 한 번 더 살린다
+  "3px 3px 0 rgba(0,0,0,0.92)",
+  "-3px 3px 0 rgba(0,0,0,0.92)",
+  "3px -3px 0 rgba(0,0,0,0.92)",
+  "-3px -3px 0 rgba(0,0,0,0.92)",
+  "0 4px 0 rgba(0,0,0,0.92)",
+  "0 -4px 0 rgba(0,0,0,0.92)",
+  "4px 0 0 rgba(0,0,0,0.92)",
+  "-4px 0 0 rgba(0,0,0,0.92)",
+  "0 6px 20px rgba(0,0,0,0.6)", // 알약 밖으로 번지는 부드러운 그림자 — 떠 있는 느낌
 ].join(",");
 
-const SUBTITLE_FONT_SIZE = 66;
-const SUBTITLE_MAX_WIDTH = W - 140; // 좌우 패딩 70px
+const SUBTITLE_FONT_SIZE = 62;
+const SUBTITLE_MAX_WIDTH = W - 220; // 알약 좌우 여백(각 34px) + 화면 여백을 뺀 실제 글자 폭
 
+/**
+ * 나레이션 자막 (2026-07-23 재디자인 — 테오 "자막을 조금 더 이쁘게").
+ *
+ * 이전: 화면 폭 전체를 쓰는 흰 글씨 + 두꺼운 검정 외곽선만. 밝은 수영장 위에서 읽히기는 했지만
+ *   ⑴ 외곽선이 굵어 글자가 뭉개져 보이고 ⑵ 줄마다 길이가 제각각이라 정렬이 어수선했다.
+ *
+ * 지금: **줄마다 독립된 반투명 알약(pill)** + 흰 굵은 글씨 + 얇아진 외곽선.
+ *   - 알약은 글자 길이에 딱 맞게 줄어든다(가운데 정렬) → 짧은 줄이 화면을 덜 가린다.
+ *   - 반투명(0.55) + 살짝 밝은 테두리라 영상이 비쳐 보인다. 상품(빌라 화면)을 가리지 않는다.
+ *   - 외곽선을 4px → 3px로 줄여도 알약 덕분에 대비가 충분하다(글자가 훨씬 선명해진다).
+ *   - 첫 줄 위에 브랜드 색 짧은 악센트 바 — 자막이 "그냥 텍스트"가 아니라 디자인처럼 보인다.
+ * ★ 줄 단위 알약이라 각 줄을 개별 div로 만든다 — 그래서 wrapHeadlineToFit 결과를 \n으로 쪼갠다.
+ */
 function subtitleNode(rawText: string): SatoriNode {
   // ★ 어절 단위 줄바꿈 필수: satori는 한글을 **글자 단위로** 흘려서 "부/부에게", "친구나 아/이들이"
   //   처럼 단어 한가운데가 끊긴다(2026-07-22 실제 렌더 확인 — 자막을 44→66px로 키우자 재발).
   //   기존 [[satori-korean-orphan-headline-wrap]] 교훈의 동일 클래스라 같은 모듈을 재사용한다.
-  const text = wrapHeadlineToFit(rawText, SUBTITLE_FONT_SIZE, SUBTITLE_MAX_WIDTH);
+  const lines = wrapHeadlineToFit(rawText, SUBTITLE_FONT_SIZE, SUBTITLE_MAX_WIDTH)
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+
   return div({ position: "relative", width: W, height: H, backgroundColor: "transparent" }, [
     div(
       {
@@ -416,24 +507,47 @@ function subtitleNode(rawText: string): SatoriNode {
         left: 0,
         bottom: 300,
         width: W,
-        justifyContent: "center",
-        padding: "0 70px",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 14,
+        padding: "0 60px",
       },
-      div(
-        {
-          fontFamily: FONT_SANS,
-          fontWeight: 700,
-          fontSize: SUBTITLE_FONT_SIZE,
-          lineHeight: 1.28,
-          color: "#FFFFFF",
-          textAlign: "center",
-          textShadow: SUBTITLE_OUTLINE,
-          whiteSpace: "pre-line",
-          flexDirection: "column",
-          maxWidth: SUBTITLE_MAX_WIDTH,
-        },
-        text
-      )
+      [
+        // 브랜드 악센트 바 — 자막 덩어리의 시작점을 잡아주는 작은 신호
+        div({
+          width: 84,
+          height: 7,
+          borderRadius: 999,
+          backgroundColor: BRAND.sand,
+          marginBottom: 6,
+          opacity: 0.95,
+        }),
+        ...lines.map((line) =>
+          div(
+            {
+              backgroundColor: "rgba(9,14,17,0.55)",
+              border: "2px solid rgba(255,255,255,0.16)",
+              borderRadius: 26,
+              padding: "12px 34px 16px 34px",
+              justifyContent: "center",
+              maxWidth: W - 120,
+            },
+            div(
+              {
+                fontFamily: FONT_SANS,
+                fontWeight: 700,
+                fontSize: SUBTITLE_FONT_SIZE,
+                lineHeight: 1.24,
+                letterSpacing: -1,
+                color: "#FFFFFF",
+                textAlign: "center",
+                textShadow: SUBTITLE_OUTLINE,
+              },
+              line
+            )
+          )
+        ),
+      ]
     ),
   ]);
 }
@@ -527,51 +641,61 @@ interface LocalClip {
   path: string; // 로컬 파일 경로
   startSec: number;
   durationSec: number;
+  /** 촬영 공간(PhotoSpace) — 속도 조절 판정 입력 */
+  space?: string | null;
+  /** 특징 메모 — 공간 코드보다 정확한 신호일 때가 많다("침실로 가는 복도") */
+  note?: string | null;
 }
 
 /**
- * 나레이션이 요구한 길이를 원본이 못 채울 때 허용하는 최대 감속 배율.
- * 1.6배까지는 "느린 팬"처럼 보여 자연스럽지만, 그 이상은 슬로모션 티가 난다.
+ * 클립 1개 → 9:16 세그먼트. **컷 속도 조절(페이싱)이 여기서 걸린다.**
+ *
+ * ★ durationSec(화면에 나갈 길이)은 나레이션이 정한 값이라 바꾸지 않는다.
+ *   페이싱이 바꾸는 건 "그 시간 동안 원본을 얼마나 소비하느냐"뿐이다:
+ *     복도(transit) → 원본 1.85초를 화면 1초에 몰아 넣는다(성큼성큼 지나간다)
+ *     수영장(hero)  → 원본 0.88초를 화면 1초에 편다(여운)
+ *   추가로 이동 컷에는 **감속 램프**를 건다 — 빠르게 들어가 끝에서 정상 속도로 도착한다.
+ * ★ 원본이 요청 길이보다 짧으면 예전처럼 감속으로 채운다(planClipTiming이 같은 식으로 처리).
+ *   감속 상한에 걸려 짧아진 경우는 호출부가 **실측 길이로 나레이션을 재동기화**한다.
+ * @returns 페이싱 진단(로그용)
  */
-const MAX_SLOWDOWN = 1.6;
-
 async function normalizeClip(
   clip: LocalClip,
   outPath: string,
-  horizontalMode: "crop" | "blur"
-): Promise<void> {
+  horizontalMode: "crop" | "blur",
+  pacingEnabled: boolean
+): Promise<{ kind: string; readSec: number; screenSec: number }> {
   const useBlur = horizontalMode === "blur" && (await probeIsHorizontal(clip.path));
-  let filter = normalizeFilter(useBlur ? "blur" : "crop");
+  const baseFilter = normalizeFilter(useBlur ? "blur" : "crop");
 
-  // ★ 원본 부족분을 감속으로 채운다(2026-07-22 프로덕션 실측 결함).
-  //   나레이션 타임라인이 컷에 배정한 시간이 원본보다 길면 `-t`는 **그냥 짧게** 끝난다.
-  //   그러면 그 뒤 컷들이 앞당겨지면서 오디오와 어긋나고, 마지막에 화면이 멈춘 채
-  //   나레이션만 흐르는 상태가 된다("32초에 영상은 멈추고 나레이션만 나온다").
-  //   → setpts로 재생 속도를 늦춰 요청 길이를 정확히 채운다. 빌라 투어에서 살짝 느린 팬은
-  //     오히려 자연스럽다. 한계(MAX_SLOWDOWN)를 넘으면 채울 수 있는 데까지만 늘린다.
   const srcDur = await probeDurationSec(clip.path);
   const avail = srcDur != null ? Math.max(0, srcDur - clip.startSec) : null;
-  let readSec = clip.durationSec;
-  if (avail != null && avail > 0.1 && clip.durationSec > avail + 0.05) {
-    const factor = Math.min(MAX_SLOWDOWN, clip.durationSec / avail);
-    filter = `[0:v]setpts=${factor.toFixed(4)}*PTS[slow];[slow]` + filter.replace(/^\[0:v\]/, "");
-    readSec = avail; // 원본 전체를 읽고 감속으로 늘린다
-  }
+
+  // 페이싱을 끄면 "원본 부족분만 감속으로 채우는" 기존 동작과 동일해진다(sourceSpeed 1).
+  const pace = pacingEnabled
+    ? resolveClipPace(clip.space, clip.note)
+    : { kind: "feature" as const, sourceSpeed: 1, ramp: false };
+  const plan = planClipTiming(clip.durationSec, avail, pace);
+  const chain = pacingFilterChain(plan);
+
+  const filter = chain
+    ? `[0:v]${chain}[paced];[paced]` + baseFilter.replace(/^\[0:v\]/, "")
+    : baseFilter;
 
   await run(FFMPEG_PATH, [
     "-y",
     "-ss", clip.startSec.toFixed(3),
-    "-t", readSec.toFixed(3),
+    "-t", plan.readSec.toFixed(3),
     "-i", clip.path,
     "-filter_complex", filter,
     "-map", "[vout]",
     "-an",
-    "-c:v", "libx264",
-    "-preset", "veryfast",
-    "-pix_fmt", "yuv420p",
+    ...INTERMEDIATE_ENC,
     "-r", String(FPS),
     outPath,
   ]);
+
+  return { kind: pace.sourceSpeed === 1 && !pacingEnabled ? "off" : pace.kind, readSec: plan.readSec, screenSec: plan.screenSec };
 }
 
 /** 정지 JPEG → 지정 길이 9:16 세그먼트(CTA 카드). */
@@ -584,9 +708,7 @@ async function stillToSegment(jpegPath: string, durationSec: number, outPath: st
     "-filter_complex", `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},setsar=1,fps=${FPS},format=yuv420p[vout]`,
     "-map", "[vout]",
     "-an",
-    "-c:v", "libx264",
-    "-preset", "veryfast",
-    "-pix_fmt", "yuv420p",
+    ...INTERMEDIATE_ENC,
     "-r", String(FPS),
     outPath,
   ]);
@@ -620,9 +742,7 @@ async function xfadeConcat(segPaths: string[], durations: number[], outPath: str
     "-filter_complex", filter,
     "-map", "[vout]",
     "-an",
-    "-c:v", "libx264",
-    "-preset", "veryfast",
-    "-pix_fmt", "yuv420p",
+    ...INTERMEDIATE_ENC,
     "-r", String(FPS),
     outPath,
   ]);
@@ -641,6 +761,38 @@ async function xfadeConcat(segPaths: string[], durations: number[], outPath: str
 export interface NarrationTrack {
   wavPaths: string[];
   offsetsSec: number[];
+  /**
+   * 문장별 TTS 길이 + 절 구성. 넘기면 렌더가 **실측 세그먼트 길이로 오프셋·자막을 다시 계산**한다
+   * (retimeNarrationTimeline). 안 넘기면 offsetsSec를 그대로 쓴다(예전 동작).
+   * ★ 원본이 짧아 감속 상한에 걸린 컷이 하나라도 있으면 계획값은 반드시 어긋난다 —
+   *   실전 경로(runYoutubeEditJob)는 항상 넘긴다.
+   */
+  lines?: { durationSec: number; parts: { clipIndexes: number[]; text: string }[] }[];
+}
+
+// 나레이션 아래 깔 배경음(번들 CC0 트랙) — 릴스와 같은 파일을 공유한다.
+const REEL_BGM_PATH = path.join(process.cwd(), "assets", "audio", "reel-bgm.mp3");
+/** 나레이션 밑에 깔리는 볼륨. 0.10 ≈ −20dB — 있는 줄 모르게 있지만 빠지면 허전하다. */
+const BGM_UNDER_VOLUME = 0.1;
+
+/**
+ * 나레이션 트랙 밑에 배경음악을 섞는 filter 조각.
+ * ★ 말을 절대 덮지 않아야 한다: 고정 저볼륨 + 저역 정리(highpass)로 목소리 대역을 비운다.
+ *   사이드체인 덕킹은 문장 경계마다 음악이 펌핑해 오히려 싸구려로 들린다(실측 후 배제).
+ */
+export function bgmUnderFilter(
+  inputIdx: number,
+  totalSec: number,
+  inLabel: string,
+  outLabel: string
+): string {
+  const fadeOut = Math.max(0, totalSec - 1.6).toFixed(3);
+  return (
+    `[${inputIdx}:a]atrim=0:${totalSec.toFixed(3)},asetpts=PTS-STARTPTS,` +
+    `highpass=f=180,volume=${BGM_UNDER_VOLUME},` +
+    `afade=t=in:st=0:d=1.4,afade=t=out:st=${fadeOut}:d=1.6[bgmu];` +
+    `${inLabel}[bgmu]amix=inputs=2:normalize=0:duration=first${outLabel}`
+  );
 }
 
 /**
@@ -724,6 +876,10 @@ export interface RenderOpts {
    *   기본값보다 문장이 길면 말이 끝나기 전에 영상이 끝난다.
    */
   ctaDurationSec?: number;
+  /** 나레이션 밑 배경음. 기본 "soft"(깐다). 나레이션이 없으면 무시된다. */
+  bgm?: "soft" | "none";
+  /** 컷 속도 조절(페이싱). 기본 켬(undefined = 켬). false면 원본 속도 그대로. */
+  pacing?: boolean;
 }
 
 /**
@@ -751,15 +907,18 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
     }
     const scale = !opts.narration && reqSum > clipBudget && clipBudget > 0 ? clipBudget / reqSum : 1;
 
-    // 1) 정규화·트림.
+    // 1) 정규화·트림(+ 컷 속도 조절).
     const segPaths: string[] = [];
     const segDurs: number[] = [];
+    const paceLog: string[] = [];
     for (let i = 0; i < clips.length; i++) {
       const seg = path.join(workDir, `seg-${String(i).padStart(2, "0")}.mp4`);
-      await normalizeClip(
-        { ...clips[i], durationSec: Math.max(CLIP_DUR_MIN * 0.5, clips[i].durationSec * scale) },
+      const want = Math.max(CLIP_DUR_MIN * 0.5, clips[i].durationSec * scale);
+      const info = await normalizeClip(
+        { ...clips[i], durationSec: want },
         seg,
-        opts.horizontalMode
+        opts.horizontalMode,
+        opts.pacing !== false
       );
       // ★ probe 실패 시 요청 길이로 폴백하면 **조용히 깨진 영상**이 나온다:
       //   실제 세그먼트는 더 짧은데 xfade 오프셋은 요청 길이를 믿어, 마지막 프레임이 정지한 채
@@ -768,14 +927,18 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
       const probed = await probeDurationSec(seg);
       if (probed == null) {
         console.error(
-          `[yt-edit] ffprobe 실패 — 세그먼트 ${i} 길이를 요청값(${(clips[i].durationSec * scale).toFixed(2)}s)으로 폴백합니다. ` +
+          `[yt-edit] ffprobe 실패 — 세그먼트 ${i} 길이를 계획값(${info.screenSec.toFixed(2)}s)으로 폴백합니다. ` +
             `xfade 타이밍이 어긋나 화면이 정지할 수 있습니다. next.config serverExternalPackages에 ffprobe-static이 있는지 확인하세요.`
         );
       }
-      const d = probed ?? clips[i].durationSec * scale;
+      const d = probed ?? info.screenSec;
       segPaths.push(seg);
       segDurs.push(d);
+      paceLog.push(
+        `#${i}(${clips[i].space ?? "?"}/${info.kind}) 원본${info.readSec.toFixed(1)}s→화면${d.toFixed(1)}s`
+      );
     }
+    console.info(`[yt-edit] 페이싱: ${paceLog.join(", ")}`);
 
     // 2) 아웃트로 CTA 정지 카드 세그먼트.
     const ctaJpeg = await nodeToJpeg(reelCta916(opts.ctaOverride ?? YOUTUBE_REEL_CTA), BRAND.teal);
@@ -796,6 +959,35 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
     const concatTotal = await xfadeConcat(segPaths, segDurs, concatPath);
     const total = Math.min(concatTotal, TOTAL_MAX_SEC);
 
+    // 3-b) ★ 나레이션 실측 재동기화(video-pacing-quality).
+    //   계획 길이와 실제 세그먼트 길이는 어긋날 수 있다(원본 부족 → 감속 상한에 걸림).
+    //   계획값 그대로 오디오를 깔면 그 오차가 **누적**돼 뒤로 갈수록 다른 방을 설명하게 된다.
+    //   여기서 실측 길이로 다시 계산하면 드리프트가 구조적으로 0이 된다.
+    //   덤으로 자막이 컷 경계에 정확히 붙는다(화면이 바뀌는 순간 자막도 바뀐다).
+    let narrationOffsets = opts.narration?.offsetsSec ?? [];
+    let subtitleList = opts.subtitles ?? [];
+    if (opts.narration?.lines && opts.narration.lines.length > 0) {
+      const ctaActual = segDurs[segDurs.length - 1];
+      const retimed = retimeNarrationTimeline(
+        opts.narration.lines,
+        segDurs.slice(0, clips.length),
+        ctaActual,
+        TRANSITION_SEC
+      );
+      narrationOffsets = retimed.lineOffsets;
+      // CTA 절은 자막에서 제외 — 아웃트로 카드가 같은 내용을 큰 글씨로 이미 보여준다(겹침 방지).
+      subtitleList = retimed.subtitles
+        .filter((s) => !s.isCta)
+        .map(({ text, fromSec, toSec }) => ({ text, fromSec, toSec }));
+      const drift = retimed.totalSec - concatTotal;
+      if (Math.abs(drift) > 0.15) {
+        console.warn(
+          `[yt-edit] 재동기화 잔차 ${drift.toFixed(2)}s — 세그먼트 합(${retimed.totalSec.toFixed(2)}s)과 ` +
+            `xfade 결과(${concatTotal.toFixed(2)}s)가 다릅니다. 타이밍 수식을 확인하세요.`
+        );
+      }
+    }
+
     // 4) 오버레이 PNG 준비(워터마크·인트로·자막).
     const wmPath = path.join(workDir, "wm.png");
     await fs.writeFile(wmPath, await nodeToTransparentPng(watermarkNode()));
@@ -809,7 +1001,7 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
       );
     }
 
-    const subs = (opts.subtitles ?? []).filter((s) => s.fromSec < total);
+    const subs = subtitleList.filter((s) => s.fromSec < total);
     const subPaths: { path: string; from: number; to: number }[] = [];
     for (let i = 0; i < subs.length; i++) {
       const sp = path.join(workDir, `sub-${i}.png`);
@@ -839,28 +1031,52 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
       inputArgs.push(...audioInputArgs(opts.audio, total));
     }
     const audioIdx = idx;
+    idx += narrationPaths.length > 0 ? narrationPaths.length : 1;
+
+    // ★ 나레이션 아래 배경음(video-pacing-quality): 완전 무음 위의 합성 음성은 "읽어주는 안내방송"
+    //   처럼 들린다. 아주 낮게(−18dB 수준) 깔린 음악 하나가 체감 완성도를 크게 올린다.
+    //   번들 음원이 CC0라 Content ID 리스크 0. 파일이 없으면 조용히 건너뛴다(배포 누락 안전망).
+    let bgmIdx = -1;
+    if (narrationPaths.length > 0 && opts.bgm !== "none" && existsSync(REEL_BGM_PATH)) {
+      inputArgs.push("-stream_loop", "-1", "-i", REEL_BGM_PATH);
+      bgmIdx = idx++;
+    }
 
     const fParts: string[] = [];
     let cur = "[0:v]";
     // 워터마크(전 구간)
     fParts.push(`${cur}[1:v]overlay=0:0[wm]`);
     cur = "[wm]";
-    // 인트로(0~1.5s)
+    // 인트로(0~introHold)
     if (introIdx >= 0) {
       // ★ 인트로 표시 시간: 나레이션이 있으면 **첫 문장이 끝날 때까지** 유지한다.
       //   고정 1.5초로 두면 스펙("침실 셋·수영장·해변 앞")이 사라진 뒤에도 그 설명이 계속 들려
       //   화면과 말이 어긋난다(테오 피드백 2026-07-22). 음소거 시청자에게도 스펙이 남아야 한다.
       const introHold = opts.introHoldSec != null ? Math.max(INTRO_SEC, opts.introHoldSec) : INTRO_SEC;
+      // 부드럽게 사라진다 — 예전엔 오버레이가 프레임 하나 만에 뚝 꺼져 "깜빡"거렸다.
+      const introFade = Math.min(0.6, introHold / 3);
       fParts.push(
-        `${cur}[${introIdx}:v]overlay=0:0:enable='between(t,0,${introHold.toFixed(2)})'[intro]`
+        `[${introIdx}:v]format=rgba,fade=t=out:st=${(introHold - introFade).toFixed(2)}:d=${introFade.toFixed(2)}:alpha=1[introf]`
+      );
+      fParts.push(
+        `${cur}[introf]overlay=0:0:enable='between(t,0,${introHold.toFixed(2)})'[intro]`
       );
       cur = "[intro]";
     }
-    // 자막 구간별
+    // 자막 구간별 — 팝인/팝아웃 대신 **페이드**로 뜨고 진다(video-pacing-quality).
+    //   ★ 오버레이 PNG는 `-loop 1` 무한 스트림이라 자체 타임스탬프가 본편과 같은 시간축을 쓴다.
+    //     그래서 fade의 st에 **절대 시각**을 그대로 넣으면 된다.
     subPaths.forEach((s, i) => {
       const out = `[s${i}]`;
+      const span = Math.max(0.2, s.to - s.from);
+      const fade = Math.min(0.22, span / 4);
       fParts.push(
-        `${cur}[${subIdx[i]}:v]overlay=0:0:enable='between(t,${s.from.toFixed(2)},${s.to.toFixed(2)})'${out}`
+        `[${subIdx[i]}:v]format=rgba,` +
+          `fade=t=in:st=${s.from.toFixed(2)}:d=${fade.toFixed(2)}:alpha=1,` +
+          `fade=t=out:st=${(s.to - fade).toFixed(2)}:d=${fade.toFixed(2)}:alpha=1[subf${i}]`
+      );
+      fParts.push(
+        `${cur}[subf${i}]overlay=0:0:enable='between(t,${s.from.toFixed(2)},${s.to.toFixed(2)})'${out}`
       );
       cur = out;
     });
@@ -869,9 +1085,13 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
 
     let audioMap = `${audioIdx}:a`;
     if (narrationPaths.length > 0) {
-      // 나레이션: 무음 베이스 + 문장별 절대 오프셋 배치(adelay) + amix. 음악 없음.
-      fParts.push(narrationFilter(audioIdx, opts.narration!.offsetsSec, total));
+      // 나레이션: 무음 베이스 + 문장별 절대 오프셋 배치(adelay) + amix.
+      fParts.push(narrationFilter(audioIdx, narrationOffsets, total));
       audioMap = "[aud]";
+      if (bgmIdx >= 0) {
+        fParts.push(bgmUnderFilter(bgmIdx, total, "[aud]", "[amixed2]"));
+        audioMap = "[amixed2]";
+      }
     } else if (opts.audio === "ambient") {
       const fadeOutStart = Math.max(0, total - 1.2).toFixed(3);
       fParts.push(`[${audioIdx}:a]afade=t=in:st=0:d=1.2,afade=t=out:st=${fadeOutStart}:d=1.2[aud]`);
@@ -885,13 +1105,17 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
       "-map", "[vout]",
       "-map", audioMap,
       "-c:v", "libx264",
-      "-preset", "veryfast",
+      "-preset", FINAL_PRESET,
+      "-crf", FINAL_CRF,
+      "-maxrate", FINAL_MAXRATE,
+      "-bufsize", FINAL_BUFSIZE,
       "-profile:v", "high",
       "-level", "4.0",
       "-pix_fmt", "yuv420p",
       "-r", String(FPS),
+      "-g", String(FPS * 2),
       "-c:a", "aac",
-      "-b:a", "128k",
+      "-b:a", "160k",
       "-ar", "44100",
       "-movflags", "+faststart",
       "-t", total.toFixed(3),
@@ -956,7 +1180,14 @@ export async function runYoutubeEditJob(
       const fp = path.join(dlDir, `clip-${String(i).padStart(2, "0")}.${ext}`);
       const buf = await getR2ObjectBuffer(c.key);
       await fs.writeFile(fp, buf);
-      local.push({ path: fp, startSec: c.startSec ?? 0, durationSec: c.durationSec ?? CLIP_DUR_DEFAULT });
+      local.push({
+        path: fp,
+        startSec: c.startSec ?? 0,
+        durationSec: c.durationSec ?? CLIP_DUR_DEFAULT,
+        // 페이싱 판정 입력 — 여기가 비면 모든 컷이 정속으로 돌아간다.
+        space: c.space ?? null,
+        note: c.note ?? null,
+      });
     }
 
     // ── AI 나레이션 (villa-clip-narration-p2) ──────────────────────
@@ -986,7 +1217,12 @@ export async function runYoutubeEditJob(
           await fs.writeFile(wp, synth[i].wav);
           wavPaths.push(wp);
         }
-        narrationTrack = { wavPaths, offsetsSec: timeline.lineOffsets };
+        narrationTrack = {
+          wavPaths,
+          offsetsSec: timeline.lineOffsets,
+          // 실측 재동기화용 원본 구조 — 이게 있어야 감속 상한에 걸린 컷의 오차가 누적되지 않는다.
+          lines: synth.map((s) => ({ durationSec: s.durationSec, parts: s.parts })),
+        };
 
         // 컷 길이 역산 — 절(節) 단위로 산출된 값을 그대로 쓴다.
         for (let i = 0; i < local.length; i++) {
@@ -1002,8 +1238,12 @@ export async function runYoutubeEditJob(
         subtitles = timeline.subtitles
           .filter((s) => !s.isCta)
           .map(({ text, fromSec, toSec }) => ({ text, fromSec, toSec }));
-      } catch {
-        // 키 미설정·API 실패·상한 초과 — 나레이션 없이 진행(무음/앰비언트 기존 경로)
+      } catch (e) {
+        // 키 미설정·API 실패·상한 초과 — 나레이션 없이 진행(무음/앰비언트 기존 경로).
+        // ★ 조용히 삼키면 "왜 나레이션이 없지?"를 아무도 추적할 수 없다. 사유를 반드시 남긴다.
+        console.error(
+          `[yt-edit] 나레이션 합성 실패 — 무음/앰비언트로 폴백합니다: ${e instanceof Error ? e.message : String(e)}`
+        );
         narrationTrack = undefined;
       }
     }
@@ -1023,6 +1263,8 @@ export async function runYoutubeEditJob(
       ctaOverride: params.ctaVariant === "instagram" ? INSTAGRAM_REEL_CTA : undefined,
       introSpecs: ctx.introSpecs,
       introHoldSec: narrationIntroHoldSec,
+      bgm: params.bgm,
+      pacing: params.pacing,
     });
 
     const { url: videoUrl } = await saveYoutubeRenderedVideo(rendered.mp4, ctx.baseName);
