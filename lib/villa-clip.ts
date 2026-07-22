@@ -175,11 +175,16 @@ export async function probeVideoFile(
 ): Promise<{ durationSec: number; width: number; height: number } | null> {
   let json: FfprobeJson;
   try {
+    // ★ -show_entries의 `stream_side_data=` 셀렉터를 쓰지 않는다: ffprobe-static이 번들하는
+    //   4.0.2는 그 섹션명을 모르고 **exit 1로 죽는다**("No match for section 'stream_side_data'").
+    //   그러면 probe가 null → 커밋 라우트가 모든 업로드를 거부한다(실측 확인 2026-07-22).
+    //   -show_streams는 4.x·7.x 모두에서 동작하고, 회전 정보(tags.rotate / side_data_list)가
+    //   존재하면 어느 쪽이든 그대로 실려 온다 — 버전 차이를 호출부가 흡수한다.
     const out = await runProbe([
       "-v", "error",
       "-select_streams", "v:0",
-      "-show_entries",
-      "stream=width,height,duration,codec_type:stream_side_data=rotation:stream_tags=rotate:format=duration",
+      "-show_streams",
+      "-show_format",
       "-of", "json",
       filePath,
     ]);

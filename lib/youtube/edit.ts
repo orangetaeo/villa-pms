@@ -371,10 +371,14 @@ async function probeDurationSec(file: string): Promise<number | null> {
 /** ffprobe로 회전 반영 실제 표시 방향 파악(가로 여부). 실패 시 false(세로 가정). */
 async function probeIsHorizontal(file: string): Promise<boolean> {
   try {
+    // ★ `stream_side_data=` 셀렉터 금지 — ffprobe-static 번들(4.0.2)이 그 섹션명을 몰라 exit 1로 죽는다.
+    //   그러면 catch로 떨어져 **항상 세로로 가정**되고, 가로 클립의 blur 패딩 모드가 영영 켜지지 않는다
+    //   (marketing-s2 병합분의 잠재 결함 — villa-clip-narration-p2 작업 중 실측으로 발견).
+    //   -show_streams는 4.x·7.x 모두 동작하며 회전 정보가 있으면 어느 형태든 그대로 실려 온다.
     const out = await run(FFPROBE_PATH, [
       "-v", "error",
       "-select_streams", "v:0",
-      "-show_entries", "stream=width,height:stream_side_data=rotation:stream_tags=rotate",
+      "-show_streams",
       "-of", "json",
       file,
     ]);
