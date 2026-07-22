@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   NARRATION_LEAD_SEC,
-  NARRATION_PAD_SEC,
+  NARRATION_TAIL_SEC,
   NARRATION_RULES,
   SUBTITLE_TAIL_SEC,
   computeNarrationTimeline,
@@ -17,13 +17,87 @@ const CTA_MIN = 2.8; // CTA_DUR_SEC
 
 const base = { transitionSec: T, minSegmentSec: MIN_SEG, ctaMinSec: CTA_MIN };
 
+/**
+ * ★ 이 파일에서 가장 중요한 불변식(2026-07-22 실측 결함):
+ *   문장 i의 발화는 **다음 컷으로 넘어가는 전환이 시작되기 전에** 끝나야 한다.
+ *   초기 구현은 여유를 전환과 무관한 상수(0.6)로 잡아 말이 끝나기 0.05초 전에 화면이 넘어갔다.
+ *   → "화면이 지나갔는데 나레이션이 늦게 끝난다".
+ *
+ * xfadeConcat 기준: 세그먼트 i로 들어가는 전환 시작 A_i = Σ_{j<i}(dur_j − T),
+ *   다음 전환 시작 = A_i + dur_i − T.
+ */
+function transitionStarts(segs: number[], T: number): number[] {
+  const A: number[] = [];
+  let acc = 0;
+  for (const d of segs) {
+    A.push(acc);
+    acc += d - T;
+  }
+  return A;
+}
+
+describe("computeNarrationTimeline — 발화가 장면 전환보다 먼저 끝난다 (핵심 불변식)", () => {
+  const cases: number[][] = [
+    [2.5, 3.0, 2.0],
+    [0.5, 0.5, 0.5],
+    [4.69, 3.25, 4.13, 3.53, 2.21],
+    [3.61, 3.93, 4.01, 4.09, 4.25, 3.81, 4.25, 3.25, 4.13, 3.53, 4.69, 3.29], // 실제 투어 대본
+  ];
+
+  it.each(cases)("문장 길이 %#: 모든 문장이 다음 전환 시작 전에 끝난다", (...lineDurations) => {
+    const durs = lineDurations as number[];
+    const r = computeNarrationTimeline({ lineDurations: durs, ...base });
+    const A = transitionStarts(r.segmentDurations, T);
+
+    const last = durs.length - 1;
+    r.lineOffsets.forEach((off, i) => {
+      const speechEnd = off + durs[i];
+      // 마지막 세그먼트는 나가는 전환이 없다 — 상한은 영상의 끝(A+dur = totalSec).
+      const deadline =
+        i === last ? r.totalSec : A[i] + r.segmentDurations[i] - T;
+      // 말끝 + TAIL 여유가 전환 시작(또는 영상 끝)보다 앞서야 한다
+      expect(speechEnd + NARRATION_TAIL_SEC).toBeLessThanOrEqual(deadline + 1e-9);
+    });
+  });
+
+  it.each(cases)("문장 길이 %#: 화면이 온전히 보인 뒤에 발화가 시작된다", (...lineDurations) => {
+    const durs = lineDurations as number[];
+    const r = computeNarrationTimeline({ lineDurations: durs, ...base });
+    const A = transitionStarts(r.segmentDurations, T);
+
+    r.lineOffsets.forEach((off, i) => {
+      // 들어오는 전환이 끝난 시각(첫 컷은 0) 이후여야 한다
+      const fullyVisibleAt = i === 0 ? 0 : A[i] + T;
+      expect(off).toBeGreaterThanOrEqual(fullyVisibleAt - 1e-9);
+    });
+  });
+
+  it("마지막 문장(CTA)은 영상 끝을 넘지 않는다", () => {
+    const durs = [3.6, 4.0, 3.3];
+    const r = computeNarrationTimeline({ lineDurations: durs, ...base });
+    const lastEnd = r.lineOffsets[durs.length - 1] + durs[durs.length - 1];
+    expect(lastEnd).toBeLessThanOrEqual(r.totalSec + 1e-9);
+  });
+});
+
 describe("computeNarrationTimeline", () => {
-  it("세그먼트 길이 = 문장 길이 + PAD (하한 미만이면 하한)", () => {
+  it("세그먼트 길이 = 전환 + 리드 + 발화 + 테일 + 전환 (하한 미만이면 하한)", () => {
     const r = computeNarrationTimeline({ lineDurations: [2.5, 3.0, 2.0], ...base });
-    expect(r.segmentDurations[0]).toBeCloseTo(2.5 + NARRATION_PAD_SEC, 5);
-    expect(r.segmentDurations[1]).toBeCloseTo(3.0 + NARRATION_PAD_SEC, 5);
-    // 마지막은 CTA — max(2.8, 2.0+0.6=2.6) = 2.8
-    expect(r.segmentDurations[2]).toBeCloseTo(CTA_MIN, 5);
+    // 첫 컷: 들어오는 전환 없음 → 0 + LEAD + 2.5 + TAIL + T
+    expect(r.segmentDurations[0]).toBeCloseTo(
+      NARRATION_LEAD_SEC + 2.5 + NARRATION_TAIL_SEC + T,
+      5
+    );
+    // 중간 컷: 양쪽 전환 모두
+    expect(r.segmentDurations[1]).toBeCloseTo(
+      T + NARRATION_LEAD_SEC + 3.0 + NARRATION_TAIL_SEC + T,
+      5
+    );
+    // 마지막(CTA): 나가는 전환 없음
+    expect(r.segmentDurations[2]).toBeCloseTo(
+      T + NARRATION_LEAD_SEC + 2.0 + NARRATION_TAIL_SEC,
+      5
+    );
   });
 
   it("짧은 문장도 CLIP_DUR_MIN 이상 세그먼트를 받는다 (C3)", () => {
@@ -33,12 +107,14 @@ describe("computeNarrationTimeline", () => {
     expect(r.segmentDurations[2]).toBe(CTA_MIN);
   });
 
-  it("오프셋은 xfade 겹침(T)을 빼고 누적한다 — 단순 Σdur가 아니다 (C1)", () => {
+  it("오프셋은 xfade 겹침(T)을 빼고 누적하되, 들어오는 전환이 끝난 뒤부터 발화한다 (C1)", () => {
     const r = computeNarrationTimeline({ lineDurations: [2.5, 3.0, 2.0], ...base });
     const [d0, d1] = r.segmentDurations;
+    // 첫 컷은 들어오는 전환이 없다
     expect(r.lineOffsets[0]).toBeCloseTo(NARRATION_LEAD_SEC, 5);
-    expect(r.lineOffsets[1]).toBeCloseTo(d0 - T + NARRATION_LEAD_SEC, 5);
-    expect(r.lineOffsets[2]).toBeCloseTo(d0 - T + (d1 - T) + NARRATION_LEAD_SEC, 5);
+    // 이후 컷은 A_i + T(전환 완료) + LEAD 부터 — 전환 중에 말이 시작되면 이전 화면 위에 말이 얹힌다
+    expect(r.lineOffsets[1]).toBeCloseTo(d0 - T + T + NARRATION_LEAD_SEC, 5);
+    expect(r.lineOffsets[2]).toBeCloseTo(d0 - T + (d1 - T) + T + NARRATION_LEAD_SEC, 5);
   });
 
   it("총 길이 = Σdur − (n−1)·T", () => {

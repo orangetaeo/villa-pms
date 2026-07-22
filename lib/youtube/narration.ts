@@ -42,10 +42,10 @@ export const NARRATION_RULES = {
   targetTotalSec: 55,
 } as const;
 
-/** 컷 사이 여유 — 리드인 0.2 + 테일 0.4. 말이 컷 경계에 붙지 않게 한다. */
-export const NARRATION_PAD_SEC = 0.6;
-/** 첫 문장 시작 지연 — 영상이 뜨자마자 말이 시작되면 급하게 들린다. */
+/** 화면이 온전히 보이기 시작한 뒤 말을 시작하기까지의 여유. 바로 시작하면 급하게 들린다. */
 export const NARRATION_LEAD_SEC = 0.25;
+/** 말이 끝난 뒤 다음 전환이 시작되기까지의 여유. 이게 없으면 말끝과 장면 전환이 겹친다. */
+export const NARRATION_TAIL_SEC = 0.35;
 /** 자막을 말끝보다 조금 더 남긴다(읽을 시간). */
 export const SUBTITLE_TAIL_SEC = 0.3;
 
@@ -275,28 +275,38 @@ export interface NarrationTimeline {
 /**
  * 문장별 오디오 길이 → 세그먼트 길이·오디오 오프셋·자막 구간.
  *
- * 수식(xfade 겹침 반영):
- *   dur_i   = max(minSegment, lineDur_i + PAD)          (마지막은 max(ctaMin, …))
- *   off_i   = Σ_{j<i}(dur_j − T) + LEAD
- *   total   = Σdur − (n−1)·T
+ * ★ 전환(xfade)이 세그먼트의 **양쪽 끝을 T초씩 먹는다**는 게 이 계산의 핵심이다.
+ *   edit.ts xfadeConcat: 세그먼트 i로 들어가는 전환은 `A_i = Σ_{j<i}(dur_j − T)`에서 **시작**해
+ *   T초 뒤 완료되고, 다음 전환은 `A_i + dur_i − T`에서 시작한다.
+ *   → 세그먼트 i가 **온전히 보이는 구간**은 [A_i + T, A_i + dur_i − T] 뿐이다.
  *
- * ※ off는 "세그먼트 i가 화면에 온전히 나오기 시작하는 시각"을 기준으로 한다.
- *   xfadeConcat이 세그먼트를 T만큼 겹치므로 단순 누적(Σdur)을 쓰면 뒤로 갈수록 어긋난다.
+ *   초기 구현은 여유를 전환과 무관한 상수(PAD 0.6)로 잡아, 말이 끝나기 0.05초 전에 이미 다음 컷으로
+ *   넘어가기 시작했다("화면이 지나갔는데 나레이션이 늦게 끝난다" — 테오 실측 2026-07-22).
+ *
+ * 수식:
+ *   inSec_i  = (i === 0)     ? 0 : T        // 들어오는 전환(첫 컷은 없음)
+ *   outSec_i = (i === n−1)   ? 0 : T        // 나가는 전환(마지막 컷은 없음)
+ *   dur_i    = max(floor, inSec_i + LEAD + lineDur_i + TAIL + outSec_i)
+ *   off_i    = A_i + inSec_i + LEAD         // 화면이 온전히 보인 뒤 LEAD만큼 지나 발화 시작
+ *   total    = Σdur − (n−1)·T
  */
 export function computeNarrationTimeline(input: NarrationTimelineInput): NarrationTimeline {
   const { lineDurations, transitionSec: T, minSegmentSec, ctaMinSec } = input;
   const n = lineDurations.length;
 
+  const inSec = (i: number) => (i === 0 ? 0 : T);
+  const outSec = (i: number) => (i === n - 1 ? 0 : T);
+
   const segmentDurations = lineDurations.map((d, i) => {
-    const needed = d + NARRATION_PAD_SEC;
+    const needed = inSec(i) + NARRATION_LEAD_SEC + d + NARRATION_TAIL_SEC + outSec(i);
     const floor = i === n - 1 ? ctaMinSec : minSegmentSec;
     return Math.max(floor, needed);
   });
 
   const lineOffsets: number[] = [];
-  let acc = 0;
+  let acc = 0; // acc = A_i (세그먼트 i로 들어가는 전환이 시작되는 시각)
   for (let i = 0; i < n; i++) {
-    lineOffsets.push(acc + NARRATION_LEAD_SEC);
+    lineOffsets.push(acc + inSec(i) + NARRATION_LEAD_SEC);
     acc += segmentDurations[i] - T;
   }
 
