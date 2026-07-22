@@ -434,6 +434,12 @@ export interface NarrationTimelineInput {
   transitionSec: number;
   /** 클립 세그먼트 최소 길이(초) — edit.ts CLIP_DUR_MIN */
   minSegmentSec: number;
+  /**
+   * 컷별 최소 길이 오버라이드(초). 인덱스 = 클립 인덱스. 없으면 minSegmentSec를 쓴다.
+   * ★ 이동 컷(복도·계단)만 하한을 낮춰 진짜로 스쳐 지나가게 하려고 있다(pacing.ts minScreenSecFor).
+   *   공통 하한 2초를 복도에도 걸면 배속을 해도 "빠르게 지나간다"는 느낌이 안 산다.
+   */
+  minSegmentSecByClip?: number[];
   /** CTA 정지 카드 최소 길이(초) — edit.ts CTA_DUR_SEC */
   ctaMinSec: number;
 }
@@ -470,7 +476,8 @@ export interface NarrationTimeline {
  *   발화 시작 = 문장 시작 + LEAD (장면이 바뀌기 시작할 때 함께 시작 → 문장 간 무음 0.4초)
  */
 export function computeNarrationTimeline(input: NarrationTimelineInput): NarrationTimeline {
-  const { lines, transitionSec: T, minSegmentSec, ctaMinSec } = input;
+  const { lines, transitionSec: T, minSegmentSec, minSegmentSecByClip, ctaMinSec } = input;
+  const minFor = (ci: number) => minSegmentSecByClip?.[ci] ?? minSegmentSec;
 
   const clipDurations: number[] = [];
   const lineOffsets: number[] = [];
@@ -512,7 +519,7 @@ export function computeNarrationTimeline(input: NarrationTimelineInput): Narrati
         const span = partSpeech + head + tail;
         const per = span / part.clipIndexes.length;
         for (const ci of part.clipIndexes) {
-          const d = Math.max(minSegmentSec, per + T);
+          const d = Math.max(minFor(ci), per + T);
           clipDurations[ci] = d;
           // 실제 적용된(하한 반영) 길이로 누적해야 오디오와 화면이 어긋나지 않는다
           consumed += d - T;

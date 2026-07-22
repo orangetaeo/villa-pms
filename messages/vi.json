@@ -775,7 +775,8 @@
         "bgmTitle": "Nhạc nền cho lời dẫn",
         "bgm_soft": "Bật nhẹ",
         "bgm_none": "Tắt",
-        "bgmHint": "Thêm nhạc miễn phí bản quyền ở mức rất nhỏ dưới lời dẫn. Nghe chỉn chu hơn so với hoàn toàn im lặng."
+        "bgmHint": "Thêm nhạc miễn phí bản quyền ở mức rất nhỏ dưới lời dẫn. Nghe chỉn chu hơn so với hoàn toàn im lặng.",
+        "spaceMissingWarn": "⚠ Có cảnh chưa chọn không gian. Cảnh đó sẽ là \"chưa xác định\" trong lời dẫn và không được điều chỉnh tốc độ."
       },
       "step3": {
         "title": "3. Chạy dựng",

@@ -18,7 +18,7 @@
 //      방 문턱에서 속도가 붙잡히는 느낌. 테오가 말한 "빠른 이동 후 집중해서 보여주기".
 
 /** 컷의 성격 — 원본 공간(PhotoSpace)과 메모에서 판정한다. */
-export type ClipPaceKind = "transit" | "feature" | "hero";
+export type ClipPaceKind = "transit" | "feature" | "hero" | "unknown";
 
 export interface ClipPace {
   kind: ClipPaceKind;
@@ -76,7 +76,18 @@ export const PACE_SPEED: Record<ClipPaceKind, number> = {
   feature: 0.95,
   /** 첫인상 컷(외관·수영장): 살짝 느리게 흘려 여운을 남긴다 */
   hero: 0.88,
+  /** 아무 정보가 없는 컷 — **손대지 않는다**(아래 UNKNOWN 원칙) */
+  unknown: 1,
 };
+
+/**
+ * ETC "만"으로 이동 컷이라 판정했을 때의 배속(메모에 이동 단어가 없는 경우).
+ *
+ * ★ 왜 1.85가 아닌가: ETC는 "복도"가 아니라 **"분류 안 됨"** 이다. 공급자가 좋은 수영장 뷰를
+ *   귀찮아서 ETC로 넣었을 수도 있다. 그런 컷을 1.85배로 날려 버리면 최고의 장면을 잃는다.
+ *   메모에 이동 단어가 실제로 있으면(확신) 그때 1.85를 쓴다 — 근거의 세기에 배속을 맞춘다.
+ */
+export const ETC_TRANSIT_SPEED = 1.45;
 
 function hasHint(text: string, hints: string[]): boolean {
   const t = text.toLowerCase();
@@ -85,20 +96,47 @@ function hasHint(text: string, hints: string[]): boolean {
 
 /**
  * 컷의 공간·메모 → 페이싱.
+ *
+ * ★ UNKNOWN 원칙: 공간도 없고 메모 신호도 없으면 **속도를 건드리지 않는다**(1.0).
+ *   근거 없는 배속은 "왜 이 컷만 이상하지?"를 만들고, 불필요한 재타이밍으로 프레임까지 흔든다.
+ *   직접 올린 파일은 운영자가 공간을 고르기 전까지 이 상태다.
  * @param space PhotoSpace 값(EXTERIOR·LIVING…). null이면 미지정
  * @param note  자유 메모(VillaClip.note). 공간 코드보다 우선하는 신호로 쓴다
  */
 export function resolveClipPace(space?: string | null, note?: string | null): ClipPace {
-  let kind: ClipPaceKind = space ? (SPACE_PACE[space] ?? "feature") : "feature";
-
   const n = (note ?? "").trim();
-  if (n) {
-    // 머무는 신호가 이동 신호를 이긴다 — "계단 위 수영장 뷰"는 머물러야 하는 컷이다.
-    if (hasHint(n, LINGER_HINTS)) kind = "hero";
-    else if (hasHint(n, TRANSIT_HINTS)) kind = "transit";
-  }
+  const lingerHint = n ? hasHint(n, LINGER_HINTS) : false;
+  const transitHint = n ? hasHint(n, TRANSIT_HINTS) : false;
 
-  return { kind, sourceSpeed: PACE_SPEED[kind], ramp: kind === "transit" };
+  // 메모가 공간 코드를 이긴다. 머무는 신호가 이동 신호를 이긴다
+  // ("계단 위 수영장 뷰"는 계단이 아니라 수영장이 주인공이다).
+  if (lingerHint) return { kind: "hero", sourceSpeed: PACE_SPEED.hero, ramp: false };
+  if (transitHint) return { kind: "transit", sourceSpeed: PACE_SPEED.transit, ramp: true };
+
+  if (!space) return { kind: "unknown", sourceSpeed: 1, ramp: false };
+
+  const kind = SPACE_PACE[space] ?? "feature";
+  if (kind === "transit") {
+    // ETC 단독 = 추정일 뿐이다 — 확신(메모 신호)보다 약하게 민다.
+    return { kind, sourceSpeed: ETC_TRANSIT_SPEED, ramp: true };
+  }
+  return { kind, sourceSpeed: PACE_SPEED[kind], ramp: false };
+}
+
+/**
+ * 이동 컷이 화면을 점유하는 최소 시간(초).
+ *
+ * ★ 왜 별도 하한인가: 일반 컷 하한(CLIP_DUR_MIN=2초)을 복도에도 적용하면, 나레이션 조각이
+ *   "안으로 들어가 볼까요"처럼 짧아도 화면은 2초를 꽉 채운다 — 배속을 걸어도 "빠르게 지나간다"는
+ *   느낌이 안 산다. 이동 컷만 하한을 낮춰 진짜로 스쳐 지나가게 한다.
+ * ★ 0.8초 아래로 내리지 말 것: xfadeConcat의 전환 길이가 `min(0.4, 최단세그먼트/2)`라
+ *   0.8초 미만 세그먼트가 생기면 전환이 줄어들고 타임라인 계산 전제가 흔들린다.
+ */
+export const TRANSIT_MIN_SCREEN_SEC = 1.3;
+
+/** 컷 성격에 맞는 화면 점유 하한. 이동 컷만 짧게 허용하고 나머지는 기본 하한 그대로. */
+export function minScreenSecFor(pace: ClipPace, defaultMinSec: number): number {
+  return pace.kind === "transit" ? Math.min(defaultMinSec, TRANSIT_MIN_SCREEN_SEC) : defaultMinSec;
 }
 
 /** 원본이 짧아 요청 길이를 못 채울 때 허용하는 최대 감속(슬로모션 티가 나기 직전). */

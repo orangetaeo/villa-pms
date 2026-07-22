@@ -36,7 +36,12 @@ import {
   retimeNarrationTimeline,
   synthesizeNarration,
 } from "@/lib/youtube/narration";
-import { pacingFilterChain, planClipTiming, resolveClipPace } from "@/lib/youtube/pacing";
+import {
+  minScreenSecFor,
+  pacingFilterChain,
+  planClipTiming,
+  resolveClipPace,
+} from "@/lib/youtube/pacing";
 import {
   getR2ObjectBuffer,
   saveYoutubeRenderedVideo,
@@ -316,6 +321,43 @@ async function nodeToSvg(node: SatoriNode): Promise<string> {
 async function nodeToTransparentPng(node: SatoriNode): Promise<Buffer> {
   return sharp(Buffer.from(await nodeToSvg(node))).png().toBuffer();
 }
+/**
+ * 오버레이 자산 — 투명 여백을 잘라낸 PNG + 원래 캔버스에서의 위치.
+ *
+ * ★ 왜 자르나(2026-07-23 성능): satori는 항상 1080×1920 캔버스를 준다. 실제 그림은
+ *   워터마크 배지 176×58처럼 **캔버스의 0.5%** 인데, 그대로 overlay하면 ffmpeg가 매 프레임
+ *   2백만 픽셀을 합성한다. 60초 영상 × 30fps × 오버레이 20장이면 그 자체가 렌더 시간의 태반이다.
+ *   sharp trim으로 그림만 남기고 위치를 좌표로 넘기면 결과 픽셀은 **완전히 동일**하면서
+ *   합성 비용만 사라진다.
+ * ★ threshold를 낮게(1) 둔다 — 자막의 부드러운 그림자 가장자리까지 잘라내지 않기 위함.
+ */
+interface OverlayAsset {
+  path: string;
+  x: number;
+  y: number;
+}
+
+async function writeOverlay(node: SatoriNode, file: string): Promise<OverlayAsset> {
+  const png = await nodeToTransparentPng(node);
+  try {
+    const { data, info } = await sharp(png)
+      .trim({ threshold: 1 })
+      .png()
+      .toBuffer({ resolveWithObject: true });
+    const x = -(info.trimOffsetLeft ?? 0);
+    const y = -(info.trimOffsetTop ?? 0);
+    // 좌표가 음수이거나 크기가 0이면 잘못 잘린 것 — 원본을 그대로 쓴다(그림이 사라지는 것보다 낫다).
+    if (info.width > 0 && info.height > 0 && x >= 0 && y >= 0 && x + info.width <= W && y + info.height <= H) {
+      await fs.writeFile(file, data);
+      return { path: file, x, y };
+    }
+  } catch {
+    // 전부 투명하거나 trim이 실패하면 원본 캔버스를 쓴다(기존 동작).
+  }
+  await fs.writeFile(file, png);
+  return { path: file, x: 0, y: 0 };
+}
+
 async function nodeToJpeg(node: SatoriNode, bg: string): Promise<Buffer> {
   return sharp(Buffer.from(await nodeToSvg(node)))
     .flatten({ background: bg })
@@ -714,8 +756,17 @@ async function stillToSegment(jpegPath: string, durationSec: number, outPath: st
   ]);
 }
 
-/** 세그먼트들 xfade 크로스페이드 연결(비디오 전용). @returns 최종 길이(초). */
-async function xfadeConcat(segPaths: string[], durations: number[], outPath: string): Promise<number> {
+/**
+ * 세그먼트들 xfade 크로스페이드 연결(비디오 전용).
+ * @returns 최종 길이(초) + **실제로 사용한 전환 길이**(초).
+ * ★ 전환 길이를 돌려주는 이유: 세그먼트가 짧으면 T가 0.4에서 줄어드는데, 나레이션 재동기화가
+ *   상수 TRANSITION_SEC를 믿고 계산하면 그만큼 어긋난다. 두 곳이 **같은 값**을 쓰게 강제한다.
+ */
+async function xfadeConcat(
+  segPaths: string[],
+  durations: number[],
+  outPath: string
+): Promise<{ totalSec: number; transitionSec: number }> {
   const m = segPaths.length;
   const minDur = Math.min(...durations);
   const T = Math.max(0.1, Math.min(TRANSITION_SEC, minDur / 2));
@@ -746,7 +797,7 @@ async function xfadeConcat(segPaths: string[], durations: number[], outPath: str
     "-r", String(FPS),
     outPath,
   ]);
-  return total;
+  return { totalSec: total, transitionSec: T };
 }
 
 // ── 나레이션 오디오 (villa-clip-narration-p2) ──────────────────────
@@ -956,7 +1007,11 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
 
     // 3) xfade 연결(비디오).
     const concatPath = path.join(workDir, "concat.mp4");
-    const concatTotal = await xfadeConcat(segPaths, segDurs, concatPath);
+    const { totalSec: concatTotal, transitionSec: actualT } = await xfadeConcat(
+      segPaths,
+      segDurs,
+      concatPath
+    );
     const total = Math.min(concatTotal, TOTAL_MAX_SEC);
 
     // 3-b) ★ 나레이션 실측 재동기화(video-pacing-quality).
@@ -972,7 +1027,7 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
         opts.narration.lines,
         segDurs.slice(0, clips.length),
         ctaActual,
-        TRANSITION_SEC
+        actualT // ★ 상수가 아니라 xfade가 실제로 쓴 값 — 두 계산이 어긋나면 드리프트가 생긴다
       );
       narrationOffsets = retimed.lineOffsets;
       // CTA 절은 자막에서 제외 — 아웃트로 카드가 같은 내용을 큰 글씨로 이미 보여준다(겹침 방지).
@@ -988,34 +1043,31 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
       }
     }
 
-    // 4) 오버레이 PNG 준비(워터마크·인트로·자막).
-    const wmPath = path.join(workDir, "wm.png");
-    await fs.writeFile(wmPath, await nodeToTransparentPng(watermarkNode()));
+    // 4) 오버레이 PNG 준비(워터마크·인트로·자막) — 전부 투명 여백을 잘라 합성 비용을 없앤다.
+    const wm = await writeOverlay(watermarkNode(), path.join(workDir, "wm.png"));
 
-    let introPath: string | null = null;
+    let intro: OverlayAsset | null = null;
     if (opts.headline) {
-      introPath = path.join(workDir, "intro.png");
-      await fs.writeFile(
-        introPath,
-        await nodeToTransparentPng(introNode(opts.headline, opts.villaName, opts.introSpecs ?? []))
+      intro = await writeOverlay(
+        introNode(opts.headline, opts.villaName, opts.introSpecs ?? []),
+        path.join(workDir, "intro.png")
       );
     }
 
     const subs = subtitleList.filter((s) => s.fromSec < total);
-    const subPaths: { path: string; from: number; to: number }[] = [];
+    const subPaths: (OverlayAsset & { from: number; to: number })[] = [];
     for (let i = 0; i < subs.length; i++) {
-      const sp = path.join(workDir, `sub-${i}.png`);
-      await fs.writeFile(sp, await nodeToTransparentPng(subtitleNode(subs[i].text)));
-      subPaths.push({ path: sp, from: subs[i].fromSec, to: Math.min(subs[i].toSec, total) });
+      const asset = await writeOverlay(subtitleNode(subs[i].text), path.join(workDir, `sub-${i}.png`));
+      subPaths.push({ ...asset, from: subs[i].fromSec, to: Math.min(subs[i].toSec, total) });
     }
 
     // 5) 최종 합성(오버레이 + 오디오).
     const outPath = path.join(workDir, "final.mp4");
-    const inputArgs: string[] = ["-i", concatPath, "-loop", "1", "-i", wmPath];
+    const inputArgs: string[] = ["-i", concatPath, "-loop", "1", "-i", wm.path];
     let idx = 2; // 0=concat, 1=wm
     let introIdx = -1;
-    if (introPath) {
-      inputArgs.push("-loop", "1", "-i", introPath);
+    if (intro) {
+      inputArgs.push("-loop", "1", "-i", intro.path);
       introIdx = idx++;
     }
     const subIdx: number[] = [];
@@ -1045,7 +1097,7 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
     const fParts: string[] = [];
     let cur = "[0:v]";
     // 워터마크(전 구간)
-    fParts.push(`${cur}[1:v]overlay=0:0[wm]`);
+    fParts.push(`${cur}[1:v]overlay=${wm.x}:${wm.y}[wm]`);
     cur = "[wm]";
     // 인트로(0~introHold)
     if (introIdx >= 0) {
@@ -1059,7 +1111,7 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
         `[${introIdx}:v]format=rgba,fade=t=out:st=${(introHold - introFade).toFixed(2)}:d=${introFade.toFixed(2)}:alpha=1[introf]`
       );
       fParts.push(
-        `${cur}[introf]overlay=0:0:enable='between(t,0,${introHold.toFixed(2)})'[intro]`
+        `${cur}[introf]overlay=${intro!.x}:${intro!.y}:enable='between(t,0,${introHold.toFixed(2)})'[intro]`
       );
       cur = "[intro]";
     }
@@ -1076,7 +1128,7 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
           `fade=t=out:st=${(s.to - fade).toFixed(2)}:d=${fade.toFixed(2)}:alpha=1[subf${i}]`
       );
       fParts.push(
-        `${cur}[subf${i}]overlay=0:0:enable='between(t,${s.from.toFixed(2)},${s.to.toFixed(2)})'${out}`
+        `${cur}[subf${i}]overlay=${s.x}:${s.y}:enable='between(t,${s.from.toFixed(2)},${s.to.toFixed(2)})'${out}`
       );
       cur = out;
     });
@@ -1092,6 +1144,10 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
         fParts.push(bgmUnderFilter(bgmIdx, total, "[aud]", "[amixed2]"));
         audioMap = "[amixed2]";
       }
+      // ★ 마지막 안전장치: amix(normalize=0)는 **합산**이라 나레이션 피크 + 배경음이 겹치면
+      //   0dBFS를 넘어 지직거릴 수 있다. 리미터 하나로 막는다(평상시엔 아무 일도 하지 않는다).
+      fParts.push(`${audioMap}alimiter=limit=0.95:level=disabled[aout]`);
+      audioMap = "[aout]";
     } else if (opts.audio === "ambient") {
       const fadeOutStart = Math.max(0, total - 1.2).toFixed(3);
       fParts.push(`[${audioIdx}:a]afade=t=in:st=0:d=1.2,afade=t=out:st=${fadeOutStart}:d=1.2[aud]`);
@@ -1135,7 +1191,8 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
       "-ss", posterAt.toFixed(3),
       "-i", outPath,
       "-frames:v", "1",
-      "-q:v", "3",
+      // 포스터는 유튜브·인스타 썸네일로 그대로 쓰인다 — 인코딩 품질을 아끼지 않는다.
+      "-q:v", "2",
       posterPath,
     ]);
     const poster = await fs.readFile(posterPath);
@@ -1207,6 +1264,14 @@ export async function runYoutubeEditJob(
           lines: synth.map((s) => ({ durationSec: s.durationSec, parts: s.parts })),
           transitionSec: TRANSITION_SEC,
           minSegmentSec: CLIP_DUR_MIN,
+          // 이동 컷만 화면 점유 하한을 낮춘다 — 공통 2초를 복도에도 걸면 배속을 해도
+          // "빠르게 지나간다"는 느낌이 안 산다(pacing.ts TRANSIT_MIN_SCREEN_SEC).
+          minSegmentSecByClip:
+            params.pacing !== false
+              ? params.clips.map((c) =>
+                  minScreenSecFor(resolveClipPace(c.space, c.note), CLIP_DUR_MIN)
+                )
+              : undefined,
           ctaMinSec: CTA_DUR_SEC,
         });
 
