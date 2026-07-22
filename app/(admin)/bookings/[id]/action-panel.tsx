@@ -22,12 +22,26 @@ function formatTimeVn(iso: string): string {
   }).format(d);
 }
 
+export interface CancellationBreakdownView {
+  daysBefore: number;
+  guestRefundPct: number;
+  guestPenaltyPct: number;
+  supplierPayPct: number | null;
+  companyLossPct: number | null;
+  refundKrw: number | null;
+  penaltyKrw: number | null;
+  supplierPayVnd: string | null;
+  /** 동의 스냅샷 기준으로 판정했는지(현행 정책이 아니라) */
+  fromConsent: boolean;
+}
+
 export default function ActionPanel({
   bookingId,
   status,
   agreementUnsigned = false,
   hasPassport = false,
   tamTruSentAt = null,
+  cancellationBreakdown = null,
 }: {
   bookingId: string;
   status: BookingStatus;
@@ -37,6 +51,11 @@ export default function ActionPanel({
   hasPassport?: boolean;
   /** T3.6 — 여권 공급자 전달 완료 시각(ISO). null이면 미전달 */
   tamTruSentAt?: string | null;
+  /**
+   * S3 — 지금 취소하면 얼마인지 서버가 산출한 결과. 금액은 canViewFinance일 때만 채워진다(STAFF는 비율만).
+   * supplierPayVnd는 BigInt 직렬화라 문자열.
+   */
+  cancellationBreakdown?: CancellationBreakdownView | null;
 }) {
   const t = useTranslations("adminBookings.detail.actions");
   const router = useRouter();
@@ -169,6 +188,7 @@ export default function ActionPanel({
         <div className="space-y-1">
           {cancelOpen ? (
             <div className="space-y-2">
+              {cancellationBreakdown && <CancellationEstimate b={cancellationBreakdown} />}
               <textarea
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
@@ -225,5 +245,58 @@ export default function ActionPanel({
 
       {error && <p className="text-xs text-red-400 text-center">{error}</p>}
     </section>
+  );
+}
+
+/** 취소 산출 미리보기 (S3) — 확정 전에 "지금 취소하면 얼마인지"를 보여준다. */
+function CancellationEstimate({ b }: { b: CancellationBreakdownView }) {
+  const t = useTranslations("adminBookings.detail.actions.estimate");
+  const krw = (v: number | null) => (v === null ? null : `${v.toLocaleString("ko-KR")}₩`);
+  const vnd = (v: string | null) =>
+    v === null ? null : `${Number(v).toLocaleString("ko-KR")}₫`;
+
+  return (
+    <div className="rounded-lg border border-slate-700 bg-slate-900 p-3 space-y-1.5">
+      <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+        {t("title")}
+        <span className="ml-1.5 font-normal normal-case text-slate-500">
+          {b.daysBefore < 0 ? t("noShow") : t("daysBefore", { days: b.daysBefore })}
+        </span>
+      </p>
+      <Row label={t("guestRefund")} value={`${b.guestRefundPct}%`} amount={krw(b.refundKrw)} />
+      <Row label={t("penalty")} value={`${b.guestPenaltyPct}%`} amount={krw(b.penaltyKrw)} />
+      <Row
+        label={t("supplierPay")}
+        value={b.supplierPayPct === null ? t("noContract") : `${b.supplierPayPct}%`}
+        amount={vnd(b.supplierPayVnd)}
+      />
+      {b.companyLossPct !== null && b.companyLossPct > 0 && (
+        <p className="pt-1 text-[11px] font-bold text-amber-400">
+          {t("loss", { pct: b.companyLossPct })}
+        </p>
+      )}
+      {b.fromConsent && <p className="text-[10px] text-slate-500">{t("fromConsent")}</p>}
+      <p className="text-[10px] text-slate-500">{t("hint")}</p>
+    </div>
+  );
+}
+
+function Row({
+  label,
+  value,
+  amount,
+}: {
+  label: string;
+  value: string;
+  amount: string | null;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-2 text-xs">
+      <span className="text-admin-muted">{label}</span>
+      <span className="tabular-nums text-slate-200">
+        {value}
+        {amount && <span className="ml-1.5 font-semibold text-white">{amount}</span>}
+      </span>
+    </div>
   );
 }

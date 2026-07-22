@@ -185,6 +185,8 @@ export interface PublicLabels {
     cancelTierBefore: string; // "체크인 "
     cancelTierMid: string; // "일 전까지 취소 시 "
     cancelTierAfter: string; // "% 환불" (pct 뒤)
+    cancelSameDay: string; // "체크인 당일 취소 시 " (S3 — 당일 단계)
+    cancelNoShow: string; // "노쇼 또는 체크인 후 취소 시 " (S3 — 마지막 단계)
   };
   // 만료/마감 뷰
   expired: {
@@ -369,6 +371,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       cancelTierBefore: "체크인 ",
       cancelTierMid: "일 전까지 취소 시 ",
       cancelTierAfter: "% 환불",
+      cancelSameDay: "체크인 당일 취소 시 ",
+      cancelNoShow: "노쇼 또는 체크인 후 취소 시 ",
     },
     expired: {
       expiredTitle: "제안이 만료되었습니다",
@@ -539,6 +543,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       cancelTierBefore: "Cancel ",
       cancelTierMid: " day(s) before check-in: ",
       cancelTierAfter: "% refund",
+      cancelSameDay: "Cancel on check-in day: ",
+      cancelNoShow: "No-show or cancel after check-in: ",
     },
     expired: {
       expiredTitle: "This proposal has expired",
@@ -709,6 +715,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       cancelTierBefore: "Отмена за ",
       cancelTierMid: " дн. до заезда: ",
       cancelTierAfter: "% возврат",
+      cancelSameDay: "Отмена в день заезда: ",
+      cancelNoShow: "Неявка или отмена после заезда: ",
     },
     expired: {
       expiredTitle: "Срок предложения истёк",
@@ -879,6 +887,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       cancelTierBefore: "入住前 ",
       cancelTierMid: " 天前取消：",
       cancelTierAfter: "% 退款",
+      cancelSameDay: "入住当天取消：",
+      cancelNoShow: "未入住或入住后取消：",
     },
     expired: {
       expiredTitle: "提案已过期",
@@ -1049,6 +1059,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       cancelTierBefore: "Hủy trước ",
       cancelTierMid: " ngày trước nhận phòng: ",
       cancelTierAfter: "% hoàn tiền",
+      cancelSameDay: "Hủy trong ngày nhận phòng: ",
+      cancelNoShow: "Không đến hoặc hủy sau khi nhận phòng: ",
     },
     expired: {
       expiredTitle: "Đề xuất đã hết hạn",

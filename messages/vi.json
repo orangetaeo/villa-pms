@@ -1545,6 +1545,18 @@
           "sending": "Đang gửi...",
           "sent": "Đã gửi {time}",
           "noZaloWarn": "Nhà cung cấp chưa liên kết Zalo — đang chờ gửi"
+        },
+        "estimate": {
+          "title": "Dự tính khi hủy",
+          "daysBefore": "Trước nhận phòng {days} ngày",
+          "noShow": "Trong/sau ngày nhận phòng · không đến",
+          "guestRefund": "Hoàn cho khách",
+          "penalty": "Phí hủy thu được",
+          "supplierPay": "Thanh toán NCC",
+          "noContract": "Hợp đồng chưa có bảng mốc",
+          "loss": "⚠ Công ty lỗ {pct} điểm % — tỷ lệ thanh toán cao hơn phí hủy",
+          "fromConsent": "Đã áp dụng điều kiện tại thời điểm khách đồng ý.",
+          "hint": "Đây là số dự tính. Việc hoàn/chi thực tế thực hiện ở thu chi/quyết toán."
         }
       },
       "log": {
@@ -2837,19 +2849,23 @@
       "title": "Chính sách hủy & hoàn tiền",
       "description": "Chính sách hủy & hoàn tiền dùng chung cho mọi villa, tính từ khi xác nhận thanh toán, hiển thị trên trang đề xuất công khai.",
       "enabledLabel": "Hiển thị công khai",
-      "fullDaysLabel": "Hạn hoàn 100%",
-      "partialDaysLabel": "Hạn hoàn một phần",
-      "partialPctLabel": "Tỷ lệ hoàn một phần",
-      "daysUnit": "ngày trước",
-      "preview": "Xem trước trang công khai",
-      "lineFull": "Hủy trước nhận phòng {days} ngày: hoàn 100%",
-      "linePartial": "Hủy trước nhận phòng {days} ngày: hoàn {pct}%",
-      "lineNone": "Hủy trong vòng {days} ngày trước nhận phòng: không hoàn",
       "invalid": "Hạn hoàn 100% phải dài hơn hạn hoàn một phần, và tỷ lệ hoàn phải từ 0~100%.",
       "save": "Lưu chính sách",
       "saving": "Đang lưu...",
       "saved": "Đã lưu",
-      "error": "Lưu thất bại. Vui lòng thử lại."
+      "error": "Lưu thất bại. Vui lòng thử lại.",
+      "colWhen": "Thời điểm tiếp nhận hủy",
+      "colDays": "Trước nhận phòng (ngày)",
+      "colRefund": "Hoàn cho khách %",
+      "rowRange": "Trước {days} ngày",
+      "rowSameDay": "Trong ngày nhận phòng",
+      "rowNoShow": "Không đến · sau khi nhận phòng",
+      "rowRemove": "Xóa",
+      "addRow": "Thêm mốc",
+      "applyPreset": "Khớp với hợp đồng NCC (5 mốc)",
+      "lossTitle": "Có khoảng thời gian khiến công ty bị lỗ",
+      "lossRow": "Trước {days} ngày: hoàn khách {refund}% → thanh toán NCC nhiều hơn phí hủy {pay}% là {loss} điểm %",
+      "lossHint": "Đối chiếu theo bảng mặc định trong hợp đồng NCC (Phụ lục 2). Hãy giảm tỷ lệ hoàn cho khách hoặc điều chỉnh tỷ lệ thanh toán."
     },
     "seasons": {
       "title": "Lịch mùa",

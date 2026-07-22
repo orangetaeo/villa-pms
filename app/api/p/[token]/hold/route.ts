@@ -78,7 +78,8 @@ export async function POST(
   const policy = parseCancellationPolicy(policyRow?.value);
   let policyConsentJson: {
     agreedAt: string;
-    policy: { fullDays: number; partialDays: number; partialPct: number };
+    // S3: N단계 스냅샷. ★ 기존 예약의 v1 스냅샷({fullDays,...})은 그대로 보존 — 재해석 금지(동의 당시 조건이 정본).
+    policy: { tiers: { fromDays: number; refundPct: number }[] };
     locale: string;
     source: "proposal";
   } | null = null;
@@ -89,11 +90,7 @@ export async function POST(
     // 스냅샷은 서버 정책값으로 구성 — 동의 당시 조건 증빙(정책이 이후 바뀌어도 불변).
     policyConsentJson = {
       agreedAt: new Date().toISOString(),
-      policy: {
-        fullDays: policy.fullDays,
-        partialDays: policy.partialDays,
-        partialPct: policy.partialPct,
-      },
+      policy: { tiers: policy.tiers.map((t) => ({ fromDays: t.fromDays, refundPct: t.refundPct })) },
       locale: isPublicLang(parsed.data.locale) ? parsed.data.locale : "ko",
       source: "proposal",
     };
