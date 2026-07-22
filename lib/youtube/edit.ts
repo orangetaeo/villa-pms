@@ -63,8 +63,14 @@ const TOTAL_MAX_SEC = 180;
 const NARRATION_LINES_MAX = CLIP_COUNT_MAX + 1;
 const MAX_MP4_BYTES = 200 * 1024 * 1024;
 
-// 클립 저장 키 형식 — presign이 발급한 것만 허용(임의 R2 키 조회 차단). youtube-clips/{hex}.{mp4|mov}
-const CLIP_KEY_RE = /^youtube-clips\/[a-zA-Z0-9]+\.(mp4|mov)$/;
+// 클립 저장 키 형식 — presign이 발급한 것만 허용(임의 R2 키 조회 차단).
+//   ⑴ `youtube-clips/{hex}.{mp4|mov}` — ADMIN 마법사에서 그때그때 올린 파일
+//   ⑵ `villa-clips/{hex}.{mp4|mov}`  — 빌라 자산(VillaClip). 승인된 영상을 재사용하는 경로
+//      (youtube-villa-clip-source). 이게 없으면 공급자가 올린 영상을 쇼츠 소재로 쓸 수 없다.
+// ★ 접두는 이 **2종으로 한정**한다(와일드카드 금지) — 이 정규식이 임의 R2 키 조회를 막는 방어선이다.
+// ★ `villa-clips/` 키는 여기에 더해 edit-jobs 라우트에서 **APPROVED VillaClip 행으로 실재함**까지
+//   확인한다(이중 게이트). 형식만 맞는 문자열을 params에 직접 써넣는 우회를 막기 위함.
+const CLIP_KEY_RE = /^(youtube-clips|villa-clips)\/[a-zA-Z0-9]+\.(mp4|mov)$/;
 
 // ── 파라미터 스키마 (FE가 그대로 사용 — 반환 보고에 명세) ──
 export interface EditClipInput {
