@@ -87,9 +87,11 @@ export function isRotationEligible(photoCount: number, liveContentCount: number,
 
 const VILLA_SELECT = {
   id: true,
+  // name·nameVi는 **내부용**(로깅·운영자 식별)으로만 남긴다 — 공개 생성기에는 넘기지 않는다(원칙 1).
   name: true,
   nameVi: true,
   complex: true,
+  complexArea: { select: { nameKo: true } },
   bedrooms: true,
   maxGuests: true,
   beachDistanceM: true,
@@ -193,9 +195,8 @@ export function selectDiversePhotos(photos: VillaPhotoRow[], max = 7, minCount =
 // ── 슬라이드 구성 ──
 function toPublicInfo(v: VillaDraftInput): VillaPublicInfo {
   return {
-    name: v.name,
-    nameVi: v.nameVi,
     complex: v.complex,
+    areaNameKo: v.complexArea?.nameKo ?? null,
     bedrooms: v.bedrooms,
     maxGuests: v.maxGuests,
     beachDistanceM: v.beachDistanceM,
@@ -222,7 +223,8 @@ export function buildSlides(v: VillaDraftInput, photos: VillaPhotoRow[], headlin
   const slides: SlideInput[] = [];
   const cover: CoverData = { headline };
   const info: InfoData = {
-    villaName: `${v.complex ?? v.name} · 프라이빗 풀빌라`,
+    // ★ 고유 실명 미사용 — 단지명 또는 지역만 노출(원칙 1).
+    villaName: `${v.complex ?? "푸꾸옥"} · 프라이빗 풀빌라`,
     facts: infoFacts(v),
     // ★ 시작가(priceValue)는 미주입 — 마진 비공개 원칙상 안전한 공개 시작가가 없어 가격 뱃지 숨김.
     priceValue: null,

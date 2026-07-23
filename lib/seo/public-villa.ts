@@ -24,6 +24,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
+import { publicVillaLabel } from "@/lib/marketing/public-name";
 
 // ── 발행 품질 하한 (기획 §0 치명2 — 얇은 콘텐츠·대량 자동생성 스팸 시그널 방지) ──
 /** 공개 페이지 생성에 필요한 최소 사진 수. 미달 빌라는 켜져 있어도 발행하지 않는다. */
@@ -39,9 +40,10 @@ export const PUBLIC_VILLA_SELECT = {
   publicListedAt: true,
   updatedAt: true,
 
-  // 이름·지역 (표시용 — 정확 주소 아님)
-  name: true,
-  nameVi: true,
+  // 지역 (표시용 — 정확 주소 아님)
+  // ★ 고유 실명(name·nameVi)은 공개 경계 밖으로 절대 내보내지 않는다(원칙 1, 2026-07-24).
+  //   실명으로 검색하면 직접 예약 페이지·공급자를 찾아 직거래 우회가 가능하기 때문.
+  //   공개 표시명은 toPublicVilla에서 publicVillaLabel(지역·특징 조합)로 계산한다.
   complex: true,
   complexArea: { select: { code: true, name: true, nameKo: true } },
 
@@ -92,8 +94,8 @@ export type PublicVillaRow = Prisma.VillaGetPayload<{ select: typeof PUBLIC_VILL
 export interface PublicVilla {
   id: string;
   slug: string;
-  name: string;
-  nameVi: string | null;
+  /** 공개 표시명 — 지역·특징 자동 조합(publicVillaLabel). 고유 실명(name/nameVi)은 이 DTO에 없다. */
+  publicLabel: string;
   complex: string | null;
   areaCode: string | null;
   areaName: string | null;
@@ -132,8 +134,13 @@ export function toPublicVilla(row: PublicVillaRow): PublicVilla | null {
   return {
     id: row.id,
     slug: row.publicSlug,
-    name: row.name,
-    nameVi: row.nameVi,
+    // 공개 표시명 = 지역·특징 조합. 고유 실명은 여기서 계산 소스로도 쓰지 않는다.
+    publicLabel: publicVillaLabel({
+      complex: row.complex,
+      areaNameKo: row.complexArea?.nameKo ?? null,
+      bedrooms: row.bedrooms,
+      hasPool: row.hasPool,
+    }),
     complex: row.complex,
     areaCode: row.complexArea?.code ?? null,
     areaName: row.complexArea?.name ?? null,
@@ -208,16 +215,20 @@ export async function getPublicVillaBySlug(slug: string, db: DbClient = prisma):
 
 // ── 슬러그 생성 ─────────────────────────────────────────────────────────────
 /**
- * 라틴 슬러그 생성 — nameVi(라틴 병기명) 우선, 없으면 name. 한글·성조는 제거되므로
- * 결과가 비면 빌라 id 앞 8자로 폴백한다. 발급 후에는 **불변**(URL 안정성 = SEO 자산).
+ * 라틴 슬러그 생성 — **고유 실명(name/nameVi) 미사용**(원칙 1, 2026-07-24). 실명이 URL에 박히면
+ * 그 URL·검색결과가 직접 예약 페이지·공급자로 이어지는 우회 경로가 된다. 대신 노출 가능한
+ * 단지명(complex)과 규모(bedrooms)로 조립한다: `{complex-latin}-{N}br-villa-{id8}`.
+ * 단지가 없으면 `villa-{id8}`. 발급 후에는 **불변**(URL 안정성 = SEO 자산) — 이 함수는 신규 발급에만 쓴다.
  */
-export function buildPublicSlug(input: { id: string; name: string; nameVi?: string | null }): string {
-  const base = (input.nameVi ?? input.name ?? "")
+export function buildPublicSlug(input: { id: string; complex?: string | null; bedrooms?: number | null }): string {
+  const id8 = input.id.slice(0, 8);
+  const complexLatin = (input.complex ?? "")
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "") // 결합 발음기호(베트남어 성조) 제거
     .replace(/[đĐ]/g, "d")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return base.length >= 2 ? base : `villa-${input.id.slice(0, 8)}`;
+  const brToken = input.bedrooms && input.bedrooms > 0 ? `${input.bedrooms}br-` : "";
+  return complexLatin.length >= 2 ? `${complexLatin}-${brToken}villa-${id8}` : `villa-${id8}`;
 }

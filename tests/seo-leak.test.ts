@@ -64,11 +64,9 @@ function makeRow(over: Partial<PublicVillaRow> = {}): PublicVillaRow {
   }));
   return {
     id: "villa_1",
-    publicSlug: "sonasea-v12",
+    publicSlug: "sonasea-4br-villa-villa_1",
     publicListedAt: new Date("2026-07-22T00:00:00Z"),
     updatedAt: new Date("2026-07-22T00:00:00Z"),
-    name: "쏘나씨 V12",
-    nameVi: "Sonasea V12",
     complex: "Sonasea",
     complexArea: { code: "sonasea", name: "Sonasea", nameKo: "쏘나씨" },
     bedrooms: 4,
@@ -187,13 +185,25 @@ describe("발행 품질 하한 (얇은 콘텐츠·대량 자동생성 방지)", 
   });
 });
 
-describe("슬러그 생성", () => {
-  it("베트남어 성조·특수문자를 제거한 라틴 슬러그를 만든다", () => {
-    expect(buildPublicSlug({ id: "abc12345xyz", name: "쏘나씨 V12", nameVi: "Sonasea V12" })).toBe("sonasea-v12");
-    expect(buildPublicSlug({ id: "abc12345xyz", name: "x", nameVi: "Biệt thự Đảo Ngọc" })).toBe("biet-thu-dao-ngoc");
+describe("슬러그 생성 (고유 실명 미사용 — 원칙 1)", () => {
+  it("단지명(라틴)+침실수+id로 조립한다 — 실명 토큰 없음", () => {
+    expect(buildPublicSlug({ id: "abc12345xyz", complex: "Sonasea", bedrooms: 4 })).toBe(
+      "sonasea-4br-villa-abc12345"
+    );
+    // 베트남어 성조·đ는 정규화된다.
+    expect(buildPublicSlug({ id: "abc12345xyz", complex: "Biệt thự Đảo Ngọc", bedrooms: 3 })).toBe(
+      "biet-thu-dao-ngoc-3br-villa-abc12345"
+    );
   });
 
-  it("라틴 문자가 없으면 id 폴백을 쓴다", () => {
-    expect(buildPublicSlug({ id: "abc12345xyz", name: "쏘나씨", nameVi: null })).toBe("villa-abc12345");
+  it("★ 슬러그에 고유 실명 토큰(v12·sonasea-v12)이 들어가지 않는다", () => {
+    const slug = buildPublicSlug({ id: "abc12345xyz", complex: "Sonasea", bedrooms: 4 });
+    expect(slug).not.toContain("v12");
+    expect(slug).not.toContain("sonasea-v12");
+  });
+
+  it("단지가 없으면 id 폴백을 쓴다", () => {
+    expect(buildPublicSlug({ id: "abc12345xyz", complex: null, bedrooms: 4 })).toBe("villa-abc12345");
+    expect(buildPublicSlug({ id: "abc12345xyz" })).toBe("villa-abc12345");
   });
 });

@@ -54,9 +54,9 @@ export async function POST(req: Request) {
     if (typeof villaIdRaw === "string" && villaIdRaw.length > 0 && villaIdRaw.length <= 40) {
       const v = await prisma.villa.findUnique({
         where: { id: villaIdRaw },
-        select: { publicSlug: true, name: true, nameVi: true, id: true },
+        select: { publicSlug: true, complex: true, bedrooms: true, id: true },
       });
-      if (v) parts.push(v.publicSlug ?? buildPublicSlug({ id: v.id, name: v.name, nameVi: v.nameVi }));
+      if (v) parts.push(v.publicSlug ?? buildPublicSlug({ id: v.id, complex: v.complex, bedrooms: v.bedrooms }));
     }
     if (typeof spaceRaw === "string") parts.push(spaceRaw);
     const hint = sanitizeNameHint(parts.join("-"));

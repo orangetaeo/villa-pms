@@ -46,9 +46,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
   const v = await getPublicVillaBySlug(slug).catch(() => null);
   if (!v) return { title: "찾을 수 없는 빌라 | Villa GO", robots: { index: false } };
-  const where = v.areaNameKo ?? v.areaName ?? v.complex ?? "푸꾸옥";
-  const title = `${where} ${v.name} — 침실 ${v.bedrooms}개 · 최대 ${v.maxGuests}인 | Villa GO`;
-  const description = (v.description ?? "").slice(0, 150) || `푸꾸옥 ${where} 빌라. 침실 ${v.bedrooms}개, 최대 ${v.maxGuests}인.`;
+  const title = `${v.publicLabel} · 최대 ${v.maxGuests}인 | Villa GO`;
+  const description = (v.description ?? "").slice(0, 150) || `${v.publicLabel}. 침실 ${v.bedrooms}개, 최대 ${v.maxGuests}인.`;
   const url = absoluteUrl(blogPaths.villa(v.slug));
   return {
     title,
@@ -79,7 +78,7 @@ export default async function PublicVillaPage({ params }: Params) {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "LodgingBusiness",
-    name: `${where} ${v.name}`,
+    name: v.publicLabel,
     description: v.description ?? undefined,
     inLanguage: "ko",
     url: absoluteUrl(blogPaths.villa(v.slug)),
@@ -160,15 +159,14 @@ export default async function PublicVillaPage({ params }: Params) {
 
       <article className="px-5 py-6">
         <p className="text-sm font-semibold text-amber-600">{where}</p>
-        <h1 className="mt-1 text-2xl font-extrabold leading-snug">{v.name}</h1>
-        {v.nameVi && <p className="mt-1 text-sm text-slate-400">{v.nameVi}</p>}
+        <h1 className="mt-1 text-2xl font-extrabold leading-snug">{v.publicLabel}</h1>
 
-        {/* 사진 — alt에 단지·빌라·공간을 넣는다(이미지 검색 색인은 alt 텍스트에 달려 있다) */}
+        {/* 사진 — alt에 지역·특징 표시명을 넣는다(이미지 검색 색인은 alt 텍스트에 달려 있다). 고유 실명은 넣지 않는다. */}
         {v.photos[0] && (
           <div className="relative mt-4 aspect-[16/9] overflow-hidden rounded-2xl bg-slate-100">
             <Image
               src={v.photos[0].url}
-              alt={`${where} ${v.name} 외관`}
+              alt={`${v.publicLabel} 외관`}
               fill
               sizes="(max-width: 640px) 100vw, 640px"
               className="object-cover"
@@ -218,7 +216,7 @@ export default async function PublicVillaPage({ params }: Params) {
                 <div key={p.id} className="relative aspect-square overflow-hidden rounded-xl bg-slate-100">
                   <Image
                     src={p.url}
-                    alt={`${where} ${v.name} ${p.spaceLabel ?? ""}`.trim()}
+                    alt={`${v.publicLabel} ${p.spaceLabel ?? ""}`.trim()}
                     fill
                     sizes="(max-width: 640px) 50vw, 320px"
                     className="object-cover"

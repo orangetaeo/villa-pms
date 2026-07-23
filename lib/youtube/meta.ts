@@ -12,6 +12,7 @@ import {
   deriveFeatureTags,
   findBannedTerms,
   pickHeadline,
+  publicLabelFor,
   type VillaPublicInfo,
 } from "@/lib/instagram/caption";
 import { getHashtagPools, loadCopyGuideRaw } from "@/lib/instagram/content-guide";
@@ -92,7 +93,8 @@ interface GeminiGenerateResponse {
   candidates?: { content?: { parts?: { text?: string }[] } }[];
 }
 
-function buildMetaPrompt(v: VillaPublicInfo): string {
+/** @internal 테스트에서 프롬프트 누수 검증용으로 노출. */
+export function buildMetaPrompt(v: VillaPublicInfo): string {
   const copyGuide = loadCopyGuideRaw();
   const guideBlock = copyGuide
     ? `다음은 카피 가이드(정본)다. 브랜드 보이스·톤·금칙어를 반드시 지켜라:\n<<<GUIDE\n${copyGuide.slice(0, 5000)}\nGUIDE>>>`
@@ -100,7 +102,6 @@ function buildMetaPrompt(v: VillaPublicInfo): string {
 
   const data = {
     complex: v.complex ?? "",
-    villaName: v.name,
     bedrooms: v.bedrooms,
     maxGuests: v.maxGuests,
     beachDistanceM: v.beachDistanceM,
@@ -173,15 +174,16 @@ async function generateMetaBody(
   }
 }
 
-/** Gemini 실패 시 결정형 폴백. */
+/** Gemini 실패 시 결정형 폴백. ★ 고유 실명 미사용 — 지역·특징 표시명(publicLabelFor). */
 function fallbackMetaBody(v: VillaPublicInfo): { title: string; description: string } {
-  const complex = v.complex ?? v.name;
+  const label = publicLabelFor(v);
   const headline = pickHeadline(v);
-  const title = `푸꾸옥 ${complex} 프라이빗 풀빌라, ${headline}ㅣ빌라고`;
+  const title = `${label}, ${headline}ㅣ빌라고`;
+  const inComplex = v.complex ? `푸꾸옥 ${v.complex}에서` : "푸꾸옥에서";
   const description = [
     `${headline} 🌴`,
     ``,
-    `푸꾸옥 ${complex}에서 우리 가족만의 프라이빗 풀빌라 어때요?`,
+    `${inComplex} 우리 가족만의 프라이빗 풀빌라 어때요?`,
     `한국어 상담으로 예약부터 준비까지 편하게 도와드려요.`,
   ].join("\n");
   return { title, description };

@@ -1068,6 +1068,10 @@ export interface RenderedEdit {
 
 export interface RenderOpts {
   headline: string;
+  /**
+   * 인트로 화면 부제로 렌더되는 문자열(그대로 표시). ★ 공개 렌더에서는 **고유 빌라 실명을 넣지 말 것**
+   * (원칙 1) — 실전 경로(runYoutubeEditJob)는 publicVillaLabel로 계산한 표시명만 넘긴다.
+   */
   villaName?: string | null;
   subtitles?: EditSubtitleInput[];
   audio: ReelAudioMode;
@@ -1422,11 +1426,12 @@ export interface EditJobRenderResult {
 /**
  * 편집 잡 실행(프로덕션 진입점): R2 클립 다운로드 → renderEditedVideo → R2 업로드(비디오+포스터).
  * @param params 검증된 EditParams
- * @param ctx villaName(공개·표시용) — 인트로 부제
+ * @param ctx introSubtitle — 인트로 화면 부제. ★ 고유 실명이 아니라 **공개 표시명**(publicVillaLabel)을
+ *            넘겨야 한다(원칙 1). 호출부(cron)가 지역·특징으로 계산해 전달한다.
  */
 export async function runYoutubeEditJob(
   params: EditParams,
-  ctx: { villaName?: string | null; baseName: string; introSpecs?: string[] }
+  ctx: { introSubtitle?: string | null; baseName: string; introSpecs?: string[] }
 ): Promise<EditJobRenderResult> {
   const dlDir = path.join(os.tmpdir(), `yt-edit-dl-${Date.now()}-${randomUUID().slice(0, 8)}`);
   await fs.mkdir(dlDir, { recursive: true });
@@ -1567,7 +1572,8 @@ ${formatAuditFindings(findings)}`);
 
     const rendered = await renderEditedVideo(local, {
       headline: params.headline,
-      villaName: ctx.villaName,
+      // 인트로 부제 = 공개 표시명(고유 실명 아님). renderEditedVideo는 문자열을 그대로 렌더할 뿐이다.
+      villaName: ctx.introSubtitle,
       subtitles,
       audio: params.audio,
       horizontalMode: params.horizontalMode,

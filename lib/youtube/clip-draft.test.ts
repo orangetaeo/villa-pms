@@ -52,21 +52,27 @@ describe("canBuildTour — 영상 기반으로 갈지 판정", () => {
 
 describe("buildTourHeadline", () => {
   it("해변이 가까우면 그 사실이 첫 줄", () => {
-    expect(buildTourHeadline({ name: "M villa M1", bedrooms: 4, hasPool: true, beachDistanceM: 100 })).toBe(
+    expect(buildTourHeadline({ complex: "Sonasea", bedrooms: 4, hasPool: true, beachDistanceM: 100 })).toBe(
       "해변 바로 앞\n침실 4개 프라이빗 풀빌라"
     );
   });
 
-  it("해변이 멀면 빌라 이름을 쓴다", () => {
-    expect(buildTourHeadline({ name: "그린베이", bedrooms: 2, hasPool: false, beachDistanceM: 3000 })).toBe(
-      "그린베이\n침실 2개"
+  it("해변이 멀면 단지명을 쓴다(고유 실명 미사용)", () => {
+    expect(buildTourHeadline({ complex: "그린베이", bedrooms: 2, hasPool: false, beachDistanceM: 3000 })).toBe(
+      "푸꾸옥 그린베이\n침실 2개"
+    );
+  });
+
+  it("해변이 멀고 단지도 없으면 범용 문구", () => {
+    expect(buildTourHeadline({ bedrooms: 3, hasPool: true, beachDistanceM: 3000 })).toBe(
+      "푸꾸옥 프라이빗 풀빌라\n침실 3개 프라이빗 풀빌라"
     );
   });
 });
 
 describe("buildTourEditParams — 렌더 파라미터", () => {
   const clips = [clip("EXTERIOR", 1), clip("LIVING", 2, "거실"), clip("BEDROOM", 3)];
-  const facts = { name: "엠빌라", bedrooms: 4, hasPool: true, beachDistanceM: 100 };
+  const facts = { complex: "Sonasea", bedrooms: 4, hasPool: true, beachDistanceM: 100 };
 
   it("★ 검수·완급·배경음이 켜진 채로 나간다(자동 생성물에도 같은 게이트)", () => {
     const p = buildTourEditParams("v1", facts, clips);

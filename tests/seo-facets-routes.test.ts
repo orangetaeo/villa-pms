@@ -32,8 +32,7 @@ function villa(over: Partial<PublicVilla> = {}): PublicVilla {
   return {
     id: `v${seq}`,
     slug: `villa-${seq}`,
-    name: `빌라 ${seq}`,
-    nameVi: null,
+    publicLabel: `푸꾸옥 쏘나씨 4베드 프라이빗 풀빌라`,
     complex: "Sonasea",
     areaCode: "sonasea",
     areaName: "Sonasea",
@@ -289,7 +288,9 @@ describe("IndexNow — 네이버 루트 URL 거부 대응 (프로덕션 실측 2
 
 describe("빌라 공개 준비 (T-seo-s2)", () => {
   it("슬러그 충돌 시 접미 번호를 붙인다", async () => {
-    const taken = new Set(["sonasea-v3b", "sonasea-v3b-2"]);
+    // 새 슬러그 형식(고유 실명 미사용): {complex-latin}-{N}br-villa-{id8}
+    const base = "sonasea-4br-villa-abc123";
+    const taken = new Set([base, `${base}-2`]);
     const db = {
       villa: {
         findFirst: async (args: { where: { publicSlug: string } }) =>
@@ -297,8 +298,8 @@ describe("빌라 공개 준비 (T-seo-s2)", () => {
       },
     } as never;
     const { ensureUniquePublicSlug } = await import("@/lib/seo/villa-prep");
-    expect(await ensureUniquePublicSlug({ id: "abc123", name: "쏘나씨 V3B", nameVi: "Sonasea V3B" }, db)).toBe(
-      "sonasea-v3b-3"
+    expect(await ensureUniquePublicSlug({ id: "abc123", complex: "Sonasea", bedrooms: 4 }, db)).toBe(
+      `${base}-3`
     );
   });
 

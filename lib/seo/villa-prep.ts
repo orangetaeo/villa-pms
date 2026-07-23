@@ -23,7 +23,7 @@ const GEMINI_TIMEOUT_MS = 60_000;
  * 이미 쓰는 슬러그면 -2, -3… 접미를 붙인다. 발급 후에는 **불변**(URL = SEO 자산).
  */
 export async function ensureUniquePublicSlug(
-  input: { id: string; name: string; nameVi?: string | null },
+  input: { id: string; complex?: string | null; bedrooms?: number | null },
   db: DbClient = prisma
 ): Promise<string> {
   const base = buildPublicSlug(input);

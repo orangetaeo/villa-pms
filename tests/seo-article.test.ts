@@ -224,7 +224,7 @@ describe("본문 이미지 — 허용 호스트·alt 강제", () => {
 describe("이미지 선별·삽입", () => {
   function villa(over = {}) {
     return {
-      id: "v1", slug: "s1", name: "V12", nameVi: null, complex: "Sonasea",
+      id: "v1", slug: "s1", publicLabel: "푸꾸옥 쏘나씨 4베드 프라이빗 풀빌라", complex: "Sonasea",
       areaCode: "sonasea", areaName: "Sonasea", areaNameKo: "쏘나씨",
       bedrooms: 4, bathrooms: 4, commonBathrooms: 1, maxGuests: 10,
       areaSqm: null, floors: null, extraBedAvailable: false, hasPool: true,
@@ -248,7 +248,7 @@ describe("이미지 선별·삽입", () => {
       "https://pub-abc.r2.dev/3.jpg", // POOL
       "https://pub-abc.r2.dev/1.jpg", // BEDROOM
     ]);
-    expect(picks[0].alt).toBe("쏘나씨 V12 외관");
+    expect(picks[0].alt).toBe("푸꾸옥 쏘나씨 4베드 프라이빗 풀빌라 외관");
   });
 
   it("공개 빌라가 없으면 빈 배열 — 외부 스톡 이미지를 끌어오지 않는다", () => {
@@ -310,7 +310,7 @@ describe("영상 블록 — 임의 URL 주입 차단 (T-seo-villa-article)", () 
 describe("빌라 글 구성", () => {
   function v(over = {}) {
     return {
-      id: "v1", slug: "sonasea-v3b", name: "Sonasea V3B", nameVi: null, complex: "Sonasea",
+      id: "v1", slug: "sonasea-v3b", publicLabel: "푸꾸옥 쏘나씨 3베드 프라이빗 풀빌라", complex: "Sonasea",
       areaCode: "sonasea", areaName: "Sonasea", areaNameKo: "쏘나씨",
       bedrooms: 3, bathrooms: 4, commonBathrooms: 0, maxGuests: 8, areaSqm: null, floors: null,
       extraBedAvailable: false, hasPool: true, breakfastAvailable: false, beachDistanceM: 500,
@@ -335,7 +335,7 @@ describe("빌라 글 구성", () => {
       "https://pub-a.r2.dev/liv.jpg",
       "https://pub-a.r2.dev/bed.jpg",
     ]);
-    expect(picks[0].alt).toBe("쏘나씨 Sonasea V3B 외관");
+    expect(picks[0].alt).toBe("푸꾸옥 쏘나씨 3베드 프라이빗 풀빌라 외관");
   });
 
   it("영상은 본문 맨 끝에 배치된다 (글을 다 읽고 영상으로)", async () => {
