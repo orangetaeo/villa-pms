@@ -86,7 +86,7 @@ const CLIP_DUR_MIN = 2;
 const CLIP_DUR_MAX = 8;
 // 빌라 투어는 입구·수영장·거실·주방·침실N·욕실·발코니를 다 보여줘야 설득력이 생긴다.
 // 8컷으로는 "맛보기"밖에 안 된다(테오 피드백 2026-07-22) — 16컷까지 허용.
-const CLIP_COUNT_MAX = 24;
+const CLIP_COUNT_MAX = 30;
 
 const TRANSITION_SEC = 0.4; // xfade 크로스페이드 길이(세그먼트가 짧으면 축소)
 const CTA_DUR_SEC = 2.8; // 아웃트로 CTA 정지 카드
