@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatVillaName } from "./villa-name";
+import { formatVillaName, publicVillaCode, publicVillaLabel, publicVillaAreaName } from "./villa-name";
 
 // ADR-0020 빌라명 병기 헬퍼 — 병기·폴백·중복방지 가드
 describe("formatVillaName — 병기 표기", () => {
@@ -26,5 +26,56 @@ describe("formatVillaName — 병기 표기", () => {
     expect(formatVillaName({ name: "썬셋 사나토 A3", nameVi: "  Sunset Sanato A3  " })).toBe(
       "썬셋 사나토 A3 (Sunset Sanato A3)"
     );
+  });
+});
+
+// 제안 링크 익명 코드명 — 실명·위치를 드러내지 않는 결정적 식별자 (2026-07-24)
+describe("publicVillaCode — 제안 링크 익명 코드", () => {
+  it("실명(name)이 코드에 들어가지 않는다", () => {
+    const code = publicVillaCode("cmrx7ymsk0001ukz8z0syhak1");
+    expect(code).not.toMatch(/villa m1/i);
+    expect(code).toMatch(/^Villa Go #[A-Z0-9]{4}$/);
+  });
+
+  it("같은 id는 항상 같은 코드(결정적)", () => {
+    const id = "cmrx7ymsk0001ukz8z0syhak1";
+    expect(publicVillaCode(id)).toBe(publicVillaCode(id));
+    expect(publicVillaCode(id)).toBe("Villa Go #HAK1");
+  });
+
+  it("id가 다르면 대체로 다른 코드", () => {
+    expect(publicVillaCode("aaaa1111")).not.toBe(publicVillaCode("bbbb2222"));
+  });
+
+  it("영숫자가 4자 미만이어도 안전(폴백)", () => {
+    expect(publicVillaCode("--")).toBe("Villa Go #0000");
+  });
+});
+
+// 제안 링크 단지명 라벨 — 실명(유닛) 대신 단지명(complex) 노출 (2026-07-24 테오 결정)
+describe("publicVillaLabel — 단지명 우선, 코드 폴백", () => {
+  it("단지명이 있으면 'Villa Go {단지명}' — 실명·유닛 미노출", () => {
+    const label = publicVillaLabel({ id: "cmrx7ymsk0001ukz8z0syhak1", complex: "Sonasea" });
+    expect(label).toBe("Villa Go Sonasea");
+    expect(label).not.toMatch(/villa m1/i); // 유닛(M1) 안 나온다
+  });
+
+  it("단지명 없으면(null/공백) 코드명으로 폴백", () => {
+    expect(publicVillaLabel({ id: "aaaabbbbcccc1234", complex: null })).toBe("Villa Go #1234");
+    expect(publicVillaLabel({ id: "aaaabbbbcccc1234", complex: "   " })).toBe("Villa Go #1234");
+  });
+
+  it("단지명 앞뒤 공백은 트림", () => {
+    expect(publicVillaLabel({ id: "x", complex: "  Sonasea  " })).toBe("Villa Go Sonasea");
+  });
+});
+
+describe("publicVillaAreaName — 접두 없는 순수 단지명(지도 캡션)", () => {
+  it("있으면 트림된 단지명", () => {
+    expect(publicVillaAreaName({ complex: "  Sonasea " })).toBe("Sonasea");
+  });
+  it("없으면 null", () => {
+    expect(publicVillaAreaName({ complex: null })).toBeNull();
+    expect(publicVillaAreaName({ complex: "  " })).toBeNull();
   });
 });
