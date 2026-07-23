@@ -536,7 +536,8 @@
     },
     "source": {
       "VILLA_AUTO": "Villa tự động",
-      "UPLOADED": "Tải lên thủ công"
+      "UPLOADED": "Tải lên thủ công",
+      "PLACE_AUTO": "Địa điểm tự động"
     },
     "status": {
       "DRAFT": "Đang tạo",

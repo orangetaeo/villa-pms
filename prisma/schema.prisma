@@ -1949,6 +1949,7 @@ enum YtShortStatus {
 enum YtSourceType {
   VILLA_AUTO // 빌라 사진 → 릴스 빌더 자동 생성 (S1 콘텐츠 1)
   UPLOADED // 직접 촬영 영상 업로드 (S2 콘텐츠 2 대비)
+  PLACE_AUTO // 장소 글(맛집·카페) 사진 → 릴스 빌더 자동 생성 (T-seo-to-instagram S2)
 }
 
 // 직접 촬영 클립 자동 편집 잡 상태 (marketing-s2 §A-3) — YoutubeShort.editJobStatus 전용.
@@ -1971,6 +1972,11 @@ model YoutubeShort {
   // 동일 콘텐츠의 인스타 릴스 버전 연결 (2플랫폼 크로스 포스팅). 포스트 삭제 시 SetNull.
   instagramPostId String?
   instagramPost   InstagramPost? @relation(fields: [instagramPostId], references: [id], onDelete: SetNull)
+
+  // 장소 글(맛집·카페)에서 만든 쇼츠면 그 글에 연결(T-seo-to-instagram S2). null = 빌라·직접 촬영.
+  //   ★ 한 글당 쇼츠 1개 판정 축 — 같은 가게 도배 방지(인스타와 동일 규칙).
+  seoArticleId String?
+  seoArticle   SeoArticle? @relation(fields: [seoArticleId], references: [id], onDelete: SetNull)
 
   sourceType  YtSourceType
   status      YtShortStatus @default(DRAFT)
@@ -2057,7 +2063,8 @@ model SeoArticle {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  igPosts InstagramPost[] // 이 글을 소재로 만든 인스타 포스트(T-seo-to-instagram)
+  igPosts   InstagramPost[] // 이 글을 소재로 만든 인스타 포스트(T-seo-to-instagram)
+  ytShorts  YoutubeShort[] // 이 글을 소재로 만든 유튜브 쇼츠
 
   @@index([status, publishedAt]) // 공개 목록·점진 발행 큐 조회
   @@index([topicKey]) // 주제 중복 생성 방지 조회

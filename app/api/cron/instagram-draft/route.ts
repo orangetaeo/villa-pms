@@ -28,7 +28,8 @@ import {
 import { renderAndBuildReel } from "@/lib/instagram/reels";
 import { getIgPostsPerVilla } from "@/lib/instagram/settings";
 import { getYoutubeShortsPerDay, getYoutubeShortsPerVilla } from "@/lib/youtube/settings";
-import { runYoutubeDraftBatch } from "@/lib/youtube/draft";
+import { runYoutubeDraftBatch, computeYtSlotSchedule } from "@/lib/youtube/draft";
+import { runPlaceShortsBatch } from "@/lib/youtube/place-draft";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // 3곳 × 캐러셀 렌더 + Gemini — 여유 상한
@@ -154,17 +155,41 @@ async function handle(req: Request) {
       try {
         const slides = buildPlaceSlides(src);
         const caption = await generatePlaceCaption(src);
-        const rendered = await renderCarousel(slides, `place-${src.articleSlug}-${scheduledAt.toISOString().slice(0, 10)}`);
+        const baseName = `place-${src.articleSlug}-${scheduledAt.toISOString().slice(0, 10)}`;
+
+        // 빌라와 같은 규칙: 릴스일 저녁 슬롯이면 릴스(MP4), 실패하면 캐러셀 폴백(소재 유실 방지).
+        let placeKind: "INFO" | "REELS" = "INFO";
+        let placeMedia: Prisma.InputJsonValue | null = null;
+        let placeSlideCount = 0;
+        const slotIsEvening = slots.indexOf(scheduledAt) === IG_EVENING_SLOT_INDEX;
+        if (doReelToday && slotIsEvening) {
+          try {
+            const reel = await renderAndBuildReel(slides, baseName, { audio: "bundled" });
+            placeKind = "REELS";
+            placeMedia = reel.mediaJson as unknown as Prisma.InputJsonValue;
+            placeSlideCount = reel.frameCount;
+          } catch (reelErr) {
+            console.error(
+              `[cron/instagram-draft] 장소 ${src.articleSlug} 릴스 실패 — 캐러셀 폴백:`,
+              reelErr instanceof Error ? reelErr.message : String(reelErr)
+            );
+          }
+        }
+        if (placeMedia === null) {
+          const rendered = await renderCarousel(slides, baseName);
+          placeMedia = rendered as unknown as Prisma.InputJsonValue;
+          placeSlideCount = rendered.length;
+        }
 
         const post = await prisma.instagramPost.create({
           data: {
             villaId: null, // 가게 소재는 빌라와 무관 — 모델이 원래 nullable(정보 포스트)
             seoArticleId: src.articleId,
-            kind: "INFO",
+            kind: placeKind,
             status: IgPostStatus.PENDING_APPROVAL,
             scheduledAt,
             caption: caption.caption,
-            mediaJson: rendered as unknown as Prisma.InputJsonValue,
+            mediaJson: placeMedia,
             flaggedTerms: caption.flaggedTerms.length > 0 ? caption.flaggedTerms : undefined,
             createdBy: CREATED_BY,
           },
@@ -179,7 +204,8 @@ async function handle(req: Request) {
             source: { new: "seo-place" },
             seoArticleId: { new: src.articleId },
             place: { new: src.placeName },
-            slideCount: { new: rendered.length },
+            kind: { new: placeKind },
+            slideCount: { new: placeSlideCount },
             usedGemini: { new: caption.usedGemini },
             flaggedTerms: { new: caption.flaggedTerms },
           },
@@ -217,8 +243,28 @@ async function handle(req: Request) {
       // 빌라당 상한(YT_SHORTS_PER_VILLA, 기본 1) — 일 건수 상한과 별개로 빌라 도배를 막는 2차 게이트.
       const ytPerVillaCap = await getYoutubeShortsPerVilla();
       const yt = await runYoutubeDraftBatch(shortsPerDay, now, prisma, ytPerVillaCap);
-      const ytFlagged = yt.created.filter((c) => c.flagged.length > 0).length;
-      ytSummary = { created: yt.created.length, failed: yt.failures.length, flagged: ytFlagged };
+
+      // ★ 빌라가 못 채운 몫을 장소 글로 채운다(T-seo-to-instagram S2) — 빌라 배치 경로는 무변경.
+      //   실패는 격리: 장소 쇼츠가 죽어도 빌라 쇼츠·인스타 결과에 영향 없다.
+      let placeShorts: Awaited<ReturnType<typeof runPlaceShortsBatch>> = { created: [], failures: [] };
+      const ytFreeSlots = shortsPerDay - yt.created.length;
+      if (ytFreeSlots > 0) {
+        try {
+          placeShorts = await runPlaceShortsBatch(ytFreeSlots, computeYtSlotSchedule(now, ytFreeSlots), prisma);
+        } catch (e) {
+          console.error("[cron/instagram-draft] 장소 쇼츠 배치 실패:", e instanceof Error ? e.message : String(e));
+        }
+      }
+
+      const ytFlagged =
+        yt.created.filter((c) => c.flagged.length > 0).length +
+        placeShorts.created.filter((c) => c.flagged.length > 0).length;
+      ytSummary = {
+        created: yt.created.length + placeShorts.created.length,
+        failed: yt.failures.length + placeShorts.failures.length,
+        flagged: ytFlagged,
+      };
+      yt.created.push(...placeShorts.created.map((c) => ({ id: c.id, villaId: `place:${c.slug}`, flagged: c.flagged })));
 
       if (yt.created.length > 0) {
         await notifyMarketing({
