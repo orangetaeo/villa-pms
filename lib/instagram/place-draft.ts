@@ -60,9 +60,17 @@ const PLACE_WITH_PHOTOS = {
  *   조건: **발행된** 장소 글 + 아직 이 글로 만든 포스트 없음 + 사진 4장 이상.
  * ★ 발행분만 쓰는 이유: 사람이 승인·발행까지 통과시킨 글이라야 문장·사실이 검증된 것이다.
  */
+export interface PlaceSourceFilter {
+  /** 유튜브 쇼츠가 이미 있는 글을 제외한다(쇼츠 배치용) */
+  excludeShorts?: boolean;
+  /** 인스타 포스트 유무를 무시한다 — 플랫폼별로 1개씩 만들기 위함(쇼츠 배치용) */
+  ignoreIgPosts?: boolean;
+}
+
 export async function selectPlaceArticlesForIg(
   limit: number,
-  db: DbClient = prisma
+  db: DbClient = prisma,
+  filter: PlaceSourceFilter = {}
 ): Promise<PlaceIgSource[]> {
   if (limit <= 0) return [];
 
@@ -70,7 +78,9 @@ export async function selectPlaceArticlesForIg(
     where: {
       topicKey: { startsWith: "place-" },
       status: "PUBLISHED",
-      igPosts: { none: {} }, // 이미 만든 포스트가 있으면 제외
+      // 플랫폼별로 1개씩 — 인스타에 이미 나갔어도 쇼츠는 따로 만든다(같은 소재, 다른 형식).
+      ...(filter.ignoreIgPosts ? {} : { igPosts: { none: {} } }),
+      ...(filter.excludeShorts ? { ytShorts: { none: {} } } : {}),
     },
     orderBy: { publishedAt: "desc" },
     take: limit * 3, // 사진 미달로 걸러질 수 있어 여유 있게

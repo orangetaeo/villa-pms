@@ -14,6 +14,11 @@ import {
   MIN_PLACE_PHOTOS_FOR_IG,
   type PlaceIgSource,
 } from "@/lib/instagram/place-draft";
+import {
+  buildPlaceShortTitle,
+  buildPlaceShortPrompt,
+  fallbackPlaceShortDescription,
+} from "@/lib/youtube/place-draft";
 import type { DbClient } from "@/lib/availability";
 
 const photo = (id: string, kind: string | null = "food") => ({
@@ -154,5 +159,28 @@ describe("캡션", () => {
     expect(text).toContain("메오키친");
     expect(text).toContain("반세오");
     expect(text).not.toMatch(/\d{1,3},\d{3}|원|동\b|시\s?~|전화/);
+  });
+});
+
+describe("유튜브 쇼츠 소재 (S2)", () => {
+  it("쇼츠 배치는 인스타 포스트 유무를 무시하고 쇼츠 없는 글만 고른다", async () => {
+    const { db, calls } = makeDb([], []);
+    await selectPlaceArticlesForIg(2, db, { excludeShorts: true, ignoreIgPosts: true });
+    expect(calls.articleWhere).toMatchObject({ status: "PUBLISHED", ytShorts: { none: {} } });
+    expect(calls.articleWhere).not.toHaveProperty("igPosts");
+  });
+
+  it("쇼츠 제목은 가게 이름 + 지역 + #shorts", () => {
+    expect(buildPlaceShortTitle(src())).toBe("메오키친 | 푸꾸옥 즈엉동 맛집 #shorts");
+  });
+
+  it("★ 쇼츠 설명 프롬프트도 가격·영업시간을 금지한다(영상은 올린 뒤 못 고친다)", () => {
+    const p = buildPlaceShortPrompt(src());
+    expect(p).toContain("가격·영업시간·휴무일·전화번호·정확한 주소 금지");
+    expect(p).toContain("지어내지 마라");
+  });
+
+  it("설명 폴백은 사람이 쓴 인상만으로 구성된다", () => {
+    expect(fallbackPlaceShortDescription(src())).toContain("반세오");
   });
 });

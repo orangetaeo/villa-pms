@@ -536,7 +536,8 @@
     },
     "source": {
       "VILLA_AUTO": "빌라 자동",
-      "UPLOADED": "직접 업로드"
+      "UPLOADED": "직접 업로드",
+      "PLACE_AUTO": "장소 자동"
     },
     "status": {
       "DRAFT": "생성 중",
