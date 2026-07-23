@@ -130,6 +130,12 @@ export interface PublicLabels {
   krwSuffix: string; // KRW 금액 접미사 (ko "원", 그 외 "₩")
   // USD 입금 안내 (Phase 2) — USD 계좌는 운영하지 않으므로 운영자 문의 중립 메시지
   usdBankNotice: string;
+  // 입금 계좌 국가 라벨 — 한국·베트남 계좌를 함께 안내하므로 어느 나라 계좌인지 반드시 표기
+  bankCountry: { KR: string; VN: string };
+  // 이 제안·예약의 결제 통화에 해당하는 계좌 배지 (여러 계좌 중 어디로 넣을지 안내)
+  bankPrimaryBadge: string;
+  // 빌라 소개 영상(유튜브 쇼츠 임베드) 섹션 제목
+  videoTitle: string;
   // 만료 배지
   expiryBadge: (hours: number) => string;
   // 메인 제안 페이지
@@ -319,6 +325,9 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
     footer: { terms: "이용약관", privacy: "개인정보처리방침", depositPolicy: "보증금 정책" },
     krwSuffix: "원",
     usdBankNotice: "USD 결제는 담당자가 별도로 안내해 드립니다. 입금 전 담당자에게 문의해 주세요.",
+    bankCountry: { KR: "🇰🇷 한국 계좌 (KRW 입금)", VN: "🇻🇳 베트남 계좌 (VND 입금)" },
+    bankPrimaryBadge: "이 제안 결제 통화",
+    videoTitle: "영상으로 보기",
     expiryBadge: (h) => (h >= 1 ? `${h}시간 후 만료` : "곧 만료"),
     proposal: {
       forClient: (name) => `${name}님을 위한 제안`,
@@ -491,6 +500,9 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
     footer: { terms: "Terms of Service", privacy: "Privacy Policy", depositPolicy: "Deposit Policy" },
     krwSuffix: "₩",
     usdBankNotice: "For USD payments, your contact will share the details separately. Please ask before transferring.",
+    bankCountry: { KR: "🇰🇷 Korean account (pay in KRW)", VN: "🇻🇳 Vietnamese account (pay in VND)" },
+    bankPrimaryBadge: "Currency of this proposal",
+    videoTitle: "Watch the video",
     expiryBadge: (h) => (h >= 1 ? `Expires in ${h}h` : "Expiring soon"),
     proposal: {
       forClient: (name) => `A proposal for ${name}`,
@@ -663,6 +675,9 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
     footer: { terms: "Условия", privacy: "Конфиденциальность", depositPolicy: "Политика депозита" },
     krwSuffix: "₩",
     usdBankNotice: "По оплате в USD реквизиты сообщит менеджер отдельно. Уточните перед переводом.",
+    bankCountry: { KR: "🇰🇷 Корейский счёт (оплата в KRW)", VN: "🇻🇳 Вьетнамский счёт (оплата в VND)" },
+    bankPrimaryBadge: "Валюта этого предложения",
+    videoTitle: "Смотреть видео",
     expiryBadge: (h) => (h >= 1 ? `Истекает через ${h} ч` : "Скоро истекает"),
     proposal: {
       forClient: (name) => `Предложение для ${name}`,
@@ -835,6 +850,9 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
     footer: { terms: "服务条款", privacy: "隐私政策", depositPolicy: "押金政策" },
     krwSuffix: "₩",
     usdBankNotice: "美元付款将由负责人另行告知，转账前请先咨询负责人。",
+    bankCountry: { KR: "🇰🇷 韩国账户（韩元 KRW 汇款）", VN: "🇻🇳 越南账户（越南盾 VND 汇款）" },
+    bankPrimaryBadge: "本提案结算货币",
+    videoTitle: "观看视频",
     expiryBadge: (h) => (h >= 1 ? `${h}小时后过期` : "即将过期"),
     proposal: {
       forClient: (name) => `为 ${name} 准备的提案`,
@@ -1007,6 +1025,9 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
     footer: { terms: "Điều khoản", privacy: "Chính sách bảo mật", depositPolicy: "Chính sách đặt cọc" },
     krwSuffix: "₩",
     usdBankNotice: "Với thanh toán bằng USD, người phụ trách sẽ thông báo riêng. Vui lòng hỏi trước khi chuyển khoản.",
+    bankCountry: { KR: "🇰🇷 Tài khoản Hàn Quốc (chuyển khoản KRW)", VN: "🇻🇳 Tài khoản Việt Nam (chuyển khoản VND)" },
+    bankPrimaryBadge: "Tiền tệ của đề xuất này",
+    videoTitle: "Xem video",
     expiryBadge: (h) => (h >= 1 ? `Hết hạn sau ${h} giờ` : "Sắp hết hạn"),
     proposal: {
       forClient: (name) => `Đề xuất dành cho ${name}`,

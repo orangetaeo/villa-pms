@@ -44,6 +44,8 @@ function makeDb(seed: FakeSeed) {
         });
       },
     },
+    // 제안 마커(ProposalItem) — 이 테스트는 예약 셀만 다루므로 항상 빈 목록
+    proposalItem: { findMany: async () => [] },
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return { db: db as any, calls };

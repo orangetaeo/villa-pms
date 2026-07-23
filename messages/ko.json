@@ -5096,7 +5096,8 @@
       "ical": "외부 채널 잠금 (iCal · 읽기전용)",
       "booking": "예약 (직접공급 빌라)",
       "checked": "확인됨",
-      "needCheck": "확인 필요 (오래됨)"
+      "needCheck": "확인 필요 (오래됨)",
+      "proposed": "제안 중 (아직 가예약 전)"
     },
     "badge": {
       "checked": "확인 {date}",
@@ -5109,7 +5110,8 @@
       "available": "공실",
       "manual": "잠금 (운영자 차단)",
       "ical": "외부 채널 잠금 (iCal)",
-      "booking": "예약 (직접공급 빌라) — 클릭해 상세 보기"
+      "booking": "예약 (직접공급 빌라) — 클릭해 상세 보기",
+      "proposed": "제안 중: {names}"
     },
     "weekdays": {
       "0": "일",
@@ -5176,7 +5178,12 @@
     "selectHint": "셀을 길게 눌러 끌면 여러 날짜를 한 번에 선택할 수 있습니다.",
     "rangeModeLabel": "범위 선택",
     "rangeModeHint": "시작 날짜를 탭하세요. (스크롤 후 끝 날짜 탭)",
-    "rangeModeAnchorHint": "끝 날짜를 탭하세요. 같은 날짜를 다시 탭하면 단일 선택."
+    "rangeModeAnchorHint": "끝 날짜를 탭하세요. 같은 날짜를 다시 탭하면 단일 선택.",
+    "proposedPopover": {
+      "title": "제안 중",
+      "expires": "만료 {time} 전",
+      "hint": "제안은 재고를 잡지 않습니다 — 가예약이 되면 예약 셀로 바뀝니다."
+    }
   },
   "adminCheckinSheet": {
     "title": "오늘의 체크인 시트",

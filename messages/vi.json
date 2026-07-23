@@ -1116,7 +1116,8 @@
       "ical": "Khóa kênh ngoài (iCal · chỉ đọc)",
       "booking": "Đặt phòng (villa tự cung cấp)",
       "checked": "Đã xác nhận",
-      "needCheck": "Cần kiểm tra (đã lâu)"
+      "needCheck": "Cần kiểm tra (đã lâu)",
+      "proposed": "Đang đề xuất (chưa giữ chỗ)"
     },
     "badge": {
       "checked": "Xác nhận {date}",
@@ -1129,7 +1130,8 @@
       "available": "Trống",
       "manual": "Khóa (quản trị viên chặn)",
       "ical": "Khóa kênh ngoài (iCal)",
-      "booking": "Đặt phòng (villa tự cung cấp) — nhấn để xem chi tiết"
+      "booking": "Đặt phòng (villa tự cung cấp) — nhấn để xem chi tiết",
+      "proposed": "Đang đề xuất: {names}"
     },
     "weekdays": {
       "0": "CN",
@@ -1196,7 +1198,12 @@
     "selectHint": "Nhấn giữ một ô rồi kéo để chọn nhiều ngày cùng lúc.",
     "rangeModeLabel": "Chọn khoảng",
     "rangeModeHint": "Chạm ngày bắt đầu. (cuộn rồi chạm ngày kết thúc)",
-    "rangeModeAnchorHint": "Chạm ngày kết thúc. Chạm lại cùng ngày để chọn một ngày."
+    "rangeModeAnchorHint": "Chạm ngày kết thúc. Chạm lại cùng ngày để chọn một ngày.",
+    "proposedPopover": {
+      "title": "Đang đề xuất",
+      "expires": "Hết hạn sau {time}",
+      "hint": "Đề xuất không giữ phòng — khi khách giữ chỗ, ô sẽ chuyển thành ô đặt phòng."
+    }
   },
   "adminDashboard": {
     "title": "Bảng điều khiển",

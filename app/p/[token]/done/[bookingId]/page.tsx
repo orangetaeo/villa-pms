@@ -6,7 +6,8 @@ import { BookingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { HoldCountdown } from "../../../_components/hold-countdown";
 import { PaymentNoticeButton } from "../../../_components/payment-notice-button";
-import { CopyButton } from "../../../_components/copy-button";
+import { BankAccountsSection } from "../../../_components/bank-accounts";
+import { getPublicBankAccounts } from "../../../_components/public-bank";
 import { PublicFooter } from "../../../_components/public-footer";
 import { LangSelector } from "../../../_components/lang-selector";
 import { PartnerAddonSection } from "../../../_components/partner-addon-section";
@@ -34,21 +35,6 @@ export async function generateMetadata({
   const cookieLang = (await cookies()).get(PUBLIC_LOCALE_COOKIE)?.value;
   return { title: `${PUBLIC_META[resolvePublicLang(langParam, cookieLang)].done} | Villa Go` };
 }
-
-// 한국(KRW)·베트남(VND) 계좌 키 — 예약 통화에 따라 자동 선택 (운영자 설정)
-const BANK_KEY_SETS = {
-  KRW: {
-    name: "BANK_NAME",
-    number: "BANK_ACCOUNT_NUMBER",
-    holder: "BANK_ACCOUNT_HOLDER",
-  },
-  VND: {
-    name: "BANK_VN_NAME",
-    number: "BANK_VN_ACCOUNT_NUMBER",
-    holder: "BANK_VN_ACCOUNT_HOLDER",
-  },
-} as const;
-const ALL_BANK_KEYS = Object.values(BANK_KEY_SETS).flatMap((s) => [s.name, s.number, s.holder]);
 
 /** c3 export bg-mesh 재현 — globals.css 동결(계약)이라 컴포넌트 인라인 */
 const MESH_BG = {
@@ -92,16 +78,9 @@ export default async function BookingDonePage({
   // Phase 2 USD: USD 전용 계좌는 운영하지 않는다. USD를 KRW 계좌로 폴백하면 오안내가 되므로
   // 계좌 조회를 건너뛰고 "운영자 문의" 중립 메시지를 보여준다.
   const isUsd = booking.saleCurrency === "USD";
-  const bankRows = isUsd
-    ? []
-    : await prisma.appSetting.findMany({
-        where: { key: { in: ALL_BANK_KEYS } },
-      });
-  // 예약 통화에 맞는 계좌 세트 선택 (VND→베트남, KRW→한국). USD는 계좌 미선택.
-  const keySet = booking.saleCurrency === "VND" ? BANK_KEY_SETS.VND : BANK_KEY_SETS.KRW;
-  const byKey = new Map(bankRows.map((r) => [r.key, r.value]));
-  const bank = (k: string) => byKey.get(k) ?? null;
-  const hasBankInfo = !isUsd && bank(keySet.name) && bank(keySet.number);
+  // ★한국·베트남 계좌를 둘 다 국가 라벨과 함께 안내(제안 페이지와 동일 규칙) — 예약 통화 계좌가 맨 위.
+  const bankAccounts = isUsd ? [] : await getPublicBankAccounts(booking.saleCurrency);
+  const hasBankInfo = bankAccounts.length > 0;
 
   const total = formatPublicAmount(
     booking.saleCurrency,
@@ -154,35 +133,24 @@ export default async function BookingDonePage({
           </div>
 
           {hasBankInfo && (
-            <div className="bg-white rounded-2xl shadow-xl shadow-slate-100/50 border border-gray-100 p-6 space-y-6">
-              <div className="space-y-1">
-                <p className="text-xs font-bold text-teal-600 tracking-wider">{t.donePage.bankLabel}</p>
-                <h4 className="text-lg font-bold">{t.donePage.bankTitle}</h4>
-              </div>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center text-sm border-b border-gray-50 pb-3">
-                  <span className="text-slate-500">{t.donePage.bankName}</span>
-                  <span className="font-semibold">{bank(keySet.name)}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm border-b border-gray-50 pb-3">
-                  <span className="text-slate-500">{t.donePage.bankNumber}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">{bank(keySet.number)}</span>
-                    <CopyButton text={bank(keySet.number)!} lang={lang} />
-                  </div>
-                </div>
-                {bank(keySet.holder) && (
-                  <div className="flex justify-between items-center text-sm border-b border-gray-50 pb-3">
-                    <span className="text-slate-500">{t.donePage.bankHolder}</span>
-                    <span className="font-semibold">{bank(keySet.holder)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between items-center pt-2">
+            <BankAccountsSection
+              accounts={bankAccounts}
+              lang={lang}
+              tone="slate"
+              labels={{
+                label: t.donePage.bankLabel,
+                title: t.donePage.bankTitle,
+                name: t.donePage.bankName,
+                number: t.donePage.bankNumber,
+                holder: t.donePage.bankHolder,
+              }}
+              footer={
+                <div className="flex justify-between items-center pt-1">
                   <span className="text-slate-500 font-medium">{t.donePage.amount}</span>
                   <span className="text-2xl font-extrabold text-slate-900">{total}</span>
                 </div>
-              </div>
-            </div>
+              }
+            />
           )}
           {!hasBankInfo && (
             <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center text-sm text-slate-500">

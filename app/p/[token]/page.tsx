@@ -11,9 +11,10 @@ import { PublicFooter } from "../_components/public-footer";
 import { PhotoCarousel } from "../_components/photo-carousel";
 import { ShareButton } from "../_components/share-button";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
-import { CopyButton } from "../_components/copy-button";
 import { LangSelector } from "../_components/lang-selector";
-import { getPublicBankInfo } from "../_components/public-bank";
+import { getPublicBankAccounts } from "../_components/public-bank";
+import { BankAccountsSection } from "../_components/bank-accounts";
+import { VillaVideo } from "../_components/villa-video";
 import {
   CANCELLATION_POLICY_KEY,
   parseCancellationPolicy,
@@ -142,6 +143,20 @@ export default async function ProposalPage({
                 take: 5,
                 select: { url: true },
               },
+              // 소개 영상 — 자동 발행된 유튜브 쇼츠 최신 1건 (T-seo-media와 동일 규칙).
+              //   ★ PUBLISHED + ytVideoId 있는 것만. private 스냅샷은 임베드해도 재생되지 않으므로 제외.
+              //     (ytPrivacyStatus가 null인 과거 행은 허용 — status=PUBLISHED가 이미 발행 사실을 보증)
+              //   ★ 영상 메타(제목)는 이미 유튜브에 공개된 정보라 누수 표면 없음. 원가·마진 컬럼 미조회.
+              youtubeShorts: {
+                where: {
+                  status: "PUBLISHED",
+                  ytVideoId: { not: null },
+                  OR: [{ ytPrivacyStatus: null }, { ytPrivacyStatus: { not: "private" } }],
+                },
+                orderBy: { publishedAt: "desc" },
+                take: 1,
+                select: { ytVideoId: true, title: true },
+              },
             },
           },
         },
@@ -173,8 +188,10 @@ export default async function ProposalPage({
   // Phase 2 USD: USD 전용 계좌는 운영하지 않는다. USD를 KRW/VND 계좌로 폴백하면 오안내가 되므로
   // 계좌 섹션 대신 "운영자 문의" 중립 메시지를 보여준다(아래 usdNotice).
   const isUsd = currency === Currency.USD;
-  // #6a — 입금 계좌 안내(메인 페이지). 통화별 계좌 자동 선택. 미설정·공급자·USD 링크 시 null(섹션 미렌더).
-  const bank = isSupplierLink || isUsd ? null : await getPublicBankInfo(currency);
+  // #6a — 입금 계좌 안내(메인 페이지). ★한국·베트남 계좌를 **둘 다** 국가 라벨과 함께 보여준다:
+  //   계좌 하나만 노출하면 고객이 어느 나라 계좌인지 몰라 잘못 송금한다(2026-07-23 실사용 혼선).
+  //   제안 통화에 해당하는 계좌를 맨 위 + 배지로 강조. 공급자·USD 링크는 종전대로 미노출.
+  const bankAccounts = isSupplierLink || isUsd ? [] : await getPublicBankAccounts(currency);
   // USD는 공급자 직접판매 링크가 아닌 경우에만 중립 안내(공급자 링크는 회사 계좌 안내 자체가 부적절)
   const showUsdNotice = isUsd && !isSupplierLink;
   // #6b — 취소·환불 정책(전 빌라 공용). 각 빌라 카드에 동일 전달.
@@ -283,6 +300,15 @@ export default async function ProposalPage({
                     )}
                   </div>
 
+                  {/* 소개 영상 — 발행된 쇼츠가 있는 빌라만 (없으면 섹션 자체가 미렌더) */}
+                  {item.villa.youtubeShorts[0]?.ytVideoId && (
+                    <VillaVideo
+                      videoId={item.villa.youtubeShorts[0].ytVideoId}
+                      title={item.villa.youtubeShorts[0].title}
+                      lang={lang}
+                    />
+                  )}
+
                   {/* 판매정보 표시 섹션 (ADR-0011, c1-villa-details) — wifi 미렌더(BE select 제외) */}
                   <VillaSalesSection
                     villa={{
@@ -349,35 +375,19 @@ export default async function ProposalPage({
           </div>
         </section>
 
-        {/* #6a 입금 계좌 안내 — 통화별 회사 계좌(금액은 가예약 후 안내). 미설정 시 미렌더 */}
-        {bank && (
-          <section className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-6 space-y-4">
-            <div className="space-y-1">
-              <p className="text-xs font-bold text-teal-600 tracking-wider">{t.proposal.bankLabel}</p>
-              <h4 className="text-base font-bold">{t.proposal.bankTitle}</h4>
-            </div>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-sm border-b border-neutral-50 pb-3">
-                <span className="text-neutral-500">{t.proposal.bankName}</span>
-                <span className="font-semibold">{bank.name}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm border-b border-neutral-50 pb-3">
-                <span className="text-neutral-500">{t.proposal.bankNumber}</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">{bank.number}</span>
-                  <CopyButton text={bank.number} lang={lang} />
-                </div>
-              </div>
-              {bank.holder && (
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-neutral-500">{t.proposal.bankHolder}</span>
-                  <span className="font-semibold">{bank.holder}</span>
-                </div>
-              )}
-            </div>
-            <p className="text-xs text-neutral-400 leading-relaxed">{t.proposal.bankNote}</p>
-          </section>
-        )}
+        {/* #6a 입금 계좌 안내 — 한국·베트남 계좌 동시 표기(금액은 가예약 후 안내). 미설정 시 미렌더 */}
+        <BankAccountsSection
+          accounts={bankAccounts}
+          lang={lang}
+          labels={{
+            label: t.proposal.bankLabel,
+            title: t.proposal.bankTitle,
+            name: t.proposal.bankName,
+            number: t.proposal.bankNumber,
+            holder: t.proposal.bankHolder,
+            note: t.proposal.bankNote,
+          }}
+        />
 
         {/* Phase 2 USD: USD 계좌 미운영 — KRW/VND 계좌로 오안내하지 않고 운영자 문의 중립 안내 */}
         {showUsdNotice && (

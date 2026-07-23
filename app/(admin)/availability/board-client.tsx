@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import type { BoardBookingSummary, BoardCell } from "@/lib/availability";
+import type { BoardBookingSummary, BoardCell, BoardProposalMark } from "@/lib/availability";
 
 export interface BoardColumn {
   iso: string; // YYYY-MM-DD
@@ -52,6 +52,7 @@ export interface BoardStrings {
   legendManual: string;
   legendIcal: string;
   legendBooking: string;
+  legendProposed: string;
   legendChecked: string;
   legendNeedCheck: string;
   badgeChecked: string; // contains {date}
@@ -63,6 +64,11 @@ export interface BoardStrings {
   cellManual: string;
   cellIcal: string;
   cellBooking: string;
+  cellProposed: string; // {names} — 셀 title 툴팁 "제안 중: 홍길동 여행사"
+  // ── 제안 중 팝오버 블록 ──
+  popProposedTitle: string;
+  popProposedExpires: string; // {time}
+  popProposedHint: string;
   // ── DIRECT 빌라 예약 팝오버 ──
   bkStatusHold: string;
   bkStatusConfirmed: string;
@@ -164,6 +170,8 @@ const BOARD_CSS = `
   cursor: pointer;
 }
 .ab-cell-booking-hold:hover { background-color: rgba(13,148,136,0.45); }
+/* 제안 중 — 상태(공실/잠금)를 덮지 않는 겹침 마커. 점선 하늘색 링으로만 표시한다. */
+.ab-cell-proposed { box-shadow: inset 0 0 0 2px rgba(56,189,248,0.85); }
 .ab-col-today { box-shadow: inset 1px 0 0 #3B82F6, inset -1px 0 0 #3B82F6; }
 .ab-col-weekend { background-color: rgba(2,6,23,0.35); }
 .ab-month-edge { box-shadow: inset 2px 0 0 #334155; }
@@ -177,7 +185,7 @@ const BOARD_CSS = `
 const ROW_H = 34; // 월 헤더 행 높이 (일 행 sticky top 계산용)
 
 type PopState =
-  | { kind: "block"; villaId: string; villaName: string; col: BoardColumn; status: "AVAILABLE" | "MANUAL"; blockId: string | null; x: number; y: number }
+  | { kind: "block"; villaId: string; villaName: string; col: BoardColumn; status: "AVAILABLE" | "MANUAL"; blockId: string | null; proposals?: BoardProposalMark[]; x: number; y: number }
   | { kind: "ical"; col: BoardColumn; x: number; y: number }
   | { kind: "booking"; villaName: string; booking: BoardBookingSummary; x: number; y: number };
 
@@ -552,6 +560,7 @@ export default function AvailabilityBoardClient({
           col,
           status: cell.status,
           blockId: cell.blockId,
+          proposals: cell.proposals,
           x: Math.min(e.clientX, window.innerWidth - 280),
           y: Math.min(e.clientY + 8, window.innerHeight - 220),
         });
@@ -574,6 +583,7 @@ export default function AvailabilityBoardClient({
       col,
       status: cell.status,
       blockId: cell.blockId,
+      proposals: cell.proposals,
       x,
       y,
     });
@@ -586,10 +596,13 @@ export default function AvailabilityBoardClient({
     const prev = optimistic[key];
     setPending(true);
     setErrorKey(null);
-    // 낙관적 반영
+    // 낙관적 반영 — 제안 마커(proposals)는 잠금/해제와 무관한 정보라 그대로 물려준다(사라지면 오해).
     setOptimistic((o) => ({
       ...o,
-      [key]: action === "lock" ? { status: "MANUAL", blockId: null } : { status: "AVAILABLE", blockId: null },
+      [key]:
+        action === "lock"
+          ? { status: "MANUAL", blockId: null, proposals: pop.proposals }
+          : { status: "AVAILABLE", blockId: null, proposals: pop.proposals },
     }));
     try {
       const res =
@@ -607,7 +620,10 @@ export default function AvailabilityBoardClient({
           try {
             const data: { id?: string } = await res.json();
             if (data?.id) {
-              setOptimistic((o) => ({ ...o, [key]: { status: "MANUAL", blockId: data.id! } }));
+              setOptimistic((o) => ({
+                ...o,
+                [key]: { status: "MANUAL", blockId: data.id!, proposals: pop.proposals },
+              }));
             }
           } catch {
             /* 응답 파싱 실패 — 다음 새로고침에서 서버 값으로 정확 반영 */
@@ -664,13 +680,15 @@ export default function AvailabilityBoardClient({
       for (let idx = rp.lo; idx <= rp.hi; idx++) {
         const iso = columns[idx].iso;
         const key = `${rp.villaId}|${iso}`;
-        const st = cellOf(rp.villaId, idx).status;
+        const cur = cellOf(rp.villaId, idx);
+        const st = cur.status;
+        // 제안 마커는 잠금/해제와 무관 — 낙관적 갱신에서도 유지
         if (action === "lock" && st === "AVAILABLE") {
           prevByKey[key] = o[key];
-          next[key] = { status: "MANUAL", blockId: null };
+          next[key] = { status: "MANUAL", blockId: null, proposals: cur.proposals };
         } else if (action === "unlock" && st === "MANUAL") {
           prevByKey[key] = o[key];
-          next[key] = { status: "AVAILABLE", blockId: null };
+          next[key] = { status: "AVAILABLE", blockId: null, proposals: cur.proposals };
         }
       }
       return next;
@@ -883,6 +901,18 @@ export default function AvailabilityBoardClient({
         <div className="flex items-center gap-2 whitespace-nowrap">
           <span className="ab-cell-booking-confirmed inline-block h-5 w-5 rounded border border-teal-500/40" />
           <span className="text-sm font-medium text-slate-300">{s.legendBooking}</span>
+        </div>
+        {/* 제안 중 — 재고를 점유하지 않는 마커(공실은 그대로 공실) */}
+        <div className="flex items-center gap-2 whitespace-nowrap">
+          <span className="ab-cell-available relative inline-block h-5 w-5 rounded border border-dashed border-sky-400/70">
+            <span
+              className="material-symbols-outlined absolute inset-0 flex items-center justify-center text-sky-400"
+              style={{ fontSize: 12 }}
+            >
+              send
+            </span>
+          </span>
+          <span className="text-sm font-medium text-slate-300">{s.legendProposed}</span>
         </div>
         <div className="ml-auto flex items-center gap-2 whitespace-nowrap">
           <span className="material-symbols-outlined text-[18px] text-green-500">check_circle</span>
@@ -1159,7 +1189,12 @@ export default function AvailabilityBoardClient({
                       // 두 번 탭 모드: 시작 셀 강조
                       if (tapAnchor && tapAnchor.villaId === row.id && tapAnchor.idx === idx)
                         cls += " ab-range-sel";
-                      const title =
+                      // 제안 중 마커 — 재고를 점유하지 않으므로 셀 상태는 그대로 두고 테두리·아이콘만 겹친다.
+                      //   가예약(BOOKING)으로 이미 보이는 날짜는 중복이라 표시하지 않는다(서버에서도 제외).
+                      const proposals = cell.status === "BOOKING" ? undefined : cell.proposals;
+                      const hasProposal = !!proposals?.length;
+                      if (hasProposal) cls += " ab-cell-proposed";
+                      let title =
                         cell.status === "AVAILABLE"
                           ? s.cellAvailable
                           : cell.status === "MANUAL"
@@ -1167,6 +1202,9 @@ export default function AvailabilityBoardClient({
                             : cell.status === "ICAL"
                               ? s.cellIcal
                               : s.cellBooking;
+                      if (hasProposal) {
+                        title += ` · ${s.cellProposed.replace("{names}", proposals!.map((p) => p.clientName).join(", "))}`;
+                      }
                       return (
                         <td
                           key={c.iso}
@@ -1185,6 +1223,15 @@ export default function AvailabilityBoardClient({
                               style={{ fontSize: 13 }}
                             >
                               sync
+                            </span>
+                          )}
+                          {/* 제안 중 마커 — 제안서는 나갔지만 아직 가예약 전인 날짜 (공실 유지) */}
+                          {hasProposal && (
+                            <span
+                              className="material-symbols-outlined pointer-events-none absolute inset-0 flex items-center justify-center text-sky-400"
+                              style={{ fontSize: 12 }}
+                            >
+                              send
                             </span>
                           )}
                           {/* 공급자 직접판매 예약 마커 — 우리 예약(OPERATOR)과 구분 */}
@@ -1232,6 +1279,29 @@ export default function AvailabilityBoardClient({
               {pop.status === "MANUAL" ? s.popStateManual : s.popStateAvailable}
             </span>
           </p>
+          {/* 제안 중 — 이 날짜로 나간 제안서 목록. 재고는 잡히지 않았으니 잠금·수동예약은 그대로 가능 */}
+          {!!pop.proposals?.length && (
+            <div className="mb-3 rounded-lg border border-sky-500/40 bg-sky-500/10 p-2.5">
+              <p className="mb-1 flex items-center gap-1 text-[11px] font-bold text-sky-300">
+                <span className="material-symbols-outlined text-[14px]">send</span>
+                {s.popProposedTitle}
+              </p>
+              <ul className="space-y-0.5">
+                {pop.proposals.map((p) => (
+                  <li key={p.proposalId} className="text-xs text-slate-300">
+                    <span className="font-semibold text-white">{p.clientName}</span>
+                    <span className="text-slate-400">
+                      {" · "}
+                      {p.checkIn}~{p.checkOut}
+                      {" · "}
+                      {s.popProposedExpires.replace("{time}", fmtHoldRemaining(p.expiresAt) ?? "-")}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1 text-[11px] text-sky-200/80">{s.popProposedHint}</p>
+            </div>
+          )}
           {errorKey && (
             <p className="mb-3 rounded-lg bg-red-500/10 p-2.5 text-xs font-medium text-red-400">
               {errorKey === "conflict" ? s.popConflict : s.popError}

@@ -206,6 +206,7 @@ export default async function AvailabilityPage({
     legendManual: t("legend.manual"),
     legendIcal: t("legend.ical"),
     legendBooking: t("legend.booking"),
+    legendProposed: t("legend.proposed"),
     legendChecked: t("legend.checked"),
     legendNeedCheck: t("legend.needCheck"),
     badgeChecked: t("badge.checked", { date: "{date}" }),
@@ -217,6 +218,10 @@ export default async function AvailabilityPage({
     cellManual: t("cell.manual"),
     cellIcal: t("cell.ical"),
     cellBooking: t("cell.booking"),
+    cellProposed: t("cell.proposed", { names: "{names}" }),
+    popProposedTitle: t("proposedPopover.title"),
+    popProposedExpires: t("proposedPopover.expires", { time: "{time}" }),
+    popProposedHint: t("proposedPopover.hint"),
     // ── DIRECT 빌라 예약 팝오버 ──
     bkStatusHold: t("bookingPopover.statusHold"),
     bkStatusConfirmed: t("bookingPopover.statusConfirmed"),
