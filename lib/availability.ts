@@ -5,6 +5,7 @@ import {
   DepositStatus,
   Prisma,
   PrismaClient,
+  ProposalStatus,
   VillaStatus,
 } from "@prisma/client";
 import { addUtcDays, parseUtcDateOnly, toDateOnlyString } from "@/lib/date-vn";
@@ -350,10 +351,30 @@ export interface BoardBookingSummary {
 }
 
 /**
+ * 셀에 걸린 "제안 중" 표시 (ProposalItem — 아직 가예약(Booking)이 생기지 않은 항목).
+ *
+ * ★ 제안은 재고를 **점유하지 않는다** — 상태(BoardCellStatus)를 바꾸지 않고 마커로만 겹쳐 보여준다.
+ *   제안서를 보냈는데 보드가 완전히 비어 보여 "왜 아무 표시가 없냐"는 혼선이 있었다(2026-07-23).
+ *   같은 날짜에 여러 제안이 겹칠 수 있으므로 배열이다(고객사 2곳에 같은 빌라를 제안하는 경우).
+ */
+export interface BoardProposalMark {
+  /** Proposal.id — 운영자 화면 링크용 (/proposals) */
+  proposalId: string;
+  /** 여행사명 또는 고객명 */
+  clientName: string;
+  /** 제안 만료 시각 ISO */
+  expiresAt: string;
+  /** 이 빌라 항목의 숙박 구간 YYYY-MM-DD */
+  checkIn: string;
+  checkOut: string;
+}
+
+/**
  * 보드 한 셀(빌라×날짜).
  * blockId 는 MANUAL 일 때만 채워지며, 그 날짜의 해제 가능한 CalendarBlock id(FE 해제용).
  * AVAILABLE/ICAL/BOOKING 은 항상 null.
  * booking 은 BOOKING 셀에만 채워진다.
+ * proposals 는 상태와 무관하게 겹칠 수 있다(제안은 점유가 아님).
  */
 export interface BoardCell {
   status: BoardCellStatus;
@@ -361,6 +382,8 @@ export interface BoardCell {
   blockId: string | null;
   /** BOOKING 셀의 예약 요약 (DIRECT 빌라). 그 외 undefined/null */
   booking?: BoardBookingSummary | null;
+  /** 이 날짜에 걸린 진행 중 제안들 (없으면 undefined) */
+  proposals?: BoardProposalMark[];
 }
 
 /** 보드 한 행(빌라) */
@@ -615,6 +638,50 @@ export async function getAvailabilityBoard(
         const idx = colIndex.get(toDateOnlyString(d));
         if (idx === undefined) continue;
         days[idx] = { status: "BOOKING", blockId: null, booking: summary };
+      }
+    }
+  }
+
+  // ── 진행 중 제안(ProposalItem) 마커 (1쿼리) ──
+  // 제안은 재고를 점유하지 않으므로 셀 status 를 바꾸지 않고 겹쳐 표시만 한다.
+  //   대상: 유효한 제안(ACTIVE + 미만료)의 항목 중 **아직 가예약이 안 된 것**(bookingId=null).
+  //   가예약이 생긴 항목은 이미 BOOKING 셀로 보이므로 중복 표시하지 않는다.
+  //   ⚠ 누수 무관: 판매가·마진 컬럼은 조회하지 않는다(고객명·기간·만료만).
+  {
+    const now = new Date();
+    const items = await db.proposalItem.findMany({
+      where: {
+        villaId: { in: villaIds },
+        bookingId: null,
+        checkIn: { lt: end },
+        checkOut: { gt: start },
+        proposal: { status: ProposalStatus.ACTIVE, expiresAt: { gt: now } },
+      },
+      select: {
+        villaId: true,
+        checkIn: true,
+        checkOut: true,
+        proposal: { select: { id: true, clientName: true, expiresAt: true } },
+      },
+    });
+
+    for (const it of items) {
+      const days = daysByVilla.get(it.villaId);
+      if (!days) continue;
+      const mark: BoardProposalMark = {
+        proposalId: it.proposal.id,
+        clientName: it.proposal.clientName,
+        expiresAt: it.proposal.expiresAt.toISOString(),
+        checkIn: toDateOnlyString(it.checkIn),
+        checkOut: toDateOnlyString(it.checkOut),
+      };
+      const from = it.checkIn.getTime() > start.getTime() ? it.checkIn : start;
+      const to = it.checkOut.getTime() < end.getTime() ? it.checkOut : end;
+      for (let d = from; d.getTime() < to.getTime(); d = addUtcDays(d, 1)) {
+        const idx = colIndex.get(toDateOnlyString(d));
+        if (idx === undefined) continue;
+        const cell = days[idx];
+        cell.proposals = cell.proposals ? [...cell.proposals, mark] : [mark];
       }
     }
   }

@@ -179,6 +179,7 @@ describe("getAvailabilityBoard — minDate 과거 컬럼 클램프", () => {
         findMany: async () => [],
       },
       booking: { findMany: async () => [] }, // 보드는 이제 모든 빌라의 예약을 조회(overlay)
+      proposalItem: { findMany: async () => [] }, // 제안 마커 조회(재고 미점유)
     }) as unknown as DbClient;
 
   it("minDate 미지정 시 기간 시작(월 1일)부터 컬럼 생성 (하위호환)", async () => {
@@ -226,6 +227,7 @@ describe("getAvailabilityBoard — 모든 빌라 예약 표시 + seller 구분 (
       },
       calendarBlock: { findMany: async () => [] },
       booking: { findMany: async () => bookings },
+      proposalItem: { findMany: async () => [] }, // 제안 마커 조회(재고 미점유)
     }) as unknown as DbClient;
 
   const bk = (over: Record<string, unknown>) => ({
@@ -265,6 +267,67 @@ describe("getAvailabilityBoard — 모든 빌라 예약 표시 + seller 구분 (
   });
 });
 
+describe("getAvailabilityBoard — 제안 중 마커 (2026-07-23)", () => {
+  // 제안서를 보냈는데 보드가 완전히 비어 보이던 문제 — 제안은 재고를 점유하지 않되 마커로 보여야 한다.
+  const boardDb = (
+    items: Record<string, unknown>[],
+    opts: { bookings?: Record<string, unknown>[]; capture?: { where?: unknown } } = {}
+  ): DbClient =>
+    ({
+      villa: {
+        findMany: async () => [
+          { id: "v1", name: "A", complex: null, availabilityCheckedAt: null, qualityScore: 0 },
+        ],
+      },
+      calendarBlock: { findMany: async () => [] },
+      booking: { findMany: async () => opts.bookings ?? [] },
+      proposalItem: {
+        findMany: async (args: { where?: unknown }) => {
+          if (opts.capture) opts.capture.where = args.where;
+          return items;
+        },
+      },
+    }) as unknown as DbClient;
+
+  const item = (over: Record<string, unknown> = {}) => ({
+    villaId: "v1",
+    checkIn: d("2026-07-02"),
+    checkOut: d("2026-07-04"),
+    proposal: { id: "p1", clientName: "ABC투어", expiresAt: d("2026-07-25") },
+    ...over,
+  });
+
+  it("제안 구간 [checkIn, checkOut) 날짜에만 마커가 붙고 상태는 AVAILABLE 그대로다", async () => {
+    const board = await getAvailabilityBoard(boardDb([item()]), {
+      startMonth: "2026-07",
+      monthCount: 1,
+    });
+    const days = board.villas[0].days;
+    expect(days[0].proposals).toBeUndefined(); // 7/01 — 구간 밖
+    expect(days[1].status).toBe("AVAILABLE"); // 7/02 — 제안은 점유가 아니다
+    expect(days[1].proposals?.[0]).toMatchObject({ proposalId: "p1", clientName: "ABC투어" });
+    expect(days[2].proposals).toHaveLength(1); // 7/03
+    expect(days[3].proposals).toBeUndefined(); // 7/04 = checkOut(제외)
+  });
+
+  it("같은 날짜에 겹친 제안이 여러 건이면 모두 담는다", async () => {
+    const board = await getAvailabilityBoard(
+      boardDb([item(), item({ proposal: { id: "p2", clientName: "다른여행사", expiresAt: d("2026-07-26") } })]),
+      { startMonth: "2026-07", monthCount: 1 }
+    );
+    expect(board.villas[0].days[1].proposals?.map((p) => p.proposalId)).toEqual(["p1", "p2"]);
+  });
+
+  it("가예약된 항목·만료/사용된 제안은 조회 조건에서 제외한다", async () => {
+    const capture: { where?: unknown } = {};
+    await getAvailabilityBoard(boardDb([], { capture }), { startMonth: "2026-07", monthCount: 1 });
+    const where = capture.where as Record<string, unknown>;
+    expect(where.bookingId).toBeNull(); // 이미 가예약된 항목은 BOOKING 셀로 보이므로 중복 제외
+    expect((where.proposal as Record<string, unknown>).status).toBe("ACTIVE");
+    expect((where.proposal as { expiresAt: { gt: Date } }).expiresAt.gt).toBeInstanceOf(Date);
+  });
+});
+
 describe("getAvailabilityBoard — 판매 후순위 정렬 (품질점수 desc, Phase 2)", () => {
   // findMany 에 넘긴 orderBy 를 포착하고, DB 반환 순서를 board.villas 가 보존하는지 본다.
   const captureDb = (villas: { id: string; name: string; qualityScore: number }[]) => {
@@ -283,6 +346,7 @@ describe("getAvailabilityBoard — 판매 후순위 정렬 (품질점수 desc, P
       },
       calendarBlock: { findMany: async () => [] },
       booking: { findMany: async () => [] },
+      proposalItem: { findMany: async () => [] }, // 제안 마커 조회(재고 미점유)
     } as unknown as DbClient;
     return { db, orderBy: () => orderBy };
   };
@@ -543,6 +607,7 @@ describe("findSellableVillaIds — 리팩터 후 시그니처·동작 무변경 
         return [{ id: "v1" }, { id: "v2" }];
       } },
       booking: { findMany: async () => [{ villaId: "v1" }] },
+      proposalItem: { findMany: async () => [] }, // 제안 마커 조회(재고 미점유)
       calendarBlock: { findMany: async () => [] },
     } as unknown as DbClient;
     expect(await findSellableVillaIds(db, range)).toEqual(["v2"]);
