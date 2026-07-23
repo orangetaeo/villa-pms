@@ -370,6 +370,100 @@ async function writeOverlay(node: SatoriNode, file: string): Promise<OverlayAsse
 }
 
 
+
+/**
+ * 한 번의 ffmpeg 호출에 넣을 최대 입력 수(최종 합성).
+ *
+ * ★ 근거(2026-07-23 프로덕션 실패 2차): 30컷 영상의 최종 합성은 입력이 42개였다
+ *   (본편 1 + 워터마크 1 + 인트로 1 + 자막 30 + 나레이션 WAV 9 + 배경음 1).
+ *   `auto_scale_20 Failed to configure output pad · code -11 (Resource temporarily unavailable)` —
+ *   ffmpeg는 입력·필터마다 스레드를 띄우는데 컨테이너의 스레드·메모리 한도에 걸린다.
+ *   **로컬(31개)에서는 통과했다** — 이 한계는 실행 환경에 달렸으므로 여유 있게 낮춰 잡는다.
+ */
+const MAX_FINAL_INPUTS = 12;
+
+/**
+ * 나레이션 + 배경음을 **미리 한 파일로 믹스**한다. 최종 합성의 오디오 입력을 10개에서 1개로 줄인다.
+ * ★ 필터 내용은 최종 합성에서 하던 것과 동일하다(narrationFilter → bgmUnderFilter → alimiter).
+ */
+async function premixNarrationAudio(
+  wavPaths: string[],
+  offsetsSec: number[],
+  totalSec: number,
+  bgm: boolean,
+  outPath: string
+): Promise<void> {
+  const inputArgs: string[] = [];
+  for (const wp of wavPaths) inputArgs.push("-i", wp);
+  let bgmIdx = -1;
+  if (bgm && existsSync(REEL_BGM_PATH)) {
+    inputArgs.push("-stream_loop", "-1", "-i", REEL_BGM_PATH);
+    bgmIdx = wavPaths.length;
+  }
+
+  const fParts = [narrationFilter(0, offsetsSec, totalSec)];
+  let map = "[aud]";
+  if (bgmIdx >= 0) {
+    fParts.push(bgmUnderFilter(bgmIdx, totalSec, "[aud]", "[amixed2]"));
+    map = "[amixed2]";
+  }
+  fParts.push(`${map}alimiter=limit=0.95:level=disabled[aout]`);
+
+  await run(FFMPEG_PATH, [
+    "-y",
+    ...inputArgs,
+    "-filter_complex", fParts.join(";"),
+    "-map", "[aout]",
+    "-c:a", "pcm_s16le",
+    "-ar", "44100",
+    "-t", totalSec.toFixed(3),
+    outPath,
+  ]);
+}
+
+/** 자막 몇 장을 영상 위에 얹어 중간 파일로 굽는다(비디오 전용·중간 품질). */
+async function overlaySubtitlePass(
+  inputVideo: string,
+  subs: (OverlayAsset & { from: number; to: number })[],
+  totalSec: number,
+  outPath: string
+): Promise<void> {
+  const inputArgs: string[] = ["-i", inputVideo];
+  subs.forEach((s) => inputArgs.push("-loop", "1", "-i", s.path));
+
+  const fParts: string[] = [];
+  let cur = "[0:v]";
+  subs.forEach((s, i) => {
+    const span = Math.max(0.2, s.to - s.from);
+    const fade = Math.min(0.22, span / 4);
+    fParts.push(
+      `[${i + 1}:v]format=rgba,` +
+        `fade=t=in:st=${s.from.toFixed(2)}:d=${fade.toFixed(2)}:alpha=1,` +
+        `fade=t=out:st=${(s.to - fade).toFixed(2)}:d=${fade.toFixed(2)}:alpha=1[subf${i}]`
+    );
+    const out = `[s${i}]`;
+    fParts.push(
+      `${cur}[subf${i}]overlay=${s.x}:${s.y}:enable='between(t,${s.from.toFixed(2)},${s.to.toFixed(2)})'${out}`
+    );
+    cur = out;
+  });
+  fParts.push(`${cur}format=yuv420p[vout]`);
+
+  await run(FFMPEG_PATH, [
+    "-y",
+    ...inputArgs,
+    "-filter_complex", fParts.join(";"),
+    "-map", "[vout]",
+    "-an",
+    ...INTERMEDIATE_ENC,
+    "-r", String(FPS),
+    // ★ `-t` 필수: `-loop 1` PNG 입력은 **무한 스트림**이라 이게 없으면 ffmpeg가 영원히 인코딩한다.
+    //   (2026-07-23: 이 한 줄이 없어서 자막 패스 하나가 24분 넘게 돌았다. 최종 패스에는 원래 있었다.)
+    "-t", totalSec.toFixed(3),
+    outPath,
+  ]);
+}
+
 async function nodeToJpeg(node: SatoriNode, bg: string): Promise<Buffer> {
   return sharp(Buffer.from(await nodeToSvg(node)))
     .flatten({ background: bg })
@@ -1135,12 +1229,45 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
 
     // 5) 최종 합성(오버레이 + 오디오).
     //
-    // ★ 오버레이는 한 패스로 끝낸다. 자막이 30장이어도 입력 31개·26초면 끝난다(2026-07-23 실측).
-    //   한때 "입력이 많아 죽는다"고 보고 사전 패스로 쪼갰지만, 실제 원인은 입력 수가 아니라
-    //   xfade 체인이었다(아래 xfadeJoin 청크 참고). 쪼개면 재인코딩 세대만 늘어 화질과 시간을 둘 다 잃는다.
-    const finalSubs = subPaths;
+    // ── 입력 수 줄이기(2026-07-23 프로덕션 실패 2차) ──────────────────
+    // ffmpeg는 입력·필터마다 스레드를 띄운다. 30컷 영상의 최종 합성은 입력이 42개였고
+    // 컨테이너 한도에 걸려 죽었다(code -11). 두 가지로 줄인다:
+    //   ⑴ 나레이션 WAV들 + 배경음을 **미리 한 파일로 믹스**(10개 → 1개)
+    //   ⑵ 자막이 많으면 앞부분을 **사전 패스로 얹어** 최종에는 일부만 남긴다
+    // 자막이 적은 기존 영상은 사전 패스가 없어 경로가 그대로다.
+    const narrationPathsAll = opts.narration?.wavPaths ?? [];
+    let premixedAudio: string | null = null;
+    if (narrationPathsAll.length > 0) {
+      premixedAudio = path.join(workDir, "audio.wav");
+      await premixNarrationAudio(
+        narrationPathsAll,
+        narrationOffsets,
+        total,
+        opts.bgm !== "none",
+        premixedAudio
+      );
+    }
+
+    // 최종 패스에 남길 자막 수 = 상한 − (본편 1 + 워터마크 1 + 인트로 1 + 오디오 1)
+    const subsInFinal = Math.max(1, MAX_FINAL_INPUTS - 4);
+    let baseVideo = concatPath;
+    let pending = subPaths;
+    let preIdx = 0;
+    while (pending.length > subsInFinal) {
+      const take = Math.min(subsInFinal, pending.length - subsInFinal);
+      const batch = pending.slice(0, take);
+      pending = pending.slice(take);
+      const stage = path.join(workDir, `ov-${preIdx++}.mp4`);
+      await overlaySubtitlePass(baseVideo, batch, total, stage);
+      baseVideo = stage;
+    }
+    const finalSubs = pending;
+    if (preIdx > 0) {
+      console.info(`[yt-edit] 자막 사전 패스 ${preIdx}회 · 최종 패스 자막 ${finalSubs.length}장`);
+    }
+
     const outPath = path.join(workDir, "final.mp4");
-    const inputArgs: string[] = ["-i", concatPath, "-loop", "1", "-i", wm.path];
+    const inputArgs: string[] = ["-i", baseVideo, "-loop", "1", "-i", wm.path];
     let idx = 2; // 0=concat, 1=wm
     let introIdx = -1;
     if (intro) {
@@ -1152,24 +1279,14 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
       inputArgs.push("-loop", "1", "-i", s.path);
       subIdx.push(idx++);
     }
-    // 오디오 입력 — 나레이션이 있으면 문장 WAV들을, 없으면 기존 무음/앰비언트 소스를 넣는다.
-    const narrationPaths = opts.narration?.wavPaths ?? [];
-    if (narrationPaths.length > 0) {
-      for (const wp of narrationPaths) inputArgs.push("-i", wp);
+    // 오디오 입력 — 나레이션은 이미 한 파일로 믹스됐다(입력 1개). 없으면 기존 무음/앰비언트 소스.
+    if (premixedAudio) {
+      inputArgs.push("-i", premixedAudio);
     } else {
       inputArgs.push(...audioInputArgs(opts.audio, total));
     }
     const audioIdx = idx;
-    idx += narrationPaths.length > 0 ? narrationPaths.length : 1;
-
-    // ★ 나레이션 아래 배경음(video-pacing-quality): 완전 무음 위의 합성 음성은 "읽어주는 안내방송"
-    //   처럼 들린다. 아주 낮게(−18dB 수준) 깔린 음악 하나가 체감 완성도를 크게 올린다.
-    //   번들 음원이 CC0라 Content ID 리스크 0. 파일이 없으면 조용히 건너뛴다(배포 누락 안전망).
-    let bgmIdx = -1;
-    if (narrationPaths.length > 0 && opts.bgm !== "none" && existsSync(REEL_BGM_PATH)) {
-      inputArgs.push("-stream_loop", "-1", "-i", REEL_BGM_PATH);
-      bgmIdx = idx++;
-    }
+    idx += 1;
 
     const fParts: string[] = [];
     let cur = "[0:v]";
@@ -1213,18 +1330,9 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
     fParts.push(`${cur}format=yuv420p[vout]`);
 
     let audioMap = `${audioIdx}:a`;
-    if (narrationPaths.length > 0) {
-      // 나레이션: 무음 베이스 + 문장별 절대 오프셋 배치(adelay) + amix.
-      fParts.push(narrationFilter(audioIdx, narrationOffsets, total));
-      audioMap = "[aud]";
-      if (bgmIdx >= 0) {
-        fParts.push(bgmUnderFilter(bgmIdx, total, "[aud]", "[amixed2]"));
-        audioMap = "[amixed2]";
-      }
-      // ★ 마지막 안전장치: amix(normalize=0)는 **합산**이라 나레이션 피크 + 배경음이 겹치면
-      //   0dBFS를 넘어 지직거릴 수 있다. 리미터 하나로 막는다(평상시엔 아무 일도 하지 않는다).
-      fParts.push(`${audioMap}alimiter=limit=0.95:level=disabled[aout]`);
-      audioMap = "[aout]";
+    if (premixedAudio) {
+      // 나레이션·배경음·리미터는 프리믹스에서 이미 끝났다 — 여기선 그대로 싣기만 한다.
+      audioMap = `${audioIdx}:a`;
     } else if (opts.audio === "ambient") {
       const fadeOutStart = Math.max(0, total - 1.2).toFixed(3);
       fParts.push(`[${audioIdx}:a]afade=t=in:st=0:d=1.2,afade=t=out:st=${fadeOutStart}:d=1.2[aud]`);
