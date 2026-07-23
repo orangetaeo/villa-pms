@@ -35,7 +35,8 @@ Công ty và Nhà cung cấp ký kết hợp đồng về việc cung cấp và 
 ### Điều 5 (Hủy và hoàn tiền) ★Trọng yếu
 1. **Hủy trước khi thanh toán**: Nếu đặt phòng bị hủy do lý do của Công ty (hoặc khách hàng), nghĩa vụ thanh toán của Công ty đối với khoản tiền chưa được thanh toán sẽ chấm dứt. Tuy nhiên, nếu Phụ lục 2 có quy định phí hủy thì áp dụng theo đó.
 2. **Hủy sau khi thanh toán**: Nhà cung cấp hoàn trả cho Công ty số tiền đã nhận theo tỷ lệ hoàn tại Phụ lục 2. Việc hoàn trả thực hiện trong vòng 7 ngày kể từ ngày thông báo hủy, phương thức giống như khi thanh toán (nguyên tắc tiền mặt) và áp dụng tương tự thủ tục xác nhận đã nhận của Công ty.
-3. Trường hợp không quy định Phụ lục 2, giá trị mặc định: **hủy trước ngày nhận phòng 14 ngày thì không tính phí (không quyết toán/hoàn 100%), hủy sau đó thì 50% giá gốc, sau khi nhận phòng (bao gồm không đến - no show) thì tính toàn bộ**.
+3. Phí hủy và tỷ lệ hoàn tại Phụ lục 2 được ấn định trong phạm vi không vượt quá phí hủy mà Công ty thu được từ khách hàng cuối cùng.
+4. Trường hợp không quy định Phụ lục 2, áp dụng **bảng bậc mặc định của hệ thống Công ty**: **hủy trước ngày nhận phòng từ 14 ngày trở lên: không chi trả / trước 8~13 ngày: 20% giá gốc / trước 1~7 ngày: 50% giá gốc / trong ngày nhận phòng: 80% giá gốc / không đến (no show) hoặc hủy sau khi nhận phòng: 100% giá gốc**. Trong mọi trường hợp, tỷ lệ chi trả cho Nhà cung cấp không vượt quá **100% trừ tỷ lệ hoàn tiền cho khách hàng tại thời điểm đó**, theo khoản 3 Điều này.
 
 ### Điều 6 (Chi phí ngoài giá gốc và tiền đặt cọc)
 1. Việc thu và quyết toán tiền đặt cọc, phí sử dụng phát sinh mà khách hàng chịu tại chỗ do Công ty (hoặc hệ thống của Công ty) quản lý; khi xảy ra hư hỏng thì khấu trừ từ tiền đặt cọc rồi quyết toán với Nhà cung cấp.

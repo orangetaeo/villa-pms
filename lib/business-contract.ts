@@ -31,8 +31,8 @@ export const CONTRACT_SLUG = {
 } as const;
 export type BusinessContractType = keyof typeof CONTRACT_SLUG;
 
-/** 현재 서명용 정본 표준 버전(테오 확정 v0.5 — 별표 2 취소 수수료 단계표). */
-export const CURRENT_STANDARD_VERSION = "v0.5";
+/** 현재 서명용 정본 표준 버전(테오 확정 v0.6 — 제5조 취소 기본값을 별표 2 프리셋과 정합화 + 회수액 상한 원칙 복원). */
+export const CURRENT_STANDARD_VERSION = "v0.6";
 
 export type ContractLocale = "ko" | "vi";
 
