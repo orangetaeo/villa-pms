@@ -58,9 +58,10 @@ const FFPROBE_PATH: string = ffprobeStatic.path;
 // ★ 이 파이프라인은 **3세대 인코딩**이다: 정규화 → xfade 연결 → 오버레이 합성.
 //   예전엔 세 단계 모두 `-preset veryfast` + CRF 기본값(23)이라 세대마다 디테일이 깎였다
 //   (수영장 물결·나무 질감처럼 고주파가 많은 화면에서 눈에 띈다).
-//   → 중간 산출물은 거의 무손실에 가깝게(CRF 16) 두고, **최종 1회만** 배포 품질로 조인다.
-//   중간 파일은 tmp에 잠깐 있다 지워지므로 커져도 문제가 없다.
-const INTERMEDIATE_CRF = "16";
+//   → 중간 산출물은 최종보다 한 단계 높은 품질(CRF 19)로 두고, **최종 1회만** 배포 품질로 조인다.
+// ★ CRF 16은 과했다(2026-07-23 실측): 30컷 영상의 중간 파일이 120MB를 넘어가며 인코딩이
+//   몇 배로 느려졌다. 최종이 CRF 20이므로 중간 19면 세대 손실이 눈에 보이지 않으면서 훨씬 빠르다.
+const INTERMEDIATE_CRF = "19";
 const INTERMEDIATE_PRESET = "veryfast";
 /** 최종 산출물 — 유튜브·인스타가 어차피 재인코딩하므로 소스 화질이 높을수록 결과가 좋다. */
 const FINAL_CRF = "20";
@@ -367,6 +368,7 @@ async function writeOverlay(node: SatoriNode, file: string): Promise<OverlayAsse
   await fs.writeFile(file, png);
   return { path: file, x: 0, y: 0 };
 }
+
 
 async function nodeToJpeg(node: SatoriNode, bg: string): Promise<Buffer> {
   return sharp(Buffer.from(await nodeToSvg(node)))
@@ -777,26 +779,70 @@ async function stillToSegment(jpegPath: string, durationSec: number, outPath: st
 async function xfadeConcat(
   segPaths: string[],
   durations: number[],
-  outPath: string
+  outPath: string,
+  workDir: string
 ): Promise<{ totalSec: number; transitionSec: number }> {
-  const m = segPaths.length;
-  const minDur = Math.min(...durations);
-  const T = Math.max(0.1, Math.min(TRANSITION_SEC, minDur / 2));
+  // ★ 전환 길이는 **전 구간에서 하나**여야 한다. 청크로 나눠 합치더라도 청크마다 다시 계산하면
+  //   경계에서 길이가 어긋난다 — 여기서 한 번 정하고 모든 단계에 그대로 내려보낸다.
+  const T = Math.max(0.1, Math.min(TRANSITION_SEC, Math.min(...durations) / 2));
+  const totalSec = await xfadeJoin(segPaths, durations, T, outPath, workDir, 0);
+  return { totalSec, transitionSec: T };
+}
 
+/**
+ * 한 번의 ffmpeg 호출에 넣을 최대 입력 수.
+ *
+ * ★ 왜 필요한가(2026-07-23 프로덕션 실패): 컷 상한을 30으로 올린 뒤 첫 렌더가
+ *   `ffmpeg 종료코드 245 · auto_scale_23 Failed to configure output`으로 죽었다.
+ *   31개 세그먼트를 **동시에 열고** 30단 xfade 체인을 거는 필터그래프는 컨테이너가 감당하지 못한다.
+ *   → 청크로 나눠 합치고, 그 결과들을 다시 합친다. 전환 길이 T를 공유하므로 **총 길이는 동일**하다:
+ *     청크 총합 = Σd − (k−1)T, 최종 = Σ청크 − (청크수−1)T = Σd − (m−1)T (한 번에 한 것과 같다).
+ */
+const MAX_XFADE_INPUTS = 10;
+
+/** 세그먼트들을 xfade로 잇는다. 입력이 많으면 청크로 나눠 재귀 결합. @returns 실측 길이(초) */
+async function xfadeJoin(
+  paths: string[],
+  durs: number[],
+  T: number,
+  outPath: string,
+  workDir: string,
+  depth: number
+): Promise<number> {
+  if (paths.length > MAX_XFADE_INPUTS) {
+    const chunkPaths: string[] = [];
+    const chunkDurs: number[] = [];
+    for (let i = 0; i < paths.length; i += MAX_XFADE_INPUTS) {
+      const cp = path.join(workDir, `chunk-${depth}-${String(i).padStart(3, "0")}.mp4`);
+      const d = await xfadeJoin(
+        paths.slice(i, i + MAX_XFADE_INPUTS),
+        durs.slice(i, i + MAX_XFADE_INPUTS),
+        T,
+        cp,
+        workDir,
+        depth + 1
+      );
+      chunkPaths.push(cp);
+      chunkDurs.push(d);
+    }
+    return xfadeJoin(chunkPaths, chunkDurs, T, outPath, workDir, depth + 1);
+  }
+
+  const m = paths.length;
   const inputs: string[] = [];
-  for (const p of segPaths) inputs.push("-i", p);
+  for (const p of paths) inputs.push("-i", p);
 
   const parts: string[] = [];
   let prev = "[0:v]";
-  let prevOut = durations[0];
+  let prevOut = durs[0];
   for (let k = 1; k < m; k++) {
     const offset = Math.max(0, prevOut - T);
     const out = k === m - 1 ? "[vout]" : `[x${k}]`;
     parts.push(`${prev}[${k}:v]xfade=transition=fade:duration=${T.toFixed(3)}:offset=${offset.toFixed(3)}${out}`);
     prev = out;
-    prevOut = prevOut + durations[k] - T;
+    prevOut = prevOut + durs[k] - T;
   }
-  const total = prevOut;
+  const computed = prevOut;
 
   const filter = m === 1 ? `[0:v]null[vout]` : parts.join(";");
   await run(FFMPEG_PATH, [
@@ -809,7 +855,8 @@ async function xfadeConcat(
     "-r", String(FPS),
     outPath,
   ]);
-  return { totalSec: total, transitionSec: T };
+  // 청크를 다시 이을 때는 **실측 길이**를 써야 경계 오차가 누적되지 않는다.
+  return (await probeDurationSec(outPath)) ?? computed;
 }
 
 // ── 나레이션 오디오 (villa-clip-narration-p2) ──────────────────────
@@ -1022,7 +1069,8 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
     const { totalSec: concatTotal, transitionSec: actualT } = await xfadeConcat(
       segPaths,
       segDurs,
-      concatPath
+      concatPath,
+      workDir
     );
     const total = Math.min(concatTotal, TOTAL_MAX_SEC);
 
@@ -1086,6 +1134,11 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
     }
 
     // 5) 최종 합성(오버레이 + 오디오).
+    //
+    // ★ 오버레이는 한 패스로 끝낸다. 자막이 30장이어도 입력 31개·26초면 끝난다(2026-07-23 실측).
+    //   한때 "입력이 많아 죽는다"고 보고 사전 패스로 쪼갰지만, 실제 원인은 입력 수가 아니라
+    //   xfade 체인이었다(아래 xfadeJoin 청크 참고). 쪼개면 재인코딩 세대만 늘어 화질과 시간을 둘 다 잃는다.
+    const finalSubs = subPaths;
     const outPath = path.join(workDir, "final.mp4");
     const inputArgs: string[] = ["-i", concatPath, "-loop", "1", "-i", wm.path];
     let idx = 2; // 0=concat, 1=wm
@@ -1095,7 +1148,7 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
       introIdx = idx++;
     }
     const subIdx: number[] = [];
-    for (const s of subPaths) {
+    for (const s of finalSubs) {
       inputArgs.push("-loop", "1", "-i", s.path);
       subIdx.push(idx++);
     }
@@ -1142,7 +1195,7 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
     // 자막 구간별 — 팝인/팝아웃 대신 **페이드**로 뜨고 진다(video-pacing-quality).
     //   ★ 오버레이 PNG는 `-loop 1` 무한 스트림이라 자체 타임스탬프가 본편과 같은 시간축을 쓴다.
     //     그래서 fade의 st에 **절대 시각**을 그대로 넣으면 된다.
-    subPaths.forEach((s, i) => {
+    finalSubs.forEach((s, i) => {
       const out = `[s${i}]`;
       const span = Math.max(0.2, s.to - s.from);
       const fade = Math.min(0.22, span / 4);
