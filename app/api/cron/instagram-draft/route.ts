@@ -21,7 +21,8 @@ import {
 } from "@/lib/instagram/draft";
 import { renderCarousel } from "@/lib/instagram/render";
 import { renderAndBuildReel } from "@/lib/instagram/reels";
-import { getYoutubeShortsPerDay } from "@/lib/youtube/settings";
+import { getIgPostsPerVilla } from "@/lib/instagram/settings";
+import { getYoutubeShortsPerDay, getYoutubeShortsPerVilla } from "@/lib/youtube/settings";
 import { runYoutubeDraftBatch } from "@/lib/youtube/draft";
 
 export const dynamic = "force-dynamic";
@@ -36,11 +37,10 @@ async function handle(req: Request) {
 
   const now = new Date();
   const slots = computeSlotSchedule(now); // 길이 3, 순서=아침·점심·저녁
-  const villas = await selectVillasForRotation(POSTS_PER_RUN);
-
-  if (villas.length === 0) {
-    return Response.json({ status: "ok", created: 0, note: "적격 빌라 없음(ACTIVE·isSellable·사진4장↑)" });
-  }
+  // 빌라당 상한(IG_POSTS_PER_VILLA, 기본 1) — 이미 상한만큼 콘텐츠가 있는 빌라는 후보에서 빠진다.
+  //   빌라 재고가 적을 때 같은 빌라 도배 방지. 0으로 두면 인스타 자동 초안 전체 중단.
+  const perVillaCap = await getIgPostsPerVilla();
+  const villas = await selectVillasForRotation(POSTS_PER_RUN, prisma, perVillaCap);
 
   // 릴스 게이트: IG_REELS_PER_WEEK≥1 && 오늘이 릴스일이면 저녁 슬롯 포스트만 REELS로 생성(기본 0=끔 → 전부 캐러셀).
   const reelsPerWeek = await getReelsPerWeek();
@@ -49,6 +49,7 @@ async function handle(req: Request) {
   const created: { id: string; villaId: string; kind: string; flagged: string[] }[] = [];
   const failures: { villaId: string; reason: string }[] = [];
 
+  // ★ 적격 빌라 0곳이어도 조기 반환하지 않는다 — 유튜브 배치는 인스타 상한과 무관하게 자기 상한으로 판단해야 한다.
   for (let i = 0; i < villas.length; i++) {
     const villa = villas[i];
     const slotIndex = i % slots.length;
@@ -147,7 +148,9 @@ async function handle(req: Request) {
   const shortsPerDay = await getYoutubeShortsPerDay();
   if (shortsPerDay >= 1) {
     try {
-      const yt = await runYoutubeDraftBatch(shortsPerDay, now);
+      // 빌라당 상한(YT_SHORTS_PER_VILLA, 기본 1) — 일 건수 상한과 별개로 빌라 도배를 막는 2차 게이트.
+      const ytPerVillaCap = await getYoutubeShortsPerVilla();
+      const yt = await runYoutubeDraftBatch(shortsPerDay, now, prisma, ytPerVillaCap);
       const ytFlagged = yt.created.filter((c) => c.flagged.length > 0).length;
       ytSummary = { created: yt.created.length, failed: yt.failures.length, flagged: ytFlagged };
 
@@ -187,6 +190,9 @@ async function handle(req: Request) {
     failed: failures.length,
     flagged: created.filter((c) => c.flagged.length > 0).length,
     failures,
+    ...(villas.length === 0
+      ? { note: `적격 빌라 없음(ACTIVE·isSellable·사진4장↑·빌라당 상한 ${perVillaCap}건)` }
+      : {}),
     ...(ytSummary ? { youtube: ytSummary } : {}),
   });
 }
