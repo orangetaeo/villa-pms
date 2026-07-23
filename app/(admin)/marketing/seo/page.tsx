@@ -17,7 +17,7 @@ import { userCanSeeMarketing } from "@/lib/marketing-access";
 import { parseArticleBody, bodyTextLength } from "@/lib/seo/article";
 import { blogPaths } from "@/lib/seo/routes";
 import SeoNav from "./seo-nav";
-import { approveArticle, rejectArticle, toggleArticleVisibility } from "./actions";
+import { approveArticle, rejectArticle, toggleArticleVisibility, updateArticleBody } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -82,6 +82,12 @@ export default async function MarketingSeoPage({
           </Link>
         ))}
       </nav>
+
+      {params.error === "TOO_SHORT" && (
+        <p className="mt-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-300">
+          {t("errorTooShort", { chars: Number(params.chars ?? 0), min: Number(params.min ?? 800) })}
+        </p>
+      )}
 
       {rows.length === 0 ? (
         <p className="mt-8 rounded-xl border border-slate-800 bg-slate-900 p-6 text-sm text-slate-400">
@@ -152,6 +158,99 @@ export default async function MarketingSeoPage({
                       )
                     )}
                   </div>
+                </details>
+
+                {/* ── 본문 편집 (T-seo-article-edit) ──
+                    승인/반려 두 개뿐이라 문장 하나 때문에 글 전체를 버려야 했다. 여기서 고쳐서 승인한다.
+                    ★ 클라 JS 없이 동작: 폼 배열 순서 = 블록 순서, 삭제는 select(체크박스는 미전송 시 짝이 어긋남) */}
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-sm font-medium text-amber-400">{t("edit")}</summary>
+                  <form action={updateArticleBody} className="mt-3 space-y-3 rounded-lg bg-slate-950 p-4">
+                    <input type="hidden" name="id" value={a.id} />
+                    <label className="block">
+                      <span className="text-xs font-medium text-slate-400">{t("editTitle")}</span>
+                      <input
+                        name="title"
+                        defaultValue={a.title}
+                        maxLength={200}
+                        className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-200"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-medium text-slate-400">{t("editSummary")}</span>
+                      <textarea
+                        name="summary"
+                        defaultValue={a.summary}
+                        rows={2}
+                        maxLength={300}
+                        className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-200"
+                      />
+                    </label>
+
+                    <ul className="space-y-2">
+                      {blocks.map((b, i) => (
+                        <li key={i} className="rounded border border-slate-800 p-2">
+                          {/* ★ 모든 배열 필드는 **블록마다 정확히 하나씩** 나가야 한다 —
+                              조건부로 빼면 getAll() 인덱스가 밀려 다른 블록의 값이 섞인다. */}
+                          <input type="hidden" name="bType" value={b.type} />
+                          <input type="hidden" name="bUrl" value={b.type === "img" ? b.url : ""} />
+                          <input type="hidden" name="bVideo" value={b.type === "video" ? b.ytVideoId : ""} />
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-semibold uppercase text-slate-500">
+                              {b.type === "h2" ? t("blockH2") : b.type === "p" ? t("blockP") : b.type === "img" ? t("blockImg") : b.type === "ul" ? t("blockUl") : t("blockVideo")}
+                            </span>
+                            <select
+                              name="bKeep"
+                              defaultValue="keep"
+                              className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] text-slate-300"
+                            >
+                              <option value="keep">{t("keep")}</option>
+                              <option value="drop">{t("drop")}</option>
+                            </select>
+                          </div>
+
+                          {b.type === "img" ? (
+                            <div className="mt-1.5 flex gap-2">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={b.url} alt={b.alt} className="h-16 w-16 shrink-0 rounded object-cover" />
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <input
+                                  name="bAlt"
+                                  defaultValue={b.alt}
+                                  maxLength={200}
+                                  placeholder={t("altPlaceholder")}
+                                  className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"
+                                />
+                                <input
+                                  name="bText"
+                                  defaultValue={b.caption ?? ""}
+                                  maxLength={200}
+                                  placeholder={t("captionPlaceholder2")}
+                                  className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              {/* 배열 짝 맞추기 — img가 아닌 블록도 bAlt 자리를 채워야 인덱스가 밀리지 않는다 */}
+                              <input type="hidden" name="bAlt" value="" />
+                              <textarea
+                                name="bText"
+                                defaultValue={b.type === "ul" ? b.items.join(String.fromCharCode(10)) : b.type === "video" ? b.title : b.text}
+                                rows={b.type === "h2" ? 1 : 3}
+                                className="mt-1.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm leading-relaxed text-slate-200"
+                              />
+                            </>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+
+                    <p className="text-[11px] text-slate-500">{t("editHint", { min: 800 })}</p>
+                    <button className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900">
+                      {t("saveEdit")}
+                    </button>
+                  </form>
                 </details>
 
                 {a.rejectionReason && (

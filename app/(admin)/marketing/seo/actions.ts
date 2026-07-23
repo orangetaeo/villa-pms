@@ -5,13 +5,16 @@
 // ★ 승인은 곧 "발행 큐 진입"이다. 실제 발행은 seo-publish cron이 일 상한을 지키며 수행한다
 //   — 승인 즉시 발행하지 않는 것이 점진 발행 정책의 핵심이다.
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { SeoArticleStatus } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
 import { userCanSeeMarketing } from "@/lib/marketing-access";
 import { writeAuditLog } from "@/lib/audit-log";
-import { parseArticleBody, isArticlePublishable } from "@/lib/seo/article";
+import { parseArticleBody, isArticlePublishable, bodyTextLength, MIN_ARTICLE_BODY_CHARS } from "@/lib/seo/article";
+import { parseEditedArticle } from "@/lib/seo/article-edit";
+import { toArticleHtml } from "@/lib/seo/article-html";
 
 async function requireMarketingOperator(): Promise<string> {
   const session = await auth();
@@ -73,6 +76,57 @@ export async function toggleArticleVisibility(formData: FormData): Promise<void>
     entity: "SeoArticle",
     entityId: id,
     changes: { publicHidden: { old: row.publicHidden, new: !row.publicHidden }, slug: { new: row.slug } },
+  });
+  revalidatePath("/marketing/seo");
+}
+
+/**
+ * 본문 편집 저장 (T-seo-article-edit) — 승인 화면에서 문장을 고치거나 문단·사진을 빼고 저장한다.
+ * ★ 발행된 글도 고칠 수 있다(오탈자·지어낸 표현을 내리는 것이 더 급하다). 상태는 바꾸지 않는다.
+ * ★ 편집 결과가 분량 하한에 미달하면 저장하지 않는다 — 사람이 고쳤어도 발행 기준은 같다.
+ * ★ bodyHtml은 블록에서 다시 만든다(정본은 블록, HTML은 산출물).
+ */
+export async function updateArticleBody(formData: FormData): Promise<void> {
+  const userId = await requireMarketingOperator();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const before = await prisma.seoArticle.findUnique({
+    where: { id },
+    select: { title: true, summary: true, bodyJson: true, thumbnailUrl: true, slug: true },
+  });
+  if (!before) return;
+
+  const edited = parseEditedArticle(formData);
+  // 사람이 고친 뒤에도 렌더 계약(파서)을 다시 통과시킨다.
+  const blocks = parseArticleBody(edited.blocks);
+  if (!isArticlePublishable(blocks)) {
+    redirect(`/marketing/seo?error=TOO_SHORT&chars=${bodyTextLength(blocks)}&min=${MIN_ARTICLE_BODY_CHARS}`);
+  }
+
+  const title = edited.title || before.title;
+  const summary = edited.summary || before.summary;
+  await prisma.seoArticle.update({
+    where: { id },
+    data: {
+      title,
+      summary,
+      bodyJson: blocks,
+      bodyHtml: toArticleHtml(blocks, { title, thumbnailUrl: before.thumbnailUrl, summary }),
+    },
+  });
+  await writeAuditLog({
+    userId,
+    action: "UPDATE",
+    entity: "SeoArticle",
+    entityId: id,
+    changes: {
+      edited: { new: true },
+      slug: { new: before.slug },
+      title: { old: before.title, new: title },
+      blocks: { old: parseArticleBody(before.bodyJson).length, new: blocks.length },
+      chars: { new: bodyTextLength(blocks) },
+    },
   });
   revalidatePath("/marketing/seo");
 }
