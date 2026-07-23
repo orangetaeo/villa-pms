@@ -37,7 +37,7 @@ export async function GET(req: Request) {
       orderBy: [{ scheduledAt: "asc" }, { createdAt: "desc" }],
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
-      include: { villa: { select: { name: true } } },
+      include: { villa: { select: { name: true } }, seoArticle: { select: { slug: true, title: true } } },
     }),
   ]);
 

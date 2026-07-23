@@ -15,6 +15,12 @@ export interface SerializedIgPost {
   id: string;
   villaId: string | null;
   villaName: string | null;
+  /** 소재 종류 — 빌라 쇼케이스인지 장소(맛집·카페) 소개인지. UI 배지·제목이 이걸로 갈린다. */
+  sourceKind: "villa" | "place";
+  /** 장소 소재일 때 화면에 쓸 이름(빌라명 자리를 대신한다). 빌라 소재면 null. */
+  sourceName: string | null;
+  /** 장소 소재일 때 원본 블로그 글 슬러그 — 카드에서 글로 바로 갈 수 있게 */
+  articleSlug: string | null;
   kind: string;
   status: string;
   scheduledAt: string;
@@ -33,7 +39,10 @@ export interface SerializedIgPost {
   updatedAt: string;
 }
 
-type PostWithVilla = InstagramPost & { villa?: Pick<Villa, "name"> | null };
+type PostWithVilla = InstagramPost & {
+  villa?: Pick<Villa, "name"> | null;
+  seoArticle?: { slug: string; title: string } | null;
+};
 
 function toMedia(json: unknown): IgPostMediaItem[] {
   if (!Array.isArray(json)) return [];
@@ -65,6 +74,10 @@ export function serializeIgPost(post: PostWithVilla): SerializedIgPost {
     id: post.id,
     villaId: post.villaId,
     villaName: post.villa?.name ?? null,
+    sourceKind: post.seoArticleId ? "place" : "villa",
+    // 글 제목은 "푸꾸옥 메오키친 — 푸꾸옥 즈엉동 맛집, …" 형태라 앞부분(가게 이름)만 쓴다.
+    sourceName: post.seoArticle ? post.seoArticle.title.split(" — ")[0].trim() : null,
+    articleSlug: post.seoArticle?.slug ?? null,
     kind: post.kind,
     status: post.status,
     scheduledAt: post.scheduledAt.toISOString(),
