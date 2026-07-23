@@ -31,8 +31,13 @@ import { GeminiNotConfiguredError } from "@/lib/gemini";
  *   (lib/gemini-tts.ts stripPauseTags).
  */
 export const TTS_PAUSE_TAG = "[pause]";
-/** 태그 하나가 만드는 무음 길이(초) — 타임라인이 이 값만큼을 발화에서 빼고 앞 절에 준다. */
-export const TTS_PAUSE_SEC = 0.69;
+/**
+ * 태그 하나가 만드는 무음 길이(초) — 타임라인이 이 값만큼을 발화에서 빼고 그 절에 준다.
+ * ★ 실측 범위 0.50~0.81초(문장·위치마다 다르다). 중간값을 쓴다 — 이 값은 컷이 화면에
+ *   머무는 시간 추정에만 쓰이고, 최종 자막·오디오 정렬은 실측 세그먼트 길이로 다시 맞춰진다
+ *   (retimeNarrationTimeline). 그래서 소수점 오차가 화면·말 어긋남으로 번지지 않는다.
+ */
+export const TTS_PAUSE_SEC = 0.6;
 /** 텍스트에 쉼 태그가 들어 있나 — 있으면 text가 아니라 markup으로 보내야 한다. */
 export function hasPauseTag(text: string): boolean {
   return text.includes(TTS_PAUSE_TAG);

@@ -82,32 +82,92 @@ export const SUBTITLE_TAIL_SEC = 0.3;
 export const PART_PAUSE_SEC = TTS_PAUSE_SEC;
 
 /**
- * 문장의 절 사이에 쉼 태그를 넣은 **합성용 텍스트**를 만든다.
- *
- * ★ 안전장치 ①: 절을 이어 붙인 것이 문장과 다르면(운영자가 손으로 고친 직후 등) 태그를 넣지 않고
- *   문장 원문을 그대로 돌려준다 — 합성되는 **말 자체가 바뀌는 것**이 쉼 없는 것보다 훨씬 나쁘다.
- * ★ 안전장치 ②(중요): **절 경계처럼 보이는 자리에만** 넣는다. 자막 절은 글자수로 나뉘기 때문에
- *   "…은은한 대리석 / 세면대 욕실과…"처럼 구(句) 한가운데서 끊기는 일이 있는데, 거기에 0.69초를
- *   넣으면 쉼이 없던 것보다 더 이상하게 들린다. 쉼표나 연결어미로 끝날 때만 쉰다
- *   (reconcilePartsToText가 쓰는 CLAUSE_END_RE와 같은 기준).
- * @returns [합성용 텍스트, 절마다 "뒤에 쉼을 넣었는지" 배열(길이 = 절 수, 마지막은 항상 false)]
+ * 쉼 하나를 넣기 위해 앞뒤로 최소한 있어야 하는 글자 수.
+ * ★ 이게 없으면 "편안한 침대와, [쉼] 티브이가" 처럼 두세 글자마다 끊겨 딱딱해진다.
  */
-export function buildSpeechMarkup(line: NarrationLine): [string, boolean[]] {
+const MIN_CHARS_BETWEEN_PAUSES = 6;
+
+/** 쉼을 넣을 문장부호 — 쉼표와 문장 종결부호(한 문장 안에 두 문장이 들어오는 경우가 있다). */
+const PAUSE_PUNCT_RE = /[,，、.!?]$/;
+
+/**
+ * 텍스트 안의 **쉼표·마침표마다** 쉼 태그를 넣는다. 너무 촘촘하면(앞·뒤 6자 미만) 건너뛴다.
+ * @returns [태그가 들어간 텍스트, 넣은 쉼 개수, 마지막 쉼 이후 글자 수]
+ */
+function insertCommaPauses(text: string, startedCharsAgo = 0): [string, number, number] {
+  const out: string[] = [];
+  let count = 0;
+  let sinceLast = startedCharsAgo;
+  const chunks = text.split(/(?<=[,，、.!?])\s*/); // 부호 뒤에서 자른다(부호는 앞 조각에 남는다)
+  for (let i = 0; i < chunks.length; i++) {
+    const c = chunks[i];
+    if (!c) continue;
+    out.push(c);
+    sinceLast += c.length;
+    const isCommaEnd = PAUSE_PUNCT_RE.test(c);
+    const rest = chunks.slice(i + 1).join("").length;
+    if (isCommaEnd && sinceLast >= MIN_CHARS_BETWEEN_PAUSES && rest >= MIN_CHARS_BETWEEN_PAUSES) {
+      out.push(TTS_PAUSE_TAG);
+      count++;
+      sinceLast = 0;
+    }
+  }
+  return [out.join(" ").replace(/\s{2,}/g, " ").trim(), count, sinceLast];
+}
+
+/**
+ * 문장에 쉼 태그를 넣은 **합성용 텍스트**를 만든다.
+ *
+ * 쉼을 넣는 자리는 두 가지다:
+ *   ⑴ **쉼표가 있는 모든 자리**(테오 2026-07-23 2차 청취: "쉼표가 있는 곳에서 쉬지 않고 말하니
+ *      어색하다"). 모델의 자연 쉼은 0.33초라 문장이 길면 그냥 흘러가 버린다 — 태그를 넣으면 0.8초.
+ *   ⑵ 절(자막 한 장)이 바뀌는 자리 중 **연결어미로 끝나는 것**(쉼표가 없어도 화면이 바뀌므로 쉰다).
+ *
+ * ★ 안전장치 ①: 절을 이어 붙인 것이 문장과 다르면(운영자가 손으로 고친 직후 등) 절 단위 계산을
+ *   포기하고 문장 전체에만 쉼표 쉼을 넣는다 — 합성되는 **말 자체가 바뀌는 것**이 가장 나쁘다.
+ * ★ 안전장치 ②: 구(句) 한가운데서 끊긴 절 경계에는 넣지 않는다. 자막 절은 글자수로 나뉘어
+ *   "…은은한 대리석 / 세면대 욕실과…"처럼 끊기는데, 거기 0.8초를 넣으면 더 이상해진다.
+ * ★ 안전장치 ③: 쉼과 쉼 사이 최소 여섯 글자(MIN_CHARS_BETWEEN_PAUSES).
+ *
+ * @returns [합성용 텍스트, 절별 쉼 시간(초) 배열 — 절 i 안/뒤에 들어간 쉼의 합]
+ */
+export function buildSpeechMarkup(line: NarrationLine): [string, number[]] {
   const text = line.text.trim();
   const parts = line.parts.map((p) => p.text.trim()).filter(Boolean);
-  const none = parts.map(() => false);
-  if (parts.length < 2) return [text, none];
-  if (normForCompare(parts.join(" ")) !== normForCompare(text)) return [text, none];
 
-  const pauseAfter = parts.map((p, i) => {
-    if (i === parts.length - 1) return false;
-    const lastWord = p.split(/\s+/).filter(Boolean).at(-1) ?? "";
-    return CLAUSE_END_RE.test(lastWord.replace(/[.!?~…]+$/, ""));
-  });
-  const out = parts
-    .map((p, i) => (pauseAfter[i] ? `${p} ${TTS_PAUSE_TAG}` : p))
-    .join(" ");
-  return [out, pauseAfter];
+  // 절 정합이 깨졌거나 절이 하나면 문장 전체에 쉼표 쉼만 넣는다(절별 배분은 포기 → 0).
+  if (parts.length < 2 || normForCompare(parts.join(" ")) !== normForCompare(text)) {
+    const [markup] = insertCommaPauses(text);
+    return [markup, parts.map(() => 0)];
+  }
+
+  const pieces: string[] = [];
+  const pauseSec: number[] = [];
+  // 문장 첫머리부터 센다 — "침대와, [쉼]"처럼 네 글자 만에 끊기면 딱딱하다.
+  let sinceLast = 0;
+  for (let i = 0; i < parts.length; i++) {
+    const isLast = i === parts.length - 1;
+    const [withCommas, n, tail] = insertCommaPauses(parts[i], sinceLast);
+    let count = n;
+    let piece = withCommas;
+    sinceLast = tail;
+
+    // 절 경계 — 쉼표로 끝나 이미 쉼이 붙었으면 그대로 두고,
+    // 연결어미나 **문장 종결부호**로 끝나면 여기서 쉰다(한 절이 문장으로 끝나는 경우).
+    if (!isLast && !piece.endsWith(TTS_PAUSE_TAG)) {
+      const lastWord = parts[i].split(/\s+/).filter(Boolean).at(-1) ?? "";
+      const endsSentence = /[.!?]$/.test(parts[i].trim());
+      const isClauseEnd = CLAUSE_END_RE.test(lastWord.replace(/[.!?~…]+$/, "")) || endsSentence;
+      if (isClauseEnd && sinceLast >= MIN_CHARS_BETWEEN_PAUSES) {
+        piece = `${piece} ${TTS_PAUSE_TAG}`;
+        count++;
+        sinceLast = 0;
+      }
+    }
+    pieces.push(piece);
+    pauseSec.push(count * PART_PAUSE_SEC);
+  }
+  return [pieces.join(" ").replace(/\s{2,}/g, " ").trim(), pauseSec];
 }
 
 /**
@@ -830,10 +890,10 @@ export function validateNarrationLines(lines: NarrationLine[]): NarrationValidat
 export interface NarrationTimelineInput {
   /**
    * 문장 단위 입력 — 문장별 TTS 길이 + 그 문장의 절 구성(컷 배정·글자수).
-   * `pauseAfter[i]`는 i번째 절 **뒤에** 쉼 태그를 넣었는지(buildSpeechMarkup이 알려준다).
-   * 주면 쉼 시간을 발화에서 빼고 **쉼 앞 절**에 얹는다 — 쉼 동안 화면이 앞 컷에 머물러야 한다.
+   * `pauseSecByPart[i]`는 i번째 절 안·뒤에 넣은 쉼의 총 길이(초) — buildSpeechMarkup이 알려준다.
+   * 주면 그만큼을 발화에서 빼고 **그 절**에 얹는다 — 쉬는 동안 화면이 그 컷에 머물러야 한다.
    */
-  lines: { durationSec: number; pauseAfter?: boolean[]; parts: { clipIndexes: number[]; text: string }[] }[];
+  lines: { durationSec: number; pauseSecByPart?: number[]; parts: { clipIndexes: number[]; text: string }[] }[];
   /** xfade 전환 길이(초) — edit.ts TRANSITION_SEC */
   transitionSec: number;
   /** 클립 세그먼트 최소 길이(초) — edit.ts CLIP_DUR_MIN */
@@ -904,9 +964,9 @@ export function computeNarrationTimeline(input: NarrationTimelineInput): Narrati
     const totalChars = line.parts.reduce((a, p) => a + Math.max(1, p.text.length), 0);
     // ★ 명시적 쉼(TTS 마크업)은 **글자수 비율로 나누면 안 된다** — 쉼은 특정 절 경계 한 곳에서만
     //   일어나기 때문이다. 총 발화에서 빼두고, 아래에서 쉼 앞 절에 통째로 얹는다.
-    const pausedAfter = (pi: number) => (line.pauseAfter?.[pi] ?? false) && pi < line.parts.length - 1;
-    const pauseCount = line.parts.reduce((a, _p, pi) => a + (pausedAfter(pi) ? 1 : 0), 0);
-    const speechSec = Math.max(0.2, line.durationSec - pauseCount * PART_PAUSE_SEC);
+    const pauseOf = (pi: number) => Math.max(0, line.pauseSecByPart?.[pi] ?? 0);
+    const pauseTotal = line.parts.reduce((a, _p, pi) => a + pauseOf(pi), 0);
+    const speechSec = Math.max(0.2, line.durationSec - pauseTotal);
     let partStart = speechStart;
     let consumed = 0;
     // 이 문장이 덮는 컷들의 화면 시간 후보. 상한·재분배를 적용한 뒤 한 번에 확정한다.
@@ -922,7 +982,7 @@ export function computeNarrationTimeline(input: NarrationTimelineInput): Narrati
     line.parts.forEach((part, pi) => {
       const share = Math.max(1, part.text.length) / totalChars;
       // 이 절 뒤에 쉼이 오나(마지막 절 뒤에는 없다) — 오면 그 무음까지 이 절이 화면을 지킨다.
-      const partSpeech = speechSec * share + (pausedAfter(pi) ? PART_PAUSE_SEC : 0);
+      const partSpeech = speechSec * share + pauseOf(pi);
 
       const isCtaPart = part.clipIndexes.length === 0;
       for (const pg of paginateSubtitle(part.text, partStart, partStart + partSpeech + SUBTITLE_TAIL_SEC)) {
@@ -1062,8 +1122,8 @@ export interface SynthesizedLine {
   wav: Buffer;
   durationSec: number;
   cached: boolean;
-  /** 절마다 "뒤에 쉼을 넣었는지" — computeNarrationTimeline에 그대로 넘긴다 */
-  pauseAfter: boolean[];
+  /** 절별 쉼 시간(초) — computeNarrationTimeline에 그대로 넘긴다 */
+  pauseSecByPart: number[];
 }
 
 /**
@@ -1078,7 +1138,7 @@ export async function synthesizeNarration(
   for (const line of lines) {
     // 절 경계마다 쉼 태그를 넣어 합성한다(google-tts markup). 캐시 키는 이 텍스트 기준이라
     // 쉼이 붙은 문장은 새로 합성되고, 이후 재렌더에서는 그대로 재사용된다.
-    const [speechText, pauseAfter] = buildSpeechMarkup(line);
+    const [speechText, pauseSecByPart] = buildSpeechMarkup(line);
     const r: TtsResult = await synthesizeSpeech(speechText, opts);
     out.push({
       text: line.text,
@@ -1086,7 +1146,7 @@ export async function synthesizeNarration(
       wav: r.wav,
       durationSec: r.durationSec,
       cached: r.cached,
-      pauseAfter,
+      pauseSecByPart,
     });
   }
   return out;
