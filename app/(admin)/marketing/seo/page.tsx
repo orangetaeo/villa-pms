@@ -51,15 +51,14 @@ function Badge({ tone, children }: { tone: "neutral" | "warn" | "danger"; childr
   return <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>{children}</span>;
 }
 
-/** 펼침 화살표 — 운영자 레이아웃에 아이콘 폰트가 없어 인라인 SVG로 그린다(group-open으로 회전). */
-function Chevron() {
+/** 펼침 화살표 — 운영자 레이아웃에 아이콘 폰트가 없어 인라인 SVG로 그린다. 회전은 부모 <details>가 건다. */
+function Chevron({ scope }: { scope: "card" | "chip" }) {
+  const cls =
+    scope === "card"
+      ? "h-5 w-5 shrink-0 text-slate-500 transition-transform duration-200"
+      : "h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200";
   return (
-    <svg
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      aria-hidden="true"
-      className="h-5 w-5 shrink-0 text-slate-500 transition-transform duration-200 group-open:rotate-180"
-    >
+    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className={cls}>
       <path
         fillRule="evenodd"
         d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
@@ -68,6 +67,22 @@ function Chevron() {
     </svg>
   );
 }
+
+/**
+ * 열렸을 때 자기 summary의 화살표만 뒤집는다.
+ * ★ `group-open:`을 쓰지 않는 이유 둘: ⑴ 카드 안에 칩 <details>가 중첩돼 있어 group을 공유하면
+ *   카드를 펼치는 순간 칩 화살표까지 같이 돌아간다 ⑵ 직계 자식(>summary>svg)으로 막으면 중첩과 무관하게 안전하다.
+ */
+const OPEN_ROTATE = "[&[open]>summary>svg]:rotate-180";
+
+/**
+ * 본문 미리보기·본문 편집 토글 = 버튼처럼 보여야 한다(텍스트 링크는 눌러도 되는지 알 수 없다).
+ * 접힌 동안은 칩 크기(w-fit)로 나란히 서고, 펼치면 `open:` 변형으로 한 줄을 통째로 차지한다 —
+ * 안 그러면 펼친 내용이 flex 아이템 폭에 갇혀 반쪽짜리 컬럼이 된다.
+ */
+const CHIP =
+  "inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-sm font-medium text-slate-200 transition-colors hover:border-slate-500 hover:bg-slate-700 [&::-webkit-details-marker]:hidden";
+const CHIP_DETAILS = `w-fit open:w-full open:basis-full ${OPEN_ROTATE}`;
 
 export default async function MarketingSeoPage({
   searchParams,
@@ -146,7 +161,7 @@ export default async function MarketingSeoPage({
             return (
               <li key={a.id} className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
                 {/* 접었다 폈다 — 글 1건일 때와 '모두 펼치기'일 때만 열린 채로 시작한다. */}
-                <details className="group" open={expandAll || rows.length === 1}>
+                <details className={OPEN_ROTATE} open={expandAll || rows.length === 1}>
                   {/* 접힌 상태의 유일한 정보원 = 이 헤더. 썸네일·제목·경고 배지·경로/시각을 한 줄에 담는다.
                       ★ summary 안에는 버튼·폼을 넣지 않는다 — 클릭이 전부 펼침/접힘으로 먹힌다(액션은 본문에). */}
                   <summary className="flex cursor-pointer list-none items-center gap-3 p-4 transition-colors hover:bg-slate-800/40 [&::-webkit-details-marker]:hidden">
@@ -176,145 +191,150 @@ export default async function MarketingSeoPage({
                         {a.publishedAt ? ` · ${t("publishedAt")} ${fmt(a.publishedAt)}` : ""}
                       </p>
                     </div>
-                    <Chevron />
+                    <Chevron scope="card" />
                   </summary>
 
-                  <div className="border-t border-slate-800 p-5">
+                  <div className="border-t border-slate-800 px-4 pb-4 pt-3">
                     <p className="text-sm leading-relaxed text-slate-300">{a.summary}</p>
 
-                    <details className="mt-4 rounded-lg border border-slate-800 p-3">
-                      <summary className="cursor-pointer text-sm font-medium text-blue-400 hover:text-blue-300">
-                        {t("preview")}
-                      </summary>
-                      <div className="mt-3 space-y-3 rounded-lg bg-slate-950 p-4">
-                        {blocks.map((b, i) =>
-                          b.type === "h2" ? (
-                            <h3 key={i} className="font-bold text-slate-100">
-                              {b.text}
-                            </h3>
-                          ) : b.type === "ul" ? (
-                            <ul key={i} className="list-disc pl-5 text-sm text-slate-300">
-                              {b.items.map((it, j) => (
-                                <li key={j}>{it}</li>
-                              ))}
-                            </ul>
-                          ) : b.type === "img" ? (
-                            // 승인 화면에서도 실제 이미지를 확인할 수 있어야 한다(alt·배치 검수).
-                            <figure key={i}>
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={b.url} alt={b.alt} className="w-full rounded-lg" />
-                              <figcaption className="mt-1 text-xs text-slate-500">
-                                alt: {b.alt}
-                                {b.caption ? ` · ${b.caption}` : ""}
-                              </figcaption>
-                            </figure>
-                          ) : b.type === "video" ? (
-                            <p key={i} className="rounded-lg bg-slate-800 p-2 text-xs text-slate-300">
-                              🎬 영상: {b.title} (youtube {b.ytVideoId})
-                            </p>
-                          ) : (
-                            <p key={i} className="text-sm leading-relaxed text-slate-300">
-                              {b.text}
-                            </p>
-                          )
-                        )}
-                      </div>
-                    </details>
+                    {/* 미리보기·편집 토글 한 줄 — 접혀 있을 땐 칩 두 개, 하나를 펼치면 그 칩이 줄 전체를 먹는다 */}
+                    <div className="mt-3 flex flex-wrap items-start gap-2">
+                      <details className={CHIP_DETAILS}>
+                        <summary className={CHIP}>
+                          {t("preview")}
+                          <Chevron scope="chip" />
+                        </summary>
+                        <div className="mt-3 space-y-3 rounded-lg bg-slate-950 p-4">
+                          {blocks.map((b, i) =>
+                            b.type === "h2" ? (
+                              <h3 key={i} className="font-bold text-slate-100">
+                                {b.text}
+                              </h3>
+                            ) : b.type === "ul" ? (
+                              <ul key={i} className="list-disc pl-5 text-sm text-slate-300">
+                                {b.items.map((it, j) => (
+                                  <li key={j}>{it}</li>
+                                ))}
+                              </ul>
+                            ) : b.type === "img" ? (
+                              // 승인 화면에서도 실제 이미지를 확인할 수 있어야 한다(alt·배치 검수).
+                              <figure key={i}>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={b.url} alt={b.alt} className="w-full rounded-lg" />
+                                <figcaption className="mt-1 text-xs text-slate-500">
+                                  alt: {b.alt}
+                                  {b.caption ? ` · ${b.caption}` : ""}
+                                </figcaption>
+                              </figure>
+                            ) : b.type === "video" ? (
+                              <p key={i} className="rounded-lg bg-slate-800 p-2 text-xs text-slate-300">
+                                🎬 영상: {b.title} (youtube {b.ytVideoId})
+                              </p>
+                            ) : (
+                              <p key={i} className="text-sm leading-relaxed text-slate-300">
+                                {b.text}
+                              </p>
+                            )
+                          )}
+                        </div>
+                      </details>
 
-                    {/* ── 본문 편집 (T-seo-article-edit) ──
-                        승인/반려 두 개뿐이라 문장 하나 때문에 글 전체를 버려야 했다. 여기서 고쳐서 승인한다.
-                        ★ 클라 JS 없이 동작: 폼 배열 순서 = 블록 순서, 삭제는 select(체크박스는 미전송 시 짝이 어긋남) */}
-                    <details className="mt-3 rounded-lg border border-slate-800 p-3">
-                      <summary className="cursor-pointer text-sm font-medium text-amber-400 hover:text-amber-300">
-                        {t("edit")}
-                      </summary>
-                      <form action={updateArticleBody} className="mt-3 space-y-3 rounded-lg bg-slate-950 p-4">
-                        <input type="hidden" name="id" value={a.id} />
-                        <label className="block">
-                          <span className="text-xs font-medium text-slate-400">{t("editTitle")}</span>
-                          <input
-                            name="title"
-                            defaultValue={a.title}
-                            maxLength={200}
-                            className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-200"
-                          />
-                        </label>
-                        <label className="block">
-                          <span className="text-xs font-medium text-slate-400">{t("editSummary")}</span>
-                          <textarea
-                            name="summary"
-                            defaultValue={a.summary}
-                            rows={2}
-                            maxLength={300}
-                            className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-200"
-                          />
-                        </label>
+                      {/* ── 본문 편집 (T-seo-article-edit) ──
+                          승인/반려 두 개뿐이라 문장 하나 때문에 글 전체를 버려야 했다. 여기서 고쳐서 승인한다.
+                          ★ 클라 JS 없이 동작: 폼 배열 순서 = 블록 순서, 삭제는 select(체크박스는 미전송 시 짝이 어긋남) */}
+                      <details className={CHIP_DETAILS}>
+                        <summary className={CHIP}>
+                          {t("edit")}
+                          <Chevron scope="chip" />
+                        </summary>
+                        <form action={updateArticleBody} className="mt-3 space-y-3 rounded-lg bg-slate-950 p-4">
+                          <input type="hidden" name="id" value={a.id} />
+                          <label className="block">
+                            <span className="text-xs font-medium text-slate-400">{t("editTitle")}</span>
+                            <input
+                              name="title"
+                              defaultValue={a.title}
+                              maxLength={200}
+                              className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-200"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="text-xs font-medium text-slate-400">{t("editSummary")}</span>
+                            <textarea
+                              name="summary"
+                              defaultValue={a.summary}
+                              rows={2}
+                              maxLength={300}
+                              className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm text-slate-200"
+                            />
+                          </label>
 
-                        <ul className="space-y-2">
-                          {blocks.map((b, i) => (
-                            <li key={i} className="rounded border border-slate-800 p-2">
-                              {/* ★ 모든 배열 필드는 **블록마다 정확히 하나씩** 나가야 한다 —
-                                  조건부로 빼면 getAll() 인덱스가 밀려 다른 블록의 값이 섞인다. */}
-                              <input type="hidden" name="bType" value={b.type} />
-                              <input type="hidden" name="bUrl" value={b.type === "img" ? b.url : ""} />
-                              <input type="hidden" name="bVideo" value={b.type === "video" ? b.ytVideoId : ""} />
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-[11px] font-semibold uppercase text-slate-500">
-                                  {b.type === "h2" ? t("blockH2") : b.type === "p" ? t("blockP") : b.type === "img" ? t("blockImg") : b.type === "ul" ? t("blockUl") : t("blockVideo")}
-                                </span>
-                                <select
-                                  name="bKeep"
-                                  defaultValue="keep"
-                                  className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] text-slate-300"
-                                >
-                                  <option value="keep">{t("keep")}</option>
-                                  <option value="drop">{t("drop")}</option>
-                                </select>
-                              </div>
-
-                              {b.type === "img" ? (
-                                <div className="mt-1.5 flex gap-2">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img src={b.url} alt={b.alt} className="h-16 w-16 shrink-0 rounded object-cover" />
-                                  <div className="min-w-0 flex-1 space-y-1">
-                                    <input
-                                      name="bAlt"
-                                      defaultValue={b.alt}
-                                      maxLength={200}
-                                      placeholder={t("altPlaceholder")}
-                                      className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"
-                                    />
-                                    <input
-                                      name="bText"
-                                      defaultValue={b.caption ?? ""}
-                                      maxLength={200}
-                                      placeholder={t("captionPlaceholder2")}
-                                      className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"
-                                    />
-                                  </div>
+                          <ul className="space-y-2">
+                            {blocks.map((b, i) => (
+                              <li key={i} className="rounded border border-slate-800 p-2">
+                                {/* ★ 모든 배열 필드는 **블록마다 정확히 하나씩** 나가야 한다 —
+                                    조건부로 빼면 getAll() 인덱스가 밀려 다른 블록의 값이 섞인다. */}
+                                <input type="hidden" name="bType" value={b.type} />
+                                <input type="hidden" name="bUrl" value={b.type === "img" ? b.url : ""} />
+                                <input type="hidden" name="bVideo" value={b.type === "video" ? b.ytVideoId : ""} />
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-[11px] font-semibold uppercase text-slate-500">
+                                    {b.type === "h2" ? t("blockH2") : b.type === "p" ? t("blockP") : b.type === "img" ? t("blockImg") : b.type === "ul" ? t("blockUl") : t("blockVideo")}
+                                  </span>
+                                  <select
+                                    name="bKeep"
+                                    defaultValue="keep"
+                                    className="rounded border border-slate-700 bg-slate-900 px-1.5 py-0.5 text-[11px] text-slate-300"
+                                  >
+                                    <option value="keep">{t("keep")}</option>
+                                    <option value="drop">{t("drop")}</option>
+                                  </select>
                                 </div>
-                              ) : (
-                                <>
-                                  {/* 배열 짝 맞추기 — img가 아닌 블록도 bAlt 자리를 채워야 인덱스가 밀리지 않는다 */}
-                                  <input type="hidden" name="bAlt" value="" />
-                                  <textarea
-                                    name="bText"
-                                    defaultValue={b.type === "ul" ? b.items.join(String.fromCharCode(10)) : b.type === "video" ? b.title : b.text}
-                                    rows={b.type === "h2" ? 1 : 3}
-                                    className="mt-1.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm leading-relaxed text-slate-200"
-                                  />
-                                </>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
 
-                        <p className="text-[11px] text-slate-500">{t("editHint", { min: 800 })}</p>
-                        <button className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900">
-                          {t("saveEdit")}
-                        </button>
-                      </form>
-                    </details>
+                                {b.type === "img" ? (
+                                  <div className="mt-1.5 flex gap-2">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={b.url} alt={b.alt} className="h-16 w-16 shrink-0 rounded object-cover" />
+                                    <div className="min-w-0 flex-1 space-y-1">
+                                      <input
+                                        name="bAlt"
+                                        defaultValue={b.alt}
+                                        maxLength={200}
+                                        placeholder={t("altPlaceholder")}
+                                        className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"
+                                      />
+                                      <input
+                                        name="bText"
+                                        defaultValue={b.caption ?? ""}
+                                        maxLength={200}
+                                        placeholder={t("captionPlaceholder2")}
+                                        className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"
+                                      />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    {/* 배열 짝 맞추기 — img가 아닌 블록도 bAlt 자리를 채워야 인덱스가 밀리지 않는다 */}
+                                    <input type="hidden" name="bAlt" value="" />
+                                    <textarea
+                                      name="bText"
+                                      defaultValue={b.type === "ul" ? b.items.join(String.fromCharCode(10)) : b.type === "video" ? b.title : b.text}
+                                      rows={b.type === "h2" ? 1 : 3}
+                                      className="mt-1.5 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-sm leading-relaxed text-slate-200"
+                                    />
+                                  </>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+
+                          <p className="text-[11px] text-slate-500">{t("editHint", { min: 800 })}</p>
+                          <button className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 transition-colors hover:bg-amber-400">
+                            {t("saveEdit")}
+                          </button>
+                        </form>
+                      </details>
+                    </div>
 
                     {a.rejectionReason && (
                       <p className="mt-3 rounded-lg bg-red-500/10 p-3 text-sm text-red-300">
@@ -322,11 +342,11 @@ export default async function MarketingSeoPage({
                       </p>
                     )}
 
-                    <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-slate-800 pt-4">
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-800 pt-3">
                       {a.status === SeoArticleStatus.PENDING_APPROVAL && (
                         <form action={approveArticle}>
                           <input type="hidden" name="id" value={a.id} />
-                          <button className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-400">
+                          <button className="rounded-lg bg-blue-500 px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-blue-400">
                             {t("approve")}
                           </button>
                         </form>
@@ -337,9 +357,9 @@ export default async function MarketingSeoPage({
                           <input
                             name="reason"
                             placeholder={t("rejectPlaceholder")}
-                            className="w-56 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600"
+                            className="w-52 rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm text-slate-200 placeholder:text-slate-600"
                           />
-                          <button className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300 transition-colors hover:border-red-500/60 hover:text-red-300">
+                          <button className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm font-semibold text-slate-300 transition-colors hover:border-red-500/60 hover:text-red-300">
                             {t("reject")}
                           </button>
                         </form>
@@ -348,7 +368,7 @@ export default async function MarketingSeoPage({
                         <form action={toggleArticleVisibility}>
                           <input type="hidden" name="id" value={a.id} />
                           <button
-                            className={`rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${
+                            className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition-colors ${
                               a.publicHidden
                                 ? "border-emerald-500/50 text-emerald-300 hover:bg-emerald-500/10"
                                 : "border-slate-700 text-slate-300 hover:border-slate-500"
@@ -363,7 +383,7 @@ export default async function MarketingSeoPage({
                           href={blogPaths.article(a.slug)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm font-semibold text-blue-400 hover:text-blue-300"
+                          className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm font-semibold text-blue-400 transition-colors hover:border-blue-500/60 hover:text-blue-300"
                         >
                           {t("openPublic")}
                         </a>
