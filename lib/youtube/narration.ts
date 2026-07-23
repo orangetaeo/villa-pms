@@ -376,7 +376,89 @@ export function normalizeScript(
     return ka - kb;
   });
 
-  return lines;
+  // ★ 마지막 관문: 절이 문장 전체를 덮게 맞춘다. 모델은 자연스러운 문장을 쓴 뒤 일부 절만
+  //   배정하는 일이 잦고(3회 중 2회 실측), 그대로 두면 자막이 문장을 빠뜨리고 컷 길이까지 왜곡된다.
+  //   컷 순서 정규화 **뒤에** 돌려야 한다 — 재구성은 확정된 배정 위에서 글자만 다시 나눈다.
+  return lines.map(reconcilePartsToText);
+}
+
+// ── ①-b 절 재구성 (프롬프트만 믿지 않는다) ──────────────────────────
+/** 비교용 정규화 — 공백·문장부호 차이는 무시하고 **내용이 같은지**만 본다. */
+function normForCompare(s: string): string {
+  return s.replace(/[\s.,'"·…!?~\-—]/g, "");
+}
+
+/**
+ * 문장의 절(parts)이 문장 전체(text)를 덮는지 확인하고, 안 덮으면 **text 기준으로 다시 나눈다.**
+ *
+ * ★ 왜 필요한가(2026-07-23 실측): Gemini는 프롬프트에 "parts를 이어 붙이면 정확히 text"라고
+ *   못박아도 **3회 중 2회** 자연스러운 문장을 쓴 뒤 일부 절만 컷에 배정한다. 예:
+ *     text  : "엠빌라는 네 개의 침실과 단독 수영장, 그리고 해변이 바로 앞에 펼쳐진답니다."
+ *     parts : [컷1] "엠빌라는 네 개의 침실과"                ← 뒤쪽이 통째로 빠짐
+ *   이 상태로 렌더하면 두 가지가 동시에 깨진다:
+ *     ⑴ **자막 누락** — TTS는 text 전체를 읽는데 화면엔 앞부분만 뜬다.
+ *     ⑵ **타이밍 왜곡** — 컷 길이를 `문장길이 × (절글자수 / 절글자수합)`으로 나누므로,
+ *        절 합이 문장보다 짧으면 각 절에 실제보다 긴 시간이 배정돼 컷이 부풀고 자막이 남는다.
+ *
+ * 원칙: **음성(text)이 진실이고 자막은 그 text를 컷 수만큼 나눈 것**이어야 한다.
+ *   그래서 컷 배정(순서·clipIndexes)은 모델 것을 존중하고, **글자만** 다시 배분한다.
+ *   배분 비율은 모델이 준 절 길이 비율을 따른다(어디서 끊고 싶어 했는지는 존중).
+ */
+export function reconcilePartsToText(line: NarrationLine): NarrationLine {
+  const text = line.text.trim();
+  if (!text || line.parts.length === 0) return line;
+  const joined = line.parts.map((p) => p.text).join(" ");
+  if (normForCompare(joined) === normForCompare(text)) return line; // 이미 정합
+
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return line;
+
+  // 컷 배정 그룹. 어절 수보다 그룹이 많으면 뒤쪽 그룹을 마지막에 합친다
+  // (자막 없는 빈 절을 만들면 그 컷이 나레이션 없이 지나간다).
+  let groups = line.parts.map((p) => [...p.clipIndexes]);
+  if (words.length < groups.length) {
+    const keep = Math.max(1, words.length);
+    const merged = groups.slice(0, keep).map((g) => [...g]);
+    for (let i = keep; i < groups.length; i++) merged[keep - 1].push(...groups[i]);
+    groups = merged;
+  }
+
+  const n = groups.length;
+  if (n === 1) {
+    return { text, parts: [{ clipIndexes: dedupeSorted(groups[0]), text }] };
+  }
+
+  // 모델이 준 절 길이 비율대로 어절을 나눈다(각 절 최소 1어절).
+  const weights = line.parts.slice(0, n).map((p) => Math.max(1, p.text.trim().length));
+  const totalW = weights.reduce((a, b) => a + b, 0);
+  const counts = weights.map((w) => Math.max(1, Math.round((w / totalW) * words.length)));
+
+  // 합을 어절 수에 정확히 맞춘다.
+  let diff = words.length - counts.reduce((a, b) => a + b, 0);
+  for (let i = 0; diff !== 0; i = (i + 1) % n) {
+    if (diff > 0) {
+      counts[i]++;
+      diff--;
+    } else if (counts[i] > 1) {
+      counts[i]--;
+      diff++;
+    } else if (counts.every((c) => c === 1)) {
+      break; // 더 줄일 수 없다(마지막 절이 나머지를 흡수한다)
+    }
+  }
+
+  const parts: NarrationPart[] = [];
+  let k = 0;
+  for (let i = 0; i < n; i++) {
+    const take = i === n - 1 ? words.length - k : Math.min(counts[i], words.length - k - (n - 1 - i));
+    parts.push({ clipIndexes: dedupeSorted(groups[i]), text: words.slice(k, k + take).join(" ") });
+    k += take;
+  }
+  return { text, parts: parts.filter((p) => p.text.length > 0) };
+}
+
+function dedupeSorted(arr: number[]): number[] {
+  return [...new Set(arr)].sort((a, b) => a - b);
 }
 
 // ── ② 검증 (순수함수 — 프롬프트만 믿지 않는다) ──────────────────────
