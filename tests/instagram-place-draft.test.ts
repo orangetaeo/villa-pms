@@ -203,3 +203,16 @@ describe("유튜브 쇼츠 소재 (S2)", () => {
     expect(fallbackPlaceShortDescription(src())).toContain("반세오");
   });
 });
+
+describe("취소·실패분은 슬롯을 반환한다 (실측 교훈 2026-07-23)", () => {
+  it("★ 취소한 포스트·쇼츠는 '이미 있음'으로 세지 않는다 — 재생성이 0건이 됐던 원인", async () => {
+    const { db, calls } = makeDb([], []);
+    await selectPlaceArticlesForIg(1, db, { excludeShorts: true });
+    const w = calls.articleWhere as {
+      igPosts?: { none: { status: { notIn: string[] } } };
+      ytShorts?: { none: { status: { notIn: string[] } } };
+    };
+    expect(w.igPosts?.none.status.notIn).toEqual(["CANCELLED", "FAILED"]);
+    expect(w.ytShorts?.none.status.notIn).toEqual(["CANCELLED", "FAILED"]);
+  });
+});

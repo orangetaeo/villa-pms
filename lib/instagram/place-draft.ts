@@ -7,7 +7,7 @@
 // ★ 한 글당 포스트 1개(seoArticleId로 판정) — 같은 가게 도배 방지(빌라당 상한과 같은 취지).
 // ★ 캡션 사실 범위 = 장소 글과 동일: 인상·메모·사진 설명·동네까지. **가격·영업시간·전화·주소 금지**
 //   (바뀌는 정보라 쓰는 순간 틀린 글이 되고, 우리는 갱신 수단이 없다).
-import type { Prisma } from "@prisma/client";
+import type { Prisma, IgPostStatus, YtShortStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
 import type { SlideInput } from "@/lib/instagram/render";
@@ -63,6 +63,10 @@ const PLACE_WITH_PHOTOS = {
  *   조건: **발행된** 장소 글 + 아직 이 글로 만든 포스트 없음 + 사진 4장 이상.
  * ★ 발행분만 쓰는 이유: 사람이 승인·발행까지 통과시킨 글이라야 문장·사실이 검증된 것이다.
  */
+/** 살아있지 않은 상태 — 이 상태의 콘텐츠는 슬롯을 차지하지 않는다. */
+const DEAD_IG: IgPostStatus[] = ["CANCELLED", "FAILED"];
+const DEAD_YT: YtShortStatus[] = ["CANCELLED", "FAILED"];
+
 export interface PlaceSourceFilter {
   /** 유튜브 쇼츠가 이미 있는 글을 제외한다(쇼츠 배치용) */
   excludeShorts?: boolean;
@@ -82,8 +86,10 @@ export async function selectPlaceArticlesForIg(
       topicKey: { startsWith: "place-" },
       status: "PUBLISHED",
       // 플랫폼별로 1개씩 — 인스타에 이미 나갔어도 쇼츠는 따로 만든다(같은 소재, 다른 형식).
-      ...(filter.ignoreIgPosts ? {} : { igPosts: { none: {} } }),
-      ...(filter.excludeShorts ? { ytShorts: { none: {} } } : {}),
+      // ★ 취소·실패분은 **슬롯을 반환한다** — 빌라당 상한 규칙과 같은 원칙(marketing-per-villa-content-cap).
+      //   실측 2026-07-23: 취소한 쇼츠가 "이미 있음"으로 세어져 재생성이 0건이 됐다.
+      ...(filter.ignoreIgPosts ? {} : { igPosts: { none: { status: { notIn: DEAD_IG } } } }),
+      ...(filter.excludeShorts ? { ytShorts: { none: { status: { notIn: DEAD_YT } } } } : {}),
     },
     orderBy: { publishedAt: "desc" },
     take: limit * 3, // 사진 미달로 걸러질 수 있어 여유 있게
