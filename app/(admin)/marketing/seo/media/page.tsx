@@ -13,7 +13,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
 import { userCanSeeMarketing } from "@/lib/marketing-access";
-import { ARTICLE_TOPICS } from "@/lib/seo/article-draft";
+import { MEDIA_TOPIC_GROUPS } from "@/lib/seo/media";
 import MediaUploader from "./media-uploader";
 import { createMedia, updateMedia, toggleMediaActive } from "./actions";
 
@@ -65,7 +65,8 @@ export default async function SeoMediaPage({
     },
   });
 
-  const topicLabel = (key: string) => ARTICLE_TOPICS.find((x) => x.key === key)?.title ?? key;
+  const topicLabel = (key: string) =>
+    MEDIA_TOPIC_GROUPS.flatMap((g) => g.options).find((x) => x.key === key)?.title ?? key;
 
   return (
     <div className="p-6 text-slate-100">
@@ -130,17 +131,22 @@ export default async function SeoMediaPage({
         <fieldset>
           <legend className="text-sm font-medium text-slate-300">{t("topicsLabel")}</legend>
           <p className="text-xs text-slate-500">{t("topicsHint")}</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {ARTICLE_TOPICS.map((topic) => (
-              <label
-                key={topic.key}
-                className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-slate-300"
-              >
-                <input type="checkbox" name="topicKeys" value={topic.key} className="accent-blue-500" />
-                {topic.title}
-              </label>
-            ))}
-          </div>
+          {MEDIA_TOPIC_GROUPS.map((group) => (
+            <div key={group.label} className="mt-3">
+              <p className="text-xs font-semibold text-slate-400">{t(`group.${group.label}`)}</p>
+              <div className="mt-1.5 flex flex-wrap gap-2">
+                {group.options.map((topic) => (
+                  <label
+                    key={topic.key}
+                    className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-slate-300"
+                  >
+                    <input type="checkbox" name="topicKeys" value={topic.key} className="accent-blue-500" />
+                    {topic.title}
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
         </fieldset>
 
         <button className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white">{t("save")}</button>
@@ -197,7 +203,7 @@ export default async function SeoMediaPage({
                     className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200"
                   />
                   <div className="flex flex-wrap gap-1">
-                    {ARTICLE_TOPICS.map((topic) => (
+                    {MEDIA_TOPIC_GROUPS.flatMap((g) => g.options).map((topic) => (
                       <label
                         key={topic.key}
                         className="flex items-center gap-1 rounded-full border border-slate-700 px-2 py-1 text-[11px] text-slate-300"

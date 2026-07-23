@@ -6667,6 +6667,10 @@
     "creditPlaceholder": "VD: Tự chụp 2026-07",
     "topicsLabel": "Chủ đề sử dụng",
     "topicsHint": "Không chọn gì thì ảnh dùng chung cho mọi chủ đề.",
+    "group": {
+      "guide": "Bài hướng dẫn du lịch",
+      "service": "Bài dịch vụ thêm (massage, vé, BBQ…)"
+    },
     "save": "Lưu",
     "edit": "Sửa",
     "empty": "Chưa có ảnh nào. Hãy thêm ở phía trên.",

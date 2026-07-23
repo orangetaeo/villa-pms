@@ -30,6 +30,11 @@ import {
   interleaveImages,
 } from "@/lib/seo/article-draft";
 import { pickMediaForTopic, toPickedImages, markMediaUsed, MAX_MEDIA_PER_ARTICLE } from "@/lib/seo/media";
+import {
+  getServiceCandidates,
+  generateServiceArticleBody,
+  pickServicePhotos,
+} from "@/lib/seo/service-article";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -126,7 +131,65 @@ async function handle(req: Request) {
       continue;
     }
 
-    // ── ② 가이드 글 — ★본문 이미지 없음(주제와 무관한 사진을 끼우지 않는다) ──
+    // ── ② 부가서비스 글 — 판매 중인 서비스(마사지·입장권·BBQ …) 타입당 1편 ──
+    //   빌라 글 다음 순위인 이유: 팔 상품이 있는데 검색에 걸릴 페이지가 없으면 그게 가장 큰 공백이다.
+    //   ★ 카탈로그가 비어 있으면 이 단계는 통째로 no-op — 항목을 등록하는 순간부터 대상이 된다.
+    //   ★ 금액은 재료 조회 단계에서부터 배제된다(SERVICE_ITEM_SELECT에 price·cost 없음, 원칙 2).
+    const svc = (await getServiceCandidates(usedKeys))[0];
+    if (svc) {
+      const key = svc.topic.key;
+      usedKeys.add(key);
+      const sDraft = await generateServiceArticleBody(svc.topic, svc.facts);
+      if (!sDraft) {
+        skipped.push(`${key}: 생성 실패`);
+        continue;
+      }
+      if (!isArticlePublishable(sDraft.blocks)) {
+        skipped.push(`${key}: 분량·구조 하한 미달`);
+        continue;
+      }
+      // 사진: 상품 실사진(카탈로그) 우선, 모자라면 자료 사진 라이브러리에서 주제 태그로 채운다.
+      const itemPhotos = pickServicePhotos(svc.topic, svc.items, 3);
+      const libMedia = await pickMediaForTopic(key, Math.max(0, MAX_MEDIA_PER_ARTICLE - itemPhotos.length));
+      const sPhotos = [...itemPhotos, ...toPickedImages(libMedia)];
+      const sCover = sPhotos[0]?.url ?? BRAND_FALLBACK_IMAGE;
+      const sBody = interleaveImages(sDraft.blocks, sPhotos.slice(1));
+
+      const sRow = await prisma.seoArticle.create({
+        data: {
+          slug: buildArticleSlug(key),
+          title: svc.topic.title,
+          summary: buildSummary(sDraft.blocks),
+          bodyJson: sBody,
+          topicKey: key,
+          coverPhotoUrl: sCover,
+          status: SeoArticleStatus.PENDING_APPROVAL,
+          flaggedTerms: sDraft.flaggedTerms.length > 0 ? sDraft.flaggedTerms : undefined,
+          createdBy: CREATED_BY,
+        },
+        select: { id: true, slug: true, title: true },
+      });
+      created.push(sRow);
+      await markMediaUsed(libMedia.map((m) => m.id));
+      await writeAuditLog({
+        userId: null,
+        action: "CREATE",
+        entity: "SeoArticle",
+        entityId: sRow.id,
+        changes: {
+          kind: { new: "service" },
+          serviceType: { new: svc.topic.type },
+          topicKey: { new: key },
+          slug: { new: sRow.slug },
+          status: { new: "PENDING_APPROVAL" },
+          photos: { new: sPhotos.length },
+          flaggedTerms: { new: sDraft.flaggedTerms },
+        },
+      });
+      continue;
+    }
+
+    // ── ③ 가이드 글 — 사진은 자료 사진 라이브러리에서만 온다 ──
     const topic = pickTopic(usedKeys);
     if (!topic) {
       skipped.push("주제 풀 소진");
