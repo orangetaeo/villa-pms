@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
 import type { SlideInput } from "@/lib/instagram/render";
 import { composeHashtags, findBannedTerms } from "@/lib/instagram/caption";
+import { loadCopyGuideRaw, copyGuidePromptBlock } from "@/lib/instagram/content-guide";
 import { placeCategory, orderSinglePlacePhotos } from "@/lib/seo/place-article";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
@@ -118,23 +119,110 @@ export async function selectPlaceArticlesForIg(
 }
 
 /**
- * 릴스·쇼츠 화면 문구 — ★사진 설명(alt)을 그대로 쓰면 "반세오", "주방"처럼 **밋밋하다**(테오 지적 2026-07-23).
- * 역할(kind)에 맞는 짧은 수식을 붙여 화면 문구로 만든다. **사실을 더하지 않는다** — 어순·조사만 바꾼다.
+ * 릴스·쇼츠 화면 자막 — ★역할별 고정 문구를 쓰면 음식 컷 3장이 **전부 같은 문장**이 된다
+ * (실측 2026-07-23: "○○, 이걸 먹으러 갑니다" 3연속 → 테오 지적). 컷마다 달라야 한다.
+ *
+ * 규칙의 정본은 **카피가이드 §5-6**(docs/marketing/copy-guide.md)이다 — 코드가 규칙을 새로 만들지 않는다.
+ * 여기서는 ① Gemini에 카피가이드를 주입해 컷별 자막을 받고 ② 실패하면 **회전 폴백**으로 반복만은 막는다.
  */
-export function reelCaptionFor(photo: PlacePhoto, placeName: string): string {
+const FALLBACK_CAPTIONS: Record<string, string[]> = {
+  exterior: ["여기가 그 집", "간판 보고 들어가면 됨", "골목에서 바로 보임"],
+  interior: ["안은 이런 느낌", "자리는 이 정도", "주방이 열려 있음"],
+  menu: ["메뉴는 이 중에서", "사진 보고 고르면 됨", "종류는 넉넉"],
+  food: ["이건 꼭", "한 접시 더", "이 맛에 옵니다"],
+  etc: ["기록해 둡니다", "이런 것도 있음", "다음에 또"],
+};
+
+/** 폴백 자막 — 같은 역할이 여러 번 나와도 **문장이 겹치지 않게** 회전시킨다. */
+export function fallbackReelCaption(photo: PlacePhoto, seenOfKind: number): string {
+  const kind = photo.kind && FALLBACK_CAPTIONS[photo.kind] ? photo.kind : "etc";
+  const bank = FALLBACK_CAPTIONS[kind];
   const alt = photo.alt.trim();
-  if (!alt) return placeName;
-  switch (photo.kind) {
-    case "exterior":
-      return `여기예요 · ${placeName}`;
-    case "interior":
-      return `안은 이런 분위기`;
-    case "menu":
-      return `메뉴는 이렇게`;
-    case "food":
-      return `${alt}, 이걸 먹으러 갑니다`;
-    default:
-      return alt;
+  // 음식 컷은 사람이 붙인 이름이 곧 정보다 — 이름 + 짧은 각도로 조합(이름이 다르면 문장도 달라진다).
+  if (kind === "food" && alt) return `${alt} ${bank[seenOfKind % bank.length]}`.slice(0, 16);
+  return bank[seenOfKind % bank.length];
+}
+
+export function buildFallbackCaptions(photos: PlacePhoto[]): string[] {
+  const counts = new Map<string, number>();
+  return photos.map((p) => {
+    const k = p.kind ?? "etc";
+    const n = counts.get(k) ?? 0;
+    counts.set(k, n + 1);
+    return fallbackReelCaption(p, n);
+  });
+}
+
+export function buildReelCaptionPrompt(src: PlaceIgSource, guide: string | null): string {
+  const cuts = src.photos.map((p, i) => `${i + 1}) ${p.alt || "(설명 없음)"} — 역할: ${p.kind ?? "미지정"}`);
+  return [
+    "너는 푸꾸옥 빌라 운영사의 인스타 릴스·유튜브 쇼츠 화면 자막을 쓰는 카피라이터다.",
+    "",
+    guide ? "[카피가이드 — 이 규칙을 따른다]" + String.fromCharCode(10) + guide.slice(0, 6000) : "",
+    "",
+    `가게: ${src.placeName}${src.area ? ` (${src.area})` : ""}`,
+    `직접 가본 인상: ${src.oneLiner}`,
+    src.tips ? `메모: ${src.tips}` : "",
+    "",
+    "컷 목록(순서대로):",
+    ...cuts,
+    "",
+    "요구:",
+    "- 컷 수만큼 자막을 쓴다. **각 12자 이내**, 마침표 없음",
+    "- ★ 컷마다 문장이 달라야 한다. 같은 문형을 반복하지 마라",
+    "- 위 인상·컷 설명 밖의 사실(맛·재료·조리법·인기)을 만들지 마라",
+    "- 가격·영업시간·전화번호 금지",
+    "",
+    `출력: 줄바꿈으로 구분한 자막 ${src.photos.length}줄만. 번호·따옴표·설명 없이.`,
+  ]
+    .filter(Boolean)
+    .join(String.fromCharCode(10));
+}
+
+/** 컷별 자막 생성 — 실패하면 회전 폴백(반복 없음)으로 떨어진다. */
+export async function generateReelCaptions(
+  src: PlaceIgSource,
+  fetchFn: typeof fetch = fetch
+): Promise<string[]> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const fallback = buildFallbackCaptions(src.photos);
+  if (!apiKey) return fallback;
+  try {
+    const res = await fetchFn(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: buildReelCaptionPrompt(src, loadCopyGuideRaw()) }] }],
+          generationConfig: { temperature: 0.95, thinkingConfig: { thinkingBudget: 0 } },
+        }),
+      }
+    );
+    if (!res.ok) return fallback;
+    const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+    const lines = (data.candidates?.[0]?.content?.parts?.[0]?.text ?? "")
+      .split(String.fromCharCode(10))
+      .map((l) => l.replace(/^[0-9]+[).\s]*/, "").replace(/^["'\s]+|["'\s]+$/g, "").trim())
+      .filter((l) => l.length > 0 && l.length <= 20);
+
+    // 모자라면 폴백으로 채우고, 중복 줄은 폴백으로 대체한다(반복 방지가 이 함수의 존재 이유다).
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (let i = 0; i < src.photos.length; i++) {
+      const cand = lines[i];
+      if (cand && !seen.has(cand)) {
+        out.push(cand);
+        seen.add(cand);
+      } else {
+        out.push(fallback[i]);
+        seen.add(fallback[i]);
+      }
+    }
+    return out;
+  } catch {
+    return fallback;
   }
 }
 
@@ -153,7 +241,7 @@ const CTA = {
  * 장소 캐러셀 슬라이드 — 커버 + 사진들 + CTA.
  * ★ 빌라 전용 `info` 슬라이드(침실 수·해변 거리)는 쓰지 않는다 — 가게에는 해당 사실이 없다.
  */
-export function buildPlaceSlides(src: PlaceIgSource): SlideInput[] {
+export function buildPlaceSlides(src: PlaceIgSource, captions?: string[]): SlideInput[] {
   // ★ 워터마크 파생본이 있으면 그쪽을 쓴다 — 인스타·쇼츠로 나가는 이미지도 도용 방지 대상이다.
   const photos = src.photos
     .slice(0, MAX_PLACE_SLIDE_PHOTOS)
@@ -171,7 +259,8 @@ export function buildPlaceSlides(src: PlaceIgSource): SlideInput[] {
       srcPhotoId: photos[i].id,
       srcPhotoUrl: photos[i].url,
       // 릴스로 확장할 때 쓰일 사진별 캡션 — 사람이 붙인 설명 그대로(짓지 않는다)
-      reelCaption: reelCaptionFor(photos[i], src.placeName),
+      // 자막은 카피가이드 기반 생성값 → 없으면 회전 폴백(반복 방지). 캐러셀은 이 값을 무시한다.
+      reelCaption: captions?.[i] ?? fallbackReelCaption(photos[i], i),
     });
   }
   slides.push({ templateId: "cta", data: CTA });
@@ -181,6 +270,7 @@ export function buildPlaceSlides(src: PlaceIgSource): SlideInput[] {
 export function buildPlaceCaptionPrompt(src: PlaceIgSource): string {
   const photoNames = src.photos.map((p) => p.alt).filter(Boolean).slice(0, 8);
   return [
+    copyGuidePromptBlock(),
     "너는 푸꾸옥에서 빌라를 운영하는 사람의 인스타그램 계정을 대신 쓰는 에디터다.",
     "운영자가 직접 다녀온 가게를 소개하는 **인스타 캡션 본문**을 쓴다. 해시태그는 쓰지 마라(시스템이 붙인다).",
     "",

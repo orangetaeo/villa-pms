@@ -11,8 +11,14 @@ import type { DbClient } from "@/lib/availability";
 import { writeAuditLog } from "@/lib/audit-log";
 import { renderAndBuildReel, YOUTUBE_REEL_CTA } from "@/lib/instagram/reels";
 import { findBannedTerms } from "@/lib/instagram/caption";
+import { copyGuidePromptBlock } from "@/lib/instagram/content-guide";
 import { YT_TITLE_MAX, YT_KAKAO_LINE } from "@/lib/youtube/meta";
-import { buildPlaceSlides, selectPlaceArticlesForIg, type PlaceIgSource } from "@/lib/instagram/place-draft";
+import {
+  buildPlaceSlides,
+  selectPlaceArticlesForIg,
+  generateReelCaptions,
+  type PlaceIgSource,
+} from "@/lib/instagram/place-draft";
 import { placeCategory } from "@/lib/seo/place-article";
 
 const CREATED_BY = "cron:instagram-draft";
@@ -51,6 +57,7 @@ export function fallbackPlaceShortDescription(src: PlaceIgSource): string {
 export function buildPlaceShortPrompt(src: PlaceIgSource): string {
   const photoNames = src.photos.map((p) => p.alt).filter(Boolean).slice(0, 8);
   return [
+    copyGuidePromptBlock(),
     "너는 푸꾸옥에서 빌라를 운영하는 사람의 유튜브 채널을 대신 쓰는 에디터다.",
     "직접 다녀온 가게를 소개하는 **쇼츠 설명문**을 쓴다. 해시태그는 쓰지 마라(시스템이 붙인다).",
     "",
@@ -136,7 +143,9 @@ export async function runPlaceShortsBatch(
     const scheduledAt = slots[i % slots.length];
     try {
       const meta = await generatePlaceShortMeta(src);
-      const slides = buildPlaceSlides(src);
+      // ★ 화면 자막은 카피가이드 기반으로 컷마다 새로 쓴다(고정 문구 반복 금지 — 테오 지적 2026-07-23)
+      const captions = await generateReelCaptions(src);
+      const slides = buildPlaceSlides(src, captions);
       const reel = await renderAndBuildReel(slides, `yt-place-${src.articleSlug}-${scheduledAt.toISOString().slice(0, 10)}`, {
         audio: "bundled",
         ctaOverride: YOUTUBE_REEL_CTA,

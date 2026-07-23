@@ -24,6 +24,7 @@ import {
   selectPlaceArticlesForIg,
   buildPlaceSlides,
   generatePlaceCaption,
+  generateReelCaptions,
 } from "@/lib/instagram/place-draft";
 import { renderAndBuildReel } from "@/lib/instagram/reels";
 import { getIgPostsPerVilla } from "@/lib/instagram/settings";
@@ -153,7 +154,9 @@ async function handle(req: Request) {
       const src = placeSources[i];
       const scheduledAt = slots[(created.length + i) % slots.length];
       try {
-        const slides = buildPlaceSlides(src);
+        // 릴스로 나갈 수 있으므로 화면 자막을 먼저 만든다(캐러셀은 이 값을 무시한다).
+        const captions = await generateReelCaptions(src);
+        const slides = buildPlaceSlides(src, captions);
         const caption = await generatePlaceCaption(src);
         const baseName = `place-${src.articleSlug}-${scheduledAt.toISOString().slice(0, 10)}`;
 

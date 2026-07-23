@@ -46,9 +46,19 @@ export function buildWatermarkSvg(width: number, height: number, text = TEXT, op
   );
 }
 
-/** 버퍼에 워터마크를 굽어 JPEG 버퍼로 반환. 실패 시 throw — 호출부가 원본 URL로 폴백한다. */
+/**
+ * 버퍼에 **선명 보정 + 워터마크**를 굽어 JPEG로 반환. 실패 시 throw — 호출부가 원본 URL로 폴백한다.
+ *
+ * ★ 보정을 여기서 하는 이유: 블로그·인스타·쇼츠가 전부 이 파생본을 쓰므로 **한 곳만 고치면 전부 반영**된다.
+ * ★ 강도는 약하게 — 휴대폰 사진을 과보정하면 음식이 인공적으로 보인다(테오 지시: "조금 선명하게").
+ *   샤픈(언샵마스크) + 아주 약한 채도·명암만. 색상 자체는 건드리지 않는다.
+ */
 export async function watermarkBuffer(input: Buffer): Promise<Buffer> {
-  const img = sharp(input, { failOn: "none" });
+  const img = sharp(input, { failOn: "none" })
+    .rotate() // EXIF 회전 반영 — 보정 전에 방향부터 바로잡는다
+    .sharpen({ sigma: 1, m1: 0.6, m2: 2 })
+    .modulate({ saturation: 1.06, brightness: 1.01 })
+    .linear(1.04, -4); // 명암 아주 약간 — 흐린 실내 사진이 또렷해진다
   const meta = await img.metadata();
   const width = meta.width ?? 1200;
   const height = meta.height ?? 800;
