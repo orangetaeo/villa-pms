@@ -31,7 +31,7 @@ import {
 } from "@/lib/public-i18n";
 import type { BedTypeKey } from "@/lib/bedding";
 import type { FeatureCategoryKey } from "@/lib/features";
-import { formatVillaName } from "@/lib/villa-name";
+import { publicVillaCode } from "@/lib/villa-name";
 
 /**
  * /p/[token] — 공개 제안 페이지 (비로그인, 5개 언어 #5) — Stitch c1/c1-vnd 변환 (SPEC F3 흐름 2)
@@ -107,8 +107,9 @@ export default async function ProposalPage({
             // ⚠ select 화이트리스트 — wifiSsid·wifiPassword 절대 미포함 (ADR-0011 §4.3).
             // findUnique({where})로 전체 컬럼 로드 후 직렬화 금지 — 신규 공개 필드만 명시 추가.
             select: {
-              name: true,
-              nameVi: true,
+              // ★ 실명(name·nameVi)은 제안 링크에 싣지 않는다 — 코드명(publicVillaCode)만 노출해
+              //   이름 검색으로 공급자 특정 → 우회예약을 막는다(원칙1). id로 코드를 파생한다.
+              id: true,
               bedrooms: true,
               maxGuests: true,
               hasPool: true,
@@ -264,11 +265,11 @@ export default async function ProposalPage({
                 key={item.id}
                 className="bg-white rounded-xl overflow-hidden shadow-sm border border-neutral-100 group"
               >
-                <PhotoCarousel urls={item.villa.photos.map((p) => p.url)} alt={item.villa.name} lang={lang} />
+                <PhotoCarousel urls={item.villa.photos.map((p) => p.url)} alt={publicVillaCode(item.villa.id)} lang={lang} />
                 <div className="p-5 space-y-4">
                   <div>
                     <h3 className="text-xl font-bold mb-2">
-                      {formatVillaName({ name: item.villa.name, nameVi: item.villa.nameVi })}
+                      {publicVillaCode(item.villa.id)}
                     </h3>
                     <div className="flex flex-wrap gap-2">
                       <span className="text-[11px] font-medium bg-neutral-100 px-2.5 py-1 rounded-md text-neutral-600 flex items-center gap-1">
@@ -304,7 +305,9 @@ export default async function ProposalPage({
                   {item.villa.youtubeShorts[0]?.ytVideoId && (
                     <VillaVideo
                       videoId={item.villa.youtubeShorts[0].ytVideoId}
-                      title={item.villa.youtubeShorts[0].title}
+                      // 접근성 title/aria에도 실명 대신 코드명 — 쇼츠 title엔 빌라 실명이 들어있다.
+                      // (영상 화면 안 유튜브 자체 오버레이 제목은 임베드로 못 가림 — 잔여 유출, PROGRESS 기록)
+                      title={publicVillaCode(item.villa.id)}
                       lang={lang}
                     />
                   )}

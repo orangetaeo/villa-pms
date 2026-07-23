@@ -23,7 +23,7 @@ import {
   resolvePublicLang,
   formatPublicDateShort,
 } from "@/lib/public-i18n";
-import { formatVillaName } from "@/lib/villa-name";
+import { publicVillaCode } from "@/lib/villa-name";
 
 /** /p/[token]/book/[itemId] — 가예약 입력 (Stitch c3 상태1 변환, 비로그인, 5개 언어 #5) */
 
@@ -69,8 +69,8 @@ export default async function BookingRequestPage({
       proposal: { select: { token: true, status: true, expiresAt: true, saleCurrency: true } },
       villa: {
         select: {
-          name: true,
-          nameVi: true,
+          // 실명 대신 코드명(publicVillaCode) — 제안 플로우(비로그인)는 익명 코드만 노출(원칙1)
+          id: true,
           maxGuests: true,
           photos: { orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
         },
@@ -137,7 +137,7 @@ export default async function BookingRequestPage({
               <div className="relative w-full h-48">
                 <Image
                   src={photoUrl}
-                  alt={item.villa.name}
+                  alt={publicVillaCode(item.villa.id)}
                   fill
                   sizes="(max-width: 448px) 100vw, 448px"
                   className="object-cover"
@@ -151,7 +151,7 @@ export default async function BookingRequestPage({
             )}
             <div className="p-4 space-y-2">
               <h3 className="font-bold text-lg">
-                {formatVillaName({ name: item.villa.name, nameVi: item.villa.nameVi })}
+                {publicVillaCode(item.villa.id)}
               </h3>
               <div className="flex items-center text-slate-500 text-sm">
                 <span className="material-symbols-outlined text-sm mr-1">calendar_today</span>
