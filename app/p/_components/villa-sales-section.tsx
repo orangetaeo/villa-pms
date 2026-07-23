@@ -149,27 +149,22 @@ export function VillaSalesSection({
         <section className="rounded-xl bg-neutral-50 border border-neutral-100 overflow-hidden">
           {villa.googleMapUrl && (
             <>
-              {/* 지도 임베드 — 좌표 추출 가능 시에만 렌더(불가하면 자동으로 아래 링크 배너만) */}
+              {/* 지도 임베드 — 대략 위치 모드(approximate): 비로그인 열람자에게 건물 단위 핀을 주면
+                  공급자 특정 → 우회예약 위험(원칙1). 좌표를 뭉개고 줌을 낮춰 "이 동네"까지만 보여준다.
+                  ★ 정확 좌표로 나가던 "구글지도에서 열기" 외부 링크는 제거했다(정확 위치 유출 경로).
+                  좌표 추출 가능 시에만 렌더(불가하면 아래 캡션만). */}
               <MapEmbed
                 googleMapUrl={villa.googleMapUrl}
                 title={t.mapView}
+                approximate
                 className="relative w-full overflow-hidden aspect-video bg-teal-600/5"
               />
-              <a
-                className="block relative h-20 group bg-teal-600/5"
-                href={villa.googleMapUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <span className="absolute top-2 right-2 bg-white/95 text-teal-700 text-[11px] font-bold px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[14px]">map</span>{t.mapView}
+              <div className="flex items-start gap-1.5 bg-teal-600/5 px-3 py-2.5 text-[11px] leading-relaxed text-neutral-500">
+                <span className="material-symbols-outlined text-[14px] text-teal-600 shrink-0 mt-px">
+                  info
                 </span>
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-teal-600">
-                  <span className="material-symbols-outlined text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    location_on
-                  </span>
-                </div>
-              </a>
+                <span>{t.mapApprox}</span>
+              </div>
             </>
           )}
           {(distance || villa.areaSqm != null || villa.floors != null) && (

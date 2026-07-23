@@ -169,6 +169,7 @@ export interface PublicLabels {
     bedroomCount: (n: number) => string;
     extraBed: string;
     mapView: string;
+    mapApprox: string; // 대략 위치 캡션 — 정확 위치는 예약 확정 후 안내
     beach: string;
     area: string;
     floors: string;
@@ -360,6 +361,7 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       bedroomCount: (n) => `침실 ${n}개`,
       extraBed: "엑스트라베드 추가 가능",
       mapView: "지도 보기",
+      mapApprox: "대략적 위치 · 정확한 위치는 예약 확정 후 안내해 드립니다",
       beach: "해변까지",
       area: "전용면적",
       floors: "층수",
@@ -537,6 +539,7 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       bedroomCount: (n) => `${n} bedroom${n === 1 ? "" : "s"}`,
       extraBed: "Extra bed available",
       mapView: "View map",
+      mapApprox: "Approximate area · exact location shared after your booking is confirmed",
       beach: "To beach",
       area: "Area",
       floors: "Floors",
@@ -714,6 +717,7 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       bedroomCount: (n) => `${n} спальни`,
       extraBed: "Доступна доп. кровать",
       mapView: "На карте",
+      mapApprox: "Примерный район · точное местоположение сообщим после подтверждения брони",
       beach: "До пляжа",
       area: "Площадь",
       floors: "Этажи",
@@ -891,6 +895,7 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       bedroomCount: (n) => `${n}间卧室`,
       extraBed: "可加床",
       mapView: "查看地图",
+      mapApprox: "大致位置 · 确切位置将在预订确认后告知",
       beach: "距海滩",
       area: "面积",
       floors: "楼层",
@@ -1068,6 +1073,7 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       bedroomCount: (n) => `${n} phòng ngủ`,
       extraBed: "Có thể thêm giường phụ",
       mapView: "Xem bản đồ",
+      mapApprox: "Vị trí gần đúng · địa chỉ chính xác sẽ được thông báo sau khi xác nhận đặt phòng",
       beach: "Tới biển",
       area: "Diện tích",
       floors: "Số tầng",
