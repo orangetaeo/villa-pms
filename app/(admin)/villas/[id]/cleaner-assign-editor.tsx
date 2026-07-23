@@ -55,7 +55,7 @@ export default function CleanerAssignEditor({
   }
 
   return (
-    <CollapsibleCard title={t("title")} icon="assignment_ind" defaultOpen>
+    <CollapsibleCard title={t("title")} icon="assignment_ind">
       <p className="text-xs text-admin-muted mb-3">{t("desc")}</p>
 
       <select
