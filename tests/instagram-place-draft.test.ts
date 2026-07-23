@@ -9,7 +9,9 @@ import {
   selectPlaceArticlesForIg,
   buildPlaceSlides,
   buildPlaceHeadline,
-  reelCaptionFor,
+  fallbackReelCaption,
+  buildFallbackCaptions,
+  buildReelCaptionPrompt,
   buildPlaceCaptionPrompt,
   fallbackPlaceCaption,
   MIN_PLACE_PHOTOS_FOR_IG,
@@ -139,17 +141,26 @@ describe("슬라이드·헤드라인", () => {
     expect(buildPlaceHeadline(src())).toBe("메오키친\n푸꾸옥 즈엉동 맛집");
   });
 
-  it("★ 화면 문구는 사진 역할에 맞게 붙는다 — alt 그대로면 밋밋하다(테오 지적)", () => {
-    const slides = buildPlaceSlides(src());
-    const raw = slides.find((s) => s.templateId === "raw");
-    // 음식 사진: 사람이 쓴 이름은 유지하되 화면 문구로 다듬는다(사실을 더하지 않는다)
-    expect(raw && "reelCaption" in raw ? raw.reelCaption : null).toBe("반세오, 이걸 먹으러 갑니다");
+  it("★ 컷마다 자막이 달라야 한다 — 같은 문형 반복이 이탈 원인(테오 지적)", () => {
+    const photos = [
+      { id: "1", url: "u1", alt: "반세오", kind: "food" },
+      { id: "2", url: "u2", alt: "반미", kind: "food" },
+      { id: "3", url: "u3", alt: "꼬치", kind: "food" },
+    ];
+    const caps = buildFallbackCaptions(photos);
+    expect(new Set(caps).size).toBe(3); // 전부 다른 문장
+    expect(caps.every((c) => c.length <= 16)).toBe(true);
   });
 
-  it("역할별 문구가 사실을 더하지 않는다", () => {
-    expect(reelCaptionFor({ id: "1", url: "u", alt: "주방", kind: "interior" }, "메오키친")).toBe("안은 이런 분위기");
-    expect(reelCaptionFor({ id: "1", url: "u", alt: "메뉴1", kind: "menu" }, "메오키친")).toBe("메뉴는 이렇게");
-    expect(reelCaptionFor({ id: "1", url: "u", alt: "", kind: "food" }, "메오키친")).toBe("메오키친");
+  it("자막 프롬프트에 카피가이드가 주입된다", () => {
+    const p = buildReelCaptionPrompt(src(), "카피가이드 본문");
+    expect(p).toContain("카피가이드");
+    expect(p).toContain("컷마다 문장이 달라야 한다");
+    expect(p).toContain("12자 이내");
+  });
+
+  it("역할별 폴백은 사실을 더하지 않는다", () => {
+    expect(fallbackReelCaption({ id: "1", url: "u", alt: "주방", kind: "interior" }, 0)).toBe("안은 이런 느낌");
   });
 });
 

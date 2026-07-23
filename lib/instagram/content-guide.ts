@@ -182,6 +182,20 @@ export function getHeadlineBank(): HeadlineEntry[] {
 }
 
 /** 테스트/디버그 전용 — 캐시 리셋. */
+/**
+ * 프롬프트에 넣을 카피가이드 블록 (T-copy-everywhere).
+ * ★ **모든 생성 경로**(블로그 본문·인스타 캡션·릴스 자막·쇼츠 메타)가 이걸 통과해야 한다 —
+ *   테오 지시 2026-07-23: "영상·포스팅·릴스·블로그 만들 때 카피라이터 MD가 일을 하게 하라".
+ *   문서(docs/marketing/copy-guide.md)가 규칙의 정본이고, 코드는 규칙을 새로 만들지 않는다.
+ */
+export function copyGuidePromptBlock(maxChars = 6000): string {
+  const raw = loadCopyGuideRaw();
+  if (!raw) return "";
+  return ["[카피가이드 — 브랜드 보이스·금칙어. 아래 규칙을 따른다]", raw.slice(0, maxChars), ""].join(
+    String.fromCharCode(10)
+  );
+}
+
 export function __resetContentGuideCache(): void {
   _copyRaw = undefined;
   _hashRaw = undefined;

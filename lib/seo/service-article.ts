@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
 import { parseCatalogOptions } from "@/lib/service-catalog";
 import { findBannedTerms } from "@/lib/instagram/caption";
+import { copyGuidePromptBlock } from "@/lib/instagram/content-guide";
 import { parseArticleBody } from "@/lib/seo/article";
 import { extractJsonArray, type DraftResult, type PickedImage } from "@/lib/seo/article-draft";
 
@@ -214,6 +215,7 @@ export function buildServiceArticlePrompt(topic: ServiceTopic, facts: ServiceFac
   for (const d of facts.descriptions.slice(0, 5)) lines.push(`- 설명: ${d}`);
 
   return [
+    copyGuidePromptBlock(),
     "너는 베트남 푸꾸옥 현지에서 빌라를 운영하는 회사의 콘텐츠 에디터다.",
     "빌라에 묵는 한국인 여행객이 검색으로 들어와 읽을, 부가서비스 안내 글을 쓴다. 본문만 쓴다.",
     "",

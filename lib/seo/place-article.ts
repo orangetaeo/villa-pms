@@ -13,6 +13,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
 import { findBannedTerms } from "@/lib/instagram/caption";
+import { copyGuidePromptBlock } from "@/lib/instagram/content-guide";
 import { parseArticleBody } from "@/lib/seo/article";
 import { extractJsonArray, type DraftResult, type PickedImage } from "@/lib/seo/article-draft";
 
@@ -455,6 +456,7 @@ export function buildPlaceArticlePrompt(c: PlaceCategory, places: PlaceRow[]): s
       ];
 
   return [
+    copyGuidePromptBlock(),
     "너는 베트남 푸꾸옥에 살면서 빌라를 운영하는 사람의 글을 대신 정리하는 에디터다.",
     "운영자가 직접 다녀온 곳들을 한국인 여행객에게 소개하는 글을 쓴다. 본문만 쓴다.",
     "",
