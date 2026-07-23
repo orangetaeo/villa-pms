@@ -6765,7 +6765,9 @@
     "removeFromList": "목록에서 빼기",
     "draftNow": "이 장소로 지금 글 만들기",
     "errorNotAvailable": "이미 소개했거나 사용 중지된 장소입니다.",
-    "errorDraftFailed": "글 생성에 실패했습니다. 인상을 조금 더 적고 다시 시도해 주세요."
+    "errorDraftFailed": "글 생성에 실패했습니다. 인상을 조금 더 적고 다시 시도해 주세요.",
+    "kindUnset": "역할 미지정",
+    "apply": "적용"
   },
   "clipManage": {
     "title": "빌라 영상",
