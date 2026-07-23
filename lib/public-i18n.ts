@@ -136,6 +136,9 @@ export interface PublicLabels {
   bankPrimaryBadge: string;
   // 빌라 소개 영상(유튜브 쇼츠 임베드) 섹션 제목
   videoTitle: string;
+  // 영상 확대 보기(전체화면 오버레이) 버튼·닫기
+  videoExpand: string;
+  videoClose: string;
   // 만료 배지
   expiryBadge: (hours: number) => string;
   // 메인 제안 페이지
@@ -329,6 +332,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
     bankCountry: { KR: "🇰🇷 한국 계좌 (KRW 입금)", VN: "🇻🇳 베트남 계좌 (VND 입금)" },
     bankPrimaryBadge: "이 제안 결제 통화",
     videoTitle: "영상으로 보기",
+    videoExpand: "크게 보기",
+    videoClose: "닫기",
     expiryBadge: (h) => (h >= 1 ? `${h}시간 후 만료` : "곧 만료"),
     proposal: {
       forClient: (name) => `${name}님을 위한 제안`,
@@ -505,6 +510,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
     bankCountry: { KR: "🇰🇷 Korean account (pay in KRW)", VN: "🇻🇳 Vietnamese account (pay in VND)" },
     bankPrimaryBadge: "Currency of this proposal",
     videoTitle: "Watch the video",
+    videoExpand: "Expand",
+    videoClose: "Close",
     expiryBadge: (h) => (h >= 1 ? `Expires in ${h}h` : "Expiring soon"),
     proposal: {
       forClient: (name) => `A proposal for ${name}`,
@@ -681,6 +688,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
     bankCountry: { KR: "🇰🇷 Корейский счёт (оплата в KRW)", VN: "🇻🇳 Вьетнамский счёт (оплата в VND)" },
     bankPrimaryBadge: "Валюта этого предложения",
     videoTitle: "Смотреть видео",
+    videoExpand: "Увеличить",
+    videoClose: "Закрыть",
     expiryBadge: (h) => (h >= 1 ? `Истекает через ${h} ч` : "Скоро истекает"),
     proposal: {
       forClient: (name) => `Предложение для ${name}`,
@@ -857,6 +866,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
     bankCountry: { KR: "🇰🇷 韩国账户（韩元 KRW 汇款）", VN: "🇻🇳 越南账户（越南盾 VND 汇款）" },
     bankPrimaryBadge: "本提案结算货币",
     videoTitle: "观看视频",
+    videoExpand: "放大观看",
+    videoClose: "关闭",
     expiryBadge: (h) => (h >= 1 ? `${h}小时后过期` : "即将过期"),
     proposal: {
       forClient: (name) => `为 ${name} 准备的提案`,
@@ -1033,6 +1044,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
     bankCountry: { KR: "🇰🇷 Tài khoản Hàn Quốc (chuyển khoản KRW)", VN: "🇻🇳 Tài khoản Việt Nam (chuyển khoản VND)" },
     bankPrimaryBadge: "Tiền tệ của đề xuất này",
     videoTitle: "Xem video",
+    videoExpand: "Xem lớn",
+    videoClose: "Đóng",
     expiryBadge: (h) => (h >= 1 ? `Hết hạn sau ${h} giờ` : "Sắp hết hạn"),
     proposal: {
       forClient: (name) => `Đề xuất dành cho ${name}`,

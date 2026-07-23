@@ -72,7 +72,7 @@ export default function ComplexAreaEditor({
   const dirty = (selected || "") !== (initialComplexAreaId ?? "");
 
   return (
-    <CollapsibleCard title={t("title")} icon="location_city" defaultOpen>
+    <CollapsibleCard title={t("title")} icon="location_city">
       <p className="text-xs text-admin-muted mb-3">{t("desc")}</p>
 
       {/* 현재 지정 지역 표시 */}

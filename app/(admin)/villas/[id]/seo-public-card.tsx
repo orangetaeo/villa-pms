@@ -6,6 +6,7 @@
 // 공개 조건 4가지를 체크리스트로 보여주고, 미충족이면 켜기 버튼을 비활성화한다.
 // (서버 액션이 최종 판단하지만, 왜 못 켜는지 화면에서 바로 알 수 있어야 한다)
 import { getTranslations } from "next-intl/server";
+import CollapsibleCard from "@/components/admin/collapsible-card";
 import { blogPaths } from "@/lib/seo/routes";
 import { MIN_PUBLIC_PHOTOS, MIN_PUBLIC_BODY_CHARS } from "@/lib/seo/public-villa";
 import { evaluatePrep } from "@/lib/seo/villa-prep";
@@ -40,18 +41,21 @@ export default async function SeoPublicCard(p: SeoPublicCardProps) {
   ];
 
   return (
-    <section className="rounded-xl border border-slate-800 bg-slate-900 p-5">
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-base font-bold text-slate-100">{t("title")}</h2>
+    // 다른 상세 섹션과 동일하게 접기/펴기(기본 접힘). 공개 여부 배지는 접힌 상태에서도 보이게 헤더에 둔다.
+    <CollapsibleCard
+      title={t("title")}
+      icon="public"
+      headerMeta={
         <span
-          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+          className={`rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${
             p.publicListed ? "bg-emerald-500/15 text-emerald-300" : "bg-slate-800 text-slate-400"
           }`}
         >
           {p.publicListed ? t("state.on") : t("state.off")}
         </span>
-      </div>
-      <p className="mt-1 text-xs leading-relaxed text-slate-400">{t("desc")}</p>
+      }
+    >
+      <p className="text-xs leading-relaxed text-slate-400">{t("desc")}</p>
 
       <ul className="mt-4 space-y-1.5 text-sm">
         {checks.map((c, i) => (
@@ -111,6 +115,6 @@ export default async function SeoPublicCard(p: SeoPublicCardProps) {
           {t("shortDescriptionWarning", { n: descLen, min: MIN_PUBLIC_BODY_CHARS })}
         </p>
       )}
-    </section>
+    </CollapsibleCard>
   );
 }

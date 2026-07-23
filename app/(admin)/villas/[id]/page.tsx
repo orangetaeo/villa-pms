@@ -417,11 +417,10 @@ export default async function VillaDetailPage({
       <div className="grid grid-cols-12 gap-8">
         {/* 좌측: 사진 + 기본 정보 */}
         <div className="col-span-12 lg:col-span-7 space-y-6">
-          {/* 공간별 사진 그리드 — 기본 펼침 */}
+          {/* 공간별 사진 그리드 — 기본 접힘(전 섹션 통일) */}
           <CollapsibleCard
             title={t("photos.title")}
             icon="collections"
-            defaultOpen
             headerMeta={
               <span className="text-xs text-slate-500 whitespace-nowrap">
                 {t("photos.count", { count: villa.photos.length })}

@@ -212,13 +212,14 @@ export default async function ProposalPage({
   return (
     <div className="bg-neutral-50 text-neutral-900 min-h-screen">
       <header className="bg-white border-b border-neutral-100 flex justify-between items-center w-full px-4 h-14 sticky top-0 z-50">
-        <span className="w-10" />
-        {/* 화면 정중앙 고정 — 좌우 컨트롤 폭과 무관하게 중앙 정렬 */}
-        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5">
-          <VillaGoMark className="h-6 w-auto" />
-          <VillaGoWordmark className="text-xl" villa="text-slate-900" go="text-teal-600" />
+        <span className="w-10 shrink-0" />
+        {/* ★ 로고는 **남은 공간 안에서** 가운데 정렬한다. 화면 정중앙(absolute) 고정은 폭이 좁은 폰에서
+            우측 컨트롤(언어 선택기+공유) 위로 겹쳐 올라간다 — 2026-07-24 실제 기기에서 확인. */}
+        <span className="flex min-w-0 flex-1 items-center justify-center gap-1.5 overflow-hidden px-1">
+          <VillaGoMark className="h-6 w-auto shrink-0" />
+          <VillaGoWordmark className="truncate text-lg sm:text-xl" villa="text-slate-900" go="text-teal-600" />
         </span>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <LangSelector current={lang} />
           <ShareButton title={`${t.proposal.forClient(proposal.clientName)} | Villa Go`} lang={lang} />
         </div>

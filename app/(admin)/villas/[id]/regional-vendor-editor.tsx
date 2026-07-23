@@ -60,7 +60,7 @@ export default function RegionalVendorEditor({
   }
 
   return (
-    <CollapsibleCard title={t("title")} icon="storefront" defaultOpen>
+    <CollapsibleCard title={t("title")} icon="storefront">
       <p className="text-xs text-admin-muted mb-3">{t("desc")}</p>
 
       <div className="space-y-4">

@@ -113,15 +113,16 @@ export default async function BookingRequestPage({
           <Link
             href={`/p/${token}?lang=${lang}`}
             aria-label={t.back}
-            className="active:scale-95 transition-transform hover:bg-gray-50 p-2 rounded-full"
+            className="shrink-0 active:scale-95 transition-transform hover:bg-gray-50 p-2 rounded-full"
           >
             <span className="material-symbols-outlined text-teal-600">arrow_back</span>
           </Link>
-          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5">
-            <VillaGoMark className="h-5 w-auto" />
-            <VillaGoWordmark className="text-lg" villa="text-slate-900" go="text-teal-600" />
+          {/* 남은 공간 기준 가운데 정렬 — 정중앙 absolute 는 좁은 폰에서 우측 컨트롤과 겹친다(2026-07-24) */}
+          <span className="flex min-w-0 flex-1 items-center justify-center gap-1.5 overflow-hidden px-1">
+            <VillaGoMark className="h-5 w-auto shrink-0" />
+            <VillaGoWordmark className="truncate text-base sm:text-lg" villa="text-slate-900" go="text-teal-600" />
           </span>
-          <div className="ml-auto">
+          <div className="shrink-0">
             <LangSelector current={lang} />
           </div>
         </header>

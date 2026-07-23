@@ -96,7 +96,7 @@ export default function NameViEditor({
   const nameChanged = nameValue.trim() !== name.trim();
 
   return (
-    <CollapsibleCard title={t("title")} icon="translate" defaultOpen>
+    <CollapsibleCard title={t("title")} icon="translate">
       <p className="text-xs text-admin-muted mb-3">{t("desc")}</p>
 
       {/* 한국어 원명(name) — 운영자 판매 식별자. ADMIN만 편집 */}
