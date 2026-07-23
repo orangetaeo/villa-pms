@@ -16,7 +16,8 @@ import { isOperator } from "@/lib/permissions";
 import { userCanSeeMarketing } from "@/lib/marketing-access";
 import { parseArticleBody, bodyTextLength } from "@/lib/seo/article";
 import { blogPaths } from "@/lib/seo/routes";
-import { approveArticle, rejectArticle } from "./actions";
+import SeoNav from "./seo-nav";
+import { approveArticle, rejectArticle, toggleArticleVisibility } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,7 @@ export default async function MarketingSeoPage({
   if (!(await userCanSeeMarketing(session.user.id))) redirect("/dashboard");
 
   const t = await getTranslations("marketingSeo");
+  const tn = await getTranslations("marketingSeoNav");
   const params = await searchParams;
   const tabKey = TABS.some((x) => x.key === params.tab) ? params.tab! : "pending";
   const status = TABS.find((x) => x.key === tabKey)!.status;
@@ -61,13 +63,11 @@ export default async function MarketingSeoPage({
 
   return (
     <div className="p-6 text-slate-100">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold">{t("title")}</h1>
-        <Link href="/marketing/seo/media" className="text-sm font-semibold text-blue-400">
-          {t("mediaLink")}
-        </Link>
-      </div>
+      <h1 className="text-2xl font-bold">{t("title")}</h1>
       <p className="mt-1 text-sm text-slate-400">{t("subtitle")}</p>
+      <div className="mt-4">
+        <SeoNav current="queue" labels={{ queue: tn("queue"), places: tn("places"), media: tn("media") }} />
+      </div>
 
       <nav className="mt-5 flex flex-wrap gap-2">
         {TABS.map((tab, i) => (
@@ -100,6 +100,11 @@ export default async function MarketingSeoPage({
                   <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-300">
                     {t("chars", { n: chars })}
                   </span>
+                  {a.publicHidden && a.status === SeoArticleStatus.PUBLISHED && (
+                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-300">
+                      {t("hiddenBadge")}
+                    </span>
+                  )}
                   {flagged.length > 0 && (
                     <span className="rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-300">
                       {t("flagged", { terms: flagged.join(", ") })}
@@ -178,6 +183,20 @@ export default async function MarketingSeoPage({
                     </form>
                   )}
                   {a.status === SeoArticleStatus.PUBLISHED && (
+                    <form action={toggleArticleVisibility}>
+                      <input type="hidden" name="id" value={a.id} />
+                      <button
+                        className={`rounded-lg border px-4 py-2 text-sm font-semibold ${
+                          a.publicHidden
+                            ? "border-emerald-500/50 text-emerald-300"
+                            : "border-slate-700 text-slate-300"
+                        }`}
+                      >
+                        {a.publicHidden ? t("show") : t("hide")}
+                      </button>
+                    </form>
+                  )}
+                  {a.status === SeoArticleStatus.PUBLISHED && !a.publicHidden && (
                     <a
                       href={blogPaths.article(a.slug)}
                       target="_blank"
@@ -212,6 +231,7 @@ async function prismaList(status?: SeoArticleStatus) {
       summary: true,
       bodyJson: true,
       status: true,
+      publicHidden: true,
       flaggedTerms: true,
       rejectionReason: true,
       createdAt: true,

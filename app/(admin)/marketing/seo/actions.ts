@@ -50,6 +50,33 @@ export async function approveArticle(formData: FormData): Promise<void> {
   revalidatePath("/marketing/seo");
 }
 
+/**
+ * 발행된 글 노출/비노출 (T-seo-ux-fix 지적 6).
+ * ★ 상태를 REJECTED로 되돌리지 않는다 — 되돌릴 수 있어야 하고, 발행 이력(publishedAt)도 지키기 위함.
+ *   공개 조회 2곳(getPublishedArticles·getPublishedArticleBySlug)이 publicHidden을 걸러낸다.
+ */
+export async function toggleArticleVisibility(formData: FormData): Promise<void> {
+  const userId = await requireMarketingOperator();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const row = await prisma.seoArticle.findUnique({
+    where: { id },
+    select: { status: true, slug: true, publicHidden: true },
+  });
+  if (!row || row.status !== SeoArticleStatus.PUBLISHED) return;
+
+  await prisma.seoArticle.update({ where: { id }, data: { publicHidden: !row.publicHidden } });
+  await writeAuditLog({
+    userId,
+    action: "UPDATE",
+    entity: "SeoArticle",
+    entityId: id,
+    changes: { publicHidden: { old: row.publicHidden, new: !row.publicHidden }, slug: { new: row.slug } },
+  });
+  revalidatePath("/marketing/seo");
+}
+
 export async function rejectArticle(formData: FormData): Promise<void> {
   const userId = await requireMarketingOperator();
   const id = String(formData.get("id") ?? "");

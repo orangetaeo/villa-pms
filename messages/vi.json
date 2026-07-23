@@ -6671,11 +6671,14 @@
     "rejectPlaceholder": "Lý do từ chối (tuỳ chọn)",
     "rejectedReason": "Lý do từ chối",
     "openPublic": "Mở trang công khai →",
-    "mediaLink": "Quản lý ảnh tư liệu →"
+    "mediaLink": "Quản lý ảnh tư liệu →",
+    "hide": "Ẩn khỏi trang công khai",
+    "show": "Hiện lại",
+    "hiddenBadge": "Đang ẩn"
   },
   "marketingSeoMedia": {
     "title": "Ảnh tư liệu cho bài hướng dẫn",
-    "subtitle": "Tải lên ảnh tự chụp để hệ thống tự chèn vào bản nháp bài hướng dẫn. Nếu chọn chủ đề, ảnh sẽ được ưu tiên dùng cho bài thuộc chủ đề đó.",
+    "subtitle": "Ảnh dùng chung cho bài hướng dẫn và bài dịch vụ. Ảnh của quán cụ thể được quản lý ở màn hình ‘Địa điểm’.",
     "backToQueue": "Về hàng chờ duyệt →",
     "uploadTitle": "Thêm ảnh",
     "pickFile": "Chọn ảnh",
@@ -6685,7 +6688,7 @@
     "tooLarge": "Tệp quá lớn (tối đa 5MB).",
     "altLabel": "Mô tả ảnh (bắt buộc)",
     "altPlaceholder": "VD: Bến taxi trước sảnh đến sân bay Phú Quốc",
-    "altHint": "Dùng cho tìm kiếm và trợ năng. Không có mô tả thì ảnh sẽ không được chèn vào bài.",
+    "altHint": "Hãy ghi mô tả cho từng ảnh. Không có mô tả thì ảnh sẽ không vào bài.",
     "captionLabel": "Chú thích dưới ảnh (tuỳ chọn)",
     "captionPlaceholder": "VD: Nếu đến vào ban đêm, nên đặt xe trước cho tiện",
     "captionHint": "Hiển thị bằng chữ nhỏ dưới ảnh trong bài viết.",
@@ -6707,7 +6710,10 @@
     "errorNoFile": "Vui lòng chọn ảnh trước.",
     "errorBadUrl": "Không dùng được địa chỉ ảnh ngoài kho lưu trữ.",
     "errorNoAlt": "Vui lòng nhập mô tả ảnh.",
-    "placesLink": "Quản lý địa điểm (quán ăn, cà phê) →"
+    "placesLink": "Quản lý địa điểm (quán ăn, cà phê) →",
+    "listTitle": "Ảnh đã đăng ký",
+    "count": "{n} ảnh",
+    "removeFromList": "Bỏ khỏi danh sách"
   },
   "marketingSeoPlaces": {
     "title": "Địa điểm Phú Quốc — quán ăn, cà phê, mua sắm",
@@ -6751,7 +6757,15 @@
     "errorCategory": "Vui lòng chọn loại.",
     "errorOneLiner": "Hãy viết cảm nhận trực tiếp từ 10 ký tự trở lên.",
     "errorNoFile": "Vui lòng chọn ảnh trước.",
-    "errorNoAlt": "Vui lòng nhập mô tả ảnh."
+    "errorNoAlt": "Vui lòng nhập mô tả ảnh.",
+    "moreFields": "Ghi chú, liên kết bản đồ (tuỳ chọn)",
+    "photoCount": "Đang dùng {n} ảnh / tổng {total}",
+    "photoHide": "Ẩn",
+    "photoShow": "Dùng lại",
+    "removeFromList": "Bỏ khỏi danh sách",
+    "draftNow": "Tạo bài ngay từ địa điểm này",
+    "errorNotAvailable": "Địa điểm đã được giới thiệu hoặc đang ngừng dùng.",
+    "errorDraftFailed": "Tạo bài thất bại. Hãy viết cảm nhận dài hơn một chút rồi thử lại."
   },
   "clipManage": {
     "title": "Video villa",
@@ -6810,5 +6824,10 @@
       "openPublic": "Mở trang công khai →"
     },
     "shortDescriptionWarning": "Giới thiệu chỉ có {n} ký tự, chưa đạt tối thiểu {min}. Nội dung do người viết sẽ không bị ghi đè — hãy bổ sung thủ công hoặc xoá rồi bấm tạo tự động."
+  },
+  "marketingSeoNav": {
+    "queue": "Hàng chờ duyệt",
+    "places": "Địa điểm",
+    "media": "Ảnh tư liệu"
   }
 }

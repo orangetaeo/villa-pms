@@ -11,7 +11,9 @@ import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
 import { userCanSeeMarketing } from "@/lib/marketing-access";
 import { writeAuditLog } from "@/lib/audit-log";
-import { placeCategory } from "@/lib/seo/place-article";
+import { placeCategory, createPlaceArticleDraft, PLACE_SELECT } from "@/lib/seo/place-article";
+import { isArticlePublishable } from "@/lib/seo/article";
+import { buildArticleSlug, buildSummary, interleaveImages, BRAND_FALLBACK_IMAGE } from "@/lib/seo/article-draft";
 
 const PATH = "/marketing/seo/places";
 
@@ -110,29 +112,126 @@ export async function togglePlaceActive(formData: FormData): Promise<void> {
   revalidatePath(PATH);
 }
 
-/** 업로드된 사진을 장소에 붙인다 — 자료 사진과 같은 저장소(SeoMedia)를 쓰되 placeId로 구분한다. */
+/**
+ * 업로드된 사진들을 장소에 붙인다 — **여러 장 한 번에**(T-seo-ux-fix 지적 1).
+ * 자료 사진과 같은 저장소(SeoMedia)를 쓰되 placeId로 구분한다.
+ * ★ 같은 URL 중복은 무시한다 — 메오키친에서 같은 사진이 2행 들어간 실제 사례가 있었다.
+ */
 export async function addPlacePhoto(formData: FormData): Promise<void> {
   const userId = await requireMarketingOperator();
   const placeId = String(formData.get("placeId") ?? "");
-  const url = read(formData, "url", 1000);
-  const alt = read(formData, "alt", 200);
   if (!placeId) return;
-  if (!url) redirect(`${PATH}?error=URL_REQUIRED`);
-  if (alt.length < 2) redirect(`${PATH}?error=ALT_REQUIRED`);
+  const urls = formData.getAll("url").map((v) => String(v).trim());
+  const alts = formData.getAll("alt").map((v) => String(v).trim().slice(0, 200));
+  if (urls.length === 0 || urls.every((u) => !u)) redirect(`${PATH}?error=URL_REQUIRED`);
 
-  const place = await prisma.seoPlace.findUnique({ where: { id: placeId }, select: { id: true, name: true } });
+  const place = await prisma.seoPlace.findUnique({
+    where: { id: placeId },
+    select: { id: true, name: true, photos: { select: { url: true } } },
+  });
   if (!place) return;
 
-  const media = await prisma.seoMedia.create({
-    data: { url, alt, placeId, caption: read(formData, "caption", 200) || null, uploadedBy: userId },
-    select: { id: true },
+  const existing = new Set(place.photos.map((p) => p.url));
+  let saved = 0;
+  let altMissing = false;
+
+  for (let i = 0; i < urls.length; i++) {
+    const url = urls[i];
+    const alt = alts[i] ?? "";
+    if (!url || existing.has(url)) continue;
+    if (alt.length < 2) {
+      altMissing = true;
+      continue;
+    }
+    existing.add(url);
+    const media = await prisma.seoMedia.create({
+      data: { url, alt, placeId, uploadedBy: userId },
+      select: { id: true },
+    });
+    saved++;
+    await writeAuditLog({
+      userId,
+      action: "CREATE",
+      entity: "SeoMedia",
+      entityId: media.id,
+      changes: { placeId: { new: placeId }, place: { new: place.name }, alt: { new: alt } },
+    });
+  }
+
+  revalidatePath(PATH);
+  if (saved === 0) redirect(`${PATH}?error=${altMissing ? "ALT_REQUIRED" : "URL_REQUIRED"}`);
+}
+
+/** 사진 개별 내리기/되살리기 — 삭제하지 않는다(발행된 글의 이미지 URL 보호). */
+export async function togglePlacePhoto(formData: FormData): Promise<void> {
+  const userId = await requireMarketingOperator();
+  const id = String(formData.get("mediaId") ?? "");
+  if (!id) return;
+  const row = await prisma.seoMedia.findUnique({ where: { id }, select: { active: true } });
+  if (!row) return;
+
+  await prisma.seoMedia.update({ where: { id }, data: { active: !row.active } });
+  await writeAuditLog({
+    userId,
+    action: "UPDATE",
+    entity: "SeoMedia",
+    entityId: id,
+    changes: { active: { old: row.active, new: !row.active } },
   });
+  revalidatePath(PATH);
+}
+
+/**
+ * "이 장소로 지금 글 만들기" — 자동 생성은 3곳부터지만 운영자가 누르면 **1곳으로도** 만든다.
+ * ★ 사람이 명시적으로 누른 것이고, 어차피 승인 게이트를 통과해야 공개된다.
+ *   자동 경로(cron)만 3곳 하한을 지킨다 — 사람이 안 보는 경로일수록 보수적이어야 한다.
+ */
+export async function draftPlaceArticleNow(formData: FormData): Promise<void> {
+  const userId = await requireMarketingOperator();
+  const placeId = String(formData.get("placeId") ?? "");
+  if (!placeId) return;
+
+  const place = await prisma.seoPlace.findFirst({
+    where: { id: placeId, active: true, usedInArticleId: null },
+    select: PLACE_SELECT,
+  });
+  if (!place) redirect(`${PATH}?error=PLACE_NOT_AVAILABLE`);
+
+  const category = placeCategory(place.category);
+  if (!category) redirect(`${PATH}?error=CATEGORY_REQUIRED`);
+
+  const already = await prisma.seoArticle.count({
+    where: { topicKey: { startsWith: `place-${category.key}-` } },
+  });
+  const result = await createPlaceArticleDraft(
+    { category, places: [place], seq: already + 1, createdBy: `admin:${userId}` },
+    {
+      helpers: {
+        isArticlePublishable,
+        buildArticleSlug,
+        buildSummary,
+        interleaveImages,
+        brandFallbackImage: BRAND_FALLBACK_IMAGE,
+      },
+    }
+  );
+  if (!result.ok) redirect(`${PATH}?error=DRAFT_FAILED`);
+
   await writeAuditLog({
     userId,
     action: "CREATE",
-    entity: "SeoMedia",
-    entityId: media.id,
-    changes: { placeId: { new: placeId }, place: { new: place.name }, alt: { new: alt } },
+    entity: "SeoArticle",
+    entityId: result.id,
+    changes: {
+      kind: { new: "place" },
+      manual: { new: true },
+      category: { new: category.key },
+      places: { new: [place.name] },
+      slug: { new: result.slug },
+      photos: { new: result.photos },
+      status: { new: "PENDING_APPROVAL" },
+    },
   });
   revalidatePath(PATH);
+  redirect("/marketing/seo?tab=pending");
 }

@@ -6671,11 +6671,14 @@
     "rejectPlaceholder": "반려 사유 (선택)",
     "rejectedReason": "반려 사유",
     "openPublic": "공개 페이지 열기 →",
-    "mediaLink": "자료 사진 관리 →"
+    "mediaLink": "자료 사진 관리 →",
+    "hide": "공개에서 내리기",
+    "show": "다시 공개",
+    "hiddenBadge": "비공개"
   },
   "marketingSeoMedia": {
     "title": "가이드 글 자료 사진",
-    "subtitle": "직접 촬영한 사진을 올려두면 가이드 글 초안에 자동으로 들어갑니다. 주제를 지정하면 그 주제 글에 우선 사용됩니다.",
+    "subtitle": "가이드·서비스 글에 쓰는 범용 사진입니다. 특정 가게 사진은 ‘장소’ 화면에서 관리합니다.",
     "backToQueue": "승인 큐로 →",
     "uploadTitle": "사진 추가",
     "pickFile": "사진 선택",
@@ -6685,7 +6688,7 @@
     "tooLarge": "파일이 너무 큽니다(5MB 이하).",
     "altLabel": "사진 설명 (필수)",
     "altPlaceholder": "예: 푸꾸옥 공항 입국장 앞 택시 승강장",
-    "altHint": "검색·접근성에 쓰입니다. 없으면 사진이 글에 들어가지 않습니다.",
+    "altHint": "사진마다 설명을 적어주세요. 설명이 없으면 글에 들어가지 않습니다.",
     "captionLabel": "사진 아래 문구 (선택)",
     "captionPlaceholder": "예: 밤 도착이면 미리 차량을 예약해 두는 편이 편합니다",
     "captionHint": "본문에서 사진 아래 작은 글씨로 표시됩니다.",
@@ -6707,7 +6710,10 @@
     "errorNoFile": "사진을 먼저 선택해 주세요.",
     "errorBadUrl": "저장소 밖 이미지 주소는 사용할 수 없습니다.",
     "errorNoAlt": "사진 설명을 입력해 주세요.",
-    "placesLink": "장소(맛집·카페) 관리 →"
+    "placesLink": "장소(맛집·카페) 관리 →",
+    "listTitle": "등록된 사진",
+    "count": "{n}장",
+    "removeFromList": "목록에서 빼기"
   },
   "marketingSeoPlaces": {
     "title": "푸꾸옥 장소 — 맛집·카페·쇼핑",
@@ -6751,7 +6757,15 @@
     "errorCategory": "종류를 선택해 주세요.",
     "errorOneLiner": "직접 가본 인상을 10자 이상 적어 주세요.",
     "errorNoFile": "사진을 먼저 선택해 주세요.",
-    "errorNoAlt": "사진 설명을 입력해 주세요."
+    "errorNoAlt": "사진 설명을 입력해 주세요.",
+    "moreFields": "메모·지도 링크 (선택)",
+    "photoCount": "사진 {n}장 사용 중 / 전체 {total}장",
+    "photoHide": "내리기",
+    "photoShow": "되살리기",
+    "removeFromList": "목록에서 빼기",
+    "draftNow": "이 장소로 지금 글 만들기",
+    "errorNotAvailable": "이미 소개했거나 사용 중지된 장소입니다.",
+    "errorDraftFailed": "글 생성에 실패했습니다. 인상을 조금 더 적고 다시 시도해 주세요."
   },
   "clipManage": {
     "title": "빌라 영상",
@@ -6810,5 +6824,10 @@
       "openPublic": "공개 페이지 열기 →"
     },
     "shortDescriptionWarning": "소개문이 {n}자로 최소 {min}자에 못 미칩니다. 기존 글은 자동으로 덮어쓰지 않으니 직접 보완하거나 비운 뒤 자동 생성을 눌러주세요."
+  },
+  "marketingSeoNav": {
+    "queue": "승인 큐",
+    "places": "장소",
+    "media": "자료 사진"
   }
 }

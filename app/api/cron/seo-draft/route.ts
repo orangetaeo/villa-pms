@@ -222,7 +222,7 @@ async function handle(req: Request) {
       const pRow = await prisma.seoArticle.create({
         data: {
           slug: buildArticleSlug(key),
-          title: buildPlaceArticleTitle(place.category, place.places.length, place.seq),
+          title: buildPlaceArticleTitle(place.category, place.places, place.seq),
           summary: buildSummary(pDraft.blocks),
           bodyJson: pBody,
           topicKey: key,
