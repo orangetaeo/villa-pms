@@ -15,6 +15,8 @@ const MAX_EDGE = 1600;
 interface Uploaded {
   url: string;
   alt: string;
+  /** 사진 역할 — 있으면 본문에서 그 자리에 맞게 쓰인다(음식 글에는 음식 사진이 먼저) */
+  kind: string;
 }
 
 export interface UploaderLabels {
@@ -25,6 +27,9 @@ export interface UploaderLabels {
   done: string;
   altPlaceholder: string;
   remove: string;
+  /** 역할 선택지 — 넘기지 않으면 역할 칸 자체가 안 나온다(범용 자료 사진 화면) */
+  kindLabel?: string;
+  kindOptions?: { key: string; label: string }[];
 }
 
 export default function MediaUploader({
@@ -60,7 +65,7 @@ export default function MediaUploader({
         setItems((prev) =>
           prev.some((p) => p.url === data.url)
             ? prev // 같은 파일을 두 번 고른 경우 — 중복 행을 만들지 않는다
-            : [...prev, { url: data.url, alt: altPrefix ? `${altPrefix} ${prev.length + 1}` : "" }]
+            : [...prev, { url: data.url, alt: altPrefix ? `${altPrefix} ${prev.length + 1}` : "", kind: "" }]
         );
       } catch {
         setError(labels.uploadError);
@@ -108,6 +113,23 @@ export default function MediaUploader({
                   placeholder={labels.altPlaceholder}
                   className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-200"
                 />
+                {labels.kindOptions && labels.kindOptions.length > 0 && (
+                  <select
+                    name="kind"
+                    value={it.kind}
+                    onChange={(e) =>
+                      setItems((prev) => prev.map((p, j) => (j === i ? { ...p, kind: e.target.value } : p)))
+                    }
+                    className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[11px] text-slate-300"
+                  >
+                    <option value="">{labels.kindLabel ?? "역할 선택"}</option>
+                    {labels.kindOptions.map((k) => (
+                      <option key={k.key} value={k.key}>
+                        {k.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <button
                   type="button"
                   onClick={() => setItems((prev) => prev.filter((_, j) => j !== i))}

@@ -90,12 +90,23 @@ export async function rejectArticle(formData: FormData): Promise<void> {
     where: { id, status: { not: SeoArticleStatus.PUBLISHED } },
     data: { status: SeoArticleStatus.REJECTED, rejectionReason: reason || null },
   });
+
+  // ★ 반려하면 그 글에 묶였던 장소를 **되돌려준다** — 안 그러면 그 가게는 영영 다시 글에 못 나온다
+  //   (실측 2026-07-23: 테오가 메오키친 글을 반려했더니 메오키친이 소비된 채로 남아 재생성 불가).
+  const released = await prisma.seoPlace.updateMany({
+    where: { usedInArticleId: id },
+    data: { usedInArticleId: null, usedAt: null },
+  });
   await writeAuditLog({
     userId,
     action: "UPDATE",
     entity: "SeoArticle",
     entityId: id,
-    changes: { status: { old: row.status, new: "REJECTED" }, rejectionReason: { new: reason || null } },
+    changes: {
+      status: { old: row.status, new: "REJECTED" },
+      rejectionReason: { new: reason || null },
+      releasedPlaces: { new: released.count },
+    },
   });
   revalidatePath("/marketing/seo");
 }

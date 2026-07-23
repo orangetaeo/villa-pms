@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
 import { userCanSeeMarketing } from "@/lib/marketing-access";
 import { writeAuditLog } from "@/lib/audit-log";
-import { placeCategory, createPlaceArticleDraft, PLACE_SELECT } from "@/lib/seo/place-article";
+import { placeCategory, createPlaceArticleDraft, PLACE_SELECT, isMediaKind } from "@/lib/seo/place-article";
 import { isArticlePublishable } from "@/lib/seo/article";
 import { buildArticleSlug, buildSummary, interleaveImages, BRAND_FALLBACK_IMAGE } from "@/lib/seo/article-draft";
 
@@ -123,6 +123,7 @@ export async function addPlacePhoto(formData: FormData): Promise<void> {
   if (!placeId) return;
   const urls = formData.getAll("url").map((v) => String(v).trim());
   const alts = formData.getAll("alt").map((v) => String(v).trim().slice(0, 200));
+  const kinds = formData.getAll("kind").map((v) => String(v).trim());
   if (urls.length === 0 || urls.every((u) => !u)) redirect(`${PATH}?error=URL_REQUIRED`);
 
   const place = await prisma.seoPlace.findUnique({
@@ -144,8 +145,9 @@ export async function addPlacePhoto(formData: FormData): Promise<void> {
       continue;
     }
     existing.add(url);
+    const kind = isMediaKind(kinds[i]) ? kinds[i] : null;
     const media = await prisma.seoMedia.create({
-      data: { url, alt, placeId, uploadedBy: userId },
+      data: { url, alt, placeId, kind, uploadedBy: userId },
       select: { id: true },
     });
     saved++;
@@ -160,6 +162,27 @@ export async function addPlacePhoto(formData: FormData): Promise<void> {
 
   revalidatePath(PATH);
   if (saved === 0) redirect(`${PATH}?error=${altMissing ? "ALT_REQUIRED" : "URL_REQUIRED"}`);
+}
+
+/** 사진 역할 변경 — 외관·음식·내부·메뉴판. 역할이 있어야 본문에 맞는 사진이 뽑힌다. */
+export async function updatePlacePhotoKind(formData: FormData): Promise<void> {
+  const userId = await requireMarketingOperator();
+  const id = String(formData.get("mediaId") ?? "");
+  const raw = String(formData.get("kind") ?? "");
+  if (!id) return;
+  const kind = isMediaKind(raw) ? raw : null;
+
+  const before = await prisma.seoMedia.findUnique({ where: { id }, select: { kind: true } });
+  if (!before) return;
+  await prisma.seoMedia.update({ where: { id }, data: { kind } });
+  await writeAuditLog({
+    userId,
+    action: "UPDATE",
+    entity: "SeoMedia",
+    entityId: id,
+    changes: { kind: { old: before.kind, new: kind } },
+  });
+  revalidatePath(PATH);
 }
 
 /** 사진 개별 내리기/되살리기 — 삭제하지 않는다(발행된 글의 이미지 URL 보호). */

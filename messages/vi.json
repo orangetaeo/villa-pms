@@ -6765,7 +6765,9 @@
     "removeFromList": "Bỏ khỏi danh sách",
     "draftNow": "Tạo bài ngay từ địa điểm này",
     "errorNotAvailable": "Địa điểm đã được giới thiệu hoặc đang ngừng dùng.",
-    "errorDraftFailed": "Tạo bài thất bại. Hãy viết cảm nhận dài hơn một chút rồi thử lại."
+    "errorDraftFailed": "Tạo bài thất bại. Hãy viết cảm nhận dài hơn một chút rồi thử lại.",
+    "kindUnset": "Chưa chọn vai trò",
+    "apply": "Áp dụng"
   },
   "clipManage": {
     "title": "Video villa",

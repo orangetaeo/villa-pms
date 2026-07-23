@@ -15,7 +15,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
 import { userCanSeeMarketing } from "@/lib/marketing-access";
-import { PLACE_CATEGORIES, MIN_PLACES_PER_ARTICLE } from "@/lib/seo/place-article";
+import { PLACE_CATEGORIES, MIN_PLACES_PER_ARTICLE, MEDIA_KINDS } from "@/lib/seo/place-article";
 import SeoNav from "../seo-nav";
 import MediaUploader from "../media/media-uploader";
 import {
@@ -24,6 +24,7 @@ import {
   togglePlaceActive,
   addPlacePhoto,
   togglePlacePhoto,
+  updatePlacePhotoKind,
   draftPlaceArticleNow,
 } from "./actions";
 
@@ -72,7 +73,7 @@ export default async function SeoPlacesPage({
       active: true,
       usedInArticleId: true,
       // ★ 자르지 않는다 — 몇 장이 실제로 등록됐는지 보이는 것이 목적(지적 2)
-      photos: { orderBy: { createdAt: "asc" }, select: { id: true, url: true, alt: true, active: true } },
+      photos: { orderBy: { createdAt: "asc" }, select: { id: true, url: true, alt: true, active: true, kind: true } },
     },
   });
 
@@ -188,9 +189,13 @@ export default async function SeoPlacesPage({
             return (
               <li
                 key={p.id}
-                className={`rounded-xl border border-slate-800 bg-slate-900 p-5 ${p.active ? "" : "opacity-50"}`}
+                className={`rounded-xl border border-slate-800 bg-slate-900 ${p.active ? "" : "opacity-50"}`}
               >
-                <div className="flex flex-wrap items-center gap-2">
+                {/* 접고/펴기 — 장소가 늘어나면 목록이 화면을 다 잡아먹는다(테오 요청 2026-07-23).
+                    요약 줄(이름·종류·사진 수·상태)은 접힌 상태에서도 보인다. */}
+                <details className="group p-5">
+                <summary className="flex cursor-pointer flex-wrap items-center gap-2 list-none">
+                  <span className="text-slate-500 transition group-open:rotate-90">▶</span>
                   <h3 className="text-lg font-semibold">{p.name}</h3>
                   <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[11px] text-slate-300">
                     {catLabel(p.category)}
@@ -208,7 +213,7 @@ export default async function SeoPlacesPage({
                   <span className="ml-auto text-xs text-slate-500">
                     {t("photoCount", { n: activePhotos.length, total: p.photos.length })}
                   </span>
-                </div>
+                </summary>
                 {p.nameLocal && <p className="mt-0.5 text-xs text-slate-500">{p.nameLocal}</p>}
                 <p className="mt-2 text-sm leading-relaxed text-slate-300">{p.oneLiner}</p>
                 {p.tips && <p className="mt-1 text-sm text-slate-400">{p.tips}</p>}
@@ -223,6 +228,22 @@ export default async function SeoPlacesPage({
                         <p className="mt-0.5 truncate text-[10px] text-slate-500" title={ph.alt}>
                           {ph.alt}
                         </p>
+                        <form action={updatePlacePhotoKind} className="mt-0.5 flex gap-1">
+                          <input type="hidden" name="mediaId" value={ph.id} />
+                          <select
+                            name="kind"
+                            defaultValue={ph.kind ?? ""}
+                            className="min-w-0 flex-1 rounded border border-slate-800 bg-slate-950 px-1 py-0.5 text-[10px] text-slate-300"
+                          >
+                            <option value="">{t("kindUnset")}</option>
+                            {MEDIA_KINDS.map((k) => (
+                              <option key={k.key} value={k.key}>
+                                {k.label}
+                              </option>
+                            ))}
+                          </select>
+                          <button className="shrink-0 text-[10px] text-blue-400">{t("apply")}</button>
+                        </form>
                         <form action={togglePlacePhoto}>
                           <input type="hidden" name="mediaId" value={ph.id} />
                           <button className="text-[10px] text-slate-600 hover:text-slate-300">
@@ -249,6 +270,8 @@ export default async function SeoPlacesPage({
                           done: t("uploadDone"),
                           altPlaceholder: t("photoAltPlaceholder"),
                           remove: t("removeFromList"),
+                          kindLabel: t("kindUnset"),
+                          kindOptions: MEDIA_KINDS,
                         }}
                       />
                       <button className="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white">
@@ -313,6 +336,7 @@ export default async function SeoPlacesPage({
                     </button>
                   </form>
                 </div>
+                </details>
               </li>
             );
           })}

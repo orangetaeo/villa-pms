@@ -78,10 +78,10 @@ export const PLACE_SELECT = {
   tips: true,
   photos: {
     where: { active: true },
-    select: { id: true, url: true, alt: true, caption: true },
+    select: { id: true, url: true, alt: true, caption: true, kind: true },
     orderBy: { createdAt: "asc" as const },
-    // 묶음 글은 장소당 1장만 쓰지만, **단독 글**은 여러 장을 쓴다(T-seo-ux-fix).
-    take: 8,
+    // 단독 글은 등록된 사진을 대부분 쓴다 — 절반도 못 쓰면 올린 보람이 없다(테오 지적 2026-07-23).
+    take: 12,
   },
 } satisfies Prisma.SeoPlaceSelect;
 
@@ -144,22 +144,97 @@ export function buildPlaceArticleTitle(c: PlaceCategory, places: PlaceRow[], seq
 }
 
 /**
- * 묶음 글은 **장소당 1장**(한 가게가 글을 잡아먹지 않게), 단독 글은 그 가게 사진을 여러 장 쓴다.
+ * 사진 역할 — ★순서가 아니라 **역할**로 골라야 본문과 맞물린다.
+ *   실측(메오키친 2026-07-23): 등록 순서 앞 4장이 입구·입구2·주방·메뉴판이라
+ *   **음식 사진이 한 장도 없는 맛집 글**이 나왔다. 사람이 올린 사진의 절반도 못 썼다.
+ */
+export const MEDIA_KINDS: { key: string; label: string }[] = [
+  { key: "exterior", label: "외관·간판" },
+  { key: "food", label: "음식" },
+  { key: "interior", label: "내부" },
+  { key: "menu", label: "메뉴판" },
+  { key: "etc", label: "기타" },
+];
+
+export function isMediaKind(v: unknown): v is string {
+  return typeof v === "string" && MEDIA_KINDS.some((k) => k.key === v);
+}
+
+/** 단독 장소 글이 쓰는 사진 최대 수 — 등록분을 대부분 쓰되 글이 사진첩이 되지는 않게. */
+export const MAX_PHOTOS_SINGLE_PLACE = 8;
+
+/**
+ * 단독 글의 사진 순서: **외관(커버) → 음식 여러 장 → 내부 1 → 메뉴판 1 → 나머지**.
+ * 맛집 글의 본문은 음식이 중심이므로 음식 사진에 자리를 가장 많이 준다.
+ * kind가 미지정(null)인 사진은 등록 순서대로 뒤에 붙는다 — 역할을 안 정해도 동작은 한다.
+ */
+export function orderSinglePlacePhotos<T extends { kind: string | null }>(photos: T[], max = MAX_PHOTOS_SINGLE_PLACE): T[] {
+  const by = (k: string) => photos.filter((p) => p.kind === k);
+  const unset = photos.filter((p) => !isMediaKind(p.kind));
+  const out: T[] = [];
+  const push = (arr: T[], n: number) => {
+    for (const x of arr.slice(0, n)) if (!out.includes(x) && out.length < max) out.push(x);
+  };
+  push(by("exterior"), 1); // 커버 1장
+  push(by("food"), 4); // 본문의 중심
+  push(by("interior"), 1);
+  push(by("menu"), 1);
+  push(by("food"), 2); // 음식이 더 있으면 더 쓴다
+  push(unset, max); // 역할 미지정분
+  push(by("exterior"), max);
+  push(by("etc"), max);
+  return out;
+}
+
+/**
+ * 묶음 글은 **장소당 1장**(한 가게가 글을 잡아먹지 않게), 단독 글은 그 가게 사진을 역할 순서로 여러 장.
  * alt는 업로드 때 사람이 쓴 문장 그대로 — 사진 설명을 AI가 짓지 않는다.
  */
-export function pickPlacePhotos(places: PlaceRow[], maxForSingle = 4): PickedImage[] {
+export function pickPlacePhotos(places: PlaceRow[], maxForSingle = MAX_PHOTOS_SINGLE_PLACE): PickedImage[] {
   const out: PickedImage[] = [];
   const seen = new Set<string>();
-  const perPlace = places.length === 1 ? maxForSingle : 1;
+  const single = places.length === 1;
   for (const p of places) {
-    let taken = 0;
-    for (const photo of p.photos) {
-      if (taken >= perPlace) break;
+    const ordered = single ? orderSinglePlacePhotos(p.photos, maxForSingle) : p.photos.slice(0, 1);
+    for (const photo of ordered) {
       if (seen.has(photo.url)) continue;
       seen.add(photo.url);
       out.push({ url: photo.url, alt: photo.alt, caption: photo.caption ?? p.name });
-      taken++;
     }
+  }
+  return out;
+}
+
+/**
+ * 사진을 본문에 **고르게** 흩뿌린다 — 소제목 뒤에만 넣으면 소제목 수(3~4개)가 곧 사진 상한이 된다.
+ *   문단 위치를 세어 균등 간격으로 배치하고, 남으면 끝에 이어 붙인다(사진이 잘리지 않게).
+ */
+export function spreadImages<B extends { type: string }>(blocks: B[], images: PickedImage[]): B[] {
+  if (images.length === 0) return blocks;
+  const slots: number[] = [];
+  for (let i = 0; i < blocks.length; i++) if (blocks[i].type === "p") slots.push(i);
+  if (slots.length === 0) return [...blocks, ...(images.map((im) => ({ type: "img", ...im })) as unknown as B[])];
+
+  // 첫 문단(리드) 뒤부터 균등 간격
+  const step = Math.max(1, Math.floor(slots.length / images.length));
+  const chosen = new Map<number, PickedImage>();
+  let si = 0;
+  for (const img of images) {
+    while (si < slots.length && chosen.has(slots[si])) si++;
+    if (si >= slots.length) break;
+    chosen.set(slots[si], img);
+    si += step;
+  }
+  const placed = new Set(chosen.values());
+  const out: B[] = [];
+  for (let i = 0; i < blocks.length; i++) {
+    out.push(blocks[i]);
+    const img = chosen.get(i);
+    if (img) out.push({ type: "img", url: img.url, alt: img.alt, ...(img.caption ? { caption: img.caption } : {}) } as unknown as B);
+  }
+  for (const img of images) {
+    if (placed.has(img)) continue;
+    out.push({ type: "img", url: img.url, alt: img.alt, ...(img.caption ? { caption: img.caption } : {}) } as unknown as B);
   }
   return out;
 }
@@ -226,7 +301,9 @@ export async function createPlaceArticleDraft(
   if (!deps.helpers.isArticlePublishable(draft.blocks)) return { ok: false, reason: "분량·구조 하한 미달" };
 
   const photos = pickPlacePhotos(places);
-  const body = deps.helpers.interleaveImages(draft.blocks, photos);
+  // 단독 글은 사진이 많아 소제목 뒤 배치로는 다 못 넣는다 → 문단 사이에 고르게 흩뿌린다.
+  const body =
+    places.length === 1 ? spreadImages(draft.blocks, photos) : deps.helpers.interleaveImages(draft.blocks, photos);
   const row = await db.seoArticle.create({
     data: {
       slug: deps.helpers.buildArticleSlug(key),
@@ -251,6 +328,15 @@ export async function createPlaceArticleDraft(
 }
 
 export function buildPlaceArticlePrompt(c: PlaceCategory, places: PlaceRow[]): string {
+  // ★ 사진 설명(alt)은 사람이 쓴 사실이다 — 이걸 재료로 주지 않으면 모델이 메뉴를 지어낸다
+  //   (실측: 사진에 반세오·반미·꼬치가 있는데 본문은 '라이스페이퍼'를 창작했다).
+  const photoFacts = places.flatMap((p) =>
+    p.photos
+      .map((ph) => ph.alt.trim())
+      .filter((a) => a.length > 0)
+      .slice(0, 12)
+  );
+
   const blocks = places.map((p, i) => {
     const lines = [`${i + 1}) ${p.name}${p.nameLocal ? ` (현지 표기: ${p.nameLocal})` : ""}`];
     if (p.area) lines.push(`   - 위치: ${p.area}`);
@@ -298,6 +384,11 @@ export function buildPlaceArticlePrompt(c: PlaceCategory, places: PlaceRow[]): s
       ? "다녀온 곳(이 가게 말고 다른 가게는 절대 언급하지 마라):"
       : "다녀온 곳(이 목록 밖의 가게는 절대 언급하지 마라):",
     ...blocks,
+    photoFacts.length > 0 ? `
+사진으로 확인되는 것(운영자가 직접 찍고 이름을 붙였다): ${photoFacts.join(", ")}` : "",
+    photoFacts.length > 0
+      ? "- 위 사진 목록에 있는 것은 **실제로 있는 것**이니 본문에서 자연스럽게 다뤄라. 목록에 없는 메뉴·시설은 만들지 마라"
+      : "",
     "",
     ...howTo,
     "",
@@ -317,7 +408,9 @@ export function buildPlaceArticlePrompt(c: PlaceCategory, places: PlaceRow[]): s
     "- 최상급·과장 표현은 **운영자가 직접 쓴 인상에 있을 때만** 그대로 인용하고, 네가 새로 만들지 마라",
     "- 확인되지 않은 통계·순위·수상 이력 금지",
     "- 다른 가게를 깎아내리지 마라",
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 /** 장소 글 본문 생성. 실패 시 null — 폴백 템플릿 없음(다른 글 종류와 동일 원칙). */

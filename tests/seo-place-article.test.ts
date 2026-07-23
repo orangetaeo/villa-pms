@@ -17,6 +17,8 @@ import {
   buildPlaceArticleTitle,
   pickPlacePhotos,
   tidyHeadings,
+  orderSinglePlacePhotos,
+  spreadImages,
   getPlaceCandidates,
   type PlaceRow,
 } from "@/lib/seo/place-article";
@@ -180,5 +182,44 @@ describe("소제목 다듬기 (T-seo-ux-fix 실측 교훈)", () => {
     expect(tidyHeadings([{ type: "h2", text: "반세오와 할아버지 맥주" }])).toEqual([
       { type: "h2", text: "반세오와 할아버지 맥주" },
     ]);
+  });
+});
+
+describe("사진 역할 기반 선택 (메오키친 실측 교훈)", () => {
+  const ph = (id: string, kind: string | null, alt = id) => ({ id, url: `https://cdn.r2.dev/${id}.jpg`, alt, caption: null, kind });
+
+  it("★ 등록 순서가 입구·입구2·주방·메뉴판이어도 음식 사진이 먼저 들어간다", () => {
+    const photos = [
+      ph("입구", "exterior"), ph("입구2", "exterior"), ph("주방", "interior"),
+      ph("메뉴1", "menu"), ph("메뉴3", "menu"), ph("메뉴4", "menu"),
+      ph("꼬치", "food"), ph("반세오", "food"), ph("반미", "food"),
+    ];
+    const out = orderSinglePlacePhotos(photos, 6).map((p) => p.id);
+    expect(out[0]).toBe("입구"); // 커버는 외관
+    expect(out).toContain("반세오");
+    expect(out).toContain("반미");
+    expect(out).toContain("꼬치");
+    expect(out.filter((x) => x.startsWith("메뉴")).length).toBeLessThanOrEqual(1); // 메뉴판 도배 방지
+  });
+
+  it("역할 미지정 사진만 있어도 등록 순서대로 동작한다", () => {
+    const photos = [ph("a", null), ph("b", null), ph("c", null)];
+    expect(orderSinglePlacePhotos(photos, 2).map((p) => p.id)).toEqual(["a", "b"]);
+  });
+
+  it("사진을 문단 사이에 고르게 흩뿌린다 — 소제목 수가 사진 상한이 되지 않는다", () => {
+    const blocks = [
+      { type: "p", text: "리드" }, { type: "h2", text: "가" }, { type: "p", text: "1" }, { type: "p", text: "2" },
+      { type: "h2", text: "나" }, { type: "p", text: "3" }, { type: "p", text: "4" },
+    ];
+    const imgs = [
+      { url: "https://cdn.r2.dev/1.jpg", alt: "a" },
+      { url: "https://cdn.r2.dev/2.jpg", alt: "b" },
+      { url: "https://cdn.r2.dev/3.jpg", alt: "c" },
+      { url: "https://cdn.r2.dev/4.jpg", alt: "d" },
+    ];
+    const out = spreadImages(blocks, imgs);
+    expect(out.filter((b) => b.type === "img")).toHaveLength(4); // 한 장도 버리지 않는다
+    expect(out.filter((b) => b.type !== "img")).toEqual(blocks); // 본문은 그대로
   });
 });
