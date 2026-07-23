@@ -71,6 +71,74 @@ export const NARRATION_TAIL_SEC = 0.25;
 export const SUBTITLE_TAIL_SEC = 0.3;
 
 /**
+ * 자막 한 장의 최대 글자수. 넘으면 **여러 장으로 나눠 넘긴다**(paginateSubtitle).
+ *
+ * ★ 왜 필요한가(2026-07-23 실빌라 렌더에서 확인): 모델이 62자짜리 훅 문장을 컷 하나에
+ *   통째로 배정하면 자막이 **알약 5줄**로 쌓여 화면 절반을 덮는다. 빌라 영상은 화면 자체가
+ *   상품이라 그만큼 가려지면 안 된다.
+ * ★ 36자 근거: 62px 자막이 한 줄에 대략 11~12자 → 36자면 최대 3줄. 3줄이 9:16에서
+ *   "읽히면서 화면을 안 죽이는" 상한이다(실제 렌더 프레임으로 확인).
+ */
+export const SUBTITLE_PAGE_MAX_CHARS = 36;
+
+/**
+ * 긴 자막을 여러 장으로 나눈다. 각 장의 표시 시간은 **글자수 비율**로 배분한다
+ * (읽는 데 걸리는 시간은 글자수에 비례한다).
+ */
+export function paginateSubtitle(
+  text: string,
+  fromSec: number,
+  toSec: number
+): { text: string; fromSec: number; toSec: number }[] {
+  const t = text.trim();
+  if (!t) return [];
+  if (t.length <= SUBTITLE_PAGE_MAX_CHARS) return [{ text: t, fromSec, toSec }];
+
+  const words = t.split(/\s+/).filter(Boolean);
+  const pages = Math.ceil(t.length / SUBTITLE_PAGE_MAX_CHARS);
+  const target = t.length / pages;
+
+  const chunks: string[] = [];
+  let cur = "";
+  for (const w of words) {
+    const cand = cur ? `${cur} ${w}` : w;
+    if (cur && cand.length > target * 1.15 && chunks.length < pages - 1) {
+      chunks.push(cur);
+      cur = w;
+    } else {
+      cur = cand;
+    }
+  }
+  if (cur) chunks.push(cur);
+
+  const totalChars = chunks.reduce((a, c) => a + c.length, 0) || 1;
+  const span = Math.max(0, toSec - fromSec);
+  let cursor = fromSec;
+  return chunks.map((c, i) => {
+    const d = i === chunks.length - 1 ? toSec - cursor : (c.length / totalChars) * span;
+    const seg = { text: c, fromSec: cursor, toSec: cursor + d };
+    cursor += d;
+    return seg;
+  });
+}
+
+/**
+ * 자막이 서로 겹치지 않게 앞 자막의 끝을 다음 자막의 시작으로 자른다.
+ *
+ * ★ 왜 필요한가(2026-07-23 실빌라 렌더에서 확인): 절마다 자막 끝에 읽을 시간(TAIL)을
+ *   더하는데, 다음 절은 그보다 먼저 시작한다 → 컷 전환 구간에서 **자막 두 장이 동시에** 뜬다.
+ *   두 장은 줄 수가 달라 세로 위치도 달라서 서로 위아래로 포개져 **둘 다 못 읽는 상태**가 된다.
+ *   (알파 페이드를 넣으면서 둘 다 반투명해져 더 심해졌다.)
+ * ★ 입력은 시간순이어야 한다 — 타임라인 빌더가 순차적으로 push하므로 항상 만족한다.
+ */
+export function clampSubtitleOverlaps<T extends { fromSec: number; toSec: number }>(subs: T[]): T[] {
+  for (let i = 0; i < subs.length - 1; i++) {
+    if (subs[i].toSec > subs[i + 1].fromSec) subs[i].toSec = subs[i + 1].fromSec;
+  }
+  return subs;
+}
+
+/**
  * TTS가 잘못 읽는 표기 — 대본에서 금지한다.
  * "V12"·"3BR"·"800m" 같은 숫자·영문은 한국어 TTS가 어색하게 읽는다(계약 리스크 항목).
  * ※ 기존 [[translation-number-preservation]] 교훈의 **정반대 방향** 문제 — 번역은 숫자를 보존해야
@@ -450,11 +518,47 @@ export function reconcilePartsToText(line: NarrationLine): NarrationLine {
   const parts: NarrationPart[] = [];
   let k = 0;
   for (let i = 0; i < n; i++) {
-    const take = i === n - 1 ? words.length - k : Math.min(counts[i], words.length - k - (n - 1 - i));
+    let take = i === n - 1 ? words.length - k : Math.min(counts[i], words.length - k - (n - 1 - i));
+    // ★ 끊는 지점을 쉼표·연결어미로 당긴다: 비율만 보고 자르면 "이 문을 열고 들어서면, 따뜻한"처럼
+    //   수식어 한가운데서 끊겨 자막이 어색해진다(2026-07-23 실렌더 확인).
+    //   ±2어절 안에 절 경계가 있으면 그쪽을 택한다.
+    if (i < n - 1) take = snapToClauseBoundary(words, k, take, words.length - (n - 1 - i));
     parts.push({ clipIndexes: dedupeSorted(groups[i]), text: words.slice(k, k + take).join(" ") });
     k += take;
   }
   return { text, parts: parts.filter((p) => p.text.length > 0) };
+}
+
+/** 절 경계로 보이는 어절(쉼표로 끝나거나 연결어미로 끝남). */
+const CLAUSE_END_RE = /[,，、]$|(?:고|며|서|면|는데|지만|어|아|여)$/;
+
+/**
+ * 목표 어절 수(take) 근처에 절 경계가 있으면 그쪽으로 당긴다.
+ * @param start 이 절이 시작하는 어절 인덱스
+ * @param take  비율로 계산된 어절 수
+ * @param maxEnd 이 절이 넘을 수 없는 끝 인덱스(뒤 절들이 최소 1어절씩 가져가야 한다)
+ */
+function snapToClauseBoundary(words: string[], start: number, take: number, maxEnd: number): number {
+  let best = take;
+  let bestScore = -1;
+  for (let d = 0; d <= 2; d++) {
+    for (const cand of d === 0 ? [take] : [take - d, take + d]) {
+      const end = start + cand;
+      if (cand < 1 || end > maxEnd || end > words.length) continue;
+      const w = words[end - 1];
+      if (!CLAUSE_END_RE.test(w)) continue;
+      // 쉼표가 연결어미보다 강한 신호다. 가까울수록 좋다.
+      const score = (/[,，、]$/.test(w) ? 10 : 5) - d;
+      if (score > bestScore) {
+        bestScore = score;
+        best = cand;
+      }
+    }
+    // ★ 조기 종료 금지: 목표 지점의 어절이 우연히 연결어미로 끝나는 일은 흔하다("열고").
+    //   한 칸 옆의 쉼표가 훨씬 자연스러운 경계인데 거기서 멈추면 그걸 못 본다.
+    //   점수(쉼표 10 · 연결어미 5, 거리만큼 감점)가 이미 거리 균형을 잡는다.
+  }
+  return best;
 }
 
 function dedupeSorted(arr: number[]): number[] {
@@ -587,12 +691,10 @@ export function computeNarrationTimeline(input: NarrationTimelineInput): Narrati
       const share = Math.max(1, part.text.length) / totalChars;
       const partSpeech = line.durationSec * share;
 
-      subtitles.push({
-        text: part.text,
-        fromSec: partStart,
-        toSec: partStart + partSpeech + SUBTITLE_TAIL_SEC,
-        isCta: part.clipIndexes.length === 0,
-      });
+      const isCtaPart = part.clipIndexes.length === 0;
+      for (const pg of paginateSubtitle(part.text, partStart, partStart + partSpeech + SUBTITLE_TAIL_SEC)) {
+        subtitles.push({ ...pg, isCta: isCtaPart });
+      }
 
       if (!isCtaLine && part.clipIndexes.length > 0) {
         // 절이 차지하는 화면 시간 = 발화 + (문장 첫 절이면 LEAD) + (문장 끝 절이면 TAIL)
@@ -624,6 +726,7 @@ export function computeNarrationTimeline(input: NarrationTimelineInput): Narrati
 
   // 영상 끝을 넘는 자막은 잘라낸다
   for (const s of subtitles) s.toSec = Math.min(s.toSec, totalSec);
+  clampSubtitleOverlaps(subtitles);
 
   return { clipDurations, ctaDurationSec, lineOffsets, subtitles, totalSec };
 }
@@ -673,6 +776,7 @@ export function retimeNarrationTimeline(
       continue;
     }
 
+
     for (const part of line.parts) {
       // 이 절이 화면을 점유하는 시간 = 덮는 컷들의 실측 길이 합 − 전환 겹침
       const span = part.clipIndexes.reduce(
@@ -680,19 +784,19 @@ export function retimeNarrationTimeline(
         0
       );
       if (span <= 0) continue; // 배정된 컷이 렌더되지 않은 절(방어) — 자막도 띄우지 않는다
-      subtitles.push({
-        text: part.text,
-        // 자막은 전환이 시작될 때 함께 뜬다(발화보다 LEAD만큼 먼저 — 읽을 시간이 생긴다)
-        fromSec: cursor,
-        toSec: cursor + span + SUBTITLE_TAIL_SEC,
-        isCta: false,
-      });
+      // 자막은 전환이 시작될 때 함께 뜬다(발화보다 LEAD만큼 먼저 — 읽을 시간이 생긴다).
+      // 절이 길면 여러 장으로 나눠 넘긴다 — 알약 5줄이 화면 절반을 덮는 사고 방지.
+      for (const pg of paginateSubtitle(part.text, cursor, cursor + span + SUBTITLE_TAIL_SEC)) {
+        subtitles.push({ ...pg, isCta: false });
+      }
       cursor += span;
     }
   }
 
   const totalSec = cursor;
   for (const s of subtitles) s.toSec = Math.min(s.toSec, totalSec);
+  // ★ 겹침 제거: 앞 자막의 TAIL이 다음 자막 시작을 넘어가면 두 장이 동시에 떠서 둘 다 못 읽는다.
+  clampSubtitleOverlaps(subtitles);
   return { lineOffsets, subtitles, totalSec };
 }
 

@@ -1054,7 +1054,19 @@ export async function renderEditedVideo(clips: LocalClip[], opts: RenderOpts): P
       );
     }
 
-    const subs = subtitleList.filter((s) => s.fromSec < total);
+    // ★ 인트로가 떠 있는 동안에는 자막을 띄우지 않는다(2026-07-23 실빌라 렌더 교훈).
+    //   인트로(헤드라인 + 빌라명 + 스펙 칩)와 자막이 동시에 뜨면 화면이 빽빽해져 **둘 다 안 읽힌다.**
+    //   훅은 음성이 전달하고, 화면은 인트로가 맡는다 — 자막은 인트로가 사라진 뒤부터.
+    const introEnd =
+      opts.headline && opts.introHoldSec != null
+        ? Math.max(INTRO_SEC, opts.introHoldSec)
+        : opts.headline
+          ? INTRO_SEC
+          : 0;
+    const subs = subtitleList
+      .map((s) => ({ ...s, fromSec: Math.max(s.fromSec, introEnd) }))
+      // 인트로에 거의 다 가려진 자막은 깜빡이기만 하므로 아예 버린다
+      .filter((s) => s.fromSec < total && s.toSec - s.fromSec >= 0.6);
     const subPaths: (OverlayAsset & { from: number; to: number })[] = [];
     for (let i = 0; i < subs.length; i++) {
       const asset = await writeOverlay(subtitleNode(subs[i].text), path.join(workDir, `sub-${i}.png`));

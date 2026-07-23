@@ -7,6 +7,9 @@ import {
   retimeNarrationTimeline,
   normalizeScript,
   reconcilePartsToText,
+  paginateSubtitle,
+  clampSubtitleOverlaps,
+  SUBTITLE_PAGE_MAX_CHARS,
   validateNarrationLines,
   type NarrationLine,
 } from "./narration";
@@ -411,5 +414,102 @@ describe("reconcilePartsToText — 절이 문장 전체를 덮게 맞춘다", ()
       1
     );
     expect(norm(lines[0].parts.map((p) => p.text).join(""))).toBe(norm(lines[0].text));
+  });
+});
+
+// ── 자막 가독성 (실빌라 렌더 교훈) ────────────────────────────────────
+describe("paginateSubtitle — 긴 자막은 여러 장으로 넘긴다", () => {
+  it("짧으면 한 장 그대로", () => {
+    const p = paginateSubtitle("넓은 거실이에요", 0, 3);
+    expect(p).toEqual([{ text: "넓은 거실이에요", fromSec: 0, toSec: 3 }]);
+  });
+
+  // ★ 실측(2026-07-23): 62자 훅 문장이 컷 하나에 통째로 배정되어 알약 5줄이 화면 절반을 덮었다.
+  it("상한을 넘으면 나눈다 — 각 장이 상한 이하", () => {
+    const long = "쏘나씨 단지에 위치한 엠빌라는 침실 네 개와 단독 프라이빗 수영장을 갖추고 있고, 문을 열면 바로 앞이 해변이랍니다.";
+    const pages = paginateSubtitle(long, 0, 8);
+    expect(pages.length).toBeGreaterThan(1);
+    for (const p of pages) expect(p.text.length).toBeLessThanOrEqual(SUBTITLE_PAGE_MAX_CHARS + 8);
+  });
+
+  it("내용을 잃지 않는다", () => {
+    const long = "쏘나씨 단지에 위치한 엠빌라는 침실 네 개와 단독 프라이빗 수영장을 갖추고 있고, 문을 열면 바로 앞이 해변이랍니다.";
+    const joined = paginateSubtitle(long, 0, 8).map((p) => p.text).join(" ");
+    expect(joined.replace(/\s/g, "")).toBe(long.replace(/\s/g, ""));
+  });
+
+  it("장들이 원래 구간을 빈틈없이 이어 채운다", () => {
+    const pages = paginateSubtitle("가".repeat(20) + " " + "나".repeat(20) + " " + "다".repeat(20), 2, 10);
+    expect(pages[0].fromSec).toBeCloseTo(2, 6);
+    expect(pages[pages.length - 1].toSec).toBeCloseTo(10, 6);
+    for (let i = 0; i < pages.length - 1; i++) {
+      expect(pages[i].toSec).toBeCloseTo(pages[i + 1].fromSec, 6);
+    }
+  });
+});
+
+describe("clampSubtitleOverlaps — 자막 두 장이 동시에 뜨지 않는다", () => {
+  // ★ 실측(2026-07-23): 절 끝의 읽을 시간(TAIL)이 다음 절 시작을 넘어가, 컷 전환 구간에서
+  //   줄 수가 다른 두 자막이 위아래로 포개져 둘 다 못 읽는 상태가 됐다.
+  it("앞 자막의 끝을 다음 자막의 시작으로 자른다", () => {
+    const subs = [
+      { text: "a", fromSec: 0, toSec: 3.3 },
+      { text: "b", fromSec: 3.0, toSec: 6.3 },
+      { text: "c", fromSec: 6.0, toSec: 9.0 },
+    ];
+    clampSubtitleOverlaps(subs);
+    expect(subs[0].toSec).toBeCloseTo(3.0, 6);
+    expect(subs[1].toSec).toBeCloseTo(6.0, 6);
+    expect(subs[2].toSec).toBeCloseTo(9.0, 6); // 마지막은 그대로(읽을 시간 유지)
+  });
+
+  it("겹치지 않으면 손대지 않는다", () => {
+    const subs = [
+      { text: "a", fromSec: 0, toSec: 2 },
+      { text: "b", fromSec: 3, toSec: 5 },
+    ];
+    clampSubtitleOverlaps(subs);
+    expect(subs[0].toSec).toBe(2);
+  });
+
+  it("실제 타임라인 산출물에 겹침이 하나도 없다", () => {
+    const t = computeNarrationTimeline({
+      lines: [
+        { durationSec: 5, parts: [{ clipIndexes: [0], text: "첫 컷 설명입니다" }, { clipIndexes: [1], text: "둘째 컷 설명입니다" }] },
+        { durationSec: 3, parts: [{ clipIndexes: [2], text: "셋째 컷 설명입니다" }] },
+        { durationSec: 2, parts: [{ clipIndexes: [], text: "카카오톡에서 빌라고를 검색해 보세요" }] },
+      ],
+      ...base,
+    });
+    for (let i = 0; i < t.subtitles.length - 1; i++) {
+      expect(t.subtitles[i].toSec).toBeLessThanOrEqual(t.subtitles[i + 1].fromSec + 1e-9);
+    }
+  });
+
+  it("재동기화 산출물에도 겹침이 없다", () => {
+    const lines = [
+      { durationSec: 5, parts: [{ clipIndexes: [0], text: "첫 컷 설명입니다" }, { clipIndexes: [1], text: "둘째 컷 설명입니다" }] },
+      { durationSec: 2, parts: [{ clipIndexes: [], text: "카카오톡에서 빌라고를 검색해 보세요" }] },
+    ];
+    const r = retimeNarrationTimeline(lines, [3, 2.6], 2.8, T);
+    for (let i = 0; i < r.subtitles.length - 1; i++) {
+      expect(r.subtitles[i].toSec).toBeLessThanOrEqual(r.subtitles[i + 1].fromSec + 1e-9);
+    }
+  });
+});
+
+describe("reconcilePartsToText — 절 경계에서 끊는다", () => {
+  it("쉼표 근처에서 끊어 수식어 한가운데를 피한다", () => {
+    // 실측 사례: "이 문을 열고 들어서면, 따뜻한 / 햇살이…" 처럼 '따뜻한'에서 끊겼다.
+    const line: NarrationLine = {
+      text: "이 문을 열고 들어서면, 따뜻한 햇살이 가득 들어오는 거실이 푸른 수영장 뷰를 품고 있어요",
+      parts: [
+        { clipIndexes: [1], text: "이 문을 열고" },
+        { clipIndexes: [2], text: "햇살이 가득 들어오는 거실이 푸른 수영장 뷰를 품고 있어요" },
+      ],
+    };
+    const r = reconcilePartsToText(line);
+    expect(r.parts[0].text.endsWith(",")).toBe(true);
+    expect(r.parts[1].text.startsWith("따뜻한")).toBe(true);
   });
 });
