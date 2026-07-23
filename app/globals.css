@@ -3,9 +3,14 @@
 @tailwind utilities;
 
 /* cache-bust 2026-07-24: Railway가 .next/cache(webpack)를 마운트해 소스 무변경 시 CSS를
-   재생성하지 않는다. postcss-selector-parser 6.1.4 승격(PR #439)으로 group-*/peer- 변형을
+   재생성하지 않는다. postcss-selector-parser 6.1.4 승격(PR #439)으로 group·peer 변형을
    되살리려면 Tailwind 엔트리(이 파일)를 건드려 CSS 모듈 캐시를 무효화해야 프로덕션에 반영된다.
-   → 관련: [[tailwind-group-variants-dead-selector-parser-613]] */
+   주의: 이 주석 안에 별표+슬래시 시퀀스를 넣지 말 것 — CSS 주석을 조기 종료해 빌드가 깨진다.
+   관련 메모: tailwind-group-variants-dead-selector-parser-613 */
+:root {
+  /* group/peer 변형 복구 반영 마커(값 자체는 무의미) — 이 파일 변경만으로 CSS 모듈 캐시 무효화 */
+  --group-variant-fix: 20260724;
+}
 
 body {
   /* Noto Sans KR 폴백 — 한글 글리프 없는 폰트로 인한 글자 세로 낙하 방지 (2차 전체 회의) */
