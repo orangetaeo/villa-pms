@@ -14,6 +14,7 @@ import {
   validateNarrationLines,
   diversifyEndings,
   buildSpeechMarkup,
+  toKoreanReading,
   PART_PAUSE_SEC,
   type NarrationLine,
 } from "./narration";
@@ -795,5 +796,24 @@ describe("computeNarrationTimeline — 쉼은 앞 절이 화면을 지킨다", (
     expect(gapWith - gapWithout).toBeCloseTo(PART_PAUSE_SEC, 5);
     // 총 길이는 두 경우가 같아야 한다(쉼도 결국 화면 시간이다).
     expect(withPause.totalSec).toBeCloseTo(noPause.totalSec, 5);
+  });
+});
+
+// ── 빌라 이름 한글 읽기 (테오 2026-07-23: 대본에 "M villa M1"이 섞여 TTS가 어색하게 읽음) ──
+describe("toKoreanReading — 이름은 소리 나는 대로 한글", () => {
+  it("영문 빌라명을 한글 읽기로 바꾼다", () => {
+    expect(toKoreanReading("M villa M1")).toBe("엠 빌라 엠일");
+    expect(toKoreanReading("Sonasea V01")).toBe("소나시 브이공일");
+    expect(toKoreanReading("The Ocean House")).toBe("오션 하우스");
+  });
+
+  it("이미 한글이면 그대로 둔다", () => {
+    expect(toKoreanReading("엠빌라 엠원")).toBe("엠빌라 엠원");
+  });
+
+  it("결과에 영문·숫자가 남지 않는다(대본 규칙과 같은 기준)", () => {
+    for (const n of ["M villa M1", "Sonasea V01", "Sunset Sanato B12", "Greenbay 7"]) {
+      expect(/[0-9A-Za-z]/.test(toKoreanReading(n))).toBe(false);
+    }
   });
 });

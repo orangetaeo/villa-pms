@@ -247,6 +247,51 @@ export function clampSubtitleOverlaps<T extends { fromSec: number; toSec: number
 const FORBIDDEN_CHARS_RE = /[0-9A-Za-z]/;
 
 /**
+ * 빌라 이름 → **음성이 읽을 한글 표기**.
+ *
+ * ★ 왜 필요한가(2026-07-23 실측): 빌라명은 대부분 영문·숫자다("M villa M1", "Sonasea V01").
+ *   그대로 대본 컨텍스트에 넣으면 모델이 문장에 영문을 그대로 쓰고("M villa M1은 …"),
+ *   한국어 TTS가 어색하게 읽는다. 대본 규칙에 "숫자·영문 금지"가 있는데 **이름만 예외로 새어 나갔다.**
+ *   화면(제목·인트로 카드)은 실제 이름을 그대로 쓰므로 표기가 어긋나지 않는다 — 소리만 한글로 읽는다.
+ *
+ * 흔한 단어는 단어째로, 나머지 알파벳·숫자는 낱자 읽기로 바꾼다. 한글이 이미 섞여 있으면 그대로 둔다.
+ */
+const NAME_WORD_READINGS: [RegExp, string][] = [
+  [/\bvilla\b/gi, "빌라"],
+  [/\bresort\b/gi, "리조트"],
+  [/\bhotel\b/gi, "호텔"],
+  [/\bhouse\b/gi, "하우스"],
+  [/\bbeach\b/gi, "비치"],
+  [/\bocean\b/gi, "오션"],
+  [/\bsea\b/gi, "씨"],
+  [/\bsun\b/gi, "선"],
+  [/\bsunset\b/gi, "선셋"],
+  [/\bgarden\b/gi, "가든"],
+  [/\bpool\b/gi, "풀"],
+  [/\bthe\b/gi, ""],
+  [/\bsonasea\b/gi, "소나시"],
+  [/\bvinpearl\b/gi, "빈펄"],
+  [/\bgreenbay\b/gi, "그린베이"],
+  [/\bsanato\b/gi, "사나토"],
+];
+const LETTER_READINGS: Record<string, string> = {
+  a: "에이", b: "비", c: "씨", d: "디", e: "이", f: "에프", g: "지", h: "에이치",
+  i: "아이", j: "제이", k: "케이", l: "엘", m: "엠", n: "엔", o: "오", p: "피",
+  q: "큐", r: "알", s: "에스", t: "티", u: "유", v: "브이", w: "더블유", x: "엑스",
+  y: "와이", z: "제트",
+};
+const DIGIT_READINGS = ["공", "일", "이", "삼", "사", "오", "육", "칠", "팔", "구"];
+
+export function toKoreanReading(name: string): string {
+  let s = ` ${name.trim()} `;
+  for (const [re, ko] of NAME_WORD_READINGS) s = s.replace(re, ko);
+  // 남은 알파벳·숫자를 낱자로 읽는다. "M1" → "엠일", "V01" → "브이공일"
+  s = s.replace(/[A-Za-z]/g, (ch) => LETTER_READINGS[ch.toLowerCase()] ?? "");
+  s = s.replace(/[0-9]/g, (d) => DIGIT_READINGS[Number(d)] ?? "");
+  return s.replace(/\s{2,}/g, " ").trim();
+}
+
+/**
  * 문장의 한 조각(절) — **컷 하나에 대응**한다. 자막 한 장이기도 하다.
  * ★ 왜 문장을 쪼개는가: 나레이션은 여러 컷에 걸쳐 **이어져야** 자연스럽고(테오 2026-07-22),
  *   자막은 컷마다 바뀌어야 읽힌다. 그래서 음성은 문장 전체로 한 번에 합성하고(끊김 없음),
@@ -386,7 +431,8 @@ function buildPrompt(ctx: NarrationVillaContext): string {
     "  나쁜 예 (금지):",
     "    '편안한 거실이에요' / '다이닝 공간이에요' / '깨끗한 주방이에요'  ← 컷마다 종결",
     "",
-    `빌라: ${ctx.villaName}`,
+    // ★ 이름은 **소리 나는 대로 한글**로 준다 — 영문을 그대로 주면 대본에 섞여 TTS가 어색하게 읽는다.
+    `빌라: ${toKoreanReading(ctx.villaName)}`,
     facts.length ? `특징: ${facts.join(", ")}` : "",
     "",
     "컷 구성:",
