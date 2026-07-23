@@ -6673,7 +6673,10 @@
     "usedCount": "{n}회 사용",
     "generalTag": "범용",
     "deactivate": "사용 중지",
-    "activate": "다시 사용"
+    "activate": "다시 사용",
+    "errorNoFile": "사진을 먼저 선택해 주세요.",
+    "errorBadUrl": "저장소 밖 이미지 주소는 사용할 수 없습니다.",
+    "errorNoAlt": "사진 설명을 입력해 주세요."
   },
   "clipManage": {
     "title": "빌라 영상",
