@@ -5,6 +5,8 @@ import {
   MAX_SPEEDUP,
   PACE_SPEED,
   TRANSIT_MIN_SCREEN_SEC,
+  TRANSIT_MAX_SCREEN_SEC,
+  maxScreenSecFor,
   minScreenSecFor,
   pacingFilterChain,
   planClipTiming,
@@ -200,5 +202,45 @@ describe("minScreenSecFor — 이동 컷만 화면 점유 하한을 낮춘다", 
   it("★ 0.8초 밑으로 내려가지 않는다 — xfade 전환 길이(0.4) 전제가 깨진다", () => {
     // xfadeConcat: T = min(0.4, 최단세그먼트/2). 0.8 미만이면 T가 줄어 타임라인 가정이 흔들린다.
     expect(TRANSIT_MIN_SCREEN_SEC).toBeGreaterThanOrEqual(0.8);
+  });
+});
+
+describe("resolveClipPace — 운영자 지정(override)이 추론을 이긴다", () => {
+  // ★ 스토리보드가 있는 영상은 추론으로 만들 수 없다(테오 2026-07-23):
+  //   같은 EXTERIOR라도 "해변에서 입구로 빠르게 돌아간다"와 "입구를 천천히 들어선다"는
+  //   정반대 연출인데, 공간·메모만 보면 둘을 구분할 방법이 없다.
+  it("fast는 hero 공간도 이동 컷으로 만든다", () => {
+    const p = resolveClipPace("EXTERIOR", "해변에서 입구로", "fast");
+    expect(p.kind).toBe("transit");
+    expect(p.sourceSpeed).toBe(PACE_SPEED.transit);
+    expect(p.ramp).toBe(true);
+  });
+
+  it("slow는 이동 단어가 있어도 머무는 컷으로 만든다", () => {
+    const p = resolveClipPace("ETC", "복도를 지나 계단", "slow");
+    expect(p.kind).toBe("hero");
+    expect(p.sourceSpeed).toBe(PACE_SPEED.hero);
+    expect(p.ramp).toBe(false);
+  });
+
+  it("auto·미지정이면 기존 추론 그대로", () => {
+    expect(resolveClipPace("ETC", "실내 복도", "auto").kind).toBe("transit");
+    expect(resolveClipPace("ETC", "실내 복도").kind).toBe("transit");
+    expect(resolveClipPace("POOL", null, "auto").kind).toBe("hero");
+  });
+});
+
+describe("maxScreenSecFor — 이동 컷에만 화면 상한", () => {
+  it("이동 컷은 상한이 있다", () => {
+    expect(maxScreenSecFor(resolveClipPace("ETC"))).toBe(TRANSIT_MAX_SCREEN_SEC);
+    expect(maxScreenSecFor(resolveClipPace("EXTERIOR", null, "fast"))).toBe(TRANSIT_MAX_SCREEN_SEC);
+  });
+
+  it("보여줄 컷은 상한이 없다", () => {
+    for (const s of ["POOL", "BEDROOM", null]) expect(maxScreenSecFor(resolveClipPace(s))).toBeNull();
+  });
+
+  it("상한이 하한보다 크다 — 안 그러면 계산이 모순된다", () => {
+    expect(TRANSIT_MAX_SCREEN_SEC).toBeGreaterThan(TRANSIT_MIN_SCREEN_SEC);
   });
 });

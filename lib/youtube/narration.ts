@@ -626,6 +626,12 @@ export interface NarrationTimelineInput {
    *   공통 하한 2초를 복도에도 걸면 배속을 해도 "빠르게 지나간다"는 느낌이 안 산다.
    */
   minSegmentSecByClip?: number[];
+  /**
+   * 컷별 **최대** 화면 시간(초). 인덱스 = 클립 인덱스. null·미지정이면 상한 없음.
+   * ★ 이동 컷에만 씌운다(pacing.ts maxScreenSecFor). 깎인 시간은 같은 문장 안의
+   *   다른 컷들에게 비율대로 돌려주므로 문장 총 길이는 보존된다.
+   */
+  maxSegmentSecByClip?: (number | null)[];
   /** CTA 정지 카드 최소 길이(초) — edit.ts CTA_DUR_SEC */
   ctaMinSec: number;
 }
@@ -662,7 +668,8 @@ export interface NarrationTimeline {
  *   발화 시작 = 문장 시작 + LEAD (장면이 바뀌기 시작할 때 함께 시작 → 문장 간 무음 0.4초)
  */
 export function computeNarrationTimeline(input: NarrationTimelineInput): NarrationTimeline {
-  const { lines, transitionSec: T, minSegmentSec, minSegmentSecByClip, ctaMinSec } = input;
+  const { lines, transitionSec: T, minSegmentSec, minSegmentSecByClip, maxSegmentSecByClip, ctaMinSec } =
+    input;
   const minFor = (ci: number) => minSegmentSecByClip?.[ci] ?? minSegmentSec;
 
   const clipDurations: number[] = [];
@@ -679,6 +686,8 @@ export function computeNarrationTimeline(input: NarrationTimelineInput): Narrati
     const totalChars = line.parts.reduce((a, p) => a + Math.max(1, p.text.length), 0);
     let partStart = speechStart;
     let consumed = 0;
+    // 이 문장이 덮는 컷들의 화면 시간 후보. 상한·재분배를 적용한 뒤 한 번에 확정한다.
+    const entries: { ci: number; dur: number }[] = [];
 
     // ★ CTA 문장은 **문장 단위**로 처리한다(QA M-4). 아웃트로는 정지 카드 **1장**이라
     //   절이 2개 이상 와도(모델이 범위 밖 컷 번호를 뱉으면 normalizeScript가 CTA로 흡수한다)
@@ -702,15 +711,37 @@ export function computeNarrationTimeline(input: NarrationTimelineInput): Narrati
         const tail = pi === line.parts.length - 1 ? NARRATION_TAIL_SEC : 0;
         const span = partSpeech + head + tail;
         const per = span / part.clipIndexes.length;
-        for (const ci of part.clipIndexes) {
-          const d = Math.max(minFor(ci), per + T);
-          clipDurations[ci] = d;
-          // 실제 적용된(하한 반영) 길이로 누적해야 오디오와 화면이 어긋나지 않는다
-          consumed += d - T;
-        }
+        for (const ci of part.clipIndexes) entries.push({ ci, dur: per });
       }
       partStart += partSpeech;
     });
+
+    // ★ 이동 컷 상한 + 재분배(2026-07-23 테오 스토리보드).
+    //   배속만 걸면 "복도를 빠르게 지나가되 4초 동안 지나가는" 영상이 된다 — 컷 길이는
+    //   나레이션이 정하기 때문이다. "빠른 이동"은 화면에 머무는 시간 자체가 짧아야 성립한다.
+    //   깎인 시간은 **같은 문장 안의 보여줄 컷들**에게 돌려준다(방에 시간을 몰아준다).
+    //   문장이 차지하는 총 시간은 그대로라 나레이션과 어긋나지 않는다.
+    let surplus = 0;
+    const free: typeof entries = [];
+    for (const e of entries) {
+      const cap = maxSegmentSecByClip?.[e.ci];
+      if (cap != null && e.dur > cap) {
+        surplus += e.dur - cap;
+        e.dur = cap;
+      } else {
+        free.push(e);
+      }
+    }
+    if (surplus > 0 && free.length > 0) {
+      const freeTotal = free.reduce((a, e) => a + e.dur, 0) || 1;
+      for (const e of free) e.dur += surplus * (e.dur / freeTotal);
+    }
+    for (const e of entries) {
+      const d = Math.max(minFor(e.ci), e.dur + T);
+      clipDurations[e.ci] = d;
+      // 실제 적용된(하한 반영) 길이로 누적해야 오디오와 화면이 어긋나지 않는다
+      consumed += d - T;
+    }
 
     if (isCtaLine) {
       // 카드 1장 = 리드 + 문장 전체 발화 + 테일 (나가는 전환 없음)
