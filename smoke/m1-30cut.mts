@@ -48,10 +48,15 @@ const CUTS: Cut[] = [
   // ★ 컷7·8은 2026-07-23 완성본 지적으로 시작 지점을 옮겼다(88→80, 120→96). 스토리보드 참조.
   { label: "dining", src: 80, len: 8, pace: "slow", space: "KITCHEN", note: "원목 식탁과 다이닝 공간" },
   { label: "to-living", src: 96, len: 7, pace: "fast", space: "ETC", note: "주방 조리대를 지나 거실로 이동" },
-  { label: "living", src: 131, len: 7, pace: "slow", space: "LIVING", note: "큰 소파와 티브이, 천장 선풍기가 있는 거실" },
+  // ★ len 6(=137초까지): 이 컷이 최대로 읽을 수 있는 원본을 컷10 시작 지점 앞에서 끊는다.
+  //   안 그러면 나레이션이 길 때 컷9가 137초 뒤까지 읽어 컷10과 **같은 장면이 두 번** 나간다.
+  { label: "living", src: 131, len: 6, pace: "slow", space: "LIVING", note: "큰 소파와 티브이, 천장 선풍기가 있는 거실" },
   // ★ 변기 회피(자동 검수 오류): 이 욕실은 143.5초부터 프레임 하단에 변기가 들어온다
   //   (144.3초 프레임에서 검수가 잡아냈다) → 문을 들어서는 139.6~143.8만 쓴다.
-  { label: "to-bath1", src: 138, len: 4, pace: "fast", space: "ETC", note: "거실에서 일 층 방 욕실로 이동" },
+  // ★ 겹침 수정(테오 2026-07-23 "26~27초 영상 중복"): 컷10이 138~141.5를 읽고 컷11이 139.6부터
+  //   시작해 1.9초가 두 번 나갔다. 이동 컷은 화면 1.9초 상한(원본 ≈3.5초)이므로
+  //   **끝 지점이 다음 컷 시작(139.6)을 넘지 않도록** 137.0~139.6만 준다.
+  { label: "to-bath1", src: 137, len: 2.6, pace: "fast", space: "ETC", note: "거실에서 일 층 방 욕실로 이동" },
   { label: "bath1", src: 139.6, len: 4.2, pace: "slow", space: "BATHROOM", note: "일 층 방에 딸린 욕실, 대리석 세면대와 거울" },
   { label: "to-room1", src: 167, len: 6, pace: "fast", space: "ETC", note: "욕실에서 일 층 침실로 이동" },
   { label: "room1", src: 174, len: 7, pace: "slow", space: "BEDROOM", note: "일 층 침실, 통창 밖이 바로 수영장" },
@@ -169,7 +174,7 @@ async function phaseAudit(only: number[]): Promise<number> {
 }
 
 // ── ③ R2 업로드 ──────────────────────────────────────────
-async function phaseUpload() {
+async function phaseUpload(only: number[]) {
   bar("③ R2 업로드");
   const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
   const client = new S3Client({
@@ -183,6 +188,8 @@ async function phaseUpload() {
   const state = await loadState();
   const keys = state.keys ?? new Array(CUTS.length).fill(null);
   for (let i = 0; i < CUTS.length; i++) {
+    // 컷 번호를 지정하면 그 컷은 **다시 올린다**(재단을 고쳤다는 뜻이므로 기존 키는 낡았다).
+    if (only.length && only.includes(i)) keys[i] = null;
     if (keys[i]) {
       console.log(`  ${String(i + 1).padStart(2)} (이미 업로드) ${keys[i]}`);
       continue;
@@ -321,5 +328,5 @@ if (phase === "audit" || phase === "all") {
     process.exit(1);
   }
 }
-if (phase === "upload" || phase === "all") await phaseUpload();
+if (phase === "upload" || phase === "all") await phaseUpload(only);
 if (phase === "create" || phase === "all") await phaseCreate();

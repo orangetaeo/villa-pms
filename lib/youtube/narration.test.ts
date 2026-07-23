@@ -12,8 +12,12 @@ import {
   clampSubtitleOverlaps,
   SUBTITLE_PAGE_MAX_CHARS,
   validateNarrationLines,
+  diversifyEndings,
+  buildSpeechMarkup,
+  PART_PAUSE_SEC,
   type NarrationLine,
 } from "./narration";
+import { stripPauseTags } from "../gemini-tts";
 import { pcmToWav, ttsCacheKey, wavDurationSec } from "../gemini-tts";
 
 // edit.ts 상수와 같은 값 — 타임라인이 실제 렌더 파라미터와 정합해야 의미가 있다.
@@ -625,5 +629,131 @@ describe("absorbTransitParts — 이동 컷은 자기 자막을 갖지 않는다
     const b = normalizeScript([{ text: "가나 다라", parts: [{ cut: 1, text: "가나" }, { cut: 2, text: "다라" }] }], 2, undefined);
     expect(a).toEqual(b);
     expect(a[0].parts).toHaveLength(2);
+  });
+});
+
+// ── 어미 반복 교정 (테오 2026-07-23: "답니다~ 답니다~ 이런 문맥은 너무 이상해") ──
+describe("diversifyEndings — 같은 어미 반복은 서버가 바꾼다", () => {
+  const line = (text: string, cut = 1): NarrationLine => ({
+    text,
+    parts: [{ clipIndexes: [cut - 1], text }],
+  });
+
+  it("첫 등장은 두고 두 번째부터 바꾼다", () => {
+    const out = diversifyEndings([
+      line("전망을 자랑한답니다."),
+      line("편안함을 더해준답니다.", 2),
+      line("멋진 풍경이 펼쳐진답니다.", 3),
+      line("해변을 내려다볼 수 있답니다.", 4),
+    ]);
+    expect(out[0].text).toBe("전망을 자랑한답니다."); // 첫 문장은 유지
+    expect(out.slice(1).every((l) => !l.text.includes("답니다"))).toBe(true);
+    expect(out[1].text).toBe("편안함을 더해주죠.");
+    expect(out[2].text).toBe("멋진 풍경이 펼쳐져요.");
+    expect(out[3].text).toBe("해변을 내려다볼 수 있어요.");
+  });
+
+  it("문장과 마지막 절이 함께 바뀐다(자막과 말이 어긋나지 않게)", () => {
+    const out = diversifyEndings([
+      line("바다가 보인답니다."),
+      {
+        text: "넓은 거실과 통창이 있고, 정원이 펼쳐진답니다.",
+        parts: [
+          { clipIndexes: [1], text: "넓은 거실과 통창이 있고," },
+          { clipIndexes: [2], text: "정원이 펼쳐진답니다." },
+        ],
+      },
+    ]);
+    const last = out[1].parts[out[1].parts.length - 1];
+    expect(out[1].text.endsWith(last.text)).toBe(true);
+    expect(out[1].text).not.toContain("답니다");
+  });
+
+  it("CTA 문장은 건드리지 않는다", () => {
+    const cta: NarrationLine = {
+      text: "카카오톡에서 빌라고를 검색해 보세요.",
+      parts: [{ clipIndexes: [], text: "카카오톡에서 빌라고를 검색해 보세요." }],
+    };
+    expect(diversifyEndings([line("바다가 보여요."), cta])[1]).toEqual(cta);
+  });
+
+  it("바꿀 규칙이 없는 어미는 원문 그대로 둔다(억지 변형 금지)", () => {
+    const odd = line("바다가 보이는 곳");
+    const out = diversifyEndings([line("바다가 보이는 곳"), odd]);
+    expect(out[1].text).toBe("바다가 보이는 곳");
+  });
+
+  it("normalizeScript를 통과하면 자동 적용된다", () => {
+    const out = normalizeScript(
+      [
+        { text: "수영장이 펼쳐진답니다", parts: [{ cut: 1, text: "수영장이 펼쳐진답니다" }] },
+        { text: "바다가 보인답니다", parts: [{ cut: 2, text: "바다가 보인답니다" }] },
+      ],
+      2
+    );
+    expect(out[1].text).not.toContain("답니다");
+  });
+});
+
+// ── 절 사이 쉼 (테오 2026-07-23: "잠시 쉬고가 없이 다음 문맥이 나오니 이상해") ──
+describe("buildSpeechMarkup — 절 경계에 쉼 태그를 넣는다", () => {
+  it("절이 둘 이상이면 사이마다 태그가 들어간다", () => {
+    const [markup, count] = buildSpeechMarkup({
+      text: "안방이 있고, 욕실까지 편안해요",
+      parts: [
+        { clipIndexes: [0], text: "안방이 있고," },
+        { clipIndexes: [1], text: "욕실까지 편안해요" },
+      ],
+    });
+    expect(markup).toBe("안방이 있고, [pause] 욕실까지 편안해요");
+    expect(count).toBe(1);
+    // 태그를 걷어내면 원래 문장과 같은 말이어야 한다(Gemini 폴백 경로가 그렇게 읽는다).
+    expect(stripPauseTags(markup)).toBe("안방이 있고, 욕실까지 편안해요");
+  });
+
+  it("절이 하나면 태그를 넣지 않는다", () => {
+    const [markup, count] = buildSpeechMarkup({
+      text: "바다가 보여요",
+      parts: [{ clipIndexes: [0], text: "바다가 보여요" }],
+    });
+    expect(markup).toBe("바다가 보여요");
+    expect(count).toBe(0);
+  });
+
+  it("★ 절을 이어 붙인 게 문장과 다르면 태그 없이 원문을 쓴다(말이 바뀌면 안 된다)", () => {
+    const [markup, count] = buildSpeechMarkup({
+      text: "안방이 있고, 욕실까지 편안해요",
+      parts: [
+        { clipIndexes: [0], text: "안방이 있고," },
+        { clipIndexes: [1], text: "전혀 다른 말" },
+      ],
+    });
+    expect(markup).toBe("안방이 있고, 욕실까지 편안해요");
+    expect(count).toBe(0);
+  });
+});
+
+describe("computeNarrationTimeline — 쉼은 앞 절이 화면을 지킨다", () => {
+  const parts = [
+    { clipIndexes: [0], text: "가나다라" },
+    { clipIndexes: [1], text: "마바사아" },
+  ];
+
+  it("쉼 시간이 앞 컷에 얹히고 총 길이는 보존된다", () => {
+    const common = { transitionSec: 0.4, minSegmentSec: 0.1, ctaMinSec: 2.8 };
+    const withPause = computeNarrationTimeline({
+      lines: [{ durationSec: 4 + PART_PAUSE_SEC, pauseCount: 1, parts }],
+      ...common,
+    });
+    const noPause = computeNarrationTimeline({
+      lines: [{ durationSec: 4 + PART_PAUSE_SEC, parts }],
+      ...common,
+    });
+    // 쉼을 알면 앞 컷이 그만큼 더 오래 화면을 지킨다(쉼 동안 다음 컷으로 넘어가면 안 된다).
+    const gapWith = withPause.clipDurations[0] - withPause.clipDurations[1];
+    const gapWithout = noPause.clipDurations[0] - noPause.clipDurations[1];
+    expect(gapWith - gapWithout).toBeCloseTo(PART_PAUSE_SEC, 5);
+    // 총 길이는 두 경우가 같아야 한다(쉼도 결국 화면 시간이다).
+    expect(withPause.totalSec).toBeCloseTo(noPause.totalSec, 5);
   });
 });
