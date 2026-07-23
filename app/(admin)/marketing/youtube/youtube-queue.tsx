@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import PaginationBar from "@/components/pagination-bar";
 import type { SerializedYtShort } from "@/lib/youtube/serialize";
+import { canDeleteMarketingStatus } from "@/lib/marketing/deletable";
 import YoutubeShortCard from "./youtube-short-card";
 
 type Toast = { msg: string; kind: "ok" | "err" };
@@ -31,6 +32,9 @@ export default function YoutubeQueue({
   const [toast, setToast] = useState<Toast | null>(null);
   const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null);
   const [openIds, setOpenIds] = useState<string[]>([]);
+  // 하드 삭제 선택(체크박스) — 업로드 중·발행 완료는 애초에 선택되지 않는다.
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [deleting, setDeleting] = useState(false);
   const toastTimer = useRef<number | null>(null);
 
   const toggleOpen = useCallback((id: string) => {
@@ -74,9 +78,10 @@ export default function YoutubeQueue({
       setShorts(data.shorts);
       setTotal(data.total);
       setPageSize(data.pageSize ?? 10);
-      // 목록에서 사라진 항목의 펼침 상태 정리
+      // 목록에서 사라진 항목의 펼침·선택 상태 정리(스테일 선택으로 엉뚱한 항목이 지워지는 것 방지)
       const ids = new Set(data.shorts.map((s) => s.id));
       setOpenIds((prev) => prev.filter((id) => ids.has(id)));
+      setSelectedIds((prev) => prev.filter((id) => ids.has(id)));
     } catch {
       notify(t("toast.loadError"), "err");
     } finally {
@@ -121,21 +126,86 @@ export default function YoutubeQueue({
 
   const allOpen = shorts.length > 0 && openIds.length === shorts.length;
 
+  // ── 하드 삭제(체크박스) ──
+  const deletableShorts = shorts.filter((s) => canDeleteMarketingStatus(s.status));
+  const allSelected = deletableShorts.length > 0 && selectedIds.length === deletableShorts.length;
+
+  const toggleSelect = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => (checked ? [...new Set([...prev, id])] : prev.filter((x) => x !== id)));
+  };
+
+  const deleteSelected = async () => {
+    if (!selectedIds.length || deleting) return;
+    if (!window.confirm(t("delete.confirm", { n: selectedIds.length }))) return;
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/youtube/shorts", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedIds }),
+      });
+      if (!res.ok) {
+        notify(t("toast.error"), "err");
+        return;
+      }
+      const data = (await res.json()) as { deleted: number; blocked: { id: string }[] };
+      setSelectedIds([]);
+      notify(
+        data.blocked.length > 0
+          ? t("delete.resultBlocked", { n: data.deleted, blocked: data.blocked.length })
+          : t("delete.result", { n: data.deleted }),
+        data.blocked.length > 0 ? "err" : "ok"
+      );
+      await load();
+    } catch {
+      notify(t("toast.error"), "err");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-3">
       {/* 툴바 — 전체 펼치기/접기 + (승인 대기 탭) 일괄 승인 */}
       {shorts.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={() => setOpenIds(allOpen ? [] : shorts.map((s) => s.id))}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-bold text-slate-300 transition-colors hover:bg-slate-800"
-          >
-            <span className="material-symbols-outlined text-[16px]">
-              {allOpen ? "unfold_less" : "unfold_more"}
-            </span>
-            {allOpen ? t("list.collapseAll") : t("list.expandAll")}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setOpenIds(allOpen ? [] : shorts.map((s) => s.id))}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-bold text-slate-300 transition-colors hover:bg-slate-800"
+            >
+              <span className="material-symbols-outlined text-[16px]">
+                {allOpen ? "unfold_less" : "unfold_more"}
+              </span>
+              {allOpen ? t("list.collapseAll") : t("list.expandAll")}
+            </button>
+
+            {/* 삭제 대상 전체 선택 — 업로드 중·발행 완료는 제외하고 센다 */}
+            {deletableShorts.length > 0 && (
+              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-bold text-slate-300 transition-colors hover:bg-slate-800">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={() => setSelectedIds(allSelected ? [] : deletableShorts.map((s) => s.id))}
+                  className="h-4 w-4 accent-red-500"
+                />
+                {t("select.all", { n: deletableShorts.length })}
+              </label>
+            )}
+
+            {selectedIds.length > 0 && (
+              <button
+                type="button"
+                onClick={deleteSelected}
+                disabled={deleting}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white transition-all hover:bg-red-500 active:scale-[0.98] disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[16px]">delete_forever</span>
+                {deleting ? t("delete.deleting") : t("delete.button", { n: selectedIds.length })}
+              </button>
+            )}
+          </div>
 
           {status === "PENDING_APPROVAL" && pendingShorts.length > 0 && (
             <button
@@ -177,6 +247,8 @@ export default function YoutubeQueue({
               onChanged={load}
               onConflict={onConflict}
               notify={notify}
+              selected={selectedIds.includes(s.id)}
+              onSelect={(checked) => toggleSelect(s.id, checked)}
             />
           ))}
         </div>

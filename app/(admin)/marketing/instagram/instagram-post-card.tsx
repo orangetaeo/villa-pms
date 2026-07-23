@@ -10,6 +10,8 @@ import { useTranslations } from "next-intl";
 import { DateField } from "@/components/date-field";
 import ImageLightbox, { type LightboxImage } from "@/components/image-lightbox";
 import type { SerializedIgPost } from "@/lib/instagram/serialize";
+import { canDeleteMarketingStatus } from "@/lib/marketing/deletable";
+import { formatDurationSec, igMediaDurationSec } from "@/lib/marketing/duration";
 
 const KST_OFFSET_MS = 9 * 3600 * 1000;
 const SLOT_OPTIONS = ["07:30", "12:30", "20:00"] as const;
@@ -57,6 +59,8 @@ export default function InstagramPostCard({
   onChanged,
   onConflict,
   notify,
+  selected = false,
+  onSelect,
 }: {
   post: SerializedIgPost;
   open: boolean;
@@ -64,6 +68,9 @@ export default function InstagramPostCard({
   onChanged: () => void | Promise<void>;
   onConflict: () => void;
   notify: (msg: string, kind?: "ok" | "err") => void;
+  /** 삭제 선택 여부(큐가 소유). onSelect 미전달이면 체크박스를 그리지 않는다. */
+  selected?: boolean;
+  onSelect?: (checked: boolean) => void;
 }) {
   const t = useTranslations("adminInstagram");
   const editable = EDITABLE.has(post.status);
@@ -185,6 +192,10 @@ export default function InstagramPostCard({
   const rest = media.slice(1, 4);
   const extra = media.length - 4;
   const hasWarning = post.flaggedTerms.length > 0 || !!post.failReason;
+  // 릴스면 영상 길이(초) — 이미지 캐러셀이면 null이라 뱃지를 그리지 않는다.
+  const durationLabel = formatDurationSec(igMediaDurationSec(post.media));
+  // 하드 삭제 가능 여부 — PUBLISHING·PUBLISHED는 체크 자체를 막는다(서버도 동일 규칙으로 재검사).
+  const deletable = canDeleteMarketingStatus(post.status);
   // 라이트박스 항목 — 릴스(videoUrl)는 영상, 이미지 포스트는 렌더 JPEG
   const zoomItems: LightboxImage[] = media.map((m) => ({
     url: m.renderedUrl,
@@ -202,6 +213,22 @@ export default function InstagramPostCard({
     <div className="rounded-xl border border-slate-800/50 bg-admin-card">
       {/* 요약 줄(항상 표시) — 썸네일 클릭=크게 보기, 나머지 클릭=펼치기/접기 */}
       <div className="flex items-center gap-3 px-3 py-2.5">
+        {/* 삭제 선택 체크박스 — 발행 진행 중·발행 완료는 비활성(사유를 title로 안내) */}
+        {onSelect && (
+          <input
+            type="checkbox"
+            checked={selected}
+            disabled={!deletable}
+            onChange={(e) => onSelect(e.target.checked)}
+            aria-label={t("select.one", { title: post.villaName ?? t("card.noVilla") })}
+            title={
+              deletable
+                ? t("select.one", { title: post.villaName ?? t("card.noVilla") })
+                : t("select.blocked")
+            }
+            className="h-4 w-4 shrink-0 accent-red-500 disabled:cursor-not-allowed disabled:opacity-30"
+          />
+        )}
         {/* 썸네일(4:5) — 목록에서 바로 크게 보기 */}
         {cover ? (
           <button
@@ -268,6 +295,16 @@ export default function InstagramPostCard({
               {post.media.length > 0 && (
                 <span className="text-[10px] font-medium text-slate-500">
                   {t("card.slides", { n: post.media.length })}
+                </span>
+              )}
+              {/* 영상(릴스) 길이 — 목록에서 바로 재생시간 확인(이미지 캐러셀이면 미표시) */}
+              {durationLabel && (
+                <span
+                  className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-0.5 text-[10px] font-bold text-slate-300 tabular-nums"
+                  title={t("card.duration")}
+                >
+                  <span className="material-symbols-outlined text-[12px]">schedule</span>
+                  {durationLabel}
                 </span>
               )}
               {/* 발행됨 도달 뱃지 — 인사이트 수집분(latestReach)만. 미수집이면 미표시. */}

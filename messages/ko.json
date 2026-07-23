@@ -375,7 +375,8 @@
       "rejectConfirm": "반려하기",
       "viewOnInstagram": "인스타에서 보기",
       "publishedLockNote": "발행된 포스트는 인스타그램 앱에서만 수정할 수 있습니다.",
-      "reachBadge": "도달 {n}"
+      "reachBadge": "도달 {n}",
+      "duration": "영상 길이"
     },
     "list": {
       "expand": "펼치기",
@@ -498,6 +499,18 @@
       },
       "viewPost": "보기",
       "noVilla": "빌라 미지정"
+    },
+    "select": {
+      "all": "삭제 대상 전체 선택 ({n})",
+      "one": "{title} 선택",
+      "blocked": "발행 중이거나 이미 발행된 콘텐츠는 삭제할 수 없습니다"
+    },
+    "delete": {
+      "button": "선택 삭제 ({n})",
+      "deleting": "삭제 중...",
+      "confirm": "선택한 {n}건을 완전히 삭제할까요? 삭제하면 되돌릴 수 없습니다.",
+      "result": "{n}건을 삭제했습니다.",
+      "resultBlocked": "{n}건 삭제 · {blocked}건은 발행 중/발행 완료라 삭제하지 못했습니다."
     }
   },
   "adminYoutube": {
@@ -571,7 +584,8 @@
         "public": "공개",
         "unlisted": "일부 공개",
         "private": "비공개"
-      }
+      },
+      "duration": "영상 길이"
     },
     "list": {
       "expand": "펼치기",
@@ -837,6 +851,18 @@
         "generic": "처리에 실패했습니다."
       },
       "cutRange": "컷{from}~{to}"
+    },
+    "select": {
+      "all": "삭제 대상 전체 선택 ({n})",
+      "one": "{title} 선택",
+      "blocked": "업로드 중이거나 이미 발행된 쇼츠는 삭제할 수 없습니다"
+    },
+    "delete": {
+      "button": "선택 삭제 ({n})",
+      "deleting": "삭제 중...",
+      "confirm": "선택한 {n}건을 완전히 삭제할까요? 삭제하면 되돌릴 수 없습니다.",
+      "result": "{n}건을 삭제했습니다.",
+      "resultBlocked": "{n}건 삭제 · {blocked}건은 업로드 중/발행 완료라 삭제하지 못했습니다."
     }
   },
   "account": {
@@ -6680,6 +6706,51 @@
     "activate": "다시 사용",
     "errorNoFile": "사진을 먼저 선택해 주세요.",
     "errorBadUrl": "저장소 밖 이미지 주소는 사용할 수 없습니다.",
+    "errorNoAlt": "사진 설명을 입력해 주세요.",
+    "placesLink": "장소(맛집·카페) 관리 →"
+  },
+  "marketingSeoPlaces": {
+    "title": "푸꾸옥 장소 — 맛집·카페·쇼핑",
+    "subtitle": "직접 다녀온 곳을 등록해 두면, 같은 종류로 {n}곳이 모일 때마다 소개 글이 한 편씩 자동으로 만들어집니다.",
+    "backToQueue": "승인 큐로 →",
+    "mediaLink": "자료 사진 →",
+    "ready": "다음 초안에 나감",
+    "addTitle": "장소 추가",
+    "nameLabel": "이름 (필수)",
+    "namePlaceholder": "예: 쭈옌 반쎄오",
+    "nameLocalLabel": "현지 간판명",
+    "nameLocalPlaceholder": "예: Bánh Xèo Chuyên",
+    "categoryLabel": "종류 (필수)",
+    "categoryPlaceholder": "선택하세요",
+    "areaLabel": "동네·지역",
+    "areaPlaceholder": "예: 즈엉동 시내",
+    "oneLinerLabel": "직접 가본 인상 (필수)",
+    "oneLinerPlaceholder": "예: 현지인이 많고 반쎄오가 바삭하다. 자리는 좁아서 일행 4명까지가 편함",
+    "oneLinerHint": "이 문장이 글의 재료입니다. 비워두면 AI가 지어내게 되므로 짧아도 직접 써 주세요.",
+    "tipsLabel": "메모 (선택)",
+    "tipsPlaceholder": "예: 주차는 골목 안쪽, 저녁에는 대기 있음",
+    "noVolatileHint": "영업시간·가격·전화번호는 적지 마세요 — 바뀌면 글이 틀려집니다(시스템도 저장하지 않습니다).",
+    "mapLabel": "지도 링크 (선택, 내부 참고용)",
+    "mapHint": "글에는 나가지 않습니다. 나중에 다시 찾을 때 쓰는 메모입니다.",
+    "save": "저장",
+    "edit": "수정",
+    "addPhoto": "사진 추가",
+    "savePhoto": "사진 저장",
+    "photoAltPlaceholder": "사진 설명 (예: 반쎄오 한 접시)",
+    "pickFile": "사진 선택",
+    "uploading": "업로드 중…",
+    "uploadDone": "업로드 완료 — 설명을 채우고 저장하세요",
+    "uploadError": "업로드에 실패했습니다. 다시 시도해 주세요.",
+    "tooLarge": "파일이 너무 큽니다(5MB 이하).",
+    "empty": "아직 등록한 장소가 없습니다.",
+    "used": "소개됨",
+    "waiting": "대기 중",
+    "deactivate": "사용 중지",
+    "activate": "다시 사용",
+    "errorName": "이름을 입력해 주세요.",
+    "errorCategory": "종류를 선택해 주세요.",
+    "errorOneLiner": "직접 가본 인상을 10자 이상 적어 주세요.",
+    "errorNoFile": "사진을 먼저 선택해 주세요.",
     "errorNoAlt": "사진 설명을 입력해 주세요."
   },
   "clipManage": {

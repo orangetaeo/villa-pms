@@ -35,6 +35,14 @@ import {
   generateServiceArticleBody,
   pickServicePhotos,
 } from "@/lib/seo/service-article";
+import {
+  getPlaceCandidates,
+  generatePlaceArticleBody,
+  pickPlacePhotos,
+  placeTopicKey,
+  buildPlaceArticleTitle,
+  markPlacesUsed,
+} from "@/lib/seo/place-article";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -189,7 +197,69 @@ async function handle(req: Request) {
       continue;
     }
 
-    // ── ③ 가이드 글 — 사진은 자료 사진 라이브러리에서만 온다 ──
+    // ── ③ 장소 글(맛집·카페·쇼핑) — 등록된 장소 3곳이 모이면 한 편 ──
+    //   ★ 유일하게 고갈되지 않는 글감이다(테오가 다닐수록 늘어난다). 그래서 회차로 이어진다.
+    //   ★ 등록된 장소만 등장할 수 있다 — 남의 가게는 우리 DB가 사실 원천이 아니라서
+    //     AI에게 맡기면 없는 가게를 지어낸다. 사실은 사람이 넣고 문장만 AI가 쓴다.
+    const place = (await getPlaceCandidates())[0];
+    if (place) {
+      const key = placeTopicKey(place.category.key, place.seq);
+      usedKeys.add(key);
+      const pDraft = await generatePlaceArticleBody(place.category, place.places);
+      if (!pDraft) {
+        skipped.push(`${key}: 생성 실패`);
+        continue;
+      }
+      if (!isArticlePublishable(pDraft.blocks)) {
+        skipped.push(`${key}: 분량·구조 하한 미달`);
+        continue;
+      }
+      const pPhotos = pickPlacePhotos(place.places);
+      const pCover = pPhotos[0]?.url ?? BRAND_FALLBACK_IMAGE;
+      // 장소당 1장씩 소제목 뒤에 배치 — 커버로 쓴 첫 장도 본문에 남긴다(장소별 사진이 하나씩 있어야 한다).
+      const pBody = interleaveImages(pDraft.blocks, pPhotos);
+
+      const pRow = await prisma.seoArticle.create({
+        data: {
+          slug: buildArticleSlug(key),
+          title: buildPlaceArticleTitle(place.category, place.places.length, place.seq),
+          summary: buildSummary(pDraft.blocks),
+          bodyJson: pBody,
+          topicKey: key,
+          coverPhotoUrl: pCover,
+          status: SeoArticleStatus.PENDING_APPROVAL,
+          flaggedTerms: pDraft.flaggedTerms.length > 0 ? pDraft.flaggedTerms : undefined,
+          createdBy: CREATED_BY,
+        },
+        select: { id: true, slug: true, title: true },
+      });
+      created.push(pRow);
+      // ★ 글 저장 성공 뒤에만 소비 처리 — 실패한 회차가 장소를 태워버리면 그 가게는 영영 못 나온다.
+      await markPlacesUsed(
+        place.places.map((p) => p.id),
+        pRow.id
+      );
+      await writeAuditLog({
+        userId: null,
+        action: "CREATE",
+        entity: "SeoArticle",
+        entityId: pRow.id,
+        changes: {
+          kind: { new: "place" },
+          category: { new: place.category.key },
+          seq: { new: place.seq },
+          topicKey: { new: key },
+          slug: { new: pRow.slug },
+          status: { new: "PENDING_APPROVAL" },
+          places: { new: place.places.map((p) => p.name) },
+          photos: { new: pPhotos.length },
+          flaggedTerms: { new: pDraft.flaggedTerms },
+        },
+      });
+      continue;
+    }
+
+    // ── ④ 가이드 글 — 사진은 자료 사진 라이브러리에서만 온다 ──
     const topic = pickTopic(usedKeys);
     if (!topic) {
       skipped.push("주제 풀 소진");
