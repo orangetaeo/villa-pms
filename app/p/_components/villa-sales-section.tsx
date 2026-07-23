@@ -63,11 +63,14 @@ export interface VillaSalesData {
 export function VillaSalesSection({
   villa,
   cancellationPolicy,
+  approxLocationName,
   lang,
 }: {
   villa: VillaSalesData;
   /** 전 빌라 공용 취소·환불 정책 (#6b) — enabled일 때만 표시 */
   cancellationPolicy?: CancellationPolicy;
+  /** 지도 대략 위치 캡션에 표기할 단지명(예: "Sonasea"). null이면 단지명 없이 캡션만. */
+  approxLocationName?: string | null;
   lang: PublicLang;
 }) {
   const t = PUBLIC_LABELS[lang].sales;
@@ -163,7 +166,12 @@ export function VillaSalesSection({
                 <span className="material-symbols-outlined text-[14px] text-teal-600 shrink-0 mt-px">
                   info
                 </span>
-                <span>{t.mapApprox}</span>
+                <span>
+                  {approxLocationName && (
+                    <span className="font-bold text-neutral-700">{approxLocationName} · </span>
+                  )}
+                  {t.mapApprox}
+                </span>
               </div>
             </>
           )}

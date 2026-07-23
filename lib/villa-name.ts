@@ -45,3 +45,23 @@ export function publicVillaCode(villaId: string): string {
   const tail = (alnum.slice(-4) || "0000").toUpperCase();
   return `Villa Go #${tail}`;
 }
+
+/**
+ * 제안 링크 표시명 — 단지명(complex) 기준 (2026-07-24 테오 결정).
+ *
+ * 개별 빌라 실명("M villa M1")은 유닛까지 특정돼 우회예약 위험이라 노출하지 않는다. 대신 **단지명**
+ * (예: "Sonasea")만 보여준다 — 한 단지에 빌라가 여럿이라 특정 빌라를 못 집어낸다(방어 유지). 브랜드
+ * 접두 "Villa Go"를 붙여 "Villa Go Sonasea"처럼 표기한다. 단지 미지정 빌라는 코드명으로 폴백.
+ *
+ * ★ 운영자 화면·정산·확정 후 안내는 실명 그대로(이 함수 미사용).
+ * 지도 캡션 등 "단지명만" 필요한 곳은 publicVillaAreaName(접두 없는 순수 단지명)을 쓴다.
+ */
+export function publicVillaLabel(villa: { id: string; complex?: string | null }): string {
+  const area = publicVillaAreaName(villa);
+  return area ? `Villa Go ${area}` : publicVillaCode(villa.id);
+}
+
+/** 제안 링크용 순수 단지명 — 있으면 트림된 단지명, 없으면 null(폴백은 호출부). 지도 캡션 등에서 사용. */
+export function publicVillaAreaName(villa: { complex?: string | null }): string | null {
+  return villa.complex?.trim() || null;
+}
