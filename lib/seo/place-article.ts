@@ -78,7 +78,7 @@ export const PLACE_SELECT = {
   tips: true,
   photos: {
     where: { active: true },
-    select: { id: true, url: true, alt: true, caption: true, kind: true },
+    select: { id: true, url: true, alt: true, caption: true, kind: true, watermarkedUrl: true },
     orderBy: { createdAt: "asc" as const },
     // 단독 글은 등록된 사진을 대부분 쓴다 — 절반도 못 쓰면 올린 보람이 없다(테오 지적 2026-07-23).
     take: 12,
@@ -199,7 +199,14 @@ export function pickPlacePhotos(places: PlaceRow[], maxForSingle = MAX_PHOTOS_SI
     for (const photo of ordered) {
       if (seen.has(photo.url)) continue;
       seen.add(photo.url);
-      out.push({ url: photo.url, alt: photo.alt, caption: photo.caption ?? p.name });
+      // mediaId·watermarkedUrl을 함께 실어 보낸다 — 워터마크 파생본 캐시를 갱신하려면 사진 id가 필요하다.
+      out.push({
+        url: photo.url,
+        alt: photo.alt,
+        caption: photo.caption ?? p.name,
+        mediaId: photo.id,
+        watermarkedUrl: photo.watermarkedUrl ?? null,
+      } as PickedImage & { mediaId: string; watermarkedUrl: string | null });
     }
   }
   return out;
@@ -258,6 +265,46 @@ export function tidyHeadings<T extends { type: string }>(blocks: T[]): T[] {
   });
 }
 
+/**
+ * 같은 문단 반복 제거 — ★모델이 리드 문단을 두 번 뱉는 일이 실제로 있었다(테오 실측 2026-07-23:
+ * "푸꾸옥에서 빌라를 운영하며…" 문단이 연속 2회). 프롬프트로 막을 수 없는 종류라 값에서 지운다.
+ * 소제목(h2)은 건드리지 않는다 — 같은 제목이 의도적으로 반복될 여지는 없지만, 본문 흐름을 바꾸지 않기 위함.
+ */
+export function dedupeParagraphs<B extends { type: string }>(blocks: B[]): B[] {
+  const seen = new Set<string>();
+  const out: B[] = [];
+  for (const b of blocks) {
+    if (b.type === "p") {
+      const key = (b as unknown as { text: string }).text.replace(/\s+/g, " ").trim();
+      if (key.length > 0) {
+        if (seen.has(key)) continue;
+        seen.add(key);
+      }
+    }
+    out.push(b);
+  }
+  return out;
+}
+
+/**
+ * 썸네일 후킹 한 줄 — **운영자가 쓴 인상의 첫 문장**을 그대로 쓴다(AI가 새 문구를 만들지 않는다).
+ * 길면 자르되 문장 중간이 아니라 어절 경계에서 자른다.
+ */
+export function buildThumbnailHook(oneLiner: string, max = 26): string | null {
+  // 줄바꿈(10·13)·마침표·느낌표·물음표 중 가장 먼저 오는 경계까지가 첫 문장이다.
+  const BREAKS = [String.fromCharCode(10), String.fromCharCode(13), ".", "!", "?"];
+  let first = oneLiner.trim();
+  for (const br of BREAKS) {
+    const idx = first.indexOf(br);
+    if (idx > 0) first = first.slice(0, idx).trim();
+  }
+  if (first.length === 0) return null;
+  if (first.length <= max) return first;
+  const cut = first.slice(0, max);
+  const sp = cut.lastIndexOf(" ");
+  return "" + (sp > max * 0.5 ? cut.slice(0, sp) : cut).trim() + "…";
+}
+
 /** 사용 처리 — 같은 가게가 다음 편에 다시 나오지 않게 한다. */
 export async function markPlacesUsed(ids: string[], articleId: string, db: DbClient = prisma): Promise<void> {
   if (ids.length === 0) return;
@@ -278,6 +325,18 @@ export async function createPlaceArticleDraft(
   deps: {
     db?: DbClient;
     generate?: typeof generatePlaceArticleBody;
+    /** 사진 URL → 워터마크 파생본 URL. 순환 참조를 피하려고 호출부가 주입한다. */
+    watermark: (photo: PickedImage & { mediaId?: string }) => Promise<string>;
+    /** 커버 사진 + 문구 → 썸네일 URL(실패 시 null) */
+    renderThumbnail: (
+      photoUrl: string,
+      input: { title: string; hook: string | null; eyebrow: string | null }
+    ) => Promise<string | null>;
+    /** 블록 → 상세페이지 HTML */
+    toHtml: (
+      blocks: ReturnType<typeof parseArticleBody>,
+      opts: { title: string; thumbnailUrl: string | null; summary: string }
+    ) => string;
     /** 순환 참조를 피하려고 호출부가 넘긴다(article-draft의 공용 헬퍼들) */
     helpers: {
       isArticlePublishable: (blocks: ReturnType<typeof parseArticleBody>) => boolean;
@@ -300,18 +359,40 @@ export async function createPlaceArticleDraft(
   if (!draft) return { ok: false, reason: "생성 실패" };
   if (!deps.helpers.isArticlePublishable(draft.blocks)) return { ok: false, reason: "분량·구조 하한 미달" };
 
-  const photos = pickPlacePhotos(places);
+  const rawPhotos = pickPlacePhotos(places);
+  // ★ 블로그에 나가는 이미지는 **워터마크 필수**(테오 지시 2026-07-23). 파생본이 없으면 여기서 굽는다.
+  //   실패 시 원본 URL로 폴백 — 워터마크 때문에 글 생성을 멈추지 않는다.
+  const photos = await Promise.all(
+    rawPhotos.map(async (p) => ({ ...p, url: await deps.watermark(p) }))
+  );
+  // ★ 첫 장은 **커버 전용**이다 — 본문에 또 넣으면 같은 사진이 두 번 나온다(테오 실측 2026-07-23).
+  const bodyPhotos = photos.slice(1);
   // 단독 글은 사진이 많아 소제목 뒤 배치로는 다 못 넣는다 → 문단 사이에 고르게 흩뿌린다.
   const body =
-    places.length === 1 ? spreadImages(draft.blocks, photos) : deps.helpers.interleaveImages(draft.blocks, photos);
+    places.length === 1
+      ? spreadImages(dedupeParagraphs(draft.blocks), bodyPhotos)
+      : deps.helpers.interleaveImages(dedupeParagraphs(draft.blocks), bodyPhotos);
+  const title = buildPlaceArticleTitle(category, places, seq);
+  const summary = deps.helpers.buildSummary(draft.blocks);
+  // 대표 썸네일 — 커버 사진(워터마크본) 위에 제목·후킹·브랜드를 얹는다. 실패하면 사진 URL로 폴백.
+  const thumbnailUrl = photos[0]
+    ? await deps.renderThumbnail(photos[0].url, {
+        title: places.length === 1 ? places[0].name : `푸꾸옥 ${category.label}`,
+        hook: buildThumbnailHook(places[0].oneLiner),
+        eyebrow: [places[0].area ? `푸꾸옥 ${places[0].area}` : "푸꾸옥", category.label].join(" · "),
+      })
+    : null;
+
   const row = await db.seoArticle.create({
     data: {
+      thumbnailUrl,
+      bodyHtml: deps.toHtml(body, { title, thumbnailUrl, summary }),
       slug: deps.helpers.buildArticleSlug(key),
-      title: buildPlaceArticleTitle(category, places, seq),
-      summary: deps.helpers.buildSummary(draft.blocks),
+      title,
+      summary,
       bodyJson: body,
       topicKey: key,
-      coverPhotoUrl: photos[0]?.url ?? deps.helpers.brandFallbackImage,
+      coverPhotoUrl: thumbnailUrl ?? photos[0]?.url ?? deps.helpers.brandFallbackImage,
       status: "PENDING_APPROVAL",
       flaggedTerms: draft.flaggedTerms.length > 0 ? draft.flaggedTerms : undefined,
       createdBy,

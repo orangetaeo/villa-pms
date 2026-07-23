@@ -9,6 +9,7 @@ import {
   selectPlaceArticlesForIg,
   buildPlaceSlides,
   buildPlaceHeadline,
+  reelCaptionFor,
   buildPlaceCaptionPrompt,
   fallbackPlaceCaption,
   MIN_PLACE_PHOTOS_FOR_IG,
@@ -138,10 +139,17 @@ describe("슬라이드·헤드라인", () => {
     expect(buildPlaceHeadline(src())).toBe("메오키친\n푸꾸옥 즈엉동 맛집");
   });
 
-  it("사진 캡션은 사람이 쓴 설명 그대로다(짓지 않는다)", () => {
+  it("★ 화면 문구는 사진 역할에 맞게 붙는다 — alt 그대로면 밋밋하다(테오 지적)", () => {
     const slides = buildPlaceSlides(src());
     const raw = slides.find((s) => s.templateId === "raw");
-    expect(raw && "reelCaption" in raw ? raw.reelCaption : null).toBe("반세오");
+    // 음식 사진: 사람이 쓴 이름은 유지하되 화면 문구로 다듬는다(사실을 더하지 않는다)
+    expect(raw && "reelCaption" in raw ? raw.reelCaption : null).toBe("반세오, 이걸 먹으러 갑니다");
+  });
+
+  it("역할별 문구가 사실을 더하지 않는다", () => {
+    expect(reelCaptionFor({ id: "1", url: "u", alt: "주방", kind: "interior" }, "메오키친")).toBe("안은 이런 분위기");
+    expect(reelCaptionFor({ id: "1", url: "u", alt: "메뉴1", kind: "menu" }, "메오키친")).toBe("메뉴는 이렇게");
+    expect(reelCaptionFor({ id: "1", url: "u", alt: "", kind: "food" }, "메오키친")).toBe("메오키친");
   });
 });
 
