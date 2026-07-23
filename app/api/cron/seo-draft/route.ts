@@ -35,14 +35,10 @@ import {
   generateServiceArticleBody,
   pickServicePhotos,
 } from "@/lib/seo/service-article";
-import {
-  getPlaceCandidates,
-  generatePlaceArticleBody,
-  pickPlacePhotos,
-  placeTopicKey,
-  buildPlaceArticleTitle,
-  markPlacesUsed,
-} from "@/lib/seo/place-article";
+import { getPlaceCandidates, placeTopicKey, createPlaceArticleDraft } from "@/lib/seo/place-article";
+import { ensureWatermarkedUrl } from "@/lib/seo/watermark-server";
+import { renderArticleThumbnail } from "@/lib/seo/thumbnail";
+import { toArticleHtml } from "@/lib/seo/article-html";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -205,55 +201,47 @@ async function handle(req: Request) {
     if (place) {
       const key = placeTopicKey(place.category.key, place.seq);
       usedKeys.add(key);
-      const pDraft = await generatePlaceArticleBody(place.category, place.places);
-      if (!pDraft) {
-        skipped.push(`${key}: 생성 실패`);
-        continue;
-      }
-      if (!isArticlePublishable(pDraft.blocks)) {
-        skipped.push(`${key}: 분량·구조 하한 미달`);
-        continue;
-      }
-      const pPhotos = pickPlacePhotos(place.places);
-      const pCover = pPhotos[0]?.url ?? BRAND_FALLBACK_IMAGE;
-      // 장소당 1장씩 소제목 뒤에 배치 — 커버로 쓴 첫 장도 본문에 남긴다(장소별 사진이 하나씩 있어야 한다).
-      const pBody = interleaveImages(pDraft.blocks, pPhotos);
-
-      const pRow = await prisma.seoArticle.create({
-        data: {
-          slug: buildArticleSlug(key),
-          title: buildPlaceArticleTitle(place.category, place.places, place.seq),
-          summary: buildSummary(pDraft.blocks),
-          bodyJson: pBody,
-          topicKey: key,
-          coverPhotoUrl: pCover,
-          status: SeoArticleStatus.PENDING_APPROVAL,
-          flaggedTerms: pDraft.flaggedTerms.length > 0 ? pDraft.flaggedTerms : undefined,
-          createdBy: CREATED_BY,
-        },
-        select: { id: true, slug: true, title: true },
-      });
-      created.push(pRow);
-      // ★ 글 저장 성공 뒤에만 소비 처리 — 실패한 회차가 장소를 태워버리면 그 가게는 영영 못 나온다.
-      await markPlacesUsed(
-        place.places.map((p) => p.id),
-        pRow.id
+      // ★ 수동 생성(운영자 버튼)과 **같은 함수**를 쓴다 — 워터마크·썸네일·HTML·중복제거가 한 곳에만 있게.
+      //   (예전에는 cron이 자체 구현이라 개선이 한쪽에만 반영되는 사고가 났다.)
+      const res = await createPlaceArticleDraft(
+        { category: place.category, places: place.places, seq: place.seq, createdBy: CREATED_BY },
+        {
+          watermark: (photo) =>
+            ensureWatermarkedUrl({
+              id: (photo as { mediaId?: string }).mediaId ?? "",
+              url: photo.url,
+              watermarkedUrl: (photo as { watermarkedUrl?: string | null }).watermarkedUrl ?? null,
+            }),
+          renderThumbnail: renderArticleThumbnail,
+          toHtml: (blocks, opts) => toArticleHtml(blocks, opts),
+          helpers: {
+            isArticlePublishable,
+            buildArticleSlug,
+            buildSummary,
+            interleaveImages,
+            brandFallbackImage: BRAND_FALLBACK_IMAGE,
+          },
+        }
       );
+      if (!res.ok) {
+        skipped.push(`${key}: ${res.reason}`);
+        continue;
+      }
+      created.push({ id: res.id, slug: res.slug, title: res.title });
       await writeAuditLog({
         userId: null,
         action: "CREATE",
         entity: "SeoArticle",
-        entityId: pRow.id,
+        entityId: res.id,
         changes: {
           kind: { new: "place" },
           category: { new: place.category.key },
           seq: { new: place.seq },
           topicKey: { new: key },
-          slug: { new: pRow.slug },
+          slug: { new: res.slug },
           status: { new: "PENDING_APPROVAL" },
           places: { new: place.places.map((p) => p.name) },
-          photos: { new: pPhotos.length },
-          flaggedTerms: { new: pDraft.flaggedTerms },
+          photos: { new: res.photos },
         },
       });
       continue;

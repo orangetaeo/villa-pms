@@ -13,6 +13,9 @@ import { userCanSeeMarketing } from "@/lib/marketing-access";
 import { writeAuditLog } from "@/lib/audit-log";
 import { placeCategory, createPlaceArticleDraft, PLACE_SELECT, isMediaKind } from "@/lib/seo/place-article";
 import { isArticlePublishable } from "@/lib/seo/article";
+import { ensureWatermarkedUrl } from "@/lib/seo/watermark-server";
+import { renderArticleThumbnail } from "@/lib/seo/thumbnail";
+import { toArticleHtml } from "@/lib/seo/article-html";
 import { buildArticleSlug, buildSummary, interleaveImages, BRAND_FALLBACK_IMAGE } from "@/lib/seo/article-draft";
 
 const PATH = "/marketing/seo/places";
@@ -229,6 +232,14 @@ export async function draftPlaceArticleNow(formData: FormData): Promise<void> {
   const result = await createPlaceArticleDraft(
     { category, places: [place], seq: already + 1, createdBy: `admin:${userId}` },
     {
+      watermark: (photo) =>
+        ensureWatermarkedUrl({
+          id: (photo as { mediaId?: string }).mediaId ?? "",
+          url: photo.url,
+          watermarkedUrl: (photo as { watermarkedUrl?: string | null }).watermarkedUrl ?? null,
+        }),
+      renderThumbnail: renderArticleThumbnail,
+      toHtml: (blocks, opts) => toArticleHtml(blocks, opts),
       helpers: {
         isArticlePublishable,
         buildArticleSlug,

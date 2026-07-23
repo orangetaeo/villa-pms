@@ -27,6 +27,8 @@ export interface PlacePhoto {
   url: string;
   alt: string;
   kind: string | null;
+  /** 워터마크 파생본 — 인스타·쇼츠에 나가는 이미지도 워터마크가 박힌 쪽을 쓴다 */
+  watermarkedUrl?: string | null;
 }
 
 export interface PlaceIgSource {
@@ -50,7 +52,7 @@ const PLACE_WITH_PHOTOS = {
   usedInArticleId: true,
   photos: {
     where: { active: true },
-    select: { id: true, url: true, alt: true, kind: true },
+    select: { id: true, url: true, alt: true, kind: true, watermarkedUrl: true },
     orderBy: { createdAt: "asc" as const },
   },
 } satisfies Prisma.SeoPlaceSelect;
@@ -115,6 +117,27 @@ export async function selectPlaceArticlesForIg(
   return out;
 }
 
+/**
+ * 릴스·쇼츠 화면 문구 — ★사진 설명(alt)을 그대로 쓰면 "반세오", "주방"처럼 **밋밋하다**(테오 지적 2026-07-23).
+ * 역할(kind)에 맞는 짧은 수식을 붙여 화면 문구로 만든다. **사실을 더하지 않는다** — 어순·조사만 바꾼다.
+ */
+export function reelCaptionFor(photo: PlacePhoto, placeName: string): string {
+  const alt = photo.alt.trim();
+  if (!alt) return placeName;
+  switch (photo.kind) {
+    case "exterior":
+      return `여기예요 · ${placeName}`;
+    case "interior":
+      return `안은 이런 분위기`;
+    case "menu":
+      return `메뉴는 이렇게`;
+    case "food":
+      return `${alt}, 이걸 먹으러 갑니다`;
+    default:
+      return alt;
+  }
+}
+
 /** 커버 헤드라인 — 가게 이름이 먼저 읽혀야 한다(검색어이자 저장 이유). */
 export function buildPlaceHeadline(src: PlaceIgSource): string {
   const label = placeCategory(src.category)?.label ?? "가볼 만한 곳";
@@ -131,7 +154,10 @@ const CTA = {
  * ★ 빌라 전용 `info` 슬라이드(침실 수·해변 거리)는 쓰지 않는다 — 가게에는 해당 사실이 없다.
  */
 export function buildPlaceSlides(src: PlaceIgSource): SlideInput[] {
-  const photos = src.photos.slice(0, MAX_PLACE_SLIDE_PHOTOS);
+  // ★ 워터마크 파생본이 있으면 그쪽을 쓴다 — 인스타·쇼츠로 나가는 이미지도 도용 방지 대상이다.
+  const photos = src.photos
+    .slice(0, MAX_PLACE_SLIDE_PHOTOS)
+    .map((p) => ({ ...p, url: p.watermarkedUrl ?? p.url }));
   const slides: SlideInput[] = [];
   slides.push({
     templateId: "cover",
@@ -145,7 +171,7 @@ export function buildPlaceSlides(src: PlaceIgSource): SlideInput[] {
       srcPhotoId: photos[i].id,
       srcPhotoUrl: photos[i].url,
       // 릴스로 확장할 때 쓰일 사진별 캡션 — 사람이 붙인 설명 그대로(짓지 않는다)
-      reelCaption: photos[i].alt || null,
+      reelCaption: reelCaptionFor(photos[i], src.placeName),
     });
   }
   slides.push({ templateId: "cta", data: CTA });
