@@ -165,9 +165,9 @@ export async function POST(req: Request) {
       {
         LOW: BigInt(data.rates.LOW),
         HIGH: BigInt(data.rates.HIGH),
-        PEAK: BigInt(data.rates.PEAK),
-        // SHOULDER(준성수기)는 선택 — 전송 시에만 포함(미전송 구 payload 하위호환)
+        // SHOULDER(준성수기)·PEAK(극성수기)는 선택(마법사 미노출) — 전송 시에만 포함
         ...(data.rates.SHOULDER != null ? { SHOULDER: BigInt(data.rates.SHOULDER) } : {}),
+        ...(data.rates.PEAK != null ? { PEAK: BigInt(data.rates.PEAK) } : {}),
       },
       globalSeasons
     );
@@ -235,7 +235,7 @@ export async function POST(req: Request) {
       accessInfo: { new: data.accessInfo != null && data.accessInfo !== "" },
       wifiPassword: { new: data.wifiPassword != null && data.wifiPassword !== "" },
       supplierCostVnd: {
-        new: `LOW=${data.rates.LOW},HIGH=${data.rates.HIGH},PEAK=${data.rates.PEAK}${data.rates.SHOULDER != null ? `,SHOULDER=${data.rates.SHOULDER}` : ""}`,
+        new: `LOW=${data.rates.LOW},HIGH=${data.rates.HIGH}${data.rates.SHOULDER != null ? `,SHOULDER=${data.rates.SHOULDER}` : ""}${data.rates.PEAK != null ? `,PEAK=${data.rates.PEAK}` : ""}`,
       },
     },
   });

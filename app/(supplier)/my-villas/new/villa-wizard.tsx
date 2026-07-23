@@ -170,12 +170,13 @@ export default function VillaWizard({
             baseDepositVnd: state.rules.baseDepositVnd || null,
             extraBedAvailable: state.rules.extraBedAvailable,
           },
-          // 원가 — LOW/HIGH/PEAK 필수, SHOULDER(준성수기)는 값이 있을 때만 전송(빈 값 미전송 — 구 payload 하위호환)
+          // 원가 — LOW/HIGH만 입력받는다. SHOULDER·PEAK는 마법사 미노출이지만
+          //   기존 빌라 재제출 시 불러온 값이 있으면 그대로 보존 전송(값 소실 방지).
           rates: {
             LOW: state.rates.LOW,
             HIGH: state.rates.HIGH,
-            PEAK: state.rates.PEAK,
             ...(state.rates.SHOULDER ? { SHOULDER: state.rates.SHOULDER } : {}),
+            ...(state.rates.PEAK ? { PEAK: state.rates.PEAK } : {}),
           },
         }),
       });

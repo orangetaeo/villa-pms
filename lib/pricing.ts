@@ -90,13 +90,14 @@ export interface StayQuote {
 
 // ===================== 기간별 요금 (ADR-0014) — 순수 함수 층 =====================
 
-/** 빌라 생성/수정 입력의 시즌별 원가 (LOW/HIGH/PEAK 필수, SHOULDER 선택, 동 단위 BigInt). */
+/** 빌라 생성/수정 입력의 시즌별 원가 (LOW/HIGH 필수, SHOULDER·PEAK 선택, 동 단위 BigInt). */
 export interface SeasonCostsVnd {
   LOW: bigint;
   HIGH: bigint;
-  PEAK: bigint;
-  /** 준성수기 — 선택(구 payload 하위호환). 미포함 시 전역 SHOULDER 기간이 있어도 그 기간 스킵. */
+  /** 준성수기 — 선택(마법사 미노출). 미포함 시 전역 SHOULDER 기간이 있어도 그 기간 스킵. */
   SHOULDER?: bigint;
+  /** 극성수기 — 선택(마법사 미노출). 미포함 시 전역 PEAK 기간이 있어도 그 기간 스킵. */
+  PEAK?: bigint;
 }
 
 /** VillaRatePeriod 생성용 행 (Prisma create 입력 호환 — villaId는 호출자가 부여) */
