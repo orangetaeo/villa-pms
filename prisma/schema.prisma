@@ -2052,6 +2052,37 @@ model SeoArticle {
   @@index([topicKey]) // 주제 중복 생성 방지 조회
 }
 
+// ===================== 가이드 글 자료 사진 라이브러리 — T-seo-media-library =====================
+// 가이드 글(빌라 글이 아닌 주제 글)에 넣을 **운영자 직접 촬영 사진** 보관소.
+// ★ 빌라 사진을 쓰지 않는 이유: 가이드 글 주제와 무관한 사진이 되기 때문(테오 지적 2026-07-22).
+//   그래서 "주제에 맞는 사진"을 사람이 미리 올려두고, 초안 cron이 주제 태그로 골라 쓴다.
+// ★ 삭제하지 않는다 — active=false로 내린다(이미 발행된 글의 본문 이미지 URL이 죽으면 안 된다).
+// ★ 누수 0: 금액·공급자·재고 필드 없음. 빌라와 관계도 없다(자료 사진이지 빌라 사진이 아니다).
+model SeoMedia {
+  id String @id @default(cuid())
+
+  url String // 저장소 URL — lib/seo/article.ts isAllowedImageUrl 허용 호스트만 통과한다
+  // alt는 **필수**. 빈 alt 이미지는 파서가 블록째 버리므로(SEO·접근성 무의미) 저장 단계에서 막는다.
+  alt     String
+  caption String? // 본문 캡션(선택) — 있으면 사진 아래 설명으로 렌더된다
+  credit  String? // 촬영·출처 표기(기본 자사 촬영). 외부 이미지를 올릴 경우 근거를 남기는 자리
+
+  // ARTICLE_TOPICS의 key 목록. **빈 배열 = 범용**(어느 주제에나 후보로 쓰인다).
+  topicKeys String[]
+
+  // 같은 사진이 모든 글에 반복되면 그 자체가 저품질 신호 — 덜 쓴 사진을 먼저 고르기 위한 축.
+  usedCount  Int       @default(0)
+  lastUsedAt DateTime?
+
+  active     Boolean @default(true)
+  uploadedBy String? // User.id (FK 없음 — 사용자 삭제가 자료 사진을 지우면 안 된다)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active, usedCount]) // 선택 쿼리 축(덜 쓴 것 우선)
+}
+
 // ===================== 계약 조항 협의(네고) — T-contract-negotiation (S2) =====================
 // 계약은 DRAFT→SENT→SIGNED뿐이라 상대방은 "서명하거나 안 하거나"였다. 조항 단위로 이의를 남기고
 // 운영자가 수용/거절하는 창구. ★ 상태(BusinessContractStatus)는 건드리지 않는다 —

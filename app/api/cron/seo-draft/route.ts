@@ -5,6 +5,9 @@
 //
 // ★ 발행하지 않는다. 이 cron은 **승인 대기**까지만 만든다(사람 승인 게이트 = 스팸 정책 방어선).
 // ★ 누수 0: 빌라 정보는 lib/seo/public-villa.ts 관문 통과분만, 그중에서도 규모·시설 요약뿐.
+// ★ 사진 출처가 글 종류마다 다르다: 빌라 글 = 그 빌라의 실사진, 가이드 글 = 자료 사진 라이브러리
+//   (/marketing/seo/media, T-seo-media-library). 가이드 글에 빌라 사진을 쓰지 않는 이유는
+//   본문 주제와 무관한 이미지가 되기 때문이다(테오 지적 2026-07-22).
 import { SeoArticleStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { verifyCronAuth } from "@/lib/cron-auth";
@@ -24,7 +27,9 @@ import {
   buildVillaArticleTitle,
   pickVillaPhotos,
   composeVillaBody,
+  interleaveImages,
 } from "@/lib/seo/article-draft";
+import { pickMediaForTopic, toPickedImages, markMediaUsed, MAX_MEDIA_PER_ARTICLE } from "@/lib/seo/media";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -140,16 +145,21 @@ async function handle(req: Request) {
       continue;
     }
 
-    // ★ 가이드 글에는 본문 이미지를 넣지 않는다 — 빌라 사진은 본문 주제와 무관하다.
-    //   커버만 브랜드 이미지로 채운다(공유 썸네일·Article.image가 비면 CTR이 떨어진다).
+    // ★ 가이드 글의 사진은 **빌라 사진이 아니라 자료 사진 라이브러리**에서만 온다(T-seo-media-library).
+    //   빌라 사진을 끼우면 본문과 무관한 이미지가 되기 때문. 라이브러리가 비면 사진 없이 진행한다
+    //   — 커버는 브랜드 이미지로 채운다(공유 썸네일이 비면 CTR이 떨어진다).
+    const media = await pickMediaForTopic(topic.key, MAX_MEDIA_PER_ARTICLE);
+    const guideCover = media[0]?.url ?? BRAND_FALLBACK_IMAGE;
+    // 첫 장은 커버로 쓰므로 본문에는 두 번째부터 — 같은 사진 중복 노출 방지(빌라 글과 동일 규칙).
+    const guideBody = interleaveImages(draft.blocks, toPickedImages(media.slice(1)));
 
     const row = await prisma.seoArticle.create({
       data: {
         slug: buildArticleSlug(topic.key),
         title: topic.title,
         summary: buildSummary(draft.blocks),
-        bodyJson: draft.blocks,
-        coverPhotoUrl: BRAND_FALLBACK_IMAGE,
+        bodyJson: guideBody,
+        coverPhotoUrl: guideCover,
         topicKey: topic.key,
         status: SeoArticleStatus.PENDING_APPROVAL,
         flaggedTerms: draft.flaggedTerms.length > 0 ? draft.flaggedTerms : undefined,
@@ -158,6 +168,8 @@ async function handle(req: Request) {
       select: { id: true, slug: true, title: true },
     });
     created.push(row);
+    // 사용 기록은 글 저장 성공 뒤에만 — 저장이 실패한 회차가 사진 순번을 소비하면 안 된다.
+    await markMediaUsed(media.map((m) => m.id));
 
     await writeAuditLog({
       userId: null,
@@ -171,7 +183,8 @@ async function handle(req: Request) {
         status: { new: "PENDING_APPROVAL" },
         flaggedTerms: { new: draft.flaggedTerms },
         kind: { new: "guide" },
-        blocks: { new: draft.blocks.length },
+        blocks: { new: guideBody.length },
+        photos: { new: media.length },
       },
     });
   }

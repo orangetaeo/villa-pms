@@ -61,7 +61,12 @@ export default async function MarketingSeoPage({
 
   return (
     <div className="p-6 text-slate-100">
-      <h1 className="text-2xl font-bold">{t("title")}</h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-2xl font-bold">{t("title")}</h1>
+        <Link href="/marketing/seo/media" className="text-sm font-semibold text-blue-400">
+          {t("mediaLink")}
+        </Link>
+      </div>
       <p className="mt-1 text-sm text-slate-400">{t("subtitle")}</p>
 
       <nav className="mt-5 flex flex-wrap gap-2">
