@@ -697,8 +697,8 @@ describe("diversifyEndings — 같은 어미 반복은 서버가 바꾼다", () 
 
 // ── 절 사이 쉼 (테오 2026-07-23: "잠시 쉬고가 없이 다음 문맥이 나오니 이상해") ──
 describe("buildSpeechMarkup — 절 경계에 쉼 태그를 넣는다", () => {
-  it("절이 둘 이상이면 사이마다 태그가 들어간다", () => {
-    const [markup, count] = buildSpeechMarkup({
+  it("절 경계(쉼표·연결어미)에서만 태그가 들어간다", () => {
+    const [markup, pauses] = buildSpeechMarkup({
       text: "안방이 있고, 욕실까지 편안해요",
       parts: [
         { clipIndexes: [0], text: "안방이 있고," },
@@ -706,22 +706,36 @@ describe("buildSpeechMarkup — 절 경계에 쉼 태그를 넣는다", () => {
       ],
     });
     expect(markup).toBe("안방이 있고, [pause] 욕실까지 편안해요");
-    expect(count).toBe(1);
+    expect(pauses).toEqual([true, false]);
     // 태그를 걷어내면 원래 문장과 같은 말이어야 한다(Gemini 폴백 경로가 그렇게 읽는다).
     expect(stripPauseTags(markup)).toBe("안방이 있고, 욕실까지 편안해요");
   });
 
   it("절이 하나면 태그를 넣지 않는다", () => {
-    const [markup, count] = buildSpeechMarkup({
+    const [markup, pauses] = buildSpeechMarkup({
       text: "바다가 보여요",
       parts: [{ clipIndexes: [0], text: "바다가 보여요" }],
     });
     expect(markup).toBe("바다가 보여요");
-    expect(count).toBe(0);
+    expect(pauses).toEqual([false]);
+  });
+
+  it("★ 구 한가운데서 끊긴 절 뒤에는 쉼을 넣지 않는다(테오 지적 재발 방지)", () => {
+    // 자막 절은 글자수로 나뉘어 "…은은한 대리석 / 세면대 욕실과…"처럼 구 중간에서 끊길 수 있다.
+    // 거기 0.69초를 넣으면 쉼이 없던 것보다 더 이상하게 들린다.
+    const [markup, pauses] = buildSpeechMarkup({
+      text: "첫 번째 방에는 은은한 대리석 세면대 욕실이 있죠",
+      parts: [
+        { clipIndexes: [0], text: "첫 번째 방에는 은은한 대리석" },
+        { clipIndexes: [1], text: "세면대 욕실이 있죠" },
+      ],
+    });
+    expect(markup).not.toContain("[pause]");
+    expect(pauses).toEqual([false, false]);
   });
 
   it("★ 절을 이어 붙인 게 문장과 다르면 태그 없이 원문을 쓴다(말이 바뀌면 안 된다)", () => {
-    const [markup, count] = buildSpeechMarkup({
+    const [markup, pauses] = buildSpeechMarkup({
       text: "안방이 있고, 욕실까지 편안해요",
       parts: [
         { clipIndexes: [0], text: "안방이 있고," },
@@ -729,7 +743,7 @@ describe("buildSpeechMarkup — 절 경계에 쉼 태그를 넣는다", () => {
       ],
     });
     expect(markup).toBe("안방이 있고, 욕실까지 편안해요");
-    expect(count).toBe(0);
+    expect(pauses.every((p) => !p)).toBe(true);
   });
 });
 
@@ -742,7 +756,7 @@ describe("computeNarrationTimeline — 쉼은 앞 절이 화면을 지킨다", (
   it("쉼 시간이 앞 컷에 얹히고 총 길이는 보존된다", () => {
     const common = { transitionSec: 0.4, minSegmentSec: 0.1, ctaMinSec: 2.8 };
     const withPause = computeNarrationTimeline({
-      lines: [{ durationSec: 4 + PART_PAUSE_SEC, pauseCount: 1, parts }],
+      lines: [{ durationSec: 4 + PART_PAUSE_SEC, pauseAfter: [true, false], parts }],
       ...common,
     });
     const noPause = computeNarrationTimeline({
