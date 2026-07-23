@@ -57,6 +57,27 @@ describe("resolveClipPace — 공간·메모 → 컷 성격", () => {
   it("머무는 단어가 이동 단어를 이긴다 — '계단 위 수영장'은 머물러야 한다", () => {
     expect(resolveClipPace("ETC", "계단 위 수영장 전망").kind).toBe("hero");
   });
+
+  // ★ 실데이터 회귀(2026-07-23): 실빌라 M villa M1의 외관 컷 메모가 "외관 · 입구"였는데
+  //   "입구"가 이동 키워드에 걸려 **오프닝 hero 샷이 1.85배로 날아갔다.**
+  //   빌라 영상에서 정문·현관은 "지나가는 곳"이 아니라 첫인상을 만드는 장면이다.
+  it("외관·수영장은 메모의 이동 단어로도 강등되지 않는다", () => {
+    expect(resolveClipPace("EXTERIOR", "외관 · 입구").kind).toBe("hero");
+    expect(resolveClipPace("EXTERIOR", "정문과 진입로, 계단").kind).toBe("hero");
+    expect(resolveClipPace("POOL", "복도 끝 수영장").kind).toBe("hero");
+  });
+
+  it("애매한 단어(입구·현관·로비)는 이동 신호에서 제외한다", () => {
+    for (const n of ["입구", "현관 앞", "로비", "entrance", "lối vào"]) {
+      expect(resolveClipPace("LIVING", n).kind).toBe("feature");
+    }
+  });
+
+  it("해석의 여지가 없는 단어는 그대로 이동 컷이다", () => {
+    for (const n of ["실내 복도", "계단", "통로", "hallway", "cầu thang"]) {
+      expect(resolveClipPace("LIVING", n).kind).toBe("transit");
+    }
+  });
 });
 
 describe("planClipTiming — 화면 길이는 고정, 원본 소비량만 바꾼다", () => {
