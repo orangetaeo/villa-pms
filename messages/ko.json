@@ -6671,7 +6671,11 @@
       "rejected": "반려"
     },
     "empty": "해당 상태의 글이 없습니다.",
+    "expandAll": "모두 펼치기",
+    "collapseAll": "모두 접기",
     "chars": "{n}자",
+    "photoCount": "사진 {n}장",
+    "noPhoto": "사진 없음",
     "flagged": "금칙어 검출: {terms}",
     "created": "생성",
     "publishedAt": "발행",

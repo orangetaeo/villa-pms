@@ -6671,7 +6671,11 @@
       "rejected": "Từ chối"
     },
     "empty": "Không có bài nào ở trạng thái này.",
+    "expandAll": "Mở tất cả",
+    "collapseAll": "Thu gọn tất cả",
     "chars": "{n} ký tự",
+    "photoCount": "{n} ảnh",
+    "noPhoto": "Chưa có ảnh",
     "flagged": "Phát hiện từ cấm: {terms}",
     "created": "Tạo",
     "publishedAt": "Đăng",
