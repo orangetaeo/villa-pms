@@ -124,9 +124,46 @@ function run(bin: string, args: string[]): Promise<void> {
   });
 }
 
+// ── ⓪ 컷 표 정합 검사 (재단 전에 컷 겹침을 잡는다) ────────────
+/**
+ * **같은 장면이 두 번 나가는 사고**를 재단 전에 막는다(테오 2026-07-23 "26~27초 중복").
+ *
+ * 컷이 원본을 얼마나 읽는지는 pace가 정한다:
+ *   - fast(이동): 화면 상한 1.9초 × 배속 1.85 = **최대 3.5초**를 읽는다(len이 더 길어도 그만큼만)
+ *   - slow(보여주기): 나레이션이 길면 len 끝까지 읽을 수 있다
+ * 그래서 "이 컷이 읽을 수 있는 마지막 지점"이 다음 컷 시작을 넘으면 화면이 겹친다.
+ */
+function checkOverlaps(): string[] {
+  const TRANSIT_MAX_READ = 1.9 * 1.85; // maxScreenSecFor × PACE_SPEED.transit (pacing.ts)
+  const issues: string[] = [];
+  for (let i = 0; i < CUTS.length - 1; i++) {
+    const c = CUTS[i];
+    const next = CUTS[i + 1];
+    if (next.src <= c.src) {
+      issues.push(`컷 ${i + 2}(${next.label}) src ${next.src}가 앞 컷보다 앞서거나 같다`);
+      continue;
+    }
+    const maxRead = c.pace === "fast" ? Math.min(c.len, TRANSIT_MAX_READ) : c.len;
+    const end = c.src + maxRead;
+    if (end > next.src + 1e-6) {
+      issues.push(
+        `컷 ${i + 1}(${c.label})이 ${end.toFixed(1)}초까지 읽는데 컷 ${i + 2}(${next.label})가 ${next.src}초에 시작 — ` +
+          `${(end - next.src).toFixed(1)}초 겹침. len을 ${(next.src - c.src).toFixed(1)} 이하로 줄이거나 시작을 당기세요`
+      );
+    }
+  }
+  return issues;
+}
+
 // ── ① 재단 ────────────────────────────────────────────────
 async function phaseCut(only: number[]) {
   bar("① 30컷 재단");
+  const overlaps = checkOverlaps();
+  if (overlaps.length) {
+    console.error("★ 컷 겹침 — 같은 장면이 두 번 나간다. 재단을 중단한다:");
+    for (const o of overlaps) console.error("  -", o);
+    process.exit(1);
+  }
   await fs.access(SOURCE); // 없으면 공급자에게 원본 재요청해야 한다
   await fs.mkdir(WORK, { recursive: true });
 
