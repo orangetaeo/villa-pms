@@ -19,6 +19,7 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { canRerender } from "@/lib/youtube/rerender-guard";
 import { GeminiNotConfiguredError } from "@/lib/gemini";
 import { ttsConfig } from "@/lib/gemini-tts";
+import { resolveClipPace } from "@/lib/youtube/pacing";
 import {
   buildNarrationScript,
   validateNarrationLines,
@@ -112,6 +113,7 @@ function clipHintsOf(editParams: Prisma.JsonValue | null): NarrationClipHint[] {
     return {
       space: typeof cc.space === "string" ? cc.space : null,
       note: typeof cc.note === "string" ? cc.note : null,
+      pace: cc.pace === "fast" || cc.pace === "slow" ? cc.pace : undefined,
     };
   });
 }
@@ -243,7 +245,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   //   (새 문장은 parts가 없어 CTA로 저장되고, 문장을 지우면 그 문장이 덮던 컷이 미배정으로 남는다).
   //   미배정 컷은 clipDurations에 구멍을 남겨 렌더가 기본 4초를 쓰고 **타임라인 전체가 밀린다**.
   //   → 서버가 normalizeScript로 모든 컷이 정확히 한 번씩 쓰이도록 항상 다시 맞춘다(컷 순서 정렬 포함).
-  const clipCount = clipHintsOf(short.editParamsJson).length;
+  const hints = clipHintsOf(short.editParamsJson);
+  const clipCount = hints.length;
+  // ★ 컷 완급을 함께 넘긴다 — 이동 컷이 자기 자막을 갖지 못하게 재편성한다.
+  //   안 넘기면 "침대 나레이션이 나오는데 화면은 샤워실"이 다시 생긴다(테오 2026-07-23).
+  const clipKinds = hints.map((h) => resolveClipPace(h.space, h.note, h.pace).kind);
   const normalized =
     clipCount > 0
       ? normalizeScript(
@@ -255,7 +261,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
               text: p.text,
             })),
           })),
-          clipCount
+          clipCount,
+          clipKinds
         )
       : lines;
 

@@ -182,6 +182,8 @@ export interface NarrationClipHint {
   space: string | null;
   /** 이 컷의 구분되는 특징 — 자유 텍스트. 예: "마스터 침실, 킹베드, 정원 통창" */
   note?: string | null;
+  /** 완급 지정(fast/slow) — 대본 프롬프트와 이동 컷 흡수 판정에 함께 쓴다 */
+  pace?: "fast" | "slow";
 }
 
 export interface NarrationVillaContext {
@@ -253,7 +255,7 @@ function buildPrompt(ctx: NarrationVillaContext): string {
       const note = c.note?.trim() ? ` — ${c.note.trim()}` : "";
       // 페이싱(pacing.ts)과 **같은 판정**을 대본에도 알려준다. 빠르게 지나가는 컷에 긴 설명을
       // 붙이면 화면은 이미 다음 방인데 말이 남는다 — 모델이 짧은 절을 배정하도록 명시한다.
-      const kind = resolveClipPace(c.space, c.note).kind;
+      const kind = resolveClipPace(c.space, c.note, c.pace).kind;
       const pace = kind === "transit" ? " [지나가는 컷 — 아주 짧게]" : kind === "hero" ? " [핵심 컷 — 여유 있게]" : "";
       return `  컷${i + 1}: ${label}${ord}${note}${pace}`;
     })
@@ -389,7 +391,12 @@ export async function buildNarrationScript(
  */
 export function normalizeScript(
   raw: { text: string; parts: { cut: number; text: string }[] }[],
-  clipCount: number
+  clipCount: number,
+  /**
+   * 컷별 완급(pacing.ts resolveClipPace(...).kind). 주면 **이동 컷이 자기 자막을 갖지 못하게**
+   * 재편성한다 — 아래 "이동 컷 흡수" 참고. 없으면 기존 동작(모델 배정 그대로).
+   */
+  clipKinds?: (string | undefined)[]
 ): NarrationLine[] {
   const used = new Set<number>();
   const lines: NarrationLine[] = [];
@@ -444,10 +451,52 @@ export function normalizeScript(
     return ka - kb;
   });
 
+  // ★ 이동 컷 흡수(2026-07-23 테오 지적): 모델이 **이동 컷에 내용 문장을 배정**하는 일이 잦다.
+  //   실측 사례 — 컷19(욕실에서 나오는 이동)에 "편안한 킹베드와 티브이,"가 붙어,
+  //   침대 나레이션이 나오는데 화면은 아직 샤워실이었다. 컷10(거실→욕실 이동)에는 "거실"만 붙었다.
+  //   원인은 구조적이다: 이동 컷은 **화면에 1.9초만 머무는데** 모델은 그걸 모른다.
+  //   → 이동 컷은 자막을 갖지 않고 **바로 앞 내용 컷의 절에 흡수**시킨다(그 자막이 두 컷에 걸친다).
+  //     그러면 남은 글자가 내용 컷들에 순서대로 다시 배분되어 화면과 말이 저절로 맞는다.
+  //     덤으로 "이동 구간의 자막을 조금 더 길게"라는 요청도 같이 해결된다.
+  const regrouped = clipKinds ? lines.map((l) => absorbTransitParts(l, clipKinds)) : lines;
+
   // ★ 마지막 관문: 절이 문장 전체를 덮게 맞춘다. 모델은 자연스러운 문장을 쓴 뒤 일부 절만
   //   배정하는 일이 잦고(3회 중 2회 실측), 그대로 두면 자막이 문장을 빠뜨리고 컷 길이까지 왜곡된다.
   //   컷 순서 정규화 **뒤에** 돌려야 한다 — 재구성은 확정된 배정 위에서 글자만 다시 나눈다.
-  return lines.map(reconcilePartsToText);
+  return regrouped.map(reconcilePartsToText);
+}
+
+/**
+ * 문장 안에서 이동 컷을 앞 내용 컷의 절에 흡수시킨다.
+ * 절의 **개수만** 줄이고 텍스트는 그대로 둔다 — 재배분은 reconcilePartsToText가 한다
+ * (절 수가 줄면 정합이 깨지므로 그쪽이 반드시 뒤따라 돈다).
+ */
+export function absorbTransitParts(line: NarrationLine, clipKinds: (string | undefined)[]): NarrationLine {
+  const isTransit = (p: NarrationPart) =>
+    p.clipIndexes.length > 0 && p.clipIndexes.every((ci) => clipKinds[ci] === "transit");
+
+  // CTA 문장이나 이동 컷이 없는 문장은 그대로.
+  if (!line.parts.some(isTransit)) return line;
+
+  const groups: NarrationPart[] = [];
+  for (const part of line.parts) {
+    if (isTransit(part) && groups.length > 0) {
+      // 앞 절이 이 이동 컷까지 덮는다(자막 한 장이 두 컷에 걸쳐 유지된다).
+      groups[groups.length - 1].clipIndexes.push(...part.clipIndexes);
+      continue;
+    }
+    groups.push({ clipIndexes: [...part.clipIndexes], text: part.text });
+  }
+
+  // 문장 맨 앞이 이동 컷이면 흡수할 앞 절이 없다 — 다음 절이 앞으로 끌어안는다.
+  if (groups.length > 1 && isTransit(groups[0])) {
+    groups[1].clipIndexes = [...groups[0].clipIndexes, ...groups[1].clipIndexes];
+    groups.shift();
+  }
+  for (const g of groups) g.clipIndexes.sort((a, b) => a - b);
+
+  // 절이 줄었으니 텍스트를 이어 붙여 두고(정합 깨짐 표시), reconcilePartsToText가 다시 나눈다.
+  return { text: line.text, parts: groups };
 }
 
 // ── ①-b 절 재구성 (프롬프트만 믿지 않는다) ──────────────────────────

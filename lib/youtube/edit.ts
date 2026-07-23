@@ -36,6 +36,7 @@ import {
   retimeNarrationTimeline,
   synthesizeNarration,
 } from "@/lib/youtube/narration";
+import { auditClips, formatAuditFindings } from "@/lib/youtube/clip-audit";
 import {
   maxScreenSecFor,
   minScreenSecFor,
@@ -175,6 +176,16 @@ export interface EditParams {
    * ★ 화면 길이는 절대 바뀌지 않는다 — 같은 시간에 원본을 얼마나 소비하느냐만 달라진다.
    */
   pacing?: boolean;
+  /** 렌더 전 소재 자동 검수. 기본 켬. false면 건너뛴다(급할 때만). */
+  audit?: boolean;
+}
+
+/** 소재 검수 불합격 — 렌더를 중단시키는 유일한 검수 결과. */
+export class ClipAuditFailed extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ClipAuditFailed";
+  }
 }
 
 export class EditValidationError extends Error {
@@ -290,6 +301,7 @@ export function validateEditParams(raw: unknown): EditParams {
   // 기본값을 "켬"으로 둔다 — 기존 잡을 재렌더하면 자동으로 좋아지는 쪽이 맞다(테오 2026-07-23).
   const bgm: "soft" | "none" = r.bgm === "none" ? "none" : "soft";
   const pacing = r.pacing !== false;
+  const audit = r.audit !== false;
 
   return {
     clips,
@@ -302,6 +314,7 @@ export function validateEditParams(raw: unknown): EditParams {
     ctaVariant,
     bgm,
     pacing,
+    audit,
   };
 }
 
@@ -1431,6 +1444,41 @@ export async function runYoutubeEditJob(
         note: c.note ?? null,
         pace: c.pace,
       });
+    }
+
+    // ── 렌더 전 소재 자동 검수 (clip-audit) ──────────────────────
+    //   "완성본을 사람이 보고 매번 짚어주는" 흐름을 끝내기 위한 게이트(테오 2026-07-23).
+    //   변기·쓰레기통·거울 속 촬영자처럼 **나가면 안 되는 것**이 잡히면 렌더를 멈추고
+    //   무엇을 고쳐야 하는지 컷 번호와 함께 알린다. 검수 자체가 실패하면(키 미설정·API 장애)
+    //   조용히 통과시킨다 — 검수 장애가 발행을 막는 것이 더 나쁘다.
+    if (params.audit !== false) {
+      try {
+        const { findings } = await auditClips(
+          local.map((c, i) => ({
+            path: c.path,
+            index: i + 1,
+            startSec: c.startSec,
+            space: c.space ?? null,
+            note: c.note ?? null,
+            pace: c.pace,
+          }))
+        );
+        const errors = findings.filter((f) => f.severity === "error");
+        if (findings.length > 0) {
+          console.warn(`[yt-edit] 소재 검수 발견 ${findings.length}건:
+${formatAuditFindings(findings)}`);
+        }
+        if (errors.length > 0) {
+          throw new ClipAuditFailed(
+            `소재 검수에서 ${errors.length}건이 걸렸습니다. 해당 컷의 시작 지점을 옮기고 다시 실행하세요.
+` +
+              formatAuditFindings(errors)
+          );
+        }
+      } catch (e) {
+        if (e instanceof ClipAuditFailed) throw e;
+        console.error(`[yt-edit] 소재 검수를 건너뜁니다: ${(e as Error).message}`);
+      }
     }
 
     // ── AI 나레이션 (villa-clip-narration-p2) ──────────────────────

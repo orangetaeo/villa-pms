@@ -7,6 +7,7 @@ import {
   retimeNarrationTimeline,
   normalizeScript,
   reconcilePartsToText,
+  absorbTransitParts,
   paginateSubtitle,
   clampSubtitleOverlaps,
   SUBTITLE_PAGE_MAX_CHARS,
@@ -542,5 +543,87 @@ describe("computeNarrationTimeline — 이동 컷 상한과 재분배", () => {
     const a = computeNarrationTimeline({ lines: [mk(3)], ...base, maxSegmentSecByClip: [null, null, null] });
     const b = computeNarrationTimeline({ lines: [mk(3)], ...base });
     expect(a.clipDurations).toEqual(b.clipDurations);
+  });
+});
+
+// ── 이동 컷 흡수 (테오 지적: 나레이션과 화면이 어긋난다) ──────────────
+describe("absorbTransitParts — 이동 컷은 자기 자막을 갖지 않는다", () => {
+  // ★ 실측(2026-07-23): 컷19가 "욕실에서 나오는 이동"인데 모델이 "편안한 킹베드와 티브이,"를
+  //   배정했다. 침대 나레이션이 나오는데 화면은 아직 샤워실이었다.
+  const kinds = ["hero", "hero", "transit", "hero", "hero"];
+
+  it("이동 컷이 앞 절에 흡수되고 절 수가 줄어든다", () => {
+    const line: NarrationLine = {
+      text: "화장대와 옷장, 샤워부스와 욕조를 갖춘 욕실, 편안한 킹베드와 티브이, 베란다를 열면 바다예요",
+      parts: [
+        { clipIndexes: [0], text: "화장대와 옷장," },
+        { clipIndexes: [1], text: "샤워부스와 욕조를 갖춘 욕실," },
+        { clipIndexes: [2], text: "편안한 킹베드와 티브이," },
+        { clipIndexes: [3], text: "베란다를 열면" },
+        { clipIndexes: [4], text: "바다예요" },
+      ],
+    };
+    const r = absorbTransitParts(line, kinds);
+    expect(r.parts).toHaveLength(4);
+    // 이동 컷 2는 앞 절(컷1)이 함께 덮는다 — 샤워실 자막이 나오는 동안 이동까지 이어진다
+    expect(r.parts[1].clipIndexes).toEqual([1, 2]);
+    expect(r.parts.map((p) => p.clipIndexes)).toEqual([[0], [1, 2], [3], [4]]);
+  });
+
+  it("흡수 후 재구성까지 거치면 침대 설명이 침대 컷으로 옮겨간다", () => {
+    const lines = normalizeScript(
+      [
+        {
+          text: "화장대와 옷장, 샤워부스와 욕조를 갖춘 욕실, 편안한 킹베드와 티브이, 베란다를 열면 바다예요",
+          parts: [
+            { cut: 1, text: "화장대와 옷장," },
+            { cut: 2, text: "샤워부스와 욕조를 갖춘 욕실," },
+            { cut: 3, text: "편안한 킹베드와 티브이," },
+            { cut: 4, text: "베란다를 열면" },
+            { cut: 5, text: "바다예요" },
+          ],
+        },
+      ],
+      5,
+      kinds
+    );
+    const parts = lines[0].parts;
+    // 침대 컷(인덱스 3)의 자막에 '킹베드'가 와야 한다 — 예전엔 이동 컷(2)에 붙어 어긋났다
+    const bedPart = parts.find((p) => p.clipIndexes.includes(3));
+    expect(bedPart?.text).toContain("킹베드");
+    // 이동 컷(2)은 앞 절과 같은 자막을 공유한다
+    const withTransit = parts.find((p) => p.clipIndexes.includes(2));
+    expect(withTransit?.clipIndexes).toContain(1);
+  });
+
+  it("문장 맨 앞이 이동 컷이면 다음 절이 끌어안는다", () => {
+    const line: NarrationLine = {
+      text: "거실 옆으로는 욕실이 있어요",
+      parts: [
+        { clipIndexes: [0], text: "거실" },
+        { clipIndexes: [1], text: "옆으로는 욕실이 있어요" },
+      ],
+    };
+    const r = absorbTransitParts(line, ["transit", "hero"]);
+    expect(r.parts).toHaveLength(1);
+    expect(r.parts[0].clipIndexes).toEqual([0, 1]);
+  });
+
+  it("이동 컷이 없으면 손대지 않는다", () => {
+    const line: NarrationLine = {
+      text: "가나 다라",
+      parts: [
+        { clipIndexes: [0], text: "가나" },
+        { clipIndexes: [1], text: "다라" },
+      ],
+    };
+    expect(absorbTransitParts(line, ["hero", "hero"])).toEqual(line);
+  });
+
+  it("clipKinds를 안 주면 기존 동작 그대로(무변경)", () => {
+    const a = normalizeScript([{ text: "가나 다라", parts: [{ cut: 1, text: "가나" }, { cut: 2, text: "다라" }] }], 2);
+    const b = normalizeScript([{ text: "가나 다라", parts: [{ cut: 1, text: "가나" }, { cut: 2, text: "다라" }] }], 2, undefined);
+    expect(a).toEqual(b);
+    expect(a[0].parts).toHaveLength(2);
   });
 });
