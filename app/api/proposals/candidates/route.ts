@@ -81,6 +81,11 @@ export async function GET(req: Request) {
           totalSaleVnd: quote.totalSaleVnd ?? null,
           totalSaleUsd: null, // USD는 수동입력 — 후보 단계에선 항상 null
           totalSupplierCostVnd: quote.totalSupplierCostVnd, // ADMIN 전용 응답 — 마진 판단용
+          // ADR-0031 안전장치 — DIRECT(소비자가) 견적에서 소비자 원화/동가 미설정으로 도매가가
+          //   그대로 나가는 빌라. 운영자가 "일반고객에게 도매가가 제안된다"를 인지하도록 경고 배지/배너용.
+          //   NET(여행사·랜드사)이나 폴백 0이면 false.
+          consumerPriceMissing:
+            channel === BookingChannel.DIRECT && (quote.consumerFallbackNights ?? 0) > 0,
         });
       } catch (e) {
         if (e instanceof MissingRateError) {

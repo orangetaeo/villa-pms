@@ -74,6 +74,12 @@ export interface NightQuote {
   costVnd: bigint;
   /** ADR-0042 — 프리미엄 박이면 사유. 평일 박이면 미포함(undefined) */
   premium?: PremiumReason;
+  /**
+   * ADR-0031 안전장치 — CONSUMER 계층인데 이 박의 소비자가(consumerSalePrice*)가 null이라
+   * 여행사 도매가(Net)로 폴백된 박이면 true. 금액은 그대로(폴백값)이고, "일반고객가가 도매가와
+   * 같아졌다"는 사실만 표시하기 위한 플래그(누수 아님 — 운영자 견적 경로 전용). NET 계층에선 항상 미포함.
+   */
+  consumerFallback?: true;
 }
 
 export interface StayQuote {
@@ -86,6 +92,11 @@ export interface StayQuote {
   totalSaleVnd?: bigint;
   /** 공급자 원가 박별 합산 — 통화 무관 항상 VND */
   totalSupplierCostVnd: bigint;
+  /**
+   * ADR-0031 안전장치 — CONSUMER 계층 견적에서 소비자가 미설정으로 도매가 폴백된 박 수(>0이면 경고).
+   * NET 계층·폴백 0이면 미포함. 운영자(제안 생성)가 "일반고객에게 도매가가 나간다"를 인지하게 하는 신호.
+   */
+  consumerFallbackNights?: number;
 }
 
 // ===================== 기간별 요금 (ADR-0014) — 순수 함수 층 =====================
@@ -387,6 +398,7 @@ export function quoteStayByPeriod(input: QuoteStayByPeriodInput): StayQuote {
   let totalSaleKrw = 0;
   let totalSaleVnd = 0n;
   let totalSupplierCostVnd = 0n;
+  let consumerFallbackNights = 0; // ADR-0031 안전장치 — 소비자가 미설정으로 도매가 폴백된 박 수
 
   const nights = Math.round(
     (input.checkOut.getTime() - input.checkIn.getTime()) / MS_PER_DAY
@@ -425,6 +437,20 @@ export function quoteStayByPeriod(input: QuoteStayByPeriodInput): StayQuote {
       night.saleVnd = vnd;
       totalSaleVnd += vnd;
     }
+    // ADR-0031 안전장치 — CONSUMER인데 이 통화의 소비자가가 null이면 도매가 폴백(금액은 유지, 사실만 표시).
+    //   USD(참조 견적)는 소비자가 개념이 없어 판정 제외. NET 계층은 폴백 자체가 없음.
+    if (tier === "CONSUMER") {
+      const consumerNull =
+        input.saleCurrency === Currency.KRW
+          ? rate.consumerSalePriceKrw == null
+          : input.saleCurrency === Currency.VND
+            ? rate.consumerSalePriceVnd == null
+            : false;
+      if (consumerNull) {
+        night.consumerFallback = true;
+        consumerFallbackNights += 1;
+      }
+    }
     totalSupplierCostVnd += rate.supplierCostVnd;
     nightly.push(night);
   }
@@ -440,6 +466,8 @@ export function quoteStayByPeriod(input: QuoteStayByPeriodInput): StayQuote {
         ? { totalSaleVnd }
         : {}),
     totalSupplierCostVnd,
+    // 폴백이 하나도 없으면(NET 계층 포함) 미포함 — 기존 소비처·테스트 형태 무영향.
+    ...(consumerFallbackNights > 0 ? { consumerFallbackNights } : {}),
   };
 }
 

@@ -48,6 +48,9 @@ interface Candidate {
   totalSaleVnd: string | null; // BigInt 직렬화 — 문자열
   totalSaleUsd: number | null; // USD는 수동입력 — 후보 단계에선 항상 null (Phase 2)
   totalSupplierCostVnd: string; // ADMIN 전용 — 마진 계산용
+  // ADR-0031 안전장치 — DIRECT(일반고객·소비자가)인데 소비자 원화/동가 미설정이라 여행사 도매가가
+  //   그대로 제안되는 빌라. 서버가 채널을 보고 판정(NET·폴백0이면 false).
+  consumerPriceMissing: boolean;
 }
 
 interface CandidateWarning {
@@ -299,6 +302,13 @@ export default function ProposalCreate() {
   const selected = useMemo(
     () => (candidates ?? []).filter((c) => selectedIds.includes(c.id)),
     [candidates, selectedIds]
+  );
+
+  // ADR-0031 안전장치 — 선택된 빌라 중 소비자가 미설정으로 여행사 도매가가 그대로 나가는 건(경고 배너용).
+  //   flag는 서버가 DIRECT일 때만 true로 세팅하므로 채널 재확인 불필요.
+  const consumerMissingSelected = useMemo(
+    () => selected.filter((c) => c.consumerPriceMissing),
+    [selected]
   );
 
   // USD 입력 파서 — 숫자만, 양의 정수만 유효(아니면 0). 표시·합계용.
@@ -750,6 +760,16 @@ export default function ProposalCreate() {
                         >
                           {stayAmountLabel(c)}
                         </span>
+                        {/* ADR-0031 안전장치 — 소비자가 미설정으로 도매가가 나가는 빌라(운영자 전용 경고) */}
+                        {c.consumerPriceMissing && (
+                          <span
+                            className="mt-1 flex items-center justify-end gap-0.5 text-[10px] font-bold text-amber-400 whitespace-nowrap"
+                            title={t("consumerFallbackBody")}
+                          >
+                            <span className="material-symbols-outlined text-[12px]">warning</span>
+                            {t("consumerFallbackBadge")}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -920,6 +940,13 @@ export default function ProposalCreate() {
                           <div className="text-xs text-slate-400 tabular-nums whitespace-nowrap">
                             {stayAmountLabel(c)} ({t("stayTotal", { nights: c.nights })})
                           </div>
+                          {/* ADR-0031 안전장치 — 소비자가 미설정으로 도매가가 나가는 빌라 */}
+                          {c.consumerPriceMissing && (
+                            <span className="mt-1 inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-400">
+                              <span className="material-symbols-outlined text-[12px]">warning</span>
+                              {t("consumerFallbackBadge")}
+                            </span>
+                          )}
                         </div>
                         <button
                           type="button"
@@ -988,6 +1015,26 @@ export default function ProposalCreate() {
                 })}
               </div>
             </div>
+
+            {/* ADR-0031 안전장치 — 선택 빌라 중 소비자가 미설정으로 여행사 도매가가 그대로 제안되는 건 경고.
+                일반고객(직접) 원화 제안인데 마진이 안 붙은 도매가가 나가는 사고를 생성 전에 차단. */}
+            {consumerMissingSelected.length > 0 && (
+              <div
+                role="alert"
+                className="bg-amber-900/20 border border-amber-900/40 rounded-xl p-4 text-xs space-y-1.5"
+              >
+                <p className="font-bold flex items-center gap-1.5 text-amber-300">
+                  <span className="material-symbols-outlined text-sm">warning</span>
+                  {t("consumerFallbackTitle")}
+                </p>
+                <p className="text-amber-200/80 leading-relaxed">{t("consumerFallbackBody")}</p>
+                <ul className="list-disc list-inside space-y-0.5 text-amber-200/90 font-medium">
+                  {consumerMissingSelected.map((c) => (
+                    <li key={c.id}>{c.name}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* 합계 — 총 판매가 / 마진 / 최종 제안 금액 (ADMIN 화면 — 마진 표시 허용) */}
             <div className="pt-5 border-t border-slate-800 space-y-3">

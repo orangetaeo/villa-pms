@@ -305,6 +305,24 @@ describe("quoteStayForVilla — 채널별 가격 계층 (ADR-0031)", () => {
     const qKrw = await quoteStayForVilla(makeTierDb(nullRow), "v1", range, Currency.KRW, BookingChannel.DIRECT);
     expect(qKrw.totalSaleKrw).toBe(220_000); // Net 폴백
   });
+
+  // ADR-0031 안전장치 — 폴백 발생 사실을 상위(제안 생성 경고)로 흘려보내는 신호
+  it("소비자가 null → consumerFallbackNights로 폴백 박 수 노출 (박별 플래그 포함)", async () => {
+    const nullRow = { ...row, consumerSalePriceVnd: null, consumerSalePriceKrw: null };
+    const qKrw = await quoteStayForVilla(makeTierDb(nullRow), "v1", range, Currency.KRW, BookingChannel.DIRECT);
+    expect(qKrw.consumerFallbackNights).toBe(2); // 2박 모두 폴백
+    expect(qKrw.nightly.every((n) => n.consumerFallback === true)).toBe(true);
+  });
+  it("소비자가 설정됨 → 폴백 신호 없음(consumerFallbackNights 미포함)", async () => {
+    const qKrw = await quoteStayForVilla(makeTierDb(row), "v1", range, Currency.KRW, BookingChannel.DIRECT);
+    expect(qKrw.consumerFallbackNights).toBeUndefined();
+    expect(qKrw.nightly.some((n) => n.consumerFallback)).toBe(false);
+  });
+  it("NET 계층(여행사)은 소비자가 null이어도 폴백 신호 안 냄", async () => {
+    const nullRow = { ...row, consumerSalePriceVnd: null, consumerSalePriceKrw: null };
+    const q = await quoteStayForVilla(makeTierDb(nullRow), "v1", range, Currency.VND, BookingChannel.TRAVEL_AGENCY);
+    expect(q.consumerFallbackNights).toBeUndefined();
+  });
   it("원가는 계층 무관 동일", async () => {
     const qDirect = await quoteStayForVilla(makeTierDb(row), "v1", range, Currency.VND, BookingChannel.DIRECT);
     const qAgency = await quoteStayForVilla(makeTierDb(row), "v1", range, Currency.VND, BookingChannel.TRAVEL_AGENCY);
