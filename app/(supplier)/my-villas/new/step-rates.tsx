@@ -1,11 +1,12 @@
 "use client";
 
-// 5/5 원가 입력 (a5-rate-input) — 시즌 카드 + 숫자 키패드. LOW/HIGH/PEAK 필수(입력 전 제출 비활성),
-//   SHOULDER(준성수기)는 선택(빈 값 허용).
+// 5/5 원가 입력 (a5-rate-input) — 시즌 카드 + 숫자 키패드.
+//   화면에는 비수기(LOW)·성수기(HIGH)만 노출하고 둘 다 필수(입력 전 제출 비활성).
+//   준성수기(SHOULDER)·극성수기(PEAK)는 공급자에게 묻지 않는다 — 운영자가 요금 달력에서 기간별로 책정.
 // 공급자 화면: VND 점 구분(1.500.000₫)만 — KRW·마진·판매가 절대 노출 금지
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { SEASONS, REQUIRED_SEASONS, type Season } from "@/lib/villa-schema";
+import { WIZARD_SEASONS, REQUIRED_SEASONS, type Season } from "@/lib/villa-schema";
 import { formatVnd, type WizardState } from "./wizard-types";
 
 const MAX_DIGITS = 12;
@@ -17,7 +18,7 @@ const SEASON_STYLE: Record<Season, { icon: string; iconBg: string; iconColor: st
   PEAK: { icon: "celebration", iconBg: "bg-red-100", iconColor: "text-red-600" },
 };
 
-// 선택 시즌 판별(SHOULDER) — 필수 경고·제출 게이트 제외
+// 선택 시즌 판별 — 필수 경고·제출 게이트 제외(현재 노출 시즌은 전부 필수라 방어용)
 const isRequiredSeason = (s: Season): boolean =>
   (REQUIRED_SEASONS as readonly string[]).includes(s);
 
@@ -58,9 +59,9 @@ export default function StepRates({ state, update, submitting, submitError, onSu
           <p className="mt-1 text-neutral-500">{t("subtitle")}</p>
         </div>
 
-        {/* 시즌 3카드 — 탭하면 키패드 입력 대상 전환 */}
+        {/* 시즌 카드(비수기·성수기) — 탭하면 키패드 입력 대상 전환 */}
         <div className="space-y-4">
-          {SEASONS.map((season) => {
+          {WIZARD_SEASONS.map((season) => {
             const style = SEASON_STYLE[season];
             const value = state.rates[season];
             const isActive = activeSeason === season;

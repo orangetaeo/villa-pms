@@ -137,23 +137,25 @@ export default async function EditVillaPage({
     beachDistanceM: villa.beachDistanceM,
     bedroomDetails: villa.bedroomDetails,
     features: villa.features,
-    // 마법사 rates 입력 prefill — LOW=base, HIGH/PEAK=그 시즌 첫 기간.
-    //   ⚠️ prefill은 base(LOW) 폴백이 필요하다(표시·경보와 상반): 마법사는 필수 3시즌(LOW/HIGH/PEAK)
-    //   원가를 모두 받아 비면 제출 잠김(step-rates allEntered). HIGH/PEAK 기간이 아직 없는 빌라
-    //   (전역 시즌 미설정 시 생성분 등)는 base 원가로 채워 재제출을 막지 않는다.
+    // 마법사 rates 입력 prefill — LOW=base, HIGH=그 시즌 첫 기간.
+    //   ⚠️ 필수 시즌(LOW/HIGH)만 base(LOW) 폴백이 필요하다(표시·경보와 상반): 비면 제출 잠김
+    //   (step-rates allEntered). HIGH 기간이 아직 없는 빌라(전역 시즌 미설정 시 생성분 등)는
+    //   base 원가로 채워 재제출을 막지 않는다.
     //   representativeRatesBySeason 자체는 폴백 없음(디버깅 수정) — 여기서만 명시적 폴백.
-    //   SHOULDER(준성수기)는 선택 필드 — 실제 SHOULDER 기간이 있을 때만 prefill(base 폴백 없음, 비면 미입력).
+    //   SHOULDER(준성수기)·PEAK(극성수기)는 마법사 미노출 필드 — 실제 그 시즌 기간이 있을 때만
+    //   prefill해서 재제출 시 값이 보존되게 한다(base 폴백 금지 — 없던 기간을 비수기 원가로 만들면 안 됨).
     rates: (() => {
       const rep = representativeRatesBySeason(villa.ratePeriods);
       const base = rep.LOW ?? null;
       const out: { season: "LOW" | "SHOULDER" | "HIGH" | "PEAK"; supplierCostVnd: string }[] = [];
-      for (const season of ["LOW", "HIGH", "PEAK"] as const) {
+      for (const season of ["LOW", "HIGH"] as const) {
         const r = rep[season] ?? base;
         if (r) out.push({ season, supplierCostVnd: r.supplierCostVnd.toString() });
       }
-      // 선택 시즌: 실제 값이 있을 때만(폴백 없음)
-      if (rep.SHOULDER) {
-        out.push({ season: "SHOULDER", supplierCostVnd: rep.SHOULDER.supplierCostVnd.toString() });
+      // 미노출 시즌: 실제 값이 있을 때만(폴백 없음)
+      for (const season of ["SHOULDER", "PEAK"] as const) {
+        const r = rep[season];
+        if (r) out.push({ season, supplierCostVnd: r.supplierCostVnd.toString() });
       }
       return out;
     })(),

@@ -33,10 +33,18 @@ export const SEASONS = ["LOW", "SHOULDER", "HIGH", "PEAK"] as const;
 export type Season = (typeof SEASONS)[number];
 
 /**
- * 원가 입력이 필수인 시즌 — LOW/HIGH/PEAK. SHOULDER(준성수기)는 선택(빈 값 허용·미전송).
+ * 등록 마법사(공급자 원가 입력)에서 **화면에 노출하는** 시즌 — 비수기·성수기만.
+ * 준성수기(SHOULDER)·극성수기(PEAK)는 공급자에게 묻지 않는다(입력 부담 축소 — 베트남 사용자 우선 UX).
+ * 두 시즌 원가는 운영자가 요금 달력(기간별 요금)에서 기간을 추가해 책정한다.
+ * ⚠ SEASONS(4종)는 요금 달력·기간 API의 도메인 값이므로 그대로 유지 — 여기서만 좁힌다.
+ */
+export const WIZARD_SEASONS = ["LOW", "HIGH"] as const;
+
+/**
+ * 원가 입력이 필수인 시즌 — LOW/HIGH. SHOULDER·PEAK는 선택(빈 값 허용·미전송).
  * 마법사 제출 게이트(allEntered)·필수 경고 표시가 이 목록을 단일 원천으로 참조한다.
  */
-export const REQUIRED_SEASONS = ["LOW", "HIGH", "PEAK"] as const;
+export const REQUIRED_SEASONS = ["LOW", "HIGH"] as const;
 
 /** VND 동 단위 숫자 문자열 (0 허용 — 참고 시세용) */
 const vndDigits = z.string().regex(/^\d{1,15}$/);
@@ -135,12 +143,13 @@ export const villaCreateSchema = z.object({
       extraBedAvailable: z.boolean(),
     })
     .optional(),
-  // 원가 (6/6) — LOW/HIGH/PEAK 필수, SHOULDER(준성수기)는 선택(구 payload 하위호환)
+  // 원가 (6/6) — LOW/HIGH 필수. SHOULDER(준성수기)·PEAK(극성수기)는 선택 —
+  //   마법사에서 더 이상 묻지 않지만, 기존 빌라 재제출 시 보존된 값이 오면 그대로 수용한다.
   rates: z.object({
     LOW: vndPositiveDigits,
     HIGH: vndPositiveDigits,
-    PEAK: vndPositiveDigits,
     SHOULDER: vndPositiveDigits.optional(),
+    PEAK: vndPositiveDigits.optional(),
   }),
   // ── 잠자리 구성·셀링포인트·판매정보 (v1.5 T-bedroom-composition-sync) — 전부 선택(하위호환) ──
   //   전송 시 서버가 bedroomDetails로 bedrooms/bathrooms/maxGuests를 파생하고 body 스칼라는 무시.
