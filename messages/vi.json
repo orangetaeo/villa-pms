@@ -6673,7 +6673,10 @@
     "usedCount": "Đã dùng {n} lần",
     "generalTag": "Dùng chung",
     "deactivate": "Ngừng dùng",
-    "activate": "Dùng lại"
+    "activate": "Dùng lại",
+    "errorNoFile": "Vui lòng chọn ảnh trước.",
+    "errorBadUrl": "Không dùng được địa chỉ ảnh ngoài kho lưu trữ.",
+    "errorNoAlt": "Vui lòng nhập mô tả ảnh."
   },
   "clipManage": {
     "title": "Video villa",

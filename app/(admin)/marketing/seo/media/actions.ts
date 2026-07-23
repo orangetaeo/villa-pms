@@ -5,6 +5,7 @@
 // ★ 삭제 액션이 없다 — 이미 발행된 글의 본문 이미지 URL이 죽으면 안 되므로 active=false로만 내린다.
 // ★ URL은 클라이언트가 보낸 문자열이지만 **허용 호스트 검증**(isAllowedImageUrl)을 통과해야만 저장된다.
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
@@ -37,9 +38,9 @@ export async function createMedia(formData: FormData): Promise<void> {
 
   const check = validateMediaInput({ url, alt });
   if (!check.ok) {
-    // 폼 오류는 쿼리로 돌려준다(클라이언트 상태 없이 RSC만으로 표시).
-    revalidatePath(PATH);
-    throw new Error(check.error);
+    // ★ throw하면 운영자에게 "알 수 없는 오류" 화면만 뜬다 — 이유를 쿼리로 돌려 화면에 문장으로 띄운다.
+    //   (가장 흔한 경우: 사진을 고르지 않고 저장 → url 빈 값)
+    redirect(`${PATH}?error=${check.error}`);
   }
 
   const row = await prisma.seoMedia.create({

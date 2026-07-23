@@ -30,13 +30,25 @@ function fmt(d: Date): string {
   return `${kst.getUTCFullYear()}.${p(kst.getUTCMonth() + 1)}.${p(kst.getUTCDate())}`;
 }
 
-export default async function SeoMediaPage() {
+/** 저장 실패 사유 → 화면 문구 키. 사전 밖 값은 무시한다(쿼리로 임의 문자열이 들어와도 렌더되지 않게). */
+const ERROR_KEYS: Record<string, string> = {
+  URL_REQUIRED: "errorNoFile",
+  URL_NOT_ALLOWED: "errorBadUrl",
+  ALT_REQUIRED: "errorNoAlt",
+};
+
+export default async function SeoMediaPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
   const session = await auth();
   const role = session?.user?.role;
   if (!session?.user?.id || !role || !isOperator(role)) redirect("/login");
   if (!(await userCanSeeMarketing(session.user.id))) redirect("/dashboard");
 
   const t = await getTranslations("marketingSeoMedia");
+  const errorKey = ERROR_KEYS[(await searchParams).error ?? ""];
   const rows = await prisma.seoMedia.findMany({
     orderBy: [{ active: "desc" }, { createdAt: "desc" }],
     take: 60,
@@ -68,6 +80,9 @@ export default async function SeoMediaPage() {
       {/* ── 업로드 ── */}
       <form action={createMedia} className="mt-6 space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-5">
         <h2 className="text-lg font-semibold">{t("uploadTitle")}</h2>
+        {errorKey && (
+          <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{t(errorKey)}</p>
+        )}
         <MediaUploader
           labels={{
             pick: t("pickFile"),
