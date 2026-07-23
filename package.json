@@ -2,6 +2,9 @@
   "name": "villa-pms",
   "version": "0.1.0",
   "private": true,
+  "overrides": {
+    "postcss-selector-parser": "^6.1.4"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
