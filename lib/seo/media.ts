@@ -71,8 +71,10 @@ export async function pickMediaForTopic(
   if (max <= 0) return [];
   const order = [{ usedCount: "asc" as const }, { createdAt: "asc" as const }];
 
+  // ★ placeId가 있는 사진은 **특정 가게 사진**이라 여기서 제외한다(T-seo-place-article).
+  //   그 사진은 그 장소를 소개하는 글에서만 의미가 있다 — 공항 이동 글에 끼면 무관한 이미지가 된다.
   const matched = await db.seoMedia.findMany({
-    where: { active: true, topicKeys: { has: topicKey } },
+    where: { active: true, placeId: null, topicKeys: { has: topicKey } },
     orderBy: order,
     take: max,
     select: PICK_SELECT,
@@ -81,7 +83,12 @@ export async function pickMediaForTopic(
 
   // 범용 사진으로 나머지를 채운다. 주제 일치분과 겹치지 않게 id를 제외한다.
   const rest = await db.seoMedia.findMany({
-    where: { active: true, topicKeys: { isEmpty: true }, id: { notIn: matched.map((m) => m.id) } },
+    where: {
+      active: true,
+      placeId: null,
+      topicKeys: { isEmpty: true },
+      id: { notIn: matched.map((m) => m.id) },
+    },
     orderBy: order,
     take: max - matched.length,
     select: PICK_SELECT,
