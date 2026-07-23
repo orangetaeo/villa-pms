@@ -75,6 +75,9 @@ export default async function SeoMediaPage({
         <Link href="/marketing/seo" className="text-sm font-semibold text-blue-400">
           {t("backToQueue")}
         </Link>
+        <Link href="/marketing/seo/places" className="text-sm font-semibold text-blue-400">
+          {t("placesLink")}
+        </Link>
       </div>
       <p className="mt-1 text-sm text-slate-400">{t("subtitle")}</p>
 

@@ -2077,10 +2077,55 @@ model SeoMedia {
   active     Boolean @default(true)
   uploadedBy String? // User.id (FK 없음 — 사용자 삭제가 자료 사진을 지우면 안 된다)
 
+  // 장소 사진이면 그 장소에 매달린다(T-seo-place-article). null = 주제 태그로 쓰는 일반 자료 사진.
+  // ★ 장소 사진은 가이드 글의 "범용 사진" 후보에서 제외된다 — 특정 가게 사진이 공항 이동 글에 끼면 안 된다.
+  placeId String?
+  place   SeoPlace? @relation(fields: [placeId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([active, usedCount]) // 선택 쿼리 축(덜 쓴 것 우선)
+  @@index([placeId])
+}
+
+// ===================== 푸꾸옥 장소(맛집·카페·쇼핑) — T-seo-place-article =====================
+// 빌라·서비스·가이드 글은 전부 상한이 있다(재고 수, 9종, 8종). 장소 글만 **테오가 다닐수록 늘어난다** —
+// 고갈되지 않는 유일한 글감이고, "푸꾸옥 맛집" 계열은 빌라보다 검색량이 크다.
+//
+// ★★ 이 모델의 존재 이유 = **AI가 실재하는 가게를 지어내지 못하게 하는 것**.
+//    빌라·서비스는 우리 DB가 사실 원천이지만 남의 가게는 아니다. 등록된 장소만 글에 등장할 수 있고,
+//    문장만 AI가 쓴다. `oneLiner`(직접 가본 인상)를 필수로 둔 이유도 같다 — 비면 AI가 채운다 = 지어내기.
+// ★ 영업시간·가격·휴무일·전화번호 **필드를 두지 않는다**. 수시로 바뀌는데 갱신 수단이 없어
+//   쓰는 순간부터 틀린 글이 된다. 굳이 쓸 말이 있으면 사람이 tips에 자기 문장으로 넣는다.
+// ★ category는 String + 화이트리스트(lib/seo/place-article.ts) — 값 추가가 잦아 enum ALTER 회피
+//   (선례: ContractNegotiation.clauseKey).
+model SeoPlace {
+  id String @id @default(cuid())
+
+  name      String // 표기명(글에 나가는 이름)
+  nameLocal String? // 현지 간판명 — 현장 확인·검색용, 본문에 병기 가능
+  category  String // PLACE_CATEGORIES 화이트리스트("restaurant"|"cafe"|"shop"|"market"|"bar"|"spot")
+  area      String? // 동네·지역 표기(즈엉동·안터이 등). 정확 주소는 두지 않는다
+
+  oneLiner String // ★ 필수 — 직접 가본 한 줄 인상. 글의 가치가 여기서 나온다
+  tips     String? // 사람이 책임지는 실용 문장(가는 길·주의점 등)
+  mapUrl   String? // 운영자 참고용 — **본문에는 넣지 않는다**
+
+  active Boolean @default(true)
+
+  // 한 장소는 한 번만 소개한다 — 같은 가게가 매 편 반복되면 그 자체가 저품질 신호
+  usedInArticleId String?
+  usedAt          DateTime?
+
+  createdBy String? // User.id (FK 없음)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  photos SeoMedia[]
+
+  @@index([active, category])
+  @@index([usedInArticleId])
 }
 
 // ===================== 계약 조항 협의(네고) — T-contract-negotiation (S2) =====================
