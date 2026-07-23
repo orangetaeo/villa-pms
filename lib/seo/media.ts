@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
 import { isAllowedImageUrl } from "@/lib/seo/article";
 import { ARTICLE_TOPICS, type PickedImage } from "@/lib/seo/article-draft";
+import { SERVICE_TOPICS } from "@/lib/seo/service-article";
 
 /** 글 1편이 쓰는 자료 사진 최대 수(커버 1 + 본문 N-1). 이미지 도배는 그 자체로 저품질 신호다. */
 export const MAX_MEDIA_PER_ARTICLE = 4;
@@ -23,9 +24,19 @@ export interface SeoMediaPick {
 
 const PICK_SELECT = { id: true, url: true, alt: true, caption: true } as const;
 
+/**
+ * 사진에 붙일 수 있는 주제 = 가이드 글 주제 8종 + 부가서비스 글 주제 9종.
+ * ★ 서비스 사진(마사지·BBQ·과일 …)은 카탈로그 상품 사진이 우선이지만, 분위기·현장 사진은
+ *   상품에 붙일 자리가 없다 — 그 사진들이 여기로 들어온다.
+ */
+export const MEDIA_TOPIC_GROUPS: { label: "guide" | "service"; options: { key: string; title: string }[] }[] = [
+  { label: "guide", options: ARTICLE_TOPICS.map((t) => ({ key: t.key, title: t.title })) },
+  { label: "service", options: SERVICE_TOPICS.map((t) => ({ key: t.key, title: t.title })) },
+];
+
 /** 유효한 주제 키만 남긴다 — 오타·삭제된 주제 키가 들어오면 그 사진은 영원히 안 뽑힌다. */
 export function normalizeTopicKeys(input: unknown): string[] {
-  const valid = new Set(ARTICLE_TOPICS.map((t) => t.key));
+  const valid = new Set(MEDIA_TOPIC_GROUPS.flatMap((g) => g.options.map((o) => o.key)));
   const raw = Array.isArray(input) ? input : typeof input === "string" ? [input] : [];
   const out: string[] = [];
   for (const v of raw) {
