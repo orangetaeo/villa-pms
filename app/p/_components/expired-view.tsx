@@ -25,11 +25,12 @@ export function ExpiredView({
   return (
     <div className="bg-neutral-50 text-neutral-900 min-h-screen flex flex-col items-center">
       <header className="bg-white border-b border-neutral-100 flex justify-between items-center w-full px-4 h-14 sticky top-0 z-50">
-        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5">
-          <VillaGoMark className="h-6 w-auto" />
-          <VillaGoWordmark className="text-xl" villa="text-slate-900" go="text-teal-600" />
+        {/* 남은 공간 기준 가운데 정렬 — 정중앙 absolute 는 좁은 폰에서 우측 컨트롤과 겹친다 */}
+        <span className="flex min-w-0 flex-1 items-center justify-center gap-1.5 overflow-hidden px-1">
+          <VillaGoMark className="h-6 w-auto shrink-0" />
+          <VillaGoWordmark className="truncate text-lg sm:text-xl" villa="text-slate-900" go="text-teal-600" />
         </span>
-        <div className="flex items-center gap-1 ml-auto">
+        <div className="flex shrink-0 items-center gap-1">
           <LangSelector current={lang} />
           <ShareButton title="Villa Go" lang={lang} />
         </div>
