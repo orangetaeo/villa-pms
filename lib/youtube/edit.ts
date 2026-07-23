@@ -37,10 +37,12 @@ import {
   synthesizeNarration,
 } from "@/lib/youtube/narration";
 import {
+  maxScreenSecFor,
   minScreenSecFor,
   pacingFilterChain,
   planClipTiming,
   resolveClipPace,
+  type ClipPaceOverride,
 } from "@/lib/youtube/pacing";
 import {
   getR2ObjectBuffer,
@@ -84,7 +86,7 @@ const CLIP_DUR_MIN = 2;
 const CLIP_DUR_MAX = 8;
 // 빌라 투어는 입구·수영장·거실·주방·침실N·욕실·발코니를 다 보여줘야 설득력이 생긴다.
 // 8컷으로는 "맛보기"밖에 안 된다(테오 피드백 2026-07-22) — 16컷까지 허용.
-const CLIP_COUNT_MAX = 16;
+const CLIP_COUNT_MAX = 24;
 
 const TRANSITION_SEC = 0.4; // xfade 크로스페이드 길이(세그먼트가 짧으면 축소)
 const CTA_DUR_SEC = 2.8; // 아웃트로 CTA 정지 카드
@@ -119,6 +121,12 @@ export interface EditClipInput {
   space?: string | null;
   /** 이 컷의 특징 메모(VillaClip.note) — 같은 공간이 여러 컷일 때 다른 점을 말하게 하는 근거 */
   note?: string | null;
+  /**
+   * 완급 직접 지정 — "fast"(이동 구간) · "slow"(보여줄 공간) · "auto"(공간·메모로 추론, 기본).
+   * ★ 스토리보드가 있는 영상은 추론으로 만들 수 없다: 같은 EXTERIOR라도 "해변에서 입구로
+   *   빠르게 돌아간다"와 "입구를 천천히 들어선다"는 정반대 연출이다(테오 2026-07-23).
+   */
+  pace?: ClipPaceOverride;
 }
 
 /** 저장 가능한 공간 코드 화이트리스트 = Prisma PhotoSpace. 임의 문자열 저장을 막는다. */
@@ -208,7 +216,9 @@ export function validateEditParams(raw: unknown): EditParams {
     const spaceRaw = typeof cc.space === "string" ? cc.space.trim().toUpperCase() : "";
     const space = PHOTO_SPACES.has(spaceRaw) ? spaceRaw : null;
     const note = typeof cc.note === "string" && cc.note.trim() ? cc.note.trim().slice(0, 200) : null;
-    return { key, startSec, durationSec, space, note };
+    const pace: ClipPaceOverride =
+      cc.pace === "fast" ? "fast" : cc.pace === "slow" ? "slow" : "auto";
+    return { key, startSec, durationSec, space, note, pace };
   });
 
   const headline = typeof r.headline === "string" ? r.headline.trim().slice(0, 120) : "";
@@ -687,6 +697,8 @@ interface LocalClip {
   space?: string | null;
   /** 특징 메모 — 공간 코드보다 정확한 신호일 때가 많다("침실로 가는 복도") */
   note?: string | null;
+  /** 완급 직접 지정 — 추론보다 우선한다 */
+  pace?: ClipPaceOverride;
 }
 
 /**
@@ -715,7 +727,7 @@ async function normalizeClip(
 
   // 페이싱을 끄면 "원본 부족분만 감속으로 채우는" 기존 동작과 동일해진다(sourceSpeed 1).
   const pace = pacingEnabled
-    ? resolveClipPace(clip.space, clip.note)
+    ? resolveClipPace(clip.space, clip.note, clip.pace)
     : { kind: "feature" as const, sourceSpeed: 1, ramp: false };
   const plan = planClipTiming(clip.durationSec, avail, pace);
   const chain = pacingFilterChain(plan);
@@ -1256,6 +1268,7 @@ export async function runYoutubeEditJob(
         // 페이싱 판정 입력 — 여기가 비면 모든 컷이 정속으로 돌아간다.
         space: c.space ?? null,
         note: c.note ?? null,
+        pace: c.pace,
       });
     }
 
@@ -1281,8 +1294,14 @@ export async function runYoutubeEditJob(
           minSegmentSecByClip:
             params.pacing !== false
               ? params.clips.map((c) =>
-                  minScreenSecFor(resolveClipPace(c.space, c.note), CLIP_DUR_MIN)
+                  minScreenSecFor(resolveClipPace(c.space, c.note, c.pace), CLIP_DUR_MIN)
                 )
+              : undefined,
+          // 이동 컷은 화면 점유 시간에 **상한**도 씌운다 — 배속만으로는 "빠르게 지나가되
+          // 오래 머무는" 컷이 나온다. 깎인 시간은 같은 문장의 보여줄 컷들이 가져간다.
+          maxSegmentSecByClip:
+            params.pacing !== false
+              ? params.clips.map((c) => maxScreenSecFor(resolveClipPace(c.space, c.note, c.pace)))
               : undefined,
           ctaMinSec: CTA_DUR_SEC,
         });

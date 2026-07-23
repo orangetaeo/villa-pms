@@ -20,6 +20,12 @@
 /** 컷의 성격 — 원본 공간(PhotoSpace)과 메모에서 판정한다. */
 export type ClipPaceKind = "transit" | "feature" | "hero" | "unknown";
 
+/**
+ * 운영자가 컷마다 직접 지정하는 완급. 추론(공간·메모)보다 **항상 우선**한다.
+ *   "fast" = 이동 구간(빠르게 지나간다) · "slow" = 보여줄 공간(천천히) · "auto" = 추론에 맡김
+ */
+export type ClipPaceOverride = "fast" | "slow" | "auto";
+
 export interface ClipPace {
   kind: ClipPaceKind;
   /**
@@ -107,7 +113,17 @@ function hasHint(text: string, hints: string[]): boolean {
  * @param space PhotoSpace 값(EXTERIOR·LIVING…). null이면 미지정
  * @param note  자유 메모(VillaClip.note). 공간 코드보다 우선하는 신호로 쓴다
  */
-export function resolveClipPace(space?: string | null, note?: string | null): ClipPace {
+export function resolveClipPace(
+  space?: string | null,
+  note?: string | null,
+  override?: ClipPaceOverride | null
+): ClipPace {
+  // ★ 운영자가 직접 지정한 완급이 최우선이다(2026-07-23 테오 스토리보드).
+  //   "해변 → **빠른 회전으로** 입구 → 입구는 **천천히** → **빠르게** 수영장으로"처럼
+  //   컷마다 의도가 정해진 영상은 공간·메모 추론으로 만들 수 없다. 지정이 있으면 그대로 따른다.
+  if (override === "fast") return { kind: "transit", sourceSpeed: PACE_SPEED.transit, ramp: true };
+  if (override === "slow") return { kind: "hero", sourceSpeed: PACE_SPEED.hero, ramp: false };
+
   const n = (note ?? "").trim();
   const lingerHint = n ? hasHint(n, LINGER_HINTS) : false;
   const transitHint = n ? hasHint(n, TRANSIT_HINTS) : false;
@@ -148,6 +164,22 @@ export const TRANSIT_MIN_SCREEN_SEC = 1.3;
 /** 컷 성격에 맞는 화면 점유 하한. 이동 컷만 짧게 허용하고 나머지는 기본 하한 그대로. */
 export function minScreenSecFor(pace: ClipPace, defaultMinSec: number): number {
   return pace.kind === "transit" ? Math.min(defaultMinSec, TRANSIT_MIN_SCREEN_SEC) : defaultMinSec;
+}
+
+/**
+ * 이동 컷이 화면을 점유하는 **상한**(초).
+ *
+ * ★ 왜 상한까지 필요한가(2026-07-23 테오 스토리보드): 배속만 걸면 "복도를 빠르게 지나가되
+ *   **4초 동안** 지나가는" 영상이 된다. 컷 길이는 나레이션이 정하기 때문이다.
+ *   "빠른 이동"은 화면에 머무는 시간 자체가 짧아야 성립한다 — 상한을 씌우고,
+ *   깎인 시간은 **같은 문장 안의 보여줄 컷들에게 돌려준다**(방에 시간을 몰아준다).
+ *   총 길이는 보존되므로 나레이션과 어긋나지 않는다.
+ */
+export const TRANSIT_MAX_SCREEN_SEC = 1.9;
+
+/** 컷 성격에 맞는 화면 점유 상한. 이동 컷에만 상한이 있고 나머지는 없다(null). */
+export function maxScreenSecFor(pace: ClipPace): number | null {
+  return pace.kind === "transit" ? TRANSIT_MAX_SCREEN_SEC : null;
 }
 
 /** 원본이 짧아 요청 길이를 못 채울 때 허용하는 최대 감속(슬로모션 티가 나기 직전). */

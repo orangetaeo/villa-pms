@@ -513,3 +513,34 @@ describe("reconcilePartsToText — 절 경계에서 끊는다", () => {
     expect(r.parts[1].text.startsWith("따뜻한")).toBe(true);
   });
 });
+
+describe("computeNarrationTimeline — 이동 컷 상한과 재분배", () => {
+  const mk = (n: number) => ({
+    durationSec: 6,
+    parts: Array.from({ length: n }, (_, i) => ({ clipIndexes: [i], text: "가나다라마바사아자차" })),
+  });
+
+  it("상한을 넘는 이동 컷은 깎이고, 깎인 시간은 다른 컷이 가져간다", () => {
+    const capped = computeNarrationTimeline({
+      lines: [mk(3)],
+      ...base,
+      maxSegmentSecByClip: [null, 1.9, null],
+    });
+    const plain = computeNarrationTimeline({ lines: [mk(3)], ...base });
+    expect(capped.clipDurations[1]).toBeLessThan(plain.clipDurations[1]);
+    expect(capped.clipDurations[0]).toBeGreaterThan(plain.clipDurations[0]);
+    expect(capped.clipDurations[2]).toBeGreaterThan(plain.clipDurations[2]);
+  });
+
+  it("문장 총 길이는 보존된다 — 재분배지 삭제가 아니다", () => {
+    const capped = computeNarrationTimeline({ lines: [mk(3)], ...base, maxSegmentSecByClip: [null, 1.9, null] });
+    const plain = computeNarrationTimeline({ lines: [mk(3)], ...base });
+    expect(capped.totalSec).toBeCloseTo(plain.totalSec, 6);
+  });
+
+  it("상한이 없으면 기존과 완전히 같다", () => {
+    const a = computeNarrationTimeline({ lines: [mk(3)], ...base, maxSegmentSecByClip: [null, null, null] });
+    const b = computeNarrationTimeline({ lines: [mk(3)], ...base });
+    expect(a.clipDurations).toEqual(b.clipDurations);
+  });
+});
