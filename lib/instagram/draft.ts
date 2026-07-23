@@ -2,9 +2,10 @@
 //
 // 빌라 로테이션 선정 → 공간 다양성 사진 선별 → 슬라이드 구성 → 캡션 생성 → InstagramPost(PENDING_APPROVAL).
 // ★ 누수: 빌라 조회 select는 공개 정보만(원가·마진·판매가·supplier 미포함). PhotoSpace 다양성으로 4~7장.
-import { PhotoSpace, Prisma } from "@prisma/client";
+import { IgPostStatus, PhotoSpace, Prisma, YtShortStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
+import { IG_POSTS_PER_VILLA_DEFAULT } from "@/lib/instagram/settings";
 import { generateCaption, pickHeadline, captionForPhotoSpace, type VillaPublicInfo } from "@/lib/instagram/caption";
 import type { SlideInput } from "@/lib/instagram/render";
 import type { CoverData, InfoData, CtaData } from "@/lib/instagram/templates";
@@ -63,6 +64,27 @@ export function isReelDayKst(now: Date, perWeek: number): boolean {
 }
 
 // ── 빌라 로테이션 선정 ──
+/** 로테이션 최소 사진 장수 — 캐러셀 4장을 못 채우면 후보에서 제외. */
+export const MIN_ROTATION_PHOTOS = 4;
+
+/**
+ * 상한 계산에서 제외할 상태 — 반려(CANCELLED)·발행실패(FAILED)는 "살아있는 콘텐츠"가 아니므로 슬롯을 도로 비워준다.
+ * ★ notIn(부정 목록)을 쓰는 이유: 나중에 상태가 추가되면 **상한에 포함**되는 쪽(보수적=덜 만드는 쪽)으로 기울게 하기 위함.
+ */
+export const IG_DEAD_POST_STATUSES = [IgPostStatus.CANCELLED, IgPostStatus.FAILED] as const;
+export const YT_DEAD_SHORT_STATUSES = [YtShortStatus.CANCELLED, YtShortStatus.FAILED] as const;
+
+/**
+ * 로테이션 적격 판정(순수함수) — 사진이 충분하고, 살아있는 콘텐츠 수가 빌라당 상한 미만일 때만 후보.
+ * 빌라 재고가 적을 때 같은 빌라 도배를 막는 게이트(per-villa-content-cap).
+ * @param perVillaCap 0이면 어떤 빌라도 후보가 되지 않는다(자동 생성 완전 중단).
+ */
+export function isRotationEligible(photoCount: number, liveContentCount: number, perVillaCap: number): boolean {
+  if (photoCount < MIN_ROTATION_PHOTOS) return false;
+  if (perVillaCap <= 0) return false;
+  return liveContentCount < perVillaCap;
+}
+
 const VILLA_SELECT = {
   id: true,
   name: true,
@@ -83,21 +105,35 @@ const VILLA_SELECT = {
     orderBy: { createdAt: "desc" },
     take: 1,
   },
+  // 빌라당 상한 판정용 — 반려·발행실패를 뺀 "살아있는" 콘텐츠 수.
+  _count: {
+    select: { instagramPosts: { where: { status: { notIn: [...IG_DEAD_POST_STATUSES] } } } },
+  },
 } satisfies Prisma.VillaSelect;
 
 type VillaRow = Prisma.VillaGetPayload<{ select: typeof VILLA_SELECT }>;
+/**
+ * planVillaDraft가 실제로 쓰는 필드만(공개 정보 + 사진). 로테이션 이력·상한 카운트는 불필요.
+ * ★ 유튜브 로테이션(lib/youtube/draft.ts)도 이 타입으로 재사용하므로 인스타 전용 필드를 넣지 말 것.
+ */
+export type VillaDraftInput = Omit<VillaRow, "instagramPosts" | "_count">;
 export type VillaPhotoRow = { id: string; url: string; space: PhotoSpace; sortOrder: number };
 
 /**
  * 포스팅 후보 빌라 선정 — ACTIVE + isSellable + 사진 4장↑ 중, 최근 인스타 포스트가 가장 오래된(또는 없는) 순 count곳.
  * ★ 판매가능(isSellable) 게이트: 검수 통과 빌라만 노출(재고 비공개 원칙엔 개별 쇼케이스라 무해).
+ * ★ 빌라당 상한(perVillaCap): 이미 상한만큼 콘텐츠가 있는 빌라는 제외 — 재고 적을 때 도배 방지.
  */
-export async function selectVillasForRotation(count: number, db: DbClient = prisma): Promise<VillaRow[]> {
+export async function selectVillasForRotation(
+  count: number,
+  db: DbClient = prisma,
+  perVillaCap: number = IG_POSTS_PER_VILLA_DEFAULT
+): Promise<VillaRow[]> {
   const villas = await db.villa.findMany({
     where: { status: "ACTIVE", isSellable: true },
     select: VILLA_SELECT,
   });
-  const eligible = villas.filter((v) => v.photos.length >= 4);
+  const eligible = villas.filter((v) => isRotationEligible(v.photos.length, v._count.instagramPosts, perVillaCap));
   // 최근 포스트 없음(=한 번도 안 함)이 최우선, 그 다음 가장 오래된 포스트 순.
   eligible.sort((a, b) => {
     const at = a.instagramPosts[0]?.createdAt?.getTime() ?? 0;
@@ -155,7 +191,7 @@ export function selectDiversePhotos(photos: VillaPhotoRow[], max = 7, minCount =
 }
 
 // ── 슬라이드 구성 ──
-function toPublicInfo(v: VillaRow): VillaPublicInfo {
+function toPublicInfo(v: VillaDraftInput): VillaPublicInfo {
   return {
     name: v.name,
     nameVi: v.nameVi,
@@ -169,7 +205,7 @@ function toPublicInfo(v: VillaRow): VillaPublicInfo {
   };
 }
 
-function infoFacts(v: VillaRow): string[] {
+function infoFacts(v: VillaDraftInput): string[] {
   const facts = [`침실 ${v.bedrooms}`, `최대 ${v.maxGuests}인`];
   if (v.beachDistanceM != null) facts.push(`해변 ${v.beachDistanceM}m`);
   else if (v.hasPool) facts.push("전용 수영장");
@@ -182,7 +218,7 @@ const CTA_DATA: CtaData = {
 };
 
 /** 빌라+선별 사진+헤드라인 → 캐러셀 슬라이드(cover, info, raw…, cta). */
-export function buildSlides(v: VillaRow, photos: VillaPhotoRow[], headline: string): SlideInput[] {
+export function buildSlides(v: VillaDraftInput, photos: VillaPhotoRow[], headline: string): SlideInput[] {
   const slides: SlideInput[] = [];
   const cover: CoverData = { headline };
   const info: InfoData = {
@@ -224,7 +260,7 @@ export interface VillaDraftPlan {
 }
 
 /** 빌라 1곳의 초안 계획(슬라이드 + 헤드라인) 구성 — 렌더 전 단계. */
-export function planVillaDraft(v: VillaRow): VillaDraftPlan {
+export function planVillaDraft(v: VillaDraftInput): VillaDraftPlan {
   const publicInfo = toPublicInfo(v);
   const photos = selectDiversePhotos(v.photos as VillaPhotoRow[], 7);
   // generateCaption 안에서 헤드라인을 뽑지만, cover 슬라이드에도 같은 톤이 필요하므로 여기서 한 번 더 뽑아 주입.

@@ -30,6 +30,14 @@ export const YT_PRIVACY_STATUS_DEFAULT: YtPrivacyStatus = "unlisted";
 
 export const YT_DAILY_UPLOAD_CAP_DEFAULT = 6;
 
+/**
+ * 빌라 1곳당 살아있는 쇼츠 상한(per-villa-content-cap). 미설정 시 1.
+ * 빌라 재고가 적을 때 같은 빌라 도배를 막는 게이트. 0이면 자동 초안 생성 완전 중단.
+ * ★ sourceType 무관 — 직접 업로드(UPLOADED)분도 상한에 포함한다(빌라 기준 총량이 기준).
+ */
+export const YT_SHORTS_PER_VILLA_KEY = "YT_SHORTS_PER_VILLA";
+export const YT_SHORTS_PER_VILLA_DEFAULT = 1;
+
 async function readSetting(db: DbClient, key: string): Promise<string | null> {
   try {
     const row = await db.appSetting.findUnique({ where: { key }, select: { value: true } });
@@ -122,6 +130,21 @@ export async function getYoutubeShortsPerDay(db: DbClient = prisma): Promise<num
 export async function setYoutubeShortsPerDay(n: number, db: DbClient = prisma): Promise<void> {
   const clamped = Number.isFinite(n) ? Math.max(0, Math.min(10, Math.floor(n))) : 0;
   await writeSetting(db, YT_SHORTS_PER_DAY_KEY, String(clamped));
+}
+
+// ── 빌라당 쇼츠 상한 (기본 1) ──
+/** 빌라 1곳당 쇼츠 상한(0~20). 미설정·비정상이면 기본 1. ★0은 유효값(생성 중단)이라 미설정과 구분해 읽는다. */
+export async function getYoutubeShortsPerVilla(db: DbClient = prisma): Promise<number> {
+  const raw = await readSetting(db, YT_SHORTS_PER_VILLA_KEY);
+  if (raw == null) return YT_SHORTS_PER_VILLA_DEFAULT;
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 0) return YT_SHORTS_PER_VILLA_DEFAULT;
+  return Math.min(20, n);
+}
+
+export async function setYoutubeShortsPerVilla(n: number, db: DbClient = prisma): Promise<void> {
+  const clamped = Number.isFinite(n) ? Math.max(0, Math.min(20, Math.floor(n))) : YT_SHORTS_PER_VILLA_DEFAULT;
+  await writeSetting(db, YT_SHORTS_PER_VILLA_KEY, String(clamped));
 }
 
 // ── privacyStatus (기본 unlisted, 화이트리스트) ──

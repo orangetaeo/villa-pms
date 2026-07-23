@@ -8,7 +8,8 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
-import { planVillaDraft, nextSlotUtc } from "@/lib/instagram/draft";
+import { planVillaDraft, nextSlotUtc, isRotationEligible, YT_DEAD_SHORT_STATUSES } from "@/lib/instagram/draft";
+import { YT_SHORTS_PER_VILLA_DEFAULT } from "@/lib/youtube/settings";
 import { renderAndBuildReel, YOUTUBE_REEL_CTA } from "@/lib/instagram/reels";
 import { generateShortMeta } from "@/lib/youtube/meta";
 import { writeAuditLog } from "@/lib/audit-log";
@@ -46,7 +47,8 @@ export function startOfKstDayUtc(now: Date = new Date()): Date {
 }
 
 // ── 유튜브용 빌라 로테이션 ──
-// VILLA_SELECT(instagram/draft)와 동일 공개 필드 + instagramPosts(planVillaDraft 타입 충족) + youtubeShorts(로테이션 기준).
+// VILLA_SELECT(instagram/draft)의 공개 필드 + youtubeShorts(로테이션 기준·빌라당 상한 카운트).
+// planVillaDraft는 VillaDraftInput(공개 필드+사진)만 요구하므로 인스타 이력은 싣지 않는다.
 const YT_VILLA_SELECT = {
   id: true,
   name: true,
@@ -62,15 +64,14 @@ const YT_VILLA_SELECT = {
     select: { id: true, url: true, space: true, sortOrder: true },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   },
-  instagramPosts: {
-    select: { createdAt: true },
-    orderBy: { createdAt: "desc" },
-    take: 1,
-  },
   youtubeShorts: {
     select: { createdAt: true },
     orderBy: { createdAt: "desc" },
     take: 1,
+  },
+  // 빌라당 상한 판정용 — 반려·업로드실패를 뺀 "살아있는" 쇼츠 수(sourceType 무관).
+  _count: {
+    select: { youtubeShorts: { where: { status: { notIn: [...YT_DEAD_SHORT_STATUSES] } } } },
   },
 } satisfies Prisma.VillaSelect;
 
@@ -79,13 +80,18 @@ type YtVillaRow = Prisma.VillaGetPayload<{ select: typeof YT_VILLA_SELECT }>;
 /**
  * 유튜브 쇼츠 후보 빌라 — ACTIVE + isSellable + 사진 4장↑ 중, 최근 YoutubeShort가 가장 오래된(또는 없는) 순 count곳.
  * 인스타 로테이션과 독립(유튜브 이력만 기준).
+ * ★ 빌라당 상한(perVillaCap): 살아있는 쇼츠가 이미 상한만큼 있는 빌라는 제외 — 재고 적을 때 도배 방지.
  */
-export async function selectVillasForYoutubeRotation(count: number, db: DbClient = prisma): Promise<YtVillaRow[]> {
+export async function selectVillasForYoutubeRotation(
+  count: number,
+  db: DbClient = prisma,
+  perVillaCap: number = YT_SHORTS_PER_VILLA_DEFAULT
+): Promise<YtVillaRow[]> {
   const villas = await db.villa.findMany({
     where: { status: "ACTIVE", isSellable: true },
     select: YT_VILLA_SELECT,
   });
-  const eligible = villas.filter((v) => v.photos.length >= 4);
+  const eligible = villas.filter((v) => isRotationEligible(v.photos.length, v._count.youtubeShorts, perVillaCap));
   eligible.sort((a, b) => {
     const at = a.youtubeShorts[0]?.createdAt?.getTime() ?? 0;
     const bt = b.youtubeShorts[0]?.createdAt?.getTime() ?? 0;
@@ -106,13 +112,14 @@ export interface YtDraftBatchResult {
 export async function runYoutubeDraftBatch(
   perDay: number,
   now: Date = new Date(),
-  db: DbClient = prisma
+  db: DbClient = prisma,
+  perVillaCap: number = YT_SHORTS_PER_VILLA_DEFAULT
 ): Promise<YtDraftBatchResult> {
   const created: YtDraftBatchResult["created"] = [];
   const failures: YtDraftBatchResult["failures"] = [];
   if (perDay <= 0) return { created, failures };
 
-  const villas = await selectVillasForYoutubeRotation(perDay, db);
+  const villas = await selectVillasForYoutubeRotation(perDay, db, perVillaCap);
   if (villas.length === 0) return { created, failures };
 
   const slots = computeYtSlotSchedule(now, villas.length);

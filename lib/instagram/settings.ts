@@ -31,6 +31,14 @@ export const IG_DM_AUTOREPLY_TEXT_KEY = "IG_DM_AUTOREPLY_TEXT";
 /** DM 자동응답 킬스위치. "1"/"true"면 자동응답 정지(수신·인박스는 계속 동작). */
 export const IG_DM_AUTOREPLY_PAUSED_KEY = "IG_DM_AUTOREPLY_PAUSED";
 
+// ── 빌라당 콘텐츠 상한 (per-villa-content-cap) ──
+/**
+ * 빌라 1곳당 살아있는 인스타 콘텐츠 상한. 미설정 시 1.
+ * 빌라 재고가 적을 때 같은 빌라가 반복 도배되는 것을 막는 게이트. 0이면 자동 초안 생성 완전 중단.
+ */
+export const IG_POSTS_PER_VILLA_KEY = "IG_POSTS_PER_VILLA";
+export const IG_POSTS_PER_VILLA_DEFAULT = 1;
+
 /** 카카오 유도 자동응답 기본 문구(한국어) — 카피 가이드 톤. 판매가·마진 절대 미포함. */
 export const IG_DM_AUTOREPLY_DEFAULT = [
   "안녕하세요, 빌라고 푸꾸옥입니다 🌴",
@@ -112,6 +120,23 @@ export async function isAutopostPaused(db: DbClient = prisma): Promise<boolean> 
 
 export async function setAutopostPaused(paused: boolean, db: DbClient = prisma): Promise<void> {
   await writeSetting(db, IG_AUTOPOST_PAUSED_KEY, paused ? "1" : "0");
+}
+
+/**
+ * 빌라 1곳당 인스타 콘텐츠 상한(0~20). 미설정·비정상이면 기본 1.
+ * ★ 0은 유효값(자동 초안 중단)이므로 "미설정"과 구분해서 읽는다.
+ */
+export async function getIgPostsPerVilla(db: DbClient = prisma): Promise<number> {
+  const raw = await readSetting(db, IG_POSTS_PER_VILLA_KEY);
+  if (raw == null) return IG_POSTS_PER_VILLA_DEFAULT;
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 0) return IG_POSTS_PER_VILLA_DEFAULT;
+  return Math.min(20, n);
+}
+
+export async function setIgPostsPerVilla(n: number, db: DbClient = prisma): Promise<void> {
+  const clamped = Number.isFinite(n) ? Math.max(0, Math.min(20, Math.floor(n))) : IG_POSTS_PER_VILLA_DEFAULT;
+  await writeSetting(db, IG_POSTS_PER_VILLA_KEY, String(clamped));
 }
 
 /** Graph API base URL — IG_GRAPH_BASE 오버라이드 또는 기본값. 끝 슬래시 제거. */
