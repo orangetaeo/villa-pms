@@ -1543,7 +1543,13 @@ ${formatAuditFindings(findings)}`);
         // CTA 카드 길이 — 안 넘기면 2.8초 고정이라 마지막 문장이 잘린다.
         narrationCtaSec = timeline.ctaDurationSec;
         // 인트로(스펙 칩)는 첫 문장이 끝날 때까지 유지 — 고정 1.5초면 설명이 남았는데 칩이 사라진다.
-        narrationIntroHoldSec = timeline.lineOffsets[0] + synth[0].durationSec + 0.4;
+        //   ★ 단, **영상 길이의 35%를 넘기지 않는다**(2026-07-23 자동 생성물 실측): 클립이 3개뿐인
+        //     20초 쇼츠에서 첫 문장이 8초면 인트로 카드가 화면의 40%를 덮어 빌라가 안 보인다.
+        //     긴 투어(80초+)에서는 이 상한에 걸리지 않으므로 기존 동작 그대로다.
+        narrationIntroHoldSec = Math.min(
+          timeline.lineOffsets[0] + synth[0].durationSec + 0.4,
+          Math.max(INTRO_SEC, timeline.totalSec * 0.35)
+        );
         // 자막 = 나레이션과 같은 소스(단일 진실), **절 단위**라 컷마다 바뀐다.
         // ★ CTA 절은 자막에서 제외 — 아웃트로 카드가 같은 내용을 큰 글씨로 이미 보여준다(겹침 방지).
         subtitles = timeline.subtitles
