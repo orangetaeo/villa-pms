@@ -27,6 +27,13 @@ const WORK = path.resolve("smoke/m1-cuts");
 const STATE = path.join(WORK, "state.json");
 const FFMPEG = ffmpegStatic ?? "ffmpeg";
 const HEADLINE = "해변 바로 앞\n네 침실 프라이빗 풀빌라";
+/**
+ * 나레이션에서 부를 이름 — **한글 표기**로 준다.
+ * ★ 빌라명을 그대로("M villa M1") 넘기면 모델이 문장에 영문을 그대로 쓰고, 한국어 TTS가
+ *   그걸 어색하게 읽는다(대본 규칙에도 "숫자·영문 금지"가 있는데 이름만은 예외가 되어 새어 나온다).
+ *   화면(인트로 카드·제목)은 실제 이름을 그대로 쓰므로 표기가 어긋나지 않는다.
+ */
+const NARRATION_VILLA_NAME = "엠빌라 엠원";
 
 interface Cut {
   label: string;
@@ -230,7 +237,7 @@ async function phaseCreate() {
 
     bar("④ 나레이션 대본 (Gemini)");
     const ctx: NarrationVillaContext = {
-      villaName: villa.name,
+      villaName: NARRATION_VILLA_NAME, // 음성용 한글 표기(화면 표기는 villa.name 그대로)
       complex: villa.complex,
       bedrooms: villa.bedrooms,
       hasPool: villa.hasPool,
