@@ -200,7 +200,7 @@ export default function InstagramPostCard({
   const zoomItems: LightboxImage[] = media.map((m) => ({
     url: m.renderedUrl,
     videoUrl: m.videoUrl,
-    label: m.overlayText ?? post.villaName ?? undefined,
+    label: m.overlayText ?? post.sourceName ?? post.villaName ?? undefined,
   }));
   const whenLabel =
     post.status === "PUBLISHED" ? t("card.publishedAt") : t("card.scheduledAt");
@@ -220,10 +220,10 @@ export default function InstagramPostCard({
             checked={selected}
             disabled={!deletable}
             onChange={(e) => onSelect(e.target.checked)}
-            aria-label={t("select.one", { title: post.villaName ?? t("card.noVilla") })}
+            aria-label={t("select.one", { title: post.sourceName ?? post.villaName ?? t("card.noVilla") })}
             title={
               deletable
-                ? t("select.one", { title: post.villaName ?? t("card.noVilla") })
+                ? t("select.one", { title: post.sourceName ?? post.villaName ?? t("card.noVilla") })
                 : t("select.blocked")
             }
             className="h-4 w-4 shrink-0 accent-red-500 disabled:cursor-not-allowed disabled:opacity-30"
@@ -326,8 +326,19 @@ export default function InstagramPostCard({
               )}
             </div>
 
-            <p className="truncate text-sm font-bold text-white">
-              {post.villaName ?? t("card.noVilla")}
+            <p className="flex items-center gap-1.5 truncate text-sm font-bold text-white">
+              {/* 소재 배지 — 빌라 쇼케이스인지 장소(맛집·카페) 소개인지. 없으면 "빌라 미지정"으로만 보여
+                  무엇으로 만든 콘텐츠인지 알 수 없었다(테오 지적 2026-07-23). */}
+              <span
+                className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                  post.sourceKind === "place"
+                    ? "bg-emerald-500/15 text-emerald-300"
+                    : "bg-slate-700/60 text-slate-300"
+                }`}
+              >
+                {post.sourceKind === "place" ? t("card.sourcePlace") : t("card.sourceVilla")}
+              </span>
+              <span className="truncate">{post.sourceName ?? post.villaName ?? t("card.noVilla")}</span>
             </p>
 
             {/* 발행 예정/시각 — KST 명기 */}
@@ -357,7 +368,7 @@ export default function InstagramPostCard({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={cover.renderedUrl}
-                    alt={cover.overlayText ?? post.villaName ?? ""}
+                    alt={cover.overlayText ?? post.sourceName ?? post.villaName ?? ""}
                     loading="lazy"
                     className="h-full w-full object-cover"
                   />

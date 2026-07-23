@@ -376,7 +376,9 @@
       "viewOnInstagram": "Xem trên Instagram",
       "publishedLockNote": "Bài đã đăng chỉ có thể sửa trong ứng dụng Instagram.",
       "reachBadge": "Tiếp cận {n}",
-      "duration": "Thời lượng video"
+      "duration": "Thời lượng video",
+      "sourcePlace": "Địa điểm",
+      "sourceVilla": "Villa"
     },
     "list": {
       "expand": "Mở rộng",

@@ -376,7 +376,9 @@
       "viewOnInstagram": "인스타에서 보기",
       "publishedLockNote": "발행된 포스트는 인스타그램 앱에서만 수정할 수 있습니다.",
       "reachBadge": "도달 {n}",
-      "duration": "영상 길이"
+      "duration": "영상 길이",
+      "sourcePlace": "장소",
+      "sourceVilla": "빌라"
     },
     "list": {
       "expand": "펼치기",

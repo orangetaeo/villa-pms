@@ -386,7 +386,7 @@ export default function YoutubeShortCard({
 
             <p className="truncate text-sm font-bold text-white">{short.title}</p>
             <p className="truncate text-[11px] text-slate-400 tabular-nums">
-              <span className="text-slate-500">{short.villaName ?? t("card.noVilla")}</span>
+              <span className="text-slate-500">{short.sourceName ?? short.villaName ?? t("card.noVilla")}</span>
               {" · "}
               <span className="text-slate-500">{whenLabel}</span> {whenValue}
             </p>
@@ -415,7 +415,7 @@ export default function YoutubeShortCard({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={short.posterUrl}
-                      alt={short.villaName ?? short.title}
+                      alt={short.sourceName ?? short.villaName ?? short.title}
                       loading="lazy"
                       className="h-full w-full object-cover"
                     />
@@ -444,8 +444,8 @@ export default function YoutubeShortCard({
 
             {/* 메타(요약 줄에 없는 상세만) */}
             <div className="flex min-w-0 flex-1 flex-col gap-2">
-              {short.villaName && (
-                <p className="truncate text-sm font-bold text-white">{short.villaName}</p>
+              {(short.sourceName ?? short.villaName) && (
+                <p className="truncate text-sm font-bold text-white">{short.sourceName ?? short.villaName}</p>
               )}
 
               {/* 금칙어 경고 */}

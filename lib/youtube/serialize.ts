@@ -7,6 +7,9 @@ export interface SerializedYtShort {
   id: string;
   villaId: string | null;
   villaName: string | null;
+  /** 장소 소재(PLACE_AUTO)일 때 화면에 쓸 이름. 빌라 소재면 null. */
+  sourceName: string | null;
+  articleSlug: string | null;
   instagramPostId: string | null;
   sourceType: string;
   status: string;
@@ -36,7 +39,10 @@ export interface SerializedYtShort {
   updatedAt: string;
 }
 
-type ShortWithVilla = YoutubeShort & { villa?: Pick<Villa, "name"> | null };
+type ShortWithVilla = YoutubeShort & {
+  villa?: Pick<Villa, "name"> | null;
+  seoArticle?: { slug: string; title: string } | null;
+};
 
 function toStringArray(json: unknown): string[] {
   if (!Array.isArray(json)) return [];
@@ -48,6 +54,8 @@ export function serializeYtShort(short: ShortWithVilla): SerializedYtShort {
     id: short.id,
     villaId: short.villaId,
     villaName: short.villa?.name ?? null,
+    sourceName: short.seoArticle ? short.seoArticle.title.split(" — ")[0].trim() : null,
+    articleSlug: short.seoArticle?.slug ?? null,
     instagramPostId: short.instagramPostId,
     sourceType: short.sourceType,
     status: short.status,
