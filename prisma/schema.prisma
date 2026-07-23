@@ -2038,6 +2038,9 @@ model SeoArticle {
   relatedVillaIds String[]
 
   status          SeoArticleStatus @default(DRAFT)
+  // 발행 후 공개에서 내리기(T-seo-ux-fix) — 상태는 PUBLISHED로 두고 노출만 끈다.
+  //   ★ 되돌릴 수 있어야 하므로 상태 전이(REJECTED)로 처리하지 않는다. 공개 조회 2곳에서만 걸러진다.
+  publicHidden    Boolean          @default(false)
   approvedAt      DateTime?
   publishedAt     DateTime? // 발행 시각 — 점진 발행 상한(일 N건) 집계 기준
   lastPingAt      DateTime? // 마지막 IndexNow 색인 요청 시각

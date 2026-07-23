@@ -16,6 +16,7 @@ import {
   buildPlaceArticlePrompt,
   buildPlaceArticleTitle,
   pickPlacePhotos,
+  tidyHeadings,
   getPlaceCandidates,
   type PlaceRow,
 } from "@/lib/seo/place-article";
@@ -90,11 +91,18 @@ describe("생성 조건", () => {
     const out = await getPlaceCandidates(makeDb(threePlaces, { "place-cafe-": 2 }));
     expect(out[0].seq).toBe(3);
     expect(placeTopicKey("cafe", 3)).toBe("place-cafe-3");
-    expect(buildPlaceArticleTitle(placeCategory("cafe")!, 3, 3)).toBe("푸꾸옥 카페 3곳 — 직접 가본 곳만 (3편)");
+    expect(buildPlaceArticleTitle(placeCategory("cafe")!, threePlaces, 3)).toBe("푸꾸옥 카페 3곳 — 직접 가본 곳만 (3편)");
   });
 
   it("1편 제목에는 회차 표기가 없다", () => {
-    expect(buildPlaceArticleTitle(placeCategory("restaurant")!, 3, 1)).toBe("푸꾸옥 맛집 3곳 — 직접 가본 곳만");
+    expect(buildPlaceArticleTitle(placeCategory("restaurant")!, threePlaces, 1)).toBe("푸꾸옥 맛집 3곳 — 직접 가본 곳만");
+  });
+
+  it("★ 한 곳만 다루는 글은 가게 이름이 제목에 온다 — '맛집 1곳'은 아무도 검색하지 않는다", () => {
+    const one = [place({ id: "p1", category: "restaurant", name: "메오키친", area: "즈엉동" })];
+    expect(buildPlaceArticleTitle(placeCategory("restaurant")!, one, 1)).toBe(
+      "메오키친 — 푸꾸옥 즈엉동 맛집, 직접 가보고 적는다"
+    );
   });
 });
 
@@ -151,5 +159,26 @@ describe("사진·카테고리", () => {
     for (const c of PLACE_CATEGORIES) expect(c.key).toMatch(/^[a-z]+$/);
     expect(new Set(PLACE_CATEGORIES.map((c) => c.key)).size).toBe(PLACE_CATEGORIES.length);
     expect(MIN_PLACES_PER_ARTICLE).toBeLessThanOrEqual(MAX_PLACES_PER_ARTICLE);
+  });
+});
+
+describe("소제목 다듬기 (T-seo-ux-fix 실측 교훈)", () => {
+  it("★ 프롬프트 뼈대가 소제목에 그대로 나온 것을 지운다", () => {
+    const out = tidyHeadings([
+      { type: "h2", text: "① 어떤 곳인가요?" },
+      { type: "h2", text: "2) 무엇을 먹으러 가나" },
+      { type: "p", text: "① 이 문단의 번호는 건드리지 않는다" },
+    ]);
+    expect(out).toEqual([
+      { type: "h2", text: "어떤 곳인가요" },
+      { type: "h2", text: "무엇을 먹으러 가나" },
+      { type: "p", text: "① 이 문단의 번호는 건드리지 않는다" },
+    ]);
+  });
+
+  it("정상 소제목은 그대로 둔다", () => {
+    expect(tidyHeadings([{ type: "h2", text: "반세오와 할아버지 맥주" }])).toEqual([
+      { type: "h2", text: "반세오와 할아버지 맥주" },
+    ]);
   });
 });

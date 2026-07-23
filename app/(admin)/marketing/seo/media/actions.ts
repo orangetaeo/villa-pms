@@ -28,40 +28,49 @@ function readTopicKeys(formData: FormData): string[] {
   return normalizeTopicKeys(formData.getAll("topicKeys").map((v) => String(v)));
 }
 
-/** 업로드된 사진을 라이브러리에 등록. alt 없거나 허용 호스트 밖이면 저장하지 않는다. */
+/**
+ * 업로드된 사진들을 라이브러리에 등록 — **여러 장 한 번에**(T-seo-ux-fix 지적 1).
+ * url[]·alt[]는 업로더가 짝지어 보낸다. alt 없거나 허용 호스트 밖인 항목은 건너뛴다.
+ * ★ 같은 URL이 두 번 오면 하나만 저장한다(메오키친에서 실제로 중복 행이 생겼다).
+ */
 export async function createMedia(formData: FormData): Promise<void> {
   const userId = await requireMarketingOperator();
-  const url = String(formData.get("url") ?? "").trim();
-  const alt = String(formData.get("alt") ?? "").trim().slice(0, 200);
-  const caption = String(formData.get("caption") ?? "").trim().slice(0, 200);
-  const credit = String(formData.get("credit") ?? "").trim().slice(0, 100);
+  const urls = formData.getAll("url").map((v) => String(v).trim());
+  const alts = formData.getAll("alt").map((v) => String(v).trim().slice(0, 200));
+  if (urls.length === 0 || urls.every((u) => !u)) redirect(`${PATH}?error=URL_REQUIRED`);
 
-  const check = validateMediaInput({ url, alt });
-  if (!check.ok) {
-    // ★ throw하면 운영자에게 "알 수 없는 오류" 화면만 뜬다 — 이유를 쿼리로 돌려 화면에 문장으로 띄운다.
-    //   (가장 흔한 경우: 사진을 고르지 않고 저장 → url 빈 값)
-    redirect(`${PATH}?error=${check.error}`);
+  const topicKeys = readTopicKeys(formData);
+  const seen = new Set<string>();
+  const created: string[] = [];
+  let altMissing = false;
+
+  for (let i = 0; i < urls.length; i++) {
+    const url = urls[i];
+    const alt = alts[i] ?? "";
+    if (!url || seen.has(url)) continue;
+    const check = validateMediaInput({ url, alt });
+    if (!check.ok) {
+      if (check.error === "ALT_REQUIRED") altMissing = true;
+      continue;
+    }
+    seen.add(url);
+    const row = await prisma.seoMedia.create({
+      data: { url, alt, topicKeys, uploadedBy: userId },
+      select: { id: true },
+    });
+    created.push(row.id);
+    await writeAuditLog({
+      userId,
+      action: "CREATE",
+      entity: "SeoMedia",
+      entityId: row.id,
+      changes: { url: { new: url }, alt: { new: alt }, topicKeys: { new: topicKeys } },
+    });
   }
 
-  const row = await prisma.seoMedia.create({
-    data: {
-      url,
-      alt,
-      caption: caption || null,
-      credit: credit || null,
-      topicKeys: readTopicKeys(formData),
-      uploadedBy: userId,
-    },
-    select: { id: true, topicKeys: true },
-  });
-  await writeAuditLog({
-    userId,
-    action: "CREATE",
-    entity: "SeoMedia",
-    entityId: row.id,
-    changes: { url: { new: url }, alt: { new: alt }, topicKeys: { new: row.topicKeys } },
-  });
   revalidatePath(PATH);
+  // 한 장도 못 넣었으면 이유를 화면에 띄운다(throw는 "알 수 없는 오류" 화면만 남긴다).
+  if (created.length === 0) redirect(`${PATH}?error=${altMissing ? "ALT_REQUIRED" : "URL_NOT_ALLOWED"}`);
 }
 
 /** alt·캡션·주제 태그 수정. URL은 바꾸지 않는다(이미 본문에 박힌 이미지와 어긋나면 안 된다). */

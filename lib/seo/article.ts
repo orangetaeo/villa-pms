@@ -161,7 +161,9 @@ function toPublicArticle(row: Prisma.SeoArticleGetPayload<{ select: typeof PUBLI
 /** 발행된 글 목록(최신순). 공개 라우트·sitemap·RSS가 공유하는 단일 진입점. */
 export async function getPublishedArticles(db: DbClient = prisma, take = 50): Promise<PublicArticle[]> {
   const rows = await db.seoArticle.findMany({
-    where: { status: SeoArticleStatus.PUBLISHED, publishedAt: { not: null } },
+    // ★ publicHidden은 여기와 아래 단건 조회 두 곳에서만 막으면 된다 —
+    //   이 둘이 공개 라우트·sitemap·RSS가 공유하는 단일 진입점이기 때문(파일 상단 규약).
+    where: { status: SeoArticleStatus.PUBLISHED, publishedAt: { not: null }, publicHidden: false },
     select: PUBLIC_ARTICLE_SELECT,
     orderBy: { publishedAt: "desc" },
     take,
@@ -172,7 +174,7 @@ export async function getPublishedArticles(db: DbClient = prisma, take = 50): Pr
 /** 슬러그 단건 — 미발행(DRAFT·PENDING·APPROVED·REJECTED)은 null(404 처리). */
 export async function getPublishedArticleBySlug(slug: string, db: DbClient = prisma): Promise<PublicArticle | null> {
   const row = await db.seoArticle.findFirst({
-    where: { slug, status: SeoArticleStatus.PUBLISHED, publishedAt: { not: null } },
+    where: { slug, status: SeoArticleStatus.PUBLISHED, publishedAt: { not: null }, publicHidden: false },
     select: PUBLIC_ARTICLE_SELECT,
   });
   return row ? toPublicArticle(row) : null;
