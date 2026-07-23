@@ -132,12 +132,22 @@ export interface TtsResult {
   provider?: TtsProvider;
 }
 
+/**
+ * 쉼 태그(`[pause]`) 제거 — Chirp 3: HD **전용** 마크업이라 Gemini TTS는 그대로 읽어 버린다.
+ * ★ 폴백 경로에서 이걸 빠뜨리면 나레이션이 "…있고, 포즈, 샤워부스와…"가 된다.
+ *   태그 자리에 공백 하나만 남긴다(쉼은 사라지지만 문장은 온전하다).
+ */
+export function stripPauseTags(text: string): string {
+  return text.replace(/\s*\[pause[^\]]*\]\s*/gi, " ").replace(/\s{2,}/g, " ").trim();
+}
+
 /** Gemini TTS API 1회 호출 — 캐시 미스일 때만 호출된다. */
 async function callGeminiTts(
-  text: string,
+  rawText: string,
   voice: string,
   fetchFn: typeof fetch
 ): Promise<Buffer> {
+  const text = stripPauseTags(rawText);
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new GeminiNotConfiguredError();
 

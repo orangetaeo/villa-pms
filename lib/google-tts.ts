@@ -20,6 +20,24 @@
 //   ffmpeg 입력·타임라인 계산(narration.ts)이 분기 없이 그대로 동작한다.
 import { GeminiNotConfiguredError } from "@/lib/gemini";
 
+/**
+ * 절(節) 사이에 넣는 쉼 태그. Chirp 3: HD는 `input.markup`으로 **명시적 쉼**을 받는다.
+ *
+ * ★ 왜 필요한가(테오 2026-07-23): "…안방이 있고, [쉼 없이] 샤워부스와 욕조를 갖춘…" 처럼
+ *   절이 바뀌는데 숨을 안 쉬어서 두 문장이 뭉개져 들린다는 지적이 반복됐다. 모델의 자연 쉼은
+ *   실측 0.33초로 들쭉날쭉하지만, 이 태그를 넣으면 그 자리에 **0.69초 무음**이 확정적으로 생긴다
+ *   (silencedetect로 확인). 프롬프트로 부탁할 수 없는 종류라 마크업으로 못박는다.
+ * ★ Gemini TTS 폴백 경로는 이 태그를 **소리 내어 읽는다** — 그쪽 호출 전에 반드시 제거한다
+ *   (lib/gemini-tts.ts stripPauseTags).
+ */
+export const TTS_PAUSE_TAG = "[pause]";
+/** 태그 하나가 만드는 무음 길이(초) — 타임라인이 이 값만큼을 발화에서 빼고 앞 절에 준다. */
+export const TTS_PAUSE_SEC = 0.69;
+/** 텍스트에 쉼 태그가 들어 있나 — 있으면 text가 아니라 markup으로 보내야 한다. */
+export function hasPauseTag(text: string): boolean {
+  return text.includes(TTS_PAUSE_TAG);
+}
+
 /** Chirp 3: HD 기본 목소리(짧은 이름). GEMINI_TTS_VOICE와 로스터를 공유한다. */
 export const GOOGLE_TTS_MODEL = "Chirp3-HD";
 export const GOOGLE_TTS_LANGUAGE = process.env.GOOGLE_TTS_LANGUAGE ?? "ko-KR";
@@ -123,7 +141,8 @@ export async function synthesizeWithGoogle(
       headers: { "Content-Type": "application/json" },
       signal: AbortSignal.timeout(TIMEOUT_MS),
       body: JSON.stringify({
-        input: { text: trimmed },
+        // 쉼 태그가 있으면 markup 입력으로 보낸다(text로 보내면 "[pause]"를 그대로 읽는다).
+        input: hasPauseTag(trimmed) ? { markup: trimmed } : { text: trimmed },
         voice: { languageCode: GOOGLE_TTS_LANGUAGE, name: voiceName },
         audioConfig: {
           audioEncoding: "LINEAR16",

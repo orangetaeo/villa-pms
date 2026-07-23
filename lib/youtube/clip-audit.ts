@@ -94,24 +94,36 @@ function run(bin: string, args: string[]): Promise<void> {
   });
 }
 
-/** 실제로 쓰이는 창에서 프레임 3장(앞·중간·끝)을 뽑아 base64 JPEG로 돌려준다. */
+/**
+ * 실제로 쓰이는 창에서 프레임 3장(앞·중간·끝)을 뽑아 base64 JPEG로 돌려준다.
+ *
+ * ★ 프레임 하나가 안 나와도 계속한다(2026-07-23): 클립이 검수 창(4초)보다 짧으면 뒤쪽 프레임이
+ *   존재하지 않아 ffmpeg가 파일을 안 만든다. 예전엔 그 예외가 위로 던져져 **그 컷 검수가 통째로
+ *   건너뛰어졌다** — 짧게 자른 이동 컷이 아무 검사 없이 통과한다는 뜻이라 게이트에 구멍이 된다.
+ *   한 장이라도 나오면 그걸로 판정한다.
+ */
 async function sampleFrames(clip: AuditClipInput, workDir: string): Promise<string[]> {
   const offsets = [0.2, AUDIT_WINDOW_SEC / 2, AUDIT_WINDOW_SEC - 0.3];
   const out: string[] = [];
   for (let i = 0; i < offsets.length; i++) {
     const f = path.join(workDir, `c${clip.index}-${i}.jpg`);
-    await run(FFMPEG_PATH, [
-      "-y",
-      "-ss", (clip.startSec + offsets[i]).toFixed(2),
-      "-i", clip.path,
-      "-frames:v", "1",
-      // 판정에 충분하면서 토큰을 아끼는 크기
-      "-vf", "scale=360:-1",
-      "-q:v", "5",
-      f,
-    ]);
-    out.push((await fs.readFile(f)).toString("base64"));
+    try {
+      await run(FFMPEG_PATH, [
+        "-y",
+        "-ss", (clip.startSec + offsets[i]).toFixed(2),
+        "-i", clip.path,
+        "-frames:v", "1",
+        // 판정에 충분하면서 토큰을 아끼는 크기
+        "-vf", "scale=360:-1",
+        "-q:v", "5",
+        f,
+      ]);
+      out.push((await fs.readFile(f)).toString("base64"));
+    } catch {
+      // 클립 길이를 넘는 지점 — 이 프레임만 건너뛴다
+    }
   }
+  if (out.length === 0) throw new Error("프레임을 한 장도 추출하지 못했습니다");
   return out;
 }
 

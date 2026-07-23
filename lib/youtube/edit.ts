@@ -353,7 +353,11 @@ async function nodeToTransparentPng(node: SatoriNode): Promise<Buffer> {
  *   2백만 픽셀을 합성한다. 60초 영상 × 30fps × 오버레이 20장이면 그 자체가 렌더 시간의 태반이다.
  *   sharp trim으로 그림만 남기고 위치를 좌표로 넘기면 결과 픽셀은 **완전히 동일**하면서
  *   합성 비용만 사라진다.
- * ★ threshold를 낮게(1) 둔다 — 자막의 부드러운 그림자 가장자리까지 잘라내지 않기 위함.
+ * ★ **투명한 여백만** 잘라낸다(background: alpha 0). 이걸 지정하지 않으면 sharp는 **좌상단 픽셀 색**을
+ *   배경으로 삼아 "그 색과 비슷한 테두리"를 잘라낸다 — 인트로처럼 화면 전체를 덮는 스크림
+ *   (좌상단이 rgba(10,17,20,0.74))에서는 위쪽 균일 구간 십수 픽셀이 잘려 나가고, 잘린 만큼
+ *   아래로 내려 붙는다. 결과가 2026-07-23 테오가 지적한 **상단의 밝은 띠**였다
+ *   (스크림이 없는 원본 영상이 그 줄만 그대로 보였다). 그림 자체를 배경으로 오인하면 안 된다.
  */
 interface OverlayAsset {
   path: string;
@@ -365,7 +369,7 @@ async function writeOverlay(node: SatoriNode, file: string): Promise<OverlayAsse
   const png = await nodeToTransparentPng(node);
   try {
     const { data, info } = await sharp(png)
-      .trim({ threshold: 1 })
+      .trim({ background: { r: 0, g: 0, b: 0, alpha: 0 }, threshold: 0 })
       .png()
       .toBuffer({ resolveWithObject: true });
     const x = -(info.trimOffsetLeft ?? 0);
@@ -1495,7 +1499,9 @@ ${formatAuditFindings(findings)}`);
           voice: params.narration.voice,
         });
         const timeline = computeNarrationTimeline({
-          lines: synth.map((s) => ({ durationSec: s.durationSec, parts: s.parts })),
+          // pauseCount = 절 사이에 넣은 명시적 쉼 개수. 안 넘기면 그 무음이 글자수 비율로
+          // 흩어져 컷 길이가 밀린다(쉼은 절 경계 한 곳에서만 일어난다).
+          lines: synth.map((s) => ({ durationSec: s.durationSec, parts: s.parts, pauseCount: s.pauseCount })),
           transitionSec: TRANSITION_SEC,
           minSegmentSec: CLIP_DUR_MIN,
           // 이동 컷만 화면 점유 하한을 낮춘다 — 공통 2초를 복도에도 걸면 배속을 해도

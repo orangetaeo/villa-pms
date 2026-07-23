@@ -20,6 +20,7 @@ import { z } from "zod";
 import { extractJsonFromAIResponse } from "@/lib/ai-utils";
 import { GeminiNotConfiguredError } from "@/lib/gemini";
 import { synthesizeSpeech, type TtsResult } from "@/lib/gemini-tts";
+import { TTS_PAUSE_TAG, TTS_PAUSE_SEC } from "@/lib/google-tts";
 import { resolveClipPace } from "@/lib/youtube/pacing";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
@@ -69,6 +70,31 @@ export const NARRATION_LEAD_SEC = 0.15;
 export const NARRATION_TAIL_SEC = 0.25;
 /** 자막을 말끝보다 조금 더 남긴다(읽을 시간). */
 export const SUBTITLE_TAIL_SEC = 0.3;
+
+/**
+ * 절(자막 한 장)이 바뀌는 지점에 넣는 **명시적 쉼**. TTS 마크업으로 못박는다(google-tts.ts).
+ *
+ * ★ 근거(테오 2026-07-23 실청취): "…안방이 있고, [쉼 없이] 샤워부스와 욕조를 갖춘…",
+ *   "…베란다 문을 열면, [쉼 없이] …" 처럼 절이 바뀌는데 숨을 안 쉬어 두 절이 뭉개진다는 지적이
+ *   네 군데에서 나왔다. 모델의 자연 쉼은 0.33초 안팎으로 들쭉날쭉하고 아예 없는 곳도 있다.
+ *   화면(컷)도 그 지점에서 바뀌므로 **말과 화면이 같이 호흡**하는 편이 맞다.
+ */
+export const PART_PAUSE_SEC = TTS_PAUSE_SEC;
+
+/**
+ * 문장의 절 사이에 쉼 태그를 넣은 **합성용 텍스트**를 만든다.
+ *
+ * ★ 안전장치: 절을 이어 붙인 것이 문장과 다르면(운영자가 손으로 고친 직후 등) 태그를 넣지 않고
+ *   문장 원문을 그대로 돌려준다 — 합성되는 **말 자체가 바뀌는 것**이 쉼 없는 것보다 훨씬 나쁘다.
+ * @returns [합성용 텍스트, 삽입된 쉼 개수]
+ */
+export function buildSpeechMarkup(line: NarrationLine): [string, number] {
+  const text = line.text.trim();
+  const parts = line.parts.map((p) => p.text.trim()).filter(Boolean);
+  if (parts.length < 2) return [text, 0];
+  if (normForCompare(parts.join(" ")) !== normForCompare(text)) return [text, 0];
+  return [parts.join(` ${TTS_PAUSE_TAG} `), parts.length - 1];
+}
 
 /**
  * 자막 한 장의 최대 글자수. 넘으면 **여러 장으로 나눠 넘긴다**(paginateSubtitle).
@@ -301,7 +327,9 @@ function buildPrompt(ctx: NarrationVillaContext): string {
     `- 문장 하나는 최대 ${NARRATION_RULES.sentenceMaxChars}자.`,
     `- 각 컷에 붙는 조각(자막 한 장)은 ${NARRATION_RULES.minChars}~${NARRATION_RULES.maxChars}자. **첫 문장(훅)도 예외 없이 조각으로 쪼개라.**`,
     "- **숫자와 영문을 절대 쓰지 마라.** 음성이 이상하게 읽는다. '세 개'처럼 한글로만.",
-    "- 문장 끝맺음을 다양하게: ~예요 / ~죠 / ~답니다 / ~해 보세요 / ~가능해요. 같은 어미를 연속으로 쓰지 마라.",
+    "- 문장 끝맺음을 다양하게: ~예요 / ~죠 / ~구요 / ~답니다 / ~해 보세요 / ~가능해요.",
+    "  **같은 어미를 두 번 이상 쓰지 마라**(특히 '~답니다'). 어기면 서버가 강제로 바꾼다(diversifyEndings).",
+    "- 한 문장 안에서 같은 말을 겹치지 마라. 나쁜 예: '옷장이 깔끔한 안방이 있고' → '옷장이 있는 깔끔한 안방'.",
     "- **같은 공간이 여러 컷이면(예: 침실 세 개) 각 컷의 다른 점을 반드시 말하라.**",
     "  '또 다른 침실입니다' 처럼 정보 없는 표현은 금지. 침대 구성·창밖 풍경·누가 쓰기 좋은지를 짚어라.",
     "  컷 설명(— 뒤 텍스트)이 있으면 최우선으로 활용한다.",
@@ -463,7 +491,8 @@ export function normalizeScript(
   // ★ 마지막 관문: 절이 문장 전체를 덮게 맞춘다. 모델은 자연스러운 문장을 쓴 뒤 일부 절만
   //   배정하는 일이 잦고(3회 중 2회 실측), 그대로 두면 자막이 문장을 빠뜨리고 컷 길이까지 왜곡된다.
   //   컷 순서 정규화 **뒤에** 돌려야 한다 — 재구성은 확정된 배정 위에서 글자만 다시 나눈다.
-  return regrouped.map(reconcilePartsToText);
+  //   그 뒤 어미 반복을 교정한다(문장 끝이 확정된 다음이어야 마지막 절까지 같이 고칠 수 있다).
+  return diversifyEndings(regrouped.map(reconcilePartsToText));
 }
 
 /**
@@ -614,6 +643,128 @@ function dedupeSorted(arr: number[]): number[] {
   return [...new Set(arr)].sort((a, b) => a - b);
 }
 
+// ── ①-c 어미 다양화 (프롬프트가 아니라 코드로 강제) ──────────────────
+/**
+ * 문장 끝맺음 변환표. 앞의 규칙이 먼저 적용된다(구체적인 것부터).
+ * ★ 대안은 **테오가 직접 말한 표현**을 우선으로 넣었다(2026-07-23:
+ *   "자랑하구요 / 더해주죠 / 펼쳐져요 / 내려다볼 수 있어요").
+ */
+const ENDING_RULES: { re: RegExp; alts: string[] }[] = [
+  { re: /한답니다$/, alts: ["하구요", "해요", "하죠"] },
+  { re: /준답니다$/, alts: ["주죠", "줘요"] },
+  { re: /진답니다$/, alts: ["져요", "지죠"] },
+  { re: /된답니다$/, alts: ["돼요", "되죠"] },
+  { re: /난답니다$/, alts: ["나요", "나죠"] },
+  { re: /간답니다$/, alts: ["가요", "가죠"] },
+  { re: /온답니다$/, alts: ["와요", "오죠"] },
+  { re: /인답니다$/, alts: ["여요", "이죠"] }, // 보인답니다 → 보여요
+  { re: /있답니다$/, alts: ["있어요", "있죠"] },
+  { re: /없답니다$/, alts: ["없어요", "없죠"] },
+  { re: /이랍니다$/, alts: ["이에요", "이죠"] },
+  { re: /랍니다$/, alts: ["예요", "죠"] },
+  { re: /이에요$/, alts: ["이죠", "입니다"] },
+  { re: /예요$/, alts: ["죠", "이랍니다"] },
+  { re: /해요$/, alts: ["하죠", "합니다"] },
+  { re: /어요$/, alts: ["죠", "습니다"] },
+];
+
+/**
+ * 문장 끝 **계열**(반복 판정 기준). 어간이 달라도 귀에는 같은 어미로 들린다 —
+ * "자랑한답니다"와 "보인답니다"는 규칙이 다르지만 반복은 `답니다` 하나로 세야 한다.
+ * (이 분류를 빼먹으면 네 문장 연속 `~답니다`가 "서로 다른 어미"로 통과한다 — 테스트가 잡은 결함.)
+ */
+const ENDING_FAMILIES: [string, RegExp][] = [
+  ["답니다", /답니다$/],
+  ["습니다", /습니다$/],
+  ["ㅂ니다", /니다$/],
+  ["세요", /세요$/],
+  ["죠", /죠$/],
+  ["예요", /(예요|에요)$/],
+  ["어요", /(어요|아요|여요|해요|워요|져요|봐요|줘요|나요|가요|와요|돼요)$/],
+];
+
+/** 문장 끝 계열 키. 어디에도 안 걸리면 마지막 두 글자(그 자체로 비교 기준이 된다). */
+function endingKeyOf(text: string): string {
+  const t = text.trim().replace(/[.!?~…\s]+$/, "");
+  for (const [key, re] of ENDING_FAMILIES) if (re.test(t)) return key;
+  return t.slice(-2);
+}
+
+/**
+ * 문장 끝을 다른 어미로 바꾼다. 바꿀 규칙이 없으면 null(원문 유지 — 억지 변형 금지).
+ * 대안이 여러 개면 **아직 덜 쓰인 계열**을 고른다 — 교정끼리 또 같은 어미로 몰리지 않게.
+ */
+function pickEndingRewrite(text: string, used: Map<string, number>): { re: RegExp; alt: string } | null {
+  const body = stripTrailingPunct(text);
+  for (const r of ENDING_RULES) {
+    if (!r.re.test(body)) continue;
+    let best = r.alts[0];
+    let bestCount = Infinity;
+    for (const alt of r.alts) {
+      const count = used.get(endingKeyOf(body.replace(r.re, alt))) ?? 0;
+      if (count < bestCount) {
+        bestCount = count;
+        best = alt;
+      }
+    }
+    return { re: r.re, alt: best };
+  }
+  return null;
+}
+
+function stripTrailingPunct(text: string): string {
+  const t = text.trim();
+  const trail = t.match(/[.!?~…]+$/)?.[0] ?? "";
+  return t.slice(0, t.length - trail.length);
+}
+
+/**
+ * 고른 교정을 실제 문자열에 적용한다. **문장과 마지막 절에 같은 교정을 써야** 말과 자막이 어긋나지 않는다
+ * (각각 따로 고르면 문장은 "펼쳐져요"인데 자막은 "펼쳐지죠"가 될 수 있다).
+ */
+function applyEndingRewrite(text: string, rw: { re: RegExp; alt: string }): string | null {
+  const t = text.trim();
+  const trail = t.match(/[.!?~…]+$/)?.[0] ?? "";
+  const body = t.slice(0, t.length - trail.length);
+  if (!rw.re.test(body)) return null;
+  return body.replace(rw.re, rw.alt) + trail;
+}
+
+/**
+ * **같은 어미가 반복되면 서버가 바꾼다.**
+ *
+ * ★ 왜 코드인가(테오 2026-07-23): 프롬프트에 "같은 어미를 연속으로 쓰지 마라"가 이미 있는데도
+ *   실렌더에서 `~답니다`가 네 문장 연속으로 나왔다("자랑한답니다 / 더해준답니다 / 펼쳐진답니다 /
+ *   내려다볼 수 있답니다"). 반복되는 지적은 부탁이 아니라 규칙으로 만들어야 한다
+ *   ([[video-pipeline-auto-qa-gates]]와 같은 원칙).
+ * ★ 첫 등장은 건드리지 않는다 — 어미 자체가 나쁜 게 아니라 **반복**이 나쁘다.
+ * ★ CTA 문장은 제외(문구가 고정이고 마지막 한 번뿐이다).
+ */
+export function diversifyEndings(lines: NarrationLine[]): NarrationLine[] {
+  const seen = new Map<string, number>();
+  return lines.map((line) => {
+    const isCta = line.parts.every((p) => p.clipIndexes.length === 0);
+    const key = endingKeyOf(line.text);
+    const n = (seen.get(key) ?? 0) + 1;
+    seen.set(key, n);
+    if (isCta || n === 1) return line;
+
+    const rw = pickEndingRewrite(line.text, seen);
+    const rewritten = rw && applyEndingRewrite(line.text, rw);
+    if (!rw || !rewritten || rewritten === line.text) return line;
+    // 바뀐 어미도 반복 판정 대상에 넣는다(교정끼리 또 겹치지 않게).
+    const newKey = endingKeyOf(rewritten);
+    seen.set(newKey, (seen.get(newKey) ?? 0) + 1);
+
+    // 문장 끝은 **마지막 절**에 들어 있다 — 자막도 **같은 교정**으로 바꿔야 말과 글자가 어긋나지 않는다.
+    const parts = line.parts.map((p) => ({ ...p }));
+    const last = parts[parts.length - 1];
+    const lastRewritten = last ? applyEndingRewrite(last.text, rw) : null;
+    if (last && lastRewritten) last.text = lastRewritten;
+    return { text: rewritten, parts };
+  });
+}
+
 // ── ② 검증 (순수함수 — 프롬프트만 믿지 않는다) ──────────────────────
 export type NarrationIssue =
   | "EMPTY"
@@ -663,8 +814,12 @@ export function validateNarrationLines(lines: NarrationLine[]): NarrationValidat
 
 // ── ④ 타이밍 (순수함수 — 이 파일의 핵심) ────────────────────────────
 export interface NarrationTimelineInput {
-  /** 문장 단위 입력 — 문장별 TTS 길이 + 그 문장의 절 구성(컷 배정·글자수) */
-  lines: { durationSec: number; parts: { clipIndexes: number[]; text: string }[] }[];
+  /**
+   * 문장 단위 입력 — 문장별 TTS 길이 + 그 문장의 절 구성(컷 배정·글자수).
+   * `pauseCount`는 그 문장에 실제로 삽입된 쉼 태그 개수(buildSpeechMarkup이 알려준다).
+   * 주면 쉼 시간을 발화에서 빼고 **쉼 앞 절**에 얹는다 — 쉼 동안 화면이 앞 컷에 머물러야 한다.
+   */
+  lines: { durationSec: number; pauseCount?: number; parts: { clipIndexes: number[]; text: string }[] }[];
   /** xfade 전환 길이(초) — edit.ts TRANSITION_SEC */
   transitionSec: number;
   /** 클립 세그먼트 최소 길이(초) — edit.ts CLIP_DUR_MIN */
@@ -733,6 +888,10 @@ export function computeNarrationTimeline(input: NarrationTimelineInput): Narrati
     lineOffsets.push(speechStart);
 
     const totalChars = line.parts.reduce((a, p) => a + Math.max(1, p.text.length), 0);
+    // ★ 명시적 쉼(TTS 마크업)은 **글자수 비율로 나누면 안 된다** — 쉼은 특정 절 경계 한 곳에서만
+    //   일어나기 때문이다. 총 발화에서 빼두고, 아래에서 쉼 앞 절에 통째로 얹는다.
+    const pauseCount = Math.min(line.pauseCount ?? 0, Math.max(0, line.parts.length - 1));
+    const speechSec = Math.max(0.2, line.durationSec - pauseCount * PART_PAUSE_SEC);
     let partStart = speechStart;
     let consumed = 0;
     // 이 문장이 덮는 컷들의 화면 시간 후보. 상한·재분배를 적용한 뒤 한 번에 확정한다.
@@ -747,7 +906,9 @@ export function computeNarrationTimeline(input: NarrationTimelineInput): Narrati
 
     line.parts.forEach((part, pi) => {
       const share = Math.max(1, part.text.length) / totalChars;
-      const partSpeech = line.durationSec * share;
+      // 이 절 뒤에 쉼이 오나(마지막 절 뒤에는 없다) — 오면 그 무음까지 이 절이 화면을 지킨다.
+      const pauseAfter = pi < pauseCount ? PART_PAUSE_SEC : 0;
+      const partSpeech = speechSec * share + pauseAfter;
 
       const isCtaPart = part.clipIndexes.length === 0;
       for (const pg of paginateSubtitle(part.text, partStart, partStart + partSpeech + SUBTITLE_TAIL_SEC)) {
@@ -887,6 +1048,8 @@ export interface SynthesizedLine {
   wav: Buffer;
   durationSec: number;
   cached: boolean;
+  /** 이 문장에 실제로 삽입된 쉼 개수 — computeNarrationTimeline에 그대로 넘긴다 */
+  pauseCount: number;
 }
 
 /**
@@ -899,13 +1062,17 @@ export async function synthesizeNarration(
 ): Promise<SynthesizedLine[]> {
   const out: SynthesizedLine[] = [];
   for (const line of lines) {
-    const r: TtsResult = await synthesizeSpeech(line.text, opts);
+    // 절 경계마다 쉼 태그를 넣어 합성한다(google-tts markup). 캐시 키는 이 텍스트 기준이라
+    // 쉼이 붙은 문장은 새로 합성되고, 이후 재렌더에서는 그대로 재사용된다.
+    const [speechText, pauseCount] = buildSpeechMarkup(line);
+    const r: TtsResult = await synthesizeSpeech(speechText, opts);
     out.push({
       text: line.text,
       parts: line.parts,
       wav: r.wav,
       durationSec: r.durationSec,
       cached: r.cached,
+      pauseCount,
     });
   }
   return out;

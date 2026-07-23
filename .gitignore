@@ -68,3 +68,5 @@ smoke/*.txt
 smoke/wav*/
 smoke/r2keys.json
 smoke/*.json
+smoke/m1-cuts/
+smoke/tmp/
