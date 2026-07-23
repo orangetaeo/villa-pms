@@ -413,10 +413,11 @@ export default async function VillaDetailPage({
           />
         </div>
       )}
-      {/* 2단 레이아웃 (b10) */}
+      {/* 2단 레이아웃 (b10) — 좌:공개·판매 정보 / 우:운영 정보. 전 섹션 접힘이 기본이라 좌우 개수를 맞춰
+          (6/6) 한쪽만 텅 비지 않게 한다. */}
       <div className="grid grid-cols-12 gap-8">
-        {/* 좌측: 사진 + 기본 정보 */}
-        <div className="col-span-12 lg:col-span-7 space-y-6">
+        {/* 좌측: 공개·판매 정보 (사진·영상·기본정보·지역·SEO·빌라명) */}
+        <div className="col-span-12 lg:col-span-6 space-y-6">
           {/* 공간별 사진 그리드 — 기본 접힘(전 섹션 통일) */}
           <CollapsibleCard
             title={t("photos.title")}
@@ -540,33 +541,10 @@ export default async function VillaDetailPage({
 
           {/* 베트남어 병기명 (ADR-0020) — Gemini 제안 + ADMIN 확정. 비운영자 화면에 병기 */}
           <NameViEditor villaId={villa.id} name={villa.name} initialNameVi={villa.nameVi} />
-
-          {/* 청소 담당자 지정 (T-villa-cleaner-assign) — 빌라별 담당 CLEANER. 미지정이면 공급자 담당 */}
-          <CleanerAssignEditor
-            villaId={villa.id}
-            initialCleanerId={villa.cleanerId}
-            cleaners={cleanerOptions}
-          />
-
-          {/* 지역 지정 업체 (ADR-0037) — 마사지·이발은 이 빌라에서 가까운 샵으로 발주. 미지정이면 카탈로그 기본 */}
-          <RegionalVendorEditor
-            villaId={villa.id}
-            vendors={regionalVendorOptions}
-            initial={regionalInitial}
-          />
-
-          {/* 청소직원용 운영정보 (T-cleaner-features C·D) — 주소·출입정보·청소 특이사항. 배정 청소직원 전용 */}
-          <CleaningInfoEditor
-            villaId={villa.id}
-            initialAddress={villa.address}
-            initialAccessType={villa.accessType}
-            initialAccessInfo={villa.accessInfo}
-            initialCleaningNotes={villa.cleaningNotes}
-          />
         </div>
 
-        {/* 우측: 요율 + 비품 + 수정 이력 */}
-        <div className="col-span-12 lg:col-span-5 space-y-6">
+        {/* 우측: 운영 정보 (청소·비품·미니바·요율·수정 이력) */}
+        <div className="col-span-12 lg:col-span-6 space-y-6">
           {/* 기간별 요금 (ADR-0014) — finance 권한자는 위 전폭 캘린더에서 편집. STAFF는 원가 읽기뷰로 강등 */}
           {!showFinance && (
             <CollapsibleCard
@@ -622,6 +600,29 @@ export default async function VillaDetailPage({
           {!showFinance && (
             <PremiumDaysEditor villaId={villa.id} initialDays={villa.premiumDays} />
           )}
+
+          {/* 청소 담당자 지정 (T-villa-cleaner-assign) — 빌라별 담당 CLEANER. 미지정이면 공급자 담당 */}
+          <CleanerAssignEditor
+            villaId={villa.id}
+            initialCleanerId={villa.cleanerId}
+            cleaners={cleanerOptions}
+          />
+
+          {/* 지역 지정 업체 (ADR-0037) — 마사지·이발은 이 빌라에서 가까운 샵으로 발주. 미지정이면 카탈로그 기본 */}
+          <RegionalVendorEditor
+            villaId={villa.id}
+            vendors={regionalVendorOptions}
+            initial={regionalInitial}
+          />
+
+          {/* 청소직원용 운영정보 (T-cleaner-features C·D) — 주소·출입정보·청소 특이사항. 배정 청소직원 전용 */}
+          <CleaningInfoEditor
+            villaId={villa.id}
+            initialAddress={villa.address}
+            initialAccessType={villa.accessType}
+            initialAccessInfo={villa.accessInfo}
+            initialCleaningNotes={villa.cleaningNotes}
+          />
 
           {/* 비품 현황 — 관리자 편집 가능 (Batch A). 미니바는 회사표준(#2b)으로 분리 */}
           <AdminAmenitiesEditor

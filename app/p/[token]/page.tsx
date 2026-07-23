@@ -211,10 +211,9 @@ export default async function ProposalPage({
   return (
     <div className="bg-neutral-50 text-neutral-900 min-h-screen">
       <header className="bg-white border-b border-neutral-100 flex justify-between items-center w-full px-4 h-14 sticky top-0 z-50">
-        <span className="w-10 shrink-0" />
-        {/* ★ 로고는 **남은 공간 안에서** 가운데 정렬한다. 화면 정중앙(absolute) 고정은 폭이 좁은 폰에서
-            우측 컨트롤(언어 선택기+공유) 위로 겹쳐 올라간다 — 2026-07-24 실제 기기에서 확인. */}
-        <span className="flex min-w-0 flex-1 items-center justify-center gap-1.5 overflow-hidden px-1">
+        {/* ★ 로고는 좌측 정렬. 정중앙(absolute)은 좁은 폰에서 우측 컨트롤 위로 겹치고, "남은 공간 가운데"는
+            위치가 어중간해 보인다 — 좌측 고정이 가장 깔끔(2026-07-24). truncate로 폭 좁을 때 말줄임. */}
+        <span className="flex min-w-0 flex-1 items-center justify-start gap-1.5 overflow-hidden pr-1">
           <VillaGoMark className="h-6 w-auto shrink-0" />
           <VillaGoWordmark className="truncate text-lg sm:text-xl" villa="text-slate-900" go="text-teal-600" />
         </span>
