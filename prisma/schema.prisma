@@ -1813,6 +1813,11 @@ model InstagramPost {
   villaId String?
   villa   Villa?  @relation(fields: [villaId], references: [id], onDelete: SetNull)
 
+  // 장소 글(맛집·카페)에서 만든 포스트면 그 글에 연결(T-seo-to-instagram). null = 빌라·기타 소재.
+  //   ★ 한 글당 포스트 1개 판정 축 — 같은 가게가 여러 번 도배되지 않게 한다(빌라당 상한과 같은 취지).
+  seoArticleId String?
+  seoArticle   SeoArticle? @relation(fields: [seoArticleId], references: [id], onDelete: SetNull)
+
   kind        IgPostKind
   status      IgPostStatus @default(DRAFT)
   scheduledAt DateTime // 발행 예정 슬롯 (07:30/12:30/20:00 KST) — UTC 저장
@@ -1841,6 +1846,7 @@ model InstagramPost {
 
   @@index([status, scheduledAt]) // 발행 cron: QUEUED + 시간 도래분 조회
   @@index([villaId]) // 빌라 로테이션 선정(포스팅 이력 조회)
+  @@index([seoArticleId]) // 장소 글 소재 중복 방지 조회
 }
 
 // ===================== 인스타그램 DM 인박스 (instagram-marketing-p2) =====================
@@ -2050,6 +2056,8 @@ model SeoArticle {
   createdBy String? // "cron:seo-draft" 또는 User.id (FK 없음)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  igPosts InstagramPost[] // 이 글을 소재로 만든 인스타 포스트(T-seo-to-instagram)
 
   @@index([status, publishedAt]) // 공개 목록·점진 발행 큐 조회
   @@index([topicKey]) // 주제 중복 생성 방지 조회

@@ -20,6 +20,11 @@ import {
   IG_EVENING_SLOT_INDEX,
 } from "@/lib/instagram/draft";
 import { renderCarousel } from "@/lib/instagram/render";
+import {
+  selectPlaceArticlesForIg,
+  buildPlaceSlides,
+  generatePlaceCaption,
+} from "@/lib/instagram/place-draft";
 import { renderAndBuildReel } from "@/lib/instagram/reels";
 import { getIgPostsPerVilla } from "@/lib/instagram/settings";
 import { getYoutubeShortsPerDay, getYoutubeShortsPerVilla } from "@/lib/youtube/settings";
@@ -48,6 +53,7 @@ async function handle(req: Request) {
 
   const created: { id: string; villaId: string; kind: string; flagged: string[] }[] = [];
   const failures: { villaId: string; reason: string }[] = [];
+  const placeCreated: { id: string; slug: string; flagged: string[] }[] = [];
 
   // ★ 적격 빌라 0곳이어도 조기 반환하지 않는다 — 유튜브 배치는 인스타 상한과 무관하게 자기 상한으로 판단해야 한다.
   for (let i = 0; i < villas.length; i++) {
@@ -129,13 +135,73 @@ async function handle(req: Request) {
     }
   }
 
+  // ── 장소 글 소재로 남은 슬롯 채우기 (T-seo-to-instagram) ──
+  // ★ 빌라가 우선이다. 빌라가 상한에 걸려 슬롯이 남을 때만 장소 글이 들어온다
+  //   (2026-07-23 현재 빌라 2곳 모두 상한 도달 → 사실상 장소가 공급원이 된다).
+  // ★ 한 글당 1건(seoArticleId) — 같은 가게 도배 방지. 실패해도 빌라 초안 결과에 영향 없다.
+  const freeSlots = POSTS_PER_RUN - created.length;
+  if (freeSlots > 0) {
+    let placeSources: Awaited<ReturnType<typeof selectPlaceArticlesForIg>> = [];
+    try {
+      placeSources = await selectPlaceArticlesForIg(freeSlots, prisma);
+    } catch (e) {
+      console.error("[cron/instagram-draft] 장소 소재 조회 실패:", e instanceof Error ? e.message : String(e));
+    }
+
+    for (let i = 0; i < placeSources.length; i++) {
+      const src = placeSources[i];
+      const scheduledAt = slots[(created.length + i) % slots.length];
+      try {
+        const slides = buildPlaceSlides(src);
+        const caption = await generatePlaceCaption(src);
+        const rendered = await renderCarousel(slides, `place-${src.articleSlug}-${scheduledAt.toISOString().slice(0, 10)}`);
+
+        const post = await prisma.instagramPost.create({
+          data: {
+            villaId: null, // 가게 소재는 빌라와 무관 — 모델이 원래 nullable(정보 포스트)
+            seoArticleId: src.articleId,
+            kind: "INFO",
+            status: IgPostStatus.PENDING_APPROVAL,
+            scheduledAt,
+            caption: caption.caption,
+            mediaJson: rendered as unknown as Prisma.InputJsonValue,
+            flaggedTerms: caption.flaggedTerms.length > 0 ? caption.flaggedTerms : undefined,
+            createdBy: CREATED_BY,
+          },
+          select: { id: true },
+        });
+        await writeAuditLog({
+          userId: null,
+          action: "CREATE",
+          entity: "InstagramPost",
+          entityId: post.id,
+          changes: {
+            source: { new: "seo-place" },
+            seoArticleId: { new: src.articleId },
+            place: { new: src.placeName },
+            slideCount: { new: rendered.length },
+            usedGemini: { new: caption.usedGemini },
+            flaggedTerms: { new: caption.flaggedTerms },
+          },
+        });
+        placeCreated.push({ id: post.id, slug: src.articleSlug, flagged: caption.flaggedTerms });
+      } catch (e) {
+        const reason = e instanceof Error ? e.message : String(e);
+        console.error(`[cron/instagram-draft] 장소 글 ${src.articleSlug} 초안 실패:`, reason);
+        failures.push({ villaId: `place:${src.articleSlug}`, reason });
+      }
+    }
+  }
+
   // 운영자 알림(생성분이 있을 때만) — 인앱 벨 + Zalo 그룹.
-  if (created.length > 0) {
-    const flaggedCount = created.filter((c) => c.flagged.length > 0).length;
+  if (created.length + placeCreated.length > 0) {
+    const flaggedCount =
+      created.filter((c) => c.flagged.length > 0).length + placeCreated.filter((c) => c.flagged.length > 0).length;
     await notifyMarketing({
       kind: "IG_DRAFTS_READY",
       summary:
-        `오늘 인스타 초안 ${created.length}건이 생성되었습니다.` +
+        `오늘 인스타 초안 ${created.length + placeCreated.length}건이 생성되었습니다.` +
+        (placeCreated.length > 0 ? ` (장소 소재 ${placeCreated.length}건 포함)` : "") +
         (flaggedCount > 0 ? ` (금칙어 경고 ${flaggedCount}건 — 확인 필요)` : "") +
         `\n승인 전에는 발행되지 않습니다.`,
       href: "/marketing/instagram",
@@ -185,7 +251,10 @@ async function handle(req: Request) {
 
   return Response.json({
     status: "ok",
-    created: created.length,
+    created: created.length + placeCreated.length,
+    villaCreated: created.length,
+    placeCreated: placeCreated.length,
+    placeSlugs: placeCreated.map((p) => p.slug),
     reels: created.filter((c) => c.kind === "REELS").length,
     failed: failures.length,
     flagged: created.filter((c) => c.flagged.length > 0).length,
