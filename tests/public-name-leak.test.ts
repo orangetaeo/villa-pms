@@ -9,6 +9,7 @@ import { buildMetaPrompt } from "@/lib/youtube/meta";
 import { buildCaptionPrompt, type VillaPublicInfo } from "@/lib/instagram/caption";
 import { buildNarrationPrompt, type NarrationVillaContext } from "@/lib/youtube/narration";
 import { buildPublicSlug, toPublicVilla, type PublicVillaRow } from "@/lib/seo/public-villa";
+import { buildVillaDescriptionPrompt, type VillaDescriptionFacts } from "@/lib/seo/villa-prep";
 
 // 실제 빌라 고유 실명(공개에 절대 나오면 안 되는 문자열).
 const REAL_NAMES = ["M villa M1", "Sonasea V12", "쏘나씨 V12"];
@@ -74,6 +75,32 @@ describe("생성기 프롬프트 빌더 — 고유 실명 미포함", () => {
   it("인스타 캡션 프롬프트에 실명이 없다", () => {
     assertNoRealName(buildCaptionPrompt(V, "VILLA_SHOWCASE"));
     assertNoRealName(buildCaptionPrompt(V, "SERVICE"));
+  });
+
+  it("SEO 소개문 생성 프롬프트에 실명이 없다 (공개 description으로 렌더됨)", () => {
+    const facts: VillaDescriptionFacts = {
+      complex: "Sonasea",
+      areaNameKo: "쏘나씨",
+      bedrooms: 3,
+      bathrooms: 4,
+      maxGuests: 8,
+      areaSqm: 320,
+      floors: 2,
+      hasPool: true,
+      breakfastAvailable: true,
+      beachDistanceM: 300,
+      parkingSlots: 2,
+      petsAllowed: false,
+      smokingAllowed: false,
+      partyAllowed: false,
+      extraBedAvailable: true,
+      featureKeys: ["privatePool", "viewSea"],
+      photoSpaces: ["침실", "수영장", "거실"],
+    };
+    const prompt = buildVillaDescriptionPrompt(facts);
+    assertNoRealName(prompt);
+    // 지역·특징 표시명은 들어간다 — 실명만 없다.
+    expect(prompt).toContain("빌라: 푸꾸옥 쏘나씨 3베드 프라이빗 풀빌라");
   });
 
   it("나레이션 프롬프트에 실명이 없다", () => {

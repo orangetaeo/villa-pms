@@ -13,6 +13,7 @@ import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
 import { findBannedTerms } from "@/lib/instagram/caption";
 import { buildPublicSlug, MIN_PUBLIC_PHOTOS, MIN_PUBLIC_BODY_CHARS } from "@/lib/seo/public-villa";
+import { publicVillaLabel } from "@/lib/marketing/public-name";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 const GEMINI_TIMEOUT_MS = 60_000;
@@ -40,9 +41,12 @@ export async function ensureUniquePublicSlug(
 }
 
 // ── 소개문 생성 ─────────────────────────────────────────────────────────────
-/** 소개문 생성 입력 — 공개 가능한 사실만. 이 타입 밖의 정보는 프롬프트에 들어가지 않는다. */
+/**
+ * 소개문 생성 입력 — 공개 가능한 사실만. 이 타입 밖의 정보는 프롬프트에 들어가지 않는다.
+ * ★ 고유 빌라 실명(name/nameVi)은 없다(원칙 1) — 생성된 소개문은 공개 description으로 렌더되므로
+ *   실명이 들어가면 검색 우회·직거래로 이어진다. 프롬프트 표시명은 publicVillaLabel로 계산한다.
+ */
 export interface VillaDescriptionFacts {
-  name: string;
   complex: string | null;
   areaNameKo: string | null;
   bedrooms: number;
@@ -102,7 +106,8 @@ export function buildVillaDescriptionPrompt(f: VillaDescriptionFacts): string {
     "너는 베트남 푸꾸옥 현지에서 빌라를 운영하는 회사의 콘텐츠 에디터다.",
     "아래 사실만 가지고 한국인 여행객이 읽을 빌라 소개문을 쓴다.",
     "",
-    `빌라: ${f.name}`,
+    // ★ 고유 실명 대신 지역·특징 표시명만 준다 — 소개문은 공개 description으로 나간다(원칙 1).
+    `빌라: ${publicVillaLabel({ complex: f.complex, areaNameKo: f.areaNameKo, bedrooms: f.bedrooms, hasPool: f.hasPool })}`,
     "확인된 사실:",
     ...facts.map((x) => `- ${x}`),
     "",
@@ -241,7 +246,6 @@ const SPACE_KO: Record<string, string> = {
 export function toDescriptionFacts(v: PrepVillaRow): VillaDescriptionFacts {
   const spaces = [...new Set(v.photos.map((p) => SPACE_KO[String(p.space)] ?? "기타"))];
   return {
-    name: v.name,
     complex: v.complex,
     areaNameKo: v.complexArea?.nameKo ?? null,
     bedrooms: v.bedrooms,

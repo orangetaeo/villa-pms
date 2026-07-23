@@ -323,7 +323,7 @@ describe("빌라 공개 준비 (T-seo-s2)", () => {
   it("★ 소개문 프롬프트에 가격·주소·공급자 지시가 금지로 들어간다", async () => {
     const { buildVillaDescriptionPrompt } = await import("@/lib/seo/villa-prep");
     const p = buildVillaDescriptionPrompt({
-      name: "V1", complex: "Sonasea", areaNameKo: "쏘나씨", bedrooms: 4, bathrooms: 4,
+      complex: "Sonasea", areaNameKo: "쏘나씨", bedrooms: 4, bathrooms: 4,
       maxGuests: 10, areaSqm: null, floors: null, hasPool: true, breakfastAvailable: false,
       beachDistanceM: 300, parkingSlots: 2, petsAllowed: false, smokingAllowed: false,
       partyAllowed: false, extraBedAvailable: false, featureKeys: ["privatePool"], photoSpaces: ["외관"],
