@@ -13,6 +13,9 @@ import { YT_SHORTS_PER_VILLA_DEFAULT } from "@/lib/youtube/settings";
 import { renderAndBuildReel, YOUTUBE_REEL_CTA } from "@/lib/instagram/reels";
 import { generateShortMeta } from "@/lib/youtube/meta";
 import { writeAuditLog } from "@/lib/audit-log";
+import { buildNarrationScript, normalizeScript, type NarrationVillaContext } from "@/lib/youtube/narration";
+import { resolveClipPace } from "@/lib/youtube/pacing";
+import { buildTourEditParams, canBuildTour, orderClipsForTour, usableTourClips, type ClipRow } from "@/lib/youtube/clip-draft";
 
 const CREATED_BY = "cron:youtube-draft";
 const KST_OFFSET_MS = 9 * 3600 * 1000;
@@ -100,6 +103,108 @@ export async function selectVillasForYoutubeRotation(
   return eligible.slice(0, count);
 }
 
+/**
+ * 승인된 영상 클립으로 **투어 쇼츠 초안**을 만든다(영상 기반 자동화, 2026-07-23).
+ *
+ * 사진 슬라이드쇼와 다른 점: 여기서 렌더하지 않는다. `editJobStatus: PENDING`으로 넣어 두면
+ * edit-jobs cron이 **렌더 전 검수 → 나레이션 → 완급**까지 수동 경로와 똑같이 처리한다.
+ * 그래서 이번에 배운 것(변기 차단·쉼·어미·이동 컷 흡수)이 자동 생성물에도 그대로 적용된다.
+ *
+ * @returns 만든 쇼츠 id. 클립이 모자라면 null(호출부가 사진 슬라이드쇼로 폴백)
+ */
+async function createTourDraft(
+  villa: YtVillaRow,
+  clips: ClipRow[],
+  scheduledAt: Date,
+  instagramPostId: string | null,
+  db: DbClient
+): Promise<{ id: string; flagged: string[]; clipCount: number } | null> {
+  if (!canBuildTour(clips)) return null;
+
+  const ordered = orderClipsForTour(usableTourClips(clips)); // 긴 워크스루는 제외(컷 설계 필요)
+  const meta = await generateShortMeta({
+    name: villa.name,
+    nameVi: villa.nameVi,
+    complex: villa.complex,
+    bedrooms: villa.bedrooms,
+    maxGuests: villa.maxGuests,
+    beachDistanceM: villa.beachDistanceM,
+    hasPool: villa.hasPool,
+    breakfastAvailable: villa.breakfastAvailable,
+    featureKeys: villa.features.map((f) => f.featureKey),
+  });
+
+  // 나레이션 대본 — 실패해도 영상은 만든다(무음+배경음). 없는 것보다 낫다.
+  let lines: Awaited<ReturnType<typeof buildNarrationScript>> | undefined;
+  try {
+    const ctx: NarrationVillaContext = {
+      villaName: villa.name, // buildPrompt가 한글 읽기로 변환한다(toKoreanReading)
+      complex: villa.complex,
+      bedrooms: villa.bedrooms,
+      hasPool: villa.hasPool,
+      beachDistanceM: villa.beachDistanceM,
+      clips: ordered.map((c) => ({ space: c.space, note: c.note })),
+    };
+    const draft = await buildNarrationScript(ctx);
+    // ★ clipKinds를 반드시 넘긴다 — 안 넘기면 이동 컷이 자기 자막을 가져 화면과 말이 어긋난다.
+    const clipKinds = ordered.map((c) => resolveClipPace(c.space, c.note).kind);
+    lines = normalizeScript(
+      draft.map((l) => ({
+        text: l.text,
+        parts: l.parts.map((p) => ({ cut: p.clipIndexes.length ? p.clipIndexes[0] + 1 : 0, text: p.text })),
+      })),
+      ordered.length,
+      clipKinds
+    );
+  } catch (e) {
+    console.error(`[youtube/draft] 빌라 ${villa.id} 나레이션 생성 실패(무음으로 진행):`, e instanceof Error ? e.message : String(e));
+  }
+
+  const editParams = buildTourEditParams(
+    villa.id,
+    { name: villa.name, bedrooms: villa.bedrooms, hasPool: villa.hasPool, beachDistanceM: villa.beachDistanceM },
+    clips,
+    lines
+  );
+
+  const short = await db.youtubeShort.create({
+    data: {
+      villaId: villa.id,
+      instagramPostId,
+      sourceType: "VILLA_AUTO",
+      // 렌더 전이라 아직 승인 대기가 아니다 — cron이 렌더를 마치면 PENDING_APPROVAL로 올린다.
+      status: "DRAFT",
+      editJobStatus: "PENDING",
+      scheduledAt,
+      title: meta.title,
+      description: meta.description,
+      tags: meta.tags as unknown as Prisma.InputJsonValue,
+      videoUrl: "", // 렌더 후 채워진다
+      editParamsJson: editParams as unknown as Prisma.InputJsonValue,
+      flaggedTerms: meta.flaggedTerms.length > 0 ? meta.flaggedTerms : undefined,
+      createdBy: CREATED_BY,
+    },
+    select: { id: true },
+  });
+
+  await writeAuditLog({
+    userId: null,
+    action: "CREATE",
+    entity: "YoutubeShort",
+    entityId: short.id,
+    changes: {
+      villaId: { new: villa.id },
+      source: { new: "villa-clips" },
+      clipCount: { new: editParams.clips.length },
+      narration: { new: lines ? lines.length : 0 },
+      scheduledAt: { new: scheduledAt.toISOString() },
+    },
+    db,
+  });
+
+  return { id: short.id, flagged: meta.flaggedTerms, clipCount: editParams.clips.length };
+}
+
 export interface YtDraftBatchResult {
   created: { id: string; villaId: string; flagged: string[] }[];
   failures: { villaId: string; reason: string }[];
@@ -129,6 +234,27 @@ export async function runYoutubeDraftBatch(
     const villa = villas[i];
     const scheduledAt = slots[i];
     try {
+      // 같은 빌라의 당일 InstagramPost 연결(가능 시) — 2플랫폼 크로스포스팅 추적.
+      const igPostEarly = await db.instagramPost.findFirst({
+        where: { villaId: villa.id, scheduledAt: { gte: dayStart } },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      });
+
+      // ★ 영상 기반 우선: 승인된 클립이 충분하면 투어 쇼츠를 만든다(검수·나레이션·완급 전부 적용).
+      //   클립이 모자라면 기존 사진 슬라이드쇼로 폴백한다 — 재고가 없다고 자동 생성이 멈추면 안 된다.
+      const approvedClips = await db.villaClip.findMany({
+        where: { villaId: villa.id, status: "APPROVED" },
+        select: { id: true, r2Key: true, space: true, note: true, durationSec: true, createdAt: true },
+        orderBy: { createdAt: "asc" },
+      });
+      const tour = await createTourDraft(villa, approvedClips, scheduledAt, igPostEarly?.id ?? null, db);
+      if (tour) {
+        console.log(`[youtube/draft] 빌라 ${villa.id} 투어 쇼츠 초안(클립 ${tour.clipCount}개) — 렌더는 edit-jobs cron`);
+        created.push({ id: tour.id, villaId: villa.id, flagged: tour.flagged });
+        continue;
+      }
+
       const plan = planVillaDraft(villa);
       const meta = await generateShortMeta(plan.publicInfo);
 
@@ -141,12 +267,7 @@ export async function runYoutubeDraftBatch(
         ctaOverride: YOUTUBE_REEL_CTA,
       });
 
-      // 같은 빌라의 당일 InstagramPost 연결(가능 시) — 2플랫폼 크로스포스팅 추적.
-      const igPost = await db.instagramPost.findFirst({
-        where: { villaId: villa.id, scheduledAt: { gte: dayStart } },
-        orderBy: { createdAt: "desc" },
-        select: { id: true },
-      });
+      const igPost = igPostEarly;
 
       const short = await db.youtubeShort.create({
         data: {
