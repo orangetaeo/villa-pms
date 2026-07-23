@@ -8,6 +8,7 @@ export interface IgPostMediaItem {
   templateId: string; // 릴스는 "reel"
   overlayText: string | null;
   videoUrl?: string; // 릴스 전용 — MP4 공개 URL(이미지 포스트는 없음)
+  durationSec?: number; // 릴스 전용 — 영상 길이(초). 목록에 재생시간 표시용
 }
 
 export interface SerializedIgPost {
@@ -45,6 +46,11 @@ function toMedia(json: unknown): IgPostMediaItem[] {
       overlayText: typeof m.overlayText === "string" ? m.overlayText : null,
     };
     if (typeof m.videoUrl === "string") item.videoUrl = m.videoUrl;
+    // ★ 릴스 mediaJson(ReelMediaEntry)에는 durationSec이 들어있는데 여기서 빠뜨리면 조용히 사라진다.
+    //   (validate-strips-unknown-fields-silently 교훈 — 화이트리스트 재조립은 스키마 밖 필드를 에러 없이 버린다.)
+    if (typeof m.durationSec === "number" && Number.isFinite(m.durationSec)) {
+      item.durationSec = m.durationSec;
+    }
     return item;
   });
 }

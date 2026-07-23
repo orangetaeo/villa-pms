@@ -375,7 +375,8 @@
       "rejectConfirm": "Từ chối",
       "viewOnInstagram": "Xem trên Instagram",
       "publishedLockNote": "Bài đã đăng chỉ có thể sửa trong ứng dụng Instagram.",
-      "reachBadge": "Tiếp cận {n}"
+      "reachBadge": "Tiếp cận {n}",
+      "duration": "Thời lượng video"
     },
     "list": {
       "expand": "Mở rộng",
@@ -498,6 +499,18 @@
       },
       "viewPost": "Xem",
       "noVilla": "Chưa gán villa"
+    },
+    "select": {
+      "all": "Chọn tất cả có thể xoá ({n})",
+      "one": "Chọn {title}",
+      "blocked": "Không thể xoá nội dung đang đăng hoặc đã đăng"
+    },
+    "delete": {
+      "button": "Xoá mục đã chọn ({n})",
+      "deleting": "Đang xoá...",
+      "confirm": "Xoá vĩnh viễn {n} mục đã chọn? Không thể hoàn tác.",
+      "result": "Đã xoá {n} mục.",
+      "resultBlocked": "Đã xoá {n} mục · {blocked} mục không xoá được vì đang đăng/đã đăng."
     }
   },
   "adminYoutube": {
@@ -571,7 +584,8 @@
         "public": "Công khai",
         "unlisted": "Không công khai",
         "private": "Riêng tư"
-      }
+      },
+      "duration": "Thời lượng video"
     },
     "list": {
       "expand": "Mở rộng",
@@ -837,6 +851,18 @@
         "generic": "Xử lý thất bại."
       },
       "cutRange": "Cảnh {from}~{to}"
+    },
+    "select": {
+      "all": "Chọn tất cả có thể xoá ({n})",
+      "one": "Chọn {title}",
+      "blocked": "Không thể xoá Shorts đang tải lên hoặc đã đăng"
+    },
+    "delete": {
+      "button": "Xoá mục đã chọn ({n})",
+      "deleting": "Đang xoá...",
+      "confirm": "Xoá vĩnh viễn {n} mục đã chọn? Không thể hoàn tác.",
+      "result": "Đã xoá {n} mục.",
+      "resultBlocked": "Đã xoá {n} mục · {blocked} mục không xoá được vì đang tải lên/đã đăng."
     }
   },
   "account": {

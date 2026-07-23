@@ -11,6 +11,8 @@ import { useTranslations } from "next-intl";
 import { DateField } from "@/components/date-field";
 import ImageLightbox, { type LightboxImage } from "@/components/image-lightbox";
 import type { SerializedYtShort } from "@/lib/youtube/serialize";
+import { canDeleteMarketingStatus } from "@/lib/marketing/deletable";
+import { formatDurationSec } from "@/lib/marketing/duration";
 import NarrationEditor from "./narration-editor";
 
 const KST_OFFSET_MS = 9 * 3600 * 1000;
@@ -74,6 +76,8 @@ export default function YoutubeShortCard({
   onChanged,
   onConflict,
   notify,
+  selected = false,
+  onSelect,
 }: {
   short: SerializedYtShort;
   open: boolean;
@@ -81,6 +85,9 @@ export default function YoutubeShortCard({
   onChanged: () => void | Promise<void>;
   onConflict: () => void;
   notify: (msg: string, kind?: "ok" | "err") => void;
+  /** 삭제 선택 여부(큐가 소유). onSelect 미전달이면 체크박스를 그리지 않는다. */
+  selected?: boolean;
+  onSelect?: (checked: boolean) => void;
 }) {
   const t = useTranslations("adminYoutube");
   const editable = EDITABLE.has(short.status);
@@ -228,6 +235,9 @@ export default function YoutubeShortCard({
   const publishedLikes = short.status === "PUBLISHED" ? fmtNum(short.latestLikes) : null;
 
   const hasWarning = short.flaggedTerms.length > 0 || !!short.failReason || editJob === "FAILED";
+  const durationLabel = formatDurationSec(short.durationSec);
+  // 하드 삭제 가능 여부 — PUBLISHING·PUBLISHED는 체크 자체를 막는다(서버도 동일 규칙으로 재검사).
+  const deletable = canDeleteMarketingStatus(short.status);
   // 라이트박스 항목 — 쇼츠 MP4 1건(포스터가 있으면 첫 프레임으로)
   const zoomItems: LightboxImage[] = short.videoUrl
     ? [{ url: short.posterUrl ?? "", videoUrl: short.videoUrl, label: short.title }]
@@ -274,6 +284,16 @@ export default function YoutubeShortCard({
           {t(`editJob.${editJob}`)}
         </span>
       )}
+      {/* 영상 길이 — 목록에서 바로 재생시간 확인(값 없으면 미표시) */}
+      {durationLabel && (
+        <span
+          className="inline-flex items-center gap-1 rounded border border-slate-700 px-2 py-0.5 text-[10px] font-bold text-slate-300 tabular-nums"
+          title={t("card.duration")}
+        >
+          <span className="material-symbols-outlined text-[12px]">schedule</span>
+          {durationLabel}
+        </span>
+      )}
       {/* 발행됨 성과 뱃지 — latestViews·latestLikes, null=미표시 */}
       {publishedViews != null && (
         <span
@@ -300,6 +320,18 @@ export default function YoutubeShortCard({
     <div className="rounded-xl border border-slate-800/50 bg-admin-card">
       {/* 요약 줄(항상 표시) — 썸네일 클릭=크게 재생, 나머지 클릭=펼치기/접기 */}
       <div className="flex items-center gap-3 px-3 py-2.5">
+        {/* 삭제 선택 체크박스 — 업로드 중·발행 완료는 비활성(사유를 title로 안내) */}
+        {onSelect && (
+          <input
+            type="checkbox"
+            checked={selected}
+            disabled={!deletable}
+            onChange={(e) => onSelect(e.target.checked)}
+            aria-label={t("select.one", { title: short.title })}
+            title={deletable ? t("select.one", { title: short.title }) : t("select.blocked")}
+            className="h-4 w-4 shrink-0 accent-red-500 disabled:cursor-not-allowed disabled:opacity-30"
+          />
+        )}
         {/* 9:16 세로 썸네일(작게) — 목록에서 바로 크게 재생 */}
         {short.videoUrl || short.posterUrl ? (
           <button
