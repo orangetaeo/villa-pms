@@ -359,6 +359,70 @@ export async function ensureConnectionForAccount(
 }
 
 /**
+ * 워치독 자가 복구용 재접속 결과 (계약 T-zalo-health-self-heal).
+ * SKIP_* 은 "시도하면 안 되는 상황"이라 시도조차 하지 않은 경우 — 실패(FAILED)와 구분해 백오프에서 다르게 다룬다.
+ */
+export type HealthReconnectOutcome =
+  | "ALREADY_CONNECTED"
+  | "RECONNECTED"
+  | "FAILED"
+  | "SKIP_DELEGATED" // 이 프로세스는 세션 비보유(웹) — 재접속 주체가 아님
+  | "SKIP_IN_FLIGHT" // 이미 로그인 진행 중(connectPromise)
+  | "SKIP_QR_PENDING" // 사람이 QR 스캔 중 — 건드리면 그 흐름이 깨진다
+  | "SKIP_DUPLICATE_LOGIN"; // code 3000 — 재시도는 밴 위험. 사람 개입 필요
+
+/**
+ * 리스너가 끊긴 계정을 저장된 credential로 재접속시킨다 (워치독 전용, ADR-0032 워커에서만 실효).
+ *
+ * 배경(2026-07-23 실측): WebSocket이 code 1006으로 끊긴 뒤 zca-js의 retryOnClose가 세션을 되살리지
+ * 못해 한 계정의 수신이 4시간 멈췄고, 복구는 무관한 배포의 프로세스 재시작으로 우연히 일어났다.
+ * 부팅 경로(connectAllActive)와 **같은 credential 로그인**을 워치독이 직접 실행해 무인 복구한다.
+ *
+ * ★밴 위험 방어 3종:
+ *  1) 재로그인 전에 구 리스너를 stop + removeAllListeners — retryOnClose로 살아있을 수 있는
+ *     잔존 소켓과 새 소켓의 이중 접속(code 3000)을 차단한다.
+ *  2) code 3000(다른 곳에서 로그인됨) 상태면 재시도하지 않는다 — 원인이 중복 로그인인데 또 로그인하면 악화.
+ *  3) 호출 빈도 제어(백오프)는 호출자(lib/zalo-health)의 책임. 이 함수는 1회 시도만 한다.
+ */
+export async function reconnectAccountForHealth(
+  adminUserId: string,
+  kind: ZaloAccountKind
+): Promise<HealthReconnectOutcome> {
+  // 세션 비보유 프로세스(웹, ZALO_SESSION_LOCAL=false)는 상태만 위임 조회할 뿐 풀이 비어 있다.
+  // 여기서 로그인하면 워커와 이중 접속이 된다 — 절대 금지.
+  if (shouldDelegate()) return "SKIP_DELEGATED";
+
+  const key = poolKeyFor(adminUserId, kind);
+  const inst = getPool().get(key);
+
+  if (inst) {
+    if (isConnected(inst)) return "ALREADY_CONNECTED";
+    if (inst.connectPromise) return "SKIP_IN_FLIGHT";
+    if (inst.status === "qr_pending") return "SKIP_QR_PENDING";
+    if (inst.lastError?.includes("3000")) return "SKIP_DUPLICATE_LOGIN";
+
+    // 구 리스너 정리 — 실패해도 진행(어차피 죽은 소켓). 정리 후 api를 버려 참조도 끊는다.
+    if (inst.api) {
+      try {
+        inst.api.listener.stop();
+      } catch {
+        /* ignore */
+      }
+      try {
+        inst.api.listener.removeAllListeners();
+      } catch {
+        /* ignore */
+      }
+      inst.api = null;
+    }
+    inst.status = "disconnected";
+  }
+
+  const ok = await ensureConnectionForAccount(adminUserId, kind);
+  return ok ? "RECONNECTED" : "FAILED";
+}
+
+/**
  * QR 로그인 시작 — QR 이미지(base64)를 반환한다 (ADR-0007 S2).
  * @param adminUserId 봇을 소유할 ADMIN userId
  * @param kind SYSTEM_BOT(테오 시스템봇 겸 통합 채팅) | ADMIN_PERSONAL(개인 채팅)

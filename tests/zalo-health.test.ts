@@ -29,14 +29,18 @@ vi.mock("@/lib/inapp-notification", () => ({
 
 const mockSystemStatus = vi.fn();
 const mockAdminStatus = vi.fn();
+const mockReconnect = vi.fn();
 vi.mock("@/lib/zalo-runtime", () => ({
   getSystemBotStatus: (...a: unknown[]) => mockSystemStatus(...a),
   getStatusForAdmin: (...a: unknown[]) => mockAdminStatus(...a),
+  reconnectAccountForHealth: (...a: unknown[]) => mockReconnect(...a),
 }));
 
 import {
   nextHealthState,
+  nextReconnectState,
   runHealthCheckOnce,
+  RECONNECT_BACKOFF_MS,
   type HealthState,
 } from "@/lib/zalo-health";
 
@@ -52,6 +56,8 @@ beforeEach(() => {
   // 기본: DB에 마지막 경보 기록 없음(영속 쿨다운 미적용) — 기존 케이스 동작 보존
   mockSettingFindUnique.mockResolvedValue(null);
   mockSettingUpsert.mockResolvedValue({});
+  // 기본: 자동 재접속은 실패(=기존 경보 경로 그대로 검증). 성공 케이스는 개별 테스트에서 덮어쓴다.
+  mockReconnect.mockResolvedValue("FAILED");
 });
 
 describe("nextHealthState — 판정 순수 함수", () => {
@@ -89,6 +95,47 @@ describe("nextHealthState — 판정 순수 함수", () => {
     expect(r.alert).toBe(false);
     expect(r.state.unhealthyStreak).toBe(0);
     expect(r.state.lastAlertAt).toBe(2000);
+  });
+});
+
+describe("nextReconnectState — 자동 재접속 백오프 게이트", () => {
+  const fresh: HealthState = { unhealthyStreak: 0, lastAlertAt: null };
+
+  it("첫 감지에는 즉시 시도 + 다음 시도 시각 예약", () => {
+    const r = nextReconnectState(fresh, 1_000);
+    expect(r.attempt).toBe(true);
+    expect(r.state.reconnectAttempts).toBe(1);
+    expect(r.state.nextReconnectAt).toBe(1_000 + RECONNECT_BACKOFF_MS[0]);
+  });
+
+  it("예약 시각 전에는 시도하지 않는다", () => {
+    const s = nextReconnectState(fresh, 1_000).state;
+    const r = nextReconnectState(s, 1_000 + 60_000);
+    expect(r.attempt).toBe(false);
+    expect(r.state.reconnectAttempts).toBe(1); // 증가 없음
+  });
+
+  it("실패가 이어지면 간격이 길어지고 상한(마지막 값)에서 멈춘다", () => {
+    let s: HealthState = fresh;
+    let now = 0;
+    const waits: number[] = [];
+    for (let i = 0; i < RECONNECT_BACKOFF_MS.length + 3; i++) {
+      const r = nextReconnectState(s, now);
+      expect(r.attempt).toBe(true);
+      waits.push((r.state.nextReconnectAt as number) - now);
+      s = r.state;
+      now = r.state.nextReconnectAt as number;
+    }
+    expect(waits.slice(0, RECONNECT_BACKOFF_MS.length)).toEqual(RECONNECT_BACKOFF_MS);
+    expect(waits.at(-1)).toBe(RECONNECT_BACKOFF_MS.at(-1));
+  });
+
+  it("복구되면 백오프가 리셋된다(다음 장애에서 다시 즉시 시도)", () => {
+    const down = nextReconnectState(fresh, 1_000).state;
+    const healed = nextHealthState(down, true, 2_000).state;
+    expect(healed.reconnectAttempts).toBe(0);
+    expect(healed.nextReconnectAt).toBeNull();
+    expect(nextReconnectState(healed, 2_100).attempt).toBe(true);
   });
 });
 
@@ -175,6 +222,109 @@ describe("runHealthCheckOnce — 점검·경보 배선", () => {
     expect(mockSettingUpsert).toHaveBeenCalledTimes(1);
     const upsert = mockSettingUpsert.mock.calls[0][0] as { where: { key: string } };
     expect(upsert.where.key).toBe("zalo-health:last-alert:a2");
+  });
+
+  // ── 자가 복구 (T-zalo-health-self-heal) ──
+
+  it("미연결 1회차에 자동 재접속 성공 → 경보 0건(사람 개입 불필요)", async () => {
+    mockAccountFindMany.mockResolvedValue([
+      { id: "a2", kind: "ADMIN_PERSONAL", displayName: "Jini", userId: "owner1" },
+    ]);
+    mockAdminStatus.mockResolvedValue(DOWN);
+    // 재접속이 살려낸다 → 다음 점검부터 풀이 connected를 보고(실제 동작과 동일)
+    mockReconnect.mockImplementation(async () => {
+      mockAdminStatus.mockResolvedValue(CONNECTED);
+      return "RECONNECTED";
+    });
+    const states = new Map();
+    await runHealthCheckOnce(states);
+    await runHealthCheckOnce(states);
+    expect(mockReconnect).toHaveBeenCalledTimes(1);
+    expect(mockReconnect).toHaveBeenCalledWith("owner1", "ADMIN_PERSONAL");
+    expect(mockEnqueueInApp).not.toHaveBeenCalled();
+    expect(mockEnqueueZalo).not.toHaveBeenCalled();
+  });
+
+  it("플랩(붙자마자 다시 끊김) 계정은 매 회차 재로그인하지 않는다 — 백오프 유지", async () => {
+    mockAccountFindMany.mockResolvedValue([
+      { id: "a2", kind: "ADMIN_PERSONAL", displayName: "Jini", userId: "owner1" },
+    ]);
+    mockAdminStatus.mockResolvedValue(DOWN); // 재접속 성공 직후 또 끊긴 상태로 계속 보고
+    mockReconnect.mockResolvedValue("RECONNECTED");
+    const states = new Map();
+    for (let i = 0; i < 6; i++) await runHealthCheckOnce(states);
+    expect(mockReconnect).toHaveBeenCalledTimes(1); // 백오프(5분) 안에서는 1회뿐
+  });
+
+  it("재접속이 실패하면 기존 경보 규칙 그대로 — 2회 연속에서 경보 1회 + 본문에 재시도 횟수", async () => {
+    mockAccountFindMany.mockResolvedValue([
+      { id: "a2", kind: "ADMIN_PERSONAL", displayName: "Jini", userId: "owner1" },
+    ]);
+    mockAdminStatus.mockResolvedValue(DOWN);
+    const states = new Map();
+    await runHealthCheckOnce(states);
+    await runHealthCheckOnce(states);
+    expect(mockEnqueueInApp).toHaveBeenCalledTimes(2);
+    const body = (mockEnqueueInApp.mock.calls[0][0] as { body: string }).body;
+    expect(body).toContain("자동 재접속");
+  });
+
+  it("백오프 미도래 회차에는 재접속을 호출하지 않는다(로그인 폭주·밴 위험 차단)", async () => {
+    mockAccountFindMany.mockResolvedValue([
+      { id: "a2", kind: "ADMIN_PERSONAL", displayName: "Jini", userId: "owner1" },
+    ]);
+    mockAdminStatus.mockResolvedValue(DOWN);
+    const states = new Map();
+    // 5분 백오프 안에서 10회 점검(실제로는 5분 주기지만 여기선 연속 호출) → 첫 회차 1번만 시도
+    for (let i = 0; i < 10; i++) await runHealthCheckOnce(states);
+    expect(mockReconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("자동 재접속이 throw해도 점검은 계속되고 경보 경로는 살아있다", async () => {
+    mockAccountFindMany.mockResolvedValue([
+      { id: "a2", kind: "ADMIN_PERSONAL", displayName: "Jini", userId: "owner1" },
+    ]);
+    mockAdminStatus.mockResolvedValue(DOWN);
+    mockReconnect.mockRejectedValue(new Error("login boom"));
+    const states = new Map();
+    await runHealthCheckOnce(states);
+    await runHealthCheckOnce(states);
+    expect(mockEnqueueInApp).toHaveBeenCalledTimes(2); // 경보는 정상 발송
+  });
+
+  it("경보 후 복구되면 인앱 복구 알림 1회 — 이후 반복 점검엔 추가 알림 없음", async () => {
+    mockAccountFindMany.mockResolvedValue([
+      { id: "a2", kind: "ADMIN_PERSONAL", displayName: "Jini", userId: "owner1" },
+    ]);
+    mockAdminStatus.mockResolvedValue(DOWN);
+    const states = new Map();
+    await runHealthCheckOnce(states);
+    await runHealthCheckOnce(states); // 경보(수신자 2명)
+    expect(mockEnqueueInApp).toHaveBeenCalledTimes(2);
+    // 복구
+    mockAdminStatus.mockResolvedValue(CONNECTED);
+    await runHealthCheckOnce(states);
+    expect(mockEnqueueInApp).toHaveBeenCalledTimes(4); // +복구 알림 2건
+    const last = mockEnqueueInApp.mock.calls[3][0] as { type: string; title: string };
+    expect(last.type).toBe("ZALO_LISTENER_RECOVERED");
+    expect(last.title).toContain("Jini");
+    // 계속 연결 상태 — 추가 알림 없음
+    await runHealthCheckOnce(states);
+    await runHealthCheckOnce(states);
+    expect(mockEnqueueInApp).toHaveBeenCalledTimes(4);
+  });
+
+  it("경보 없이 자가복구된 구간은 복구 알림도 보내지 않는다(소음 0)", async () => {
+    mockAccountFindMany.mockResolvedValue([
+      { id: "a2", kind: "ADMIN_PERSONAL", displayName: "Jini", userId: "owner1" },
+    ]);
+    mockAdminStatus.mockResolvedValue(DOWN);
+    mockReconnect.mockResolvedValue("RECONNECTED");
+    const states = new Map();
+    await runHealthCheckOnce(states);
+    mockAdminStatus.mockResolvedValue(CONNECTED);
+    await runHealthCheckOnce(states);
+    expect(mockEnqueueInApp).not.toHaveBeenCalled();
   });
 
   it("AppSetting 읽기 실패는 fail-open — 경보는 나간다(감시 공백 방지)", async () => {
