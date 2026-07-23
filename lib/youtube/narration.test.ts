@@ -697,7 +697,7 @@ describe("diversifyEndings — 같은 어미 반복은 서버가 바꾼다", () 
 
 // ── 절 사이 쉼 (테오 2026-07-23: "잠시 쉬고가 없이 다음 문맥이 나오니 이상해") ──
 describe("buildSpeechMarkup — 절 경계에 쉼 태그를 넣는다", () => {
-  it("절 경계(쉼표·연결어미)에서만 태그가 들어간다", () => {
+  it("절 경계(쉼표·연결어미)에서 태그가 들어간다", () => {
     const [markup, pauses] = buildSpeechMarkup({
       text: "안방이 있고, 욕실까지 편안해요",
       parts: [
@@ -706,7 +706,7 @@ describe("buildSpeechMarkup — 절 경계에 쉼 태그를 넣는다", () => {
       ],
     });
     expect(markup).toBe("안방이 있고, [pause] 욕실까지 편안해요");
-    expect(pauses).toEqual([true, false]);
+    expect(pauses).toEqual([PART_PAUSE_SEC, 0]);
     // 태그를 걷어내면 원래 문장과 같은 말이어야 한다(Gemini 폴백 경로가 그렇게 읽는다).
     expect(stripPauseTags(markup)).toBe("안방이 있고, 욕실까지 편안해요");
   });
@@ -717,7 +717,7 @@ describe("buildSpeechMarkup — 절 경계에 쉼 태그를 넣는다", () => {
       parts: [{ clipIndexes: [0], text: "바다가 보여요" }],
     });
     expect(markup).toBe("바다가 보여요");
-    expect(pauses).toEqual([false]);
+    expect(pauses).toEqual([0]);
   });
 
   it("★ 구 한가운데서 끊긴 절 뒤에는 쉼을 넣지 않는다(테오 지적 재발 방지)", () => {
@@ -731,7 +731,7 @@ describe("buildSpeechMarkup — 절 경계에 쉼 태그를 넣는다", () => {
       ],
     });
     expect(markup).not.toContain("[pause]");
-    expect(pauses).toEqual([false, false]);
+    expect(pauses).toEqual([0, 0]);
   });
 
   it("★ 절을 이어 붙인 게 문장과 다르면 태그 없이 원문을 쓴다(말이 바뀌면 안 된다)", () => {
@@ -742,8 +742,34 @@ describe("buildSpeechMarkup — 절 경계에 쉼 태그를 넣는다", () => {
         { clipIndexes: [1], text: "전혀 다른 말" },
       ],
     });
-    expect(markup).toBe("안방이 있고, 욕실까지 편안해요");
-    expect(pauses.every((p) => !p)).toBe(true);
+    // 절 정합이 깨졌으므로 절별 배분은 포기하되(0), 말 자체는 문장 원문 그대로여야 한다.
+    expect(stripPauseTags(markup)).toBe("안방이 있고, 욕실까지 편안해요");
+    expect(pauses.every((p) => p === 0)).toBe(true);
+  });
+
+  it("★ 절 안쪽 쉼표에서도 쉰다 (테오 2차 지적: 쉼표에서 안 쉬어 어색하다)", () => {
+    const [markup, pauses] = buildSpeechMarkup({
+      text: "이제 일 층으로 가면, 대리석 세면대 욕실이 있고, 통창 너머 수영장이 보여요",
+      parts: [
+        { clipIndexes: [0], text: "이제 일 층으로 가면, 대리석 세면대 욕실이 있고," },
+        { clipIndexes: [1], text: "통창 너머 수영장이 보여요" },
+      ],
+    });
+    // 절 안쪽 '가면,'과 절 경계 '있고,' 두 곳 모두 쉰다
+    expect(markup).toBe("이제 일 층으로 가면, [pause] 대리석 세면대 욕실이 있고, [pause] 통창 너머 수영장이 보여요");
+    expect(pauses).toEqual([PART_PAUSE_SEC * 2, 0]);
+  });
+
+  it("쉼이 너무 촘촘하면 건너뛴다(딱딱해지지 않게)", () => {
+    const [markup] = buildSpeechMarkup({
+      text: "침대와, 티브이가 있어 휴식을 취하기 좋구요",
+      parts: [
+        { clipIndexes: [0], text: "침대와, 티브이가 있어" },
+        { clipIndexes: [1], text: "휴식을 취하기 좋구요" },
+      ],
+    });
+    // '침대와,' 앞은 네 글자뿐 → 쉼 없음
+    expect(markup.startsWith("침대와, 티브이가")).toBe(true);
   });
 });
 
@@ -756,7 +782,7 @@ describe("computeNarrationTimeline — 쉼은 앞 절이 화면을 지킨다", (
   it("쉼 시간이 앞 컷에 얹히고 총 길이는 보존된다", () => {
     const common = { transitionSec: 0.4, minSegmentSec: 0.1, ctaMinSec: 2.8 };
     const withPause = computeNarrationTimeline({
-      lines: [{ durationSec: 4 + PART_PAUSE_SEC, pauseAfter: [true, false], parts }],
+      lines: [{ durationSec: 4 + PART_PAUSE_SEC, pauseSecByPart: [PART_PAUSE_SEC, 0], parts }],
       ...common,
     });
     const noPause = computeNarrationTimeline({

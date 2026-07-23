@@ -1499,9 +1499,9 @@ ${formatAuditFindings(findings)}`);
           voice: params.narration.voice,
         });
         const timeline = computeNarrationTimeline({
-          // pauseAfter = 절 뒤에 명시적 쉼을 넣었는지. 안 넘기면 그 무음이 글자수 비율로
-          // 흩어져 컷 길이가 밀린다(쉼은 특정 절 경계에서만 일어난다).
-          lines: synth.map((s) => ({ durationSec: s.durationSec, parts: s.parts, pauseAfter: s.pauseAfter })),
+          // pauseSecByPart = 절 안·뒤에 넣은 명시적 쉼의 길이. 안 넘기면 그 무음이 글자수 비율로
+          // 흩어져 컷 길이가 밀린다(쉼은 쉼표가 있는 특정 자리에서만 일어난다).
+          lines: synth.map((s) => ({ durationSec: s.durationSec, parts: s.parts, pauseSecByPart: s.pauseSecByPart })),
           transitionSec: TRANSITION_SEC,
           minSegmentSec: CLIP_DUR_MIN,
           // 이동 컷만 화면 점유 하한을 낮춘다 — 공통 2초를 복도에도 걸면 배속을 해도
