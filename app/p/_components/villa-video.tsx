@@ -18,11 +18,12 @@ export function VillaVideo({
   const t = PUBLIC_LABELS[lang];
   return (
     <div className="space-y-2">
-      <p className="text-xs font-bold text-teal-600 tracking-wider flex items-center gap-1">
+      {/* 영상은 9:16이라 카드 폭보다 좁다 — 라벨·플레이어 모두 가운데 정렬(좌측 치우침 방지) */}
+      <p className="text-xs font-bold text-teal-600 tracking-wider flex items-center justify-center gap-1">
         <span className="material-symbols-outlined text-[16px]">play_circle</span>
         {t.videoTitle}
       </p>
-      <div className="relative aspect-[9/16] w-full max-w-[220px] overflow-hidden rounded-xl bg-neutral-100">
+      <div className="relative mx-auto aspect-[9/16] w-full max-w-[220px] overflow-hidden rounded-xl bg-neutral-100">
         <iframe
           src={`https://www.youtube-nocookie.com/embed/${videoId}`}
           title={title}
