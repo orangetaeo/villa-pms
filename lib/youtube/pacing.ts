@@ -56,9 +56,13 @@ const SPACE_PACE: Record<string, ClipPaceKind> = {
  * 공간 코드보다 훨씬 정확한 신호일 때가 많다("BEDROOM인데 실제론 침실로 걸어가는 컷").
  */
 const TRANSIT_HINTS = [
-  "복도", "계단", "통로", "입구", "현관", "로비", "이동", "진입", "들어가", "올라가", "내려가",
-  "hallway", "corridor", "stair", "entrance", "lobby", "walk", "hall", "passage",
-  "hành lang", "cầu thang", "lối đi", "lối vào", "sảnh", "đi vào",
+  // ★ 2026-07-23 실데이터에서 좁힘: "입구·현관·로비·entrance·lối vào"를 넣었더니 실빌라의
+  //   **오프닝 외관 컷("외관 · 입구")이 1.85배로 날아갔다.** 빌라 영상에서 정문·현관은
+  //   "지나가는 곳"이 아니라 첫인상을 만드는 장면인 경우가 더 많다 — 애매한 단어는 뺀다.
+  //   남긴 것은 **이동 말고는 해석의 여지가 없는 단어들**뿐이다.
+  "복도", "계단", "통로", "이동", "지나", "올라가", "내려가",
+  "hallway", "corridor", "stair", "passage",
+  "hành lang", "cầu thang", "lối đi",
 ];
 
 /** 메모에 나오면 **머무는 컷**으로 강제하는 단어들(이동 단어보다 우선). */
@@ -111,11 +115,18 @@ export function resolveClipPace(space?: string | null, note?: string | null): Cl
   // 메모가 공간 코드를 이긴다. 머무는 신호가 이동 신호를 이긴다
   // ("계단 위 수영장 뷰"는 계단이 아니라 수영장이 주인공이다).
   if (lingerHint) return { kind: "hero", sourceSpeed: PACE_SPEED.hero, ramp: false };
-  if (transitHint) return { kind: "transit", sourceSpeed: PACE_SPEED.transit, ramp: true };
+
+  const spaceKind = space ? SPACE_PACE[space] : undefined;
+  // ★ 외관·수영장은 **메모로도 이동 컷으로 강등되지 않는다**(2026-07-23 실데이터 교훈).
+  //   "외관 · 입구"처럼 이동 단어가 섞인 메모 하나로 오프닝 hero 샷이 빨리 감기되면
+  //   영상 전체의 첫인상을 잃는다. 공간이 EXTERIOR/POOL이라고 명시된 이상 그건 복도가 아니다.
+  if (transitHint && spaceKind !== "hero") {
+    return { kind: "transit", sourceSpeed: PACE_SPEED.transit, ramp: true };
+  }
 
   if (!space) return { kind: "unknown", sourceSpeed: 1, ramp: false };
 
-  const kind = SPACE_PACE[space] ?? "feature";
+  const kind = spaceKind ?? "feature";
   if (kind === "transit") {
     // ETC 단독 = 추정일 뿐이다 — 확신(메모 신호)보다 약하게 민다.
     return { kind, sourceSpeed: ETC_TRANSIT_SPEED, ramp: true };
