@@ -12,26 +12,25 @@ import type { ArticleBlock } from "@/lib/seo/article";
 const img = (n: string): ArticleBlock => ({ type: "img", url: `https://cdn.r2.dev/${n}.jpg`, alt: n });
 const pick = (n: string) => ({ url: `https://cdn.r2.dev/${n}.jpg`, alt: n });
 
-describe("galleryRows — 좌우 대칭·외톨이 방지", () => {
-  it("한 행 최대 3장, 나머지 1장은 2+2로 마무리한다", () => {
+describe("galleryRows — 크게 보기(2열 + 홀수는 히어로)", () => {
+  it("한 행 최대 2장, 홀수는 첫 장을 전폭 히어로로", () => {
     expect(galleryRows(0)).toEqual([]);
     expect(galleryRows(1)).toEqual([1]);
     expect(galleryRows(2)).toEqual([2]);
-    expect(galleryRows(3)).toEqual([3]);
+    expect(galleryRows(3)).toEqual([1, 2]);
     expect(galleryRows(4)).toEqual([2, 2]);
-    expect(galleryRows(5)).toEqual([3, 2]);
-    expect(galleryRows(6)).toEqual([3, 3]);
-    expect(galleryRows(7)).toEqual([3, 2, 2]);
-    expect(galleryRows(8)).toEqual([3, 3, 2]);
-    expect(galleryRows(10)).toEqual([3, 3, 2, 2]);
+    expect(galleryRows(5)).toEqual([1, 2, 2]);
+    expect(galleryRows(6)).toEqual([2, 2, 2]);
+    expect(galleryRows(15)).toEqual([1, 2, 2, 2, 2, 2, 2, 2]);
   });
 
-  it("어떤 장수든 합계가 보존되고 각 행은 3장 이하", () => {
+  it("어떤 장수든 합계가 보존되고 각 행은 2장 이하", () => {
     for (let n = 1; n <= 30; n++) {
       const rows = galleryRows(n);
       expect(rows.reduce((a, b) => a + b, 0)).toBe(n);
-      expect(rows.every((r) => r >= 1 && r <= 3)).toBe(true);
-      if (n >= 2) expect(rows[rows.length - 1]).toBeGreaterThanOrEqual(2); // 마지막 외톨이 방지
+      expect(rows.every((r) => r >= 1 && r <= 2)).toBe(true);
+      // 히어로(1)는 맨 앞에만 — 꼬리에 외톨이가 남지 않는다
+      if (n >= 3) expect(rows[rows.length - 1]).toBe(2);
     }
   });
 });

@@ -44,18 +44,23 @@ export function groupBlocksForRender(blocks: ArticleBlock[]): RenderItem[] {
 }
 
 /**
- * n장을 좌우 대칭으로 보기 좋은 행들로 나눈다.
- *   · 한 행 최대 3장 — 블로그는 모바일(한국 여행객)이 주 독자라 4장 이상은 각 사진이 너무 작아진다.
- *   · 마지막 행이 1장으로 외롭게 남지 않게 조정한다(나머지 1장 → 앞 행을 2+2로 분해).
- * 예: 1→[1] · 2→[2] · 3→[3] · 4→[2,2] · 5→[3,2] · 6→[3,3] · 7→[3,2,2] · 8→[3,3,2] · 10→[3,3,2,2]
+ * n장을 행들로 나눈다 — **사진을 크게** 보여주려 한 행 최대 2장(테오 지적 2026-07-24: 음식 사진 크게).
+ *   · 홀수면 **첫 장을 전폭 히어로(1)**로 크게 보여주고 나머지를 2장씩(외톨이 꼬리도 방지).
+ *   · 짝수면 전부 2장씩.
+ * 예: 1→[1] · 2→[2] · 3→[1,2] · 4→[2,2] · 5→[1,2,2] · 6→[2,2,2] · 15→[1,2,2,2,2,2,2,2]
  */
 export function galleryRows(n: number): number[] {
   if (n <= 0) return [];
-  if (n <= 3) return [n];
-  const threes = Math.floor(n / 3);
-  const rem = n % 3;
-  if (rem === 0) return Array(threes).fill(3);
-  if (rem === 2) return [...Array(threes).fill(3), 2];
-  // rem === 1 → 마지막 3장 한 행을 2+2로 바꿔 외톨이 방지 (threes >= 1 보장: n >= 4)
-  return [...Array(threes - 1).fill(3), 2, 2];
+  if (n <= 2) return [n];
+  const rows: number[] = [];
+  let rest = n;
+  if (rest % 2 === 1) {
+    rows.push(1); // 히어로(전폭 큰 사진)
+    rest -= 1;
+  }
+  while (rest > 0) {
+    rows.push(2);
+    rest -= 2;
+  }
+  return rows;
 }
