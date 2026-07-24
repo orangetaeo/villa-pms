@@ -230,7 +230,7 @@ export interface PickedImage {
  * alt는 "단지명 빌라명 공간" 형태 — 검색어와 맞물리게 한국어로 만든다.
  */
 /** 문자열 → 결정적 정수(글마다 다른 사진을 고르기 위한 시드). 같은 글은 항상 같은 결과. */
-function seedOf(s: string): number {
+export function seedOf(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
   return h;
