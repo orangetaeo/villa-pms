@@ -276,6 +276,66 @@ export function pickArticleImages(villas: PublicVilla[], max = 3, seedKey = ""):
   return out;
 }
 
+/** PickedImage → img 블록(캡션은 있을 때만). 저장 정본에는 mediaId 등 부가 필드를 싣지 않는다. */
+function toImgBlock(im: PickedImage): ArticleBlock {
+  return { type: "img", url: im.url, alt: im.alt, ...(im.caption ? { caption: im.caption } : {}) };
+}
+
+/**
+ * 이미지를 **그룹 단위**로 소제목마다 배치한다 — 한 그룹의 이미지들이 **연속**으로 들어가므로
+ * 렌더 시 그리드 갤러리로 묶인다(lib/seo/gallery.ts). 묶음 글에서 그룹=한 장소 → 그 장소 소제목 아래
+ * 그 가게 사진들이 모여 나온다(사진-장소 짝 유지). 소제목보다 그룹이 많으면 나머지는 본문 끝에 붙인다.
+ */
+export function interleaveImageGroups(blocks: ArticleBlock[], groups: PickedImage[][]): ArticleBlock[] {
+  const nonEmpty = groups.filter((g) => g.length > 0);
+  if (nonEmpty.length === 0) return blocks;
+  const out: ArticleBlock[] = [];
+  let gi = 0;
+  let sawH2 = false;
+  for (const b of blocks) {
+    out.push(b);
+    if (b.type === "h2") {
+      sawH2 = true;
+      continue;
+    }
+    if (sawH2 && b.type === "p" && gi < nonEmpty.length) {
+      for (const im of nonEmpty[gi]) out.push(toImgBlock(im));
+      gi++;
+      sawH2 = false;
+    }
+  }
+  for (; gi < nonEmpty.length; gi++) for (const im of nonEmpty[gi]) out.push(toImgBlock(im));
+  return out;
+}
+
+/** items를 groupsWanted개(각 ≤ maxPer)로 최대한 균등하게 쪼갠다. */
+function chunkEven<T>(items: T[], groupsWanted: number, maxPer: number): T[][] {
+  if (items.length === 0) return [];
+  const groupsNeeded = Math.max(groupsWanted, Math.ceil(items.length / maxPer));
+  const base = Math.floor(items.length / groupsNeeded);
+  let extra = items.length % groupsNeeded;
+  const out: T[][] = [];
+  let idx = 0;
+  for (let i = 0; i < groupsNeeded; i++) {
+    const size = base + (extra > 0 ? 1 : 0);
+    if (extra > 0) extra--;
+    out.push(items.slice(idx, idx + size));
+    idx += size;
+  }
+  return out.filter((g) => g.length > 0);
+}
+
+/**
+ * 한 스트림의 이미지를 소제목 수만큼 그룹으로 쪼개 **골고루** 흩뿌린다(단독 장소 글처럼 한 가게 사진이 많을 때).
+ * 각 그룹은 연속 배치되어 그리드 갤러리로 렌더된다. 소제목이 적으면 한 갤러리가 커지되 maxPerRun으로 제한한다.
+ */
+export function spreadImageGroups(blocks: ArticleBlock[], images: PickedImage[], maxPerRun = 6): ArticleBlock[] {
+  if (images.length === 0) return blocks;
+  const h2count = blocks.filter((b) => b.type === "h2").length;
+  const runs = Math.max(1, Math.min(Math.max(1, h2count), Math.ceil(images.length / maxPerRun)));
+  return interleaveImageGroups(blocks, chunkEven(images, runs, maxPerRun));
+}
+
 /**
  * 본문 블록에 이미지를 끼워 넣는다 — 소제목(h2) 다음 문단 뒤에 하나씩.
  * 첫 이미지는 커버로 따로 쓰므로 본문에는 두 번째부터 넣는다(같은 사진 중복 노출 방지).
