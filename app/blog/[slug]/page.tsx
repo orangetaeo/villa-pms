@@ -12,7 +12,12 @@ import { getPublicVillaApproxMapEmbed } from "@/lib/seo/public-villa";
 import { getPlaceArticleMap } from "@/lib/seo/public-place";
 import { guideMapEmbed } from "@/lib/seo/guide-map-anchors";
 import { getRecommendedVillas } from "@/lib/seo/recommended-villas";
+import { getRelatedArticles } from "@/lib/seo/related-articles";
+import { seoArticleCategoryLabel } from "@/lib/seo/categories";
+import { ARTICLE_AUTHOR_LD, ARTICLE_BYLINE, buildBreadcrumbLd, buildVideoObjectLd } from "@/lib/seo/article-jsonld";
+import { getVideoShortDurationSec } from "@/lib/seo/video-article";
 import ArticleBody from "@/components/seo/article-body";
+import ArticleCardList from "@/components/seo/article-card-list";
 import VillaList from "@/components/seo/villa-list";
 import { blogPaths, BLOG_ROOT } from "@/lib/seo/routes";
 import { absoluteUrl } from "@/lib/seo/base-url";
@@ -84,6 +89,15 @@ export default async function ArticlePage({ params }: Params) {
   const recommendTitle =
     article.category === "place" || article.category === "villa" ? "이 지역 추천 빌라" : "추천 빌라";
 
+  // 하단 "관련 글" — 내부 링크(SEO 신호 + 다음 글로 이어지는 회유). ★공개 게이트(getPublishedArticles)
+  //   경유분만. 못 뽑으면 빈 배열 → 섹션 숨김(억지 링크 금지). 장소 글은 같은 지역을 우선한다.
+  const relatedArticles = await getRelatedArticles({ id: article.id, category: article.category }).catch(() => []);
+  // 제목 — 장소 글이면 "이 지역 다른 볼거리", 그 외는 "관련 글".
+  const relatedTitle = article.category === "place" ? "이 지역 다른 볼거리" : "관련 글";
+
+  // 카테고리 라벨 — 화면 브레드크럼용. BreadcrumbList 구조화 데이터도 같은 라벨을 쓴다(항상 일치).
+  const categoryLabel = seoArticleCategoryLabel(article.category);
+
   // 장소 구조화 데이터 — Article과 별개 스크립트로 낸다. geo는 좌표가 있을 때만.
   const placeLd = placeMap
     ? {
@@ -111,6 +125,9 @@ export default async function ArticlePage({ params }: Params) {
     datePublished: article.publishedAt.toISOString(),
     dateModified: article.updatedAt.toISOString(),
     mainEntityOfPage: absoluteUrl(blogPaths.article(article.slug)),
+    // author — E-E-A-T 신호. 실명 노출 금지(익명 원칙)라 브랜드 에디토리얼 주체를 저자로 둔다.
+    //   화면 바이라인(ARTICLE_BYLINE)과 동일 주체다.
+    author: ARTICLE_AUTHOR_LD,
     publisher: { "@type": "Organization", name: "Villa GO" },
     // image는 구글 Article 구조화 데이터 **권장 필드** — 비어 있으면 리치 결과 자격을 잃는다.
     //   커버 + 본문 이미지를 함께 넣어 어떤 컷이 대표로 뽑혀도 되게 한다.
@@ -122,6 +139,27 @@ export default async function ArticlePage({ params }: Params) {
         .map((u) => (u.startsWith("/") ? absoluteUrl(u) : u)),
     ].filter((u, i, arr) => arr.indexOf(u) === i),
   };
+
+  // BreadcrumbList — 화면 브레드크럼(가이드 → 카테고리 → 현재 글)과 정확히 일치시킨다.
+  //   ★ 구조화 데이터는 화면에 실제 존재하는 계층만 반영한다(스키마=화면 일치 규율).
+  const breadcrumbLd = buildBreadcrumbLd(article);
+
+  // 영상 글(category="video")은 VideoObject를 Article과 **병기**한다(ADR-0049 §6). 임베드는 본문 video 블록 재사용.
+  //   duration은 원천 쇼츠(YoutubeShort.durationSec)를 ytVideoId로 별도 조회 → 조회 불가·0이면 필드 자체를 생략.
+  const videoBlock =
+    article.category === "video" ? article.blocks.find((b) => b.type === "video") : undefined;
+  const videoLd =
+    videoBlock && videoBlock.type === "video"
+      ? buildVideoObjectLd({
+          title: article.title,
+          summary: article.summary,
+          slug: article.slug,
+          ytVideoId: videoBlock.ytVideoId,
+          coverPhotoUrl: article.coverPhotoUrl,
+          publishedAt: article.publishedAt,
+          durationSec: await getVideoShortDurationSec(videoBlock.ytVideoId).catch(() => null),
+        })
+      : null;
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
@@ -136,6 +174,16 @@ export default async function ArticlePage({ params }: Params) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(placeLd).replace(/</g, "\\u003c") }}
         />
       )}
+      {videoLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(videoLd).replace(/</g, "\\u003c") }}
+        />
+      )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd).replace(/</g, "\\u003c") }}
+      />
 
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur">
         <Link href="/" className="text-lg font-extrabold tracking-tight text-teal-600">
@@ -150,13 +198,23 @@ export default async function ArticlePage({ params }: Params) {
       </header>
 
       <article className="px-5 py-8">
-        <nav className="text-xs text-slate-400">
+        {/* 화면 브레드크럼 — BreadcrumbList 구조화 데이터와 동일 계층(가이드 → 카테고리). */}
+        <nav className="flex flex-wrap items-center gap-1 text-xs text-slate-400">
           <Link href={BLOG_ROOT} className="hover:underline">
             푸꾸옥 여행 가이드
           </Link>
+          <span aria-hidden>›</span>
+          <Link href={blogPaths.categoryList(article.category)} className="hover:underline">
+            {categoryLabel}
+          </Link>
         </nav>
         <h1 className="mt-2 text-2xl font-extrabold leading-snug">{article.title}</h1>
-        <p className="mt-2 text-xs text-slate-400 tabular-nums">{formatKoDate(article.publishedAt)}</p>
+        {/* 날짜 + 바이라인 — "직접 방문 후 작성"은 Experience(E-E-A-T) 신호를 데이터로 뒷받침한다. */}
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+          <span className="tabular-nums">{formatKoDate(article.publishedAt)}</span>
+          <span aria-hidden>·</span>
+          <span>{ARTICLE_BYLINE}</span>
+        </div>
 
         {article.coverPhotoUrl && (
           <div className="relative mt-5 aspect-[16/9] overflow-hidden rounded-2xl bg-slate-100">
@@ -243,6 +301,17 @@ export default async function ArticlePage({ params }: Params) {
             <h2 className="text-lg font-bold">{recommendTitle}</h2>
             <div className="mt-3">
               <VillaList villas={recommendedVillas} />
+            </div>
+          </section>
+        )}
+
+        {/* 관련 글 — 내부 링크(SEO 신호 + 회유). 공개 게이트 통과분만, 못 뽑으면 섹션 숨김.
+            SeoArticle엔 민감 필드가 없어 카드 재사용(ArticleCardList)에 누수 없음. */}
+        {relatedArticles.length > 0 && (
+          <section className="mt-10">
+            <h2 className="text-lg font-bold">{relatedTitle}</h2>
+            <div className="mt-3">
+              <ArticleCardList articles={relatedArticles} />
             </div>
           </section>
         )}

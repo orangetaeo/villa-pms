@@ -36,7 +36,7 @@ async function handle(req: Request) {
   for (const c of candidates) {
     // 승인 후에 본문이 손상됐을 가능성 방어 — 하한 미달이면 발행하지 않는다.
     const blocks = parseArticleBody(c.bodyJson);
-    if (!isArticlePublishable(blocks)) {
+    if (!isArticlePublishable(blocks, c.category)) {
       failed.push({ slug: c.slug, reason: "분량·구조 하한 미달" });
       continue;
     }

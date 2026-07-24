@@ -102,9 +102,38 @@ describe("생성 조건", () => {
 
   it("★ 한 곳만 다루는 글은 가게 이름이 제목에 온다 — '맛집 1곳'은 아무도 검색하지 않는다", () => {
     const one = [place({ id: "p1", category: "restaurant", name: "메오키친", area: "즈엉동" })];
+    // 꼬리말은 가게 이름 씨앗으로 결정적으로 골라진다("메오키친" → "먹어보고 정리했습니다").
     expect(buildPlaceArticleTitle(placeCategory("restaurant")!, one, 1)).toBe(
-      "메오키친 — 푸꾸옥 즈엉동 맛집, 직접 가보고 적는다"
+      "메오키친 — 푸꾸옥 즈엉동 맛집, 먹어보고 정리했습니다"
     );
+  });
+
+  it("★ 꼬리말이 글마다 달라진다 — 전부 '직접 가보고 적는다'로 끝나면 자동 생성 티가 난다(테오 지적 2026-07-24)", () => {
+    const names = ["메오키친", "카페 A", "카페 B", "카페 C", "가든 비스트로"];
+    const suffixes = names.map((name) => {
+      const t = buildPlaceArticleTitle(placeCategory("restaurant")!, [place({ id: name, category: "restaurant", name })], 1);
+      return t.split(", ").pop()!;
+    });
+    // 최소 3종류 이상으로 갈린다(5개 후보 풀에서 이름 해시로 분산).
+    expect(new Set(suffixes).size).toBeGreaterThanOrEqual(3);
+  });
+
+  it("★ 카테고리에 따라 동사가 바뀐다 — 맛집은 먹어보고, 쇼핑은 둘러보고, 명소는 가보고", () => {
+    const seedName = "테스트 장소"; // 같은 씨앗이라 풀 선택만 카테고리로 갈린다
+    const suffixOf = (categoryKey: string) => {
+      const t = buildPlaceArticleTitle(placeCategory(categoryKey)!, [place({ id: "x", category: categoryKey, name: seedName })], 1);
+      return t.split(", ").pop()!;
+    };
+    expect(suffixOf("restaurant")).toMatch(/먹|맛|후기|정리/);
+    expect(suffixOf("shop")).toMatch(/둘러|발품|후기|정리/);
+    expect(suffixOf("spot")).toMatch(/가|다녀|보고|후기|정리/);
+  });
+
+  it("★ 같은 가게는 언제나 같은 꼬리말 — 재생성해도 제목이 흔들리지 않는다", () => {
+    const one = [place({ id: "p1", category: "cafe", name: "안정성 카페", area: "즈엉동" })];
+    const a = buildPlaceArticleTitle(placeCategory("cafe")!, one, 1);
+    const b = buildPlaceArticleTitle(placeCategory("cafe")!, one, 1);
+    expect(a).toBe(b);
   });
 });
 

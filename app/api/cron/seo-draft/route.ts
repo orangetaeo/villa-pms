@@ -12,7 +12,7 @@ import { SeoArticleStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { writeAuditLog } from "@/lib/audit-log";
-import { getPublicVillas } from "@/lib/seo/public-villa";
+import { getPublicVillas, getPublicVillasByIds } from "@/lib/seo/public-villa";
 import { isArticlePublishable, parseArticleBody } from "@/lib/seo/article";
 import {
   ARTICLE_TOPICS,
@@ -42,6 +42,15 @@ import {
   pickServicePhotos,
 } from "@/lib/seo/service-article";
 import { getPlaceCandidates, placeTopicKey, createPlaceArticleDraft } from "@/lib/seo/place-article";
+import {
+  getVideoArticleCandidates,
+  toVideoArticleShort,
+  toVideoArticleVillaContext,
+  generateVideoArticleBody,
+  composeVideoBody,
+  videoTopicKey,
+  buildVideoArticleTitle,
+} from "@/lib/seo/video-article-draft";
 import { ensureWatermarkedUrl } from "@/lib/seo/watermark-server";
 import type { SeoArticleCategory } from "@/lib/seo/categories";
 import { renderArticleThumbnail } from "@/lib/seo/thumbnail";
@@ -257,11 +266,9 @@ async function handle(req: Request) {
     }
 
     // ── ④ 가이드 글 — 사진은 자료 라이브러리 + 공개 빌라 사진 혼합 ──
+    //   ★ 주제가 남았을 때만 가이드를 만들고 continue. 소진되면 break 하지 않고 ⑤(영상 글)로 내려간다.
     const topic = pickTopic(usedKeys);
-    if (!topic) {
-      skipped.push("주제 풀 소진");
-      break;
-    }
+    if (topic) {
     usedKeys.add(topic.key); // 같은 실행 안에서 중복 선택 방지
 
     const draft = await generateArticleBody(topic, hints);
@@ -324,6 +331,73 @@ async function handle(req: Request) {
         photos: { new: guideImages.length },
         libraryPhotos: { new: usedMediaIds.length },
         villaPhotos: { new: guideImages.length - usedMediaIds.length },
+      },
+    });
+      continue;
+    }
+
+    // ── ⑤ 영상 글 — 업로드된 실촬영 쇼츠 1건을 개별 영상 글로 (ADR-0049) ──
+    //   ★ 최저 우선순위(빌라·서비스·장소·가이드 뒤). 조건 충족 쇼츠가 있으면 실행당 1건 생성한다.
+    //   ★ 멱등: topicKey `video-<shortId>` 존재 검사(usedKeys). 기발행 실촬영 쇼츠 자동 백필도 여기서.
+    //   ★ 원천 실명 차단: 빌라 컨텍스트는 공개 관문(getPublicVillasByIds) 통과분만 — name/nameVi 부재.
+    const shortRow = (await getVideoArticleCandidates(usedKeys, prisma))[0];
+    if (!shortRow) {
+      skipped.push("영상 글 대상 없음");
+      break; // 이 회차에 만들 것이 아무것도 없다
+    }
+    const vidKey = videoTopicKey(shortRow.id);
+    usedKeys.add(vidKey);
+    const short = toVideoArticleShort(shortRow);
+    // 공개 게이트(PUBLIC_WHERE) 통과 빌라만 — 비공개·비발행 빌라의 영상은 글화하지 않는다.
+    const pubVilla = short && shortRow.villaId ? (await getPublicVillasByIds([shortRow.villaId]))[0] : null;
+    if (!short || !pubVilla) {
+      skipped.push(`${vidKey}: 공개 빌라 아님`);
+      continue;
+    }
+    const vidInput = { villa: toVideoArticleVillaContext(pubVilla), short };
+    const vidDraft = await generateVideoArticleBody(vidInput);
+    if (!vidDraft) {
+      skipped.push(`${vidKey}: 생성 실패`);
+      continue;
+    }
+    // 도입 문단 뒤에 유튜브 임베드(video 블록)를 끼운다. video 블록 title = 쇼츠 제목(실명 무결).
+    const vidBody = composeVideoBody(vidDraft.blocks, { ytVideoId: short.ytVideoId, title: short.title });
+    if (!isArticlePublishable(parseArticleBody(vidBody), "video")) {
+      skipped.push(`${vidKey}: 분량·구조 하한 미달`);
+      continue;
+    }
+    const vidCover = short.posterUrl ?? BRAND_FALLBACK_IMAGE; // coverPhotoUrl = posterUrl(ADR)
+    const vidRow = await prisma.seoArticle.create({
+      data: {
+        slug: buildArticleSlug(vidKey),
+        title: buildVideoArticleTitle(vidInput.villa),
+        summary: buildSummary(vidDraft.blocks),
+        bodyJson: vidBody,
+        topicKey: vidKey,
+        category: "video" satisfies SeoArticleCategory,
+        coverPhotoUrl: vidCover,
+        relatedVillaIds: [pubVilla.id],
+        status: SeoArticleStatus.PENDING_APPROVAL,
+        flaggedTerms: vidDraft.flaggedTerms.length > 0 ? vidDraft.flaggedTerms : undefined,
+        createdBy: CREATED_BY,
+      },
+      select: { id: true, slug: true, title: true },
+    });
+    created.push(vidRow);
+    await writeAuditLog({
+      userId: null,
+      action: "CREATE",
+      entity: "SeoArticle",
+      entityId: vidRow.id,
+      changes: {
+        kind: { new: "video" },
+        youtubeShortId: { new: shortRow.id },
+        ytVideoId: { new: short.ytVideoId },
+        topicKey: { new: vidKey },
+        slug: { new: vidRow.slug },
+        status: { new: "PENDING_APPROVAL" },
+        relatedVillaIds: { new: [pubVilla.id] },
+        flaggedTerms: { new: vidDraft.flaggedTerms },
       },
     });
   }
