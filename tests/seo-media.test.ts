@@ -12,6 +12,7 @@ import {
   normalizeTopicKeys,
   validateMediaInput,
   MAX_MEDIA_PER_ARTICLE,
+  type WatermarkPickFn,
 } from "@/lib/seo/media";
 import { interleaveImages } from "@/lib/seo/article-draft";
 import { bodyTextLength, isArticlePublishable } from "@/lib/seo/article";
@@ -24,6 +25,7 @@ interface Row {
   caption: string | null;
   topicKeys: string[];
   usedCount: number;
+  watermarkedUrl: string | null;
 }
 
 /** where(topicKeys has/isEmpty, id notIn) + orderBy(usedCount asc) + take를 흉내 내는 최소 stub */
@@ -42,12 +44,17 @@ function makeDb(rows: Row[]) {
         if (topicKeys?.isEmpty) out = out.filter((r) => r.topicKeys.length === 0);
         if (id?.notIn) out = out.filter((r) => !id.notIn.includes(r.id));
         out.sort((a, b) => a.usedCount - b.usedCount);
-        return out.slice(0, args.take).map((r) => ({ id: r.id, url: r.url, alt: r.alt, caption: r.caption }));
+        return out
+          .slice(0, args.take)
+          .map((r) => ({ id: r.id, url: r.url, alt: r.alt, caption: r.caption, watermarkedUrl: r.watermarkedUrl }));
       },
     },
   } as unknown as DbClient;
   return { db, calls };
 }
+
+/** 워터마크 mock — 실측 ensureWatermarkedUrl과 동일 계약: 파생본 있으면 재사용, 없으면 굽어 WM(url) 반환. */
+const wmMock: WatermarkPickFn = async (m) => m.watermarkedUrl ?? `wm://${m.url}`;
 
 const row = (over: Partial<Row> & { id: string }): Row => ({
   url: `https://cdn.r2.dev/${over.id}.jpg`,
@@ -55,6 +62,7 @@ const row = (over: Partial<Row> & { id: string }): Row => ({
   caption: null,
   topicKeys: [],
   usedCount: 0,
+  watermarkedUrl: null,
   ...over,
 });
 
@@ -65,13 +73,13 @@ describe("주제별 사진 선택", () => {
       row({ id: "g1" }), // 범용
       row({ id: "x1", topicKeys: ["golf-trip"] }), // 다른 주제 — 절대 안 나와야 한다
     ]);
-    const picked = await pickMediaForTopic("airport-transfer", 3, db);
+    const picked = await pickMediaForTopic("airport-transfer", 3, db, wmMock);
     expect(picked.map((p) => p.id)).toEqual(["m1", "g1"]);
   });
 
   it("다른 주제 전용 사진은 채우기에도 쓰이지 않는다", async () => {
     const { db } = makeDb([row({ id: "x1", topicKeys: ["golf-trip"] })]);
-    expect(await pickMediaForTopic("season-guide", 3, db)).toEqual([]);
+    expect(await pickMediaForTopic("season-guide", 3, db, wmMock)).toEqual([]);
   });
 
   it("덜 쓴 사진을 먼저 고른다", async () => {
@@ -79,7 +87,7 @@ describe("주제별 사진 선택", () => {
       row({ id: "old", topicKeys: ["golf-trip"], usedCount: 5 }),
       row({ id: "fresh", topicKeys: ["golf-trip"], usedCount: 0 }),
     ]);
-    const picked = await pickMediaForTopic("golf-trip", 1, db);
+    const picked = await pickMediaForTopic("golf-trip", 1, db, wmMock);
     expect(picked.map((p) => p.id)).toEqual(["fresh"]);
   });
 
@@ -89,14 +97,40 @@ describe("주제별 사진 선택", () => {
       row({ id: "m2", topicKeys: ["food-and-market"], usedCount: 1 }),
       row({ id: "g1" }),
     ]);
-    const picked = await pickMediaForTopic("food-and-market", 2, db);
+    const picked = await pickMediaForTopic("food-and-market", 2, db, wmMock);
     expect(picked.map((p) => p.id)).toEqual(["m1", "m2"]);
     expect(calls.wheres).toHaveLength(1); // 범용 조회 자체가 없었다
   });
 
   it("라이브러리가 비면 빈 배열 — 호출부는 사진 없이 진행한다", async () => {
     const { db } = makeDb([]);
-    expect(await pickMediaForTopic("villa-vs-hotel", MAX_MEDIA_PER_ARTICLE, db)).toEqual([]);
+    expect(await pickMediaForTopic("villa-vs-hotel", MAX_MEDIA_PER_ARTICLE, db, wmMock)).toEqual([]);
+  });
+});
+
+// ── 워터마크: 본문에 나가는 자료 사진은 **워터마크 파생본 url**로 교체되어야 한다 ──
+//   (테오 지시 2026-07-23·server-watermark-and-photo-roles 교훈 — 라이브러리 사진 갭 봉인)
+describe("자료 사진 워터마크 배선", () => {
+  it("watermarkedUrl 파생본이 있으면 그 url로 나간다(재사용 — 다시 굽지 않는다)", async () => {
+    const { db } = makeDb([
+      row({ id: "m1", topicKeys: ["airport-transfer"], watermarkedUrl: "https://cdn.r2.dev/wm-m1.jpg" }),
+    ]);
+    const picked = await pickMediaForTopic("airport-transfer", 3, db, wmMock);
+    expect(picked).toEqual([{ id: "m1", url: "https://cdn.r2.dev/wm-m1.jpg", alt: "사진 m1", caption: null }]);
+  });
+
+  it("파생본이 없으면 ensure(=mock)로 굽고 그 결과 url로 나간다 — 원본 url은 본문에 나가지 않는다", async () => {
+    const { db } = makeDb([row({ id: "m2", topicKeys: ["golf-trip"] })]); // watermarkedUrl null
+    const picked = await pickMediaForTopic("golf-trip", 3, db, wmMock);
+    expect(picked).toEqual([{ id: "m2", url: "wm://https://cdn.r2.dev/m2.jpg", alt: "사진 m2", caption: null }]);
+    // 원본 url이 그대로 새어나가지 않는다
+    expect(picked[0].url).not.toBe("https://cdn.r2.dev/m2.jpg");
+  });
+
+  it("본문 삽입(toPickedImages)까지 워터마크 url이 유지된다 — 서비스 글 경로", async () => {
+    const { db } = makeDb([row({ id: "m3", topicKeys: ["golf-trip"], caption: "캡션" })]);
+    const picked = await pickMediaForTopic("golf-trip", 3, db, wmMock);
+    expect(toPickedImages(picked)).toEqual([{ url: "wm://https://cdn.r2.dev/m3.jpg", alt: "사진 m3", caption: "캡션" }]);
   });
 });
 

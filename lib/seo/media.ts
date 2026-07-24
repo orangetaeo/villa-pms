@@ -12,6 +12,7 @@ import { isAllowedImageUrl } from "@/lib/seo/article";
 import { ARTICLE_TOPICS, pickArticleImages, seedOf, type PickedImage } from "@/lib/seo/article-draft";
 import type { PublicVilla } from "@/lib/seo/public-villa";
 import { SERVICE_TOPICS } from "@/lib/seo/service-article";
+import { ensureWatermarkedUrl } from "@/lib/seo/watermark-server";
 
 /** 글 1편이 쓰는 자료 사진 최대 수(커버 1 + 본문 N-1). 이미지 도배는 그 자체로 저품질 신호다. */
 export const MAX_MEDIA_PER_ARTICLE = 4;
@@ -23,7 +24,21 @@ export interface SeoMediaPick {
   caption: string | null;
 }
 
-const PICK_SELECT = { id: true, url: true, alt: true, caption: true } as const;
+/** DB에서 뽑은 원본 행 — url은 아직 원본, watermarkedUrl은 캐시(대부분 null). */
+type SeoMediaRow = SeoMediaPick & { watermarkedUrl: string | null };
+
+/**
+ * 사진 → 워터마크 파생본 URL. 기본은 place 글과 **동일한 ensureWatermarkedUrl**(새 파이프라인 금지).
+ * 주입 가능하게 둔 것은 테스트에서 mock 하기 위함이다.
+ */
+export type WatermarkPickFn = (m: { id: string; url: string; watermarkedUrl: string | null }) => Promise<string>;
+
+// ★ 워터마크: 블로그 본문에 나가는 자료 라이브러리 사진은 **워터마크 파생본만** 써야 한다
+//   (테오 지시 2026-07-23, server-watermark-and-photo-roles 교훈). place 글은 이미 ensureWatermarkedUrl을
+//   거치는데 가이드·서비스 글의 라이브러리 사진만 원본 url을 그대로 내보내 워터마크 없이 공개되던 갭을
+//   여기 **공통 지점(pickMediaForTopic)** 에서 막는다 — 가이드(pickGuideImages)와 서비스(직접 소비) 양쪽이 이 함수를 지난다.
+// ★ 빌라 사진은 이 경로로 오지 않는다(pickArticleImages 별도) — 업로드 시점에 이미 워터마크되어 이중 처리 방지.
+const PICK_SELECT = { id: true, url: true, alt: true, caption: true, watermarkedUrl: true } as const;
 
 /**
  * 사진에 붙일 수 있는 주제 = 가이드 글 주제 8종 + 부가서비스 글 주제 9종.
@@ -67,34 +82,49 @@ export function validateMediaInput(input: { url: string; alt: string }): { ok: t
 export async function pickMediaForTopic(
   topicKey: string,
   max: number = MAX_MEDIA_PER_ARTICLE,
-  db: DbClient = prisma
+  db: DbClient = prisma,
+  watermark: WatermarkPickFn = (m) => ensureWatermarkedUrl(m, db)
 ): Promise<SeoMediaPick[]> {
   if (max <= 0) return [];
   const order = [{ usedCount: "asc" as const }, { createdAt: "asc" as const }];
 
   // ★ placeId가 있는 사진은 **특정 가게 사진**이라 여기서 제외한다(T-seo-place-article).
   //   그 사진은 그 장소를 소개하는 글에서만 의미가 있다 — 공항 이동 글에 끼면 무관한 이미지가 된다.
-  const matched = await db.seoMedia.findMany({
+  const matched = (await db.seoMedia.findMany({
     where: { active: true, placeId: null, topicKeys: { has: topicKey } },
     orderBy: order,
     take: max,
     select: PICK_SELECT,
-  });
-  if (matched.length >= max) return matched;
+  })) as SeoMediaRow[];
 
-  // 범용 사진으로 나머지를 채운다. 주제 일치분과 겹치지 않게 id를 제외한다.
-  const rest = await db.seoMedia.findMany({
-    where: {
-      active: true,
-      placeId: null,
-      topicKeys: { isEmpty: true },
-      id: { notIn: matched.map((m) => m.id) },
-    },
-    orderBy: order,
-    take: max - matched.length,
-    select: PICK_SELECT,
-  });
-  return [...matched, ...rest];
+  let rows = matched;
+  if (matched.length < max) {
+    // 범용 사진으로 나머지를 채운다. 주제 일치분과 겹치지 않게 id를 제외한다.
+    const rest = (await db.seoMedia.findMany({
+      where: {
+        active: true,
+        placeId: null,
+        topicKeys: { isEmpty: true },
+        id: { notIn: matched.map((m) => m.id) },
+      },
+      orderBy: order,
+      take: max - matched.length,
+      select: PICK_SELECT,
+    })) as SeoMediaRow[];
+    rows = [...matched, ...rest];
+  }
+
+  // ★ 워터마크 파생본으로 url을 교체해 내보낸다(본문에 원본이 나가지 않게).
+  //   이미 watermarkedUrl이 있으면 재사용, 없으면 굽고 SeoMedia.watermarkedUrl에 캐시(ensureWatermarkedUrl).
+  //   실패 내성: ensureWatermarkedUrl은 실패 시 원본 url을 돌려준다(글 생성이 멈추지 않게 — place 경로와 동일).
+  return Promise.all(
+    rows.map(async (r) => ({
+      id: r.id,
+      url: await watermark({ id: r.id, url: r.url, watermarkedUrl: r.watermarkedUrl ?? null }),
+      alt: r.alt,
+      caption: r.caption,
+    }))
+  );
 }
 
 /** 본문 삽입용 형태로 변환 — caption이 없으면 키 자체를 넣지 않는다(파서 계약과 동일). */
