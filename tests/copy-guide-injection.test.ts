@@ -9,6 +9,7 @@ import { buildPlaceArticlePrompt, PLACE_CATEGORIES, type PlaceRow } from "@/lib/
 import { buildServiceArticlePrompt, serviceTopicByType, buildServiceFacts, type ServiceItemRow } from "@/lib/seo/service-article";
 import { buildPlaceCaptionPrompt, buildReelCaptionPrompt, type PlaceIgSource } from "@/lib/instagram/place-draft";
 import { buildPlaceShortPrompt } from "@/lib/youtube/place-draft";
+import { buildVideoArticlePrompt, type VideoArticleInput } from "@/lib/seo/video-article-draft";
 
 const place = {
   id: "p1",
@@ -62,6 +63,37 @@ describe("카피가이드 주입 — 모든 생성 경로", () => {
 
   it("⑤ 유튜브 쇼츠 제목·설명", () => {
     expect(buildPlaceShortPrompt(igSrc)).toContain(guideMarker());
+  });
+
+  it("⑥ 블로그 영상 글(category=video) 생성 프롬프트", () => {
+    // ★ 새 생성 경로(ADR-0049) — 자기 프롬프트를 따로 가지므로 카피가이드 6번째 주입 경로로 등록.
+    //   [[copy-guide-must-inject-all-paths]] — 주입이 빠지면 릴스 자막 3컷 동일 문구 같은 회귀가 재발한다.
+    const input: VideoArticleInput = {
+      villa: {
+        publicLabel: "푸꾸옥 쏘나씨 3베드 프라이빗 풀빌라",
+        complex: "Sonasea",
+        areaName: "Sonasea",
+        areaNameKo: "쏘나씨",
+        bedrooms: 3,
+        bathrooms: 4,
+        maxGuests: 8,
+        hasPool: true,
+        breakfastAvailable: true,
+        beachDistanceM: 300,
+        featureKeys: ["privatePool", "viewSea"],
+        photos: [{ id: "1", url: "u", space: "POOL", spaceLabel: "수영장" }],
+      },
+      short: {
+        shortId: "short_1",
+        ytVideoId: "dKxCN6DzMq4",
+        title: "영상 제목",
+        posterUrl: null,
+        durationSec: 88,
+        publishedAt: new Date("2026-07-23T00:00:00Z"),
+        clipSpaces: ["POOL", "BEDROOM"],
+      },
+    };
+    expect(buildVideoArticlePrompt(input)).toContain(guideMarker());
   });
 
   it("카피가이드에 릴스 자막·블로그 문체 규칙이 실제로 들어 있다", () => {

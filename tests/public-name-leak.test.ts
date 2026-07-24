@@ -8,8 +8,16 @@ import { publicVillaLabel } from "@/lib/marketing/public-name";
 import { buildMetaPrompt } from "@/lib/youtube/meta";
 import { buildCaptionPrompt, type VillaPublicInfo } from "@/lib/instagram/caption";
 import { buildNarrationPrompt, type NarrationVillaContext } from "@/lib/youtube/narration";
-import { buildPublicSlug, toPublicVilla, type PublicVillaRow } from "@/lib/seo/public-villa";
+import { buildPublicSlug, toPublicVilla, type PublicVillaRow, type PublicVilla } from "@/lib/seo/public-villa";
 import { buildVillaDescriptionPrompt, type VillaDescriptionFacts } from "@/lib/seo/villa-prep";
+import { buildArticleSlug } from "@/lib/seo/article-draft";
+import {
+  buildVideoArticlePrompt,
+  buildVideoArticleTitle,
+  videoTopicKey,
+  toVideoArticleVillaContext,
+  type VideoArticleInput,
+} from "@/lib/seo/video-article-draft";
 
 // 실제 빌라 고유 실명(공개에 절대 나오면 안 되는 문자열).
 const REAL_NAMES = ["M villa M1", "Sonasea V12", "쏘나씨 V12"];
@@ -129,6 +137,83 @@ describe("생성기 프롬프트 빌더 — 고유 실명 미포함", () => {
     assertNoRealName(prompt);
     // 영문 단지는 소리 나는 대로(소나시)로 들어간다 — 고유 실명은 여전히 없다.
     expect(prompt).toContain("단지: 소나시");
+  });
+});
+
+describe("영상 글(category=video) 생성 경로 — 고유 실명 미포함 (ADR-0049 §9)", () => {
+  // 원천 쇼츠 제목에는 고유 실명이 없다(PR #440 산출물)지만, 실명이 섞인 오염 입력이 들어와도
+  // 프롬프트·title·slug 어디에도 새지 않는지 방어적으로 검증한다.
+  const villaCtx = {
+    publicLabel: "푸꾸옥 쏘나씨 3베드 프라이빗 풀빌라",
+    complex: "Sonasea",
+    areaName: "Sonasea",
+    areaNameKo: "쏘나씨",
+    bedrooms: 3,
+    bathrooms: 4,
+    maxGuests: 8,
+    hasPool: true,
+    breakfastAvailable: true,
+    beachDistanceM: 300,
+    featureKeys: ["privatePool", "viewSea"],
+    photos: [{ id: "1", url: "u", space: "POOL", spaceLabel: "수영장" }],
+  };
+  const input: VideoArticleInput = {
+    villa: villaCtx,
+    short: {
+      shortId: "cmrxnllra0001ukng3tqiwj5v",
+      ytVideoId: "dKxCN6DzMq4",
+      title: "영상 제목",
+      posterUrl: null,
+      durationSec: 88,
+      publishedAt: new Date("2026-07-23T00:00:00Z"),
+      clipSpaces: ["POOL", "BEDROOM"],
+    },
+  };
+
+  it("영상 글 생성 프롬프트에 실명이 없다 (지역·특징 표시명만)", () => {
+    const prompt = buildVideoArticlePrompt(input);
+    assertNoRealName(prompt);
+    expect(prompt).toContain("빌라: 푸꾸옥 쏘나씨 3베드 프라이빗 풀빌라");
+  });
+
+  it("영상 글 title에 실명이 없다 (publicLabel 기반)", () => {
+    assertNoRealName(buildVideoArticleTitle(input.villa));
+    expect(buildVideoArticleTitle(input.villa)).toContain("푸꾸옥 쏘나씨 3베드 프라이빗 풀빌라");
+  });
+
+  it("영상 글 slug(topicKey=video-<shortId>)에 실명 토큰이 없다", () => {
+    const slug = buildArticleSlug(videoTopicKey(input.short.shortId));
+    expect(slug).toBe("video-cmrxnllra0001ukng3tqiwj5v");
+    for (const t of REAL_NAME_TOKENS) expect(slug.toLowerCase()).not.toContain(t);
+  });
+
+  it("입력 컨텍스트 타입(VideoArticleVillaContext)에 name/nameVi 키가 구조적으로 없다 (DTO 봉인)", () => {
+    // PublicVilla에서 name/nameVi가 이미 제거된 상태 — toVideoArticleVillaContext는 그 부분집합만 통과시킨다.
+    const pub = {
+      ...villaCtx,
+      id: "villa_1",
+      slug: "sonasea-3br-villa-x",
+      publicListedAt: new Date(),
+      updatedAt: new Date(),
+      commonBathrooms: 1,
+      areaSqm: 320,
+      floors: 2,
+      extraBedAvailable: true,
+      checkInTime: 840,
+      checkOutTime: 660,
+      smokingAllowed: false,
+      petsAllowed: false,
+      partyAllowed: false,
+      parkingSlots: 2,
+      description: "설명",
+      features: [],
+      videos: [],
+    } as unknown as PublicVilla;
+    const ctx = toVideoArticleVillaContext(pub);
+    const obj = JSON.parse(JSON.stringify(ctx));
+    expect("name" in obj).toBe(false);
+    expect("nameVi" in obj).toBe(false);
+    expect(typeof obj.publicLabel).toBe("string");
   });
 });
 
