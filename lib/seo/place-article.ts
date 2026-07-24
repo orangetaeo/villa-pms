@@ -132,6 +132,57 @@ export async function getPlaceCandidates(db: DbClient = prisma): Promise<PlaceCa
 }
 
 /**
+ * 제목 꼬리말 후보 — ★모든 글이 "직접 가보고 적는다"로 끝나면 상투구가 되어 오히려 자동 생성 티가 난다
+ *   (테오 지적 2026-07-24: "계속 반복적으로 쓰면 그게 좋을까?"). 제목은 AI를 안 거치는 고정 문자열이라
+ *   여기서 직접 다양화한다. 카테고리별로 동사를 바꿔 "직접 다녀온 사람"의 목소리를 살린다.
+ */
+const TITLE_SUFFIXES: Record<"eat" | "browse" | "visit", string[]> = {
+  eat: [
+    // 맛집·카페·바
+    "직접 먹어보고 적는다",
+    "가서 직접 먹어봤습니다",
+    "다녀와서 남기는 솔직 후기",
+    "직접 맛보고 적는 기록",
+    "먹어보고 정리했습니다",
+  ],
+  browse: [
+    // 쇼핑·시장
+    "직접 둘러보고 적는다",
+    "가서 직접 둘러봤습니다",
+    "다녀와서 남기는 솔직 후기",
+    "직접 발품 팔아 적는 기록",
+    "둘러보고 정리했습니다",
+  ],
+  visit: [
+    // 가볼 만한 곳
+    "직접 가보고 적는다",
+    "직접 다녀왔습니다",
+    "다녀와서 남기는 솔직 후기",
+    "가서 직접 보고 적는 기록",
+    "다녀와서 정리했습니다",
+  ],
+};
+
+function titleFlavor(categoryKey: string): keyof typeof TITLE_SUFFIXES {
+  if (categoryKey === "shop" || categoryKey === "market") return "browse";
+  if (categoryKey === "spot") return "visit";
+  return "eat"; // restaurant·cafe·bar
+}
+
+/** 씨앗 문자열을 안정적인 정수로 — 같은 가게는 언제나 같은 꼬리말(재생성해도 제목이 흔들리지 않게). */
+function stableHash(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+/** 단독 장소 글의 제목 꼬리말 — 카테고리 어투 안에서 가게 이름으로 결정적으로 하나 고른다. */
+export function placeTitleSuffix(categoryKey: string, seed: string): string {
+  const pool = TITLE_SUFFIXES[titleFlavor(categoryKey)];
+  return pool[stableHash(seed) % pool.length];
+}
+
+/**
  * 제목 — 한 곳만 다루는 글은 **가게 이름이 제목에 와야 한다**(검색어가 곧 가게 이름이다).
  * "맛집 1곳"은 사람이 검색하지 않는 말이다.
  */
@@ -139,7 +190,7 @@ export function buildPlaceArticleTitle(c: PlaceCategory, places: PlaceRow[], seq
   if (places.length === 1) {
     const p = places[0];
     const where = p.area ? `푸꾸옥 ${p.area}` : "푸꾸옥";
-    return `${p.name} — ${where} ${c.label}, 직접 가보고 적는다`;
+    return `${p.name} — ${where} ${c.label}, ${placeTitleSuffix(c.key, p.name)}`;
   }
   const suffix = seq > 1 ? ` (${seq}편)` : "";
   return `푸꾸옥 ${c.label} ${places.length}곳 — 직접 가본 곳만${suffix}`;
