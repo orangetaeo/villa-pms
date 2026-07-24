@@ -6684,6 +6684,7 @@
     "flagged": "금칙어 검출: {terms}",
     "created": "생성",
     "publishedAt": "발행",
+    "publishEta": "발행 예정 {at} (KST)",
     "preview": "본문 미리보기",
     "approve": "승인",
     "reject": "반려",

@@ -303,3 +303,85 @@ export async function pickArticlesToPublish(quota: number, db: DbClient = prisma
     select: { id: true, slug: true, title: true, bodyJson: true },
   });
 }
+
+// ── 발행 예정 시각 추정 (승인 화면 표기용) ───────────────────────────────────
+/**
+ * seo-publish cron이 도는 시각(KST). Railway 등록값 `0 1 * * *`(01:00 UTC = 10:00 KST)와 일치해야 한다
+ * — 스케줄을 바꾸면 여기와 docs/ops/cron-registration.md 둘 다 고칠 것.
+ */
+export const PUBLISH_HOUR_KST = 10;
+
+/** now 이후 처음 도래하는 발행 cron 시각(=다음 10:00 KST). 이미 오늘 10:00을 지났으면 내일 10:00. */
+export function nextPublishRunAt(now: Date): Date {
+  const KST = 9 * 3600 * 1000;
+  const kst = new Date(now.getTime() + KST);
+  const runKstMs = Date.UTC(kst.getUTCFullYear(), kst.getUTCMonth(), kst.getUTCDate(), PUBLISH_HOUR_KST);
+  let runUtc = runKstMs - KST;
+  // 정각 이후에는 오늘 run이 이미 발동한 것으로 보고 다음 날로 넘긴다.
+  if (runUtc <= now.getTime()) runUtc += 24 * 3600 * 1000;
+  return new Date(runUtc);
+}
+
+/** 두 시각이 같은 KST 날짜에 속하는가. */
+function sameKstDay(a: Date, b: Date): boolean {
+  const KST = 9 * 3600 * 1000;
+  const ka = new Date(a.getTime() + KST);
+  const kb = new Date(b.getTime() + KST);
+  return (
+    ka.getUTCFullYear() === kb.getUTCFullYear() &&
+    ka.getUTCMonth() === kb.getUTCMonth() &&
+    ka.getUTCDate() === kb.getUTCDate()
+  );
+}
+
+/**
+ * 승인 큐에서 queueIndex(오래된 승인 순 0-기준)에 있는 글이 발행될 예정 시각을 추정한다.
+ * cron은 하루 한 번(10:00 KST) 상한만큼 발행하므로, 큐는 하루 perDay건씩 빠진다.
+ * 다음 run이 오늘이면 오늘 이미 발행된 수(publishedTodayKst)를 상한에서 뺀다.
+ * perDay<=0(발행 정지)이면 예정 없음(null).
+ */
+export function estimatePublishAt(
+  queueIndex: number,
+  opts: { now: Date; perDay: number; publishedTodayKst: number },
+): Date | null {
+  const { now, perDay, publishedTodayKst } = opts;
+  if (perDay <= 0 || queueIndex < 0) return null;
+  let run = nextPublishRunAt(now);
+  // 첫 run의 잔여 슬롯 — 그 run이 오늘이면 오늘 발행분을 차감, 내일이면 새 상한 전체.
+  let capacity = Math.max(0, perDay - (sameKstDay(run, now) ? publishedTodayKst : 0));
+  let cumulative = 0;
+  // queueIndex를 덮을 때까지 run을 하루씩 전진(안전 상한: 넉넉히 2년치).
+  for (let guard = 0; guard < 800; guard++) {
+    cumulative += capacity;
+    if (queueIndex < cumulative) return run;
+    run = new Date(run.getTime() + 24 * 3600 * 1000);
+    capacity = perDay;
+  }
+  return null;
+}
+
+/**
+ * 화면 표기용 일괄 계산 — 현재 APPROVED 글 전부에 대해 예정 시각 맵을 만든다.
+ * approvedAt asc 순위 = 큐 인덱스(발행 순서와 동일). 표시 중인 20건뿐 아니라 전체 큐를 기준으로 순위를 매긴다.
+ */
+export async function approvedPublishEstimates(
+  now: Date,
+  db: DbClient = prisma,
+): Promise<{ estimateById: Map<string, Date>; perDay: number; publishedTodayKst: number }> {
+  const perDay = await getPublishPerDay(db);
+  const { start, end } = kstDayBoundsUtc(now);
+  const publishedTodayKst = await db.seoArticle.count({
+    where: { status: SeoArticleStatus.PUBLISHED, publishedAt: { gte: start, lt: end } },
+  });
+  const approved = await db.seoArticle.findMany({
+    where: { status: SeoArticleStatus.APPROVED },
+    orderBy: { approvedAt: "asc" },
+    select: { id: true },
+  });
+  const estimateById = new Map<string, Date>();
+  approved.forEach((r, i) => {
+    const est = estimatePublishAt(i, { now, perDay, publishedTodayKst });
+    if (est) estimateById.set(r.id, est);
+  });
+  return { estimateById, perDay, publishedTodayKst };
+}

@@ -13,7 +13,7 @@ import { getTranslations } from "next-intl/server";
 import { SeoArticleStatus } from "@prisma/client";
 import { auth } from "@/auth";
 import { isOperator } from "@/lib/permissions";
-import { parseArticleBody, bodyTextLength } from "@/lib/seo/article";
+import { parseArticleBody, bodyTextLength, approvedPublishEstimates } from "@/lib/seo/article";
 import { blogPaths } from "@/lib/seo/routes";
 import {
   SEO_ARTICLE_CATEGORIES,
@@ -131,6 +131,11 @@ export default async function MarketingSeoPage({
     Promise.all(SEO_ARTICLE_CATEGORIES.map((c) => countWhere(status, c))),
     countWhere(status, undefined),
   ]);
+  // 발행 대기(APPROVED) 글의 예정 발행 시각 — 큐에 하나라도 있을 때만 계산한다.
+  const hasApproved = rows.some((r) => r.status === SeoArticleStatus.APPROVED);
+  const publishEstimates = hasApproved
+    ? await approvedPublishEstimates(new Date())
+    : { estimateById: new Map<string, Date>(), perDay: 0 };
   const catChip = (active: boolean) =>
     `rounded-full px-3 py-1 text-xs font-medium transition-colors ${
       active ? "bg-teal-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
@@ -235,6 +240,12 @@ export default async function MarketingSeoPage({
                         /{a.slug} · {t("created")} {fmt(a.createdAt)}
                         {a.publishedAt ? ` · ${t("publishedAt")} ${fmt(a.publishedAt)}` : ""}
                       </p>
+                      {a.status === SeoArticleStatus.APPROVED && publishEstimates.estimateById.has(a.id) && (
+                        <p className="mt-1 flex items-center gap-1 text-xs font-medium text-teal-300">
+                          <span aria-hidden="true">🕒</span>
+                          {t("publishEta", { at: fmt(publishEstimates.estimateById.get(a.id)!) })}
+                        </p>
+                      )}
                     </div>
                     <Chevron scope="card" />
                   </summary>
