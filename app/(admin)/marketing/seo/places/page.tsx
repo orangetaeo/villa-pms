@@ -14,7 +14,6 @@ import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
-import { userCanSeeMarketing } from "@/lib/marketing-access";
 import { PLACE_CATEGORIES, MIN_PLACES_PER_ARTICLE, MEDIA_KINDS } from "@/lib/seo/place-article";
 import SeoNav from "../seo-nav";
 import MediaUploader from "../media/media-uploader";
@@ -53,7 +52,6 @@ export default async function SeoPlacesPage({
   const session = await auth();
   const role = session?.user?.role;
   if (!session?.user?.id || !role || !isOperator(role)) redirect("/login");
-  if (!(await userCanSeeMarketing(session.user.id))) redirect("/dashboard");
 
   const t = await getTranslations("marketingSeoPlaces");
   const tn = await getTranslations("marketingSeoNav");

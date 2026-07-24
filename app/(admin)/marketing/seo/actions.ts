@@ -1,7 +1,8 @@
 "use server";
 // /marketing/seo 서버 액션 — 가이드 글 승인·반려 (T-seo-s3)
 //
-// ★ 모든 액션 첫 줄에서 권한 검사한다(운영자 + 마케팅 접근 허용자). 클라이언트 상태를 신뢰하지 않는다.
+// ★ 모든 액션 첫 줄에서 권한 검사한다(전체 운영자 isOperator — SEO 글엔 원가·마진 필드가 없어 누수 표면 0).
+//    클라이언트 상태를 신뢰하지 않는다.
 // ★ 승인은 곧 "발행 큐 진입"이다. 실제 발행은 seo-publish cron이 일 상한을 지키며 수행한다
 //   — 승인 즉시 발행하지 않는 것이 점진 발행 정책의 핵심이다.
 import { revalidatePath } from "next/cache";
@@ -10,7 +11,6 @@ import { SeoArticleStatus } from "@prisma/client";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
-import { userCanSeeMarketing } from "@/lib/marketing-access";
 import { writeAuditLog } from "@/lib/audit-log";
 import { parseArticleBody, isArticlePublishable, bodyTextLength, MIN_ARTICLE_BODY_CHARS } from "@/lib/seo/article";
 import { parseEditedArticle } from "@/lib/seo/article-edit";
@@ -21,7 +21,6 @@ async function requireMarketingOperator(): Promise<string> {
   const role = session?.user?.role;
   const userId = session?.user?.id;
   if (!userId || !role || !isOperator(role)) throw new Error("FORBIDDEN");
-  if (!(await userCanSeeMarketing(userId))) throw new Error("FORBIDDEN");
   return userId;
 }
 

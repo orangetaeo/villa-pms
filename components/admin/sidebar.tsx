@@ -126,15 +126,15 @@ const NAV: NavEntry[] = [
     ],
   },
   // 공개 블로그 그룹 — 발행 결과(villa-go.net/blog)와 글 승인 큐를 한 도메인으로 묶는다(사용자 요청).
-  //   · '가이드 글 승인'(/marketing/seo)은 마케팅 계정(테오) 전용이라 marketingOnly로 게이트 —
-  //     그룹 전체가 아니라 이 자식만 숨긴다. 페이지 자체도 userCanSeeMarketing 게이트가 있어 이중 방어.
+  //   · '가이드 글 승인'(/marketing/seo)은 전체 운영자에게 노출한다(2026-07-24 개방) — SEO 글·장소·미디어에는
+  //     원가·판매가·마진·공급자 필드가 없어 누수 표면이 0이므로 isOperator만으로 안전하다.
+  //     (인스타/유튜브 마케팅 그룹은 계속 showMarketing(테오 phone) 전용으로 유지.)
   //   · '블로그 보기'(/blog)는 비로그인 공개 페이지라 운영자 전원 노출(민감 정보 0), ★새 탭으로 연다.
-  //   · 비-테오 운영자에겐 '블로그 보기'만 남아 그룹이 유지된다(기존 /blog 단독 링크의 접근성 보존).
   {
     group: "publicBlog",
     icon: "public",
     items: [
-      { key: "seoArticles", href: "/marketing/seo", icon: "article", marketingOnly: true },
+      { key: "seoArticles", href: "/marketing/seo", icon: "article" },
       { key: "blogView", href: "/blog", icon: "open_in_new", external: true },
     ],
   },
