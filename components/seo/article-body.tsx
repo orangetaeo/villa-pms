@@ -11,10 +11,12 @@ import { galleryRows, groupBlocksForRender } from "@/lib/seo/gallery";
 
 type ImgBlock = Extract<ArticleBlock, { type: "img" }>;
 
-/** 한 행 장수 → Tailwind 컬럼 클래스(정적 클래스라 purge 안전). 한 행 최대 3장. */
-const COLS: Record<number, string> = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-3" };
-
-/** 연속 이미지 묶음을 행(row) 단위 그리드로. 캡션은 그리드에선 생략(가게명 반복이라 소음). */
+/**
+ * 연속 이미지 묶음을 행(row) 단위 그리드로 — **사진을 크게**(테오 지적 2026-07-24).
+ *   · 히어로 행(1장): 전폭 대형(가로가 넓은 3:2)으로 크게.
+ *   · 2장 행: 큰 4:3 두 칸.
+ * 캡션은 그리드에선 생략(가게명 반복이라 소음).
+ */
 function Gallery({ images }: { images: ImgBlock[] }) {
   const rows = galleryRows(images.length);
   let idx = 0;
@@ -23,15 +25,19 @@ function Gallery({ images }: { images: ImgBlock[] }) {
       {rows.map((size, r) => {
         const slice = images.slice(idx, idx + size);
         idx += size;
+        const hero = size === 1;
         return (
-          <div key={r} className={`grid gap-2 ${COLS[size] ?? "grid-cols-3"}`}>
+          <div key={r} className={`grid gap-2 ${hero ? "grid-cols-1" : "grid-cols-2"}`}>
             {slice.map((im, k) => (
-              <div key={k} className="relative aspect-square overflow-hidden rounded-xl bg-slate-100">
+              <div
+                key={k}
+                className={`relative ${hero ? "aspect-[3/2]" : "aspect-[4/3]"} overflow-hidden rounded-xl bg-slate-100`}
+              >
                 <Image
                   src={im.url}
                   alt={im.alt}
                   fill
-                  sizes="(max-width: 640px) 33vw, 210px"
+                  sizes={hero ? "(max-width: 640px) 100vw, 640px" : "(max-width: 640px) 50vw, 320px"}
                   className="object-cover"
                 />
               </div>

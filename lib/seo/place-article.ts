@@ -212,6 +212,10 @@ export const MEDIA_KINDS: { key: string; label: string }[] = [
   { key: "food", label: "음식" },
   { key: "interior", label: "내부" },
   { key: "menu", label: "메뉴판" },
+  // ★ 맛집 외 장소(가볼 만한 곳·카페·바)용 — 스팟은 음식이 없어 이 종류로 나눈다(테오 지적 2026-07-24:
+  //   썬셋 사나토가 수영장·노을로 나뉘는데 태그가 없어 한 갤러리로 묶였다). 운영자가 사진에 태그하면 분리된다.
+  { key: "scenery", label: "풍경·전망" },
+  { key: "facility", label: "수영장·시설" },
   { key: "etc", label: "기타" },
 ];
 
@@ -301,15 +305,23 @@ export function pickPlacePhotos(places: PlaceRow[], maxForSingle = MAX_PHOTOS_SI
   return pickPlaceGroups(places, { single: maxForSingle }).flat();
 }
 
-/** 단독 장소 글의 갤러리 순서 — 음식이 중심이라 맨 앞, 나머지는 종류별로 묶는다. */
-export const SINGLE_PLACE_KIND_ORDER = ["food", "interior", "menu", "exterior", "etc"] as const;
+/**
+ * 단독 장소 글의 갤러리 표시 순서 — 음식이 중심이라 맨 앞, 그다음 풍경·시설·내부·메뉴·외관.
+ * (맛집은 food가 주, 스팟은 food가 없어 scenery/facility가 자연스럽게 앞선다.)
+ */
+export const SINGLE_PLACE_KIND_ORDER = ["food", "scenery", "facility", "interior", "menu", "exterior", "etc"] as const;
+
+/** 한 종류가 예산을 독차지하지 않게 **각 종류에 먼저 보장**하는 최소 장수. */
+export const KIND_RESERVE_MIN = 4;
 
 /**
  * 단독 장소 글: 커버 1장(외관 우선) + 본문을 **종류별 갤러리**로 묶은 그룹들.
- *   ★ 예전엔 역할을 섞어 한 줄로 늘어놓고 소제목 수만큼 잘라서, 같은 종류가 흩어졌다
- *     (테오 지적 2026-07-24: 메뉴판이 위에 1장·아래 3장). 이제 같은 종류를 한 갤러리로 모은다
- *     (음식끼리·메뉴끼리·내부끼리). 각 그룹의 사진들은 본문에서 연속 배치되어 하나의 그리드가 된다.
- * 반환: cover(썸네일용, 본문에선 제외) + bodyGroups(각 그룹 = 한 종류).
+ *   ★ 종류가 섞여 흩어지던 문제(메뉴판 위 1장·아래 3장)를 종류별로 모아 해결한다
+ *     (음식끼리·메뉴끼리·풍경끼리). 각 그룹은 본문에서 연속 배치되어 하나의 그리드가 된다.
+ *   ★ **예약(2-pass):** 음식이 아무리 많아도 외관 간판·메뉴 같은 다른 종류가 묻히지 않게, 먼저 각 종류에
+ *     최소 KIND_RESERVE_MIN장을 보장한 뒤 남은 예산을 종류 순서대로 채운다(테오 지적 2026-07-24:
+ *     해피 레스토랑에 외관 간판이 있는데 음식만 나갔다).
+ * 반환: cover(썸네일용, 본문에선 제외) + bodyGroups(각 그룹 = 한 종류, 표시 순서대로).
  */
 export function pickSinglePlaceKindGroups(
   place: PlaceRow,
@@ -331,26 +343,33 @@ export function pickSinglePlaceKindGroups(
   if (coverPhoto) used.add(coverPhoto.url);
   let budget = Math.max(0, max - (cover ? 1 : 0));
 
-  const take = (predicate: (p: Photo) => boolean): PlacePickedImage[] => {
-    const g: PlacePickedImage[] = [];
+  const picked = new Map<string, PlacePickedImage[]>();
+  // 특정 종류(또는 미지정)를 cap장까지 예산 안에서 담는다. picked에 누적.
+  const takeKind = (kindKey: string, predicate: (p: Photo) => boolean, cap: number) => {
+    const arr = picked.get(kindKey) ?? [];
+    picked.set(kindKey, arr);
     for (const photo of all) {
-      if (budget <= 0) break;
+      if (budget <= 0 || arr.length >= cap) break;
       if (used.has(photo.url) || !predicate(photo)) continue;
       used.add(photo.url);
-      g.push(toPick(photo));
+      arr.push(toPick(photo));
       budget--;
     }
-    return g;
   };
 
+  const kinds = [...SINGLE_PLACE_KIND_ORDER];
+  // 1) 예약: 각 종류(+미지정)에 최소 보장 — 한 종류가 다 먹지 않게.
+  for (const k of kinds) takeKind(k, (p) => p.kind === k, KIND_RESERVE_MIN);
+  takeKind("__unset", (p) => !isMediaKind(p.kind), KIND_RESERVE_MIN);
+  // 2) 채움: 남은 예산을 표시 순서대로 전부.
+  for (const k of kinds) takeKind(k, (p) => p.kind === k, Number.MAX_SAFE_INTEGER);
+  takeKind("__unset", (p) => !isMediaKind(p.kind), Number.MAX_SAFE_INTEGER);
+
   const bodyGroups: PlacePickedImage[][] = [];
-  for (const kind of SINGLE_PLACE_KIND_ORDER) {
-    const g = take((p) => p.kind === kind);
-    if (g.length) bodyGroups.push(g);
+  for (const k of [...kinds, "__unset"]) {
+    const g = picked.get(k);
+    if (g && g.length) bodyGroups.push(g);
   }
-  // 역할 미지정(null 등)은 마지막 한 그룹으로.
-  const unset = take((p) => !isMediaKind(p.kind));
-  if (unset.length) bodyGroups.push(unset);
   return { cover, bodyGroups };
 }
 

@@ -19,6 +19,8 @@ import {
   pickPlaceGroups,
   pickSinglePlaceKindGroups,
   PHOTOS_PER_PLACE_BUNDLE,
+  MEDIA_KINDS,
+  isMediaKind,
   tidyHeadings,
   orderSinglePlacePhotos,
   spreadImages,
@@ -261,6 +263,35 @@ describe("사진·카테고리", () => {
     expect(bodyGroups[0][0].alt.startsWith("음식")).toBe(true);
     // 커버(외관1)는 본문에서 제외 — 외관 그룹엔 외관1이 없다(다른 외관도 없으니 외관 그룹 자체가 없음)
     expect(bodyGroups.some((g) => g.some((p) => p.alt === "외관1"))).toBe(false);
+  });
+
+  it("★ 음식이 아무리 많아도 외관 간판이 묻히지 않는다 — 종류별 예약(테오 지적 2026-07-24 해피 레스토랑)", () => {
+    const ph = (id: string, kind: string) => ({ id, url: `https://cdn.r2.dev/${id}.jpg`, alt: id, caption: null, kind });
+    const photos = [
+      ph("외관1", "exterior"),
+      ...Array.from({ length: 20 }, (_, k) => ph(`음식${k}`, "food")),
+      ph("외관2", "exterior"),
+    ];
+    const one = place({ id: "happy", category: "restaurant", name: "해피", photos } as Partial<PlaceRow> & {
+      id: string;
+      category: string;
+    });
+    const { cover, bodyGroups } = pickSinglePlaceKindGroups(one);
+    expect(cover?.alt).toBe("외관1"); // 커버는 외관
+    // 음식이 20장이어도 남은 외관(외관2)이 본문에 들어간다
+    const exteriorGroup = bodyGroups.find((g) => g[0].alt.startsWith("외관"));
+    expect(exteriorGroup?.map((p) => p.alt)).toEqual(["외관2"]);
+    // 음식도 여전히 다수(예산 안에서)
+    const foodGroup = bodyGroups.find((g) => g[0].alt.startsWith("음식"));
+    expect((foodGroup?.length ?? 0)).toBeGreaterThan(5);
+    expect(bodyGroups[0][0].alt.startsWith("음식")).toBe(true); // 음식 먼저
+  });
+
+  it("스팟용 종류(풍경·전망·수영장·시설)가 태그 목록에 등록돼 있다", () => {
+    const keys = MEDIA_KINDS.map((k) => k.key);
+    expect(keys).toContain("scenery");
+    expect(keys).toContain("facility");
+    expect(isMediaKind("scenery")).toBe(true); // 검증 통과(운영자가 태그 저장 가능)
   });
 
   it("카테고리 키는 slug로 쓸 수 있고 중복이 없다", () => {
