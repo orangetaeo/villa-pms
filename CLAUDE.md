@@ -194,7 +194,7 @@ COSTS.md  IDEAS.md  PROGRESS.md  TASKS.md
   claude
   ```
   → 자기 폴더·자기 git index·자기 .next·자기 포트(자동). 그 세션은 `wt/<이름>` 브랜치에서 **평범하게** 커밋(전용 인덱스 꼼수 불필요).
-- **마무리**: 그 worktree 세션에서 `scripts\wt-finish.ps1` 또는 PR로 main 병합 → worktree 정리.
+- **마무리·정리는 반드시 스크립트로** — `scripts\wt-finish.ps1 -Name <이름>`(main 반영+정리) 또는 `scripts\wt-remove.ps1 -Name <이름>`(정리만). **수동 `git worktree remove`·`rm -rf`·`rmdir` 절대 금지.** wt-new는 이제 node_modules를 정션이 아닌 **전용 실폴더**로 만들고, wt-lib/wt-remove가 (혹시 남은) 정션을 감지→링크만 제거→검증 후에만 삭제한다 — 이 순서를 사람이 손으로 흉내내다 건너뛰어 공유 node_modules를 14회 날렸다. 참고: [[worktree-junction-recursive-delete-hazard]].
 - 메인 폴더에서 실행된 세션이 코드 변경을 하려는데 다른 세션이 동시 작동 중일 가능성이 있으면, **먼저 위 격리를 안내**하고 메인에서 직접 커밋하지 않는다.
 - 참고 함정: [[private-index-drops-untracked-files]](커밋 후 `git cat-file -e origin/main:<파일>` 검증 필수), [[parallel-session-worktree-isolation]], [[worktree-junction-recursive-delete-hazard]].
 

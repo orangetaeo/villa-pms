@@ -1,7 +1,8 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { findSellableVillaIds } from "@/lib/availability";
-import { quoteStayForVilla, MissingRateError } from "@/lib/pricing";
+import { quoteStayForVilla, MissingRateError, suggestSalePriceUsd } from "@/lib/pricing";
+import { getEffectiveFxVndPerUsd } from "@/lib/fx-effective";
 import { parseUtcDateOnly } from "@/lib/date-vn";
 import { serializeBigInt } from "@/lib/serialize";
 import { BookingChannel, Currency } from "@prisma/client";
@@ -55,19 +56,27 @@ export async function GET(req: Request) {
       orderBy: [{ qualityScore: "desc" }, { name: "asc" }],
     });
 
+    // USD 자동환산 — USD 채널이면 유효 USD 환율(제안 생성 시점과 동일 해석)을 1회 조회.
+    //   환율이 있으면 VND 요율표 총액 ÷ 환율로 자동 견적(usdAuto), 없으면 기존 수동 입력 폴백.
+    const fxVndPerUsd =
+      saleCurrency === Currency.USD ? await getEffectiveFxVndPerUsd(prisma, new Date()) : null;
+    const usdAuto = saleCurrency === Currency.USD && fxVndPerUsd != null;
+    // USD 자동환산은 VND 요율표 총액을 환산 기준으로 쓰므로 quote는 VND로 부른다(채널 tier 반영).
+    const quoteCurrency = saleCurrency === Currency.USD ? Currency.VND : saleCurrency;
+
     const warnings: { villaId: string; name: string; reason: string }[] = [];
     const candidates = [];
     for (const { photos, ...villa } of villas) {
       try {
-        const quote = await quoteStayForVilla(prisma, villa.id, range, saleCurrency, channel);
-        // USD(Phase 2)는 요율표 판매단가가 없어 sale 견적이 없는 게 정상(ADMIN 수동 입력).
-        //   "판매가 미책정" warning으로 거르지 않고, sale=null로 후보에 포함(원가·박수만 표시).
-        if (saleCurrency !== Currency.USD) {
+        const quote = await quoteStayForVilla(prisma, villa.id, range, quoteCurrency, channel);
+        // KRW·VND, 그리고 USD 자동환산(환산 기준 VND)일 때 판매가 미책정 가드 적용.
+        //   환율 미설정 USD(usdAuto=false)만 수동 입력을 유도하므로 0원 빌라도 후보에 포함.
+        if (saleCurrency !== Currency.USD || usdAuto) {
           // 미책정 가드 (ADR-0014 디버깅) — 판매가 0(마진·환율 미책정 placeholder)인 빌라는 후보 제외.
           //   생성 시 margin0·sale=cost·krw0 placeholder가 들어가는데, 그대로 제안되면 KRW 채널 0원·
           //   VND 채널 마진0이 고객에게 나간다. MissingRate와 동일하게 ADMIN에 사유 안내(책정 유도).
           const saleTotal =
-            saleCurrency === Currency.KRW ? quote.totalSaleKrw ?? 0 : quote.totalSaleVnd ?? 0n;
+            quoteCurrency === Currency.KRW ? quote.totalSaleKrw ?? 0 : quote.totalSaleVnd ?? 0n;
           if (!saleTotal) {
             warnings.push({ villaId: villa.id, name: villa.name, reason: "판매가 미책정" });
             continue;
@@ -79,7 +88,9 @@ export async function GET(req: Request) {
           nights: quote.nights,
           totalSaleKrw: quote.totalSaleKrw ?? null,
           totalSaleVnd: quote.totalSaleVnd ?? null,
-          totalSaleUsd: null, // USD는 수동입력 — 후보 단계에선 항상 null
+          // USD 자동환산: VND 요율표 총액을 생성 시점과 동일 환율로 환산(half-up, float 금지).
+          //   환율 미설정(usdAuto=false)이면 null → FE가 수동 입력 유도.
+          totalSaleUsd: usdAuto ? suggestSalePriceUsd(quote.totalSaleVnd!, fxVndPerUsd) : null,
           totalSupplierCostVnd: quote.totalSupplierCostVnd, // ADMIN 전용 응답 — 마진 판단용
           // ADR-0031 안전장치 — DIRECT(소비자가) 견적에서 소비자 원화/동가 미설정으로 도매가가
           //   그대로 나가는 빌라. 운영자가 "일반고객에게 도매가가 제안된다"를 인지하도록 경고 배지/배너용.
@@ -97,7 +108,12 @@ export async function GET(req: Request) {
       }
     }
 
-    return Response.json({ candidates: serializeBigInt(candidates), warnings });
+    return Response.json({
+      candidates: serializeBigInt(candidates),
+      warnings,
+      // USD 채널일 때만 자동/수동 모드를 FE에 알린다(비-USD면 undefined).
+      usdAuto: saleCurrency === Currency.USD ? usdAuto : undefined,
+    });
   } catch (e) {
     console.error("[proposals/candidates] 조회 실패", e);
     return Response.json({ error: "후보 조회에 실패했습니다" }, { status: 500 });
