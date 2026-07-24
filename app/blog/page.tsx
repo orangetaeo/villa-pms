@@ -8,6 +8,7 @@ import type { Metadata } from "next";
 import { getPublishedArticles } from "@/lib/seo/article";
 import { blogPaths, BLOG_ROOT } from "@/lib/seo/routes";
 import { absoluteUrl } from "@/lib/seo/base-url";
+import { SEO_ARTICLE_CATEGORIES, seoArticleCategoryLabel } from "@/lib/seo/categories";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 1800;
@@ -63,6 +64,19 @@ export default async function BlogHub() {
         <p className="mt-2 text-sm leading-relaxed text-slate-600">
           빌라 여행에 필요한 정보를 현지에서 직접 정리합니다.
         </p>
+
+        {/* 대분류 진입 — 카테고리별 목록으로 이동(T-seo-category) */}
+        <nav aria-label="분류" className="mt-4 flex flex-wrap gap-2">
+          {SEO_ARTICLE_CATEGORIES.map((cat) => (
+            <Link
+              key={cat}
+              href={blogPaths.categoryList(cat)}
+              className="rounded-full border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700"
+            >
+              {seoArticleCategoryLabel(cat, "ko")}
+            </Link>
+          ))}
+        </nav>
       </section>
 
       {articles.length === 0 ? (

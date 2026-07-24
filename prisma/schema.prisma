@@ -2085,6 +2085,12 @@ model SeoArticle {
   // 관련 빌라 id — 내부 링크용. **FK 없음**(빌라 삭제·비공개 전환 시 렌더 단계에서 관문이 걸러낸다)
   relatedVillaIds String[]
 
+  // 대분류 카테고리 — 공개 목록·승인 큐의 필터 축. 값은 생성 시점에 확정(불변 규약은 아님).
+  //   화이트리스트 "villa"|"service"|"place"|"guide" — 정본은 lib/seo/categories.ts SEO_ARTICLE_CATEGORIES.
+  //   enum이 아닌 이유: 값 추가가 잦을 수 있어 ALTER TYPE 회피(SeoPlace.category 선례).
+  //   ⚠ topicKey 접두로 역산 금지 — 가이드 주제 "villa-vs-hotel"이 villa- 접두와 겹친다.
+  category String @default("guide")
+
   status          SeoArticleStatus @default(DRAFT)
   // 발행 후 공개에서 내리기(T-seo-ux-fix) — 상태는 PUBLISHED로 두고 노출만 끈다.
   //   ★ 되돌릴 수 있어야 하므로 상태 전이(REJECTED)로 처리하지 않는다. 공개 조회 2곳에서만 걸러진다.
@@ -2103,6 +2109,7 @@ model SeoArticle {
   ytShorts  YoutubeShort[] // 이 글을 소재로 만든 유튜브 쇼츠
 
   @@index([status, publishedAt]) // 공개 목록·점진 발행 큐 조회
+  @@index([category, status]) // 카테고리별 공개 목록·승인 큐 필터 (T-seo-category)
   @@index([topicKey]) // 주제 중복 생성 방지 조회
 }
 

@@ -16,6 +16,7 @@ import { findBannedTerms } from "@/lib/instagram/caption";
 import { copyGuidePromptBlock } from "@/lib/instagram/content-guide";
 import { parseArticleBody } from "@/lib/seo/article";
 import { extractJsonArray, type DraftResult, type PickedImage } from "@/lib/seo/article-draft";
+import type { SeoArticleCategory } from "@/lib/seo/categories";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 const GEMINI_TIMEOUT_MS = 60_000;
@@ -393,6 +394,8 @@ export async function createPlaceArticleDraft(
       summary,
       bodyJson: body,
       topicKey: key,
+      // 장소 글 대분류 — cron·운영자 수동 생성 모두 이 함수를 지나므로 여기 한 곳이면 충분하다.
+      category: "place" satisfies SeoArticleCategory,
       coverPhotoUrl: thumbnailUrl ?? photos[0]?.url ?? deps.helpers.brandFallbackImage,
       status: "PENDING_APPROVAL",
       flaggedTerms: draft.flaggedTerms.length > 0 ? draft.flaggedTerms : undefined,

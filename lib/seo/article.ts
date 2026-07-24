@@ -16,6 +16,7 @@
 import { Prisma, SeoArticleStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
+import { isSeoArticleCategory, type SeoArticleCategory } from "@/lib/seo/categories";
 
 // ── 본문 블록 ────────────────────────────────────────────────────────────────
 export type ArticleBlock =
@@ -126,6 +127,8 @@ const PUBLIC_ARTICLE_SELECT = {
   summary: true,
   bodyJson: true,
   coverPhotoUrl: true,
+  thumbnailUrl: true,
+  category: true,
   relatedVillaIds: true,
   publishedAt: true,
   updatedAt: true,
@@ -138,6 +141,10 @@ export interface PublicArticle {
   summary: string;
   blocks: ArticleBlock[];
   coverPhotoUrl: string | null;
+  /** 텍스트 얹은 대표 썸네일 — 목록 카드는 thumbnailUrl ?? coverPhotoUrl 순으로 쓴다. */
+  thumbnailUrl: string | null;
+  /** 대분류 — DB는 String이라 화이트리스트 밖 값은 "guide"로 정규화(카테고리 목록/뱃지용). */
+  category: SeoArticleCategory;
   relatedVillaIds: string[];
   publishedAt: Date;
   updatedAt: Date;
@@ -152,6 +159,9 @@ function toPublicArticle(row: Prisma.SeoArticleGetPayload<{ select: typeof PUBLI
     summary: row.summary,
     blocks: parseArticleBody(row.bodyJson),
     coverPhotoUrl: row.coverPhotoUrl,
+    thumbnailUrl: row.thumbnailUrl,
+    // DB는 String이므로 화이트리스트 밖 값(수기 오염 등)은 기본 카테고리로 정규화한다.
+    category: isSeoArticleCategory(row.category) ? row.category : "guide",
     relatedVillaIds: row.relatedVillaIds,
     publishedAt: row.publishedAt,
     updatedAt: row.updatedAt,
@@ -178,6 +188,57 @@ export async function getPublishedArticleBySlug(slug: string, db: DbClient = pri
     select: PUBLIC_ARTICLE_SELECT,
   });
   return row ? toPublicArticle(row) : null;
+}
+
+// ── 카테고리별 공개 목록 (T-seo-category) ────────────────────────────────────
+/** 카테고리 목록 페이지네이션 기본 크기 — 프로젝트 규칙(목록 기본 10, 서버 skip/take). */
+export const ARTICLES_PAGE_SIZE = 10;
+
+export interface PagedPublicArticles {
+  articles: PublicArticle[];
+  total: number;
+  /** 1-기반 현재 페이지 */
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+/**
+ * 특정 카테고리의 발행 글을 최신순 + 서버 페이지네이션으로 조회.
+ * ★ 공개 게이트(PUBLISHED·publishedAt·publicHidden=false)는 다른 조회와 동일하게 유지한다 —
+ *   category만 추가로 좁힌다. 기존 getPublishedArticles 호출부는 건드리지 않는 별도 진입점.
+ */
+export async function getPublishedArticlesByCategory(
+  category: SeoArticleCategory,
+  page = 1,
+  pageSize = ARTICLES_PAGE_SIZE,
+  db: DbClient = prisma,
+): Promise<PagedPublicArticles> {
+  const where = {
+    status: SeoArticleStatus.PUBLISHED,
+    publishedAt: { not: null },
+    publicHidden: false,
+    category,
+  } satisfies Prisma.SeoArticleWhereInput;
+
+  const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+  const [total, rows] = await Promise.all([
+    db.seoArticle.count({ where }),
+    db.seoArticle.findMany({
+      where,
+      select: PUBLIC_ARTICLE_SELECT,
+      orderBy: { publishedAt: "desc" },
+      skip: (safePage - 1) * pageSize, // ★ 클라 slice 금지 — 서버 skip/take
+      take: pageSize,
+    }),
+  ]);
+  return {
+    articles: rows.map(toPublicArticle).filter((a): a is PublicArticle => a !== null),
+    total,
+    page: safePage,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  };
 }
 
 // ── 점진 발행 ────────────────────────────────────────────────────────────────

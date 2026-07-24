@@ -16,6 +16,12 @@ import { isOperator } from "@/lib/permissions";
 import { userCanSeeMarketing } from "@/lib/marketing-access";
 import { parseArticleBody, bodyTextLength } from "@/lib/seo/article";
 import { blogPaths } from "@/lib/seo/routes";
+import {
+  SEO_ARTICLE_CATEGORIES,
+  type SeoArticleCategory,
+  isSeoArticleCategory,
+  seoArticleCategoryLabel,
+} from "@/lib/seo/categories";
 import SeoNav from "./seo-nav";
 import { approveArticle, rejectArticle, toggleArticleVisibility, updateArticleBody } from "./actions";
 
@@ -41,13 +47,15 @@ function fmt(d: Date | null): string {
 }
 
 /** 헤더 배지 — 카드가 접혀 있을 때 글 상태를 알려주는 유일한 단서라 색으로 구분한다. */
-function Badge({ tone, children }: { tone: "neutral" | "warn" | "danger"; children: React.ReactNode }) {
+function Badge({ tone, children }: { tone: "neutral" | "warn" | "danger" | "info"; children: React.ReactNode }) {
   const cls =
     tone === "danger"
       ? "bg-red-500/15 text-red-300"
       : tone === "warn"
         ? "bg-amber-500/15 text-amber-300"
-        : "bg-slate-800 text-slate-300";
+        : tone === "info"
+          ? "bg-teal-500/15 text-teal-300"
+          : "bg-slate-800 text-slate-300";
   return <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>{children}</span>;
 }
 
@@ -99,14 +107,36 @@ export default async function MarketingSeoPage({
   const params = await searchParams;
   const tabKey = TABS.some((x) => x.key === params.tab) ? params.tab! : "pending";
   const status = TABS.find((x) => x.key === tabKey)!.status;
+  // 카테고리 필터 — 화이트리스트 밖 값(?cat=xxx)은 무시하고 '전체'로 처리한다.
+  const catKey: SeoArticleCategory | undefined =
+    params.cat && isSeoArticleCategory(params.cat) ? params.cat : undefined;
   // 모두 펼치기/접기 — 클라이언트 JS 없이 링크(쿼리)로 전환한다(RSC 전용 원칙 유지).
   const expandAll = params.open === "1";
-  const href = (tab: string) => `/marketing/seo?tab=${tab}${expandAll ? "&open=1" : ""}`;
+  // 상태 탭·카테고리 칩·펼치기 링크가 서로의 파라미터를 보존하도록 한 곳에서 조립한다.
+  //   cat: null = '전체'(제거), undefined = 현재값 유지.
+  const href = (opts: { tab?: string; cat?: SeoArticleCategory | null; open?: boolean } = {}) => {
+    const tab = opts.tab ?? tabKey;
+    const cat = opts.cat === null ? undefined : (opts.cat ?? catKey);
+    const open = opts.open ?? expandAll;
+    const qs = new URLSearchParams({ tab });
+    if (cat) qs.set("cat", cat);
+    if (open) qs.set("open", "1");
+    return `/marketing/seo?${qs.toString()}`;
+  };
 
-  const [rows, counts] = await Promise.all([
-    prismaList(status),
-    Promise.all(TABS.map((x) => countByStatus(x.status))),
+  const [rows, counts, catCounts, catAllCount] = await Promise.all([
+    // 목록은 선택된 상태 + 카테고리 둘 다로 필터한다.
+    prismaList(status, catKey),
+    // 상태 탭 건수 = 현재 카테고리 기준(카테고리를 고르면 탭 숫자도 그 안에서만 센다).
+    Promise.all(TABS.map((x) => countWhere(x.status, catKey))),
+    // 카테고리 칩 건수 = 현재 상태 기준.
+    Promise.all(SEO_ARTICLE_CATEGORIES.map((c) => countWhere(status, c))),
+    countWhere(status, undefined),
   ]);
+  const catChip = (active: boolean) =>
+    `rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+      active ? "bg-teal-500 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
+    }`;
 
   return (
     <div className="p-6 text-slate-100">
@@ -120,7 +150,7 @@ export default async function MarketingSeoPage({
         {TABS.map((tab, i) => (
           <Link
             key={tab.key}
-            href={href(tab.key)}
+            href={href({ tab: tab.key })}
             className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
               tab.key === tabKey
                 ? "bg-blue-500 text-white"
@@ -132,12 +162,25 @@ export default async function MarketingSeoPage({
         ))}
         {rows.length > 1 && (
           <Link
-            href={`/marketing/seo?tab=${tabKey}${expandAll ? "" : "&open=1"}`}
+            href={href({ open: !expandAll })}
             className="ml-auto rounded-full border border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-300 transition-colors hover:border-slate-500 hover:text-slate-100"
           >
             {expandAll ? t("collapseAll") : t("expandAll")}
           </Link>
         )}
+      </nav>
+
+      {/* 카테고리 필터 — 가이드·서비스·맛집·빌라 글이 한 큐에 섞이는 문제를 분리한다(RSC 전용: 쿼리 링크). */}
+      <nav className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-xs font-medium text-slate-500">{t("categoryFilter")}</span>
+        <Link href={href({ cat: null })} className={catChip(!catKey)}>
+          {t("catAll")} {catAllCount}
+        </Link>
+        {SEO_ARTICLE_CATEGORIES.map((c, i) => (
+          <Link key={c} href={href({ cat: c })} className={catChip(catKey === c)}>
+            {seoArticleCategoryLabel(c, "ko")} {catCounts[i]}
+          </Link>
+        ))}
       </nav>
 
       {params.error === "TOO_SHORT" && (
@@ -174,6 +217,10 @@ export default async function MarketingSeoPage({
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <h2 className="max-w-full truncate text-base font-semibold">{a.title}</h2>
+                        {/* 카테고리 배지 — 전체 목록에서도 각 글이 무슨 유형인지 접힌 채로 구분한다. */}
+                        <Badge tone="info">
+                          {isSeoArticleCategory(a.category) ? seoArticleCategoryLabel(a.category, "ko") : a.category}
+                        </Badge>
                         <Badge tone="neutral">{t("chars", { n: chars })}</Badge>
                         {/* 사진 0장은 실제로 나던 사고(맛집 글에 음식 사진 한 장도 없음) — 접힌 채로도 보이게 한다 */}
                         <Badge tone={photoCount === 0 ? "danger" : "neutral"}>
@@ -403,9 +450,9 @@ export default async function MarketingSeoPage({
 // ── 조회 헬퍼 (파일 하단 배치 — 페이지 본문 가독성 우선) ──
 import { prisma } from "@/lib/prisma";
 
-async function prismaList(status?: SeoArticleStatus) {
+async function prismaList(status?: SeoArticleStatus, category?: SeoArticleCategory) {
   return prisma.seoArticle.findMany({
-    where: status ? { status } : {},
+    where: { ...(status ? { status } : {}), ...(category ? { category } : {}) },
     orderBy: { createdAt: "desc" },
     take: 20, // 서버 페이지네이션 기본(목록 기본 10 규칙보다 완화 — 승인 큐는 한눈에 보는 용도)
     select: {
@@ -414,6 +461,7 @@ async function prismaList(status?: SeoArticleStatus) {
       title: true,
       summary: true,
       bodyJson: true,
+      category: true, // 접힌 카드 헤더의 카테고리 배지
       // 접힌 카드 헤더의 썸네일 — 텍스트 썸네일(thumbnailUrl) 우선, 없으면 커버 사진
       thumbnailUrl: true,
       coverPhotoUrl: true,
@@ -427,6 +475,9 @@ async function prismaList(status?: SeoArticleStatus) {
   });
 }
 
-async function countByStatus(status?: SeoArticleStatus) {
-  return prisma.seoArticle.count({ where: status ? { status } : {} });
+// 상태·카테고리 조합 건수 — 둘 다 옵션(미지정 = 해당 축 필터 없음).
+async function countWhere(status?: SeoArticleStatus, category?: SeoArticleCategory) {
+  return prisma.seoArticle.count({
+    where: { ...(status ? { status } : {}), ...(category ? { category } : {}) },
+  });
 }
