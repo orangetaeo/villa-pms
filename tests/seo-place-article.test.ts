@@ -17,6 +17,7 @@ import {
   buildPlaceArticleTitle,
   pickPlacePhotos,
   pickPlaceGroups,
+  pickSinglePlaceKindGroups,
   PHOTOS_PER_PLACE_BUNDLE,
   tidyHeadings,
   orderSinglePlacePhotos,
@@ -230,6 +231,36 @@ describe("사진·카테고리", () => {
     const groups = pickPlaceGroups([one]);
     expect(groups).toHaveLength(1);
     expect(groups[0].length).toBeGreaterThan(PHOTOS_PER_PLACE_BUNDLE); // 단독은 상한이 훨씬 큼
+  });
+
+  it("★ 단독 글은 사진을 종류별로 묶는다 — 메뉴판이 흩어지지 않게(테오 지적 2026-07-24)", () => {
+    const ph = (id: string, kind: string) => ({ id, url: `https://cdn.r2.dev/${id}.jpg`, alt: id, caption: null, kind });
+    // 등록 순서를 일부러 섞는다: 음식·메뉴·음식·내부·메뉴·외관·음식·메뉴
+    const one = place({
+      id: "solo",
+      category: "restaurant",
+      name: "메오키친",
+      photos: [
+        ph("음식1", "food"), ph("메뉴1", "menu"), ph("음식2", "food"), ph("내부1", "interior"),
+        ph("메뉴2", "menu"), ph("외관1", "exterior"), ph("음식3", "food"), ph("메뉴3", "menu"),
+      ],
+    } as Partial<PlaceRow> & { id: string; category: string });
+
+    const { cover, bodyGroups } = pickSinglePlaceKindGroups(one);
+    // 커버는 외관(대표 간판)
+    expect(cover?.url).toContain("외관1");
+    // 각 그룹은 한 종류만 — 메뉴판 3장이 한 갤러리로 모인다(위/아래로 흩어지지 않음)
+    const kindOf = (u: string) => u.replace(/\d.*/, "");
+    for (const g of bodyGroups) {
+      const kinds = new Set(g.map((p) => kindOf(p.alt)));
+      expect(kinds.size).toBe(1); // 한 그룹 = 한 종류
+    }
+    const menuGroup = bodyGroups.find((g) => g[0].alt.startsWith("메뉴"));
+    expect(menuGroup?.map((p) => p.alt)).toEqual(["메뉴1", "메뉴2", "메뉴3"]); // 메뉴판 전부 한 곳에
+    // 음식이 맨 앞 그룹(맛집의 중심)
+    expect(bodyGroups[0][0].alt.startsWith("음식")).toBe(true);
+    // 커버(외관1)는 본문에서 제외 — 외관 그룹엔 외관1이 없다(다른 외관도 없으니 외관 그룹 자체가 없음)
+    expect(bodyGroups.some((g) => g.some((p) => p.alt === "외관1"))).toBe(false);
   });
 
   it("카테고리 키는 slug로 쓸 수 있고 중복이 없다", () => {
