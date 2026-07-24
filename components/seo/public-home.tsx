@@ -16,6 +16,7 @@ import Image from "next/image";
 import type { PublicVilla } from "@/lib/seo/public-villa";
 import { blogPaths } from "@/lib/seo/routes";
 import { FEATURE_ITEMS } from "@/lib/features";
+import { VillaGoMark } from "@/components/brand/villa-go-logo";
 
 /** 상담 진입점 — 웹챗(/chat)으로 통일하고 유입 출처를 seo로 표기(인박스에서 구분). */
 const CONSULT_HREF = "/chat?src=seo";
@@ -42,6 +43,8 @@ export interface PublicHomeProps {
 
 export default function PublicHome({ villas, areas }: PublicHomeProps) {
   const featured = villas.slice(0, 3);
+  // 히어로 배경 사진 — 공개 빌라의 첫 사진(대표 외관). 없으면 단색 폴백.
+  const heroPhoto = featured.map((v) => v.photos[0]?.url).find(Boolean) ?? null;
   // ★ 매칭 빌라가 1곳이라도 있는 조건만 노출한다 — 없는 조건 칩을 누르면 404다(패싯 페이지는 매칭
   //   1곳 이상일 때만 열린다). 빌라가 3곳 미만이어도 조건 필터 자체는 작동한다(그 페이지는 noindex).
   const features = HOME_FEATURES.filter(
@@ -53,28 +56,47 @@ export default function PublicHome({ villas, areas }: PublicHomeProps) {
       {/* 헤더 — 소비자 대상(상담). ★ 빌라 관리인·업체·파트너가 이 소비자 홈에 들어와도
           로그인 입구가 없어 돌아가던 문제 → "로그인" 진입을 상담 옆에 추가(/login 허브). */}
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur">
-        <Link href="/" className="text-lg font-extrabold tracking-tight text-teal-600">
-          Villa GO
+        <Link href="/" className="flex items-center gap-2" aria-label="Villa GO 홈">
+          <VillaGoMark className="h-7 w-auto" />
+          <span className="text-lg font-extrabold tracking-tight text-teal-600">Villa GO</span>
         </Link>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
+          <Link
+            href={blogPaths.hub()}
+            className="rounded-full px-2.5 py-1.5 text-sm font-semibold text-slate-600 hover:text-teal-700"
+          >
+            블로그
+          </Link>
           <Link
             href="/login"
-            className="rounded-full px-3 py-1.5 text-sm font-semibold text-slate-600 hover:text-teal-700"
+            className="rounded-full px-2.5 py-1.5 text-sm font-semibold text-slate-600 hover:text-teal-700"
           >
             로그인
           </Link>
           <Link
             href={CONSULT_HREF}
-            className="rounded-full border border-teal-600 px-3 py-1.5 text-sm font-semibold text-teal-700"
+            className="rounded-full border border-teal-600 px-2.5 py-1.5 text-sm font-semibold text-teal-700"
           >
             상담하기
           </Link>
         </div>
       </header>
 
-      {/* 히어로 */}
+      {/* 히어로 — 공개 빌라 사진을 배경으로 깔고 어둡게 오버레이(글자 가독성).
+          공개 빌라가 0개면 사진 없이 단색 배경으로 폴백(빈 상태에서도 성립). */}
       <section className="relative isolate overflow-hidden bg-slate-900">
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/70 via-slate-900/60 to-slate-900/90" />
+        {heroPhoto && (
+          <Image
+            src={heroPhoto}
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+            aria-hidden
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/80 via-slate-900/65 to-slate-900/95" />
         <div className="relative px-5 py-16 sm:py-24">
           <p className="text-sm font-semibold text-amber-400">푸꾸옥 현지 빌라</p>
           <h1 className="mt-2 text-3xl font-extrabold leading-snug text-white sm:text-4xl">
@@ -229,6 +251,23 @@ export default function PublicHome({ villas, areas }: PublicHomeProps) {
         >
           조건 알려주고 견적 받기
         </Link>
+      </section>
+
+      {/* 빌라 이야기·여행 가이드(블로그) — 공개 콘텐츠 허브 진입.
+          검색 유입의 핵심 자산이므로 본문에도 눈에 띄는 진입점을 둔다. */}
+      <section className="px-5 py-8">
+        <div className="rounded-2xl border border-slate-200 bg-teal-50/40 p-5">
+          <h2 className="text-xl font-bold">빌라 이야기 · 여행 가이드</h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600">
+            푸꾸옥 빌라 고르는 법, 지역별 특징, 현지 여행 팁을 정리했습니다.
+          </p>
+          <Link
+            href={blogPaths.hub()}
+            className="mt-4 inline-flex touch-target items-center rounded-full bg-teal-600 px-6 text-base font-bold text-white"
+          >
+            블로그 글 보기 →
+          </Link>
+        </div>
       </section>
 
       {/* 파트너·공급자 모집 — 기존 정적 소개 자산 재사용(색인 허용 경로) */}
