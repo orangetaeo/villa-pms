@@ -39,4 +39,20 @@ describe("toEmbedUrl — approximate(대략 위치) 모드", () => {
     expect(toEmbedUrl("https://maps.app.goo.gl/abcd", { approximate: true })).toBeNull();
     expect(toEmbedUrl("https://evil.com/@10.2,103.9", { approximate: true })).toBeNull();
   });
+
+  // ★회귀: place URL은 @(뷰포트 중심)가 아니라 !3d!4d(장소 핀)를 써야 한다.
+  //   실측(메오키친): @10.168282,103.9791479는 공항, !3d10.1916776!4d103.9666573는 실제 가게.
+  //   예전엔 @를 먼저 잡아 임베드가 공항을 가리켰다.
+  it("place URL은 뷰포트(@)가 아니라 장소 핀(!3d!4d)을 우선한다", () => {
+    const meo =
+      "https://www.google.com/maps/place/MEO+Kitchen/@10.168282,103.9791479,14z/data=!4m6!3m5!1s0x0:0x0!8m2!3d10.1916776!4d103.9666573!16s";
+    const url = toEmbedUrl(meo, { approximate: false });
+    expect(decodeURIComponent(url!)).toContain("10.1916776,103.9666573"); // 가게
+    expect(decodeURIComponent(url!)).not.toContain("10.168282,103.9791479"); // 공항(뷰포트) 아님
+  });
+
+  it("q(명시 좌표)만 있으면 그대로 쓴다(빌라 드롭핀·GPS)", () => {
+    const url = toEmbedUrl("https://www.google.com/maps?q=10.132639,103.9777499", { approximate: false });
+    expect(decodeURIComponent(url!)).toContain("10.132639,103.9777499");
+  });
 });

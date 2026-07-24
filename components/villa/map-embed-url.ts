@@ -61,21 +61,18 @@ export function toEmbedUrl(
 
   const approx = opts.approximate === true;
 
-  // 1) path 의 @lat,lng (예: /maps/place/.../@10.123,103.456,15z)
-  const atMatch = /@(-?\d{1,3}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)/.exec(url.pathname + url.search);
-  if (atMatch) {
-    const coord = parseLatLng(`${atMatch[1]},${atMatch[2]}`);
-    if (coord) return buildEmbed(coordForMode(coord, approx), approx);
-  }
+  // ★ 좌표 우선순위: !3d!4d(장소 핀) > q/ll(명시 좌표) > @(뷰포트 중심).
+  //   @는 지도 **중심**일 뿐 장소가 아니다 — place URL은 @가 핀에서 km 떨어질 수 있어(메오키친 실측:
+  //   @는 공항, !3d!4d는 실제 가게) 반드시 !3d!4d를 먼저 본다. 예전엔 @를 먼저 잡아 공항이 나왔다.
 
-  // 2) data 파라미터 !3d<lat>!4d<lng> (place URL 의 핀 좌표)
+  // 1) data 파라미터 !3d<lat>!4d<lng> — place URL 의 **실제 핀 좌표**(가장 정확)
   const dMatch = /!3d(-?\d{1,3}(?:\.\d+)?)!4d(-?\d{1,3}(?:\.\d+)?)/.exec(url.href);
   if (dMatch) {
     const coord = parseLatLng(`${dMatch[1]},${dMatch[2]}`);
     if (coord) return buildEmbed(coordForMode(coord, approx), approx);
   }
 
-  // 3) 쿼리 파라미터 q / query / ll — 좌표면 그대로, 검색어면 텍스트로 재구성
+  // 2) 쿼리 파라미터 q / query / ll — 좌표면 그대로(드롭핀·GPS 공유), 검색어면 텍스트로 재구성
   for (const key of ["q", "query", "ll", "center"]) {
     const v = url.searchParams.get(key);
     if (!v) continue;
@@ -88,6 +85,13 @@ export function toEmbedUrl(
       const text = v.trim();
       if (text.length > 0 && text.length <= 200) return buildEmbed(text, approx);
     }
+  }
+
+  // 3) path 의 @lat,lng — **뷰포트 중심**이라 최후 폴백(핀·명시좌표가 없을 때만)
+  const atMatch = /@(-?\d{1,3}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)/.exec(url.pathname + url.search);
+  if (atMatch) {
+    const coord = parseLatLng(`${atMatch[1]},${atMatch[2]}`);
+    if (coord) return buildEmbed(coordForMode(coord, approx), approx);
   }
 
   // 4) /maps/place/<장소명>/ 형태 — 장소명 텍스트 추출

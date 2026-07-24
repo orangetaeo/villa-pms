@@ -33,7 +33,15 @@ export function extractLatLng(fullUrl: string | null | undefined): { lat: number
   }
   const inRange = (lat: number, lng: number) =>
     Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
-  // 1) q/query/ll 파라미터의 "lat,lng"
+  // ★ 우선순위: !3d!4d(장소 핀) > q/ll(명시 좌표) > @(뷰포트 중심).
+  //   @는 지도 중심일 뿐 장소가 아니다 — place URL은 @가 실제 핀에서 km 떨어질 수 있다(공항 오표시 원인).
+  // 1) place URL의 !3d<lat>!4d<lng> — 실제 핀(가장 정확)
+  const d = /!3d(-?\d{1,3}(?:\.\d+)?)!4d(-?\d{1,3}(?:\.\d+)?)/.exec(u.href);
+  if (d) {
+    const lat = Number(d[1]), lng = Number(d[2]);
+    if (inRange(lat, lng)) return { lat, lng };
+  }
+  // 2) q/query/ll 파라미터의 "lat,lng"(드롭핀·GPS)
   for (const key of ["q", "query", "ll", "center"]) {
     const v = u.searchParams.get(key);
     const m = v && /^\s*(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/.exec(v);
@@ -42,16 +50,10 @@ export function extractLatLng(fullUrl: string | null | undefined): { lat: number
       if (inRange(lat, lng)) return { lat, lng };
     }
   }
-  // 2) path/search의 @lat,lng
+  // 3) path/search의 @lat,lng — 뷰포트 중심이라 최후 폴백
   const at = /@(-?\d{1,3}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)/.exec(u.pathname + u.search);
   if (at) {
     const lat = Number(at[1]), lng = Number(at[2]);
-    if (inRange(lat, lng)) return { lat, lng };
-  }
-  // 3) place URL의 !3d<lat>!4d<lng>
-  const d = /!3d(-?\d{1,3}(?:\.\d+)?)!4d(-?\d{1,3}(?:\.\d+)?)/.exec(u.href);
-  if (d) {
-    const lat = Number(d[1]), lng = Number(d[2]);
     if (inRange(lat, lng)) return { lat, lng };
   }
   return null;
