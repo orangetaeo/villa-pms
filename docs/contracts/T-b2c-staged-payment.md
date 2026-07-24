@@ -1,11 +1,17 @@
 # 계약서 — B2C 계약금/잔금 분할 결제 (VND 앵커 다통화)
 
 - 근거: **ADR-0048**(정본) + ADR-0047(통화 3분리). 정책 확정(테오 2026-07-24).
-- 상태: **P0·P1·P2 완료** (2026-07-24). P3~P6 순차.
-  - P0: 순수 로직 + 테스트 12건. P1: 스키마 라이브 적용(B2cPaymentSchedule·PaymentPurpose B2C값·AppSetting 50%/D-14).
+- 상태: **P0·P1·P2·P3 완료 — 백엔드 코어 배포·테스트(43건) 완료** (2026-07-24). P4~P6은 ★테오 결정 대기.
+  - P0: 순수 로직. P1: 스키마 라이브(B2cPaymentSchedule·PaymentPurpose B2C값·AppSetting 50%/D-14).
   - **P2: 감사 결과 "코드 불필요"로 종결** — `buildRoomTxn`이 saleCurrency 기준으로 매출 컬럼을 골라 앵커를
-    무시하므로 이중집계 없음. `Booking.totalSaleVnd` 오버로드·불변식 완화·33개 소비처 감사 전부 불필요.
-    VND 앵커는 `B2cPaymentSchedule.totalVnd`에만 둔다(ADR-0048 §4 교정).
+    무시하므로 이중집계 없음. 앵커는 `B2cPaymentSchedule.totalVnd`에만(ADR-0048 §4 교정).
+  - **P3: 결제 파이프라인 완성** — 확정 시 스케줄 생성(`ensureB2cScheduleForBooking`, confirmHold 후크),
+    계약금/잔금 `Payment`(purpose B2C_DEPOSIT/B2C_BALANCE) 소진 → `refreshB2cScheduleStatus` 상태 전이
+    (PENDING→DEPOSIT_PAID→PAID) → LEDGER 전기. 기존 예약 흐름 무영향(대칭 분리).
+- **★P4~P6 착수 전 테오 결정 (미결정 시 재작업 위험 — 순서: P5 문구부터):**
+  - **P5**: 소비자 약관 문구(계약금율·잔금기한·환불통화) + **"잔금 원화는 D-14 환율로 확정돼 달라질 수 있음" 공시**.
+  - **P4**: 잔금 D-14 도달 시 **알림 대상·방식**(개인고객 직접 vs 운영자 대행) + 알림 타입(신규 vs payload 재사용).
+  - **P6**: 취소규정(CANCELLATION_POLICY) 단계별 환불율과 "낸 통화 역분개" 접합 방식.
 - 담당: 설계·병합=메인, 스키마=TDA, 로직=BE, 정산=FIN, 화면=FE, 검증=QA(작성자와 분리).
 
 ## 목표 (한 줄)
