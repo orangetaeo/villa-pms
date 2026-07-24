@@ -41,10 +41,24 @@ export interface PublicHomeProps {
   areas: { code: string; label: string; count: number }[];
 }
 
+// 히어로 배경으로 어울리는 공간 우선순위. 화장실(BATHROOM)·주방(KITCHEN)·ETC는
+//   대표 사진으로 부적합하므로 아예 후보에서 뺀다(전 빌라에 걸맞은 것이 없으면 null → 단색 폴백).
+const HERO_SPACE_PRIORITY = ["POOL", "EXTERIOR", "LIVING", "BALCONY", "BEDROOM"] as const;
+
+function pickHeroPhoto(villas: PublicVilla[]): string | undefined {
+  const candidates = villas.slice(0, 3).flatMap((v) => v.photos);
+  for (const space of HERO_SPACE_PRIORITY) {
+    const hit = candidates.find((p) => p.space === space);
+    if (hit) return hit.url;
+  }
+  return undefined; // 적합한 공간이 하나도 없으면 배경 없이 단색으로 둔다
+}
+
 export default function PublicHome({ villas, areas }: PublicHomeProps) {
   const featured = villas.slice(0, 3);
-  // 히어로 배경 사진 — 공개 빌라의 첫 사진(대표 외관). 없으면 단색 폴백.
-  const heroPhoto = featured.map((v) => v.photos[0]?.url).find(Boolean) ?? null;
+  // 히어로 배경 사진 — 공간(space) 역할로 고른다. 첫 사진을 그냥 쓰면 화장실·침실이 배경으로
+  //   걸린다(순서≠대표). 수영장>외관>거실>베란다 순으로 우선, 화장실·주방은 히어로에서 제외.
+  const heroPhoto = pickHeroPhoto(villas) ?? null;
   // ★ 매칭 빌라가 1곳이라도 있는 조건만 노출한다 — 없는 조건 칩을 누르면 404다(패싯 페이지는 매칭
   //   1곳 이상일 때만 열린다). 빌라가 3곳 미만이어도 조건 필터 자체는 작동한다(그 페이지는 noindex).
   const features = HOME_FEATURES.filter(
