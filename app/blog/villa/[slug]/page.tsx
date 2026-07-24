@@ -237,7 +237,7 @@ export default async function PublicVillaPage({ params }: Params) {
             <div className="mt-3 space-y-4">
               {v.videos.map((vid) => (
                 <figure key={vid.ytVideoId}>
-                  <div className="relative aspect-[9/16] w-full max-w-xs overflow-hidden rounded-2xl bg-slate-100">
+                  <div className="relative mx-auto aspect-[9/16] w-full max-w-xs overflow-hidden rounded-2xl bg-slate-100">
                     <iframe
                       src={`https://www.youtube-nocookie.com/embed/${vid.ytVideoId}`}
                       title={vid.title}
@@ -247,7 +247,7 @@ export default async function PublicVillaPage({ params }: Params) {
                       className="absolute inset-0 h-full w-full"
                     />
                   </div>
-                  <figcaption className="mt-2 text-sm text-slate-600">{vid.title}</figcaption>
+                  <figcaption className="mt-2 text-center text-sm text-slate-600">{vid.title}</figcaption>
                 </figure>
               ))}
             </div>

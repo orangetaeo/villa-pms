@@ -34,7 +34,7 @@ export default function ArticleBody({ blocks }: { blocks: ArticleBlock[] }) {
           // youtube-nocookie = 재생 전 추적 쿠키 없음. lazy = 첫 화면 성능(랭킹 요소) 보호.
           return (
             <figure key={i} className="my-6">
-              <div className="relative aspect-[9/16] w-full max-w-xs overflow-hidden rounded-2xl bg-slate-100">
+              <div className="relative mx-auto aspect-[9/16] w-full max-w-xs overflow-hidden rounded-2xl bg-slate-100">
                 <iframe
                   src={`https://www.youtube-nocookie.com/embed/${b.ytVideoId}`}
                   title={b.title}
