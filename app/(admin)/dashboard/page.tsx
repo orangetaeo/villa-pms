@@ -198,7 +198,8 @@ export default async function DashboardPage() {
               {t("partnerRequest.bannerBody", { count: stats.partnerRequestPendingCount })}
               {stats.partnerRequestItems.length > 0 && (
                 <span className="ml-2 inline-flex flex-wrap gap-1.5 align-middle">
-                  {stats.partnerRequestItems.map((r) => (
+                  {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                  {stats.partnerRequestItems.map((r: any) => (
                     <Link
                       key={r.bookingId + r.kind}
                       href={`/bookings/${r.bookingId}`}
@@ -512,7 +513,8 @@ export default async function DashboardPage() {
               {feed.length === 0 ? (
                 <p className="text-xs text-slate-500">{t("feed.empty")}</p>
               ) : (
-                feed.map((item, i) => (
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                feed.map((item: any, i: number) => (
                   <div
                     key={item.id}
                     className={`relative pl-6 ${
@@ -522,7 +524,7 @@ export default async function DashboardPage() {
                     }`}
                   >
                     <div
-                      className={`absolute left-[-4px] top-1.5 w-2 h-2 rounded-full ${DOT_CLASS[item.dot]} ring-4 ring-admin-card`}
+                      className={`absolute left-[-4px] top-1.5 w-2 h-2 rounded-full ${DOT_CLASS[item.dot as FeedDot]} ring-4 ring-admin-card`}
                     />
                     <div className="flex justify-between items-start mb-1 gap-2">
                       <p className="text-xs font-bold text-white">
