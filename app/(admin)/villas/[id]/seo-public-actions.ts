@@ -30,9 +30,12 @@ export async function issuePublicSlug(formData: FormData): Promise<void> {
   const userId = await requireOperator();
   const id = String(formData.get("villaId") ?? "");
   if (!id) return;
+  // ★ ensureUniquePublicSlug는 {id, complex, bedrooms}로 실명 없는 slug를 만든다(PR #440).
+  //   name/nameVi를 넘기면 초과 프로퍼티라 TS는 통과하지만 complex/bedrooms가 undefined가 되어
+  //   slug가 `villa-{id8}` 폴백으로 퇴화한다 — cron 경로와 동일하게 complex/bedrooms를 넘긴다.
   const v = await prisma.villa.findUnique({
     where: { id },
-    select: { id: true, name: true, nameVi: true, publicSlug: true },
+    select: { id: true, complex: true, bedrooms: true, publicSlug: true },
   });
   if (!v || v.publicSlug) return;
   const slug = await ensureUniquePublicSlug(v, prisma);
