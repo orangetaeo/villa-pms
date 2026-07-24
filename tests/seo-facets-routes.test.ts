@@ -81,8 +81,19 @@ describe("패싯 생성 가드 — 얇은 콘텐츠 방지", () => {
     expect(allFacetPages([])).toEqual([]);
   });
 
-  it("빌라 2개 시점에는 패싯이 하나도 생성되지 않는다 — 의도된 동작", () => {
+  it("빌라 2개 시점에는 (기본 min=3) 패싯이 하나도 생성되지 않는다 — 사이트맵·색인용", () => {
     expect(allFacetPages([villa(), villa()])).toEqual([]);
+  });
+
+  it("min=1이면 빌라 1~2개여도 패싯을 만든다 — 온사이트 필터 작동(그 페이지는 라우트에서 noindex)", () => {
+    const two = [villa(), villa()];
+    const facets = allFacetPages(two, 1);
+    expect(facets.length).toBeGreaterThan(0);
+    // 지역·특징 패싯이 count 2로 생성된다(기본 min=3에선 0이던 것).
+    const area = areaFacets(two, 1);
+    expect(area).toHaveLength(1);
+    expect(area[0].count).toBe(2);
+    expect(featureFacets(two, 1).map((f) => f.path)).toContain(blogPaths.feature("privatePool"));
   });
 
   it("사전에 없는 임의 featureKey는 패싯이 되지 않는다 (URL 주입 차단)", () => {
