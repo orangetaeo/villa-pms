@@ -47,6 +47,7 @@ import { translateText, previewTargetForMode, GeminiNotConfiguredError } from "@
 import {
   isCostSideType,
   isSellSideType,
+  tierForCounterparty,
 } from "@/lib/zalo-counterparty";
 import { loadVillaShareImage } from "@/lib/zalo-share-image";
 import {
@@ -633,8 +634,8 @@ async function handleVilla(
     return sendVillaShare(conv, adminUserId, text, villa.photos[0]?.url ?? null, villa.name);
   }
 
-  // 판매가측(고객·여행사·랜드사) 경로 — ratePeriods는 salePriceVnd/salePriceKrw만 SELECT.
-  // supplierCostVnd/margin 미조회 (D4.1, ADR-0014). 본문 통화는 항상 VND(2026-07-24).
+  // 판매가측(고객·여행사·랜드사) 경로 — ratePeriods는 salePrice*/consumerSalePrice*만 SELECT.
+  // supplierCostVnd/margin 미조회 (D4.1, ADR-0014·ADR-0031). 본문 통화는 항상 VND(2026-07-24).
   const villa = await prisma.villa.findUnique({
     where: { id: villaId },
     select: {
@@ -648,6 +649,9 @@ async function handleVilla(
           label: true,
           salePriceVnd: true,
           salePriceKrw: true,
+          // ADR-0031 소비자 직판가 — CONSUMER 계층(CUSTOMER)에서 참조. NET(여행사·랜드사)에선 미사용.
+          consumerSalePriceVnd: true,
+          consumerSalePriceKrw: true,
         },
       },
     },
@@ -662,13 +666,26 @@ async function handleVilla(
   // ★통화 — 빌라 공유는 분류 무관 항상 VND(2026-07-24). CUSTOMER도 KRW→VND로 통일.
   //   (제안 공유(handleProposal) 통화는 proposal.saleCurrency 그대로 — 여기서 건드리지 않음.)
   const saleCurrency = Currency.VND;
+  // ★계층(ADR-0031) — CUSTOMER=소비자가(CONSUMER), 여행사·랜드사=도매가(NET). 통화와 별개 축.
+  const tier = tierForCounterparty(conv.counterpartyType);
+  // 상세 폴백 빌더는 CustomerRateView(salePrice*)만 받으므로, 계층 유효가(consumer??net)를
+  //   salePrice* 자리에 매핑해 넘긴다(빌더 불변 — 입력값만 계층가). consumerSalePrice* 컬럼은 빌더로 넘기지 않음.
+  const tierRates = villa.ratePeriods.map((r) => ({
+    season: r.season,
+    isBase: r.isBase,
+    startDate: r.startDate,
+    endDate: r.endDate,
+    label: r.label,
+    salePriceVnd: tier === "CONSUMER" ? (r.consumerSalePriceVnd ?? r.salePriceVnd) : r.salePriceVnd,
+    salePriceKrw: tier === "CONSUMER" ? (r.consumerSalePriceKrw ?? r.salePriceKrw) : r.salePriceKrw,
+  }));
 
   // Q2(계약 F) — 공개 게이트 통과한 빌라 상세 페이지(/blog/villa/[slug], 상담 CTA 있음)가 있으면
   //   간단정보 + 대표 "부터" 가격 + 그 페이지 링크로 발송. 없으면 기존 상세 요율 나열(폴백).
   //   getPublicVillasByIds는 공개 화이트리스트 관문(판매가·원가·마진 미조회) — 누수 불변식 유지.
   const [publicVilla] = await getPublicVillasByIds([villaId]);
   if (publicVilla) {
-    const from = pickLowestSalePrice(villa.ratePeriods, false);
+    const from = pickLowestSalePrice(villa.ratePeriods, false, tier);
     const briefText = buildVillaShareBriefWithBlog(toShareBase(villa, "ko"), from, saleCurrency, {
       url: absoluteUrl(blogPaths.villa(publicVilla.slug)),
       title: publicVilla.publicLabel, // 공개 상세 페이지 H1 라벨(지역·특징 조합, 실명 아님)
@@ -677,7 +694,7 @@ async function handleVilla(
   }
 
   // 폴백 — 전체 기간 나열(기본 먼저·시작일 순). 받는 쪽이 "언제 가격인지" 알도록 기간 병기.
-  const text = buildVillaShareTextForCustomer(toShareBase(villa, "ko"), villa.ratePeriods, saleCurrency);
+  const text = buildVillaShareTextForCustomer(toShareBase(villa, "ko"), tierRates, saleCurrency);
   return sendVillaShare(conv, adminUserId, text, villa.photos[0]?.url ?? null, villa.name);
 }
 

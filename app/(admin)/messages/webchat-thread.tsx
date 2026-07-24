@@ -12,7 +12,7 @@ import { WebChatBookingBar } from "./webchat-booking-bar";
 import { WebChatQuickLinks } from "./webchat-quick-links";
 import { Linkify } from "@/components/linkify";
 import { WebChatLinkCard } from "@/components/webchat-link-card";
-import { isWebChatCardKind, parseWebChatCardPayload } from "@/lib/webchat-card";
+import { isWebChatCardKind, parseWebChatCardPayload, isSafeCardUrl } from "@/lib/webchat-card";
 
 function msgTime(iso: string): string {
   const d = new Date(iso);
@@ -49,6 +49,7 @@ export function WebChatThread({
   onUnlinkBooking,
   onSendLink,
   onSendProposal,
+  onSendVilla,
 }: {
   thread: WebChatThreadData | null;
   loading: boolean;
@@ -63,6 +64,8 @@ export function WebChatThread({
   onUnlinkBooking: () => Promise<boolean>;
   onSendLink: (kind: QuickLinkKind) => Promise<{ ok: boolean; error?: string }>;
   onSendProposal: (proposalId: string) => Promise<{ ok: boolean; error?: string }>;
+  /** 빌라 공유 발송 — 빌라 모달에서 선택한 villaId로 send-link(kind=villa). */
+  onSendVilla: (villaId: string) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const t = useTranslations("adminWebchat");
   const [draft, setDraft] = useState("");
@@ -213,6 +216,55 @@ export function WebChatThread({
             ) : (
               (() => {
                 // OUTBOUND: kind 있으면 카드, 없으면 기존 텍스트(구 메시지·일반 답장 하위호환).
+                // ── 빌라 공유 카드(kind=villa) — 간단정보+대표가 캡션(ko/번역) + payload.url 있으면 "상세 보기" ──
+                //   다른 링크 카드와 달리 캡션(text/translatedText)을 그대로 노출하고, URL은 payload에만 있으면 버튼.
+                if (m.kind === "villa") {
+                  const villaUrl = m.payload?.url;
+                  const showLink = !!villaUrl && isSafeCardUrl(villaUrl);
+                  return (
+                    <div key={m.id} className="flex justify-end">
+                      <div className="max-w-[78%] flex flex-col items-end">
+                        <div className="w-full rounded-2xl rounded-tr-sm border border-teal-500/40 bg-teal-950/40 px-3.5 py-3 flex flex-col gap-1.5">
+                          <div className="flex items-center gap-1.5 text-sm font-bold text-white">
+                            <span className="material-symbols-outlined text-[16px] leading-none text-teal-300">
+                              villa
+                            </span>
+                            {t("card.villa")}
+                          </div>
+                          <p className="text-sm text-white whitespace-pre-wrap break-words">
+                            {m.text}
+                          </p>
+                          {m.translatedText && (
+                            <p className="pt-1.5 border-t border-teal-700/40 text-sm text-teal-200 whitespace-pre-wrap break-words">
+                              {m.translatedText}
+                            </p>
+                          )}
+                          {m.translationFailed && (
+                            <p className="self-start text-[10px] font-bold text-amber-200 bg-amber-500/20 rounded px-1.5 py-0.5 inline-block">
+                              {t("translationFailedBadge")}
+                            </p>
+                          )}
+                          {showLink && (
+                            <a
+                              href={villaUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-0.5 inline-flex items-center gap-1 self-start rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-bold text-white no-underline hover:bg-teal-500"
+                            >
+                              <span className="material-symbols-outlined text-[15px] leading-none">
+                                open_in_new
+                              </span>
+                              {t("card.villaOpen")}
+                            </a>
+                          )}
+                        </div>
+                        <p className="mt-1 text-[10px] text-teal-200/80 tabular-nums">
+                          {msgTime(m.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
                 const card = isWebChatCardKind(m.kind)
                   ? parseWebChatCardPayload(m.payload)
                   : null;
@@ -272,6 +324,7 @@ export function WebChatThread({
             }
             onSend={onSendLink}
             onSendProposal={onSendProposal}
+            onSendVilla={onSendVilla}
           />
         </div>
       )}

@@ -29,6 +29,7 @@ import { WebChatLinkCard } from "@/components/webchat-link-card";
 import {
   isWebChatCardKind,
   parseWebChatCardPayload,
+  isSafeCardUrl,
   type WebChatCardKind,
   type WebChatCardPayload,
 } from "@/lib/webchat-card";
@@ -297,6 +298,9 @@ export default function WebChatWidget({
               text: m.text,
               translatedText: m.translatedText ?? null,
               translationFailed: !!m.translationFailed,
+              // 카드(kind/payload)도 복원 — 없으면 재방문 시 카드가 평문으로 떨어진다(폴링 매핑과 일치).
+              kind: m.kind ?? null,
+              payload: m.payload ?? null,
               createdAt: m.createdAt,
             }))
           );
@@ -607,8 +611,37 @@ export default function WebChatWidget({
           }
           // OUTBOUND 카드: 운영자가 보낸 링크(kind 있음)는 카드로 렌더(없으면 텍스트).
           const cardPayload = isWebChatCardKind(m.kind)
-            ? parseWebChatCardPayload(m.payload)
+            ? parseWebChatCardPayload(m.payload, m.kind)
             : null;
+          // ── 빌라 공유 카드(kind=villa) — 캡션(방문자 언어 우선) + payload.url 있으면 "상세 보기" 링크 ──
+          //   다른 링크 카드(제목+열기버튼)와 달리 캡션(대표가 포함)을 그대로 노출한다. URL은 payload에만.
+          if (cardPayload && m.kind === "villa") {
+            const hasTr = !!m.translatedText && !m.translationFailed;
+            const caption = hasTr ? m.translatedText! : m.text;
+            const villaUrl = cardPayload.url;
+            const showLink = !!villaUrl && isSafeCardUrl(villaUrl);
+            return (
+              <div key={m.id} className="wc-row left">
+                <div className="wc-card">
+                  <div className="wc-card-title">{t.card.villa}</div>
+                  <div className="wc-villa-caption">
+                    <LinkifiedText text={caption} />
+                  </div>
+                  {m.translationFailed && <div className="wc-note">{t.translationFailed}</div>}
+                  {showLink && villaUrl && (
+                    <a
+                      href={villaUrl}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      className="wc-card-btn"
+                    >
+                      {t.card.detail}
+                    </a>
+                  )}
+                </div>
+              </div>
+            );
+          }
           if (cardPayload && isWebChatCardKind(m.kind)) {
             const kind = m.kind as WebChatCardKind;
             return (
@@ -829,6 +862,7 @@ const CSS = `
   background:var(--card); border:1px solid var(--line)}
 .wc-card-title{font-weight:800; font-size:14.5px; color:var(--teal-deep)}
 .wc-card-sub{font-size:12.5px; color:var(--ink-soft)}
+.wc-villa-caption{white-space:pre-wrap; word-break:break-word; font-size:14px; color:var(--ink)}
 .wc-card-btn{margin-top:5px; align-self:flex-start; display:inline-flex; align-items:center; text-decoration:none;
   background:var(--teal); color:#fff; font-weight:700; font-size:13.5px; padding:8px 16px; border-radius:10px}
 .wc-card-btn:hover{background:#0C7D72}

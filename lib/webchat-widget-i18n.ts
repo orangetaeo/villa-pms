@@ -53,14 +53,18 @@ export interface WidgetStrings {
   newChat: string;
   /** 일반 전송 실패(네트워크 등). */
   sendFailed: string;
-  /** 링크 카드 문구(운영자가 보낸 체크인·부가서비스·영수증·제안 링크). */
+  /** 링크 카드 문구(운영자가 보낸 체크인·부가서비스·영수증·제안 링크·빌라 공유). */
   card: {
     checkin: string;
     options: string;
     receipt: string;
     proposal: string;
+    /** 빌라 공유 카드 제목. */
+    villa: string;
     /** "열기" 버튼. */
     open: string;
+    /** 빌라 공유 카드 "상세 보기" 버튼(공개 상세페이지 링크 있을 때만). */
+    detail: string;
     /** 카드 부제(짧은 안내). */
     hint: string;
   };
@@ -95,7 +99,9 @@ const vi: WidgetStrings = {
     options: "Đặt dịch vụ bổ sung",
     receipt: "Bảng kê thanh toán",
     proposal: "Đề xuất biệt thự",
+    villa: "Thông tin biệt thự",
     open: "Mở",
+    detail: "Xem chi tiết",
     hint: "Nhấn nút bên dưới để mở.",
   },
 };
@@ -129,7 +135,9 @@ const ko: WidgetStrings = {
     options: "부가서비스 신청",
     receipt: "정산 영수증",
     proposal: "빌라 제안",
+    villa: "빌라 안내",
     open: "열기",
+    detail: "상세 보기",
     hint: "아래 버튼을 눌러 여세요.",
   },
 };
@@ -163,7 +171,9 @@ const en: WidgetStrings = {
     options: "Book add-on services",
     receipt: "Settlement receipt",
     proposal: "Villa proposal",
+    villa: "Villa details",
     open: "Open",
+    detail: "View details",
     hint: "Tap the button below to open.",
   },
 };
@@ -197,7 +207,9 @@ const zh: WidgetStrings = {
     options: "预订附加服务",
     receipt: "结算单",
     proposal: "别墅推荐",
+    villa: "别墅详情",
     open: "打开",
+    detail: "查看详情",
     hint: "点击下方按钮打开。",
   },
 };
@@ -231,7 +243,9 @@ const ru: WidgetStrings = {
     options: "Заказать дополнительные услуги",
     receipt: "Итоговый счёт",
     proposal: "Предложение вилл",
+    villa: "О вилле",
     open: "Открыть",
+    detail: "Подробнее",
     hint: "Нажмите кнопку ниже, чтобы открыть.",
   },
 };

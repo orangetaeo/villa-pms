@@ -15,6 +15,7 @@ import {
   MissingSupplierPriceError,
   MissingBaseRateError,
 } from "./pricing";
+import { tierForCounterparty } from "./zalo-counterparty";
 import type { DbClient } from "./availability";
 
 // ADR-0014 Phase B: 구 시즌 기반 quoteStay/resolveSeason 제거 → 기간별 경로는
@@ -72,6 +73,66 @@ describe("pickLowestSalePrice — 시즌 우선-else-base 판매가 >0 최저값
     const rows = [r(0, 0n, true), r(80_000, 0n)];
     expect(pickLowestSalePrice(rows, true)).toEqual({ krw: 80_000, vnd: null });
     expect(pickLowestSalePrice(rows, false)).toBeNull();
+  });
+});
+
+describe("pickLowestSalePrice — 가격 계층(ADR-0031, 2026-07-24)", () => {
+  // net·consumer를 모두 가진 행. consumer=null이면 net 폴백을 검증.
+  const rc = (net: bigint, consumer: bigint | null, isBase = false) => ({
+    isBase,
+    salePriceKrw: 0,
+    salePriceVnd: net,
+    consumerSalePriceVnd: consumer,
+    consumerSalePriceKrw: null,
+  });
+
+  it("CONSUMER 계층은 소비자가를 쓰고, NET/미지정은 도매가를 쓴다 (base-only)", () => {
+    // 실측 M villa V01 비수기: Net 11,000,000 / 소비자 12,100,000
+    const rows = [rc(11_000_000n, 12_100_000n, true)];
+    expect(pickLowestSalePrice(rows, false, "CONSUMER")).toEqual({ krw: null, vnd: 12_100_000n });
+    expect(pickLowestSalePrice(rows, false, "NET")).toEqual({ krw: null, vnd: 11_000_000n });
+    // tier 미지정 = NET(하위호환)
+    expect(pickLowestSalePrice(rows, false)).toEqual({ krw: null, vnd: 11_000_000n });
+  });
+
+  it("CONSUMER인데 소비자가 null이면 Net으로 폴백", () => {
+    const rows = [rc(11_000_000n, null, true)];
+    expect(pickLowestSalePrice(rows, false, "CONSUMER")).toEqual({ krw: null, vnd: 11_000_000n });
+  });
+
+  it("CONSUMER 계층도 시즌 우선-else-base — 시즌 소비자가 최저를 대표가로", () => {
+    // base(net 11M/consumer 12.1M) + 시즌(net 12M/consumer 13.2M) → 시즌 우선 → 소비자 13.2M
+    const rows = [rc(11_000_000n, 12_100_000n, true), rc(12_000_000n, 13_200_000n)];
+    expect(pickLowestSalePrice(rows, false, "CONSUMER")).toEqual({ krw: null, vnd: 13_200_000n });
+    // 같은 rows를 NET으로 보면 시즌 도매가 12M
+    expect(pickLowestSalePrice(rows, false, "NET")).toEqual({ krw: null, vnd: 12_000_000n });
+  });
+
+  it("CONSUMER 시즌 소비자가만 null이면 그 행은 net 유효가로 평가(폴백)", () => {
+    // 시즌 소비자가 null → 유효가=net 12M(>0이라 시즌 풀에 포함). base 소비자가 12.1M는 무시(시즌 우선).
+    const rows = [rc(11_000_000n, 12_100_000n, true), rc(12_000_000n, null)];
+    expect(pickLowestSalePrice(rows, false, "CONSUMER")).toEqual({ krw: null, vnd: 12_000_000n });
+  });
+
+  it("consumer 필드 없는 기존 입력도 NET 계층에서 그대로 동작(하위호환)", () => {
+    const rows = [{ isBase: true, salePriceKrw: 618_000, salePriceVnd: 10_000_000n }];
+    expect(pickLowestSalePrice(rows, false, "NET")).toEqual({ krw: null, vnd: 10_000_000n });
+    expect(pickLowestSalePrice(rows, false)).toEqual({ krw: null, vnd: 10_000_000n });
+  });
+});
+
+describe("tierForCounterparty — 상대 타입 → 가격 계층 (ADR-0031)", () => {
+  it("CUSTOMER(일반소비자) → CONSUMER", () => {
+    expect(tierForCounterparty("CUSTOMER")).toBe("CONSUMER");
+  });
+  it("여행사·랜드사(도매) → NET", () => {
+    expect(tierForCounterparty("TRAVEL_AGENCY")).toBe("NET");
+    expect(tierForCounterparty("LAND_AGENCY")).toBe("NET");
+  });
+  it("그 외(SUPPLIER·UNKNOWN·IGNORED) → NET(방어)", () => {
+    expect(tierForCounterparty("SUPPLIER")).toBe("NET");
+    expect(tierForCounterparty("UNKNOWN")).toBe("NET");
+    expect(tierForCounterparty("IGNORED")).toBe("NET");
   });
 });
 

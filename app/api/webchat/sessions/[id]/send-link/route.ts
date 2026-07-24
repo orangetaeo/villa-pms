@@ -11,16 +11,23 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { isOperator } from "@/lib/permissions";
 import { requireCapability, notFoundIfMissing } from "@/lib/api-guard";
 import { publish } from "@/lib/realtime-bus";
-import { computeExpiresAt, previewText, listActiveOperatorIds } from "@/lib/webchat";
+import { computeExpiresAt, previewText, listActiveOperatorIds, maybeTranslate } from "@/lib/webchat";
 import { ensureGuestLinkToken } from "@/lib/guest-link-token";
 import { renderLinkMessage, type LinkKind } from "@/lib/webchat-link-templates";
 import { effectiveProposalStatus } from "@/lib/proposal";
 import { isPublicLang } from "@/lib/public-i18n";
+import { pickLowestSalePrice } from "@/lib/pricing";
+import { getPublicVillasByIds } from "@/lib/seo/public-villa";
+import { absoluteUrl } from "@/lib/seo/base-url";
+import { blogPaths } from "@/lib/seo/routes";
+import { buildWebchatVillaCaption } from "@/lib/webchat-villa-share";
 
 const schema = z.object({
-  kind: z.enum(["checkin", "options", "receipt", "proposal"]),
+  kind: z.enum(["checkin", "options", "receipt", "proposal", "villa"]),
   // kind=proposal일 때만 사용 — /p 제안 링크 대상. 나머지 kind는 무시.
   proposalId: z.string().min(1).optional(),
+  // kind=villa일 때만 사용 — 공유할 빌라 id. 나머지 kind는 무시.
+  villaId: z.string().min(1).optional(),
 });
 
 /** 앱 공개 base URL(NEXTAUTH_URL 우선, 끝 슬래시 제거). 미설정 시 상대경로 폴백(위젯 동일 오리진). */
@@ -160,6 +167,145 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         id: message.id,
         createdAt: message.createdAt.toISOString(),
         translationFailed: false,
+      },
+    });
+  }
+
+  // ── kind=villa: 빌라 공유 카드 발송 (T-webchat-villa-share) ──
+  //   빌라는 세션 예약(bookingId)과 무관 — not_linked 검사 앞에서 갈라진다(예약 미연결 세션에서도 발송 가능).
+  //   ★누수 불변식(ADR-0031·마진 비공개): ratePeriods select는 salePrice*/consumerSalePrice*/season/isBase만
+  //     (supplierCostVnd·marginType·marginValue 미조회). 대표가=소비자 VND(웹챗 방문자=일반소비자).
+  //   ★URL은 payload로만 — 캡션(text)에 넣지 않는다(방문자 언어 번역이 URL 훼손하는 것 회피).
+  if (kind === "villa") {
+    const villaId = parsed.data.villaId;
+    if (!villaId) {
+      return NextResponse.json({ error: "VALIDATION_FAILED" }, { status: 400 });
+    }
+    const villa = await prisma.villa.findFirst({
+      where: { id: villaId },
+      select: {
+        id: true,
+        status: true,
+        isSellable: true,
+        complex: true,
+        bedrooms: true,
+        bathrooms: true,
+        maxGuests: true,
+        hasPool: true,
+        breakfastAvailable: true,
+        ratePeriods: {
+          select: {
+            season: true,
+            isBase: true,
+            salePriceVnd: true,
+            salePriceKrw: true,
+            consumerSalePriceVnd: true,
+            consumerSalePriceKrw: true,
+          },
+        },
+      },
+    });
+    const foundVilla = notFoundIfMissing(villa);
+    if (!foundVilla.ok) return foundVilla.response;
+    const v = foundVilla.resource;
+    // 검수 게이트 통과 재고만(미검수·미운영 노출 차단 — 고객 경로와 동일 가드).
+    if (v.status !== "ACTIVE" || !v.isSellable) {
+      return NextResponse.json({ error: "villa_not_sellable" }, { status: 400 });
+    }
+
+    // 소비자 VND 대표가(CONSUMER 계층, 미설정 시 Net 폴백).
+    const from = pickLowestSalePrice(v.ratePeriods, false, "CONSUMER");
+
+    // 공개 상세 페이지(/blog/villa/[slug]) — 발행됐으면 카드 링크 + 공개 표시명. 없으면 링크 없이 간단정보만.
+    //   getPublicVillasByIds는 공개 화이트리스트 관문(판매가·원가·마진 미조회) — 누수 불변식 유지.
+    const [publicVilla] = await getPublicVillasByIds([villaId]);
+    const url = publicVilla ? absoluteUrl(blogPaths.villa(publicVilla.slug)) : undefined;
+    // 실명 비공개(비로그인 방문자, 원칙 1) — 공개 라벨 우선, 없으면 규모·단지 조합(고유 실명 미노출).
+    const displayName =
+      publicVilla?.publicLabel ??
+      `${v.bedrooms}베드룸 빌라${v.complex ? ` · ${v.complex}` : ""}`;
+
+    // ko 캡션(URL 미포함) — 카드가 payload.url로 렌더.
+    const caption = buildWebchatVillaCaption(
+      {
+        displayName,
+        bedrooms: v.bedrooms,
+        bathrooms: v.bathrooms,
+        maxGuests: v.maxGuests,
+        hasPool: v.hasPool,
+        breakfastAvailable: v.breakfastAvailable,
+      },
+      from
+    );
+
+    // 방문자 언어 번역(reply 경로와 동일 헬퍼 maybeTranslate) — URL 미포함이라 안전.
+    //   실패해도 ko 원문 발송(발송 누락 금지) + translationFailed 플래그.
+    const tr = await maybeTranslate(caption, s.visitorLocale, "ko");
+    const translationFailed = tr.failed;
+
+    const now = new Date();
+    const preview = previewText(caption);
+    const expiresAt = computeExpiresAt(now);
+
+    const message = await prisma.$transaction(async (tx) => {
+      const created = await tx.webChatMessage.create({
+        data: {
+          sessionId: s.id,
+          direction: "OUTBOUND",
+          text: caption, // ko 원문(대표가 포함, URL 미포함)
+          sourceLocale: "ko",
+          translatedText: tr.translatedText,
+          translatedTo: tr.translatedTo,
+          translationFailed,
+          sentBy: g.userId,
+          // 카드 렌더용 — payload는 villaId + url(있으면). 금액은 캡션(text)에만.
+          kind: "villa",
+          payload: url ? { villaId, url } : { villaId },
+        },
+        select: { id: true, createdAt: true },
+      });
+      await tx.webChatSession.update({
+        where: { id: s.id },
+        data: {
+          lastMessageText: preview,
+          lastMessageDirection: "OUTBOUND",
+          lastMessageAt: created.createdAt,
+          expiresAt, // 슬라이딩 연장
+        },
+      });
+      return created;
+    });
+
+    // 실시간 신호(식별만) — best-effort. 활성 운영자 전원 채널로 fan-out.
+    try {
+      const operatorIds = await listActiveOperatorIds();
+      for (const opId of operatorIds) {
+        publish(opId, { type: "outbound", conversationId: s.id, source: "webchat" });
+      }
+    } catch {
+      /* 신호 실패는 무해 */
+    }
+
+    // 감사 로그 — 무엇을(villa) 어느 빌라(villaId)에 발송했는지.
+    await writeAuditLog({
+      userId: g.userId,
+      action: "CREATE",
+      entity: "WebChatMessage",
+      entityId: message.id,
+      changes: {
+        sessionId: { new: s.id },
+        direction: { new: "OUTBOUND" },
+        linkKind: { new: "villa" },
+        villaId: { new: villaId },
+      },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      message: {
+        id: message.id,
+        createdAt: message.createdAt.toISOString(),
+        translationFailed,
       },
     });
   }

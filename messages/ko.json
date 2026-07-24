@@ -4444,6 +4444,8 @@
       "options": "부가서비스 신청",
       "receipt": "정산 영수증",
       "proposal": "빌라 제안",
+      "villa": "빌라 공유",
+      "villaOpen": "상세 보기",
       "open": "열기",
       "hint": "방문자가 아래 버튼으로 링크를 엽니다"
     },
@@ -4493,6 +4495,33 @@
         "itemsUnavailable": "선택한 빌라 중 예약 불가한 곳이 있습니다. 다시 검색하세요.",
         "createFailed": "제안 생성에 실패했습니다. 잠시 후 다시 시도하세요.",
         "clientNameRequired": "고객명을 입력하세요."
+      }
+    },
+    "villa": {
+      "sendButton": "빌라 공유",
+      "modalTitle": "빌라 공유",
+      "close": "닫기",
+      "loading": "불러오는 중…",
+      "empty": "공유 가능한 빌라가 없습니다.",
+      "selectHint": "공유할 빌라를 선택하세요.",
+      "bedrooms": "침실 {count}",
+      "bathrooms": "욕실 {count}",
+      "maxGuests": "{count}명",
+      "pool": "수영장",
+      "breakfast": "조식",
+      "fromSuffix": "부터",
+      "noPrice": "가격 미설정",
+      "confirmTitle": "이 빌라를 공유할까요?",
+      "fieldVilla": "빌라",
+      "fieldPrice": "대표가",
+      "confirmNote": "방문자에게 빌라 정보와 대표 가격을 보냅니다.",
+      "cancel": "취소",
+      "doSend": "공유하기",
+      "sending": "공유 중…",
+      "error": {
+        "notSellable": "판매 가능 상태가 아닌 빌라입니다.",
+        "sessionClosed": "종료·차단된 대화에는 공유할 수 없습니다.",
+        "generic": "공유에 실패했습니다. 잠시 후 다시 시도하세요."
       }
     },
     "noMessages": "메시지가 없습니다",

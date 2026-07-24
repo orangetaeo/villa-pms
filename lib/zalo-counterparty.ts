@@ -5,6 +5,7 @@
 //  - translateMode: SUPPLIER → VI(베트남인 전제), 그 외 → OFF(오버트랜슬레이션 방지).
 import { Currency } from "@prisma/client";
 import type { ZaloCounterpartyType, ZaloTranslateMode } from "@prisma/client";
+import type { PriceTier } from "./pricing";
 
 /**
  * 기존/신규 대화의 counterpartyType 추론 (ADR D1.5 — 보수적 변형).
@@ -61,6 +62,19 @@ export function currencyForType(type: ZaloCounterpartyType): Currency {
     default:
       throw new Error(`currencyForType: not a sell-side type: ${type}`);
   }
+}
+
+/**
+ * 상대 타입 → 빌라 공유 가격 계층 (ADR-0031). 빌라 공유 대표가·본문이 어느 판매가 컬럼을
+ * 읽을지 결정한다.
+ *  - CUSTOMER(일반소비자) → CONSUMER: 소비자 직판가(consumerSalePrice* ?? salePrice* 폴백).
+ *  - TRAVEL_AGENCY / LAND_AGENCY(도매) → NET: 여행사·랜드사 도매가(salePrice*).
+ *  - 그 외(UNKNOWN 등, 방어) → NET.
+ * ★ 통화·본문 게이트(isSellSideType)와 별개 축 — 계층은 "어느 컬럼", 통화는 "VND/KRW".
+ *   빌라 공유는 통화 항상 VND(2026-07-24)이고 계층만 상대 타입으로 갈린다.
+ */
+export function tierForCounterparty(type: ZaloCounterpartyType): PriceTier {
+  return type === "CUSTOMER" ? "CONSUMER" : "NET";
 }
 
 /** 첨부 메뉴에 노출 가능한 공유 종류 (R2-5) — FE 가시성·서버 게이트 공용. */
