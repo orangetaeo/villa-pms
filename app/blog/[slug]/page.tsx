@@ -9,6 +9,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getPublishedArticleBySlug } from "@/lib/seo/article";
 import { getPublicVillaApproxMapEmbed } from "@/lib/seo/public-villa";
+import { getPlaceArticleMap } from "@/lib/seo/public-place";
 import ArticleBody from "@/components/seo/article-body";
 import { blogPaths, BLOG_ROOT } from "@/lib/seo/routes";
 import { absoluteUrl } from "@/lib/seo/base-url";
@@ -61,6 +62,28 @@ export default async function ArticlePage({ params }: Params) {
       ? await getPublicVillaApproxMapEmbed(article.relatedVillaIds[0]).catch(() => null)
       : null;
 
+  // 장소 글(맛집·카페 등)은 **정밀** 지도 + LocalBusiness/Restaurant geo 구조화 데이터를 붙인다.
+  //   남의 공개 영업점이라 위치를 숨길 이유가 없고, 지역 검색 리치결과(로컬 SEO)의 핵심 신호다.
+  const placeMap =
+    article.category === "place" ? await getPlaceArticleMap(article.id).catch(() => null) : null;
+
+  // 장소 구조화 데이터 — Article과 별개 스크립트로 낸다. geo는 좌표가 있을 때만.
+  const placeLd = placeMap
+    ? {
+        "@context": "https://schema.org",
+        "@type": placeMap.schemaType,
+        name: placeMap.name,
+        ...(placeMap.area
+          ? { address: { "@type": "PostalAddress", addressLocality: placeMap.area, addressCountry: "VN" } }
+          : {}),
+        ...(placeMap.lat != null && placeMap.lng != null
+          ? { geo: { "@type": "GeoCoordinates", latitude: placeMap.lat, longitude: placeMap.lng } }
+          : {}),
+        hasMap: placeMap.mapLink,
+        mainEntityOfPage: absoluteUrl(blogPaths.article(article.slug)),
+      }
+    : null;
+
   // JSON-LD Article — 구조화 데이터. ★가격·재고 필드는 넣지 않는다(공개 경계 승계).
   const jsonLd = {
     "@context": "https://schema.org",
@@ -90,6 +113,12 @@ export default async function ArticlePage({ params }: Params) {
         // JSON.stringify 결과만 주입 — 사용자 입력 HTML이 아니라 직렬화된 데이터다.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
+      {placeLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(placeLd).replace(/</g, "\\u003c") }}
+        />
+      )}
 
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur">
         <Link href="/" className="text-lg font-extrabold tracking-tight text-teal-600">
@@ -146,6 +175,31 @@ export default async function ArticlePage({ params }: Params) {
                 className="absolute inset-0 h-full w-full border-0"
               />
             </div>
+          </section>
+        )}
+
+        {/* 위치 — 장소 글(공개 영업점)은 정밀 지도 + "구글 지도에서 열기" 링크. */}
+        {placeMap && (
+          <section className="mt-10">
+            <h2 className="text-lg font-bold">위치</h2>
+            {placeMap.area && <p className="mt-1 text-sm text-slate-500">푸꾸옥 {placeMap.area}</p>}
+            <div className="relative mt-3 aspect-video w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+              <iframe
+                src={placeMap.embedUrl}
+                title={`${placeMap.name} 위치 지도`}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                className="absolute inset-0 h-full w-full border-0"
+              />
+            </div>
+            <a
+              href={placeMap.mapLink}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              className="mt-2 inline-block text-sm font-semibold text-teal-700 hover:underline"
+            >
+              구글 지도에서 열기 →
+            </a>
           </section>
         )}
 

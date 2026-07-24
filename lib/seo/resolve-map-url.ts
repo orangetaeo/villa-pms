@@ -19,6 +19,45 @@ function isGoogleShortUrl(raw: string): boolean {
 }
 
 /**
+ * 풀 URL에서 좌표 {lat,lng} 추출 — 구조화 데이터(geo)용. 없으면 null.
+ * 지원 형태: q=/query=/ll= 의 "lat,lng" · path의 @lat,lng · place URL의 !3d<lat>!4d<lng>.
+ * ★ 공개 영업점(장소 글) 전용 — 빌라엔 쓰지 않는다(빌라는 정확 좌표를 내보내지 않음).
+ */
+export function extractLatLng(fullUrl: string | null | undefined): { lat: number; lng: number } | null {
+  if (!fullUrl) return null;
+  let u: URL;
+  try {
+    u = new URL(fullUrl);
+  } catch {
+    return null;
+  }
+  const inRange = (lat: number, lng: number) =>
+    Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+  // 1) q/query/ll 파라미터의 "lat,lng"
+  for (const key of ["q", "query", "ll", "center"]) {
+    const v = u.searchParams.get(key);
+    const m = v && /^\s*(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/.exec(v);
+    if (m) {
+      const lat = Number(m[1]), lng = Number(m[2]);
+      if (inRange(lat, lng)) return { lat, lng };
+    }
+  }
+  // 2) path/search의 @lat,lng
+  const at = /@(-?\d{1,3}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)/.exec(u.pathname + u.search);
+  if (at) {
+    const lat = Number(at[1]), lng = Number(at[2]);
+    if (inRange(lat, lng)) return { lat, lng };
+  }
+  // 3) place URL의 !3d<lat>!4d<lng>
+  const d = /!3d(-?\d{1,3}(?:\.\d+)?)!4d(-?\d{1,3}(?:\.\d+)?)/.exec(u.href);
+  if (d) {
+    const lat = Number(d[1]), lng = Number(d[2]);
+    if (inRange(lat, lng)) return { lat, lng };
+  }
+  return null;
+}
+
+/**
  * short URL이면 리다이렉트를 따라가 좌표가 든 풀 URL을 반환한다. short URL이 아니면 원본 그대로.
  * 네트워크 실패·비-short는 원본 반환(멱등·안전).
  */
