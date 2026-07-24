@@ -9,6 +9,23 @@ import {
   parseCancellationPolicy,
 } from "@/lib/cancellation-policy";
 import { isPublicLang } from "@/lib/public-i18n";
+import { BookingChannel, BookingSeller, type Currency } from "@prisma/client";
+
+/** B2C 결제 조건 동의 스냅샷 (policyConsentJson.b2c) — JSON 직렬화용 구체 타입(원가·마진·FX원본 없음).
+ *  ★type 별칭 사용(interface는 Prisma InputJsonObject 인덱스시그니처에 할당 불가 — TS 함정). */
+type B2cConsentSnapshot = {
+  termsVersion: number;
+  billingCurrency: Currency;
+  depositRatePct: number;
+  balanceLeadDays: number;
+  totalVnd: string;
+  depositDueVnd: string;
+  balanceDueVnd: string;
+  fullPrepay: boolean;
+};
+import { resolveBookingAnchorVnd, computeB2cSchedule } from "@/lib/b2c-payment";
+import { resolveB2cSettings } from "@/lib/b2c-schedule";
+import { B2C_TERMS_VERSION } from "@/lib/b2c-terms";
 
 // 공개·미인증 엔드포인트 폭주 방어 (T-sec-public-hardening)
 // 토큰: 경로값이라 스푸핑 불가(1차) / IP: best-effort(XFF). 제안 ACTIVE→USED 가드로
@@ -60,10 +77,27 @@ export async function POST(
     return Response.json({ error: "invalid_input" }, { status: 400 });
   }
 
-  // 교차 토큰 차단 — itemId가 이 token의 제안 소속인지 확인
+  // 교차 토큰 차단 — itemId가 이 token의 제안 소속인지 확인.
+  //   B2C 동의 스냅샷(ADR-0048 P5c)용 필드도 함께 로드(채널·통화·총액·스냅샷 환율·체크인).
   const item = await prisma.proposalItem.findUnique({
     where: { id: parsed.data.itemId },
-    select: { id: true, proposal: { select: { token: true } } },
+    select: {
+      id: true,
+      checkIn: true,
+      totalKrw: true,
+      totalVnd: true,
+      totalUsd: true,
+      proposal: {
+        select: {
+          token: true,
+          channel: true,
+          seller: true,
+          saleCurrency: true,
+          fxVndPerKrw: true,
+          fxVndPerUsd: true,
+        },
+      },
+    },
   });
   if (!item || item.proposal.token !== token) {
     return Response.json({ error: "not_found" }, { status: 404 });
@@ -76,10 +110,46 @@ export async function POST(
     select: { value: true },
   });
   const policy = parseCancellationPolicy(policyRow?.value);
+  const now = new Date();
+
+  // B2C 결제 조건 동의 스냅샷 (ADR-0048 P5c) — 직접(일반고객)·운영자 판매 제안만.
+  //   book 화면(P5b)에 계약금/잔금·잔금 환율변동 공시를 노출했고, 동의 당시 조건을 증빙 저장한다.
+  //   VND 앵커 스냅샷(청구통화→예약 시점 환율). 앵커 산출 불가(환율 미상)면 미기록. BigInt→문자열(Json).
+  //   ⚠ 마진·원가·소비자가·FX 원본 미포함 — 계약금/잔금 VND·정책값·버전만(원칙2).
+  let b2cConsent: B2cConsentSnapshot | null = null;
+  if (
+    item.proposal.channel === BookingChannel.DIRECT &&
+    item.proposal.seller === BookingSeller.OPERATOR
+  ) {
+    const anchorVnd = resolveBookingAnchorVnd({
+      saleCurrency: item.proposal.saleCurrency,
+      totalSaleKrw: item.totalKrw,
+      totalSaleVnd: item.totalVnd,
+      totalSaleUsd: item.totalUsd,
+      fxVndPerKrw: item.proposal.fxVndPerKrw != null ? item.proposal.fxVndPerKrw.toString() : null,
+      fxVndPerUsd: item.proposal.fxVndPerUsd != null ? item.proposal.fxVndPerUsd.toString() : null,
+    });
+    if (anchorVnd != null && anchorVnd > 0n) {
+      const settings = await resolveB2cSettings(prisma);
+      const sched = computeB2cSchedule({ totalVnd: anchorVnd, checkIn: item.checkIn, now, ...settings });
+      b2cConsent = {
+        termsVersion: B2C_TERMS_VERSION,
+        billingCurrency: item.proposal.saleCurrency,
+        depositRatePct: settings.depositRatePct,
+        balanceLeadDays: settings.balanceLeadDays,
+        totalVnd: anchorVnd.toString(),
+        depositDueVnd: sched.depositDueVnd.toString(),
+        balanceDueVnd: sched.balanceDueVnd.toString(),
+        fullPrepay: sched.fullPrepay,
+      };
+    }
+  }
+
   let policyConsentJson: {
     agreedAt: string;
     // S3: N단계 스냅샷. ★ 기존 예약의 v1 스냅샷({fullDays,...})은 그대로 보존 — 재해석 금지(동의 당시 조건이 정본).
-    policy: { tiers: { fromDays: number; refundPct: number }[] };
+    policy?: { tiers: { fromDays: number; refundPct: number }[] };
+    b2c?: B2cConsentSnapshot;
     locale: string;
     source: "proposal";
   } | null = null;
@@ -87,10 +157,15 @@ export async function POST(
     if (parsed.data.policyConsent !== true) {
       return Response.json({ error: "CONSENT_REQUIRED" }, { status: 400 });
     }
-    // 스냅샷은 서버 정책값으로 구성 — 동의 당시 조건 증빙(정책이 이후 바뀌어도 불변).
+  }
+  // 취소규정 동의 또는 B2C 결제 조건 중 하나라도 있으면 스냅샷 저장(동의 당시 조건 증빙, 이후 정책 변경 불변).
+  if (policy.enabled || b2cConsent) {
     policyConsentJson = {
-      agreedAt: new Date().toISOString(),
-      policy: { tiers: policy.tiers.map((t) => ({ fromDays: t.fromDays, refundPct: t.refundPct })) },
+      agreedAt: now.toISOString(),
+      ...(policy.enabled
+        ? { policy: { tiers: policy.tiers.map((t) => ({ fromDays: t.fromDays, refundPct: t.refundPct })) } }
+        : {}),
+      ...(b2cConsent ? { b2c: b2cConsent } : {}),
       locale: isPublicLang(parsed.data.locale) ? parsed.data.locale : "ko",
       source: "proposal",
     };
@@ -103,7 +178,7 @@ export async function POST(
       guestCount: parsed.data.guestCount,
       guestPhone: parsed.data.guestPhone,
       policyConsentJson,
-      now: new Date(),
+      now,
     });
     return Response.json({ bookingId: booking.id }, { status: 201 });
   } catch (e) {
