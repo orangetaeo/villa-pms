@@ -7,6 +7,14 @@ import Image from "next/image";
 import type { PublicArticle } from "@/lib/seo/article";
 import { blogPaths } from "@/lib/seo/routes";
 
+// 카드 렌더에 실제로 필요한 최소 필드만 요구한다(구조적 최소 타입).
+// PublicArticle[](카테고리 목록)·RelatedArticleCard[](관련 글) 둘 다 이 형태의 상위집합이라
+// 그대로 넘길 수 있다 — 컴포넌트를 두 벌 만들지 않는다.
+type ArticleCardData = Pick<
+  PublicArticle,
+  "id" | "slug" | "title" | "summary" | "thumbnailUrl" | "coverPhotoUrl" | "publishedAt"
+>;
+
 function formatKoDate(d: Date): string {
   // DESIGN.md: 날짜는 YYYY.MM.DD 점 표기
   const kst = new Date(d.getTime() + 9 * 3600 * 1000);
@@ -14,7 +22,7 @@ function formatKoDate(d: Date): string {
   return `${kst.getUTCFullYear()}.${p(kst.getUTCMonth() + 1)}.${p(kst.getUTCDate())}`;
 }
 
-export default function ArticleCardList({ articles }: { articles: PublicArticle[] }) {
+export default function ArticleCardList({ articles }: { articles: ArticleCardData[] }) {
   return (
     <ul className="space-y-6">
       {articles.map((a) => {
