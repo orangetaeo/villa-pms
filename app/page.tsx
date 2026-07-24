@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { isOperator } from "@/lib/permissions";
 import PublicHome from "@/components/seo/public-home";
 import { getPublicVillas } from "@/lib/seo/public-villa";
+import { getPublishedArticlesByCategory } from "@/lib/seo/article";
 import { areaFacets } from "@/lib/seo/facets";
 import { absoluteUrl } from "@/lib/seo/base-url";
 
@@ -83,5 +84,17 @@ export default async function Home() {
     };
   });
 
-  return <PublicHome villas={villas} areas={areas} />;
+  // 히어로 롤링용 — "우선은 빌라의 블로그"(테오 2026-07-24): category=villa 발행 글의 썸네일만.
+  //   썸네일 없는 글은 제외(빈 슬라이드 방지). DB 장애가 홈을 죽이지 않게 try/catch.
+  let villaPosts: { slug: string; title: string; imageUrl: string }[] = [];
+  try {
+    const { articles } = await getPublishedArticlesByCategory("villa", 1, 10);
+    villaPosts = articles
+      .map((a) => ({ slug: a.slug, title: a.title, imageUrl: a.thumbnailUrl ?? a.coverPhotoUrl ?? "" }))
+      .filter((p) => p.imageUrl);
+  } catch {
+    villaPosts = [];
+  }
+
+  return <PublicHome villas={villas} areas={areas} villaPosts={villaPosts} />;
 }

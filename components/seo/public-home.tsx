@@ -17,6 +17,7 @@ import type { PublicVilla } from "@/lib/seo/public-villa";
 import { blogPaths } from "@/lib/seo/routes";
 import { FEATURE_ITEMS } from "@/lib/features";
 import { VillaGoMark } from "@/components/brand/villa-go-logo";
+import HeroBlogCarousel, { type HeroBlogSlide } from "@/components/seo/hero-blog-carousel";
 
 /** 상담 진입점 — 웹챗(/chat)으로 통일하고 유입 출처를 seo로 표기(인박스에서 구분). */
 const CONSULT_HREF = "/chat?src=seo";
@@ -39,6 +40,8 @@ export interface PublicHomeProps {
   villas: PublicVilla[];
   /** 지역 카드 — 공개 빌라가 있는 지역만 상위에서 집계해 전달한다. */
   areas: { code: string; label: string; count: number }[];
+  /** 히어로 롤링용 빌라 블로그 썸네일(최신순). 비어 있으면 사진 배경 히어로로 폴백. */
+  villaPosts: HeroBlogSlide[];
 }
 
 // 히어로 배경으로 어울리는 공간 우선순위. 화장실(BATHROOM)·주방(KITCHEN)·ETC는
@@ -54,7 +57,7 @@ function pickHeroPhoto(villas: PublicVilla[]): string | undefined {
   return undefined; // 적합한 공간이 하나도 없으면 배경 없이 단색으로 둔다
 }
 
-export default function PublicHome({ villas, areas }: PublicHomeProps) {
+export default function PublicHome({ villas, areas, villaPosts }: PublicHomeProps) {
   const featured = villas.slice(0, 3);
   // 히어로 배경 사진 — 공간(space) 역할로 고른다. 첫 사진을 그냥 쓰면 화장실·침실이 배경으로
   //   걸린다(순서≠대표). 수영장>외관>거실>베란다 순으로 우선, 화장실·주방은 히어로에서 제외.
@@ -96,39 +99,62 @@ export default function PublicHome({ villas, areas }: PublicHomeProps) {
         </div>
       </header>
 
-      {/* 히어로 — 공개 빌라 사진을 배경으로 깔고 어둡게 오버레이(글자 가독성).
-          공개 빌라가 0개면 사진 없이 단색 배경으로 폴백(빈 상태에서도 성립). */}
-      <section className="relative isolate overflow-hidden bg-slate-900">
-        {heroPhoto && (
-          <Image
-            src={heroPhoto}
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-            aria-hidden
-          />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/80 via-slate-900/65 to-slate-900/95" />
-        <div className="relative px-5 py-16 sm:py-24">
-          <p className="text-sm font-semibold text-amber-400">푸꾸옥 현지 빌라</p>
-          <h1 className="mt-2 text-3xl font-extrabold leading-snug text-white sm:text-4xl">
-            푸꾸옥 풀빌라,
-            <br />
-            조건으로 찾으세요
-          </h1>
-          <p className="mt-3 max-w-md text-base leading-relaxed text-slate-200">
-            인원·시설로 골라보는 현지 빌라. 현지에서 직접 운영하고 검수합니다.
-          </p>
-          <Link
-            href={CONSULT_HREF}
-            className="mt-6 inline-flex touch-target items-center rounded-full bg-white px-6 text-base font-bold text-slate-900"
-          >
-            1분 견적 상담
-          </Link>
-        </div>
-      </section>
+      {/* 히어로 — 빌라 블로그 썸네일 롤링(테오 지시 2026-07-24). 누르면 해당 글로 이동.
+          블로그 글이 아직 없으면 공개 빌라 사진 배경 히어로로 폴백(빈 상태에서도 성립). */}
+      {villaPosts.length > 0 ? (
+        <>
+          <HeroBlogCarousel slides={villaPosts} />
+          {/* 값 제안 + 대표 CTA — 썸네일에 제목이 이미 있으므로 캐러셀 아래 컴팩트 밴드로.
+              (h1은 페이지에 하나만 유지 — SEO) */}
+          <section className="px-5 py-7">
+            <p className="text-sm font-semibold text-teal-700">푸꾸옥 현지 빌라</p>
+            <h1 className="mt-1 text-2xl font-extrabold leading-snug sm:text-3xl">
+              푸꾸옥 풀빌라, 조건으로 찾으세요
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-slate-600">
+              인원·시설로 골라보는 현지 빌라. 현지에서 직접 운영하고 검수합니다.
+            </p>
+            <Link
+              href={CONSULT_HREF}
+              className="mt-4 inline-flex touch-target items-center rounded-full bg-teal-600 px-6 text-base font-bold text-white"
+            >
+              1분 견적 상담
+            </Link>
+          </section>
+        </>
+      ) : (
+        <section className="relative isolate overflow-hidden bg-slate-900">
+          {heroPhoto && (
+            <Image
+              src={heroPhoto}
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover"
+              aria-hidden
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-900/80 via-slate-900/65 to-slate-900/95" />
+          <div className="relative px-5 py-16 sm:py-24">
+            <p className="text-sm font-semibold text-amber-400">푸꾸옥 현지 빌라</p>
+            <h1 className="mt-2 text-3xl font-extrabold leading-snug text-white sm:text-4xl">
+              푸꾸옥 풀빌라,
+              <br />
+              조건으로 찾으세요
+            </h1>
+            <p className="mt-3 max-w-md text-base leading-relaxed text-slate-200">
+              인원·시설로 골라보는 현지 빌라. 현지에서 직접 운영하고 검수합니다.
+            </p>
+            <Link
+              href={CONSULT_HREF}
+              className="mt-6 inline-flex touch-target items-center rounded-full bg-white px-6 text-base font-bold text-slate-900"
+            >
+              1분 견적 상담
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* 지역으로 찾기 — 공개 빌라가 있는 지역만 */}
       {areas.length > 0 && (
