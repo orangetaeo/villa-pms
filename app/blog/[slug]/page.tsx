@@ -14,7 +14,8 @@ import { guideMapEmbed } from "@/lib/seo/guide-map-anchors";
 import { getRecommendedVillas } from "@/lib/seo/recommended-villas";
 import { getRelatedArticles } from "@/lib/seo/related-articles";
 import { seoArticleCategoryLabel } from "@/lib/seo/categories";
-import { ARTICLE_AUTHOR_LD, ARTICLE_BYLINE, buildBreadcrumbLd } from "@/lib/seo/article-jsonld";
+import { ARTICLE_AUTHOR_LD, ARTICLE_BYLINE, buildBreadcrumbLd, buildVideoObjectLd } from "@/lib/seo/article-jsonld";
+import { getVideoShortDurationSec } from "@/lib/seo/video-article";
 import ArticleBody from "@/components/seo/article-body";
 import ArticleCardList from "@/components/seo/article-card-list";
 import VillaList from "@/components/seo/villa-list";
@@ -143,6 +144,23 @@ export default async function ArticlePage({ params }: Params) {
   //   ★ 구조화 데이터는 화면에 실제 존재하는 계층만 반영한다(스키마=화면 일치 규율).
   const breadcrumbLd = buildBreadcrumbLd(article);
 
+  // 영상 글(category="video")은 VideoObject를 Article과 **병기**한다(ADR-0049 §6). 임베드는 본문 video 블록 재사용.
+  //   duration은 원천 쇼츠(YoutubeShort.durationSec)를 ytVideoId로 별도 조회 → 조회 불가·0이면 필드 자체를 생략.
+  const videoBlock =
+    article.category === "video" ? article.blocks.find((b) => b.type === "video") : undefined;
+  const videoLd =
+    videoBlock && videoBlock.type === "video"
+      ? buildVideoObjectLd({
+          title: article.title,
+          summary: article.summary,
+          slug: article.slug,
+          ytVideoId: videoBlock.ytVideoId,
+          coverPhotoUrl: article.coverPhotoUrl,
+          publishedAt: article.publishedAt,
+          durationSec: await getVideoShortDurationSec(videoBlock.ytVideoId).catch(() => null),
+        })
+      : null;
+
   return (
     <div className="min-h-screen bg-white text-slate-900">
       <script
@@ -154,6 +172,12 @@ export default async function ArticlePage({ params }: Params) {
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(placeLd).replace(/</g, "\\u003c") }}
+        />
+      )}
+      {videoLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(videoLd).replace(/</g, "\\u003c") }}
         />
       )}
       <script
