@@ -65,8 +65,9 @@ export function B2cPaymentTerms({
         ))}
       </ul>
 
-      {/* ★잔금 환율 변동 공시 — 분할(잔금 있음)일 때만. 강조 노출 */}
-      {!fullPrepay && (
+      {/* ★잔금 환율 변동 공시 — 분할(잔금 있음)이고 ★청구통화가 VND가 아닐 때만.
+          VND 청구는 잔금이 동(앵커) 고정이라 환율 변동이 없어 공시 부적합(KRW/USD 청구만 잔금이 FX로 확정). */}
+      {!fullPrepay && currency !== Currency.VND && (
         <p className="rounded-lg bg-amber-50 border border-amber-100 p-3 text-xs text-amber-800 leading-relaxed">
           <span className="material-symbols-outlined text-amber-500 text-sm align-middle mr-1">info</span>
           {t.fxDisclosure}

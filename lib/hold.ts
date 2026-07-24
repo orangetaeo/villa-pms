@@ -20,7 +20,11 @@ import {
   evaluateConfirmCredit,
   writeOffReceivableOnCancel,
 } from "./partner-booking";
-import { ensureB2cScheduleForBooking, cancelB2cScheduleAndComputeRefund } from "./b2c-schedule";
+import {
+  ensureB2cScheduleForBooking,
+  refreshB2cScheduleStatus,
+  cancelB2cScheduleAndComputeRefund,
+} from "./b2c-schedule";
 import { autoClosePendingRequestsOnCancel } from "./booking-change-request";
 import { vendorHasLivePo } from "./vendor-order";
 import { buildVendorNotifText, enqueueInAppNotification } from "./inapp-notification";
@@ -407,6 +411,9 @@ export async function confirmHold(
     // B2C(직접·일반고객) 계약금/잔금 스케줄 생성(멱등) — 위 채권의 B2C 대칭 (ADR-0048).
     //   대상 아님(파트너·공급자직판)이면 내부에서 skip. 앵커 산출 불가여도 무해 skip.
     await ensureB2cScheduleForBooking(tx, booking.id, input.now);
+    // ★확정 전에 계약금 Payment가 먼저 기록됐을 수 있다(HOLD 중 입금기록 → 그땐 스케줄 부재로 상태 미갱신).
+    //   스케줄 생성 직후 기존 B2C 결제로 상태를 재계산해 순서 무관하게 DEPOSIT_PAID/PAID로 정합(멱등).
+    await refreshB2cScheduleStatus(tx, booking.id);
 
     await tx.notification.create({
       data: {
