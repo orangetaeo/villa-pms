@@ -13,7 +13,6 @@ import { getTranslations } from "next-intl/server";
 import { SeoArticleStatus } from "@prisma/client";
 import { auth } from "@/auth";
 import { isOperator } from "@/lib/permissions";
-import { userCanSeeMarketing } from "@/lib/marketing-access";
 import { parseArticleBody, bodyTextLength } from "@/lib/seo/article";
 import { blogPaths } from "@/lib/seo/routes";
 import {
@@ -100,7 +99,6 @@ export default async function MarketingSeoPage({
   const session = await auth();
   const role = session?.user?.role;
   if (!session?.user?.id || !role || !isOperator(role)) redirect("/login");
-  if (!(await userCanSeeMarketing(session.user.id))) redirect("/dashboard");
 
   const t = await getTranslations("marketingSeo");
   const tn = await getTranslations("marketingSeoNav");
