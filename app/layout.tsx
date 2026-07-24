@@ -7,9 +7,11 @@ import SplashIntro from "@/components/splash-intro";
 // T-splash-intro — 페인트 전 동기 게이트: sessionStorage(세션당 1회)·reduced-motion·
 // 제외경로(/p·/g) 판정 후 html[data-splash]를 세팅한다(스플래시 표시는 CSS가 결정).
 // 어떤 예외든 조용히 스킵(스플래시 미표시 폴백). ※ 향후 CSP enforce 시 nonce 필요.
-//   ★ T-seo-s1: 공개 SEO 트리(`/` 공개 홈·`/blog/**`)도 제외한다. 전면 오버레이가 본문을
-//     가리면 크롤러·방문자 모두에게 인터스티셜로 보이고, 검색 유입의 첫인상을 스플래시가 잡아먹는다.
-const SPLASH_GATE = `(function(){try{if(sessionStorage.getItem('vg-splash'))return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var p=location.pathname;if(p==='/'||p==='/blog'||p.indexOf('/blog/')===0||p.indexOf('/p/')===0||p.indexOf('/g/')===0||p.indexOf('/webchat')===0||p==='/chat'||p.indexOf('/chat/')===0||p==='/privacy'||p.indexOf('/privacy/')===0||p==='/card'||p.indexOf('/card/')===0)return;document.documentElement.setAttribute('data-splash','1');}catch(e){}})();`;
+//   ★ 공개 홈 `/`는 인트로 노출 대상이다(테오 지시 2026-07-24): villa-go.net 첫 진입 시
+//     브랜드 인트로를 보여준다. 세션당 1회·reduced-motion 존중·2.3s 자동 종료라 인터스티셜
+//     영향은 제한적. 다만 `/blog/**`(순수 SEO 콘텐츠 랜딩)는 계속 제외한다 —
+//     검색 유입의 첫인상을 스플래시가 잡아먹지 않도록.
+const SPLASH_GATE = `(function(){try{if(sessionStorage.getItem('vg-splash'))return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var p=location.pathname;if(p==='/blog'||p.indexOf('/blog/')===0||p.indexOf('/p/')===0||p.indexOf('/g/')===0||p.indexOf('/webchat')===0||p==='/chat'||p.indexOf('/chat/')===0||p==='/privacy'||p.indexOf('/privacy/')===0||p==='/card'||p.indexOf('/card/')===0)return;document.documentElement.setAttribute('data-splash','1');}catch(e){}})();`;
 
 // 검색엔진 소유확인 — 네이버 서치어드바이저·Google Search Console·Bing Webmaster.
 //   값은 env로만 주입한다(테오가 각 콘솔에서 발급). 미설정이면 메타 자체가 출력되지 않는다.
