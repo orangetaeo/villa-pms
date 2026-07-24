@@ -8,6 +8,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getPublishedArticleBySlug } from "@/lib/seo/article";
+import { getPublicVillaApproxMapEmbed } from "@/lib/seo/public-villa";
 import ArticleBody from "@/components/seo/article-body";
 import { blogPaths, BLOG_ROOT } from "@/lib/seo/routes";
 import { absoluteUrl } from "@/lib/seo/base-url";
@@ -52,6 +53,13 @@ export default async function ArticlePage({ params }: Params) {
   const { slug } = await params;
   const article = await getPublishedArticleBySlug(slug).catch(() => null);
   if (!article) notFound();
+
+  // 빌라 글에는 **대략 위치** 지도를 붙인다(로컬 SEO 신호 + 체류시간). 정확 핀은 넣지 않는다
+  //   (원칙 1: 재고 비공개) — 서버에서 좌표를 ~1km로 뭉갠 임베드 URL만 받는다. 비-빌라 글은 지도 없음.
+  const villaMapEmbed =
+    article.category === "villa" && article.relatedVillaIds[0]
+      ? await getPublicVillaApproxMapEmbed(article.relatedVillaIds[0]).catch(() => null)
+      : null;
 
   // JSON-LD Article — 구조화 데이터. ★가격·재고 필드는 넣지 않는다(공개 경계 승계).
   const jsonLd = {
@@ -123,6 +131,23 @@ export default async function ArticlePage({ params }: Params) {
         <div className="mt-6">
           <ArticleBody blocks={article.blocks} />
         </div>
+
+        {/* 위치(대략) — 빌라 글에만. 정확 핀 대신 동네 수준만 보여준다(원칙 1). */}
+        {villaMapEmbed && (
+          <section className="mt-10">
+            <h2 className="text-lg font-bold">위치</h2>
+            <p className="mt-1 text-sm text-slate-500">정확한 주소는 예약 확정 후 안내드립니다. 아래는 대략적인 위치예요.</p>
+            <div className="relative mt-3 aspect-video w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+              <iframe
+                src={villaMapEmbed}
+                title="빌라 대략 위치 지도"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                className="absolute inset-0 h-full w-full border-0"
+              />
+            </div>
+          </section>
+        )}
 
         {/* 상담 CTA — ★가격은 어떤 형태로도 노출하지 않는다(원칙 2) */}
         <section className="mt-10 rounded-2xl bg-slate-50 p-5">

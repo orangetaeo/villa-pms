@@ -25,6 +25,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
 import { publicVillaLabel } from "@/lib/marketing/public-name";
+import { resolveShortMapUrl } from "@/lib/seo/resolve-map-url";
+import { toEmbedUrl } from "@/components/villa/map-embed-url";
 
 // ── 발행 품질 하한 (기획 §0 치명2 — 얇은 콘텐츠·대량 자동생성 스팸 시그널 방지) ──
 /** 공개 페이지 생성에 필요한 최소 사진 수. 미달 빌라는 켜져 있어도 발행하지 않는다. */
@@ -200,6 +202,25 @@ export async function getPublicVillas(db: DbClient = prisma): Promise<PublicVill
     orderBy: { publicListedAt: "asc" },
   });
   return rows.map(toPublicVilla).filter((v): v is PublicVilla => v !== null && isPublishable(v));
+}
+
+/**
+ * 공개 빌라의 **대략 위치 임베드 URL** — 이미 좌표를 ~1km로 뭉갠 iframe src를 반환한다.
+ *
+ * ★ 원칙 1(재고 비공개): googleMapUrl은 빌라 **정확 위치**라 공개 DTO엔 절대 넣지 않고, 여기서
+ *   ⑴ short URL(maps.app.goo.gl)을 풀 URL로 해석 → ⑵ toEmbedUrl(approximate)로 좌표를 소수 2자리
+ *   (≈1.1km 격자)로 반올림하고 줌을 낮춘 **완성 임베드 URL**만 만든다. **정확 좌표는 서버 밖으로
+ *   나가지 않는다** — 클라이언트엔 뭉갠 URL만 전달되어 소스보기로도 정밀 위치를 알 수 없다.
+ * ★ 공개 게이트(PUBLIC_WHERE) 통과분만. 지도 URL 없음·해석 실패·비허용 호스트면 null(지도 생략).
+ */
+export async function getPublicVillaApproxMapEmbed(villaId: string, db: DbClient = prisma): Promise<string | null> {
+  const v = await db.villa.findFirst({
+    where: { ...PUBLIC_WHERE, id: villaId },
+    select: { googleMapUrl: true },
+  });
+  if (!v?.googleMapUrl) return null;
+  const full = await resolveShortMapUrl(v.googleMapUrl);
+  return toEmbedUrl(full, { approximate: true }); // 좌표 뭉갬은 여기서 끝난다(서버 전용)
 }
 
 /** 슬러그 단건 조회 — 공개 상세 페이지용. 자격 미달·비공개면 null(404 처리). */
