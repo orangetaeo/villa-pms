@@ -6749,7 +6749,12 @@
     "placesLink": "장소(맛집·카페) 관리 →",
     "listTitle": "등록된 사진",
     "count": "{n}장",
-    "removeFromList": "목록에서 빼기"
+    "removeFromList": "목록에서 빼기",
+    "selectAll": "전체 선택",
+    "deleteSelected": "선택 영구삭제",
+    "deleting": "삭제 중…",
+    "deleteConfirm": "선택한 {n}장을 영구 삭제합니다. 되돌릴 수 없어요. (원본 파일은 보존)",
+    "deleteNoneSelected": "삭제할 사진을 먼저 선택해 주세요."
   },
   "marketingSeoPlaces": {
     "title": "푸꾸옥 장소 — 맛집·카페·쇼핑",
