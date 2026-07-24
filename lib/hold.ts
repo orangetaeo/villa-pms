@@ -20,6 +20,7 @@ import {
   evaluateConfirmCredit,
   writeOffReceivableOnCancel,
 } from "./partner-booking";
+import { ensureB2cScheduleForBooking } from "./b2c-schedule";
 import { autoClosePendingRequestsOnCancel } from "./booking-change-request";
 import { vendorHasLivePo } from "./vendor-order";
 import { buildVendorNotifText, enqueueInAppNotification } from "./inapp-notification";
@@ -403,6 +404,9 @@ export async function confirmHold(
 
     // 파트너 객실료 채권 생성(멱등) — 선금/잔금·기한 산출 (ADR-0022)
     await ensureReceivableForBooking(tx, booking.id, input.now);
+    // B2C(직접·일반고객) 계약금/잔금 스케줄 생성(멱등) — 위 채권의 B2C 대칭 (ADR-0048).
+    //   대상 아님(파트너·공급자직판)이면 내부에서 skip. 앵커 산출 불가여도 무해 skip.
+    await ensureB2cScheduleForBooking(tx, booking.id, input.now);
 
     await tx.notification.create({
       data: {
