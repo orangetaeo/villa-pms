@@ -6706,7 +6706,9 @@
     "altPlaceholder": "사진 설명(필수)",
     "captionPlaceholder2": "사진 아래 문구(선택)",
     "editHint": "문장을 고치거나 문단·사진을 빼고 저장하세요. 본문이 {min}자 미만이면 저장되지 않습니다.",
-    "errorTooShort": "본문이 너무 짧아 저장하지 않았습니다({chars}자 / 최소 {min}자). 문단을 덜 지우고 다시 시도하세요."
+    "errorTooShort": "본문이 너무 짧아 저장하지 않았습니다({chars}자 / 최소 {min}자). 문단을 덜 지우고 다시 시도하세요.",
+    "categoryFilter": "분류",
+    "catAll": "전체"
   },
   "marketingSeoMedia": {
     "title": "가이드 글 자료 사진",

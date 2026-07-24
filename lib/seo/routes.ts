@@ -19,7 +19,13 @@ export const BLOG_ROOT = "/blog";
  *   /blog/guests/[n]                   인원별
  *   /blog/bedrooms/[n]                 침실 수별
  *   /blog/area/[code]/feature/[key]    2단 조합(화이트리스트만 sitemap 등재)
+ *   /blog/category/[cat]               대분류별 글 목록  ← SEO_ARTICLE_CATEGORIES
  *   /blog/[slug]                       가이드 글
+ *
+ * ★ 카테고리 목록은 반드시 `/blog/category/[cat]` 네임스페이스를 쓴다.
+ *   `/blog/[slug]`가 catch-all이므로 `/blog/guide` 같은 정적 세그먼트를 쓰면
+ *   장차 글 slug가 카테고리명과 겹칠 때 그 글이 영구히 접근 불가가 된다.
+ *   `category/` 한 단을 끼우면 [slug] catch-all과 절대 충돌하지 않는다.
  */
 export const blogPaths = {
   hub: () => BLOG_ROOT,
@@ -31,6 +37,8 @@ export const blogPaths = {
   guests: (n: number) => `${BLOG_ROOT}/guests/${n}`,
   bedrooms: (n: number) => `${BLOG_ROOT}/bedrooms/${n}`,
   areaFeature: (code: string, key: string) => `${BLOG_ROOT}/area/${code}/feature/${key}`,
+  /** 대분류별 글 목록 — cat은 SEO_ARTICLE_CATEGORIES 값(villa|service|place|guide) */
+  categoryList: (cat: string) => `${BLOG_ROOT}/category/${cat}`,
   article: (slug: string) => `${BLOG_ROOT}/${slug}`,
 } as const;
 
