@@ -9,10 +9,13 @@
 // ★ 이 파일은 **네이버·Bing·구글 공통 제출용**이라 최대 호환을 유지한다(비디오 확장 금지).
 //   구글 전용 비디오 사이트맵은 app/sitemap-video.xml/route.ts.
 import type { MetadataRoute } from "next";
+import { prisma } from "@/lib/prisma";
 import { absoluteUrl } from "@/lib/seo/base-url";
 import { BLOG_ROOT, blogPaths } from "@/lib/seo/routes";
 import { getPublicVillas } from "@/lib/seo/public-villa";
 import { getPublishedArticles } from "@/lib/seo/article";
+import { TRANSLATION_READY } from "@/lib/seo/article-i18n";
+import { isNonKoBlogLocale, type NonKoBlogLocale } from "@/lib/seo/blog-locale";
 import { allFacetPages } from "@/lib/seo/facets";
 import { SEO_ARTICLE_CATEGORIES } from "@/lib/seo/categories";
 
@@ -76,6 +79,53 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           priority: 0.7,
           ...(imgs.length > 0 ? { images: imgs } : {}),
         });
+      }
+
+      // ── 비-ko 번역본(ADR-0049) — READY 번역만, plain 엔트리(xhtml:link 확장 금지: 네이버 파싱거부 선례).
+      //    slug×locale 1쿼리로. hreflang 상호연결은 페이지 메타(articleAlternates)가 담당한다.
+      try {
+        const byId = new Map(articles.map((a) => [a.id, a]));
+        const translations = await prisma.seoArticleTranslation.findMany({
+          where: { status: TRANSLATION_READY, articleId: { in: articles.map((a) => a.id) } },
+          select: { articleId: true, locale: true, translatedAt: true },
+        });
+        const hubLocales = new Set<NonKoBlogLocale>();
+        const catLocales = new Set<string>(); // `${locale}:${category}`
+        for (const tr of translations) {
+          const a = byId.get(tr.articleId);
+          if (!a || !isNonKoBlogLocale(tr.locale)) continue;
+          articleEntries.push({
+            url: absoluteUrl(blogPaths.article(a.slug, tr.locale)),
+            lastModified: tr.translatedAt,
+            changeFrequency: "monthly",
+            priority: 0.6,
+          });
+          hubLocales.add(tr.locale);
+          catLocales.add(`${tr.locale}:${a.category}`);
+        }
+        // 언어별 허브 — 그 언어에 번역 글이 1건 이상일 때만(빈 허브 방지).
+        for (const l of hubLocales) {
+          articleEntries.push({
+            url: absoluteUrl(blogPaths.hub(l)),
+            lastModified: now,
+            changeFrequency: "weekly",
+            priority: 0.6,
+          });
+        }
+        // 언어별 카테고리 목록 — 그 언어·분류에 번역 글이 1건 이상일 때만.
+        for (const key of catLocales) {
+          const idx = key.indexOf(":");
+          const l = key.slice(0, idx) as NonKoBlogLocale;
+          const cat = key.slice(idx + 1);
+          articleEntries.push({
+            url: absoluteUrl(blogPaths.categoryList(cat, l)),
+            lastModified: now,
+            changeFrequency: "weekly",
+            priority: 0.5,
+          });
+        }
+      } catch {
+        // 번역 조회 실패는 ko 엔트리에 영향을 주지 않는다(비-ko만 누락).
       }
     }
   } catch {

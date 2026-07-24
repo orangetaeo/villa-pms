@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { PublicArticle } from "@/lib/seo/article";
 import { blogPaths } from "@/lib/seo/routes";
+import type { PublicLocale } from "@/lib/seo/public-i18n";
 
 // 카드 렌더에 실제로 필요한 최소 필드만 요구한다(구조적 최소 타입).
 // PublicArticle[](카테고리 목록)·RelatedArticleCard[](관련 글) 둘 다 이 형태의 상위집합이라
@@ -22,7 +23,14 @@ function formatKoDate(d: Date): string {
   return `${kst.getUTCFullYear()}.${p(kst.getUTCMonth() + 1)}.${p(kst.getUTCDate())}`;
 }
 
-export default function ArticleCardList({ articles }: { articles: ArticleCardData[] }) {
+// locale은 상세 링크에만 반영(기본 ko = 기존 호출부 무영향, ADR-0049).
+export default function ArticleCardList({
+  articles,
+  locale = "ko",
+}: {
+  articles: ArticleCardData[];
+  locale?: PublicLocale;
+}) {
   return (
     <ul className="space-y-6">
       {articles.map((a) => {
@@ -30,7 +38,7 @@ export default function ArticleCardList({ articles }: { articles: ArticleCardDat
         return (
           <li key={a.id}>
             {/* 카드 전체를 링크로 감싼다 — 제목뿐 아니라 이미지·요약 어디를 눌러도 상세로 이동. */}
-            <Link href={blogPaths.article(a.slug)} className="group block">
+            <Link href={blogPaths.article(a.slug, locale)} className="group block">
               <article className="overflow-hidden rounded-2xl border border-slate-200 transition group-hover:border-teal-300 group-hover:shadow-sm">
                 {cover && (
                   <div className="relative aspect-[16/9] bg-slate-100">

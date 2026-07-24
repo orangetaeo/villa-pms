@@ -23,6 +23,9 @@ import VillaList from "@/components/seo/villa-list";
 import { blogPaths, BLOG_ROOT } from "@/lib/seo/routes";
 import { absoluteUrl } from "@/lib/seo/base-url";
 import { BRAND_FALLBACK_IMAGE } from "@/lib/seo/article-draft";
+// ADR-0049: ko 캐논도 번역본으로의 hreflang을 내보내야 비-ko 페이지와 상호 대칭이 성립한다.
+import { getArticleAvailableLocales, articleAlternates } from "@/lib/seo/article-i18n";
+import type { PublicLocale } from "@/lib/seo/public-i18n";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 1800;
@@ -34,10 +37,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const a = await getPublishedArticleBySlug(slug).catch(() => null);
   if (!a) return { title: "찾을 수 없는 글 | Villa GO", robots: { index: false } };
   const url = absoluteUrl(blogPaths.article(a.slug));
+  const available = await getArticleAvailableLocales(a.id).catch((): PublicLocale[] => ["ko"]);
   return {
     title: `${a.title} | Villa GO`,
     description: a.summary,
-    alternates: { canonical: url },
+    alternates: { canonical: url, ...articleAlternates(a.slug, available) },
     openGraph: {
       type: "article",
       siteName: "Villa GO",

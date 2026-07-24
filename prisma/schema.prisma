@@ -2112,9 +2112,45 @@ model SeoArticle {
   igPosts   InstagramPost[] // 이 글을 소재로 만든 인스타 포스트(T-seo-to-instagram)
   ytShorts  YoutubeShort[] // 이 글을 소재로 만든 유튜브 쇼츠
 
+  // 공개 블로그 다국어화(ADR-0049) — en·vi·ru·zh 번역본. ko는 이 본체가 캐논(번역 행 없음).
+  translations SeoArticleTranslation[]
+
   @@index([status, publishedAt]) // 공개 목록·점진 발행 큐 조회
   @@index([category, status]) // 카테고리별 공개 목록·승인 큐 필터 (T-seo-category)
   @@index([topicKey]) // 주제 중복 생성 방지 조회
+}
+
+// ===================== 블로그 글 다국어 번역본 — ADR-0049 =====================
+// ko(SeoArticle 본체)를 캐논으로, en·vi·ru·zh 번역만 별도 테이블에 저장한다(ko 행 금지).
+// ★ sourceHash = 캐논(title+summary+bodyJson) sha256 — stale 감지축. hash 불일치 시에만 재번역하고,
+//   재번역 전까지 기존 READY 번역을 계속 서빙한다(없는 것보다 낫다, ADR §1).
+// ★ 누수 0 승계: 입력은 이미 공개 경계 통과분이고, 번역 파이프라인이 실명·금액 누수 가드를 추가로 건다.
+//   status=FAILED 행은 저장하되 공개 조회에서 제외된다(READY만 서빙).
+model SeoArticleTranslation {
+  id        String     @id @default(cuid())
+  articleId String
+  article   SeoArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  // 대상 언어 — "en"|"vi"|"ru"|"zh" (ko 금지). 정본은 lib/seo/blog-locale.ts NON_KO_BLOG_LOCALES.
+  locale   String
+  title    String
+  summary  String
+  // 캐논 bodyJson 골격에 번역 텍스트만 끼운 재조립본(img.url·ytVideoId는 원본 불변).
+  bodyJson Json
+
+  // 캐논 소스 해시 — 불일치 시 stale(재번역 대상). articleSourceHash() 단일 함수만 계산.
+  sourceHash String
+  // READY = 서빙 가능 / FAILED = 가드 미통과(공개 제외, errorNote에 사유). 정본은 코드 상수.
+  status    String  @default("READY")
+  errorNote String?
+  model     String? // 번역에 사용한 Gemini 모델명(감사·품질추적)
+
+  translatedAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([articleId, locale]) // 글×언어 1행
+  @@index([locale, status]) // 언어별 공개 목록(READY) 조회
 }
 
 // ===================== 가이드 글 자료 사진 라이브러리 — T-seo-media-library =====================

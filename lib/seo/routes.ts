@@ -6,6 +6,11 @@
 // ★ 경로 선정 근거: `/villas`는 이미 **운영자 빌라 목록 URL**이다(app/(admin)/villas).
 //   공개 소비자 트리를 같은 경로에 둘 수 없으므로 전부 `/blog` 아래로 모은다.
 //   테오가 부르는 이름("/blog")과도 일치하고, 운영자 라우트와 충돌 위험이 0이다.
+//
+// ★ 다국어(ADR-0049): 각 blogPaths 함수는 마지막 인자로 로케일(기본 "ko")을 받는다.
+//   ko는 프리픽스 없음(`/blog...`), 비-ko는 `/{locale}/blog...`. 기본값이라 기존 호출부는 전부 무수정.
+import type { PublicLocale } from "@/lib/seo/public-i18n";
+import { NON_KO_BLOG_LOCALES, blogLocalePrefix } from "@/lib/seo/blog-locale";
 
 /** 공개 콘텐츠 루트 */
 export const BLOG_ROOT = "/blog";
@@ -28,18 +33,20 @@ export const BLOG_ROOT = "/blog";
  *   `category/` 한 단을 끼우면 [slug] catch-all과 절대 충돌하지 않는다.
  */
 export const blogPaths = {
-  hub: () => BLOG_ROOT,
+  hub: (l: PublicLocale = "ko") => `${blogLocalePrefix(l)}${BLOG_ROOT}`,
   /** 공개 빌라 전체 목록 (운영자 /villas와 충돌하지 않게 /blog 아래) */
-  villas: () => `${BLOG_ROOT}/villas`,
-  villa: (slug: string) => `${BLOG_ROOT}/villa/${slug}`,
-  area: (code: string) => `${BLOG_ROOT}/area/${code}`,
-  feature: (key: string) => `${BLOG_ROOT}/feature/${key}`,
-  guests: (n: number) => `${BLOG_ROOT}/guests/${n}`,
-  bedrooms: (n: number) => `${BLOG_ROOT}/bedrooms/${n}`,
-  areaFeature: (code: string, key: string) => `${BLOG_ROOT}/area/${code}/feature/${key}`,
+  villas: (l: PublicLocale = "ko") => `${blogLocalePrefix(l)}${BLOG_ROOT}/villas`,
+  villa: (slug: string, l: PublicLocale = "ko") => `${blogLocalePrefix(l)}${BLOG_ROOT}/villa/${slug}`,
+  area: (code: string, l: PublicLocale = "ko") => `${blogLocalePrefix(l)}${BLOG_ROOT}/area/${code}`,
+  feature: (key: string, l: PublicLocale = "ko") => `${blogLocalePrefix(l)}${BLOG_ROOT}/feature/${key}`,
+  guests: (n: number, l: PublicLocale = "ko") => `${blogLocalePrefix(l)}${BLOG_ROOT}/guests/${n}`,
+  bedrooms: (n: number, l: PublicLocale = "ko") => `${blogLocalePrefix(l)}${BLOG_ROOT}/bedrooms/${n}`,
+  areaFeature: (code: string, key: string, l: PublicLocale = "ko") =>
+    `${blogLocalePrefix(l)}${BLOG_ROOT}/area/${code}/feature/${key}`,
   /** 대분류별 글 목록 — cat은 SEO_ARTICLE_CATEGORIES 값(villa|service|place|guide) */
-  categoryList: (cat: string) => `${BLOG_ROOT}/category/${cat}`,
-  article: (slug: string) => `${BLOG_ROOT}/${slug}`,
+  categoryList: (cat: string, l: PublicLocale = "ko") =>
+    `${blogLocalePrefix(l)}${BLOG_ROOT}/category/${cat}`,
+  article: (slug: string, l: PublicLocale = "ko") => `${blogLocalePrefix(l)}${BLOG_ROOT}/${slug}`,
 } as const;
 
 /**
@@ -50,6 +57,8 @@ export const blogPaths = {
 export const PUBLIC_ALLOW_PATHS = [
   "/",
   BLOG_ROOT,
+  // 비-ko 블로그 루트(ADR-0049) — /en/blog·/vi/blog·/ru/blog·/zh/blog. 색인 허용.
+  ...NON_KO_BLOG_LOCALES.map((l) => `/${l}${BLOG_ROOT}`),
   "/privacy",
   // 모집용 정적 소개(공급자·벤더·파트너) — 검색 유입이 이득이라 색인 허용
   "/intro.html",
@@ -116,8 +125,23 @@ export const PUBLIC_DISALLOW_PATHS = [
   "/card/",
 ] as const;
 
-/** 해당 경로가 공개 트리인지 — 스플래시 게이트·미들웨어가 공유한다. */
+/**
+ * 선두 비-ko 블로그 로케일 프리픽스(`/en`·`/vi`·`/ru`·`/zh`)를 벗긴 경로.
+ * ★ 그 뒤가 반드시 `/blog`여야만 벗긴다 — `/vietnam` 같은 무관 경로를 오인 제거하지 않게.
+ */
+function stripBlogLocalePrefix(pathname: string): string {
+  for (const l of NON_KO_BLOG_LOCALES) {
+    const prefix = `/${l}`;
+    if (pathname === `${prefix}${BLOG_ROOT}` || pathname.startsWith(`${prefix}${BLOG_ROOT}/`)) {
+      return pathname.slice(prefix.length);
+    }
+  }
+  return pathname;
+}
+
+/** 해당 경로가 공개 트리인지 — 스플래시 게이트·미들웨어가 공유한다. 비-ko 블로그 프리픽스 포함. */
 export function isPublicSeoPath(pathname: string): boolean {
   if (pathname === "/") return true;
-  return pathname === BLOG_ROOT || pathname.startsWith(`${BLOG_ROOT}/`);
+  const p = stripBlogLocalePrefix(pathname);
+  return p === BLOG_ROOT || p.startsWith(`${BLOG_ROOT}/`);
 }

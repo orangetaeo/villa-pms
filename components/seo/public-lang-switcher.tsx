@@ -20,7 +20,17 @@ function GlobeIcon() {
   );
 }
 
-export default function PublicLangSwitcher({ current }: { current: PublicLocale }) {
+export default function PublicLangSwitcher({
+  current,
+  links,
+}: {
+  current: PublicLocale;
+  /**
+   * 로케일별 대상 URL. 있으면(블로그 등 URL이 언어 진실원천인 페이지) 쿠키 기록 후 그 URL로 이동한다.
+   * 없으면(홈 등 쿠키-렌더 페이지) 기존 동작 — 쿠키만 바꾸고 router.refresh().
+   */
+  links?: Partial<Record<PublicLocale, string>>;
+}) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -39,7 +49,14 @@ export default function PublicLangSwitcher({ current }: { current: PublicLocale 
     setOpen(false);
     if (code === current) return;
     document.cookie = `pub-locale=${code};path=/;max-age=${ONE_YEAR};samesite=lax`;
-    startTransition(() => router.refresh());
+    const href = links?.[code];
+    if (href) {
+      // 블로그: 콘텐츠 언어 진실원천은 URL이라 해당 언어 URL로 이동한다(refresh 아님).
+      startTransition(() => router.push(href));
+    } else {
+      // 홈: 쿠키 기반 렌더 — 쿠키만 바꾸고 서버 재렌더.
+      startTransition(() => router.refresh());
+    }
   };
 
   const cur = PUBLIC_LOCALES.find((l) => l.code === current) ?? PUBLIC_LOCALES[0];
