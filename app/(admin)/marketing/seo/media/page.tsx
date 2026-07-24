@@ -14,7 +14,8 @@ import { isOperator } from "@/lib/permissions";
 import { MEDIA_TOPIC_GROUPS } from "@/lib/seo/media";
 import SeoNav from "../seo-nav";
 import MediaUploader from "./media-uploader";
-import { createMedia, updateMedia, toggleMediaActive } from "./actions";
+import MediaDeleteBar from "./media-delete-bar";
+import { createMedia, updateMedia, toggleMediaActive, deleteMedia } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -109,9 +110,25 @@ export default async function SeoMediaPage({
       </form>
 
       {/* ── 목록: 조밀한 썸네일 그리드 ── */}
-      <div className="mt-6 flex items-baseline gap-2">
-        <h2 className="text-base font-semibold">{t("listTitle")}</h2>
-        <span className="text-xs text-slate-500">{t("count", { n: rows.length })}</span>
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-base font-semibold">{t("listTitle")}</h2>
+          <span className="text-xs text-slate-500">{t("count", { n: rows.length })}</span>
+        </div>
+        {/* 다중선택 영구삭제 — 체크박스는 아래 목록 <li>에 있고 form 속성으로 이 form에 연결된다.
+            (각 <li>가 이미 수정·중지용 <form>을 품고 있어 <ul>을 form으로 감싸면 중첩 form이 되므로 감싸지 않는다.) */}
+        {rows.length > 0 && (
+          <form id="media-delete-form" action={deleteMedia}>
+            <MediaDeleteBar
+              selectAllLabel={t("selectAll")}
+              deleteLabel={t("deleteSelected")}
+              deletingLabel={t("deleting")}
+              // "{n}"은 클라이언트가 실제 선택 개수로 치환한다(서버 렌더 시점엔 개수를 모름).
+              confirmTemplate={t("deleteConfirm", { n: "{n}" })}
+              noneSelectedText={t("deleteNoneSelected")}
+            />
+          </form>
+        )}
       </div>
 
       {rows.length === 0 ? (
@@ -121,8 +138,20 @@ export default async function SeoMediaPage({
           {rows.map((m) => (
             <li
               key={m.id}
-              className={`overflow-hidden rounded-lg border border-slate-800 bg-slate-900 ${m.active ? "" : "opacity-40"}`}
+              className={`relative overflow-hidden rounded-lg border border-slate-800 bg-slate-900 ${m.active ? "" : "opacity-40"}`}
             >
+              {/* 삭제 대상 선택 체크박스 — form 속성으로 상단 media-delete-form에 연결(중첩 form 회피).
+                  비활성(사용 중지)인 사진도 삭제 대상에 포함된다. */}
+              <label className="absolute left-1.5 top-1.5 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded-md bg-slate-950/70 backdrop-blur-sm">
+                <input
+                  type="checkbox"
+                  name="ids"
+                  value={m.id}
+                  form="media-delete-form"
+                  data-media-select="1"
+                  className="h-4 w-4 accent-red-500"
+                />
+              </label>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={m.url} alt={m.alt} className="h-28 w-full object-cover" />
               <div className="p-2">
