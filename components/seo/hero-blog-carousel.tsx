@@ -10,13 +10,14 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { blogPaths } from "@/lib/seo/routes";
 
 export interface HeroPost {
   slug: string;
   title: string;
   summary: string;
   imageUrl: string;
+  /** 서버에서 계산한 로케일별 글 URL(ADR-0050 §E) — 비-ko는 /{l}/blog/{slug}. */
+  href: string;
 }
 
 export interface HeroCarouselLabels {
@@ -97,7 +98,7 @@ export default function HeroCarousel({
         {posts.map((p, i) => (
           <Link
             key={p.slug}
-            href={blogPaths.article(p.slug)}
+            href={p.href}
             aria-hidden={index !== i + 1}
             tabIndex={index === i + 1 ? 0 : -1}
             className="relative block h-full w-full shrink-0"

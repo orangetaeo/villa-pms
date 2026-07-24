@@ -5,8 +5,9 @@ import type { Metadata } from "next";
 import { isOperator } from "@/lib/permissions";
 import PublicHome from "@/components/seo/public-home";
 import { getPublicVillas } from "@/lib/seo/public-villa";
-import { getPublishedArticlesByCategory } from "@/lib/seo/article";
+import { getPublishedArticlesByCategoryLocalized } from "@/lib/seo/article-i18n";
 import { areaFacets } from "@/lib/seo/facets";
+import { blogPaths } from "@/lib/seo/routes";
 import { absoluteUrl } from "@/lib/seo/base-url";
 import { getPublicLocale } from "@/lib/seo/public-locale";
 
@@ -85,25 +86,28 @@ export default async function Home() {
     };
   });
 
+  const locale = await getPublicLocale();
+
   // 히어로 롤링용 — "우선은 빌라의 블로그"(테오 2026-07-24): category=villa 발행 글.
-  //   ★ 이미지는 텍스트 없는 원본 커버(coverPhotoUrl) 우선 — 슬라이드에서 제목·요약을 직접 오버레이하므로
-  //     글자 구운 썸네일을 쓰면 텍스트가 이중으로 겹친다. 이미지 없는 글은 제외(빈 슬라이드 방지).
-  let villaPosts: { slug: string; title: string; summary: string; imageUrl: string }[] = [];
+  //   ★ 로케일화(ADR-0050 §E): 비-ko는 READY 번역 글만 오므로 링크는 /{locale}/blog/{slug} 확정 200.
+  //     비-ko 번역 글 0건이면 villaPosts가 비어 히어로 브랜드 슬라이드 1장만 남는다(ko 글 혼입 금지).
+  //   ★ href는 서버에서 로케일별로 계산해 넘긴다(클라 캐러셀은 p.href만 사용).
+  //   ★ 이미지는 텍스트 없는 원본 커버(coverPhotoUrl) 우선. 이미지 없는 글은 제외(빈 슬라이드 방지).
+  let villaPosts: { slug: string; title: string; summary: string; imageUrl: string; href: string }[] = [];
   try {
-    const { articles } = await getPublishedArticlesByCategory("villa", 1, 10);
+    const { articles } = await getPublishedArticlesByCategoryLocalized("villa", locale, 1, 10);
     villaPosts = articles
       .map((a) => ({
         slug: a.slug,
         title: a.title,
         summary: a.summary,
         imageUrl: a.coverPhotoUrl ?? a.thumbnailUrl ?? "",
+        href: blogPaths.article(a.slug, locale),
       }))
       .filter((p) => p.imageUrl);
   } catch {
     villaPosts = [];
   }
-
-  const locale = await getPublicLocale();
 
   return <PublicHome villas={villas} areas={areas} villaPosts={villaPosts} locale={locale} />;
 }

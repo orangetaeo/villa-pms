@@ -1,44 +1,37 @@
-// /blog/area/[code] — 지역(단지)별 빌라 (T-seo-s2)
+// /blog/area/[code] — 지역(단지)별 빌라 (ko 캐논, T-seo-s2 · ADR-0050)
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { loadFacet } from "@/lib/seo/facet-page";
-import FacetPageView from "@/lib/seo/facet-page";
+import FacetPageView, { loadFacet } from "@/lib/seo/facet-page";
 import { MIN_FACET_VILLAS } from "@/lib/seo/facets";
 import { blogPaths } from "@/lib/seo/routes";
 import { absoluteUrl } from "@/lib/seo/base-url";
+import { allLocaleAlternates } from "@/lib/seo/article-i18n";
+import { villaStrings } from "@/lib/seo/villa-i18n";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 1800;
 
 type Params = { params: Promise<{ code: string }> };
 
-async function load(code: string) {
-  return loadFacet(blogPaths.area(code));
-}
-
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { code } = await params;
-  const d = await load(code);
-  if (!d) return { title: "찾을 수 없는 지역 | Villa GO", robots: { index: false } };
+  const t = villaStrings("ko");
+  const d = await loadFacet(blogPaths.area(code));
+  if (!d) return { title: t.areaNotFound, robots: { index: false } };
   const name = d.areaNames[code] ?? code;
   return {
-    title: `푸꾸옥 ${name} 빌라 ${d.villas.length}곳 | Villa GO`,
-    description: `푸꾸옥 ${name} 단지의 빌라를 인원·시설 조건으로 골라보세요. 현지에서 직접 운영·검수합니다.`,
-    alternates: { canonical: absoluteUrl(blogPaths.area(code)) },
+    title: t.areaMetaTitle(name, d.villas.length),
+    description: t.areaMetaDesc(name),
+    alternates: { canonical: absoluteUrl(blogPaths.area(code)), ...allLocaleAlternates((l) => blogPaths.area(code, l)) },
     robots: { index: d.facet.count >= MIN_FACET_VILLAS, follow: true },
   };
 }
 
 export default async function AreaFacetPage({ params }: Params) {
   const { code } = await params;
-  const d = await load(code);
+  const t = villaStrings("ko");
+  const d = await loadFacet(blogPaths.area(code));
   if (!d) notFound();
   const name = d.areaNames[code] ?? code;
-  return (
-    <FacetPageView
-      data={d}
-      title={`푸꾸옥 ${name} 빌라`}
-      intro={`${name} 단지에서 운영 중인 빌라입니다. 같은 단지라도 침실 수와 시설이 달라 인원과 일정에 맞춰 고르는 편이 좋습니다.`}
-    />
-  );
+  return <FacetPageView data={d} title={t.areaTitle(name)} intro={t.areaIntro(name)} locale="ko" />;
 }

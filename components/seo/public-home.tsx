@@ -10,18 +10,23 @@
 // ★ 히어로는 롤링 캐러셀 — 슬라이드0=브랜드 히어로, 이후=빌라 블로그(제목·요약 오버레이·클릭 이동).
 import Link from "next/link";
 import Image from "next/image";
-import type { PublicVilla } from "@/lib/seo/public-villa";
+import {
+  type PublicVilla,
+  localizedVillaLabel,
+  getVillaDescriptionsLocalized,
+} from "@/lib/seo/public-villa";
 import { blogPaths } from "@/lib/seo/routes";
 import { FEATURE_ITEMS } from "@/lib/features";
 import { VillaGoHeaderLogo } from "@/components/brand/villa-go-header-logo";
 import HeroCarousel, { type HeroPost } from "@/components/seo/hero-blog-carousel";
 import PublicLangSwitcher from "@/components/seo/public-lang-switcher";
 import { homeStrings, type PublicLocale } from "@/lib/seo/public-i18n";
+import { featureLabels } from "@/lib/seo/villa-i18n";
 
 /** 상담 진입점 — 웹챗(/chat)으로 통일하고 유입 출처를 seo로 표기(인박스에서 구분). */
 const CONSULT_HREF = "/chat?src=seo";
 
-/** 홈에 노출할 대표 조건(패싯) — 라벨은 로케일별 사전(t.features), 링크는 /blog/feature/[key]. */
+/** 홈에 노출할 대표 조건(패싯) — 라벨은 로케일별 사전(featureLabels), 링크는 /blog/feature/[key]. */
 const HOME_FEATURES: { key: string; icon: string }[] = [
   { key: "privatePool", icon: "pool" },
   { key: "viewSea", icon: "waves" },
@@ -58,10 +63,16 @@ function pickHeroPhoto(villas: PublicVilla[]): string | undefined {
   return undefined; // 적합한 공간이 하나도 없으면 배경 없이 단색으로 둔다
 }
 
-export default function PublicHome({ villas, areas, villaPosts, locale }: PublicHomeProps) {
+export default async function PublicHome({ villas, areas, villaPosts, locale }: PublicHomeProps) {
   const t = homeStrings(locale);
+  const feat = featureLabels(locale);
   const featured = villas.slice(0, 3);
   const heroPhoto = pickHeroPhoto(villas) ?? null;
+  // 추천 카드 티저 — ko는 캐논 description, 비-ko는 READY 번역만(없으면 생략, ADR §E). 3장뿐이라 저렴.
+  const featuredDesc =
+    locale === "ko" ? null : await getVillaDescriptionsLocalized(featured.map((v) => v.id), locale);
+  const teaser = (v: PublicVilla): string | null =>
+    locale === "ko" ? (v.description ?? null) : (featuredDesc?.get(v.id) ?? null);
   // ★ 매칭 빌라가 1곳이라도 있는 조건만 노출한다 — 없는 조건 칩을 누르면 404다.
   const features = HOME_FEATURES.filter(
     (f) => VALID_KEYS.has(f.key) && villas.some((v) => v.featureKeys.includes(f.key))
@@ -75,7 +86,7 @@ export default function PublicHome({ villas, areas, villaPosts, locale }: Public
         <div className="flex items-center gap-0.5">
           <PublicLangSwitcher current={locale} />
           <Link
-            href={blogPaths.hub()}
+            href={blogPaths.hub(locale)}
             className="rounded-full px-2 py-1.5 text-sm font-semibold text-slate-600 hover:text-teal-700"
           >
             {t.navBlog}
@@ -117,7 +128,7 @@ export default function PublicHome({ villas, areas, villaPosts, locale }: Public
             {areas.map((a) => (
               <Link
                 key={a.code}
-                href={blogPaths.area(a.code)}
+                href={blogPaths.area(a.code, locale)}
                 className="shrink-0 rounded-xl border border-slate-200 px-4 py-3"
               >
                 <span className="block font-semibold">{a.label}</span>
@@ -138,13 +149,13 @@ export default function PublicHome({ villas, areas, villaPosts, locale }: Public
             {features.map((f) => (
               <Link
                 key={f.key}
-                href={blogPaths.feature(f.key)}
+                href={blogPaths.feature(f.key, locale)}
                 className="flex touch-target items-center gap-2 rounded-xl border border-slate-200 px-4"
               >
                 <span className="material-symbols-outlined text-teal-600" aria-hidden>
                   {f.icon}
                 </span>
-                <span className="text-sm font-semibold">{t.features[f.key] ?? f.key}</span>
+                <span className="text-sm font-semibold">{feat[f.key] ?? f.key}</span>
               </Link>
             ))}
           </div>
@@ -156,18 +167,21 @@ export default function PublicHome({ villas, areas, villaPosts, locale }: Public
         <section className="px-5 py-8">
           <div className="flex items-baseline justify-between">
             <h2 className="text-xl font-bold">{t.featuredTitle}</h2>
-            <Link href={blogPaths.villas()} className="text-sm font-semibold text-teal-700">
+            <Link href={blogPaths.villas(locale)} className="text-sm font-semibold text-teal-700">
               {t.viewAll}
             </Link>
           </div>
           <div className="mt-4 space-y-5">
-            {featured.map((v) => (
+            {featured.map((v) => {
+              const label = localizedVillaLabel(v, locale);
+              const desc = teaser(v);
+              return (
               <article key={v.id} className="overflow-hidden rounded-2xl border border-slate-200">
                 {v.photos[0] && (
                   <div className="relative aspect-[16/9] bg-slate-100">
                     <Image
                       src={v.photos[0].url}
-                      alt={v.publicLabel}
+                      alt={label}
                       fill
                       sizes="(max-width: 640px) 100vw, 640px"
                       className="object-cover"
@@ -176,7 +190,7 @@ export default function PublicHome({ villas, areas, villaPosts, locale }: Public
                 )}
                 <div className="p-4">
                   <h3 className="text-lg font-bold">
-                    <Link href={blogPaths.villa(v.slug)}>{v.publicLabel}</Link>
+                    <Link href={blogPaths.villa(v.slug, locale)}>{label}</Link>
                   </h3>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
@@ -196,8 +210,8 @@ export default function PublicHome({ villas, areas, villaPosts, locale }: Public
                       </span>
                     )}
                   </div>
-                  {v.description && (
-                    <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-slate-600">{v.description}</p>
+                  {desc && (
+                    <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-slate-600">{desc}</p>
                   )}
                   <Link
                     href={CONSULT_HREF}
@@ -207,7 +221,8 @@ export default function PublicHome({ villas, areas, villaPosts, locale }: Public
                   </Link>
                 </div>
               </article>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
@@ -243,7 +258,7 @@ export default function PublicHome({ villas, areas, villaPosts, locale }: Public
           <h2 className="text-xl font-bold">{t.blogTitle}</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-600">{t.blogDesc}</p>
           <Link
-            href={blogPaths.hub()}
+            href={blogPaths.hub(locale)}
             className="mt-4 inline-flex touch-target items-center rounded-full bg-teal-600 px-6 text-base font-bold text-white"
           >
             {t.blogCta}

@@ -31,7 +31,8 @@ export function normalizePublicLocale(v: string | null | undefined): PublicLocal
 }
 
 // ── 러시아어 수사 굴절(1/2~4/5+) ─────────────────────────────────────────────
-function ruPlural(n: number, one: string, few: string, many: string): string {
+// ★ export 승격(ADR-0050 §5): villa-i18n(빌라/패싯 카운트)가 재사용한다 — 굴절 규칙 이중화 금지.
+export function ruPlural(n: number, one: string, few: string, many: string): string {
   const m10 = n % 10;
   const m100 = n % 100;
   if (m10 === 1 && m100 !== 11) return one;
@@ -79,9 +80,9 @@ export interface HomeStrings {
   footerContact: string;
   privacy: string;
   stickyCta: string;
-  /** 조건 칩 라벨 — HOME_FEATURES의 key로 조회 */
-  features: Record<string, string>;
 }
+// ★ 조건 칩(feature) 라벨은 여기서 제거됨(ADR-0050 §5) — villa-i18n.ts featureLabels(locale)가 단일 소스.
+//   홈·빌라·패싯이 같은 12키 사전을 공유하도록 통합(중복 2곳 + HomeStrings.features 6키 → featureLabels).
 
 const ko: HomeStrings = {
   navBlog: "블로그",
@@ -121,14 +122,6 @@ const ko: HomeStrings = {
   footerContact: "문의",
   privacy: "개인정보처리방침",
   stickyCta: "빌라 문의하기",
-  features: {
-    privatePool: "프라이빗 풀",
-    viewSea: "바다뷰",
-    beachFront: "해변 바로앞",
-    bbq: "BBQ 가능",
-    golfNearby: "골프장 근처",
-    kidsPool: "키즈풀",
-  },
 };
 
 const en: HomeStrings = {
@@ -169,14 +162,6 @@ const en: HomeStrings = {
   footerContact: "Contact",
   privacy: "Privacy Policy",
   stickyCta: "Inquire about villas",
-  features: {
-    privatePool: "Private pool",
-    viewSea: "Sea view",
-    beachFront: "Beachfront",
-    bbq: "BBQ",
-    golfNearby: "Near golf",
-    kidsPool: "Kids pool",
-  },
 };
 
 const vi: HomeStrings = {
@@ -217,14 +202,6 @@ const vi: HomeStrings = {
   footerContact: "Liên hệ",
   privacy: "Chính sách bảo mật",
   stickyCta: "Hỏi về biệt thự",
-  features: {
-    privatePool: "Hồ bơi riêng",
-    viewSea: "View biển",
-    beachFront: "Sát biển",
-    bbq: "BBQ",
-    golfNearby: "Gần sân golf",
-    kidsPool: "Hồ trẻ em",
-  },
 };
 
 const ru: HomeStrings = {
@@ -265,14 +242,6 @@ const ru: HomeStrings = {
   footerContact: "Контакт",
   privacy: "Политика конфиденциальности",
   stickyCta: "Оставить заявку",
-  features: {
-    privatePool: "Свой бассейн",
-    viewSea: "Вид на море",
-    beachFront: "У пляжа",
-    bbq: "Барбекю",
-    golfNearby: "Рядом гольф",
-    kidsPool: "Детский бассейн",
-  },
 };
 
 const zh: HomeStrings = {
@@ -313,14 +282,6 @@ const zh: HomeStrings = {
   footerContact: "联系",
   privacy: "隐私政策",
   stickyCta: "咨询别墅",
-  features: {
-    privatePool: "私人泳池",
-    viewSea: "海景",
-    beachFront: "海滩旁",
-    bbq: "烧烤",
-    golfNearby: "近高尔夫",
-    kidsPool: "儿童泳池",
-  },
 };
 
 const DICT: Record<PublicLocale, HomeStrings> = { ko, en, vi, ru, zh };

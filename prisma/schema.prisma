@@ -258,10 +258,40 @@ model Villa {
   instagramPosts InstagramPost[] // 인스타그램 자동 포스팅 (instagram-marketing-p1) — 빌라 삭제 시 SetNull(발행 이력 보존)
   youtubeShorts  YoutubeShort[] // 유튜브 쇼츠 자동 업로드 (youtube-shorts-s1) — 빌라 삭제 시 SetNull(발행 이력 보존)
   clips          VillaClip[] // 직접 촬영 영상 클립 (villa-clip-narration P1) — 릴스·쇼츠 소재
+  translations   VillaTranslation[] // 공개 소개문(description) 비-ko 번역 (ADR-0050) — 빌라 삭제 시 Cascade
 
   @@index([supplierId])
   @@index([status, isSellable])
   @@index([complexAreaId])
+}
+
+// 빌라 공개 소개문(description) 비-ko 번역 — SeoArticleTranslation 패턴 축소판 (ADR-0050 Phase 2).
+// ★ description 단일 텍스트만 번역한다(블록 재조립 불요). villaId+locale 유니크.
+// ★ descriptionVi(공급자 원문·미검증)는 절대 서빙하지 않는다 — vi도 검증된 ko description의 번역을 쓴다.
+// ★ 누수 0: 번역 입력은 {id, description}만. 출력은 실명·금액 가드 통과분만 READY(translate-villa.ts).
+model VillaTranslation {
+  id      String @id @default(cuid())
+  villaId String
+  villa   Villa  @relation(fields: [villaId], references: [id], onDelete: Cascade)
+
+  // 대상 언어 — "en"|"vi"|"ru"|"zh" (ko 금지). 정본은 lib/seo/blog-locale.ts NON_KO_BLOG_LOCALES.
+  locale String
+  // ko description의 번역문. img·가격·주소는 애초에 입력에 없다(구조적 도달 불가).
+  description String
+
+  // 캐논 소스 해시 — sha256(description). 불일치 시 stale(재번역 대상). villaSourceHash() 단일 함수만 계산.
+  sourceHash String
+  // READY = 서빙 가능 / FAILED = 가드 미통과(공개 제외, errorNote에 사유). 정본은 코드 상수.
+  status    String  @default("READY")
+  errorNote String?
+  model     String? // 번역에 사용한 Gemini 모델명(감사·품질추적)
+
+  translatedAt DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([villaId, locale]) // 빌라×언어 1행
+  @@index([locale, status]) // 언어별 공개 목록(READY) 조회
 }
 
 model VillaPhoto {

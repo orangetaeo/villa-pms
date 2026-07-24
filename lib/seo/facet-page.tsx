@@ -1,4 +1,4 @@
-// lib/seo/facet-page.tsx — 패싯 페이지 공용 렌더 (T-seo-s2)
+// lib/seo/facet-page.tsx — 패싯 페이지 공용 렌더 (T-seo-s2 · ADR-0050 로케일화)
 //
 // area·feature·guests·bedrooms 4종 페이지가 같은 뼈대를 쓴다. 각 라우트는 파라미터 해석과
 // 메타데이터만 담당하고, 데이터 조회·가드·렌더는 전부 여기로 모은다(조회 조건 재작성 금지).
@@ -6,14 +6,19 @@
 // ★ 매칭 3개 미만이면 notFound() — 껍데기 목록 페이지를 만들지 않는다(얇은 콘텐츠 = 저품질 신호).
 //   패싯 산출(allFacetPages)이 이미 3개 미만을 제외하므로 sitemap에도 실리지 않는다. 여기서는
 //   직접 URL로 들어온 경우를 404로 막는다.
+// ★ 로케일(기본 ko): loadFacet은 **무변경**(패싯 정체성은 ko 경로) — 렌더 단에서만 로케일 접두·라벨화.
 import Link from "next/link";
-import { VillaGoHeaderLogo } from "@/components/brand/villa-go-header-logo";
 import { notFound } from "next/navigation";
 import { getPublicVillas } from "@/lib/seo/public-villa";
 import { allFacetPages, filterByFacet, type FacetPage } from "@/lib/seo/facets";
-import { BLOG_ROOT } from "@/lib/seo/routes";
+import { blogPaths } from "@/lib/seo/routes";
 import VillaList from "@/components/seo/villa-list";
 import FacetNav from "@/components/seo/facet-nav";
+import { BlogHeader } from "@/components/seo/pages/blog-header";
+import { PUBLIC_LOCALES, type PublicLocale } from "@/lib/seo/public-i18n";
+import { blogLocalePrefix } from "@/lib/seo/blog-locale";
+import { blogStrings } from "@/lib/seo/blog-i18n";
+import { villaStrings } from "@/lib/seo/villa-i18n";
 
 export interface FacetPageData {
   facet: FacetPage;
@@ -22,7 +27,7 @@ export interface FacetPageData {
   areaNames: Record<string, string>;
 }
 
-/** 경로에 해당하는 살아있는 패싯을 찾는다. 없으면 null(호출부가 404). */
+/** 경로에 해당하는 살아있는 패싯을 찾는다. 없으면 null(호출부가 404). ★ 로케일 무관(ko 경로로 매칭). */
 export async function loadFacet(path: string): Promise<FacetPageData | null> {
   let all: Awaited<ReturnType<typeof getPublicVillas>> = [];
   try {
@@ -48,50 +53,50 @@ export default function FacetPageView({
   data,
   title,
   intro,
+  locale = "ko",
 }: {
   data: FacetPageData;
   title: string;
   intro: string;
+  locale?: PublicLocale;
 }) {
   if (!data) notFound();
   const { villas, facets, areaNames, facet } = data;
+  const chrome = blogStrings(locale);
+  const t = villaStrings(locale);
+  // 언어 스위처 — 같은 패싯의 각 로케일 URL(패싯 path는 ko 경로라 프리픽스만 붙인다).
+  const langLinks: Partial<Record<PublicLocale, string>> = Object.fromEntries(
+    PUBLIC_LOCALES.map((l) => [l.code, `${blogLocalePrefix(l.code)}${facet.path}`]),
+  );
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
-      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur">
-        <VillaGoHeaderLogo />
-        <Link
-          href="/chat?src=seo"
-          className="rounded-full border border-teal-600 px-3 py-1.5 text-sm font-semibold text-teal-700"
-        >
-          상담하기
-        </Link>
-      </header>
+      <BlogHeader locale={locale} links={langLinks} consultLabel={chrome.consult} />
 
       <section className="px-5 py-6">
         {/* 각 패싯 페이지는 고유 H1·도입문을 갖는다 — 목록만 있는 껍데기가 아니라 "페이지"여야 한다 */}
         <h1 className="text-2xl font-extrabold leading-snug">{title}</h1>
         <p className="mt-2 text-sm leading-relaxed text-slate-600">{intro}</p>
-        <p className="mt-2 text-sm font-semibold text-teal-700">빌라 {villas.length}곳</p>
+        <p className="mt-2 text-sm font-semibold text-teal-700">{t.villaCount(villas.length)}</p>
       </section>
 
       <section className="px-5 pb-6">
-        <VillaList villas={villas} />
+        <VillaList villas={villas} locale={locale} />
       </section>
 
       <section className="border-t border-slate-100 px-5 py-8">
-        <FacetNav facets={facets} areaNames={areaNames} currentPath={facet.path} />
+        <FacetNav facets={facets} areaNames={areaNames} currentPath={facet.path} locale={locale} />
       </section>
 
       <footer className="border-t border-slate-100 px-5 py-8 text-sm text-slate-500">
         <p>
-          <Link href={BLOG_ROOT} className="font-semibold text-teal-700">
-            ← 푸꾸옥 여행 가이드
+          <Link href={blogPaths.hub(locale)} className="font-semibold text-teal-700">
+            {chrome.backToGuide}
           </Link>
         </p>
         <p className="mt-3">
           <Link href="/privacy" className="underline">
-            개인정보처리방침
+            {chrome.privacy}
           </Link>
         </p>
       </footer>

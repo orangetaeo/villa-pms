@@ -27,6 +27,9 @@ import type { DbClient } from "@/lib/availability";
 import { publicVillaLabel } from "@/lib/marketing/public-name";
 import { resolveShortMapUrl } from "@/lib/seo/resolve-map-url";
 import { toEmbedUrl } from "@/components/villa/map-embed-url";
+import type { PublicLocale } from "@/lib/seo/public-i18n";
+import { isNonKoBlogLocale } from "@/lib/seo/blog-locale";
+import { TRANSLATION_READY } from "@/lib/seo/article-i18n";
 
 // ── 발행 품질 하한 (기획 §0 치명2 — 얇은 콘텐츠·대량 자동생성 스팸 시그널 방지) ──
 /** 공개 페이지 생성에 필요한 최소 사진 수. 미달 빌라는 켜져 있어도 발행하지 않는다. */
@@ -255,6 +258,66 @@ export async function getPublicVillaBySlug(slug: string, db: DbClient = prisma):
   if (!row) return null;
   const v = toPublicVilla(row);
   return v && isPublishable(v) ? v : null;
+}
+
+// ── 로케일화 (ADR-0050 Phase 2) ──────────────────────────────────────────────
+/**
+ * 공개 빌라 표시명의 로케일 버전 — publicVillaLabel에 얇게 위임한다(DTO는 불변, §1 기각 근거).
+ * ko는 v.publicLabel과 동일 결과. 비-ko는 지역명으로 areaName(라틴 정본)을 음차 없이 그대로 쓴다.
+ */
+export function localizedVillaLabel(v: PublicVilla, locale: PublicLocale): string {
+  return publicVillaLabel(
+    {
+      complex: v.complex,
+      areaNameKo: v.areaNameKo,
+      areaName: v.areaName,
+      bedrooms: v.bedrooms,
+      hasPool: v.hasPool,
+    },
+    locale,
+  );
+}
+
+/**
+ * 빌라 id 집합 → 로케일별 공개 소개문 맵(villaId → description).
+ *   · ko  = 캐논 description(빈 문자열은 제외).
+ *   · 비-ko = VillaTranslation의 **READY만**(FAILED·stale-중·행없음은 없는 것으로 취급 = 티저 생략).
+ *
+ * ★ ko 폴백 금지(ADR §3): 비-ko URL에 READY 번역이 없으면 소개문/티저를 통째로 생략한다 —
+ *   한국어 문단을 비-ko 페이지로 내보내지 않는다(혼종 언어 페이지 금지). 그래서 이 맵에 없으면
+ *   호출부가 섹션·티저를 렌더하지 않는다.
+ */
+export async function getVillaDescriptionsLocalized(
+  ids: string[],
+  locale: PublicLocale,
+  db: DbClient = prisma,
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  const unique = [...new Set(ids)].filter((id) => typeof id === "string" && id.length > 0);
+  if (unique.length === 0) return map;
+
+  if (locale === "ko") {
+    const rows = await db.villa.findMany({
+      where: { id: { in: unique } },
+      select: { id: true, description: true },
+    });
+    for (const r of rows) {
+      const d = (r.description ?? "").trim();
+      if (d) map.set(r.id, r.description as string);
+    }
+    return map;
+  }
+
+  if (!isNonKoBlogLocale(locale)) return map; // 알 수 없는 로케일 = 티저 없음
+  const rows = await db.villaTranslation.findMany({
+    where: { locale, status: TRANSLATION_READY, villaId: { in: unique } },
+    select: { villaId: true, description: true },
+  });
+  for (const r of rows) {
+    const d = (r.description ?? "").trim();
+    if (d) map.set(r.villaId, r.description);
+  }
+  return map;
 }
 
 // ── 슬러그 생성 ─────────────────────────────────────────────────────────────

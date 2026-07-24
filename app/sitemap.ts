@@ -15,7 +15,12 @@ import { BLOG_ROOT, blogPaths } from "@/lib/seo/routes";
 import { getPublicVillas } from "@/lib/seo/public-villa";
 import { getPublishedArticles } from "@/lib/seo/article";
 import { TRANSLATION_READY } from "@/lib/seo/article-i18n";
-import { isNonKoBlogLocale, type NonKoBlogLocale } from "@/lib/seo/blog-locale";
+import {
+  isNonKoBlogLocale,
+  blogLocalePrefix,
+  NON_KO_BLOG_LOCALES,
+  type NonKoBlogLocale,
+} from "@/lib/seo/blog-locale";
 import { allFacetPages } from "@/lib/seo/facets";
 import { SEO_ARTICLE_CATEGORIES } from "@/lib/seo/categories";
 
@@ -39,6 +44,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   let villaEntries: MetadataRoute.Sitemap = [];
   let facetEntries: MetadataRoute.Sitemap = [];
+  const nonKoVillaEntries: MetadataRoute.Sitemap = [];
   let articleEntries: MetadataRoute.Sitemap = [];
 
   try {
@@ -158,17 +164,48 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       });
     }
 
-    facetEntries = allFacetPages(villas).map((f) => ({
+    const facets = allFacetPages(villas);
+    facetEntries = facets.map((f) => ({
       url: absoluteUrl(f.path),
       lastModified: f.lastModified,
       changeFrequency: "weekly" as const,
       // 매칭이 많은 패싯일수록 유용한 랜딩 — 0.5~0.7 범위로 완만하게
       priority: Math.min(0.7, 0.5 + f.count / 100),
     }));
+
+    // ── 비-ko 빌라·목록·패싯(ADR-0050 §8) — 비-ko 페이지는 **항상 200**이라 번역 유무와 무관하게 등재한다.
+    //    ★ plain 엔트리만(xhtml:link·video: 확장 금지 — 네이버 파싱거부 선례). hreflang 상호연결은 페이지 메타가 담당.
+    //    ★ priority는 ko보다 한 단 낮게(캐논 우선). image 확장도 넣지 않는다(ko 엔트리만 이미지 힌트를 갖는다).
+    for (const l of NON_KO_BLOG_LOCALES) {
+      if (villas.length > 0) {
+        nonKoVillaEntries.push({
+          url: absoluteUrl(blogPaths.villas(l)),
+          lastModified: now,
+          changeFrequency: "daily" as const,
+          priority: 0.7,
+        });
+      }
+      for (const v of villas) {
+        nonKoVillaEntries.push({
+          url: absoluteUrl(blogPaths.villa(v.slug, l)),
+          lastModified: v.updatedAt,
+          changeFrequency: "weekly" as const,
+          priority: 0.6,
+        });
+      }
+      for (const f of facets) {
+        nonKoVillaEntries.push({
+          url: absoluteUrl(`${blogLocalePrefix(l)}${f.path}`),
+          lastModified: f.lastModified,
+          changeFrequency: "weekly" as const,
+          priority: Math.min(0.6, 0.4 + f.count / 100),
+        });
+      }
+    }
   } catch {
     // DB 장애 시에도 sitemap 자체는 200으로 응답해야 한다(빈 sitemap > 500).
     // 500이 반복되면 검색엔진이 sitemap 제출 자체를 무효 처리한다.
   }
 
-  return [...staticEntries, ...articleEntries, ...villaEntries, ...facetEntries];
+  return [...staticEntries, ...articleEntries, ...villaEntries, ...facetEntries, ...nonKoVillaEntries];
 }
