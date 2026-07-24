@@ -9,7 +9,8 @@
 import { prisma } from "@/lib/prisma";
 import type { DbClient } from "@/lib/availability";
 import { isAllowedImageUrl } from "@/lib/seo/article";
-import { ARTICLE_TOPICS, type PickedImage } from "@/lib/seo/article-draft";
+import { ARTICLE_TOPICS, pickArticleImages, seedOf, type PickedImage } from "@/lib/seo/article-draft";
+import type { PublicVilla } from "@/lib/seo/public-villa";
 import { SERVICE_TOPICS } from "@/lib/seo/service-article";
 
 /** 글 1편이 쓰는 자료 사진 최대 수(커버 1 + 본문 N-1). 이미지 도배는 그 자체로 저품질 신호다. */
@@ -99,6 +100,95 @@ export async function pickMediaForTopic(
 /** 본문 삽입용 형태로 변환 — caption이 없으면 키 자체를 넣지 않는다(파서 계약과 동일). */
 export function toPickedImages(rows: SeoMediaPick[]): PickedImage[] {
   return rows.map((r) => ({ url: r.url, alt: r.alt, ...(r.caption ? { caption: r.caption } : {}) }));
+}
+
+// ── 가이드 글 사진 = 자료 라이브러리 + 공개 빌라 사진 혼합 (T-seo-villa-photos-in-guide) ──
+//
+// 운영자 결정 2026-07-24: 가이드 글은 **등록된 공개 빌라 사진을 자동으로 끌어와 자료 사진과 혼합**한다.
+//   그래야 운영자가 빌라 사진을 자료 라이브러리에 이중 등록하지 않는다. 라이브러리는 앞으로
+//   비(非)빌라(풍경·장소·먹거리) 전용이 된다.
+//
+// ★ 워터마크: 빌라 사진(VillaPhoto.url)은 **업로드 시점에 이미 워터마크가 구워진** 파일이다
+//   (lib/watermark.ts — supplier·admin 업로드 3경로 전부). 그래서 여기서 서버 재워터마크를 하지 않는다
+//   (place 글처럼 파생본을 새로 굽는 파이프라인을 만들지 않는다 — 이중 워터마크·R2 낭비).
+// ★ 누수 0: 빌라 사진은 pickArticleImages를 통해서만 들어오고, alt/caption은 publicLabel(지역·특징)뿐이다.
+//   빌라 실명(name/nameVi)·정확 주소는 PublicVilla DTO에 애초에 없다(getPublicVillas 관문이 차단).
+// ★ 결정성: Math.random 금지. 빌라 회전·혼합 선두는 글의 topicKey(seedOf)로만 정한다 — 같은 글은 항상 같은 결과.
+
+export interface GuideImagePlan {
+  /** 최종 커버·본문용 이미지. 빌라 사진은 업로드-워터마크 완료본, 자료 사진은 라이브러리 원본. */
+  images: PickedImage[];
+  /** 사용 처리(usedCount++)할 자료 사진 id — **최종 선택된 것만**. 안 뽑힌 라이브러리 사진은 소비하지 않는다. */
+  usedMediaIds: string[];
+}
+
+/**
+ * 자료 사진 행 + 빌라 사진을 결정적으로 혼합한다(순수 함수 — DB 없음, 테스트 가능).
+ *   · 둘 다 있으면 **번갈아** 채워 최소 각 1장씩 섞이게 한다(한쪽 쏠림 방지). 선두 소스는 seed 홀짝으로 회전.
+ *   · 한쪽이 비면 나머지로 채운다(사진은 전제조건이 아니다).
+ *   · URL 중복은 제거하고 총합은 max로 제한한다.
+ */
+export function mergeGuideImages(
+  libRows: SeoMediaPick[],
+  villaPicks: PickedImage[],
+  seedKey: string,
+  max: number = MAX_MEDIA_PER_ARTICLE
+): GuideImagePlan {
+  if (max <= 0) return { images: [], usedMediaIds: [] };
+
+  type Item = { img: PickedImage; id: string | null };
+  const lib: Item[] = libRows.map((r) => ({
+    img: { url: r.url, alt: r.alt, ...(r.caption ? { caption: r.caption } : {}) },
+    id: r.id,
+  }));
+  const villa: Item[] = villaPicks.map((img) => ({ img, id: null }));
+
+  const out: Item[] = [];
+  const seen = new Set<string>();
+  const push = (x: Item) => {
+    if (out.length >= max || seen.has(x.img.url)) return;
+    seen.add(x.img.url);
+    out.push(x);
+  };
+
+  if (lib.length > 0 && villa.length > 0) {
+    // 선두 소스를 글마다 회전 — 모든 가이드 글이 같은 순서(항상 빌라 먼저 등)로 시작하지 않게.
+    const villaLeads = seedOf(seedKey) % 2 === 0;
+    const a = villaLeads ? villa : lib;
+    const b = villaLeads ? lib : villa;
+    let i = 0;
+    let j = 0;
+    while (out.length < max && (i < a.length || j < b.length)) {
+      if (i < a.length) push(a[i++]);
+      if (out.length < max && j < b.length) push(b[j++]);
+    }
+  } else {
+    // 한쪽만 존재 — 있는 쪽으로 채운다.
+    for (const x of lib.length > 0 ? lib : villa) push(x);
+  }
+
+  return {
+    images: out.map((x) => x.img),
+    usedMediaIds: out.filter((x): x is Item & { id: string } => x.id !== null).map((x) => x.id),
+  };
+}
+
+/**
+ * 가이드 글 한 편의 사진 계획을 만든다 — 주제 자료 사진(주제+범용, placeId=null)과 공개 빌라 사진을 혼합.
+ *   villas = getPublicVillas() 관문 통과분(호출부가 이미 조회해 넘긴다). 비어도 자료만으로 진행한다.
+ *   반환 usedMediaIds는 markMediaUsed에 그대로 넘겨 소비 처리한다.
+ */
+export async function pickGuideImages(
+  topicKey: string,
+  villas: PublicVilla[],
+  max: number = MAX_MEDIA_PER_ARTICLE,
+  db: DbClient = prisma
+): Promise<GuideImagePlan> {
+  if (max <= 0) return { images: [], usedMediaIds: [] };
+  const libRows = await pickMediaForTopic(topicKey, max, db);
+  // 빌라 사진도 최대 max장 후보로 뽑는다(혼합에서 잘린다). seedKey=topicKey로 글마다 다른 빌라·공간이 나온다.
+  const villaPicks = pickArticleImages(villas, max, topicKey);
+  return mergeGuideImages(libRows, villaPicks, topicKey, max);
 }
 
 /**
