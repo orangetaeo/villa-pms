@@ -50,17 +50,26 @@ export default function PublicHome({ villas, areas }: PublicHomeProps) {
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
-      {/* 헤더 — 로그인 버튼 없음(소비자 대상). 상담만 노출 */}
+      {/* 헤더 — 소비자 대상(상담). ★ 빌라 관리인·업체·파트너가 이 소비자 홈에 들어와도
+          로그인 입구가 없어 돌아가던 문제 → "로그인" 진입을 상담 옆에 추가(/login 허브). */}
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur">
         <Link href="/" className="text-lg font-extrabold tracking-tight text-teal-600">
           Villa GO
         </Link>
-        <Link
-          href={CONSULT_HREF}
-          className="rounded-full border border-teal-600 px-3 py-1.5 text-sm font-semibold text-teal-700"
-        >
-          상담하기
-        </Link>
+        <div className="flex items-center gap-1.5">
+          <Link
+            href="/login"
+            className="rounded-full px-3 py-1.5 text-sm font-semibold text-slate-600 hover:text-teal-700"
+          >
+            로그인
+          </Link>
+          <Link
+            href={CONSULT_HREF}
+            className="rounded-full border border-teal-600 px-3 py-1.5 text-sm font-semibold text-teal-700"
+          >
+            상담하기
+          </Link>
+        </div>
       </header>
 
       {/* 히어로 */}

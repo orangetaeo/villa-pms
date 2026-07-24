@@ -188,6 +188,7 @@
     padding:14px 20px; border-radius:12px;
   }
   .cta a.primary{background:var(--orange); color:#3A2400}
+  .cta a.login{background:#fff; color:var(--teal-deep)}
   .cta a.secondary{background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.3)}
   .cta a:focus-visible{outline:3px solid #fff; outline-offset:2px}
   .cta .url{font-size:14px; color:var(--hero-sub); margin-top:18px; letter-spacing:.03em}
@@ -350,6 +351,7 @@
     <div class="btns">
       <!-- 문의 채널: ko=카카오톡 채널, 그 외 언어=Zalo (setLang이 href 전환) -->
       <a class="primary" id="cta-primary" href="https://pf.kakao.com/_mVAfX/chat" data-i18n="ctaB1"></a>
+      <a class="login" href="/login" data-i18n="ctaLogin"></a>
       <a class="secondary" href="https://villa-go.net" data-i18n="ctaB2"></a>
     </div>
     <div class="url">villa-go.net · Phú Quốc, Việt Nam</div>
@@ -429,6 +431,7 @@ const I18N = {
     ctaB1Href: "https://pf.kakao.com/_mVAfX/chat",
     ctaB1: "카카오톡 채널로 문의하기",
     ctaB2: "Villa GO 더 알아보기 — villa-go.net",
+    ctaLogin: "이미 파트너세요? 로그인",
     footer: "© Villa GO — 푸꾸옥 빌라 관리·판매 플랫폼"
   },
   en: {
@@ -500,6 +503,7 @@ const I18N = {
     ctaB1Href: "https://zalo.me/0799493138",
     ctaB1: "Message us on Zalo",
     ctaB2: "More about Villa GO — villa-go.net",
+    ctaLogin: "Already a partner? Log in",
     footer: "© Villa GO — Villa management & sales platform in Phu Quoc"
   },
   vi: {
@@ -571,6 +575,7 @@ const I18N = {
     ctaB1Href: "https://zalo.me/0799493138",
     ctaB1: "Nhắn Zalo cho chúng tôi",
     ctaB2: "Tìm hiểu thêm — villa-go.net",
+    ctaLogin: "Đã là đối tác? Đăng nhập",
     footer: "© Villa GO — Nền tảng quản lý & cho thuê villa tại Phú Quốc"
   },
   ru: {
@@ -642,6 +647,7 @@ const I18N = {
     ctaB1Href: "https://zalo.me/0799493138",
     ctaB1: "Написать нам в Zalo",
     ctaB2: "Подробнее — villa-go.net",
+    ctaLogin: "Уже партнёр? Войти",
     footer: "© Villa GO — платформа управления и аренды вилл на Фукуоке"
   },
   zh: {
@@ -713,6 +719,7 @@ const I18N = {
     ctaB1Href: "https://zalo.me/0799493138",
     ctaB1: "通过 Zalo 联系我们",
     ctaB2: "了解更多 — villa-go.net",
+    ctaLogin: "已是合作伙伴？登录",
     footer: "© Villa GO — 富国岛别墅管理与销售平台"
   },
   hi: {
@@ -784,6 +791,7 @@ const I18N = {
     ctaB1Href: "https://zalo.me/0799493138",
     ctaB1: "Zalo पर मैसेज करें",
     ctaB2: "और जानें — villa-go.net",
+    ctaLogin: "पहले से पार्टनर हैं? लॉग इन करें",
     footer: "© Villa GO — फु कुओक विला प्रबंधन व बिक्री प्लेटफ़ॉर्म"
   }
 };
