@@ -7,6 +7,7 @@
 import { describe, it, expect } from "vitest";
 import {
   parseArticleBody,
+  stripLeadingSummaryDuplicate,
   bodyTextLength,
   isArticlePublishable,
   kstDayBoundsUtc,
@@ -371,3 +372,29 @@ describe("빌라 글 구성", () => {
     expect(villaTopicKey("sonasea-v3b")).toBe("villa-sonasea-v3b");
   });
 });
+
+describe("stripLeadingSummaryDuplicate — 도입 문단 중복 제거", () => {
+  const summary = "푸꾸옥 여행 중 썬셋을 즐기고 싶다면 썬셋 사나토는 꼭 가볼 만한 곳입니다.";
+  it("첫 블록이 summary와 동일한 p면 제거한다", () => {
+    const blocks = [
+      { type: "p" as const, text: summary },
+      { type: "h2" as const, text: "노을" },
+      { type: "p" as const, text: "본문" },
+    ];
+    const out = stripLeadingSummaryDuplicate(blocks, summary);
+    expect(out).toHaveLength(2);
+    expect(out[0]).toEqual({ type: "h2", text: "노을" });
+  });
+  it("공백만 다른 경우도 동일 취급해 제거한다", () => {
+    const blocks = [{ type: "p" as const, text: `  ${summary}  ` }, { type: "h2" as const, text: "x" }];
+    expect(stripLeadingSummaryDuplicate(blocks, summary)).toHaveLength(1);
+  });
+  it("첫 문단이 다르면 그대로 둔다(과삭제 방지)", () => {
+    const blocks = [{ type: "p" as const, text: "다른 도입 문단" }, { type: "h2" as const, text: "x" }];
+    expect(stripLeadingSummaryDuplicate(blocks, summary)).toHaveLength(2);
+  });
+  it("첫 블록이 p가 아니면(img/h2) 건드리지 않는다", () => {
+    const blocks = [{ type: "img" as const, url: "u", alt: "a" }, { type: "p" as const, text: summary }];
+    expect(stripLeadingSummaryDuplicate(blocks, summary)).toHaveLength(2);
+  });
+})
