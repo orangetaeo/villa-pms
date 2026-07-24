@@ -7,6 +7,7 @@ import Image from "next/image";
 import type { PublicArticle } from "@/lib/seo/article";
 import { blogPaths } from "@/lib/seo/routes";
 import type { PublicLocale } from "@/lib/seo/public-i18n";
+import { formatPublicDate } from "@/lib/seo/blog-i18n";
 
 // 카드 렌더에 실제로 필요한 최소 필드만 요구한다(구조적 최소 타입).
 // PublicArticle[](카테고리 목록)·RelatedArticleCard[](관련 글) 둘 다 이 형태의 상위집합이라
@@ -15,13 +16,6 @@ type ArticleCardData = Pick<
   PublicArticle,
   "id" | "slug" | "title" | "summary" | "thumbnailUrl" | "coverPhotoUrl" | "publishedAt"
 >;
-
-function formatKoDate(d: Date): string {
-  // DESIGN.md: 날짜는 YYYY.MM.DD 점 표기
-  const kst = new Date(d.getTime() + 9 * 3600 * 1000);
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${kst.getUTCFullYear()}.${p(kst.getUTCMonth() + 1)}.${p(kst.getUTCDate())}`;
-}
 
 // locale은 상세 링크에만 반영(기본 ko = 기존 호출부 무영향, ADR-0049).
 export default function ArticleCardList({
@@ -54,7 +48,7 @@ export default function ArticleCardList({
                 <div className="p-4">
                   <h2 className="text-lg font-bold group-hover:text-teal-700">{a.title}</h2>
                   <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-600">{a.summary}</p>
-                  <p className="mt-2 text-xs text-slate-400 tabular-nums">{formatKoDate(a.publishedAt)}</p>
+                  <p className="mt-2 text-xs text-slate-400 tabular-nums">{formatPublicDate(a.publishedAt, locale)}</p>
                 </div>
               </article>
             </Link>

@@ -11,13 +11,7 @@ import { blogPaths } from "@/lib/seo/routes";
 import { absoluteUrl } from "@/lib/seo/base-url";
 import { SEO_ARTICLE_CATEGORIES } from "@/lib/seo/categories";
 import { PUBLIC_LOCALES, type PublicLocale } from "@/lib/seo/public-i18n";
-import { blogStrings } from "@/lib/seo/blog-i18n";
-
-function formatDate(d: Date): string {
-  const kst = new Date(d.getTime() + 9 * 3600 * 1000);
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${kst.getUTCFullYear()}.${p(kst.getUTCMonth() + 1)}.${p(kst.getUTCDate())}`;
-}
+import { blogStrings, formatPublicDate } from "@/lib/seo/blog-i18n";
 
 /** 언어 스위처용 — 각 로케일의 허브 URL. */
 function hubLangLinks(): Partial<Record<PublicLocale, string>> {
@@ -103,7 +97,7 @@ export async function BlogHubPage({ locale }: { locale: PublicLocale }) {
                     <div className="p-4">
                       <h2 className="text-lg font-bold group-hover:text-teal-700">{a.title}</h2>
                       <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-600">{a.summary}</p>
-                      <p className="mt-2 text-xs text-slate-400 tabular-nums">{formatDate(a.publishedAt)}</p>
+                      <p className="mt-2 text-xs text-slate-400 tabular-nums">{formatPublicDate(a.publishedAt, locale)}</p>
                     </div>
                   </article>
                 </Link>

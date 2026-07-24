@@ -174,3 +174,30 @@ const DICT: Record<PublicLocale, BlogStrings> = { ko, en, vi, ru, zh };
 export function blogStrings(locale: PublicLocale): BlogStrings {
   return DICT[locale] ?? ko;
 }
+
+/**
+ * 발행일 로케일별 포맷 (LOC 감수 [8]). KST 기준 날짜(운영자 타임존)로 고정한 뒤 로케일 관행대로.
+ *   ko 2026.07.23 · en Jul 23, 2026 · vi 23/07/2026 · ru 23.07.2026 · zh 2026年7月23日
+ */
+export function formatPublicDate(d: Date, locale: PublicLocale): string {
+  const kst = new Date(d.getTime() + 9 * 3600 * 1000);
+  const y = kst.getUTCFullYear();
+  const m = kst.getUTCMonth() + 1;
+  const day = kst.getUTCDate();
+  const p = (n: number) => String(n).padStart(2, "0");
+  switch (locale) {
+    case "zh":
+      return `${y}年${m}月${day}日`;
+    case "ru":
+      return `${p(day)}.${p(m)}.${y}`;
+    case "vi":
+      return `${p(day)}/${p(m)}/${y}`;
+    case "en": {
+      const mon = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m - 1];
+      return `${mon} ${day}, ${y}`;
+    }
+    case "ko":
+    default:
+      return `${y}.${p(m)}.${p(day)}`;
+  }
+}

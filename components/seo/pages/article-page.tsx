@@ -25,13 +25,7 @@ import { blogPaths } from "@/lib/seo/routes";
 import { absoluteUrl } from "@/lib/seo/base-url";
 import { BRAND_FALLBACK_IMAGE } from "@/lib/seo/article-draft";
 import { PUBLIC_LOCALES, type PublicLocale } from "@/lib/seo/public-i18n";
-import { blogStrings } from "@/lib/seo/blog-i18n";
-
-function formatDate(d: Date): string {
-  const kst = new Date(d.getTime() + 9 * 3600 * 1000);
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${kst.getUTCFullYear()}.${p(kst.getUTCMonth() + 1)}.${p(kst.getUTCDate())}`;
-}
+import { blogStrings, formatPublicDate } from "@/lib/seo/blog-i18n";
 
 export async function articleMetadata(slug: string, locale: PublicLocale): Promise<Metadata> {
   const a = await getPublishedArticleLocalized(slug, locale).catch(() => null);
@@ -143,7 +137,7 @@ export async function ArticlePage({ slug, locale }: { slug: string; locale: Publ
           </Link>
         </nav>
         <h1 className="mt-2 text-2xl font-extrabold leading-snug">{article.title}</h1>
-        <p className="mt-2 text-xs text-slate-400 tabular-nums">{formatDate(article.publishedAt)}</p>
+        <p className="mt-2 text-xs text-slate-400 tabular-nums">{formatPublicDate(article.publishedAt, locale)}</p>
 
         {article.coverPhotoUrl && (
           <div className="relative mt-5 aspect-[16/9] overflow-hidden rounded-2xl bg-slate-100">
