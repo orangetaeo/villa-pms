@@ -710,6 +710,7 @@ model Booking {
   settlementItem SettlementItem?
   cleaningTasks  CleaningTask[]
   receivable     PartnerReceivable? // B2B 객실료 채권 (ADR-0022)
+  b2cSchedule    B2cPaymentSchedule? // B2C 개인고객 계약금/잔금 스케줄 (ADR-0048) — additive raw SQL
   webChatSessions WebChatSession[] @relation("WebChatSessionBooking") // 웹챗 세션 식별 연결 (T-webchat-guest-link-share) — additive raw SQL
 
   @@index([villaId, checkIn, checkOut])
@@ -964,9 +965,40 @@ enum PartnerInvoiceStatus {
 
 enum PaymentPurpose {
   GUEST // 기존 고객 직접 입금(default — 하위호환)
-  DEPOSIT // 파트너 예약 선금
-  BALANCE // 파트너 예약 잔금
+  DEPOSIT // 파트너 예약 선금 (B2B)
+  BALANCE // 파트너 예약 잔금 (B2B)
   INVOICE // 파트너 마감 청구서 수납
+  B2C_DEPOSIT // B2C 개인고객 계약금 (ADR-0048) — B2B DEPOSIT과 스코프 분리
+  B2C_BALANCE // B2C 개인고객 잔금 (ADR-0048)
+}
+
+// B2C 계약금/잔금 분할 결제 스케줄 (ADR-0048) — VND 앵커. 예약당 1건.
+//   "받을 예정"(스케줄)만 담는다. 실수납은 Payment(purpose=B2C_DEPOSIT/B2C_BALANCE)로 소진.
+//   금액·기한은 lib/b2c-payment.computeB2cSchedule 산출값 스냅샷. ⚠ 누수: canViewFinance 전용
+//   (VND 앵커·마진 판단 재료 — 공급자·공개·STAFF 경로에 직렬화 금지). additive raw SQL로 라이브 반영.
+model B2cPaymentSchedule {
+  id             String            @id @default(cuid())
+  bookingId      String            @unique
+  booking        Booking           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  totalVnd       BigInt // 객실료 총액 VND = 앵커(스냅샷)
+  depositRatePct Int // 적용 계약금율(%) 스냅샷
+  depositDueVnd  BigInt // 계약금 청구 VND
+  balanceDueVnd  BigInt // 잔금 청구 VND (fullPrepay면 0). depositDueVnd + balanceDueVnd = totalVnd
+  depositDueDate DateTime          @db.Date // 계약금 기한(예약 확정일)
+  balanceDueDate DateTime?         @db.Date // 잔금 기한 = 체크인 − leadDays. fullPrepay면 null
+  fullPrepay     Boolean           @default(false) // 체크인 임박(D-lead 이내) → 100% 선결제
+  status         B2cScheduleStatus @default(PENDING)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([status, balanceDueDate]) // D-14 자동청구 크론: 미납 잔금 도래분 스캔
+}
+
+enum B2cScheduleStatus {
+  PENDING // 생성됨(계약금 미납)
+  DEPOSIT_PAID // 계약금 납부, 잔금 대기
+  PAID // 완납
+  CANCELLED
 }
 
 // 여행사·랜드사 정식 엔티티 (기존 BookingChannel enum + agencyName 텍스트 승격)
