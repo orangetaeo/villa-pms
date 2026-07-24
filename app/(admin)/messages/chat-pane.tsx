@@ -3064,46 +3064,73 @@ function Composer({
     const tempId = onOptimisticSend(body, quotedSnapshot);
     onSent();
 
-    try {
-      const payload: Record<string, unknown> = { conversationId, text: body };
-      if (replyId) payload.quotedMessageId = replyId;
-      if (reuseTranslated) payload.clientTranslated = reuseTranslated;
-      if (mentions) payload.mentions = mentions;
-      const res = await fetch("/api/zalo/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) {
-        // 성공 — 스레드 재fetch(수백 ms)를 기다리지 않고 버블을 즉시 "전송됨"으로 바꾼다.
-        //   진짜 메시지가 도착하면 ChatPane이 이 버블을 prune하고 정식 OutboundBubble로 교체.
-        onOptimisticSent(tempId);
-        refresh();
-      } else if (res.status === 409) {
-        onOptimisticFail(tempId, t("windowClosedWarning"));
-      } else if (res.status === 400) {
-        // QUOTE_NOT_SUPPORTED(과거 메시지 인용 불가) → 버블에 안내.
-        let code: string | null = null;
-        try {
-          code = ((await res.json()) as { error?: string }).error ?? null;
-        } catch {
-          /* generic */
+    const payload: Record<string, unknown> = { conversationId, text: body };
+    if (replyId) payload.quotedMessageId = replyId;
+    if (reuseTranslated) payload.clientTranslated = reuseTranslated;
+    if (mentions) payload.mentions = mentions;
+
+    // ── 발송 1회 시도 → 결과 분류 ──
+    // "deploySwap"만 재시도 대상. 그 외(sent·fail)는 확정 처리.
+    //   ★재시도 안전성: 502 "Retried single replica"는 요청이 **앱에 닿기도 전에** 엣지에서
+    //     반송된 것(배포 컨테이너 스왑 창) → 중복 발송이 원천적으로 불가능하므로만 자동 재시도한다.
+    //     504(게이트웨이 타임아웃)는 앱이 실제로 발송을 끝냈는데 응답만 늦었을 수 있어 **재시도 금지**
+    //     (재시도 시 고객에게 중복 메시지 발송 위험) — 현행대로 안내만 띄운다.
+    type SendOutcome = { kind: "sent" } | { kind: "deploySwap" } | { kind: "fail"; msg: string };
+    async function attemptSend(): Promise<SendOutcome> {
+      try {
+        const res = await fetch("/api/zalo/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) return { kind: "sent" };
+        if (res.status === 409) return { kind: "fail", msg: t("windowClosedWarning") };
+        if (res.status === 400) {
+          // QUOTE_NOT_SUPPORTED(과거 메시지 인용 불가) → 버블에 안내.
+          let code: string | null = null;
+          try {
+            code = ((await res.json()) as { error?: string }).error ?? null;
+          } catch {
+            /* generic */
+          }
+          return {
+            kind: "fail",
+            msg: code === "QUOTE_NOT_SUPPORTED" ? t("reply.notSupported") : t("sendFailed"),
+          };
         }
-        onOptimisticFail(tempId, code === "QUOTE_NOT_SUPPORTED" ? t("reply.notSupported") : t("sendFailed"));
-      } else if (res.status === 502 && !(await isTranslateFailure(res))) {
-        // 배포 교체 중 Railway 엣지 502("Retried single replica") — 앱까지 닿지 못한 요청.
-        // 원인이 서버 재시작임을 알려 "프로그램 버그"로 오해하고 재전송을 반복하지 않게 한다.
-        onOptimisticFail(tempId, t("sendUnavailable"));
-      } else if (res.status === 502 || res.status === 503) {
-        // TRANSLATE_FAILED/TRANSLATE_NOT_CONFIGURED — 한국어 오발송 방지로 **미발송**(재전송 안전).
-        onOptimisticFail(tempId, t("sendTranslateFailed"));
-      } else if (res.status === 504) {
-        onOptimisticFail(tempId, t("sendUnavailable"));
-      } else {
-        onOptimisticFail(tempId, t("sendFailed"));
+        if (res.status === 502 && !(await isTranslateFailure(res))) {
+          // 배포 교체 중 Railway 엣지 502 — 앱까지 닿지 못한 요청(재시도 안전).
+          return { kind: "deploySwap" };
+        }
+        if (res.status === 502 || res.status === 503) {
+          // TRANSLATE_FAILED/TRANSLATE_NOT_CONFIGURED — 한국어 오발송 방지로 **미발송**(재전송 안전).
+          return { kind: "fail", msg: t("sendTranslateFailed") };
+        }
+        if (res.status === 504) return { kind: "fail", msg: t("sendUnavailable") };
+        return { kind: "fail", msg: t("sendFailed") };
+      } catch {
+        return { kind: "fail", msg: t("sendFailed") };
       }
-    } catch {
-      onOptimisticFail(tempId, t("sendFailed"));
+    }
+
+    let outcome = await attemptSend();
+    if (outcome.kind === "deploySwap") {
+      // 배포 스왑 창은 보통 수 초 — "전송 중" 버블을 유지한 채 조용히 한 번만 자동 재시도한다.
+      //   대부분의 스왑은 이 한 번으로 흡수되어 사용자 눈에 502 안내가 뜨지 않는다.
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      outcome = await attemptSend();
+    }
+
+    if (outcome.kind === "sent") {
+      // 성공 — 스레드 재fetch(수백 ms)를 기다리지 않고 버블을 즉시 "전송됨"으로 바꾼다.
+      //   진짜 메시지가 도착하면 ChatPane이 이 버블을 prune하고 정식 OutboundBubble로 교체.
+      onOptimisticSent(tempId);
+      refresh();
+    } else if (outcome.kind === "deploySwap") {
+      // 재시도도 스왑 창에 걸림 → 미발송 안내(사용자가 잠시 후 재전송). "버그" 오해 방지.
+      onOptimisticFail(tempId, t("sendUnavailable"));
+    } else {
+      onOptimisticFail(tempId, outcome.msg);
     }
   }
 
