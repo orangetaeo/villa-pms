@@ -11,7 +11,6 @@ import { getTranslations } from "next-intl/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
-import { userCanSeeMarketing } from "@/lib/marketing-access";
 import { MEDIA_TOPIC_GROUPS } from "@/lib/seo/media";
 import SeoNav from "../seo-nav";
 import MediaUploader from "./media-uploader";
@@ -38,7 +37,6 @@ export default async function SeoMediaPage({
   const session = await auth();
   const role = session?.user?.role;
   if (!session?.user?.id || !role || !isOperator(role)) redirect("/login");
-  if (!(await userCanSeeMarketing(session.user.id))) redirect("/dashboard");
 
   const t = await getTranslations("marketingSeoMedia");
   const tn = await getTranslations("marketingSeoNav");

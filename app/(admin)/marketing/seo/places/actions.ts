@@ -1,7 +1,7 @@
 "use server";
 // /marketing/seo/places 서버 액션 — 푸꾸옥 장소 등록·수정 (T-seo-place-article)
 //
-// ★ 첫 줄에서 권한 검사(운영자 + 마케팅 접근 허용자).
+// ★ 첫 줄에서 권한 검사(전체 운영자 isOperator).
 // ★ `oneLiner`(직접 가본 인상)는 **필수** — 비면 AI가 채우게 되고, 그게 곧 지어내기다.
 // ★ 삭제 없음 — active=false로 내린다(이미 발행된 글에 등장한 장소의 이력을 지우지 않는다).
 import { revalidatePath } from "next/cache";
@@ -9,7 +9,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
-import { userCanSeeMarketing } from "@/lib/marketing-access";
 import { writeAuditLog } from "@/lib/audit-log";
 import { placeCategory, createPlaceArticleDraft, PLACE_SELECT, isMediaKind } from "@/lib/seo/place-article";
 import { isArticlePublishable } from "@/lib/seo/article";
@@ -25,7 +24,6 @@ async function requireMarketingOperator(): Promise<string> {
   const role = session?.user?.role;
   const userId = session?.user?.id;
   if (!userId || !role || !isOperator(role)) throw new Error("FORBIDDEN");
-  if (!(await userCanSeeMarketing(userId))) throw new Error("FORBIDDEN");
   return userId;
 }
 

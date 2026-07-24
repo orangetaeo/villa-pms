@@ -1,7 +1,7 @@
 "use server";
 // /marketing/seo/media 서버 액션 — 자료 사진 라이브러리 CRUD (T-seo-media-library)
 //
-// ★ 모든 액션 첫 줄에서 권한 검사(운영자 + 마케팅 접근 허용자). 클라이언트 상태를 신뢰하지 않는다.
+// ★ 모든 액션 첫 줄에서 권한 검사(전체 운영자 isOperator). 클라이언트 상태를 신뢰하지 않는다.
 // ★ 삭제 액션이 없다 — 이미 발행된 글의 본문 이미지 URL이 죽으면 안 되므로 active=false로만 내린다.
 // ★ URL은 클라이언트가 보낸 문자열이지만 **허용 호스트 검증**(isAllowedImageUrl)을 통과해야만 저장된다.
 import { revalidatePath } from "next/cache";
@@ -9,7 +9,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
-import { userCanSeeMarketing } from "@/lib/marketing-access";
 import { writeAuditLog } from "@/lib/audit-log";
 import { normalizeTopicKeys, validateMediaInput } from "@/lib/seo/media";
 
@@ -20,7 +19,6 @@ async function requireMarketingOperator(): Promise<string> {
   const role = session?.user?.role;
   const userId = session?.user?.id;
   if (!userId || !role || !isOperator(role)) throw new Error("FORBIDDEN");
-  if (!(await userCanSeeMarketing(userId))) throw new Error("FORBIDDEN");
   return userId;
 }
 
