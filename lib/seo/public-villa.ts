@@ -223,6 +223,29 @@ export async function getPublicVillaApproxMapEmbed(villaId: string, db: DbClient
   return toEmbedUrl(full, { approximate: true }); // 좌표 뭉갬은 여기서 끝난다(서버 전용)
 }
 
+/**
+ * id 목록 → 공개 빌라(발행 자격 통과분만). 블로그 글의 relatedVillaIds 같은 **큐레이션된 id 집합**을
+ * 공개 카드로 풀 때 쓴다. getPublicVillas는 전체를 반환하므로, 특정 id만 뽑을 때 이 함수를 경유한다.
+ *
+ * ★ 공개 게이트(PUBLIC_WHERE)를 그대로 상속한다 — id를 지정해도 비공개·비발행 빌라는 절대 나오지 않는다.
+ *   (relatedVillaIds에 남은 옛 id가 그 사이 비공개로 전환됐어도 여기서 걸러진다 — schema 주석의 "FK 없음, 렌더 단계 관문"이 이것)
+ * ★ 입력 순서를 보존한다 — relatedVillaIds의 큐레이션 순서가 카드 노출 순서가 된다.
+ */
+export async function getPublicVillasByIds(ids: string[], db: DbClient = prisma): Promise<PublicVilla[]> {
+  const unique = [...new Set(ids)].filter((id) => typeof id === "string" && id.length > 0);
+  if (unique.length === 0) return [];
+  const rows = await db.villa.findMany({
+    where: { ...PUBLIC_WHERE, id: { in: unique } },
+    select: PUBLIC_VILLA_SELECT,
+  });
+  const byId = new Map<string, PublicVilla>();
+  for (const row of rows) {
+    const v = toPublicVilla(row);
+    if (v && isPublishable(v)) byId.set(v.id, v);
+  }
+  return unique.map((id) => byId.get(id)).filter((v): v is PublicVilla => v != null);
+}
+
 /** 슬러그 단건 조회 — 공개 상세 페이지용. 자격 미달·비공개면 null(404 처리). */
 export async function getPublicVillaBySlug(slug: string, db: DbClient = prisma): Promise<PublicVilla | null> {
   const row = await db.villa.findFirst({
