@@ -9,7 +9,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getPublicVillaBySlug } from "@/lib/seo/public-villa";
+import { getPublicVillaBySlug, getPublicVillaApproxMapEmbed } from "@/lib/seo/public-villa";
 import { blogPaths, BLOG_ROOT } from "@/lib/seo/routes";
 import { absoluteUrl } from "@/lib/seo/base-url";
 import { FEATURE_ITEMS } from "@/lib/features";
@@ -72,6 +72,8 @@ export default async function PublicVillaPage({ params }: Params) {
 
   const where = v.areaNameKo ?? v.areaName ?? v.complex ?? "푸꾸옥";
   const features = v.featureKeys.filter((k) => VALID_FEATURES.has(k));
+  // 대략 위치 지도 — 서버에서 좌표를 ~1km로 뭉갠 임베드 URL만 받는다(정확 좌표는 서버 밖으로 안 나감, 원칙 1).
+  const villaMapEmbed = await getPublicVillaApproxMapEmbed(v.id).catch(() => null);
 
   // JSON-LD — LodgingBusiness. ★ priceRange·offers·availability 필드는 넣지 않는다(공개 경계).
   //   주소도 단지 수준(addressLocality)까지만. 정확 주소는 어떤 형태로도 내보내지 않는다.
@@ -262,6 +264,23 @@ export default async function PublicVillaPage({ params }: Params) {
             <li>파티 {v.partyAllowed ? "가능" : "불가"}</li>
           </ul>
         </section>
+
+        {/* 위치(대략) — 정확 핀 대신 동네 수준만(원칙 1). 서버가 좌표를 뭉갠 임베드 URL만 넘긴다. */}
+        {villaMapEmbed && (
+          <section className="mt-8">
+            <h2 className="text-lg font-bold">위치</h2>
+            <p className="mt-1 text-sm text-slate-500">정확한 주소는 예약 확정 후 안내드립니다. 아래는 대략적인 위치예요.</p>
+            <div className="relative mt-3 aspect-video w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+              <iframe
+                src={villaMapEmbed}
+                title="빌라 대략 위치 지도"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                className="absolute inset-0 h-full w-full border-0"
+              />
+            </div>
+          </section>
+        )}
 
         {/* ★ 가격·공실 대신 상담 CTA */}
         <section className="mt-10 rounded-2xl bg-slate-50 p-5">
