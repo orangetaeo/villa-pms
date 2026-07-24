@@ -249,7 +249,11 @@ export async function VillaPage({ slug, locale }: { slug: string; locale: Public
                       className="absolute inset-0 h-full w-full"
                     />
                   </div>
-                  <figcaption className="mt-2 text-center text-sm text-slate-600">{vid.title}</figcaption>
+                  {/* 영상 제목은 유튜브 원본(한국어)이라 비-ko 페이지에선 숨긴다 — 섹션 제목(t.videoTitle)이
+                      이미 로케일화돼 있어 캡션이 없어도 무엇인지 전달된다(ADR-0050 minor). */}
+                  {locale === "ko" && (
+                    <figcaption className="mt-2 text-center text-sm text-slate-600">{vid.title}</figcaption>
+                  )}
                 </figure>
               ))}
             </div>

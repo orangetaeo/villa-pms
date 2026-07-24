@@ -46,7 +46,7 @@ interface Candidate {
   nights: number;
   totalSaleKrw: number | null;
   totalSaleVnd: string | null; // BigInt 직렬화 — 문자열
-  totalSaleUsd: number | null; // USD는 수동입력 — 후보 단계에선 항상 null (Phase 2)
+  totalSaleUsd: number | null; // USD 자동환산값(환율 설정 시). 환율 미설정이면 null → 수동 입력 (Phase 2)
   totalSupplierCostVnd: string; // ADMIN 전용 — 마진 계산용
   // ADR-0031 안전장치 — DIRECT(일반고객·소비자가)인데 소비자 원화/동가 미설정이라 여행사 도매가가
   //   그대로 제안되는 빌라. 서버가 채널을 보고 판정(NET·폴백0이면 false).
@@ -139,6 +139,8 @@ export default function ProposalCreate() {
   // ----- 후보 조회 -----
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
   const [warnings, setWarnings] = useState<CandidateWarning[]>([]);
+  // USD 자동환산 여부 — 서버가 USD 채널일 때만 true/false로 알려줌(환율 설정=자동, 미설정=수동)
+  const [usdAuto, setUsdAuto] = useState(false);
   const [candidatesLoading, setCandidatesLoading] = useState(false);
   const [candidatesError, setCandidatesError] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -195,9 +197,11 @@ export default function ProposalCreate() {
         const data = (await res.json()) as {
           candidates: Candidate[];
           warnings: CandidateWarning[];
+          usdAuto?: boolean;
         };
         setCandidates(data.candidates);
         setWarnings(data.warnings);
+        setUsdAuto(!!data.usdAuto);
         // 조건 변경으로 사라진 후보는 선택에서 제거
         setSelectedIds((prev) => prev.filter((id) => data.candidates.some((c) => c.id === id)));
       } catch (e) {
@@ -311,12 +315,20 @@ export default function ProposalCreate() {
     [selected]
   );
 
-  // USD 입력 파서 — 숫자만, 양의 정수만 유효(아니면 0). 표시·합계용.
-  const parseUsd = (id: string): number => {
+  // 수동 입력 USD 총액(오버라이드) — 숫자만, 양의 정수만 유효(아니면 null=미입력).
+  const manualUsd = (id: string): number | null => {
     const raw = usdTotals[id];
-    if (!raw) return 0;
+    if (!raw) return null;
     const n = Number(raw.replace(/[^\d]/g, ""));
-    return Number.isInteger(n) && n > 0 ? n : 0;
+    return Number.isInteger(n) && n > 0 ? n : null;
+  };
+
+  // USD 표시·합계·submit용 유효 총액 — 수동 입력(오버라이드) 우선, 없으면 서버 자동환산값.
+  const parseUsd = (id: string): number => {
+    const override = manualUsd(id);
+    if (override != null) return override;
+    const auto = (candidates ?? []).find((c) => c.id === id)?.totalSaleUsd ?? 0;
+    return auto > 0 ? auto : 0;
   };
 
   // ----- 요약 합계 (VND는 BigInt — 부동소수점 금지) -----
@@ -362,8 +374,9 @@ export default function ProposalCreate() {
     if (selected.length === 0) return;
     setFailures(null);
     setSubmitError(null);
-    // USD 모드: 선택된 빌라마다 양의 정수 USD 총액이 있어야 함
-    if (currency === "USD" && selectedIds.some((id) => parseUsd(id) <= 0)) {
+    // USD 수동 모드(환율 미설정)만: 선택된 빌라마다 양의 정수 USD 총액이 있어야 함.
+    //   자동환산 모드(usdAuto)는 서버가 VND 요율표 총액을 환산하므로 입력 없이도 통과.
+    if (currency === "USD" && !usdAuto && selectedIds.some((id) => manualUsd(id) == null)) {
       setSubmitError(t("usdTotalRequired"));
       return;
     }
@@ -384,8 +397,11 @@ export default function ProposalCreate() {
             villaId,
             checkIn: values.checkIn,
             checkOut: values.checkOut,
-            // USD 모드일 때만 수동 입력 총액 포함
-            ...(currency === "USD" ? { totalUsd: parseUsd(villaId) } : {}),
+            // USD 모드에서 수동 입력(오버라이드)이 실제로 있을 때만 totalUsd 전송.
+            //   없으면 생략 → 서버가 VND 요율표 총액을 환율로 자동환산한다.
+            ...(currency === "USD" && manualUsd(villaId) != null
+              ? { totalUsd: manualUsd(villaId)! }
+              : {}),
           })),
         }),
       });
@@ -848,7 +864,9 @@ export default function ProposalCreate() {
                 <span className="text-xs font-medium text-slate-300">{t("usdToggle")}</span>
               </label>
               {currency === "USD" && (
-                <p className="text-xs text-amber-300/90 mt-2 px-1">{t("usdNotice")}</p>
+                <p className="text-xs text-amber-300/90 mt-2 px-1">
+                  {usdAuto ? t("usdNotice") : t("usdFxMissing")}
+                </p>
               )}
             </div>
 
@@ -957,11 +975,13 @@ export default function ProposalCreate() {
                           <span className="material-symbols-outlined text-lg">close</span>
                         </button>
                       </div>
-                      {/* Phase 2 USD: 빌라별 USD 총액 수동 입력 */}
+                      {/* Phase 2 USD: 빌라별 USD 총액.
+                          자동환산 모드(usdAuto)면 "직접 조정(선택)" 오버라이드 — placeholder에 자동환산값 노출.
+                          환율 미설정이면 기존처럼 필수 수동 입력. */}
                       {currency === "USD" && (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-slate-400 shrink-0">
-                            {t("usdTotalLabel")}
+                            {usdAuto ? t("usdOverrideLabel") : t("usdTotalLabel")}
                           </span>
                           <div className="relative flex-1">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">
@@ -970,8 +990,12 @@ export default function ProposalCreate() {
                             <input
                               type="text"
                               inputMode="numeric"
-                              aria-label={`${c.name} ${t("usdTotalLabel")}`}
-                              placeholder={t("usdTotalPlaceholder")}
+                              aria-label={`${c.name} ${usdAuto ? t("usdOverrideLabel") : t("usdTotalLabel")}`}
+                              placeholder={
+                                usdAuto
+                                  ? `$${formatThousands(c.totalSaleUsd ?? 0)}`
+                                  : t("usdTotalPlaceholder")
+                              }
                               value={usdTotals[c.id] ?? ""}
                               onChange={(e) =>
                                 setUsdTotals((prev) => ({
@@ -1051,7 +1075,9 @@ export default function ProposalCreate() {
                 </div>
               ) : currency === "USD" ? (
                 // USD: 환산 후 마진은 서버 스냅샷 환율로 계산(/revenue·정산에서 표시). 생성 화면은 USD 총액만.
-                <p className="text-[11px] text-admin-muted leading-relaxed">{t("usdNotice")}</p>
+                <p className="text-[11px] text-admin-muted leading-relaxed">
+                  {usdAuto ? t("usdNotice") : t("usdFxMissing")}
+                </p>
               ) : marginKrwRef !== null ? (
                 <div className="flex justify-between text-sm gap-3">
                   <span className="text-slate-400 whitespace-nowrap">{t("marginReference")}</span>

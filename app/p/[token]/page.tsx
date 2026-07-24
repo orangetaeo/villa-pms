@@ -54,12 +54,20 @@ export async function generateMetadata({
 
 async function getContactSettings() {
   const rows = await prisma.appSetting.findMany({
-    where: { key: { in: ["CONTACT_KAKAO_URL", "CONTACT_ZALO_URL", "CONTACT_PHONE"] } },
+    where: {
+      key: {
+        in: ["CONTACT_KAKAO_URL", "CONTACT_ZALO_URL", "CONTACT_PHONE", "ZALO_CONNECT_OA_URL"],
+      },
+    },
   });
-  const get = (k: string) => rows.find((r) => r.key === k)?.value ?? null;
+  const get = (k: string) => rows.find((r) => r.key === k)?.value || null;
+  // Zalo 문의 버튼: 전용 CONTACT_ZALO_URL 우선, 없으면 "ZALO 연결 안내" 친구추가 링크(온보딩과
+  //   같은 회사 Zalo 계정)로 폴백, 그래도 없으면 env. → 운영자가 Zalo 링크를 어느 카드에 넣든 버튼이 뜬다.
+  const zaloUrl =
+    get("CONTACT_ZALO_URL") ?? get("ZALO_CONNECT_OA_URL") ?? process.env.NEXT_PUBLIC_ZALO_OA_URL ?? null;
   return {
     kakaoUrl: get("CONTACT_KAKAO_URL"),
-    zaloUrl: get("CONTACT_ZALO_URL"),
+    zaloUrl,
     phone: get("CONTACT_PHONE"),
   };
 }
