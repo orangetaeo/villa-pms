@@ -6,6 +6,9 @@
 // 정책(테오 2026-07-24, ADR-0048 §8): 계약금 50% / 잔금 체크인 D-14 / 14일 이내 예약 = 100% 선결제.
 // 값은 AppSetting(B2C_DEPOSIT_RATE_PCT·B2C_BALANCE_LEAD_DAYS)으로 조정 — 이 순수함수는 인자로 받는다.
 
+import { Currency } from "@prisma/client";
+import { krwToVndSnapshot, usdToVndSnapshot } from "./pricing";
+
 /** 정책 기본값 (AppSetting 미설정 시 폴백). B2B(DEFAULT_DEPOSIT_RATE_PCT=30)와 별개. */
 export const B2C_DEFAULT_DEPOSIT_RATE_PCT = 50;
 export const B2C_DEFAULT_BALANCE_LEAD_DAYS = 14;
@@ -108,4 +111,89 @@ export function b2cOutstandingVnd(totalVnd: bigint, paidVndEquivalents: bigint[]
   const paid = paidVndEquivalents.reduce((s, v) => s + v, 0n);
   const remaining = totalVnd - paid;
   return remaining > 0n ? remaining : 0n;
+}
+
+// ===================== P3a — 예약 → 스케줄 앵커 브리지 =====================
+// 스케줄의 진실은 VND(앵커). 예약은 청구통화(KRW/USD)로 팔릴 수 있으므로, 예약 시점 스냅샷 환율로
+// VND 앵커를 산출한다(revenue-ledger의 환산 규칙과 동일 — krw/usdToVndSnapshot 재사용, 드리프트 0).
+
+/** 예약의 청구통화·총액·스냅샷 환율 (Booking에서 발췌). VND 앵커 산출 입력. */
+export interface BookingAnchorInput {
+  saleCurrency: Currency;
+  totalSaleKrw: number | null;
+  totalSaleVnd: bigint | null;
+  totalSaleUsd: number | null;
+  /** 예약 시점 KRW 스냅샷(1 KRW = x VND). Decimal → 문자열. */
+  fxVndPerKrw: string | null;
+  /** 예약 시점 USD 스냅샷(1 USD = x VND). Decimal → 문자열. */
+  fxVndPerUsd: string | null;
+}
+
+/**
+ * 예약의 VND 앵커 산출 (청구통화 → VND, 예약 시점 스냅샷 FX).
+ *  - VND 청구: totalSaleVnd 그대로.
+ *  - KRW 청구: totalSaleKrw × fxVndPerKrw (스냅샷).
+ *  - USD 청구: totalSaleUsd × fxVndPerUsd (스냅샷).
+ * 환율·총액이 없어 산출 불가면 null(스케줄 생성 불가 — 호출자가 견적 재확인).
+ */
+export function resolveBookingAnchorVnd(b: BookingAnchorInput): bigint | null {
+  switch (b.saleCurrency) {
+    case Currency.VND:
+      return b.totalSaleVnd ?? null;
+    case Currency.KRW:
+      if (b.totalSaleKrw == null || b.fxVndPerKrw == null) return null;
+      return krwToVndSnapshot(b.totalSaleKrw, b.fxVndPerKrw);
+    case Currency.USD:
+      if (b.totalSaleUsd == null || b.fxVndPerUsd == null) return null;
+      return usdToVndSnapshot(b.totalSaleUsd, b.fxVndPerUsd);
+    default:
+      return null;
+  }
+}
+
+export interface B2cScheduleCreateInput extends BookingAnchorInput {
+  bookingId: string;
+  checkIn: Date;
+  now: Date;
+  depositRatePct?: number;
+  balanceLeadDays?: number;
+}
+
+/** B2cPaymentSchedule 생성 페이로드 (Prisma create 입력 호환). */
+export interface B2cScheduleCreateData {
+  bookingId: string;
+  totalVnd: bigint;
+  depositRatePct: number;
+  depositDueVnd: bigint;
+  balanceDueVnd: bigint;
+  depositDueDate: Date;
+  balanceDueDate: Date | null;
+  fullPrepay: boolean;
+}
+
+/**
+ * 예약 1건 → B2cPaymentSchedule 생성 데이터. 앵커 산출 불가(환율 없음·총액 0)면 null.
+ * 적용 계약금율(depositRatePct)은 스냅샷으로 저장한다(이후 AppSetting이 바뀌어도 이 예약은 불변).
+ */
+export function buildB2cScheduleCreate(input: B2cScheduleCreateInput): B2cScheduleCreateData | null {
+  const totalVnd = resolveBookingAnchorVnd(input);
+  if (totalVnd == null || totalVnd <= 0n) return null;
+  const depositRatePct = input.depositRatePct ?? B2C_DEFAULT_DEPOSIT_RATE_PCT;
+  const s = computeB2cSchedule({
+    totalVnd,
+    checkIn: input.checkIn,
+    now: input.now,
+    depositRatePct,
+    balanceLeadDays: input.balanceLeadDays,
+  });
+  return {
+    bookingId: input.bookingId,
+    totalVnd,
+    depositRatePct,
+    depositDueVnd: s.depositDueVnd,
+    balanceDueVnd: s.balanceDueVnd,
+    depositDueDate: s.depositDueDate,
+    balanceDueDate: s.balanceDueDate,
+    fullPrepay: s.fullPrepay,
+  };
 }

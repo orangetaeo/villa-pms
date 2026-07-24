@@ -1,8 +1,11 @@
 import { describe, it, expect } from "vitest";
+import { Currency } from "@prisma/client";
 import {
   computeB2cDepositVnd,
   computeB2cSchedule,
   b2cOutstandingVnd,
+  resolveBookingAnchorVnd,
+  buildB2cScheduleCreate,
   B2C_DEFAULT_DEPOSIT_RATE_PCT,
   B2C_DEFAULT_BALANCE_LEAD_DAYS,
 } from "./b2c-payment";
@@ -90,5 +93,76 @@ describe("b2cOutstandingVnd — 앵커 대비 미납 잔액", () => {
   });
   it("과납(환차 등)이어도 음수 아님 → 0", () => {
     expect(b2cOutstandingVnd(10_000_000n, [5_000_000n, 5_100_000n])).toBe(0n);
+  });
+});
+
+describe("resolveBookingAnchorVnd — 청구통화 → VND 앵커(스냅샷 FX)", () => {
+  const nullAmts = { totalSaleKrw: null, totalSaleVnd: null, totalSaleUsd: null, fxVndPerKrw: null, fxVndPerUsd: null };
+
+  it("VND 청구 → totalSaleVnd 그대로", () => {
+    expect(resolveBookingAnchorVnd({ ...nullAmts, saleCurrency: Currency.VND, totalSaleVnd: 12_000_000n })).toBe(12_000_000n);
+  });
+  it("KRW 청구 → totalSaleKrw × fxVndPerKrw 스냅샷", () => {
+    // 250,000원 × 18.5 = 4,625,000동
+    expect(
+      resolveBookingAnchorVnd({ ...nullAmts, saleCurrency: Currency.KRW, totalSaleKrw: 250_000, fxVndPerKrw: "18.5" })
+    ).toBe(4_625_000n);
+  });
+  it("USD 청구 → totalSaleUsd × fxVndPerUsd 스냅샷", () => {
+    // 500$ × 25,400 = 12,700,000동
+    expect(
+      resolveBookingAnchorVnd({ ...nullAmts, saleCurrency: Currency.USD, totalSaleUsd: 500, fxVndPerUsd: "25400" })
+    ).toBe(12_700_000n);
+  });
+  it("환율 없으면 null (스케줄 생성 불가)", () => {
+    expect(resolveBookingAnchorVnd({ ...nullAmts, saleCurrency: Currency.KRW, totalSaleKrw: 250_000 })).toBeNull();
+    expect(resolveBookingAnchorVnd({ ...nullAmts, saleCurrency: Currency.USD, totalSaleUsd: 500 })).toBeNull();
+  });
+  it("총액 없으면 null", () => {
+    expect(resolveBookingAnchorVnd({ ...nullAmts, saleCurrency: Currency.VND })).toBeNull();
+  });
+});
+
+describe("buildB2cScheduleCreate — 예약 → 스케줄 생성 페이로드", () => {
+  const d = (s: string) => new Date(`${s}T00:00:00Z`);
+  const krwBooking = {
+    bookingId: "bk1",
+    saleCurrency: Currency.KRW,
+    totalSaleKrw: 1_000_000, // 100만원
+    totalSaleVnd: null,
+    totalSaleUsd: null,
+    fxVndPerKrw: "18.5", // 1원=18.5동 → 앵커 18,500,000동
+    fxVndPerUsd: null,
+    checkIn: d("2026-10-01"),
+    now: d("2026-08-01"),
+  };
+
+  it("KRW 예약 → 앵커 환산 후 50% 분할, 계약금+잔금=앵커", () => {
+    const s = buildB2cScheduleCreate(krwBooking)!;
+    expect(s.totalVnd).toBe(18_500_000n);
+    expect(s.depositRatePct).toBe(50);
+    expect(s.depositDueVnd).toBe(9_250_000n);
+    expect(s.balanceDueVnd).toBe(9_250_000n);
+    expect(s.depositDueVnd + s.balanceDueVnd).toBe(s.totalVnd); // ★앵커 보존
+    expect(s.balanceDueDate).toEqual(d("2026-09-17")); // 체크인 − 14
+    expect(s.fullPrepay).toBe(false);
+  });
+
+  it("체크인 임박 → fullPrepay(계약금=앵커, 잔금 0)", () => {
+    const s = buildB2cScheduleCreate({ ...krwBooking, checkIn: d("2026-08-10") })!;
+    expect(s.fullPrepay).toBe(true);
+    expect(s.depositDueVnd).toBe(18_500_000n);
+    expect(s.balanceDueVnd).toBe(0n);
+    expect(s.balanceDueDate).toBeNull();
+  });
+
+  it("depositRatePct 스냅샷 저장(오버라이드 반영)", () => {
+    const s = buildB2cScheduleCreate({ ...krwBooking, depositRatePct: 30 })!;
+    expect(s.depositRatePct).toBe(30);
+    expect(s.depositDueVnd).toBe(5_550_000n); // 18,500,000 × 30%
+  });
+
+  it("앵커 불가(환율 없음) → null", () => {
+    expect(buildB2cScheduleCreate({ ...krwBooking, fxVndPerKrw: null })).toBeNull();
   });
 });
