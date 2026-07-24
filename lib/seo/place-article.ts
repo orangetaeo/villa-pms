@@ -18,7 +18,6 @@ import { parseArticleBody } from "@/lib/seo/article";
 import {
   extractJsonArray,
   interleaveImageGroups,
-  spreadImageGroups,
   type DraftResult,
   type PickedImage,
 } from "@/lib/seo/article-draft";
@@ -302,6 +301,59 @@ export function pickPlacePhotos(places: PlaceRow[], maxForSingle = MAX_PHOTOS_SI
   return pickPlaceGroups(places, { single: maxForSingle }).flat();
 }
 
+/** 단독 장소 글의 갤러리 순서 — 음식이 중심이라 맨 앞, 나머지는 종류별로 묶는다. */
+export const SINGLE_PLACE_KIND_ORDER = ["food", "interior", "menu", "exterior", "etc"] as const;
+
+/**
+ * 단독 장소 글: 커버 1장(외관 우선) + 본문을 **종류별 갤러리**로 묶은 그룹들.
+ *   ★ 예전엔 역할을 섞어 한 줄로 늘어놓고 소제목 수만큼 잘라서, 같은 종류가 흩어졌다
+ *     (테오 지적 2026-07-24: 메뉴판이 위에 1장·아래 3장). 이제 같은 종류를 한 갤러리로 모은다
+ *     (음식끼리·메뉴끼리·내부끼리). 각 그룹의 사진들은 본문에서 연속 배치되어 하나의 그리드가 된다.
+ * 반환: cover(썸네일용, 본문에선 제외) + bodyGroups(각 그룹 = 한 종류).
+ */
+export function pickSinglePlaceKindGroups(
+  place: PlaceRow,
+  max = MAX_PHOTOS_SINGLE_PLACE
+): { cover: PlacePickedImage | null; bodyGroups: PlacePickedImage[][] } {
+  type Photo = PlaceRow["photos"][number];
+  const toPick = (photo: Photo): PlacePickedImage => ({
+    url: photo.url,
+    alt: photo.alt,
+    caption: photo.caption ?? place.name,
+    mediaId: photo.id,
+    watermarkedUrl: photo.watermarkedUrl ?? null,
+  });
+  const all = place.photos;
+  // 커버 = 외관 우선(가게 간판이 대표에 어울린다), 없으면 첫 장.
+  const coverPhoto = all.find((p) => p.kind === "exterior") ?? all[0] ?? null;
+  const cover = coverPhoto ? toPick(coverPhoto) : null;
+  const used = new Set<string>();
+  if (coverPhoto) used.add(coverPhoto.url);
+  let budget = Math.max(0, max - (cover ? 1 : 0));
+
+  const take = (predicate: (p: Photo) => boolean): PlacePickedImage[] => {
+    const g: PlacePickedImage[] = [];
+    for (const photo of all) {
+      if (budget <= 0) break;
+      if (used.has(photo.url) || !predicate(photo)) continue;
+      used.add(photo.url);
+      g.push(toPick(photo));
+      budget--;
+    }
+    return g;
+  };
+
+  const bodyGroups: PlacePickedImage[][] = [];
+  for (const kind of SINGLE_PLACE_KIND_ORDER) {
+    const g = take((p) => p.kind === kind);
+    if (g.length) bodyGroups.push(g);
+  }
+  // 역할 미지정(null 등)은 마지막 한 그룹으로.
+  const unset = take((p) => !isMediaKind(p.kind));
+  if (unset.length) bodyGroups.push(unset);
+  return { cover, bodyGroups };
+}
+
 /**
  * 사진을 본문에 **고르게** 흩뿌린다 — 소제목 뒤에만 넣으면 소제목 수(3~4개)가 곧 사진 상한이 된다.
  *   문단 위치를 세어 균등 간격으로 배치하고, 남으면 끝에 이어 붙인다(사진이 잘리지 않게).
@@ -449,26 +501,31 @@ export async function createPlaceArticleDraft(
   if (!draft) return { ok: false, reason: "생성 실패" };
   if (!deps.helpers.isArticlePublishable(draft.blocks)) return { ok: false, reason: "분량·구조 하한 미달" };
 
-  // 장소별 그룹 → 각 그룹의 사진들이 그 가게 소제목 아래 **연속**으로 들어가 그리드 갤러리로 묶인다.
-  const groups = pickPlaceGroups(places);
   // ★ 블로그에 나가는 이미지는 **워터마크 필수**(테오 지시 2026-07-23). 파생본이 없으면 여기서 굽는다.
-  //   실패 시 원본 URL로 폴백 — 워터마크 때문에 글 생성을 멈추지 않는다. 그룹 구조는 유지한다.
-  const wmGroups = await Promise.all(
-    groups.map((g) => Promise.all(g.map(async (p) => ({ ...p, url: await deps.watermark(p) }))))
-  );
-  const flat = wmGroups.flat();
-  // ★ 첫 장은 **커버 전용**이다 — 본문에 또 넣으면 같은 사진이 두 번 나온다(테오 실측 2026-07-23).
-  const firstIdx = wmGroups.findIndex((g) => g.length > 0);
-  const cover = firstIdx >= 0 ? wmGroups[firstIdx][0] : null;
-  // 커버가 속한 그룹에서만 첫 장을 뺀다(나머지 장소 그룹은 그대로).
-  const bodyGroups = wmGroups.map((g, i) => (i === firstIdx ? g.slice(1) : g));
+  //   실패 시 원본 URL로 폴백 — 워터마크 때문에 글 생성을 멈추지 않는다.
+  const wm = async (p: PlacePickedImage) => ({ ...p, url: await deps.watermark(p) });
   const dblocks = dedupeParagraphs(draft.blocks);
-  // 단독 글: 한 가게 사진이 많아 소제목 수만큼 그룹으로 쪼개 고르게 흩뿌린다.
-  // 묶음 글: 장소마다 그 가게 사진 묶음을 소제목 아래에 배치(사진-장소 짝 유지).
-  const body =
-    places.length === 1
-      ? spreadImageGroups(dblocks, bodyGroups[firstIdx >= 0 ? firstIdx : 0] ?? [])
-      : interleaveImageGroups(dblocks, bodyGroups);
+  let cover: PickedImage | null;
+  let bodyGroups: PickedImage[][];
+  let flatCount: number;
+
+  if (places.length === 1) {
+    // ★ 단독 글: 사진을 **종류별로 묶는다**(음식끼리·메뉴끼리·내부끼리) — 흩어지지 않게(테오 지적 2026-07-24).
+    //   각 종류 그룹이 소제목 아래 연속 배치되어 하나의 그리드 갤러리가 된다. 커버(외관)는 본문에서 제외.
+    const kind = pickSinglePlaceKindGroups(places[0]);
+    cover = kind.cover ? await wm(kind.cover) : null;
+    bodyGroups = await Promise.all(kind.bodyGroups.map((g) => Promise.all(g.map(wm))));
+    flatCount = (cover ? 1 : 0) + bodyGroups.reduce((n, g) => n + g.length, 0);
+  } else {
+    // 묶음 글: 장소마다 그 가게 사진 묶음을 소제목 아래에 배치(사진-장소 짝 유지).
+    const wmGroups = await Promise.all(pickPlaceGroups(places).map((g) => Promise.all(g.map(wm))));
+    // ★ 첫 장은 **커버 전용**이다 — 본문에 또 넣으면 같은 사진이 두 번 나온다(테오 실측 2026-07-23).
+    const firstIdx = wmGroups.findIndex((g) => g.length > 0);
+    cover = firstIdx >= 0 ? wmGroups[firstIdx][0] : null;
+    bodyGroups = wmGroups.map((g, i) => (i === firstIdx ? g.slice(1) : g));
+    flatCount = wmGroups.reduce((n, g) => n + g.length, 0);
+  }
+  const body = interleaveImageGroups(dblocks, bodyGroups);
   const title = buildPlaceArticleTitle(category, places, seq);
   const summary = deps.helpers.buildSummary(draft.blocks);
   // 대표 썸네일 — 커버 사진(워터마크본) 위에 제목·후킹·브랜드를 얹는다. 실패하면 사진 URL로 폴백.
@@ -504,7 +561,7 @@ export async function createPlaceArticleDraft(
     row.id,
     db
   );
-  return { ok: true, ...row, photos: flat.length };
+  return { ok: true, ...row, photos: flatCount };
 }
 
 export function buildPlaceArticlePrompt(c: PlaceCategory, places: PlaceRow[]): string {
