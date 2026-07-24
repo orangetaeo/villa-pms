@@ -234,6 +234,8 @@ export default function YoutubeSettingsPanel({
                 </span>
                 <span className="text-[11px] text-slate-500">{t("settings.connectHint")}</span>
                 {canEdit ? (
+                  // OAuth 시작은 서버 리다이렉트 엔드포인트로의 전체 내비게이션이라 <a>가 맞다(Link 부적합).
+                  // eslint-disable-next-line @next/next/no-html-link-for-pages
                   <a
                     href="/api/youtube/oauth/start"
                     className={`inline-flex w-fit items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-bold transition-all active:scale-[0.98] ${
