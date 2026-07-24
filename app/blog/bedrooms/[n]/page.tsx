@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import FacetPageView, { loadFacet } from "@/lib/seo/facet-page";
+import { MIN_FACET_VILLAS } from "@/lib/seo/facets";
 import { blogPaths } from "@/lib/seo/routes";
 import { absoluteUrl } from "@/lib/seo/base-url";
 
@@ -24,6 +25,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     title: `침실 ${n}개 이상 푸꾸옥 빌라 ${d.villas.length}곳 | Villa GO`,
     description: `침실 ${n}개 이상 푸꾸옥 빌라 모음. 가족·단체 여행에 맞는 구성을 골라보세요.`,
     alternates: { canonical: absoluteUrl(blogPaths.bedrooms(n)) },
+    robots: { index: d.facet.count >= MIN_FACET_VILLAS, follow: true },
   };
 }
 

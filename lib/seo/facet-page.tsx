@@ -29,8 +29,11 @@ export async function loadFacet(path: string): Promise<FacetPageData | null> {
   } catch {
     return null;
   }
+  // 나브(FacetNav)는 살아있는(≥3) 패싯만 보여준다 — 얇은 조합을 링크로 늘어놓지 않는다.
   const facets = allFacetPages(all);
-  const facet = facets.find((f) => f.path === path);
+  // ★ 현재 페이지 자체는 매칭 1곳 이상이면 연다(온사이트 필터가 작동해야 한다는 요구).
+  //   3곳 미만이면 라우트가 noindex로 색인만 막는다(loadFacet은 페이지 존재만 판단).
+  const facet = allFacetPages(all, 1).find((f) => f.path === path);
   if (!facet) return null;
 
   const areaNames: Record<string, string> = {};

@@ -46,7 +46,7 @@ function lastMod(villas: PublicVilla[]): Date {
 }
 
 /** 지역(단지) 패싯 — ComplexArea.code 기준 */
-export function areaFacets(villas: PublicVilla[]): FacetPage[] {
+export function areaFacets(villas: PublicVilla[], min: number = MIN_FACET_VILLAS): FacetPage[] {
   const byArea = new Map<string, PublicVilla[]>();
   for (const v of villas) {
     if (!v.areaCode) continue;
@@ -55,7 +55,7 @@ export function areaFacets(villas: PublicVilla[]): FacetPage[] {
     byArea.set(v.areaCode, list);
   }
   return [...byArea.entries()]
-    .filter(([, list]) => list.length >= MIN_FACET_VILLAS)
+    .filter(([, list]) => list.length >= min)
     .map(([code, list]) => ({
       kind: "area" as const,
       path: blogPaths.area(code),
@@ -66,12 +66,12 @@ export function areaFacets(villas: PublicVilla[]): FacetPage[] {
 }
 
 /** 이용시설·특징 패싯 — 사전 화이트리스트 키만 */
-export function featureFacets(villas: PublicVilla[]): FacetPage[] {
+export function featureFacets(villas: PublicVilla[], min: number = MIN_FACET_VILLAS): FacetPage[] {
   return ALL_FEATURE_KEYS.map((key) => {
     const list = villas.filter((v) => v.featureKeys.includes(key));
     return { key, list };
   })
-    .filter(({ list }) => list.length >= MIN_FACET_VILLAS)
+    .filter(({ list }) => list.length >= min)
     .map(({ key, list }) => ({
       kind: "feature" as const,
       path: blogPaths.feature(key),
@@ -82,9 +82,9 @@ export function featureFacets(villas: PublicVilla[]): FacetPage[] {
 }
 
 /** 인원 패싯 — maxGuests >= n */
-export function guestFacets(villas: PublicVilla[]): FacetPage[] {
+export function guestFacets(villas: PublicVilla[], min: number = MIN_FACET_VILLAS): FacetPage[] {
   return GUEST_BUCKETS.map((n) => ({ n, list: villas.filter((v) => v.maxGuests >= n) }))
-    .filter(({ list }) => list.length >= MIN_FACET_VILLAS)
+    .filter(({ list }) => list.length >= min)
     .map(({ n, list }) => ({
       kind: "guests" as const,
       path: blogPaths.guests(n),
@@ -95,9 +95,9 @@ export function guestFacets(villas: PublicVilla[]): FacetPage[] {
 }
 
 /** 침실 패싯 — bedrooms >= n */
-export function bedroomFacets(villas: PublicVilla[]): FacetPage[] {
+export function bedroomFacets(villas: PublicVilla[], min: number = MIN_FACET_VILLAS): FacetPage[] {
   return BEDROOM_BUCKETS.map((n) => ({ n, list: villas.filter((v) => v.bedrooms >= n) }))
-    .filter(({ list }) => list.length >= MIN_FACET_VILLAS)
+    .filter(({ list }) => list.length >= min)
     .map(({ n, list }) => ({
       kind: "bedrooms" as const,
       path: blogPaths.bedrooms(n),
@@ -108,14 +108,14 @@ export function bedroomFacets(villas: PublicVilla[]): FacetPage[] {
 }
 
 /** 2단 조합(지역 × 시설) — 단일 패싯이 각각 살아있는 조합만 검토한다 */
-export function areaFeatureFacets(villas: PublicVilla[]): FacetPage[] {
-  const areas = areaFacets(villas).map((f) => f.params.area!);
-  const features = featureFacets(villas).map((f) => f.params.feature!);
+export function areaFeatureFacets(villas: PublicVilla[], min: number = MIN_FACET_VILLAS): FacetPage[] {
+  const areas = areaFacets(villas, min).map((f) => f.params.area!);
+  const features = featureFacets(villas, min).map((f) => f.params.feature!);
   const out: FacetPage[] = [];
   for (const area of areas) {
     for (const feature of features) {
       const list = villas.filter((v) => v.areaCode === area && v.featureKeys.includes(feature));
-      if (list.length < MIN_FACET_VILLAS) continue;
+      if (list.length < min) continue;
       out.push({
         kind: "areaFeature",
         path: blogPaths.areaFeature(area, feature),
@@ -128,14 +128,19 @@ export function areaFeatureFacets(villas: PublicVilla[]): FacetPage[] {
   return out;
 }
 
-/** 전체 패싯 페이지 — sitemap·내부링크가 공유하는 단일 진입점 */
-export function allFacetPages(villas: PublicVilla[]): FacetPage[] {
+/**
+ * 전체 패싯 페이지 — sitemap·내부링크가 공유하는 단일 진입점.
+ * ★ min: 매칭 빌라 하한. 기본 MIN_FACET_VILLAS(3)=사이트맵·색인·나브용(얇은 콘텐츠 제외).
+ *   온사이트 필터(loadFacet)는 min=1로 호출해 빌라 1~2곳이어도 페이지가 열리게 한다(그 페이지는
+ *   3곳 미만이면 라우트에서 noindex 처리 → 검색 색인은 여전히 막힌다).
+ */
+export function allFacetPages(villas: PublicVilla[], min: number = MIN_FACET_VILLAS): FacetPage[] {
   return [
-    ...areaFacets(villas),
-    ...featureFacets(villas),
-    ...guestFacets(villas),
-    ...bedroomFacets(villas),
-    ...areaFeatureFacets(villas),
+    ...areaFacets(villas, min),
+    ...featureFacets(villas, min),
+    ...guestFacets(villas, min),
+    ...bedroomFacets(villas, min),
+    ...areaFeatureFacets(villas, min),
   ];
 }
 
