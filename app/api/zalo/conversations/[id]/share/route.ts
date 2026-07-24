@@ -18,6 +18,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { ThreadType } from "zca-js";
 import {
+  Currency,
   Prisma,
   ProposalStatus,
   ZaloCounterpartyType,
@@ -52,12 +53,17 @@ import { loadVillaShareImage } from "@/lib/zalo-share-image";
 import {
   buildVillaShareTextForSupplier,
   buildVillaShareTextForCustomer,
+  buildVillaShareBriefWithBlog,
   buildProposalShareText,
   buildSettlementShareText,
   buildGuestLinkShareText,
   type GuestLinkKind,
   type VillaShareBase,
 } from "@/lib/zalo-share";
+import { pickLowestSalePrice } from "@/lib/pricing";
+import { getPublishedArticleForVilla } from "@/lib/seo/article";
+import { absoluteUrl } from "@/lib/seo/base-url";
+import { blogPaths } from "@/lib/seo/routes";
 import koMessages from "@/messages/ko.json";
 import viMessages from "@/messages/vi.json";
 import { isOperator, canViewFinance } from "@/lib/permissions";
@@ -486,6 +492,7 @@ async function handleProposal(
       status: true,
       expiresAt: true,
       saleCurrency: true,
+      conversationId: true,
       items: {
         select: {
           checkIn: true,
@@ -503,6 +510,28 @@ async function handleProposal(
   }
   if (proposal.status !== ProposalStatus.ACTIVE || proposal.expiresAt.getTime() <= Date.now()) {
     return NextResponse.json({ error: "PROPOSAL_NOT_ACTIVE" }, { status: 409 });
+  }
+
+  // 대화 귀속 bind(계약 H, Q3) — 오발송 차단. 이미 다른 대화에 귀속됐으면 공유 중단(409).
+  //   미귀속이면 이 대화 id로 심고(bind + AuditLog 원자적), 같은 대화면 통과.
+  if (proposal.conversationId && proposal.conversationId !== conv.id) {
+    return NextResponse.json({ error: "PROPOSAL_BOUND_OTHER_CONVERSATION" }, { status: 409 });
+  }
+  if (!proposal.conversationId) {
+    await prisma.$transaction(async (tx) => {
+      await tx.proposal.update({
+        where: { id: proposal.id },
+        data: { conversationId: conv.id },
+      });
+      await writeAuditLog({
+        userId: adminUserId,
+        action: "UPDATE",
+        entity: "Proposal",
+        entityId: proposal.id,
+        changes: { conversationId: { old: null, new: conv.id } },
+        db: tx,
+      });
+    });
   }
 
   const baseUrl = resolveBaseUrl(req);
@@ -633,7 +662,20 @@ async function handleVilla(
   }
   // 통화 — 분류값으로 결정(R2-3): CUSTOMER=KRW, TRAVEL_AGENCY/LAND_AGENCY=VND.
   const saleCurrency = currencyForType(conv.counterpartyType);
-  // 전체 기간 나열(기본 먼저·시작일 순) — 받는 쪽이 "언제 가격인지" 알도록 기간 병기.
+
+  // Q2(계약 F) — 발행된 소개글이 있으면 간단정보 + 대표 "부터" 가격 + 블로그 링크로 발송.
+  //   없으면 기존 상세 요율 나열(폴백). 블로그 조회는 판매가 쿼리와 별개(원가·마진 미조회 유지).
+  const article = await getPublishedArticleForVilla(villaId);
+  if (article) {
+    const from = pickLowestSalePrice(villa.ratePeriods, saleCurrency === Currency.KRW);
+    const briefText = buildVillaShareBriefWithBlog(toShareBase(villa, "ko"), from, saleCurrency, {
+      url: absoluteUrl(blogPaths.article(article.slug)),
+      title: article.title,
+    });
+    return sendVillaShare(conv, adminUserId, briefText, villa.photos[0]?.url ?? null, villa.name);
+  }
+
+  // 폴백 — 전체 기간 나열(기본 먼저·시작일 순). 받는 쪽이 "언제 가격인지" 알도록 기간 병기.
   const text = buildVillaShareTextForCustomer(toShareBase(villa, "ko"), villa.ratePeriods, saleCurrency);
   return sendVillaShare(conv, adminUserId, text, villa.photos[0]?.url ?? null, villa.name);
 }

@@ -222,6 +222,39 @@ export async function getPublishedArticleBySlug(slug: string, db: DbClient = pri
   return row ? toPublicArticle(row) : null;
 }
 
+/**
+ * 빌라 → 발행된 소개글 역조회 (계약 D, Q2) — Zalo 채팅 빌라 공유가 블로그 링크를 붙일 때 쓴다.
+ * category='villa' 글을 우선하고(빌라 상세 소개), 없으면 이 빌라를 관련 빌라로 단 아무 발행글.
+ * 공개 게이트(PUBLISHED·publishedAt·publicHidden=false)는 다른 공개 조회와 동일하게 유지한다.
+ * relatedVillaIds에 villaId가 포함된 최신 발행글 1건의 {slug,title}만 반환(없으면 null).
+ */
+export async function getPublishedArticleForVilla(
+  villaId: string,
+  db: DbClient = prisma,
+): Promise<{ slug: string; title: string } | null> {
+  const base = {
+    status: SeoArticleStatus.PUBLISHED,
+    publishedAt: { not: null },
+    publicHidden: false,
+    relatedVillaIds: { has: villaId },
+  } satisfies Prisma.SeoArticleWhereInput;
+
+  // category='villa' 우선 — 빌라 상세 소개글.
+  const villaArticle = await db.seoArticle.findFirst({
+    where: { ...base, category: "villa" },
+    orderBy: { publishedAt: "desc" },
+    select: { slug: true, title: true },
+  });
+  if (villaArticle) return villaArticle;
+
+  // 폴백 — 카테고리 무관 아무 발행글(이 빌라를 관련 빌라로 단 가이드·장소 등).
+  return db.seoArticle.findFirst({
+    where: base,
+    orderBy: { publishedAt: "desc" },
+    select: { slug: true, title: true },
+  });
+}
+
 // ── 카테고리별 공개 목록 (T-seo-category) ────────────────────────────────────
 /** 카테고리 목록 페이지네이션 기본 크기 — 프로젝트 규칙(목록 기본 10, 서버 skip/take). */
 export const ARTICLES_PAGE_SIZE = 10;

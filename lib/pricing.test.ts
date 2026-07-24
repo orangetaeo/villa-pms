@@ -10,6 +10,8 @@ import {
   usdToVndSnapshot,
   quoteSupplierSaleForVilla,
   quoteStayForVilla,
+  pickLowestSalePrice,
+  pickLowestSupplierCost,
   MissingSupplierPriceError,
   MissingBaseRateError,
 } from "./pricing";
@@ -32,6 +34,44 @@ describe("computeSalePriceVnd — 마진 자동계산", () => {
   it("음수 입력 거부", () => {
     expect(() => computeSalePriceVnd(-1n, MarginType.PERCENT, 30n)).toThrow(RangeError);
     expect(() => computeSalePriceVnd(1n, MarginType.FIXED_VND, -5n)).toThrow(RangeError);
+  });
+});
+
+describe("pickLowestSalePrice — 판매가 >0 최저값 (대표가 0원 버그, 계약 A/D1)", () => {
+  const r = (krw: number, vnd: bigint) => ({ salePriceKrw: krw, salePriceVnd: vnd });
+
+  it("KRW: >0 행 중 최소를 고르고 base=0은 제외", () => {
+    // base=0(초기화) + 시즌가 2개 → 최저 시즌가
+    const out = pickLowestSalePrice([r(0, 0n), r(120_000, 2_000_000n), r(90_000, 1_500_000n)], true);
+    expect(out).toEqual({ krw: 90_000, vnd: null });
+  });
+
+  it("VND: >0 행 중 최소, 선택 통화만 채우고 반대편은 null", () => {
+    const out = pickLowestSalePrice([r(0, 0n), r(120_000, 2_000_000n), r(90_000, 1_500_000n)], false);
+    expect(out).toEqual({ krw: null, vnd: 1_500_000n });
+  });
+
+  it("전부 0/미설정이면 null (모달·본문 가격 생략)", () => {
+    expect(pickLowestSalePrice([r(0, 0n), r(0, 0n)], true)).toBeNull();
+    expect(pickLowestSalePrice([], false)).toBeNull();
+  });
+
+  it("혼합: KRW는 있고 VND는 전부 0이면 통화별로 결과가 갈린다", () => {
+    const rows = [r(0, 0n), r(80_000, 0n)];
+    expect(pickLowestSalePrice(rows, true)).toEqual({ krw: 80_000, vnd: null });
+    expect(pickLowestSalePrice(rows, false)).toBeNull();
+  });
+});
+
+describe("pickLowestSupplierCost — 원가 >0 최저값 (계약 A)", () => {
+  it(">0 중 최소, base=0 제외", () => {
+    expect(
+      pickLowestSupplierCost([{ supplierCostVnd: 0n }, { supplierCostVnd: 3_000_000n }, { supplierCostVnd: 2_000_000n }])
+    ).toBe(2_000_000n);
+  });
+  it("전부 0/빈 배열이면 null", () => {
+    expect(pickLowestSupplierCost([{ supplierCostVnd: 0n }])).toBeNull();
+    expect(pickLowestSupplierCost([])).toBeNull();
   });
 });
 

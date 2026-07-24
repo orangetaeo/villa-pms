@@ -605,10 +605,13 @@ model Proposal {
   seller       BookingSeller  @default(OPERATOR) // F10 Phase B: 제안 링크 판매 주체. SUPPLIER=공급자 직접 판매 링크 (ADR-0021)
   supplierId   String? // F10 Phase B: 공급자 직접 판매 링크 소유자. null=운영자 제안 링크 (ADR-0021)
   partnerId    String? // 여행사·랜드사 파트너 연결(선택). null=일반 소비자(clientName 자유 텍스트). 가예약→예약 전환 시 partner 승계용
+  conversationId String? // 채팅 공유 시 귀속되는 ZaloConversation.id (FK 없음, 오발송 차단·후보 필터용). additive raw SQL ALTER로 라이브 반영
   createdAt    DateTime       @default(now())
 
   partner Partner?       @relation(fields: [partnerId], references: [id])
   items   ProposalItem[]
+
+  @@index([conversationId])
 }
 
 model ProposalItem {

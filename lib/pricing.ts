@@ -492,6 +492,45 @@ export function pickRepresentativeRate<T extends { season: SeasonType }>(
 }
 
 /**
+ * 대표 "부터" 판매가 (2026-07-24 대표가 0원 버그 — 계약 A/D1) — 전체 요율 중 판매가 >0 최저값.
+ * 빌라 생성 시 base 행 salePrice*=0으로 초기화되므로 base만 읽으면 0원이 대표가가 됐다.
+ * 실제 판매되는 최저값(시즌가 포함)을 골라 "…부터"로 표시한다. 전부 0/미설정이면 null(가격 생략).
+ *
+ * ⚠️ 누수 불변식: 입력 행은 salePrice* 만 담긴다(원가·마진 필드 없음 — 호출자 select 화이트리스트 책임).
+ * @param useKrw true면 salePriceKrw 기준 최저, false면 salePriceVnd 기준 최저. 선택 통화만 반환한다.
+ */
+export function pickLowestSalePrice(
+  rates: { salePriceKrw: number; salePriceVnd: bigint }[],
+  useKrw: boolean
+): { krw: number | null; vnd: bigint | null } | null {
+  let best: { salePriceKrw: number; salePriceVnd: bigint } | null = null;
+  for (const r of rates) {
+    if (useKrw) {
+      if (r.salePriceKrw > 0 && (best === null || r.salePriceKrw < best.salePriceKrw)) best = r;
+    } else if (r.salePriceVnd > 0n && (best === null || r.salePriceVnd < best.salePriceVnd)) {
+      best = r;
+    }
+  }
+  if (!best) return null;
+  return useKrw ? { krw: best.salePriceKrw, vnd: null } : { krw: null, vnd: best.salePriceVnd };
+}
+
+/**
+ * 대표 "부터" 원가 (계약 A) — 전체 요율 중 supplierCostVnd >0 최저값. 전부 0/미설정이면 null.
+ * pickLowestSalePrice의 공급자(원가) 대응 — 원가 전용 소비처가 base=0에 오염되지 않게 한다.
+ * ⚠️ 누수 불변식: 입력 행은 supplierCostVnd 만 담긴다(판매가·마진 필드 없음).
+ */
+export function pickLowestSupplierCost(rates: { supplierCostVnd: bigint }[]): bigint | null {
+  let best: bigint | null = null;
+  for (const r of rates) {
+    if (r.supplierCostVnd > 0n && (best === null || r.supplierCostVnd < best)) {
+      best = r.supplierCostVnd;
+    }
+  }
+  return best;
+}
+
+/**
  * 마진 자동계산: salePriceVnd = 원가 + 마진 (T1.2 요율 편집의 제안값 — ADMIN 오버라이드 가능)
  * PERCENT는 BigInt 정수 나눗셈(내림) — VND는 소수 없음
  */

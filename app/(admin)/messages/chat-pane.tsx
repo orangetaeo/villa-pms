@@ -183,6 +183,7 @@ export interface VillaCandidate {
   priceLabelKind: "supplierCostVnd" | "salePriceKrw" | "salePriceVnd";
   priceVnd: string | null; // 원가(SUPPLIER) 또는 판매가 VND(TRAVEL_AGENCY/LAND_AGENCY) — 점 표기
   priceKrw: number | null; // 고객 판매가(원, CUSTOMER)
+  priceIsFrom: boolean; // 대표가가 최저값(시즌가)이면 "…부터" 표기
 }
 export interface ProposalCandidate {
   id: string;
@@ -192,6 +193,7 @@ export interface ProposalCandidate {
   totalKrw: number | null;
   totalVnd: string | null;
   expiresInHours: number;
+  boundHere: boolean; // 이 대화에 귀속된 제안(전체 보기에서 구분)
 }
 export interface SettlementCandidate {
   id: string;
@@ -3658,11 +3660,14 @@ function AttachMenu({
   };
   const [cands, setCands] = useState<Cands | null>(null);
   const [candsLoading, setCandsLoading] = useState(false);
+  // 제안 "전체 보기" 토글(계약 J) — 기본은 매칭+미귀속만, 토글 시 allProposals=1로 재조회.
+  const [proposalShowAll, setProposalShowAll] = useState(false);
 
   useEffect(() => {
     // 대화 전환 시 이전 대화의 후보 캐시 무효화(누수·혼선 방지).
     setCands(null);
     setCandsLoading(false);
+    setProposalShowAll(false);
   }, [conversationId]);
 
   async function loadCandidates() {
@@ -3689,6 +3694,24 @@ function AttachMenu({
       setCands({ villa: [], proposal: [], settlement: [] });
     } finally {
       setCandsLoading(false);
+    }
+  }
+
+  // 제안 전체 보기(계약 J) — allProposals=1로 재조회해 proposal 후보만 교체(다른 대화 귀속분 포함).
+  async function loadAllProposals() {
+    if (proposalShowAll) return;
+    try {
+      const res = await fetch(
+        `/api/zalo/conversations/${conversationId}/candidates?allProposals=1`
+      );
+      if (!res.ok) throw new Error(`candidates ${res.status}`);
+      const data = (await res.json()) as { proposalCandidates: ProposalCandidate[] };
+      setCands((prev) =>
+        prev ? { ...prev, proposal: data.proposalCandidates ?? [] } : prev
+      );
+      setProposalShowAll(true);
+    } catch (e) {
+      console.error("전체 제안 조회 실패", e);
     }
   }
 
@@ -3913,6 +3936,8 @@ function AttachMenu({
         <ProposalShareModal
           candidates={cands.proposal}
           contactName={contactName}
+          showingAll={proposalShowAll}
+          onShowAll={() => void loadAllProposals()}
           onClose={() => setModal(null)}
           onSubmit={(proposalId) => void shareJson({ type: "PROPOSAL", proposalId })}
           submitting={submitting}
