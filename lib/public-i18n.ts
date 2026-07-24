@@ -205,6 +205,8 @@ export interface PublicLabels {
     expiredBody: string[]; // 줄바꿈 단위
     closedBody: string[];
     contactKakao: string;
+    contactZalo: string;
+    contactWebchat: string;
     contactPhone: string;
   };
   // 게스트 셀프 체크인 링크 만료/회수 뷰 — 제안서(expired)와 별개 문구(체크인 링크는 제안서가 아님)
@@ -396,6 +398,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       expiredBody: ["제안 유효기간이 지나 더 이상 열람할 수 없습니다.", "담당자에게 새 제안을 요청해 주세요."],
       closedBody: ["선택하신 날짜의 빌라 예약이 마감되었습니다.", "다른 날짜로 다시 제안받으실 수 있습니다."],
       contactKakao: "카카오톡으로 문의",
+      contactZalo: "Zalo로 문의",
+      contactWebchat: "웹채팅으로 문의",
       contactPhone: "전화 연결",
     },
     guestExpired: {
@@ -574,6 +578,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       expiredBody: ["This proposal is past its validity period.", "Please ask your contact for a new one."],
       closedBody: ["The villa for the selected dates is no longer available.", "You can request another date."],
       contactKakao: "Ask via KakaoTalk",
+      contactZalo: "Ask via Zalo",
+      contactWebchat: "Ask via web chat",
       contactPhone: "Call",
     },
     guestExpired: {
@@ -752,6 +758,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       expiredBody: ["Срок действия предложения истёк.", "Запросите новое у вашего менеджера."],
       closedBody: ["Вилла на выбранные даты больше недоступна.", "Вы можете запросить другие даты."],
       contactKakao: "Написать в KakaoTalk",
+      contactZalo: "Написать в Zalo",
+      contactWebchat: "Написать в веб-чат",
       contactPhone: "Позвонить",
     },
     guestExpired: {
@@ -930,6 +938,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       expiredBody: ["提案有效期已过，无法继续查看。", "请向负责人索取新的提案。"],
       closedBody: ["所选日期的别墅预订已截止。", "您可以选择其他日期重新获取提案。"],
       contactKakao: "通过 KakaoTalk 咨询",
+      contactZalo: "通过 Zalo 咨询",
+      contactWebchat: "通过网页聊天咨询",
       contactPhone: "电话联系",
     },
     guestExpired: {
@@ -1108,6 +1118,8 @@ export const PUBLIC_LABELS: Record<PublicLang, PublicLabels> = {
       expiredBody: ["Đề xuất đã quá thời hạn hiệu lực.", "Vui lòng yêu cầu đề xuất mới từ người phụ trách."],
       closedBody: ["Biệt thự cho ngày đã chọn không còn trống.", "Bạn có thể yêu cầu ngày khác."],
       contactKakao: "Hỏi qua KakaoTalk",
+      contactZalo: "Hỏi qua Zalo",
+      contactWebchat: "Hỏi qua chat web",
       contactPhone: "Gọi điện",
     },
     guestExpired: {

@@ -42,6 +42,7 @@ const BANK_CONTACT_KEYS = [
   "BANK_VN_ACCOUNT_NUMBER",
   "BANK_VN_ACCOUNT_HOLDER",
   "CONTACT_KAKAO_URL",
+  "CONTACT_ZALO_URL",
   "CONTACT_PHONE",
 ] as const;
 
@@ -108,6 +109,7 @@ export default async function SettingsPage() {
     vnAccountNumber: settingValue("BANK_VN_ACCOUNT_NUMBER"),
     vnAccountHolder: settingValue("BANK_VN_ACCOUNT_HOLDER"),
     kakaoUrl: settingValue("CONTACT_KAKAO_URL"),
+    zaloUrl: settingValue("CONTACT_ZALO_URL"),
     phone: settingValue("CONTACT_PHONE"),
   };
 

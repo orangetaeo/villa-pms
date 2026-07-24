@@ -54,10 +54,14 @@ export async function generateMetadata({
 
 async function getContactSettings() {
   const rows = await prisma.appSetting.findMany({
-    where: { key: { in: ["CONTACT_KAKAO_URL", "CONTACT_PHONE"] } },
+    where: { key: { in: ["CONTACT_KAKAO_URL", "CONTACT_ZALO_URL", "CONTACT_PHONE"] } },
   });
   const get = (k: string) => rows.find((r) => r.key === k)?.value ?? null;
-  return { kakaoUrl: get("CONTACT_KAKAO_URL"), phone: get("CONTACT_PHONE") };
+  return {
+    kakaoUrl: get("CONTACT_KAKAO_URL"),
+    zaloUrl: get("CONTACT_ZALO_URL"),
+    phone: get("CONTACT_PHONE"),
+  };
 }
 
 // 취소·환불 정책 (#6b) — 전 빌라 공용. 미설정·손상 시 기본값 폴백(공개 표시 안전).
@@ -175,7 +179,15 @@ export default async function ProposalPage({
     const contact = await getContactSettings();
     const variant =
       notice === "closed" || status === ProposalStatus.USED ? "closed" : "expired";
-    return <ExpiredView variant={variant} kakaoUrl={contact.kakaoUrl} phone={contact.phone} lang={lang} />;
+    return (
+      <ExpiredView
+        variant={variant}
+        kakaoUrl={contact.kakaoUrl}
+        zaloUrl={contact.zaloUrl}
+        phone={contact.phone}
+        lang={lang}
+      />
+    );
   }
 
   const holdSetting = await prisma.appSetting.findUnique({

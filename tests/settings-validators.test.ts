@@ -14,6 +14,7 @@ import {
   BANK_VN_ACCOUNT_NUMBER_KEY,
   BANK_VN_ACCOUNT_HOLDER_KEY,
   CONTACT_KAKAO_URL_KEY,
+  CONTACT_ZALO_URL_KEY,
   CONTACT_PHONE_KEY,
   ZALO_CONNECT_QR_URL_KEY,
   ZALO_CONNECT_OA_URL_KEY,
@@ -93,6 +94,22 @@ describe("CONTACT_KAKAO_URL (http(s) URL만)", () => {
   );
   it("300자 초과 거부", () => {
     expect(VALIDATORS[CONTACT_KAKAO_URL_KEY]("https://x.com/" + "a".repeat(300))).toBe(false);
+  });
+});
+
+describe("CONTACT_ZALO_URL (http(s) URL만)", () => {
+  it.each(["https://zalo.me/0791234567", "http://example.com"])("정상: %s", (v) => {
+    expect(VALIDATORS[CONTACT_ZALO_URL_KEY](v)).toBe(true);
+  });
+  it.each(["javascript:alert(1)", "zalo.me/x", "ftp://x", "not a url"])("거부: %s", (v) => {
+    expect(VALIDATORS[CONTACT_ZALO_URL_KEY](v)).toBe(false);
+  });
+  it("300자 초과 거부", () => {
+    expect(VALIDATORS[CONTACT_ZALO_URL_KEY]("https://x.com/" + "a".repeat(300))).toBe(false);
+  });
+  it("clearable 등록(비우면 삭제)", () => {
+    expect(CLEARABLE_SET.has(CONTACT_ZALO_URL_KEY)).toBe(true);
+    expect(isSettingKey(CONTACT_ZALO_URL_KEY)).toBe(true);
   });
 });
 

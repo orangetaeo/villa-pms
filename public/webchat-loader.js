@@ -171,6 +171,16 @@
     if (e && e.data === "webchat:close") setOpen(false);
   });
 
+  // ── 페이지 내 "웹채팅 문의" 버튼용 오픈 훅 ──
+  //   /p 만료·마감 뷰 등에서 body 버튼 → 위젯을 연다. 로더는 async 주입이라
+  //   버튼 클릭이 먼저일 수 있어 pending 플래그(mount에서 확인)로 예약도 지원한다.
+  window.__vgOpenWebChat = function () {
+    setOpen(true);
+  };
+  window.addEventListener("vg:webchat:open", function () {
+    setOpen(true);
+  });
+
   // ── 재방문 미확인 답장 뱃지(1회, 지속 폴링 금지) ──
   function checkUnread() {
     var lastSeen = null;
@@ -202,6 +212,11 @@
   function mount() {
     document.body.appendChild(btn);
     checkUnread();
+    // 로더 로드 전에 눌린 "웹채팅 문의" 버튼의 예약 오픈 처리.
+    if (window.__vgWebChatOpenPending) {
+      window.__vgWebChatOpenPending = false;
+      setOpen(true);
+    }
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", mount);

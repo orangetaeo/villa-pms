@@ -3127,6 +3127,7 @@
       "accountHolder": "Chủ tài khoản",
       "phone": "Số điện thoại",
       "kakaoUrl": "KakaoTalk URL",
+      "zaloUrl": "Zalo URL",
       "hint": "Hiển thị trong hướng dẫn chuyển khoản·nút liên hệ trên trang đề xuất công khai. Để trống sẽ không hiển thị.",
       "save": "Lưu",
       "saving": "Đang lưu...",

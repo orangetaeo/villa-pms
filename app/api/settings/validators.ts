@@ -20,6 +20,7 @@ export const BANK_VN_NAME_KEY = "BANK_VN_NAME";
 export const BANK_VN_ACCOUNT_NUMBER_KEY = "BANK_VN_ACCOUNT_NUMBER";
 export const BANK_VN_ACCOUNT_HOLDER_KEY = "BANK_VN_ACCOUNT_HOLDER";
 export const CONTACT_KAKAO_URL_KEY = "CONTACT_KAKAO_URL";
+export const CONTACT_ZALO_URL_KEY = "CONTACT_ZALO_URL";
 export const CONTACT_PHONE_KEY = "CONTACT_PHONE";
 
 // Zalo 연결 온보딩(/zalo-connect) — QR 이미지·친구추가 딥링크 (T-zalo-connect-qr-admin-setting)
@@ -36,6 +37,7 @@ export const CLEARABLE_KEYS = [
   BANK_VN_ACCOUNT_NUMBER_KEY,
   BANK_VN_ACCOUNT_HOLDER_KEY,
   CONTACT_KAKAO_URL_KEY,
+  CONTACT_ZALO_URL_KEY,
   CONTACT_PHONE_KEY,
   ZALO_CONNECT_QR_URL_KEY,
   ZALO_CONNECT_OA_URL_KEY,
@@ -94,6 +96,16 @@ export const VALIDATORS: Record<SettingKey, (value: string) => boolean> = {
   [BANK_VN_ACCOUNT_NUMBER_KEY]: (value) => /^[0-9][0-9\- ]{0,39}$/.test(value),
   [BANK_VN_ACCOUNT_HOLDER_KEY]: (value) => value.length >= 1 && value.length <= 100,
   [CONTACT_KAKAO_URL_KEY]: (value) => {
+    if (value.length > 300) return false;
+    try {
+      const u = new URL(value);
+      return u.protocol === "http:" || u.protocol === "https:";
+    } catch {
+      return false;
+    }
+  },
+  // Zalo 문의 딥링크 — http(s) URL만 (예: https://zalo.me/…). javascript:·data: 등 주입 차단.
+  [CONTACT_ZALO_URL_KEY]: (value) => {
     if (value.length > 300) return false;
     try {
       const u = new URL(value);

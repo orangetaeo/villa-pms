@@ -46,6 +46,22 @@ const bankFormSchema = z.object({
       },
       { message: "url" }
     ),
+  zaloUrl: z
+    .string()
+    .trim()
+    .refine(
+      (v) => {
+        if (v === "") return true;
+        if (v.length > 300) return false;
+        try {
+          const u = new URL(v);
+          return u.protocol === "http:" || u.protocol === "https:";
+        } catch {
+          return false;
+        }
+      },
+      { message: "url" }
+    ),
   phone: z
     .string()
     .trim()
@@ -62,6 +78,7 @@ export type BankContactInitial = {
   vnAccountNumber: string;
   vnAccountHolder: string;
   kakaoUrl: string;
+  zaloUrl: string;
   phone: string;
 };
 
@@ -73,6 +90,7 @@ const FIELD_TO_KEY: Record<keyof BankFormValues, string> = {
   vnAccountNumber: "BANK_VN_ACCOUNT_NUMBER",
   vnAccountHolder: "BANK_VN_ACCOUNT_HOLDER",
   kakaoUrl: "CONTACT_KAKAO_URL",
+  zaloUrl: "CONTACT_ZALO_URL",
   phone: "CONTACT_PHONE",
 };
 
@@ -245,6 +263,21 @@ export default function BankContactForm({ initial }: { initial: BankContactIniti
                   placeholder="https://open.kakao.com/o/..."
                   className={inputClass}
                   {...register("kakaoUrl")}
+                />
+              </Field>
+            </div>
+            <div className="md:col-span-2">
+              <Field
+                id="contact-zalo-url"
+                label={t("zaloUrl")}
+                error={errors.zaloUrl ? t(`err.${errors.zaloUrl.message}`) : null}
+              >
+                <input
+                  id="contact-zalo-url"
+                  type="url"
+                  placeholder="https://zalo.me/0791234567"
+                  className={inputClass}
+                  {...register("zaloUrl")}
                 />
               </Field>
             </div>

@@ -12,7 +12,7 @@
 import { useEffect } from "react";
 
 // 로더 버전 — intro 3종 HTML의 ?v= 와 반드시 동기(CF 엣지 캐시버스팅, 기획 §9).
-const LOADER_VERSION = "20260716b";
+const LOADER_VERSION = "20260724a";
 
 declare global {
   interface Window {

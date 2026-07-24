@@ -3005,6 +3005,7 @@
       "accountHolder": "예금주",
       "phone": "전화번호",
       "kakaoUrl": "카카오톡 URL",
+      "zaloUrl": "Zalo URL",
       "hint": "공개 제안 페이지의 입금 안내·문의 버튼에 표시됩니다. 비워두면 표시되지 않습니다.",
       "save": "저장",
       "saving": "저장 중...",

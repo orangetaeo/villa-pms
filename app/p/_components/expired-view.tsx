@@ -1,21 +1,25 @@
 import { PublicFooter } from "./public-footer";
 import { ShareButton } from "./share-button";
 import { LangSelector } from "./lang-selector";
+import { WebchatContactButton } from "./webchat-contact-button";
 import { VillaGoMark, VillaGoWordmark } from "@/components/brand/villa-go-logo";
 import { PUBLIC_LABELS, type PublicLang } from "@/lib/public-i18n";
 
 /**
  * c2 변환 (#5 5개 언어) — 만료(expired)/마감(closed) 안내. 서버 판정값으로 단일 상태만 렌더 (T5.5).
- * 문의 버튼은 AppSetting(CONTACT_KAKAO_URL·CONTACT_PHONE) 설정 시에만 노출.
+ * 문의 버튼: 카카오톡·Zalo·전화는 AppSetting(CONTACT_*) 설정 시에만 노출.
+ *   웹채팅 버튼은 /p 레이아웃에 위젯이 상시 마운트되므로 항상 노출(최소 1개 문의 수단 보장).
  */
 export function ExpiredView({
   variant,
   kakaoUrl,
+  zaloUrl,
   phone,
   lang,
 }: {
   variant: "expired" | "closed";
   kakaoUrl?: string | null;
+  zaloUrl?: string | null;
   phone?: string | null;
   lang: PublicLang;
 }) {
@@ -80,6 +84,19 @@ export function ExpiredView({
                 {t.contactKakao}
               </a>
             )}
+            {zaloUrl && (
+              <a
+                href={zaloUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full h-14 bg-[#0068FF] text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-[0_4px_12px_rgba(0,104,255,0.25)] transition-transform active:scale-[0.98]"
+              >
+                <span className="material-symbols-outlined icon-fill">sms</span>
+                {t.contactZalo}
+              </a>
+            )}
+            {/* 웹채팅 — 위젯이 상시 마운트되므로 설정과 무관하게 항상 노출 */}
+            <WebchatContactButton label={t.contactWebchat} />
             {phone && (
               <a
                 href={`tel:${phone}`}
