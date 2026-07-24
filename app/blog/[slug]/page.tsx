@@ -11,7 +11,9 @@ import { getPublishedArticleBySlug } from "@/lib/seo/article";
 import { getPublicVillaApproxMapEmbed } from "@/lib/seo/public-villa";
 import { getPlaceArticleMap } from "@/lib/seo/public-place";
 import { guideMapEmbed } from "@/lib/seo/guide-map-anchors";
+import { getRecommendedVillas } from "@/lib/seo/recommended-villas";
 import ArticleBody from "@/components/seo/article-body";
+import VillaList from "@/components/seo/villa-list";
 import { blogPaths, BLOG_ROOT } from "@/lib/seo/routes";
 import { absoluteUrl } from "@/lib/seo/base-url";
 import { BRAND_FALLBACK_IMAGE } from "@/lib/seo/article-draft";
@@ -70,6 +72,17 @@ export default async function ArticlePage({ params }: Params) {
 
   // 가이드 글은 지리 앵커가 명확한 토픽(공항 이동 등)에만 지도를 붙인다(GUIDE_MAP_ANCHORS 큐레이션).
   const guideMap = article.category === "guide" ? guideMapEmbed(article.slug) : null;
+
+  // 하단 "추천 빌라" — 글 성격별 출처(place=지역매칭·villa=동일지역·그외=relatedVillaIds)로 최대 3장.
+  //   ★ 반드시 public-villa 관문 경유(getRecommendedVillas 내부). 못 뽑으면 빈 배열 → 섹션 숨김(억지 추천 금지).
+  const recommendedVillas = await getRecommendedVillas({
+    id: article.id,
+    category: article.category,
+    relatedVillaIds: article.relatedVillaIds,
+  }).catch(() => []);
+  // 제목 — 지역성이 있는 글(place·villa)은 "이 지역 추천 빌라", 그 외는 "추천 빌라".
+  const recommendTitle =
+    article.category === "place" || article.category === "villa" ? "이 지역 추천 빌라" : "추천 빌라";
 
   // 장소 구조화 데이터 — Article과 별개 스크립트로 낸다. geo는 좌표가 있을 때만.
   const placeLd = placeMap
@@ -219,6 +232,17 @@ export default async function ArticlePage({ params }: Params) {
                 referrerPolicy="no-referrer-when-downgrade"
                 className="absolute inset-0 h-full w-full border-0"
               />
+            </div>
+          </section>
+        )}
+
+        {/* 추천 빌라 — ★공개 관문(getRecommendedVillas → public-villa) 통과분만. 카드엔 가격·공실 0(VillaList).
+            못 뽑으면 섹션 자체를 렌더하지 않는다(억지 추천 금지). */}
+        {recommendedVillas.length > 0 && (
+          <section className="mt-10">
+            <h2 className="text-lg font-bold">{recommendTitle}</h2>
+            <div className="mt-3">
+              <VillaList villas={recommendedVillas} />
             </div>
           </section>
         )}
