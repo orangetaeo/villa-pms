@@ -9,10 +9,15 @@ import { fontVariables } from "./fonts";
 // 제외경로(/p·/g) 판정 후 html[data-splash]를 세팅한다(스플래시 표시는 CSS가 결정).
 // 어떤 예외든 조용히 스킵(스플래시 미표시 폴백). ※ 향후 CSP enforce 시 nonce 필요.
 //   ★ 공개 홈 `/`는 인트로 노출 대상이다(테오 지시 2026-07-24): villa-go.net 첫 진입 시
-//     브랜드 인트로를 보여준다. 세션당 1회·reduced-motion 존중·2.3s 자동 종료라 인터스티셜
-//     영향은 제한적. 다만 `/blog/**`(순수 SEO 콘텐츠 랜딩)는 계속 제외한다 —
-//     검색 유입의 첫인상을 스플래시가 잡아먹지 않도록. (splash-intro-on-public-home 결정)
-const SPLASH_GATE = `(function(){try{if(sessionStorage.getItem('vg-splash'))return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var p=location.pathname;if(p==='/blog'||p.indexOf('/blog/')===0||p.indexOf('/p/')===0||p.indexOf('/g/')===0||p.indexOf('/webchat')===0||p==='/chat'||p.indexOf('/chat/')===0||p==='/privacy'||p.indexOf('/privacy/')===0||p==='/card'||p.indexOf('/card/')===0)return;document.documentElement.setAttribute('data-splash','1');}catch(e){}})();`;
+//     브랜드 인트로를 보여준다. 세션당 1회·reduced-motion 존중·2.3s 자동 종료.
+//     다만 `/blog/**`(순수 SEO 콘텐츠 랜딩)는 계속 제외한다.
+//   ★ 외부 유입(검색·SNS·광고) 첫 진입엔 스플래시 생략(테오 지시 2026-07-24): 스플래시 전면
+//     오버레이가 2.3s간 히어로를 덮어 LCP를 ~2.3s 지연시킨다(실측). 구글 SEO는 실사용자
+//     필드 CWV로 평가하므로, 리퍼러가 외부(우리 도메인 ≠)인 방문엔 오버레이를 띄우지 않아
+//     검색·광고 방문자의 LCP를 살린다. 직접 방문(리퍼러 없음)엔 브랜드 인트로 유지.
+//     ⚠ DevTools Lighthouse는 리퍼러 없이 측정(=직접 방문 취급)이라 랩 점수엔 스플래시가
+//       계속 잡힌다 — 실사용자·필드 데이터에서만 개선된다(의도된 동작).
+const SPLASH_GATE = `(function(){try{if(sessionStorage.getItem('vg-splash'))return;if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var ref=document.referrer;if(ref){try{if(new URL(ref).hostname!==location.hostname)return;}catch(e){}}var p=location.pathname;if(p==='/blog'||p.indexOf('/blog/')===0||p.indexOf('/p/')===0||p.indexOf('/g/')===0||p.indexOf('/webchat')===0||p==='/chat'||p.indexOf('/chat/')===0||p==='/privacy'||p.indexOf('/privacy/')===0||p==='/card'||p.indexOf('/card/')===0)return;document.documentElement.setAttribute('data-splash','1');}catch(e){}})();`;
 
 // 검색엔진 소유확인 — 네이버 서치어드바이저·Google Search Console·Bing Webmaster.
 //   값은 env로만 주입한다(테오가 각 콘솔에서 발급). 미설정이면 메타 자체가 출력되지 않는다.

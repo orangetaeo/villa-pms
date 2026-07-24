@@ -76,8 +76,21 @@ export default function HeroCarousel({
       >
         {/* 슬라이드 0 — 기존 히어로(브랜드 헤드라인 + CTA) */}
         <div className="relative h-full w-full shrink-0" aria-hidden={index !== 0}>
+          {/* 히어로 배경은 어두운 그라데이션 오버레이(from-slate-900/80) 뒤라 화질을 낮춰도
+              눈에 띄지 않는다 → quality 60으로 LCP 이미지 바이트 절감. fetchPriority high로
+              브라우저가 최우선 다운로드하게 명시(LCP request discovery). */}
           {heroImageUrl && (
-            <Image src={heroImageUrl} alt="" fill priority sizes="100vw" className="object-cover" aria-hidden />
+            <Image
+              src={heroImageUrl}
+              alt=""
+              fill
+              priority
+              fetchPriority="high"
+              quality={60}
+              sizes="100vw"
+              className="object-cover"
+              aria-hidden
+            />
           )}
           <div className="absolute inset-0 bg-gradient-to-b from-slate-900/80 via-slate-900/60 to-slate-900/95" />
           <div className="relative flex h-full flex-col justify-center px-5">
@@ -111,7 +124,9 @@ export default function HeroCarousel({
             alt={p.title}
             fill
             sizes="100vw"
+            quality={65}
             priority={i === 0 && !heroImageUrl}
+            fetchPriority={i === 0 && !heroImageUrl ? "high" : "auto"}
             loading={i === 0 && !heroImageUrl ? undefined : "lazy"}
             className="object-cover"
           />
