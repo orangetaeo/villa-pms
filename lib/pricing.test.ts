@@ -37,40 +37,59 @@ describe("computeSalePriceVnd — 마진 자동계산", () => {
   });
 });
 
-describe("pickLowestSalePrice — 판매가 >0 최저값 (대표가 0원 버그, 계약 A/D1)", () => {
-  const r = (krw: number, vnd: bigint) => ({ salePriceKrw: krw, salePriceVnd: vnd });
+describe("pickLowestSalePrice — 시즌 우선-else-base 판매가 >0 최저값 (VND 전환, 계약 A/D1)", () => {
+  // isBase 기본 false(시즌 행), 세 번째 인자로 base 지정.
+  const r = (krw: number, vnd: bigint, isBase = false) => ({ isBase, salePriceKrw: krw, salePriceVnd: vnd });
 
-  it("KRW: >0 행 중 최소를 고르고 base=0은 제외", () => {
+  it("KRW: 시즌 행 중 최소를 고르고 base=0은 제외", () => {
     // base=0(초기화) + 시즌가 2개 → 최저 시즌가
-    const out = pickLowestSalePrice([r(0, 0n), r(120_000, 2_000_000n), r(90_000, 1_500_000n)], true);
+    const out = pickLowestSalePrice([r(0, 0n, true), r(120_000, 2_000_000n), r(90_000, 1_500_000n)], true);
     expect(out).toEqual({ krw: 90_000, vnd: null });
   });
 
-  it("VND: >0 행 중 최소, 선택 통화만 채우고 반대편은 null", () => {
-    const out = pickLowestSalePrice([r(0, 0n), r(120_000, 2_000_000n), r(90_000, 1_500_000n)], false);
+  it("VND: 시즌 행 중 최소, 선택 통화만 채우고 반대편은 null", () => {
+    const out = pickLowestSalePrice([r(0, 0n, true), r(120_000, 2_000_000n), r(90_000, 1_500_000n)], false);
     expect(out).toEqual({ krw: null, vnd: 1_500_000n });
   });
 
+  it("★VND base가 원가와 같아도(시즌 더 비쌈) 시즌 최저가를 대표가로 — base 누출 방지", () => {
+    // 실데이터: base VND=10,000,000(원가와 동일, 마진0), 시즌 11~12.5M → 시즌 최저 11M(더 낮은 base 제외)
+    const rows = [r(0, 10_000_000n, true), r(0, 12_500_000n), r(0, 11_000_000n)];
+    expect(pickLowestSalePrice(rows, false)).toEqual({ krw: null, vnd: 11_000_000n });
+  });
+
+  it("시즌 행이 없으면 base로 폴백 (base-only)", () => {
+    expect(pickLowestSalePrice([r(618_000, 10_000_000n, true)], true)).toEqual({ krw: 618_000, vnd: null });
+    expect(pickLowestSalePrice([r(618_000, 10_000_000n, true)], false)).toEqual({ krw: null, vnd: 10_000_000n });
+  });
+
   it("전부 0/미설정이면 null (모달·본문 가격 생략)", () => {
-    expect(pickLowestSalePrice([r(0, 0n), r(0, 0n)], true)).toBeNull();
+    expect(pickLowestSalePrice([r(0, 0n, true), r(0, 0n)], true)).toBeNull();
     expect(pickLowestSalePrice([], false)).toBeNull();
   });
 
   it("혼합: KRW는 있고 VND는 전부 0이면 통화별로 결과가 갈린다", () => {
-    const rows = [r(0, 0n), r(80_000, 0n)];
+    const rows = [r(0, 0n, true), r(80_000, 0n)];
     expect(pickLowestSalePrice(rows, true)).toEqual({ krw: 80_000, vnd: null });
     expect(pickLowestSalePrice(rows, false)).toBeNull();
   });
 });
 
-describe("pickLowestSupplierCost — 원가 >0 최저값 (계약 A)", () => {
-  it(">0 중 최소, base=0 제외", () => {
-    expect(
-      pickLowestSupplierCost([{ supplierCostVnd: 0n }, { supplierCostVnd: 3_000_000n }, { supplierCostVnd: 2_000_000n }])
-    ).toBe(2_000_000n);
+describe("pickLowestSupplierCost — 시즌 우선-else-base 원가 >0 최저값 (계약 A)", () => {
+  const c = (vnd: bigint, isBase = false) => ({ isBase, supplierCostVnd: vnd });
+
+  it("시즌 중 최소, base=0 제외", () => {
+    expect(pickLowestSupplierCost([c(0n, true), c(3_000_000n), c(2_000_000n)])).toBe(2_000_000n);
+  });
+  it("★base가 원가와 같아도 시즌가 있으면 시즌 최저 — base 폴백 아님", () => {
+    // base 10M(=원가) + 시즌 11~12.5M → 시즌 최저 11M
+    expect(pickLowestSupplierCost([c(10_000_000n, true), c(12_500_000n), c(11_000_000n)])).toBe(11_000_000n);
+  });
+  it("시즌 없으면 base로 폴백", () => {
+    expect(pickLowestSupplierCost([c(10_000_000n, true)])).toBe(10_000_000n);
   });
   it("전부 0/빈 배열이면 null", () => {
-    expect(pickLowestSupplierCost([{ supplierCostVnd: 0n }])).toBeNull();
+    expect(pickLowestSupplierCost([c(0n, true)])).toBeNull();
     expect(pickLowestSupplierCost([])).toBeNull();
   });
 });
