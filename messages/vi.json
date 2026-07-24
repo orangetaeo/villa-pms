@@ -6749,7 +6749,12 @@
     "placesLink": "Quản lý địa điểm (quán ăn, cà phê) →",
     "listTitle": "Ảnh đã đăng ký",
     "count": "{n} ảnh",
-    "removeFromList": "Bỏ khỏi danh sách"
+    "removeFromList": "Bỏ khỏi danh sách",
+    "selectAll": "Chọn tất cả",
+    "deleteSelected": "Xóa vĩnh viễn",
+    "deleting": "Đang xóa…",
+    "deleteConfirm": "Sẽ xóa vĩnh viễn {n} ảnh đã chọn. Không thể hoàn tác. (Tệp gốc được giữ lại)",
+    "deleteNoneSelected": "Vui lòng chọn ảnh cần xóa trước."
   },
   "marketingSeoPlaces": {
     "title": "Địa điểm Phú Quốc — quán ăn, cà phê, mua sắm",

@@ -122,3 +122,33 @@ export async function toggleMediaActive(formData: FormData): Promise<void> {
   });
   revalidatePath(PATH);
 }
+
+/**
+ * 선택한 자료 사진을 **영구 삭제**(하드 삭제) — 여러 장 한 번에(체크박스 다중선택).
+ * ★ DB 행만 지운다. **R2 원본 파일은 지우지 않는다**: 이미 발행된 글의 bodyJson에 이미지 URL이
+ *   구워져 있어 파일을 지우면 발행글 이미지가 깨진다(존치가 계약 — actions.ts 상단 삭제 정책 참조).
+ * ★ placeId=null 조건 필수 — 장소 사진(placeId 있음)은 이 화면 대상이 아니다(/marketing/seo/places 소관, 방어).
+ */
+export async function deleteMedia(formData: FormData): Promise<void> {
+  const userId = await requireMarketingOperator();
+  const ids = formData
+    .getAll("ids")
+    .map((v) => String(v).trim())
+    .filter((v) => v.length > 0);
+  if (ids.length === 0) return;
+
+  const result = await prisma.seoMedia.deleteMany({
+    where: { id: { in: ids }, placeId: null },
+  });
+
+  if (result.count > 0) {
+    await writeAuditLog({
+      userId,
+      action: "DELETE",
+      entity: "SeoMedia",
+      entityId: ids[0],
+      changes: { deletedIds: { old: ids }, count: { old: result.count } },
+    });
+  }
+  revalidatePath(PATH);
+}
