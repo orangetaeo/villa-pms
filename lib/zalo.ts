@@ -653,11 +653,19 @@ export function buildNotificationText(
       // 수신자=운영자(테오) → 한국어. 홈페이지 웹 채팅 신규 문의 알림(T-webchat-mvp).
       // payload는 lib/webchat-notify가 화이트리스트로 구성 — 방문자 연락처·원문 전문·판매가·마진 미포함.
       // preview=ko 번역 미리보기 120자(webchat-notify에서 절삭). adminUrl=상대경로 → base 접두로 절대경로화.
+      // payload.kind==="reminder"면 미응답 리마인드(lib/webchat-reminder) — 문구만 분기(타입 증식 금지).
       const preview = str(p.preview, "(내용 없음)");
-      const lines = [
-        `🌐 웹 채팅 새 문의 (언어: ${str(p.visitorLocale)})`,
-        preview,
-      ];
+      const lines =
+        p.kind === "reminder"
+          ? [
+              `⏰ 웹 채팅 미응답 ${num(p.waitingMinutes)}분 (언어: ${str(p.visitorLocale)})`,
+              preview,
+              `방문자가 답변을 기다리고 있어요.`,
+            ]
+          : [
+              `🌐 웹 채팅 새 문의 (언어: ${str(p.visitorLocale)})`,
+              preview,
+            ];
       const adminPath =
         typeof p.adminUrl === "string" && p.adminUrl.startsWith("/") ? p.adminUrl : null;
       const base = (
