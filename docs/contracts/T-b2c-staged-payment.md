@@ -1,9 +1,11 @@
 # 계약서 — B2C 계약금/잔금 분할 결제 (VND 앵커 다통화)
 
 - 근거: **ADR-0048**(정본) + ADR-0047(통화 3분리). 정책 확정(테오 2026-07-24).
-- 상태: **P0·P1 완료** (2026-07-24). P2~P6 순차.
-  - P0: 순수 로직 + 테스트 12건. P1: 스키마 라이브 적용 완료(B2cPaymentSchedule·PaymentPurpose B2C값·
-    AppSetting 50%/D-14). 백필 대상 0건(기존 예약 전부 VND 앵커 보유 — no-op).
+- 상태: **P0·P1·P2 완료** (2026-07-24). P3~P6 순차.
+  - P0: 순수 로직 + 테스트 12건. P1: 스키마 라이브 적용(B2cPaymentSchedule·PaymentPurpose B2C값·AppSetting 50%/D-14).
+  - **P2: 감사 결과 "코드 불필요"로 종결** — `buildRoomTxn`이 saleCurrency 기준으로 매출 컬럼을 골라 앵커를
+    무시하므로 이중집계 없음. `Booking.totalSaleVnd` 오버로드·불변식 완화·33개 소비처 감사 전부 불필요.
+    VND 앵커는 `B2cPaymentSchedule.totalVnd`에만 둔다(ADR-0048 §4 교정).
 - 담당: 설계·병합=메인, 스키마=TDA, 로직=BE, 정산=FIN, 화면=FE, 검증=QA(작성자와 분리).
 
 ## 목표 (한 줄)
@@ -46,11 +48,12 @@
 - SQL은 `prisma/migrations-manual/`에 날짜 접두 보존. 적용 후 `prisma generate`.
 - **완료기준:** additive만(파괴 0), 기존 예약 백필로 `totalSaleVnd` 100% 채움, generate 후 typecheck 그린.
 
-### P2 — 불변식 완화 + 33개 소비처 감사 ⚠최대 작업
-- `assertSaleAmountColumns` 완화(VND 앵커 항상 + 청구통화 예상). `totalSaleKrw/Vnd/Usd` 읽는 ~33곳 전수 감사:
-  revenue-ledger·settlement-finance·statistics·checkout·partner-portal·/p done·availability board 등.
-- "총 판매가 ₩X" 표시부 → 확정 결제 합계 또는 "예상(약)"으로 정정. revenue-ledger는 `totalSaleVnd`(앵커) 우선.
-- **완료기준:** 33개 소비처 각각 "확정액이냐 예상액이냐" 판정·정정, QA가 매출·정산 수치 회귀 확인.
+### P2 — ✅ 감사 결과 "코드 불필요"로 종결 (worktree b2c-p2-anchor)
+- 감사: `lib/revenue-ledger.ts buildRoomTxn`이 `saleVnd = saleCurrency===VND ? totalSaleVnd : null` —
+  **매출 컬럼을 청구통화 기준으로 고른다.** ∴ KRW 예약에 `totalSaleVnd`를 채워도 무시(이중집계 없음),
+  채울 실익도 없음(어차피 KRW×환율 환산).
+- 결론: `assertSaleAmountColumns` **불변식 유지**, `Booking.totalSaleVnd` **미변경**, 33개 소비처 감사·정정
+  **불필요**. VND 앵커는 `B2cPaymentSchedule.totalVnd`(P1)에만. 매출·정산·통계·/p 전부 무변경.
 
 ### P3 — 예약 생성 시 스케줄 + Payment 소진 + LEDGER (BE·FIN)
 - 제안/예약 확정 시 스케줄 2줄(계약금/잔금) 생성(또는 100% 1줄). 실입금은 `Payment`(B2C purpose)로 매칭·소진.
