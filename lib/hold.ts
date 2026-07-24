@@ -20,7 +20,7 @@ import {
   evaluateConfirmCredit,
   writeOffReceivableOnCancel,
 } from "./partner-booking";
-import { ensureB2cScheduleForBooking } from "./b2c-schedule";
+import { ensureB2cScheduleForBooking, cancelB2cScheduleAndComputeRefund } from "./b2c-schedule";
 import { autoClosePendingRequestsOnCancel } from "./booking-change-request";
 import { vendorHasLivePo } from "./vendor-order";
 import { buildVendorNotifText, enqueueInAppNotification } from "./inapp-notification";
@@ -583,6 +583,11 @@ export async function cancelBooking(
       ? await writeOffReceivableOnCancel(tx, booking.id)
       : ({ kind: "NONE" } as const);
 
+    // B2C 계약금/잔금 취소 처리 (ADR-0048 P6) — 스케줄 CANCELLED + 환불 계산(동의 스냅샷 취소규정 기준).
+    //   ★기록만: 환불액은 감사 로그에 남기고 실제 송금은 외부(보증금 환불과 동일 철학). 낸 통화·낸 금액 그대로.
+    //   대상 아님(파트너·B2C 스케줄 없음)이면 null.
+    const b2cRefund = await cancelB2cScheduleAndComputeRefund(tx, booking.id, new Date());
+
     // 남은 대기 요청 자동 종결 (T-partner-polish 2) — 취소된 예약의 PENDING 요청 방치 방지.
     // 승인 경로의 자기 요청(excludePendingRequestId)은 제외(이어지는 resolve가 APPROVED 처리).
     const autoClosedRequests = booking.partnerId
@@ -617,6 +622,24 @@ export async function cancelBooking(
           : {}),
         ...(autoClosedRequests > 0
           ? { pendingRequestsAutoClosed: { new: autoClosedRequests } }
+          : {}),
+        // B2C 환불 요약 (ADR-0048 P6) — 기록만, 실제 송금은 운영자 수동. 낸 통화별 환불 라인 포함.
+        ...(b2cRefund
+          ? {
+              b2cRefund: {
+                new: {
+                  refundPct: b2cRefund.refundPct,
+                  paidVnd: b2cRefund.paidVnd.toString(),
+                  penaltyVnd: b2cRefund.penaltyVnd.toString(),
+                  refundableVnd: b2cRefund.refundableVnd.toString(),
+                  lines: b2cRefund.lines.map((l) => ({
+                    paymentId: l.paymentId,
+                    currency: l.currency,
+                    refundAmount: l.refundAmount.toString(),
+                  })),
+                },
+              },
+            }
           : {}),
       },
     });

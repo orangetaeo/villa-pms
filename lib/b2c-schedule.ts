@@ -21,8 +21,13 @@ import {
 import { getEffectiveFxVndPerKrw, getEffectiveFxVndPerUsd } from "./fx-effective";
 import { suggestSalePriceKrw, suggestSalePriceUsd } from "./pricing";
 import { enqueueOperatorNotification } from "./operator-notify";
+import { resolveRefundPct, computeB2cRefund } from "./b2c-refund";
 
 type Tx = Prisma.TransactionClient;
+
+const MS_PER_DAY = 86_400_000;
+const utcDateOnly = (d: Date) =>
+  Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 
 const DEPOSIT_RATE_KEY = "B2C_DEPOSIT_RATE_PCT";
 const BALANCE_LEAD_KEY = "B2C_BALANCE_LEAD_DAYS";
@@ -137,6 +142,63 @@ export async function refreshB2cScheduleStatus(tx: Tx, bookingId: string) {
     where: { id: schedule.id },
     data: { status: next },
   });
+}
+
+/**
+ * B2C 예약 취소 시 스케줄 CANCELLED 전이 + 환불 계산 (ADR-0048 P6, cancelBooking에서 호출).
+ *   환불율 = **동의 스냅샷(policyConsentJson.policy.tiers)의 취소규정** — 동의 당시 조건이 정본.
+ *   스냅샷에 취소규정이 없으면(취소규정 disabled로 예약) 위약금 없음(100% 환불) 폴백.
+ *   환불은 낸 통화·낸 금액 그대로(computeB2cRefund, LIFO). ★기록만 — 실제 송금은 외부(deposit 환불과 동일).
+ * 반환: 감사 로그용 환불 요약 / B2C 아님·이미 취소면 null.
+ */
+export async function cancelB2cScheduleAndComputeRefund(tx: Tx, bookingId: string, now: Date) {
+  const schedule = await tx.b2cPaymentSchedule.findUnique({
+    where: { bookingId },
+    select: {
+      id: true,
+      totalVnd: true,
+      status: true,
+      booking: { select: { checkIn: true, policyConsentJson: true } },
+    },
+  });
+  if (!schedule || schedule.status === B2cScheduleStatus.CANCELLED) return null;
+
+  const payments = await tx.payment.findMany({
+    where: {
+      bookingId,
+      purpose: { in: [PaymentPurpose.B2C_DEPOSIT, PaymentPurpose.B2C_BALANCE] },
+    },
+    select: { id: true, currency: true, amount: true, vndEquivalent: true, receivedAt: true },
+  });
+
+  // 동의 당시 취소규정 tier가 정본. 없으면 위약금 없음(100%) 폴백.
+  const consent = schedule.booking.policyConsentJson as {
+    policy?: { tiers?: { fromDays: number; refundPct: number }[] };
+  } | null;
+  const tiers = consent?.policy?.tiers;
+  const daysUntilCheckIn = Math.floor(
+    (utcDateOnly(schedule.booking.checkIn) - utcDateOnly(now)) / MS_PER_DAY
+  );
+  const refundPct = tiers && tiers.length > 0 ? resolveRefundPct(tiers, daysUntilCheckIn) : 100;
+
+  const refund = computeB2cRefund(
+    schedule.totalVnd,
+    refundPct,
+    payments.map((p) => ({
+      paymentId: p.id,
+      currency: p.currency,
+      amount: p.amount,
+      vndEquivalent: p.vndEquivalent ?? 0n, // B2C 결제는 항상 세팅되나 방어적 0
+      receivedAt: p.receivedAt,
+    }))
+  );
+
+  await tx.b2cPaymentSchedule.update({
+    where: { id: schedule.id },
+    data: { status: B2cScheduleStatus.CANCELLED },
+  });
+
+  return refund;
 }
 
 /**
