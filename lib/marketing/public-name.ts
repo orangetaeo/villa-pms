@@ -54,7 +54,8 @@ const BUILDERS: Record<PublicLocale, (p: LabelParts) => string> = {
   ru: ({ area, bedrooms, hasPool }) => {
     const villaWord = hasPool === false ? "Вилла" : "Вилла с бассейном";
     const bed = bedrooms && bedrooms > 0 ? `${bedrooms}-спальная` : "";
-    return [villaWord, bed, area, "Фукуок"].filter(Boolean).join(" ");
+    // 러시아어는 형용사(N-спальная)가 명사 앞에 와야 자연스럽다(LOC 감수 [1]).
+    return [bed, villaWord, area, "Фукуок"].filter(Boolean).join(" ");
   },
   zh: ({ area, bedrooms, hasPool }) => {
     const villaWord = hasPool === false ? "别墅" : "私人泳池别墅";

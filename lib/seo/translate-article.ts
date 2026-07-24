@@ -188,6 +188,7 @@ Rules:
 - Return ONLY a JSON object: {"items":[{"i":<same index>,"text":"<translation>"}]} covering EVERY input "i" exactly once, same order.
 - Translate "text" into ${TARGET_LABEL[target]}. Translate ALL items; never leave Korean in the output.
 - Keep the brand "Villa GO" unchanged. Keep code names like "Villa Go #1234" exactly as written.
+- "Villa GO" is the operator's BRAND, not a building. NEVER use it to translate the generic "our villa / the villa" — a brand cannot "be located near the beach" or "have room types". For the physical villa use the common noun: en "villa", vi "biệt thự", ru "вилла", zh "别墅". Use "Villa GO" only as the operating company (subject of operates/offers/inspects). Keep this villa noun consistent within the whole text.
 - Use standard/native spelling for place names (e.g. Phú Quốc, Vietnam).
 - Do NOT add, remove, or invent information. Never add prices, money amounts, phone numbers, or addresses.
 - Match the item "kind": title/heading are concise; paragraph/li are full sentences; imgAlt/imgCaption/videoTitle are short.

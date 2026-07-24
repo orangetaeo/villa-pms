@@ -326,7 +326,8 @@ const en: VillaStrings = {
   facetNotFound: "Not found | Villa GO",
   villaNotFound: "Villa not found | Villa GO",
   villaMetaTitle: (label, maxGuests) => `${label} · up to ${maxGuests} guests | Villa GO`,
-  villaMetaDescFallback: (label, bedrooms, maxGuests) => `${label}. ${bedrooms} bedrooms, up to ${maxGuests} guests.`,
+  villaMetaDescFallback: (label, bedrooms, maxGuests) =>
+    `${label}. ${bedrooms} ${bedrooms === 1 ? "bedroom" : "bedrooms"}, up to ${maxGuests} guests.`,
 };
 
 const vi: VillaStrings = {

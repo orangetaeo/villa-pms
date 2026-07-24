@@ -104,7 +104,7 @@ const vi: BlogStrings = {
   placeOpenInMaps: "Mở trong Google Maps →",
   phuQuoc: "Phú Quốc",
   recommendTitle: "Biệt thự gợi ý",
-  recommendAreaTitle: "Biệt thự gợi ý gần đây",
+  recommendAreaTitle: "Biệt thự gợi ý lân cận",
   ctaTitle: "Bạn muốn biết biệt thự nào phù hợp?",
   ctaBody: "Cho biết số khách, ngày và tiện nghi mong muốn — chúng tôi chọn biệt thự đã kiểm tra tại chỗ kèm báo giá.",
   ctaButton: "Nhận báo giá trong 1 phút",
