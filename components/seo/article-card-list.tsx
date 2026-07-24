@@ -21,26 +21,27 @@ export default function ArticleCardList({ articles }: { articles: PublicArticle[
         const cover = a.thumbnailUrl ?? a.coverPhotoUrl;
         return (
           <li key={a.id}>
-            <article className="overflow-hidden rounded-2xl border border-slate-200">
-              {cover && (
-                <div className="relative aspect-[16/9] bg-slate-100">
-                  <Image
-                    src={cover}
-                    alt=""
-                    fill
-                    sizes="(max-width: 640px) 100vw, 640px"
-                    className="object-cover"
-                  />
+            {/* 카드 전체를 링크로 감싼다 — 제목뿐 아니라 이미지·요약 어디를 눌러도 상세로 이동. */}
+            <Link href={blogPaths.article(a.slug)} className="group block">
+              <article className="overflow-hidden rounded-2xl border border-slate-200 transition group-hover:border-teal-300 group-hover:shadow-sm">
+                {cover && (
+                  <div className="relative aspect-[16/9] bg-slate-100">
+                    <Image
+                      src={cover}
+                      alt=""
+                      fill
+                      sizes="(max-width: 640px) 100vw, 640px"
+                      className="object-cover"
+                    />
+                  </div>
+                )}
+                <div className="p-4">
+                  <h2 className="text-lg font-bold group-hover:text-teal-700">{a.title}</h2>
+                  <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-600">{a.summary}</p>
+                  <p className="mt-2 text-xs text-slate-400 tabular-nums">{formatKoDate(a.publishedAt)}</p>
                 </div>
-              )}
-              <div className="p-4">
-                <h2 className="text-lg font-bold">
-                  <Link href={blogPaths.article(a.slug)}>{a.title}</Link>
-                </h2>
-                <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-600">{a.summary}</p>
-                <p className="mt-2 text-xs text-slate-400 tabular-nums">{formatKoDate(a.publishedAt)}</p>
-              </div>
-            </article>
+              </article>
+            </Link>
           </li>
         );
       })}
