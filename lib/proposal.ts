@@ -13,6 +13,7 @@ import {
   quoteStayForVilla,
   quoteSupplierSaleForVilla,
   assertSaleAmountColumns,
+  suggestSalePriceUsd,
   MissingRateError,
   type NightQuote,
 } from "./pricing";
@@ -76,8 +77,9 @@ export function generateProposalToken(): string {
 export interface ProposalItemInput extends StayRange {
   villaId: string;
   /**
-   * Phase 2 USD: saleCurrency=USD일 때 ADMIN이 수동 입력한 빌라별 USD 총액(정수 달러).
-   * USD 제안인데 누락이면 createProposal이 RangeError. KRW/VND 제안에서는 무시된다.
+   * Phase 2 USD: saleCurrency=USD일 때 ADMIN이 직접 조정한 빌라별 USD 총액(정수 달러) — 선택.
+   * 지정하면 자동환산값을 오버라이드한다. 미지정이면 VND 요율표 총액을 유효 USD 환율로 자동환산.
+   * (환율 미설정 + totalUsd 미지정이면 createProposal이 RangeError.) KRW/VND 제안에서는 무시된다.
    */
   totalUsd?: number;
 }
@@ -160,17 +162,31 @@ export async function createProposal(
         continue;
       }
       try {
-        // 원가는 통화 무관 항상 quoteStayForVilla로 계산(USD 포함 — sale 칸만 비고 원가는 정상).
+        // 원가는 통화 무관 항상 quoteStayForVilla로 계산. USD는 요율표에 판매단가가 없어
+        //   sale 칸이 비므로, VND 요율표 총액(채널 tier 반영)을 받아 환율로 환산한다.
+        //   비-USD(KRW/VND)는 그대로 그 통화로 견적(동작 불변).
         // ADR-0031: 채널 전달 → DIRECT면 소비자 직판가, 여행사·랜드사면 Net으로 견적.
-        const quote = await quoteStayForVilla(tx, item.villaId, item, saleCurrency, input.channel);
+        const quoteCurrency = saleCurrency === Currency.USD ? Currency.VND : saleCurrency;
+        const quote = await quoteStayForVilla(tx, item.villaId, item, quoteCurrency, input.channel);
 
         if (saleCurrency === Currency.USD) {
-          // USD(Phase 2): 요율표 판매단가가 없어 자동견적 불가 → ADMIN 수동 입력 totalUsd 사용.
-          const totalUsd = item.totalUsd;
-          if (totalUsd == null || !Number.isInteger(totalUsd) || totalUsd <= 0) {
-            throw new RangeError(
-              `USD 제안은 빌라별 USD 총액(양의 정수)이 필수입니다: ${item.villaId}`
-            );
+          // USD: 수동 입력 totalUsd가 있으면 그것으로 오버라이드, 없으면 VND 요율표 총액을
+          //   생성 시점 유효 환율(fxVndPerUsd 스냅샷)로 자동환산(half-up, float 금지).
+          let totalUsd = item.totalUsd; // 수동 오버라이드(선택)
+          if (totalUsd == null) {
+            // 자동환산 — 환율·VND 판매가가 모두 있어야 가능.
+            if (fxVndPerUsd == null) {
+              throw new RangeError(
+                `USD 환율 미설정으로 자동환산 불가 — 환율을 설정하거나 빌라별 USD 총액을 입력하세요: ${item.villaId}`
+              );
+            }
+            if (quote.totalSaleVnd == null || quote.totalSaleVnd <= 0n) {
+              throw new RangeError(`USD 자동환산 실패: VND 판매가 미책정 — ${item.villaId}`);
+            }
+            totalUsd = suggestSalePriceUsd(quote.totalSaleVnd, fxVndPerUsd);
+          }
+          if (!Number.isInteger(totalUsd) || totalUsd <= 0) {
+            throw new RangeError(`USD 총액이 잘못되었습니다(양의 정수): ${item.villaId}`);
           }
           assertSaleAmountColumns(saleCurrency, { usd: totalUsd });
           itemRows.push({

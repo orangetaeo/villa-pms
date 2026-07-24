@@ -37,7 +37,7 @@ import {
   SupplierProposalRejectedError,
   uniformNightlyPrice,
 } from "./proposal";
-import { MissingSupplierPriceError } from "./pricing";
+import { MissingSupplierPriceError, suggestSalePriceUsd } from "./pricing";
 
 const NOW = new Date("2026-07-01T10:00:00.000Z");
 const d = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
@@ -244,15 +244,16 @@ function makeOperatorPrisma(tx: ReturnType<typeof makeOperatorTx>) {
   } as unknown as Parameters<typeof createProposal>[0];
 }
 
-describe("createProposal — USD 분기 (Phase 2, 수동 총액)", () => {
+describe("createProposal — USD 분기 (Phase 2, 자동환산 + 수동 오버라이드)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCheckAvailability.mockResolvedValue({ available: true, sellable: true, reasons: [] });
-    // USD: quoteStayForVilla는 원가만 반환(sale 칸 없음)
+    // USD는 VND로 견적한다(요율표 총액 ÷ 환율로 환산) — quoteStayForVilla가 VND sale을 채움.
     mockQuoteStay.mockResolvedValue({
       nights: 3,
-      saleCurrency: Currency.USD,
+      saleCurrency: Currency.VND,
       nightly: [],
+      totalSaleVnd: 38_100_000n,
       totalSupplierCostVnd: 18_000_000n,
     });
     mockGetEffectiveFxVndPerKrw.mockResolvedValue(null);
@@ -268,16 +269,33 @@ describe("createProposal — USD 분기 (Phase 2, 수동 총액)", () => {
     now: NOW,
   };
 
-  it("정상: totalUsd 저장, krw/vnd 컬럼 null, fxVndPerUsd 스냅샷(소수4자리)", async () => {
+  it("USD는 VND 통화로 견적한다(환산 기준 VND 총액 확보, 채널 tier 전달)", async () => {
     const tx = makeOperatorTx();
     await createProposal(makeOperatorPrisma(tx), {
       ...baseUsdInput,
-      items: [{ villaId: "v1", checkIn: d("2026-07-01"), checkOut: d("2026-07-04"), totalUsd: 1_500 }],
+      items: [{ villaId: "v1", checkIn: d("2026-07-01"), checkOut: d("2026-07-04") }],
+    });
+    expect(mockQuoteStay).toHaveBeenCalledWith(
+      expect.anything(),
+      "v1",
+      expect.anything(),
+      Currency.VND,
+      BookingChannel.DIRECT
+    );
+  });
+
+  it("(b) totalUsd 생략 → VND 총액을 환율로 자동환산 저장, krw/vnd 컬럼 null, fxVndPerUsd 스냅샷", async () => {
+    const tx = makeOperatorTx();
+    await createProposal(makeOperatorPrisma(tx), {
+      ...baseUsdInput,
+      items: [{ villaId: "v1", checkIn: d("2026-07-01"), checkOut: d("2026-07-04") }],
     });
     const data = tx._created[0];
     expect(data.saleCurrency).toBe(Currency.USD);
     expect(data.fxVndPerUsd).toBe("25400"); // getEffectiveFxVndPerUsd 반환 문자열 그대로 스냅샷
     const item = (data.items as { create: Record<string, unknown>[] }).create[0];
+    // 38,100,000 ÷ 25,400 = 1,500 (half-up) — suggestSalePriceUsd와 일치해야 함
+    expect(item.totalUsd).toBe(suggestSalePriceUsd(38_100_000n, "25400"));
     expect(item.totalUsd).toBe(1_500);
     expect(item.totalKrw).toBeNull();
     expect(item.totalVnd).toBeNull();
@@ -285,7 +303,50 @@ describe("createProposal — USD 분기 (Phase 2, 수동 총액)", () => {
     expect(item.priceVndPerNight).toBeNull();
   });
 
-  it("totalUsd 누락 → RangeError(명확한 에러)", async () => {
+  it("(c) 수동 totalUsd는 자동환산을 오버라이드", async () => {
+    const tx = makeOperatorTx();
+    await createProposal(makeOperatorPrisma(tx), {
+      ...baseUsdInput,
+      // 자동환산이면 1,500이지만 수동 입력 999가 우선한다.
+      items: [{ villaId: "v1", checkIn: d("2026-07-01"), checkOut: d("2026-07-04"), totalUsd: 999 }],
+    });
+    const item = (tx._created[0].items as { create: Record<string, unknown>[] }).create[0];
+    expect(item.totalUsd).toBe(999);
+  });
+
+  it("(d) 환율 미설정 + totalUsd 생략 → RangeError(자동환산 불가, 수동 필수 폴백)", async () => {
+    mockGetEffectiveFxVndPerUsd.mockResolvedValue(null);
+    const tx = makeOperatorTx();
+    await expect(
+      createProposal(makeOperatorPrisma(tx), {
+        ...baseUsdInput,
+        items: [{ villaId: "v1", checkIn: d("2026-07-01"), checkOut: d("2026-07-04") }],
+      })
+    ).rejects.toThrow(RangeError);
+    expect(tx.proposal.create).not.toHaveBeenCalled();
+  });
+
+  it("환율 미설정이어도 수동 totalUsd면 생성(폴백) — fxVndPerUsd=null 스냅샷", async () => {
+    mockGetEffectiveFxVndPerUsd.mockResolvedValue(null);
+    const tx = makeOperatorTx();
+    await createProposal(makeOperatorPrisma(tx), {
+      ...baseUsdInput,
+      items: [{ villaId: "v1", checkIn: d("2026-07-01"), checkOut: d("2026-07-04"), totalUsd: 2_000 }],
+    });
+    const data = tx._created[0];
+    expect(data.fxVndPerUsd).toBeNull();
+    const item = (data.items as { create: Record<string, unknown>[] }).create[0];
+    expect(item.totalUsd).toBe(2_000);
+  });
+
+  it("VND 판매가 미책정 + 자동환산(수동 미입력) → RangeError(환산 실패)", async () => {
+    // totalSaleVnd 없음 → 자동환산 기준값 부재.
+    mockQuoteStay.mockResolvedValue({
+      nights: 3,
+      saleCurrency: Currency.VND,
+      nightly: [],
+      totalSupplierCostVnd: 18_000_000n,
+    });
     const tx = makeOperatorTx();
     await expect(
       createProposal(makeOperatorPrisma(tx), {
@@ -304,16 +365,6 @@ describe("createProposal — USD 분기 (Phase 2, 수동 총액)", () => {
         items: [{ villaId: "v1", checkIn: d("2026-07-01"), checkOut: d("2026-07-04"), totalUsd: 0 }],
       })
     ).rejects.toThrow(RangeError);
-  });
-
-  it("유효 USD 환율 null → fxVndPerUsd=null(환산 불가, 그래도 생성)", async () => {
-    mockGetEffectiveFxVndPerUsd.mockResolvedValue(null);
-    const tx = makeOperatorTx();
-    await createProposal(makeOperatorPrisma(tx), {
-      ...baseUsdInput,
-      items: [{ villaId: "v1", checkIn: d("2026-07-01"), checkOut: d("2026-07-04"), totalUsd: 2_000 }],
-    });
-    expect(tx._created[0].fxVndPerUsd).toBeNull();
   });
 
   it("가용성 미통과 빌라 → ProposalRejectedError(부분 생성 금지)", async () => {
