@@ -281,6 +281,7 @@
       "partner": "파트너",
       "finance": "재무",
       "marketing": "마케팅",
+      "publicBlog": "공개 블로그",
       "system": "시스템"
     },
     "revenue": "매출관리",
@@ -289,7 +290,8 @@
     "contracts": "계약 서명 관리",
     "complexAreas": "지역(단지)",
     "seoArticles": "가이드 글 승인",
-    "publicBlog": "공개 블로그"
+    "publicBlog": "공개 블로그",
+    "blogView": "블로그 보기"
   },
   "adminDocuments": {
     "title": "사업 계약서",

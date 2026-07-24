@@ -22,6 +22,9 @@ interface NavLeaf {
   cap?: (r?: Role) => boolean;
   /** 공개(비로그인) 페이지 — 새 탭으로 연다. 관리자 화면 흐름을 끊지 않기 위함 */
   external?: boolean;
+  /** 마케팅 계정(테오 phone) 전용 항목 — showMarketing 미충족 시 그룹 위치와 무관하게 숨김.
+   *  그룹 전체(marketing)가 아니라 특정 자식만 게이트할 때 사용(공개 블로그 그룹의 '가이드 글 승인'). */
+  marketingOnly?: boolean;
 }
 
 /** 아코디언 그룹 — group은 nav.groups.<group> i18n 키, items는 펼침 시 자식 메뉴 */
@@ -120,14 +123,21 @@ const NAV: NavEntry[] = [
     items: [
       { key: "instagram", href: "/marketing/instagram", icon: "photo_camera" },
       { key: "youtube", href: "/marketing/youtube", icon: "smart_display" },
-      // 가이드·빌라 글 승인 큐 (T-seo-s3) — 자동 생성 초안을 여기서 승인한다
-      { key: "seoArticles", href: "/marketing/seo", icon: "article" },
     ],
   },
-  // 공개 블로그(villa-go.net/blog) — **비로그인 공개 페이지**라 마케팅 그룹이 아니라 단독 항목으로 둔다.
-  //   · 발행 결과를 방문자와 같은 화면으로 확인하는 용도라 운영자 전원에게 보인다(민감 정보 0)
-  //   · ★새 탭으로 연다 — 관리자 작업 흐름을 끊지 않기 위함(NavLeaf.external)
-  { key: "publicBlog", href: "/blog", icon: "public", external: true },
+  // 공개 블로그 그룹 — 발행 결과(villa-go.net/blog)와 글 승인 큐를 한 도메인으로 묶는다(사용자 요청).
+  //   · '가이드 글 승인'(/marketing/seo)은 마케팅 계정(테오) 전용이라 marketingOnly로 게이트 —
+  //     그룹 전체가 아니라 이 자식만 숨긴다. 페이지 자체도 userCanSeeMarketing 게이트가 있어 이중 방어.
+  //   · '블로그 보기'(/blog)는 비로그인 공개 페이지라 운영자 전원 노출(민감 정보 0), ★새 탭으로 연다.
+  //   · 비-테오 운영자에겐 '블로그 보기'만 남아 그룹이 유지된다(기존 /blog 단독 링크의 접근성 보존).
+  {
+    group: "publicBlog",
+    icon: "public",
+    items: [
+      { key: "seoArticles", href: "/marketing/seo", icon: "article", marketingOnly: true },
+      { key: "blogView", href: "/blog", icon: "open_in_new", external: true },
+    ],
+  },
   { key: "messages", href: "/messages", icon: "chat" },
   {
     group: "system",
@@ -173,7 +183,9 @@ export default function AdminSidebar({
   const tRoles = useTranslations("adminUsers");
   // 역할별 NAV 필터 — cap 미지정은 운영자 전체 노출, 재무·시스템 메뉴는 역할 충족 시만.
   // 그룹은 보이는 자식이 0개면 통째로 제거.
-  const canSee = (leaf: NavLeaf) => !leaf.cap || leaf.cap(role);
+  // cap(역할) + marketingOnly(테오 전용) 둘 다 충족해야 노출. marketingOnly 자식은 그룹과 무관하게 개별 게이트.
+  const canSee = (leaf: NavLeaf) =>
+    (!leaf.cap || leaf.cap(role)) && (!leaf.marketingOnly || showMarketing);
   const navEntries: NavEntry[] = NAV.flatMap((e): NavEntry[] => {
     if (!isGroup(e)) return canSee(e) ? [e] : [];
     // 마케팅은 역할이 아니라 특정 계정(테오 phone) 전용 — showMarketing 미충족 시 그룹 통째 숨김.

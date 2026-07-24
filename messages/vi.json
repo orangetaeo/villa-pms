@@ -281,6 +281,7 @@
       "partner": "Đối tác",
       "finance": "Tài chính",
       "marketing": "Marketing",
+      "publicBlog": "Blog công khai",
       "system": "Hệ thống"
     },
     "revenue": "Doanh thu",
@@ -289,7 +290,8 @@
     "contracts": "Ký hợp đồng",
     "complexAreas": "Khu (dự án)",
     "seoArticles": "Duyệt bài hướng dẫn",
-    "publicBlog": "Blog công khai"
+    "publicBlog": "Blog công khai",
+    "blogView": "Xem blog"
   },
   "adminDocuments": {
     "title": "Hợp đồng kinh doanh",
