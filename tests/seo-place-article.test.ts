@@ -154,7 +154,11 @@ describe("사진·카테고리", () => {
         category: string;
       }),
     ]);
-    expect(photos).toEqual([{ url: "https://cdn.r2.dev/a.jpg", alt: "카페 A 내부", caption: "카페 A" }]);
+    // pickPlacePhotos는 워터마크 파생본 캐시 갱신을 위해 mediaId·watermarkedUrl을 함께 싣는다
+    // (place-article: cover/워터마크 경로가 사진 id를 필요로 함). caption은 없으면 가게명으로 채운다.
+    expect(photos).toEqual([
+      { url: "https://cdn.r2.dev/a.jpg", alt: "카페 A 내부", caption: "카페 A", mediaId: "m1", watermarkedUrl: null },
+    ]);
   });
 
   it("카테고리 키는 slug로 쓸 수 있고 중복이 없다", () => {
