@@ -6684,6 +6684,7 @@
     "flagged": "Phát hiện từ cấm: {terms}",
     "created": "Tạo",
     "publishedAt": "Đăng",
+    "publishEta": "Dự kiến đăng {at} (KST)",
     "preview": "Xem trước nội dung",
     "approve": "Duyệt",
     "reject": "Từ chối",

@@ -14,6 +14,9 @@ import {
   getPublishPerDay,
   remainingPublishQuota,
   pickArticlesToPublish,
+  nextPublishRunAt,
+  estimatePublishAt,
+  PUBLISH_HOUR_KST,
   MIN_ARTICLE_BODY_CHARS,
   DEFAULT_PUBLISH_PER_DAY,
   MAX_PUBLISH_PER_DAY,
@@ -172,6 +175,65 @@ describe("점진 발행 상한 — 대량 자동생성 스팸 차단", () => {
     const where = calls.countWhere as { publishedAt: { gte: Date; lt: Date }; status: string };
     expect(where.status).toBe("PUBLISHED");
     expect(where.publishedAt.gte.toISOString()).toBe("2026-07-21T15:00:00.000Z");
+  });
+});
+
+describe("발행 예정 시각 추정 — 승인 화면 표기", () => {
+  it("cron 시각은 10:00 KST로 고정", () => {
+    expect(PUBLISH_HOUR_KST).toBe(10);
+  });
+
+  it("정각 이전이면 다음 run은 오늘 10:00 KST (=01:00 UTC)", () => {
+    // 2026-07-24 08:00 KST = 2026-07-23T23:00:00Z
+    const run = nextPublishRunAt(new Date("2026-07-23T23:00:00Z"));
+    expect(run.toISOString()).toBe("2026-07-24T01:00:00.000Z");
+  });
+
+  it("정각을 지났으면 다음 run은 내일 10:00 KST", () => {
+    // 2026-07-24 11:00 KST = 2026-07-24T02:00:00Z
+    const run = nextPublishRunAt(new Date("2026-07-24T02:00:00Z"));
+    expect(run.toISOString()).toBe("2026-07-25T01:00:00.000Z");
+  });
+
+  it("큐 맨 앞 글은 다음 run에 발행된다", () => {
+    const now = new Date("2026-07-23T23:00:00Z"); // 오늘 10:00 아직 안 옴
+    const est = estimatePublishAt(0, { now, perDay: 5, publishedTodayKst: 0 });
+    expect(est?.toISOString()).toBe("2026-07-24T01:00:00.000Z");
+  });
+
+  it("상한을 넘어서는 인덱스는 다음 날 run으로 넘어간다", () => {
+    const now = new Date("2026-07-23T23:00:00Z");
+    // perDay 5 → 인덱스 0~4는 오늘, 5는 내일
+    expect(estimatePublishAt(4, { now, perDay: 5, publishedTodayKst: 0 })?.toISOString()).toBe(
+      "2026-07-24T01:00:00.000Z",
+    );
+    expect(estimatePublishAt(5, { now, perDay: 5, publishedTodayKst: 0 })?.toISOString()).toBe(
+      "2026-07-25T01:00:00.000Z",
+    );
+  });
+
+  it("오늘 이미 발행한 만큼 첫 run 슬롯이 줄어든다", () => {
+    const now = new Date("2026-07-23T23:00:00Z"); // 다음 run = 오늘 10:00
+    // 오늘 이미 3건 발행 → 오늘 run 잔여 2슬롯(인덱스 0,1) → 인덱스 2는 내일
+    expect(estimatePublishAt(1, { now, perDay: 5, publishedTodayKst: 3 })?.toISOString()).toBe(
+      "2026-07-24T01:00:00.000Z",
+    );
+    expect(estimatePublishAt(2, { now, perDay: 5, publishedTodayKst: 3 })?.toISOString()).toBe(
+      "2026-07-25T01:00:00.000Z",
+    );
+  });
+
+  it("다음 run이 내일이면 오늘 발행분은 첫 run 슬롯을 깎지 않는다", () => {
+    const now = new Date("2026-07-24T02:00:00Z"); // 오늘 10:00 지남 → 다음 run 내일
+    // 오늘 5건 다 나갔어도 내일 run은 새 상한 5슬롯
+    expect(estimatePublishAt(4, { now, perDay: 5, publishedTodayKst: 5 })?.toISOString()).toBe(
+      "2026-07-25T01:00:00.000Z",
+    );
+  });
+
+  it("발행 정지(perDay 0)면 예정 없음", () => {
+    const now = new Date("2026-07-23T23:00:00Z");
+    expect(estimatePublishAt(0, { now, perDay: 0, publishedTodayKst: 0 })).toBeNull();
   });
 });
 
