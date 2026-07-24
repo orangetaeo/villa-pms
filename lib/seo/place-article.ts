@@ -87,9 +87,10 @@ export const PLACE_SELECT = {
     where: { active: true },
     select: { id: true, url: true, alt: true, caption: true, kind: true, watermarkedUrl: true },
     orderBy: { createdAt: "asc" as const },
-    // 단독 글은 등록된 사진을 넉넉히 쓴다 — 맛집은 음식 갤러리처럼 보이는 편이 낫다(테오 지적 2026-07-24,
-    // 사진 28장 올렸는데 8장만 나가 아쉬움). take는 사진 상한(MAX_PHOTOS_SINGLE_PLACE)보다 여유 있게.
-    take: 24,
+    // ★ 종류별 선택을 하려면 **모든 종류가 보여야** 한다 — take가 낮으면 뒤에 올린 외관 간판이 안 실려
+    //   음식만 나간다(테오 지적 2026-07-24 해피 레스토랑: 외관 2장이 25·26번이라 take:24에 잘렸다).
+    //   상한(MAX_PHOTOS_SINGLE_PLACE=16)보다 넉넉히 로드해 예약 로직이 전 종류를 볼 수 있게 한다.
+    take: 60,
   },
 } satisfies Prisma.SeoPlaceSelect;
 
