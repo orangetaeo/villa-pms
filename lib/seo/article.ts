@@ -55,6 +55,12 @@ export function isAllowedImageUrl(url: string): boolean {
 
 /** 발행에 필요한 본문 최소 길이(자). 미달분은 얇은 콘텐츠라 발행하지 않는다. */
 export const MIN_ARTICLE_BODY_CHARS = 800;
+/**
+ * 영상 글(category="video") 전용 하한(자) — ADR-0049 §5.
+ * 영상 페이지의 정상 형태는 짧은 소개 텍스트다. 800자를 억지로 채우면 오히려 스팸 시그널이 되므로
+ * 별도 하한을 둔다(video 블록 1개 필수 + 텍스트 300자). bodyTextLength의 영상=0 규칙은 그대로 유지.
+ */
+export const MIN_VIDEO_ARTICLE_BODY_CHARS = 300;
 /** 하루 발행 상한 기본값 — AppSetting(SEO_PUBLISH_PER_DAY)이 있으면 그 값이 우선. */
 export const DEFAULT_PUBLISH_PER_DAY = 5;
 /** 상한의 하드 천장 — 설정값이 잘못 커져도 여기서 막는다(자기-스팸 방지). */
@@ -126,8 +132,20 @@ export function bodyTextLength(blocks: ArticleBlock[]): number {
   }, 0);
 }
 
-/** 발행 자격 — 분량 하한 + 최소 구조(제목성 블록 1개 이상). */
-export function isArticlePublishable(blocks: ArticleBlock[]): boolean {
+/**
+ * 발행 자격 — 분량 하한 + 최소 구조(제목성 블록 1개 이상).
+ *
+ * ★ category는 **옵셔널**이다(ADR-0049 §5). 인자 없이 부르면 기존 800자 규칙 그대로라
+ *   빌라·서비스·장소·가이드 호출부는 변경 없이 하위호환된다. 영상 글만 별도 하한을 탄다.
+ *   video 카테고리 = video 블록 ≥1 + h2 ≥1 + 텍스트 ≥300자.
+ */
+export function isArticlePublishable(blocks: ArticleBlock[], category?: SeoArticleCategory): boolean {
+  if (category === "video") {
+    // 영상 글: video 블록 1개 필수 + 최소 소개 텍스트 300자 + 소제목 1개.
+    if (!blocks.some((b) => b.type === "video")) return false;
+    if (bodyTextLength(blocks) < MIN_VIDEO_ARTICLE_BODY_CHARS) return false;
+    return blocks.some((b) => b.type === "h2");
+  }
   if (bodyTextLength(blocks) < MIN_ARTICLE_BODY_CHARS) return false;
   return blocks.some((b) => b.type === "h2");
 }
@@ -293,13 +311,21 @@ export async function remainingPublishQuota(now: Date, db: DbClient = prisma): P
   return Math.max(0, limit - publishedToday);
 }
 
-/** 발행 대기(APPROVED) 글을 오래된 승인 순으로 quota만큼. */
+/**
+ * 발행 대기(APPROVED) 글을 오래된 승인 순으로 quota만큼.
+ * ★ category를 함께 실어 발행 자격 판정(isArticlePublishable)이 카테고리별 하한을 탈 수 있게 한다
+ *   (영상 글은 300자 하한 — ADR-0049 §5). DB는 String이라 화이트리스트 밖 값은 undefined로 정규화한다.
+ */
 export async function pickArticlesToPublish(quota: number, db: DbClient = prisma) {
   if (quota <= 0) return [];
-  return db.seoArticle.findMany({
+  const rows = await db.seoArticle.findMany({
     where: { status: SeoArticleStatus.APPROVED },
     orderBy: { approvedAt: "asc" },
     take: quota,
-    select: { id: true, slug: true, title: true, bodyJson: true },
+    select: { id: true, slug: true, title: true, bodyJson: true, category: true },
   });
+  return rows.map((r) => ({
+    ...r,
+    category: isSeoArticleCategory(r.category) ? r.category : undefined,
+  }));
 }
