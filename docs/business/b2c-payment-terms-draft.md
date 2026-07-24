@@ -1,0 +1,82 @@
+# B2C 소비자 결제 약관·공시 문구 (초안 — 테오 승인 대기)
+
+- 근거: ADR-0048(계약금/잔금 VND 앵커) · ADR-0047(통화 3분리) · 기존 취소규정(CANCELLATION_POLICY).
+- 용도: **P5 착수 관문.** 공개 제안·가예약 화면(/p)에서 고객에게 노출 + 동의 스냅샷(policyConsentJson) 저장.
+- 상태: **초안. 테오가 문구 확정하면 P5 구현 시작.** 아래 [정책 요약]을 확정하고 [문구]를 승인/수정.
+- ⚠ 발송·게시 전 초안일 뿐 — 이 파일 자체는 어디에도 노출되지 않음.
+
+---
+
+## 1. 정책 요약 (테오 확정 대상 — 값만 바꾸면 문구 자동 반영)
+
+| 항목 | 값(제안) | 근거 |
+|---|---|---|
+| 계약금율 | **50%** (예약 확정 시) | AppSetting `B2C_DEPOSIT_RATE_PCT` |
+| 잔금 청구 | **체크인 14일 전(D-14)** | AppSetting `B2C_BALANCE_LEAD_DAYS` |
+| 임박 예약 | 체크인 **14일 이내 예약 = 전액(100%) 선결제** | 분할 없음 |
+| 결제 통화 | 한국 고객=원화(₩) 계좌 / 현지·외국=동(₫) 또는 달러($) | ADR-0047 청구통화 |
+| **잔금 환율** | **잔금은 잔금 청구 시점(D-14) 환율로 확정** → 계약금 원화와 다를 수 있음. **VND 기준 금액은 고정** | ADR-0048 핵심 공시 |
+| 취소·환불율 | **기존 취소규정 그대로**(현행 D-30 100% / D-14 50% / 이후 0%) | 중복 정의 금지 — CANCELLATION_POLICY 재사용 |
+| 환불 방식 | **낸 통화·낸 금액 기준**으로 환불율 적용(재환산 없음) | ADR-0048 §8-3 |
+
+> ★핵심: 취소 환불율은 **새로 만들지 않는다.** 이미 있는 취소규정을 그대로 쓰고, 이 약관은 "계약금/잔금
+> 구조 + 통화 + 잔금 환율 변동"만 추가 고지한다.
+
+---
+
+## 2. 고객 노출 문구 (ko / vi / en — /p 동의 화면)
+
+### 2-1. 결제 안내 (Payment terms)
+
+**[한국어]**
+- 예약을 확정하려면 **계약금 50%**를 입금해 주세요. 나머지 **잔금은 체크인 14일 전**에 안내드립니다.
+- 체크인까지 **14일 이내**에 예약하시는 경우 **전액(100%)을 한 번에** 결제합니다.
+- 결제 통화는 안내받으신 계좌 기준입니다(한국 고객은 원화 계좌).
+- **⚠ 잔금 원화 금액은 잔금 청구 시점(체크인 14일 전)의 환율로 확정되며, 계약금 때와 다를 수 있습니다.**
+  (숙박 요금 자체는 현지 통화 기준으로 고정되어 있고, 환율에 따른 원화 환산액만 달라집니다.)
+
+**[Tiếng Việt]**
+- Để xác nhận đặt phòng, vui lòng thanh toán **tiền cọc 50%**. Phần **còn lại sẽ được thông báo 14 ngày trước khi nhận phòng**.
+- Nếu đặt trong vòng **14 ngày** trước khi nhận phòng, quý khách thanh toán **toàn bộ (100%) một lần**.
+- Loại tiền thanh toán theo tài khoản được hướng dẫn.
+- **⚠ Số tiền còn lại (quy đổi) được chốt theo tỷ giá tại thời điểm thông báo (14 ngày trước nhận phòng), có thể khác lúc đặt cọc.** Giá phòng gốc theo VND là cố định; chỉ số tiền quy đổi thay đổi theo tỷ giá.
+
+**[English]**
+- To confirm your booking, please pay a **50% deposit**. The **balance will be requested 14 days before check-in**.
+- For bookings made **within 14 days** of check-in, the **full amount (100%) is due at once**.
+- Payment currency follows the account provided to you.
+- **⚠ The converted balance amount is fixed at the exchange rate on the request date (14 days before check-in) and may differ from the deposit.** The room price in local currency (VND) is fixed; only the converted amount varies with the exchange rate.
+
+### 2-2. 취소·환불 고지 (기존 취소규정 표와 함께 노출)
+
+**[한국어]** 취소 시 환불은 **아래 취소 규정의 환불율**에 따르며, **결제하신 통화·금액 그대로** 환불됩니다(환율 재계산 없음). 예: 원화로 내신 금액은 원화로, 규정상 환불율만큼 돌려드립니다.
+
+**[Tiếng Việt]** Khi hủy, hoàn tiền theo **tỷ lệ trong quy định hủy phòng dưới đây**, và được hoàn **đúng loại tiền và số tiền đã thanh toán** (không quy đổi lại).
+
+**[English]** On cancellation, refunds follow the **refund rates in the cancellation policy below**, returned in the **exact currency and amount you paid** (no re-conversion).
+
+---
+
+## 3. 동의 스냅샷 (policyConsentJson 확장 — P5 구현)
+
+가예약 시점 서버가 산출해 `Booking.policyConsentJson`에 함께 저장(취소규정 스냅샷 옆에 추가):
+```
+b2c: {
+  depositRatePct, balanceLeadDays,       // 적용 정책값 스냅샷
+  billingCurrency,                       // 청구 통화
+  depositDueVnd, balanceDueVnd,          // 앵커 스케줄(참고)
+  fxDisclosureVersion,                   // 이 약관 버전(변경 추적)
+  agreedAt, locale
+}
+```
+- 마진·원가·소비자가·FX 원본 미포함(원칙2). 표시·동의 증빙용 금액만.
+- 약관 문구는 AppSetting `B2C_PAYMENT_TERMS`(JSON, 다국어)로 저장 → 배포 없이 수정. VERSION 필드로 스냅샷 추적.
+
+---
+
+## 4. 테오에게 — 확정해 주실 것
+
+1. **계약금율 50%** 유지? (30%로 낮추면 전환율↑·현금흐름↓)
+2. **위 문구** 그대로? 특히 **잔금 환율 변동 공시**(⚠ 문장) 톤 — 더 부드럽게/명확하게?
+3. **영어(en) 외** 중국어·일본어도 필요? (현재 /p 5언어 지원 — 우선 ko/vi/en, 나머지는 번역만)
+4. 확정되면 P5(화면+동의 저장) → 이어서 P4(잔금 알림)·P6(취소환불) 순으로 구현.
