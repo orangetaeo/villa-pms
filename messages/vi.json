@@ -6790,6 +6790,8 @@
     "save": "Lưu",
     "edit": "Sửa",
     "addPhoto": "Thêm ảnh",
+    "autoTag": "Tự động gắn thẻ AI",
+    "autoTagHint": "AI đọc ảnh, tự điền loại & mô tả (chỉ ảnh chưa gắn thẻ)",
     "savePhoto": "Lưu ảnh",
     "photoAltPlaceholder": "Mô tả ảnh (VD: một đĩa bánh xèo)",
     "pickFile": "Chọn ảnh",

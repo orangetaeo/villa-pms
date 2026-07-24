@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
 import { writeAuditLog } from "@/lib/audit-log";
 import { placeCategory, createPlaceArticleDraft, PLACE_SELECT, isMediaKind } from "@/lib/seo/place-article";
+import { autoTagImage } from "@/lib/seo/auto-tag";
 import { isArticlePublishable } from "@/lib/seo/article";
 import { ensureWatermarkedUrl } from "@/lib/seo/watermark-server";
 import { renderArticleThumbnail } from "@/lib/seo/thumbnail";
@@ -163,6 +164,53 @@ export async function addPlacePhoto(formData: FormData): Promise<void> {
 
   revalidatePath(PATH);
   if (saved === 0) redirect(`${PATH}?error=${altMissing ? "ALT_REQUIRED" : "URL_REQUIRED"}`);
+}
+
+/**
+ * ★ AI 자동 태그 — 업로드된 사진을 Gemini 비전으로 읽어 **종류(kind) + 설명(alt)을 자동 생성**한다.
+ * 테오 지적 2026-07-24: 사진마다 사람이 태그를 입력하는 게 병목. 버튼 한 번으로 미분류 사진을 채운다.
+ *   · 대상: **아직 손대지 않은 사진만**(kind 없음 + alt가 기본값 "가게명 N"). 운영자가 이미 고친 사진은 건드리지 않는다.
+ *   · 비용: 512px 썸네일로 축소 전송(auto-tag.ts) + 1회성. 병렬 5개로 레이트리밋·비용 통제.
+ */
+export async function autoTagPlacePhotos(formData: FormData): Promise<void> {
+  const userId = await requireMarketingOperator();
+  const placeId = String(formData.get("placeId") ?? "");
+  if (!placeId) return;
+  const place = await prisma.seoPlace.findUnique({
+    where: { id: placeId },
+    select: { id: true, name: true, photos: { where: { active: true }, select: { id: true, url: true, alt: true, kind: true } } },
+  });
+  if (!place) return;
+
+  const name = place.name.trim();
+  const nameRe = new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\d*$`);
+  // 손대지 않은 사진 = 종류 없음 + alt가 비었거나 기본값("가게명" 또는 "가게명 3"). 운영자 편집분은 보존.
+  const isUntouched = (alt: string) => {
+    const a = (alt || "").trim();
+    return a === "" || a === name || nameRe.test(a);
+  };
+  const targets = place.photos.filter((p) => !isMediaKind(p.kind) && isUntouched(p.alt));
+
+  const CONCURRENCY = 5; // 병렬 상한 — Gemini 레이트리밋·비용 통제
+  let tagged = 0;
+  for (let i = 0; i < targets.length; i += CONCURRENCY) {
+    const batch = targets.slice(i, i + CONCURRENCY);
+    const results = await Promise.all(
+      batch.map((p) => autoTagImage(p.url, place.name).then((r) => ({ id: p.id, ...r })))
+    );
+    for (const r of results) {
+      await prisma.seoMedia.update({ where: { id: r.id }, data: { kind: r.kind, alt: r.alt } });
+      tagged++;
+    }
+  }
+  await writeAuditLog({
+    userId,
+    action: "UPDATE",
+    entity: "SeoPlace",
+    entityId: placeId,
+    changes: { autoTag: { new: `${tagged}/${place.photos.length}장` } },
+  });
+  revalidatePath(PATH);
 }
 
 /** 사진 역할 변경 — 외관·음식·내부·메뉴판. 역할이 있어야 본문에 맞는 사진이 뽑힌다. */

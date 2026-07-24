@@ -6790,6 +6790,8 @@
     "save": "저장",
     "edit": "수정",
     "addPhoto": "사진 추가",
+    "autoTag": "AI 자동 태그",
+    "autoTagHint": "사진을 읽어 종류·설명을 자동 입력 (미분류 사진만)",
     "savePhoto": "사진 저장",
     "photoAltPlaceholder": "사진 설명 (예: 반쎄오 한 접시)",
     "pickFile": "사진 선택",

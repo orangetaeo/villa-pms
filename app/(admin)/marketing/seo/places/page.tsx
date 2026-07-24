@@ -24,6 +24,7 @@ import {
   addPlacePhoto,
   togglePlacePhoto,
   updatePlacePhotoKind,
+  autoTagPlacePhotos,
   draftPlaceArticleNow,
 } from "./actions";
 
@@ -251,6 +252,16 @@ export default async function SeoPlacesPage({
                       </li>
                     ))}
                   </ul>
+                )}
+
+                {activePhotos.length > 0 && (
+                  <form action={autoTagPlacePhotos} className="mt-3">
+                    <input type="hidden" name="placeId" value={p.id} />
+                    <button className="rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-300 hover:bg-violet-500/20">
+                      🤖 {t("autoTag")}
+                    </button>
+                    <span className="ml-2 text-[11px] text-slate-500">{t("autoTagHint")}</span>
+                  </form>
                 )}
 
                 <div className="mt-4 flex flex-wrap gap-4">
