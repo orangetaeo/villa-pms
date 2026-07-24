@@ -10,6 +10,7 @@ import type { Metadata } from "next";
 import { getPublishedArticleBySlug } from "@/lib/seo/article";
 import { getPublicVillaApproxMapEmbed } from "@/lib/seo/public-villa";
 import { getPlaceArticleMap } from "@/lib/seo/public-place";
+import { guideMapEmbed } from "@/lib/seo/guide-map-anchors";
 import ArticleBody from "@/components/seo/article-body";
 import { blogPaths, BLOG_ROOT } from "@/lib/seo/routes";
 import { absoluteUrl } from "@/lib/seo/base-url";
@@ -66,6 +67,9 @@ export default async function ArticlePage({ params }: Params) {
   //   남의 공개 영업점이라 위치를 숨길 이유가 없고, 지역 검색 리치결과(로컬 SEO)의 핵심 신호다.
   const placeMap =
     article.category === "place" ? await getPlaceArticleMap(article.id).catch(() => null) : null;
+
+  // 가이드 글은 지리 앵커가 명확한 토픽(공항 이동 등)에만 지도를 붙인다(GUIDE_MAP_ANCHORS 큐레이션).
+  const guideMap = article.category === "guide" ? guideMapEmbed(article.slug) : null;
 
   // 장소 구조화 데이터 — Article과 별개 스크립트로 낸다. geo는 좌표가 있을 때만.
   const placeLd = placeMap
@@ -200,6 +204,22 @@ export default async function ArticlePage({ params }: Params) {
             >
               구글 지도에서 열기 →
             </a>
+          </section>
+        )}
+
+        {/* 위치 — 지리 앵커가 있는 가이드 글에만(공항 이동 등). 검색어 기반 임베드. */}
+        {guideMap && (
+          <section className="mt-10">
+            <h2 className="text-lg font-bold">{guideMap.label} 위치</h2>
+            <div className="relative mt-3 aspect-video w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+              <iframe
+                src={guideMap.embedUrl}
+                title={`${guideMap.label} 위치 지도`}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                className="absolute inset-0 h-full w-full border-0"
+              />
+            </div>
           </section>
         )}
 
