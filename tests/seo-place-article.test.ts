@@ -287,6 +287,25 @@ describe("사진·카테고리", () => {
     expect(bodyGroups[0][0].alt.startsWith("음식")).toBe(true); // 음식 먼저
   });
 
+  it("★ 종류 태그가 없으면 사진 설명(alt)으로 나눈다 — 테오 방식(썬셋사나토 수영장 vs 노을)", () => {
+    const ph = (id: string, alt: string) => ({ id, url: `https://cdn.r2.dev/${id}.jpg`, alt, caption: null, kind: null });
+    // 스팟: kind 없음, alt로 수영장/노을 구분
+    const photos = [
+      ...Array.from({ length: 5 }, (_, k) => ph(`노을${k}`, "썬셋사나토 노을")),
+      ...Array.from({ length: 4 }, (_, k) => ph(`풀${k}`, "썬셋사나토 수영장")),
+    ];
+    const one = place({ id: "sunset", category: "spot", name: "썬셋사나토", photos } as Partial<PlaceRow> & {
+      id: string;
+      category: string;
+    });
+    const { bodyGroups } = pickSinglePlaceKindGroups(one);
+    // 설명이 다르면 다른 갤러리 — 각 그룹은 한 설명만
+    for (const g of bodyGroups) expect(new Set(g.map((p) => p.alt)).size).toBe(1);
+    const pool = bodyGroups.find((g) => g[0].alt.includes("수영장"));
+    expect(pool?.length).toBe(4); // 수영장 4장이 한 갤러리로
+    expect(bodyGroups.length).toBe(2); // 노을 / 수영장 두 갤러리
+  });
+
   it("스팟용 종류(풍경·전망·수영장·시설)가 태그 목록에 등록돼 있다", () => {
     const keys = MEDIA_KINDS.map((k) => k.key);
     expect(keys).toContain("scenery");
