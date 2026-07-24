@@ -97,7 +97,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
           }
         : null,
       messages: s.messages.map((m) => {
-        const card = isWebChatCardKind(m.kind) ? parseWebChatCardPayload(m.payload) : null;
+        const card = isWebChatCardKind(m.kind) ? parseWebChatCardPayload(m.payload, m.kind) : null;
         return {
           id: m.id,
           direction: m.direction,

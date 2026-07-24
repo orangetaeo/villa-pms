@@ -23,8 +23,8 @@ export function WebChatLinkCard({
   subtitle?: string;
   /** "열기" 버튼 라벨. */
   openLabel: string;
-  /** 링크(http(s) 절대 또는 동일 오리진 상대경로). 스킴 불량 시 버튼 미렌더. */
-  url: string;
+  /** 링크(http(s) 절대 또는 동일 오리진 상대경로). 없거나 스킴 불량 시 버튼 미렌더. */
+  url?: string;
   /** <a rel>. 기본 "noopener noreferrer"(위젯은 nofollow 추가). */
   rel?: string;
   className?: string;
@@ -32,12 +32,12 @@ export function WebChatLinkCard({
   subtitleClassName?: string;
   buttonClassName?: string;
 }): ReactNode {
-  const safe = isSafeCardUrl(url);
+  const safe = !!url && isSafeCardUrl(url);
   return (
     <div className={className}>
       <div className={titleClassName}>{title}</div>
       {subtitle ? <div className={subtitleClassName}>{subtitle}</div> : null}
-      {safe ? (
+      {safe && url ? (
         <a href={url} target="_blank" rel={rel} className={buttonClassName}>
           {openLabel}
         </a>

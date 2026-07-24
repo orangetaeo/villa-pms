@@ -75,7 +75,29 @@ export interface BookingCandidate {
 }
 
 /** 빠른 링크 발송 종류 — send-link API kind와 일치. */
-export type QuickLinkKind = "checkin" | "options" | "receipt" | "proposal";
+export type QuickLinkKind = "checkin" | "options" | "receipt" | "proposal" | "villa";
+
+/**
+ * 빌라 공유 후보 — 채팅 내 "빌라 공유" 모달 목록 요소.
+ * GET /api/webchat/sessions/[id]/villa-candidates 응답 요소와 일치.
+ * ★누수 불변식(ADR-0031): 판매가(소비자 VND 대표가)만 — 원가·마진 필드 없음(라우트가 select 원천 배제).
+ *   name은 백엔드가 이미 공개 라벨로 익명화해 내려준 표시명(실명 아님).
+ */
+export interface VillaCandidate {
+  villaId: string;
+  name: string;
+  complex: string | null;
+  bedrooms: number;
+  bathrooms: number;
+  maxGuests: number;
+  hasPool: boolean;
+  breakfastAvailable: boolean;
+  photoUrl: string | null;
+  /** 소비자 VND 대표가 — serializeBigInt → 문자열. 미설정 시 null. */
+  priceVnd: string | null;
+  /** 최저 시즌가(없으면 base) 기준 → "부터" 표기 여부. */
+  priceIsFrom: boolean;
+}
 
 /**
  * 기존 제안 후보 — 채팅 내 "제안 보내기" 모달의 A 섹션 목록 요소.

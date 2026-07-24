@@ -492,37 +492,54 @@ export function pickRepresentativeRate<T extends { season: SeasonType }>(
 }
 
 /**
- * 대표 "부터" 판매가 (2026-07-24 대표가 0원 버그 — 계약 A/D1 · VND 전환 2026-07-24) —
- * **시즌(비-base) 행 우선-else-base** 규칙으로 판매가 >0 최저값을 고른다.
- *   1) isBase=false && 해당가격>0 인 시즌 행이 하나라도 있으면 그중 최소.
- *   2) 없으면 isBase=true && 가격>0 인 base(기본요금) 행 사용.
+ * 대표 "부터" 판매가 (2026-07-24 대표가 0원 버그 — 계약 A/D1 · VND 전환 2026-07-24 ·
+ * 계층 인지 2026-07-24) — **시즌(비-base) 행 우선-else-base** 규칙으로 유효가 >0 최저값을 고른다.
+ *   1) isBase=false && 유효가>0 인 시즌 행이 하나라도 있으면 그중 최소.
+ *   2) 없으면 isBase=true && 유효가>0 인 base(기본요금) 행 사용.
  *   3) 둘 다 없으면 null(가격 생략).
+ *
+ * ★ 계층(ADR-0031): 각 행의 유효가 = `tier==="CONSUMER" ? (consumerSalePrice* ?? salePrice*) : salePrice*`.
+ *   상대(빌라 공유)가 일반소비자(CUSTOMER)·웹챗 방문자면 CONSUMER(소비자 직판가, 미설정 시 Net 폴백),
+ *   여행사·랜드사면 NET(도매가). tier 미지정=NET(하위호환 — 기존 소비처는 계층 개념 없이 Net 사용).
  *
  * ⚠️ 왜 시즌 우선인가: 실데이터의 VND base 기본요금이 원가와 동일(마진 0)로 저장돼 있어,
  *    단순 "전체 최저"를 쓰면 원가와 같은 base가 대표가로 새어나온다(마진 비공개 위반 위험).
  *    시즌 행이 있으면 실제 판매되는 시즌 최저가를, 없을 때만 base로 폴백한다.
  *    빌라 생성 시 base 행 salePrice*=0으로 초기화되는 0원 오염도 함께 회피(가격>0 필터).
  *
- * ⚠️ 누수 불변식: 입력 행은 isBase + salePrice* 만 담긴다(원가·마진 필드 없음 — 호출자 select 화이트리스트 책임).
- * @param useKrw true면 salePriceKrw 기준 최저, false면 salePriceVnd 기준 최저. 선택 통화만 반환한다.
+ * ⚠️ 누수 불변식: 입력 행은 isBase + salePrice·consumerSalePrice 계열만 담긴다(원가·마진 필드 없음
+ *    — 소비자가·판매가는 판매가 계열이라 조회 허용, 호출자 select 화이트리스트 책임).
+ * @param useKrw true면 KRW 유효가 기준 최저, false면 VND 유효가 기준 최저. 선택 통화만 반환한다.
+ * @param tier 가격 계층(기본 NET). CONSUMER면 소비자 직판가(폴백 Net)로 최저값을 고른다.
  */
 export function pickLowestSalePrice(
-  rates: { isBase: boolean; salePriceKrw: number; salePriceVnd: bigint }[],
-  useKrw: boolean
+  rates: {
+    isBase: boolean;
+    salePriceKrw: number;
+    salePriceVnd: bigint;
+    consumerSalePriceVnd?: bigint | null;
+    consumerSalePriceKrw?: number | null;
+  }[],
+  useKrw: boolean,
+  tier: PriceTier = "NET"
 ): { krw: number | null; vnd: bigint | null } | null {
-  const positive = (r: { salePriceKrw: number; salePriceVnd: bigint }) =>
-    useKrw ? r.salePriceKrw > 0 : r.salePriceVnd > 0n;
-  const priceOf = (r: { salePriceKrw: number; salePriceVnd: bigint }) =>
-    useKrw ? BigInt(r.salePriceKrw) : r.salePriceVnd;
+  type Row = (typeof rates)[number];
+  // 계층 유효가 — CONSUMER는 소비자가(폴백 Net), NET은 Net 그대로. 선택 통화만.
+  const effVnd = (r: Row): bigint =>
+    tier === "CONSUMER" ? (r.consumerSalePriceVnd ?? r.salePriceVnd) : r.salePriceVnd;
+  const effKrw = (r: Row): number =>
+    tier === "CONSUMER" ? (r.consumerSalePriceKrw ?? r.salePriceKrw) : r.salePriceKrw;
+  const positive = (r: Row) => (useKrw ? effKrw(r) > 0 : effVnd(r) > 0n);
+  const priceOf = (r: Row) => (useKrw ? BigInt(effKrw(r)) : effVnd(r));
   // 시즌(비-base) 우선, 유효 시즌 행이 하나도 없으면 base로 폴백.
   const seasons = rates.filter((r) => !r.isBase && positive(r));
   const pool = seasons.length > 0 ? seasons : rates.filter((r) => r.isBase && positive(r));
-  let best: { salePriceKrw: number; salePriceVnd: bigint } | null = null;
+  let best: Row | null = null;
   for (const r of pool) {
     if (best === null || priceOf(r) < priceOf(best)) best = r;
   }
   if (!best) return null;
-  return useKrw ? { krw: best.salePriceKrw, vnd: null } : { krw: null, vnd: best.salePriceVnd };
+  return useKrw ? { krw: effKrw(best), vnd: null } : { krw: null, vnd: effVnd(best) };
 }
 
 /**

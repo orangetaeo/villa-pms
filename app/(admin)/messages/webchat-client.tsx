@@ -364,6 +364,32 @@ export function WebChatClient({
     [fetchThread, refreshInbox]
   );
 
+  // 빌라 공유 발송 — POST send-link(kind=villa, villaId). 성공 시 스레드 재조회 + 목록 갱신.
+  //   빌라 모달에서 선택한 villaId를 발송(제안과 동일 흐름, 예약 연결 무관).
+  const handleSendVilla = useCallback(
+    async (villaId: string): Promise<{ ok: boolean; error?: string }> => {
+      const id = selectedIdRef.current;
+      if (!id) return { ok: false, error: "send_failed" };
+      try {
+        const res = await fetch(`/api/webchat/sessions/${id}/send-link`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ kind: "villa", villaId }),
+        });
+        if (!res.ok) {
+          const data = (await res.json().catch(() => ({}))) as { error?: string };
+          return { ok: false, error: data.error ?? "send_failed" };
+        }
+        await fetchThread(id, false);
+        refreshInbox();
+        return { ok: true };
+      } catch {
+        return { ok: false, error: "send_failed" };
+      }
+    },
+    [fetchThread, refreshInbox]
+  );
+
   // 실시간(SSE) + 폴링 폴백 — source==="webchat" 신호에만 반응.
   useEffect(() => {
     let es: EventSource | null = null;
@@ -491,6 +517,7 @@ export function WebChatClient({
             onUnlinkBooking={handleUnlinkBooking}
             onSendLink={handleSendLink}
             onSendProposal={handleSendProposal}
+            onSendVilla={handleSendVilla}
           />
         }
       />

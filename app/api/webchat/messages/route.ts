@@ -258,7 +258,7 @@ export async function GET(req: Request) {
   // INBOUND의 ko 번역은 방문자에게 불필요·미노출 — OUTBOUND만 translatedText·kind·payload 노출.
   const messages = rows.map((m) => {
     const isOut = m.direction === "OUTBOUND";
-    const card = isOut && isWebChatCardKind(m.kind) ? parseWebChatCardPayload(m.payload) : null;
+    const card = isOut && isWebChatCardKind(m.kind) ? parseWebChatCardPayload(m.payload, m.kind) : null;
     return {
       id: m.id,
       direction: m.direction,

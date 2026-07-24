@@ -140,14 +140,19 @@ vi.mock("@/lib/prisma", () => ({
     villa: {
       findUnique: vi.fn(async (arg: { where: { id: string }; select: Record<string, unknown> }) => {
         lastVillaSelect = arg.select;
-        if (arg.where.id !== "villa1") return null;
+        // villa1 = 소비자가 미설정(CONSUMER→Net 폴백, 기존 회귀), villa2 = 소비자가 설정(계층 분기 검증).
+        if (arg.where.id !== "villa1" && arg.where.id !== "villa2") return null;
+        const hasConsumer = arg.where.id === "villa2";
         // 두 경로 모두에 대응하는 풀 레코드를 두되, **mock이 select를 그대로 반영**하도록
         // select에 있는 ratePeriods 형태만 채운다(ADR-0014 — 실DB select 화이트리스트 동작 모사).
         const ratesSel = (arg.select.ratePeriods as { select: Record<string, boolean> }).select;
         const rateRow: Record<string, unknown> = { season: "LOW", isBase: true };
         if (ratesSel.supplierCostVnd) rateRow.supplierCostVnd = 1000000n;
-        if (ratesSel.salePriceVnd) rateRow.salePriceVnd = 1500000n;
+        if (ratesSel.salePriceVnd) rateRow.salePriceVnd = 1500000n; // Net(도매가)
         if (ratesSel.salePriceKrw) rateRow.salePriceKrw = 90000;
+        // ADR-0031 소비자 직판가 — villa2만 설정(1,650,000₫). villa1은 미설정(undefined → Net 폴백).
+        if (ratesSel.consumerSalePriceVnd && hasConsumer) rateRow.consumerSalePriceVnd = 1650000n;
+        if (ratesSel.consumerSalePriceKrw && hasConsumer) rateRow.consumerSalePriceKrw = 99000;
         return {
           name: "쏘나씨 V12",
           complex: "쏘나씨",
@@ -359,6 +364,49 @@ describe("S3 빌라 — 판매가측 그룹 확장(여행사·랜드사 = 판매
     const sentText = mockSendText.mock.calls[0][2] as string;
     expect(sentText).toContain("1,500,000₫");
     expect(sentText).not.toContain("₩");
+  });
+});
+
+describe("S3 빌라 — 판매가 계층(ADR-0031, 2026-07-24 버그 수정)", () => {
+  // villa2 = Net 1,500,000 / 소비자 1,650,000. 상대 타입별로 계층이 갈려야 한다.
+  it("CUSTOMER(일반소비자) = 소비자가(1,650,000₫), 도매가(1,500,000) 미노출", async () => {
+    const res = await jsonReq("convCust", { type: "VILLA", villaId: "villa2" });
+    expect(res.status).toBe(200);
+    // consumerSalePrice*가 판매가측 select에 포함(원가·마진은 계속 미조회)
+    const ratesSel = (lastVillaSelect!.ratePeriods as { select: Record<string, boolean> }).select;
+    expect(ratesSel.consumerSalePriceVnd).toBe(true);
+    expect(ratesSel.consumerSalePriceKrw).toBe(true);
+    expect(ratesSel.supplierCostVnd).toBeUndefined();
+    expect(ratesSel.marginValue).toBeUndefined();
+    expect(ratesSel.marginType).toBeUndefined();
+    const sentText = mockSendText.mock.calls[0][2] as string;
+    expect(sentText).toContain("1,650,000₫"); // 소비자가
+    expect(sentText).not.toContain("1,500,000"); // 도매가 미노출
+    expect(sentText).not.toContain("₩");
+  });
+  it("TRAVEL_AGENCY(도매) = 도매가(1,500,000₫), 소비자가(1,650,000) 미노출", async () => {
+    const res = await jsonReq("convTravel", { type: "VILLA", villaId: "villa2" });
+    expect(res.status).toBe(200);
+    const sentText = mockSendText.mock.calls[0][2] as string;
+    expect(sentText).toContain("1,500,000₫"); // 도매가(NET)
+    expect(sentText).not.toContain("1,650,000"); // 소비자가 미노출
+  });
+  it("LAND_AGENCY(도매) = 도매가(1,500,000₫)", async () => {
+    const res = await jsonReq("convLand", { type: "VILLA", villaId: "villa2" });
+    expect(res.status).toBe(200);
+    const sentText = mockSendText.mock.calls[0][2] as string;
+    expect(sentText).toContain("1,500,000₫");
+    expect(sentText).not.toContain("1,650,000");
+  });
+  it("공개 상세 페이지 있으면 CUSTOMER 대표가도 소비자가(1,650,000₫ ~)", async () => {
+    mockGetPublicVillasByIds.mockResolvedValueOnce([
+      { slug: "sonasea-3br-villa-x", publicLabel: "쏘나씨 3베드 풀빌라" },
+    ]);
+    const res = await jsonReq("convCust", { type: "VILLA", villaId: "villa2" });
+    expect(res.status).toBe(200);
+    const sentText = mockSendText.mock.calls[0][2] as string;
+    expect(sentText).toContain("1,650,000₫ ~ / 박");
+    expect(sentText).not.toContain("1,500,000");
   });
 });
 

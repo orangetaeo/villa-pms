@@ -10,6 +10,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import type { QuickLinkKind } from "./webchat-types";
 import { WebChatProposalButton } from "./webchat-proposal-modal";
+import { WebChatVillaButton } from "./webchat-villa-modal";
 
 // 확인 후 즉시 발송하는 예약 연동 kind 3종(proposal은 별도 모달이므로 제외).
 type ConfirmKind = Exclude<QuickLinkKind, "proposal">;
@@ -26,6 +27,7 @@ export function WebChatQuickLinks({
   defaultClientName,
   onSend,
   onSendProposal,
+  onSendVilla,
 }: {
   sessionId: string;
   /** 예약 연결 여부 — 체크인·부가서비스·영수증 3종은 연결된 세션만 노출. */
@@ -36,6 +38,8 @@ export function WebChatQuickLinks({
   defaultClientName: string;
   onSend: (kind: QuickLinkKind) => Promise<{ ok: boolean; error?: string }>;
   onSendProposal: (proposalId: string) => Promise<{ ok: boolean; error?: string }>;
+  /** 빌라 공유 발송 — 모달에서 선택한 villaId로 send-link(kind=villa). */
+  onSendVilla: (villaId: string) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const t = useTranslations("adminWebchat");
   const [busy, setBusy] = useState<ConfirmKind | null>(null);
@@ -87,6 +91,8 @@ export function WebChatQuickLinks({
           defaultClientName={defaultClientName}
           onSendProposal={onSendProposal}
         />
+        {/* 빌라 공유 — 항상 노출(예약 연결 무관, 제안 버튼과 동일) */}
+        <WebChatVillaButton sessionId={sessionId} onSendVilla={onSendVilla} />
       </div>
       {toast && (
         <p className="mt-1.5 rounded-lg bg-red-500/10 border border-red-500/30 px-2.5 py-1.5 text-[11px] text-red-300">

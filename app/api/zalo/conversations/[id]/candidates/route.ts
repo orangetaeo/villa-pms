@@ -15,7 +15,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { isOperator } from "@/lib/permissions";
 import { serializeBigInt } from "@/lib/serialize";
-import { isSellSideType } from "@/lib/zalo-counterparty";
+import { isSellSideType, tierForCounterparty } from "@/lib/zalo-counterparty";
 import { pickLowestSalePrice, pickLowestSupplierCost } from "@/lib/pricing";
 import { formatVillaName } from "@/lib/villa-name";
 import type {
@@ -144,17 +144,26 @@ export async function GET(
         bedrooms: true,
         bathrooms: true,
         photos: { orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
-        // 대표 판매가 = 전체 요율 중 판매가 >0 최저값(계약 A/D1) — base=0 초기화 오염 회피.
-        // 판매가 전용 select(누수 불변식) — 원가·마진 미조회.
+        // 대표 판매가 = 전체 요율 중 유효가 >0 최저값(계약 A/D1) — base=0 초기화 오염 회피.
+        // 판매가 계열 전용 select(누수 불변식) — 원가·마진 미조회. consumerSalePrice*는 소비자 계층용(ADR-0031).
         ratePeriods: {
-          select: { season: true, isBase: true, salePriceKrw: true, salePriceVnd: true },
+          select: {
+            season: true,
+            isBase: true,
+            salePriceKrw: true,
+            salePriceVnd: true,
+            consumerSalePriceVnd: true,
+            consumerSalePriceKrw: true,
+          },
         },
       },
     });
+    // ★계층(ADR-0031) — CUSTOMER=소비자가(CONSUMER), 여행사·랜드사=도매가(NET). 통화는 항상 VND.
+    const tier = tierForCounterparty(counterpartyType);
     villaCandidates = serializeBigInt(
       villas.map((v) => {
-        // ★항상 VND(useKrw=false) — 빌라 공유가는 분류 무관 VND로 통일.
-        const low = pickLowestSalePrice(v.ratePeriods, false);
+        // ★항상 VND(useKrw=false) — 빌라 공유가는 분류 무관 VND로 통일. 계층만 상대 타입으로 갈린다.
+        const low = pickLowestSalePrice(v.ratePeriods, false, tier);
         return {
           id: v.id,
           name: v.name,

@@ -4566,6 +4566,8 @@
       "options": "Đặt dịch vụ bổ sung",
       "receipt": "Bảng kê thanh toán",
       "proposal": "Đề xuất biệt thự",
+      "villa": "Chia sẻ villa",
+      "villaOpen": "Xem chi tiết",
       "open": "Mở",
       "hint": "Khách nhấn nút bên dưới để mở liên kết"
     },
@@ -4615,6 +4617,33 @@
         "itemsUnavailable": "Một số villa đã chọn không thể đặt. Hãy tìm lại.",
         "createFailed": "Tạo đề xuất thất bại. Vui lòng thử lại sau.",
         "clientNameRequired": "Hãy nhập tên khách."
+      }
+    },
+    "villa": {
+      "sendButton": "Chia sẻ villa",
+      "modalTitle": "Chia sẻ villa",
+      "close": "Đóng",
+      "loading": "Đang tải…",
+      "empty": "Không có villa nào để chia sẻ.",
+      "selectHint": "Chọn villa để chia sẻ.",
+      "bedrooms": "{count} phòng ngủ",
+      "bathrooms": "{count} phòng tắm",
+      "maxGuests": "{count} người",
+      "pool": "Hồ bơi",
+      "breakfast": "Bữa sáng",
+      "fromSuffix": "trở lên",
+      "noPrice": "Chưa đặt giá",
+      "confirmTitle": "Chia sẻ villa này?",
+      "fieldVilla": "Villa",
+      "fieldPrice": "Giá đại diện",
+      "confirmNote": "Sẽ gửi thông tin villa và giá đại diện cho khách truy cập.",
+      "cancel": "Hủy",
+      "doSend": "Chia sẻ",
+      "sending": "Đang chia sẻ…",
+      "error": {
+        "notSellable": "Villa không ở trạng thái có thể bán.",
+        "sessionClosed": "Không thể chia sẻ tới hội thoại đã đóng hoặc bị chặn.",
+        "generic": "Chia sẻ thất bại. Vui lòng thử lại sau."
       }
     },
     "noMessages": "Chưa có tin nhắn",
