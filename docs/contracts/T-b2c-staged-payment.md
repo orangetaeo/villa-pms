@@ -1,17 +1,18 @@
 # 계약서 — B2C 계약금/잔금 분할 결제 (VND 앵커 다통화)
 
 - 근거: **ADR-0048**(정본) + ADR-0047(통화 3분리). 정책 확정(테오 2026-07-24).
-- 상태: **P0·P1·P2·P3 완료 — 백엔드 코어 배포·테스트(43건) 완료** (2026-07-24). P4~P6은 ★테오 결정 대기.
+- 상태: **P0~P6 전부 완료·배포 (2026-07-24). B2C 계약금/잔금 전 구간 배선 완료.** ★잔여=OPS 크론 등록 1건.
   - P0: 순수 로직. P1: 스키마 라이브(B2cPaymentSchedule·PaymentPurpose B2C값·AppSetting 50%/D-14).
-  - **P2: 감사 결과 "코드 불필요"로 종결** — `buildRoomTxn`이 saleCurrency 기준으로 매출 컬럼을 골라 앵커를
-    무시하므로 이중집계 없음. 앵커는 `B2cPaymentSchedule.totalVnd`에만(ADR-0048 §4 교정).
-  - **P3: 결제 파이프라인 완성** — 확정 시 스케줄 생성(`ensureB2cScheduleForBooking`, confirmHold 후크),
-    계약금/잔금 `Payment`(purpose B2C_DEPOSIT/B2C_BALANCE) 소진 → `refreshB2cScheduleStatus` 상태 전이
-    (PENDING→DEPOSIT_PAID→PAID) → LEDGER 전기. 기존 예약 흐름 무영향(대칭 분리).
-- **★P4~P6 착수 전 테오 결정 (미결정 시 재작업 위험 — 순서: P5 문구부터):**
-  - **P5**: 소비자 약관 문구(계약금율·잔금기한·환불통화) + **"잔금 원화는 D-14 환율로 확정돼 달라질 수 있음" 공시**.
-  - **P4**: 잔금 D-14 도달 시 **알림 대상·방식**(개인고객 직접 vs 운영자 대행) + 알림 타입(신규 vs payload 재사용).
-  - **P6**: 취소규정(CANCELLATION_POLICY) 단계별 환불율과 "낸 통화 역분개" 접합 방식.
+  - **P2**: 감사 결과 "코드 불필요" 종결(`buildRoomTxn`이 saleCurrency로 매출컬럼 선택 → 이중집계 없음, 앵커는
+    `B2cPaymentSchedule.totalVnd`에만). ADR-0048 §4 교정.
+  - **P3**: 확정 시 스케줄 생성(`ensureB2cScheduleForBooking`) → 계약금/잔금 `Payment`(B2C purpose) 소진 →
+    `refreshB2cScheduleStatus`(PENDING→DEPOSIT_PAID→PAID) → LEDGER 전기. 기존 흐름 무영향.
+  - **P5**: 문구 5언어(ko/vi/en/zh/ru, 일본어 불필요) `lib/b2c-terms.ts`. /p book 화면 계약금/잔금·잔금 환율변동
+    공시(`B2cPaymentTerms`). 가예약 시 `policyConsentJson.b2c` 동의 스냅샷 저장.
+  - **P4**: D-14 잔금 도래 → **운영자(테오) 알림**(`B2C_BALANCE_DUE`, cron `b2c-balance-due`). ★OPS: Railway 1일 1회 등록 필요.
+  - **P6**: 취소 시 `cancelB2cScheduleAndComputeRefund` — 동의 스냅샷 취소규정 tier로 환불 계산
+    (위약금=(100−환불율)×총액, 환불=낸금액−위약금, 낸통화 LIFO), 스케줄 CANCELLED, AuditLog 기록. ★기록만(송금 외부).
+- **★잔여 (코드 아님):** ① OPS: Railway `b2c-balance-due` 크론 1일 1회 등록. ② 실사용 E2E(실제 B2C 분할 예약 1건으로 확정→계약금→D-14알림→잔금→취소환불 흐름 확인). ③ (선택) 일본어 로케일·환율 노후 마진버퍼(ADR-0048 §11).
 - 담당: 설계·병합=메인, 스키마=TDA, 로직=BE, 정산=FIN, 화면=FE, 검증=QA(작성자와 분리).
 
 ## 목표 (한 줄)
