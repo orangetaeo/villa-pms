@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import FacetPageView, { loadFacet } from "@/lib/seo/facet-page";
+import { MIN_FACET_VILLAS } from "@/lib/seo/facets";
 import { blogPaths } from "@/lib/seo/routes";
 import { absoluteUrl } from "@/lib/seo/base-url";
 
@@ -34,6 +35,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     title: `${label} 푸꾸옥 빌라 ${d.villas.length}곳 | Villa GO`,
     description: `${label} 조건을 갖춘 푸꾸옥 빌라 모음. 인원과 일정에 맞춰 견적을 받아보세요.`,
     alternates: { canonical: absoluteUrl(blogPaths.feature(key)) },
+    // 빌라 3곳 미만은 얇은 콘텐츠 → 색인만 막는다(온사이트 필터는 작동). 사이트맵에도 이미 빠져 있다.
+    robots: { index: d.facet.count >= MIN_FACET_VILLAS, follow: true },
   };
 }
 

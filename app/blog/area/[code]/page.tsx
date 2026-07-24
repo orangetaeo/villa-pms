@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { loadFacet } from "@/lib/seo/facet-page";
 import FacetPageView from "@/lib/seo/facet-page";
+import { MIN_FACET_VILLAS } from "@/lib/seo/facets";
 import { blogPaths } from "@/lib/seo/routes";
 import { absoluteUrl } from "@/lib/seo/base-url";
 
@@ -24,6 +25,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     title: `푸꾸옥 ${name} 빌라 ${d.villas.length}곳 | Villa GO`,
     description: `푸꾸옥 ${name} 단지의 빌라를 인원·시설 조건으로 골라보세요. 현지에서 직접 운영·검수합니다.`,
     alternates: { canonical: absoluteUrl(blogPaths.area(code)) },
+    robots: { index: d.facet.count >= MIN_FACET_VILLAS, follow: true },
   };
 }
 

@@ -42,7 +42,11 @@ export interface PublicHomeProps {
 
 export default function PublicHome({ villas, areas }: PublicHomeProps) {
   const featured = villas.slice(0, 3);
-  const features = HOME_FEATURES.filter((f) => VALID_KEYS.has(f.key));
+  // ★ 매칭 빌라가 1곳이라도 있는 조건만 노출한다 — 없는 조건 칩을 누르면 404다(패싯 페이지는 매칭
+  //   1곳 이상일 때만 열린다). 빌라가 3곳 미만이어도 조건 필터 자체는 작동한다(그 페이지는 noindex).
+  const features = HOME_FEATURES.filter(
+    (f) => VALID_KEYS.has(f.key) && villas.some((v) => v.featureKeys.includes(f.key))
+  );
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
