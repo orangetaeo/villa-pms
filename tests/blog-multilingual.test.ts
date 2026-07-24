@@ -74,6 +74,31 @@ describe("누수 가드", () => {
     expect(scanMoneyLeak("3 bedrooms and 2 bathrooms")).toBeNull();
   });
 
+  it("대상 4개 언어의 자국 통화·전각/CJK 숫자를 잡는다 (QA 2026-07-24)", () => {
+    // 전각 숫자 우회
+    expect(scanMoneyLeak("입장료 ₩５００００원")).not.toBeNull();
+    // vi
+    expect(scanMoneyLeak("Giá vé 50.000 đồng")).not.toBeNull();
+    expect(scanMoneyLeak("50.000₫")).not.toBeNull();
+    // ru
+    expect(scanMoneyLeak("Цена 500 рублей")).not.toBeNull();
+    expect(scanMoneyLeak("500₽")).not.toBeNull();
+    // zh
+    expect(scanMoneyLeak("门票 50000元")).not.toBeNull();
+    expect(scanMoneyLeak("五万越南盾")).not.toBeNull();
+    // en
+    expect(scanMoneyLeak("Entrance is 50 USD")).not.toBeNull();
+    expect(scanMoneyLeak("about 100 dollars")).not.toBeNull();
+    expect(scanMoneyLeak("only 20€")).not.toBeNull();
+  });
+
+  it("통화가 아닌 표현은 오탐하지 않는다 (번역 과잉 반려 방지)", () => {
+    expect(scanMoneyLeak("公元2024年 새해")).toBeNull(); // 公元<연도>는 금액 아님
+    expect(scanMoneyLeak("5块蛋糕")).toBeNull(); // 块=조각(块钱만 금액)
+    expect(scanMoneyLeak("có 50 điều thú vị")).toBeNull(); // đ 단독 아님
+    expect(scanMoneyLeak("2024 元旦")).toBeNull(); // 元旦=새해, 숫자와 元 사이 공백+어절
+  });
+
   it("빌라 고유 실명이 통째로 등장하면 잡는다(3자 미만 needle은 제외)", () => {
     const needles = ["sonasea v12", "m villa m1"];
     expect(scanRealNameLeak("Stay at Sonasea V12 tonight", needles)).toBe("sonasea v12");

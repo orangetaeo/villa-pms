@@ -115,10 +115,21 @@ function reassembleBlocks(plan: BlockPlan[], tr: (i: number) => string): Article
 // 금액 패턴: 통화 기호/단어 + 숫자(양방향). 캐논 입력엔 금액이 없으므로, 검출 = 모델 환각 → FAILED.
 // ★ \b(단어경계)는 한글 뒤에서 성립하지 않으므로(원·동은 비-\w) 단위 토큰 뒤에 붙이지 않는다 —
 //   "5만원"이 안 잡히던 원인. 대신 "숫자 + 통화 단위" 근접만으로 판정한다(오탐은 FAILED=안전측).
+// ★ 가드의 임무는 "번역 출력물(en·vi·ru·zh)"에서 모델 환각 금액을 잡는 것 → 출력 언어의 자국 통화가
+//   핵심이다(QA 2026-07-24). \d는 ASCII 전용이라 전각(￥FF10-19)·CJK 수사까지 포함하고, 통화 토큰은
+//   ₫đồng(VND)·₽руб(RUB)·$USD dollars·€euro·元越南盾韩元(CNY/KRW)까지 넓힌다.
+//   오탐 회피: 公元<연도>(元을 접두로 안 잡음)·N块(조각, 块钱만 잡음)·N điều(đ 단독 제외)·won/pounds 단어 제외.
+const D = "[\\d\\uFF10-\\uFF19]"; // ASCII + 전각 숫자
 const MONEY_PATTERNS: RegExp[] = [
-  /[₩$]\s*\d/, // ₩1000 · $50 · $120
-  /\bVND\s*\d/i, // VND 100000
-  /\d[\d.,]*\s*(?:만원|원|VND|동)/i, // 100원 · 5만원 · 100000 VND · 100000동
+  /[₩$₫₽€£¥]\s*[\d０-９]/, // 기호+숫자: ₩1000 · $50 · ₫1000 · ₽500 · €20
+  new RegExp(`${D}[\\d.,\\s]*[₩$₫₽€£¥]`), // 숫자+기호: 50.000₫ · 500₽ · 20€ · 1000₩
+  /[\d０-９]元/, // 숫자에 바로 붙은 元(위안): 50000元 — 공백 사이 두면 公元2024·元旦 오탐이라 인접만
+  new RegExp(
+    `${D}[\\d.,\\s]*(?:만원|원|동|VND|đồng|dong|USD|dollars?|euros?|EUR|rubles?|руб|块钱|越南盾|韩元)`,
+    "i",
+  ), // 숫자+통화단어: 5만원 · 100000 VND · 50.000 đồng · 50 USD · 500 рублей · 50000越南盾
+  new RegExp(`(?:VND|USD|EUR|rubles?|руб)\\s*${D}`, "i"), // 통화단어+숫자(앞): USD 100 · VND 50000
+  /[一二三四五六七八九十百千万亿两]+\s*(?:越南盾|元|块钱|만원)/, // CJK 수사 금액: 五万越南盾 · 十元
 ];
 
 /**
@@ -138,21 +149,27 @@ export function scanMoneyLeak(text: string): string | null {
  * needles = 소문자 정규화된 실명 목록(호출부가 villa 전수 조회로 준비). 3자 미만은 오탐이 커서 제외.
  * ★ 캐논은 publicVillaLabel(지역·특징)만 쓰므로 실명은 애초에 없다 — 등장 = 모델이 실명을 복원한 것.
  */
+/** 이름 비교용 정규화 — 소문자 + 공백·하이픈·구두점 제거. "M villa M1"·"M-villa-M1"을 동일 취급. */
+function normNameScan(s: string): string {
+  return s.toLowerCase().replace(/[\s\-_.·]/g, "");
+}
+
 export function scanRealNameLeak(text: string, needles: string[]): string | null {
-  const hay = text.toLowerCase();
-  for (const n of needles) {
-    if (n.length >= 3 && hay.includes(n)) return n;
+  const hay = normNameScan(text);
+  for (const raw of needles) {
+    const n = normNameScan(raw); // needle도 방어적 정규화(호출부 미정규화 대비, 멱등)
+    if (n.length >= 3 && hay.includes(n)) return raw;
   }
   return null;
 }
 
-/** 빌라 실명(name/nameVi) 전수 → 소문자 정규화 needle 목록. 누수 스캔 입력. */
+/** 빌라 실명(name/nameVi) 전수 → 정규화 needle 목록. 누수 스캔 입력(scanRealNameLeak와 같은 정규화). */
 export async function loadRealNameNeedles(db: DbClient = prisma): Promise<string[]> {
   const villas = await db.villa.findMany({ select: { name: true, nameVi: true } });
   const set = new Set<string>();
   for (const v of villas) {
     for (const raw of [v.name, v.nameVi]) {
-      const t = (raw ?? "").trim().toLowerCase();
+      const t = normNameScan((raw ?? "").trim());
       if (t.length >= 3) set.add(t);
     }
   }
