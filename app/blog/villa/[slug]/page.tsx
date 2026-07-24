@@ -6,6 +6,7 @@
 //   그 DTO 밖의 값을 알지 못한다(관문을 우회하는 조회를 여기서 만들지 말 것).
 // ★ 가격을 못 쓰는 대신 CTA는 "1분 견적 상담"으로 통일한다 — 공개 판매가 = 마진 역산이기 때문.
 import Link from "next/link";
+import { VillaGoHeaderLogo } from "@/components/brand/villa-go-header-logo";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -148,9 +149,7 @@ export default async function PublicVillaPage({ params }: Params) {
       ))}
 
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur">
-        <Link href="/" className="text-lg font-extrabold tracking-tight text-teal-600">
-          Villa GO
-        </Link>
+        <VillaGoHeaderLogo />
         <Link
           href="/chat?src=seo"
           className="rounded-full border border-teal-600 px-3 py-1.5 text-sm font-semibold text-teal-700"

@@ -5,6 +5,7 @@
 //   `category/` 한 단을 끼우면 [slug]와 절대 충돌하지 않는다(routes.ts 규약).
 // ★ 글 slug·상세 URL은 불변 — 이 페이지는 탐색용 목록만 추가한다.
 import Link from "next/link";
+import { VillaGoHeaderLogo } from "@/components/brand/villa-go-header-logo";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getPublishedArticlesByCategory } from "@/lib/seo/article";
@@ -74,9 +75,7 @@ export default async function CategoryListPage({ params, searchParams }: Params)
   return (
     <div className="min-h-screen bg-white text-slate-900">
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur">
-        <Link href="/" className="text-lg font-extrabold tracking-tight text-teal-600">
-          Villa GO
-        </Link>
+        <VillaGoHeaderLogo />
         <Link
           href="/chat?src=seo"
           className="rounded-full border border-teal-600 px-3 py-1.5 text-sm font-semibold text-teal-700"

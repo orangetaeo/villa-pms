@@ -1,48 +1,62 @@
 "use client";
 
-// components/seo/hero-blog-carousel.tsx — 공개 홈 히어로: 빌라 블로그 썸네일 롤링 캐러셀
+// components/seo/hero-blog-carousel.tsx — 공개 홈 히어로 롤링 캐러셀
 //
-// 테오 지시(2026-07-24): 히어로 자리에 블로그 썸네일을 롤링으로 보여주고, 누르면 해당 글로 이동.
-//   "우선은 빌라의 블로그 정보만" → 상위(app/page.tsx)에서 category=villa 글만 넘긴다.
-//
-// ★ 썸네일(lib/seo/thumbnail.ts)은 16:9(1200×675)에 제목·후킹·브랜드가 이미 구워져 있다.
-//   그래서 여기서는 별도 텍스트 오버레이 없이 이미지를 그대로 굴린다(비율 일치 → 크롭 없음).
+// 테오 지시(2026-07-24) 반영:
+//   1) 슬라이드 0 = 기존 히어로(브랜드 헤드라인 + 상담 CTA). 이것도 롤링에 포함한다.
+//   2) 이후 슬라이드 = 빌라 블로그. 썸네일에 글자가 없으므로 **제목+요약 텍스트를 직접 오버레이**한다.
+//      슬라이드 전체가 링크 → 누르면 해당 글(/blog/[slug])로 이동.
+//   3) 빌라 블로그 글이 없으면 히어로 한 장만 남아 정지 상태로 표시(폴백).
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { blogPaths } from "@/lib/seo/routes";
 
-export interface HeroBlogSlide {
+export interface HeroPost {
   slug: string;
   title: string;
+  summary: string;
   imageUrl: string;
 }
 
-/** 자동 롤링 간격(ms). */
+export interface HeroCarouselLabels {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  cta: string;
+  consultHref: string;
+  readMore: string;
+}
+
 const ROLL_MS = 4500;
 
-export default function HeroBlogCarousel({ slides }: { slides: HeroBlogSlide[] }) {
+export default function HeroCarousel({
+  heroImageUrl,
+  posts,
+  labels,
+}: {
+  heroImageUrl: string | null;
+  posts: HeroPost[];
+  labels: HeroCarouselLabels;
+}) {
+  const total = 1 + posts.length; // [히어로, ...블로그]
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const touchX = useRef<number | null>(null);
-  const n = slides.length;
 
-  // 자동 롤링 — 슬라이드가 2개 이상이고 사용자가 만지고 있지 않을 때만.
   useEffect(() => {
-    if (n <= 1 || paused) return;
-    const t = setInterval(() => setIndex((i) => (i + 1) % n), ROLL_MS);
+    if (total <= 1 || paused) return;
+    const t = setInterval(() => setIndex((i) => (i + 1) % total), ROLL_MS);
     return () => clearInterval(t);
-  }, [n, paused]);
+  }, [total, paused]);
 
-  if (n === 0) return null;
-
-  const go = (i: number) => setIndex(((i % n) + n) % n);
+  const go = (i: number) => setIndex(((i % total) + total) % total);
 
   return (
     <section
-      className="relative select-none bg-slate-900"
+      className="relative h-[60vh] max-h-[560px] min-h-[380px] select-none overflow-hidden bg-slate-900"
       aria-roledescription="carousel"
-      aria-label="빌라 블로그"
+      aria-label="빌라 · 블로그"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onTouchStart={(e) => {
@@ -55,39 +69,58 @@ export default function HeroBlogCarousel({ slides }: { slides: HeroBlogSlide[] }
         touchX.current = null;
       }}
     >
-      <div className="overflow-hidden">
-        <div
-          className="flex transition-transform duration-500 ease-out"
-          style={{ transform: `translateX(-${index * 100}%)` }}
-        >
-          {slides.map((s, i) => (
+      <div
+        className="flex h-full transition-transform duration-500 ease-out"
+        style={{ transform: `translateX(-${index * 100}%)` }}
+      >
+        {/* 슬라이드 0 — 기존 히어로(브랜드 헤드라인 + CTA) */}
+        <div className="relative h-full w-full shrink-0" aria-hidden={index !== 0}>
+          {heroImageUrl && (
+            <Image src={heroImageUrl} alt="" fill priority sizes="100vw" className="object-cover" aria-hidden />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-900/80 via-slate-900/60 to-slate-900/95" />
+          <div className="relative flex h-full flex-col justify-center px-5">
+            <p className="text-sm font-semibold text-amber-400">{labels.eyebrow}</p>
+            <h1 className="mt-2 text-3xl font-extrabold leading-snug text-white sm:text-4xl">{labels.title}</h1>
+            <p className="mt-3 max-w-md text-base leading-relaxed text-slate-200">{labels.subtitle}</p>
             <Link
-              key={s.slug}
-              href={blogPaths.article(s.slug)}
-              className="relative block aspect-[16/9] w-full shrink-0"
-              aria-label={s.title}
-              aria-hidden={i !== index}
-              tabIndex={i === index ? 0 : -1}
+              href={labels.consultHref}
+              tabIndex={index === 0 ? 0 : -1}
+              className="mt-6 inline-flex touch-target w-fit items-center rounded-full bg-white px-6 text-base font-bold text-slate-900"
             >
-              <Image
-                src={s.imageUrl}
-                alt={s.title}
-                fill
-                sizes="(max-width: 640px) 100vw, 640px"
-                priority={i === 0}
-                className="object-cover"
-              />
+              {labels.cta}
             </Link>
-          ))}
+          </div>
         </div>
+
+        {/* 블로그 슬라이드 — 사진 + 제목·요약 오버레이 + 링크 */}
+        {posts.map((p, i) => (
+          <Link
+            key={p.slug}
+            href={blogPaths.article(p.slug)}
+            aria-hidden={index !== i + 1}
+            tabIndex={index === i + 1 ? 0 : -1}
+            className="relative block h-full w-full shrink-0"
+          >
+            <Image src={p.imageUrl} alt={p.title} fill sizes="100vw" priority={i === 0} className="object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/30 to-slate-900/10" />
+            <div className="absolute inset-x-0 bottom-0 p-5">
+              <h2 className="line-clamp-2 text-xl font-extrabold leading-snug text-white sm:text-2xl">{p.title}</h2>
+              {p.summary && (
+                <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-slate-200">{p.summary}</p>
+              )}
+              <span className="mt-2 inline-block text-sm font-bold text-amber-300">{labels.readMore}</span>
+            </div>
+          </Link>
+        ))}
       </div>
 
-      {n > 1 && (
+      {total > 1 && (
         <>
           <button
             type="button"
             onClick={() => go(index - 1)}
-            aria-label="이전 글"
+            aria-label="이전"
             className="absolute left-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-black/35 text-xl leading-none text-white backdrop-blur"
           >
             ‹
@@ -95,23 +128,20 @@ export default function HeroBlogCarousel({ slides }: { slides: HeroBlogSlide[] }
           <button
             type="button"
             onClick={() => go(index + 1)}
-            aria-label="다음 글"
+            aria-label="다음"
             className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full bg-black/35 text-xl leading-none text-white backdrop-blur"
           >
             ›
           </button>
-          {/* 인디케이터 — 현재 슬라이드만 길게 */}
           <div className="absolute inset-x-0 bottom-2 flex justify-center gap-1.5">
-            {slides.map((s, i) => (
+            {Array.from({ length: total }).map((_, i) => (
               <button
-                key={s.slug}
+                key={i}
                 type="button"
                 onClick={() => go(i)}
-                aria-label={`${i + 1}번째 글로`}
+                aria-label={`${i + 1}번째 슬라이드`}
                 aria-current={i === index}
-                className={`h-1.5 rounded-full transition-all ${
-                  i === index ? "w-5 bg-white" : "w-1.5 bg-white/55"
-                }`}
+                className={`h-1.5 rounded-full transition-all ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/55"}`}
               />
             ))}
           </div>

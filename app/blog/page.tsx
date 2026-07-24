@@ -3,6 +3,7 @@
 // ★ 발행 글이 0건이어도 200으로 응답한다. 다만 sitemap에는 **글이 1건 이상일 때만** 등재한다
 //   (app/sitemap.ts) — 빈 허브를 검색엔진에 밀어넣으면 얇은 콘텐츠 신호가 된다.
 import Link from "next/link";
+import { VillaGoHeaderLogo } from "@/components/brand/villa-go-header-logo";
 import Image from "next/image";
 import type { Metadata } from "next";
 import { getPublishedArticles } from "@/lib/seo/article";
@@ -48,9 +49,7 @@ export default async function BlogHub() {
   return (
     <div className="min-h-screen bg-white text-slate-900">
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur">
-        <Link href="/" className="text-lg font-extrabold tracking-tight text-teal-600">
-          Villa GO
-        </Link>
+        <VillaGoHeaderLogo />
         <Link
           href="/chat?src=seo"
           className="rounded-full border border-teal-600 px-3 py-1.5 text-sm font-semibold text-teal-700"

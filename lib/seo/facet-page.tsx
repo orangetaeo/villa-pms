@@ -7,6 +7,7 @@
 //   패싯 산출(allFacetPages)이 이미 3개 미만을 제외하므로 sitemap에도 실리지 않는다. 여기서는
 //   직접 URL로 들어온 경우를 404로 막는다.
 import Link from "next/link";
+import { VillaGoHeaderLogo } from "@/components/brand/villa-go-header-logo";
 import { notFound } from "next/navigation";
 import { getPublicVillas } from "@/lib/seo/public-villa";
 import { allFacetPages, filterByFacet, type FacetPage } from "@/lib/seo/facets";
@@ -58,9 +59,7 @@ export default function FacetPageView({
   return (
     <div className="min-h-screen bg-white text-slate-900">
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur">
-        <Link href="/" className="text-lg font-extrabold tracking-tight text-teal-600">
-          Villa GO
-        </Link>
+        <VillaGoHeaderLogo />
         <Link
           href="/chat?src=seo"
           className="rounded-full border border-teal-600 px-3 py-1.5 text-sm font-semibold text-teal-700"

@@ -4,6 +4,7 @@
 //   검수 게이트가 무의미해진다. 조회 게이트는 lib/seo/article.ts가 단독으로 책임진다.
 // ★ 정적 세그먼트(/blog/villa·/blog/area 등)는 Next가 우선 매칭하므로 이 catch-all이 가로채지 않는다.
 import Link from "next/link";
+import { VillaGoHeaderLogo } from "@/components/brand/villa-go-header-logo";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -186,9 +187,7 @@ export default async function ArticlePage({ params }: Params) {
       />
 
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur">
-        <Link href="/" className="text-lg font-extrabold tracking-tight text-teal-600">
-          Villa GO
-        </Link>
+        <VillaGoHeaderLogo />
         <Link
           href="/chat?src=seo"
           className="rounded-full border border-teal-600 px-3 py-1.5 text-sm font-semibold text-teal-700"

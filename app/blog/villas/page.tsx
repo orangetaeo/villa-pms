@@ -5,6 +5,7 @@
 //   사이트에서 검색을 막으면 사이트가 성립하지 않으므로 이 비용은 치르고 간다.
 // ★ 날짜(공실) 필터는 없다 — 원칙 1(재고 비공개).
 import Link from "next/link";
+import { VillaGoHeaderLogo } from "@/components/brand/villa-go-header-logo";
 import type { Metadata } from "next";
 import { getPublicVillas } from "@/lib/seo/public-villa";
 import { allFacetPages } from "@/lib/seo/facets";
@@ -48,9 +49,7 @@ export default async function VillasIndexPage() {
   return (
     <div className="min-h-screen bg-white text-slate-900">
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur">
-        <Link href="/" className="text-lg font-extrabold tracking-tight text-teal-600">
-          Villa GO
-        </Link>
+        <VillaGoHeaderLogo />
         <Link
           href="/chat?src=seo"
           className="rounded-full border border-teal-600 px-3 py-1.5 text-sm font-semibold text-teal-700"

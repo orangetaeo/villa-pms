@@ -8,6 +8,7 @@ import { getPublicVillas } from "@/lib/seo/public-villa";
 import { getPublishedArticlesByCategory } from "@/lib/seo/article";
 import { areaFacets } from "@/lib/seo/facets";
 import { absoluteUrl } from "@/lib/seo/base-url";
+import { getPublicLocale } from "@/lib/seo/public-locale";
 
 // 루트: 세션 role별 홈으로 분기 / 비로그인은 **공개 홈**(T-seo-s1)
 // [S-RBAC] 운영자(OWNER/MANAGER/STAFF/ADMIN)는 /dashboard. CLEANER=/cleaning, SUPPLIER=/my-villas.
@@ -84,17 +85,25 @@ export default async function Home() {
     };
   });
 
-  // 히어로 롤링용 — "우선은 빌라의 블로그"(테오 2026-07-24): category=villa 발행 글의 썸네일만.
-  //   썸네일 없는 글은 제외(빈 슬라이드 방지). DB 장애가 홈을 죽이지 않게 try/catch.
-  let villaPosts: { slug: string; title: string; imageUrl: string }[] = [];
+  // 히어로 롤링용 — "우선은 빌라의 블로그"(테오 2026-07-24): category=villa 발행 글.
+  //   ★ 이미지는 텍스트 없는 원본 커버(coverPhotoUrl) 우선 — 슬라이드에서 제목·요약을 직접 오버레이하므로
+  //     글자 구운 썸네일을 쓰면 텍스트가 이중으로 겹친다. 이미지 없는 글은 제외(빈 슬라이드 방지).
+  let villaPosts: { slug: string; title: string; summary: string; imageUrl: string }[] = [];
   try {
     const { articles } = await getPublishedArticlesByCategory("villa", 1, 10);
     villaPosts = articles
-      .map((a) => ({ slug: a.slug, title: a.title, imageUrl: a.thumbnailUrl ?? a.coverPhotoUrl ?? "" }))
+      .map((a) => ({
+        slug: a.slug,
+        title: a.title,
+        summary: a.summary,
+        imageUrl: a.coverPhotoUrl ?? a.thumbnailUrl ?? "",
+      }))
       .filter((p) => p.imageUrl);
   } catch {
     villaPosts = [];
   }
 
-  return <PublicHome villas={villas} areas={areas} villaPosts={villaPosts} />;
+  const locale = await getPublicLocale();
+
+  return <PublicHome villas={villas} areas={areas} villaPosts={villaPosts} locale={locale} />;
 }
